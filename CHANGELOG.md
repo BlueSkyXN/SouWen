@@ -1,5 +1,22 @@
 # Changelog
 
+## v0.3.0
+
+### 新功能
+- **YAML 配置**: 支持 `souwen.yaml` 配置文件，优先级 env > yaml > .env > 默认值
+- **CLI 工具**: `souwen` 命令行工具，支持 `search paper/patent/web`, `config show/init`, `sources`, `serve`
+- **FastAPI 服务**: REST API 端点 `/api/v1/search/{paper,patent,web}`, OpenAPI 文档自动生成
+- **统一搜索门面**: `search()`, `search_papers()`, `search_patents()` 一个函数搞定
+- **web_search() 增强**: engine_map 补全全部 10 个引擎（5 爬虫 + 5 API）
+
+### 修复
+- 版本号统一为 0.3.0（pyproject.toml / __init__.py / User-Agent）
+- ruff 未使用导入修复
+
+### 依赖
+- 新增: `typer>=0.12`, `pyyaml>=6.0`
+- 新增可选: `fastapi>=0.111`, `uvicorn[standard]>=0.29`（server extras）
+
 ## [0.2.0] - 2026-04-04
 
 ### Added

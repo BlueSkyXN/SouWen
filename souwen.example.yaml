@@ -1,0 +1,59 @@
+# SouWen 配置文件示例
+# 复制为 souwen.yaml 并填入实际值即可使用
+# 也可放置于 ~/.config/souwen/config.yaml 作为全局配置
+#
+# 优先级：环境变量 > ./souwen.yaml > ~/.config/souwen/config.yaml > .env > 默认值
+
+# ===== 论文数据源 =====
+paper:
+  # OpenAlex —— 免费，填写邮箱可获得更高速率
+  openalex_email: ~
+  # Semantic Scholar API Key（申请地址：https://www.semanticscholar.org/product/api）
+  semantic_scholar_api_key: ~
+  # CORE API Key（申请地址：https://core.ac.uk/services/api）
+  core_api_key: ~
+  # PubMed / NCBI API Key
+  pubmed_api_key: ~
+  # Unpaywall —— 免费，填写邮箱即可
+  unpaywall_email: ~
+  # IEEE Xplore API Key
+  ieee_api_key: ~
+
+# ===== 专利数据源 =====
+patent:
+  # USPTO（美国专利商标局）API Key
+  uspto_api_key: ~
+  # EPO Open Patent Services 消费者密钥
+  epo_consumer_key: ~
+  epo_consumer_secret: ~
+  # CNIPA（中国国家知识产权局）客户端凭证
+  cnipa_client_id: ~
+  cnipa_client_secret: ~
+  # The Lens API Token
+  lens_api_token: ~
+  # PatSnap API Key
+  patsnap_api_key: ~
+
+# ===== 常规搜索 =====
+web:
+  # SearXNG 自建实例 URL（例如 http://localhost:8080）
+  searxng_url: ~
+  # Tavily AI 搜索 API Key
+  tavily_api_key: ~
+  # Exa 语义搜索 API Key
+  exa_api_key: ~
+  # Serper（Google SERP）API Key
+  serper_api_key: ~
+  # Brave Search 官方 API Key
+  brave_api_key: ~
+
+# ===== 通用设置 =====
+general:
+  # HTTP 代理地址（例如 http://127.0.0.1:7890）
+  proxy: ~
+  # 请求超时时间（秒）
+  timeout: 30
+  # 最大重试次数
+  max_retries: 3
+  # 数据存储目录
+  data_dir: ~/.local/share/souwen

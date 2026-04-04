@@ -324,3 +324,105 @@ class TestWebSearch:
         for cls in [TavilyClient, ExaClient, SerperClient, BraveApiClient]:
             with pytest.raises(ConfigError):
                 cls()
+
+
+class TestUnifiedSearch:
+    """统一搜索门面测试"""
+
+    def test_search_facade_imports(self):
+        """统一搜索模块导入"""
+        from souwen.search import search, search_papers, search_patents, web_search
+        assert callable(search)
+        assert callable(search_papers)
+        assert callable(search_patents)
+        assert callable(web_search)
+
+    def test_search_paper_sources_mapping(self):
+        """论文数据源映射完整性"""
+        from souwen.search import _PAPER_SOURCES, _DEFAULT_PAPER_SOURCES
+        assert len(_PAPER_SOURCES) == 7  # 7 sources (unpaywall excluded as DOI resolver)
+        for s in _DEFAULT_PAPER_SOURCES:
+            assert s in _PAPER_SOURCES, f"默认源 {s} 不在映射中"
+
+    def test_search_patent_sources_mapping(self):
+        """专利数据源映射完整性"""
+        from souwen.search import _PATENT_SOURCES, _DEFAULT_PATENT_SOURCES
+        assert len(_PATENT_SOURCES) == 8  # 8 patent sources
+        for s in _DEFAULT_PATENT_SOURCES:
+            assert s in _PATENT_SOURCES, f"默认源 {s} 不在映射中"
+
+    @pytest.mark.asyncio
+    async def test_search_invalid_domain(self):
+        """搜索无效领域抛出 ValueError"""
+        from souwen.search import search
+        with pytest.raises(ValueError, match="未知搜索领域"):
+            await search("test", domain="invalid")
+
+
+class TestYAMLConfig:
+    """YAML 配置测试"""
+
+    def test_yaml_load_empty(self):
+        """无 YAML 文件时返回空字典"""
+        from souwen.config import _load_yaml_config
+        # In test env, no souwen.yaml exists in CWD
+        result = _load_yaml_config()
+        assert isinstance(result, dict)
+
+    def test_reload_config(self):
+        """reload_config 返回新配置"""
+        from souwen.config import reload_config, get_config
+        cfg1 = get_config()
+        cfg2 = reload_config()
+        assert cfg1.timeout == cfg2.timeout
+
+    def test_config_yaml_example_exists(self):
+        """souwen.example.yaml 存在"""
+        from pathlib import Path
+        example = Path("/Users/sky/Github/SouWen/souwen.example.yaml")
+        assert example.exists()
+
+
+class TestCLI:
+    """CLI 工具测试"""
+
+    def test_cli_app_exists(self):
+        """CLI app 可导入"""
+        from souwen.cli import app
+        assert app is not None
+
+    def test_cli_mask_value(self):
+        """Key 脱敏"""
+        from souwen.cli import _mask_value
+        assert _mask_value(None) == "[dim]未设置[/dim]"
+        assert _mask_value("abcdef123") == "abcd***"
+        assert _mask_value("ab") == "a***"
+
+    def test_cli_all_sources_data(self):
+        """数据源清单完整性"""
+        from souwen.cli import _ALL_SOURCES
+        assert len(_ALL_SOURCES["paper"]) == 8
+        assert len(_ALL_SOURCES["patent"]) == 8
+        assert len(_ALL_SOURCES["web"]) == 10
+
+
+class TestServer:
+    """FastAPI 服务测试"""
+
+    def test_server_imports(self):
+        """服务模块可导入"""
+        try:
+            from souwen.server.app import app
+            assert app is not None
+            assert app.title == "SouWen API"
+        except ImportError:
+            pytest.skip("fastapi not installed")
+
+    def test_server_routes_exist(self):
+        """路由端点存在"""
+        try:
+            from souwen.server.app import app
+            routes = [r.path for r in app.routes]
+            assert "/health" in routes
+        except ImportError:
+            pytest.skip("fastapi not installed")
