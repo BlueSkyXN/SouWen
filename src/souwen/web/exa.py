@@ -41,7 +41,8 @@ class ExaClient(SouWenHttpClient):
         self.api_key = api_key or config.exa_api_key
         if not self.api_key:
             raise ConfigError(
-                "exa_api_key", "Exa",
+                "exa_api_key",
+                "Exa",
                 "https://dashboard.exa.ai/",
             )
         super().__init__(base_url=self.BASE_URL)
@@ -85,7 +86,12 @@ class ExaClient(SouWenHttpClient):
             json=payload,
             headers={"x-api-key": self.api_key, "Content-Type": "application/json"},
         )
-        data = resp.json()
+        try:
+            data = resp.json()
+        except Exception as e:
+            from souwen.exceptions import ParseError
+
+            raise ParseError(f"Exa 响应解析失败: {e}") from e
 
         results: list[WebSearchResult] = []
         for item in data.get("results", []):
@@ -101,14 +107,16 @@ class ExaClient(SouWenHttpClient):
                 raw["published_date"] = item["publishedDate"]
             if item.get("author"):
                 raw["author"] = item["author"]
-            results.append(WebSearchResult(
-                source=SourceType.WEB_EXA,
-                title=title,
-                url=url,
-                snippet=snippet,
-                engine=self.ENGINE_NAME,
-                raw=raw,
-            ))
+            results.append(
+                WebSearchResult(
+                    source=SourceType.WEB_EXA,
+                    title=title,
+                    url=url,
+                    snippet=snippet,
+                    engine=self.ENGINE_NAME,
+                    raw=raw,
+                )
+            )
 
         logger.info("Exa 返回 %d 条结果 (query=%s)", len(results), query)
 
@@ -141,7 +149,12 @@ class ExaClient(SouWenHttpClient):
             json=payload,
             headers={"x-api-key": self.api_key, "Content-Type": "application/json"},
         )
-        data = resp.json()
+        try:
+            data = resp.json()
+        except Exception as e:
+            from souwen.exceptions import ParseError
+
+            raise ParseError(f"Exa find_similar 响应解析失败: {e}") from e
 
         results: list[WebSearchResult] = []
         for item in data.get("results", []):
@@ -150,14 +163,16 @@ class ExaClient(SouWenHttpClient):
             if not title or not result_url:
                 continue
             snippet = item.get("text", "").strip()[:500] if item.get("text") else ""
-            results.append(WebSearchResult(
-                source=SourceType.WEB_EXA,
-                title=title,
-                url=result_url,
-                snippet=snippet,
-                engine=self.ENGINE_NAME,
-                raw={"score": item.get("score")},
-            ))
+            results.append(
+                WebSearchResult(
+                    source=SourceType.WEB_EXA,
+                    title=title,
+                    url=result_url,
+                    snippet=snippet,
+                    engine=self.ENGINE_NAME,
+                    raw={"score": item.get("score")},
+                )
+            )
 
         return WebSearchResponse(
             query=f"similar:{url}",

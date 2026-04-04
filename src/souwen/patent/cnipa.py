@@ -218,12 +218,8 @@ class CnipaClient:
             title=raw.get("title", raw.get("发明名称", "")),
             patent_id=patent_id,
             application_number=app_number,
-            publication_date=_safe_date(
-                raw.get("publicationDate", raw.get("publication_date"))
-            ),
-            filing_date=_safe_date(
-                raw.get("filingDate", raw.get("filing_date"))
-            ),
+            publication_date=_safe_date(raw.get("publicationDate", raw.get("publication_date"))),
+            filing_date=_safe_date(raw.get("filingDate", raw.get("filing_date"))),
             applicants=applicants,
             inventors=inventors,
             abstract=raw.get("abstract", raw.get("摘要")),

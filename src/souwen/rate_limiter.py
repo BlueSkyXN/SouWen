@@ -14,15 +14,17 @@ from collections import deque
 
 class TokenBucketLimiter:
     """令牌桶限流器
-    
+
     适用于固定速率限制的数据源。
-    
+
     Args:
         rate: 每秒允许的请求数
         burst: 突发容量（令牌桶大小）
     """
 
     def __init__(self, rate: float, burst: int | None = None):
+        if rate <= 0:
+            raise ValueError(f"rate 必须大于 0，收到: {rate}")
         self.rate = rate
         self.burst = burst or max(1, int(rate))
         self._tokens = float(self.burst)
@@ -53,9 +55,9 @@ class TokenBucketLimiter:
 
 class SlidingWindowLimiter:
     """滑动窗口限流器
-    
+
     适用于动态限流（从响应头获取剩余配额）。
-    
+
     Args:
         max_requests: 窗口内最大请求数
         window_seconds: 窗口时间（秒）

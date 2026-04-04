@@ -156,9 +156,7 @@ class PatSnapClient:
             elif isinstance(a, dict):
                 name = a.get("name", a.get("original_name", ""))
                 if name:
-                    applicants.append(
-                        Applicant(name=name, country=a.get("country"))
-                    )
+                    applicants.append(Applicant(name=name, country=a.get("country")))
 
         # 发明人
         inventors: list[str] = []

@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import random
 
+from souwen import __version__
+
 # Chrome 浏览器指纹库（定期更新）
 _CHROME_VERSIONS = [
     {
@@ -115,7 +117,7 @@ def get_api_headers(
     API 场景不需要伪装浏览器，使用标准 SouWen UA + 可选 polite 参数。
     """
     headers: dict[str, str] = {
-        "User-Agent": "SouWen/0.1.0 (Academic & Patent Search; https://github.com/souwen)",
+        "User-Agent": f"SouWen/{__version__} (Academic & Patent Search; https://github.com/souwen)",
     }
     if email:
         headers["From"] = email

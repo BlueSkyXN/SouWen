@@ -41,7 +41,8 @@ class SearXNGClient(SouWenHttpClient):
         self.instance_url = (instance_url or config.searxng_url or "").rstrip("/")
         if not self.instance_url:
             raise ConfigError(
-                "searxng_url", "SearXNG",
+                "searxng_url",
+                "SearXNG",
                 "https://docs.searxng.org/admin/installation.html",
             )
         super().__init__(base_url=self.instance_url)
@@ -74,7 +75,12 @@ class SearXNGClient(SouWenHttpClient):
             params["categories"] = categories
 
         resp = await self.get("/search", params=params)
-        data = resp.json()
+        try:
+            data = resp.json()
+        except Exception as e:
+            from souwen.exceptions import ParseError
+
+            raise ParseError(f"SearXNG 响应解析失败: {e}") from e
 
         results: list[WebSearchResult] = []
         for item in data.get("results", []):
@@ -84,13 +90,15 @@ class SearXNGClient(SouWenHttpClient):
             url = item.get("url", "").strip()
             if not title or not url:
                 continue
-            results.append(WebSearchResult(
-                source=SourceType.WEB_SEARXNG,
-                title=title,
-                url=url,
-                snippet=item.get("content", "").strip(),
-                engine=item.get("engine", self.ENGINE_NAME),
-            ))
+            results.append(
+                WebSearchResult(
+                    source=SourceType.WEB_SEARXNG,
+                    title=title,
+                    url=url,
+                    snippet=item.get("content", "").strip(),
+                    engine=item.get("engine", self.ENGINE_NAME),
+                )
+            )
 
         logger.info("SearXNG 返回 %d 条结果 (query=%s)", len(results), query)
 

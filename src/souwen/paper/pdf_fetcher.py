@@ -19,6 +19,8 @@ from __future__ import annotations
 import logging
 from pathlib import Path
 
+import httpx
+
 from souwen.exceptions import ConfigError, NotFoundError
 from souwen.http_client import SouWenHttpClient
 from souwen.models import PaperResult
@@ -77,8 +79,8 @@ async def _download_pdf(
             logger.warning("PDF 文件过大 (%d bytes)，已跳过: %s", len(content), url)
             return None
 
-        # 基本 PDF 格式校验
-        if not content[:5].startswith(b"%PDF-"):
+        # 基本 PDF 格式校验（兼容带 BOM 的 PDF）
+        if b"%PDF-" not in content[:1024]:
             logger.warning("下载内容非 PDF 格式: %s", url)
             return None
 
@@ -87,7 +89,7 @@ async def _download_pdf(
         logger.info("PDF 已保存: %s", save_path)
         return save_path
 
-    except Exception as exc:
+    except (httpx.HTTPError, IOError, OSError) as exc:
         logger.warning("PDF 下载异常: %s - %s", url, exc)
         return None
 
@@ -148,9 +150,7 @@ async def _try_core(
             for result in search_result.results:
                 if result.pdf_url:
                     logger.debug("CORE 找到全文 PDF: %s", result.pdf_url)
-                    downloaded = await _download_pdf(
-                        result.pdf_url, save_path, client
-                    )
+                    downloaded = await _download_pdf(result.pdf_url, save_path, client)
                     if downloaded:
                         return downloaded
     except ConfigError:
@@ -180,9 +180,7 @@ async def _try_arxiv(
             for result in search_result.results:
                 if result.pdf_url:
                     logger.debug("arXiv 找到预印本 PDF: %s", result.pdf_url)
-                    downloaded = await _download_pdf(
-                        result.pdf_url, save_path, client
-                    )
+                    downloaded = await _download_pdf(result.pdf_url, save_path, client)
                     if downloaded:
                         return downloaded
     except Exception as exc:

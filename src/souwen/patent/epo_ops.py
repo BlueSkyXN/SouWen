@@ -101,13 +101,14 @@ class EpoOpsClient:
         total = self._extract_total(root)
         patents = self._extract_search_results(root)
 
+        per_page = max(range_end - range_begin + 1, 1)
         return SearchResponse(
             query=cql_query,
             source=SourceType.EPO_OPS,
             total_results=total,
             results=patents,
-            page=(range_begin - 1) // (range_end - range_begin + 1) + 1,
-            per_page=range_end - range_begin + 1,
+            page=(range_begin - 1) // per_page + 1,
+            per_page=per_page,
         )
 
     async def get_publication(
@@ -132,7 +133,8 @@ class EpoOpsClient:
         await self._limiter.acquire()
         url = f"/rest-services/published-data/{doc_type}/{format}/{doc_id}"
         resp = await self._http.get(
-            url, headers={"Accept": "application/xml"},
+            url,
+            headers={"Accept": "application/xml"},
         )
         if resp.status_code == 404:
             raise NotFoundError(f"出版物 {doc_id} 未找到")
@@ -271,7 +273,9 @@ class EpoOpsClient:
         return results
 
     def _extract_publication(
-        self, root: ET.Element, fallback_id: str,
+        self,
+        root: ET.Element,
+        fallback_id: str,
     ) -> PatentResult:
         """从出版物 XML 中提取 PatentResult"""
         for doc in root.iter("{http://www.epo.org/exchange}exchange-document"):

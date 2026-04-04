@@ -41,7 +41,8 @@ class BraveApiClient(SouWenHttpClient):
         self.api_key = api_key or config.brave_api_key
         if not self.api_key:
             raise ConfigError(
-                "brave_api_key", "Brave Search API",
+                "brave_api_key",
+                "Brave Search API",
                 "https://brave.com/search/api/",
             )
         super().__init__(base_url=self.BASE_URL)
@@ -83,7 +84,12 @@ class BraveApiClient(SouWenHttpClient):
                 "X-Subscription-Token": self.api_key,
             },
         )
-        data = resp.json()
+        try:
+            data = resp.json()
+        except Exception as e:
+            from souwen.exceptions import ParseError
+
+            raise ParseError(f"Brave API 响应解析失败: {e}") from e
 
         results: list[WebSearchResult] = []
         web_results = data.get("web", {}).get("results", [])
@@ -101,14 +107,16 @@ class BraveApiClient(SouWenHttpClient):
                 raw["language"] = item["language"]
             if item.get("family_friendly"):
                 raw["family_friendly"] = item["family_friendly"]
-            results.append(WebSearchResult(
-                source=SourceType.WEB_BRAVE_API,
-                title=title,
-                url=url,
-                snippet=item.get("description", "").strip(),
-                engine=self.ENGINE_NAME,
-                raw=raw,
-            ))
+            results.append(
+                WebSearchResult(
+                    source=SourceType.WEB_BRAVE_API,
+                    title=title,
+                    url=url,
+                    snippet=item.get("description", "").strip(),
+                    engine=self.ENGINE_NAME,
+                    raw=raw,
+                )
+            )
 
         logger.info("Brave API 返回 %d 条结果 (query=%s)", len(results), query)
 

@@ -34,12 +34,17 @@ logger = logging.getLogger("souwen.search")
 
 # ── 默认免费数据源 ─────────────────────────────────────────
 _DEFAULT_PAPER_SOURCES: list[str] = [
-    "openalex", "semantic_scholar", "crossref", "arxiv", "dblp",
+    "openalex",
+    "semantic_scholar",
+    "crossref",
+    "arxiv",
+    "dblp",
 ]
 _DEFAULT_PATENT_SOURCES: list[str] = ["patentsview", "pqai"]
 
 
 # ── 通用客户端执行器 ───────────────────────────────────────
+
 
 async def _run_client(cls: type, method_name: str, **kwargs: Any) -> SearchResponse:
     """打开异步客户端并调用指定方法"""
@@ -60,58 +65,118 @@ async def _search_source(name: str, coro: Any) -> SearchResponse | None:
 
 _PAPER_SOURCES: dict[str, Any] = {
     "openalex": lambda q, n, **kw: _run_client(
-        OpenAlexClient, "search", query=q, per_page=n, **kw,
+        OpenAlexClient,
+        "search",
+        query=q,
+        per_page=n,
+        **kw,
     ),
     "semantic_scholar": lambda q, n, **kw: _run_client(
-        SemanticScholarClient, "search", query=q, limit=n, **kw,
+        SemanticScholarClient,
+        "search",
+        query=q,
+        limit=n,
+        **kw,
     ),
     "crossref": lambda q, n, **kw: _run_client(
-        CrossrefClient, "search", query=q, rows=n, **kw,
+        CrossrefClient,
+        "search",
+        query=q,
+        rows=n,
+        **kw,
     ),
     "arxiv": lambda q, n, **kw: _run_client(
-        ArxivClient, "search", query=q, max_results=n, **kw,
+        ArxivClient,
+        "search",
+        query=q,
+        max_results=n,
+        **kw,
     ),
     "dblp": lambda q, n, **kw: _run_client(
-        DblpClient, "search", query=q, hits=n, **kw,
+        DblpClient,
+        "search",
+        query=q,
+        hits=n,
+        **kw,
     ),
     "core": lambda q, n, **kw: _run_client(
-        CoreClient, "search", query=q, limit=n, **kw,
+        CoreClient,
+        "search",
+        query=q,
+        limit=n,
+        **kw,
     ),
     "pubmed": lambda q, n, **kw: _run_client(
-        PubMedClient, "search", query=q, retmax=n, **kw,
+        PubMedClient,
+        "search",
+        query=q,
+        retmax=n,
+        **kw,
     ),
 }
 
 _PATENT_SOURCES: dict[str, Any] = {
     "patentsview": lambda q, n, **kw: _run_client(
-        PatentsViewClient, "search",
-        query={"_contains": {"patent_title": q}}, per_page=n, **kw,
+        PatentsViewClient,
+        "search",
+        query={"_contains": {"patent_title": q}},
+        per_page=n,
+        **kw,
     ),
     "pqai": lambda q, n, **kw: _run_client(
-        PqaiClient, "search", query=q, n_results=n, **kw,
+        PqaiClient,
+        "search",
+        query=q,
+        n_results=n,
+        **kw,
     ),
     "epo_ops": lambda q, n, **kw: _run_client(
-        EpoOpsClient, "search", cql_query=q, range_end=n, **kw,
+        EpoOpsClient,
+        "search",
+        cql_query=q,
+        range_end=n,
+        **kw,
     ),
     "uspto_odp": lambda q, n, **kw: _run_client(
-        UsptoOdpClient, "search_applications", query=q, per_page=n, **kw,
+        UsptoOdpClient,
+        "search_applications",
+        query=q,
+        per_page=n,
+        **kw,
     ),
     "the_lens": lambda q, n, **kw: _run_client(
-        TheLensClient, "search_patents", query=q, size=n, **kw,
+        TheLensClient,
+        "search_patents",
+        query=q,
+        size=n,
+        **kw,
     ),
     "cnipa": lambda q, n, **kw: _run_client(
-        CnipaClient, "search", query=q, per_page=n, **kw,
+        CnipaClient,
+        "search",
+        query=q,
+        per_page=n,
+        **kw,
     ),
     "patsnap": lambda q, n, **kw: _run_client(
-        PatSnapClient, "search", query=q, limit=n, **kw,
+        PatSnapClient,
+        "search",
+        query=q,
+        limit=n,
+        **kw,
     ),
     "google_patents": lambda q, n, **kw: _run_client(
-        GooglePatentsClient, "search", query=q, num_results=n, **kw,
+        GooglePatentsClient,
+        "search",
+        query=q,
+        num_results=n,
+        **kw,
     ),
 }
 
 
 # ── 公开 API ───────────────────────────────────────────────
+
 
 async def search_papers(
     query: str,
@@ -153,7 +218,9 @@ async def search_papers(
 
     logger.info(
         "论文搜索完成: %d/%d 源成功 (query=%s)",
-        len(responses), len(tasks), query,
+        len(responses),
+        len(tasks),
+        query,
     )
     return responses
 
@@ -198,7 +265,9 @@ async def search_patents(
 
     logger.info(
         "专利搜索完成: %d/%d 源成功 (query=%s)",
-        len(responses), len(tasks), query,
+        len(responses),
+        len(tasks),
+        query,
     )
     return responses
 

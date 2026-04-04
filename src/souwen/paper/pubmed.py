@@ -155,10 +155,18 @@ class PubMedClient:
                         year = int(y)
                         # 月份可能是英文缩写
                         month_map = {
-                            "Jan": "01", "Feb": "02", "Mar": "03",
-                            "Apr": "04", "May": "05", "Jun": "06",
-                            "Jul": "07", "Aug": "08", "Sep": "09",
-                            "Oct": "10", "Nov": "11", "Dec": "12",
+                            "Jan": "01",
+                            "Feb": "02",
+                            "Mar": "03",
+                            "Apr": "04",
+                            "May": "05",
+                            "Jun": "06",
+                            "Jul": "07",
+                            "Aug": "08",
+                            "Sep": "09",
+                            "Oct": "10",
+                            "Nov": "11",
+                            "Dec": "12",
                         }
                         m_num = month_map.get(m, m.zfill(2) if m.isdigit() else "01")
                         d_num = d.zfill(2) if d.isdigit() else "01"
@@ -199,7 +207,8 @@ class PubMedClient:
                 source_url=f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/" if pmid else "",
                 pdf_url=None,  # PubMed 不直接提供 PDF
                 citation_count=None,
-                extra={
+                journal=journal_title or None,
+                raw={
                     "journal": journal_title,
                     "mesh_terms": mesh_terms[:10],
                     "pmid": pmid,
@@ -245,11 +254,17 @@ class PubMedClient:
         )
 
         search_resp = await self._client.get("/esearch.fcgi", params=search_params)
-        search_root = ET.fromstring(search_resp.text)
+        try:
+            search_root = ET.fromstring(search_resp.text)
+        except ET.ParseError as exc:
+            raise ParseError(f"PubMed esearch XML 解析失败: {exc}") from exc
 
         # 总数
         count_el = search_root.find("Count")
-        total = int(count_el.text) if count_el is not None and count_el.text else 0
+        try:
+            total = int(count_el.text) if count_el is not None and count_el.text else 0
+        except ValueError:
+            total = 0
 
         # PMID 列表
         pmids: list[str] = []
@@ -259,11 +274,13 @@ class PubMedClient:
                 if id_el.text:
                     pmids.append(id_el.text)
 
+        page = (retstart // retmax) + 1 if retmax > 0 else 1
+
         if not pmids:
             return SearchResponse(
                 query=query,
-                total=total,
-                page=(retstart // retmax) + 1 if retmax else 1,
+                total_results=total,
+                page=page,
                 per_page=retmax,
                 results=[],
                 source=SourceType.PUBMED,
@@ -274,8 +291,8 @@ class PubMedClient:
 
         return SearchResponse(
             query=query,
-            total=total,
-            page=(retstart // retmax) + 1 if retmax else 1,
+            total_results=total,
+            page=page,
             per_page=retmax,
             results=results,
             source=SourceType.PUBMED,
@@ -309,7 +326,10 @@ class PubMedClient:
         )
 
         fetch_resp = await self._client.get("/efetch.fcgi", params=fetch_params)
-        root = ET.fromstring(fetch_resp.text)
+        try:
+            root = ET.fromstring(fetch_resp.text)
+        except ET.ParseError as exc:
+            raise ParseError(f"PubMed efetch XML 解析失败: {exc}") from exc
 
         results: list[PaperResult] = []
         for article_el in root.findall("PubmedArticle"):

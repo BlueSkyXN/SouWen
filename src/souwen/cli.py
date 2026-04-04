@@ -35,9 +35,7 @@ app.add_typer(search_app, name="search")
 @search_app.command("paper")
 def search_paper(
     query: str = typer.Argument(..., help="搜索关键词"),
-    sources: str = typer.Option(
-        "openalex,arxiv", "--sources", "-s", help="数据源，逗号分隔"
-    ),
+    sources: str = typer.Option("openalex,arxiv", "--sources", "-s", help="数据源，逗号分隔"),
     limit: int = typer.Option(5, "--limit", "-n", help="每个源返回数量"),
     json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),
 ) -> None:
@@ -47,9 +45,7 @@ def search_paper(
     source_list = [s.strip() for s in sources.split(",") if s.strip()]
 
     with console.status(f"[bold green]搜索论文: {query} ..."):
-        results = asyncio.run(
-            search_papers(query, sources=source_list, per_page=limit)
-        )
+        results = asyncio.run(search_papers(query, sources=source_list, per_page=limit))
 
     if json_output:
         from rich import print_json
@@ -82,9 +78,7 @@ def search_paper(
 @search_app.command("patent")
 def search_patent(
     query: str = typer.Argument(..., help="搜索关键词"),
-    sources: str = typer.Option(
-        "patentsview,pqai", "--sources", "-s", help="数据源，逗号分隔"
-    ),
+    sources: str = typer.Option("patentsview,pqai", "--sources", "-s", help="数据源，逗号分隔"),
     limit: int = typer.Option(5, "--limit", "-n", help="每个源返回数量"),
     json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),
 ) -> None:
@@ -94,9 +88,7 @@ def search_patent(
     source_list = [s.strip() for s in sources.split(",") if s.strip()]
 
     with console.status(f"[bold green]搜索专利: {query} ..."):
-        results = asyncio.run(
-            search_patents(query, sources=source_list, per_page=limit)
-        )
+        results = asyncio.run(search_patents(query, sources=source_list, per_page=limit))
 
     if json_output:
         from rich import print_json
@@ -116,7 +108,9 @@ def search_patent(
         table.add_column("Applicants", style="dim", max_width=30)
         table.add_column("Source", style="green")
         for patent in resp.results:
-            applicant_names = ", ".join(a.name for a in patent.applicants) if patent.applicants else ""
+            applicant_names = (
+                ", ".join(a.name for a in patent.applicants) if patent.applicants else ""
+            )
             table.add_row(
                 patent.title,
                 patent.patent_id,
@@ -142,9 +136,7 @@ def search_web_cmd(
     engine_list = [e.strip() for e in engines.split(",") if e.strip()]
 
     with console.status(f"[bold green]搜索网页: {query} ..."):
-        resp = asyncio.run(
-            web_search(query, engines=engine_list, max_results_per_engine=limit)
-        )
+        resp = asyncio.run(web_search(query, engines=engine_list, max_results_per_engine=limit))
 
     if json_output:
         from rich import print_json
@@ -215,37 +207,44 @@ def config_init() -> None:
 
     template = """\
 # SouWen 配置文件
-# 环境变量 SOUWEN_<FIELD> 会覆盖此处的值
+# 复制为 souwen.yaml 并填入实际值即可使用
+# 也可放置于 ~/.config/souwen/config.yaml 作为全局配置
+#
+# 优先级：环境变量 > ./souwen.yaml > ~/.config/souwen/config.yaml > .env > 默认值
 
 # ===== 论文数据源 =====
-openalex_email: ~
-semantic_scholar_api_key: ~
-core_api_key: ~
-pubmed_api_key: ~
-unpaywall_email: ~
-ieee_api_key: ~
+paper:
+  openalex_email: ~
+  semantic_scholar_api_key: ~
+  core_api_key: ~
+  pubmed_api_key: ~
+  unpaywall_email: ~
+  ieee_api_key: ~
 
 # ===== 专利数据源 =====
-uspto_api_key: ~
-epo_consumer_key: ~
-epo_consumer_secret: ~
-cnipa_client_id: ~
-cnipa_client_secret: ~
-lens_api_token: ~
-patsnap_api_key: ~
+patent:
+  uspto_api_key: ~
+  epo_consumer_key: ~
+  epo_consumer_secret: ~
+  cnipa_client_id: ~
+  cnipa_client_secret: ~
+  lens_api_token: ~
+  patsnap_api_key: ~
 
 # ===== 常规搜索 =====
-searxng_url: ~
-tavily_api_key: ~
-exa_api_key: ~
-serper_api_key: ~
-brave_api_key: ~
+web:
+  searxng_url: ~
+  tavily_api_key: ~
+  exa_api_key: ~
+  serper_api_key: ~
+  brave_api_key: ~
 
-# ===== 通用 =====
-proxy: ~
-timeout: 30
-max_retries: 3
-data_dir: ~/.local/share/souwen
+# ===== 通用设置 =====
+general:
+  proxy: ~
+  timeout: 30
+  max_retries: 3
+  data_dir: ~/.local/share/souwen
 """
 
     dest = Path("souwen.yaml")
@@ -260,52 +259,18 @@ data_dir: ~/.local/share/souwen
 # ---------------------------------------------------------------------------
 # sources 命令
 # ---------------------------------------------------------------------------
-_ALL_SOURCES = {
-    "paper": [
-        ("openalex", False, "OpenAlex 开放学术图谱"),
-        ("semantic_scholar", False, "Semantic Scholar (可选Key提速)"),
-        ("crossref", False, "Crossref DOI 权威源"),
-        ("arxiv", False, "arXiv 预印本"),
-        ("dblp", False, "DBLP 计算机科学索引"),
-        ("core", True, "CORE 全文开放获取"),
-        ("pubmed", False, "PubMed 生物医学"),
-        ("unpaywall", False, "Unpaywall OA 链接查找"),
-    ],
-    "patent": [
-        ("patentsview", False, "PatentsView/USPTO 美国专利"),
-        ("pqai", False, "PQAI 语义专利检索"),
-        ("epo_ops", True, "EPO OPS 欧洲专利 (OAuth)"),
-        ("uspto_odp", True, "USPTO ODP 官方 API"),
-        ("the_lens", True, "The Lens 全球专利+论文"),
-        ("cnipa", True, "CNIPA 中国知识产权局 (OAuth)"),
-        ("patsnap", True, "PatSnap 智慧芽"),
-        ("google_patents", False, "Google Patents (爬虫)"),
-    ],
-    "web": [
-        ("duckduckgo", False, "DuckDuckGo (爬虫)"),
-        ("yahoo", False, "Yahoo (爬虫)"),
-        ("brave", False, "Brave (爬虫)"),
-        ("google", False, "Google (爬虫, 高风险)"),
-        ("bing", False, "Bing (爬虫)"),
-        ("searxng", False, "SearXNG 元搜索 (需自建)"),
-        ("tavily", True, "Tavily AI 搜索"),
-        ("exa", True, "Exa 语义搜索"),
-        ("serper", True, "Serper Google SERP API"),
-        ("brave_api", True, "Brave 官方 API"),
-    ],
-}
-
-
 @app.command("sources")
 def list_sources() -> None:
     """列出所有可用数据源"""
+    from souwen.models import ALL_SOURCES
+
     table = Table(title="📚 SouWen 数据源", show_lines=True)
     table.add_column("Name", style="cyan")
     table.add_column("Type", style="yellow")
     table.add_column("Needs Key", justify="center")
     table.add_column("Description", style="dim")
 
-    for source_type, entries in _ALL_SOURCES.items():
+    for source_type, entries in ALL_SOURCES.items():
         for name, needs_key, description in entries:
             key_indicator = "🔑" if needs_key else "✅"
             table.add_row(name, source_type, key_indicator, description)
@@ -326,9 +291,7 @@ def serve(
     try:
         import uvicorn
     except ImportError:
-        console.print(
-            "[red]❌ 需要安装 server 依赖: pip install souwen\\[server][/red]"
-        )
+        console.print("[red]❌ 需要安装 server 依赖: pip install souwen\\[server][/red]")
         raise typer.Exit(1)
 
     console.print(f"[bold green]🚀 启动 SouWen API 服务 → http://{host}:{port}[/bold green]")

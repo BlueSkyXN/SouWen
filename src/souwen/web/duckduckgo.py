@@ -25,7 +25,7 @@ logger = logging.getLogger("souwen.web.duckduckgo")
 
 class DuckDuckGoClient(BaseScraper):
     """DuckDuckGo HTML 搜索客户端
-    
+
     使用 html.duckduckgo.com 轻量版本，无需 JavaScript 渲染。
     通过 CSS 选择器解析搜索结果。
     """
@@ -38,52 +38,54 @@ class DuckDuckGoClient(BaseScraper):
 
     async def search(self, query: str, max_results: int = 20) -> WebSearchResponse:
         """搜索 DuckDuckGo
-        
+
         Args:
             query: 搜索关键词
             max_results: 最大返回结果数
-            
+
         Returns:
             WebSearchResponse 包含搜索结果
         """
         url = f"{self.BASE_URL}?q={quote_plus(query)}"
-        
+
         resp = await self._fetch(url)
         html = resp.text
-        
+
         soup = BeautifulSoup(html, "lxml")
         results: list[WebSearchResult] = []
-        
+
         for element in soup.select(".result"):
             title_el = element.select_one(".result__a")
             if title_el is None:
                 continue
-                
+
             title = title_el.get_text(strip=True)
             raw_url = title_el.get("href", "")
-            
+
             # 提取 snippet
             snippet_el = element.select_one(".result__snippet")
             snippet = snippet_el.get_text(strip=True) if snippet_el else ""
-            
+
             # DuckDuckGo URL 重定向解码
             # 格式: //duckduckgo.com/l/?uddg=ENCODED_URL&rut=...
             real_url = self._decode_ddg_url(str(raw_url))
-            
+
             if title and real_url:
-                results.append(WebSearchResult(
-                    source=SourceType.WEB_DUCKDUCKGO,
-                    title=title,
-                    url=real_url,
-                    snippet=snippet,
-                    engine=self.ENGINE_NAME,
-                ))
-                
+                results.append(
+                    WebSearchResult(
+                        source=SourceType.WEB_DUCKDUCKGO,
+                        title=title,
+                        url=real_url,
+                        snippet=snippet,
+                        engine=self.ENGINE_NAME,
+                    )
+                )
+
             if len(results) >= max_results:
                 break
-        
+
         logger.info("DuckDuckGo 返回 %d 条结果 (query=%s)", len(results), query)
-        
+
         return WebSearchResponse(
             query=query,
             source=SourceType.WEB_DUCKDUCKGO,
@@ -94,7 +96,7 @@ class DuckDuckGoClient(BaseScraper):
     @staticmethod
     def _decode_ddg_url(url: str) -> str:
         """解码 DuckDuckGo 重定向 URL
-        
+
         DuckDuckGo 通过 //duckduckgo.com/l/?uddg=ENCODED_URL 跳转。
         提取真实 URL 并解码。
         """

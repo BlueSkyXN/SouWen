@@ -9,11 +9,12 @@ from __future__ import annotations
 from datetime import date
 from enum import Enum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class SourceType(str, Enum):
     """数据源类型枚举"""
+
     # 论文数据源
     OPENALEX = "openalex"
     SEMANTIC_SCHOLAR = "semantic_scholar"
@@ -47,6 +48,7 @@ class SourceType(str, Enum):
 
 class Author(BaseModel):
     """作者信息"""
+
     name: str
     affiliation: str | None = None
     orcid: str | None = None
@@ -54,6 +56,8 @@ class Author(BaseModel):
 
 class PaperResult(BaseModel):
     """统一论文结果模型"""
+
+    model_config = ConfigDict(extra="forbid")
     source: SourceType
     title: str
     authors: list[Author] = Field(default_factory=list)
@@ -73,12 +77,15 @@ class PaperResult(BaseModel):
 
 class Applicant(BaseModel):
     """专利申请人/权利人"""
+
     name: str
     country: str | None = None
 
 
 class PatentResult(BaseModel):
     """统一专利结果模型"""
+
+    model_config = ConfigDict(extra="forbid")
     source: SourceType
     title: str
     patent_id: str  # 公开号 / 申请号
@@ -100,11 +107,12 @@ class PatentResult(BaseModel):
 
 class WebSearchResult(BaseModel):
     """统一网页搜索结果模型
-    
+
     移植自 SoSearch (Rust) 项目的 SearchResultItem。
     三个搜索引擎（DuckDuckGo、Yahoo、Brave）的结果
     都归一化为此统一模型。
     """
+
     source: SourceType
     title: str
     url: str
@@ -115,6 +123,8 @@ class WebSearchResult(BaseModel):
 
 class SearchResponse(BaseModel):
     """统一搜索响应"""
+
+    model_config = ConfigDict(extra="forbid")
     query: str
     source: SourceType
     total_results: int | None = None
@@ -124,3 +134,40 @@ class SearchResponse(BaseModel):
 
 
 WebSearchResponse = SearchResponse  # 网页搜索使用相同的响应包装
+
+
+# 所有数据源元信息（CLI 和 API 共用）
+ALL_SOURCES: dict[str, list[tuple[str, bool, str]]] = {
+    "paper": [
+        ("openalex", False, "OpenAlex 开放学术图谱"),
+        ("semantic_scholar", False, "Semantic Scholar (可选Key提速)"),
+        ("crossref", False, "Crossref DOI 权威源"),
+        ("arxiv", False, "arXiv 预印本"),
+        ("dblp", False, "DBLP 计算机科学索引"),
+        ("core", True, "CORE 全文开放获取"),
+        ("pubmed", False, "PubMed 生物医学"),
+        ("unpaywall", False, "Unpaywall OA 链接查找"),
+    ],
+    "patent": [
+        ("patentsview", False, "PatentsView/USPTO 美国专利"),
+        ("pqai", False, "PQAI 语义专利检索"),
+        ("epo_ops", True, "EPO OPS 欧洲专利 (OAuth)"),
+        ("uspto_odp", True, "USPTO ODP 官方 API"),
+        ("the_lens", True, "The Lens 全球专利+论文"),
+        ("cnipa", True, "CNIPA 中国知识产权局 (OAuth)"),
+        ("patsnap", True, "PatSnap 智慧芽"),
+        ("google_patents", False, "Google Patents (爬虫)"),
+    ],
+    "web": [
+        ("duckduckgo", False, "DuckDuckGo (爬虫)"),
+        ("yahoo", False, "Yahoo (爬虫)"),
+        ("brave", False, "Brave (爬虫)"),
+        ("google", False, "Google (爬虫, 高风险)"),
+        ("bing", False, "Bing (爬虫)"),
+        ("searxng", False, "SearXNG 元搜索 (需自建)"),
+        ("tavily", True, "Tavily AI 搜索"),
+        ("exa", True, "Exa 语义搜索"),
+        ("serper", True, "Serper Google SERP API"),
+        ("brave_api", True, "Brave 官方 API"),
+    ],
+}

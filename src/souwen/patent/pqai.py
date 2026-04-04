@@ -75,10 +75,7 @@ class PqaiClient:
         )
         data = self._parse_json(resp)
 
-        results = [
-            self._to_patent_result(item)
-            for item in data.get("results", [])
-        ]
+        results = [self._to_patent_result(item) for item in data.get("results", [])]
         return SearchResponse(
             query=query,
             source=SourceType.PQAI,
@@ -114,10 +111,7 @@ class PqaiClient:
             raise NotFoundError(f"专利 {patent_id} 未找到")
         data = self._parse_json(resp)
 
-        results = [
-            self._to_patent_result(item)
-            for item in data.get("results", [])
-        ]
+        results = [self._to_patent_result(item) for item in data.get("results", [])]
         return SearchResponse(
             query=f"similar:{patent_id}",
             source=SourceType.PQAI,

@@ -41,7 +41,8 @@ class TavilyClient(SouWenHttpClient):
         self.api_key = api_key or config.tavily_api_key
         if not self.api_key:
             raise ConfigError(
-                "tavily_api_key", "Tavily",
+                "tavily_api_key",
+                "Tavily",
                 "https://app.tavily.com/",
             )
         super().__init__(base_url=self.BASE_URL)
@@ -81,7 +82,12 @@ class TavilyClient(SouWenHttpClient):
             payload["exclude_domains"] = exclude_domains
 
         resp = await self.post("/search", json=payload)
-        data = resp.json()
+        try:
+            data = resp.json()
+        except Exception as e:
+            from souwen.exceptions import ParseError
+
+            raise ParseError(f"Tavily 响应解析失败: {e}") from e
 
         results: list[WebSearchResult] = []
         for item in data.get("results", []):
@@ -96,14 +102,16 @@ class TavilyClient(SouWenHttpClient):
                 raw["relevance_score"] = item["score"]
             if item.get("raw_content"):
                 raw["raw_content"] = item["raw_content"]
-            results.append(WebSearchResult(
-                source=SourceType.WEB_TAVILY,
-                title=title,
-                url=url,
-                snippet=snippet,
-                engine=self.ENGINE_NAME,
-                raw=raw,
-            ))
+            results.append(
+                WebSearchResult(
+                    source=SourceType.WEB_TAVILY,
+                    title=title,
+                    url=url,
+                    snippet=snippet,
+                    engine=self.ENGINE_NAME,
+                    raw=raw,
+                )
+            )
 
         # Tavily 的 AI 答案摘要
         answer = data.get("answer")

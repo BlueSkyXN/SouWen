@@ -92,9 +92,7 @@ class TheLensClient:
         body = self._build_query(query, size=size, offset=offset)
         data = await self._post_search("/patent/search", body)
 
-        patents = [
-            self._to_patent_result(item) for item in data.get("data", [])
-        ]
+        patents = [self._to_patent_result(item) for item in data.get("data", [])]
         return SearchResponse(
             query=str(query),
             source=SourceType.THE_LENS,
@@ -150,7 +148,9 @@ class TheLensClient:
     # ------------------------------------------------------------------
 
     async def _post_search(
-        self, endpoint: str, body: dict[str, Any],
+        self,
+        endpoint: str,
+        body: dict[str, Any],
     ) -> dict[str, Any]:
         """发送搜索请求并处理限流"""
         await self._limiter.acquire()
@@ -160,9 +160,7 @@ class TheLensClient:
         self._update_rate_limit(resp)
 
         if resp.status_code == 429:
-            retry_after = _safe_float(
-                resp.headers.get("x-rate-limit-retry-after-seconds")
-            )
+            retry_after = _safe_float(resp.headers.get("x-rate-limit-retry-after-seconds"))
             raise RateLimitError(
                 message="The Lens 请求频率超限",
                 retry_after=retry_after,
@@ -172,14 +170,11 @@ class TheLensClient:
 
     def _update_rate_limit(self, resp: httpx.Response) -> None:
         """从响应头动态更新限流参数"""
-        remaining = _safe_int(
-            resp.headers.get("x-rate-limit-remaining-request-per-minute")
-        )
-        retry_after = _safe_float(
-            resp.headers.get("x-rate-limit-retry-after-seconds")
-        )
+        remaining = _safe_int(resp.headers.get("x-rate-limit-remaining-request-per-minute"))
+        retry_after = _safe_float(resp.headers.get("x-rate-limit-retry-after-seconds"))
         self._limiter.update_from_headers(
-            remaining=remaining, retry_after=retry_after,
+            remaining=remaining,
+            retry_after=retry_after,
         )
 
         # 记录月度剩余
@@ -283,6 +278,7 @@ class TheLensClient:
 # ------------------------------------------------------------------
 # 辅助函数
 # ------------------------------------------------------------------
+
 
 def _safe_date(value: str | None) -> date | None:
     """安全解析日期字符串"""

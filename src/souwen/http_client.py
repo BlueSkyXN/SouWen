@@ -23,6 +23,7 @@ from tenacity import (
     retry_if_exception_type,
 )
 
+from souwen import __version__
 from souwen.config import get_config
 from souwen.exceptions import (
     AuthError,
@@ -33,12 +34,14 @@ from souwen.exceptions import (
 
 logger = logging.getLogger("souwen.http")
 
-DEFAULT_USER_AGENT = "SouWen/0.3.0 (Academic & Patent Search Tool; https://github.com/souwen)"
+DEFAULT_USER_AGENT = (
+    f"SouWen/{__version__} (Academic & Patent Search Tool; https://github.com/souwen)"
+)
 
 
 class SouWenHttpClient:
     """统一 HTTP 客户端，所有数据源共用
-    
+
     使用方式：
         async with SouWenHttpClient() as client:
             resp = await client.get("https://api.openalex.org/works")
@@ -110,7 +113,10 @@ class SouWenHttpClient:
             elapsed = time.monotonic() - start
             logger.debug(
                 "%s %s → %d (%.2fs)",
-                method, url, resp.status_code, elapsed,
+                method,
+                url,
+                resp.status_code,
+                elapsed,
             )
             return resp
         except httpx.TimeoutException as e:
@@ -137,6 +143,25 @@ class SouWenHttpClient:
         return resp
 
     @staticmethod
+    def _parse_retry_after(value: str) -> float | None:
+        """解析 Retry-After 头，支持秒数和 HTTP-date 两种格式"""
+        try:
+            return float(value)
+        except ValueError:
+            pass
+        # RFC 7231: HTTP-date 格式，如 "Fri, 31 Dec 1999 23:59:59 GMT"
+        from email.utils import parsedate_to_datetime
+
+        try:
+            dt = parsedate_to_datetime(value)
+            import time
+
+            delay = dt.timestamp() - time.time()
+            return max(0, delay)
+        except Exception:
+            return None
+
+    @staticmethod
     def _check_response(resp: httpx.Response, url: str) -> None:
         """检查响应状态码，抛出相应异常"""
         if resp.status_code == 401:
@@ -145,21 +170,19 @@ class SouWenHttpClient:
             raise AuthError(f"权限不足: {url}")
         if resp.status_code == 429:
             retry_after = resp.headers.get("Retry-After")
-            wait = float(retry_after) if retry_after else None
+            wait = SouWenHttpClient._parse_retry_after(retry_after) if retry_after else None
             raise RateLimitError(f"限流触发: {url}", retry_after=wait)
         if resp.status_code == 404:
-            return  # 404 不抛异常，由调用方决定是否为正常情况（如资源确实不存在）
+            return
         if resp.status_code >= 500:
-            raise SourceUnavailableError(
-                f"数据源服务器错误 ({resp.status_code}): {url}"
-            )
+            raise SourceUnavailableError(f"数据源服务器错误 ({resp.status_code}): {url}")
         if resp.status_code >= 400:
             raise SouWenError(f"请求失败 ({resp.status_code}): {url}")
 
 
 class OAuthClient(SouWenHttpClient):
     """带 OAuth 2.0 Token 自动管理的 HTTP 客户端
-    
+
     适用于 EPO OPS、CNIPA 等需要 OAuth 的数据源。
     Token 自动刷新，不会每次请求都重新获取。
     """
@@ -181,10 +204,9 @@ class OAuthClient(SouWenHttpClient):
 
     async def _ensure_token(self) -> str:
         """确保有有效的 access token，过期则自动刷新
-        
+
         提前 60 秒刷新，避免 token 在请求途中过期导致 401。
         """
-        # 提前 60s 判定过期，留出网络延迟余量
         if self._access_token and time.monotonic() < self._token_expires_at - 60:
             return self._access_token
 
@@ -197,9 +219,17 @@ class OAuthClient(SouWenHttpClient):
         if resp.status_code != 200:
             raise AuthError(f"OAuth token 获取失败: {resp.status_code} {resp.text}")
 
-        token_data = resp.json()
-        self._access_token = token_data["access_token"]
-        expires_in = token_data.get("expires_in", 1200)  # 默认 20 分钟
+        try:
+            token_data = resp.json()
+        except Exception as e:
+            raise AuthError(f"OAuth token 响应解析失败: {e}") from e
+
+        access_token = token_data.get("access_token")
+        if not access_token:
+            raise AuthError(f"OAuth 响应缺少 access_token: {list(token_data.keys())}")
+
+        self._access_token = access_token
+        expires_in = token_data.get("expires_in", 1200)
         self._token_expires_at = time.monotonic() + expires_in
 
         logger.debug("OAuth token 获取成功，有效期 %ds", expires_in)

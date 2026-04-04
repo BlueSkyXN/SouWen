@@ -45,13 +45,13 @@ class UnpaywallClient:
             ConfigError: 邮箱未配置。
         """
         cfg = get_config()
-        self.email: str = email or getattr(cfg, "unpaywall_email", "") or ""
+        self.email: str = email or cfg.unpaywall_email or ""
 
         if not self.email:
             raise ConfigError(
-                "Unpaywall 邮箱未配置。请前往 "
-                f"{_REGISTER_URL} 了解详情，"
-                "并设置 unpaywall_email 配置项。"
+                key="unpaywall_email",
+                service="Unpaywall",
+                register_url=_REGISTER_URL,
             )
 
         self._client = SouWenHttpClient(base_url=_BASE_URL)
@@ -105,10 +105,7 @@ class UnpaywallClient:
 
         # 最佳 OA 位置
         best_oa = data.get("best_oa_location") or {}
-        pdf_url: str | None = (
-            best_oa.get("url_for_pdf")
-            or best_oa.get("url")
-        )
+        pdf_url: str | None = best_oa.get("url_for_pdf") or best_oa.get("url")
 
         # 收集所有 OA 位置的 PDF
         all_pdf_urls: list[str] = []
@@ -133,7 +130,8 @@ class UnpaywallClient:
             source_url=data.get("doi_url", ""),
             pdf_url=pdf_url,
             citation_count=None,
-            extra={
+            journal=data.get("journal_name") or None,
+            raw={
                 "is_oa": is_oa,
                 "oa_status": data.get("oa_status"),
                 "journal_name": data.get("journal_name"),
