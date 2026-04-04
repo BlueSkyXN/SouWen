@@ -40,6 +40,9 @@ class SouWenConfig(BaseModel):
     lens_api_token: str | None = None
     patsnap_api_key: str | None = None
 
+    # ===== 常规搜索 =====
+    # DuckDuckGo、Yahoo、Brave 均无需 Key，零配置即用
+
     # ===== 通用 =====
     proxy: str | None = None
     timeout: int = 30

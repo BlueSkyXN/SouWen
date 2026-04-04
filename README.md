@@ -1,19 +1,19 @@
 # SouWen 搜文
 
-> 面向 AI Agent 的学术论文 + 专利信息统一获取工具库
+> 面向 AI Agent 的学术论文 + 专利 + 网页信息统一获取工具库
 
 [![Python](https://img.shields.io/badge/python-≥3.10-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 
 ## 🎯 简介
 
-SouWen（搜文）是一个 Python 工具库，为 AI Agent 提供统一的学术论文和专利信息检索接口。它整合了 16 个数据源，将不同 API 的返回结果归一化为统一的 Pydantic v2 数据模型，让 AI Agent 无需关心底层数据源差异。
+SouWen（搜文）是一个 Python 工具库，为 AI Agent 提供统一的学术论文、专利信息和网页搜索接口。它整合了 19 个数据源，将不同 API 的返回结果归一化为统一的 Pydantic v2 数据模型，让 AI Agent 无需关心底层数据源差异。
 
 ### 核心特性
 
-- **16 个数据源**：8 个论文源 + 8 个专利源，覆盖全球主要学术和专利数据库
-- **统一数据模型**：所有数据源返回 `PaperResult` / `PatentResult`，结构一致
-- **零配置即用**：6 个数据源无需 API Key（OpenAlex、Crossref、arXiv、DBLP、PatentsView、PQAI）
+- **19 个数据源**：8 个论文源 + 8 个专利源 + 3 个搜索引擎，覆盖全球主要学术和专利数据库及网页搜索
+- **统一数据模型**：所有数据源返回 `PaperResult` / `PatentResult` / `WebSearchResult`，结构一致
+- **零配置即用**：9 个数据源无需 API Key（OpenAlex、Crossref、arXiv、DBLP、PatentsView、PQAI、DuckDuckGo、Yahoo、Brave）
 - **异步优先**：全面使用 `httpx` async，支持高并发
 - **智能限流**：令牌桶 + 滑动窗口，每个数据源独立限流
 - **PDF 回退链**：5 级降级策略自动获取全文 PDF
@@ -74,6 +74,27 @@ async def main():
 asyncio.run(main())
 ```
 
+### 网页搜索（无需 Key，移植自 SoSearch）
+
+```python
+import asyncio
+from souwen.web import DuckDuckGoClient, web_search
+
+async def main():
+    # 单引擎搜索
+    async with DuckDuckGoClient() as client:
+        results = await client.search("Python asyncio", max_results=5)
+        for r in results.results:
+            print(f"{r.title} → {r.url}")
+
+    # 并发多引擎聚合搜索（DuckDuckGo + Yahoo + Brave）
+    resp = await web_search("machine learning tutorial", max_results_per_engine=5)
+    for r in resp.results:
+        print(f"[{r.engine}] {r.title} → {r.url}")
+
+asyncio.run(main())
+```
+
 ### PDF 全文获取
 
 ```python
@@ -117,6 +138,15 @@ async with OpenAlexClient() as client:
 | PatSnap | `PatSnapClient` | API Key | 172 司法管辖区 |
 | Google Patents | `GooglePatentsClient` | 爬虫 | 兜底方案 |
 
+### 网页搜索引擎（移植自 SoSearch Rust 项目）
+
+| 引擎 | 客户端类 | 鉴权 | 特点 |
+|------|---------|------|------|
+| DuckDuckGo | `DuckDuckGoClient` | 无需 Key | HTML 轻量版，无 JS 依赖 |
+| Yahoo | `YahooClient` | 无需 Key | Bing 驱动，对 DC IP 宽容 |
+| Brave | `BraveClient` | 无需 Key | 独立索引，隐私友好 |
+| 聚合搜索 | `web_search()` | 无需 Key | 并发三引擎 + URL 去重 |
+
 ## ⚙️ 配置
 
 复制 `.env.example` 为 `.env`，按需填写：
@@ -158,6 +188,7 @@ SouWen/
 │   ├── http_client.py      # httpx async + OAuth 2.0
 │   ├── paper/              # 8 个论文数据源
 │   ├── patent/             # 8 个专利数据源
+│   ├── web/                # 3 个搜索引擎（DuckDuckGo/Yahoo/Brave）
 │   └── scraper/            # 爬虫兜底层
 ├── tests/
 ├── examples/

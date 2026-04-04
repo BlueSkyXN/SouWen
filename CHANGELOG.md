@@ -1,5 +1,28 @@
 # Changelog
 
+## [0.2.0] - 2026-04-04
+
+### Added
+- **常规网页搜索模块** (`souwen.web`)
+  - 移植自 [SoSearch](https://github.com/NetLops/SoSearch) Rust 项目
+  - DuckDuckGoClient — DuckDuckGo HTML 搜索（无需 Key，无 JS 渲染依赖）
+  - YahooClient — Yahoo 搜索（Bing 驱动，对数据中心 IP 宽容）
+  - BraveClient — Brave 独立索引搜索（隐私友好）
+  - `web_search()` — 并发多引擎聚合搜索（asyncio.gather + URL 去重）
+- **新数据模型**
+  - `WebSearchResult` — 统一网页搜索结果模型
+  - `WebSearchResponse` — 搜索响应别名
+  - `SourceType.WEB_DUCKDUCKGO / WEB_YAHOO / WEB_BRAVE` 枚举值
+- **过盾特性**
+  - 所有引擎基于 `BaseScraper`，自动使用 curl_cffi TLS 指纹模拟
+  - 完整浏览器指纹头（Sec-CH-UA 系列）
+  - DuckDuckGo uddg= URL 重定向解码
+  - Yahoo RU=/RK= URL 重定向解码
+  - Brave 内部链接过滤
+- **测试和示例**
+  - 5 个网页搜索单元测试（URL 解码、去重、模型、导入）
+  - `examples/search_web.py` — 网页搜索示例
+
 ## [0.1.0] - 2026-04-03
 
 ### Added

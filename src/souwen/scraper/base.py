@@ -91,7 +91,7 @@ class BaseScraper:
     async def close(self) -> None:
         """关闭底层连接"""
         if self._curl_session is not None:
-            self._curl_session.close()
+            await self._curl_session.close()
         if self._httpx_client is not None:
             await self._httpx_client.aclose()
 

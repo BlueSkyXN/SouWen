@@ -32,6 +32,10 @@ class SourceType(str, Enum):
     PQAI = "pqai"
     PATSNAP = "patsnap"
     GOOGLE_PATENTS = "google_patents"
+    # 常规搜索引擎
+    WEB_DUCKDUCKGO = "web_duckduckgo"
+    WEB_YAHOO = "web_yahoo"
+    WEB_BRAVE = "web_brave"
 
 
 class Author(BaseModel):
@@ -87,11 +91,29 @@ class PatentResult(BaseModel):
     raw: dict = Field(default_factory=dict)
 
 
+class WebSearchResult(BaseModel):
+    """统一网页搜索结果模型
+    
+    移植自 SoSearch (Rust) 项目的 SearchResultItem。
+    三个搜索引擎（DuckDuckGo、Yahoo、Brave）的结果
+    都归一化为此统一模型。
+    """
+    source: SourceType
+    title: str
+    url: str
+    snippet: str = ""
+    engine: str  # 引擎标识: duckduckgo / yahoo / brave
+    raw: dict = Field(default_factory=dict)
+
+
 class SearchResponse(BaseModel):
     """统一搜索响应"""
     query: str
     source: SourceType
     total_results: int | None = None
-    results: list[PaperResult] | list[PatentResult]
+    results: list[PaperResult] | list[PatentResult] | list[WebSearchResult]
     page: int = 1
     per_page: int = 10
+
+
+WebSearchResponse = SearchResponse  # 网页搜索使用相同的响应包装
