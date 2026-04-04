@@ -20,7 +20,7 @@ from souwen.exceptions import (
     ParseError,
     NotFoundError,
 )
-from souwen.config import SouWenConfig, get_config
+from souwen.config import SouWenConfig
 from souwen.rate_limiter import TokenBucketLimiter, SlidingWindowLimiter
 
 

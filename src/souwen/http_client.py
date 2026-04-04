@@ -119,6 +119,7 @@ class SouWenHttpClient:
             raise SourceUnavailableError(f"连接失败: {url}") from e
 
     @retry(
+        # 仅对网络层错误重试（超时、连接失败），业务错误（401/429/5xx）在 _check_response 中单独处理
         retry=retry_if_exception_type((httpx.TimeoutException, httpx.ConnectError)),
         wait=wait_exponential(multiplier=1, min=1, max=30),
         stop=stop_after_attempt(3),
@@ -147,7 +148,7 @@ class SouWenHttpClient:
             wait = float(retry_after) if retry_after else None
             raise RateLimitError(f"限流触发: {url}", retry_after=wait)
         if resp.status_code == 404:
-            return  # 404 不抛异常，由调用方处理
+            return  # 404 不抛异常，由调用方决定是否为正常情况（如资源确实不存在）
         if resp.status_code >= 500:
             raise SourceUnavailableError(
                 f"数据源服务器错误 ({resp.status_code}): {url}"
@@ -179,7 +180,11 @@ class OAuthClient(SouWenHttpClient):
         self._token_expires_at: float = 0
 
     async def _ensure_token(self) -> str:
-        """确保有有效的 access token，过期则自动刷新"""
+        """确保有有效的 access token，过期则自动刷新
+        
+        提前 60 秒刷新，避免 token 在请求途中过期导致 401。
+        """
+        # 提前 60s 判定过期，留出网络延迟余量
         if self._access_token and time.monotonic() < self._token_expires_at - 60:
             return self._access_token
 

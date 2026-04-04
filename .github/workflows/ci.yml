@@ -1,0 +1,96 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'pyproject.toml'
+      - '.github/workflows/ci.yml'
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: 代码检查
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: 安装 ruff
+        run: pip install ruff
+
+      - name: Ruff 语法检查
+        run: ruff check src/ tests/
+
+      - name: Ruff 格式检查
+        run: ruff format --check src/ tests/
+
+  test:
+    name: 测试 (Python ${{ matrix.python }}, ${{ matrix.os }})
+    needs: lint
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, python: '3.10' }
+          - { os: ubuntu-latest, python: '3.11' }
+          - { os: ubuntu-latest, python: '3.12' }
+          - { os: ubuntu-latest, python: '3.13' }
+          - { os: macos-latest, python: '3.11' }
+          - { os: windows-latest, python: '3.11' }
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python }}
+          cache: 'pip'
+
+      - name: 安装依赖
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: 运行测试
+        run: pytest tests/ -v --tb=short
+
+      - name: 安装可选依赖（爬虫层）
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.11'
+        continue-on-error: true
+        run: pip install curl-cffi>=0.14.0
+
+      - name: 验证全部导入
+        if: matrix.os == 'ubuntu-latest' && matrix.python == '3.11'
+        run: |
+          python -c "
+          from souwen.paper import (
+              OpenAlexClient, SemanticScholarClient, CrossrefClient,
+              ArxivClient, DblpClient, CoreClient, PubMedClient, UnpaywallClient,
+          )
+          from souwen.patent import (
+              PatentsViewClient, PqaiClient, EpoOpsClient, UsptoOdpClient,
+              TheLensClient, CnipaClient, PatSnapClient, GooglePatentsClient,
+          )
+          from souwen.web import (
+              DuckDuckGoClient, YahooClient, BraveClient,
+              GoogleClient, BingClient,
+              SearXNGClient, TavilyClient, ExaClient, SerperClient, BraveApiClient,
+              web_search,
+          )
+          print('全部 26 数据源导入成功 ✅')
+          "
