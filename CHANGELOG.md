@@ -3,25 +3,32 @@
 ## [0.2.0] - 2026-04-04
 
 ### Added
-- **常规网页搜索模块** (`souwen.web`)
-  - 移植自 [SoSearch](https://github.com/NetLops/SoSearch) Rust 项目
-  - DuckDuckGoClient — DuckDuckGo HTML 搜索（无需 Key，无 JS 渲染依赖）
-  - YahooClient — Yahoo 搜索（Bing 驱动，对数据中心 IP 宽容）
-  - BraveClient — Brave 独立索引搜索（隐私友好）
+- **常规网页搜索模块** (`souwen.web`) — 10 个搜索引擎
+  - 移植自 [SoSearch](https://github.com/NetLops/SoSearch) Rust 项目 + 扩展
+  - **爬虫类（无需 Key，零配置即用）**
+    - DuckDuckGoClient — DuckDuckGo HTML 搜索（uddg= URL 解码）
+    - YahooClient — Yahoo 搜索（Bing 驱动，RU=/RK= URL 解码）
+    - BraveClient — Brave 独立索引搜索
+    - GoogleClient — Google 搜索（高风险，TLS 指纹 + 多 snippet 选择器）
+    - BingClient — Bing 搜索（li.b_algo 选择器）
+  - **API 类（需 Key / 自建实例）**
+    - SearXNGClient — SearXNG 元搜索（一个接入 = 250+ 引擎）
+    - TavilyClient — Tavily AI 搜索（为 Agent 设计，内置内容提取）
+    - ExaClient — Exa 语义搜索（神经索引 + find_similar）
+    - SerperClient — Serper Google SERP API（含 Knowledge Graph）
+    - BraveApiClient — Brave 官方 REST API（免费 2000 次/月）
   - `web_search()` — 并发多引擎聚合搜索（asyncio.gather + URL 去重）
 - **新数据模型**
   - `WebSearchResult` — 统一网页搜索结果模型
-  - `WebSearchResponse` — 搜索响应别名
-  - `SourceType.WEB_DUCKDUCKGO / WEB_YAHOO / WEB_BRAVE` 枚举值
+  - 10 个 `SourceType.WEB_*` 枚举值
+- **新配置项**
+  - `searxng_url` / `tavily_api_key` / `exa_api_key` / `serper_api_key` / `brave_api_key`
 - **过盾特性**
-  - 所有引擎基于 `BaseScraper`，自动使用 curl_cffi TLS 指纹模拟
-  - 完整浏览器指纹头（Sec-CH-UA 系列）
-  - DuckDuckGo uddg= URL 重定向解码
-  - Yahoo RU=/RK= URL 重定向解码
-  - Brave 内部链接过滤
-- **测试和示例**
-  - 5 个网页搜索单元测试（URL 解码、去重、模型、导入）
-  - `examples/search_web.py` — 网页搜索示例
+  - 所有爬虫引擎基于 `BaseScraper`（curl_cffi TLS 指纹 + 浏览器头）
+  - Google/Bing 专门调优延迟和重试策略
+
+### Fixed
+- `BaseScraper.close()` 中 curl_cffi `AsyncSession.close()` 缺少 `await`（资源泄漏）
 
 ## [0.1.0] - 2026-04-03
 

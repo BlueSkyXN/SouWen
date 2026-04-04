@@ -7,13 +7,13 @@
 
 ## 🎯 简介
 
-SouWen（搜文）是一个 Python 工具库，为 AI Agent 提供统一的学术论文、专利信息和网页搜索接口。它整合了 19 个数据源，将不同 API 的返回结果归一化为统一的 Pydantic v2 数据模型，让 AI Agent 无需关心底层数据源差异。
+SouWen（搜文）是一个 Python 工具库，为 AI Agent 提供统一的学术论文、专利信息和网页搜索接口。它整合了 26 个数据源，将不同 API 的返回结果归一化为统一的 Pydantic v2 数据模型，让 AI Agent 无需关心底层数据源差异。
 
 ### 核心特性
 
-- **19 个数据源**：8 个论文源 + 8 个专利源 + 3 个搜索引擎，覆盖全球主要学术和专利数据库及网页搜索
+- **26 个数据源**：8 个论文源 + 8 个专利源 + 10 个搜索引擎，覆盖全球主要学术和专利数据库及网页搜索
 - **统一数据模型**：所有数据源返回 `PaperResult` / `PatentResult` / `WebSearchResult`，结构一致
-- **零配置即用**：9 个数据源无需 API Key（OpenAlex、Crossref、arXiv、DBLP、PatentsView、PQAI、DuckDuckGo、Yahoo、Brave）
+- **零配置即用**：13 个数据源无需 API Key（OpenAlex、Crossref、arXiv、DBLP、PatentsView、PQAI + DuckDuckGo、Yahoo、Brave、Google、Bing）
 - **异步优先**：全面使用 `httpx` async，支持高并发
 - **智能限流**：令牌桶 + 滑动窗口，每个数据源独立限流
 - **PDF 回退链**：5 级降级策略自动获取全文 PDF
@@ -138,14 +138,33 @@ async with OpenAlexClient() as client:
 | PatSnap | `PatSnapClient` | API Key | 172 司法管辖区 |
 | Google Patents | `GooglePatentsClient` | 爬虫 | 兜底方案 |
 
-### 网页搜索引擎（移植自 SoSearch Rust 项目）
+### 网页搜索引擎（10 个，含爬虫 + API）
+
+#### 爬虫类（无需 Key，零配置即用）
 
 | 引擎 | 客户端类 | 鉴权 | 特点 |
 |------|---------|------|------|
 | DuckDuckGo | `DuckDuckGoClient` | 无需 Key | HTML 轻量版，无 JS 依赖 |
 | Yahoo | `YahooClient` | 无需 Key | Bing 驱动，对 DC IP 宽容 |
 | Brave | `BraveClient` | 无需 Key | 独立索引，隐私友好 |
-| 聚合搜索 | `web_search()` | 无需 Key | 并发三引擎 + URL 去重 |
+| Google | `GoogleClient` | 无需 Key | 高风险，建议配代理 |
+| Bing | `BingClient` | 无需 Key | 反爬宽松，微软生态 |
+
+#### API 类（需 Key / 自建实例）
+
+| 服务 | 客户端类 | 鉴权 | 特点 |
+|------|---------|------|------|
+| SearXNG | `SearXNGClient` | 实例 URL | 一个接入 = 250+ 引擎 |
+| Tavily | `TavilyClient` | API Key | AI Agent 原生设计 |
+| Exa | `ExaClient` | API Key | 语义搜索（神经索引） |
+| Serper | `SerperClient` | API Key | Google 结构化 JSON |
+| Brave API | `BraveApiClient` | API Key | 官方 REST API，免费 2000 次/月 |
+
+#### 聚合搜索
+
+| 功能 | 函数 | 说明 |
+|------|------|------|
+| 聚合搜索 | `web_search()` | 并发三引擎 + URL 去重 |
 
 ## ⚙️ 配置
 
@@ -188,7 +207,7 @@ SouWen/
 │   ├── http_client.py      # httpx async + OAuth 2.0
 │   ├── paper/              # 8 个论文数据源
 │   ├── patent/             # 8 个专利数据源
-│   ├── web/                # 3 个搜索引擎（DuckDuckGo/Yahoo/Brave）
+│   ├── web/                # 10 个搜索引擎（5 爬虫 + 5 API）
 │   └── scraper/            # 爬虫兜底层
 ├── tests/
 ├── examples/

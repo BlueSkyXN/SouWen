@@ -129,6 +129,13 @@ class TestModels:
         assert SourceType.WEB_DUCKDUCKGO.value == "web_duckduckgo"
         assert SourceType.WEB_YAHOO.value == "web_yahoo"
         assert SourceType.WEB_BRAVE.value == "web_brave"
+        assert SourceType.WEB_GOOGLE.value == "web_google"
+        assert SourceType.WEB_BING.value == "web_bing"
+        assert SourceType.WEB_SEARXNG.value == "web_searxng"
+        assert SourceType.WEB_TAVILY.value == "web_tavily"
+        assert SourceType.WEB_EXA.value == "web_exa"
+        assert SourceType.WEB_SERPER.value == "web_serper"
+        assert SourceType.WEB_BRAVE_API.value == "web_brave_api"
         # 确保论文、专利、搜索源都存在
         paper_sources = [
             SourceType.OPENALEX, SourceType.SEMANTIC_SCHOLAR,
@@ -142,10 +149,13 @@ class TestModels:
         ]
         web_sources = [
             SourceType.WEB_DUCKDUCKGO, SourceType.WEB_YAHOO, SourceType.WEB_BRAVE,
+            SourceType.WEB_GOOGLE, SourceType.WEB_BING,
+            SourceType.WEB_SEARXNG, SourceType.WEB_TAVILY, SourceType.WEB_EXA,
+            SourceType.WEB_SERPER, SourceType.WEB_BRAVE_API,
         ]
         assert len(paper_sources) == 8
         assert len(patent_sources) == 8
-        assert len(web_sources) == 3
+        assert len(web_sources) == 10
 
 
 class TestExceptions:
@@ -231,11 +241,25 @@ class TestWebSearch:
     """网页搜索模块测试"""
 
     def test_web_module_imports(self):
-        """网页搜索模块导入"""
-        from souwen.web import DuckDuckGoClient, YahooClient, BraveClient, web_search
+        """网页搜索模块导入（全部 10 个引擎）"""
+        from souwen.web import (
+            DuckDuckGoClient, YahooClient, BraveClient,
+            GoogleClient, BingClient,
+            SearXNGClient, TavilyClient, ExaClient, SerperClient, BraveApiClient,
+            web_search,
+        )
+        # 爬虫引擎
         assert DuckDuckGoClient.ENGINE_NAME == "duckduckgo"
         assert YahooClient.ENGINE_NAME == "yahoo"
         assert BraveClient.ENGINE_NAME == "brave"
+        assert GoogleClient.ENGINE_NAME == "google"
+        assert BingClient.ENGINE_NAME == "bing"
+        # API 引擎
+        assert SearXNGClient.ENGINE_NAME == "searxng"
+        assert TavilyClient.ENGINE_NAME == "tavily"
+        assert ExaClient.ENGINE_NAME == "exa"
+        assert SerperClient.ENGINE_NAME == "serper"
+        assert BraveApiClient.ENGINE_NAME == "brave_api"
         assert callable(web_search)
 
     def test_ddg_url_decode(self):
@@ -277,3 +301,26 @@ class TestWebSearch:
         assert len(deduped) == 2
         assert deduped[0].title == "A"
         assert deduped[1].title == "C"
+
+    def test_google_url_decode(self):
+        """Google URL 重定向解码"""
+        from souwen.web.google import GoogleClient
+        # /url?q= 重定向
+        encoded = "/url?q=https%3A%2F%2Fwww.python.org&sa=U&ved=..."
+        assert GoogleClient._decode_google_url(encoded) == "https://www.python.org"
+        # 直接 URL
+        assert GoogleClient._decode_google_url("https://example.com") == "https://example.com"
+        # 内部链接过滤
+        assert GoogleClient._decode_google_url("/search?q=test") == ""
+
+    def test_api_engines_require_config(self):
+        """API 引擎缺少 Key 时报 ConfigError"""
+        from souwen.exceptions import ConfigError
+        from souwen.web.tavily import TavilyClient
+        from souwen.web.exa import ExaClient
+        from souwen.web.serper import SerperClient
+        from souwen.web.brave_api import BraveApiClient
+        import pytest
+        for cls in [TavilyClient, ExaClient, SerperClient, BraveApiClient]:
+            with pytest.raises(ConfigError):
+                cls()
