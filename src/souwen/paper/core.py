@@ -58,7 +58,7 @@ class CoreClient:
         }
 
         self._client = SouWenHttpClient(base_url=_BASE_URL, headers=headers)
-        self._limiter = TokenBucketLimiter(rate=_DEFAULT_RPS, capacity=_DEFAULT_RPS)
+        self._limiter = TokenBucketLimiter(rate=_DEFAULT_RPS, burst=_DEFAULT_RPS)
 
     # ------------------------------------------------------------------
     # async context manager
@@ -132,8 +132,7 @@ class CoreClient:
                 year=year,
                 publication_date=work.get("publishedDate"),
                 source=SourceType.CORE,
-                source_id=str(work.get("id", "")),
-                url=work.get("sourceFulltextUrls", [None])[0]
+                source_url=(work.get("sourceFulltextUrls") or [""])[0] or f"https://core.ac.uk/works/{work.get('id', '')}"
                 if work.get("sourceFulltextUrls")
                 else None,
                 pdf_url=download_url,

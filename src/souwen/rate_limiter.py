@@ -65,10 +65,22 @@ class SlidingWindowLimiter:
         self.window_seconds = window_seconds
         self._timestamps: deque[float] = deque()
         self._lock = asyncio.Lock()
+        self._retry_until: float = 0  # retry_after 暂停恢复时间点
+        self._original_max_requests: int = max_requests  # 暂停前的原始限制
 
     async def acquire(self) -> None:
         """获取许可，如果窗口已满则等待"""
         async with self._lock:
+            # 如果被 retry_after 暂停，等待恢复
+            if self._retry_until > 0:
+                wait = self._retry_until - time.monotonic()
+                if wait > 0:
+                    await asyncio.sleep(wait)
+                self._retry_until = 0
+                # 恢复原始限制
+                if self._original_max_requests > 0:
+                    self.max_requests = self._original_max_requests
+
             while True:
                 now = time.monotonic()
                 # 清理过期的时间戳
@@ -76,14 +88,17 @@ class SlidingWindowLimiter:
                 while self._timestamps and self._timestamps[0] < cutoff:
                     self._timestamps.popleft()
 
-                if len(self._timestamps) < self.max_requests:
+                if self.max_requests > 0 and len(self._timestamps) < self.max_requests:
                     self._timestamps.append(now)
                     return
 
                 # 等待最早的请求过期
-                oldest = self._timestamps[0]
-                wait_time = oldest + self.window_seconds - now + 0.01
-                await asyncio.sleep(max(0, wait_time))
+                if self._timestamps:
+                    oldest = self._timestamps[0]
+                    wait_time = oldest + self.window_seconds - now + 0.01
+                else:
+                    wait_time = 1.0  # 安全兜底
+                await asyncio.sleep(max(0.01, wait_time))
 
     def update_from_headers(
         self,
@@ -92,9 +107,9 @@ class SlidingWindowLimiter:
     ) -> None:
         """从响应头更新限流参数（用于 The Lens 等动态限流数据源）"""
         if remaining is not None and remaining <= 0 and retry_after:
-            # 暂停直到限流重置
-            self.max_requests = 0  # 临时阻止新请求
-            # 后续 acquire 会等待
+            # 暂停直到限流重置，记录恢复时间
+            self._original_max_requests = self.max_requests
+            self._retry_until = time.monotonic() + retry_after
         elif remaining is not None:
             # 动态调整窗口大小
             current_used = len(self._timestamps)

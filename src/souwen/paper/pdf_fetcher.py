@@ -66,7 +66,7 @@ async def _download_pdf(
         成功返回文件路径，失败返回 None。
     """
     try:
-        resp = await client.get(url, follow_redirects=True)
+        resp = await client.get(url)
 
         if resp.status_code != 200:
             logger.warning("PDF 下载失败 (HTTP %d): %s", resp.status_code, url)

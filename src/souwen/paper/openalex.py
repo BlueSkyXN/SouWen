@@ -40,7 +40,7 @@ class OpenAlexClient:
         cfg = get_config()
         self.mailto: str | None = mailto or getattr(cfg, "openalex_mailto", None)
         self._client = SouWenHttpClient(base_url=_BASE_URL)
-        self._limiter = TokenBucketLimiter(rate=_DEFAULT_RPS, capacity=_DEFAULT_RPS)
+        self._limiter = TokenBucketLimiter(rate=_DEFAULT_RPS, burst=_DEFAULT_RPS)
 
     # ------------------------------------------------------------------
     # async context manager
@@ -111,11 +111,11 @@ class OpenAlexClient:
                 authors.append(
                     Author(
                         name=author_obj.get("display_name", ""),
-                        affiliations=[
+                        affiliation="; ".join(
                             inst.get("display_name", "")
                             for inst in authorship.get("institutions", [])
                             if inst.get("display_name")
-                        ],
+                        ) or None,
                     )
                 )
 
@@ -147,8 +147,7 @@ class OpenAlexClient:
                 year=pub_year,
                 publication_date=pub_date,
                 source=SourceType.OPENALEX,
-                source_id=work.get("id", ""),
-                url=work.get("id"),
+                source_url=work.get("id", ""),
                 pdf_url=pdf_url,
                 citation_count=work.get("cited_by_count"),
                 extra={

@@ -10,7 +10,7 @@ from __future__ import annotations
 import logging
 from datetime import date
 from typing import Any
-from xml.etree import ElementTree as ET
+import defusedxml.ElementTree as ET
 
 from souwen.config import get_config
 from souwen.exceptions import ConfigError, NotFoundError, ParseError

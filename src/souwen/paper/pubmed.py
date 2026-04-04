@@ -9,7 +9,7 @@
 from __future__ import annotations
 
 import logging
-import xml.etree.ElementTree as ET
+import defusedxml.ElementTree as ET
 from typing import Any
 
 from souwen.config import get_config
@@ -46,7 +46,7 @@ class PubMedClient:
 
         self._client = SouWenHttpClient(base_url=_BASE_URL)
         rps = _KEYED_RPS if self.api_key else _NO_KEY_RPS
-        self._limiter = TokenBucketLimiter(rate=rps, capacity=rps)
+        self._limiter = TokenBucketLimiter(rate=rps, burst=rps)
 
     # ------------------------------------------------------------------
     # async context manager
@@ -135,7 +135,10 @@ class PubMedClient:
                             affiliations.append(aff_el.text)
                     if name:
                         authors.append(
-                            Author(name=name, affiliations=affiliations)
+                            Author(
+                                name=name,
+                                affiliation="; ".join(affiliations) if affiliations else None,
+                            )
                         )
 
             # 发表日期
@@ -193,8 +196,7 @@ class PubMedClient:
                 year=year,
                 publication_date=pub_date,
                 source=SourceType.PUBMED,
-                source_id=pmid,
-                url=f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/" if pmid else None,
+                source_url=f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/" if pmid else "",
                 pdf_url=None,  # PubMed 不直接提供 PDF
                 citation_count=None,
                 extra={

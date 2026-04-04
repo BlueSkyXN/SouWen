@@ -10,7 +10,7 @@ from __future__ import annotations
 
 import logging
 import re
-import xml.etree.ElementTree as ET
+import defusedxml.ElementTree as ET
 from typing import Any
 
 from souwen.exceptions import ParseError
@@ -49,7 +49,7 @@ class ArxivClient:
         self._client = SouWenHttpClient(base_url=_BASE_URL)
         # 每 3 秒 1 次请求
         self._limiter = TokenBucketLimiter(
-            rate=_RATE_LIMIT_RPS, capacity=1.0
+            rate=_RATE_LIMIT_RPS, burst=1.0
         )
 
     # ------------------------------------------------------------------
@@ -105,7 +105,10 @@ class ArxivClient:
                 affiliation_els = author_el.findall("arxiv:affiliation", _NS)
                 affiliations = [cls._text(a) for a in affiliation_els if cls._text(a)]
                 if name:
-                    authors.append(Author(name=name, affiliations=affiliations))
+                    authors.append(Author(
+                        name=name,
+                        affiliation="; ".join(affiliations) if affiliations else None,
+                    ))
 
             # ID & 链接
             entry_id = cls._text(entry.find("atom:id", _NS))
@@ -162,8 +165,7 @@ class ArxivClient:
                 year=year,
                 publication_date=pub_date,
                 source=SourceType.ARXIV,
-                source_id=arxiv_id,
-                url=html_url or f"https://arxiv.org/abs/{arxiv_id}",
+                source_url=html_url or f"https://arxiv.org/abs/{arxiv_id}",
                 pdf_url=pdf_url,
                 citation_count=None,  # arXiv 不提供引用数
                 extra={

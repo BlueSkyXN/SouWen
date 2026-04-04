@@ -129,8 +129,7 @@ class SemanticScholarClient:
                 year=data.get("year"),
                 publication_date=data.get("publicationDate"),
                 source=SourceType.SEMANTIC_SCHOLAR,
-                source_id=data.get("paperId", ""),
-                url=f"https://www.semanticscholar.org/paper/{data.get('paperId', '')}",
+                source_url=f"https://www.semanticscholar.org/paper/{data.get('paperId', '')}",
                 pdf_url=pdf_url,
                 citation_count=data.get("citationCount"),
                 extra={

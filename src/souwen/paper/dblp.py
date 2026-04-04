@@ -32,7 +32,7 @@ class DblpClient:
     def __init__(self) -> None:
         """初始化 DBLP 客户端。"""
         self._client = SouWenHttpClient(base_url=_SEARCH_BASE_URL)
-        self._limiter = TokenBucketLimiter(rate=_DEFAULT_RPS, capacity=_DEFAULT_RPS)
+        self._limiter = TokenBucketLimiter(rate=_DEFAULT_RPS, burst=_DEFAULT_RPS)
 
     # ------------------------------------------------------------------
     # async context manager
@@ -111,8 +111,7 @@ class DblpClient:
                 year=year,
                 publication_date=None,
                 source=SourceType.DBLP,
-                source_id=info.get("key", hit.get("@id", "")),
-                url=url,
+                source_url=url,
                 pdf_url=None,  # DBLP 不直接提供 PDF
                 citation_count=None,
                 extra={
