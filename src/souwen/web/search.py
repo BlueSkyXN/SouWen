@@ -20,6 +20,8 @@ from souwen.models import WebSearchResult, WebSearchResponse, SourceType
 from souwen.web.duckduckgo import DuckDuckGoClient
 from souwen.web.yahoo import YahooClient
 from souwen.web.brave import BraveClient
+from souwen.web.google import GoogleClient
+from souwen.web.bing import BingClient
 
 logger = logging.getLogger("souwen.web.search")
 
@@ -83,9 +85,13 @@ async def web_search(
         "duckduckgo": DuckDuckGoClient,
         "yahoo": YahooClient,
         "brave": BraveClient,
+        "google": GoogleClient,
+        "bing": BingClient,
     }
     
-    selected = engines or list(engine_map.keys())
+    # 默认使用 3 个最稳定的免费引擎
+    # Google/Bing 爬虫风险较高，需显式指定
+    selected = engines or ["duckduckgo", "yahoo", "brave"]
     
     tasks = []
     for name in selected:

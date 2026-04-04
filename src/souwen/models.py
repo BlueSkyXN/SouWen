@@ -36,6 +36,13 @@ class SourceType(str, Enum):
     WEB_DUCKDUCKGO = "web_duckduckgo"
     WEB_YAHOO = "web_yahoo"
     WEB_BRAVE = "web_brave"
+    WEB_GOOGLE = "web_google"
+    WEB_BING = "web_bing"
+    WEB_SEARXNG = "web_searxng"
+    WEB_TAVILY = "web_tavily"
+    WEB_EXA = "web_exa"
+    WEB_SERPER = "web_serper"
+    WEB_BRAVE_API = "web_brave_api"
 
 
 class Author(BaseModel):
