@@ -47,7 +47,7 @@ class CrossrefClient:
         }
 
         self._client = SouWenHttpClient(base_url=_BASE_URL, headers=headers)
-        self._limiter = TokenBucketLimiter(rate=_DEFAULT_RPS, capacity=_DEFAULT_RPS)
+        self._limiter = TokenBucketLimiter(rate=_DEFAULT_RPS, burst=_DEFAULT_RPS)
 
     # ------------------------------------------------------------------
     # async context manager
@@ -98,7 +98,10 @@ class CrossrefClient:
                     if aff.get("name")
                 ]
                 if full_name:
-                    authors.append(Author(name=full_name, affiliations=affiliations))
+                    authors.append(Author(
+                        name=full_name,
+                        affiliation="; ".join(affiliations) if affiliations else None,
+                    ))
 
             # 摘要（部分记录含 HTML 标签，做基础清理）
             abstract_raw: str = item.get("abstract", "")
@@ -143,8 +146,7 @@ class CrossrefClient:
                 year=year,
                 publication_date=pub_date,
                 source=SourceType.CROSSREF,
-                source_id=doi or "",
-                url=f"https://doi.org/{doi}" if doi else None,
+                source_url=f"https://doi.org/{doi}" if doi else "",
                 pdf_url=pdf_url,
                 citation_count=item.get("is-referenced-by-count"),
                 extra={

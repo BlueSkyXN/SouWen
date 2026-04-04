@@ -55,7 +55,7 @@ class UnpaywallClient:
             )
 
         self._client = SouWenHttpClient(base_url=_BASE_URL)
-        self._limiter = TokenBucketLimiter(rate=_DEFAULT_RPS, capacity=_DEFAULT_RPS)
+        self._limiter = TokenBucketLimiter(rate=_DEFAULT_RPS, burst=_DEFAULT_RPS)
 
     # ------------------------------------------------------------------
     # async context manager
@@ -130,8 +130,7 @@ class UnpaywallClient:
             year=data.get("year"),
             publication_date=data.get("published_date"),
             source=SourceType.UNPAYWALL,
-            source_id=doi,
-            url=data.get("doi_url"),
+            source_url=data.get("doi_url", ""),
             pdf_url=pdf_url,
             citation_count=None,
             extra={
