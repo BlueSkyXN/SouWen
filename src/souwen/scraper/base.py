@@ -1,11 +1,14 @@
 """爬虫基类
 
 提供所有爬虫共用的基础功能：
+- TLS 指纹模拟（curl_cffi impersonate，绕过 JA3 检测）
+- 浏览器级请求头（Sec-CH-UA 系列）
 - 自适应限速（被 429 后指数退避）
-- 随机 User-Agent 轮换
 - 随机请求间隔
 - 自动重试（指数退避）
 - 可选代理支持
+
+技术方案参考 OpenRouter RegBot 的过盾策略。
 """
 
 from __future__ import annotations
@@ -19,27 +22,31 @@ import httpx
 
 from souwen.config import get_config
 from souwen.exceptions import RateLimitError, SourceUnavailableError
+from souwen.fingerprint import get_random_fingerprint
 
 logger = logging.getLogger("souwen.scraper")
 
-# 常用 User-Agent 池
-_USER_AGENTS = [
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:126.0) Gecko/20100101 Firefox/126.0",
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:126.0) Gecko/20100101 Firefox/126.0",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36 Edg/125.0.0.0",
-]
+# 尝试导入 curl_cffi（TLS 指纹模拟）
+_HAS_CURL_CFFI = False
+try:
+    from curl_cffi.requests import AsyncSession as CurlAsyncSession
+    _HAS_CURL_CFFI = True
+    logger.debug("curl_cffi 可用，启用 TLS 指纹模拟")
+except ImportError:
+    logger.debug("curl_cffi 不可用，回退到 httpx（可能被 JA3 检测）")
 
 
 class BaseScraper:
-    """所有爬虫的基类，强制礼貌爬取
+    """所有爬虫的基类，强制礼貌爬取 + TLS 指纹模拟
+
+    优先使用 curl_cffi（Chrome TLS 指纹），回退到 httpx。
+    所有请求自带完整浏览器指纹头（Sec-CH-UA 系列）。
 
     Args:
         min_delay: 请求最小间隔（秒）
         max_delay: 请求最大间隔（秒）
         max_retries: 最大重试次数
+        use_curl_cffi: 是否使用 curl_cffi（默认自动检测）
     """
 
     def __init__(
@@ -47,18 +54,33 @@ class BaseScraper:
         min_delay: float = 2.0,
         max_delay: float = 5.0,
         max_retries: int = 3,
+        use_curl_cffi: bool | None = None,
     ):
         self.min_delay = min_delay
         self.max_delay = max_delay
         self.max_retries = max_retries
         self._backoff_multiplier = 1.0  # 自适应退避系数
+        self._fingerprint = get_random_fingerprint()
         config = get_config()
 
-        self._client = httpx.AsyncClient(
-            timeout=httpx.Timeout(config.timeout),
-            proxy=config.proxy,
-            follow_redirects=True,
-        )
+        # 优先 curl_cffi（TLS 指纹模拟），回退 httpx
+        self._use_curl_cffi = use_curl_cffi if use_curl_cffi is not None else _HAS_CURL_CFFI
+        self._curl_session: Any = None
+        self._httpx_client: httpx.AsyncClient | None = None
+
+        if self._use_curl_cffi and _HAS_CURL_CFFI:
+            logger.info("使用 curl_cffi (impersonate=%s)", self._fingerprint.impersonate)
+            self._curl_session = CurlAsyncSession(
+                impersonate=self._fingerprint.impersonate,
+                proxy=config.proxy,
+                timeout=config.timeout,
+            )
+        else:
+            self._httpx_client = httpx.AsyncClient(
+                timeout=httpx.Timeout(config.timeout),
+                proxy=config.proxy,
+                follow_redirects=True,
+            )
 
     async def __aenter__(self) -> "BaseScraper":
         return self
@@ -67,12 +89,11 @@ class BaseScraper:
         await self.close()
 
     async def close(self) -> None:
-        """关闭底层 HTTP 连接"""
-        await self._client.aclose()
-
-    def _random_ua(self) -> str:
-        """随机选择 User-Agent"""
-        return random.choice(_USER_AGENTS)
+        """关闭底层连接"""
+        if self._curl_session is not None:
+            self._curl_session.close()
+        if self._httpx_client is not None:
+            await self._httpx_client.aclose()
 
     async def _polite_delay(self) -> None:
         """礼貌等待：随机间隔 + 自适应退避"""
@@ -90,6 +111,9 @@ class BaseScraper:
     ) -> httpx.Response:
         """带重试和礼貌延迟的请求方法
 
+        优先使用 curl_cffi（TLS 指纹模拟），回退到 httpx。
+        自动携带完整浏览器指纹头。
+
         Args:
             url: 目标 URL
             method: HTTP 方法
@@ -97,13 +121,14 @@ class BaseScraper:
             headers: 额外请求头
 
         Returns:
-            httpx.Response
+            httpx.Response（或 curl_cffi 兼容的响应对象）
 
         Raises:
             RateLimitError: 重试耗尽仍被限流
             SourceUnavailableError: 服务不可用
         """
-        request_headers = {"User-Agent": self._random_ua()}
+        # 使用浏览器指纹头
+        request_headers = dict(self._fingerprint.headers)
         if headers:
             request_headers.update(headers)
 
@@ -113,12 +138,9 @@ class BaseScraper:
             await self._polite_delay()
 
             try:
-                resp = await self._client.request(
-                    method, url, params=params, headers=request_headers
-                )
+                resp = await self._do_request(method, url, params, request_headers)
 
                 if resp.status_code == 429:
-                    # 被限流，加大退避
                     self._backoff_multiplier = min(self._backoff_multiplier * 2, 16.0)
                     retry_after = resp.headers.get("Retry-After")
                     wait = float(retry_after) if retry_after else (2 ** attempt)
@@ -135,11 +157,11 @@ class BaseScraper:
                     await asyncio.sleep(2 ** attempt)
                     continue
 
-                # 成功请求，逐步恢复退避系数
+                # 成功，逐步恢复退避系数
                 self._backoff_multiplier = max(1.0, self._backoff_multiplier * 0.8)
                 return resp
 
-            except (httpx.TimeoutException, httpx.ConnectError) as e:
+            except Exception as e:
                 last_error = e
                 logger.warning("请求失败 (%s)，第 %d 次重试", type(e).__name__, attempt)
                 await asyncio.sleep(2 ** attempt)
@@ -147,3 +169,24 @@ class BaseScraper:
         if last_error:
             raise SourceUnavailableError(f"重试 {self.max_retries} 次后仍失败: {url}") from last_error
         raise RateLimitError(f"重试 {self.max_retries} 次后仍被限流: {url}")
+
+    async def _do_request(
+        self,
+        method: str,
+        url: str,
+        params: dict[str, Any] | None,
+        headers: dict[str, str],
+    ) -> Any:
+        """执行实际请求（curl_cffi 或 httpx）"""
+        if self._use_curl_cffi and self._curl_session is not None:
+            # curl_cffi 路径 — TLS 指纹模拟
+            return await self._curl_session.request(
+                method, url, params=params, headers=headers
+            )
+        elif self._httpx_client is not None:
+            # httpx 回退路径
+            return await self._httpx_client.request(
+                method, url, params=params, headers=headers
+            )
+        else:
+            raise RuntimeError("无可用 HTTP 客户端")
