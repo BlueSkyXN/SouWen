@@ -8,6 +8,8 @@ from souwen.models import (
     Author,
     Applicant,
     SourceType,
+    WebSearchResult,
+    WebSearchResponse,
 )
 from souwen.exceptions import (
     SouWenError,
@@ -88,11 +90,46 @@ class TestModels:
         assert resp.total_results == 100
         assert len(resp.results) == 1
 
+    def test_web_search_result(self):
+        """网页搜索结果模型"""
+        result = WebSearchResult(
+            source=SourceType.WEB_DUCKDUCKGO,
+            title="Python Tutorial",
+            url="https://docs.python.org/3/tutorial/",
+            snippet="The Python Tutorial — Python 3 documentation",
+            engine="duckduckgo",
+        )
+        assert result.title == "Python Tutorial"
+        assert result.engine == "duckduckgo"
+        assert result.source == SourceType.WEB_DUCKDUCKGO
+
+    def test_web_search_response(self):
+        """网页搜索响应"""
+        resp = WebSearchResponse(
+            query="python",
+            source=SourceType.WEB_DUCKDUCKGO,
+            total_results=1,
+            results=[
+                WebSearchResult(
+                    source=SourceType.WEB_DUCKDUCKGO,
+                    title="Python.org",
+                    url="https://www.python.org",
+                    snippet="The official home of Python",
+                    engine="duckduckgo",
+                ),
+            ],
+        )
+        assert resp.total_results == 1
+        assert len(resp.results) == 1
+
     def test_source_type_enum(self):
         """数据源枚举完整性"""
         assert SourceType.OPENALEX.value == "openalex"
         assert SourceType.GOOGLE_PATENTS.value == "google_patents"
-        # 确保论文和专利源都存在
+        assert SourceType.WEB_DUCKDUCKGO.value == "web_duckduckgo"
+        assert SourceType.WEB_YAHOO.value == "web_yahoo"
+        assert SourceType.WEB_BRAVE.value == "web_brave"
+        # 确保论文、专利、搜索源都存在
         paper_sources = [
             SourceType.OPENALEX, SourceType.SEMANTIC_SCHOLAR,
             SourceType.CROSSREF, SourceType.ARXIV, SourceType.DBLP,
@@ -103,8 +140,12 @@ class TestModels:
             SourceType.EPO_OPS, SourceType.CNIPA, SourceType.THE_LENS,
             SourceType.PQAI, SourceType.PATSNAP, SourceType.GOOGLE_PATENTS,
         ]
+        web_sources = [
+            SourceType.WEB_DUCKDUCKGO, SourceType.WEB_YAHOO, SourceType.WEB_BRAVE,
+        ]
         assert len(paper_sources) == 8
         assert len(patent_sources) == 8
+        assert len(web_sources) == 3
 
 
 class TestExceptions:
@@ -184,3 +225,55 @@ class TestRateLimiter:
         """滑动窗口从响应头更新"""
         limiter = SlidingWindowLimiter(max_requests=100, window_seconds=60.0)
         limiter.update_from_headers(remaining=50)
+
+
+class TestWebSearch:
+    """网页搜索模块测试"""
+
+    def test_web_module_imports(self):
+        """网页搜索模块导入"""
+        from souwen.web import DuckDuckGoClient, YahooClient, BraveClient, web_search
+        assert DuckDuckGoClient.ENGINE_NAME == "duckduckgo"
+        assert YahooClient.ENGINE_NAME == "yahoo"
+        assert BraveClient.ENGINE_NAME == "brave"
+        assert callable(web_search)
+
+    def test_ddg_url_decode(self):
+        """DuckDuckGo URL 重定向解码"""
+        from souwen.web.duckduckgo import DuckDuckGoClient
+        # 正常重定向 URL
+        encoded = "//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.python.org&rut=abc"
+        assert DuckDuckGoClient._decode_ddg_url(encoded) == "https://www.python.org"
+        # 无重定向，原样返回
+        assert DuckDuckGoClient._decode_ddg_url("https://example.com") == "https://example.com"
+
+    def test_yahoo_url_decode(self):
+        """Yahoo URL 重定向解码"""
+        from souwen.web.yahoo import YahooClient
+        # 正常重定向 URL
+        encoded = "https://r.search.yahoo.com/RU=https%3A%2F%2Fwww.python.org/RK=2/RS=abc"
+        assert YahooClient._decode_yahoo_url(encoded) == "https://www.python.org"
+        # 无重定向，原样返回
+        assert YahooClient._decode_yahoo_url("https://example.com") == "https://example.com"
+
+    def test_deduplicate(self):
+        """URL 去重"""
+        from souwen.web.search import _deduplicate
+        results = [
+            WebSearchResult(
+                source=SourceType.WEB_DUCKDUCKGO, title="A",
+                url="https://example.com/", snippet="", engine="ddg",
+            ),
+            WebSearchResult(
+                source=SourceType.WEB_YAHOO, title="B",
+                url="https://example.com", snippet="", engine="yahoo",
+            ),
+            WebSearchResult(
+                source=SourceType.WEB_BRAVE, title="C",
+                url="https://other.com", snippet="", engine="brave",
+            ),
+        ]
+        deduped = _deduplicate(results)
+        assert len(deduped) == 2
+        assert deduped[0].title == "A"
+        assert deduped[1].title == "C"
