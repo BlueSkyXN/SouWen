@@ -151,7 +151,9 @@ class GooglePatentsClient:
     # ------------------------------------------------------------------
 
     async def _search_static(
-        self, query: str, num_results: int,
+        self,
+        query: str,
+        num_results: int,
     ) -> list[PatentResult]:
         """使用 httpx + BeautifulSoup 抓取搜索结果"""
         try:
@@ -176,7 +178,8 @@ class GooglePatentsClient:
         return self._parse_search_page(soup)
 
     async def _get_patent_static(
-        self, patent_id: str,
+        self,
+        patent_id: str,
     ) -> PatentResult | None:
         """使用 httpx + BeautifulSoup 抓取专利详情"""
         try:
@@ -218,26 +221,18 @@ class GooglePatentsClient:
                 title = title_elem.get_text(strip=True) if title_elem else ""
 
                 # 专利号
-                id_elem = item.select_one(
-                    ".result-id, [data-patent-id], span.patent-number"
-                )
+                id_elem = item.select_one(".result-id, [data-patent-id], span.patent-number")
                 patent_id = id_elem.get_text(strip=True) if id_elem else ""
 
                 # 摘要
-                abs_elem = item.select_one(
-                    ".result-snippet, .abstract, [id*='abstract']"
-                )
+                abs_elem = item.select_one(".result-snippet, .abstract, [id*='abstract']")
                 abstract = abs_elem.get_text(strip=True) if abs_elem else None
 
                 # 申请人
-                assignee_elem = item.select_one(
-                    ".result-assignee, [id*='assignee']"
-                )
+                assignee_elem = item.select_one(".result-assignee, [id*='assignee']")
                 applicants: list[Applicant] = []
                 if assignee_elem:
-                    applicants.append(
-                        Applicant(name=assignee_elem.get_text(strip=True))
-                    )
+                    applicants.append(Applicant(name=assignee_elem.get_text(strip=True)))
 
                 if title or patent_id:
                     results.append(
@@ -259,20 +254,17 @@ class GooglePatentsClient:
 
     @staticmethod
     def _parse_detail_page(
-        soup: Any, patent_id: str,
+        soup: Any,
+        patent_id: str,
     ) -> PatentResult | None:
         """解析专利详情页面"""
         try:
             # 标题
-            title_elem = soup.select_one(
-                "h1#title, [data-invention-title], .patent-title"
-            )
+            title_elem = soup.select_one("h1#title, [data-invention-title], .patent-title")
             title = title_elem.get_text(strip=True) if title_elem else ""
 
             # 摘要
-            abs_elem = soup.select_one(
-                "section#abstract .abstract, div.abstract"
-            )
+            abs_elem = soup.select_one("section#abstract .abstract, div.abstract")
             abstract = abs_elem.get_text(strip=True) if abs_elem else None
 
             # 发明人
@@ -285,8 +277,7 @@ class GooglePatentsClient:
             # 受让人 / 申请人
             applicants: list[Applicant] = []
             for assignee in soup.select(
-                "[itemprop='assigneeCurrent'] [itemprop='name'],"
-                "[data-assignee]"
+                "[itemprop='assigneeCurrent'] [itemprop='name'],[data-assignee]"
             ):
                 name = assignee.get_text(strip=True)
                 if name:
@@ -303,9 +294,7 @@ class GooglePatentsClient:
             pub_date: date | None = None
             date_elem = soup.select_one("[itemprop='publicationDate']")
             if date_elem:
-                pub_date = _safe_date(
-                    date_elem.get("content", date_elem.get_text(strip=True))
-                )
+                pub_date = _safe_date(date_elem.get("content", date_elem.get_text(strip=True)))
 
             # 权利要求
             claims: str | None = None
@@ -334,7 +323,9 @@ class GooglePatentsClient:
     # ------------------------------------------------------------------
 
     async def _search_playwright(
-        self, query: str, num_results: int,
+        self,
+        query: str,
+        num_results: int,
     ) -> list[PatentResult]:
         """使用 Playwright 动态渲染搜索结果"""
         try:
@@ -368,7 +359,8 @@ class GooglePatentsClient:
         return results
 
     async def _get_patent_playwright(
-        self, patent_id: str,
+        self,
+        patent_id: str,
     ) -> PatentResult | None:
         """使用 Playwright 动态渲染专利详情"""
         try:

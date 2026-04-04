@@ -103,6 +103,8 @@ class DblpClient:
             # URL
             url: str | None = info.get("url") or info.get("ee")
 
+            dblp_venue: str | None = info.get("venue") or None
+
             return PaperResult(
                 title=title,
                 authors=authors,
@@ -114,7 +116,8 @@ class DblpClient:
                 source_url=url,
                 pdf_url=None,  # DBLP 不直接提供 PDF
                 citation_count=None,
-                extra={
+                venue=dblp_venue,
+                raw={
                     "venue": info.get("venue"),
                     "type": info.get("type"),
                     "pages": info.get("pages"),
@@ -171,7 +174,7 @@ class DblpClient:
 
         return SearchResponse(
             query=query,
-            total=total,
+            total_results=total,
             page=(first // hits) + 1 if hits else 1,
             per_page=hits,
             results=results,

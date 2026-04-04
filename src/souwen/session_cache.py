@@ -184,13 +184,9 @@ class SessionCache:
     def clear_expired(self) -> int:
         """清理过期缓存，返回清理数量"""
         now = datetime.now(timezone.utc).isoformat()
-        cursor = self._conn.execute(
-            "DELETE FROM sessions WHERE expires_at <= ?", (now,)
-        )
+        cursor = self._conn.execute("DELETE FROM sessions WHERE expires_at <= ?", (now,))
         count = cursor.rowcount
-        cursor = self._conn.execute(
-            "DELETE FROM oauth_tokens WHERE expires_at <= ?", (now,)
-        )
+        cursor = self._conn.execute("DELETE FROM oauth_tokens WHERE expires_at <= ?", (now,))
         count += cursor.rowcount
         self._conn.commit()
         if count:

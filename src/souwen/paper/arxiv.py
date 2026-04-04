@@ -48,9 +48,7 @@ class ArxivClient:
         """初始化 arXiv 客户端。"""
         self._client = SouWenHttpClient(base_url=_BASE_URL)
         # 每 3 秒 1 次请求
-        self._limiter = TokenBucketLimiter(
-            rate=_RATE_LIMIT_RPS, burst=1.0
-        )
+        self._limiter = TokenBucketLimiter(rate=_RATE_LIMIT_RPS, burst=1.0)
 
     # ------------------------------------------------------------------
     # async context manager
@@ -105,10 +103,12 @@ class ArxivClient:
                 affiliation_els = author_el.findall("arxiv:affiliation", _NS)
                 affiliations = [cls._text(a) for a in affiliation_els if cls._text(a)]
                 if name:
-                    authors.append(Author(
-                        name=name,
-                        affiliation="; ".join(affiliations) if affiliations else None,
-                    ))
+                    authors.append(
+                        Author(
+                            name=name,
+                            affiliation="; ".join(affiliations) if affiliations else None,
+                        )
+                    )
 
             # ID & 链接
             entry_id = cls._text(entry.find("atom:id", _NS))
@@ -168,7 +168,7 @@ class ArxivClient:
                 source_url=html_url or f"https://arxiv.org/abs/{arxiv_id}",
                 pdf_url=pdf_url,
                 citation_count=None,  # arXiv 不提供引用数
-                extra={
+                raw={
                     "categories": categories,
                     "primary_category": categories[0] if categories else None,
                     "comment": comment,
@@ -224,7 +224,10 @@ class ArxivClient:
         resp = await self._client.get("/query", params=params)
         xml_text = resp.text
 
-        root = ET.fromstring(xml_text)
+        try:
+            root = ET.fromstring(xml_text)
+        except ET.ParseError as exc:
+            raise ParseError(f"arXiv XML 解析失败: {exc}") from exc
 
         # 总数
         total_el = root.find("opensearch:totalResults", _NS)
@@ -241,7 +244,7 @@ class ArxivClient:
 
         return SearchResponse(
             query=query or ",".join(id_list or []),
-            total=total,
+            total_results=total,
             page=(start // max_results) + 1 if max_results else 1,
             per_page=max_results,
             results=results,

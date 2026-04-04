@@ -41,9 +41,7 @@ class CrossrefClient:
         self.mailto: str | None = mailto or getattr(cfg, "crossref_mailto", None)
 
         headers: dict[str, str] = {
-            "User-Agent": f"SouWen/1.0 (mailto:{self.mailto})"
-            if self.mailto
-            else "SouWen/1.0",
+            "User-Agent": f"SouWen/1.0 (mailto:{self.mailto})" if self.mailto else "SouWen/1.0",
         }
 
         self._client = SouWenHttpClient(base_url=_BASE_URL, headers=headers)
@@ -93,15 +91,15 @@ class CrossrefClient:
                 name_parts = [a.get("given", ""), a.get("family", "")]
                 full_name = " ".join(p for p in name_parts if p).strip()
                 affiliations = [
-                    aff.get("name", "")
-                    for aff in a.get("affiliation", [])
-                    if aff.get("name")
+                    aff.get("name", "") for aff in a.get("affiliation", []) if aff.get("name")
                 ]
                 if full_name:
-                    authors.append(Author(
-                        name=full_name,
-                        affiliation="; ".join(affiliations) if affiliations else None,
-                    ))
+                    authors.append(
+                        Author(
+                            name=full_name,
+                            affiliation="; ".join(affiliations) if affiliations else None,
+                        )
+                    )
 
             # 摘要（部分记录含 HTML 标签，做基础清理）
             abstract_raw: str = item.get("abstract", "")
@@ -138,6 +136,8 @@ class CrossrefClient:
                     pdf_url = link.get("URL")
                     break
 
+            container_title = (item.get("container-title") or [None])[0]
+
             return PaperResult(
                 title=title,
                 authors=authors,
@@ -149,7 +149,8 @@ class CrossrefClient:
                 source_url=f"https://doi.org/{doi}" if doi else "",
                 pdf_url=pdf_url,
                 citation_count=item.get("is-referenced-by-count"),
-                extra={
+                journal=container_title,
+                raw={
                     "type": item.get("type"),
                     "container_title": (item.get("container-title") or [None])[0],
                     "issn": item.get("ISSN"),
@@ -207,7 +208,7 @@ class CrossrefClient:
 
         return SearchResponse(
             query=query,
-            total=message.get("total-results", len(results)),
+            total_results=message.get("total-results", len(results)),
             page=(offset // rows) + 1 if rows else 1,
             per_page=rows,
             results=results,

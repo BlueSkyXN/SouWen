@@ -38,7 +38,7 @@ class OpenAlexClient:
             mailto: 联系邮箱。未提供时从全局配置读取。
         """
         cfg = get_config()
-        self.mailto: str | None = mailto or getattr(cfg, "openalex_mailto", None)
+        self.mailto: str | None = mailto or cfg.openalex_email
         self._client = SouWenHttpClient(base_url=_BASE_URL)
         self._limiter = TokenBucketLimiter(rate=_DEFAULT_RPS, burst=_DEFAULT_RPS)
 
@@ -115,7 +115,8 @@ class OpenAlexClient:
                             inst.get("display_name", "")
                             for inst in authorship.get("institutions", [])
                             if inst.get("display_name")
-                        ) or None,
+                        )
+                        or None,
                     )
                 )
 
@@ -123,13 +124,9 @@ class OpenAlexClient:
             raw_doi: str | None = work.get("doi")
             doi: str | None = None
             if raw_doi:
-                doi = raw_doi.replace("https://doi.org/", "").replace(
-                    "http://doi.org/", ""
-                )
+                doi = raw_doi.replace("https://doi.org/", "").replace("http://doi.org/", "")
 
-            abstract = self._reconstruct_abstract(
-                work.get("abstract_inverted_index")
-            )
+            abstract = self._reconstruct_abstract(work.get("abstract_inverted_index"))
 
             # 发表年份
             pub_year: int | None = work.get("publication_year")
@@ -138,6 +135,11 @@ class OpenAlexClient:
             # 最佳 OA PDF 链接
             best_oa = work.get("best_oa_location") or {}
             pdf_url: str | None = best_oa.get("pdf_url")
+
+            # 期刊/会议
+            primary_loc = work.get("primary_location") or {}
+            source_info = primary_loc.get("source") or {}
+            journal_name: str | None = source_info.get("display_name") or None
 
             return PaperResult(
                 title=work.get("display_name", work.get("title", "")),
@@ -150,13 +152,11 @@ class OpenAlexClient:
                 source_url=work.get("id", ""),
                 pdf_url=pdf_url,
                 citation_count=work.get("cited_by_count"),
-                extra={
+                journal=journal_name,
+                raw={
                     "type": work.get("type"),
                     "is_oa": work.get("open_access", {}).get("is_oa"),
-                    "concepts": [
-                        c.get("display_name")
-                        for c in work.get("concepts", [])[:5]
-                    ],
+                    "concepts": [c.get("display_name") for c in work.get("concepts", [])[:5]],
                 },
             )
         except Exception as exc:
@@ -207,7 +207,7 @@ class OpenAlexClient:
 
         return SearchResponse(
             query=query,
-            total=meta.get("count", len(results)),
+            total_results=meta.get("count", len(results)),
             page=page,
             per_page=per_page,
             results=results,
@@ -229,9 +229,7 @@ class OpenAlexClient:
         await self._limiter.acquire()
         params = self._common_params()
 
-        resp = await self._client.get(
-            f"/works/https://doi.org/{doi}", params=params
-        )
+        resp = await self._client.get(f"/works/https://doi.org/{doi}", params=params)
         if resp.status_code == 404:
             raise NotFoundError(f"OpenAlex 未找到 DOI: {doi}")
 

@@ -103,9 +103,7 @@ class PatentsViewClient:
         resp = await self._http.post("/patent/", json=payload)
         data = self._parse_json(resp)
 
-        patents = [
-            self._to_patent_result(p) for p in data.get("patents", [])
-        ]
+        patents = [self._to_patent_result(p) for p in data.get("patents", [])]
         return SearchResponse(
             query=str(query),
             source=SourceType.PATENTSVIEW,
@@ -205,27 +203,23 @@ class PatentsViewClient:
                 or f"{a.get('assignee_first_name', '')} {a.get('assignee_last_name', '')}".strip()
             )
             if name:
-                applicants.append(
-                    Applicant(name=name, country=a.get("assignee_country"))
-                )
+                applicants.append(Applicant(name=name, country=a.get("assignee_country")))
 
         # 发明人列表
         inventors: list[str] = []
         for inv in raw.get("inventors", []) or []:
-            full = f"{inv.get('inventor_first_name', '')} {inv.get('inventor_last_name', '')}".strip()
+            full = (
+                f"{inv.get('inventor_first_name', '')} {inv.get('inventor_last_name', '')}".strip()
+            )
             if full:
                 inventors.append(full)
 
         # CPC / IPC 分类号
         cpc_codes = [
-            c.get("cpc_group_id", "")
-            for c in (raw.get("cpcs", []) or [])
-            if c.get("cpc_group_id")
+            c.get("cpc_group_id", "") for c in (raw.get("cpcs", []) or []) if c.get("cpc_group_id")
         ]
         ipc_codes = [
-            i.get("ipc_group", "")
-            for i in (raw.get("ipcs", []) or [])
-            if i.get("ipc_group")
+            i.get("ipc_group", "") for i in (raw.get("ipcs", []) or []) if i.get("ipc_group")
         ]
 
         patent_id = raw.get("patent_id", "")

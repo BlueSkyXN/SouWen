@@ -35,11 +35,13 @@ F = TypeVar("F", bound=Callable[..., Any])
 http_retry = retry(
     stop=stop_after_attempt(3),
     wait=wait_exponential(multiplier=1, min=2, max=10),
-    retry=retry_if_exception_type((
-        httpx.TimeoutException,
-        httpx.ConnectError,
-        SourceUnavailableError,
-    )),
+    retry=retry_if_exception_type(
+        (
+            httpx.TimeoutException,
+            httpx.ConnectError,
+            SourceUnavailableError,
+        )
+    ),
     before_sleep=before_sleep_log(logger, logging.WARNING),
     reraise=True,
 )
@@ -49,13 +51,15 @@ http_retry = retry(
 scraper_retry = retry(
     stop=stop_after_attempt(5),
     wait=wait_exponential(multiplier=2, min=5, max=30),
-    retry=retry_if_exception_type((
-        RateLimitError,
-        httpx.TimeoutException,
-        httpx.ConnectError,
-        RuntimeError,
-        TimeoutError,
-    )),
+    retry=retry_if_exception_type(
+        (
+            RateLimitError,
+            httpx.TimeoutException,
+            httpx.ConnectError,
+            RuntimeError,
+            TimeoutError,
+        )
+    ),
     before_sleep=before_sleep_log(logger, logging.WARNING),
     reraise=True,
 )
@@ -85,6 +89,7 @@ def poll_retry(
         interval: 每次尝试间隔（秒）
         timeout_message: 超时错误信息
     """
+
     def decorator(func: F) -> F:
         @wraps(func)
         async def wrapper(*args: Any, **kwargs: Any) -> Any:
@@ -95,10 +100,14 @@ def poll_retry(
                 if attempt < max_attempts - 1:
                     logger.debug(
                         "轮询第 %d/%d 次未获得结果，%0.1fs 后重试",
-                        attempt + 1, max_attempts, interval,
+                        attempt + 1,
+                        max_attempts,
+                        interval,
                     )
                     await asyncio.sleep(interval)
             total = max_attempts * interval
             raise TimeoutError(f"{timeout_message} ({total:.0f}s)")
+
         return wrapper  # type: ignore[return-value]
+
     return decorator

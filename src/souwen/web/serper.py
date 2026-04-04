@@ -41,7 +41,8 @@ class SerperClient(SouWenHttpClient):
         self.api_key = api_key or config.serper_api_key
         if not self.api_key:
             raise ConfigError(
-                "serper_api_key", "Serper",
+                "serper_api_key",
+                "Serper",
                 "https://serper.dev/",
             )
         super().__init__(base_url=self.BASE_URL)
@@ -78,7 +79,12 @@ class SerperClient(SouWenHttpClient):
             json=payload,
             headers={"X-API-KEY": self.api_key, "Content-Type": "application/json"},
         )
-        data = resp.json()
+        try:
+            data = resp.json()
+        except Exception as e:
+            from souwen.exceptions import ParseError
+
+            raise ParseError(f"Serper 响应解析失败: {e}") from e
 
         results: list[WebSearchResult] = []
         # Serper 返回 organic 结果
@@ -96,14 +102,16 @@ class SerperClient(SouWenHttpClient):
                 raw["date"] = item["date"]
             if item.get("sitelinks"):
                 raw["sitelinks"] = item["sitelinks"]
-            results.append(WebSearchResult(
-                source=SourceType.WEB_SERPER,
-                title=title,
-                url=url,
-                snippet=item.get("snippet", "").strip(),
-                engine=self.ENGINE_NAME,
-                raw=raw,
-            ))
+            results.append(
+                WebSearchResult(
+                    source=SourceType.WEB_SERPER,
+                    title=title,
+                    url=url,
+                    snippet=item.get("snippet", "").strip(),
+                    engine=self.ENGINE_NAME,
+                    raw=raw,
+                )
+            )
 
         # Knowledge Graph 数据（如果有）
         kg = data.get("knowledgeGraph")

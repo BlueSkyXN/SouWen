@@ -104,7 +104,8 @@ class UsptoOdpClient:
         )
 
     async def get_transactions(
-        self, app_number: str,
+        self,
+        app_number: str,
     ) -> list[dict[str, Any]]:
         """获取申请事务历史
 
@@ -127,7 +128,8 @@ class UsptoOdpClient:
         return data.get("transactions", data.get("results", []))
 
     async def get_assignments(
-        self, patent_id: str,
+        self,
+        patent_id: str,
     ) -> list[dict[str, Any]]:
         """获取专利转让记录
 
@@ -146,7 +148,8 @@ class UsptoOdpClient:
         return data.get("assignments", data.get("results", []))
 
     async def get_ptab_decisions(
-        self, query: str,
+        self,
+        query: str,
     ) -> list[dict[str, Any]]:
         """获取 PTAB 审判决定
 
@@ -165,7 +168,8 @@ class UsptoOdpClient:
         return data.get("results", [])
 
     async def get_office_actions(
-        self, app_number: str,
+        self,
+        app_number: str,
     ) -> list[dict[str, Any]]:
         """获取审查意见通知书 (Office Actions)
 
@@ -224,12 +228,8 @@ class UsptoOdpClient:
                 inventors.append(name)
 
         # 分类号
-        ipc_codes: list[str] = [
-            c for c in (raw.get("ipcCodes", []) or []) if isinstance(c, str)
-        ]
-        cpc_codes: list[str] = [
-            c for c in (raw.get("cpcCodes", []) or []) if isinstance(c, str)
-        ]
+        ipc_codes: list[str] = [c for c in (raw.get("ipcCodes", []) or []) if isinstance(c, str)]
+        cpc_codes: list[str] = [c for c in (raw.get("cpcCodes", []) or []) if isinstance(c, str)]
 
         return PatentResult(
             source=SourceType.USPTO_ODP,

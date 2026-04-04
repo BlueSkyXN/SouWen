@@ -44,13 +44,13 @@ class CoreClient:
             ConfigError: API Key 未配置。
         """
         cfg = get_config()
-        self.api_key: str = api_key or getattr(cfg, "core_api_key", "") or ""
+        self.api_key: str = api_key or cfg.core_api_key or ""
 
         if not self.api_key:
             raise ConfigError(
-                "CORE API Key 未配置。请前往 "
-                f"{_REGISTER_URL} 注册免费 Key，"
-                "并设置 core_api_key 配置项。"
+                key="core_api_key",
+                service="CORE",
+                register_url=_REGISTER_URL,
             )
 
         headers: dict[str, str] = {
@@ -120,9 +120,17 @@ class CoreClient:
             download_url: str | None = work.get("downloadUrl")
 
             # 语言
-            language: str | None = work.get("language", {}).get("code") if isinstance(
-                work.get("language"), dict
-            ) else work.get("language")
+            language: str | None = (
+                work.get("language", {}).get("code")
+                if isinstance(work.get("language"), dict)
+                else work.get("language")
+            )
+
+            # 期刊
+            journals = work.get("journals") or []
+            journal_name: str | None = (
+                journals[0].get("title") if journals and isinstance(journals[0], dict) else None
+            )
 
             return PaperResult(
                 title=work.get("title", ""),
@@ -132,12 +140,14 @@ class CoreClient:
                 year=year,
                 publication_date=work.get("publishedDate"),
                 source=SourceType.CORE,
-                source_url=(work.get("sourceFulltextUrls") or [""])[0] or f"https://core.ac.uk/works/{work.get('id', '')}"
+                source_url=(work.get("sourceFulltextUrls") or [""])[0]
+                or f"https://core.ac.uk/works/{work.get('id', '')}"
                 if work.get("sourceFulltextUrls")
                 else None,
                 pdf_url=download_url,
                 citation_count=work.get("citationCount"),
-                extra={
+                journal=journal_name,
+                raw={
                     "language": language,
                     "publisher": work.get("publisher"),
                     "journals": work.get("journals"),
@@ -186,7 +196,7 @@ class CoreClient:
 
         return SearchResponse(
             query=query,
-            total=data.get("totalHits", len(results)),
+            total_results=data.get("totalHits", len(results)),
             page=(offset // limit) + 1 if limit else 1,
             per_page=limit,
             results=results,

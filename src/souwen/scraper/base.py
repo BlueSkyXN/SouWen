@@ -30,6 +30,7 @@ logger = logging.getLogger("souwen.scraper")
 _HAS_CURL_CFFI = False
 try:
     from curl_cffi.requests import AsyncSession as CurlAsyncSession
+
     _HAS_CURL_CFFI = True
     logger.debug("curl_cffi 可用，启用 TLS 指纹模拟")
 except ImportError:
@@ -144,18 +145,18 @@ class BaseScraper:
                     # 被限流：退避系数翻倍（上限 16x），大幅增加后续请求间隔
                     self._backoff_multiplier = min(self._backoff_multiplier * 2, 16.0)
                     retry_after = resp.headers.get("Retry-After")
-                    wait = float(retry_after) if retry_after else (2 ** attempt)
-                    logger.warning(
-                        "被限流 (429)，第 %d 次重试，等待 %.1fs", attempt, wait
-                    )
+                    try:
+                        wait = float(retry_after) if retry_after else (2**attempt)
+                    except (ValueError, OverflowError):
+                        wait = float(2**attempt)
+                    wait = min(wait, 120.0)
+                    logger.warning("被限流 (429)，第 %d 次重试，等待 %.1fs", attempt, wait)
                     await asyncio.sleep(wait)
                     continue
 
                 if resp.status_code >= 500:
-                    logger.warning(
-                        "服务器错误 (%d)，第 %d 次重试", resp.status_code, attempt
-                    )
-                    await asyncio.sleep(2 ** attempt)
+                    logger.warning("服务器错误 (%d)，第 %d 次重试", resp.status_code, attempt)
+                    await asyncio.sleep(2**attempt)
                     continue
 
                 # 请求成功：退避系数乘 0.8 逐步回落（而非直接重置为 1，避免抖动）
@@ -165,10 +166,12 @@ class BaseScraper:
             except Exception as e:
                 last_error = e
                 logger.warning("请求失败 (%s)，第 %d 次重试", type(e).__name__, attempt)
-                await asyncio.sleep(2 ** attempt)
+                await asyncio.sleep(2**attempt)
 
         if last_error:
-            raise SourceUnavailableError(f"重试 {self.max_retries} 次后仍失败: {url}") from last_error
+            raise SourceUnavailableError(
+                f"重试 {self.max_retries} 次后仍失败: {url}"
+            ) from last_error
         raise RateLimitError(f"重试 {self.max_retries} 次后仍被限流: {url}")
 
     async def _do_request(
@@ -181,13 +184,9 @@ class BaseScraper:
         """执行实际请求（curl_cffi 或 httpx）"""
         if self._use_curl_cffi and self._curl_session is not None:
             # curl_cffi 路径 — TLS 指纹模拟
-            return await self._curl_session.request(
-                method, url, params=params, headers=headers
-            )
+            return await self._curl_session.request(method, url, params=params, headers=headers)
         elif self._httpx_client is not None:
             # httpx 回退路径
-            return await self._httpx_client.request(
-                method, url, params=params, headers=headers
-            )
+            return await self._httpx_client.request(method, url, params=params, headers=headers)
         else:
             raise RuntimeError("无可用 HTTP 客户端")

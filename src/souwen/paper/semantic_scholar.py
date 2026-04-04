@@ -49,9 +49,7 @@ class SemanticScholarClient:
             api_key: Semantic Scholar API Key。未提供时从全局配置读取。
         """
         cfg = get_config()
-        self.api_key: str | None = api_key or getattr(
-            cfg, "semantic_scholar_api_key", None
-        )
+        self.api_key: str | None = api_key or getattr(cfg, "semantic_scholar_api_key", None)
 
         headers: dict[str, str] = {}
         if self.api_key:
@@ -104,10 +102,7 @@ class SemanticScholarClient:
             ParseError: 解析失败。
         """
         try:
-            authors = [
-                Author(name=a.get("name", ""))
-                for a in data.get("authors", [])
-            ]
+            authors = [Author(name=a.get("name", "")) for a in data.get("authors", [])]
 
             external_ids: dict[str, str] = data.get("externalIds", {}) or {}
             doi = external_ids.get("DOI")
@@ -121,6 +116,8 @@ class SemanticScholarClient:
             tldr_obj: dict[str, str] | None = data.get("tldr")
             tldr_text: str | None = tldr_obj.get("text") if tldr_obj else None
 
+            venue_name: str | None = data.get("venue") or None
+
             return PaperResult(
                 title=data.get("title", ""),
                 authors=authors,
@@ -132,9 +129,10 @@ class SemanticScholarClient:
                 source_url=f"https://www.semanticscholar.org/paper/{data.get('paperId', '')}",
                 pdf_url=pdf_url,
                 citation_count=data.get("citationCount"),
-                extra={
+                tldr=tldr_text,
+                venue=venue_name,
+                raw={
                     "venue": data.get("venue"),
-                    "tldr": tldr_text,
                     "arxiv_id": arxiv_id,
                     "reference_count": data.get("referenceCount"),
                     "is_open_access": data.get("isOpenAccess"),
@@ -188,7 +186,7 @@ class SemanticScholarClient:
 
         return SearchResponse(
             query=query,
-            total=data.get("total", len(results)),
+            total_results=data.get("total", len(results)),
             page=(offset // limit) + 1 if limit else 1,
             per_page=limit,
             results=results,

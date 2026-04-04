@@ -184,9 +184,7 @@ class GooglePatentsScraper(BaseScraper):
         date_str = data.get("publication_date", "")
         if date_str and len(date_str) == 8:
             try:
-                pub_date = date(
-                    int(date_str[:4]), int(date_str[4:6]), int(date_str[6:8])
-                )
+                pub_date = date(int(date_str[:4]), int(date_str[4:6]), int(date_str[6:8]))
             except ValueError:
                 pass
 
@@ -260,12 +258,10 @@ class GooglePatentsScraper(BaseScraper):
 
         # 提取 IPC/CPC 分类号
         ipc_codes = [
-            el.get_text(strip=True)
-            for el in soup.select(".IPC .code, [itemprop='ipcCode']")
+            el.get_text(strip=True) for el in soup.select(".IPC .code, [itemprop='ipcCode']")
         ]
         cpc_codes = [
-            el.get_text(strip=True)
-            for el in soup.select(".CPC .code, [itemprop='cpcCode']")
+            el.get_text(strip=True) for el in soup.select(".CPC .code, [itemprop='cpcCode']")
         ]
 
         return PatentResult(

@@ -138,20 +138,36 @@ class TestModels:
         assert SourceType.WEB_BRAVE_API.value == "web_brave_api"
         # 确保论文、专利、搜索源都存在
         paper_sources = [
-            SourceType.OPENALEX, SourceType.SEMANTIC_SCHOLAR,
-            SourceType.CROSSREF, SourceType.ARXIV, SourceType.DBLP,
-            SourceType.CORE, SourceType.PUBMED, SourceType.UNPAYWALL,
+            SourceType.OPENALEX,
+            SourceType.SEMANTIC_SCHOLAR,
+            SourceType.CROSSREF,
+            SourceType.ARXIV,
+            SourceType.DBLP,
+            SourceType.CORE,
+            SourceType.PUBMED,
+            SourceType.UNPAYWALL,
         ]
         patent_sources = [
-            SourceType.PATENTSVIEW, SourceType.USPTO_ODP,
-            SourceType.EPO_OPS, SourceType.CNIPA, SourceType.THE_LENS,
-            SourceType.PQAI, SourceType.PATSNAP, SourceType.GOOGLE_PATENTS,
+            SourceType.PATENTSVIEW,
+            SourceType.USPTO_ODP,
+            SourceType.EPO_OPS,
+            SourceType.CNIPA,
+            SourceType.THE_LENS,
+            SourceType.PQAI,
+            SourceType.PATSNAP,
+            SourceType.GOOGLE_PATENTS,
         ]
         web_sources = [
-            SourceType.WEB_DUCKDUCKGO, SourceType.WEB_YAHOO, SourceType.WEB_BRAVE,
-            SourceType.WEB_GOOGLE, SourceType.WEB_BING,
-            SourceType.WEB_SEARXNG, SourceType.WEB_TAVILY, SourceType.WEB_EXA,
-            SourceType.WEB_SERPER, SourceType.WEB_BRAVE_API,
+            SourceType.WEB_DUCKDUCKGO,
+            SourceType.WEB_YAHOO,
+            SourceType.WEB_BRAVE,
+            SourceType.WEB_GOOGLE,
+            SourceType.WEB_BING,
+            SourceType.WEB_SEARXNG,
+            SourceType.WEB_TAVILY,
+            SourceType.WEB_EXA,
+            SourceType.WEB_SERPER,
+            SourceType.WEB_BRAVE_API,
         ]
         assert len(paper_sources) == 8
         assert len(patent_sources) == 8
@@ -243,11 +259,19 @@ class TestWebSearch:
     def test_web_module_imports(self):
         """网页搜索模块导入（全部 10 个引擎）"""
         from souwen.web import (
-            DuckDuckGoClient, YahooClient, BraveClient,
-            GoogleClient, BingClient,
-            SearXNGClient, TavilyClient, ExaClient, SerperClient, BraveApiClient,
+            DuckDuckGoClient,
+            YahooClient,
+            BraveClient,
+            GoogleClient,
+            BingClient,
+            SearXNGClient,
+            TavilyClient,
+            ExaClient,
+            SerperClient,
+            BraveApiClient,
             web_search,
         )
+
         # 爬虫引擎
         assert DuckDuckGoClient.ENGINE_NAME == "duckduckgo"
         assert YahooClient.ENGINE_NAME == "yahoo"
@@ -265,6 +289,7 @@ class TestWebSearch:
     def test_ddg_url_decode(self):
         """DuckDuckGo URL 重定向解码"""
         from souwen.web.duckduckgo import DuckDuckGoClient
+
         # 正常重定向 URL
         encoded = "//duckduckgo.com/l/?uddg=https%3A%2F%2Fwww.python.org&rut=abc"
         assert DuckDuckGoClient._decode_ddg_url(encoded) == "https://www.python.org"
@@ -274,6 +299,7 @@ class TestWebSearch:
     def test_yahoo_url_decode(self):
         """Yahoo URL 重定向解码"""
         from souwen.web.yahoo import YahooClient
+
         # 正常重定向 URL
         encoded = "https://r.search.yahoo.com/RU=https%3A%2F%2Fwww.python.org/RK=2/RS=abc"
         assert YahooClient._decode_yahoo_url(encoded) == "https://www.python.org"
@@ -283,18 +309,28 @@ class TestWebSearch:
     def test_deduplicate(self):
         """URL 去重"""
         from souwen.web.search import _deduplicate
+
         results = [
             WebSearchResult(
-                source=SourceType.WEB_DUCKDUCKGO, title="A",
-                url="https://example.com/", snippet="", engine="ddg",
+                source=SourceType.WEB_DUCKDUCKGO,
+                title="A",
+                url="https://example.com/",
+                snippet="",
+                engine="ddg",
             ),
             WebSearchResult(
-                source=SourceType.WEB_YAHOO, title="B",
-                url="https://example.com", snippet="", engine="yahoo",
+                source=SourceType.WEB_YAHOO,
+                title="B",
+                url="https://example.com",
+                snippet="",
+                engine="yahoo",
             ),
             WebSearchResult(
-                source=SourceType.WEB_BRAVE, title="C",
-                url="https://other.com", snippet="", engine="brave",
+                source=SourceType.WEB_BRAVE,
+                title="C",
+                url="https://other.com",
+                snippet="",
+                engine="brave",
             ),
         ]
         deduped = _deduplicate(results)
@@ -305,6 +341,7 @@ class TestWebSearch:
     def test_google_url_decode(self):
         """Google URL 重定向解码"""
         from souwen.web.google import GoogleClient
+
         # /url?q= 重定向
         encoded = "/url?q=https%3A%2F%2Fwww.python.org&sa=U&ved=..."
         assert GoogleClient._decode_google_url(encoded) == "https://www.python.org"
@@ -321,6 +358,7 @@ class TestWebSearch:
         from souwen.web.serper import SerperClient
         from souwen.web.brave_api import BraveApiClient
         import pytest
+
         for cls in [TavilyClient, ExaClient, SerperClient, BraveApiClient]:
             with pytest.raises(ConfigError):
                 cls()
@@ -332,6 +370,7 @@ class TestUnifiedSearch:
     def test_search_facade_imports(self):
         """统一搜索模块导入"""
         from souwen.search import search, search_papers, search_patents, web_search
+
         assert callable(search)
         assert callable(search_papers)
         assert callable(search_patents)
@@ -340,6 +379,7 @@ class TestUnifiedSearch:
     def test_search_paper_sources_mapping(self):
         """论文数据源映射完整性"""
         from souwen.search import _PAPER_SOURCES, _DEFAULT_PAPER_SOURCES
+
         assert len(_PAPER_SOURCES) == 7  # 7 sources (unpaywall excluded as DOI resolver)
         for s in _DEFAULT_PAPER_SOURCES:
             assert s in _PAPER_SOURCES, f"默认源 {s} 不在映射中"
@@ -347,6 +387,7 @@ class TestUnifiedSearch:
     def test_search_patent_sources_mapping(self):
         """专利数据源映射完整性"""
         from souwen.search import _PATENT_SOURCES, _DEFAULT_PATENT_SOURCES
+
         assert len(_PATENT_SOURCES) == 8  # 8 patent sources
         for s in _DEFAULT_PATENT_SOURCES:
             assert s in _PATENT_SOURCES, f"默认源 {s} 不在映射中"
@@ -355,6 +396,7 @@ class TestUnifiedSearch:
     async def test_search_invalid_domain(self):
         """搜索无效领域抛出 ValueError"""
         from souwen.search import search
+
         with pytest.raises(ValueError, match="未知搜索领域"):
             await search("test", domain="invalid")
 
@@ -365,6 +407,7 @@ class TestYAMLConfig:
     def test_yaml_load_empty(self):
         """无 YAML 文件时返回空字典"""
         from souwen.config import _load_yaml_config
+
         # In test env, no souwen.yaml exists in CWD
         result = _load_yaml_config()
         assert isinstance(result, dict)
@@ -372,6 +415,7 @@ class TestYAMLConfig:
     def test_reload_config(self):
         """reload_config 返回新配置"""
         from souwen.config import reload_config, get_config
+
         cfg1 = get_config()
         cfg2 = reload_config()
         assert cfg1.timeout == cfg2.timeout
@@ -379,6 +423,7 @@ class TestYAMLConfig:
     def test_config_yaml_example_exists(self):
         """souwen.example.yaml 存在"""
         from pathlib import Path
+
         example = Path("/Users/sky/Github/SouWen/souwen.example.yaml")
         assert example.exists()
 
@@ -389,21 +434,24 @@ class TestCLI:
     def test_cli_app_exists(self):
         """CLI app 可导入"""
         from souwen.cli import app
+
         assert app is not None
 
     def test_cli_mask_value(self):
         """Key 脱敏"""
         from souwen.cli import _mask_value
+
         assert _mask_value(None) == "[dim]未设置[/dim]"
         assert _mask_value("abcdef123") == "abcd***"
         assert _mask_value("ab") == "a***"
 
     def test_cli_all_sources_data(self):
         """数据源清单完整性"""
-        from souwen.cli import _ALL_SOURCES
-        assert len(_ALL_SOURCES["paper"]) == 8
-        assert len(_ALL_SOURCES["patent"]) == 8
-        assert len(_ALL_SOURCES["web"]) == 10
+        from souwen.models import ALL_SOURCES
+
+        assert len(ALL_SOURCES["paper"]) == 8
+        assert len(ALL_SOURCES["patent"]) == 8
+        assert len(ALL_SOURCES["web"]) == 10
 
 
 class TestServer:
@@ -413,6 +461,7 @@ class TestServer:
         """服务模块可导入"""
         try:
             from souwen.server.app import app
+
             assert app is not None
             assert app.title == "SouWen API"
         except ImportError:
@@ -422,6 +471,7 @@ class TestServer:
         """路由端点存在"""
         try:
             from souwen.server.app import app
+
             routes = [r.path for r in app.routes]
             assert "/health" in routes
         except ImportError:

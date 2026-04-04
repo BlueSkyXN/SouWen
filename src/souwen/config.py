@@ -29,6 +29,7 @@ load_dotenv()
 
 class SouWenConfig(BaseModel):
     """全局配置"""
+
     # ===== 论文数据源 =====
     openalex_email: str | None = None
     semantic_scholar_api_key: str | None = None
@@ -49,11 +50,11 @@ class SouWenConfig(BaseModel):
     # ===== 常规搜索 =====
     # 爬虫引擎 (DuckDuckGo/Yahoo/Brave/Google/Bing) 无需 Key
     # API 引擎需要对应的 Key
-    searxng_url: str | None = None        # SearXNG 自建实例 URL
-    tavily_api_key: str | None = None     # Tavily AI 搜索
-    exa_api_key: str | None = None        # Exa 语义搜索
-    serper_api_key: str | None = None     # Serper (Google SERP)
-    brave_api_key: str | None = None      # Brave Search 官方 API
+    searxng_url: str | None = None  # SearXNG 自建实例 URL
+    tavily_api_key: str | None = None  # Tavily AI 搜索
+    exa_api_key: str | None = None  # Exa 语义搜索
+    serper_api_key: str | None = None  # Serper (Google SERP)
+    brave_api_key: str | None = None  # Brave Search 官方 API
 
     # ===== 通用 =====
     proxy: str | None = None

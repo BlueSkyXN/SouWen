@@ -67,20 +67,20 @@ async def web_search(
     **kwargs,
 ) -> WebSearchResponse:
     """并发多引擎聚合搜索
-    
+
     同时查询 DuckDuckGo、Yahoo、Brave（或指定子集），
     聚合结果并可选去重。
-    
+
     Args:
         query: 搜索关键词
         engines: 引擎列表，默认全部 ["duckduckgo", "yahoo", "brave"]
         max_results_per_engine: 每个引擎最大返回数
         deduplicate: 是否按 URL 去重
         **kwargs: 传递给各引擎构造函数的参数（如 use_curl_cffi）
-        
+
     Returns:
         WebSearchResponse 聚合结果
-        
+
     Example:
         >>> resp = await web_search("Python asyncio tutorial")
         >>> for r in resp.results:
@@ -100,11 +100,11 @@ async def web_search(
         "serper": SerperClient,
         "brave_api": BraveApiClient,
     }
-    
+
     # 默认使用 3 个最稳定的免费引擎
     # Google/Bing 爬虫风险较高，需显式指定
     selected = engines or ["duckduckgo", "yahoo", "brave"]
-    
+
     tasks = []
     for name in selected:
         cls = engine_map.get(name)
@@ -112,25 +112,27 @@ async def web_search(
             logger.warning("未知引擎: %s，跳过", name)
             continue
         tasks.append(_search_engine(cls, query, max_results_per_engine, **kwargs))
-    
+
     # 并发执行所有引擎（等价 Rust 的 FuturesUnordered + tokio::spawn）
     engine_results = await asyncio.gather(*tasks, return_exceptions=True)
-    
+
     all_results: list[WebSearchResult] = []
     for result in engine_results:
         if isinstance(result, list):
             all_results.extend(result)
         elif isinstance(result, Exception):
             logger.warning("引擎返回异常: %s", result)
-    
+
     if deduplicate:
         all_results = _deduplicate(all_results)
-    
+
     logger.info(
         "聚合搜索完成: %d 条结果 (query=%s, engines=%s)",
-        len(all_results), query, selected,
+        len(all_results),
+        query,
+        selected,
     )
-    
+
     return WebSearchResponse(
         query=query,
         source=SourceType.WEB_DUCKDUCKGO,  # 聚合搜索标记为主引擎
