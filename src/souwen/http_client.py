@@ -33,7 +33,7 @@ from souwen.exceptions import (
 
 logger = logging.getLogger("souwen.http")
 
-DEFAULT_USER_AGENT = "SouWen/0.1.0 (Academic & Patent Search Tool; https://github.com/souwen)"
+DEFAULT_USER_AGENT = "SouWen/0.3.0 (Academic & Patent Search Tool; https://github.com/souwen)"
 
 
 class SouWenHttpClient:

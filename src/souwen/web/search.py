@@ -22,6 +22,11 @@ from souwen.web.yahoo import YahooClient
 from souwen.web.brave import BraveClient
 from souwen.web.google import GoogleClient
 from souwen.web.bing import BingClient
+from souwen.web.searxng import SearXNGClient
+from souwen.web.tavily import TavilyClient
+from souwen.web.exa import ExaClient
+from souwen.web.serper import SerperClient
+from souwen.web.brave_api import BraveApiClient
 
 logger = logging.getLogger("souwen.web.search")
 
@@ -82,11 +87,18 @@ async def web_search(
         ...     print(f"[{r.engine}] {r.title} → {r.url}")
     """
     engine_map: dict[str, type] = {
+        # 爬虫引擎（无需 API Key）
         "duckduckgo": DuckDuckGoClient,
         "yahoo": YahooClient,
         "brave": BraveClient,
         "google": GoogleClient,
         "bing": BingClient,
+        # API 引擎（需要对应 Key）
+        "searxng": SearXNGClient,
+        "tavily": TavilyClient,
+        "exa": ExaClient,
+        "serper": SerperClient,
+        "brave_api": BraveApiClient,
     }
     
     # 默认使用 3 个最稳定的免费引擎

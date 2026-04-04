@@ -95,6 +95,57 @@ async def main():
 asyncio.run(main())
 ```
 
+### CLI 命令行
+
+```bash
+# 搜索论文
+souwen search paper "transformer attention" -n 5
+
+# 搜索专利
+souwen search patent "lithium battery" -s patentsview,pqai
+
+# 搜索网页
+souwen search web "Python asyncio" -e duckduckgo,brave
+
+# JSON 输出（适合管道处理）
+souwen search paper "deep learning" --json | jq '.[]'
+
+# 查看所有数据源
+souwen sources
+
+# 显示配置
+souwen config show
+
+# 生成配置模板
+souwen config init
+```
+
+### API 服务
+
+```bash
+# 安装 server 依赖
+pip install souwen[server]
+
+# 启动服务（默认 :8000）
+souwen serve --port 8000
+
+# 调用 API
+curl "http://localhost:8000/api/v1/search/paper?q=transformer&per_page=5"
+curl "http://localhost:8000/api/v1/search/web?q=Python&engines=duckduckgo,brave"
+curl "http://localhost:8000/api/v1/sources"
+
+# OpenAPI 文档
+open http://localhost:8000/docs
+```
+
+### YAML 配置
+
+支持通过 `souwen.yaml` 配置（优先级: 环境变量 > ./souwen.yaml > ~/.config/souwen/config.yaml > .env > 默认值）:
+
+```bash
+souwen config init  # 生成模板
+```
+
 ### PDF 全文获取
 
 ```python
