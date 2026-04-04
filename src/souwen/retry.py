@@ -45,6 +45,7 @@ http_retry = retry(
 )
 
 # === Level 2: 反爬/限流场景重试（5 次，更长退避） ===
+# 包含 RuntimeError 是因为 curl_cffi 在连接异常时会抛出 RuntimeError
 scraper_retry = retry(
     stop=stop_after_attempt(5),
     wait=wait_exponential(multiplier=2, min=5, max=30),
@@ -77,6 +78,7 @@ def poll_retry(
     """轮询重试装饰器
 
     以固定间隔重复调用函数，直到返回非 None/非 False 结果。
+    适用于异步任务完成状态检查等场景。
 
     Args:
         max_attempts: 最大尝试次数

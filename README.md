@@ -196,22 +196,84 @@ SOUWEN_TIMEOUT=30                  # 超时秒数
 
 ```
 SouWen/
+├── .github/workflows/     # CI/CD (lint + test + publish)
 ├── pyproject.toml
 ├── .env.example
 ├── src/souwen/
 │   ├── __init__.py
-│   ├── config.py           # 统一配置管理
-│   ├── models.py           # Pydantic v2 数据模型
-│   ├── exceptions.py       # 异常体系
+│   ├── config.py           # 统一配置管理（环境变量 / .env / 默认值）
+│   ├── models.py           # Pydantic v2 统一数据模型
+│   ├── exceptions.py       # 6 类自定义异常体系
 │   ├── rate_limiter.py     # 限流器（令牌桶 + 滑动窗口）
-│   ├── http_client.py      # httpx async + OAuth 2.0
+│   ├── http_client.py      # httpx async + OAuth 2.0 Token 自动刷新
+│   ├── fingerprint.py      # Chrome TLS 指纹库（绕过 JA3 检测）
+│   ├── session_cache.py    # SQLite 会话/Token 持久化缓存
+│   ├── retry.py            # 分层重试策略（http/scraper/captcha）
 │   ├── paper/              # 8 个论文数据源
 │   ├── patent/             # 8 个专利数据源
 │   ├── web/                # 10 个搜索引擎（5 爬虫 + 5 API）
-│   └── scraper/            # 爬虫兜底层
-├── tests/
-├── examples/
+│   └── scraper/            # 爬虫兜底层（TLS 指纹 + 礼貌爬取）
+├── tests/                  # 单元测试
+├── examples/               # 使用示例
+│   ├── search_papers.py    # 论文搜索示例
+│   ├── search_patents.py   # 专利搜索示例
+│   └── search_web.py       # 网页搜索示例
 └── local/                  # 设计文档（不纳入包）
+```
+
+## 🔒 反爬技术栈
+
+SouWen 集成了完整的反爬绕过方案（移植自 OpenRouter RegBot 项目）：
+
+| 技术 | 说明 | 模块 |
+|------|------|------|
+| **TLS 指纹模拟** | curl_cffi impersonate Chrome 120/124 | `fingerprint.py` |
+| **浏览器请求头** | 13 个头（Sec-CH-UA 系列、Sec-Fetch 系列） | `fingerprint.py` |
+| **分层重试** | http (3次) / scraper (5次) / captcha (5次) | `retry.py` |
+| **会话缓存** | SQLite 持久化 OAuth Token / Cookie | `session_cache.py` |
+| **礼貌爬取** | 随机间隔 + 自适应退避 + 429 处理 | `scraper/base.py` |
+
+> curl_cffi 为可选依赖，未安装时自动回退到 httpx。
+
+## 🛠️ 高级用法
+
+### AI Agent 搜索 API（Tavily / Exa）
+
+```python
+from souwen.web import TavilyClient, ExaClient
+
+# Tavily — 为 AI Agent 设计，返回清洗后的内容
+async with TavilyClient(api_key="tvly-xxx") as client:
+    resp = await client.search("LLM fine-tuning best practices", search_depth="advanced")
+    for r in resp.results:
+        print(f"{r.title}: {r.snippet[:100]}...")
+
+# Exa — 语义搜索 + 相似页面发现
+async with ExaClient(api_key="exa-xxx") as client:
+    resp = await client.search("papers about transformer attention mechanisms")
+    similar = await client.find_similar("https://arxiv.org/abs/1706.03762")
+```
+
+### SearXNG 元搜索（一个接入 = 250+ 引擎）
+
+```python
+from souwen.web import SearXNGClient
+
+# 需自建 SearXNG 实例: docker run -p 8888:8080 searxng/searxng
+async with SearXNGClient(instance_url="http://localhost:8888") as client:
+    resp = await client.search("quantum computing", engines="google,bing,duckduckgo")
+```
+
+### 自定义聚合搜索引擎组合
+
+```python
+from souwen.web import web_search
+
+# 默认使用 DuckDuckGo + Yahoo + Brave
+resp = await web_search("Python tutorial")
+
+# 指定引擎子集（含高风险引擎）
+resp = await web_search("Rust vs Go", engines=["duckduckgo", "google", "bing"])
 ```
 
 ## 🧪 开发
@@ -220,15 +282,20 @@ SouWen/
 # 安装开发依赖
 pip install -e ".[dev]"
 
-# 运行测试
-pytest
+# 安装爬虫可选依赖（TLS 指纹模拟）
+pip install -e ".[scraper]"
 
-# 代码格式检查
+# 运行测试
+pytest tests/ -v
+
+# 代码检查
 ruff check src/
+ruff format --check src/
 
 # 运行示例
 python examples/search_papers.py
 python examples/search_patents.py
+python examples/search_web.py
 ```
 
 ## 📝 设计原则

@@ -18,7 +18,7 @@ _CHROME_VERSIONS = [
             "Chrome/146.0.0.0 Safari/537.36"
         ),
         "sec_ch_ua": '"Chromium";v="146", "Not-A.Brand";v="24", "Google Chrome";v="146"',
-        "impersonate": "chrome124",  # curl_cffi 支持的最高版本
+        "impersonate": "chrome124",  # curl_cffi 最高仅支持 chrome124 的 TLS 指纹，UA 用新版无碍
     },
     {
         "version": "125",
@@ -42,7 +42,7 @@ _CHROME_VERSIONS = [
     },
 ]
 
-# 操作系统指纹
+# 操作系统指纹（与 Chrome 版本随机组合，增加指纹多样性）
 _PLATFORMS = [
     {"platform": '"Windows"', "ua_os": "Windows NT 10.0; Win64; x64"},
     {"platform": '"macOS"', "ua_os": "Macintosh; Intel Mac OS X 10_15_7"},

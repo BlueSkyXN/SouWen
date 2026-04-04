@@ -46,6 +46,7 @@ class TokenBucketLimiter:
         """补充令牌"""
         now = time.monotonic()
         elapsed = now - self._last_refill
+        # 按时间流逝匀速补充令牌，但不超过桶容量（burst）
         self._tokens = min(self.burst, self._tokens + elapsed * self.rate)
         self._last_refill = now
 
@@ -92,12 +93,13 @@ class SlidingWindowLimiter:
                     self._timestamps.append(now)
                     return
 
-                # 等待最早的请求过期
+                # 等待最早的请求过期，腾出窗口配额
                 if self._timestamps:
                     oldest = self._timestamps[0]
+                    # +0.01s 避免浮点精度问题导致刚好卡在边界上反复空转
                     wait_time = oldest + self.window_seconds - now + 0.01
                 else:
-                    wait_time = 1.0  # 安全兜底
+                    wait_time = 1.0  # 安全兜底：max_requests=0 时避免死循环
                 await asyncio.sleep(max(0.01, wait_time))
 
     def update_from_headers(
@@ -111,7 +113,8 @@ class SlidingWindowLimiter:
             self._original_max_requests = self.max_requests
             self._retry_until = time.monotonic() + retry_after
         elif remaining is not None:
-            # 动态调整窗口大小
+            # 动态调整窗口大小：用已消耗 + 剩余配额推算真实上限
+            # 这样即使服务端限额变化，也能自动适配
             current_used = len(self._timestamps)
             if current_used + remaining > 0:
                 self.max_requests = current_used + remaining

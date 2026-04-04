@@ -59,7 +59,7 @@ class BaseScraper:
         self.min_delay = min_delay
         self.max_delay = max_delay
         self.max_retries = max_retries
-        self._backoff_multiplier = 1.0  # 自适应退避系数
+        self._backoff_multiplier = 1.0  # 自适应退避系数，被 429 时翻倍，成功时逐步回落
         self._fingerprint = get_random_fingerprint()
         config = get_config()
 
@@ -141,6 +141,7 @@ class BaseScraper:
                 resp = await self._do_request(method, url, params, request_headers)
 
                 if resp.status_code == 429:
+                    # 被限流：退避系数翻倍（上限 16x），大幅增加后续请求间隔
                     self._backoff_multiplier = min(self._backoff_multiplier * 2, 16.0)
                     retry_after = resp.headers.get("Retry-After")
                     wait = float(retry_after) if retry_after else (2 ** attempt)
@@ -157,7 +158,7 @@ class BaseScraper:
                     await asyncio.sleep(2 ** attempt)
                     continue
 
-                # 成功，逐步恢复退避系数
+                # 请求成功：退避系数乘 0.8 逐步回落（而非直接重置为 1，避免抖动）
                 self._backoff_multiplier = max(1.0, self._backoff_multiplier * 0.8)
                 return resp
 

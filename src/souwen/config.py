@@ -67,6 +67,7 @@ def get_config() -> SouWenConfig:
     env_prefix = "SOUWEN_"
     kwargs: dict = {}
 
+    # 遍历所有配置字段，从环境变量 SOUWEN_<FIELD_NAME> 读取覆盖值
     for field_name in SouWenConfig.model_fields:
         env_key = f"{env_prefix}{field_name.upper()}"
         val = os.getenv(env_key)
