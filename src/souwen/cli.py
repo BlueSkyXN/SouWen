@@ -269,6 +269,12 @@ web:
 # ===== 通用设置 =====
 general:
   proxy: ~
+  # 代理池：多个代理地址，每次请求随机选取（优先于 proxy）
+  # proxy_pool:
+  #   - http://proxy1:7890
+  #   - http://proxy2:7890
+  #   - socks5://proxy3:1080
+  proxy_pool: []
   timeout: 30
   max_retries: 3
   data_dir: ~/.local/share/souwen

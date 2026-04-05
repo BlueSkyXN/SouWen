@@ -22,13 +22,15 @@ from souwen.rate_limiter import TokenBucketLimiter
 
 logger = logging.getLogger(__name__)
 
-# 随机 User-Agent 池
+# 随机 User-Agent 池（保持多样性，定期更新版本号）
 _USER_AGENTS = [
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
-    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/125.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36",
+    "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/136.0.0.0 Safari/537.36",
     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Safari/605.1.15",
-    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:127.0) Gecko/20100101 Firefox/127.0",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:128.0) Gecko/20100101 Firefox/128.0",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0",
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
 ]
 
 
@@ -40,6 +42,65 @@ def _random_ua() -> str:
 async def _random_delay(min_sec: float = 2.0, max_sec: float = 5.0) -> None:
     """随机延迟，模拟人类行为"""
     await asyncio.sleep(random.uniform(min_sec, max_sec))
+
+
+# ------------------------------------------------------------------
+# Playwright 浏览器池（模块级单例）
+# ------------------------------------------------------------------
+
+
+class _BrowserPool:
+    """Playwright 浏览器实例池（模块级单例）
+
+    复用单个浏览器实例，避免每次请求重新启动 Chromium。
+    每次请求创建独立的 BrowserContext（隔离 Cookie/Storage）。
+    """
+
+    def __init__(self) -> None:
+        self._browser: Any = None
+        self._playwright: Any = None
+        self._lock = asyncio.Lock()
+
+    async def _ensure_browser(self) -> None:
+        if self._browser is None:
+            async with self._lock:
+                if self._browser is None:  # double-check
+                    try:
+                        from playwright.async_api import async_playwright
+                    except ImportError:
+                        raise ImportError(
+                            "Playwright 未安装。安装方式: "
+                            "pip install playwright && python -m playwright install chromium"
+                        )
+                    self._playwright = await async_playwright().start()
+                    self._browser = await self._playwright.chromium.launch(headless=True)
+
+    async def get_page(self) -> Any:
+        """创建新的 BrowserContext + Page（隔离 Cookie/Storage）"""
+        await self._ensure_browser()
+        context = await self._browser.new_context(user_agent=_random_ua())
+        page = await context.new_page()
+        return page
+
+    async def close(self) -> None:
+        """关闭浏览器和 Playwright 实例"""
+        if self._browser:
+            await self._browser.close()
+            self._browser = None
+        if self._playwright:
+            await self._playwright.stop()
+            self._playwright = None
+
+
+_browser_pool: _BrowserPool | None = None
+
+
+def _get_browser_pool() -> _BrowserPool:
+    """获取模块级浏览器池单例"""
+    global _browser_pool
+    if _browser_pool is None:
+        _browser_pool = _BrowserPool()
+    return _browser_pool
 
 
 class GooglePatentsClient:
@@ -327,9 +388,10 @@ class GooglePatentsClient:
         query: str,
         num_results: int,
     ) -> list[PatentResult]:
-        """使用 Playwright 动态渲染搜索结果"""
+        """使用 Playwright 动态渲染搜索结果（复用浏览器池）"""
+        pool = _get_browser_pool()
         try:
-            from playwright.async_api import async_playwright
+            page = await pool.get_page()
         except ImportError:
             logger.warning(
                 "Playwright 未安装。安装方式: pip install playwright && python -m playwright install chromium"
@@ -337,24 +399,19 @@ class GooglePatentsClient:
             return []
 
         results: list[PatentResult] = []
-        async with async_playwright() as pw:
-            browser = await pw.chromium.launch(headless=True)
-            try:
-                page = await browser.new_page(
-                    user_agent=_random_ua(),
-                )
-                url = f"{self.BASE_URL}/?q={query}&num={num_results}"
-                await page.goto(url, wait_until="networkidle", timeout=30000)
-                content = await page.content()
+        try:
+            url = f"{self.BASE_URL}/?q={query}&num={num_results}"
+            await page.goto(url, wait_until="networkidle", timeout=30000)
+            content = await page.content()
 
-                from bs4 import BeautifulSoup
+            from bs4 import BeautifulSoup
 
-                soup = BeautifulSoup(content, "html.parser")
-                results = self._parse_search_page(soup)
-            except Exception as exc:
-                logger.warning("Playwright 搜索失败: %s", exc)
-            finally:
-                await browser.close()
+            soup = BeautifulSoup(content, "html.parser")
+            results = self._parse_search_page(soup)
+        except Exception as exc:
+            logger.warning("Playwright 搜索失败: %s", exc)
+        finally:
+            await page.context.close()
 
         return results
 
@@ -362,9 +419,10 @@ class GooglePatentsClient:
         self,
         patent_id: str,
     ) -> PatentResult | None:
-        """使用 Playwright 动态渲染专利详情"""
+        """使用 Playwright 动态渲染专利详情（复用浏览器池）"""
+        pool = _get_browser_pool()
         try:
-            from playwright.async_api import async_playwright
+            page = await pool.get_page()
         except ImportError:
             logger.warning(
                 "Playwright 未安装。安装方式: pip install playwright && python -m playwright install chromium"
@@ -372,24 +430,19 @@ class GooglePatentsClient:
             return None
 
         result: PatentResult | None = None
-        async with async_playwright() as pw:
-            browser = await pw.chromium.launch(headless=True)
-            try:
-                page = await browser.new_page(
-                    user_agent=_random_ua(),
-                )
-                url = f"{self.BASE_URL}/patent/{patent_id}"
-                await page.goto(url, wait_until="networkidle", timeout=30000)
-                content = await page.content()
+        try:
+            url = f"{self.BASE_URL}/patent/{patent_id}"
+            await page.goto(url, wait_until="networkidle", timeout=30000)
+            content = await page.content()
 
-                from bs4 import BeautifulSoup
+            from bs4 import BeautifulSoup
 
-                soup = BeautifulSoup(content, "html.parser")
-                result = self._parse_detail_page(soup, patent_id)
-            except Exception as exc:
-                logger.warning("Playwright 获取详情失败: %s", exc)
-            finally:
-                await browser.close()
+            soup = BeautifulSoup(content, "html.parser")
+            result = self._parse_detail_page(soup, patent_id)
+        except Exception as exc:
+            logger.warning("Playwright 获取详情失败: %s", exc)
+        finally:
+            await page.context.close()
 
         return result
 

@@ -10,7 +10,8 @@ import random
 
 from souwen import __version__
 
-# Chrome 浏览器指纹库（定期更新）
+# Chrome / Edge / Safari 浏览器指纹库（定期更新）
+# 注意：curl_cffi 最高仅支持 chrome124 的 TLS 指纹，UA 用新版无碍
 _CHROME_VERSIONS = [
     {
         "version": "146",
@@ -20,7 +21,57 @@ _CHROME_VERSIONS = [
             "Chrome/146.0.0.0 Safari/537.36"
         ),
         "sec_ch_ua": '"Chromium";v="146", "Not-A.Brand";v="24", "Google Chrome";v="146"',
-        "impersonate": "chrome124",  # curl_cffi 最高仅支持 chrome124 的 TLS 指纹，UA 用新版无碍
+        "impersonate": "chrome124",
+    },
+    {
+        "version": "137",
+        "ua": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/137.0.0.0 Safari/537.36"
+        ),
+        "sec_ch_ua": '"Chromium";v="137", "Not-A.Brand";v="24", "Google Chrome";v="137"',
+        "impersonate": "chrome124",
+    },
+    {
+        "version": "136",
+        "ua": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/136.0.0.0 Safari/537.36"
+        ),
+        "sec_ch_ua": '"Chromium";v="136", "Not-A.Brand";v="24", "Google Chrome";v="136"',
+        "impersonate": "chrome124",
+    },
+    {
+        "version": "135",
+        "ua": (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/135.0.0.0 Safari/537.36"
+        ),
+        "sec_ch_ua": '"Chromium";v="135", "Not-A.Brand";v="24", "Google Chrome";v="135"',
+        "impersonate": "chrome124",
+    },
+    {
+        "version": "133",
+        "ua": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/133.0.0.0 Safari/537.36"
+        ),
+        "sec_ch_ua": '"Chromium";v="133", "Not-A.Brand";v="24", "Google Chrome";v="133"',
+        "impersonate": "chrome124",
+    },
+    {
+        "version": "131",
+        "ua": (
+            "Mozilla/5.0 (X11; Linux x86_64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/131.0.0.0 Safari/537.36"
+        ),
+        "sec_ch_ua": '"Chromium";v="131", "Not-A.Brand";v="24", "Google Chrome";v="131"',
+        "impersonate": "chrome124",
     },
     {
         "version": "125",
@@ -42,13 +93,37 @@ _CHROME_VERSIONS = [
         "sec_ch_ua": '"Chromium";v="124", "Not-A.Brand";v="24", "Google Chrome";v="124"',
         "impersonate": "chrome120",
     },
+    # Edge (Chromium-based) — 同样复用 chrome124 TLS 指纹
+    {
+        "version": "edge137",
+        "ua": (
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+            "AppleWebKit/537.36 (KHTML, like Gecko) "
+            "Chrome/137.0.0.0 Safari/537.36 Edg/137.0.0.0"
+        ),
+        "sec_ch_ua": '"Chromium";v="137", "Not-A.Brand";v="24", "Microsoft Edge";v="137"',
+        "impersonate": "chrome124",
+    },
+    # Safari (macOS) — impersonate 使用 safari 系列
+    {
+        "version": "safari17",
+        "ua": (
+            "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+            "AppleWebKit/605.1.15 (KHTML, like Gecko) "
+            "Version/17.5 Safari/605.1.15"
+        ),
+        "sec_ch_ua": "",
+        "impersonate": "safari17_0",
+    },
 ]
 
 # 操作系统指纹（与 Chrome 版本随机组合，增加指纹多样性）
+# 注意：Windows 11 实际仍报告 "Windows NT 10.0"，此处保持一致
 _PLATFORMS = [
     {"platform": '"Windows"', "ua_os": "Windows NT 10.0; Win64; x64"},
     {"platform": '"macOS"', "ua_os": "Macintosh; Intel Mac OS X 10_15_7"},
     {"platform": '"Linux"', "ua_os": "X11; Linux x86_64"},
+    {"platform": '"Android"', "ua_os": "Linux; Android 14; Pixel 8"},
 ]
 
 

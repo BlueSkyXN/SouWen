@@ -11,6 +11,7 @@
 from __future__ import annotations
 
 import os
+import random
 from pathlib import Path
 from functools import lru_cache
 
@@ -66,6 +67,7 @@ class SouWenConfig(BaseModel):
 
     # ===== 通用 =====
     proxy: str | None = None
+    proxy_pool: list[str] = []
     timeout: int = 30
     max_retries: int = 3
     data_dir: str = "~/.local/share/souwen"
@@ -74,6 +76,12 @@ class SouWenConfig(BaseModel):
     def data_path(self) -> Path:
         """返回展开后的数据目录路径"""
         return Path(self.data_dir).expanduser()
+
+    def get_proxy(self) -> str | None:
+        """返回代理地址：优先从 proxy_pool 随机选取，否则回退到 proxy"""
+        if self.proxy_pool:
+            return random.choice(self.proxy_pool)
+        return self.proxy
 
 
 def _load_yaml_config() -> dict:
@@ -130,6 +138,9 @@ def get_config() -> SouWenConfig:
             field_info = SouWenConfig.model_fields[field_name]
             if field_info.annotation in (int, int | None):
                 val = int(val)
+            # proxy_pool: 逗号分隔字符串 → list[str]
+            elif field_name == "proxy_pool":
+                val = [p.strip() for p in val.split(",") if p.strip()]
             kwargs[field_name] = val
 
     return SouWenConfig(**kwargs)

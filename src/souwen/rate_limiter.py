@@ -3,16 +3,51 @@
 支持两种算法：
 - TokenBucketLimiter: 令牌桶（固定速率限制，如 PatentsView 45次/分钟）
 - SlidingWindowLimiter: 滑动窗口（动态限流，如 The Lens 响应头限流）
+
+可通过继承 ``RateLimiterBase`` 实现自定义限流器（如基于 Redis 的分布式限流）。
 """
 
 from __future__ import annotations
 
+import abc
 import asyncio
 import time
 from collections import deque
 
 
-class TokenBucketLimiter:
+class RateLimiterBase(abc.ABC):
+    """限流器抽象基类
+
+    所有限流器实现必须继承此类并实现 :meth:`acquire` 方法。
+
+    扩展示例 — 基于 Redis 的分布式限流器::
+
+        class RedisRateLimiter(RateLimiterBase):
+            def __init__(self, redis_client, key, max_requests, window):
+                self._redis = redis_client
+                self._key = key
+                self._max = max_requests
+                self._window = window
+
+            async def acquire(self) -> None:
+                # 使用 Redis Lua 脚本实现原子计数 + 过期，
+                # 适用于多进程 / 多节点部署场景。
+                ...
+    """
+
+    @abc.abstractmethod
+    async def acquire(self) -> None:
+        """获取一个许可，如果达到限流阈值则等待"""
+
+    def update_from_headers(
+        self,
+        remaining: int | None = None,
+        retry_after: float | None = None,
+    ) -> None:
+        """从响应头更新限流参数（默认无操作，子类可选覆盖）"""
+
+
+class TokenBucketLimiter(RateLimiterBase):
     """令牌桶限流器
 
     适用于固定速率限制的数据源。
@@ -53,7 +88,7 @@ class TokenBucketLimiter:
         self._last_refill = now
 
 
-class SlidingWindowLimiter:
+class SlidingWindowLimiter(RateLimiterBase):
     """滑动窗口限流器
 
     适用于动态限流（从响应头获取剩余配额）。
