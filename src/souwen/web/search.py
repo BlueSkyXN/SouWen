@@ -1,7 +1,6 @@
 """并发多引擎聚合搜索
 
-移植自 SoSearch/src/search.rs
-并发查询 DuckDuckGo、Yahoo、Brave 三个引擎，
+并发查询 DuckDuckGo、Yahoo、Brave 等多个引擎，
 聚合结果并去重。
 
 技术要点：

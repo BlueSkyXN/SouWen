@@ -78,7 +78,7 @@ async def main():
 asyncio.run(main())
 ```
 
-### 网页搜索（无需 Key，移植自 SoSearch）
+### 网页搜索（无需 Key）
 
 ```python
 import asyncio
@@ -294,7 +294,7 @@ SouWen/
 
 ## 🔒 反爬技术栈
 
-SouWen 集成了完整的反爬绕过方案（移植自 OpenRouter RegBot 项目）：
+SouWen 集成了完整的反爬绕过方案：
 
 | 技术 | 说明 | 模块 |
 |------|------|------|

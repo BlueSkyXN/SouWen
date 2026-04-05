@@ -120,7 +120,7 @@ class PatentResult(BaseModel):
 class WebSearchResult(BaseModel):
     """统一网页搜索结果模型
 
-    移植自 SoSearch (Rust) 项目的 SearchResultItem。
+    统一的网页搜索结果数据模型。
     三个搜索引擎（DuckDuckGo、Yahoo、Brave）的结果
     都归一化为此统一模型。
     """

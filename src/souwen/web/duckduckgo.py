@@ -1,6 +1,5 @@
 """DuckDuckGo HTML 搜索引擎
 
-移植自 SoSearch/src/engines/duckduckgo.rs
 使用 DuckDuckGo 的轻量 HTML 版本（html.duckduckgo.com），
 避免 JavaScript 渲染依赖。
 
