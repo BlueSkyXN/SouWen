@@ -7,21 +7,14 @@
 
 ## 🎯 简介
 
-SouWen（搜文）是一个 Python 工具库，为 AI Agent 提供统一的学术论文、专利信息和网页搜索接口。它整合了 37 个数据源，将不同 API 的返回结果归一化为统一的 Pydantic v2 数据模型，让 AI Agent 无需关心底层数据源差异。
+SouWen（搜文）为 AI Agent 提供统一的学术论文、专利和网页搜索接口，整合 **37 个数据源**，归一化为 Pydantic v2 数据模型。
 
-### 核心特性
-
-- **37 个数据源**：8 个论文源 + 8 个专利源 + 21 个搜索引擎，覆盖全球主要学术和专利数据库及网页搜索
-- **统一数据模型**：所有数据源返回 `PaperResult` / `PatentResult` / `WebSearchResult`，结构一致
-- **零配置即用**：22 个数据源无需 API Key（OpenAlex、Crossref、arXiv、DBLP、PubMed、PatentsView、PQAI + DuckDuckGo、Yahoo、Brave、Google、Bing、Startpage、Baidu、Mojeek、Yandex（爬虫无需Key）+ Whoogle、Websurfx（自建实例仅需URL））
-- **异步优先**：全面使用 `httpx` async，支持高并发
-- **智能限流**：令牌桶 + 滑动窗口 + 抽象限流器接口（`RateLimiterBase` 支持 Redis 扩展），每个数据源独立限流
-- **全局并发控制**：`asyncio.Semaphore` 防止连接过载
-- **异步会话缓存**：aiosqlite 异步 SQLite 持久化 OAuth Token / Cookie
-- **Playwright 浏览器池化**：`_BrowserPool` 单例复用 Chromium 实例
-- **代理池轮换**：支持多代理 URL 随机选取
-- **PDF 回退链**：5 级降级策略自动获取全文 PDF
-- **OAuth 自动管理**：EPO OPS / CNIPA Token 自动刷新
+- **8 论文源 + 8 专利源 + 21 搜索引擎** — 22 个零配置即用
+- **统一数据模型** — `PaperResult` / `PatentResult` / `WebSearchResult`
+- **异步优先** — httpx async + `asyncio.Semaphore` 全局并发控制
+- **智能限流** — 令牌桶 + 滑动窗口，每源独立限流
+- **反爬绕过** — TLS 指纹模拟 + 浏览器池化 + 自适应退避
+- **PDF 回退链** — 5 级降级策略自动获取全文
 
 ## 📦 安装
 
@@ -41,13 +34,11 @@ import asyncio
 from souwen.paper import OpenAlexClient, ArxivClient
 
 async def main():
-    # OpenAlex 搜索
     async with OpenAlexClient() as client:
         results = await client.search("deep learning network security", per_page=5)
         for paper in results.results:
             print(f"{paper.title} ({paper.year}) 引用:{paper.citation_count}")
 
-    # arXiv 搜索（所有论文全文免费）
     async with ArxivClient() as client:
         results = await client.search("cat:cs.AI AND ti:transformer", max_results=5)
         for paper in results.results:
@@ -63,13 +54,11 @@ import asyncio
 from souwen.patent import PatentsViewClient, PqaiClient
 
 async def main():
-    # PatentsView 搜索美国专利
     async with PatentsViewClient() as client:
         results = await client.search_by_assignee("Huawei", per_page=5)
         for patent in results.results:
             print(f"{patent.patent_id}: {patent.title}")
 
-    # PQAI 语义搜索
     async with PqaiClient() as client:
         results = await client.search("wireless authentication using ML", n_results=5)
         for patent in results.results:
@@ -85,13 +74,12 @@ import asyncio
 from souwen.web import DuckDuckGoClient, web_search
 
 async def main():
-    # 单引擎搜索
     async with DuckDuckGoClient() as client:
         results = await client.search("Python asyncio", max_results=5)
         for r in results.results:
             print(f"{r.title} → {r.url}")
 
-    # 并发多引擎聚合搜索（DuckDuckGo + Yahoo + Brave）
+    # 并发多引擎聚合（DuckDuckGo + Yahoo + Brave）
     resp = await web_search("machine learning tutorial", max_results_per_engine=5)
     for r in resp.results:
         print(f"[{r.engine}] {r.title} → {r.url}")
@@ -99,299 +87,69 @@ async def main():
 asyncio.run(main())
 ```
 
-### CLI 命令行
+## 📚 文档
 
-```bash
-# 搜索论文
-souwen search paper "transformer attention" -n 5
+| 文档 | 内容 |
+|------|------|
+| [数据源详情](docs/data-sources.md) | 37 个数据源完整列表、分级说明 |
+| [配置详解](docs/configuration.md) | 配置优先级、全部字段、代理池、YAML 格式 |
+| [架构设计](docs/architecture.md) | 数据流、基类模式、限流器、异常体系、项目结构 |
+| [反爬技术栈](docs/anti-scraping.md) | TLS 指纹、浏览器池化、自适应退避 |
+| [API 参考](docs/api-reference.md) | Python API、数据模型、CLI 命令、MCP 工具 |
+| [贡献指南](docs/contributing.md) | 添加数据源、测试、代码风格、PR 流程 |
 
-# 搜索专利
-souwen search patent "lithium battery" -s patentsview,pqai
+## 📊 数据源
 
-# 搜索网页
-souwen search web "Python asyncio" -e duckduckgo,brave
+**论文**（8 源）：OpenAlex、Semantic Scholar、Crossref、arXiv、DBLP、CORE、PubMed、Unpaywall — 其中 5 个零配置
 
-# JSON 输出（适合管道处理）
-souwen search paper "deep learning" --json | jq '.[]'
+**专利**（8 源）：PatentsView、PQAI、EPO OPS、USPTO ODP、The Lens、CNIPA、PatSnap、Google Patents — 其中 2 个零配置
 
-# 查看所有数据源
-souwen sources
+**搜索引擎**（21 个）：9 个爬虫（DuckDuckGo、Yahoo、Brave 等）+ 10 个 API（Tavily、Exa、SearXNG 等）+ 2 个自建实例
 
-# 显示配置
-souwen config show
-
-# 生成配置模板
-souwen config init
-```
-
-### API 服务
-
-```bash
-# 安装 server 依赖
-pip install souwen[server]
-
-# 启动服务（默认 :8000）
-souwen serve --port 8000
-
-# 调用 API
-curl "http://localhost:8000/api/v1/search/paper?q=transformer&per_page=5"
-curl "http://localhost:8000/api/v1/search/web?q=Python&engines=duckduckgo,brave"
-curl "http://localhost:8000/api/v1/sources"
-
-# OpenAPI 文档
-open http://localhost:8000/docs
-```
-
-### YAML 配置
-
-支持通过 `souwen.yaml` 配置（优先级: 环境变量 > ./souwen.yaml > ~/.config/souwen/config.yaml > .env > 默认值）:
-
-```bash
-souwen config init  # 生成模板
-```
-
-### PDF 全文获取
-
-```python
-from souwen.paper import OpenAlexClient, fetch_pdf
-
-async with OpenAlexClient() as client:
-    results = await client.search("attention is all you need", per_page=1)
-    paper = results.results[0]
-
-    # 5 级回退链自动获取 PDF
-    pdf_path = await fetch_pdf(paper)
-    if pdf_path:
-        print(f"PDF 已下载: {pdf_path}")
-```
-
-## 📊 数据源一览
-
-### 论文数据源
-
-| 数据源 | 客户端类 | 鉴权 | 特点 |
-|--------|---------|------|------|
-| OpenAlex | `OpenAlexClient` | 无需 Key | 最全面的开放学术数据 |
-| Semantic Scholar | `SemanticScholarClient` | 可选 Key | AI 生成 TLDR 摘要 |
-| Crossref | `CrossrefClient` | 无需 Key | DOI 元数据权威源 |
-| arXiv | `ArxivClient` | 无需 Key | 全文免费，预印本 |
-| DBLP | `DblpClient` | 无需 Key | 计算机科学权威索引 |
-| CORE | `CoreClient` | 需 Key | 开放获取聚合 |
-| PubMed | `PubMedClient` | 可选 Key | 生物医学权威 |
-| Unpaywall | `UnpaywallClient` | 需 Email | OA PDF 查找 |
-
-### 专利数据源
-
-| 数据源 | 客户端类 | 鉴权 | 特点 |
-|--------|---------|------|------|
-| PatentsView | `PatentsViewClient` | 无需 Key | USPTO 专利数据 |
-| PQAI | `PqaiClient` | 无需 Key | 语义检索，自然语言输入 |
-| EPO OPS | `EpoOpsClient` | OAuth 2.0 | 欧洲专利局，CQL 检索 |
-| USPTO ODP | `UsptoOdpClient` | API Key | USPTO 全量数据 |
-| The Lens | `TheLensClient` | Bearer Token | 专利-学术交叉引用 |
-| CNIPA | `CnipaClient` | OAuth 2.0 | 中国知识产权局 |
-| PatSnap | `PatSnapClient` | API Key | 172 司法管辖区 |
-| Google Patents | `GooglePatentsClient` | 爬虫 | 兜底方案 |
-
-### 网页搜索引擎（21 个，含爬虫 + API + 自建实例）
-
-#### 爬虫类（无需 Key，零配置即用）
-
-| 引擎 | 客户端类 | 鉴权 | 特点 |
-|------|---------|------|------|
-| DuckDuckGo | `DuckDuckGoClient` | 无需 Key | HTML 轻量版，无 JS 依赖 |
-| Yahoo | `YahooClient` | 无需 Key | Bing 驱动，对 DC IP 宽容 |
-| Brave | `BraveClient` | 无需 Key | 独立索引，隐私友好 |
-| Google | `GoogleClient` | 无需 Key | 高风险，建议配代理 |
-| Bing | `BingClient` | 无需 Key | 反爬宽松，微软生态 |
-| Startpage | `StartpageClient` | 无需 Key | Google 代理，隐私友好 |
-| Baidu | `BaiduClient` | 无需 Key | 中文搜索首选 |
-| Mojeek | `MojeekClient` | 无需 Key | 独立索引，英国引擎 |
-| Yandex | `YandexClient` | 无需 Key | 俄语搜索首选 |
-
-#### API 类（需 Key）
-
-| 服务 | 客户端类 | 鉴权 | 特点 |
-|------|---------|------|------|
-| SearXNG | `SearXNGClient` | 实例 URL | 一个接入 = 250+ 引擎 |
-| Tavily | `TavilyClient` | API Key | AI Agent 原生设计 |
-| Exa | `ExaClient` | API Key | 语义搜索（神经索引） |
-| Serper | `SerperClient` | API Key | Google 结构化 JSON |
-| Brave API | `BraveApiClient` | API Key | 官方 REST API，免费 2000 次/月 |
-| SerpAPI | `SerpApiClient` | API Key | 多引擎 SERP 结构化数据 |
-| Firecrawl | `FirecrawlClient` | API Key | 网页爬取 + 内容提取 |
-| Perplexity Sonar | `PerplexitySonarClient` | API Key | AI 搜索，带引用来源 |
-| Linkup | `LinkupClient` | API Key | 聚合搜索 API |
-| ScrapingDog | `ScrapingDogClient` | API Key | SERP 代理抓取 |
-
-#### 自建实例类（仅需 URL）
-
-| 服务 | 客户端类 | 鉴权 | 特点 |
-|------|---------|------|------|
-| Whoogle | `WhoogleClient` | 实例 URL | 自托管 Google 前端，无追踪 |
-| Websurfx | `WebsurfxClient` | 实例 URL | 自托管元搜索引擎 |
-
-#### 聚合搜索
-
-| 功能 | 函数 | 说明 |
-|------|------|------|
-| 聚合搜索 | `web_search()` | 并发三引擎 + URL 去重 |
+→ 完整列表见 [数据源详情](docs/data-sources.md)
 
 ## ⚙️ 配置
 
-复制 `.env.example` 为 `.env`，按需填写：
+配置优先级：环境变量 > `./souwen.yaml` > `~/.config/souwen/config.yaml` > `.env` > 默认值
 
 ```bash
-cp .env.example .env
+souwen config init   # 生成 YAML 模板
+souwen config show   # 查看当前配置
 ```
 
-配置优先级：环境变量 > `.env` 文件 > `~/.config/souwen/config.toml` > 内置默认值
-
-主要配置项：
+推荐配置（进入 polite pool 获得更快响应）：
 
 ```env
-# 论文（推荐配置，进入 polite pool 获得更快响应）
 SOUWEN_OPENALEX_EMAIL=your@email.com
 SOUWEN_UNPAYWALL_EMAIL=your@email.com
-
-# 专利（按需配置）
-SOUWEN_EPO_CONSUMER_KEY=your_key
-SOUWEN_EPO_CONSUMER_SECRET=your_secret
-
-# 通用
-SOUWEN_PROXY=http://proxy:8080    # 代理（可选）
-SOUWEN_TIMEOUT=30                  # 超时秒数
 ```
 
-## 🏗️ 项目结构
-
-```
-SouWen/
-├── .github/workflows/     # CI/CD (lint + test + publish)
-├── pyproject.toml
-├── .env.example
-├── src/souwen/
-│   ├── __init__.py
-│   ├── config.py           # 统一配置管理（环境变量 / .env / 默认值）
-│   ├── models.py           # Pydantic v2 统一数据模型
-│   ├── exceptions.py       # 6 类自定义异常体系
-│   ├── rate_limiter.py     # 限流器（令牌桶 + 滑动窗口）
-│   ├── http_client.py      # httpx async + OAuth 2.0 Token 自动刷新
-│   ├── fingerprint.py      # Chrome TLS 指纹库（绕过 JA3 检测）
-│   ├── session_cache.py    # SQLite 会话/Token 持久化缓存
-│   ├── retry.py            # 分层重试策略（http/scraper/captcha）
-│   ├── paper/              # 8 个论文数据源
-│   ├── patent/             # 8 个专利数据源
-│   ├── web/                # 21 个搜索引擎（9 爬虫 + 10 API + 2 自建）
-│   └── scraper/            # 爬虫兜底层（TLS 指纹 + 礼貌爬取）
-├── tests/                  # 单元测试
-├── examples/               # 使用示例
-│   ├── search_papers.py    # 论文搜索示例
-│   ├── search_patents.py   # 专利搜索示例
-│   └── search_web.py       # 网页搜索示例
-└── local/                  # 设计文档（不纳入包）
-```
-
-## 🔒 反爬技术栈
-
-SouWen 集成了完整的反爬绕过方案：
-
-| 技术 | 说明 | 模块 |
-|------|------|------|
-| **TLS 指纹模拟** | curl_cffi impersonate Chrome 120/124 | `fingerprint.py` |
-| **浏览器指纹库** | 10 个指纹（Chrome + Edge + Safari + Android） | `fingerprint.py` |
-| **浏览器请求头** | 13 个头（Sec-CH-UA 系列、Sec-Fetch 系列） | `fingerprint.py` |
-| **Playwright 池化** | 单例复用 Chromium 实例，减少启动开销 | `scraper/browser_pool.py` |
-| **分层重试** | http (3次) / scraper (5次) / captcha (5次) | `retry.py` |
-| **异步会话缓存** | aiosqlite 异步 SQLite 持久化 OAuth Token / Cookie | `session_cache.py` |
-| **代理池轮换** | 多代理 URL 随机选取 | `config.py` |
-| **礼貌爬取** | 随机间隔 + 自适应退避 + 429 处理 | `scraper/base.py` |
-
-> curl_cffi 为可选依赖，未安装时自动回退到 httpx。
+→ 全部配置字段见 [配置详解](docs/configuration.md)
 
 ## 🛠️ 高级用法
 
-### AI Agent 搜索 API（Tavily / Exa）
-
-```python
-from souwen.web import TavilyClient, ExaClient
-
-# Tavily — 为 AI Agent 设计，返回清洗后的内容
-async with TavilyClient(api_key="tvly-xxx") as client:
-    resp = await client.search("LLM fine-tuning best practices", search_depth="advanced")
-    for r in resp.results:
-        print(f"{r.title}: {r.snippet[:100]}...")
-
-# Exa — 语义搜索 + 相似页面发现
-async with ExaClient(api_key="exa-xxx") as client:
-    resp = await client.search("papers about transformer attention mechanisms")
-    similar = await client.find_similar("https://arxiv.org/abs/1706.03762")
+```bash
+souwen search paper "transformer" -n 5          # 论文搜索
+souwen search patent "lithium battery" -s pqai   # 专利搜索
+souwen search web "Python asyncio" --json        # 网页搜索（JSON 输出）
+souwen sources                                    # 查看数据源
+souwen doctor                                     # 健康检查
+souwen serve --port 8000                          # 启动 API 服务
+python -m souwen.integrations.mcp_server          # MCP 工具服务
 ```
 
-### SearXNG 元搜索（一个接入 = 250+ 引擎）
-
-```python
-from souwen.web import SearXNGClient
-
-# 需自建 SearXNG 实例: docker run -p 8888:8080 searxng/searxng
-async with SearXNGClient(instance_url="http://localhost:8888") as client:
-    resp = await client.search("quantum computing", engines="google,bing,duckduckgo")
-```
-
-### 自定义聚合搜索引擎组合
-
-```python
-from souwen.web import web_search
-
-# 默认使用 DuckDuckGo + Yahoo + Brave
-resp = await web_search("Python tutorial")
-
-# 指定引擎子集（含高风险引擎）
-resp = await web_search("Rust vs Go", engines=["duckduckgo", "google", "bing"])
-```
+→ 完整 API 和 CLI 文档见 [API 参考](docs/api-reference.md)
 
 ## 🧪 开发
 
 ```bash
-# 安装开发依赖
-pip install -e ".[dev]"
-
-# 安装爬虫可选依赖（TLS 指纹模拟）
-pip install -e ".[scraper]"
-
-# 运行测试
-pytest tests/ -v
-
-# 代码检查
-ruff check src/
-ruff format --check src/
-
-# 运行示例
-python examples/search_papers.py
-python examples/search_patents.py
-python examples/search_web.py
+pip install -e ".[dev]"           # 安装开发依赖
+pytest tests/ -v                  # 运行测试
+ruff check src/                   # 代码检查
+ruff format --check src/          # 格式检查
 ```
 
-## 📝 设计原则
-
-1. **AI Agent 友好**：统一数据模型，结构化输出，最小化 Token 消耗
-2. **渐进式配置**：无需 Key 的数据源开箱即用，需要 Key 的友好报错并给出注册指引
-3. **稳健性**：自动重试、限流保护、优雅降级
-4. **可观测性**：结构化日志，请求耗时追踪
-
-## 🆕 近期改进（v0.4.0）
-
-- **11 个新搜索引擎**：SerpAPI、Firecrawl、Perplexity Sonar、Linkup、ScrapingDog、Startpage、Baidu、Mojeek、Yandex、Whoogle、Websurfx
-- **异步会话缓存**：从同步 sqlite3 迁移到 aiosqlite
-- **全局并发控制**：`asyncio.Semaphore(10)` 防止连接过载
-- **Playwright 浏览器池化**：`_BrowserPool` 单例复用 Chromium 实例
-- **代理池轮换**：支持多代理 URL 配置 + 随机选取
-- **扩展浏览器指纹库**：从 3 个扩展到 10 个（Chrome + Edge + Safari + Android）
-- **抽象限流器接口**：`RateLimiterBase(ABC)` 支持 Redis 等分布式限流器扩展
-- **102 个自动化测试**：从 35 个增长到 102 个，含 67 个 mock 测试（pytest-httpx）
-- **CLI 搜索改进**：搜索结果显示失败源警告
-- **Pydantic 模型加固**：`extra="forbid"` 防止字段名拼写错误
-- **数据源常量**：`ALL_SOURCES` 共享常量，统一版本号为单一来源 `__version__`
+→ 贡献代码见 [贡献指南](docs/contributing.md)
 
 ## 📄 License
 
