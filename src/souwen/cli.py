@@ -233,11 +233,19 @@ patent:
 
 # ===== 常规搜索 =====
 web:
+  # 爬虫引擎 (DuckDuckGo/Yahoo/Brave/Google/Bing/Startpage/Baidu/Mojeek/Yandex) 无需 Key
   searxng_url: ~
   tavily_api_key: ~
   exa_api_key: ~
   serper_api_key: ~
   brave_api_key: ~
+  serpapi_api_key: ~
+  firecrawl_api_key: ~
+  perplexity_api_key: ~
+  linkup_api_key: ~
+  scrapingdog_api_key: ~
+  whoogle_url: ~
+  websurfx_url: ~
 
 # ===== 通用设置 =====
 general:

@@ -44,6 +44,18 @@ class SourceType(str, Enum):
     WEB_EXA = "web_exa"
     WEB_SERPER = "web_serper"
     WEB_BRAVE_API = "web_brave_api"
+    # 新增搜索引擎
+    WEB_SERPAPI = "web_serpapi"
+    WEB_FIRECRAWL = "web_firecrawl"
+    WEB_PERPLEXITY = "web_perplexity"
+    WEB_LINKUP = "web_linkup"
+    WEB_SCRAPINGDOG = "web_scrapingdog"
+    WEB_STARTPAGE = "web_startpage"
+    WEB_BAIDU = "web_baidu"
+    WEB_MOJEEK = "web_mojeek"
+    WEB_YANDEX = "web_yandex"
+    WEB_WHOOGLE = "web_whoogle"
+    WEB_WEBSURFX = "web_websurfx"
 
 
 class Author(BaseModel):
@@ -169,5 +181,16 @@ ALL_SOURCES: dict[str, list[tuple[str, bool, str]]] = {
         ("exa", True, "Exa 语义搜索"),
         ("serper", True, "Serper Google SERP API"),
         ("brave_api", True, "Brave 官方 API"),
+        ("serpapi", True, "SerpAPI 多引擎 SERP"),
+        ("firecrawl", True, "Firecrawl 搜索+爬取"),
+        ("perplexity", True, "Perplexity Sonar AI 搜索"),
+        ("linkup", True, "Linkup 实时搜索"),
+        ("scrapingdog", True, "ScrapingDog SERP API"),
+        ("startpage", False, "Startpage 隐私搜索 (爬虫)"),
+        ("baidu", False, "百度搜索 (爬虫)"),
+        ("mojeek", False, "Mojeek 独立搜索 (爬虫)"),
+        ("yandex", False, "Yandex 搜索 (爬虫)"),
+        ("whoogle", False, "Whoogle Google 代理 (需自建)"),
+        ("websurfx", False, "Websurfx 元搜索 (需自建)"),
     ],
 }

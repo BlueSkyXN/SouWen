@@ -27,6 +27,17 @@ from souwen.web.tavily import TavilyClient
 from souwen.web.exa import ExaClient
 from souwen.web.serper import SerperClient
 from souwen.web.brave_api import BraveApiClient
+from souwen.web.serpapi import SerpApiClient
+from souwen.web.firecrawl import FirecrawlClient
+from souwen.web.perplexity import PerplexityClient
+from souwen.web.linkup import LinkupClient
+from souwen.web.scrapingdog import ScrapingDogClient
+from souwen.web.startpage import StartpageClient
+from souwen.web.baidu import BaiduClient
+from souwen.web.mojeek import MojeekClient
+from souwen.web.yandex import YandexClient
+from souwen.web.whoogle import WhoogleClient
+from souwen.web.websurfx import WebsurfxClient
 
 logger = logging.getLogger("souwen.web.search")
 
@@ -93,12 +104,24 @@ async def web_search(
         "brave": BraveClient,
         "google": GoogleClient,
         "bing": BingClient,
+        "startpage": StartpageClient,
+        "baidu": BaiduClient,
+        "mojeek": MojeekClient,
+        "yandex": YandexClient,
         # API 引擎（需要对应 Key）
         "searxng": SearXNGClient,
         "tavily": TavilyClient,
         "exa": ExaClient,
         "serper": SerperClient,
         "brave_api": BraveApiClient,
+        "serpapi": SerpApiClient,
+        "firecrawl": FirecrawlClient,
+        "perplexity": PerplexityClient,
+        "linkup": LinkupClient,
+        "scrapingdog": ScrapingDogClient,
+        # 自部署元搜索（需自建实例）
+        "whoogle": WhoogleClient,
+        "websurfx": WebsurfxClient,
     }
 
     # 默认使用 3 个最稳定的免费引擎

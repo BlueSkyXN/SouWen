@@ -55,6 +55,14 @@ class SouWenConfig(BaseModel):
     exa_api_key: str | None = None  # Exa 语义搜索
     serper_api_key: str | None = None  # Serper (Google SERP)
     brave_api_key: str | None = None  # Brave Search 官方 API
+    # 新增搜索引擎 API Key
+    serpapi_api_key: str | None = None  # SerpAPI (多引擎 SERP)
+    firecrawl_api_key: str | None = None  # Firecrawl (搜索+爬取)
+    perplexity_api_key: str | None = None  # Perplexity Sonar API
+    linkup_api_key: str | None = None  # Linkup 搜索 API
+    scrapingdog_api_key: str | None = None  # ScrapingDog SERP API
+    whoogle_url: str | None = None  # Whoogle 自建实例 URL
+    websurfx_url: str | None = None  # Websurfx 自建实例 URL
 
     # ===== 通用 =====
     proxy: str | None = None

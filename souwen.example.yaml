@@ -36,16 +36,31 @@ patent:
 
 # ===== 常规搜索 =====
 web:
+  # 爬虫引擎 (DuckDuckGo/Yahoo/Brave/Google/Bing/Startpage/Baidu/Mojeek/Yandex) 无需 Key
   # SearXNG 自建实例 URL（例如 http://localhost:8080）
   searxng_url: ~
-  # Tavily AI 搜索 API Key
+  # Tavily AI 搜索 API Key（https://app.tavily.com/）
   tavily_api_key: ~
-  # Exa 语义搜索 API Key
+  # Exa 语义搜索 API Key（https://exa.ai/）
   exa_api_key: ~
-  # Serper（Google SERP）API Key
+  # Serper（Google SERP）API Key（https://serper.dev/）
   serper_api_key: ~
-  # Brave Search 官方 API Key
+  # Brave Search 官方 API Key（https://brave.com/search/api/）
   brave_api_key: ~
+  # SerpAPI 多引擎 SERP API Key（https://serpapi.com/）
+  serpapi_api_key: ~
+  # Firecrawl 搜索+爬取 API Key（https://www.firecrawl.dev/）
+  firecrawl_api_key: ~
+  # Perplexity Sonar AI 搜索 API Key（https://docs.perplexity.ai/）
+  perplexity_api_key: ~
+  # Linkup 实时搜索 API Key（https://www.linkup.so/）
+  linkup_api_key: ~
+  # ScrapingDog SERP API Key（https://www.scrapingdog.com/）
+  scrapingdog_api_key: ~
+  # Whoogle 自建实例 URL（https://github.com/benbusby/whoogle-search）
+  whoogle_url: ~
+  # Websurfx 自建实例 URL（https://github.com/neon-mmd/websurfx）
+  websurfx_url: ~
 
 # ===== 通用设置 =====
 general:
