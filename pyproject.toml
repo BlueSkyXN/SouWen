@@ -30,6 +30,7 @@ souwen = "souwen.cli:app"
 [project.optional-dependencies]
 scraper = ["playwright>=1.40", "curl-cffi>=0.14.0"]
 server = ["fastapi>=0.111", "uvicorn[standard]>=0.29"]
+mcp = ["mcp>=1.0"]
 dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "pytest-httpx>=0.30", "ruff>=0.4"]
 
 [tool.hatch.build.targets.wheel]
