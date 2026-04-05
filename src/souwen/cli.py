@@ -54,6 +54,16 @@ def search_paper(
         print_json(json.dumps(data, ensure_ascii=False))
         return
 
+    # 显示失败源的警告
+    returned_sources = {r.source.value for r in results}
+    failed = [s for s in source_list if s not in returned_sources]
+    if failed:
+        console.print(f"[yellow]⚠ 以下数据源未返回结果: {', '.join(failed)}[/yellow]")
+
+    if not results:
+        console.print("[dim]未找到任何结果。[/dim]")
+        return
+
     for resp in results:
         table = Table(
             title=f"📄 {resp.source.value} ({len(resp.results)} 条)",
@@ -95,6 +105,15 @@ def search_patent(
 
         data = [r.model_dump(mode="json") for r in results]
         print_json(json.dumps(data, ensure_ascii=False))
+        return
+
+    returned_sources = {r.source.value for r in results}
+    failed = [s for s in source_list if s not in returned_sources]
+    if failed:
+        console.print(f"[yellow]⚠ 以下数据源未返回结果: {', '.join(failed)}[/yellow]")
+
+    if not results:
+        console.print("[dim]未找到任何结果。[/dim]")
         return
 
     for resp in results:

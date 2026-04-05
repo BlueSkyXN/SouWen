@@ -1,9 +1,7 @@
 """会话缓存管理
 
-基于 SQLite 持久化存储 OAuth Token、Cookie、JWT 等会话信息，
+基于 aiosqlite 异步持久化存储 OAuth Token、Cookie、JWT 等会话信息，
 避免重复鉴权，降低请求频率。
-
-学习自 OpenRouter RegBot 的 Cookie 持久化方案。
 """
 
 from __future__ import annotations
@@ -15,13 +13,15 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
 
+import aiosqlite
+
 from souwen.config import get_config
 
 logger = logging.getLogger("souwen.session_cache")
 
 
 class SessionCache:
-    """会话缓存（SQLite 持久化）
+    """会话缓存（aiosqlite 异步持久化）
 
     缓存 OAuth Token、Cookie、API 认证信息等，
     避免每次请求都重新鉴权。
@@ -38,37 +38,48 @@ class SessionCache:
             db_path = cache_dir / "session_cache.db"
 
         self._db_path = db_path
-        self._conn = sqlite3.connect(str(db_path))
-        self._init_tables()
+        self._db: aiosqlite.Connection | None = None
+        # 同步初始化表结构（仅在首次创建时执行）
+        self._ensure_tables_sync()
 
-    def _init_tables(self) -> None:
-        """初始化数据库表"""
-        self._conn.execute("""
-            CREATE TABLE IF NOT EXISTS sessions (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                site TEXT NOT NULL UNIQUE,
-                data TEXT NOT NULL,
-                expires_at TEXT NOT NULL,
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
-            )
-        """)
-        self._conn.execute("""
-            CREATE TABLE IF NOT EXISTS oauth_tokens (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                provider TEXT NOT NULL UNIQUE,
-                access_token TEXT NOT NULL,
-                token_type TEXT DEFAULT 'Bearer',
-                expires_at TEXT NOT NULL,
-                refresh_token TEXT,
-                extra TEXT DEFAULT '{}',
-                created_at TEXT NOT NULL,
-                updated_at TEXT NOT NULL
-            )
-        """)
-        self._conn.commit()
+    def _ensure_tables_sync(self) -> None:
+        """同步初始化表结构（仅在模块加载时调用一次）"""
+        conn = sqlite3.connect(str(self._db_path))
+        try:
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS sessions (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    site TEXT NOT NULL UNIQUE,
+                    data TEXT NOT NULL,
+                    expires_at TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+            """)
+            conn.execute("""
+                CREATE TABLE IF NOT EXISTS oauth_tokens (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    provider TEXT NOT NULL UNIQUE,
+                    access_token TEXT NOT NULL,
+                    token_type TEXT DEFAULT 'Bearer',
+                    expires_at TEXT NOT NULL,
+                    refresh_token TEXT,
+                    extra TEXT DEFAULT '{}',
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+            """)
+            conn.commit()
+        finally:
+            conn.close()
 
-    def get_session(self, site: str) -> dict[str, Any] | None:
+    async def _get_db(self) -> aiosqlite.Connection:
+        """获取或创建异步数据库连接"""
+        if self._db is None:
+            self._db = await aiosqlite.connect(str(self._db_path))
+        return self._db
+
+    async def get_session(self, site: str) -> dict[str, Any] | None:
         """获取有效的会话数据
 
         Args:
@@ -77,17 +88,19 @@ class SessionCache:
         Returns:
             会话数据字典，过期或不存在返回 None
         """
+        db = await self._get_db()
         now = datetime.now(timezone.utc).isoformat()
-        row = self._conn.execute(
+        async with db.execute(
             "SELECT data FROM sessions WHERE site = ? AND expires_at > ?",
             (site, now),
-        ).fetchone()
+        ) as cursor:
+            row = await cursor.fetchone()
         if row:
             logger.debug("会话缓存命中: %s", site)
             return json.loads(row[0])
         return None
 
-    def save_session(
+    async def save_session(
         self,
         site: str,
         data: dict[str, Any],
@@ -100,21 +113,22 @@ class SessionCache:
             data: 会话数据（Cookie、Header 等）
             ttl_hours: 有效期（小时），默认 24h
         """
+        db = await self._get_db()
         now = datetime.now(timezone.utc)
         expires_at = now + timedelta(hours=ttl_hours)
         now_str = now.isoformat()
         expires_str = expires_at.isoformat()
 
-        self._conn.execute(
+        await db.execute(
             """INSERT OR REPLACE INTO sessions
                (site, data, expires_at, created_at, updated_at)
                VALUES (?, ?, ?, ?, ?)""",
             (site, json.dumps(data), expires_str, now_str, now_str),
         )
-        self._conn.commit()
+        await db.commit()
         logger.debug("会话已缓存: %s (有效期 %.1fh)", site, ttl_hours)
 
-    def get_oauth_token(self, provider: str) -> dict[str, Any] | None:
+    async def get_oauth_token(self, provider: str) -> dict[str, Any] | None:
         """获取有效的 OAuth Token
 
         Args:
@@ -123,12 +137,14 @@ class SessionCache:
         Returns:
             Token 数据字典，过期或不存在返回 None
         """
+        db = await self._get_db()
         now = datetime.now(timezone.utc).isoformat()
-        row = self._conn.execute(
+        async with db.execute(
             "SELECT access_token, token_type, extra FROM oauth_tokens "
             "WHERE provider = ? AND expires_at > ?",
             (provider, now),
-        ).fetchone()
+        ) as cursor:
+            row = await cursor.fetchone()
         if row:
             logger.debug("OAuth Token 缓存命中: %s", provider)
             return {
@@ -138,7 +154,7 @@ class SessionCache:
             }
         return None
 
-    def save_oauth_token(
+    async def save_oauth_token(
         self,
         provider: str,
         access_token: str,
@@ -157,12 +173,13 @@ class SessionCache:
             refresh_token: 刷新令牌（可选）
             extra: 额外数据
         """
+        db = await self._get_db()
         now = datetime.now(timezone.utc)
         # 提前 60s 过期，避免边界问题
         expires_at = now + timedelta(seconds=max(0, expires_in - 60))
         now_str = now.isoformat()
 
-        self._conn.execute(
+        await db.execute(
             """INSERT OR REPLACE INTO oauth_tokens
                (provider, access_token, token_type, expires_at,
                 refresh_token, extra, created_at, updated_at)
@@ -178,24 +195,27 @@ class SessionCache:
                 now_str,
             ),
         )
-        self._conn.commit()
+        await db.commit()
         logger.debug("OAuth Token 已缓存: %s (有效期 %ds)", provider, expires_in)
 
-    def clear_expired(self) -> int:
+    async def clear_expired(self) -> int:
         """清理过期缓存，返回清理数量"""
+        db = await self._get_db()
         now = datetime.now(timezone.utc).isoformat()
-        cursor = self._conn.execute("DELETE FROM sessions WHERE expires_at <= ?", (now,))
+        cursor = await db.execute("DELETE FROM sessions WHERE expires_at <= ?", (now,))
         count = cursor.rowcount
-        cursor = self._conn.execute("DELETE FROM oauth_tokens WHERE expires_at <= ?", (now,))
+        cursor = await db.execute("DELETE FROM oauth_tokens WHERE expires_at <= ?", (now,))
         count += cursor.rowcount
-        self._conn.commit()
+        await db.commit()
         if count:
             logger.debug("清理过期缓存: %d 条", count)
         return count
 
-    def close(self) -> None:
+    async def close(self) -> None:
         """关闭数据库连接"""
-        self._conn.close()
+        if self._db is not None:
+            await self._db.close()
+            self._db = None
 
 
 # 全局单例（惰性初始化）
