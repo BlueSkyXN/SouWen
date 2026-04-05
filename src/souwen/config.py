@@ -94,11 +94,15 @@ def _load_yaml_config() -> dict:
 
     valid_fields = set(SouWenConfig.model_fields)
     flat: dict = {}
-    for _group, values in raw.items():
+    for key, values in raw.items():
         if isinstance(values, dict):
+            # 嵌套分组结构: paper: {openalex_email: ...}
             for k, v in values.items():
                 if k in valid_fields:
                     flat[k] = v
+        elif key in valid_fields:
+            # 扁平结构: openalex_email: ...
+            flat[key] = values
     return flat
 
 

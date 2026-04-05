@@ -106,5 +106,5 @@ class SearXNGClient(SouWenHttpClient):
             query=query,
             source=SourceType.WEB_SEARXNG,
             results=results,
-            total_results=data.get("number_of_results"),
+            total_results=data.get("number_of_results", 0) or len(results),
         )

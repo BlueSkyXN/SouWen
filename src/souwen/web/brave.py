@@ -53,39 +53,42 @@ class BraveClient(BaseScraper):
         soup = BeautifulSoup(html, "lxml")
         results: list[WebSearchResult] = []
 
-        for element in soup.select(".snippet"):
-            title_el = element.select_one(".title")
-            if title_el is None:
-                continue
+        try:
+            for element in soup.select(".snippet"):
+                title_el = element.select_one(".title")
+                if title_el is None:
+                    continue
 
-            title = title_el.get_text(strip=True)
+                title = title_el.get_text(strip=True)
 
-            # 提取第一个链接
-            link_el = element.select_one("a")
-            raw_url = link_el.get("href", "") if link_el else ""
+                # 提取第一个链接
+                link_el = element.select_one("a")
+                raw_url = link_el.get("href", "") if link_el else ""
 
-            # 提取 snippet（多个可能的选择器）
-            snippet = ""
-            for selector in [".snippet-description", ".snippet-content", ".description"]:
-                snippet_el = element.select_one(selector)
-                if snippet_el:
-                    snippet = snippet_el.get_text(strip=True)
-                    break
+                # 提取 snippet（多个可能的选择器）
+                snippet = ""
+                for selector in [".snippet-description", ".snippet-content", ".description"]:
+                    snippet_el = element.select_one(selector)
+                    if snippet_el:
+                        snippet = snippet_el.get_text(strip=True)
+                        break
 
-            # 过滤内部链接
-            if raw_url and not raw_url.startswith("/") and title:
-                results.append(
-                    WebSearchResult(
-                        source=SourceType.WEB_BRAVE,
-                        title=title,
-                        url=str(raw_url),
-                        snippet=snippet,
-                        engine=self.ENGINE_NAME,
+                # 过滤内部链接
+                if raw_url and not raw_url.startswith("/") and title:
+                    results.append(
+                        WebSearchResult(
+                            source=SourceType.WEB_BRAVE,
+                            title=title,
+                            url=str(raw_url),
+                            snippet=snippet,
+                            engine=self.ENGINE_NAME,
+                        )
                     )
-                )
 
-            if len(results) >= max_results:
-                break
+                if len(results) >= max_results:
+                    break
+        except Exception as e:
+            logger.warning("Brave HTML 解析失败: %s", e)
 
         logger.info("Brave 返回 %d 条结果 (query=%s)", len(results), query)
 
