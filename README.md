@@ -3,19 +3,23 @@
 > 面向 AI Agent 的学术论文 + 专利 + 网页信息统一获取工具库
 
 [![Python](https://img.shields.io/badge/python-≥3.10-blue)](https://www.python.org/)
-[![License](https://img.shields.io/badge/license-MIT-green)](LICENSE)
+[![License](https://img.shields.io/badge/license-GPLv3-blue)](LICENSE)
 
 ## 🎯 简介
 
-SouWen（搜文）是一个 Python 工具库，为 AI Agent 提供统一的学术论文、专利信息和网页搜索接口。它整合了 26 个数据源，将不同 API 的返回结果归一化为统一的 Pydantic v2 数据模型，让 AI Agent 无需关心底层数据源差异。
+SouWen（搜文）是一个 Python 工具库，为 AI Agent 提供统一的学术论文、专利信息和网页搜索接口。它整合了 37 个数据源，将不同 API 的返回结果归一化为统一的 Pydantic v2 数据模型，让 AI Agent 无需关心底层数据源差异。
 
 ### 核心特性
 
-- **26 个数据源**：8 个论文源 + 8 个专利源 + 10 个搜索引擎，覆盖全球主要学术和专利数据库及网页搜索
+- **37 个数据源**：8 个论文源 + 8 个专利源 + 21 个搜索引擎，覆盖全球主要学术和专利数据库及网页搜索
 - **统一数据模型**：所有数据源返回 `PaperResult` / `PatentResult` / `WebSearchResult`，结构一致
-- **零配置即用**：13 个数据源无需 API Key（OpenAlex、Crossref、arXiv、DBLP、PatentsView、PQAI + DuckDuckGo、Yahoo、Brave、Google、Bing）
+- **零配置即用**：22 个数据源无需 API Key（OpenAlex、Crossref、arXiv、DBLP、PubMed、PatentsView、PQAI + DuckDuckGo、Yahoo、Brave、Google、Bing、Startpage、Baidu、Mojeek、Yandex（爬虫无需Key）+ Whoogle、Websurfx（自建实例仅需URL））
 - **异步优先**：全面使用 `httpx` async，支持高并发
-- **智能限流**：令牌桶 + 滑动窗口，每个数据源独立限流
+- **智能限流**：令牌桶 + 滑动窗口 + 抽象限流器接口（`RateLimiterBase` 支持 Redis 扩展），每个数据源独立限流
+- **全局并发控制**：`asyncio.Semaphore` 防止连接过载
+- **异步会话缓存**：aiosqlite 异步 SQLite 持久化 OAuth Token / Cookie
+- **Playwright 浏览器池化**：`_BrowserPool` 单例复用 Chromium 实例
+- **代理池轮换**：支持多代理 URL 随机选取
 - **PDF 回退链**：5 级降级策略自动获取全文 PDF
 - **OAuth 自动管理**：EPO OPS / CNIPA Token 自动刷新
 
@@ -189,7 +193,7 @@ async with OpenAlexClient() as client:
 | PatSnap | `PatSnapClient` | API Key | 172 司法管辖区 |
 | Google Patents | `GooglePatentsClient` | 爬虫 | 兜底方案 |
 
-### 网页搜索引擎（10 个，含爬虫 + API）
+### 网页搜索引擎（21 个，含爬虫 + API + 自建实例）
 
 #### 爬虫类（无需 Key，零配置即用）
 
@@ -200,8 +204,12 @@ async with OpenAlexClient() as client:
 | Brave | `BraveClient` | 无需 Key | 独立索引，隐私友好 |
 | Google | `GoogleClient` | 无需 Key | 高风险，建议配代理 |
 | Bing | `BingClient` | 无需 Key | 反爬宽松，微软生态 |
+| Startpage | `StartpageClient` | 无需 Key | Google 代理，隐私友好 |
+| Baidu | `BaiduClient` | 无需 Key | 中文搜索首选 |
+| Mojeek | `MojeekClient` | 无需 Key | 独立索引，英国引擎 |
+| Yandex | `YandexClient` | 无需 Key | 俄语搜索首选 |
 
-#### API 类（需 Key / 自建实例）
+#### API 类（需 Key）
 
 | 服务 | 客户端类 | 鉴权 | 特点 |
 |------|---------|------|------|
@@ -210,6 +218,18 @@ async with OpenAlexClient() as client:
 | Exa | `ExaClient` | API Key | 语义搜索（神经索引） |
 | Serper | `SerperClient` | API Key | Google 结构化 JSON |
 | Brave API | `BraveApiClient` | API Key | 官方 REST API，免费 2000 次/月 |
+| SerpAPI | `SerpApiClient` | API Key | 多引擎 SERP 结构化数据 |
+| Firecrawl | `FirecrawlClient` | API Key | 网页爬取 + 内容提取 |
+| Perplexity Sonar | `PerplexitySonarClient` | API Key | AI 搜索，带引用来源 |
+| Linkup | `LinkupClient` | API Key | 聚合搜索 API |
+| ScrapingDog | `ScrapingDogClient` | API Key | SERP 代理抓取 |
+
+#### 自建实例类（仅需 URL）
+
+| 服务 | 客户端类 | 鉴权 | 特点 |
+|------|---------|------|------|
+| Whoogle | `WhoogleClient` | 实例 URL | 自托管 Google 前端，无追踪 |
+| Websurfx | `WebsurfxClient` | 实例 URL | 自托管元搜索引擎 |
 
 #### 聚合搜索
 
@@ -262,7 +282,7 @@ SouWen/
 │   ├── retry.py            # 分层重试策略（http/scraper/captcha）
 │   ├── paper/              # 8 个论文数据源
 │   ├── patent/             # 8 个专利数据源
-│   ├── web/                # 10 个搜索引擎（5 爬虫 + 5 API）
+│   ├── web/                # 21 个搜索引擎（9 爬虫 + 10 API + 2 自建）
 │   └── scraper/            # 爬虫兜底层（TLS 指纹 + 礼貌爬取）
 ├── tests/                  # 单元测试
 ├── examples/               # 使用示例
@@ -279,9 +299,12 @@ SouWen 集成了完整的反爬绕过方案（移植自 OpenRouter RegBot 项目
 | 技术 | 说明 | 模块 |
 |------|------|------|
 | **TLS 指纹模拟** | curl_cffi impersonate Chrome 120/124 | `fingerprint.py` |
+| **浏览器指纹库** | 10 个指纹（Chrome + Edge + Safari + Android） | `fingerprint.py` |
 | **浏览器请求头** | 13 个头（Sec-CH-UA 系列、Sec-Fetch 系列） | `fingerprint.py` |
+| **Playwright 池化** | 单例复用 Chromium 实例，减少启动开销 | `scraper/browser_pool.py` |
 | **分层重试** | http (3次) / scraper (5次) / captcha (5次) | `retry.py` |
-| **会话缓存** | SQLite 持久化 OAuth Token / Cookie | `session_cache.py` |
+| **异步会话缓存** | aiosqlite 异步 SQLite 持久化 OAuth Token / Cookie | `session_cache.py` |
+| **代理池轮换** | 多代理 URL 随机选取 | `config.py` |
 | **礼貌爬取** | 随机间隔 + 自适应退避 + 429 处理 | `scraper/base.py` |
 
 > curl_cffi 为可选依赖，未安装时自动回退到 httpx。
@@ -356,6 +379,20 @@ python examples/search_web.py
 3. **稳健性**：自动重试、限流保护、优雅降级
 4. **可观测性**：结构化日志，请求耗时追踪
 
+## 🆕 近期改进（v0.4.0）
+
+- **11 个新搜索引擎**：SerpAPI、Firecrawl、Perplexity Sonar、Linkup、ScrapingDog、Startpage、Baidu、Mojeek、Yandex、Whoogle、Websurfx
+- **异步会话缓存**：从同步 sqlite3 迁移到 aiosqlite
+- **全局并发控制**：`asyncio.Semaphore(10)` 防止连接过载
+- **Playwright 浏览器池化**：`_BrowserPool` 单例复用 Chromium 实例
+- **代理池轮换**：支持多代理 URL 配置 + 随机选取
+- **扩展浏览器指纹库**：从 3 个扩展到 10 个（Chrome + Edge + Safari + Android）
+- **抽象限流器接口**：`RateLimiterBase(ABC)` 支持 Redis 等分布式限流器扩展
+- **102 个自动化测试**：从 35 个增长到 102 个，含 67 个 mock 测试（pytest-httpx）
+- **CLI 搜索改进**：搜索结果显示失败源警告
+- **Pydantic 模型加固**：`extra="forbid"` 防止字段名拼写错误
+- **数据源常量**：`ALL_SOURCES` 共享常量，统一版本号为单一来源 `__version__`
+
 ## 📄 License
 
-MIT
+GPL-3.0-or-later
