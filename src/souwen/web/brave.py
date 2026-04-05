@@ -1,6 +1,5 @@
 """Brave 搜索引擎
 
-移植自 SoSearch/src/engines/brave.rs
 Brave Search 拥有独立的搜索索引（非 Bing/Google 驱动）。
 
 特点：

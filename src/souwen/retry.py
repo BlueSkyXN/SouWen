@@ -4,8 +4,6 @@
 - http_retry: 网络请求（3 次，指数退避 2-10s）
 - scraper_retry: 反爬场景（5 次，指数退避 5-30s）
 - poll_retry: 轮询场景（固定间隔）
-
-学习自 OpenRouter RegBot 的 retry_decorators 分级策略。
 """
 
 from __future__ import annotations

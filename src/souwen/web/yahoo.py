@@ -1,6 +1,5 @@
 """Yahoo 搜索引擎
 
-移植自 SoSearch/src/engines/yahoo.rs
 Yahoo 搜索由 Bing 驱动，对数据中心 IP 相对宽容。
 
 特点：

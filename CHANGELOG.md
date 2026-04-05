@@ -61,7 +61,6 @@
 
 ### Added
 - **常规网页搜索模块** (`souwen.web`) — 10 个搜索引擎
-  - 移植自 [SoSearch](https://github.com/NetLops/SoSearch) Rust 项目 + 扩展
   - **爬虫类（无需 Key，零配置即用）**
     - DuckDuckGoClient — DuckDuckGo HTML 搜索（uddg= URL 解码）
     - YahooClient — Yahoo 搜索（Bing 驱动，RU=/RK= URL 解码）

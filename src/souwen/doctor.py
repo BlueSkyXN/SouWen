@@ -1,7 +1,6 @@
 """SouWen 数据源健康检查
 
 检测所有数据源的可用性，按配置 Tier 分组显示。
-灵感来源于 Agent-Reach 的 doctor 设计模式。
 """
 
 from __future__ import annotations

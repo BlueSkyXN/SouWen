@@ -8,7 +8,7 @@
 - 自动重试（指数退避）
 - 可选代理支持
 
-技术方案参考 OpenRouter RegBot 的过盾策略。
+技术方案涵盖 TLS 指纹伪装、自适应退避和浏览器头模拟。
 """
 
 from __future__ import annotations
