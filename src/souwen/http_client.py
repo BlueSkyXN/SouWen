@@ -67,7 +67,7 @@ class SouWenHttpClient:
             base_url=base_url,
             headers=default_headers,
             timeout=httpx.Timeout(self.timeout),
-            proxy=config.proxy,
+            proxy=config.get_proxy(),
             follow_redirects=True,
         )
 

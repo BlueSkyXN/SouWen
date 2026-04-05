@@ -73,13 +73,13 @@ class BaseScraper:
             logger.info("使用 curl_cffi (impersonate=%s)", self._fingerprint.impersonate)
             self._curl_session = CurlAsyncSession(
                 impersonate=self._fingerprint.impersonate,
-                proxy=config.proxy,
+                proxy=config.get_proxy(),
                 timeout=config.timeout,
             )
         else:
             self._httpx_client = httpx.AsyncClient(
                 timeout=httpx.Timeout(config.timeout),
-                proxy=config.proxy,
+                proxy=config.get_proxy(),
                 follow_redirects=True,
             )
 

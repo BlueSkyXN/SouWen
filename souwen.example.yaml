@@ -66,6 +66,13 @@ web:
 general:
   # HTTP 代理地址（例如 http://127.0.0.1:7890）
   proxy: ~
+  # 代理池：多个代理地址，每次请求随机选取（优先于 proxy）
+  # 环境变量：SOUWEN_PROXY_POOL=http://p1:7890,http://p2:7890,socks5://p3:1080
+  # proxy_pool:
+  #   - http://proxy1:7890
+  #   - http://proxy2:7890
+  #   - socks5://proxy3:1080
+  proxy_pool: []
   # 请求超时时间（秒）
   timeout: 30
   # 最大重试次数
