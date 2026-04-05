@@ -1,0 +1,166 @@
+# =============================================================================
+# Nuitka 构建工作流 — 将 SouWen 编译为原生机器码
+#
+# 触发条件:
+#   - 推送 v* 标签时（创建 Release）
+#   - 推送到主分支且修改了源码/依赖文件
+#   - Pull Request 修改了相关文件
+#   - 手动触发
+#
+# 构建产物:
+#   - Linux (amd64/arm64)、macOS (arm64)、Windows (amd64) 单文件可执行程序
+#
+# Nuitka 编译为原生机器码，启动更快、运行性能更好
+# =============================================================================
+name: Build with Nuitka
+
+on:
+  push:
+    tags:
+      - 'v*'
+    branches:
+      - main
+      - master
+      - dev
+    paths:
+      - 'src/**'
+      - 'cli.py'
+      - 'requirements*.txt'
+      - '.github/workflows/build-nuitka.yml'
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'cli.py'
+      - 'requirements*.txt'
+  workflow_dispatch:
+
+env:
+  APP_NAME: souwen
+  PYTHON_VERSION: '3.11'
+
+jobs:
+  build:
+    name: Build on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            artifact_name: souwen-nuitka-linux-amd64
+          - os: ubuntu-24.04-arm
+            artifact_name: souwen-nuitka-linux-arm64
+          - os: macos-15
+            artifact_name: souwen-nuitka-macos-arm64
+          - os: windows-2025
+            artifact_name: souwen-nuitka-windows-amd64.exe
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ env.PYTHON_VERSION }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install nuitka ordered-set zstandard
+
+      - name: Install C compiler (Ubuntu)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential patchelf
+
+      - name: Install C compiler (macOS)
+        if: runner.os == 'macOS'
+        run: |
+          xcode-select --install || true
+
+      - name: Verify CLI
+        run: |
+          python cli.py --help
+          python cli.py sources
+
+      - name: Build with Nuitka (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          python -m nuitka \
+            --onefile \
+            --standalone \
+            --assume-yes-for-downloads \
+            --include-package=souwen \
+            --include-package-data=souwen \
+            --output-filename=${{ env.APP_NAME }} \
+            --output-dir=dist \
+            cli.py
+
+      - name: Build with Nuitka (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          python -m nuitka --onefile --standalone --assume-yes-for-downloads --include-package=souwen --include-package-data=souwen --output-filename=${{ env.APP_NAME }}.exe --output-dir=dist cli.py
+
+      - name: Rename artifact (Unix)
+        if: runner.os != 'Windows'
+        run: mv dist/${{ env.APP_NAME }} dist/${{ matrix.artifact_name }}
+
+      - name: Rename artifact (Windows)
+        if: runner.os == 'Windows'
+        run: move dist\${{ env.APP_NAME }}.exe dist\${{ matrix.artifact_name }}
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: dist/${{ matrix.artifact_name }}
+          retention-days: 30
+
+  release:
+    name: Create Release
+    needs: build
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/v')
+
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Display artifacts
+        run: find artifacts/ -type f
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ env.APP_NAME }} ${{ github.ref_name }} (Nuitka)
+          body: |
+            ## SouWen ${{ github.ref_name }} (Nuitka Build)
+
+            Nuitka 编译为原生机器码，启动更快、运行性能更好。
+
+            ### Downloads
+            - **Linux (x64)**: `souwen-nuitka-linux-amd64`
+            - **Linux (ARM64)**: `souwen-nuitka-linux-arm64`
+            - **macOS (Apple Silicon)**: `souwen-nuitka-macos-arm64`
+            - **Windows (x64)**: `souwen-nuitka-windows-amd64.exe`
+
+            ### 使用
+            ```bash
+            chmod +x souwen-nuitka-*    # Unix
+            ./souwen-nuitka-linux-amd64 search paper "transformer"
+            ./souwen-nuitka-linux-amd64 serve --port 8000
+            ./souwen-nuitka-linux-amd64 doctor
+            ```
+          files: |
+            artifacts/**/*
+          generate_release_notes: true
+          draft: false
+          prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
