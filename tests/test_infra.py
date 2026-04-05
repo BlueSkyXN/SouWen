@@ -424,8 +424,10 @@ class TestYAMLConfig:
         """souwen.example.yaml 存在"""
         from pathlib import Path
 
-        example = Path("/Users/sky/Github/SouWen/souwen.example.yaml")
-        assert example.exists()
+        # 相对于项目根目录查找（支持 CI 环境）
+        repo_root = Path(__file__).resolve().parent.parent
+        example = repo_root / "souwen.example.yaml"
+        assert example.exists(), f"souwen.example.yaml not found at {example}"
 
 
 class TestCLI:
