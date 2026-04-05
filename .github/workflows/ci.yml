@@ -90,7 +90,12 @@ jobs:
               DuckDuckGoClient, YahooClient, BraveClient,
               GoogleClient, BingClient,
               SearXNGClient, TavilyClient, ExaClient, SerperClient, BraveApiClient,
+              SerpApiClient, FirecrawlClient, PerplexityClient,
+              LinkupClient, ScrapingDogClient,
+              StartpageClient, BaiduClient, MojeekClient, YandexClient,
+              WhoogleClient, WebsurfxClient,
               web_search,
           )
-          print('全部 26 数据源导入成功 ✅')
+          from souwen.doctor import check_all
+          print('全部 37 数据源 + doctor 导入成功 ✅')
           "
