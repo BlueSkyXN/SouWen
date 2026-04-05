@@ -1,5 +1,45 @@
 # Changelog
 
+## v0.4.0 (unreleased)
+
+### 新增
+- 11 个新搜索引擎：SerpAPI、Firecrawl、Perplexity Sonar、Linkup、ScrapingDog、Startpage、Baidu、Mojeek、Yandex、Whoogle、Websurfx
+- 67 个 mock 测试（pytest-httpx），覆盖 OpenAlex、Crossref、ArXiv、PatentsView、PQAI、Web 聚合搜索
+- 代理池轮换（`proxy_pool` 配置 + 随机选取）
+- Playwright 浏览器实例池化（`_BrowserPool` 单例复用 Chromium）
+- 抽象限流器接口 `RateLimiterBase(ABC)`，支持 Redis 等分布式限流器扩展
+- 全局并发度控制 `asyncio.Semaphore(10)`，防止连接过载
+- CLI 搜索结果显示失败源警告
+
+### 修复
+- 所有 8 个论文客户端 `total=` → `total_results=`（Pydantic v2 静默忽略 bug）
+- 所有 8 个论文客户端 `extra=` → `raw=`（元数据丢失 bug）
+- OpenAlex 配置字段名 `openalex_mailto` → `openalex_email`
+- ConfigError 构造函数签名错误（TypeError 崩溃）
+- ArXiv/PubMed XML 解析崩溃保护（try/except ET.ParseError）
+- PubMed 整数转换、除零、分页计算
+- Google URL 解码空值 IndexError
+- Scraper Retry-After 解析崩溃 + 120s 上限
+- EPO OPS range 计算安全
+- PDF 获取器 BOM 容忍、窄异常捕获
+- YAML 配置加载器支持嵌套和扁平两种格式
+
+### 改进
+- 会话缓存从同步 sqlite3 迁移到异步 aiosqlite
+- 浏览器指纹库从 3 个扩展到 10 个（Chrome + Edge + Safari + Android）
+- 异常处理区分 ConfigError / RateLimitError / 其他
+- 所有论文客户端填充 journal/venue 字段
+- Pydantic 模型添加 `extra="forbid"` 防止字段名拼写错误
+- 统一版本号为单一来源 `__version__`
+- Web API 客户端添加 JSON 解析保护
+- 数据源列表抽取为共享常量 `ALL_SOURCES`
+- HTTP-date Retry-After 解析兼容
+- OAuth 响应 KeyError 保护
+- TokenBucketLimiter rate 合法性校验
+
+### 依赖
+- 新增 `aiosqlite>=0.20.0`
+
 ## v0.3.0
 
 ### 新功能
