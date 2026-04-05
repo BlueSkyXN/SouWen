@@ -64,53 +64,56 @@ class GoogleClient(BaseScraper):
         soup = BeautifulSoup(html, "lxml")
         results: list[WebSearchResult] = []
 
-        # Google 搜索结果的主要容器选择器
-        # 方法1: div.g 是经典的结果容器
-        for element in soup.select("div.g"):
-            # 提取标题和链接
-            title_el = element.select_one("h3")
-            if title_el is None:
-                continue
+        try:
+            # Google 搜索结果的主要容器选择器
+            # 方法1: div.g 是经典的结果容器
+            for element in soup.select("div.g"):
+                # 提取标题和链接
+                title_el = element.select_one("h3")
+                if title_el is None:
+                    continue
 
-            title = title_el.get_text(strip=True)
+                title = title_el.get_text(strip=True)
 
-            # 链接通常在 h3 的父级 a 标签或 div.g 内的第一个 a 标签
-            link_el = element.select_one("a[href]")
-            if link_el is None:
-                continue
-            raw_url = link_el.get("href", "")
+                # 链接通常在 h3 的父级 a 标签或 div.g 内的第一个 a 标签
+                link_el = element.select_one("a[href]")
+                if link_el is None:
+                    continue
+                raw_url = link_el.get("href", "")
 
-            # Google URL 解码：/url?q=REAL_URL&sa=... 或直接 URL
-            real_url = self._decode_google_url(str(raw_url))
-            if not real_url or real_url.startswith("/"):
-                continue
+                # Google URL 解码：/url?q=REAL_URL&sa=... 或直接 URL
+                real_url = self._decode_google_url(str(raw_url))
+                if not real_url or real_url.startswith("/"):
+                    continue
 
-            # 提取 snippet（多种可能的选择器）
-            snippet = ""
-            for sel in [
-                "div.VwiC3b",  # 当前常见
-                "span.aCOpRe",  # 旧版
-                "div[data-sncf]",  # 替代
-                "div.IsZvec",  # 另一种
-            ]:
-                snippet_el = element.select_one(sel)
-                if snippet_el:
-                    snippet = snippet_el.get_text(strip=True)
-                    break
+                # 提取 snippet（多种可能的选择器）
+                snippet = ""
+                for sel in [
+                    "div.VwiC3b",  # 当前常见
+                    "span.aCOpRe",  # 旧版
+                    "div[data-sncf]",  # 替代
+                    "div.IsZvec",  # 另一种
+                ]:
+                    snippet_el = element.select_one(sel)
+                    if snippet_el:
+                        snippet = snippet_el.get_text(strip=True)
+                        break
 
-            if title and real_url:
-                results.append(
-                    WebSearchResult(
-                        source=SourceType.WEB_GOOGLE,
-                        title=title,
-                        url=real_url,
-                        snippet=snippet,
-                        engine=self.ENGINE_NAME,
+                if title and real_url:
+                    results.append(
+                        WebSearchResult(
+                            source=SourceType.WEB_GOOGLE,
+                            title=title,
+                            url=real_url,
+                            snippet=snippet,
+                            engine=self.ENGINE_NAME,
+                        )
                     )
-                )
 
-            if len(results) >= max_results:
-                break
+                if len(results) >= max_results:
+                    break
+        except Exception as e:
+            logger.warning("Google HTML 解析失败: %s", e)
 
         logger.info("Google 返回 %d 条结果 (query=%s)", len(results), query)
 

@@ -53,38 +53,44 @@ class YahooClient(BaseScraper):
         soup = BeautifulSoup(html, "lxml")
         results: list[WebSearchResult] = []
 
-        for element in soup.select(".algo"):
-            title_el = element.select_one("h3")
-            if title_el is None:
-                continue
+        try:
+            for element in soup.select(".algo"):
+                title_el = element.select_one("h3")
+                if title_el is None:
+                    continue
 
-            title = title_el.get_text(strip=True)
+                title = title_el.get_text(strip=True)
 
-            # 提取链接
-            link_el = element.select_one(".compTitle a")
-            raw_url = link_el.get("href", "") if link_el else ""
+                # 提取链接
+                link_el = element.select_one(".compTitle a")
+                raw_url = link_el.get("href", "") if link_el else ""
 
-            # 提取 snippet
-            snippet_el = element.select_one(".compText")
-            snippet = snippet_el.get_text(strip=True) if snippet_el else ""
+                # 提取 snippet
+                snippet_el = element.select_one(".compText")
+                snippet = snippet_el.get_text(strip=True) if snippet_el else ""
 
-            # Yahoo URL 重定向解码
-            # 格式: .../RU=ENCODED_URL/RK=.../RS=...
-            real_url = self._decode_yahoo_url(str(raw_url))
+                # Yahoo URL 重定向解码
+                # 格式: .../RU=ENCODED_URL/RK=.../RS=...
+                real_url = self._decode_yahoo_url(str(raw_url))
 
-            if title and real_url:
-                results.append(
-                    WebSearchResult(
-                        source=SourceType.WEB_YAHOO,
-                        title=title,
-                        url=real_url,
-                        snippet=snippet,
-                        engine=self.ENGINE_NAME,
+                if not real_url or not real_url.startswith(("http://", "https://")):
+                    continue
+
+                if title:
+                    results.append(
+                        WebSearchResult(
+                            source=SourceType.WEB_YAHOO,
+                            title=title,
+                            url=real_url,
+                            snippet=snippet,
+                            engine=self.ENGINE_NAME,
+                        )
                     )
-                )
 
-            if len(results) >= max_results:
-                break
+                if len(results) >= max_results:
+                    break
+        except Exception as e:
+            logger.warning("Yahoo HTML 解析失败: %s", e)
 
         logger.info("Yahoo 返回 %d 条结果 (query=%s)", len(results), query)
 

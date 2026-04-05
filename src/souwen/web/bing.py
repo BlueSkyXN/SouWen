@@ -54,41 +54,44 @@ class BingClient(BaseScraper):
         soup = BeautifulSoup(html, "lxml")
         results: list[WebSearchResult] = []
 
-        # Bing 搜索结果容器
-        # 主要选择器: li.b_algo (有机结果)
-        for element in soup.select("li.b_algo"):
-            # 标题在 h2 > a
-            title_el = element.select_one("h2 a")
-            if title_el is None:
-                continue
+        try:
+            # Bing 搜索结果容器
+            # 主要选择器: li.b_algo (有机结果)
+            for element in soup.select("li.b_algo"):
+                # 标题在 h2 > a
+                title_el = element.select_one("h2 a")
+                if title_el is None:
+                    continue
 
-            title = title_el.get_text(strip=True)
-            raw_url = title_el.get("href", "")
+                title = title_el.get_text(strip=True)
+                raw_url = title_el.get("href", "")
 
-            if not raw_url or not raw_url.startswith("http"):
-                continue
+                if not raw_url or not raw_url.startswith("http"):
+                    continue
 
-            # Snippet: p 标签或 .b_caption p
-            snippet = ""
-            for sel in ["div.b_caption p", "p"]:
-                snippet_el = element.select_one(sel)
-                if snippet_el:
-                    snippet = snippet_el.get_text(strip=True)
-                    break
+                # Snippet: p 标签或 .b_caption p
+                snippet = ""
+                for sel in ["div.b_caption p", "p"]:
+                    snippet_el = element.select_one(sel)
+                    if snippet_el:
+                        snippet = snippet_el.get_text(strip=True)
+                        break
 
-            if title and raw_url:
-                results.append(
-                    WebSearchResult(
-                        source=SourceType.WEB_BING,
-                        title=title,
-                        url=str(raw_url),
-                        snippet=snippet,
-                        engine=self.ENGINE_NAME,
+                if title and raw_url:
+                    results.append(
+                        WebSearchResult(
+                            source=SourceType.WEB_BING,
+                            title=title,
+                            url=str(raw_url),
+                            snippet=snippet,
+                            engine=self.ENGINE_NAME,
+                        )
                     )
-                )
 
-            if len(results) >= max_results:
-                break
+                if len(results) >= max_results:
+                    break
+        except Exception as e:
+            logger.warning("Bing HTML 解析失败: %s", e)
 
         logger.info("Bing 返回 %d 条结果 (query=%s)", len(results), query)
 

@@ -54,35 +54,41 @@ class DuckDuckGoClient(BaseScraper):
         soup = BeautifulSoup(html, "lxml")
         results: list[WebSearchResult] = []
 
-        for element in soup.select(".result"):
-            title_el = element.select_one(".result__a")
-            if title_el is None:
-                continue
+        try:
+            for element in soup.select(".result"):
+                title_el = element.select_one(".result__a")
+                if title_el is None:
+                    continue
 
-            title = title_el.get_text(strip=True)
-            raw_url = title_el.get("href", "")
+                title = title_el.get_text(strip=True)
+                raw_url = title_el.get("href", "")
 
-            # 提取 snippet
-            snippet_el = element.select_one(".result__snippet")
-            snippet = snippet_el.get_text(strip=True) if snippet_el else ""
+                # 提取 snippet
+                snippet_el = element.select_one(".result__snippet")
+                snippet = snippet_el.get_text(strip=True) if snippet_el else ""
 
-            # DuckDuckGo URL 重定向解码
-            # 格式: //duckduckgo.com/l/?uddg=ENCODED_URL&rut=...
-            real_url = self._decode_ddg_url(str(raw_url))
+                # DuckDuckGo URL 重定向解码
+                # 格式: //duckduckgo.com/l/?uddg=ENCODED_URL&rut=...
+                real_url = self._decode_ddg_url(str(raw_url))
 
-            if title and real_url:
-                results.append(
-                    WebSearchResult(
-                        source=SourceType.WEB_DUCKDUCKGO,
-                        title=title,
-                        url=real_url,
-                        snippet=snippet,
-                        engine=self.ENGINE_NAME,
+                if not real_url or not real_url.startswith(("http://", "https://")):
+                    continue
+
+                if title:
+                    results.append(
+                        WebSearchResult(
+                            source=SourceType.WEB_DUCKDUCKGO,
+                            title=title,
+                            url=real_url,
+                            snippet=snippet,
+                            engine=self.ENGINE_NAME,
+                        )
                     )
-                )
 
-            if len(results) >= max_results:
-                break
+                if len(results) >= max_results:
+                    break
+        except Exception as e:
+            logger.warning("DuckDuckGo HTML 解析失败: %s", e)
 
         logger.info("DuckDuckGo 返回 %d 条结果 (query=%s)", len(results), query)
 
