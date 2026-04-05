@@ -41,6 +41,9 @@ from souwen.web.websurfx import WebsurfxClient
 
 logger = logging.getLogger("souwen.web.search")
 
+# 全局并发度限制（Web 引擎共享）
+_WEB_SEMAPHORE = asyncio.Semaphore(10)
+
 
 async def _search_engine(
     engine_cls: type,
@@ -48,14 +51,15 @@ async def _search_engine(
     max_results: int,
     **kwargs,
 ) -> list[WebSearchResult]:
-    """搜索单个引擎（异常安全）"""
-    try:
-        async with engine_cls(**kwargs) as client:
-            resp = await client.search(query, max_results=max_results)
-            return list(resp.results)
-    except Exception as e:
-        logger.warning("%s 搜索失败: %s", engine_cls.__name__, e)
-        return []
+    """搜索单个引擎（异常安全 + 并发度限制）"""
+    async with _WEB_SEMAPHORE:
+        try:
+            async with engine_cls(**kwargs) as client:
+                resp = await client.search(query, max_results=max_results)
+                return list(resp.results)
+        except Exception as e:
+            logger.warning("%s 搜索失败 [%s]: %s", engine_cls.__name__, type(e).__name__, e)
+            return []
 
 
 def _deduplicate(results: Sequence[WebSearchResult]) -> list[WebSearchResult]:

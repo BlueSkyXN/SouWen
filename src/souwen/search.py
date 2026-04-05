@@ -53,12 +53,29 @@ async def _run_client(cls: type, method_name: str, **kwargs: Any) -> SearchRespo
 
 
 async def _search_source(name: str, coro: Any) -> SearchResponse | None:
-    """执行单个数据源搜索（异常安全）"""
+    """执行单个数据源搜索（异常安全，区分异常类型）"""
     try:
         return await coro
     except Exception as e:
-        logger.warning("%s 搜索失败: %s", name, e)
+        from souwen.exceptions import ConfigError, RateLimitError
+
+        if isinstance(e, ConfigError):
+            logger.info("%s 跳过: 缺少配置 (%s)", name, e)
+        elif isinstance(e, RateLimitError):
+            logger.warning("%s 被限流: %s", name, e)
+        else:
+            logger.warning("%s 搜索失败 [%s]: %s", name, type(e).__name__, e)
         return None
+
+
+# 全局并发度限制，防止同时打满 Socket 连接
+_CONCURRENCY_SEMAPHORE = asyncio.Semaphore(10)
+
+
+async def _search_source_limited(name: str, coro: Any) -> SearchResponse | None:
+    """带并发度限制的搜索执行"""
+    async with _CONCURRENCY_SEMAPHORE:
+        return await _search_source(name, coro)
 
 
 # ── 数据源映射 ─────────────────────────────────────────────
@@ -205,17 +222,10 @@ async def search_papers(
         tasks.append((name, factory(query, per_page, **kwargs)))
 
     results = await asyncio.gather(
-        *[_search_source(n, coro) for n, coro in tasks],
-        return_exceptions=True,
+        *[_search_source_limited(n, coro) for n, coro in tasks],
     )
 
-    responses: list[SearchResponse] = []
-    for r in results:
-        if isinstance(r, SearchResponse):
-            responses.append(r)
-        elif isinstance(r, Exception):
-            logger.warning("论文搜索异常: %s", r)
-
+    responses = [r for r in results if isinstance(r, SearchResponse)]
     logger.info(
         "论文搜索完成: %d/%d 源成功 (query=%s)",
         len(responses),
@@ -252,16 +262,10 @@ async def search_patents(
         tasks.append((name, factory(query, per_page, **kwargs)))
 
     results = await asyncio.gather(
-        *[_search_source(n, coro) for n, coro in tasks],
-        return_exceptions=True,
+        *[_search_source_limited(n, coro) for n, coro in tasks],
     )
 
-    responses: list[SearchResponse] = []
-    for r in results:
-        if isinstance(r, SearchResponse):
-            responses.append(r)
-        elif isinstance(r, Exception):
-            logger.warning("专利搜索异常: %s", r)
+    responses = [r for r in results if isinstance(r, SearchResponse)]
 
     logger.info(
         "专利搜索完成: %d/%d 源成功 (query=%s)",
