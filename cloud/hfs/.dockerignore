@@ -3,12 +3,3 @@
 __pycache__
 *.pyc
 .DS_Store
-.env
-tests/
-docs/
-examples/
-panel/
-cloud/
-.github/
-*.md
-!README.md

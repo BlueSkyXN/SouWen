@@ -1,22 +1,23 @@
 FROM python:3.11-slim
 
+ARG SOUWEN_REPO=https://github.com/BlueSkyXN/SouWen.git
+ARG SOUWEN_REF=main
+
 ENV PORT=49265 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     TZ=Asia/Shanghai
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        curl tzdata \
+        git ca-certificates curl tzdata \
     && cp /usr/share/zoneinfo/${TZ} /etc/localtime \
     && echo "${TZ}" > /etc/timezone \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# 复制项目文件（由 deploy.sh 同步到此目录）
-COPY pyproject.toml README.md LICENSE ./
-COPY src/ ./src/
-RUN pip install ".[server]"
+RUN git clone --depth 1 --branch "${SOUWEN_REF}" "${SOUWEN_REPO}" . \
+    && pip install ".[server]"
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
