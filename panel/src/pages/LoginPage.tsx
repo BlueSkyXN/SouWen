@@ -1,4 +1,4 @@
-import { useState, useCallback, type FormEvent } from 'react'
+import { useState, useEffect, useCallback, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { m } from 'framer-motion'
@@ -18,11 +18,6 @@ export function LoginPage() {
   const { theme, toggleTheme } = useThemeStore()
   const addToast = useNotificationStore((s) => s.addToast)
 
-  if (isAuthenticated) {
-    navigate('/', { replace: true })
-    return null
-  }
-
   const [baseUrl, setBaseUrl] = useState(() => {
     const saved = localStorage.getItem('souwen_baseUrl') ?? sessionStorage.getItem('souwen_baseUrl')
     return saved ?? window.location.origin
@@ -33,6 +28,12 @@ export function LoginPage() {
     () => localStorage.getItem('souwen_remember') === 'true',
   )
   const [loading, setLoading] = useState(false)
+
+  useEffect(() => {
+    if (isAuthenticated) {
+      navigate('/', { replace: true })
+    }
+  }, [isAuthenticated, navigate])
 
   const handleSubmit = useCallback(
     async (e: FormEvent) => {
