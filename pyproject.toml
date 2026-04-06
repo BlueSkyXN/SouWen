@@ -27,11 +27,11 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/SkywalkerSpace/SouWen"
-Repository = "https://github.com/SkywalkerSpace/SouWen"
-Documentation = "https://github.com/SkywalkerSpace/SouWen/tree/main/docs"
-Issues = "https://github.com/SkywalkerSpace/SouWen/issues"
-Changelog = "https://github.com/SkywalkerSpace/SouWen/blob/main/CHANGELOG.md"
+Homepage = "https://github.com/BlueSkyXN/SouWen"
+Repository = "https://github.com/BlueSkyXN/SouWen"
+Documentation = "https://github.com/BlueSkyXN/SouWen/tree/main/docs"
+Issues = "https://github.com/BlueSkyXN/SouWen/issues"
+Changelog = "https://github.com/BlueSkyXN/SouWen/blob/main/CHANGELOG.md"
 
 dependencies = [
     "httpx>=0.27.0",

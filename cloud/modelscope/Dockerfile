@@ -1,9 +1,5 @@
 FROM modelscope-registry.cn-beijing.cr.aliyuncs.com/modelscope-repo/python:3.10
 
-# 可通过 --build-arg 固定到特定 commit/tag 以获得可复现构建
-ARG SOUWEN_REPO=https://github.com/SkywalkerSpace/SouWen.git
-ARG SOUWEN_REF=main
-
 ENV PORT=7860 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
@@ -11,8 +7,10 @@ ENV PORT=7860 \
 
 WORKDIR /home/user/app
 
-RUN git clone --depth 1 --branch "${SOUWEN_REF}" "${SOUWEN_REPO}" . \
-    && pip install ".[server]"
+# 复制项目文件（由 deploy.sh 同步到此目录）
+COPY pyproject.toml README.md LICENSE ./
+COPY src/ ./src/
+RUN pip install ".[server]"
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
