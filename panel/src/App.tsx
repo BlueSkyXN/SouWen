@@ -1,10 +1,11 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { LazyMotion, domAnimation, AnimatePresence } from 'framer-motion'
 import { useAuthStore } from './stores/authStore'
 import { useThemeStore } from './stores/themeStore'
 import { MainLayout } from './components/layout/MainLayout'
 import { ToastContainer } from './components/common/Toast'
+import { Spinner } from './components/common/Spinner'
 import { LoginPage } from './pages/LoginPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { SearchPage } from './pages/SearchPage'
@@ -45,11 +46,15 @@ function AnimatedRoutes() {
 export default function App() {
   const loadFromStorage = useAuthStore((s) => s.loadFromStorage)
   const loadTheme = useThemeStore((s) => s.loadTheme)
+  const [ready, setReady] = useState(false)
 
   useEffect(() => {
     loadTheme()
     loadFromStorage()
+    setReady(true)
   }, [loadFromStorage, loadTheme])
+
+  if (!ready) return <Spinner size="lg" />
 
   return (
     <LazyMotion features={domAnimation}>

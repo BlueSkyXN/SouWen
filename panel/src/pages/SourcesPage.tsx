@@ -7,7 +7,6 @@ import { useNotificationStore } from '../stores/notificationStore'
 import { Badge } from '../components/common/Badge'
 import { Spinner } from '../components/common/Spinner'
 import { formatError } from '../lib/errors'
-import { typeLabel } from '../lib/normalize'
 import type { DoctorResponse, DoctorSource } from '../types'
 import styles from './SourcesPage.module.scss'
 
@@ -23,14 +22,17 @@ export function SourcesPage() {
   const { t } = useTranslation()
   const [doctor, setDoctor] = useState<DoctorResponse | null>(null)
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState(false)
   const addToast = useNotificationStore((s) => s.addToast)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
+    setFetchError(false)
     try {
       const d = await api.getDoctor()
       setDoctor(d)
     } catch (err) {
+      setFetchError(true)
       addToast('error', t('sources.fetchFailed', { message: formatError(err) }))
     } finally {
       setLoading(false)
@@ -43,13 +45,26 @@ export function SourcesPage() {
 
   if (loading) return <Spinner size="lg" label={t('common.loading')} />
 
-  const okCount = doctor?.ok ?? 0
-  const totalCount = doctor?.total ?? 0
+  if (fetchError || !doctor) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.summary}>
+          <Badge color="red">{t('common.error')}</Badge>
+          <button className="btn btn-sm btn-outline" onClick={fetchData}>
+            <RefreshCw size={14} /> {t('sources.refresh')}
+          </button>
+        </div>
+      </div>
+    )
+  }
+
+  const okCount = doctor.ok
+  const totalCount = doctor.total
 
   const tiers = [0, 1, 2]
   const sourcesByTier: Record<number, DoctorSource[]> = {}
   for (const tier of tiers) {
-    sourcesByTier[tier] = doctor?.sources.filter((s) => s.tier === tier) ?? []
+    sourcesByTier[tier] = doctor.sources.filter((s) => s.tier === tier)
   }
 
   const tierLabelKeys: Record<number, string> = {
@@ -116,7 +131,7 @@ export function SourcesPage() {
                                 : 'green'
                           }
                         >
-                          {typeLabel(src.category)}
+                          {t(`dashboard.${src.category}`)}
                         </Badge>
                       </td>
                       <td>

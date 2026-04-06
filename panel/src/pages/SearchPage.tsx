@@ -57,14 +57,17 @@ export function SearchPage() {
       setLoading(true)
       try {
         if (tab === 'paper') {
+          setPaperResults(null)
           const res = await api.searchPaper(query, sources, count)
           setPaperResults(res)
           addToast('success', t('search.success', { count: res.total }))
         } else if (tab === 'patent') {
+          setPatentResults(null)
           const res = await api.searchPatent(query, sources, count)
           setPatentResults(res)
           addToast('success', t('search.success', { count: res.total }))
         } else {
+          setWebResults(null)
           const res = await api.searchWeb(query, sources, count)
           setWebResults(res)
           addToast('success', t('search.success', { count: res.total }))
@@ -141,9 +144,13 @@ export function SearchPage() {
     return (
       <m.div key={i} className={styles.resultCard} variants={staggerItem}>
         <div className={styles.resultTitle}>
-          <a href={item.url} target="_blank" rel="noopener noreferrer">{item.title}</a>
+          {item.url ? (
+            <a href={item.url} target="_blank" rel="noopener noreferrer">{item.title}</a>
+          ) : (
+            item.title
+          )}
         </div>
-        <div className={styles.resultUrl}>{item.url}</div>
+        {item.url && <div className={styles.resultUrl}>{item.url}</div>}
         {item.snippet && <div className={styles.resultAbstract}>{item.snippet}</div>}
         {(item.source || raw.engine) && <span className={styles.sourceTag}>{item.source || raw.engine}</span>}
       </m.div>
