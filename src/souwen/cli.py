@@ -209,7 +209,12 @@ def config_show() -> None:
 
     for field_name, field_info in cfg.model_fields.items():
         raw_val = getattr(cfg, field_name)
-        is_secret = "key" in field_name or "secret" in field_name or "token" in field_name or "password" in field_name
+        is_secret = (
+            "key" in field_name
+            or "secret" in field_name
+            or "token" in field_name
+            or "password" in field_name
+        )
         if is_secret and raw_val is not None:
             display = _mask_value(str(raw_val))
         else:
