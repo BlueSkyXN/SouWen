@@ -24,15 +24,18 @@ export function DashboardPage() {
   const { t } = useTranslation()
   const [doctor, setDoctor] = useState<DoctorResponse | null>(null)
   const [loading, setLoading] = useState(true)
+  const [fetchError, setFetchError] = useState(false)
   const version = useAuthStore((s) => s.version)
   const addToast = useNotificationStore((s) => s.addToast)
 
   const fetchData = useCallback(async () => {
     setLoading(true)
+    setFetchError(false)
     try {
       const d = await api.getDoctor()
       setDoctor(d)
     } catch (err) {
+      setFetchError(true)
       addToast('error', t('dashboard.fetchFailed', { message: formatError(err) }))
     } finally {
       setLoading(false)
@@ -45,11 +48,29 @@ export function DashboardPage() {
 
   if (loading) return <Spinner size="lg" label={t('common.loading')} />
 
-  const paperCount = doctor?.sources.filter((s) => s.category === 'paper').length ?? 0
-  const patentCount = doctor?.sources.filter((s) => s.category === 'patent').length ?? 0
-  const webCount = doctor?.sources.filter((s) => s.category === 'web').length ?? 0
-  const okCount = doctor?.ok ?? 0
-  const totalCount = doctor?.total ?? 0
+  if (fetchError || !doctor) {
+    return (
+      <div className={styles.page}>
+        <Card style={{ marginBottom: 24 }}>
+          <div className={styles.serverInfo}>
+            <div>
+              <span className={styles.serverLabel}>{t('dashboard.status')}</span>
+              <Badge color="red">{t('common.error')}</Badge>
+            </div>
+            <div>
+              <button className="btn btn-sm btn-outline" onClick={fetchData}>{t('sources.refresh')}</button>
+            </div>
+          </div>
+        </Card>
+      </div>
+    )
+  }
+
+  const paperCount = doctor.sources.filter((s) => s.category === 'paper').length
+  const patentCount = doctor.sources.filter((s) => s.category === 'patent').length
+  const webCount = doctor.sources.filter((s) => s.category === 'web').length
+  const okCount = doctor.ok
+  const totalCount = doctor.total
   const healthPct = totalCount > 0 ? Math.round((okCount / totalCount) * 100) : 0
 
   return (
