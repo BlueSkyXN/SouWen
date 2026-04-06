@@ -1,0 +1,890 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SouWen 管理面板</title>
+<style>
+/* ===== CSS Custom Properties ===== */
+:root {
+  --bg: #f8fafc; --bg-card: #ffffff; --bg-sidebar: #1e293b; --bg-input: #ffffff;
+  --text: #334155; --text-secondary: #64748b; --text-sidebar: #cbd5e1; --text-sidebar-active: #ffffff;
+  --border: #e2e8f0; --border-input: #cbd5e1;
+  --primary: #2563eb; --primary-hover: #1d4ed8; --primary-light: #dbeafe;
+  --success: #16a34a; --success-light: #dcfce7;
+  --warning: #d97706; --warning-light: #fef3c7;
+  --error: #dc2626; --error-light: #fee2e2;
+  --shadow: 0 1px 3px rgba(0,0,0,.1); --shadow-lg: 0 4px 12px rgba(0,0,0,.1);
+  --radius: 8px; --radius-sm: 6px;
+  --sidebar-w: 220px; --header-h: 56px;
+  --font: system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+}
+[data-theme="dark"] {
+  --bg: #0f172a; --bg-card: #1e293b; --bg-sidebar: #0f172a; --bg-input: #1e293b;
+  --text: #e2e8f0; --text-secondary: #94a3b8; --text-sidebar: #94a3b8; --text-sidebar-active: #f1f5f9;
+  --border: #334155; --border-input: #475569;
+  --primary: #3b82f6; --primary-hover: #2563eb; --primary-light: #1e3a5f;
+  --success-light: #052e16; --warning-light: #451a03; --error-light: #450a0a;
+  --shadow: 0 1px 3px rgba(0,0,0,.3); --shadow-lg: 0 4px 12px rgba(0,0,0,.3);
+}
+
+/* ===== Reset & Base ===== */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{font-size:14px}
+body{font-family:var(--font);background:var(--bg);color:var(--text);transition:background .3s,color .3s;overflow-x:hidden}
+a{color:var(--primary);text-decoration:none}
+a:hover{text-decoration:underline}
+button{cursor:pointer;font-family:inherit;font-size:inherit}
+input,select{font-family:inherit;font-size:inherit}
+
+/* ===== Layout ===== */
+.layout{display:flex;min-height:100vh}
+.sidebar{width:var(--sidebar-w);background:var(--bg-sidebar);display:flex;flex-direction:column;position:fixed;top:0;left:0;height:100vh;z-index:100;transition:width .3s,transform .3s}
+.sidebar.collapsed{width:60px}
+.sidebar-brand{display:flex;align-items:center;gap:10px;padding:16px;border-bottom:1px solid rgba(255,255,255,.1);min-height:var(--header-h)}
+.sidebar-brand .logo{font-size:24px;flex-shrink:0}
+.sidebar-brand .brand-text{font-size:16px;font-weight:700;color:#fff;white-space:nowrap;overflow:hidden;transition:opacity .2s}
+.sidebar.collapsed .brand-text{opacity:0;width:0}
+.sidebar-nav{flex:1;padding:8px;overflow-y:auto}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:var(--radius-sm);color:var(--text-sidebar);cursor:pointer;transition:background .2s,color .2s;margin-bottom:2px;white-space:nowrap;overflow:hidden;border:none;background:none;width:100%;text-align:left;font-size:14px}
+.nav-item:hover{background:rgba(255,255,255,.08);color:var(--text-sidebar-active)}
+.nav-item.active{background:var(--primary);color:#fff}
+.nav-item .icon{font-size:18px;flex-shrink:0;width:24px;text-align:center}
+.nav-item .label{transition:opacity .2s}
+.sidebar.collapsed .nav-item .label{opacity:0;width:0}
+.sidebar-footer{padding:8px;border-top:1px solid rgba(255,255,255,.1)}
+.collapse-btn{display:flex;align-items:center;justify-content:center;gap:10px;padding:10px 12px;border-radius:var(--radius-sm);color:var(--text-sidebar);cursor:pointer;background:none;border:none;width:100%;font-size:14px;transition:background .2s}
+.collapse-btn:hover{background:rgba(255,255,255,.08)}
+
+.main-area{flex:1;margin-left:var(--sidebar-w);transition:margin-left .3s;display:flex;flex-direction:column}
+.sidebar.collapsed ~ .main-area{margin-left:60px}
+.header{height:var(--header-h);background:var(--bg-card);border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;padding:0 24px;position:sticky;top:0;z-index:50;transition:background .3s}
+.header-left{display:flex;align-items:center;gap:12px}
+.header-left h2{font-size:16px;font-weight:600}
+.hamburger{display:none;background:none;border:none;font-size:20px;color:var(--text);padding:4px}
+.header-right{display:flex;align-items:center;gap:12px}
+.conn-badge{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary)}
+.conn-dot{width:8px;height:8px;border-radius:50%;background:var(--success)}
+.conn-dot.offline{background:var(--error)}
+.theme-btn,.logout-btn{background:none;border:1px solid var(--border);border-radius:var(--radius-sm);padding:6px 10px;color:var(--text);font-size:13px;transition:background .2s}
+.theme-btn:hover,.logout-btn:hover{background:var(--bg)}
+
+.content{flex:1;padding:24px;max-width:1200px;width:100%}
+
+/* ===== Login Page (full-screen, no sidebar) ===== */
+.login-page{display:flex;align-items:center;justify-content:center;min-height:100vh;background:var(--bg);padding:16px}
+.login-card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;padding:40px;width:100%;max-width:400px;box-shadow:var(--shadow-lg)}
+.login-card .logo{text-align:center;font-size:48px;margin-bottom:8px}
+.login-card h1{text-align:center;font-size:24px;font-weight:700;margin-bottom:4px}
+.login-card .subtitle{text-align:center;color:var(--text-secondary);font-size:13px;margin-bottom:28px}
+
+/* ===== Form Elements ===== */
+.form-group{margin-bottom:16px}
+.form-group label{display:block;font-size:13px;font-weight:500;margin-bottom:6px;color:var(--text)}
+.form-input{width:100%;padding:9px 12px;border:1px solid var(--border-input);border-radius:var(--radius-sm);background:var(--bg-input);color:var(--text);transition:border-color .2s;outline:none}
+.form-input:focus{border-color:var(--primary);box-shadow:0 0 0 3px rgba(37,99,235,.15)}
+.form-input::placeholder{color:var(--text-secondary)}
+.input-group{position:relative;display:flex}
+.input-group .form-input{flex:1;padding-right:40px}
+.input-group .toggle-pw{position:absolute;right:8px;top:50%;transform:translateY(-50%);background:none;border:none;color:var(--text-secondary);font-size:16px;padding:4px}
+.checkbox-row{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--text-secondary)}
+.checkbox-row input{accent-color:var(--primary)}
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:10px 20px;border-radius:var(--radius-sm);font-size:14px;font-weight:500;border:none;transition:background .2s,opacity .2s}
+.btn-primary{background:var(--primary);color:#fff}
+.btn-primary:hover{background:var(--primary-hover)}
+.btn-primary:disabled{opacity:.6;cursor:not-allowed}
+.btn-block{width:100%}
+.btn-sm{padding:6px 14px;font-size:13px}
+.btn-outline{background:transparent;border:1px solid var(--border);color:var(--text)}
+.btn-outline:hover{background:var(--bg)}
+.btn-success{background:var(--success);color:#fff}
+.btn-success:hover{opacity:.9}
+.btn-error{background:var(--error);color:#fff}
+.btn-error:hover{opacity:.9}
+
+/* ===== Cards ===== */
+.card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:20px;box-shadow:var(--shadow);transition:background .3s,border-color .3s}
+.card-title{font-size:13px;font-weight:500;color:var(--text-secondary);margin-bottom:8px;text-transform:uppercase;letter-spacing:.3px}
+.card-value{font-size:28px;font-weight:700}
+.stats-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:16px;margin-bottom:24px}
+
+/* ===== Badges ===== */
+.badge{display:inline-flex;align-items:center;padding:2px 10px;border-radius:99px;font-size:12px;font-weight:500;line-height:1.6}
+.badge-green{background:var(--success-light);color:var(--success)}
+.badge-blue{background:var(--primary-light);color:var(--primary)}
+.badge-amber{background:var(--warning-light);color:var(--warning)}
+.badge-red{background:var(--error-light);color:var(--error)}
+.badge-gray{background:var(--border);color:var(--text-secondary)}
+
+/* ===== Tables ===== */
+.table-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:var(--radius)}
+.table{width:100%;border-collapse:collapse;font-size:13px}
+.table th{background:var(--bg);text-align:left;padding:10px 14px;font-weight:600;border-bottom:1px solid var(--border);white-space:nowrap}
+.table td{padding:10px 14px;border-bottom:1px solid var(--border)}
+.table tr:last-child td{border-bottom:none}
+.table tr:nth-child(even) td{background:rgba(0,0,0,.02)}
+[data-theme="dark"] .table tr:nth-child(even) td{background:rgba(255,255,255,.02)}
+
+/* ===== Tabs ===== */
+.tabs{display:flex;gap:0;border-bottom:2px solid var(--border);margin-bottom:20px}
+.tab{padding:10px 20px;font-size:14px;font-weight:500;color:var(--text-secondary);cursor:pointer;border:none;background:none;border-bottom:2px solid transparent;margin-bottom:-2px;transition:color .2s,border-color .2s}
+.tab:hover{color:var(--text)}
+.tab.active{color:var(--primary);border-bottom-color:var(--primary)}
+
+/* ===== Spinner ===== */
+.spinner{display:inline-block;width:20px;height:20px;border:2px solid var(--border);border-top-color:var(--primary);border-radius:50%;animation:spin .6s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spinner-lg{width:36px;height:36px;border-width:3px}
+.loading-area{display:flex;flex-direction:column;align-items:center;justify-content:center;padding:48px;gap:12px;color:var(--text-secondary);font-size:13px}
+
+/* ===== Toast ===== */
+.toast-container{position:fixed;top:16px;right:16px;z-index:9999;display:flex;flex-direction:column;gap:8px;pointer-events:none}
+.toast{pointer-events:auto;padding:12px 18px;border-radius:var(--radius);font-size:13px;color:#fff;box-shadow:var(--shadow-lg);animation:toastIn .3s ease;max-width:360px;display:flex;align-items:flex-start;gap:8px}
+.toast-success{background:#16a34a}
+.toast-error{background:#dc2626}
+.toast-info{background:#2563eb}
+@keyframes toastIn{from{opacity:0;transform:translateX(40px)}to{opacity:1;transform:translateX(0)}}
+@keyframes toastOut{from{opacity:1;transform:translateX(0)}to{opacity:0;transform:translateX(40px)}}
+
+/* ===== Search Results ===== */
+.result-card{background:var(--bg-card);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;transition:box-shadow .2s}
+.result-card:hover{box-shadow:var(--shadow-lg)}
+.result-card h3{font-size:15px;font-weight:600;margin-bottom:6px;line-height:1.4}
+.result-card .meta{font-size:12px;color:var(--text-secondary);margin-bottom:6px;display:flex;flex-wrap:wrap;gap:8px}
+.result-card .snippet{font-size:13px;color:var(--text-secondary);line-height:1.5;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+
+/* ===== Misc ===== */
+.empty-state{text-align:center;padding:48px 16px;color:var(--text-secondary)}
+.empty-state .icon{font-size:40px;margin-bottom:12px}
+.section-title{font-size:18px;font-weight:600;margin-bottom:16px}
+.section-sub{font-size:13px;color:var(--text-secondary);margin-bottom:16px}
+.summary-bar{display:flex;align-items:center;gap:12px;padding:12px 16px;background:var(--primary-light);border-radius:var(--radius);margin-bottom:20px;font-size:14px;font-weight:500;color:var(--primary)}
+.tier-section{margin-bottom:28px}
+.tier-section h3{font-size:15px;font-weight:600;margin-bottom:10px;display:flex;align-items:center;gap:8px}
+.info-note{font-size:13px;color:var(--text-secondary);background:var(--bg);border:1px solid var(--border);border-radius:var(--radius-sm);padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;gap:8px}
+.search-form{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:20px;align-items:flex-end}
+.search-form .form-group{flex:1;min-width:200px;margin-bottom:0}
+.search-form .form-group.sm{flex:0 0 140px;min-width:120px}
+.result-count{font-size:13px;color:var(--text-secondary);margin-bottom:12px}
+
+/* ===== Responsive ===== */
+@media(max-width:768px){
+  .sidebar{transform:translateX(-100%);width:260px}
+  .sidebar.open{transform:translateX(0)}
+  .sidebar.collapsed{transform:translateX(-100%)}
+  .main-area,.sidebar.collapsed ~ .main-area{margin-left:0!important}
+  .hamburger{display:block}
+  .content{padding:16px}
+  .stats-grid{grid-template-columns:1fr}
+  .search-form{flex-direction:column}
+  .search-form .form-group,.search-form .form-group.sm{flex:unset;min-width:unset}
+  .overlay{position:fixed;inset:0;background:rgba(0,0,0,.4);z-index:99;display:none}
+  .overlay.show{display:block}
+}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div class="toast-container" id="toasts"></div>
+<div class="overlay" id="overlay"></div>
+
+<script>
+/* ===================================================================
+   SouWen 管理面板 — 单文件 SPA
+   =================================================================== */
+
+// ---------- State ----------
+const S = {
+  token: localStorage.getItem('sw_token') || '',
+  apiBase: localStorage.getItem('sw_apiBase') || location.origin,
+  authed: false,
+  theme: localStorage.getItem('sw_theme') || 'light',
+  sidebarCollapsed: false,
+  sidebarOpen: false,
+  serverInfo: null,
+  passwordRequired: null, // null=unknown, true/false
+};
+
+// ---------- Theme ----------
+function applyTheme() {
+  document.documentElement.setAttribute('data-theme', S.theme);
+  localStorage.setItem('sw_theme', S.theme);
+}
+applyTheme();
+
+// ---------- Toast ----------
+function toast(msg, type = 'info') {
+  const el = document.createElement('div');
+  el.className = `toast toast-${type}`;
+  el.textContent = msg;
+  document.getElementById('toasts').appendChild(el);
+  setTimeout(() => { el.style.animation = 'toastOut .3s ease forwards'; setTimeout(() => el.remove(), 300); }, 3000);
+}
+
+// ---------- API Client ----------
+async function api(path, opts = {}) {
+  const base = S.apiBase.replace(/\/+$/, '');
+  const url = base + path;
+  const headers = opts.headers || {};
+  if (S.token) headers['Authorization'] = `Bearer ${S.token}`;
+  const res = await fetch(url, { ...opts, headers });
+  if (!res.ok) {
+    let detail = '';
+    try { const j = await res.json(); detail = j.detail || ''; } catch {}
+    throw new Error(detail || `HTTP ${res.status}`);
+  }
+  return res.json();
+}
+
+// ---------- Router ----------
+function getHash() { return location.hash.replace(/^#\/?/, '') || 'login'; }
+
+function navigate(page) {
+  location.hash = '#/' + page;
+}
+
+function onRoute() {
+  const page = getHash();
+  // Auth guard
+  if (['dashboard', 'config'].includes(page) && !S.authed) {
+    navigate('login');
+    return;
+  }
+  // If authed and going to login, redirect
+  if (page === 'login' && S.authed) {
+    navigate('dashboard');
+    return;
+  }
+  render(page);
+}
+
+window.addEventListener('hashchange', onRoute);
+
+// ---------- Render orchestrator ----------
+function render(page) {
+  const app = document.getElementById('app');
+  if (page === 'login') {
+    app.innerHTML = renderLogin();
+    bindLogin();
+  } else {
+    app.innerHTML = renderShell(page);
+    bindShell(page);
+    renderPage(page);
+  }
+}
+
+// ---------- Login Page ----------
+function renderLogin() {
+  const remembered = localStorage.getItem('sw_remember') === '1';
+  return `
+  <div class="login-page">
+    <div class="login-card">
+      <div class="logo">🔍</div>
+      <h1>SouWen</h1>
+      <p class="subtitle">学术论文 · 专利 · 网页统一搜索管理面板</p>
+      <div class="form-group">
+        <label>API 地址</label>
+        <input class="form-input" id="loginBase" value="${escHtml(S.apiBase)}" placeholder="http://localhost:8000">
+      </div>
+      <div class="form-group">
+        <label>密码</label>
+        <div class="input-group">
+          <input class="form-input" id="loginPw" type="password" placeholder="未设置可留空" value="${remembered ? escHtml(S.token) : ''}">
+          <button class="toggle-pw" id="togglePw" type="button">👁</button>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="checkbox-row"><input type="checkbox" id="loginRemember" ${remembered ? 'checked' : ''}> 记住密码</label>
+      </div>
+      <button class="btn btn-primary btn-block" id="loginBtn">连接</button>
+      <p id="loginMsg" style="margin-top:12px;font-size:13px;text-align:center"></p>
+    </div>
+  </div>`;
+}
+
+function bindLogin() {
+  const $btn = document.getElementById('loginBtn');
+  const $pw = document.getElementById('loginPw');
+  const $base = document.getElementById('loginBase');
+  const $msg = document.getElementById('loginMsg');
+  const $toggle = document.getElementById('togglePw');
+  const $rem = document.getElementById('loginRemember');
+
+  $toggle.onclick = () => { $pw.type = $pw.type === 'password' ? 'text' : 'password'; };
+
+  $btn.onclick = async () => {
+    $btn.disabled = true;
+    $btn.innerHTML = '<span class="spinner"></span> 连接中…';
+    $msg.textContent = '';
+    S.apiBase = $base.value.replace(/\/+$/, '');
+    S.token = $pw.value;
+    localStorage.setItem('sw_apiBase', S.apiBase);
+    try {
+      const h = await api('/health');
+      S.serverInfo = h;
+      // Try admin access to determine if really authed
+      if (S.token) {
+        try {
+          await api('/api/v1/admin/doctor');
+          S.authed = true;
+        } catch {
+          // Token wrong for admin, but search may work
+          S.authed = false;
+        }
+      }
+      // If token works for admin or no password required scenario
+      if (!S.authed && S.token) {
+        // bad password
+        $msg.style.color = 'var(--error)';
+        $msg.textContent = '密码错误，管理功能不可用';
+        // still allow search access
+        S.passwordRequired = true;
+      }
+      if (!S.token) {
+        // try if admin works without password (password not set)
+        try {
+          await api('/api/v1/admin/doctor');
+          S.authed = true;
+          S.passwordRequired = false;
+        } catch (e) {
+          S.passwordRequired = true;
+          // Allow search-only access
+        }
+      }
+      if ($rem.checked) {
+        localStorage.setItem('sw_token', S.token);
+        localStorage.setItem('sw_remember', '1');
+      } else {
+        localStorage.removeItem('sw_token');
+        localStorage.setItem('sw_remember', '0');
+      }
+      // Navigate: if authed go dashboard, else go search
+      if (S.authed) {
+        navigate('dashboard');
+      } else {
+        toast('已连接（搜索模式）— 管理功能需要密码', 'info');
+        navigate('search');
+      }
+    } catch (e) {
+      $msg.style.color = 'var(--error)';
+      $msg.textContent = '连接失败: ' + e.message;
+    } finally {
+      $btn.disabled = false;
+      $btn.textContent = '连接';
+    }
+  };
+
+  // Enter key
+  $pw.addEventListener('keydown', e => { if (e.key === 'Enter') $btn.click(); });
+}
+
+// ---------- App Shell ----------
+function renderShell(page) {
+  const navItems = [
+    { id: 'dashboard', icon: '📊', label: '仪表盘', admin: true },
+    { id: 'search', icon: '🔍', label: '搜索' },
+    { id: 'sources', icon: '📚', label: '数据源' },
+    { id: 'config', icon: '⚙️', label: '配置', admin: true },
+  ];
+  const titles = { dashboard: '仪表盘', search: '搜索', sources: '数据源', config: '配置管理' };
+  const c = S.sidebarCollapsed;
+  return `
+  <div class="layout">
+    <aside class="sidebar${c ? ' collapsed' : ''}" id="sidebar">
+      <div class="sidebar-brand">
+        <span class="logo">🔍</span>
+        <span class="brand-text">SouWen</span>
+      </div>
+      <nav class="sidebar-nav">
+        ${navItems.filter(n => !n.admin || S.authed).map(n => `
+          <button class="nav-item${n.id === page ? ' active' : ''}" data-nav="${n.id}">
+            <span class="icon">${n.icon}</span><span class="label">${n.label}</span>
+          </button>`).join('')}
+      </nav>
+      <div class="sidebar-footer">
+        <button class="collapse-btn" id="collapseBtn"><span class="icon">${c ? '▶' : '◀'}</span><span class="label">${c ? '' : '收起'}</span></button>
+      </div>
+    </aside>
+    <div class="main-area">
+      <header class="header">
+        <div class="header-left">
+          <button class="hamburger" id="hamburgerBtn">☰</button>
+          <h2>${titles[page] || page}</h2>
+        </div>
+        <div class="header-right">
+          <span class="conn-badge"><span class="conn-dot" id="connDot"></span><span id="connText">检查中</span></span>
+          <button class="theme-btn" id="themeBtn">${S.theme === 'dark' ? '☀️ 亮色' : '🌙 暗色'}</button>
+          <button class="logout-btn" id="logoutBtn">退出</button>
+        </div>
+      </header>
+      <div class="content" id="pageContent"></div>
+    </div>
+  </div>`;
+}
+
+function bindShell(page) {
+  // Nav
+  document.querySelectorAll('.nav-item[data-nav]').forEach(el => {
+    el.onclick = () => { closeMobileMenu(); navigate(el.dataset.nav); };
+  });
+  // Collapse
+  const $col = document.getElementById('collapseBtn');
+  if ($col) $col.onclick = () => { S.sidebarCollapsed = !S.sidebarCollapsed; render(page); };
+  // Theme
+  const $theme = document.getElementById('themeBtn');
+  if ($theme) $theme.onclick = () => { S.theme = S.theme === 'dark' ? 'light' : 'dark'; applyTheme(); render(page); renderPage(page); };
+  // Logout
+  const $logout = document.getElementById('logoutBtn');
+  if ($logout) $logout.onclick = () => { S.authed = false; S.token = ''; S.serverInfo = null; localStorage.removeItem('sw_token'); navigate('login'); };
+  // Hamburger
+  const $ham = document.getElementById('hamburgerBtn');
+  if ($ham) $ham.onclick = () => {
+    S.sidebarOpen = !S.sidebarOpen;
+    document.getElementById('sidebar').classList.toggle('open', S.sidebarOpen);
+    document.getElementById('overlay').classList.toggle('show', S.sidebarOpen);
+  };
+  // Overlay close
+  document.getElementById('overlay').onclick = () => closeMobileMenu();
+  // Conn check
+  checkConn();
+}
+
+function closeMobileMenu() {
+  S.sidebarOpen = false;
+  const sb = document.getElementById('sidebar');
+  if (sb) sb.classList.remove('open');
+  const ov = document.getElementById('overlay');
+  if (ov) ov.classList.remove('show');
+}
+
+async function checkConn() {
+  const $dot = document.getElementById('connDot');
+  const $txt = document.getElementById('connText');
+  if (!$dot) return;
+  try {
+    const h = await api('/health');
+    S.serverInfo = h;
+    $dot.classList.remove('offline');
+    $txt.textContent = `v${h.version}`;
+  } catch {
+    $dot.classList.add('offline');
+    $txt.textContent = '离线';
+  }
+}
+
+// ---------- Page Renderer ----------
+function renderPage(page) {
+  const $c = document.getElementById('pageContent');
+  if (!$c) return;
+  switch (page) {
+    case 'dashboard': renderDashboard($c); break;
+    case 'search': renderSearch($c); break;
+    case 'sources': renderSources($c); break;
+    case 'config': renderConfig($c); break;
+    default: $c.innerHTML = '<div class="empty-state"><div class="icon">🤷</div><p>页面不存在</p></div>';
+  }
+}
+
+// ===== Dashboard =====
+async function renderDashboard($c) {
+  $c.innerHTML = '<div class="loading-area"><span class="spinner spinner-lg"></span>加载中…</div>';
+  try {
+    const [health, doctor, sources] = await Promise.all([
+      api('/health'),
+      api('/api/v1/admin/doctor').catch(() => null),
+      api('/api/v1/sources').catch(() => null),
+    ]);
+    const paperCount = sources ? (sources.paper || []).length : '—';
+    const patentCount = sources ? (sources.patent || []).length : '—';
+    const webCount = sources ? (sources.web || []).length : '—';
+    const okCount = doctor ? doctor.ok : '—';
+    const totalCount = doctor ? doctor.total : '—';
+
+    $c.innerHTML = `
+      <div class="stats-grid">
+        <div class="card">
+          <div class="card-title">服务状态</div>
+          <div class="card-value" style="color:var(--success)">● ${escHtml(health.status)}</div>
+          <div style="font-size:13px;color:var(--text-secondary);margin-top:4px">版本 ${escHtml(health.version)}</div>
+        </div>
+        <div class="card">
+          <div class="card-title">论文源</div>
+          <div class="card-value">${paperCount}</div>
+        </div>
+        <div class="card">
+          <div class="card-title">专利源</div>
+          <div class="card-value">${patentCount}</div>
+        </div>
+        <div class="card">
+          <div class="card-title">搜索引擎</div>
+          <div class="card-value">${webCount}</div>
+        </div>
+        <div class="card">
+          <div class="card-title">数据源健康</div>
+          <div class="card-value" style="color:var(--success)">${okCount}<span style="font-size:16px;color:var(--text-secondary)"> / ${totalCount}</span></div>
+        </div>
+      </div>
+      ${doctor ? renderDoctorTable(doctor.sources) : '<div class="info-note">⚠️ 无法获取健康检查数据（需要管理权限）</div>'}
+    `;
+  } catch (e) {
+    $c.innerHTML = `<div class="empty-state"><div class="icon">❌</div><p>加载失败: ${escHtml(e.message)}</p></div>`;
+  }
+}
+
+function renderDoctorTable(sources) {
+  if (!sources || !sources.length) return '<div class="info-note">暂无数据源信息</div>';
+  const tierBadge = t => {
+    const n = typeof t === 'number' ? t : parseInt(String(t).replace(/\D/g,''));
+    if (n === 0) return '<span class="badge badge-green">Tier 0</span>';
+    if (n === 1) return '<span class="badge badge-blue">Tier 1</span>';
+    return '<span class="badge badge-amber">Tier 2</span>';
+  };
+  const catBadge = c => {
+    if (c === 'paper') return '<span class="badge badge-blue">论文</span>';
+    if (c === 'patent') return '<span class="badge badge-amber">专利</span>';
+    return '<span class="badge badge-green">网页</span>';
+  };
+  const statusIcon = s => s === 'ok' ? '<span style="color:var(--success)">✅ 可用</span>' : '<span style="color:var(--text-secondary)">⬜ 缺少密钥</span>';
+
+  return `
+    <h3 class="section-title">数据源健康状态</h3>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>名称</th><th>类别</th><th>等级</th><th>状态</th><th>配置字段</th><th>说明</th></tr></thead>
+        <tbody>
+          ${sources.map(s => `<tr>
+            <td><strong>${escHtml(s.name)}</strong></td>
+            <td>${catBadge(s.category)}</td>
+            <td>${tierBadge(s.tier)}</td>
+            <td>${statusIcon(s.status)}</td>
+            <td><code style="font-size:12px">${escHtml(s.required_key || '—')}</code></td>
+            <td style="color:var(--text-secondary);font-size:12px">${escHtml(s.message || '')}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+// ===== Search =====
+let searchState = { tab: 'paper', loading: false };
+
+function renderSearch($c) {
+  const tabs = [
+    { id: 'paper', label: '📄 论文' },
+    { id: 'patent', label: '📋 专利' },
+    { id: 'web', label: '🌐 网页' },
+  ];
+  $c.innerHTML = `
+    <div class="tabs" id="searchTabs">
+      ${tabs.map(t => `<button class="tab${searchState.tab === t.id ? ' active' : ''}" data-tab="${t.id}">${t.label}</button>`).join('')}
+    </div>
+    <div id="searchFormArea"></div>
+    <div id="searchResults"></div>
+  `;
+  // Tab events
+  $c.querySelectorAll('.tab[data-tab]').forEach(el => {
+    el.onclick = () => { searchState.tab = el.dataset.tab; renderSearch($c); };
+  });
+  renderSearchForm();
+}
+
+function renderSearchForm() {
+  const $f = document.getElementById('searchFormArea');
+  if (!$f) return;
+  const t = searchState.tab;
+  const srcPlaceholder = t === 'paper' ? 'openalex,arxiv' : t === 'patent' ? 'patentsview,pqai' : 'duckduckgo,yahoo,brave';
+  const srcLabel = t === 'web' ? '搜索引擎' : '数据源';
+  const countLabel = t === 'web' ? '每引擎最大数' : '每页结果数';
+  const countParam = t === 'web' ? 'max_results' : 'per_page';
+
+  $f.innerHTML = `
+    <form class="search-form" id="searchForm">
+      <div class="form-group" style="flex:2;min-width:240px">
+        <label>搜索关键词</label>
+        <input class="form-input" id="sq" placeholder="输入搜索内容…" required>
+      </div>
+      <div class="form-group">
+        <label>${srcLabel}（逗号分隔）</label>
+        <input class="form-input" id="ssrc" placeholder="${srcPlaceholder}" value="${srcPlaceholder}">
+      </div>
+      <div class="form-group sm">
+        <label>${countLabel}</label>
+        <input class="form-input" id="scount" type="number" min="1" max="100" value="10">
+      </div>
+      <div class="form-group sm" style="flex:0">
+        <label>&nbsp;</label>
+        <button class="btn btn-primary" type="submit" id="searchBtn">搜索</button>
+      </div>
+    </form>`;
+  document.getElementById('searchForm').onsubmit = e => { e.preventDefault(); doSearch(); };
+}
+
+let _searchTimer;
+async function doSearch() {
+  const q = document.getElementById('sq').value.trim();
+  if (!q) return;
+  const src = document.getElementById('ssrc').value.trim();
+  const count = document.getElementById('scount').value || '10';
+  const $r = document.getElementById('searchResults');
+  const $btn = document.getElementById('searchBtn');
+  if (!$r) return;
+  $r.innerHTML = '<div class="loading-area"><span class="spinner spinner-lg"></span>搜索中…</div>';
+  $btn.disabled = true;
+  $btn.innerHTML = '<span class="spinner"></span>';
+
+  const t = searchState.tab;
+  let path;
+  if (t === 'paper') path = `/api/v1/search/paper?q=${enc(q)}&sources=${enc(src)}&per_page=${enc(count)}`;
+  else if (t === 'patent') path = `/api/v1/search/patent?q=${enc(q)}&sources=${enc(src)}&per_page=${enc(count)}`;
+  else path = `/api/v1/search/web?q=${enc(q)}&engines=${enc(src)}&max_results=${enc(count)}`;
+
+  try {
+    const data = await api(path);
+    renderSearchResults(data, t);
+  } catch (e) {
+    $r.innerHTML = `<div class="empty-state" style="color:var(--error)"><div class="icon">❌</div><p>搜索失败: ${escHtml(e.message)}</p></div>`;
+  } finally {
+    $btn.disabled = false;
+    $btn.textContent = '搜索';
+  }
+}
+
+function renderSearchResults(data, type) {
+  const $r = document.getElementById('searchResults');
+  if (!$r) return;
+
+  // Flatten nested results
+  let items = [];
+  if (Array.isArray(data.results)) {
+    data.results.forEach(r => {
+      if (r && Array.isArray(r.results)) items.push(...r.results);
+      else if (r && r.title) items.push(r);
+    });
+  }
+  const total = data.total || items.length;
+
+  if (!items.length) {
+    $r.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>没有找到结果</p></div>';
+    return;
+  }
+
+  $r.innerHTML = `<p class="result-count">共 ${total} 条结果</p>` + items.map(item => {
+    if (type === 'paper') return renderPaperCard(item);
+    if (type === 'patent') return renderPatentCard(item);
+    return renderWebCard(item);
+  }).join('');
+}
+
+function renderPaperCard(p) {
+  const authors = Array.isArray(p.authors) ? p.authors.slice(0, 3).join(', ') + (p.authors.length > 3 ? ' 等' : '') : (p.authors || '');
+  const abstract = truncate(p.abstract || '', 200);
+  const url = p.url || p.pdf_url || p.doi;
+  return `<div class="result-card">
+    <h3>${url ? `<a href="${escHtml(url)}" target="_blank">${escHtml(p.title || '无标题')}</a>` : escHtml(p.title || '无标题')}</h3>
+    <div class="meta">
+      ${authors ? `<span>👤 ${escHtml(authors)}</span>` : ''}
+      ${p.year ? `<span>📅 ${p.year}</span>` : ''}
+      ${p.doi ? `<span>DOI: ${escHtml(p.doi)}</span>` : ''}
+      ${p.citation_count != null ? `<span>📊 引用 ${p.citation_count}</span>` : ''}
+    </div>
+    ${abstract ? `<p class="snippet">${escHtml(abstract)}</p>` : ''}
+  </div>`;
+}
+
+function renderPatentCard(p) {
+  const abstract = truncate(p.abstract || '', 200);
+  const id = p.patent_id || p.patent_number || '';
+  return `<div class="result-card">
+    <h3>${p.url ? `<a href="${escHtml(p.url)}" target="_blank">${escHtml(p.title || '无标题')}</a>` : escHtml(p.title || '无标题')}</h3>
+    <div class="meta">
+      ${id ? `<span>📋 ${escHtml(id)}</span>` : ''}
+      ${p.assignee ? `<span>🏢 ${escHtml(p.assignee)}</span>` : ''}
+      ${p.date || p.filing_date ? `<span>📅 ${escHtml(p.date || p.filing_date)}</span>` : ''}
+    </div>
+    ${abstract ? `<p class="snippet">${escHtml(abstract)}</p>` : ''}
+  </div>`;
+}
+
+function renderWebCard(r) {
+  return `<div class="result-card">
+    <h3>${r.url ? `<a href="${escHtml(r.url)}" target="_blank">${escHtml(r.title || '无标题')}</a>` : escHtml(r.title || '无标题')}</h3>
+    <div class="meta">
+      ${r.url ? `<span style="word-break:break-all">${escHtml(r.url)}</span>` : ''}
+      ${r.engine ? `<span class="badge badge-gray">${escHtml(r.engine)}</span>` : ''}
+    </div>
+    ${r.snippet ? `<p class="snippet">${escHtml(r.snippet)}</p>` : ''}
+  </div>`;
+}
+
+// ===== Sources =====
+async function renderSources($c) {
+  $c.innerHTML = '<div class="loading-area"><span class="spinner spinner-lg"></span>加载数据源…</div>';
+  try {
+    let doctor = null;
+    try { doctor = await api('/api/v1/admin/doctor'); } catch {}
+    const sources = await api('/api/v1/sources').catch(() => null);
+
+    if (doctor && doctor.sources) {
+      renderSourcesFromDoctor($c, doctor);
+    } else if (sources) {
+      renderSourcesFromList($c, sources);
+    } else {
+      $c.innerHTML = '<div class="empty-state"><div class="icon">📭</div><p>无法获取数据源信息</p></div>';
+    }
+  } catch (e) {
+    $c.innerHTML = `<div class="empty-state"><div class="icon">❌</div><p>${escHtml(e.message)}</p></div>`;
+  }
+}
+
+function renderSourcesFromDoctor($c, doctor) {
+  const ss = doctor.sources || [];
+  const tiers = {};
+  ss.forEach(s => {
+    const t = s.tier != null ? s.tier : 9;
+    (tiers[t] = tiers[t] || []).push(s);
+  });
+  const tierNames = { 0: 'Tier 0 — 零配置即用', 1: 'Tier 1 — 需要 API Key', 2: 'Tier 2 — 高级 / 付费' };
+  const tierColors = { 0: 'badge-green', 1: 'badge-blue', 2: 'badge-amber' };
+
+  const catBadge = c => {
+    if (c === 'paper') return '<span class="badge badge-blue">论文</span>';
+    if (c === 'patent') return '<span class="badge badge-amber">专利</span>';
+    return '<span class="badge badge-green">网页</span>';
+  };
+  const statusIcon = s => s === 'ok' ? '<span style="color:var(--success)">✅</span>' : '<span>⬜</span>';
+
+  $c.innerHTML = `
+    <div class="summary-bar">📊 ${doctor.ok} / ${doctor.total} 个数据源可用</div>
+    ${Object.keys(tiers).sort().map(t => `
+      <div class="tier-section">
+        <h3><span class="badge ${tierColors[t] || 'badge-gray'}">${tierNames[t] || 'Tier ' + t}</span></h3>
+        <div class="table-wrap">
+          <table class="table">
+            <thead><tr><th>名称</th><th>类别</th><th>状态</th><th>配置字段</th></tr></thead>
+            <tbody>
+              ${tiers[t].map(s => `<tr>
+                <td><strong>${escHtml(s.name)}</strong></td>
+                <td>${catBadge(s.category)}</td>
+                <td>${statusIcon(s.status)}</td>
+                <td><code style="font-size:12px">${escHtml(s.required_key || '无需配置')}</code></td>
+              </tr>`).join('')}
+            </tbody>
+          </table>
+        </div>
+      </div>`).join('')}
+  `;
+}
+
+function renderSourcesFromList($c, sources) {
+  const all = [];
+  for (const [cat, items] of Object.entries(sources)) {
+    (items || []).forEach(s => all.push({ ...s, category: cat }));
+  }
+  const catBadge = c => {
+    if (c === 'paper') return '<span class="badge badge-blue">论文</span>';
+    if (c === 'patent') return '<span class="badge badge-amber">专利</span>';
+    return '<span class="badge badge-green">网页</span>';
+  };
+  $c.innerHTML = `
+    <div class="summary-bar">📊 共 ${all.length} 个数据源</div>
+    <div class="info-note">ℹ️ 登录管理员账户可查看详细健康状态和分级信息</div>
+    <div class="table-wrap">
+      <table class="table">
+        <thead><tr><th>名称</th><th>类别</th><th>需要密钥</th><th>说明</th></tr></thead>
+        <tbody>
+          ${all.map(s => `<tr>
+            <td><strong>${escHtml(s.name)}</strong></td>
+            <td>${catBadge(s.category)}</td>
+            <td>${s.needs_key ? '<span class="badge badge-amber">需要</span>' : '<span class="badge badge-green">免费</span>'}</td>
+            <td style="color:var(--text-secondary);font-size:12px">${escHtml(s.description || '')}</td>
+          </tr>`).join('')}
+        </tbody>
+      </table>
+    </div>`;
+}
+
+// ===== Config =====
+async function renderConfig($c) {
+  $c.innerHTML = '<div class="loading-area"><span class="spinner spinner-lg"></span>加载配置…</div>';
+  try {
+    const cfg = await api('/api/v1/admin/config');
+    const entries = Object.entries(cfg);
+
+    $c.innerHTML = `
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;flex-wrap:wrap;gap:12px">
+        <h3 class="section-title" style="margin-bottom:0">服务器配置</h3>
+        <button class="btn btn-primary btn-sm" id="reloadCfgBtn">🔄 重新加载配置</button>
+      </div>
+      <div class="info-note">ℹ️ 配置文件在服务器文件系统上编辑，此处仅供查看。敏感字段已脱敏显示。</div>
+      <div class="table-wrap">
+        <table class="table">
+          <thead><tr><th>字段</th><th>值</th></tr></thead>
+          <tbody>
+            ${entries.map(([k, v]) => `<tr>
+              <td><code>${escHtml(k)}</code></td>
+              <td>${v === '***' ? '<span class="badge badge-gray">●●●●●●</span>' : `<span style="font-size:13px;word-break:break-all">${escHtml(formatVal(v))}</span>`}</td>
+            </tr>`).join('')}
+          </tbody>
+        </table>
+      </div>`;
+
+    document.getElementById('reloadCfgBtn').onclick = async function () {
+      this.disabled = true;
+      this.innerHTML = '<span class="spinner"></span> 重新加载中…';
+      try {
+        const res = await api('/api/v1/admin/config/reload', { method: 'POST' });
+        toast('配置已重新加载' + (res.password_set ? '（密码已设置）' : '（未设置密码）'), 'success');
+        renderConfig($c);
+      } catch (e) {
+        toast('重新加载失败: ' + e.message, 'error');
+        this.disabled = false;
+        this.textContent = '🔄 重新加载配置';
+      }
+    };
+  } catch (e) {
+    $c.innerHTML = `<div class="empty-state"><div class="icon">🔒</div><p>无法加载配置: ${escHtml(e.message)}</p><p style="margin-top:8px;font-size:13px">需要管理员权限</p></div>`;
+  }
+}
+
+// ---------- Helpers ----------
+function escHtml(s) {
+  if (s == null) return '';
+  return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+function enc(s) { return encodeURIComponent(s); }
+function truncate(s, n) { return s.length > n ? s.slice(0, n) + '…' : s; }
+function formatVal(v) {
+  if (v === null || v === undefined) return '—';
+  if (typeof v === 'boolean') return v ? '✅ true' : '❌ false';
+  if (Array.isArray(v)) return v.length ? v.join(', ') : '[]';
+  if (typeof v === 'object') return JSON.stringify(v);
+  return String(v);
+}
+
+// ---------- Boot ----------
+(function init() {
+  // Auto-detect apiBase from current URL
+  if (!localStorage.getItem('sw_apiBase')) {
+    S.apiBase = location.origin;
+  }
+  // If we have a remembered token, try auto-login
+  if (S.token && localStorage.getItem('sw_remember') === '1') {
+    (async () => {
+      try {
+        const h = await api('/health');
+        S.serverInfo = h;
+        try { await api('/api/v1/admin/doctor'); S.authed = true; } catch { S.authed = false; }
+        if (S.authed && getHash() === 'login') navigate('dashboard');
+        else if (!S.authed && getHash() === 'login') navigate('search');
+        else onRoute();
+      } catch {
+        onRoute(); // fallback to login
+      }
+    })();
+  } else {
+    onRoute();
+  }
+})();
+</script>
+</body>
+</html>

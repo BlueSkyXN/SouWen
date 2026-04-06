@@ -4,14 +4,18 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
+from fastapi.responses import HTMLResponse
 
 from souwen import __version__
 from souwen.config import ensure_config_file, get_config
 from souwen.server.routes import router, admin_router
 
 logger = logging.getLogger("souwen.server")
+
+_PANEL_HTML = Path(__file__).parent / "panel.html"
 
 
 @asynccontextmanager
@@ -42,3 +46,11 @@ app.include_router(admin_router, prefix="/api/v1/admin")
 @app.get("/health")
 async def health():
     return {"status": "ok", "version": __version__}
+
+
+@app.get("/panel", response_class=HTMLResponse, include_in_schema=False)
+async def panel():
+    """管理面板"""
+    if _PANEL_HTML.is_file():
+        return HTMLResponse(_PANEL_HTML.read_text(encoding="utf-8"))
+    return HTMLResponse("<h1>Panel not found</h1>", status_code=404)
