@@ -1,0 +1,133 @@
+@use '../styles/variables' as *;
+
+.page {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100vh;
+  background: var(--bg);
+  padding: 16px;
+  position: relative;
+}
+
+.themeToggle {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+}
+
+.themeBtn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: $radius-sm;
+  padding: 6px 10px;
+  font-size: 16px;
+  cursor: pointer;
+  color: var(--text);
+  transition: background 0.2s;
+  &:hover {
+    background: var(--bg-card);
+  }
+}
+
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 40px;
+  width: 100%;
+  max-width: 400px;
+  box-shadow: var(--shadow-lg);
+}
+
+.logo {
+  text-align: center;
+  font-size: 48px;
+  margin-bottom: 8px;
+}
+
+.title {
+  text-align: center;
+  font-size: 24px;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+.subtitle {
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 13px;
+  margin-bottom: 28px;
+}
+
+.formGroup {
+  margin-bottom: 16px;
+
+  label {
+    display: block;
+    font-size: 13px;
+    font-weight: 500;
+    margin-bottom: 6px;
+    color: var(--text);
+  }
+}
+
+.input {
+  width: 100%;
+  padding: 9px 12px;
+  border: 1px solid var(--border-input);
+  border-radius: $radius-sm;
+  background: var(--bg-input);
+  color: var(--text);
+  transition: border-color 0.2s;
+  outline: none;
+
+  &:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  }
+
+  &::placeholder {
+    color: var(--text-secondary);
+  }
+}
+
+.inputGroup {
+  position: relative;
+  display: flex;
+
+  .input {
+    flex: 1;
+    padding-right: 40px;
+  }
+}
+
+.togglePw {
+  position: absolute;
+  right: 8px;
+  top: 50%;
+  transform: translateY(-50%);
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  font-size: 16px;
+  padding: 4px;
+  cursor: pointer;
+}
+
+.checkboxRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+
+  input {
+    accent-color: var(--primary);
+  }
+}
+
+.submitBtn {
+  margin-top: 4px;
+}

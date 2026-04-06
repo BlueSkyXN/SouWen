@@ -9,3 +9,7 @@ build/
 .ruff_cache/
 .env
 *.egg
+
+# Panel frontend build artifacts
+panel/node_modules/
+panel/dist/
