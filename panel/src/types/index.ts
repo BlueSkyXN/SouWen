@@ -26,6 +26,15 @@ export interface DoctorSource {
   message: string
 }
 
+export interface DoctorResult {
+  source: string
+  category: string
+  tier: number
+  reachable: boolean
+  latency_ms?: number
+  error?: string
+}
+
 export interface DoctorResponse {
   total: number
   ok: number
@@ -57,6 +66,7 @@ export interface PatentResult {
   title: string
   patent_number?: string
   assignee?: string
+  applicant?: string
   date?: string
   abstract?: string
   url?: string
@@ -68,6 +78,7 @@ export interface WebResult {
   url: string
   snippet?: string
   engine?: string
+  source?: string
 }
 
 export interface SearchSourceResult {

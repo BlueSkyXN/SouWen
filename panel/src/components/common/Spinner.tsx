@@ -1,3 +1,5 @@
+import { Loader2 } from 'lucide-react'
+
 interface SpinnerProps {
   size?: 'sm' | 'md' | 'lg'
   label?: string
@@ -5,7 +7,6 @@ interface SpinnerProps {
 
 export function Spinner({ size = 'md', label }: SpinnerProps) {
   const dim = size === 'sm' ? 20 : size === 'lg' ? 36 : 24
-  const bw = size === 'lg' ? 3 : 2
   return (
     <div
       style={{
@@ -19,16 +20,10 @@ export function Spinner({ size = 'md', label }: SpinnerProps) {
         fontSize: '13px',
       }}
     >
-      <div
-        style={{
-          display: 'inline-block',
-          width: dim,
-          height: dim,
-          border: `${bw}px solid var(--border)`,
-          borderTopColor: 'var(--primary)',
-          borderRadius: '50%',
-          animation: 'spin 0.6s linear infinite',
-        }}
+      <Loader2
+        size={dim}
+        style={{ animation: 'spin 0.6s linear infinite' }}
+        color="var(--primary)"
       />
       {label && <span>{label}</span>}
     </div>

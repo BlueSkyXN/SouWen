@@ -1,4 +1,5 @@
 import { useAuthStore } from '../stores/authStore'
+import { AppError } from '../lib/errors'
 import type {
   HealthResponse,
   SourcesResponse,
@@ -8,6 +9,8 @@ import type {
   SearchResponse,
   WebSearchResponse,
 } from '../types'
+
+const REQUEST_TIMEOUT_MS = 30_000
 
 class ApiService {
   private get baseUrl(): string {
@@ -27,23 +30,45 @@ class ApiService {
   }
 
   private async request<T>(path: string, options?: RequestInit): Promise<T> {
-    const res = await fetch(`${this.baseUrl}${path}`, options)
-    if (!res.ok) {
-      const text = await res.text().catch(() => res.statusText)
-      throw new Error(`${res.status}: ${text}`)
+    const controller = new AbortController()
+    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+
+    try {
+      const res = await fetch(`${this.baseUrl}${path}`, {
+        ...options,
+        signal: controller.signal,
+      })
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => res.statusText)
+        const err = AppError.fromResponse(res.status, text)
+        if (err.isAuth) useAuthStore.getState().logout()
+        throw err
+      }
+
+      return (await res.json()) as T
+    } catch (err) {
+      if (err instanceof AppError) throw err
+      throw AppError.network(err)
+    } finally {
+      clearTimeout(timer)
     }
-    return res.json() as Promise<T>
   }
 
-  /* === Public === */
   async health(baseUrl?: string): Promise<HealthResponse> {
     const url = baseUrl ?? this.baseUrl
-    const res = await fetch(`${url}/health`)
-    if (!res.ok) throw new Error(`${res.status}`)
-    return res.json() as Promise<HealthResponse>
+    try {
+      const res = await fetch(`${url}/health`, {
+        signal: AbortSignal.timeout(10_000),
+      })
+      if (!res.ok) throw AppError.fromResponse(res.status, '')
+      return (await res.json()) as HealthResponse
+    } catch (err) {
+      if (err instanceof AppError) throw err
+      throw AppError.network(err)
+    }
   }
 
-  /* === Search === */
   async searchPaper(q: string, sources: string, perPage: number): Promise<SearchResponse> {
     return this.request<SearchResponse>(
       `/api/v1/search/paper?q=${encodeURIComponent(q)}&sources=${encodeURIComponent(sources)}&per_page=${perPage}`,
@@ -69,7 +94,6 @@ class ApiService {
     return this.request<SourcesResponse>('/api/v1/sources', { headers: this.headers() })
   }
 
-  /* === Admin === */
   async getConfig(): Promise<ConfigResponse> {
     return this.request<ConfigResponse>('/api/v1/admin/config', { headers: this.headers() })
   }

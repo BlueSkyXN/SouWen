@@ -1,14 +1,27 @@
 import { useEffect, useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
+import { m } from 'framer-motion'
+import { CheckCircle2, XCircle, FileText, Shield, Globe } from 'lucide-react'
 import { api } from '../services/api'
 import { useNotificationStore } from '../stores/notificationStore'
 import { useAuthStore } from '../stores/authStore'
 import { Card } from '../components/common/Card'
 import { Badge } from '../components/common/Badge'
 import { Spinner } from '../components/common/Spinner'
+import { formatError } from '../lib/errors'
 import type { DoctorResponse } from '../types'
 import styles from './DashboardPage.module.scss'
 
+const staggerContainer = {
+  animate: { transition: { staggerChildren: 0.05 } },
+}
+const staggerItem = {
+  initial: { opacity: 0, y: 10 },
+  animate: { opacity: 1, y: 0 },
+}
+
 export function DashboardPage() {
+  const { t } = useTranslation()
   const [doctor, setDoctor] = useState<DoctorResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const version = useAuthStore((s) => s.version)
@@ -20,17 +33,17 @@ export function DashboardPage() {
       const d = await api.getDoctor()
       setDoctor(d)
     } catch (err) {
-      addToast('error', `获取数据失败: ${err instanceof Error ? err.message : '未知错误'}`)
+      addToast('error', t('dashboard.fetchFailed', { message: formatError(err) }))
     } finally {
       setLoading(false)
     }
-  }, [addToast])
+  }, [addToast, t])
 
   useEffect(() => {
     void fetchData()
   }, [fetchData])
 
-  if (loading) return <Spinner size="lg" label="加载中..." />
+  if (loading) return <Spinner size="lg" label={t('common.loading')} />
 
   const paperCount = doctor?.sources.filter((s) => s.category === 'paper').length ?? 0
   const patentCount = doctor?.sources.filter((s) => s.category === 'patent').length ?? 0
@@ -41,19 +54,18 @@ export function DashboardPage() {
 
   return (
     <div className={styles.page}>
-      {/* Server Info */}
       <Card style={{ marginBottom: 24 }}>
         <div className={styles.serverInfo}>
           <div>
-            <span className={styles.serverLabel}>服务状态</span>
-            <Badge color="green">运行中</Badge>
+            <span className={styles.serverLabel}>{t('dashboard.status')}</span>
+            <Badge color="green">{t('dashboard.running')}</Badge>
           </div>
           <div>
-            <span className={styles.serverLabel}>版本</span>
-            <span className={styles.serverValue}>{version || '未知'}</span>
+            <span className={styles.serverLabel}>{t('dashboard.version')}</span>
+            <span className={styles.serverValue}>{version || '—'}</span>
           </div>
           <div>
-            <span className={styles.serverLabel}>可用数据源</span>
+            <span className={styles.serverLabel}>{t('dashboard.availableSources')}</span>
             <span className={styles.serverValue}>
               {okCount} / {totalCount}
             </span>
@@ -61,50 +73,67 @@ export function DashboardPage() {
         </div>
       </Card>
 
-      {/* Stats Grid */}
-      <div className={styles.statsGrid}>
-        <Card title="论文数据源">
-          <div className={styles.cardValue}>{paperCount}</div>
-        </Card>
-        <Card title="专利数据源">
-          <div className={styles.cardValue}>{patentCount}</div>
-        </Card>
-        <Card title="网页搜索引擎">
-          <div className={styles.cardValue}>{webCount}</div>
-        </Card>
-        <Card title="可用数据源">
-          <div className={styles.cardValue}>
-            {okCount} / {totalCount}
-          </div>
-        </Card>
-        <Card title="健康度">
-          <div
-            className={styles.cardValue}
-            style={{ color: healthPct >= 80 ? 'var(--success)' : healthPct >= 50 ? 'var(--warning)' : 'var(--error)' }}
-          >
-            {healthPct}%
-          </div>
-        </Card>
-      </div>
+      <m.div className={styles.statsGrid} variants={staggerContainer} initial="initial" animate="animate">
+        <m.div variants={staggerItem}>
+          <Card title={t('dashboard.paperSources')}>
+            <div className={styles.cardIcon}><FileText size={20} /></div>
+            <div className={styles.cardValue}>{paperCount}</div>
+          </Card>
+        </m.div>
+        <m.div variants={staggerItem}>
+          <Card title={t('dashboard.patentSources')}>
+            <div className={styles.cardIcon}><Shield size={20} /></div>
+            <div className={styles.cardValue}>{patentCount}</div>
+          </Card>
+        </m.div>
+        <m.div variants={staggerItem}>
+          <Card title={t('dashboard.webEngines')}>
+            <div className={styles.cardIcon}><Globe size={20} /></div>
+            <div className={styles.cardValue}>{webCount}</div>
+          </Card>
+        </m.div>
+        <m.div variants={staggerItem}>
+          <Card title={t('dashboard.availableSources')}>
+            <div className={styles.cardValue}>
+              {okCount} / {totalCount}
+            </div>
+          </Card>
+        </m.div>
+        <m.div variants={staggerItem}>
+          <Card title={t('dashboard.healthRate')}>
+            <div
+              className={styles.cardValue}
+              style={{ color: healthPct >= 80 ? 'var(--success)' : healthPct >= 50 ? 'var(--warning)' : 'var(--error)' }}
+            >
+              {healthPct}%
+            </div>
+          </Card>
+        </m.div>
+      </m.div>
 
-      {/* Doctor Table */}
-      <h3 className={styles.sectionTitle}>数据源健康检查</h3>
+      <h3 className={styles.sectionTitle}>{t('dashboard.sourceHealth')}</h3>
       <div className={styles.tableWrap}>
         <table className={styles.table}>
           <thead>
             <tr>
-              <th>状态</th>
-              <th>数据源</th>
-              <th>分类</th>
-              <th>层级</th>
-              <th>所需配置</th>
-              <th>说明</th>
+              <th>{t('dashboard.status')}</th>
+              <th>{t('dashboard.source')}</th>
+              <th>{t('dashboard.type')}</th>
+              <th>{t('dashboard.tier')}</th>
+              <th>{t('dashboard.requiredKey')}</th>
+              <th>{t('dashboard.description')}</th>
             </tr>
           </thead>
           <tbody>
             {doctor?.sources.map((src) => (
               <tr key={src.name}>
-                <td>{src.status === 'ok' ? '✅' : '⬜'}</td>
+                <td>
+                  {src.status === 'ok' ? (
+                    <CheckCircle2 size={18} style={{ color: 'var(--success)' }} />
+                  ) : (
+                    <XCircle size={18} style={{ color: 'var(--error)' }} />
+                  )}
+                </td>
                 <td className={styles.sourceName}>{src.name}</td>
                 <td>
                   <Badge
@@ -117,10 +146,10 @@ export function DashboardPage() {
                     }
                   >
                     {src.category === 'paper'
-                      ? '论文'
+                      ? t('dashboard.paper')
                       : src.category === 'patent'
-                        ? '专利'
-                        : '网页'}
+                        ? t('dashboard.patent')
+                        : t('dashboard.web')}
                   </Badge>
                 </td>
                 <td>
