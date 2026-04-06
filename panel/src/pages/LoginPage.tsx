@@ -1,4 +1,5 @@
 import { useState, useCallback, type FormEvent } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useAuthStore } from '../stores/authStore'
 import { useThemeStore } from '../stores/themeStore'
 import { useNotificationStore } from '../stores/notificationStore'
@@ -6,9 +7,17 @@ import { api } from '../services/api'
 import styles from './LoginPage.module.scss'
 
 export function LoginPage() {
+  const navigate = useNavigate()
   const setAuth = useAuthStore((s) => s.setAuth)
+  const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const { theme, toggleTheme } = useThemeStore()
   const addToast = useNotificationStore((s) => s.addToast)
+
+  // Already logged in → go to dashboard
+  if (isAuthenticated) {
+    navigate('/', { replace: true })
+    return null
+  }
 
   const [baseUrl, setBaseUrl] = useState(() => {
     const saved = localStorage.getItem('souwen_baseUrl') ?? sessionStorage.getItem('souwen_baseUrl')
@@ -31,6 +40,7 @@ export function LoginPage() {
         const health = await api.health(url)
         setAuth(url, password, health.version, remember)
         addToast('success', `连接成功 — SouWen v${health.version}`)
+        navigate('/', { replace: true })
       } catch (err) {
         addToast('error', `连接失败: ${err instanceof Error ? err.message : '未知错误'}`)
       } finally {

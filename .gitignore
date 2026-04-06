@@ -13,3 +13,4 @@ build/
 # Panel frontend build artifacts
 panel/node_modules/
 panel/dist/
+.playwright-mcp/
