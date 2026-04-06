@@ -26,9 +26,7 @@ def require_auth(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="管理端点需要先配置 api_password",
         )
-    if credentials is None or not secrets.compare_digest(
-        credentials.credentials, password
-    ):
+    if credentials is None or not secrets.compare_digest(credentials.credentials, password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="认证失败：无效的 Bearer Token",
@@ -46,9 +44,7 @@ def check_search_auth(
     password = get_config().api_password
     if not password:
         return
-    if credentials is None or not secrets.compare_digest(
-        credentials.credentials, password
-    ):
+    if credentials is None or not secrets.compare_digest(credentials.credentials, password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="认证失败：无效的 Bearer Token",
