@@ -123,3 +123,17 @@ async def reload_config_endpoint():
 
     cfg = reload_config()
     return {"status": "ok", "password_set": cfg.api_password is not None}
+
+
+@admin_router.get("/doctor")
+async def doctor_check():
+    """数据源健康检查"""
+    from souwen.doctor import check_all
+
+    results = check_all()
+    ok_count = sum(1 for r in results if r["status"] == "ok")
+    return {
+        "total": len(results),
+        "ok": ok_count,
+        "sources": results,
+    }
