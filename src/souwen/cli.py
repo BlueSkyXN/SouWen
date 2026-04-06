@@ -209,7 +209,7 @@ def config_show() -> None:
 
     for field_name, field_info in cfg.model_fields.items():
         raw_val = getattr(cfg, field_name)
-        is_secret = "key" in field_name or "secret" in field_name or "token" in field_name
+        is_secret = "key" in field_name or "secret" in field_name or "token" in field_name or "password" in field_name
         if is_secret and raw_val is not None:
             display = _mask_value(str(raw_val))
         else:
@@ -278,6 +278,11 @@ general:
   timeout: 30
   max_retries: 3
   data_dir: ~/.local/share/souwen
+
+# ===== 服务 =====
+server:
+  # API 访问密码（设置后所有搜索端点需 Bearer Token 认证）
+  api_password: ~
 """
 
     dest = Path("souwen.yaml")

@@ -21,6 +21,8 @@ pinned: false
 | GET | `/api/v1/search/patent?q=...` | 搜索专利 |
 | GET | `/api/v1/search/web?q=...` | 搜索网页 |
 | GET | `/api/v1/sources` | 列出所有可用数据源 |
+| GET | `/api/v1/admin/config` | 查看配置（需认证） |
+| POST | `/api/v1/admin/config/reload` | 重载配置（需认证） |
 
 ## 配置
 
@@ -29,6 +31,7 @@ pinned: false
 | 变量 | 说明 |
 |------|------|
 | `SOUWEN_CONFIG_B64` | Base64 编码的 souwen.yaml 完整配置 |
+| `SOUWEN_API_PASSWORD` | API 访问密码（设置后需 Bearer Token 认证） |
 | `SOUWEN_OPENALEX_EMAIL` | OpenAlex 邮箱（免费，提升速率） |
 | `SOUWEN_SEMANTIC_SCHOLAR_API_KEY` | Semantic Scholar API Key |
 | `SOUWEN_CORE_API_KEY` | CORE API Key |

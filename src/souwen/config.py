@@ -72,6 +72,9 @@ class SouWenConfig(BaseModel):
     max_retries: int = 3
     data_dir: str = "~/.local/share/souwen"
 
+    # ===== 服务 =====
+    api_password: str | None = None  # API 访问密码（Bearer Token）
+
     @property
     def data_path(self) -> Path:
         """返回展开后的数据目录路径"""
@@ -148,5 +151,83 @@ def get_config() -> SouWenConfig:
 
 def reload_config() -> SouWenConfig:
     """清除缓存并返回重新加载的配置"""
+    load_dotenv(override=True)
     get_config.cache_clear()
     return get_config()
+
+
+# ---------------------------------------------------------------------------
+# 默认配置模板（与 souwen.example.yaml 保持一致）
+# ---------------------------------------------------------------------------
+_DEFAULT_CONFIG_TEMPLATE = """\
+# SouWen 配置文件（自动生成）
+# 优先级：环境变量 > ./souwen.yaml > ~/.config/souwen/config.yaml > .env > 默认值
+
+# ===== 论文数据源 =====
+paper:
+  openalex_email: ~
+  semantic_scholar_api_key: ~
+  core_api_key: ~
+  pubmed_api_key: ~
+  unpaywall_email: ~
+  ieee_api_key: ~
+
+# ===== 专利数据源 =====
+patent:
+  uspto_api_key: ~
+  epo_consumer_key: ~
+  epo_consumer_secret: ~
+  cnipa_client_id: ~
+  cnipa_client_secret: ~
+  lens_api_token: ~
+  patsnap_api_key: ~
+
+# ===== 常规搜索 =====
+web:
+  searxng_url: ~
+  tavily_api_key: ~
+  exa_api_key: ~
+  serper_api_key: ~
+  brave_api_key: ~
+  serpapi_api_key: ~
+  firecrawl_api_key: ~
+  perplexity_api_key: ~
+  linkup_api_key: ~
+  scrapingdog_api_key: ~
+  whoogle_url: ~
+  websurfx_url: ~
+
+# ===== 通用设置 =====
+general:
+  proxy: ~
+  proxy_pool: []
+  timeout: 30
+  max_retries: 3
+  data_dir: ~/.local/share/souwen
+
+# ===== 服务 =====
+server:
+  api_password: ~
+"""
+
+
+def ensure_config_file() -> Path | None:
+    """若不存在任何配置文件则自动生成一份到 ~/.config/souwen/config.yaml。
+
+    在只读文件系统上静默跳过，返回 None。
+    """
+    candidates = [
+        Path("souwen.yaml"),
+        Path("~/.config/souwen/config.yaml").expanduser(),
+    ]
+    for p in candidates:
+        if p.is_file():
+            return p
+
+    target = Path("~/.config/souwen/config.yaml").expanduser()
+    try:
+        target.parent.mkdir(parents=True, exist_ok=True)
+        target.write_text(_DEFAULT_CONFIG_TEMPLATE, encoding="utf-8")
+        return target
+    except OSError:
+        return None
