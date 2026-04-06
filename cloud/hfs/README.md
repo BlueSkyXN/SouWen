@@ -42,6 +42,17 @@ pinned: false
 
 > 大部分爬虫引擎（DuckDuckGo、Yahoo、Brave Scraper、Google Scraper 等）无需 API Key 即可使用。
 
+## 部署
+
+```bash
+# 1. 在项目根目录运行同步脚本
+./cloud/deploy.sh hfs
+
+# 2. 将 cloud/hfs/ 目录推送到 HuggingFace Space 仓库
+cd cloud/hfs
+git add -A && git commit -m "update" && git push
+```
+
 ## 源码
 
-- 项目仓库：<https://github.com/SkywalkerSpace/SouWen>
+- 项目仓库：<https://github.com/BlueSkyXN/SouWen>
