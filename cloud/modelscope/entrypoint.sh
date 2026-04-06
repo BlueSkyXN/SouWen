@@ -29,9 +29,13 @@ echo "=========================================="
 echo "🚀 启动服务 → 0.0.0.0:${PORT}"
 echo "=========================================="
 
+# Ignore HUP so platform reconnects don't kill the server
+trap '' HUP
+
 exec uvicorn souwen.server.app:app \
     --host 0.0.0.0 \
     --port "${PORT}" \
     --workers 1 \
     --log-level info \
-    --access-log
+    --access-log \
+    --timeout-keep-alive 120

@@ -36,4 +36,5 @@ CMD ["uvicorn", "souwen.server.app:app", \
      "--port", "49265", \
      "--workers", "1", \
      "--log-level", "info", \
-     "--access-log"]
+     "--access-log", \
+     "--timeout-keep-alive", "120"]
