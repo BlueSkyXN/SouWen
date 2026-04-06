@@ -1,12 +1,26 @@
 import { useEffect, useState, useCallback } from 'react'
+import { useTranslation } from 'react-i18next'
+import { m } from 'framer-motion'
+import { RefreshCw, CheckCircle2, XCircle } from 'lucide-react'
 import { api } from '../services/api'
 import { useNotificationStore } from '../stores/notificationStore'
 import { Badge } from '../components/common/Badge'
 import { Spinner } from '../components/common/Spinner'
+import { formatError } from '../lib/errors'
+import { typeLabel } from '../lib/normalize'
 import type { DoctorResponse, DoctorSource } from '../types'
 import styles from './SourcesPage.module.scss'
 
+const staggerContainer = {
+  animate: { transition: { staggerChildren: 0.03 } },
+}
+const staggerItem = {
+  initial: { opacity: 0, y: 6 },
+  animate: { opacity: 1, y: 0 },
+}
+
 export function SourcesPage() {
+  const { t } = useTranslation()
   const [doctor, setDoctor] = useState<DoctorResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const addToast = useNotificationStore((s) => s.addToast)
@@ -17,17 +31,17 @@ export function SourcesPage() {
       const d = await api.getDoctor()
       setDoctor(d)
     } catch (err) {
-      addToast('error', `获取数据失败: ${err instanceof Error ? err.message : '未知错误'}`)
+      addToast('error', t('sources.fetchFailed', { message: formatError(err) }))
     } finally {
       setLoading(false)
     }
-  }, [addToast])
+  }, [addToast, t])
 
   useEffect(() => {
     void fetchData()
   }, [fetchData])
 
-  if (loading) return <Spinner size="lg" label="加载中..." />
+  if (loading) return <Spinner size="lg" label={t('common.loading')} />
 
   const okCount = doctor?.ok ?? 0
   const totalCount = doctor?.total ?? 0
@@ -38,10 +52,10 @@ export function SourcesPage() {
     sourcesByTier[tier] = doctor?.sources.filter((s) => s.tier === tier) ?? []
   }
 
-  const tierLabels: Record<number, string> = {
-    0: 'Tier 0 — 免费开放',
-    1: 'Tier 1 — 需要密钥',
-    2: 'Tier 2 — 高级服务',
+  const tierLabelKeys: Record<number, string> = {
+    0: 'sources.tier0',
+    1: 'sources.tier1',
+    2: 'sources.tier2',
   }
 
   const tierColors: Record<number, 'green' | 'blue' | 'amber'> = {
@@ -52,41 +66,45 @@ export function SourcesPage() {
 
   return (
     <div className={styles.page}>
-      {/* Summary */}
       <div className={styles.summary}>
         <Badge color={okCount === totalCount ? 'green' : 'amber'}>
-          {okCount} / {totalCount} 数据源可用
+          {t('sources.sourcesAvailable', { ok: okCount, total: totalCount })}
         </Badge>
         <button className="btn btn-sm btn-outline" onClick={fetchData}>
-          🔄 刷新
+          <RefreshCw size={14} /> {t('sources.refresh')}
         </button>
       </div>
 
-      {/* Tier Groups */}
       {tiers.map((tier) => {
         const list = sourcesByTier[tier]
         if (!list || list.length === 0) return null
         return (
           <div key={tier} className={styles.tierGroup}>
             <h3 className={styles.tierTitle}>
-              <Badge color={tierColors[tier]}>{tierLabels[tier]}</Badge>
+              <Badge color={tierColors[tier]}>{t(tierLabelKeys[tier])}</Badge>
               <span className={styles.tierCount}>({list.length})</span>
             </h3>
             <div className={styles.tableWrap}>
               <table className={styles.table}>
                 <thead>
                   <tr>
-                    <th>状态</th>
-                    <th>名称</th>
-                    <th>分类</th>
-                    <th>所需配置</th>
-                    <th>说明</th>
+                    <th>{t('sources.status')}</th>
+                    <th>{t('sources.name')}</th>
+                    <th>{t('sources.type')}</th>
+                    <th>{t('sources.requiredKey')}</th>
+                    <th>{t('sources.description')}</th>
                   </tr>
                 </thead>
-                <tbody>
+                <m.tbody variants={staggerContainer} initial="initial" animate="animate">
                   {list.map((src) => (
-                    <tr key={src.name}>
-                      <td>{src.status === 'ok' ? '✅' : '⬜'}</td>
+                    <m.tr key={src.name} variants={staggerItem}>
+                      <td>
+                        {src.status === 'ok' ? (
+                          <CheckCircle2 size={18} style={{ color: 'var(--success)' }} />
+                        ) : (
+                          <XCircle size={18} style={{ color: 'var(--error)' }} />
+                        )}
+                      </td>
                       <td className={styles.sourceName}>{src.name}</td>
                       <td>
                         <Badge
@@ -98,20 +116,16 @@ export function SourcesPage() {
                                 : 'green'
                           }
                         >
-                          {src.category === 'paper'
-                            ? '论文'
-                            : src.category === 'patent'
-                              ? '专利'
-                              : '网页'}
+                          {typeLabel(src.category)}
                         </Badge>
                       </td>
                       <td>
                         <code className={styles.code}>{src.required_key ?? '—'}</code>
                       </td>
                       <td className={styles.message}>{src.message}</td>
-                    </tr>
+                    </m.tr>
                   ))}
-                </tbody>
+                </m.tbody>
               </table>
             </div>
           </div>

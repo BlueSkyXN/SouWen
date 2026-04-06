@@ -21,10 +21,19 @@
   --warning-light: #fef3c7;
   --error: #{$error};
   --error-light: #fee2e2;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.1);
+  --shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.12);
   --radius: #{$radius};
   --radius-sm: #{$radius-sm};
+  --radius-lg: 12px;
+  --transition-fast: 150ms ease;
+  --transition: 250ms ease;
+  --z-header: 90;
+  --z-sidebar: 100;
+  --z-overlay: 150;
+  --z-toast: 200;
   --sidebar-w: #{$sidebar-width};
   --header-h: #{$header-height};
   --font: #{$font-family};
@@ -47,8 +56,10 @@
   --success-light: #052e16;
   --warning-light: #451a03;
   --error-light: #450a0a;
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.2);
   --shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
   --shadow-lg: 0 4px 12px rgba(0, 0, 0, 0.3);
+  --shadow-xl: 0 8px 24px rgba(0, 0, 0, 0.4);
 }
 
 /* ===== Reset & Base ===== */
@@ -68,7 +79,7 @@ body {
   font-family: var(--font);
   background: var(--bg);
   color: var(--text);
-  transition: background 0.3s, color 0.3s;
+  transition: background var(--transition), color var(--transition);
   overflow-x: hidden;
 }
 
@@ -103,7 +114,7 @@ select {
   font-size: 14px;
   font-weight: 500;
   border: none;
-  transition: background 0.2s, opacity 0.2s;
+  transition: background var(--transition-fast), opacity var(--transition-fast);
 }
 
 .btn-primary {
@@ -157,4 +168,22 @@ select {
 ::-webkit-scrollbar-thumb {
   background: var(--border);
   border-radius: 3px;
+}
+
+/* ===== Keyframes ===== */
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ===== Reduced Motion ===== */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }
