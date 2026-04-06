@@ -1,0 +1,155 @@
+@use '../styles/variables' as *;
+
+.page {
+  /* wrapper */
+}
+
+.tabs {
+  display: flex;
+  gap: 0;
+  border-bottom: 2px solid var(--border);
+  margin-bottom: 20px;
+}
+
+.tab {
+  padding: 10px 20px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border: none;
+  background: none;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -2px;
+  transition: color 0.2s, border-color 0.2s;
+
+  &:hover {
+    color: var(--text);
+  }
+
+  &.active {
+    color: var(--primary);
+    border-bottom-color: var(--primary);
+  }
+}
+
+.form {
+  margin-bottom: 24px;
+}
+
+.formRow {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.input {
+  flex: 2;
+  min-width: 200px;
+  padding: 9px 12px;
+  border: 1px solid var(--border-input);
+  border-radius: $radius-sm;
+  background: var(--bg-input);
+  color: var(--text);
+  outline: none;
+
+  &:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.15);
+  }
+
+  &::placeholder {
+    color: var(--text-secondary);
+  }
+}
+
+.inputSm {
+  @extend .input;
+  flex: 1;
+  min-width: 150px;
+}
+
+.select {
+  padding: 9px 12px;
+  border: 1px solid var(--border-input);
+  border-radius: $radius-sm;
+  background: var(--bg-input);
+  color: var(--text);
+  outline: none;
+  min-width: 100px;
+}
+
+.results {
+  /* results wrapper */
+}
+
+.resultCount {
+  font-size: 13px;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
+.resultCard {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: $radius;
+  padding: 16px;
+  margin-bottom: 12px;
+  transition: box-shadow 0.2s;
+
+  &:hover {
+    box-shadow: var(--shadow-lg);
+  }
+}
+
+.resultTitle {
+  font-size: 15px;
+  font-weight: 600;
+  margin-bottom: 6px;
+
+  a {
+    color: var(--primary);
+    &:hover {
+      text-decoration: underline;
+    }
+  }
+}
+
+.resultMeta {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 8px;
+}
+
+.resultUrl {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-bottom: 6px;
+  word-break: break-all;
+}
+
+.resultAbstract {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+
+.sourceTag {
+  display: inline-flex;
+  padding: 1px 8px;
+  background: var(--primary-light);
+  color: var(--primary);
+  border-radius: 99px;
+  font-size: 11px;
+  font-weight: 500;
+}
+
+.empty {
+  text-align: center;
+  padding: 48px 24px;
+  color: var(--text-secondary);
+  font-size: 14px;
+}

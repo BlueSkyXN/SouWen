@@ -1,0 +1,257 @@
+@use '../../styles/variables' as *;
+
+.layout {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* ===== Overlay ===== */
+.overlay {
+  display: none;
+  @media (max-width: $mobile-bp) {
+    display: block;
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    z-index: 99;
+  }
+}
+
+/* ===== Sidebar ===== */
+.sidebar {
+  width: $sidebar-width;
+  background: var(--bg-sidebar);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100vh;
+  z-index: 100;
+  transition: width 0.3s, transform 0.3s;
+
+  @media (max-width: $mobile-bp) {
+    transform: translateX(-100%);
+    width: $sidebar-width !important;
+    &.mobileOpen {
+      transform: translateX(0);
+    }
+  }
+}
+
+.sidebar.collapsed {
+  width: $sidebar-collapsed;
+
+  .brandText,
+  .label,
+  .version {
+    opacity: 0;
+    width: 0;
+    overflow: hidden;
+  }
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  min-height: $header-height;
+}
+
+.logo {
+  font-size: 24px;
+  flex-shrink: 0;
+}
+
+.brandText {
+  font-size: 16px;
+  font-weight: 700;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  transition: opacity 0.2s;
+}
+
+.nav {
+  flex: 1;
+  padding: 8px;
+  overflow-y: auto;
+}
+
+.navItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: $radius-sm;
+  color: var(--text-sidebar);
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  margin-bottom: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-decoration: none;
+  font-size: 14px;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-sidebar-active);
+    text-decoration: none;
+  }
+
+  &.active {
+    background: var(--primary);
+    color: #fff;
+  }
+}
+
+.icon {
+  font-size: 18px;
+  flex-shrink: 0;
+  width: 24px;
+  text-align: center;
+}
+
+.label {
+  transition: opacity 0.2s;
+  white-space: nowrap;
+}
+
+.footer {
+  padding: 8px;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.version {
+  text-align: center;
+  font-size: 11px;
+  color: var(--text-sidebar);
+  padding: 4px 0;
+  opacity: 0.7;
+  transition: opacity 0.2s;
+}
+
+.collapseBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: $radius-sm;
+  color: var(--text-sidebar);
+  cursor: pointer;
+  background: none;
+  border: none;
+  width: 100%;
+  font-size: 14px;
+  transition: background 0.2s;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.08);
+  }
+
+  @media (max-width: $mobile-bp) {
+    display: none;
+  }
+}
+
+/* ===== Main Area ===== */
+.main {
+  flex: 1;
+  margin-left: $sidebar-width;
+  transition: margin-left 0.3s;
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+
+  @media (max-width: $mobile-bp) {
+    margin-left: 0 !important;
+  }
+}
+
+.mainCollapsed {
+  margin-left: $sidebar-collapsed;
+}
+
+.header {
+  height: $header-height;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  position: sticky;
+  top: 0;
+  z-index: 50;
+  transition: background 0.3s;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  h2 {
+    font-size: 16px;
+    font-weight: 600;
+  }
+}
+
+.hamburger {
+  display: none;
+  background: none;
+  border: none;
+  font-size: 20px;
+  color: var(--text);
+  padding: 4px;
+
+  @media (max-width: $mobile-bp) {
+    display: block;
+  }
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.connBadge {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--text-secondary);
+}
+
+.connDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+}
+
+.themeBtn,
+.logoutBtn {
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: $radius-sm;
+  padding: 6px 10px;
+  color: var(--text);
+  font-size: 13px;
+  transition: background 0.2s;
+
+  &:hover {
+    background: var(--bg);
+  }
+}
+
+.content {
+  flex: 1;
+  padding: 24px;
+  max-width: $content-max;
+  width: 100%;
+}
