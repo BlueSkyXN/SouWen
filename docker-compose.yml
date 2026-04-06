@@ -1,0 +1,14 @@
+services:
+  souwen:
+    build: .
+    ports:
+      - "${PORT:-49265}:49265"
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - souwen-data:/app/data
+    restart: unless-stopped
+
+volumes:
+  souwen-data:
