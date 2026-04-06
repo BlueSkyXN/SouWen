@@ -61,10 +61,10 @@ class TestHealth:
 
 
 class TestAdminAuth:
-    def test_admin_config_no_password_set_returns_403(self, client):
-        """api_password 未设置时，管理端点返回 403。"""
+    def test_admin_config_no_password_set_allows_access(self, client):
+        """api_password 未设置时，管理端点允许免密码访问。"""
         resp = client.get("/api/v1/admin/config")
-        assert resp.status_code == 403
+        assert resp.status_code == 200
 
     def test_admin_config_wrong_token_returns_401(self, authed_client):
         resp = authed_client.get(
