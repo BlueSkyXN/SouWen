@@ -100,6 +100,8 @@ jobs:
           pip install pyinstaller
 
       - name: Verify CLI
+        env:
+          PYTHONIOENCODING: utf-8
         run: |
           python cli.py --help
           python cli.py sources

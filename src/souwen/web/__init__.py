@@ -43,6 +43,8 @@ from souwen.web.firecrawl import FirecrawlClient
 from souwen.web.perplexity import PerplexityClient
 from souwen.web.linkup import LinkupClient
 from souwen.web.scrapingdog import ScrapingDogClient
+from souwen.web.whoogle import WhoogleClient
+from souwen.web.websurfx import WebsurfxClient
 from souwen.web.search import web_search
 
 __all__ = [
@@ -67,6 +69,9 @@ __all__ = [
     "PerplexityClient",
     "LinkupClient",
     "ScrapingDogClient",
+    # 自建实例类
+    "WhoogleClient",
+    "WebsurfxClient",
     # 聚合搜索
     "web_search",
 ]
