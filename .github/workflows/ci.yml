@@ -6,6 +6,7 @@ on:
     paths:
       - 'src/**'
       - 'tests/**'
+      - 'panel/**'
       - 'pyproject.toml'
       - '.github/workflows/ci.yml'
   pull_request:
@@ -99,3 +100,52 @@ jobs:
           from souwen.doctor import check_all
           print('全部 37 数据源 + doctor 导入成功 ✅')
           "
+
+  server-test:
+    name: 服务端测试
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 安装依赖（含 server）
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,server]"
+
+      - name: 运行服务端测试
+        run: pytest tests/test_server.py -v --tb=short
+
+  panel-build:
+    name: Panel 构建检查
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: panel/package-lock.json
+
+      - name: 安装依赖并构建
+        working-directory: panel
+        run: |
+          npm ci
+          npm run build
+
+      - name: 验证 panel.html 已生成
+        run: |
+          if [ ! -f src/souwen/server/panel.html ]; then
+            echo "❌ panel.html 未生成"
+            exit 1
+          fi
+          echo "✅ panel.html 大小: $(wc -c < src/souwen/server/panel.html) 字节"

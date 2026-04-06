@@ -12,6 +12,7 @@ from fastapi.responses import HTMLResponse
 from souwen import __version__
 from souwen.config import ensure_config_file, get_config
 from souwen.server.routes import router, admin_router
+from souwen.server.schemas import HealthResponse
 
 logger = logging.getLogger("souwen.server")
 
@@ -43,7 +44,7 @@ app.include_router(router, prefix="/api/v1")
 app.include_router(admin_router, prefix="/api/v1/admin")
 
 
-@app.get("/health")
+@app.get("/health", response_model=HealthResponse)
 async def health():
     return {"status": "ok", "version": __version__}
 

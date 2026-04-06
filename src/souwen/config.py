@@ -10,6 +10,7 @@
 
 from __future__ import annotations
 
+import logging
 import os
 import random
 from pathlib import Path
@@ -17,6 +18,8 @@ from functools import lru_cache
 
 from dotenv import load_dotenv
 from pydantic import BaseModel
+
+logger = logging.getLogger("souwen.config")
 
 try:
     import yaml
@@ -104,8 +107,12 @@ def _load_yaml_config() -> dict:
     raw: dict | None = None
     for path in candidates:
         if path.is_file():
-            with open(path, encoding="utf-8") as f:
-                raw = yaml.safe_load(f)
+            try:
+                with open(path, encoding="utf-8") as f:
+                    raw = yaml.safe_load(f)
+            except (yaml.YAMLError, OSError) as exc:
+                logger.warning("配置文件 %s 解析失败，已跳过: %s", path, exc)
+                return {}
             break
 
     if not raw or not isinstance(raw, dict):
@@ -140,7 +147,11 @@ def get_config() -> SouWenConfig:
             # 对整数字段做类型转换
             field_info = SouWenConfig.model_fields[field_name]
             if field_info.annotation in (int, int | None):
-                val = int(val)
+                try:
+                    val = int(val)
+                except (ValueError, TypeError):
+                    logger.warning("环境变量 %s=%r 无法转为整数，已忽略", env_key, val)
+                    continue
             # proxy_pool: 逗号分隔字符串 → list[str]
             elif field_name == "proxy_pool":
                 val = [p.strip() for p in val.split(",") if p.strip()]
@@ -150,8 +161,12 @@ def get_config() -> SouWenConfig:
 
 
 def reload_config() -> SouWenConfig:
-    """清除缓存并返回重新加载的配置"""
-    load_dotenv(override=True)
+    """清除缓存并返回重新加载的配置。
+
+    重新读取 .env 但不覆盖已有的环境变量（override=False），
+    这样 ``docker run -e SOUWEN_API_PASSWORD=xxx`` 不会被 .env 文件冲掉。
+    """
+    load_dotenv(override=False)
     get_config.cache_clear()
     return get_config()
 

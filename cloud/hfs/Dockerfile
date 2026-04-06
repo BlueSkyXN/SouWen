@@ -1,5 +1,6 @@
 FROM python:3.11-slim
 
+# 可通过 --build-arg 固定到特定 commit/tag 以获得可复现构建
 ARG SOUWEN_REPO=https://github.com/SkywalkerSpace/SouWen.git
 ARG SOUWEN_REF=main
 
@@ -9,7 +10,7 @@ ENV PORT=49265 \
     TZ=Asia/Shanghai
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        git ca-certificates tzdata \
+        git ca-certificates curl tzdata \
     && cp /usr/share/zoneinfo/${TZ} /etc/localtime \
     && echo "${TZ}" > /etc/timezone \
     && rm -rf /var/lib/apt/lists/*
@@ -22,8 +23,11 @@ RUN git clone --depth 1 --branch "${SOUWEN_REF}" "${SOUWEN_REPO}" . \
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/entrypoint.sh
 
-RUN mkdir -p /app/data && chmod 777 /app/data
+RUN mkdir -p /app/data
 
 EXPOSE 49265
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+    CMD curl -f http://localhost:${PORT}/health || exit 1
 
 ENTRYPOINT ["entrypoint.sh"]

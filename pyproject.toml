@@ -10,6 +10,29 @@ readme = "README.md"
 license = {text = "GPL-3.0-or-later"}
 requires-python = ">=3.10"
 authors = [{name = "SouWen Contributors"}]
+keywords = ["academic", "paper", "patent", "search", "arxiv", "openalex", "ai-agent"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Science/Research",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering",
+    "Topic :: Internet :: WWW/HTTP :: Indexing/Search",
+    "Typing :: Typed",
+]
+
+[project.urls]
+Homepage = "https://github.com/SkywalkerSpace/SouWen"
+Repository = "https://github.com/SkywalkerSpace/SouWen"
+Documentation = "https://github.com/SkywalkerSpace/SouWen/tree/main/docs"
+Issues = "https://github.com/SkywalkerSpace/SouWen/issues"
+Changelog = "https://github.com/SkywalkerSpace/SouWen/blob/main/CHANGELOG.md"
+
 dependencies = [
     "httpx>=0.27.0",
     "pydantic>=2.0",
