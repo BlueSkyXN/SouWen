@@ -18,14 +18,11 @@ def require_auth(
     """要求 Bearer Token 认证。
 
     当 api_password 已配置时，请求必须携带 ``Authorization: Bearer <password>``。
-    当 api_password 未配置时，始终拒绝（管理端点不应在无密码时暴露）。
+    当 api_password 未配置时，放行（允许免密码使用全部功能）。
     """
     password = get_config().api_password
     if not password:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="管理端点需要先配置 api_password",
-        )
+        return
     if credentials is None or not secrets.compare_digest(credentials.credentials, password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
