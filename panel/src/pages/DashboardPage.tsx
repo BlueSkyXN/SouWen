@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { m } from 'framer-motion'
-import { CheckCircle2, XCircle, FileText, Shield, Globe } from 'lucide-react'
+import { CheckCircle2, XCircle, FileText, Shield, Globe, Layers } from 'lucide-react'
 import { api } from '../services/api'
 import { useNotificationStore } from '../stores/notificationStore'
 import { useAuthStore } from '../stores/authStore'
@@ -95,40 +95,59 @@ export function DashboardPage() {
       </Card>
 
       <m.div className={styles.statsGrid} variants={staggerContainer} initial="initial" animate="animate">
-        <m.div variants={staggerItem}>
-          <Card title={t('dashboard.paperSources')}>
-            <div className={styles.cardIcon}><FileText size={20} /></div>
-            <div className={styles.cardValue}>{paperCount}</div>
-          </Card>
+        <m.div variants={staggerItem} className={styles.statCard}>
+          <div className={styles.statHeader}>
+            <span className={styles.statTitle}>{t('dashboard.paperSources')}</span>
+            <div className={`${styles.statIcon} ${styles.iconBlue}`}><FileText size={18} /></div>
+          </div>
+          <div className={styles.statValue}>{paperCount}</div>
         </m.div>
-        <m.div variants={staggerItem}>
-          <Card title={t('dashboard.patentSources')}>
-            <div className={styles.cardIcon}><Shield size={20} /></div>
-            <div className={styles.cardValue}>{patentCount}</div>
-          </Card>
+
+        <m.div variants={staggerItem} className={styles.statCard}>
+          <div className={styles.statHeader}>
+            <span className={styles.statTitle}>{t('dashboard.patentSources')}</span>
+            <div className={`${styles.statIcon} ${styles.iconAmber}`}><Shield size={18} /></div>
+          </div>
+          <div className={styles.statValue}>{patentCount}</div>
         </m.div>
-        <m.div variants={staggerItem}>
-          <Card title={t('dashboard.webEngines')}>
-            <div className={styles.cardIcon}><Globe size={20} /></div>
-            <div className={styles.cardValue}>{webCount}</div>
-          </Card>
+
+        <m.div variants={staggerItem} className={styles.statCard}>
+          <div className={styles.statHeader}>
+            <span className={styles.statTitle}>{t('dashboard.webEngines')}</span>
+            <div className={`${styles.statIcon} ${styles.iconGreen}`}><Globe size={18} /></div>
+          </div>
+          <div className={styles.statValue}>{webCount}</div>
         </m.div>
-        <m.div variants={staggerItem}>
-          <Card title={t('dashboard.availableSources')}>
-            <div className={styles.cardValue}>
-              {okCount} / {totalCount}
-            </div>
-          </Card>
+
+        <m.div variants={staggerItem} className={styles.statCard}>
+          <div className={styles.statHeader}>
+            <span className={styles.statTitle}>{t('dashboard.availableSources')}</span>
+            <div className={`${styles.statIcon} ${styles.iconIndigo}`}><Layers size={18} /></div>
+          </div>
+          <div className={styles.statValue}>{okCount} / {totalCount}</div>
         </m.div>
-        <m.div variants={staggerItem}>
-          <Card title={t('dashboard.healthRate')}>
-            <div
-              className={styles.cardValue}
-              style={{ color: healthPct >= 80 ? 'var(--success)' : healthPct >= 50 ? 'var(--warning)' : 'var(--error)' }}
-            >
-              {healthPct}%
-            </div>
-          </Card>
+
+        <m.div variants={staggerItem} className={styles.statCard}>
+          <div className={styles.statHeader}>
+            <span className={styles.statTitle}>{t('dashboard.healthRate')}</span>
+          </div>
+          <div className={styles.healthRing}>
+            <svg width="80" height="80" viewBox="0 0 80 80" role="img" aria-label={`${t('dashboard.healthRate')}: ${healthPct}%`}>
+              <circle cx="40" cy="40" r="34" fill="none" stroke="var(--border)" strokeWidth="6" />
+              <circle
+                cx="40" cy="40" r="34" fill="none"
+                stroke={healthPct >= 80 ? 'var(--success)' : healthPct >= 50 ? 'var(--warning)' : 'var(--error)'}
+                strokeWidth="6"
+                strokeDasharray={`${healthPct * 2.136} ${213.6 - healthPct * 2.136}`}
+                strokeDashoffset="53.4"
+                strokeLinecap="round"
+                style={{ transition: 'stroke-dasharray 0.8s ease' }}
+              />
+              <text x="40" y="44" textAnchor="middle" fill="var(--text)" fontSize="18" fontWeight="700">
+                {healthPct}%
+              </text>
+            </svg>
+          </div>
         </m.div>
       </m.div>
 

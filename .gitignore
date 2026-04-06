@@ -14,3 +14,4 @@ build/
 panel/node_modules/
 panel/dist/
 .playwright-mcp/
+/.gemini

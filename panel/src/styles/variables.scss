@@ -1,20 +1,28 @@
-// Color tokens
-$primary: #2563eb;
-$primary-hover: #1d4ed8;
-$success: #16a34a;
-$warning: #d97706;
-$error: #dc2626;
+// Primary palette
+$primary: #3b82f6;
+$primary-hover: #2563eb;
+$primary-active: #1d4ed8;
+$success: #10b981;
+$warning: #f59e0b;
+$error: #ef4444;
+
+// Extended accents
+$accent-indigo: #6366f1;
+$accent-teal: #14b8a6;
+$accent-rose: #f43f5e;
 
 // Layout
-$sidebar-width: 220px;
-$sidebar-collapsed: 60px;
-$header-height: 56px;
+$sidebar-width: 240px;
+$sidebar-collapsed: 68px;
+$header-height: 60px;
 $content-max: 1200px;
 $mobile-bp: 768px;
 
 // Radius
-$radius: 8px;
-$radius-sm: 6px;
+$radius: 10px;
+$radius-sm: 8px;
+$radius-lg: 14px;
 
 // Font
-$font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+$font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+$font-mono: 'SF Mono', 'Fira Code', Consolas, monospace;

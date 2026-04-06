@@ -57,7 +57,7 @@ export function LoginPage() {
   return (
     <div className={styles.page}>
       <div className={styles.themeToggle}>
-        <button className={styles.themeBtn} onClick={toggleTheme}>
+        <button className={styles.themeBtn} onClick={toggleTheme} aria-label={theme === 'light' ? 'Dark mode' : 'Light mode'}>
           {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
         </button>
       </div>
@@ -100,6 +100,7 @@ export function LoginPage() {
                 type="button"
                 className={styles.togglePw}
                 onClick={() => setShowPw((v) => !v)}
+                aria-label={showPw ? t('login.hidePassword', 'Hide password') : t('login.showPassword', 'Show password')}
               >
                 {showPw ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>

@@ -59,7 +59,7 @@ export function MainLayout() {
 
       <m.aside
         className={`${styles.sidebar} ${collapsed ? styles.collapsed : ''} ${mobileOpen ? styles.mobileOpen : ''}`}
-        animate={{ width: collapsed ? 64 : 220 }}
+        animate={{ width: collapsed ? 68 : 240 }}
         transition={{ duration: 0.2, ease: 'easeInOut' }}
       >
         <div className={styles.brand}>
@@ -105,6 +105,7 @@ export function MainLayout() {
             <button
               className={styles.hamburger}
               onClick={() => setMobileOpen((o) => !o)}
+              aria-label={t('nav.menu', 'Menu')}
             >
               <Menu size={20} />
             </button>
@@ -115,7 +116,7 @@ export function MainLayout() {
               <span className={styles.connDot} />
               {t('common.connected')}
             </span>
-            <button className={styles.themeBtn} onClick={toggleTheme}>
+            <button className={styles.themeBtn} onClick={toggleTheme} aria-label={theme === 'light' ? 'Dark mode' : 'Light mode'}>
               {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
             </button>
             <button className={styles.logoutBtn} onClick={handleLogout}>
