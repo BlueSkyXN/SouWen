@@ -79,3 +79,8 @@ general:
   max_retries: 3
   # 数据存储目录
   data_dir: ~/.local/share/souwen
+
+# ===== 服务 =====
+server:
+  # API 访问密码（设置后所有搜索端点需 Authorization: Bearer <password> 认证）
+  api_password: ~
