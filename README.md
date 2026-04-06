@@ -126,6 +126,34 @@ SOUWEN_UNPAYWALL_EMAIL=your@email.com
 
 → 全部配置字段见 [配置详解](docs/configuration.md)
 
+## 🐳 Docker 部署
+
+### 标准 Docker
+
+```bash
+# 构建
+docker build -t souwen .
+
+# 运行（可选：设置 API 密码和配置）
+docker run -d -p 49265:49265 \
+  -e SOUWEN_API_PASSWORD=your-secret \
+  -v souwen-data:/app/data \
+  souwen
+
+# 或使用 docker compose
+docker compose up -d
+```
+
+### HuggingFace Spaces
+
+将 `cloud/hfs/` 目录内容推送到 HF Space 仓库（SDK 类型选 Docker）。通过 Space Settings → Variables 设置 `SOUWEN_CONFIG_B64`（base64 编码的 souwen.yaml）。
+
+### ModelScope 创空间
+
+将 `cloud/modelscope/` 目录内容推送到 ModelScope 创空间仓库。端口固定为 7860。
+
+→ 部署后访问 `/panel` 进入管理面板，`/health` 检查健康状态，`/docs` 查看 API 文档。
+
 ## 🛠️ 高级用法
 
 ```bash

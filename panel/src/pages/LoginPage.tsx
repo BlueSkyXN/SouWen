@@ -27,14 +27,9 @@ export function LoginPage() {
       setLoading(true)
       try {
         const url = baseUrl.replace(/\/+$/, '')
-        if (remember) {
-          localStorage.setItem('souwen_remember', 'true')
-        } else {
-          localStorage.removeItem('souwen_remember')
-        }
 
         const health = await api.health(url)
-        setAuth(url, password, health.version)
+        setAuth(url, password, health.version, remember)
         addToast('success', `连接成功 — SouWen v${health.version}`)
       } catch (err) {
         addToast('error', `连接失败: ${err instanceof Error ? err.message : '未知错误'}`)

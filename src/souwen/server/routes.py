@@ -2,9 +2,20 @@
 
 from __future__ import annotations
 
+import logging
+
 from fastapi import APIRouter, Depends, Query, HTTPException
 
 from souwen.server.auth import check_search_auth, require_auth
+from souwen.server.limiter import rate_limit_search
+from souwen.server.schemas import (
+    ConfigReloadResponse,
+    DoctorResponse,
+    SearchPaperResponse,
+    SearchPatentResponse,
+)
+
+logger = logging.getLogger("souwen.server")
 
 router = APIRouter()
 
@@ -13,7 +24,11 @@ router = APIRouter()
 # ---------------------------------------------------------------------------
 
 
-@router.get("/search/paper", dependencies=[Depends(check_search_auth)])
+@router.get(
+    "/search/paper",
+    response_model=SearchPaperResponse,
+    dependencies=[Depends(rate_limit_search), Depends(check_search_auth)],
+)
 async def api_search_paper(
     q: str = Query(..., description="搜索关键词"),
     sources: str = Query("openalex,arxiv", description="数据源，逗号分隔"),
@@ -31,11 +46,16 @@ async def api_search_paper(
             "results": [r.model_dump(mode="json") for r in results],
             "total": sum(len(r.results) for r in results),
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("论文搜索失败: q=%s sources=%s", q, source_list)
+        raise HTTPException(status_code=500, detail="搜索服务内部错误，请稍后重试")
 
 
-@router.get("/search/patent", dependencies=[Depends(check_search_auth)])
+@router.get(
+    "/search/patent",
+    response_model=SearchPatentResponse,
+    dependencies=[Depends(rate_limit_search), Depends(check_search_auth)],
+)
 async def api_search_patent(
     q: str = Query(..., description="搜索关键词"),
     sources: str = Query("patentsview,pqai", description="数据源，逗号分隔"),
@@ -53,11 +73,12 @@ async def api_search_patent(
             "results": [r.model_dump(mode="json") for r in results],
             "total": sum(len(r.results) for r in results),
         }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("专利搜索失败: q=%s sources=%s", q, source_list)
+        raise HTTPException(status_code=500, detail="搜索服务内部错误，请稍后重试")
 
 
-@router.get("/search/web", dependencies=[Depends(check_search_auth)])
+@router.get("/search/web", dependencies=[Depends(rate_limit_search), Depends(check_search_auth)])
 async def api_search_web(
     q: str = Query(..., description="搜索关键词"),
     engines: str = Query("duckduckgo,yahoo,brave", description="搜索引擎，逗号分隔"),
@@ -70,8 +91,9 @@ async def api_search_web(
     try:
         resp = await web_search(q, engines=engine_list, max_results_per_engine=max_results)
         return resp.model_dump(mode="json")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except Exception:
+        logger.exception("网页搜索失败: q=%s engines=%s", q, engine_list)
+        raise HTTPException(status_code=500, detail="搜索服务内部错误，请稍后重试")
 
 
 @router.get("/sources", dependencies=[Depends(check_search_auth)])
@@ -103,11 +125,11 @@ def _is_secret_field(name: str) -> bool:
 @admin_router.get("/config")
 async def get_config_view():
     """查看当前配置（敏感字段脱敏）"""
-    from souwen.config import get_config
+    from souwen.config import SouWenConfig, get_config
 
     cfg = get_config()
     result = {}
-    for field_name in cfg.model_fields:
+    for field_name in SouWenConfig.model_fields:
         val = getattr(cfg, field_name)
         if _is_secret_field(field_name) and val is not None:
             result[field_name] = "***"
@@ -116,7 +138,7 @@ async def get_config_view():
     return result
 
 
-@admin_router.post("/config/reload")
+@admin_router.post("/config/reload", response_model=ConfigReloadResponse)
 async def reload_config_endpoint():
     """重新加载配置（YAML + .env）"""
     from souwen.config import reload_config
@@ -125,7 +147,7 @@ async def reload_config_endpoint():
     return {"status": "ok", "password_set": cfg.api_password is not None}
 
 
-@admin_router.get("/doctor")
+@admin_router.get("/doctor", response_model=DoctorResponse)
 async def doctor_check():
     """数据源健康检查"""
     from souwen.doctor import check_all
