@@ -7,7 +7,7 @@
 #
 #  环境变量:
 #    WARP_ENABLED=1          启用 WARP (默认关闭)
-#    WARP_MODE=wireproxy     模式: wireproxy (默认) | kernel
+#    WARP_MODE=auto          模式: auto (默认,自动检测) | wireproxy | kernel
 #    WARP_CONFIG_B64          Base64 编码的配置 (wireproxy格式 或 WireGuard格式)
 #    WARP_ENDPOINT            自定义 WARP Endpoint (如 162.159.192.1:4500)
 #    WARP_SOCKS_PORT          SOCKS5 监听端口 (默认 1080)
@@ -203,13 +203,37 @@ _warp_start_kernel() {
 
 # ---------- 主入口 ----------
 
+_warp_detect_mode() {
+    # 自动检测最佳可用模式
+    # 内核模式需要: wg-quick + /dev/net/tun + NET_ADMIN
+    if command -v wg-quick >/dev/null 2>&1 && \
+       [ -e /dev/net/tun ] && \
+       command -v microsocks >/dev/null 2>&1; then
+        echo "kernel"
+    elif command -v wireproxy >/dev/null 2>&1; then
+        echo "wireproxy"
+    else
+        echo "none"
+    fi
+}
+
 warp_init() {
     if [ "${WARP_ENABLED:-0}" != "1" ]; then
         return 0
     fi
 
-    WARP_MODE="${WARP_MODE:-wireproxy}"
     WARP_SOCKS_PORT="${WARP_SOCKS_PORT:-1080}"
+    WARP_MODE="${WARP_MODE:-auto}"
+
+    # 自动检测模式
+    if [ "$WARP_MODE" = "auto" ]; then
+        WARP_MODE=$(_warp_detect_mode)
+        if [ "$WARP_MODE" = "none" ]; then
+            echo "==> [WARP] ⚠️ 未检测到可用的 WARP 组件 (wireproxy/wg-quick)，跳过"
+            return 0
+        fi
+        echo "==> [WARP] 自动检测模式: ${WARP_MODE}"
+    fi
 
     echo "==> [WARP] 初始化 Cloudflare WARP 代理 (模式: ${WARP_MODE})"
 
@@ -222,7 +246,7 @@ warp_init() {
             _warp_start_kernel || { echo "==> [WARP] ⚠️ 内核模式启动失败，继续无代理运行"; return 0; }
             ;;
         *)
-            echo "==> [WARP] ❌ 未知模式: ${WARP_MODE} (支持: wireproxy, kernel)"
+            echo "==> [WARP] ❌ 未知模式: ${WARP_MODE} (支持: auto, wireproxy, kernel)"
             return 0
             ;;
     esac

@@ -11,7 +11,7 @@ services:
         required: false
     # environment:
     #   - WARP_ENABLED=1                          # 启用 Cloudflare WARP 代理
-    #   - WARP_MODE=wireproxy                     # wireproxy (默认,全平台) | kernel (需NET_ADMIN)
+    #   - WARP_MODE=auto                          # auto (默认,自动检测) | wireproxy | kernel
     #   - WARP_CONFIG_B64=                         # Base64 编码的配置 (推荐预生成)
     #   - WARP_ENDPOINT=162.159.192.1:4500         # 自定义 WARP Endpoint (规避 QoS)
     #   - WARP_SOCKS_PORT=1080                     # SOCKS5 代理端口 (默认 1080)
