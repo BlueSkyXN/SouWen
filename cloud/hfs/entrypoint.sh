@@ -13,6 +13,11 @@ echo "  PYTHON:   $(python --version 2>&1)"
 echo "  SOUWEN:   $(python -c 'import souwen; print(souwen.__version__)' 2>/dev/null || echo 'unknown')"
 echo "=========================================="
 
+# ----- WARP 代理初始化 (在所有 Python 代码之前) -----
+if [ "${WARP_ENABLED:-0}" = "1" ] && [ -f /usr/local/bin/warp-init.sh ]; then
+    . /usr/local/bin/warp-init.sh
+fi
+
 # ----- 配置注入 -----
 if [ -n "${SOUWEN_CONFIG_B64}" ]; then
     printf '%s' "${SOUWEN_CONFIG_B64}" | base64 -d > /app/souwen.yaml

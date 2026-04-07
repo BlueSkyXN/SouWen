@@ -6,6 +6,11 @@ services:
     env_file:
       - path: .env
         required: false
+    # environment:
+    #   - WARP_ENABLED=1                          # 启用 Cloudflare WARP 代理
+    #   - WARP_CONFIG_B64=                         # Base64 编码的 wireproxy 配置 (推荐预生成)
+    #   - WARP_ENDPOINT=162.159.192.1:4500         # 自定义 WARP Endpoint (规避 QoS)
+    #   - WARP_SOCKS_PORT=1080                     # SOCKS5 代理端口 (默认 1080)
     volumes:
       - souwen-data:/app/data
     restart: unless-stopped
@@ -13,7 +18,7 @@ services:
       test: ["CMD", "curl", "-f", "http://localhost:49265/health"]
       interval: 30s
       timeout: 5s
-      start_period: 10s
+      start_period: 30s
       retries: 3
 
 volumes:
