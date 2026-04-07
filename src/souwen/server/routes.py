@@ -159,3 +159,45 @@ async def doctor_check():
         "ok": ok_count,
         "sources": results,
     }
+
+
+# ---------------------------------------------------------------------------
+# WARP 代理管理
+# ---------------------------------------------------------------------------
+
+
+@admin_router.get("/warp")
+async def warp_status():
+    """获取 WARP 代理状态"""
+    from souwen.server.warp import WarpManager
+
+    mgr = WarpManager.get_instance()
+    return mgr.get_status()
+
+
+@admin_router.post("/warp/enable")
+async def warp_enable(
+    mode: str = Query("auto", description="模式: auto | wireproxy | kernel"),
+    socks_port: int = Query(1080, ge=1, le=65535, description="SOCKS5 端口"),
+    endpoint: str | None = Query(None, description="自定义 WARP Endpoint"),
+):
+    """启用 WARP 代理"""
+    from souwen.server.warp import WarpManager
+
+    mgr = WarpManager.get_instance()
+    result = await mgr.enable(mode=mode, socks_port=socks_port, endpoint=endpoint)
+    if not result["ok"]:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+
+@admin_router.post("/warp/disable")
+async def warp_disable():
+    """禁用 WARP 代理"""
+    from souwen.server.warp import WarpManager
+
+    mgr = WarpManager.get_instance()
+    result = await mgr.disable()
+    if not result["ok"]:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result

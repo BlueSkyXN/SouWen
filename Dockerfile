@@ -7,19 +7,18 @@ FROM python:3.11-slim
 
 ARG WGCF_VERSION=2.2.30
 ARG WIREPROXY_VERSION=1.1.2
-ARG WARP_KERNEL=0
 
 ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     TZ=Asia/Shanghai
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-        curl tzdata \
+        curl tzdata wireguard-tools iptables iproute2 \
     && cp /usr/share/zoneinfo/${TZ} /etc/localtime \
     && echo "${TZ}" > /etc/timezone \
     && rm -rf /var/lib/apt/lists/*
 
-# 预装 WARP 用户态组件 (wireproxy + wgcf)
+# 预装全部 WARP 组件: wgcf(注册) + wireproxy(用户态) + microsocks(内核态)
 RUN ARCH=$(dpkg --print-architecture) && \
     curl -fsSL -o /usr/local/bin/wgcf \
         "https://github.com/ViRb3/wgcf/releases/download/v${WGCF_VERSION}/wgcf_${WGCF_VERSION}_linux_${ARCH}" && \
@@ -28,17 +27,8 @@ RUN ARCH=$(dpkg --print-architecture) && \
         | tar xz -C /usr/local/bin/ wireproxy && \
     chmod +x /usr/local/bin/wireproxy
 
-# microsocks 二进制 (内核模式 SOCKS5 引擎, 仅 ~100KB)
 COPY --from=microsocks-builder /src/microsocks /usr/local/bin/microsocks
 RUN chmod +x /usr/local/bin/microsocks
-
-# 内核态 WireGuard 支持 (可选, 需 docker-compose cap_add: NET_ADMIN)
-# 构建: docker build --build-arg WARP_KERNEL=1 .
-RUN if [ "$WARP_KERNEL" = "1" ]; then \
-        apt-get update && \
-        apt-get install -y --no-install-recommends wireguard-tools iptables iproute2 && \
-        rm -rf /var/lib/apt/lists/*; \
-    fi
 
 WORKDIR /app
 

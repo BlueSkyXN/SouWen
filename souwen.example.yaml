@@ -84,3 +84,17 @@ general:
 server:
   # API 访问密码（设置后所有搜索端点需 Authorization: Bearer <password> 认证）
   api_password: ~
+
+# ===== WARP 代理 =====
+# 内嵌 Cloudflare WARP 代理（Docker 部署专用）
+# 支持 wireproxy (用户态, 全平台) 和 kernel (内核 WireGuard, 高性能)
+# 也可通过环境变量 WARP_ENABLED / WARP_MODE / WARP_SOCKS_PORT / WARP_ENDPOINT 控制
+warp:
+  # 是否启用 WARP (默认关闭)
+  warp_enabled: false
+  # 模式: auto (自动检测) | wireproxy (用户态) | kernel (需 NET_ADMIN)
+  warp_mode: auto
+  # SOCKS5 代理监听端口
+  warp_socks_port: 1080
+  # 自定义 WARP Endpoint (规避 QoS, 如 162.159.192.1:4500)
+  warp_endpoint: ~
