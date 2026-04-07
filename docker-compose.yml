@@ -1,6 +1,9 @@
 services:
   souwen:
-    build: .
+    build:
+      context: .
+      # args:
+      #   WARP_KERNEL: "1"    # 启用内核态 WireGuard 支持 (高性能模式)
     ports:
       - "${PORT:-49265}:49265"
     env_file:
@@ -8,9 +11,16 @@ services:
         required: false
     # environment:
     #   - WARP_ENABLED=1                          # 启用 Cloudflare WARP 代理
-    #   - WARP_CONFIG_B64=                         # Base64 编码的 wireproxy 配置 (推荐预生成)
+    #   - WARP_MODE=wireproxy                     # wireproxy (默认,全平台) | kernel (需NET_ADMIN)
+    #   - WARP_CONFIG_B64=                         # Base64 编码的配置 (推荐预生成)
     #   - WARP_ENDPOINT=162.159.192.1:4500         # 自定义 WARP Endpoint (规避 QoS)
     #   - WARP_SOCKS_PORT=1080                     # SOCKS5 代理端口 (默认 1080)
+    # # 以下仅 WARP_MODE=kernel 需要:
+    # cap_add:
+    #   - NET_ADMIN
+    #   - SYS_MODULE
+    # sysctls:
+    #   - net.ipv4.conf.all.src_valid_mark=1
     volumes:
       - souwen-data:/app/data
     restart: unless-stopped
