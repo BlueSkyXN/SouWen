@@ -1,12 +1,14 @@
 #!/bin/sh
 # ============================================================
 #  SouWen WARP 初始化脚本
-#  使用 wireproxy (用户态 WireGuard → SOCKS5) 实现 Cloudflare WARP
-#  无需 NET_ADMIN / TUN 设备，兼容所有平台 (HFS/ModelScope/自建)
+#  支持两种模式:
+#    wireproxy — 用户态 WireGuard → SOCKS5 (默认, 全平台兼容)
+#    kernel    — 内核 WireGuard + microsocks (需 NET_ADMIN, 高性能)
 #
 #  环境变量:
 #    WARP_ENABLED=1          启用 WARP (默认关闭)
-#    WARP_CONFIG_B64          Base64 编码的 wireproxy 配置 (推荐)
+#    WARP_MODE=wireproxy     模式: wireproxy (默认) | kernel
+#    WARP_CONFIG_B64          Base64 编码的配置 (wireproxy格式 或 WireGuard格式)
 #    WARP_ENDPOINT            自定义 WARP Endpoint (如 162.159.192.1:4500)
 #    WARP_SOCKS_PORT          SOCKS5 监听端口 (默认 1080)
 #    GH_PROXY                 GitHub 下载代理前缀
@@ -15,7 +17,9 @@
 #    . /usr/local/bin/warp-init.sh
 # ============================================================
 
-_warp_convert_config() {
+# ---------- 工具函数 ----------
+
+_warp_convert_to_wireproxy() {
     # 将 wgcf 生成的 WireGuard 配置转换为 wireproxy 格式
     SRC="$1"
     DST="$2"
@@ -42,87 +46,188 @@ BindAddress = 127.0.0.1:${SOCKS_PORT}
 WIREPROXY_EOF
 }
 
+_warp_patch_kernel_conf() {
+    # 洗白 wgcf 配置, 适配内核 WireGuard (参考 MicroWARP)
+    WG_CONF="$1"
+
+    # 提取纯 IPv4 地址
+    IPV4_ADDR=$(grep '^Address' "$WG_CONF" | grep -oE '([0-9]{1,3}\.){3}[0-9]{1,3}/[0-9]+' | head -1)
+
+    # 删除所有 Address / AllowedIPs / DNS (防止双栈崩溃)
+    sed -i '/^Address/d' "$WG_CONF"
+    sed -i '/^AllowedIPs/d' "$WG_CONF"
+    sed -i '/^DNS.*/d' "$WG_CONF"
+
+    # 重建纯 IPv4 规则
+    if [ -n "$IPV4_ADDR" ]; then
+        sed -i "/\[Interface\]/a Address = $IPV4_ADDR" "$WG_CONF"
+    fi
+    sed -i "/\[Peer\]/a AllowedIPs = 0.0.0.0\/0" "$WG_CONF"
+
+    # 注入心跳保活
+    if ! grep -q "PersistentKeepalive" "$WG_CONF"; then
+        sed -i '/\[Peer\]/a PersistentKeepalive = 15' "$WG_CONF"
+    else
+        sed -i 's/PersistentKeepalive.*/PersistentKeepalive = 15/g' "$WG_CONF"
+    fi
+
+    # 删除 Alpine wg-quick 不兼容的路由标记
+    if [ -f /usr/bin/wg-quick ]; then
+        sed -i '/src_valid_mark/d' /usr/bin/wg-quick 2>/dev/null || true
+    fi
+}
+
+_warp_register() {
+    # 使用 wgcf 注册 WARP 并生成配置, 输出到 $1
+    OUTPUT_CONF="$1"
+
+    if ! command -v wgcf >/dev/null 2>&1; then
+        echo "==> [WARP] ❌ wgcf 未安装，无法自动注册"
+        return 1
+    fi
+
+    WGCF_DIR=$(mktemp -d)
+    cd "$WGCF_DIR"
+
+    if ! wgcf register --accept-tos 2>/dev/null; then
+        echo "==> [WARP] ❌ WARP 注册失败（可能触发速率限制）"
+        cd /app 2>/dev/null || cd /
+        rm -rf "$WGCF_DIR"
+        return 1
+    fi
+
+    if ! wgcf generate 2>/dev/null || [ ! -f wgcf-profile.conf ]; then
+        echo "==> [WARP] ❌ 配置生成失败"
+        cd /app 2>/dev/null || cd /
+        rm -rf "$WGCF_DIR"
+        return 1
+    fi
+
+    cp wgcf-profile.conf "$OUTPUT_CONF"
+
+    # 阅后即焚
+    cd /app 2>/dev/null || cd /
+    rm -rf "$WGCF_DIR"
+    echo "==> [WARP] ✅ WARP 注册成功"
+}
+
+# ---------- wireproxy 模式 ----------
+
+_warp_start_wireproxy() {
+    WIREPROXY_CONF="/tmp/wireproxy.conf"
+
+    # 获取配置
+    if [ -n "${WARP_CONFIG_B64:-}" ]; then
+        printf '%s' "${WARP_CONFIG_B64}" | base64 -d > "$WIREPROXY_CONF"
+        echo "==> [WARP] ✅ 从 WARP_CONFIG_B64 加载配置"
+    elif [ -f "/app/data/wireproxy.conf" ]; then
+        cp /app/data/wireproxy.conf "$WIREPROXY_CONF"
+        echo "==> [WARP] ✅ 从持久化文件加载配置"
+    else
+        RAW_CONF=$(mktemp)
+        if ! _warp_register "$RAW_CONF"; then return 1; fi
+        _warp_convert_to_wireproxy "$RAW_CONF" "$WIREPROXY_CONF"
+        rm -f "$RAW_CONF"
+        # 持久化
+        if [ -d /app/data ]; then
+            cp "$WIREPROXY_CONF" /app/data/wireproxy.conf 2>/dev/null || true
+            echo "==> [WARP] 配置已持久化到 /app/data/wireproxy.conf"
+        fi
+    fi
+
+    # 应用自定义 Endpoint
+    if [ -n "${WARP_ENDPOINT:-}" ]; then
+        sed -i "s|^Endpoint.*|Endpoint = ${WARP_ENDPOINT}|" "$WIREPROXY_CONF"
+        echo "==> [WARP] 🔀 自定义 Endpoint: ${WARP_ENDPOINT}"
+    fi
+    sed -i "s|^BindAddress.*|BindAddress = 127.0.0.1:${WARP_SOCKS_PORT}|" "$WIREPROXY_CONF"
+
+    # 启动 wireproxy
+    if ! command -v wireproxy >/dev/null 2>&1; then
+        echo "==> [WARP] ❌ wireproxy 未安装"
+        return 1
+    fi
+
+    wireproxy -c "$WIREPROXY_CONF" &
+    echo "==> [WARP] wireproxy 已启动 (PID: $!)"
+}
+
+# ---------- kernel 模式 (MicroWARP 风格) ----------
+
+_warp_start_kernel() {
+    WG_CONF="/etc/wireguard/wg0.conf"
+    mkdir -p /etc/wireguard
+
+    # 获取配置
+    if [ -n "${WARP_CONFIG_B64:-}" ]; then
+        printf '%s' "${WARP_CONFIG_B64}" | base64 -d > "$WG_CONF"
+        echo "==> [WARP] ✅ 从 WARP_CONFIG_B64 加载配置"
+    elif [ -f "/app/data/wg0.conf" ]; then
+        cp /app/data/wg0.conf "$WG_CONF"
+        echo "==> [WARP] ✅ 从持久化文件加载配置"
+    else
+        if ! _warp_register "$WG_CONF"; then return 1; fi
+        # 持久化
+        if [ -d /app/data ]; then
+            cp "$WG_CONF" /app/data/wg0.conf 2>/dev/null || true
+        fi
+    fi
+
+    # 洗白配置 (IPv4 only, 去 DNS, 心跳保活)
+    _warp_patch_kernel_conf "$WG_CONF"
+
+    # 应用自定义 Endpoint
+    if [ -n "${WARP_ENDPOINT:-}" ]; then
+        sed -i "s|^Endpoint.*|Endpoint = ${WARP_ENDPOINT}|" "$WG_CONF"
+        echo "==> [WARP] 🔀 自定义 Endpoint: ${WARP_ENDPOINT}"
+    fi
+
+    # 检查依赖
+    if ! command -v wg-quick >/dev/null 2>&1; then
+        echo "==> [WARP] ❌ wireguard-tools 未安装 (需要 --build-arg WARP_KERNEL=1 构建)"
+        return 1
+    fi
+    if ! command -v microsocks >/dev/null 2>&1; then
+        echo "==> [WARP] ❌ microsocks 未安装"
+        return 1
+    fi
+
+    # 拉起内核网卡
+    echo "==> [WARP] 正在启动 Linux 内核级 wg0 网卡..."
+    wg-quick up wg0 2>/dev/null
+
+    # 启动 microsocks SOCKS5 代理
+    microsocks -i 127.0.0.1 -p "${WARP_SOCKS_PORT}" &
+    echo "==> [WARP] microsocks 已启动 (PID: $!)"
+}
+
+# ---------- 主入口 ----------
+
 warp_init() {
     if [ "${WARP_ENABLED:-0}" != "1" ]; then
         return 0
     fi
 
+    WARP_MODE="${WARP_MODE:-wireproxy}"
     WARP_SOCKS_PORT="${WARP_SOCKS_PORT:-1080}"
-    WIREPROXY_CONF="/tmp/wireproxy.conf"
 
-    echo "==> [WARP] 初始化 Cloudflare WARP 代理..."
+    echo "==> [WARP] 初始化 Cloudflare WARP 代理 (模式: ${WARP_MODE})"
 
-    # ---- 第一步: 获取 wireproxy 配置 ----
-    if [ -n "${WARP_CONFIG_B64:-}" ]; then
-        # 优先使用用户提供的预生成配置
-        printf '%s' "${WARP_CONFIG_B64}" | base64 -d > "$WIREPROXY_CONF"
-        echo "==> [WARP] ✅ 从 WARP_CONFIG_B64 加载配置"
+    # 启动对应模式
+    case "$WARP_MODE" in
+        wireproxy)
+            _warp_start_wireproxy || { echo "==> [WARP] ⚠️ wireproxy 启动失败，继续无代理运行"; return 0; }
+            ;;
+        kernel)
+            _warp_start_kernel || { echo "==> [WARP] ⚠️ 内核模式启动失败，继续无代理运行"; return 0; }
+            ;;
+        *)
+            echo "==> [WARP] ❌ 未知模式: ${WARP_MODE} (支持: wireproxy, kernel)"
+            return 0
+            ;;
+    esac
 
-    elif [ -f "/app/data/wireproxy.conf" ]; then
-        # 从持久化存储加载
-        cp /app/data/wireproxy.conf "$WIREPROXY_CONF"
-        echo "==> [WARP] ✅ 从持久化文件加载配置"
-
-    else
-        # 自动注册 WARP 账号
-        echo "==> [WARP] 未检测到配置，正在自动注册 Cloudflare WARP..."
-
-        if ! command -v wgcf >/dev/null 2>&1; then
-            echo "==> [WARP] ❌ wgcf 未安装，跳过 WARP 初始化"
-            return 1
-        fi
-
-        WGCF_DIR=$(mktemp -d)
-        cd "$WGCF_DIR"
-
-        if ! wgcf register --accept-tos 2>/dev/null; then
-            echo "==> [WARP] ❌ WARP 注册失败（可能触发速率限制）"
-            cd /app
-            rm -rf "$WGCF_DIR"
-            return 1
-        fi
-
-        if ! wgcf generate 2>/dev/null || [ ! -f wgcf-profile.conf ]; then
-            echo "==> [WARP] ❌ 配置生成失败"
-            cd /app
-            rm -rf "$WGCF_DIR"
-            return 1
-        fi
-
-        _warp_convert_config wgcf-profile.conf "$WIREPROXY_CONF"
-
-        # 持久化配置 (如果 /app/data 可写)
-        if [ -d /app/data ]; then
-            cp "$WIREPROXY_CONF" /app/data/wireproxy.conf 2>/dev/null || true
-            echo "==> [WARP] 配置已持久化到 /app/data/wireproxy.conf"
-        fi
-
-        # 阅后即焚: 清理注册凭据
-        cd /app
-        rm -rf "$WGCF_DIR"
-        echo "==> [WARP] ✅ WARP 注册成功"
-    fi
-
-    # ---- 应用自定义 Endpoint ----
-    if [ -n "${WARP_ENDPOINT:-}" ]; then
-        sed -i "s|^Endpoint.*|Endpoint = ${WARP_ENDPOINT}|" "$WIREPROXY_CONF"
-        echo "==> [WARP] 🔀 自定义 Endpoint: ${WARP_ENDPOINT}"
-    fi
-
-    # 确保 SOCKS5 端口正确
-    sed -i "s|^BindAddress.*|BindAddress = 127.0.0.1:${WARP_SOCKS_PORT}|" "$WIREPROXY_CONF"
-
-    # ---- 第二步: 启动 wireproxy ----
-    if ! command -v wireproxy >/dev/null 2>&1; then
-        echo "==> [WARP] ❌ wireproxy 未安装，跳过 WARP 初始化"
-        return 1
-    fi
-
-    wireproxy -c "$WIREPROXY_CONF" &
-    WIREPROXY_PID=$!
-    echo "==> [WARP] wireproxy 已启动 (PID: ${WIREPROXY_PID})"
-
-    # ---- 第三步: 验证代理 ----
+    # 验证代理
     WARP_READY=0
     for i in 1 2 3 4 5 6 7 8 9 10; do
         sleep 1
@@ -141,7 +246,7 @@ warp_init() {
         echo "==> [WARP] ⚠️ 代理验证超时（可能仍在建立连接，继续启动应用）"
     fi
 
-    # ---- 第四步: 导出代理到 SouWen ----
+    # 导出代理到 SouWen
     export SOUWEN_PROXY="socks5://127.0.0.1:${WARP_SOCKS_PORT}"
     echo "==> [WARP] SOUWEN_PROXY=${SOUWEN_PROXY}"
 }
