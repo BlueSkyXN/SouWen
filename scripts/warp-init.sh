@@ -149,7 +149,8 @@ _warp_start_wireproxy() {
     fi
 
     wireproxy -c "$WIREPROXY_CONF" &
-    echo "==> [WARP] wireproxy 已启动 (PID: $!)"
+    WIREPROXY_PID=$!
+    echo "==> [WARP] wireproxy 已启动 (PID: ${WIREPROXY_PID})"
 }
 
 # ---------- kernel 模式 (MicroWARP 风格) ----------
@@ -198,7 +199,8 @@ _warp_start_kernel() {
 
     # 启动 microsocks SOCKS5 代理
     microsocks -i 127.0.0.1 -p "${WARP_SOCKS_PORT}" &
-    echo "==> [WARP] microsocks 已启动 (PID: $!)"
+    MICROSOCKS_PID=$!
+    echo "==> [WARP] microsocks 已启动 (PID: ${MICROSOCKS_PID})"
 }
 
 # ---------- 主入口 ----------
@@ -266,9 +268,25 @@ warp_init() {
         WARP_IP=$(curl -s --socks5-hostname "127.0.0.1:${WARP_SOCKS_PORT}" \
                       --max-time 5 https://1.1.1.1/cdn-cgi/trace 2>/dev/null | grep "ip=" || echo "ip=unknown")
         echo "==> [WARP] ✅ 代理就绪 (${WARP_IP})"
+        WARP_STATUS="enabled"
     else
         echo "==> [WARP] ⚠️ 代理验证超时（可能仍在建立连接，继续启动应用）"
+        WARP_STATUS="enabled"
+        WARP_IP="ip=pending"
     fi
+
+    # 写入状态文件 (供 Python WARP 管理器读取)
+    WARP_STATE_FILE="/run/souwen-warp.json"
+    _WARP_PID=""
+    if [ "$WARP_MODE" = "wireproxy" ]; then
+        _WARP_PID="${WIREPROXY_PID:-}"
+    elif [ "$WARP_MODE" = "kernel" ]; then
+        _WARP_PID="${MICROSOCKS_PID:-}"
+    fi
+    cat > "$WARP_STATE_FILE" << STATE_EOF
+{"owner":"shell","mode":"${WARP_MODE}","status":"${WARP_STATUS}","socks_port":${WARP_SOCKS_PORT},"pid":${_WARP_PID:-0},"interface":"wg0","ip":"${WARP_IP#ip=}"}
+STATE_EOF
+    echo "==> [WARP] 状态已写入 ${WARP_STATE_FILE}"
 
     # 导出代理到 SouWen
     export SOUWEN_PROXY="socks5://127.0.0.1:${WARP_SOCKS_PORT}"

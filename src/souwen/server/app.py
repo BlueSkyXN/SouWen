@@ -31,6 +31,16 @@ async def lifespan(app: FastAPI):
         __version__,
         "已启用" if cfg.api_password else "未启用",
     )
+
+    # WARP 状态协调 (检测 shell entrypoint 启动的 WARP 实例)
+    try:
+        from souwen.server.warp import WarpManager
+
+        warp_mgr = WarpManager.get_instance()
+        await warp_mgr.reconcile()
+    except Exception:
+        logger.warning("WARP 状态协调失败，跳过", exc_info=True)
+
     yield
 
 

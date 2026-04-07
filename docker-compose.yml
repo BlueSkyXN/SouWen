@@ -1,9 +1,11 @@
 services:
   souwen:
-    build:
-      context: .
-      # args:
-      #   WARP_KERNEL: "1"    # 启用内核态 WireGuard 支持 (高性能模式)
+    build: .
+    # build:
+    #   context: .
+    #   args:
+    #     WGCF_VERSION: "2.2.30"        # 自定义 wgcf 版本
+    #     WIREPROXY_VERSION: "1.1.2"     # 自定义 wireproxy 版本
     ports:
       - "${PORT:-49265}:49265"
     env_file:

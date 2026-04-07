@@ -78,6 +78,12 @@ class SouWenConfig(BaseModel):
     # ===== 服务 =====
     api_password: str | None = None  # API 访问密码（Bearer Token）
 
+    # ===== WARP 代理 =====
+    warp_enabled: bool = False
+    warp_mode: str = "auto"  # auto | wireproxy | kernel
+    warp_socks_port: int = 1080
+    warp_endpoint: str | None = None
+
     @property
     def data_path(self) -> Path:
         """返回展开后的数据目录路径"""
@@ -140,13 +146,26 @@ def get_config() -> SouWenConfig:
 
     # 环境变量覆盖 YAML 值
     env_prefix = "SOUWEN_"
+    # WARP 相关字段也支持不带前缀的环境变量 (兼容 Docker entrypoint)
+    _warp_env_aliases = {
+        "warp_enabled": "WARP_ENABLED",
+        "warp_mode": "WARP_MODE",
+        "warp_socks_port": "WARP_SOCKS_PORT",
+        "warp_endpoint": "WARP_ENDPOINT",
+    }
     for field_name in SouWenConfig.model_fields:
         env_key = f"{env_prefix}{field_name.upper()}"
         val = os.getenv(env_key)
+        # 回退到不带前缀的别名
+        if val is None and field_name in _warp_env_aliases:
+            val = os.getenv(_warp_env_aliases[field_name])
         if val is not None:
-            # 对整数字段做类型转换
             field_info = SouWenConfig.model_fields[field_name]
-            if field_info.annotation in (int, int | None):
+            # 布尔字段
+            if field_info.annotation is bool:
+                val = val.lower() in ("1", "true", "yes", "on")
+            # 整数字段
+            elif field_info.annotation in (int, int | None):
                 try:
                     val = int(val)
                 except (ValueError, TypeError):
@@ -223,6 +242,15 @@ general:
 # ===== 服务 =====
 server:
   api_password: ~
+
+# ===== WARP 代理 =====
+# 内嵌 Cloudflare WARP 代理（Docker 部署专用）
+# 详见 scripts/warp-init.sh
+warp:
+  warp_enabled: false
+  warp_mode: auto         # auto | wireproxy | kernel
+  warp_socks_port: 1080
+  warp_endpoint: ~        # 自定义 Endpoint (如 162.159.192.1:4500)
 """
 
 

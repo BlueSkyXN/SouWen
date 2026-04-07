@@ -50,6 +50,29 @@ export interface ReloadResponse {
   password_set: boolean
 }
 
+export interface WarpStatus {
+  status: 'disabled' | 'starting' | 'enabled' | 'stopping' | 'error'
+  mode: string
+  owner: string
+  socks_port: number
+  ip: string
+  pid: number
+  interface: string | null
+  last_error: string
+  available_modes: {
+    wireproxy: boolean
+    kernel: boolean
+  }
+}
+
+export interface WarpActionResult {
+  ok: boolean
+  mode?: string
+  ip?: string
+  message?: string
+  error?: string
+}
+
 /* ===== Search Types ===== */
 
 export interface PaperResult {

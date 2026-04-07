@@ -8,6 +8,8 @@ import type {
   ReloadResponse,
   SearchResponse,
   WebSearchResponse,
+  WarpStatus,
+  WarpActionResult,
 } from '../types'
 
 const REQUEST_TIMEOUT_MS = 30_000
@@ -107,6 +109,26 @@ class ApiService {
 
   async getDoctor(): Promise<DoctorResponse> {
     return this.request<DoctorResponse>('/api/v1/admin/doctor', { headers: this.headers() })
+  }
+
+  async getWarpStatus(): Promise<WarpStatus> {
+    return this.request<WarpStatus>('/api/v1/admin/warp', { headers: this.headers() })
+  }
+
+  async enableWarp(mode = 'auto', socksPort = 1080, endpoint?: string): Promise<WarpActionResult> {
+    const params = new URLSearchParams({ mode, socks_port: String(socksPort) })
+    if (endpoint) params.set('endpoint', endpoint)
+    return this.request<WarpActionResult>(`/api/v1/admin/warp/enable?${params}`, {
+      method: 'POST',
+      headers: this.headers(),
+    })
+  }
+
+  async disableWarp(): Promise<WarpActionResult> {
+    return this.request<WarpActionResult>('/api/v1/admin/warp/disable', {
+      method: 'POST',
+      headers: this.headers(),
+    })
   }
 }
 
