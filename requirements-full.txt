@@ -1,6 +1,6 @@
 # SouWen 全量依赖 — 包含所有可选功能
 # 核心
-httpx>=0.27.0
+httpx[socks]>=0.27.0
 pydantic>=2.0
 tenacity>=8.0
 python-dotenv>=1.0
