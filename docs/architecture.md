@@ -204,7 +204,7 @@ SouWen/
 3. **稳健性**：自动重试、限流保护、优雅降级
 4. **可观测性**：结构化日志，请求耗时追踪
 
-## 近期改进（v0.4.0）
+## 近期改进（v0.3.0）
 
 - **11 个新搜索引擎**：SerpAPI、Firecrawl、Perplexity Sonar、Linkup、ScrapingDog、Startpage、Baidu、Mojeek、Yandex、Whoogle、Websurfx
 - **异步会话缓存**：从同步 sqlite3 迁移到 aiosqlite
@@ -213,7 +213,7 @@ SouWen/
 - **代理池轮换**：支持多代理 URL 配置 + 随机选取
 - **扩展浏览器指纹库**：从 3 个扩展到 10 个（Chrome + Edge + Safari + Android）
 - **抽象限流器接口**：`RateLimiterBase(ABC)` 支持 Redis 等分布式限流器扩展
-- **102 个自动化测试**：从 35 个增长到 102 个，含 67 个 mock 测试（pytest-httpx）
+- **204 个自动化测试**：含 mock 测试（pytest-httpx）
 - **CLI 搜索改进**：搜索结果显示失败源警告
 - **Pydantic 模型加固**：`extra="forbid"` 防止字段名拼写错误
 - **数据源常量**：`ALL_SOURCES` 共享常量，统一版本号为单一来源 `__version__`

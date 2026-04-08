@@ -8,15 +8,19 @@ export interface NormalizedPaper {
   abstract: string
   url: string
   source: string
+  citationCount: number | null
+  pdfUrl: string
 }
 
 export interface NormalizedPatent {
   title: string
   patentNumber: string
   applicant: string
+  inventors: string[]
   abstract: string
   url: string
   source: string
+  publicationDate: string
 }
 
 export interface NormalizedWeb {
@@ -35,25 +39,37 @@ export interface NormalizedSource {
 }
 
 export function normalizePaper(raw: PaperResult): NormalizedPaper {
+  const authors = Array.isArray(raw.authors)
+    ? raw.authors
+        .map((a) => (typeof a === 'string' ? a : a?.name ?? ''))
+        .filter(Boolean)
+    : []
   return {
     title: raw.title?.trim() || '',
-    authors: Array.isArray(raw.authors) ? raw.authors.filter(Boolean) : [],
+    authors,
     year: typeof raw.year === 'number' ? raw.year : null,
     doi: raw.doi?.trim() || '',
     abstract: raw.abstract?.trim() || '',
-    url: raw.url?.trim() || '',
-    source: raw.source || '',
+    url: raw.source_url?.trim() || raw.open_access_url?.trim() || '',
+    source: typeof raw.source === 'string' ? raw.source : '',
+    citationCount: typeof raw.citation_count === 'number' ? raw.citation_count : null,
+    pdfUrl: raw.pdf_url?.trim() || '',
   }
 }
 
 export function normalizePatent(raw: PatentResult): NormalizedPatent {
+  const applicant = Array.isArray(raw.applicants) && raw.applicants.length > 0
+    ? raw.applicants.map((a) => (typeof a === 'string' ? a : a?.name ?? '')).filter(Boolean).join(', ')
+    : ''
   return {
     title: raw.title?.trim() || '',
-    patentNumber: raw.patent_number?.trim() || '',
-    applicant: raw.assignee?.trim() || '',
+    patentNumber: raw.patent_id?.trim() || '',
+    applicant,
+    inventors: Array.isArray(raw.inventors) ? raw.inventors.filter(Boolean) : [],
     abstract: raw.abstract?.trim() || '',
-    url: raw.url?.trim() || '',
-    source: raw.source || '',
+    url: raw.source_url?.trim() || '',
+    source: typeof raw.source === 'string' ? raw.source : '',
+    publicationDate: raw.publication_date?.trim() || '',
   }
 }
 

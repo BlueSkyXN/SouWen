@@ -126,7 +126,7 @@ export function SearchPage() {
           setWebResults(null)
           const res = await api.searchWeb(query, joined, count)
           setWebResults(res)
-          addToast('success', t('search.success', { count: res.total }))
+          addToast('success', t('search.success', { count: res.total_results }))
         }
       } catch (err) {
         addToast('error', t('search.failed', { message: formatError(err) }))
@@ -177,13 +177,13 @@ export function SearchPage() {
           )}
         </div>
         <div className={styles.resultMeta}>
-          {(p.patentNumber || raw.patent_number) && (
-            <span><FileText size={14} /> {p.patentNumber || raw.patent_number}</span>
+          {p.patentNumber && (
+            <span><FileText size={14} /> {p.patentNumber}</span>
           )}
-          {(p.applicant || raw.assignee) && (
-            <span><Building size={14} /> {p.applicant || raw.assignee}</span>
+          {p.applicant && (
+            <span><Building size={14} /> {p.applicant}</span>
           )}
-          {raw.date && <span><Calendar size={14} /> {raw.date}</span>}
+          {p.publicationDate && <span><Calendar size={14} /> {p.publicationDate}</span>}
           {p.source && <span className={styles.sourceTag}>{p.source}</span>}
         </div>
         {p.abstract && (
@@ -242,7 +242,7 @@ export function SearchPage() {
       if (webResults.results.length === 0) return <div className={styles.empty}>{t('search.noResults')}</div>
       return (
         <m.div variants={staggerContainer} initial="initial" animate="animate">
-          <div className={styles.resultCount}>{t('search.resultCount', { count: webResults.total })}</div>
+          <div className={styles.resultCount}>{t('search.resultCount', { count: webResults.total_results })}</div>
           {webResults.results.map((item, i) => renderWebCard(item, i))}
         </m.div>
       )
