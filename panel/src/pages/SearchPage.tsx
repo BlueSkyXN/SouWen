@@ -5,6 +5,7 @@ import { FileText, Shield, Globe, Users, Calendar, Link, Building } from 'lucide
 import { api } from '../services/api'
 import { useNotificationStore } from '../stores/notificationStore'
 import { Spinner } from '../components/common/Spinner'
+import { MultiSelect, type SelectOption } from '../components/common/MultiSelect'
 import { formatError } from '../lib/errors'
 import { normalizePaper, normalizePatent, normalizeWeb } from '../lib/normalize'
 import type { SearchCategory, SearchResponse, WebSearchResponse, WebResult, PaperResult, PatentResult } from '../types'
@@ -16,10 +17,56 @@ const TABS: { key: SearchCategory; labelKey: string; icon: typeof FileText }[] =
   { key: 'web', labelKey: 'search.web', icon: Globe },
 ]
 
-const DEFAULT_SOURCES: Record<SearchCategory, string> = {
-  paper: 'openalex,arxiv',
-  patent: 'patentsview,pqai',
-  web: 'duckduckgo,yahoo,brave',
+const SOURCE_OPTIONS: Record<SearchCategory, SelectOption[]> = {
+  paper: [
+    { value: 'openalex', label: 'OpenAlex', description: '开放学术图谱' },
+    { value: 'semantic_scholar', label: 'Semantic Scholar', description: '可选 Key 提速' },
+    { value: 'crossref', label: 'Crossref', description: 'DOI 权威源' },
+    { value: 'arxiv', label: 'arXiv', description: '预印本' },
+    { value: 'dblp', label: 'DBLP', description: '计算机科学索引' },
+    { value: 'core', label: 'CORE', description: '全文开放获取', needsKey: true },
+    { value: 'pubmed', label: 'PubMed', description: '生物医学' },
+    { value: 'unpaywall', label: 'Unpaywall', description: 'OA 链接查找' },
+  ],
+  patent: [
+    { value: 'patentsview', label: 'PatentsView', description: 'USPTO 美国专利' },
+    { value: 'pqai', label: 'PQAI', description: '语义专利检索' },
+    { value: 'epo_ops', label: 'EPO OPS', description: '欧洲专利 (OAuth)', needsKey: true },
+    { value: 'uspto_odp', label: 'USPTO ODP', description: '官方 API', needsKey: true },
+    { value: 'the_lens', label: 'The Lens', description: '全球专利+论文', needsKey: true },
+    { value: 'cnipa', label: 'CNIPA', description: '中国知识产权局', needsKey: true },
+    { value: 'patsnap', label: 'PatSnap', description: '智慧芽', needsKey: true },
+    { value: 'google_patents', label: 'Google Patents', description: '爬虫' },
+  ],
+  web: [
+    { value: 'duckduckgo', label: 'DuckDuckGo', description: '爬虫' },
+    { value: 'yahoo', label: 'Yahoo', description: '爬虫' },
+    { value: 'brave', label: 'Brave', description: '爬虫' },
+    { value: 'google', label: 'Google', description: '爬虫, 高风险' },
+    { value: 'bing', label: 'Bing', description: '爬虫' },
+    { value: 'searxng', label: 'SearXNG', description: '元搜索 (需自建)' },
+    { value: 'tavily', label: 'Tavily', description: 'AI 搜索', needsKey: true },
+    { value: 'exa', label: 'Exa', description: '语义搜索', needsKey: true },
+    { value: 'serper', label: 'Serper', description: 'Google SERP API', needsKey: true },
+    { value: 'brave_api', label: 'Brave API', description: '官方 API', needsKey: true },
+    { value: 'serpapi', label: 'SerpAPI', description: '多引擎 SERP', needsKey: true },
+    { value: 'firecrawl', label: 'Firecrawl', description: '搜索+爬取', needsKey: true },
+    { value: 'perplexity', label: 'Perplexity', description: 'Sonar AI 搜索', needsKey: true },
+    { value: 'linkup', label: 'Linkup', description: '实时搜索', needsKey: true },
+    { value: 'scrapingdog', label: 'ScrapingDog', description: 'SERP API', needsKey: true },
+    { value: 'startpage', label: 'Startpage', description: '隐私搜索 (爬虫)' },
+    { value: 'baidu', label: '百度', description: '百度搜索 (爬虫)' },
+    { value: 'mojeek', label: 'Mojeek', description: '独立搜索 (爬虫)' },
+    { value: 'yandex', label: 'Yandex', description: '搜索 (爬虫)' },
+    { value: 'whoogle', label: 'Whoogle', description: 'Google 代理 (需自建)' },
+    { value: 'websurfx', label: 'Websurfx', description: '元搜索 (需自建)' },
+  ],
+}
+
+const DEFAULT_SELECTED: Record<SearchCategory, string[]> = {
+  paper: ['openalex', 'arxiv'],
+  patent: ['patentsview', 'pqai'],
+  web: ['duckduckgo', 'yahoo', 'brave'],
 }
 
 const staggerContainer = {
@@ -34,7 +81,9 @@ export function SearchPage() {
   const { t } = useTranslation()
   const [tab, setTab] = useState<SearchCategory>('paper')
   const [query, setQuery] = useState('')
-  const [sources, setSources] = useState(DEFAULT_SOURCES.paper)
+  const [selections, setSelections] = useState<Record<SearchCategory, string[]>>({
+    ...DEFAULT_SELECTED,
+  })
   const [count, setCount] = useState(10)
   const [loading, setLoading] = useState(false)
   const [paperResults, setPaperResults] = useState<SearchResponse | null>(null)
@@ -42,33 +91,40 @@ export function SearchPage() {
   const [webResults, setWebResults] = useState<WebSearchResponse | null>(null)
   const addToast = useNotificationStore((s) => s.addToast)
 
-  const handleTabChange = useCallback(
-    (key: SearchCategory) => {
-      setTab(key)
-      setSources(DEFAULT_SOURCES[key])
+  const handleTabChange = useCallback((key: SearchCategory) => {
+    setTab(key)
+  }, [])
+
+  const handleSelectionChange = useCallback(
+    (selected: string[]) => {
+      setSelections((prev) => ({ ...prev, [tab]: selected }))
     },
-    [],
+    [tab],
   )
+
+  const currentSources = selections[tab]
+  const canSearch = query.trim().length > 0 && currentSources.length > 0
 
   const handleSearch = useCallback(
     async (e: FormEvent) => {
       e.preventDefault()
-      if (!query.trim()) return
+      if (!canSearch) return
       setLoading(true)
+      const joined = currentSources.join(',')
       try {
         if (tab === 'paper') {
           setPaperResults(null)
-          const res = await api.searchPaper(query, sources, count)
+          const res = await api.searchPaper(query, joined, count)
           setPaperResults(res)
           addToast('success', t('search.success', { count: res.total }))
         } else if (tab === 'patent') {
           setPatentResults(null)
-          const res = await api.searchPatent(query, sources, count)
+          const res = await api.searchPatent(query, joined, count)
           setPatentResults(res)
           addToast('success', t('search.success', { count: res.total }))
         } else {
           setWebResults(null)
-          const res = await api.searchWeb(query, sources, count)
+          const res = await api.searchWeb(query, joined, count)
           setWebResults(res)
           addToast('success', t('search.success', { count: res.total }))
         }
@@ -78,7 +134,7 @@ export function SearchPage() {
         setLoading(false)
       }
     },
-    [tab, query, sources, count, addToast, t],
+    [tab, query, currentSources, canSearch, count, addToast, t],
   )
 
   const renderPaperCard = (raw: PaperResult, i: number) => {
@@ -220,13 +276,6 @@ export function SearchPage() {
             placeholder={t('search.placeholder')}
             required
           />
-          <input
-            className={styles.inputSm}
-            type="text"
-            value={sources}
-            onChange={(e) => setSources(e.target.value)}
-            placeholder={tab === 'web' ? t('search.engines') : t('search.sources')}
-          />
           <select
             className={styles.select}
             value={count}
@@ -238,9 +287,17 @@ export function SearchPage() {
               </option>
             ))}
           </select>
-          <button type="submit" className="btn btn-primary" disabled={loading}>
+          <button type="submit" className="btn btn-primary" disabled={loading || !canSearch}>
             {loading ? t('search.searching') : t('search.button')}
           </button>
+        </div>
+        <div className={styles.sourceRow}>
+          <MultiSelect
+            options={SOURCE_OPTIONS[tab]}
+            selected={currentSources}
+            onChange={handleSelectionChange}
+            placeholder={tab === 'web' ? t('search.engines') : t('search.sources')}
+          />
         </div>
       </form>
 
