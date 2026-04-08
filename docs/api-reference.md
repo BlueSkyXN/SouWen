@@ -2,6 +2,10 @@
 
 > SouWen 公开 API、数据模型、CLI 命令与 MCP 工具
 
+> **⚠️ 声明：本项目仅供 Python 学习与技术研究使用。**
+> 涵盖的学习方向包括：API 对接与聚合、全栈开发（FastAPI + React）、爬虫技术（TLS 指纹 / 浏览器池化 / 反爬绕过）、CLI 开发（Rich / Click）、异步编程（asyncio / httpx）等。
+> 请勿将本项目用于任何违反相关法律法规或第三方服务条款的用途。
+
 ## Python API
 
 ### 统一搜索入口
