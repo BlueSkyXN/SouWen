@@ -228,6 +228,10 @@ textarea {
   to { transform: rotate(360deg); }
 }
 
+.spin {
+  animation: spin 0.6s linear infinite;
+}
+
 /* ===== Reduced Motion ===== */
 @media (prefers-reduced-motion: reduce) {
   *,

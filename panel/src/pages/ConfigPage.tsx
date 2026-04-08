@@ -37,7 +37,8 @@ function WarpCard() {
   const handleEnable = useCallback(async () => {
     setActing(true)
     try {
-      const res = await api.enableWarp(mode, parseInt(port) || 1080, endpoint || undefined)
+      const portNum = Math.min(Math.max(parseInt(port) || 1080, 1), 65535)
+      const res = await api.enableWarp(mode, portNum, endpoint || undefined)
       addToast('success', t('warp.enableSuccess', { mode: res.mode, ip: res.ip }))
       void fetchWarp()
     } catch (err) {

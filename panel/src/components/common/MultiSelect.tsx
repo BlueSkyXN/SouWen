@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect, useCallback, type KeyboardEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ChevronDown, X, KeyRound } from 'lucide-react'
 import styles from './MultiSelect.module.scss'
 
@@ -17,6 +18,7 @@ interface MultiSelectProps {
 }
 
 export function MultiSelect({ options, selected, onChange, placeholder }: MultiSelectProps) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [filter, setFilter] = useState('')
   const containerRef = useRef<HTMLDivElement>(null)
@@ -116,7 +118,7 @@ export function MultiSelect({ options, selected, onChange, placeholder }: MultiS
                   e.stopPropagation()
                   remove(val)
                 }}
-                aria-label={`Remove ${val}`}
+                aria-label={`${t('common.cancel')} ${val}`}
               >
                 <X size={12} />
               </button>
@@ -133,17 +135,17 @@ export function MultiSelect({ options, selected, onChange, placeholder }: MultiS
               ref={filterRef}
               type="text"
               className={styles.filterInput}
-              placeholder="Filter..."
+              placeholder={t('multiselect.filter')}
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
               onClick={(e) => e.stopPropagation()}
             />
             <div className={styles.actions}>
-              <button type="button" className={styles.actionBtn} onClick={selectAll}>
-                All
+              <button type="button" className={styles.actionBtn} onClick={selectAll} aria-label={t('multiselect.selectAll')}>
+                {t('multiselect.selectAll')}
               </button>
-              <button type="button" className={styles.actionBtn} onClick={clearAll}>
-                Clear
+              <button type="button" className={styles.actionBtn} onClick={clearAll} aria-label={t('multiselect.clearAll')}>
+                {t('multiselect.clearAll')}
               </button>
             </div>
           </div>
@@ -166,7 +168,7 @@ export function MultiSelect({ options, selected, onChange, placeholder }: MultiS
                   <div className={styles.optionContent}>
                     <span className={styles.optionLabel}>{opt.label}</span>
                     {opt.needsKey && (
-                      <span className={styles.keyBadge} title="Requires API key">
+                      <span className={styles.keyBadge} title={t('multiselect.needsKey')}>
                         <KeyRound size={10} />
                         Key
                       </span>
@@ -179,7 +181,7 @@ export function MultiSelect({ options, selected, onChange, placeholder }: MultiS
               )
             })}
             {filtered.length === 0 && (
-              <div className={styles.noResults}>No matching sources</div>
+              <div className={styles.noResults}>{t('multiselect.noResults')}</div>
             )}
           </div>
         </div>

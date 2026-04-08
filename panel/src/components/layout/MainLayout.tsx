@@ -116,7 +116,7 @@ export function MainLayout() {
               <span className={styles.connDot} />
               {t('common.connected')}
             </span>
-            <button className={styles.themeBtn} onClick={toggleTheme} aria-label={theme === 'light' ? 'Dark mode' : 'Light mode'}>
+            <button className={styles.themeBtn} onClick={toggleTheme} aria-label={theme === 'light' ? t('common.darkMode') : t('common.lightMode')}>
               {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
             </button>
             <button className={styles.logoutBtn} onClick={handleLogout}>

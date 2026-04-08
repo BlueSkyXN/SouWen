@@ -1,9 +1,42 @@
 import { describe, it, expect } from 'vitest'
 import { normalizePaper, normalizePatent, normalizeWeb, normalizeDoctor, tierLabel, typeLabel } from '../lib/normalize'
+import type { PaperResult, PatentResult, WebResult, DoctorSource } from '../types'
+
+function makePaper(overrides: Partial<PaperResult> = {}): PaperResult {
+  return {
+    source: '', title: '', authors: [], source_url: '',
+    ipc_codes: [], cpc_codes: [], applicants: [], inventors: [],
+    patent_id: '', url: '', snippet: '', engine: '',
+    ...overrides,
+  } as PaperResult
+}
+
+function makePatent(overrides: Partial<PatentResult> = {}): PatentResult {
+  return {
+    source: '', title: '', patent_id: '', applicants: [],
+    inventors: [], ipc_codes: [], cpc_codes: [], source_url: '',
+    ...overrides,
+  } as PatentResult
+}
+
+function makeWeb(overrides: Partial<WebResult> = {}): WebResult {
+  return {
+    source: '', title: '', url: '', snippet: '', engine: '',
+    ...overrides,
+  } as WebResult
+}
+
+function makeDoctor(overrides: Partial<DoctorSource> = {}): DoctorSource {
+  return {
+    name: '', category: 'paper', status: 'ok', tier: 0,
+    required_key: null, message: '',
+    ...overrides,
+  }
+}
 
 describe('normalizePaper', () => {
   it('extracts author names from Author objects', () => {
-    const result = normalizePaper({
+    const result = normalizePaper(makePaper({
       title: 'Test Paper',
       authors: [{ name: 'Alice', affiliation: 'MIT' }, { name: 'Bob' }],
       year: 2024,
@@ -11,23 +44,23 @@ describe('normalizePaper', () => {
       abstract: 'An abstract',
       source: 'openalex',
       source_url: 'https://example.com',
-    } as never)
+    }))
     expect(result.authors).toEqual(['Alice', 'Bob'])
     expect(result.year).toBe(2024)
     expect(result.url).toBe('https://example.com')
   })
 
   it('handles string authors gracefully', () => {
-    const result = normalizePaper({
+    const result = normalizePaper(makePaper({
       title: 'Old Format',
-      authors: ['Alice', 'Bob'],
+      authors: ['Alice', 'Bob'] as unknown as PaperResult['authors'],
       year: 2020,
-    } as never)
+    }))
     expect(result.authors).toEqual(['Alice', 'Bob'])
   })
 
   it('handles missing/null fields', () => {
-    const result = normalizePaper({} as never)
+    const result = normalizePaper(makePaper())
     expect(result.title).toBe('')
     expect(result.authors).toEqual([])
     expect(result.year).toBeNull()
@@ -39,24 +72,25 @@ describe('normalizePaper', () => {
   })
 
   it('prefers source_url over open_access_url', () => {
-    const result = normalizePaper({
+    const result = normalizePaper(makePaper({
       source_url: 'https://primary.com',
       open_access_url: 'https://fallback.com',
-    } as never)
+    }))
     expect(result.url).toBe('https://primary.com')
   })
 
   it('falls back to open_access_url', () => {
-    const result = normalizePaper({
+    const result = normalizePaper(makePaper({
+      source_url: '',
       open_access_url: 'https://fallback.com',
-    } as never)
+    }))
     expect(result.url).toBe('https://fallback.com')
   })
 })
 
 describe('normalizePatent', () => {
   it('extracts fields from backend shape', () => {
-    const result = normalizePatent({
+    const result = normalizePatent(makePatent({
       title: 'My Patent',
       patent_id: 'US12345',
       applicants: [{ name: 'CorpA' }, { name: 'CorpB' }],
@@ -65,7 +99,7 @@ describe('normalizePatent', () => {
       source_url: 'https://pat.example.com',
       source: 'patentsview',
       publication_date: '2024-01-15',
-    } as never)
+    }))
     expect(result.patentNumber).toBe('US12345')
     expect(result.applicant).toBe('CorpA, CorpB')
     expect(result.inventors).toEqual(['Inv1', 'Inv2'])
@@ -74,12 +108,12 @@ describe('normalizePatent', () => {
   })
 
   it('handles empty applicants', () => {
-    const result = normalizePatent({ applicants: [] } as never)
+    const result = normalizePatent(makePatent({ applicants: [] }))
     expect(result.applicant).toBe('')
   })
 
   it('handles missing fields', () => {
-    const result = normalizePatent({} as never)
+    const result = normalizePatent(makePatent())
     expect(result.title).toBe('')
     expect(result.patentNumber).toBe('')
     expect(result.applicant).toBe('')
@@ -90,45 +124,36 @@ describe('normalizePatent', () => {
 
 describe('normalizeWeb', () => {
   it('maps engine to source', () => {
-    const result = normalizeWeb({
+    const result = normalizeWeb(makeWeb({
       title: 'Web Page',
       url: 'https://example.com',
       snippet: 'A snippet',
       engine: 'duckduckgo',
-    } as never)
+    }))
     expect(result.source).toBe('duckduckgo')
     expect(result.snippet).toBe('A snippet')
   })
 
   it('handles missing engine', () => {
-    const result = normalizeWeb({ title: 'X', url: 'u', snippet: 's' } as never)
+    const result = normalizeWeb(makeWeb({ title: 'X', url: 'u', snippet: 's', engine: '' }))
     expect(result.source).toBe('')
   })
 })
 
 describe('normalizeDoctor', () => {
   it('marks reachable when status is ok', () => {
-    const result = normalizeDoctor({
-      name: 'openalex',
-      category: 'paper',
-      status: 'ok',
-      tier: 0,
-      required_key: null,
-      message: '',
-    })
+    const result = normalizeDoctor(makeDoctor({
+      name: 'openalex', category: 'paper', status: 'ok', tier: 0,
+    }))
     expect(result.reachable).toBe(true)
     expect(result.error).toBeNull()
   })
 
   it('marks unreachable with error message', () => {
-    const result = normalizeDoctor({
-      name: 'core',
-      category: 'paper',
-      status: 'error',
-      tier: 1,
-      required_key: 'CORE_API_KEY',
-      message: 'missing key',
-    })
+    const result = normalizeDoctor(makeDoctor({
+      name: 'core', category: 'paper', status: 'error', tier: 1,
+      required_key: 'CORE_API_KEY', message: 'missing key',
+    }))
     expect(result.reachable).toBe(false)
     expect(result.error).toBe('missing key')
   })
