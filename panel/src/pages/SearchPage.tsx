@@ -44,7 +44,7 @@ const FALLBACK_OPTIONS: Record<SearchCategory, SelectOption[]> = {
 const DEFAULT_SELECTED: Record<SearchCategory, string[]> = {
   paper: ['openalex', 'arxiv'],
   patent: ['patentsview', 'pqai'],
-  web: ['duckduckgo', 'yahoo', 'brave'],
+  web: ['duckduckgo', 'brave'],
 }
 
 const staggerContainer = {
