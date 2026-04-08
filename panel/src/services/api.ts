@@ -71,6 +71,21 @@ class ApiService {
     }
   }
 
+  async verifyAuth(baseUrl: string, token: string): Promise<void> {
+    const headers: Record<string, string> = {}
+    if (token) headers['Authorization'] = `Bearer ${token}`
+    try {
+      const res = await fetch(`${baseUrl}/api/v1/sources`, {
+        headers,
+        signal: AbortSignal.timeout(10_000),
+      })
+      if (!res.ok) throw AppError.fromResponse(res.status, await res.text().catch(() => ''))
+    } catch (err) {
+      if (err instanceof AppError) throw err
+      throw AppError.network(err)
+    }
+  }
+
   async searchPaper(q: string, sources: string, perPage: number): Promise<SearchResponse> {
     return this.request<SearchResponse>(
       `/api/v1/search/paper?q=${encodeURIComponent(q)}&sources=${encodeURIComponent(sources)}&per_page=${perPage}`,

@@ -42,6 +42,7 @@ export function LoginPage() {
       try {
         const url = baseUrl.replace(/\/+$/, '')
         const health = await api.health(url)
+        await api.verifyAuth(url, password)
         setAuth(url, password, health.version, remember)
         addToast('success', t('login.success', { version: health.version }))
         navigate('/', { replace: true })
