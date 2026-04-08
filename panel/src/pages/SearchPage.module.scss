@@ -50,6 +50,10 @@
   flex-wrap: wrap;
 }
 
+.sourceRow {
+  margin-top: 10px;
+}
+
 .input {
   flex: 2;
   min-width: 200px;
@@ -71,11 +75,7 @@
   }
 }
 
-.inputSm {
-  @extend .input;
-  flex: 1;
-  min-width: 150px;
-}
+
 
 .select {
   padding: 10px 14px;

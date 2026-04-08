@@ -207,12 +207,199 @@ souwen doctor         # 检查所有数据源可用性
 souwen serve [--port 8000]   # 启动 FastAPI 服务
 ```
 
-启动后可访问：
-- `GET /api/v1/search/paper?q=<query>&per_page=5` — 论文搜索
-- `GET /api/v1/search/patent?q=<query>&per_page=5` — 专利搜索
-- `GET /api/v1/search/web?q=<query>&engines=duckduckgo,brave` — 网页搜索
-- `GET /api/v1/sources` — 数据源列表
-- `GET /docs` — OpenAPI 文档
+启动后可访问 OpenAPI 文档：`GET /docs`
+
+## HTTP API（Server 模式）
+
+> 所有 `/api/v1/...` 路径的端点在 `api_password` 配置后均需要 `Authorization: Bearer <password>` 头。
+> 未设置 `api_password` 时所有端点免认证。
+
+### 基础端点
+
+#### `GET /health`
+
+健康检查，无需认证。
+
+**响应示例：**
+```json
+{ "status": "ok", "version": "0.3.0" }
+```
+
+#### `GET /panel`
+
+管理面板（HTML 页面），不包含在 OpenAPI schema 中。
+
+---
+
+### 搜索端点 (`/api/v1/...`)
+
+受速率限制保护。
+
+#### `GET /api/v1/search/paper`
+
+搜索学术论文。
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `q` | string | *(必填)* | 搜索关键词 |
+| `sources` | string | `"openalex,arxiv"` | 数据源，逗号分隔 |
+| `per_page` | int (1-100) | `10` | 每页结果数 |
+
+**响应示例：**
+```json
+{
+  "query": "transformer",
+  "sources": ["openalex", "arxiv"],
+  "results": [ ... ],
+  "total": 20
+}
+```
+
+#### `GET /api/v1/search/patent`
+
+搜索专利。
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `q` | string | *(必填)* | 搜索关键词 |
+| `sources` | string | `"patentsview,pqai"` | 数据源，逗号分隔 |
+| `per_page` | int (1-100) | `10` | 每页结果数 |
+
+**响应示例：**
+```json
+{
+  "query": "lithium battery",
+  "sources": ["patentsview", "pqai"],
+  "results": [ ... ],
+  "total": 10
+}
+```
+
+#### `GET /api/v1/search/web`
+
+搜索网页。
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `q` | string | *(必填)* | 搜索关键词 |
+| `engines` | string | `"duckduckgo,yahoo,brave"` | 搜索引擎，逗号分隔 |
+| `max_results` | int (1-50) | `10` | 每引擎最大结果数 |
+
+**响应示例：**
+```json
+{
+  "query": "AI news",
+  "engines": ["duckduckgo", "brave"],
+  "results": [ ... ],
+  "total": 15
+}
+```
+
+#### `GET /api/v1/sources`
+
+列出所有可用数据源及其状态。
+
+**响应示例：**
+```json
+{
+  "paper": [
+    { "name": "openalex", "needs_key": false, "description": "OpenAlex 开放学术图谱" }
+  ],
+  "patent": [ ... ],
+  "web": [ ... ]
+}
+```
+
+---
+
+### 管理端点 (`/api/v1/admin/...`)
+
+> 管理端点始终需要 `api_password` 认证（`Authorization: Bearer <password>`）。
+> 未设置 `api_password` 时所有管理端点免认证开放。
+
+#### `GET /api/v1/admin/config`
+
+查看当前配置。敏感字段（包含 `key`/`secret`/`token`/`password` 的字段）自动脱敏为 `"***"`。
+
+**响应示例：**
+```json
+{
+  "api_password": "***",
+  "semantic_scholar_key": "***",
+  "rate_limit_per_minute": 30,
+  ...
+}
+```
+
+#### `POST /api/v1/admin/config/reload`
+
+重新加载配置（从 YAML 和环境变量）。
+
+**响应示例：**
+```json
+{ "status": "ok", "password_set": true }
+```
+
+#### `GET /api/v1/admin/doctor`
+
+数据源健康检查，逐一探测各数据源可达性。
+
+**响应示例：**
+```json
+{
+  "total": 8,
+  "ok": 6,
+  "sources": [
+    { "name": "openalex", "status": "ok", "response_time": 0.23 },
+    { "name": "core", "status": "error", "error": "API key required" }
+  ]
+}
+```
+
+#### `GET /api/v1/admin/warp`
+
+获取 WARP 代理当前状态。
+
+**响应示例：**
+```json
+{
+  "enabled": true,
+  "mode": "wireproxy",
+  "socks_port": 1080,
+  "ip": "104.28.x.x",
+  "pid": 12345,
+  "owner": "shell"
+}
+```
+
+#### `POST /api/v1/admin/warp/enable`
+
+启用 Cloudflare WARP 代理。
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `mode` | string | `"auto"` | 模式: `auto` / `wireproxy` / `kernel` |
+| `socks_port` | int (1-65535) | `1080` | SOCKS5 端口 |
+| `endpoint` | string \| null | `null` | 自定义 WARP Endpoint |
+
+**响应示例：**
+```json
+{ "ok": true, "mode": "wireproxy", "ip": "104.28.x.x" }
+```
+
+**错误响应 (400)：**
+```json
+{ "detail": "wireproxy binary not found" }
+```
+
+#### `POST /api/v1/admin/warp/disable`
+
+禁用 WARP 代理。
+
+**响应示例：**
+```json
+{ "ok": true }
+```
 
 ## MCP 工具
 
