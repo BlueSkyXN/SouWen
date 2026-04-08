@@ -5,6 +5,10 @@
 [![Python](https://img.shields.io/badge/python-≥3.10-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-GPLv3-blue)](LICENSE)
 
+> **⚠️ 声明：本项目仅供 Python 学习与技术研究使用。**
+> 涵盖的学习方向包括：API 对接与聚合、全栈开发（FastAPI + React）、爬虫技术（TLS 指纹模拟 / 浏览器池化 / 反爬绕过）、CLI 开发（Rich / Click）、异步编程（asyncio / httpx）等。
+> 请勿将本项目用于任何违反相关法律法规或第三方服务条款的用途。
+
 ## 🎯 简介
 
 SouWen（搜文）为 AI Agent 提供统一的学术论文、专利和网页搜索接口，整合 **37 个数据源**，归一化为 Pydantic v2 数据模型。
