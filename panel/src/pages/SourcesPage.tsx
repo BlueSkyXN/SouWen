@@ -7,16 +7,10 @@ import { useNotificationStore } from '../stores/notificationStore'
 import { Badge } from '../components/common/Badge'
 import { Spinner } from '../components/common/Spinner'
 import { formatError } from '../lib/errors'
+import { staggerContainerFast, staggerItemSmall } from '../lib/animations'
+import { categoryBadgeColor, categoryLabel } from '../lib/ui'
 import type { DoctorResponse, DoctorSource } from '../types'
 import styles from './SourcesPage.module.scss'
-
-const staggerContainer = {
-  animate: { transition: { staggerChildren: 0.03 } },
-}
-const staggerItem = {
-  initial: { opacity: 0, y: 6 },
-  animate: { opacity: 1, y: 0 },
-}
 
 export function SourcesPage() {
   const { t } = useTranslation()
@@ -110,9 +104,9 @@ export function SourcesPage() {
                     <th>{t('sources.description')}</th>
                   </tr>
                 </thead>
-                <m.tbody variants={staggerContainer} initial="initial" animate="animate">
+                <m.tbody variants={staggerContainerFast} initial="initial" animate="animate">
                   {list.map((src) => (
-                    <m.tr key={src.name} variants={staggerItem}>
+                    <m.tr key={src.name} variants={staggerItemSmall}>
                       <td>
                         {src.status === 'ok' ? (
                           <CheckCircle2 size={18} style={{ color: 'var(--success)' }} />
@@ -122,16 +116,8 @@ export function SourcesPage() {
                       </td>
                       <td className={styles.sourceName}>{src.name}</td>
                       <td>
-                        <Badge
-                          color={
-                            src.category === 'paper'
-                              ? 'blue'
-                              : src.category === 'patent'
-                                ? 'amber'
-                                : 'green'
-                          }
-                        >
-                          {t(`dashboard.${src.category}`)}
+                        <Badge color={categoryBadgeColor(src.category)}>
+                          {categoryLabel(t, src.category)}
                         </Badge>
                       </td>
                       <td>

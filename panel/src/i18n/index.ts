@@ -6,6 +6,7 @@ i18n.use(initReactI18next).init({
   resources: { 'zh-CN': { translation: zhCN } },
   lng: 'zh-CN',
   fallbackLng: 'zh-CN',
+  // Safe: translations are static JSON, not user-controlled
   interpolation: { escapeValue: false },
 })
 

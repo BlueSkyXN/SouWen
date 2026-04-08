@@ -47,13 +47,7 @@ const DEFAULT_SELECTED: Record<SearchCategory, string[]> = {
   web: ['duckduckgo', 'brave'],
 }
 
-const staggerContainer = {
-  animate: { transition: { staggerChildren: 0.05 } },
-}
-const staggerItem = {
-  initial: { opacity: 0, y: 10 },
-  animate: { opacity: 1, y: 0 },
-}
+import { staggerContainer, staggerItem } from '../lib/animations'
 
 export function SearchPage() {
   const { t } = useTranslation()
@@ -79,7 +73,7 @@ export function SearchPage() {
         patent: toSelectOptions(res.patent),
         web: toSelectOptions(res.web),
       })
-    }).catch(() => {/* keep fallback */})
+    }).catch((err) => { console.warn('[SouWen] Failed to load sources from API, using fallback:', err) })
     return () => { cancelled = true }
   }, [])
 
@@ -131,8 +125,9 @@ export function SearchPage() {
 
   const renderPaperCard = (raw: PaperResult, i: number) => {
     const p = normalizePaper(raw)
+    const key = p.doi || `paper-${p.source}-${i}`
     return (
-      <m.div key={i} className={styles.resultCard} variants={staggerItem}>
+      <m.div key={key} className={styles.resultCard} variants={staggerItem}>
         <div className={styles.resultTitle}>
           {p.url ? (
             <a href={p.url} target="_blank" rel="noopener noreferrer">{p.title || t('search.untitled')}</a>
@@ -159,8 +154,9 @@ export function SearchPage() {
 
   const renderPatentCard = (raw: PatentResult, i: number) => {
     const p = normalizePatent(raw)
+    const key = p.patentNumber || `patent-${p.source}-${i}`
     return (
-      <m.div key={i} className={styles.resultCard} variants={staggerItem}>
+      <m.div key={key} className={styles.resultCard} variants={staggerItem}>
         <div className={styles.resultTitle}>
           {p.url ? (
             <a href={p.url} target="_blank" rel="noopener noreferrer">{p.title || t('search.untitled')}</a>
@@ -189,8 +185,9 @@ export function SearchPage() {
 
   const renderWebCard = (raw: WebResult, i: number) => {
     const item = normalizeWeb(raw)
+    const key = item.url || `web-${item.source}-${i}`
     return (
-      <m.div key={i} className={styles.resultCard} variants={staggerItem}>
+      <m.div key={key} className={styles.resultCard} variants={staggerItem}>
         <div className={styles.resultTitle}>
           {item.url ? (
             <a href={item.url} target="_blank" rel="noopener noreferrer">{item.title}</a>

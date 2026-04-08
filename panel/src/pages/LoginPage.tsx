@@ -58,7 +58,7 @@ export function LoginPage() {
   return (
     <div className={styles.page}>
       <div className={styles.themeToggle}>
-        <button className={styles.themeBtn} onClick={toggleTheme} aria-label={theme === 'light' ? 'Dark mode' : 'Light mode'}>
+        <button className={styles.themeBtn} onClick={toggleTheme} aria-label={theme === 'light' ? t('login.darkMode') : t('login.lightMode')}>
           {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
         </button>
       </div>

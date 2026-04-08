@@ -9,16 +9,10 @@ import { Card } from '../components/common/Card'
 import { Badge } from '../components/common/Badge'
 import { Spinner } from '../components/common/Spinner'
 import { formatError } from '../lib/errors'
+import { staggerContainer, staggerItem } from '../lib/animations'
+import { categoryBadgeColor, tierBadgeColor, categoryLabel } from '../lib/ui'
 import type { DoctorResponse } from '../types'
 import styles from './DashboardPage.module.scss'
-
-const staggerContainer = {
-  animate: { transition: { staggerChildren: 0.05 } },
-}
-const staggerItem = {
-  initial: { opacity: 0, y: 10 },
-  animate: { opacity: 1, y: 0 },
-}
 
 export function DashboardPage() {
   const { t } = useTranslation()
@@ -133,6 +127,7 @@ export function DashboardPage() {
           </div>
           <div className={styles.healthRing}>
             <svg width="80" height="80" viewBox="0 0 80 80" role="img" aria-label={`${t('dashboard.healthRate')}: ${healthPct}%`}>
+              <title>{t('dashboard.healthRate')}: {healthPct}%</title>
               <circle cx="40" cy="40" r="34" fill="none" stroke="var(--border)" strokeWidth="6" />
               <circle
                 cx="40" cy="40" r="34" fill="none"
@@ -176,32 +171,12 @@ export function DashboardPage() {
                 </td>
                 <td className={styles.sourceName}>{src.name}</td>
                 <td>
-                  <Badge
-                    color={
-                      src.category === 'paper'
-                        ? 'blue'
-                        : src.category === 'patent'
-                          ? 'amber'
-                          : 'green'
-                    }
-                  >
-                    {src.category === 'paper'
-                      ? t('dashboard.paper')
-                      : src.category === 'patent'
-                        ? t('dashboard.patent')
-                        : t('dashboard.web')}
+                  <Badge color={categoryBadgeColor(src.category)}>
+                    {categoryLabel(t, src.category)}
                   </Badge>
                 </td>
                 <td>
-                  <Badge
-                    color={
-                      src.tier === 0
-                        ? 'green'
-                        : src.tier === 1
-                          ? 'blue'
-                          : 'amber'
-                    }
-                  >
+                  <Badge color={tierBadgeColor(src.tier)}>
                     Tier {src.tier}
                   </Badge>
                 </td>

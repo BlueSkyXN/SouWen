@@ -9,7 +9,8 @@
     "sources": "数据源",
     "config": "配置",
     "collapse": "收起",
-    "logout": "退出"
+    "logout": "退出",
+    "menu": "菜单"
   },
   "login": {
     "serverUrl": "服务地址",
@@ -20,7 +21,11 @@
     "connecting": "连接中...",
     "success": "连接成功 — SouWen v{{version}}",
     "failed": "连接失败: {{message}}",
-    "unknownError": "未知错误"
+    "unknownError": "未知错误",
+    "showPassword": "显示密码",
+    "hidePassword": "隐藏密码",
+    "darkMode": "深色模式",
+    "lightMode": "浅色模式"
   },
   "dashboard": {
     "title": "仪表盘",
@@ -148,6 +153,15 @@
     "cancel": "取消",
     "confirm": "确认",
     "connected": "已连接",
-    "unknown": "未知"
+    "unknown": "未知",
+    "darkMode": "深色模式",
+    "lightMode": "浅色模式"
+  },
+  "multiselect": {
+    "filter": "筛选...",
+    "selectAll": "全选",
+    "clearAll": "清空",
+    "noResults": "无匹配项",
+    "needsKey": "需要 API Key"
   }
 }
