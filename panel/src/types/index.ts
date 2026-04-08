@@ -7,7 +7,7 @@ export interface HealthResponse {
 
 export interface SourceInfo {
   name: string
-  needs_key: string | null
+  needs_key: boolean
   description: string
 }
 
@@ -73,55 +73,89 @@ export interface WarpActionResult {
   error?: string
 }
 
-/* ===== Search Types ===== */
+/* ===== Search Types (aligned with backend models.py) ===== */
+
+export interface Author {
+  name: string
+  affiliation?: string | null
+  orcid?: string | null
+}
+
+export interface Applicant {
+  name: string
+  country?: string | null
+}
 
 export interface PaperResult {
+  source: string
   title: string
-  authors?: string[]
-  year?: number
-  doi?: string
-  abstract?: string
-  url?: string
-  source?: string
+  authors: Author[]
+  abstract?: string | null
+  doi?: string | null
+  year?: number | null
+  publication_date?: string | null
+  journal?: string | null
+  venue?: string | null
+  citation_count?: number | null
+  open_access_url?: string | null
+  pdf_url?: string | null
+  source_url: string
+  tldr?: string | null
+  raw?: Record<string, unknown>
 }
 
 export interface PatentResult {
+  source: string
   title: string
-  patent_number?: string
-  assignee?: string
-  applicant?: string
-  date?: string
-  abstract?: string
-  url?: string
-  source?: string
+  patent_id: string
+  application_number?: string | null
+  publication_date?: string | null
+  filing_date?: string | null
+  applicants: Applicant[]
+  inventors: string[]
+  abstract?: string | null
+  claims?: string | null
+  ipc_codes: string[]
+  cpc_codes: string[]
+  family_id?: string | null
+  legal_status?: string | null
+  pdf_url?: string | null
+  source_url: string
+  raw?: Record<string, unknown>
 }
 
 export interface WebResult {
+  source: string
   title: string
   url: string
-  snippet?: string
-  engine?: string
-  source?: string
+  snippet: string
+  engine: string
+  raw?: Record<string, unknown>
 }
 
 export interface SearchSourceResult {
+  query: string
   source: string
+  total_results?: number | null
   results: (PaperResult | PatentResult | WebResult)[]
-  error?: string
+  page?: number
+  per_page?: number
 }
 
 export interface SearchResponse {
   query: string
-  sources?: string[]
+  sources: string[]
   results: SearchSourceResult[]
   total: number
 }
 
 export interface WebSearchResponse {
   query: string
-  engines: string[]
+  source: string
+  total_results: number
   results: WebResult[]
-  total: number
+  page: number
+  per_page: number
 }
 
 /* ===== UI Types ===== */
