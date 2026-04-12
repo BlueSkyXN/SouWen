@@ -69,6 +69,7 @@
     "noResults": "未找到结果",
     "success": "搜索完成，共 {{count}} 条结果",
     "failed": "搜索失败: {{message}}",
+    "errorStateTitle": "搜索失败",
     "untitled": "无标题",
     "authors": "作者",
     "year": "年份",

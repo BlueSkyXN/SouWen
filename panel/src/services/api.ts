@@ -33,7 +33,17 @@ class ApiService {
 
   private async request<T>(path: string, options?: RequestInit): Promise<T> {
     const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+    const upstreamSignal = options?.signal
+    let timedOut = false
+    const abortFromUpstream = () => controller.abort(upstreamSignal?.reason)
+    if (upstreamSignal?.aborted) {
+      abortFromUpstream()
+    }
+    upstreamSignal?.addEventListener('abort', abortFromUpstream)
+    const timer = setTimeout(() => {
+      timedOut = true
+      controller.abort()
+    }, REQUEST_TIMEOUT_MS)
 
     try {
       const res = await fetch(`${this.baseUrl}${path}`, {
@@ -51,9 +61,16 @@ class ApiService {
       return (await res.json()) as T
     } catch (err) {
       if (err instanceof AppError) throw err
+      if (err instanceof Error && err.name === 'AbortError' && upstreamSignal?.aborted) {
+        throw err
+      }
+      if (timedOut) {
+        throw AppError.network(new Error('请求超时，请稍后重试'))
+      }
       throw AppError.network(err)
     } finally {
       clearTimeout(timer)
+      upstreamSignal?.removeEventListener('abort', abortFromUpstream)
     }
   }
 
@@ -86,24 +103,24 @@ class ApiService {
     }
   }
 
-  async searchPaper(q: string, sources: string, perPage: number): Promise<SearchResponse> {
+  async searchPaper(q: string, sources: string, perPage: number, signal?: AbortSignal): Promise<SearchResponse> {
     return this.request<SearchResponse>(
       `/api/v1/search/paper?q=${encodeURIComponent(q)}&sources=${encodeURIComponent(sources)}&per_page=${perPage}`,
-      { headers: this.headers() },
+      { headers: this.headers(), signal },
     )
   }
 
-  async searchPatent(q: string, sources: string, perPage: number): Promise<SearchResponse> {
+  async searchPatent(q: string, sources: string, perPage: number, signal?: AbortSignal): Promise<SearchResponse> {
     return this.request<SearchResponse>(
       `/api/v1/search/patent?q=${encodeURIComponent(q)}&sources=${encodeURIComponent(sources)}&per_page=${perPage}`,
-      { headers: this.headers() },
+      { headers: this.headers(), signal },
     )
   }
 
-  async searchWeb(q: string, engines: string, maxResults: number): Promise<WebSearchResponse> {
+  async searchWeb(q: string, engines: string, maxResults: number, signal?: AbortSignal): Promise<WebSearchResponse> {
     return this.request<WebSearchResponse>(
       `/api/v1/search/web?q=${encodeURIComponent(q)}&engines=${encodeURIComponent(engines)}&max_results=${maxResults}`,
-      { headers: this.headers() },
+      { headers: this.headers(), signal },
     )
   }
 

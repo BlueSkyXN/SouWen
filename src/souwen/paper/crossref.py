@@ -68,6 +68,40 @@ class CrossrefClient:
     # ------------------------------------------------------------------
 
     @staticmethod
+    def _extract_publication_date(
+        item: dict[str, Any],
+    ) -> tuple[int | None, str | None, str | None, str | None]:
+        """提取日期信息；部分日期保留原始值但不强制映射为完整 date。"""
+        date_parts = (
+            item.get("published-print", {}).get("date-parts")
+            or item.get("published-online", {}).get("date-parts")
+            or item.get("created", {}).get("date-parts")
+        )
+        if not date_parts or not date_parts[0]:
+            return None, None, None, None
+
+        normalized: list[int] = []
+        for part in date_parts[0][:3]:
+            try:
+                normalized.append(int(part))
+            except (TypeError, ValueError):
+                break
+
+        if not normalized:
+            return None, None, None, None
+
+        year = normalized[0]
+        raw_date = f"{year:04d}"
+        if len(normalized) >= 2:
+            raw_date += f"-{normalized[1]:02d}"
+        if len(normalized) >= 3:
+            raw_date += f"-{normalized[2]:02d}"
+
+        precision = {1: "year", 2: "month", 3: "day"}.get(len(normalized))
+        publication_date = raw_date if len(normalized) >= 3 else None
+        return year, publication_date, raw_date, precision
+
+    @staticmethod
     def _parse_item(item: dict[str, Any]) -> PaperResult:
         """将 Crossref work item 转换为 PaperResult。
 
@@ -110,20 +144,9 @@ class CrossrefClient:
             abstract = abstract.strip()
 
             # 发表日期
-            date_parts = (
-                item.get("published-print", {}).get("date-parts")
-                or item.get("published-online", {}).get("date-parts")
-                or item.get("created", {}).get("date-parts")
+            year, pub_date, raw_pub_date, date_precision = CrossrefClient._extract_publication_date(
+                item
             )
-            year: int | None = None
-            pub_date: str | None = None
-            if date_parts and date_parts[0]:
-                parts = date_parts[0]
-                year = parts[0] if len(parts) >= 1 else None
-                if len(parts) >= 3:
-                    pub_date = f"{parts[0]:04d}-{parts[1]:02d}-{parts[2]:02d}"
-                elif len(parts) >= 2:
-                    pub_date = f"{parts[0]:04d}-{parts[1]:02d}"
 
             # DOI
             doi: str | None = item.get("DOI")
@@ -156,6 +179,8 @@ class CrossrefClient:
                     "issn": item.get("ISSN"),
                     "publisher": item.get("publisher"),
                     "subject": item.get("subject"),
+                    "publication_date_raw": raw_pub_date,
+                    "publication_date_precision": date_precision,
                 },
             )
         except Exception as exc:
@@ -204,7 +229,17 @@ class CrossrefClient:
         data: dict[str, Any] = resp.json()
         message = data.get("message", {})
 
-        results = [self._parse_item(it) for it in message.get("items", [])]
+        results: list[PaperResult] = []
+        for item in message.get("items", []):
+            try:
+                results.append(self._parse_item(item))
+            except ParseError as exc:
+                logger.warning(
+                    "Crossref item parse failure: %s (doi=%s, title=%s)",
+                    exc,
+                    item.get("DOI"),
+                    (item.get("title") or [None])[0],
+                )
 
         return SearchResponse(
             query=query,

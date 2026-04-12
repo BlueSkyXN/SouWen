@@ -6,6 +6,7 @@ import asyncio
 import logging
 from typing import Any
 
+from souwen.config import get_config
 from souwen.models import SearchResponse
 
 # ── 论文客户端 ──────────────────────────────────────────────
@@ -31,6 +32,7 @@ from souwen.patent.google_patents import GooglePatentsClient
 from souwen.web.search import web_search  # re-export
 
 logger = logging.getLogger("souwen.search")
+_SEARCH_SOURCE_TIMEOUT_CAP_SECONDS = 15.0
 
 # ── 默认免费数据源 ─────────────────────────────────────────
 _DEFAULT_PAPER_SOURCES: list[str] = [
@@ -68,6 +70,12 @@ async def _search_source(name: str, coro: Any) -> SearchResponse | None:
         return None
 
 
+def _get_source_timeout_seconds() -> float:
+    """单个数据源搜索的聚合超时，避免慢源拖住整次请求。"""
+    timeout = float(get_config().timeout)
+    return max(1.0, min(timeout, _SEARCH_SOURCE_TIMEOUT_CAP_SECONDS))
+
+
 # 全局并发度限制，防止同时打满 Socket 连接
 _CONCURRENCY_SEMAPHORE = asyncio.Semaphore(10)
 
@@ -75,7 +83,12 @@ _CONCURRENCY_SEMAPHORE = asyncio.Semaphore(10)
 async def _search_source_limited(name: str, coro: Any) -> SearchResponse | None:
     """带并发度限制的搜索执行"""
     async with _CONCURRENCY_SEMAPHORE:
-        return await _search_source(name, coro)
+        timeout = _get_source_timeout_seconds()
+        try:
+            return await asyncio.wait_for(_search_source(name, coro), timeout=timeout)
+        except asyncio.TimeoutError:
+            logger.warning("%s 搜索超时，已跳过 (%.1fs)", name, timeout)
+            return None
 
 
 # ── 数据源映射 ─────────────────────────────────────────────
