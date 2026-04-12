@@ -15,6 +15,7 @@ import asyncio
 import logging
 from typing import Sequence
 
+from souwen.config import get_config
 from souwen.models import WebSearchResult, WebSearchResponse, SourceType
 from souwen.web.duckduckgo import DuckDuckGoClient
 from souwen.web.yahoo import YahooClient
@@ -39,6 +40,7 @@ from souwen.web.whoogle import WhoogleClient
 from souwen.web.websurfx import WebsurfxClient
 
 logger = logging.getLogger("souwen.web.search")
+_WEB_ENGINE_TIMEOUT_CAP_SECONDS = 15.0
 
 # 全局并发度限制（Web 引擎共享）
 _WEB_SEMAPHORE = asyncio.Semaphore(10)
@@ -51,14 +53,28 @@ async def _search_engine(
     **kwargs,
 ) -> list[WebSearchResult]:
     """搜索单个引擎（异常安全 + 并发度限制）"""
+    timeout = _get_engine_timeout_seconds()
+
+    async def _run() -> list[WebSearchResult]:
+        async with engine_cls(**kwargs) as client:
+            resp = await client.search(query, max_results=max_results)
+            return list(resp.results)
+
     async with _WEB_SEMAPHORE:
         try:
-            async with engine_cls(**kwargs) as client:
-                resp = await client.search(query, max_results=max_results)
-                return list(resp.results)
+            return await asyncio.wait_for(_run(), timeout=timeout)
+        except asyncio.TimeoutError:
+            logger.warning("%s 搜索超时，已跳过 (%.1fs)", engine_cls.__name__, timeout)
+            return []
         except Exception as e:
             logger.warning("%s 搜索失败 [%s]: %s", engine_cls.__name__, type(e).__name__, e)
             return []
+
+
+def _get_engine_timeout_seconds() -> float:
+    """单个 Web 引擎搜索超时。"""
+    timeout = float(get_config().timeout)
+    return max(1.0, min(timeout, _WEB_ENGINE_TIMEOUT_CAP_SECONDS))
 
 
 def _deduplicate(results: Sequence[WebSearchResult]) -> list[WebSearchResult]:

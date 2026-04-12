@@ -170,11 +170,7 @@ async def test_search_pagination(httpx_mock: HTTPXMock):
 
 
 async def test_date_partial_yy_mm(httpx_mock: HTTPXMock):
-    """只有年+月的 date-parts：pub_date 格式 "YYYY-MM" 无法转为 date，Pydantic 会报错。
-    Crossref 源代码产生 "2022-03" 字符串 → Pydantic date 字段拒绝。
-    这种情况实际触发 ParseError。"""
-    from souwen.exceptions import ParseError
-
+    """只有年+月时不应让整个结果解析失败。"""
     item = {
         **CROSSREF_SINGLE_WORK,
         "published-print": {"date-parts": [[2022, 3]]},
@@ -185,8 +181,13 @@ async def test_date_partial_yy_mm(httpx_mock: HTTPXMock):
     )
 
     async with CrossrefClient(mailto="t@t.com") as c:
-        with pytest.raises(ParseError):
-            await c.search("test")
+        resp = await c.search("test")
+
+    assert len(resp.results) == 1
+    assert resp.results[0].year == 2022
+    assert resp.results[0].publication_date is None
+    assert resp.results[0].raw["publication_date_raw"] == "2022-03"
+    assert resp.results[0].raw["publication_date_precision"] == "month"
 
 
 async def test_date_fallback_to_online(httpx_mock: HTTPXMock):
@@ -282,3 +283,28 @@ async def test_no_pdf_link(httpx_mock: HTTPXMock):
         resp = await c.search("test")
 
     assert resp.results[0].pdf_url is None
+
+
+async def test_search_skips_malformed_items(httpx_mock: HTTPXMock):
+    """单条脏数据不应导致整个 Crossref 源失败。"""
+    malformed_item = {
+        **CROSSREF_SINGLE_WORK,
+        "DOI": "10.1234/bad",
+        "author": "not-a-list",
+    }
+    httpx_mock.add_response(
+        url=re.compile(r"https://api\.crossref\.org/works.*"),
+        json={
+            "status": "ok",
+            "message": {
+                "total-results": 2,
+                "items": [malformed_item, CROSSREF_SINGLE_WORK],
+            },
+        },
+    )
+
+    async with CrossrefClient(mailto="t@t.com") as c:
+        resp = await c.search("test")
+
+    assert len(resp.results) == 1
+    assert resp.results[0].doi == CROSSREF_SINGLE_WORK["DOI"]

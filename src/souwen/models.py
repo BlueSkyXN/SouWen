@@ -6,10 +6,31 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from enum import Enum
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+def _coerce_date(value):
+    """宽松日期归一化：仅接受完整 ISO 日期，其余无效值返回 None。"""
+    if value in (None, ""):
+        return None
+    if isinstance(value, datetime):
+        return value.date()
+    if isinstance(value, date):
+        return value
+    if isinstance(value, str):
+        text = value.strip()
+        if not text:
+            return None
+        if "T" in text:
+            text = text.split("T", 1)[0]
+        try:
+            return date.fromisoformat(text)
+        except ValueError:
+            return None
+    return None
 
 
 class SourceType(str, Enum):
@@ -86,6 +107,11 @@ class PaperResult(BaseModel):
     tldr: str | None = None  # Semantic Scholar TLDR
     raw: dict = Field(default_factory=dict)
 
+    @field_validator("publication_date", mode="before")
+    @classmethod
+    def _normalize_publication_date(cls, value):
+        return _coerce_date(value)
+
 
 class Applicant(BaseModel):
     """专利申请人/权利人"""
@@ -115,6 +141,11 @@ class PatentResult(BaseModel):
     pdf_url: str | None = None
     source_url: str
     raw: dict = Field(default_factory=dict)
+
+    @field_validator("publication_date", "filing_date", mode="before")
+    @classmethod
+    def _normalize_dates(cls, value):
+        return _coerce_date(value)
 
 
 class WebSearchResult(BaseModel):

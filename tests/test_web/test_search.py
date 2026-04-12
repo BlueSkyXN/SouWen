@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from unittest.mock import AsyncMock, patch
 
 
@@ -171,6 +172,43 @@ async def test_web_search_engine_failure_graceful():
         mock_yahoo.return_value.__aexit__ = AsyncMock(return_value=False)
 
         # Brave works
+        brave_instance = AsyncMock()
+        brave_instance.search = AsyncMock(return_value=brave_resp)
+        mock_brave.return_value.__aenter__ = AsyncMock(return_value=brave_instance)
+        mock_brave.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        result = await web_search("test")
+
+    assert len(result.results) == 1
+    assert result.results[0].engine == "brave"
+
+
+async def test_web_search_engine_timeout_graceful(monkeypatch):
+    """单个引擎超时不影响整体返回。"""
+    brave_results = [_make_result("brave", "Brave 1", "https://brave1.com")]
+    brave_resp = _make_engine_response("brave", brave_results)
+
+    async def slow_search(*args, **kwargs):
+        await asyncio.sleep(0.05)
+        return _make_engine_response("duckduckgo", [])
+
+    monkeypatch.setattr("souwen.web.search._get_engine_timeout_seconds", lambda: 0.01)
+
+    with (
+        patch("souwen.web.search.DuckDuckGoClient") as mock_ddg,
+        patch("souwen.web.search.YahooClient") as mock_yahoo,
+        patch("souwen.web.search.BraveClient") as mock_brave,
+    ):
+        ddg_instance = AsyncMock()
+        ddg_instance.search = AsyncMock(side_effect=slow_search)
+        mock_ddg.return_value.__aenter__ = AsyncMock(return_value=ddg_instance)
+        mock_ddg.return_value.__aexit__ = AsyncMock(return_value=False)
+
+        yahoo_instance = AsyncMock()
+        yahoo_instance.search = AsyncMock(return_value=_make_engine_response("yahoo", []))
+        mock_yahoo.return_value.__aenter__ = AsyncMock(return_value=yahoo_instance)
+        mock_yahoo.return_value.__aexit__ = AsyncMock(return_value=False)
+
         brave_instance = AsyncMock()
         brave_instance.search = AsyncMock(return_value=brave_resp)
         mock_brave.return_value.__aenter__ = AsyncMock(return_value=brave_instance)

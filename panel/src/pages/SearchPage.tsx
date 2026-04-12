@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, type FormEvent } from 'react'
+import { useState, useCallback, useEffect, useRef, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { m } from 'framer-motion'
 import { FileText, Shield, Globe, Users, Calendar, Link, Building } from 'lucide-react'
@@ -10,6 +10,7 @@ import { MultiSelect, type SelectOption } from '../components/common/MultiSelect
 import { formatError } from '../lib/errors'
 import { normalizePaper, normalizePatent, normalizeWeb } from '../lib/normalize'
 import type { SearchCategory, SourceInfo, SearchResponse, WebSearchResponse, WebResult, PaperResult, PatentResult } from '../types'
+import { staggerContainer, staggerItem } from '../lib/animations'
 import styles from './SearchPage.module.scss'
 
 const TABS: { key: SearchCategory; labelKey: string; icon: typeof FileText }[] = [
@@ -48,7 +49,10 @@ const DEFAULT_SELECTED: Record<SearchCategory, string[]> = {
   web: ['duckduckgo', 'brave'],
 }
 
-import { staggerContainer, staggerItem } from '../lib/animations'
+type SearchState =
+  | { status: 'idle'; tab: null; message: null }
+  | { status: 'loading'; tab: SearchCategory; message: null }
+  | { status: 'error'; tab: SearchCategory; message: string }
 
 export function SearchPage() {
   const { t } = useTranslation()
@@ -59,11 +63,13 @@ export function SearchPage() {
     ...DEFAULT_SELECTED,
   })
   const [count, setCount] = useState(10)
-  const [loading, setLoading] = useState(false)
+  const [searchState, setSearchState] = useState<SearchState>({ status: 'idle', tab: null, message: null })
   const [paperResults, setPaperResults] = useState<SearchResponse | null>(null)
   const [patentResults, setPatentResults] = useState<SearchResponse | null>(null)
   const [webResults, setWebResults] = useState<WebSearchResponse | null>(null)
   const addToast = useNotificationStore((s) => s.addToast)
+  const activeRequestRef = useRef<{ id: number; controller: AbortController } | null>(null)
+  const requestIdRef = useRef(0)
 
   useEffect(() => {
     let cancelled = false
@@ -76,6 +82,12 @@ export function SearchPage() {
       })
     }).catch((err) => { console.warn('[SouWen] Failed to load sources from API, using fallback:', err) })
     return () => { cancelled = true }
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      activeRequestRef.current?.controller.abort()
+    }
   }, [])
 
   const handleTabChange = useCallback((key: SearchCategory) => {
@@ -91,34 +103,51 @@ export function SearchPage() {
 
   const currentSources = selections[tab]
   const canSearch = query.trim().length > 0 && currentSources.length > 0
+  const isSearchingCurrentTab = searchState.status === 'loading' && searchState.tab === tab
 
   const handleSearch = useCallback(
     async (e: FormEvent) => {
       e.preventDefault()
       if (!canSearch) return
-      setLoading(true)
+      const requestId = requestIdRef.current + 1
+      requestIdRef.current = requestId
+      activeRequestRef.current?.controller.abort()
+      const controller = new AbortController()
+      activeRequestRef.current = { id: requestId, controller }
+      setSearchState({ status: 'loading', tab, message: null })
       const joined = currentSources.join(',')
       try {
         if (tab === 'paper') {
           setPaperResults(null)
-          const res = await api.searchPaper(query, joined, count)
+          const res = await api.searchPaper(query, joined, count, controller.signal)
+          if (activeRequestRef.current?.id !== requestId) return
           setPaperResults(res)
+          setSearchState({ status: 'idle', tab: null, message: null })
           addToast('success', t('search.success', { count: res.total }))
         } else if (tab === 'patent') {
           setPatentResults(null)
-          const res = await api.searchPatent(query, joined, count)
+          const res = await api.searchPatent(query, joined, count, controller.signal)
+          if (activeRequestRef.current?.id !== requestId) return
           setPatentResults(res)
+          setSearchState({ status: 'idle', tab: null, message: null })
           addToast('success', t('search.success', { count: res.total }))
         } else {
           setWebResults(null)
-          const res = await api.searchWeb(query, joined, count)
+          const res = await api.searchWeb(query, joined, count, controller.signal)
+          if (activeRequestRef.current?.id !== requestId) return
           setWebResults(res)
+          setSearchState({ status: 'idle', tab: null, message: null })
           addToast('success', t('search.success', { count: res.total_results }))
         }
       } catch (err) {
-        addToast('error', t('search.failed', { message: formatError(err) }))
+        if (controller.signal.aborted || activeRequestRef.current?.id !== requestId) return
+        const message = formatError(err)
+        setSearchState({ status: 'error', tab, message })
+        addToast('error', t('search.failed', { message }))
       } finally {
-        setLoading(false)
+        if (activeRequestRef.current?.id === requestId) {
+          activeRequestRef.current = null
+        }
       }
     },
     [tab, query, currentSources, canSearch, count, addToast, t],
@@ -204,12 +233,22 @@ export function SearchPage() {
   }
 
   const renderResults = () => {
-    if (loading) {
+    if (isSearchingCurrentTab) {
       return (
         <div role="status" aria-live="polite" aria-busy="true">
           <span className="srOnly">{t('search.searching', 'Searching')}</span>
           <ResultsSkeleton count={4} />
         </div>
+      )
+    }
+
+    if (searchState.status === 'error' && searchState.tab === tab) {
+      return (
+        <EmptyState
+          type="error"
+          title={t('search.errorStateTitle')}
+          description={searchState.message}
+        />
       )
     }
 
@@ -263,7 +302,7 @@ export function SearchPage() {
         ))}
       </div>
 
-      <form className={styles.form} onSubmit={handleSearch} aria-busy={loading}>
+      <form className={styles.form} onSubmit={handleSearch} aria-busy={isSearchingCurrentTab}>
         <div className={styles.formRow}>
           <input
             className={styles.input}
@@ -284,8 +323,8 @@ export function SearchPage() {
               </option>
             ))}
           </select>
-          <button type="submit" className="btn btn-primary" disabled={loading || !canSearch}>
-            {loading ? t('search.searching') : t('search.button')}
+          <button type="submit" className="btn btn-primary" disabled={!canSearch}>
+            {isSearchingCurrentTab ? t('search.searching') : t('search.button')}
           </button>
         </div>
         <div className={styles.sourceRow}>
