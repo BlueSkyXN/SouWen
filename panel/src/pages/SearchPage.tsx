@@ -4,7 +4,8 @@ import { m } from 'framer-motion'
 import { FileText, Shield, Globe, Users, Calendar, Link, Building } from 'lucide-react'
 import { api } from '../services/api'
 import { useNotificationStore } from '../stores/notificationStore'
-import { Spinner } from '../components/common/Spinner'
+import { ResultsSkeleton } from '../components/common/Skeleton'
+import { EmptyState } from '../components/common/EmptyState'
 import { MultiSelect, type SelectOption } from '../components/common/MultiSelect'
 import { formatError } from '../lib/errors'
 import { normalizePaper, normalizePatent, normalizeWeb } from '../lib/normalize'
@@ -203,11 +204,11 @@ export function SearchPage() {
   }
 
   const renderResults = () => {
-    if (loading) return <Spinner size="lg" label={t('search.searching')} />
+    if (loading) return <ResultsSkeleton count={4} />
 
     if (tab === 'paper' && paperResults) {
       const allItems = paperResults.results.flatMap((r) => r.results) as PaperResult[]
-      if (allItems.length === 0) return <div className={styles.empty}>{t('search.noResults')}</div>
+      if (allItems.length === 0) return <EmptyState type="search" title={t('search.noResults')} />
       return (
         <m.div variants={staggerContainer} initial="initial" animate="animate">
           <div className={styles.resultCount}>{t('search.resultCount', { count: paperResults.total })}</div>
@@ -218,7 +219,7 @@ export function SearchPage() {
 
     if (tab === 'patent' && patentResults) {
       const allItems = patentResults.results.flatMap((r) => r.results) as PatentResult[]
-      if (allItems.length === 0) return <div className={styles.empty}>{t('search.noResults')}</div>
+      if (allItems.length === 0) return <EmptyState type="search" title={t('search.noResults')} />
       return (
         <m.div variants={staggerContainer} initial="initial" animate="animate">
           <div className={styles.resultCount}>{t('search.resultCount', { count: patentResults.total })}</div>
@@ -228,7 +229,7 @@ export function SearchPage() {
     }
 
     if (tab === 'web' && webResults) {
-      if (webResults.results.length === 0) return <div className={styles.empty}>{t('search.noResults')}</div>
+      if (webResults.results.length === 0) return <EmptyState type="search" title={t('search.noResults')} />
       return (
         <m.div variants={staggerContainer} initial="initial" animate="animate">
           <div className={styles.resultCount}>{t('search.resultCount', { count: webResults.total_results })}</div>
@@ -237,7 +238,7 @@ export function SearchPage() {
       )
     }
 
-    return <div className={styles.empty}>{t('search.startSearch')}</div>
+    return <EmptyState type="search" title={t('search.startSearch')} description={t('search.placeholder')} />
   }
 
   return (

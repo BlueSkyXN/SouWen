@@ -1,28 +1,53 @@
 // Primary palette
-$primary: #3b82f6;
-$primary-hover: #2563eb;
-$primary-active: #1d4ed8;
-$success: #10b981;
-$warning: #f59e0b;
-$error: #ef4444;
+$primary: #2563eb;
+$primary-hover: #1d4ed8;
+$primary-active: #1e40af;
+$success: #059669;
+$warning: #d97706;
+$error: #dc2626;
 
 // Extended accents
-$accent-indigo: #6366f1;
-$accent-teal: #14b8a6;
-$accent-rose: #f43f5e;
+$accent-indigo: #4f46e5;
+$accent-teal: #0d9488;
+$accent-rose: #e11d48;
 
 // Layout
-$sidebar-width: 240px;
-$sidebar-collapsed: 68px;
-$header-height: 60px;
+$sidebar-width: 248px;
+$sidebar-collapsed: 72px;
+$header-height: 56px;
 $content-max: 1200px;
 $mobile-bp: 768px;
 
+// Spacing (8px grid)
+$space-1: 4px;
+$space-2: 8px;
+$space-3: 12px;
+$space-4: 16px;
+$space-5: 20px;
+$space-6: 24px;
+$space-7: 28px;
+$space-8: 32px;
+$space-10: 40px;
+$space-12: 48px;
+$space-16: 64px;
+
 // Radius
-$radius: 10px;
+$radius-xs: 6px;
 $radius-sm: 8px;
-$radius-lg: 14px;
+$radius: 12px;
+$radius-lg: 16px;
+$radius-xl: 20px;
+
+// Typography scale
+$text-xs: 11px;
+$text-sm: 12px;
+$text-base: 13.5px;
+$text-md: 14px;
+$text-lg: 16px;
+$text-xl: 18px;
+$text-2xl: 22px;
+$text-3xl: 28px;
 
 // Font
-$font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif;
-$font-mono: 'SF Mono', 'Fira Code', Consolas, monospace;
+$font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'Inter', 'Segoe UI', Roboto, 'PingFang SC', 'Microsoft YaHei', sans-serif;
+$font-mono: 'SF Mono', 'JetBrains Mono', 'Fira Code', Consolas, monospace;

@@ -3,11 +3,12 @@
   align-items: center;
   gap: 4px;
   padding: 3px 10px;
-  border-radius: 99px;
-  font-size: 12px;
+  border-radius: var(--radius-xs);
+  font-size: 11px;
   font-weight: 500;
-  line-height: 1.5;
+  line-height: 1.6;
   white-space: nowrap;
+  letter-spacing: 0.01em;
 }
 
 .green {
@@ -31,7 +32,7 @@
 }
 
 .gray {
-  background: var(--border);
+  background: var(--bg-subtle);
   color: var(--text-secondary);
 }
 

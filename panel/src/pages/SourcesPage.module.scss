@@ -6,60 +6,66 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: 24px;
+  margin-bottom: $space-6;
 }
 
 .tierGroup {
-  margin-bottom: 28px;
+  margin-bottom: $space-8;
 }
 
 .tierTitle {
   display: flex;
   align-items: center;
-  gap: 10px;
-  font-size: 15px;
+  gap: $space-3;
+  font-size: $text-lg;
   font-weight: 600;
-  margin-bottom: 14px;
+  margin-bottom: $space-4;
+  letter-spacing: -0.01em;
 }
 
 .tierCount {
-  font-size: 13px;
-  color: var(--text-secondary);
+  font-size: $text-sm;
+  color: var(--text-muted);
   font-weight: 400;
 }
 
 .tableWrap {
   overflow-x: auto;
   border: 1px solid var(--border);
-  border-radius: $radius;
+  border-radius: var(--radius);
   background: var(--bg-card);
 }
 
 .table {
   width: 100%;
   border-collapse: collapse;
-  font-size: 13px;
+  font-size: $text-base;
 
   th {
-    background: var(--bg);
+    background: var(--bg-subtle);
     text-align: left;
-    padding: 12px 16px;
+    padding: $space-3 $space-4;
     font-weight: 600;
-    font-size: 12px;
+    font-size: $text-xs;
     text-transform: uppercase;
-    letter-spacing: 0.4px;
-    color: var(--text-secondary);
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
     border-bottom: 1px solid var(--border);
     white-space: nowrap;
   }
 
   td {
-    padding: 12px 16px;
+    padding: $space-3 $space-4;
     border-bottom: 1px solid var(--border);
+    vertical-align: middle;
   }
 
   tr:last-child td {
     border-bottom: none;
+  }
+
+  tr {
+    transition: background var(--transition-fast);
   }
 
   tr:hover td {
@@ -69,19 +75,20 @@
 
 .sourceName {
   font-weight: 600;
+  font-size: $text-md;
 }
 
 .code {
-  background: var(--bg);
-  padding: 2px 8px;
-  border-radius: 5px;
-  font-size: 12px;
+  background: var(--bg-subtle);
+  padding: 2px $space-2;
+  border-radius: $radius-xs;
+  font-size: $text-xs;
   font-family: var(--font-mono);
 }
 
 .message {
-  color: var(--text-secondary);
-  font-size: 12px;
-  max-width: 280px;
+  color: var(--text-muted);
+  font-size: $text-sm;
+  max-width: 300px;
   line-height: 1.5;
 }

@@ -4,70 +4,69 @@
 
 .tabs {
   display: flex;
-  gap: 4px;
-  padding: 4px;
-  background: var(--bg);
+  gap: 2px;
+  padding: 3px;
+  background: var(--bg-subtle);
   border: 1px solid var(--border);
   border-radius: $radius;
-  margin-bottom: 20px;
+  margin-bottom: $space-6;
   width: fit-content;
 }
 
 .tab {
   display: flex;
   align-items: center;
-  gap: 6px;
-  padding: 8px 18px;
-  font-size: 14px;
-  font-weight: 500;
-  color: var(--text-secondary);
+  gap: $space-2;
+  padding: 7px $space-5;
+  font-size: $text-md;
+  font-weight: 450;
+  color: var(--text-muted);
   cursor: pointer;
   border: none;
   background: none;
   border-radius: $radius-sm;
-  transition: all 0.2s;
+  transition: all var(--transition-fast);
 
   &:hover {
     color: var(--text);
-    background: var(--bg-card);
   }
 
   &.active {
-    color: var(--primary);
+    color: var(--text);
     background: var(--bg-card);
-    box-shadow: var(--shadow-xs);
-    font-weight: 600;
+    box-shadow: var(--shadow-sm);
+    font-weight: 550;
   }
 }
 
 .form {
-  margin-bottom: 24px;
+  margin-bottom: $space-6;
 }
 
 .formRow {
   display: flex;
-  gap: 10px;
+  gap: $space-3;
   flex-wrap: wrap;
 }
 
 .sourceRow {
-  margin-top: 10px;
+  margin-top: $space-3;
 }
 
 .input {
   flex: 2;
   min-width: 200px;
-  padding: 10px 14px;
+  padding: 9px $space-4;
   border: 1px solid var(--border-input);
   border-radius: $radius-sm;
   background: var(--bg-input);
   color: var(--text);
   outline: none;
-  transition: all 0.2s;
+  transition: all var(--transition-fast);
 
   &:focus {
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
   }
 
   &::placeholder {
@@ -75,102 +74,100 @@
   }
 }
 
-
-
 .select {
-  padding: 10px 14px;
+  padding: 9px $space-4;
   border: 1px solid var(--border-input);
   border-radius: $radius-sm;
   background: var(--bg-input);
   color: var(--text);
   outline: none;
   min-width: 100px;
-  transition: all 0.2s;
+  transition: all var(--transition-fast);
 
   &:focus {
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
   }
 }
 
 .results { }
 
 .resultCount {
-  font-size: 13px;
-  color: var(--text-secondary);
-  margin-bottom: 16px;
+  font-size: $text-sm;
+  color: var(--text-muted);
+  margin-bottom: $space-4;
 }
 
 .resultCard {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: $radius;
-  padding: 18px 20px;
-  margin-bottom: 12px;
-  transition: all 0.2s;
-  border-left: 3px solid var(--primary);
+  border-radius: var(--radius);
+  padding: $space-5 $space-6;
+  margin-bottom: $space-3;
+  transition: all var(--transition-fast);
 
   &:hover {
     box-shadow: var(--shadow);
-    transform: translateY(-1px);
+    border-color: var(--border-strong);
   }
 }
 
 .resultTitle {
-  font-size: 15px;
+  font-size: $text-lg;
   font-weight: 600;
-  margin-bottom: 6px;
+  margin-bottom: $space-2;
   line-height: 1.4;
+  letter-spacing: -0.01em;
 
   a {
-    color: var(--primary);
+    color: var(--text);
     &:hover {
-      text-decoration: underline;
+      color: var(--primary);
     }
   }
 }
 
 .resultMeta {
   display: flex;
-  gap: 14px;
+  gap: $space-4;
   flex-wrap: wrap;
-  font-size: 12px;
-  color: var(--text-secondary);
-  margin-bottom: 8px;
+  font-size: $text-sm;
+  color: var(--text-muted);
+  margin-bottom: $space-2;
 
   > span {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: $space-1;
   }
 }
 
 .resultUrl {
-  font-size: 12px;
+  font-size: $text-xs;
   color: var(--text-muted);
-  margin-bottom: 6px;
+  margin-bottom: $space-2;
   word-break: break-all;
 }
 
 .resultAbstract {
-  font-size: 13px;
+  font-size: $text-base;
   color: var(--text-secondary);
   line-height: 1.7;
 }
 
 .sourceTag {
   display: inline-flex;
-  padding: 2px 10px;
-  background: var(--primary-light);
-  color: var(--primary);
-  border-radius: 99px;
-  font-size: 11px;
+  padding: 2px $space-3;
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+  border-radius: var(--radius-xs);
+  font-size: $text-xs;
   font-weight: 500;
 }
 
 .empty {
   text-align: center;
-  padding: 56px 24px;
-  color: var(--text-secondary);
-  font-size: 14px;
+  padding: $space-16 $space-6;
+  color: var(--text-muted);
+  font-size: $text-md;
 }

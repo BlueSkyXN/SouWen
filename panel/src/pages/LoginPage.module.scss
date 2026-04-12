@@ -5,68 +5,99 @@
   align-items: center;
   justify-content: center;
   min-height: 100vh;
-  padding: 16px;
+  padding: $space-4;
   position: relative;
-  background:
-    radial-gradient(ellipse at 20% 50%, rgba(59, 130, 246, 0.10) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 20%, rgba(99, 102, 241, 0.08) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 80%, rgba(14, 165, 233, 0.06) 0%, transparent 50%),
-    var(--bg);
+  background: var(--bg);
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    width: 500px;
+    height: 500px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(37, 99, 235, 0.08) 0%, transparent 70%);
+    top: -120px;
+    right: -80px;
+    pointer-events: none;
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    width: 400px;
+    height: 400px;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(79, 70, 229, 0.06) 0%, transparent 70%);
+    bottom: -100px;
+    left: -60px;
+    pointer-events: none;
+  }
+}
+
+.gridBg {
+  position: absolute;
+  inset: 0;
+  background-image:
+    linear-gradient(rgba(0, 0, 0, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.02) 1px, transparent 1px);
+  background-size: 48px 48px;
+  mask-image: radial-gradient(ellipse 60% 60% at 50% 50%, black 20%, transparent 70%);
+  -webkit-mask-image: radial-gradient(ellipse 60% 60% at 50% 50%, black 20%, transparent 70%);
+  pointer-events: none;
 
   [data-theme='dark'] & {
-    background:
-      radial-gradient(ellipse at 20% 50%, rgba(59, 130, 246, 0.06) 0%, transparent 50%),
-      radial-gradient(ellipse at 80% 20%, rgba(99, 102, 241, 0.05) 0%, transparent 50%),
-      radial-gradient(ellipse at 50% 80%, rgba(14, 165, 233, 0.04) 0%, transparent 50%),
-      var(--bg);
+    background-image:
+      linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
   }
+}
+
+[data-theme='dark'] .page::before {
+  background: radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%);
+}
+
+[data-theme='dark'] .page::after {
+  background: radial-gradient(circle, rgba(129, 140, 248, 0.08) 0%, transparent 70%);
 }
 
 .themeToggle {
   position: absolute;
-  top: 16px;
-  right: 16px;
+  top: $space-5;
+  right: $space-5;
 }
 
 .themeBtn {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 40px;
-  height: 40px;
+  width: 38px;
+  height: 38px;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: $radius-sm;
-  color: var(--text-secondary);
+  color: var(--text-muted);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-fast);
 
   &:hover {
     color: var(--text);
-    border-color: var(--primary);
+    border-color: var(--border-strong);
     box-shadow: var(--shadow-sm);
   }
 }
 
 .card {
-  background: rgba(255, 255, 255, 0.8);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.6);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
   border-radius: $radius-lg;
-  padding: 44px 40px;
+  padding: $space-10 $space-10;
   width: 100%;
-  max-width: 420px;
-  box-shadow:
-    0 4px 24px rgba(0, 0, 0, 0.06),
-    0 1px 2px rgba(0, 0, 0, 0.04);
+  max-width: 400px;
+  box-shadow: var(--shadow-lg);
 
   [data-theme='dark'] & {
-    background: rgba(30, 41, 59, 0.8);
-    border-color: rgba(255, 255, 255, 0.06);
-    box-shadow:
-      0 4px 24px rgba(0, 0, 0, 0.2),
-      0 1px 2px rgba(0, 0, 0, 0.1);
+    box-shadow: var(--shadow-xl);
   }
 }
 
@@ -74,55 +105,54 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 56px;
-  height: 56px;
-  margin: 0 auto 12px;
-  background: linear-gradient(135deg, #3b82f6 0%, #6366f1 100%);
-  border-radius: 14px;
+  width: 48px;
+  height: 48px;
+  margin: 0 auto $space-4;
+  background: var(--primary);
+  border-radius: $radius;
   color: #fff;
-  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
 }
 
 .title {
   text-align: center;
-  font-size: 22px;
+  font-size: $text-2xl;
   font-weight: 700;
-  margin-bottom: 4px;
-  letter-spacing: -0.3px;
+  margin-bottom: $space-1;
+  letter-spacing: -0.03em;
 }
 
 .subtitle {
   text-align: center;
-  color: var(--text-secondary);
-  font-size: 13px;
-  margin-bottom: 32px;
+  color: var(--text-muted);
+  font-size: $text-sm;
+  margin-bottom: $space-8;
 }
 
 .formGroup {
-  margin-bottom: 18px;
+  margin-bottom: $space-5;
 
   label {
     display: block;
-    font-size: 13px;
+    font-size: $text-sm;
     font-weight: 500;
-    margin-bottom: 6px;
+    margin-bottom: $space-2;
     color: var(--text-secondary);
   }
 }
 
 .input {
   width: 100%;
-  padding: 10px 14px;
+  padding: 10px $space-4;
   border: 1px solid var(--border-input);
   border-radius: $radius-sm;
   background: var(--bg-input);
   color: var(--text);
-  transition: all 0.2s;
+  transition: all var(--transition-fast);
   outline: none;
 
   &:focus {
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
   }
 
   &::placeholder {
@@ -142,45 +172,46 @@
 
 .togglePw {
   position: absolute;
-  right: 8px;
+  right: 6px;
   top: 50%;
   transform: translateY(-50%);
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 30px;
+  height: 30px;
   background: none;
   border: none;
-  border-radius: 6px;
-  color: var(--text-secondary);
+  border-radius: $radius-xs;
+  color: var(--text-muted);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all var(--transition-fast);
 
   &:hover {
     background: var(--bg-hover);
-    color: var(--text);
+    color: var(--text-secondary);
   }
 }
 
 .checkboxRow {
   display: flex;
   align-items: center;
-  gap: 8px;
-  font-size: 13px;
+  gap: $space-2;
+  font-size: $text-sm;
   color: var(--text-secondary);
-  margin-bottom: 24px;
+  margin-bottom: $space-6;
 
   input {
     accent-color: var(--primary);
-    width: 16px;
-    height: 16px;
+    width: 15px;
+    height: 15px;
   }
 }
 
 .submitBtn {
-  margin-top: 4px;
-  height: 44px;
-  font-size: 15px;
+  margin-top: $space-1;
+  height: 42px;
+  font-size: $text-md;
   font-weight: 600;
+  letter-spacing: -0.01em;
 }
