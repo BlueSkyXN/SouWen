@@ -204,7 +204,14 @@ export function SearchPage() {
   }
 
   const renderResults = () => {
-    if (loading) return <ResultsSkeleton count={4} />
+    if (loading) {
+      return (
+        <div role="status" aria-live="polite" aria-busy="true">
+          <span className="srOnly">{t('search.searching', 'Searching')}</span>
+          <ResultsSkeleton count={4} />
+        </div>
+      )
+    }
 
     if (tab === 'paper' && paperResults) {
       const allItems = paperResults.results.flatMap((r) => r.results) as PaperResult[]
@@ -256,7 +263,7 @@ export function SearchPage() {
         ))}
       </div>
 
-      <form className={styles.form} onSubmit={handleSearch}>
+      <form className={styles.form} onSubmit={handleSearch} aria-busy={loading}>
         <div className={styles.formRow}>
           <input
             className={styles.input}
@@ -291,7 +298,9 @@ export function SearchPage() {
         </div>
       </form>
 
-      <div className={styles.results}>{renderResults()}</div>
+      <div className={styles.results} aria-live="polite">
+        {renderResults()}
+      </div>
     </div>
   )
 }

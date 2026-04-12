@@ -7,6 +7,7 @@
   min-height: 100vh;
   padding: $space-4;
   position: relative;
+  isolation: isolate;
   background: var(--bg);
   overflow: hidden;
 
@@ -20,6 +21,7 @@
     top: -120px;
     right: -80px;
     pointer-events: none;
+    z-index: 0;
   }
 
   &::after {
@@ -32,12 +34,14 @@
     bottom: -100px;
     left: -60px;
     pointer-events: none;
+    z-index: 0;
   }
 }
 
 .gridBg {
   position: absolute;
   inset: 0;
+  z-index: 0;
   background-image:
     linear-gradient(rgba(0, 0, 0, 0.02) 1px, transparent 1px),
     linear-gradient(90deg, rgba(0, 0, 0, 0.02) 1px, transparent 1px);
@@ -65,6 +69,7 @@
   position: absolute;
   top: $space-5;
   right: $space-5;
+  z-index: 2;
 }
 
 .themeBtn {
@@ -88,6 +93,8 @@
 }
 
 .card {
+  position: relative;
+  z-index: 1;
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: $radius-lg;

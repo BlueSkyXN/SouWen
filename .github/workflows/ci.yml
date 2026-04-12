@@ -136,16 +136,14 @@ jobs:
           cache: 'npm'
           cache-dependency-path: panel/package-lock.json
 
-      - name: 安装依赖并构建
+      - name: 安装依赖并验证产物同步
         working-directory: panel
         run: |
           npm ci
           npm run build
+          npm run check:artifact
+          test -z "$(git -C .. status --short --untracked-files=all -- src/souwen/server/panel.html)" || (echo "❌ src/souwen/server/panel.html 未提交最新构建产物" >&2 && git -C .. status --short --untracked-files=all -- src/souwen/server/panel.html >&2 && exit 1)
 
-      - name: 验证 panel.html 已生成
+      - name: 显示 panel.html 信息
         run: |
-          if [ ! -f src/souwen/server/panel.html ]; then
-            echo "❌ panel.html 未生成"
-            exit 1
-          fi
           echo "✅ panel.html 大小: $(wc -c < src/souwen/server/panel.html) 字节"

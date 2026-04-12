@@ -5,30 +5,35 @@
   padding: 3px 10px;
   border-radius: var(--radius-xs);
   font-size: 11px;
-  font-weight: 500;
+  font-weight: 600;
   line-height: 1.6;
   white-space: nowrap;
   letter-spacing: 0.01em;
+  border: 1px solid transparent;
 }
 
 .green {
   background: var(--success-light);
-  color: var(--success);
+  color: var(--success-strong);
+  border-color: rgba(5, 150, 105, 0.14);
 }
 
 .blue {
   background: var(--primary-light);
-  color: var(--primary);
+  color: var(--primary-strong);
+  border-color: rgba(37, 99, 235, 0.14);
 }
 
 .amber {
   background: var(--warning-light);
-  color: var(--warning);
+  color: var(--warning-strong);
+  border-color: rgba(217, 119, 6, 0.16);
 }
 
 .red {
   background: var(--error-light);
-  color: var(--error);
+  color: var(--error-strong);
+  border-color: rgba(220, 38, 38, 0.14);
 }
 
 .gray {
@@ -38,10 +43,21 @@
 
 .indigo {
   background: var(--accent-indigo-light);
-  color: var(--accent-indigo);
+  color: var(--accent-indigo-strong);
+  border-color: rgba(79, 70, 229, 0.14);
 }
 
 .teal {
   background: var(--accent-teal-light);
-  color: var(--accent-teal);
+  color: var(--accent-teal-strong);
+  border-color: rgba(13, 148, 136, 0.14);
+}
+
+[data-theme='dark'] .green,
+[data-theme='dark'] .blue,
+[data-theme='dark'] .amber,
+[data-theme='dark'] .red,
+[data-theme='dark'] .indigo,
+[data-theme='dark'] .teal {
+  border-color: transparent;
 }

@@ -8,6 +8,7 @@ build/
 .pytest_cache/
 .ruff_cache/
 .env
+.venv/
 *.egg
 
 # Panel frontend build artifacts
@@ -15,3 +16,4 @@ panel/node_modules/
 panel/dist/
 .playwright-mcp/
 /.gemini
+/validation-worktree/

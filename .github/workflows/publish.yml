@@ -20,6 +20,20 @@ jobs:
           python-version: '3.10'
           cache: 'pip'
 
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: panel/package-lock.json
+
+      - name: 验证 panel 构建产物
+        working-directory: panel
+        run: |
+          npm ci
+          npm run build
+          npm run check:artifact
+          test -z "$(git -C .. status --short --untracked-files=all -- src/souwen/server/panel.html)" || (echo "❌ src/souwen/server/panel.html 未提交最新构建产物" >&2 && git -C .. status --short --untracked-files=all -- src/souwen/server/panel.html >&2 && exit 1)
+
       - name: 安装构建工具
         run: pip install build
 

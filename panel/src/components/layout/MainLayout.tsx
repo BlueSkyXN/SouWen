@@ -57,10 +57,8 @@ export function MainLayout() {
         <div className={styles.overlay} onClick={() => setMobileOpen(false)} />
       )}
 
-      <m.aside
+      <aside
         className={`${styles.sidebar} ${collapsed ? styles.collapsed : ''} ${mobileOpen ? styles.mobileOpen : ''}`}
-        animate={{ width: collapsed ? 68 : 240 }}
-        transition={{ duration: 0.2, ease: 'easeInOut' }}
       >
         <div className={styles.brand}>
           <span className={styles.logo}>
@@ -97,7 +95,7 @@ export function MainLayout() {
             <span className={styles.label}>{t('nav.collapse')}</span>
           </button>
         </div>
-      </m.aside>
+      </aside>
 
       <div className={`${styles.main} ${collapsed ? styles.mainCollapsed : ''}`}>
         <header className={styles.header}>
