@@ -207,7 +207,8 @@ export function ConfigPage() {
   }, [fetchConfig])
 
   if (loading) return (
-    <div className={styles.page}>
+    <div className={styles.page} role="status" aria-live="polite" aria-busy="true">
+      <span className="srOnly">{t('common.loading', 'Loading configuration')}</span>
       <TableSkeleton rows={10} cols={2} />
     </div>
   )

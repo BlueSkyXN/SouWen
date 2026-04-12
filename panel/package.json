@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build && cp dist/index.html ../src/souwen/server/panel.html",
+    "check:artifact": "test -f dist/index.html && test -f ../src/souwen/server/panel.html && cmp -s dist/index.html ../src/souwen/server/panel.html || (echo 'src/souwen/server/panel.html does not match panel/dist/index.html. Run panel build and commit the regenerated artifact.' >&2 && exit 1)",
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest"

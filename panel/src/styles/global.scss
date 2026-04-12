@@ -25,16 +25,22 @@
   --primary: #{$primary};
   --primary-hover: #{$primary-hover};
   --primary-light: #eff6ff;
+  --primary-strong: #1d4ed8;
   --success: #{$success};
   --success-light: #ecfdf5;
+  --success-strong: #047857;
   --warning: #{$warning};
   --warning-light: #fffbeb;
+  --warning-strong: #b45309;
   --error: #{$error};
   --error-light: #fef2f2;
+  --error-strong: #b91c1c;
   --accent-indigo: #{$accent-indigo};
   --accent-indigo-light: #eef2ff;
+  --accent-indigo-strong: #4338ca;
   --accent-teal: #{$accent-teal};
   --accent-teal-light: #f0fdfa;
+  --accent-teal-strong: #0f766e;
 
   /* Shadows — Apple-style layered */
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.04);
@@ -99,16 +105,22 @@
   --primary: #3b82f6;
   --primary-hover: #2563eb;
   --primary-light: rgba(59, 130, 246, 0.12);
+  --primary-strong: #93c5fd;
   --success: #10b981;
   --success-light: rgba(16, 185, 129, 0.12);
+  --success-strong: #6ee7b7;
   --warning: #f59e0b;
   --warning-light: rgba(245, 158, 11, 0.12);
+  --warning-strong: #fcd34d;
   --error: #ef4444;
   --error-light: rgba(239, 68, 68, 0.12);
+  --error-strong: #fca5a5;
   --accent-indigo: #818cf8;
   --accent-indigo-light: rgba(129, 140, 248, 0.12);
+  --accent-indigo-strong: #c7d2fe;
   --accent-teal: #2dd4bf;
   --accent-teal-light: rgba(45, 212, 191, 0.12);
+  --accent-teal-strong: #99f6e4;
   --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.3);
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
   --shadow: 0 4px 6px rgba(0, 0, 0, 0.3);
@@ -273,6 +285,18 @@ textarea {
     transform: translateY(0) scale(0.98);
     transition-duration: 50ms;
   }
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
 }
 
 /* ===== Scrollbar ===== */

@@ -41,7 +41,8 @@ export function DashboardPage() {
   }, [fetchData])
 
   if (loading) return (
-    <div className={styles.page}>
+    <div className={styles.page} role="status" aria-live="polite" aria-busy="true">
+      <span className="srOnly">{t('common.loading', 'Loading dashboard data')}</span>
       <Card style={{ marginBottom: 24 }}>
         <div className={styles.serverInfo}>
           <div style={{ width: '100%', height: 20, background: 'var(--bg-subtle)', borderRadius: 6 }} />

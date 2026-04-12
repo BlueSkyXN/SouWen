@@ -38,7 +38,8 @@ export function SourcesPage() {
   }, [fetchData])
 
   if (loading) return (
-    <div className={styles.page}>
+    <div className={styles.page} role="status" aria-live="polite" aria-busy="true">
+      <span className="srOnly">{t('common.loading', 'Loading sources')}</span>
       <TableSkeleton rows={8} cols={5} />
     </div>
   )

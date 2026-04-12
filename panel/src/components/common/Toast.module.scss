@@ -14,7 +14,7 @@
   padding: 14px 18px;
   border-radius: var(--radius);
   font-size: 13px;
-  color: #fff;
+  color: var(--text);
   box-shadow: var(--shadow-lg);
   max-width: 380px;
   display: flex;
@@ -25,6 +25,7 @@
   -webkit-backdrop-filter: blur(12px);
   font-weight: 450;
   letter-spacing: -0.01em;
+  border: 1px solid transparent;
 }
 
 .icon {
@@ -33,13 +34,38 @@
 }
 
 .success {
-  background: rgba(5, 150, 105, 0.92);
+  background: rgba(236, 253, 245, 0.94);
+  border-color: rgba(5, 150, 105, 0.18);
+  color: var(--success-strong);
 }
 
 .error {
-  background: rgba(220, 38, 38, 0.92);
+  background: rgba(254, 242, 242, 0.94);
+  border-color: rgba(220, 38, 38, 0.18);
+  color: var(--error-strong);
 }
 
 .info {
+  background: rgba(239, 246, 255, 0.94);
+  border-color: rgba(37, 99, 235, 0.18);
+  color: var(--primary-strong);
+}
+
+[data-theme='dark'] .toast {
+  color: #fff;
+}
+
+[data-theme='dark'] .success {
+  background: rgba(5, 150, 105, 0.92);
+  border-color: rgba(16, 185, 129, 0.24);
+}
+
+[data-theme='dark'] .error {
+  background: rgba(220, 38, 38, 0.92);
+  border-color: rgba(239, 68, 68, 0.24);
+}
+
+[data-theme='dark'] .info {
   background: rgba(37, 99, 235, 0.92);
+  border-color: rgba(59, 130, 246, 0.24);
 }
