@@ -5,7 +5,7 @@ import { Info, RefreshCw, Shield, ShieldOff, Loader2 } from 'lucide-react'
 import { api } from '../services/api'
 import { useNotificationStore } from '../stores/notificationStore'
 import { Card } from '../components/common/Card'
-import { Spinner } from '../components/common/Spinner'
+import { TableSkeleton } from '../components/common/Skeleton'
 import { formatError } from '../lib/errors'
 import type { ConfigResponse, WarpStatus } from '../types'
 import styles from './ConfigPage.module.scss'
@@ -206,7 +206,11 @@ export function ConfigPage() {
     void fetchConfig()
   }, [fetchConfig])
 
-  if (loading) return <Spinner size="lg" label={t('common.loading')} />
+  if (loading) return (
+    <div className={styles.page}>
+      <TableSkeleton rows={10} cols={2} />
+    </div>
+  )
 
   const entries = config ? Object.entries(config) : []
 

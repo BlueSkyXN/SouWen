@@ -9,65 +9,65 @@
 .trigger {
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-height: 42px;
-  padding: 6px 12px;
+  gap: $space-2;
+  min-height: 40px;
+  padding: $space-2 $space-3;
   border: 1px solid var(--border-input);
   border-radius: $radius-sm;
   background: var(--bg-input);
   cursor: pointer;
-  transition: all 0.2s;
+  transition: all var(--transition-fast);
 
   &:hover {
-    border-color: var(--primary);
+    border-color: var(--border-strong);
   }
 
   &:focus-visible {
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
     outline: none;
   }
 }
 
 .triggerOpen {
   border-color: var(--primary);
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.12);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
 }
 
 .chips {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: $space-1;
   flex: 1;
-  min-height: 24px;
+  min-height: 22px;
   align-items: center;
 }
 
 .placeholder {
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: $text-base;
   user-select: none;
 }
 
 .chip {
   display: inline-flex;
   align-items: center;
-  gap: 4px;
-  padding: 2px 8px;
+  gap: $space-1;
+  padding: 2px $space-2;
   background: var(--primary-light);
   color: var(--primary);
-  border-radius: 99px;
-  font-size: 11px;
+  border-radius: var(--radius-xs);
+  font-size: $text-xs;
   font-weight: 500;
   line-height: 1.6;
   white-space: nowrap;
-  animation: chipIn 0.15s ease;
+  animation: chipIn 0.12s ease;
 }
 
 @keyframes chipIn {
   from {
     opacity: 0;
-    transform: scale(0.85);
+    transform: scale(0.9);
   }
   to {
     opacity: 1;
@@ -79,27 +79,27 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   border: none;
   background: none;
   color: var(--primary);
   cursor: pointer;
   padding: 0;
   border-radius: 50%;
-  transition: all 0.15s;
-  opacity: 0.6;
+  transition: all var(--transition-fast);
+  opacity: 0.5;
 
   &:hover {
     opacity: 1;
-    background: rgba(59, 130, 246, 0.15);
+    background: rgba(37, 99, 235, 0.1);
   }
 }
 
 .chevron {
   color: var(--text-muted);
   flex-shrink: 0;
-  transition: transform 0.2s;
+  transition: transform 0.15s;
 }
 
 .chevronOpen {
@@ -109,16 +109,16 @@
 // Dropdown
 .dropdown {
   position: absolute;
-  top: calc(100% + 4px);
+  top: calc(100% + 6px);
   left: 0;
   right: 0;
   z-index: 50;
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: $radius;
+  border-radius: var(--radius);
   box-shadow: var(--shadow-lg);
   overflow: hidden;
-  animation: dropIn 0.15s ease;
+  animation: dropIn 0.12s ease;
 }
 
 @keyframes dropIn {
@@ -135,8 +135,8 @@
 .dropdownHeader {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 10px;
+  gap: $space-2;
+  padding: $space-2 $space-3;
   border-bottom: 1px solid var(--border);
 }
 
@@ -146,8 +146,8 @@
   outline: none;
   background: transparent;
   color: var(--text);
-  font-size: 13px;
-  padding: 4px 0;
+  font-size: $text-base;
+  padding: $space-1 0;
 
   &::placeholder {
     color: var(--text-muted);
@@ -163,12 +163,12 @@
   border: none;
   background: none;
   color: var(--primary);
-  font-size: 11px;
+  font-size: $text-xs;
   font-weight: 500;
-  padding: 3px 8px;
-  border-radius: $radius-sm;
+  padding: $space-1 $space-2;
+  border-radius: var(--radius-xs);
   cursor: pointer;
-  transition: background 0.15s;
+  transition: background var(--transition-fast);
 
   &:hover {
     background: var(--primary-light);
@@ -178,16 +178,16 @@
 .optionsList {
   max-height: 260px;
   overflow-y: auto;
-  padding: 4px 0;
+  padding: $space-1 0;
 }
 
 .option {
   display: flex;
   align-items: flex-start;
-  gap: 8px;
-  padding: 7px 12px;
+  gap: $space-2;
+  padding: $space-2 $space-3;
   cursor: pointer;
-  transition: background 0.1s;
+  transition: background 80ms ease;
   flex-wrap: wrap;
 
   &:hover {
@@ -196,12 +196,12 @@
 }
 
 .optionSelected {
-  background: rgba(59, 130, 246, 0.04);
+  background: var(--primary-light);
 }
 
 .checkbox {
-  width: 16px;
-  height: 16px;
+  width: 15px;
+  height: 15px;
   flex-shrink: 0;
   margin-top: 1px;
   accent-color: var(--primary);
@@ -211,13 +211,13 @@
 .optionContent {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: $space-2;
   flex: 1;
   min-width: 0;
 }
 
 .optionLabel {
-  font-size: 13px;
+  font-size: $text-base;
   font-weight: 500;
   color: var(--text);
   white-space: nowrap;
@@ -227,10 +227,10 @@
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  padding: 1px 6px;
+  padding: 1px $space-2;
   background: var(--warning-light);
   color: var(--warning);
-  border-radius: 99px;
+  border-radius: var(--radius-xs);
   font-size: 10px;
   font-weight: 500;
   white-space: nowrap;
@@ -238,15 +238,15 @@
 
 .optionDesc {
   width: 100%;
-  font-size: 11px;
+  font-size: $text-xs;
   color: var(--text-muted);
-  padding-left: 24px;
+  padding-left: 23px;
   line-height: 1.3;
 }
 
 .noResults {
-  padding: 16px;
+  padding: $space-4;
   text-align: center;
   color: var(--text-muted);
-  font-size: 13px;
+  font-size: $text-base;
 }

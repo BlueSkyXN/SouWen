@@ -7,7 +7,7 @@ import { useNotificationStore } from '../stores/notificationStore'
 import { useAuthStore } from '../stores/authStore'
 import { Card } from '../components/common/Card'
 import { Badge } from '../components/common/Badge'
-import { Spinner } from '../components/common/Spinner'
+import { StatsGridSkeleton, TableSkeleton } from '../components/common/Skeleton'
 import { formatError } from '../lib/errors'
 import { staggerContainer, staggerItem } from '../lib/animations'
 import { categoryBadgeColor, tierBadgeColor, categoryLabel } from '../lib/ui'
@@ -40,7 +40,17 @@ export function DashboardPage() {
     void fetchData()
   }, [fetchData])
 
-  if (loading) return <Spinner size="lg" label={t('common.loading')} />
+  if (loading) return (
+    <div className={styles.page}>
+      <Card style={{ marginBottom: 24 }}>
+        <div className={styles.serverInfo}>
+          <div style={{ width: '100%', height: 20, background: 'var(--bg-subtle)', borderRadius: 6 }} />
+        </div>
+      </Card>
+      <StatsGridSkeleton count={5} />
+      <TableSkeleton rows={6} cols={4} />
+    </div>
+  )
 
   if (fetchError || !doctor) {
     return (

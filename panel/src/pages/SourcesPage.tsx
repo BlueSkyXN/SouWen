@@ -5,7 +5,7 @@ import { RefreshCw, CheckCircle2, XCircle } from 'lucide-react'
 import { api } from '../services/api'
 import { useNotificationStore } from '../stores/notificationStore'
 import { Badge } from '../components/common/Badge'
-import { Spinner } from '../components/common/Spinner'
+import { TableSkeleton } from '../components/common/Skeleton'
 import { formatError } from '../lib/errors'
 import { staggerContainerFast, staggerItemSmall } from '../lib/animations'
 import { categoryBadgeColor, categoryLabel } from '../lib/ui'
@@ -37,7 +37,11 @@ export function SourcesPage() {
     void fetchData()
   }, [fetchData])
 
-  if (loading) return <Spinner size="lg" label={t('common.loading')} />
+  if (loading) return (
+    <div className={styles.page}>
+      <TableSkeleton rows={8} cols={5} />
+    </div>
+  )
 
   if (fetchError || !doctor) {
     return (
