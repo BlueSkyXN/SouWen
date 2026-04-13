@@ -58,7 +58,7 @@ async def api_search_paper(
 )
 async def api_search_patent(
     q: str = Query(..., description="搜索关键词"),
-    sources: str = Query("patentsview,pqai", description="数据源，逗号分隔"),
+    sources: str = Query("google_patents", description="数据源，逗号分隔"),
     per_page: int = Query(10, ge=1, le=100, description="每页结果数"),
 ):
     """搜索专利"""
@@ -81,7 +81,7 @@ async def api_search_patent(
 @router.get("/search/web", dependencies=[Depends(rate_limit_search), Depends(check_search_auth)])
 async def api_search_web(
     q: str = Query(..., description="搜索关键词"),
-    engines: str = Query("duckduckgo,yahoo,brave", description="搜索引擎，逗号分隔"),
+    engines: str = Query("duckduckgo,bing", description="搜索引擎，逗号分隔"),
     max_results: int = Query(10, ge=1, le=50, description="每引擎最大结果数"),
 ):
     """搜索网页"""

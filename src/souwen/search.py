@@ -37,12 +37,12 @@ _SEARCH_SOURCE_TIMEOUT_CAP_SECONDS = 15.0
 # ── 默认免费数据源 ─────────────────────────────────────────
 _DEFAULT_PAPER_SOURCES: list[str] = [
     "openalex",
-    "semantic_scholar",
     "crossref",
     "arxiv",
     "dblp",
+    "pubmed",
 ]
-_DEFAULT_PATENT_SOURCES: list[str] = ["patentsview", "pqai"]
+_DEFAULT_PATENT_SOURCES: list[str] = ["google_patents"]
 
 
 # ── 通用客户端执行器 ───────────────────────────────────────
@@ -218,7 +218,7 @@ async def search_papers(
 
     Args:
         query: 搜索关键词
-        sources: 数据源列表，默认使用免费源 ["openalex", "semantic_scholar", "crossref", "arxiv", "dblp"]
+        sources: 数据源列表，默认使用较稳定免费源 ["openalex", "crossref", "arxiv", "dblp", "pubmed"]
         per_page: 每个源返回的结果数
         **kwargs: 额外参数传递给各客户端的 search 方法
 
@@ -258,7 +258,7 @@ async def search_patents(
 
     Args:
         query: 搜索关键词
-        sources: 数据源列表，默认使用免费源 ["patentsview", "pqai"]
+        sources: 数据源列表，默认使用实验性免费源 ["google_patents"]
         per_page: 每个源返回的结果数
         **kwargs: 额外参数传递给各客户端的 search 方法
 

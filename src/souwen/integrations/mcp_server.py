@@ -68,7 +68,7 @@ def create_server() -> "Server":
                         "sources": {
                             "type": "array",
                             "items": {"type": "string"},
-                            "description": "数据源列表，默认 patentsview,pqai",
+                            "description": "数据源列表，默认 google_patents",
                         },
                         "limit": {
                             "type": "integer",
@@ -81,7 +81,7 @@ def create_server() -> "Server":
             ),
             Tool(
                 name="web_search",
-                description="网页搜索。支持 21 个引擎，默认 DuckDuckGo + Yahoo + Brave。",
+                description="网页搜索。支持 21 个引擎，默认 DuckDuckGo + Bing。",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -121,7 +121,7 @@ def create_server() -> "Server":
             elif name == "search_patents":
                 from souwen.search import search_patents
 
-                sources = arguments.get("sources", ["patentsview", "pqai"])
+                sources = arguments.get("sources", ["google_patents"])
                 limit = arguments.get("limit", 5)
                 responses = await search_patents(
                     arguments["query"], sources=sources, per_page=limit

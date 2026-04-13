@@ -17,21 +17,21 @@ class TestAllSources:
     """ALL_SOURCES 元信息测试"""
 
     def test_paper_count(self):
-        """paper 有 8 个数据源"""
-        assert len(ALL_SOURCES["paper"]) == 8
+        """paper 暴露 7 个搜索数据源"""
+        assert len(ALL_SOURCES["paper"]) == 7
 
     def test_patent_count(self):
-        """patent 有 8 个数据源"""
-        assert len(ALL_SOURCES["patent"]) == 8
+        """patent 暴露 6 个搜索数据源"""
+        assert len(ALL_SOURCES["patent"]) == 6
 
     def test_web_count(self):
         """web 有 21 个数据源"""
         assert len(ALL_SOURCES["web"]) == 21
 
     def test_total_count(self):
-        """总计 37 个数据源"""
+        """总计暴露 34 个可选数据源"""
         total = sum(len(v) for v in ALL_SOURCES.values())
-        assert total == 37
+        assert total == 34
 
     def test_each_entry_is_tuple_of_three(self):
         """每条目是 (name, requires_key, desc) 三元组"""
@@ -41,6 +41,24 @@ class TestAllSources:
                 assert isinstance(entry[0], str)
                 assert isinstance(entry[1], bool)
                 assert isinstance(entry[2], str)
+
+    def test_search_only_exposes_supported_paper_sources(self):
+        """paper 搜索列表不再暴露 unpaywall。"""
+        names = {name for name, _, _ in ALL_SOURCES["paper"]}
+        assert "unpaywall" not in names
+
+    def test_patent_search_hides_known_broken_free_defaults(self):
+        """patent 搜索列表不再默认暴露已失效免费源。"""
+        names = {name for name, _, _ in ALL_SOURCES["patent"]}
+        assert "patentsview" not in names
+        assert "pqai" not in names
+
+    def test_self_hosted_web_sources_require_setup(self):
+        """自建 Web 引擎在清单中标记为需要配置。"""
+        needs_key = {name: required for name, required, _ in ALL_SOURCES["web"]}
+        assert needs_key["searxng"] is True
+        assert needs_key["whoogle"] is True
+        assert needs_key["websurfx"] is True
 
 
 class TestSourceTypeEnum:

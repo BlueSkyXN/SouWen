@@ -451,8 +451,8 @@ class TestCLI:
         """数据源清单完整性"""
         from souwen.models import ALL_SOURCES
 
-        assert len(ALL_SOURCES["paper"]) == 8
-        assert len(ALL_SOURCES["patent"]) == 8
+        assert len(ALL_SOURCES["paper"]) == 7
+        assert len(ALL_SOURCES["patent"]) == 6
         assert len(ALL_SOURCES["web"]) == 21
 
 
