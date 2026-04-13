@@ -23,12 +23,12 @@ class TestCheckAll:
             assert required.issubset(r.keys()), f"{r['name']} 缺少字段"
 
     def test_no_config_sources_are_ok(self):
-        """无需配置的数据源（required_key=None）状态为 ok"""
+        """稳定的零配置数据源默认显示 ok"""
         results = check_all()
-        no_config = [r for r in results if r["required_key"] is None]
-        assert len(no_config) > 0
-        for r in no_config:
-            assert r["status"] == "ok", f"{r['name']} 应该是 ok"
+        openalex = next(r for r in results if r["name"] == "openalex")
+        crossref = next(r for r in results if r["name"] == "crossref")
+        assert openalex["status"] == "ok"
+        assert crossref["status"] == "ok"
 
     def test_categories_are_valid(self):
         """所有 category 值在 paper/patent/web 中"""
@@ -75,6 +75,35 @@ class TestCheckAll:
         """_SOURCE_CONFIG 有 37 个数据源"""
         assert len(_SOURCE_CONFIG) == 37
 
+    def test_semantic_scholar_without_key_is_limited(self, monkeypatch):
+        """Semantic Scholar 无 Key 时标记为 limited。"""
+        monkeypatch.delenv("SOUWEN_SEMANTIC_SCHOLAR_API_KEY", raising=False)
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        try:
+            results = check_all()
+            source = next(r for r in results if r["name"] == "semantic_scholar")
+            assert source["status"] == "limited"
+            assert "易限流" in source["message"]
+        finally:
+            get_config.cache_clear()
+
+    def test_known_broken_patent_sources_are_not_ok(self):
+        """已知不可用的免费专利源应直接暴露 unavailable。"""
+        results = check_all()
+        patentsview = next(r for r in results if r["name"] == "patentsview")
+        pqai = next(r for r in results if r["name"] == "pqai")
+        assert patentsview["status"] == "unavailable"
+        assert pqai["status"] == "unavailable"
+
+    def test_google_patents_is_warning(self):
+        """Google Patents 作为实验性爬虫显示 warning。"""
+        results = check_all()
+        source = next(r for r in results if r["name"] == "google_patents")
+        assert source["status"] == "warning"
+        assert "实验性爬虫" in source["message"]
+
 
 class TestFormatReport:
     """format_report() 测试"""
@@ -108,6 +137,11 @@ class TestFormatReport:
         """ok 数据源显示 ✅"""
         report = format_report(check_all())
         assert "✅" in report
+
+    def test_non_ok_sources_have_warning_or_error_icons(self):
+        """非 ok 数据源显示醒目标识。"""
+        report = format_report(check_all())
+        assert "⚠️" in report or "❌" in report
 
     def test_counts_in_header(self):
         """标题行显示 可用数/总数"""

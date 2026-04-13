@@ -31,7 +31,7 @@ from souwen import search, search_papers, search_patents, web_search
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `query` | `str` | — | 搜索关键词 |
-| `sources` | `list[str] \| None` | `["openalex", "semantic_scholar", "crossref", "arxiv", "dblp"]` | 数据源列表 |
+| `sources` | `list[str] \| None` | `["openalex", "crossref", "arxiv", "dblp", "pubmed"]` | 数据源列表 |
 | `per_page` | `int` | `10` | 每个源返回结果数 |
 
 #### `search_patents(query, sources=None, per_page=10, **kwargs)` → `list[SearchResponse]`
@@ -41,7 +41,7 @@ from souwen import search, search_papers, search_patents, web_search
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `query` | `str` | — | 搜索关键词 |
-| `sources` | `list[str] \| None` | `["patentsview", "pqai"]` | 数据源列表 |
+| `sources` | `list[str] \| None` | `["google_patents"]` | 数据源列表 |
 | `per_page` | `int` | `10` | 每个源返回结果数 |
 
 #### `web_search(query, engines=None, max_results_per_engine=10)` → `WebSearchResponse`
@@ -51,7 +51,7 @@ from souwen import search, search_papers, search_patents, web_search
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `query` | `str` | — | 搜索关键词 |
-| `engines` | `list[str] \| None` | `["duckduckgo", "yahoo", "brave"]` | 引擎列表 |
+| `engines` | `list[str] \| None` | `["duckduckgo", "bing"]` | 引擎列表 |
 | `max_results_per_engine` | `int` | `10` | 每个引擎最大结果数 |
 
 ### 配置管理
@@ -266,14 +266,14 @@ souwen serve [--port 8000]   # 启动 FastAPI 服务
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `q` | string | *(必填)* | 搜索关键词 |
-| `sources` | string | `"patentsview,pqai"` | 数据源，逗号分隔 |
+| `sources` | string | `"google_patents"` | 数据源，逗号分隔 |
 | `per_page` | int (1-100) | `10` | 每页结果数 |
 
 **响应示例：**
 ```json
 {
   "query": "lithium battery",
-  "sources": ["patentsview", "pqai"],
+  "sources": ["google_patents"],
   "results": [ ... ],
   "total": 10
 }
@@ -286,14 +286,14 @@ souwen serve [--port 8000]   # 启动 FastAPI 服务
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `q` | string | *(必填)* | 搜索关键词 |
-| `engines` | string | `"duckduckgo,yahoo,brave"` | 搜索引擎，逗号分隔 |
+| `engines` | string | `"duckduckgo,bing"` | 搜索引擎，逗号分隔 |
 | `max_results` | int (1-50) | `10` | 每引擎最大结果数 |
 
 **响应示例：**
 ```json
 {
   "query": "AI news",
-  "engines": ["duckduckgo", "brave"],
+  "engines": ["duckduckgo", "bing"],
   "results": [ ... ],
   "total": 15
 }
@@ -346,16 +346,30 @@ souwen serve [--port 8000]   # 启动 FastAPI 服务
 
 #### `GET /api/v1/admin/doctor`
 
-数据源健康检查，逐一探测各数据源可达性。
+数据源健康检查，返回配置状态和已知限制提示；当前不执行实时连通性探测。
 
 **响应示例：**
 ```json
 {
-  "total": 8,
-  "ok": 6,
+  "total": 37,
+  "ok": 24,
   "sources": [
-    { "name": "openalex", "status": "ok", "response_time": 0.23 },
-    { "name": "core", "status": "error", "error": "API key required" }
+    {
+      "name": "openalex",
+      "category": "paper",
+      "status": "ok",
+      "tier": 0,
+      "required_key": "openalex_email",
+      "message": "可免配置使用；设置 openalex_email 可帮助礼貌访问"
+    },
+    {
+      "name": "semantic_scholar",
+      "category": "paper",
+      "status": "limited",
+      "tier": 1,
+      "required_key": "semantic_scholar_api_key",
+      "message": "免 Key 模式易限流，建议设置 semantic_scholar_api_key"
+    }
   ]
 }
 ```

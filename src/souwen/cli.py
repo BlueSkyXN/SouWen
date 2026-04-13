@@ -88,7 +88,7 @@ def search_paper(
 @search_app.command("patent")
 def search_patent(
     query: str = typer.Argument(..., help="搜索关键词"),
-    sources: str = typer.Option("patentsview,pqai", "--sources", "-s", help="数据源，逗号分隔"),
+    sources: str = typer.Option("google_patents", "--sources", "-s", help="数据源，逗号分隔"),
     limit: int = typer.Option(5, "--limit", "-n", help="每个源返回数量"),
     json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),
 ) -> None:
@@ -144,7 +144,7 @@ def search_patent(
 def search_web_cmd(
     query: str = typer.Argument(..., help="搜索关键词"),
     engines: str = typer.Option(
-        "duckduckgo,yahoo,brave", "--engines", "-e", help="搜索引擎，逗号分隔"
+        "duckduckgo,bing", "--engines", "-e", help="搜索引擎，逗号分隔"
     ),
     limit: int = typer.Option(10, "--limit", "-n", help="每引擎最大结果数"),
     json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),

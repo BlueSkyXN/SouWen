@@ -85,9 +85,17 @@ for _n in _SOURCE_CONFIG:
         _SOURCE_CATEGORY[_n] = "web"
 
 _TIER_LABELS = {
-    0: "Tier 0 — 零配置（开箱即用）",
+    0: "Tier 0 — 免配置 / 公开入口",
     1: "Tier 1 — 免费 Key / 自建服务",
     2: "Tier 2 — 付费 Key",
+}
+
+_STATUS_ICONS = {
+    "ok": "✅",
+    "warning": "⚠️",
+    "limited": "⚠️",
+    "unavailable": "❌",
+    "missing_key": "⬜",
 }
 
 
@@ -101,9 +109,42 @@ def check_all() -> list[dict]:
     results: list[dict] = []
 
     for name, (field, tier) in _SOURCE_CONFIG.items():
-        if field is None:
+        if name == "openalex":
+            value = getattr(cfg, "openalex_email", None)
+            if value:
+                status = "ok"
+                message = "openalex_email 已配置"
+            else:
+                status = "ok"
+                message = "可免配置使用；设置 openalex_email 可帮助礼貌访问"
+        elif name == "semantic_scholar":
+            value = getattr(cfg, "semantic_scholar_api_key", None)
+            if value:
+                status = "ok"
+                message = "semantic_scholar_api_key 已配置"
+            else:
+                status = "limited"
+                message = "免 Key 模式易限流，建议设置 semantic_scholar_api_key"
+        elif name == "patentsview":
+            status = "unavailable"
+            message = "公开搜索端点已迁移，当前接入待修复"
+        elif name == "pqai":
+            status = "unavailable"
+            message = "匿名 API 当前返回 401，暂不建议默认使用"
+        elif name == "google_patents":
+            status = "warning"
+            message = "实验性爬虫，易受反爬影响"
+        elif name == "unpaywall":
+            value = getattr(cfg, "unpaywall_email", None)
+            if value:
+                status = "ok"
+                message = "unpaywall_email 已配置（仅 DOI OA 查找）"
+            else:
+                status = "missing_key"
+                message = "需要设置 unpaywall_email（仅支持 DOI OA 查找）"
+        elif field is None:
             status = "ok"
-            message = "无需配置，开箱即用"
+            message = "免配置；未做实时可用性探测"
         else:
             value = getattr(cfg, field, None)
             if value:
@@ -145,7 +186,7 @@ def format_report(results: list[dict]) -> str:
         tier_ok = sum(1 for r in items if r["status"] == "ok")
         lines.append(f"── {_TIER_LABELS[tier]}  ({tier_ok}/{len(items)}) ──")
         for r in items:
-            icon = "✅" if r["status"] == "ok" else "⬜"
+            icon = _STATUS_ICONS.get(r["status"], "⬜")
             cat_tag = f"[{r['category']}]"
             lines.append(f"  {icon} {r['name']:20s} {cat_tag:10s} {r['message']}")
         lines.append("")

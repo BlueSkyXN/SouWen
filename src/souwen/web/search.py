@@ -98,12 +98,12 @@ async def web_search(
 ) -> WebSearchResponse:
     """并发多引擎聚合搜索
 
-    同时查询 DuckDuckGo、Yahoo、Brave（或指定子集），
+    同时查询 DuckDuckGo、Bing（或指定子集），
     聚合结果并可选去重。
 
     Args:
         query: 搜索关键词
-        engines: 引擎列表，默认全部 ["duckduckgo", "yahoo", "brave"]
+        engines: 引擎列表，默认 ["duckduckgo", "bing"]
         max_results_per_engine: 每个引擎最大返回数
         deduplicate: 是否按 URL 去重
         **kwargs: 传递给各引擎构造函数的参数（如 use_curl_cffi）
@@ -143,9 +143,32 @@ async def web_search(
         "websurfx": WebsurfxClient,
     }
 
-    # 默认使用 3 个最稳定的免费引擎
-    # Google/Bing 爬虫风险较高，需显式指定
-    selected = engines or ["duckduckgo", "yahoo", "brave"]
+    source_map: dict[str, SourceType] = {
+        "duckduckgo": SourceType.WEB_DUCKDUCKGO,
+        "yahoo": SourceType.WEB_YAHOO,
+        "brave": SourceType.WEB_BRAVE,
+        "google": SourceType.WEB_GOOGLE,
+        "bing": SourceType.WEB_BING,
+        "searxng": SourceType.WEB_SEARXNG,
+        "tavily": SourceType.WEB_TAVILY,
+        "exa": SourceType.WEB_EXA,
+        "serper": SourceType.WEB_SERPER,
+        "brave_api": SourceType.WEB_BRAVE_API,
+        "serpapi": SourceType.WEB_SERPAPI,
+        "firecrawl": SourceType.WEB_FIRECRAWL,
+        "perplexity": SourceType.WEB_PERPLEXITY,
+        "linkup": SourceType.WEB_LINKUP,
+        "scrapingdog": SourceType.WEB_SCRAPINGDOG,
+        "startpage": SourceType.WEB_STARTPAGE,
+        "baidu": SourceType.WEB_BAIDU,
+        "mojeek": SourceType.WEB_MOJEEK,
+        "yandex": SourceType.WEB_YANDEX,
+        "whoogle": SourceType.WEB_WHOOGLE,
+        "websurfx": SourceType.WEB_WEBSURFX,
+    }
+
+    # 默认使用在当前零配置场景下更稳定的公开引擎组合。
+    selected = engines or ["duckduckgo", "bing"]
 
     tasks = []
     for name in selected:
@@ -177,7 +200,9 @@ async def web_search(
 
     return WebSearchResponse(
         query=query,
-        source=SourceType.WEB_DUCKDUCKGO,  # 聚合搜索标记为主引擎
+        source=source_map.get(selected[0], SourceType.WEB_DUCKDUCKGO)
+        if selected
+        else SourceType.WEB_DUCKDUCKGO,
         results=all_results,
         total_results=len(all_results),
     )

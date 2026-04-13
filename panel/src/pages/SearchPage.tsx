@@ -34,19 +34,43 @@ const FALLBACK_OPTIONS: Record<SearchCategory, SelectOption[]> = {
     { value: 'arxiv', label: 'arxiv', description: '预印本' },
   ],
   patent: [
-    { value: 'patentsview', label: 'patentsview', description: 'USPTO 美国专利' },
-    { value: 'pqai', label: 'pqai', description: '语义专利检索' },
+    { value: 'google_patents', label: 'google_patents', description: '实验性爬虫' },
   ],
   web: [
     { value: 'duckduckgo', label: 'duckduckgo', description: '爬虫' },
-    { value: 'brave', label: 'brave', description: '爬虫' },
+    { value: 'bing', label: 'bing', description: '爬虫' },
   ],
 }
 
 const DEFAULT_SELECTED: Record<SearchCategory, string[]> = {
   paper: ['openalex', 'arxiv'],
-  patent: ['patentsview', 'pqai'],
-  web: ['duckduckgo', 'brave'],
+  patent: ['google_patents'],
+  web: ['duckduckgo', 'bing'],
+}
+
+function resolveSourceOptions(category: SearchCategory, sources: SourceInfo[]): SelectOption[] {
+  const options = toSelectOptions(sources)
+  return options.length > 0 ? options : FALLBACK_OPTIONS[category]
+}
+
+function sanitizeSelections(
+  current: Record<SearchCategory, string[]>,
+  options: Record<SearchCategory, SelectOption[]>,
+): Record<SearchCategory, string[]> {
+  return (Object.keys(options) as SearchCategory[]).reduce(
+    (next, category) => {
+      const allowed = new Set(options[category].map((option) => option.value))
+      const selected = current[category].filter((value) => allowed.has(value))
+      if (selected.length > 0) {
+        next[category] = selected
+        return next
+      }
+
+      next[category] = DEFAULT_SELECTED[category].filter((value) => allowed.has(value))
+      return next
+    },
+    { paper: [], patent: [], web: [] } as Record<SearchCategory, string[]>,
+  )
 }
 
 type SearchState =
@@ -75,11 +99,13 @@ export function SearchPage() {
     let cancelled = false
     api.getSources().then((res) => {
       if (cancelled) return
-      setSourceOptions({
-        paper: toSelectOptions(res.paper),
-        patent: toSelectOptions(res.patent),
-        web: toSelectOptions(res.web),
-      })
+      const nextOptions = {
+        paper: resolveSourceOptions('paper', res.paper),
+        patent: resolveSourceOptions('patent', res.patent),
+        web: resolveSourceOptions('web', res.web),
+      }
+      setSourceOptions(nextOptions)
+      setSelections((prev) => sanitizeSelections(prev, nextOptions))
     }).catch((err) => { console.warn('[SouWen] Failed to load sources from API, using fallback:', err) })
     return () => { cancelled = true }
   }, [])
