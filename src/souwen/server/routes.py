@@ -37,20 +37,30 @@ async def api_search_paper(
     per_page: int = Query(10, ge=1, le=100, description="每页结果数"),
 ):
     """搜索学术论文"""
+    from souwen.exceptions import SouWenError
     from souwen.search import search_papers
 
     source_list = [s.strip() for s in sources.split(",") if s.strip()]
     try:
         results = await search_papers(q, sources=source_list, per_page=per_page)
+        succeeded = [r.source.value for r in results]
         return {
             "query": q,
             "sources": source_list,
             "results": [r.model_dump(mode="json") for r in results],
             "total": sum(len(r.results) for r in results),
+            "meta": {
+                "requested": source_list,
+                "succeeded": succeeded,
+                "failed": [s for s in source_list if s not in succeeded],
+            },
         }
+    except SouWenError:
+        logger.exception("论文搜索上游失败: q=%s sources=%s", q, source_list)
+        raise HTTPException(status_code=502, detail="所有上游数据源均不可用")
     except Exception:
-        logger.exception("论文搜索失败: q=%s sources=%s", q, source_list)
-        raise HTTPException(status_code=500, detail="搜索服务内部错误，请稍后重试")
+        logger.exception("论文搜索内部错误: q=%s", q)
+        raise
 
 
 @router.get(
@@ -64,20 +74,30 @@ async def api_search_patent(
     per_page: int = Query(10, ge=1, le=100, description="每页结果数"),
 ):
     """搜索专利"""
+    from souwen.exceptions import SouWenError
     from souwen.search import search_patents
 
     source_list = [s.strip() for s in sources.split(",") if s.strip()]
     try:
         results = await search_patents(q, sources=source_list, per_page=per_page)
+        succeeded = [r.source.value for r in results]
         return {
             "query": q,
             "sources": source_list,
             "results": [r.model_dump(mode="json") for r in results],
             "total": sum(len(r.results) for r in results),
+            "meta": {
+                "requested": source_list,
+                "succeeded": succeeded,
+                "failed": [s for s in source_list if s not in succeeded],
+            },
         }
+    except SouWenError:
+        logger.exception("专利搜索上游失败: q=%s sources=%s", q, source_list)
+        raise HTTPException(status_code=502, detail="所有上游数据源均不可用")
     except Exception:
-        logger.exception("专利搜索失败: q=%s sources=%s", q, source_list)
-        raise HTTPException(status_code=500, detail="搜索服务内部错误，请稍后重试")
+        logger.exception("专利搜索内部错误: q=%s", q)
+        raise
 
 
 @router.get("/search/web", dependencies=[Depends(rate_limit_search), Depends(check_search_auth)])
@@ -87,15 +107,19 @@ async def api_search_web(
     max_results: int = Query(10, ge=1, le=50, description="每引擎最大结果数"),
 ):
     """搜索网页"""
+    from souwen.exceptions import SouWenError
     from souwen.web.search import web_search
 
     engine_list = [e.strip() for e in engines.split(",") if e.strip()]
     try:
         resp = await web_search(q, engines=engine_list, max_results_per_engine=max_results)
         return resp.model_dump(mode="json")
+    except SouWenError:
+        logger.exception("网页搜索上游失败: q=%s engines=%s", q, engine_list)
+        raise HTTPException(status_code=502, detail="所有上游搜索引擎均不可用")
     except Exception:
-        logger.exception("网页搜索失败: q=%s engines=%s", q, engine_list)
-        raise HTTPException(status_code=500, detail="搜索服务内部错误，请稍后重试")
+        logger.exception("网页搜索内部错误: q=%s", q)
+        raise
 
 
 @router.get("/sources", dependencies=[Depends(check_search_auth)])

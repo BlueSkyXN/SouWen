@@ -94,6 +94,10 @@ general:
 server:
   # API 访问密码（设置后所有搜索端点需 Authorization: Bearer <password> 认证）
   api_password: ~
+  # CORS 允许的来源列表（默认不启用 CORS）
+  # 示例: ["http://localhost:3000", "https://my-app.example.com"]
+  # 设为 ["*"] 允许所有来源（不推荐在生产环境使用）
+  cors_origins: []
 
 # ===== WARP 代理 =====
 # 内嵌 Cloudflare WARP 代理（Docker 部署专用）

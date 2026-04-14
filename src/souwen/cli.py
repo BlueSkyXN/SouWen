@@ -517,6 +517,9 @@ def serve(
         console.print("[red]❌ 需要安装 server 依赖: pip install souwen\\[server][/red]")
         raise typer.Exit(1)
 
+    from souwen.logging_config import setup_logging
+    setup_logging()
+
     console.print(f"[bold green]🚀 启动 SouWen API 服务 → http://{host}:{port}[/bold green]")
     uvicorn.run("souwen.server.app:app", host=host, port=port, reload=reload)
 
