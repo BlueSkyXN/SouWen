@@ -38,14 +38,14 @@ class ScrapingDogClient(SouWenHttpClient):
 
     def __init__(self, api_key: str | None = None):
         config = get_config()
-        self.api_key = api_key or config.scrapingdog_api_key
+        self.api_key = api_key or config.resolve_api_key("scrapingdog", "scrapingdog_api_key")
         if not self.api_key:
             raise ConfigError(
                 "scrapingdog_api_key",
                 "ScrapingDog",
                 "https://www.scrapingdog.com/",
             )
-        super().__init__(base_url=self.BASE_URL)
+        super().__init__(base_url=self.BASE_URL, source_name="scrapingdog")
 
     async def search(
         self,

@@ -45,6 +45,7 @@ class PatSnapClient:
         self._http = SouWenHttpClient(
             base_url=self.BASE_URL,
             headers={"X-PatSnap-Key": self._api_key},
+            source_name="patsnap",
         )
         # 保守限流，避免信用额度消耗过快
         self._limiter = TokenBucketLimiter(rate=2.0, burst=5)

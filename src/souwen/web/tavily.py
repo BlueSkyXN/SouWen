@@ -38,14 +38,14 @@ class TavilyClient(SouWenHttpClient):
 
     def __init__(self, api_key: str | None = None):
         config = get_config()
-        self.api_key = api_key or config.tavily_api_key
+        self.api_key = api_key or config.resolve_api_key("tavily", "tavily_api_key")
         if not self.api_key:
             raise ConfigError(
                 "tavily_api_key",
                 "Tavily",
                 "https://app.tavily.com/",
             )
-        super().__init__(base_url=self.BASE_URL)
+        super().__init__(base_url=self.BASE_URL, source_name="tavily")
 
     async def search(
         self,

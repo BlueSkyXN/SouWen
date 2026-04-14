@@ -31,7 +31,7 @@ class DblpClient:
 
     def __init__(self) -> None:
         """初始化 DBLP 客户端。"""
-        self._client = SouWenHttpClient(base_url=_SEARCH_BASE_URL)
+        self._client = SouWenHttpClient(base_url=_SEARCH_BASE_URL, source_name="dblp")
         self._limiter = TokenBucketLimiter(rate=_DEFAULT_RPS, burst=_DEFAULT_RPS)
 
     # ------------------------------------------------------------------

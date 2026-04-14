@@ -44,7 +44,7 @@ class CoreClient:
             ConfigError: API Key 未配置。
         """
         cfg = get_config()
-        self.api_key: str = api_key or cfg.core_api_key or ""
+        self.api_key: str = api_key or cfg.resolve_api_key("core", "core_api_key") or ""
 
         if not self.api_key:
             raise ConfigError(
@@ -57,7 +57,7 @@ class CoreClient:
             "Authorization": f"Bearer {self.api_key}",
         }
 
-        self._client = SouWenHttpClient(base_url=_BASE_URL, headers=headers)
+        self._client = SouWenHttpClient(base_url=_BASE_URL, headers=headers, source_name="core")
         self._limiter = TokenBucketLimiter(rate=_DEFAULT_RPS, burst=_DEFAULT_RPS)
 
     # ------------------------------------------------------------------

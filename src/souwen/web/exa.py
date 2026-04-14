@@ -38,14 +38,14 @@ class ExaClient(SouWenHttpClient):
 
     def __init__(self, api_key: str | None = None):
         config = get_config()
-        self.api_key = api_key or config.exa_api_key
+        self.api_key = api_key or config.resolve_api_key("exa", "exa_api_key")
         if not self.api_key:
             raise ConfigError(
                 "exa_api_key",
                 "Exa",
                 "https://dashboard.exa.ai/",
             )
-        super().__init__(base_url=self.BASE_URL)
+        super().__init__(base_url=self.BASE_URL, source_name="exa")
 
     async def search(
         self,

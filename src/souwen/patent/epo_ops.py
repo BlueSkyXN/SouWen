@@ -55,6 +55,7 @@ class EpoOpsClient:
             token_url=self.TOKEN_URL,
             client_id=cfg.epo_consumer_key,
             client_secret=cfg.epo_consumer_secret,
+            source_name="epo_ops",
         )
         # EPO 免费配额 4GB/月，限流取决于用量级别
         self._limiter = TokenBucketLimiter(rate=2.0, burst=10)

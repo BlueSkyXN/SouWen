@@ -38,14 +38,14 @@ class WhoogleClient(SouWenHttpClient):
 
     def __init__(self, instance_url: str | None = None):
         config = get_config()
-        self.instance_url = (instance_url or config.whoogle_url or "").rstrip("/")
+        self.instance_url = (instance_url or config.resolve_api_key("whoogle", "whoogle_url") or "").rstrip("/")
         if not self.instance_url:
             raise ConfigError(
                 "whoogle_url",
                 "Whoogle",
                 "https://github.com/benbusby/whoogle-search",
             )
-        super().__init__(base_url=self.instance_url)
+        super().__init__(base_url=self.instance_url, source_name="whoogle")
 
     async def search(
         self,

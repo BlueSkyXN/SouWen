@@ -46,7 +46,7 @@ class ArxivClient:
 
     def __init__(self) -> None:
         """初始化 arXiv 客户端。"""
-        self._client = SouWenHttpClient(base_url=_BASE_URL)
+        self._client = SouWenHttpClient(base_url=_BASE_URL, source_name="arxiv")
         # 每 3 秒 1 次请求
         self._limiter = TokenBucketLimiter(rate=_RATE_LIMIT_RPS, burst=1.0)
 

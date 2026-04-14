@@ -49,13 +49,15 @@ class SemanticScholarClient:
             api_key: Semantic Scholar API Key。未提供时从全局配置读取。
         """
         cfg = get_config()
-        self.api_key: str | None = api_key or getattr(cfg, "semantic_scholar_api_key", None)
+        self.api_key: str | None = api_key or cfg.resolve_api_key(
+            "semantic_scholar", "semantic_scholar_api_key"
+        )
 
         headers: dict[str, str] = {}
         if self.api_key:
             headers["x-api-key"] = self.api_key
 
-        self._client = SouWenHttpClient(base_url=_BASE_URL, headers=headers)
+        self._client = SouWenHttpClient(base_url=_BASE_URL, headers=headers, source_name="semantic_scholar")
 
         # 根据是否有 Key 选择限流策略
         if self.api_key:

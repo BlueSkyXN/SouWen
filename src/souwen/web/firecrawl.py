@@ -38,14 +38,14 @@ class FirecrawlClient(SouWenHttpClient):
 
     def __init__(self, api_key: str | None = None):
         config = get_config()
-        self.api_key = api_key or config.firecrawl_api_key
+        self.api_key = api_key or config.resolve_api_key("firecrawl", "firecrawl_api_key")
         if not self.api_key:
             raise ConfigError(
                 "firecrawl_api_key",
                 "Firecrawl",
                 "https://www.firecrawl.dev/",
             )
-        super().__init__(base_url=self.BASE_URL)
+        super().__init__(base_url=self.BASE_URL, source_name="firecrawl")
         self.headers["Authorization"] = f"Bearer {self.api_key}"
 
     async def search(

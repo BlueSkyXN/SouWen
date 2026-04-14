@@ -49,7 +49,7 @@ class PatentsViewClient:
     RATE_LIMIT = 0.75  # 45 req/min
 
     def __init__(self) -> None:
-        self._http = SouWenHttpClient(base_url=self.BASE_URL)
+        self._http = SouWenHttpClient(base_url=self.BASE_URL, source_name="patentsview")
         self._limiter = TokenBucketLimiter(rate=self.RATE_LIMIT, burst=3)
 
     async def __aenter__(self) -> PatentsViewClient:

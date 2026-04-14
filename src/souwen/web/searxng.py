@@ -38,14 +38,14 @@ class SearXNGClient(SouWenHttpClient):
 
     def __init__(self, instance_url: str | None = None):
         config = get_config()
-        self.instance_url = (instance_url or config.searxng_url or "").rstrip("/")
+        self.instance_url = (instance_url or config.resolve_api_key("searxng", "searxng_url") or "").rstrip("/")
         if not self.instance_url:
             raise ConfigError(
                 "searxng_url",
                 "SearXNG",
                 "https://docs.searxng.org/admin/installation.html",
             )
-        super().__init__(base_url=self.instance_url)
+        super().__init__(base_url=self.instance_url, source_name="searxng")
 
     async def search(
         self,
