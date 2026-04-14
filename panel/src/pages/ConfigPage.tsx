@@ -1,14 +1,139 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { m } from 'framer-motion'
-import { Info, RefreshCw, Shield, ShieldOff, Loader2 } from 'lucide-react'
+import { Info, RefreshCw, Shield, ShieldOff, Loader2, Plug } from 'lucide-react'
 import { api } from '../services/api'
 import { useNotificationStore } from '../stores/notificationStore'
 import { Card } from '../components/common/Card'
 import { TableSkeleton } from '../components/common/Skeleton'
 import { formatError } from '../lib/errors'
-import type { ConfigResponse, WarpStatus } from '../types'
+import type { ConfigResponse, WarpStatus, HttpBackendResponse } from '../types'
 import styles from './ConfigPage.module.scss'
+
+const SCRAPER_ENGINES = [
+  'duckduckgo', 'yahoo', 'brave', 'google', 'bing',
+  'startpage', 'baidu', 'mojeek', 'yandex', 'google_patents',
+]
+
+const BACKEND_OPTIONS = ['auto', 'curl_cffi', 'httpx'] as const
+
+function HttpBackendCard() {
+  const { t } = useTranslation()
+  const addToast = useNotificationStore((s) => s.addToast)
+  const [data, setData] = useState<HttpBackendResponse | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [updating, setUpdating] = useState<string | null>(null)
+
+  const fetchData = useCallback(async () => {
+    try {
+      const res = await api.getHttpBackend()
+      setData(res)
+    } catch {
+      setData(null)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { void fetchData() }, [fetchData])
+
+  const handleUpdate = useCallback(async (params: {
+    default?: string
+    source?: string
+    backend?: string
+  }) => {
+    const key = params.source || 'default'
+    setUpdating(key)
+    try {
+      const res = await api.updateHttpBackend(params)
+      setData((prev) => prev ? {
+        ...prev,
+        default: res.default,
+        overrides: res.overrides,
+      } : prev)
+      addToast('success', t('httpBackend.updateSuccess'))
+    } catch (err) {
+      addToast('error', t('httpBackend.updateFailed', { message: formatError(err) }))
+    } finally {
+      setUpdating(null)
+    }
+  }, [addToast, t])
+
+  if (loading || !data) return null
+
+  return (
+    <Card className={styles.warpCard}>
+      <div className={styles.warpHeader}>
+        <div className={styles.warpTitle}>
+          <Plug size={18} />
+          {t('httpBackend.title')}
+        </div>
+        <span className={`${styles.warpBadge} ${data.curl_cffi_available ? styles.enabled : styles.error}`}>
+          {data.curl_cffi_available ? t('httpBackend.curlAvailable') : t('httpBackend.curlNotInstalled')}
+        </span>
+      </div>
+
+      <div className={styles.infoNote} style={{ marginBottom: 12 }}>
+        <Info size={14} />
+        <span>{t('httpBackend.subtitle')}</span>
+      </div>
+
+      <table className={styles.table} style={{ marginBottom: 8 }}>
+        <thead>
+          <tr>
+            <th>{t('httpBackend.source')}</th>
+            <th>{t('httpBackend.backend')}</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td className={styles.configKey}><strong>{t('httpBackend.globalDefault')}</strong></td>
+            <td>
+              <select
+                value={data.default}
+                onChange={(e) => void handleUpdate({ default: e.target.value })}
+                disabled={updating === 'default'}
+              >
+                {BACKEND_OPTIONS.map((opt) => (
+                  <option key={opt} value={opt}>{t(`httpBackend.${opt}`)}</option>
+                ))}
+              </select>
+            </td>
+          </tr>
+          {SCRAPER_ENGINES.map((engine) => {
+            const override = data.overrides[engine]
+            return (
+              <tr key={engine}>
+                <td className={styles.configKey}>{engine}</td>
+                <td>
+                  <select
+                    value={override || 'auto'}
+                    onChange={(e) => {
+                      const val = e.target.value
+                      void handleUpdate({ source: engine, backend: val })
+                    }}
+                    disabled={updating === engine}
+                  >
+                    <option value="auto">
+                      {t('httpBackend.auto')} ({t('httpBackend.default')})
+                    </option>
+                    <option value="curl_cffi">{t('httpBackend.curl_cffi')}</option>
+                    <option value="httpx">{t('httpBackend.httpx')}</option>
+                  </select>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+
+      <div className={styles.infoNote}>
+        <Info size={14} />
+        <span>{t('httpBackend.runtimeNote')}</span>
+      </div>
+    </Card>
+  )
+}
 
 function WarpCard() {
   const { t } = useTranslation()
@@ -241,6 +366,8 @@ export function ConfigPage() {
       </Card>
 
       <WarpCard />
+
+      <HttpBackendCard />
 
       <div className={styles.tableWrap}>
         <table className={styles.table}>

@@ -283,6 +283,12 @@ general:
   timeout: 30
   max_retries: 3
   data_dir: ~/.local/share/souwen
+  # HTTP 后端: auto | curl_cffi | httpx
+  default_http_backend: auto
+  # http_backend:
+  #   duckduckgo: curl_cffi
+  #   google_patents: httpx
+  http_backend: {}
 
 # ===== 服务 =====
 server:
@@ -297,6 +303,78 @@ server:
 
     dest.write_text(template, encoding="utf-8")
     console.print("[green]✅ 已生成 souwen.yaml 配置模板[/green]")
+
+
+@config_app.command("backend")
+def config_backend(
+    default: str | None = typer.Option(None, help="设置全局默认 HTTP 后端: auto | curl_cffi | httpx"),
+    set_source: str | None = typer.Option(
+        None, "--set", help="设置指定源的 HTTP 后端，格式: source=backend (如 duckduckgo=httpx)"
+    ),
+) -> None:
+    """查看/修改 HTTP 后端配置（仅影响爬虫源）"""
+    from souwen.config import get_config
+    from souwen.scraper.base import _HAS_CURL_CFFI
+
+    _VALID = {"auto", "curl_cffi", "httpx"}
+    _SCRAPER_ENGINES = [
+        "duckduckgo", "yahoo", "brave", "google", "bing",
+        "startpage", "baidu", "mojeek", "yandex", "google_patents",
+    ]
+
+    cfg = get_config()
+    modified = False
+
+    if default is not None:
+        if default not in _VALID:
+            console.print(f"[red]无效的后端: {default}，可选: {', '.join(_VALID)}[/red]")
+            raise typer.Exit(1)
+        cfg.default_http_backend = default
+        modified = True
+        console.print(f"[green]全局默认已设为: {default}[/green]")
+
+    if set_source is not None:
+        parts = set_source.split("=", 1)
+        if len(parts) != 2:
+            console.print("[red]格式错误，应为: source=backend (如 duckduckgo=httpx)[/red]")
+            raise typer.Exit(1)
+        source, backend = parts[0].strip(), parts[1].strip()
+        if source not in _SCRAPER_ENGINES:
+            console.print(f"[red]未知的爬虫源: {source}，可选: {', '.join(_SCRAPER_ENGINES)}[/red]")
+            raise typer.Exit(1)
+        if backend not in _VALID:
+            console.print(f"[red]无效的后端: {backend}，可选: {', '.join(_VALID)}[/red]")
+            raise typer.Exit(1)
+        if backend == "auto":
+            cfg.http_backend.pop(source, None)
+        else:
+            cfg.http_backend[source] = backend
+        modified = True
+        console.print(f"[green]{source} 已设为: {backend}[/green]")
+
+    # 显示当前配置
+    table = Table(title="🔌 HTTP 后端配置", show_lines=True)
+    table.add_column("源", style="cyan")
+    table.add_column("后端", style="green")
+    table.add_column("状态", style="dim")
+
+    table.add_row(
+        "[bold]全局默认[/bold]",
+        cfg.default_http_backend,
+        f"curl_cffi {'✅ 可用' if _HAS_CURL_CFFI else '❌ 未安装'}",
+    )
+    for engine in _SCRAPER_ENGINES:
+        override = cfg.http_backend.get(engine)
+        effective = override or cfg.default_http_backend
+        display = f"{override} [dim](覆盖)[/dim]" if override else f"{effective} [dim](默认)[/dim]"
+        table.add_row(engine, display, "")
+
+    console.print(table)
+
+    if modified:
+        console.print(
+            "[yellow]⚠ 运行时修改仅当前进程有效。如需持久化请修改 souwen.yaml[/yellow]"
+        )
 
 
 # ---------------------------------------------------------------------------

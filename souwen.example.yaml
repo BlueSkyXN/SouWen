@@ -79,6 +79,16 @@ general:
   max_retries: 3
   # 数据存储目录
   data_dir: ~/.local/share/souwen
+  # 全局默认 HTTP 后端：auto（自动选择）| curl_cffi（TLS 指纹伪装）| httpx（标准 HTTP）
+  # auto = 爬虫源优先 curl_cffi，API 源使用 httpx
+  default_http_backend: auto
+  # 按源单独覆盖 HTTP 后端（仅对爬虫源 BaseScraper 生效）
+  # 环境变量：SOUWEN_HTTP_BACKEND='{"duckduckgo":"httpx","google_patents":"curl_cffi"}'
+  # http_backend:
+  #   duckduckgo: curl_cffi
+  #   google_patents: curl_cffi
+  #   bing: httpx
+  http_backend: {}
 
 # ===== 服务 =====
 server:

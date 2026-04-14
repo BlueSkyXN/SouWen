@@ -10,14 +10,16 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import random
 from pathlib import Path
 from functools import lru_cache
+from typing import Literal
 
 from dotenv import load_dotenv
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 logger = logging.getLogger("souwen.config")
 
@@ -75,6 +77,12 @@ class SouWenConfig(BaseModel):
     max_retries: int = 3
     data_dir: str = "~/.local/share/souwen"
 
+    # ===== HTTP 后端 =====
+    # 全局默认 HTTP 后端：auto（自动选择）| curl_cffi | httpx
+    default_http_backend: str = "auto"
+    # 按源覆盖，例如 {"duckduckgo": "httpx", "google_patents": "curl_cffi"}
+    http_backend: dict[str, str] = Field(default_factory=dict)
+
     # ===== 服务 =====
     api_password: str | None = None  # API 访问密码（Bearer Token）
 
@@ -94,6 +102,18 @@ class SouWenConfig(BaseModel):
         if self.proxy_pool:
             return random.choice(self.proxy_pool)
         return self.proxy
+
+    def get_http_backend(self, source: str) -> Literal["auto", "curl_cffi", "httpx"]:
+        """获取指定源的 HTTP 后端选择。
+
+        优先使用 per-source 覆盖，回退到全局默认。
+        """
+        _VALID: set[str] = {"auto", "curl_cffi", "httpx"}
+        val = self.http_backend.get(source, self.default_http_backend)
+        if val not in _VALID:
+            logger.warning("无效的 http_backend 值 %r（源=%s），回退到 auto", val, source)
+            return "auto"
+        return val  # type: ignore[return-value]
 
 
 def _load_yaml_config() -> dict:
@@ -174,6 +194,18 @@ def get_config() -> SouWenConfig:
             # proxy_pool: 逗号分隔字符串 → list[str]
             elif field_name == "proxy_pool":
                 val = [p.strip() for p in val.split(",") if p.strip()]
+            # http_backend: JSON 字符串 → dict[str, str]
+            elif field_name == "http_backend":
+                try:
+                    parsed = json.loads(val)
+                    if isinstance(parsed, dict):
+                        val = parsed
+                    else:
+                        logger.warning("环境变量 %s 应为 JSON 对象，已忽略", env_key)
+                        continue
+                except json.JSONDecodeError:
+                    logger.warning("环境变量 %s JSON 解析失败，已忽略", env_key)
+                    continue
             kwargs[field_name] = val
 
     return SouWenConfig(**kwargs)
@@ -238,6 +270,8 @@ general:
   timeout: 30
   max_retries: 3
   data_dir: ~/.local/share/souwen
+  default_http_backend: auto
+  http_backend: {}
 
 # ===== 服务 =====
 server:

@@ -45,3 +45,9 @@ class DoctorResponse(BaseModel):
     total: int
     ok: int
     sources: list[dict]
+
+
+class HttpBackendResponse(BaseModel):
+    default: str = Field(examples=["auto"])
+    overrides: dict[str, str] = Field(default_factory=dict)
+    curl_cffi_available: bool

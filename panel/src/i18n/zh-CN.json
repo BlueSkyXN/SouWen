@@ -147,6 +147,25 @@
     "ownerPython": "Python (运行时)",
     "ownerNone": "未托管"
   },
+  "httpBackend": {
+    "title": "HTTP 后端配置",
+    "subtitle": "仅对爬虫源（BaseScraper）生效，API 源始终使用 httpx",
+    "globalDefault": "全局默认",
+    "source": "数据源",
+    "backend": "HTTP 后端",
+    "status": "状态",
+    "override": "覆盖",
+    "default": "默认",
+    "auto": "自动选择",
+    "curl_cffi": "curl_cffi (TLS 伪装)",
+    "httpx": "httpx (标准 HTTP)",
+    "curlAvailable": "curl_cffi 可用",
+    "curlNotInstalled": "curl_cffi 未安装",
+    "updateSuccess": "HTTP 后端配置已更新",
+    "updateFailed": "更新失败: {{message}}",
+    "fetchFailed": "获取 HTTP 后端配置失败",
+    "runtimeNote": "运行时修改仅当前进程有效，如需持久化请修改 souwen.yaml"
+  },
   "common": {
     "loading": "加载中...",
     "error": "出错了",
