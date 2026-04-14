@@ -1,0 +1,2 @@
+# Treat the single-file panel build as binary in diffs
+src/souwen/server/panel.html -diff linguist-generated

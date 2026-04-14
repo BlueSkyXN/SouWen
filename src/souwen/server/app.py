@@ -8,6 +8,7 @@ from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.responses import HTMLResponse
+from starlette.middleware.gzip import GZipMiddleware
 
 from souwen import __version__
 from souwen.config import ensure_config_file, get_config
@@ -17,6 +18,7 @@ from souwen.server.schemas import HealthResponse
 logger = logging.getLogger("souwen.server")
 
 _PANEL_HTML = Path(__file__).parent / "panel.html"
+_panel_cache: str | None = None
 
 
 @asynccontextmanager
@@ -50,6 +52,7 @@ app = FastAPI(
     version=__version__,
     lifespan=lifespan,
 )
+app.add_middleware(GZipMiddleware, minimum_size=1000)
 app.include_router(router, prefix="/api/v1")
 app.include_router(admin_router, prefix="/api/v1/admin")
 
@@ -61,7 +64,11 @@ async def health():
 
 @app.get("/panel", response_class=HTMLResponse, include_in_schema=False)
 async def panel():
-    """管理面板"""
-    if _PANEL_HTML.is_file():
-        return HTMLResponse(_PANEL_HTML.read_text(encoding="utf-8"))
-    return HTMLResponse("<h1>Panel not found</h1>", status_code=404)
+    """管理面板（首次访问后缓存在内存中）"""
+    global _panel_cache
+    if _panel_cache is None:
+        if _PANEL_HTML.is_file():
+            _panel_cache = _PANEL_HTML.read_text(encoding="utf-8")
+        else:
+            return HTMLResponse("<h1>Panel not found</h1>", status_code=404)
+    return HTMLResponse(_panel_cache)
