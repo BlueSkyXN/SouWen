@@ -26,7 +26,7 @@ from souwen.patent.uspto_odp import UsptoOdpClient
 from souwen.patent.the_lens import TheLensClient
 from souwen.patent.cnipa import CnipaClient
 from souwen.patent.patsnap import PatSnapClient
-from souwen.patent.google_patents import GooglePatentsClient
+from souwen.scraper.google_patents_scraper import GooglePatentsScraper
 
 # ── Web 搜索 ───────────────────────────────────────────────
 from souwen.web.search import web_search  # re-export
@@ -196,7 +196,7 @@ _PATENT_SOURCES: dict[str, Any] = {
         **kw,
     ),
     "google_patents": lambda q, n, **kw: _run_client(
-        GooglePatentsClient,
+        GooglePatentsScraper,
         "search",
         query=q,
         num_results=n,

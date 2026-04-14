@@ -1,5 +1,6 @@
 # SouWen 核心依赖 — 用于 Nuitka/PyInstaller 打包构建
 httpx[socks]>=0.27.0
+curl-cffi>=0.14.0
 pydantic>=2.0
 tenacity>=8.0
 python-dotenv>=1.0

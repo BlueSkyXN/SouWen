@@ -108,6 +108,18 @@ def check_all() -> list[dict]:
     cfg = get_config()
     results: list[dict] = []
 
+    # 检测 curl_cffi（TLS 指纹伪装）可用性，影响所有爬虫引擎
+    try:
+        import curl_cffi  # noqa: F401
+        _has_tls_impersonation = True
+    except ImportError:
+        _has_tls_impersonation = False
+
+    _SCRAPER_ENGINES = {
+        "duckduckgo", "yahoo", "brave", "google", "bing",
+        "startpage", "baidu", "mojeek", "yandex",
+    }
+
     for name, (field, tier) in _SOURCE_CONFIG.items():
         if name == "openalex":
             value = getattr(cfg, "openalex_email", None)
@@ -143,8 +155,13 @@ def check_all() -> list[dict]:
                 status = "missing_key"
                 message = "需要设置 unpaywall_email（仅支持 DOI OA 查找）"
         elif field is None:
-            status = "ok"
-            message = "免配置；未做实时可用性探测"
+            # 爬虫引擎需要 curl_cffi 才能正常工作
+            if name in _SCRAPER_ENGINES and not _has_tls_impersonation:
+                status = "warning"
+                message = "curl_cffi 未安装，TLS 指纹伪装不可用，爬虫可能被拦截"
+            else:
+                status = "ok"
+                message = "免配置；未做实时可用性探测"
         else:
             value = getattr(cfg, field, None)
             if value:

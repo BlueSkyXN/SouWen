@@ -28,7 +28,8 @@ RUN ARCH=$(dpkg --print-architecture) && \
 WORKDIR /app
 
 RUN git clone --depth 1 --branch "${SOUWEN_REF}" "${SOUWEN_REPO}" . \
-    && pip install ".[server]"
+    && pip install ".[server]" \
+    && python -c "import curl_cffi; print('curl_cffi OK')"
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN cp scripts/warp-init.sh /usr/local/bin/warp-init.sh 2>/dev/null || true

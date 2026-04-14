@@ -39,7 +39,8 @@ RUN pip install ".[server]"
 
 # 再复制全部源码（仅源码变更时重新执行此层）
 COPY src/ ./src/
-RUN pip install --no-deps ".[server]"
+RUN pip install --no-deps ".[server]" \
+    && python -c "import curl_cffi; print('curl_cffi OK')"
 
 # 复制剩余文件
 COPY cli.py souwen.example.yaml ./
