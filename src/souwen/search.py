@@ -227,7 +227,11 @@ async def search_papers(
     """
     selected = sources or _DEFAULT_PAPER_SOURCES
     tasks: list[tuple[str, Any]] = []
+    cfg = get_config()
     for name in selected:
+        if not cfg.is_source_enabled(name):
+            logger.info("数据源 %s 已禁用，跳过", name)
+            continue
         factory = _PAPER_SOURCES.get(name)
         if factory is None:
             logger.warning("未知论文数据源: %s，跳过", name)
@@ -267,7 +271,11 @@ async def search_patents(
     """
     selected = sources or _DEFAULT_PATENT_SOURCES
     tasks: list[tuple[str, Any]] = []
+    cfg = get_config()
     for name in selected:
+        if not cfg.is_source_enabled(name):
+            logger.info("数据源 %s 已禁用，跳过", name)
+            continue
         factory = _PATENT_SOURCES.get(name)
         if factory is None:
             logger.warning("未知专利数据源: %s，跳过", name)

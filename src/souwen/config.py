@@ -33,6 +33,31 @@ except ImportError:  # pragma: no cover
 load_dotenv()
 
 
+class SourceChannelConfig(BaseModel):
+    """单源频道配置
+
+    控制单个数据源的行为。所有字段都有合理默认值，
+    只需覆盖想要自定义的部分。
+
+    Attributes:
+        enabled: 是否启用此数据源
+        proxy: 代理策略 — inherit(继承全局) | none(不用代理) | warp(走WARP) | 显式URL
+        http_backend: HTTP 后端 — auto | curl_cffi | httpx
+        base_url: 覆盖数据源的基础 URL
+        api_key: 覆盖 API Key（优先于全局 flat key）
+        headers: 附加请求头（合并到默认头之上）
+        params: 附加参数（传递给源的搜索方法）
+    """
+
+    enabled: bool = True
+    proxy: str = "inherit"
+    http_backend: str = "auto"
+    base_url: str | None = None
+    api_key: str | None = None
+    headers: dict[str, str] = Field(default_factory=dict)
+    params: dict[str, str | int | float | bool] = Field(default_factory=dict)
+
+
 class SouWenConfig(BaseModel):
     """全局配置"""
 
@@ -92,6 +117,9 @@ class SouWenConfig(BaseModel):
     warp_socks_port: int = 1080
     warp_endpoint: str | None = None
 
+    # ===== 数据源频道配置 =====
+    sources: dict[str, SourceChannelConfig] = Field(default_factory=dict)
+
     @property
     def data_path(self) -> Path:
         """返回展开后的数据目录路径"""
@@ -114,6 +142,76 @@ class SouWenConfig(BaseModel):
             logger.warning("无效的 http_backend 值 %r（源=%s），回退到 auto", val, source)
             return "auto"
         return val  # type: ignore[return-value]
+
+    # ── 数据源频道配置解析 ──────────────────────────────────
+
+    def get_source_config(self, name: str) -> SourceChannelConfig:
+        """获取指定源的频道配置，不存在则返回默认值"""
+        return self.sources.get(name, SourceChannelConfig())
+
+    def is_source_enabled(self, name: str) -> bool:
+        """检查数据源是否启用"""
+        return self.get_source_config(name).enabled
+
+    def resolve_proxy(self, source: str) -> str | None:
+        """解析数据源的代理地址
+
+        优先级：频道配置 proxy > 全局代理
+        支持 inherit | none | warp | 显式 URL
+        """
+        sc = self.get_source_config(source)
+        mode = sc.proxy.strip().lower()
+        if mode == "inherit":
+            return self.get_proxy()
+        if mode == "none":
+            return None
+        if mode == "warp":
+            return f"socks5://localhost:{self.warp_socks_port}"
+        # 显式 proxy URL
+        return sc.proxy
+
+    def resolve_backend(self, source: str) -> Literal["auto", "curl_cffi", "httpx"]:
+        """解析数据源的 HTTP 后端
+
+        优先级：频道 http_backend > 旧版 http_backend dict > 全局 default_http_backend
+        """
+        _VALID: set[str] = {"auto", "curl_cffi", "httpx"}
+        sc = self.get_source_config(source)
+        if sc.http_backend != "auto":
+            if sc.http_backend in _VALID:
+                return sc.http_backend  # type: ignore[return-value]
+            logger.warning(
+                "无效的 sources.%s.http_backend=%r，回退到 auto", source, sc.http_backend
+            )
+        # 回退到旧版 per-source dict → 全局默认
+        return self.get_http_backend(source)
+
+    def resolve_api_key(self, source: str, legacy_field: str | None = None) -> str | None:
+        """解析 API Key：频道配置 > 旧版 flat key
+
+        Args:
+            source: 数据源名称
+            legacy_field: 旧版 SouWenConfig 字段名（如 "tavily_api_key"）
+        """
+        sc = self.get_source_config(source)
+        if sc.api_key:
+            return sc.api_key
+        if legacy_field:
+            return getattr(self, legacy_field, None)
+        return None
+
+    def resolve_base_url(self, source: str, default: str = "") -> str:
+        """解析基础 URL：频道覆盖 > 默认值"""
+        sc = self.get_source_config(source)
+        return sc.base_url or default
+
+    def resolve_headers(self, source: str) -> dict[str, str]:
+        """获取频道自定义请求头"""
+        return dict(self.get_source_config(source).headers)
+
+    def resolve_params(self, source: str) -> dict[str, str | int | float | bool]:
+        """获取频道自定义参数"""
+        return dict(self.get_source_config(source).params)
 
 
 def _load_yaml_config() -> dict:
@@ -147,7 +245,10 @@ def _load_yaml_config() -> dict:
     valid_fields = set(SouWenConfig.model_fields)
     flat: dict = {}
     for key, values in raw.items():
-        if isinstance(values, dict):
+        if key == "sources" and isinstance(values, dict):
+            # sources 是嵌套结构，直接传递给 Pydantic 解析
+            flat["sources"] = values
+        elif isinstance(values, dict):
             # 嵌套分组结构: paper: {openalex_email: ...}
             for k, v in values.items():
                 if k in valid_fields:
@@ -196,6 +297,18 @@ def get_config() -> SouWenConfig:
                 val = [p.strip() for p in val.split(",") if p.strip()]
             # http_backend: JSON 字符串 → dict[str, str]
             elif field_name == "http_backend":
+                try:
+                    parsed = json.loads(val)
+                    if isinstance(parsed, dict):
+                        val = parsed
+                    else:
+                        logger.warning("环境变量 %s 应为 JSON 对象，已忽略", env_key)
+                        continue
+                except json.JSONDecodeError:
+                    logger.warning("环境变量 %s JSON 解析失败，已忽略", env_key)
+                    continue
+            # sources: JSON 字符串 → dict[str, SourceChannelConfig]
+            elif field_name == "sources":
                 try:
                     parsed = json.loads(val)
                     if isinstance(parsed, dict):
@@ -285,6 +398,24 @@ warp:
   warp_mode: auto         # auto | wireproxy | kernel
   warp_socks_port: 1080
   warp_endpoint: ~        # 自定义 Endpoint (如 162.159.192.1:4500)
+
+# ===== 数据源频道配置 =====
+# 按源名称配置，覆盖全局默认值。
+# 可用字段: enabled, proxy, http_backend, base_url, api_key, headers, params
+# proxy 取值: inherit(继承全局) | none | warp | socks5://... | http://...
+# 示例:
+# sources:
+#   duckduckgo:
+#     enabled: true
+#     proxy: warp
+#     http_backend: curl_cffi
+#   tavily:
+#     api_key: tvly-xxxx
+#     params:
+#       search_depth: advanced
+#   google_patents:
+#     enabled: false
+sources: {}
 """
 
 

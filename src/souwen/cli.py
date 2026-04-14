@@ -377,6 +377,108 @@ def config_backend(
         )
 
 
+@config_app.command("source")
+def config_source(
+    name: str | None = typer.Argument(None, help="数据源名称（留空列出全部）"),
+    enable: bool | None = typer.Option(None, "--enable/--disable", help="启用/禁用数据源"),
+    proxy: str | None = typer.Option(None, help="代理: inherit | none | warp | URL"),
+    backend: str | None = typer.Option(None, "--backend", help="HTTP 后端: auto | curl_cffi | httpx"),
+    base_url: str | None = typer.Option(None, "--base-url", help="覆盖基础 URL"),
+    api_key: str | None = typer.Option(None, "--api-key", help="覆盖 API Key"),
+) -> None:
+    """查看/修改数据源频道配置"""
+    from souwen.config import SourceChannelConfig, get_config
+    from souwen.source_registry import get_all_sources, is_known_source
+
+    cfg = get_config()
+
+    if name is None:
+        # 列出全部数据源配置
+        all_sources = get_all_sources()
+        table = Table(title="📡 数据源频道配置", show_lines=True)
+        table.add_column("源", style="cyan")
+        table.add_column("类别", style="yellow")
+        table.add_column("启用", justify="center")
+        table.add_column("代理", style="dim")
+        table.add_column("后端", style="dim")
+        table.add_column("自定义", style="dim")
+
+        for src_name, meta in all_sources.items():
+            sc = cfg.get_source_config(src_name)
+            enabled_icon = "✅" if sc.enabled else "🚫"
+            customs = []
+            if sc.base_url:
+                customs.append("base_url")
+            if sc.api_key:
+                customs.append("api_key")
+            if sc.headers:
+                customs.append("headers")
+            if sc.params:
+                customs.append("params")
+            table.add_row(
+                src_name,
+                meta.category,
+                enabled_icon,
+                sc.proxy,
+                sc.http_backend,
+                ", ".join(customs) if customs else "-",
+            )
+
+        console.print(table)
+        return
+
+    if not is_known_source(name):
+        console.print(f"[red]未知数据源: {name}[/red]")
+        raise typer.Exit(1)
+
+    modified = False
+    sc = cfg.sources.get(name, SourceChannelConfig())
+
+    if enable is not None:
+        sc.enabled = enable
+        modified = True
+    if proxy is not None:
+        sc.proxy = proxy
+        modified = True
+    if backend is not None:
+        _VALID = {"auto", "curl_cffi", "httpx"}
+        if backend not in _VALID:
+            console.print(f"[red]无效的后端: {backend}，可选: {', '.join(_VALID)}[/red]")
+            raise typer.Exit(1)
+        sc.http_backend = backend
+        modified = True
+    if base_url is not None:
+        sc.base_url = base_url if base_url else None
+        modified = True
+    if api_key is not None:
+        sc.api_key = api_key if api_key else None
+        modified = True
+
+    if modified:
+        cfg.sources[name] = sc
+        console.print(f"[green]✅ {name} 配置已更新[/green]")
+        console.print(
+            "[yellow]⚠ 运行时修改仅当前进程有效。如需持久化请修改 souwen.yaml[/yellow]"
+        )
+
+    # 显示当前配置
+    from souwen.source_registry import get_source
+    meta = get_source(name)
+    console.print(f"\n[bold]{name}[/bold] ({meta.description})")
+    console.print(f"  类别: {meta.category}  Tier: {meta.tier}")
+    console.print(f"  启用: {'✅' if sc.enabled else '🚫'}")
+    console.print(f"  代理: {sc.proxy}")
+    console.print(f"  后端: {sc.http_backend}")
+    if sc.base_url:
+        console.print(f"  Base URL: {sc.base_url}")
+    has_key = bool(cfg.resolve_api_key(name, meta.config_field))
+    console.print(f"  API Key: {'✅ 已配置' if has_key else '⬜ 未配置'}")
+    if sc.headers:
+        console.print(f"  Headers: {json.dumps(sc.headers)}")
+    if sc.params:
+        console.print(f"  Params: {json.dumps(sc.params)}")
+
+
 # ---------------------------------------------------------------------------
 # sources 命令
 # ---------------------------------------------------------------------------

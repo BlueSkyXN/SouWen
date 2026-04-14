@@ -53,13 +53,26 @@ class SouWenHttpClient:
         headers: dict[str, str] | None = None,
         timeout: int | None = None,
         max_retries: int | None = None,
+        source_name: str | None = None,
     ):
         config = get_config()
+
+        # 频道配置可覆盖 base_url
+        if source_name:
+            base_url = config.resolve_base_url(source_name, default=base_url)
+            proxy = config.resolve_proxy(source_name)
+            channel_headers = config.resolve_headers(source_name)
+        else:
+            proxy = config.get_proxy()
+            channel_headers = {}
+
         self.base_url = base_url
         self.timeout = timeout or config.timeout
         self.max_retries = max_retries or config.max_retries
 
         default_headers = {"User-Agent": DEFAULT_USER_AGENT}
+        if channel_headers:
+            default_headers.update(channel_headers)
         if headers:
             default_headers.update(headers)
 
@@ -67,7 +80,7 @@ class SouWenHttpClient:
             base_url=base_url,
             headers=default_headers,
             timeout=httpx.Timeout(self.timeout),
-            proxy=config.get_proxy(),
+            proxy=proxy,
             follow_redirects=True,
         )
 

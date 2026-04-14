@@ -171,7 +171,11 @@ async def web_search(
     selected = engines or ["duckduckgo", "bing"]
 
     tasks = []
+    cfg = get_config()
     for name in selected:
+        if not cfg.is_source_enabled(name):
+            logger.info("引擎 %s 已禁用，跳过", name)
+            continue
         cls = engine_map.get(name)
         if cls is None:
             logger.warning("未知引擎: %s，跳过", name)

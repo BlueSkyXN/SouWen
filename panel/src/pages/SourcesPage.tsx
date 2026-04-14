@@ -1,7 +1,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { m } from 'framer-motion'
-import { RefreshCw, CheckCircle2, XCircle } from 'lucide-react'
+import { RefreshCw, CheckCircle2, XCircle, Ban, ToggleLeft, ToggleRight } from 'lucide-react'
 import { api } from '../services/api'
 import { useNotificationStore } from '../stores/notificationStore'
 import { Badge } from '../components/common/Badge'
@@ -12,11 +12,18 @@ import { categoryBadgeColor, categoryLabel } from '../lib/ui'
 import type { DoctorResponse, DoctorSource } from '../types'
 import styles from './SourcesPage.module.scss'
 
+function StatusIcon({ status }: { status: string }) {
+  if (status === 'ok') return <CheckCircle2 size={18} style={{ color: 'var(--success)' }} />
+  if (status === 'disabled') return <Ban size={18} style={{ color: 'var(--muted)' }} />
+  return <XCircle size={18} style={{ color: 'var(--error)' }} />
+}
+
 export function SourcesPage() {
   const { t } = useTranslation()
   const [doctor, setDoctor] = useState<DoctorResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState(false)
+  const [toggling, setToggling] = useState<string | null>(null)
   const addToast = useNotificationStore((s) => s.addToast)
 
   const fetchData = useCallback(async () => {
@@ -36,6 +43,19 @@ export function SourcesPage() {
   useEffect(() => {
     void fetchData()
   }, [fetchData])
+
+  const handleToggle = useCallback(async (name: string, currentEnabled: boolean) => {
+    setToggling(name)
+    try {
+      await api.updateSourceConfig(name, { enabled: !currentEnabled })
+      await fetchData()
+      addToast('success', `${name} ${!currentEnabled ? '已启用' : '已禁用'}`)
+    } catch (err) {
+      addToast('error', formatError(err))
+    } finally {
+      setToggling(null)
+    }
+  }, [fetchData, addToast])
 
   if (loading) return (
     <div className={styles.page} role="status" aria-live="polite" aria-busy="true">
@@ -107,18 +127,13 @@ export function SourcesPage() {
                     <th>{t('sources.type')}</th>
                     <th>{t('sources.requiredKey')}</th>
                     <th>{t('sources.description')}</th>
+                    <th style={{ width: '4rem', textAlign: 'center' }}>启用</th>
                   </tr>
                 </thead>
                 <m.tbody variants={staggerContainerFast} initial="initial" animate="animate">
                   {list.map((src) => (
-                    <m.tr key={src.name} variants={staggerItemSmall}>
-                      <td>
-                        {src.status === 'ok' ? (
-                          <CheckCircle2 size={18} style={{ color: 'var(--success)' }} />
-                        ) : (
-                          <XCircle size={18} style={{ color: 'var(--error)' }} />
-                        )}
-                      </td>
+                    <m.tr key={src.name} variants={staggerItemSmall} style={{ opacity: src.enabled ? 1 : 0.5 }}>
+                      <td><StatusIcon status={src.status} /></td>
                       <td className={styles.sourceName}>{src.name}</td>
                       <td>
                         <Badge color={categoryBadgeColor(src.category)}>
@@ -128,7 +143,27 @@ export function SourcesPage() {
                       <td>
                         <code className={styles.code}>{src.required_key ?? '—'}</code>
                       </td>
-                      <td className={styles.message}>{src.message}</td>
+                      <td className={styles.message}>
+                        {src.message}
+                        {src.channel && Object.keys(src.channel).length > 0 && (
+                          <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem', opacity: 0.7 }}>
+                            [{Object.entries(src.channel).map(([k, v]) => `${k}=${v}`).join(', ')}]
+                          </span>
+                        )}
+                      </td>
+                      <td style={{ textAlign: 'center' }}>
+                        <button
+                          className="btn btn-sm btn-ghost"
+                          onClick={() => handleToggle(src.name, src.enabled)}
+                          disabled={toggling === src.name}
+                          title={src.enabled ? '点击禁用' : '点击启用'}
+                          style={{ padding: '0.25rem' }}
+                        >
+                          {src.enabled
+                            ? <ToggleRight size={20} style={{ color: 'var(--success)' }} />
+                            : <ToggleLeft size={20} style={{ color: 'var(--muted)' }} />}
+                        </button>
+                      </td>
                     </m.tr>
                   ))}
                 </m.tbody>
