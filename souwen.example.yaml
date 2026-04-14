@@ -108,3 +108,36 @@ warp:
   warp_socks_port: 1080
   # 自定义 WARP Endpoint (规避 QoS, 如 162.159.192.1:4500)
   warp_endpoint: ~
+
+# ===== 数据源频道配置 =====
+# 按源名称配置，覆盖全局默认值。
+# 所有字段可选，只需覆盖想要自定义的部分。
+#
+# 可用字段:
+#   enabled: true|false         — 是否启用此数据源
+#   proxy: inherit|none|warp|URL — 代理策略
+#     inherit = 继承全局 proxy/proxy_pool
+#     none    = 不使用代理
+#     warp    = 走 WARP SOCKS5 代理
+#     URL     = 显式代理地址 (http://... 或 socks5://...)
+#   http_backend: auto|curl_cffi|httpx — HTTP 后端（仅爬虫源有效）
+#   base_url: ~                 — 覆盖数据源的基础 URL
+#   api_key: ~                  — 覆盖 API Key（优先于上方 flat key）
+#   headers: {}                 — 附加请求头
+#   params: {}                  — 附加参数（传递给搜索方法）
+#
+# 示例:
+# sources:
+#   duckduckgo:
+#     enabled: true
+#     proxy: warp             # DuckDuckGo 走 WARP
+#     http_backend: curl_cffi
+#   tavily:
+#     api_key: tvly-xxxx      # 覆盖 web.tavily_api_key
+#     params:
+#       search_depth: advanced
+#   google_patents:
+#     enabled: false           # 禁用 Google Patents
+#   openalex:
+#     base_url: https://my-proxy.example.com  # 使用自建代理
+sources: {}

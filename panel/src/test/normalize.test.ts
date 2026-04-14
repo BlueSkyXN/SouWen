@@ -29,7 +29,7 @@ function makeWeb(overrides: Partial<WebResult> = {}): WebResult {
 function makeDoctor(overrides: Partial<DoctorSource> = {}): DoctorSource {
   return {
     name: '', category: 'paper', status: 'ok', tier: 0,
-    required_key: null, message: '',
+    required_key: null, message: '', enabled: true,
     ...overrides,
   }
 }

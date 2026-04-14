@@ -1,6 +1,7 @@
 """SouWen doctor 模块测试"""
 
-from souwen.doctor import check_all, format_report, _SOURCE_CONFIG
+from souwen.doctor import check_all, format_report
+from souwen.source_registry import get_all_sources
 
 
 class TestCheckAll:
@@ -18,7 +19,7 @@ class TestCheckAll:
     def test_result_has_required_keys(self):
         """每条结果包含必要字段"""
         results = check_all()
-        required = {"name", "category", "status", "tier", "required_key", "message"}
+        required = {"name", "category", "status", "tier", "required_key", "message", "enabled"}
         for r in results:
             assert required.issubset(r.keys()), f"{r['name']} 缺少字段"
 
@@ -72,8 +73,8 @@ class TestCheckAll:
             get_config.cache_clear()
 
     def test_source_config_matches_37(self):
-        """_SOURCE_CONFIG 有 37 个数据源"""
-        assert len(_SOURCE_CONFIG) == 37
+        """source registry 有 37 个数据源"""
+        assert len(get_all_sources()) == 37
 
     def test_semantic_scholar_without_key_is_limited(self, monkeypatch):
         """Semantic Scholar 无 Key 时标记为 limited。"""

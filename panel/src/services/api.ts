@@ -11,6 +11,7 @@ import type {
   WarpStatus,
   WarpActionResult,
   HttpBackendResponse,
+  SourceChannelConfig,
 } from '../types'
 
 const REQUEST_TIMEOUT_MS = 30_000
@@ -180,6 +181,28 @@ class ApiService {
     if (params.source) searchParams.set('source', params.source)
     if (params.backend) searchParams.set('backend', params.backend)
     return this.request(`/api/v1/admin/http-backend?${searchParams}`, {
+      method: 'PUT',
+      headers: this.headers(),
+    })
+  }
+
+  async getSourcesConfig(): Promise<Record<string, SourceChannelConfig>> {
+    return this.request<Record<string, SourceChannelConfig>>('/api/v1/admin/sources/config', {
+      headers: this.headers(),
+    })
+  }
+
+  async updateSourceConfig(
+    sourceName: string,
+    params: { enabled?: boolean; proxy?: string; http_backend?: string; base_url?: string; api_key?: string }
+  ): Promise<{ status: string; source: string }> {
+    const searchParams = new URLSearchParams()
+    if (params.enabled !== undefined) searchParams.set('enabled', String(params.enabled))
+    if (params.proxy) searchParams.set('proxy', params.proxy)
+    if (params.http_backend) searchParams.set('http_backend', params.http_backend)
+    if (params.base_url !== undefined) searchParams.set('base_url', params.base_url)
+    if (params.api_key !== undefined) searchParams.set('api_key', params.api_key)
+    return this.request(`/api/v1/admin/sources/config/${encodeURIComponent(sourceName)}?${searchParams}`, {
       method: 'PUT',
       headers: this.headers(),
     })

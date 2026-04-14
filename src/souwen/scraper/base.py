@@ -63,12 +63,12 @@ class BaseScraper:
         self._backoff_multiplier = 1.0  # 自适应退避系数，被 429 时翻倍，成功时逐步回落
         self._fingerprint = get_random_fingerprint()
         config = get_config()
+        source_name = getattr(self, "ENGINE_NAME", None)
 
-        # 根据配置决定 HTTP 后端：显式参数 > 配置文件 > 自动检测
+        # 解析 HTTP 后端：显式参数 > 频道配置 > 旧版配置 > 自动检测
         if use_curl_cffi is None:
-            source_name = getattr(self, "ENGINE_NAME", None)
             if source_name:
-                backend = config.get_http_backend(source_name)
+                backend = config.resolve_backend(source_name)
                 if backend == "curl_cffi":
                     if not _HAS_CURL_CFFI:
                         logger.warning(
@@ -82,6 +82,14 @@ class BaseScraper:
             else:
                 use_curl_cffi = _HAS_CURL_CFFI
 
+        # 解析代理：频道配置 > 全局代理
+        proxy = config.resolve_proxy(source_name) if source_name else config.get_proxy()
+
+        # 频道自定义请求头（将在 _fetch 中合并）
+        self._channel_headers: dict[str, str] = (
+            config.resolve_headers(source_name) if source_name else {}
+        )
+
         self._use_curl_cffi = use_curl_cffi
         self._curl_session: Any = None
         self._httpx_client: httpx.AsyncClient | None = None
@@ -90,13 +98,13 @@ class BaseScraper:
             logger.info("使用 curl_cffi (impersonate=%s)", self._fingerprint.impersonate)
             self._curl_session = CurlAsyncSession(
                 impersonate=self._fingerprint.impersonate,
-                proxy=config.get_proxy(),
+                proxy=proxy,
                 timeout=config.timeout,
             )
         else:
             self._httpx_client = httpx.AsyncClient(
                 timeout=httpx.Timeout(config.timeout),
-                proxy=config.get_proxy(),
+                proxy=proxy,
                 follow_redirects=True,
             )
 
@@ -145,8 +153,10 @@ class BaseScraper:
             RateLimitError: 重试耗尽仍被限流
             SourceUnavailableError: 服务不可用
         """
-        # 使用浏览器指纹头
+        # 使用浏览器指纹头 + 频道自定义头
         request_headers = dict(self._fingerprint.headers)
+        if self._channel_headers:
+            request_headers.update(self._channel_headers)
         if headers:
             request_headers.update(headers)
 

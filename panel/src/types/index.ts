@@ -24,6 +24,23 @@ export interface DoctorSource {
   tier: number
   required_key: string | null
   message: string
+  enabled: boolean
+  description?: string
+  channel?: Record<string, string> | null
+}
+
+export interface SourceChannelConfig {
+  enabled: boolean
+  proxy: string
+  http_backend: string
+  base_url: string | null
+  has_api_key: boolean
+  headers: Record<string, string>
+  params: Record<string, string | number | boolean>
+  category: string
+  tier: number
+  is_scraper: boolean
+  description: string
 }
 
 export interface DoctorResult {

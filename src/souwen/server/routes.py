@@ -163,7 +163,106 @@ async def doctor_check():
 
 
 # ---------------------------------------------------------------------------
-# HTTP 后端配置
+# 数据源频道配置
+# ---------------------------------------------------------------------------
+
+
+@admin_router.get("/sources/config")
+async def get_sources_config():
+    """查看所有数据源的频道配置"""
+    from souwen.config import get_config
+    from souwen.source_registry import get_all_sources
+
+    cfg = get_config()
+    all_sources = get_all_sources()
+    result: dict = {}
+    for name, meta in all_sources.items():
+        sc = cfg.get_source_config(name)
+        entry: dict = {
+            "enabled": sc.enabled,
+            "proxy": sc.proxy,
+            "http_backend": sc.http_backend,
+            "base_url": sc.base_url,
+            "has_api_key": bool(cfg.resolve_api_key(name, meta.config_field)),
+            "headers": sc.headers,
+            "params": sc.params,
+            "category": meta.category,
+            "tier": meta.tier,
+            "is_scraper": meta.is_scraper,
+            "description": meta.description,
+        }
+        result[name] = entry
+    return result
+
+
+@admin_router.get("/sources/config/{source_name}")
+async def get_source_config(source_name: str):
+    """查看单个数据源的频道配置"""
+    from souwen.config import get_config
+    from souwen.source_registry import get_source
+
+    meta = get_source(source_name)
+    if meta is None:
+        raise HTTPException(404, f"未知数据源: {source_name}")
+
+    cfg = get_config()
+    sc = cfg.get_source_config(source_name)
+    return {
+        "name": source_name,
+        "enabled": sc.enabled,
+        "proxy": sc.proxy,
+        "http_backend": sc.http_backend,
+        "base_url": sc.base_url,
+        "has_api_key": bool(cfg.resolve_api_key(source_name, meta.config_field)),
+        "headers": sc.headers,
+        "params": sc.params,
+        "category": meta.category,
+        "tier": meta.tier,
+        "is_scraper": meta.is_scraper,
+        "description": meta.description,
+    }
+
+
+@admin_router.put("/sources/config/{source_name}")
+async def update_source_config(
+    source_name: str,
+    enabled: bool | None = Query(None, description="是否启用"),
+    proxy: str | None = Query(None, description="代理: inherit | none | warp | URL"),
+    http_backend: str | None = Query(None, description="HTTP 后端: auto | curl_cffi | httpx"),
+    base_url: str | None = Query(None, description="基础 URL 覆盖"),
+    api_key: str | None = Query(None, description="API Key 覆盖"),
+):
+    """更新单个数据源的频道配置（运行时，重启后需 YAML 持久化）"""
+    from souwen.config import SourceChannelConfig, get_config
+    from souwen.source_registry import is_known_source
+
+    if not is_known_source(source_name):
+        raise HTTPException(404, f"未知数据源: {source_name}")
+
+    _VALID_BACKENDS = {"auto", "curl_cffi", "httpx"}
+    if http_backend is not None and http_backend not in _VALID_BACKENDS:
+        raise HTTPException(400, f"无效的 http_backend: {http_backend}")
+
+    cfg = get_config()
+    sc = cfg.sources.get(source_name, SourceChannelConfig())
+
+    if enabled is not None:
+        sc.enabled = enabled
+    if proxy is not None:
+        sc.proxy = proxy
+    if http_backend is not None:
+        sc.http_backend = http_backend
+    if base_url is not None:
+        sc.base_url = base_url if base_url else None
+    if api_key is not None:
+        sc.api_key = api_key if api_key else None
+
+    cfg.sources[source_name] = sc
+    return {"status": "ok", "source": source_name}
+
+
+# ---------------------------------------------------------------------------
+# HTTP 后端配置（旧版兼容）
 # ---------------------------------------------------------------------------
 
 # 使用 BaseScraper 的引擎名称列表（可配置 HTTP 后端）
