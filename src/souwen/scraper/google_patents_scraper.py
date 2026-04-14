@@ -37,6 +37,8 @@ class GooglePatentsScraper(BaseScraper):
         max_delay: 请求最大间隔（秒），默认 6.0
     """
 
+    ENGINE_NAME = "google_patents"
+
     def __init__(self, min_delay: float = 3.0, max_delay: float = 6.0):
         super().__init__(min_delay=min_delay, max_delay=max_delay, max_retries=3)
 

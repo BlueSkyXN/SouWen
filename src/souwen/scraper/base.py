@@ -64,8 +64,25 @@ class BaseScraper:
         self._fingerprint = get_random_fingerprint()
         config = get_config()
 
-        # 优先 curl_cffi（TLS 指纹模拟），回退 httpx
-        self._use_curl_cffi = use_curl_cffi if use_curl_cffi is not None else _HAS_CURL_CFFI
+        # 根据配置决定 HTTP 后端：显式参数 > 配置文件 > 自动检测
+        if use_curl_cffi is None:
+            source_name = getattr(self, "ENGINE_NAME", None)
+            if source_name:
+                backend = config.get_http_backend(source_name)
+                if backend == "curl_cffi":
+                    if not _HAS_CURL_CFFI:
+                        logger.warning(
+                            "配置要求 %s 使用 curl_cffi 但未安装，回退到 httpx", source_name
+                        )
+                    use_curl_cffi = _HAS_CURL_CFFI
+                elif backend == "httpx":
+                    use_curl_cffi = False
+                else:  # auto
+                    use_curl_cffi = _HAS_CURL_CFFI
+            else:
+                use_curl_cffi = _HAS_CURL_CFFI
+
+        self._use_curl_cffi = use_curl_cffi
         self._curl_session: Any = None
         self._httpx_client: httpx.AsyncClient | None = None
 

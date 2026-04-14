@@ -73,6 +73,12 @@ export interface WarpActionResult {
   error?: string
 }
 
+export interface HttpBackendResponse {
+  default: string
+  overrides: Record<string, string>
+  curl_cffi_available: boolean
+}
+
 /* ===== Search Types (aligned with backend models.py) ===== */
 
 export interface Author {

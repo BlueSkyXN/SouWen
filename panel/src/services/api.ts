@@ -10,6 +10,7 @@ import type {
   WebSearchResponse,
   WarpStatus,
   WarpActionResult,
+  HttpBackendResponse,
 } from '../types'
 
 const REQUEST_TIMEOUT_MS = 30_000
@@ -159,6 +160,27 @@ class ApiService {
   async disableWarp(): Promise<WarpActionResult> {
     return this.request<WarpActionResult>('/api/v1/admin/warp/disable', {
       method: 'POST',
+      headers: this.headers(),
+    })
+  }
+
+  async getHttpBackend(): Promise<HttpBackendResponse> {
+    return this.request<HttpBackendResponse>('/api/v1/admin/http-backend', {
+      headers: this.headers(),
+    })
+  }
+
+  async updateHttpBackend(params: {
+    default?: string
+    source?: string
+    backend?: string
+  }): Promise<{ status: string; default: string; overrides: Record<string, string> }> {
+    const searchParams = new URLSearchParams()
+    if (params.default) searchParams.set('default', params.default)
+    if (params.source) searchParams.set('source', params.source)
+    if (params.backend) searchParams.set('backend', params.backend)
+    return this.request(`/api/v1/admin/http-backend?${searchParams}`, {
+      method: 'PUT',
       headers: this.headers(),
     })
   }
