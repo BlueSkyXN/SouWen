@@ -110,6 +110,10 @@ class SouWenConfig(BaseModel):
 
     # ===== 服务 =====
     api_password: str | None = None  # API 访问密码（Bearer Token）
+    cors_origins: list[str] = Field(
+        default_factory=list,
+        description="CORS 允许的来源列表，为空时不启用 CORS",
+    )
 
     # ===== WARP 代理 =====
     warp_enabled: bool = False

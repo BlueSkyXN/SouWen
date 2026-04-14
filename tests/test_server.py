@@ -181,7 +181,9 @@ class TestPanel:
 class TestSchemas:
     def test_response_models_importable(self):
         from souwen.server.schemas import (
+            ErrorResponse,
             HealthResponse,
+            SearchMeta,
             SearchPaperResponse,
             SearchPatentResponse,
             ConfigReloadResponse,
@@ -197,3 +199,50 @@ class TestSchemas:
         assert ConfigReloadResponse(status="ok", password_set=True)
         assert DoctorResponse(total=0, ok=0, sources=[])
         assert SourcesResponse()
+        assert ErrorResponse(error="test", detail="msg", request_id="abc")
+        assert SearchMeta(requested=["a"], succeeded=["a"], failed=[])
+
+
+# ---------------------------------------------------------------------------
+# Middleware — Request ID + 访问日志
+# ---------------------------------------------------------------------------
+
+
+class TestMiddleware:
+    def test_response_has_request_id(self, client):
+        resp = client.get("/health")
+        assert resp.status_code == 200
+        assert "x-request-id" in resp.headers
+        assert len(resp.headers["x-request-id"]) > 0
+
+    def test_response_has_response_time(self, client):
+        resp = client.get("/health")
+        assert "x-response-time" in resp.headers
+        assert resp.headers["x-response-time"].endswith("s")
+
+    def test_custom_request_id_forwarded(self, client):
+        resp = client.get("/health", headers={"X-Request-ID": "my-custom-id"})
+        assert resp.headers["x-request-id"] == "my-custom-id"
+
+    def test_invalid_request_id_replaced(self, client):
+        resp = client.get(
+            "/health",
+            headers={"X-Request-ID": "x" * 200},
+        )
+        # 超长 ID 被替换为自动生成的短 ID
+        assert len(resp.headers["x-request-id"]) <= 64
+
+    def test_404_returns_error_response(self, client):
+        resp = client.get("/api/v1/nonexistent")
+        assert resp.status_code == 404
+        data = resp.json()
+        assert data["error"] == "not_found"
+        assert "request_id" in data
+
+    def test_422_validation_error(self, client):
+        # per_page 超出范围触发验证错误
+        resp = client.get("/api/v1/search/paper?q=test&per_page=999")
+        assert resp.status_code == 422
+        data = resp.json()
+        assert data["error"] == "validation_error"
+        assert "request_id" in data
