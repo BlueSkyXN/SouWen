@@ -47,6 +47,7 @@ class CnipaClient:
             token_url=self.TOKEN_URL,
             client_id=cfg.cnipa_client_id,
             client_secret=cfg.cnipa_client_secret,
+            source_name="cnipa",
         )
         self._limiter = TokenBucketLimiter(rate=2.0, burst=5)
 

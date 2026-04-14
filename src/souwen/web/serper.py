@@ -38,14 +38,14 @@ class SerperClient(SouWenHttpClient):
 
     def __init__(self, api_key: str | None = None):
         config = get_config()
-        self.api_key = api_key or config.serper_api_key
+        self.api_key = api_key or config.resolve_api_key("serper", "serper_api_key")
         if not self.api_key:
             raise ConfigError(
                 "serper_api_key",
                 "Serper",
                 "https://serper.dev/",
             )
-        super().__init__(base_url=self.BASE_URL)
+        super().__init__(base_url=self.BASE_URL, source_name="serper")
 
     async def search(
         self,

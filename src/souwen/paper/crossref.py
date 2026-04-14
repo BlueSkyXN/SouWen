@@ -38,13 +38,13 @@ class CrossrefClient:
             mailto: 联系邮箱。未提供时从全局配置读取。
         """
         cfg = get_config()
-        self.mailto: str | None = mailto or getattr(cfg, "crossref_mailto", None)
+        self.mailto: str | None = mailto or cfg.resolve_api_key("crossref", "crossref_mailto")
 
         headers: dict[str, str] = {
             "User-Agent": f"SouWen/1.0 (mailto:{self.mailto})" if self.mailto else "SouWen/1.0",
         }
 
-        self._client = SouWenHttpClient(base_url=_BASE_URL, headers=headers)
+        self._client = SouWenHttpClient(base_url=_BASE_URL, headers=headers, source_name="crossref")
         self._limiter = TokenBucketLimiter(rate=_DEFAULT_RPS, burst=_DEFAULT_RPS)
 
     # ------------------------------------------------------------------

@@ -45,7 +45,7 @@ class UnpaywallClient:
             ConfigError: 邮箱未配置。
         """
         cfg = get_config()
-        self.email: str = email or cfg.unpaywall_email or ""
+        self.email: str = email or cfg.resolve_api_key("unpaywall", "unpaywall_email") or ""
 
         if not self.email:
             raise ConfigError(
@@ -54,7 +54,7 @@ class UnpaywallClient:
                 register_url=_REGISTER_URL,
             )
 
-        self._client = SouWenHttpClient(base_url=_BASE_URL)
+        self._client = SouWenHttpClient(base_url=_BASE_URL, source_name="unpaywall")
         self._limiter = TokenBucketLimiter(rate=_DEFAULT_RPS, burst=_DEFAULT_RPS)
 
     # ------------------------------------------------------------------

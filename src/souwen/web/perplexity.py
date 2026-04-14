@@ -38,14 +38,14 @@ class PerplexityClient(SouWenHttpClient):
 
     def __init__(self, api_key: str | None = None):
         config = get_config()
-        self.api_key = api_key or config.perplexity_api_key
+        self.api_key = api_key or config.resolve_api_key("perplexity", "perplexity_api_key")
         if not self.api_key:
             raise ConfigError(
                 "perplexity_api_key",
                 "Perplexity",
                 "https://docs.perplexity.ai/",
             )
-        super().__init__(base_url=self.BASE_URL)
+        super().__init__(base_url=self.BASE_URL, source_name="perplexity")
         self.headers["Authorization"] = f"Bearer {self.api_key}"
 
     async def search(

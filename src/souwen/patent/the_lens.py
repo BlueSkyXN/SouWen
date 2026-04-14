@@ -53,6 +53,7 @@ class TheLensClient:
                 "Authorization": f"Bearer {self._token}",
                 "Content-Type": "application/json",
             },
+            source_name="the_lens",
         )
         # 默认 10 req/min，通过响应头动态调整
         self._limiter = SlidingWindowLimiter(max_requests=10, window_seconds=60.0)

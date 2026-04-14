@@ -45,6 +45,7 @@ class UsptoOdpClient:
         self._http = SouWenHttpClient(
             base_url=self.BASE_URL,
             headers={"X-API-Key": self._api_key},
+            source_name="uspto_odp",
         )
         # 5M req/week ≈ ~8.3 req/s，保守设为 5 req/s
         self._limiter = TokenBucketLimiter(rate=5.0, burst=10)

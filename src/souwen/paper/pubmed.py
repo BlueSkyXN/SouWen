@@ -42,9 +42,9 @@ class PubMedClient:
             api_key: NCBI API Key。未提供时从全局配置读取。
         """
         cfg = get_config()
-        self.api_key: str | None = api_key or getattr(cfg, "pubmed_api_key", None)
+        self.api_key: str | None = api_key or cfg.resolve_api_key("pubmed", "pubmed_api_key")
 
-        self._client = SouWenHttpClient(base_url=_BASE_URL)
+        self._client = SouWenHttpClient(base_url=_BASE_URL, source_name="pubmed")
         rps = _KEYED_RPS if self.api_key else _NO_KEY_RPS
         self._limiter = TokenBucketLimiter(rate=rps, burst=rps)
 

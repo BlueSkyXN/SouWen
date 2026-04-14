@@ -38,8 +38,8 @@ class OpenAlexClient:
             mailto: 联系邮箱。未提供时从全局配置读取。
         """
         cfg = get_config()
-        self.mailto: str | None = mailto or cfg.openalex_email
-        self._client = SouWenHttpClient(base_url=_BASE_URL)
+        self.mailto: str | None = mailto or cfg.resolve_api_key("openalex", "openalex_email")
+        self._client = SouWenHttpClient(base_url=_BASE_URL, source_name="openalex")
         self._limiter = TokenBucketLimiter(rate=_DEFAULT_RPS, burst=_DEFAULT_RPS)
 
     # ------------------------------------------------------------------

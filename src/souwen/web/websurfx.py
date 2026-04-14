@@ -38,14 +38,14 @@ class WebsurfxClient(SouWenHttpClient):
 
     def __init__(self, instance_url: str | None = None):
         config = get_config()
-        self.instance_url = (instance_url or config.websurfx_url or "").rstrip("/")
+        self.instance_url = (instance_url or config.resolve_api_key("websurfx", "websurfx_url") or "").rstrip("/")
         if not self.instance_url:
             raise ConfigError(
                 "websurfx_url",
                 "Websurfx",
                 "https://github.com/neon-mmd/websurfx",
             )
-        super().__init__(base_url=self.instance_url)
+        super().__init__(base_url=self.instance_url, source_name="websurfx")
 
     async def search(
         self,

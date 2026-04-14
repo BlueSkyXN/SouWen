@@ -129,6 +129,7 @@ class GooglePatentsClient:
         self._http = SouWenHttpClient(
             base_url=self.BASE_URL,
             headers={"User-Agent": _random_ua()},
+            source_name="google_patents",
         )
         self._use_playwright = use_playwright
         # 保守限流：约 10 req/min

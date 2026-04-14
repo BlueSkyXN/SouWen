@@ -38,14 +38,14 @@ class LinkupClient(SouWenHttpClient):
 
     def __init__(self, api_key: str | None = None):
         config = get_config()
-        self.api_key = api_key or config.linkup_api_key
+        self.api_key = api_key or config.resolve_api_key("linkup", "linkup_api_key")
         if not self.api_key:
             raise ConfigError(
                 "linkup_api_key",
                 "Linkup",
                 "https://www.linkup.so/",
             )
-        super().__init__(base_url=self.BASE_URL)
+        super().__init__(base_url=self.BASE_URL, source_name="linkup")
         self.headers["Authorization"] = f"Bearer {self.api_key}"
 
     async def search(

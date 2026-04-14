@@ -38,14 +38,14 @@ class BraveApiClient(SouWenHttpClient):
 
     def __init__(self, api_key: str | None = None):
         config = get_config()
-        self.api_key = api_key or config.brave_api_key
+        self.api_key = api_key or config.resolve_api_key("brave_api", "brave_api_key")
         if not self.api_key:
             raise ConfigError(
                 "brave_api_key",
                 "Brave Search API",
                 "https://brave.com/search/api/",
             )
-        super().__init__(base_url=self.BASE_URL)
+        super().__init__(base_url=self.BASE_URL, source_name="brave_api")
 
     async def search(
         self,
