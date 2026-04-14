@@ -196,15 +196,10 @@ class ApiService {
     sourceName: string,
     params: { enabled?: boolean; proxy?: string; http_backend?: string; base_url?: string; api_key?: string }
   ): Promise<{ status: string; source: string }> {
-    const searchParams = new URLSearchParams()
-    if (params.enabled !== undefined) searchParams.set('enabled', String(params.enabled))
-    if (params.proxy) searchParams.set('proxy', params.proxy)
-    if (params.http_backend) searchParams.set('http_backend', params.http_backend)
-    if (params.base_url !== undefined) searchParams.set('base_url', params.base_url)
-    if (params.api_key !== undefined) searchParams.set('api_key', params.api_key)
-    return this.request(`/api/v1/admin/sources/config/${encodeURIComponent(sourceName)}?${searchParams}`, {
+    return this.request(`/api/v1/admin/sources/config/${encodeURIComponent(sourceName)}`, {
       method: 'PUT',
       headers: this.headers(),
+      body: JSON.stringify(params),
     })
   }
 }

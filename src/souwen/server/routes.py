@@ -14,6 +14,7 @@ from souwen.server.schemas import (
     HttpBackendResponse,
     SearchPaperResponse,
     SearchPatentResponse,
+    UpdateSourceConfigRequest,
 )
 
 logger = logging.getLogger("souwen.server")
@@ -226,13 +227,12 @@ async def get_source_config(source_name: str):
 @admin_router.put("/sources/config/{source_name}")
 async def update_source_config(
     source_name: str,
-    enabled: bool | None = Query(None, description="是否启用"),
-    proxy: str | None = Query(None, description="代理: inherit | none | warp | URL"),
-    http_backend: str | None = Query(None, description="HTTP 后端: auto | curl_cffi | httpx"),
-    base_url: str | None = Query(None, description="基础 URL 覆盖"),
-    api_key: str | None = Query(None, description="API Key 覆盖"),
+    req: UpdateSourceConfigRequest,
 ):
-    """更新单个数据源的频道配置（运行时，重启后需 YAML 持久化）"""
+    """更新单个数据源的频道配置（运行时，重启后需 YAML 持久化）
+
+    使用 JSON 请求体传递参数，避免 API Key 泄露到 URL/日志中。
+    """
     from souwen.config import SourceChannelConfig, get_config
     from souwen.source_registry import is_known_source
 
@@ -240,22 +240,22 @@ async def update_source_config(
         raise HTTPException(404, f"未知数据源: {source_name}")
 
     _VALID_BACKENDS = {"auto", "curl_cffi", "httpx"}
-    if http_backend is not None and http_backend not in _VALID_BACKENDS:
-        raise HTTPException(400, f"无效的 http_backend: {http_backend}")
+    if req.http_backend is not None and req.http_backend not in _VALID_BACKENDS:
+        raise HTTPException(400, f"无效的 http_backend: {req.http_backend}")
 
     cfg = get_config()
     sc = cfg.sources.get(source_name, SourceChannelConfig())
 
-    if enabled is not None:
-        sc.enabled = enabled
-    if proxy is not None:
-        sc.proxy = proxy
-    if http_backend is not None:
-        sc.http_backend = http_backend
-    if base_url is not None:
-        sc.base_url = base_url if base_url else None
-    if api_key is not None:
-        sc.api_key = api_key if api_key else None
+    if req.enabled is not None:
+        sc.enabled = req.enabled
+    if req.proxy is not None:
+        sc.proxy = req.proxy
+    if req.http_backend is not None:
+        sc.http_backend = req.http_backend
+    if req.base_url is not None:
+        sc.base_url = req.base_url if req.base_url else None
+    if req.api_key is not None:
+        sc.api_key = req.api_key if req.api_key else None
 
     cfg.sources[source_name] = sc
     return {"status": "ok", "source": source_name}
