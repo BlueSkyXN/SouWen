@@ -313,3 +313,236 @@
     background: $error-light;
   }
 }
+
+/* ── Expanded Source Card ── */
+.sourceCardExpanded {
+  border-color: var(--accent) !important;
+  background: var(--bg-card-solid);
+}
+
+.sourceNameRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.expandIcon {
+  color: var(--text-dim);
+  transition: transform $transition-fast;
+  flex-shrink: 0;
+}
+
+.expandIconOpen {
+  transform: rotate(180deg);
+  color: var(--accent);
+}
+
+/* ── Source Config Panel ── */
+.configPanel {
+  overflow: hidden;
+  margin-top: 8px;
+}
+
+.configPanelInner {
+  border: 1px solid var(--border);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--bg-hover);
+}
+
+.configPanelHeader {
+  font-family: $font-mono;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border-light);
+}
+
+.configRow {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.configLabel {
+  font-family: $font-mono;
+  font-size: 11px;
+  color: var(--text-muted);
+  flex: 0 0 90px;
+  letter-spacing: 0.02em;
+}
+
+.configSep {
+  font-family: $font-mono;
+  font-size: 11px;
+  color: var(--text-dim);
+  flex: 0 0 auto;
+}
+
+.configSelect {
+  flex: 1;
+  max-width: 200px;
+  padding: 4px 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: $font-mono;
+  font-size: 11px;
+  outline: none;
+  appearance: none;
+  cursor: pointer;
+  transition: border-color $transition-fast;
+
+  &:focus {
+    border-color: var(--accent);
+  }
+}
+
+.configInput {
+  flex: 1;
+  max-width: 200px;
+  padding: 4px 8px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: $font-mono;
+  font-size: 11px;
+  outline: none;
+  transition: border-color $transition-fast;
+
+  &:focus {
+    border-color: var(--accent);
+  }
+
+  &::placeholder {
+    color: var(--text-dim);
+  }
+}
+
+.apiKeyGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.apiKeyStatus {
+  font-family: $font-mono;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.apiKeySet {
+  color: $success;
+}
+
+.apiKeyUnset {
+  color: var(--text-dim);
+}
+
+.apiKeyBtn {
+  padding: 2px 8px;
+  font-family: $font-mono;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color $transition-fast, color $transition-fast;
+
+  &:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+}
+
+.apiKeyBtnClear {
+  &:hover {
+    border-color: $error;
+    color: $error;
+  }
+}
+
+.apiKeyClearLabel {
+  font-family: $font-mono;
+  font-size: 10px;
+  font-weight: 600;
+  color: $warning;
+  letter-spacing: 0.04em;
+}
+
+.warpWarning {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  margin-left: 96px;
+  background: $warning-light;
+  border: 1px solid rgba($warning, 0.3);
+  font-family: $font-mono;
+  font-size: 10px;
+  color: $warning;
+}
+
+.runtimeNote {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: $font-mono;
+  font-size: 10px;
+  color: var(--text-dim);
+  margin-top: 4px;
+}
+
+.configActions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.commitBtn {
+  padding: 6px 16px;
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: #fff;
+  font-family: $font-mono;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  transition: background $transition-fast;
+
+  &:hover:not(:disabled) {
+    background: var(--accent-hover);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+/* ── Responsive adjustments for config panel ── */
+@media (max-width: 640px) {
+  .configRow {
+    flex-wrap: wrap;
+  }
+
+  .configSelect,
+  .configInput {
+    max-width: 100%;
+  }
+
+  .warpWarning {
+    margin-left: 0;
+  }
+}
