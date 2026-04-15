@@ -10,6 +10,19 @@
 - 抽象限流器接口 `RateLimiterBase(ABC)`，支持 Redis 等分布式限流器扩展
 - 全局并发度控制 `asyncio.Semaphore(10)`，防止连接过载
 - CLI 搜索结果显示失败源警告
+- **前端管理面板全面重设计**：参照 Apple/Google 设计语言，升级 UI/UX
+  - Command Center 搜索页布局（居中英雄区、渐变光球、建议标签、⌘K 快捷键）
+  - 仪表盘页增强（渐变统计卡片、健康环形图、脉动状态指示器）
+  - 数据源页增强（彩色左边框、层级徽章、状态指示器）
+  - 配置页增强（毛玻璃卡片、微光按钮动画、分组显示）
+  - 无密码时自动登录
+- **前端视觉主题系统**：支持 3 种强调色方案（星云 Nebula / 极光 Aurora / 黑曜石 Obsidian），明暗模式切换
+- **前端多皮肤架构**：core/ + skins/ 分层，支持构建时选择皮肤
+  - 共享层（core/）：stores、API 客户端、类型定义、i18n、工具函数
+  - 皮肤层（skins/）：完全独立的组件、页面、样式、路由
+  - 三层分离：Skin（构建时）→ Mode（运行时明暗）→ Scheme（运行时配色）
+  - Vite 路径别名：`@core` / `@skin`，通过 `VITE_SKIN` 环境变量选择皮肤
+- **Docker 多阶段构建**：新增 Node.js 构建阶段，支持 `--build-arg SKIN=xxx` 选择前端皮肤
 
 ### 修复
 - 所有 8 个论文客户端 `total=` → `total_results=`（Pydantic v2 静默忽略 bug）
