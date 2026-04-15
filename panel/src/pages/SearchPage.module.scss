@@ -1,20 +1,39 @@
 @use '../styles/variables' as *;
 
 .page {
-  max-width: 860px;
+  max-width: 820px;
   margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ─── Hero wrapper: centers search vertically when idle ─── */
+.heroSection {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 200px);
+  padding-bottom: $space-16;
+  transition: min-height 0.4s ease;
+}
+
+.heroSection.hasResults {
+  min-height: 0;
+  padding-bottom: 0;
 }
 
 /* ─── Tab Bar ─── */
 .tabBar {
   display: flex;
   justify-content: center;
-  margin-bottom: $space-8;
+  margin-bottom: $space-10;
 }
 
 /* ─── Hero Search Bar ─── */
 .searchForm {
-  margin-bottom: $space-8;
+  width: 100%;
+  margin-bottom: $space-6;
 }
 
 .searchBarWrap {
@@ -24,24 +43,39 @@
 .searchBar {
   display: flex;
   align-items: center;
-  gap: $space-2;
+  gap: $space-3;
   background: var(--bg-card);
   border: 1.5px solid var(--border-input);
-  border-radius: $radius-lg;
-  padding: 6px 6px 6px $space-5;
-  box-shadow: var(--shadow-card);
-  transition: all var(--transition);
+  border-radius: $radius-xl;
+  padding: 8px 8px 8px $space-6;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04), 0 8px 32px rgba(0, 0, 0, 0.06);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:focus-within {
     border-color: var(--primary);
-    box-shadow: var(--shadow-glow), var(--shadow-card-hover);
+    box-shadow:
+      0 0 0 4px rgba(59, 130, 246, 0.1),
+      0 4px 16px rgba(0, 0, 0, 0.08),
+      0 12px 48px rgba(59, 130, 246, 0.12);
+    transform: translateY(-1px);
+  }
+}
+
+[data-theme='dark'] .searchBar {
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2), 0 8px 32px rgba(0, 0, 0, 0.3);
+
+  &:focus-within {
+    box-shadow:
+      0 0 0 4px rgba(59, 130, 246, 0.15),
+      0 4px 16px rgba(0, 0, 0, 0.3),
+      0 12px 48px rgba(59, 130, 246, 0.2);
   }
 }
 
 .searchIcon {
   flex-shrink: 0;
   color: var(--text-muted);
-  transition: color var(--transition-fast);
+  transition: color 0.25s ease;
 
   .searchBar:focus-within & {
     color: var(--primary);
@@ -54,13 +88,15 @@
   border: none;
   background: transparent;
   color: var(--text);
-  font-size: $text-lg;
-  padding: 14px $space-3;
+  font-size: 17px;
+  padding: 16px $space-3;
   outline: none;
   line-height: $leading-normal;
+  letter-spacing: -0.01em;
 
   &::placeholder {
     color: var(--text-muted);
+    font-weight: $font-normal;
   }
 }
 
@@ -68,17 +104,18 @@
   flex-shrink: 0;
   appearance: none;
   border: 1px solid var(--border);
-  border-radius: $radius-sm;
+  border-radius: $radius;
   background: var(--bg-subtle);
   color: var(--text-secondary);
   font-size: $text-sm;
-  padding: 7px $space-4 7px $space-3;
+  padding: 10px $space-4 10px $space-3;
   outline: none;
   cursor: pointer;
   transition: all var(--transition-fast);
 
   &:hover {
     border-color: var(--border-strong);
+    background: var(--bg-elevated, var(--bg-subtle));
   }
 
   &:focus {
@@ -92,31 +129,31 @@
   align-items: center;
   justify-content: center;
   gap: 6px;
-  padding: 12px $space-6;
+  padding: 14px $space-8;
   border: none;
-  border-radius: $radius-sm;
-  background: linear-gradient(to bottom, color-mix(in srgb, var(--primary) 100%, white 8%), var(--primary));
+  border-radius: $radius-lg;
+  background: linear-gradient(135deg, color-mix(in srgb, var(--primary) 100%, white 10%), var(--primary), color-mix(in srgb, var(--primary) 100%, #7c3aed 15%));
   color: #fff;
   font-size: $text-md;
-  font-weight: $font-medium;
+  font-weight: $font-semibold;
   cursor: pointer;
   white-space: nowrap;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.12);
-  transition: all var(--transition);
+  letter-spacing: 0.02em;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover:not(:disabled) {
-    background: linear-gradient(to bottom, var(--primary), var(--primary-hover));
-    box-shadow: 0 4px 14px rgba(37, 99, 235, 0.28), inset 0 1px 0 rgba(255, 255, 255, 0.1);
-    transform: translateY(-1px);
+    box-shadow: 0 6px 20px rgba(37, 99, 235, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+    transform: translateY(-2px);
   }
 
   &:active:not(:disabled) {
-    transform: translateY(0) scale(0.98);
-    transition-duration: 60ms;
+    transform: translateY(0) scale(0.97);
+    transition-duration: 80ms;
   }
 
   &:disabled {
-    opacity: 0.45;
+    opacity: 0.4;
     cursor: not-allowed;
     pointer-events: none;
   }
@@ -127,15 +164,16 @@
   display: flex;
   align-items: center;
   gap: $space-3;
-  margin-top: $space-4;
+  margin-top: $space-5;
 }
 
 .sourceLabel {
   flex-shrink: 0;
-  font-size: $text-sm;
-  font-weight: $font-medium;
+  font-size: $text-xs;
+  font-weight: $font-semibold;
   color: var(--text-muted);
-  letter-spacing: $tracking-wide;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
 }
 
 .sourceSelect {
@@ -143,9 +181,127 @@
   min-width: 0;
 }
 
+/* ─── Custom Empty State ─── */
+.emptyStateCustom {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  padding: $space-8 0 0;
+  position: relative;
+}
+
+.emptyGlow {
+  position: relative;
+  width: 100px;
+  height: 100px;
+  margin-bottom: $space-8;
+}
+
+.emptyGlowOrb {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(20px);
+  opacity: 0.5;
+  animation: emptyOrbFloat 6s ease-in-out infinite;
+}
+
+.emptyGlowOrb:nth-child(1) {
+  width: 60px;
+  height: 60px;
+  background: var(--primary);
+  top: 10px;
+  left: 5px;
+  animation-delay: 0s;
+}
+
+.emptyGlowOrb:nth-child(2) {
+  width: 50px;
+  height: 50px;
+  background: #8b5cf6;
+  top: 20px;
+  right: 5px;
+  animation-delay: -2s;
+}
+
+.emptyGlowOrb:nth-child(3) {
+  width: 40px;
+  height: 40px;
+  background: #06b6d4;
+  bottom: 5px;
+  left: 25px;
+  animation-delay: -4s;
+}
+
+.emptyIconWrap {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  opacity: 0.6;
+}
+
+.emptyTitle {
+  font-size: 22px;
+  font-weight: $font-bold;
+  color: var(--text);
+  margin-bottom: $space-2;
+  letter-spacing: $tracking-tight;
+}
+
+.emptyDesc {
+  font-size: $text-md;
+  color: var(--text-muted);
+  max-width: 360px;
+  line-height: $leading-relaxed;
+  margin-bottom: $space-8;
+}
+
+.emptySuggestions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: $space-2;
+}
+
+.suggestionChip {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1;
+  padding: 8px $space-4;
+  border: 1px solid var(--border);
+  border-radius: $radius-full;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: $text-sm;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+
+  &:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: rgba(59, 130, 246, 0.04);
+    transform: translateY(-1px);
+    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.1);
+  }
+}
+
+[data-theme='dark'] .suggestionChip:hover {
+  background: rgba(59, 130, 246, 0.1);
+}
+
+@keyframes emptyOrbFloat {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(6px, -8px) scale(1.1); }
+  66% { transform: translate(-4px, 4px) scale(0.9); }
+}
+
 /* ─── Results Area ─── */
 .results {
-  min-height: 200px;
+  min-height: 80px;
 }
 
 .searchingHint {
@@ -153,6 +309,7 @@
   color: var(--text-muted);
   margin-bottom: $space-4;
   font-weight: $font-medium;
+  text-align: center;
 }
 
 .resultCount {
@@ -166,16 +323,20 @@
 .resultCard {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: $space-6;
+  border-radius: $radius-lg;
+  padding: $space-6 $space-7;
   margin-bottom: $space-4;
-  transition: all var(--transition);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
-    box-shadow: var(--shadow-card-hover);
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06), 0 1px 4px rgba(0, 0, 0, 0.04);
     border-color: var(--border-strong);
-    transform: translateY(-1px);
+    transform: translateY(-2px);
   }
+}
+
+[data-theme='dark'] .resultCard:hover {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 
 .cardHeader {
@@ -183,13 +344,13 @@
   align-items: flex-start;
   justify-content: space-between;
   gap: $space-3;
-  margin-bottom: $space-2;
+  margin-bottom: $space-3;
 }
 
 .resultTitle {
   font-size: $text-lg;
   font-weight: $font-semibold;
-  line-height: $leading-tight;
+  line-height: 1.4;
   letter-spacing: $tracking-tight;
   flex: 1;
   min-width: 0;
@@ -198,7 +359,7 @@
   a {
     color: var(--text);
     display: inline;
-    transition: color var(--transition-fast);
+    transition: color 0.2s ease;
 
     &:hover {
       color: var(--primary);
@@ -215,7 +376,7 @@
   vertical-align: middle;
   margin-left: $space-1;
   opacity: 0;
-  transition: opacity var(--transition-fast);
+  transition: opacity 0.2s ease;
   color: var(--primary);
 }
 
@@ -256,14 +417,19 @@
 
 /* ─── Responsive ─── */
 @media (max-width: $mobile-bp) {
+  .heroSection {
+    min-height: calc(100vh - 160px);
+  }
+
   .searchBar {
     flex-wrap: wrap;
     padding: $space-3;
+    border-radius: $radius-lg;
   }
 
   .searchInput {
     font-size: $text-base;
-    padding: 10px $space-3;
+    padding: 12px $space-3;
   }
 
   .countSelect {
@@ -273,6 +439,7 @@
   .searchButton {
     order: 4;
     flex: 1;
+    border-radius: $radius;
   }
 
   .sourceRow {
@@ -286,6 +453,14 @@
 
   .cardHeader {
     flex-direction: column;
+    gap: $space-2;
+  }
+
+  .emptyTitle {
+    font-size: 18px;
+  }
+
+  .emptySuggestions {
     gap: $space-2;
   }
 }
