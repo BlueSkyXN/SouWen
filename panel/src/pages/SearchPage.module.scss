@@ -1,5 +1,24 @@
 @use '../styles/variables' as *;
 
+/* ─── Animations ─── */
+@keyframes searchFocusBounce {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.012); }
+  70%  { transform: scale(0.997); }
+  100% { transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes checkPop {
+  0%   { transform: scale(0.5); opacity: 0; }
+  60%  { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
 .page {
   max-width: 900px;
   margin: 0 auto;
@@ -8,6 +27,20 @@
   flex-direction: column;
   align-items: center;
   min-height: calc(100vh - 120px);
+  position: relative;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60%;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, #4f46e5, #7c3aed, #6366f1, transparent);
+    border-radius: 0 0 $radius-full $radius-full;
+    opacity: 0.7;
+  }
 }
 
 /* ─── Hero Title ─── */
@@ -18,7 +51,7 @@
 }
 
 .heroHeading {
-  font-size: 42px;
+  font-size: 48px;
   font-weight: $font-bold;
   background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #6366f1 100%);
   background-clip: text;
@@ -27,10 +60,12 @@
   letter-spacing: $tracking-tight;
   line-height: 1.15;
   margin: 0 0 $space-4;
+  text-shadow: 0 2px 12px rgba(79, 70, 229, 0.15);
+  filter: drop-shadow(0 1px 3px rgba(79, 70, 229, 0.1));
 }
 
 .heroSubtitle {
-  font-size: $text-lg;
+  font-size: $text-xl;
   color: var(--text-muted);
   line-height: $leading-relaxed;
   margin: 0;
@@ -41,7 +76,9 @@
 /* ─── Command Center Card ─── */
 .commandCard {
   width: 100%;
-  background: var(--bg-card);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
   border: 1px solid var(--border);
   border-radius: 24px;
   box-shadow:
@@ -64,6 +101,7 @@
 }
 
 [data-theme='dark'] .commandCard {
+  background: rgba(22, 22, 29, 0.85);
   box-shadow:
     0 1px 3px rgba(0, 0, 0, 0.2),
     0 4px 16px rgba(0, 0, 0, 0.15);
@@ -156,7 +194,7 @@
   gap: $space-3;
   border-radius: $radius-xl;
   background: var(--bg-subtle);
-  padding: 6px 6px 6px $space-5;
+  padding: 8px 8px 8px $space-6;
   border: 1.5px solid transparent;
   transition: all 0.25s ease;
 
@@ -164,6 +202,7 @@
     border-color: rgba(79, 70, 229, 0.4);
     background: var(--bg-card);
     box-shadow: 0 0 0 4px rgba(79, 70, 229, 0.06);
+    animation: searchFocusBounce 0.4s ease;
   }
 }
 
@@ -217,8 +256,12 @@
   letter-spacing: 0.02em;
   box-shadow: 0 2px 8px rgba(79, 70, 229, 0.25);
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  background-size: 200% auto;
 
   &:hover:not(:disabled) {
+    background-image: linear-gradient(135deg, #4f46e5, #6366f1, #818cf8, #6366f1, #4f46e5);
+    background-size: 200% auto;
+    animation: shimmer 2s linear infinite;
     box-shadow: 0 6px 20px rgba(79, 70, 229, 0.35);
     transform: translateY(-1px);
   }
@@ -226,6 +269,7 @@
   &:active:not(:disabled) {
     transform: translateY(0) scale(0.97);
     transition-duration: 80ms;
+    animation: none;
   }
 
   &:disabled {
@@ -284,7 +328,7 @@
 /* ─── Source Card Grid ─── */
 .sourceGrid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
   gap: $space-3;
 }
 
@@ -306,18 +350,21 @@
 }
 
 .sourceCardActive {
-  border-color: rgba(79, 70, 229, 0.4);
-  background: rgba(79, 70, 229, 0.03);
+  border-color: rgba(79, 70, 229, 0.5);
+  background: rgba(79, 70, 229, 0.04);
+  transform: scale(1.02);
+  box-shadow: 0 2px 12px rgba(79, 70, 229, 0.1);
 
   &:hover {
-    border-color: rgba(79, 70, 229, 0.5);
-    box-shadow: 0 2px 12px rgba(79, 70, 229, 0.08);
+    border-color: rgba(79, 70, 229, 0.6);
+    box-shadow: 0 4px 16px rgba(79, 70, 229, 0.14);
   }
 }
 
 [data-theme='dark'] .sourceCardActive {
-  border-color: rgba(99, 102, 241, 0.4);
-  background: rgba(99, 102, 241, 0.08);
+  border-color: rgba(99, 102, 241, 0.5);
+  background: rgba(99, 102, 241, 0.1);
+  box-shadow: 0 2px 12px rgba(99, 102, 241, 0.12);
 }
 
 .sourceCardTop {
@@ -350,6 +397,7 @@
 
 .sourceCheck {
   color: #4f46e5;
+  animation: checkPop 0.3s ease forwards;
 }
 
 [data-theme='dark'] .sourceCheck {
@@ -389,8 +437,8 @@
 .suggestionChip {
   display: inline-flex;
   align-items: center;
-  gap: $space-1;
-  padding: 10px $space-5;
+  gap: $space-2;
+  padding: 12px $space-6;
   border: 1px solid var(--border);
   border-radius: $radius-full;
   background: var(--bg-card);
@@ -399,6 +447,12 @@
   cursor: pointer;
   transition: all 0.2s ease;
   white-space: nowrap;
+
+  &::before {
+    content: '✨';
+    font-size: 13px;
+    line-height: 1;
+  }
 
   &:hover {
     border-color: rgba(79, 70, 229, 0.3);
@@ -440,20 +494,25 @@
 .resultCard {
   background: var(--bg-card);
   border: 1px solid var(--border);
+  border-left: 3px solid;
+  border-image: linear-gradient(180deg, #4f46e5, #6366f1) 1;
   border-radius: $radius-lg;
-  padding: $space-6 $space-7;
+  padding: $space-7 $space-8;
   margin-bottom: $space-4;
   transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
 
   &:hover {
     box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
     border-color: var(--border-strong, var(--border));
+    border-image: linear-gradient(180deg, #4f46e5, #7c3aed) 1;
+    background: rgba(79, 70, 229, 0.015);
     transform: translateY(-2px);
   }
 }
 
 [data-theme='dark'] .resultCard:hover {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+  background: rgba(99, 102, 241, 0.04);
 }
 
 .cardHeader {
@@ -539,7 +598,7 @@
   }
 
   .heroHeading {
-    font-size: 28px;
+    font-size: 32px;
   }
 
   .heroTitle {

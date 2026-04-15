@@ -1,16 +1,15 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { m } from 'framer-motion'
-import { RefreshCw, FileText, Shield, Globe, Key } from 'lucide-react'
+import { RefreshCw, FileText, Shield, Globe, Key, Star, Check, Sparkles, Zap } from 'lucide-react'
 import { api } from '../services/api'
 import { useNotificationStore } from '../stores/notificationStore'
-import { Badge } from '../components/common/Badge'
 import { Modal } from '../components/common/Modal'
 import { EmptyState } from '../components/common/EmptyState'
 import { Skeleton } from '../components/common/Skeleton'
 import { formatError } from '../lib/errors'
 import { staggerContainerFast, staggerItemSmall } from '../lib/animations'
-import { tierBadgeColor, categoryBadgeColor, categoryLabel } from '../lib/ui'
+
 import type { DoctorResponse, DoctorSource } from '../types'
 import styles from './SourcesPage.module.scss'
 
@@ -24,6 +23,21 @@ const CATEGORY_ICONS: Record<CategoryKey, typeof FileText> = {
   web: Globe,
 }
 
+const CATEGORY_STYLE: Record<CategoryKey, string> = {
+  paper: styles.categoryPaper,
+  patent: styles.categoryPatent,
+  web: styles.categoryWeb,
+}
+
+function statusBorderClass(src: DoctorSource): string {
+  if (!src.enabled) return styles.borderDisabled
+  switch (src.status) {
+    case 'ok': return styles.borderOk
+    case 'needs_key': return styles.borderWarning
+    default: return styles.borderError
+  }
+}
+
 function StatusDot({ status }: { status: string }) {
   const cls =
     status === 'ok'
@@ -34,6 +48,28 @@ function StatusDot({ status }: { status: string }) {
           ? styles.statusWarning
           : styles.statusError
   return <span className={`${styles.statusDot} ${cls}`} />
+}
+
+function TierBadge({ tier, t }: { tier: number; t: (k: string) => string }) {
+  if (tier === 0) {
+    return (
+      <span className={`${styles.tierBadge} ${styles.tierBadge0}`}>
+        <Star size={10} /> {t('sources.tierCore')}
+      </span>
+    )
+  }
+  if (tier === 1) {
+    return (
+      <span className={`${styles.tierBadge} ${styles.tierBadge1}`}>
+        <Zap size={10} /> {t('sources.tierExtended')}
+      </span>
+    )
+  }
+  return (
+    <span className={`${styles.tierBadge} ${styles.tierBadge2}`}>
+      <Sparkles size={10} /> {t('sources.tierExperimental')}
+    </span>
+  )
 }
 
 function SourceCardSkeleton() {
@@ -49,10 +85,14 @@ function SourceCardSkeleton() {
 function LoadingSkeleton() {
   return (
     <div className={styles.page} role="status" aria-live="polite" aria-busy="true">
+      <div className={styles.skeletonPageHeader}>
+        <Skeleton variant="textShort" width={200} />
+        <Skeleton variant="text" width={280} />
+      </div>
       {[0, 1, 2].map((g) => (
         <div key={g}>
           <div className={styles.skeletonHeader}>
-            <Skeleton variant="rect" width={36} height={36} />
+            <Skeleton variant="rect" width={44} height={44} />
             <Skeleton variant="textShort" width={120} />
           </div>
           <div className={styles.skeletonGrid}>
@@ -156,16 +196,33 @@ export function SourcesPage() {
     web: 'sources.categoryWeb',
   }
 
+  const healthPercent = totalCount > 0 ? Math.round((okCount / totalCount) * 100) : 0
+
   return (
     <div className={styles.page}>
-      {/* Summary Header */}
-      <div className={styles.summary}>
-        <Badge color={okCount === totalCount ? 'green' : 'amber'}>
-          {t('sources.sourcesAvailable', { ok: okCount, total: totalCount })}
-        </Badge>
-        <button className="btn btn-sm btn-outline" onClick={fetchData}>
-          <RefreshCw size={14} /> {t('sources.refresh')}
-        </button>
+      {/* Page Header */}
+      <div className={styles.pageHeader}>
+        <div className={styles.pageHeaderLeft}>
+          <h1 className={styles.pageTitle}>{t('sources.pageTitle')}</h1>
+          <p className={styles.pageSubtitle}>{t('sources.pageSubtitle')}</p>
+        </div>
+        <div className={styles.pageHeaderRight}>
+          <div className={styles.healthStats}>
+            <span className={styles.healthLabel}>
+              {t('sources.healthStats', { ok: okCount, total: totalCount })}
+            </span>
+            <div className={styles.healthBar}>
+              <div
+                className={styles.healthBarFill}
+                style={{ width: `${healthPercent}%` }}
+                data-full={okCount === totalCount ? '' : undefined}
+              />
+            </div>
+          </div>
+          <button className="btn btn-sm btn-outline" onClick={fetchData}>
+            <RefreshCw size={14} /> {t('sources.refresh')}
+          </button>
+        </div>
       </div>
 
       {/* Category Groups */}
@@ -173,15 +230,17 @@ export function SourcesPage() {
         const list = sourcesByCategory[cat]
         if (!list || list.length === 0) return null
         const Icon = CATEGORY_ICONS[cat]
+        const catStyle = CATEGORY_STYLE[cat]
         return (
-          <div key={cat} className={styles.categoryGroup}>
+          <div key={cat} className={`${styles.categoryGroup} ${catStyle}`}>
             <div className={styles.categoryHeader}>
               <div className={styles.categoryIcon}>
-                <Icon size={18} />
+                <Icon size={24} />
               </div>
               <span className={styles.categoryName}>{t(categoryI18nKeys[cat])}</span>
-              <Badge color="gray">{list.length}</Badge>
+              <span className={styles.categoryCount}>{list.length}</span>
             </div>
+            <div className={styles.categoryDivider} />
 
             <m.div
               className={styles.cardGrid}
@@ -193,23 +252,23 @@ export function SourcesPage() {
                 <m.div
                   key={src.name}
                   variants={staggerItemSmall}
-                  className={`${styles.sourceCard} ${!src.enabled ? styles.sourceCardDisabled : ''}`}
+                  className={`${styles.sourceCard} ${!src.enabled ? styles.sourceCardDisabled : ''} ${statusBorderClass(src)}`}
                 >
                   <StatusDot status={src.enabled ? src.status : 'disabled'} />
 
                   <div className={styles.cardBody}>
                     <div className={styles.sourceName}>{src.name}</div>
                     <div className={styles.badges}>
-                      <Badge color={categoryBadgeColor(src.category)}>
-                        {categoryLabel(t, src.category)}
-                      </Badge>
-                      <Badge color={tierBadgeColor(src.tier)}>
-                        {t(`sources.tier${src.tier}` as 'sources.tier0')}
-                      </Badge>
-                      {src.required_key && (
-                        <span className={styles.needsKey}>
+                      <TierBadge tier={src.tier} t={t} />
+                      {src.required_key ? (
+                        <span className={styles.configBadgeKey}>
                           <Key size={10} />
                           {t('sources.needsApiKey')}
+                        </span>
+                      ) : (
+                        <span className={styles.configBadgeOk}>
+                          <Check size={10} />
+                          {t('sources.noConfigNeeded')}
                         </span>
                       )}
                     </div>
@@ -233,7 +292,9 @@ export function SourcesPage() {
                     >
                       <span
                         className={`${styles.toggleKnob} ${src.enabled ? styles.toggleKnobEnabled : ''}`}
-                      />
+                      >
+                        {src.enabled && <Check size={12} strokeWidth={3} />}
+                      </span>
                     </button>
                   </div>
                 </m.div>
