@@ -98,6 +98,7 @@ asyncio.run(main())
 | [数据源详情](docs/data-sources.md) | 37 个数据源完整列表、分级说明 |
 | [配置详解](docs/configuration.md) | 配置优先级、全部字段、代理池、YAML 格式 |
 | [架构设计](docs/architecture.md) | 数据流、基类模式、限流器、异常体系、项目结构 |
+| [外观定制](docs/appearance.md) | 皮肤、明暗模式、配色方案、自定义皮肤指南 |
 | [反爬技术栈](docs/anti-scraping.md) | TLS 指纹、浏览器池化、自适应退避 |
 | [API 参考](docs/api-reference.md) | Python API、数据模型、CLI 命令、MCP 工具 |
 | [贡献指南](docs/contributing.md) | 添加数据源、测试、代码风格、PR 流程 |
