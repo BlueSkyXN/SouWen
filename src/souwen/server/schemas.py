@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 class HealthResponse(BaseModel):
     status: str = Field(examples=["ok"])
-    version: str = Field(examples=["0.3.0"])
+    version: str = Field(examples=["0.4.0"])
 
 
 class SourceInfo(BaseModel):
