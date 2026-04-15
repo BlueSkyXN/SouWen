@@ -1,0 +1,54 @@
+// ===== Carbon Skin Variables =====
+// Terminal/hacker aesthetic — dark, sharp, monospace
+
+// Colors — Zinc palette (Tailwind)
+$bg-base: #09090b;
+$bg-card: rgba(24, 24, 27, 0.4);
+$bg-card-solid: #18181b;
+$bg-elevated: rgba(24, 24, 27, 0.6);
+$bg-input: #09090b;
+$bg-hover: rgba(39, 39, 42, 0.5);
+$bg-nav: rgba(9, 9, 11, 0.8);
+
+$border: #27272a;
+$border-light: rgba(39, 39, 42, 0.5);
+$border-strong: #3f3f46;
+
+$text-primary: #f4f4f5;
+$text-secondary: #a1a1aa;
+$text-muted: #71717a;
+$text-dim: #52525b;
+
+// Accent — blue (terminal scheme default)
+$accent: #3b82f6;
+$accent-hover: #2563eb;
+$accent-light: rgba(59, 130, 246, 0.1);
+$accent-glow: rgba(59, 130, 246, 0.2);
+
+// Semantic
+$success: #10b981;
+$success-light: rgba(16, 185, 129, 0.1);
+$warning: #f59e0b;
+$warning-light: rgba(245, 158, 11, 0.1);
+$error: #f43f5e;
+$error-light: rgba(244, 63, 94, 0.1);
+
+// Typography — monospace first
+$font-mono: 'JetBrains Mono', 'Fira Code', 'SF Mono', 'Cascadia Code', 'Consolas', monospace;
+$font-sans: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Inter', sans-serif;
+
+// Layout
+$header-height: 64px;
+$content-max-width: 1200px;
+$content-padding: 24px;
+
+// No border radius (sharp corners for terminal aesthetic)
+$radius: 0px;
+$radius-sm: 0px;
+$radius-md: 2px;
+$radius-pill: 9999px;
+
+// Transitions
+$transition-fast: 120ms ease;
+$transition: 200ms ease;
+$transition-slow: 300ms ease;

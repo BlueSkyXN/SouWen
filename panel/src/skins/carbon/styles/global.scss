@@ -1,0 +1,159 @@
+@use 'variables' as *;
+
+/* ===== Carbon Skin — Global Styles ===== */
+
+:root {
+  --bg: #{$bg-base};
+  --bg-card: #{$bg-card};
+  --bg-card-solid: #{$bg-card-solid};
+  --bg-elevated: #{$bg-elevated};
+  --bg-input: #{$bg-input};
+  --bg-hover: #{$bg-hover};
+  --bg-nav: #{$bg-nav};
+
+  --text: #{$text-primary};
+  --text-secondary: #{$text-secondary};
+  --text-muted: #{$text-muted};
+  --text-dim: #{$text-dim};
+
+  --border: #{$border};
+  --border-light: #{$border-light};
+  --border-strong: #{$border-strong};
+
+  --accent: #{$accent};
+  --accent-hover: #{$accent-hover};
+  --accent-light: #{$accent-light};
+  --accent-glow: #{$accent-glow};
+
+  --success: #{$success};
+  --success-light: #{$success-light};
+  --warning: #{$warning};
+  --warning-light: #{$warning-light};
+  --error: #{$error};
+  --error-light: #{$error-light};
+
+  --font-mono: #{$font-mono};
+  --font-sans: #{$font-sans};
+
+  --header-h: #{$header-height};
+  --content-max: #{$content-max-width};
+  --content-pad: #{$content-padding};
+
+  --transition-fast: #{$transition-fast};
+  --transition: #{$transition};
+  --transition-slow: #{$transition-slow};
+}
+
+/* ── Scheme: terminal (blue, default) ── */
+/* Default accent is already blue, no override needed */
+
+/* ── Scheme: matrix (green) ── */
+[data-scheme='aurora'] {
+  --accent: #10b981;
+  --accent-hover: #059669;
+  --accent-light: rgba(16, 185, 129, 0.1);
+  --accent-glow: rgba(16, 185, 129, 0.2);
+}
+
+/* ── Scheme: obsidian → ember (amber) for carbon ── */
+[data-scheme='obsidian'] {
+  --accent: #f59e0b;
+  --accent-hover: #d97706;
+  --accent-light: rgba(245, 158, 11, 0.1);
+  --accent-glow: rgba(245, 158, 11, 0.2);
+}
+
+/* ── Light mode (warmer dark) ── */
+[data-mode='light'] {
+  --bg: #18181b;
+  --bg-card: rgba(39, 39, 42, 0.4);
+  --bg-card-solid: #27272a;
+  --bg-elevated: rgba(39, 39, 42, 0.6);
+  --bg-input: #18181b;
+  --bg-hover: rgba(63, 63, 70, 0.4);
+  --bg-nav: rgba(24, 24, 27, 0.9);
+  --text: #fafafa;
+  --text-secondary: #d4d4d8;
+  --text-muted: #a1a1aa;
+  --text-dim: #71717a;
+  --border: #3f3f46;
+  --border-light: rgba(63, 63, 70, 0.5);
+  --border-strong: #52525b;
+}
+
+/* ===== Base Reset ===== */
+*, *::before, *::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-mono);
+  background: var(--bg);
+  color: var(--text-secondary);
+  line-height: 1.6;
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+::selection {
+  background: rgba(59, 130, 246, 0.3);
+  color: #93c5fd;
+}
+
+a {
+  color: var(--accent);
+  text-decoration: none;
+}
+
+input, button, textarea, select {
+  font-family: inherit;
+}
+
+/* ===== Scrollbar (terminal style) ===== */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border);
+  &:hover {
+    background: var(--border-strong);
+  }
+}
+
+/* ===== Animations ===== */
+@keyframes pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@keyframes blink-cursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+@keyframes scan-line {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+.animate-pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+.animate-blink {
+  animation: blink-cursor 1s step-end infinite;
+}

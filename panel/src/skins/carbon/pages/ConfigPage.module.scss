@@ -1,0 +1,231 @@
+@use '../styles/variables' as *;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+/* ── Page Header ── */
+.pageHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 16px;
+  border-bottom: 1px solid var(--border);
+}
+
+.pageTitle {
+  font-family: $font-mono;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  letter-spacing: -0.01em;
+}
+
+.pageDesc {
+  font-family: $font-mono;
+  font-size: 11px;
+  color: var(--text-dim);
+  margin-top: 4px;
+  max-width: 600px;
+  line-height: 1.5;
+}
+
+.commitBtn {
+  padding: 8px 16px;
+  background: var(--accent);
+  border: 1px solid var(--accent);
+  color: #fff;
+  font-family: $font-mono;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  transition: background $transition-fast;
+  white-space: nowrap;
+
+  &:hover:not(:disabled) {
+    background: var(--accent-hover);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+/* ── Config Section ── */
+.configSection {
+  border: 1px solid var(--border);
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  font-family: $font-mono;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.sectionIcon {
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+}
+
+/* ── Config Rows ── */
+.configRow {
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-light);
+  gap: 16px;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover {
+    background: var(--bg-hover);
+  }
+}
+
+.configLabel {
+  flex: 0 0 200px;
+  font-family: $font-mono;
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+
+  @media (max-width: 640px) {
+    flex: 0 0 140px;
+  }
+}
+
+.configValue {
+  flex: 1;
+  font-family: $font-mono;
+  font-size: 13px;
+  color: var(--text);
+  word-break: break-all;
+}
+
+.configInput {
+  width: 100%;
+  padding: 6px 10px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: $font-mono;
+  font-size: 12px;
+  outline: none;
+  transition: border-color $transition-fast;
+
+  &:focus {
+    border-color: var(--accent);
+  }
+}
+
+.nullVal {
+  color: var(--text-dim);
+  font-style: italic;
+  font-size: 11px;
+}
+
+.codeVal {
+  font-size: 11px;
+  padding: 2px 6px;
+  background: var(--bg-hover);
+  border: 1px solid var(--border-light);
+  color: var(--text-secondary);
+}
+
+.boolBadge {
+  padding: 2px 8px;
+  font-family: $font-mono;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  border: 1px solid;
+
+  &.boolTrue {
+    color: $success;
+    border-color: rgba($success, 0.3);
+    background: $success-light;
+  }
+
+  &.boolFalse {
+    color: var(--text-dim);
+    border-color: var(--border);
+  }
+}
+
+.maskedBadge {
+  padding: 2px 8px;
+  font-family: $font-mono;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: $success;
+  border: 1px solid rgba($success, 0.3);
+  background: $success-light;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.plainVal {
+  color: var(--text-secondary);
+}
+
+/* ── Loading ── */
+.loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 80px 20px;
+  gap: 12px;
+  font-family: $font-mono;
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  .configRow {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .configLabel {
+    flex: none;
+  }
+
+  .pageHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+}
