@@ -135,8 +135,11 @@ SOUWEN_UNPAYWALL_EMAIL=your@email.com
 ### 标准 Docker
 
 ```bash
-# 构建
+# 构建（默认皮肤 souwen-classic）
 docker build -t souwen .
+
+# 使用自定义皮肤构建
+docker build -t souwen --build-arg SKIN=souwen-classic .
 
 # 运行（可选：设置 API 密码和配置）
 docker run -d -p 49265:49265 \
@@ -158,6 +161,58 @@ docker compose up -d
 
 → 部署后访问 `/panel` 进入管理面板，`/health` 检查健康状态，`/docs` 查看 API 文档。
 
+## 🎨 前端管理面板
+
+管理面板 (`/panel`) 基于 React + TypeScript + SCSS Modules + Framer Motion 构建，采用**多皮肤架构**。
+
+### 三层分离
+
+```
+Skin（皮肤）→ Mode（模式）→ Scheme（配色）
+│                │              │
+│                │              └── nebula / aurora / obsidian（运行时切换）
+│                └── light / dark（运行时切换）
+└── souwen-classic / ...（构建时选择）
+```
+
+- **Skin** = 完全独立的前端 UI（布局、组件、路由、交互逻辑）
+- **Mode** = 明暗模式（light/dark），面板内切换
+- **Scheme** = 强调色方案（星云/极光/黑曜石），面板内切换
+
+### 前端开发
+
+```bash
+cd panel
+
+# 开发模式（默认 souwen-classic 皮肤）
+npm run dev:classic
+
+# 构建产物（单文件 HTML，自动复制到 src/souwen/server/panel.html）
+npm run build:classic
+
+# 使用其他皮肤
+VITE_SKIN=my-skin npm run dev
+
+# 测试
+npm test
+```
+
+### 目录结构
+
+```
+panel/src/
+  core/           # 跨皮肤共享（stores, API, types, i18n, lib）
+  skins/
+    souwen-classic/  # 默认皮肤
+      components/    # UI 组件
+      pages/         # 页面
+      styles/        # SCSS 样式
+      stores/        # 皮肤状态
+      routes.tsx     # 路由定义
+      skin.config.ts # 皮肤配置（配色方案等）
+      index.ts       # 皮肤入口
+```
+
 ## 🛠️ 高级用法
 
 ```bash
@@ -175,10 +230,15 @@ python -m souwen.integrations.mcp_server          # MCP 工具服务
 ## 🧪 开发
 
 ```bash
-pip install -e ".[dev]"           # 安装开发依赖
-pytest tests/ -v                  # 运行测试
+pip install -e ".[dev]"           # 安装后端开发依赖
+pytest tests/ -v                  # 运行后端测试
 ruff check src/                   # 代码检查
 ruff format --check src/          # 格式检查
+
+cd panel && npm install           # 安装前端依赖
+npm run dev:classic               # 前端开发服务器
+npm test                          # 前端测试
+npm run build:classic             # 前端构建
 ```
 
 → 贡献代码见 [贡献指南](docs/contributing.md)

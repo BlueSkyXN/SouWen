@@ -22,17 +22,70 @@ playwright install chromium
 ## 运行测试
 
 ```bash
-# 运行全部测试
+# 运行全部后端测试
 pytest tests/ -v
 
 # 快速运行
 pytest tests/ -q --tb=short
+
+# 运行前端测试
+cd panel && npm test
 
 # 运行示例脚本
 python examples/search_papers.py
 python examples/search_patents.py
 python examples/search_web.py
 ```
+
+## 前端开发
+
+管理面板位于 `panel/` 目录，使用 React + TypeScript + SCSS Modules + Framer Motion。
+
+### 环境搭建
+
+```bash
+cd panel
+npm install
+npm run dev:classic    # 启动开发服务器（souwen-classic 皮肤）
+```
+
+### 目录结构
+
+```
+panel/src/
+  core/                  # 跨皮肤共享（stores, API, types, i18n）
+  skins/
+    souwen-classic/      # 默认皮肤
+      components/        # UI 组件
+      pages/             # 页面
+      styles/            # SCSS 样式
+      stores/            # 皮肤状态管理
+      routes.tsx         # 路由定义
+      skin.config.ts     # 皮肤配置
+      index.ts           # 皮肤入口
+```
+
+### 构建
+
+```bash
+npm run build:classic    # 构建 souwen-classic 皮肤
+# 等效于：VITE_SKIN=souwen-classic npm run build
+# 产物：单文件 dist/index.html，自动复制到 src/souwen/server/panel.html
+```
+
+### 创建新皮肤
+
+1. 复制 `panel/src/skins/souwen-classic/` 为新目录（如 `skins/my-skin/`）
+2. 修改 `skin.config.ts` 中的皮肤元信息和配色方案
+3. 自由修改组件、页面、样式、路由
+4. 构建：`VITE_SKIN=my-skin npm run build`
+
+### 注意事项
+
+- 使用 `@core/...` 引用共享模块，`@skin/...` 引用当前皮肤模块
+- 动画使用 Framer Motion：导入 `m`（不是 `motion`），`type: 'spring'` 需要 `as const`
+- SCSS 变量定义在 `styles/variables.scss`，全局 token 通过 CSS 自定义属性
+- 不使用 Tailwind — 项目使用 SCSS Modules + CSS Variables
 
 ## 代码风格
 
