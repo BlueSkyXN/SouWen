@@ -1,3 +1,5 @@
+import i18n from '../i18n'
+
 export class AppError extends Error {
   constructor(
     message: string,
@@ -15,7 +17,7 @@ export class AppError extends Error {
   }
 
   static network(cause?: unknown): AppError {
-    const msg = cause instanceof Error ? cause.message : '网络连接失败'
+    const msg = cause instanceof Error ? cause.message : i18n.t('common.networkError')
     return new AppError(msg, 0, false, true)
   }
 }
@@ -23,5 +25,5 @@ export class AppError extends Error {
 export function formatError(err: unknown): string {
   if (err instanceof AppError) return err.message
   if (err instanceof Error) return err.message
-  return '未知错误'
+  return i18n.t('common.unknownError')
 }

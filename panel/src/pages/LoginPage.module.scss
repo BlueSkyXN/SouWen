@@ -1,5 +1,39 @@
 @use '../styles/variables' as *;
 
+// ─── Animations ───
+@keyframes orbDrift {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  33% { transform: translate(30px, -25px) scale(1.05); }
+  66% { transform: translate(-20px, 15px) scale(0.97); }
+}
+
+@keyframes orbDriftAlt {
+  0%, 100% { transform: translate(0, 0) scale(1); }
+  50% { transform: translate(-25px, -18px) scale(1.08); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  15% { transform: translateX(-8px); }
+  30% { transform: translateX(7px); }
+  45% { transform: translateX(-5px); }
+  60% { transform: translateX(4px); }
+  75% { transform: translateX(-2px); }
+  90% { transform: translateX(1px); }
+}
+
+@keyframes successPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.015); box-shadow: var(--shadow-xl); }
+  100% { transform: scale(1); }
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+// ─── Page ───
 .page {
   display: flex;
   align-items: center;
@@ -14,57 +48,81 @@
   &::before {
     content: '';
     position: absolute;
-    width: 500px;
-    height: 500px;
+    width: 720px;
+    height: 720px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(37, 99, 235, 0.08) 0%, transparent 70%);
-    top: -120px;
-    right: -80px;
+    background: radial-gradient(
+      circle,
+      rgba(37, 99, 235, 0.10) 0%,
+      rgba(79, 70, 229, 0.05) 35%,
+      transparent 70%
+    );
+    top: -250px;
+    right: -180px;
     pointer-events: none;
     z-index: 0;
+    animation: orbDrift 28s ease-in-out infinite;
   }
 
   &::after {
     content: '';
     position: absolute;
-    width: 400px;
-    height: 400px;
+    width: 600px;
+    height: 600px;
     border-radius: 50%;
-    background: radial-gradient(circle, rgba(79, 70, 229, 0.06) 0%, transparent 70%);
-    bottom: -100px;
-    left: -60px;
+    background: radial-gradient(
+      circle,
+      rgba(79, 70, 229, 0.08) 0%,
+      rgba(13, 148, 136, 0.04) 35%,
+      transparent 70%
+    );
+    bottom: -200px;
+    left: -140px;
     pointer-events: none;
     z-index: 0;
+    animation: orbDriftAlt 35s ease-in-out infinite;
   }
 }
 
+[data-theme='dark'] .page::before {
+  background: radial-gradient(
+    circle,
+    rgba(59, 130, 246, 0.12) 0%,
+    rgba(129, 140, 248, 0.06) 35%,
+    transparent 70%
+  );
+}
+
+[data-theme='dark'] .page::after {
+  background: radial-gradient(
+    circle,
+    rgba(129, 140, 248, 0.10) 0%,
+    rgba(45, 212, 191, 0.04) 35%,
+    transparent 70%
+  );
+}
+
+// ─── Grid Background ───
 .gridBg {
   position: absolute;
   inset: 0;
   z-index: 0;
   background-image:
-    linear-gradient(rgba(0, 0, 0, 0.02) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(0, 0, 0, 0.02) 1px, transparent 1px);
-  background-size: 48px 48px;
-  mask-image: radial-gradient(ellipse 60% 60% at 50% 50%, black 20%, transparent 70%);
-  -webkit-mask-image: radial-gradient(ellipse 60% 60% at 50% 50%, black 20%, transparent 70%);
+    linear-gradient(rgba(0, 0, 0, 0.015) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0, 0, 0, 0.015) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(ellipse 55% 55% at 50% 50%, black 15%, transparent 65%);
+  -webkit-mask-image: radial-gradient(ellipse 55% 55% at 50% 50%, black 15%, transparent 65%);
   pointer-events: none;
 
   [data-theme='dark'] & {
     background-image:
-      linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+      linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
   }
 }
 
-[data-theme='dark'] .page::before {
-  background: radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%);
-}
-
-[data-theme='dark'] .page::after {
-  background: radial-gradient(circle, rgba(129, 140, 248, 0.08) 0%, transparent 70%);
-}
-
+// ─── Theme Toggle ───
 .themeToggle {
   position: absolute;
   top: $space-5;
@@ -76,31 +134,40 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 38px;
-  height: 38px;
-  background: var(--bg-card);
+  width: 40px;
+  height: 40px;
+  background: var(--bg-frosted);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border);
   border-radius: $radius-sm;
   color: var(--text-muted);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: all var(--transition);
 
   &:hover {
     color: var(--text);
     border-color: var(--border-strong);
     box-shadow: var(--shadow-sm);
+    transform: scale(1.05);
+  }
+
+  &:active {
+    transform: scale(0.95);
+    transition-duration: 60ms;
   }
 }
 
+// ─── Card ───
 .card {
   position: relative;
-  z-index: 1;
-  background: var(--bg-card);
+  background: var(--bg-frosted);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border: 1px solid var(--border);
-  border-radius: $radius-lg;
-  padding: $space-10 $space-10;
+  border-radius: $radius-xl;
+  padding: $space-12 $space-10;
   width: 100%;
-  max-width: 400px;
   box-shadow: var(--shadow-lg);
 
   [data-theme='dark'] & {
@@ -108,40 +175,64 @@
   }
 }
 
+.cardShake {
+  animation: shake 0.45s ease;
+}
+
+.cardSuccess {
+  animation: successPulse 0.4s ease;
+}
+
+// ─── Brand ───
 .logo {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 48px;
-  height: 48px;
-  margin: 0 auto $space-4;
-  background: var(--primary);
+  width: 56px;
+  height: 56px;
+  margin: 0 auto $space-5;
+  background: linear-gradient(135deg, var(--primary) 0%, var(--accent-indigo) 100%);
   border-radius: $radius;
   color: #fff;
+  box-shadow: 0 4px 16px rgba(37, 99, 235, 0.25);
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: -6px;
+    border-radius: $radius-lg;
+    background: radial-gradient(circle, var(--primary-glow) 0%, transparent 70%);
+    z-index: -1;
+    opacity: 0.6;
+  }
 }
 
 .title {
   text-align: center;
-  font-size: $text-2xl;
-  font-weight: 700;
+  font-size: $text-3xl;
+  font-weight: $font-bold;
   margin-bottom: $space-1;
-  letter-spacing: -0.03em;
+  letter-spacing: $tracking-tight;
+  color: var(--text);
 }
 
 .subtitle {
   text-align: center;
   color: var(--text-muted);
   font-size: $text-sm;
-  margin-bottom: $space-8;
+  margin-bottom: $space-10;
+  letter-spacing: $tracking-normal;
 }
 
+// ─── Form ───
 .formGroup {
   margin-bottom: $space-5;
 
   label {
     display: block;
     font-size: $text-sm;
-    font-weight: 500;
+    font-weight: $font-semibold;
     margin-bottom: $space-2;
     color: var(--text-secondary);
   }
@@ -149,17 +240,18 @@
 
 .input {
   width: 100%;
-  padding: 10px $space-4;
-  border: 1px solid var(--border-input);
-  border-radius: $radius-sm;
+  padding: $space-3 $space-4;
+  border: 1.5px solid var(--border-input);
+  border-radius: var(--radius-sm);
   background: var(--bg-input);
   color: var(--text);
-  transition: all var(--transition-fast);
+  font-size: $text-base;
+  transition: all var(--transition);
   outline: none;
 
   &:focus {
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+    box-shadow: 0 0 0 3px var(--primary-glow);
   }
 
   &::placeholder {
@@ -173,7 +265,7 @@
 
   .input {
     flex: 1;
-    padding-right: 40px;
+    padding-right: 44px;
   }
 }
 
@@ -185,14 +277,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 30px;
-  height: 30px;
+  width: 32px;
+  height: 32px;
   background: none;
   border: none;
   border-radius: $radius-xs;
   color: var(--text-muted);
   cursor: pointer;
-  transition: all var(--transition-fast);
+  transition: all var(--transition);
 
   &:hover {
     background: var(--bg-hover);
@@ -200,25 +292,70 @@
   }
 }
 
+// ─── Custom Checkbox ───
 .checkboxRow {
   display: flex;
   align-items: center;
-  gap: $space-2;
+  gap: $space-3;
   font-size: $text-sm;
   color: var(--text-secondary);
   margin-bottom: $space-6;
 
-  input {
-    accent-color: var(--primary);
-    width: 15px;
-    height: 15px;
+  label {
+    cursor: pointer;
+    user-select: none;
+  }
+
+  input[type='checkbox'] {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 18px;
+    height: 18px;
+    border: 1.5px solid var(--border-input);
+    border-radius: 5px;
+    background: var(--bg-input);
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0;
+    transition: all var(--transition-fast);
+
+    &:checked {
+      background: var(--primary);
+      border-color: var(--primary);
+
+      &::after {
+        content: '';
+        position: absolute;
+        left: 5.5px;
+        top: 2px;
+        width: 5px;
+        height: 9px;
+        border: solid #fff;
+        border-width: 0 2px 2px 0;
+        transform: rotate(45deg);
+      }
+    }
+
+    &:hover {
+      border-color: var(--primary);
+    }
+
+    &:focus-visible {
+      box-shadow: var(--shadow-glow);
+    }
   }
 }
 
+// ─── Submit Button ───
 .submitBtn {
-  margin-top: $space-1;
-  height: 42px;
+  margin-top: $space-2;
+  height: 46px;
   font-size: $text-md;
-  font-weight: 600;
-  letter-spacing: -0.01em;
+  font-weight: $font-semibold;
+  letter-spacing: $tracking-normal;
+  gap: $space-2;
+}
+
+.spinner {
+  animation: spin 0.8s linear infinite;
 }

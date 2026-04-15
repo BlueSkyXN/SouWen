@@ -79,8 +79,18 @@
     "snippet": "摘要",
     "resultCount": "共 {{count}} 条结果",
     "startSearch": "输入关键词开始搜索",
+    "startSearchDesc": "选择数据源，输入关键词，探索学术世界",
     "items": "{{count}} 条",
-    "andMore": " 等"
+    "andMore": " 等",
+    "searchScope": "搜索范围",
+    "searchingHint": "正在搜索...",
+    "retrySearch": "重试搜索",
+    "enterKeyword": "探索学术知识",
+    "source_openalex": "开放学术图谱",
+    "source_arxiv": "预印本",
+    "source_google_patents": "实验性爬虫",
+    "source_duckduckgo": "爬虫",
+    "source_bing": "爬虫"
   },
   "sources": {
     "title": "数据源",
@@ -97,7 +107,21 @@
     "unavailable": "不可用",
     "sourcesAvailable": "{{ok}} / {{total}} 数据源可用",
     "requiredKey": "所需配置",
-    "description": "说明"
+    "description": "说明",
+    "enabled": "已启用",
+    "disabled": "已禁用",
+    "clickToDisable": "点击禁用",
+    "clickToEnable": "点击启用",
+    "enableHeader": "启用",
+    "categoryPaper": "学术论文",
+    "categoryPatent": "专利",
+    "categoryWeb": "网页搜索",
+    "needsApiKey": "需要 API Key",
+    "confirmDisableTitle": "确认禁用",
+    "confirmDisableMessage": "确定要禁用 {{name}} 吗？禁用后该数据源将不再参与搜索。",
+    "confirmDisable": "禁用",
+    "errorTitle": "加载数据源失败",
+    "errorDescription": "无法获取数据源信息，请检查网络连接后重试"
   },
   "config": {
     "title": "配置",
@@ -110,7 +134,53 @@
     "value": "值",
     "note": "配置项通过服务端的 souwen.yaml 或环境变量进行修改，此处仅供查看。修改后需重载配置。",
     "masked": "••••••••",
-    "passwordSet": "(密码已设置)"
+    "passwordSet": "(密码已设置)",
+    "configured": "已配置",
+    "notSet": "未设置 (可选)",
+    "sectionBasic": "基础设置",
+    "sectionBasicDesc": "API 密码、日志级别等基本运行参数",
+    "sectionNetwork": "网络设置",
+    "sectionNetworkDesc": "代理、超时等网络相关配置",
+    "sectionSearch": "搜索引擎设置",
+    "sectionSearchDesc": "SearXNG 及各引擎专属配置",
+    "sectionAdvanced": "高级设置",
+    "sectionAdvancedDesc": "WARP 代理及其他高级参数",
+    "labels": {
+      "log_level": "日志级别",
+      "max_workers": "最大工作线程",
+      "api_password": "API 密码",
+      "searxng_url": "SearXNG 服务器地址",
+      "proxy": "HTTP 代理",
+      "http_backend": "默认 HTTP 后端",
+      "timeout": "请求超时时间",
+      "concurrent_limit": "并发请求限制",
+      "cache_ttl": "缓存有效期",
+      "cache_enabled": "启用缓存",
+      "debug": "调试模式",
+      "host": "监听地址",
+      "port": "监听端口",
+      "warp_mode": "WARP 模式",
+      "warp_endpoint": "WARP 端点",
+      "warp_port": "WARP 端口"
+    },
+    "descriptions": {
+      "log_level": "控制日志输出的详细程度",
+      "max_workers": "并发搜索的最大线程数",
+      "api_password": "访问 API 所需的密码",
+      "searxng_url": "SearXNG 实例的 URL 地址",
+      "proxy": "用于请求外部服务的 HTTP/SOCKS 代理地址",
+      "http_backend": "爬虫源使用的默认 HTTP 库",
+      "timeout": "单次请求的最长等待时间 (秒)",
+      "concurrent_limit": "同时发起的最大并发请求数",
+      "cache_ttl": "搜索结果缓存的过期时间 (秒)",
+      "cache_enabled": "是否启用搜索结果缓存",
+      "debug": "开启后输出详细调试信息",
+      "host": "服务监听的网络地址",
+      "port": "服务监听的端口号",
+      "warp_mode": "WARP 的运行模式 (auto/wireproxy/kernel)",
+      "warp_endpoint": "自定义 Cloudflare WARP 端点",
+      "warp_port": "WARP SOCKS5 代理端口"
+    }
   },
   "warp": {
     "title": "WARP 代理",
@@ -145,7 +215,12 @@
     "availableModes": "可用模式",
     "ownerShell": "Shell (启动时)",
     "ownerPython": "Python (运行时)",
-    "ownerNone": "未托管"
+    "ownerNone": "未托管",
+    "notAvailable": "WARP 代理仅在 Docker 环境中可用",
+    "modeDesc": "选择 WARP 代理的运行模式",
+    "portDesc": "SOCKS5 代理监听端口",
+    "endpointDesc": "指定 Cloudflare WARP 入口节点",
+    "ownerDesc": "当前托管 WARP 进程的组件"
   },
   "httpBackend": {
     "title": "HTTP 后端配置",
@@ -164,7 +239,22 @@
     "updateSuccess": "HTTP 后端配置已更新",
     "updateFailed": "更新失败: {{message}}",
     "fetchFailed": "获取 HTTP 后端配置失败",
-    "runtimeNote": "运行时修改仅当前进程有效，如需持久化请修改 souwen.yaml"
+    "runtimeNote": "运行时修改仅当前进程有效，如需持久化请修改 souwen.yaml",
+    "curlCffiTip": "使用 curl 的 TLS 指纹伪装来绕过反爬虫检测",
+    "httpxTip": "Python 原生 HTTP 库，稳定可靠",
+    "autoTip": "根据 curl_cffi 可用性自动选择最佳后端",
+    "engineNames": {
+      "duckduckgo": "DuckDuckGo",
+      "yahoo": "Yahoo",
+      "brave": "Brave",
+      "google": "Google",
+      "bing": "Bing",
+      "startpage": "Startpage",
+      "baidu": "百度",
+      "mojeek": "Mojeek",
+      "yandex": "Yandex",
+      "google_patents": "Google Patents"
+    }
   },
   "common": {
     "loading": "加载中...",
@@ -175,7 +265,15 @@
     "connected": "已连接",
     "unknown": "未知",
     "darkMode": "深色模式",
-    "lightMode": "浅色模式"
+    "lightMode": "浅色模式",
+    "requestTimeout": "请求超时，请稍后重试",
+    "networkError": "网络连接失败",
+    "unknownError": "未知错误",
+    "pageRenderError": "页面渲染出错",
+    "reload": "重新加载",
+    "paper": "论文",
+    "patent": "专利",
+    "web": "网页"
   },
   "multiselect": {
     "filter": "筛选...",

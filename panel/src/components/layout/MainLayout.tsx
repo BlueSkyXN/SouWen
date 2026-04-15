@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
-import { m } from 'framer-motion'
+import { m, AnimatePresence } from 'framer-motion'
 import {
   LayoutDashboard,
   Search,
@@ -32,6 +32,36 @@ const PAGE_TITLE_KEYS: Record<string, string> = {
   '/config': 'nav.config',
 }
 
+const pageVariants = {
+  initial: { opacity: 0, y: 12, scale: 0.995 },
+  animate: { opacity: 1, y: 0, scale: 1 },
+  exit: { opacity: 0, y: -8, scale: 0.995 },
+}
+
+const pageTransition = {
+  type: 'spring' as const,
+  stiffness: 380,
+  damping: 34,
+  mass: 0.8,
+}
+
+const overlayVariants = {
+  hidden: { opacity: 0 },
+  visible: { opacity: 1 },
+}
+
+const drawerVariants = {
+  closed: { x: '-100%' },
+  open: { x: 0 },
+}
+
+const drawerTransition = {
+  type: 'spring' as const,
+  stiffness: 400,
+  damping: 36,
+  mass: 0.8,
+}
+
 export function MainLayout() {
   const { t } = useTranslation()
   const [collapsed, setCollapsed] = useState(false)
@@ -51,51 +81,88 @@ export function MainLayout() {
     setMobileOpen(false)
   }, [location.pathname])
 
+  const sidebarContent = (
+    <>
+      <div className={styles.brand}>
+        <span className={styles.logo}>
+          <Search size={22} />
+        </span>
+        <span className={styles.brandText}>{t('app.name')}</span>
+      </div>
+      <div className={styles.brandSeparator} />
+
+      <nav className={styles.nav}>
+        {NAV_ITEMS.map((item) => (
+          <NavLink
+            key={item.to}
+            to={item.to}
+            end={item.to === '/'}
+            className={({ isActive }) =>
+              `${styles.navItem} ${isActive ? styles.active : ''}`
+            }
+          >
+            <span className={styles.icon}>
+              <item.icon size={18} />
+            </span>
+            <span className={styles.label}>{t(item.labelKey)}</span>
+          </NavLink>
+        ))}
+      </nav>
+
+      <div className={styles.footer}>
+        {version && <div className={styles.version}>v{version}</div>}
+        <button
+          className={styles.collapseBtn}
+          onClick={() => setCollapsed((c) => !c)}
+        >
+          <span className={styles.collapseIcon}>
+            {collapsed ? <ChevronsRight size={16} /> : <ChevronsLeft size={16} />}
+          </span>
+          <span className={styles.label}>{t('nav.collapse')}</span>
+        </button>
+      </div>
+    </>
+  )
+
   return (
     <div className={styles.layout}>
-      {mobileOpen && (
-        <div className={styles.overlay} onClick={() => setMobileOpen(false)} />
-      )}
+      {/* Mobile overlay + drawer */}
+      <AnimatePresence>
+        {mobileOpen && (
+          <m.div
+            className={styles.overlay}
+            variants={overlayVariants}
+            initial="hidden"
+            animate="visible"
+            exit="hidden"
+            transition={{ duration: 0.25 }}
+            onClick={() => setMobileOpen(false)}
+          />
+        )}
+      </AnimatePresence>
 
+      {/* Desktop sidebar */}
       <aside
-        className={`${styles.sidebar} ${collapsed ? styles.collapsed : ''} ${mobileOpen ? styles.mobileOpen : ''}`}
+        className={`${styles.sidebar} ${collapsed ? styles.collapsed : ''} ${styles.desktopOnly}`}
       >
-        <div className={styles.brand}>
-          <span className={styles.logo}>
-            <Search size={22} />
-          </span>
-          <span className={styles.brandText}>{t('app.name')}</span>
-        </div>
-
-        <nav className={styles.nav}>
-          {NAV_ITEMS.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === '/'}
-              className={({ isActive }) =>
-                `${styles.navItem} ${isActive ? styles.active : ''}`
-              }
-            >
-              <span className={styles.icon}>
-                <item.icon size={18} />
-              </span>
-              <span className={styles.label}>{t(item.labelKey)}</span>
-            </NavLink>
-          ))}
-        </nav>
-
-        <div className={styles.footer}>
-          {version && <div className={styles.version}>v{version}</div>}
-          <button
-            className={styles.collapseBtn}
-            onClick={() => setCollapsed((c) => !c)}
-          >
-            <span>{collapsed ? <ChevronsRight size={16} /> : <ChevronsLeft size={16} />}</span>
-            <span className={styles.label}>{t('nav.collapse')}</span>
-          </button>
-        </div>
+        {sidebarContent}
       </aside>
+
+      {/* Mobile drawer */}
+      <AnimatePresence>
+        {mobileOpen && (
+          <m.aside
+            className={`${styles.sidebar} ${styles.mobileDrawer}`}
+            variants={drawerVariants}
+            initial="closed"
+            animate="open"
+            exit="closed"
+            transition={drawerTransition}
+          >
+            {sidebarContent}
+          </m.aside>
+        )}
+      </AnimatePresence>
 
       <div className={`${styles.main} ${collapsed ? styles.mainCollapsed : ''}`}>
         <header className={styles.header}>
@@ -114,26 +181,33 @@ export function MainLayout() {
               <span className={styles.connDot} />
               {t('common.connected')}
             </span>
-            <button className={styles.themeBtn} onClick={toggleTheme} aria-label={theme === 'light' ? t('common.darkMode') : t('common.lightMode')}>
-              {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+            <button
+              className={styles.themeBtn}
+              onClick={toggleTheme}
+              aria-label={theme === 'light' ? t('common.darkMode') : t('common.lightMode')}
+            >
+              {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
             </button>
             <button className={styles.logoutBtn} onClick={handleLogout}>
-              <LogOut size={16} />
+              <LogOut size={15} />
               <span>{t('nav.logout')}</span>
             </button>
           </div>
         </header>
 
         <main className={styles.content}>
-          <m.div
-            key={location.pathname}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.2 }}
-          >
-            <Outlet />
-          </m.div>
+          <AnimatePresence mode="wait">
+            <m.div
+              key={location.pathname}
+              variants={pageVariants}
+              initial="initial"
+              animate="animate"
+              exit="exit"
+              transition={pageTransition}
+            >
+              <Outlet />
+            </m.div>
+          </AnimatePresence>
         </main>
       </div>
     </div>

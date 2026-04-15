@@ -1,22 +1,24 @@
 import { useState, useCallback, useEffect, useRef, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { m } from 'framer-motion'
-import { FileText, Shield, Globe, Users, Calendar, Link, Building } from 'lucide-react'
+import { FileText, Shield, Globe, Users, Calendar, Link, Building, Search, ExternalLink } from 'lucide-react'
 import { api } from '../services/api'
 import { useNotificationStore } from '../stores/notificationStore'
 import { ResultsSkeleton } from '../components/common/Skeleton'
 import { EmptyState } from '../components/common/EmptyState'
 import { MultiSelect, type SelectOption } from '../components/common/MultiSelect'
+import { SegmentedControl } from '../components/common/SegmentedControl'
+import { Badge } from '../components/common/Badge'
 import { formatError } from '../lib/errors'
 import { normalizePaper, normalizePatent, normalizeWeb } from '../lib/normalize'
 import type { SearchCategory, SourceInfo, SearchResponse, WebSearchResponse, WebResult, PaperResult, PatentResult } from '../types'
-import { staggerContainer, staggerItem } from '../lib/animations'
+import { staggerContainer, staggerItem, fadeInUp } from '../lib/animations'
 import styles from './SearchPage.module.scss'
 
-const TABS: { key: SearchCategory; labelKey: string; icon: typeof FileText }[] = [
-  { key: 'paper', labelKey: 'search.papers', icon: FileText },
-  { key: 'patent', labelKey: 'search.patents', icon: Shield },
-  { key: 'web', labelKey: 'search.web', icon: Globe },
+const TAB_OPTIONS: { value: SearchCategory; label: string; icon: React.ReactNode }[] = [
+  { value: 'paper', label: '', icon: <FileText size={15} /> },
+  { value: 'patent', label: '', icon: <Shield size={15} /> },
+  { value: 'web', label: '', icon: <Globe size={15} /> },
 ]
 
 function toSelectOptions(sources: SourceInfo[]): SelectOption[] {
@@ -28,18 +30,20 @@ function toSelectOptions(sources: SourceInfo[]): SelectOption[] {
   }))
 }
 
-const FALLBACK_OPTIONS: Record<SearchCategory, SelectOption[]> = {
-  paper: [
-    { value: 'openalex', label: 'openalex', description: '开放学术图谱' },
-    { value: 'arxiv', label: 'arxiv', description: '预印本' },
-  ],
-  patent: [
-    { value: 'google_patents', label: 'google_patents', description: '实验性爬虫' },
-  ],
-  web: [
-    { value: 'duckduckgo', label: 'duckduckgo', description: '爬虫' },
-    { value: 'bing', label: 'bing', description: '爬虫' },
-  ],
+function makeFallbackOptions(t: (key: string) => string): Record<SearchCategory, SelectOption[]> {
+  return {
+    paper: [
+      { value: 'openalex', label: 'openalex', description: t('search.source_openalex') },
+      { value: 'arxiv', label: 'arxiv', description: t('search.source_arxiv') },
+    ],
+    patent: [
+      { value: 'google_patents', label: 'google_patents', description: t('search.source_google_patents') },
+    ],
+    web: [
+      { value: 'duckduckgo', label: 'duckduckgo', description: t('search.source_duckduckgo') },
+      { value: 'bing', label: 'bing', description: t('search.source_bing') },
+    ],
+  }
 }
 
 const DEFAULT_SELECTED: Record<SearchCategory, string[]> = {
@@ -48,9 +52,13 @@ const DEFAULT_SELECTED: Record<SearchCategory, string[]> = {
   web: ['duckduckgo', 'bing'],
 }
 
-function resolveSourceOptions(category: SearchCategory, sources: SourceInfo[]): SelectOption[] {
+function resolveSourceOptions(
+  category: SearchCategory,
+  sources: SourceInfo[],
+  fallback: Record<SearchCategory, SelectOption[]>,
+): SelectOption[] {
   const options = toSelectOptions(sources)
-  return options.length > 0 ? options : FALLBACK_OPTIONS[category]
+  return options.length > 0 ? options : fallback[category]
 }
 
 function sanitizeSelections(
@@ -80,9 +88,10 @@ type SearchState =
 
 export function SearchPage() {
   const { t } = useTranslation()
+  const fallbackOptions = makeFallbackOptions(t)
   const [tab, setTab] = useState<SearchCategory>('paper')
   const [query, setQuery] = useState('')
-  const [sourceOptions, setSourceOptions] = useState<Record<SearchCategory, SelectOption[]>>(FALLBACK_OPTIONS)
+  const [sourceOptions, setSourceOptions] = useState<Record<SearchCategory, SelectOption[]>>(fallbackOptions)
   const [selections, setSelections] = useState<Record<SearchCategory, string[]>>({
     ...DEFAULT_SELECTED,
   })
@@ -95,19 +104,25 @@ export function SearchPage() {
   const activeRequestRef = useRef<{ id: number; controller: AbortController } | null>(null)
   const requestIdRef = useRef(0)
 
+  const segmentOptions = TAB_OPTIONS.map((o) => ({
+    ...o,
+    label: t(`search.${o.value === 'paper' ? 'papers' : o.value === 'patent' ? 'patents' : 'web'}`),
+  }))
+
   useEffect(() => {
     let cancelled = false
     api.getSources().then((res) => {
       if (cancelled) return
       const nextOptions = {
-        paper: resolveSourceOptions('paper', res.paper),
-        patent: resolveSourceOptions('patent', res.patent),
-        web: resolveSourceOptions('web', res.web),
+        paper: resolveSourceOptions('paper', res.paper, fallbackOptions),
+        patent: resolveSourceOptions('patent', res.patent, fallbackOptions),
+        web: resolveSourceOptions('web', res.web, fallbackOptions),
       }
       setSourceOptions(nextOptions)
       setSelections((prev) => sanitizeSelections(prev, nextOptions))
     }).catch((err) => { console.warn('[SouWen] Failed to load sources from API, using fallback:', err) })
     return () => { cancelled = true }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   useEffect(() => {
@@ -179,17 +194,28 @@ export function SearchPage() {
     [tab, query, currentSources, canSearch, count, addToast, t],
   )
 
+  const handleRetry = useCallback(() => {
+    const syntheticEvent = { preventDefault: () => {} } as FormEvent
+    handleSearch(syntheticEvent)
+  }, [handleSearch])
+
   const renderPaperCard = (raw: PaperResult, i: number) => {
     const p = normalizePaper(raw)
     const key = p.doi || `paper-${p.source}-${i}`
     return (
-      <m.div key={key} className={styles.resultCard} variants={staggerItem}>
-        <div className={styles.resultTitle}>
-          {p.url ? (
-            <a href={p.url} target="_blank" rel="noopener noreferrer">{p.title || t('search.untitled')}</a>
-          ) : (
-            p.title || t('search.untitled')
-          )}
+      <m.article key={key} className={styles.resultCard} variants={staggerItem}>
+        <div className={styles.cardHeader}>
+          <h3 className={styles.resultTitle}>
+            {p.url ? (
+              <a href={p.url} target="_blank" rel="noopener noreferrer">
+                {p.title || t('search.untitled')}
+                <ExternalLink size={14} className={styles.externalIcon} />
+              </a>
+            ) : (
+              p.title || t('search.untitled')
+            )}
+          </h3>
+          {p.source && <Badge color="blue">{p.source}</Badge>}
         </div>
         <div className={styles.resultMeta}>
           {p.authors.length > 0 && (
@@ -197,14 +223,13 @@ export function SearchPage() {
           )}
           {p.year && <span><Calendar size={14} /> {p.year}</span>}
           {p.doi && <span><Link size={14} /> {p.doi}</span>}
-          {p.source && <span className={styles.sourceTag}>{p.source}</span>}
         </div>
         {p.abstract && (
-          <div className={styles.resultAbstract}>
+          <p className={styles.resultAbstract}>
             {p.abstract.slice(0, 300)}{p.abstract.length > 300 ? '...' : ''}
-          </div>
+          </p>
         )}
-      </m.div>
+      </m.article>
     )
   }
 
@@ -212,13 +237,19 @@ export function SearchPage() {
     const p = normalizePatent(raw)
     const key = p.patentNumber || `patent-${p.source}-${i}`
     return (
-      <m.div key={key} className={styles.resultCard} variants={staggerItem}>
-        <div className={styles.resultTitle}>
-          {p.url ? (
-            <a href={p.url} target="_blank" rel="noopener noreferrer">{p.title || t('search.untitled')}</a>
-          ) : (
-            p.title || t('search.untitled')
-          )}
+      <m.article key={key} className={styles.resultCard} variants={staggerItem}>
+        <div className={styles.cardHeader}>
+          <h3 className={styles.resultTitle}>
+            {p.url ? (
+              <a href={p.url} target="_blank" rel="noopener noreferrer">
+                {p.title || t('search.untitled')}
+                <ExternalLink size={14} className={styles.externalIcon} />
+              </a>
+            ) : (
+              p.title || t('search.untitled')
+            )}
+          </h3>
+          {p.source && <Badge color="indigo">{p.source}</Badge>}
         </div>
         <div className={styles.resultMeta}>
           {p.patentNumber && (
@@ -228,14 +259,13 @@ export function SearchPage() {
             <span><Building size={14} /> {p.applicant}</span>
           )}
           {p.publicationDate && <span><Calendar size={14} /> {p.publicationDate}</span>}
-          {p.source && <span className={styles.sourceTag}>{p.source}</span>}
         </div>
         {p.abstract && (
-          <div className={styles.resultAbstract}>
+          <p className={styles.resultAbstract}>
             {p.abstract.slice(0, 300)}{p.abstract.length > 300 ? '...' : ''}
-          </div>
+          </p>
         )}
-      </m.div>
+      </m.article>
     )
   }
 
@@ -243,26 +273,36 @@ export function SearchPage() {
     const item = normalizeWeb(raw)
     const key = item.url || `web-${item.source}-${i}`
     return (
-      <m.div key={key} className={styles.resultCard} variants={staggerItem}>
-        <div className={styles.resultTitle}>
-          {item.url ? (
-            <a href={item.url} target="_blank" rel="noopener noreferrer">{item.title}</a>
-          ) : (
-            item.title
-          )}
+      <m.article key={key} className={styles.resultCard} variants={staggerItem}>
+        <div className={styles.cardHeader}>
+          <h3 className={styles.resultTitle}>
+            {item.url ? (
+              <a href={item.url} target="_blank" rel="noopener noreferrer">
+                {item.title}
+                <ExternalLink size={14} className={styles.externalIcon} />
+              </a>
+            ) : (
+              item.title
+            )}
+          </h3>
+          {(item.source || raw.engine) && <Badge color="teal">{item.source || raw.engine}</Badge>}
         </div>
         {item.url && <div className={styles.resultUrl}>{item.url}</div>}
-        {item.snippet && <div className={styles.resultAbstract}>{item.snippet}</div>}
-        {(item.source || raw.engine) && <span className={styles.sourceTag}>{item.source || raw.engine}</span>}
-      </m.div>
+        {item.snippet && <p className={styles.resultAbstract}>{item.snippet}</p>}
+      </m.article>
     )
   }
+
+  const hasResults =
+    (tab === 'paper' && paperResults) ||
+    (tab === 'patent' && patentResults) ||
+    (tab === 'web' && webResults)
 
   const renderResults = () => {
     if (isSearchingCurrentTab) {
       return (
         <div role="status" aria-live="polite" aria-busy="true">
-          <span className="srOnly">{t('search.searching', 'Searching')}</span>
+          <div className={styles.searchingHint}>{t('search.searchingHint')}</div>
           <ResultsSkeleton count={4} />
         </div>
       )
@@ -274,6 +314,11 @@ export function SearchPage() {
           type="error"
           title={t('search.errorStateTitle')}
           description={searchState.message}
+          action={
+            <button type="button" className="btn btn-primary btn-sm" onClick={handleRetry}>
+              {t('search.retrySearch')}
+            </button>
+          }
         />
       )
     }
@@ -310,60 +355,79 @@ export function SearchPage() {
       )
     }
 
-    return <EmptyState type="search" title={t('search.startSearch')} description={t('search.placeholder')} />
+    return (
+      <EmptyState
+        type="search"
+        title={t('search.enterKeyword')}
+        description={t('search.startSearchDesc')}
+      />
+    )
   }
 
   return (
     <div className={styles.page}>
-      <div className={styles.tabs}>
-        {TABS.map((tabItem) => (
-          <button
-            key={tabItem.key}
-            className={`${styles.tab} ${tab === tabItem.key ? styles.active : ''}`}
-            onClick={() => handleTabChange(tabItem.key)}
-          >
-            <tabItem.icon size={16} />
-            {t(tabItem.labelKey)}
-          </button>
-        ))}
+      {/* Tab Switcher */}
+      <div className={styles.tabBar}>
+        <SegmentedControl options={segmentOptions} value={tab} onChange={handleTabChange} />
       </div>
 
-      <form className={styles.form} onSubmit={handleSearch} aria-busy={isSearchingCurrentTab}>
-        <div className={styles.formRow}>
-          <input
-            className={styles.input}
-            type="text"
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={t('search.placeholder')}
-            required
-          />
-          <select
-            className={styles.select}
-            value={count}
-            onChange={(e) => setCount(Number(e.target.value))}
-          >
-            {[5, 10, 20, 50].map((n) => (
-              <option key={n} value={n}>
-                {t('search.items', { count: n })}
-              </option>
-            ))}
-          </select>
-          <button type="submit" className="btn btn-primary" disabled={!canSearch}>
-            {isSearchingCurrentTab ? t('search.searching') : t('search.button')}
-          </button>
+      {/* Hero Search Bar */}
+      <m.form
+        className={styles.searchForm}
+        onSubmit={handleSearch}
+        aria-busy={isSearchingCurrentTab}
+        {...fadeInUp}
+      >
+        <div className={styles.searchBarWrap}>
+          <div className={styles.searchBar}>
+            <Search size={20} className={styles.searchIcon} />
+            <input
+              className={styles.searchInput}
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t('search.placeholder')}
+              required
+            />
+            <select
+              className={styles.countSelect}
+              value={count}
+              onChange={(e) => setCount(Number(e.target.value))}
+              aria-label={t('search.items', { count })}
+            >
+              {[5, 10, 20, 50].map((n) => (
+                <option key={n} value={n}>
+                  {t('search.items', { count: n })}
+                </option>
+              ))}
+            </select>
+            <button
+              type="submit"
+              className={styles.searchButton}
+              disabled={!canSearch}
+              aria-label={t('search.button')}
+            >
+              {isSearchingCurrentTab ? t('search.searching') : t('search.button')}
+            </button>
+          </div>
         </div>
-        <div className={styles.sourceRow}>
-          <MultiSelect
-            options={sourceOptions[tab]}
-            selected={currentSources}
-            onChange={handleSelectionChange}
-            placeholder={tab === 'web' ? t('search.engines') : t('search.sources')}
-          />
-        </div>
-      </form>
 
-      <div className={styles.results} aria-live="polite">
+        {/* Source Selector */}
+        <div className={styles.sourceRow}>
+          <span className={styles.sourceLabel}>{t('search.searchScope')}</span>
+          <div className={styles.sourceSelect}>
+            <MultiSelect
+              options={sourceOptions[tab]}
+              selected={currentSources}
+              onChange={handleSelectionChange}
+              placeholder={tab === 'web' ? t('search.engines') : t('search.sources')}
+            />
+          </div>
+        </div>
+      </m.form>
+
+      {/* Results */}
+      <div className={`${styles.results} ${hasResults ? styles.hasResults : ''}`} aria-live="polite">
         {renderResults()}
       </div>
     </div>

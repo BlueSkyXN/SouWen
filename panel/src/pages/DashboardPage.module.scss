@@ -1,66 +1,187 @@
 @use '../styles/variables' as *;
 
+/* ===== Page ===== */
 .page { }
 
-.serverInfo {
+/* ===== Header card ===== */
+.headerCard {
+  margin-bottom: $space-6;
+}
+
+.headerRow {
   display: flex;
-  gap: $space-8;
+  align-items: center;
+  justify-content: space-between;
   flex-wrap: wrap;
+  gap: $space-4;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+}
+
+.headerLabel {
+  font-size: $text-sm;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* connection indicator */
+.statusChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px 4px 8px;
+  background: var(--success-light);
+  border-radius: $radius-full;
+}
+
+.statusDot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 0 3px var(--success-light);
+  flex-shrink: 0;
+}
+
+.statusText {
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  color: var(--success-strong);
+}
+
+/* availability bar */
+.availBar {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+}
+
+.availTrack {
+  width: 100px;
+  height: 6px;
+  border-radius: $radius-full;
+  background: var(--bg-subtle);
+  overflow: hidden;
+}
+
+.availFill {
+  height: 100%;
+  border-radius: $radius-full;
+  background: linear-gradient(90deg, var(--accent-teal), var(--success));
+  transition: width 0.6s cubic-bezier(.4,0,.2,1);
+}
+
+.availText {
+  font-size: $text-sm;
+  font-weight: $font-semibold;
+  color: var(--text-secondary);
+  min-width: 42px;
+  text-align: right;
+}
+
+/* loading skeleton helpers */
+.headerSkeleton {
+  display: flex;
+  gap: $space-6;
   align-items: center;
 }
 
-.serverLabel {
-  font-size: $text-sm;
-  color: var(--text-muted);
-  margin-right: $space-2;
+.skeletonLine {
+  height: 18px;
+  background: var(--bg-subtle);
+  border-radius: 6px;
 }
 
-.serverValue {
-  font-weight: 600;
-  font-size: $text-md;
+/* ===== Stats + Health section ===== */
+.statsSection {
+  display: flex;
+  gap: $space-5;
+  margin-bottom: $space-8;
+
+  @media (max-width: $mobile-bp) {
+    flex-direction: column;
+  }
 }
 
 .statsGrid {
+  flex: 1;
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: $space-4;
-  margin-bottom: $space-8;
+  min-width: 0;
+
+  @media (max-width: $mobile-bp) {
+    grid-template-columns: 1fr;
+  }
 }
 
+/* ── Stat card ── */
 .statCard {
   background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: $space-5 $space-6;
-  box-shadow: var(--shadow-xs);
-  transition: all var(--transition-fast);
+  padding: $space-7;
+  box-shadow: var(--shadow-card);
+  transition: box-shadow var(--transition), border-color var(--transition), transform var(--transition);
   display: flex;
   flex-direction: column;
-  gap: $space-3;
+  gap: $space-2;
 
   &:hover {
-    box-shadow: var(--shadow);
+    box-shadow: var(--shadow-card-hover);
     border-color: var(--border-strong);
+    transform: translateY(-2px);
   }
 }
+
+// subtle tinted backgrounds per color
+.statBlue   { background: linear-gradient(135deg, rgba(37,99,235,0.03) 0%, var(--bg-card) 100%); }
+.statAmber  { background: linear-gradient(135deg, rgba(217,119,6,0.03) 0%, var(--bg-card) 100%); }
+.statGreen  { background: linear-gradient(135deg, rgba(5,150,105,0.03) 0%, var(--bg-card) 100%); }
+.statIndigo { background: linear-gradient(135deg, rgba(79,70,229,0.03) 0%, var(--bg-card) 100%); }
 
 .statHeader {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  justify-content: flex-start;
+  margin-bottom: $space-1;
 }
 
 .statTitle {
   font-size: $text-xs;
-  font-weight: 600;
+  font-weight: $font-semibold;
   color: var(--text-muted);
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
 
+.statValue {
+  font-size: $text-3xl;
+  font-weight: $font-bold;
+  letter-spacing: -0.03em;
+  line-height: 1;
+}
+
+.statFraction {
+  font-size: $text-lg;
+  font-weight: $font-medium;
+  color: var(--text-muted);
+  margin-left: 2px;
+}
+
 .statIcon {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   border-radius: $radius-sm;
   display: flex;
   align-items: center;
@@ -92,23 +213,68 @@
   color: var(--accent-teal);
 }
 
-.statValue {
-  font-size: $text-3xl;
-  font-weight: 700;
+/* ===== Health ring card ===== */
+.healthCard {
+  flex: 0 0 auto;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $space-7;
+  min-width: 180px;
+  transition: box-shadow var(--transition), border-color var(--transition);
+
+  &:hover {
+    box-shadow: var(--shadow-card-hover);
+  }
+}
+
+.healthRingWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.healthRingSvg {
+  display: block;
+}
+
+.healthStroke {
+  transform-origin: center;
+}
+
+.healthValue {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.healthPct {
+  font-size: $text-2xl;
+  font-weight: $font-bold;
   letter-spacing: -0.03em;
   line-height: 1;
 }
 
-.healthRing {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding-top: $space-1;
+.healthLabel {
+  font-size: $text-xs;
+  font-weight: $font-medium;
+  color: var(--text-muted);
+  margin-top: 4px;
 }
 
+/* ===== Source health table ===== */
 .sectionTitle {
   font-size: $text-lg;
-  font-weight: 600;
+  font-weight: $font-semibold;
   margin-bottom: $space-4;
   letter-spacing: -0.02em;
 }
@@ -118,6 +284,7 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--bg-card);
+  box-shadow: var(--shadow-card);
 }
 
 .table {
@@ -128,8 +295,8 @@
   th {
     background: var(--bg-subtle);
     text-align: left;
-    padding: $space-3 $space-4;
-    font-weight: 600;
+    padding: $space-3 $space-5;
+    font-weight: $font-semibold;
     font-size: $text-xs;
     text-transform: uppercase;
     letter-spacing: 0.5px;
@@ -139,7 +306,7 @@
   }
 
   td {
-    padding: $space-3 $space-4;
+    padding: $space-3 $space-5;
     border-bottom: 1px solid var(--border);
     vertical-align: middle;
   }
@@ -152,13 +319,39 @@
     transition: background var(--transition-fast);
   }
 
+  tbody tr:nth-child(even) td {
+    background: rgba(0,0,0,0.012);
+  }
+
+  [data-theme='dark'] & tbody tr:nth-child(even) td {
+    background: rgba(255,255,255,0.015);
+  }
+
   tr:hover td {
     background: var(--bg-hover);
   }
 }
 
+/* status dots (Morandi palette) */
+.dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.dotOk {
+  background: #6cb89a; // Morandi green
+  box-shadow: 0 0 0 3px rgba(108,184,154,0.18);
+}
+
+.dotErr {
+  background: #d18a8a; // Morandi red
+  box-shadow: 0 0 0 3px rgba(209,138,138,0.18);
+}
+
 .sourceName {
-  font-weight: 600;
+  font-weight: $font-semibold;
   font-size: $text-md;
 }
 
@@ -173,6 +366,6 @@
 .message {
   color: var(--text-muted);
   font-size: $text-sm;
-  max-width: 300px;
-  line-height: 1.5;
+  max-width: 320px;
+  line-height: $leading-normal;
 }

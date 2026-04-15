@@ -1,5 +1,6 @@
 import { useAuthStore } from '../stores/authStore'
 import { AppError } from '../lib/errors'
+import i18n from '../i18n'
 import type {
   HealthResponse,
   SourcesResponse,
@@ -67,7 +68,7 @@ class ApiService {
         throw err
       }
       if (timedOut) {
-        throw AppError.network(new Error('请求超时，请稍后重试'))
+        throw AppError.network(new Error(i18n.t('common.requestTimeout')))
       }
       throw AppError.network(err)
     } finally {

@@ -17,6 +17,7 @@ vi.mock('../services/api', () => ({
 }))
 
 vi.mock('react-i18next', () => ({
+  initReactI18next: { type: '3rdParty', init: () => {} },
   useTranslation: () => ({
     t: (key: string, options?: Record<string, unknown>) => {
       switch (key) {
@@ -40,6 +41,10 @@ vi.mock('react-i18next', () => ({
           return '搜索引擎'
         case 'search.startSearch':
           return '输入关键词开始搜索'
+        case 'search.enterKeyword':
+          return '探索学术知识'
+        case 'search.startSearchDesc':
+          return '选择数据源，输入关键词，探索学术世界'
         case 'search.failed':
           return `搜索失败: ${String(options?.message ?? '')}`
         case 'search.errorStateTitle':
@@ -48,6 +53,22 @@ vi.mock('react-i18next', () => ({
           return `共 ${String(options?.count ?? 0)} 条结果`
         case 'search.success':
           return `搜索完成，共 ${String(options?.count ?? 0)} 条结果`
+        case 'search.searchScope':
+          return '搜索范围'
+        case 'search.searchingHint':
+          return '正在搜索...'
+        case 'search.retrySearch':
+          return '重试搜索'
+        case 'search.source_openalex':
+          return '开放学术图谱'
+        case 'search.source_arxiv':
+          return '预印本'
+        case 'search.source_google_patents':
+          return '实验性爬虫'
+        case 'search.source_duckduckgo':
+          return '爬虫'
+        case 'search.source_bing':
+          return '爬虫'
         default:
           return key
       }
@@ -58,6 +79,8 @@ vi.mock('react-i18next', () => ({
 vi.mock('framer-motion', () => ({
   m: {
     div: ({ children, ...props }: HTMLAttributes<HTMLDivElement>) => <div {...props}>{children}</div>,
+    form: ({ children, ...props }: HTMLAttributes<HTMLFormElement>) => <form {...props}>{children}</form>,
+    article: ({ children, ...props }: HTMLAttributes<HTMLElement>) => <article {...props}>{children}</article>,
   },
 }))
 
@@ -67,6 +90,32 @@ vi.mock('../components/common/Skeleton', () => ({
 
 vi.mock('../components/common/MultiSelect', () => ({
   MultiSelect: ({ placeholder }: { placeholder: string }) => <div>{placeholder}</div>,
+}))
+
+vi.mock('../components/common/SegmentedControl', () => ({
+  SegmentedControl: ({ options, value, onChange }: { options: { value: string; label: string }[]; value: string; onChange: (v: string) => void }) => (
+    <div role="tablist">
+      {options.map((o) => (
+        <button key={o.value} role="tab" aria-selected={o.value === value} onClick={() => onChange(o.value)}>
+          {o.label}
+        </button>
+      ))}
+    </div>
+  ),
+}))
+
+vi.mock('../components/common/Badge', () => ({
+  Badge: ({ children }: { children: React.ReactNode }) => <span>{children}</span>,
+}))
+
+vi.mock('../components/common/EmptyState', () => ({
+  EmptyState: ({ title, description, action }: { title: string; description?: string; action?: React.ReactNode }) => (
+    <div>
+      <span>{title}</span>
+      {description && <span>{description}</span>}
+      {action}
+    </div>
+  ),
 }))
 
 function createPaperResponse(query: string, title: string): SearchResponse {
@@ -142,7 +191,8 @@ describe('SearchPage', () => {
 
     await user.clear(input)
     await user.type(input, 'second query')
-    await user.click(screen.getByRole('button', { name: '搜索中...' }))
+    // The button's aria-label is always "搜索"
+    await user.click(screen.getByRole('button', { name: '搜索' }))
 
     second.resolve(createPaperResponse('second query', 'Second result'))
     expect(await screen.findByText('Second result')).toBeInTheDocument()

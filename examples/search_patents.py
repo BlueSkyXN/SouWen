@@ -39,7 +39,7 @@ async def demo_pqai():
             "wireless network access point authentication using machine learning",
             n_results=5,
         )
-        print(f"语义搜索结果:\n")
+        print("语义搜索结果:\n")
         for patent in results.results:
             print(f"  📋 {patent.patent_id}: {patent.title}")
             print()

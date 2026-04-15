@@ -2,93 +2,237 @@
 
 .page { }
 
+/* ===== Summary Header ===== */
 .summary {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  margin-bottom: $space-6;
-}
-
-.tierGroup {
   margin-bottom: $space-8;
 }
 
-.tierTitle {
+/* ===== Category Section ===== */
+.categoryGroup {
+  margin-bottom: $space-10;
+}
+
+.categoryHeader {
   display: flex;
   align-items: center;
   gap: $space-3;
-  font-size: $text-lg;
-  font-weight: 600;
-  margin-bottom: $space-4;
-  letter-spacing: -0.01em;
+  margin-bottom: $space-5;
 }
 
-.tierCount {
+.categoryIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: $radius-sm;
+  color: var(--primary);
+  background: var(--primary-light);
+  flex-shrink: 0;
+}
+
+.categoryName {
+  font-size: $text-lg;
+  font-weight: $font-semibold;
+  letter-spacing: $tracking-tight;
+  color: var(--text);
+}
+
+.categoryCount {
   font-size: $text-sm;
   color: var(--text-muted);
-  font-weight: 400;
+  font-weight: $font-normal;
+  margin-left: $space-1;
 }
 
-.tableWrap {
-  overflow-x: auto;
+/* ===== Card Grid ===== */
+.cardGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: $space-4;
+}
+
+/* ===== Source Card ===== */
+.sourceCard {
+  background: var(--bg-card);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  background: var(--bg-card);
+  padding: $space-5 $space-6;
+  display: flex;
+  align-items: flex-start;
+  gap: $space-4;
+  box-shadow: var(--shadow-card);
+  transition:
+    box-shadow var(--transition),
+    border-color var(--transition),
+    opacity var(--transition);
+  cursor: default;
+
+  &:hover {
+    box-shadow: var(--shadow-card-hover);
+    border-color: var(--border-strong);
+  }
 }
 
-.table {
-  width: 100%;
-  border-collapse: collapse;
-  font-size: $text-base;
+.sourceCardDisabled {
+  opacity: 0.55;
+}
 
-  th {
-    background: var(--bg-subtle);
-    text-align: left;
-    padding: $space-3 $space-4;
-    font-weight: 600;
-    font-size: $text-xs;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--text-muted);
-    border-bottom: 1px solid var(--border);
-    white-space: nowrap;
-  }
+/* ===== Status Dot ===== */
+.statusDot {
+  width: 10px;
+  height: 10px;
+  border-radius: $radius-full;
+  flex-shrink: 0;
+  margin-top: 5px;
+}
 
-  td {
-    padding: $space-3 $space-4;
-    border-bottom: 1px solid var(--border);
-    vertical-align: middle;
-  }
+.statusOk {
+  background: var(--success);
+  box-shadow: 0 0 0 3px var(--success-light);
+}
 
-  tr:last-child td {
-    border-bottom: none;
-  }
+.statusWarning {
+  background: var(--warning);
+  box-shadow: 0 0 0 3px var(--warning-light);
+}
 
-  tr {
-    transition: background var(--transition-fast);
-  }
+.statusError {
+  background: var(--error);
+  box-shadow: 0 0 0 3px var(--error-light);
+}
 
-  tr:hover td {
-    background: var(--bg-hover);
-  }
+.statusDisabled {
+  background: var(--text-muted);
+  box-shadow: 0 0 0 3px var(--bg-subtle);
+}
+
+/* ===== Card Body ===== */
+.cardBody {
+  flex: 1;
+  min-width: 0;
 }
 
 .sourceName {
-  font-weight: 600;
+  font-weight: $font-semibold;
   font-size: $text-md;
+  color: var(--text);
+  margin-bottom: $space-1;
+  line-height: $leading-tight;
 }
 
-.code {
-  background: var(--bg-subtle);
-  padding: 2px $space-2;
-  border-radius: $radius-xs;
-  font-size: $text-xs;
-  font-family: var(--font-mono);
+.badges {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: $space-2;
+  margin-bottom: $space-2;
 }
 
-.message {
+.cardDescription {
   color: var(--text-muted);
   font-size: $text-sm;
-  max-width: 300px;
-  line-height: 1.5;
+  line-height: $leading-normal;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.needsKey {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: $text-xs;
+  color: var(--warning-strong);
+  background: var(--warning-light);
+  padding: 2px $space-2;
+  border-radius: $radius-full;
+  font-weight: $font-medium;
+}
+
+/* ===== Toggle Switch ===== */
+.toggleArea {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  margin-top: 2px;
+}
+
+.toggleBtn {
+  position: relative;
+  width: 44px;
+  height: 24px;
+  border-radius: $radius-full;
+  border: none;
+  padding: 2px;
+  cursor: pointer;
+  transition: background var(--transition);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-strong);
+
+  &:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+  }
+}
+
+.toggleBtnEnabled {
+  background: var(--success);
+  border-color: var(--success);
+}
+
+.toggleKnob {
+  display: block;
+  width: 18px;
+  height: 18px;
+  border-radius: $radius-full;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
+  transition: transform var(--transition);
+  transform: translateX(0);
+}
+
+.toggleKnobEnabled {
+  transform: translateX(20px);
+}
+
+/* ===== Skeleton Cards ===== */
+.skeletonGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+  gap: $space-4;
+  margin-bottom: $space-8;
+}
+
+.skeletonCard {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: $space-5 $space-6;
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+}
+
+.skeletonHeader {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  margin-bottom: $space-5;
+}
+
+/* ===== Channel Info ===== */
+.channelInfo {
+  font-size: $text-xs;
+  color: var(--text-muted);
+  opacity: 0.7;
+  margin-left: $space-2;
 }

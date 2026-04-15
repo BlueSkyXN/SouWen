@@ -1,21 +1,69 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { m } from 'framer-motion'
-import { RefreshCw, CheckCircle2, XCircle, Ban, ToggleLeft, ToggleRight } from 'lucide-react'
+import { RefreshCw, FileText, Shield, Globe, Key } from 'lucide-react'
 import { api } from '../services/api'
 import { useNotificationStore } from '../stores/notificationStore'
 import { Badge } from '../components/common/Badge'
-import { TableSkeleton } from '../components/common/Skeleton'
+import { Modal } from '../components/common/Modal'
+import { EmptyState } from '../components/common/EmptyState'
+import { Skeleton } from '../components/common/Skeleton'
 import { formatError } from '../lib/errors'
 import { staggerContainerFast, staggerItemSmall } from '../lib/animations'
-import { categoryBadgeColor, categoryLabel } from '../lib/ui'
+import { tierBadgeColor, categoryBadgeColor, categoryLabel } from '../lib/ui'
 import type { DoctorResponse, DoctorSource } from '../types'
 import styles from './SourcesPage.module.scss'
 
-function StatusIcon({ status }: { status: string }) {
-  if (status === 'ok') return <CheckCircle2 size={18} style={{ color: 'var(--success)' }} />
-  if (status === 'disabled') return <Ban size={18} style={{ color: 'var(--muted)' }} />
-  return <XCircle size={18} style={{ color: 'var(--error)' }} />
+type CategoryKey = 'paper' | 'patent' | 'web'
+
+const CATEGORY_ORDER: CategoryKey[] = ['paper', 'patent', 'web']
+
+const CATEGORY_ICONS: Record<CategoryKey, typeof FileText> = {
+  paper: FileText,
+  patent: Shield,
+  web: Globe,
+}
+
+function StatusDot({ status }: { status: string }) {
+  const cls =
+    status === 'ok'
+      ? styles.statusOk
+      : status === 'disabled'
+        ? styles.statusDisabled
+        : status === 'needs_key'
+          ? styles.statusWarning
+          : styles.statusError
+  return <span className={`${styles.statusDot} ${cls}`} />
+}
+
+function SourceCardSkeleton() {
+  return (
+    <div className={styles.skeletonCard}>
+      <Skeleton variant="textShort" width="50%" />
+      <Skeleton variant="text" width="30%" />
+      <Skeleton variant="textLong" width="90%" />
+    </div>
+  )
+}
+
+function LoadingSkeleton() {
+  return (
+    <div className={styles.page} role="status" aria-live="polite" aria-busy="true">
+      {[0, 1, 2].map((g) => (
+        <div key={g}>
+          <div className={styles.skeletonHeader}>
+            <Skeleton variant="rect" width={36} height={36} />
+            <Skeleton variant="textShort" width={120} />
+          </div>
+          <div className={styles.skeletonGrid}>
+            {Array.from({ length: 3 }, (_, i) => (
+              <SourceCardSkeleton key={i} />
+            ))}
+          </div>
+        </div>
+      ))}
+    </div>
+  )
 }
 
 export function SourcesPage() {
@@ -24,6 +72,7 @@ export function SourcesPage() {
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState(false)
   const [toggling, setToggling] = useState<string | null>(null)
+  const [confirmSource, setConfirmSource] = useState<DoctorSource | null>(null)
   const addToast = useNotificationStore((s) => s.addToast)
 
   const fetchData = useCallback(async () => {
@@ -44,35 +93,51 @@ export function SourcesPage() {
     void fetchData()
   }, [fetchData])
 
-  const handleToggle = useCallback(async (name: string, currentEnabled: boolean) => {
+  const executeToggle = useCallback(async (name: string, currentEnabled: boolean) => {
     setToggling(name)
     try {
       await api.updateSourceConfig(name, { enabled: !currentEnabled })
       await fetchData()
-      addToast('success', `${name} ${!currentEnabled ? '已启用' : '已禁用'}`)
+      addToast(
+        'success',
+        `${name} ${!currentEnabled ? t('sources.enabled') : t('sources.disabled')}`,
+      )
     } catch (err) {
       addToast('error', formatError(err))
     } finally {
       setToggling(null)
     }
-  }, [fetchData, addToast])
+  }, [fetchData, addToast, t])
 
-  if (loading) return (
-    <div className={styles.page} role="status" aria-live="polite" aria-busy="true">
-      <span className="srOnly">{t('common.loading', 'Loading sources')}</span>
-      <TableSkeleton rows={8} cols={5} />
-    </div>
-  )
+  const handleToggle = useCallback((src: DoctorSource) => {
+    if (src.enabled && src.status === 'ok') {
+      setConfirmSource(src)
+    } else {
+      void executeToggle(src.name, src.enabled)
+    }
+  }, [executeToggle])
+
+  const handleConfirmDisable = useCallback(() => {
+    if (!confirmSource) return
+    void executeToggle(confirmSource.name, confirmSource.enabled)
+    setConfirmSource(null)
+  }, [confirmSource, executeToggle])
+
+  if (loading) return <LoadingSkeleton />
 
   if (fetchError || !doctor) {
     return (
       <div className={styles.page}>
-        <div className={styles.summary}>
-          <Badge color="red">{t('common.error')}</Badge>
-          <button className="btn btn-sm btn-outline" onClick={fetchData}>
-            <RefreshCw size={14} /> {t('sources.refresh')}
-          </button>
-        </div>
+        <EmptyState
+          type="error"
+          title={t('sources.errorTitle')}
+          description={t('sources.errorDescription')}
+          action={
+            <button className="btn btn-sm btn-outline" onClick={fetchData}>
+              <RefreshCw size={14} /> {t('common.retry')}
+            </button>
+          }
+        />
       </div>
     )
   }
@@ -80,26 +145,20 @@ export function SourcesPage() {
   const okCount = doctor.ok
   const totalCount = doctor.total
 
-  const tiers = [0, 1, 2]
-  const sourcesByTier: Record<number, DoctorSource[]> = {}
-  for (const tier of tiers) {
-    sourcesByTier[tier] = doctor.sources.filter((s) => s.tier === tier)
+  const sourcesByCategory: Record<string, DoctorSource[]> = {}
+  for (const cat of CATEGORY_ORDER) {
+    sourcesByCategory[cat] = doctor.sources.filter((s) => s.category === cat)
   }
 
-  const tierLabelKeys: Record<number, string> = {
-    0: 'sources.tier0',
-    1: 'sources.tier1',
-    2: 'sources.tier2',
-  }
-
-  const tierColors: Record<number, 'green' | 'blue' | 'amber'> = {
-    0: 'green',
-    1: 'blue',
-    2: 'amber',
+  const categoryI18nKeys: Record<string, string> = {
+    paper: 'sources.categoryPaper',
+    patent: 'sources.categoryPatent',
+    web: 'sources.categoryWeb',
   }
 
   return (
     <div className={styles.page}>
+      {/* Summary Header */}
       <div className={styles.summary}>
         <Badge color={okCount === totalCount ? 'green' : 'amber'}>
           {t('sources.sourcesAvailable', { ok: okCount, total: totalCount })}
@@ -109,69 +168,99 @@ export function SourcesPage() {
         </button>
       </div>
 
-      {tiers.map((tier) => {
-        const list = sourcesByTier[tier]
+      {/* Category Groups */}
+      {CATEGORY_ORDER.map((cat) => {
+        const list = sourcesByCategory[cat]
         if (!list || list.length === 0) return null
+        const Icon = CATEGORY_ICONS[cat]
         return (
-          <div key={tier} className={styles.tierGroup}>
-            <h3 className={styles.tierTitle}>
-              <Badge color={tierColors[tier]}>{t(tierLabelKeys[tier])}</Badge>
-              <span className={styles.tierCount}>({list.length})</span>
-            </h3>
-            <div className={styles.tableWrap}>
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>{t('sources.status')}</th>
-                    <th>{t('sources.name')}</th>
-                    <th>{t('sources.type')}</th>
-                    <th>{t('sources.requiredKey')}</th>
-                    <th>{t('sources.description')}</th>
-                    <th style={{ width: '4rem', textAlign: 'center' }}>启用</th>
-                  </tr>
-                </thead>
-                <m.tbody variants={staggerContainerFast} initial="initial" animate="animate">
-                  {list.map((src) => (
-                    <m.tr key={src.name} variants={staggerItemSmall} style={{ opacity: src.enabled ? 1 : 0.5 }}>
-                      <td><StatusIcon status={src.status} /></td>
-                      <td className={styles.sourceName}>{src.name}</td>
-                      <td>
-                        <Badge color={categoryBadgeColor(src.category)}>
-                          {categoryLabel(t, src.category)}
-                        </Badge>
-                      </td>
-                      <td>
-                        <code className={styles.code}>{src.required_key ?? '—'}</code>
-                      </td>
-                      <td className={styles.message}>
-                        {src.message}
-                        {src.channel && Object.keys(src.channel).length > 0 && (
-                          <span style={{ marginLeft: '0.5rem', fontSize: '0.75rem', opacity: 0.7 }}>
-                            [{Object.entries(src.channel).map(([k, v]) => `${k}=${v}`).join(', ')}]
-                          </span>
-                        )}
-                      </td>
-                      <td style={{ textAlign: 'center' }}>
-                        <button
-                          className="btn btn-sm btn-ghost"
-                          onClick={() => handleToggle(src.name, src.enabled)}
-                          disabled={toggling === src.name}
-                          title={src.enabled ? '点击禁用' : '点击启用'}
-                          style={{ padding: '0.25rem' }}
-                        >
-                          {src.enabled
-                            ? <ToggleRight size={20} style={{ color: 'var(--success)' }} />
-                            : <ToggleLeft size={20} style={{ color: 'var(--muted)' }} />}
-                        </button>
-                      </td>
-                    </m.tr>
-                  ))}
-                </m.tbody>
-              </table>
+          <div key={cat} className={styles.categoryGroup}>
+            <div className={styles.categoryHeader}>
+              <div className={styles.categoryIcon}>
+                <Icon size={18} />
+              </div>
+              <span className={styles.categoryName}>{t(categoryI18nKeys[cat])}</span>
+              <Badge color="gray">{list.length}</Badge>
             </div>
+
+            <m.div
+              className={styles.cardGrid}
+              variants={staggerContainerFast}
+              initial="initial"
+              animate="animate"
+            >
+              {list.map((src) => (
+                <m.div
+                  key={src.name}
+                  variants={staggerItemSmall}
+                  className={`${styles.sourceCard} ${!src.enabled ? styles.sourceCardDisabled : ''}`}
+                >
+                  <StatusDot status={src.enabled ? src.status : 'disabled'} />
+
+                  <div className={styles.cardBody}>
+                    <div className={styles.sourceName}>{src.name}</div>
+                    <div className={styles.badges}>
+                      <Badge color={categoryBadgeColor(src.category)}>
+                        {categoryLabel(t, src.category)}
+                      </Badge>
+                      <Badge color={tierBadgeColor(src.tier)}>
+                        {t(`sources.tier${src.tier}` as 'sources.tier0')}
+                      </Badge>
+                      {src.required_key && (
+                        <span className={styles.needsKey}>
+                          <Key size={10} />
+                          {t('sources.needsApiKey')}
+                        </span>
+                      )}
+                    </div>
+                    <div className={styles.cardDescription}>
+                      {src.message}
+                      {src.channel && Object.keys(src.channel).length > 0 && (
+                        <span className={styles.channelInfo}>
+                          [{Object.entries(src.channel).map(([k, v]) => `${k}=${v}`).join(', ')}]
+                        </span>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className={styles.toggleArea}>
+                    <button
+                      className={`${styles.toggleBtn} ${src.enabled ? styles.toggleBtnEnabled : ''}`}
+                      onClick={() => handleToggle(src)}
+                      disabled={toggling === src.name}
+                      title={src.enabled ? t('sources.clickToDisable') : t('sources.clickToEnable')}
+                      aria-label={src.enabled ? t('sources.clickToDisable') : t('sources.clickToEnable')}
+                    >
+                      <span
+                        className={`${styles.toggleKnob} ${src.enabled ? styles.toggleKnobEnabled : ''}`}
+                      />
+                    </button>
+                  </div>
+                </m.div>
+              ))}
+            </m.div>
           </div>
         )
       })}
+
+      {/* Confirmation Modal */}
+      <Modal
+        open={!!confirmSource}
+        onClose={() => setConfirmSource(null)}
+        title={t('sources.confirmDisableTitle')}
+        actions={
+          <>
+            <button className="btn btn-sm btn-outline" onClick={() => setConfirmSource(null)}>
+              {t('common.cancel')}
+            </button>
+            <button className="btn btn-sm btn-danger" onClick={handleConfirmDisable}>
+              {t('sources.confirmDisable')}
+            </button>
+          </>
+        }
+      >
+        <p>{t('sources.confirmDisableMessage', { name: confirmSource?.name ?? '' })}</p>
+      </Modal>
     </div>
   )
 }
