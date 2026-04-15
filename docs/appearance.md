@@ -21,6 +21,7 @@ SouWen 的管理面板（`/panel`）采用三层外观体系：
 - **设计理念**：把复杂藏在优雅背后，Apple HIG 的克制与质感 + Material Design 3 的层级感
 - **视觉特征**：大圆角卡片、柔和弥散阴影、毛玻璃效果、Framer Motion 动效
 - **布局**：左侧渐变导航栏 + 顶部标题栏 + 主内容区
+- **配色方案**：星云 Nebula（靛蓝紫）、极光 Aurora（青碧绿）、黑曜石 Obsidian（石板灰）
 
 #### 包含页面
 
@@ -32,9 +33,20 @@ SouWen 的管理面板（`/panel`）采用三层外观体系：
 | **配置页** | 分组折叠面板，API Key 管理，顶部彩色边框 |
 | **登录页** | 居中卡片，无密码时自动登录 |
 
+### carbon
+
+终端/黑客风格，工业感与极客美学。
+
+- **设计理念**：暗色系终端美学，受 Linear、Vercel 等现代开发者工具启发
+- **视觉特征**：等宽字体贯穿全局、零圆角（sharp corners）、网格背景、大写下划线命名
+- **布局**：顶部全宽导航栏（与 classic 的侧边栏完全不同）
+- **配色方案**：终端 Terminal（蓝色 #3b82f6）、矩阵 Matrix（绿色 #10b981）、余烬 Ember（琥珀 #f59e0b）
+
 ## 配色方案
 
-souwen-classic 皮肤提供 3 种配色方案，均支持明暗两种模式：
+每个皮肤定义自己的配色方案集合，用户在运行时切换。
+
+### souwen-classic 配色方案
 
 ### 🌌 星云 Nebula（默认）
 
@@ -69,6 +81,37 @@ souwen-classic 皮肤提供 3 种配色方案，均支持明暗两种模式：
 | 渐变方向 | 石板灰 → 蓝灰 → 暗石板 | 浅石板 → 浅蓝灰 → 浅石板灰 |
 | 适合场景 | 极简审美、减少干扰 | — |
 
+### carbon 配色方案
+
+Carbon 皮肤提供 3 种配色方案，均为暗色风格：
+
+#### 💠 终端 Terminal（默认）
+
+经典蓝色终端风格。
+
+| 属性 | 值 |
+|------|-----|
+| 强调色 | `#3b82f6` (蓝色) |
+| 悬停色 | `#2563eb` (深蓝) |
+
+#### 🟢 矩阵 Matrix
+
+绿色黑客风格，致敬 Matrix。
+
+| 属性 | 值 |
+|------|-----|
+| 强调色 | `#10b981` (翠绿) |
+| 悬停色 | `#059669` (深翠绿) |
+
+#### 🔥 余烬 Ember
+
+琥珀暖色风格，温暖而有力。
+
+| 属性 | 值 |
+|------|-----|
+| 强调色 | `#f59e0b` (琥珀) |
+| 悬停色 | `#d97706` (深琥珀) |
+
 ## 如何切换
 
 ### 配色方案 & 明暗模式（运行时）
@@ -80,24 +123,94 @@ souwen-classic 皮肤提供 3 种配色方案，均支持明暗两种模式：
 
 选择会自动保存到浏览器的 localStorage，下次访问时自动恢复。
 
-### 皮肤（构建时）
+### 皮肤切换（构建时）
 
-皮肤通过 `VITE_SKIN` 环境变量在构建时选择：
+**皮肤是构建时选项**，通过 `VITE_SKIN` 环境变量指定，不同皮肤会编译出完全不同的前端页面。
+构建完成后，产物是一个单文件 `index.html`（由 vite-plugin-singlefile 生成），会被复制到 `src/souwen/server/panel.html` 供后端服务。
+
+#### 方式一：本地开发
 
 ```bash
-# 本地构建（默认 souwen-classic）
 cd panel
-npm run build:classic
 
-# 使用其他皮肤构建
-VITE_SKIN=my-custom-skin npm run build
+# 使用默认皮肤（souwen-classic）
+npm run dev                    # 等同于 VITE_SKIN=souwen-classic vite
+npm run dev:classic            # 明确指定 classic
 
-# Docker 构建
-docker build --build-arg SKIN=souwen-classic -t souwen .
+# 使用 carbon 皮肤
+VITE_SKIN=carbon npm run dev   # 启动 carbon 皮肤的开发服务器
+```
 
-# Docker Compose（修改 docker-compose.yml 中的 SKIN 值）
+#### 方式二：本地构建
+
+```bash
+cd panel
+
+# 构建 classic 皮肤（两种写法等价）
+npm run build                  # 默认 classic
+npm run build:classic          # 等同于 VITE_SKIN=souwen-classic npm run build
+
+# 构建 carbon 皮肤
+VITE_SKIN=carbon npm run build
+
+# 构建流程会自动：
+# 1. TypeScript 类型检查（tsc -b）
+# 2. Vite 打包为单文件 dist/index.html
+# 3. 复制到 src/souwen/server/panel.html
+```
+
+#### 方式三：Docker 构建
+
+Dockerfile 使用 `ARG SKIN` 在构建阶段选择皮肤：
+
+```bash
+# 使用默认皮肤（souwen-classic）
+docker build -t souwen .
+
+# 使用 carbon 皮肤
+docker build --build-arg SKIN=carbon -t souwen .
+```
+
+#### 方式四：Docker Compose
+
+编辑 `docker-compose.yml` 中的 `SKIN` 参数：
+
+```yaml
+services:
+  souwen:
+    build:
+      context: .
+      args:
+        SKIN: carbon    # 改为你想使用的皮肤名
+```
+
+然后重新构建：
+
+```bash
 docker compose up -d --build
 ```
+
+> **注意**：云端 Dockerfile（`cloud/hfs/Dockerfile`、`cloud/modelscope/Dockerfile`）同样支持 `SKIN` 构建参数，用法一致。
+
+#### 原理说明
+
+`vite.config.ts` 根据 `VITE_SKIN` 环境变量设置 `@skin` 路径别名：
+
+```typescript
+const skin = process.env.VITE_SKIN || 'souwen-classic'
+
+export default defineConfig({
+  resolve: {
+    alias: {
+      '@core': path.resolve(__dirname, 'src/core'),
+      '@skin': path.resolve(__dirname, `src/skins/${skin}`),
+    },
+  },
+})
+```
+
+`App.tsx` 和 `main.tsx` 通过 `@skin` 导入皮肤的组件（AppShell、LoginPage、routes 等），
+因此不同皮肤可以拥有完全不同的布局、组件、路由和交互逻辑，而共享同一套 core 层（认证、API、i18n、类型）。
 
 ## 创建自定义皮肤
 

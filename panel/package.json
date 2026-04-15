@@ -6,8 +6,10 @@
   "scripts": {
     "dev": "VITE_SKIN=souwen-classic vite",
     "dev:classic": "VITE_SKIN=souwen-classic vite",
+    "dev:carbon": "VITE_SKIN=carbon vite",
     "build": "tsc -b && vite build && cp dist/index.html ../src/souwen/server/panel.html",
     "build:classic": "VITE_SKIN=souwen-classic npm run build",
+    "build:carbon": "VITE_SKIN=carbon npm run build",
     "check:artifact": "test -f dist/index.html && test -f ../src/souwen/server/panel.html && cmp -s dist/index.html ../src/souwen/server/panel.html || (echo 'src/souwen/server/panel.html does not match panel/dist/index.html. Run panel build and commit the regenerated artifact.' >&2 && exit 1)",
     "preview": "vite preview",
     "test": "vitest run",

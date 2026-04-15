@@ -291,6 +291,10 @@
     "patent": "专利",
     "web": "网页"
   },
+  "skin": {
+    "carbon": "Carbon",
+    "carbonDesc": "终端风格，极客与工业感"
+  },
   "theme": {
     "label": "主题风格",
     "nebula": "星云",
@@ -298,7 +302,13 @@
     "aurora": "极光",
     "auroraDesc": "青绿色调，清新与自然",
     "obsidian": "黑曜石",
-    "obsidianDesc": "灰阶色调，克制与极简"
+    "obsidianDesc": "灰阶色调，克制与极简",
+    "terminal": "终端",
+    "terminalDesc": "蓝色调，经典终端风格",
+    "matrix": "矩阵",
+    "matrixDesc": "绿色调，黑客与矩阵",
+    "ember": "余烬",
+    "emberDesc": "琥珀色调，温暖与力量"
   },
   "multiselect": {
     "filter": "筛选...",
