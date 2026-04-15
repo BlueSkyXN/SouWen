@@ -25,7 +25,8 @@
     "showPassword": "显示密码",
     "hidePassword": "隐藏密码",
     "darkMode": "深色模式",
-    "lightMode": "浅色模式"
+    "lightMode": "浅色模式",
+    "autoConnecting": "正在尝试自动连接..."
   },
   "dashboard": {
     "title": "仪表盘",

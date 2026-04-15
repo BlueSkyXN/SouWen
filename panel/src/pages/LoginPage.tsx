@@ -30,12 +30,34 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false)
   const [shake, setShake] = useState(false)
   const [success, setSuccess] = useState(false)
+  const [autoConnecting, setAutoConnecting] = useState(true)
 
   useEffect(() => {
     if (isAuthenticated) {
       navigate('/', { replace: true })
     }
   }, [isAuthenticated, navigate])
+
+  // Auto-login when server has no password configured
+  useEffect(() => {
+    let cancelled = false
+    async function tryAutoLogin() {
+      const url = baseUrl.replace(/\/+$/, '')
+      try {
+        const health = await api.health(url)
+        await api.verifyAuth(url, '')
+        if (cancelled) return
+        setAuth(url, '', health.version, remember)
+        navigate('/', { replace: true })
+      } catch {
+        // Server requires a password — show the login form
+      } finally {
+        if (!cancelled) setAutoConnecting(false)
+      }
+    }
+    void tryAutoLogin()
+    return () => { cancelled = true }
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = useCallback(
     async (e: FormEvent) => {
@@ -60,6 +82,23 @@ export function LoginPage() {
     },
     [baseUrl, password, remember, setAuth, addToast, navigate, t],
   )
+
+  // Show a brief loading state while attempting auto-login
+  if (autoConnecting) {
+    return (
+      <div className={styles.page}>
+        <div className={styles.gridBg} />
+        <m.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 16, zIndex: 1 }}
+        >
+          <Loader2 size={32} className={styles.spinner} style={{ color: 'var(--primary)' }} />
+          <span style={{ color: 'var(--text-muted)', fontSize: 14 }}>{t('login.autoConnecting')}</span>
+        </m.div>
+      </div>
+    )
+  }
 
   return (
     <div className={styles.page}>
