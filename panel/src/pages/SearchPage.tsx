@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { m } from 'framer-motion'
-import { FileText, Shield, Globe, Users, Calendar, Link, Building, Search, ExternalLink } from 'lucide-react'
+import { FileText, Shield, Globe, Users, Calendar, Link, Building, Search, ExternalLink, Sparkles } from 'lucide-react'
 import { api } from '../services/api'
 import { useNotificationStore } from '../stores/notificationStore'
 import { ResultsSkeleton } from '../components/common/Skeleton'
@@ -51,6 +51,15 @@ const DEFAULT_SELECTED: Record<SearchCategory, string[]> = {
   patent: ['google_patents'],
   web: ['duckduckgo', 'bing'],
 }
+
+const SEARCH_SUGGESTIONS = [
+  'Large Language Model',
+  'Quantum Computing',
+  'CRISPR Gene Editing',
+  'Transformer Architecture',
+  'Climate Change',
+  'Neural Radiance Fields',
+]
 
 function resolveSourceOptions(
   category: SearchCategory,
@@ -356,79 +365,101 @@ export function SearchPage() {
     }
 
     return (
-      <EmptyState
-        type="search"
-        title={t('search.enterKeyword')}
-        description={t('search.startSearchDesc')}
-      />
+      <div className={styles.emptyStateCustom}>
+        <div className={styles.emptyGlow}>
+          <div className={styles.emptyGlowOrb} />
+          <div className={styles.emptyGlowOrb} />
+          <div className={styles.emptyGlowOrb} />
+          <div className={styles.emptyIconWrap}>
+            <Search size={36} strokeWidth={1.5} />
+          </div>
+        </div>
+        <div className={styles.emptyTitle}>{t('search.enterKeyword')}</div>
+        <div className={styles.emptyDesc}>{t('search.startSearchDesc')}</div>
+        <div className={styles.emptySuggestions}>
+          {SEARCH_SUGGESTIONS.map((s) => (
+            <button
+              key={s}
+              type="button"
+              className={styles.suggestionChip}
+              onClick={() => { setQuery(s) }}
+            >
+              <Sparkles size={13} />
+              {s}
+            </button>
+          ))}
+        </div>
+      </div>
     )
   }
 
   return (
     <div className={styles.page}>
-      {/* Tab Switcher */}
-      <div className={styles.tabBar}>
-        <SegmentedControl options={segmentOptions} value={tab} onChange={handleTabChange} />
-      </div>
-
-      {/* Hero Search Bar */}
-      <m.form
-        className={styles.searchForm}
-        onSubmit={handleSearch}
-        aria-busy={isSearchingCurrentTab}
-        {...fadeInUp}
-      >
-        <div className={styles.searchBarWrap}>
-          <div className={styles.searchBar}>
-            <Search size={20} className={styles.searchIcon} />
-            <input
-              className={styles.searchInput}
-              type="text"
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              placeholder={t('search.placeholder')}
-              required
-            />
-            <select
-              className={styles.countSelect}
-              value={count}
-              onChange={(e) => setCount(Number(e.target.value))}
-              aria-label={t('search.items', { count })}
-            >
-              {[5, 10, 20, 50].map((n) => (
-                <option key={n} value={n}>
-                  {t('search.items', { count: n })}
-                </option>
-              ))}
-            </select>
-            <button
-              type="submit"
-              className={styles.searchButton}
-              disabled={!canSearch}
-              aria-label={t('search.button')}
-            >
-              {isSearchingCurrentTab ? t('search.searching') : t('search.button')}
-            </button>
-          </div>
+      <div className={`${styles.heroSection} ${hasResults ? styles.hasResults : ''}`}>
+        {/* Tab Switcher */}
+        <div className={styles.tabBar}>
+          <SegmentedControl options={segmentOptions} value={tab} onChange={handleTabChange} />
         </div>
 
-        {/* Source Selector */}
-        <div className={styles.sourceRow}>
-          <span className={styles.sourceLabel}>{t('search.searchScope')}</span>
-          <div className={styles.sourceSelect}>
-            <MultiSelect
-              options={sourceOptions[tab]}
-              selected={currentSources}
-              onChange={handleSelectionChange}
-              placeholder={tab === 'web' ? t('search.engines') : t('search.sources')}
-            />
+        {/* Hero Search Bar */}
+        <m.form
+          className={styles.searchForm}
+          onSubmit={handleSearch}
+          aria-busy={isSearchingCurrentTab}
+          {...fadeInUp}
+        >
+          <div className={styles.searchBarWrap}>
+            <div className={styles.searchBar}>
+              <Search size={22} className={styles.searchIcon} />
+              <input
+                className={styles.searchInput}
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder={t('search.placeholder')}
+                required
+              />
+              <select
+                className={styles.countSelect}
+                value={count}
+                onChange={(e) => setCount(Number(e.target.value))}
+                aria-label={t('search.items', { count })}
+              >
+                {[5, 10, 20, 50].map((n) => (
+                  <option key={n} value={n}>
+                    {t('search.items', { count: n })}
+                  </option>
+                ))}
+              </select>
+              <button
+                type="submit"
+                className={styles.searchButton}
+                disabled={!canSearch}
+                aria-label={t('search.button')}
+              >
+                {isSearchingCurrentTab ? t('search.searching') : t('search.button')}
+              </button>
+            </div>
           </div>
-        </div>
-      </m.form>
 
-      {/* Results */}
-      <div className={`${styles.results} ${hasResults ? styles.hasResults : ''}`} aria-live="polite">
-        {renderResults()}
+          {/* Source Selector */}
+          <div className={styles.sourceRow}>
+            <span className={styles.sourceLabel}>{t('search.searchScope')}</span>
+            <div className={styles.sourceSelect}>
+              <MultiSelect
+                options={sourceOptions[tab]}
+                selected={currentSources}
+                onChange={handleSelectionChange}
+                placeholder={tab === 'web' ? t('search.engines') : t('search.sources')}
+              />
+            </div>
+          </div>
+        </m.form>
+
+        {/* Results */}
+        <div className={styles.results} aria-live="polite" style={{ width: '100%' }}>
+          {renderResults()}
+        </div>
       </div>
     </div>
   )
