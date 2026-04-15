@@ -449,3 +449,199 @@
   opacity: 0.7;
   margin-left: $space-2;
 }
+
+/* ===== Expanded Source Card ===== */
+.sourceCardExpanded {
+  border-color: var(--primary) !important;
+}
+
+.sourceCardTop {
+  display: flex;
+  align-items: flex-start;
+  gap: $space-4;
+  cursor: pointer;
+  user-select: none;
+}
+
+.cardActions {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: $space-2;
+  flex-shrink: 0;
+}
+
+.expandIcon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  transition: transform 0.25s ease, color 0.2s ease;
+
+  &:hover {
+    color: var(--primary);
+  }
+}
+
+.expandIconOpen {
+  transform: rotate(180deg);
+  color: var(--primary);
+}
+
+/* ===== Source Config Panel ===== */
+.configPanel {
+  margin-top: $space-4;
+  padding-top: $space-4;
+  border-top: 1px solid var(--border);
+}
+
+.configPanelNote {
+  display: flex;
+  align-items: flex-start;
+  gap: $space-2;
+  font-size: $text-xs;
+  color: var(--text-muted);
+  line-height: $leading-relaxed;
+  padding: $space-2 $space-3;
+  background: var(--bg-subtle);
+  border-radius: $radius-sm;
+  margin-bottom: $space-4;
+  border-left: 3px solid var(--primary);
+
+  > svg {
+    flex-shrink: 0;
+    margin-top: 1px;
+    color: var(--primary);
+  }
+}
+
+.configForm {
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+}
+
+.configField {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+}
+
+.configLabel {
+  font-size: $text-xs;
+  font-weight: $font-semibold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.configFieldDesc {
+  font-size: $text-xs;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: $leading-normal;
+}
+
+.configSelect {
+  padding: $space-2 $space-3;
+  border: 1px solid var(--border-input);
+  border-radius: $radius-sm;
+  font-size: $text-sm;
+  background: var(--bg-input);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--accent-bg-medium), var(--shadow-glow);
+  }
+}
+
+.warpWarning {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  font-size: $text-xs;
+  color: var(--warning);
+  padding: $space-2 $space-3;
+  background: var(--warning-light);
+  border-radius: $radius-sm;
+
+  > svg {
+    flex-shrink: 0;
+  }
+}
+
+/* ===== API Key ===== */
+.apiKeyRow {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  flex-wrap: wrap;
+}
+
+.apiKeyActions {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+}
+
+.apiKeyBtn {
+  padding: $space-1 $space-2;
+  font-size: $text-xs;
+  font-weight: $font-medium;
+  border: 1px solid var(--border);
+  border-radius: $radius-sm;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all var(--transition-fast);
+
+  &:hover {
+    border-color: var(--primary);
+    color: var(--primary);
+    background: var(--bg-hover);
+  }
+}
+
+.apiKeyBtnDanger {
+  &:hover {
+    border-color: var(--error);
+    color: var(--error);
+  }
+}
+
+.apiKeyInputRow {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  flex: 1;
+  min-width: 200px;
+}
+
+.apiKeyCancelBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $space-1;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  border-radius: $radius-sm;
+  transition: color var(--transition-fast);
+
+  &:hover {
+    color: var(--error);
+  }
+}
+
+.configPanelActions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: $space-4;
+  padding-top: $space-3;
+  border-top: 1px solid var(--border);
+}
