@@ -2,36 +2,143 @@
 
 .page { }
 
-/* ===== Summary Header ===== */
-.summary {
+/* ===== Page Header ===== */
+.pageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: $space-10;
+  gap: $space-6;
+
+  @media (max-width: $mobile-bp) {
+    flex-direction: column;
+    gap: $space-4;
+  }
+}
+
+.pageHeaderLeft {
+  flex: 1;
+  min-width: 0;
+}
+
+.pageTitle {
+  font-size: $text-2xl;
+  font-weight: $font-bold;
+  color: var(--text);
+  letter-spacing: $tracking-tight;
+  margin: 0 0 $space-1 0;
+  line-height: $leading-tight;
+}
+
+.pageSubtitle {
+  font-size: $text-sm;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: $leading-normal;
+}
+
+.pageHeaderRight {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  margin-bottom: $space-8;
+  gap: $space-4;
+  flex-shrink: 0;
+}
+
+.healthStats {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+}
+
+.healthLabel {
+  font-size: $text-sm;
+  font-weight: $font-semibold;
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.healthBar {
+  width: 80px;
+  height: 6px;
+  background: var(--bg-subtle);
+  border-radius: $radius-full;
+  overflow: hidden;
+}
+
+.healthBarFill {
+  height: 100%;
+  border-radius: $radius-full;
+  background: var(--warning);
+  transition: width 0.5s ease;
+
+  &[data-full] {
+    background: var(--success);
+  }
 }
 
 /* ===== Category Section ===== */
 .categoryGroup {
-  margin-bottom: $space-10;
+  margin-bottom: $space-12;
 }
 
 .categoryHeader {
   display: flex;
   align-items: center;
   gap: $space-3;
-  margin-bottom: $space-5;
+  margin-bottom: $space-3;
 }
 
 .categoryIcon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 36px;
-  height: 36px;
-  border-radius: $radius-sm;
-  color: var(--primary);
-  background: var(--primary-light);
+  width: 44px;
+  height: 44px;
+  border-radius: $radius;
   flex-shrink: 0;
+}
+
+// Per-category color schemes
+.categoryPaper {
+  .categoryIcon {
+    color: var(--primary);
+    background: var(--primary-light);
+  }
+  .categoryCount {
+    background: var(--primary-light);
+    color: var(--primary);
+  }
+  .categoryDivider {
+    background: var(--primary);
+  }
+}
+
+.categoryPatent {
+  .categoryIcon {
+    color: var(--warning);
+    background: var(--warning-light);
+  }
+  .categoryCount {
+    background: var(--warning-light);
+    color: var(--warning);
+  }
+  .categoryDivider {
+    background: var(--warning);
+  }
+}
+
+.categoryWeb {
+  .categoryIcon {
+    color: var(--success);
+    background: var(--success-light);
+  }
+  .categoryCount {
+    background: var(--success-light);
+    color: var(--success);
+  }
+  .categoryDivider {
+    background: var(--success);
+  }
 }
 
 .categoryName {
@@ -42,17 +149,30 @@
 }
 
 .categoryCount {
-  font-size: $text-sm;
-  color: var(--text-muted);
-  font-weight: $font-normal;
+  font-size: $text-xs;
+  font-weight: $font-bold;
+  min-width: 24px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: $radius-full;
+  padding: 0 $space-2;
   margin-left: $space-1;
+}
+
+.categoryDivider {
+  height: 2px;
+  opacity: 0.2;
+  border-radius: $radius-full;
+  margin-bottom: $space-5;
 }
 
 /* ===== Card Grid ===== */
 .cardGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: $space-4;
+  gap: $space-5;
 }
 
 /* ===== Source Card ===== */
@@ -61,10 +181,12 @@
   border: 1px solid var(--border);
   border-radius: var(--radius);
   padding: $space-5 $space-6;
+  padding-left: calc(#{$space-6} + 3px);
   display: flex;
   align-items: flex-start;
   gap: $space-4;
   box-shadow: var(--shadow-card);
+  border-left: 3px solid transparent;
   transition:
     box-shadow var(--transition),
     border-color var(--transition),
@@ -77,6 +199,22 @@
   }
 }
 
+.borderOk {
+  border-left-color: var(--success) !important;
+}
+
+.borderDisabled {
+  border-left-color: var(--text-muted) !important;
+}
+
+.borderWarning {
+  border-left-color: var(--warning) !important;
+}
+
+.borderError {
+  border-left-color: var(--error) !important;
+}
+
 .sourceCardDisabled {
   opacity: 0.55;
 }
@@ -87,12 +225,22 @@
   height: 10px;
   border-radius: $radius-full;
   flex-shrink: 0;
-  margin-top: 5px;
+  margin-top: 6px;
 }
 
 .statusOk {
   background: var(--success);
   box-shadow: 0 0 0 3px var(--success-light);
+  animation: pulseGlow 2.5s ease-in-out infinite;
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 0 3px var(--success-light);
+  }
+  50% {
+    box-shadow: 0 0 0 5px var(--success-muted), 0 0 8px var(--success-light);
+  }
 }
 
 .statusWarning {
@@ -117,10 +265,10 @@
 }
 
 .sourceName {
-  font-weight: $font-semibold;
-  font-size: $text-md;
+  font-weight: $font-bold;
+  font-size: $text-base;
   color: var(--text);
-  margin-bottom: $space-1;
+  margin-bottom: $space-2;
   line-height: $leading-tight;
 }
 
@@ -132,25 +280,79 @@
   margin-bottom: $space-2;
 }
 
+/* ===== Tier Badges ===== */
+.tierBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: $text-xs;
+  font-weight: $font-semibold;
+  padding: 2px $space-2;
+  border-radius: $radius-full;
+  line-height: 1.4;
+}
+
+.tierBadge0 {
+  background: var(--success-light);
+  color: var(--success);
+
+  [data-theme='dark'] & {
+    background: var(--success-muted);
+  }
+}
+
+.tierBadge1 {
+  background: var(--primary-light);
+  color: var(--primary);
+
+  [data-theme='dark'] & {
+    background: var(--accent-indigo-light);
+    color: var(--accent-indigo);
+  }
+}
+
+.tierBadge2 {
+  background: var(--warning-light);
+  color: var(--warning);
+}
+
+/* ===== Config Status Badges ===== */
+.configBadgeOk {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: $text-xs;
+  font-weight: $font-medium;
+  padding: 2px $space-2;
+  border-radius: $radius-full;
+  background: var(--accent-teal-light);
+  color: var(--accent-teal);
+  line-height: 1.4;
+}
+
+.configBadgeKey {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: $text-xs;
+  font-weight: $font-medium;
+  padding: 2px $space-2;
+  border-radius: $radius-full;
+  background: var(--warning-light);
+  color: var(--warning);
+  line-height: 1.4;
+}
+
 .cardDescription {
   color: var(--text-muted);
   font-size: $text-sm;
   line-height: $leading-normal;
   overflow: hidden;
   text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.needsKey {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: $text-xs;
-  color: var(--warning-strong);
-  background: var(--warning-light);
-  padding: 2px $space-2;
-  border-radius: $radius-full;
-  font-weight: $font-medium;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  white-space: normal;
 }
 
 /* ===== Toggle Switch ===== */
@@ -163,13 +365,13 @@
 
 .toggleBtn {
   position: relative;
-  width: 44px;
-  height: 24px;
+  width: 48px;
+  height: 26px;
   border-radius: $radius-full;
   border: none;
   padding: 2px;
   cursor: pointer;
-  transition: background var(--transition);
+  transition: background 0.25s ease, border-color 0.25s ease;
   background: var(--bg-subtle);
   border: 1px solid var(--border-strong);
 
@@ -190,25 +392,36 @@
 }
 
 .toggleKnob {
-  display: block;
-  width: 18px;
-  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 20px;
+  height: 20px;
   border-radius: $radius-full;
   background: #fff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.15);
-  transition: transform var(--transition);
+  transition: transform 0.25s cubic-bezier(0.4, 0, 0.2, 1);
   transform: translateX(0);
+  color: transparent;
 }
 
 .toggleKnobEnabled {
-  transform: translateX(20px);
+  transform: translateX(22px);
+  color: var(--success);
 }
 
 /* ===== Skeleton Cards ===== */
+.skeletonPageHeader {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+  margin-bottom: $space-10;
+}
+
 .skeletonGrid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
-  gap: $space-4;
+  gap: $space-5;
   margin-bottom: $space-8;
 }
 

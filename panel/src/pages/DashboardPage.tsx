@@ -16,8 +16,8 @@ import type { DoctorResponse } from '../types'
 import styles from './DashboardPage.module.scss'
 
 /* ── Animated health ring (gradient stroke, animated on mount) ── */
-const RING_SIZE = 128
-const RING_STROKE = 8
+const RING_SIZE = 160
+const RING_STROKE = 10
 const RING_RADIUS = (RING_SIZE - RING_STROKE) / 2
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS
 
@@ -184,6 +184,12 @@ export function DashboardPage() {
 
   return (
     <div className={styles.page}>
+      {/* ── Page title ── */}
+      <div className={styles.pageTitle}>
+        <h1 className={styles.pageTitleText}>{t('dashboard.pageTitle')}</h1>
+        <p className={styles.pageSubtitle}>{t('dashboard.pageSubtitle')}</p>
+      </div>
+
       {/* ── Header ── */}
       <Card className={styles.headerCard}>
         <div className={styles.headerRow}>
@@ -205,34 +211,38 @@ export function DashboardPage() {
       <m.div className={styles.statsSection} variants={staggerContainer} initial="initial" animate="animate">
         <div className={styles.statsGrid}>
           <m.div variants={staggerItem} className={`${styles.statCard} ${styles.statBlue}`}>
+            <div className={styles.statBlob} />
             <div className={styles.statHeader}>
               <div className={`${styles.statIcon} ${styles.iconBlue}`}><FileText size={18} /></div>
             </div>
-            <div className={styles.statValue}>{paperCount}</div>
+            <div className={`${styles.statValue} ${styles.valueBlue}`}>{paperCount}</div>
             <span className={styles.statTitle}>{t('dashboard.paperSources')}</span>
           </m.div>
 
           <m.div variants={staggerItem} className={`${styles.statCard} ${styles.statAmber}`}>
+            <div className={styles.statBlob} />
             <div className={styles.statHeader}>
               <div className={`${styles.statIcon} ${styles.iconAmber}`}><Shield size={18} /></div>
             </div>
-            <div className={styles.statValue}>{patentCount}</div>
+            <div className={`${styles.statValue} ${styles.valueAmber}`}>{patentCount}</div>
             <span className={styles.statTitle}>{t('dashboard.patentSources')}</span>
           </m.div>
 
           <m.div variants={staggerItem} className={`${styles.statCard} ${styles.statGreen}`}>
+            <div className={styles.statBlob} />
             <div className={styles.statHeader}>
               <div className={`${styles.statIcon} ${styles.iconGreen}`}><Globe size={18} /></div>
             </div>
-            <div className={styles.statValue}>{webCount}</div>
+            <div className={`${styles.statValue} ${styles.valueGreen}`}>{webCount}</div>
             <span className={styles.statTitle}>{t('dashboard.webEngines')}</span>
           </m.div>
 
           <m.div variants={staggerItem} className={`${styles.statCard} ${styles.statIndigo}`}>
+            <div className={styles.statBlob} />
             <div className={styles.statHeader}>
               <div className={`${styles.statIcon} ${styles.iconIndigo}`}><Layers size={18} /></div>
             </div>
-            <div className={styles.statValue}>{okCount}<span className={styles.statFraction}>/{totalCount}</span></div>
+            <div className={`${styles.statValue} ${styles.valueIndigo}`}>{okCount}<span className={styles.statFraction}>/{totalCount}</span></div>
             <span className={styles.statTitle}>{t('dashboard.availableSources')}</span>
           </m.div>
         </div>
@@ -244,7 +254,10 @@ export function DashboardPage() {
       </m.div>
 
       {/* ── Source health table ── */}
-      <h3 className={styles.sectionTitle}>{t('dashboard.sourceHealth')}</h3>
+      <div className={styles.sectionHeader}>
+        <h3 className={styles.sectionTitle}>{t('dashboard.sourceHealth')}</h3>
+        <p className={styles.sectionDesc}>{t('dashboard.sourceHealthDesc')}</p>
+      </div>
       <div className={styles.tableWrap}>
         <table className={styles.table}>
           <thead>
