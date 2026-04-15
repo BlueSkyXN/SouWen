@@ -124,7 +124,6 @@ const expandTransition = {
   mass: 0.8,
 }
 
-const PROXY_OPTIONS = ['inherit', 'none', 'warp', 'custom'] as const
 const HTTP_BACKEND_OPTIONS = ['auto', 'curl_cffi', 'httpx'] as const
 
 function SourceConfigPanel({
