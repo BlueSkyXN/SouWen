@@ -1,3 +1,14 @@
+FROM node:22-slim AS panel-builder
+ARG SOUWEN_REPO=https://github.com/BlueSkyXN/SouWen.git
+ARG SOUWEN_REF=main
+ARG SKIN=souwen-classic
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+WORKDIR /build
+RUN git clone --depth 1 --branch "${SOUWEN_REF}" "${SOUWEN_REPO}" .
+WORKDIR /build/panel
+RUN npm ci --ignore-scripts && VITE_SKIN=${SKIN} npm run build
+
 FROM modelscope-registry.cn-beijing.cr.aliyuncs.com/modelscope-repo/python:3.10
 
 ARG SOUWEN_REPO=https://github.com/BlueSkyXN/SouWen.git
@@ -26,6 +37,8 @@ RUN ARCH=$(dpkg --print-architecture 2>/dev/null || (uname -m | sed 's/x86_64/am
 RUN git clone --depth 1 --branch "${SOUWEN_REF}" "${SOUWEN_REPO}" . \
     && pip install ".[server]" \
     && python -c "import curl_cffi; print('curl_cffi OK')"
+
+COPY --from=panel-builder /build/panel/dist/index.html ./src/souwen/server/panel.html
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN cp scripts/warp-init.sh /usr/local/bin/warp-init.sh 2>/dev/null || true
