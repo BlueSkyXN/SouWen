@@ -296,7 +296,7 @@
   background: var(--success-light);
   color: var(--success);
 
-  [data-theme='dark'] & {
+  [data-mode='dark'] & {
     background: var(--success-muted);
   }
 }
@@ -305,7 +305,7 @@
   background: var(--primary-light);
   color: var(--primary);
 
-  [data-theme='dark'] & {
+  [data-mode='dark'] & {
     background: var(--accent-indigo-light);
     color: var(--accent-indigo);
   }

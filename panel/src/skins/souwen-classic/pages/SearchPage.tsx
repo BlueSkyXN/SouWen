@@ -7,15 +7,15 @@ import {
   GraduationCap, Unlock, Heart, CheckCircle2, Circle,
   SlidersHorizontal, Command,
 } from 'lucide-react'
-import { api } from '../services/api'
-import { useNotificationStore } from '../stores/notificationStore'
+import { api } from '@core/services/api'
+import { useNotificationStore } from '@core/stores/notificationStore'
 import { ResultsSkeleton } from '../components/common/Skeleton'
 import { EmptyState } from '../components/common/EmptyState'
 import { Badge } from '../components/common/Badge'
-import { formatError } from '../lib/errors'
-import { normalizePaper, normalizePatent, normalizeWeb } from '../lib/normalize'
-import type { SearchCategory, SourceInfo, SearchResponse, WebSearchResponse, WebResult, PaperResult, PatentResult } from '../types'
-import { staggerContainer, staggerItem, fadeInUp } from '../lib/animations'
+import { formatError } from '@core/lib/errors'
+import { normalizePaper, normalizePatent, normalizeWeb } from '@core/lib/normalize'
+import type { SearchCategory, SourceInfo, SearchResponse, WebSearchResponse, WebResult, PaperResult, PatentResult } from '@core/types'
+import { staggerContainer, staggerItem, fadeInUp } from '@core/lib/animations'
 import styles from './SearchPage.module.scss'
 
 /* ─── Source icon mapping ─── */

@@ -51,21 +51,21 @@
   color: var(--primary-strong);
 }
 
-[data-theme='dark'] .toast {
+[data-mode='dark'] .toast {
   color: #fff;
 }
 
-[data-theme='dark'] .success {
+[data-mode='dark'] .success {
   background: rgba(5, 150, 105, 0.92);
   border-color: rgba(16, 185, 129, 0.24);
 }
 
-[data-theme='dark'] .error {
+[data-mode='dark'] .error {
   background: rgba(220, 38, 38, 0.92);
   border-color: rgba(239, 68, 68, 0.24);
 }
 
-[data-theme='dark'] .info {
+[data-mode='dark'] .info {
   background: rgba(37, 99, 235, 0.92);
   border-color: rgba(59, 130, 246, 0.24);
 }

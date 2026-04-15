@@ -53,11 +53,11 @@
   border-color: rgba(13, 148, 136, 0.14);
 }
 
-[data-theme='dark'] .green,
-[data-theme='dark'] .blue,
-[data-theme='dark'] .amber,
-[data-theme='dark'] .red,
-[data-theme='dark'] .indigo,
-[data-theme='dark'] .teal {
+[data-mode='dark'] .green,
+[data-mode='dark'] .blue,
+[data-mode='dark'] .amber,
+[data-mode='dark'] .red,
+[data-mode='dark'] .indigo,
+[data-mode='dark'] .teal {
   border-color: transparent;
 }

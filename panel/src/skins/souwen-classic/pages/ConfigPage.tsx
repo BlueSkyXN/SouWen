@@ -6,8 +6,8 @@ import {
   Settings, Globe, Search, Wrench, HelpCircle, CheckCircle2,
   CircleDot, Wifi,
 } from 'lucide-react'
-import { api } from '../services/api'
-import { useNotificationStore } from '../stores/notificationStore'
+import { api } from '@core/services/api'
+import { useNotificationStore } from '@core/stores/notificationStore'
 import { Card } from '../components/common/Card'
 import { Accordion } from '../components/common/Accordion'
 import { Tooltip } from '../components/common/Tooltip'
@@ -15,9 +15,9 @@ import { Input } from '../components/common/Input'
 import { Button } from '../components/common/Button'
 import { Badge } from '../components/common/Badge'
 import { TableSkeleton } from '../components/common/Skeleton'
-import { formatError } from '../lib/errors'
-import { staggerContainer, staggerItem } from '../lib/animations'
-import type { ConfigResponse, WarpStatus, HttpBackendResponse } from '../types'
+import { formatError } from '@core/lib/errors'
+import { staggerContainer, staggerItem } from '@core/lib/animations'
+import type { ConfigResponse, WarpStatus, HttpBackendResponse } from '@core/types'
 import styles from './ConfigPage.module.scss'
 
 const SCRAPER_ENGINES = [

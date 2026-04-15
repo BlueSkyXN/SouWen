@@ -274,7 +274,7 @@
 .valueGreen  { color: rgba(5, 150, 105, 0.85); }
 .valueIndigo { color: var(--accent); }
 
-[data-theme='dark'] {
+[data-mode='dark'] {
   .valueBlue   { color: rgba(96, 165, 250, 0.9); }
   .valueAmber  { color: rgba(251, 191, 36, 0.9); }
   .valueGreen  { color: rgba(52, 211, 153, 0.9); }
@@ -442,7 +442,7 @@
     background: rgba(0,0,0,0.025);
   }
 
-  [data-theme='dark'] & tbody tr:nth-child(even) td {
+  [data-mode='dark'] & tbody tr:nth-child(even) td {
     background: rgba(255,255,255,0.03);
   }
 
