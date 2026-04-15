@@ -1,18 +1,119 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { m } from 'framer-motion'
-import { CheckCircle2, XCircle, FileText, Shield, Globe, Layers } from 'lucide-react'
+import { FileText, Shield, Globe, Layers, RefreshCw } from 'lucide-react'
 import { api } from '../services/api'
 import { useNotificationStore } from '../stores/notificationStore'
 import { useAuthStore } from '../stores/authStore'
 import { Card } from '../components/common/Card'
 import { Badge } from '../components/common/Badge'
+import { EmptyState } from '../components/common/EmptyState'
 import { StatsGridSkeleton, TableSkeleton } from '../components/common/Skeleton'
 import { formatError } from '../lib/errors'
 import { staggerContainer, staggerItem } from '../lib/animations'
 import { categoryBadgeColor, tierBadgeColor, categoryLabel } from '../lib/ui'
 import type { DoctorResponse } from '../types'
 import styles from './DashboardPage.module.scss'
+
+/* ── Animated health ring (gradient stroke, animated on mount) ── */
+const RING_SIZE = 128
+const RING_STROKE = 8
+const RING_RADIUS = (RING_SIZE - RING_STROKE) / 2
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS
+
+function HealthRing({ pct }: { pct: number }) {
+  const { t } = useTranslation()
+  const strokeRef = useRef<SVGCircleElement>(null)
+  const gradientId = 'health-grad'
+  const filled = (pct / 100) * RING_CIRCUMFERENCE
+
+  useEffect(() => {
+    const el = strokeRef.current
+    if (!el) return
+    // start from 0 and animate to target
+    el.style.transition = 'none'
+    el.setAttribute('stroke-dasharray', `0 ${RING_CIRCUMFERENCE}`)
+    // force reflow
+    void el.getBoundingClientRect()
+    el.style.transition = 'stroke-dasharray 1s cubic-bezier(.4,0,.2,1)'
+    el.setAttribute('stroke-dasharray', `${filled} ${RING_CIRCUMFERENCE - filled}`)
+  }, [filled])
+
+  return (
+    <div className={styles.healthRingWrap}>
+      <svg
+        width={RING_SIZE}
+        height={RING_SIZE}
+        viewBox={`0 0 ${RING_SIZE} ${RING_SIZE}`}
+        role="img"
+        aria-label={`${t('dashboard.healthRate')}: ${pct}%`}
+        className={styles.healthRingSvg}
+      >
+        <title>{t('dashboard.healthRate')}: {pct}%</title>
+        <defs>
+          <linearGradient id={gradientId} x1="0%" y1="0%" x2="100%" y2="100%">
+            {pct >= 60 ? (
+              <>
+                <stop offset="0%" stopColor="var(--accent-teal)" />
+                <stop offset="100%" stopColor="var(--success)" />
+              </>
+            ) : pct >= 30 ? (
+              <>
+                <stop offset="0%" stopColor="var(--warning)" />
+                <stop offset="100%" stopColor="#f59e0b" />
+              </>
+            ) : (
+              <>
+                <stop offset="0%" stopColor="var(--warning)" />
+                <stop offset="100%" stopColor="var(--error)" />
+              </>
+            )}
+          </linearGradient>
+        </defs>
+        {/* track */}
+        <circle
+          cx={RING_SIZE / 2}
+          cy={RING_SIZE / 2}
+          r={RING_RADIUS}
+          fill="none"
+          stroke="var(--border)"
+          strokeWidth={RING_STROKE}
+        />
+        {/* filled arc */}
+        <circle
+          ref={strokeRef}
+          cx={RING_SIZE / 2}
+          cy={RING_SIZE / 2}
+          r={RING_RADIUS}
+          fill="none"
+          stroke={`url(#${gradientId})`}
+          strokeWidth={RING_STROKE}
+          strokeDasharray={`0 ${RING_CIRCUMFERENCE}`}
+          strokeDashoffset={RING_CIRCUMFERENCE / 4}
+          strokeLinecap="round"
+          className={styles.healthStroke}
+        />
+      </svg>
+      <div className={styles.healthValue}>
+        <span className={styles.healthPct}>{pct}%</span>
+        <span className={styles.healthLabel}>{t('dashboard.healthRate')}</span>
+      </div>
+    </div>
+  )
+}
+
+/* ── Availability progress bar ── */
+function AvailabilityBar({ ok, total }: { ok: number; total: number }) {
+  const pct = total > 0 ? (ok / total) * 100 : 0
+  return (
+    <div className={styles.availBar}>
+      <div className={styles.availTrack}>
+        <div className={styles.availFill} style={{ width: `${pct}%` }} />
+      </div>
+      <span className={styles.availText}>{ok}/{total}</span>
+    </div>
+  )
+}
 
 export function DashboardPage() {
   const { t } = useTranslation()
@@ -40,12 +141,14 @@ export function DashboardPage() {
     void fetchData()
   }, [fetchData])
 
+  /* ── Loading ── */
   if (loading) return (
     <div className={styles.page} role="status" aria-live="polite" aria-busy="true">
       <span className="srOnly">{t('common.loading', 'Loading dashboard data')}</span>
-      <Card style={{ marginBottom: 24 }}>
-        <div className={styles.serverInfo}>
-          <div style={{ width: '100%', height: 20, background: 'var(--bg-subtle)', borderRadius: 6 }} />
+      <Card className={styles.headerCard}>
+        <div className={styles.headerSkeleton}>
+          <div className={styles.skeletonLine} style={{ width: '30%' }} />
+          <div className={styles.skeletonLine} style={{ width: '20%' }} />
         </div>
       </Card>
       <StatsGridSkeleton count={5} />
@@ -53,20 +156,21 @@ export function DashboardPage() {
     </div>
   )
 
+  /* ── Error ── */
   if (fetchError || !doctor) {
     return (
       <div className={styles.page}>
-        <Card style={{ marginBottom: 24 }}>
-          <div className={styles.serverInfo}>
-            <div>
-              <span className={styles.serverLabel}>{t('dashboard.status')}</span>
-              <Badge color="red">{t('common.error')}</Badge>
-            </div>
-            <div>
-              <button className="btn btn-sm btn-outline" onClick={fetchData}>{t('sources.refresh')}</button>
-            </div>
-          </div>
-        </Card>
+        <EmptyState
+          type="error"
+          title={t('common.error')}
+          description={t('dashboard.fetchFailed', { message: '' })}
+          action={
+            <button className="btn btn-primary btn-sm" onClick={fetchData}>
+              <RefreshCw size={14} />
+              {t('sources.refresh')}
+            </button>
+          }
+        />
       </div>
     )
   }
@@ -80,83 +184,66 @@ export function DashboardPage() {
 
   return (
     <div className={styles.page}>
-      <Card style={{ marginBottom: 24 }}>
-        <div className={styles.serverInfo}>
-          <div>
-            <span className={styles.serverLabel}>{t('dashboard.status')}</span>
-            <Badge color="green">{t('dashboard.running')}</Badge>
+      {/* ── Header ── */}
+      <Card className={styles.headerCard}>
+        <div className={styles.headerRow}>
+          <div className={styles.headerLeft}>
+            <div className={styles.statusChip}>
+              <span className={styles.statusDot} />
+              <span className={styles.statusText}>{t('dashboard.running')}</span>
+            </div>
+            <Badge color="gray">{version || '—'}</Badge>
           </div>
-          <div>
-            <span className={styles.serverLabel}>{t('dashboard.version')}</span>
-            <span className={styles.serverValue}>{version || '—'}</span>
-          </div>
-          <div>
-            <span className={styles.serverLabel}>{t('dashboard.availableSources')}</span>
-            <span className={styles.serverValue}>
-              {okCount} / {totalCount}
-            </span>
+          <div className={styles.headerRight}>
+            <span className={styles.headerLabel}>{t('dashboard.availableSources')}</span>
+            <AvailabilityBar ok={okCount} total={totalCount} />
           </div>
         </div>
       </Card>
 
-      <m.div className={styles.statsGrid} variants={staggerContainer} initial="initial" animate="animate">
-        <m.div variants={staggerItem} className={styles.statCard}>
-          <div className={styles.statHeader}>
+      {/* ── Stats + Health ring ── */}
+      <m.div className={styles.statsSection} variants={staggerContainer} initial="initial" animate="animate">
+        <div className={styles.statsGrid}>
+          <m.div variants={staggerItem} className={`${styles.statCard} ${styles.statBlue}`}>
+            <div className={styles.statHeader}>
+              <div className={`${styles.statIcon} ${styles.iconBlue}`}><FileText size={18} /></div>
+            </div>
+            <div className={styles.statValue}>{paperCount}</div>
             <span className={styles.statTitle}>{t('dashboard.paperSources')}</span>
-            <div className={`${styles.statIcon} ${styles.iconBlue}`}><FileText size={18} /></div>
-          </div>
-          <div className={styles.statValue}>{paperCount}</div>
-        </m.div>
+          </m.div>
 
-        <m.div variants={staggerItem} className={styles.statCard}>
-          <div className={styles.statHeader}>
+          <m.div variants={staggerItem} className={`${styles.statCard} ${styles.statAmber}`}>
+            <div className={styles.statHeader}>
+              <div className={`${styles.statIcon} ${styles.iconAmber}`}><Shield size={18} /></div>
+            </div>
+            <div className={styles.statValue}>{patentCount}</div>
             <span className={styles.statTitle}>{t('dashboard.patentSources')}</span>
-            <div className={`${styles.statIcon} ${styles.iconAmber}`}><Shield size={18} /></div>
-          </div>
-          <div className={styles.statValue}>{patentCount}</div>
-        </m.div>
+          </m.div>
 
-        <m.div variants={staggerItem} className={styles.statCard}>
-          <div className={styles.statHeader}>
+          <m.div variants={staggerItem} className={`${styles.statCard} ${styles.statGreen}`}>
+            <div className={styles.statHeader}>
+              <div className={`${styles.statIcon} ${styles.iconGreen}`}><Globe size={18} /></div>
+            </div>
+            <div className={styles.statValue}>{webCount}</div>
             <span className={styles.statTitle}>{t('dashboard.webEngines')}</span>
-            <div className={`${styles.statIcon} ${styles.iconGreen}`}><Globe size={18} /></div>
-          </div>
-          <div className={styles.statValue}>{webCount}</div>
-        </m.div>
+          </m.div>
 
-        <m.div variants={staggerItem} className={styles.statCard}>
-          <div className={styles.statHeader}>
+          <m.div variants={staggerItem} className={`${styles.statCard} ${styles.statIndigo}`}>
+            <div className={styles.statHeader}>
+              <div className={`${styles.statIcon} ${styles.iconIndigo}`}><Layers size={18} /></div>
+            </div>
+            <div className={styles.statValue}>{okCount}<span className={styles.statFraction}>/{totalCount}</span></div>
             <span className={styles.statTitle}>{t('dashboard.availableSources')}</span>
-            <div className={`${styles.statIcon} ${styles.iconIndigo}`}><Layers size={18} /></div>
-          </div>
-          <div className={styles.statValue}>{okCount} / {totalCount}</div>
-        </m.div>
+          </m.div>
+        </div>
 
-        <m.div variants={staggerItem} className={styles.statCard}>
-          <div className={styles.statHeader}>
-            <span className={styles.statTitle}>{t('dashboard.healthRate')}</span>
-          </div>
-          <div className={styles.healthRing}>
-            <svg width="80" height="80" viewBox="0 0 80 80" role="img" aria-label={`${t('dashboard.healthRate')}: ${healthPct}%`}>
-              <title>{t('dashboard.healthRate')}: {healthPct}%</title>
-              <circle cx="40" cy="40" r="34" fill="none" stroke="var(--border)" strokeWidth="6" />
-              <circle
-                cx="40" cy="40" r="34" fill="none"
-                stroke={healthPct >= 80 ? 'var(--success)' : healthPct >= 50 ? 'var(--warning)' : 'var(--error)'}
-                strokeWidth="6"
-                strokeDasharray={`${healthPct * 2.136} ${213.6 - healthPct * 2.136}`}
-                strokeDashoffset="53.4"
-                strokeLinecap="round"
-                style={{ transition: 'stroke-dasharray 0.8s ease' }}
-              />
-              <text x="40" y="44" textAnchor="middle" fill="var(--text)" fontSize="18" fontWeight="700">
-                {healthPct}%
-              </text>
-            </svg>
-          </div>
+        {/* Health ring card */}
+        <m.div variants={staggerItem} className={styles.healthCard}>
+          <HealthRing pct={healthPct} />
         </m.div>
       </m.div>
 
+      {/* ── Source health table ── */}
       <h3 className={styles.sectionTitle}>{t('dashboard.sourceHealth')}</h3>
       <div className={styles.tableWrap}>
         <table className={styles.table}>
@@ -174,11 +261,7 @@ export function DashboardPage() {
             {doctor?.sources.map((src) => (
               <tr key={src.name}>
                 <td>
-                  {src.status === 'ok' ? (
-                    <CheckCircle2 size={18} style={{ color: 'var(--success)' }} />
-                  ) : (
-                    <XCircle size={18} style={{ color: 'var(--error)' }} />
-                  )}
+                  <span className={`${styles.dot} ${src.status === 'ok' ? styles.dotOk : styles.dotErr}`} />
                 </td>
                 <td className={styles.sourceName}>{src.name}</td>
                 <td>

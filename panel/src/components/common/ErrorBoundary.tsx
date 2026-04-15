@@ -1,4 +1,5 @@
 import { Component, type ReactNode } from 'react'
+import i18n from '../../i18n'
 
 interface Props {
   children: ReactNode
@@ -28,9 +29,9 @@ export class ErrorBoundary extends Component<Props, State> {
           justifyContent: 'center', minHeight: '100vh', padding: 32,
           fontFamily: 'system-ui, sans-serif', color: '#333', background: '#f5f6f8',
         }}>
-          <h2 style={{ marginBottom: 8 }}>页面渲染出错</h2>
+          <h2 style={{ marginBottom: 8 }}>{i18n.t('common.pageRenderError')}</h2>
           <p style={{ color: '#666', marginBottom: 16 }}>
-            {this.state.error?.message || '未知错误'}
+            {this.state.error?.message || i18n.t('common.unknownError')}
           </p>
           <button
             onClick={() => {
@@ -43,7 +44,7 @@ export class ErrorBoundary extends Component<Props, State> {
               background: '#3b82f6', color: '#fff', cursor: 'pointer', fontSize: 14,
             }}
           >
-            重新加载
+            {i18n.t('common.reload')}
           </button>
         </div>
       )

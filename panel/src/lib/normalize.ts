@@ -1,4 +1,5 @@
 import type { PaperResult, PatentResult, WebResult, DoctorSource } from '../types'
+import i18n from '../i18n'
 
 export interface NormalizedPaper {
   title: string
@@ -103,9 +104,9 @@ export function tierLabel(tier: number): string {
 
 export function typeLabel(type: string): string {
   switch (type) {
-    case 'paper': return '论文'
-    case 'patent': return '专利'
-    case 'web': return '网页'
+    case 'paper': return i18n.t('common.paper')
+    case 'patent': return i18n.t('common.patent')
+    case 'web': return i18n.t('common.web')
     default: return type
   }
 }

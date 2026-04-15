@@ -1,12 +1,22 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { m } from 'framer-motion'
-import { Info, RefreshCw, Shield, ShieldOff, Loader2, Plug } from 'lucide-react'
+import {
+  Info, RefreshCw, Shield, ShieldOff, Plug,
+  Settings, Globe, Search, Wrench, HelpCircle, CheckCircle2,
+  CircleDot, Wifi,
+} from 'lucide-react'
 import { api } from '../services/api'
 import { useNotificationStore } from '../stores/notificationStore'
 import { Card } from '../components/common/Card'
+import { Accordion } from '../components/common/Accordion'
+import { Tooltip } from '../components/common/Tooltip'
+import { Input } from '../components/common/Input'
+import { Button } from '../components/common/Button'
+import { Badge } from '../components/common/Badge'
 import { TableSkeleton } from '../components/common/Skeleton'
 import { formatError } from '../lib/errors'
+import { staggerContainer, staggerItem } from '../lib/animations'
 import type { ConfigResponse, WarpStatus, HttpBackendResponse } from '../types'
 import styles from './ConfigPage.module.scss'
 
@@ -16,6 +26,77 @@ const SCRAPER_ENGINES = [
 ]
 
 const BACKEND_OPTIONS = ['auto', 'curl_cffi', 'httpx'] as const
+
+// Keys considered "basic" settings
+const BASIC_KEYS = ['api_password', 'log_level', 'max_workers', 'host', 'port', 'debug']
+// Keys considered "network" settings
+const NETWORK_KEYS = ['proxy', 'http_backend', 'timeout', 'concurrent_limit']
+// Keys considered "search" settings
+const SEARCH_KEYS = ['searxng_url', 'cache_enabled', 'cache_ttl']
+// Keys that are sensitive (masked)
+const MASKED_KEYS = new Set(['api_password'])
+
+interface ConfigSection {
+  id: string
+  titleKey: string
+  descKey: string
+  icon: React.ReactNode
+  keys: string[]
+}
+
+const CONFIG_SECTIONS: ConfigSection[] = [
+  { id: 'basic', titleKey: 'config.sectionBasic', descKey: 'config.sectionBasicDesc', icon: <Settings size={16} />, keys: BASIC_KEYS },
+  { id: 'network', titleKey: 'config.sectionNetwork', descKey: 'config.sectionNetworkDesc', icon: <Globe size={16} />, keys: NETWORK_KEYS },
+  { id: 'search', titleKey: 'config.sectionSearch', descKey: 'config.sectionSearchDesc', icon: <Search size={16} />, keys: SEARCH_KEYS },
+]
+
+type TFunc = ReturnType<typeof useTranslation>['t']
+
+function getConfigLabel(key: string, t: TFunc): string {
+  return t(`config.labels.${key}`, { defaultValue: key })
+}
+
+function getConfigDescription(key: string, t: TFunc): string | undefined {
+  const desc = t(`config.descriptions.${key}`, { defaultValue: '' })
+  return desc || undefined
+}
+
+function ConfigRow({ configKey, value, t }: { configKey: string; value: unknown; t: ReturnType<typeof useTranslation>['t'] }) {
+  const label = getConfigLabel(configKey, t)
+  const description = getConfigDescription(configKey, t)
+  const isMasked = value === '***' || MASKED_KEYS.has(configKey)
+  const isNull = value === null || value === undefined
+
+  return (
+    <div className={styles.configRow}>
+      <div className={styles.configRowLabel}>
+        <span className={styles.configRowName}>{label}</span>
+        {description && (
+          <Tooltip content={description} position="right">
+            <HelpCircle size={13} className={styles.helpIcon} />
+          </Tooltip>
+        )}
+        <span className={styles.configRowKey}>{configKey}</span>
+      </div>
+      <div className={styles.configRowValue}>
+        {isMasked && value === '***' ? (
+          <Badge color="green">
+            <CheckCircle2 size={12} />
+            {t('config.configured')}
+          </Badge>
+        ) : isNull ? (
+          <span className={styles.nullVal}>{t('config.notSet')}</span>
+        ) : typeof value === 'object' ? (
+          <code className={styles.codeVal}>{JSON.stringify(value)}</code>
+        ) : typeof value === 'boolean' ? (
+          <Badge color={value ? 'green' : 'gray'}>{String(value)}</Badge>
+        ) : (
+          <span className={styles.plainVal}>{String(value)}</span>
+        )}
+      </div>
+    </div>
+  )
+}
 
 function HttpBackendCard() {
   const { t } = useTranslation()
@@ -62,70 +143,63 @@ function HttpBackendCard() {
   if (loading || !data) return null
 
   return (
-    <Card className={styles.warpCard}>
-      <div className={styles.warpHeader}>
-        <div className={styles.warpTitle}>
+    <Card className={styles.sectionCard}>
+      <div className={styles.sectionHeader}>
+        <div className={styles.sectionTitle}>
           <Plug size={18} />
           {t('httpBackend.title')}
         </div>
-        <span className={`${styles.warpBadge} ${data.curl_cffi_available ? styles.enabled : styles.error}`}>
+        <Badge color={data.curl_cffi_available ? 'green' : 'red'}>
           {data.curl_cffi_available ? t('httpBackend.curlAvailable') : t('httpBackend.curlNotInstalled')}
-        </span>
+        </Badge>
       </div>
 
-      <div className={styles.infoNote} style={{ marginBottom: 12 }}>
+      <div className={styles.infoNote}>
         <Info size={14} />
         <span>{t('httpBackend.subtitle')}</span>
       </div>
 
-      <table className={styles.table} style={{ marginBottom: 8 }}>
-        <thead>
-          <tr>
-            <th>{t('httpBackend.source')}</th>
-            <th>{t('httpBackend.backend')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td className={styles.configKey}><strong>{t('httpBackend.globalDefault')}</strong></td>
-            <td>
+      <div className={styles.engineList}>
+        {/* Global default row */}
+        <div className={`${styles.engineRow} ${styles.engineRowDefault}`}>
+          <div className={styles.engineName}>
+            <strong>{t('httpBackend.globalDefault')}</strong>
+            <Tooltip content={t('httpBackend.autoTip')} position="right">
+              <HelpCircle size={13} className={styles.helpIcon} />
+            </Tooltip>
+          </div>
+          <select
+            className={styles.engineSelect}
+            value={data.default}
+            onChange={(e) => void handleUpdate({ default: e.target.value })}
+            disabled={updating === 'default'}
+          >
+            {BACKEND_OPTIONS.map((opt) => (
+              <option key={opt} value={opt}>{t(`httpBackend.${opt}`)}</option>
+            ))}
+          </select>
+        </div>
+
+        {SCRAPER_ENGINES.map((engine) => {
+          const override = data.overrides[engine]
+          const engineLabel = t(`httpBackend.engineNames.${engine}`, engine)
+          return (
+            <div key={engine} className={styles.engineRow}>
+              <div className={styles.engineName}>{engineLabel}</div>
               <select
-                value={data.default}
-                onChange={(e) => void handleUpdate({ default: e.target.value })}
-                disabled={updating === 'default'}
+                className={styles.engineSelect}
+                value={override || 'auto'}
+                onChange={(e) => void handleUpdate({ source: engine, backend: e.target.value })}
+                disabled={updating === engine}
               >
-                {BACKEND_OPTIONS.map((opt) => (
-                  <option key={opt} value={opt}>{t(`httpBackend.${opt}`)}</option>
-                ))}
+                <option value="auto">{t('httpBackend.auto')} ({t('httpBackend.default')})</option>
+                <option value="curl_cffi">{t('httpBackend.curl_cffi')}</option>
+                <option value="httpx">{t('httpBackend.httpx')}</option>
               </select>
-            </td>
-          </tr>
-          {SCRAPER_ENGINES.map((engine) => {
-            const override = data.overrides[engine]
-            return (
-              <tr key={engine}>
-                <td className={styles.configKey}>{engine}</td>
-                <td>
-                  <select
-                    value={override || 'auto'}
-                    onChange={(e) => {
-                      const val = e.target.value
-                      void handleUpdate({ source: engine, backend: val })
-                    }}
-                    disabled={updating === engine}
-                  >
-                    <option value="auto">
-                      {t('httpBackend.auto')} ({t('httpBackend.default')})
-                    </option>
-                    <option value="curl_cffi">{t('httpBackend.curl_cffi')}</option>
-                    <option value="httpx">{t('httpBackend.httpx')}</option>
-                  </select>
-                </td>
-              </tr>
-            )
-          })}
-        </tbody>
-      </table>
+            </div>
+          )
+        })}
+      </div>
 
       <div className={styles.infoNote}>
         <Info size={14} />
@@ -187,44 +261,76 @@ function WarpCard() {
   }, [addToast, fetchWarp, t])
 
   if (loading) return null
-  if (!warp) return null
+
+  // WARP not available — show info message instead of hiding
+  if (!warp) return (
+    <Card className={styles.sectionCard}>
+      <div className={styles.sectionHeader}>
+        <div className={styles.sectionTitle}>
+          <Shield size={18} />
+          {t('warp.title')}
+        </div>
+        <Badge color="gray">{t('warp.disabled')}</Badge>
+      </div>
+      <div className={styles.infoNote}>
+        <Info size={14} />
+        <span>{t('warp.notAvailable')}</span>
+      </div>
+    </Card>
+  )
 
   const isActive = warp.status === 'enabled' || warp.status === 'starting'
-  const statusClass = styles[warp.status] || styles.disabled
+  const statusColor = warp.status === 'enabled' ? 'green'
+    : warp.status === 'error' ? 'red'
+    : warp.status === 'starting' || warp.status === 'stopping' ? 'amber'
+    : 'gray'
 
   const ownerLabel = warp.owner === 'shell' ? t('warp.ownerShell')
     : warp.owner === 'python' ? t('warp.ownerPython')
     : t('warp.ownerNone')
 
   return (
-    <Card className={styles.warpCard}>
-      <div className={styles.warpHeader}>
-        <div className={styles.warpTitle}>
+    <Card className={styles.sectionCard}>
+      <div className={styles.sectionHeader}>
+        <div className={styles.sectionTitle}>
           <Shield size={18} />
           {t('warp.title')}
         </div>
-        <span className={`${styles.warpBadge} ${statusClass}`}>
-          {t(`warp.${warp.status}`)}
-        </span>
+        <div className={styles.statusIndicator}>
+          <span className={`${styles.statusDot} ${styles[`dot_${statusColor}`]}`} />
+          <Badge color={statusColor}>{t(`warp.${warp.status}`)}</Badge>
+        </div>
       </div>
 
       {warp.status !== 'disabled' && (
         <div className={styles.warpGrid}>
           <div className={styles.warpField}>
-            <div className={styles.fieldLabel}>{t('warp.mode')}</div>
+            <div className={styles.fieldLabel}>
+              <CircleDot size={12} />
+              {t('warp.mode')}
+            </div>
             <div className={styles.fieldValue}>{warp.mode}</div>
           </div>
           <div className={styles.warpField}>
-            <div className={styles.fieldLabel}>{t('warp.owner')}</div>
+            <div className={styles.fieldLabel}>
+              <Settings size={12} />
+              {t('warp.owner')}
+            </div>
             <div className={styles.fieldValue}>{ownerLabel}</div>
           </div>
           <div className={styles.warpField}>
-            <div className={styles.fieldLabel}>{t('warp.socksPort')}</div>
+            <div className={styles.fieldLabel}>
+              <Wifi size={12} />
+              {t('warp.socksPort')}
+            </div>
             <div className={styles.fieldValue}>{warp.socks_port}</div>
           </div>
           {warp.ip && (
             <div className={styles.warpField}>
-              <div className={styles.fieldLabel}>{t('warp.ip')}</div>
+              <div className={styles.fieldLabel}>
+                <Globe size={12} />
+                {t('warp.ip')}
+              </div>
               <div className={styles.fieldValue}>{warp.ip}</div>
             </div>
           )}
@@ -247,46 +353,68 @@ function WarpCard() {
         <div className={styles.warpError}>{warp.last_error}</div>
       )}
 
-      <div className={styles.warpGrid}>
-        <div className={styles.warpField}>
-          <div className={styles.fieldLabel}>{t('warp.availableModes')}</div>
-          <div className={styles.fieldValue}>
-            {warp.available_modes.wireproxy && 'wireproxy '}
-            {warp.available_modes.kernel && 'kernel '}
-            {!warp.available_modes.wireproxy && !warp.available_modes.kernel && '—'}
-          </div>
-        </div>
+      <div className={styles.warpModes}>
+        <span className={styles.fieldLabelSmall}>{t('warp.availableModes')}</span>
+        <span className={styles.fieldValueInline}>
+          {warp.available_modes.wireproxy && 'wireproxy '}
+          {warp.available_modes.kernel && 'kernel '}
+          {!warp.available_modes.wireproxy && !warp.available_modes.kernel && '—'}
+        </span>
       </div>
 
       <div className={styles.warpActions}>
         {!isActive ? (
           <>
-            <div className={styles.fieldGroup}>
-              <label>{t('warp.mode')}</label>
-              <select value={mode} onChange={(e) => setMode(e.target.value)}>
-                <option value="auto">{t('warp.auto')}</option>
-                {warp.available_modes.wireproxy && <option value="wireproxy">{t('warp.wireproxy')}</option>}
-                {warp.available_modes.kernel && <option value="kernel">{t('warp.kernel')}</option>}
-              </select>
+            <div className={styles.warpForm}>
+              <div className={styles.formField}>
+                <label className={styles.formLabel}>{t('warp.mode')}</label>
+                <Tooltip content={t('warp.modeDesc')} position="top">
+                  <HelpCircle size={13} className={styles.helpIcon} />
+                </Tooltip>
+                <select className={styles.formSelect} value={mode} onChange={(e) => setMode(e.target.value)}>
+                  <option value="auto">{t('warp.auto')}</option>
+                  {warp.available_modes.wireproxy && <option value="wireproxy">{t('warp.wireproxy')}</option>}
+                  {warp.available_modes.kernel && <option value="kernel">{t('warp.kernel')}</option>}
+                </select>
+              </div>
+              <Input
+                label={t('warp.socksPort')}
+                description={t('warp.portDesc')}
+                type="number"
+                value={port}
+                onChange={(e) => setPort(e.target.value)}
+                min={1}
+                max={65535}
+              />
+              <Input
+                label={t('warp.endpoint')}
+                description={t('warp.endpointDesc')}
+                type="text"
+                value={endpoint}
+                onChange={(e) => setEndpoint(e.target.value)}
+                placeholder={t('warp.endpointPlaceholder')}
+              />
             </div>
-            <div className={styles.fieldGroup}>
-              <label>{t('warp.socksPort')}</label>
-              <input type="number" value={port} onChange={(e) => setPort(e.target.value)} min={1} max={65535} />
-            </div>
-            <div className={styles.fieldGroup}>
-              <label>{t('warp.endpoint')}</label>
-              <input type="text" value={endpoint} onChange={(e) => setEndpoint(e.target.value)} placeholder={t('warp.endpointPlaceholder')} />
-            </div>
-            <button className="btn btn-primary btn-sm" onClick={handleEnable} disabled={acting}>
-              {acting ? <Loader2 size={14} className="spin" /> : <Shield size={14} />}
+            <Button
+              variant="primary"
+              size="sm"
+              loading={acting}
+              icon={<Shield size={14} />}
+              onClick={handleEnable}
+            >
               {acting ? t('warp.enabling') : t('warp.enable')}
-            </button>
+            </Button>
           </>
         ) : (
-          <button className="btn btn-danger btn-sm" onClick={handleDisable} disabled={acting}>
-            {acting ? <Loader2 size={14} className="spin" /> : <ShieldOff size={14} />}
+          <Button
+            variant="danger"
+            size="sm"
+            loading={acting}
+            icon={<ShieldOff size={14} />}
+            onClick={handleDisable}
+          >
             {acting ? t('warp.disabling') : t('warp.disable')}
-          </button>
+          </Button>
         )}
       </div>
     </Card>
@@ -331,6 +459,30 @@ export function ConfigPage() {
     void fetchConfig()
   }, [fetchConfig])
 
+  // Categorize config entries into sections
+  const { sections, advancedEntries } = useMemo(() => {
+    const entries = config ? Object.entries(config) : []
+    const categorized = new Set<string>()
+
+    const secs = CONFIG_SECTIONS.map((section) => {
+      const items = section.keys
+        .filter((key) => entries.some(([k]) => k === key))
+        .map((key) => {
+          categorized.add(key)
+          const entry = entries.find(([k]) => k === key)!
+          return { key: entry[0], value: entry[1] }
+        })
+      return { ...section, items }
+    })
+
+    // Everything else goes into advanced
+    const advanced = entries
+      .filter(([key]) => !categorized.has(key))
+      .map(([key, value]) => ({ key, value }))
+
+    return { sections: secs, advancedEntries: advanced }
+  }, [config])
+
   if (loading) return (
     <div className={styles.page} role="status" aria-live="polite" aria-busy="true">
       <span className="srOnly">{t('common.loading', 'Loading configuration')}</span>
@@ -338,65 +490,97 @@ export function ConfigPage() {
     </div>
   )
 
-  const entries = config ? Object.entries(config) : []
-
   return (
     <m.div
       className={styles.page}
-      initial={{ opacity: 0, y: 8 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.2 }}
+      variants={staggerContainer}
+      initial="initial"
+      animate="animate"
     >
-      <div className={styles.actions}>
-        <button
-          className="btn btn-primary btn-sm"
-          onClick={handleReload}
-          disabled={reloading}
-        >
-          <RefreshCw size={14} />
-          {reloading ? t('config.reloading') : t('config.reload')}
-        </button>
-      </div>
-
-      <Card style={{ marginBottom: 24 }}>
-        <div className={styles.infoNote}>
-          <Info size={18} />
-          <span>{t('config.note')}</span>
+      {/* Header with reload button */}
+      <m.div className={styles.pageHeader} variants={staggerItem}>
+        <div>
+          <h1 className={styles.pageTitle}>{t('config.title')}</h1>
+          <p className={styles.pageDesc}>{t('config.note')}</p>
         </div>
-      </Card>
+        <Button
+          variant="primary"
+          size="sm"
+          loading={reloading}
+          icon={<RefreshCw size={14} />}
+          onClick={handleReload}
+        >
+          {reloading ? t('config.reloading') : t('config.reload')}
+        </Button>
+      </m.div>
 
-      <WarpCard />
-
-      <HttpBackendCard />
-
-      <div className={styles.tableWrap}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>{t('config.key')}</th>
-              <th>{t('config.value')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {entries.map(([key, value]) => (
-              <tr key={key}>
-                <td className={styles.configKey}>{key}</td>
-                <td className={styles.configValue}>
-                  {value === '***' ? (
-                    <span className={styles.masked}>{t('config.masked')}</span>
-                  ) : value === null || value === undefined ? (
-                    <span className={styles.nullVal}>null</span>
-                  ) : typeof value === 'object' ? (
-                    <code>{JSON.stringify(value)}</code>
-                  ) : (
-                    <span>{String(value)}</span>
-                  )}
-                </td>
-              </tr>
+      {/* Config sections with Accordion */}
+      <m.div className={styles.accordionGroup} variants={staggerItem}>
+        {/* Basic Settings — always visible */}
+        <Accordion
+          title={t('config.sectionBasic')}
+          description={t('config.sectionBasicDesc')}
+          icon={<Settings size={16} />}
+          defaultOpen
+        >
+          <div className={styles.configRows}>
+            {sections[0].items.map(({ key, value }) => (
+              <ConfigRow key={key} configKey={key} value={value} t={t} />
             ))}
-          </tbody>
-        </table>
-      </div>
+          </div>
+        </Accordion>
+
+        {/* Network Settings */}
+        <Accordion
+          title={t('config.sectionNetwork')}
+          description={t('config.sectionNetworkDesc')}
+          icon={<Globe size={16} />}
+        >
+          <div className={styles.configRows}>
+            {sections[1].items.map(({ key, value }) => (
+              <ConfigRow key={key} configKey={key} value={value} t={t} />
+            ))}
+          </div>
+        </Accordion>
+
+        {/* Search Engine Settings */}
+        <Accordion
+          title={t('config.sectionSearch')}
+          description={t('config.sectionSearchDesc')}
+          icon={<Search size={16} />}
+        >
+          <div className={styles.configRows}>
+            {sections[2].items.map(({ key, value }) => (
+              <ConfigRow key={key} configKey={key} value={value} t={t} />
+            ))}
+          </div>
+        </Accordion>
+
+        {/* Advanced Settings */}
+        {advancedEntries.length > 0 && (
+          <Accordion
+            title={t('config.sectionAdvanced')}
+            description={t('config.sectionAdvancedDesc')}
+            icon={<Wrench size={16} />}
+          >
+            <div className={styles.configRows}>
+              {advancedEntries.map(({ key, value }) => (
+                <ConfigRow key={key} configKey={key} value={value} t={t} />
+              ))}
+            </div>
+          </Accordion>
+        )}
+      </m.div>
+
+      {/* HTTP Backend Card */}
+      <m.div variants={staggerItem}>
+        <HttpBackendCard />
+      </m.div>
+
+      {/* WARP Card */}
+      <m.div variants={staggerItem}>
+        <WarpCard />
+      </m.div>
     </m.div>
   )
 }
