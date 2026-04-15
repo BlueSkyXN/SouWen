@@ -190,7 +190,63 @@ services:
 docker compose up -d --build
 ```
 
-> **注意**：云端 Dockerfile（`cloud/hfs/Dockerfile`、`cloud/modelscope/Dockerfile`）同样支持 `SKIN` 构建参数，用法一致。
+> **注意**：云端 Dockerfile 同样支持 `SKIN` 构建参数，见下方。
+
+#### 方式五：HFS（Hugging Face Spaces）部署
+
+HFS 使用 `cloud/hfs/Dockerfile`，通过 Docker 构建参数选择皮肤。
+
+**方法 A：修改 Dockerfile 默认值**
+
+编辑 `cloud/hfs/Dockerfile` 第 3 行：
+
+```dockerfile
+ARG SKIN=carbon          # 将 souwen-classic 改为 carbon
+```
+
+**方法 B：通过 HFS 环境变量传入**
+
+Hugging Face Spaces 支持在构建阶段传递 Docker 构建参数。在 Space 的 Settings → Repository secrets & variables 中：
+
+1. 添加变量 `SKIN`，值为 `carbon`（或其他皮肤名）
+2. 然后在 `Dockerfile` 中使用：
+
+```dockerfile
+ARG SKIN=souwen-classic   # 默认值，会被 HFS 传入的值覆盖
+```
+
+> HFS 的 Dockerfile 构建时会自动将同名环境变量映射到 `ARG`，无需额外配置。
+
+**方法 C：docker build 命令行**（本地测试 HFS 镜像时）
+
+```bash
+docker build -f cloud/hfs/Dockerfile --build-arg SKIN=carbon -t souwen-hfs .
+```
+
+#### 方式六：ModelScope 部署
+
+`cloud/modelscope/Dockerfile` 用法与 HFS 完全一致：
+
+```bash
+docker build -f cloud/modelscope/Dockerfile --build-arg SKIN=carbon -t souwen-ms .
+```
+
+或修改 Dockerfile 中的 `ARG SKIN=souwen-classic` 默认值。
+
+#### 环境变量速查表
+
+| 环境/场景 | 变量名 | 设置方式 | 示例 |
+|-----------|--------|----------|------|
+| 本地 npm 开发 | `VITE_SKIN` | Shell 环境变量 | `VITE_SKIN=carbon npm run dev` |
+| 本地 npm 构建 | `VITE_SKIN` | Shell 环境变量 | `VITE_SKIN=carbon npm run build` |
+| npm 快捷脚本 | — | package.json scripts | `npm run dev:carbon` / `npm run build:carbon` |
+| Docker build | `SKIN` | `--build-arg` | `docker build --build-arg SKIN=carbon .` |
+| Docker Compose | `SKIN` | docker-compose.yml `args` | `SKIN: carbon` |
+| HFS | `SKIN` | Dockerfile ARG / Space 变量 | 修改 ARG 默认值或 Space Settings |
+| ModelScope | `SKIN` | Dockerfile ARG | 修改 ARG 默认值 |
+
+> **关键区别**：`VITE_SKIN` 是 Vite 构建时使用的环境变量（npm 脚本场景），`SKIN` 是 Docker 构建参数（Dockerfile 场景）。
+> Dockerfile 内部会将 `SKIN` 转换为 `VITE_SKIN`：`RUN VITE_SKIN=${SKIN} npm run build`
 
 #### 原理说明
 
