@@ -1,13 +1,16 @@
 import { useState, useCallback, useEffect, useRef, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { m } from 'framer-motion'
-import { FileText, Shield, Globe, Users, Calendar, Link, Building, Search, ExternalLink, Sparkles } from 'lucide-react'
+import {
+  FileText, Shield, Globe, Users, Calendar, Link, Building,
+  Search, ExternalLink, Sparkles, BookOpen, Database, Library,
+  GraduationCap, Unlock, Heart, CheckCircle2, Circle,
+  SlidersHorizontal, Command,
+} from 'lucide-react'
 import { api } from '../services/api'
 import { useNotificationStore } from '../stores/notificationStore'
 import { ResultsSkeleton } from '../components/common/Skeleton'
 import { EmptyState } from '../components/common/EmptyState'
-import { MultiSelect, type SelectOption } from '../components/common/MultiSelect'
-import { SegmentedControl } from '../components/common/SegmentedControl'
 import { Badge } from '../components/common/Badge'
 import { formatError } from '../lib/errors'
 import { normalizePaper, normalizePatent, normalizeWeb } from '../lib/normalize'
@@ -15,13 +18,38 @@ import type { SearchCategory, SourceInfo, SearchResponse, WebSearchResponse, Web
 import { staggerContainer, staggerItem, fadeInUp } from '../lib/animations'
 import styles from './SearchPage.module.scss'
 
-const TAB_OPTIONS: { value: SearchCategory; label: string; icon: React.ReactNode }[] = [
-  { value: 'paper', label: '', icon: <FileText size={15} /> },
-  { value: 'patent', label: '', icon: <Shield size={15} /> },
-  { value: 'web', label: '', icon: <Globe size={15} /> },
-]
+/* ─── Source icon mapping ─── */
+const SOURCE_ICONS: Record<string, React.ComponentType<{ size?: number }>> = {
+  openalex: Library,
+  arxiv: BookOpen,
+  semantic_scholar: Sparkles,
+  crossref: Database,
+  core: BookOpen,
+  pubmed: Heart,
+  dblp: GraduationCap,
+  unpaywall: Unlock,
+  google_patents: Shield,
+  patentsview: FileText,
+  pqai: Search,
+  epo_ops: Shield,
+  uspto_odp: Shield,
+  the_lens: Search,
+  cnipa: Shield,
+  patsnap: Shield,
+}
 
-function toSelectOptions(sources: SourceInfo[]): SelectOption[] {
+function getSourceIcon(name: string): React.ComponentType<{ size?: number }> {
+  return SOURCE_ICONS[name] ?? Globe
+}
+
+interface SourceOption {
+  value: string
+  label: string
+  description?: string
+  needsKey?: boolean
+}
+
+function toSourceOptions(sources: SourceInfo[]): SourceOption[] {
   return sources.map((s) => ({
     value: s.name,
     label: s.name,
@@ -30,7 +58,7 @@ function toSelectOptions(sources: SourceInfo[]): SelectOption[] {
   }))
 }
 
-function makeFallbackOptions(t: (key: string) => string): Record<SearchCategory, SelectOption[]> {
+function makeFallbackOptions(t: (key: string) => string): Record<SearchCategory, SourceOption[]> {
   return {
     paper: [
       { value: 'openalex', label: 'openalex', description: t('search.source_openalex') },
@@ -64,15 +92,15 @@ const SEARCH_SUGGESTIONS = [
 function resolveSourceOptions(
   category: SearchCategory,
   sources: SourceInfo[],
-  fallback: Record<SearchCategory, SelectOption[]>,
-): SelectOption[] {
-  const options = toSelectOptions(sources)
+  fallback: Record<SearchCategory, SourceOption[]>,
+): SourceOption[] {
+  const options = toSourceOptions(sources)
   return options.length > 0 ? options : fallback[category]
 }
 
 function sanitizeSelections(
   current: Record<SearchCategory, string[]>,
-  options: Record<SearchCategory, SelectOption[]>,
+  options: Record<SearchCategory, SourceOption[]>,
 ): Record<SearchCategory, string[]> {
   return (Object.keys(options) as SearchCategory[]).reduce(
     (next, category) => {
@@ -100,11 +128,11 @@ export function SearchPage() {
   const fallbackOptions = makeFallbackOptions(t)
   const [tab, setTab] = useState<SearchCategory>('paper')
   const [query, setQuery] = useState('')
-  const [sourceOptions, setSourceOptions] = useState<Record<SearchCategory, SelectOption[]>>(fallbackOptions)
+  const [sourceOptions, setSourceOptions] = useState<Record<SearchCategory, SourceOption[]>>(fallbackOptions)
   const [selections, setSelections] = useState<Record<SearchCategory, string[]>>({
     ...DEFAULT_SELECTED,
   })
-  const [count, setCount] = useState(10)
+  const [count] = useState(10)
   const [searchState, setSearchState] = useState<SearchState>({ status: 'idle', tab: null, message: null })
   const [paperResults, setPaperResults] = useState<SearchResponse | null>(null)
   const [patentResults, setPatentResults] = useState<SearchResponse | null>(null)
@@ -112,11 +140,6 @@ export function SearchPage() {
   const addToast = useNotificationStore((s) => s.addToast)
   const activeRequestRef = useRef<{ id: number; controller: AbortController } | null>(null)
   const requestIdRef = useRef(0)
-
-  const segmentOptions = TAB_OPTIONS.map((o) => ({
-    ...o,
-    label: t(`search.${o.value === 'paper' ? 'papers' : o.value === 'patent' ? 'patents' : 'web'}`),
-  }))
 
   useEffect(() => {
     let cancelled = false
@@ -144,16 +167,43 @@ export function SearchPage() {
     setTab(key)
   }, [])
 
-  const handleSelectionChange = useCallback(
-    (selected: string[]) => {
-      setSelections((prev) => ({ ...prev, [tab]: selected }))
-    },
-    [tab],
-  )
+  const toggleSource = useCallback((sourceName: string) => {
+    setSelections((prev) => {
+      const curr = prev[tab]
+      const next = curr.includes(sourceName)
+        ? curr.filter((s) => s !== sourceName)
+        : [...curr, sourceName]
+      return { ...prev, [tab]: next }
+    })
+  }, [tab])
+
+  const selectAllSources = useCallback(() => {
+    setSelections((prev) => ({
+      ...prev,
+      [tab]: sourceOptions[tab].map((s) => s.value),
+    }))
+  }, [tab, sourceOptions])
+
+  const clearAllSources = useCallback(() => {
+    setSelections((prev) => ({ ...prev, [tab]: [] }))
+  }, [tab])
 
   const currentSources = selections[tab]
   const canSearch = query.trim().length > 0 && currentSources.length > 0
   const isSearchingCurrentTab = searchState.status === 'loading' && searchState.tab === tab
+
+  /* ─── Keyboard shortcut ⌘K ─── */
+  const inputRef = useRef<HTMLInputElement>(null)
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault()
+        inputRef.current?.focus()
+      }
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [])
 
   const handleSearch = useCallback(
     async (e: FormEvent) => {
@@ -364,102 +414,144 @@ export function SearchPage() {
       )
     }
 
-    return (
-      <div className={styles.emptyStateCustom}>
-        <div className={styles.emptyGlow}>
-          <div className={styles.emptyGlowOrb} />
-          <div className={styles.emptyGlowOrb} />
-          <div className={styles.emptyGlowOrb} />
-          <div className={styles.emptyIconWrap}>
-            <Search size={36} strokeWidth={1.5} />
+    return null
+  }
+
+  return (
+    <div className={styles.page}>
+      {/* ─── Hero Title (only when no results) ─── */}
+      {!hasResults && (
+        <m.div className={styles.heroTitle} {...fadeInUp}>
+          <h1 className={styles.heroHeading}>{t('search.heroTitle')}</h1>
+          <p className={styles.heroSubtitle}>{t('search.heroSubtitle')}</p>
+        </m.div>
+      )}
+
+      {/* ─── Command Center Card ─── */}
+      <m.div className={`${styles.commandCard} ${hasResults ? styles.compact : ''}`} {...fadeInUp}>
+        {/* Top bar: tabs + ⌘K hint */}
+        <div className={styles.commandHeader}>
+          <div className={styles.tabGroup}>
+            {(['paper', 'patent', 'web'] as SearchCategory[]).map((key) => {
+              const icons = { paper: FileText, patent: Shield, web: Globe }
+              const labels = {
+                paper: t('search.papers'),
+                patent: t('search.patents'),
+                web: t('search.web'),
+              }
+              const Icon = icons[key]
+              return (
+                <button
+                  key={key}
+                  type="button"
+                  className={`${styles.tabBtn} ${tab === key ? styles.tabActive : ''}`}
+                  onClick={() => handleTabChange(key)}
+                >
+                  <Icon size={15} />
+                  {labels[key]}
+                </button>
+              )
+            })}
+          </div>
+          <div className={styles.shortcutHint}>
+            <Command size={12} />
+            <span>K</span>
           </div>
         </div>
-        <div className={styles.emptyTitle}>{t('search.enterKeyword')}</div>
-        <div className={styles.emptyDesc}>{t('search.startSearchDesc')}</div>
-        <div className={styles.emptySuggestions}>
+
+        {/* Search input row */}
+        <m.form className={styles.searchForm} onSubmit={handleSearch} aria-busy={isSearchingCurrentTab}>
+          <div className={styles.searchBar}>
+            <Sparkles size={20} className={styles.searchIcon} />
+            <input
+              ref={inputRef}
+              className={styles.searchInput}
+              type="text"
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder={t('search.placeholder')}
+              required
+            />
+            <button
+              type="submit"
+              className={styles.searchButton}
+              disabled={!canSearch}
+              aria-label={t('search.button')}
+            >
+              {isSearchingCurrentTab ? t('search.searching') : t('search.button')}
+            </button>
+          </div>
+        </m.form>
+
+        {/* Source cards section (collapsible when has results) */}
+        {!hasResults && (
+          <div className={styles.sourceSection}>
+            <div className={styles.sourceSectionHeader}>
+              <div className={styles.sourceSectionLeft}>
+                <SlidersHorizontal size={16} />
+                <span className={styles.sourceSectionTitle}>{t('search.searchScope')}</span>
+                <Badge color="indigo">{t('search.selectedCount', { count: currentSources.length })}</Badge>
+              </div>
+              <div className={styles.sourceSectionActions}>
+                <button type="button" className={styles.sourceActionBtn} onClick={selectAllSources}>
+                  {t('search.selectAll')}
+                </button>
+                <button type="button" className={styles.sourceActionBtn} onClick={clearAllSources}>
+                  {t('search.clearAll')}
+                </button>
+              </div>
+            </div>
+            <div className={styles.sourceGrid}>
+              {sourceOptions[tab].map((source) => {
+                const isSelected = currentSources.includes(source.value)
+                const Icon = getSourceIcon(source.value)
+                return (
+                  <button
+                    key={source.value}
+                    type="button"
+                    className={`${styles.sourceCard} ${isSelected ? styles.sourceCardActive : ''}`}
+                    onClick={() => toggleSource(source.value)}
+                  >
+                    <div className={styles.sourceCardTop}>
+                      <span className={styles.sourceCardIcon}>
+                        <Icon size={18} />
+                      </span>
+                      {isSelected
+                        ? <CheckCircle2 size={20} className={styles.sourceCheck} />
+                        : <Circle size={20} className={styles.sourceUncheck} />
+                      }
+                    </div>
+                    <div className={styles.sourceCardName}>{source.label}</div>
+                    {source.description && (
+                      <div className={styles.sourceCardDesc}>{source.description}</div>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+      </m.div>
+
+      {/* ─── Suggestion chips (only when idle / no results) ─── */}
+      {!hasResults && searchState.status === 'idle' && (
+        <m.div className={styles.suggestions} {...fadeInUp}>
           {SEARCH_SUGGESTIONS.map((s) => (
             <button
               key={s}
               type="button"
               className={styles.suggestionChip}
-              onClick={() => { setQuery(s) }}
+              onClick={() => setQuery(s)}
             >
-              <Sparkles size={13} />
               {s}
             </button>
           ))}
-        </div>
-      </div>
-    )
-  }
+        </m.div>
+      )}
 
-  return (
-    <div className={styles.page}>
-      <div className={`${styles.heroSection} ${hasResults ? styles.hasResults : ''}`}>
-        {/* Tab Switcher */}
-        <div className={styles.tabBar}>
-          <SegmentedControl options={segmentOptions} value={tab} onChange={handleTabChange} />
-        </div>
-
-        {/* Hero Search Bar */}
-        <m.form
-          className={styles.searchForm}
-          onSubmit={handleSearch}
-          aria-busy={isSearchingCurrentTab}
-          {...fadeInUp}
-        >
-          <div className={styles.searchBarWrap}>
-            <div className={styles.searchBar}>
-              <Search size={22} className={styles.searchIcon} />
-              <input
-                className={styles.searchInput}
-                type="text"
-                value={query}
-                onChange={(e) => setQuery(e.target.value)}
-                placeholder={t('search.placeholder')}
-                required
-              />
-              <select
-                className={styles.countSelect}
-                value={count}
-                onChange={(e) => setCount(Number(e.target.value))}
-                aria-label={t('search.items', { count })}
-              >
-                {[5, 10, 20, 50].map((n) => (
-                  <option key={n} value={n}>
-                    {t('search.items', { count: n })}
-                  </option>
-                ))}
-              </select>
-              <button
-                type="submit"
-                className={styles.searchButton}
-                disabled={!canSearch}
-                aria-label={t('search.button')}
-              >
-                {isSearchingCurrentTab ? t('search.searching') : t('search.button')}
-              </button>
-            </div>
-          </div>
-
-          {/* Source Selector */}
-          <div className={styles.sourceRow}>
-            <span className={styles.sourceLabel}>{t('search.searchScope')}</span>
-            <div className={styles.sourceSelect}>
-              <MultiSelect
-                options={sourceOptions[tab]}
-                selected={currentSources}
-                onChange={handleSelectionChange}
-                placeholder={tab === 'web' ? t('search.engines') : t('search.sources')}
-              />
-            </div>
-          </div>
-        </m.form>
-
-        {/* Results */}
-        <div className={styles.results} aria-live="polite" style={{ width: '100%' }}>
-          {renderResults()}
-        </div>
+      {/* ─── Results ─── */}
+      <div className={styles.results} aria-live="polite">
+        {renderResults()}
       </div>
     </div>
   )
