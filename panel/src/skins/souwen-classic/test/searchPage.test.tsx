@@ -3,11 +3,11 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import type { HTMLAttributes } from 'react'
 import { SearchPage } from '../pages/SearchPage'
-import { api } from '../services/api'
-import { useNotificationStore } from '../stores/notificationStore'
-import type { SearchResponse } from '../types'
+import { api } from '@core/services/api'
+import { useNotificationStore } from '@core/stores/notificationStore'
+import type { SearchResponse } from '@core/types'
 
-vi.mock('../services/api', () => ({
+vi.mock('@core/services/api', () => ({
   api: {
     getSources: vi.fn(),
     searchPaper: vi.fn(),

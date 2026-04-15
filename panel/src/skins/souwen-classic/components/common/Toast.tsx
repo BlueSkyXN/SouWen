@@ -1,6 +1,6 @@
 import { AnimatePresence, m } from 'framer-motion'
 import { CheckCircle2, XCircle, Info, X } from 'lucide-react'
-import { useNotificationStore } from '../../stores/notificationStore'
+import { useNotificationStore } from '@core/stores/notificationStore'
 import styles from './Toast.module.scss'
 
 const ICONS = {

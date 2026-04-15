@@ -3,11 +3,11 @@ import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence, m } from 'framer-motion'
 import { Search, Moon, Sun, Eye, EyeOff, Loader2 } from 'lucide-react'
-import { useAuthStore } from '../stores/authStore'
-import { useThemeStore } from '../stores/themeStore'
-import { useNotificationStore } from '../stores/notificationStore'
-import { api } from '../services/api'
-import { formatError } from '../lib/errors'
+import { useAuthStore } from '@core/stores/authStore'
+import { useSkinStore } from '../stores/skinStore'
+import { useNotificationStore } from '@core/stores/notificationStore'
+import { api } from '@core/services/api'
+import { formatError } from '@core/lib/errors'
 import styles from './LoginPage.module.scss'
 
 export function LoginPage() {
@@ -15,7 +15,7 @@ export function LoginPage() {
   const navigate = useNavigate()
   const setAuth = useAuthStore((s) => s.setAuth)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
-  const { theme, toggleTheme } = useThemeStore()
+  const { mode, toggleMode } = useSkinStore()
   const addToast = useNotificationStore((s) => s.addToast)
 
   const [baseUrl, setBaseUrl] = useState(() => {
@@ -107,19 +107,19 @@ export function LoginPage() {
       <div className={styles.themeToggle}>
         <button
           className={styles.themeBtn}
-          onClick={toggleTheme}
-          aria-label={theme === 'light' ? t('login.darkMode') : t('login.lightMode')}
+          onClick={toggleMode}
+          aria-label={mode === 'light' ? t('login.darkMode') : t('login.lightMode')}
         >
           <AnimatePresence mode="wait" initial={false}>
             <m.span
-              key={theme}
+              key={mode}
               initial={{ opacity: 0, rotate: -90, scale: 0.5 }}
               animate={{ opacity: 1, rotate: 0, scale: 1 }}
               exit={{ opacity: 0, rotate: 90, scale: 0.5 }}
               transition={{ duration: 0.2 }}
               style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}
             >
-              {theme === 'light' ? <Moon size={18} /> : <Sun size={18} />}
+              {mode === 'light' ? <Moon size={18} /> : <Sun size={18} />}
             </m.span>
           </AnimatePresence>
         </button>

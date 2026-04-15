@@ -1,17 +1,12 @@
 import { useEffect, useState } from 'react'
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { LazyMotion, domAnimation, AnimatePresence } from 'framer-motion'
-import { useAuthStore } from './stores/authStore'
-import { useThemeStore } from './stores/themeStore'
-import { MainLayout } from './components/layout/MainLayout'
-import { ToastContainer } from './components/common/Toast'
-import { Spinner } from './components/common/Spinner'
-import { LoginPage } from './pages/LoginPage'
-import { DashboardPage } from './pages/DashboardPage'
-import { SearchPage } from './pages/SearchPage'
-import { SourcesPage } from './pages/SourcesPage'
-import { ConfigPage } from './pages/ConfigPage'
-import './styles/global.scss'
+import { useAuthStore } from '@core/stores/authStore'
+import { useSkinStore } from '@skin/stores/skinStore'
+import { AppShell, LoginPage, skinRoutes } from '@skin'
+import { ToastContainer } from '@skin/components/common/Toast'
+import { Spinner } from '@skin/components/common/Spinner'
+import '@skin/styles/global.scss'
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -28,14 +23,11 @@ function AnimatedRoutes() {
         <Route
           element={
             <AuthGuard>
-              <MainLayout />
+              <AppShell />
             </AuthGuard>
           }
         >
-          <Route path="/" element={<DashboardPage />} />
-          <Route path="/search" element={<SearchPage />} />
-          <Route path="/sources" element={<SourcesPage />} />
-          <Route path="/config" element={<ConfigPage />} />
+          {skinRoutes}
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
@@ -45,14 +37,14 @@ function AnimatedRoutes() {
 
 export default function App() {
   const loadFromStorage = useAuthStore((s) => s.loadFromStorage)
-  const loadTheme = useThemeStore((s) => s.loadTheme)
+  const loadSkin = useSkinStore((s) => s.loadSkin)
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    loadTheme()
+    loadSkin()
     loadFromStorage()
     setReady(true)
-  }, [loadFromStorage, loadTheme])
+  }, [loadFromStorage, loadSkin])
 
   if (!ready) return <Spinner size="lg" />
 

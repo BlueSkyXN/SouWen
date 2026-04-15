@@ -16,10 +16,10 @@ import {
   Palette,
   Check,
 } from 'lucide-react'
-import { useAuthStore } from '../../stores/authStore'
-import { useThemeStore } from '../../stores/themeStore'
-import { VISUAL_THEMES } from '../../types'
-import type { VisualTheme } from '../../types'
+import { useAuthStore } from '@core/stores/authStore'
+import { useSkinStore } from '../../stores/skinStore'
+import { VISUAL_THEMES } from '@core/types'
+import type { VisualTheme } from '@core/types'
 import styles from './MainLayout.module.scss'
 
 const NAV_ITEMS = [
@@ -73,7 +73,7 @@ export function MainLayout() {
   const location = useLocation()
   const logout = useAuthStore((s) => s.logout)
   const version = useAuthStore((s) => s.version)
-  const { theme, toggleTheme, visualTheme, setVisualTheme } = useThemeStore()
+  const { mode, toggleMode, scheme, setScheme } = useSkinStore()
   const [themePaletteOpen, setThemePaletteOpen] = useState(false)
   const paletteRef = useRef<HTMLDivElement>(null)
 
@@ -206,10 +206,10 @@ export function MainLayout() {
             </span>
             <button
               className={styles.themeBtn}
-              onClick={toggleTheme}
-              aria-label={theme === 'light' ? t('common.darkMode') : t('common.lightMode')}
+              onClick={toggleMode}
+              aria-label={mode === 'light' ? t('common.darkMode') : t('common.lightMode')}
             >
-              {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
+              {mode === 'light' ? <Moon size={16} /> : <Sun size={16} />}
             </button>
             <div className={styles.themePaletteWrap} ref={paletteRef}>
               <button
@@ -232,15 +232,15 @@ export function MainLayout() {
                     {VISUAL_THEMES.map((vt) => (
                       <button
                         key={vt}
-                        className={`${styles.paletteItem} ${visualTheme === vt ? styles.paletteActive : ''}`}
-                        onClick={() => { setVisualTheme(vt); setThemePaletteOpen(false) }}
+                        className={`${styles.paletteItem} ${scheme === vt ? styles.paletteActive : ''}`}
+                        onClick={() => { setScheme(vt); setThemePaletteOpen(false) }}
                       >
                         <span
                           className={styles.paletteDot}
                           style={{ background: THEME_DOTS[vt] }}
                         />
                         <span className={styles.paletteName}>{t(`theme.${vt}`)}</span>
-                        {visualTheme === vt && <Check size={14} className={styles.paletteCheck} />}
+                        {scheme === vt && <Check size={14} className={styles.paletteCheck} />}
                       </button>
                     ))}
                   </m.div>

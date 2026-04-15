@@ -100,7 +100,7 @@
   border-radius: $radius-xl;
 }
 
-[data-theme='dark'] .commandCard {
+[data-mode='dark'] .commandCard {
   background: rgba(22, 22, 29, 0.85);
   box-shadow:
     0 1px 3px rgba(0, 0, 0, 0.2),
@@ -478,7 +478,7 @@
   }
 }
 
-[data-theme='dark'] .resultCard:hover {
+[data-mode='dark'] .resultCard:hover {
   box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
 }
 

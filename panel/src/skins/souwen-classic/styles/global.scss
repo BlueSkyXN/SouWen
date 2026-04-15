@@ -128,7 +128,7 @@
   --sp-20: #{$space-20};
 }
 
-[data-theme='dark'] {
+[data-mode='dark'] {
   --bg: #0a0a0f;
   --bg-card: #16161d;
   --bg-input: #16161d;
@@ -198,7 +198,7 @@
 }
 
 /* ===== Visual Theme: Aurora (teal/cyan) ===== */
-[data-visual-theme='aurora'] {
+[data-scheme='aurora'] {
   --accent: #0d9488;
   --accent-secondary: #06b6d4;
   --accent-tertiary: #14b8a6;
@@ -223,7 +223,7 @@
   --primary-glow: rgba(13, 148, 136, 0.15);
 }
 
-[data-theme='dark'][data-visual-theme='aurora'] {
+[data-mode='dark'][data-scheme='aurora'] {
   --accent: #2dd4bf;
   --accent-secondary: #22d3ee;
   --accent-tertiary: #5eead4;
@@ -249,7 +249,7 @@
 }
 
 /* ===== Visual Theme: Obsidian (slate/neutral monochrome) ===== */
-[data-visual-theme='obsidian'] {
+[data-scheme='obsidian'] {
   --accent: #475569;
   --accent-secondary: #64748b;
   --accent-tertiary: #334155;
@@ -274,7 +274,7 @@
   --primary-glow: rgba(71, 85, 105, 0.15);
 }
 
-[data-theme='dark'][data-visual-theme='obsidian'] {
+[data-mode='dark'][data-scheme='obsidian'] {
   --accent: #94a3b8;
   --accent-secondary: #cbd5e1;
   --accent-tertiary: #64748b;
@@ -493,7 +493,7 @@ textarea {
   }
 }
 
-[data-theme='dark'] ::-webkit-scrollbar-thumb {
+[data-mode='dark'] ::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.08);
   &:hover {
     background: rgba(255, 255, 255, 0.16);
