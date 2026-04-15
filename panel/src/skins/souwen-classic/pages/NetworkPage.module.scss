@@ -1,0 +1,334 @@
+@use '../styles/variables' as *;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: $space-6;
+}
+
+/* ===== Page Header ===== */
+
+.pageHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: $space-4;
+  flex-wrap: wrap;
+}
+
+.pageTitle {
+  font-size: $text-2xl;
+  font-weight: $font-bold;
+  letter-spacing: $tracking-tight;
+  color: var(--text);
+  margin-bottom: $space-1;
+}
+
+.pageDesc {
+  font-size: $text-base;
+  color: var(--text-muted);
+  line-height: $leading-relaxed;
+  max-width: 560px;
+}
+
+/* ===== Info Note ===== */
+
+.infoNote {
+  display: flex;
+  align-items: flex-start;
+  gap: $space-3;
+  font-size: $text-sm;
+  color: var(--text-muted);
+  line-height: $leading-relaxed;
+  padding: $space-3 $space-4;
+  background: var(--bg-subtle);
+  border-radius: $radius-sm;
+  margin-bottom: $space-3;
+  border-left: 3px solid var(--primary);
+
+  > svg {
+    flex-shrink: 0;
+    margin-top: 2px;
+    color: var(--primary);
+  }
+}
+
+/* ===== Section Card ===== */
+
+.sectionCard {
+  margin: 0;
+  border-top: 3px solid transparent;
+  border-image: linear-gradient(90deg, var(--accent), var(--accent-secondary), var(--accent-tertiary)) 1;
+  border-image-slice: 1 0 0 0;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: $space-5;
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  font-size: $text-xl;
+  font-weight: $font-bold;
+  letter-spacing: $tracking-tight;
+  color: var(--text);
+}
+
+/* ===== Status Indicator ===== */
+
+.statusIndicator {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+}
+
+@keyframes pulseGlow {
+  0%, 100% {
+    box-shadow: 0 0 6px var(--success-muted);
+  }
+  50% {
+    box-shadow: 0 0 12px var(--success), 0 0 4px var(--success-muted);
+  }
+}
+
+@keyframes breathe {
+  0%, 100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(0.85);
+  }
+}
+
+.statusDot {
+  width: 8px;
+  height: 8px;
+  border-radius: $radius-full;
+  flex-shrink: 0;
+
+  &.dot_green {
+    background: var(--success);
+    box-shadow: 0 0 6px var(--success-muted);
+    animation: pulseGlow 2s ease-in-out infinite;
+  }
+
+  &.dot_red {
+    background: var(--error);
+    box-shadow: 0 0 6px var(--error-muted);
+  }
+
+  &.dot_amber {
+    background: var(--warning);
+    box-shadow: 0 0 6px var(--warning-muted);
+    animation: breathe 2s ease-in-out infinite;
+  }
+
+  &.dot_gray {
+    background: var(--text-muted);
+  }
+}
+
+/* ===== HTTP Backend Engine List ===== */
+
+.engineList {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: $radius-sm;
+  overflow: hidden;
+  margin-bottom: $space-4;
+}
+
+.engineRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-4;
+  padding: $space-3 $space-4;
+  border-bottom: 1px solid var(--border);
+  transition: background var(--transition-fast);
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:nth-child(even) {
+    background: var(--bg-subtle);
+  }
+
+  &:hover {
+    background: var(--bg-hover);
+  }
+}
+
+.engineRowDefault {
+  background: var(--bg-subtle);
+}
+
+.engineName {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  font-size: $text-base;
+  font-weight: $font-medium;
+  color: var(--text);
+}
+
+.engineSelect {
+  padding: $space-2 $space-3;
+  border: 1px solid var(--border-input);
+  border-radius: $radius-sm;
+  font-size: $text-sm;
+  background: var(--bg-input);
+  color: var(--text);
+  min-width: 180px;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--accent-bg-medium), var(--shadow-glow);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.helpIcon {
+  color: var(--text-muted);
+  cursor: help;
+  flex-shrink: 0;
+  opacity: 0.6;
+  transition: opacity var(--transition-fast);
+
+  &:hover {
+    opacity: 1;
+    color: var(--primary);
+  }
+}
+
+/* ===== WARP Card ===== */
+
+.warpGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: $space-3;
+  margin-bottom: $space-4;
+}
+
+.warpField {
+  padding: $space-3 $space-4;
+  background: var(--bg-subtle);
+  border-radius: $radius-sm;
+
+  .fieldLabel {
+    display: flex;
+    align-items: center;
+    gap: $space-1;
+    font-size: $text-xs;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin-bottom: $space-1;
+
+    > svg {
+      opacity: 0.6;
+    }
+  }
+
+  .fieldValue {
+    font-size: $text-md;
+    font-weight: $font-medium;
+    font-family: var(--font-mono);
+    word-break: break-all;
+    color: var(--text);
+  }
+}
+
+.warpModes {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  padding: $space-2 $space-3;
+  margin-bottom: $space-4;
+  font-size: $text-sm;
+}
+
+.fieldLabelSmall {
+  font-size: $text-xs;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.fieldValueInline {
+  font-family: var(--font-mono);
+  font-size: $text-sm;
+  color: var(--text-secondary);
+}
+
+.warpError {
+  padding: $space-3 $space-4;
+  margin-bottom: $space-3;
+  background: var(--error-light);
+  border: 1px solid rgba(220, 38, 38, 0.15);
+  border-radius: $radius-sm;
+  font-size: $text-sm;
+  color: var(--error);
+}
+
+.warpActions {
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+}
+
+.warpForm {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: $space-5;
+}
+
+.formField {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+}
+
+.formLabel {
+  display: flex;
+  align-items: center;
+  gap: $space-1;
+  font-size: $text-xs;
+  font-weight: $font-semibold;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.formSelect {
+  padding: $space-2 $space-3;
+  border: 1px solid var(--border-input);
+  border-radius: $radius-sm;
+  font-size: $text-base;
+  background: var(--bg-input);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--accent-bg-medium), var(--shadow-glow);
+  }
+}

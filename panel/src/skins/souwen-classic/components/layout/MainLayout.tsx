@@ -7,6 +7,7 @@ import {
   Search,
   Database,
   Settings,
+  Globe,
   ChevronsLeft,
   ChevronsRight,
   Menu,
@@ -26,6 +27,7 @@ const NAV_ITEMS = [
   { to: '/', icon: LayoutDashboard, labelKey: 'nav.dashboard' },
   { to: '/search', icon: Search, labelKey: 'nav.search' },
   { to: '/sources', icon: Database, labelKey: 'nav.sources' },
+  { to: '/network', icon: Globe, labelKey: 'nav.network' },
   { to: '/config', icon: Settings, labelKey: 'nav.config' },
 ]
 
@@ -33,6 +35,7 @@ const PAGE_TITLE_KEYS: Record<string, string> = {
   '/': 'nav.dashboard',
   '/search': 'nav.search',
   '/sources': 'nav.sources',
+  '/network': 'nav.network',
   '/config': 'nav.config',
 }
 
