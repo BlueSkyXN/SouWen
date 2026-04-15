@@ -161,7 +161,7 @@
 .sectionCard {
   margin: 0;
   border-top: 3px solid transparent;
-  border-image: linear-gradient(90deg, #4f46e5, #7c3aed, #6366f1) 1;
+  border-image: linear-gradient(90deg, var(--accent), var(--accent-secondary), var(--accent-tertiary)) 1;
   border-image-slice: 1 0 0 0;
 }
 
@@ -303,7 +303,7 @@
   &:focus {
     outline: none;
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12), var(--shadow-glow);
+    box-shadow: 0 0 0 3px var(--accent-bg-medium), var(--shadow-glow);
   }
 
   &:disabled {
@@ -424,6 +424,6 @@
   &:focus {
     outline: none;
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12), var(--shadow-glow);
+    box-shadow: 0 0 0 3px var(--accent-bg-medium), var(--shadow-glow);
   }
 }

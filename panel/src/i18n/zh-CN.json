@@ -291,6 +291,15 @@
     "patent": "专利",
     "web": "网页"
   },
+  "theme": {
+    "label": "主题风格",
+    "nebula": "星云",
+    "nebulaDesc": "靛蓝紫色调，科技与深邃",
+    "aurora": "极光",
+    "auroraDesc": "青绿色调，清新与自然",
+    "obsidian": "黑曜石",
+    "obsidianDesc": "灰阶色调，克制与极简"
+  },
   "multiselect": {
     "filter": "筛选...",
     "selectAll": "全选",

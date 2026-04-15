@@ -54,7 +54,7 @@
     background: radial-gradient(
       circle,
       rgba(37, 99, 235, 0.10) 0%,
-      rgba(79, 70, 229, 0.05) 35%,
+      var(--accent-glow) 35%,
       transparent 70%
     );
     top: -250px;
@@ -72,7 +72,7 @@
     border-radius: 50%;
     background: radial-gradient(
       circle,
-      rgba(79, 70, 229, 0.08) 0%,
+      var(--accent-bg) 0%,
       rgba(13, 148, 136, 0.04) 35%,
       transparent 70%
     );
@@ -88,7 +88,7 @@
   background: radial-gradient(
     circle,
     rgba(59, 130, 246, 0.12) 0%,
-    rgba(129, 140, 248, 0.06) 35%,
+    var(--accent-glow) 35%,
     transparent 70%
   );
 }
@@ -96,7 +96,7 @@
 [data-theme='dark'] .page::after {
   background: radial-gradient(
     circle,
-    rgba(129, 140, 248, 0.10) 0%,
+    var(--accent-bg) 0%,
     rgba(45, 212, 191, 0.04) 35%,
     transparent 70%
   );
