@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { m, AnimatePresence } from 'framer-motion'
@@ -13,9 +13,13 @@ import {
   Moon,
   Sun,
   LogOut,
+  Palette,
+  Check,
 } from 'lucide-react'
 import { useAuthStore } from '../../stores/authStore'
 import { useThemeStore } from '../../stores/themeStore'
+import { VISUAL_THEMES } from '../../types'
+import type { VisualTheme } from '../../types'
 import styles from './MainLayout.module.scss'
 
 const NAV_ITEMS = [
@@ -69,9 +73,28 @@ export function MainLayout() {
   const location = useLocation()
   const logout = useAuthStore((s) => s.logout)
   const version = useAuthStore((s) => s.version)
-  const { theme, toggleTheme } = useThemeStore()
+  const { theme, toggleTheme, visualTheme, setVisualTheme } = useThemeStore()
+  const [themePaletteOpen, setThemePaletteOpen] = useState(false)
+  const paletteRef = useRef<HTMLDivElement>(null)
 
   const pageTitleKey = PAGE_TITLE_KEYS[location.pathname] ?? 'nav.dashboard'
+
+  const THEME_DOTS: Record<VisualTheme, string> = {
+    nebula: '#4f46e5',
+    aurora: '#0d9488',
+    obsidian: '#475569',
+  }
+
+  useEffect(() => {
+    if (!themePaletteOpen) return
+    const handler = (e: MouseEvent) => {
+      if (paletteRef.current && !paletteRef.current.contains(e.target as Node)) {
+        setThemePaletteOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [themePaletteOpen])
 
   const handleLogout = useCallback(() => {
     logout()
@@ -188,6 +211,42 @@ export function MainLayout() {
             >
               {theme === 'light' ? <Moon size={16} /> : <Sun size={16} />}
             </button>
+            <div className={styles.themePaletteWrap} ref={paletteRef}>
+              <button
+                className={styles.themeBtn}
+                onClick={() => setThemePaletteOpen((o) => !o)}
+                aria-label={t('theme.label')}
+              >
+                <Palette size={16} />
+              </button>
+              <AnimatePresence>
+                {themePaletteOpen && (
+                  <m.div
+                    className={styles.themePalette}
+                    initial={{ opacity: 0, y: -4, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -4, scale: 0.95 }}
+                    transition={{ type: 'spring' as const, stiffness: 500, damping: 30 }}
+                  >
+                    <div className={styles.paletteTitle}>{t('theme.label')}</div>
+                    {VISUAL_THEMES.map((vt) => (
+                      <button
+                        key={vt}
+                        className={`${styles.paletteItem} ${visualTheme === vt ? styles.paletteActive : ''}`}
+                        onClick={() => { setVisualTheme(vt); setThemePaletteOpen(false) }}
+                      >
+                        <span
+                          className={styles.paletteDot}
+                          style={{ background: THEME_DOTS[vt] }}
+                        />
+                        <span className={styles.paletteName}>{t(`theme.${vt}`)}</span>
+                        {visualTheme === vt && <Check size={14} className={styles.paletteCheck} />}
+                      </button>
+                    ))}
+                  </m.div>
+                )}
+              </AnimatePresence>
+            </div>
             <button className={styles.logoutBtn} onClick={handleLogout}>
               <LogOut size={15} />
               <span>{t('nav.logout')}</span>

@@ -163,14 +163,9 @@
   }
 
   &.active {
-    background: rgba(79, 70, 229, 0.08);
-    color: #4f46e5;
+    background: var(--accent-bg);
+    color: var(--accent);
     font-weight: $font-semibold;
-  }
-
-  [data-theme='dark'] &.active {
-    background: rgba(99, 102, 241, 0.12);
-    color: #818cf8;
   }
 }
 
@@ -387,6 +382,85 @@
   width: 34px;
   height: 34px;
   padding: 0;
+}
+
+/* ===== Visual theme palette dropdown ===== */
+.themePaletteWrap {
+  position: relative;
+}
+
+.themePalette {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: $radius-lg;
+  box-shadow: var(--shadow-lg);
+  padding: $space-2;
+  min-width: 160px;
+  z-index: 200;
+
+  [data-theme='dark'] & {
+    border-color: var(--border-strong);
+  }
+}
+
+.paletteTitle {
+  font-size: $text-xs;
+  color: var(--text-muted);
+  padding: $space-1 $space-3;
+  font-weight: $font-medium;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  margin-bottom: 2px;
+}
+
+.paletteItem {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  padding: 7px $space-3;
+  border-radius: $radius;
+  width: 100%;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: $text-sm;
+  color: var(--text-secondary);
+  transition: all 0.15s ease;
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--text);
+  }
+}
+
+.paletteActive {
+  color: var(--accent);
+  font-weight: $font-medium;
+}
+
+.paletteDot {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-full);
+  flex-shrink: 0;
+  border: 2px solid rgba(0, 0, 0, 0.08);
+
+  [data-theme='dark'] & {
+    border-color: rgba(255, 255, 255, 0.12);
+  }
+}
+
+.paletteCheck {
+  margin-left: auto;
+  color: var(--accent);
+}
+
+.paletteName {
+  flex: 1;
+  text-align: left;
 }
 
 /* ===== Content ===== */

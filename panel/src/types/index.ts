@@ -185,6 +185,14 @@ export interface WebSearchResponse {
 
 export type Theme = 'light' | 'dark'
 
+export type VisualTheme = 'nebula' | 'aurora' | 'obsidian'
+
+export const VISUAL_THEMES: VisualTheme[] = ['nebula', 'aurora', 'obsidian']
+
+export function isVisualTheme(v: unknown): v is VisualTheme {
+  return typeof v === 'string' && VISUAL_THEMES.includes(v as VisualTheme)
+}
+
 export type ToastType = 'success' | 'error' | 'info'
 
 export interface Toast {
