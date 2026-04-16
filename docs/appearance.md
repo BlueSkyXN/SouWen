@@ -177,10 +177,15 @@ npm run build:all
 
 #### 方式三：Docker 构建
 
-Docker 构建默认包含所有皮肤：
+Docker 构建默认包含所有皮肤，可通过 `SKINS` 构建参数覆盖：
 
 ```bash
+# 默认全皮肤
 docker build -t souwen .
+
+# 仅 classic 皮肤（体积更小）
+docker build --build-arg SKINS=souwen-classic -t souwen .
+
 docker compose up -d
 ```
 
@@ -191,7 +196,7 @@ docker compose up -d
 | 本地 npm 开发 | `VITE_SKINS` | Shell 环境变量 | `VITE_SKINS=all npm run dev` |
 | 本地 npm 构建 | `VITE_SKINS` | Shell 环境变量 | `VITE_SKINS=all npm run build` |
 | npm 快捷脚本 | — | package.json scripts | `npm run dev:all` / `npm run build:all` |
-| Docker build | — | 默认 `VITE_SKINS=all` | `docker build .` |
+| Docker build | `SKINS` | `--build-arg` | `docker build --build-arg SKINS=souwen-classic .` |
 
 #### 原理说明
 
