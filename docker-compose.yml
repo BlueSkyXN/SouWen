@@ -2,12 +2,9 @@ services:
   souwen:
     build:
       context: .
-      args:
-        SKIN: souwen-classic              # 前端皮肤（对应 panel/src/skins/ 下的目录名）
     # build:
     #   context: .
     #   args:
-    #     SKIN: souwen-classic              # 前端皮肤
     #     WGCF_VERSION: "2.2.30"            # 自定义 wgcf 版本
     #     WIREPROXY_VERSION: "1.1.2"        # 自定义 wireproxy 版本
     ports:

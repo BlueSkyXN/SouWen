@@ -211,12 +211,12 @@ SouWen/
 ```
 Skin（皮肤）→ Mode（模式）→ Scheme（配色）
 │                │              │
-│                │              └── nebula / aurora / obsidian（运行时切换）
+│                │              └── 每皮肤独立配色（运行时切换）
 │                └── light / dark（运行时切换）
-└── souwen-classic / ...（构建时选择）
+└── souwen-classic / carbon / ...（运行时切换，或单皮肤构建）
 ```
 
-- **Skin（皮肤）**：完全独立的前端 UI——不同的布局、组件、路由、交互逻辑。通过 `VITE_SKIN` 环境变量在构建时选择。
+- **Skin（皮肤）**：完全独立的前端 UI——不同的布局、组件、路由、交互逻辑。默认全皮肤构建，支持运行时切换；也可通过 `VITE_SKINS` 环境变量指定单皮肤构建。
 - **Mode（模式）**：明暗模式（light/dark），用户在面板内实时切换。
 - **Scheme（配色方案）**：强调色方案，每个皮肤可定义自己支持的配色集。
 
@@ -231,7 +231,7 @@ Skin（皮肤）→ Mode（模式）→ Scheme（配色）
 | `core/types/` | TypeScript 类型定义（API 响应模型、共享类型） |
 | `core/i18n/` | 国际化（i18next，当前支持中文） |
 | `core/lib/` | 工具函数（动画预设、数据归一化、错误处理） |
-| `core/styles/` | 全局 CSS 重置 |
+| `core/styles/` | 共享 CSS 重置与基础样式（`base.scss`） |
 | `core/test/` | 共享测试工具与测试用例 |
 
 ### 皮肤层（skins/）
@@ -240,29 +240,32 @@ Skin（皮肤）→ Mode（模式）→ Scheme（配色）
 
 ```
 skins/souwen-classic/
-├── index.ts           # 皮肤入口（导出 AppShell, LoginPage, routes, config）
-├── skin.config.ts     # 皮肤配置（支持的配色方案、默认配色等）
+├── index.ts           # 皮肤入口（导出 AppShell, LoginPage, routes, config, bootstrap）
+├── skin.config.ts     # 皮肤配置（配色方案、默认模式等）
 ├── routes.tsx         # 路由定义
 ├── stores/            # 皮肤状态（skinStore：mode/scheme 管理）
 ├── components/
 │   ├── layout/        # 布局组件（MainLayout, Sidebar, Header）
-│   └── common/        # 通用 UI 组件（Button, Card, Modal, Toast 等）
+│   └── common/        # 通用 UI 组件（Button, Card, Modal, Toast, ErrorBoundary, Spinner）
 ├── pages/             # 页面（Dashboard, Search, Sources, Config, Login）
-├── styles/            # SCSS 样式（全局 token、SCSS 变量）
+├── styles/            # SCSS 样式（全局 token，通过 html[data-skin] 命名空间隔离）
 └── test/              # 皮肤专属测试
 ```
 
 ### 构建系统
 
 - **Vite + vite-plugin-singlefile** → 打包为单个 `index.html`，复制到 `src/souwen/server/panel.html`
-- **路径别名**：`@core` → `src/core`，`@skin` → `src/skins/{VITE_SKIN}`
-- **构建命令**：`VITE_SKIN=souwen-classic npm run build`
-- **Docker 构建**：`docker build --build-arg SKIN=souwen-classic -t souwen .`
+- **虚拟模块**：`virtual:skin-loader` 根据 `VITE_SKINS` 导入并注册指定皮肤
+- **皮肤注册表**：`core/skin-registry.ts` 管理运行时皮肤注册、查找、切换
+- **路径别名**：`@core` → `src/core`
+- **默认全皮肤构建**：`npm run build`（等同于 `VITE_SKINS=all`）
+- **单皮肤构建**：`npm run build:classic` 或 `VITE_SKINS=souwen-classic npm run build`
 
 ### CSS 架构
 
 - **SCSS Modules**：组件样式通过 CSS Modules 隔离（`.module.scss`）
-- **CSS 自定义属性**：全局 token（`--accent`、`--bg`、`--card-bg` 等）通过 `[data-mode]` 和 `[data-scheme]` 选择器切换
+- **CSS 自定义属性**：全局 token（`--accent`、`--bg`、`--card-bg` 等）通过 `html[data-skin]`、`[data-mode]` 和 `[data-scheme]` 选择器切换
+- **皮肤级 CSS 隔离**：每个皮肤的 `global.scss` 使用 `html[data-skin='xxx']` 命名空间，多皮肤共存时互不干扰
 - **无 Tailwind**：项目使用纯 SCSS + CSS Variables
 
 ### 状态管理

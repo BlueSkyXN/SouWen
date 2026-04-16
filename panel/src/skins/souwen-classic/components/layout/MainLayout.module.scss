@@ -378,6 +378,37 @@
   }
 }
 
+.skinSwitcher {
+  display: flex;
+  align-items: center;
+}
+
+.skinSwitcherBtn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 7px $space-3;
+  color: var(--text-muted);
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  transition: all var(--transition);
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--primary);
+    border-color: var(--primary);
+  }
+
+  &:active {
+    transform: scale(0.97);
+    transition-duration: 60ms;
+  }
+}
+
 .themeBtn {
   width: 34px;
   height: 34px;

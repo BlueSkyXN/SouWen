@@ -136,11 +136,8 @@ SOUWEN_UNPAYWALL_EMAIL=your@email.com
 ### 标准 Docker
 
 ```bash
-# 构建（默认皮肤 souwen-classic）
+# 构建（Docker 默认包含所有皮肤，支持运行时切换）
 docker build -t souwen .
-
-# 使用自定义皮肤构建
-docker build -t souwen --build-arg SKIN=souwen-classic .
 
 # 运行（可选：设置 API 密码和配置）
 docker run -d -p 49265:49265 \
@@ -164,35 +161,49 @@ docker compose up -d
 
 ## 🎨 前端管理面板
 
-管理面板 (`/panel`) 基于 React + TypeScript + SCSS Modules + Framer Motion 构建，采用**多皮肤架构**。
+管理面板 (`/panel`) 基于 React + TypeScript + SCSS Modules + Framer Motion 构建，采用**多皮肤架构**，支持**运行时皮肤切换**。
 
 ### 三层分离
 
 ```
 Skin（皮肤）→ Mode（模式）→ Scheme（配色）
 │                │              │
-│                │              └── nebula / aurora / obsidian（运行时切换）
+│                │              └── 每皮肤独立配色（运行时切换）
 │                └── light / dark（运行时切换）
-└── souwen-classic / ...（构建时选择）
+└── souwen-classic / carbon / ...（构建时选择或运行时切换）
 ```
 
 - **Skin** = 完全独立的前端 UI（布局、组件、路由、交互逻辑）
 - **Mode** = 明暗模式（light/dark），面板内切换
-- **Scheme** = 强调色方案（星云/极光/黑曜石），面板内切换
+- **Scheme** = 强调色方案，每皮肤独立定义，面板内切换
+
+### 构建模式
+
+通过 `VITE_SKINS` 环境变量控制构建模式（默认全皮肤）：
+
+| 模式 | 命令 | 说明 |
+|------|------|------|
+| 全皮肤（默认） | `npm run build` | 包含所有皮肤，支持运行时切换 |
+| 单皮肤 | `npm run build:classic` | 仅含指定皮肤，体积最小 |
+| 指定多皮肤 | `VITE_SKINS=souwen-classic,carbon npm run build` | 包含指定皮肤 |
+
+多皮肤构建时，面板内会显示「切换皮肤」按钮。
 
 ### 前端开发
 
 ```bash
 cd panel
 
-# 开发模式（默认 souwen-classic 皮肤）
+# 开发模式（默认全皮肤，可运行时切换）
+npm run dev
+
+# 单皮肤开发
 npm run dev:classic
+npm run dev:carbon
 
 # 构建产物（单文件 HTML，自动复制到 src/souwen/server/panel.html）
-npm run build:classic
-
-# 使用其他皮肤
-VITE_SKIN=my-skin npm run dev
+npm run build            # 默认全皮肤
+npm run build:classic    # 单皮肤（体积更小）
 
 # 测试
 npm test

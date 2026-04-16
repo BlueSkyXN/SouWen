@@ -2,7 +2,7 @@
 
 /* ===== Carbon Skin — Global Styles ===== */
 
-:root {
+html[data-skin='carbon'] {
   --bg: #{$bg-base};
   --bg-card: #{$bg-card};
   --bg-card-solid: #{$bg-card-solid};
@@ -44,19 +44,16 @@
   --transition-slow: #{$transition-slow};
 }
 
-/* ── Scheme: terminal (blue, default) ── */
-/* Default accent is already blue, no override needed */
-
 /* ── Scheme: matrix (green) ── */
-[data-scheme='aurora'] {
+html[data-skin='carbon'][data-scheme='matrix'] {
   --accent: #10b981;
   --accent-hover: #059669;
   --accent-light: rgba(16, 185, 129, 0.1);
   --accent-glow: rgba(16, 185, 129, 0.2);
 }
 
-/* ── Scheme: obsidian → ember (amber) for carbon ── */
-[data-scheme='obsidian'] {
+/* ── Scheme: ember (amber) ── */
+html[data-skin='carbon'][data-scheme='ember'] {
   --accent: #f59e0b;
   --accent-hover: #d97706;
   --accent-light: rgba(245, 158, 11, 0.1);
@@ -64,7 +61,7 @@
 }
 
 /* ── Light mode (warmer dark) ── */
-[data-mode='light'] {
+html[data-skin='carbon'][data-mode='light'] {
   --bg: #18181b;
   --bg-card: rgba(39, 39, 42, 0.4);
   --bg-card-solid: #27272a;
@@ -81,60 +78,37 @@
   --border-strong: #52525b;
 }
 
-/* ===== Base Reset ===== */
-*, *::before, *::after {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
-html {
+/* ===== Skin-specific Base ===== */
+html[data-skin='carbon'] {
   font-size: 16px;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
 }
 
-body {
+html[data-skin='carbon'] body {
   font-family: var(--font-mono);
   background: var(--bg);
   color: var(--text-secondary);
   line-height: 1.6;
-  min-height: 100vh;
-  overflow-x: hidden;
 }
 
-::selection {
+html[data-skin='carbon'] ::selection {
   background: rgba(59, 130, 246, 0.3);
   color: #93c5fd;
 }
 
-a {
+html[data-skin='carbon'] a {
   color: var(--accent);
   text-decoration: none;
 }
 
-input, button, textarea, select {
-  font-family: inherit;
-}
-
 /* ===== Scrollbar (terminal style) ===== */
-::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
+html[data-skin='carbon'] ::-webkit-scrollbar-thumb {
   background: var(--border);
   &:hover {
     background: var(--border-strong);
   }
 }
 
-/* ===== Animations ===== */
+/* ===== Animations (carbon skin) ===== */
 @keyframes pulse-dot {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.4; }

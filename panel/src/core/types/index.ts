@@ -185,13 +185,8 @@ export interface WebSearchResponse {
 
 export type Theme = 'light' | 'dark'
 
-export type VisualTheme = 'nebula' | 'aurora' | 'obsidian'
-
-export const VISUAL_THEMES: VisualTheme[] = ['nebula', 'aurora', 'obsidian']
-
-export function isVisualTheme(v: unknown): v is VisualTheme {
-  return typeof v === 'string' && VISUAL_THEMES.includes(v as VisualTheme)
-}
+/** Scheme ID — each skin defines its own set (e.g. nebula/aurora/obsidian, terminal/matrix/ember). */
+export type VisualTheme = string
 
 export type ToastType = 'success' | 'error' | 'info'
 
@@ -202,3 +197,39 @@ export interface Toast {
 }
 
 export type SearchCategory = 'paper' | 'patent' | 'web'
+
+/* ===== Skin System Types ===== */
+
+export interface SchemeDefinition {
+  id: string
+  labelKey: string
+  dotColor: string
+}
+
+export interface SkinConfig {
+  id: string
+  labelKey: string
+  descriptionKey: string
+  defaultScheme: string
+  defaultMode: Theme
+  schemes: SchemeDefinition[]
+}
+
+export interface SkinState {
+  mode: Theme
+  scheme: string
+  toggleMode: () => void
+  setScheme: (s: string) => void
+  loadSkin: () => void
+}
+
+export interface SkinModule {
+  AppShell: React.ComponentType
+  LoginPage: React.ComponentType
+  skinRoutes: React.ReactNode
+  skinConfig: SkinConfig
+  ErrorBoundary: React.ComponentType<{ children: React.ReactNode }>
+  ToastContainer: React.ComponentType
+  Spinner: React.ComponentType<{ size?: 'sm' | 'md' | 'lg' }>
+  bootstrap: () => void
+}
