@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { m, AnimatePresence } from 'framer-motion'
@@ -13,8 +13,13 @@ import {
   Menu,
   User,
   Layers,
+  Moon,
+  Sun,
+  Check,
 } from 'lucide-react'
 import { useAuthStore } from '@core/stores/authStore'
+import { useSkinStore } from '../../stores/skinStore'
+import { skinConfig } from '../../skin.config'
 import { isSingleSkin, listSkinIds, getSkinOrDefault } from '@core/skin-registry'
 import styles from './MainLayout.module.scss'
 
@@ -43,7 +48,12 @@ export function MainLayout() {
   const { t } = useTranslation()
   const location = useLocation()
   const logout = useAuthStore((s) => s.logout)
+  const { mode, toggleMode, scheme, setScheme } = useSkinStore()
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [skinPaletteOpen, setSkinPaletteOpen] = useState(false)
+  const [schemePaletteOpen, setSchemePaletteOpen] = useState(false)
+  const skinPaletteRef = useRef<HTMLDivElement>(null)
+  const schemePaletteRef = useRef<HTMLDivElement>(null)
 
   const handleLogout = useCallback(() => {
     logout()
@@ -52,6 +62,45 @@ export function MainLayout() {
   useEffect(() => {
     setMobileOpen(false)
   }, [location.pathname])
+
+  // Close palettes on outside click or Escape
+  useEffect(() => {
+    if (!skinPaletteOpen && !schemePaletteOpen) return
+    const handleClick = (e: MouseEvent) => {
+      if (skinPaletteOpen && skinPaletteRef.current && !skinPaletteRef.current.contains(e.target as Node)) {
+        setSkinPaletteOpen(false)
+      }
+      if (schemePaletteOpen && schemePaletteRef.current && !schemePaletteRef.current.contains(e.target as Node)) {
+        setSchemePaletteOpen(false)
+      }
+    }
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        setSkinPaletteOpen(false)
+        setSchemePaletteOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    document.addEventListener('keydown', handleKey)
+    return () => {
+      document.removeEventListener('mousedown', handleClick)
+      document.removeEventListener('keydown', handleKey)
+    }
+  }, [skinPaletteOpen, schemePaletteOpen])
+
+  const currentSkinId = document.documentElement.getAttribute('data-skin') || 'carbon'
+
+  const handleSkinSwitch = (nextId: string) => {
+    if (nextId === currentSkinId) {
+      setSkinPaletteOpen(false)
+      return
+    }
+    const nextSkin = getSkinOrDefault(nextId)
+    localStorage.setItem('souwen_skin', nextId)
+    localStorage.setItem('souwen_mode', nextSkin.skinModule.skinConfig.defaultMode)
+    localStorage.setItem('souwen_scheme', nextSkin.skinModule.skinConfig.defaultScheme)
+    window.location.reload()
+  }
 
   return (
     <div className={styles.layout}>
@@ -98,30 +147,106 @@ export function MainLayout() {
             SYS.ONLINE
           </div>
 
+          {/* Mode toggle */}
+          <button
+            className={styles.toolBtn}
+            onClick={toggleMode}
+            aria-label={mode === 'dark' ? t('common.lightMode', 'Light Mode') : t('common.darkMode', 'Dark Mode')}
+            title={mode === 'dark' ? t('common.lightMode', 'Light Mode') : t('common.darkMode', 'Dark Mode')}
+          >
+            {mode === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
+          </button>
+
+          {/* Scheme palette */}
+          <div className={styles.paletteWrap} ref={schemePaletteRef}>
+            <button
+              className={styles.toolBtn}
+              onClick={() => { setSchemePaletteOpen((o) => !o); setSkinPaletteOpen(false) }}
+              aria-label={t('theme.label')}
+              aria-expanded={schemePaletteOpen}
+              aria-haspopup="listbox"
+            >
+              <span className={styles.schemeDot} style={{ background: skinConfig.schemes.find((s) => s.id === scheme)?.dotColor }} />
+            </button>
+            <AnimatePresence>
+              {schemePaletteOpen && (
+                <m.div
+                  className={styles.palette}
+                  role="listbox"
+                  initial={{ opacity: 0, y: -4, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: -4, scale: 0.95 }}
+                  transition={{ type: 'spring' as const, stiffness: 500, damping: 30 }}
+                >
+                  <div className={styles.paletteTitle}>{t('theme.label')}</div>
+                  {skinConfig.schemes.map((s) => (
+                    <button
+                      key={s.id}
+                      role="option"
+                      aria-selected={scheme === s.id}
+                      className={`${styles.paletteItem} ${scheme === s.id ? styles.paletteActive : ''}`}
+                      onClick={() => { setScheme(s.id); setSchemePaletteOpen(false) }}
+                    >
+                      <span className={styles.paletteDot} style={{ background: s.dotColor }} />
+                      <span className={styles.paletteName}>{t(s.labelKey)}</span>
+                      {scheme === s.id && <Check size={12} className={styles.paletteCheck} />}
+                    </button>
+                  ))}
+                </m.div>
+              )}
+            </AnimatePresence>
+          </div>
+
+          {/* Skin switcher */}
+          {!isSingleSkin() && (
+            <div className={styles.paletteWrap} ref={skinPaletteRef}>
+              <button
+                className={styles.skinSwitcherBtn}
+                onClick={() => { setSkinPaletteOpen((o) => !o); setSchemePaletteOpen(false) }}
+                aria-label={t('skin.switchSkin')}
+                aria-expanded={skinPaletteOpen}
+                aria-haspopup="listbox"
+              >
+                <Layers size={14} />
+                <span>{t('skin.switchSkin')}</span>
+              </button>
+              <AnimatePresence>
+                {skinPaletteOpen && (
+                  <m.div
+                    className={styles.palette}
+                    role="listbox"
+                    initial={{ opacity: 0, y: -4, scale: 0.95 }}
+                    animate={{ opacity: 1, y: 0, scale: 1 }}
+                    exit={{ opacity: 0, y: -4, scale: 0.95 }}
+                    transition={{ type: 'spring' as const, stiffness: 500, damping: 30 }}
+                  >
+                    <div className={styles.paletteTitle}>{t('skin.switchSkin')}</div>
+                    {listSkinIds().map((id) => {
+                      const skin = getSkinOrDefault(id)
+                      const cfg = skin.skinModule.skinConfig
+                      return (
+                        <button
+                          key={id}
+                          role="option"
+                          aria-selected={id === currentSkinId}
+                          className={`${styles.paletteItem} ${id === currentSkinId ? styles.paletteActive : ''}`}
+                          onClick={() => handleSkinSwitch(id)}
+                        >
+                          <span className={styles.paletteName}>{t(cfg.labelKey)}</span>
+                          <span className={styles.paletteDesc}>{t(cfg.descriptionKey)}</span>
+                          {id === currentSkinId && <Check size={12} className={styles.paletteCheck} />}
+                        </button>
+                      )
+                    })}
+                  </m.div>
+                )}
+              </AnimatePresence>
+            </div>
+          )}
+
           <div className={styles.avatar}>
             <User size={14} />
           </div>
-
-          {!isSingleSkin() && (
-            <button
-              className={styles.skinSwitcherBtn}
-              onClick={() => {
-                const ids = listSkinIds()
-                const currentSkinId = document.documentElement.getAttribute('data-skin') || ids[0]
-                const idx = ids.indexOf(currentSkinId)
-                const nextId = ids[(idx + 1) % ids.length]
-                const nextSkin = getSkinOrDefault(nextId)
-                document.documentElement.setAttribute('data-skin', nextId)
-                localStorage.setItem('souwen_skin', nextId)
-                localStorage.setItem('souwen_scheme', nextSkin.skinModule.skinConfig.defaultScheme)
-                window.location.reload()
-              }}
-              title={t('skin.switchSkin')}
-            >
-              <Layers size={14} />
-              <span>{t('skin.switchSkin')}</span>
-            </button>
-          )}
 
           <button className={styles.logoutBtn} onClick={handleLogout}>
             <LogOut size={14} />

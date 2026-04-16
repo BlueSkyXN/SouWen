@@ -167,6 +167,32 @@
   }
 }
 
+.toolBtn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color $transition-fast, border-color $transition-fast;
+
+  &:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+}
+
+.schemeDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  border: 1px solid var(--border-strong);
+}
+
 .skinSwitcherBtn {
   background: none;
   border: 1px solid var(--border);
@@ -186,6 +212,79 @@
     color: var(--accent);
     border-color: var(--accent);
   }
+}
+
+/* ── Palette dropdown (shared for scheme & skin) ── */
+.paletteWrap {
+  position: relative;
+}
+
+.palette {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  background: var(--bg-card-solid);
+  border: 1px solid var(--border-strong);
+  min-width: 180px;
+  z-index: 200;
+  padding: 4px;
+}
+
+.paletteTitle {
+  font-family: $font-mono;
+  font-size: 10px;
+  color: var(--text-dim);
+  padding: 6px 10px 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.paletteItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 7px 10px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: $font-mono;
+  font-size: 12px;
+  color: var(--text-secondary);
+  text-align: left;
+  transition: background $transition-fast, color $transition-fast;
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--text);
+  }
+}
+
+.paletteActive {
+  color: var(--accent);
+}
+
+.paletteDot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+  border: 1px solid var(--border);
+}
+
+.paletteName {
+  flex: 1;
+}
+
+.paletteDesc {
+  font-size: 10px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.paletteCheck {
+  color: var(--accent);
+  flex-shrink: 0;
 }
 
 /* ── Mobile hamburger ── */
@@ -218,7 +317,7 @@
   position: fixed;
   inset: 0;
   z-index: 99;
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--overlay-bg);
 }
 
 /* ── Mobile Drawer ── */

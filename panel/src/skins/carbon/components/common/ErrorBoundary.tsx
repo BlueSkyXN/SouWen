@@ -27,13 +27,13 @@ export class ErrorBoundary extends Component<Props, State> {
         <div style={{
           display: 'flex', flexDirection: 'column', alignItems: 'center',
           justifyContent: 'center', minHeight: '100vh', padding: 32,
-          fontFamily: '"JetBrains Mono", "Fira Code", monospace', color: '#a1a1aa',
-          background: '#09090b',
+          fontFamily: '"JetBrains Mono", "Fira Code", monospace', color: 'var(--text-secondary, #a1a1aa)',
+          background: 'var(--bg, #09090b)',
         }}>
-          <h2 style={{ marginBottom: 8, color: '#f43f5e', fontWeight: 700 }}>
+          <h2 style={{ marginBottom: 8, color: 'var(--error, #f43f5e)', fontWeight: 700 }}>
             [ERR] {i18n.t('common.pageRenderError')}
           </h2>
-          <p style={{ color: '#71717a', marginBottom: 16, fontFamily: 'monospace' }}>
+          <p style={{ color: 'var(--text-muted, #71717a)', marginBottom: 16, fontFamily: 'monospace' }}>
             {this.state.error?.message || i18n.t('common.unknownError')}
           </p>
           <button
@@ -43,8 +43,8 @@ export class ErrorBoundary extends Component<Props, State> {
               window.location.reload()
             }}
             style={{
-              padding: '8px 20px', border: '1px solid #3b82f6',
-              background: '#3b82f6', color: '#fff', cursor: 'pointer',
+              padding: '8px 20px', border: '1px solid var(--accent, #3b82f6)',
+              background: 'var(--accent, #3b82f6)', color: '#fff', cursor: 'pointer',
               fontSize: 13, fontFamily: 'monospace', textTransform: 'uppercase',
               letterSpacing: '0.05em',
             }}
