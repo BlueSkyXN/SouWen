@@ -337,7 +337,9 @@
     "classicDesc": "Apple 风格，优雅现代",
     "carbon": "Carbon",
     "carbonDesc": "终端风格，极客美学",
-    "switchSkin": "切换皮肤"
+    "switchSkin": "切换皮肤",
+    "apple": "Apple",
+    "appleDesc": "Apple HIG 设计风格"
   },
   "theme": {
     "label": "主题风格",
@@ -352,7 +354,8 @@
     "matrix": "矩阵",
     "matrixDesc": "绿色调，黑客与矩阵",
     "ember": "余烬",
-    "emberDesc": "琥珀色调，温暖与力量"
+    "emberDesc": "琥珀色调，温暖与力量",
+    "appleBlue": "Apple Blue"
   },
   "multiselect": {
     "filter": "筛选...",

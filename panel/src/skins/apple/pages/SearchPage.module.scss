@@ -1,0 +1,403 @@
+@use '../styles/variables' as *;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100vh - #{$nav-height} - #{$content-padding} * 2);
+}
+
+/* ── Hero Section ── */
+.hero {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  min-height: 400px;
+  text-align: center;
+  position: relative;
+  max-width: $content-max-hero;
+  margin: 0 auto;
+  width: 100%;
+}
+
+.heroTitle {
+  font-family: $font-display;
+  font-size: clamp(48px, 8vw, 72px);
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.015em;
+  line-height: 1.07;
+  margin-bottom: 12px;
+  user-select: none;
+}
+
+.heroSubtitle {
+  font-family: $font-body;
+  font-size: 19px;
+  color: var(--text-muted);
+  letter-spacing: -0.022em;
+  line-height: 1.47;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 36px;
+}
+
+/* ── Tabs (pill segment control) ── */
+.tabGroup {
+  display: inline-flex;
+  align-items: center;
+  gap: 0;
+  margin-bottom: 24px;
+  background: var(--bg-hover);
+  border-radius: $radius;
+  padding: 3px;
+}
+
+.tabBtn {
+  padding: 8px 20px;
+  font-family: $font-body;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: none;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: color $transition-fast, background $transition-fast;
+  letter-spacing: -0.022em;
+
+  &:hover {
+    color: var(--text-secondary);
+  }
+}
+
+.tabActive {
+  color: var(--text);
+  background: var(--bg-card-solid);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+/* ── Search Input ── */
+.searchForm {
+  width: 100%;
+  max-width: 700px;
+  margin-bottom: 24px;
+}
+
+.searchBar {
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--border-strong, var(--border));
+  background: var(--bg-card-solid);
+  border-radius: $radius-pill;
+  box-shadow: $shadow-card;
+  transition: border-color $transition-fast, box-shadow $transition-fast;
+  overflow: hidden;
+
+  &:focus-within {
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--accent-light);
+  }
+}
+
+.searchIcon {
+  margin-left: 16px;
+  color: var(--text-dim);
+  flex-shrink: 0;
+}
+
+.searchInput {
+  flex: 1;
+  padding: 14px 14px;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-family: $font-body;
+  font-size: 16px;
+  outline: none;
+  letter-spacing: -0.022em;
+
+  &::placeholder {
+    color: var(--text-dim);
+  }
+}
+
+.searchButton {
+  padding: 10px 24px;
+  margin: 4px;
+  background: var(--accent);
+  border: none;
+  border-radius: $radius-pill;
+  color: #fff;
+  font-family: $font-body;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background $transition-fast;
+  white-space: nowrap;
+
+  &:hover:not(:disabled) {
+    background: var(--accent-hover);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+/* ── Source Toggles ── */
+.sourceSection {
+  width: 100%;
+  max-width: 700px;
+  margin-bottom: 20px;
+}
+
+.sourceLabel {
+  font-family: $font-body;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 10px;
+  font-weight: 500;
+}
+
+.sourceGrid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sourcePill {
+  padding: 6px 14px;
+  font-family: $font-body;
+  font-size: 13px;
+  color: var(--text-muted);
+  background: var(--bg-card-solid);
+  border: 1px solid var(--border);
+  border-radius: $radius-pill;
+  cursor: pointer;
+  transition: all $transition-fast;
+
+  &:hover {
+    border-color: var(--text-dim);
+    color: var(--text-secondary);
+  }
+}
+
+.sourcePillActive {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-light);
+}
+
+/* ── Suggestions ── */
+.suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: center;
+  max-width: 700px;
+  margin-top: 8px;
+}
+
+.suggestionChip {
+  padding: 6px 14px;
+  font-family: $font-body;
+  font-size: 13px;
+  color: var(--text-dim);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: $radius-pill;
+  cursor: pointer;
+  transition: all $transition-fast;
+
+  &:hover {
+    color: var(--text-secondary);
+    border-color: var(--text-dim);
+  }
+}
+
+/* ── Results ── */
+.results {
+  width: 100%;
+  max-width: var(--content-max-data);
+  margin: 24px auto 0;
+}
+
+.resultCount {
+  font-family: $font-body;
+  font-size: 14px;
+  color: var(--text-muted);
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+
+.resultCard {
+  padding: 20px;
+  background: var(--bg-card-solid);
+  border-radius: $radius;
+  box-shadow: $shadow-card;
+  margin-bottom: 12px;
+  transition: box-shadow $transition-fast;
+
+  &:hover {
+    box-shadow: $shadow-card-hover;
+  }
+}
+
+.cardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+
+.resultTitle {
+  font-family: $font-display;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.35;
+  letter-spacing: -0.022em;
+
+  a {
+    color: var(--text);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 6px;
+
+    &:hover {
+      color: var(--accent);
+    }
+  }
+}
+
+.sourceBadge {
+  flex-shrink: 0;
+  padding: 3px 10px;
+  font-family: $font-body;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--accent);
+  background: var(--accent-light);
+  border-radius: $radius-pill;
+  white-space: nowrap;
+}
+
+.resultMeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 14px;
+  font-family: $font-body;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+
+  span {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+}
+
+.resultAbstract {
+  font-family: $font-body;
+  font-size: 14px;
+  color: var(--text-secondary);
+  line-height: 1.6;
+  letter-spacing: -0.022em;
+}
+
+.resultUrl {
+  font-family: $font-body;
+  font-size: 13px;
+  color: var(--text-dim);
+  margin-bottom: 6px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.externalIcon {
+  opacity: 0.5;
+  flex-shrink: 0;
+}
+
+/* ── Loading / Error ── */
+.searchingHint {
+  font-family: $font-body;
+  font-size: 15px;
+  color: var(--text-muted);
+  text-align: center;
+  padding: 24px;
+}
+
+.errorState {
+  text-align: center;
+  padding: 40px 20px;
+  color: var(--text-muted);
+  font-family: $font-body;
+  font-size: 15px;
+}
+
+.retryBtn {
+  margin-top: 16px;
+  padding: 10px 24px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: $radius-pill;
+  color: var(--text-secondary);
+  font-family: $font-body;
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color $transition-fast, color $transition-fast;
+
+  &:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+}
+
+/* ── Compact mode (when results exist) ── */
+.compact {
+  .hero {
+    min-height: auto;
+    flex: 0;
+  }
+}
+
+/* ── Skeleton ── */
+.skeletonCard {
+  height: 80px;
+  background: var(--bg-card-solid);
+  border-radius: $radius;
+  margin-bottom: 12px;
+  animation: skeleton-pulse 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  .heroTitle {
+    font-size: 40px;
+  }
+
+  .searchBar {
+    flex-direction: column;
+    border-radius: $radius-md;
+  }
+
+  .searchButton {
+    width: calc(100% - 8px);
+    border-radius: $radius;
+  }
+}

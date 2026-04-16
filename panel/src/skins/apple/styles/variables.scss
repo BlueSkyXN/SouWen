@@ -1,0 +1,57 @@
+// ===== Apple Skin Variables =====
+// Inspired by Apple.com — reductive, cinematic, product-first
+
+// Typography — system font stack (SF Pro on macOS, Segoe UI on Windows, etc.)
+$font-display: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+$font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Helvetica Neue', Arial, sans-serif;
+$font-mono: 'SF Mono', 'Fira Code', 'Cascadia Code', 'Consolas', monospace;
+
+// Colors — Apple palette
+$apple-blue: #0071e3;
+$apple-blue-hover: #0077ed;
+$link-blue: #0066cc;
+$bright-blue: #2997ff;
+
+$bg-light: #f5f5f7;
+$bg-white: #ffffff;
+$bg-dark: #000000;
+$bg-dark-surface: #1d1d1f;
+
+$text-dark: #1d1d1f;
+$text-dark-80: rgba(0, 0, 0, 0.8);
+$text-dark-48: rgba(0, 0, 0, 0.48);
+$text-white: #ffffff;
+
+$border-subtle: rgba(0, 0, 0, 0.06);
+$border-light: rgba(0, 0, 0, 0.1);
+
+// Semantic
+$success: #30d158;
+$success-light: rgba(48, 209, 88, 0.1);
+$warning: #ff9f0a;
+$warning-light: rgba(255, 159, 10, 0.1);
+$error: #ff3b30;
+$error-light: rgba(255, 59, 48, 0.1);
+
+// Layout
+$nav-height: 48px;
+$content-max-hero: 980px;
+$content-max-data: 1280px;
+$content-padding: 24px;
+
+// Border radius — Apple style
+$radius-sm: 5px;
+$radius: 8px;
+$radius-md: 11px;
+$radius-lg: 12px;
+$radius-pill: 980px;
+
+// Shadows — sparse Apple style
+$shadow-card: 3px 5px 30px rgba(0, 0, 0, 0.08);
+$shadow-card-hover: 3px 5px 30px rgba(0, 0, 0, 0.14);
+$shadow-none: none;
+
+// Transitions
+$transition-fast: 150ms ease;
+$transition: 250ms ease;
+$transition-slow: 400ms ease;

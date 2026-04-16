@@ -1,0 +1,297 @@
+@use '../../styles/variables' as *;
+
+/* ===== Apple Skin Layout ===== */
+
+.layout {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ── Glass Navigation Bar ── */
+.nav {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  height: $nav-height;
+  background: var(--bg-nav);
+  backdrop-filter: saturate(180%) blur(20px);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 1px solid var(--border);
+}
+
+.navInner {
+  max-width: $content-max-data;
+  margin: 0 auto;
+  padding: 0 $content-padding;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.navLeft {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: $font-display;
+  font-weight: 600;
+  font-size: 17px;
+  color: var(--text);
+  text-decoration: none;
+  letter-spacing: -0.022em;
+
+  &:hover {
+    text-decoration: none;
+    opacity: 0.85;
+  }
+}
+
+.navLinks {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  @media (max-width: 768px) {
+    display: none;
+  }
+}
+
+.navLink {
+  font-family: $font-body;
+  font-size: 14px;
+  font-weight: 400;
+  color: var(--text-secondary);
+  text-decoration: none;
+  padding: 6px 12px;
+  border-radius: $radius-pill;
+  transition: background $transition-fast, color $transition-fast;
+  letter-spacing: -0.01em;
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--text);
+    text-decoration: none;
+  }
+}
+
+.navActive {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.navRight {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.iconBtn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  border-radius: 50%;
+  transition: background $transition-fast, color $transition-fast;
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--text);
+  }
+}
+
+/* ── Skin Palette Dropdown ── */
+.skinWrap {
+  position: relative;
+}
+
+.palette {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  background: var(--bg-card-solid);
+  border-radius: $radius-lg;
+  box-shadow: $shadow-card;
+  min-width: 200px;
+  z-index: 200;
+  padding: 6px;
+  border: 1px solid var(--border);
+}
+
+.paletteTitle {
+  font-family: $font-body;
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 8px 12px 4px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+
+.paletteItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: $font-body;
+  font-size: 14px;
+  color: var(--text-secondary);
+  text-align: left;
+  border-radius: $radius;
+  transition: background $transition-fast, color $transition-fast;
+  letter-spacing: -0.01em;
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--text);
+  }
+}
+
+.paletteActive {
+  color: var(--accent);
+}
+
+.paletteName {
+  flex: 1;
+  font-weight: 500;
+}
+
+.paletteDesc {
+  font-size: 12px;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.paletteCheck {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+/* ── Main Content ── */
+.main {
+  flex: 1;
+  width: 100%;
+  max-width: $content-max-data;
+  margin: 0 auto;
+  padding: $content-padding;
+}
+
+/* ── Footer ── */
+.pageFooter {
+  text-align: center;
+  padding: 20px 0 16px;
+  font-family: $font-body;
+  font-size: 12px;
+  color: var(--text-muted);
+  letter-spacing: -0.01em;
+  opacity: 0.6;
+  transition: opacity $transition-fast;
+
+  a {
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: color $transition-fast;
+
+    &:hover {
+      color: var(--accent);
+      text-decoration: underline;
+    }
+  }
+
+  &:hover {
+    opacity: 0.85;
+  }
+}
+
+/* ── Mobile Overlay ── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+  background: var(--overlay-bg);
+}
+
+/* ── Mobile Drawer ── */
+.mobileDrawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 100;
+  width: 280px;
+  background: var(--bg-card-solid);
+  border-right: 1px solid var(--border);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.drawerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px;
+  margin-bottom: 12px;
+}
+
+.drawerBrand {
+  font-family: $font-display;
+  font-weight: 600;
+  font-size: 17px;
+  color: var(--text);
+}
+
+.drawerLink {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 16px;
+  font-family: $font-body;
+  font-size: 17px;
+  color: var(--text-secondary);
+  text-decoration: none;
+  border-radius: $radius;
+  transition: background $transition-fast;
+
+  &:hover {
+    background: var(--bg-hover);
+    text-decoration: none;
+  }
+}
+
+.hamburger {
+  display: none;
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  padding: 6px;
+  cursor: pointer;
+
+  @media (max-width: 768px) {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+}
+
+/* ── Responsive ── */
+@media (max-width: 768px) {
+  .main {
+    padding: 16px;
+  }
+}
