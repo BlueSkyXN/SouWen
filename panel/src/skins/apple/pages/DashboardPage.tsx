@@ -1,12 +1,9 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
-import { m } from 'framer-motion'
-import { Activity, RefreshCw } from 'lucide-react'
+import { RefreshCw } from 'lucide-react'
 import { api } from '@core/services/api'
 import { useNotificationStore } from '@core/stores/notificationStore'
-import { useAuthStore } from '@core/stores/authStore'
 import { formatError } from '@core/lib/errors'
-import { staggerContainer, staggerItem } from '@core/lib/animations'
 import { Spinner } from '../components/common/Spinner'
 import type { DoctorResponse } from '@core/types'
 import styles from './DashboardPage.module.scss'
@@ -16,7 +13,6 @@ export function DashboardPage() {
   const [doctor, setDoctor] = useState<DoctorResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState(false)
-  const version = useAuthStore((s) => s.version)
   const addToast = useNotificationStore((s) => s.addToast)
 
   const fetchData = useCallback(async () => {
@@ -55,65 +51,49 @@ export function DashboardPage() {
 
   const paperCount = doctor.sources.filter((s) => s.category === 'paper').length
   const patentCount = doctor.sources.filter((s) => s.category === 'patent').length
-  const webCount = doctor.sources.filter((s) => s.category === 'web').length
   const okCount = doctor.ok
   const totalCount = doctor.total
   const healthPct = totalCount > 0 ? Math.round((okCount / totalCount) * 100) : 0
 
   return (
     <div className={styles.page}>
-      {/* ── Header ── */}
-      <div className={styles.pageHeader}>
-        <h1 className={styles.pageTitle}>
-          <Activity size={20} />
-          {t('dashboard.title', 'Dashboard')}
+      {/* ── Hero Section ── */}
+      <div className={styles.heroSection}>
+        <div className={styles.heroSubtitle}>SouWen {t('dashboard.title', 'Dashboard')}</div>
+        <h1 className={styles.heroTitle}>
+          {healthPct > 50
+            ? t('dashboard.heroHealthy', '掌控全局，就是这么简单。')
+            : t('dashboard.heroDegraded', '部分服务降级，请检查配置。')}
         </h1>
-        <div className={styles.headerBadges}>
-          <span className={styles.uptimeBadge}>
-            {t('dashboard.health', 'Health')}: {healthPct}%
-          </span>
-          {version && (
-            <span className={styles.uptimeBadge}>v{version}</span>
-          )}
-          <span className={`${styles.statusBadge} ${healthPct > 50 ? styles.ok : styles.err}`}>
-            {healthPct > 50 ? t('dashboard.statusOk', 'Healthy') : t('dashboard.statusDegraded', 'Degraded')}
-          </span>
+        <p className={styles.heroDesc}>
+          {t('dashboard.heroDesc', '核心指标一目了然。无论是论文数据库的实时状态，还是专利接口的探测情况，尽在掌握。')}
+        </p>
+
+        {/* ── Giant Metric Numbers ── */}
+        <div className={styles.metricsRow}>
+          <div className={styles.metricItem}>
+            <div className={styles.metricLabel}>{t('dashboard.paperSources')}</div>
+            <div className={styles.metricValue}>{paperCount}</div>
+            <div className={styles.metricDesc}>{t('dashboard.ready', '就绪')}</div>
+          </div>
+          <div className={styles.metricItem}>
+            <div className={styles.metricLabel}>{t('dashboard.patentSources')}</div>
+            <div className={styles.metricValue}>{patentCount}</div>
+            <div className={styles.metricDesc}>{t('dashboard.ready', '就绪')}</div>
+          </div>
+          <div className={styles.metricItem}>
+            <div className={styles.metricLabel}>{t('dashboard.availableSources')}</div>
+            <div className={styles.metricValue}>
+              {okCount}<span className={styles.metricFraction}>/{totalCount}</span>
+            </div>
+            <div className={`${styles.metricDesc} ${healthPct <= 50 ? styles.metricDescAlert : ''}`}>
+              {healthPct > 50
+                ? t('dashboard.statusOk', 'Healthy')
+                : t('dashboard.statusDegraded', 'Degraded')}
+            </div>
+          </div>
         </div>
       </div>
-
-      {/* ── Stats Grid ── */}
-      <m.div
-        className={styles.statsGrid}
-        variants={staggerContainer}
-        initial="initial"
-        animate="animate"
-      >
-        <m.div variants={staggerItem} className={styles.statCard}>
-          <div className={styles.statLabel}>{t('dashboard.paperSources')}</div>
-          <div className={styles.statValue}>{paperCount}</div>
-          <div className={styles.statDesc}>{t('dashboard.paperSources')}</div>
-        </m.div>
-
-        <m.div variants={staggerItem} className={styles.statCard}>
-          <div className={styles.statLabel}>{t('dashboard.patentSources')}</div>
-          <div className={styles.statValue}>{patentCount}</div>
-          <div className={styles.statDesc}>{t('dashboard.patentSources')}</div>
-        </m.div>
-
-        <m.div variants={staggerItem} className={styles.statCard}>
-          <div className={styles.statLabel}>{t('dashboard.webEngines')}</div>
-          <div className={styles.statValue}>{webCount}</div>
-          <div className={styles.statDesc}>{t('dashboard.webEngines')}</div>
-        </m.div>
-
-        <m.div variants={staggerItem} className={`${styles.statCard} ${styles.statCardHighlight}`}>
-          <div className={styles.statLabel}>{t('dashboard.availableSources')}</div>
-          <div className={styles.statValue}>
-            {okCount}<span className={styles.statFraction}>/{totalCount}</span>
-          </div>
-          <div className={styles.statDesc}>{t('dashboard.availableSources')}</div>
-        </m.div>
-      </m.div>
 
       {/* ── Health Table ── */}
       <div className={styles.tableSection}>

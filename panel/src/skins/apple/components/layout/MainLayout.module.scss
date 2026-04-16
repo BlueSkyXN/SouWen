@@ -124,6 +124,8 @@
   border-radius: $radius-lg;
   box-shadow: 0 4px 24px rgba(0, 0, 0, 0.16);
   min-width: 200px;
+  max-width: 280px;
+  width: max-content;
   z-index: 200;
   padding: 6px;
   border: none;
@@ -154,6 +156,7 @@
   border-radius: $radius;
   transition: background $transition-fast, color $transition-fast;
   letter-spacing: -0.01em;
+  overflow: hidden;
 
   &:hover {
     background: var(--bg-hover);
@@ -173,7 +176,10 @@
 .paletteDesc {
   font-size: 12px;
   color: var(--text-muted);
-  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .paletteCheck {

@@ -1,0 +1,240 @@
+@use 'sass:color';
+@use '../styles/variables' as *;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.pageTitle {
+  font-family: $font-body;
+  font-size: 34px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  padding-top: 8px;
+}
+
+/* ── iOS Form Group ── */
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.groupTitle {
+  font-family: $font-body;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  padding-left: 16px;
+  letter-spacing: 0.02em;
+}
+
+.groupCard {
+  background: var(--bg-card-solid);
+  border-radius: $radius-card;
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+.groupFootnote {
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+  padding: 2px 16px;
+  font-family: $font-body;
+  font-size: 12px;
+  color: var(--text-dim);
+  line-height: 1.4;
+
+  svg {
+    flex-shrink: 0;
+    margin-top: 2px;
+  }
+}
+
+/* ── Form Rows ── */
+.formRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 10px 16px;
+  gap: 12px;
+}
+
+.formRowSep {
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 16px;
+    right: 0;
+    height: 1px;
+    background: var(--border);
+  }
+}
+
+.rowLabel {
+  font-family: $font-body;
+  font-size: 17px;
+  color: var(--text);
+  letter-spacing: -0.022em;
+  flex-shrink: 0;
+}
+
+.rowValue {
+  font-family: $font-body;
+  font-size: 17px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rowValueMuted {
+  font-family: $font-body;
+  font-size: 17px;
+  color: var(--text-muted);
+  letter-spacing: -0.022em;
+}
+
+/* ── Status ── */
+.statusDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+  flex-shrink: 0;
+}
+
+.statusOn {
+  color: $ios-green;
+}
+
+.statusOff {
+  color: var(--text-dim);
+}
+
+.statusWarn {
+  color: $ios-orange;
+}
+
+.statusErr {
+  color: $ios-red;
+}
+
+/* ── Form Controls ── */
+.formSelect {
+  padding: 6px 10px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: $radius-search;
+  color: var(--text);
+  font-family: $font-body;
+  font-size: 15px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color $transition-fast;
+  max-width: 200px;
+
+  &:focus {
+    border-color: var(--accent);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.formInput {
+  padding: 6px 10px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: $radius-search;
+  color: var(--text);
+  font-family: $font-body;
+  font-size: 15px;
+  outline: none;
+  transition: border-color $transition-fast;
+  max-width: 200px;
+
+  &:focus {
+    border-color: var(--accent);
+  }
+
+  &::placeholder {
+    color: var(--text-dim);
+  }
+}
+
+/* ── Action Buttons ── */
+.actionRow {
+  display: flex;
+  gap: 10px;
+  padding: 12px 16px;
+}
+
+.actionBtn {
+  padding: 8px 16px;
+  background: var(--accent);
+  border: none;
+  border-radius: $radius-search;
+  color: #fff;
+  font-family: $font-body;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background $transition-fast;
+
+  &:hover:not(:disabled) {
+    background: var(--accent-hover);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.actionBtnDanger {
+  background: $ios-red;
+
+  &:hover:not(:disabled) {
+    background: color.adjust($ios-red, $lightness: -8%);
+  }
+}
+
+/* ── Error Banner ── */
+.errorBanner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 16px;
+  background: rgba(255, 59, 48, 0.1);
+  font-family: $font-body;
+  font-size: 13px;
+  color: $ios-red;
+}
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  .formRow {
+    flex-wrap: wrap;
+  }
+
+  .formSelect,
+  .formInput {
+    max-width: 100%;
+  }
+}

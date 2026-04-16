@@ -1,0 +1,165 @@
+@use 'variables' as *;
+
+/* ===== iOS Skin — Global Styles ===== */
+
+/* ── Light mode (default) ── */
+html[data-skin='ios'] {
+  --bg: #{$ios-bg};
+  --bg-card: #{$ios-card};
+  --bg-card-solid: #{$ios-card};
+  --bg-elevated: #{$ios-card};
+  --bg-input: #{$ios-card};
+  --bg-hover: rgba(0, 0, 0, 0.03);
+
+  --bg-nav: #{$ios-bg};
+  --nav-text: #1c1c1e;
+  --nav-text-secondary: #3c3c43;
+  --nav-text-muted: #{$ios-gray};
+  --nav-hover: rgba(0, 0, 0, 0.05);
+  --nav-border: #{$ios-separator};
+
+  --text: #1c1c1e;
+  --text-secondary: #3c3c43;
+  --text-muted: #{$ios-gray};
+  --text-dim: rgba(60, 60, 67, 0.3);
+
+  --border: #{$ios-separator};
+  --border-light: rgba(198, 198, 200, 0.3);
+  --border-strong: #{$ios-separator};
+  --border-card: none;
+
+  --accent: #{$ios-blue};
+  --accent-hover: #0066e6;
+  --accent-light: rgba(0, 122, 255, 0.08);
+  --accent-glow: rgba(0, 122, 255, 0.1);
+
+  --link: #{$ios-blue};
+
+  --success: #{$ios-green};
+  --success-light: rgba(52, 199, 89, 0.1);
+  --warning: #{$ios-orange};
+  --warning-light: rgba(255, 149, 0, 0.1);
+  --error: #{$ios-red};
+  --error-light: rgba(255, 59, 48, 0.1);
+
+  --font-body: #{$font-body};
+  --font-mono: #{$font-mono};
+
+  --sidebar-w: #{$sidebar-width};
+  --nav-h: #{$nav-height};
+
+  --radius-card: #{$radius-card};
+  --radius-icon: #{$radius-icon};
+  --radius-search: #{$radius-search};
+
+  --shadow-card: #{$shadow-card};
+
+  --transition-fast: #{$transition-fast};
+
+  --overlay-bg: rgba(0, 0, 0, 0.3);
+  --selection-bg: rgba(0, 122, 255, 0.2);
+  --selection-color: #003d7a;
+
+  --ios-toggle-on: #{$ios-green};
+  --ios-toggle-off: #e9e9ea;
+}
+
+/* ── Dark mode ── */
+html[data-skin='ios'][data-mode='dark'] {
+  --bg: #000000;
+  --bg-card: #1c1c1e;
+  --bg-card-solid: #1c1c1e;
+  --bg-elevated: #2c2c2e;
+  --bg-input: #2c2c2e;
+  --bg-hover: rgba(255, 255, 255, 0.06);
+
+  --bg-nav: #1c1c1e;
+  --nav-text: #f5f5f7;
+  --nav-text-secondary: rgba(255, 255, 255, 0.8);
+  --nav-text-muted: #{$ios-gray};
+  --nav-hover: rgba(255, 255, 255, 0.08);
+  --nav-border: rgba(255, 255, 255, 0.1);
+
+  --text: #f5f5f7;
+  --text-secondary: rgba(255, 255, 255, 0.8);
+  --text-muted: #{$ios-gray};
+  --text-dim: rgba(255, 255, 255, 0.3);
+
+  --border: rgba(255, 255, 255, 0.1);
+  --border-light: rgba(255, 255, 255, 0.06);
+  --border-strong: rgba(255, 255, 255, 0.15);
+  --border-card: none;
+
+  --accent: #0a84ff;
+  --accent-hover: #409cff;
+  --accent-light: rgba(10, 132, 255, 0.15);
+  --accent-glow: rgba(10, 132, 255, 0.2);
+
+  --link: #0a84ff;
+
+  --shadow-card: 0 1px 4px rgba(0, 0, 0, 0.3);
+
+  --overlay-bg: rgba(0, 0, 0, 0.6);
+  --selection-bg: rgba(10, 132, 255, 0.3);
+  --selection-color: #a3d4ff;
+
+  --ios-toggle-on: #30d158;
+  --ios-toggle-off: #39393d;
+}
+
+/* ===== Skin-specific Base ===== */
+html[data-skin='ios'] {
+  font-size: 17px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html[data-skin='ios'] body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text-secondary);
+  line-height: 1.47;
+  letter-spacing: -0.022em;
+}
+
+html[data-skin='ios'] ::selection {
+  background: var(--selection-bg);
+  color: var(--selection-color);
+}
+
+html[data-skin='ios'] a {
+  color: var(--link);
+  text-decoration: none;
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+/* ===== Scrollbar (subtle) ===== */
+html[data-skin='ios'] ::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+html[data-skin='ios'] ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html[data-skin='ios'] ::-webkit-scrollbar-thumb {
+  background: var(--text-dim);
+  border-radius: 3px;
+  &:hover {
+    background: var(--text-muted);
+  }
+}
+
+/* ===== Utility animations ===== */
+@keyframes ios-fade-in {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes ios-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}

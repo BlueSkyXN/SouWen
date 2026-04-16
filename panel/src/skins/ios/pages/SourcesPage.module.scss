@@ -1,0 +1,517 @@
+@use 'sass:color';
+@use '../styles/variables' as *;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.pageHeaderRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pageTitle {
+  font-family: $font-body;
+  font-size: 34px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  padding-top: 8px;
+}
+
+.refreshBtn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  background: var(--bg-card-solid);
+  border-radius: 50%;
+  color: var(--accent);
+  cursor: pointer;
+  box-shadow: var(--shadow-card);
+  transition: background $transition-fast;
+
+  &:hover {
+    background: var(--bg-hover);
+  }
+}
+
+/* ── iOS Form Group ── */
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.groupTitle {
+  font-family: $font-body;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  padding-left: 16px;
+  letter-spacing: 0.02em;
+}
+
+.groupCard {
+  background: var(--bg-card-solid);
+  border-radius: $radius-card;
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+/* ── Source Row ── */
+.sourceRow {
+  padding: 10px 16px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sourceRowSep {
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50px;
+    right: 0;
+    height: 1px;
+    background: var(--border);
+  }
+}
+
+.sourceRowDisabled {
+  opacity: 0.5;
+}
+
+.sourceMain {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+}
+
+.squircleIcon {
+  width: 28px;
+  height: 28px;
+  border-radius: $radius-icon;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sourceTextCol {
+  flex: 1;
+  min-width: 0;
+}
+
+.sourceNameRow {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.sourceName {
+  font-family: $font-body;
+  font-size: 17px;
+  color: var(--text);
+  letter-spacing: -0.022em;
+}
+
+.expandIcon {
+  color: var(--text-dim);
+  transition: transform $transition-fast;
+  flex-shrink: 0;
+}
+
+.expandIconOpen {
+  transform: rotate(180deg);
+  color: var(--accent);
+}
+
+.sourceDesc {
+  font-family: $font-body;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── iOS Toggle Switch ── */
+.iosToggle {
+  position: relative;
+  width: 51px;
+  height: 31px;
+  border-radius: 31px;
+  border: none;
+  background: var(--ios-toggle-off);
+  cursor: pointer;
+  flex-shrink: 0;
+  transition: background 0.3s ease;
+  padding: 0;
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+.iosToggleOn {
+  background: var(--ios-toggle-on);
+
+  .iosToggleThumb {
+    transform: translateX(20px);
+  }
+}
+
+.iosToggleThumb {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 27px;
+  height: 27px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transition: transform 0.3s ease;
+}
+
+/* ── Auth hint ── */
+.authHint {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 0 16px 8px 50px;
+  font-family: $font-body;
+  font-size: 12px;
+  color: var(--text-dim);
+
+  code {
+    font-family: $font-mono;
+    font-size: 11px;
+    padding: 1px 6px;
+    background: var(--bg-hover);
+    border-radius: 4px;
+    color: var(--text-muted);
+  }
+}
+
+/* ── Config Panel ── */
+.configPanel {
+  overflow: hidden;
+}
+
+.configPanelInner {
+  background: var(--bg-hover);
+  margin: 0 16px 12px;
+  border-radius: $radius-card;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.configPanelHeader {
+  font-family: $font-body;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent);
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--border);
+}
+
+.configRow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.configLabel {
+  font-family: $font-body;
+  font-size: 13px;
+  color: var(--text-muted);
+  flex: 0 0 90px;
+  font-weight: 500;
+}
+
+.configSelect {
+  flex: 1;
+  max-width: 200px;
+  padding: 6px 10px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: $radius-search;
+  color: var(--text);
+  font-family: $font-body;
+  font-size: 13px;
+  outline: none;
+  cursor: pointer;
+  transition: border-color $transition-fast;
+
+  &:focus {
+    border-color: var(--accent);
+  }
+}
+
+.configInput {
+  flex: 1;
+  max-width: 200px;
+  padding: 6px 10px;
+  background: var(--bg-input);
+  border: 1px solid var(--border);
+  border-radius: $radius-search;
+  color: var(--text);
+  font-family: $font-body;
+  font-size: 13px;
+  outline: none;
+  transition: border-color $transition-fast;
+
+  &:focus {
+    border-color: var(--accent);
+  }
+
+  &::placeholder {
+    color: var(--text-dim);
+  }
+}
+
+.apiKeyGroup {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+}
+
+.apiKeyStatus {
+  font-family: $font-body;
+  font-size: 12px;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.apiKeyDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.apiKeySet {
+  color: $ios-green;
+}
+
+.apiKeyUnset {
+  color: var(--text-dim);
+}
+
+.apiKeyBtn {
+  padding: 3px 8px;
+  font-family: $font-body;
+  font-size: 12px;
+  font-weight: 500;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: border-color $transition-fast, color $transition-fast;
+
+  &:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+}
+
+.apiKeyBtnClear {
+  &:hover {
+    border-color: $ios-red;
+    color: $ios-red;
+  }
+}
+
+.apiKeyClearLabel {
+  font-family: $font-body;
+  font-size: 12px;
+  font-weight: 500;
+  color: $ios-orange;
+}
+
+.warpWarning {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  margin-left: 100px;
+  background: rgba(255, 149, 0, 0.1);
+  border-radius: 6px;
+  font-family: $font-body;
+  font-size: 12px;
+  color: $ios-orange;
+}
+
+.runtimeNote {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: $font-body;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+.configActions {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.saveBtn {
+  padding: 6px 14px;
+  background: var(--accent);
+  border: none;
+  border-radius: $radius-search;
+  color: #fff;
+  font-family: $font-body;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background $transition-fast;
+
+  &:hover:not(:disabled) {
+    background: var(--accent-hover);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+/* ── Error State ── */
+.errorState {
+  text-align: center;
+  padding: 60px 20px;
+  font-family: $font-body;
+  font-size: 15px;
+  color: var(--text-muted);
+}
+
+.retryBtn {
+  margin-top: 16px;
+  padding: 10px 24px;
+  background: none;
+  border: 1px solid var(--accent);
+  border-radius: $radius-card;
+  color: var(--accent);
+  font-family: $font-body;
+  font-size: 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  transition: background $transition-fast;
+
+  &:hover {
+    background: var(--accent-light);
+  }
+}
+
+/* ── Confirm Modal ── */
+.modalOverlay {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  background: var(--overlay-bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.modalCard {
+  background: var(--bg-card-solid);
+  border-radius: 14px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.2);
+  padding: 24px;
+  width: 100%;
+  max-width: 300px;
+  text-align: center;
+}
+
+.modalTitle {
+  font-family: $font-body;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+
+.modalBody {
+  font-family: $font-body;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-bottom: 20px;
+  line-height: 1.5;
+}
+
+.modalActions {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  border-top: 1px solid var(--border);
+  margin: 0 -24px -24px;
+}
+
+.modalBtn {
+  padding: 12px;
+  font-family: $font-body;
+  font-size: 17px;
+  font-weight: 400;
+  cursor: pointer;
+  border: none;
+  background: none;
+  color: var(--accent);
+  border-top: 1px solid var(--border);
+  transition: background $transition-fast;
+
+  &:first-child {
+    border-top: none;
+  }
+
+  &:hover {
+    background: var(--bg-hover);
+  }
+}
+
+.modalBtnDanger {
+  color: $ios-red;
+  font-weight: 600;
+}
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  .configRow {
+    flex-wrap: wrap;
+  }
+
+  .configSelect,
+  .configInput {
+    max-width: 100%;
+  }
+
+  .warpWarning {
+    margin-left: 0;
+  }
+}

@@ -429,7 +429,10 @@
 .skinDesc {
   font-size: $text-xs;
   color: var(--text-muted);
-  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .themeBtn {
@@ -453,6 +456,8 @@
   box-shadow: var(--shadow-lg);
   padding: $space-2;
   min-width: 160px;
+  max-width: 280px;
+  width: max-content;
   z-index: 200;
 
   [data-mode='dark'] & {
@@ -483,6 +488,7 @@
   font-size: $text-sm;
   color: var(--text-secondary);
   transition: all 0.15s ease;
+  overflow: hidden;
 
   &:hover {
     background: var(--bg-hover);

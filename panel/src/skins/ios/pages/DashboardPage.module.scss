@@ -1,0 +1,219 @@
+@use '../styles/variables' as *;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.pageTitle {
+  font-family: $font-body;
+  font-size: 34px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  padding-top: 8px;
+}
+
+/* ── Stat Cards Grid ── */
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 12px;
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.statCard {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px 16px;
+  background: var(--bg-card-solid);
+  border-radius: 16px;
+  box-shadow: var(--shadow-card);
+}
+
+.statIcon {
+  width: 40px;
+  height: 40px;
+  border-radius: $radius-icon;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.statInfo {
+  display: flex;
+  flex-direction: column;
+}
+
+.statValue {
+  font-family: $font-body;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.statFraction {
+  font-size: 16px;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.statLabel {
+  font-family: $font-body;
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* ── iOS Form Group ── */
+.formGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.groupTitle {
+  font-family: $font-body;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  padding-left: 16px;
+  letter-spacing: 0.02em;
+}
+
+.groupCard {
+  background: var(--bg-card-solid);
+  border-radius: $radius-card;
+  box-shadow: var(--shadow-card);
+  overflow: hidden;
+}
+
+/* ── Form Rows ── */
+.formRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 44px;
+  padding: 10px 16px;
+  gap: 12px;
+}
+
+.formRowSep {
+  position: relative;
+
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 16px;
+    right: 0;
+    height: 1px;
+    background: var(--border);
+  }
+}
+
+.rowLabel {
+  font-family: $font-body;
+  font-size: 17px;
+  color: var(--text);
+  letter-spacing: -0.022em;
+}
+
+.rowValue {
+  font-family: $font-body;
+  font-size: 17px;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.rowValueMuted {
+  font-family: $font-body;
+  font-size: 17px;
+  color: var(--text-muted);
+  letter-spacing: -0.022em;
+}
+
+/* ── Source row ── */
+.sourceInfo {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
+
+.sourceName {
+  font-family: $font-body;
+  font-size: 17px;
+  color: var(--text);
+  letter-spacing: -0.022em;
+}
+
+.typeBadge {
+  font-family: $font-body;
+  font-size: 12px;
+  color: var(--text-muted);
+  padding: 2px 8px;
+  background: var(--bg-hover);
+  border-radius: 12px;
+}
+
+/* ── Status dots ── */
+.statusDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.statusOk {
+  background: $ios-green;
+}
+
+.statusWarn {
+  background: $ios-orange;
+}
+
+.statusErr {
+  background: $ios-red;
+}
+
+/* ── Error State ── */
+.errorState {
+  text-align: center;
+  padding: 60px 20px;
+  font-family: $font-body;
+  font-size: 15px;
+  color: var(--text-muted);
+}
+
+.retryBtn {
+  margin-top: 16px;
+  padding: 10px 24px;
+  background: none;
+  border: 1px solid var(--accent);
+  border-radius: $radius-card;
+  color: var(--accent);
+  font-family: $font-body;
+  font-size: 14px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  transition: background $transition-fast;
+
+  &:hover {
+    background: var(--accent-light);
+  }
+}
