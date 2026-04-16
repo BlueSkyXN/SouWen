@@ -4,9 +4,6 @@ import { LazyMotion, domAnimation, AnimatePresence } from 'framer-motion'
 import { useAuthStore } from '@core/stores/authStore'
 import { getActiveSkin } from '@core/skin-registry'
 
-const skin = getActiveSkin()
-const { AppShell, LoginPage, skinRoutes, ToastContainer, Spinner } = skin.skinModule
-
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   if (!isAuthenticated) return <Navigate to="/login" replace />
@@ -15,6 +12,7 @@ function AuthGuard({ children }: { children: React.ReactNode }) {
 
 function AnimatedRoutes() {
   const location = useLocation()
+  const { AppShell, LoginPage, skinRoutes } = getActiveSkin().skinModule
   return (
     <AnimatePresence mode="wait">
       <Routes location={location} key={location.pathname}>
@@ -35,6 +33,7 @@ function AnimatedRoutes() {
 }
 
 export default function App() {
+  const { ToastContainer, Spinner } = getActiveSkin().skinModule
   const loadFromStorage = useAuthStore((s) => s.loadFromStorage)
   const [ready, setReady] = useState(false)
 
