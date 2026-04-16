@@ -35,7 +35,7 @@ from souwen.exceptions import (
 logger = logging.getLogger("souwen.http")
 
 DEFAULT_USER_AGENT = (
-    f"SouWen/{__version__} (Academic & Patent Search Tool; https://github.com/souwen)"
+    f"SouWen/{__version__} (Academic & Patent Search Tool; https://github.com/BlueSkyXN/SouWen)"
 )
 
 

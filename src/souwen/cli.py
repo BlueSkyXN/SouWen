@@ -143,9 +143,7 @@ def search_patent(
 @search_app.command("web")
 def search_web_cmd(
     query: str = typer.Argument(..., help="搜索关键词"),
-    engines: str = typer.Option(
-        "duckduckgo,bing", "--engines", "-e", help="搜索引擎，逗号分隔"
-    ),
+    engines: str = typer.Option("duckduckgo,bing", "--engines", "-e", help="搜索引擎，逗号分隔"),
     limit: int = typer.Option(10, "--limit", "-n", help="每引擎最大结果数"),
     json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),
 ) -> None:
@@ -307,7 +305,9 @@ server:
 
 @config_app.command("backend")
 def config_backend(
-    default: str | None = typer.Option(None, help="设置全局默认 HTTP 后端: auto | curl_cffi | httpx"),
+    default: str | None = typer.Option(
+        None, help="设置全局默认 HTTP 后端: auto | curl_cffi | httpx"
+    ),
     set_source: str | None = typer.Option(
         None, "--set", help="设置指定源的 HTTP 后端，格式: source=backend (如 duckduckgo=httpx)"
     ),
@@ -318,8 +318,16 @@ def config_backend(
 
     _VALID = {"auto", "curl_cffi", "httpx"}
     _SCRAPER_ENGINES = [
-        "duckduckgo", "yahoo", "brave", "google", "bing",
-        "startpage", "baidu", "mojeek", "yandex", "google_patents",
+        "duckduckgo",
+        "yahoo",
+        "brave",
+        "google",
+        "bing",
+        "startpage",
+        "baidu",
+        "mojeek",
+        "yandex",
+        "google_patents",
     ]
 
     cfg = get_config()
@@ -372,9 +380,7 @@ def config_backend(
     console.print(table)
 
     if modified:
-        console.print(
-            "[yellow]⚠ 运行时修改仅当前进程有效。如需持久化请修改 souwen.yaml[/yellow]"
-        )
+        console.print("[yellow]⚠ 运行时修改仅当前进程有效。如需持久化请修改 souwen.yaml[/yellow]")
 
 
 @config_app.command("source")
@@ -382,7 +388,9 @@ def config_source(
     name: str | None = typer.Argument(None, help="数据源名称（留空列出全部）"),
     enable: bool | None = typer.Option(None, "--enable/--disable", help="启用/禁用数据源"),
     proxy: str | None = typer.Option(None, help="代理: inherit | none | warp | URL"),
-    backend: str | None = typer.Option(None, "--backend", help="HTTP 后端: auto | curl_cffi | httpx"),
+    backend: str | None = typer.Option(
+        None, "--backend", help="HTTP 后端: auto | curl_cffi | httpx"
+    ),
     base_url: str | None = typer.Option(None, "--base-url", help="覆盖基础 URL"),
     api_key: str | None = typer.Option(None, "--api-key", help="覆盖 API Key"),
 ) -> None:
@@ -457,12 +465,11 @@ def config_source(
     if modified:
         cfg.sources[name] = sc
         console.print(f"[green]✅ {name} 配置已更新[/green]")
-        console.print(
-            "[yellow]⚠ 运行时修改仅当前进程有效。如需持久化请修改 souwen.yaml[/yellow]"
-        )
+        console.print("[yellow]⚠ 运行时修改仅当前进程有效。如需持久化请修改 souwen.yaml[/yellow]")
 
     # 显示当前配置
     from souwen.source_registry import get_source
+
     meta = get_source(name)
     console.print(f"\n[bold]{name}[/bold] ({meta.description})")
     console.print(f"  类别: {meta.category}  Tier: {meta.tier}")
@@ -518,6 +525,7 @@ def serve(
         raise typer.Exit(1)
 
     from souwen.logging_config import setup_logging
+
     setup_logging()
 
     console.print(f"[bold green]🚀 启动 SouWen API 服务 → http://{host}:{port}[/bold green]")

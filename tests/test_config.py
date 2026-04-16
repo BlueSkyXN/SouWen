@@ -105,6 +105,7 @@ class TestSourceChannelConfig:
     def test_default_source_config(self):
         """默认频道配置"""
         from souwen.config import SourceChannelConfig
+
         sc = SourceChannelConfig()
         assert sc.enabled is True
         assert sc.proxy == "inherit"
@@ -124,9 +125,12 @@ class TestSourceChannelConfig:
     def test_get_source_config_override(self):
         """配置了的源返回覆盖值"""
         from souwen.config import SourceChannelConfig
-        cfg = SouWenConfig(sources={
-            "duckduckgo": SourceChannelConfig(enabled=False, proxy="warp"),
-        })
+
+        cfg = SouWenConfig(
+            sources={
+                "duckduckgo": SourceChannelConfig(enabled=False, proxy="warp"),
+            }
+        )
         sc = cfg.get_source_config("duckduckgo")
         assert sc.enabled is False
         assert sc.proxy == "warp"
@@ -134,9 +138,12 @@ class TestSourceChannelConfig:
     def test_is_source_enabled(self):
         """is_source_enabled 检查"""
         from souwen.config import SourceChannelConfig
-        cfg = SouWenConfig(sources={
-            "google_patents": SourceChannelConfig(enabled=False),
-        })
+
+        cfg = SouWenConfig(
+            sources={
+                "google_patents": SourceChannelConfig(enabled=False),
+            }
+        )
         assert cfg.is_source_enabled("duckduckgo") is True
         assert cfg.is_source_enabled("google_patents") is False
 
@@ -148,6 +155,7 @@ class TestSourceChannelConfig:
     def test_resolve_proxy_none(self):
         """proxy=none 不使用代理"""
         from souwen.config import SourceChannelConfig
+
         cfg = SouWenConfig(
             proxy="http://global:1234",
             sources={"duckduckgo": SourceChannelConfig(proxy="none")},
@@ -157,6 +165,7 @@ class TestSourceChannelConfig:
     def test_resolve_proxy_warp(self):
         """proxy=warp 返回 WARP SOCKS 地址"""
         from souwen.config import SourceChannelConfig
+
         cfg = SouWenConfig(
             warp_socks_port=9090,
             sources={"duckduckgo": SourceChannelConfig(proxy="warp")},
@@ -166,6 +175,7 @@ class TestSourceChannelConfig:
     def test_resolve_proxy_explicit_url(self):
         """proxy=显式URL"""
         from souwen.config import SourceChannelConfig
+
         cfg = SouWenConfig(
             sources={"duckduckgo": SourceChannelConfig(proxy="socks5://custom:1080")},
         )
@@ -174,6 +184,7 @@ class TestSourceChannelConfig:
     def test_resolve_backend_channel_override(self):
         """频道 http_backend 覆盖全局"""
         from souwen.config import SourceChannelConfig
+
         cfg = SouWenConfig(
             default_http_backend="httpx",
             sources={"duckduckgo": SourceChannelConfig(http_backend="curl_cffi")},
@@ -191,6 +202,7 @@ class TestSourceChannelConfig:
     def test_resolve_api_key_channel_priority(self):
         """频道 api_key 优先于 flat key"""
         from souwen.config import SourceChannelConfig
+
         cfg = SouWenConfig(
             tavily_api_key="flat-key",
             sources={"tavily": SourceChannelConfig(api_key="channel-key")},
@@ -205,21 +217,33 @@ class TestSourceChannelConfig:
     def test_resolve_base_url(self):
         """base_url 覆盖"""
         from souwen.config import SourceChannelConfig
-        cfg = SouWenConfig(sources={
-            "openalex": SourceChannelConfig(base_url="https://proxy.example.com"),
-        })
-        assert cfg.resolve_base_url("openalex", "https://api.openalex.org") == "https://proxy.example.com"
-        assert cfg.resolve_base_url("crossref", "https://api.crossref.org") == "https://api.crossref.org"
+
+        cfg = SouWenConfig(
+            sources={
+                "openalex": SourceChannelConfig(base_url="https://proxy.example.com"),
+            }
+        )
+        assert (
+            cfg.resolve_base_url("openalex", "https://api.openalex.org")
+            == "https://proxy.example.com"
+        )
+        assert (
+            cfg.resolve_base_url("crossref", "https://api.crossref.org")
+            == "https://api.crossref.org"
+        )
 
     def test_resolve_headers_and_params(self):
         """headers/params 获取"""
         from souwen.config import SourceChannelConfig
-        cfg = SouWenConfig(sources={
-            "duckduckgo": SourceChannelConfig(
-                headers={"Accept-Language": "zh-CN"},
-                params={"max_results": 20},
-            ),
-        })
+
+        cfg = SouWenConfig(
+            sources={
+                "duckduckgo": SourceChannelConfig(
+                    headers={"Accept-Language": "zh-CN"},
+                    params={"max_results": 20},
+                ),
+            }
+        )
         assert cfg.resolve_headers("duckduckgo") == {"Accept-Language": "zh-CN"}
         assert cfg.resolve_params("duckduckgo") == {"max_results": 20}
         assert cfg.resolve_headers("bing") == {}

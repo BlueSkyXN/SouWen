@@ -291,8 +291,16 @@ async def update_source_config(
 
 # 使用 BaseScraper 的引擎名称列表（可配置 HTTP 后端）
 _SCRAPER_ENGINES = [
-    "duckduckgo", "yahoo", "brave", "google", "bing",
-    "startpage", "baidu", "mojeek", "yandex", "google_patents",
+    "duckduckgo",
+    "yahoo",
+    "brave",
+    "google",
+    "bing",
+    "startpage",
+    "baidu",
+    "mojeek",
+    "yandex",
+    "google_patents",
 ]
 
 
