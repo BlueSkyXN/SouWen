@@ -129,6 +129,7 @@ html[data-skin='souwen-classic'] {
 }
 
 html[data-skin='souwen-classic'][data-mode='dark'] {
+  --bg: #0a0a0f;
   --bg-card: #16161d;
   --bg-input: #16161d;
   --bg-hover: rgba(255, 255, 255, 0.04);
@@ -137,7 +138,7 @@ html[data-skin='souwen-classic'][data-mode='dark'] {
   --bg-frosted: rgba(22, 22, 29, 0.78);
   --text: #f0f0f5;
   --text-secondary: #9ca3b4;
-  --text-muted: #636b7e;
+  --text-muted: #8b93a8;
   --text-sidebar: rgba(255, 255, 255, 0.45);
   --text-sidebar-active: #ffffff;
   --border: rgba(255, 255, 255, 0.06);
