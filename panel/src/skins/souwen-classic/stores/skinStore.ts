@@ -1,23 +1,25 @@
 import { create } from 'zustand'
-import type { Theme, VisualTheme } from '@core/types'
-import { isVisualTheme } from '@core/types'
+import type { Theme } from '@core/types'
+import { skinConfig } from '../skin.config'
+
+const validSchemes = new Set(skinConfig.schemes.map((s) => s.id))
 
 interface SkinState {
   mode: Theme
-  scheme: VisualTheme
+  scheme: string
   toggleMode: () => void
-  setScheme: (s: VisualTheme) => void
+  setScheme: (s: string) => void
   loadSkin: () => void
 }
 
-function applyAttrs(mode: Theme, scheme: VisualTheme) {
+function applyAttrs(mode: Theme, scheme: string) {
   document.documentElement.setAttribute('data-mode', mode)
   document.documentElement.setAttribute('data-scheme', scheme)
 }
 
 export const useSkinStore = create<SkinState>((set, get) => ({
   mode: 'light',
-  scheme: 'nebula',
+  scheme: skinConfig.defaultScheme,
 
   toggleMode: () => {
     const next = get().mode === 'light' ? 'dark' : 'light'
@@ -26,7 +28,8 @@ export const useSkinStore = create<SkinState>((set, get) => ({
     set({ mode: next })
   },
 
-  setScheme: (s: VisualTheme) => {
+  setScheme: (s: string) => {
+    if (!validSchemes.has(s)) return
     applyAttrs(get().mode, s)
     localStorage.setItem('souwen_scheme', s)
     set({ scheme: s })
@@ -48,7 +51,7 @@ export const useSkinStore = create<SkinState>((set, get) => ({
     const savedMode = localStorage.getItem('souwen_mode')
     const mode: Theme = savedMode === 'dark' ? 'dark' : 'light'
     const savedScheme = localStorage.getItem('souwen_scheme')
-    const scheme: VisualTheme = isVisualTheme(savedScheme) ? savedScheme : 'nebula'
+    const scheme = savedScheme && validSchemes.has(savedScheme) ? savedScheme : skinConfig.defaultScheme
     applyAttrs(mode, scheme)
     set({ mode, scheme })
   },

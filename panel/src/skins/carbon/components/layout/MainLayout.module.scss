@@ -167,6 +167,27 @@
   }
 }
 
+.skinSwitcherBtn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 6px 12px;
+  font-family: $font-mono;
+  font-size: 11px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  transition: color $transition-fast, border-color $transition-fast;
+
+  &:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+  }
+}
+
 /* ── Mobile hamburger ── */
 .hamburger {
   display: none;

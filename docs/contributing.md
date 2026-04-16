@@ -46,30 +46,34 @@ python examples/search_web.py
 ```bash
 cd panel
 npm install
-npm run dev:classic    # 启动开发服务器（souwen-classic 皮肤）
+npm run dev              # 启动开发服务器（默认全皮肤，可运行时切换）
+npm run dev:classic      # 单皮肤开发
 ```
 
 ### 目录结构
 
 ```
 panel/src/
-  core/                  # 跨皮肤共享（stores, API, types, i18n）
+  core/                  # 跨皮肤共享（stores, API, types, i18n, skin-registry）
+    styles/base.scss     # 共享 CSS 重置
+    skin-registry.ts     # 运行时皮肤注册表
   skins/
-    souwen-classic/      # 默认皮肤
-      components/        # UI 组件
+    souwen-classic/      # 经典皮肤
+      components/        # UI 组件（含 ErrorBoundary, Toast, Spinner）
       pages/             # 页面
-      styles/            # SCSS 样式
+      styles/            # SCSS 样式（通过 html[data-skin] 命名空间隔离）
       stores/            # 皮肤状态管理
       routes.tsx         # 路由定义
-      skin.config.ts     # 皮肤配置
-      index.ts           # 皮肤入口
+      skin.config.ts     # 皮肤配置（配色方案、默认模式）
+      index.ts           # 皮肤入口（导出 SkinModule 接口 + bootstrap）
+    carbon/              # 终端风格皮肤
 ```
 
 ### 构建
 
 ```bash
-npm run build:classic    # 构建 souwen-classic 皮肤
-# 等效于：VITE_SKIN=souwen-classic npm run build
+npm run build            # 默认全皮肤构建
+npm run build:classic    # 单皮肤构建（体积更小）
 # 产物：单文件 dist/index.html，自动复制到 src/souwen/server/panel.html
 ```
 
@@ -77,12 +81,15 @@ npm run build:classic    # 构建 souwen-classic 皮肤
 
 1. 复制 `panel/src/skins/souwen-classic/` 为新目录（如 `skins/my-skin/`）
 2. 修改 `skin.config.ts` 中的皮肤元信息和配色方案
-3. 自由修改组件、页面、样式、路由
-4. 构建：`VITE_SKIN=my-skin npm run build`
+3. 确保 `index.ts` 导出完整的 `SkinModule` 接口（含 `bootstrap`、`ErrorBoundary`、`Spinner`）
+4. CSS 使用 `html[data-skin='my-skin']` 命名空间
+5. 在 `vite.config.ts` 的 `ALL_SKINS` 数组中注册
+6. 构建：`VITE_SKINS=my-skin npm run build`
 
 ### 注意事项
 
-- 使用 `@core/...` 引用共享模块，`@skin/...` 引用当前皮肤模块
+- 使用 `@core/...` 引用共享模块
+- 皮肤之间不可互相引用，只能引用 `@core`
 - 动画使用 Framer Motion：导入 `m`（不是 `motion`），`type: 'spring'` 需要 `as const`
 - SCSS 变量定义在 `styles/variables.scss`，全局 token 通过 CSS 自定义属性
 - 不使用 Tailwind — 项目使用 SCSS Modules + CSS Variables

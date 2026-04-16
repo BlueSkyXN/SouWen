@@ -12,8 +12,10 @@ import {
   LogOut,
   Menu,
   User,
+  Layers,
 } from 'lucide-react'
 import { useAuthStore } from '@core/stores/authStore'
+import { isSingleSkin, listSkinIds, getSkinOrDefault } from '@core/skin-registry'
 import styles from './MainLayout.module.scss'
 
 const NAV_ITEMS = [
@@ -99,6 +101,27 @@ export function MainLayout() {
           <div className={styles.avatar}>
             <User size={14} />
           </div>
+
+          {!isSingleSkin() && (
+            <button
+              className={styles.skinSwitcherBtn}
+              onClick={() => {
+                const ids = listSkinIds()
+                const currentSkinId = document.documentElement.getAttribute('data-skin') || ids[0]
+                const idx = ids.indexOf(currentSkinId)
+                const nextId = ids[(idx + 1) % ids.length]
+                const nextSkin = getSkinOrDefault(nextId)
+                document.documentElement.setAttribute('data-skin', nextId)
+                localStorage.setItem('souwen_skin', nextId)
+                localStorage.setItem('souwen_scheme', nextSkin.skinModule.skinConfig.defaultScheme)
+                window.location.reload()
+              }}
+              title={t('skin.switchSkin')}
+            >
+              <Layers size={14} />
+              <span>{t('skin.switchSkin')}</span>
+            </button>
+          )}
 
           <button className={styles.logoutBtn} onClick={handleLogout}>
             <LogOut size={14} />

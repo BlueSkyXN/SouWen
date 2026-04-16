@@ -1,13 +1,12 @@
 FROM node:22-slim AS panel-builder
 ARG SOUWEN_REPO=https://github.com/BlueSkyXN/SouWen.git
 ARG SOUWEN_REF=main
-ARG SKIN=souwen-classic
 RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /build
 RUN git clone --depth 1 --branch "${SOUWEN_REF}" "${SOUWEN_REPO}" .
 WORKDIR /build/panel
-RUN npm ci --ignore-scripts && VITE_SKIN=${SKIN} npm run build
+RUN npm ci --ignore-scripts && VITE_SKINS=all npm run build
 
 FROM python:3.11-slim
 

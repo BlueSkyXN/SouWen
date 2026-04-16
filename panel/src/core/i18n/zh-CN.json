@@ -347,6 +347,13 @@
     "ember": "余烬",
     "emberDesc": "琥珀色调，温暖与力量"
   },
+  "skin": {
+    "classic": "经典",
+    "classicDesc": "Apple 风格，优雅现代",
+    "carbon": "Carbon",
+    "carbonDesc": "终端风格，极客美学",
+    "switchSkin": "切换皮肤"
+  },
   "multiselect": {
     "filter": "筛选...",
     "selectAll": "全选",

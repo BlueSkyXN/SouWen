@@ -2,11 +2,10 @@ import { useEffect, useState } from 'react'
 import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { LazyMotion, domAnimation, AnimatePresence } from 'framer-motion'
 import { useAuthStore } from '@core/stores/authStore'
-import { useSkinStore } from '@skin/stores/skinStore'
-import { AppShell, LoginPage, skinRoutes } from '@skin'
-import { ToastContainer } from '@skin/components/common/Toast'
-import { Spinner } from '@skin/components/common/Spinner'
-import '@skin/styles/global.scss'
+import { getActiveSkin } from '@core/skin-registry'
+
+const skin = getActiveSkin()
+const { AppShell, LoginPage, skinRoutes, ToastContainer, Spinner } = skin.skinModule
 
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -37,14 +36,12 @@ function AnimatedRoutes() {
 
 export default function App() {
   const loadFromStorage = useAuthStore((s) => s.loadFromStorage)
-  const loadSkin = useSkinStore((s) => s.loadSkin)
   const [ready, setReady] = useState(false)
 
   useEffect(() => {
-    loadSkin()
     loadFromStorage()
     setReady(true)
-  }, [loadFromStorage, loadSkin])
+  }, [loadFromStorage])
 
   if (!ready) return <Spinner size="lg" />
 

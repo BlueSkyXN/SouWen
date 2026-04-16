@@ -16,11 +16,12 @@ import {
   LogOut,
   Palette,
   Check,
+  Layers,
 } from 'lucide-react'
 import { useAuthStore } from '@core/stores/authStore'
 import { useSkinStore } from '../../stores/skinStore'
-import { VISUAL_THEMES } from '@core/types'
-import type { VisualTheme } from '@core/types'
+import { skinConfig } from '../../skin.config'
+import { getSkinOrDefault, isSingleSkin, listSkinIds } from '@core/skin-registry'
 import styles from './MainLayout.module.scss'
 
 const NAV_ITEMS = [
@@ -82,11 +83,9 @@ export function MainLayout() {
 
   const pageTitleKey = PAGE_TITLE_KEYS[location.pathname] ?? 'nav.dashboard'
 
-  const THEME_DOTS: Record<VisualTheme, string> = {
-    nebula: '#4f46e5',
-    aurora: '#0d9488',
-    obsidian: '#475569',
-  }
+  const THEME_DOTS = Object.fromEntries(
+    skinConfig.schemes.map((s) => [s.id, s.dotColor])
+  ) as Record<string, string>
 
   useEffect(() => {
     if (!themePaletteOpen) return
@@ -232,24 +231,46 @@ export function MainLayout() {
                     transition={{ type: 'spring' as const, stiffness: 500, damping: 30 }}
                   >
                     <div className={styles.paletteTitle}>{t('theme.label')}</div>
-                    {VISUAL_THEMES.map((vt) => (
+                    {skinConfig.schemes.map((s) => (
                       <button
-                        key={vt}
-                        className={`${styles.paletteItem} ${scheme === vt ? styles.paletteActive : ''}`}
-                        onClick={() => { setScheme(vt); setThemePaletteOpen(false) }}
+                        key={s.id}
+                        className={`${styles.paletteItem} ${scheme === s.id ? styles.paletteActive : ''}`}
+                        onClick={() => { setScheme(s.id); setThemePaletteOpen(false) }}
                       >
                         <span
                           className={styles.paletteDot}
-                          style={{ background: THEME_DOTS[vt] }}
+                          style={{ background: THEME_DOTS[s.id] }}
                         />
-                        <span className={styles.paletteName}>{t(`theme.${vt}`)}</span>
-                        {scheme === vt && <Check size={14} className={styles.paletteCheck} />}
+                        <span className={styles.paletteName}>{t(s.labelKey)}</span>
+                        {scheme === s.id && <Check size={14} className={styles.paletteCheck} />}
                       </button>
                     ))}
                   </m.div>
                 )}
               </AnimatePresence>
             </div>
+            {!isSingleSkin() && (
+              <div className={styles.skinSwitcher}>
+                <button
+                  className={styles.skinSwitcherBtn}
+                  onClick={() => {
+                    const ids = listSkinIds()
+                    const currentSkinId = document.documentElement.getAttribute('data-skin') || ids[0]
+                    const idx = ids.indexOf(currentSkinId)
+                    const nextId = ids[(idx + 1) % ids.length]
+                    const nextSkin = getSkinOrDefault(nextId)
+                    document.documentElement.setAttribute('data-skin', nextId)
+                    localStorage.setItem('souwen_skin', nextId)
+                    nextSkin.skinModule.skinConfig.schemes[0] && setScheme(nextSkin.skinModule.skinConfig.defaultScheme)
+                    window.location.reload()
+                  }}
+                  title={t('skin.switchSkin')}
+                >
+                  <Layers size={15} />
+                  <span>{t('skin.switchSkin')}</span>
+                </button>
+              </div>
+            )}
             <button className={styles.logoutBtn} onClick={handleLogout}>
               <LogOut size={15} />
               <span>{t('nav.logout')}</span>

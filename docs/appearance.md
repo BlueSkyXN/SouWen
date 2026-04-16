@@ -8,7 +8,7 @@ SouWen 的管理面板（`/panel`）采用三层外观体系：
 
 | 层级 | 名称 | 切换方式 | 说明 |
 |------|------|----------|------|
-| 🎭 **皮肤 Skin** | 整体 UI 风格 | 构建时 | 完全不同的布局、组件、路由、交互逻辑 |
+| 🎭 **皮肤 Skin** | 整体 UI 风格 | 构建时 或 运行时 | 完全不同的布局、组件、路由、交互逻辑 |
 | 🌓 **模式 Mode** | 明暗模式 | 运行时 | Light / Dark |
 | 🎨 **配色 Scheme** | 强调色方案 | 运行时 | 每个皮肤定义自己支持的配色集 |
 
@@ -123,22 +123,35 @@ Carbon 皮肤提供 3 种配色方案，均为暗色风格：
 
 选择会自动保存到浏览器的 localStorage，下次访问时自动恢复。
 
-### 皮肤切换（构建时）
+### 皮肤切换（运行时 + 构建时）
 
-**皮肤是构建时选项**，通过 `VITE_SKIN` 环境变量指定，不同皮肤会编译出完全不同的前端页面。
-构建完成后，产物是一个单文件 `index.html`（由 vite-plugin-singlefile 生成），会被复制到 `src/souwen/server/panel.html` 供后端服务。
+皮肤支持两种切换方式：
+
+#### 运行时切换（多皮肤构建）
+
+当使用 `VITE_SKINS=all` 或 `VITE_SKINS=souwen-classic,carbon` 构建时，面板会在标题栏显示「切换皮肤」按钮。
+Docker 构建默认包含所有皮肤，开箱即支持运行时切换。
+
+切换皮肤后页面会自动刷新，选择保存在 localStorage 中。
+
+#### 构建时选择（单皮肤构建）
+
+使用 `VITE_SKINS=souwen-classic` 构建时，仅包含指定皮肤，体积更小，不显示切换按钮。
 
 #### 方式一：本地开发
 
 ```bash
 cd panel
 
-# 使用默认皮肤（souwen-classic）
-npm run dev                    # 等同于 VITE_SKIN=souwen-classic vite
-npm run dev:classic            # 明确指定 classic
+# 默认开发（全皮肤，可运行时切换）
+npm run dev
 
-# 使用 carbon 皮肤
-VITE_SKIN=carbon npm run dev   # 启动 carbon 皮肤的开发服务器
+# 单皮肤开发
+npm run dev:classic            # 仅 classic
+npm run dev:carbon             # 仅 carbon
+
+# 全皮肤开发（等同于默认 dev）
+npm run dev:all
 ```
 
 #### 方式二：本地构建
@@ -146,12 +159,15 @@ VITE_SKIN=carbon npm run dev   # 启动 carbon 皮肤的开发服务器
 ```bash
 cd panel
 
-# 构建 classic 皮肤（两种写法等价）
-npm run build                  # 默认 classic
-npm run build:classic          # 等同于 VITE_SKIN=souwen-classic npm run build
+# 默认构建（全皮肤）
+npm run build
 
-# 构建 carbon 皮肤
-VITE_SKIN=carbon npm run build
+# 单皮肤构建（体积更小）
+npm run build:classic
+npm run build:carbon
+
+# 全皮肤构建（等同于默认 build）
+npm run build:all
 
 # 构建流程会自动：
 # 1. TypeScript 类型检查（tsc -b）
@@ -161,112 +177,30 @@ VITE_SKIN=carbon npm run build
 
 #### 方式三：Docker 构建
 
-Dockerfile 使用 `ARG SKIN` 在构建阶段选择皮肤：
+Docker 构建默认包含所有皮肤：
 
 ```bash
-# 使用默认皮肤（souwen-classic）
 docker build -t souwen .
-
-# 使用 carbon 皮肤
-docker build --build-arg SKIN=carbon -t souwen .
+docker compose up -d
 ```
-
-#### 方式四：Docker Compose
-
-编辑 `docker-compose.yml` 中的 `SKIN` 参数：
-
-```yaml
-services:
-  souwen:
-    build:
-      context: .
-      args:
-        SKIN: carbon    # 改为你想使用的皮肤名
-```
-
-然后重新构建：
-
-```bash
-docker compose up -d --build
-```
-
-> **注意**：云端 Dockerfile 同样支持 `SKIN` 构建参数，见下方。
-
-#### 方式五：HFS（Hugging Face Spaces）部署
-
-HFS 使用 `cloud/hfs/Dockerfile`，通过 Docker 构建参数选择皮肤。
-
-**方法 A：修改 Dockerfile 默认值**
-
-编辑 `cloud/hfs/Dockerfile` 第 3 行：
-
-```dockerfile
-ARG SKIN=carbon          # 将 souwen-classic 改为 carbon
-```
-
-**方法 B：通过 HFS 环境变量传入**
-
-Hugging Face Spaces 支持在构建阶段传递 Docker 构建参数。在 Space 的 Settings → Repository secrets & variables 中：
-
-1. 添加变量 `SKIN`，值为 `carbon`（或其他皮肤名）
-2. 然后在 `Dockerfile` 中使用：
-
-```dockerfile
-ARG SKIN=souwen-classic   # 默认值，会被 HFS 传入的值覆盖
-```
-
-> HFS 的 Dockerfile 构建时会自动将同名环境变量映射到 `ARG`，无需额外配置。
-
-**方法 C：docker build 命令行**（本地测试 HFS 镜像时）
-
-```bash
-docker build -f cloud/hfs/Dockerfile --build-arg SKIN=carbon -t souwen-hfs .
-```
-
-#### 方式六：ModelScope 部署
-
-`cloud/modelscope/Dockerfile` 用法与 HFS 完全一致：
-
-```bash
-docker build -f cloud/modelscope/Dockerfile --build-arg SKIN=carbon -t souwen-ms .
-```
-
-或修改 Dockerfile 中的 `ARG SKIN=souwen-classic` 默认值。
 
 #### 环境变量速查表
 
 | 环境/场景 | 变量名 | 设置方式 | 示例 |
 |-----------|--------|----------|------|
-| 本地 npm 开发 | `VITE_SKIN` | Shell 环境变量 | `VITE_SKIN=carbon npm run dev` |
-| 本地 npm 构建 | `VITE_SKIN` | Shell 环境变量 | `VITE_SKIN=carbon npm run build` |
-| npm 快捷脚本 | — | package.json scripts | `npm run dev:carbon` / `npm run build:carbon` |
-| Docker build | `SKIN` | `--build-arg` | `docker build --build-arg SKIN=carbon .` |
-| Docker Compose | `SKIN` | docker-compose.yml `args` | `SKIN: carbon` |
-| HFS | `SKIN` | Dockerfile ARG / Space 变量 | 修改 ARG 默认值或 Space Settings |
-| ModelScope | `SKIN` | Dockerfile ARG | 修改 ARG 默认值 |
-
-> **关键区别**：`VITE_SKIN` 是 Vite 构建时使用的环境变量（npm 脚本场景），`SKIN` 是 Docker 构建参数（Dockerfile 场景）。
-> Dockerfile 内部会将 `SKIN` 转换为 `VITE_SKIN`：`RUN VITE_SKIN=${SKIN} npm run build`
+| 本地 npm 开发 | `VITE_SKINS` | Shell 环境变量 | `VITE_SKINS=all npm run dev` |
+| 本地 npm 构建 | `VITE_SKINS` | Shell 环境变量 | `VITE_SKINS=all npm run build` |
+| npm 快捷脚本 | — | package.json scripts | `npm run dev:all` / `npm run build:all` |
+| Docker build | — | 默认 `VITE_SKINS=all` | `docker build .` |
 
 #### 原理说明
 
-`vite.config.ts` 根据 `VITE_SKIN` 环境变量设置 `@skin` 路径别名：
+`vite.config.ts` 通过 `VITE_SKINS` 环境变量控制 Vite 虚拟模块 `virtual:skin-loader`：
 
-```typescript
-const skin = process.env.VITE_SKIN || 'souwen-classic'
+- **单皮肤模式**：仅导入一个皮肤的 CSS 和组件
+- **多皮肤模式**：导入所有指定皮肤，通过 `html[data-skin]` CSS 选择器隔离样式
 
-export default defineConfig({
-  resolve: {
-    alias: {
-      '@core': path.resolve(__dirname, 'src/core'),
-      '@skin': path.resolve(__dirname, `src/skins/${skin}`),
-    },
-  },
-})
-```
-
-`App.tsx` 和 `main.tsx` 通过 `@skin` 导入皮肤的组件（AppShell、LoginPage、routes 等），
-因此不同皮肤可以拥有完全不同的布局、组件、路由和交互逻辑，而共享同一套 core 层（认证、API、i18n、类型）。
+`main.tsx` 在 React 渲染前同步设置 `data-skin`、`data-mode`、`data-scheme` 属性，避免无样式闪烁。
 
 ## 创建自定义皮肤
 
@@ -288,6 +222,7 @@ export const skinConfig: SkinConfig = {
   labelKey: 'skin.mySkin',
   descriptionKey: 'skin.mySkinDesc',
   defaultScheme: 'nebula',
+  defaultMode: 'light',  // 默认明暗模式
   schemes: [
     // 可以定义自己的配色方案，也可以复用现有的
     { id: 'nebula', labelKey: 'theme.nebula', dotColor: '#4f46e5' },
@@ -296,27 +231,61 @@ export const skinConfig: SkinConfig = {
 }
 ```
 
-### 3. 自由修改 UI
+### 3. 导出必需接口
 
-皮肤目录下的所有文件都是独立的：
+皮肤的 `index.ts` 必须导出以下内容：
 
-- `components/` — 修改或替换所有 UI 组件
-- `pages/` — 重新设计页面布局
-- `styles/` — 使用完全不同的设计语言
-- `routes.tsx` — 调整路由结构
-- `stores/skinStore.ts` — 自定义状态管理逻辑
+```typescript
+export { MainLayout as AppShell } from './components/layout/MainLayout'
+export { LoginPage } from './pages/LoginPage'
+export { skinRoutes } from './routes'
+export { skinConfig } from './skin.config'
+export { ErrorBoundary } from './components/common/ErrorBoundary'
+export { ToastContainer } from './components/common/Toast'
+export { Spinner } from './components/common/Spinner'
 
-### 4. 构建并测试
-
-```bash
-VITE_SKIN=my-skin npm run dev    # 开发预览
-VITE_SKIN=my-skin npm run build  # 构建产物
+import { useSkinStore } from './stores/skinStore'
+export function bootstrap() {
+  useSkinStore.getState().loadSkin()
+}
 ```
 
-### 5. 提交到 Docker
+### 4. CSS 命名空间
+
+`styles/global.scss` 中所有选择器必须使用 `html[data-skin='my-skin']` 命名空间：
+
+```scss
+html[data-skin='my-skin'] {
+  --bg: #ffffff;
+  --text: #1a1a1a;
+  // ...
+}
+
+html[data-skin='my-skin'][data-mode='dark'] {
+  --bg: #0a0a0a;
+  --text: #e5e5e5;
+}
+```
+
+### 5. 注册到构建系统
+
+在 `panel/vite.config.ts` 的 `ALL_SKINS` 数组中添加你的皮肤 ID：
+
+```typescript
+const ALL_SKINS = ['souwen-classic', 'carbon', 'my-skin']
+```
+
+### 5. 构建并测试
 
 ```bash
-docker build --build-arg SKIN=my-skin -t souwen .
+# 单皮肤开发
+VITE_SKINS=my-skin npm run dev
+
+# 多皮肤开发（与其他皮肤一起）
+VITE_SKINS=souwen-classic,my-skin npm run dev
+
+# 构建
+VITE_SKINS=my-skin npm run build
 ```
 
 ## 共享 vs 独立
@@ -342,24 +311,34 @@ import type { SearchResult } from '@core/types'
 
 ### CSS 变量体系
 
-所有视觉属性通过 CSS 自定义属性控制：
+所有视觉属性通过 CSS 自定义属性控制，使用 `html[data-skin]` 进行皮肤级隔离：
 
 ```css
-/* 明暗模式通过 data-mode 属性切换 */
-:root           { --bg: #f8f9fb; }    /* 浅色 */
-[data-mode='dark'] { --bg: #0a0a0f; } /* 深色 */
+/* 皮肤级隔离 —— 每个皮肤的变量仅在自己的 data-skin 下生效 */
+html[data-skin='souwen-classic']                         { --bg: #f8f9fb; }
+html[data-skin='souwen-classic'][data-mode='dark']       { --bg: #0a0a0f; }
+html[data-skin='souwen-classic'][data-scheme='aurora']   { --accent: #0d9488; }
 
-/* 配色方案通过 data-scheme 属性切换 */
-[data-scheme='aurora']    { --accent: #0d9488; }   /* 极光 */
-[data-scheme='obsidian']  { --accent: #475569; }   /* 黑曜石 */
-/* 默认 nebula 不需要额外选择器 */
+html[data-skin='carbon']                                 { --bg: #0a0a0a; }
+html[data-skin='carbon'][data-scheme='matrix']           { --accent: #10b981; }
 ```
+
+### Skin Registry
+
+皮肤通过 `registerSkin()` 注册到运行时注册表。`main.tsx` 在 `createRoot()` 之前同步完成：
+
+1. 导入 `virtual:skin-loader`（注册所有构建的皮肤）
+2. 从 localStorage 读取用户选择的皮肤
+3. 调用 `getSkinOrDefault()` 获取有效皮肤（无效 ID 自动回退）
+4. 同步设置 `data-skin`、`data-mode`、`data-scheme` 属性
+5. 渲染 React 应用
 
 ### localStorage 键
 
 | 键名 | 值 | 说明 |
 |------|-----|------|
+| `souwen_skin` | `souwen-classic` / `carbon` | 当前皮肤（多皮肤模式） |
 | `souwen_mode` | `light` / `dark` | 明暗模式 |
-| `souwen_scheme` | `nebula` / `aurora` / `obsidian` | 配色方案 |
+| `souwen_scheme` | `nebula` / `aurora` / `obsidian` / `terminal` / `matrix` / `ember` | 配色方案 |
 
 > 向后兼容：旧版 `souwen_theme` 和 `souwen_visual_theme` 键会在加载时自动迁移。
