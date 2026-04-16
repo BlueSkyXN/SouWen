@@ -1,0 +1,341 @@
+@use '../../styles/variables' as *;
+
+/* ===== iOS Skin Layout — Sidebar + Content ===== */
+
+.layout {
+  min-height: 100vh;
+  display: flex;
+  background: var(--bg);
+}
+
+/* ── Desktop Sidebar ── */
+.sidebar {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  width: $sidebar-width;
+  background: var(--bg-nav);
+  border-right: 1px solid var(--nav-border);
+  display: flex;
+  flex-direction: column;
+  padding: 12px;
+  overflow-y: auto;
+  z-index: 50;
+
+  @media (max-width: 768px) {
+    display: none;
+  }
+}
+
+/* ── Sidebar Search Bar ── */
+.sidebarSearch {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 10px;
+  background: $ios-search-bg;
+  border-radius: $radius-search;
+  margin-bottom: 16px;
+  cursor: default;
+}
+
+.searchIcon {
+  color: $ios-gray;
+  flex-shrink: 0;
+}
+
+.searchPlaceholder {
+  font-family: $font-body;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--nav-text);
+  letter-spacing: -0.022em;
+}
+
+/* ── Sidebar Navigation ── */
+.sidebarNav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1;
+}
+
+.sidebarItem {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: $radius-search;
+  text-decoration: none;
+  color: var(--nav-text);
+  font-family: $font-body;
+  font-size: 15px;
+  font-weight: 400;
+  letter-spacing: -0.022em;
+  transition: background $transition-fast;
+
+  &:hover {
+    background: var(--nav-hover);
+    text-decoration: none;
+  }
+}
+
+.sidebarItemActive {
+  background: $ios-blue;
+  color: #fff;
+
+  &:hover {
+    background: $ios-blue;
+  }
+
+  .squircleIcon {
+    background: rgba(255, 255, 255, 0.25) !important;
+  }
+}
+
+.squircleIcon {
+  width: 24px;
+  height: 24px;
+  border-radius: $radius-icon;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.sidebarLabel {
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ── Sidebar Footer ── */
+.sidebarFooter {
+  margin-top: auto;
+  padding-top: 12px;
+  border-top: 1px solid var(--nav-border);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.sidebarAction {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: $radius-search;
+  border: none;
+  background: none;
+  color: var(--nav-text-secondary);
+  font-family: $font-body;
+  font-size: 14px;
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  transition: background $transition-fast;
+  letter-spacing: -0.022em;
+
+  &:hover {
+    background: var(--nav-hover);
+    color: var(--nav-text);
+  }
+}
+
+.versionTag {
+  padding: 4px 10px;
+  font-family: $font-body;
+  font-size: 12px;
+  color: var(--nav-text-muted);
+  text-align: center;
+}
+
+/* ── Skin Palette ── */
+.skinWrap {
+  position: relative;
+}
+
+.palette {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 0;
+  background: var(--bg-card-solid);
+  border-radius: $radius-card;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.16);
+  min-width: 200px;
+  max-width: 260px;
+  width: max-content;
+  z-index: 200;
+  padding: 6px;
+  border: 1px solid var(--border-light);
+}
+
+.paletteTitle {
+  font-family: $font-body;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--text-muted);
+  padding: 8px 12px 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.02em;
+}
+
+.paletteItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-family: $font-body;
+  font-size: 14px;
+  color: var(--text-secondary);
+  text-align: left;
+  border-radius: $radius-search;
+  transition: background $transition-fast;
+  overflow: hidden;
+
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--text);
+  }
+}
+
+.paletteActive {
+  color: var(--accent);
+}
+
+.paletteName {
+  flex: 1;
+  font-weight: 500;
+}
+
+.paletteDesc {
+  font-size: 12px;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
+}
+
+.paletteCheck {
+  color: var(--accent);
+  flex-shrink: 0;
+}
+
+/* ── Content Area ── */
+.content {
+  flex: 1;
+  margin-left: $sidebar-width;
+  overflow-y: auto;
+  min-height: 100vh;
+
+  @media (max-width: 768px) {
+    margin-left: 0;
+    padding-top: $nav-height;
+  }
+}
+
+.contentInner {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 24px;
+
+  @media (max-width: 768px) {
+    padding: 16px;
+  }
+}
+
+/* ── Mobile Header ── */
+.mobileHeader {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: $nav-height;
+  background: var(--bg-nav);
+  border-bottom: 1px solid var(--nav-border);
+  z-index: 90;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 12px;
+
+  @media (max-width: 768px) {
+    display: flex;
+  }
+}
+
+.hamburger {
+  background: none;
+  border: none;
+  color: var(--accent);
+  padding: 6px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.mobileTitle {
+  font-family: $font-body;
+  font-size: 17px;
+  font-weight: 600;
+  color: var(--nav-text);
+  letter-spacing: -0.022em;
+}
+
+/* ── Mobile Overlay ── */
+.overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 99;
+  background: var(--overlay-bg);
+}
+
+/* ── Mobile Drawer ── */
+.mobileDrawer {
+  position: fixed;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  z-index: 100;
+  width: $sidebar-width;
+  background: var(--bg-nav);
+  border-right: 1px solid var(--nav-border);
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+}
+
+.drawerHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 4px;
+  margin-bottom: 12px;
+}
+
+.drawerBrand {
+  font-family: $font-body;
+  font-weight: 600;
+  font-size: 17px;
+  color: var(--nav-text);
+  letter-spacing: -0.022em;
+}
+
+.drawerClose {
+  background: none;
+  border: none;
+  color: var(--nav-text-secondary);
+  padding: 4px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+}

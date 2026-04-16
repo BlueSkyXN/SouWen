@@ -1,0 +1,198 @@
+@use '../styles/variables' as *;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  max-width: $content-max-data;
+}
+
+/* ── Page Header ── */
+.pageHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 32px 0 24px;
+}
+
+.pageTitle {
+  font-family: $font-display;
+  font-size: var(--heading-section);
+  font-weight: 600;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  letter-spacing: -0.02em;
+  line-height: var(--heading-lh-tight);
+}
+
+.pageDesc {
+  font-family: $font-body;
+  font-size: 14px;
+  color: var(--text-dim);
+  margin-top: 4px;
+  max-width: 600px;
+  line-height: 1.5;
+}
+
+.commitBtn {
+  padding: 8px 16px;
+  background: var(--accent);
+  border: none;
+  border-radius: $radius;
+  color: #fff;
+  font-family: $font-body;
+  font-size: 14px;
+  font-weight: 400;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  transition: background $transition-fast;
+  white-space: nowrap;
+
+  &:hover:not(:disabled) {
+    background: var(--accent-hover);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+/* ── Config Section ── */
+.configSection {
+  background: var(--bg-card-solid);
+  border: var(--border-card);
+  border-radius: $radius;
+  box-shadow: $shadow-card;
+  overflow: hidden;
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+  font-family: $font-display;
+  font-size: var(--heading-tile);
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.02em;
+  line-height: var(--heading-lh);
+}
+
+.sectionIcon {
+  color: var(--accent);
+  display: flex;
+  align-items: center;
+}
+
+/* ── Config Rows ── */
+.configRow {
+  display: flex;
+  align-items: center;
+  padding: 14px 20px;
+  border-bottom: 1px solid var(--border);
+  gap: 16px;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:hover {
+    background: var(--bg-hover);
+  }
+}
+
+.configLabel {
+  flex: 0 0 200px;
+  font-family: $font-body;
+  font-size: 14px;
+  color: var(--text-muted);
+  font-weight: 500;
+
+  @media (max-width: 640px) {
+    flex: 0 0 140px;
+  }
+}
+
+.configValue {
+  flex: 1;
+  font-family: $font-body;
+  font-size: 14px;
+  color: var(--text);
+  word-break: break-all;
+}
+
+.nullVal {
+  color: var(--text-dim);
+  font-style: italic;
+  font-size: 13px;
+}
+
+.codeVal {
+  font-family: $font-mono;
+  font-size: 13px;
+  padding: 2px 8px;
+  background: var(--bg-hover);
+  border-radius: $radius-sm;
+  color: var(--text-secondary);
+}
+
+.boolBadge {
+  padding: 3px 10px;
+  font-family: $font-body;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: $radius-pill;
+
+  &.boolTrue {
+    color: $success;
+    background: $success-light;
+  }
+
+  &.boolFalse {
+    color: var(--text-dim);
+    background: var(--bg-hover);
+  }
+}
+
+.maskedBadge {
+  padding: 3px 10px;
+  font-family: $font-body;
+  font-size: 12px;
+  font-weight: 500;
+  color: $success;
+  background: $success-light;
+  border-radius: $radius-pill;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.plainVal {
+  color: var(--text-secondary);
+}
+
+/* ── Responsive ── */
+@media (max-width: 640px) {
+  .configRow {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .configLabel {
+    flex: none;
+  }
+
+  .pageHeader {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+}

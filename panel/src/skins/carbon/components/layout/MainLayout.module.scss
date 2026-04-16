@@ -226,6 +226,8 @@
   background: var(--bg-card-solid);
   border: 1px solid var(--border-strong);
   min-width: 180px;
+  max-width: 260px;
+  width: max-content;
   z-index: 200;
   padding: 4px;
 }
@@ -253,6 +255,7 @@
   color: var(--text-secondary);
   text-align: left;
   transition: background $transition-fast, color $transition-fast;
+  overflow: hidden;
 
   &:hover {
     background: var(--bg-hover);
@@ -279,7 +282,10 @@
 .paletteDesc {
   font-size: 10px;
   color: var(--text-dim);
-  flex-shrink: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  min-width: 0;
 }
 
 .paletteCheck {

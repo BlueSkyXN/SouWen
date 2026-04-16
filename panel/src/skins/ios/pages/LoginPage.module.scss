@@ -1,0 +1,222 @@
+@use '../styles/variables' as *;
+
+.page {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+  background: var(--bg);
+}
+
+.card {
+  width: 100%;
+  max-width: 400px;
+  padding: 40px 32px;
+  background: var(--bg-card-solid);
+  border-radius: $radius-card;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+  position: relative;
+  z-index: 1;
+}
+
+.cardShake {
+  animation: shake 0.4s ease;
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  25% { transform: translateX(-6px); }
+  50% { transform: translateX(6px); }
+  75% { transform: translateX(-4px); }
+}
+
+.cardSuccess {
+  box-shadow: 0 0 0 2px $ios-green;
+}
+
+.title {
+  font-family: $font-body;
+  font-size: 34px;
+  font-weight: 700;
+  color: var(--text);
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  margin-bottom: 6px;
+  text-align: center;
+}
+
+.subtitle {
+  font-family: $font-body;
+  font-size: 15px;
+  color: var(--text-muted);
+  text-align: center;
+  margin-bottom: 32px;
+  letter-spacing: -0.022em;
+  line-height: 1.47;
+}
+
+/* ── iOS Form Group in Login ── */
+.formGroup {
+  margin-bottom: 16px;
+}
+
+.groupTitle {
+  font-family: $font-body;
+  font-size: 13px;
+  font-weight: 400;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  padding-left: 4px;
+  margin-bottom: 6px;
+  letter-spacing: 0.02em;
+}
+
+.groupCard {
+  background: var(--bg-input);
+  border-radius: $radius-card;
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.input {
+  width: 100%;
+  padding: 12px 14px;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  font-family: $font-body;
+  font-size: 17px;
+  outline: none;
+  letter-spacing: -0.022em;
+
+  &::placeholder {
+    color: var(--text-dim);
+  }
+}
+
+.inputGroup {
+  position: relative;
+  display: flex;
+  align-items: center;
+
+  .input {
+    padding-right: 40px;
+  }
+}
+
+.togglePw {
+  position: absolute;
+  right: 10px;
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  display: flex;
+  align-items: center;
+  border-radius: 4px;
+
+  &:hover {
+    color: var(--text-secondary);
+  }
+}
+
+.checkboxRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 24px;
+  font-family: $font-body;
+  font-size: 14px;
+  color: var(--text-muted);
+  letter-spacing: -0.022em;
+
+  input[type='checkbox'] {
+    accent-color: var(--accent);
+    width: 18px;
+    height: 18px;
+  }
+}
+
+.submitBtn {
+  width: 100%;
+  padding: 12px;
+  background: var(--accent);
+  border: none;
+  border-radius: $radius-card;
+  color: #fff;
+  font-family: $font-body;
+  font-size: 17px;
+  font-weight: 500;
+  letter-spacing: -0.022em;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  transition: background $transition-fast, transform $transition-fast;
+
+  &:hover:not(:disabled) {
+    background: var(--accent-hover);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+}
+
+.spinner {
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+.autoConnecting {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  z-index: 1;
+  color: var(--text-muted);
+  font-family: $font-body;
+  font-size: 17px;
+  letter-spacing: -0.022em;
+}
+
+.loginFooter {
+  position: fixed;
+  bottom: 20px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-family: $font-body;
+  font-size: 12px;
+  color: var(--text-dim);
+  opacity: 0.5;
+  letter-spacing: -0.01em;
+  transition: opacity $transition-fast;
+
+  a {
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: color $transition-fast;
+
+    &:hover {
+      color: var(--accent);
+    }
+  }
+
+  &:hover {
+    opacity: 0.8;
+  }
+}
