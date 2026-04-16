@@ -1,0 +1,49 @@
+@use '../../styles/variables' as *;
+
+.container {
+  position: fixed;
+  top: 16px;
+  right: 16px;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  pointer-events: none;
+}
+
+.toast {
+  pointer-events: auto;
+  padding: 14px 18px;
+  font-family: $font-body;
+  font-size: 14px;
+  color: var(--text);
+  max-width: 420px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  cursor: pointer;
+  border: none;
+  background: var(--bg-card-solid);
+  border-radius: $radius-lg;
+  box-shadow: $shadow-card;
+  letter-spacing: -0.01em;
+}
+
+.icon {
+  flex-shrink: 0;
+  margin-top: 1px;
+}
+
+.success .icon { color: $success; }
+.error .icon { color: $error; }
+.info .icon { color: $apple-blue; }
+
+.closeIcon {
+  flex-shrink: 0;
+  opacity: 0.4;
+  transition: opacity $transition-fast;
+
+  &:hover {
+    opacity: 1;
+  }
+}

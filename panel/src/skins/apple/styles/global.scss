@@ -1,0 +1,156 @@
+@use 'variables' as *;
+
+/* ===== Apple Skin — Global Styles ===== */
+
+/* ── Light mode (default) ── */
+html[data-skin='apple'] {
+  --bg: #{$bg-light};
+  --bg-card: #{$bg-white};
+  --bg-card-solid: #{$bg-white};
+  --bg-elevated: #{$bg-white};
+  --bg-input: #{$bg-white};
+  --bg-hover: rgba(0, 0, 0, 0.03);
+  --bg-nav: rgba(255, 255, 255, 0.72);
+
+  --text: #{$text-dark};
+  --text-secondary: #{$text-dark-80};
+  --text-muted: #{$text-dark-48};
+  --text-dim: rgba(0, 0, 0, 0.32);
+
+  --border: #{$border-subtle};
+  --border-light: #{$border-subtle};
+  --border-strong: #{$border-light};
+
+  --accent: #{$apple-blue};
+  --accent-hover: #{$apple-blue-hover};
+  --accent-light: rgba(0, 113, 227, 0.06);
+  --accent-glow: rgba(0, 113, 227, 0.08);
+
+  --link: #{$link-blue};
+
+  --success: #{$success};
+  --success-light: #{$success-light};
+  --warning: #{$warning};
+  --warning-light: #{$warning-light};
+  --error: #{$error};
+  --error-light: #{$error-light};
+
+  --font-display: #{$font-display};
+  --font-body: #{$font-body};
+  --font-mono: #{$font-mono};
+
+  --nav-h: #{$nav-height};
+  --content-max-hero: #{$content-max-hero};
+  --content-max-data: #{$content-max-data};
+  --content-pad: #{$content-padding};
+
+  --radius-sm: #{$radius-sm};
+  --radius: #{$radius};
+  --radius-md: #{$radius-md};
+  --radius-lg: #{$radius-lg};
+  --radius-pill: #{$radius-pill};
+
+  --shadow-card: #{$shadow-card};
+
+  --transition-fast: #{$transition-fast};
+  --transition: #{$transition};
+  --transition-slow: #{$transition-slow};
+
+  --overlay-bg: rgba(0, 0, 0, 0.3);
+  --selection-bg: rgba(0, 113, 227, 0.2);
+  --selection-color: #003d7a;
+}
+
+/* ── Dark mode ── */
+html[data-skin='apple'][data-mode='dark'] {
+  --bg: #{$bg-dark};
+  --bg-card: #1c1c1e;
+  --bg-card-solid: #1c1c1e;
+  --bg-elevated: #2c2c2e;
+  --bg-input: #1c1c1e;
+  --bg-hover: rgba(255, 255, 255, 0.06);
+  --bg-nav: rgba(0, 0, 0, 0.72);
+
+  --text: #f5f5f7;
+  --text-secondary: rgba(255, 255, 255, 0.8);
+  --text-muted: rgba(255, 255, 255, 0.48);
+  --text-dim: rgba(255, 255, 255, 0.32);
+
+  --border: rgba(255, 255, 255, 0.08);
+  --border-light: rgba(255, 255, 255, 0.05);
+  --border-strong: rgba(255, 255, 255, 0.14);
+
+  --accent: #{$bright-blue};
+  --accent-hover: #3aa0ff;
+  --accent-light: rgba(41, 151, 255, 0.1);
+  --accent-glow: rgba(41, 151, 255, 0.15);
+
+  --link: #{$bright-blue};
+
+  --shadow-card: 3px 5px 30px rgba(0, 0, 0, 0.22);
+
+  --overlay-bg: rgba(0, 0, 0, 0.6);
+  --selection-bg: rgba(41, 151, 255, 0.3);
+  --selection-color: #a3d4ff;
+}
+
+/* ===== Skin-specific Base ===== */
+html[data-skin='apple'] {
+  font-size: 17px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html[data-skin='apple'] body {
+  font-family: var(--font-body);
+  background: var(--bg);
+  color: var(--text-secondary);
+  line-height: 1.47;
+  letter-spacing: -0.022em;
+}
+
+html[data-skin='apple'] ::selection {
+  background: var(--selection-bg);
+  color: var(--selection-color);
+}
+
+html[data-skin='apple'] a {
+  color: var(--link);
+  text-decoration: none;
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+/* ===== Scrollbar (subtle) ===== */
+html[data-skin='apple'] ::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+html[data-skin='apple'] ::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+html[data-skin='apple'] ::-webkit-scrollbar-thumb {
+  background: var(--text-dim);
+  border-radius: 4px;
+  &:hover {
+    background: var(--text-muted);
+  }
+}
+
+/* ===== Utility animations ===== */
+@keyframes apple-fade-in {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes apple-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animate-pulse-dot {
+  animation: apple-pulse 2s ease-in-out infinite;
+}

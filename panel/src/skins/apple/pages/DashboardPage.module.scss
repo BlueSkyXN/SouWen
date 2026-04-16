@@ -1,0 +1,283 @@
+@use '../styles/variables' as *;
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  max-width: $content-max-data;
+}
+
+/* ── Page Header ── */
+.pageHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.pageTitle {
+  font-family: $font-display;
+  font-size: 28px;
+  font-weight: 700;
+  color: var(--text);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  letter-spacing: -0.02em;
+  line-height: 1.14;
+}
+
+.headerBadges {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.uptimeBadge {
+  font-family: $font-body;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.statusBadge {
+  padding: 4px 12px;
+  font-family: $font-body;
+  font-size: 13px;
+  font-weight: 500;
+  border-radius: $radius-pill;
+
+  &.ok {
+    color: $success;
+    background: $success-light;
+  }
+
+  &.err {
+    color: $error;
+    background: $error-light;
+  }
+}
+
+/* ── Stats Grid ── */
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+
+  @media (max-width: 768px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+  }
+}
+
+.statCard {
+  padding: 24px;
+  background: var(--bg-card-solid);
+  border-radius: $radius-lg;
+  box-shadow: $shadow-card;
+  transition: box-shadow $transition-fast;
+
+  &:hover {
+    box-shadow: $shadow-card-hover;
+  }
+}
+
+.statCardHighlight {
+  background: var(--accent-light);
+}
+
+.statLabel {
+  font-family: $font-body;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-muted);
+  margin-bottom: 8px;
+}
+
+.statValue {
+  font-family: $font-display;
+  font-size: 36px;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1.1;
+  margin-bottom: 4px;
+  letter-spacing: -0.02em;
+}
+
+.statFraction {
+  font-size: 20px;
+  color: var(--text-muted);
+  font-weight: 400;
+}
+
+.statDesc {
+  font-family: $font-body;
+  font-size: 12px;
+  color: var(--text-dim);
+}
+
+/* ── Health Table ── */
+.tableSection {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.sectionTitle {
+  font-family: $font-display;
+  font-size: 20px;
+  font-weight: 600;
+  color: var(--text);
+  letter-spacing: -0.02em;
+}
+
+.tableWrap {
+  overflow-x: auto;
+  background: var(--bg-card-solid);
+  border-radius: $radius-lg;
+  box-shadow: $shadow-card;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-family: $font-body;
+  font-size: 14px;
+
+  th {
+    padding: 12px 16px;
+    text-align: left;
+    font-weight: 600;
+    color: var(--text-muted);
+    font-size: 12px;
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: 12px 16px;
+    color: var(--text-secondary);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  tbody tr {
+    transition: background $transition-fast;
+
+    &:hover {
+      background: var(--bg-hover);
+    }
+  }
+}
+
+.statusIndicator {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-weight: 500;
+}
+
+.statusDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+
+.statusOk {
+  color: $success;
+}
+
+.statusWarn {
+  color: $warning;
+}
+
+.statusErr {
+  color: $error;
+}
+
+.nodeName {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.typeBadge {
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  border-radius: $radius-pill;
+
+  &.paper {
+    color: var(--accent);
+    background: var(--accent-light);
+  }
+
+  &.patent {
+    color: $warning;
+    background: $warning-light;
+  }
+
+  &.web {
+    color: $success;
+    background: $success-light;
+  }
+}
+
+.tierBadge {
+  padding: 3px 10px;
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-muted);
+  background: var(--bg-hover);
+  border-radius: $radius-pill;
+}
+
+.diagMessage {
+  color: var(--text-dim);
+  max-width: 300px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.keyCode {
+  font-family: $font-mono;
+  font-size: 12px;
+  color: var(--text-dim);
+  padding: 2px 6px;
+  background: var(--bg-hover);
+  border-radius: $radius-sm;
+}
+
+/* ── Error ── */
+.errorState {
+  text-align: center;
+  padding: 60px 20px;
+  font-family: $font-body;
+  font-size: 15px;
+  color: var(--text-muted);
+}
+
+.retryBtn {
+  margin-top: 16px;
+  padding: 10px 24px;
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: $radius-pill;
+  color: var(--text-secondary);
+  font-family: $font-body;
+  font-size: 14px;
+  cursor: pointer;
+  transition: border-color $transition-fast, color $transition-fast;
+  display: inline-flex;
+  align-items: center;
+
+  &:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+}
