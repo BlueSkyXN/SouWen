@@ -4,11 +4,12 @@ RUN apk add --no-cache build-base git && \
     cd /src && make
 
 FROM node:22-slim AS panel-builder
+ARG SKINS=all
 WORKDIR /panel
 COPY panel/package.json panel/package-lock.json* ./
 RUN npm ci --ignore-scripts
 COPY panel/ ./
-RUN VITE_SKINS=all npm run build
+RUN VITE_SKINS=${SKINS} npm run build
 
 FROM python:3.11-slim
 
