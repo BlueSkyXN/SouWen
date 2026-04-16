@@ -205,6 +205,24 @@
   opacity: 0.5;
 }
 
+.authorLink {
+  display: block;
+  text-align: center;
+  font-size: 10px;
+  color: var(--text-muted);
+  opacity: 0.45;
+  text-decoration: none;
+  padding: 2px 0 $space-2;
+  font-family: var(--font-mono);
+  letter-spacing: 0.02em;
+  transition: opacity 0.2s ease, color 0.2s ease;
+
+  &:hover {
+    opacity: 0.8;
+    color: var(--primary);
+  }
+}
+
 .collapseBtn {
   display: flex;
   align-items: center;

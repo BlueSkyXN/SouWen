@@ -312,6 +312,31 @@
   padding: $content-padding;
 }
 
+.pageFooter {
+  text-align: center;
+  padding: 16px 0 12px;
+  font-family: $font-mono;
+  font-size: 11px;
+  color: var(--text-dim);
+  letter-spacing: 0.02em;
+  opacity: 0.5;
+  transition: opacity $transition-fast;
+
+  a {
+    color: var(--text-muted);
+    text-decoration: none;
+    transition: color $transition-fast;
+
+    &:hover {
+      color: var(--accent);
+    }
+  }
+
+  &:hover {
+    opacity: 0.8;
+  }
+}
+
 /* ── Mobile Overlay ── */
 .overlay {
   position: fixed;

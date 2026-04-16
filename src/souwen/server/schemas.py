@@ -24,6 +24,7 @@ class SourcesResponse(BaseModel):
 
 class SearchMeta(BaseModel):
     """搜索元信息 — 追踪哪些源成功/失败"""
+
     requested: list[str] = Field(description="请求的数据源列表")
     succeeded: list[str] = Field(description="成功返回结果的数据源")
     failed: list[str] = Field(description="失败或超时的数据源")
@@ -34,7 +35,9 @@ class SearchPaperResponse(BaseModel):
     sources: list[str]
     results: list[dict]
     total: int
-    meta: SearchMeta = Field(default_factory=lambda: SearchMeta(requested=[], succeeded=[], failed=[]))
+    meta: SearchMeta = Field(
+        default_factory=lambda: SearchMeta(requested=[], succeeded=[], failed=[])
+    )
 
 
 class SearchPatentResponse(BaseModel):
@@ -42,7 +45,9 @@ class SearchPatentResponse(BaseModel):
     sources: list[str]
     results: list[dict]
     total: int
-    meta: SearchMeta = Field(default_factory=lambda: SearchMeta(requested=[], succeeded=[], failed=[]))
+    meta: SearchMeta = Field(
+        default_factory=lambda: SearchMeta(requested=[], succeeded=[], failed=[])
+    )
 
 
 class ConfigReloadResponse(BaseModel):
@@ -64,6 +69,7 @@ class HttpBackendResponse(BaseModel):
 
 class UpdateSourceConfigRequest(BaseModel):
     """更新数据源频道配置的请求体（避免敏感信息出现在 URL 中）"""
+
     enabled: bool | None = None
     proxy: str | None = None
     http_backend: str | None = None
@@ -76,6 +82,7 @@ class ErrorResponse(BaseModel):
 
     所有 4xx/5xx 响应均使用此结构，便于客户端统一处理。
     """
+
     error: str = Field(description="机器可读错误码", examples=["not_found"])
     detail: str = Field(description="人类可读错误描述", examples=["未知数据源: foo"])
     request_id: str = Field(description="关联 ID，用于日志追踪", examples=["a1b2c3d4e5f6"])

@@ -317,6 +317,9 @@ export function MainLayout() {
           </m.div>
         </AnimatePresence>
       </main>
+      <footer className={styles.pageFooter}>
+        <span>SouWen \u641C\u6587 \u00B7 <a href="https://github.com/BlueSkyXN/SouWen" target="_blank" rel="noopener noreferrer">@BlueSkyXN</a> \u00B7 GPLv3</span>
+      </footer>
     </div>
   )
 }

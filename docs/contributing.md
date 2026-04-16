@@ -6,7 +6,7 @@
 
 ```bash
 # 克隆仓库
-git clone https://github.com/your-org/SouWen.git
+git clone https://github.com/BlueSkyXN/SouWen.git
 cd SouWen
 
 # 安装开发依赖

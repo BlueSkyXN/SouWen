@@ -1,6 +1,32 @@
 # Changelog
 
-## v0.4.0 (unreleased)
+## v0.5.0
+
+### 新增
+- **运行时皮肤切换**：支持在不同皮肤间实时切换（需页面刷新），不再需要重新构建
+  - Skin Registry 模式：`registerSkin()` / `getActiveSkin()` / `listSkinIds()`
+  - Vite 虚拟模块 `virtual:skin-loader` 按 `VITE_SKINS` 环境变量加载
+  - CSS 命名空间隔离：`html[data-skin='xxx']` 作用域
+- **皮肤切换下拉面板**：替代原有的循环按钮，显示皮肤名称、描述、选中状态
+- **Carbon 真正浅色模式**：白色背景、深色文字、适当对比度（原有"浅色"仅为稍浅的深色）
+- **经典皮肤宽度优化**：内容最大宽度从 1200px 提升到 1520px
+- **全界面作者信息**：所有页面展示 @BlueSkyXN、项目地址、GPLv3 协议
+- 皮肤切换时自动重置模式和配色方案为目标皮肤默认值
+- 下拉面板支持 Escape 键关闭和点击外部关闭
+- 下拉面板增加 `aria-expanded`、`aria-haspopup` 无障碍属性
+- 所有硬编码颜色替换为 CSS 变量（grid-line、hero-glow、overlay-bg 等）
+
+### 修复
+- 修复皮肤切换后渲染错误组件的 bug（ES 模块提升导致）
+- Docker 构建支持 `SKINS` 参数配置
+- `ruff format` 格式化 10 个 Python 文件，CI 不再失败
+
+### 文档
+- README 添加作者信息、项目地址、GPLv3 协议
+- CHANGELOG 更新至 v0.5.0
+- pyproject.toml 作者信息更新为 @BlueSkyXN
+
+## v0.4.0
 
 ### 新增
 - 11 个新搜索引擎：SerpAPI、Firecrawl、Perplexity Sonar、Linkup、ScrapingDog、Startpage、Baidu、Mojeek、Yandex、Whoogle、Websurfx

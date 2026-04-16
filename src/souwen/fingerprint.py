@@ -192,7 +192,7 @@ def get_api_headers(
     API 场景不需要伪装浏览器，使用标准 SouWen UA + 可选 polite 参数。
     """
     headers: dict[str, str] = {
-        "User-Agent": f"SouWen/{__version__} (Academic & Patent Search; https://github.com/souwen)",
+        "User-Agent": f"SouWen/{__version__} (Academic & Patent Search; https://github.com/BlueSkyXN/SouWen)",
     }
     if email:
         headers["From"] = email

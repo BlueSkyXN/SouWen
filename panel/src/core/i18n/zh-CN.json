@@ -1,7 +1,11 @@
 {
   "app": {
     "name": "SouWen 搜文",
-    "subtitle": "学术搜索聚合引擎 · 管理面板"
+    "subtitle": "学术搜索聚合引擎 · 管理面板",
+    "author": "BlueSkyXN",
+    "repo": "GitHub",
+    "license": "GPLv3 开源协议",
+    "footer": "由 BlueSkyXN 开发 · GPLv3 开源"
   },
   "nav": {
     "dashboard": "仪表盘",
@@ -329,8 +333,11 @@
     "runtimeNote": "运行时修改仅当前进程有效，持久化请修改 souwen.yaml"
   },
   "skin": {
+    "classic": "经典",
+    "classicDesc": "Apple 风格，优雅现代",
     "carbon": "Carbon",
-    "carbonDesc": "终端风格，极客与工业感"
+    "carbonDesc": "终端风格，极客美学",
+    "switchSkin": "切换皮肤"
   },
   "theme": {
     "label": "主题风格",
@@ -346,13 +353,6 @@
     "matrixDesc": "绿色调，黑客与矩阵",
     "ember": "余烬",
     "emberDesc": "琥珀色调，温暖与力量"
-  },
-  "skin": {
-    "classic": "经典",
-    "classicDesc": "Apple 风格，优雅现代",
-    "carbon": "Carbon",
-    "carbonDesc": "终端风格，极客美学",
-    "switchSkin": "切换皮肤"
   },
   "multiselect": {
     "filter": "筛选...",

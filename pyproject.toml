@@ -4,12 +4,12 @@ build-backend = "hatchling.build"
 
 [project]
 name = "souwen"
-version = "0.4.0"
+version = "0.5.0"
 description = "面向 AI Agent 的学术论文 + 专利 + 网页信息统一获取工具库"
 readme = "README.md"
 license = {text = "GPL-3.0-or-later"}
 requires-python = ">=3.10"
-authors = [{name = "SouWen Contributors"}]
+authors = [{name = "BlueSkyXN"}]
 keywords = ["academic", "paper", "patent", "search", "arxiv", "openalex", "ai-agent"]
 classifiers = [
     "Development Status :: 4 - Beta",

@@ -57,7 +57,9 @@ class SemanticScholarClient:
         if self.api_key:
             headers["x-api-key"] = self.api_key
 
-        self._client = SouWenHttpClient(base_url=_BASE_URL, headers=headers, source_name="semantic_scholar")
+        self._client = SouWenHttpClient(
+            base_url=_BASE_URL, headers=headers, source_name="semantic_scholar"
+        )
 
         # 根据是否有 Key 选择限流策略
         if self.api_key:

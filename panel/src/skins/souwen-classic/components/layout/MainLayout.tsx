@@ -166,6 +166,14 @@ export function MainLayout() {
 
       <div className={styles.footer}>
         {version && <div className={styles.version}>v{version}</div>}
+        <a
+          className={styles.authorLink}
+          href="https://github.com/BlueSkyXN/SouWen"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          @BlueSkyXN · GPLv3
+        </a>
         <button
           className={styles.collapseBtn}
           onClick={() => setCollapsed((c) => !c)}

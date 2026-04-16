@@ -30,8 +30,12 @@ async def test_search_papers_skips_timed_out_source(monkeypatch):
         )
 
     monkeypatch.setattr(search_mod, "_get_source_timeout_seconds", lambda: 0.01)
-    monkeypatch.setitem(search_mod._PAPER_SOURCES, "fast_test_source", lambda q, n, **kw: fast_source())
-    monkeypatch.setitem(search_mod._PAPER_SOURCES, "slow_test_source", lambda q, n, **kw: slow_source())
+    monkeypatch.setitem(
+        search_mod._PAPER_SOURCES, "fast_test_source", lambda q, n, **kw: fast_source()
+    )
+    monkeypatch.setitem(
+        search_mod._PAPER_SOURCES, "slow_test_source", lambda q, n, **kw: slow_source()
+    )
 
     resp = await search_mod.search_papers(
         "test",

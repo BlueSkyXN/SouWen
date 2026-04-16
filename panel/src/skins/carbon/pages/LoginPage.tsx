@@ -188,6 +188,9 @@ export function LoginPage() {
           </form>
         </div>
       </m.div>
+      <div className={styles.loginFooter}>
+        <a href="https://github.com/BlueSkyXN/SouWen" target="_blank" rel="noopener noreferrer">SouWen 搜文</a> · @BlueSkyXN · GPLv3
+      </div>
     </div>
   )
 }

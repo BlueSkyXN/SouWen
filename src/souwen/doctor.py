@@ -37,6 +37,7 @@ def check_all() -> list[dict]:
     # 检测 curl_cffi（TLS 指纹伪装）可用性，影响所有爬虫引擎
     try:
         import curl_cffi  # noqa: F401
+
         _has_tls_impersonation = True
     except ImportError:
         _has_tls_impersonation = False
