@@ -378,9 +378,8 @@
   }
 }
 
-.skinSwitcher {
-  display: flex;
-  align-items: center;
+.skinPaletteWrap {
+  position: relative;
 }
 
 .skinSwitcherBtn {
@@ -407,6 +406,12 @@
     transform: scale(0.97);
     transition-duration: 60ms;
   }
+}
+
+.skinDesc {
+  font-size: $text-xs;
+  color: var(--text-muted);
+  flex-shrink: 0;
 }
 
 .themeBtn {

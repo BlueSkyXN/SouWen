@@ -42,6 +42,12 @@ html[data-skin='carbon'] {
   --transition-fast: #{$transition-fast};
   --transition: #{$transition};
   --transition-slow: #{$transition-slow};
+
+  --grid-line: rgba(59, 130, 246, 0.02);
+  --hero-glow: rgba(59, 130, 246, 0.1);
+  --overlay-bg: rgba(0, 0, 0, 0.7);
+  --selection-bg: rgba(59, 130, 246, 0.3);
+  --selection-color: #93c5fd;
 }
 
 /* ── Scheme: matrix (green) ── */
@@ -60,22 +66,37 @@ html[data-skin='carbon'][data-scheme='ember'] {
   --accent-glow: rgba(245, 158, 11, 0.2);
 }
 
-/* ── Light mode (warmer dark) ── */
+/* ── Light mode (true inverted, terminal aesthetic preserved) ── */
 html[data-skin='carbon'][data-mode='light'] {
-  --bg: #18181b;
-  --bg-card: rgba(39, 39, 42, 0.4);
-  --bg-card-solid: #27272a;
-  --bg-elevated: rgba(39, 39, 42, 0.6);
-  --bg-input: #18181b;
-  --bg-hover: rgba(63, 63, 70, 0.4);
-  --bg-nav: rgba(24, 24, 27, 0.9);
-  --text: #fafafa;
-  --text-secondary: #d4d4d8;
-  --text-muted: #a1a1aa;
-  --text-dim: #71717a;
-  --border: #3f3f46;
-  --border-light: rgba(63, 63, 70, 0.5);
-  --border-strong: #52525b;
+  --bg: #f4f4f5;
+  --bg-card: rgba(255, 255, 255, 0.7);
+  --bg-card-solid: #ffffff;
+  --bg-elevated: rgba(255, 255, 255, 0.85);
+  --bg-input: #fafafa;
+  --bg-hover: rgba(0, 0, 0, 0.04);
+  --bg-nav: rgba(255, 255, 255, 0.88);
+
+  --text: #18181b;
+  --text-secondary: #3f3f46;
+  --text-muted: #71717a;
+  --text-dim: #a1a1aa;
+
+  --border: #e4e4e7;
+  --border-light: rgba(0, 0, 0, 0.06);
+  --border-strong: #d4d4d8;
+
+  --accent-light: rgba(59, 130, 246, 0.08);
+  --accent-glow: rgba(59, 130, 246, 0.1);
+
+  --success-light: rgba(16, 185, 129, 0.08);
+  --warning-light: rgba(245, 158, 11, 0.08);
+  --error-light: rgba(244, 63, 94, 0.08);
+
+  --grid-line: rgba(0, 0, 0, 0.05);
+  --hero-glow: rgba(59, 130, 246, 0.06);
+  --overlay-bg: rgba(0, 0, 0, 0.4);
+  --selection-bg: rgba(59, 130, 246, 0.15);
+  --selection-color: #1e40af;
 }
 
 /* ===== Skin-specific Base ===== */
@@ -91,8 +112,8 @@ html[data-skin='carbon'] body {
 }
 
 html[data-skin='carbon'] ::selection {
-  background: rgba(59, 130, 246, 0.3);
-  color: #93c5fd;
+  background: var(--selection-bg);
+  color: var(--selection-color);
 }
 
 html[data-skin='carbon'] a {
