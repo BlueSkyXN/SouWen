@@ -1,3 +1,4 @@
+@use 'sass:color';
 @use '../styles/variables' as *;
 
 .page {
@@ -239,7 +240,7 @@
   background: $error;
 
   &:hover:not(:disabled) {
-    background: darken($error, 8%);
+    background: color.adjust($error, $lightness: -8%);
   }
 }
 
