@@ -75,7 +75,7 @@ function WarpSection() {
       <div className={styles.section}>
         <div className={styles.sectionHeader}>
           <Shield size={14} />
-          [WARP_PROXY]
+          {t('network.warpProxy', 'WARP Proxy')}
         </div>
         <div className={styles.sectionBody}>
           <div className={styles.infoNote}>
@@ -97,43 +97,43 @@ function WarpSection() {
     <div className={styles.section}>
       <div className={styles.sectionHeader}>
         <Shield size={14} />
-        [WARP_PROXY]
+        {t('network.warpProxy', 'WARP Proxy')}
       </div>
       <div className={styles.sectionBody}>
         {/* Status display */}
         <div className={styles.statusGrid}>
           <div className={styles.statusRow}>
-            <span className={styles.statusLabel}>STATUS</span>
+            <span className={styles.statusLabel}>{t('network.status', 'Status')}</span>
             <span className={`${styles.statusValue} ${statusClass}`}>
               <span className={styles.statusDot} />
-              {t(`warp.${warp.status}`).toUpperCase()}
+              {t(`warp.${warp.status}`)}
             </span>
           </div>
           {warp.status !== 'disabled' && (
             <>
               <div className={styles.statusRow}>
-                <span className={styles.statusLabel}>MODE</span>
+                <span className={styles.statusLabel}>{t('network.mode', 'Mode')}</span>
                 <span className={styles.statusValue}>{warp.mode}</span>
               </div>
               <div className={styles.statusRow}>
-                <span className={styles.statusLabel}>PORT</span>
+                <span className={styles.statusLabel}>{t('network.port', 'Port')}</span>
                 <span className={styles.statusValue}>{warp.socks_port}</span>
               </div>
               {warp.ip && (
                 <div className={styles.statusRow}>
-                  <span className={styles.statusLabel}>IP</span>
+                  <span className={styles.statusLabel}>{t('network.ip', 'IP')}</span>
                   <span className={styles.statusValue}>{warp.ip}</span>
                 </div>
               )}
               {warp.pid > 0 && (
                 <div className={styles.statusRow}>
-                  <span className={styles.statusLabel}>PID</span>
+                  <span className={styles.statusLabel}>{t('network.pid', 'PID')}</span>
                   <span className={styles.statusValue}>{warp.pid}</span>
                 </div>
               )}
               {warp.interface && (
                 <div className={styles.statusRow}>
-                  <span className={styles.statusLabel}>INTERFACE</span>
+                  <span className={styles.statusLabel}>{t('network.interface', 'Interface')}</span>
                   <span className={styles.statusValue}>{warp.interface}</span>
                 </div>
               )}
@@ -155,8 +155,7 @@ function WarpSection() {
           <>
             <div className={styles.formGrid}>
               <div className={styles.formRow}>
-                <label className={styles.formLabel}>mode</label>
-                <span className={styles.formSep}>───</span>
+                <label className={styles.formLabel}>{t('network.mode', 'Mode')}</label>
                 <select
                   className={styles.formSelect}
                   value={mode}
@@ -172,8 +171,7 @@ function WarpSection() {
                 </select>
               </div>
               <div className={styles.formRow}>
-                <label className={styles.formLabel}>port</label>
-                <span className={styles.formSep}>───</span>
+                <label className={styles.formLabel}>{t('network.port', 'Port')}</label>
                 <input
                   className={styles.formInput}
                   type="number"
@@ -184,8 +182,7 @@ function WarpSection() {
                 />
               </div>
               <div className={styles.formRow}>
-                <label className={styles.formLabel}>endpoint</label>
-                <span className={styles.formSep}>───</span>
+                <label className={styles.formLabel}>{t('network.endpoint', 'Endpoint')}</label>
                 <input
                   className={styles.formInput}
                   type="text"
@@ -203,7 +200,7 @@ function WarpSection() {
                 disabled={acting}
               >
                 <Shield size={14} />
-                {acting ? t('warp.enabling') : 'ENABLE'}
+                {acting ? t('warp.enabling') : t('warp.enable', 'Enable')}
               </button>
             </div>
           </>
@@ -215,7 +212,7 @@ function WarpSection() {
               disabled={acting}
             >
               <ShieldOff size={14} />
-              {acting ? t('warp.disabling') : 'DISABLE'}
+              {acting ? t('warp.disabling') : t('warp.disable', 'Disable')}
             </button>
           </div>
         )}
@@ -274,16 +271,17 @@ function HttpBackendSection() {
     <div className={styles.section}>
       <div className={styles.sectionHeader}>
         <Plug size={14} />
-        [HTTP_BACKEND]
+        {t('network.httpBackend', 'HTTP Backend')}
         <span className={`${styles.curlBadge} ${data.curl_cffi_available ? styles.curlAvail : styles.curlMissing}`}>
-          {data.curl_cffi_available ? 'CURL_CFFI: OK' : 'CURL_CFFI: N/A'}
+          {data.curl_cffi_available
+            ? t('network.curlAvailable', 'curl_cffi available')
+            : t('network.curlUnavailable', 'curl_cffi unavailable')}
         </span>
       </div>
       <div className={styles.sectionBody}>
         {/* Global default */}
         <div className={`${styles.engineRow} ${styles.engineRowDefault}`}>
-          <span className={styles.engineName}>GLOBAL_DEFAULT</span>
-          <span className={styles.engineSep}>──</span>
+          <span className={styles.engineName}>{t('network.globalDefault', 'Default')}</span>
           <select
             className={styles.engineSelect}
             value={data.default}
@@ -304,7 +302,6 @@ function HttpBackendSection() {
           return (
             <div key={engine} className={styles.engineRow}>
               <span className={styles.engineName}>{engine}</span>
-              <span className={styles.engineSep}>──</span>
               <select
                 className={styles.engineSelect}
                 value={override || 'auto'}
@@ -346,15 +343,15 @@ export function NetworkPage() {
         <div>
           <h1 className={styles.pageTitle}>
             <Wifi size={20} />
-            NETWORK.CONFIG
+            {t('network.title', 'Network')}
           </h1>
           <p className={styles.pageDesc}>
-            {t('network.pageSubtitle', 'WARP 代理和 HTTP 后端配置')}
+            {t('network.pageSubtitle', 'WARP proxy and HTTP backend configuration')}
           </p>
         </div>
         <div className={styles.headerBadge}>
           <Activity size={14} />
-          ACTIVE
+          {t('network.active', 'Active')}
         </div>
       </m.div>
 
