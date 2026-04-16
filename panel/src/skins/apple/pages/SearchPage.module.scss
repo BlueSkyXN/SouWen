@@ -24,7 +24,7 @@
 .heroTitle {
   font-family: $font-display;
   font-size: clamp(48px, 8vw, 72px);
-  font-weight: 700;
+  font-weight: 600;
   color: var(--text);
   letter-spacing: -0.015em;
   line-height: 1.07;
@@ -89,7 +89,7 @@
 .searchBar {
   display: flex;
   align-items: center;
-  border: 1px solid var(--border-strong, var(--border));
+  border: 1px solid transparent;
   background: var(--bg-card-solid);
   border-radius: $radius-pill;
   box-shadow: $shadow-card;
@@ -133,7 +133,7 @@
   color: #fff;
   font-family: $font-body;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 400;
   cursor: pointer;
   transition: background $transition-fast;
   white-space: nowrap;
@@ -238,6 +238,7 @@
 .resultCard {
   padding: 20px;
   background: var(--bg-card-solid);
+  border: var(--border-card);
   border-radius: $radius;
   box-shadow: $shadow-card;
   margin-bottom: 12px;
@@ -349,17 +350,16 @@
   margin-top: 16px;
   padding: 10px 24px;
   background: none;
-  border: 1px solid var(--border);
+  border: 1px solid var(--accent);
   border-radius: $radius-pill;
-  color: var(--text-secondary);
+  color: var(--accent);
   font-family: $font-body;
   font-size: 14px;
   cursor: pointer;
-  transition: border-color $transition-fast, color $transition-fast;
+  transition: background $transition-fast;
 
   &:hover {
-    border-color: var(--accent);
-    color: var(--accent);
+    background: var(--accent-light);
   }
 }
 

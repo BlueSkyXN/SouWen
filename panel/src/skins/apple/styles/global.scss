@@ -10,7 +10,14 @@ html[data-skin='apple'] {
   --bg-elevated: #{$bg-white};
   --bg-input: #{$bg-white};
   --bg-hover: rgba(0, 0, 0, 0.03);
-  --bg-nav: rgba(255, 255, 255, 0.72);
+
+  // Nav is ALWAYS dark translucent glass — the signature Apple look
+  --bg-nav: rgba(0, 0, 0, 0.8);
+  --nav-text: #ffffff;
+  --nav-text-secondary: rgba(255, 255, 255, 0.8);
+  --nav-text-muted: rgba(255, 255, 255, 0.48);
+  --nav-hover: rgba(255, 255, 255, 0.1);
+  --nav-border: rgba(255, 255, 255, 0.08);
 
   --text: #{$text-dark};
   --text-secondary: #{$text-dark-80};
@@ -20,6 +27,7 @@ html[data-skin='apple'] {
   --border: #{$border-subtle};
   --border-light: #{$border-subtle};
   --border-strong: #{$border-light};
+  --border-card: none;
 
   --accent: #{$apple-blue};
   --accent-hover: #{$apple-blue-hover};
@@ -59,6 +67,13 @@ html[data-skin='apple'] {
   --overlay-bg: rgba(0, 0, 0, 0.3);
   --selection-bg: rgba(0, 113, 227, 0.2);
   --selection-color: #003d7a;
+
+  // Apple typography scale
+  --heading-hero: 48px;
+  --heading-section: 36px;
+  --heading-tile: 24px;
+  --heading-lh-tight: 1.08;
+  --heading-lh: 1.14;
 }
 
 /* ── Dark mode ── */
@@ -69,7 +84,9 @@ html[data-skin='apple'][data-mode='dark'] {
   --bg-elevated: #2c2c2e;
   --bg-input: #1c1c1e;
   --bg-hover: rgba(255, 255, 255, 0.06);
-  --bg-nav: rgba(0, 0, 0, 0.72);
+
+  --bg-nav: rgba(0, 0, 0, 0.88);
+  --nav-border: rgba(255, 255, 255, 0.06);
 
   --text: #f5f5f7;
   --text-secondary: rgba(255, 255, 255, 0.8);
@@ -79,6 +96,7 @@ html[data-skin='apple'][data-mode='dark'] {
   --border: rgba(255, 255, 255, 0.08);
   --border-light: rgba(255, 255, 255, 0.05);
   --border-strong: rgba(255, 255, 255, 0.14);
+  --border-card: none;
 
   --accent: #{$bright-blue};
   --accent-hover: #3aa0ff;
@@ -87,7 +105,7 @@ html[data-skin='apple'][data-mode='dark'] {
 
   --link: #{$bright-blue};
 
-  --shadow-card: 3px 5px 30px rgba(0, 0, 0, 0.22);
+  --shadow-card: 3px 5px 30px rgba(0, 0, 0, 0.35);
 
   --overlay-bg: rgba(0, 0, 0, 0.6);
   --selection-bg: rgba(41, 151, 255, 0.3);

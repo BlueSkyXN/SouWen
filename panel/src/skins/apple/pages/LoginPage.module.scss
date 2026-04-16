@@ -3,6 +3,7 @@
 .page {
   min-height: 100vh;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
   position: relative;
@@ -13,10 +14,11 @@
 .card {
   width: 100%;
   max-width: 400px;
-  padding: 44px 36px;
+  padding: 48px 40px;
   background: var(--bg-card-solid);
-  border-radius: $radius;
-  box-shadow: $shadow-card;
+  border-radius: $radius-lg;
+  border: none;
+  box-shadow: none;
   position: relative;
   z-index: 1;
 }
@@ -38,32 +40,32 @@
 
 .title {
   font-family: $font-display;
-  font-size: 32px;
-  font-weight: 700;
+  font-size: var(--heading-hero, 48px);
+  font-weight: 600;
   color: var(--text);
   letter-spacing: -0.02em;
-  line-height: 1.1;
-  margin-bottom: 6px;
+  line-height: var(--heading-lh-tight, 1.08);
+  margin-bottom: 8px;
   text-align: center;
 }
 
 .subtitle {
   font-family: $font-body;
-  font-size: 15px;
+  font-size: 17px;
   color: var(--text-muted);
   text-align: center;
-  margin-bottom: 32px;
+  margin-bottom: 40px;
   letter-spacing: -0.022em;
   line-height: 1.47;
 }
 
 .formGroup {
-  margin-bottom: 18px;
+  margin-bottom: 20px;
 
   label {
     display: block;
     font-family: $font-body;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 600;
     color: var(--text-secondary);
     margin-bottom: 6px;
@@ -73,15 +75,16 @@
 
 .input {
   width: 100%;
-  padding: 10px 14px;
+  padding: 11px 14px;
   background: var(--bg-input);
   border: 1px solid var(--border-strong, var(--border));
   border-radius: $radius-md;
   color: var(--text);
   font-family: $font-body;
-  font-size: 15px;
+  font-size: 17px;
   outline: none;
   transition: border-color $transition-fast, box-shadow $transition-fast;
+  letter-spacing: -0.022em;
 
   &:focus {
     border-color: var(--accent);
@@ -124,10 +127,11 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  margin-bottom: 24px;
+  margin-bottom: 28px;
   font-family: $font-body;
   font-size: 14px;
   color: var(--text-muted);
+  letter-spacing: -0.022em;
 
   input[type='checkbox'] {
     accent-color: var(--accent);
@@ -136,26 +140,31 @@
   }
 }
 
+// Pill-shaped CTA — the signature Apple login button
 .submitBtn {
   width: 100%;
   padding: 12px;
   background: var(--accent);
   border: none;
-  border-radius: $radius;
+  border-radius: $radius-pill;
   color: #fff;
   font-family: $font-body;
-  font-size: 16px;
-  font-weight: 500;
+  font-size: 17px;
+  font-weight: 400;
   letter-spacing: -0.022em;
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 8px;
-  transition: background $transition-fast;
+  transition: background $transition-fast, transform $transition-fast;
 
   &:hover:not(:disabled) {
     background: var(--accent-hover);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.98);
   }
 
   &:disabled {
@@ -180,12 +189,13 @@
   z-index: 1;
   color: var(--text-muted);
   font-family: $font-body;
-  font-size: 15px;
+  font-size: 17px;
+  letter-spacing: -0.022em;
 }
 
 .loginFooter {
   position: fixed;
-  bottom: 16px;
+  bottom: 20px;
   left: 0;
   right: 0;
   text-align: center;
@@ -193,6 +203,7 @@
   font-size: 12px;
   color: var(--text-dim);
   opacity: 0.5;
+  letter-spacing: -0.01em;
   transition: opacity $transition-fast;
 
   a {

@@ -12,18 +12,19 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  padding: 32px 0 24px;
 }
 
 .pageTitle {
   font-family: $font-display;
-  font-size: 28px;
-  font-weight: 700;
+  font-size: var(--heading-section);
+  font-weight: 600;
   color: var(--text);
   display: flex;
   align-items: center;
   gap: 10px;
   letter-spacing: -0.02em;
-  line-height: 1.14;
+  line-height: var(--heading-lh-tight);
 }
 
 .pageDesc {
@@ -36,14 +37,14 @@
 }
 
 .commitBtn {
-  padding: 10px 20px;
+  padding: 8px 16px;
   background: var(--accent);
   border: none;
   border-radius: $radius;
   color: #fff;
   font-family: $font-body;
   font-size: 14px;
-  font-weight: 500;
+  font-weight: 400;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -64,7 +65,8 @@
 /* ── Config Section ── */
 .configSection {
   background: var(--bg-card-solid);
-  border-radius: $radius-lg;
+  border: var(--border-card);
+  border-radius: $radius;
   box-shadow: $shadow-card;
   overflow: hidden;
 }
@@ -73,13 +75,14 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 16px 20px;
+  padding: 20px 24px;
   border-bottom: 1px solid var(--border);
   font-family: $font-display;
-  font-size: 16px;
+  font-size: var(--heading-tile);
   font-weight: 600;
   color: var(--text);
   letter-spacing: -0.02em;
+  line-height: var(--heading-lh);
 }
 
 .sectionIcon {
