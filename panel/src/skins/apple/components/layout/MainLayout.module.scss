@@ -8,7 +8,7 @@
   flex-direction: column;
 }
 
-/* ── Glass Navigation Bar ── */
+/* ── Glass Navigation Bar — Always Dark ── */
 .nav {
   position: sticky;
   top: 0;
@@ -17,7 +17,7 @@
   background: var(--bg-nav);
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--nav-border);
 }
 
 .navInner {
@@ -43,7 +43,7 @@
   font-family: $font-display;
   font-weight: 600;
   font-size: 17px;
-  color: var(--text);
+  color: var(--nav-text);
   text-decoration: none;
   letter-spacing: -0.022em;
 
@@ -67,7 +67,7 @@
   font-family: $font-body;
   font-size: 14px;
   font-weight: 400;
-  color: var(--text-secondary);
+  color: var(--nav-text-secondary);
   text-decoration: none;
   padding: 6px 12px;
   border-radius: $radius-pill;
@@ -75,14 +75,14 @@
   letter-spacing: -0.01em;
 
   &:hover {
-    background: var(--bg-hover);
-    color: var(--text);
+    background: var(--nav-hover);
+    color: var(--nav-text);
     text-decoration: none;
   }
 }
 
 .navActive {
-  color: var(--accent);
+  color: var(--nav-text);
   font-weight: 600;
 }
 
@@ -100,14 +100,14 @@
   justify-content: center;
   border: none;
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--nav-text-secondary);
   cursor: pointer;
   border-radius: 50%;
   transition: background $transition-fast, color $transition-fast;
 
   &:hover {
-    background: var(--bg-hover);
-    color: var(--text);
+    background: var(--nav-hover);
+    color: var(--nav-text);
   }
 }
 
@@ -122,11 +122,11 @@
   right: 0;
   background: var(--bg-card-solid);
   border-radius: $radius-lg;
-  box-shadow: $shadow-card;
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.16);
   min-width: 200px;
   z-index: 200;
   padding: 6px;
-  border: 1px solid var(--border);
+  border: none;
 }
 
 .paletteTitle {
