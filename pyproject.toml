@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 # 项目配置：包名、版本、描述、许可证等基本信息
 [project]
 name = "souwen"
-version = "0.6.1"
+version = "0.6.2"
 description = "面向 AI Agent 的学术论文 + 专利 + 网页信息统一获取工具库"
 readme = "README.md"
 license = {text = "GPL-3.0-or-later"}
