@@ -1,3 +1,26 @@
+/**
+ * 网络配置页面 - HTTP 后端和抓取引擎管理
+ *
+ * 文件用途：显示和配置网络相关设置，包括 HTTP 后端选择（curl_cffi/httpx）和爬虫引擎配置
+ *
+ * 核心模块：
+ *   - HttpBackendCard：配置 HTTP 后端及各数据源的后端覆盖
+ *   - ScraperEngineCard：配置搜索爬虫引擎选择
+ *
+ * 功能特性：
+ *   - 检测 curl_cffi 可用性（显示安装状态徽章）
+ *   - 后端选择：auto / curl_cffi / httpx
+ *   - 按源覆盖：为特定数据源指定不同的后端
+ *   - 爬虫引擎选择：10 种搜索引擎可选
+ *   - 实时更新反馈（toast 提示）
+ *   - 加载和错误处理
+ *
+ * 主要交互：
+ *   - 页面加载时获取网络配置
+ *   - 下拉选择后端类型自动保存
+ *   - 刷新按钮重新加载配置
+ */
+
 import { useEffect, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { m } from 'framer-motion'

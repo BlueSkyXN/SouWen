@@ -1,16 +1,20 @@
-"""ScrapingDog Google 搜索 API 客户端
+"""Client for ScrapingDog
 
-ScrapingDog 提供 Google 搜索结果的结构化 API。
-通过代理网络获取真实 Google 搜索结果，避免被封锁。
+Purpose:
+    Web scraping with rotating proxies
 
-接口: GET https://api.scrapingdog.com/google
-文档: https://www.scrapingdog.com/google-search-api
+API Endpoint:
+    ScrapingDog service
 
-特点：
-- 真实 Google 搜索结果
-- 通过代理网络避免封锁
-- 结构化 JSON 输出
-- 支持地理定位搜索
+Key Features:
+    - JavaScript rendering, proxy rotation, session handling
+
+Engine Class:
+    ScrapingdogClient(SouWenHttpClient)
+        async def search(query, max_results) -> WebSearchResponse
+
+Returns:
+    WebSearchResponse with title, url, snippet fields
 """
 
 from __future__ import annotations

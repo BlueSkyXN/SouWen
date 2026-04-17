@@ -1,4 +1,85 @@
-"""SouWen API 路由定义"""
+"""SouWen API 路由定义
+
+文件用途：
+    定义所有 API 端点（搜索、数据源配置、WARP 管理等）。
+    分为两个路由器：router（搜索，宽松认证）和 admin_router（管理，强制认证）。
+
+主要路由（按类别）：
+
+搜索端点（public，可选认证）：
+    GET /api/v1/search/paper
+        - 搜索学术论文（OpenAlex、arXiv、Crossref 等多源）
+        - 依赖：速率限制 + 可选认证
+        - 超时支持：返回 504 Gateway Timeout
+
+    GET /api/v1/search/patent
+        - 搜索专利（Google Patents、PatentsView 等）
+        - 依赖：速率限制 + 可选认证
+
+    GET /api/v1/search/web
+        - 搜索网页（DuckDuckGo、Bing、Baidu 等 21 个引擎）
+        - 参数兼容性：per_page 和 max_results 别名
+        - 依赖：速率限制 + 可选认证
+
+    GET /api/v1/sources
+        - 列出所有可用数据源及其配置
+
+管理端点（强制认证）：
+    GET /api/v1/admin/config
+        - 查看当前配置（敏感字段脱敏）
+
+    POST /api/v1/admin/config/reload
+        - 重新加载 YAML + .env 配置
+
+    GET /api/v1/admin/doctor
+        - 数据源健康检查（连接性测试）
+
+    GET /api/v1/admin/ping
+        - 轻量级管理端存活探测
+
+数据源频道配置端点：
+    GET /api/v1/admin/sources/config
+        - 查看所有数据源的频道配置
+
+    GET /api/v1/admin/sources/config/{source_name}
+        - 查看单个数据源配置
+
+    PUT /api/v1/admin/sources/config/{source_name}
+        - 更新数据源配置（运行时，JSON 请求体避免 API Key 泄露）
+
+HTTP 后端配置（兼容旧版）：
+    GET /api/v1/admin/http-backend
+        - 查看当前 HTTP 后端配置
+
+    PUT /api/v1/admin/http-backend
+        - 更新 HTTP 后端（curl_cffi / httpx / auto）
+
+WARP 代理管理：
+    GET /api/v1/admin/warp
+        - 获取 WARP 代理状态
+
+    POST /api/v1/admin/warp/enable
+        - 启用 WARP 代理（auto / wireproxy / kernel 模式）
+
+    POST /api/v1/admin/warp/disable
+        - 禁用 WARP 代理
+
+主要类/函数：
+    _is_secret_field(name: str) -> bool
+        - 判断字段是否包含敏感信息（key、secret、token、password）
+        - 用于脱敏配置输出
+
+认证策略：
+    - search/* 端点：check_search_auth（密码未配置时放行）
+    - admin/* 端点：require_auth（强制认证）
+
+模块依赖：
+    - fastapi：路由和依赖注入
+    - souwen.search：论文、专利、网页搜索
+    - souwen.config：配置管理
+    - souwen.doctor：数据源健康检查
+    - souwen.server.warp：WARP 代理管理
+"""
 
 from __future__ import annotations
 
@@ -41,7 +122,31 @@ async def api_search_paper(
         None, ge=1, le=300, description="端点硬超时（秒），超时返回 504"
     ),
 ):
-    """搜索学术论文"""
+    """搜索学术论文 — 支持多数据源并联查询
+    
+    支持的数据源：openalex, arxiv, crossref, dblp, core, pubmed, unpaywall 等
+    
+    超时处理：
+    - timeout 为 None 时无限等待
+    - 若超时，返回 504 Gateway Timeout
+    - 支持部分失败：某些源超时/失败时，已成功的源结果仍被返回
+    
+    返回格式：
+        {
+            "query": "搜索关键词",
+            "sources": ["openalex", "arxiv"],
+            "results": [...],
+            "total": 结果总数,
+            "meta": {
+                "requested": 请求的源,
+                "succeeded": 成功的源,
+                "failed": 失败的源
+            }
+        }
+    
+    Raises:
+        HTTPException：502 当所有数据源均失败，504 当全局超时
+    """
     from souwen.exceptions import SouWenError
     from souwen.search import search_papers
 
@@ -88,7 +193,15 @@ async def api_search_patent(
         None, ge=1, le=300, description="端点硬超时（秒），超时返回 504"
     ),
 ):
-    """搜索专利"""
+    """搜索专利 — 支持多数据源并联查询
+    
+    支持的数据源：google_patents, patentsview, pqai, epo_ops, uspto 等
+    
+    超时和失败处理同 /search/paper
+    
+    Raises:
+        HTTPException：502 当所有数据源均失败，504 当全局超时
+    """
     from souwen.exceptions import SouWenError
     from souwen.search import search_patents
 
@@ -140,7 +253,19 @@ async def api_search_web(
         None, ge=1, le=300, description="端点硬超时（秒），超时返回 504"
     ),
 ):
-    """搜索网页"""
+    """搜索网页 — 支持 21+ 搜索引擎
+    
+    支持的引擎：duckduckgo, bing, google, baidu, yahoo, brave 等
+    
+    参数兼容性：
+    - per_page 和 max_results 均可指定每引擎结果数
+    - max_results 优先级高于 per_page（向后兼容）
+    
+    返回结构同 /search/paper，但 engines 代替 sources
+    
+    Raises:
+        HTTPException：502 当所有引擎均失败，504 当全局超时
+    """
     from souwen.exceptions import SouWenError
     from souwen.web.search import web_search
 
@@ -179,7 +304,18 @@ async def api_search_web(
 
 @router.get("/sources", dependencies=[Depends(check_search_auth)])
 async def list_sources():
-    """列出所有可用数据源"""
+    """列出所有可用数据源 — 按类别分组
+    
+    返回结构：
+        {
+            "paper": [
+                {"name": "openalex", "needs_key": false, "description": "..."},
+                ...
+            ],
+            "patent": [...],
+            "web": [...]
+        }
+    """
     from souwen.models import ALL_SOURCES
 
     return {
@@ -200,12 +336,28 @@ _SECRET_KEYWORDS = {"key", "secret", "token", "password"}
 
 
 def _is_secret_field(name: str) -> bool:
+    """判断字段名是否包含敏感信息 — 用于脱敏配置输出
+    
+    检查字段名中是否包含 key、secret、token、password 关键词。
+    
+    Args:
+        name: 字段名
+        
+    Returns:
+        True 当字段名包含敏感词，False 否则
+    """
     return any(kw in name for kw in _SECRET_KEYWORDS)
 
 
 @admin_router.get("/config")
 async def get_config_view():
-    """查看当前配置（敏感字段脱敏）"""
+    """查看当前配置（敏感字段脱敏） — 管理端点
+    
+    返回所有配置项，但将包含 key/secret/token/password 的字段值替换为 "***"。
+    
+    Returns:
+        dict：配置项名 → 配置值（敏感项脱敏）
+    """
     from souwen.config import SouWenConfig, get_config
 
     cfg = get_config()
@@ -221,7 +373,13 @@ async def get_config_view():
 
 @admin_router.post("/config/reload", response_model=ConfigReloadResponse)
 async def reload_config_endpoint():
-    """重新加载配置（YAML + .env）"""
+    """重新加载配置 — 从 YAML + .env 重新读取
+    
+    返回重新加载后的配置状态。
+    
+    Returns:
+        {"status": "ok", "password_set": bool}
+    """
     from souwen.config import reload_config
 
     cfg = reload_config()
@@ -230,7 +388,20 @@ async def reload_config_endpoint():
 
 @admin_router.get("/doctor", response_model=DoctorResponse)
 async def doctor_check():
-    """数据源健康检查"""
+    """数据源健康检查 — 测试所有数据源连接性
+    
+    对每个已启用的数据源执行连接性测试。
+    
+    Returns:
+        {
+            "total": 总数源数,
+            "ok": 状态正常的数源数,
+            "sources": [
+                {"name": "source", "status": "ok|error", "message": "..."},
+                ...
+            ]
+        }
+    """
     from souwen.doctor import check_all
 
     results = check_all()
@@ -244,9 +415,13 @@ async def doctor_check():
 
 @admin_router.get("/ping")
 async def admin_ping():
-    """轻量级 Admin 存活探测（需通过 ``require_auth``）。
-
-    响应仅包含 ``status`` 字段，不暴露 ``api_password_set`` 等配置信息。
+    """轻量级管理端存活探测 — 完全通过认证后返回
+    
+    与 /health 不同，此端点需要通过 require_auth 认证。
+    用于确认管理 API 本身可用，但不暴露配置信息。
+    
+    Returns:
+        {"status": "ok"}
     """
     return {"status": "ok"}
 
@@ -258,7 +433,29 @@ async def admin_ping():
 
 @admin_router.get("/sources/config")
 async def get_sources_config():
-    """查看所有数据源的频道配置"""
+    """查看所有数据源的频道配置 — 包含启用状态、API Key、代理等
+    
+    返回每个数据源的详细配置，包括是否启用、代理设置、自定义头等。
+    API Key 本身不暴露，仅指示是否存在（has_api_key: bool）。
+    
+    Returns:
+        {
+            "openalex": {
+                "enabled": bool,
+                "proxy": str|null,
+                "http_backend": str,
+                "base_url": str|null,
+                "has_api_key": bool,
+                "headers": dict,
+                "params": dict,
+                "category": str,
+                "tier": str,
+                "is_scraper": bool,
+                "description": str
+            },
+            ...
+        }
+    """
     from souwen.config import get_config
     from souwen.source_registry import get_all_sources
 
@@ -286,7 +483,17 @@ async def get_sources_config():
 
 @admin_router.get("/sources/config/{source_name}")
 async def get_source_config(source_name: str):
-    """查看单个数据源的频道配置"""
+    """查看单个数据源的频道配置
+    
+    Args:
+        source_name: 数据源名称（如 "openalex"）
+        
+    Returns:
+        同 get_sources_config 中的单个源配置
+        
+    Raises:
+        HTTPException：404 当数据源不存在
+    """
     from souwen.config import get_config
     from souwen.source_registry import get_source
 
@@ -317,9 +524,28 @@ async def update_source_config(
     source_name: str,
     req: UpdateSourceConfigRequest,
 ):
-    """更新单个数据源的频道配置（运行时，重启后需 YAML 持久化）
-
-    使用 JSON 请求体传递参数，避免 API Key 泄露到 URL/日志中。
+    """更新单个数据源的频道配置（运行时生效）
+    
+    使用 JSON 请求体传递参数（而非 URL Query），避免 API Key 泄露到日志中。
+    
+    参数：
+        enabled: 是否启用该数据源
+        proxy: HTTP/SOCKS 代理 URL
+        http_backend: 优先级高于全局 default_http_backend（auto/curl_cffi/httpx）
+        base_url: 自定义数据源基础 URL
+        api_key: API Key（支持对源进行个性化配置）
+    
+    更新仅在内存中生效，重启后需通过 YAML/环境变量持久化。
+    
+    Args:
+        source_name: 数据源名称
+        req: UpdateSourceConfigRequest 请求体
+        
+    Returns:
+        {"status": "ok", "source": "source_name"}
+        
+    Raises:
+        HTTPException：404 当数据源不存在，400 当配置参数无效
     """
     from souwen.config import SourceChannelConfig, get_config
     from souwen.source_registry import is_known_source
@@ -370,7 +596,18 @@ _SCRAPER_ENGINES = [
 
 @admin_router.get("/http-backend", response_model=HttpBackendResponse)
 async def get_http_backend():
-    """查看 HTTP 后端配置"""
+    """查看 HTTP 后端配置
+    
+    显示全局默认后端和各数据源的个性化覆盖配置。
+    还指示 curl_cffi 库是否可用。
+    
+    Returns:
+        {
+            "default": "auto|curl_cffi|httpx",
+            "overrides": {"engine": "backend", ...},
+            "curl_cffi_available": bool
+        }
+    """
     from souwen.config import get_config
     from souwen.scraper.base import _HAS_CURL_CFFI
 
@@ -388,7 +625,28 @@ async def update_http_backend(
     source: str | None = Query(None, description="要覆盖的源名称"),
     backend: str | None = Query(None, description="后端: auto | curl_cffi | httpx"),
 ):
-    """更新 HTTP 后端配置（运行时生效，重启后需通过 YAML/env 持久化）"""
+    """更新 HTTP 后端配置（运行时生效）
+    
+    支持两种更新模式：
+        1. 更新全局默认后端：?default=curl_cffi
+        2. 为特定数据源设置覆盖：?source=duckduckgo&backend=httpx
+           - 若 backend=auto，移除该源的覆盖（回退到全局默认）
+    
+    Args:
+        default: 新的全局默认后端
+        source: 要覆盖的数据源名称
+        backend: 该数据源使用的后端
+        
+    Returns:
+        {
+            "status": "ok",
+            "default": 新的全局默认,
+            "overrides": 更新后的覆盖配置
+        }
+        
+    Raises:
+        HTTPException：400 当后端或数据源无效
+    """
     from souwen.config import get_config
 
     _VALID = {"auto", "curl_cffi", "httpx"}
@@ -426,7 +684,23 @@ async def update_http_backend(
 
 @admin_router.get("/warp")
 async def warp_status():
-    """获取 WARP 代理状态"""
+    """获取 WARP 代理状态 — 包括模式、IP、PID 等
+    
+    返回完整的 WARP 状态信息，用于管理 UI 或监控系统。
+    
+    Returns:
+        {
+            "status": "disabled|starting|enabled|stopping|error",
+            "mode": "auto|wireproxy|kernel",
+            "owner": "none|shell|python",
+            "socks_port": int,
+            "ip": str,
+            "pid": int,
+            "interface": str|null,
+            "last_error": str,
+            "available_modes": {"wireproxy": bool, "kernel": bool}
+        }
+    """
     from souwen.server.warp import WarpManager
 
     mgr = WarpManager.get_instance()
@@ -439,7 +713,22 @@ async def warp_enable(
     socks_port: int = Query(1080, ge=1, le=65535, description="SOCKS5 端口"),
     endpoint: str | None = Query(None, description="自定义 WARP Endpoint"),
 ):
-    """启用 WARP 代理"""
+    """启用 WARP 代理 — 支持 auto、wireproxy、kernel 三种模式
+    
+    模式选择：
+        - auto：自动检测最优可用模式（kernel > wireproxy）
+        - wireproxy：用户态代理（不需要 root，但性能略低）
+        - kernel：内核 WireGuard + microsocks（需要 root 和 /dev/net/tun）
+    
+    Args:
+        mode: 启动模式
+        socks_port: 本地 SOCKS5 监听端口
+        endpoint: 自定义 WARP Endpoint URL（可选）
+        
+    Returns:
+        {"ok": true, "mode": "wireproxy|kernel", "ip": "IP 地址"}
+        或 {"ok": false, "error": "错误信息"}
+    """
     from souwen.server.warp import WarpManager
 
     mgr = WarpManager.get_instance()
@@ -451,7 +740,17 @@ async def warp_enable(
 
 @admin_router.post("/warp/disable")
 async def warp_disable():
-    """禁用 WARP 代理"""
+    """禁用 WARP 代理 — 清理进程和网络配置
+    
+    内部逻辑：
+    1. 终止代理进程（wireproxy 或 microsocks）
+    2. 对 kernel 模式拆除 WireGuard 接口
+    3. 清空代理配置，重载 SouWen 配置
+    
+    Returns:
+        {"ok": true, "message": "WARP 已关闭"}
+        或 {"ok": false, "error": "错误信息"}
+    """
     from souwen.server.warp import WarpManager
 
     mgr = WarpManager.get_instance()

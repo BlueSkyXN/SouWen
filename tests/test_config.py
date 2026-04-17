@@ -1,4 +1,16 @@
-"""SouWen 配置模块测试"""
+"""SouWen 配置模块测试。
+
+覆盖 ``souwen.config`` 中配置系统的代理、路径、API Key、频道覆盖、代理池解析等功能。
+验证 SouWenConfig 的默认值、环境变量覆盖、代理校验、频道级配置优先级等不变量。
+
+测试清单：
+- ``TestGetProxy``：单代理/代理池选择逻辑
+- ``TestDataPath``：~ 展开与默认路径
+- ``TestDefaults``：超时、重试、API Key 默认值
+- ``TestEnvOverride``：环境变量覆盖配置
+- ``TestSourceChannelConfig``：频道级配置、代理/backend/base_url 解析
+- ``TestProxyValidation``：代理 URL 校验与安全性
+"""
 
 import pytest
 

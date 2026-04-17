@@ -1,13 +1,20 @@
-"""Yandex 搜索引擎
+"""Client for Yandex
 
-Yandex 是俄罗斯最大的搜索引擎，拥有独立的搜索索引。
-URL: https://yandex.com/search/?text=...
+Purpose:
+    Yandex search results via web scraping
 
-特点：
-- 无需 API Key
-- 独立搜索索引，非英语内容（尤其俄语）质量高
-- 反爬虫机制较强，使用较长延迟
-- 支持多语言搜索
+API Endpoint:
+    Yandex service
+
+Key Features:
+    - Russian search engine, scrapes search results
+
+Engine Class:
+    YandexClient(SouWenHttpClient)
+        async def search(query, max_results) -> WebSearchResponse
+
+Returns:
+    WebSearchResponse with title, url, snippet fields
 """
 
 from __future__ import annotations

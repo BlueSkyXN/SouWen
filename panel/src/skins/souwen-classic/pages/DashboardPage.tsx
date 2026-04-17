@@ -1,3 +1,25 @@
+/**
+ * 控制面板页面 - 应用系统概览
+ *
+ * 文件用途：实时展示系统健康状态，包括服务健康度环图、统计卡片、数据源状态和健康监测详情
+ *
+ * 核心功能：
+ *   - 健康度环图：动画显示系统健康百分比（颜色梯度：绿→黄→红）
+ *   - 统计指标卡片：源数量、资源数、最后更新时间等
+ *   - 数据源概览：按类别（paper/patent/web）分组展示源状态
+ *   - 健康监测表：详细列表展示各数据源的状态、错误信息
+ *
+ * 常量：
+ *   RING_SIZE / RING_STROKE / RING_CIRCUMFERENCE - SVG 环图参数
+ *
+ * 主要交互：
+ *   - 页面加载时获取系统诊断数据
+ *   - 刷新按钮重新加载数据
+ *   - 环图和卡片显示动画
+ *   - 加载中显示骨架屏
+ *   - 错误时显示提示和重试选项
+ */
+
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useTranslation } from 'react-i18next'
 import { m } from 'framer-motion'

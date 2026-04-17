@@ -1,4 +1,14 @@
-"""SouWen 限流器测试"""
+"""SouWen 限流器测试。
+
+覆盖 ``souwen.rate_limiter`` 中限流器的异步操作与状态管理。
+验证 RateLimiterBase 抽象类、TokenBucketLimiter 令牌补充逻辑、
+SlidingWindowLimiter 时间窗口与retry_after 暂停机制等不变量。
+
+测试清单：
+- ``TestRateLimiterBase``：抽象类不能直接实例化、acquire 必须实现、update_from_headers 默认空
+- ``TestTokenBucketLimiter``：rate/burst 校验、突发容量、令牌补充延迟
+- ``TestSlidingWindowLimiter``：窗口内请求快速、填满后阻塞、retry_after 暂停恢复
+"""
 
 import time
 

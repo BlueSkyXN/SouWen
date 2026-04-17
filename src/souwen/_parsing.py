@@ -1,26 +1,40 @@
 """通用解析工具
 
-提供跨数据源复用的宽松解析器，优先考虑容错：
-- 接受 ``None``、空串、非法格式时返回 ``None`` 而非抛异常
-- 记录 debug 日志方便排查，但不 warning 以免刷屏
+文件用途：
+    提供跨数据源复用的宽松解析器，优先容错设计：
+    接受 None、空串、非法格式时返回 None 而非抛异常，
+    记录 debug 日志但不警告，避免填充日志。
+
+函数清单：
+    safe_parse_date(value: Any) -> date | None
+        - 功能：宽松解析日期字符串/对象，支持多种格式
+        - 入参：value 任意输入（str|date|datetime|None 等）
+        - 出参：解析成功返回 date；非法或空值返回 None
+        - 支持格式：None/空字符串 → None; date/datetime 对象; 
+                   ISO 8601 格式（YYYY、YYYY-MM、YYYY-MM-DD、带时区部分）
+        - 关键：失败不抛异常，debug 记录便于排查
+
+模块依赖：
+    - datetime: date/datetime 类型
+    - logging: debug 级别日志
 """
 
 from __future__ import annotations
 
 import logging
 from datetime import date, datetime
-from typing import Any
 
 logger = logging.getLogger(__name__)
 
 
 def safe_parse_date(value: Any) -> date | None:
-    """宽松解析日期字符串/对象。
+    """宽松解析日期字符串/对象
 
-    支持：
+    支持多种格式且容错：
     - ``None`` / 空字符串 → 返回 None
     - ``date`` / ``datetime`` 对象 → 返回 date
-    - ISO 8601 字符串：``YYYY``、``YYYY-MM``、``YYYY-MM-DD``、带时区/时间部分
+    - ISO 8601 字符串：``YYYY``、``YYYY-MM``、``YYYY-MM-DD``、
+      带时区/时间部分也可（会自动截断）
     - 任何非法格式 → 返回 None（debug 日志）
 
     Args:

@@ -1,3 +1,30 @@
+/**
+ * 文件用途：Apple 皮肤的数据源管理页面，管理各类别数据源的配置、密钥、代理和后端设置
+ *
+ * 组件/函数清单：
+ *   SourcesPage（函数组件）
+ *     - 功能：按类别（论文、专利、网页）展示和配置数据源
+ *       1. 获取服务器诊断数据中的所有数据源列表
+ *       2. 为每个数据源显示配置面板，支持修改代理、HTTP 后端、基础 URL、API 密钥
+ *       3. 支持保存配置到服务器
+ *     - State 状态：doctor (DoctorResponse) 包含所有数据源信息, loading/error 状态
+ *     - 关键类型：CategoryKey ('paper'|'patent'|'web') 数据源类别
+ *     - 关键钩子：useTranslation, useNotificationStore
+ *
+ *   SourceConfigPanel（子组件）
+ *     - 功能：单个数据源的配置表单，支持修改代理、HTTP 后端、密钥等
+ *     - Props 属性：sourceName 数据源名称, config 当前配置, warpStatus WARP 状态, onSaved 保存回调
+ *     - 关键状态：apiKeyAction ('keep'|'replace'|'clear') 密钥操作方式
+ *
+ * 模块依赖：
+ *   - react: 状态和表单
+ *   - react-i18next: 翻译
+ *   - framer-motion: 展开/收起动画
+ *   - lucide-react: 图标
+ *   - @core/services/api: 获取/保存配置
+ *   - SourcesPage.module.scss: 样式
+ */
+
 import { useEffect, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { m, AnimatePresence } from 'framer-motion'
@@ -35,6 +62,13 @@ const expandVariants = {
   exit: { height: 0, opacity: 0, transition: { duration: 0.2, ease: 'easeIn' as const } },
 }
 
+/**
+ * SourceConfigPanel 子组件 - 单个数据源的配置表单
+ * @param {string} sourceName - 数据源名称
+ * @param {SourceChannelConfig} config - 当前配置状态
+ * @param {WarpStatus | null} warpStatus - WARP 代理状态
+ * @param {() => void} onSaved - 保存成功后的回调函数
+ */
 function SourceConfigPanel({
   sourceName,
   config,

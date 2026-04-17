@@ -1,16 +1,20 @@
-"""Websurfx 元搜索 API 客户端
+"""Client for WebSurfX
 
-通过自建 Websurfx 实例的 JSON API 聚合多个搜索引擎结果。
-用户需自行部署 Websurfx 实例。
+Purpose:
+    Privacy-focused meta-search engine
 
-接口: GET /search?q=QUERY&format=json
-项目: https://github.com/neon-mmd/websurfx
+API Endpoint:
+    WebSurfX service
 
-特点：
-- 类似 SearXNG 的开源元搜索引擎
-- 支持 JSON API 直接返回结构化结果
-- 高性能异步架构 (Rust 实现)
-- 需自部署实例
+Key Features:
+    - Aggregates results, no user tracking, self-hosted support
+
+Engine Class:
+    WebsurfxClient(SouWenHttpClient)
+        async def search(query, max_results) -> WebSearchResponse
+
+Returns:
+    WebSearchResponse with title, url, snippet fields
 """
 
 from __future__ import annotations

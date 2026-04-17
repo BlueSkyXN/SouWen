@@ -1,6 +1,42 @@
 """SouWen 数据源健康检查
 
-检测所有数据源的可用性，按配置 Tier 分组显示。
+文件用途：
+    检测所有已注册数据源的可用性状态（配置、依赖、服务），
+    按 Tier 分组并生成用户友好的报告。
+
+函数清单：
+    check_all() -> list[dict]
+        - 功能：检查所有数据源的可用性，返回详细检查结果
+        - 返回：每个数据源一条字典
+        - 字典字段：name (源名称), category (分类), status (状态),
+                   tier (付费层级), required_key (配置字段),
+                   message (状态说明), enabled (启用状态),
+                   description (源描述), channel (频道配置摘要)
+        - 检测逻辑：
+          * 首先检查频道配置是否禁用
+          * 然后检查特定源的特殊条件（Key 配置、curl_cffi 依赖等）
+          * 最后收集频道配置（代理、HTTP 后端、自定义 URL）
+    
+    format_report(results: list[dict]) -> str
+        - 功能：将 check_all() 结果格式化为可读报告（Markdown 风格）
+        - 返回：包含摘要、Tier 分类、每个源状态的格式化字符串
+        - 输出格式：Emoji 图标 + 源名称 + 分类标签 + 状态说明
+
+状态枚举（status 字段）：
+    "ok" (✅) — 正常可用（配置完整或无需配置）
+    "warning" (⚠️) — 警告（如爬虫缺少 curl_cffi，但仍可尝试）
+    "limited" (⚠️) — 受限（如无 API Key 的 Semantic Scholar 易限流）
+    "unavailable" (❌) — 不可用（服务迁移、已下线等）
+    "missing_key" (⬜) — 缺少必要配置
+    "disabled" (🚫) — 用户手动禁用
+
+常数：
+    _TIER_LABELS: dict — Tier 级别的用户可读标签
+    _STATUS_ICONS: dict — 状态到 Emoji 图标的映射
+
+模块依赖：
+    - souwen.config: 配置管理、源启用状态检查
+    - souwen.source_registry: 获取所有注册源、元数据
 """
 
 from __future__ import annotations
@@ -25,16 +61,28 @@ _STATUS_ICONS = {
 
 
 def check_all() -> list[dict]:
-    """检查所有数据源的可用性。
+    """检查所有数据源的可用性
 
+    遍历所有已注册数据源，检查配置、依赖和服务状态。
+    
     Returns:
-        每个数据源一条字典: name, category, status, tier, required_key, message, enabled
+        每个数据源一条字典，包含：
+        - name: 源名称
+        - category: 分类（paper|patent|web）
+        - status: 状态（ok|warning|limited|unavailable|missing_key|disabled）
+        - tier: Tier 级别（0|1|2）
+        - required_key: 必需的配置字段名（或 None）
+        - message: 状态说明文本
+        - enabled: 是否启用
+        - description: 源描述
+        - channel: 频道配置摘要（如 proxy、http_backend、base_url）
     """
     cfg = get_config()
     results: list[dict] = []
     all_sources = get_all_sources()
 
     # 检测 curl_cffi（TLS 指纹伪装）可用性，影响所有爬虫引擎
+    # 爬虫类源需要 curl_cffi 来实现 JA3 TLS 指纹伪装，避免被反爬拦截
     try:
         import curl_cffi  # noqa: F401
 
@@ -127,7 +175,24 @@ def check_all() -> list[dict]:
 
 
 def format_report(results: list[dict]) -> str:
-    """将 check_all() 结果格式化为可读报告。"""
+    """将 check_all() 结果格式化为可读报告
+
+    按 Tier 分组展示，每组显示可用数量和详细列表。
+    
+    Args:
+        results: check_all() 的返回值
+    
+    Returns:
+        格式化的报告字符串（Markdown 风格，包含 Emoji 和缩进）
+    
+    输出示例：
+        🩺 SouWen Doctor — 数据源健康检查
+           OK/总数 个数据源可用
+        
+        ── Tier 0 — 免配置 / 公开入口  (OK数/总数) ──
+          ✅ openalex           [paper]    可免配置使用；设置 openalex_email...
+          ...
+    """
     total = len(results)
     ok_count = sum(1 for r in results if r["status"] == "ok")
     lines: list[str] = [
@@ -135,6 +200,7 @@ def format_report(results: list[dict]) -> str:
         f"   {ok_count}/{total} 个数据源可用\n",
     ]
 
+    # 按 Tier 分组
     by_tier: dict[int, list[dict]] = {0: [], 1: [], 2: []}
     for r in results:
         by_tier[r["tier"]].append(r)

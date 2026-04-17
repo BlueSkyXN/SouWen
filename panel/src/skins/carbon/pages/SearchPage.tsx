@@ -1,3 +1,7 @@
+/**
+ * 文件用途：Carbon 皮肤的搜索页面，支持跨多个数据源的统一搜索
+ */
+
 import { useState, useCallback, useEffect, useRef, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { m } from 'framer-motion'

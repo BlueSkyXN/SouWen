@@ -1,3 +1,8 @@
+/**
+ * 文件用途：iOS 皮肤的主布局组件，包含导航栏、移动端抽屉菜单、页面内容区域和页脚
+ * 采用 iOS HIG（Human Interface Guidelines）设计规范，支持明暗模式和皮肤切换
+ */
+
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'

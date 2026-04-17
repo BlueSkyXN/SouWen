@@ -1,4 +1,15 @@
-"""SouWen 数据模型边界测试"""
+"""SouWen 数据模型边界测试。
+
+覆盖 ``souwen.models`` 中数据模型的完整性、字段约束、枚举值。
+验证 ALL_SOURCES 元数据、SourceType 枚举完整性、extra='forbid' 验证、
+WebSearchResult 必要字段等不变量。
+
+测试清单：
+- ``TestAllSources``：ALL_SOURCES 字典结构、计数、论文/专利/Web 源统计
+- ``TestSourceTypeEnum``：SourceType 有 37 个枚举值、各源名称
+- ``TestExtraForbid``：拒绝未知字段
+- ``TestWebSearchResult``：必要字段校验、snippet 默认值
+"""
 
 import pytest
 from pydantic import ValidationError

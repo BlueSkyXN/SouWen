@@ -4,6 +4,38 @@
 鉴权: 无需 Key
 限流: 请求间隔 >= 3 秒
 返回: Atom XML
+
+文件用途：arXiv 预印本搜索客户端，提供高能物理、计算机科学等领域预印本服务。
+
+函数/类清单：
+    ArxivClient（类）
+        - 功能：arXiv 预印本搜索客户端，解析 XML 格式响应为统一数据模型
+        - 关键属性：_client (SouWenHttpClient) HTTP 客户端, _limiter (TokenBucketLimiter)
+                   限流器（1 req / 3 sec）
+
+    _text(element: ET.Element|None) -> str
+        - 功能：安全提取 XML 元素文本，处理 None 和空值
+        - 输入：element XML 元素或 None
+        - 输出：元素文本（去首尾空白），元素为 None 时返回空字符串
+
+    _parse_entry(entry: ET.Element) -> PaperResult
+        - 功能：将 Atom XML entry 元素转换为 PaperResult 数据模型
+        - 输入：entry arXiv API 返回的 <entry> XML 元素
+        - 输出：统一的 PaperResult 模型，包含标题、作者、PDF 链接、分类等
+        - 关键变量：arxiv_id (str) arXiv 唯一标识符, categories (list[str]) 学科分类
+
+    search(query: str, id_list: list|None, start: int, max_results: int,
+           sort_by: str|None, sort_order: str|None) -> SearchResponse
+        - 功能：搜索 arXiv 论文或按 ID 列表查询
+        - 输入：query 检索查询（支持字段前缀如 ti:/au:）, id_list arXiv ID 列表,
+               start 起始偏移, max_results 返回条数（最多 2000）, sort_by/sort_order 排序参数
+        - 输出：SearchResponse 包含结果列表及分页信息
+        - 限流：通过 _limiter.acquire() 控制每 3 秒最多 1 次请求
+
+模块依赖：
+    - SouWenHttpClient: 统一 HTTP 客户端
+    - TokenBucketLimiter: 令牌桶限流器
+    - defusedxml.ElementTree: 安全 XML 解析（防止 XXE 攻击）
 """
 
 from __future__ import annotations
@@ -72,7 +104,10 @@ class ArxivClient:
 
     @staticmethod
     def _text(element: ET.Element | None) -> str:
-        """安全提取 XML 元素文本。"""
+        """安全提取 XML 元素文本。
+        
+        提取元素文本内容，自动处理 None 和空值情况。
+        """
         return (element.text or "").strip() if element is not None else ""
 
     @classmethod
@@ -89,17 +124,20 @@ class ArxivClient:
             ParseError: 解析失败。
         """
         try:
+            # 提取并清理标题（可能包含换行符）
             title = cls._text(entry.find("atom:title", _NS))
-            # arXiv 标题可能含换行，清理空白
+            # arXiv 标题可能含换行，清理多余空白
             title = " ".join(title.split())
 
+            # 提取并清理摘要
             summary = cls._text(entry.find("atom:summary", _NS))
             summary = " ".join(summary.split())
 
-            # 作者列表
+            # 提取作者列表及其所属机构
             authors: list[Author] = []
             for author_el in entry.findall("atom:author", _NS):
                 name = cls._text(author_el.find("atom:name", _NS))
+                # 机构信息存储在 arxiv:affiliation 子元素中
                 affiliation_els = author_el.findall("arxiv:affiliation", _NS)
                 affiliations = [cls._text(a) for a in affiliation_els if cls._text(a)]
                 if name:
@@ -110,50 +148,52 @@ class ArxivClient:
                         )
                     )
 
-            # ID & 链接
+            # 提取 arXiv ID：从 id 字段（格式：http://arxiv.org/abs/xxxx）提取纯 ID
             entry_id = cls._text(entry.find("atom:id", _NS))
             m = _ARXIV_ID_RE.search(entry_id)
             arxiv_id = m.group(1) if m else entry_id
 
-            # PDF 链接
+            # 提取 PDF 链接及 HTML 链接
             pdf_url: str | None = None
             html_url: str | None = None
             for link in entry.findall("atom:link", _NS):
                 rel = link.get("rel", "")
                 link_type = link.get("type", "")
                 href = link.get("href", "")
+                # 优先使用 content-type 为 application/pdf 的链接
                 if link_type == "application/pdf" or rel == "related":
                     if "pdf" in href:
                         pdf_url = href
+                # 保留 alternate 链接作为源页面 URL
                 if rel == "alternate":
                     html_url = href
-            # arXiv PDF 链接遵循固定模式
+            # 若未找到 PDF 链接，按 arXiv 命名规范构建
             if not pdf_url:
                 pdf_url = f"https://arxiv.org/pdf/{arxiv_id}"
 
-            # DOI (部分论文有)
+            # 提取 DOI（可选字段，部分论文无 DOI）
             doi_el = entry.find("arxiv:doi", _NS)
             doi = cls._text(doi_el) if doi_el is not None else None
 
-            # 发表日期
+            # 提取发表日期
             published = cls._text(entry.find("atom:published", _NS))
             year: int | None = None
             pub_date: str | None = None
             if published:
-                pub_date = published[:10]  # YYYY-MM-DD
+                pub_date = published[:10]  # 提取 YYYY-MM-DD 部分
                 try:
                     year = int(published[:4])
                 except ValueError:
                     pass
 
-            # 分类
+            # 提取学科分类标签
             categories: list[str] = []
             for cat in entry.findall("atom:category", _NS):
                 term = cat.get("term", "")
                 if term:
                     categories.append(term)
 
-            # 评论
+            # 提取论文评论（作者备注，可选）
             comment_el = entry.find("arxiv:comment", _NS)
             comment = cls._text(comment_el) if comment_el is not None else None
 
@@ -167,7 +207,7 @@ class ArxivClient:
                 source=SourceType.ARXIV,
                 source_url=html_url or f"https://arxiv.org/abs/{arxiv_id}",
                 pdf_url=pdf_url,
-                citation_count=None,  # arXiv 不提供引用数
+                citation_count=None,  # arXiv 不提供引用数统计
                 raw={
                     "categories": categories,
                     "primary_category": categories[0] if categories else None,

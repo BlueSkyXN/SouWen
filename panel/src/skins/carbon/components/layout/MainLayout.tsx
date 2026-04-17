@@ -1,3 +1,8 @@
+/**
+ * 文件用途：Carbon 皮肤的主布局组件，包含导航栏、移动端抽屉菜单、页面内容区域和页脚
+ * 使用终端风格设计，支持明暗模式和皮肤切换
+ */
+
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'

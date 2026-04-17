@@ -1,3 +1,8 @@
+/**
+ * 文件用途：iOS 皮肤的错误边界组件，捕获和处理子组件抛出的 React 错误
+ * 提供友好的错误提示界面，防止错误导致整个应用崩溃
+ */
+
 import { Component, type ReactNode } from 'react'
 import i18n from '@core/i18n'
 

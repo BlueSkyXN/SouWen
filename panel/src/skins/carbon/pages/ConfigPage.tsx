@@ -1,3 +1,7 @@
+/**
+ * 文件用途：Carbon 皮肤的配置页面，以分组形式展示和查看服务器配置参数
+ */
+
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { m } from 'framer-motion'

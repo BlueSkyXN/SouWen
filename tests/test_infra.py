@@ -1,4 +1,25 @@
-"""SouWen 基础设施层测试"""
+"""SouWen 基础设施层测试。
+
+覆盖 ``souwen.models``（数据模型）、``souwen.exceptions``（异常体系）、
+``souwen.config``（配置管理）、``souwen.rate_limiter``（限流）、
+``souwen.web``（网页搜索）、``souwen.search``（统一搜索）、
+``souwen.server``（FastAPI 服务）等核心基础设施。
+
+验证数据模型的字段完整性、异常继承关系、配置默认值、限流器行为、
+网页搜索去重、统一搜索门面、OAuth 并发安全等不变量。
+
+测试清单：
+- ``TestModels``：数据模型创建与字段验证
+- ``TestExceptions``：异常体系继承关系
+- ``TestConfig``：配置值与路径展开
+- ``TestRateLimiter``：限流器异步操作
+- ``TestWebSearch``：网页搜索引擎、URL 解码、去重、API Key 必需性
+- ``TestUnifiedSearch``：统一搜索门面与数据源映射
+- ``TestYAMLConfig``：YAML 配置加载与示例文件
+- ``TestCLI``：CLI 工具与脱敏
+- ``TestServer``：FastAPI 服务导入与路由
+- ``TestOAuthTokenConcurrency``：OAuth Token 并发刷新安全性
+"""
 
 import pytest
 from souwen.models import (

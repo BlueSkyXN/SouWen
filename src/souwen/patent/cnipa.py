@@ -2,6 +2,52 @@
 
 通过中国专利信息中心 (CNIPR) 开放平台访问中国专利数据，OAuth 2.0 鉴权。
 注册地址: https://open.cnipr.com/
+
+文件用途：
+    CNIPA 客户端实现，提供中国专利搜索、详情查询、全文获取等功能。
+    使用 OAuth 2.0 Client Credentials 鉴权方式，集成限流控制。
+
+函数/类清单：
+    CnipaClient（类）
+        - 功能：CNIPA 专利数据客户端，管理 OAuth 连接和 API 请求
+        - 关键属性：BASE_URL (str) API 基础地址，TOKEN_URL (str) OAuth 令牌端点
+        - 关键变量：_http (OAuthClient) OAuth HTTP 客户端，_limiter (TokenBucketLimiter) 速率限制器
+    
+    search(query: str, per_page: int = 10, offset: int = 0) -> SearchResponse
+        - 功能：按关键词搜索中国专利，支持 CNIPA 检索语法
+        - 输入：query 检索表达式，per_page 每页结果数，offset 偏移量
+        - 输出：SearchResponse 包含总数、专利列表、分页信息
+    
+    get_patent(publication_number: str) -> PatentResult
+        - 功能：根据公开号获取单项专利详情
+        - 输入：publication_number 公开号（如 CN115000000A）
+        - 输出：PatentResult 专利详情模型
+        - 异常：NotFoundError 专利不存在时抛出
+    
+    get_fulltext(publication_number: str) -> dict[str, Any]
+        - 功能：获取专利全文（说明书、权利要求书等）
+        - 输入：publication_number 公开号
+        - 输出：包含全文内容的字典
+        - 异常：NotFoundError 全文不可用时抛出
+    
+    _parse_json(resp: httpx.Response) -> dict[str, Any]（静态方法）
+        - 功能：安全解析 HTTP JSON 响应
+        - 输入：resp httpx 响应对象
+        - 输出：解析后的字典
+        - 异常：ParseError JSON 格式错误时抛出
+    
+    _to_patent_result(raw: dict[str, Any]) -> PatentResult（静态方法）
+        - 功能：将 CNIPA API 原始数据转换为统一的 PatentResult 模型
+        - 输入：raw CNIPA API 返回的原始数据字典
+        - 输出：标准化的 PatentResult 对象
+
+模块依赖：
+    - httpx: HTTP 异步客户端
+    - souwen.http_client: OAuth 连接管理
+    - souwen.models: 统一数据模型（PatentResult, SearchResponse 等）
+    - souwen.rate_limiter: 限流控制（令牌桶算法）
+    - souwen.config: 配置管理（读取 API 凭证）
+    - souwen.exceptions: 异常类
 """
 
 from __future__ import annotations
@@ -35,6 +81,13 @@ class CnipaClient:
     TOKEN_URL = "https://open.cnipr.com/oauth/token"
 
     def __init__(self) -> None:
+        """初始化 CNIPA 客户端
+        
+        从配置读取 OAuth 凭证，建立 OAuth 连接和限流控制。
+        
+        Raises:
+            ConfigError: 缺少必要的 OAuth 凭证时抛出
+        """
         cfg = get_config()
         if not cfg.cnipa_client_id or not cfg.cnipa_client_secret:
             raise ConfigError(
@@ -42,6 +95,7 @@ class CnipaClient:
                 service="CNIPA (CNIPR 开放平台)",
                 register_url="https://open.cnipr.com/",
             )
+        # 初始化 OAuth 客户端，自动处理令牌获取和刷新
         self._http = OAuthClient(
             base_url=self.BASE_URL,
             token_url=self.TOKEN_URL,
@@ -49,6 +103,7 @@ class CnipaClient:
             client_secret=cfg.cnipa_client_secret,
             source_name="cnipa",
         )
+        # 限流：2 请求/秒，突增容量 5 请求
         self._limiter = TokenBucketLimiter(rate=2.0, burst=5)
 
     async def __aenter__(self) -> CnipaClient:
@@ -82,7 +137,7 @@ class CnipaClient:
         Returns:
             SearchResponse 封装的搜索结果
         """
-        await self._limiter.acquire()
+        await self._limiter.acquire()  # 获取限流令牌
         resp = await self._http.get(
             "/api/search",
             params={
@@ -93,7 +148,9 @@ class CnipaClient:
         )
         data = self._parse_json(resp)
 
+        # API 响应可能使用 results 或 data 字段
         results_raw = data.get("results", data.get("data", []))
+        # 转换每条原始数据为标准 PatentResult 模型
         patents = [self._to_patent_result(item) for item in results_raw]
 
         return SearchResponse(
@@ -121,10 +178,12 @@ class CnipaClient:
         resp = await self._http.get(
             f"/api/patent/{publication_number}",
         )
+        # 404 表示专利不存在
         if resp.status_code == 404:
             raise NotFoundError(f"专利 {publication_number} 未找到")
 
         data = self._parse_json(resp)
+        # API 可能返回顶级数据或嵌套在 data 字段
         result_data = data.get("data", data)
         if not result_data:
             raise NotFoundError(f"专利 {publication_number} 未找到")
@@ -166,7 +225,11 @@ class CnipaClient:
 
     @staticmethod
     def _to_patent_result(raw: dict[str, Any]) -> PatentResult:
-        """将 CNIPA 原始数据转换为 PatentResult"""
+        """将 CNIPA 原始数据转换为 PatentResult
+
+        处理多种数据格式（驼峰命名、蛇形命名、中文字段），保证数据兼容性。
+        """
+        # 兼容多种字段名（publicationNumber, publication_number, pn）
         patent_id = raw.get(
             "publicationNumber",
             raw.get("publication_number", raw.get("pn", "")),
@@ -176,7 +239,7 @@ class CnipaClient:
             raw.get("application_number", raw.get("an")),
         )
 
-        # 申请人
+        # 申请人处理：支持字符串列表或对象列表，中文数据可能以分号分隔
         applicants: list[Applicant] = []
         raw_applicants = raw.get("applicants", raw.get("申请人", []))
         if isinstance(raw_applicants, str):
@@ -188,7 +251,7 @@ class CnipaClient:
             if name:
                 applicants.append(Applicant(name=name, country=country))
 
-        # 发明人
+        # 发明人处理：类似申请人，支持字符串或对象格式
         raw_inventors = raw.get("inventors", raw.get("发明人", []))
         inventors: list[str] = []
         if isinstance(raw_inventors, str):
@@ -199,7 +262,7 @@ class CnipaClient:
                 if name:
                     inventors.append(name)
 
-        # IPC / CPC
+        # IPC 分类号：可能为字符串（分号分隔）或列表
         ipc_raw = raw.get("ipcCodes", raw.get("ipc", []))
         ipc_codes: list[str] = (
             [i.strip() for i in ipc_raw.split(";") if i.strip()]
@@ -207,6 +270,7 @@ class CnipaClient:
             else [c for c in ipc_raw if isinstance(c, str)]
         )
 
+        # CPC 分类号：处理方式同 IPC
         cpc_raw = raw.get("cpcCodes", raw.get("cpc", []))
         cpc_codes: list[str] = (
             [c.strip() for c in cpc_raw.split(";") if c.strip()]
@@ -233,7 +297,16 @@ class CnipaClient:
 
 
 def _safe_date(value: str | None) -> date | None:
-    """安全解析日期字符串"""
+    """安全解析日期字符串
+    
+    处理 ISO 8601 格式日期（YYYY-MM-DD），截取前 10 字符以兼容时间戳格式。
+    
+    Args:
+        value: 日期字符串或 None
+    
+    Returns:
+        date 对象，解析失败返回 None
+    """
     if not value:
         return None
     try:

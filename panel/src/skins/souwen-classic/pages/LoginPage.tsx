@@ -1,3 +1,25 @@
+/**
+ * 登录页面 - 身份认证和服务连接
+ *
+ * 文件用途：处理用户登录认证流程，支持自动登录（无密码配置）和手动输入密码验证
+ *
+ * 功能特性：
+ *   - 服务器 URL 输入：允许用户指定 API 服务地址
+ *   - 密码输入：支持显示/隐藏密码
+ *   - 记住密码：localStorage 记录登录状态
+ *   - 自动登录：检测无密码配置时自动授权
+ *   - 主题切换：登录页面支持 light/dark 模式切换
+ *   - 加载状态：提交中禁用按钮并显示加载指示
+ *   - 动画反馈：成功时显示动画过渡，失败时震动提示
+ *
+ * 交互流程：
+ *   1. 页面加载时检查已认证状态 → 已认证则重定向首页
+ *   2. 尝试自动登录（无密码配置）
+ *   3. 若需密码，显示表单等待用户输入
+ *   4. 提交验证 → 成功后保存凭证并导航到首页
+ *   5. 失败时显示错误 toast 并恢复表单
+ */
+
 import { useState, useEffect, useCallback, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'

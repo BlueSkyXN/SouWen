@@ -1,4 +1,15 @@
-"""SouWen 会话缓存测试"""
+"""SouWen 会话缓存测试。
+
+覆盖 ``souwen.session_cache`` 中异步会话与 OAuth Token 缓存。
+验证存取、过期清理、并发初始化、幂等关闭等不变量。
+
+测试清单：
+- ``TestSessionCacheRoundtrip``：会话存取、非存在返回 None、过期返回 None、覆盖写
+- ``TestOAuthTokenRoundtrip``：Token 存取、过期 Token 返回 None
+- ``TestClearExpired``：清理过期、保留未过期
+- ``TestClose``：关闭连接、重复关闭幂等
+- ``TestConcurrentInit``：10 个并发 _get_db 只建一个连接、aclose 幂等
+"""
 
 import asyncio
 

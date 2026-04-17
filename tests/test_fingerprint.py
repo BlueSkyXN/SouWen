@@ -1,4 +1,12 @@
-"""SouWen 浏览器指纹模块测试"""
+"""SouWen 浏览器指纹模块测试。
+
+覆盖 ``souwen.fingerprint`` 中浏览器 User-Agent 生成、HTTP 头构造、curl_cffi impersonate 参数等。
+验证随机/默认指纹的有效性、headers 完整性、api_key/bearer_token/email 头注入、以及指纹轮换。
+
+测试清单：
+- ``TestBrowserFingerprint``：随机/默认指纹生成、headers 字段完整性、impersonate 参数
+- ``TestGetApiHeaders``：版本号、email From 头、bearer_token Authorization 头、api_key 头注入
+"""
 
 from souwen.fingerprint import (
     BrowserFingerprint,

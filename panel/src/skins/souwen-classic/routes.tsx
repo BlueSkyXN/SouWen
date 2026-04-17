@@ -1,3 +1,18 @@
+/**
+ * 路由定义文件 - skin 的页面路由表
+ *
+ * 文件用途：定义 souwen-classic skin 的所有应用页面路由，包括控制板、搜索、资源、网络、配置
+ *
+ * 路由清单：
+ *   / → DashboardPage - 应用首页/控制面板
+ *   /search → SearchPage - 论文/专利/网页综合搜索
+ *   /sources → SourcesPage - 数据源管理和状态检测
+ *   /network → NetworkPage - 网络设置和后端配置
+ *   /config → ConfigPage - 应用配置查看和编辑
+ *
+ * 导出格式：JSX Fragment 包含 <Route> 元素，由父 Router 组件加载
+ */
+
 import { Route } from 'react-router-dom'
 import { DashboardPage } from './pages/DashboardPage'
 import { SearchPage } from './pages/SearchPage'

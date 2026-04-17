@@ -1,4 +1,16 @@
-"""Crossref API 客户端单元测试（pytest-httpx mock）"""
+"""Crossref API 客户端单元测试（pytest-httpx mock）。
+
+覆盖 ``souwen.paper.crossref`` 中 CrossrefClient 的 JSON 解析、字段映射、分页、错误处理。
+验证作者/出版物、doi 映射、引用计数、开放获取链接提取等不变量。
+
+测试清单：
+- ``test_search_basic``：基本搜索解析
+- ``test_search_pagination``：分页逻辑
+- ``test_search_no_results``：无结果处理
+- ``test_work_lookup``：单篇文献查询
+- ``test_missing_doi``：缺少 DOI 处理
+- ``test_http_errors``：HTTP 错误处理（429/401/5xx）
+"""
 
 from __future__ import annotations
 import re
@@ -64,7 +76,7 @@ CROSSREF_SINGLE_WORK = CROSSREF_SEARCH_RESPONSE["message"]["items"][0]
 
 
 async def test_search_basic(httpx_mock: HTTPXMock):
-    """search() 正确解析 JSON 并映射字段"""
+    """search() 正确解析 JSON 并映射字段。"""
     httpx_mock.add_response(
         url=re.compile(r"https://api\.crossref\.org/works\?.*"),
         json=CROSSREF_SEARCH_RESPONSE,

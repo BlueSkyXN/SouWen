@@ -1,16 +1,20 @@
-"""Whoogle 隐私搜索客户端
+"""Client for Whoogle
 
-通过自建 Whoogle 实例获取去除追踪和广告的 Google 搜索结果。
-用户需自行部署 Whoogle 实例。
+Purpose:
+    Google SERP self-hosted mirror
 
-接口: GET /search?q=QUERY (返回 HTML，需解析)
-项目: https://github.com/benbusby/whoogle-search
+API Endpoint:
+    Whoogle service
 
-特点：
-- 返回 Google 搜索结果，去除广告和追踪
-- 完全隐私，不记录用户数据
-- 需自部署实例
-- 无 JSON API，需解析 HTML 响应
+Key Features:
+    - Privacy-focused Google search mirror, no tracking
+
+Engine Class:
+    WhoogleClient(SouWenHttpClient)
+        async def search(query, max_results) -> WebSearchResponse
+
+Returns:
+    WebSearchResponse with title, url, snippet fields
 """
 
 from __future__ import annotations

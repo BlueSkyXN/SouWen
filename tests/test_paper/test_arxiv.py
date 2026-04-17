@@ -1,4 +1,19 @@
-"""arXiv API 客户端单元测试（pytest-httpx mock）"""
+"""arXiv API 客户端单元测试（pytest-httpx mock）。
+
+覆盖 ``souwen.paper.arxiv`` 中 ArxivClient 的搜索解析、字段映射、错误处理。
+验证 Atom XML 解析、作者/摘要提取、分页、无 DOI 处理、API 错误场景等不变量。
+
+测试清单：
+- ``test_search_basic``：基本搜索解析
+- ``test_search_authors``：作者与机构提取
+- ``test_search_abstract_whitespace``：摘要空白处理
+- ``test_search_raw_fields``：原始字段
+- ``test_search_empty_results``：空结果
+- ``test_no_doi``：无 DOI 处理
+- ``test_malformed_xml``：格式错误的 XML
+- ``test_id_list_search``：ID 列表搜索
+- ``test_pagination``：分页
+"""
 
 from __future__ import annotations
 import re
@@ -91,7 +106,7 @@ ARXIV_NO_DOI_XML = """\
 
 
 async def test_search_basic(httpx_mock: HTTPXMock):
-    """search() 正确解析 Atom XML 并映射字段"""
+    """search() 正确解析 Atom XML 并映射字段。"""
     httpx_mock.add_response(
         url=re.compile(r"http://export\.arxiv\.org/api/query.*"),
         text=ARXIV_SEARCH_XML,
