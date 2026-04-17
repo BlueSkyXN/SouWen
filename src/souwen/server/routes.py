@@ -375,7 +375,10 @@ async def reload_config_endpoint():
     from souwen.config import reload_config
 
     cfg = reload_config()
-    return {"status": "ok", "password_set": cfg.api_password is not None}
+    return {
+        "status": "ok",
+        "password_set": cfg.effective_admin_password is not None,
+    }
 
 
 @admin_router.get("/doctor", response_model=DoctorResponse)

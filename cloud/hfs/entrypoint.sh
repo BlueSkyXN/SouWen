@@ -18,14 +18,6 @@ if [ "${WARP_ENABLED:-0}" = "1" ] && [ -f /usr/local/bin/warp-init.sh ]; then
     . /usr/local/bin/warp-init.sh
 fi
 
-# ----- Admin API 默认放行 -----
-# HFS 环境下若未配置密码则默认允许管理端点访问
-# 用户可通过 HF Secrets 设置 SOUWEN_API_PASSWORD 来启用密码保护
-if [ -z "${SOUWEN_API_PASSWORD}" ] && [ -z "${SOUWEN_ADMIN_OPEN}" ]; then
-    export SOUWEN_ADMIN_OPEN=1
-    echo "ℹ️  未设置 API 密码，已自动启用 SOUWEN_ADMIN_OPEN=1"
-fi
-
 # ----- 配置注入 -----
 if [ -n "${SOUWEN_CONFIG_B64}" ]; then
     printf '%s' "${SOUWEN_CONFIG_B64}" | base64 -d > /app/souwen.yaml

@@ -65,7 +65,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import os
 
 import typer
 from rich.console import Console
@@ -454,8 +453,12 @@ general:
 
 # ===== 服务 =====
 server:
-  # API 访问密码（设置后所有搜索端点需 Bearer Token 认证）
+  # 旧版统一密码（同时作用于访客和管理端点，向后兼容）
   api_password: ~
+  # 访客密码（仅保护搜索端点，优先于 api_password）
+  visitor_password: ~
+  # 管理密码（仅保护管理端点，优先于 api_password）
+  admin_password: ~
 """
 
     dest = Path("souwen.yaml")
@@ -695,14 +698,17 @@ def serve(
     from souwen.config import get_config
 
     cfg = get_config()
-    admin_open = os.getenv("SOUWEN_ADMIN_OPEN", "").lower() in ("1", "true", "yes", "on")
     console.print("[bold]━━━ SouWen 启动配置 ━━━[/bold]")
-    pw_color = "green" if cfg.api_password else "red"
-    pw_text = "已启用" if cfg.api_password else "未启用"
-    console.print(f"  密码保护:        [{pw_color}]{pw_text}[/]")
-    admin_color = "yellow" if admin_open else "green"
-    admin_text = "已解除 (高风险)" if admin_open else "已锁定"
-    console.print(f"  Admin 锁定:      [{admin_color}]{admin_text}[/]")
+    # 访客密码状态
+    v_pw = cfg.effective_visitor_password
+    v_color = "green" if v_pw else "red"
+    v_text = "已启用" if v_pw else "未启用（开放访问）"
+    console.print(f"  访客密码:        [{v_color}]{v_text}[/]")
+    # 管理密码状态
+    a_pw = cfg.effective_admin_password
+    a_color = "green" if a_pw else "yellow"
+    a_text = "已启用" if a_pw else "未启用（管理端开放）"
+    console.print(f"  管理密码:        [{a_color}]{a_text}[/]")
     console.print(f"  Docs:            {'已开放' if cfg.expose_docs else '已隐藏'}")
     console.print(
         f"  Trusted proxies: {', '.join(cfg.trusted_proxies) if cfg.trusted_proxies else '(未配置)'}"
