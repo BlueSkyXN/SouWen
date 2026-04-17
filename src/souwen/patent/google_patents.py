@@ -16,31 +16,31 @@ Google Patents 无官方 API，采用爬虫方式获取数据。
         - 功能：Google Patents 网页爬虫客户端
         - 关键属性：BASE_URL (str) Google Patents 网站地址，_use_playwright (bool) 是否启用动态渲染
         - 关键变量：_http (SouWenHttpClient) HTTP 客户端，_limiter 速率限制器
-    
+
     search(query: str, num_results: int = 10) -> SearchResponse
         - 功能：搜索 Google Patents
         - 输入：query 搜索关键词，num_results 期望返回数量
         - 输出：SearchResponse 包含搜索结果
-    
+
     get_patent(patent_id: str) -> PatentResult
         - 功能：获取专利详情页面数据
         - 输入：patent_id 专利号（如 US11234567B2）
         - 输出：PatentResult 专利详情
         - 异常：NotFoundError 专利不可用时抛出
-    
+
     _search_static(query: str, num_results: int) -> list[PatentResult]
         - 功能：使用 httpx + BeautifulSoup 静态解析搜索结果
         - 返回可能为空列表（若 BeautifulSoup 不可用或解析失败）
-    
+
     _parse_search_page(soup: Any) -> list[PatentResult]（静态方法）
         - 功能：解析搜索结果 HTML，提取专利列表
-    
+
     _parse_detail_page(soup: Any, patent_id: str) -> PatentResult | None（静态方法）
         - 功能：解析专利详情 HTML 页面
-    
+
     _search_playwright(query: str, num_results: int) -> list[PatentResult]
         - 功能：使用 Playwright 动态渲染搜索结果（兜底策略）
-    
+
     _get_patent_playwright(patent_id: str) -> PatentResult | None
         - 功能：使用 Playwright 动态渲染专利详情（兜底策略）
 
@@ -130,7 +130,7 @@ class _BrowserPool:
 
     async def get_page(self) -> Any:
         """创建新的 BrowserContext + Page（隔离 Cookie/Storage）
-        
+
         每次请求都创建独立的 BrowserContext，确保会话隔离。
         """
         await self._ensure_browser()
@@ -141,7 +141,7 @@ class _BrowserPool:
 
     async def shutdown(self) -> None:
         """关闭浏览器和 Playwright 实例（幂等）
-        
+
         线程安全关闭，避免多次调用导致异常。
         """
         async with self._lock:
@@ -168,7 +168,7 @@ _browser_pool: _BrowserPool | None = None
 
 def _get_browser_pool() -> _BrowserPool:
     """获取模块级浏览器池单例
-    
+
     首次调用时创建实例，后续调用返回同一实例。
     """
     global _browser_pool
@@ -179,7 +179,7 @@ def _get_browser_pool() -> _BrowserPool:
 
 def _atexit_shutdown_browser_pool() -> None:
     """进程退出时关闭浏览器池，避免僵尸 Chromium 进程
-    
+
     在 Python 进程退出时注册此函数，确保浏览器被正确关闭。
     """
     pool = _browser_pool
@@ -314,7 +314,7 @@ class GooglePatentsClient:
         num_results: int,
     ) -> list[PatentResult]:
         """使用 httpx + BeautifulSoup 抓取搜索结果
-        
+
         若 BeautifulSoup 未安装或请求失败，返回空列表。
         """
         try:
@@ -343,7 +343,7 @@ class GooglePatentsClient:
         patent_id: str,
     ) -> PatentResult | None:
         """使用 httpx + BeautifulSoup 抓取专利详情
-        
+
         若无法解析返回 None，调用者可选择使用 Playwright 兜底。
         """
         try:
@@ -370,7 +370,7 @@ class GooglePatentsClient:
     @staticmethod
     def _parse_search_page(soup: Any) -> list[PatentResult]:
         """解析搜索结果页面
-        
+
         支持多种 Google Patents 页面结构和 CSS 选择器。
         """
         results: list[PatentResult] = []
@@ -426,7 +426,7 @@ class GooglePatentsClient:
         patent_id: str,
     ) -> PatentResult | None:
         """解析专利详情页面
-        
+
         提取标题、摘要、发明人、申请人、分类号、日期等信息。
         """
         try:
@@ -499,7 +499,7 @@ class GooglePatentsClient:
         num_results: int,
     ) -> list[PatentResult]:
         """使用 Playwright 动态渲染搜索结果（复用浏览器池）
-        
+
         此为兜底方案，当静态解析失败时使用。
         """
         pool = _get_browser_pool()
@@ -535,7 +535,7 @@ class GooglePatentsClient:
         patent_id: str,
     ) -> PatentResult | None:
         """使用 Playwright 动态渲染专利详情（复用浏览器池）
-        
+
         此为兜底方案，当静态解析失败时使用。
         """
         pool = _get_browser_pool()
@@ -567,7 +567,7 @@ class GooglePatentsClient:
 
 def _safe_date(value: str | None):
     """``safe_parse_date`` 的向后兼容别名
-    
+
     供旧代码调用，新代码应直接使用 safe_parse_date。
     """
     return safe_parse_date(value)

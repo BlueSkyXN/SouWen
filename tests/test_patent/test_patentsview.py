@@ -1,4 +1,20 @@
-"""PatentsView API 客户端单元测试（pytest-httpx mock）"""
+"""PatentsView API 客户端单元测试（pytest-httpx mock）。
+
+覆盖 ``souwen.patent.patentsview`` 中 PatentsViewClient 的 JSON 解析、字段映射、分页、错误处理。
+验证申请人/发明人提取、分类代码（CPC/IPC）、摘要、日期处理等不变量。
+
+测试清单：
+- ``test_search_basic``：基本搜索解析
+- ``test_search_applicants``：申请人提取
+- ``test_search_inventors``：发明人提取
+- ``test_search_classification_codes``：分类代码（CPC/IPC）
+- ``test_search_abstract``：摘要提取
+- ``test_search_empty_results``：无结果处理
+- ``test_get_patent``：单篇专利查询
+- ``test_get_patent_not_found``：专利不存在
+- ``test_assignee_fallback_to_person_name``：申请人名称回退
+- ``test_invalid_date``：日期格式处理
+"""
 
 from __future__ import annotations
 import re
@@ -63,7 +79,7 @@ PATENTSVIEW_SEARCH_RESPONSE = {
 
 
 async def test_search_basic(httpx_mock: HTTPXMock):
-    """search() 正确解析 JSON 并映射字段"""
+    """search() 正确解析 JSON 并映射字段。"""
     httpx_mock.add_response(
         url=re.compile(r"https://search\.patentsview\.org/api/v1/patent/"),
         json=PATENTSVIEW_SEARCH_RESPONSE,

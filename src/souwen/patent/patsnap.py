@@ -14,22 +14,22 @@
         - 功能：PatSnap API 客户端，管理 API Key 和请求
         - 关键属性：BASE_URL (str) API 基础地址
         - 关键变量：_api_key (str) API 凭证，_http (SouWenHttpClient) HTTP 客户端，_limiter 速率限制器
-    
+
     search(query: str, limit: int = 10, offset: int = 0) -> SearchResponse
         - 功能：搜索全球专利
         - 输入：query 检索关键词或表达式，limit 返回数量，offset 偏移量
         - 输出：SearchResponse 包含总数和搜索结果
-    
+
     get_patent(patent_id: str) -> PatentResult
         - 功能：获取单项专利详情
         - 输入：patent_id 专利号/公开号
         - 输出：PatentResult 专利详情
         - 异常：NotFoundError 专利不存在时抛出
-    
+
     _parse_json(resp: httpx.Response) -> dict(静态方法)
         - 功能：安全解析 HTTP JSON 响应
         - 异常：ParseError JSON 格式错误时抛出
-    
+
     _to_patent_result(raw: dict) -> PatentResult（静态方法）
         - 功能：将 PatSnap API 原始数据转换为统一的 PatentResult 模型
 
@@ -71,9 +71,9 @@ class PatSnapClient:
 
     def __init__(self) -> None:
         """初始化 PatSnap 客户端
-        
+
         从配置读取 API Key，建立 HTTP 连接和限流控制。
-        
+
         Raises:
             ConfigError: 缺少 API Key 时抛出
         """
@@ -190,7 +190,7 @@ class PatSnapClient:
     @staticmethod
     def _to_patent_result(raw: dict[str, Any]) -> PatentResult:
         """将 PatSnap 原始数据转换为 PatentResult
-        
+
         处理多种数据格式和字段名变体（英文/中文）。
         """
         # 兼容多种字段名
@@ -249,12 +249,12 @@ class PatSnapClient:
 
 def _safe_date(value: str | None) -> date | None:
     """安全解析日期字符串
-    
+
     处理 ISO 8601 格式日期（YYYY-MM-DD），截取前 10 字符以兼容时间戳格式。
-    
+
     Args:
         value: 日期字符串或 None
-    
+
     Returns:
         date 对象，解析失败返回 None
     """

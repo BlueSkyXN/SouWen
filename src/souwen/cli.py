@@ -1,12 +1,63 @@
 """SouWen CLI — typer + rich 命令行工具
 
-用法:
-    souwen search paper "transformer attention"
-    souwen search patent "lithium battery"
-    souwen search web "Python asyncio"
-    souwen sources
-    souwen config show
-    souwen serve --port 8080
+文件用途：
+    提供命令行接口，让用户快速搜索论文、专利、网页。基于 typer（FastAPI 作者的 CLI 库）
+    和 rich（彩色终端输出）。支持全局选项（--version、--verbose、--quiet）、
+    多个子命令（search、sources、config、serve、doctor 等）。
+
+子命令清单：
+    search
+        - 模式：souwen search {paper|patent|web|all} <query> [options]
+        - 功能：搜索单一或多个数据源类型
+        - 选项：--sources (指定源), --timeout (超时), --format (输出格式)
+    
+    sources
+        - 功能：列出所有支持的数据源及其分类 (Tier 0/1/2)
+        - 子命令：
+          * list：显示所有源的表格
+          * show <name>：显示单个源的详细信息
+    
+    config
+        - 功能：显示或验证配置
+        - 子命令：
+          * show：显示当前配置
+          * generate：生成配置文件模板到 ~/.config/souwen/
+    
+    serve
+        - 功能：启动 FastAPI 服务器（用于 API 调用）
+        - 选项：--host、--port、--log-level
+    
+    doctor
+        - 功能：数据源健康检查（检查 API Key、网络连接等）
+        - 返回：按 Tier 分组的健康状态报告
+    
+    auth
+        - 功能：管理 OAuth 令牌和会话
+        - 子命令：
+          * clear：清除过期令牌和会话
+          * show：显示缓存的令牌信息
+
+全局选项：
+    --version / -V：显示版本并退出
+    --verbose / -v：日志级别（-v info / -vv debug）
+    --quiet / -q：仅输出警告和错误
+
+输出格式：
+    使用 rich.Console 和 rich.Table 实现彩色、对齐的输出
+    支持 JSON 格式输出（--format json）
+
+异常处理：
+    - KeyboardInterrupt (Ctrl+C)：优雅退出，返回码 130
+    - asyncio.CancelledError：记录取消消息
+    - 其他异常：记录错误并返回非零退出码
+
+模块依赖：
+    - typer: CLI 框架
+    - rich: 彩色终端输出
+    - souwen.search: 统一搜索接口
+    - souwen.config: 配置管理
+    - souwen.doctor: 健康检查
+    - souwen.logging_config: 日志设置
 """
 
 from __future__ import annotations
@@ -31,6 +82,14 @@ console = Console()
 
 
 def _version_callback(value: bool) -> None:
+    """版本回调函数
+    
+    Args:
+        value: 布尔值（typer 自动传入 --version 标志的状态）
+    
+    Raises:
+        typer.Exit: 版本输出后退出程序
+    """
     if value:
         typer.echo(f"souwen {__version__}")
         raise typer.Exit(0)
@@ -51,7 +110,15 @@ def main(
     ),
     quiet: bool = typer.Option(False, "--quiet", "-q", help="只输出警告和错误"),
 ) -> None:
-    """SouWen 全局选项"""
+    """SouWen 全局选项
+    
+    配置日志级别和其他全局设置。此回调在所有子命令前执行。
+    
+    Args:
+        version: --version 标志（触发版本输出）
+        verbose: -v 计数（决定日志级别：0 = WARNING, 1+ = INFO, 2+ = DEBUG）
+        quiet: -q 标志（强制 WARNING 级别）
+    """
     if quiet:
         level = logging.WARNING
     elif verbose >= 2:
@@ -70,7 +137,17 @@ def main(
 
 
 def _run_async(coro):
-    """运行异步任务，优雅处理 KeyboardInterrupt / CancelledError。"""
+    """运行异步任务，优雅处理 KeyboardInterrupt 和 CancelledError
+    
+    Args:
+        coro: 异步协程对象
+    
+    Returns:
+        协程的返回值
+    
+    Raises:
+        typer.Exit: 键盘中断时退出码 130，取消时退出码 1
+    """
     try:
         return asyncio.run(coro)
     except KeyboardInterrupt:

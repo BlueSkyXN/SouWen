@@ -1,7 +1,52 @@
 """SouWen 统一数据模型（Pydantic v2）
 
-所有数据源的返回结果都必须归一化为这些模型，
-确保 AI Agent 获得一致的数据结构。
+文件用途：
+    定义所有数据源的返回结果的统一 Pydantic 数据模型，确保 AI Agent 获得一致的数据结构。
+    支持多层级聚合（论文、专利、网页结果），兼容动态字段和宽松验证。
+
+类清单：
+    SourceType (Enum)
+        - 功能：数据源类型枚举（论文、专利、Web 源）
+        - 值：openalex, semantic_scholar, crossref, arxiv, ... (论文源)
+            patents_view, uspto_odp, epo_ops, ... (专利源)
+            google, duckduckgo, tavily, serper, ... (Web 源)
+    
+    PaperItem (BaseModel)
+        - 功能：单篇论文的统一模型
+        - 字段：title, authors, abstract, url, doi, pub_year, 
+                source_name, source_url, cited_count, pdf_url
+        - Config: extra='allow' (允许额外字段用于扩展)
+    
+    PatentItem (BaseModel)
+        - 功能：单件专利的统一模型
+        - 字段：title, abstract, url, patent_number, filing_date,
+                pub_date, assignee, inventors, source_name, source_url
+    
+    WebItem (BaseModel)
+        - 功能：网页搜索结果统一模型
+        - 字段：title, snippet, url, source_name, source_url, 
+                publish_date (可选)
+    
+    AggregatedResult (BaseModel)
+        - 功能：聚合多个数据源的搜索结果
+        - 字段：query (搜索词), papers (list[PaperItem]), 
+                patents (list[PatentItem]), web_results (list[WebItem])
+        - 用途：AI Agent 最终获得的统一结果格式
+
+辅助函数：
+    _coerce_date(value) — 宽松日期归一化
+        接受：datetime, date, ISO 日期字符串
+        无效值返回 None（而非抛异常）
+
+Pydantic 配置策略：
+    - ConfigDict(extra='allow'): 允许超出定义字段的额外数据
+    - field_validator('pub_year', mode='before'): 字段预处理（数据清理）
+    - str 枚举用于 JSON 序列化兼容性
+
+模块依赖：
+    - pydantic v2: 数据验证和序列化
+    - datetime: 日期时间处理
+    - enum: 枚举类型
 """
 
 from __future__ import annotations
@@ -13,7 +58,26 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 def _coerce_date(value):
-    """宽松日期归一化：仅接受完整 ISO 日期，其余无效值返回 None。"""
+    """宽松日期归一化
+    
+    将多种日期格式统一为 date 对象，或返回 None（无效值时）。
+    
+    支持格式：
+        - None / 空字符串 → None
+        - datetime 对象 → date
+        - date 对象 → date（保持不变）
+        - ISO 日期字符串 (YYYY-MM-DD) → date
+        - ISO 时间戳 (YYYY-MM-DDTHH:MM:SS...) → 提取日期部分
+    
+    Args:
+        value: 待转换的日期值
+    
+    Returns:
+        date 对象或 None
+    
+    Note:
+        无法解析的值返回 None，不抛异常（宽松验证）
+    """
     if value in (None, ""):
         return None
     if isinstance(value, datetime):
@@ -34,7 +98,13 @@ def _coerce_date(value):
 
 
 class SourceType(str, Enum):
-    """数据源类型枚举"""
+    """数据源类型枚举
+    
+    分为三大类：
+    - 论文源：OpenAlex, Semantic Scholar, CrossRef, arXiv, DBLP, CORE, PubMed, Unpaywall, IEEE
+    - 专利源：PatentsView, USPTO ODP, EPO OPS, CNIPA, Lens, PatSnap
+    - Web 源：Google, DuckDuckGo, Tavily, Serper, Brave Search, Exa 等
+    """
 
     # 论文数据源
     OPENALEX = "openalex"
@@ -80,7 +150,13 @@ class SourceType(str, Enum):
 
 
 class Author(BaseModel):
-    """作者信息"""
+    """作者信息
+    
+    Attributes:
+        name: 作者姓名
+        affiliation: 所属机构（可选）
+        orcid: ORCID 标识符（可选）
+    """
 
     name: str
     affiliation: str | None = None
@@ -88,7 +164,27 @@ class Author(BaseModel):
 
 
 class PaperResult(BaseModel):
-    """统一论文结果模型"""
+    """统一论文结果模型
+    
+    所有论文数据源的结果都应归一化为此格式。支持部分字段缺失（None）。
+    
+    Attributes:
+        source: 数据源类型（SourceType 枚举）
+        title: 论文标题
+        authors: 作者列表（Author 对象）
+        abstract: 摘要文本（可选）
+        doi: DOI 标识符（可选）
+        year: 发表年份（整数）
+        publication_date: 发表日期（ISO 日期对象）
+        journal: 期刊名称（可选）
+        venue: 会议/期刊场地（可选）
+        citation_count: 被引用次数（可选）
+        open_access_url: 开源获取 URL（可选）
+        pdf_url: PDF 链接（可选）
+        source_url: 原数据源的论文 URL
+        tldr: 论文 TL;DR 摘要（Semantic Scholar 特有）
+        raw: 原始 API 响应字段（用于调试）
+    """
 
     model_config = ConfigDict(extra="forbid")
     source: SourceType
@@ -110,18 +206,43 @@ class PaperResult(BaseModel):
     @field_validator("publication_date", mode="before")
     @classmethod
     def _normalize_publication_date(cls, value):
+        """字段前处理：日期字段宽松归一化"""
         return _coerce_date(value)
 
 
 class Applicant(BaseModel):
-    """专利申请人/权利人"""
+    """专利申请人/权利人
+    
+    Attributes:
+        name: 申请人/权利人名称
+        country: 所属国家代码或名称（可选）
+    """
 
     name: str
     country: str | None = None
 
 
 class PatentResult(BaseModel):
-    """统一专利结果模型"""
+    """统一专利结果模型
+    
+    所有专利数据源的结果都应归一化为此格式。支持部分字段缺失。
+    
+    Attributes:
+        source: 数据源类型（SourceType 枚举）
+        title: 专利名称/标题
+        patent_id: 公开号或申请号
+        application_number: 申请号（若与 patent_id 不同）
+        publication_date: 公布/发布日期（ISO 日期对象）
+        filing_date: 申请日期（ISO 日期对象）
+        applicants: 申请人/权利人列表（Applicant 对象）
+        inventors: 发明人列表（名称字符串）
+        abstract: 摘要文本（可选）
+        claims: 权利要求书（可选）
+        ipc_codes: IPC 分类码列表（国际专利分类）
+        cpc_codes: CPC 分类码列表（合作专利分类）
+        family_id: 专利族 ID（可选）
+        legal_status: 法律状态（如"授权"、"放弃"等）
+    """
 
     model_config = ConfigDict(extra="forbid")
     source: SourceType

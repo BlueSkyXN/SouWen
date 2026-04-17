@@ -1,12 +1,48 @@
 """统一 HTTP 客户端
 
-基于 httpx async，提供：
-- 自动重试（tenacity 指数退避）
-- 统一超时
-- User-Agent 管理
-- 可选代理
-- OAuth 2.0 Token 自动管理
-- 统一错误处理
+文件用途：
+    提供全局的异步 HTTP 客户端。基于 httpx，集成了自动重试、代理配置、OAuth 令牌管理、
+    统一超时和错误处理。所有数据源均通过该客户端发起请求。
+
+类清单：
+    SouWenHttpClient (context manager)
+        - 功能：异步 HTTP 客户端，包含重试逻辑和代理管理
+        - 初始化参数：base_url, headers, timeout, max_retries, source_name
+        - 主要方法：
+          * get(url, **kwargs) — GET 请求（带重试）
+          * post(url, **kwargs) — POST 请求（带重试）
+          * get_json(url, ...) — GET 并解析 JSON
+          * post_json(url, ...) — POST 并解析 JSON
+          * close() — 关闭底层连接
+          * _apply_oauth_token(headers) — OAuth 令牌注入
+        - 特性：自动代理应用、User-Agent 管理、OAuthClient 集成
+    
+    OAuthClient (abstract)
+        - 功能：OAuth 令牌管理基类（各数据源子类实现）
+        - 主要方法：
+          * get_access_token(scope) → str — 获取或刷新令牌（缓存化）
+          * _fetch_token_impl(scope) — 子类实现的令牌获取逻辑
+    
+    _SemanticScholarOAuthClient (OAuthClient)
+        - 功能：Semantic Scholar API 的 OAuth 令牌管理
+        - 初始化参数：api_key
+        - 特性：缓存令牌，支持多个 scope，自动过期刷新
+    
+    get_http_client(source_name) → SouWenHttpClient
+        - 功能：获取或创建数据源专用的 HTTP 客户端
+        - 参数：source_name (数据源名)
+        - 返回：SouWenHttpClient 实例
+
+重试策略：
+    - 所有 HTTP 请求使用 tenacity 指数退避重试
+    - 重试条件：HTTP 429 (Rate Limit) 和网络错误
+    - 不重试：HTTP 4xx (除 429)、HTTP 5xx (用户错误)
+
+模块依赖：
+    - httpx: 异步 HTTP 库
+    - tenacity: 重试装饰器
+    - souwen.config: 获取全局配置（代理、超时等）
+    - souwen.exceptions: 错误类型
 """
 
 from __future__ import annotations
@@ -41,11 +77,26 @@ DEFAULT_USER_AGENT = (
 
 
 class SouWenHttpClient:
-    """统一 HTTP 客户端，所有数据源共用
+    """统一 HTTP 客户端（async context manager）
 
+    所有数据源共用的 HTTP 客户端，提供以下功能：
+    - 统一的重试策略（指数退避）
+    - 代理配置（全局/源级别支持）
+    - User-Agent 设定
+    - 超时和重试次数配置
+    - OAuth 令牌自动管理（集成 OAuthClient）
+    - 统一错误处理和日志
+    
     使用方式：
-        async with SouWenHttpClient() as client:
-            resp = await client.get("https://api.openalex.org/works")
+        async with SouWenHttpClient(source_name="semantic_scholar") as client:
+            resp = await client.get("https://api.semanticscholar.org/...")
+    
+    Args:
+        base_url: 基础 URL（可选，用于 relative URL）
+        headers: 默认请求头（dict）
+        timeout: 请求超时秒数（默认从 config 读取）
+        max_retries: 最大重试次数（默认从 config 读取）
+        source_name: 数据源名（用于日志和配置查询）
     """
 
     def __init__(
@@ -201,10 +252,23 @@ class SouWenHttpClient:
 
 
 class OAuthClient(SouWenHttpClient):
-    """带 OAuth 2.0 Token 自动管理的 HTTP 客户端
-
-    适用于 EPO OPS、CNIPA 等需要 OAuth 的数据源。
-    Token 自动刷新，不会每次请求都重新获取。
+    """OAuth 2.0 Token 自动管理的 HTTP 客户端
+    
+    适用于 EPO OPS、CNIPA 等需要 OAuth 2.0 认证的数据源。
+    实现了令牌缓存、自动刷新、并发安全的特性：
+    - 令牌缓存：避免每次请求都重新获取
+    - 自动刷新：提前 60 秒刷新，防止请求过程中 token 过期 (401 错误)
+    - 并发安全：使用 asyncio.Lock 串行化令牌获取，避免并发调用打击 token 端点
+    
+    Args:
+        base_url: API 基础 URL
+        token_url: OAuth token 端点 URL
+        client_id: OAuth client ID
+        client_secret: OAuth client secret
+        **kwargs: 其他参数（传给 SouWenHttpClient）
+    
+    Note:
+        令牌锁使用懒加载（_get_token_lock），防止每次创建实例都分配新 Lock 对象。
     """
 
     def __init__(
@@ -224,15 +288,25 @@ class OAuthClient(SouWenHttpClient):
         self._token_lock: asyncio.Lock | None = None
 
     def _get_token_lock(self) -> asyncio.Lock:
+        """获取或创建令牌锁（懒加载）"""
         if self._token_lock is None:
             self._token_lock = asyncio.Lock()
         return self._token_lock
 
     async def _ensure_token(self) -> str:
         """确保有有效的 access token，过期则自动刷新
-
-        提前 60 秒刷新，避免 token 在请求途中过期导致 401。
-        并发调用时通过懒加载 Lock 串行化，避免多次打 token 端点。
+        
+        刷新策略：
+        - 检查缓存的 token 是否仍有效（还有 60+ 秒）
+        - 若无效，获取令牌锁并向 token 端点发起请求
+        - 使用二次检查锁模式，避免并发调用重复刷新
+        - 提前 60 秒刷新，避免 token 在请求途中过期导致 401
+        
+        Returns:
+            有效的 access token 字符串
+        
+        Raises:
+            AuthError: token 获取失败或响应解析失败
         """
         if self._access_token and time.monotonic() < self._token_expires_at - 60:
             return self._access_token

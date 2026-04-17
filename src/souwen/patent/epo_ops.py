@@ -13,45 +13,45 @@
         - 功能：EPO OPS 专利数据客户端，管理 OAuth 连接和 XML 解析
         - 关键属性：BASE_URL (str) API 基础地址，TOKEN_URL (str) OAuth 端点
         - 关键变量：_http (OAuthClient) OAuth HTTP 客户端，_limiter 速率限制器
-    
+
     search(cql_query: str, range_begin: int = 1, range_end: int = 10) -> SearchResponse
         - 功能：使用 CQL 查询搜索欧洲专利
         - 输入：cql_query CQL 查询表达式，range_begin/end 结果范围
         - 输出：SearchResponse 包含总数和专利列表
-    
+
     get_publication(doc_id: str, doc_type: str = "publication", format: str = "epodoc") -> PatentResult
         - 功能：获取出版物（专利或申请）详情
         - 输入：doc_id 文档标识符，doc_type 类型，format 标识符格式
         - 输出：PatentResult 专利详情
         - 异常：NotFoundError 文档不存在时抛出
-    
+
     get_family(doc_id: str) -> list[PatentResult]
         - 功能：获取专利族信息（同族专利列表）
         - 输入：doc_id 文档标识符
         - 输出：专利族成员列表
-    
+
     get_legal_status(doc_id: str) -> list[dict[str, Any]]
         - 功能：获取 INPADOC 法律状态（审查进度、维持费等重要事件）
         - 输入：doc_id 文档标识符
         - 输出：法律事件列表
-    
+
     get_claims(doc_id: str) -> str | None
         - 功能：获取权利要求书文本
         - 输入：doc_id 文档标识符
         - 输出：权利要求文本或 None
-    
+
     get_description(doc_id: str) -> str | None
         - 功能：获取说明书文本（发明背景、技术方案等）
         - 输入：doc_id 文档标识符
         - 输出：说明书文本或 None
-    
+
     _parse_xml(text: str) -> ET.Element（静态方法）
         - 功能：安全解析 XML 响应
         - 异常：ParseError XML 格式错误时抛出
-    
+
     _extract_search_results(root: ET.Element) -> list[PatentResult]
         - 功能：从搜索 XML 中提取专利列表
-    
+
     _exchange_doc_to_result(doc: ET.Element) -> PatentResult（静态方法）
         - 功能：将 EPO exchange-document XML 节点转换为 PatentResult
 
@@ -101,9 +101,9 @@ class EpoOpsClient:
 
     def __init__(self) -> None:
         """初始化 EPO OPS 客户端
-        
+
         从配置读取 OAuth 凭证（consumer_key / consumer_secret），建立连接。
-        
+
         Raises:
             ConfigError: 缺少必要的 OAuth 凭证时抛出
         """
@@ -334,7 +334,7 @@ class EpoOpsClient:
 
     def _extract_search_results(self, root: ET.Element) -> list[PatentResult]:
         """从搜索 XML 中提取专利列表
-        
+
         遍历 exchange-document 节点，逐一转换为 PatentResult，跳过无法解析的项。
         """
         results: list[PatentResult] = []
@@ -363,7 +363,7 @@ class EpoOpsClient:
 
     def _extract_family_members(self, root: ET.Element) -> list[PatentResult]:
         """从专利族 XML 中提取成员列表
-        
+
         遍历 family-member 节点，提取其中的 exchange-document 元素。
         """
         members: list[PatentResult] = []
@@ -378,7 +378,7 @@ class EpoOpsClient:
     @staticmethod
     def _exchange_doc_to_result(doc: ET.Element) -> PatentResult:
         """将 EPO exchange-document 节点转换为 PatentResult
-        
+
         处理多语言字段（优先英文），提取标题、摘要、申请人、发明人、分类号等核心信息。
         """
         ns_epo = "{http://www.epo.org/exchange}"
@@ -467,12 +467,12 @@ class EpoOpsClient:
 
 def _safe_date(value: str | None) -> date | None:
     """安全解析 EPO 日期格式 (YYYYMMDD 或 YYYY-MM-DD)
-    
+
     处理两种常见 EPO 日期格式，失败时返回 None。
-    
+
     Args:
         value: 日期字符串或 None
-    
+
     Returns:
         date 对象，解析失败返回 None
     """

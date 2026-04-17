@@ -12,30 +12,30 @@
         - 功能：CNIPA 专利数据客户端，管理 OAuth 连接和 API 请求
         - 关键属性：BASE_URL (str) API 基础地址，TOKEN_URL (str) OAuth 令牌端点
         - 关键变量：_http (OAuthClient) OAuth HTTP 客户端，_limiter (TokenBucketLimiter) 速率限制器
-    
+
     search(query: str, per_page: int = 10, offset: int = 0) -> SearchResponse
         - 功能：按关键词搜索中国专利，支持 CNIPA 检索语法
         - 输入：query 检索表达式，per_page 每页结果数，offset 偏移量
         - 输出：SearchResponse 包含总数、专利列表、分页信息
-    
+
     get_patent(publication_number: str) -> PatentResult
         - 功能：根据公开号获取单项专利详情
         - 输入：publication_number 公开号（如 CN115000000A）
         - 输出：PatentResult 专利详情模型
         - 异常：NotFoundError 专利不存在时抛出
-    
+
     get_fulltext(publication_number: str) -> dict[str, Any]
         - 功能：获取专利全文（说明书、权利要求书等）
         - 输入：publication_number 公开号
         - 输出：包含全文内容的字典
         - 异常：NotFoundError 全文不可用时抛出
-    
+
     _parse_json(resp: httpx.Response) -> dict[str, Any]（静态方法）
         - 功能：安全解析 HTTP JSON 响应
         - 输入：resp httpx 响应对象
         - 输出：解析后的字典
         - 异常：ParseError JSON 格式错误时抛出
-    
+
     _to_patent_result(raw: dict[str, Any]) -> PatentResult（静态方法）
         - 功能：将 CNIPA API 原始数据转换为统一的 PatentResult 模型
         - 输入：raw CNIPA API 返回的原始数据字典
@@ -82,9 +82,9 @@ class CnipaClient:
 
     def __init__(self) -> None:
         """初始化 CNIPA 客户端
-        
+
         从配置读取 OAuth 凭证，建立 OAuth 连接和限流控制。
-        
+
         Raises:
             ConfigError: 缺少必要的 OAuth 凭证时抛出
         """
@@ -298,12 +298,12 @@ class CnipaClient:
 
 def _safe_date(value: str | None) -> date | None:
     """安全解析日期字符串
-    
+
     处理 ISO 8601 格式日期（YYYY-MM-DD），截取前 10 字符以兼容时间戳格式。
-    
+
     Args:
         value: 日期字符串或 None
-    
+
     Returns:
         date 对象，解析失败返回 None
     """
