@@ -1,4 +1,16 @@
-"""SouWen Server HTTP 端点测试"""
+"""SouWen Server HTTP 端点测试。
+
+覆盖 ``souwen.server.app`` FastAPI 应用的端到端 HTTP 契约：健康检查、
+管理端点鉴权、搜索端点鉴权与限流、客户端 IP 解析（XFF 可信代理）、
+面板 HTML 缓存、响应 Schema、中间件（Request-ID/访问日志）、以及
+生命周期日志。所有用例通过 ``fastapi.testclient.TestClient`` 同步发送
+请求，对外部数据源（souwen.search / souwen.web）统一 monkeypatch。
+
+Fixtures：
+- ``client``：不设 ``api_password`` 的裸客户端，管理端点默认应被锁定。
+- ``authed_client``：预先设 ``SOUWEN_API_PASSWORD=test-secret-123``，
+  用于验证 Bearer Token 鉴权通路。
+"""
 
 import pytest
 
@@ -37,6 +49,7 @@ def authed_client(monkeypatch):
 
 class TestHealth:
     def test_health_ok(self, client):
+        """``GET /health`` 返回 200，且 payload 含 ``status=ok`` 与 ``version``。"""
         resp = client.get("/health")
         assert resp.status_code == 200
         data = resp.json()
@@ -44,6 +57,7 @@ class TestHealth:
         assert "version" in data
 
     def test_health_no_auth_required(self, authed_client):
+        """即便设置了 ``api_password``，``/health`` 仍应免鉴权（K8s liveness 探针）。"""
         resp = authed_client.get("/health")
         assert resp.status_code == 200
 
@@ -69,6 +83,7 @@ class TestAdminAuth:
         assert resp.status_code == 200
 
     def test_admin_config_wrong_token_returns_401(self, authed_client):
+        """持错误 Bearer Token 访问 ``/admin/config`` 必须返回 401。"""
         resp = authed_client.get(
             "/api/v1/admin/config",
             headers={"Authorization": "Bearer wrong-token"},
@@ -76,11 +91,13 @@ class TestAdminAuth:
         assert resp.status_code == 401
 
     def test_admin_config_no_token_returns_401(self, authed_client):
+        """完全不带 ``Authorization`` 头访问 admin 端点，也必须 401（HTTPBearer auto_error=False 下的兜底）。"""
         resp = authed_client.get("/api/v1/admin/config")
         # 无 token → HTTPBearer auto_error=False → credentials=None → 401
         assert resp.status_code == 401
 
     def test_admin_config_valid_token(self, authed_client):
+        """正确 Bearer Token 可访问 ``/admin/config``；响应中 ``api_password`` 必须已脱敏为 ``***``。"""
         resp = authed_client.get(
             "/api/v1/admin/config",
             headers={"Authorization": "Bearer test-secret-123"},
@@ -91,6 +108,7 @@ class TestAdminAuth:
         assert data.get("api_password") == "***"
 
     def test_admin_reload_valid_token(self, authed_client):
+        """``POST /admin/config/reload`` 鉴权通过后返回 ``status=ok`` 与 ``password_set=True``。"""
         resp = authed_client.post(
             "/api/v1/admin/config/reload",
             headers={"Authorization": "Bearer test-secret-123"},
@@ -100,6 +118,7 @@ class TestAdminAuth:
         assert resp.json()["password_set"] is True
 
     def test_admin_doctor_valid_token(self, authed_client):
+        """``GET /admin/doctor`` 鉴权通过后返回包含 ``total``/``ok``/``sources`` 字段的连通性摘要。"""
         resp = authed_client.get(
             "/api/v1/admin/doctor",
             headers={"Authorization": "Bearer test-secret-123"},
@@ -140,10 +159,12 @@ class TestSearchAuth:
         assert resp.status_code == 200
 
     def test_sources_with_password_requires_token(self, authed_client):
+        """设了密码后，``/sources`` 无 Token 直接访问必须 401。"""
         resp = authed_client.get("/api/v1/sources")
         assert resp.status_code == 401
 
     def test_sources_with_valid_token(self, authed_client):
+        """带正确 Token 访问 ``/sources`` 应 200，响应含 paper/patent/web 三类分组。"""
         resp = authed_client.get(
             "/api/v1/sources",
             headers={"Authorization": "Bearer test-secret-123"},
@@ -162,6 +183,7 @@ class TestSearchAuth:
 
 class TestRateLimiter:
     def test_rate_limiter_import(self):
+        """基础限流：同一 IP 在窗口内超过 ``max_requests`` 必须抛出异常。"""
         from souwen.server.limiter import InMemoryRateLimiter
 
         limiter = InMemoryRateLimiter(max_requests=3, window_seconds=60)
@@ -172,6 +194,7 @@ class TestRateLimiter:
             limiter.check("127.0.0.1")
 
     def test_rate_limiter_different_ips(self):
+        """不同 IP 的计数彼此独立，不能相互影响。"""
         from souwen.server.limiter import InMemoryRateLimiter
 
         limiter = InMemoryRateLimiter(max_requests=1, window_seconds=60)
@@ -179,6 +202,7 @@ class TestRateLimiter:
         limiter.check("10.0.0.2")  # 不同 IP 不受影响
 
     def test_rate_limiter_rejects_invalid_params(self):
+        """构造限流器时非法参数（<=0 的次数或窗口）必须直接 ``ValueError``。"""
         from souwen.server.limiter import InMemoryRateLimiter
 
         with pytest.raises(ValueError):
@@ -191,6 +215,7 @@ class TestRateLimiter:
             InMemoryRateLimiter(max_requests=10, window_seconds=-5)
 
     def test_rate_limiter_deque_is_bounded(self):
+        """内部 ``deque`` 有 ``maxlen=2*max_requests`` 上界，防止长期运行内存泄漏。"""
         from collections import deque
 
         from souwen.server.limiter import InMemoryRateLimiter
@@ -225,6 +250,7 @@ def _make_request(client_host: str, headers: dict | None = None):
 
 class TestClientIPResolution:
     def test_ignores_xff_without_trusted_proxies(self, monkeypatch):
+        """未配置 ``SOUWEN_TRUSTED_PROXIES`` 时，XFF 头必须被忽略，仅用 socket 端 IP——防伪造。"""
         from souwen.config import get_config
         from souwen.server.limiter import get_client_ip
 
@@ -234,6 +260,7 @@ class TestClientIPResolution:
         assert get_client_ip(req) == "10.0.0.5"
 
     def test_honors_xff_when_client_is_trusted_proxy(self, monkeypatch):
+        """socket 端 IP 在可信代理 CIDR 内时，采用 XFF 链中最左侧的原始客户端 IP。"""
         from souwen.config import get_config
         from souwen.server.limiter import get_client_ip
 
@@ -246,6 +273,7 @@ class TestClientIPResolution:
         assert get_client_ip(req) == "203.0.113.7"
 
     def test_xff_ignored_when_direct_client_not_trusted(self, monkeypatch):
+        """直连客户端不在可信代理集合里时，XFF 仍然必须被忽略。"""
         from souwen.config import get_config
         from souwen.server.limiter import get_client_ip
 
@@ -255,6 +283,7 @@ class TestClientIPResolution:
         assert get_client_ip(req) == "8.8.8.8"
 
     def test_malformed_xff_does_not_crash(self, monkeypatch):
+        """XFF 里全是非法 IP（乱码/注入）时，降级回 socket 端 IP，不得抛异常。"""
         from souwen.config import get_config
         from souwen.server.limiter import get_client_ip
 
@@ -267,6 +296,7 @@ class TestClientIPResolution:
         assert get_client_ip(req) == "10.0.0.5"
 
     def test_malformed_xff_single_value(self, monkeypatch):
+        """XFF 是单个非法值（如 XSS 载荷）时同样安全降级。"""
         from souwen.config import get_config
         from souwen.server.limiter import get_client_ip
 
@@ -286,6 +316,7 @@ class TestClientIPResolution:
 
 class TestPanel:
     def test_panel_endpoint(self, client):
+        """``/panel`` 要么返回 HTML（200 且 content-type 含 html），要么 404（未构建面板），两种都可接受。"""
         resp = client.get("/panel")
         assert resp.status_code in (200, 404)
         if resp.status_code == 200:
@@ -299,6 +330,7 @@ class TestPanel:
 
 class TestSchemas:
     def test_response_models_importable(self):
+        """所有响应模型（Health/Search*/ConfigReload/Doctor/Sources/Error/SearchMeta）可导入并实例化。"""
         from souwen.server.schemas import (
             ErrorResponse,
             HealthResponse,
@@ -329,21 +361,25 @@ class TestSchemas:
 
 class TestMiddleware:
     def test_response_has_request_id(self, client):
+        """每个响应都带有非空 ``X-Request-ID`` 头，供调用方串联日志。"""
         resp = client.get("/health")
         assert resp.status_code == 200
         assert "x-request-id" in resp.headers
         assert len(resp.headers["x-request-id"]) > 0
 
     def test_response_has_response_time(self, client):
+        """每个响应都带有 ``X-Response-Time`` 头，且以 ``s`` 结尾（单位秒）。"""
         resp = client.get("/health")
         assert "x-response-time" in resp.headers
         assert resp.headers["x-response-time"].endswith("s")
 
     def test_custom_request_id_forwarded(self, client):
+        """客户端传入合法的 ``X-Request-ID`` 头时，服务端必须原样回显。"""
         resp = client.get("/health", headers={"X-Request-ID": "my-custom-id"})
         assert resp.headers["x-request-id"] == "my-custom-id"
 
     def test_invalid_request_id_replaced(self, client):
+        """传入超长 Request-ID（>64 字符）时，服务端必须替换为自动生成的短 ID。"""
         resp = client.get(
             "/health",
             headers={"X-Request-ID": "x" * 200},
@@ -352,6 +388,7 @@ class TestMiddleware:
         assert len(resp.headers["x-request-id"]) <= 64
 
     def test_404_returns_error_response(self, client):
+        """未知路由必须走统一错误 Schema：``error=not_found`` + 含 ``request_id``。"""
         resp = client.get("/api/v1/nonexistent")
         assert resp.status_code == 404
         data = resp.json()
@@ -359,6 +396,7 @@ class TestMiddleware:
         assert "request_id" in data
 
     def test_422_validation_error(self, client):
+        """参数越界（``per_page=999``）触发 422，且响应 ``error=validation_error``。"""
         # per_page 超出范围触发验证错误
         resp = client.get("/api/v1/search/paper?q=test&per_page=999")
         assert resp.status_code == 422
@@ -376,18 +414,22 @@ class TestQueryLengthValidation:
     """API-Q-LEN: q 参数长度校验"""
 
     def test_empty_q_rejected_paper(self, client):
+        """paper 搜索：空 ``q`` 必须被 422 拒绝。"""
         resp = client.get("/api/v1/search/paper?q=")
         assert resp.status_code == 422
 
     def test_empty_q_rejected_patent(self, client):
+        """patent 搜索：空 ``q`` 必须被 422 拒绝。"""
         resp = client.get("/api/v1/search/patent?q=")
         assert resp.status_code == 422
 
     def test_empty_q_rejected_web(self, client):
+        """web 搜索：空 ``q`` 必须被 422 拒绝。"""
         resp = client.get("/api/v1/search/web?q=")
         assert resp.status_code == 422
 
     def test_overlong_q_rejected(self, client):
+        """超长 ``q``（>500 字符）必须被 422 拒绝，防 DoS。"""
         long_q = "x" * 501
         resp = client.get(f"/api/v1/search/paper?q={long_q}")
         assert resp.status_code == 422
@@ -397,6 +439,7 @@ class TestStatusToCodeMap:
     """API-ERRMAP: 状态码 → error code 映射"""
 
     def test_all_expected_codes(self):
+        """``_status_to_code`` 对 400/401/403/404/422/429/500/502/503/504 有明确字符串映射；未识别码（418）降级为 ``error``。"""
         from souwen.server.app import _status_to_code
 
         assert _status_to_code(400) == "bad_request"
@@ -416,6 +459,7 @@ class TestSearchWebResponseShape:
     """API-WEB-RESP: /search/web 含 meta.requested/succeeded/failed"""
 
     def test_web_response_has_meta(self, client, monkeypatch):
+        """``/search/web`` 响应必须含 ``meta.requested/succeeded/failed``，并反映每个 engine 的真实命中/失败情况。"""
         from souwen.models import SourceType, WebSearchResult
         from souwen.web import search as web_search_mod
 
@@ -464,12 +508,14 @@ class TestPerPageAlias:
         return captured
 
     def test_per_page_accepted(self, client, monkeypatch):
+        """``/search/web?per_page=N`` 必须映射到底层 ``max_results_per_engine=N``。"""
         captured = self._patch(monkeypatch)
         resp = client.get("/api/v1/search/web?q=foo&per_page=5")
         assert resp.status_code == 200
         assert captured["max"] == 5
 
     def test_max_results_accepted_for_backcompat(self, client, monkeypatch):
+        """保留历史别名 ``max_results=N``，行为等同 ``per_page``（向后兼容契约）。"""
         captured = self._patch(monkeypatch)
         resp = client.get("/api/v1/search/web?q=foo&max_results=7")
         assert resp.status_code == 200
@@ -480,6 +526,7 @@ class TestRateLimitHeaders:
     """API-RLHEAD: 429 响应包含 X-RateLimit-* 头"""
 
     def test_429_has_ratelimit_headers(self, client, monkeypatch):
+        """触发限流时响应必须携带 ``X-RateLimit-Limit/Remaining/Reset`` 三个头，且 body 为 ``error=rate_limited``。"""
         import sys
 
         from souwen.server import limiter as limiter_mod
@@ -510,6 +557,7 @@ class TestReadiness:
     """API-READY: /readiness 端点"""
 
     def test_readiness_ok(self, client):
+        """``/readiness`` 200 + ``ready=True`` + 非空 ``version``。"""
         resp = client.get("/readiness")
         assert resp.status_code == 200
         data = resp.json()
@@ -517,6 +565,7 @@ class TestReadiness:
         assert data["version"]
 
     def test_readiness_no_auth_required(self, authed_client):
+        """``/readiness`` 即使配置了密码也免鉴权（K8s readiness probe 无法携带 Token）。"""
         # 有密码时仍应放行（K8s probe 无 Authorization 头）
         resp = authed_client.get("/readiness")
         assert resp.status_code == 200
@@ -526,6 +575,7 @@ class TestPanelEtag:
     """API-PANEL-CACHE: panel.html ETag + Cache-Control"""
 
     def test_panel_returns_etag(self, client):
+        """``/panel`` 响应带引号包裹的 ``ETag`` + ``Cache-Control: max-age=...``；再带 ``If-None-Match`` 请求必须 304 + 空 body。"""
         # 清空缓存，确保重新计算
         from souwen.server import app as app_mod
 
@@ -545,6 +595,7 @@ class TestPanelEtag:
         assert resp2.content == b""
 
     def test_root_returns_panel_with_etag(self, client):
+        """根路径 ``/`` 与 ``/panel`` 行为一致（返回面板 HTML 并带 ETag）。"""
         from souwen.server import app as app_mod
 
         app_mod._panel_cache = None
@@ -561,6 +612,7 @@ class TestSearchTimeout:
     """API-TIMEOUT: 搜索端点 timeout 参数返回 504"""
 
     def test_paper_timeout_returns_504(self, client, monkeypatch):
+        """paper 搜索 timeout 到期 → 504 ``gateway_timeout``（底层协程被挂起 5s，timeout=1）。"""
         import asyncio as _asyncio
         import sys
 
@@ -575,6 +627,7 @@ class TestSearchTimeout:
         assert resp.json()["error"] == "gateway_timeout"
 
     def test_patent_timeout_returns_504(self, client, monkeypatch):
+        """patent 搜索 timeout 到期 → 504 ``gateway_timeout``。"""
         import asyncio as _asyncio
         import sys
 
@@ -589,6 +642,7 @@ class TestSearchTimeout:
         assert resp.json()["error"] == "gateway_timeout"
 
     def test_web_timeout_returns_504(self, client, monkeypatch):
+        """web 搜索 timeout 到期 → 504 ``gateway_timeout``。"""
         import asyncio as _asyncio
         from souwen.web import search as web_search_mod
 
@@ -605,6 +659,7 @@ class TestLifecycleLogging:
     """WARP-LIFECYCLE: 启动/关停日志"""
 
     def test_startup_logs_warp_state(self, monkeypatch):
+        """应用启动/关停日志必须打印 ``WARP state:``（含配置摘要）与 ``shutting down``（关停标记），便于运维定位生命周期问题。"""
         import logging as _logging
 
         from fastapi.testclient import TestClient

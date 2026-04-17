@@ -1,3 +1,7 @@
+/**
+ * 文件用途：Carbon 皮肤的仪表板页面，展示系统健康状态、数据源统计和健康检查结果
+ */
+
 import { useEffect, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { m } from 'framer-motion'

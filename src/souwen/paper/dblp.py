@@ -3,6 +3,34 @@
 官方文档: https://dblp.org/faq/How+to+use+the+dblp+search+API.html
 鉴权: 无需 Key
 限流: 宽松，无明确硬限制
+
+文件用途：DBLP 计算机科学领域文献搜索客户端，提供会议和期刊论文检索。
+
+函数/类清单：
+    DblpClient（类）
+        - 功能：DBLP 文献搜索客户端，支持论文和作者搜索
+        - 关键属性：_client (SouWenHttpClient) HTTP 客户端, _limiter (TokenBucketLimiter)
+                   限流器（~5 req/s，保守设置）
+
+    _parse_hit(hit: dict) -> PaperResult
+        - 功能：将 DBLP API 返回的 hit 对象转换为 PaperResult
+        - 输入：hit DBLP API 返回的单条搜索结果 JSON
+        - 输出：统一的 PaperResult 模型
+        - 限制：DBLP 不提供摘要和 PDF 链接，这些字段为空/None
+
+    search(query: str, hits: int = 10, first: int = 0) -> SearchResponse
+        - 功能：搜索 DBLP 文献库（主要面向计算机科学领域）
+        - 输入：query 检索关键词, hits 返回条数（最多 1000）, first 分页起始位置
+        - 输出：SearchResponse 包含搜索结果及分页信息
+
+    get_author(name: str) -> list[dict]
+        - 功能：搜索 DBLP 作者信息
+        - 输入：name 作者姓名关键词
+        - 输出：作者信息列表，每项包含 name/url/notes/aliases 字段
+
+模块依赖：
+    - SouWenHttpClient: 统一 HTTP 客户端
+    - TokenBucketLimiter: 令牌桶限流器
 """
 
 from __future__ import annotations
@@ -70,12 +98,12 @@ class DblpClient:
         try:
             info: dict[str, Any] = hit.get("info", {})
 
+            # 提取标题并去除末尾句点（DBLP 标题通常带句点）
             title: str = info.get("title", "")
-            # DBLP 标题末尾可能带句点
             if title.endswith("."):
                 title = title[:-1]
 
-            # 作者可能是字符串或列表
+            # 提取作者列表：作者信息格式多样，可能是单个字典、列表或字符串
             raw_authors = info.get("authors", {}).get("author", [])
             if isinstance(raw_authors, dict):
                 raw_authors = [raw_authors]
@@ -84,11 +112,12 @@ class DblpClient:
 
             authors: list[Author] = []
             for a in raw_authors:
+                # 优先从 text 字段获取作者名，否则将对象转为字符串
                 name = a.get("text", a) if isinstance(a, dict) else str(a)
                 if name:
                     authors.append(Author(name=name))
 
-            # 年份
+            # 提取出版年份并转换为整数
             year_str = info.get("year", "")
             year: int | None = None
             if year_str:
@@ -97,12 +126,13 @@ class DblpClient:
                 except ValueError:
                     pass
 
-            # DOI
+            # 提取 DOI
             doi: str | None = info.get("doi")
 
-            # URL
+            # 提取 URL：优先使用 url，其次用 ee（electronic edition）
             url: str | None = info.get("url") or info.get("ee")
 
+            # 提取会议/期刊场地信息
             dblp_venue: str | None = info.get("venue") or None
 
             return PaperResult(
@@ -114,7 +144,7 @@ class DblpClient:
                 publication_date=None,
                 source=SourceType.DBLP,
                 source_url=url,
-                pdf_url=None,  # DBLP 不直接提供 PDF
+                pdf_url=None,  # DBLP 不直接提供 PDF 链接
                 citation_count=None,
                 venue=dblp_venue,
                 raw={

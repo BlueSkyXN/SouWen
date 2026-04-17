@@ -1,16 +1,20 @@
-"""Serper Google SERP API 客户端
+"""Client for Serper
 
-Serper 提供 Google 搜索结果的结构化 JSON 接口。
-包含 Knowledge Graph、People Also Ask 等丰富数据。
+Purpose:
+    Google SERP API with Knowledge Graph
 
-接口: POST https://google.serper.dev/search
-文档: https://serper.dev/docs
+API Endpoint:
+    Serper service
 
-特点：
-- Google 搜索结果的结构化 JSON
-- 包含 Knowledge Graph 数据
-- 支持 Google News / Images / Scholar 搜索
-- 价格低 (~$1-2/千次)
+Key Features:
+    - Google search results, Knowledge Graph, People Also Ask
+
+Engine Class:
+    SerperClient(SouWenHttpClient)
+        async def search(query, max_results) -> WebSearchResponse
+
+Returns:
+    WebSearchResponse with title, url, snippet fields
 """
 
 from __future__ import annotations

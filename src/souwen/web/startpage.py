@@ -1,12 +1,20 @@
-"""Startpage 搜索引擎
+"""Client for Startpage
 
-Startpage 是一个注重隐私的搜索引擎，使用 Google 的搜索结果但不追踪用户。
-URL: https://www.startpage.com/sp/search?query=...
+Purpose:
+    Privacy-preserving search results
 
-特点：
-- 无需 API Key
-- 基于 Google 结果，隐私友好
-- 不追踪用户搜索历史
+API Endpoint:
+    Startpage service
+
+Key Features:
+    - Anonymous search, returns encrypted results from Google
+
+Engine Class:
+    StartpageClient(SouWenHttpClient)
+        async def search(query, max_results) -> WebSearchResponse
+
+Returns:
+    WebSearchResponse with title, url, snippet fields
 """
 
 from __future__ import annotations

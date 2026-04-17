@@ -1,3 +1,7 @@
+/**
+ * 文件用途：Carbon 皮肤的网络配置页面，管理 WARP 代理、爬虫引擎等网络设置
+ */
+
 import { useEffect, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { m } from 'framer-motion'

@@ -1,3 +1,31 @@
+/**
+ * 文件用途：Apple 皮肤的网络配置页面，管理 WARP 代理、爬虫引擎、HTTP 后端等网络设置
+ *
+ * 组件/函数清单：
+ *   NetworkPage（函数组件）
+ *     - 功能：提供网络配置的主入口，包含 WARP、爬虫引擎、HTTP 后端三个子区域
+ *
+ *   WarpSection（子组件）
+ *     - 功能：WARP 代理的启用/禁用和配置（模式、端口、端点）
+ *     - State 状态：warp (WarpStatus) WARP 状态, mode 代理模式, port 监听端口, endpoint 自定义端点
+ *     - 关键钩子：getWarpStatus 获取状态, enableWarp 启用代理, disableWarp 禁用代理
+ *
+ *   ScraperEngineSection（子组件）
+ *     - 功能：配置默认爬虫引擎，支持多个搜索引擎（Google、Bing 等）
+ *
+ *   HttpBackendSection（子组件）
+ *     - 功能：选择 HTTP 请求后端（auto/curl_cffi/httpx）
+ *
+ * 模块依赖：
+ *   - react: 状态管理
+ *   - react-i18next: 国际化翻译
+ *   - framer-motion: 动画
+ *   - lucide-react: 图标
+ *   - @core/services/api: 网络配置 API
+ *   - @core/stores/notificationStore: 提示消息
+ *   - NetworkPage.module.scss: 样式
+ */
+
 import { useEffect, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { m } from 'framer-motion'
@@ -18,6 +46,10 @@ const SCRAPER_ENGINES = [
 const BACKEND_OPTIONS = ['auto', 'curl_cffi', 'httpx'] as const
 
 // ── WARP Section ──
+/**
+ * WarpSection 子组件 - WARP 代理配置
+ * 显示 WARP 状态（启用/禁用），支持配置模式、端口和端点
+ */
 function WarpSection() {
   const { t } = useTranslation()
   const addToast = useNotificationStore((s) => s.addToast)
@@ -28,6 +60,9 @@ function WarpSection() {
   const [port, setPort] = useState('1080')
   const [endpoint, setEndpoint] = useState('')
 
+  /**
+   * 获取 WARP 当前状态
+   */
   const fetchWarp = useCallback(async () => {
     try {
       const s = await api.getWarpStatus()
@@ -41,6 +76,10 @@ function WarpSection() {
 
   useEffect(() => { void fetchWarp() }, [fetchWarp])
 
+  /**
+   * 启用 WARP 代理
+   * 校验端口范围（1-65535），发送配置到服务器
+   */
   const handleEnable = useCallback(async () => {
     setActing(true)
     try {
@@ -55,6 +94,9 @@ function WarpSection() {
     }
   }, [mode, port, endpoint, addToast, fetchWarp, t])
 
+  /**
+   * 禁用 WARP 代理
+   */
   const handleDisable = useCallback(async () => {
     setActing(true)
     try {

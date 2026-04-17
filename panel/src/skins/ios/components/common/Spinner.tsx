@@ -1,3 +1,7 @@
+/**
+ * 文件用途：iOS 皮肤的加载旋转器组件，提供加载中的视觉反馈
+ */
+
 interface SpinnerProps {
   size?: 'sm' | 'md' | 'lg'
   label?: string

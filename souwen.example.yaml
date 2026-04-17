@@ -4,7 +4,8 @@
 #
 # 优先级：环境变量 > ./souwen.yaml > ~/.config/souwen/config.yaml > .env > 默认值
 
-# ===== 论文数据源 =====
+# ===== 论文数据源配置 =====
+# 学术论文搜索相关的 API 密钥和邮箱配置
 paper:
   # OpenAlex —— 免费，填写邮箱可获得更高速率
   openalex_email: ~
@@ -19,7 +20,8 @@ paper:
   # IEEE Xplore API Key
   ieee_api_key: ~
 
-# ===== 专利数据源 =====
+# ===== 专利数据源配置 =====
+# 专利搜索相关的 API 密钥配置
 patent:
   # USPTO（美国专利商标局）API Key
   uspto_api_key: ~
@@ -34,7 +36,8 @@ patent:
   # PatSnap API Key
   patsnap_api_key: ~
 
-# ===== 常规搜索 =====
+# ===== 网页搜索数据源配置 =====
+# 网页搜索引擎和语义搜索服务的 API 密钥
 web:
   # 爬虫引擎 (DuckDuckGo/Yahoo/Brave/Google/Bing/Startpage/Baidu/Mojeek/Yandex) 无需 Key
   # SearXNG 自建实例 URL（例如 http://localhost:8080）
@@ -63,6 +66,7 @@ web:
   websurfx_url: ~
 
 # ===== 通用设置 =====
+# 全局代理、超时、重试、HTTP 后端等配置
 general:
   # HTTP 代理地址（例如 http://127.0.0.1:7890）
   proxy: ~
@@ -90,7 +94,8 @@ general:
   #   bing: httpx
   http_backend: {}
 
-# ===== 服务 =====
+# ===== 服务器配置 =====
+# SouWen API 服务器运行参数
 server:
   # API 访问密码（设置后所有搜索端点需 Authorization: Bearer <password> 认证）
   api_password: ~
@@ -106,7 +111,7 @@ server:
   # 是否暴露 /docs、/redoc、/openapi.json；生产建议设为 false
   expose_docs: true
 
-# ===== WARP 代理 =====
+# ===== WARP 代理配置 =====
 # 内嵌 Cloudflare WARP 代理（Docker 部署专用）
 # 支持 wireproxy (用户态, 全平台) 和 kernel (内核 WireGuard, 高性能)
 # 也可通过环境变量 WARP_ENABLED / WARP_MODE / WARP_SOCKS_PORT / WARP_ENDPOINT 控制

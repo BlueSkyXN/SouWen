@@ -3,6 +3,51 @@
 专利 + 学术文献交叉引用检索，Bearer Token 鉴权。
 注册地址: https://www.lens.org/lens/user/subscriptions
 官方文档: https://docs.api.lens.org/
+
+文件用途：
+    The Lens API 客户端，提供专利与学术文献的联合检索。
+    支持复杂的 Elasticsearch DSL 查询语法。
+    集成动态限流控制，根据响应头实时更新限流参数。
+
+函数/类清单：
+    TheLensClient（类）
+        - 功能：The Lens API 客户端，管理 Bearer Token 连接和限流
+        - 关键属性：BASE_URL (str) API 基础地址
+        - 关键变量：_token (str) API 令牌，_http (SouWenHttpClient) HTTP 客户端，_limiter 限流器
+    
+    search_patents(query: str | dict, size: int = 10, offset: int = 0) -> SearchResponse
+        - 功能：搜索专利（支持 Elasticsearch DSL 查询）
+        - 输入：query 关键词或 ES DSL 查询体，size 返回数量，offset 偏移量
+        - 输出：SearchResponse 包含搜索结果
+    
+    search_scholarly(query: str | dict, size: int = 10, offset: int = 0) -> dict
+        - 功能：搜索学术文献（返回原始响应）
+        - 输入：query 关键词或 ES DSL 查询体，size 返回数量，offset 偏移量
+        - 输出：原始搜索结果字典
+    
+    get_by_lens_id(lens_id: str) -> PatentResult
+        - 功能：根据 Lens ID 获取专利详情
+        - 输入：lens_id Lens 唯一标识符
+        - 输出：PatentResult 专利详情
+        - 异常：NotFoundError Lens ID 不存在时抛出
+    
+    _build_query(query: str | dict, size: int = 10, offset: int = 0) -> dict（静态方法）
+        - 功能：构造 Elasticsearch DSL 查询体
+        - 处理字符串和对象格式的查询
+    
+    _parse_json(resp: httpx.Response) -> dict(静态方法)
+        - 功能：安全解析 HTTP JSON 响应
+        - 异常：ParseError JSON 格式错误时抛出
+    
+    _to_patent_result(raw: dict) -> PatentResult（静态方法）
+        - 功能：将 The Lens 原始数据转换为统一的 PatentResult 模型
+
+模块依赖：
+    - httpx: HTTP 异步客户端
+    - souwen.config: 配置管理（读取 API 令牌）
+    - souwen.models: 统一数据模型
+    - souwen.rate_limiter: 限流控制（支持动态更新）
+    - souwen.exceptions: 异常类（RateLimitError）
 """
 
 from __future__ import annotations
@@ -39,6 +84,13 @@ class TheLensClient:
     BASE_URL = "https://api.lens.org"
 
     def __init__(self) -> None:
+        """初始化 The Lens 客户端
+        
+        从配置读取 Bearer Token，建立连接和限流控制。
+        
+        Raises:
+            ConfigError: 缺少 API Token 时抛出
+        """
         cfg = get_config()
         if not cfg.lens_api_token:
             raise ConfigError(
@@ -91,8 +143,10 @@ class TheLensClient:
             SearchResponse 封装的搜索结果
         """
         body = self._build_query(query, size=size, offset=offset)
+        # 发送搜索请求，自动处理限流和错误
         data = await self._post_search("/patent/search", body)
 
+        # 逐项转换为标准 PatentResult
         patents = [self._to_patent_result(item) for item in data.get("data", [])]
         return SearchResponse(
             query=str(query),
@@ -120,6 +174,7 @@ class TheLensClient:
             原始搜索结果字典（学术文献暂不转换为 PatentResult）
         """
         body = self._build_query(query, size=size, offset=offset)
+        # 调用学术文献专用端点，返回原始响应
         return await self._post_search("/scholarly/search", body)
 
     async def get_by_lens_id(self, lens_id: str) -> PatentResult:
@@ -134,6 +189,7 @@ class TheLensClient:
         Raises:
             NotFoundError: 未找到该专利
         """
+        # 使用 term 查询精确匹配 lens_id
         body = {
             "query": {"term": {"lens_id": lens_id}},
             "size": 1,
@@ -153,13 +209,17 @@ class TheLensClient:
         endpoint: str,
         body: dict[str, Any],
     ) -> dict[str, Any]:
-        """发送搜索请求并处理限流"""
+        """发送搜索请求并处理限流和错误
+        
+        自动从响应头提取限流信息并动态更新限制器。
+        """
         await self._limiter.acquire()
         resp = await self._http.post(endpoint, json=body)
 
         # 从响应头更新限流信息
         self._update_rate_limit(resp)
 
+        # 429 表示请求频率超限
         if resp.status_code == 429:
             retry_after = _safe_float(resp.headers.get("x-rate-limit-retry-after-seconds"))
             raise RateLimitError(
@@ -170,7 +230,10 @@ class TheLensClient:
         return self._parse_json(resp)
 
     def _update_rate_limit(self, resp: httpx.Response) -> None:
-        """从响应头动态更新限流参数"""
+        """从响应头动态更新限流参数
+        
+        根据 API 返回的剩余配额和重试时间，实时调整限流器参数。
+        """
         remaining = _safe_int(resp.headers.get("x-rate-limit-remaining-request-per-minute"))
         retry_after = _safe_float(resp.headers.get("x-rate-limit-retry-after-seconds"))
         self._limiter.update_from_headers(
@@ -178,7 +241,7 @@ class TheLensClient:
             retry_after=retry_after,
         )
 
-        # 记录月度剩余
+        # 记录月度剩余配额（仅用于监控，不影响限流）
         monthly = resp.headers.get("x-rate-limit-remaining-request-per-month")
         if monthly is not None:
             logger.debug("The Lens 月度剩余: %s", monthly)
@@ -189,8 +252,13 @@ class TheLensClient:
         size: int = 10,
         offset: int = 0,
     ) -> dict[str, Any]:
-        """构造 Elasticsearch DSL 查询体"""
+        """构造 Elasticsearch DSL 查询体
+        
+        如果输入是字符串，自动构造 multi_match 查询（跨多个字段）。
+        如果是对象，直接使用或嵌入到 query 字段。
+        """
         if isinstance(query, str):
+            # 简单字符串查询，转换为 multi_match（同时搜索标题、摘要、权利要求等）
             es_query: dict[str, Any] = {
                 "query": {
                     "multi_match": {
@@ -205,6 +273,7 @@ class TheLensClient:
                 },
             }
         else:
+            # 对象查询，检查是否已包含 query 字段
             es_query = {"query": query} if "query" not in query else query
 
         es_query["size"] = size
@@ -213,7 +282,11 @@ class TheLensClient:
 
     @staticmethod
     def _parse_json(resp: httpx.Response) -> dict[str, Any]:
-        """解析 JSON 响应"""
+        """安全解析 JSON 响应
+        
+        Raises:
+            ParseError: JSON 格式错误时抛出
+        """
         try:
             return resp.json()
         except Exception as exc:
@@ -221,14 +294,20 @@ class TheLensClient:
 
     @staticmethod
     def _to_patent_result(raw: dict[str, Any]) -> PatentResult:
-        """将 The Lens 原始数据转换为 PatentResult"""
+        """将 The Lens 原始数据转换为统一 PatentResult 模型
+        
+        Lens API 返回的字段包括：doc_number（国家代码-号码），publication_key，lens_id 等。
+        申请人和发明人可能是字符串列表或对象列表，需要容错处理。
+        分类号同样支持多种格式（IPC/CPC）。
+        """
+        # 专利号优先级：doc_number > publication_key > lens_id
         patent_id = raw.get(
             "doc_number",
             raw.get("publication_key", raw.get("lens_id", "")),
         )
         lens_id = raw.get("lens_id", "")
 
-        # 申请人
+        # 申请人：处理字符串或对象（含国家信息）
         applicants: list[Applicant] = []
         for a in raw.get("applicants", []) or []:
             name = a if isinstance(a, str) else a.get("name", "")
@@ -236,20 +315,21 @@ class TheLensClient:
             if name:
                 applicants.append(Applicant(name=name, country=country))
 
-        # 发明人
+        # 发明人：处理字符串或对象
         inventors: list[str] = []
         for inv in raw.get("inventors", []) or []:
             name = inv if isinstance(inv, str) else inv.get("name", "")
             if name:
                 inventors.append(name)
 
-        # 分类号
+        # IPC 分类号：支持 ipc/ipc_codes 两种字段名，每项可能是字符串或对象
         ipc_codes: list[str] = []
         for c in raw.get("ipc", raw.get("ipc_codes", [])) or []:
             code = c if isinstance(c, str) else c.get("code", "")
             if code:
                 ipc_codes.append(code)
 
+        # CPC 分类号：同样支持多种格式
         cpc_codes: list[str] = []
         for c in raw.get("cpc", raw.get("cpc_codes", [])) or []:
             code = c if isinstance(c, str) else c.get("code", "")
@@ -282,7 +362,10 @@ class TheLensClient:
 
 
 def _safe_date(value: str | None) -> date | None:
-    """安全解析日期字符串"""
+    """安全解析日期字符串
+    
+    支持 ISO 8601 格式（YYYY-MM-DD），取前 10 字符处理。
+    """
     if not value:
         return None
     try:
@@ -292,7 +375,10 @@ def _safe_date(value: str | None) -> date | None:
 
 
 def _safe_int(value: str | None) -> int | None:
-    """安全转换整数"""
+    """安全转换整数字符串
+    
+    用于解析限流响应头中的整数值。
+    """
     if value is None:
         return None
     try:
@@ -302,7 +388,10 @@ def _safe_int(value: str | None) -> int | None:
 
 
 def _safe_float(value: str | None) -> float | None:
-    """安全转换浮点数"""
+    """安全转换浮点数字符串
+    
+    用于解析限流响应头中的延迟秒数（可能是浮点数）。
+    """
     if value is None:
         return None
     try:

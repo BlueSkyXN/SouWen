@@ -1,6 +1,65 @@
+/**
+ * 文件用途：数据规范化模块，统一来自多个后端源的搜索结果格式
+ *
+ * 接口/函数清单：
+ *     NormalizedPaper（接口）
+ *         - 功能：论文结果的统一内部格式
+ *         - 关键字段：title 标题, authors[] 作者列表, year 年份, doi DOI 标识符,
+ *                    abstract 摘要, url 链接, source 数据源, citationCount 引用数, pdfUrl PDF 链接
+ *
+ *     NormalizedPatent（接口）
+ *         - 功能：专利结果的统一内部格式
+ *         - 关键字段：title 名称, patentNumber 专利号, applicant 申请人, inventors[] 发明人,
+ *                    abstract 摘要, url 链接, source 数据源, publicationDate 公开日期
+ *
+ *     NormalizedWeb（接口）
+ *         - 功能：网页搜索结果的统一内部格式
+ *         - 关键字段：title 页标题, url 链接, snippet 摘要文本, source 搜索引擎名
+ *
+ *     NormalizedSource（接口）
+ *         - 功能：数据源可达性和配置状态
+ *         - 关键字段：name 源名称, type 源类型（paper/patent/web）, tier 优先级分层,
+ *                    reachable 是否可用, error 错误消息
+ *
+ *     normalizePaper(raw: PaperResult) -> NormalizedPaper
+ *         - 功能：转换后端论文数据为规范格式
+ *         - 处理逻辑：
+ *           - 作者列表支持对象数组（含 name、affiliation）和字符串数组两种格式
+ *           - 年份、引用数等数值字段缺失时设为 null
+ *           - URL 优先使用 source_url，回退到 open_access_url
+ *
+ *     normalizePatent(raw: PatentResult) -> NormalizedPatent
+ *         - 功能：转换后端专利数据为规范格式
+ *         - 处理逻辑：申请人列表转换为逗号分隔的单一字符串
+ *
+ *     normalizeWeb(raw: WebResult) -> NormalizedWeb
+ *         - 功能：转换搜索引擎结果为规范格式
+ *         - 处理逻辑：engine 字段映射到 source
+ *
+ *     normalizeDoctor(raw: DoctorSource) -> NormalizedSource
+ *         - 功能：规范化诊断系统数据源信息
+ *         - 处理逻辑：status='ok' 为可达，否则标记不可达并保留错误消息
+ *
+ *     tierLabel(tier: number) -> string
+ *         - 功能：将数值 tier 转换为显示标签
+ *         - 输出：Tier 0 / Tier 1 / Tier 2 等格式
+ *
+ *     typeLabel(type: string) -> string
+ *         - 功能：将源类型转换为用户可读的中文标签
+ *         - 逻辑：paper → 论文, patent → 专利, web → 网页（调用 i18n）
+ *
+ * 模块依赖：
+ *     - ../types: 后端数据结构定义
+ *     - ../i18n: 国际化（标签翻译）
+ */
+
 import type { PaperResult, PatentResult, WebResult, DoctorSource } from '../types'
 import i18n from '../i18n'
 
+/**
+ * 论文搜索结果规范格式
+ * 所有论文源数据都转换为此统一格式，便于 UI 组件统一处理
+ */
 export interface NormalizedPaper {
   title: string
   authors: string[]
@@ -13,6 +72,9 @@ export interface NormalizedPaper {
   pdfUrl: string
 }
 
+/**
+ * 专利搜索结果规范格式
+ */
 export interface NormalizedPatent {
   title: string
   patentNumber: string
@@ -24,6 +86,9 @@ export interface NormalizedPatent {
   publicationDate: string
 }
 
+/**
+ * 网页搜索结果规范格式
+ */
 export interface NormalizedWeb {
   title: string
   url: string
@@ -31,6 +96,9 @@ export interface NormalizedWeb {
   source: string
 }
 
+/**
+ * 数据源状态和配置信息规范格式
+ */
 export interface NormalizedSource {
   name: string
   type: 'paper' | 'patent' | 'web'
@@ -39,6 +107,10 @@ export interface NormalizedSource {
   error: string | null
 }
 
+/**
+ * 规范化论文数据
+ * 处理作者对象/字符串混合、URL 多源回退、数值字段的 null 处理
+ */
 export function normalizePaper(raw: PaperResult): NormalizedPaper {
   const authors = Array.isArray(raw.authors)
     ? raw.authors
@@ -58,6 +130,10 @@ export function normalizePaper(raw: PaperResult): NormalizedPaper {
   }
 }
 
+/**
+ * 规范化专利数据
+ * 申请人列表合并为单一字符串（逗号分隔）
+ */
 export function normalizePatent(raw: PatentResult): NormalizedPatent {
   const applicant = Array.isArray(raw.applicants) && raw.applicants.length > 0
     ? raw.applicants.map((a) => (typeof a === 'string' ? a : a?.name ?? '')).filter(Boolean).join(', ')
@@ -74,6 +150,9 @@ export function normalizePatent(raw: PatentResult): NormalizedPatent {
   }
 }
 
+/**
+ * 规范化网页搜索结果
+ */
 export function normalizeWeb(raw: WebResult): NormalizedWeb {
   return {
     title: raw.title?.trim() || '',
@@ -83,6 +162,9 @@ export function normalizeWeb(raw: WebResult): NormalizedWeb {
   }
 }
 
+/**
+ * 规范化诊断系统数据源信息
+ */
 export function normalizeDoctor(raw: DoctorSource): NormalizedSource {
   return {
     name: raw.name || '',
@@ -93,6 +175,9 @@ export function normalizeDoctor(raw: DoctorSource): NormalizedSource {
   }
 }
 
+/**
+ * 格式化 Tier 级别为显示标签
+ */
 export function tierLabel(tier: number): string {
   switch (tier) {
     case 0: return 'Tier 0'
@@ -102,6 +187,10 @@ export function tierLabel(tier: number): string {
   }
 }
 
+/**
+ * 将源类型转换为中文标签
+ * paper → 论文, patent → 专利, web → 网页
+ */
 export function typeLabel(type: string): string {
   switch (type) {
     case 'paper': return i18n.t('common.paper')

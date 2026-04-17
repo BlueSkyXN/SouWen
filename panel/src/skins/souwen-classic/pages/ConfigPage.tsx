@@ -1,3 +1,31 @@
+/**
+ * 配置页面 - 应用配置查看和管理
+ *
+ * 文件用途：显示应用服务端配置项（API 密码、日志级别、超时、缓存等），
+ * 分类展示为基础/网络/搜索三个可折叠面板
+ *
+ * 常量定义：
+ *   BASIC_KEYS - 基础配置项键名
+ *   NETWORK_KEYS - 网络配置项键名  
+ *   SEARCH_KEYS - 搜索配置项键名
+ *   MASKED_KEYS - 敏感字段（显示为 *** 掩码）
+ *   CONFIG_SECTIONS - 配置面板元数据（图标、i18n 键等）
+ *
+ * 功能模块：
+ *   - 配置项分类显示
+ *   - 敏感数据掩码
+ *   - 值格式化（code block、null 提示等）
+ *   - 可折叠手风琴布局
+ *   - 加载中骨架屏
+ *   - 错误处理和重试
+ *
+ * 页面交互：
+ *   - 页面加载时从 API 获取配置
+ *   - 刷新按钮重新加载配置
+ *   - 点击手风琴展开/收缩配置段
+ *   - Tooltip 显示配置项详细说明
+ */
+
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { m } from 'framer-motion'
@@ -17,13 +45,13 @@ import { staggerContainer, staggerItem } from '@core/lib/animations'
 import type { ConfigResponse } from '@core/types'
 import styles from './ConfigPage.module.scss'
 
-// Keys considered "basic" settings
+// 基础配置键名
 const BASIC_KEYS = ['api_password', 'log_level', 'max_workers', 'host', 'port', 'debug']
-// Keys considered "network" settings
+// 网络配置键名
 const NETWORK_KEYS = ['proxy', 'http_backend', 'timeout', 'concurrent_limit']
-// Keys considered "search" settings
+// 搜索配置键名
 const SEARCH_KEYS = ['searxng_url', 'cache_enabled', 'cache_ttl']
-// Keys that are sensitive (masked)
+// 敏感字段集合（显示为 *** 掩码）
 const MASKED_KEYS = new Set(['api_password'])
 
 interface ConfigSection {
@@ -34,6 +62,7 @@ interface ConfigSection {
   keys: string[]
 }
 
+// 配置分组定义
 const CONFIG_SECTIONS: ConfigSection[] = [
   { id: 'basic', titleKey: 'config.sectionBasic', descKey: 'config.sectionBasicDesc', icon: <Settings size={16} />, keys: BASIC_KEYS },
   { id: 'network', titleKey: 'config.sectionNetwork', descKey: 'config.sectionNetworkDesc', icon: <Globe size={16} />, keys: NETWORK_KEYS },
@@ -42,15 +71,32 @@ const CONFIG_SECTIONS: ConfigSection[] = [
 
 type TFunc = ReturnType<typeof useTranslation>['t']
 
+/**
+ * 获取配置项的 i18n 标签
+ * @param key - 配置键名
+ * @param t - i18n 翻译函数
+ * @returns 翻译后的标签或原始键名
+ */
 function getConfigLabel(key: string, t: TFunc): string {
   return t(`config.labels.${key}`, { defaultValue: key })
 }
 
+/**
+ * 获取配置项的描述/说明文本
+ * @param key - 配置键名
+ * @param t - i18n 翻译函数
+ * @returns 描述文本或 undefined
+ */
 function getConfigDescription(key: string, t: TFunc): string | undefined {
   const desc = t(`config.descriptions.${key}`, { defaultValue: '' })
   return desc || undefined
 }
 
+/**
+ * 单个配置行显示组件
+ * 
+ * 显示配置项名称、值、说明提示和错误状态
+ */
 function ConfigRow({ configKey, value, t }: { configKey: string; value: unknown; t: ReturnType<typeof useTranslation>['t'] }) {
   const label = getConfigLabel(configKey, t)
   const description = getConfigDescription(configKey, t)

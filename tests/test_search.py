@@ -1,4 +1,13 @@
-"""聚合搜索容错测试"""
+"""聚合搜索容错测试。
+
+覆盖 ``souwen.search`` 中搜索聚合的容错机制与并发安全。
+验证超时跳过、信号量事件循环隔离、数据源超时不阻塞等不变量。
+
+测试清单：
+- ``test_search_papers_skips_timed_out_source``：慢论文源超时时不阻塞
+- ``test_search_patents_skips_timed_out_source``：慢专利源超时时不阻塞
+- ``test_semaphore_is_per_event_loop``：信号量按事件循环隔离，避免跨 loop 冲突
+"""
 
 from __future__ import annotations
 

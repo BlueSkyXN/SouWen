@@ -1,3 +1,30 @@
+/**
+ * 主布局组件 - 应用级页面框架
+ *
+ * 文件用途：渲染完整应用布局，包括侧边栏导航、顶部栏、页面内容区，支持移动端抽屉菜单
+ * 
+ * 功能模块：
+ *   - 导航栏：左侧侧边栏包含应用名称、导航菜单、版本号、社交链接
+ *   - 顶部栏：右侧包含连接状态、主题切换、配色选择、Skin 切换、登出按钮
+ *   - 移动端：抽屉式菜单（通过 hamburger 按钮打开）和背景遮罩
+ *   - 页面容器：带 Outlet 的主要内容区，支持页面过渡动画
+ *   - 主题系统：支持 light/dark 模式和多种配色方案（nebula/aurora/obsidian）
+ *
+ * 常量定义：
+ *   NAV_ITEMS - 导航菜单项列表（dashboard/search/sources/network/config）
+ *   PAGE_TITLE_KEYS - URL 路径到标题 i18n 键的映射
+ *   pageVariants / pageTransition - 页面进出动画配置
+ *   overlayVariants / drawerVariants - 移动端抽屉动画配置
+ *
+ * 主要交互特性：
+ *   - 侧边栏折叠/展开（desktop）
+ *   - 移动端抽屉菜单（点击 hamburger 或背景遮罩关闭）
+ *   - 主题模式切换（light ↔ dark）
+ *   - 配色方案选择（palette dropdown）
+ *   - Skin 切换（若非单皮肤模式）
+ *   - ESC 键或外部点击关闭各类弹出菜单
+ */
+
 import { useState, useCallback, useEffect, useRef } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
@@ -24,6 +51,7 @@ import { skinConfig } from '../../skin.config'
 import { getSkinOrDefault, isSingleSkin, listSkinIds } from '@core/skin-registry'
 import styles from './MainLayout.module.scss'
 
+// 导航菜单项定义
 const NAV_ITEMS = [
   { to: '/', icon: LayoutDashboard, labelKey: 'nav.dashboard' },
   { to: '/search', icon: Search, labelKey: 'nav.search' },
@@ -32,6 +60,7 @@ const NAV_ITEMS = [
   { to: '/config', icon: Settings, labelKey: 'nav.config' },
 ]
 
+// URL 路径到页面标题 i18n 键的映射
 const PAGE_TITLE_KEYS: Record<string, string> = {
   '/': 'nav.dashboard',
   '/search': 'nav.search',
@@ -40,6 +69,7 @@ const PAGE_TITLE_KEYS: Record<string, string> = {
   '/config': 'nav.config',
 }
 
+// 页面切换动画配置
 const pageVariants = {
   initial: { opacity: 0, y: 12, scale: 0.995 },
   animate: { opacity: 1, y: 0, scale: 1 },
@@ -53,11 +83,13 @@ const pageTransition = {
   mass: 0.8,
 }
 
+// 移动端背景遮罩动画配置
 const overlayVariants = {
   hidden: { opacity: 0 },
   visible: { opacity: 1 },
 }
 
+// 移动端抽屉菜单动画配置
 const drawerVariants = {
   closed: { x: '-100%' },
   open: { x: 0 },
@@ -78,20 +110,24 @@ export function MainLayout() {
   const logout = useAuthStore((s) => s.logout)
   const version = useAuthStore((s) => s.version)
   const { mode, toggleMode, scheme, setScheme } = useSkinStore()
+  // 主题调色板和 skin 选择器的显示状态
   const [themePaletteOpen, setThemePaletteOpen] = useState(false)
   const [skinPaletteOpen, setSkinPaletteOpen] = useState(false)
   const paletteRef = useRef<HTMLDivElement>(null)
   const skinPaletteRef = useRef<HTMLDivElement>(null)
 
+  // 根据当前路径获取页面标题 i18n 键
   const pageTitleKey = PAGE_TITLE_KEYS[location.pathname] ?? 'nav.dashboard'
 
+  // 构建主题点色映射（用于调色板 UI 中的色点显示）
   const THEME_DOTS = Object.fromEntries(
     skinConfig.schemes.map((s) => [s.id, s.dotColor])
   ) as Record<string, string>
 
+  // 获取当前激活的 skin ID
   const currentSkinId = document.documentElement.getAttribute('data-skin') || 'souwen-classic'
 
-  // Close palettes on outside click or Escape
+  // 外部点击或 ESC 关闭调色板菜单
   useEffect(() => {
     if (!themePaletteOpen && !skinPaletteOpen) return
     const handleClick = (e: MouseEvent) => {
@@ -116,14 +152,17 @@ export function MainLayout() {
     }
   }, [themePaletteOpen, skinPaletteOpen])
 
+  // 处理登出操作
   const handleLogout = useCallback(() => {
     logout()
   }, [logout])
 
+  // 路径改变时关闭移动端菜单
   useEffect(() => {
     setMobileOpen(false)
   }, [location.pathname])
 
+  // 处理 Skin 切换 - 若选中新 skin，更新 localStorage 并重新加载页面
   const handleSkinSwitch = (nextId: string) => {
     if (nextId === currentSkinId) {
       setSkinPaletteOpen(false)
@@ -136,6 +175,7 @@ export function MainLayout() {
     window.location.reload()
   }
 
+  // 侧边栏内容（共享给 desktop 和 mobile 两种视图）
   const sidebarContent = (
     <>
       <div className={styles.brand}>
@@ -146,6 +186,7 @@ export function MainLayout() {
       </div>
       <div className={styles.brandSeparator} />
 
+      {/* 导航菜单 */}
       <nav className={styles.nav}>
         {NAV_ITEMS.map((item) => (
           <NavLink
@@ -164,6 +205,7 @@ export function MainLayout() {
         ))}
       </nav>
 
+      {/* 底部操作区：版本号、链接、折叠按钮、登出 */}
       <div className={styles.footer}>
         {version && <div className={styles.version}>v{version}</div>}
         <a

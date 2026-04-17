@@ -1,3 +1,7 @@
+/**
+ * 文件用途：iOS 皮肤的路由配置，定义该皮肤的所有页面路由
+ */
+
 import { Route } from 'react-router-dom'
 import { DashboardPage } from './pages/DashboardPage'
 import { SearchPage } from './pages/SearchPage'

@@ -1,3 +1,8 @@
+/**
+ * 文件用途：iOS 皮肤的提示消息组件，显示成功/错误/信息类提示
+ * 使用 framer-motion 实现平滑的进出动画
+ */
+
 import { AnimatePresence, m } from 'framer-motion'
 import { CheckCircle2, XCircle, Info, X } from 'lucide-react'
 import { useNotificationStore } from '@core/stores/notificationStore'

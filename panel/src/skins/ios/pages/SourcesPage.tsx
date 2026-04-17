@@ -1,3 +1,7 @@
+/**
+ * 文件用途：iOS 皮肤的数据源管理页面，管理各类别数据源的配置
+ */
+
 import { useEffect, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { m, AnimatePresence } from 'framer-motion'

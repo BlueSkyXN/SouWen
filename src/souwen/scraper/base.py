@@ -41,16 +41,34 @@ except ImportError:
 
 
 class BaseScraper:
-    """所有爬虫的基类，强制礼貌爬取 + TLS 指纹模拟
-
-    优先使用 curl_cffi（Chrome TLS 指纹），回退到 httpx。
-    所有请求自带完整浏览器指纹头（Sec-CH-UA 系列）。
-
+    """所有爬虫的基类 — 强制礼貌爬取 + TLS 指纹模拟 + 自适应限速
+    
+    功能特性：
+    - 优先使用 curl_cffi（Chrome TLS 指纹），回退到 httpx
+    - 所有请求自带完整浏览器指纹头（Sec-CH-UA 系列）
+    - 礼貌延迟：请求间随机间隔 + 被限流时指数退避
+    - 自动重试：指数退避，重试间隔从 2s 增长到 120s
+    - 支持代理和频道自定义请求头
+    
     Args:
-        min_delay: 请求最小间隔（秒）
-        max_delay: 请求最大间隔（秒）
-        max_retries: 最大重试次数
-        use_curl_cffi: 是否使用 curl_cffi（默认自动检测）
+        min_delay: 请求最小间隔（秒），默认 2.0
+        max_delay: 请求最大间隔（秒），默认 5.0
+        max_retries: 最大重试次数，默认 3
+        use_curl_cffi: 是否使用 curl_cffi（None 自动检测）
+    
+    Attributes:
+        _backoff_multiplier: 自适应退避系数，被 429 时翻倍（上限 16x），成功时逐步回落 * 0.8
+        _fingerprint: 浏览器指纹（User-Agent、Sec-CH-UA 系列头）
+        _use_curl_cffi: 是否使用 curl_cffi
+        _curl_session: curl_cffi AsyncSession（若启用）
+        _httpx_client: httpx AsyncClient（若使用 httpx）
+    
+    HTTP 后端选择优先级：
+        1. 显式参数 use_curl_cffi
+        2. 频道配置 sources.<name>.http_backend
+        3. 旧版全局配置 http_backend.<name>
+        4. 全局默认 default_http_backend
+        5. 自动检测（curl_cffi 可用则用，否则 httpx）
     """
 
     def __init__(
@@ -118,14 +136,24 @@ class BaseScraper:
         await self.close()
 
     async def close(self) -> None:
-        """关闭底层连接"""
+        """关闭底层连接 — 释放 curl_cffi/httpx 客户端资源
+        
+        应在爬虫使用完毕后调用，或使用 async with 自动调用。
+        """
         if self._curl_session is not None:
             await self._curl_session.close()
         if self._httpx_client is not None:
             await self._httpx_client.aclose()
 
     async def _polite_delay(self) -> None:
-        """礼貌等待：随机间隔 + 自适应退避"""
+        """礼貌等待 — 随机间隔 + 自适应退避
+        
+        在每次请求前等待一段随机时间（在 min_delay 到 max_delay 之间）。
+        当被限流（429）时，退避系数翻倍，延迟相应增加；
+        成功请求时，系数逐步回落 * 0.8，恢复到正常水平。
+        
+        这样实现了 "被限流时退避、恢复时逐步加速" 的自适应策略。
+        """
         base_delay = random.uniform(self.min_delay, self.max_delay)
         actual_delay = base_delay * self._backoff_multiplier
         logger.debug("礼貌等待 %.1f 秒", actual_delay)
@@ -211,7 +239,23 @@ class BaseScraper:
         params: dict[str, Any] | None,
         headers: dict[str, str],
     ) -> Any:
-        """执行实际请求（curl_cffi 或 httpx）"""
+        """执行实际的 HTTP 请求 — curl_cffi 或 httpx 双引擎
+        
+        优先使用 curl_cffi（TLS 指纹模拟，绕过 JA3 检测），
+        回退到 httpx（标准库支持，无第三方依赖）。
+        
+        Args:
+            method: HTTP 方法（GET、POST 等）
+            url: 目标 URL
+            params: 查询参数字典
+            headers: 请求头字典（已包含浏览器指纹和频道自定义头）
+            
+        Returns:
+            响应对象（curl_cffi.Response 或 httpx.Response）
+            
+        Raises:
+            RuntimeError：无可用 HTTP 客户端（极少见）
+        """
         if self._use_curl_cffi and self._curl_session is not None:
             # curl_cffi 路径 — TLS 指纹模拟
             return await self._curl_session.request(method, url, params=params, headers=headers)

@@ -3,6 +3,66 @@
 USPTO 开放数据门户，API Key 鉴权。
 注册地址: https://data.uspto.gov/
 官方文档: https://data.uspto.gov/apis
+
+文件用途：
+    USPTO Open Data Portal 客户端，访问美国专利商标局的开放数据。
+    支持多种查询类型：专利申请、转让历史、PTAB 审判决定、审查意见通知书等。
+    各个端点返回不同数据类型（专利记录 vs. 事务/转让/决定记录）。
+
+函数/类清单：
+    UsptoOdpClient（类）
+        - 功能：USPTO ODP API 客户端，管理 API Key 连接和限流
+        - 关键属性：BASE_URL (str) API 基础地址
+        - 关键变量：_api_key (str) API 密钥，_http (SouWenHttpClient) HTTP 客户端，_limiter TokenBucketLimiter
+    
+    search_applications(query: str, per_page: int = 10, offset: int = 0) -> SearchResponse
+        - 功能：搜索专利申请
+        - 输入：query 搜索关键词，per_page 每页结果数，offset 偏移量
+        - 输出：SearchResponse 封装的专利结果
+    
+    get_transactions(app_number: str) -> list[dict]
+        - 功能：获取申请事务历史（重要日期、状态变更等）
+        - 输入：app_number 申请号
+        - 输出：事务记录列表（各项为原始字典，不转换为 PatentResult）
+        - 异常：NotFoundError 申请号不存在
+    
+    get_assignments(patent_id: str) -> list[dict]
+        - 功能：获取专利转让/所有权变更记录
+        - 输入：patent_id 专利号
+        - 输出：转让记录列表
+    
+    get_ptab_decisions(query: str) -> list[dict]
+        - 功能：获取 PTAB (专利试验与上诉委员会) 审判决定
+        - 输入：query 搜索关键词或案件号
+        - 输出：PTAB 决定记录列表
+    
+    get_office_actions(app_number: str) -> list[dict]
+        - 功能：获取审查意见通知书（Office Actions）
+        - 输入：app_number 申请号
+        - 输出：审查意见列表
+        - 异常：NotFoundError 申请号不存在
+    
+    _parse_json(resp: httpx.Response) -> dict（静态方法）
+        - 功能：安全解析 HTTP JSON 响应
+        - 异常：ParseError JSON 格式错误时抛出
+    
+    _to_patent_result(raw: dict) -> PatentResult（静态方法）
+        - 功能：将 USPTO ODP 原始数据转换为统一的 PatentResult 模型
+        - 注意：仅在 search_applications 中使用；其他端点返回原始字典
+
+模块依赖：
+    - httpx: HTTP 异步客户端
+    - souwen.config: 配置管理（读取 API 密钥）
+    - souwen.models: 统一数据模型（PatentResult）
+    - souwen.rate_limiter: 限流控制（TokenBucketLimiter）
+    - souwen.exceptions: 异常类
+
+API 端点对应数据类型：
+    - /patent/applications: 专利申请（转换为 PatentResult）
+    - /patent/applications/{app_number}/transactions: 事务历史（原始记录）
+    - /patent/assignments: 转让历史（原始记录）
+    - /patent/ptab: PTAB 决定（原始记录）
+    - /patent/applications/{app_number}/office-actions: 审查意见（原始记录）
 """
 
 from __future__ import annotations
@@ -34,6 +94,14 @@ class UsptoOdpClient:
     BASE_URL = "https://data.uspto.gov/api/v1"
 
     def __init__(self) -> None:
+        """初始化 USPTO ODP 客户端
+        
+        从配置读取 API Key，建立连接和限流控制。
+        默认限流 5 req/s（保守估计，基于 5M req/week ≈ 8.3 req/s）。
+        
+        Raises:
+            ConfigError: 缺少 API Key 时抛出
+        """
         cfg = get_config()
         if not cfg.uspto_api_key:
             raise ConfigError(
@@ -47,7 +115,7 @@ class UsptoOdpClient:
             headers={"X-API-Key": self._api_key},
             source_name="uspto_odp",
         )
-        # 5M req/week ≈ ~8.3 req/s，保守设为 5 req/s
+        # 5M req/week ≈ ~8.3 req/s，保守设为 5 req/s，突发 10 req
         self._limiter = TokenBucketLimiter(rate=5.0, burst=10)
 
     async def __aenter__(self) -> UsptoOdpClient:

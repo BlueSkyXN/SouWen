@@ -1,33 +1,48 @@
 services:
   souwen:
+    # 容器构建配置
     build:
       context: .
+    # 构建参数选项（注释示例）：
     # build:
     #   context: .
     #   args:
     #     SKINS: souwen-classic             # 前端皮肤（默认 all，支持运行时切换）
     #     WGCF_VERSION: "2.2.30"            # 自定义 wgcf 版本
     #     WIREPROXY_VERSION: "1.1.2"        # 自定义 wireproxy 版本
+    
+    # 端口映射
     ports:
       - "${PORT:-49265}:49265"
+    
+    # 环境变量文件
     env_file:
       - path: .env
         required: false
+    
+    # 环境变量配置示例（注释）：
     # environment:
     #   - WARP_ENABLED=1                          # 启用 Cloudflare WARP 代理
     #   - WARP_MODE=auto                          # auto (默认,自动检测) | wireproxy | kernel
     #   - WARP_CONFIG_B64=                         # Base64 编码的配置 (推荐预生成)
     #   - WARP_ENDPOINT=162.159.192.1:4500         # 自定义 WARP Endpoint (规避 QoS)
     #   - WARP_SOCKS_PORT=1080                     # SOCKS5 代理端口 (默认 1080)
+    # 
     # # 以下仅 WARP_MODE=kernel 需要:
     # cap_add:
     #   - NET_ADMIN
     #   - SYS_MODULE
     # sysctls:
     #   - net.ipv4.conf.all.src_valid_mark=1
+    
+    # 数据卷挂载（持久化数据、配置、缓存）
     volumes:
       - souwen-data:/app/data
+    
+    # 重启策略
     restart: unless-stopped
+    
+    # 健康检查配置
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:49265/health"]
       interval: 30s
@@ -35,5 +50,6 @@ services:
       start_period: 30s
       retries: 3
 
+# 命名数据卷定义
 volumes:
   souwen-data:

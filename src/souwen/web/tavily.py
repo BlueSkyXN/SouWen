@@ -1,16 +1,20 @@
-"""Tavily AI 搜索 API 客户端
+"""Client for Tavily
 
-Tavily 专为 AI Agent 设计的搜索 API，内置内容提取和 RAG 优化。
-支持 LangChain / LlamaIndex 原生集成。
+Purpose:
+    AI-powered research search API
 
-接口: POST https://api.tavily.com/search
-文档: https://docs.tavily.com/
+API Endpoint:
+    Tavily service
 
-特点：
-- 专为 AI Agent 设计
-- 内置内容提取（返回清洗后的页面内容）
-- 支持搜索深度 (basic/advanced)
-- 支持包含/排除域名
+Key Features:
+    - Web search with automatic query expansion and deduplication
+
+Engine Class:
+    TavilyClient(SouWenHttpClient)
+        async def search(query, max_results) -> WebSearchResponse
+
+Returns:
+    WebSearchResponse with title, url, snippet fields
 """
 
 from __future__ import annotations

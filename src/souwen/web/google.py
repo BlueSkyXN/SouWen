@@ -1,18 +1,45 @@
 """Google 搜索引擎爬虫
 
-通过 HTML 抓取 Google 搜索结果页面。
-高风险但高价值 — Google 积极对抗爬虫。
+文件用途：
+    Google 搜索引擎爬虫客户端。高风险但高价值 —— Google 积极对抗爬虫，
+    需配合 TLS 指纹模拟和代理池使用。通过 HTML 解析获取搜索结果。
 
-技术方案参考:
-- googlesearch-python: requests + BS4
-- Search-Engines-Scraper: CSS 选择器解析
-- Whoogle: Google 无 JS 版本
+函数/类清单：
+    GoogleClient（类）
+        - 功能：Google 搜索爬虫客户端，通过 HTML 解析获取搜索结果
+        - 继承：BaseScraper（基础爬虫类）
+        - 关键属性：ENGINE_NAME = "google", BASE_URL = "https://www.google.com/search",
+                  min_delay = 3.0, max_delay = 7.0, max_retries = 2（更严格的配置）
+        - 主要方法：search(query, max_results) -> WebSearchResponse
 
-特点：
-- 无需 API Key（爬虫方式）
-- 使用 TLS 指纹模拟绕过 JA3 检测
-- Google 可能随时更改页面结构
-- 建议搭配代理使用
+    GoogleClient.__init__(**kwargs)
+        - 功能：初始化 Google 搜索客户端（需要更长的请求间隔）
+        - 输入：**kwargs 传递给 BaseScraper 的参数
+        - 输出：实例
+
+    GoogleClient.search(query, max_results=20) -> WebSearchResponse
+        - 功能：查询 Google，返回聚合结果
+        - 输入：query 搜索关键词, max_results 最大返回结果数（默认20）
+        - 输出：WebSearchResponse 包含搜索结果
+
+    GoogleClient._decode_google_url(url) -> str
+        - 功能：解码 Google 重定向 URL（从 /url?q= 参数提取真实 URL）
+        - 输入：url Google 格式的 URL 字符串
+        - 输出：解码后的真实 URL；内部链接返回空字符串
+
+模块依赖：
+    - logging: 日志记录
+    - urllib.parse: URL 编码/解码、查询参数解析
+    - bs4: HTML 解析
+    - souwen.models: SourceType, WebSearchResult, WebSearchResponse 数据模型
+    - souwen.scraper.base: BaseScraper 基础爬虫类
+
+技术要点：
+    - Google 反爬能力极强，建议配合 curl_cffi TLS 指纹模拟、代理池使用
+    - CSS 选择器：div.g（结果容器）、h3（标题）、a（链接）
+    - 解码 Google URL：/url?q=REAL_URL&sa=... 或直接 URL
+    - Snippet 多种选择器：VwiC3b、aCOpRe、data-sncf、IsZvec
+    - num 参数预留余量以应对过滤
 """
 
 from __future__ import annotations
@@ -41,7 +68,8 @@ class GoogleClient(BaseScraper):
     BASE_URL = "https://www.google.com/search"
 
     def __init__(self, **kwargs):
-        # Google 需要更长的请求间隔
+        # Google 需要更长的请求间隔（反爬严格）
+        # min_delay=3.0s、max_delay=7.0s、最多重试 2 次（比其他引擎严格）
         super().__init__(min_delay=3.0, max_delay=7.0, max_retries=2, **kwargs)
 
     async def search(self, query: str, max_results: int = 20) -> WebSearchResponse:
@@ -50,10 +78,14 @@ class GoogleClient(BaseScraper):
         Args:
             query: 搜索关键词
             max_results: 最大返回结果数
+            
+        Returns:
+            WebSearchResponse 包含搜索结果
         """
+        # num 多请求一些（+5）以弥补过滤和重定向导致的结果减少
         params = {
             "q": query,
-            "num": str(min(max_results + 5, 100)),  # 多请求一些以弥补过滤
+            "num": str(min(max_results + 5, 100)),  # 预留余量
             "hl": "en",
         }
         url = f"{self.BASE_URL}?q={quote_plus(query)}&num={params['num']}&hl=en"
@@ -65,10 +97,9 @@ class GoogleClient(BaseScraper):
         results: list[WebSearchResult] = []
 
         try:
-            # Google 搜索结果的主要容器选择器
-            # 方法1: div.g 是经典的结果容器
+            # Google 搜索结果的主要容器：div.g
             for element in soup.select("div.g"):
-                # 提取标题和链接
+                # 提取标题：h3 标签
                 title_el = element.select_one("h3")
                 if title_el is None:
                     continue
@@ -83,10 +114,11 @@ class GoogleClient(BaseScraper):
 
                 # Google URL 解码：/url?q=REAL_URL&sa=... 或直接 URL
                 real_url = self._decode_google_url(str(raw_url))
+                # 过滤相对路径和内部链接
                 if not real_url or real_url.startswith("/"):
                     continue
 
-                # 提取 snippet（多种可能的选择器）
+                # 提取 snippet（多种可能的 CSS 类名，因为 Google 经常改）
                 snippet = ""
                 for sel in [
                     "div.VwiC3b",  # 当前常见
@@ -132,13 +164,23 @@ class GoogleClient(BaseScraper):
         1. /url?q=REAL_URL&sa=... (重定向)
         2. 直接 URL (https://example.com)
         3. /search?... (内部链接，过滤)
+        
+        Args:
+            url: Google 格式的 URL 字符串
+            
+        Returns:
+            str: 解码后的真实 URL；内部链接或无效返回空字符串
         """
         if url.startswith("/url?"):
+            # 解析查询参数，提取 q 的值
             parsed = urlparse(url)
             qs = parse_qs(parsed.query)
             q_values = qs.get("q", [])
             if q_values and q_values[0]:
+                # URL 解码恢复真实链接
                 return unquote(q_values[0])
+        # 直接 HTTP/HTTPS URL
         if url.startswith("http"):
             return url
+        # 其他情况（相对路径、内部链接等）返回空字符串
         return ""

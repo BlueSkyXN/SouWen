@@ -2,6 +2,41 @@
 
 官方文档: https://api.semanticscholar.org/api-docs/graph
 鉴权: 可选 API Key (x-api-key)，无 Key 限流 100 req / 5 min
+
+文件用途：Semantic Scholar 论文搜索客户端，提供学术引用图谱查询服务。
+
+函数/类清单：
+    SemanticScholarClient（类）
+        - 功能：Semantic Scholar 学术图谱搜索客户端，支持论文/推荐查询
+        - 关键属性：api_key (str|None) API Key, _client (SouWenHttpClient) HTTP 客户端,
+                   _limiter (SlidingWindowLimiter) 滑动窗口限流器
+
+    _parse_paper(data: dict) -> PaperResult
+        - 功能：将 S2 paper 对象转换为 PaperResult
+        - 输入：data Semantic Scholar API 返回的 paper JSON
+        - 输出：统一的 PaperResult 模型，包含 OA 链接和 TLDR 摘要
+
+    search(query: str, fields: str|None, limit: int, offset: int)
+           -> SearchResponse
+        - 功能：关键词搜索论文
+        - 输入：query 检索关键词, fields 返回字段列表, limit 返回条数（最多 100）,
+               offset 偏移量
+        - 输出：SearchResponse 包含搜索结果及分页信息
+
+    get_paper(paper_id: str) -> PaperResult
+        - 功能：通过 Paper ID / DOI / arXiv ID 获取论文详情
+        - 输入：paper_id Semantic Scholar Paper ID、DOI (DOI:xxx) 或 arXiv ID (ARXIV:xxx)
+        - 输出：PaperResult 模型
+
+    get_recommendations(paper_id: str, limit: int) -> list[PaperResult]
+        - 功能：获取基于单篇论文的推荐列表
+        - 输入：paper_id Semantic Scholar Paper ID, limit 返回条数
+        - 输出：推荐论文列表
+
+模块依赖：
+    - SouWenHttpClient: 统一 HTTP 客户端
+    - SlidingWindowLimiter: 滑动窗口限流器
+    - safe_parse_date: 安全日期解析工具
 """
 
 from __future__ import annotations
@@ -107,20 +142,23 @@ class SemanticScholarClient:
             ParseError: 解析失败。
         """
         try:
+            # 提取作者列表
             authors = [Author(name=a.get("name", "")) for a in data.get("authors", [])]
 
+            # 提取外部标识符（DOI、arXiv ID 等）
             external_ids: dict[str, str] = data.get("externalIds", {}) or {}
             doi = external_ids.get("DOI")
             arxiv_id = external_ids.get("ArXiv")
 
-            # OA PDF
+            # 提取 OA PDF 链接
             oa_pdf: dict[str, str] | None = data.get("openAccessPdf")
             pdf_url: str | None = oa_pdf.get("url") if oa_pdf else None
 
-            # tldr
+            # 提取 TLDR（标题级文本摘要）
             tldr_obj: dict[str, str] | None = data.get("tldr")
             tldr_text: str | None = tldr_obj.get("text") if tldr_obj else None
 
+            # 提取发表场地（期刊或会议名称）
             venue_name: str | None = data.get("venue") or None
 
             return PaperResult(

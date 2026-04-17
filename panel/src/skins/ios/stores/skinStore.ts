@@ -1,3 +1,7 @@
+/**
+ * 文件用途：iOS 皮肤的主题状态管理 store，使用 Zustand 管理明暗模式和配色方案的切换
+ */
+
 import { create } from 'zustand'
 import type { Theme } from '@core/types'
 import { skinConfig } from '../skin.config'

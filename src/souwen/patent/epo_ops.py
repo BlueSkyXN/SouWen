@@ -3,6 +3,63 @@
 欧洲专利局数据服务，OAuth 2.0 鉴权。
 注册地址: https://developers.epo.org/
 官方文档: https://developers.epo.org/ops-v3-2/apis
+
+文件用途：
+    EPO OPS 客户端实现，提供专利搜索、详情、族信息、法律状态等多维查询。
+    支持 CQL (Common Query Language) 查询语法，返回 XML 格式数据。
+
+函数/类清单：
+    EpoOpsClient（类）
+        - 功能：EPO OPS 专利数据客户端，管理 OAuth 连接和 XML 解析
+        - 关键属性：BASE_URL (str) API 基础地址，TOKEN_URL (str) OAuth 端点
+        - 关键变量：_http (OAuthClient) OAuth HTTP 客户端，_limiter 速率限制器
+    
+    search(cql_query: str, range_begin: int = 1, range_end: int = 10) -> SearchResponse
+        - 功能：使用 CQL 查询搜索欧洲专利
+        - 输入：cql_query CQL 查询表达式，range_begin/end 结果范围
+        - 输出：SearchResponse 包含总数和专利列表
+    
+    get_publication(doc_id: str, doc_type: str = "publication", format: str = "epodoc") -> PatentResult
+        - 功能：获取出版物（专利或申请）详情
+        - 输入：doc_id 文档标识符，doc_type 类型，format 标识符格式
+        - 输出：PatentResult 专利详情
+        - 异常：NotFoundError 文档不存在时抛出
+    
+    get_family(doc_id: str) -> list[PatentResult]
+        - 功能：获取专利族信息（同族专利列表）
+        - 输入：doc_id 文档标识符
+        - 输出：专利族成员列表
+    
+    get_legal_status(doc_id: str) -> list[dict[str, Any]]
+        - 功能：获取 INPADOC 法律状态（审查进度、维持费等重要事件）
+        - 输入：doc_id 文档标识符
+        - 输出：法律事件列表
+    
+    get_claims(doc_id: str) -> str | None
+        - 功能：获取权利要求书文本
+        - 输入：doc_id 文档标识符
+        - 输出：权利要求文本或 None
+    
+    get_description(doc_id: str) -> str | None
+        - 功能：获取说明书文本（发明背景、技术方案等）
+        - 输入：doc_id 文档标识符
+        - 输出：说明书文本或 None
+    
+    _parse_xml(text: str) -> ET.Element（静态方法）
+        - 功能：安全解析 XML 响应
+        - 异常：ParseError XML 格式错误时抛出
+    
+    _extract_search_results(root: ET.Element) -> list[PatentResult]
+        - 功能：从搜索 XML 中提取专利列表
+    
+    _exchange_doc_to_result(doc: ET.Element) -> PatentResult（静态方法）
+        - 功能：将 EPO exchange-document XML 节点转换为 PatentResult
+
+模块依赖：
+    - defusedxml: 安全的 XML 解析（防止 XXE 攻击）
+    - souwen.http_client: OAuth 连接管理
+    - souwen.models: 统一数据模型
+    - souwen.rate_limiter: 限流控制
 """
 
 from __future__ import annotations
@@ -20,7 +77,7 @@ from souwen.rate_limiter import TokenBucketLimiter
 
 logger = logging.getLogger(__name__)
 
-# EPO OPS XML 命名空间
+# EPO OPS XML 命名空间（用于 XPath 和 find 操作）
 _NS = {
     "ops": "http://ops.epo.org",
     "epo": "http://www.epo.org/exchange",
@@ -43,6 +100,13 @@ class EpoOpsClient:
     TOKEN_URL = "https://ops.epo.org/3.2/auth/accesstoken"
 
     def __init__(self) -> None:
+        """初始化 EPO OPS 客户端
+        
+        从配置读取 OAuth 凭证（consumer_key / consumer_secret），建立连接。
+        
+        Raises:
+            ConfigError: 缺少必要的 OAuth 凭证时抛出
+        """
         cfg = get_config()
         if not cfg.epo_consumer_key or not cfg.epo_consumer_secret:
             raise ConfigError(
@@ -92,6 +156,7 @@ class EpoOpsClient:
             SearchResponse 封装的搜索结果
         """
         await self._limiter.acquire()
+        # Range 参数指定返回结果的范围（1-based，包含两端）
         resp = await self._http.get(
             "/rest-services/published-data/search",
             params={"q": cql_query, "Range": f"{range_begin}-{range_end}"},
@@ -182,8 +247,10 @@ class EpoOpsClient:
 
         root = self._parse_xml(resp.text)
         events: list[dict[str, Any]] = []
+        # 遍历所有 legal 元素，提取事件信息
         for ev in root.iter("{http://ops.epo.org}legal"):
             event: dict[str, Any] = {}
+            # 提取每个子元素，去除命名空间前缀
             for child in ev:
                 tag = child.tag.split("}")[-1] if "}" in child.tag else child.tag
                 event[tag] = child.text
@@ -210,6 +277,7 @@ class EpoOpsClient:
 
         root = self._parse_xml(resp.text)
         claims_parts: list[str] = []
+        # 提取所有权利要求条文
         for claim in root.iter("{http://www.epo.org/fulltext}claim-text"):
             if claim.text:
                 claims_parts.append(claim.text.strip())
@@ -234,6 +302,7 @@ class EpoOpsClient:
 
         root = self._parse_xml(resp.text)
         desc_parts: list[str] = []
+        # 提取所有说明书段落
         for para in root.iter("{http://www.epo.org/fulltext}p"):
             if para.text:
                 desc_parts.append(para.text.strip())
@@ -264,7 +333,10 @@ class EpoOpsClient:
         return None
 
     def _extract_search_results(self, root: ET.Element) -> list[PatentResult]:
-        """从搜索 XML 中提取专利列表"""
+        """从搜索 XML 中提取专利列表
+        
+        遍历 exchange-document 节点，逐一转换为 PatentResult，跳过无法解析的项。
+        """
         results: list[PatentResult] = []
         for doc in root.iter("{http://www.epo.org/exchange}exchange-document"):
             try:
@@ -290,7 +362,10 @@ class EpoOpsClient:
         )
 
     def _extract_family_members(self, root: ET.Element) -> list[PatentResult]:
-        """从专利族 XML 中提取成员列表"""
+        """从专利族 XML 中提取成员列表
+        
+        遍历 family-member 节点，提取其中的 exchange-document 元素。
+        """
         members: list[PatentResult] = []
         for member in root.iter("{http://ops.epo.org}family-member"):
             for doc in member.iter("{http://www.epo.org/exchange}exchange-document"):
@@ -302,16 +377,19 @@ class EpoOpsClient:
 
     @staticmethod
     def _exchange_doc_to_result(doc: ET.Element) -> PatentResult:
-        """将 EPO exchange-document 节点转换为 PatentResult"""
+        """将 EPO exchange-document 节点转换为 PatentResult
+        
+        处理多语言字段（优先英文），提取标题、摘要、申请人、发明人、分类号等核心信息。
+        """
         ns_epo = "{http://www.epo.org/exchange}"
 
-        # 文档号
+        # 文档号由国家代码、文档号、文件种类组合而成
         country = doc.get("country", "")
         doc_number = doc.get("doc-number", "")
         kind = doc.get("kind", "")
         patent_id = f"{country}{doc_number}{kind}"
 
-        # 标题 (取英文优先)
+        # 标题 (取英文优先，否则取首个可用标题)
         title = ""
         for t in doc.iter(f"{ns_epo}invention-title"):
             lang = t.get("lang", "")
@@ -319,16 +397,17 @@ class EpoOpsClient:
             if lang == "en" or not title:
                 title = text.strip()
 
-        # 摘要
+        # 摘要处理方式同标题
         abstract = ""
         for ab in doc.iter(f"{ns_epo}abstract"):
             lang = ab.get("lang", "")
+            # 摘要可能由多个段落组成
             parts = [p.text for p in ab.iter(f"{ns_epo}p") if p.text]
             text = " ".join(parts)
             if lang == "en" or not abstract:
                 abstract = text.strip()
 
-        # 申请人
+        # 申请人提取
         applicants: list[Applicant] = []
         for app in doc.iter(f"{ns_epo}applicant"):
             name_elem = app.find(f"{ns_epo}name")
@@ -341,7 +420,7 @@ class EpoOpsClient:
             if name:
                 applicants.append(Applicant(name=name, country=country_code))
 
-        # 发明人
+        # 发明人提取
         inventors: list[str] = []
         for inv in doc.iter(f"{ns_epo}inventor"):
             name_elem = inv.find(f"{ns_epo}name")
@@ -355,7 +434,7 @@ class EpoOpsClient:
             if text_elem is not None and text_elem.text:
                 ipc_codes.append(text_elem.text.strip())
 
-        # 日期
+        # 公开日期
         pub_date: date | None = None
         for pd in doc.iter(f"{ns_epo}publication-reference"):
             date_elem = pd.find(f".//{ns_epo}date")
@@ -363,6 +442,7 @@ class EpoOpsClient:
                 pub_date = _safe_date(date_elem.text)
                 break
 
+        # 申请日期
         filing_date: date | None = None
         for ad in doc.iter(f"{ns_epo}application-reference"):
             date_elem = ad.find(f".//{ns_epo}date")
@@ -386,13 +466,24 @@ class EpoOpsClient:
 
 
 def _safe_date(value: str | None) -> date | None:
-    """安全解析 EPO 日期格式 (YYYYMMDD 或 YYYY-MM-DD)"""
+    """安全解析 EPO 日期格式 (YYYYMMDD 或 YYYY-MM-DD)
+    
+    处理两种常见 EPO 日期格式，失败时返回 None。
+    
+    Args:
+        value: 日期字符串或 None
+    
+    Returns:
+        date 对象，解析失败返回 None
+    """
     if not value:
         return None
     value = value.strip()
     try:
+        # YYYYMMDD 格式（无分隔符）
         if len(value) == 8 and value.isdigit():
             return date(int(value[:4]), int(value[4:6]), int(value[6:8]))
+        # YYYY-MM-DD 或其他 ISO 格式
         return date.fromisoformat(value[:10])
     except (ValueError, TypeError):
         return None

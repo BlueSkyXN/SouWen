@@ -1,3 +1,32 @@
+/**
+ * 文件用途：Apple 皮肤的配置页面，以分组形式展示和查看服务器配置参数
+ *
+ * 组件/函数清单：
+ *   ConfigPage（函数组件）
+ *     - 功能：获取服务器配置并按分组（基础、网络、搜索）分类展示
+ *       1. 异步获取 ConfigResponse
+ *       2. 按预定义的 CONFIG_SECTIONS 分组展示配置
+ *       3. 每行配置项显示标签和值，支持特殊值的格式化展示（掩盖密码、JSON 对象、布尔值）
+ *     - State 状态：config (ConfigResponse) 配置数据, loading/error 加载状态
+ *     - 关键常量：BASIC_KEYS/NETWORK_KEYS/SEARCH_KEYS 配置项分类
+ *     - 关键钩子：useTranslation 翻译, useNotificationStore 提示
+ *
+ *   ConfigRow（子组件）
+ *     - 功能：单个配置项的显示组件，支持多种值类型的格式化
+ *     - Props 属性：configKey 配置键, value 配置值, t 翻译函数
+ *     - 逻辑：掩盖敏感字段（密码），显示 null/对象/布尔/字符串等
+ *
+ * 模块依赖：
+ *   - react: 状态管理
+ *   - react-i18next: 国际化翻译
+ *   - framer-motion: 动画
+ *   - lucide-react: 图标
+ *   - @core/services/api: 获取配置
+ *   - @core/stores/notificationStore: 提示消息
+ *   - @core/lib/animations: 堆积容器动画配置
+ *   - ConfigPage.module.scss: 样式
+ */
+
 import { useEffect, useState, useCallback, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import { m } from 'framer-motion'
@@ -10,11 +39,19 @@ import { Spinner } from '../components/common/Spinner'
 import type { ConfigResponse } from '@core/types'
 import styles from './ConfigPage.module.scss'
 
+// 配置项分组定义
 const BASIC_KEYS = ['api_password', 'log_level', 'max_workers', 'host', 'port', 'debug']
 const NETWORK_KEYS = ['proxy', 'http_backend', 'timeout', 'concurrent_limit']
 const SEARCH_KEYS = ['searxng_url', 'cache_enabled', 'cache_ttl']
-const MASKED_KEYS = new Set(['api_password'])
+const MASKED_KEYS = new Set(['api_password']) // 需要掩盖的敏感字段
 
+/**
+ * 配置分组定义接口
+ * @property {string} id - 分组唯一 ID
+ * @property {string} titleKey - 国际化分组标题 key
+ * @property {React.ReactNode} icon - 分组图标
+ * @property {string[]} keys - 该分组包含的配置键列表
+ */
 interface SectionDef {
   id: string
   titleKey: string
@@ -30,10 +67,25 @@ const CONFIG_SECTIONS: SectionDef[] = [
 
 type TFunc = ReturnType<typeof useTranslation>['t']
 
+/**
+ * 获取配置项的本地化标签
+ * @param {string} key - 配置键
+ * @param {TFunc} t - 翻译函数
+ * @returns {string} 配置项的显示标签，若无翻译则返回键名本身
+ */
 function getConfigLabel(key: string, t: TFunc): string {
   return t(`config.labels.${key}`, { defaultValue: key })
 }
 
+/**
+ * ConfigRow 子组件 - 单个配置项行
+ * 处理不同类型的配置值（字符串、数字、布尔、对象、null），显示相应的格式化结果
+ * 敏感字段（如密码）显示掩盖状态而不是实际值
+ * 
+ * @param {string} configKey - 配置键
+ * @param {unknown} value - 配置值
+ * @param {TFunc} t - 翻译函数
+ */
 function ConfigRow({ configKey, value, t }: { configKey: string; value: unknown; t: TFunc }) {
   const label = getConfigLabel(configKey, t)
   const isMasked = value === '***' || MASKED_KEYS.has(configKey)
@@ -43,20 +95,25 @@ function ConfigRow({ configKey, value, t }: { configKey: string; value: unknown;
     <div className={styles.configRow}>
       <div className={styles.configLabel}>{label}</div>
       <div className={styles.configValue}>
+        {/* 掩盖的敏感字段显示勾选标记 */}
         {isMasked && value === '***' ? (
           <span className={styles.maskedBadge}>
             <CheckCircle2 size={12} />
             {t('config.configured')}
           </span>
         ) : isNull ? (
+          // 为 null/undefined 显示"未设置"
           <span className={styles.nullVal}>{t('config.notSet')}</span>
         ) : typeof value === 'object' ? (
+          // 对象和数组显示为 JSON 代码块
           <code className={styles.codeVal}>{JSON.stringify(value)}</code>
         ) : typeof value === 'boolean' ? (
+          // 布尔值显示为徽章，true/false 有不同样式
           <span className={`${styles.boolBadge} ${value ? styles.boolTrue : styles.boolFalse}`}>
             {String(value)}
           </span>
         ) : (
+          // 字符串和数字直接显示
           <span className={styles.plainVal}>{String(value)}</span>
         )}
       </div>

@@ -1,16 +1,20 @@
-"""SerpAPI 搜索 API 客户端
+"""Client for SerpAPI
 
-SerpAPI 提供 Google 等多个搜索引擎的结构化搜索结果。
-包含 Knowledge Graph、People Also Ask 等丰富数据。
+Purpose:
+    Google SERP and news search results
 
-接口: GET https://serpapi.com/search
-文档: https://serpapi.com/search-api
+API Endpoint:
+    SerpAPI service
 
-特点：
-- 支持多搜索引擎（Google, Bing, Yahoo, Baidu 等）
-- 结构化 JSON 结果
-- 包含 Knowledge Graph 和 Related Questions
-- 每月免费 100 次搜索
+Key Features:
+    - Structured JSON for Google search results with news data
+
+Engine Class:
+    SerpapiClient(SouWenHttpClient)
+        async def search(query, max_results) -> WebSearchResponse
+
+Returns:
+    WebSearchResponse with title, url, snippet fields
 """
 
 from __future__ import annotations

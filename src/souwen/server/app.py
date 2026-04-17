@@ -1,4 +1,63 @@
-"""SouWen FastAPI 应用入口"""
+"""SouWen FastAPI 应用入口
+
+文件用途：
+    FastAPI 应用主文件，负责应用初始化、中间件堆栈配置、异常处理和路由挂载。
+
+主要类/函数：
+    lifespan() -> AsyncContextManager
+        - 功能：FastAPI 应用生命周期管理（启动/关闭 hooks）
+        - 职责：初始化日志、加载配置、协调 WARP 代理、关闭资源
+        - 关键逻辑：检测 WARP 状态、管理 session_cache 连接生命周期
+
+    _status_to_code(status_code: int) -> str
+        - 功能：HTTP 状态码转机器可读错误码映射
+        - 输入：HTTP 状态码（如 404、500）
+        - 输出：错误码字符串（如 "not_found"、"internal_error"）
+
+    _get_panel_payload() -> tuple[str, str] | None
+        - 功能：读取管理面板 HTML 并计算 ETag（内存缓存）
+        - 输入：无
+        - 输出：(html_content, etag_value) 或 None
+        - 关键优化：ETag 用于浏览器缓存控制，减少冗余传输
+
+    _panel_response(request: Request) -> Response
+        - 功能：生成管理面板 HTTP 响应，支持 ETag 和 Cache-Control
+        - 输入：FastAPI Request 对象
+        - 输出：HTML 响应或 304 Not Modified
+
+    health() -> HealthResponse
+        - 功能：健康检查端点 /health，用于探针确认服务存活
+        - 返回：{"status": "ok", "version": "..."}
+
+    readiness() -> ReadinessResponse
+        - 功能：K8s readiness 探针端点 /readiness，检查本地依赖可用性
+        - 不做网络调用，避免探针超时
+        - 返回：{"ready": bool, "version": str, "error": str|null}
+
+    panel(request: Request) -> HTMLResponse
+        - 功能：获取管理面板（同 /，支持 ETag 缓存）
+
+    root(request: Request) -> HTMLResponse
+        - 功能：根路径重定向到管理面板
+
+异常处理器：
+    - http_exception_handler：处理 HTTP 异常（4xx/5xx）
+    - validation_exception_handler：处理请求验证错误（422）
+    - unhandled_exception_handler：捕获未处理异常
+
+中间件堆栈（执行顺序：外层先处理请求，内层先处理响应）：
+    1. GZipMiddleware - 响应 GZIP 压缩
+    2. CORSMiddleware - CORS（可选，通过配置开启）
+    3. RequestIDMiddleware - 请求 ID 和访问日志
+
+模块依赖：
+    - fastapi：FastAPI 框架
+    - souwen.config：配置管理
+    - souwen.server.middleware：请求 ID 和日志中间件
+    - souwen.server.routes：API 路由
+    - souwen.session_cache：会话缓存
+    - souwen.logging_config：日志配置
+"""
 
 from __future__ import annotations
 
@@ -32,6 +91,19 @@ _panel_cache_lock = asyncio.Lock()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """FastAPI 应用生命周期管理（启动和关闭 hooks）
+    
+    启动阶段：
+        1. 初始化日志系统
+        2. 加载配置文件（存在时）
+        3. 打印应用版本和密码保护状态
+        4. 检测并协调 WARP 代理状态
+        5. 记录 WARP 所有者身份（shell/python/none）
+    
+    关闭阶段：
+        1. 关闭 session_cache 的数据库连接
+        2. 记录关闭日志，不干预外部 WARP 进程
+    """
     setup_logging()
 
     path = ensure_config_file()
@@ -127,6 +199,15 @@ app.include_router(admin_router, prefix="/api/v1/admin")
 
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
+    """HTTP 异常处理器 — 将 Starlette HTTPException 转换为统一的 ErrorResponse 格式
+    
+    Args:
+        request: FastAPI 请求对象
+        exc: Starlette HTTPException
+        
+    Returns:
+        JSONResponse：包含 ErrorResponse 的 JSON 响应，保留原始状态码和响应头
+    """
     return JSONResponse(
         status_code=exc.status_code,
         content=ErrorResponse(
@@ -140,6 +221,17 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """请求验证错误处理器 — 处理 Pydantic 验证失败（422）
+    
+    提取验证错误中的字段和错误消息，格式化为易读的错误描述。
+    
+    Args:
+        request: FastAPI 请求对象
+        exc: RequestValidationError
+        
+    Returns:
+        JSONResponse：422 响应，包含详细的验证错误信息
+    """
     fields = []
     for err in exc.errors():
         loc = ".".join(str(part) for part in err.get("loc", []))
@@ -156,6 +248,17 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
+    """未处理异常捕获器 — 兜底处理任何逃出的异常
+    
+    记录完整的异常堆栈和关联的 request_id，返回通用 500 错误响应。
+    
+    Args:
+        request: FastAPI 请求对象
+        exc: 任意异常
+        
+    Returns:
+        JSONResponse：500 响应，隐藏内部错误细节，仅暴露 request_id 用于日志追踪
+    """
     rid = get_request_id()
     logger.exception("未处理异常 [%s]", rid)
     return JSONResponse(
@@ -169,7 +272,14 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 
 
 def _status_to_code(status_code: int) -> str:
-    """HTTP 状态码 → 机器可读错误码"""
+    """HTTP 状态码转机器可读错误码 — 便于客户端统一处理
+    
+    Args:
+        status_code: HTTP 状态码（如 404, 500）
+        
+    Returns:
+        机器可读错误码（如 "not_found", "internal_error"），未知码时返回 "error"
+    """
     return {
         400: "bad_request",
         401: "unauthorized",
@@ -186,6 +296,13 @@ def _status_to_code(status_code: int) -> str:
 
 @app.get("/health", response_model=HealthResponse)
 async def health():
+    """健康检查端点 /health
+    
+    用于容器编排系统（K8s）探针检查服务是否存活。返回当前应用版本。
+    
+    Returns:
+        HealthResponse: {"status": "ok", "version": "<version>"}
+    """
     return {"status": "ok", "version": __version__}
 
 
@@ -222,7 +339,14 @@ async def readiness():
 
 
 def _get_panel_payload() -> tuple[str, str] | None:
-    """读取 panel.html 并计算 ETag（缓存在模块级变量里）。"""
+    """读取管理面板 HTML 文件并计算 ETag — 支持浏览器缓存
+    
+    第一次调用时读取 panel.html、计算 SHA256 ETag、缓存在模块级变量。
+    后续调用直接返回缓存，避免重复磁盘 I/O。
+    
+    Returns:
+        tuple[html_content, etag] 或 None（文件不存在时）
+    """
     global _panel_cache, _panel_etag
     if _panel_cache is not None and _panel_etag is not None:
         return _panel_cache, _panel_etag
@@ -236,6 +360,18 @@ def _get_panel_payload() -> tuple[str, str] | None:
 
 
 def _panel_response(request: Request) -> Response:
+    """生成管理面板 HTTP 响应，支持 ETag 和 Cache-Control
+    
+    检查浏览器的 If-None-Match 头：
+    - 若与 ETag 匹配，返回 304 Not Modified
+    - 否则返回完整 HTML 和新的 ETag、Cache-Control 头
+    
+    Args:
+        request: FastAPI Request 对象
+        
+    Returns:
+        HTMLResponse 或 Response（304 Not Modified）
+    """
     payload = _get_panel_payload()
     if payload is None:
         return HTMLResponse("<h1>Panel not found</h1>", status_code=404)
@@ -250,13 +386,32 @@ def _panel_response(request: Request) -> Response:
 
 @app.get("/panel", response_class=HTMLResponse, include_in_schema=False)
 async def panel(request: Request):
-    """管理面板（内存缓存 + ETag/Cache-Control）"""
+    """管理面板 /panel 端点
+    
+    返回管理 Web UI 的 HTML 页面。支持内存缓存和 ETag 条件请求。
+    用异步锁保护缓存，避免并发读写问题。
+    
+    Args:
+        request: FastAPI Request 对象
+        
+    Returns:
+        HTMLResponse：管理面板 HTML，或 304 Not Modified
+    """
     async with _panel_cache_lock:
         return _panel_response(request)
 
 
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 async def root(request: Request):
-    """根路径返回管理面板（同 /panel，支持 ETag）"""
+    """根路径 / 端点 — 重定向到管理面板
+    
+    与 /panel 相同，返回管理 Web UI。支持 ETag 和缓存。
+    
+    Args:
+        request: FastAPI Request 对象
+        
+    Returns:
+        HTMLResponse：管理面板 HTML，或 304 Not Modified
+    """
     async with _panel_cache_lock:
         return _panel_response(request)

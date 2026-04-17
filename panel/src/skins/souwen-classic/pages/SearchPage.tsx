@@ -1,3 +1,29 @@
+/**
+ * 搜索页面 - 论文/专利/网页综合搜索
+ *
+ * 文件用途：提供统一的搜索界面，支持三个搜索类别（paper/patent/web）、数据源选择、结果展示和过滤
+ *
+ * 核心功能模块：
+ *   - 搜索类别切换：分段控制器在三个类别间切换
+ *   - 数据源选择：多选器选择每个类别的数据源
+ *   - 搜索输入：关键词输入框 + 搜索建议
+ *   - 结果展示：动画列表显示各数据源的搜索结果
+ *   - 状态管理：加载中、错误、空结果、成功等状态
+ *   - 竞态处理：新搜索自动取消前一个请求
+ *
+ * 常量定义：
+ *   SOURCE_ICONS - 数据源名称到图标组件的映射
+ *   DEFAULT_SELECTED - 默认选中的数据源
+ *   SEARCH_SUGGESTIONS - 搜索建议词列表
+ *
+ * 主要交互：
+ *   - 选择搜索类别 → 加载对应类别的数据源
+ *   - 选择数据源 → 更新搜索配置
+ *   - 输入关键词 → 显示搜索建议
+ *   - 点击搜索 → 并发调用各数据源的搜索 API
+ *   - 处理竞态：新搜索覆盖前一个搜索
+ */
+
 import { useState, useCallback, useEffect, useRef, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { m } from 'framer-motion'

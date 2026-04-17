@@ -1,6 +1,43 @@
 """SouWen 数据源注册表
 
-集中管理所有已知数据源的元数据，供配置验证、健康检查和 UI 使用。
+文件用途：
+    集中管理所有已知数据源的元数据（名称、分类、Tier、配置字段等），
+    供配置验证、健康检查和 UI 使用。数据源分类：论文、专利、网页搜索。
+
+函数/类清单：
+    SourceMeta（dataclass）
+        - 功能：数据源元数据容器
+        - 属性：name (str) 源名称, category (str) 分类(paper|patent|web),
+                tier (int) Tier(0=免配置/1=免费Key或自建/2=付费),
+                config_field (str|None) 配置字段名, is_scraper (bool) 是否爬虫,
+                description (str) 描述文本
+    
+    _reg(name, category, tier, config_field, *, is_scraper=False, description="")
+        - 功能：向注册表添加单个数据源
+        - 入参：name 源名称, category 分类, tier 付费层级, config_field 配置字段,
+                is_scraper 爬虫标志, description 描述
+    
+    get_all_sources() -> dict[str, SourceMeta]
+        - 功能：返回所有已注册数据源字典
+    
+    get_source(name: str) -> SourceMeta | None
+        - 功能：按名称获取单个数据源元数据
+    
+    is_known_source(name: str) -> bool
+        - 功能：检查是否是已知数据源名称
+    
+    get_scraper_sources() -> list[str]
+        - 功能：返回所有爬虫类数据源名称列表
+    
+    get_sources_by_category(category: str) -> list[SourceMeta]
+        - 功能：按分类（paper|patent|web）筛选数据源
+    
+    ALL_SOURCE_NAMES: frozenset[str]
+        - 功能：所有源名称的不可变集合（常量）
+
+模块依赖：
+    - dataclasses: frozenset 容器定义
+    - 无外部依赖
 """
 
 from __future__ import annotations
@@ -10,7 +47,23 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True, slots=True)
 class SourceMeta:
-    """数据源元数据"""
+    """数据源元数据（不可变）
+    
+    每个数据源的注册信息，用于配置验证和 UI 展示。
+    
+    属性：
+        name: 数据源唯一标识（如 'openalex'、'tavily'）
+        category: 分类标签 — 'paper'（论文）| 'patent'（专利）| 'web'（网页搜索）
+        tier: 付费层级 —
+              0 = 免配置或完全免费（无需 API Key）
+              1 = 免费 API 配额或自建服务
+              2 = 付费 API 或专业付费版本
+        config_field: 对应 SouWenConfig 中的字段名（如 'tavily_api_key'），
+                      None 表示该源无需配置
+        is_scraper: 是否使用 BaseScraper（受 curl_cffi TLS 指纹影响），
+                    爬虫类源需要 curl_cffi 支持
+        description: 用户可读的源描述（用于 UI 和文档）
+    """
 
     name: str
     category: str  # paper | patent | web
@@ -33,6 +86,16 @@ def _reg(
     is_scraper: bool = False,
     description: str = "",
 ) -> None:
+    """向全局注册表添加单个数据源
+    
+    Args:
+        name: 数据源名称
+        category: 分类（paper|patent|web）
+        tier: Tier 级别（0|1|2）
+        config_field: 配置字段名，None 表示无需配置
+        is_scraper: 是否爬虫类源
+        description: 用户描述文本
+    """
     _REGISTRY[name] = SourceMeta(
         name=name,
         category=category,
@@ -95,27 +158,58 @@ _reg("scrapingdog", "web", 2, "scrapingdog_api_key", description="ScrapingDog SE
 
 
 def get_all_sources() -> dict[str, SourceMeta]:
-    """返回所有已注册数据源"""
+    """返回所有已注册数据源的字典
+    
+    Returns:
+        {源名称: SourceMeta} 映射字典
+    """
     return dict(_REGISTRY)
 
 
 def get_source(name: str) -> SourceMeta | None:
-    """按名称获取数据源元数据"""
+    """按名称获取单个数据源的元数据
+    
+    Args:
+        name: 数据源名称
+    
+    Returns:
+        SourceMeta 对象，不存在则返回 None
+    """
     return _REGISTRY.get(name)
 
 
 def is_known_source(name: str) -> bool:
-    """检查是否是已知数据源名称"""
+    """检查是否是已知数据源名称
+    
+    Args:
+        name: 数据源名称
+    
+    Returns:
+        True 表示该源已注册，False 表示未知源
+    """
     return name in _REGISTRY
 
 
 def get_scraper_sources() -> list[str]:
-    """返回所有使用 BaseScraper 的数据源名称"""
+    """返回所有爬虫类数据源的名称列表
+    
+    爬虫类源使用 BaseScraper，需要 curl_cffi TLS 指纹支持。
+    
+    Returns:
+        爬虫源名称列表
+    """
     return [name for name, meta in _REGISTRY.items() if meta.is_scraper]
 
 
 def get_sources_by_category(category: str) -> list[SourceMeta]:
-    """按类别筛选数据源"""
+    """按分类筛选数据源
+    
+    Args:
+        category: 分类标签 — 'paper' | 'patent' | 'web'
+    
+    Returns:
+        该分类下的 SourceMeta 对象列表
+    """
     return [meta for meta in _REGISTRY.values() if meta.category == category]
 
 

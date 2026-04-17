@@ -1,16 +1,20 @@
-"""SearXNG 元搜索 API 客户端
+"""Client for SearXNG
 
-通过 SearXNG 自建实例的 JSON API 聚合 250+ 搜索引擎结果。
-用户需自行部署 SearXNG 实例。
+Purpose:
+    Privacy-focused meta-search engine
 
-接口: GET /search?q=QUERY&format=json&engines=ENGINE1,ENGINE2
-文档: https://docs.searxng.org/dev/search_api.html
+API Endpoint:
+    SearXNG service
 
-特点：
-- 一个接入即获 250+ 引擎（Google, Bing, DuckDuckGo 等）
-- 支持按 category 筛选（general, images, videos, news, science）
-- 支持指定引擎子集
-- 需自部署实例（公共实例不稳定）
+Key Features:
+    - No tracking, aggregates results from multiple search engines
+
+Engine Class:
+    SearxngClient(SouWenHttpClient)
+        async def search(query, max_results) -> WebSearchResponse
+
+Returns:
+    WebSearchResponse with title, url, snippet fields
 """
 
 from __future__ import annotations

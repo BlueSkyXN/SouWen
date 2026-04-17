@@ -1,16 +1,20 @@
-"""Perplexity Sonar 搜索 API 客户端
+"""Client for Perplexity AI
 
-Perplexity 提供基于 AI 的搜索 API（Sonar 模型），返回带引用的 AI 生成答案。
-与传统搜索不同，Perplexity 返回的是综合性答案而非链接列表。
+Purpose:
+    AI-powered search with synthesized answers and citations
 
-接口: POST https://api.perplexity.ai/v1/chat/completions
-文档: https://docs.perplexity.ai/
+API Endpoint:
+    Perplexity AI service
 
-特点：
-- AI 生成的综合性答案
-- 自动附带引用来源
-- 基于 Sonar 模型（实时联网搜索）
-- 适合需要直接答案而非链接列表的场景
+Key Features:
+    - Returns AI-generated comprehensive answers, not traditional search results
+
+Engine Class:
+    PerplexityClient(SouWenHttpClient)
+        async def search(query, max_results) -> WebSearchResponse
+
+Returns:
+    WebSearchResponse with title, url, snippet fields
 """
 
 from __future__ import annotations

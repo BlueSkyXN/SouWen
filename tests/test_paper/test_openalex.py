@@ -1,4 +1,16 @@
-"""OpenAlex API 客户端单元测试（pytest-httpx mock）"""
+"""OpenAlex API 客户端单元测试（pytest-httpx mock）。
+
+覆盖 ``souwen.paper.openalex`` 中 OpenAlexClient 的 JSON 解析、字段映射、分页、错误处理。
+验证作者机构、概念提取、开放获取链接、引用计数等不变量。
+
+测试清单：
+- ``test_search_basic``：基本搜索解析
+- ``test_search_pagination``：分页逻辑
+- ``test_search_no_results``：无结果处理
+- ``test_authorship_without_institution``：无机构作者
+- ``test_missing_abstract``：缺少摘要处理
+- ``test_http_errors``：HTTP 错误处理
+"""
 
 from __future__ import annotations
 import re
@@ -66,7 +78,7 @@ OPENALEX_SINGLE_WORK = OPENALEX_SEARCH_RESPONSE["results"][0]
 
 
 async def test_search_basic(httpx_mock: HTTPXMock, monkeypatch):
-    """search() 正确解析 JSON 并映射字段"""
+    """search() 正确解析 JSON 并映射字段。"""
     monkeypatch.setenv("SOUWEN_OPENALEX_EMAIL", "test@test.com")
 
     httpx_mock.add_response(

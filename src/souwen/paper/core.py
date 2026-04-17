@@ -3,6 +3,37 @@
 官方文档: https://core.ac.uk/documentation/api
 鉴权: 需免费 API Key (Bearer Token)
 注册: https://core.ac.uk/services/api
+
+文件用途：CORE 开放获取文献搜索客户端，聚合全球开放获取论文全文。
+
+函数/类清单：
+    CoreClient（类）
+        - 功能：CORE 开放获取搜索客户端，管理 API 连接、限流和数据解析。
+        - 关键属性：api_key (str) API 密钥, _client (SouWenHttpClient) HTTP 客户端,
+                   _limiter (TokenBucketLimiter) 令牌桶限流器（~10 req/s）
+
+    _parse_work(work: dict) -> PaperResult
+        - 功能：将 CORE API 返回的 work JSON 对象转换为统一的 PaperResult 数据模型
+        - 输入：work CORE API 返回的单条文献 JSON 对象
+        - 输出：统一的 PaperResult 模型，包含标题、作者、DOI、全文链接等字段
+        - 关键变量：authors (list[Author]) 作者列表, doi (str|None) DOI 标识符
+
+    search(query: str, limit: int = 10, offset: int = 0) -> SearchResponse
+        - 功能：按关键词搜索 CORE 文献库
+        - 输入：query 检索关键词, limit 返回条数（最大 100）, offset 分页偏移量
+        - 输出：SearchResponse 包含搜索结果列表、总数、分页信息
+        - 限流：通过 _limiter.acquire() 控制请求频率
+
+    get_work(core_id: str) -> PaperResult
+        - 功能：通过 CORE 文献 ID 获取单条文献详情
+        - 输入：core_id CORE 文献唯一标识符
+        - 输出：PaperResult 模型
+        - 异常：NotFoundError 文献不存在时抛出
+
+模块依赖：
+    - SouWenHttpClient: 统一 HTTP 客户端
+    - TokenBucketLimiter: 令牌桶限流器
+    - PaperResult, SourceType: 统一的论文数据模型
 """
 
 from __future__ import annotations
@@ -94,7 +125,7 @@ class CoreClient:
             ParseError: 解析失败。
         """
         try:
-            # 作者
+            # 提取作者列表：authors 可能是字典或列表形式
             raw_authors = work.get("authors", [])
             authors: list[Author] = []
             for a in raw_authors:
@@ -102,31 +133,31 @@ class CoreClient:
                 if name:
                     authors.append(Author(name=name))
 
-            # DOI
+            # 提取 DOI：优先在 identifiers 数组中寻找，再检查顶层 doi 字段
             doi: str | None = None
             for identifier in work.get("identifiers", []):
                 if isinstance(identifier, str) and identifier.startswith("10."):
                     doi = identifier
                     break
 
-            # 也检查顶层 doi 字段
+            # 如未在 identifiers 中找到，检查顶层 doi 字段
             if not doi:
                 doi = work.get("doi")
 
-            # 年份
+            # 提取出版年份
             year: int | None = work.get("yearPublished")
 
-            # 全文下载链接
+            # 全文 PDF 下载链接
             download_url: str | None = work.get("downloadUrl")
 
-            # 语言
+            # 提取语言信息（可能为嵌套字典或字符串）
             language: str | None = (
                 work.get("language", {}).get("code")
                 if isinstance(work.get("language"), dict)
                 else work.get("language")
             )
 
-            # 期刊
+            # 提取期刊名称（journals 是列表）
             journals = work.get("journals") or []
             journal_name: str | None = (
                 journals[0].get("title") if journals and isinstance(journals[0], dict) else None

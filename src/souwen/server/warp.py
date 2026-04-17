@@ -101,6 +101,10 @@ class WarpManager:
     # ------ state file I/O ------
 
     def _save_state(self) -> None:
+        """将当前 WARP 状态持久化到 /run/souwen-warp.json 文件
+        
+        便于 shell 脚本和 Python 进程间状态同步。写入失败时静默处理。
+        """
         try:
             STATE_FILE.write_text(
                 json.dumps(self._state.to_dict(), ensure_ascii=False),
@@ -110,6 +114,14 @@ class WarpManager:
             pass
 
     def _load_state(self) -> WarpState | None:
+        """从 /run/souwen-warp.json 加载已持久化的 WARP 状态
+        
+        用于启动时恢复 shell 脚本启动的 WARP 进程的状态。
+        解析失败时返回 None。
+        
+        Returns:
+            WarpState 或 None
+        """
         if not STATE_FILE.is_file():
             return None
         try:
@@ -141,6 +153,16 @@ class WarpManager:
 
     @staticmethod
     def _check_socks_alive(port: int) -> bool:
+        """检查 SOCKS5 代理是否存活 — 发送 curl 测试请求
+        
+        通过 curl 命令向 Cloudflare 1.1.1.1 发送 HTTPS 请求，检查响应中是否包含 "warp="。
+        
+        Args:
+            port: SOCKS5 监听端口
+            
+        Returns:
+            True 当代理响应正常，False 当超时或错误
+        """
         try:
             result = subprocess.run(
                 [
@@ -162,6 +184,16 @@ class WarpManager:
 
     @staticmethod
     def _get_warp_ip(port: int) -> str:
+        """获取通过 WARP 代理的外网 IP 地址
+        
+        使用 curl 通过 SOCKS5 代理查询 1.1.1.1/cdn-cgi/trace，提取响应中的 "ip=" 字段。
+        
+        Args:
+            port: SOCKS5 监听端口
+            
+        Returns:
+            IP 地址字符串，或 "unknown" 当查询失败
+        """
         try:
             result = subprocess.run(
                 [
@@ -186,6 +218,14 @@ class WarpManager:
 
     @staticmethod
     def _pid_alive(pid: int) -> bool:
+        """检查进程是否还活着 — 使用 os.kill(pid, 0) 信号检查
+        
+        Args:
+            pid: 进程 ID
+            
+        Returns:
+            True 当进程仍在运行，False 当进程不存在或权限不足
+        """
         if pid <= 0:
             return False
         try:
@@ -197,7 +237,16 @@ class WarpManager:
     # ------ reconcile (startup) ------
 
     async def reconcile(self) -> None:
-        """启动时协调: 检测 shell 已启动的 WARP 并接管状态"""
+        """启动时协调 — 检测 shell 脚本已启动的 WARP 并接管状态
+        
+        启动流程：
+        1. 尝试从 /run/souwen-warp.json 加载 shell 启动的 WARP 状态
+        2. 验证 shell 启动的 WARP 是否仍然存活（SOCKS5 响应检查）
+        3. 若存活，继承该状态；否则标记为 disabled
+        4. 检查配置文件中 warp_enabled 选项，若需要则启动 WARP
+        
+        不阻塞初始化，后台异步启动新的 WARP 实例。
+        """
         async with self._lock:
             shell_state = self._load_state()
             if shell_state and shell_state.status == "enabled":

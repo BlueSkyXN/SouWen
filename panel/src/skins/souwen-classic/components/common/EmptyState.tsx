@@ -1,3 +1,27 @@
+/**
+ * 空状态组件 - 无数据/无结果提示
+ *
+ * 文件用途：在没有数据时显示相应的视觉反馈，包括插图、标题、描述和可选操作
+ *
+ * 函数/类清单：
+ *   SearchIllustration（React.FC）
+ *     - 功能：渲染搜索相关的 SVG 插图
+ *
+ *   NoDataIllustration（React.FC）
+ *     - 功能：渲染无数据相关的 SVG 插图
+ *
+ *   ErrorIllustration（React.FC）
+ *     - 功能：渲染错误相关的 SVG 插图
+ *
+ *   EmptyState（React.FC<EmptyStateProps>）
+ *     - 功能：根据 type 选择适当的插图并渲染完整的空状态界面
+ *     - Props:
+ *       - type (IllustrationType, 默认 'noData'): 插图类型（'search'|'noData'|'error'）
+ *       - title (string): 标题文本
+ *       - description (string, 可选): 描述文本
+ *       - action (ReactNode, 可选): 操作按钮或元素
+ */
+
 import React from 'react';
 import styles from './EmptyState.module.scss';
 
@@ -10,6 +34,7 @@ interface EmptyStateProps {
   action?: React.ReactNode;
 }
 
+// 搜索插图 - 显示放大镜图标
 const SearchIllustration = () => (
   <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" className={styles.illustration}>
     <circle cx="52" cy="52" r="30" stroke="currentColor" strokeWidth="3" strokeLinecap="round" />
@@ -19,6 +44,7 @@ const SearchIllustration = () => (
   </svg>
 );
 
+// 无数据插图 - 显示空文档/表格
 const NoDataIllustration = () => (
   <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" className={styles.illustration}>
     <rect x="25" y="35" width="70" height="55" rx="4" stroke="currentColor" strokeWidth="3" />
@@ -30,6 +56,7 @@ const NoDataIllustration = () => (
   </svg>
 );
 
+// 错误插图 - 显示警告符号
 const ErrorIllustration = () => (
   <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" className={styles.illustration}>
     <circle cx="60" cy="60" r="35" stroke="currentColor" strokeWidth="3" />
@@ -38,6 +65,7 @@ const ErrorIllustration = () => (
   </svg>
 );
 
+// 插图映射表 - 根据 type 选择对应的插图组件
 const illustrations: Record<IllustrationType, React.FC> = {
   search: SearchIllustration,
   noData: NoDataIllustration,
@@ -50,6 +78,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   description,
   action,
 }) => {
+  // 根据 type 获取对应的插图组件
   const Illustration = illustrations[type];
   return (
     <div className={styles.emptyState}>

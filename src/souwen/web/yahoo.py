@@ -1,11 +1,20 @@
-"""Yahoo 搜索引擎
+"""Client for Yahoo
 
-Yahoo 搜索由 Bing 驱动，对数据中心 IP 相对宽容。
+Purpose:
+    Yahoo search results via web scraping
 
-特点：
-- 无需 API Key
-- Bing 驱动，结果质量可靠
-- 通过 RU=/RK= 重定向提取真实 URL
+API Endpoint:
+    Yahoo service
+
+Key Features:
+    - Scrapes Yahoo search page, extracts results without API key
+
+Engine Class:
+    YahooClient(SouWenHttpClient)
+        async def search(query, max_results) -> WebSearchResponse
+
+Returns:
+    WebSearchResponse with title, url, snippet fields
 """
 
 from __future__ import annotations

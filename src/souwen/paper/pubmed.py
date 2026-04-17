@@ -4,6 +4,38 @@
 鉴权: 可选 API Key，无 Key 限流 3 req/s，有 Key 10 req/s
 搜索模式: 两步式 esearch → efetch
 返回: XML
+
+文件用途：PubMed / NCBI E-utilities 生物医学文献搜索客户端。
+
+函数/类清单：
+    PubMedClient（类）
+        - 功能：PubMed 两步搜索客户端（esearch 获取 ID，efetch 获取详情）
+        - 关键属性：api_key (str|None) NCBI API Key, _client (SouWenHttpClient) HTTP 客户端,
+                   _limiter (TokenBucketLimiter) 限流器（无 Key: 3 req/s, 有 Key: 10 req/s）
+
+    _common_params() -> dict
+        - 功能：构建公共请求参数（包含 API Key 若已配置）
+        - 输出：请求参数字典
+
+    _parse_article(article_el: ET.Element) -> PaperResult
+        - 功能：将 PubmedArticle XML 元素转换为 PaperResult
+        - 输入：article_el <PubmedArticle> XML 元素
+        - 输出：统一的 PaperResult 模型，包含 PMID、MeSH 关键词等
+
+    search(query: str, retmax: int = 10, retstart: int = 0) -> SearchResponse
+        - 功能：搜索 PubMed 文献（两步：esearch → efetch）
+        - 输入：query PubMed 检索式（支持 MeSH 等高级语法），retmax 返回条数，
+               retstart 起始偏移
+        - 输出：SearchResponse 包含搜索结果及分页信息
+
+    get_by_pmid(pmid: str) -> PaperResult
+        - 功能：通过 PMID 获取论文详情
+        - 输入：pmid PubMed 唯一标识符
+
+模块依赖：
+    - SouWenHttpClient: 统一 HTTP 客户端
+    - TokenBucketLimiter: 令牌桶限流器
+    - defusedxml.ElementTree: 安全 XML 解析
 """
 
 from __future__ import annotations
@@ -69,7 +101,10 @@ class PubMedClient:
     # ------------------------------------------------------------------
 
     def _common_params(self) -> dict[str, str]:
-        """构建公共请求参数。"""
+        """构建公共请求参数。
+        
+        若配置了 API Key，将其加入参数以提升限流阈值。
+        """
         params: dict[str, str] = {}
         if self.api_key:
             params["api_key"] = self.api_key
@@ -89,29 +124,33 @@ class PubMedClient:
             ParseError: 解析失败。
         """
         try:
+            # 提取 MedlineCitation 元素（主要元数据容器）
             medline = article_el.find("MedlineCitation")
             if medline is None:
                 raise ParseError("缺少 MedlineCitation 元素")
 
+            # 提取 PMID（PubMed 唯一标识符）
             pmid_el = medline.find("PMID")
             pmid = pmid_el.text if pmid_el is not None else ""
 
+            # 提取 Article 元素（论文详情）
             article = medline.find("Article")
             if article is None:
                 raise ParseError("缺少 Article 元素")
 
-            # 标题
+            # 提取标题（可能包含子元素，需拼接所有文本）
             title_el = article.find("ArticleTitle")
             title = title_el.text if title_el is not None else ""
-            # 可能包含子标签，拼接所有文本
+            # 递归提取所有后代文本节点（处理含有标签的标题）
             if title_el is not None:
                 title = "".join(title_el.itertext())
 
-            # 摘要
+            # 提取摘要（可能按部分分类，如 BACKGROUND、METHODS、RESULTS 等）
             abstract_parts: list[str] = []
             abstract_el = article.find("Abstract")
             if abstract_el is not None:
                 for text_el in abstract_el.findall("AbstractText"):
+                    # 部分摘要有标签（Label），标签和文本一起保存
                     label = text_el.get("Label", "")
                     text = "".join(text_el.itertext()).strip()
                     if label and text:
@@ -120,15 +159,16 @@ class PubMedClient:
                         abstract_parts.append(text)
             abstract = " ".join(abstract_parts)
 
-            # 作者列表
+            # 提取作者列表及其所属机构
             authors: list[Author] = []
             author_list_el = article.find("AuthorList")
             if author_list_el is not None:
                 for author_el in author_list_el.findall("Author"):
+                    # 作者名称由 LastName（姓）和 ForeName（名）组成
                     last = author_el.findtext("LastName", "")
                     fore = author_el.findtext("ForeName", "")
                     name = f"{fore} {last}".strip()
-                    # 机构
+                    # 提取所有关联机构
                     affiliations: list[str] = []
                     for aff_el in author_el.findall("AffiliationInfo/Affiliation"):
                         if aff_el.text:
@@ -141,7 +181,7 @@ class PubMedClient:
                             )
                         )
 
-            # 发表日期
+            # 提取发表日期
             year: int | None = None
             pub_date: str | None = None
             journal_el = article.find("Journal")
@@ -153,26 +193,17 @@ class PubMedClient:
                     d = date_el.findtext("Day", "01")
                     if y:
                         year = int(y)
-                        # 月份可能是英文缩写
+                        # PubMed 月份可能为英文缩写或数字，需要规范化
                         month_map = {
-                            "Jan": "01",
-                            "Feb": "02",
-                            "Mar": "03",
-                            "Apr": "04",
-                            "May": "05",
-                            "Jun": "06",
-                            "Jul": "07",
-                            "Aug": "08",
-                            "Sep": "09",
-                            "Oct": "10",
-                            "Nov": "11",
-                            "Dec": "12",
+                            "Jan": "01", "Feb": "02", "Mar": "03", "Apr": "04",
+                            "May": "05", "Jun": "06", "Jul": "07", "Aug": "08",
+                            "Sep": "09", "Oct": "10", "Nov": "11", "Dec": "12",
                         }
                         m_num = month_map.get(m, m.zfill(2) if m.isdigit() else "01")
                         d_num = d.zfill(2) if d.isdigit() else "01"
                         pub_date = f"{y}-{m_num}-{d_num}"
 
-            # DOI
+            # 提取 DOI（在 PubmedData/ArticleIdList 中查找）
             doi: str | None = None
             pub_data = article_el.find("PubmedData")
             if pub_data is not None:
@@ -181,14 +212,14 @@ class PubMedClient:
                         doi = aid.text
                         break
 
-            # 期刊名
+            # 提取期刊名
             journal_title = ""
             if journal_el is not None:
                 jt_el = journal_el.find("Title")
                 if jt_el is not None:
                     journal_title = jt_el.text or ""
 
-            # MeSH 关键词
+            # 提取 MeSH（Medical Subject Headings）关键词
             mesh_terms: list[str] = []
             mesh_list = medline.find("MeshHeadingList")
             if mesh_list is not None:
@@ -205,12 +236,12 @@ class PubMedClient:
                 publication_date=pub_date,
                 source=SourceType.PUBMED,
                 source_url=f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/" if pmid else "",
-                pdf_url=None,  # PubMed 不直接提供 PDF
+                pdf_url=None,  # PubMed 不直接提供 PDF 链接
                 citation_count=None,
                 journal=journal_title or None,
                 raw={
                     "journal": journal_title,
-                    "mesh_terms": mesh_terms[:10],
+                    "mesh_terms": mesh_terms[:10],  # 取前 10 个关键词
                     "pmid": pmid,
                 },
             )

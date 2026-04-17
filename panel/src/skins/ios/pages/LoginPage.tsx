@@ -1,3 +1,8 @@
+/**
+ * 文件用途：iOS 皮肤的登录页面，处理用户身份验证和服务器连接
+ * 提供登录表单，支持自动登录和记住密码选项
+ */
+
 import { useState, useCallback, useEffect, type FormEvent } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'

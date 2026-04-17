@@ -1,7 +1,17 @@
-"""Semantic Scholar API 客户端单元测试（pytest-httpx mock）
+"""Semantic Scholar API 客户端单元测试（pytest-httpx mock）。
 
-覆盖 P0-4 中要求的 HTTP 错误分支：429 / 401 / 5xx 在进入
-``.json()`` 解析前就抛出明确异常。
+覆盖 ``souwen.paper.semantic_scholar`` 中 SemanticScholarClient 的 JSON 解析、
+字段映射、HTTP 错误处理。验证 P0-4 中 HTTP 错误分支（429/401/5xx）在进入 
+``.json()`` 解析前抛出明确异常，字段映射完整性等不变量。
+
+测试清单：
+- ``test_search_basic``：基本搜索解析
+- ``test_search_pagination``：分页
+- ``test_search_no_results``：无结果
+- ``test_missing_doi``：缺少 DOI
+- ``test_http_429_raises_ratelimiterror``：429 限流错误
+- ``test_http_401_raises_autherror``：401 认证错误
+- ``test_http_5xx_raises_unavailable``：5xx 服务错误
 """
 
 from __future__ import annotations

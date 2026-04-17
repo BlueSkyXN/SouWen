@@ -1,3 +1,29 @@
+/**
+ * 数据源页面 - 源的配置和健康状态管理
+ *
+ * 文件用途：展示所有数据源（paper/patent/web 三类），显示源的状态、配置信息、API 密钥需求，
+ * 支持启用/禁用源以及编辑配置（如 API 密钥）
+ *
+ * 核心功能：
+ *   - 源分类展示：按 paper / patent / web 分组显示
+ *   - 状态徽章：ok / needs_key / error / disabled
+ *   - 源信息卡片：名称、描述、层级（core/extended/experimental）
+ *   - 配置编辑：弹窗编辑 API 密钥和其他源配置
+ *   - 启用/禁用：切换源的启用状态
+ *   - 实时反馈：配置更新成功/失败提示
+ *
+ * 类型与常量：
+ *   CategoryKey - 搜索类别（'paper'|'patent'|'web'）
+ *   CATEGORY_ORDER / CATEGORY_ICONS / CATEGORY_STYLE - 分类配置
+ *   statusBorderClass / StatusDot / TierBadge - 状态显示组件
+ *
+ * 主要交互：
+ *   - 页面加载时获取所有源和诊断信息
+ *   - 点击源卡片打开编辑模态窗口
+ *   - 编辑并保存配置
+ *   - 切换源的启用/禁用状态
+ */
+
 import { useEffect, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { m, AnimatePresence } from 'framer-motion'

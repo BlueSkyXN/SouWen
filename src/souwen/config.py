@@ -1,11 +1,61 @@
 """SouWen 统一配置管理
 
-优先级从高到低：
-1. 环境变量（SOUWEN_<FIELD_NAME>）
-2. 项目根目录 ./souwen.yaml
-3. ~/.config/souwen/config.yaml
-4. 项目根目录 .env 文件
-5. 内置默认值
+文件用途:
+    集中管理所有 SouWen 配置项,支持多层级优先级(环境变量 > YAML > .env > 默认值).
+    提供便捷的代理、HTTP 后端、频道配置解析接口.
+
+类清单:
+    SourceChannelConfig(Pydantic BaseModel)
+        - 功能:单个数据源的频道配置
+        - 字段:enabled (bool), proxy (str), http_backend (str),
+                base_url (str|None), api_key (str|None),
+                headers (dict[str,str]), params (dict)
+        - 用途:覆盖全局配置,按源定制化管理
+    
+    SouWenConfig(Pydantic BaseModel)
+        - 功能:全局配置对象,包含所有配置项
+        - 主要字段组:
+          * 论文源 API Key: openalex_email, semantic_scholar_api_key, ...
+          * 专利源 API Key: uspto_api_key, epo_consumer_key, ...
+          * Web 源 API Key: tavily_api_key, serper_api_key, ...
+          * 通用设置:proxy, timeout, max_retries, data_dir
+          * HTTP 后端:default_http_backend, http_backend (dict)
+          * 服务配置:api_password, cors_origins, expose_docs
+          * WARP 代理:warp_enabled, warp_mode, warp_socks_port
+          * 频道配置:sources (dict[str, SourceChannelConfig])
+        - 方法:
+          * get_proxy() → str|None — 优先池随机选取,回退到单一代理
+          * get_http_backend(source) → Literal — 获取指定源的 HTTP 后端
+          * resolve_proxy/backend/api_key/base_url/headers/params(source) — 解析源特定配置
+    
+    get_config() → SouWenConfig
+        - 功能:获取全局配置(LRU 缓存单例)
+        - 返回:SouWenConfig 实例
+        - 优先级:环境变量 > YAML > .env > 默认值
+    
+    reload_config() → SouWenConfig
+        - 功能:清除缓存并重新加载配置(用于 Docker 动态更新)
+    
+    ensure_config_file() → Path | None
+        - 功能:若无配置文件则自动生成默认配置到 ~/.config/souwen/config.yaml
+
+配置优先级:
+    1. 环境变量(SOUWEN_<FIELD_NAME>)— 最高
+    2. ./souwen.yaml 或 ~/.config/souwen/config.yaml
+    3. .env 文件
+    4. 内置默认值 — 最低
+
+环境变量特殊处理:
+    - WARP_* 系列支持不带前缀(Docker entrypoint 兼容性)
+    - 布尔字段:1/true/yes/on → True
+    - 整数字段:自动转换
+    - JSON 字段(http_backend、sources):JSON 解析
+
+模块依赖:
+    - pydantic: 配置验证和序列化
+    - yaml: YAML 文件解析(可选)
+    - dotenv: .env 文件加载
+    - urllib.parse: 代理 URL 校验
 """
 
 from __future__ import annotations
@@ -37,13 +87,25 @@ load_dotenv()
 # ==============================================================================
 # 代理 URL 校验
 # ==============================================================================
-# 仅允许常见代理协议；禁止 file:// / javascript: 等潜在危险 scheme
+# 仅允许常见代理协议;禁止 file:// / javascript: 等潜在危险 scheme
 
 _ALLOWED_PROXY_SCHEMES = {"http", "https", "socks5", "socks5h", "socks4", "socks4a"}
 
 
 def _validate_proxy_url(url: str | None) -> str | None:
-    """校验显式代理 URL 合法性。非字符串 / 空串返回 None；非法则抛 ValueError"""
+    """校验显式代理 URL 合法性
+
+    非字符串 / 空串返回 None;非法则抛 ValueError.
+    
+    Args:
+        url: 代理 URL 字符串
+    
+    Returns:
+        合法的 URL 字符串,或 None(空值)
+    
+    Raises:
+        ValueError: URL 格式错误或协议不被允许
+    """
     if url is None:
         return None
     if not isinstance(url, str):
@@ -57,7 +119,7 @@ def _validate_proxy_url(url: str | None) -> str | None:
         raise ValueError(f"非法的代理 URL: {url!r} ({e})") from e
     if parsed.scheme.lower() not in _ALLOWED_PROXY_SCHEMES:
         raise ValueError(
-            f"不支持的代理协议 {parsed.scheme!r}: {url!r}（允许：{sorted(_ALLOWED_PROXY_SCHEMES)}）"
+            f"不支持的代理协议 {parsed.scheme!r}: {url!r}(允许:{sorted(_ALLOWED_PROXY_SCHEMES)})"
         )
     if not parsed.hostname:
         raise ValueError(f"代理 URL 缺少 host: {url!r}")
@@ -67,17 +129,17 @@ def _validate_proxy_url(url: str | None) -> str | None:
 class SourceChannelConfig(BaseModel):
     """单源频道配置
 
-    控制单个数据源的行为。所有字段都有合理默认值，
-    只需覆盖想要自定义的部分。
+    控制单个数据源的行为.所有字段都有合理默认值,
+    只需覆盖想要自定义的部分.
 
     Attributes:
         enabled: 是否启用此数据源
         proxy: 代理策略 — inherit(继承全局) | none(不用代理) | warp(走WARP) | 显式URL
         http_backend: HTTP 后端 — auto | curl_cffi | httpx
         base_url: 覆盖数据源的基础 URL
-        api_key: 覆盖 API Key（优先于全局 flat key）
-        headers: 附加请求头（合并到默认头之上）
-        params: 附加参数（传递给源的搜索方法）
+        api_key: 覆盖 API Key(优先于全局 flat key)
+        headers: 附加请求头(合并到默认头之上)
+        params: 附加参数(传递给源的搜索方法)
     """
 
     enabled: bool = True
@@ -90,7 +152,40 @@ class SourceChannelConfig(BaseModel):
 
 
 class SouWenConfig(BaseModel):
-    """全局配置"""
+    """SouWen 全局配置
+    
+    包含所有数据源 API Key、代理设置、HTTP 后端选择、频道级覆盖配置.
+    
+    主要字段组:
+        论文源 API Key: openalex_email, semantic_scholar_api_key, core_api_key, 
+                        pubmed_api_key, unpaywall_email, ieee_api_key
+        
+        专利源 API Key: uspto_api_key, epo_consumer_key/secret, cnipa_client_id/secret,
+                        lens_api_token, patsnap_api_key
+        
+        搜索源 API Key: searxng_url, tavily_api_key, exa_api_key, serper_api_key,
+                        brave_api_key, serpapi_api_key, firecrawl_api_key,
+                        perplexity_api_key, linkup_api_key, scrapingdog_api_key,
+                        whoogle_url, websurfx_url
+        
+        通用设置: proxy, proxy_pool (代理池), timeout (超时秒数), 
+                 max_retries (重试次数), data_dir (数据存储目录)
+        
+        HTTP 后端: default_http_backend (全局默认), http_backend (按源覆盖字典)
+        
+        服务配置: api_password (API 访问密码), cors_origins, trusted_proxies,
+                 expose_docs (是否暴露 Swagger 文档)
+        
+        WARP 代理: warp_enabled, warp_mode (auto|wireproxy|kernel), 
+                  warp_socks_port, warp_endpoint
+        
+        频道配置: sources (dict[源名, SourceChannelConfig])
+    
+    方法:
+        get_proxy() → str|None — 从 proxy_pool 随机取(优先),否则用单一 proxy
+        get_http_backend(source_name) → str — 获取指定源的 HTTP 后端
+        resolve_proxy/api_key/base_url/headers/params(source_name) — 解析源级覆盖配置
+    """
 
     # ===== 论文数据源 =====
     openalex_email: str | None = None
@@ -134,27 +229,27 @@ class SouWenConfig(BaseModel):
     data_dir: str = "~/.local/share/souwen"
 
     # ===== HTTP 后端 =====
-    # 全局默认 HTTP 后端：auto（自动选择）| curl_cffi | httpx
+    # 全局默认 HTTP 后端:auto(自动选择)| curl_cffi | httpx
     default_http_backend: str = "auto"
-    # 按源覆盖，例如 {"duckduckgo": "httpx", "google_patents": "curl_cffi"}
+    # 按源覆盖,例如 {"duckduckgo": "httpx", "google_patents": "curl_cffi"}
     http_backend: dict[str, str] = Field(default_factory=dict)
 
     # ===== 服务 =====
-    api_password: str | None = None  # API 访问密码（Bearer Token）
+    api_password: str | None = None  # API 访问密码(Bearer Token)
     cors_origins: list[str] = Field(
         default_factory=list,
-        description="CORS 允许的来源列表，为空时不启用 CORS",
+        description="CORS 允许的来源列表,为空时不启用 CORS",
     )
     trusted_proxies: list[str] = Field(
         default_factory=list,
         description=(
-            "受信反向代理的 IP/CIDR 列表；只有来自这些地址的请求才会"
-            "读取 X-Forwarded-For 头解析真实客户端 IP。"
+            "受信反向代理的 IP/CIDR 列表;只有来自这些地址的请求才会"
+            "读取 X-Forwarded-For 头解析真实客户端 IP."
         ),
     )
     expose_docs: bool = Field(
         default=True,
-        description="是否暴露 /docs、/redoc、/openapi.json；生产环境可设为 false。",
+        description="是否暴露 /docs、/redoc、/openapi.json;生产环境可设为 false.",
     )
 
     # ===== WARP 代理 =====
@@ -169,7 +264,7 @@ class SouWenConfig(BaseModel):
     @field_validator("proxy")
     @classmethod
     def _check_proxy(cls, v: str | None) -> str | None:
-        # 仅校验显式 URL；空/None 放行
+        # 仅校验显式 URL;空/None 放行
         return _validate_proxy_url(v)
 
     @field_validator("proxy_pool")
@@ -183,27 +278,38 @@ class SouWenConfig(BaseModel):
         return Path(self.data_dir).expanduser()
 
     def get_proxy(self) -> str | None:
-        """返回代理地址：优先从 proxy_pool 随机选取，否则回退到 proxy"""
+        """返回代理地址:优先从 proxy_pool 随机选取,否则回退到 proxy
+        
+        Returns:
+            合法代理 URL 或 None
+        """
         if self.proxy_pool:
             return random.choice(self.proxy_pool)
         return self.proxy
 
     def get_http_backend(self, source: str) -> Literal["auto", "curl_cffi", "httpx"]:
-        """获取指定源的 HTTP 后端选择。
-
-        优先使用 per-source 覆盖，回退到全局默认。
+        """获取指定源的 HTTP 后端选择
+        
+        按优先级查询:http_backend[源] > default_http_backend.
+        无效值记录警告后回退到 auto.
+        
+        Args:
+            source: 数据源名称
+        
+        Returns:
+            HTTP 后端选择:auto (自动选择) | curl_cffi | httpx
         """
         _VALID: set[str] = {"auto", "curl_cffi", "httpx"}
         val = self.http_backend.get(source, self.default_http_backend)
         if val not in _VALID:
-            logger.warning("无效的 http_backend 值 %r（源=%s），回退到 auto", val, source)
+            logger.warning("无效的 http_backend 值 %r(源=%s),回退到 auto", val, source)
             return "auto"
         return val  # type: ignore[return-value]
 
     # ── 数据源频道配置解析 ──────────────────────────────────
 
     def get_source_config(self, name: str) -> SourceChannelConfig:
-        """获取指定源的频道配置，不存在则返回默认值"""
+        """获取指定源的频道配置,不存在则返回默认值"""
         return self.sources.get(name, SourceChannelConfig())
 
     def is_source_enabled(self, name: str) -> bool:
@@ -212,9 +318,15 @@ class SouWenConfig(BaseModel):
 
     def resolve_proxy(self, source: str) -> str | None:
         """解析数据源的代理地址
-
-        优先级：频道配置 proxy > 全局代理
-        支持 inherit | none | warp | 显式 URL
+        
+        按优先级:频道代理设置 > 全局代理.
+        支持 inherit (继承全局) | none (无代理) | warp (WARP) | 显式 URL.
+        
+        Args:
+            source: 数据源名称
+        
+        Returns:
+            代理 URL 或 None
         """
         sc = self.get_source_config(source)
         mode = sc.proxy.strip().lower()
@@ -229,8 +341,14 @@ class SouWenConfig(BaseModel):
 
     def resolve_backend(self, source: str) -> Literal["auto", "curl_cffi", "httpx"]:
         """解析数据源的 HTTP 后端
-
-        优先级：频道 http_backend > 旧版 http_backend dict > 全局 default_http_backend
+        
+        按优先级:频道后端 > 全局后端.
+        
+        Args:
+            source: 数据源名称
+        
+        Returns:
+            HTTP 后端:auto | curl_cffi | httpx
         """
         _VALID: set[str] = {"auto", "curl_cffi", "httpx"}
         sc = self.get_source_config(source)
@@ -238,17 +356,17 @@ class SouWenConfig(BaseModel):
             if sc.http_backend in _VALID:
                 return sc.http_backend  # type: ignore[return-value]
             logger.warning(
-                "无效的 sources.%s.http_backend=%r，回退到 auto", source, sc.http_backend
+                "无效的 sources.%s.http_backend=%r,回退到 auto", source, sc.http_backend
             )
         # 回退到旧版 per-source dict → 全局默认
         return self.get_http_backend(source)
 
     def resolve_api_key(self, source: str, legacy_field: str | None = None) -> str | None:
-        """解析 API Key：频道配置 > 旧版 flat key
+        """解析 API Key:频道配置 > 旧版 flat key
 
         Args:
             source: 数据源名称
-            legacy_field: 旧版 SouWenConfig 字段名（如 "tavily_api_key"）
+            legacy_field: 旧版 SouWenConfig 字段名(如 "tavily_api_key")
         """
         sc = self.get_source_config(source)
         if sc.api_key:
@@ -258,7 +376,7 @@ class SouWenConfig(BaseModel):
         return None
 
     def resolve_base_url(self, source: str, default: str = "") -> str:
-        """解析基础 URL：频道覆盖 > 默认值"""
+        """解析基础 URL:频道覆盖 > 默认值"""
         sc = self.get_source_config(source)
         return sc.base_url or default
 
@@ -272,10 +390,17 @@ class SouWenConfig(BaseModel):
 
 
 def _load_yaml_config() -> dict:
-    """尝试加载 YAML 配置文件，返回扁平化的配置字典。
-
-    查找顺序：./souwen.yaml → ~/.config/souwen/config.yaml
-    YAML 文件使用嵌套分组结构，加载后展平为与 SouWenConfig 字段名一致的键值对。
+    """尝试加载 YAML 配置文件,返回扁平化的配置字典
+    
+    查找顺序:./souwen.yaml → ~/.config/souwen/config.yaml
+    YAML 文件使用嵌套分组结构(paper:、patents: 等),加载后展平为与 
+    SouWenConfig 字段名一致的键值对,供 Pydantic 模型初始化.
+    
+    Returns:
+        字典,键为配置字段名
+    
+    Warning:
+        配置文件解析失败时返回空字典并记录日志,不中断程序
     """
     if yaml is None:
         return {}
@@ -292,7 +417,7 @@ def _load_yaml_config() -> dict:
                 with open(path, encoding="utf-8") as f:
                     raw = yaml.safe_load(f)
             except (yaml.YAMLError, OSError) as exc:
-                logger.warning("配置文件 %s 解析失败，已跳过: %s", path, exc)
+                logger.warning("配置文件 %s 解析失败,已跳过: %s", path, exc)
                 return {}
             break
 
@@ -303,7 +428,7 @@ def _load_yaml_config() -> dict:
     flat: dict = {}
     for key, values in raw.items():
         if key == "sources" and isinstance(values, dict):
-            # sources 是嵌套结构，直接传递给 Pydantic 解析
+            # sources 是嵌套结构,直接传递给 Pydantic 解析
             flat["sources"] = values
         elif isinstance(values, dict):
             # 嵌套分组结构: paper: {openalex_email: ...}
@@ -318,8 +443,27 @@ def _load_yaml_config() -> dict:
 
 @lru_cache(maxsize=1)
 def get_config() -> SouWenConfig:
-    """获取全局配置（单例）"""
-    # 先加载 YAML 配置（优先级低于环境变量）
+    """获取全局配置(LRU 缓存单例)
+    
+    配置加载优先级:环境变量 > YAML > .env > 默认值
+    
+    环境变量规则:
+        - 标准字段:SOUWEN_<FIELD_NAME>(大小写不敏感)
+        - 布尔字段:1/true/yes/on → True;0/false/no/off → False
+        - 整数字段:自动转换
+        - 列表字段:JSON 数组格式 "[...]" 或逗号分隔
+        - WARP 字段:支持不带 SOUWEN_ 前缀(Docker entrypoint 兼容)
+    
+    Returns:
+        SouWenConfig 实例(缓存的单例)
+    
+    Raises:
+        ValueError: 环境变量格式无效或配置值非法
+    
+    Note:
+        若需要重新加载配置,调用 reload_config().
+    """
+    # 先加载 YAML 配置(优先级低于环境变量)
     kwargs: dict = _load_yaml_config()
 
     # 环境变量覆盖 YAML 值
@@ -347,7 +491,7 @@ def get_config() -> SouWenConfig:
                 try:
                     val = int(val)
                 except (ValueError, TypeError):
-                    logger.warning("环境变量 %s=%r 无法转为整数，已忽略", env_key, val)
+                    logger.warning("环境变量 %s=%r 无法转为整数,已忽略", env_key, val)
                     continue
             # proxy_pool / cors_origins / trusted_proxies: 逗号分隔字符串 → list[str]
             elif field_name in ("proxy_pool", "cors_origins", "trusted_proxies"):
@@ -359,10 +503,10 @@ def get_config() -> SouWenConfig:
                     if isinstance(parsed, dict):
                         val = parsed
                     else:
-                        logger.warning("环境变量 %s 应为 JSON 对象，已忽略", env_key)
+                        logger.warning("环境变量 %s 应为 JSON 对象,已忽略", env_key)
                         continue
                 except json.JSONDecodeError:
-                    logger.warning("环境变量 %s JSON 解析失败，已忽略", env_key)
+                    logger.warning("环境变量 %s JSON 解析失败,已忽略", env_key)
                     continue
             # sources: JSON 字符串 → dict[str, SourceChannelConfig]
             elif field_name == "sources":
@@ -371,10 +515,10 @@ def get_config() -> SouWenConfig:
                     if isinstance(parsed, dict):
                         val = parsed
                     else:
-                        logger.warning("环境变量 %s 应为 JSON 对象，已忽略", env_key)
+                        logger.warning("环境变量 %s 应为 JSON 对象,已忽略", env_key)
                         continue
                 except json.JSONDecodeError:
-                    logger.warning("环境变量 %s JSON 解析失败，已忽略", env_key)
+                    logger.warning("环境变量 %s JSON 解析失败,已忽略", env_key)
                     continue
             kwargs[field_name] = val
 
@@ -382,10 +526,14 @@ def get_config() -> SouWenConfig:
 
 
 def reload_config() -> SouWenConfig:
-    """清除缓存并返回重新加载的配置。
-
-    重新读取 .env 但不覆盖已有的环境变量（override=False），
-    这样 ``docker run -e SOUWEN_API_PASSWORD=xxx`` 不会被 .env 文件冲掉。
+    """清除缓存并返回重新加载的配置
+    
+    重新读取 .env 文件但不覆盖已有的环境变量(override=False),
+    这样 `docker run -e SOUWEN_API_PASSWORD=xxx` 不会被 .env 文件冲掉.
+    用于 Docker 容器初始化或配置热更新场景.
+    
+    Returns:
+        新加载的 SouWenConfig 实例
     """
     load_dotenv(override=False)
     get_config.cache_clear()
@@ -393,11 +541,11 @@ def reload_config() -> SouWenConfig:
 
 
 # ---------------------------------------------------------------------------
-# 默认配置模板（与 souwen.example.yaml 保持一致）
+# 默认配置模板(与 souwen.example.yaml 保持一致)
 # ---------------------------------------------------------------------------
 _DEFAULT_CONFIG_TEMPLATE = """\
-# SouWen 配置文件（自动生成）
-# 优先级：环境变量 > ./souwen.yaml > ~/.config/souwen/config.yaml > .env > 默认值
+# SouWen 配置文件(自动生成)
+# 优先级:环境变量 > ./souwen.yaml > ~/.config/souwen/config.yaml > .env > 默认值
 
 # ===== 论文数据源 =====
 paper:
@@ -446,15 +594,15 @@ general:
 # ===== 服务 =====
 server:
   api_password: ~
-  # 受信反向代理 IP/CIDR 列表；只有来自这些地址的请求才会读取 X-Forwarded-For
-  # 解析真实客户端 IP。不在此列表的直连客户端的 XFF 头将被忽略，避免伪造。
+  # 受信反向代理 IP/CIDR 列表;只有来自这些地址的请求才会读取 X-Forwarded-For
+  # 解析真实客户端 IP.不在此列表的直连客户端的 XFF 头将被忽略,避免伪造.
   # 示例: ["10.0.0.0/8", "172.16.0.0/12", "127.0.0.1"]
   trusted_proxies: []
-  # 是否暴露 /docs、/redoc、/openapi.json；生产建议设为 false
+  # 是否暴露 /docs、/redoc、/openapi.json;生产建议设为 false
   expose_docs: true
 
 # ===== WARP 代理 =====
-# 内嵌 Cloudflare WARP 代理（Docker 部署专用）
+# 内嵌 Cloudflare WARP 代理(Docker 部署专用)
 # 详见 scripts/warp-init.sh
 warp:
   warp_enabled: false
@@ -463,7 +611,7 @@ warp:
   warp_endpoint: ~        # 自定义 Endpoint (如 162.159.192.1:4500)
 
 # ===== 数据源频道配置 =====
-# 按源名称配置，覆盖全局默认值。
+# 按源名称配置,覆盖全局默认值.
 # 可用字段: enabled, proxy, http_backend, base_url, api_key, headers, params
 # proxy 取值: inherit(继承全局) | none | warp | socks5://... | http://...
 # 示例:
@@ -483,9 +631,16 @@ sources: {}
 
 
 def ensure_config_file() -> Path | None:
-    """若不存在任何配置文件则自动生成一份到 ~/.config/souwen/config.yaml。
-
-    在只读文件系统上静默跳过，返回 None。
+    """若不存在任何配置文件则自动生成一份到 ~/.config/souwen/config.yaml
+    
+    检查顺序:./souwen.yaml → ~/.config/souwen/config.yaml
+    若都不存在,则创建 ~/.config/souwen/config.yaml(包含默认模板).
+    
+    Returns:
+        配置文件路径(若成功生成)或 None(文件系统只读或其他错误)
+    
+    Note:
+        用于初次设置或 Docker 容器首次启动时生成默认配置模板.
     """
     candidates = [
         Path("souwen.yaml"),
