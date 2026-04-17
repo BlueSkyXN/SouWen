@@ -173,7 +173,8 @@ class SouWenConfig(BaseModel):
 
         HTTP 后端: default_http_backend (全局默认), http_backend (按源覆盖字典)
 
-        服务配置: api_password (API 访问密码), cors_origins, trusted_proxies,
+        服务配置: api_password (旧版统一密码), visitor_password (访客密码),
+                 admin_password (管理密码), cors_origins, trusted_proxies,
                  expose_docs (是否暴露 Swagger 文档)
 
         WARP 代理: warp_enabled, warp_mode (auto|wireproxy|kernel),
@@ -234,8 +235,27 @@ class SouWenConfig(BaseModel):
     # 按源覆盖,例如 {"duckduckgo": "httpx", "google_patents": "curl_cffi"}
     http_backend: dict[str, str] = Field(default_factory=dict)
 
-    # ===== 服务 =====
-    api_password: str | None = None  # API 访问密码(Bearer Token)
+    # ===== 服务（认证） =====
+    api_password: str | None = None  # 旧版统一密码(向后兼容,同时作用于访客和管理)
+    visitor_password: str | None = None  # 访客密码(保护搜索端点)
+    admin_password: str | None = None  # 管理密码(保护管理端点)
+
+    @property
+    def effective_visitor_password(self) -> str | None:
+        """解析生效的访客密码: visitor_password > api_password > None(开放)。
+        显式设为空字符串表示"强制开放,忽略 api_password 回退"。"""
+        if self.visitor_password is not None:
+            return self.visitor_password or None
+        return self.api_password
+
+    @property
+    def effective_admin_password(self) -> str | None:
+        """解析生效的管理密码: admin_password > api_password > None(开放)。
+        显式设为空字符串表示"强制开放,忽略 api_password 回退"。"""
+        if self.admin_password is not None:
+            return self.admin_password or None
+        return self.api_password
+
     cors_origins: list[str] = Field(
         default_factory=list,
         description="CORS 允许的来源列表,为空时不启用 CORS",
@@ -591,7 +611,12 @@ general:
 
 # ===== 服务 =====
 server:
+  # 旧版统一密码（同时作用于访客和管理端点，向后兼容）
   api_password: ~
+  # 访客密码（仅保护搜索端点，优先于 api_password）
+  visitor_password: ~
+  # 管理密码（仅保护管理端点，优先于 api_password）
+  admin_password: ~
   # 受信反向代理 IP/CIDR 列表;只有来自这些地址的请求才会读取 X-Forwarded-For
   # 解析真实客户端 IP.不在此列表的直连客户端的 XFF 头将被忽略,避免伪造.
   # 示例: ["10.0.0.0/8", "172.16.0.0/12", "127.0.0.1"]

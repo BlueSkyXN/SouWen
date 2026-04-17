@@ -97,8 +97,12 @@ general:
 # ===== 服务器配置 =====
 # SouWen API 服务器运行参数
 server:
-  # API 访问密码（设置后所有搜索端点需 Authorization: Bearer <password> 认证）
+  # 旧版统一密码（同时作用于访客和管理端点，向后兼容）
   api_password: ~
+  # 访客密码（仅保护搜索端点，优先于 api_password）
+  visitor_password: ~
+  # 管理密码（仅保护管理端点，优先于 api_password）
+  admin_password: ~
   # CORS 允许的来源列表（默认不启用 CORS）
   # 示例: ["http://localhost:3000", "https://my-app.example.com"]
   # 设为 ["*"] 允许所有来源（不推荐在生产环境使用）

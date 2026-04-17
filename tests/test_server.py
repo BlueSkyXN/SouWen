@@ -7,9 +7,11 @@
 请求，对外部数据源（souwen.search / souwen.web）统一 monkeypatch。
 
 Fixtures：
-- ``client``：不设 ``api_password`` 的裸客户端，管理端点默认应被锁定。
+- ``client``：不设任何密码的裸客户端，管理/搜索端点默认均开放。
 - ``authed_client``：预先设 ``SOUWEN_API_PASSWORD=test-secret-123``，
-  用于验证 Bearer Token 鉴权通路。
+  用于验证旧版统一密码 Bearer Token 鉴权通路。
+- ``dual_key_client``：设 visitor_password 和 admin_password 为不同值，
+  验证双密钥独立认证。
 """
 
 import pytest
@@ -32,8 +34,21 @@ def client():
 
 @pytest.fixture()
 def authed_client(monkeypatch):
-    """带密码认证的 TestClient。"""
+    """带旧版统一密码认证的 TestClient。"""
     monkeypatch.setenv("SOUWEN_API_PASSWORD", "test-secret-123")
+    from souwen.config import get_config
+
+    get_config.cache_clear()
+    from souwen.server.app import app
+
+    return TestClient(app, raise_server_exceptions=False)
+
+
+@pytest.fixture()
+def dual_key_client(monkeypatch):
+    """双密钥独立认证 TestClient：visitor=visitor-pw, admin=admin-pw。"""
+    monkeypatch.setenv("SOUWEN_VISITOR_PASSWORD", "visitor-pw")
+    monkeypatch.setenv("SOUWEN_ADMIN_PASSWORD", "admin-pw")
     from souwen.config import get_config
 
     get_config.cache_clear()
@@ -68,20 +83,13 @@ class TestHealth:
 
 
 class TestAdminAuth:
-    def test_admin_locked_without_password_by_default(self, client, monkeypatch):
-        """api_password 未设置且未设 SOUWEN_ADMIN_OPEN 时，管理端点默认锁定。"""
-        monkeypatch.delenv("SOUWEN_ADMIN_OPEN", raising=False)
-        resp = client.get("/api/v1/admin/config")
-        assert resp.status_code == 401
-        detail = resp.json().get("detail", "")
-        assert "api_password" in detail or "SOUWEN_ADMIN_OPEN" in detail
-
-    def test_admin_open_override_allows_access(self, client, monkeypatch):
-        """未设密码但 SOUWEN_ADMIN_OPEN=1 时放行。"""
-        monkeypatch.setenv("SOUWEN_ADMIN_OPEN", "1")
+    # --- 无密码时默认开放 ---
+    def test_admin_open_without_any_password(self, client):
+        """无任何密码配置时，管理端点默认开放。"""
         resp = client.get("/api/v1/admin/config")
         assert resp.status_code == 200
 
+    # --- 旧版 api_password 向后兼容 ---
     def test_admin_config_wrong_token_returns_401(self, authed_client):
         """持错误 Bearer Token 访问 ``/admin/config`` 必须返回 401。"""
         resp = authed_client.get(
@@ -91,9 +99,8 @@ class TestAdminAuth:
         assert resp.status_code == 401
 
     def test_admin_config_no_token_returns_401(self, authed_client):
-        """完全不带 ``Authorization`` 头访问 admin 端点，也必须 401（HTTPBearer auto_error=False 下的兜底）。"""
+        """完全不带 ``Authorization`` 头访问 admin 端点，也必须 401。"""
         resp = authed_client.get("/api/v1/admin/config")
-        # 无 token → HTTPBearer auto_error=False → credentials=None → 401
         assert resp.status_code == 401
 
     def test_admin_config_valid_token(self, authed_client):
@@ -104,7 +111,6 @@ class TestAdminAuth:
         )
         assert resp.status_code == 200
         data = resp.json()
-        # 密码字段已脱敏
         assert data.get("api_password") == "***"
 
     def test_admin_reload_valid_token(self, authed_client):
@@ -135,7 +141,7 @@ class TestAdminAuth:
         assert resp.status_code == 401
 
     def test_admin_ping_authed_minimal_response(self, authed_client):
-        """/admin/ping 成功响应不泄漏 api_password_set 等枚举字段。"""
+        """/admin/ping 成功响应不泄漏枚举字段。"""
         resp = authed_client.get(
             "/api/v1/admin/ping",
             headers={"Authorization": "Bearer test-secret-123"},
@@ -143,8 +149,49 @@ class TestAdminAuth:
         assert resp.status_code == 200
         data = resp.json()
         assert data == {"status": "ok"}
-        assert "api_password_set" not in data
-        assert "password_set" not in data
+
+    # --- 双密钥独立认证 ---
+    def test_dual_key_admin_password_accepted(self, dual_key_client):
+        """admin_password 可以访问管理端点。"""
+        resp = dual_key_client.get(
+            "/api/v1/admin/config",
+            headers={"Authorization": "Bearer admin-pw"},
+        )
+        assert resp.status_code == 200
+
+    def test_dual_key_visitor_password_rejected_for_admin(self, dual_key_client):
+        """visitor_password 不能访问管理端点。"""
+        resp = dual_key_client.get(
+            "/api/v1/admin/config",
+            headers={"Authorization": "Bearer visitor-pw"},
+        )
+        assert resp.status_code == 401
+
+    def test_dual_key_no_token_rejected(self, dual_key_client):
+        """admin_password 已设时，无 Token 必须 401。"""
+        resp = dual_key_client.get("/api/v1/admin/config")
+        assert resp.status_code == 401
+
+    # --- admin_password 显式空字符串 → 强制开放 ---
+    def test_admin_explicit_empty_overrides_api_password(self, client, monkeypatch):
+        """admin_password="" 时即使 api_password 已设也强制开放管理端点。"""
+        monkeypatch.setenv("SOUWEN_API_PASSWORD", "legacy-pw")
+        monkeypatch.setenv("SOUWEN_ADMIN_PASSWORD", "")
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        resp = client.get("/api/v1/admin/config")
+        assert resp.status_code == 200
+
+    # --- 仅 admin_password 时 visitor 端开放 ---
+    def test_only_admin_password_leaves_search_open(self, client, monkeypatch):
+        """仅设 admin_password，搜索端点应开放。"""
+        monkeypatch.setenv("SOUWEN_ADMIN_PASSWORD", "admin-pw")
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        resp = client.get("/api/v1/sources")
+        assert resp.status_code == 200
 
 
 # ---------------------------------------------------------------------------
@@ -154,12 +201,12 @@ class TestAdminAuth:
 
 class TestSearchAuth:
     def test_sources_no_password_passthrough(self, client):
-        """api_password 未设置时搜索端点可自由访问。"""
+        """无任何密码时搜索端点可自由访问。"""
         resp = client.get("/api/v1/sources")
         assert resp.status_code == 200
 
     def test_sources_with_password_requires_token(self, authed_client):
-        """设了密码后，``/sources`` 无 Token 直接访问必须 401。"""
+        """设了 api_password 后，``/sources`` 无 Token 直接访问必须 401。"""
         resp = authed_client.get("/api/v1/sources")
         assert resp.status_code == 401
 
@@ -174,6 +221,57 @@ class TestSearchAuth:
         assert "paper" in data
         assert "patent" in data
         assert "web" in data
+
+    # --- 双密钥：visitor 和 admin 密码均可访问搜索端点 ---
+    def test_dual_key_visitor_password_accepted(self, dual_key_client):
+        """visitor_password 可以访问搜索端点。"""
+        resp = dual_key_client.get(
+            "/api/v1/sources",
+            headers={"Authorization": "Bearer visitor-pw"},
+        )
+        assert resp.status_code == 200
+
+    def test_dual_key_admin_password_accepted_on_search(self, dual_key_client):
+        """admin_password 也可以访问搜索端点（admin 是 visitor 超集）。"""
+        resp = dual_key_client.get(
+            "/api/v1/sources",
+            headers={"Authorization": "Bearer admin-pw"},
+        )
+        assert resp.status_code == 200
+
+    def test_dual_key_wrong_token_rejected(self, dual_key_client):
+        """错误 Token 被搜索端点拒绝。"""
+        resp = dual_key_client.get(
+            "/api/v1/sources",
+            headers={"Authorization": "Bearer wrong-token"},
+        )
+        assert resp.status_code == 401
+
+    def test_dual_key_no_token_rejected(self, dual_key_client):
+        """visitor_password 已设时，无 Token 必须 401。"""
+        resp = dual_key_client.get("/api/v1/sources")
+        assert resp.status_code == 401
+
+    # --- visitor_password 显式空字符串 → 强制开放搜索 ---
+    def test_visitor_explicit_empty_overrides_api_password(self, client, monkeypatch):
+        """visitor_password="" 时即使 api_password 已设也强制开放搜索端点。"""
+        monkeypatch.setenv("SOUWEN_API_PASSWORD", "legacy-pw")
+        monkeypatch.setenv("SOUWEN_VISITOR_PASSWORD", "")
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        resp = client.get("/api/v1/sources")
+        assert resp.status_code == 200
+
+    # --- 仅 visitor_password 时 admin 端开放 ---
+    def test_only_visitor_password_leaves_admin_open(self, client, monkeypatch):
+        """仅设 visitor_password，管理端点应开放。"""
+        monkeypatch.setenv("SOUWEN_VISITOR_PASSWORD", "visitor-pw")
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        resp = client.get("/api/v1/admin/config")
+        assert resp.status_code == 200
 
 
 # ---------------------------------------------------------------------------
