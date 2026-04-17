@@ -35,7 +35,7 @@ RUN ARCH=$(dpkg --print-architecture 2>/dev/null || (uname -m | sed 's/x86_64/am
     chmod +x /usr/local/bin/wireproxy
 
 RUN git clone --depth 1 --branch "${SOUWEN_REF}" "${SOUWEN_REPO}" . \
-    && pip install ".[server]" \
+    && pip install ".[server,tls]" \
     && python -c "import curl_cffi; print('curl_cffi OK')"
 
 COPY --from=panel-builder /build/panel/dist/index.html ./src/souwen/server/panel.html
