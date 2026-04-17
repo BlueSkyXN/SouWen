@@ -692,18 +692,16 @@ class TestPanelEtag:
         assert resp2.status_code == 304
         assert resp2.content == b""
 
-    def test_root_returns_panel_with_etag(self, client):
-        """根路径 ``/`` 与 ``/panel`` 行为一致（返回面板 HTML 并带 ETag）。"""
-        from souwen.server import app as app_mod
-
-        app_mod._panel_cache = None
-        app_mod._panel_etag = None
-
-        resp = client.get("/")
-        if resp.status_code == 404:
-            pytest.skip("panel.html not available")
-        assert resp.status_code == 200
-        assert resp.headers.get("etag")
+    def test_root_redirects_or_returns_api_info(self, client):
+        """根路径 ``/`` 重定向到 /docs 或返回 API 信息 JSON。"""
+        resp = client.get("/", follow_redirects=False)
+        if resp.status_code == 302:
+            assert "/docs" in resp.headers.get("location", "")
+        else:
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data["name"] == "SouWen API"
+            assert "panel" in data
 
 
 class TestSearchTimeout:

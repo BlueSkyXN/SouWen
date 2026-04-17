@@ -32,7 +32,7 @@ export const skinConfig: SkinConfig = {
   labelKey: 'skin.carbon',
   descriptionKey: 'skin.carbonDesc',
   defaultScheme: 'terminal',
-  defaultMode: 'dark',
+  defaultMode: 'light',
   // 该皮肤支持的配色方案列表
   schemes: [
     {

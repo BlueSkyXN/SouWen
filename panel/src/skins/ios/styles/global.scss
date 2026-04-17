@@ -127,7 +127,7 @@ html[data-skin='ios'] ::selection {
   color: var(--selection-color);
 }
 
-html[data-skin='ios'] a {
+html[data-skin='ios'] :where(a) {
   color: var(--link);
   text-decoration: none;
   &:hover {

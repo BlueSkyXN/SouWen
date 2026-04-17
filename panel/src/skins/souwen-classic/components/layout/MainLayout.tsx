@@ -214,7 +214,7 @@ export function MainLayout() {
           target="_blank"
           rel="noopener noreferrer"
         >
-          @BlueSkyXN · GPLv3
+          SouWen · @BlueSkyXN · GPLv3
         </a>
         <button
           className={styles.collapseBtn}

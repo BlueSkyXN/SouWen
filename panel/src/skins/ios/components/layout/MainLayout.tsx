@@ -176,9 +176,13 @@ export function MainLayout() {
           <span>{t('nav.logout')}</span>
         </button>
 
-        {version && (
-          <div className={styles.versionTag}>v{version}</div>
-        )}
+        <div className={styles.versionTag}>
+          <a href="https://github.com/BlueSkyXN/SouWen" target="_blank" rel="noopener noreferrer">SouWen</a>
+          {' · '}
+          <a href="https://github.com/BlueSkyXN" target="_blank" rel="noopener noreferrer">@BlueSkyXN</a>
+          {' · GPLv3'}
+          {version && <>{' · v'}{version}</>}
+        </div>
       </div>
     </>
   )

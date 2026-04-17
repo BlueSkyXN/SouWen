@@ -70,7 +70,12 @@ from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import HTMLResponse, JSONResponse, Response
+from fastapi.responses import (
+    HTMLResponse,
+    JSONResponse,
+    RedirectResponse,
+    Response,
+)
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.gzip import GZipMiddleware
 
@@ -403,17 +408,23 @@ async def panel(request: Request):
         return _panel_response(request)
 
 
-@app.get("/", response_class=HTMLResponse, include_in_schema=False)
-async def root(request: Request):
-    """根路径 / 端点 — 重定向到管理面板
+@app.get("/", include_in_schema=False)
+async def root():
+    """根路径 / 端点 — API 入口
 
-    与 /panel 相同，返回管理 Web UI。支持 ETag 和缓存。
-
-    Args:
-        request: FastAPI Request 对象
+    当 expose_docs 开启时重定向到 Swagger UI (/docs)；
+    否则返回 JSON 格式的 API 基本信息。
 
     Returns:
-        HTMLResponse：管理面板 HTML，或 304 Not Modified
+        RedirectResponse 或 JSONResponse
     """
-    async with _panel_cache_lock:
-        return _panel_response(request)
+    if _cfg_at_boot.expose_docs:
+        return RedirectResponse(url="/docs", status_code=302)
+    return JSONResponse(
+        {
+            "name": "SouWen API",
+            "version": __version__,
+            "panel": "/panel",
+            "docs": "expose_docs disabled",
+        }
+    )
