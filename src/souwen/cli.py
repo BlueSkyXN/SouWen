@@ -13,10 +13,14 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
+import os
 
 import typer
 from rich.console import Console
 from rich.table import Table
+
+from souwen import __version__
 
 app = typer.Typer(
     name="souwen",
@@ -24,6 +28,57 @@ app = typer.Typer(
     no_args_is_help=True,
 )
 console = Console()
+
+
+def _version_callback(value: bool) -> None:
+    if value:
+        typer.echo(f"souwen {__version__}")
+        raise typer.Exit(0)
+
+
+@app.callback()
+def main(
+    version: bool = typer.Option(
+        False,
+        "--version",
+        "-V",
+        callback=_version_callback,
+        is_eager=True,
+        help="显示版本并退出",
+    ),
+    verbose: int = typer.Option(
+        0, "--verbose", "-v", count=True, help="-v info / -vv debug"
+    ),
+    quiet: bool = typer.Option(False, "--quiet", "-q", help="只输出警告和错误"),
+) -> None:
+    """SouWen 全局选项"""
+    if quiet:
+        level = logging.WARNING
+    elif verbose >= 2:
+        level = logging.DEBUG
+    elif verbose >= 1:
+        level = logging.INFO
+    else:
+        level = logging.WARNING
+
+    try:
+        from souwen.logging_config import setup_logging
+
+        setup_logging(level=logging.getLevelName(level))
+    except Exception:
+        logging.getLogger("souwen").setLevel(level)
+
+
+def _run_async(coro):
+    """运行异步任务，优雅处理 KeyboardInterrupt / CancelledError。"""
+    try:
+        return asyncio.run(coro)
+    except KeyboardInterrupt:
+        console.print("\n[yellow]⚠ 已取消[/yellow]")
+        raise typer.Exit(130)
+    except asyncio.CancelledError:
+        console.print("\n[yellow]⚠ 任务被取消[/yellow]")
+        raise typer.Exit(130)
 
 # ---------------------------------------------------------------------------
 # search 子命令组
@@ -38,14 +93,27 @@ def search_paper(
     sources: str = typer.Option("openalex,arxiv", "--sources", "-s", help="数据源，逗号分隔"),
     limit: int = typer.Option(5, "--limit", "-n", help="每个源返回数量"),
     json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),
+    timeout: int | None = typer.Option(
+        None, "--timeout", "-t", help="总超时（秒），默认不限制"
+    ),
 ) -> None:
     """搜索学术论文"""
     from souwen.search import search_papers
 
     source_list = [s.strip() for s in sources.split(",") if s.strip()]
 
+    async def _do():
+        coro = search_papers(query, sources=source_list, per_page=limit)
+        if timeout is not None:
+            return await asyncio.wait_for(coro, timeout=timeout)
+        return await coro
+
     with console.status(f"[bold green]搜索论文: {query} ..."):
-        results = asyncio.run(search_papers(query, sources=source_list, per_page=limit))
+        try:
+            results = _run_async(_do())
+        except asyncio.TimeoutError:
+            console.print(f"[red]⏱ 搜索超时 (>{timeout}s)[/red]")
+            raise typer.Exit(124)
 
     if json_output:
         from rich import print_json
@@ -91,14 +159,27 @@ def search_patent(
     sources: str = typer.Option("google_patents", "--sources", "-s", help="数据源，逗号分隔"),
     limit: int = typer.Option(5, "--limit", "-n", help="每个源返回数量"),
     json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),
+    timeout: int | None = typer.Option(
+        None, "--timeout", "-t", help="总超时（秒），默认不限制"
+    ),
 ) -> None:
     """搜索专利"""
     from souwen.search import search_patents
 
     source_list = [s.strip() for s in sources.split(",") if s.strip()]
 
+    async def _do():
+        coro = search_patents(query, sources=source_list, per_page=limit)
+        if timeout is not None:
+            return await asyncio.wait_for(coro, timeout=timeout)
+        return await coro
+
     with console.status(f"[bold green]搜索专利: {query} ..."):
-        results = asyncio.run(search_patents(query, sources=source_list, per_page=limit))
+        try:
+            results = _run_async(_do())
+        except asyncio.TimeoutError:
+            console.print(f"[red]⏱ 搜索超时 (>{timeout}s)[/red]")
+            raise typer.Exit(124)
 
     if json_output:
         from rich import print_json
@@ -146,14 +227,27 @@ def search_web_cmd(
     engines: str = typer.Option("duckduckgo,bing", "--engines", "-e", help="搜索引擎，逗号分隔"),
     limit: int = typer.Option(10, "--limit", "-n", help="每引擎最大结果数"),
     json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),
+    timeout: int | None = typer.Option(
+        None, "--timeout", "-t", help="总超时（秒），默认不限制"
+    ),
 ) -> None:
     """搜索网页"""
     from souwen.web.search import web_search
 
     engine_list = [e.strip() for e in engines.split(",") if e.strip()]
 
+    async def _do():
+        coro = web_search(query, engines=engine_list, max_results_per_engine=limit)
+        if timeout is not None:
+            return await asyncio.wait_for(coro, timeout=timeout)
+        return await coro
+
     with console.status(f"[bold green]搜索网页: {query} ..."):
-        resp = asyncio.run(web_search(query, engines=engine_list, max_results_per_engine=limit))
+        try:
+            resp = _run_async(_do())
+        except asyncio.TimeoutError:
+            console.print(f"[red]⏱ 搜索超时 (>{timeout}s)[/red]")
+            raise typer.Exit(124)
 
     if json_output:
         from rich import print_json
@@ -187,12 +281,12 @@ app.add_typer(config_app, name="config")
 
 
 def _mask_value(value: str | None) -> str:
-    """隐藏 Key 值，仅显示前 4 位"""
-    if value is None:
-        return "[dim]未设置[/dim]"
+    """显示敏感字段的状态（不泄漏实际值）"""
+    if value is None or value == "":
+        return "[dim]未配置[/dim]"
     if len(value) <= 4:
-        return value[:1] + "***"
-    return value[:4] + "***"
+        return f"[green]已配置[/green] [dim](长度 {len(value)})[/dim]"
+    return f"[green]已配置[/green] [dim](前 4 位: {value[:4]}***)[/dim]"
 
 
 @config_app.command("show")
@@ -213,10 +307,10 @@ def config_show() -> None:
             or "token" in field_name
             or "password" in field_name
         )
-        if is_secret and raw_val is not None:
-            display = _mask_value(str(raw_val))
+        if is_secret:
+            display = _mask_value(str(raw_val) if raw_val is not None else None)
         else:
-            display = str(raw_val) if raw_val is not None else "[dim]未设置[/dim]"
+            display = str(raw_val) if raw_val is not None else "[dim]未配置[/dim]"
         table.add_row(field_name, display)
 
     console.print(table)
@@ -528,7 +622,25 @@ def serve(
 
     setup_logging()
 
-    console.print(f"[bold green]🚀 启动 SouWen API 服务 → http://{host}:{port}[/bold green]")
+    from souwen.config import get_config
+
+    cfg = get_config()
+    admin_open = os.getenv("SOUWEN_ADMIN_OPEN", "").lower() in ("1", "true", "yes", "on")
+    console.print("[bold]━━━ SouWen 启动配置 ━━━[/bold]")
+    pw_color = "green" if cfg.api_password else "red"
+    pw_text = "已启用" if cfg.api_password else "未启用"
+    console.print(f"  密码保护:        [{pw_color}]{pw_text}[/]")
+    admin_color = "yellow" if admin_open else "green"
+    admin_text = "已解除 (高风险)" if admin_open else "已锁定"
+    console.print(f"  Admin 锁定:      [{admin_color}]{admin_text}[/]")
+    console.print(f"  Docs:            {'已开放' if cfg.expose_docs else '已隐藏'}")
+    console.print(
+        f"  Trusted proxies: {', '.join(cfg.trusted_proxies) if cfg.trusted_proxies else '(未配置)'}"
+    )
+    console.print(f"  CORS origins:    {', '.join(cfg.cors_origins) if cfg.cors_origins else '(未配置)'}")
+    console.print(f"  监听:            http://{host}:{port}")
+    console.print("[bold]━━━━━━━━━━━━━━━━━━━━━━[/bold]\n")
+
     uvicorn.run("souwen.server.app:app", host=host, port=port, reload=reload)
 
 

@@ -440,12 +440,19 @@ class TestCLI:
         assert app is not None
 
     def test_cli_mask_value(self):
-        """Key 脱敏"""
+        """Key 脱敏：不泄漏实际值，区分已配置/未配置"""
         from souwen.cli import _mask_value
 
-        assert _mask_value(None) == "[dim]未设置[/dim]"
-        assert _mask_value("abcdef123") == "abcd***"
-        assert _mask_value("ab") == "a***"
+        assert "未配置" in _mask_value(None)
+        assert "未配置" in _mask_value("")
+        # 已配置：长值显示前 4 位提示
+        long_masked = _mask_value("abcdef123")
+        assert "已配置" in long_masked
+        assert "abcd" in long_masked
+        # 已配置：短值不泄漏，只给出长度
+        short_masked = _mask_value("ab")
+        assert "已配置" in short_masked
+        assert "ab" not in short_masked
 
     def test_cli_all_sources_data(self):
         """数据源清单完整性"""
