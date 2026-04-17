@@ -49,10 +49,10 @@ _bearer_scheme = HTTPBearer(auto_error=False)
 
 def _admin_open_override() -> bool:
     """检查是否通过环境变量显式解除管理端锁定
-    
+
     当 SOUWEN_ADMIN_OPEN 环境变量为 "1"、"true"、"yes" 或 "on" 时返回 True。
     用于开发/演示环境临时绕过密码要求。
-    
+
     Returns:
         True 当环境变量启用（不区分大小写），False 否则
     """
@@ -63,18 +63,18 @@ def require_auth(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
 ) -> None:
     """强制认证依赖 — 用于 /api/v1/admin/* 管理端点
-    
+
     认证规则：
         1. 若 api_password 未配置，除非 SOUWEN_ADMIN_OPEN=1，否则拒绝访问
         2. 若已配置，检查 Bearer Token 是否匹配密码（恒定时间比较防时序攻击）
         3. 失败时返回 401 Unauthorized 并带 WWW-Authenticate 头
-    
+
     Args:
         credentials: 从请求头 Authorization: Bearer <token> 提取的凭证
-        
+
     Raises:
         HTTPException：401 Unauthorized
-    
+
     Security:
         - 使用 secrets.compare_digest 进行恒定时间的密码比较
         - 防止时序攻击（timing attack）泄露密码
@@ -103,15 +103,15 @@ def check_search_auth(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
 ) -> None:
     """搜索端点认证检查 — 宽松模式（密码未配置时放行）
-    
+
     认证规则（对比 require_auth 的严格模式）：
         1. 若 api_password 未配置，放行所有搜索请求
         2. 若已配置，要求提供有效的 Bearer Token
         3. 失败时返回 401 Unauthorized
-    
+
     Args:
         credentials: 从请求头 Authorization: Bearer <token> 提取的凭证
-        
+
     Raises:
         HTTPException：401 Unauthorized（仅当密码已配置但验证失败）
     """

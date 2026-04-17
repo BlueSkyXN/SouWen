@@ -118,19 +118,17 @@ async def api_search_paper(
     q: str = Query(..., description="搜索关键词", min_length=1, max_length=500),
     sources: str = Query("openalex,arxiv", description="数据源，逗号分隔"),
     per_page: int = Query(10, ge=1, le=100, description="每页结果数"),
-    timeout: float | None = Query(
-        None, ge=1, le=300, description="端点硬超时（秒），超时返回 504"
-    ),
+    timeout: float | None = Query(None, ge=1, le=300, description="端点硬超时（秒），超时返回 504"),
 ):
     """搜索学术论文 — 支持多数据源并联查询
-    
+
     支持的数据源：openalex, arxiv, crossref, dblp, core, pubmed, unpaywall 等
-    
+
     超时处理：
     - timeout 为 None 时无限等待
     - 若超时，返回 504 Gateway Timeout
     - 支持部分失败：某些源超时/失败时，已成功的源结果仍被返回
-    
+
     返回格式：
         {
             "query": "搜索关键词",
@@ -143,7 +141,7 @@ async def api_search_paper(
                 "failed": 失败的源
             }
         }
-    
+
     Raises:
         HTTPException：502 当所有数据源均失败，504 当全局超时
     """
@@ -189,16 +187,14 @@ async def api_search_patent(
     q: str = Query(..., description="搜索关键词", min_length=1, max_length=500),
     sources: str = Query("google_patents", description="数据源，逗号分隔"),
     per_page: int = Query(10, ge=1, le=100, description="每页结果数"),
-    timeout: float | None = Query(
-        None, ge=1, le=300, description="端点硬超时（秒），超时返回 504"
-    ),
+    timeout: float | None = Query(None, ge=1, le=300, description="端点硬超时（秒），超时返回 504"),
 ):
     """搜索专利 — 支持多数据源并联查询
-    
+
     支持的数据源：google_patents, patentsview, pqai, epo_ops, uspto 等
-    
+
     超时和失败处理同 /search/paper
-    
+
     Raises:
         HTTPException：502 当所有数据源均失败，504 当全局超时
     """
@@ -246,23 +242,19 @@ async def api_search_web(
     per_page: int = Query(
         10, ge=1, le=50, alias="per_page", description="每引擎最大结果数（别名: max_results）"
     ),
-    max_results: int | None = Query(
-        None, ge=1, le=50, description="兼容旧版：每引擎最大结果数"
-    ),
-    timeout: float | None = Query(
-        None, ge=1, le=300, description="端点硬超时（秒），超时返回 504"
-    ),
+    max_results: int | None = Query(None, ge=1, le=50, description="兼容旧版：每引擎最大结果数"),
+    timeout: float | None = Query(None, ge=1, le=300, description="端点硬超时（秒），超时返回 504"),
 ):
     """搜索网页 — 支持 21+ 搜索引擎
-    
+
     支持的引擎：duckduckgo, bing, google, baidu, yahoo, brave 等
-    
+
     参数兼容性：
     - per_page 和 max_results 均可指定每引擎结果数
     - max_results 优先级高于 per_page（向后兼容）
-    
+
     返回结构同 /search/paper，但 engines 代替 sources
-    
+
     Raises:
         HTTPException：502 当所有引擎均失败，504 当全局超时
     """
@@ -305,7 +297,7 @@ async def api_search_web(
 @router.get("/sources", dependencies=[Depends(check_search_auth)])
 async def list_sources():
     """列出所有可用数据源 — 按类别分组
-    
+
     返回结构：
         {
             "paper": [
@@ -337,12 +329,12 @@ _SECRET_KEYWORDS = {"key", "secret", "token", "password"}
 
 def _is_secret_field(name: str) -> bool:
     """判断字段名是否包含敏感信息 — 用于脱敏配置输出
-    
+
     检查字段名中是否包含 key、secret、token、password 关键词。
-    
+
     Args:
         name: 字段名
-        
+
     Returns:
         True 当字段名包含敏感词，False 否则
     """
@@ -352,9 +344,9 @@ def _is_secret_field(name: str) -> bool:
 @admin_router.get("/config")
 async def get_config_view():
     """查看当前配置（敏感字段脱敏） — 管理端点
-    
+
     返回所有配置项，但将包含 key/secret/token/password 的字段值替换为 "***"。
-    
+
     Returns:
         dict：配置项名 → 配置值（敏感项脱敏）
     """
@@ -374,9 +366,9 @@ async def get_config_view():
 @admin_router.post("/config/reload", response_model=ConfigReloadResponse)
 async def reload_config_endpoint():
     """重新加载配置 — 从 YAML + .env 重新读取
-    
+
     返回重新加载后的配置状态。
-    
+
     Returns:
         {"status": "ok", "password_set": bool}
     """
@@ -389,9 +381,9 @@ async def reload_config_endpoint():
 @admin_router.get("/doctor", response_model=DoctorResponse)
 async def doctor_check():
     """数据源健康检查 — 测试所有数据源连接性
-    
+
     对每个已启用的数据源执行连接性测试。
-    
+
     Returns:
         {
             "total": 总数源数,
@@ -416,10 +408,10 @@ async def doctor_check():
 @admin_router.get("/ping")
 async def admin_ping():
     """轻量级管理端存活探测 — 完全通过认证后返回
-    
+
     与 /health 不同，此端点需要通过 require_auth 认证。
     用于确认管理 API 本身可用，但不暴露配置信息。
-    
+
     Returns:
         {"status": "ok"}
     """
@@ -434,10 +426,10 @@ async def admin_ping():
 @admin_router.get("/sources/config")
 async def get_sources_config():
     """查看所有数据源的频道配置 — 包含启用状态、API Key、代理等
-    
+
     返回每个数据源的详细配置，包括是否启用、代理设置、自定义头等。
     API Key 本身不暴露，仅指示是否存在（has_api_key: bool）。
-    
+
     Returns:
         {
             "openalex": {
@@ -484,13 +476,13 @@ async def get_sources_config():
 @admin_router.get("/sources/config/{source_name}")
 async def get_source_config(source_name: str):
     """查看单个数据源的频道配置
-    
+
     Args:
         source_name: 数据源名称（如 "openalex"）
-        
+
     Returns:
         同 get_sources_config 中的单个源配置
-        
+
     Raises:
         HTTPException：404 当数据源不存在
     """
@@ -525,25 +517,25 @@ async def update_source_config(
     req: UpdateSourceConfigRequest,
 ):
     """更新单个数据源的频道配置（运行时生效）
-    
+
     使用 JSON 请求体传递参数（而非 URL Query），避免 API Key 泄露到日志中。
-    
+
     参数：
         enabled: 是否启用该数据源
         proxy: HTTP/SOCKS 代理 URL
         http_backend: 优先级高于全局 default_http_backend（auto/curl_cffi/httpx）
         base_url: 自定义数据源基础 URL
         api_key: API Key（支持对源进行个性化配置）
-    
+
     更新仅在内存中生效，重启后需通过 YAML/环境变量持久化。
-    
+
     Args:
         source_name: 数据源名称
         req: UpdateSourceConfigRequest 请求体
-        
+
     Returns:
         {"status": "ok", "source": "source_name"}
-        
+
     Raises:
         HTTPException：404 当数据源不存在，400 当配置参数无效
     """
@@ -597,10 +589,10 @@ _SCRAPER_ENGINES = [
 @admin_router.get("/http-backend", response_model=HttpBackendResponse)
 async def get_http_backend():
     """查看 HTTP 后端配置
-    
+
     显示全局默认后端和各数据源的个性化覆盖配置。
     还指示 curl_cffi 库是否可用。
-    
+
     Returns:
         {
             "default": "auto|curl_cffi|httpx",
@@ -626,24 +618,24 @@ async def update_http_backend(
     backend: str | None = Query(None, description="后端: auto | curl_cffi | httpx"),
 ):
     """更新 HTTP 后端配置（运行时生效）
-    
+
     支持两种更新模式：
         1. 更新全局默认后端：?default=curl_cffi
         2. 为特定数据源设置覆盖：?source=duckduckgo&backend=httpx
            - 若 backend=auto，移除该源的覆盖（回退到全局默认）
-    
+
     Args:
         default: 新的全局默认后端
         source: 要覆盖的数据源名称
         backend: 该数据源使用的后端
-        
+
     Returns:
         {
             "status": "ok",
             "default": 新的全局默认,
             "overrides": 更新后的覆盖配置
         }
-        
+
     Raises:
         HTTPException：400 当后端或数据源无效
     """
@@ -685,9 +677,9 @@ async def update_http_backend(
 @admin_router.get("/warp")
 async def warp_status():
     """获取 WARP 代理状态 — 包括模式、IP、PID 等
-    
+
     返回完整的 WARP 状态信息，用于管理 UI 或监控系统。
-    
+
     Returns:
         {
             "status": "disabled|starting|enabled|stopping|error",
@@ -714,17 +706,17 @@ async def warp_enable(
     endpoint: str | None = Query(None, description="自定义 WARP Endpoint"),
 ):
     """启用 WARP 代理 — 支持 auto、wireproxy、kernel 三种模式
-    
+
     模式选择：
         - auto：自动检测最优可用模式（kernel > wireproxy）
         - wireproxy：用户态代理（不需要 root，但性能略低）
         - kernel：内核 WireGuard + microsocks（需要 root 和 /dev/net/tun）
-    
+
     Args:
         mode: 启动模式
         socks_port: 本地 SOCKS5 监听端口
         endpoint: 自定义 WARP Endpoint URL（可选）
-        
+
     Returns:
         {"ok": true, "mode": "wireproxy|kernel", "ip": "IP 地址"}
         或 {"ok": false, "error": "错误信息"}
@@ -741,12 +733,12 @@ async def warp_enable(
 @admin_router.post("/warp/disable")
 async def warp_disable():
     """禁用 WARP 代理 — 清理进程和网络配置
-    
+
     内部逻辑：
     1. 终止代理进程（wireproxy 或 microsocks）
     2. 对 kernel 模式拆除 WireGuard 接口
     3. 清空代理配置，重载 SouWen 配置
-    
+
     Returns:
         {"ok": true, "message": "WARP 已关闭"}
         或 {"ok": false, "error": "错误信息"}

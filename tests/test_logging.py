@@ -20,8 +20,13 @@ from souwen.logging_config import SensitiveDataFilter, _scrub
 def _make_record(msg: str, args: tuple = ()) -> logging.LogRecord:
     """辅助函数：构造一条 ``logging.LogRecord`` 供过滤器测试使用。"""
     return logging.LogRecord(
-        name="t", level=logging.INFO, pathname=__file__, lineno=1,
-        msg=msg, args=args, exc_info=None,
+        name="t",
+        level=logging.INFO,
+        pathname=__file__,
+        lineno=1,
+        msg=msg,
+        args=args,
+        exc_info=None,
     )
 
 

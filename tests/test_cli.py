@@ -14,6 +14,7 @@
 - ``test_keyboard_interrupt_exits_130``：被 Ctrl+C 打断时返回 POSIX 约定
   的 exit code 130（128 + SIGINT(2)）。
 """
+
 from __future__ import annotations
 
 from typer.testing import CliRunner

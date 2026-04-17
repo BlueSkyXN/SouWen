@@ -10,19 +10,19 @@
         - 配置：3 次尝试, 指数退避 2-10s, 等待倍数 1
         - 重试条件：网络层错误（超时、连接失败）
         - 适用于：API 调用、网络波动场景
-    
+
     scraper_retry（预设）
         - 功能：反爬/限流场景重试
         - 配置：5 次尝试, 指数退避 5-30s, 等待倍数 2
         - 重试条件：限流、超时、连接失败、RuntimeError、TimeoutError
         - 适用于：爬虫请求、被反爬拦截的场景
-    
+
     captcha_retry（预设）
         - 功能：CAPTCHA 识别重试
         - 配置：5 次尝试, 指数退避 5-30s, 等待倍数 2
         - 重试条件：RuntimeError、TimeoutError
         - 适用于：CAPTCHA 识别超时场景
-    
+
     poll_retry(max_attempts, interval, timeout_message)（工厂）
         - 功能：轮询重试（仅 async）
         - 入参：max_attempts 最大尝试次数, interval 固定间隔(秒),
@@ -30,7 +30,7 @@
         - 出参：装饰器函数
         - 行为：以固定间隔重复调用，直到返回非 None/非 False 结果
         - 异常：全部尝试失败则抛 TimeoutError
-    
+
     make_retry(attempts, min_wait, max_wait, multiplier, retry_on)（工厂）
         - 功能：自定义重试装饰器构造
         - 入参：attempts 最大尝试数, min_wait/max_wait 指数退避范围,
@@ -41,12 +41,12 @@
 异常常量：
     DEFAULT_HTTP_EXCEPTIONS: tuple
         - 网络层错误：TimeoutException, ConnectError, SourceUnavailableError
-    
+
     DEFAULT_SCRAPER_EXCEPTIONS: tuple
         - 爬虫层错误：RateLimitError, TimeoutException, ConnectError,
                    RuntimeError, TimeoutError
         - 注意：RuntimeError 因 curl_cffi 底层异常而纳入
-    
+
     DEFAULT_CAPTCHA_EXCEPTIONS: tuple
         - CAPTCHA 层错误：RuntimeError, TimeoutError
 
@@ -59,7 +59,7 @@
 
     from souwen.retry import make_retry
     my_retry = make_retry(attempts=4, retry_on=(MyError, httpx.ReadError))
-    
+
     @my_retry
     async def my_function():
         ...
@@ -125,17 +125,17 @@ def make_retry(
 
     tenacity ``@retry`` 原生兼容同步与异步函数，返回值可同时装饰
     ``def`` 与 ``async def``。
-    
+
     Args:
         attempts: 最大尝试次数（含首次）
         min_wait: 最小等待秒数（指数退避下界）
         max_wait: 最大等待秒数（指数退避上界）
         multiplier: 退避倍数（每次重试等待时间乘以此倍数）
         retry_on: 触发重试的异常类型元组；必须显式指定以避免过宽捕获
-    
+
     Returns:
         装饰器，可装饰 def 或 async def 函数
-    
+
     说明：
         - 指数退避计算：wait_time = min(max_wait, min_wait * multiplier^attempt)
         - 示例：min_wait=2, max_wait=10, multiplier=1 → 等待 2, 4, 8, 10, 10...
@@ -186,21 +186,21 @@ def poll_retry(
     """轮询重试装饰器（仅 async）
 
     以固定间隔重复调用函数，直到返回非 None/非 False 结果。
-    
+
     Args:
         max_attempts: 最大尝试次数
         interval: 每次尝试间隔（秒）
         timeout_message: 超时时的错误信息前缀
-    
+
     Returns:
         装饰器（仅支持 async def）
-    
+
     行为：
         1. 调用被装饰函数
         2. 如果返回真值（非 None/非 False），立即返回
         3. 否则睡眠 interval 秒后重试
         4. 达到 max_attempts 后仍未获得结果，抛 TimeoutError
-    
+
     示例：
 
         @poll_retry(max_attempts=10, interval=3, timeout_message="查询超时")

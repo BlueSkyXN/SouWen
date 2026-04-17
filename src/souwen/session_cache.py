@@ -27,7 +27,7 @@
         - expires_at (TEXT) — ISO 8601 过期时间戳
         - created_at (TEXT) — 创建时间
         - updated_at (TEXT) — 最后更新时间
-    
+
     oauth_tokens 表
         - id (INTEGER PRIMARY KEY)
         - provider (TEXT UNIQUE) — OAuth 提供方（如 'epo_ops'）
@@ -74,22 +74,22 @@ class SessionCache:
 
     缓存 OAuth Token、Cookie、API 认证信息等，避免每次请求都重新鉴权。
     支持异步操作和并发安全。
-    
+
     属性：
         _db_path: 数据库文件路径
         _db: 异步数据库连接（懒加载）
         _init_lock: 初始化锁（单例保证）
-    
+
     Args:
         db_path: SQLite 数据库路径；None 则在 config.data_path 下创建 session_cache.db
     """
 
     def __init__(self, db_path: Path | None = None):
         """初始化会话缓存
-        
+
         Args:
             db_path: 数据库文件路径
-        
+
         说明：
             - 同步创建表结构（通过 sqlite3），仅在首次加载时执行
             - 异步连接采用 double-check lazy loading 避免重复初始化
@@ -108,7 +108,7 @@ class SessionCache:
 
     def _ensure_tables_sync(self) -> None:
         """同步初始化表结构（仅在模块加载时调用一次）
-        
+
         使用同步 sqlite3 以保证表结构在异步操作前就已准备。
         CREATE TABLE IF NOT EXISTS 保证幂等性。
         """
@@ -143,11 +143,11 @@ class SessionCache:
 
     async def _get_db(self) -> aiosqlite.Connection:
         """获取或创建异步数据库连接（并发安全懒加载）
-        
+
         采用 double-check locking 模式：
         1. 快速路径：_db 已存在则直接返回
         2. 初始化：获取 _init_lock，再检查一次 _db，创建连接
-        
+
         Returns:
             aiosqlite.Connection 实例
         """
@@ -162,13 +162,13 @@ class SessionCache:
 
     async def get_session(self, site: str) -> dict[str, Any] | None:
         """获取有效的会话数据
-        
+
         Args:
             site: 站点标识（如 'epo_ops', 'cnipa', 'google_patents'）
-        
+
         Returns:
             会话数据字典（JSON 反序列化），过期或不存在返回 None
-        
+
         说明：
             - 仅返回 expires_at > 当前时间的记录
             - 支持并发查询
@@ -192,12 +192,12 @@ class SessionCache:
         ttl_hours: float = 24.0,
     ) -> None:
         """保存会话数据
-        
+
         Args:
             site: 站点标识
             data: 会话数据（Cookie、Header 等）
             ttl_hours: 有效期（小时），默认 24h
-        
+
         说明：
             - 使用 INSERT OR REPLACE 避免唯一键冲突
             - 有效期计算为 now + ttl_hours
@@ -219,10 +219,10 @@ class SessionCache:
 
     async def get_oauth_token(self, provider: str) -> dict[str, Any] | None:
         """获取有效的 OAuth Token
-        
+
         Args:
             provider: 提供方标识（如 'epo_ops', 'cnipa'）
-        
+
         Returns:
             Token 数据字典（包含 access_token、token_type、extra），
             过期或不存在返回 None
@@ -254,7 +254,7 @@ class SessionCache:
         extra: dict[str, Any] | None = None,
     ) -> None:
         """保存 OAuth Token
-        
+
         Args:
             provider: 提供方标识（如 'epo_ops', 'cnipa'）
             access_token: 访问令牌
@@ -262,7 +262,7 @@ class SessionCache:
             token_type: 令牌类型，默认 'Bearer'
             refresh_token: 刷新令牌（可选）
             extra: 额外数据字典（如 scope 等元数据）
-        
+
         说明：
             - 有效期会提前 60s 过期，避免边界问题（token 在请求途中过期）
             - 使用 INSERT OR REPLACE 处理重复 provider
@@ -294,10 +294,10 @@ class SessionCache:
 
     async def clear_expired(self) -> int:
         """清理过期缓存，返回清理数量
-        
+
         Returns:
             删除的记录总数（sessions + oauth_tokens）
-        
+
         说明：
             - 删除所有 expires_at <= 当前时间的记录
             - 通过 cursor.rowcount 获取影响行数
@@ -331,10 +331,10 @@ _global_cache_lock = threading.Lock()
 
 def get_session_cache() -> SessionCache:
     """获取全局会话缓存实例（线程安全 double-check）
-    
+
     Returns:
         全局唯一的 SessionCache 实例
-    
+
     说明：
         - 采用 double-check locking 实现线程安全单例
         - 首次调用时创建实例，后续调用直接返回缓存

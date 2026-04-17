@@ -102,7 +102,7 @@ class PubMedClient:
 
     def _common_params(self) -> dict[str, str]:
         """构建公共请求参数。
-        
+
         若配置了 API Key，将其加入参数以提升限流阈值。
         """
         params: dict[str, str] = {}
@@ -195,9 +195,18 @@ class PubMedClient:
                         year = int(y)
                         # PubMed 月份可能为英文缩写或数字，需要规范化
                         month_map = {
-                            "Jan": "01", "Feb": "02", "Mar": "03", "Apr": "04",
-                            "May": "05", "Jun": "06", "Jul": "07", "Aug": "08",
-                            "Sep": "09", "Oct": "10", "Nov": "11", "Dec": "12",
+                            "Jan": "01",
+                            "Feb": "02",
+                            "Mar": "03",
+                            "Apr": "04",
+                            "May": "05",
+                            "Jun": "06",
+                            "Jul": "07",
+                            "Aug": "08",
+                            "Sep": "09",
+                            "Oct": "10",
+                            "Nov": "11",
+                            "Dec": "12",
                         }
                         m_num = month_map.get(m, m.zfill(2) if m.isdigit() else "01")
                         d_num = d.zfill(2) if d.isdigit() else "01"

@@ -110,7 +110,7 @@ class CrossrefClient:
         item: dict[str, Any],
     ) -> tuple[int | None, str | None, str | None, str | None]:
         """提取日期信息；支持多种日期格式，返回规范化的日期及精度级别。
-        
+
         Crossref 的日期信息存在多个层级（published-print/published-online/created），
         按优先级依次尝试提取。
         """

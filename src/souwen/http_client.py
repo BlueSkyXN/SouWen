@@ -16,18 +16,18 @@
           * close() — 关闭底层连接
           * _apply_oauth_token(headers) — OAuth 令牌注入
         - 特性：自动代理应用、User-Agent 管理、OAuthClient 集成
-    
+
     OAuthClient (abstract)
         - 功能：OAuth 令牌管理基类（各数据源子类实现）
         - 主要方法：
           * get_access_token(scope) → str — 获取或刷新令牌（缓存化）
           * _fetch_token_impl(scope) — 子类实现的令牌获取逻辑
-    
+
     _SemanticScholarOAuthClient (OAuthClient)
         - 功能：Semantic Scholar API 的 OAuth 令牌管理
         - 初始化参数：api_key
         - 特性：缓存令牌，支持多个 scope，自动过期刷新
-    
+
     get_http_client(source_name) → SouWenHttpClient
         - 功能：获取或创建数据源专用的 HTTP 客户端
         - 参数：source_name (数据源名)
@@ -86,11 +86,11 @@ class SouWenHttpClient:
     - 超时和重试次数配置
     - OAuth 令牌自动管理（集成 OAuthClient）
     - 统一错误处理和日志
-    
+
     使用方式：
         async with SouWenHttpClient(source_name="semantic_scholar") as client:
             resp = await client.get("https://api.semanticscholar.org/...")
-    
+
     Args:
         base_url: 基础 URL（可选，用于 relative URL）
         headers: 默认请求头（dict）
@@ -253,20 +253,20 @@ class SouWenHttpClient:
 
 class OAuthClient(SouWenHttpClient):
     """OAuth 2.0 Token 自动管理的 HTTP 客户端
-    
+
     适用于 EPO OPS、CNIPA 等需要 OAuth 2.0 认证的数据源。
     实现了令牌缓存、自动刷新、并发安全的特性：
     - 令牌缓存：避免每次请求都重新获取
     - 自动刷新：提前 60 秒刷新，防止请求过程中 token 过期 (401 错误)
     - 并发安全：使用 asyncio.Lock 串行化令牌获取，避免并发调用打击 token 端点
-    
+
     Args:
         base_url: API 基础 URL
         token_url: OAuth token 端点 URL
         client_id: OAuth client ID
         client_secret: OAuth client secret
         **kwargs: 其他参数（传给 SouWenHttpClient）
-    
+
     Note:
         令牌锁使用懒加载（_get_token_lock），防止每次创建实例都分配新 Lock 对象。
     """
@@ -295,16 +295,16 @@ class OAuthClient(SouWenHttpClient):
 
     async def _ensure_token(self) -> str:
         """确保有有效的 access token，过期则自动刷新
-        
+
         刷新策略：
         - 检查缓存的 token 是否仍有效（还有 60+ 秒）
         - 若无效，获取令牌锁并向 token 端点发起请求
         - 使用二次检查锁模式，避免并发调用重复刷新
         - 提前 60 秒刷新，避免 token 在请求途中过期导致 401
-        
+
         Returns:
             有效的 access token 字符串
-        
+
         Raises:
             AuthError: token 获取失败或响应解析失败
         """

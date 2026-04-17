@@ -11,27 +11,27 @@
                 tier (int) Tier(0=免配置/1=免费Key或自建/2=付费),
                 config_field (str|None) 配置字段名, is_scraper (bool) 是否爬虫,
                 description (str) 描述文本
-    
+
     _reg(name, category, tier, config_field, *, is_scraper=False, description="")
         - 功能：向注册表添加单个数据源
         - 入参：name 源名称, category 分类, tier 付费层级, config_field 配置字段,
                 is_scraper 爬虫标志, description 描述
-    
+
     get_all_sources() -> dict[str, SourceMeta]
         - 功能：返回所有已注册数据源字典
-    
+
     get_source(name: str) -> SourceMeta | None
         - 功能：按名称获取单个数据源元数据
-    
+
     is_known_source(name: str) -> bool
         - 功能：检查是否是已知数据源名称
-    
+
     get_scraper_sources() -> list[str]
         - 功能：返回所有爬虫类数据源名称列表
-    
+
     get_sources_by_category(category: str) -> list[SourceMeta]
         - 功能：按分类（paper|patent|web）筛选数据源
-    
+
     ALL_SOURCE_NAMES: frozenset[str]
         - 功能：所有源名称的不可变集合（常量）
 
@@ -48,9 +48,9 @@ from dataclasses import dataclass
 @dataclass(frozen=True, slots=True)
 class SourceMeta:
     """数据源元数据（不可变）
-    
+
     每个数据源的注册信息，用于配置验证和 UI 展示。
-    
+
     属性：
         name: 数据源唯一标识（如 'openalex'、'tavily'）
         category: 分类标签 — 'paper'（论文）| 'patent'（专利）| 'web'（网页搜索）
@@ -87,7 +87,7 @@ def _reg(
     description: str = "",
 ) -> None:
     """向全局注册表添加单个数据源
-    
+
     Args:
         name: 数据源名称
         category: 分类（paper|patent|web）
@@ -159,7 +159,7 @@ _reg("scrapingdog", "web", 2, "scrapingdog_api_key", description="ScrapingDog SE
 
 def get_all_sources() -> dict[str, SourceMeta]:
     """返回所有已注册数据源的字典
-    
+
     Returns:
         {源名称: SourceMeta} 映射字典
     """
@@ -168,10 +168,10 @@ def get_all_sources() -> dict[str, SourceMeta]:
 
 def get_source(name: str) -> SourceMeta | None:
     """按名称获取单个数据源的元数据
-    
+
     Args:
         name: 数据源名称
-    
+
     Returns:
         SourceMeta 对象，不存在则返回 None
     """
@@ -180,10 +180,10 @@ def get_source(name: str) -> SourceMeta | None:
 
 def is_known_source(name: str) -> bool:
     """检查是否是已知数据源名称
-    
+
     Args:
         name: 数据源名称
-    
+
     Returns:
         True 表示该源已注册，False 表示未知源
     """
@@ -192,9 +192,9 @@ def is_known_source(name: str) -> bool:
 
 def get_scraper_sources() -> list[str]:
     """返回所有爬虫类数据源的名称列表
-    
+
     爬虫类源使用 BaseScraper，需要 curl_cffi TLS 指纹支持。
-    
+
     Returns:
         爬虫源名称列表
     """
@@ -203,10 +203,10 @@ def get_scraper_sources() -> list[str]:
 
 def get_sources_by_category(category: str) -> list[SourceMeta]:
     """按分类筛选数据源
-    
+
     Args:
         category: 分类标签 — 'paper' | 'patent' | 'web'
-    
+
     Returns:
         该分类下的 SourceMeta 对象列表
     """

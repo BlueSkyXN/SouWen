@@ -140,10 +140,10 @@ class DuckDuckGoClient(BaseScraper):
 
         DuckDuckGo 通过 //duckduckgo.com/l/?uddg=ENCODED_URL 跳转。
         提取真实 URL 并解码。
-        
+
         Args:
             url: DuckDuckGo 格式的 URL 字符串（可能包含 uddg 重定向参数）
-            
+
         Returns:
             str: 解码后的真实 URL；不是重定向格式则返回原 URL
         """

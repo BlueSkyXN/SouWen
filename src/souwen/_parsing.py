@@ -10,7 +10,7 @@
         - 功能：宽松解析日期字符串/对象，支持多种格式
         - 入参：value 任意输入（str|date|datetime|None 等）
         - 出参：解析成功返回 date；非法或空值返回 None
-        - 支持格式：None/空字符串 → None; date/datetime 对象; 
+        - 支持格式：None/空字符串 → None; date/datetime 对象;
                    ISO 8601 格式（YYYY、YYYY-MM、YYYY-MM-DD、带时区部分）
         - 关键：失败不抛异常，debug 记录便于排查
 

@@ -571,4 +571,3 @@ def _safe_date(value: str | None):
     供旧代码调用，新代码应直接使用 safe_parse_date。
     """
     return safe_parse_date(value)
-

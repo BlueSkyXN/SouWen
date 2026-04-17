@@ -93,7 +93,7 @@ class LinkupClient(SouWenHttpClient):
             max_results: 最大返回结果数
             depth: 搜索深度 "standard" 或 "deep"
             output_type: 输出类型 "searchResults" / "sourcedAnswer" 等
-            
+
         Returns:
             WebSearchResponse 包含搜索结果
         """

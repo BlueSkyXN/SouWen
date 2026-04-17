@@ -60,7 +60,7 @@ logger = logging.getLogger("souwen.server.limiter")
 
 class InMemoryRateLimiter:
     """Per-IP 滑动窗口速率限制器 — 防 DoS 和滥用
-    
+
     使用 deque(maxlen) 存储时间戳，确保内存有界（防止 DoS）。
     每次检查时自动清理超出窗口的时间戳。
 
@@ -70,7 +70,7 @@ class InMemoryRateLimiter:
         窗口内最大请求数，必须 > 0
     window_seconds : int
         窗口长度（秒），必须 > 0。例如 60 表示 1 分钟内 max_requests 个请求
-    
+
     Attributes
     ----------
     _requests : dict[str, deque[float]]
@@ -92,9 +92,9 @@ class InMemoryRateLimiter:
 
     def _cleanup(self, key: str, now: float) -> None:
         """清理超出时间窗口的时间戳 — 维持滑动窗口的准确性
-        
+
         移除所有早于 (now - window_seconds) 的时间戳，若队列变空则删除键。
-        
+
         Args:
             key: 客户端 IP
             now: 当前时间（单调时钟，通常来自 time.monotonic()）
@@ -108,19 +108,19 @@ class InMemoryRateLimiter:
 
     def check(self, key: str) -> None:
         """检查是否超限，超限则抛出 HTTPException 429
-        
+
         步骤：
         1. 清理超出窗口的时间戳
         2. 检查窗口内请求数是否达到上限
         3. 若超限，计算 Retry-After 和 X-RateLimit 响应头
         4. 否则记录当前时间戳
-        
+
         Args:
             key: 客户端 IP 字符串
-            
+
         Raises:
             HTTPException：429 Too Many Requests，包含 Retry-After 等头信息
-        
+
         Notes:
             使用 time.monotonic() 而非 time.time()，避免系统时钟调整影响
         """
@@ -149,13 +149,13 @@ def _parse_trusted_networks(
     values: Iterable[str],
 ) -> list[ipaddress.IPv4Network | ipaddress.IPv6Network]:
     """解析代理白名单字符串为 ipaddress 网段对象 — 验证代理身份
-    
+
     接受 CIDR 格式的网段字符串（如 "10.0.0.0/8"）。
     解析失败的条目会被记录为警告并跳过。
-    
+
     Args:
         values: 字符串迭代器，可包含 CIDR 格式网段
-        
+
     Returns:
         ipaddress 网段对象列表，可用于 _ip_in_networks 检查
     """
@@ -178,11 +178,11 @@ def _ip_in_networks(
     networks: Iterable[ipaddress.IPv4Network | ipaddress.IPv6Network],
 ) -> bool:
     """检查 IP 是否属于某个信任的网段 — 验证代理来源
-    
+
     Args:
         ip_str: IP 地址字符串（如 "10.0.0.1"）
         networks: ipaddress 网段对象列表
-        
+
     Returns:
         True 当 IP 在白名单中某个网段内，False 否则（包括 IP 格式错误）
     """
@@ -195,18 +195,18 @@ def _ip_in_networks(
 
 def get_client_ip(request: Request) -> str:
     """解析真实客户端 IP — 支持代理场景但防止伪造
-    
+
     规则：
         1. 获取 TCP 直连对端地址（peer）
         2. 检查 peer 是否属于 trusted_proxies 白名单
         3. 若是，从 X-Forwarded-For 头提取最左侧 IP
         4. 否则，直接返回 peer（忽略任何头部）
-    
+
     这样防止了客户端伪造 X-Forwarded-For 头来欺骗速率限制。
-    
+
     Args:
         request: FastAPI Request 对象
-        
+
     Returns:
         客户端 IP 地址字符串，或 "unknown" 当无法确定
     """
@@ -246,16 +246,16 @@ _search_limiter = InMemoryRateLimiter(max_requests=60, window_seconds=60)
 
 def rate_limit_search(request: Request) -> None:
     """搜索端点速率限制依赖 — FastAPI 依赖注入
-    
+
     从全局 _search_limiter 检查客户端 IP 的请求频率。
     若超限，自动抛出 429 HTTPException。
-    
+
     Args:
         request: FastAPI Request 对象
-        
+
     Raises:
         HTTPException：429 Too Many Requests
-    
+
     Usage:
         @router.get("/search", dependencies=[Depends(rate_limit_search)])
         async def search(...):

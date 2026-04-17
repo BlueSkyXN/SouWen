@@ -18,7 +18,7 @@
         - 输出：实例
         - 异常：ConfigError 未提供有效的 API Key 时抛出
 
-    ExaClient.search(query, max_results=10, search_type="auto", use_autoprompt=True, 
+    ExaClient.search(query, max_results=10, search_type="auto", use_autoprompt=True,
                     include_text=True, include_domains=None, exclude_domains=None) -> WebSearchResponse
         - 功能：通过 Exa API 执行语义搜索
         - 输入：query 搜索词（支持自然语言）, max_results 最大结果数, search_type 搜索类型,
@@ -105,7 +105,7 @@ class ExaClient(SouWenHttpClient):
             include_text: 是否提取页面文本内容
             include_domains: 限定域名
             exclude_domains: 排除域名
-            
+
         Returns:
             WebSearchResponse 包含搜索结果
         """
@@ -189,7 +189,7 @@ class ExaClient(SouWenHttpClient):
         Args:
             url: 目标 URL
             max_results: 最大返回结果数
-            
+
         Returns:
             WebSearchResponse 相似页面结果
         """
