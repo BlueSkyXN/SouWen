@@ -39,7 +39,7 @@ RUN ARCH=$(dpkg --print-architecture) && \
 WORKDIR /app
 
 RUN git clone --depth 1 --branch "${SOUWEN_REF}" "${SOUWEN_REPO}" . \
-    && pip install ".[server]" \
+    && pip install ".[server,tls]" \
     && python -c "import curl_cffi; print('curl_cffi OK')"
 
 COPY --from=panel-builder /build/panel/dist/index.html ./src/souwen/server/panel.html
