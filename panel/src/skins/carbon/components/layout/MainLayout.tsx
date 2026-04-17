@@ -53,6 +53,7 @@ export function MainLayout() {
   const { t } = useTranslation()
   const location = useLocation()
   const logout = useAuthStore((s) => s.logout)
+  const version = useAuthStore((s) => s.version)
   const { mode, toggleMode, scheme, setScheme } = useSkinStore()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [skinPaletteOpen, setSkinPaletteOpen] = useState(false)
@@ -323,7 +324,7 @@ export function MainLayout() {
         </AnimatePresence>
       </main>
       <footer className={styles.pageFooter}>
-        <span>SouWen \u641C\u6587 \u00B7 <a href="https://github.com/BlueSkyXN/SouWen" target="_blank" rel="noopener noreferrer">@BlueSkyXN</a> \u00B7 GPLv3</span>
+        <span>SouWen \u641C\u6587 \u00B7 <a href="https://github.com/BlueSkyXN/SouWen" target="_blank" rel="noopener noreferrer">@BlueSkyXN</a> \u00B7 GPLv3{version && <> \u00B7 v{version}</>}</span>
       </footer>
     </div>
   )

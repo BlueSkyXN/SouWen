@@ -116,7 +116,7 @@ html[data-skin='carbon'] ::selection {
   color: var(--selection-color);
 }
 
-html[data-skin='carbon'] a {
+html[data-skin='carbon'] :where(a) {
   color: var(--accent);
   text-decoration: none;
 }

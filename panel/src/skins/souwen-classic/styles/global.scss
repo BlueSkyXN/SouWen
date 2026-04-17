@@ -316,7 +316,7 @@ html[data-skin='souwen-classic'] body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-html[data-skin='souwen-classic'] a {
+html[data-skin='souwen-classic'] :where(a) {
   color: var(--primary);
   text-decoration: none;
   transition: color var(--transition-fast);

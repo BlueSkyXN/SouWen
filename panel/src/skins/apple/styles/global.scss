@@ -132,7 +132,7 @@ html[data-skin='apple'] ::selection {
   color: var(--selection-color);
 }
 
-html[data-skin='apple'] a {
+html[data-skin='apple'] :where(a) {
   color: var(--link);
   text-decoration: none;
   &:hover {
