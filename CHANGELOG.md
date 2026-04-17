@@ -1,5 +1,33 @@
 # Changelog
 
+## v0.6.1
+
+CLI/API Server 二轮评审后对功能缺陷、一致性、UX 的修复。均为向后兼容，非破坏性。
+
+### CLI
+- `--version` / `-V`：打印版本并退出（此前缺失）。
+- 全局 `-v` / `-vv` / `-q`：控制日志级别（默认 WARNING，`-v`→INFO、`-vv`→DEBUG、`-q`→仅警告）。
+- `Ctrl+C` 优雅退出：所有 `asyncio.run()` 调用统一走 `_run_async()`，捕获 `KeyboardInterrupt` / `CancelledError` 后 exit 130。
+- `search paper/patent/web` 新增 `--timeout / -t`：端点硬超时（秒），超时 exit 124。
+- `config show`：改为显示"已配置（前 4 位）"/"未配置"状态，不再完全隐藏。
+- `serve` 启动摘要：输出密码保护/Admin 锁定/Docs/CORS/trusted_proxies/监听地址等关键配置。
+
+### API Server
+- 所有搜索端点 `q` 参数加 `min_length=1, max_length=500`（空串与超长请求由 422 拒绝）。
+- 所有搜索端点（paper/patent/web）新增 `timeout` query 参数：超时返回 **504 gateway_timeout**。
+- `/search/web` 补齐 `response_model=SearchWebResponse`，含 `meta(requested/succeeded/failed)`，与 paper/patent 对齐。
+- `/search/web` 支持 `per_page` 别名（`max_results` 保留向后兼容）。
+- 错误码映射扩展：500→`internal_error`、502→`bad_gateway`、503→`service_unavailable`、504→`gateway_timeout`。
+- 限流 **429** 响应补齐 `X-RateLimit-Limit` / `X-RateLimit-Remaining` / `X-RateLimit-Reset` + `Retry-After`。
+- 新增 `GET /readiness`：轻量就绪检查（不做网络），Kubernetes readiness probe 就绪。
+- 面板 `panel.html` 响应加 `ETag` + `Cache-Control: public, max-age=3600`，支持 `If-None-Match` 304 命中（减少重发 860KB）。
+- Lifespan 启动/关停时打印 WARP 状态（owner/mode/status），不干预外部进程。
+
+### 测试
+- 新增 `tests/test_cli.py`（5 个用例：version、help、config show、sources、Ctrl+C exit 130）。
+- `tests/test_server.py` 追加 17 个用例（q 校验、per_page 别名、X-RateLimit 头、/readiness、panel ETag/304、timeout→504、状态码映射、WARP 启动日志）。
+- 总计 **302 passed**（v0.6.0 基线 280 → +22）。
+
 ## v0.6.0
 
 全面评审后批量修复 P0（阻塞）与 P1（重要）问题。详见 session plan.md。

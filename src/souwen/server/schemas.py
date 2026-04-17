@@ -50,6 +50,26 @@ class SearchPatentResponse(BaseModel):
     )
 
 
+class SearchWebResponse(BaseModel):
+    """/search/web 响应 — 对齐 paper/patent 的结构"""
+
+    query: str
+    engines: list[str]
+    results: list[dict]
+    total: int
+    meta: SearchMeta = Field(
+        default_factory=lambda: SearchMeta(requested=[], succeeded=[], failed=[])
+    )
+
+
+class ReadinessResponse(BaseModel):
+    """K8s readiness 探针响应"""
+
+    ready: bool
+    version: str | None = None
+    error: str | None = None
+
+
 class ConfigReloadResponse(BaseModel):
     status: str = Field(examples=["ok"])
     password_set: bool

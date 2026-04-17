@@ -365,3 +365,269 @@ class TestMiddleware:
         data = resp.json()
         assert data["error"] == "validation_error"
         assert "request_id" in data
+
+
+# ---------------------------------------------------------------------------
+# v0.6.1 第二轮评审修复
+# ---------------------------------------------------------------------------
+
+
+class TestQueryLengthValidation:
+    """API-Q-LEN: q 参数长度校验"""
+
+    def test_empty_q_rejected_paper(self, client):
+        resp = client.get("/api/v1/search/paper?q=")
+        assert resp.status_code == 422
+
+    def test_empty_q_rejected_patent(self, client):
+        resp = client.get("/api/v1/search/patent?q=")
+        assert resp.status_code == 422
+
+    def test_empty_q_rejected_web(self, client):
+        resp = client.get("/api/v1/search/web?q=")
+        assert resp.status_code == 422
+
+    def test_overlong_q_rejected(self, client):
+        long_q = "x" * 501
+        resp = client.get(f"/api/v1/search/paper?q={long_q}")
+        assert resp.status_code == 422
+
+
+class TestStatusToCodeMap:
+    """API-ERRMAP: 状态码 → error code 映射"""
+
+    def test_all_expected_codes(self):
+        from souwen.server.app import _status_to_code
+
+        assert _status_to_code(400) == "bad_request"
+        assert _status_to_code(401) == "unauthorized"
+        assert _status_to_code(403) == "forbidden"
+        assert _status_to_code(404) == "not_found"
+        assert _status_to_code(422) == "validation_error"
+        assert _status_to_code(429) == "rate_limited"
+        assert _status_to_code(500) == "internal_error"
+        assert _status_to_code(502) == "bad_gateway"
+        assert _status_to_code(503) == "service_unavailable"
+        assert _status_to_code(504) == "gateway_timeout"
+        assert _status_to_code(418) == "error"
+
+
+class TestSearchWebResponseShape:
+    """API-WEB-RESP: /search/web 含 meta.requested/succeeded/failed"""
+
+    def test_web_response_has_meta(self, client, monkeypatch):
+        from souwen.models import SourceType, WebSearchResult
+        from souwen.web import search as web_search_mod
+
+        async def fake_web_search(q, engines=None, max_results_per_engine=10, **kw):
+            return web_search_mod.WebSearchResponse(
+                query=q,
+                source=SourceType.WEB_DUCKDUCKGO,
+                results=[
+                    WebSearchResult(
+                        source=SourceType.WEB_DUCKDUCKGO,
+                        title="t",
+                        url="https://example.com",
+                        engine="duckduckgo",
+                    )
+                ],
+            )
+
+        monkeypatch.setattr(web_search_mod, "web_search", fake_web_search)
+        resp = client.get("/api/v1/search/web?q=foo&engines=duckduckgo,bing")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["query"] == "foo"
+        assert data["engines"] == ["duckduckgo", "bing"]
+        assert "meta" in data
+        assert data["meta"]["requested"] == ["duckduckgo", "bing"]
+        assert "duckduckgo" in data["meta"]["succeeded"]
+        assert "bing" in data["meta"]["failed"]
+        assert data["total"] == 1
+
+
+class TestPerPageAlias:
+    """API-PAGE-NAME: /search/web 支持 per_page + max_results"""
+
+    def _patch(self, monkeypatch):
+        captured: dict = {}
+        from souwen.models import SourceType
+        from souwen.web import search as web_search_mod
+
+        async def fake_web_search(q, engines=None, max_results_per_engine=10, **kw):
+            captured["max"] = max_results_per_engine
+            return web_search_mod.WebSearchResponse(
+                query=q, source=SourceType.WEB_DUCKDUCKGO, results=[]
+            )
+
+        monkeypatch.setattr(web_search_mod, "web_search", fake_web_search)
+        return captured
+
+    def test_per_page_accepted(self, client, monkeypatch):
+        captured = self._patch(monkeypatch)
+        resp = client.get("/api/v1/search/web?q=foo&per_page=5")
+        assert resp.status_code == 200
+        assert captured["max"] == 5
+
+    def test_max_results_accepted_for_backcompat(self, client, monkeypatch):
+        captured = self._patch(monkeypatch)
+        resp = client.get("/api/v1/search/web?q=foo&max_results=7")
+        assert resp.status_code == 200
+        assert captured["max"] == 7
+
+
+class TestRateLimitHeaders:
+    """API-RLHEAD: 429 响应包含 X-RateLimit-* 头"""
+
+    def test_429_has_ratelimit_headers(self, client, monkeypatch):
+        import sys
+
+        from souwen.server import limiter as limiter_mod
+
+        small = limiter_mod.InMemoryRateLimiter(max_requests=2, window_seconds=60)
+        monkeypatch.setattr(limiter_mod, "_search_limiter", small)
+
+        async def fake_search(q, sources=None, per_page=10, **kw):
+            return []
+
+        search_mod = sys.modules["souwen.search"]
+        monkeypatch.setattr(search_mod, "search_papers", fake_search)
+
+        r1 = client.get("/api/v1/search/paper?q=a")
+        r2 = client.get("/api/v1/search/paper?q=a")
+        r3 = client.get("/api/v1/search/paper?q=a")
+        assert r1.status_code == 200
+        assert r2.status_code == 200
+        assert r3.status_code == 429
+        assert r3.headers.get("x-ratelimit-limit") == "2"
+        assert r3.headers.get("x-ratelimit-remaining") == "0"
+        reset = r3.headers.get("x-ratelimit-reset")
+        assert reset is not None and reset.isdigit()
+        assert r3.json()["error"] == "rate_limited"
+
+
+class TestReadiness:
+    """API-READY: /readiness 端点"""
+
+    def test_readiness_ok(self, client):
+        resp = client.get("/readiness")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["ready"] is True
+        assert data["version"]
+
+    def test_readiness_no_auth_required(self, authed_client):
+        # 有密码时仍应放行（K8s probe 无 Authorization 头）
+        resp = authed_client.get("/readiness")
+        assert resp.status_code == 200
+
+
+class TestPanelEtag:
+    """API-PANEL-CACHE: panel.html ETag + Cache-Control"""
+
+    def test_panel_returns_etag(self, client):
+        # 清空缓存，确保重新计算
+        from souwen.server import app as app_mod
+
+        app_mod._panel_cache = None
+        app_mod._panel_etag = None
+
+        resp = client.get("/panel")
+        if resp.status_code == 404:
+            pytest.skip("panel.html not available")
+        assert resp.status_code == 200
+        etag = resp.headers.get("etag")
+        assert etag and etag.startswith('"') and etag.endswith('"')
+        assert "max-age" in resp.headers.get("cache-control", "")
+
+        resp2 = client.get("/panel", headers={"If-None-Match": etag})
+        assert resp2.status_code == 304
+        assert resp2.content == b""
+
+    def test_root_returns_panel_with_etag(self, client):
+        from souwen.server import app as app_mod
+
+        app_mod._panel_cache = None
+        app_mod._panel_etag = None
+
+        resp = client.get("/")
+        if resp.status_code == 404:
+            pytest.skip("panel.html not available")
+        assert resp.status_code == 200
+        assert resp.headers.get("etag")
+
+
+class TestSearchTimeout:
+    """API-TIMEOUT: 搜索端点 timeout 参数返回 504"""
+
+    def test_paper_timeout_returns_504(self, client, monkeypatch):
+        import asyncio as _asyncio
+        import sys
+
+        async def slow(*a, **kw):
+            await _asyncio.sleep(5)
+            return []
+
+        search_mod = sys.modules["souwen.search"]
+        monkeypatch.setattr(search_mod, "search_papers", slow)
+        resp = client.get("/api/v1/search/paper?q=foo&timeout=1")
+        assert resp.status_code == 504
+        assert resp.json()["error"] == "gateway_timeout"
+
+    def test_patent_timeout_returns_504(self, client, monkeypatch):
+        import asyncio as _asyncio
+        import sys
+
+        async def slow(*a, **kw):
+            await _asyncio.sleep(5)
+            return []
+
+        search_mod = sys.modules["souwen.search"]
+        monkeypatch.setattr(search_mod, "search_patents", slow)
+        resp = client.get("/api/v1/search/patent?q=foo&timeout=1")
+        assert resp.status_code == 504
+        assert resp.json()["error"] == "gateway_timeout"
+
+    def test_web_timeout_returns_504(self, client, monkeypatch):
+        import asyncio as _asyncio
+        from souwen.web import search as web_search_mod
+
+        async def slow(*a, **kw):
+            await _asyncio.sleep(5)
+
+        monkeypatch.setattr(web_search_mod, "web_search", slow)
+        resp = client.get("/api/v1/search/web?q=foo&timeout=1")
+        assert resp.status_code == 504
+        assert resp.json()["error"] == "gateway_timeout"
+
+
+class TestLifecycleLogging:
+    """WARP-LIFECYCLE: 启动/关停日志"""
+
+    def test_startup_logs_warp_state(self, monkeypatch):
+        import logging as _logging
+
+        from fastapi.testclient import TestClient
+
+        from souwen.server.app import app
+
+        captured: list[str] = []
+
+        class _H(_logging.Handler):
+            def emit(self, record):
+                captured.append(record.getMessage())
+
+        server_logger = _logging.getLogger("souwen.server")
+        prev_level = server_logger.level
+        server_logger.setLevel(_logging.INFO)
+        h = _H(level=_logging.INFO)
+        server_logger.addHandler(h)
+        try:
+            with TestClient(app) as c:
+                c.get("/health")
+        finally:
+            server_logger.removeHandler(h)
+            server_logger.setLevel(prev_level)
+        joined = " || ".join(captured)
+        assert "WARP state:" in joined, f"captured={captured!r}"
+        assert "shutting down" in joined

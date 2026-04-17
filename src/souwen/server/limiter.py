@@ -48,10 +48,19 @@ class InMemoryRateLimiter:
         self._cleanup(key, now)
         timestamps = self._requests[key]
         if len(timestamps) >= self.max_requests:
+            # 计算 reset 时间（最早一次请求滑出窗口的绝对时间，秒级 epoch）
+            oldest = timestamps[0]
+            retry_after = max(1, int(self.window_seconds - (now - oldest)) + 1)
+            reset_epoch = int(time.time()) + retry_after
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail=f"请求过于频繁，每 {self.window_seconds} 秒最多 {self.max_requests} 次",
-                headers={"Retry-After": str(self.window_seconds)},
+                headers={
+                    "Retry-After": str(retry_after),
+                    "X-RateLimit-Limit": str(self.max_requests),
+                    "X-RateLimit-Remaining": "0",
+                    "X-RateLimit-Reset": str(reset_epoch),
+                },
             )
         timestamps.append(now)
 
