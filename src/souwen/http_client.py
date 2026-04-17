@@ -11,6 +11,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
 import time
 from typing import Any
@@ -82,6 +83,12 @@ class SouWenHttpClient:
             timeout=httpx.Timeout(self.timeout),
             proxy=proxy,
             follow_redirects=True,
+            # TODO: 未来可将连接池参数下沉到 SouWenConfig；当前使用保守默认
+            limits=httpx.Limits(
+                max_connections=100,
+                max_keepalive_connections=20,
+                keepalive_expiry=30.0,
+            ),
         )
 
     async def __aenter__(self) -> "SouWenHttpClient":
@@ -214,39 +221,50 @@ class OAuthClient(SouWenHttpClient):
         self.client_secret = client_secret
         self._access_token: str | None = None
         self._token_expires_at: float = 0
+        self._token_lock: asyncio.Lock | None = None
+
+    def _get_token_lock(self) -> asyncio.Lock:
+        if self._token_lock is None:
+            self._token_lock = asyncio.Lock()
+        return self._token_lock
 
     async def _ensure_token(self) -> str:
         """确保有有效的 access token，过期则自动刷新
 
         提前 60 秒刷新，避免 token 在请求途中过期导致 401。
+        并发调用时通过懒加载 Lock 串行化，避免多次打 token 端点。
         """
         if self._access_token and time.monotonic() < self._token_expires_at - 60:
             return self._access_token
 
-        logger.debug("正在获取 OAuth token: %s", self.token_url)
-        resp = await self._client.post(
-            self.token_url,
-            data={"grant_type": "client_credentials"},
-            auth=(self.client_id, self.client_secret),
-        )
-        if resp.status_code != 200:
-            raise AuthError(f"OAuth token 获取失败: {resp.status_code} {resp.text}")
+        async with self._get_token_lock():
+            if self._access_token and time.monotonic() < self._token_expires_at - 60:
+                return self._access_token
 
-        try:
-            token_data = resp.json()
-        except Exception as e:
-            raise AuthError(f"OAuth token 响应解析失败: {e}") from e
+            logger.debug("正在获取 OAuth token: %s", self.token_url)
+            resp = await self._client.post(
+                self.token_url,
+                data={"grant_type": "client_credentials"},
+                auth=(self.client_id, self.client_secret),
+            )
+            if resp.status_code != 200:
+                raise AuthError(f"OAuth token 获取失败: {resp.status_code} {resp.text}")
 
-        access_token = token_data.get("access_token")
-        if not access_token:
-            raise AuthError(f"OAuth 响应缺少 access_token: {list(token_data.keys())}")
+            try:
+                token_data = resp.json()
+            except Exception as e:
+                raise AuthError(f"OAuth token 响应解析失败: {e}") from e
 
-        self._access_token = access_token
-        expires_in = token_data.get("expires_in", 1200)
-        self._token_expires_at = time.monotonic() + expires_in
+            access_token = token_data.get("access_token")
+            if not access_token:
+                raise AuthError(f"OAuth 响应缺少 access_token: {list(token_data.keys())}")
 
-        logger.debug("OAuth token 获取成功，有效期 %ds", expires_in)
-        return self._access_token
+            self._access_token = access_token
+            expires_in = token_data.get("expires_in", 1200)
+            self._token_expires_at = time.monotonic() + expires_in
+
+            logger.debug("OAuth token 获取成功，有效期 %ds", expires_in)
+            return self._access_token
 
     async def get(
         self,

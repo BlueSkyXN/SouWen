@@ -10,11 +10,12 @@ Google Patents 无官方 API，采用爬虫方式获取数据。
 from __future__ import annotations
 
 import asyncio
+import atexit
 import logging
 import random
-from datetime import date
 from typing import Any
 
+from souwen._parsing import safe_parse_date
 from souwen.exceptions import NotFoundError
 from souwen.http_client import SouWenHttpClient
 from souwen.models import Applicant, PatentResult, SearchResponse, SourceType
@@ -82,14 +83,25 @@ class _BrowserPool:
         page = await context.new_page()
         return page
 
+    async def shutdown(self) -> None:
+        """关闭浏览器和 Playwright 实例（幂等）"""
+        async with self._lock:
+            if self._browser:
+                try:
+                    await self._browser.close()
+                except Exception as exc:  # noqa: BLE001
+                    logger.debug("browser close error: %s", exc)
+                self._browser = None
+            if self._playwright:
+                try:
+                    await self._playwright.stop()
+                except Exception as exc:  # noqa: BLE001
+                    logger.debug("playwright stop error: %s", exc)
+                self._playwright = None
+
     async def close(self) -> None:
-        """关闭浏览器和 Playwright 实例"""
-        if self._browser:
-            await self._browser.close()
-            self._browser = None
-        if self._playwright:
-            await self._playwright.stop()
-            self._playwright = None
+        """``shutdown`` 的历史别名"""
+        await self.shutdown()
 
 
 _browser_pool: _BrowserPool | None = None
@@ -101,6 +113,23 @@ def _get_browser_pool() -> _BrowserPool:
     if _browser_pool is None:
         _browser_pool = _BrowserPool()
     return _browser_pool
+
+
+def _atexit_shutdown_browser_pool() -> None:
+    """进程退出时关闭浏览器池，避免僵尸 Chromium 进程"""
+    pool = _browser_pool
+    if pool is None or pool._browser is None:
+        return
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        try:
+            asyncio.run(pool.shutdown())
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("atexit browser pool shutdown failed: %s", exc)
+
+
+atexit.register(_atexit_shutdown_browser_pool)
 
 
 class GooglePatentsClient:
@@ -353,10 +382,10 @@ class GooglePatentsClient:
                     cpc_codes.append(code)
 
             # 日期
-            pub_date: date | None = None
+            pub_date = None
             date_elem = soup.select_one("[itemprop='publicationDate']")
             if date_elem:
-                pub_date = _safe_date(date_elem.get("content", date_elem.get_text(strip=True)))
+                pub_date = safe_parse_date(date_elem.get("content", date_elem.get_text(strip=True)))
 
             # 权利要求
             claims: str | None = None
@@ -448,11 +477,7 @@ class GooglePatentsClient:
         return result
 
 
-def _safe_date(value: str | None) -> date | None:
-    """安全解析日期字符串"""
-    if not value:
-        return None
-    try:
-        return date.fromisoformat(str(value)[:10])
-    except (ValueError, TypeError):
-        return None
+def _safe_date(value: str | None):
+    """``safe_parse_date`` 的向后兼容别名"""
+    return safe_parse_date(value)
+

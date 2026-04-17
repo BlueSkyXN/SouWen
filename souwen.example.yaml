@@ -98,6 +98,13 @@ server:
   # 示例: ["http://localhost:3000", "https://my-app.example.com"]
   # 设为 ["*"] 允许所有来源（不推荐在生产环境使用）
   cors_origins: []
+  # 受信反向代理 IP/CIDR 列表；只有来自这些地址的请求才会读取 X-Forwarded-For
+  # 解析真实客户端 IP，防止不在名单上的直连客户端通过伪造 XFF 绕过限流/审计。
+  # 未部署反向代理时保持空列表即可。
+  # 示例: ["10.0.0.0/8", "172.16.0.0/12", "127.0.0.1"]
+  trusted_proxies: []
+  # 是否暴露 /docs、/redoc、/openapi.json；生产建议设为 false
+  expose_docs: true
 
 # ===== WARP 代理 =====
 # 内嵌 Cloudflare WARP 代理（Docker 部署专用）

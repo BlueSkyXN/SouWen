@@ -7,10 +7,10 @@
 from __future__ import annotations
 
 import logging
-from datetime import date
 from typing import Any
 
 import httpx
+from souwen._parsing import safe_parse_date
 from souwen.exceptions import NotFoundError, ParseError
 from souwen.http_client import SouWenHttpClient
 from souwen.models import Applicant, PatentResult, SearchResponse, SourceType
@@ -184,12 +184,7 @@ class PqaiClient:
             elif isinstance(c, dict):
                 cpc_codes.append(c.get("code", ""))
 
-        pub_date: date | None = None
-        if raw.get("publication_date"):
-            try:
-                pub_date = date.fromisoformat(str(raw["publication_date"])[:10])
-            except (ValueError, TypeError):
-                pass
+        pub_date = safe_parse_date(raw.get("publication_date"))
 
         return PatentResult(
             source=SourceType.PQAI,

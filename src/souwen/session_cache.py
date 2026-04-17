@@ -6,9 +6,11 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 import logging
 import sqlite3
+import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Any
@@ -39,6 +41,7 @@ class SessionCache:
 
         self._db_path = db_path
         self._db: aiosqlite.Connection | None = None
+        self._init_lock: asyncio.Lock | None = None
         # 同步初始化表结构（仅在首次创建时执行）
         self._ensure_tables_sync()
 
@@ -74,9 +77,14 @@ class SessionCache:
             conn.close()
 
     async def _get_db(self) -> aiosqlite.Connection:
-        """获取或创建异步数据库连接"""
-        if self._db is None:
-            self._db = await aiosqlite.connect(str(self._db_path))
+        """获取或创建异步数据库连接（并发安全懒加载）"""
+        if self._db is not None:
+            return self._db
+        if self._init_lock is None:
+            self._init_lock = asyncio.Lock()
+        async with self._init_lock:
+            if self._db is None:
+                self._db = await aiosqlite.connect(str(self._db_path))
         return self._db
 
     async def get_session(self, site: str) -> dict[str, Any] | None:
@@ -217,14 +225,22 @@ class SessionCache:
             await self._db.close()
             self._db = None
 
+    async def aclose(self) -> None:
+        """异步关闭（幂等），供 FastAPI lifespan 调用"""
+        await self.close()
+
 
 # 全局单例（惰性初始化）
 _global_cache: SessionCache | None = None
+_global_cache_lock = threading.Lock()
 
 
 def get_session_cache() -> SessionCache:
-    """获取全局会话缓存实例"""
+    """获取全局会话缓存实例（线程安全 double-check）"""
     global _global_cache
-    if _global_cache is None:
-        _global_cache = SessionCache()
+    if _global_cache is not None:
+        return _global_cache
+    with _global_cache_lock:
+        if _global_cache is None:
+            _global_cache = SessionCache()
     return _global_cache

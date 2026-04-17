@@ -68,7 +68,6 @@ OPENALEX_SINGLE_WORK = OPENALEX_SEARCH_RESPONSE["results"][0]
 async def test_search_basic(httpx_mock: HTTPXMock, monkeypatch):
     """search() 正确解析 JSON 并映射字段"""
     monkeypatch.setenv("SOUWEN_OPENALEX_EMAIL", "test@test.com")
-    _clear_config_cache()
 
     httpx_mock.add_response(
         url=re.compile(r"https://api\.openalex\.org/works.*"),
@@ -257,8 +256,38 @@ async def test_doi_prefix_stripping(httpx_mock: HTTPXMock):
 # ---------------------------------------------------------------------------
 
 
-def _clear_config_cache():
-    """Clear lru_cache on get_config so env vars take effect."""
-    from souwen.config import get_config
+# `_clear_config_cache` 已迁移到 tests/conftest.py 的 autouse fixture。
 
-    get_config.cache_clear()
+
+# ---------------------------------------------------------------------------
+# publication_date 安全解析（P0-9）
+# ---------------------------------------------------------------------------
+
+
+async def test_missing_publication_date(httpx_mock: HTTPXMock):
+    """缺失 publication_date 字段时不崩溃"""
+    work = {**OPENALEX_SEARCH_RESPONSE["results"][0]}
+    work.pop("publication_date", None)
+    httpx_mock.add_response(
+        url=re.compile(r"https://api\.openalex\.org/works.*"),
+        json={"meta": {"count": 1}, "results": [work]},
+    )
+
+    async with OpenAlexClient(mailto="t@t.com") as c:
+        resp = await c.search("test")
+
+    assert resp.results[0].publication_date is None
+
+
+async def test_malformed_publication_date(httpx_mock: HTTPXMock):
+    """无效 publication_date 时回落为 None 而非抛错"""
+    work = {**OPENALEX_SEARCH_RESPONSE["results"][0], "publication_date": "not-a-date"}
+    httpx_mock.add_response(
+        url=re.compile(r"https://api\.openalex\.org/works.*"),
+        json={"meta": {"count": 1}, "results": [work]},
+    )
+
+    async with OpenAlexClient(mailto="t@t.com") as c:
+        resp = await c.search("test")
+
+    assert resp.results[0].publication_date is None

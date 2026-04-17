@@ -120,3 +120,42 @@ class TestClose:
         """重复 close 不抛异常"""
         await cache.close()
         await cache.close()
+
+
+class TestConcurrentInit:
+    """并发初始化安全性"""
+
+    async def test_concurrent_get_db_returns_single_connection(self, tmp_path, monkeypatch):
+        """10 个并发 _get_db 只会建立一个 aiosqlite 连接"""
+        import aiosqlite
+
+        from souwen import session_cache as sc_mod
+
+        real_connect = aiosqlite.connect
+        call_count = 0
+
+        def counting_connect(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            return real_connect(*args, **kwargs)
+
+        monkeypatch.setattr(sc_mod.aiosqlite, "connect", counting_connect)
+
+        cache = sc_mod.SessionCache(db_path=tmp_path / "concurrent.db")
+        try:
+            conns = await asyncio.gather(*[cache._get_db() for _ in range(10)])
+            assert call_count == 1
+            first = conns[0]
+            assert all(c is first for c in conns)
+        finally:
+            await cache.aclose()
+
+    async def test_aclose_is_idempotent(self, tmp_path):
+        """aclose 可重复调用"""
+        from souwen.session_cache import SessionCache
+
+        cache = SessionCache(db_path=tmp_path / "aclose.db")
+        await cache.save_session("s", {"k": 1})
+        await cache.aclose()
+        await cache.aclose()
+        assert cache._db is None

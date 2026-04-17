@@ -152,3 +152,43 @@ print(config.get_proxy())
 # 重新加载配置（修改环境变量后）
 config = reload_config()
 ```
+
+## 服务端安全
+
+### Admin API 默认锁定 (P0-7)
+
+当 `api_password` **未设置**时，所有 `/api/v1/admin/*` 端点默认返回 `401 Unauthorized`，响应体包含提示信息。推荐的使用方式：
+
+| 场景 | 做法 |
+| --- | --- |
+| 生产部署 | 设置 `SOUWEN_API_PASSWORD=<强随机串>`，使用 `Authorization: Bearer <password>` 访问 |
+| 本地开发 / CI 冒烟测试 | 可选 `SOUWEN_ADMIN_OPEN=1` 显式绕过锁定（启动时会打 WARNING 日志） |
+
+未配置密码且未设置 `SOUWEN_ADMIN_OPEN` 时，任何 admin 请求都会被拒绝——默认最安全。
+
+### 反向代理感知的客户端 IP (P0-8)
+
+速率限制、审计日志等模块需要真实客户端 IP。SouWen 只在请求的直连来源位于 `trusted_proxies` 名单时，才从 `X-Forwarded-For` 取最左侧 IP，否则直接使用 TCP 对端地址，避免攻击者通过伪造 XFF 绕过限流。
+
+配置示例：
+
+```yaml
+server:
+  trusted_proxies:
+    - 10.0.0.0/8
+    - 172.16.0.0/12
+    - 127.0.0.1
+```
+
+也可通过 `SOUWEN_TRUSTED_PROXIES="10.0.0.0/8,127.0.0.1"` 环境变量设置。
+
+### 文档开关 (P2-8)
+
+默认暴露 `/docs`、`/redoc`、`/openapi.json`，方便开发联调。生产环境可关闭：
+
+```yaml
+server:
+  expose_docs: false
+```
+
+关闭后这些路径会返回 404，`/health`、`/api/v1/*` 不受影响。

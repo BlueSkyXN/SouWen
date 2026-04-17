@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import os
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -23,6 +25,7 @@ logger = logging.getLogger("souwen.server")
 
 _PANEL_HTML = Path(__file__).parent / "panel.html"
 _panel_cache: str | None = None
+_panel_cache_lock = asyncio.Lock()
 
 
 @asynccontextmanager
@@ -38,6 +41,14 @@ async def lifespan(app: FastAPI):
         __version__,
         "已启用" if cfg.api_password else "未启用",
     )
+    if (
+        not cfg.api_password
+        and os.getenv("SOUWEN_ADMIN_OPEN", "").strip().lower() in ("1", "true", "yes", "on")
+    ):
+        logger.warning(
+            "SOUWEN_ADMIN_OPEN=1 已显式解除 Admin API 锁定；"
+            "任何能访问 /api/v1/admin/* 的客户端都将获得管理员权限，生产环境禁用。"
+        )
 
     # WARP 状态协调 (检测 shell entrypoint 启动的 WARP 实例)
     try:
@@ -50,13 +61,26 @@ async def lifespan(app: FastAPI):
 
     yield
 
+    # 关闭会话缓存的 aiosqlite 连接
+    try:
+        from souwen.session_cache import get_session_cache
 
-app = FastAPI(
-    title="SouWen API",
-    description="面向 AI Agent 的学术论文 + 专利 + 网页统一搜索 API",
-    version=__version__,
-    lifespan=lifespan,
-)
+        await get_session_cache().aclose()
+    except Exception:
+        logger.warning("关闭 session_cache 失败", exc_info=True)
+
+
+_cfg_at_boot = get_config()
+_fastapi_kwargs: dict = {
+    "title": "SouWen API",
+    "description": "面向 AI Agent 的学术论文 + 专利 + 网页统一搜索 API",
+    "version": __version__,
+    "lifespan": lifespan,
+}
+if not _cfg_at_boot.expose_docs:
+    _fastapi_kwargs.update(docs_url=None, redoc_url=None, openapi_url=None)
+
+app = FastAPI(**_fastapi_kwargs)
 
 # --- Middleware (执行顺序：外层先处理请求，内层先处理响应) ---
 # 1. GZip 压缩（最内层，压缩响应体）
@@ -148,9 +172,10 @@ async def health():
 async def panel():
     """管理面板（首次访问后缓存在内存中）"""
     global _panel_cache
-    if _panel_cache is None:
-        if _PANEL_HTML.is_file():
-            _panel_cache = _PANEL_HTML.read_text(encoding="utf-8")
-        else:
-            return HTMLResponse("<h1>Panel not found</h1>", status_code=404)
-    return HTMLResponse(_panel_cache)
+    async with _panel_cache_lock:
+        if _panel_cache is None:
+            if _PANEL_HTML.is_file():
+                _panel_cache = _PANEL_HTML.read_text(encoding="utf-8")
+            else:
+                return HTMLResponse("<h1>Panel not found</h1>", status_code=404)
+        return HTMLResponse(_panel_cache)

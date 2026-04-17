@@ -86,3 +86,27 @@ async def test_search_patents_skips_timed_out_source(monkeypatch):
 
     assert len(resp) == 1
     assert resp[0].source == SourceType.PATENTSVIEW
+
+
+def test_semaphore_is_per_event_loop():
+    """_get_semaphore 在不同 event loop 中返回不同实例，避免跨 loop 错误"""
+    search_mod = importlib.import_module("souwen.search")
+
+    async def _fetch() -> asyncio.Semaphore:
+        return search_mod._get_semaphore()
+
+    loop1 = asyncio.new_event_loop()
+    try:
+        sem1 = loop1.run_until_complete(_fetch())
+        sem1_again = loop1.run_until_complete(_fetch())
+    finally:
+        loop1.close()
+
+    loop2 = asyncio.new_event_loop()
+    try:
+        sem2 = loop2.run_until_complete(_fetch())
+    finally:
+        loop2.close()
+
+    assert sem1 is sem1_again
+    assert sem1 is not sem2

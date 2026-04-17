@@ -17,9 +17,47 @@ import type {
 
 const REQUEST_TIMEOUT_MS = 30_000
 
+// baseUrl 白名单：避免凭证被发送到任意第三方域
+// - 协议必须为 http/https
+// - 默认允许同源（window.location.origin）不校验
+// - 非同源时需匹配 VITE_ALLOWED_API_HOSTS（逗号分隔 host 列表），否则拒绝
+const ALLOWED_API_HOSTS: string[] = (
+  (import.meta as ImportMeta & { env?: Record<string, string> }).env?.VITE_ALLOWED_API_HOSTS ?? ''
+)
+  .split(',')
+  .map((s: string) => s.trim())
+  .filter(Boolean)
+
+/** 校验 baseUrl 是否可信；非法时抛错 */
+export function assertBaseUrlAllowed(baseUrl: string): void {
+  if (!baseUrl) return // 空串 → 同源相对路径，放行
+  let parsed: URL
+  try {
+    parsed = new URL(baseUrl)
+  } catch {
+    throw new Error(`非法的 baseUrl: ${baseUrl}`)
+  }
+  if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
+    throw new Error(`baseUrl 协议必须为 http/https: ${baseUrl}`)
+  }
+  // 浏览器环境下的同源放行
+  if (typeof window !== 'undefined' && window.location) {
+    if (parsed.origin === window.location.origin) return
+  }
+  if (ALLOWED_API_HOSTS.length === 0) return // 未配置白名单，保留默认行为
+  const hostMatches = ALLOWED_API_HOSTS.some((h) => h === parsed.host || h === parsed.hostname)
+  if (!hostMatches) {
+    throw new Error(
+      `baseUrl 未在 VITE_ALLOWED_API_HOSTS 白名单内: ${parsed.host}（允许：${ALLOWED_API_HOSTS.join(', ')}）`,
+    )
+  }
+}
+
 class ApiService {
   private get baseUrl(): string {
-    return useAuthStore.getState().baseUrl
+    const url = useAuthStore.getState().baseUrl
+    assertBaseUrlAllowed(url)
+    return url
   }
 
   private get token(): string {
@@ -79,6 +117,7 @@ class ApiService {
 
   async health(baseUrl?: string): Promise<HealthResponse> {
     const url = baseUrl ?? this.baseUrl
+    assertBaseUrlAllowed(url)
     try {
       const res = await fetch(`${url}/health`, {
         signal: AbortSignal.timeout(10_000),
@@ -92,6 +131,7 @@ class ApiService {
   }
 
   async verifyAuth(baseUrl: string, token: string): Promise<void> {
+    assertBaseUrlAllowed(baseUrl)
     const headers: Record<string, string> = {}
     if (token) headers['Authorization'] = `Bearer ${token}`
     try {
