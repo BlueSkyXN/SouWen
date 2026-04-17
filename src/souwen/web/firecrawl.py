@@ -88,7 +88,7 @@ class FirecrawlClient(SouWenHttpClient):
         Args:
             query: 搜索关键词
             max_results: 最大返回结果数
-            
+
         Returns:
             WebSearchResponse 包含搜索结果和 Markdown 内容
         """

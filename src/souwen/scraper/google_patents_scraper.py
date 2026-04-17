@@ -29,16 +29,16 @@ GOOGLE_PATENTS_BASE = "https://patents.google.com"
 
 class GooglePatentsScraper(BaseScraper):
     """Google Patents 爬虫实现 — 兜底方案
-    
+
     ⚠️ 重要声明：
     Google Patents 无官方 API。此模块通过爬虫方式获取数据。
     建议优先使用官方 API：PatentsView、EPO OPS、PQAI 等。
-    
+
     策略优先级：
     1. XHR 接口 (xhr/query) - 优先，返回 JSON 格式
     2. HTML 页面解析 - 回退方案，使用 BeautifulSoup 静态解析
     3. Playwright 动态渲染 - 可选（需安装可选依赖，本文件未实现）
-    
+
     Args:
         min_delay: 请求最小间隔（秒），默认 3.0（较长的延迟以礼貌对待 Google）
         max_delay: 请求最大间隔（秒），默认 6.0
@@ -51,16 +51,16 @@ class GooglePatentsScraper(BaseScraper):
 
     async def search(self, query: str, num_results: int = 10) -> SearchResponse:
         """搜索 Google Patents — 双策略降级
-        
+
         流程：
         1. 优先尝试 XHR 接口 (patents.google.com/xhr/query)
         2. 若失败或解析错误，回退到 HTML 页面解析
         3. 返回统一的 SearchResponse
-        
+
         Args:
             query: 搜索关键词
             num_results: 最大返回结果数
-            
+
         Returns:
             SearchResponse：统一搜索响应格式
         """
@@ -89,13 +89,13 @@ class GooglePatentsScraper(BaseScraper):
 
     async def _search_html(self, query: str, num_results: int) -> SearchResponse:
         """从 HTML 页面解析搜索结果 — 回退方案
-        
+
         当 XHR 接口失败时调用此方法。使用 BeautifulSoup 解析静态 HTML。
-        
+
         Args:
             query: 搜索关键词
             num_results: 最大返回结果数
-            
+
         Returns:
             SearchResponse：可能为空结果集（若页面无法解析）
         """
@@ -133,15 +133,15 @@ class GooglePatentsScraper(BaseScraper):
 
     def _parse_search_response(self, data: Any, query: str) -> SearchResponse:
         """解析 XHR 搜索响应 — 防御性解析
-        
+
         Google Patents XHR 响应格式可能变化，本方法采用防御性策略：
         - 逐层检查数据结构是否存在
         - 异常时捕获和记录，继续处理下一条
-        
+
         Args:
             data: XHR 响应的 JSON 数据
             query: 原始搜索关键词
-            
+
         Returns:
             SearchResponse：可能为空结果集
         """
@@ -169,13 +169,13 @@ class GooglePatentsScraper(BaseScraper):
 
     def _parse_search_item(self, item: Any) -> PatentResult | None:
         """从 HTML 元素解析单个搜索结果
-        
+
         使用多种选择器适配页面变化（h3、.title、[data-title] 等）。
         核心字段：标题、专利号、摘要。
-        
+
         Args:
             item: BeautifulSoup HTML 元素
-            
+
         Returns:
             PatentResult 或 None（若关键字段缺失）
         """
@@ -214,17 +214,17 @@ class GooglePatentsScraper(BaseScraper):
 
     def _map_patent(self, data: dict) -> PatentResult:
         """从 XHR 数据映射为 PatentResult — 字段提取和类型转换
-        
+
         提取以下字段：
         - 基础：publication_number、title
         - 人物：inventor、applicant/assignee
         - 分类：ipc、cpc
         - 内容：abstract（可能嵌套在字典中）
         - 时间：publication_date（YYYYMMDD 格式转 date 对象）
-        
+
         Args:
             data: 来自 XHR 响应的专利数据字典
-            
+
         Returns:
             PatentResult：完整的专利记录对象
         """
@@ -266,16 +266,16 @@ class GooglePatentsScraper(BaseScraper):
 
     async def get_patent(self, patent_id: str) -> PatentResult:
         """获取单个专利详情 — 深度爬取
-        
+
         爬取专利详情页面 (patents.google.com/patent/{patent_id}/en)，
         提取标题、摘要、权利要求、发明人、申请人、分类号等详细信息。
-        
+
         Args:
             patent_id: 专利公开号（如 US10123456B2）
-            
+
         Returns:
             PatentResult：完整的专利详情
-            
+
         Raises:
             NotFoundError：404 未找到专利
             ParseError：页面解析失败（隐式，返回部分数据）

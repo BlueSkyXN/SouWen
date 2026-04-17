@@ -107,7 +107,7 @@ class OpenAlexClient:
 
     def _common_params(self) -> dict[str, str]:
         """构建公共请求参数。
-        
+
         如果配置了 mailto，将其加入参数以进入 polite pool（提升限流阈值）。
         """
         params: dict[str, str] = {}

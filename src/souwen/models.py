@@ -10,26 +10,26 @@
         - 值：openalex, semantic_scholar, crossref, arxiv, ... (论文源)
             patents_view, uspto_odp, epo_ops, ... (专利源)
             google, duckduckgo, tavily, serper, ... (Web 源)
-    
+
     PaperItem (BaseModel)
         - 功能：单篇论文的统一模型
-        - 字段：title, authors, abstract, url, doi, pub_year, 
+        - 字段：title, authors, abstract, url, doi, pub_year,
                 source_name, source_url, cited_count, pdf_url
         - Config: extra='allow' (允许额外字段用于扩展)
-    
+
     PatentItem (BaseModel)
         - 功能：单件专利的统一模型
         - 字段：title, abstract, url, patent_number, filing_date,
                 pub_date, assignee, inventors, source_name, source_url
-    
+
     WebItem (BaseModel)
         - 功能：网页搜索结果统一模型
-        - 字段：title, snippet, url, source_name, source_url, 
+        - 字段：title, snippet, url, source_name, source_url,
                 publish_date (可选)
-    
+
     AggregatedResult (BaseModel)
         - 功能：聚合多个数据源的搜索结果
-        - 字段：query (搜索词), papers (list[PaperItem]), 
+        - 字段：query (搜索词), papers (list[PaperItem]),
                 patents (list[PatentItem]), web_results (list[WebItem])
         - 用途：AI Agent 最终获得的统一结果格式
 
@@ -59,22 +59,22 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 def _coerce_date(value):
     """宽松日期归一化
-    
+
     将多种日期格式统一为 date 对象，或返回 None（无效值时）。
-    
+
     支持格式：
         - None / 空字符串 → None
         - datetime 对象 → date
         - date 对象 → date（保持不变）
         - ISO 日期字符串 (YYYY-MM-DD) → date
         - ISO 时间戳 (YYYY-MM-DDTHH:MM:SS...) → 提取日期部分
-    
+
     Args:
         value: 待转换的日期值
-    
+
     Returns:
         date 对象或 None
-    
+
     Note:
         无法解析的值返回 None，不抛异常（宽松验证）
     """
@@ -99,7 +99,7 @@ def _coerce_date(value):
 
 class SourceType(str, Enum):
     """数据源类型枚举
-    
+
     分为三大类：
     - 论文源：OpenAlex, Semantic Scholar, CrossRef, arXiv, DBLP, CORE, PubMed, Unpaywall, IEEE
     - 专利源：PatentsView, USPTO ODP, EPO OPS, CNIPA, Lens, PatSnap
@@ -151,7 +151,7 @@ class SourceType(str, Enum):
 
 class Author(BaseModel):
     """作者信息
-    
+
     Attributes:
         name: 作者姓名
         affiliation: 所属机构（可选）
@@ -165,9 +165,9 @@ class Author(BaseModel):
 
 class PaperResult(BaseModel):
     """统一论文结果模型
-    
+
     所有论文数据源的结果都应归一化为此格式。支持部分字段缺失（None）。
-    
+
     Attributes:
         source: 数据源类型（SourceType 枚举）
         title: 论文标题
@@ -212,7 +212,7 @@ class PaperResult(BaseModel):
 
 class Applicant(BaseModel):
     """专利申请人/权利人
-    
+
     Attributes:
         name: 申请人/权利人名称
         country: 所属国家代码或名称（可选）
@@ -224,9 +224,9 @@ class Applicant(BaseModel):
 
 class PatentResult(BaseModel):
     """统一专利结果模型
-    
+
     所有专利数据源的结果都应归一化为此格式。支持部分字段缺失。
-    
+
     Attributes:
         source: 数据源类型（SourceType 枚举）
         title: 专利名称/标题

@@ -5,29 +5,29 @@
     快速聚合结果并返回统一的 SearchResponse 对象。
 
 函数清单：
-    search(query, papers=True, patents=True, web=True, timeout=30, 
+    search(query, papers=True, patents=True, web=True, timeout=30,
            paper_sources=None, patent_sources=None) → SearchResponse
         - 功能：统一搜索门面，同时搜索多个数据源
-        - 参数：query (搜索词), papers/patents/web (启用标志), 
+        - 参数：query (搜索词), papers/patents/web (启用标志),
                 timeout (总超时秒数), paper_sources/patent_sources (源列表，可选)
         - 返回：SearchResponse (包含论文、专利、网页结果列表)
         - 特点：异步并发，自动超时控制，异常安全
-    
+
     search_papers(query, sources=None, timeout=30) → SearchResponse
         - 功能：仅搜索论文（默认免费源）
         - 返回：SearchResponse (papers 字段非空，patents/web 为空)
-    
+
     search_patents(query, sources=None, timeout=30) → SearchResponse
         - 功能：仅搜索专利（默认 Google Patents）
         - 返回：SearchResponse (patents 字段非空，papers/web 为空)
-    
+
     search_web(query, timeout=30) → SearchResponse
         - 功能：仅搜索网页（Web 源自动选择）
-    
+
     _run_client(cls, method_name, **kwargs) → SearchResponse
         - 功能：辅助函数，打开客户端并调用指定方法
         - 用途：简化 source 客户端的调用
-    
+
     _search_source(name, coro) → SearchResponse | None
         - 功能：执行单个数据源搜索（异常安全）
         - 特点：捕获异常，区分类型（Auth/SourceUnavailable 记录，其他忽略）
@@ -102,14 +102,14 @@ _DEFAULT_PATENT_SOURCES: list[str] = ["google_patents"]
 
 async def _run_client(cls: type, method_name: str, **kwargs: Any) -> SearchResponse:
     """打开异步客户端并调用指定方法
-    
+
     辅助函数，简化客户端的创建和方法调用。
-    
+
     Args:
         cls: 客户端类（如 OpenAlexClient）
         method_name: 要调用的方法名（通常是 'search'）
         **kwargs: 传给方法的参数
-    
+
     Returns:
         SearchResponse 对象
     """
@@ -119,16 +119,16 @@ async def _run_client(cls: type, method_name: str, **kwargs: Any) -> SearchRespo
 
 async def _search_source(name: str, coro: Any) -> SearchResponse | None:
     """执行单个数据源搜索（异常安全）
-    
+
     捕获和处理异常，区分类型：
     - AuthError: 认证失败，记录警告日志
     - SourceUnavailableError: 源不可用，记录信息日志
     - 其他异常：忽略，返回 None（避免阻止其他源）
-    
+
     Args:
         name: 数据源名称（用于日志）
         coro: 异步协程（通常来自 _run_client）
-    
+
     Returns:
         SearchResponse 对象或 None（失败时）
     """

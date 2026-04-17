@@ -78,7 +78,7 @@ class GoogleClient(BaseScraper):
         Args:
             query: 搜索关键词
             max_results: 最大返回结果数
-            
+
         Returns:
             WebSearchResponse 包含搜索结果
         """
@@ -164,10 +164,10 @@ class GoogleClient(BaseScraper):
         1. /url?q=REAL_URL&sa=... (重定向)
         2. 直接 URL (https://example.com)
         3. /search?... (内部链接，过滤)
-        
+
         Args:
             url: Google 格式的 URL 字符串
-            
+
         Returns:
             str: 解码后的真实 URL；内部链接或无效返回空字符串
         """

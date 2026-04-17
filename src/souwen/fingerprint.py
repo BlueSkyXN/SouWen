@@ -13,11 +13,11 @@
           * impersonate (property) → str — 返回 curl_cffi impersonate 参数（TLS 指纹）
           * headers (property) → dict[str,str] — 返回完整浏览器请求头（含 Sec-CH-UA 系列）
           * rotate() → BrowserFingerprint — 轮换到新的指纹实例
-    
+
     get_default_fingerprint() -> BrowserFingerprint
         - 功能：获取确定的默认指纹（Chrome 最新版本）
         - 用途：需要稳定指纹时使用
-    
+
     get_random_fingerprint() -> BrowserFingerprint
         - 功能：获取随机指纹，支持多浏览器/操作系统组合
         - 用途：模拟不同客户端，提高反爬规避能力
@@ -28,7 +28,7 @@
         - 关键字段：version (版本号), ua (User-Agent 字符串),
                    sec_ch_ua (Sec-CH-UA 头值), impersonate (curl_cffi 指纹)
         - 注意：curl_cffi 最高仅支持 chrome124 的 TLS 指纹，UA 用新版无碍
-    
+
     _PLATFORMS: list[dict]
         - 操作系统指纹库（与 Chrome 版本随机组合）
         - 关键字段：platform (Sec-CH-UA-Platform 值), ua_os (User-Agent 中的 OS 部分)
@@ -166,7 +166,7 @@ class BrowserFingerprint:
 
     为单次请求生成一致的浏览器指纹（UA + Sec-CH-UA + TLS impersonate），
     确保请求在网络层和应用层看起来像真实浏览器。
-    
+
     属性：
         _chrome: 所选浏览器版本信息（包含 ua、sec_ch_ua、impersonate）
         _platform: 所选操作系统指纹
@@ -174,7 +174,7 @@ class BrowserFingerprint:
 
     def __init__(self, chrome_version: dict | None = None):
         """初始化浏览器指纹
-        
+
         Args:
             chrome_version: 指定浏览器版本字典；None 则随机选择
         """
@@ -189,7 +189,7 @@ class BrowserFingerprint:
     @property
     def impersonate(self) -> str:
         """curl_cffi impersonate 参数（TLS 指纹模拟）
-        
+
         用于 curl_cffi 的 impersonate 参数，实现 JA3 指纹伪装。
         """
         return self._chrome["impersonate"]
@@ -197,14 +197,14 @@ class BrowserFingerprint:
     @property
     def headers(self) -> dict[str, str]:
         """完整的浏览器请求头（含 Sec-CH-UA 系列）
-        
+
         包括：
         - User-Agent: 浏览器标识
         - sec-ch-ua*: 客户端提示 (Client Hints) 系列请求头
         - Accept*: 内容协商头
         - Sec-Fetch-*: 获取元数据头（防 CSRF 检测）
         - Connection: 连接策略
-        
+
         Returns:
             浏览器标准请求头字典
         """
@@ -226,7 +226,7 @@ class BrowserFingerprint:
 
     def rotate(self) -> "BrowserFingerprint":
         """轮换到新的指纹（重新随机选择浏览器和操作系统）
-        
+
         Returns:
             新的 BrowserFingerprint 实例
         """
@@ -235,10 +235,10 @@ class BrowserFingerprint:
 
 def get_default_fingerprint() -> BrowserFingerprint:
     """获取确定的默认浏览器指纹
-    
+
     使用预定义的第一个浏览器版本（Chrome 最新稳定版），
     保证多次调用返回相同指纹。
-    
+
     Returns:
         默认 BrowserFingerprint 实例
     """
@@ -247,9 +247,9 @@ def get_default_fingerprint() -> BrowserFingerprint:
 
 def get_random_fingerprint() -> BrowserFingerprint:
     """获取随机浏览器指纹
-    
+
     随机选择浏览器版本和操作系统，提高反爬规避能力。
-    
+
     Returns:
         随机 BrowserFingerprint 实例
     """
@@ -264,15 +264,15 @@ def get_api_headers(
     """获取 API 请求头（非爬虫场景，使用规范的 UA）
 
     API 场景不需要伪装浏览器，使用标准 SouWen 项目 UA + 可选认证头。
-    
+
     Args:
         email: 礼貌性 From 邮箱（如 OpenAlex 建议添加）
         api_key: API 密钥，将被放入 X-API-Key 头
         bearer_token: Bearer 令牌，将被放入 Authorization 头
-    
+
     Returns:
         API 请求头字典
-        
+
     说明：
         多个认证参数可同时指定，都会被添加到返回头中。
     """

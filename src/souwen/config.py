@@ -11,7 +11,7 @@
                 base_url (str|None), api_key (str|None),
                 headers (dict[str,str]), params (dict)
         - 用途:覆盖全局配置,按源定制化管理
-    
+
     SouWenConfig(Pydantic BaseModel)
         - 功能:全局配置对象,包含所有配置项
         - 主要字段组:
@@ -27,15 +27,15 @@
           * get_proxy() → str|None — 优先池随机选取,回退到单一代理
           * get_http_backend(source) → Literal — 获取指定源的 HTTP 后端
           * resolve_proxy/backend/api_key/base_url/headers/params(source) — 解析源特定配置
-    
+
     get_config() → SouWenConfig
         - 功能:获取全局配置(LRU 缓存单例)
         - 返回:SouWenConfig 实例
         - 优先级:环境变量 > YAML > .env > 默认值
-    
+
     reload_config() → SouWenConfig
         - 功能:清除缓存并重新加载配置(用于 Docker 动态更新)
-    
+
     ensure_config_file() → Path | None
         - 功能:若无配置文件则自动生成默认配置到 ~/.config/souwen/config.yaml
 
@@ -96,13 +96,13 @@ def _validate_proxy_url(url: str | None) -> str | None:
     """校验显式代理 URL 合法性
 
     非字符串 / 空串返回 None;非法则抛 ValueError.
-    
+
     Args:
         url: 代理 URL 字符串
-    
+
     Returns:
         合法的 URL 字符串,或 None(空值)
-    
+
     Raises:
         ValueError: URL 格式错误或协议不被允许
     """
@@ -153,34 +153,34 @@ class SourceChannelConfig(BaseModel):
 
 class SouWenConfig(BaseModel):
     """SouWen 全局配置
-    
+
     包含所有数据源 API Key、代理设置、HTTP 后端选择、频道级覆盖配置.
-    
+
     主要字段组:
-        论文源 API Key: openalex_email, semantic_scholar_api_key, core_api_key, 
+        论文源 API Key: openalex_email, semantic_scholar_api_key, core_api_key,
                         pubmed_api_key, unpaywall_email, ieee_api_key
-        
+
         专利源 API Key: uspto_api_key, epo_consumer_key/secret, cnipa_client_id/secret,
                         lens_api_token, patsnap_api_key
-        
+
         搜索源 API Key: searxng_url, tavily_api_key, exa_api_key, serper_api_key,
                         brave_api_key, serpapi_api_key, firecrawl_api_key,
                         perplexity_api_key, linkup_api_key, scrapingdog_api_key,
                         whoogle_url, websurfx_url
-        
-        通用设置: proxy, proxy_pool (代理池), timeout (超时秒数), 
+
+        通用设置: proxy, proxy_pool (代理池), timeout (超时秒数),
                  max_retries (重试次数), data_dir (数据存储目录)
-        
+
         HTTP 后端: default_http_backend (全局默认), http_backend (按源覆盖字典)
-        
+
         服务配置: api_password (API 访问密码), cors_origins, trusted_proxies,
                  expose_docs (是否暴露 Swagger 文档)
-        
-        WARP 代理: warp_enabled, warp_mode (auto|wireproxy|kernel), 
+
+        WARP 代理: warp_enabled, warp_mode (auto|wireproxy|kernel),
                   warp_socks_port, warp_endpoint
-        
+
         频道配置: sources (dict[源名, SourceChannelConfig])
-    
+
     方法:
         get_proxy() → str|None — 从 proxy_pool 随机取(优先),否则用单一 proxy
         get_http_backend(source_name) → str — 获取指定源的 HTTP 后端
@@ -279,7 +279,7 @@ class SouWenConfig(BaseModel):
 
     def get_proxy(self) -> str | None:
         """返回代理地址:优先从 proxy_pool 随机选取,否则回退到 proxy
-        
+
         Returns:
             合法代理 URL 或 None
         """
@@ -289,13 +289,13 @@ class SouWenConfig(BaseModel):
 
     def get_http_backend(self, source: str) -> Literal["auto", "curl_cffi", "httpx"]:
         """获取指定源的 HTTP 后端选择
-        
+
         按优先级查询:http_backend[源] > default_http_backend.
         无效值记录警告后回退到 auto.
-        
+
         Args:
             source: 数据源名称
-        
+
         Returns:
             HTTP 后端选择:auto (自动选择) | curl_cffi | httpx
         """
@@ -318,13 +318,13 @@ class SouWenConfig(BaseModel):
 
     def resolve_proxy(self, source: str) -> str | None:
         """解析数据源的代理地址
-        
+
         按优先级:频道代理设置 > 全局代理.
         支持 inherit (继承全局) | none (无代理) | warp (WARP) | 显式 URL.
-        
+
         Args:
             source: 数据源名称
-        
+
         Returns:
             代理 URL 或 None
         """
@@ -341,12 +341,12 @@ class SouWenConfig(BaseModel):
 
     def resolve_backend(self, source: str) -> Literal["auto", "curl_cffi", "httpx"]:
         """解析数据源的 HTTP 后端
-        
+
         按优先级:频道后端 > 全局后端.
-        
+
         Args:
             source: 数据源名称
-        
+
         Returns:
             HTTP 后端:auto | curl_cffi | httpx
         """
@@ -355,9 +355,7 @@ class SouWenConfig(BaseModel):
         if sc.http_backend != "auto":
             if sc.http_backend in _VALID:
                 return sc.http_backend  # type: ignore[return-value]
-            logger.warning(
-                "无效的 sources.%s.http_backend=%r,回退到 auto", source, sc.http_backend
-            )
+            logger.warning("无效的 sources.%s.http_backend=%r,回退到 auto", source, sc.http_backend)
         # 回退到旧版 per-source dict → 全局默认
         return self.get_http_backend(source)
 
@@ -391,14 +389,14 @@ class SouWenConfig(BaseModel):
 
 def _load_yaml_config() -> dict:
     """尝试加载 YAML 配置文件,返回扁平化的配置字典
-    
+
     查找顺序:./souwen.yaml → ~/.config/souwen/config.yaml
-    YAML 文件使用嵌套分组结构(paper:、patents: 等),加载后展平为与 
+    YAML 文件使用嵌套分组结构(paper:、patents: 等),加载后展平为与
     SouWenConfig 字段名一致的键值对,供 Pydantic 模型初始化.
-    
+
     Returns:
         字典,键为配置字段名
-    
+
     Warning:
         配置文件解析失败时返回空字典并记录日志,不中断程序
     """
@@ -444,22 +442,22 @@ def _load_yaml_config() -> dict:
 @lru_cache(maxsize=1)
 def get_config() -> SouWenConfig:
     """获取全局配置(LRU 缓存单例)
-    
+
     配置加载优先级:环境变量 > YAML > .env > 默认值
-    
+
     环境变量规则:
         - 标准字段:SOUWEN_<FIELD_NAME>(大小写不敏感)
         - 布尔字段:1/true/yes/on → True;0/false/no/off → False
         - 整数字段:自动转换
         - 列表字段:JSON 数组格式 "[...]" 或逗号分隔
         - WARP 字段:支持不带 SOUWEN_ 前缀(Docker entrypoint 兼容)
-    
+
     Returns:
         SouWenConfig 实例(缓存的单例)
-    
+
     Raises:
         ValueError: 环境变量格式无效或配置值非法
-    
+
     Note:
         若需要重新加载配置,调用 reload_config().
     """
@@ -527,11 +525,11 @@ def get_config() -> SouWenConfig:
 
 def reload_config() -> SouWenConfig:
     """清除缓存并返回重新加载的配置
-    
+
     重新读取 .env 文件但不覆盖已有的环境变量(override=False),
     这样 `docker run -e SOUWEN_API_PASSWORD=xxx` 不会被 .env 文件冲掉.
     用于 Docker 容器初始化或配置热更新场景.
-    
+
     Returns:
         新加载的 SouWenConfig 实例
     """
@@ -632,13 +630,13 @@ sources: {}
 
 def ensure_config_file() -> Path | None:
     """若不存在任何配置文件则自动生成一份到 ~/.config/souwen/config.yaml
-    
+
     检查顺序:./souwen.yaml → ~/.config/souwen/config.yaml
     若都不存在,则创建 ~/.config/souwen/config.yaml(包含默认模板).
-    
+
     Returns:
         配置文件路径(若成功生成)或 None(文件系统只读或其他错误)
-    
+
     Note:
         用于初次设置或 Docker 容器首次启动时生成默认配置模板.
     """

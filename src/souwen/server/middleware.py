@@ -58,10 +58,10 @@ _SKIP_LOG_PATHS = frozenset({"/health", "/panel"})
 
 def get_request_id() -> str:
     """获取当前请求的关联 ID — 支持跨协程调用
-    
+
     返回存储在 contextvars 中的 request_id。可在任何异步上下文（如背景任务、
     异步依赖、日志等）中调用，无需显式传递 request_id 参数。
-    
+
     Returns:
         request_id 字符串，或默认值 "-" 当 context 未设置
     """
@@ -70,17 +70,17 @@ def get_request_id() -> str:
 
 class RequestIDMiddleware:
     """Raw ASGI 中间件 — 请求 ID 注入 + 响应计时 + 访问日志
-    
+
     选择 Raw ASGI 而非 BaseHTTPMiddleware 的理由：
         - 异常发生时仍能正确写入响应头和日志（BaseHTTPMiddleware 可能丢失）
         - 兼容 contextvars 跨协程传播
         - 性能更好（直接操作 ASGI scope、receive、send）
-    
+
     Parameters
     ----------
     app : ASGI app
         被包装的上游应用
-    
+
     流程：
     1. 解析或生成 request_id
         - 从请求头 X-Request-ID 提取，若格式合法则使用
@@ -149,9 +149,9 @@ class RequestIDMiddleware:
 
 class RequestIDFilter(logging.Filter):
     """日志过滤器 — 自动将 request_id 注入所有日志记录
-    
+
     允许日志格式中包含 %(request_id)s 占位符，自动替换为当前请求的 ID。
-    
+
     使用示例：
         handler = logging.StreamHandler()
         handler.addFilter(RequestIDFilter())

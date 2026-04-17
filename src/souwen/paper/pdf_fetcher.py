@@ -142,7 +142,7 @@ async def _try_direct_link(
     client: SouWenHttpClient,
 ) -> Path | None:
     """策略 1: 使用论文自带的 PDF 链接。
-    
+
     优先尝试使用从数据源直接获取的 PDF 链接（通常来自出版商或 OA 仓库）。
     """
     if not paper.pdf_url:
@@ -157,7 +157,7 @@ async def _try_unpaywall(
     client: SouWenHttpClient,
 ) -> Path | None:
     """策略 2: 通过 Unpaywall 查找 OA PDF。
-    
+
     使用论文 DOI 查询 Unpaywall 数据库，查找合法的开放获取 PDF 版本。
     """
     if not paper.doi:
@@ -189,7 +189,7 @@ async def _try_core(
     client: SouWenHttpClient,
 ) -> Path | None:
     """策略 3: 通过 CORE 搜索全文 PDF。
-    
+
     使用论文标题搜索 CORE 文献库，查找相关论文的全文 PDF（前 3 个结果）。
     """
     if not paper.title:
@@ -222,7 +222,7 @@ async def _try_arxiv(
     client: SouWenHttpClient,
 ) -> Path | None:
     """策略 4: 在 arXiv 搜索同标题预印本。
-    
+
     使用论文标题在 arXiv 中精确搜索（title 字段），查找相同标题的预印本版本
     （arXiv 论文均可获取 PDF）。
     """

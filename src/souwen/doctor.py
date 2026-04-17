@@ -16,7 +16,7 @@
           * 首先检查频道配置是否禁用
           * 然后检查特定源的特殊条件（Key 配置、curl_cffi 依赖等）
           * 最后收集频道配置（代理、HTTP 后端、自定义 URL）
-    
+
     format_report(results: list[dict]) -> str
         - 功能：将 check_all() 结果格式化为可读报告（Markdown 风格）
         - 返回：包含摘要、Tier 分类、每个源状态的格式化字符串
@@ -64,7 +64,7 @@ def check_all() -> list[dict]:
     """检查所有数据源的可用性
 
     遍历所有已注册数据源，检查配置、依赖和服务状态。
-    
+
     Returns:
         每个数据源一条字典，包含：
         - name: 源名称
@@ -178,17 +178,17 @@ def format_report(results: list[dict]) -> str:
     """将 check_all() 结果格式化为可读报告
 
     按 Tier 分组展示，每组显示可用数量和详细列表。
-    
+
     Args:
         results: check_all() 的返回值
-    
+
     Returns:
         格式化的报告字符串（Markdown 风格，包含 Emoji 和缩进）
-    
+
     输出示例：
         🩺 SouWen Doctor — 数据源健康检查
            OK/总数 个数据源可用
-        
+
         ── Tier 0 — 免配置 / 公开入口  (OK数/总数) ──
           ✅ openalex           [paper]    可免配置使用；设置 openalex_email...
           ...

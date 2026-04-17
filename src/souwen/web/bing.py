@@ -68,7 +68,7 @@ class BingClient(BaseScraper):
         Args:
             query: 搜索关键词
             max_results: 最大返回结果数
-            
+
         Returns:
             WebSearchResponse 包含搜索结果
         """

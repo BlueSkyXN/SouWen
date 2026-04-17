@@ -105,7 +105,7 @@ class ArxivClient:
     @staticmethod
     def _text(element: ET.Element | None) -> str:
         """安全提取 XML 元素文本。
-        
+
         提取元素文本内容，自动处理 None 和空值情况。
         """
         return (element.text or "").strip() if element is not None else ""

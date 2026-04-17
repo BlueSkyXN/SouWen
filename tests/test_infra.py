@@ -526,13 +526,12 @@ class TestOAuthTokenConcurrency:
             client_secret="sec",
         )
         try:
+
             async def fake_post(*args, **kwargs):
                 await asyncio.sleep(0.01)
                 resp = MagicMock()
                 resp.status_code = 200
-                resp.json = MagicMock(
-                    return_value={"access_token": "tok_xyz", "expires_in": 1200}
-                )
+                resp.json = MagicMock(return_value={"access_token": "tok_xyz", "expires_in": 1200})
                 return resp
 
             client._client.post = AsyncMock(side_effect=fake_post)

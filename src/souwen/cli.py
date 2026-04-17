@@ -10,27 +10,27 @@
         - 模式：souwen search {paper|patent|web|all} <query> [options]
         - 功能：搜索单一或多个数据源类型
         - 选项：--sources (指定源), --timeout (超时), --format (输出格式)
-    
+
     sources
         - 功能：列出所有支持的数据源及其分类 (Tier 0/1/2)
         - 子命令：
           * list：显示所有源的表格
           * show <name>：显示单个源的详细信息
-    
+
     config
         - 功能：显示或验证配置
         - 子命令：
           * show：显示当前配置
           * generate：生成配置文件模板到 ~/.config/souwen/
-    
+
     serve
         - 功能：启动 FastAPI 服务器（用于 API 调用）
         - 选项：--host、--port、--log-level
-    
+
     doctor
         - 功能：数据源健康检查（检查 API Key、网络连接等）
         - 返回：按 Tier 分组的健康状态报告
-    
+
     auth
         - 功能：管理 OAuth 令牌和会话
         - 子命令：
@@ -83,10 +83,10 @@ console = Console()
 
 def _version_callback(value: bool) -> None:
     """版本回调函数
-    
+
     Args:
         value: 布尔值（typer 自动传入 --version 标志的状态）
-    
+
     Raises:
         typer.Exit: 版本输出后退出程序
     """
@@ -105,15 +105,13 @@ def main(
         is_eager=True,
         help="显示版本并退出",
     ),
-    verbose: int = typer.Option(
-        0, "--verbose", "-v", count=True, help="-v info / -vv debug"
-    ),
+    verbose: int = typer.Option(0, "--verbose", "-v", count=True, help="-v info / -vv debug"),
     quiet: bool = typer.Option(False, "--quiet", "-q", help="只输出警告和错误"),
 ) -> None:
     """SouWen 全局选项
-    
+
     配置日志级别和其他全局设置。此回调在所有子命令前执行。
-    
+
     Args:
         version: --version 标志（触发版本输出）
         verbose: -v 计数（决定日志级别：0 = WARNING, 1+ = INFO, 2+ = DEBUG）
@@ -138,13 +136,13 @@ def main(
 
 def _run_async(coro):
     """运行异步任务，优雅处理 KeyboardInterrupt 和 CancelledError
-    
+
     Args:
         coro: 异步协程对象
-    
+
     Returns:
         协程的返回值
-    
+
     Raises:
         typer.Exit: 键盘中断时退出码 130，取消时退出码 1
     """
@@ -156,6 +154,7 @@ def _run_async(coro):
     except asyncio.CancelledError:
         console.print("\n[yellow]⚠ 任务被取消[/yellow]")
         raise typer.Exit(130)
+
 
 # ---------------------------------------------------------------------------
 # search 子命令组
@@ -170,9 +169,7 @@ def search_paper(
     sources: str = typer.Option("openalex,arxiv", "--sources", "-s", help="数据源，逗号分隔"),
     limit: int = typer.Option(5, "--limit", "-n", help="每个源返回数量"),
     json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),
-    timeout: int | None = typer.Option(
-        None, "--timeout", "-t", help="总超时（秒），默认不限制"
-    ),
+    timeout: int | None = typer.Option(None, "--timeout", "-t", help="总超时（秒），默认不限制"),
 ) -> None:
     """搜索学术论文"""
     from souwen.search import search_papers
@@ -236,9 +233,7 @@ def search_patent(
     sources: str = typer.Option("google_patents", "--sources", "-s", help="数据源，逗号分隔"),
     limit: int = typer.Option(5, "--limit", "-n", help="每个源返回数量"),
     json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),
-    timeout: int | None = typer.Option(
-        None, "--timeout", "-t", help="总超时（秒），默认不限制"
-    ),
+    timeout: int | None = typer.Option(None, "--timeout", "-t", help="总超时（秒），默认不限制"),
 ) -> None:
     """搜索专利"""
     from souwen.search import search_patents
@@ -304,9 +299,7 @@ def search_web_cmd(
     engines: str = typer.Option("duckduckgo,bing", "--engines", "-e", help="搜索引擎，逗号分隔"),
     limit: int = typer.Option(10, "--limit", "-n", help="每引擎最大结果数"),
     json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),
-    timeout: int | None = typer.Option(
-        None, "--timeout", "-t", help="总超时（秒），默认不限制"
-    ),
+    timeout: int | None = typer.Option(None, "--timeout", "-t", help="总超时（秒），默认不限制"),
 ) -> None:
     """搜索网页"""
     from souwen.web.search import web_search
@@ -714,7 +707,9 @@ def serve(
     console.print(
         f"  Trusted proxies: {', '.join(cfg.trusted_proxies) if cfg.trusted_proxies else '(未配置)'}"
     )
-    console.print(f"  CORS origins:    {', '.join(cfg.cors_origins) if cfg.cors_origins else '(未配置)'}")
+    console.print(
+        f"  CORS origins:    {', '.join(cfg.cors_origins) if cfg.cors_origins else '(未配置)'}"
+    )
     console.print(f"  监听:            http://{host}:{port}")
     console.print("[bold]━━━━━━━━━━━━━━━━━━━━━━[/bold]\n")
 

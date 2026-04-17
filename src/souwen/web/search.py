@@ -88,17 +88,17 @@ async def _search_engine(
     **kwargs,
 ) -> list[WebSearchResult]:
     """搜索单个引擎（异常安全 + 并发度限制）
-    
+
     执行单个搜索引擎的查询任务，在信号量保护下运行，限制并发度。
     所有异常（超时、网络错误、解析错误等）都被捕获，
     返回空列表以不中断其他引擎的搜索。
-    
+
     Args:
         engine_cls: 引擎客户端类（如 DuckDuckGoClient）
         query: 搜索关键词
         max_results: 最大返回结果数
         **kwargs: 传递给引擎构造函数的参数
-        
+
     Returns:
         list[WebSearchResult]: 搜索结果列表；异常时返回 []
     """
@@ -125,10 +125,10 @@ async def _search_engine(
 
 def _get_engine_timeout_seconds() -> float:
     """单个 Web 引擎搜索超时（秒数）
-    
+
     从配置读取超时时间，夹在 [1.0, 15.0] 之间确保合理范围。
     防止过短的超时导致引擎查询失败，也防止过长的超时拖累整体性能。
-    
+
     Returns:
         float: 超时秒数，范围 [1.0, 15.0]
     """
@@ -139,13 +139,13 @@ def _get_engine_timeout_seconds() -> float:
 
 def _deduplicate(results: Sequence[WebSearchResult]) -> list[WebSearchResult]:
     """URL 去重，保留首次出现的结果
-    
+
     规范化 URL（小写、去尾部斜杠），按规范化 URL 去重。
     保留首次出现的结果，确保结果列表顺序不变。
-    
+
     Args:
         results: 待去重的搜索结果序列
-        
+
     Returns:
         list[WebSearchResult]: 去重后的结果列表
     """
