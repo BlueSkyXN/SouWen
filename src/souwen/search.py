@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 from typing import Any
 
 from souwen.config import get_config
@@ -77,12 +78,35 @@ def _get_source_timeout_seconds() -> float:
 
 
 # 全局并发度限制，防止同时打满 Socket 连接
-_CONCURRENCY_SEMAPHORE = asyncio.Semaphore(10)
+_DEFAULT_MAX_CONCURRENCY = 10
+
+
+def _get_max_concurrency() -> int:
+    """读取并发上限（允许通过 SOUWEN_MAX_CONCURRENCY 覆盖）"""
+    raw = os.environ.get("SOUWEN_MAX_CONCURRENCY")
+    if raw:
+        try:
+            val = int(raw)
+            if val > 0:
+                return val
+        except ValueError:
+            pass
+    return _DEFAULT_MAX_CONCURRENCY
+
+
+def _get_semaphore() -> asyncio.Semaphore:
+    """返回与当前 running event loop 绑定的 Semaphore（per-loop 懒加载）"""
+    loop = asyncio.get_running_loop()
+    sem = getattr(loop, "_souwen_sem", None)
+    if sem is None:
+        sem = asyncio.Semaphore(_get_max_concurrency())
+        loop._souwen_sem = sem  # type: ignore[attr-defined]
+    return sem
 
 
 async def _search_source_limited(name: str, coro: Any) -> SearchResponse | None:
     """带并发度限制的搜索执行"""
-    async with _CONCURRENCY_SEMAPHORE:
+    async with _get_semaphore():
         timeout = _get_source_timeout_seconds()
         try:
             return await asyncio.wait_for(_search_source(name, coro), timeout=timeout)

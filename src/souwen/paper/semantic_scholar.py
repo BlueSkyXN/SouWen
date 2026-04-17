@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from souwen._parsing import safe_parse_date
 from souwen.config import get_config
 from souwen.exceptions import NotFoundError, ParseError, RateLimitError
 from souwen.http_client import SouWenHttpClient
@@ -128,7 +129,7 @@ class SemanticScholarClient:
                 abstract=data.get("abstract", ""),
                 doi=doi,
                 year=data.get("year"),
-                publication_date=data.get("publicationDate"),
+                publication_date=safe_parse_date(data.get("publicationDate")),
                 source=SourceType.SEMANTIC_SCHOLAR,
                 source_url=f"https://www.semanticscholar.org/paper/{data.get('paperId', '')}",
                 pdf_url=pdf_url,

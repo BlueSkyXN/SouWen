@@ -26,7 +26,7 @@ from souwen.fingerprint import get_random_fingerprint
 
 logger = logging.getLogger("souwen.scraper")
 
-# 尝试导入 curl_cffi（TLS 指纹模拟）
+# 尝试导入 curl_cffi（TLS 指纹模拟）— 可选依赖，缺失时自动回退 httpx
 _HAS_CURL_CFFI = False
 try:
     from curl_cffi.requests import AsyncSession as CurlAsyncSession
@@ -34,7 +34,10 @@ try:
     _HAS_CURL_CFFI = True
     logger.debug("curl_cffi 可用，启用 TLS 指纹模拟")
 except ImportError:
-    logger.debug("curl_cffi 不可用，回退到 httpx（可能被 JA3 检测）")
+    logger.info(
+        "curl_cffi 未安装，TLS 指纹模拟已禁用，将使用 httpx 回退"
+        "（如需启用，请安装 `souwen[tls]` 或 `souwen[scraper]`）"
+    )
 
 
 class BaseScraper:

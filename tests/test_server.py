@@ -8,14 +8,7 @@ except ImportError:
     pytest.skip("fastapi not installed", allow_module_level=True)
 
 
-@pytest.fixture(autouse=True)
-def _clear_config_cache():
-    """每个测试前清除配置缓存，避免状态泄漏。"""
-    from souwen.config import get_config
-
-    get_config.cache_clear()
-    yield
-    get_config.cache_clear()
+# `_clear_config_cache` 已迁移到 tests/conftest.py 的 autouse fixture。
 
 
 @pytest.fixture()
@@ -61,8 +54,17 @@ class TestHealth:
 
 
 class TestAdminAuth:
-    def test_admin_config_no_password_set_allows_access(self, client):
-        """api_password 未设置时，管理端点允许免密码访问。"""
+    def test_admin_locked_without_password_by_default(self, client, monkeypatch):
+        """api_password 未设置且未设 SOUWEN_ADMIN_OPEN 时，管理端点默认锁定。"""
+        monkeypatch.delenv("SOUWEN_ADMIN_OPEN", raising=False)
+        resp = client.get("/api/v1/admin/config")
+        assert resp.status_code == 401
+        detail = resp.json().get("detail", "")
+        assert "api_password" in detail or "SOUWEN_ADMIN_OPEN" in detail
+
+    def test_admin_open_override_allows_access(self, client, monkeypatch):
+        """未设密码但 SOUWEN_ADMIN_OPEN=1 时放行。"""
+        monkeypatch.setenv("SOUWEN_ADMIN_OPEN", "1")
         resp = client.get("/api/v1/admin/config")
         assert resp.status_code == 200
 
@@ -107,6 +109,23 @@ class TestAdminAuth:
         assert "total" in data
         assert "ok" in data
         assert "sources" in data
+
+    def test_admin_ping_requires_auth(self, authed_client):
+        """/admin/ping 未授权拒绝。"""
+        resp = authed_client.get("/api/v1/admin/ping")
+        assert resp.status_code == 401
+
+    def test_admin_ping_authed_minimal_response(self, authed_client):
+        """/admin/ping 成功响应不泄漏 api_password_set 等枚举字段。"""
+        resp = authed_client.get(
+            "/api/v1/admin/ping",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data == {"status": "ok"}
+        assert "api_password_set" not in data
+        assert "password_set" not in data
 
 
 # ---------------------------------------------------------------------------
@@ -158,6 +177,106 @@ class TestRateLimiter:
         limiter = InMemoryRateLimiter(max_requests=1, window_seconds=60)
         limiter.check("10.0.0.1")
         limiter.check("10.0.0.2")  # 不同 IP 不受影响
+
+    def test_rate_limiter_rejects_invalid_params(self):
+        from souwen.server.limiter import InMemoryRateLimiter
+
+        with pytest.raises(ValueError):
+            InMemoryRateLimiter(max_requests=0, window_seconds=60)
+        with pytest.raises(ValueError):
+            InMemoryRateLimiter(max_requests=-1, window_seconds=60)
+        with pytest.raises(ValueError):
+            InMemoryRateLimiter(max_requests=10, window_seconds=0)
+        with pytest.raises(ValueError):
+            InMemoryRateLimiter(max_requests=10, window_seconds=-5)
+
+    def test_rate_limiter_deque_is_bounded(self):
+        from collections import deque
+
+        from souwen.server.limiter import InMemoryRateLimiter
+
+        limiter = InMemoryRateLimiter(max_requests=3, window_seconds=60)
+        _ = limiter._requests["1.2.3.4"]
+        assert isinstance(limiter._requests["1.2.3.4"], deque)
+        assert limiter._requests["1.2.3.4"].maxlen == 6
+
+
+# ---------------------------------------------------------------------------
+# get_client_ip — XFF 处理
+# ---------------------------------------------------------------------------
+
+
+def _make_request(client_host: str, headers: dict | None = None):
+    from starlette.requests import Request
+
+    raw_headers = []
+    if headers:
+        for k, v in headers.items():
+            raw_headers.append((k.lower().encode(), v.encode()))
+    scope = {
+        "type": "http",
+        "method": "GET",
+        "path": "/",
+        "headers": raw_headers,
+        "client": (client_host, 0),
+    }
+    return Request(scope)
+
+
+class TestClientIPResolution:
+    def test_ignores_xff_without_trusted_proxies(self, monkeypatch):
+        from souwen.config import get_config
+        from souwen.server.limiter import get_client_ip
+
+        monkeypatch.delenv("SOUWEN_TRUSTED_PROXIES", raising=False)
+        get_config.cache_clear()
+        req = _make_request("10.0.0.5", {"X-Forwarded-For": "1.2.3.4"})
+        assert get_client_ip(req) == "10.0.0.5"
+
+    def test_honors_xff_when_client_is_trusted_proxy(self, monkeypatch):
+        from souwen.config import get_config
+        from souwen.server.limiter import get_client_ip
+
+        monkeypatch.setenv("SOUWEN_TRUSTED_PROXIES", "10.0.0.0/8")
+        get_config.cache_clear()
+        req = _make_request(
+            "10.0.0.5",
+            {"X-Forwarded-For": "203.0.113.7, 10.0.0.9"},
+        )
+        assert get_client_ip(req) == "203.0.113.7"
+
+    def test_xff_ignored_when_direct_client_not_trusted(self, monkeypatch):
+        from souwen.config import get_config
+        from souwen.server.limiter import get_client_ip
+
+        monkeypatch.setenv("SOUWEN_TRUSTED_PROXIES", "10.0.0.0/8")
+        get_config.cache_clear()
+        req = _make_request("8.8.8.8", {"X-Forwarded-For": "1.2.3.4"})
+        assert get_client_ip(req) == "8.8.8.8"
+
+    def test_malformed_xff_does_not_crash(self, monkeypatch):
+        from souwen.config import get_config
+        from souwen.server.limiter import get_client_ip
+
+        monkeypatch.setenv("SOUWEN_TRUSTED_PROXIES", "10.0.0.0/8")
+        get_config.cache_clear()
+        req = _make_request(
+            "10.0.0.5",
+            {"X-Forwarded-For": "not-an-ip, still-bad, ; DROP TABLE"},
+        )
+        assert get_client_ip(req) == "10.0.0.5"
+
+    def test_malformed_xff_single_value(self, monkeypatch):
+        from souwen.config import get_config
+        from souwen.server.limiter import get_client_ip
+
+        monkeypatch.setenv("SOUWEN_TRUSTED_PROXIES", "10.0.0.0/8")
+        get_config.cache_clear()
+        req = _make_request(
+            "10.0.0.5",
+            {"X-Forwarded-For": "<script>alert(1)</script>"},
+        )
+        assert get_client_ip(req) == "10.0.0.5"
 
 
 # ---------------------------------------------------------------------------

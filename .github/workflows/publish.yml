@@ -35,10 +35,24 @@ jobs:
           test -z "$(git -C .. status --short --untracked-files=all -- src/souwen/server/panel.html)" || (echo "❌ src/souwen/server/panel.html 未提交最新构建产物" >&2 && git -C .. status --short --untracked-files=all -- src/souwen/server/panel.html >&2 && exit 1)
 
       - name: 安装构建工具
-        run: pip install build
+        run: pip install build twine
 
       - name: 构建包
         run: python -m build
+
+      - name: twine check dist/*
+        run: twine check dist/*
+
+      - name: 校验 tag 与 pyproject.toml 版本一致
+        if: github.event_name == 'release'
+        run: |
+          TAG="${GITHUB_REF#refs/tags/v}"
+          VER=$(grep '^version = ' pyproject.toml | cut -d'"' -f2)
+          echo "tag=$TAG pyproject=$VER"
+          if [ "$TAG" != "$VER" ]; then
+            echo "❌ tag ($TAG) 与 pyproject.toml version ($VER) 不一致" >&2
+            exit 1
+          fi
 
       - name: 发布到 PyPI
         uses: pypa/gh-action-pypi-publish@release/v1

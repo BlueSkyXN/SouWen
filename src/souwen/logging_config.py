@@ -16,12 +16,77 @@ from __future__ import annotations
 import json as _json
 import logging
 import os
+import re
 import sys
 from datetime import datetime, timezone
 
 from souwen.server.middleware import RequestIDFilter
 
 _CONFIGURED = False
+
+
+# ==============================================================================
+# 敏感数据脱敏
+# ==============================================================================
+# 避免将 token / Authorization / API key 等敏感信息写入日志文件
+
+_SENSITIVE_KEY = re.compile(
+    r"(authorization|auth[_-]?token|api[_-]?key|access[_-]?token|"
+    r"refresh[_-]?token|secret|password|passwd|pwd|x[_-]?api[_-]?key|"
+    r"souwen[_-]?token|token|bearer)",
+    re.IGNORECASE,
+)
+
+# 1. Authorization 头 / "Bearer xxx" 模式
+_RE_BEARER = re.compile(r"(?i)\bbearer\s+([A-Za-z0-9\-_.=+/]{6,})")
+
+# 2. key=value / key: value / "key": "value" 中敏感键对应的值
+_RE_KV = re.compile(
+    r"(?i)(" + _SENSITIVE_KEY.pattern + r")\s*[:=]\s*[\"']?([^\s,\"'}\]]+)"
+)
+
+
+def _mask_token(value: str) -> str:
+    """将 token 字符串替换为固定占位符 ***"""
+    if not value:
+        return value
+    return "***"
+
+
+def _scrub(text: str) -> str:
+    """脱敏日志文本：Authorization/Bearer、常见敏感键的值替换为 ***"""
+    if not text or not isinstance(text, str):
+        return text
+    text = _RE_BEARER.sub(lambda m: m.group(0).replace(m.group(1), _mask_token(m.group(1))), text)
+    text = _RE_KV.sub(lambda m: f"{m.group(1)}:***", text)
+    return text
+
+
+class SensitiveDataFilter(logging.Filter):
+    """logging.Filter：对 record.msg 与 args 做敏感数据脱敏。
+
+    覆盖面：
+    - Authorization: Bearer xxx
+    - api_key=xxx / token: xxx / "password": "xxx" 等常见形态
+    """
+
+    def filter(self, record: logging.LogRecord) -> bool:
+        try:
+            if isinstance(record.msg, str):
+                record.msg = _scrub(record.msg)
+            if record.args:
+                if isinstance(record.args, dict):
+                    record.args = {
+                        k: _scrub(v) if isinstance(v, str) else v for k, v in record.args.items()
+                    }
+                elif isinstance(record.args, tuple):
+                    record.args = tuple(
+                        _scrub(a) if isinstance(a, str) else a for a in record.args
+                    )
+        except Exception:
+            # 日志过滤器不可抛错，失败时放行原记录
+            pass
+        return True
 
 
 class _JsonFormatter(logging.Formatter):
@@ -65,6 +130,7 @@ def setup_logging(
 
     handler = logging.StreamHandler(sys.stderr)
     handler.addFilter(RequestIDFilter())
+    handler.addFilter(SensitiveDataFilter())
 
     if json_format:
         handler.setFormatter(_JsonFormatter())

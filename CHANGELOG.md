@@ -1,5 +1,48 @@
 # Changelog
 
+## v0.6.0
+
+全面评审后批量修复 P0（阻塞）与 P1（重要）问题。详见 session plan.md。
+
+### 破坏性变更
+- **Admin 端点默认锁定**：未设置 `api_password` 且未显式 `SOUWEN_ADMIN_OPEN=1` 时，`/api/v1/admin/*` 返回 401（原先无密码即开放）。
+- **`curl-cffi` 移出核心依赖**：改为可选 extras（`tls`、`scraper`）。依赖 TLS impersonation 的用户需 `pip install souwen[tls]`。
+- **`/docs` 与 `/redoc` 默认关闭**：通过 `SOUWEN_EXPOSE_DOCS=1` 或 `expose_docs: true` 启用。
+- **`retry.py` 签名变更**：`make_retry()` 接受 `retry_on` 白名单，默认异常集合外移为 `DEFAULT_*_EXCEPTIONS`。
+
+### 并发与资源安全（P0）
+- `search.py`：全局 `Semaphore(10)` 改为 per-event-loop 懒加载，修复跨事件循环共享导致的死锁/RuntimeError；新增 `SOUWEN_MAX_CONCURRENCY`。
+- `http_client.py`：`OAuthClient._ensure_token` 增加 `asyncio.Lock` 防止并发刷新雷鸣群；`httpx.AsyncClient` 显式 `Limits(max_connections=100, max_keepalive=20, keepalive_expiry=30)`。
+- `session_cache.py`：`_get_db` 双重检查锁防止并发建表；新增 `aclose()`；`get_session_cache()` 加 `threading.Lock`；应用 lifespan 收尾调用 `aclose()`。
+- `patent/google_patents.py`：`_BrowserPool.shutdown()` 幂等 + `atexit` 注册，防止 Chromium 僵尸进程。
+
+### 数据源健壮性（P0/P1）
+- 新增 `_parsing.safe_parse_date`：统一容错 `None` / 空串 / `YYYY` / `YYYY-MM` / `YYYY-MM-DD` / ISO-T。`openalex`、`semantic_scholar`、`patentsview`、`pqai` 均切换到共享实现。
+- Semantic Scholar：处理 429 `Retry-After`、401/403/503。
+- 新增测试覆盖 429 / 401 / 503 / 缺失或畸形日期路径。
+
+### 服务端安全（P0/P1）
+- `server/limiter.py`：重写，参数校验、`deque(maxlen)` 有界、`get_client_ip(request, trusted_proxies)` 支持可信代理 XFF 解析。
+- `server/app.py`：无密码时记录 WARN；`_panel_cache` 加锁；Warp reconcile 改为 `await`。
+- `server/routes.py`：`/admin/ping` 输出最小化。
+- `config.py`：新增 `trusted_proxies`、`expose_docs`；`SOUWEN_*` 支持逗号分隔 list。
+
+### 日志与配置加固（P1）
+- `logging_config.py`：`SensitiveDataFilter` 脱敏 `Bearer`/`token`/`api_key`/`password`。
+- `config.py`：`_validate_proxy_url` 协议白名单（http/https/socks*），禁止 `file://`、`javascript:` 等；`resolve_proxy` 出口再校验。
+- 面板 `authStore`：增加 `issuedAt` 和 30 分钟 TTL；`api.ts` 新增 `assertBaseUrlAllowed` + `VITE_ALLOWED_API_HOSTS` 白名单。
+
+### 打包与 CI（P1）
+- `pyproject.toml`：`curl-cffi` → `tls`/`scraper` extras；`dev` extras 添加 `pytest-cov`。
+- `.github/workflows/ci.yml`：`pytest --cov` + codecov 上报；移除 `continue-on-error`。
+- `.github/workflows/publish.yml`：`twine check` + tag 与版本号一致性校验。
+- `tests/conftest.py`：autouse `get_config.cache_clear()` 夹具。
+- `scraper/base.py`：Playwright `ImportError` 改为日志降级，不再硬崩溃。
+
+### 测试
+- 新增并发测试（`test_search.py`、`test_infra.py`、`test_session_cache.py`），新增 `test_logging.py`（11）、`test_config.py::TestProxyValidation`（7）、`test_semantic_scholar.py`（8）、`test_server.py` 服务端鉴权/限流/白名单（11）。
+- 总计 **280 passed**（基线 215）。
+
 ## v0.5.0
 
 ### 新增

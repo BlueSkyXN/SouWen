@@ -7,10 +7,10 @@ USPTO 专利数据，免费无需 API Key。
 from __future__ import annotations
 
 import logging
-from datetime import date
 from typing import Any
 
 import httpx
+from souwen._parsing import safe_parse_date
 from souwen.exceptions import NotFoundError, ParseError
 from souwen.http_client import SouWenHttpClient
 from souwen.models import Applicant, PatentResult, SearchResponse, SourceType
@@ -228,8 +228,8 @@ class PatentsViewClient:
             title=raw.get("patent_title", ""),
             patent_id=patent_id,
             application_number=raw.get("application_number"),
-            publication_date=_safe_date(raw.get("patent_date")),
-            filing_date=_safe_date(raw.get("application_filing_date")),
+            publication_date=safe_parse_date(raw.get("patent_date")),
+            filing_date=safe_parse_date(raw.get("application_filing_date")),
             applicants=applicants,
             inventors=inventors,
             abstract=raw.get("patent_abstract"),
@@ -238,13 +238,3 @@ class PatentsViewClient:
             source_url=f"https://search.patentsview.org/patent/{patent_id}",
             raw=raw,
         )
-
-
-def _safe_date(value: str | None) -> date | None:
-    """安全解析日期字符串 (YYYY-MM-DD)"""
-    if not value:
-        return None
-    try:
-        return date.fromisoformat(value)
-    except (ValueError, TypeError):
-        return None

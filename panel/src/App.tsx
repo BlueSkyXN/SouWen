@@ -39,6 +39,11 @@ export default function App() {
 
   useEffect(() => {
     loadFromStorage()
+    // 若已登录但 token 已过期，自动登出，避免使用陈旧凭证
+    const state = useAuthStore.getState()
+    if (state.isAuthenticated && state.isExpired()) {
+      state.logout()
+    }
     setReady(true)
   }, [loadFromStorage])
 

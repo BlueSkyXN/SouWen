@@ -1,5 +1,7 @@
 """SouWen 配置模块测试"""
 
+import pytest
+
 from souwen.config import SouWenConfig, get_config, reload_config
 
 
@@ -248,3 +250,61 @@ class TestSourceChannelConfig:
         assert cfg.resolve_params("duckduckgo") == {"max_results": 20}
         assert cfg.resolve_headers("bing") == {}
         assert cfg.resolve_params("bing") == {}
+
+
+# ==============================================================================
+# P1-3 代理 URL 校验
+# ==============================================================================
+class TestProxyValidation:
+    """验证 _validate_proxy_url 与 SouWenConfig 字段校验"""
+
+    def test_accept_http(self):
+        from souwen.config import _validate_proxy_url
+
+        assert _validate_proxy_url("http://127.0.0.1:8080") == "http://127.0.0.1:8080"
+
+    def test_accept_socks5(self):
+        from souwen.config import _validate_proxy_url
+
+        assert _validate_proxy_url("socks5://user:pass@host:1080") == "socks5://user:pass@host:1080"
+
+    def test_empty_returns_none(self):
+        from souwen.config import _validate_proxy_url
+
+        assert _validate_proxy_url(None) is None
+        assert _validate_proxy_url("") is None
+        assert _validate_proxy_url("   ") is None
+
+    def test_reject_file_scheme(self):
+        from souwen.config import _validate_proxy_url
+
+        with pytest.raises(ValueError):
+            _validate_proxy_url("file:///etc/passwd")
+
+    def test_reject_missing_host(self):
+        from souwen.config import _validate_proxy_url
+
+        with pytest.raises(ValueError):
+            _validate_proxy_url("http://")
+
+    def test_souwen_config_rejects_bad_proxy(self):
+        from pydantic import ValidationError
+
+        from souwen.config import SouWenConfig
+
+        with pytest.raises((ValueError, ValidationError)):
+            SouWenConfig(proxy="ftp://bad.example.com")
+
+    def test_souwen_config_accepts_good_proxy(self):
+        from souwen.config import SouWenConfig
+
+        cfg = SouWenConfig(proxy="http://proxy.local:3128")
+        assert cfg.proxy == "http://proxy.local:3128"
+
+    def test_proxy_pool_filters_invalid(self):
+        from pydantic import ValidationError
+
+        from souwen.config import SouWenConfig
+
+        with pytest.raises((ValueError, ValidationError)):
+            SouWenConfig(proxy_pool=["http://ok:8080", "javascript:alert(1)"])

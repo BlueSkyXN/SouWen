@@ -326,3 +326,55 @@ async def test_search_by_inventor(httpx_mock: HTTPXMock):
         resp = await c.search_by_inventor("Smith")
 
     assert len(resp.results) == 1
+
+
+# ---------------------------------------------------------------------------
+# HTTP 错误路径（P0-5）
+# ---------------------------------------------------------------------------
+
+
+async def test_429_raises_rate_limit(httpx_mock: HTTPXMock):
+    """429 响应被 http_client 层识别为 RateLimitError 并携带 retry_after"""
+    from souwen.exceptions import RateLimitError
+
+    httpx_mock.add_response(
+        url=re.compile(r"https://search\.patentsview\.org/api/v1/patent/"),
+        status_code=429,
+        headers={"Retry-After": "30"},
+        json={"error": "rate limited"},
+    )
+
+    with pytest.raises(RateLimitError) as exc_info:
+        async with PatentsViewClient() as c:
+            await c.search({"_contains": {"patent_title": "x"}})
+    assert exc_info.value.retry_after == 30.0
+
+
+async def test_401_raises_auth_error(httpx_mock: HTTPXMock):
+    """401 响应被识别为 AuthError"""
+    from souwen.exceptions import AuthError
+
+    httpx_mock.add_response(
+        url=re.compile(r"https://search\.patentsview\.org/api/v1/patent/"),
+        status_code=401,
+        json={"error": "unauthorized"},
+    )
+
+    with pytest.raises(AuthError):
+        async with PatentsViewClient() as c:
+            await c.search({"_contains": {"patent_title": "x"}})
+
+
+async def test_503_raises_source_unavailable(httpx_mock: HTTPXMock):
+    """5xx 响应被识别为 SourceUnavailableError"""
+    from souwen.exceptions import SourceUnavailableError
+
+    httpx_mock.add_response(
+        url=re.compile(r"https://search\.patentsview\.org/api/v1/patent/"),
+        status_code=503,
+        json={"error": "down"},
+    )
+
+    with pytest.raises(SourceUnavailableError):
+        async with PatentsViewClient() as c:
+            await c.search({"_contains": {"patent_title": "x"}})

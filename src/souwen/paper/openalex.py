@@ -10,6 +10,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+from souwen._parsing import safe_parse_date
 from souwen.config import get_config
 from souwen.exceptions import NotFoundError, ParseError
 from souwen.http_client import SouWenHttpClient
@@ -130,7 +131,7 @@ class OpenAlexClient:
 
             # 发表年份
             pub_year: int | None = work.get("publication_year")
-            pub_date: str | None = work.get("publication_date")
+            pub_date = safe_parse_date(work.get("publication_date"))
 
             # 最佳 OA PDF 链接
             best_oa = work.get("best_oa_location") or {}

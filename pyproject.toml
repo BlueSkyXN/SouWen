@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "souwen"
-version = "0.5.0"
+version = "0.6.0"
 description = "面向 AI Agent 的学术论文 + 专利 + 网页信息统一获取工具库"
 readme = "README.md"
 license = {text = "GPL-3.0-or-later"}
@@ -27,7 +27,6 @@ classifiers = [
 ]
 dependencies = [
     "httpx[socks]>=0.27.0",
-    "curl-cffi>=0.14.0",
     "pydantic>=2.0",
     "tenacity>=8.0",
     "python-dotenv>=1.0",
@@ -52,10 +51,10 @@ souwen = "souwen.cli:app"
 
 [project.optional-dependencies]
 tls = ["curl-cffi>=0.14.0"]
-scraper = ["playwright>=1.40"]
+scraper = ["playwright>=1.40", "curl-cffi>=0.14.0"]
 server = ["fastapi>=0.111", "uvicorn[standard]>=0.29"]
 mcp = ["mcp>=1.0"]
-dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "pytest-httpx>=0.30", "ruff>=0.4"]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "pytest-httpx>=0.30", "pytest-cov>=4", "ruff>=0.4"]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/souwen"]

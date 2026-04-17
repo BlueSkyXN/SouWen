@@ -478,3 +478,40 @@ class TestServer:
             assert "/health" in routes
         except ImportError:
             pytest.skip("fastapi not installed")
+
+
+class TestOAuthTokenConcurrency:
+    """OAuth token 并发刷新测试"""
+
+    @pytest.mark.asyncio
+    async def test_ensure_token_is_serialized(self):
+        """10 个并发 _ensure_token 只会打一次 token 端点"""
+        import asyncio
+        from unittest.mock import AsyncMock, MagicMock
+
+        from souwen.http_client import OAuthClient
+
+        client = OAuthClient(
+            base_url="https://example.com",
+            token_url="https://example.com/oauth/token",
+            client_id="cid",
+            client_secret="sec",
+        )
+        try:
+            async def fake_post(*args, **kwargs):
+                await asyncio.sleep(0.01)
+                resp = MagicMock()
+                resp.status_code = 200
+                resp.json = MagicMock(
+                    return_value={"access_token": "tok_xyz", "expires_in": 1200}
+                )
+                return resp
+
+            client._client.post = AsyncMock(side_effect=fake_post)
+
+            tokens = await asyncio.gather(*[client._ensure_token() for _ in range(10)])
+
+            assert all(t == "tok_xyz" for t in tokens)
+            assert client._client.post.await_count == 1
+        finally:
+            await client.close()

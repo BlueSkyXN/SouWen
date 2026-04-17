@@ -17,9 +17,10 @@ import random
 from pathlib import Path
 from functools import lru_cache
 from typing import Literal
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 logger = logging.getLogger("souwen.config")
 
@@ -31,6 +32,36 @@ except ImportError:  # pragma: no cover
 
 # 加载 .env 文件
 load_dotenv()
+
+
+# ==============================================================================
+# 代理 URL 校验
+# ==============================================================================
+# 仅允许常见代理协议；禁止 file:// / javascript: 等潜在危险 scheme
+
+_ALLOWED_PROXY_SCHEMES = {"http", "https", "socks5", "socks5h", "socks4", "socks4a"}
+
+
+def _validate_proxy_url(url: str | None) -> str | None:
+    """校验显式代理 URL 合法性。非字符串 / 空串返回 None；非法则抛 ValueError"""
+    if url is None:
+        return None
+    if not isinstance(url, str):
+        raise ValueError(f"代理 URL 必须为字符串: {url!r}")
+    u = url.strip()
+    if not u:
+        return None
+    try:
+        parsed = urlparse(u)
+    except Exception as e:
+        raise ValueError(f"非法的代理 URL: {url!r} ({e})") from e
+    if parsed.scheme.lower() not in _ALLOWED_PROXY_SCHEMES:
+        raise ValueError(
+            f"不支持的代理协议 {parsed.scheme!r}: {url!r}（允许：{sorted(_ALLOWED_PROXY_SCHEMES)}）"
+        )
+    if not parsed.hostname:
+        raise ValueError(f"代理 URL 缺少 host: {url!r}")
+    return u
 
 
 class SourceChannelConfig(BaseModel):
@@ -114,6 +145,17 @@ class SouWenConfig(BaseModel):
         default_factory=list,
         description="CORS 允许的来源列表，为空时不启用 CORS",
     )
+    trusted_proxies: list[str] = Field(
+        default_factory=list,
+        description=(
+            "受信反向代理的 IP/CIDR 列表；只有来自这些地址的请求才会"
+            "读取 X-Forwarded-For 头解析真实客户端 IP。"
+        ),
+    )
+    expose_docs: bool = Field(
+        default=True,
+        description="是否暴露 /docs、/redoc、/openapi.json；生产环境可设为 false。",
+    )
 
     # ===== WARP 代理 =====
     warp_enabled: bool = False
@@ -123,6 +165,17 @@ class SouWenConfig(BaseModel):
 
     # ===== 数据源频道配置 =====
     sources: dict[str, SourceChannelConfig] = Field(default_factory=dict)
+
+    @field_validator("proxy")
+    @classmethod
+    def _check_proxy(cls, v: str | None) -> str | None:
+        # 仅校验显式 URL；空/None 放行
+        return _validate_proxy_url(v)
+
+    @field_validator("proxy_pool")
+    @classmethod
+    def _check_proxy_pool(cls, v: list[str]) -> list[str]:
+        return [p for p in (_validate_proxy_url(u) for u in (v or [])) if p]
 
     @property
     def data_path(self) -> Path:
@@ -171,8 +224,8 @@ class SouWenConfig(BaseModel):
             return None
         if mode == "warp":
             return f"socks5://localhost:{self.warp_socks_port}"
-        # 显式 proxy URL
-        return sc.proxy
+        # 显式 proxy URL — 校验后返回
+        return _validate_proxy_url(sc.proxy)
 
     def resolve_backend(self, source: str) -> Literal["auto", "curl_cffi", "httpx"]:
         """解析数据源的 HTTP 后端
@@ -296,8 +349,8 @@ def get_config() -> SouWenConfig:
                 except (ValueError, TypeError):
                     logger.warning("环境变量 %s=%r 无法转为整数，已忽略", env_key, val)
                     continue
-            # proxy_pool: 逗号分隔字符串 → list[str]
-            elif field_name == "proxy_pool":
+            # proxy_pool / cors_origins / trusted_proxies: 逗号分隔字符串 → list[str]
+            elif field_name in ("proxy_pool", "cors_origins", "trusted_proxies"):
                 val = [p.strip() for p in val.split(",") if p.strip()]
             # http_backend: JSON 字符串 → dict[str, str]
             elif field_name == "http_backend":
@@ -393,6 +446,12 @@ general:
 # ===== 服务 =====
 server:
   api_password: ~
+  # 受信反向代理 IP/CIDR 列表；只有来自这些地址的请求才会读取 X-Forwarded-For
+  # 解析真实客户端 IP。不在此列表的直连客户端的 XFF 头将被忽略，避免伪造。
+  # 示例: ["10.0.0.0/8", "172.16.0.0/12", "127.0.0.1"]
+  trusted_proxies: []
+  # 是否暴露 /docs、/redoc、/openapi.json；生产建议设为 false
+  expose_docs: true
 
 # ===== WARP 代理 =====
 # 内嵌 Cloudflare WARP 代理（Docker 部署专用）
