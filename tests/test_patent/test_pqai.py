@@ -1,4 +1,20 @@
-"""PQAI 语义专利检索客户端单元测试（pytest-httpx mock）"""
+"""PQAI 语义专利检索客户端单元测试（pytest-httpx mock）。
+
+覆盖 ``souwen.patent.pqai`` 中 PqaiClient 的 JSON 解析、字段映射、申请人/发明人格式兼容性。
+验证混合申请人/发明人格式（字符串/字典）、CPC 代码、相似专利查询、CPC 预测等不变量。
+
+测试清单：
+- ``test_search_basic``：基本搜索解析
+- ``test_search_string_assignees``：字符串格式申请人
+- ``test_search_dict_assignees``：字典格式申请人
+- ``test_search_string_inventors``：字符串格式发明人
+- ``test_search_dict_inventors``：字典格式发明人
+- ``test_search_cpc_codes_both_keys``：CPC 代码（多字段兼容）
+- ``test_search_empty_results``：无结果处理
+- ``test_similar_patents``：相似专利查询
+- ``test_similar_patents_not_found``：相似专利不存在
+- ``test_predict_cpc``：CPC 分类预测
+"""
 
 from __future__ import annotations
 import re
@@ -49,7 +65,7 @@ PQAI_SEARCH_RESPONSE = {
 
 
 async def test_search_basic(httpx_mock: HTTPXMock):
-    """search() 正确解析 JSON 并映射字段"""
+    """search() 正确解析 JSON 并映射字段。"""
     httpx_mock.add_response(
         url=re.compile(r"https://api\.projectpq\.ai/search/102.*"),
         json=PQAI_SEARCH_RESPONSE,

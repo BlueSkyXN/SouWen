@@ -13,28 +13,28 @@
         - 功能：PQAI 语义搜索客户端，管理 HTTP 连接和速率限制
         - 关键属性：BASE_URL (str) API 基础地址，RATE_LIMIT (float) 限流速率
         - 关键变量：_http (SouWenHttpClient) HTTP 客户端，_limiter 速率限制器
-    
+
     search(query: str, n_results: int = 10) -> SearchResponse
         - 功能：语义搜索专利（支持自然语言描述）
         - 输入：query 自然语言查询或关键词，n_results 返回结果数
         - 输出：SearchResponse 包含搜索结果
         - 示例查询：「method for detecting cancer using machine learning on MRI images」
-    
+
     similar_patents(patent_id: str, n_results: int = 10) -> SearchResponse
         - 功能：查找相似专利
         - 输入：patent_id 专利号（如 US11234567B2），n_results 返回数量
         - 输出：SearchResponse 相似专利列表
         - 异常：NotFoundError 指定专利不存在时抛出
-    
+
     predict_cpc(text: str) -> list[dict[str, Any]]
         - 功能：预测 CPC 分类号（基于技术描述文本）
         - 输入：text 技术描述文本
         - 输出：CPC 分类预测列表，每项包含 code 和 score 等字段
-    
+
     _parse_json(resp: httpx.Response) -> dict(静态方法)
         - 功能：安全解析 HTTP JSON 响应
         - 异常：ParseError JSON 格式错误时抛出
-    
+
     _to_patent_result(raw: dict) -> PatentResult（静态方法）
         - 功能：将 PQAI 原始数据转换为统一的 PatentResult 模型
 
@@ -75,7 +75,7 @@ class PqaiClient:
 
     def __init__(self) -> None:
         """初始化 PQAI 客户端
-        
+
         无需 API Key，直接初始化 HTTP 客户端和限流器。
         """
         self._http = SouWenHttpClient(base_url=self.BASE_URL, source_name="pqai")
@@ -204,7 +204,7 @@ class PqaiClient:
     @staticmethod
     def _to_patent_result(raw: dict[str, Any]) -> PatentResult:
         """将 PQAI 原始数据转换为 PatentResult
-        
+
         处理多种数据格式（字符串或对象），PQAI 格式因版本而异。
         """
         patent_id = raw.get("id", raw.get("publication_number", ""))

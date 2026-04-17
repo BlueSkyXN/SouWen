@@ -6,7 +6,7 @@
     记录 debug 日志但不警告，避免填充日志。
 
 函数清单：
-    safe_parse_date(value: Any) -> date | None
+    safe_parse_date(value) -> date | None
         - 功能：宽松解析日期字符串/对象，支持多种格式
         - 入参：value 任意输入（str|date|datetime|None 等）
         - 出参：解析成功返回 date；非法或空值返回 None
@@ -27,7 +27,7 @@ from datetime import date, datetime
 logger = logging.getLogger(__name__)
 
 
-def safe_parse_date(value: Any) -> date | None:
+def safe_parse_date(value: date | str | datetime | None) -> date | None:
     """宽松解析日期字符串/对象
 
     支持多种格式且容错：

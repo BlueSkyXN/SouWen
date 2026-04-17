@@ -60,7 +60,6 @@ from __future__ import annotations
 
 import asyncio
 import json
-import sys
 
 try:
     from mcp.server import Server

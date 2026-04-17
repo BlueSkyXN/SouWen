@@ -13,32 +13,32 @@ USPTO 专利数据，免费无需 API Key。
         - 功能：PatentsView API 客户端，管理 HTTP 连接和速率限制
         - 关键属性：BASE_URL (str) API 基础地址，RATE_LIMIT (float) 限流速率
         - 关键变量：_http (SouWenHttpClient) HTTP 客户端，_limiter 速率限制器
-    
+
     search(query: dict, fields: list | None = None, per_page: int = 10, page: int = 1, sort: list | None = None) -> SearchResponse
         - 功能：执行灵活的专利搜索
         - 输入：query PatentsView JSON 查询过滤器，fields 返回字段列表，per_page 分页大小，page 页码，sort 排序规则
         - 输出：SearchResponse 包含总数、结果列表、分页信息
-    
+
     get_patent(patent_id: str) -> PatentResult
         - 功能：根据 USPTO 专利号获取详情
         - 输入：patent_id USPTO 专利号（如 11234567）
         - 输出：PatentResult 专利详情
         - 异常：NotFoundError 未找到专利时抛出
-    
+
     search_by_assignee(org_name: str, per_page: int = 10) -> SearchResponse
         - 功能：按受让人/申请人组织名检索
         - 输入：org_name 组织名称，per_page 分页大小
         - 输出：SearchResponse 搜索结果
-    
+
     search_by_inventor(inventor_name: str, per_page: int = 10) -> SearchResponse
         - 功能：按发明人姓名检索
         - 输入：inventor_name 发明人姓名，per_page 分页大小
         - 输出：SearchResponse 搜索结果
-    
+
     _parse_json(resp: httpx.Response) -> dict(静态方法)
         - 功能：安全解析 HTTP JSON 响应
         - 异常：ParseError JSON 格式错误时抛出
-    
+
     _to_patent_result(raw: dict) -> PatentResult（静态方法）
         - 功能：将 PatentsView API 原始数据转换为统一的 PatentResult 模型
 
@@ -95,7 +95,7 @@ class PatentsViewClient:
 
     def __init__(self) -> None:
         """初始化 PatentsView 客户端
-        
+
         PatentsView 无需 API Key，直接初始化 HTTP 客户端和限流器。
         """
         self._http = SouWenHttpClient(base_url=self.BASE_URL, source_name="patentsview")
@@ -249,7 +249,7 @@ class PatentsViewClient:
     @staticmethod
     def _to_patent_result(raw: dict[str, Any]) -> PatentResult:
         """将 PatentsView 原始数据转换为 PatentResult 模型
-        
+
         处理受让人、发明人、分类号等多种数据格式的转换。
         """
         # 受让人列表（可能为空）

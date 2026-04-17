@@ -14,31 +14,31 @@
         - 功能：The Lens API 客户端，管理 Bearer Token 连接和限流
         - 关键属性：BASE_URL (str) API 基础地址
         - 关键变量：_token (str) API 令牌，_http (SouWenHttpClient) HTTP 客户端，_limiter 限流器
-    
+
     search_patents(query: str | dict, size: int = 10, offset: int = 0) -> SearchResponse
         - 功能：搜索专利（支持 Elasticsearch DSL 查询）
         - 输入：query 关键词或 ES DSL 查询体，size 返回数量，offset 偏移量
         - 输出：SearchResponse 包含搜索结果
-    
+
     search_scholarly(query: str | dict, size: int = 10, offset: int = 0) -> dict
         - 功能：搜索学术文献（返回原始响应）
         - 输入：query 关键词或 ES DSL 查询体，size 返回数量，offset 偏移量
         - 输出：原始搜索结果字典
-    
+
     get_by_lens_id(lens_id: str) -> PatentResult
         - 功能：根据 Lens ID 获取专利详情
         - 输入：lens_id Lens 唯一标识符
         - 输出：PatentResult 专利详情
         - 异常：NotFoundError Lens ID 不存在时抛出
-    
+
     _build_query(query: str | dict, size: int = 10, offset: int = 0) -> dict（静态方法）
         - 功能：构造 Elasticsearch DSL 查询体
         - 处理字符串和对象格式的查询
-    
+
     _parse_json(resp: httpx.Response) -> dict(静态方法)
         - 功能：安全解析 HTTP JSON 响应
         - 异常：ParseError JSON 格式错误时抛出
-    
+
     _to_patent_result(raw: dict) -> PatentResult（静态方法）
         - 功能：将 The Lens 原始数据转换为统一的 PatentResult 模型
 
@@ -85,9 +85,9 @@ class TheLensClient:
 
     def __init__(self) -> None:
         """初始化 The Lens 客户端
-        
+
         从配置读取 Bearer Token，建立连接和限流控制。
-        
+
         Raises:
             ConfigError: 缺少 API Token 时抛出
         """
@@ -210,7 +210,7 @@ class TheLensClient:
         body: dict[str, Any],
     ) -> dict[str, Any]:
         """发送搜索请求并处理限流和错误
-        
+
         自动从响应头提取限流信息并动态更新限制器。
         """
         await self._limiter.acquire()
@@ -231,7 +231,7 @@ class TheLensClient:
 
     def _update_rate_limit(self, resp: httpx.Response) -> None:
         """从响应头动态更新限流参数
-        
+
         根据 API 返回的剩余配额和重试时间，实时调整限流器参数。
         """
         remaining = _safe_int(resp.headers.get("x-rate-limit-remaining-request-per-minute"))
@@ -253,7 +253,7 @@ class TheLensClient:
         offset: int = 0,
     ) -> dict[str, Any]:
         """构造 Elasticsearch DSL 查询体
-        
+
         如果输入是字符串，自动构造 multi_match 查询（跨多个字段）。
         如果是对象，直接使用或嵌入到 query 字段。
         """
@@ -283,7 +283,7 @@ class TheLensClient:
     @staticmethod
     def _parse_json(resp: httpx.Response) -> dict[str, Any]:
         """安全解析 JSON 响应
-        
+
         Raises:
             ParseError: JSON 格式错误时抛出
         """
@@ -295,7 +295,7 @@ class TheLensClient:
     @staticmethod
     def _to_patent_result(raw: dict[str, Any]) -> PatentResult:
         """将 The Lens 原始数据转换为统一 PatentResult 模型
-        
+
         Lens API 返回的字段包括：doc_number（国家代码-号码），publication_key，lens_id 等。
         申请人和发明人可能是字符串列表或对象列表，需要容错处理。
         分类号同样支持多种格式（IPC/CPC）。
@@ -363,7 +363,7 @@ class TheLensClient:
 
 def _safe_date(value: str | None) -> date | None:
     """安全解析日期字符串
-    
+
     支持 ISO 8601 格式（YYYY-MM-DD），取前 10 字符处理。
     """
     if not value:
@@ -376,7 +376,7 @@ def _safe_date(value: str | None) -> date | None:
 
 def _safe_int(value: str | None) -> int | None:
     """安全转换整数字符串
-    
+
     用于解析限流响应头中的整数值。
     """
     if value is None:
@@ -389,7 +389,7 @@ def _safe_int(value: str | None) -> int | None:
 
 def _safe_float(value: str | None) -> float | None:
     """安全转换浮点数字符串
-    
+
     用于解析限流响应头中的延迟秒数（可能是浮点数）。
     """
     if value is None:

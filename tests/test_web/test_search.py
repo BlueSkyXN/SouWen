@@ -1,7 +1,19 @@
-"""Web 聚合搜索单元测试
+"""Web 聚合搜索单元测试。
 
-测试 web_search() 聚合函数，mock 各引擎的 search 方法
-而非 HTTP 请求本身（因为 scraper 引擎走 HTML 解析路径较复杂）。
+覆盖 ``souwen.web.search`` 中 web_search() 聚合函数与 _deduplicate() 去重逻辑。
+Mock 各引擎的 search 方法而非 HTTP 请求本身（因为 scraper 引擎走 HTML 解析路径较复杂）。
+
+验证 URL 去重（大小写不敏感、斜杠规范化）、搜索聚合、多引擎容错等不变量。
+
+测试清单：
+- ``test_deduplicate_removes_duplicates``：去重保留首次出现
+- ``test_deduplicate_case_insensitive``：URL 大小写不敏感
+- ``test_deduplicate_empty``：空列表处理
+- ``test_web_search_single_engine``：单引擎搜索
+- ``test_web_search_multiple_engines_aggregates``：多引擎聚合
+- ``test_web_search_duplicate_across_engines``：跨引擎去重
+- ``test_web_search_respects_num_results``：结果数限制
+- ``test_web_search_engine_error_skipped``：错误引擎被跳过
 """
 
 from __future__ import annotations
