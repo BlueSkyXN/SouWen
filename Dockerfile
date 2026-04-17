@@ -60,15 +60,16 @@ WORKDIR /app
 # 再装源码（仅源码变更时重新执行此层）
 
 # 步骤 1：复制项目配置和版本信息，安装核心依赖
+# 注：curl_cffi 位于 [tls] extras，用于专利爬虫/反爬指纹，必须同时安装
 COPY pyproject.toml README.md LICENSE ./
 COPY src/souwen/__init__.py ./src/souwen/__init__.py
-RUN pip install ".[server]"
+RUN pip install ".[server,tls]"
 
 # 步骤 2：复制全部源码并重新安装（确保最新版本）
 COPY src/ ./src/
 # 复制前端面板的构建产物
 COPY --from=panel-builder /panel/dist/index.html ./src/souwen/server/panel.html
-RUN pip install --no-deps ".[server]" \
+RUN pip install --no-deps ".[server,tls]" \
     && python -c "import curl_cffi; print('curl_cffi OK')"
 
 # 步骤 3：复制运行时所需的脚本和配置文件

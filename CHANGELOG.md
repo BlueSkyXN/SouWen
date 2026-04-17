@@ -1,5 +1,16 @@
 # Changelog
 
+## v0.6.2
+
+Docker/HFS 部署修复。单文件变更、无逻辑改动。
+
+### Fix
+- **Dockerfile**：`pip install ".[server]"` → `pip install ".[server,tls]"`。v0.6.0 将
+  `curl-cffi` 从默认依赖移入 `[tls]` extras，但 Dockerfile 未同步更新，导致镜像构建
+  阶段 `python -c "import curl_cffi"` 以 `ModuleNotFoundError` 失败（HuggingFace Spaces
+  等基于 Dockerfile 的部署直接中断）。现同时安装 `server + tls` 两个 extras，保留专利
+  爬虫/TLS 指纹反爬能力。
+
 ## v0.6.1
 
 CLI/API Server 二轮评审后对功能缺陷、一致性、UX 的修复。均为向后兼容，非破坏性。
