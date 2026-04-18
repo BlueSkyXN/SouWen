@@ -197,9 +197,9 @@ function SourceConfigPanel({
             )}
             {apiKeyAction === 'clear' && (
               <>
-                <span className={styles.apiKeyClearLabel}>WILL CLEAR</span>
+                <span className={styles.apiKeyClearLabel}>{t('sourceConfig.willClear', '将清除')}</span>
                 <button className={styles.apiKeyBtn} onClick={() => setApiKeyAction('keep')}>
-                  UNDO
+                  {t('sourceConfig.undo', '撤销')}
                 </button>
               </>
             )}
@@ -219,7 +219,7 @@ function SourceConfigPanel({
             onClick={handleSave}
             disabled={saving}
           >
-            {saving ? '...' : 'COMMIT'}
+            {saving ? '...' : t('sourceConfig.commit', '提交')}
           </button>
         </div>
       </div>
@@ -323,11 +323,11 @@ export function SourcesPage() {
       <div className={styles.pageHeader}>
         <h1 className={styles.pageTitle}>
           <Database size={20} />
-          SOURCE.REGISTRY
+          {t('sources.pageTitle', '数据源管理')}
         </h1>
         <button className={styles.syncBtn} onClick={fetchData}>
           <RefreshCw size={14} />
-          FORCE SYNC
+          {t('sources.refresh', '刷新')}
         </button>
       </div>
 
@@ -377,7 +377,7 @@ export function SourcesPage() {
                         disabled={toggling === src.name}
                         title={src.enabled ? t('sources.clickToDisable') : t('sources.clickToEnable')}
                       >
-                        {src.enabled ? 'ON' : 'OFF'}
+                        {src.enabled ? t('sources.on', '开') : t('sources.off', '关')}
                       </button>
                       <span className={styles.tierBadge}>T{src.tier}</span>
                     </div>
@@ -388,7 +388,7 @@ export function SourcesPage() {
                   {src.required_key && (
                     <div className={styles.authInfo}>
                       <Key size={10} />
-                      AUTH: <code className={styles.authKey}>{src.required_key}</code>
+                      {t('sources.auth', '认证')}: <code className={styles.authKey}>{src.required_key}</code>
                     </div>
                   )}
 

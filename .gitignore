@@ -19,3 +19,7 @@ panel/dist/
 /.gemini
 /validation-worktree/
 CLAUDE.md
+
+# Temporary screenshots
+check-*.png
+verify-*.png
