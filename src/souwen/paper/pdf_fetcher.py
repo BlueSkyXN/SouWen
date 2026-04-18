@@ -165,8 +165,43 @@ async def _download_pdf(
         logger.warning("PDF URL 不安全，已拒绝: %s", url)
         return None
 
+    # 注意：SouWenHttpClient 默认 follow_redirects=True，会让攻击者通过白名单主机
+    # 302 跳转到 127.0.0.1 / 169.254.169.254 等内网目标绕过 SSRF 校验。
+    # 因此这里直接使用底层 httpx 客户端禁用自动重定向，并对每一跳手动
+    # 重新执行 _is_safe_url 校验。
+    #
+    # 残留风险（DNS rebinding / TOCTOU）：_is_safe_url 自行调用 getaddrinfo，
+    # 而 httpx 在真正建立连接时会再次独立解析同一域名，两次解析结果可能不同
+    # （例如恶意权威 DNS 在两次查询之间返回不同 IP）。彻底防御需要在 httpx
+    # 的 transport / resolver 层做绑定，目前未实现，仅在此记录。
     try:
-        resp = await client.get(url)
+        from urllib.parse import urljoin
+
+        current_url = url
+        max_redirects = 5
+        resp: httpx.Response | None = None
+        for _ in range(max_redirects + 1):
+            resp = await client._client.get(current_url, follow_redirects=False)
+            if resp.is_redirect:
+                location = resp.headers.get("location")
+                if not location:
+                    logger.warning("PDF 重定向缺少 Location 头: %s", current_url)
+                    return None
+                # 处理相对 URL
+                next_url = urljoin(current_url, location)
+                if not _is_safe_url(next_url):
+                    logger.warning(
+                        "PDF 重定向目标不安全，已拒绝: %s -> %s",
+                        current_url,
+                        next_url,
+                    )
+                    return None
+                current_url = next_url
+                continue
+            break
+        else:
+            logger.warning("PDF 重定向次数超过上限 (%d): %s", max_redirects, url)
+            return None
 
         # 检查 HTTP 状态码
         if resp.status_code != 200:

@@ -27,9 +27,9 @@ interface SectionDef {
 }
 
 const CONFIG_SECTIONS: SectionDef[] = [
-  { id: 'basic', titleKey: 'NETWORK_&_BASE', icon: <Settings size={14} />, keys: BASIC_KEYS },
-  { id: 'network', titleKey: 'network.pageTitle', icon: <Globe size={14} />, keys: NETWORK_KEYS },
-  { id: 'search', titleKey: 'SEARCH_ENGINES', icon: <Search size={14} />, keys: SEARCH_KEYS },
+  { id: 'basic', titleKey: 'config.sectionBasic', icon: <Settings size={14} />, keys: BASIC_KEYS },
+  { id: 'network', titleKey: 'config.sectionNetwork', icon: <Globe size={14} />, keys: NETWORK_KEYS },
+  { id: 'search', titleKey: 'config.sectionSearch', icon: <Search size={14} />, keys: SEARCH_KEYS },
 ]
 
 type TFunc = ReturnType<typeof useTranslation>['t']
@@ -144,7 +144,7 @@ export function ConfigPage() {
         <div>
           <h1 className={styles.pageTitle}>
             <Settings size={20} />
-            SYSTEM.CONFIG
+            {t('config.systemConfig')}
           </h1>
           <p className={styles.pageDesc}>{t('config.note')}</p>
         </div>
@@ -154,7 +154,7 @@ export function ConfigPage() {
           disabled={reloading}
         >
           <RefreshCw size={14} />
-          {reloading ? t('config.reloading') : 'COMMIT CHANGES'}
+          {reloading ? t('config.reloading') : t('config.commitChanges')}
         </button>
       </m.div>
 
@@ -163,7 +163,7 @@ export function ConfigPage() {
         <m.div key={section.id} className={styles.configSection} variants={staggerItem}>
           <div className={styles.sectionHeader}>
             <span className={styles.sectionIcon}>{section.icon}</span>
-            [{section.id === 'network' ? t(section.titleKey) : section.titleKey}]
+            [{t(section.titleKey)}]
           </div>
           {section.items.map(({ key, value }) => (
             <ConfigRow key={key} configKey={key} value={value} t={t} />
@@ -176,7 +176,7 @@ export function ConfigPage() {
         <m.div className={styles.configSection} variants={staggerItem}>
           <div className={styles.sectionHeader}>
             <span className={styles.sectionIcon}><Wrench size={14} /></span>
-            [CREDENTIALS_&_KEYS]
+            [{t('config.sectionCredentials')}]
           </div>
           {advancedEntries.map(({ key, value }) => (
             <ConfigRow key={key} configKey={key} value={value} t={t} />

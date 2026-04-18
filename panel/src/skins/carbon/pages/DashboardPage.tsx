@@ -74,7 +74,7 @@ export function DashboardPage() {
         </h1>
         <div className={styles.headerBadges}>
           <span className={styles.uptimeBadge}>
-            UPTIME: {healthPct === 100 ? '99.9%' : `${healthPct}%`}
+            {t('dashboard.uptime')}: {healthPct === 100 ? '99.9%' : `${healthPct}%`}
           </span>
           {version && (
             <span className={styles.uptimeBadge}>v{version}</span>
