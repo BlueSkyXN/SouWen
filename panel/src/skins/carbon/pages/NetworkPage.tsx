@@ -159,7 +159,7 @@ function WarpSection() {
           <>
             <div className={styles.formGrid}>
               <div className={styles.formRow}>
-                <label className={styles.formLabel}>mode</label>
+                <label className={styles.formLabel}>{t('network.mode')}</label>
                 <span className={styles.formSep}>───</span>
                 <select
                   className={styles.formSelect}
@@ -176,7 +176,7 @@ function WarpSection() {
                 </select>
               </div>
               <div className={styles.formRow}>
-                <label className={styles.formLabel}>port</label>
+                <label className={styles.formLabel}>{t('network.port')}</label>
                 <span className={styles.formSep}>───</span>
                 <input
                   className={styles.formInput}
@@ -188,7 +188,7 @@ function WarpSection() {
                 />
               </div>
               <div className={styles.formRow}>
-                <label className={styles.formLabel}>endpoint</label>
+                <label className={styles.formLabel}>{t('network.endpoint', '端点')}</label>
                 <span className={styles.formSep}>───</span>
                 <input
                   className={styles.formInput}

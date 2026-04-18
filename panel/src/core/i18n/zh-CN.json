@@ -157,6 +157,9 @@
     "disabled": "已禁用",
     "clickToDisable": "点击禁用",
     "clickToEnable": "点击启用",
+    "on": "开",
+    "off": "关",
+    "auth": "认证",
     "enableHeader": "启用",
     "categoryPaper": "学术论文",
     "categoryPatent": "专利",
@@ -332,6 +335,7 @@
     "httpBackend": "HTTP 后端",
     "mode": "模式",
     "port": "端口",
+    "endpoint": "端点",
     "ip": "IP 地址",
     "pid": "进程 ID",
     "interface": "接口",
@@ -367,7 +371,10 @@
     "saveSuccess": "{{name}} 配置已保存",
     "saveFailed": "保存配置失败: {{message}}",
     "warpNotActive": "WARP 代理未启用，选择 WARP 可能导致请求失败",
-    "runtimeNote": "运行时修改仅当前进程有效，持久化请修改 souwen.yaml"
+    "runtimeNote": "运行时修改仅当前进程有效，持久化请修改 souwen.yaml",
+    "willClear": "将清除",
+    "undo": "撤销",
+    "commit": "提交"
   },
   "skin": {
     "classic": "经典",
@@ -403,5 +410,10 @@
     "clearAll": "清空",
     "noResults": "无匹配项",
     "needsKey": "需要 API Key"
+  },
+  "status": {
+    "ok": "正常",
+    "warn": "警告",
+    "err": "异常"
   }
 }

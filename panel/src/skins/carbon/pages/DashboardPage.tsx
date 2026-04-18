@@ -147,10 +147,10 @@ export function DashboardPage() {
                     ? styles.statusWarn
                     : styles.statusErr
                 const statusLabel = src.status === 'ok'
-                  ? 'OK'
+                  ? t('status.ok', 'OK')
                   : src.status === 'needs_key'
-                    ? 'WARN'
-                    : 'ERR'
+                    ? t('status.warn', 'WARN')
+                    : t('status.err', 'ERR')
 
                 return (
                   <tr key={src.name}>
