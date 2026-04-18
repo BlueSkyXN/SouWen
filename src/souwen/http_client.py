@@ -197,6 +197,7 @@ class SouWenHttpClient:
 
     @retry(
         # 仅对网络层错误重试（超时、连接失败），业务错误（401/429/5xx）在 _check_response 中单独处理
+        # 429 RateLimitError 由调用方按 Retry-After 头决定是否重试
         retry=retry_if_exception_type((httpx.TimeoutException, httpx.ConnectError)),
         wait=wait_exponential(multiplier=1, min=1, max=30),
         stop=stop_after_attempt(3),

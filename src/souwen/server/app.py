@@ -351,6 +351,12 @@ def _get_panel_payload() -> tuple[str, str] | None:
     第一次调用时读取 panel.html、计算 SHA256 ETag、缓存在模块级变量。
     后续调用直接返回缓存，避免重复磁盘 I/O。
 
+    .. note::
+        本函数读写模块级 ``_panel_cache`` / ``_panel_etag``，**必须在
+        ``_panel_cache_lock`` 持有期间调用**，以避免并发竞态。当前唯一
+        调用路径为 ``panel()`` → ``_panel_response()`` → 本函数，锁已
+        在 ``panel()`` 中获取。
+
     Returns:
         tuple[html_content, etag] 或 None（文件不存在时）
     """
@@ -364,6 +370,21 @@ def _get_panel_payload() -> tuple[str, str] | None:
     _panel_cache = text
     _panel_etag = f'"{digest}"'
     return _panel_cache, _panel_etag
+
+
+def _etag_matches(header_value: str, etag: str) -> bool:
+    """Check if *etag* matches an ``If-None-Match`` header per RFC 7232.
+
+    Supports the wildcard ``*`` and comma-separated ETag lists.
+    """
+    if not header_value:
+        return False
+    if header_value.strip() == "*":
+        return True
+    for tag in header_value.split(","):
+        if tag.strip() == etag:
+            return True
+    return False
 
 
 def _panel_response(request: Request) -> Response:
@@ -383,7 +404,7 @@ def _panel_response(request: Request) -> Response:
     if payload is None:
         return HTMLResponse("<h1>Panel not found</h1>", status_code=404)
     text, etag = payload
-    if request.headers.get("if-none-match") == etag:
+    if _etag_matches(request.headers.get("if-none-match", ""), etag):
         return Response(status_code=304, headers={"ETag": etag})
     return HTMLResponse(
         text,

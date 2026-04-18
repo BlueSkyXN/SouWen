@@ -53,8 +53,11 @@
 
 from __future__ import annotations
 
+import ipaddress
+import asyncio
 import logging
 from pathlib import Path
+from urllib.parse import urlparse
 
 import httpx
 
@@ -63,6 +66,59 @@ from souwen.http_client import SouWenHttpClient
 from souwen.models import PaperResult
 
 logger = logging.getLogger(__name__)
+
+
+_BLOCKED_HOSTNAMES = frozenset({
+    "localhost", "localhost.localdomain", "localhost4", "localhost6",
+})
+
+# 仅阻止真正危险的 SSRF 目标网段（避免 is_private 在 Python 3.11+ 误拦 198.18.0.0/15 等）
+_SSRF_BLOCKED_NETS = tuple(
+    ipaddress.ip_network(n) for n in (
+        "0.0.0.0/8",        # "This host"
+        "10.0.0.0/8",       # RFC 1918
+        "100.64.0.0/10",    # Carrier-grade NAT
+        "127.0.0.0/8",      # Loopback
+        "169.254.0.0/16",   # Link-local / 云元数据
+        "172.16.0.0/12",    # RFC 1918
+        "192.0.0.0/24",     # IETF Protocol
+        "192.168.0.0/16",   # RFC 1918
+        "::1/128",          # IPv6 loopback
+        "fc00::/7",         # IPv6 ULA
+        "fe80::/10",        # IPv6 link-local
+    )
+)
+
+
+def _is_safe_url(url: str) -> bool:
+    """检查 URL 是否安全（防止 SSRF）
+
+    阻止策略：
+    1. 仅允许 http/https
+    2. 拒绝 localhost 等已知本地主机名
+    3. DNS 解析主机名，检查所有解析结果是否命中 SSRF 危险网段
+    """
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return False
+    if parsed.scheme not in ("http", "https"):
+        return False
+    hostname = parsed.hostname
+    if not hostname:
+        return False
+    if hostname.lower() in _BLOCKED_HOSTNAMES:
+        return False
+    try:
+        import socket
+        addrinfos = socket.getaddrinfo(hostname, None, proto=socket.IPPROTO_TCP)
+        for _family, _type, _proto, _canon, sockaddr in addrinfos:
+            ip = ipaddress.ip_address(sockaddr[0])
+            if any(ip in net for net in _SSRF_BLOCKED_NETS):
+                return False
+    except (socket.gaierror, OSError, ValueError):
+        return False  # 无法解析的主机名拒绝访问
+    return True
 
 # PDF 最大下载大小 (100 MB)
 _MAX_PDF_SIZE = 100 * 1024 * 1024
@@ -105,6 +161,10 @@ async def _download_pdf(
     Returns:
         成功返回文件路径，失败返回 None。
     """
+    if not _is_safe_url(url):
+        logger.warning("PDF URL 不安全，已拒绝: %s", url)
+        return None
+
     try:
         resp = await client.get(url)
 
@@ -125,9 +185,9 @@ async def _download_pdf(
             logger.warning("下载内容非 PDF 格式: %s", url)
             return None
 
-        # 创建目录（若不存在）并保存文件
-        save_path.parent.mkdir(parents=True, exist_ok=True)
-        save_path.write_bytes(content)
+        # 创建目录（若不存在）并保存文件（使用线程池避免阻塞事件循环）
+        await asyncio.to_thread(save_path.parent.mkdir, parents=True, exist_ok=True)
+        await asyncio.to_thread(save_path.write_bytes, content)
         logger.info("PDF 已保存: %s", save_path)
         return save_path
 

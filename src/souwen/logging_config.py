@@ -67,7 +67,8 @@ _CONFIGURED = False
 _SENSITIVE_KEY = re.compile(
     r"(authorization|auth[_-]?token|api[_-]?key|access[_-]?token|"
     r"refresh[_-]?token|secret|password|passwd|pwd|x[_-]?api[_-]?key|"
-    r"souwen[_-]?token|token|bearer)",
+    r"souwen[_-]?token|token|bearer|private[_-]?key|credential[s]?|"
+    r"client[_-]?secret|signing[_-]?key)",
     re.IGNORECASE,
 )
 

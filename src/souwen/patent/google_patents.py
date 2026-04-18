@@ -190,7 +190,7 @@ def _atexit_shutdown_browser_pool() -> None:
     except RuntimeError:
         # 没有运行中的事件循环，创建新循环来关闭浏览器
         try:
-            asyncio.run(pool.shutdown())
+            asyncio.run(asyncio.wait_for(pool.shutdown(), timeout=5.0))
         except Exception as exc:  # noqa: BLE001
             logger.debug("atexit browser pool shutdown failed: %s", exc)
 
