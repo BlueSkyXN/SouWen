@@ -76,6 +76,7 @@ from souwen.web.websurfx import WebsurfxClient
 logger = logging.getLogger("souwen.web.search")
 _WEB_ENGINE_TIMEOUT_CAP_SECONDS = 15.0
 
+
 def _get_web_semaphore() -> asyncio.Semaphore:
     """返回与当前 running event loop 绑定的 Semaphore（per-loop 懒加载）
 

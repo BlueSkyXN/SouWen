@@ -68,24 +68,30 @@ from souwen.models import PaperResult
 logger = logging.getLogger(__name__)
 
 
-_BLOCKED_HOSTNAMES = frozenset({
-    "localhost", "localhost.localdomain", "localhost4", "localhost6",
-})
+_BLOCKED_HOSTNAMES = frozenset(
+    {
+        "localhost",
+        "localhost.localdomain",
+        "localhost4",
+        "localhost6",
+    }
+)
 
 # 仅阻止真正危险的 SSRF 目标网段（避免 is_private 在 Python 3.11+ 误拦 198.18.0.0/15 等）
 _SSRF_BLOCKED_NETS = tuple(
-    ipaddress.ip_network(n) for n in (
-        "0.0.0.0/8",        # "This host"
-        "10.0.0.0/8",       # RFC 1918
-        "100.64.0.0/10",    # Carrier-grade NAT
-        "127.0.0.0/8",      # Loopback
-        "169.254.0.0/16",   # Link-local / 云元数据
-        "172.16.0.0/12",    # RFC 1918
-        "192.0.0.0/24",     # IETF Protocol
-        "192.168.0.0/16",   # RFC 1918
-        "::1/128",          # IPv6 loopback
-        "fc00::/7",         # IPv6 ULA
-        "fe80::/10",        # IPv6 link-local
+    ipaddress.ip_network(n)
+    for n in (
+        "0.0.0.0/8",  # "This host"
+        "10.0.0.0/8",  # RFC 1918
+        "100.64.0.0/10",  # Carrier-grade NAT
+        "127.0.0.0/8",  # Loopback
+        "169.254.0.0/16",  # Link-local / 云元数据
+        "172.16.0.0/12",  # RFC 1918
+        "192.0.0.0/24",  # IETF Protocol
+        "192.168.0.0/16",  # RFC 1918
+        "::1/128",  # IPv6 loopback
+        "fc00::/7",  # IPv6 ULA
+        "fe80::/10",  # IPv6 link-local
     )
 )
 
@@ -111,6 +117,7 @@ def _is_safe_url(url: str) -> bool:
         return False
     try:
         import socket
+
         addrinfos = socket.getaddrinfo(hostname, None, proto=socket.IPPROTO_TCP)
         for _family, _type, _proto, _canon, sockaddr in addrinfos:
             ip = ipaddress.ip_address(sockaddr[0])
@@ -119,6 +126,7 @@ def _is_safe_url(url: str) -> bool:
     except (socket.gaierror, OSError, ValueError):
         return False  # 无法解析的主机名拒绝访问
     return True
+
 
 # PDF 最大下载大小 (100 MB)
 _MAX_PDF_SIZE = 100 * 1024 * 1024
