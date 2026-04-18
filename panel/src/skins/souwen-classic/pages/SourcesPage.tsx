@@ -535,7 +535,7 @@ export function SourcesPage() {
                 >
                   {Icon && <Icon size={14} />}
                   <span>{tab.label}</span>
-                  <span className={styles.filterTabCount}>{tab.count}</span>
+                  <span className={`${styles.filterTabCount} ${active ? styles.filterTabCountActive : ''}`}>{tab.count}</span>
                 </button>
               )
             })}
