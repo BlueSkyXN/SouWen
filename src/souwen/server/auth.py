@@ -93,12 +93,11 @@ def check_search_auth(
             headers={"WWW-Authenticate": "Bearer"},
         )
     token = credentials.credentials
-    # 接受访客密码
-    if secrets.compare_digest(token, visitor_pw):
-        return
-    # 管理密码是访客的超集
-    admin_pw = cfg.effective_admin_password
-    if admin_pw and secrets.compare_digest(token, admin_pw):
+    # Always execute both comparisons to prevent timing side-channel leaks
+    visitor_ok = secrets.compare_digest(token, visitor_pw)
+    admin_pw = cfg.effective_admin_password or ""
+    admin_ok = secrets.compare_digest(token, admin_pw) if admin_pw else False
+    if visitor_ok or admin_ok:
         return
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,

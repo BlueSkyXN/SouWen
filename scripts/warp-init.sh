@@ -151,7 +151,8 @@ _warp_start_wireproxy() {
 
     # 应用自定义 Endpoint（规避 ISP/QoS 限制）
     if [ -n "${WARP_ENDPOINT:-}" ]; then
-        sed -i "s|^Endpoint.*|Endpoint = ${WARP_ENDPOINT}|" "$WIREPROXY_CONF"
+        _escaped_ep=$(printf '%s\n' "${WARP_ENDPOINT}" | sed 's/\\/\\\\/g; s/[|&/]/\\&/g')
+        sed -i "s|^Endpoint.*|Endpoint = ${_escaped_ep}|" "$WIREPROXY_CONF"
         echo "==> [WARP] 🔀 自定义 Endpoint: ${WARP_ENDPOINT}"
     fi
     sed -i "s|^BindAddress.*|BindAddress = 127.0.0.1:${WARP_SOCKS_PORT}|" "$WIREPROXY_CONF"
@@ -197,7 +198,8 @@ _warp_start_kernel() {
 
     # 应用自定义 Endpoint
     if [ -n "${WARP_ENDPOINT:-}" ]; then
-        sed -i "s|^Endpoint.*|Endpoint = ${WARP_ENDPOINT}|" "$WG_CONF"
+        _escaped_ep=$(printf '%s\n' "${WARP_ENDPOINT}" | sed 's/\\/\\\\/g; s/[|&/]/\\&/g')
+        sed -i "s|^Endpoint.*|Endpoint = ${_escaped_ep}|" "$WG_CONF"
         echo "==> [WARP] 🔀 自定义 Endpoint: ${WARP_ENDPOINT}"
     fi
 

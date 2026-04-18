@@ -466,11 +466,12 @@ class TestCLI:
 
         assert "未配置" in _mask_value(None)
         assert "未配置" in _mask_value("")
-        # 已配置：长值显示前 4 位提示
+        # 已配置：仅显示长度，不泄漏任何前缀
         long_masked = _mask_value("abcdef123")
         assert "已配置" in long_masked
-        assert "abcd" in long_masked
-        # 已配置：短值不泄漏，只给出长度
+        assert "abcd" not in long_masked  # 不再泄漏前缀
+        assert "9" in long_masked  # 包含长度信息
+        # 已配置：短值同样不泄漏
         short_masked = _mask_value("ab")
         assert "已配置" in short_masked
         assert "ab" not in short_masked

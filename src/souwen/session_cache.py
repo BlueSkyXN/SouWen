@@ -138,6 +138,9 @@ class SessionCache:
                 )
             """)
             conn.commit()
+        except Exception:
+            logger.exception("SessionCache 数据库初始化失败: %s", self._db_path)
+            raise
         finally:
             conn.close()
 

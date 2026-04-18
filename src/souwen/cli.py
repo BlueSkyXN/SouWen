@@ -152,7 +152,7 @@ def _run_async(coro):
         raise typer.Exit(130)
     except asyncio.CancelledError:
         console.print("\n[yellow]⚠ 任务被取消[/yellow]")
-        raise typer.Exit(130)
+        raise typer.Exit(1)
 
 
 # ---------------------------------------------------------------------------
@@ -353,9 +353,7 @@ def _mask_value(value: str | None) -> str:
     """显示敏感字段的状态（不泄漏实际值）"""
     if value is None or value == "":
         return "[dim]未配置[/dim]"
-    if len(value) <= 4:
-        return f"[green]已配置[/green] [dim](长度 {len(value)})[/dim]"
-    return f"[green]已配置[/green] [dim](前 4 位: {value[:4]}***)[/dim]"
+    return f"[green]已配置[/green] [dim](长度 {len(value)})[/dim]"
 
 
 @config_app.command("show")
@@ -466,7 +464,11 @@ server:
         console.print("[yellow]⚠️  souwen.yaml 已存在，跳过生成[/yellow]")
         return
 
-    dest.write_text(template, encoding="utf-8")
+    try:
+        dest.write_text(template, encoding="utf-8")
+    except OSError as e:
+        console.print(f"[red]❌ 写入 souwen.yaml 失败: {e}[/red]")
+        raise typer.Exit(1) from e
     console.print("[green]✅ 已生成 souwen.yaml 配置模板[/green]")
 
 

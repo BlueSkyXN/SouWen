@@ -9,7 +9,7 @@
         - 功能：执行单个引擎的搜索（异常安全 + 超时控制 + 并发度限制）
         - 输入：engine_cls (type) 引擎类, query (str) 搜索词, max_results (int) 最大结果数
         - 输出：list[WebSearchResult] 搜索结果列表，异常返回空列表
-        - 关键变量：_WEB_ENGINE_TIMEOUT_CAP_SECONDS = 15.0 超时上限, _WEB_SEMAPHORE 并发信号量
+        - 关键变量：_WEB_ENGINE_TIMEOUT_CAP_SECONDS = 15.0 超时上限, _get_web_semaphore() 并发信号量
 
     _get_engine_timeout_seconds() -> float
         - 功能：从配置读取超时时间，取值范围 [1.0, 15.0] 秒
@@ -40,7 +40,7 @@
     - asyncio.gather 并发（等价 Rust 的 FuturesUnordered + tokio::spawn）
     - 部分引擎失败不影响整体结果（return_exceptions=True）
     - URL 去重避免重复（规范化小写 + 去尾部斜杠）
-    - 全局并发度限制（_WEB_SEMAPHORE）确保不过载
+    - 全局并发度限制（_get_web_semaphore()）确保不过载
 """
 
 from __future__ import annotations
@@ -76,9 +76,17 @@ from souwen.web.websurfx import WebsurfxClient
 logger = logging.getLogger("souwen.web.search")
 _WEB_ENGINE_TIMEOUT_CAP_SECONDS = 15.0
 
-# 全局并发度限制（Web 引擎共享）。限制同时运行的引擎数，
-# 防止过多并发请求导致本地资源耗尽或被目标网站检测为 DDoS。
-_WEB_SEMAPHORE = asyncio.Semaphore(10)
+def _get_web_semaphore() -> asyncio.Semaphore:
+    """返回与当前 running event loop 绑定的 Semaphore（per-loop 懒加载）
+
+    避免在模块导入时创建 Semaphore，防止跨事件循环使用导致的错误。
+    """
+    loop = asyncio.get_running_loop()
+    sem = getattr(loop, "_souwen_web_sem", None)
+    if sem is None:
+        sem = asyncio.Semaphore(10)
+        loop._souwen_web_sem = sem  # type: ignore[attr-defined]
+    return sem
 
 
 async def _search_engine(
@@ -110,7 +118,7 @@ async def _search_engine(
             resp = await client.search(query, max_results=max_results)
             return list(resp.results)
 
-    async with _WEB_SEMAPHORE:
+    async with _get_web_semaphore():
         try:
             # 执行搜索任务，设置超时上限
             return await asyncio.wait_for(_run(), timeout=timeout)

@@ -85,6 +85,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+from urllib.parse import urlparse
 
 from fastapi import APIRouter, Depends, Query, HTTPException
 
@@ -174,7 +175,7 @@ async def api_search_paper(
         logger.exception("论文搜索上游失败: q=%s sources=%s", q, source_list)
         raise HTTPException(status_code=502, detail="所有上游数据源均不可用")
     except Exception:
-        logger.exception("论文搜索内部错误: q=%s", q)
+        logger.warning("论文搜索内部错误: q=%s", q, exc_info=True)
         raise
 
 
@@ -227,7 +228,7 @@ async def api_search_patent(
         logger.exception("专利搜索上游失败: q=%s sources=%s", q, source_list)
         raise HTTPException(status_code=502, detail="所有上游数据源均不可用")
     except Exception:
-        logger.exception("专利搜索内部错误: q=%s", q)
+        logger.warning("专利搜索内部错误: q=%s", q, exc_info=True)
         raise
 
 
@@ -290,7 +291,7 @@ async def api_search_web(
         logger.exception("网页搜索上游失败: q=%s engines=%s", q, engine_list)
         raise HTTPException(status_code=502, detail="所有上游搜索引擎均不可用")
     except Exception:
-        logger.exception("网页搜索内部错误: q=%s", q)
+        logger.warning("网页搜索内部错误: q=%s", q, exc_info=True)
         raise
 
 
@@ -562,6 +563,10 @@ async def update_source_config(
     if req.http_backend is not None:
         sc.http_backend = req.http_backend
     if req.base_url is not None:
+        if req.base_url:
+            _parsed = urlparse(req.base_url)
+            if _parsed.scheme not in ("http", "https") or not _parsed.hostname:
+                raise HTTPException(status_code=422, detail=f"base_url 必须为 http/https URL: {req.base_url}")
         sc.base_url = req.base_url if req.base_url else None
     if req.api_key is not None:
         sc.api_key = req.api_key if req.api_key else None
