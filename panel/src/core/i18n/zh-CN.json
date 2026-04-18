@@ -45,6 +45,8 @@
     "webEngines": "网页引擎",
     "healthRate": "健康率",
     "sourceHealth": "数据源健康检查",
+    "sourceMatrix": "数据源实时状态",
+    "sourceMatrixDesc": "按类别 × 层级分布 · 色点代表健康",
     "source": "数据源",
     "type": "类型",
     "tier": "层级",
@@ -73,7 +75,8 @@
     "diagnostics": "诊断详情",
     "name": "名称",
     "statusOk": "运行正常",
-    "statusDegraded": "部分降级"
+    "statusDegraded": "部分降级",
+    "degraded": "部分降级"
   },
   "search": {
     "title": "搜索",
@@ -116,7 +119,16 @@
     "source_arxiv": "预印本",
     "source_google_patents": "实验性爬虫",
     "source_duckduckgo": "爬虫",
-    "source_bing": "爬虫"
+    "source_bing": "爬虫",
+    "subtitle": "论文 · 专利 · 网页的统一语义搜索接口",
+    "searchBtn": "搜索",
+    "dataSources": "目标数据库",
+    "suggestion1": "大语言模型",
+    "suggestion2": "量子计算",
+    "suggestion3": "CRISPR 基因编辑",
+    "suggestion4": "Transformer 架构",
+    "suggestion5": "气候变化",
+    "suggestion6": "神经辐射场"
   },
   "sources": {
     "title": "数据源",
@@ -315,7 +327,20 @@
   "network": {
     "title": "网络",
     "pageTitle": "网络与代理设置",
-    "pageSubtitle": "管理 WARP 代理和 HTTP 后端配置"
+    "pageSubtitle": "管理 WARP 代理和 HTTP 后端配置",
+    "warpProxy": "WARP 代理",
+    "httpBackend": "HTTP 后端",
+    "mode": "模式",
+    "port": "端口",
+    "ip": "IP 地址",
+    "pid": "进程 ID",
+    "interface": "接口",
+    "enable": "启用",
+    "disable": "禁用",
+    "curlCffiOk": "CURL_CFFI: 正常",
+    "curlCffiNa": "CURL_CFFI: 不可用",
+    "globalDefault": "全局默认",
+    "active": "活跃"
   },
   "sourceConfig": {
     "advancedConfig": "高级配置",

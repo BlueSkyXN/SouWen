@@ -380,6 +380,195 @@
   margin-top: 6px;
 }
 
+/* ===== Source matrix view ===== */
+.matrixCard {
+  margin-bottom: $space-6;
+  padding: $space-6;
+}
+
+.matrixHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: $space-4;
+  margin-bottom: $space-5;
+  flex-wrap: wrap;
+}
+
+.matrixTitle {
+  font-size: $text-lg;
+  font-weight: $font-semibold;
+  margin: 0 0 $space-1 0;
+  letter-spacing: -0.02em;
+  display: flex;
+  align-items: baseline;
+  gap: $space-2;
+}
+
+.matrixCount {
+  font-size: $text-2xl;
+  font-weight: $font-bold;
+  color: var(--accent);
+  letter-spacing: -0.03em;
+}
+
+.matrixSubtitle {
+  font-size: $text-sm;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.matrixToggle {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px $space-3;
+  border-radius: $radius-full;
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+  font-size: $text-xs;
+  font-weight: $font-semibold;
+  letter-spacing: 0.08em;
+  font-family: var(--font-mono);
+}
+
+.matrixGroups {
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+}
+
+.matrixGroup {
+  display: flex;
+  align-items: flex-start;
+  gap: $space-5;
+  padding-top: $space-4;
+
+  @media (max-width: $mobile-bp) {
+    flex-direction: column;
+    gap: $space-2;
+  }
+}
+
+.matrixGroupDivided {
+  border-top: 1px solid var(--border);
+}
+
+.matrixGroupLabel {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  min-width: 96px;
+  flex-shrink: 0;
+  padding-top: 4px;
+}
+
+.matrixGroupName {
+  font-size: $text-sm;
+  font-weight: $font-semibold;
+  color: var(--text);
+}
+
+.matrixGroupCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: $radius-full;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: $text-xs;
+  font-weight: $font-semibold;
+  font-family: var(--font-mono);
+}
+
+.matrixChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-2;
+  flex: 1;
+  min-width: 0;
+}
+
+.matrixChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 4px 8px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: $radius;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+
+  &:hover {
+    border-color: var(--border-strong);
+    background: var(--bg-hover);
+  }
+}
+
+.matrixDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.matrixDotOk {
+  background: var(--success);
+  box-shadow: 0 0 0 2px rgba(108, 184, 154, 0.18);
+}
+
+.matrixDotErr {
+  background: var(--error);
+  box-shadow: 0 0 0 2px rgba(209, 138, 138, 0.18);
+}
+
+.matrixDotWarn {
+  background: var(--warning);
+  box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.18);
+}
+
+.matrixChipName {
+  font-family: var(--font-mono);
+  font-size: $text-xs;
+  color: var(--text);
+  font-weight: $font-medium;
+}
+
+.matrixTier {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 6px;
+  border-radius: $radius-xs;
+  font-size: 10px;
+  font-weight: $font-bold;
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+}
+
+.matrixTierT0 {
+  background: var(--accent-bg);
+  color: var(--accent);
+  border: 1px solid var(--accent-border-strong);
+}
+
+.matrixTierT1 {
+  background: var(--primary-light);
+  color: var(--primary);
+  border: 1px solid rgba(37, 99, 235, 0.25);
+}
+
+.matrixTierT2 {
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
 /* ===== Source health table ===== */
 .sectionHeader {
   margin-bottom: $space-4;

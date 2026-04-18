@@ -67,8 +67,10 @@
   font-family: $font-body;
   font-size: 14px;
   font-weight: 400;
-  color: var(--nav-text-secondary);
-  text-decoration: none;
+  // !important needed: global `html[data-skin='apple'] :where(a)` has specificity (0,1,1)
+  // which beats a single CSS-module class (0,1,0)
+  color: var(--nav-text-secondary) !important;
+  text-decoration: none !important;
   padding: 6px 12px;
   border-radius: $radius-pill;
   transition: background $transition-fast, color $transition-fast;
@@ -76,14 +78,16 @@
 
   &:hover {
     background: var(--nav-hover);
-    color: var(--nav-text);
-    text-decoration: none;
+    color: var(--nav-text) !important;
+    text-decoration: none !important;
   }
 }
 
 .navActive {
-  color: var(--nav-text);
+  color: #ffffff !important;
   font-weight: 600;
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: $radius-pill;
 }
 
 .navRight {

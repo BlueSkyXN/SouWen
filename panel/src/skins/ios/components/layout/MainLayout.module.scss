@@ -67,8 +67,10 @@
   gap: 10px;
   padding: 7px 10px;
   border-radius: $radius-search;
-  text-decoration: none;
-  color: var(--nav-text);
+  text-decoration: none !important;
+  // !important needed: global `html[data-skin='ios'] :where(a)` has specificity (0,1,1)
+  // which beats a single CSS-module class (0,1,0)
+  color: var(--nav-text) !important;
   font-family: $font-body;
   font-size: 15px;
   font-weight: 400;
@@ -77,16 +79,21 @@
 
   &:hover {
     background: var(--nav-hover);
-    text-decoration: none;
+    text-decoration: none !important;
   }
 }
 
 .sidebarItemActive {
   background: $ios-blue;
-  color: #fff;
+  color: #fff !important;
 
   &:hover {
     background: $ios-blue;
+    color: #fff !important;
+  }
+
+  .sidebarLabel {
+    color: #fff !important;
   }
 
   .squircleIcon {
@@ -242,9 +249,13 @@
 }
 
 .contentInner {
-  max-width: 800px;
+  max-width: 960px;
   margin: 0 auto;
   padding: 24px;
+
+  @media (min-width: 1280px) {
+    max-width: 1100px;
+  }
 
   @media (max-width: 768px) {
     padding: 16px;
