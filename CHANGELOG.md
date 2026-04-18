@@ -1,5 +1,30 @@
 # Changelog
 
+## v0.6.3
+
+安全加固 + 前端美学升级。16 项安全/质量问题修复，4 皮肤视觉增强。
+
+### Security
+- **SSRF 防护**（`pdf_fetcher.py`）：URL 下载前做 DNS 解析 + CIDR 黑名单，阻断 `localhost`/`127.x`/`10.x`/`172.16-31.x`/`192.168.x`/`169.254.x` 等内网穿透。
+- **时序安全认证**（`auth.py`）：消除 `check_search_auth()` 中的早期返回，visitor/admin 密码均用 `compare_digest()` 且结果在两次比较后才合并。
+- **Sed 注入防护**（`warp-init.sh`）：对用户输入做 `sed` 元字符转义（反斜杠优先序）。
+- **API Key 遮蔽**（`cli.py`）：`config show` 不再显示前 4 位明文。
+
+### Fix
+- **ETag RFC 合规**（`app.py`）：`_etag_matches()` 支持多值和 `*` 通配。
+- **base_url 验证**（`routes.py`）：拒绝非 `http(s)://` 前缀。
+- **atexit 死锁**（`google_patents.py`）：关闭回调加 5 秒超时。
+- **session_cache 容错**（`session_cache.py`）：添加 `except` 日志，防止静默丢异常。
+- **异步 I/O**（`pdf_fetcher.py`）：文件写入改用 `asyncio.to_thread()`。
+- **惰性 Semaphore**（`web/search.py`）：避免事件循环外初始化。
+- **退出码修正**（`cli.py`）：`CancelledError` 用 `exit(1)`。
+- **日志 regex 扩展**（`logging_config.py`）：覆盖更多敏感字段名。
+- **init 容错**（`cli.py`）：配置文件写入加 `try-except`。
+- **去重复日志**（`routes.py`）：移除冗余异常日志。
+
+### Style
+- **四皮肤美学升级**：souwen-classic（多层阴影/hover 提升）、apple（毛玻璃/圆角）、carbon（辉光/扫描线）、ios（过渡动画/hairline 分割线）。23 文件 +200/−38 行。
+
 ## v0.6.2
 
 Docker/HFS 部署修复。单文件变更、无逻辑改动。
