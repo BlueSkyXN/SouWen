@@ -204,6 +204,7 @@ export function DashboardPage() {
   const [doctor, setDoctor] = useState<DoctorResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const version = useAuthStore((s) => s.version)
   const addToast = useNotificationStore((s) => s.addToast)
 
@@ -213,6 +214,7 @@ export function DashboardPage() {
     try {
       const d = await api.getDoctor()
       setDoctor(d)
+      setLastUpdated(new Date())
     } catch (err) {
       setFetchError(true)
       addToast('error', t('dashboard.fetchFailed', { message: formatError(err) }))
@@ -336,6 +338,27 @@ export function DashboardPage() {
           <HealthRing pct={healthPct} />
         </m.div>
       </m.div>
+
+      {/* ── Last-updated meta bar ── */}
+      <div className={styles.metaBar}>
+        <span className={styles.lastUpdated}>
+          <span className={styles.lastUpdatedDot} aria-hidden="true" />
+          <span className={styles.lastUpdatedLabel}>{t('dashboard.lastUpdated')}</span>
+          <span className={styles.lastUpdatedValue}>
+            {lastUpdated ? lastUpdated.toLocaleTimeString() : '—'}
+          </span>
+        </span>
+        <button
+          type="button"
+          className={`${styles.refreshBtn} ${loading ? styles.refreshing : ''}`}
+          onClick={fetchData}
+          disabled={loading}
+          aria-label={t('dashboard.refresh')}
+        >
+          <RefreshCw size={12} />
+          {t('dashboard.refresh')}
+        </button>
+      </div>
 
       {/* ── Source matrix view ── */}
       <SourceMatrix sources={doctor.sources} />

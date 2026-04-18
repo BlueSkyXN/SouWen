@@ -55,18 +55,12 @@ const CATEGORY_ICONS: Record<CategoryKey, typeof FileText> = {
   web: Globe,
 }
 
-const CATEGORY_STYLE: Record<CategoryKey, string> = {
-  paper: styles.categoryPaper,
-  patent: styles.categoryPatent,
-  web: styles.categoryWeb,
-}
-
-function statusBorderClass(src: DoctorSource): string {
+function tierBorderClass(src: DoctorSource): string {
   if (!src.enabled) return styles.borderDisabled
-  switch (src.status) {
-    case 'ok': return styles.borderOk
-    case 'needs_key': return styles.borderWarning
-    default: return styles.borderError
+  switch (src.tier) {
+    case 0: return styles.tierBorder0
+    case 1: return styles.tierBorder1
+    default: return styles.tierBorder2
   }
 }
 
@@ -396,6 +390,7 @@ export function SourcesPage() {
   const [confirmSource, setConfirmSource] = useState<DoctorSource | null>(null)
   const [expandedSource, setExpandedSource] = useState<string | null>(null)
   const [sourcesConfig, setSourcesConfig] = useState<Record<string, SourceChannelConfig>>({})
+  const [selectedCategory, setSelectedCategory] = useState<'all' | CategoryKey>('all')
   const addToast = useNotificationStore((s) => s.addToast)
 
   const fetchSourcesConfig = useCallback(async () => {
@@ -487,12 +482,6 @@ export function SourcesPage() {
     sourcesByCategory[cat] = doctor.sources.filter((s) => s.category === cat)
   }
 
-  const categoryI18nKeys: Record<string, string> = {
-    paper: 'sources.categoryPaper',
-    patent: 'sources.categoryPatent',
-    web: 'sources.categoryWeb',
-  }
-
   const healthPercent = totalCount > 0 ? Math.round((okCount / totalCount) * 100) : 0
 
   return (
@@ -522,110 +511,133 @@ export function SourcesPage() {
         </div>
       </div>
 
-      {/* Category Groups */}
-      {CATEGORY_ORDER.map((cat) => {
-        const list = sourcesByCategory[cat]
-        if (!list || list.length === 0) return null
-        const Icon = CATEGORY_ICONS[cat]
-        const catStyle = CATEGORY_STYLE[cat]
+      {/* Filter Tabs */}
+      {(() => {
+        const tabs: Array<{ key: 'all' | CategoryKey; label: string; count: number; Icon?: typeof FileText }> = [
+          { key: 'all', label: t('sources.categoryAll'), count: doctor.sources.length },
+          { key: 'paper', label: t('sources.categoryPaper'), count: sourcesByCategory.paper?.length ?? 0, Icon: CATEGORY_ICONS.paper },
+          { key: 'patent', label: t('sources.categoryPatent'), count: sourcesByCategory.patent?.length ?? 0, Icon: CATEGORY_ICONS.patent },
+          { key: 'web', label: t('sources.categoryWeb'), count: sourcesByCategory.web?.length ?? 0, Icon: CATEGORY_ICONS.web },
+        ]
         return (
-          <div key={cat} className={`${styles.categoryGroup} ${catStyle}`}>
-            <div className={styles.categoryHeader}>
-              <div className={styles.categoryIcon}>
-                <Icon size={24} />
-              </div>
-              <span className={styles.categoryName}>{t(categoryI18nKeys[cat])}</span>
-              <span className={styles.categoryCount}>{list.length}</span>
-            </div>
-            <div className={styles.categoryDivider} />
-
-            <m.div
-              className={styles.cardGrid}
-              variants={staggerContainerFast}
-              initial="initial"
-              animate="animate"
-            >
-              {list.map((src) => (
-                <m.div
-                  key={src.name}
-                  variants={staggerItemSmall}
-                  className={`${styles.sourceCard} ${!src.enabled ? styles.sourceCardDisabled : ''} ${statusBorderClass(src)} ${expandedSource === src.name ? styles.sourceCardExpanded : ''}`}
+          <div className={styles.filterTabs} role="tablist" aria-label={t('sources.pageTitle')}>
+            {tabs.map((tab) => {
+              const Icon = tab.Icon
+              const active = selectedCategory === tab.key
+              return (
+                <button
+                  key={tab.key}
+                  type="button"
+                  role="tab"
+                  aria-selected={active}
+                  className={`${styles.filterTab} ${active ? styles.filterTabActive : ''}`}
+                  onClick={() => setSelectedCategory(tab.key)}
                 >
-                  <div className={styles.sourceCardTop} onClick={() => handleCardClick(src.name)}>
-                    <StatusDot status={src.enabled ? src.status : 'disabled'} />
+                  {Icon && <Icon size={14} />}
+                  <span>{tab.label}</span>
+                  <span className={styles.filterTabCount}>{tab.count}</span>
+                </button>
+              )
+            })}
+          </div>
+        )
+      })()}
 
-                    <div className={styles.cardBody}>
-                      <div className={styles.sourceName}>{src.name}</div>
-                      <div className={styles.badges}>
-                        <TierBadge tier={src.tier} t={t} />
-                        {src.required_key ? (
-                          <span className={styles.configBadgeKey}>
-                            <Key size={10} />
-                            {t('sources.needsApiKey')}
-                          </span>
-                        ) : (
-                          <span className={styles.configBadgeOk}>
-                            <Check size={10} />
-                            {t('sources.noConfigNeeded')}
-                          </span>
-                        )}
-                      </div>
-                      <div className={styles.cardDescription}>
-                        {src.message}
-                        {src.channel && Object.keys(src.channel).length > 0 && (
-                          <span className={styles.channelInfo}>
-                            [{Object.entries(src.channel).map(([k, v]) => `${k}=${v}`).join(', ')}]
-                          </span>
-                        )}
-                      </div>
+      {/* Filtered Source Grid */}
+      {(() => {
+        const list =
+          selectedCategory === 'all'
+            ? CATEGORY_ORDER.flatMap((cat) => sourcesByCategory[cat] ?? [])
+            : sourcesByCategory[selectedCategory] ?? []
+        if (list.length === 0) return null
+        return (
+          <m.div
+            key={selectedCategory}
+            className={styles.cardGrid}
+            variants={staggerContainerFast}
+            initial="initial"
+            animate="animate"
+          >
+            {list.map((src) => (
+              <m.div
+                key={src.name}
+                variants={staggerItemSmall}
+                className={`${styles.sourceCard} ${!src.enabled ? styles.sourceCardDisabled : ''} ${tierBorderClass(src)} ${expandedSource === src.name ? styles.sourceCardExpanded : ''}`}
+              >
+                <div className={styles.sourceCardTop} onClick={() => handleCardClick(src.name)}>
+                  <StatusDot status={src.enabled ? src.status : 'disabled'} />
+
+                  <div className={styles.cardBody}>
+                    <div className={styles.sourceName}>{src.name}</div>
+                    <div className={styles.badges}>
+                      <TierBadge tier={src.tier} t={t} />
+                      {src.required_key ? (
+                        <span className={styles.configBadgeKey}>
+                          <Key size={10} />
+                          {t('sources.needsApiKey')}
+                        </span>
+                      ) : (
+                        <span className={styles.configBadgeOk}>
+                          <Check size={10} />
+                          {t('sources.noConfigNeeded')}
+                        </span>
+                      )}
                     </div>
-
-                    <div className={styles.cardActions}>
-                      <span className={`${styles.expandIcon} ${expandedSource === src.name ? styles.expandIconOpen : ''}`}>
-                        <ChevronDown size={16} />
-                      </span>
-                      <div className={styles.toggleArea} onClick={(e) => e.stopPropagation()}>
-                        <button
-                          className={`${styles.toggleBtn} ${src.enabled ? styles.toggleBtnEnabled : ''}`}
-                          onClick={() => handleToggle(src)}
-                          disabled={toggling === src.name}
-                          title={src.enabled ? t('sources.clickToDisable') : t('sources.clickToEnable')}
-                          aria-label={src.enabled ? t('sources.clickToDisable') : t('sources.clickToEnable')}
-                        >
-                          <span
-                            className={`${styles.toggleKnob} ${src.enabled ? styles.toggleKnobEnabled : ''}`}
-                          >
-                            {src.enabled && <Check size={12} strokeWidth={3} />}
-                          </span>
-                        </button>
-                      </div>
+                    <div className={styles.cardDescription}>
+                      {src.message}
+                      {src.channel && Object.keys(src.channel).length > 0 && (
+                        <span className={styles.channelInfo}>
+                          [{Object.entries(src.channel).map(([k, v]) => `${k}=${v}`).join(', ')}]
+                        </span>
+                      )}
                     </div>
                   </div>
 
-                  <AnimatePresence initial={false}>
-                    {expandedSource === src.name && sourcesConfig[src.name] && (
-                      <m.div
-                        variants={expandVariants}
-                        initial="collapsed"
-                        animate="expanded"
-                        exit="collapsed"
-                        transition={expandTransition}
-                        style={{ overflow: 'hidden' }}
+                  <div className={styles.cardActions}>
+                    <span className={`${styles.expandIcon} ${expandedSource === src.name ? styles.expandIconOpen : ''}`}>
+                      <ChevronDown size={16} />
+                    </span>
+                    <div className={styles.toggleArea} onClick={(e) => e.stopPropagation()}>
+                      <button
+                        className={`${styles.toggleBtn} ${src.enabled ? styles.toggleBtnEnabled : ''}`}
+                        onClick={() => handleToggle(src)}
+                        disabled={toggling === src.name}
+                        title={src.enabled ? t('sources.clickToDisable') : t('sources.clickToEnable')}
+                        aria-label={src.enabled ? t('sources.clickToDisable') : t('sources.clickToEnable')}
                       >
-                        <SourceConfigPanel
-                          sourceName={src.name}
-                          config={sourcesConfig[src.name]}
-                          onSaved={() => void fetchSourcesConfig()}
-                        />
-                      </m.div>
-                    )}
-                  </AnimatePresence>
-                </m.div>
-              ))}
-            </m.div>
-          </div>
+                        <span
+                          className={`${styles.toggleKnob} ${src.enabled ? styles.toggleKnobEnabled : ''}`}
+                        >
+                          {src.enabled && <Check size={12} strokeWidth={3} />}
+                        </span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                <AnimatePresence initial={false}>
+                  {expandedSource === src.name && sourcesConfig[src.name] && (
+                    <m.div
+                      variants={expandVariants}
+                      initial="collapsed"
+                      animate="expanded"
+                      exit="collapsed"
+                      transition={expandTransition}
+                      style={{ overflow: 'hidden' }}
+                    >
+                      <SourceConfigPanel
+                        sourceName={src.name}
+                        config={sourcesConfig[src.name]}
+                        onSaved={() => void fetchSourcesConfig()}
+                      />
+                    </m.div>
+                  )}
+                </AnimatePresence>
+              </m.div>
+            ))}
+          </m.div>
         )
-      })}
+      })()}
 
       {/* Confirmation Modal */}
       <Modal
