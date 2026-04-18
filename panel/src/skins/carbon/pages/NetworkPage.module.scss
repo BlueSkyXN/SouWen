@@ -236,10 +236,15 @@
   display: flex;
   align-items: center;
   gap: 6px;
-  transition: background $transition-fast;
+  transition: background $transition-fast, box-shadow $transition-fast;
 
   &:hover:not(:disabled) {
     background: var(--accent-hover);
+    box-shadow: var(--glow-sm);
+  }
+
+  &:active:not(:disabled) {
+    box-shadow: var(--glow-md);
   }
 
   &:disabled {

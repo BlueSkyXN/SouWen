@@ -81,10 +81,11 @@
   padding: 20px;
   border: 1px solid var(--border);
   background: var(--bg-card);
-  transition: border-color $transition-fast;
+  transition: border-color $transition-fast, box-shadow $transition-fast;
 
   &:hover {
-    border-color: var(--border-strong);
+    border-color: var(--accent);
+    box-shadow: var(--glow-sm);
   }
 }
 

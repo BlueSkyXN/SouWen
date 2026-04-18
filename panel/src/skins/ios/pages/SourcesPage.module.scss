@@ -35,10 +35,15 @@
   color: var(--accent);
   cursor: pointer;
   box-shadow: var(--shadow-card);
-  transition: background $transition-fast;
+  transition: background-color $transition-fast, box-shadow $transition-fast, transform $transition-fast;
 
   &:hover {
     background: var(--bg-hover);
+    box-shadow: var(--shadow-card-hover);
+  }
+
+  &:active {
+    transform: scale(0.96);
   }
 }
 
@@ -64,6 +69,7 @@
   border-radius: $radius-card;
   box-shadow: var(--shadow-card);
   overflow: hidden;
+  transition: box-shadow var(--transition, $transition-fast);
 }
 
 /* ── Source Row ── */
@@ -74,6 +80,11 @@
   align-items: center;
   justify-content: space-between;
   gap: 12px;
+  transition: background-color var(--transition-fast);
+
+  &:hover {
+    background-color: var(--bg-hover);
+  }
 }
 
 .sourceRowSep {
@@ -85,8 +96,8 @@
     bottom: 0;
     left: 50px;
     right: 0;
-    height: 1px;
-    background: var(--border);
+    height: 0.5px;
+    background: var(--ios-separator, $ios-separator);
   }
 }
 

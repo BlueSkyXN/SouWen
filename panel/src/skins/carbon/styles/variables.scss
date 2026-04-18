@@ -52,3 +52,9 @@ $radius-pill: 9999px;
 $transition-fast: 120ms ease;
 $transition: 200ms ease;
 $transition-slow: 300ms ease;
+
+// Glow elevation (terminal aesthetic — no traditional shadows)
+// Default uses terminal blue; CSS vars in global.scss adapt per scheme.
+$glow-sm: 0 0 4px rgba(59, 130, 246, 0.15);
+$glow-md: 0 0 8px rgba(59, 130, 246, 0.20), 0 0 20px rgba(59, 130, 246, 0.08);
+$glow-lg: 0 0 16px rgba(59, 130, 246, 0.25), 0 0 40px rgba(59, 130, 246, 0.10);

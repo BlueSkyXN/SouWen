@@ -46,10 +46,16 @@ $radius-md: 11px;
 $radius-lg: 12px;
 $radius-pill: 980px;
 
-// Shadows — sparse Apple style
-$shadow-card: 3px 5px 30px rgba(0, 0, 0, 0.08);
-$shadow-card-hover: 3px 5px 30px rgba(0, 0, 0, 0.14);
+// Shadows — Apple multi-tier scale (soft, layered, hairline-fused)
+$shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+$shadow-card: 0 2px 8px rgba(0, 0, 0, 0.06), 0 0 1px rgba(0, 0, 0, 0.04);
+$shadow-card-hover: 0 4px 16px rgba(0, 0, 0, 0.10), 0 0 1px rgba(0, 0, 0, 0.06);
+$shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.12), 0 0 1px rgba(0, 0, 0, 0.04);
 $shadow-none: none;
+
+// Frosted glass surface
+$bg-frosted: rgba(255, 255, 255, 0.72);
+$bg-frosted-dark: rgba(29, 29, 31, 0.72);
 
 // Transitions
 $transition-fast: 150ms ease;

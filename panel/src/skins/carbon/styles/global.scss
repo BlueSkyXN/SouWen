@@ -43,6 +43,11 @@ html[data-skin='carbon'] {
   --transition: #{$transition};
   --transition-slow: #{$transition-slow};
 
+  // Glow elevation tokens (terminal blue by default; per-scheme overrides below)
+  --glow-sm: 0 0 4px rgba(59, 130, 246, 0.15);
+  --glow-md: 0 0 8px rgba(59, 130, 246, 0.20), 0 0 20px rgba(59, 130, 246, 0.08);
+  --glow-lg: 0 0 16px rgba(59, 130, 246, 0.25), 0 0 40px rgba(59, 130, 246, 0.10);
+
   --grid-line: rgba(59, 130, 246, 0.02);
   --hero-glow: rgba(59, 130, 246, 0.1);
   --overlay-bg: rgba(0, 0, 0, 0.7);
@@ -56,6 +61,10 @@ html[data-skin='carbon'][data-scheme='matrix'] {
   --accent-hover: #059669;
   --accent-light: rgba(16, 185, 129, 0.1);
   --accent-glow: rgba(16, 185, 129, 0.2);
+
+  --glow-sm: 0 0 4px rgba(16, 185, 129, 0.15);
+  --glow-md: 0 0 8px rgba(16, 185, 129, 0.20), 0 0 20px rgba(16, 185, 129, 0.08);
+  --glow-lg: 0 0 16px rgba(16, 185, 129, 0.25), 0 0 40px rgba(16, 185, 129, 0.10);
 }
 
 /* ── Scheme: ember (amber) ── */
@@ -64,6 +73,10 @@ html[data-skin='carbon'][data-scheme='ember'] {
   --accent-hover: #d97706;
   --accent-light: rgba(245, 158, 11, 0.1);
   --accent-glow: rgba(245, 158, 11, 0.2);
+
+  --glow-sm: 0 0 4px rgba(245, 158, 11, 0.15);
+  --glow-md: 0 0 8px rgba(245, 158, 11, 0.20), 0 0 20px rgba(245, 158, 11, 0.08);
+  --glow-lg: 0 0 16px rgba(245, 158, 11, 0.25), 0 0 40px rgba(245, 158, 11, 0.10);
 }
 
 /* ── Light mode (true inverted, terminal aesthetic preserved) ── */
@@ -87,6 +100,11 @@ html[data-skin='carbon'][data-mode='light'] {
 
   --accent-light: rgba(59, 130, 246, 0.08);
   --accent-glow: rgba(59, 130, 246, 0.1);
+
+  // Softer glows for light mode
+  --glow-sm: 0 0 4px rgba(59, 130, 246, 0.12);
+  --glow-md: 0 0 6px rgba(59, 130, 246, 0.15), 0 0 16px rgba(59, 130, 246, 0.06);
+  --glow-lg: 0 0 12px rgba(59, 130, 246, 0.18), 0 0 32px rgba(59, 130, 246, 0.08);
 
   --success-light: rgba(16, 185, 129, 0.08);
   --warning-light: rgba(245, 158, 11, 0.08);
@@ -121,6 +139,19 @@ html[data-skin='carbon'] :where(a) {
   text-decoration: none;
 }
 
+/* ===== Focus visible (terminal glow ring) ===== */
+html[data-skin='carbon'] :where(a, button, [role='button'], input, select, textarea, [tabindex]):focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--accent-glow);
+}
+
+html[data-skin='carbon'] :where(input, select, textarea):focus,
+html[data-skin='carbon'] :where(input, select, textarea):focus-visible {
+  border-color: var(--accent);
+  box-shadow: var(--glow-md);
+  outline: none;
+}
+
 /* ===== Scrollbar (terminal style) ===== */
 html[data-skin='carbon'] ::-webkit-scrollbar-thumb {
   background: var(--border);
@@ -151,4 +182,27 @@ html[data-skin='carbon'] ::-webkit-scrollbar-thumb {
 
 .animate-blink {
   animation: blink-cursor 1s step-end infinite;
+}
+
+/* Subtle CRT scan-line overlay (opt-in via class on a container) */
+html[data-skin='carbon'] .scan-line-bg {
+  position: relative;
+}
+
+html[data-skin='carbon'] .scan-line-bg::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(255, 255, 255, 0.015) 2px,
+    rgba(255, 255, 255, 0.015) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
 }
