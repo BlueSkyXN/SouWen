@@ -6,6 +6,45 @@ Google Patents 无官方 API，本模块通过爬虫方式获取数据。
 策略优先级：
 1. httpx + BeautifulSoup 静态解析（优先）
 2. Playwright 动态渲染（回退方案，需安装可选依赖）
+
+文件用途：
+    继承 BaseScraper 的 Google Patents 专用爬虫，封装搜索与详情两类爬取流程。
+    采用 XHR 接口优先、HTML 页面解析回退的双策略，最大化兼容 Google Patents 的页面变化。
+    与 ``patent.google_patents.GooglePatentsClient`` 不同：
+    本模块复用 BaseScraper 的 TLS 指纹和自适应退避能力，定位为 ``scraper`` 子系统的实现。
+
+函数/类清单：
+    GooglePatentsScraper（类，继承 BaseScraper）
+        - 功能：Google Patents 专用爬虫，提供搜索和详情爬取
+        - 类属性：ENGINE_NAME 频道标识符（用于配置解析）
+
+    search(query, num_results=10) -> SearchResponse
+        - 功能：搜索 Google Patents（XHR 优先，HTML 回退）
+        - 输入：query 搜索关键词，num_results 期望返回数量
+        - 输出：统一 SearchResponse
+
+    _search_html(query, num_results) -> SearchResponse
+        - 功能：HTML 页面解析回退方案，使用 BeautifulSoup 提取搜索条目
+
+    _parse_search_response(data, query) -> SearchResponse
+        - 功能：解析 XHR JSON 响应（防御性解析，逐层校验数据结构）
+
+    _parse_search_item(item) -> PatentResult | None
+        - 功能：从单个 HTML 元素中提取专利标题、专利号、摘要
+
+    _map_patent(data: dict) -> PatentResult
+        - 功能：将 XHR 返回的专利数据字典映射为 PatentResult 对象
+        - 注意：日期字段为 YYYYMMDD 格式，需要拆分转换
+
+    get_patent(patent_id: str) -> PatentResult
+        - 功能：爬取专利详情页 ``/patent/<id>/en``，提取标题/摘要/权利要求/分类号等字段
+        - 异常：NotFoundError 页面 404 时抛出
+
+模块依赖：
+    - bs4 (BeautifulSoup): HTML 解析
+    - souwen.scraper.base.BaseScraper: 爬虫基类（提供 TLS 指纹、限流、重试）
+    - souwen.models: 统一数据模型
+    - souwen.exceptions: NotFoundError
 """
 
 from __future__ import annotations

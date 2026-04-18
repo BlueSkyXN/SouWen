@@ -9,6 +9,44 @@
 - 可选代理支持
 
 技术方案涵盖 TLS 指纹伪装、自适应退避和浏览器头模拟。
+
+文件用途：
+    定义所有具体爬虫继承的 BaseScraper 抽象基类。
+    集成 curl_cffi/httpx 双引擎、自适应退避算法、浏览器指纹伪装、
+    频道级配置（代理、自定义请求头、HTTP 后端）等通用能力，
+    使子类只需实现页面解析逻辑即可获得反反爬能力。
+
+函数/类清单：
+    BaseScraper（类）
+        - 功能：爬虫基类，封装 HTTP 请求、限流、重试、指纹伪装
+        - 关键属性：min_delay/max_delay 礼貌延迟范围，max_retries 最大重试次数
+        - 关键变量：_backoff_multiplier 自适应退避系数，_fingerprint 浏览器指纹，
+          _use_curl_cffi 是否启用 TLS 指纹模拟，_curl_session/_httpx_client 后端实例
+
+    close() -> None
+        - 功能：关闭底层 HTTP 客户端，释放连接资源
+        - 通常通过 ``async with`` 上下文管理器自动调用
+
+    _polite_delay() -> None
+        - 功能：每次请求前等待随机时长，叠加自适应退避系数
+        - 实现 "被限流时退避、恢复时逐步加速" 的礼貌爬取策略
+
+    _fetch(url, method="GET", params=None, headers=None) -> httpx.Response
+        - 功能：带礼貌延迟、自动重试和指纹伪装的请求方法
+        - 输入：url 目标地址，method HTTP 方法，params 查询参数，headers 额外头
+        - 输出：响应对象（httpx.Response 或 curl_cffi 兼容对象）
+        - 异常：RateLimitError 持续被限流；SourceUnavailableError 网络/服务异常
+
+    _do_request(method, url, params, headers) -> Any
+        - 功能：根据后端选择执行实际的 HTTP 请求
+        - 优先 curl_cffi（TLS 指纹），回退 httpx
+
+模块依赖：
+    - httpx: HTTP 客户端回退方案
+    - curl_cffi: TLS 指纹模拟（可选，缺失时自动回退 httpx）
+    - souwen.config: 全局配置（HTTP 后端、代理、超时、频道头）
+    - souwen.fingerprint: 浏览器指纹生成
+    - souwen.exceptions: RateLimitError / SourceUnavailableError
 """
 
 from __future__ import annotations

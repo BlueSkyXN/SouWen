@@ -1,5 +1,31 @@
 /**
- * 文件用途：iOS 皮肤的搜索页面，支持跨多个数据源的统一搜索
+ * 文件用途：iOS 皮肤的搜索页面，支持跨多个数据源的统一搜索（论文、专利、网页）
+ *
+ * 组件/函数清单：
+ *   SearchPage（函数组件）
+ *     - 功能：提供搜索表单、数据源选择、结果展示，支持论文/专利/网页搜索
+ *       1. 搜索输入和建议
+ *       2. 按数据源类别（论文/专利/网页）分组选择来源
+ *       3. 异步执行搜索，展示结果列表或错误状态
+ *     - State 状态：query (string) 搜索词, selectedSources (Record) 各类别选中来源, results (Record) 搜索结果
+ *     - 关键钩子：useTranslation 翻译, useNotificationStore 提示
+ *     - 关键函数：handleSearch 执行搜索, normalizePaper/normalizePatent/normalizeWeb 结果格式化
+ *
+ *   toSourceOptions（函数）
+ *     - 功能：将 SourceInfo 数组转换为下拉选项格式
+ *   makeFallbackOptions（函数）
+ *     - 功能：生成默认数据源选项（当服务器数据不可用时使用）
+ *   resolveSourceOptions（函数）
+ *     - 功能：根据类别获取可用数据源选项
+ *
+ * 模块依赖：
+ *   - react: 状态和表单处理
+ *   - react-i18next: 国际化翻译
+ *   - framer-motion: 动画
+ *   - lucide-react: 图标
+ *   - @core/services/api: 搜索 API
+ *   - @core/lib/normalize: 搜索结果格式化函数
+ *   - SearchPage.module.scss: 页面样式
  */
 
 import { useState, useCallback, useEffect, useRef, type FormEvent } from 'react'
@@ -20,16 +46,19 @@ import type {
 } from '@core/types'
 import styles from './SearchPage.module.scss'
 
+// 数据源选项接口 - 用于下拉菜单展示
 interface SourceOption {
   value: string
   label: string
   description?: string
 }
 
+// 将 API 返回的 SourceInfo 转换为下拉菜单选项格式
 function toSourceOptions(sources: SourceInfo[]): SourceOption[] {
   return sources.map((s) => ({ value: s.name, label: s.name, description: s.description }))
 }
 
+// 生成默认数据源选项（服务器数据不可用时使用）
 function makeFallbackOptions(t: (key: string) => string): Record<SearchCategory, SourceOption[]> {
   return {
     paper: [
@@ -54,6 +83,7 @@ const DEFAULT_SELECTED: Record<SearchCategory, string[]> = {
 
 // SEARCH_SUGGESTIONS 已移至组件内部以支持 i18n
 
+// 获取指定类别的数据源选项（优先使用 API 返回的选项，回退到默认值）
 function resolveSourceOptions(
   category: SearchCategory,
   sources: SourceInfo[],
@@ -63,6 +93,7 @@ function resolveSourceOptions(
   return options.length > 0 ? options : fallback[category]
 }
 
+// 验证选中的数据源是否仍然有效（防止选项更新后选中值失效）
 function sanitizeSelections(
   current: Record<SearchCategory, string[]>,
   options: Record<SearchCategory, SourceOption[]>,
@@ -80,13 +111,16 @@ function sanitizeSelections(
   )
 }
 
+// 搜索状态的联合类型 - idle/loading/error 三种状态
 type SearchState =
   | { status: 'idle'; tab: null; message: null }
   | { status: 'loading'; tab: SearchCategory; message: null }
   | { status: 'error'; tab: SearchCategory; message: string }
 
+// SearchPage 组件 - 搜索页面主组件
 export function SearchPage() {
   const { t } = useTranslation()
+  // 初始化搜索建议文案（支持国际化）
   const SEARCH_SUGGESTIONS = [
     t('search.suggestion1', '大语言模型'),
     t('search.suggestion2', '量子计算'),
@@ -110,6 +144,7 @@ export function SearchPage() {
   const requestIdRef = useRef(0)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  // 从服务器获取可用的数据源列表，初始化选项
   useEffect(() => {
     let cancelled = false
     api.getSources().then((res) => {
@@ -126,10 +161,12 @@ export function SearchPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // 清理活跃的异步搜索请求（防止内存泄漏）
   useEffect(() => {
     return () => { activeRequestRef.current?.controller.abort() }
   }, [])
 
+  // 在当前标签页中切换数据源的选中状态
   const toggleSource = useCallback((name: string) => {
     setSelections((prev) => {
       const curr = prev[tab]
@@ -142,10 +179,12 @@ export function SearchPage() {
   const canSearch = query.trim().length > 0 && currentSources.length > 0
   const isSearchingCurrentTab = searchState.status === 'loading' && searchState.tab === tab
 
+  // 执行搜索请求（支持中止）
   const handleSearch = useCallback(
     async (e: FormEvent) => {
       e.preventDefault()
       if (!canSearch) return
+      // 生成请求 ID，用于中止之前未完成的请求
       const requestId = requestIdRef.current + 1
       requestIdRef.current = requestId
       activeRequestRef.current?.controller.abort()

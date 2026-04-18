@@ -1,20 +1,42 @@
-"""Client for SearXNG
+"""SearXNG 自部署隐私元搜索引擎
 
-Purpose:
-    Privacy-focused meta-search engine
+文件用途：
+    SearXNG 搜索客户端。SearXNG 是隐私优先的开源元搜索引擎，
+    聚合多个搜索引擎结果，无用户追踪，需用户自行部署实例。
 
-API Endpoint:
-    SearXNG service
+函数/类清单：
+    SearXNGClient（类）
+        - 功能：SearXNG JSON API 客户端，通过 HTTP 调用自部署实例
+        - 继承：SouWenHttpClient（HTTP 客户端基类）
+        - 关键属性：ENGINE_NAME = "searxng", instance_url 自部署实例地址
+        - 主要方法：search(query, max_results, ...) -> WebSearchResponse
 
-Key Features:
-    - No tracking, aggregates results from multiple search engines
+    SearXNGClient.__init__(instance_url=None)
+        - 功能：初始化 SearXNG 搜索客户端，验证实例 URL 可用性
+        - 输入：instance_url (str|None) 实例地址，默认从 SOUWEN_SEARXNG_URL 读取
+        - 异常：ConfigError 未提供实例 URL 时抛出
 
-Engine Class:
-    SearxngClient(SouWenHttpClient)
-        async def search(query, max_results) -> WebSearchResponse
+    SearXNGClient.search(query, max_results=20, engines=None, ...) -> WebSearchResponse
+        - 功能：通过 SearXNG JSON API 执行搜索
+        - 输入：query 搜索词, max_results 最大结果数,
+                engines 指定引擎（逗号分隔）, categories 分类,
+                language 语言
+        - 输出：WebSearchResponse 包含搜索结果
+        - 异常：ParseError API 响应解析失败时抛出
 
-Returns:
-    WebSearchResponse with title, url, snippet fields
+模块依赖：
+    - logging: 日志记录
+    - typing: 类型注解
+    - souwen.config: 获取实例 URL 配置
+    - souwen.exceptions: ConfigError, ParseError 异常
+    - souwen.http_client: SouWenHttpClient HTTP 客户端基类
+    - souwen.models: SourceType, WebSearchResult, WebSearchResponse 数据模型
+
+技术要点：
+    - API 端点：GET /search?format=json，通过 format=json 获取 JSON 响应
+    - 支持指定后端引擎（如 google,bing,duckduckgo）
+    - 每条结果自带 engine 字段标识来源引擎
+    - total_results 优先使用 API 返回的 number_of_results
 """
 
 from __future__ import annotations
@@ -41,11 +63,13 @@ class SearXNGClient(SouWenHttpClient):
     ENGINE_NAME = "searxng"
 
     def __init__(self, instance_url: str | None = None):
+        # 从参数或配置读取 SearXNG 实例 URL
         config = get_config()
         self.instance_url = (
             instance_url or config.resolve_api_key("searxng", "searxng_url") or ""
         ).rstrip("/")
         if not self.instance_url:
+            # 未提供实例 URL 时抛出配置错误
             raise ConfigError(
                 "searxng_url",
                 "SearXNG",
@@ -70,18 +94,22 @@ class SearXNGClient(SouWenHttpClient):
             categories: 分类筛选（如 "general", "science", "news"）
             language: 语言（如 "zh-CN", "en-US", "auto"）
         """
+        # 构建查询参数，format=json 指定 JSON 响应格式
         params: dict[str, Any] = {
             "q": query,
             "format": "json",
             "language": language,
         }
+        # 可选的引擎和分类筛选
         if engines:
             params["engines"] = engines
         if categories:
             params["categories"] = categories
 
+        # 发送 GET 请求到 SearXNG 实例
         resp = await self.get("/search", params=params)
         try:
+            # 解析 JSON 响应
             data = resp.json()
         except Exception as e:
             from souwen.exceptions import ParseError
@@ -89,12 +117,14 @@ class SearXNGClient(SouWenHttpClient):
             raise ParseError(f"SearXNG 响应解析失败: {e}") from e
 
         results: list[WebSearchResult] = []
+        # 提取搜索结果
         for item in data.get("results", []):
             if len(results) >= max_results:
                 break
             title = item.get("title", "").strip()
             url = item.get("url", "").strip()
             if not title or not url:
+                # 跳过不完整的结果
                 continue
             results.append(
                 WebSearchResult(
@@ -102,7 +132,7 @@ class SearXNGClient(SouWenHttpClient):
                     title=title,
                     url=url,
                     snippet=item.get("content", "").strip(),
-                    engine=item.get("engine", self.ENGINE_NAME),
+                    engine=item.get("engine", self.ENGINE_NAME),  # 使用结果自带的引擎标识
                 )
             )
 
@@ -112,5 +142,6 @@ class SearXNGClient(SouWenHttpClient):
             query=query,
             source=SourceType.WEB_SEARXNG,
             results=results,
-            total_results=data.get("number_of_results", 0) or len(results),
+            total_results=data.get("number_of_results", 0)
+            or len(results),  # 优先使用 API 返回的总数
         )

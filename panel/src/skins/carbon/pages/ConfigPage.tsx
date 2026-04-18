@@ -1,5 +1,30 @@
 /**
  * 文件用途：Carbon 皮肤的配置页面，以分组形式展示和查看服务器配置参数
+ *
+ * 组件/函数清单：
+ *   ConfigPage（函数组件）
+ *     - 功能：获取服务器配置并按分组（基础、网络、搜索）分类展示
+ *       1. 异步获取 ConfigResponse
+ *       2. 按预定义的 CONFIG_SECTIONS 分组展示配置
+ *       3. 每行配置项显示标签和值，支持特殊值的格式化展示（掩盖密码、JSON 对象、布尔值）
+ *     - State 状态：config (ConfigResponse) 配置数据, loading/error 加载状态
+ *     - 关键常量：BASIC_KEYS/NETWORK_KEYS/SEARCH_KEYS 配置项分类
+ *     - 关键钩子：useTranslation 翻译, useNotificationStore 提示
+ *
+ *   ConfigRow（子组件）
+ *     - 功能：单个配置项的显示组件，支持多种值类型的格式化
+ *     - Props 属性：configKey 配置键, value 配置值, t 翻译函数
+ *     - 逻辑：掩盖敏感字段（密码），显示 null/对象/布尔/字符串等
+ *
+ * 模块依赖：
+ *   - react: 状态管理
+ *   - react-i18next: 国际化翻译
+ *   - framer-motion: 动画
+ *   - lucide-react: 图标
+ *   - @core/services/api: 获取配置
+ *   - @core/stores/notificationStore: 提示消息
+ *   - @core/lib/animations: 堆积容器动画配置
+ *   - ConfigPage.module.scss: 样式
  */
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
@@ -38,6 +63,15 @@ function getConfigLabel(key: string, t: TFunc): string {
   return t(`config.labels.${key}`, { defaultValue: key })
 }
 
+/**
+ * ConfigRow 子组件 - 单个配置项行
+ * 处理不同类型的配置值（字符串、数字、布尔、对象、null），显示相应的格式化结果
+ * 敏感字段（如密码）显示掩盖状态而不是实际值
+ *
+ * @param {string} configKey - 配置键
+ * @param {unknown} value - 配置值
+ * @param {TFunc} t - 翻译函数
+ */
 function ConfigRow({ configKey, value, t }: { configKey: string; value: unknown; t: TFunc }) {
   const label = getConfigLabel(configKey, t)
   const isMasked = value === '***' || MASKED_KEYS.has(configKey)
@@ -47,20 +81,25 @@ function ConfigRow({ configKey, value, t }: { configKey: string; value: unknown;
     <div className={styles.configRow}>
       <div className={styles.configLabel}>{label}</div>
       <div className={styles.configValue}>
+        {/* 掩盖的敏感字段显示勾选标记 */}
         {isMasked && value === '***' ? (
           <span className={styles.maskedBadge}>
             <CheckCircle2 size={10} />
             {t('config.configured')}
           </span>
         ) : isNull ? (
+          // 为 null/undefined 显示"未设置"
           <span className={styles.nullVal}>{t('config.notSet')}</span>
         ) : typeof value === 'object' ? (
+          // 对象和数组显示为 JSON 代码块
           <code className={styles.codeVal}>{JSON.stringify(value)}</code>
         ) : typeof value === 'boolean' ? (
+          // 布尔值显示为徽章，true/false 有不同样式
           <span className={`${styles.boolBadge} ${value ? styles.boolTrue : styles.boolFalse}`}>
             {String(value)}
           </span>
         ) : (
+          // 字符串和数字直接显示
           <span className={styles.plainVal}>{String(value)}</span>
         )}
       </div>
@@ -75,6 +114,7 @@ export function ConfigPage() {
   const [reloading, setReloading] = useState(false)
   const addToast = useNotificationStore((s) => s.addToast)
 
+  // 获取服务器配置
   const fetchConfig = useCallback(async () => {
     setLoading(true)
     try {
@@ -87,6 +127,7 @@ export function ConfigPage() {
     }
   }, [addToast, t])
 
+  // 重载配置并刷新显示
   const handleReload = useCallback(async () => {
     setReloading(true)
     try {
@@ -106,6 +147,7 @@ export function ConfigPage() {
     void fetchConfig()
   }, [fetchConfig])
 
+  // 根据预定义分组对配置项进行分类
   const { sections, advancedEntries } = useMemo(() => {
     const entries = config ? Object.entries(config) : []
     const categorized = new Set<string>()
@@ -121,6 +163,7 @@ export function ConfigPage() {
       return { ...section, items }
     })
 
+    // 未分类的配置项放入"高级/凭证"分组
     const advanced = entries
       .filter(([key]) => !categorized.has(key))
       .map(([key, value]) => ({ key, value }))
@@ -139,7 +182,7 @@ export function ConfigPage() {
       initial="initial"
       animate="animate"
     >
-      {/* ── Header ── */}
+      {/* ── Header 页面头部 ── */}
       <m.div className={styles.pageHeader} variants={staggerItem}>
         <div>
           <h1 className={styles.pageTitle}>
@@ -158,7 +201,7 @@ export function ConfigPage() {
         </button>
       </m.div>
 
-      {/* ── Config Sections ── */}
+      {/* ── Config Sections 配置分组展示 ── */}
       {sections.map((section) => (
         <m.div key={section.id} className={styles.configSection} variants={staggerItem}>
           <div className={styles.sectionHeader}>
@@ -171,7 +214,7 @@ export function ConfigPage() {
         </m.div>
       ))}
 
-      {/* ── Advanced / Credentials ── */}
+      {/* ── Advanced / Credentials 高级/凭证分组 ── */}
       {advancedEntries.length > 0 && (
         <m.div className={styles.configSection} variants={staggerItem}>
           <div className={styles.sectionHeader}>

@@ -1,5 +1,25 @@
 /**
  * 文件用途：Carbon 皮肤的仪表板页面，展示系统健康状态、数据源统计和健康检查结果
+ *
+ * 组件/函数清单：
+ *   DashboardPage（函数组件）
+ *     - 功能：首页仪表板，异步获取系统诊断数据（DoctorResponse），展示：
+ *       1. Hero 区域：健康状态标题和描述
+ *       2. 核心指标：论文来源数、专利来源数、可用数据源比例
+ *       3. 健康表格：详细列表显示每个数据源的状态、名称、类型、层级、所需密钥、诊断信息
+ *     - State 状态：doctor (DoctorResponse | null) 诊断数据, loading (bool) 加载中, fetchError (bool) 获取失败
+ *     - 关键钩子：useTranslation 获取翻译, useNotificationStore 显示提示
+ *     - 关键计算：paperCount 论文来源数, patentCount 专利来源数, healthPct 健康百分比 (ok/total)
+ *     - 错误处理：加载失败时显示错误状态卡和重试按钮
+ *
+ * 模块依赖：
+ *   - react-i18next: 国际化翻译
+ *   - lucide-react: RefreshCw 刷新图标
+ *   - @core/services/api: api.getDoctor 获取诊断数据
+ *   - @core/stores: useNotificationStore, useAuthStore
+ *   - @core/lib/errors: formatError 错误格式化
+ *   - ./components/common/Spinner: 加载旋转圈
+ *   - DashboardPage.module.scss: 页面样式
  */
 
 import { useEffect, useState, useCallback } from 'react'
@@ -23,6 +43,7 @@ export function DashboardPage() {
   const version = useAuthStore((s) => s.version)
   const addToast = useNotificationStore((s) => s.addToast)
 
+  // 从服务器获取诊断数据（数据源状态、统计、配置信息）
   const fetchData = useCallback(async () => {
     setLoading(true)
     setFetchError(false)
@@ -37,14 +58,17 @@ export function DashboardPage() {
     }
   }, [addToast, t])
 
+  // 页面首次加载时获取数据
   useEffect(() => {
     void fetchData()
   }, [fetchData])
 
+  // 加载中状态：显示加载旋转圈
   if (loading) {
     return <Spinner label={t('common.loading', 'Loading...')} />
   }
 
+  // 加载失败状态：显示错误消息和重试按钮
   if (fetchError || !doctor) {
     return (
       <div className={styles.errorState}>
@@ -57,6 +81,7 @@ export function DashboardPage() {
     )
   }
 
+  // 从诊断数据中提取统计信息
   const paperCount = doctor.sources.filter((s) => s.category === 'paper').length
   const patentCount = doctor.sources.filter((s) => s.category === 'patent').length
   const webCount = doctor.sources.filter((s) => s.category === 'web').length
@@ -66,7 +91,7 @@ export function DashboardPage() {
 
   return (
     <div className={styles.page}>
-      {/* ── Header ── */}
+      {/* ── Header 页面头部 ── */}
       <div className={styles.pageHeader}>
         <h1 className={styles.pageTitle}>
           <Activity size={20} />
@@ -85,7 +110,7 @@ export function DashboardPage() {
         </div>
       </div>
 
-      {/* ── Stats Grid ── */}
+      {/* ── Stats Grid 统计卡片网格 ── */}
       <m.div
         className={styles.statsGrid}
         variants={staggerContainer}
@@ -119,7 +144,7 @@ export function DashboardPage() {
         </m.div>
       </m.div>
 
-      {/* ── Health Table ── */}
+      {/* ── Health Table 数据源健康详情表 ── */}
       <div className={styles.tableSection}>
         <h3 className={styles.sectionTitle}>{t('dashboard.sourceHealth')}</h3>
         <div className={styles.tableWrap}>
@@ -136,6 +161,7 @@ export function DashboardPage() {
             </thead>
             <tbody>
               {doctor.sources.map((src) => {
+                // 根据数据源状态（ok/needs_key/error）显示不同的符号和样式
                 const statusSymbol = src.status === 'ok'
                   ? '●'
                   : src.status === 'needs_key'

@@ -94,6 +94,7 @@ class WarpManager:
 
     @classmethod
     def get_instance(cls) -> WarpManager:
+        """获取 WarpManager 全局单例 — 线程内首次调用时延迟创建"""
         if cls._instance is None:
             cls._instance = cls()
         return cls._instance
@@ -134,10 +135,18 @@ class WarpManager:
 
     @staticmethod
     def _has_wireproxy() -> bool:
+        """检测当前系统是否已安装 wireproxy 二进制（用户态模式可用性）"""
         return shutil.which("wireproxy") is not None
 
     @staticmethod
     def _has_kernel_wg() -> bool:
+        """检测内核 WireGuard 模式所需依赖是否齐备
+
+        需要同时满足三个条件：
+            1. 存在 wg-quick（WireGuard 用户空间工具）
+            2. 存在 microsocks（轻量 SOCKS5 代理）
+            3. /dev/net/tun 存在（容器需要 NET_ADMIN 权限）
+        """
         return (
             shutil.which("wg-quick") is not None
             and shutil.which("microsocks") is not None
@@ -145,6 +154,14 @@ class WarpManager:
         )
 
     def detect_best_mode(self) -> str:
+        """自动检测最优可用 WARP 模式
+
+        优先级：kernel > wireproxy > none。
+        kernel 模式性能更好但需要权限；wireproxy 模式无权限要求。
+
+        Returns:
+            "kernel" / "wireproxy" / "none"
+        """
         if self._has_kernel_wg():
             return "kernel"
         if self._has_wireproxy():
@@ -285,6 +302,20 @@ class WarpManager:
         socks_port: int = 1080,
         endpoint: str | None = None,
     ) -> dict[str, Any]:
+        """启用 WARP 代理
+
+        加锁保证并发安全，按 mode 选择启动路径；auto 模式失败时自动回退。
+        启动成功后会更新 SOUWEN_PROXY 环境变量并重载配置，使新代理立即生效。
+
+        Args:
+            mode: 启动模式（auto / wireproxy / kernel）
+            socks_port: 本地 SOCKS5 监听端口
+            endpoint: 自定义 WARP Endpoint（可选）
+
+        Returns:
+            {"ok": True, "mode": str, "ip": str} 成功；
+            {"ok": False, "error": str} 失败
+        """
         async with self._lock:
             if self._state.status in ("enabled", "starting"):
                 return {"ok": False, "error": f"WARP 当前状态: {self._state.status}，请先禁用"}
@@ -351,6 +382,17 @@ class WarpManager:
                 return {"ok": False, "error": str(exc)}
 
     async def disable(self) -> dict[str, Any]:
+        """禁用 WARP 代理 — 终止进程并清理网络配置
+
+        清理顺序：
+            1. 终止 wireproxy 或 microsocks 子进程（先 SIGTERM 再 SIGKILL）
+            2. 若为 kernel 模式，调用 wg-quick down 拆除 WireGuard 接口
+            3. 清空 SOUWEN_PROXY 环境变量并重载配置
+            4. 重置内部状态并持久化
+
+        Returns:
+            {"ok": True, "message": str} 或 {"ok": False, "error": str}
+        """
         async with self._lock:
             if self._state.status == "disabled":
                 return {"ok": True, "message": "WARP 已处于关闭状态"}
@@ -407,6 +449,18 @@ class WarpManager:
     # ------ status ------
 
     def get_status(self) -> dict[str, Any]:
+        """返回当前 WARP 状态快照
+
+        当 status == "enabled" 时会做实时存活校验：
+            - wireproxy 模式：检查子进程或 PID 是否仍在运行
+            - kernel 模式：检查 PID 或 SOCKS5 是否响应
+
+        若发现进程已退出，会自动将状态改为 error 并持久化。
+
+        Returns:
+            包含 status、mode、owner、socks_port、ip、pid、interface、
+            last_error 和 available_modes 的字典
+        """
         s = self._state
 
         # 实时验证: 如果状态是 enabled, 检查进程是否还活着
@@ -439,6 +493,11 @@ class WarpManager:
     # ------ internal: wireproxy ------
 
     async def _start_wireproxy(self, socks_port: int, endpoint: str | None) -> None:
+        """启动 wireproxy 子进程（用户态 SOCKS5）
+
+        Raises:
+            RuntimeError: 配置缺失或 wireproxy 未安装
+        """
         conf_path = self._get_wireproxy_config(socks_port, endpoint)
         if not conf_path:
             raise RuntimeError("无法获取 wireproxy 配置 (需要 WARP_CONFIG_B64 或已注册配置)")
@@ -455,6 +514,16 @@ class WarpManager:
         self._state.config_path = str(conf_path)
 
     def _get_wireproxy_config(self, socks_port: int, endpoint: str | None) -> Path | None:
+        """获取 wireproxy 配置文件 — 三级回退策略
+
+        优先级：
+            1. WARP_CONFIG_B64 环境变量（Base64 配置）
+            2. /app/data/wireproxy.conf 持久化文件
+            3. 通过 wgcf 在线注册新账号
+
+        Returns:
+            就绪的配置文件路径，或 None 表示无可用配置
+        """
         conf = Path("/tmp/wireproxy.conf")
 
         # 1. WARP_CONFIG_B64 环境变量
@@ -488,6 +557,14 @@ class WarpManager:
 
     @staticmethod
     def _wgcf_register() -> Path | None:
+        """调用 wgcf 注册 Cloudflare WARP 账号并生成 WireGuard 配置
+
+        在临时目录执行 `wgcf register` + `wgcf generate`，将生成的
+        wgcf-profile.conf 复制到 /tmp/wgcf-raw.conf 返回。
+
+        Returns:
+            原始 WireGuard 配置文件路径，或 None 表示注册失败
+        """
         if not shutil.which("wgcf"):
             return None
         import tempfile
@@ -523,6 +600,11 @@ class WarpManager:
 
     @staticmethod
     def _convert_wgcf_to_wireproxy(src: Path, dst: Path, socks_port: int) -> None:
+        """将 wgcf 生成的 WireGuard 配置转换为 wireproxy 格式
+
+        提取 PrivateKey、Address、PublicKey、Endpoint 字段，并附加
+        [Socks5] 段以监听本地端口。
+        """
         text = src.read_text(encoding="utf-8")
         private_key = ""
         ipv4_addr = ""
@@ -552,6 +634,11 @@ class WarpManager:
 
     @staticmethod
     def _patch_wireproxy_conf(conf: Path, socks_port: int, endpoint: str | None) -> Path:
+        """就地修改 wireproxy 配置：覆盖 BindAddress 与可选 Endpoint
+
+        Returns:
+            原配置文件路径（已写入新内容）
+        """
         text = conf.read_text(encoding="utf-8")
         import re
 
@@ -569,6 +656,17 @@ class WarpManager:
     # ------ internal: kernel ------
 
     async def _start_kernel(self, socks_port: int, endpoint: str | None) -> bool:
+        """启动内核 WireGuard + microsocks 模式
+
+        流程：
+            1. 写入 /etc/wireguard/wg0.conf（B64 / 持久化 / wgcf 三级回退）
+            2. 修整配置（注入 Address、AllowedIPs、PersistentKeepalive 等）
+            3. 执行 wg-quick up wg0 启动内核接口
+            4. 启动 microsocks 子进程对外提供 SOCKS5 接入
+
+        Returns:
+            True 表示启动成功，False 表示失败（last_error 已记录原因）
+        """
         wg_conf = Path("/etc/wireguard/wg0.conf")
         wg_conf.parent.mkdir(parents=True, exist_ok=True)
 
@@ -628,6 +726,14 @@ class WarpManager:
 
     @staticmethod
     def _patch_kernel_conf(conf: Path, endpoint: str | None) -> None:
+        """规范化内核 WireGuard 配置以适配 wg-quick
+
+        操作：
+            - 提取 IPv4 Address 后清除原 Address/AllowedIPs/DNS 字段
+            - 在 [Interface] 重新注入 Address，[Peer] 注入 AllowedIPs
+            - 强制 PersistentKeepalive=15 防止 NAT 老化
+            - 可选覆盖 Endpoint
+        """
         import re
 
         text = conf.read_text(encoding="utf-8")
@@ -655,6 +761,15 @@ class WarpManager:
     # ------ internal: helpers ------
 
     async def _wait_for_proxy(self, port: int, retries: int = 10) -> bool:
+        """轮询等待 SOCKS5 代理就绪 — 每秒重试一次
+
+        Args:
+            port: SOCKS5 端口
+            retries: 最大重试次数（默认 10 次 ≈ 10 秒）
+
+        Returns:
+            True 表示代理已就绪，False 表示超时
+        """
         for _ in range(retries):
             await asyncio.sleep(1)
             if self._check_socks_alive(port):
@@ -663,6 +778,10 @@ class WarpManager:
 
     @staticmethod
     def _apply_proxy(socks_port: int) -> None:
+        """将 WARP SOCKS5 代理写入 SOUWEN_PROXY 并重载配置
+
+        重载后所有 HTTP 客户端会自动使用该代理。
+        """
         proxy_url = f"socks5://127.0.0.1:{socks_port}"
         os.environ["SOUWEN_PROXY"] = proxy_url
         from souwen.config import reload_config
@@ -672,6 +791,7 @@ class WarpManager:
 
     @staticmethod
     def _clear_proxy() -> None:
+        """移除 SOUWEN_PROXY 环境变量并重载配置 — 关闭 WARP 时调用"""
         os.environ.pop("SOUWEN_PROXY", None)
         from souwen.config import reload_config
 

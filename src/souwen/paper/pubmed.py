@@ -28,9 +28,10 @@
                retstart 起始偏移
         - 输出：SearchResponse 包含搜索结果及分页信息
 
-    get_by_pmid(pmid: str) -> PaperResult
-        - 功能：通过 PMID 获取论文详情
-        - 输入：pmid PubMed 唯一标识符
+    fetch(pmids: list[str]) -> list[PaperResult]
+        - 功能：根据 PMID 列表批量获取论文详情（efetch 阶段）
+        - 输入：pmids PubMed ID 列表
+        - 输出：PaperResult 列表，解析失败的条目会被跳过并记录日志
 
 模块依赖：
     - SouWenHttpClient: 统一 HTTP 客户端

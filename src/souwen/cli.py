@@ -2,60 +2,64 @@
 
 文件用途：
     提供命令行接口，让用户快速搜索论文、专利、网页。基于 typer（FastAPI 作者的 CLI 库）
-    和 rich（彩色终端输出）。支持全局选项（--version、--verbose、--quiet）、
-    多个子命令（search、sources、config、serve、doctor 等）。
+    和 rich（彩色终端输出）。支持全局选项（--version、--verbose、--quiet）以及
+    多个子命令组。
 
-子命令清单：
-    search
-        - 模式：souwen search {paper|patent|web|all} <query> [options]
-        - 功能：搜索单一或多个数据源类型
-        - 选项：--sources (指定源), --timeout (超时), --format (输出格式)
+子命令清单（[已修正] 与实际注册的 typer 命令对齐）：
+    search paper <query>
+        - 选项：--sources/-s（默认 "openalex,arxiv"）、--limit/-n（默认 5）、
+                --json/-j、--timeout/-t
+        - 调用 souwen.search.search_papers，按表格或 JSON 输出
+    search patent <query>
+        - 选项：--sources/-s（默认 "google_patents"）、--limit/-n、--json、--timeout
+    search web <query>
+        - 选项：--engines/-e（默认 "duckduckgo,bing"）、--limit/-n、--json、--timeout
+        - 调用 souwen.web.search.web_search
 
     sources
-        - 功能：列出所有支持的数据源及其分类 (Tier 0/1/2)
-        - 子命令：
-          * list：显示所有源的表格
-          * show <name>：显示单个源的详细信息
+        - 单一命令（无子命令），列出所有可用数据源（来自 souwen.models.ALL_SOURCES）
 
-    config
-        - 功能：显示或验证配置
-        - 子命令：
-          * show：显示当前配置
-          * generate：生成配置文件模板到 ~/.config/souwen/
+    config show
+        - 显示当前 SouWenConfig 字段，敏感字段（含 key/secret/token/password 关键字）做掩码
+    config init
+        - 在当前目录生成 souwen.yaml 配置模板（已存在则跳过）
+    config backend [--default …] [--set source=backend]
+        - 查看/修改 HTTP 后端配置（仅影响爬虫源），运行时生效
+    config source [<name>] [--enable/--disable] [--proxy …] [--backend …]
+                  [--base-url …] [--api-key …]
+        - 列出或修改单个数据源的频道配置（运行时生效）
 
-    serve
-        - 功能：启动 FastAPI 服务器（用于 API 调用）
-        - 选项：--host、--port、--log-level
+    serve [--host 0.0.0.0] [--port 8000] [--reload]
+        - 启动 uvicorn 运行 souwen.server.app:app（需安装 server extra）
+        - 启动前打印访客/管理密码状态、Docs 开放情况、可信代理、CORS 等
 
     doctor
-        - 功能：数据源健康检查（检查 API Key、网络连接等）
-        - 返回：按 Tier 分组的健康状态报告
+        - 数据源健康检查（调用 souwen.doctor.check_all + format_report）
 
-    auth
-        - 功能：管理 OAuth 令牌和会话
-        - 子命令：
-          * clear：清除过期令牌和会话
-          * show：显示缓存的令牌信息
+    mcp
+        - 打印 MCP Server 配置 JSON，供 Claude Code / Cursor 等 AI Agent 集成使用
 
-全局选项：
+全局选项（main 回调）：
     --version / -V：显示版本并退出
-    --verbose / -v：日志级别（-v info / -vv debug）
-    --quiet / -q：仅输出警告和错误
+    --verbose / -v：日志级别（默认 WARNING；-v → INFO；-vv → DEBUG）
+    --quiet / -q：强制 WARNING 级别
 
 输出格式：
     使用 rich.Console 和 rich.Table 实现彩色、对齐的输出
-    支持 JSON 格式输出（--format json）
+    搜索子命令支持 --json 输出 SearchResponse 的 JSON 序列化
 
 异常处理：
     - KeyboardInterrupt (Ctrl+C)：优雅退出，返回码 130
-    - asyncio.CancelledError：记录取消消息
-    - 其他异常：记录错误并返回非零退出码
+    - asyncio.CancelledError：记录取消消息，返回码 1
+    - 子命令超时：返回码 124
 
 模块依赖：
     - typer: CLI 框架
     - rich: 彩色终端输出
     - souwen.search: 统一搜索接口
+    - souwen.web.search: Web 搜索实现
     - souwen.config: 配置管理
+    - souwen.source_registry: 数据源元数据
     - souwen.doctor: 健康检查
     - souwen.logging_config: 日志设置
 """

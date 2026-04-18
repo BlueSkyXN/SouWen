@@ -45,6 +45,7 @@ import { staggerContainer, staggerItem, fadeInUp } from '@core/lib/animations'
 import styles from './SearchPage.module.scss'
 
 /* ─── Source icon mapping ─── */
+/** 数据源名称到 Lucide 图标组件的映射表，用于在 UI 中可视化各数据源 */
 const SOURCE_ICONS: Record<string, React.ComponentType<{ size?: number }>> = {
   openalex: Library,
   arxiv: BookOpen,
@@ -64,6 +65,7 @@ const SOURCE_ICONS: Record<string, React.ComponentType<{ size?: number }>> = {
   patsnap: Shield,
 }
 
+/** 根据数据源名称返回对应图标组件，未注册的数据源使用 Globe 作为兜底 */
 function getSourceIcon(name: string): React.ComponentType<{ size?: number }> {
   return SOURCE_ICONS[name] ?? Globe
 }
@@ -75,6 +77,7 @@ interface SourceOption {
   needsKey?: boolean
 }
 
+/** 将后端返回的 SourceInfo 列表转换为下拉选项格式 */
 function toSourceOptions(sources: SourceInfo[]): SourceOption[] {
   return sources.map((s) => ({
     value: s.name,
@@ -84,6 +87,7 @@ function toSourceOptions(sources: SourceInfo[]): SourceOption[] {
   }))
 }
 
+/** 当 API 返回的数据源列表为空时使用的兜底选项（保证 UI 始终有可选项） */
 function makeFallbackOptions(t: (key: string) => string): Record<SearchCategory, SourceOption[]> {
   return {
     paper: [
@@ -108,6 +112,7 @@ const DEFAULT_SELECTED: Record<SearchCategory, string[]> = {
 
 // SEARCH_SUGGESTIONS 已移至组件内部以支持 i18n
 
+/** 解析某分类的数据源选项：API 有数据时使用 API，否则回退到默认选项 */
 function resolveSourceOptions(
   category: SearchCategory,
   sources: SourceInfo[],
@@ -117,6 +122,10 @@ function resolveSourceOptions(
   return options.length > 0 ? options : fallback[category]
 }
 
+/**
+ * 净化用户的数据源选择：移除不再可用的源，若清空则回退到默认值
+ * 用途：在 API 返回新的数据源列表后，确保用户的选择只包含合法值
+ */
 function sanitizeSelections(
   current: Record<SearchCategory, string[]>,
   options: Record<SearchCategory, SourceOption[]>,
@@ -137,11 +146,22 @@ function sanitizeSelections(
   )
 }
 
+/**
+ * 搜索状态机：idle（空闲）→ loading（搜索中）→ error（失败） / 成功后回到 idle
+ * tab 字段记录正在搜索的分类，用于实现"切换 tab 不影响其他 tab 状态"
+ */
 type SearchState =
   | { status: 'idle'; tab: null; message: null }
   | { status: 'loading'; tab: SearchCategory; message: null }
   | { status: 'error'; tab: SearchCategory; message: string }
 
+/**
+ * SearchPage 主组件
+ * 状态：当前分类 tab、查询词 query、各分类数据源选项与选择、三类结果（论文/专利/网页）
+ * 关键机制：
+ *   - 通过 activeRequestRef + requestIdRef 实现请求竞态控制（新请求会取消上一个未完成的请求）
+ *   - 卸载时自动 abort 进行中的请求，防止 setState on unmounted
+ */
 export function SearchPage() {
   const { t } = useTranslation()
   const SEARCH_SUGGESTIONS = [
@@ -220,6 +240,7 @@ export function SearchPage() {
   const isSearchingCurrentTab = searchState.status === 'loading' && searchState.tab === tab
 
   /* ─── Keyboard shortcut ⌘K ─── */
+  /** ⌘K / Ctrl+K 快捷键：聚焦搜索输入框 */
   const inputRef = useRef<HTMLInputElement>(null)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -232,6 +253,14 @@ export function SearchPage() {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [])
 
+  /**
+   * 处理搜索提交
+   * 关键逻辑：
+   *   1. 生成单调递增的 requestId 并 abort 上一个进行中的请求（竞态保护）
+   *   2. 根据当前 tab 调用对应分类的 API（searchPaper/searchPatent/searchWeb）
+   *   3. 检查 activeRequestRef.id === requestId 才更新结果，避免老请求覆盖新结果
+   *   4. abort 错误被静默忽略（仅展示真实失败）
+   */
   const handleSearch = useCallback(
     async (e: FormEvent) => {
       e.preventDefault()

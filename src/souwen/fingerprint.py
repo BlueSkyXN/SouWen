@@ -22,6 +22,10 @@
         - 功能：获取随机指纹，支持多浏览器/操作系统组合
         - 用途：模拟不同客户端，提高反爬规避能力
 
+    get_api_headers(email=None, api_key=None, bearer_token=None) -> dict[str, str]
+        - 功能：[已修正] 构造 API 调用（非爬虫场景）的请求头，使用规范的 SouWen UA
+        - 入参：email → From 头；api_key → X-API-Key；bearer_token → Authorization: Bearer
+
 关键变量：
     _CHROME_VERSIONS: list[dict]
         - 浏览器版本库，包含 Chrome/Edge/Safari 版本

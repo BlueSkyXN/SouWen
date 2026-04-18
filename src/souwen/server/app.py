@@ -376,6 +376,16 @@ def _etag_matches(header_value: str, etag: str) -> bool:
     """Check if *etag* matches an ``If-None-Match`` header per RFC 7232.
 
     Supports the wildcard ``*`` and comma-separated ETag lists.
+
+    判断 ``If-None-Match`` 请求头是否匹配当前 ETag — 用于 304 协商缓存。
+    支持通配符 ``*``（匹配任意 ETag）和逗号分隔的 ETag 列表。
+
+    Args:
+        header_value: 客户端 ``If-None-Match`` 头原始字符串
+        etag: 服务端当前资源的 ETag
+
+    Returns:
+        True 表示客户端缓存仍然有效（应返回 304）
     """
     if not header_value:
         return False

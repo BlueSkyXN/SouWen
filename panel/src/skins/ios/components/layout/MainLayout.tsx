@@ -1,6 +1,23 @@
 /**
  * 文件用途：iOS 皮肤的主布局组件，包含导航栏、移动端抽屉菜单、页面内容区域和页脚
- * 采用 iOS HIG（Human Interface Guidelines）设计规范，支持明暗模式和皮肤切换
+ *
+ * 组件/函数清单：
+ *   MainLayout（函数组件）
+ *     - 功能：应用主框架，提供导航、明暗模式切换、皮肤切换、移动端响应、页面路由出口
+ *     - Hooks 依赖：useTranslation, useLocation, useAuthStore, useSkinStore, useState, useCallback, useEffect, useRef
+ *     - State 状态：mobileOpen (bool) 移动菜单打开状态, skinPaletteOpen (bool) 皮肤选择菜单打开状态
+ *     - 关键函数：handleLogout 登出, handleSkinSwitch 切换皮肤
+ *     - 关键常量：NAV_ITEMS 导航菜单项数组, pageVariants 页面进出动画配置, pageTransition 页面过渡动画配置
+ *
+ * 模块依赖：
+ *   - react-router-dom: 路由导航与 Outlet 出口
+ *   - react-i18next: 国际化翻译
+ *   - framer-motion: 动画库（导航、菜单、页面过渡）
+ *   - lucide-react: 图标库
+ *   - @core/stores/authStore: 认证状态管理
+ *   - ./stores/skinStore: 皮肤和主题状态管理
+ *   - @core/skin-registry: 皮肤注册表工具函数
+ *   - MainLayout.module.scss: 布局样式
  */
 
 import { useState, useCallback, useEffect, useRef } from 'react'
@@ -26,6 +43,7 @@ import { useSkinStore } from '../../stores/skinStore'
 import { isSingleSkin, listSkinIds, getSkinOrDefault } from '@core/skin-registry'
 import styles from './MainLayout.module.scss'
 
+// 导航菜单项配置数组，每项定义路由、图标和标签
 const NAV_ITEMS = [
   { to: '/', icon: LayoutDashboard, labelKey: 'nav.dashboard', color: '#007aff' },
   { to: '/search', icon: Search, labelKey: 'nav.search', color: '#5ac8fa' },
@@ -34,12 +52,14 @@ const NAV_ITEMS = [
   { to: '/config', icon: Settings, labelKey: 'nav.config', color: '#8e8e93' },
 ]
 
+// 页面切换动画的起始/结束状态
 const pageVariants = {
   initial: { opacity: 0, y: 8 },
   animate: { opacity: 1, y: 0 },
   exit: { opacity: 0, y: -6 },
 }
 
+// 页面过渡动画的时间配置（spring 弹簧动画）
 const pageTransition = {
   type: 'spring' as const,
   stiffness: 350,
@@ -47,6 +67,7 @@ const pageTransition = {
   mass: 0.9,
 }
 
+// MainLayout 组件 - 应用主框架
 export function MainLayout() {
   const { t } = useTranslation()
   const location = useLocation()
@@ -57,12 +78,15 @@ export function MainLayout() {
   const [skinPaletteOpen, setSkinPaletteOpen] = useState(false)
   const skinPaletteRef = useRef<HTMLDivElement>(null)
 
+  // 获取当前应用皮肤（默认为 'ios'）
   const currentSkinId = document.documentElement.getAttribute('data-skin') || 'ios'
 
+  // 路由变化时关闭移动菜单
   useEffect(() => {
     setMobileOpen(false)
   }, [location.pathname])
 
+  // 点击外部时关闭皮肤选择菜单（通过 ESC 键或鼠标点击）
   useEffect(() => {
     if (!skinPaletteOpen) return
     const handleClick = (e: MouseEvent) => {

@@ -91,6 +91,7 @@ def create_server() -> "Server":
 
     @server.list_tools()
     async def list_tools() -> list[Tool]:
+        """返回 MCP 工具清单 — 由 MCP SDK 在客户端连接时调用"""
         return [
             Tool(
                 name="search_papers",

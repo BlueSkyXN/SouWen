@@ -27,6 +27,7 @@ except ImportError:
 
 @pytest.fixture()
 def client():
+    """裸 TestClient：不设任何密码，所有端点默认开放（用于公开行为测试）。"""
     from souwen.server.app import app
 
     return TestClient(app, raise_server_exceptions=False)
@@ -330,6 +331,7 @@ class TestRateLimiter:
 
 
 def _make_request(client_host: str, headers: dict | None = None):
+    """构造一个最小可用的 Starlette ``Request``，供 get_client_ip 等纯函数测试使用。"""
     from starlette.requests import Request
 
     raw_headers = []

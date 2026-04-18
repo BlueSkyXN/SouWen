@@ -1,48 +1,48 @@
 """统一 HTTP 客户端
 
 文件用途：
-    提供全局的异步 HTTP 客户端。基于 httpx，集成了自动重试、代理配置、OAuth 令牌管理、
-    统一超时和错误处理。所有数据源均通过该客户端发起请求。
+    提供全局的异步 HTTP 客户端。基于 httpx，集成了自动重试、代理配置、
+    频道级配置覆盖（base_url/headers/proxy）、统一超时和错误处理。
+    OAuthClient 子类额外提供 OAuth 2.0 client_credentials 流程的 token 缓存。
 
-类清单：
-    SouWenHttpClient (context manager)
-        - 功能：异步 HTTP 客户端，包含重试逻辑和代理管理
-        - 初始化参数：base_url, headers, timeout, max_retries, source_name
-        - 主要方法：
-          * get(url, **kwargs) — GET 请求（带重试）
-          * post(url, **kwargs) — POST 请求（带重试）
-          * get_json(url, ...) — GET 并解析 JSON
-          * post_json(url, ...) — POST 并解析 JSON
-          * close() — 关闭底层连接
-          * _apply_oauth_token(headers) — OAuth 令牌注入
-        - 特性：自动代理应用、User-Agent 管理、OAuthClient 集成
+类清单（[已修正] 与实际定义对齐）：
+    SouWenHttpClient（async context manager）
+        - 功能：异步 HTTP 客户端，承担重试、代理、统一异常映射
+        - __init__(base_url, headers, timeout, max_retries, source_name)
+            * source_name 提供时，会通过 SouWenConfig 解析频道级 base_url/proxy/headers
+            * 默认通过 httpx.AsyncClient 创建，连接池保守默认（max=100, keepalive=20）
+        - 方法：
+          * get(url, params, headers) → httpx.Response
+          * post(url, json, data, headers) → httpx.Response
+          * close() / __aenter__ / __aexit__ — 资源管理
+          * _request(method, url, **kwargs) — 统一异常映射（超时/连接错误 → SourceUnavailableError）
+          * _request_with_retry(...) — tenacity 装饰，仅对网络层错误重试
+          * _check_response(resp, url) — 状态码 → 异常映射（401/403→AuthError，
+            429→RateLimitError，5xx→SourceUnavailableError，其他 4xx→SouWenError）
+          * _parse_retry_after(value) — 解析 Retry-After 头（秒数 / HTTP-date 两种格式）
 
-    OAuthClient (abstract)
-        - 功能：OAuth 令牌管理基类（各数据源子类实现）
-        - 主要方法：
-          * get_access_token(scope) → str — 获取或刷新令牌（缓存化）
-          * _fetch_token_impl(scope) — 子类实现的令牌获取逻辑
-
-    _SemanticScholarOAuthClient (OAuthClient)
-        - 功能：Semantic Scholar API 的 OAuth 令牌管理
-        - 初始化参数：api_key
-        - 特性：缓存令牌，支持多个 scope，自动过期刷新
-
-    get_http_client(source_name) → SouWenHttpClient
-        - 功能：获取或创建数据源专用的 HTTP 客户端
-        - 参数：source_name (数据源名)
-        - 返回：SouWenHttpClient 实例
+    OAuthClient（继承 SouWenHttpClient）
+        - 功能：OAuth 2.0 client_credentials 模式的 token 自动管理
+        - __init__(base_url, token_url, client_id, client_secret, **kwargs)
+        - 方法：
+          * get / post — 重写为自动注入 Bearer token 的版本
+          * _ensure_token() → str — 二次检查锁模式，提前 60 秒刷新 token
+          * _get_token_lock() — 懒加载 asyncio.Lock，避免实例化时绑定 event loop
 
 重试策略：
-    - 所有 HTTP 请求使用 tenacity 指数退避重试
-    - 重试条件：HTTP 429 (Rate Limit) 和网络错误
-    - 不重试：HTTP 4xx (除 429)、HTTP 5xx (用户错误)
+    - 仅对 httpx.TimeoutException 和 httpx.ConnectError 自动重试
+      （wait_exponential：1-30 秒，最多 3 次尝试）
+    - 业务错误（401/403/429/5xx）由 _check_response 映射为相应异常并立即抛出
+    - 429 RateLimitError 携带 retry_after，由调用方按需重试
+
+常量：
+    DEFAULT_USER_AGENT — "SouWen/<version> (Academic & Patent Search Tool; …)"
 
 模块依赖：
     - httpx: 异步 HTTP 库
     - tenacity: 重试装饰器
-    - souwen.config: 获取全局配置（代理、超时等）
-    - souwen.exceptions: 错误类型
+    - souwen.config: 获取全局配置 + 频道级覆盖
+    - souwen.exceptions: AuthError / RateLimitError / SourceUnavailableError / SouWenError
 """
 
 from __future__ import annotations
