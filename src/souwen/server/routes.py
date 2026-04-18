@@ -566,7 +566,9 @@ async def update_source_config(
         if req.base_url:
             _parsed = urlparse(req.base_url)
             if _parsed.scheme not in ("http", "https") or not _parsed.hostname:
-                raise HTTPException(status_code=422, detail=f"base_url 必须为 http/https URL: {req.base_url}")
+                raise HTTPException(
+                    status_code=422, detail=f"base_url 必须为 http/https URL: {req.base_url}"
+                )
         sc.base_url = req.base_url if req.base_url else None
     if req.api_key is not None:
         sc.api_key = req.api_key if req.api_key else None
