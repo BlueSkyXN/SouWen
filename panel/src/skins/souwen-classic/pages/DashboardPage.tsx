@@ -124,6 +124,68 @@ function HealthRing({ pct }: { pct: number }) {
   )
 }
 
+/* ── Source matrix view ── */
+type SourceLike = DoctorResponse['sources'][number]
+
+function matrixDotClass(status: string): string {
+  if (status === 'ok') return styles.matrixDotOk
+  if (status === 'error' || status === 'timeout') return styles.matrixDotErr
+  return styles.matrixDotWarn
+}
+
+function matrixTierClass(tier: number): string {
+  if (tier === 0) return styles.matrixTierT0
+  if (tier === 1) return styles.matrixTierT1
+  return styles.matrixTierT2
+}
+
+function SourceMatrix({ sources }: { sources: SourceLike[] }) {
+  const { t } = useTranslation()
+  const order: Array<'paper' | 'patent' | 'web'> = ['paper', 'patent', 'web']
+  const grouped = order
+    .map((cat) => ({ cat, items: sources.filter((s) => s.category === cat) }))
+    .filter((g) => g.items.length > 0)
+
+  return (
+    <Card className={styles.matrixCard}>
+      <div className={styles.matrixHeader}>
+        <div>
+          <h3 className={styles.matrixTitle}>
+            <span className={styles.matrixCount}>{sources.length}</span>
+            {t('dashboard.sourceMatrix')}
+          </h3>
+          <p className={styles.matrixSubtitle}>{t('dashboard.sourceMatrixDesc')}</p>
+        </div>
+        <span className={styles.matrixToggle}>MATRIX VIEW</span>
+      </div>
+      <div className={styles.matrixGroups}>
+        {grouped.map((group, idx) => (
+          <div
+            key={group.cat}
+            className={`${styles.matrixGroup} ${idx > 0 ? styles.matrixGroupDivided : ''}`}
+          >
+            <div className={styles.matrixGroupLabel}>
+              <span className={styles.matrixGroupName}>{categoryLabel(t, group.cat)}</span>
+              <span className={styles.matrixGroupCount}>{group.items.length}</span>
+            </div>
+            <div className={styles.matrixChips}>
+              {group.items.map((src) => (
+                <span key={src.name} className={styles.matrixChip} title={src.message}>
+                  <span className={`${styles.matrixDot} ${matrixDotClass(src.status)}`} />
+                  <span className={styles.matrixChipName}>{src.name}</span>
+                  <span className={`${styles.matrixTier} ${matrixTierClass(src.tier)}`}>
+                    T{src.tier}
+                  </span>
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </Card>
+  )
+}
+
 /* ── Availability progress bar ── */
 function AvailabilityBar({ ok, total }: { ok: number; total: number }) {
   const pct = total > 0 ? (ok / total) * 100 : 0
@@ -274,6 +336,9 @@ export function DashboardPage() {
           <HealthRing pct={healthPct} />
         </m.div>
       </m.div>
+
+      {/* ── Source matrix view ── */}
+      <SourceMatrix sources={doctor.sources} />
 
       {/* ── Source health table ── */}
       <div className={styles.sectionHeader}>

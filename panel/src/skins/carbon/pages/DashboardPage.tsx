@@ -70,7 +70,7 @@ export function DashboardPage() {
       <div className={styles.pageHeader}>
         <h1 className={styles.pageTitle}>
           <Activity size={20} />
-          SYSTEM.DASHBOARD
+          {t('dashboard.pageTitle')}
         </h1>
         <div className={styles.headerBadges}>
           <span className={styles.uptimeBadge}>
@@ -80,7 +80,7 @@ export function DashboardPage() {
             <span className={styles.uptimeBadge}>v{version}</span>
           )}
           <span className={`${styles.statusBadge} ${healthPct > 50 ? styles.ok : styles.err}`}>
-            STATUS: {healthPct > 50 ? 'OK' : 'DEGRADED'}
+            {t('dashboard.status')}: {healthPct > 50 ? t('dashboard.running') : t('dashboard.degraded')}
           </span>
         </div>
       </div>
@@ -93,25 +93,25 @@ export function DashboardPage() {
         animate="animate"
       >
         <m.div variants={staggerItem} className={styles.statCard}>
-          <div className={styles.statLabel}>PAPER_SOURCES</div>
+          <div className={styles.statLabel}>{t('dashboard.paperSources')}</div>
           <div className={styles.statValue}>{paperCount}</div>
           <div className={styles.statDesc}>{t('dashboard.paperSources')}</div>
         </m.div>
 
         <m.div variants={staggerItem} className={styles.statCard}>
-          <div className={styles.statLabel}>PATENT_SOURCES</div>
+          <div className={styles.statLabel}>{t('dashboard.patentSources')}</div>
           <div className={styles.statValue}>{patentCount}</div>
           <div className={styles.statDesc}>{t('dashboard.patentSources')}</div>
         </m.div>
 
         <m.div variants={staggerItem} className={styles.statCard}>
-          <div className={styles.statLabel}>WEB_ENGINES</div>
+          <div className={styles.statLabel}>{t('dashboard.webEngines')}</div>
           <div className={styles.statValue}>{webCount}</div>
           <div className={styles.statDesc}>{t('dashboard.webEngines')}</div>
         </m.div>
 
         <m.div variants={staggerItem} className={`${styles.statCard} ${styles.statCardHighlight}`}>
-          <div className={styles.statLabel}>AVAILABLE</div>
+          <div className={styles.statLabel}>{t('dashboard.availableSources')}</div>
           <div className={styles.statValue}>
             {okCount}<span className={styles.statFraction}>/{totalCount}</span>
           </div>
@@ -127,11 +127,11 @@ export function DashboardPage() {
             <thead>
               <tr>
                 <th>{t('dashboard.status')}</th>
-                <th>NODE_ID</th>
+                <th>{t('dashboard.source')}</th>
                 <th>{t('dashboard.type')}</th>
                 <th>{t('dashboard.tier')}</th>
                 <th>{t('dashboard.requiredKey')}</th>
-                <th>DIAGNOSTICS</th>
+                <th>{t('dashboard.sourceHealth')}</th>
               </tr>
             </thead>
             <tbody>

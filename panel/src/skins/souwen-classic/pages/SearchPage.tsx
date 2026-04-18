@@ -106,14 +106,7 @@ const DEFAULT_SELECTED: Record<SearchCategory, string[]> = {
   web: ['duckduckgo', 'bing'],
 }
 
-const SEARCH_SUGGESTIONS = [
-  'Large Language Model',
-  'Quantum Computing',
-  'CRISPR Gene Editing',
-  'Transformer Architecture',
-  'Climate Change',
-  'Neural Radiance Fields',
-]
+// SEARCH_SUGGESTIONS 已移至组件内部以支持 i18n
 
 function resolveSourceOptions(
   category: SearchCategory,
@@ -151,6 +144,14 @@ type SearchState =
 
 export function SearchPage() {
   const { t } = useTranslation()
+  const SEARCH_SUGGESTIONS = [
+    t('search.suggestion1', '大语言模型'),
+    t('search.suggestion2', '量子计算'),
+    t('search.suggestion3', 'CRISPR 基因编辑'),
+    t('search.suggestion4', 'Transformer 架构'),
+    t('search.suggestion5', '气候变化'),
+    t('search.suggestion6', '神经辐射场'),
+  ]
   const fallbackOptions = makeFallbackOptions(t)
   const [tab, setTab] = useState<SearchCategory>('paper')
   const [query, setQuery] = useState('')

@@ -52,14 +52,16 @@ const DEFAULT_SELECTED: Record<SearchCategory, string[]> = {
   web: ['duckduckgo', 'bing'],
 }
 
-const SEARCH_SUGGESTIONS = [
-  'Large Language Model',
-  'Quantum Computing',
-  'CRISPR Gene Editing',
-  'Transformer Architecture',
-  'Climate Change',
-  'Neural Radiance Fields',
-]
+function makeSearchSuggestions(t: (key: string) => string): string[] {
+  return [
+    t('search.suggestion1'),
+    t('search.suggestion2'),
+    t('search.suggestion3'),
+    t('search.suggestion4'),
+    t('search.suggestion5'),
+    t('search.suggestion6'),
+  ]
+}
 
 function resolveSourceOptions(
   category: SearchCategory,
@@ -95,6 +97,7 @@ type SearchState =
 export function SearchPage() {
   const { t } = useTranslation()
   const fallbackOptions = makeFallbackOptions(t)
+  const SEARCH_SUGGESTIONS = makeSearchSuggestions(t)
   const [tab, setTab] = useState<SearchCategory>('paper')
   const [query, setQuery] = useState('')
   const [sourceOptions, setSourceOptions] = useState<Record<SearchCategory, SourceOption[]>>(fallbackOptions)
@@ -353,10 +356,10 @@ export function SearchPage() {
       {!hasResults && (
         <m.div className={styles.hero} {...fadeInUp}>
           <div className={styles.gridOverlay} />
-          <h1 className={styles.heroTitle}>SOUWEN</h1>
+          <h1 className={styles.heroTitle}>{t('app.name')}</h1>
           <p className={styles.heroSubtitle}>
             <Cpu size={14} />
-            QUERY KNOWLEDGE GRAPH
+            {t('search.subtitle')}
           </p>
 
           {/* Tabs */}
@@ -390,14 +393,14 @@ export function SearchPage() {
                 className={styles.searchButton}
                 disabled={!canSearch}
               >
-                {isSearchingCurrentTab ? t('search.searching') : 'Execute'}
+                {isSearchingCurrentTab ? t('search.searching') : t('search.searchBtn')}
               </button>
             </div>
           </form>
 
           {/* Source toggles */}
           <div className={styles.sourceSection}>
-            <div className={styles.sourceLabel}>TARGET_DB:</div>
+            <div className={styles.sourceLabel}>{t('search.dataSources')}:</div>
             <div className={styles.sourceGrid}>
               {sourceOptions[tab].map((source) => {
                 const isSelected = currentSources.includes(source.value)
@@ -464,7 +467,7 @@ export function SearchPage() {
                 className={styles.searchButton}
                 disabled={!canSearch}
               >
-                {isSearchingCurrentTab ? t('search.searching') : 'Execute'}
+                {isSearchingCurrentTab ? t('search.searching') : t('search.searchBtn')}
               </button>
             </div>
           </form>

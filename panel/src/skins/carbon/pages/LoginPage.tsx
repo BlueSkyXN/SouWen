@@ -187,7 +187,7 @@ export function LoginPage() {
                   {t('login.connecting')}
                 </>
               ) : (
-                'EXECUTE'
+                t('login.connect')
               )}
             </button>
           </form>

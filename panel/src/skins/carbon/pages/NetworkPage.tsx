@@ -79,7 +79,7 @@ function WarpSection() {
       <div className={styles.section}>
         <div className={styles.sectionHeader}>
           <Shield size={14} />
-          [WARP_PROXY]
+          [{t('network.warpProxy')}]
         </div>
         <div className={styles.sectionBody}>
           <div className={styles.infoNote}>
@@ -101,13 +101,13 @@ function WarpSection() {
     <div className={styles.section}>
       <div className={styles.sectionHeader}>
         <Shield size={14} />
-        [WARP_PROXY]
+        [{t('network.warpProxy')}]
       </div>
       <div className={styles.sectionBody}>
         {/* Status display */}
         <div className={styles.statusGrid}>
           <div className={styles.statusRow}>
-            <span className={styles.statusLabel}>STATUS</span>
+            <span className={styles.statusLabel}>{t('dashboard.status')}</span>
             <span className={`${styles.statusValue} ${statusClass}`}>
               <span className={styles.statusDot} />
               {t(`warp.${warp.status}`).toUpperCase()}
@@ -116,28 +116,28 @@ function WarpSection() {
           {warp.status !== 'disabled' && (
             <>
               <div className={styles.statusRow}>
-                <span className={styles.statusLabel}>MODE</span>
+                <span className={styles.statusLabel}>{t('network.mode')}</span>
                 <span className={styles.statusValue}>{warp.mode}</span>
               </div>
               <div className={styles.statusRow}>
-                <span className={styles.statusLabel}>PORT</span>
+                <span className={styles.statusLabel}>{t('network.port')}</span>
                 <span className={styles.statusValue}>{warp.socks_port}</span>
               </div>
               {warp.ip && (
                 <div className={styles.statusRow}>
-                  <span className={styles.statusLabel}>IP</span>
+                  <span className={styles.statusLabel}>{t('network.ip')}</span>
                   <span className={styles.statusValue}>{warp.ip}</span>
                 </div>
               )}
               {warp.pid > 0 && (
                 <div className={styles.statusRow}>
-                  <span className={styles.statusLabel}>PID</span>
+                  <span className={styles.statusLabel}>{t('network.pid')}</span>
                   <span className={styles.statusValue}>{warp.pid}</span>
                 </div>
               )}
               {warp.interface && (
                 <div className={styles.statusRow}>
-                  <span className={styles.statusLabel}>INTERFACE</span>
+                  <span className={styles.statusLabel}>{t('network.interface')}</span>
                   <span className={styles.statusValue}>{warp.interface}</span>
                 </div>
               )}
@@ -207,7 +207,7 @@ function WarpSection() {
                 disabled={acting}
               >
                 <Shield size={14} />
-                {acting ? t('warp.enabling') : 'ENABLE'}
+                {acting ? t('warp.enabling') : t('network.enable')}
               </button>
             </div>
           </>
@@ -219,7 +219,7 @@ function WarpSection() {
               disabled={acting}
             >
               <ShieldOff size={14} />
-              {acting ? t('warp.disabling') : 'DISABLE'}
+              {acting ? t('warp.disabling') : t('network.disable')}
             </button>
           </div>
         )}
@@ -278,15 +278,15 @@ function HttpBackendSection() {
     <div className={styles.section}>
       <div className={styles.sectionHeader}>
         <Plug size={14} />
-        [HTTP_BACKEND]
+        [{t('network.httpBackend')}]
         <span className={`${styles.curlBadge} ${data.curl_cffi_available ? styles.curlAvail : styles.curlMissing}`}>
-          {data.curl_cffi_available ? 'CURL_CFFI: OK' : 'CURL_CFFI: N/A'}
+          {data.curl_cffi_available ? t('network.curlCffiOk') : t('network.curlCffiNa')}
         </span>
       </div>
       <div className={styles.sectionBody}>
         {/* Global default */}
         <div className={`${styles.engineRow} ${styles.engineRowDefault}`}>
-          <span className={styles.engineName}>GLOBAL_DEFAULT</span>
+          <span className={styles.engineName}>{t('network.globalDefault')}</span>
           <span className={styles.engineSep}>──</span>
           <select
             className={styles.engineSelect}
@@ -350,7 +350,7 @@ export function NetworkPage() {
         <div>
           <h1 className={styles.pageTitle}>
             <Wifi size={20} />
-            NETWORK.CONFIG
+            {t('network.pageTitle')}
           </h1>
           <p className={styles.pageDesc}>
             {t('network.pageSubtitle', 'WARP 代理和 HTTP 后端配置')}
@@ -358,7 +358,7 @@ export function NetworkPage() {
         </div>
         <div className={styles.headerBadge}>
           <Activity size={14} />
-          ACTIVE
+          {t('network.active')}
         </div>
       </m.div>
 

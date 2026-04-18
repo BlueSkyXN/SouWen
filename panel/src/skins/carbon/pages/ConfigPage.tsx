@@ -28,7 +28,7 @@ interface SectionDef {
 
 const CONFIG_SECTIONS: SectionDef[] = [
   { id: 'basic', titleKey: 'NETWORK_&_BASE', icon: <Settings size={14} />, keys: BASIC_KEYS },
-  { id: 'network', titleKey: 'NETWORK_CONFIG', icon: <Globe size={14} />, keys: NETWORK_KEYS },
+  { id: 'network', titleKey: 'network.pageTitle', icon: <Globe size={14} />, keys: NETWORK_KEYS },
   { id: 'search', titleKey: 'SEARCH_ENGINES', icon: <Search size={14} />, keys: SEARCH_KEYS },
 ]
 
@@ -163,7 +163,7 @@ export function ConfigPage() {
         <m.div key={section.id} className={styles.configSection} variants={staggerItem}>
           <div className={styles.sectionHeader}>
             <span className={styles.sectionIcon}>{section.icon}</span>
-            [{section.titleKey}]
+            [{section.id === 'network' ? t(section.titleKey) : section.titleKey}]
           </div>
           {section.items.map(({ key, value }) => (
             <ConfigRow key={key} configKey={key} value={value} t={t} />
