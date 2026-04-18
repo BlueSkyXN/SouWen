@@ -106,10 +106,11 @@
   align-items: center;
   border: 1px solid var(--border);
   background: var(--bg-input);
-  transition: border-color $transition-fast;
+  transition: border-color $transition-fast, box-shadow $transition-fast;
 
   &:focus-within {
     border-color: var(--accent);
+    box-shadow: var(--glow-md);
   }
 }
 
@@ -140,11 +141,16 @@
   text-transform: uppercase;
   letter-spacing: 0.06em;
   cursor: pointer;
-  transition: background $transition-fast;
+  transition: background $transition-fast, box-shadow $transition-fast;
   white-space: nowrap;
 
   &:hover:not(:disabled) {
     background: var(--accent-hover);
+    box-shadow: var(--glow-sm);
+  }
+
+  &:active:not(:disabled) {
+    box-shadow: var(--glow-md);
   }
 
   &:disabled {
@@ -249,10 +255,11 @@
   border: 1px solid var(--border);
   background: var(--bg-card);
   margin-bottom: 8px;
-  transition: border-color $transition-fast;
+  transition: border-color $transition-fast, box-shadow $transition-fast;
 
   &:hover {
-    border-color: var(--border-strong);
+    border-color: var(--accent);
+    box-shadow: var(--glow-sm);
   }
 }
 

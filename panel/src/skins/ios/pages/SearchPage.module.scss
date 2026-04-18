@@ -135,11 +135,15 @@
   font-size: 14px;
   font-weight: 400;
   cursor: pointer;
-  transition: background $transition-fast;
+  transition: background-color $transition-fast, transform $transition-fast;
   white-space: nowrap;
 
   &:hover:not(:disabled) {
     background: var(--accent-hover);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.97);
   }
 
   &:disabled {
@@ -183,6 +187,10 @@
   &:hover {
     border-color: var(--text-dim);
     color: var(--text-secondary);
+  }
+
+  &:active {
+    transform: scale(0.96);
   }
 }
 
@@ -240,12 +248,16 @@
   background: var(--bg-card-solid);
   border: var(--border-card);
   border-radius: $radius;
-  box-shadow: $shadow-card;
+  box-shadow: var(--shadow-card, $shadow-card);
   margin-bottom: 12px;
-  transition: box-shadow $transition-fast;
+  transition: box-shadow var(--transition-fast), transform var(--transition-fast), background-color var(--transition-fast);
 
   &:hover {
-    box-shadow: $shadow-card-hover;
+    box-shadow: var(--shadow-card-hover, $shadow-card-hover);
+  }
+
+  &:active {
+    transform: scale(0.995);
   }
 }
 

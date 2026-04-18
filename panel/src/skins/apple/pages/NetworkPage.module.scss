@@ -53,7 +53,7 @@
 .section {
   background: var(--bg-card-solid);
   border: var(--border-card);
-  border-radius: $radius;
+  border-radius: $radius-lg;
   box-shadow: $shadow-card;
   overflow: hidden;
 }

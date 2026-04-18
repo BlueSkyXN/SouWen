@@ -88,14 +88,15 @@
   padding: 20px;
   background: var(--bg-card-solid);
   border: var(--border-card);
-  border-radius: $radius;
+  border-radius: $radius-lg;
   box-shadow: $shadow-card;
   display: flex;
   flex-direction: column;
   gap: 8px;
-  transition: box-shadow $transition-fast;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
 
   &:hover {
+    transform: translateY(-2px);
     box-shadow: $shadow-card-hover;
   }
 }
