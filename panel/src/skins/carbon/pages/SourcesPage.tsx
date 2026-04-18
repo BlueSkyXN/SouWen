@@ -101,7 +101,7 @@ function SourceConfigPanel({
     >
       <div className={styles.configPanelInner}>
         <div className={styles.configPanelHeader}>
-          [ADVANCED_CONFIG]
+          [{t('sourceConfig.advancedConfig')}]
         </div>
 
         {/* Proxy */}
@@ -175,7 +175,7 @@ function SourceConfigPanel({
                 )}
                 {!config.has_api_key && (
                   <button className={styles.apiKeyBtn} onClick={() => setApiKeyAction('replace')}>
-                    SET
+                    {t('sourceConfig.apiKeySetBtn')}
                   </button>
                 )}
               </>

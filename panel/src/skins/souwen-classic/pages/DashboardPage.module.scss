@@ -29,14 +29,8 @@
 }
 
 @keyframes value-pulse {
-  0%, 100% {
-    opacity: 1;
-    text-shadow: 0 0 0 transparent;
-  }
-  50% {
-    opacity: 0.92;
-    text-shadow: 0 0 12px currentColor;
-  }
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.92; }
 }
 
 /* ===== Page ===== */

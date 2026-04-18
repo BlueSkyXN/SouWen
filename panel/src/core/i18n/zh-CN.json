@@ -78,7 +78,8 @@
     "statusDegraded": "部分降级",
     "degraded": "部分降级",
     "lastUpdated": "最后更新",
-    "refresh": "刷新"
+    "refresh": "刷新",
+    "uptime": "运行时长"
   },
   "search": {
     "title": "搜索",
@@ -196,6 +197,9 @@
     "sectionSearchDesc": "SearXNG 及各引擎专属配置",
     "sectionAdvanced": "高级设置",
     "sectionAdvancedDesc": "WARP 代理及其他高级参数",
+    "sectionCredentials": "凭据与密钥",
+    "systemConfig": "系统配置",
+    "commitChanges": "提交变更",
     "labels": {
       "log_level": "日志级别",
       "max_workers": "最大工作线程",
@@ -366,6 +370,7 @@
     "apiKey": "API Key",
     "apiKeyDesc": "此数据源的 API Key（优先于全局配置）",
     "apiKeySet": "已设置",
+    "apiKeySetBtn": "设置",
     "apiKeyNotSet": "未设置",
     "apiKeyReplace": "替换",
     "apiKeyClear": "清除",
