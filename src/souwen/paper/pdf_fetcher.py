@@ -10,6 +10,14 @@
 文件用途：提供多源 PDF 获取的降级策略，提高论文全文检索成功率。
 
 函数/类清单：
+    _is_safe_url(url: str) -> bool
+        - 功能：SSRF 防护检查，判断 URL 是否可安全访问（仅允许 http/https，
+          拒绝 localhost、内网网段、云元数据 IP 等）
+        - 输入：url 待校验的 URL
+        - 输出：True 表示安全可访问，False 表示存在 SSRF 风险
+        - 关键变量：_BLOCKED_HOSTNAMES 黑名单主机名集合，
+                   _SSRF_BLOCKED_NETS 黑名单 IP 网段元组
+
     _safe_filename(title: str, max_len: int = 80) -> str
         - 功能：从论文标题生成安全的文件系统文件名
         - 输入：title 论文标题, max_len 文件名最大字符数

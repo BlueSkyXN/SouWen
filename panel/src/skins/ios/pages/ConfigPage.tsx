@@ -1,5 +1,30 @@
 /**
  * 文件用途：iOS 皮肤的配置页面，以分组形式展示和查看服务器配置参数
+ *
+ * 组件/函数清单：
+ *   ConfigPage（函数组件）
+ *     - 功能：获取服务器配置并按分组（基础、网络、搜索）分类展示
+ *       1. 异步获取 ConfigResponse
+ *       2. 按预定义的 CONFIG_SECTIONS 分组展示配置
+ *       3. 每行配置项显示标签和值，支持特殊值的格式化展示（掩盖密码、JSON 对象、布尔值）
+ *     - State 状态：config (ConfigResponse) 配置数据, loading/error 加载状态
+ *     - 关键常量：BASIC_KEYS/NETWORK_KEYS/SEARCH_KEYS 配置项分类
+ *     - 关键钩子：useTranslation 翻译, useNotificationStore 提示
+ *
+ *   ConfigRow（子组件）
+ *     - 功能：单个配置项的显示组件，支持多种值类型的格式化
+ *     - Props 属性：configKey 配置键, value 配置值, t 翻译函数
+ *     - 逻辑：掩盖敏感字段（密码），显示 null/对象/布尔/字符串等
+ *
+ * 模块依赖：
+ *   - react: 状态管理
+ *   - react-i18next: 国际化翻译
+ *   - framer-motion: 动画
+ *   - lucide-react: 图标
+ *   - @core/services/api: 获取配置
+ *   - @core/stores/notificationStore: 提示消息
+ *   - @core/lib/animations: 堆积容器动画配置
+ *   - ConfigPage.module.scss: 样式
  */
 
 import { useEffect, useState, useCallback, useMemo } from 'react'
@@ -14,10 +39,11 @@ import { Spinner } from '../components/common/Spinner'
 import type { ConfigResponse } from '@core/types'
 import styles from './ConfigPage.module.scss'
 
+// 配置项分组定义
 const BASIC_KEYS = ['api_password', 'log_level', 'max_workers', 'host', 'port', 'debug']
 const NETWORK_KEYS = ['proxy', 'http_backend', 'timeout', 'concurrent_limit']
 const SEARCH_KEYS = ['searxng_url', 'cache_enabled', 'cache_ttl']
-const MASKED_KEYS = new Set(['api_password'])
+const MASKED_KEYS = new Set(['api_password']) // 需要掩盖的敏感字段
 
 interface SectionDef {
   id: string
@@ -34,10 +60,12 @@ const CONFIG_SECTIONS: SectionDef[] = [
 
 type TFunc = ReturnType<typeof useTranslation>['t']
 
+// 获取配置项的本地化标签
 function getConfigLabel(key: string, t: TFunc): string {
   return t(`config.labels.${key}`, { defaultValue: key })
 }
 
+// 单个配置行组件 - 展示配置项的标签和值
 function ConfigRow({ configKey, value, t }: { configKey: string; value: unknown; t: TFunc }) {
   const label = getConfigLabel(configKey, t)
   const isMasked = value === '***' || MASKED_KEYS.has(configKey)
@@ -68,6 +96,7 @@ function ConfigRow({ configKey, value, t }: { configKey: string; value: unknown;
   )
 }
 
+// ConfigPage 组件 - 配置展示页面
 export function ConfigPage() {
   const { t } = useTranslation()
   const [config, setConfig] = useState<ConfigResponse | null>(null)

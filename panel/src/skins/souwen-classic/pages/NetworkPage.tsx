@@ -41,13 +41,19 @@ import { staggerContainer, staggerItem } from '@core/lib/animations'
 import type { WarpStatus, HttpBackendResponse } from '@core/types'
 import styles from './NetworkPage.module.scss'
 
+/** 可选的搜索爬虫引擎列表（用于 ScraperEngineCard 下拉选项） */
 const SCRAPER_ENGINES = [
   'duckduckgo', 'yahoo', 'brave', 'google', 'bing',
   'startpage', 'baidu', 'mojeek', 'yandex', 'google_patents',
 ]
 
+/** HTTP 后端可选项：auto 自动选择 / curl_cffi 浏览器指纹 / httpx 标准客户端 */
 const BACKEND_OPTIONS = ['auto', 'curl_cffi', 'httpx'] as const
 
+/**
+ * HttpBackendCard 组件：HTTP 后端配置卡片
+ * 功能：展示当前后端、curl_cffi 安装状态，允许设置默认后端及为单个数据源覆盖后端
+ */
 function HttpBackendCard() {
   const { t } = useTranslation()
   const addToast = useNotificationStore((s) => s.addToast)
@@ -159,6 +165,10 @@ function HttpBackendCard() {
   )
 }
 
+/**
+ * WarpCard 组件：Cloudflare WARP 代理状态与控制卡片
+ * 功能：显示 WARP 安装/运行状态，提供 connect/disconnect 操作及代理参数（mode/port/endpoint）配置
+ */
 function WarpCard() {
   const { t } = useTranslation()
   const addToast = useNotificationStore((s) => s.addToast)
@@ -369,6 +379,10 @@ function WarpCard() {
   )
 }
 
+/**
+ * NetworkPage 主组件
+ * 组合 HttpBackendCard 与 WarpCard，提供网络层配置入口
+ */
 export function NetworkPage() {
   const { t } = useTranslation()
 

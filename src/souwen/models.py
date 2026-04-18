@@ -1,47 +1,60 @@
 """SouWen 统一数据模型（Pydantic v2）
 
 文件用途：
-    定义所有数据源的返回结果的统一 Pydantic 数据模型，确保 AI Agent 获得一致的数据结构。
-    支持多层级聚合（论文、专利、网页结果），兼容动态字段和宽松验证。
+    定义所有数据源返回结果的统一 Pydantic 数据模型，确保 AI Agent 获得一致的数据结构。
+    支持论文、专利、网页三大类结果以及统一的 SearchResponse 容器，
+    所有模型采用 ConfigDict(extra="allow") 兼容上游字段扩展。
 
-类清单：
-    SourceType (Enum)
-        - 功能：数据源类型枚举（论文、专利、Web 源）
-        - 值：openalex, semantic_scholar, crossref, arxiv, ... (论文源)
-            patents_view, uspto_odp, epo_ops, ... (专利源)
-            google, duckduckgo, tavily, serper, ... (Web 源)
+类清单（[已修正] 与实际定义对齐）：
+    SourceType（str, Enum）
+        - 功能：所有数据源的字符串枚举（论文 / 专利 / Web）
+        - 论文：openalex / semantic_scholar / crossref / arxiv / dblp / core / pubmed / unpaywall
+        - 专利：patents_view / pqai / epo_ops / uspto_odp / the_lens / cnipa / patsnap / google_patents
+        - Web：google / bing / duckduckgo / yahoo / brave / startpage / baidu / mojeek / yandex /
+              searxng / whoogle / websurfx / tavily / exa / serper / brave_api / serpapi /
+              firecrawl / perplexity / linkup / scrapingdog
 
-    PaperItem (BaseModel)
+    Author（BaseModel）
+        - 功能：论文作者
+        - 字段：name (必填), affiliation, orcid
+
+    PaperResult（BaseModel）
         - 功能：单篇论文的统一模型
-        - 字段：title, authors, abstract, url, doi, pub_year,
-                source_name, source_url, cited_count, pdf_url
-        - Config: extra='allow' (允许额外字段用于扩展)
+        - 关键字段：source (SourceType), title, authors (list[Author]), abstract,
+                  doi, year, publication_date (date), venue, citation_count,
+                  url, pdf_url, raw (原始响应)
+        - 校验器：_normalize_publication_date 通过 _coerce_date 容错解析
 
-    PatentItem (BaseModel)
+    Applicant（BaseModel）
+        - 功能：专利申请人/受让人
+        - 字段：name (必填), country
+
+    PatentResult（BaseModel）
         - 功能：单件专利的统一模型
-        - 字段：title, abstract, url, patent_number, filing_date,
-                pub_date, assignee, inventors, source_name, source_url
+        - 关键字段：source, patent_id (必填), title, abstract, applicants (list[Applicant]),
+                  inventors (list[str]), filing_date, publication_date, ipc_codes,
+                  url, raw
+        - 校验器：_normalize_dates 同时归一化 filing_date 与 publication_date
 
-    WebItem (BaseModel)
-        - 功能：网页搜索结果统一模型
-        - 字段：title, snippet, url, source_name, source_url,
-                publish_date (可选)
+    WebSearchResult（BaseModel）
+        - 功能：单条网页搜索结果
+        - 字段：title (必填), url (必填), snippet, source (SourceType), engine,
+                rank (排序位次), published_date, raw
 
-    AggregatedResult (BaseModel)
-        - 功能：聚合多个数据源的搜索结果
-        - 字段：query (搜索词), papers (list[PaperItem]),
-                patents (list[PatentItem]), web_results (list[WebItem])
-        - 用途：AI Agent 最终获得的统一结果格式
+    SearchResponse（BaseModel）
+        - 功能：单一数据源的搜索响应容器
+        - 字段：source (SourceType), query, total_count, results (list[Any]),
+                fetched_at (datetime, 默认 utcnow), error
+        - 用途：search_papers / search_patents / web_search 的统一返回单元
 
 辅助函数：
     _coerce_date(value) — 宽松日期归一化
-        接受：datetime, date, ISO 日期字符串
-        无效值返回 None（而非抛异常）
+        接受：None / datetime / date / ISO 字符串（YYYY-MM-DD 或带时间）
+        无法解析时返回 None（不抛异常）
 
 Pydantic 配置策略：
-    - ConfigDict(extra='allow'): 允许超出定义字段的额外数据
-    - field_validator('pub_year', mode='before'): 字段预处理（数据清理）
-    - str 枚举用于 JSON 序列化兼容性
+    - ConfigDict(extra="allow")：兼容上游响应中的未声明字段
+    - field_validator(..., mode="before")：在字段赋值前调用 _coerce_date 容错
 
 模块依赖：
     - pydantic v2: 数据验证和序列化

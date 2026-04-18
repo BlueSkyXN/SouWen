@@ -63,14 +63,17 @@ class TestDefaults:
     """默认值测试"""
 
     def test_timeout_default(self):
+        """timeout 默认 30 秒。"""
         cfg = SouWenConfig()
         assert cfg.timeout == 30
 
     def test_max_retries_default(self):
+        """max_retries 默认 3 次。"""
         cfg = SouWenConfig()
         assert cfg.max_retries == 3
 
     def test_proxy_pool_default_empty(self):
+        """proxy_pool 默认空列表（不启用代理池）。"""
         cfg = SouWenConfig()
         assert cfg.proxy_pool == []
 
@@ -271,16 +274,19 @@ class TestProxyValidation:
     """验证 _validate_proxy_url 与 SouWenConfig 字段校验"""
 
     def test_accept_http(self):
+        """http:// 代理 URL 应被接受并原样返回。"""
         from souwen.config import _validate_proxy_url
 
         assert _validate_proxy_url("http://127.0.0.1:8080") == "http://127.0.0.1:8080"
 
     def test_accept_socks5(self):
+        """socks5:// 代理（含用户名密码）应被接受。"""
         from souwen.config import _validate_proxy_url
 
         assert _validate_proxy_url("socks5://user:pass@host:1080") == "socks5://user:pass@host:1080"
 
     def test_empty_returns_none(self):
+        """None / 空串 / 纯空白都应返回 None（视为未设置代理）。"""
         from souwen.config import _validate_proxy_url
 
         assert _validate_proxy_url(None) is None
@@ -288,18 +294,21 @@ class TestProxyValidation:
         assert _validate_proxy_url("   ") is None
 
     def test_reject_file_scheme(self):
+        """file:// 等本地协议必须被拒绝，防止 SSRF/任意文件读取。"""
         from souwen.config import _validate_proxy_url
 
         with pytest.raises(ValueError):
             _validate_proxy_url("file:///etc/passwd")
 
     def test_reject_missing_host(self):
+        """缺少主机名的 URL（如 http://）必须被拒绝。"""
         from souwen.config import _validate_proxy_url
 
         with pytest.raises(ValueError):
             _validate_proxy_url("http://")
 
     def test_souwen_config_rejects_bad_proxy(self):
+        """SouWenConfig 在 proxy 字段非法时通过 Pydantic 抛出校验异常。"""
         from pydantic import ValidationError
 
         from souwen.config import SouWenConfig
@@ -308,12 +317,14 @@ class TestProxyValidation:
             SouWenConfig(proxy="ftp://bad.example.com")
 
     def test_souwen_config_accepts_good_proxy(self):
+        """合法 http:// 代理可以正常注入到 SouWenConfig。"""
         from souwen.config import SouWenConfig
 
         cfg = SouWenConfig(proxy="http://proxy.local:3128")
         assert cfg.proxy == "http://proxy.local:3128"
 
     def test_proxy_pool_filters_invalid(self):
+        """proxy_pool 中混入非法条目（如 javascript:）整体应被拒绝。"""
         from pydantic import ValidationError
 
         from souwen.config import SouWenConfig

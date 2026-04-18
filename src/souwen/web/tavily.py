@@ -1,20 +1,44 @@
-"""Client for Tavily
+"""Tavily AI 研究搜索 API 客户端
 
-Purpose:
-    AI-powered research search API
+文件用途：
+    Tavily AI 搜索客户端。Tavily 专为 AI Agent 设计，提供自动查询扩展、
+    去重和页面内容提取，支持 AI 答案摘要和原始内容返回。
 
-API Endpoint:
-    Tavily service
+函数/类清单：
+    TavilyClient（类）
+        - 功能：Tavily AI 搜索 API 客户端，通过 HTTP 调用官方 REST API
+        - 继承：SouWenHttpClient（HTTP 客户端基类）
+        - 关键属性：ENGINE_NAME = "tavily", BASE_URL = "https://api.tavily.com",
+                  api_key (str) 来自配置的 API 密钥
+        - 主要方法：search(query, max_results, ...) -> WebSearchResponse
 
-Key Features:
-    - Web search with automatic query expansion and deduplication
+    TavilyClient.__init__(api_key=None)
+        - 功能：初始化 Tavily 搜索客户端，验证 API Key 可用性
+        - 输入：api_key (str|None) API 密钥，默认从 SOUWEN_TAVILY_API_KEY 读取
+        - 异常：ConfigError 未提供有效的 API Key 时抛出
 
-Engine Class:
-    TavilyClient(SouWenHttpClient)
-        async def search(query, max_results) -> WebSearchResponse
+    TavilyClient.search(query, max_results=10, search_depth="basic", ...) -> WebSearchResponse
+        - 功能：通过 Tavily API 执行搜索
+        - 输入：query 搜索词, max_results 最大结果数（API 上限20）,
+                search_depth 搜索深度, include_answer 是否返回 AI 答案,
+                include_raw_content 是否返回原始内容,
+                include_domains/exclude_domains 域名过滤
+        - 输出：WebSearchResponse 包含搜索结果
+        - 异常：ParseError API 响应解析失败时抛出
 
-Returns:
-    WebSearchResponse with title, url, snippet fields
+模块依赖：
+    - logging: 日志记录
+    - typing: 类型注解
+    - souwen.config: 获取 API Key 和全局配置
+    - souwen.exceptions: ConfigError, ParseError 异常
+    - souwen.http_client: SouWenHttpClient HTTP 客户端基类
+    - souwen.models: SourceType, WebSearchResult, WebSearchResponse 数据模型
+
+技术要点：
+    - API 端点：POST /search，api_key 放在请求体中
+    - content 字段是提取后的页面内容（比传统 snippet 更丰富）
+    - 支持 AI 生成的答案摘要（include_answer=True）
+    - 搜索深度分 basic（快速）和 advanced（深度）两档
 """
 
 from __future__ import annotations
@@ -41,9 +65,11 @@ class TavilyClient(SouWenHttpClient):
     BASE_URL = "https://api.tavily.com"
 
     def __init__(self, api_key: str | None = None):
+        # 从参数或配置读取 API Key
         config = get_config()
         self.api_key = api_key or config.resolve_api_key("tavily", "tavily_api_key")
         if not self.api_key:
+            # 未提供有效的 API Key 时抛出配置错误
             raise ConfigError(
                 "tavily_api_key",
                 "Tavily",
@@ -72,21 +98,25 @@ class TavilyClient(SouWenHttpClient):
             include_domains: 限定域名列表
             exclude_domains: 排除域名列表
         """
+        # 构建请求载荷，api_key 放在请求体中
         payload: dict[str, Any] = {
             "api_key": self.api_key,
             "query": query,
-            "max_results": min(max_results, 20),
+            "max_results": min(max_results, 20),  # API 最多返回 20 条
             "search_depth": search_depth,
             "include_answer": include_answer,
             "include_raw_content": include_raw_content,
         }
+        # 可选的域名过滤参数
         if include_domains:
             payload["include_domains"] = include_domains
         if exclude_domains:
             payload["exclude_domains"] = exclude_domains
 
+        # 发送 POST 请求到 Tavily API
         resp = await self.post("/search", json=payload)
         try:
+            # 解析 JSON 响应
             data = resp.json()
         except Exception as e:
             from souwen.exceptions import ParseError
@@ -94,18 +124,21 @@ class TavilyClient(SouWenHttpClient):
             raise ParseError(f"Tavily 响应解析失败: {e}") from e
 
         results: list[WebSearchResult] = []
+        # 提取搜索结果
         for item in data.get("results", []):
             title = item.get("title", "").strip()
             url = item.get("url", "").strip()
             if not title or not url:
+                # 跳过不完整的结果
                 continue
             # Tavily 的 content 字段是提取后的页面内容（比 snippet 更丰富）
             snippet = item.get("content", "").strip()
+            # 收集元数据
             raw: dict[str, Any] = {}
             if item.get("score"):
-                raw["relevance_score"] = item["score"]
+                raw["relevance_score"] = item["score"]  # 搜索相关性分数
             if item.get("raw_content"):
-                raw["raw_content"] = item["raw_content"]
+                raw["raw_content"] = item["raw_content"]  # 页面原始内容
             results.append(
                 WebSearchResult(
                     source=SourceType.WEB_TAVILY,
@@ -117,11 +150,11 @@ class TavilyClient(SouWenHttpClient):
                 )
             )
 
-        # Tavily 的 AI 答案摘要
+        # 提取 Tavily 的 AI 答案摘要（如果有）
         answer = data.get("answer")
         raw_resp: dict[str, Any] = {}
         if answer:
-            raw_resp["ai_answer"] = answer
+            raw_resp["ai_answer"] = answer  # AI 生成的答案摘要
 
         logger.info("Tavily 返回 %d 条结果 (query=%s)", len(results), query)
 

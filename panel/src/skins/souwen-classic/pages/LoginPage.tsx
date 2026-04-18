@@ -32,6 +32,14 @@ import { api } from '@core/services/api'
 import { formatError } from '@core/lib/errors'
 import styles from './LoginPage.module.scss'
 
+/**
+ * LoginPage 主组件
+ * 状态：baseUrl/password/remember 表单字段；shake/success/autoConnecting 视觉反馈
+ * 关键流程：
+ *   1. 已登录 → 直接跳转首页
+ *   2. 自动登录尝试：调用 verifyAuth('') 探测无密码服务器，成功则免输入登录
+ *   3. 手动登录：调用 health + verifyAuth，失败时触发抖动动画
+ */
 export function LoginPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
@@ -81,6 +89,14 @@ export function LoginPage() {
     return () => { cancelled = true }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  /**
+   * 处理登录表单提交
+   * 1. 规范化 baseUrl（去除尾部斜杠）
+   * 2. 调用 health 获取版本信息
+   * 3. 调用 verifyAuth 验证密码
+   * 4. 成功后保存凭证、显示 toast、延迟 400ms 等待动画后跳转
+   * 5. 失败时触发 shake 动画 + 错误 toast
+   */
   const handleSubmit = useCallback(
     async (e: FormEvent) => {
       e.preventDefault()

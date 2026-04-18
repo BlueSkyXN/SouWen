@@ -1,5 +1,28 @@
 /**
- * 文件用途：Carbon 皮肤的数据源管理页面，管理各类别数据源的配置
+ * 文件用途：Carbon 皮肤的数据源管理页面，管理各类别数据源的配置、密钥、代理和后端设置
+ *
+ * 组件/函数清单：
+ *   SourcesPage（函数组件）
+ *     - 功能：按类别（论文、专利、网页）展示和配置数据源
+ *       1. 获取服务器诊断数据中的所有数据源列表
+ *       2. 为每个数据源显示配置面板，支持修改代理、HTTP 后端、基础 URL、API 密钥
+ *       3. 支持保存配置到服务器
+ *     - State 状态：doctor (DoctorResponse) 包含所有数据源信息, loading/error 状态
+ *     - 关键类型：CategoryKey ('paper'|'patent'|'web') 数据源类别
+ *     - 关键钩子：useTranslation, useNotificationStore
+ *
+ *   SourceConfigPanel（子组件）
+ *     - 功能：单个数据源的配置表单，支持修改代理、HTTP 后端、密钥等
+ *     - Props 属性：sourceName 数据源名称, config 当前配置, warpStatus WARP 状态, onSaved 保存回调
+ *     - 关键状态：apiKeyAction ('keep'|'replace'|'clear') 密钥操作方式
+ *
+ * 模块依赖：
+ *   - react: 状态和表单
+ *   - react-i18next: 翻译
+ *   - framer-motion: 展开/收起动画
+ *   - lucide-react: 图标
+ *   - @core/services/api: 获取/保存配置
+ *   - SourcesPage.module.scss: 样式
  */
 
 import { useEffect, useState, useCallback } from 'react'
@@ -45,6 +68,13 @@ const expandVariants = {
   exit: { height: 0, opacity: 0, transition: { duration: 0.2, ease: 'easeIn' as const } },
 }
 
+/**
+ * SourceConfigPanel 子组件 - 单个数据源的配置表单
+ * @param {string} sourceName - 数据源名称
+ * @param {SourceChannelConfig} config - 当前配置状态
+ * @param {WarpStatus | null} warpStatus - WARP 代理状态
+ * @param {() => void} onSaved - 保存成功后的回调函数
+ */
 function SourceConfigPanel({
   sourceName,
   config,
@@ -68,6 +98,7 @@ function SourceConfigPanel({
   const warpActive = warpStatus?.status === 'enabled'
   const showWarpWarning = proxy === 'warp' && !warpActive
 
+  // 保存配置到服务器
   const handleSave = useCallback(async () => {
     setSaving(true)
     try {
@@ -76,6 +107,7 @@ function SourceConfigPanel({
         http_backend: httpBackend,
         base_url: baseUrl || '',
       }
+      // 处理 API 密钥操作：替换、清除或保留
       if (apiKeyAction === 'replace' && apiKeyValue) {
         params.api_key = apiKeyValue
       } else if (apiKeyAction === 'clear') {
@@ -104,7 +136,7 @@ function SourceConfigPanel({
           [{t('sourceConfig.advancedConfig')}]
         </div>
 
-        {/* Proxy */}
+        {/* Proxy 代理设置 */}
         <div className={styles.configRow}>
           <label className={styles.configLabel}>proxy</label>
           <span className={styles.configSep}>──────</span>
@@ -125,7 +157,7 @@ function SourceConfigPanel({
           </div>
         )}
 
-        {/* HTTP Backend */}
+        {/* HTTP Backend 后端选择 */}
         <div className={styles.configRow}>
           <label className={styles.configLabel}>http_backend</label>
           <span className={styles.configSep}>─</span>
@@ -140,7 +172,7 @@ function SourceConfigPanel({
           </select>
         </div>
 
-        {/* Base URL */}
+        {/* Base URL 基础 URL */}
         <div className={styles.configRow}>
           <label className={styles.configLabel}>base_url</label>
           <span className={styles.configSep}>─────</span>
@@ -153,7 +185,7 @@ function SourceConfigPanel({
           />
         </div>
 
-        {/* API Key */}
+        {/* API Key 密钥管理，支持保留、替换或清除 */}
         <div className={styles.configRow}>
           <label className={styles.configLabel}>api_key</label>
           <span className={styles.configSep}>──────</span>
@@ -206,13 +238,13 @@ function SourceConfigPanel({
           </div>
         </div>
 
-        {/* Runtime note */}
+        {/* 运行时说明 */}
         <div className={styles.runtimeNote}>
           <Info size={11} />
           {t('sourceConfig.runtimeNote')}
         </div>
 
-        {/* Save button */}
+        {/* 保存配置按钮 */}
         <div className={styles.configActions}>
           <button
             className={styles.commitBtn}
@@ -239,6 +271,7 @@ export function SourcesPage() {
   const [warpStatus, setWarpStatus] = useState<WarpStatus | null>(null)
   const addToast = useNotificationStore((s) => s.addToast)
 
+  // 异步获取数据源诊断数据和配置
   const fetchData = useCallback(async () => {
     setLoading(true)
     setFetchError(false)
@@ -257,7 +290,7 @@ export function SourcesPage() {
     }
   }, [addToast, t])
 
-  // Fetch WARP status separately (may not be available)
+  // 单独获取 WARP 状态（可能不可用）
   useEffect(() => {
     api.getWarpStatus().then(setWarpStatus).catch(() => setWarpStatus(null))
   }, [])
@@ -266,6 +299,7 @@ export function SourcesPage() {
     void fetchData()
   }, [fetchData])
 
+  // 执行启用/禁用数据源操作
   const executeToggle = useCallback(async (name: string, currentEnabled: boolean) => {
     setToggling(name)
     try {
@@ -282,6 +316,7 @@ export function SourcesPage() {
     }
   }, [fetchData, addToast, t])
 
+  // 处理数据源状态切换：已启用的数据源需要确认后才能禁用
   const handleToggle = useCallback((src: DoctorSource) => {
     if (src.enabled && src.status === 'ok') {
       setConfirmSource(src)
@@ -290,6 +325,7 @@ export function SourcesPage() {
     }
   }, [executeToggle])
 
+  // 确认禁用数据源
   const handleConfirmDisable = useCallback(() => {
     if (!confirmSource) return
     void executeToggle(confirmSource.name, confirmSource.enabled)
@@ -312,6 +348,7 @@ export function SourcesPage() {
     )
   }
 
+  // 按类别对数据源进行分组
   const sourcesByCategory: Record<string, DoctorSource[]> = {}
   for (const cat of CATEGORY_ORDER) {
     sourcesByCategory[cat] = doctor.sources.filter((s) => s.category === cat)
@@ -319,7 +356,7 @@ export function SourcesPage() {
 
   return (
     <div className={styles.page}>
-      {/* ── Header ── */}
+      {/* ── Header 页面头部 ── */}
       <div className={styles.pageHeader}>
         <h1 className={styles.pageTitle}>
           <Database size={20} />
@@ -331,7 +368,7 @@ export function SourcesPage() {
         </button>
       </div>
 
-      {/* ── Category Groups ── */}
+      {/* ── Category Groups 按类别分组展示数据源 ── */}
       {CATEGORY_ORDER.map((cat) => {
         const list = sourcesByCategory[cat]
         if (!list || list.length === 0) return null
@@ -352,7 +389,7 @@ export function SourcesPage() {
               initial="initial"
               animate="animate"
             >
-              {list.map((src) => (
+              {list.map((src: DoctorSource) => (
                 <m.div
                   key={src.name}
                   variants={staggerItem}
@@ -409,7 +446,7 @@ export function SourcesPage() {
         )
       })}
 
-      {/* ── Confirmation Modal ── */}
+      {/* ── Confirmation Modal 禁用确认对话框 ── */}
       <AnimatePresence>
         {confirmSource && (
           <m.div

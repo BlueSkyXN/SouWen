@@ -43,6 +43,13 @@ const RING_STROKE = 10
 const RING_RADIUS = (RING_SIZE - RING_STROKE) / 2
 const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS
 
+/**
+ * HealthRing 组件：动画化的圆环健康度可视化
+ * Props: pct 健康度百分比 (0-100)
+ * 关键逻辑：
+ *   - 渐变色根据百分比阈值切换：≥60 绿/青、≥30 橙、否则红
+ *   - 挂载时通过 stroke-dasharray 从 0 动画过渡到目标值，实现"环图填充动画"
+ */
 function HealthRing({ pct }: { pct: number }) {
   const { t } = useTranslation()
   const strokeRef = useRef<SVGCircleElement>(null)
@@ -127,18 +134,24 @@ function HealthRing({ pct }: { pct: number }) {
 /* ── Source matrix view ── */
 type SourceLike = DoctorResponse['sources'][number]
 
+/** 根据数据源状态返回对应的 CSS 类（绿点/红点/黄点） */
 function matrixDotClass(status: string): string {
   if (status === 'ok') return styles.matrixDotOk
   if (status === 'error' || status === 'timeout') return styles.matrixDotErr
   return styles.matrixDotWarn
 }
 
+/** 根据数据源 tier 等级返回对应的 CSS 类（T0 主流 / T1 次主流 / T2 备用） */
 function matrixTierClass(tier: number): string {
   if (tier === 0) return styles.matrixTierT0
   if (tier === 1) return styles.matrixTierT1
   return styles.matrixTierT2
 }
 
+/**
+ * SourceMatrix 组件：以矩阵视图展示所有数据源
+ * 按分类分组显示，每个芯片包含状态点 + 名称 + tier 标签
+ */
 function SourceMatrix({ sources }: { sources: SourceLike[] }) {
   const { t } = useTranslation()
   const order: Array<'paper' | 'patent' | 'web'> = ['paper', 'patent', 'web']
@@ -187,6 +200,7 @@ function SourceMatrix({ sources }: { sources: SourceLike[] }) {
 }
 
 /* ── Availability progress bar ── */
+/** AvailabilityBar 组件：可用性进度条，显示 ok/total 数据源比例 */
 function AvailabilityBar({ ok, total }: { ok: number; total: number }) {
   const pct = total > 0 ? (ok / total) * 100 : 0
   return (
@@ -199,6 +213,11 @@ function AvailabilityBar({ ok, total }: { ok: number; total: number }) {
   )
 }
 
+/**
+ * DashboardPage 主组件
+ * 状态：doctor 系统诊断数据、loading 加载标志、fetchError 错误标志、lastUpdated 上次刷新时间
+ * 流程：挂载时调用 api.getDoctor() 获取健康数据；失败时展示错误提示并允许重试
+ */
 export function DashboardPage() {
   const { t } = useTranslation()
   const [doctor, setDoctor] = useState<DoctorResponse | null>(null)

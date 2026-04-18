@@ -2,52 +2,66 @@
 
 文件用途：
     提供统一的异步搜索接口，支持论文、专利、网页搜索。通过并发调用多个数据源客户端，
-    快速聚合结果并返回统一的 SearchResponse 对象。
+    快速聚合结果并返回 SearchResponse 列表。
 
-函数清单：
-    search(query, papers=True, patents=True, web=True, timeout=30,
-           paper_sources=None, patent_sources=None) → SearchResponse
-        - 功能：统一搜索门面，同时搜索多个数据源
-        - 参数：query (搜索词), papers/patents/web (启用标志),
-                timeout (总超时秒数), paper_sources/patent_sources (源列表，可选)
-        - 返回：SearchResponse (包含论文、专利、网页结果列表)
-        - 特点：异步并发，自动超时控制，异常安全
+函数清单（[已修正] 与实际签名对齐）：
+    search(query, domain="paper", **kwargs) → list[SearchResponse]
+        - 功能：统一搜索入口，按 domain 分发到 paper/patent/web 子函数
+        - 参数：query 搜索词；domain 取 "paper" | "patent" | "web"；
+                **kwargs 透传给对应子函数
+        - 返回：每个数据源一个 SearchResponse 的列表（web 域返回单元素列表）
+        - 异常：未知 domain 抛 ValueError
 
-    search_papers(query, sources=None, timeout=30) → SearchResponse
-        - 功能：仅搜索论文（默认免费源）
-        - 返回：SearchResponse (papers 字段非空，patents/web 为空)
+    search_papers(query, sources=None, per_page=10, **kwargs) → list[SearchResponse]
+        - 功能：并发多源论文搜索
+        - 参数：sources 源名称列表（默认 _DEFAULT_PAPER_SOURCES：openalex/crossref/arxiv/dblp/pubmed）
+                per_page 每源返回数量；**kwargs 透传给客户端 search 方法
+        - 返回：成功源的 SearchResponse 列表（失败/被禁用的源会被跳过）
 
-    search_patents(query, sources=None, timeout=30) → SearchResponse
-        - 功能：仅搜索专利（默认 Google Patents）
-        - 返回：SearchResponse (patents 字段非空，papers/web 为空)
+    search_patents(query, sources=None, per_page=10, **kwargs) → list[SearchResponse]
+        - 功能：并发多源专利搜索
+        - 参数：sources 默认 _DEFAULT_PATENT_SOURCES（["google_patents"]）
+                per_page 每源返回数量
 
-    search_web(query, timeout=30) → SearchResponse
-        - 功能：仅搜索网页（Web 源自动选择）
+    web_search（从 souwen.web.search 重导出）
+        - 功能：网页搜索入口（异步），用于 search(domain="web") 路径
 
     _run_client(cls, method_name, **kwargs) → SearchResponse
-        - 功能：辅助函数，打开客户端并调用指定方法
-        - 用途：简化 source 客户端的调用
+        - 功能：辅助函数，进入异步上下文并调用指定方法
 
     _search_source(name, coro) → SearchResponse | None
         - 功能：执行单个数据源搜索（异常安全）
-        - 特点：捕获异常，区分类型（Auth/SourceUnavailable 记录，其他忽略）
-        - 返回：SearchResponse 或 None（失败）
+        - 特点：ConfigError → info 跳过；RateLimitError/其他 → warning 但不抛出
+
+    _search_source_limited(name, coro) → SearchResponse | None
+        - 功能：在 _search_source 外层加上 Semaphore 并发限制 + asyncio.wait_for 超时
+
+    _get_source_timeout_seconds() → float
+        - 功能：返回单个源的搜索超时（受 _SEARCH_SOURCE_TIMEOUT_CAP_SECONDS=15s 上限约束）
+
+    _get_max_concurrency() → int
+        - 功能：读取并发上限（默认 10，可由环境变量 SOUWEN_MAX_CONCURRENCY 覆盖）
+
+    _get_semaphore() → asyncio.Semaphore
+        - 功能：返回与当前 running event loop 绑定的 Semaphore（per-loop 懒加载）
 
 默认数据源：
-    论文：OpenAlex, CrossRef, arXiv, DBLP, PubMed (免费源)
-    专利：Google Patents Scraper (免费源)
+    论文：OpenAlex, CrossRef, arXiv, DBLP, PubMed（免费源）
+    专利：Google Patents Scraper（免费源）
     网页：由 souwen.web.search 自动选择
 
 并发策略：
     - asyncio.gather 并发调用多个源，最大化效率
-    - 单独的超时控制（_SEARCH_SOURCE_TIMEOUT_CAP_SECONDS = 15s）
-    - 异常不阻止其他源继续执行（异常安全）
+    - 全局并发度上限通过 Semaphore 限制（默认 10）
+    - 单源超时上限 _SEARCH_SOURCE_TIMEOUT_CAP_SECONDS = 15s
+    - 单源异常被捕获，不阻止其他源继续执行（异常安全）
 
 模块依赖：
     - souwen.config: 获取全局配置
-    - souwen.models: SearchResponse / PaperResult / PatentResult
+    - souwen.models: SearchResponse
     - souwen.paper.*: 各论文客户端
     - souwen.patent.*: 各专利客户端
+    - souwen.scraper.google_patents_scraper: Google Patents 爬虫
     - souwen.web.search: Web 搜索实现
 """
 

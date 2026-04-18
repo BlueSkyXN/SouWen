@@ -1,5 +1,31 @@
 /**
- * 文件用途：Carbon 皮肤的搜索页面，支持跨多个数据源的统一搜索
+ * 文件用途：Carbon 皮肤的搜索页面，支持跨多个数据源的统一搜索（论文、专利、网页）
+ *
+ * 组件/函数清单：
+ *   SearchPage（函数组件）
+ *     - 功能：提供搜索表单、数据源选择、结果展示，支持论文/专利/网页搜索
+ *       1. 搜索输入和建议
+ *       2. 按数据源类别（论文/专利/网页）分组选择来源
+ *       3. 异步执行搜索，展示结果列表或错误状态
+ *     - State 状态：query (string) 搜索词, selectedSources (Record) 各类别选中来源, results (Record) 搜索结果
+ *     - 关键钩子：useTranslation 翻译, useNotificationStore 提示
+ *     - 关键函数：handleSearch 执行搜索, normalizePaper/normalizePatent/normalizeWeb 结果格式化
+ *
+ *   toSourceOptions（函数）
+ *     - 功能：将 SourceInfo 数组转换为下拉选项格式
+ *   makeFallbackOptions（函数）
+ *     - 功能：生成默认数据源选项（当服务器数据不可用时使用）
+ *   resolveSourceOptions（函数）
+ *     - 功能：根据类别获取可用数据源选项
+ *
+ * 模块依赖：
+ *   - react: 状态和表单处理
+ *   - react-i18next: 国际化翻译
+ *   - framer-motion: 动画
+ *   - lucide-react: 图标
+ *   - @core/services/api: 搜索 API
+ *   - @core/lib/normalize: 搜索结果格式化函数
+ *   - SearchPage.module.scss: 页面样式
  */
 
 import { useState, useCallback, useEffect, useRef, type FormEvent } from 'react'
@@ -112,6 +138,7 @@ export function SearchPage() {
   const requestIdRef = useRef(0)
   const inputRef = useRef<HTMLInputElement>(null)
 
+  // 获取服务器可用的数据源列表，初始化选项，支持取消机制
   useEffect(() => {
     let cancelled = false
     api.getSources().then((res) => {
@@ -128,10 +155,12 @@ export function SearchPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // 组件卸载时取消未完成的 API 请求
   useEffect(() => {
     return () => { activeRequestRef.current?.controller.abort() }
   }, [])
 
+  // 切换指定数据源的选中状态（添加或移除）
   const toggleSource = useCallback((name: string) => {
     setSelections((prev) => {
       const curr = prev[tab]
@@ -144,6 +173,7 @@ export function SearchPage() {
   const canSearch = query.trim().length > 0 && currentSources.length > 0
   const isSearchingCurrentTab = searchState.status === 'loading' && searchState.tab === tab
 
+  // 执行搜索请求：根据当前标签页类型调用相应的 API，支持请求取消和去重
   const handleSearch = useCallback(
     async (e: FormEvent) => {
       e.preventDefault()
@@ -156,6 +186,7 @@ export function SearchPage() {
       setSearchState({ status: 'loading', tab, message: null })
       const joined = currentSources.join(',')
       try {
+        // 根据选中的标签页类型执行不同的搜索 API
         if (tab === 'paper') {
           setPaperResults(null)
           const res = await api.searchPaper(query, joined, count, controller.signal)
@@ -179,6 +210,7 @@ export function SearchPage() {
           addToast('success', t('search.success', { count: res.total_results }))
         }
       } catch (err) {
+        // 忽略被取消或过期的请求的错误
         if (controller.signal.aborted || activeRequestRef.current?.id !== requestId) return
         const message = formatError(err)
         setSearchState({ status: 'error', tab, message })
@@ -192,11 +224,13 @@ export function SearchPage() {
     [tab, query, currentSources, canSearch, count, addToast, t],
   )
 
+  // 重试搜索按钮的处理函数
   const handleRetry = useCallback(() => {
     const syntheticEvent = { preventDefault: () => {} } as FormEvent
     handleSearch(syntheticEvent)
   }, [handleSearch])
 
+  // 渲染论文结果卡片，格式化作者、年份、DOI 等元数据
   const renderPaperCard = (raw: PaperResult, i: number) => {
     const p = normalizePaper(raw)
     const key = p.doi || `paper-${p.source}-${i}`
@@ -229,6 +263,7 @@ export function SearchPage() {
     )
   }
 
+  // 渲染专利结果卡片，展示专利号、申请人、公开日期等信息
   const renderPatentCard = (raw: PatentResult, i: number) => {
     const p = normalizePatent(raw)
     const key = p.patentNumber || `patent-${p.source}-${i}`
@@ -259,6 +294,7 @@ export function SearchPage() {
     )
   }
 
+  // 渲染网页结果卡片，展示标题、URL、搜索引擎来源和摘要
   const renderWebCard = (raw: WebResult, i: number) => {
     const item = normalizeWeb(raw)
     const key = item.url || `web-${item.source}-${i}`
@@ -286,6 +322,7 @@ export function SearchPage() {
     (tab === 'patent' && patentResults) ||
     (tab === 'web' && webResults)
 
+  // 统一处理搜索结果渲染逻辑：加载中、错误、论文/专利/网页结果三种状态
   const renderResults = () => {
     if (isSearchingCurrentTab) {
       return (

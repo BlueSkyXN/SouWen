@@ -10,6 +10,12 @@
     3. 默认值（INFO 级别、文本格式）
 
 类/函数清单：
+    _mask_token(value) → str
+        - [已修正] 内部辅助：将非空 token 替换为固定占位符 "***"
+
+    _scrub(text) → str
+        - [已修正] 内部辅助：对单段日志文本做 Bearer 与 key=value 的双重脱敏
+
     SensitiveDataFilter（logging.Filter）
         - 功能：日志敏感数据脱敏过滤器
         - 方法：filter(record) → bool — 对日志记录的消息和参数做脱敏

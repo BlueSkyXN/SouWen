@@ -1,5 +1,25 @@
 /**
  * 文件用途：iOS 皮肤的仪表板页面，展示系统健康状态、数据源统计和健康检查结果
+ *
+ * 组件/函数清单：
+ *   DashboardPage（函数组件）
+ *     - 功能：首页仪表板，异步获取系统诊断数据（DoctorResponse），展示：
+ *       1. Hero 区域：健康状态标题和描述
+ *       2. 核心指标：论文来源数、专利来源数、网页来源数、可用数据源比例
+ *       3. 健康表格：详细列表显示每个数据源的状态、名称、类型、层级等
+ *     - State 状态：doctor (DoctorResponse | null) 诊断数据, loading (bool) 加载中, fetchError (bool) 获取失败
+ *     - 关键钩子：useTranslation 获取翻译, useNotificationStore 显示提示, useAuthStore 版本号
+ *     - 关键计算：paperCount/patentCount/webCount 按类别统计数据源数量, healthPct 健康百分比
+ *     - 错误处理：加载失败时显示错误状态卡和重试按钮
+ *
+ * 模块依赖：
+ *   - react-i18next: 国际化翻译
+ *   - lucide-react: 图标
+ *   - @core/services/api: api.getDoctor 获取诊断数据
+ *   - @core/stores: notificationStore 提示, authStore 版本号
+ *   - @core/lib/errors: formatError 错误格式化
+ *   - ./components/common/Spinner: 加载旋转圈
+ *   - DashboardPage.module.scss: 页面样式
  */
 
 import { useEffect, useState, useCallback } from 'react'
@@ -15,6 +35,7 @@ import { Spinner } from '../components/common/Spinner'
 import type { DoctorResponse } from '@core/types'
 import styles from './DashboardPage.module.scss'
 
+// DashboardPage 组件 - 系统仪表板
 export function DashboardPage() {
   const { t } = useTranslation()
   const [doctor, setDoctor] = useState<DoctorResponse | null>(null)
@@ -23,6 +44,7 @@ export function DashboardPage() {
   const version = useAuthStore((s) => s.version)
   const addToast = useNotificationStore((s) => s.addToast)
 
+  // 从服务器获取诊断数据（数据源状态、统计、配置信息）
   const fetchData = useCallback(async () => {
     setLoading(true)
     setFetchError(false)
