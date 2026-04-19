@@ -142,6 +142,12 @@ _reg("searxng", "web", 1, "searxng_url", description="SearXNG 元搜索 (自建)
 _reg("whoogle", "web", 1, "whoogle_url", description="Whoogle Google 代理 (自建)")
 _reg("websurfx", "web", 1, "websurfx_url", description="Websurfx 聚合搜索 (自建)")
 
+# ── 网页搜索：社交/平台 ──────────────────────────────────
+_reg("github", "web", 0, "github_token", description="GitHub 仓库搜索 (可选 Token)")
+_reg("stackoverflow", "web", 0, "stackoverflow_api_key", description="StackOverflow 问答搜索")
+_reg("reddit", "web", 0, None, description="Reddit 帖子搜索")
+_reg("bilibili", "web", 0, None, is_scraper=True, description="Bilibili 视频搜索")
+
 # ── 网页搜索：付费 API ────────────────────────────────────
 _reg("tavily", "web", 2, "tavily_api_key", description="Tavily AI 搜索")
 _reg("exa", "web", 2, "exa_api_key", description="Exa 语义搜索")
