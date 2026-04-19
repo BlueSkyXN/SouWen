@@ -1,7 +1,7 @@
 /**
  * 搜索页面 - 论文/专利/网页综合搜索
  *
- * 文件用途：提供统一的搜索界面，支持三个搜索类别（paper/patent/web）、数据源选择、结果展示和过滤
+ * 文件用途：提供统一的搜索界面，支持八个搜索类别（paper/patent/general/professional/social/developer/wiki/video）、数据源选择、结果展示和过滤
  *
  * 核心功能模块：
  *   - 搜索类别切换：分段控制器在三个类别间切换
@@ -33,6 +33,7 @@ import {
   GraduationCap, Unlock, Heart, CheckCircle2, Circle,
   SlidersHorizontal, Command, Settings,
   List, LayoutGrid, Grid3X3, Download,
+  Zap, MessageCircle, Code2, Play,
 } from 'lucide-react'
 import { api } from '@core/services/api'
 import { useNotificationStore } from '@core/stores/notificationStore'
@@ -44,6 +45,7 @@ import { normalizePaper, normalizePatent, normalizeWeb } from '@core/lib/normali
 import { extractDomain } from '@core/lib/url'
 import { exportPapers, exportPatents, exportWebResults, type ExportFormat } from '@core/lib/export'
 import type { SearchCategory, SourceInfo, SearchResponse, WebSearchResponse, WebResult, PaperResult, PatentResult } from '@core/types'
+import { WEB_CATEGORIES, ALL_CATEGORIES } from '@core/types'
 import { staggerContainer, staggerItem, fadeInUp } from '@core/lib/animations'
 import styles from './SearchPage.module.scss'
 
@@ -102,17 +104,27 @@ function makeFallbackOptions(t: (key: string) => string): Record<SearchCategory,
     patent: [
       { value: 'google_patents', label: 'google_patents', description: t('search.source_google_patents') },
     ],
-    web: [
+    general: [
       { value: 'duckduckgo', label: 'duckduckgo', description: t('search.source_duckduckgo') },
       { value: 'bing', label: 'bing', description: t('search.source_bing') },
     ],
+    professional: [],
+    social: [],
+    developer: [],
+    wiki: [],
+    video: [],
   }
 }
 
 const DEFAULT_SELECTED: Record<SearchCategory, string[]> = {
   paper: ['openalex', 'arxiv'],
   patent: ['google_patents'],
-  web: ['duckduckgo', 'bing'],
+  general: ['duckduckgo', 'bing'],
+  professional: [],
+  social: [],
+  developer: [],
+  wiki: [],
+  video: [],
 }
 
 // SEARCH_SUGGESTIONS 已移至组件内部以支持 i18n
@@ -144,10 +156,10 @@ function sanitizeSelections(
         return next
       }
 
-      next[category] = DEFAULT_SELECTED[category].filter((value) => allowed.has(value))
+      next[category] = (DEFAULT_SELECTED[category] ?? []).filter((value) => allowed.has(value))
       return next
     },
-    { paper: [], patent: [], web: [] } as Record<SearchCategory, string[]>,
+    Object.fromEntries(ALL_CATEGORIES.map((c) => [c, [] as string[]])) as Record<SearchCategory, string[]>,
   )
 }
 
@@ -190,7 +202,7 @@ export function SearchPage() {
   const [searchState, setSearchState] = useState<SearchState>({ status: 'idle', tab: null, message: null })
   const [paperResults, setPaperResults] = useState<SearchResponse | null>(null)
   const [patentResults, setPatentResults] = useState<SearchResponse | null>(null)
-  const [webResults, setWebResults] = useState<WebSearchResponse | null>(null)
+  const [webResultsMap, setWebResultsMap] = useState<Record<string, WebSearchResponse | null>>({})
   const [layoutMode, setLayoutMode] = useState<LayoutMode>('card')
   const addToast = useNotificationStore((s) => s.addToast)
   const activeRequestRef = useRef<{ id: number; controller: AbortController } | null>(null)
@@ -200,11 +212,9 @@ export function SearchPage() {
     let cancelled = false
     api.getSources().then((res) => {
       if (cancelled) return
-      const nextOptions = {
-        paper: resolveSourceOptions('paper', res.paper, fallbackOptions),
-        patent: resolveSourceOptions('patent', res.patent, fallbackOptions),
-        web: resolveSourceOptions('web', res.web, fallbackOptions),
-      }
+      const nextOptions = Object.fromEntries(
+        ALL_CATEGORIES.map((c) => [c, resolveSourceOptions(c, res[c] ?? [], fallbackOptions)])
+      ) as Record<SearchCategory, SourceOption[]>
       setSourceOptions(nextOptions)
       setSelections((prev) => sanitizeSelections(prev, nextOptions))
     }).catch((err) => { console.warn('[SouWen] Failed to load sources from API, using fallback:', err) })
@@ -246,7 +256,7 @@ export function SearchPage() {
   const currentSources = selections[tab]
   const canSearch = query.trim().length > 0 && currentSources.length > 0
   const isSearchingCurrentTab = searchState.status === 'loading' && searchState.tab === tab
-  const maxPerPage = tab === 'web' ? 50 : 100
+  const maxPerPage = WEB_CATEGORIES.has(tab) ? 50 : 100
 
   /* ─── Keyboard shortcut ⌘K ─── */
   /** ⌘K / Ctrl+K 快捷键：聚焦搜索输入框 */
@@ -297,10 +307,10 @@ export function SearchPage() {
           setSearchState({ status: 'idle', tab: null, message: null })
           addToast('success', t('search.success', { count: res.total }))
         } else {
-          setWebResults(null)
+          setWebResultsMap((prev) => ({ ...prev, [tab]: null }))
           const res = await api.searchWeb(query, joined, count, controller.signal, timeout)
           if (activeRequestRef.current?.id !== requestId) return
-          setWebResults(res)
+          setWebResultsMap((prev) => ({ ...prev, [tab]: res }))
           setSearchState({ status: 'idle', tab: null, message: null })
           addToast('success', t('search.success', { count: res.total_results }))
         }
@@ -584,20 +594,20 @@ export function SearchPage() {
       const items = (patentResults.results.flatMap((r) => r.results) as PatentResult[]).map(normalizePatent)
       exportedCount = items.length
       exportPatents(items, format)
-    } else if (tab === 'web' && webResults) {
-      const items = webResults.results.map(normalizeWeb)
+    } else if (WEB_CATEGORIES.has(tab) && webResultsMap[tab]) {
+      const items = webResultsMap[tab]!.results.map(normalizeWeb)
       exportedCount = items.length
       exportWebResults(items, format)
     }
     if (exportedCount > 0) {
       addToast('success', t('search.exported', { count: exportedCount }))
     }
-  }, [tab, paperResults, patentResults, webResults, addToast, t])
+  }, [tab, paperResults, patentResults, webResultsMap, addToast, t])
 
   const hasResults =
     (tab === 'paper' && paperResults) ||
     (tab === 'patent' && patentResults) ||
-    (tab === 'web' && webResults)
+    (WEB_CATEGORIES.has(tab) && webResultsMap[tab])
 
   const renderResults = () => {
     if (isSearchingCurrentTab) {
@@ -741,14 +751,15 @@ export function SearchPage() {
       )
     }
 
-    if (tab === 'web' && webResults) {
-      if (webResults.results.length === 0) return <EmptyState type="search" title={t('search.noResults')} />
+    if (WEB_CATEGORIES.has(tab) && webResultsMap[tab]) {
+      const wr = webResultsMap[tab]!
+      if (wr.results.length === 0) return <EmptyState type="search" title={t('search.noResults')} />
       if (layoutMode === 'list') {
         return (
           <div>
-            {renderToolbar(webResults.total_results)}
+            {renderToolbar(wr.total_results)}
             <div className={styles.resultList}>
-              {webResults.results.map((item, i) => renderWebListItem(item, i))}
+              {wr.results.map((item, i) => renderWebListItem(item, i))}
             </div>
           </div>
         )
@@ -756,17 +767,17 @@ export function SearchPage() {
       if (layoutMode === 'grid') {
         return (
           <div>
-            {renderToolbar(webResults.total_results)}
+            {renderToolbar(wr.total_results)}
             <m.div className={styles.resultGrid} variants={staggerContainer} initial="initial" animate="animate">
-              {webResults.results.map((item, i) => renderWebGridCard(item, i))}
+              {wr.results.map((item, i) => renderWebGridCard(item, i))}
             </m.div>
           </div>
         )
       }
       return (
         <m.div variants={staggerContainer} initial="initial" animate="animate">
-          {renderToolbar(webResults.total_results)}
-          {webResults.results.map((item, i) => renderWebCard(item, i))}
+          {renderToolbar(wr.total_results)}
+          {wr.results.map((item, i) => renderWebCard(item, i))}
         </m.div>
       )
     }
@@ -789,12 +800,16 @@ export function SearchPage() {
         {/* Top bar: tabs + ⌘K hint */}
         <div className={styles.commandHeader}>
           <div className={styles.tabGroup}>
-            {(['paper', 'patent', 'web'] as SearchCategory[]).map((key) => {
-              const icons = { paper: FileText, patent: Shield, web: Globe }
-              const labels = {
-                paper: t('search.papers'),
-                patent: t('search.patents'),
-                web: t('search.web'),
+            {ALL_CATEGORIES.map((key) => {
+              const icons: Record<SearchCategory, React.ComponentType<{ size?: number }>> = {
+                paper: FileText, patent: Shield, general: Globe, professional: Zap,
+                social: MessageCircle, developer: Code2, wiki: BookOpen, video: Play,
+              }
+              const labels: Record<SearchCategory, string> = {
+                paper: t('search.papers'), patent: t('search.patents'),
+                general: t('search.general'), professional: t('search.professional'),
+                social: t('search.social'), developer: t('search.developer'),
+                wiki: t('search.wiki'), video: t('search.video'),
               }
               const Icon = icons[key]
               return (

@@ -296,7 +296,8 @@ describe('typeLabel', () => {
   it('returns Chinese labels for known types', () => {
     expect(typeLabel('paper')).toBe('论文')
     expect(typeLabel('patent')).toBe('专利')
-    expect(typeLabel('web')).toBe('网页')
+    expect(typeLabel('general')).toBe('通用')
+    expect(typeLabel('video')).toBe('视频')
   })
 
   /**

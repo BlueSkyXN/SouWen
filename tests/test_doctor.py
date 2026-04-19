@@ -41,9 +41,9 @@ class TestCheckAll:
         assert crossref["status"] == "ok"
 
     def test_categories_are_valid(self):
-        """所有 category 值在 paper/patent/web 中"""
+        """所有 category 值在 8 类中"""
         results = check_all()
-        valid_cats = {"paper", "patent", "web"}
+        valid_cats = {"paper", "patent", "general", "professional", "social", "developer", "wiki", "video"}
         for r in results:
             assert r["category"] in valid_cats
 

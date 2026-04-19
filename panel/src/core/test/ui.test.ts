@@ -53,10 +53,17 @@ describe('categoryBadgeColor', () => {
   })
 
   /**
-   * 测试：网页类型返回绿色
+   * 测试：通用类型返回绿色
    */
-  it('returns green for web', () => {
-    expect(categoryBadgeColor('web')).toBe('green')
+  it('returns green for general', () => {
+    expect(categoryBadgeColor('general')).toBe('green')
+  })
+
+  /**
+   * 测试：视频类型返回红色
+   */
+  it('returns red for video', () => {
+    expect(categoryBadgeColor('video')).toBe('red')
   })
 
   /**

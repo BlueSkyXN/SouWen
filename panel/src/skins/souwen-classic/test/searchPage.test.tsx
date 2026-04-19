@@ -198,7 +198,7 @@ describe('SearchPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     useNotificationStore.setState({ toasts: [] })
-    mockedApi.getSources.mockResolvedValue({ paper: [], patent: [], web: [] })
+    mockedApi.getSources.mockResolvedValue({ paper: [], patent: [], general: [], professional: [], social: [], developer: [], wiki: [], video: [] })
   })
 
   // 测试用例 1：搜索失败时显示内联错误状态

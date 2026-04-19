@@ -101,7 +101,7 @@ export interface NormalizedWeb {
  */
 export interface NormalizedSource {
   name: string
-  type: 'paper' | 'patent' | 'web'
+  type: 'paper' | 'patent' | 'general' | 'professional' | 'social' | 'developer' | 'wiki' | 'video'
   integration_type: string
   reachable: boolean
   error: string | null
@@ -190,13 +190,17 @@ export function integrationTypeLabel(integration_type: string): string {
 
 /**
  * 将源类型转换为中文标签
- * paper → 论文, patent → 专利, web → 网页
  */
 export function typeLabel(type: string): string {
   switch (type) {
     case 'paper': return i18n.t('common.paper')
     case 'patent': return i18n.t('common.patent')
-    case 'web': return i18n.t('common.web')
+    case 'general': return i18n.t('common.general')
+    case 'professional': return i18n.t('common.professional')
+    case 'social': return i18n.t('common.social')
+    case 'developer': return i18n.t('common.developer')
+    case 'wiki': return i18n.t('common.wiki')
+    case 'video': return i18n.t('common.video')
     default: return type
   }
 }

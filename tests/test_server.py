@@ -221,7 +221,7 @@ class TestSearchAuth:
         data = resp.json()
         assert "paper" in data
         assert "patent" in data
-        assert "web" in data
+        assert "general" in data
 
     # --- 双密钥：visitor 和 admin 密码均可访问搜索端点 ---
     def test_dual_key_visitor_password_accepted(self, dual_key_client):

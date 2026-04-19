@@ -36,8 +36,13 @@ class TestAllSources:
         assert len(ALL_SOURCES["patent"]) == 6
 
     def test_web_count(self):
-        """web 有 21 个数据源"""
-        assert len(ALL_SOURCES["web"]) == 29
+        """web-derived categories have correct source counts"""
+        assert len(ALL_SOURCES["general"]) == 16
+        assert len(ALL_SOURCES["professional"]) == 5
+        assert len(ALL_SOURCES["social"]) == 3
+        assert len(ALL_SOURCES["developer"]) == 2
+        assert len(ALL_SOURCES["wiki"]) == 1
+        assert len(ALL_SOURCES["video"]) == 2
 
     def test_total_count(self):
         """总计暴露 34 个可选数据源"""
@@ -66,7 +71,7 @@ class TestAllSources:
 
     def test_self_hosted_web_sources_require_setup(self):
         """自建 Web 引擎在清单中标记为需要配置。"""
-        needs_key = {name: required for name, required, _ in ALL_SOURCES["web"]}
+        needs_key = {name: required for name, required, _ in ALL_SOURCES["general"]}
         assert needs_key["searxng"] is True
         assert needs_key["whoogle"] is True
         assert needs_key["websurfx"] is True

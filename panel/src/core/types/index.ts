@@ -32,7 +32,7 @@
  *     VisualTheme: 皮肤配色方案 ID（如 'nebula', 'terminal' 等，由每个皮肤定义）
  *     ToastType: 通知类型（'success' | 'error' | 'info'）
  *     Toast: 通知对象（ID、类型、消息）
- *     SearchCategory: 搜索分类（'paper' | 'patent' | 'web'）
+ *     SearchCategory: 搜索分类（'paper' | 'patent' | 'general' | 'professional' | 'social' | 'developer' | 'wiki' | 'video'）
  *
  * === 皮肤系统类型 ===
  *     SchemeDefinition: 配色方案定义（ID、标签 i18n 键、点颜色用于选择器）
@@ -69,7 +69,12 @@ export interface SourceInfo {
 export interface SourcesResponse {
   paper: SourceInfo[]
   patent: SourceInfo[]
-  web: SourceInfo[]
+  general: SourceInfo[]
+  professional: SourceInfo[]
+  social: SourceInfo[]
+  developer: SourceInfo[]
+  wiki: SourceInfo[]
+  video: SourceInfo[]
 }
 
 /**
@@ -316,7 +321,17 @@ export interface Toast {
 /**
  * 搜索分类
  */
-export type SearchCategory = 'paper' | 'patent' | 'web'
+export type SearchCategory = 'paper' | 'patent' | 'general' | 'professional' | 'social' | 'developer' | 'wiki' | 'video'
+
+/** Web-derived categories that use /api/v1/search/web endpoint */
+export const WEB_CATEGORIES: ReadonlySet<SearchCategory> = new Set([
+  'general', 'professional', 'social', 'developer', 'wiki', 'video',
+])
+
+/** All search categories in display order */
+export const ALL_CATEGORIES: readonly SearchCategory[] = [
+  'paper', 'patent', 'general', 'professional', 'social', 'developer', 'wiki', 'video',
+]
 
 /* ===== Skin System Types ===== */
 

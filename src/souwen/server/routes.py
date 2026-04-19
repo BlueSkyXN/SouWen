@@ -313,12 +313,14 @@ async def list_sources():
 
     返回结构：
         {
-            "paper": [
-                {"name": "openalex", "needs_key": false, "description": "..."},
-                ...
-            ],
+            "paper": [...],
             "patent": [...],
-            "web": [...]
+            "general": [...],
+            "professional": [...],
+            "social": [...],
+            "developer": [...],
+            "wiki": [...],
+            "video": [...]
         }
     """
     from souwen.config import get_config
