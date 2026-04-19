@@ -73,9 +73,7 @@ class StackOverflowClient(SouWenHttpClient):
     def __init__(self, api_key: str | None = None):
         # 从参数或配置读取 API Key（可选）
         config = get_config()
-        self.api_key = api_key or config.resolve_api_key(
-            "stackoverflow", "stackoverflow_api_key"
-        )
+        self.api_key = api_key or config.resolve_api_key("stackoverflow", "stackoverflow_api_key")
         # 注意：StackExchange API 允许匿名调用，无 Key 时不抛 ConfigError
         super().__init__(base_url=self.BASE_URL, source_name="stackoverflow")
 
@@ -136,9 +134,7 @@ class StackOverflowClient(SouWenHttpClient):
             is_answered = item.get("is_answered", False)
             answered_mark = "✓" if is_answered else "·"
             tags_part = f"[{', '.join(tags)}] " if tags else ""
-            snippet = (
-                f"{tags_part}score={score}, answers={answer_count} {answered_mark}"
-            )
+            snippet = f"{tags_part}score={score}, answers={answer_count} {answered_mark}"
             # 完整元数据放入 raw
             raw: dict[str, Any] = {
                 "question_id": item.get("question_id"),
@@ -174,9 +170,7 @@ class StackOverflowClient(SouWenHttpClient):
                 has_more,
             )
 
-        logger.info(
-            "StackOverflow 返回 %d 条结果 (query=%s)", len(results), query
-        )
+        logger.info("StackOverflow 返回 %d 条结果 (query=%s)", len(results), query)
 
         return WebSearchResponse(
             query=query,

@@ -18,15 +18,6 @@ on:
   push:
     tags:
       - 'v*'
-    branches:
-      - main
-      - master
-      - dev
-    paths:
-      - 'src/**'
-      - 'cli.py'
-      - 'requirements*.txt'
-      - '.github/workflows/build-nuitka.yml'
   pull_request:
     paths:
       - 'src/**'

@@ -208,14 +208,10 @@ class WikipediaClient(SouWenHttpClient):
         try:
             search_items = data["query"]["search"]
         except (KeyError, TypeError) as e:
-            raise ParseError(
-                f"Wikipedia 响应缺少 query.search 字段: {data!r}"
-            ) from e
+            raise ParseError(f"Wikipedia 响应缺少 query.search 字段: {data!r}") from e
 
         if not isinstance(search_items, list):
-            raise ParseError(
-                f"Wikipedia query.search 不是列表: {type(search_items).__name__}"
-            )
+            raise ParseError(f"Wikipedia query.search 不是列表: {type(search_items).__name__}")
 
         results: list[WebSearchResult] = []
         for item in search_items:

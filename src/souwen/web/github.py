@@ -159,9 +159,7 @@ class GitHubClient(SouWenHttpClient):
             )
 
         total_count = data.get("total_count", len(results))
-        logger.info(
-            "GitHub 返回 %d 条结果 (query=%s, total=%s)", len(results), query, total_count
-        )
+        logger.info("GitHub 返回 %d 条结果 (query=%s, total=%s)", len(results), query, total_count)
 
         return WebSearchResponse(
             query=query,

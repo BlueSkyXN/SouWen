@@ -286,27 +286,31 @@ class ExaClient(SouWenHttpClient):
                 result_url = item.get("url", "")
                 seen_urls.add(result_url)
                 text = item.get("text", "")
-                results.append(FetchResult(
-                    url=result_url,
-                    final_url=result_url,
-                    title=item.get("title", ""),
-                    content=text,
-                    content_format="text",
-                    source="exa",
-                    snippet=text[:500] if text else "",
-                    published_date=item.get("publishedDate"),
-                    author=item.get("author"),
-                    raw={"provider": "exa_contents", "id": item.get("id")},
-                ))
+                results.append(
+                    FetchResult(
+                        url=result_url,
+                        final_url=result_url,
+                        title=item.get("title", ""),
+                        content=text,
+                        content_format="text",
+                        source="exa",
+                        snippet=text[:500] if text else "",
+                        published_date=item.get("publishedDate"),
+                        author=item.get("author"),
+                        raw={"provider": "exa_contents", "id": item.get("id")},
+                    )
+                )
             # 标记未在响应中出现的 URL 为失败
             for missing_url in url_set - seen_urls:
-                results.append(FetchResult(
-                    url=missing_url,
-                    final_url=missing_url,
-                    source="exa",
-                    error="URL not found in Exa contents response",
-                    raw={"provider": "exa_contents"},
-                ))
+                results.append(
+                    FetchResult(
+                        url=missing_url,
+                        final_url=missing_url,
+                        source="exa",
+                        error="URL not found in Exa contents response",
+                        raw={"provider": "exa_contents"},
+                    )
+                )
 
             ok = sum(1 for r in results if r.error is None)
             return FetchResponse(
@@ -321,8 +325,11 @@ class ExaClient(SouWenHttpClient):
             logger.warning("Exa contents failed: urls=%s err=%s", urls, exc)
             results = [
                 FetchResult(
-                    url=u, final_url=u, source="exa",
-                    error=str(exc), raw={"provider": "exa_contents"}
+                    url=u,
+                    final_url=u,
+                    source="exa",
+                    error=str(exc),
+                    raw={"provider": "exa_contents"},
                 )
                 for u in urls
             ]

@@ -354,7 +354,9 @@ def search_web_cmd(
 @app.command("fetch")
 def fetch_cmd(
     urls: list[str] = typer.Argument(..., help="目标 URL（支持多个）"),
-    provider: str = typer.Option("jina_reader", "--provider", "-p", help="内容提供者: jina_reader/tavily/firecrawl/exa"),
+    provider: str = typer.Option(
+        "jina_reader", "--provider", "-p", help="内容提供者: jina_reader/tavily/firecrawl/exa"
+    ),
     json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),
     timeout: int = typer.Option(30, "--timeout", "-t", help="每 URL 超时（秒）"),
 ) -> None:
@@ -384,7 +386,9 @@ def fetch_cmd(
         else:
             console.print(f"  [green]✓ {r.url}[/green] — {r.title}")
             if r.snippet:
-                console.print(f"    [dim]{r.snippet[:200]}{'...' if len(r.snippet) > 200 else ''}[/dim]")
+                console.print(
+                    f"    [dim]{r.snippet[:200]}{'...' if len(r.snippet) > 200 else ''}[/dim]"
+                )
 
 
 # ---------------------------------------------------------------------------

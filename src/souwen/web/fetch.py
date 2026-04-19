@@ -241,8 +241,7 @@ async def fetch_content(
         resp = FetchResponse(
             urls=valid_urls,
             results=[
-                FetchResult(url=u, final_url=u, source=provider, error=str(exc))
-                for u in valid_urls
+                FetchResult(url=u, final_url=u, source=provider, error=str(exc)) for u in valid_urls
             ],
             total=len(valid_urls),
             total_ok=0,

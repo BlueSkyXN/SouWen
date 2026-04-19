@@ -195,8 +195,7 @@ class ZhihuClient(BaseScraper):
                 else:
                     # 未知类型尽力而为
                     title = self._clean_html(
-                        obj.get("title", "")
-                        or (obj.get("question") or {}).get("title", "")
+                        obj.get("title", "") or (obj.get("question") or {}).get("title", "")
                         if isinstance(obj.get("question"), dict)
                         else obj.get("title", "")
                     )
@@ -205,16 +204,10 @@ class ZhihuClient(BaseScraper):
                 if not title or not url_value:
                     continue
 
-                snippet = self._clean_html(obj.get("excerpt", ""))[
-                    : self._SNIPPET_MAX_LEN
-                ]
+                snippet = self._clean_html(obj.get("excerpt", ""))[: self._SNIPPET_MAX_LEN]
 
                 author_info = obj.get("author") or {}
-                author_name = (
-                    author_info.get("name")
-                    if isinstance(author_info, dict)
-                    else None
-                )
+                author_name = author_info.get("name") if isinstance(author_info, dict) else None
 
                 results.append(
                     WebSearchResult(

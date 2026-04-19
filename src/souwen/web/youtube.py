@@ -160,13 +160,10 @@ class YouTubeClient(SouWenHttpClient):
             ParseError: YouTube 响应非 JSON 或结构异常
         """
         if order not in self.VALID_ORDERS:
-            raise ValueError(
-                f"无效的 order: {order!r}，可选值: {sorted(self.VALID_ORDERS)}"
-            )
+            raise ValueError(f"无效的 order: {order!r}，可选值: {sorted(self.VALID_ORDERS)}")
         if video_type is not None and video_type not in self.VALID_VIDEO_TYPES:
             raise ValueError(
-                f"无效的 video_type: {video_type!r}，"
-                f"可选值: {sorted(self.VALID_VIDEO_TYPES)}"
+                f"无效的 video_type: {video_type!r}，可选值: {sorted(self.VALID_VIDEO_TYPES)}"
             )
 
         # YouTube Data API 单次最多返回 50 条，超出需翻页（这里只取首页）

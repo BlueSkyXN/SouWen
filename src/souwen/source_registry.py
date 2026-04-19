@@ -119,7 +119,13 @@ _reg("dblp", "paper", "open_api", None, description="DBLP 计算机科学文献"
 _reg("pubmed", "paper", "open_api", None, description="PubMed 生物医学")
 
 # ── 论文：授权接口 ────────────────────────────────────────
-_reg("semantic_scholar", "paper", "official_api", "semantic_scholar_api_key", description="Semantic Scholar API")
+_reg(
+    "semantic_scholar",
+    "paper",
+    "official_api",
+    "semantic_scholar_api_key",
+    description="Semantic Scholar API",
+)
 _reg("core", "paper", "official_api", "core_api_key", description="CORE 开放获取聚合")
 _reg("unpaywall", "paper", "official_api", "unpaywall_email", description="Unpaywall OA 查找")
 
@@ -157,13 +163,27 @@ _reg("websurfx", "general", "self_hosted", "websurfx_url", description="Websurfx
 _reg("serpapi", "general", "official_api", "serpapi_api_key", description="SerpAPI 多引擎 SERP")
 _reg("brave_api", "general", "official_api", "brave_api_key", description="Brave Search API")
 _reg("serper", "general", "official_api", "serper_api_key", description="Serper Google SERP")
-_reg("scrapingdog", "general", "official_api", "scrapingdog_api_key", description="ScrapingDog SERP")
+_reg(
+    "scrapingdog", "general", "official_api", "scrapingdog_api_key", description="ScrapingDog SERP"
+)
 
 # ── 专业搜索 (professional)：授权接口 ────────────────────
 _reg("tavily", "professional", "official_api", "tavily_api_key", description="Tavily AI 搜索")
 _reg("exa", "professional", "official_api", "exa_api_key", description="Exa 语义搜索")
-_reg("perplexity", "professional", "official_api", "perplexity_api_key", description="Perplexity Sonar AI")
-_reg("firecrawl", "professional", "official_api", "firecrawl_api_key", description="Firecrawl 搜索+爬取")
+_reg(
+    "perplexity",
+    "professional",
+    "official_api",
+    "perplexity_api_key",
+    description="Perplexity Sonar AI",
+)
+_reg(
+    "firecrawl",
+    "professional",
+    "official_api",
+    "firecrawl_api_key",
+    description="Firecrawl 搜索+爬取",
+)
 _reg("linkup", "professional", "official_api", "linkup_api_key", description="Linkup 实时搜索")
 
 # ── 社交 (social)：公开接口/爬虫 ─────────────────────────
@@ -173,7 +193,13 @@ _reg("zhihu", "social", "scraper", None, description="知乎问答搜索")
 
 # ── 开发 (developer)：公开接口 ───────────────────────────
 _reg("github", "developer", "open_api", "github_token", description="GitHub 仓库搜索 (可选 Token)")
-_reg("stackoverflow", "developer", "open_api", "stackoverflow_api_key", description="StackOverflow 问答搜索")
+_reg(
+    "stackoverflow",
+    "developer",
+    "open_api",
+    "stackoverflow_api_key",
+    description="StackOverflow 问答搜索",
+)
 
 # ── 百科 (wiki)：公开接口 ────────────────────────────────
 _reg("wikipedia", "wiki", "open_api", None, description="Wikipedia 百科搜索")
@@ -183,7 +209,13 @@ _reg("youtube", "video", "official_api", "youtube_api_key", description="YouTube
 _reg("bilibili", "video", "scraper", None, description="Bilibili 视频搜索")
 
 # ── 内容抓取 (fetch)：公开接口/授权接口 ──────────────────
-_reg("jina_reader", "fetch", "open_api", "jina_api_key", description="Jina Reader 内容抓取 (免费, 可选 Key)")
+_reg(
+    "jina_reader",
+    "fetch",
+    "open_api",
+    "jina_api_key",
+    description="Jina Reader 内容抓取 (免费, 可选 Key)",
+)
 # Note: tavily/firecrawl/exa 的 fetch 能力复用其搜索注册条目（同一 API Key）
 
 
@@ -256,11 +288,7 @@ def get_sources_by_integration_type(integration_type: str) -> list[SourceMeta]:
     Returns:
         该集成类型下的 SourceMeta 对象列表
     """
-    return [
-        meta
-        for meta in _REGISTRY.values()
-        if meta.integration_type == integration_type
-    ]
+    return [meta for meta in _REGISTRY.values() if meta.integration_type == integration_type]
 
 
 ALL_SOURCE_NAMES: frozenset[str] = frozenset(_REGISTRY.keys())

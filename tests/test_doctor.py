@@ -28,7 +28,15 @@ class TestCheckAll:
     def test_result_has_required_keys(self):
         """每条结果包含必要字段"""
         results = check_all()
-        required = {"name", "category", "status", "integration_type", "required_key", "message", "enabled"}
+        required = {
+            "name",
+            "category",
+            "status",
+            "integration_type",
+            "required_key",
+            "message",
+            "enabled",
+        }
         for r in results:
             assert required.issubset(r.keys()), f"{r['name']} 缺少字段"
 
@@ -43,7 +51,17 @@ class TestCheckAll:
     def test_categories_are_valid(self):
         """所有 category 值在 8 类中"""
         results = check_all()
-        valid_cats = {"paper", "patent", "general", "professional", "social", "developer", "wiki", "video", "fetch"}
+        valid_cats = {
+            "paper",
+            "patent",
+            "general",
+            "professional",
+            "social",
+            "developer",
+            "wiki",
+            "video",
+            "fetch",
+        }
         for r in results:
             assert r["category"] in valid_cats
 

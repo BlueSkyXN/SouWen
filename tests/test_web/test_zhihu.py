@@ -147,9 +147,7 @@ def test_basic_search():
     client = _build_client()
     fake = _FakeResponse(_payload(items=[_answer_item(), _article_item()]))
 
-    with patch.object(
-        ZhihuClient, "_fetch", new=AsyncMock(return_value=fake)
-    ) as mocked:
+    with patch.object(ZhihuClient, "_fetch", new=AsyncMock(return_value=fake)) as mocked:
         resp = _run(client.search("python", max_results=10))
 
     assert mocked.await_count == 1
@@ -257,9 +255,7 @@ def test_max_results_capped():
     client = _build_client()
     fake = _FakeResponse(_payload(items=[]))
 
-    with patch.object(
-        ZhihuClient, "_fetch", new=AsyncMock(return_value=fake)
-    ) as mocked:
+    with patch.object(ZhihuClient, "_fetch", new=AsyncMock(return_value=fake)) as mocked:
         _run(client.search("x", max_results=999))
 
     assert "limit=20" in mocked.await_args.args[0]
@@ -304,9 +300,7 @@ def test_skips_invalid_items():
 def test_error_handling_fetch_exception():
     client = _build_client()
 
-    with patch.object(
-        ZhihuClient, "_fetch", new=AsyncMock(side_effect=RuntimeError("boom"))
-    ):
+    with patch.object(ZhihuClient, "_fetch", new=AsyncMock(side_effect=RuntimeError("boom"))):
         resp = _run(client.search("x"))
 
     assert resp.results == []

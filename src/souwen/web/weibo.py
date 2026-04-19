@@ -211,9 +211,7 @@ class WeiboClient(BaseScraper):
                 detail_url = f"https://m.weibo.cn/detail/{mblog_id}"
 
                 user = mblog.get("user") or {}
-                screen_name = (
-                    user.get("screen_name") if isinstance(user, dict) else None
-                )
+                screen_name = user.get("screen_name") if isinstance(user, dict) else None
 
                 results.append(
                     WebSearchResult(

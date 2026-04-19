@@ -172,11 +172,7 @@ async def test_search_respects_max_results(httpx_mock):
     """max_results 限制返回条数（即便 API 返回更多）"""
     httpx_mock.add_response(
         url="https://api.github.com/search/repositories?q=many&sort=stars&order=desc&per_page=2",
-        json=_sample_response(
-            items=[
-                _sample_repo(name=f"user/repo{i}") for i in range(5)
-            ]
-        ),
+        json=_sample_response(items=[_sample_repo(name=f"user/repo{i}") for i in range(5)]),
     )
 
     async with GitHubClient(token="t") as client:
