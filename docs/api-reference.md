@@ -439,7 +439,7 @@ Cache-Control: public, max-age=3600
       "name": "openalex",
       "category": "paper",
       "status": "ok",
-      "tier": 0,
+      "integration_type": "open_api",
       "required_key": "openalex_email",
       "message": "可免配置使用；设置 openalex_email 可帮助礼貌访问"
     },
@@ -447,7 +447,7 @@ Cache-Control: public, max-age=3600
       "name": "semantic_scholar",
       "category": "paper",
       "status": "limited",
-      "tier": 1,
+      "integration_type": "official_api",
       "required_key": "semantic_scholar_api_key",
       "message": "免 Key 模式易限流，建议设置 semantic_scholar_api_key"
     }

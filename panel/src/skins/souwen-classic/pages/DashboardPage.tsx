@@ -145,6 +145,8 @@ function matrixDotClass(status: string): string {
 function matrixIntegrationClass(integration_type: string): string {
   if (integration_type === 'open_api') return styles.matrixTierT0
   if (integration_type === 'official_api') return styles.matrixTierT1
+  if (integration_type === 'scraper') return styles.matrixTierT2
+  if (integration_type === 'self_hosted') return styles.matrixTierT1
   return styles.matrixTierT2
 }
 

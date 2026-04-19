@@ -63,7 +63,7 @@ def check_all() -> list[dict]:
         - name: 源名称
         - category: 分类（paper|patent|web）
         - status: 状态（ok|warning|limited|unavailable|missing_key|disabled）
-        - tier: Tier 级别（0|1|2）
+        - integration_type: 集成类型（open_api|scraper|official_api|self_hosted）
         - required_key: 必需的配置字段名（或 None）
         - message: 状态说明文本
         - enabled: 是否启用

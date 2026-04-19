@@ -64,6 +64,18 @@ web:
   whoogle_url: ~
   # Websurfx 自建实例 URL（https://github.com/neon-mmd/websurfx）
   websurfx_url: ~
+  # GitHub Personal Access Token（可选，提升速率限制；https://github.com/settings/tokens）
+  github_token: ~
+  # StackOverflow API Key（可选，提升配额；https://stackapps.com/apps/oauth/register）
+  stackoverflow_api_key: ~
+  # YouTube Data API v3 Key（必填，https://console.cloud.google.com/apis/credentials）
+  youtube_api_key: ~
+  # 以下数据源无需 API Key，可直接使用（如需禁用请在 sources 段配置 enabled: false）：
+  #   reddit     — Reddit 帖子搜索
+  #   wikipedia  — Wikipedia 百科搜索
+  #   bilibili   — Bilibili 视频搜索（爬虫）
+  #   zhihu      — 知乎问答搜索（爬虫）
+  #   weibo      — 微博搜索（爬虫）
 
 # ===== 通用设置 =====
 # 全局代理、超时、重试、HTTP 后端等配置

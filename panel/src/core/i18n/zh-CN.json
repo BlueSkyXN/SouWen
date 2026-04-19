@@ -144,6 +144,7 @@
     "tierCore": "公开",
     "tierExtended": "授权",
     "tierExperimental": "爬虫",
+    "tierSelfHosted": "自建",
     "noConfigNeeded": "免配置",
     "healthStats": "{{ok}}/{{total}} 可用",
     "fetchFailed": "获取数据源失败: {{message}}",

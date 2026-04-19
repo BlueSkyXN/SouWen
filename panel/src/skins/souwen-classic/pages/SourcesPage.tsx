@@ -28,7 +28,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { m, AnimatePresence } from 'framer-motion'
 import {
-  RefreshCw, FileText, Shield, Globe, Key, Star, Check, Sparkles, Zap,
+  RefreshCw, FileText, Shield, Globe, Key, Star, Check, Sparkles, Zap, Server,
   ChevronDown, AlertTriangle, Save, Info, X,
 } from 'lucide-react'
 import { api } from '@core/services/api'
@@ -60,6 +60,8 @@ function integrationBorderClass(src: DoctorSource): string {
   switch (src.integration_type) {
     case 'open_api': return styles.tierBorder0
     case 'official_api': return styles.tierBorder1
+    case 'scraper': return styles.tierBorder2
+    case 'self_hosted': return styles.tierBorder2
     default: return styles.tierBorder2
   }
 }
@@ -88,6 +90,20 @@ function IntegrationBadge({ integration_type, t }: { integration_type: string; t
     return (
       <span className={`${styles.tierBadge} ${styles.tierBadge1}`}>
         <Zap size={10} /> {t('sources.tierExtended')}
+      </span>
+    )
+  }
+  if (integration_type === 'scraper') {
+    return (
+      <span className={`${styles.tierBadge} ${styles.tierBadge2}`}>
+        <Sparkles size={10} /> {t('sources.tierExperimental')}
+      </span>
+    )
+  }
+  if (integration_type === 'self_hosted') {
+    return (
+      <span className={`${styles.tierBadge} ${styles.tierBadge1}`}>
+        <Server size={10} /> {t('sources.tierSelfHosted')}
       </span>
     )
   }
