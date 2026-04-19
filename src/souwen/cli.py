@@ -347,6 +347,47 @@ def search_web_cmd(
 
 
 # ---------------------------------------------------------------------------
+# fetch 子命令
+# ---------------------------------------------------------------------------
+
+
+@app.command("fetch")
+def fetch_cmd(
+    urls: list[str] = typer.Argument(..., help="目标 URL（支持多个）"),
+    provider: str = typer.Option("jina_reader", "--provider", "-p", help="内容提供者: jina_reader/tavily/firecrawl/exa"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),
+    timeout: int = typer.Option(30, "--timeout", "-t", help="每 URL 超时（秒）"),
+) -> None:
+    """抓取网页内容 — 默认使用 Jina Reader（免费）"""
+    from souwen.web.fetch import fetch_content
+
+    async def _do():
+        return await fetch_content(urls=urls, providers=[provider], timeout=float(timeout))
+
+    with console.status(f"[bold green]抓取 {len(urls)} 个 URL ..."):
+        try:
+            resp = _run_async(_do())
+        except asyncio.TimeoutError:
+            console.print(f"[red]⏱ 抓取超时 (>{timeout}s)[/red]")
+            raise typer.Exit(124)
+
+    if json_output:
+        from rich import print_json
+
+        print_json(json.dumps(resp.model_dump(mode="json"), ensure_ascii=False))
+        return
+
+    console.print(f"[bold]📄 抓取完成: {resp.total_ok}/{resp.total} 成功[/bold]")
+    for r in resp.results:
+        if r.error:
+            console.print(f"  [red]✗ {r.url}: {r.error}[/red]")
+        else:
+            console.print(f"  [green]✓ {r.url}[/green] — {r.title}")
+            if r.snippet:
+                console.print(f"    [dim]{r.snippet[:200]}{'...' if len(r.snippet) > 200 else ''}[/dim]")
+
+
+# ---------------------------------------------------------------------------
 # config 子命令组
 # ---------------------------------------------------------------------------
 config_app = typer.Typer(help="配置管理")

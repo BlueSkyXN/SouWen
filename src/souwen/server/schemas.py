@@ -277,3 +277,17 @@ class ErrorResponse(BaseModel):
     error: str = Field(description="机器可读错误码", examples=["not_found"])
     detail: str = Field(description="人类可读错误描述", examples=["未知数据源: foo"])
     request_id: str = Field(description="关联 ID，用于日志追踪", examples=["a1b2c3d4e5f6"])
+
+
+class FetchRequest(BaseModel):
+    """内容抓取请求体
+
+    Attributes:
+        urls: 目标 URL 列表（1-20 条）
+        provider: 提供者名称（默认 jina_reader）
+        timeout: 每个 URL 超时秒数
+    """
+
+    urls: list[str] = Field(..., min_length=1, max_length=20)
+    provider: str = Field(default="jina_reader")
+    timeout: float = Field(default=30.0, ge=1.0, le=120.0)

@@ -23,7 +23,7 @@ class TestCheckAll:
 
         get_config.cache_clear()
         results = check_all()
-        assert len(results) == 45
+        assert len(results) == 46
 
     def test_result_has_required_keys(self):
         """每条结果包含必要字段"""
@@ -43,7 +43,7 @@ class TestCheckAll:
     def test_categories_are_valid(self):
         """所有 category 值在 8 类中"""
         results = check_all()
-        valid_cats = {"paper", "patent", "general", "professional", "social", "developer", "wiki", "video"}
+        valid_cats = {"paper", "patent", "general", "professional", "social", "developer", "wiki", "video", "fetch"}
         for r in results:
             assert r["category"] in valid_cats
 
@@ -84,7 +84,7 @@ class TestCheckAll:
 
     def test_source_config_matches_37(self):
         """source registry 有 37 个数据源"""
-        assert len(get_all_sources()) == 45
+        assert len(get_all_sources()) == 46
 
     def test_semantic_scholar_without_key_is_limited(self, monkeypatch):
         """Semantic Scholar 无 Key 时标记为 limited。"""

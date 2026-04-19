@@ -10,7 +10,9 @@
         - 继承：SouWenHttpClient（HTTP 客户端基类）
         - 关键属性：ENGINE_NAME = "firecrawl", BASE_URL = "https://api.firecrawl.dev",
                   api_key (str) 来自配置的 API 密钥，headers 包含 Authorization 令牌
-        - 主要方法：search(query, max_results) -> WebSearchResponse
+        - 主要方法：search(query, max_results) -> WebSearchResponse,
+                  scrape(url, timeout) -> FetchResult,
+                  scrape_batch(urls, max_concurrency, timeout) -> FetchResponse
 
     FirecrawlClient.__init__(api_key=None)
         - 功能：初始化 Firecrawl 搜索客户端，验证 API Key 可用性
@@ -24,13 +26,24 @@
         - 输出：WebSearchResponse 包含搜索结果和 Markdown 内容
         - 异常：ParseError API 响应解析失败时抛出
 
+    FirecrawlClient.scrape(url, timeout=30.0) -> FetchResult
+        - 功能：通过 Firecrawl Scrape API 抓取单个 URL，提取 Markdown 内容
+        - 输入：url 目标网页 URL, timeout 超时秒数
+        - 输出：FetchResult 包含提取的 Markdown 内容与元数据
+        - 异常：ParseError API 响应解析失败时抛出（其余异常封装到 FetchResult.error）
+
+    FirecrawlClient.scrape_batch(urls, max_concurrency=3, timeout=30.0) -> FetchResponse
+        - 功能：批量抓取多个 URL，使用 asyncio.Semaphore 控制并发
+        - 输入：urls URL 列表, max_concurrency 最大并发数, timeout 单 URL 超时
+        - 输出：FetchResponse 聚合结果（含成功/失败统计）
+
 模块依赖：
     - logging: 日志记录
     - typing: 类型注解
     - souwen.config: 获取 API Key 和全局配置
     - souwen.exceptions: ConfigError, ParseError 异常
     - souwen.http_client: SouWenHttpClient HTTP 客户端基类
-    - souwen.models: SourceType, WebSearchResult, WebSearchResponse 数据模型
+    - souwen.models: SourceType, WebSearchResult, WebSearchResponse, FetchResult, FetchResponse 数据模型
 
 技术要点：
     - API 端点：/v1/search
@@ -48,7 +61,7 @@ from typing import Any
 from souwen.config import get_config
 from souwen.exceptions import ConfigError
 from souwen.http_client import SouWenHttpClient
-from souwen.models import SourceType, WebSearchResult, WebSearchResponse
+from souwen.models import FetchResponse, FetchResult, SourceType, WebSearchResult, WebSearchResponse
 
 logger = logging.getLogger("souwen.web.firecrawl")
 
@@ -146,4 +159,100 @@ class FirecrawlClient(SouWenHttpClient):
             source=SourceType.WEB_FIRECRAWL,
             results=results,
             total_results=len(results),
+        )
+
+    async def scrape(self, url: str, timeout: float = 30.0) -> FetchResult:
+        """通过 Firecrawl Scrape API 抓取单个 URL
+
+        Args:
+            url: 目标网页 URL
+            timeout: 超时秒数
+
+        Returns:
+            FetchResult 包含提取的 Markdown 内容
+        """
+        # 构建请求载荷（仅请求 Markdown 格式）
+        payload: dict[str, Any] = {
+            "url": url,
+            "formats": ["markdown"],
+        }
+        try:
+            # 发送 POST 请求到 Firecrawl Scrape API
+            resp = await self.post("/v1/scrape", json=payload)
+            try:
+                # 解析 JSON 响应
+                data = resp.json()
+            except Exception as e:
+                from souwen.exceptions import ParseError
+
+                raise ParseError(f"Firecrawl Scrape 响应解析失败: {e}") from e
+
+            # 提取数据与元数据
+            scrape_data = data.get("data", {})
+            metadata = scrape_data.get("metadata", {})
+            markdown = scrape_data.get("markdown", "")
+            title = metadata.get("title", "")
+            # final_url 优先取 metadata.url，降级到 sourceURL，最后回退到原始 URL
+            final_url = metadata.get("url") or metadata.get("sourceURL") or url
+            # snippet 优先使用 description，否则截取 markdown 前 500 字符
+            snippet = (metadata.get("description") or markdown[:500]).strip()
+
+            return FetchResult(
+                url=url,
+                final_url=final_url,
+                title=title,
+                content=markdown,
+                content_format="markdown",
+                source="firecrawl",
+                snippet=snippet,
+                raw={"provider": "firecrawl_scrape"},
+            )
+        except Exception as exc:
+            # 异常封装到 FetchResult.error，避免中断批量任务
+            logger.warning("Firecrawl scrape failed: url=%s err=%s", url, exc)
+            return FetchResult(
+                url=url,
+                final_url=url,
+                source="firecrawl",
+                error=str(exc),
+                raw={"provider": "firecrawl_scrape"},
+            )
+
+    async def scrape_batch(
+        self,
+        urls: list[str],
+        max_concurrency: int = 3,
+        timeout: float = 30.0,
+    ) -> FetchResponse:
+        """批量抓取多个 URL
+
+        Args:
+            urls: URL 列表
+            max_concurrency: 最大并发数
+            timeout: 每个 URL 超时
+
+        Returns:
+            FetchResponse 聚合结果
+        """
+        import asyncio
+
+        # 使用 Semaphore 控制最大并发
+        sem = asyncio.Semaphore(max_concurrency)
+
+        async def _fetch_one(u: str) -> FetchResult:
+            async with sem:
+                return await self.scrape(u, timeout=timeout)
+
+        # 并发抓取所有 URL
+        results = await asyncio.gather(*[_fetch_one(u) for u in urls])
+        result_list = list(results)
+        # 统计成功/失败数量
+        ok = sum(1 for r in result_list if r.error is None)
+        return FetchResponse(
+            urls=urls,
+            results=result_list,
+            total=len(result_list),
+            total_ok=ok,
+            total_failed=len(result_list) - ok,
+            provider="firecrawl",
         )
