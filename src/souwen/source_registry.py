@@ -147,6 +147,10 @@ _reg("github", "web", 0, "github_token", description="GitHub 仓库搜索 (可�
 _reg("stackoverflow", "web", 0, "stackoverflow_api_key", description="StackOverflow 问答搜索")
 _reg("reddit", "web", 0, None, description="Reddit 帖子搜索")
 _reg("bilibili", "web", 0, None, is_scraper=True, description="Bilibili 视频搜索")
+_reg("wikipedia", "web", 0, None, description="Wikipedia 百科搜索")
+_reg("youtube", "web", 0, "youtube_api_key", description="YouTube 视频搜索 (可选 Key)")
+_reg("zhihu", "web", 0, None, is_scraper=True, description="知乎问答搜索")
+_reg("weibo", "web", 0, None, is_scraper=True, description="微博搜索")
 
 # ── 网页搜索：付费 API ────────────────────────────────────
 _reg("tavily", "web", 2, "tavily_api_key", description="Tavily AI 搜索")

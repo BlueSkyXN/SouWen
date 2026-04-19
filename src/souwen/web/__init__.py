@@ -49,6 +49,10 @@ from souwen.web.github import GitHubClient
 from souwen.web.stackoverflow import StackOverflowClient
 from souwen.web.reddit import RedditClient
 from souwen.web.bilibili import BilibiliClient
+from souwen.web.wikipedia import WikipediaClient
+from souwen.web.youtube import YouTubeClient
+from souwen.web.zhihu import ZhihuClient
+from souwen.web.weibo import WeiboClient
 from souwen.web.search import web_search
 
 __all__ = [
@@ -81,6 +85,10 @@ __all__ = [
     "StackOverflowClient",
     "RedditClient",
     "BilibiliClient",
+    "WikipediaClient",
+    "YouTubeClient",
+    "ZhihuClient",
+    "WeiboClient",
     # 聚合搜索
     "web_search",
 ]

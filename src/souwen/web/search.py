@@ -76,6 +76,10 @@ from souwen.web.github import GitHubClient
 from souwen.web.stackoverflow import StackOverflowClient
 from souwen.web.reddit import RedditClient
 from souwen.web.bilibili import BilibiliClient
+from souwen.web.wikipedia import WikipediaClient
+from souwen.web.youtube import YouTubeClient
+from souwen.web.zhihu import ZhihuClient
+from souwen.web.weibo import WeiboClient
 
 logger = logging.getLogger("souwen.web.search")
 _WEB_ENGINE_TIMEOUT_CAP_SECONDS = 15.0
@@ -231,6 +235,10 @@ async def web_search(
         "stackoverflow": StackOverflowClient,
         "reddit": RedditClient,
         "bilibili": BilibiliClient,
+        "wikipedia": WikipediaClient,
+        "youtube": YouTubeClient,
+        "zhihu": ZhihuClient,
+        "weibo": WeiboClient,
     }
 
     # 引擎名 -> SourceType 的映射，用于标记结果来源
@@ -260,6 +268,10 @@ async def web_search(
         "stackoverflow": SourceType.WEB_STACKOVERFLOW,
         "reddit": SourceType.WEB_REDDIT,
         "bilibili": SourceType.WEB_BILIBILI,
+        "wikipedia": SourceType.WEB_WIKIPEDIA,
+        "youtube": SourceType.WEB_YOUTUBE,
+        "zhihu": SourceType.WEB_ZHIHU,
+        "weibo": SourceType.WEB_WEIBO,
     }
 
     # 默认使用在当前零配置场景下更稳定的公开引擎组合

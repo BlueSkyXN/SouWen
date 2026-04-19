@@ -165,6 +165,10 @@ class SourceType(str, Enum):
     WEB_STACKOVERFLOW = "web_stackoverflow"
     WEB_REDDIT = "web_reddit"
     WEB_BILIBILI = "web_bilibili"
+    WEB_WIKIPEDIA = "web_wikipedia"
+    WEB_YOUTUBE = "web_youtube"
+    WEB_ZHIHU = "web_zhihu"
+    WEB_WEIBO = "web_weibo"
 
 
 class Author(BaseModel):
@@ -363,5 +367,9 @@ ALL_SOURCES: dict[str, list[tuple[str, bool, str]]] = {
         ("stackoverflow", False, "StackOverflow 问答搜索 (可选 Key)"),
         ("reddit", False, "Reddit 帖子搜索"),
         ("bilibili", False, "Bilibili 视频搜索 (爬虫)"),
+        ("wikipedia", False, "Wikipedia 百科搜索"),
+        ("youtube", False, "YouTube 视频搜索 (可选 Key)"),
+        ("zhihu", False, "知乎问答搜索 (爬虫)"),
+        ("weibo", False, "微博搜索 (爬虫)"),
     ],
 }
