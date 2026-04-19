@@ -144,6 +144,14 @@ class BaseScraper:
         # 解析代理：频道配置 > 全局代理
         proxy = config.resolve_proxy(source_name) if source_name else config.get_proxy()
 
+        # 解析 base_url：频道配置覆盖 > 类属性 BASE_URL
+        _class_base = getattr(self, "BASE_URL", "")
+        self._resolved_base_url: str = (
+            config.resolve_base_url(source_name, default=_class_base)
+            if source_name
+            else _class_base
+        )
+
         # 频道自定义请求头（将在 _fetch 中合并）
         self._channel_headers: dict[str, str] = (
             config.resolve_headers(source_name) if source_name else {}

@@ -345,6 +345,125 @@ function HttpBackendSection() {
   )
 }
 
+// ── Proxy Config Section ──
+function ProxyConfigSection() {
+  const { t } = useTranslation()
+  const addToast = useNotificationStore((s) => s.addToast)
+  const [proxy, setProxy] = useState('')
+  const [poolText, setPoolText] = useState('')
+  const [socksSupported, setSocksSupported] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  const fetchConfig = useCallback(async () => {
+    try {
+      setLoading(true)
+      const data = await api.getProxyConfig()
+      setProxy(data.proxy || '')
+      setPoolText((data.proxy_pool || []).join('\n'))
+      setSocksSupported(data.socks_supported)
+    } catch {
+      addToast('error', t('proxy.fetchFailed'))
+    } finally {
+      setLoading(false)
+    }
+  }, [addToast, t])
+
+  useEffect(() => { void fetchConfig() }, [fetchConfig])
+
+  const handleSave = useCallback(async () => {
+    setSaving(true)
+    try {
+      const pool = poolText.split('\n').map((s) => s.trim()).filter(Boolean)
+      await api.updateProxyConfig({ proxy: proxy.trim() || '', proxy_pool: pool })
+      addToast('success', t('proxy.saved'))
+    } catch (err) {
+      addToast('error', t('proxy.saveFailed', { message: formatError(err) }))
+    } finally {
+      setSaving(false)
+    }
+  }, [proxy, poolText, addToast, t])
+
+  const handleClear = useCallback(async () => {
+    setSaving(true)
+    try {
+      await api.updateProxyConfig({ proxy: '', proxy_pool: [] })
+      setProxy('')
+      setPoolText('')
+      addToast('success', t('proxy.saved'))
+    } catch (err) {
+      addToast('error', t('proxy.saveFailed', { message: formatError(err) }))
+    } finally {
+      setSaving(false)
+    }
+  }, [addToast, t])
+
+  if (loading) return <Spinner label={t('common.loading', 'Loading...')} />
+
+  return (
+    <div className={styles.formGroup}>
+      <div className={styles.groupTitle}>{t('proxy.title')}</div>
+      <div className={styles.groupCard}>
+        <div className={`${styles.formRow} ${styles.formRowSep}`}>
+          <span className={styles.rowLabel}>{t('proxy.socksSupported')}</span>
+          <span
+            className={socksSupported ? styles.statusOn : styles.statusWarn}
+            style={{ display: 'flex', alignItems: 'center', gap: 4, fontSize: 15 }}
+          >
+            <span className={styles.statusDot} />
+            {socksSupported ? t('proxy.socksAvailable') : t('proxy.socksUnavailable')}
+          </span>
+        </div>
+
+        <div className={`${styles.formRow} ${styles.formRowSep}`}>
+          <span className={styles.rowLabel}>{t('proxy.globalProxy')}</span>
+          <input
+            className={styles.formInput}
+            type="text"
+            value={proxy}
+            onChange={(e) => setProxy(e.target.value)}
+            placeholder={t('proxy.globalProxyPlaceholder')}
+          />
+        </div>
+
+        <div className={`${styles.formRow} ${styles.formRowSep}`} style={{ alignItems: 'flex-start' }}>
+          <span className={styles.rowLabel}>{t('proxy.proxyPool')}</span>
+          <textarea
+            className={styles.formInput}
+            value={poolText}
+            onChange={(e) => setPoolText(e.target.value)}
+            placeholder={t('proxy.proxyPoolPlaceholder')}
+            rows={3}
+            style={{ fontFamily: 'monospace', resize: 'vertical', minHeight: '4rem' }}
+          />
+        </div>
+
+        <div className={styles.actionRow}>
+          <button
+            className={styles.actionBtn}
+            onClick={handleSave}
+            disabled={saving}
+          >
+            <Shield size={14} />
+            {saving ? t('proxy.saving') : t('proxy.save')}
+          </button>
+          <button
+            className={`${styles.actionBtn} ${styles.actionBtnDanger}`}
+            onClick={handleClear}
+            disabled={saving}
+          >
+            {t('proxy.clear')}
+          </button>
+        </div>
+      </div>
+      <div className={styles.groupFootnote}>
+        <Info size={11} />
+        <span>{t('proxy.description')}</span>
+      </div>
+    </div>
+  )
+}
+
 // ── Main NetworkPage ──
 // 网络配置页面主组件
 export function NetworkPage() {
@@ -363,6 +482,10 @@ export function NetworkPage() {
 
       <m.div variants={staggerItem}>
         <WarpSection />
+      </m.div>
+
+      <m.div variants={staggerItem}>
+        <ProxyConfigSection />
       </m.div>
 
       <m.div variants={staggerItem}>

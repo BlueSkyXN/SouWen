@@ -78,7 +78,7 @@ class YahooClient(BaseScraper):
             WebSearchResponse 包含搜索结果
         """
         # 构建搜索 URL（p 参数为查询关键词）
-        url = f"{self.BASE_URL}?p={quote_plus(query)}"
+        url = f"{self._resolved_base_url}?p={quote_plus(query)}"
 
         resp = await self._fetch(url)
         html = resp.text

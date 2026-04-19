@@ -88,7 +88,7 @@ class GoogleClient(BaseScraper):
             "num": str(min(max_results + 5, 100)),  # 预留余量
             "hl": "en",
         }
-        url = f"{self.BASE_URL}?q={quote_plus(query)}&num={params['num']}&hl=en"
+        url = f"{self._resolved_base_url}?q={quote_plus(query)}&num={params['num']}&hl=en"
 
         resp = await self._fetch(url)
         html = resp.text

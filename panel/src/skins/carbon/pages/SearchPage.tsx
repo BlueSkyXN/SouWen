@@ -33,7 +33,7 @@ import { useTranslation } from 'react-i18next'
 import { m } from 'framer-motion'
 import {
   FileText, Users, Calendar, Link, Building,
-  Cpu, ExternalLink,
+  Cpu, ExternalLink, Settings,
 } from 'lucide-react'
 import { api } from '@core/services/api'
 import { useNotificationStore } from '@core/stores/notificationStore'
@@ -128,7 +128,9 @@ export function SearchPage() {
   const [query, setQuery] = useState('')
   const [sourceOptions, setSourceOptions] = useState<Record<SearchCategory, SourceOption[]>>(fallbackOptions)
   const [selections, setSelections] = useState<Record<SearchCategory, string[]>>({ ...DEFAULT_SELECTED })
-  const [count] = useState(10)
+  const [count, setCount] = useState(10)
+  const [showAdvanced, setShowAdvanced] = useState(false)
+  const [timeout, setTimeout_] = useState<number | undefined>(undefined)
   const [searchState, setSearchState] = useState<SearchState>({ status: 'idle', tab: null, message: null })
   const [paperResults, setPaperResults] = useState<SearchResponse | null>(null)
   const [patentResults, setPatentResults] = useState<SearchResponse | null>(null)
@@ -172,6 +174,7 @@ export function SearchPage() {
   const currentSources = selections[tab]
   const canSearch = query.trim().length > 0 && currentSources.length > 0
   const isSearchingCurrentTab = searchState.status === 'loading' && searchState.tab === tab
+  const maxPerPage = tab === 'web' ? 50 : 100
 
   // 执行搜索请求：根据当前标签页类型调用相应的 API，支持请求取消和去重
   const handleSearch = useCallback(
@@ -189,21 +192,21 @@ export function SearchPage() {
         // 根据选中的标签页类型执行不同的搜索 API
         if (tab === 'paper') {
           setPaperResults(null)
-          const res = await api.searchPaper(query, joined, count, controller.signal)
+          const res = await api.searchPaper(query, joined, count, controller.signal, timeout)
           if (activeRequestRef.current?.id !== requestId) return
           setPaperResults(res)
           setSearchState({ status: 'idle', tab: null, message: null })
           addToast('success', t('search.success', { count: res.total }))
         } else if (tab === 'patent') {
           setPatentResults(null)
-          const res = await api.searchPatent(query, joined, count, controller.signal)
+          const res = await api.searchPatent(query, joined, count, controller.signal, timeout)
           if (activeRequestRef.current?.id !== requestId) return
           setPatentResults(res)
           setSearchState({ status: 'idle', tab: null, message: null })
           addToast('success', t('search.success', { count: res.total }))
         } else {
           setWebResults(null)
-          const res = await api.searchWeb(query, joined, count, controller.signal)
+          const res = await api.searchWeb(query, joined, count, controller.signal, timeout)
           if (activeRequestRef.current?.id !== requestId) return
           setWebResults(res)
           setSearchState({ status: 'idle', tab: null, message: null })
@@ -221,7 +224,7 @@ export function SearchPage() {
         }
       }
     },
-    [tab, query, currentSources, canSearch, count, addToast, t],
+    [tab, query, currentSources, canSearch, count, timeout, addToast, t],
   )
 
   // 重试搜索按钮的处理函数
@@ -434,6 +437,60 @@ export function SearchPage() {
               </button>
             </div>
           </form>
+
+          {/* Advanced search panel */}
+          <div className={styles.advancedToggle}>
+            <button
+              type="button"
+              className={styles.advancedToggleBtn}
+              onClick={() => setShowAdvanced((v) => !v)}
+            >
+              <Settings size={14} />
+              {t('advancedSearch.title')}
+            </button>
+          </div>
+          {showAdvanced && (
+            <div className={styles.advancedPanel}>
+              <div className={styles.advancedField}>
+                <label className={styles.advancedLabel}>
+                  {t('advancedSearch.perPage')}: <strong>{count}</strong>
+                </label>
+                <input
+                  type="range"
+                  min={1}
+                  max={maxPerPage}
+                  value={count}
+                  onChange={(e) => setCount(Number(e.target.value))}
+                  className={styles.slider}
+                />
+                <div className={styles.rangeHint}>
+                  {t('advancedSearch.perPageHint', { max: maxPerPage })}
+                </div>
+              </div>
+              <div className={styles.advancedField}>
+                <label className={styles.advancedLabel}>{t('advancedSearch.timeout')}</label>
+                <input
+                  type="number"
+                  className={styles.numberInput}
+                  min={1}
+                  max={300}
+                  value={timeout ?? ''}
+                  onChange={(e) => {
+                    const v = e.target.value
+                    setTimeout_(v === '' ? undefined : Number(v))
+                  }}
+                  placeholder={t('advancedSearch.timeoutPlaceholder')}
+                />
+              </div>
+              <button
+                type="button"
+                className={styles.resetBtn}
+                onClick={() => { setCount(10); setTimeout_(undefined) }}
+              >
+                {t('advancedSearch.reset')}
+              </button>
+            </div>
+          )}
 
           {/* Source toggles */}
           <div className={styles.sourceSection}>

@@ -74,7 +74,7 @@ class StartpageClient(BaseScraper):
             WebSearchResponse 包含搜索结果
         """
         # 构建搜索 URL（query 参数为查询关键词）
-        url = f"{self.BASE_URL}?query={quote_plus(query)}"
+        url = f"{self._resolved_base_url}?query={quote_plus(query)}"
 
         resp = await self._fetch(url)
         html = resp.text

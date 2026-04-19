@@ -64,6 +64,13 @@ WARP 代理管理：
     POST /api/v1/admin/warp/disable
         - 禁用 WARP 代理
 
+全局代理配置：
+    GET /api/v1/admin/proxy
+        - 查看全局代理和代理池配置
+
+    PUT /api/v1/admin/proxy
+        - 更新全局代理/代理池（JSON 请求体）
+
 主要类/函数：
     _is_secret_field(name: str) -> bool
         - 判断字段是否包含敏感信息（key、secret、token、password）
@@ -95,9 +102,11 @@ from souwen.server.schemas import (
     ConfigReloadResponse,
     DoctorResponse,
     HttpBackendResponse,
+    ProxyConfigResponse,
     SearchPaperResponse,
     SearchPatentResponse,
     SearchWebResponse,
+    UpdateProxyConfigRequest,
     UpdateSourceConfigRequest,
 )
 
@@ -543,7 +552,7 @@ async def update_source_config(
     Raises:
         HTTPException：404 当数据源不存在，400 当配置参数无效
     """
-    from souwen.config import SourceChannelConfig, get_config
+    from souwen.config import SourceChannelConfig, _validate_proxy_url, get_config
     from souwen.source_registry import is_known_source
 
     if not is_known_source(source_name):
@@ -559,6 +568,13 @@ async def update_source_config(
     if req.enabled is not None:
         sc.enabled = req.enabled
     if req.proxy is not None:
+        # 特殊值（inherit/none/warp）不走 URL 校验
+        _PROXY_KEYWORDS = {"inherit", "none", "warp"}
+        if req.proxy.strip().lower() not in _PROXY_KEYWORDS and req.proxy.strip():
+            try:
+                _validate_proxy_url(req.proxy)
+            except ValueError as e:
+                raise HTTPException(422, f"代理 URL 无效: {e}")
         sc.proxy = req.proxy
     if req.http_backend is not None:
         sc.http_backend = req.http_backend
@@ -575,6 +591,105 @@ async def update_source_config(
 
     cfg.sources[source_name] = sc
     return {"status": "ok", "source": source_name}
+
+
+# ---------------------------------------------------------------------------
+# 全局代理配置
+# ---------------------------------------------------------------------------
+
+
+@admin_router.get("/proxy", response_model=ProxyConfigResponse)
+async def get_proxy_config():
+    """查看全局代理配置
+
+    Returns:
+        {
+            "proxy": "socks5://127.0.0.1:1080" | null,
+            "proxy_pool": [...],
+            "socks_supported": true/false
+        }
+    """
+    from souwen.config import get_config
+
+    cfg = get_config()
+    socks_ok = False
+    try:
+        import socksio  # noqa: F401
+
+        socks_ok = True
+    except ImportError:
+        pass
+    return {
+        "proxy": cfg.proxy,
+        "proxy_pool": list(cfg.proxy_pool),
+        "socks_supported": socks_ok,
+    }
+
+
+@admin_router.put("/proxy")
+async def update_proxy_config(req: UpdateProxyConfigRequest):
+    """更新全局代理配置（运行时生效）
+
+    使用 JSON 请求体避免代理 URL 中的凭据泄露到日志中。
+
+    Args:
+        req: UpdateProxyConfigRequest 请求体
+
+    Returns:
+        {"status": "ok", "proxy": ..., "proxy_pool": [...]}
+
+    Raises:
+        HTTPException: 422 当代理 URL 无效
+    """
+    from souwen.config import _validate_proxy_url, get_config
+
+    cfg = get_config()
+
+    if req.proxy is not None:
+        if req.proxy:
+            try:
+                _validate_proxy_url(req.proxy)
+            except ValueError as e:
+                raise HTTPException(422, str(e))
+            parsed = urlparse(req.proxy)
+            if parsed.scheme.lower() in ("socks5", "socks5h", "socks4", "socks4a"):
+                try:
+                    import socksio  # noqa: F401
+                except ImportError:
+                    raise HTTPException(
+                        422,
+                        f"SOCKS 代理需要安装 httpx[socks] (socksio): {req.proxy}",
+                    )
+            cfg.proxy = req.proxy
+        else:
+            cfg.proxy = None
+
+    if req.proxy_pool is not None:
+        validated = []
+        for url in req.proxy_pool:
+            try:
+                v = _validate_proxy_url(url)
+                if v:
+                    validated.append(v)
+            except ValueError as e:
+                raise HTTPException(422, f"代理池 URL 无效: {e}")
+        for url in validated:
+            parsed = urlparse(url)
+            if parsed.scheme.lower() in ("socks5", "socks5h", "socks4", "socks4a"):
+                try:
+                    import socksio  # noqa: F401
+                except ImportError:
+                    raise HTTPException(
+                        422,
+                        f"代理池中含 SOCKS 代理但未安装 httpx[socks] (socksio): {url}",
+                    )
+        cfg.proxy_pool = validated
+
+    return {
+        "status": "ok",
+        "proxy": cfg.proxy,
+        "proxy_pool": list(cfg.proxy_pool),
+    }
 
 
 # ---------------------------------------------------------------------------

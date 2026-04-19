@@ -277,6 +277,34 @@
     "endpointDesc": "指定 Cloudflare WARP 入口节点",
     "ownerDesc": "当前托管 WARP 进程的组件"
   },
+  "proxy": {
+    "title": "全局代理",
+    "globalProxy": "代理地址",
+    "globalProxyPlaceholder": "如 socks5://127.0.0.1:1080",
+    "proxyPool": "代理池",
+    "proxyPoolPlaceholder": "每行一个代理 URL",
+    "socksSupported": "SOCKS 支持",
+    "socksAvailable": "已安装 socksio",
+    "socksUnavailable": "未安装 socksio",
+    "save": "保存",
+    "saving": "保存中...",
+    "saved": "代理配置已更新",
+    "saveFailed": "代理保存失败: {{message}}",
+    "clear": "清除",
+    "fetchFailed": "获取代理配置失败",
+    "description": "配置全局 HTTP/SOCKS 代理，所有数据源默认继承此设置",
+    "poolDescription": "代理池中的地址将被随机选用，优先于单一代理"
+  },
+  "advancedSearch": {
+    "title": "高级搜索",
+    "toggle": "高级选项",
+    "perPage": "每页结果数",
+    "perPageDesc": "论文/专利: 1-100，网页: 1-50",
+    "timeout": "超时时间 (秒)",
+    "timeoutDesc": "搜索请求最大等待时间",
+    "timeoutPlaceholder": "默认 30",
+    "reset": "重置默认"
+  },
   "httpBackend": {
     "title": "HTTP 后端配置",
     "subtitle": "仅对爬虫源（BaseScraper）生效，API 源始终使用 httpx",
