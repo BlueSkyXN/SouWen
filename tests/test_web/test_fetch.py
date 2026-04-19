@@ -80,7 +80,7 @@ class TestFetchContent:
         """SSRF 校验拦截部分 URL，通过的继续抓取"""
         resp = await fetch_content(
             urls=["http://127.0.0.1/admin", "https://nonexistent-domain-xyzzy.invalid/page"],
-            providers=["jina_reader"],
+            providers=["builtin"],
         )
         # 至少 127.0.0.1 会被 SSRF 拦截
         ssrf_blocked = [r for r in resp.results if "SSRF" in (r.error or "")]
@@ -91,7 +91,16 @@ class TestFetchContent:
         """所有 URL 被 SSRF 拦截时直接返回"""
         resp = await fetch_content(
             urls=["http://127.0.0.1/a", "http://10.0.0.1/b"],
-            providers=["jina_reader"],
+            providers=["builtin"],
         )
         assert resp.total_ok == 0
         assert resp.total_failed >= 2
+
+    @pytest.mark.asyncio
+    async def test_default_provider_is_builtin(self):
+        """默认提供者为 builtin"""
+        resp = await fetch_content(
+            urls=["http://10.0.0.1/x"],
+        )
+        # 全部被 SSRF 拦截，但 provider 应为 builtin
+        assert resp.provider == "builtin"

@@ -109,7 +109,7 @@ jobs:
               WhoogleClient, WebsurfxClient,
               GitHubClient, StackOverflowClient, RedditClient, BilibiliClient,
               WikipediaClient, YouTubeClient, ZhihuClient, WeiboClient,
-              JinaReaderClient,
+              BuiltinFetcherClient, JinaReaderClient,
               web_search, fetch_content,
           )
           from souwen.doctor import check_all

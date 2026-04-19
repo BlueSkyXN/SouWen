@@ -208,7 +208,14 @@ _reg("wikipedia", "wiki", "open_api", None, description="Wikipedia 百科搜索"
 _reg("youtube", "video", "official_api", "youtube_api_key", description="YouTube 视频搜索")
 _reg("bilibili", "video", "scraper", None, description="Bilibili 视频搜索")
 
-# ── 内容抓取 (fetch)：公开接口/授权接口 ──────────────────
+# ── 内容抓取 (fetch)：内置/公开接口/授权接口 ──────────────
+_reg(
+    "builtin",
+    "fetch",
+    "scraper",
+    None,
+    description="内置抓取 (httpx/curl_cffi + trafilatura, 零配置)",
+)
 _reg(
     "jina_reader",
     "fetch",
