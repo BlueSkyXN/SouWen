@@ -85,17 +85,49 @@ def _extract_with_trafilatura(html: str, url: str) -> dict[str, Any]:
         url: 源 URL（用于元数据推断）
 
     Returns:
-        包含 content, title, author, date, content_format 的字典
+        包含 content, title, author, date, description, language, sitename, images 等的字典
     """
     if _HAS_TRAFILATURA:
         import trafilatura
 
-        # bare_extraction 返回字典，包含 text/title/author/date/description 等
+        # 使用 trafilatura 原生 markdown 输出（业界最佳实践）
+        content = trafilatura.extract(
+            html,
+            url=url,
+            output_format="markdown",
+            include_links=True,
+            include_images=True,
+            include_tables=True,
+            include_formatting=True,
+            favor_precision=True,
+            deduplicate=True,
+            with_metadata=True,
+        )
+
+        # 提取完整元数据
+        metadata = trafilatura.extract_metadata(html, default_url=url)
+
+        if content and metadata:
+            return {
+                "content": content,
+                "title": metadata.title or "",
+                "author": metadata.author,
+                "date": metadata.date,
+                "description": metadata.description or "",
+                "sitename": metadata.sitename,
+                "language": metadata.language,
+                "tags": metadata.tags,
+                "categories": metadata.categories,
+                "content_format": "markdown",
+            }
+
+        # 如果 extract 失败，尝试 bare_extraction
         result = trafilatura.bare_extraction(
             html,
             url=url,
-            output_format="txt",
+            output_format="markdown",
             include_links=True,
+            include_images=True,
             include_tables=True,
             favor_precision=True,
         )
@@ -106,7 +138,9 @@ def _extract_with_trafilatura(html: str, url: str) -> dict[str, Any]:
                 "author": result.get("author"),
                 "date": result.get("date"),
                 "description": result.get("description", ""),
-                "content_format": "text",
+                "sitename": result.get("sitename"),
+                "language": result.get("language"),
+                "content_format": "markdown",
             }
 
     # 回退到 html2text
@@ -190,6 +224,26 @@ class BuiltinFetcherClient(BaseScraper):
             # 提取正文
             extracted = _extract_with_trafilatura(html, url)
             content = extracted["content"]
+
+            # 更好的内容验证：检查长度和词数
+            MIN_CONTENT_LENGTH = 50
+            MIN_WORD_COUNT = 10
+            word_count = len(content.split()) if content else 0
+
+            if not content or len(content) < MIN_CONTENT_LENGTH or word_count < MIN_WORD_COUNT:
+                return FetchResult(
+                    url=url,
+                    final_url=final_url,
+                    source=self.PROVIDER_NAME,
+                    error=f"提取内容过短 (长度:{len(content) if content else 0}, 词数:{word_count})",
+                    raw={
+                        "status_code": resp.status_code,
+                        "content_length": len(html),
+                        "extracted_length": len(content) if content else 0,
+                        "word_count": word_count,
+                    },
+                )
+
             snippet = content[:500] if content else ""
 
             return FetchResult(
@@ -206,6 +260,13 @@ class BuiltinFetcherClient(BaseScraper):
                     "provider": "builtin",
                     "status_code": resp.status_code,
                     "content_length": len(html),
+                    "extracted_length": len(content),
+                    "word_count": word_count,
+                    "description": extracted.get("description"),
+                    "sitename": extracted.get("sitename"),
+                    "language": extracted.get("language"),
+                    "tags": extracted.get("tags"),
+                    "categories": extracted.get("categories"),
                     "has_trafilatura": _HAS_TRAFILATURA,
                     "has_html2text": _HAS_HTML2TEXT,
                 },
