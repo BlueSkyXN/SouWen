@@ -42,13 +42,17 @@ type BadgeColor = 'blue' | 'amber' | 'green' | 'red'
 
 /**
  * 根据搜索结果分类获取徽章颜色
- * paper 蓝色、patent 琥珀色、web 绿色
  */
 export function categoryBadgeColor(category: string): BadgeColor {
   switch (category) {
     case 'paper': return 'blue'
     case 'patent': return 'amber'
-    case 'web': return 'green'
+    case 'general': return 'green'
+    case 'professional': return 'blue'
+    case 'social': return 'amber'
+    case 'developer': return 'green'
+    case 'wiki': return 'blue'
+    case 'video': return 'red'
     default: return 'blue'
   }
 }

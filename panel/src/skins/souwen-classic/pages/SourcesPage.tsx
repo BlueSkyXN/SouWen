@@ -1,11 +1,11 @@
 /**
  * 数据源页面 - 源的配置和健康状态管理
  *
- * 文件用途：展示所有数据源（paper/patent/web 三类），显示源的状态、配置信息、API 密钥需求，
+ * 文件用途：展示所有数据源（8 类），显示源的状态、配置信息、API 密钥需求，
  * 支持启用/禁用源以及编辑配置（如 API 密钥）
  *
  * 核心功能：
- *   - 源分类展示：按 paper / patent / web 分组显示
+ *   - 源分类展示：按 8 类分组显示
  *   - 状态徽章：ok / needs_key / error / disabled
  *   - 源信息卡片：名称、描述、层级（core/extended/experimental）
  *   - 配置编辑：弹窗编辑 API 密钥和其他源配置
@@ -13,7 +13,7 @@
  *   - 实时反馈：配置更新成功/失败提示
  *
  * 类型与常量：
- *   CategoryKey - 搜索类别（'paper'|'patent'|'web'）
+ *   CategoryKey - 搜索类别（8 类）
  *   CATEGORY_ORDER / CATEGORY_ICONS / CATEGORY_STYLE - 分类配置
  *   statusBorderClass / StatusDot / TierBadge - 状态显示组件
  *
@@ -45,14 +45,19 @@ import { staggerContainerFast, staggerItemSmall } from '@core/lib/animations'
 import type { DoctorResponse, DoctorSource, SourceChannelConfig } from '@core/types'
 import styles from './SourcesPage.module.scss'
 
-type CategoryKey = 'paper' | 'patent' | 'web'
+type CategoryKey = 'paper' | 'patent' | 'general' | 'professional' | 'social' | 'developer' | 'wiki' | 'video'
 
-const CATEGORY_ORDER: CategoryKey[] = ['paper', 'patent', 'web']
+const CATEGORY_ORDER: CategoryKey[] = ['paper', 'patent', 'general', 'professional', 'social', 'developer', 'wiki', 'video']
 
 const CATEGORY_ICONS: Record<CategoryKey, typeof FileText> = {
   paper: FileText,
   patent: Shield,
-  web: Globe,
+  general: Globe,
+  professional: Globe,
+  social: Globe,
+  developer: Globe,
+  wiki: Globe,
+  video: Globe,
 }
 
 function integrationBorderClass(src: DoctorSource): string {
@@ -533,7 +538,12 @@ export function SourcesPage() {
           { key: 'all', label: t('sources.categoryAll'), count: doctor.sources.length },
           { key: 'paper', label: t('sources.categoryPaper'), count: sourcesByCategory.paper?.length ?? 0, Icon: CATEGORY_ICONS.paper },
           { key: 'patent', label: t('sources.categoryPatent'), count: sourcesByCategory.patent?.length ?? 0, Icon: CATEGORY_ICONS.patent },
-          { key: 'web', label: t('sources.categoryWeb'), count: sourcesByCategory.web?.length ?? 0, Icon: CATEGORY_ICONS.web },
+          ...(['general', 'professional', 'social', 'developer', 'wiki', 'video'] as CategoryKey[]).map((cat) => ({
+            key: cat,
+            label: t(`sources.category${cat.charAt(0).toUpperCase() + cat.slice(1)}`),
+            count: sourcesByCategory[cat]?.length ?? 0,
+            Icon: CATEGORY_ICONS[cat],
+          })),
         ]
         return (
           <div className={styles.filterTabs} role="tablist" aria-label={t('sources.pageTitle')}>

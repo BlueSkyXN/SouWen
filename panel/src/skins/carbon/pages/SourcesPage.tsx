@@ -8,7 +8,7 @@
  *       2. 为每个数据源显示配置面板，支持修改代理、HTTP 后端、基础 URL、API 密钥
  *       3. 支持保存配置到服务器
  *     - State 状态：doctor (DoctorResponse) 包含所有数据源信息, loading/error 状态
- *     - 关键类型：CategoryKey ('paper'|'patent'|'web') 数据源类别
+ *     - 关键类型：CategoryKey 数据源类别（8 类）
  *     - 关键钩子：useTranslation, useNotificationStore
  *
  *   SourceConfigPanel（子组件）
@@ -37,26 +37,41 @@ import { Spinner } from '../components/common/Spinner'
 import type { DoctorResponse, DoctorSource, SourceChannelConfig, WarpStatus } from '@core/types'
 import styles from './SourcesPage.module.scss'
 
-type CategoryKey = 'paper' | 'patent' | 'web'
+type CategoryKey = 'paper' | 'patent' | 'general' | 'professional' | 'social' | 'developer' | 'wiki' | 'video'
 
-const CATEGORY_ORDER: CategoryKey[] = ['paper', 'patent', 'web']
+const CATEGORY_ORDER: CategoryKey[] = ['paper', 'patent', 'general', 'professional', 'social', 'developer', 'wiki', 'video']
 
 const CATEGORY_ICONS: Record<CategoryKey, typeof FileText> = {
   paper: FileText,
   patent: Shield,
-  web: Globe,
+  general: Globe,
+  professional: Globe,
+  social: Globe,
+  developer: Globe,
+  wiki: Globe,
+  video: Globe,
 }
 
 const CATEGORY_BORDER: Record<CategoryKey, string> = {
   paper: styles.borderPaper,
   patent: styles.borderPatent,
-  web: styles.borderWeb,
+  general: styles.borderWeb,
+  professional: styles.borderWeb,
+  social: styles.borderWeb,
+  developer: styles.borderWeb,
+  wiki: styles.borderWeb,
+  video: styles.borderWeb,
 }
 
 const CATEGORY_LABELS: Record<CategoryKey, string> = {
   paper: 'sources.categoryPaper',
   patent: 'sources.categoryPatent',
-  web: 'sources.categoryWeb',
+  general: 'sources.categoryGeneral',
+  professional: 'sources.categoryProfessional',
+  social: 'sources.categorySocial',
+  developer: 'sources.categoryDeveloper',
+  wiki: 'sources.categoryWiki',
+  video: 'sources.categoryVideo',
 }
 
 const PROXY_OPTIONS = ['inherit', 'none', 'warp', 'custom'] as const

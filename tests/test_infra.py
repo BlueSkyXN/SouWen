@@ -495,7 +495,11 @@ class TestCLI:
 
         assert len(ALL_SOURCES["paper"]) == 7
         assert len(ALL_SOURCES["patent"]) == 6
-        assert len(ALL_SOURCES["web"]) == 29
+        total_web = sum(
+            len(ALL_SOURCES[c])
+            for c in ("general", "professional", "social", "developer", "wiki", "video")
+        )
+        assert total_web == 29
 
 
 class TestServer:

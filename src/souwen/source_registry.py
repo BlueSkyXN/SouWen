@@ -137,44 +137,50 @@ _reg("patsnap", "patent", "official_api", "patsnap_api_key", description="PatSna
 # ── 专利：爬虫 ────────────────────────────────────────────
 _reg("google_patents", "patent", "scraper", None, description="Google Patents 爬虫")
 
-# ── 网页搜索：爬虫 ────────────────────────────────────────
-_reg("duckduckgo", "web", "scraper", None, description="DuckDuckGo HTML 搜索")
-_reg("yahoo", "web", "scraper", None, description="Yahoo 搜索")
-_reg("brave", "web", "scraper", None, description="Brave 搜索")
-_reg("google", "web", "scraper", None, description="Google 搜索")
-_reg("bing", "web", "scraper", None, description="Bing 搜索")
-_reg("startpage", "web", "scraper", None, description="Startpage 隐私搜索")
-_reg("baidu", "web", "scraper", None, description="百度搜索")
-_reg("mojeek", "web", "scraper", None, description="Mojeek 独立搜索")
-_reg("yandex", "web", "scraper", None, description="Yandex 搜索")
+# ── 通用搜索 (general)：爬虫 ──────────────────────────────
+_reg("duckduckgo", "general", "scraper", None, description="DuckDuckGo HTML 搜索")
+_reg("yahoo", "general", "scraper", None, description="Yahoo 搜索")
+_reg("brave", "general", "scraper", None, description="Brave 搜索")
+_reg("google", "general", "scraper", None, description="Google 搜索")
+_reg("bing", "general", "scraper", None, description="Bing 搜索")
+_reg("startpage", "general", "scraper", None, description="Startpage 隐私搜索")
+_reg("baidu", "general", "scraper", None, description="百度搜索")
+_reg("mojeek", "general", "scraper", None, description="Mojeek 独立搜索")
+_reg("yandex", "general", "scraper", None, description="Yandex 搜索")
 
-# ── 网页搜索：自托管 ──────────────────────────────────────
-_reg("searxng", "web", "self_hosted", "searxng_url", description="SearXNG 元搜索 (自建)")
-_reg("whoogle", "web", "self_hosted", "whoogle_url", description="Whoogle Google 代理 (自建)")
-_reg("websurfx", "web", "self_hosted", "websurfx_url", description="Websurfx 聚合搜索 (自建)")
+# ── 通用搜索 (general)：自托管 ────────────────────────────
+_reg("searxng", "general", "self_hosted", "searxng_url", description="SearXNG 元搜索 (自建)")
+_reg("whoogle", "general", "self_hosted", "whoogle_url", description="Whoogle Google 代理 (自建)")
+_reg("websurfx", "general", "self_hosted", "websurfx_url", description="Websurfx 聚合搜索 (自建)")
 
-# ── 网页搜索：公开接口（社交/平台）──────────────────────
-_reg("github", "web", "open_api", "github_token", description="GitHub 仓库搜索 (可选 Token)")
-_reg("stackoverflow", "web", "open_api", "stackoverflow_api_key", description="StackOverflow 问答搜索")
-_reg("reddit", "web", "open_api", None, description="Reddit 帖子搜索")
-_reg("wikipedia", "web", "open_api", None, description="Wikipedia 百科搜索")
+# ── 通用搜索 (general)：授权接口 ──────────────────────────
+_reg("serpapi", "general", "official_api", "serpapi_api_key", description="SerpAPI 多引擎 SERP")
+_reg("brave_api", "general", "official_api", "brave_api_key", description="Brave Search API")
+_reg("serper", "general", "official_api", "serper_api_key", description="Serper Google SERP")
+_reg("scrapingdog", "general", "official_api", "scrapingdog_api_key", description="ScrapingDog SERP")
 
-# ── 网页搜索：爬虫（社交/平台）────────────────────────────
-_reg("bilibili", "web", "scraper", None, description="Bilibili 视频搜索")
-_reg("zhihu", "web", "scraper", None, description="知乎问答搜索")
-_reg("weibo", "web", "scraper", None, description="微博搜索")
+# ── 专业搜索 (professional)：授权接口 ────────────────────
+_reg("tavily", "professional", "official_api", "tavily_api_key", description="Tavily AI 搜索")
+_reg("exa", "professional", "official_api", "exa_api_key", description="Exa 语义搜索")
+_reg("perplexity", "professional", "official_api", "perplexity_api_key", description="Perplexity Sonar AI")
+_reg("firecrawl", "professional", "official_api", "firecrawl_api_key", description="Firecrawl 搜索+爬取")
+_reg("linkup", "professional", "official_api", "linkup_api_key", description="Linkup 实时搜索")
 
-# ── 网页搜索：授权接口 ────────────────────────────────────
-_reg("youtube", "web", "official_api", "youtube_api_key", description="YouTube 视频搜索")
-_reg("tavily", "web", "official_api", "tavily_api_key", description="Tavily AI 搜索")
-_reg("exa", "web", "official_api", "exa_api_key", description="Exa 语义搜索")
-_reg("serper", "web", "official_api", "serper_api_key", description="Serper Google SERP")
-_reg("brave_api", "web", "official_api", "brave_api_key", description="Brave Search API")
-_reg("serpapi", "web", "official_api", "serpapi_api_key", description="SerpAPI 多引擎 SERP")
-_reg("firecrawl", "web", "official_api", "firecrawl_api_key", description="Firecrawl 搜索+爬取")
-_reg("perplexity", "web", "official_api", "perplexity_api_key", description="Perplexity Sonar AI")
-_reg("linkup", "web", "official_api", "linkup_api_key", description="Linkup 实时搜索")
-_reg("scrapingdog", "web", "official_api", "scrapingdog_api_key", description="ScrapingDog SERP")
+# ── 社交 (social)：公开接口/爬虫 ─────────────────────────
+_reg("reddit", "social", "open_api", None, description="Reddit 帖子搜索")
+_reg("weibo", "social", "scraper", None, description="微博搜索")
+_reg("zhihu", "social", "scraper", None, description="知乎问答搜索")
+
+# ── 开发 (developer)：公开接口 ───────────────────────────
+_reg("github", "developer", "open_api", "github_token", description="GitHub 仓库搜索 (可选 Token)")
+_reg("stackoverflow", "developer", "open_api", "stackoverflow_api_key", description="StackOverflow 问答搜索")
+
+# ── 百科 (wiki)：公开接口 ────────────────────────────────
+_reg("wikipedia", "wiki", "open_api", None, description="Wikipedia 百科搜索")
+
+# ── 视频 (video)：授权接口/爬虫 ──────────────────────────
+_reg("youtube", "video", "official_api", "youtube_api_key", description="YouTube 视频搜索")
+_reg("bilibili", "video", "scraper", None, description="Bilibili 视频搜索")
 
 
 # ── 公开 API ──────────────────────────────────────────────

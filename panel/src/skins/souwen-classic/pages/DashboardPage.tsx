@@ -156,7 +156,7 @@ function matrixIntegrationClass(integration_type: string): string {
  */
 function SourceMatrix({ sources }: { sources: SourceLike[] }) {
   const { t } = useTranslation()
-  const order: Array<'paper' | 'patent' | 'web'> = ['paper', 'patent', 'web']
+  const order: Array<string> = ['paper', 'patent', 'general', 'professional', 'social', 'developer', 'wiki', 'video']
   const grouped = order
     .map((cat) => ({ cat, items: sources.filter((s) => s.category === cat) }))
     .filter((g) => g.items.length > 0)
@@ -284,7 +284,7 @@ export function DashboardPage() {
 
   const paperCount = doctor.sources.filter((s) => s.category === 'paper').length
   const patentCount = doctor.sources.filter((s) => s.category === 'patent').length
-  const webCount = doctor.sources.filter((s) => s.category === 'web').length
+  const webCount = doctor.sources.filter((s) => !['paper', 'patent'].includes(s.category)).length
   const okCount = doctor.ok
   const totalCount = doctor.total
   const healthPct = totalCount > 0 ? Math.round((okCount / totalCount) * 100) : 0
