@@ -179,7 +179,7 @@ export function DashboardPage() {
                   <span className={styles.sourceName}>{src.name}</span>
                   <span className={styles.typeBadge}>{src.category}</span>
                 </div>
-                <span className={styles.rowValueMuted}>T{src.tier}</span>
+                <span className={styles.rowValueMuted}>{src.integration_type === 'open_api' ? '开放' : src.integration_type === 'scraper' ? '爬虫' : src.integration_type === 'official_api' ? '授权' : '自建'}</span>
               </div>
             )
           })}

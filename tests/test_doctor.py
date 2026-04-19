@@ -28,7 +28,7 @@ class TestCheckAll:
     def test_result_has_required_keys(self):
         """每条结果包含必要字段"""
         results = check_all()
-        required = {"name", "category", "status", "tier", "required_key", "message", "enabled"}
+        required = {"name", "category", "status", "integration_type", "required_key", "message", "enabled"}
         for r in results:
             assert required.issubset(r.keys()), f"{r['name']} 缺少字段"
 
@@ -47,11 +47,12 @@ class TestCheckAll:
         for r in results:
             assert r["category"] in valid_cats
 
-    def test_tier_values(self):
-        """tier 只有 0, 1, 2"""
+    def test_integration_type_values(self):
+        """integration_type 只有 4 种合法值"""
         results = check_all()
+        valid_types = {"open_api", "scraper", "official_api", "self_hosted"}
         for r in results:
-            assert r["tier"] in (0, 1, 2)
+            assert r["integration_type"] in valid_types
 
     def test_configured_key_shows_ok(self, monkeypatch):
         """已配置的 Tier 1/2 Key 显示 ok"""
@@ -129,12 +130,12 @@ class TestFormatReport:
         report = format_report(check_all())
         assert "SouWen Doctor" in report
 
-    def test_contains_tier_sections(self):
-        """包含三个 Tier 分组"""
+    def test_contains_integration_type_sections(self):
+        """包含集成类型分组"""
         report = format_report(check_all())
-        assert "Tier 0" in report
-        assert "Tier 1" in report
-        assert "Tier 2" in report
+        assert "公开接口" in report
+        assert "爬虫抓取" in report
+        assert "授权接口" in report
 
     def test_contains_all_source_names(self):
         """报告包含所有数据源名称"""

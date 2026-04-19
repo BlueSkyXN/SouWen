@@ -1,48 +1,53 @@
 """SouWen 数据源注册表
 
 文件用途：
-    集中管理所有已知数据源的元数据（名称、分类、Tier、配置字段等），
-    供配置验证、健康检查和 UI 使用。数据源分类：论文、专利、网页搜索。
+    集中管理所有已知数据源的元数据（名称、分类、集成类型、配置字段等），
+    供配置验证、健康检查和 UI 使用。
+
+    数据源分类维度：
+        category（内容分类）—— paper（论文）| patent（专利）| web（网页搜索）
+        integration_type（集成类型）——
+            open_api      公开接口：官方提供免费公开 API，无需 Key
+            scraper       爬虫抓取：无官方 API，需爬虫 / 过盾抓取
+            official_api  授权接口：官方 API，需 API Key 授权
+            self_hosted   自托管：用户自建实例
 
 函数/类清单：
     SourceMeta（dataclass）
         - 功能：数据源元数据容器
-        - 属性：name (str) 源名称, category (str) 分类(paper|patent|web),
-                tier (int) Tier(0=免配置/1=免费Key或自建/2=付费),
-                config_field (str|None) 配置字段名, is_scraper (bool) 是否爬虫,
-                description (str) 描述文本
+        - 属性：name (str), category (str), integration_type (str),
+                config_field (str|None), description (str)
 
-    _reg(name, category, tier, config_field, *, is_scraper=False, description="")
+    _reg(name, category, integration_type, config_field, *, description="")
         - 功能：向注册表添加单个数据源
-        - 入参：name 源名称, category 分类, tier 付费层级, config_field 配置字段,
-                is_scraper 爬虫标志, description 描述
 
     get_all_sources() -> dict[str, SourceMeta]
-        - 功能：返回所有已注册数据源字典
-
     get_source(name: str) -> SourceMeta | None
-        - 功能：按名称获取单个数据源元数据
-
     is_known_source(name: str) -> bool
-        - 功能：检查是否是已知数据源名称
-
     get_scraper_sources() -> list[str]
-        - 功能：返回所有爬虫类数据源名称列表
-
     get_sources_by_category(category: str) -> list[SourceMeta]
-        - 功能：按分类（paper|patent|web）筛选数据源
-
+    get_sources_by_integration_type(integration_type: str) -> list[SourceMeta]
     ALL_SOURCE_NAMES: frozenset[str]
-        - 功能：所有源名称的不可变集合（常量）
 
 模块依赖：
-    - dataclasses: frozenset 容器定义
+    - dataclasses
     - 无外部依赖
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+
+# 合法的 integration_type 值
+INTEGRATION_TYPES = frozenset({"open_api", "scraper", "official_api", "self_hosted"})
+
+# integration_type 的用户可读标签
+INTEGRATION_TYPE_LABELS: dict[str, str] = {
+    "open_api": "公开接口 — 免配置 / 官方开放 API",
+    "scraper": "爬虫抓取 — 无官方 API / 需 TLS 伪装",
+    "official_api": "授权接口 — 需 API Key",
+    "self_hosted": "自托管 — 需自建服务实例",
+}
 
 
 @dataclass(frozen=True, slots=True)
@@ -53,24 +58,27 @@ class SourceMeta:
 
     属性：
         name: 数据源唯一标识（如 'openalex'、'tavily'）
-        category: 分类标签 — 'paper'（论文）| 'patent'（专利）| 'web'（网页搜索）
-        tier: 付费层级 —
-              0 = 免配置或完全免费（无需 API Key）
-              1 = 免费 API 配额或自建服务
-              2 = 付费 API 或专业付费版本
+        category: 内容分类 — 'paper'（论文）| 'patent'（专利）| 'web'（网页搜索）
+        integration_type: 集成类型 —
+              'open_api'     = 公开接口（官方免费 API，无需 Key）
+              'scraper'      = 爬虫抓取（无官方 API，需爬虫/TLS 伪装）
+              'official_api' = 授权接口（官方 API，需 API Key）
+              'self_hosted'  = 自托管（用户自建实例）
         config_field: 对应 SouWenConfig 中的字段名（如 'tavily_api_key'），
                       None 表示该源无需配置
-        is_scraper: 是否使用 BaseScraper（受 curl_cffi TLS 指纹影响），
-                    爬虫类源需要 curl_cffi 支持
         description: 用户可读的源描述（用于 UI 和文档）
     """
 
     name: str
     category: str  # paper | patent | web
-    tier: int  # 0=免配置, 1=免费Key/自建, 2=付费
+    integration_type: str  # open_api | scraper | official_api | self_hosted
     config_field: str | None  # 对应 SouWenConfig 字段名
-    is_scraper: bool  # 是否使用 BaseScraper (受 http_backend 影响)
     description: str
+
+    @property
+    def is_scraper(self) -> bool:
+        """是否爬虫类源（需要 curl_cffi TLS 指纹支持）"""
+        return self.integration_type == "scraper"
 
 
 # 完整数据源注册表
@@ -80,88 +88,93 @@ _REGISTRY: dict[str, SourceMeta] = {}
 def _reg(
     name: str,
     category: str,
-    tier: int,
+    integration_type: str,
     config_field: str | None,
     *,
-    is_scraper: bool = False,
     description: str = "",
 ) -> None:
     """向全局注册表添加单个数据源
 
     Args:
         name: 数据源名称
-        category: 分类（paper|patent|web）
-        tier: Tier 级别（0|1|2）
+        category: 内容分类（paper|patent|web）
+        integration_type: 集成类型（open_api|scraper|official_api|self_hosted）
         config_field: 配置字段名，None 表示无需配置
-        is_scraper: 是否爬虫类源
         description: 用户描述文本
     """
     _REGISTRY[name] = SourceMeta(
         name=name,
         category=category,
-        tier=tier,
+        integration_type=integration_type,
         config_field=config_field,
-        is_scraper=is_scraper,
         description=description,
     )
 
 
-# ── 论文 ──────────────────────────────────────────────────
-_reg("openalex", "paper", 0, "openalex_email", description="OpenAlex 开放学术数据")
-_reg("semantic_scholar", "paper", 1, "semantic_scholar_api_key", description="Semantic Scholar API")
-_reg("crossref", "paper", 0, None, description="CrossRef 跨库检索")
-_reg("arxiv", "paper", 0, None, description="arXiv 预印本")
-_reg("dblp", "paper", 0, None, description="DBLP 计算机科学文献")
-_reg("core", "paper", 1, "core_api_key", description="CORE 开放获取聚合")
-_reg("pubmed", "paper", 0, None, description="PubMed 生物医学")
-_reg("unpaywall", "paper", 1, "unpaywall_email", description="Unpaywall OA 查找")
+# ── 论文：公开接口 ────────────────────────────────────────
+_reg("openalex", "paper", "open_api", "openalex_email", description="OpenAlex 开放学术数据")
+_reg("crossref", "paper", "open_api", None, description="CrossRef 跨库检索")
+_reg("arxiv", "paper", "open_api", None, description="arXiv 预印本")
+_reg("dblp", "paper", "open_api", None, description="DBLP 计算机科学文献")
+_reg("pubmed", "paper", "open_api", None, description="PubMed 生物医学")
 
-# ── 专利 ──────────────────────────────────────────────────
-_reg("patentsview", "patent", 0, None, description="PatentsView 美国专利 (待修复)")
-_reg("pqai", "patent", 0, None, description="PQAI 专利语义搜索 (待修复)")
-_reg("epo_ops", "patent", 2, "epo_consumer_key", description="EPO OPS 欧洲专利局")
-_reg("uspto_odp", "patent", 2, "uspto_api_key", description="USPTO ODP 美国专利局")
-_reg("the_lens", "patent", 2, "lens_api_token", description="The Lens 专利+学术")
-_reg("cnipa", "patent", 2, "cnipa_client_id", description="CNIPA 中国国知局")
-_reg("patsnap", "patent", 2, "patsnap_api_key", description="PatSnap 智慧芽")
-_reg("google_patents", "patent", 0, None, is_scraper=True, description="Google Patents 爬虫")
+# ── 论文：授权接口 ────────────────────────────────────────
+_reg("semantic_scholar", "paper", "official_api", "semantic_scholar_api_key", description="Semantic Scholar API")
+_reg("core", "paper", "official_api", "core_api_key", description="CORE 开放获取聚合")
+_reg("unpaywall", "paper", "official_api", "unpaywall_email", description="Unpaywall OA 查找")
+
+# ── 专利：公开接口 ────────────────────────────────────────
+_reg("patentsview", "patent", "open_api", None, description="PatentsView 美国专利 (待修复)")
+_reg("pqai", "patent", "open_api", None, description="PQAI 专利语义搜索 (待修复)")
+
+# ── 专利：授权接口 ────────────────────────────────────────
+_reg("epo_ops", "patent", "official_api", "epo_consumer_key", description="EPO OPS 欧洲专利局")
+_reg("uspto_odp", "patent", "official_api", "uspto_api_key", description="USPTO ODP 美国专利局")
+_reg("the_lens", "patent", "official_api", "lens_api_token", description="The Lens 专利+学术")
+_reg("cnipa", "patent", "official_api", "cnipa_client_id", description="CNIPA 中国国知局")
+_reg("patsnap", "patent", "official_api", "patsnap_api_key", description="PatSnap 智慧芽")
+
+# ── 专利：爬虫 ────────────────────────────────────────────
+_reg("google_patents", "patent", "scraper", None, description="Google Patents 爬虫")
 
 # ── 网页搜索：爬虫 ────────────────────────────────────────
-_reg("duckduckgo", "web", 0, None, is_scraper=True, description="DuckDuckGo HTML 搜索")
-_reg("yahoo", "web", 0, None, is_scraper=True, description="Yahoo 搜索")
-_reg("brave", "web", 0, None, is_scraper=True, description="Brave 搜索")
-_reg("google", "web", 0, None, is_scraper=True, description="Google 搜索")
-_reg("bing", "web", 0, None, is_scraper=True, description="Bing 搜索")
-_reg("startpage", "web", 0, None, is_scraper=True, description="Startpage 隐私搜索")
-_reg("baidu", "web", 0, None, is_scraper=True, description="百度搜索")
-_reg("mojeek", "web", 0, None, is_scraper=True, description="Mojeek 独立搜索")
-_reg("yandex", "web", 0, None, is_scraper=True, description="Yandex 搜索")
+_reg("duckduckgo", "web", "scraper", None, description="DuckDuckGo HTML 搜索")
+_reg("yahoo", "web", "scraper", None, description="Yahoo 搜索")
+_reg("brave", "web", "scraper", None, description="Brave 搜索")
+_reg("google", "web", "scraper", None, description="Google 搜索")
+_reg("bing", "web", "scraper", None, description="Bing 搜索")
+_reg("startpage", "web", "scraper", None, description="Startpage 隐私搜索")
+_reg("baidu", "web", "scraper", None, description="百度搜索")
+_reg("mojeek", "web", "scraper", None, description="Mojeek 独立搜索")
+_reg("yandex", "web", "scraper", None, description="Yandex 搜索")
 
-# ── 网页搜索：自建 ────────────────────────────────────────
-_reg("searxng", "web", 1, "searxng_url", description="SearXNG 元搜索 (自建)")
-_reg("whoogle", "web", 1, "whoogle_url", description="Whoogle Google 代理 (自建)")
-_reg("websurfx", "web", 1, "websurfx_url", description="Websurfx 聚合搜索 (自建)")
+# ── 网页搜索：自托管 ──────────────────────────────────────
+_reg("searxng", "web", "self_hosted", "searxng_url", description="SearXNG 元搜索 (自建)")
+_reg("whoogle", "web", "self_hosted", "whoogle_url", description="Whoogle Google 代理 (自建)")
+_reg("websurfx", "web", "self_hosted", "websurfx_url", description="Websurfx 聚合搜索 (自建)")
 
-# ── 网页搜索：社交/平台 ──────────────────────────────────
-_reg("github", "web", 0, "github_token", description="GitHub 仓库搜索 (可选 Token)")
-_reg("stackoverflow", "web", 0, "stackoverflow_api_key", description="StackOverflow 问答搜索")
-_reg("reddit", "web", 0, None, description="Reddit 帖子搜索")
-_reg("bilibili", "web", 0, None, is_scraper=True, description="Bilibili 视频搜索")
-_reg("wikipedia", "web", 0, None, description="Wikipedia 百科搜索")
-_reg("youtube", "web", 0, "youtube_api_key", description="YouTube 视频搜索 (可选 Key)")
-_reg("zhihu", "web", 0, None, is_scraper=True, description="知乎问答搜索")
-_reg("weibo", "web", 0, None, is_scraper=True, description="微博搜索")
+# ── 网页搜索：公开接口（社交/平台）──────────────────────
+_reg("github", "web", "open_api", "github_token", description="GitHub 仓库搜索 (可选 Token)")
+_reg("stackoverflow", "web", "open_api", "stackoverflow_api_key", description="StackOverflow 问答搜索")
+_reg("reddit", "web", "open_api", None, description="Reddit 帖子搜索")
+_reg("wikipedia", "web", "open_api", None, description="Wikipedia 百科搜索")
 
-# ── 网页搜索：付费 API ────────────────────────────────────
-_reg("tavily", "web", 2, "tavily_api_key", description="Tavily AI 搜索")
-_reg("exa", "web", 2, "exa_api_key", description="Exa 语义搜索")
-_reg("serper", "web", 2, "serper_api_key", description="Serper Google SERP")
-_reg("brave_api", "web", 2, "brave_api_key", description="Brave Search API")
-_reg("serpapi", "web", 2, "serpapi_api_key", description="SerpAPI 多引擎 SERP")
-_reg("firecrawl", "web", 2, "firecrawl_api_key", description="Firecrawl 搜索+爬取")
-_reg("perplexity", "web", 2, "perplexity_api_key", description="Perplexity Sonar AI")
-_reg("linkup", "web", 2, "linkup_api_key", description="Linkup 实时搜索")
-_reg("scrapingdog", "web", 2, "scrapingdog_api_key", description="ScrapingDog SERP")
+# ── 网页搜索：爬虫（社交/平台）────────────────────────────
+_reg("bilibili", "web", "scraper", None, description="Bilibili 视频搜索")
+_reg("zhihu", "web", "scraper", None, description="知乎问答搜索")
+_reg("weibo", "web", "scraper", None, description="微博搜索")
+
+# ── 网页搜索：授权接口 ────────────────────────────────────
+_reg("youtube", "web", "official_api", "youtube_api_key", description="YouTube 视频搜索")
+_reg("tavily", "web", "official_api", "tavily_api_key", description="Tavily AI 搜索")
+_reg("exa", "web", "official_api", "exa_api_key", description="Exa 语义搜索")
+_reg("serper", "web", "official_api", "serper_api_key", description="Serper Google SERP")
+_reg("brave_api", "web", "official_api", "brave_api_key", description="Brave Search API")
+_reg("serpapi", "web", "official_api", "serpapi_api_key", description="SerpAPI 多引擎 SERP")
+_reg("firecrawl", "web", "official_api", "firecrawl_api_key", description="Firecrawl 搜索+爬取")
+_reg("perplexity", "web", "official_api", "perplexity_api_key", description="Perplexity Sonar AI")
+_reg("linkup", "web", "official_api", "linkup_api_key", description="Linkup 实时搜索")
+_reg("scrapingdog", "web", "official_api", "scrapingdog_api_key", description="ScrapingDog SERP")
 
 
 # ── 公开 API ──────────────────────────────────────────────
@@ -203,7 +216,8 @@ def is_known_source(name: str) -> bool:
 def get_scraper_sources() -> list[str]:
     """返回所有爬虫类数据源的名称列表
 
-    爬虫类源使用 BaseScraper，需要 curl_cffi TLS 指纹支持。
+    爬虫类源（integration_type == 'scraper'）使用 BaseScraper，
+    需要 curl_cffi TLS 指纹支持。
 
     Returns:
         爬虫源名称列表
@@ -212,7 +226,7 @@ def get_scraper_sources() -> list[str]:
 
 
 def get_sources_by_category(category: str) -> list[SourceMeta]:
-    """按分类筛选数据源
+    """按内容分类筛选数据源
 
     Args:
         category: 分类标签 — 'paper' | 'patent' | 'web'
@@ -221,6 +235,22 @@ def get_sources_by_category(category: str) -> list[SourceMeta]:
         该分类下的 SourceMeta 对象列表
     """
     return [meta for meta in _REGISTRY.values() if meta.category == category]
+
+
+def get_sources_by_integration_type(integration_type: str) -> list[SourceMeta]:
+    """按集成类型筛选数据源
+
+    Args:
+        integration_type: 集成类型 — 'open_api' | 'scraper' | 'official_api' | 'self_hosted'
+
+    Returns:
+        该集成类型下的 SourceMeta 对象列表
+    """
+    return [
+        meta
+        for meta in _REGISTRY.values()
+        if meta.integration_type == integration_type
+    ]
 
 
 ALL_SOURCE_NAMES: frozenset[str] = frozenset(_REGISTRY.keys())

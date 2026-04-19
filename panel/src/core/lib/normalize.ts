@@ -18,7 +18,7 @@
  *
  *     NormalizedSource（接口）
  *         - 功能：数据源可达性和配置状态
- *         - 关键字段：name 源名称, type 源类型（paper/patent/web）, tier 优先级分层,
+ *         - 关键字段：name 源名称, type 源类型（paper/patent/web）, integration_type 集成类型,
  *                    reachable 是否可用, error 错误消息
  *
  *     normalizePaper(raw: PaperResult) -> NormalizedPaper
@@ -40,9 +40,9 @@
  *         - 功能：规范化诊断系统数据源信息
  *         - 处理逻辑：status='ok' 为可达，否则标记不可达并保留错误消息
  *
- *     tierLabel(tier: number) -> string
- *         - 功能：将数值 tier 转换为显示标签
- *         - 输出：Tier 0 / Tier 1 / Tier 2 等格式
+ *     integrationTypeLabel(integration_type: string) -> string
+ *         - 功能：将集成类型标识符转换为显示标签
+ *         - 输出：公开接口 / 爬虫抓取 / 授权接口 / 自托管 等格式
  *
  *     typeLabel(type: string) -> string
  *         - 功能：将源类型转换为用户可读的中文标签
@@ -102,7 +102,7 @@ export interface NormalizedWeb {
 export interface NormalizedSource {
   name: string
   type: 'paper' | 'patent' | 'web'
-  tier: number
+  integration_type: string
   reachable: boolean
   error: string | null
 }
@@ -169,21 +169,22 @@ export function normalizeDoctor(raw: DoctorSource): NormalizedSource {
   return {
     name: raw.name || '',
     type: (raw.category as NormalizedSource['type']) || 'paper',
-    tier: typeof raw.tier === 'number' ? raw.tier : 2,
+    integration_type: typeof raw.integration_type === 'string' ? raw.integration_type : 'open_api',
     reachable: raw.status === 'ok',
     error: raw.status !== 'ok' ? raw.message || null : null,
   }
 }
 
 /**
- * 格式化 Tier 级别为显示标签
+ * 格式化集成类型为显示标签
  */
-export function tierLabel(tier: number): string {
-  switch (tier) {
-    case 0: return 'Tier 0'
-    case 1: return 'Tier 1'
-    case 2: return 'Tier 2'
-    default: return `Tier ${tier}`
+export function integrationTypeLabel(integration_type: string): string {
+  switch (integration_type) {
+    case 'open_api': return '公开接口'
+    case 'scraper': return '爬虫抓取'
+    case 'official_api': return '授权接口'
+    case 'self_hosted': return '自托管'
+    default: return integration_type
   }
 }
 

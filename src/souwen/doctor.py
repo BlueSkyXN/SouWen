@@ -2,14 +2,14 @@
 
 文件用途：
     检测所有已注册数据源的可用性状态（配置、依赖、服务），
-    按 Tier 分组并生成用户友好的报告。
+    按集成类型（integration_type）分组并生成用户友好的报告。
 
 函数清单：
     check_all() -> list[dict]
         - 功能：检查所有数据源的可用性，返回详细检查结果
         - 返回：每个数据源一条字典
         - 字典字段：name (源名称), category (分类), status (状态),
-                   tier (付费层级), required_key (配置字段),
+                   integration_type (集成类型), required_key (配置字段),
                    message (状态说明), enabled (启用状态),
                    description (源描述), channel (频道配置摘要)
         - 检测逻辑：
@@ -19,7 +19,7 @@
 
     format_report(results: list[dict]) -> str
         - 功能：将 check_all() 结果格式化为可读报告（Markdown 风格）
-        - 返回：包含摘要、Tier 分类、每个源状态的格式化字符串
+        - 返回：包含摘要、集成类型分组、每个源状态的格式化字符串
         - 输出格式：Emoji 图标 + 源名称 + 分类标签 + 状态说明
 
 状态枚举（status 字段）：
@@ -30,25 +30,18 @@
     "missing_key" (⬜) — 缺少必要配置
     "disabled" (🚫) — 用户手动禁用
 
-常数：
-    _TIER_LABELS: dict — Tier 级别的用户可读标签
-    _STATUS_ICONS: dict — 状态到 Emoji 图标的映射
-
 模块依赖：
     - souwen.config: 配置管理、源启用状态检查
-    - souwen.source_registry: 获取所有注册源、元数据
+    - souwen.source_registry: 获取所有注册源、元数据、集成类型标签
 """
 
 from __future__ import annotations
 
 from souwen.config import get_config
-from souwen.source_registry import get_all_sources
+from souwen.source_registry import INTEGRATION_TYPE_LABELS, get_all_sources
 
-_TIER_LABELS = {
-    0: "Tier 0 — 免配置 / 公开入口",
-    1: "Tier 1 — 免费 Key / 自建服务",
-    2: "Tier 2 — 付费 Key",
-}
+# 集成类型分组的展示顺序
+_INTEGRATION_TYPE_ORDER = ("open_api", "scraper", "official_api", "self_hosted")
 
 _STATUS_ICONS = {
     "ok": "✅",
@@ -162,7 +155,7 @@ def check_all() -> list[dict]:
                 "name": name,
                 "category": meta.category,
                 "status": status,
-                "tier": meta.tier,
+                "integration_type": meta.integration_type,
                 "required_key": field,
                 "message": message,
                 "enabled": enabled,
@@ -177,7 +170,7 @@ def check_all() -> list[dict]:
 def format_report(results: list[dict]) -> str:
     """将 check_all() 结果格式化为可读报告
 
-    按 Tier 分组展示，每组显示可用数量和详细列表。
+    按集成类型（integration_type）分组展示，每组显示可用数量和详细列表。
 
     Args:
         results: check_all() 的返回值
@@ -189,7 +182,7 @@ def format_report(results: list[dict]) -> str:
         🩺 SouWen Doctor — 数据源健康检查
            OK/总数 个数据源可用
 
-        ── Tier 0 — 免配置 / 公开入口  (OK数/总数) ──
+        ── 公开接口 — 免配置 / 官方开放 API  (OK数/总数) ──
           ✅ openalex           [paper]    可免配置使用；设置 openalex_email...
           ...
     """
@@ -200,15 +193,18 @@ def format_report(results: list[dict]) -> str:
         f"   {ok_count}/{total} 个数据源可用\n",
     ]
 
-    # 按 Tier 分组
-    by_tier: dict[int, list[dict]] = {0: [], 1: [], 2: []}
+    # 按集成类型分组
+    by_type: dict[str, list[dict]] = {t: [] for t in _INTEGRATION_TYPE_ORDER}
     for r in results:
-        by_tier[r["tier"]].append(r)
+        by_type.setdefault(r["integration_type"], []).append(r)
 
-    for tier in (0, 1, 2):
-        items = by_tier[tier]
-        tier_ok = sum(1 for r in items if r["status"] == "ok")
-        lines.append(f"── {_TIER_LABELS[tier]}  ({tier_ok}/{len(items)}) ──")
+    for itype in _INTEGRATION_TYPE_ORDER:
+        items = by_type[itype]
+        if not items:
+            continue
+        type_ok = sum(1 for r in items if r["status"] == "ok")
+        label = INTEGRATION_TYPE_LABELS.get(itype, itype)
+        lines.append(f"── {label}  ({type_ok}/{len(items)}) ──")
         for r in items:
             icon = _STATUS_ICONS.get(r["status"], "⬜")
             cat_tag = f"[{r['category']}]"

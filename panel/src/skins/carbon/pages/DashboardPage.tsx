@@ -192,7 +192,7 @@ export function DashboardPage() {
                       </span>
                     </td>
                     <td>
-                      <span className={styles.tierBadge}>T{src.tier}</span>
+                      <span className={styles.tierBadge}>{src.integration_type === 'open_api' ? '开放' : src.integration_type === 'scraper' ? '爬虫' : src.integration_type === 'official_api' ? '授权' : '自建'}</span>
                     </td>
                     <td>
                       <code className={styles.keyCode}>{src.required_key ?? '—'}</code>

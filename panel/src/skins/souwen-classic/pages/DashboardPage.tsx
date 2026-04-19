@@ -33,7 +33,7 @@ import { EmptyState } from '../components/common/EmptyState'
 import { StatsGridSkeleton, TableSkeleton } from '../components/common/Skeleton'
 import { formatError } from '@core/lib/errors'
 import { staggerContainer, staggerItem } from '@core/lib/animations'
-import { categoryBadgeColor, tierBadgeColor, categoryLabel } from '@core/lib/ui'
+import { categoryBadgeColor, integrationBadgeColor, categoryLabel } from '@core/lib/ui'
 import type { DoctorResponse } from '@core/types'
 import styles from './DashboardPage.module.scss'
 
@@ -141,16 +141,16 @@ function matrixDotClass(status: string): string {
   return styles.matrixDotWarn
 }
 
-/** 根据数据源 tier 等级返回对应的 CSS 类（T0 主流 / T1 次主流 / T2 备用） */
-function matrixTierClass(tier: number): string {
-  if (tier === 0) return styles.matrixTierT0
-  if (tier === 1) return styles.matrixTierT1
+/** 根据数据源集成类型返回对应的 CSS 类 */
+function matrixIntegrationClass(integration_type: string): string {
+  if (integration_type === 'open_api') return styles.matrixTierT0
+  if (integration_type === 'official_api') return styles.matrixTierT1
   return styles.matrixTierT2
 }
 
 /**
  * SourceMatrix 组件：以矩阵视图展示所有数据源
- * 按分类分组显示，每个芯片包含状态点 + 名称 + tier 标签
+ * 按分类分组显示，每个芯片包含状态点 + 名称 + 集成类型标签
  */
 function SourceMatrix({ sources }: { sources: SourceLike[] }) {
   const { t } = useTranslation()
@@ -186,8 +186,8 @@ function SourceMatrix({ sources }: { sources: SourceLike[] }) {
                 <span key={src.name} className={styles.matrixChip} title={src.message}>
                   <span className={`${styles.matrixDot} ${matrixDotClass(src.status)}`} />
                   <span className={styles.matrixChipName}>{src.name}</span>
-                  <span className={`${styles.matrixTier} ${matrixTierClass(src.tier)}`}>
-                    T{src.tier}
+                  <span className={`${styles.matrixTier} ${matrixIntegrationClass(src.integration_type)}`}>
+                    {src.integration_type === 'open_api' ? '开放' : src.integration_type === 'scraper' ? '爬虫' : src.integration_type === 'official_api' ? '授权' : '自建'}
                   </span>
                 </span>
               ))}
@@ -412,8 +412,8 @@ export function DashboardPage() {
                   </Badge>
                 </td>
                 <td>
-                  <Badge color={tierBadgeColor(src.tier)}>
-                    Tier {src.tier}
+                  <Badge color={integrationBadgeColor(src.integration_type)}>
+                    {src.integration_type === 'open_api' ? '公开' : src.integration_type === 'scraper' ? '爬虫' : src.integration_type === 'official_api' ? '授权' : '自建'}
                   </Badge>
                 </td>
                 <td>

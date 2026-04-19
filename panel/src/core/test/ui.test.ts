@@ -18,21 +18,24 @@
  *         it('defaults to blue for unknown')
  *             - 验证：未知类型默认返回 'blue'
  *
- *     describe('tierBadgeColor')
- *         - 测试基于数据源等级获取徽章颜色
+ *     describe('integrationBadgeColor')
+ *         - 测试基于数据源集成类型获取徽章颜色
  *
- *         it('returns green for tier 0')
- *             - 验证：tier 0（最高优先级）返回 'green'（突出显示）
+ *         it('returns green for open_api')
+ *             - 验证：open_api（公开接口）返回 'green'
  *
- *         it('returns blue for tier 1')
- *             - 验证：tier 1（中等优先级）返回 'blue'
+ *         it('returns amber for scraper')
+ *             - 验证：scraper（爬虫抓取）返回 'amber'
  *
- *         it('returns amber for tier 2+')
- *             - 验证：tier ≥2（较低优先级）返回 'amber'（示警色）
+ *         it('returns blue for official_api')
+ *             - 验证：official_api（授权接口）返回 'blue'
+ *
+ *         it('returns red for self_hosted')
+ *             - 验证：self_hosted（自托管）返回 'red'
  */
 
 import { describe, it, expect } from 'vitest'
-import { categoryBadgeColor, tierBadgeColor } from '../lib/ui'
+import { categoryBadgeColor, integrationBadgeColor } from '../lib/ui'
 
 describe('categoryBadgeColor', () => {
   /**
@@ -64,26 +67,32 @@ describe('categoryBadgeColor', () => {
   })
 })
 
-describe('tierBadgeColor', () => {
+describe('integrationBadgeColor', () => {
   /**
-   * 测试：tier 0 返回绿色
+   * 测试：open_api 返回绿色
    */
-  it('returns green for tier 0', () => {
-    expect(tierBadgeColor(0)).toBe('green')
+  it('returns green for open_api', () => {
+    expect(integrationBadgeColor('open_api')).toBe('green')
   })
 
   /**
-   * 测试：tier 1 返回蓝色
+   * 测试：scraper 返回琥珀色
    */
-  it('returns blue for tier 1', () => {
-    expect(tierBadgeColor(1)).toBe('blue')
+  it('returns amber for scraper', () => {
+    expect(integrationBadgeColor('scraper')).toBe('amber')
   })
 
   /**
-   * 测试：tier ≥2 返回琥珀色
+   * 测试：official_api 返回蓝色
    */
-  it('returns amber for tier 2+', () => {
-    expect(tierBadgeColor(2)).toBe('amber')
-    expect(tierBadgeColor(3)).toBe('amber')
+  it('returns blue for official_api', () => {
+    expect(integrationBadgeColor('official_api')).toBe('blue')
+  })
+
+  /**
+   * 测试：self_hosted 返回红色
+   */
+  it('returns red for self_hosted', () => {
+    expect(integrationBadgeColor('self_hosted')).toBe('red')
   })
 })

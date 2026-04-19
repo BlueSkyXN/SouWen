@@ -1,5 +1,5 @@
 /**
- * 文件用途：UI 工具库，提供搜索结果分类与等级的徽章颜色映射
+ * 文件用途：UI 工具库，提供搜索结果分类与集成类型的徽章颜色映射
  *
  * 类型/函数清单：
  *     BadgeColor（类型别名）
@@ -14,12 +14,14 @@
  *           - web → green（绿色，代表互联网、通用）
  *           - 其他 → blue（默认）
  *
- *     tierBadgeColor(tier: number) -> BadgeColor
- *         - 功能：根据数据源优先级等级返回对应的徽章颜色
+ *     integrationBadgeColor(integration_type: string) -> BadgeColor
+ *         - 功能：根据数据源集成类型返回对应的徽章颜色
  *         - 逻辑：
- *           - tier 0 → green（最高优先级，绿色突出）
- *           - tier 1 → blue（中等优先级）
- *           - tier ≥ 2 → amber（较低优先级，琥珀色示警）
+ *           - open_api → green（公开接口，绿色突出）
+ *           - scraper → amber（爬虫抓取，琥珀色示警）
+ *           - official_api → blue（授权接口，蓝色）
+ *           - self_hosted → red（自托管，红色）
+ *           - 其他 → blue（默认）
  *
  *     categoryLabel(t: TFunction, category: string) -> string
  *         - 功能：使用 i18next 获取分类的本地化标签
@@ -52,14 +54,16 @@ export function categoryBadgeColor(category: string): BadgeColor {
 }
 
 /**
- * 根据数据源等级获取徽章颜色
- * tier 0（最高）绿色、tier 1 蓝色、tier ≥2 琥珀色
+ * 根据数据源集成类型获取徽章颜色
+ * open_api 绿色、scraper 琥珀色、official_api 蓝色、self_hosted 红色
  */
-export function tierBadgeColor(tier: number): BadgeColor {
-  switch (tier) {
-    case 0: return 'green'
-    case 1: return 'blue'
-    default: return 'amber'
+export function integrationBadgeColor(integration_type: string): BadgeColor {
+  switch (integration_type) {
+    case 'open_api': return 'green'
+    case 'scraper': return 'amber'
+    case 'official_api': return 'blue'
+    case 'self_hosted': return 'red'
+    default: return 'blue'
   }
 }
 

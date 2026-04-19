@@ -454,8 +454,7 @@ async def get_sources_config():
                 "headers": dict,
                 "params": dict,
                 "category": str,
-                "tier": str,
-                "is_scraper": bool,
+                "integration_type": str,
                 "description": str
             },
             ...
@@ -478,8 +477,7 @@ async def get_sources_config():
             "headers": sc.headers,
             "params": sc.params,
             "category": meta.category,
-            "tier": meta.tier,
-            "is_scraper": meta.is_scraper,
+            "integration_type": meta.integration_type,
             "description": meta.description,
         }
         result[name] = entry
@@ -518,8 +516,7 @@ async def get_source_config(source_name: str):
         "headers": sc.headers,
         "params": sc.params,
         "category": meta.category,
-        "tier": meta.tier,
-        "is_scraper": meta.is_scraper,
+        "integration_type": meta.integration_type,
         "description": meta.description,
     }
 

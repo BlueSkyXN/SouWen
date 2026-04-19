@@ -51,11 +51,11 @@
  *         it('marks unreachable with error message')
  *             - 验证：status='error' 时 reachable=false，error 保留消息
  *
- *     describe('tierLabel')
- *         - 测试 Tier 数值转标签
+ *     describe('integrationTypeLabel')
+ *         - 测试集成类型转中文标签
  *
- *         it('returns Tier N for all values')
- *             - 验证：返回 "Tier {n}" 格式
+ *         it('returns Chinese labels for integration types')
+ *             - 验证：open_api→公开接口, scraper→爬虫抓取, official_api→授权接口, self_hosted→自托管
  *
  *     describe('typeLabel')
  *         - 测试类型转中文标签
@@ -68,7 +68,7 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { normalizePaper, normalizePatent, normalizeWeb, normalizeDoctor, tierLabel, typeLabel } from '../lib/normalize'
+import { normalizePaper, normalizePatent, normalizeWeb, normalizeDoctor, integrationTypeLabel, typeLabel } from '../lib/normalize'
 import type { PaperResult, PatentResult, WebResult, DoctorSource } from '../types'
 
 /**
@@ -109,7 +109,7 @@ function makeWeb(overrides: Partial<WebResult> = {}): WebResult {
  */
 function makeDoctor(overrides: Partial<DoctorSource> = {}): DoctorSource {
   return {
-    name: '', category: 'paper', status: 'ok', tier: 0,
+    name: '', category: 'paper', status: 'ok', integration_type: 'open_api',
     required_key: null, message: '', enabled: true,
     ...overrides,
   }
@@ -257,7 +257,7 @@ describe('normalizeDoctor', () => {
    */
   it('marks reachable when status is ok', () => {
     const result = normalizeDoctor(makeDoctor({
-      name: 'openalex', category: 'paper', status: 'ok', tier: 0,
+      name: 'openalex', category: 'paper', status: 'ok', integration_type: 'open_api',
     }))
     expect(result.reachable).toBe(true)
     expect(result.error).toBeNull()
@@ -268,7 +268,7 @@ describe('normalizeDoctor', () => {
    */
   it('marks unreachable with error message', () => {
     const result = normalizeDoctor(makeDoctor({
-      name: 'core', category: 'paper', status: 'error', tier: 1,
+      name: 'core', category: 'paper', status: 'error', integration_type: 'official_api',
       required_key: 'CORE_API_KEY', message: 'missing key',
     }))
     expect(result.reachable).toBe(false)
@@ -276,15 +276,16 @@ describe('normalizeDoctor', () => {
   })
 })
 
-describe('tierLabel', () => {
+describe('integrationTypeLabel', () => {
   /**
-   * 测试：Tier 数值转标签
+   * 测试：集成类型转中文标签
    */
-  it('returns Tier N for all values', () => {
-    expect(tierLabel(0)).toBe('Tier 0')
-    expect(tierLabel(1)).toBe('Tier 1')
-    expect(tierLabel(2)).toBe('Tier 2')
-    expect(tierLabel(5)).toBe('Tier 5')
+  it('returns Chinese labels for integration types', () => {
+    expect(integrationTypeLabel('open_api')).toBe('公开接口')
+    expect(integrationTypeLabel('scraper')).toBe('爬虫抓取')
+    expect(integrationTypeLabel('official_api')).toBe('授权接口')
+    expect(integrationTypeLabel('self_hosted')).toBe('自托管')
+    expect(integrationTypeLabel('unknown')).toBe('unknown')
   })
 })
 
