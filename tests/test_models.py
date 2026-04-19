@@ -37,12 +37,12 @@ class TestAllSources:
 
     def test_web_count(self):
         """web 有 21 个数据源"""
-        assert len(ALL_SOURCES["web"]) == 21
+        assert len(ALL_SOURCES["web"]) == 25
 
     def test_total_count(self):
         """总计暴露 34 个可选数据源"""
         total = sum(len(v) for v in ALL_SOURCES.values())
-        assert total == 34
+        assert total == 38
 
     def test_each_entry_is_tuple_of_three(self):
         """每条目是 (name, requires_key, desc) 三元组"""
@@ -77,7 +77,7 @@ class TestSourceTypeEnum:
 
     def test_has_37_values(self):
         """枚举有 37 个值"""
-        assert len(SourceType) == 37
+        assert len(SourceType) == 41
 
     def test_paper_sources_exist(self):
         """论文数据源枚举存在"""

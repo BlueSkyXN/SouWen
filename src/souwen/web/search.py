@@ -72,6 +72,10 @@ from souwen.web.mojeek import MojeekClient
 from souwen.web.yandex import YandexClient
 from souwen.web.whoogle import WhoogleClient
 from souwen.web.websurfx import WebsurfxClient
+from souwen.web.github import GitHubClient
+from souwen.web.stackoverflow import StackOverflowClient
+from souwen.web.reddit import RedditClient
+from souwen.web.bilibili import BilibiliClient
 
 logger = logging.getLogger("souwen.web.search")
 _WEB_ENGINE_TIMEOUT_CAP_SECONDS = 15.0
@@ -222,6 +226,11 @@ async def web_search(
         # 自部署元搜索（需自建实例）
         "whoogle": WhoogleClient,
         "websurfx": WebsurfxClient,
+        # 社交/平台搜索
+        "github": GitHubClient,
+        "stackoverflow": StackOverflowClient,
+        "reddit": RedditClient,
+        "bilibili": BilibiliClient,
     }
 
     # 引擎名 -> SourceType 的映射，用于标记结果来源
@@ -247,6 +256,10 @@ async def web_search(
         "yandex": SourceType.WEB_YANDEX,
         "whoogle": SourceType.WEB_WHOOGLE,
         "websurfx": SourceType.WEB_WEBSURFX,
+        "github": SourceType.WEB_GITHUB,
+        "stackoverflow": SourceType.WEB_STACKOVERFLOW,
+        "reddit": SourceType.WEB_REDDIT,
+        "bilibili": SourceType.WEB_BILIBILI,
     }
 
     # 默认使用在当前零配置场景下更稳定的公开引擎组合

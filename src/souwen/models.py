@@ -160,6 +160,11 @@ class SourceType(str, Enum):
     WEB_YANDEX = "web_yandex"
     WEB_WHOOGLE = "web_whoogle"
     WEB_WEBSURFX = "web_websurfx"
+    # 社交/平台搜索
+    WEB_GITHUB = "web_github"
+    WEB_STACKOVERFLOW = "web_stackoverflow"
+    WEB_REDDIT = "web_reddit"
+    WEB_BILIBILI = "web_bilibili"
 
 
 class Author(BaseModel):
@@ -354,5 +359,9 @@ ALL_SOURCES: dict[str, list[tuple[str, bool, str]]] = {
         ("yandex", False, "Yandex 搜索 (爬虫)"),
         ("whoogle", True, "Whoogle Google 代理 (需自建实例)"),
         ("websurfx", True, "Websurfx 元搜索 (需自建实例)"),
+        ("github", False, "GitHub 仓库搜索 (可选 Token)"),
+        ("stackoverflow", False, "StackOverflow 问答搜索 (可选 Key)"),
+        ("reddit", False, "Reddit 帖子搜索"),
+        ("bilibili", False, "Bilibili 视频搜索 (爬虫)"),
     ],
 }

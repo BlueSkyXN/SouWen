@@ -45,6 +45,10 @@ from souwen.web.linkup import LinkupClient
 from souwen.web.scrapingdog import ScrapingDogClient
 from souwen.web.whoogle import WhoogleClient
 from souwen.web.websurfx import WebsurfxClient
+from souwen.web.github import GitHubClient
+from souwen.web.stackoverflow import StackOverflowClient
+from souwen.web.reddit import RedditClient
+from souwen.web.bilibili import BilibiliClient
 from souwen.web.search import web_search
 
 __all__ = [
@@ -72,6 +76,11 @@ __all__ = [
     # 自建实例类
     "WhoogleClient",
     "WebsurfxClient",
+    # 社交/平台类
+    "GitHubClient",
+    "StackOverflowClient",
+    "RedditClient",
+    "BilibiliClient",
     # 聚合搜索
     "web_search",
 ]
