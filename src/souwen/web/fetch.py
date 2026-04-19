@@ -1,7 +1,7 @@
 """并发多提供者聚合内容抓取
 
 文件用途：
-    核心网页内容抓取聚合模块。支持 4 个提供者（Jina Reader、Tavily、Firecrawl、Exa），
+    核心网页内容抓取聚合模块。支持 5 个提供者（内置抓取、Jina Reader、Tavily、Firecrawl、Exa），
     通过 asyncio 并发抓取、聚合结果，为用户提供统一内容提取接口。
 
 函数/类清单：
@@ -37,7 +37,7 @@
 技术要点：
     - SSRF 防护：解析 DNS 后逐个 IP 校验，拒绝私有/回环/链路本地/保留段
     - 提供者懒加载：在分支内 import，避免循环依赖与不必要的依赖加载
-    - 用户显式选择提供者：默认 jina_reader（免费），不自动级联付费提供者
+    - 用户显式选择提供者：默认 builtin（内置，零配置），可选 jina_reader 等付费提供者
     - 全局超时 = per-URL timeout + 10 秒宽限期
 """
 
@@ -120,7 +120,13 @@ async def _fetch_with_provider(
     Returns:
         FetchResponse
     """
-    if provider == "jina_reader":
+    if provider == "builtin":
+        from souwen.web.builtin import BuiltinFetcherClient
+
+        async with BuiltinFetcherClient() as client:
+            return await client.fetch_batch(urls, timeout=timeout)
+
+    elif provider == "jina_reader":
         from souwen.web.jina_reader import JinaReaderClient
 
         config = get_config()
@@ -170,19 +176,19 @@ async def fetch_content(
 ) -> FetchResponse:
     """并发多提供者聚合内容抓取
 
-    用户显式选择提供者（不自动级联），默认使用 jina_reader（免费）。
+    用户显式选择提供者（不自动级联），默认使用 builtin（内置，零配置）。
     每个提供者独立抓取全部 URL 列表中有效的 URL。
 
     Args:
         urls: 目标 URL 列表
-        providers: 提供者列表，默认 ["jina_reader"]
+        providers: 提供者列表，默认 ["builtin"]
         timeout: 每个 URL 超时秒数
         skip_ssrf_check: 跳过 SSRF 校验（仅内部使用）
 
     Returns:
         FetchResponse 聚合结果
     """
-    selected = providers or ["jina_reader"]
+    selected = providers or ["builtin"]
 
     # SSRF 校验
     valid_urls: list[str] = []

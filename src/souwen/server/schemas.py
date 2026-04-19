@@ -284,10 +284,10 @@ class FetchRequest(BaseModel):
 
     Attributes:
         urls: 目标 URL 列表（1-20 条）
-        provider: 提供者名称（默认 jina_reader）
+        provider: 提供者名称（默认 builtin）
         timeout: 每个 URL 超时秒数
     """
 
     urls: list[str] = Field(..., min_length=1, max_length=20)
-    provider: str = Field(default="jina_reader")
+    provider: str = Field(default="builtin")
     timeout: float = Field(default=30.0, ge=1.0, le=120.0)

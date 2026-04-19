@@ -171,6 +171,7 @@ class SourceType(str, Enum):
     WEB_ZHIHU = "web_zhihu"
     WEB_WEIBO = "web_weibo"
     # ── 内容抓取 (fetch) ──
+    FETCH_BUILTIN = "fetch_builtin"
     FETCH_JINA_READER = "fetch_jina_reader"
 
 
@@ -417,6 +418,7 @@ ALL_SOURCES: dict[str, list[tuple[str, bool, str]]] = {
         ("bilibili", False, "Bilibili 视频搜索 (爬虫)"),
     ],
     "fetch": [
+        ("builtin", False, "内置抓取 (httpx/curl_cffi + trafilatura, 零配置)"),
         ("jina_reader", False, "Jina Reader 内容抓取 (免费)"),
         ("tavily", True, "Tavily Extract 内容抓取"),
         ("firecrawl", True, "Firecrawl Scrape 内容抓取"),

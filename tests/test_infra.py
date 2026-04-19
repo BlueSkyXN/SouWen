@@ -500,7 +500,7 @@ class TestCLI:
             for c in ("general", "professional", "social", "developer", "wiki", "video")
         )
         assert total_web == 29
-        assert len(ALL_SOURCES["fetch"]) == 4
+        assert len(ALL_SOURCES["fetch"]) == 5
 
 
 class TestServer:

@@ -355,12 +355,15 @@ def search_web_cmd(
 def fetch_cmd(
     urls: list[str] = typer.Argument(..., help="目标 URL（支持多个）"),
     provider: str = typer.Option(
-        "jina_reader", "--provider", "-p", help="内容提供者: jina_reader/tavily/firecrawl/exa"
+        "builtin",
+        "--provider",
+        "-p",
+        help="内容提供者: builtin/jina_reader/tavily/firecrawl/exa",
     ),
     json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),
     timeout: int = typer.Option(30, "--timeout", "-t", help="每 URL 超时（秒）"),
 ) -> None:
-    """抓取网页内容 — 默认使用 Jina Reader（免费）"""
+    """抓取网页内容 — 默认使用内置抓取（零配置）"""
     from souwen.web.fetch import fetch_content
 
     async def _do():
