@@ -22,7 +22,7 @@
         - 依赖：速率限制 + 可选认证
 
     GET /api/v1/sources
-        - 列出所有可用数据源及其配置
+        - 列出当前可用数据源及其配置（隐藏未配置 Key 的授权接口）
 
 管理端点（强制认证）：
     GET /api/v1/admin/config
@@ -306,7 +306,10 @@ async def api_search_web(
 
 @router.get("/sources", dependencies=[Depends(check_search_auth)])
 async def list_sources():
-    """列出所有可用数据源 — 按类别分组
+    """列出当前可用数据源 — 按类别分组
+
+    需要 API Key 或自托管配置但未设置的源不会返回，
+    确保前端搜索页只展示真正可用的通道。
 
     返回结构：
         {
@@ -318,12 +321,30 @@ async def list_sources():
             "web": [...]
         }
     """
+    from souwen.config import get_config
     from souwen.models import ALL_SOURCES
+    from souwen.source_registry import get_source
+
+    cfg = get_config()
+
+    def _is_usable(name: str, needs_key: bool) -> bool:
+        """判断源是否可用：不需要密钥的直接可用，需要密钥的检查配置"""
+        if not needs_key:
+            return True
+        meta = get_source(name)
+        if meta is None or meta.config_field is None:
+            return True
+        # self_hosted 类需要 base_url，检查 resolve_base_url 或直接读字段
+        if meta.integration_type == "self_hosted":
+            return bool(cfg.resolve_base_url(name) or getattr(cfg, meta.config_field, None))
+        # official_api 类需要 api_key
+        return bool(cfg.resolve_api_key(name, meta.config_field))
 
     return {
         category: [
             {"name": name, "needs_key": needs_key, "description": desc}
             for name, needs_key, desc in entries
+            if _is_usable(name, needs_key)
         ]
         for category, entries in ALL_SOURCES.items()
     }
