@@ -77,6 +77,7 @@ import type {
   ReloadResponse,
   SearchResponse,
   WebSearchResponse,
+  FetchResponse,
   WarpStatus,
   WarpActionResult,
   HttpBackendResponse,
@@ -279,6 +280,19 @@ class ApiService {
     let url = `/api/v1/search/web?q=${encodeURIComponent(q)}&engines=${encodeURIComponent(engines)}&max_results=${maxResults}`
     if (timeout) url += `&timeout=${timeout}`
     return this.request<WebSearchResponse>(url, { headers: this.headers(), signal })
+  }
+
+  /**
+   * 抓取网页内容
+   * 使用 builtin / jina_reader / tavily / firecrawl / exa 提取网页正文
+   */
+  async fetch(urls: string[], provider = 'builtin', timeout = 30, signal?: AbortSignal): Promise<FetchResponse> {
+    return this.request<FetchResponse>('/api/v1/fetch', {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify({ urls, provider, timeout }),
+      signal,
+    })
   }
 
   /**
