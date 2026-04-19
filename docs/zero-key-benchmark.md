@@ -2,65 +2,82 @@
 
 > **测试环境**: Hugging Face Spaces (免费 CPU 实例)
 > **SouWen 版本**: v0.6.3
-> **测试时间**: 2026-04-17
-> **HTTP 后端**: httpx (默认)
+> **测试时间**: 2026-04-18
 > **部署地址**: https://blueskyxn-souwen.hf.space
 
 ## 概述
 
-SouWen 的设计理念是**零配置可用** — 尽可能多的数据源无需 API Key 即可工作。本文档记录了在无任何 API Key 的 HF Spaces 环境下，各数据源的真实表现。
+SouWen 的设计理念是**零配置可用** — 尽可能多的数据源无需 API Key 即可工作。本文档记录了在无任何 API Key 的 HF Spaces 环境下，各数据源在 **2×2 组合矩阵**（WARP 开关 × HTTP 后端）下的真实表现。
+
+### 测试矩阵
+
+| 维度 | 选项 | 说明 |
+|------|------|------|
+| WARP 代理 | 关 / 开 | Cloudflare WARP 隧道，提供干净出口 IP |
+| HTTP 后端 | curl_cffi / httpx | curl_cffi 支持 TLS 指纹模拟（Chrome），httpx 为标准 Python HTTP 库 |
+
+- **论文/专利源**始终使用 `httpx`（通过 SouWenHttpClient），不受 HTTP 后端设置影响，仅有 WARP 开关维度。
+- **网页搜索引擎**使用 `BaseScraper`，完整 2×2 矩阵适用。
+- 默认配置 `default_http_backend: auto` 在 curl_cffi 可用时自动选择 curl_cffi。
 
 ---
 
 ## 论文搜索
 
-所有免费论文源均为公开 API，无需 Key。测试查询：`machine learning`
+> 始终使用 httpx，HTTP 后端设置无影响。测试查询：`machine learning`
 
-| 数据源 | WARP 关 | WARP 开 | 响应时间 | 说明 |
-|--------|---------|---------|----------|------|
-| OpenAlex | ✅ 10 条 | ✅ 正常 | ~2.6s | 最稳定的学术源，覆盖 2.5 亿篇文献 |
-| Semantic Scholar | ✅ 10 条 | ⚠️ 不稳定 | ~2.5s | 免 Key 易限流；WARP IP 可能被限 |
-| CrossRef | ✅ 10 条 | ✅ 正常 | ~2.4s | DOI 元数据，覆盖面广 |
-| arXiv | ⚠️ 无结果 | ✅ 正常 | ~2.3s | 预印本，WARP 后恢复 |
-| DBLP | ⚠️ 无结果 | ✅ 正常 | ~4.2s | 计算机科学，WARP 后恢复 |
-| PubMed | ✅ 10 条 | ✅ 正常 | ~2.5s | 生物医学文献 |
-| CORE | — | — | — | 需要 API Key，未测试 |
+| 数据源 | WARP 关 | WARP 开 | 说明 |
+|--------|---------|---------|------|
+| OpenAlex | ✅ | ✅ | 最稳定，覆盖 2.5 亿篇文献 |
+| CrossRef | ✅ | ✅ | DOI 元数据，覆盖面广 |
+| PubMed | ✅ | ✅ | 生物医学文献 |
+| arXiv | ⚠️ 间歇 | ✅ | 预印本；WARP 关闭时偶尔不可用 |
+| DBLP | ❌ | ✅ | 计算机科学；需要 WARP |
+| Semantic Scholar | ⚠️ 间歇 | ⚠️ 间歇 | 免 Key 限流严格；可用性波动 |
+| CORE | — | — | 需要 API Key，未测试 |
 
-**结论**: WARP 关闭时 **4/6** 可用，开启后 **5/6** 可用（Semantic Scholar 波动）。
+**结论**: WARP 关闭时 **3~5/6** 稳定可用，开启后 **5/6** 可用（S2 波动）。
 
 ---
 
 ## 专利搜索
 
-v0.6.3 专利源架构已重构（epo_ops / uspto_odp / the_lens / cnipa / patsnap 均需 Key），仅 Google Patents 为零配置爬虫。
+> 始终使用 httpx，HTTP 后端设置无影响。
 
-| 数据源 | WARP 关 | WARP 开 | 响应时间 | 说明 |
-|--------|---------|---------|----------|------|
-| Google Patents | ⚠️ 无结果 | ✅ 1 条 | ~8.3s | 爬虫模式，WARP 后可用 |
+| 数据源 | WARP 关 | WARP 开 | 说明 |
+|--------|---------|---------|------|
+| Google Patents | ⚠️ 间歇 | ✅ | 爬虫模式；WARP 显著提升稳定性 |
 
-**结论**: WARP 开启后 **1/1** 零配置专利源可用。
+需要 API Key 的专利源（EPO、USPTO、Lens、CNIPA、PatSnap）不在零配置测试范围内。
 
 ---
 
-## 网页搜索
+## 网页搜索 — 2×2 完整矩阵
 
-网页搜索引擎分为**爬虫引擎**（HTML 解析）和 **API 引擎**（需要 Key）。
+> 使用 BaseScraper，受 HTTP 后端设置影响。测试查询：`machine learning`
 
 ### 爬虫引擎（无需 Key）
 
-测试查询：`machine learning`
+| 引擎 | curl_cffi WARP关 | curl_cffi WARP开 | httpx WARP关 | httpx WARP开 |
+|------|:-:|:-:|:-:|:-:|
+| DuckDuckGo | ✅ 10 | ✅ 10 | ❌ 0 | ✅ 10 |
+| Bing | ✅ 10 | ✅ 10 | ❌ 0 | ✅ 10 |
+| Yahoo | ✅ 7 | ✅ 7 | ❌ 0 | ✅ 7 |
+| Baidu | ✅ 7 | ✅ 7 | ❌ 0 | ✅ 7 |
+| Mojeek | ❌ 0 | ✅ 10 | ❌ 0 | ❌ 0 |
+| Yandex | ❌ 0 | ✅ 10 | ❌ 0 | ❌ 0 |
+| Brave | ❌ 0 | ❌ 0 | ❌ 0 | ❌ 0 |
+| Google | ❌ 0 | ❌ 0 | ❌ 0 | ❌ 0 |
+| Startpage | ❌ 0 | ❌ 0 | ❌ 0 | ❌ 0 |
+| **可用引擎数** | **4/9** | **6/9** | **0/9** | **4/9** |
 
-| 引擎 | WARP 关 | WARP 开 | 响应时间 | 说明 |
-|------|---------|---------|----------|------|
-| DuckDuckGo | ✅ 10 条 | ✅ 10 条 | ~4.8s | 最稳定，推荐默认引擎 |
-| Bing | ✅ 10 条 | ✅ 10 条 | ~4.7s | 稳定可靠，速度快 |
-| Yahoo | ✅ 7 条 | ✅ 7 条 | ~5.1s | 稳定可用 |
-| Baidu | ✅ 7 条 | ✅ 7 条 | ~5.8s | 中文搜索表现好 |
-| Mojeek | ❌ 无结果 | ✅ 10 条 | ~5.3s | 独立引擎，WARP 后恢复 |
-| Brave | ❌ 无结果 | ❌ 无结果 | ~17s | 反爬较强，超时 |
-| Google | ❌ 无结果 | ❌ 无结果 | ~7.5s | 反爬极强（验证码+JS Challenge） |
-| Startpage | ❌ 无结果 | ❌ 无结果 | ~4.3s | 使用 Google 后端，同样被封 |
-| Yandex | ❌ 无结果 | ❌ 无结果 | ~6.2s | 地域限制 + 反爬 |
+### 关键发现
+
+1. **httpx 裸跑 = 全军覆没**: 无 TLS 指纹模拟 + 无 WARP → 所有引擎反爬拦截
+2. **curl_cffi 是核心**: TLS 指纹模拟使 DDG/Bing/Yahoo/Baidu 无需 WARP 即可使用
+3. **WARP 补位 httpx**: WARP 出口 IP 可让 DDG/Bing/Yahoo/Baidu 在 httpx 下恢复
+4. **curl_cffi + WARP 最强**: 唯一能解锁 Mojeek + Yandex 的组合（需双重条件）
+5. **三者永远无法爬取**: Brave/Google/Startpage 无论何种组合均失败
 
 ### API 引擎（需要 Key，未测试）
 
@@ -84,20 +101,24 @@ v0.6.3 专利源架构已重构（epo_ops / uspto_odp / the_lens / cnipa / patsn
 | Whoogle | `whoogle_url` | Google 代理（需自建） |
 | Websurfx | `websurfx_url` | 聚合搜索（需自建） |
 
-**结论**: WARP 关闭时 **4/9** 爬虫引擎可用，开启后 **5/9** 稳定可用。
+---
+
+## 总结：各组合可用源数
+
+| 组合 | 论文 | 专利 | 网页 | 总计 | 评价 |
+|------|:----:|:----:|:----:|:----:|------|
+| httpx + WARP 关 | 3~5/6 | 0~1/1 | 0/9 | **3~6/16** | ⛔ 不可用 |
+| httpx + WARP 开 | 5/6 | 1/1 | 4/9 | **10/16** | ⚠️ 勉强可用 |
+| curl_cffi + WARP 关 | 3~5/6 | 0~1/1 | 4/9 | **7~10/16** | ✅ 基本可用 |
+| **curl_cffi + WARP 开** | **5/6** | **1/1** | **6/9** | **12/16** | ✅✅ **推荐配置** |
+
+> 论文/专利列的范围表示间歇性源（arXiv、Google Patents）的波动。
 
 ---
 
 ## WARP 代理效果
 
-| 指标 | WARP 关 | WARP 开 | 变化 |
-|------|---------|---------|------|
-| 论文源可用数 | 4/6 | 5/6 | +1（arXiv、DBLP 恢复；S2 波动） |
-| 专利源可用数 | 0/1 | **1/1** | +1 |
-| 网页引擎可用数 | 4/9 | **5/9** | +1（Mojeek 恢复） |
-| **零配置总可用** | **8/16** | **11/16** | **+3** |
-
-WARP 对被 IP 限制的源（arXiv、DBLP、Google Patents、Mojeek）效果显著。对使用高级反爬技术的源（Google、Startpage、Brave、Yandex）无效。
+WARP 对被 IP 限制的源效果显著（arXiv、DBLP、Google Patents、Mojeek、Yandex），对使用高级反爬技术的源（Google、Startpage、Brave）无效。
 
 ### 启用 WARP
 
@@ -110,14 +131,15 @@ curl -X POST http://localhost:8000/api/v1/admin/warp/enable
 
 ---
 
-## 推荐配置（零成本）
+## 推荐配置（零成本最大化）
 
-无需任何 Key，开启 WARP 即可获得：
-- **5 个论文源**: OpenAlex, CrossRef, arXiv, DBLP, PubMed
-- **1 个专利源**: Google Patents（实验性）
-- **5 个网页引擎**: DuckDuckGo, Bing, Yahoo, Baidu, Mojeek
+**保持 `default_http_backend: auto`（默认）+ 开启 WARP** 即可获得：
 
-共 **11 个数据源**，覆盖学术论文、专利、网页三大领域。
+- **5 个论文源**: OpenAlex, CrossRef, PubMed, arXiv, DBLP
+- **1 个专利源**: Google Patents
+- **6 个网页引擎**: DuckDuckGo, Bing, Yahoo, Baidu, Mojeek, Yandex
+
+共 **12 个数据源**，覆盖学术论文、专利、网页三大领域。
 
 ---
 
@@ -125,11 +147,10 @@ curl -X POST http://localhost:8000/api/v1/admin/warp/enable
 
 | 源 | 失败原因 | 可能的解决方案 |
 |----|----------|----------------|
-| Google (web) | 反爬检测（验证码+JS Challenge） | 暂不支持 |
-| Startpage | Google 后端同样被封 | 暂不支持 |
-| Brave (web) | 反爬检测，超时 ~17s | 暂不支持 |
-| Yandex | 地域限制 + 反爬 | 使用俄罗斯 IP 代理 |
-| Semantic Scholar | 免 Key 限流（WARP IP 可能被列入限流名单） | 申请免费 API Key |
+| Google (web) | 反爬检测（验证码+JS Challenge） | 使用 SerpAPI/Serper API 替代 |
+| Startpage | Google 后端同样被封 | 使用 SerpAPI/Serper API 替代 |
+| Brave (web) | 反爬检测，超时 | 使用 Brave API（`brave_api_key`）替代 |
+| Semantic Scholar | 免 Key 限流严格 | 申请免费 API Key |
 
 ---
 
@@ -138,8 +159,7 @@ curl -X POST http://localhost:8000/api/v1/admin/warp/enable
 | 变化项 | v0.3.0 | v0.6.3 |
 |--------|--------|--------|
 | 专利源架构 | PatentsView + PQAI + Google Patents | EPO/USPTO/Lens/CNIPA/PatSnap + Google Patents |
-| 零配置专利源 | 3 个（均失败） | 1 个（Google Patents，WARP 后可用） |
-| HTTP 后端 | curl_cffi | httpx（默认） |
-| WARP 后论文源 | 6/6 | 5/6（S2 波动） |
-| WARP 后网页引擎 | 5/13 | 5/9（旧源如 Qwant/Sogou/Ecosia/Wikipedia 已移除） |
+| 零配置专利源 | 3 个（均失败） | 1 个（Google Patents，WARP 后稳定） |
+| HTTP 后端 | curl_cffi | auto（优先 curl_cffi，回退 httpx） |
+| 最佳组合零配置总可用 | ~8 | **12/16**（curl_cffi + WARP） |
 | 安全加固 | 无 | SSRF 防护、DNS 校验、重定向验证 |
