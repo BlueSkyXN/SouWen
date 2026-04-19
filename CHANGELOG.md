@@ -1,5 +1,32 @@
 # Changelog
 
+## v0.7.0
+
+新增 8 个数据源 + 源分类体系重构。
+
+### Feature
+- **8 个新数据源**：GitHub Search、StackOverflow、Reddit、Bilibili、Wikipedia、YouTube、知乎、微博。覆盖代码仓库、问答社区、社交媒体、视频平台、百科全书五大类别。
+- **integration_type 分类体系**：将原有的 `tier`（0/1/2）+ `is_scraper`（bool）双轴模型替换为单一的 `integration_type` 字符串字段：`open_api`（公开接口）、`scraper`（爬虫抓取）、`official_api`（授权接口）、`self_hosted`（自托管）。
+- **source_registry 新增 `get_sources_by_integration_type()` 查询函数**。
+- **CLI 增强**：`list_sources` 和 `sources` 表格新增集成类型列。
+
+### Refactor
+- `SourceMeta` dataclass 移除 `tier: int` 和 `is_scraper: bool` 字段，新增 `integration_type: str`；`is_scraper` 保留为计算属性。
+- `doctor.py` 按集成类型分组报告，替代按 tier 分组。
+- `routes.py` API 响应中 `tier`/`is_scraper` 替换为 `integration_type`（breaking change）。
+- 前端 4 皮肤全面适配：徽章颜色、边框样式、矩阵视图均按集成类型区分。
+- `tierBadgeColor()` → `integrationBadgeColor()`，`tierLabel()` → `integrationTypeLabel()`。
+
+### Docs
+- `souwen.example.yaml` 添加 8 个新数据源配置项。
+- `api-reference.md` 更新 doctor 接口示例。
+- 全量清理代码中残留的 tier 旧注释和文档引用。
+
+### Test
+- 新增 4 个 `TestSourceRegistryIntegrationType` 单元测试。
+- `web_sources` 枚举测试扩展至 18 项。
+- 总计 407 Python 测试 + 41 前端测试通过。
+
 ## v0.6.3
 
 安全加固 + 前端美学升级。16 项安全/质量问题修复，4 皮肤视觉增强。
