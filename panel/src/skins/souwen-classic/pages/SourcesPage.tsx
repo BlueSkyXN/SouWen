@@ -55,11 +55,11 @@ const CATEGORY_ICONS: Record<CategoryKey, typeof FileText> = {
   web: Globe,
 }
 
-function tierBorderClass(src: DoctorSource): string {
+function integrationBorderClass(src: DoctorSource): string {
   if (!src.enabled) return styles.borderDisabled
-  switch (src.tier) {
-    case 0: return styles.tierBorder0
-    case 1: return styles.tierBorder1
+  switch (src.integration_type) {
+    case 'open_api': return styles.tierBorder0
+    case 'official_api': return styles.tierBorder1
     default: return styles.tierBorder2
   }
 }
@@ -76,15 +76,15 @@ function StatusDot({ status }: { status: string }) {
   return <span className={`${styles.statusDot} ${cls}`} />
 }
 
-function TierBadge({ tier, t }: { tier: number; t: (k: string) => string }) {
-  if (tier === 0) {
+function IntegrationBadge({ integration_type, t }: { integration_type: string; t: (k: string) => string }) {
+  if (integration_type === 'open_api') {
     return (
       <span className={`${styles.tierBadge} ${styles.tierBadge0}`}>
         <Star size={10} /> {t('sources.tierCore')}
       </span>
     )
   }
-  if (tier === 1) {
+  if (integration_type === 'official_api') {
     return (
       <span className={`${styles.tierBadge} ${styles.tierBadge1}`}>
         <Zap size={10} /> {t('sources.tierExtended')}
@@ -207,7 +207,7 @@ function SourceConfigPanel({
       else if (proxyMode === 'custom') params.proxy = customProxy
 
       // HTTP backend (only for scrapers)
-      if (config.is_scraper) {
+      if (config.integration_type === 'scraper') {
         params.http_backend = httpBackend
       }
 
@@ -239,7 +239,7 @@ function SourceConfigPanel({
     } finally {
       setSaving(false)
     }
-  }, [proxyMode, customProxy, httpBackend, baseUrl, clearApiKey, apiKeyMode, newApiKey, sourceName, config.is_scraper, addToast, t, onSaved])
+  }, [proxyMode, customProxy, httpBackend, baseUrl, clearApiKey, apiKeyMode, newApiKey, sourceName, config.integration_type, addToast, t, onSaved])
 
   const handleClearApiKey = useCallback(() => {
     if (window.confirm(t('sourceConfig.apiKeyConfirmClear'))) {
@@ -290,7 +290,7 @@ function SourceConfigPanel({
         </div>
 
         {/* HTTP Backend — only for scrapers */}
-        {config.is_scraper && (
+        {config.integration_type === 'scraper' && (
           <div className={styles.configField}>
             <label className={styles.configLabel}>{t('sourceConfig.httpBackend')}</label>
             <p className={styles.configFieldDesc}>{t('sourceConfig.httpBackendDesc')}</p>
@@ -562,7 +562,7 @@ export function SourcesPage() {
               <m.div
                 key={src.name}
                 variants={staggerItemSmall}
-                className={`${styles.sourceCard} ${!src.enabled ? styles.sourceCardDisabled : ''} ${tierBorderClass(src)} ${expandedSource === src.name ? styles.sourceCardExpanded : ''}`}
+                className={`${styles.sourceCard} ${!src.enabled ? styles.sourceCardDisabled : ''} ${integrationBorderClass(src)} ${expandedSource === src.name ? styles.sourceCardExpanded : ''}`}
               >
                 <div className={styles.sourceCardTop} onClick={() => handleCardClick(src.name)}>
                   <StatusDot status={src.enabled ? src.status : 'disabled'} />
@@ -570,7 +570,7 @@ export function SourcesPage() {
                   <div className={styles.cardBody}>
                     <div className={styles.sourceName}>{src.name}</div>
                     <div className={styles.badges}>
-                      <TierBadge tier={src.tier} t={t} />
+                      <IntegrationBadge integration_type={src.integration_type} t={t} />
                       {src.required_key ? (
                         <span className={styles.configBadgeKey}>
                           <Key size={10} />

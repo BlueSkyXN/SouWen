@@ -416,7 +416,7 @@ export function SourcesPage() {
                       >
                         {src.enabled ? t('sources.on', '开') : t('sources.off', '关')}
                       </button>
-                      <span className={styles.tierBadge}>T{src.tier}</span>
+                      <span className={styles.tierBadge}>{src.integration_type === 'open_api' ? '开放' : src.integration_type === 'scraper' ? '爬虫' : src.integration_type === 'official_api' ? '授权' : '自建'}</span>
                     </div>
                   </div>
 

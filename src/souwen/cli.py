@@ -645,7 +645,7 @@ def config_source(
 
     meta = get_source(name)
     console.print(f"\n[bold]{name}[/bold] ({meta.description})")
-    console.print(f"  类别: {meta.category}  Tier: {meta.tier}")
+    console.print(f"  类别: {meta.category}  集成: {meta.integration_type}")
     console.print(f"  启用: {'✅' if sc.enabled else '🚫'}")
     console.print(f"  代理: {sc.proxy}")
     console.print(f"  后端: {sc.http_backend}")

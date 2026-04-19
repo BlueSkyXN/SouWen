@@ -79,7 +79,7 @@ export interface DoctorSource {
   name: string
   category: string
   status: string
-  tier: number
+  integration_type: string
   required_key: string | null
   message: string
   enabled: boolean
@@ -99,8 +99,7 @@ export interface SourceChannelConfig {
   headers: Record<string, string>
   params: Record<string, string | number | boolean>
   category: string
-  tier: number
-  is_scraper: boolean
+  integration_type: string
   description: string
 }
 
@@ -110,7 +109,7 @@ export interface SourceChannelConfig {
 export interface DoctorResult {
   source: string
   category: string
-  tier: number
+  integration_type: string
   reachable: boolean
   latency_ms?: number
   error?: string
