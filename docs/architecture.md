@@ -17,7 +17,8 @@ User / AI Agent
 search_papers  search_patents  web_search
   │              │               │
   ▼              ▼               ▼
-_search_source_limited()         ← asyncio.Semaphore(10) 全局并发控制
+_search_source_limited()         ← per-event-loop Semaphore 并发控制
+                                   （默认 10，可由 SOUWEN_MAX_CONCURRENCY 覆盖）
   │
   ▼
 _run_client(ClientClass, "search", **kwargs)
@@ -34,7 +35,7 @@ SearchResponse(results=[PaperResult | PatentResult | WebSearchResult])
 
 1. **用户调用** `search(query, domain="paper")` 或直接调用 `search_papers()`
 2. **门面层** 根据 domain 路由到对应的搜索函数
-3. **并发控制** `_search_source_limited()` 通过 `asyncio.Semaphore(10)` 防止连接过载
+3. **并发控制** `_search_source_limited()` 通过 per-event-loop 懒加载的 `asyncio.Semaphore` 防止连接过载（默认上限 10，可通过环境变量 `SOUWEN_MAX_CONCURRENCY` 覆盖；v0.6.0 起改为按事件循环绑定，避免跨循环复用导致的 `RuntimeError`）
 4. **客户端实例化** `_run_client()` 使用 async context manager 创建客户端并调用搜索方法
 5. **HTTP 请求** 客户端通过 `SouWenHttpClient`（API 类）或 `BaseScraper`（爬虫类）发送请求
 6. **结果解析** 各客户端将原始 JSON/HTML 解析为统一的 `PaperResult` / `PatentResult` / `WebSearchResult`
@@ -213,10 +214,10 @@ Skin（皮肤）→ Mode（模式）→ Scheme（配色）
 │                │              │
 │                │              └── 每皮肤独立配色（运行时切换）
 │                └── light / dark（运行时切换）
-└── souwen-classic / carbon / ...（运行时切换，或单皮肤构建）
+└── souwen-classic / carbon / apple / ios / ...（运行时切换，或单皮肤构建）
 ```
 
-- **Skin（皮肤）**：完全独立的前端 UI——不同的布局、组件、路由、交互逻辑。默认全皮肤构建，支持运行时切换；也可通过 `VITE_SKINS` 环境变量指定单皮肤构建。
+- **Skin（皮肤）**：完全独立的前端 UI——不同的布局、组件、路由、交互逻辑。当前内置 4 个皮肤（`souwen-classic`、`carbon`、`apple`、`ios`）。默认全皮肤构建，支持运行时切换；也可通过 `VITE_SKINS` 环境变量指定单皮肤或子集构建。
 - **Mode（模式）**：明暗模式（light/dark），用户在面板内实时切换。
 - **Scheme（配色方案）**：强调色方案，每个皮肤可定义自己支持的配色集。
 
@@ -285,16 +286,6 @@ HTML 属性映射：`data-mode`（light/dark）、`data-scheme`（nebula/aurora/
 3. **稳健性**：自动重试、限流保护、优雅降级
 4. **可观测性**：结构化日志，请求耗时追踪
 
-## 近期改进（v0.3.0）
+## 版本演进
 
-- **11 个新搜索引擎**：SerpAPI、Firecrawl、Perplexity Sonar、Linkup、ScrapingDog、Startpage、Baidu、Mojeek、Yandex、Whoogle、Websurfx
-- **异步会话缓存**：从同步 sqlite3 迁移到 aiosqlite
-- **全局并发控制**：`asyncio.Semaphore(10)` 防止连接过载
-- **Playwright 浏览器池化**：`_BrowserPool` 单例复用 Chromium 实例
-- **代理池轮换**：支持多代理 URL 配置 + 随机选取
-- **扩展浏览器指纹库**：从 3 个扩展到 10 个（Chrome + Edge + Safari + Android）
-- **抽象限流器接口**：`RateLimiterBase(ABC)` 支持 Redis 等分布式限流器扩展
-- **204 个自动化测试**：含 mock 测试（pytest-httpx）
-- **CLI 搜索改进**：搜索结果显示失败源警告
-- **Pydantic 模型加固**：`extra="forbid"` 防止字段名拼写错误
-- **数据源常量**：`ALL_SOURCES` 共享常量，统一版本号为单一来源 `__version__`
+详细的版本变更（新增数据源、面板/皮肤升级、并发模型修复、测试覆盖等）请参考根目录 [`CHANGELOG.md`](../CHANGELOG.md)。

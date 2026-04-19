@@ -93,4 +93,4 @@
 |------|------|------|
 | 聚合搜索 | `web_search()` | 并发多引擎搜索 + URL 去重 |
 
-默认使用 DuckDuckGo + Yahoo + Brave 三引擎并发，可通过 `engines` 参数自定义组合。
+默认使用 DuckDuckGo + Bing 双引擎并发（在零配置场景下更稳定），可通过 `engines` 参数自定义组合。

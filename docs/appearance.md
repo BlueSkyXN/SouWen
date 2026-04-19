@@ -12,7 +12,11 @@ SouWen 的管理面板（`/panel`）采用三层外观体系：
 | 🌓 **模式 Mode** | 明暗模式 | 运行时 | Light / Dark |
 | 🎨 **配色 Scheme** | 强调色方案 | 运行时 | 每个皮肤定义自己支持的配色集 |
 
+> 默认 UI 语言为简体中文（完整 i18n 词表位于 `panel/src/core/i18n/zh-CN.json`），所有皮肤均接入 i18next，新增页面/组件请通过 `t('xxx')` 引用 key，避免硬编码文案。
+
 ## 可用皮肤
+
+当前内置 4 个皮肤：`souwen-classic`、`carbon`、`apple`、`ios`。
 
 ### souwen-classic（默认）
 
@@ -28,10 +32,12 @@ SouWen 的管理面板（`/panel`）采用三层外观体系：
 | 页面 | 功能 |
 |------|------|
 | **搜索页** | Command Center 布局：居中搜索框、分段控制器（论文/专利/网页）、建议标签、渐变光球背景 |
-| **仪表盘** | 统计卡片（渐变色边框）、健康环形图、数据源状态概览 |
-| **数据源页** | 分组卡片展示，彩色左边框按状态区分，层级徽章 |
+| **仪表盘** | 紧凑统计卡（compact stats）、健康环形图、数据源状态概览 |
+| **数据源页** | 分组卡片展示 + 顶部 Filter Tabs（按域/状态过滤），左边框按状态区分，卡片顶部显示层级色带（tier color band） |
 | **配置页** | 分组折叠面板，API Key 管理，顶部彩色边框 |
 | **登录页** | 居中卡片，无密码时自动登录 |
+
+> **v0.6.3 视觉升级**：classic 皮肤整体提升美学密度——更细腻的多层阴影 + 强调色辉光（glow）、卡片/导航的毛玻璃（backdrop-filter）、统一的过渡曲线、按钮与卡片的 hover 抬升与色彩反馈、Sources 页 Filter Tabs 与层级色带、Dashboard 紧凑统计区。
 
 ### carbon
 
@@ -41,6 +47,24 @@ SouWen 的管理面板（`/panel`）采用三层外观体系：
 - **视觉特征**：等宽字体贯穿全局、零圆角（sharp corners）、网格背景、大写下划线命名
 - **布局**：顶部全宽导航栏（与 classic 的侧边栏完全不同）
 - **配色方案**：终端 Terminal（蓝色 #3b82f6）、矩阵 Matrix（绿色 #10b981）、余烬 Ember（琥珀 #f59e0b）
+
+### apple
+
+Apple HIG 灵感皮肤，强调克制、留白与系统感。
+
+- **设计理念**：参照 macOS / Apple 官网的视觉语言，干净的字体层级与中性背景，强调内容本身
+- **视觉特征**：精致的阴影与分割线、SF 风格的字号节奏、温和的交互反馈
+- **配色方案**（详见 `panel/src/skins/apple/skin.config.ts`）：
+  - **Apple Blue**（默认 `blue`）：Apple 品牌蓝 `#0071e3`
+
+### ios
+
+macOS Settings / iOS 设置面板灵感皮肤，强调分组列表与系统原生感。
+
+- **设计理念**：模仿 macOS 系统设置的 sidebar + grouped list 结构，强调信息层级与一致的图标语言
+- **视觉特征**：系统色调、分组卡片、列表行内分隔线、原生风格控件
+- **配色方案**（详见 `panel/src/skins/ios/skin.config.ts`）：
+  - **iOS Default**（默认 `default`）：iOS 系统蓝 `#007aff`
 
 ## 配色方案
 
@@ -80,6 +104,18 @@ SouWen 的管理面板（`/panel`）采用三层外观体系：
 | 次强调色 | `#64748b` (蓝灰) | `#cbd5e1` (浅蓝灰) |
 | 渐变方向 | 石板灰 → 蓝灰 → 暗石板 | 浅石板 → 浅蓝灰 → 浅石板灰 |
 | 适合场景 | 极简审美、减少干扰 | — |
+
+### apple 配色方案
+
+| 方案 | id | 强调色 | 备注 |
+|------|----|--------|------|
+| Apple Blue（默认） | `blue` | `#0071e3` | Apple 品牌蓝 |
+
+### ios 配色方案
+
+| 方案 | id | 强调色 | 备注 |
+|------|----|--------|------|
+| iOS Default（默认） | `default` | `#007aff` | iOS 系统蓝 |
 
 ### carbon 配色方案
 
@@ -138,8 +174,8 @@ Carbon 皮肤提供 3 种配色方案，支持明暗两种模式：
 
 #### 运行时切换（多皮肤构建）
 
-当使用 `VITE_SKINS=all` 或 `VITE_SKINS=souwen-classic,carbon` 构建时，面板会在标题栏显示「切换皮肤」按钮。
-Docker 构建默认包含所有皮肤，开箱即支持运行时切换。
+当使用 `VITE_SKINS=all` 或 `VITE_SKINS=souwen-classic,carbon,apple,ios` 等多皮肤值构建时，面板会在标题栏显示「切换皮肤」按钮。
+Docker 构建默认包含所有皮肤（`souwen-classic` / `carbon` / `apple` / `ios`），开箱即支持运行时切换。
 
 切换皮肤后页面会自动刷新，选择保存在 localStorage 中。
 
@@ -155,9 +191,16 @@ cd panel
 # 默认开发（全皮肤，可运行时切换）
 npm run dev
 
-# 单皮肤开发
+# 单皮肤开发（仅 classic / carbon 提供了快捷脚本）
 npm run dev:classic            # 仅 classic
 npm run dev:carbon             # 仅 carbon
+
+# apple / ios 没有专用脚本，请直接通过 VITE_SKINS 指定
+VITE_SKINS=apple npm run dev
+VITE_SKINS=ios npm run dev
+
+# 任意组合
+VITE_SKINS=souwen-classic,apple npm run dev
 
 # 全皮肤开发（等同于默认 dev）
 npm run dev:all
@@ -171,9 +214,13 @@ cd panel
 # 默认构建（全皮肤）
 npm run build
 
-# 单皮肤构建（体积更小）
+# 单皮肤构建（体积更小，仅 classic / carbon 提供快捷脚本）
 npm run build:classic
 npm run build:carbon
+
+# apple / ios 通过 VITE_SKINS 直接构建
+VITE_SKINS=apple npm run build
+VITE_SKINS=ios npm run build
 
 # 全皮肤构建（等同于默认 build）
 npm run build:all
@@ -286,7 +333,7 @@ html[data-skin='my-skin'][data-mode='dark'] {
 在 `panel/vite.config.ts` 的 `ALL_SKINS` 数组中添加你的皮肤 ID：
 
 ```typescript
-const ALL_SKINS = ['souwen-classic', 'carbon', 'my-skin']
+const ALL_SKINS = ['souwen-classic', 'carbon', 'apple', 'ios', 'my-skin']
 ```
 
 ### 5. 构建并测试
@@ -335,6 +382,9 @@ html[data-skin='souwen-classic'][data-scheme='aurora']   { --accent: #0d9488; }
 
 html[data-skin='carbon']                                 { --bg: #0a0a0a; }
 html[data-skin='carbon'][data-scheme='matrix']           { --accent: #10b981; }
+
+html[data-skin='apple'][data-scheme='blue']              { --accent: #0071e3; }
+html[data-skin='ios'][data-scheme='default']             { --accent: #007aff; }
 ```
 
 ### Skin Registry
@@ -351,8 +401,8 @@ html[data-skin='carbon'][data-scheme='matrix']           { --accent: #10b981; }
 
 | 键名 | 值 | 说明 |
 |------|-----|------|
-| `souwen_skin` | `souwen-classic` / `carbon` | 当前皮肤（多皮肤模式） |
+| `souwen_skin` | `souwen-classic` / `carbon` / `apple` / `ios` | 当前皮肤（多皮肤模式） |
 | `souwen_mode` | `light` / `dark` | 明暗模式 |
-| `souwen_scheme` | `nebula` / `aurora` / `obsidian` / `terminal` / `matrix` / `ember` | 配色方案 |
+| `souwen_scheme` | classic：`nebula` / `aurora` / `obsidian`<br>carbon：`terminal` / `matrix` / `ember`<br>apple：`blue`<br>ios：`default` | 配色方案（按当前皮肤可选值取值） |
 
 > 向后兼容：旧版 `souwen_theme` 和 `souwen_visual_theme` 键会在加载时自动迁移。

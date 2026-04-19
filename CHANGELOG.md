@@ -11,6 +11,7 @@
 - **API Key 遮蔽**（`cli.py`）：`config show` 不再显示前 4 位明文。
 
 ### Fix
+- **CSS Modules 后代选择器脆弱性**（`SourcesPage.module.scss` / `.tsx`，commit `6f11c6d`）：将 `.filterTabActive .filterTabCount` 后代选择器改为独立的 `.filterTabCountActive` 修饰符类，避免 CSS Modules 哈希变更时样式失效。
 - **ETag RFC 合规**（`app.py`）：`_etag_matches()` 支持多值和 `*` 通配。
 - **base_url 验证**（`routes.py`）：拒绝非 `http(s)://` 前缀。
 - **atexit 死锁**（`google_patents.py`）：关闭回调加 5 秒超时。
@@ -24,6 +25,14 @@
 
 ### Style
 - **四皮肤美学升级**：souwen-classic（多层阴影/hover 提升）、apple（毛玻璃/圆角）、carbon（辉光/扫描线）、ios（过渡动画/hairline 分割线）。23 文件 +200/−38 行。
+
+### Docs
+- **全代码库中文注释覆盖**：补齐 `src/souwen/**` 模块/类/函数的中文 docstring，统一注释风格，便于团队 onboarding 与 AI Agent 阅读。
+- **README / CHANGELOG 准确性修复**：
+  - 默认 Web 搜索引擎组合更正为 `DuckDuckGo + Bing`（与 `web/search.py:253` 实际默认值一致）。
+  - 皮肤数量更新为 4 套（`souwen-classic` / `carbon` / `apple` / `ios`），同步构建/开发命令示例（含 `VITE_SKINS=apple|ios`）。
+  - 配置章节新增双密码（`SOUWEN_VISITOR_PASSWORD` / `SOUWEN_ADMIN_PASSWORD`）说明，旧 `SOUWEN_API_PASSWORD` 标注为统一回退。
+  - 零配置数据源数量从「22」更正为「18」（5 论文 + 2 专利 + 9 爬虫 + 2 自建）。
 
 ## v0.6.2
 

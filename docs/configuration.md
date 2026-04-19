@@ -72,6 +72,16 @@ general:
   timeout: 30
   max_retries: 3
   data_dir: ~/.local/share/souwen
+
+server:
+  api_password: ~              # 旧版统一密码（向后兼容）
+  visitor_password: ~          # 访客密码（仅保护搜索端点，优先于 api_password）
+  admin_password: ~            # 管理密码（仅保护管理端点，优先于 api_password）
+  cors_origins: []
+  trusted_proxies:             # 反向代理 IP/CIDR 名单
+    - 10.0.0.0/8
+    - 127.0.0.1
+  expose_docs: true            # 是否暴露 /docs、/redoc、/openapi.json
 ```
 
 ## 全部配置字段
@@ -124,6 +134,25 @@ general:
 | `timeout` | `SOUWEN_TIMEOUT` | `30` | 请求超时秒数 |
 | `max_retries` | `SOUWEN_MAX_RETRIES` | `3` | 最大重试次数 |
 | `data_dir` | `SOUWEN_DATA_DIR` | `~/.local/share/souwen` | 数据存储目录 |
+| — | `SOUWEN_MAX_CONCURRENCY` | `10` | 聚合搜索并发上限（v0.6.0，仅环境变量） |
+
+### 服务端
+
+| 字段 | 环境变量 | 默认值 | 说明 |
+|------|---------|--------|------|
+| `api_password` | `SOUWEN_API_PASSWORD` | None | 旧版统一密码（同时作用于搜索 + 管理，向后兼容） |
+| `visitor_password` | `SOUWEN_VISITOR_PASSWORD` | None | 访客密码，仅保护搜索端点（v0.6.3） |
+| `admin_password` | `SOUWEN_ADMIN_PASSWORD` | None | 管理密码，仅保护 `/api/v1/admin/*`（v0.6.3） |
+| `cors_origins` | — | `[]` | CORS 允许来源列表，为空时不启用 CORS |
+| `trusted_proxies` | `SOUWEN_TRUSTED_PROXIES` | `[]` | 受信反向代理 IP/CIDR 列表，逗号分隔 |
+| `expose_docs` | `SOUWEN_EXPOSE_DOCS` | `true` | 是否暴露 `/docs`、`/redoc`、`/openapi.json` |
+
+**密码优先级**（v0.6.3 双密码模型）：
+
+- 搜索端点：`visitor_password` > `api_password` > 无（开放）
+- 管理端点：`admin_password` > `api_password` > 无（开放，且需 `SOUWEN_ADMIN_OPEN=1` 显式放行）
+
+显式将 `visitor_password` 或 `admin_password` 设为空字符串可“强制开放”对应分组，忽略 `api_password` 回退。
 
 ## 代理池配置
 
@@ -157,11 +186,11 @@ config = reload_config()
 
 ### Admin API 默认锁定 (P0-7)
 
-当 `api_password` **未设置**时，所有 `/api/v1/admin/*` 端点默认返回 `401 Unauthorized`，响应体包含提示信息。推荐的使用方式：
+当 `admin_password`（或回退的 `api_password`）**未设置**时，所有 `/api/v1/admin/*` 端点默认返回 `401 Unauthorized`，响应体包含提示信息。推荐的使用方式：
 
 | 场景 | 做法 |
 | --- | --- |
-| 生产部署 | 设置 `SOUWEN_API_PASSWORD=<强随机串>`，使用 `Authorization: Bearer <password>` 访问 |
+| 生产部署 | 设置 `SOUWEN_ADMIN_PASSWORD=<强随机串>`，使用 `Authorization: Bearer <password>` 访问 |
 | 本地开发 / CI 冒烟测试 | 可选 `SOUWEN_ADMIN_OPEN=1` 显式绕过锁定（启动时会打 WARNING 日志） |
 
 未配置密码且未设置 `SOUWEN_ADMIN_OPEN` 时，任何 admin 请求都会被拒绝——默认最安全。
