@@ -573,12 +573,21 @@ def config_source(
 
     cfg = get_config()
 
+    # integration_type → 表格短标签
+    _INTEGRATION_SHORT = {
+        "open_api": "公开",
+        "scraper": "爬虫",
+        "official_api": "授权",
+        "self_hosted": "自建",
+    }
+
     if name is None:
         # 列出全部数据源配置
         all_sources = get_all_sources()
         table = Table(title="📡 数据源频道配置", show_lines=True)
         table.add_column("源", style="cyan")
         table.add_column("类别", style="yellow")
+        table.add_column("集成", style="magenta")
         table.add_column("启用", justify="center")
         table.add_column("代理", style="dim")
         table.add_column("后端", style="dim")
@@ -599,6 +608,7 @@ def config_source(
             table.add_row(
                 src_name,
                 meta.category,
+                _INTEGRATION_SHORT.get(meta.integration_type, meta.integration_type),
                 enabled_icon,
                 sc.proxy,
                 sc.http_backend,
@@ -736,18 +746,27 @@ def config_proxy(
 @app.command("sources")
 def list_sources() -> None:
     """列出所有可用数据源"""
-    from souwen.models import ALL_SOURCES
+    from souwen.source_registry import get_all_sources
+
+    _INTEGRATION_SHORT = {
+        "open_api": "公开",
+        "scraper": "爬虫",
+        "official_api": "授权",
+        "self_hosted": "自建",
+    }
 
     table = Table(title="📚 SouWen 数据源", show_lines=True)
     table.add_column("Name", style="cyan")
-    table.add_column("Type", style="yellow")
+    table.add_column("Category", style="yellow")
+    table.add_column("Integration", style="magenta")
     table.add_column("Needs Key", justify="center")
     table.add_column("Description", style="dim")
 
-    for source_type, entries in ALL_SOURCES.items():
-        for name, needs_key, description in entries:
-            key_indicator = "🔑" if needs_key else "✅"
-            table.add_row(name, source_type, key_indicator, description)
+    for name, meta in get_all_sources().items():
+        needs_key = meta.config_field is not None
+        key_indicator = "🔑" if needs_key else "✅"
+        integration = _INTEGRATION_SHORT.get(meta.integration_type, meta.integration_type)
+        table.add_row(name, meta.category, integration, key_indicator, meta.description)
 
     console.print(table)
 

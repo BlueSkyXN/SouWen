@@ -33,11 +33,11 @@ SouWen 的管理面板（`/panel`）采用三层外观体系：
 |------|------|
 | **搜索页** | Command Center 布局：居中搜索框、分段控制器（论文/专利/网页）、建议标签、渐变光球背景 |
 | **仪表盘** | 紧凑统计卡（compact stats）、健康环形图、数据源状态概览 |
-| **数据源页** | 分组卡片展示 + 顶部 Filter Tabs（按域/状态过滤），左边框按状态区分，卡片顶部显示层级色带（tier color band） |
+| **数据源页** | 分组卡片展示 + 顶部 Filter Tabs（按域/状态过滤），左边框按状态区分，卡片顶部显示集成类型色带（按 integration_type 区分 open_api / scraper / official_api / self_hosted） |
 | **配置页** | 分组折叠面板，API Key 管理，顶部彩色边框 |
 | **登录页** | 居中卡片，无密码时自动登录 |
 
-> **v0.6.3 视觉升级**：classic 皮肤整体提升美学密度——更细腻的多层阴影 + 强调色辉光（glow）、卡片/导航的毛玻璃（backdrop-filter）、统一的过渡曲线、按钮与卡片的 hover 抬升与色彩反馈、Sources 页 Filter Tabs 与层级色带、Dashboard 紧凑统计区。
+> **v0.6.3 视觉升级**：classic 皮肤整体提升美学密度——更细腻的多层阴影 + 强调色辉光（glow）、卡片/导航的毛玻璃（backdrop-filter）、统一的过渡曲线、按钮与卡片的 hover 抬升与色彩反馈、Sources 页 Filter Tabs 与集成类型色带、Dashboard 紧凑统计区。
 
 ### carbon
 

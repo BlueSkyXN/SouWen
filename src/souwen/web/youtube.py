@@ -4,7 +4,7 @@
     YouTube Data API v3 搜索客户端。通过 Google 提供的公开 API 检索
     YouTube 视频内容。需要 API Key（通过配置字段 youtube_api_key
     或环境变量 YOUTUBE_API_KEY 提供），无 Key 时客户端初始化会抛出
-    ConfigError 以便调度层（tier 0）跳过该数据源。
+    ConfigError 以便调度层（integration_type=official_api）跳过该数据源。
 
 函数/类清单：
     resolve_api_key(legacy_field, env_var) -> str | None
@@ -102,7 +102,7 @@ class YouTubeClient(SouWenHttpClient):
     """YouTube Data API v3 视频搜索客户端
 
     需要 Google Cloud Console 创建的 API Key。无 Key 时初始化抛出
-    ``ConfigError``，调度层（tier 0）应捕获并跳过本数据源。
+    ``ConfigError``，调度层应捕获并跳过本数据源。
 
     Example:
         async with YouTubeClient() as c:
@@ -123,7 +123,7 @@ class YouTubeClient(SouWenHttpClient):
     def __init__(self):
         api_key = resolve_api_key("youtube_api_key", "YOUTUBE_API_KEY")
         if not api_key:
-            # tier 0 数据源：未配置 Key 时抛 ConfigError 以便调度层跳过
+            # 未配置 Key 时抛 ConfigError 以便调度层跳过
             raise ConfigError(
                 "youtube_api_key",
                 "YouTube",

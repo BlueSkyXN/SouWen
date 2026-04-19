@@ -43,6 +43,11 @@ from souwen.exceptions import (
 )
 from souwen.config import SouWenConfig
 from souwen.rate_limiter import TokenBucketLimiter, SlidingWindowLimiter
+from souwen.source_registry import (
+    get_sources_by_integration_type,
+    get_all_sources,
+    INTEGRATION_TYPES,
+)
 
 
 class TestModels:
@@ -189,10 +194,18 @@ class TestModels:
             SourceType.WEB_EXA,
             SourceType.WEB_SERPER,
             SourceType.WEB_BRAVE_API,
+            SourceType.WEB_GITHUB,
+            SourceType.WEB_STACKOVERFLOW,
+            SourceType.WEB_REDDIT,
+            SourceType.WEB_BILIBILI,
+            SourceType.WEB_WIKIPEDIA,
+            SourceType.WEB_YOUTUBE,
+            SourceType.WEB_ZHIHU,
+            SourceType.WEB_WEIBO,
         ]
         assert len(paper_sources) == 8
         assert len(patent_sources) == 8
-        assert len(web_sources) == 10
+        assert len(web_sources) == 18
 
 
 class TestExceptions:
@@ -507,6 +520,42 @@ class TestServer:
             assert "/health" in routes
         except ImportError:
             pytest.skip("fastapi not installed")
+
+
+class TestSourceRegistryIntegrationType:
+    """数据源注册表 — get_sources_by_integration_type() 测试"""
+
+    def test_each_integration_type_non_empty(self):
+        """4 种集成类型均应返回非空列表"""
+        for itype in INTEGRATION_TYPES:
+            sources = get_sources_by_integration_type(itype)
+            assert len(sources) > 0, f"集成类型 {itype} 不应为空"
+
+    def test_returned_sources_have_correct_type(self):
+        """返回的 SourceMeta 的 integration_type 必须与查询一致"""
+        for itype in INTEGRATION_TYPES:
+            sources = get_sources_by_integration_type(itype)
+            for meta in sources:
+                assert meta.integration_type == itype, (
+                    f"源 {meta.name} 的 integration_type={meta.integration_type} "
+                    f"与查询 {itype} 不一致"
+                )
+
+    def test_union_covers_all_sources(self):
+        """4 种集成类型的并集应覆盖所有已注册数据源"""
+        all_sources = get_all_sources()
+        union: set[str] = set()
+        for itype in INTEGRATION_TYPES:
+            union.update(meta.name for meta in get_sources_by_integration_type(itype))
+        assert union == set(all_sources.keys()), (
+            f"集成类型并集与全集不一致，缺失: {set(all_sources.keys()) - union}，"
+            f"多余: {union - set(all_sources.keys())}"
+        )
+
+    def test_unknown_type_returns_empty(self):
+        """未知集成类型应返回空列表"""
+        assert get_sources_by_integration_type("nonexistent_type") == []
+        assert get_sources_by_integration_type("") == []
 
 
 class TestOAuthTokenConcurrency:
