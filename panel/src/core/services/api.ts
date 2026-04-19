@@ -257,31 +257,28 @@ class ApiService {
   /**
    * 搜索论文
    */
-  async searchPaper(q: string, sources: string, perPage: number, signal?: AbortSignal): Promise<SearchResponse> {
-    return this.request<SearchResponse>(
-      `/api/v1/search/paper?q=${encodeURIComponent(q)}&sources=${encodeURIComponent(sources)}&per_page=${perPage}`,
-      { headers: this.headers(), signal },
-    )
+  async searchPaper(q: string, sources: string, perPage: number, signal?: AbortSignal, timeout?: number): Promise<SearchResponse> {
+    let url = `/api/v1/search/paper?q=${encodeURIComponent(q)}&sources=${encodeURIComponent(sources)}&per_page=${perPage}`
+    if (timeout) url += `&timeout=${timeout}`
+    return this.request<SearchResponse>(url, { headers: this.headers(), signal })
   }
 
   /**
    * 搜索专利
    */
-  async searchPatent(q: string, sources: string, perPage: number, signal?: AbortSignal): Promise<SearchResponse> {
-    return this.request<SearchResponse>(
-      `/api/v1/search/patent?q=${encodeURIComponent(q)}&sources=${encodeURIComponent(sources)}&per_page=${perPage}`,
-      { headers: this.headers(), signal },
-    )
+  async searchPatent(q: string, sources: string, perPage: number, signal?: AbortSignal, timeout?: number): Promise<SearchResponse> {
+    let url = `/api/v1/search/patent?q=${encodeURIComponent(q)}&sources=${encodeURIComponent(sources)}&per_page=${perPage}`
+    if (timeout) url += `&timeout=${timeout}`
+    return this.request<SearchResponse>(url, { headers: this.headers(), signal })
   }
 
   /**
    * 网页搜索
    */
-  async searchWeb(q: string, engines: string, maxResults: number, signal?: AbortSignal): Promise<WebSearchResponse> {
-    return this.request<WebSearchResponse>(
-      `/api/v1/search/web?q=${encodeURIComponent(q)}&engines=${encodeURIComponent(engines)}&max_results=${maxResults}`,
-      { headers: this.headers(), signal },
-    )
+  async searchWeb(q: string, engines: string, maxResults: number, signal?: AbortSignal, timeout?: number): Promise<WebSearchResponse> {
+    let url = `/api/v1/search/web?q=${encodeURIComponent(q)}&engines=${encodeURIComponent(engines)}&max_results=${maxResults}`
+    if (timeout) url += `&timeout=${timeout}`
+    return this.request<WebSearchResponse>(url, { headers: this.headers(), signal })
   }
 
   /**
@@ -388,6 +385,27 @@ class ApiService {
     params: { enabled?: boolean; proxy?: string; http_backend?: string; base_url?: string; api_key?: string }
   ): Promise<{ status: string; source: string }> {
     return this.request(`/api/v1/admin/sources/config/${encodeURIComponent(sourceName)}`, {
+      method: 'PUT',
+      headers: this.headers(),
+      body: JSON.stringify(params),
+    })
+  }
+
+  /**
+   * 获取全局代理配置
+   */
+  async getProxyConfig(): Promise<{ proxy: string | null; proxy_pool: string[]; socks_supported: boolean }> {
+    return this.request('/api/v1/admin/proxy', { headers: this.headers() })
+  }
+
+  /**
+   * 更新全局代理配置
+   */
+  async updateProxyConfig(params: {
+    proxy?: string | null
+    proxy_pool?: string[]
+  }): Promise<{ status: string; proxy: string | null; proxy_pool: string[] }> {
+    return this.request('/api/v1/admin/proxy', {
       method: 'PUT',
       headers: this.headers(),
       body: JSON.stringify(params),

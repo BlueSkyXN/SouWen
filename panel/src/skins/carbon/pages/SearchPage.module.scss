@@ -421,3 +421,73 @@
     width: calc(100% - 8px);
   }
 }
+
+/* ── Advanced Search Panel ── */
+.advancedToggle {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+.advancedToggleBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 12px;
+  color: #0f62fe;
+  background: transparent;
+  border: 1px solid #393939;
+  border-radius: 0;
+  cursor: pointer;
+  font-family: inherit;
+  &:hover { background: rgba(15, 98, 254, 0.1); }
+}
+.advancedPanel {
+  margin-top: 12px;
+  padding: 16px;
+  background: #161616;
+  border: 1px solid #393939;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.advancedField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.advancedLabel {
+  font-size: 12px;
+  color: #c6c6c6;
+  font-weight: 400;
+}
+.slider {
+  width: 100%;
+  cursor: pointer;
+  accent-color: #0f62fe;
+}
+.numberInput {
+  padding: 8px 12px;
+  font-size: 14px;
+  background: #262626;
+  color: #f4f4f4;
+  border: none;
+  border-bottom: 1px solid #6f6f6f;
+  font-family: inherit;
+  &:focus { outline: 2px solid #0f62fe; outline-offset: -2px; }
+}
+.rangeHint {
+  font-size: 11px;
+  color: #8d8d8d;
+}
+.resetBtn {
+  align-self: flex-start;
+  padding: 6px 14px;
+  font-size: 12px;
+  color: #fa4d56;
+  background: transparent;
+  border: 1px solid #fa4d56;
+  cursor: pointer;
+  font-family: inherit;
+  &:hover { background: rgba(250, 77, 86, 0.1); }
+}

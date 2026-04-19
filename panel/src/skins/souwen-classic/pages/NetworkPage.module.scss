@@ -332,3 +332,48 @@
     box-shadow: 0 0 0 3px var(--accent-bg-medium), var(--shadow-glow);
   }
 }
+
+/* ── Proxy Config Card ── */
+.proxyField {
+  margin-top: 1rem;
+}
+
+.proxyLabel {
+  display: block;
+  font-weight: 500;
+  margin-bottom: 0.4rem;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.proxyHint {
+  font-size: 0.8rem;
+  opacity: 0.7;
+  margin: 0 0 0.5rem 0;
+  color: var(--text-secondary, var(--text));
+}
+
+.proxyTextarea {
+  width: 100%;
+  min-height: 4.5rem;
+  padding: 0.6rem 0.75rem;
+  border-radius: 0.6rem;
+  border: 1px solid var(--border);
+  background: var(--surface, var(--bg));
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, monospace;
+  font-size: 0.85rem;
+  resize: vertical;
+  outline: none;
+
+  &:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px var(--accent-bg-medium);
+  }
+}
+
+.proxyActions {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 1rem;
+}

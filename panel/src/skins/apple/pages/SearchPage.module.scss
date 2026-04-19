@@ -402,3 +402,71 @@
     border-radius: $radius;
   }
 }
+
+/* ── Advanced Search Panel ── */
+.advancedToggle {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 8px;
+}
+.advancedToggleBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  font-size: 13px;
+  color: #007aff;
+  background: transparent;
+  border: 1px solid rgba(0, 122, 255, 0.3);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.15s;
+  &:hover { background: rgba(0, 122, 255, 0.08); }
+}
+.advancedPanel {
+  margin-top: 12px;
+  padding: 16px;
+  background: rgba(0, 0, 0, 0.02);
+  border: 1px solid rgba(0, 0, 0, 0.06);
+  border-radius: 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.advancedField {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.advancedLabel {
+  font-size: 13px;
+  color: #1d1d1f;
+  font-weight: 500;
+}
+.slider {
+  width: 100%;
+  cursor: pointer;
+}
+.numberInput {
+  padding: 8px 12px;
+  font-size: 14px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 8px;
+  background: #fff;
+  &:focus { outline: none; border-color: #007aff; }
+}
+.rangeHint {
+  font-size: 11px;
+  color: #86868b;
+}
+.resetBtn {
+  align-self: flex-start;
+  padding: 6px 14px;
+  font-size: 13px;
+  color: #ff3b30;
+  background: transparent;
+  border: 1px solid rgba(255, 59, 48, 0.3);
+  border-radius: 8px;
+  cursor: pointer;
+  &:hover { background: rgba(255, 59, 48, 0.08); }
+}

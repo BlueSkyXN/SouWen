@@ -659,6 +659,77 @@ def config_source(
         console.print(f"  Params: {json.dumps(sc.params)}")
 
 
+@config_app.command("proxy")
+def config_proxy(
+    proxy: str | None = typer.Option(
+        None, "--proxy", help="全局代理 URL（如 socks5://127.0.0.1:1080）"
+    ),
+    add_pool: str | None = typer.Option(None, "--add-pool", help="向代理池添加一个 URL"),
+    remove_pool: str | None = typer.Option(None, "--remove-pool", help="从代理池移除一个 URL"),
+    clear_pool: bool = typer.Option(False, "--clear-pool", help="清空代理池"),
+    clear_proxy: bool = typer.Option(False, "--clear-proxy", help="清除全局代理"),
+) -> None:
+    """查看/修改全局代理配置"""
+    from souwen.config import _validate_proxy_url, get_config
+
+    cfg = get_config()
+    modified = False
+
+    if proxy is not None:
+        try:
+            validated = _validate_proxy_url(proxy)
+            cfg.proxy = validated
+            modified = True
+        except ValueError as e:
+            console.print(f"[red]代理 URL 无效: {e}[/red]")
+            raise typer.Exit(1)
+
+    if clear_proxy:
+        cfg.proxy = None
+        modified = True
+
+    if add_pool is not None:
+        try:
+            validated = _validate_proxy_url(add_pool)
+            if validated and validated not in cfg.proxy_pool:
+                cfg.proxy_pool.append(validated)
+                modified = True
+        except ValueError as e:
+            console.print(f"[red]代理池 URL 无效: {e}[/red]")
+            raise typer.Exit(1)
+
+    if remove_pool is not None:
+        if remove_pool in cfg.proxy_pool:
+            cfg.proxy_pool.remove(remove_pool)
+            modified = True
+        else:
+            console.print(f"[yellow]代理池中未找到: {remove_pool}[/yellow]")
+
+    if clear_pool:
+        cfg.proxy_pool = []
+        modified = True
+
+    if modified:
+        console.print("[green]✅ 代理配置已更新[/green]")
+        console.print("[yellow]⚠ 运行时修改仅当前进程有效。如需持久化请修改 souwen.yaml[/yellow]")
+
+    console.print("\n[bold]📡 全局代理配置[/bold]")
+    console.print(f"  代理: {cfg.proxy or '[dim]未设置[/dim]'}")
+    if cfg.proxy_pool:
+        console.print(f"  代理池 ({len(cfg.proxy_pool)} 个):")
+        for i, p in enumerate(cfg.proxy_pool, 1):
+            console.print(f"    {i}. {p}")
+    else:
+        console.print("  代理池: [dim]空[/dim]")
+
+    try:
+        import socksio  # noqa: F401
+
+        console.print("  SOCKS 支持: [green]✅ 已安装 socksio[/green]")
+    except ImportError:
+        console.print("  SOCKS 支持: [yellow]⚠ 未安装 socksio (pip install httpx[socks])[/yellow]")
+
+
 # ---------------------------------------------------------------------------
 # sources 命令
 # ---------------------------------------------------------------------------

@@ -84,6 +84,7 @@ class GooglePatentsScraper(BaseScraper):
     """
 
     ENGINE_NAME = "google_patents"
+    BASE_URL = GOOGLE_PATENTS_BASE
 
     def __init__(self, min_delay: float = 3.0, max_delay: float = 6.0):
         super().__init__(min_delay=min_delay, max_delay=max_delay, max_retries=3)
@@ -104,7 +105,7 @@ class GooglePatentsScraper(BaseScraper):
             SearchResponse：统一搜索响应格式
         """
         logger.info("[Google Patents] 搜索: %s (兜底爬虫)", query)
-        url = f"{GOOGLE_PATENTS_BASE}/xhr/query"
+        url = f"{self._resolved_base_url}/xhr/query"
         params = {
             "url": f"q={quote_plus(query)}&num={num_results}",
             "exp": "",
@@ -138,7 +139,7 @@ class GooglePatentsScraper(BaseScraper):
         Returns:
             SearchResponse：可能为空结果集（若页面无法解析）
         """
-        url = f"{GOOGLE_PATENTS_BASE}/"
+        url = f"{self._resolved_base_url}/"
         params = {"q": query, "num": str(num_results)}
 
         resp = await self._fetch(url, params=params)
@@ -233,7 +234,7 @@ class GooglePatentsScraper(BaseScraper):
             match = re.search(r"/patent/([^/]+)", href)
             if match:
                 patent_id = match.group(1)
-                source_url = f"{GOOGLE_PATENTS_BASE}/patent/{patent_id}"
+                source_url = f"{self._resolved_base_url}/patent/{patent_id}"
 
         if not patent_id:
             return None
@@ -247,7 +248,7 @@ class GooglePatentsScraper(BaseScraper):
             title=title,
             patent_id=patent_id,
             abstract=abstract,
-            source_url=source_url or f"{GOOGLE_PATENTS_BASE}",
+            source_url=source_url or f"{self._resolved_base_url}",
             raw={},
         )
 
@@ -299,7 +300,7 @@ class GooglePatentsScraper(BaseScraper):
             else data.get("abstract"),
             ipc_codes=data.get("ipc", []),
             cpc_codes=data.get("cpc", []),
-            source_url=f"{GOOGLE_PATENTS_BASE}/patent/{publication_number}",
+            source_url=f"{self._resolved_base_url}/patent/{publication_number}",
             raw=data,
         )
 
@@ -320,7 +321,7 @@ class GooglePatentsScraper(BaseScraper):
             ParseError：页面解析失败（隐式，返回部分数据）
         """
         logger.info("[Google Patents] 获取专利详情: %s (兜底爬虫)", patent_id)
-        url = f"{GOOGLE_PATENTS_BASE}/patent/{patent_id}/en"
+        url = f"{self._resolved_base_url}/patent/{patent_id}/en"
 
         resp = await self._fetch(url)
         if resp.status_code == 404:
@@ -376,6 +377,6 @@ class GooglePatentsScraper(BaseScraper):
             claims=claims,
             ipc_codes=ipc_codes,
             cpc_codes=cpc_codes,
-            source_url=f"{GOOGLE_PATENTS_BASE}/patent/{patent_id}/en",
+            source_url=f"{self._resolved_base_url}/patent/{patent_id}/en",
             raw={},
         )

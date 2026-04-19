@@ -74,7 +74,7 @@ class BaiduClient(BaseScraper):
         Returns:
             WebSearchResponse 包含搜索结果
         """
-        url = f"{self.BASE_URL}?wd={quote_plus(query)}"
+        url = f"{self._resolved_base_url}?wd={quote_plus(query)}"
 
         resp = await self._fetch(url)
         html = resp.text

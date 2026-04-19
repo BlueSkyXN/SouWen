@@ -236,6 +236,32 @@ class UpdateSourceConfigRequest(BaseModel):
     api_key: str | None = None
 
 
+class ProxyConfigResponse(BaseModel):
+    """全局代理配置查询响应
+
+    Attributes:
+        proxy: 全局代理 URL
+        proxy_pool: 代理池 URL 列表
+        socks_supported: httpx 是否支持 SOCKS 代理
+    """
+
+    proxy: str | None = None
+    proxy_pool: list[str] = Field(default_factory=list)
+    socks_supported: bool = False
+
+
+class UpdateProxyConfigRequest(BaseModel):
+    """更新全局代理配置的请求体
+
+    Attributes:
+        proxy: 全局代理 URL（空字符串清除）
+        proxy_pool: 代理池 URL 列表（空列表清除）
+    """
+
+    proxy: str | None = None
+    proxy_pool: list[str] | None = None
+
+
 class ErrorResponse(BaseModel):
     """统一错误响应格式 — 所有 4xx/5xx 错误使用此结构
 

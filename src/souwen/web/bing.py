@@ -73,7 +73,7 @@ class BingClient(BaseScraper):
             WebSearchResponse 包含搜索结果
         """
         # URL 参数：q 搜索词，count 结果数（预留余量以应对过滤）
-        url = f"{self.BASE_URL}?q={quote_plus(query)}&count={min(max_results + 5, 50)}"
+        url = f"{self._resolved_base_url}?q={quote_plus(query)}&count={min(max_results + 5, 50)}"
 
         resp = await self._fetch(url)
         html = resp.text

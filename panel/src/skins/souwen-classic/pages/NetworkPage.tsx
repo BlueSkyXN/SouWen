@@ -380,6 +380,114 @@ function WarpCard() {
 }
 
 /**
+ * ProxyConfigCard 组件：全局代理配置卡片
+ * 功能：管理全局 HTTP/SOCKS 代理与代理池，显示 socksio 安装状态
+ */
+function ProxyConfigCard() {
+  const { t } = useTranslation()
+  const addToast = useNotificationStore((s) => s.addToast)
+  const [proxy, setProxy] = useState('')
+  const [poolText, setPoolText] = useState('')
+  const [socksSupported, setSocksSupported] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+
+  const fetchConfig = useCallback(async () => {
+    try {
+      setLoading(true)
+      const data = await api.getProxyConfig()
+      setProxy(data.proxy || '')
+      setPoolText((data.proxy_pool || []).join('\n'))
+      setSocksSupported(data.socks_supported)
+    } catch {
+      addToast('error', t('proxy.fetchFailed'))
+    } finally {
+      setLoading(false)
+    }
+  }, [addToast, t])
+
+  useEffect(() => { void fetchConfig() }, [fetchConfig])
+
+  const handleSave = useCallback(async () => {
+    setSaving(true)
+    try {
+      const pool = poolText.split('\n').map((s) => s.trim()).filter(Boolean)
+      await api.updateProxyConfig({ proxy: proxy.trim() || '', proxy_pool: pool })
+      addToast('success', t('proxy.saved'))
+    } catch (err) {
+      addToast('error', t('proxy.saveFailed', { message: formatError(err) }))
+    } finally {
+      setSaving(false)
+    }
+  }, [proxy, poolText, addToast, t])
+
+  const handleClear = useCallback(async () => {
+    setSaving(true)
+    try {
+      await api.updateProxyConfig({ proxy: '', proxy_pool: [] })
+      setProxy('')
+      setPoolText('')
+      addToast('success', t('proxy.saved'))
+    } catch (err) {
+      addToast('error', t('proxy.saveFailed', { message: formatError(err) }))
+    } finally {
+      setSaving(false)
+    }
+  }, [addToast, t])
+
+  if (loading) return null
+
+  return (
+    <Card className={styles.sectionCard}>
+      <div className={styles.sectionHeader}>
+        <div className={styles.sectionTitle}>
+          <Shield size={18} />
+          {t('proxy.title')}
+        </div>
+        <Badge color={socksSupported ? 'green' : 'amber'}>
+          {socksSupported ? t('proxy.socksAvailable') : t('proxy.socksUnavailable')}
+        </Badge>
+      </div>
+
+      <div className={styles.infoNote}>
+        <Info size={14} />
+        <span>{t('proxy.description')}</span>
+      </div>
+
+      <div className={styles.proxyField}>
+        <label className={styles.proxyLabel}>{t('proxy.globalProxy')}</label>
+        <Input
+          value={proxy}
+          onChange={(e) => setProxy(e.target.value)}
+          placeholder={t('proxy.globalProxyPlaceholder')}
+        />
+      </div>
+
+      <div className={styles.proxyField}>
+        <label className={styles.proxyLabel}>{t('proxy.proxyPool')}</label>
+        <p className={styles.proxyHint}>{t('proxy.poolDescription')}</p>
+        <textarea
+          className={styles.proxyTextarea}
+          value={poolText}
+          onChange={(e) => setPoolText(e.target.value)}
+          placeholder={t('proxy.proxyPoolPlaceholder')}
+          rows={3}
+        />
+      </div>
+
+      <div className={styles.proxyActions}>
+        <Button variant="primary" size="sm" loading={saving} onClick={handleSave}>
+          {saving ? t('proxy.saving') : t('proxy.save')}
+        </Button>
+        <Button variant="ghost" size="sm" disabled={saving} onClick={handleClear}>
+          {t('proxy.clear')}
+        </Button>
+      </div>
+    </Card>
+  )
+}
+
+/**
  * NetworkPage 主组件
  * 组合 HttpBackendCard 与 WarpCard，提供网络层配置入口
  */
@@ -402,6 +510,10 @@ export function NetworkPage() {
 
       <m.div variants={staggerItem}>
         <WarpCard />
+      </m.div>
+
+      <m.div variants={staggerItem}>
+        <ProxyConfigCard />
       </m.div>
 
       <m.div variants={staggerItem}>
