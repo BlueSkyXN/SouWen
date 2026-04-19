@@ -40,6 +40,8 @@ interface State {
  * 当子组件发生未捕获异常时，显示降级 UI 并提供重新加载选项
  */
 export class ErrorBoundary extends Component<Props, State> {
+  state: State = { hasError: false, error: null }
+
   // 静态生命周期方法，用于在错误发生时更新 state
   static getDerivedStateFromError(error: Error): State {
     return { hasError: true, error }
