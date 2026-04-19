@@ -107,10 +107,13 @@ jobs:
               LinkupClient, ScrapingDogClient,
               StartpageClient, BaiduClient, MojeekClient, YandexClient,
               WhoogleClient, WebsurfxClient,
-              web_search,
+              GitHubClient, StackOverflowClient, RedditClient, BilibiliClient,
+              WikipediaClient, YouTubeClient, ZhihuClient, WeiboClient,
+              JinaReaderClient,
+              web_search, fetch_content,
           )
           from souwen.doctor import check_all
-          print('全部 37 数据源 + doctor 导入成功 ✅')
+          print('全部数据源 + doctor 导入成功 ✅')
           "
 
   server-test:

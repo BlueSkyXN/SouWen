@@ -122,9 +122,7 @@ async def test_search_basic_returns_results(httpx_mock: HTTPXMock):
 
     first = resp.results[0]
     assert first.title == "Asyncio is great"
-    assert first.url == (
-        "https://www.reddit.com/r/Python/comments/aaa/asyncio_is_great/"
-    )
+    assert first.url == ("https://www.reddit.com/r/Python/comments/aaa/asyncio_is_great/")
     assert first.snippet == "Some body text"
     assert first.engine == "reddit"
     assert first.source == SourceType.WEB_REDDIT
@@ -180,7 +178,7 @@ async def test_search_skips_incomplete_records(httpx_mock: HTTPXMock):
     payload = _make_listing(
         [
             _make_post(title="", permalink="/r/x/comments/1/_/"),  # 空标题
-            _make_post(title="No permalink", permalink=""),        # 空 permalink
+            _make_post(title="No permalink", permalink=""),  # 空 permalink
             _make_post(title="Valid", permalink="/r/x/comments/2/v/"),
         ]
     )
@@ -195,10 +193,7 @@ async def test_search_skips_incomplete_records(httpx_mock: HTTPXMock):
 
 async def test_search_respects_max_results(httpx_mock: HTTPXMock):
     """API 多返回时仍按 max_results 截断。"""
-    posts = [
-        _make_post(title=f"Post {i}", permalink=f"/r/x/comments/{i}/p/")
-        for i in range(20)
-    ]
+    posts = [_make_post(title=f"Post {i}", permalink=f"/r/x/comments/{i}/p/") for i in range(20)]
     httpx_mock.add_response(url=REDDIT_URL_RE, json=_make_listing(posts))
 
     async with RedditClient() as c:

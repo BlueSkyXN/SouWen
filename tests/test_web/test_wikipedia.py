@@ -131,8 +131,7 @@ async def test_empty_results(httpx_mock: HTTPXMock):
 async def test_html_cleanup(httpx_mock: HTTPXMock):
     """snippet 中 ``<span class="searchmatch">`` 等 HTML 标签被剥离，HTML 实体被解码。"""
     raw_snippet = (
-        'AT&amp;T 与 <span class="searchmatch">人工智能</span> '
-        "<b>研究</b>&nbsp;领域的&#x20;合作"
+        'AT&amp;T 与 <span class="searchmatch">人工智能</span> <b>研究</b>&nbsp;领域的&#x20;合作'
     )
     httpx_mock.add_response(
         url=WIKI_URL_RE,
@@ -159,10 +158,7 @@ async def test_html_cleanup(httpx_mock: HTTPXMock):
 
 async def test_max_results_param(httpx_mock: HTTPXMock):
     """max_results 应作为 srlimit 透传，并对超额响应做截断。"""
-    items = [
-        _make_item(title=f"Page {i}", pageid=i, snippet=f"snippet {i}")
-        for i in range(20)
-    ]
+    items = [_make_item(title=f"Page {i}", pageid=i, snippet=f"snippet {i}") for i in range(20)]
     httpx_mock.add_response(url=WIKI_URL_RE, json=_make_response(items))
 
     async with WikipediaClient() as c:
@@ -274,6 +270,8 @@ async def test_url_encoding(httpx_mock: HTTPXMock):
     # 空格 → 下划线
     assert resp.results[0].url == "https://zh.wikipedia.org/wiki/Machine_learning"
     # 中文需 percent-encoding
-    assert resp.results[1].url == "https://zh.wikipedia.org/wiki/%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BD"
+    assert (
+        resp.results[1].url == "https://zh.wikipedia.org/wiki/%E4%BA%BA%E5%B7%A5%E6%99%BA%E8%83%BD"
+    )
     # ``+`` 在 URL 路径中需转义为 %2B
     assert resp.results[2].url == "https://zh.wikipedia.org/wiki/C%2B%2B"

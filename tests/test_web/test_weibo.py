@@ -258,9 +258,7 @@ def test_max_results_limit():
 def test_error_handling_fetch_exception():
     client = _build_client()
 
-    with patch.object(
-        WeiboClient, "_fetch", new=AsyncMock(side_effect=RuntimeError("boom"))
-    ):
+    with patch.object(WeiboClient, "_fetch", new=AsyncMock(side_effect=RuntimeError("boom"))):
         resp = _run(client.search("x"))
 
     assert resp.results == []

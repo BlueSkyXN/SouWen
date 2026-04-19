@@ -174,9 +174,7 @@ def test_search_returns_results():
 def test_search_html_tag_cleaning_in_results():
     client = _build_client()
     payload = _sample_payload(
-        items=[
-            _sample_item(title='<em class="keyword">AI</em> <b>大模型</b>')
-        ]
+        items=[_sample_item(title='<em class="keyword">AI</em> <b>大模型</b>')]
     )
     fake_resp = _FakeResponse(payload)
 
@@ -213,10 +211,7 @@ def test_search_truncates_description():
 
 def test_search_respects_max_results():
     client = _build_client()
-    items = [
-        _sample_item(arcurl=f"https://www.bilibili.com/video/BV{i}")
-        for i in range(10)
-    ]
+    items = [_sample_item(arcurl=f"https://www.bilibili.com/video/BV{i}") for i in range(10)]
     fake_resp = _FakeResponse(_sample_payload(items=items))
 
     with patch.object(BilibiliClient, "_fetch", new=AsyncMock(return_value=fake_resp)):
@@ -265,9 +260,7 @@ def test_search_handles_api_error_code():
 def test_search_handles_fetch_exception():
     client = _build_client()
 
-    with patch.object(
-        BilibiliClient, "_fetch", new=AsyncMock(side_effect=RuntimeError("boom"))
-    ):
+    with patch.object(BilibiliClient, "_fetch", new=AsyncMock(side_effect=RuntimeError("boom"))):
         resp = _run(client.search("x"))
 
     assert resp.results == []

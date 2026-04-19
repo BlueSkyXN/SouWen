@@ -96,9 +96,7 @@ class RedditClient(SouWenHttpClient):
     SNIPPET_MAX_LEN = 300
 
     VALID_SORTS = frozenset({"relevance", "hot", "new", "top", "comments"})
-    VALID_TIME_FILTERS = frozenset(
-        {"all", "hour", "day", "week", "month", "year"}
-    )
+    VALID_TIME_FILTERS = frozenset({"all", "hour", "day", "week", "month", "year"})
 
     def __init__(self):
         # Reddit 强制要求自定义 User-Agent；使用 SouWen 标识 + 仓库 URL 便于追溯
@@ -139,13 +137,10 @@ class RedditClient(SouWenHttpClient):
             ParseError: Reddit 响应非 JSON 或结构异常
         """
         if sort not in self.VALID_SORTS:
-            raise ValueError(
-                f"无效的 sort: {sort!r}，可选值: {sorted(self.VALID_SORTS)}"
-            )
+            raise ValueError(f"无效的 sort: {sort!r}，可选值: {sorted(self.VALID_SORTS)}")
         if time_filter not in self.VALID_TIME_FILTERS:
             raise ValueError(
-                f"无效的 time_filter: {time_filter!r}，"
-                f"可选值: {sorted(self.VALID_TIME_FILTERS)}"
+                f"无效的 time_filter: {time_filter!r}，可选值: {sorted(self.VALID_TIME_FILTERS)}"
             )
 
         # Reddit 单页上限 100；下限 1 防止请求被拒

@@ -327,6 +327,7 @@ WebSearchResponse = SearchResponse  # 网页搜索使用相同的响应包装
 
 # ── 内容抓取模型 (Fetch / Extract) ─────────────────────────
 
+
 class FetchResult(BaseModel):
     """单个 URL 的内容抓取结果"""
 
@@ -354,6 +355,8 @@ class FetchResponse(BaseModel):
     total_failed: int = 0
     provider: str = ""
     meta: dict = Field(default_factory=dict)
+
+
 ALL_SOURCES: dict[str, list[tuple[str, bool, str]]] = {
     "paper": [
         ("openalex", False, "OpenAlex 开放学术图谱"),

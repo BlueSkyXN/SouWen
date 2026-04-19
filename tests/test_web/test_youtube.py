@@ -54,9 +54,7 @@ def _sample_item(
             "channelTitle": channel_title,
             "channelId": channel_id,
             "publishedAt": published_at,
-            "thumbnails": {
-                "default": {"url": f"https://i.ytimg.com/vi/{video_id}/default.jpg"}
-            },
+            "thumbnails": {"default": {"url": f"https://i.ytimg.com/vi/{video_id}/default.jpg"}},
         },
     }
 
@@ -78,9 +76,7 @@ def _sample_response(items: list[dict] | None = None) -> dict:
 
 async def test_no_api_key_raises_config_error(monkeypatch):
     """未配置 Key 时初始化抛 ConfigError"""
-    monkeypatch.setattr(
-        "souwen.web.youtube.resolve_api_key", lambda *a, **kw: None
-    )
+    monkeypatch.setattr("souwen.web.youtube.resolve_api_key", lambda *a, **kw: None)
     with pytest.raises(ConfigError):
         YouTubeClient()
 
@@ -199,9 +195,7 @@ async def test_url_construction(httpx_mock):
             "?part=snippet&q=url&type=video&maxResults=10&order=relevance"
             "&key=test-youtube-key"
         ),
-        json=_sample_response(
-            items=[_sample_item(video_id="MY_VIDEO_ID", title="t")]
-        ),
+        json=_sample_response(items=[_sample_item(video_id="MY_VIDEO_ID", title="t")]),
     )
 
     async with YouTubeClient() as client:
@@ -219,9 +213,7 @@ async def test_snippet_truncation(httpx_mock):
             "?part=snippet&q=long&type=video&maxResults=10&order=relevance"
             "&key=test-youtube-key"
         ),
-        json=_sample_response(
-            items=[_sample_item(description=long_desc)]
-        ),
+        json=_sample_response(items=[_sample_item(description=long_desc)]),
     )
 
     async with YouTubeClient() as client:

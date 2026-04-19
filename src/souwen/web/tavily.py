@@ -220,7 +220,9 @@ class TavilyClient(SouWenHttpClient):
                     url=fail_url,
                     final_url=fail_url,
                     source="tavily",
-                    error=item.get("error", "extraction failed") if isinstance(item, dict) else "extraction failed",
+                    error=item.get("error", "extraction failed")
+                    if isinstance(item, dict)
+                    else "extraction failed",
                     raw={"provider": "tavily_extract"},
                 )
             )
