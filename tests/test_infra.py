@@ -482,7 +482,7 @@ class TestCLI:
 
         assert len(ALL_SOURCES["paper"]) == 7
         assert len(ALL_SOURCES["patent"]) == 6
-        assert len(ALL_SOURCES["web"]) == 25
+        assert len(ALL_SOURCES["web"]) == 29
 
 
 class TestServer:
