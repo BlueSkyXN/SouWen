@@ -182,6 +182,10 @@ _reg("wikipedia", "wiki", "open_api", None, description="Wikipedia 百科搜索"
 _reg("youtube", "video", "official_api", "youtube_api_key", description="YouTube 视频搜索")
 _reg("bilibili", "video", "scraper", None, description="Bilibili 视频搜索")
 
+# ── 内容抓取 (fetch)：公开接口/授权接口 ──────────────────
+_reg("jina_reader", "fetch", "open_api", "jina_api_key", description="Jina Reader 内容抓取 (免费, 可选 Key)")
+# Note: tavily/firecrawl/exa 的 fetch 能力复用其搜索注册条目（同一 API Key）
+
 
 # ── 公开 API ──────────────────────────────────────────────
 

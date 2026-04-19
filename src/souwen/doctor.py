@@ -61,7 +61,7 @@ def check_all() -> list[dict]:
     Returns:
         每个数据源一条字典，包含：
         - name: 源名称
-        - category: 分类（paper|patent|general|professional|social|developer|wiki|video）
+        - category: 分类（paper|patent|general|professional|social|developer|wiki|video|fetch）
         - status: 状态（ok|warning|limited|unavailable|missing_key|disabled）
         - integration_type: 集成类型（open_api|scraper|official_api|self_hosted）
         - required_key: 必需的配置字段名（或 None）

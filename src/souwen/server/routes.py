@@ -24,6 +24,10 @@
     GET /api/v1/sources
         - 列出当前可用数据源及其配置（隐藏未配置 Key 的授权接口）
 
+    POST /api/v1/fetch
+        - 抓取网页内容（Jina Reader / Tavily / Firecrawl / Exa）
+        - 依赖：速率限制 + 管理密码认证（SSRF 风险）
+
 管理端点（强制认证）：
     GET /api/v1/admin/config
         - 查看当前配置（敏感字段脱敏）
@@ -101,6 +105,7 @@ from souwen.server.limiter import rate_limit_search
 from souwen.server.schemas import (
     ConfigReloadResponse,
     DoctorResponse,
+    FetchRequest,
     HttpBackendResponse,
     ProxyConfigResponse,
     SearchPaperResponse,
@@ -350,6 +355,62 @@ async def list_sources():
         ]
         for category, entries in ALL_SOURCES.items()
     }
+
+
+# ---------------------------------------------------------------------------
+# 内容抓取端点 — 需要管理密码认证（比搜索更重，SSRF 风险）
+# ---------------------------------------------------------------------------
+
+VALID_FETCH_PROVIDERS = {"jina_reader", "tavily", "firecrawl", "exa"}
+
+
+@router.post(
+    "/fetch",
+    dependencies=[Depends(rate_limit_search), Depends(require_auth)],
+)
+async def fetch_content_endpoint(body: FetchRequest):
+    """抓取网页内容 — 支持 Jina Reader / Tavily / Firecrawl / Exa
+
+    通过指定的提供者抓取 URL 列表内容，返回提取的 Markdown/文本。
+    默认使用 jina_reader（免费，无需 API Key）。
+
+    需要管理密码认证（比搜索端点更重，有 SSRF 风险）。
+
+    Raises:
+        HTTPException：400 无效提供者，502 抓取全部失败，504 超时
+    """
+    from souwen.web.fetch import fetch_content
+
+    if body.provider not in VALID_FETCH_PROVIDERS:
+        raise HTTPException(
+            status_code=400,
+            detail=f"无效提供者: {body.provider}，可选: {', '.join(sorted(VALID_FETCH_PROVIDERS))}",
+        )
+
+    try:
+        resp = await asyncio.wait_for(
+            fetch_content(
+                urls=body.urls,
+                providers=[body.provider],
+                timeout=body.timeout,
+            ),
+            timeout=body.timeout + 15,  # 给聚合层留缓冲
+        )
+        return {
+            "urls": resp.urls,
+            "results": [r.model_dump(mode="json") for r in resp.results],
+            "total": resp.total,
+            "total_ok": resp.total_ok,
+            "total_failed": resp.total_failed,
+            "provider": resp.provider,
+            "meta": resp.meta,
+        }
+    except asyncio.TimeoutError:
+        logger.warning("内容抓取超时: provider=%s urls=%d", body.provider, len(body.urls))
+        raise HTTPException(status_code=504, detail=f"抓取超时（{body.timeout}s）")
+    except Exception:
+        logger.warning("内容抓取内部错误: provider=%s", body.provider, exc_info=True)
+        raise
 
 
 # ---------------------------------------------------------------------------

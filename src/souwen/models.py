@@ -66,6 +66,7 @@ from __future__ import annotations
 
 from datetime import date, datetime
 from enum import Enum
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -169,6 +170,8 @@ class SourceType(str, Enum):
     WEB_YOUTUBE = "web_youtube"
     WEB_ZHIHU = "web_zhihu"
     WEB_WEIBO = "web_weibo"
+    # ── 内容抓取 (fetch) ──
+    FETCH_JINA_READER = "fetch_jina_reader"
 
 
 class Author(BaseModel):
@@ -322,7 +325,35 @@ class SearchResponse(BaseModel):
 WebSearchResponse = SearchResponse  # 网页搜索使用相同的响应包装
 
 
-# 所有数据源元信息（CLI 和 API 共用）
+# ── 内容抓取模型 (Fetch / Extract) ─────────────────────────
+
+class FetchResult(BaseModel):
+    """单个 URL 的内容抓取结果"""
+
+    url: str
+    final_url: str  # 重定向后的最终 URL（无重定向时与 url 相同）
+    title: str = ""
+    content: str = ""  # 提取的正文（优先 markdown）
+    content_format: Literal["markdown", "text", "html"] = "markdown"
+    source: str = ""  # 提供者标识: jina_reader / tavily / firecrawl / exa / builtin
+    snippet: str = ""  # 截断的摘要（前 500 字）
+    published_date: str | None = None
+    author: str | None = None
+    error: str | None = None
+    raw: dict = Field(default_factory=dict)
+
+
+class FetchResponse(BaseModel):
+    """内容抓取聚合响应"""
+
+    model_config = ConfigDict(extra="forbid")
+    urls: list[str]
+    results: list[FetchResult]
+    total: int = 0
+    total_ok: int = 0
+    total_failed: int = 0
+    provider: str = ""
+    meta: dict = Field(default_factory=dict)
 ALL_SOURCES: dict[str, list[tuple[str, bool, str]]] = {
     "paper": [
         ("openalex", False, "OpenAlex 开放学术图谱"),
@@ -381,5 +412,11 @@ ALL_SOURCES: dict[str, list[tuple[str, bool, str]]] = {
     "video": [
         ("youtube", False, "YouTube 视频搜索 (可选 Key)"),
         ("bilibili", False, "Bilibili 视频搜索 (爬虫)"),
+    ],
+    "fetch": [
+        ("jina_reader", False, "Jina Reader 内容抓取 (免费)"),
+        ("tavily", True, "Tavily Extract 内容抓取"),
+        ("firecrawl", True, "Firecrawl Scrape 内容抓取"),
+        ("exa", True, "Exa Contents 内容抓取"),
     ],
 }

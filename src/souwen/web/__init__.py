@@ -53,7 +53,9 @@ from souwen.web.wikipedia import WikipediaClient
 from souwen.web.youtube import YouTubeClient
 from souwen.web.zhihu import ZhihuClient
 from souwen.web.weibo import WeiboClient
+from souwen.web.jina_reader import JinaReaderClient
 from souwen.web.search import web_search
+from souwen.web.fetch import fetch_content
 
 __all__ = [
     # 爬虫类（无需 Key）
@@ -89,6 +91,9 @@ __all__ = [
     "YouTubeClient",
     "ZhihuClient",
     "WeiboClient",
-    # 聚合搜索
+    # 内容抓取类 (fetch)
+    "JinaReaderClient",
+    # 聚合搜索/抓取
     "web_search",
+    "fetch_content",
 ]

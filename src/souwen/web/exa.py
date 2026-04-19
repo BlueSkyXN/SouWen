@@ -10,7 +10,8 @@
         - 继承：SouWenHttpClient（HTTP 客户端基类）
         - 关键属性：ENGINE_NAME = "exa", BASE_URL = "https://api.exa.ai",
                   api_key (str) 来自配置的 API 密钥
-        - 主要方法：search(...) -> WebSearchResponse, find_similar(...) -> WebSearchResponse
+        - 主要方法：search(...) -> WebSearchResponse, find_similar(...) -> WebSearchResponse,
+                  contents(...) -> FetchResponse
 
     ExaClient.__init__(api_key=None)
         - 功能：初始化 Exa 搜索客户端，验证 API Key 可用性
@@ -33,6 +34,12 @@
         - 输出：WebSearchResponse 相似页面结果
         - 异常：ParseError API 响应解析失败时抛出
 
+    ExaClient.contents(urls, timeout=30.0) -> FetchResponse
+        - 功能：通过 Exa Contents API 批量获取 URL 内容（原生支持批量）
+        - 输入：urls 目标 URL 列表, timeout 超时秒数
+        - 输出：FetchResponse 包含提取结果
+        - 异常：ParseError API 响应解析失败时抛出
+
 模块依赖：
     - logging: 日志记录
     - typing: 类型注解
@@ -42,7 +49,7 @@
     - souwen.models: SourceType, WebSearchResult, WebSearchResponse 数据模型
 
 技术要点：
-    - API 端点：/search（语义搜索）、/findSimilar（相似链接搜索）
+    - API 端点：/search（语义搜索）、/findSimilar（相似链接搜索）、/contents（内容提取）
     - 请求头 x-api-key 用于身份认证
     - 支持搜索类型：auto（自动）、neural（神经）、keyword（关键词）
     - Snippet 最长 500 字符
@@ -57,7 +64,7 @@ from typing import Any
 from souwen.config import get_config
 from souwen.exceptions import ConfigError
 from souwen.http_client import SouWenHttpClient
-from souwen.models import SourceType, WebSearchResult, WebSearchResponse
+from souwen.models import SourceType, WebSearchResult, WebSearchResponse, FetchResult, FetchResponse
 
 logger = logging.getLogger("souwen.web.exa")
 
@@ -242,3 +249,88 @@ class ExaClient(SouWenHttpClient):
             results=results,
             total_results=len(results),
         )
+
+    async def contents(self, urls: list[str], timeout: float = 30.0) -> FetchResponse:
+        """通过 Exa Contents API 批量获取 URL 内容
+
+        Exa 的 /contents 端点原生支持批量 URL 处理。
+
+        Args:
+            urls: 目标 URL 列表
+            timeout: 超时秒数
+
+        Returns:
+            FetchResponse 包含提取结果
+        """
+        payload: dict[str, Any] = {
+            "urls": urls,
+            "text": True,
+        }
+        try:
+            resp = await self.post(
+                "/contents",
+                json=payload,
+                headers={"x-api-key": self.api_key, "Content-Type": "application/json"},
+            )
+            try:
+                data = resp.json()
+            except Exception as e:
+                from souwen.exceptions import ParseError
+
+                raise ParseError(f"Exa Contents 响应解析失败: {e}") from e
+
+            results: list[FetchResult] = []
+            url_set = set(urls)
+            seen_urls: set[str] = set()
+            for item in data.get("results", []):
+                result_url = item.get("url", "")
+                seen_urls.add(result_url)
+                text = item.get("text", "")
+                results.append(FetchResult(
+                    url=result_url,
+                    final_url=result_url,
+                    title=item.get("title", ""),
+                    content=text,
+                    content_format="text",
+                    source="exa",
+                    snippet=text[:500] if text else "",
+                    published_date=item.get("publishedDate"),
+                    author=item.get("author"),
+                    raw={"provider": "exa_contents", "id": item.get("id")},
+                ))
+            # 标记未在响应中出现的 URL 为失败
+            for missing_url in url_set - seen_urls:
+                results.append(FetchResult(
+                    url=missing_url,
+                    final_url=missing_url,
+                    source="exa",
+                    error="URL not found in Exa contents response",
+                    raw={"provider": "exa_contents"},
+                ))
+
+            ok = sum(1 for r in results if r.error is None)
+            return FetchResponse(
+                urls=urls,
+                results=results,
+                total=len(results),
+                total_ok=ok,
+                total_failed=len(results) - ok,
+                provider="exa",
+            )
+        except Exception as exc:
+            logger.warning("Exa contents failed: urls=%s err=%s", urls, exc)
+            results = [
+                FetchResult(
+                    url=u, final_url=u, source="exa",
+                    error=str(exc), raw={"provider": "exa_contents"}
+                )
+                for u in urls
+            ]
+            return FetchResponse(
+                urls=urls,
+                results=results,
+                total=len(results),
+                total_ok=0,
+                total_failed=len(results),
+                provider="exa",
+            )
