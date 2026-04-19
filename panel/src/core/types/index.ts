@@ -291,6 +291,36 @@ export interface WebSearchResponse {
   per_page: number
 }
 
+/**
+ * 网页内容抓取结果（单个 URL）
+ */
+export interface FetchResult {
+  url: string
+  final_url: string
+  title?: string
+  content?: string
+  content_format?: string
+  snippet?: string
+  source: string
+  published_date?: string
+  author?: string
+  error?: string
+  raw?: Record<string, unknown>
+}
+
+/**
+ * 网页内容抓取响应（批量）
+ */
+export interface FetchResponse {
+  urls: string[]
+  results: FetchResult[]
+  total: number
+  total_ok: number
+  total_failed: number
+  provider: string
+  meta?: Record<string, unknown>
+}
+
 /* ===== UI Types ===== */
 
 /**
