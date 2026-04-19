@@ -1,0 +1,646 @@
+@use '../styles/variables' as *;
+
+/* ─── Animations ─── */
+@keyframes fetchFocusBounce {
+  0%   { transform: scale(1); }
+  40%  { transform: scale(1.012); }
+  70%  { transform: scale(0.997); }
+  100% { transform: scale(1); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: $space-8 $space-6;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-height: calc(100vh - 120px);
+  position: relative;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60%;
+    height: 3px;
+    background: var(--accent-gradient-strip);
+    border-radius: 0 0 $radius-full $radius-full;
+    opacity: 0.7;
+  }
+}
+
+/* ─── Hero Title ─── */
+.heroTitle {
+  text-align: center;
+  margin-bottom: $space-10;
+  margin-top: $space-12;
+}
+
+.heroHeading {
+  font-size: 36px;
+  font-weight: $font-bold;
+  background: var(--accent-gradient-wide);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: $tracking-tight;
+  line-height: 1.15;
+  margin: 0 0 $space-4;
+  text-shadow: 0 2px 12px var(--accent-glow-strong);
+  filter: drop-shadow(0 1px 3px var(--accent-bg-medium));
+}
+
+.heroSubtitle {
+  font-size: $text-xl;
+  color: var(--text-muted);
+  line-height: $leading-relaxed;
+  margin: 0;
+  max-width: 480px;
+  margin-inline: auto;
+}
+
+/* ─── Command Card ─── */
+.commandCard {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  border: 1px solid var(--border);
+  border-radius: 24px;
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.04),
+    0 4px 16px rgba(0, 0, 0, 0.04),
+    0 12px 48px rgba(0, 0, 0, 0.03);
+  overflow: hidden;
+  transition: box-shadow 0.3s ease;
+
+  &:focus-within {
+    box-shadow:
+      0 1px 3px rgba(0, 0, 0, 0.04),
+      0 4px 16px rgba(0, 0, 0, 0.06),
+      0 12px 48px var(--accent-bg);
+  }
+}
+
+.commandCard.compact {
+  border-radius: $radius-xl;
+}
+
+[data-mode='dark'] .commandCard {
+  background: rgba(22, 22, 29, 0.85);
+  box-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.2),
+    0 4px 16px rgba(0, 0, 0, 0.15);
+
+  &:focus-within {
+    box-shadow:
+      0 1px 3px rgba(0, 0, 0, 0.2),
+      0 4px 16px rgba(0, 0, 0, 0.2),
+      0 12px 48px var(--accent-bg);
+  }
+}
+
+/* ─── Command Header ─── */
+.commandHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: $space-5 $space-6;
+  border-bottom: 1px solid var(--border);
+}
+
+.headerTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  color: var(--text);
+  font-size: $text-base;
+  font-weight: $font-semibold;
+}
+
+/* ─── Fetch Form ─── */
+.fetchForm {
+  padding: $space-5 $space-6;
+  border-bottom: 1px solid var(--border);
+
+  .compact & {
+    border-bottom: none;
+    padding-bottom: $space-4;
+  }
+}
+
+.formGroup {
+  margin-bottom: $space-4;
+}
+
+.label {
+  display: block;
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  color: var(--text);
+  margin-bottom: $space-2;
+}
+
+.textareaWrapper {
+  position: relative;
+  display: flex;
+  align-items: flex-start;
+  gap: $space-3;
+  border-radius: $radius-xl;
+  background: var(--bg-subtle);
+  padding: $space-4 $space-6;
+  border: 1.5px solid transparent;
+  transition: all 0.25s ease;
+
+  &:focus-within {
+    border-color: var(--accent-border-strong);
+    background: var(--bg-card);
+    box-shadow: 0 0 0 4px var(--accent-glow);
+    animation: fetchFocusBounce 0.4s ease;
+  }
+}
+
+.inputIcon {
+  flex-shrink: 0;
+  color: var(--accent-secondary);
+  opacity: 0.7;
+  margin-top: 2px;
+  transition: opacity 0.2s ease;
+
+  .textareaWrapper:focus-within & {
+    opacity: 1;
+  }
+}
+
+.textarea {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 15px;
+  font-family: $font-mono;
+  padding: 0;
+  outline: none;
+  resize: vertical;
+  line-height: $leading-relaxed;
+
+  &::placeholder {
+    color: var(--text-muted);
+    font-weight: $font-normal;
+  }
+}
+
+.urlCount {
+  font-size: $text-xs;
+  color: var(--text-muted);
+  margin-top: $space-1;
+}
+
+.controlsRow {
+  display: flex;
+  align-items: flex-end;
+  gap: $space-4;
+  flex-wrap: wrap;
+}
+
+.providerGroup {
+  flex: 1;
+  min-width: 200px;
+}
+
+.select {
+  width: 100%;
+  padding: 14px $space-4;
+  border: 1.5px solid var(--border);
+  border-radius: $radius-lg;
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: $text-base;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:focus {
+    outline: none;
+    border-color: var(--accent-border-strong);
+    box-shadow: 0 0 0 4px var(--accent-glow);
+  }
+}
+
+.fetchButton {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px $space-8;
+  border: none;
+  border-radius: $radius-lg;
+  background: var(--accent-gradient);
+  color: #fff;
+  font-size: $text-md;
+  font-weight: $font-semibold;
+  cursor: pointer;
+  white-space: nowrap;
+  letter-spacing: 0.02em;
+  box-shadow: 0 2px 8px var(--accent-shadow);
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+  background-size: 200% auto;
+
+  &:hover:not(:disabled) {
+    background-image: linear-gradient(135deg, var(--accent), var(--accent-tertiary), var(--accent-soft), var(--accent-tertiary), var(--accent));
+    background-size: 200% auto;
+    animation: shimmer 2s linear infinite;
+    box-shadow: 0 6px 20px var(--accent-shadow-strong);
+    transform: translateY(-1px);
+  }
+
+  &:active:not(:disabled) {
+    transform: translateY(0) scale(0.97);
+    transition-duration: 80ms;
+    animation: none;
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+}
+
+/* ─── Advanced Panel ─── */
+.advancedToggle {
+  display: flex;
+  justify-content: flex-end;
+  padding: 0 $space-6 $space-4;
+}
+
+.advancedToggleBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  padding: 8px $space-4;
+  font-size: $text-sm;
+  color: var(--accent);
+  background: transparent;
+  border: 1px solid var(--accent-border);
+  border-radius: $radius;
+  cursor: pointer;
+  transition: background 0.15s;
+
+  &:hover {
+    background: var(--accent-bg);
+  }
+}
+
+.advancedPanel {
+  padding: $space-4 $space-6 $space-5;
+  background: var(--bg-subtle);
+  border-top: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+}
+
+.advancedField {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+}
+
+.advancedLabel {
+  font-size: $text-sm;
+  color: var(--text);
+  font-weight: $font-medium;
+}
+
+.slider {
+  width: 100%;
+  cursor: pointer;
+  accent-color: var(--accent);
+}
+
+.rangeHint {
+  font-size: $text-xs;
+  color: var(--text-muted);
+}
+
+.resetBtn {
+  align-self: flex-start;
+  padding: 8px $space-4;
+  font-size: $text-sm;
+  color: var(--text-muted);
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: $radius;
+  cursor: pointer;
+
+  &:hover {
+    color: var(--accent);
+    border-color: var(--accent-border);
+    background: var(--accent-bg);
+  }
+}
+
+/* ─── Results Area ─── */
+.results {
+  width: 100%;
+  margin-top: $space-4;
+}
+
+.fetchingHint {
+  font-size: $text-sm;
+  color: var(--text-muted);
+  margin-bottom: $space-4;
+  font-weight: $font-medium;
+  text-align: center;
+}
+
+.resultsToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: $space-3;
+  margin-bottom: $space-5;
+  padding-bottom: $space-3;
+  border-bottom: 1px solid var(--border);
+}
+
+.resultStats {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  flex-wrap: wrap;
+}
+
+.exportBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  font-size: $text-xs;
+  font-weight: $font-medium;
+  color: var(--text-muted);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: $radius;
+  cursor: pointer;
+  transition: all 0.18s ease;
+
+  &:hover {
+    color: var(--accent);
+    border-color: var(--accent-border);
+    background: var(--accent-bg);
+  }
+}
+
+/* ─── Result Cards ─── */
+.resultCard {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-left: 3px solid;
+  border-image: linear-gradient(180deg, var(--accent), var(--accent-tertiary)) 1;
+  border-radius: $radius-lg;
+  padding: $space-7 $space-8;
+  margin-bottom: $space-4;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover {
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.06);
+    border-color: var(--border-strong, var(--border));
+    border-image: linear-gradient(180deg, var(--accent), var(--accent-secondary)) 1;
+    background: var(--accent-bg-subtle);
+    transform: translateY(-2px);
+  }
+}
+
+[data-mode='dark'] .resultCard:hover {
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+}
+
+.cardHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: $space-3;
+  margin-bottom: $space-3;
+}
+
+.cardHeaderLeft {
+  display: flex;
+  align-items: flex-start;
+  gap: $space-2;
+  flex: 1;
+  min-width: 0;
+}
+
+.successIcon {
+  color: var(--accent);
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.errorIcon {
+  color: #ef4444;
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+
+.resultTitle {
+  font-size: $text-lg;
+  font-weight: $font-semibold;
+  line-height: 1.4;
+  letter-spacing: $tracking-tight;
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  color: var(--text);
+}
+
+.resultUrl {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  font-size: $text-sm;
+  color: var(--text-muted);
+  margin-bottom: $space-3;
+  word-break: break-all;
+
+  a {
+    color: var(--accent);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: center;
+    gap: $space-1;
+    transition: color 0.2s ease;
+
+    &:hover {
+      color: var(--accent-secondary);
+
+      .externalIcon {
+        opacity: 1;
+      }
+    }
+  }
+}
+
+.externalIcon {
+  display: inline;
+  opacity: 0.6;
+  transition: opacity 0.2s ease;
+}
+
+.resultSnippet {
+  font-size: $text-base;
+  color: var(--text-secondary);
+  line-height: $leading-relaxed;
+  margin: 0 0 $space-3;
+}
+
+.errorMessage {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  padding: $space-3 $space-4;
+  background: rgba(239, 68, 68, 0.1);
+  border-radius: $radius;
+  color: #ef4444;
+  font-size: $text-sm;
+  margin-top: $space-2;
+}
+
+.contentToggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-3;
+  margin-bottom: $space-3;
+}
+
+.toggleBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-1;
+  padding: 8px $space-4;
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  color: var(--text-secondary);
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: $radius;
+  cursor: pointer;
+  transition: all 0.18s ease;
+
+  &:hover {
+    color: var(--accent);
+    border-color: var(--accent-border);
+    background: var(--accent-bg);
+  }
+}
+
+.contentActions {
+  display: flex;
+  gap: $space-2;
+}
+
+.actionBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 32px;
+  height: 32px;
+  border: 1px solid var(--border);
+  border-radius: $radius;
+  background: var(--bg-card);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: all 0.18s ease;
+
+  &:hover {
+    color: var(--accent);
+    border-color: var(--accent-border);
+    background: var(--accent-bg);
+  }
+}
+
+.fullContent {
+  padding: $space-5;
+  background: var(--bg-subtle);
+  border-radius: $radius;
+  overflow-x: auto;
+
+  pre {
+    margin: 0;
+    font-family: $font-mono;
+    font-size: $text-sm;
+    line-height: $leading-relaxed;
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+}
+
+.metadata {
+  font-size: $text-sm;
+  color: var(--text-muted);
+  margin-top: $space-2;
+}
+
+/* ─── Responsive ─── */
+@media (max-width: $mobile-bp) {
+  .page {
+    padding: $space-4 $space-4;
+  }
+
+  .heroHeading {
+    font-size: 32px;
+  }
+
+  .heroTitle {
+    margin-top: $space-6;
+    margin-bottom: $space-6;
+  }
+
+  .commandCard {
+    border-radius: $radius-xl;
+  }
+
+  .commandHeader {
+    padding: $space-3 $space-4;
+  }
+
+  .fetchForm {
+    padding: $space-3 $space-4;
+  }
+
+  .controlsRow {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .fetchButton {
+    width: 100%;
+  }
+
+  .resultCard {
+    padding: $space-5;
+  }
+
+  .cardHeader {
+    flex-direction: column;
+    gap: $space-2;
+  }
+
+  .contentToggle {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+}

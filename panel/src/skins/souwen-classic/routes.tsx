@@ -1,11 +1,12 @@
 /**
  * 路由定义文件 - skin 的页面路由表
  *
- * 文件用途：定义 souwen-classic skin 的所有应用页面路由，包括控制板、搜索、资源、网络、配置
+ * 文件用途：定义 souwen-classic skin 的所有应用页面路由，包括控制板、搜索、抓取、资源、网络、配置
  *
  * 路由清单：
  *   / → DashboardPage - 应用首页/控制面板
  *   /search → SearchPage - 论文/专利/网页综合搜索
+ *   /fetch → FetchPage - 网页内容抓取
  *   /sources → SourcesPage - 数据源管理和状态检测
  *   /network → NetworkPage - 网络设置和后端配置
  *   /config → ConfigPage - 应用配置查看和编辑
@@ -16,6 +17,7 @@
 import { Route } from 'react-router-dom'
 import { DashboardPage } from './pages/DashboardPage'
 import { SearchPage } from './pages/SearchPage'
+import { FetchPage } from './pages/FetchPage'
 import { SourcesPage } from './pages/SourcesPage'
 import { NetworkPage } from './pages/NetworkPage'
 import { ConfigPage } from './pages/ConfigPage'
@@ -24,6 +26,7 @@ export const skinRoutes = (
   <>
     <Route path="/" element={<DashboardPage />} />
     <Route path="/search" element={<SearchPage />} />
+    <Route path="/fetch" element={<FetchPage />} />
     <Route path="/sources" element={<SourcesPage />} />
     <Route path="/network" element={<NetworkPage />} />
     <Route path="/config" element={<ConfigPage />} />
