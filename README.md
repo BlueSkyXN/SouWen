@@ -15,7 +15,7 @@
 
 SouWen（搜文）为 AI Agent 提供统一的学术论文、专利和网页搜索接口，整合 **37 个数据源**，归一化为 Pydantic v2 数据模型。
 
-- **8 论文源 + 8 专利源 + 21 搜索引擎** — 22 个零配置即用
+- **8 论文源 + 8 专利源 + 21 搜索引擎** — 18 个零配置即用（5 论文 + 2 专利 + 9 爬虫 + 2 自建）
 - **统一数据模型** — `PaperResult` / `PatentResult` / `WebSearchResult`
 - **异步优先** — httpx async + `asyncio.Semaphore` 全局并发控制
 - **智能限流** — 令牌桶 + 滑动窗口，每源独立限流
@@ -90,7 +90,7 @@ async def main():
         for r in results.results:
             print(f"{r.title} → {r.url}")
 
-    # 并发多引擎聚合（DuckDuckGo + Yahoo + Brave）
+    # 并发多引擎聚合（默认 DuckDuckGo + Bing；可通过 engines=[...] 自定义）
     resp = await web_search("machine learning tutorial", max_results_per_engine=5)
     for r in resp.results:
         print(f"[{r.engine}] {r.title} → {r.url}")
@@ -136,6 +136,16 @@ SOUWEN_OPENALEX_EMAIL=your@email.com
 SOUWEN_UNPAYWALL_EMAIL=your@email.com
 ```
 
+**双密码鉴权**（v0.6.3+）：服务端支持访客 / 管理双密码分离，互不影响：
+
+```env
+SOUWEN_VISITOR_PASSWORD=visitor-secret   # 保护搜索端点 (/api/v1/search/*)
+SOUWEN_ADMIN_PASSWORD=admin-secret       # 保护管理端点 (/api/v1/admin/*)
+# 旧版 SOUWEN_API_PASSWORD 仍受支持，作为两者均未设置时的统一回退值（向后兼容）
+```
+
+> 管理密码同时可访问搜索端点（admin 是 visitor 的超集）；密码均未配置时端点开放访问，但 admin 端点要求显式 `SOUWEN_ADMIN_OPEN=1` 才会开放。
+
 → 全部配置字段见 [配置详解](docs/configuration.md)
 
 ## 🐳 Docker 部署
@@ -147,10 +157,15 @@ SOUWEN_UNPAYWALL_EMAIL=your@email.com
 docker build -t souwen .
 
 # 运行（可选：设置 API 密码和配置）
+# 推荐使用双密码：访客密码保护搜索端点，管理密码保护 /api/v1/admin/*
 docker run -d -p 49265:49265 \
-  -e SOUWEN_API_PASSWORD=your-secret \
+  -e SOUWEN_VISITOR_PASSWORD=visitor-secret \
+  -e SOUWEN_ADMIN_PASSWORD=admin-secret \
   -v souwen-data:/app/data \
   souwen
+
+# 或使用旧版统一密码（同时作为访客与管理密码的回退值，向后兼容）
+# docker run -d -p 49265:49265 -e SOUWEN_API_PASSWORD=your-secret souwen
 
 # 或使用 docker compose
 docker compose up -d
@@ -177,10 +192,14 @@ Skin（皮肤）→ Mode（模式）→ Scheme（配色）
 │                │              │
 │                │              └── 每皮肤独立配色（运行时切换）
 │                └── light / dark（运行时切换）
-└── souwen-classic / carbon / ...（构建时选择或运行时切换）
+└── souwen-classic / carbon / apple / ios（构建时选择或运行时切换）
 ```
 
-- **Skin** = 完全独立的前端 UI（布局、组件、路由、交互逻辑）
+- **Skin** = 完全独立的前端 UI（布局、组件、路由、交互逻辑），目前提供 4 套：
+  - `souwen-classic` — 经典默认皮肤（多层阴影 + hover 提升）
+  - `carbon` — 暗色科技风（辉光 + 扫描线）
+  - `apple` — Apple 风格（毛玻璃 + 大圆角）
+  - `ios` — iOS 风格（hairline 分割线 + 弹性过渡）
 - **Mode** = 明暗模式（light/dark），面板内切换
 - **Scheme** = 强调色方案，每皮肤独立定义，面板内切换
 
@@ -190,9 +209,11 @@ Skin（皮肤）→ Mode（模式）→ Scheme（配色）
 
 | 模式 | 命令 | 说明 |
 |------|------|------|
-| 全皮肤（默认） | `npm run build` | 包含所有皮肤，支持运行时切换 |
-| 单皮肤 | `npm run build:classic` | 仅含指定皮肤，体积最小 |
-| 指定多皮肤 | `VITE_SKINS=souwen-classic,carbon npm run build` | 包含指定皮肤 |
+| 全皮肤（默认） | `npm run build` | 包含全部 4 套皮肤，支持运行时切换 |
+| 单皮肤（classic） | `npm run build:classic` | 仅含 souwen-classic，体积最小 |
+| 单皮肤（carbon） | `npm run build:carbon` | 仅含 carbon |
+| 单皮肤（apple/ios） | `VITE_SKINS=apple npm run build` 或 `VITE_SKINS=ios npm run build` | 仅含指定皮肤 |
+| 指定多皮肤 | `VITE_SKINS=souwen-classic,carbon npm run build` | 包含逗号分隔的皮肤集合 |
 
 多皮肤构建时，面板内会显示「切换皮肤」按钮。
 
@@ -207,6 +228,8 @@ npm run dev
 # 单皮肤开发
 npm run dev:classic
 npm run dev:carbon
+VITE_SKINS=apple npm run dev   # apple 皮肤
+VITE_SKINS=ios npm run dev     # ios 皮肤
 
 # 构建产物（单文件 HTML，自动复制到 src/souwen/server/panel.html）
 npm run build            # 默认全皮肤

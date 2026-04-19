@@ -215,39 +215,128 @@ souwen serve [--port 8000]   # 启动 FastAPI 服务
 
 ## HTTP API（Server 模式）
 
-> 所有 `/api/v1/...` 路径的端点在 `api_password` 配置后均需要 `Authorization: Bearer <password>` 头。
-> 未设置 `api_password` 时所有端点免认证。
+### 认证：三密码系统
+
+SouWen 自 v0.6.x 起支持独立的访客密码与管理密码，并向后兼容旧版统一密码：
+
+| 配置字段 | 作用范围 | 说明 |
+|----------|----------|------|
+| `visitor_password` | `/api/v1/search/*`、`/api/v1/sources` | 访客密码，仅保护搜索类端点 |
+| `admin_password` | `/api/v1/admin/*` | 管理密码，保护管理端点 |
+| `api_password` | 兼容回退 | 旧版统一密码，当 visitor / admin 未设置时回退到此 |
+
+**生效优先级：**
+
+- 访客端点：`visitor_password` > `api_password` > 无密码（开放）
+- 管理端点：`admin_password` > `api_password` > 无密码（开放）
+- 管理密码同时可用于访客端点（`admin` 是 `visitor` 的超集）
+- 显式将 `visitor_password` 或 `admin_password` 设为空字符串 `""` 表示**强制开放**该作用域，忽略 `api_password` 回退
+
+**请求格式：** `Authorization: Bearer <password>`，认证失败返回 `401 unauthorized`。
+
+> ⚠️ 当未设置任何密码时，所有端点（含管理端点）开放访问。生产部署务必至少设置 `admin_password`。
+> 此外，可通过环境变量 `SOUWEN_ADMIN_OPEN=1` 显式声明"管理端开放"以避免启动告警。
+
+### 错误响应格式
+
+所有 4xx/5xx 错误统一为：
+
+```json
+{
+  "error": "rate_limited",
+  "detail": "请求过于频繁，每 60 秒最多 60 次",
+  "request_id": "a1b2c3d4e5f6"
+}
+```
+
+`error` 字段（机器可读错误码）映射：
+
+| HTTP 状态码 | error 码 |
+|-------------|----------|
+| 400 | `bad_request` |
+| 401 | `unauthorized` |
+| 403 | `forbidden` |
+| 404 | `not_found` |
+| 422 | `validation_error` |
+| 429 | `rate_limited` |
+| 500 | `internal_error` |
+| 502 | `bad_gateway` |
+| 503 | `service_unavailable` |
+| 504 | `gateway_timeout` |
+| 其他 | `error` |
+
+### 速率限制
+
+搜索端点（`/api/v1/search/*`）默认 **60 请求 / 60 秒 / IP**（基于内存滑动窗口）。
+当配置了 `trusted_proxies`（CIDR 列表）时，会从受信代理转发的 `X-Forwarded-For` 提取真实 IP，否则使用 TCP 直连地址。
+
+触发限流时返回 `429`，并附带以下响应头：
+
+| 响应头 | 含义 |
+|--------|------|
+| `Retry-After` | 建议重试前等待的秒数 |
+| `X-RateLimit-Limit` | 窗口内最大请求数 |
+| `X-RateLimit-Remaining` | 窗口内剩余配额（429 时为 `0`） |
+| `X-RateLimit-Reset` | 配额重置的 Unix 时间戳（秒） |
 
 ### 基础端点
 
 #### `GET /health`
 
-健康检查，无需认证。
+健康检查，无需认证。用于容器编排（K8s）存活探针。
 
 **响应示例：**
 ```json
-{ "status": "ok", "version": "0.3.0" }
+{ "status": "ok", "version": "0.6.3" }
 ```
 
-#### `GET /panel`
+> `version` 字段动态返回当前 `souwen.__version__`。
 
-管理面板（HTML 页面），不包含在 OpenAPI schema 中。
+#### `GET /readiness`
+
+K8s readiness 探针（v0.6.1 引入）。仅做本地检查（配置可加载 + 数据源注册表非空），不触发任何网络调用，避免探针超时。
+
+**响应示例（就绪）：**
+```json
+{ "ready": true, "version": "0.6.3", "error": null }
+```
+
+**响应示例（503 未就绪）：**
+```json
+{ "ready": false, "version": "0.6.3", "error": "source registry is empty" }
+```
+
+#### `GET /` 与 `GET /panel`
+
+- 当 `expose_docs=true`（默认）时，`GET /` 重定向到 `/docs`（Swagger UI）。
+- 当 `expose_docs=false` 时，`GET /` 返回 JSON 元信息（`{name, version, panel, docs}`）。
+- `GET /panel` 返回管理面板 HTML（不含在 OpenAPI schema 中）。
+
+`/panel` 的 HTML 经内存缓存，并附带：
+
+```
+ETag: "<sha256-16hex>"
+Cache-Control: public, max-age=3600
+```
+
+客户端在 `If-None-Match` 命中时返回 **304 Not Modified**（仅头部 `ETag`，无响应体）。支持 RFC 7232 通配符 `*` 和逗号分隔的 ETag 列表。
 
 ---
 
 ### 搜索端点 (`/api/v1/...`)
 
-受速率限制保护。
+受 `check_search_auth` 与 `rate_limit_search` 双重保护。
 
 #### `GET /api/v1/search/paper`
 
-搜索学术论文。
+搜索学术论文（多源并联）。
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `q` | string | *(必填)* | 搜索关键词 |
-| `sources` | string | `"openalex,arxiv"` | 数据源，逗号分隔 |
-| `per_page` | int (1-100) | `10` | 每页结果数 |
+| `q` | string (1-500) | *(必填)* | 搜索关键词 |
+| `sources` | string | `"openalex,arxiv"` | 数据源列表，逗号分隔 |
+| `per_page` | int (1-100) | `10` | 每个数据源返回结果数 |
+| `timeout` | float (1-300) \| null | `null` | 端点硬超时（秒），超时返回 504；`null` 表示无超时 |
 
 **响应示例：**
 ```json
@@ -255,53 +344,45 @@ souwen serve [--port 8000]   # 启动 FastAPI 服务
   "query": "transformer",
   "sources": ["openalex", "arxiv"],
   "results": [ ... ],
-  "total": 20
+  "total": 20,
+  "meta": {
+    "requested": ["openalex", "arxiv"],
+    "succeeded": ["openalex", "arxiv"],
+    "failed": []
+  }
 }
 ```
+
+**错误状态码：** `502 bad_gateway`（所有数据源均失败）、`504 gateway_timeout`（超过 `timeout`）。
 
 #### `GET /api/v1/search/patent`
 
-搜索专利。
+搜索专利。参数与 paper 一致，仅默认源不同：
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `q` | string | *(必填)* | 搜索关键词 |
-| `sources` | string | `"google_patents"` | 数据源，逗号分隔 |
-| `per_page` | int (1-100) | `10` | 每页结果数 |
-
-**响应示例：**
-```json
-{
-  "query": "lithium battery",
-  "sources": ["google_patents"],
-  "results": [ ... ],
-  "total": 10
-}
-```
+| `q` | string (1-500) | *(必填)* | 搜索关键词 |
+| `sources` | string | `"google_patents"` | 数据源列表，逗号分隔 |
+| `per_page` | int (1-100) | `10` | 每个数据源返回结果数 |
+| `timeout` | float (1-300) \| null | `null` | 端点硬超时（秒），超时返回 504 |
 
 #### `GET /api/v1/search/web`
 
-搜索网页。
+搜索网页（多引擎并联 + URL 去重）。
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `q` | string | *(必填)* | 搜索关键词 |
+| `q` | string (1-500) | *(必填)* | 搜索关键词 |
 | `engines` | string | `"duckduckgo,bing"` | 搜索引擎，逗号分隔 |
-| `max_results` | int (1-50) | `10` | 每引擎最大结果数 |
+| `per_page` | int (1-50) | `10` | 每引擎最大结果数（**主名称**） |
+| `max_results` | int (1-50) \| null | `null` | 兼容旧版的别名；显式提供时**优先级高于 `per_page`** |
+| `timeout` | float (1-300) \| null | `null` | 端点硬超时（秒），超时返回 504 |
 
-**响应示例：**
-```json
-{
-  "query": "AI news",
-  "engines": ["duckduckgo", "bing"],
-  "results": [ ... ],
-  "total": 15
-}
-```
+> 兼容性提示：旧客户端可继续使用 `max_results`；新客户端推荐 `per_page`。
 
 #### `GET /api/v1/sources`
 
-列出所有可用数据源及其状态。
+列出所有可用数据源及其状态（受访客认证保护）。
 
 **响应示例：**
 ```json
@@ -318,8 +399,8 @@ souwen serve [--port 8000]   # 启动 FastAPI 服务
 
 ### 管理端点 (`/api/v1/admin/...`)
 
-> 管理端点始终需要 `api_password` 认证（`Authorization: Bearer <password>`）。
-> 未设置 `api_password` 时所有管理端点免认证开放。
+> 管理端点由 `require_auth` 强制保护，验证 `effective_admin_password`（`admin_password` > `api_password`）。
+> 未设置任一密码时管理端点开放访问，建议生产环境至少设置 `admin_password`。
 
 #### `GET /api/v1/admin/config`
 
@@ -439,7 +520,7 @@ python -m souwen.integrations.mcp_server
 |------|------|--------|------|
 | `query` | string | — | 搜索关键词 |
 | `sources` | array | `["openalex", "arxiv", "crossref"]` | 数据源 |
-| `limit` | int | `5` | 结果数 |
+| `limit` | int | `5` | 每源返回数量 |
 
 返回：JSON `SearchResponse` 数组
 
@@ -448,7 +529,7 @@ python -m souwen.integrations.mcp_server
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `query` | string | — | 搜索关键词 |
-| `sources` | array | `["patentsview", "pqai"]` | 数据源 |
+| `sources` | array | `["google_patents"]` | 数据源 |
 | `limit` | int | `5` | 结果数 |
 
 返回：JSON `SearchResponse` 数组
@@ -458,8 +539,8 @@ python -m souwen.integrations.mcp_server
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `query` | string | — | 搜索关键词 |
-| `engines` | array | — | 引擎列表 |
-| `limit` | int | `10` | 结果数 |
+| `engines` | array | `null`（由后端默认 `["duckduckgo", "bing"]` 决定） | 引擎列表 |
+| `limit` | int | `10` | 每引擎最大结果数 |
 
 返回：JSON `SearchResponse` 对象
 

@@ -67,6 +67,8 @@ panel/src/
       skin.config.ts     # 皮肤配置（配色方案、默认模式）
       index.ts           # 皮肤入口（导出 SkinModule 接口 + bootstrap）
     carbon/              # 终端风格皮肤
+    apple/               # Apple HIG 灵感皮肤
+    ios/                 # macOS Settings / iOS 灵感皮肤
 ```
 
 ### 构建
