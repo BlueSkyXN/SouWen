@@ -420,6 +420,271 @@
   .searchButton {
     width: calc(100% - 8px);
   }
+
+  .resultsToolbar {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .toolbarActions {
+    justify-content: space-between;
+  }
+
+  .resultGrid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Results toolbar (count + layout toggle + export) ── */
+.resultsToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-light);
+
+  .resultCount {
+    margin-bottom: 0;
+    padding-bottom: 0;
+    border-bottom: none;
+  }
+}
+
+.toolbarActions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.layoutToggle {
+  display: inline-flex;
+  gap: 0;
+  padding: 2px;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+}
+
+.layoutBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 26px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-family: $font-mono;
+  transition: color $transition-fast, background $transition-fast;
+
+  &:hover {
+    color: var(--text-secondary);
+    background: var(--bg-hover, rgba(39, 39, 42, 0.5));
+  }
+}
+
+.layoutBtnActive {
+  color: var(--accent);
+  background: var(--accent-light);
+
+  &:hover {
+    color: var(--accent);
+    background: var(--accent-light);
+  }
+}
+
+.exportGroup {
+  display: inline-flex;
+  gap: 4px;
+}
+
+.exportBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 5px 10px;
+  font-family: $font-mono;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: color $transition-fast, border-color $transition-fast, box-shadow $transition-fast;
+
+  &:hover {
+    color: var(--accent);
+    border-color: var(--accent);
+    box-shadow: var(--glow-sm);
+  }
+}
+
+/* ── Inline badge (Carbon has no Badge component) ── */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  font-family: $font-mono;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--accent);
+  background: var(--accent-light);
+  border: 1px solid var(--accent);
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+
+/* ── List mode ── */
+.resultList {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+}
+
+.resultListItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  font-family: $font-mono;
+  font-size: 12px;
+  line-height: 1.5;
+  border-bottom: 1px solid var(--border-light);
+  transition: background $transition-fast;
+
+  &:last-child {
+    border-bottom: none;
+  }
+
+  &:nth-child(even) {
+    background: rgba(255, 255, 255, 0.015);
+  }
+
+  &:hover {
+    background: var(--accent-light);
+  }
+}
+
+.listTitle {
+  font-weight: 600;
+  color: var(--text);
+  min-width: 0;
+  flex-shrink: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+
+  a {
+    color: var(--text);
+    text-decoration: none;
+    display: inline-flex;
+    align-items: baseline;
+    gap: 4px;
+
+    &:hover {
+      color: var(--accent);
+    }
+  }
+}
+
+.listMeta {
+  color: var(--text-muted);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.listDomain {
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* ── Grid mode ── */
+.resultGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+}
+
+.resultGridCard {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  transition: border-color $transition-fast, box-shadow $transition-fast;
+
+  &:hover {
+    border-color: var(--accent);
+    box-shadow: var(--glow-sm);
+  }
+}
+
+.gridCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.gridDomain {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-family: $font-mono;
+  font-size: 11px;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.gridCardTitle {
+  font-family: $font-mono;
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1.4;
+  margin: 0;
+  color: var(--text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+
+  a {
+    color: var(--text);
+    text-decoration: none;
+    display: inline;
+
+    &:hover {
+      color: var(--accent);
+    }
+  }
+}
+
+.gridCardAbstract {
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 /* ── Advanced Search Panel ── */

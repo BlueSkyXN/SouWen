@@ -454,8 +454,231 @@
 .resultCount {
   font-size: $text-sm;
   color: var(--text-muted);
-  margin-bottom: $space-5;
   font-weight: $font-medium;
+}
+
+/* ─── Results Toolbar ─── */
+.resultsToolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: $space-3;
+  margin-bottom: $space-5;
+  padding-bottom: $space-3;
+  border-bottom: 1px solid var(--border);
+}
+
+.toolbarActions {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  flex-wrap: wrap;
+}
+
+.layoutToggle {
+  display: inline-flex;
+  gap: 2px;
+  padding: 3px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: $radius-full;
+}
+
+.layoutBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 28px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  border-radius: $radius-full;
+  cursor: pointer;
+  transition: all 0.18s ease;
+
+  &:hover {
+    color: var(--text);
+    background: var(--bg-card);
+  }
+}
+
+.layoutBtnActive {
+  color: var(--accent);
+  background: var(--bg-card);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.06);
+
+  &:hover {
+    color: var(--accent);
+    background: var(--bg-card);
+  }
+}
+
+.exportGroup {
+  display: inline-flex;
+  gap: $space-2;
+}
+
+.exportBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 6px 10px;
+  font-size: $text-xs;
+  font-weight: $font-medium;
+  color: var(--text-muted);
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: $radius;
+  cursor: pointer;
+  transition: all 0.18s ease;
+
+  &:hover {
+    color: var(--accent);
+    border-color: var(--accent-border);
+    background: var(--accent-bg);
+  }
+}
+
+/* ─── List mode ─── */
+.resultList {
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: $radius;
+  overflow: hidden;
+}
+
+.resultListItem {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  padding: $space-3 $space-4;
+  font-size: $text-sm;
+  line-height: 1.5;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-card);
+  flex-wrap: wrap;
+  transition: background 0.15s ease;
+
+  &:last-child { border-bottom: none; }
+  &:nth-child(even) { background: var(--bg-subtle); }
+  &:hover { background: var(--accent-bg-subtle); }
+}
+
+.listTitle {
+  font-weight: $font-semibold;
+  color: var(--text);
+  min-width: 0;
+  flex-shrink: 1;
+
+  a {
+    color: var(--text);
+    transition: color 0.2s ease;
+
+    &:hover {
+      color: var(--accent);
+
+      .externalIcon { opacity: 1; }
+    }
+  }
+}
+
+.listMeta {
+  color: var(--text-muted);
+  font-size: $text-xs;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.listDomain {
+  color: var(--accent);
+  font-size: $text-xs;
+  font-weight: $font-medium;
+  white-space: nowrap;
+}
+
+/* ─── Grid mode ─── */
+.resultGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: $space-4;
+}
+
+.resultGridCard {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: $radius-lg;
+  padding: $space-5;
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+
+  &:hover {
+    border-color: var(--accent-border);
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.06);
+    transform: translateY(-2px);
+  }
+}
+
+[data-mode='dark'] .resultGridCard:hover {
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.3);
+}
+
+.gridCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-2;
+}
+
+.gridDomain {
+  display: inline-flex;
+  align-items: center;
+  gap: 3px;
+  font-size: $text-xs;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 60%;
+}
+
+.gridCardTitle {
+  font-size: $text-base;
+  font-weight: $font-semibold;
+  line-height: 1.4;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+
+  a {
+    color: var(--text);
+    transition: color 0.2s ease;
+
+    &:hover {
+      color: var(--accent);
+
+      .externalIcon { opacity: 1; }
+    }
+  }
+}
+
+.gridCardAbstract {
+  font-size: $text-sm;
+  color: var(--text-secondary);
+  line-height: $leading-normal;
+  margin: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 /* ─── Result Cards ─── */
@@ -635,6 +858,25 @@
   .cardHeader {
     flex-direction: column;
     gap: $space-2;
+  }
+
+  .resultsToolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: $space-2;
+  }
+
+  .toolbarActions {
+    justify-content: space-between;
+  }
+
+  .resultGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .resultListItem {
+    padding: $space-2 $space-3;
+    font-size: $text-xs;
   }
 }
 

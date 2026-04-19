@@ -34,11 +34,14 @@ import { m } from 'framer-motion'
 import {
   FileText, Users, Calendar, Link, Building,
   ExternalLink, Search, Settings,
+  List, LayoutGrid, Grid3X3, Download, Globe,
 } from 'lucide-react'
 import { api } from '@core/services/api'
 import { useNotificationStore } from '@core/stores/notificationStore'
 import { formatError } from '@core/lib/errors'
 import { normalizePaper, normalizePatent, normalizeWeb } from '@core/lib/normalize'
+import { extractDomain } from '@core/lib/url'
+import { exportPapers, exportPatents, exportWebResults, type ExportFormat } from '@core/lib/export'
 import { staggerContainer, staggerItem, fadeInUp } from '@core/lib/animations'
 import type {
   SearchCategory, SourceInfo, SearchResponse, WebSearchResponse,
@@ -111,6 +114,8 @@ type SearchState =
   | { status: 'loading'; tab: SearchCategory; message: null }
   | { status: 'error'; tab: SearchCategory; message: string }
 
+type LayoutMode = 'list' | 'card' | 'grid'
+
 export function SearchPage() {
   const { t } = useTranslation()
   const SEARCH_SUGGESTIONS = [
@@ -130,6 +135,7 @@ export function SearchPage() {
   const [showAdvanced, setShowAdvanced] = useState(false)
   const [timeout, setTimeout_] = useState<number | undefined>(undefined)
   const [searchState, setSearchState] = useState<SearchState>({ status: 'idle', tab: null, message: null })
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>('card')
   const [paperResults, setPaperResults] = useState<SearchResponse | null>(null)
   const [patentResults, setPatentResults] = useState<SearchResponse | null>(null)
   const [webResults, setWebResults] = useState<WebSearchResponse | null>(null)
@@ -289,6 +295,7 @@ export function SearchPage() {
   const renderWebCard = (raw: WebResult, i: number) => {
     const item = normalizeWeb(raw)
     const key = item.url || `web-${item.source}-${i}`
+    const domain = item.url ? extractDomain(item.url) : ''
     return (
       <m.article key={key} className={styles.resultCard} variants={staggerItem}>
         <div className={styles.cardHeader}>
@@ -302,11 +309,175 @@ export function SearchPage() {
           </h3>
           {(item.source || raw.engine) && <span className={styles.sourceBadge}>{item.source || raw.engine}</span>}
         </div>
-        {item.url && <div className={styles.resultUrl}>{item.url}</div>}
+        {item.url && (
+          <div className={styles.resultUrl} title={item.url}>
+            <Globe size={12} /> {domain}
+          </div>
+        )}
         {item.snippet && <p className={styles.resultAbstract}>{item.snippet}</p>}
       </m.article>
     )
   }
+
+  /* ─── List mode renderers (single-line, dense) ─── */
+  const renderPaperListItem = (raw: PaperResult, i: number) => {
+    const p = normalizePaper(raw)
+    const key = p.doi || `paper-list-${p.source}-${i}`
+    const domain = p.url ? extractDomain(p.url) : ''
+    const authorStr = p.authors.slice(0, 3).join(', ') + (p.authors.length > 3 ? '…' : '')
+    return (
+      <div key={key} className={styles.resultListItem}>
+        {p.source && <span className={styles.badge}>{p.source}</span>}
+        <span className={styles.listTitle}>
+          {p.url ? (
+            <a href={p.url} target="_blank" rel="noopener noreferrer">
+              {p.title || t('search.untitled')}
+              <ExternalLink size={12} className={styles.externalIcon} />
+            </a>
+          ) : (p.title || t('search.untitled'))}
+        </span>
+        {authorStr && <span className={styles.listMeta}>— {authorStr}</span>}
+        {p.year && <span className={styles.listMeta}>— {p.year}</span>}
+        {domain && <span className={styles.listDomain} title={p.url}>— {domain}</span>}
+      </div>
+    )
+  }
+
+  const renderPatentListItem = (raw: PatentResult, i: number) => {
+    const p = normalizePatent(raw)
+    const key = p.patentNumber || `patent-list-${p.source}-${i}`
+    const domain = p.url ? extractDomain(p.url) : ''
+    return (
+      <div key={key} className={styles.resultListItem}>
+        {p.source && <span className={styles.badge}>{p.source}</span>}
+        <span className={styles.listTitle}>
+          {p.url ? (
+            <a href={p.url} target="_blank" rel="noopener noreferrer">
+              {p.title || t('search.untitled')}
+              <ExternalLink size={12} className={styles.externalIcon} />
+            </a>
+          ) : (p.title || t('search.untitled'))}
+        </span>
+        {p.patentNumber && <span className={styles.listMeta}>— {p.patentNumber}</span>}
+        {p.applicant && <span className={styles.listMeta}>— {p.applicant}</span>}
+        {p.publicationDate && <span className={styles.listMeta}>— {p.publicationDate}</span>}
+        {domain && <span className={styles.listDomain} title={p.url}>— {domain}</span>}
+      </div>
+    )
+  }
+
+  const renderWebListItem = (raw: WebResult, i: number) => {
+    const item = normalizeWeb(raw)
+    const key = item.url || `web-list-${item.source}-${i}`
+    const domain = item.url ? extractDomain(item.url) : ''
+    const snippet = item.snippet.length > 80 ? item.snippet.slice(0, 80) + '…' : item.snippet
+    return (
+      <div key={key} className={styles.resultListItem}>
+        {(item.source || raw.engine) && <span className={styles.badge}>{item.source || raw.engine}</span>}
+        <span className={styles.listTitle}>
+          {item.url ? (
+            <a href={item.url} target="_blank" rel="noopener noreferrer">
+              {item.title}
+              <ExternalLink size={12} className={styles.externalIcon} />
+            </a>
+          ) : item.title}
+        </span>
+        {domain && <span className={styles.listDomain} title={item.url}>— {domain}</span>}
+        {snippet && <span className={styles.listMeta}>— {snippet}</span>}
+      </div>
+    )
+  }
+
+  /* ─── Grid mode renderers (compact NxN cards) ─── */
+  const renderPaperGridCard = (raw: PaperResult, i: number) => {
+    const p = normalizePaper(raw)
+    const key = p.doi || `paper-grid-${p.source}-${i}`
+    const domain = p.url ? extractDomain(p.url) : ''
+    return (
+      <m.article key={key} className={styles.resultGridCard} variants={staggerItem}>
+        <div className={styles.gridCardHeader}>
+          {p.source && <span className={styles.badge}>{p.source}</span>}
+          {domain && <span className={styles.gridDomain} title={p.url}><Globe size={11} /> {domain}</span>}
+        </div>
+        <h3 className={styles.gridCardTitle}>
+          {p.url ? (
+            <a href={p.url} target="_blank" rel="noopener noreferrer">
+              {p.title || t('search.untitled')}
+              <ExternalLink size={12} className={styles.externalIcon} />
+            </a>
+          ) : (p.title || t('search.untitled'))}
+        </h3>
+        {p.abstract && <p className={styles.gridCardAbstract}>{p.abstract}</p>}
+      </m.article>
+    )
+  }
+
+  const renderPatentGridCard = (raw: PatentResult, i: number) => {
+    const p = normalizePatent(raw)
+    const key = p.patentNumber || `patent-grid-${p.source}-${i}`
+    const domain = p.url ? extractDomain(p.url) : ''
+    return (
+      <m.article key={key} className={styles.resultGridCard} variants={staggerItem}>
+        <div className={styles.gridCardHeader}>
+          {p.source && <span className={styles.badge}>{p.source}</span>}
+          {domain && <span className={styles.gridDomain} title={p.url}><Globe size={11} /> {domain}</span>}
+        </div>
+        <h3 className={styles.gridCardTitle}>
+          {p.url ? (
+            <a href={p.url} target="_blank" rel="noopener noreferrer">
+              {p.title || t('search.untitled')}
+              <ExternalLink size={12} className={styles.externalIcon} />
+            </a>
+          ) : (p.title || t('search.untitled'))}
+        </h3>
+        {p.abstract && <p className={styles.gridCardAbstract}>{p.abstract}</p>}
+      </m.article>
+    )
+  }
+
+  const renderWebGridCard = (raw: WebResult, i: number) => {
+    const item = normalizeWeb(raw)
+    const key = item.url || `web-grid-${item.source}-${i}`
+    const domain = item.url ? extractDomain(item.url) : ''
+    return (
+      <m.article key={key} className={styles.resultGridCard} variants={staggerItem}>
+        <div className={styles.gridCardHeader}>
+          {(item.source || raw.engine) && <span className={styles.badge}>{item.source || raw.engine}</span>}
+          {domain && <span className={styles.gridDomain} title={item.url}><Globe size={11} /> {domain}</span>}
+        </div>
+        <h3 className={styles.gridCardTitle}>
+          {item.url ? (
+            <a href={item.url} target="_blank" rel="noopener noreferrer">
+              {item.title}
+              <ExternalLink size={12} className={styles.externalIcon} />
+            </a>
+          ) : item.title}
+        </h3>
+        {item.snippet && <p className={styles.gridCardAbstract}>{item.snippet}</p>}
+      </m.article>
+    )
+  }
+
+  /* ─── Export handler ─── */
+  const handleExport = useCallback((format: ExportFormat) => {
+    let exportedCount = 0
+    if (tab === 'paper' && paperResults) {
+      const items = (paperResults.results.flatMap((r) => r.results) as PaperResult[]).map(normalizePaper)
+      exportedCount = items.length
+      exportPapers(items, format)
+    } else if (tab === 'patent' && patentResults) {
+      const items = (patentResults.results.flatMap((r) => r.results) as PatentResult[]).map(normalizePatent)
+      exportedCount = items.length
+      exportPatents(items, format)
+    } else if (tab === 'web' && webResults) {
+      const items = webResults.results.map(normalizeWeb)
+      exportedCount = items.length
+      exportWebResults(items, format)
+    }
+    if (exportedCount > 0) {
+      addToast('success', t('search.exported', { count: exportedCount }))
+    }
+  }, [tab, paperResults, patentResults, webResults, addToast, t])
 
   const hasResults =
     (tab === 'paper' && paperResults) ||
@@ -336,12 +507,87 @@ export function SearchPage() {
       )
     }
 
+    const renderToolbar = (totalCount: number) => (
+      <div className={styles.resultsToolbar}>
+        <div className={styles.resultCount}>{t('search.resultCount', { count: totalCount })}</div>
+        <div className={styles.toolbarActions}>
+          <div className={styles.layoutToggle} role="group" aria-label={t('search.layoutCard')}>
+            <button
+              type="button"
+              className={`${styles.layoutBtn} ${layoutMode === 'list' ? styles.layoutBtnActive : ''}`}
+              onClick={() => setLayoutMode('list')}
+              aria-label={t('search.layoutList')}
+              title={t('search.layoutList')}
+            >
+              <List size={14} />
+            </button>
+            <button
+              type="button"
+              className={`${styles.layoutBtn} ${layoutMode === 'card' ? styles.layoutBtnActive : ''}`}
+              onClick={() => setLayoutMode('card')}
+              aria-label={t('search.layoutCard')}
+              title={t('search.layoutCard')}
+            >
+              <LayoutGrid size={14} />
+            </button>
+            <button
+              type="button"
+              className={`${styles.layoutBtn} ${layoutMode === 'grid' ? styles.layoutBtnActive : ''}`}
+              onClick={() => setLayoutMode('grid')}
+              aria-label={t('search.layoutGrid')}
+              title={t('search.layoutGrid')}
+            >
+              <Grid3X3 size={14} />
+            </button>
+          </div>
+          <div className={styles.exportGroup} role="group" aria-label={t('search.exportTitle')}>
+            <button
+              type="button"
+              className={styles.exportBtn}
+              onClick={() => handleExport('csv')}
+              title={t('search.exportCSV')}
+            >
+              <Download size={13} /> {t('search.exportCSV')}
+            </button>
+            <button
+              type="button"
+              className={styles.exportBtn}
+              onClick={() => handleExport('xls')}
+              title={t('search.exportXLS')}
+            >
+              <Download size={13} /> {t('search.exportXLS')}
+            </button>
+          </div>
+        </div>
+      </div>
+    )
+
     if (tab === 'paper' && paperResults) {
       const allItems = paperResults.results.flatMap((r) => r.results) as PaperResult[]
       if (allItems.length === 0) return <div className={styles.errorState}>{t('search.noResults')}</div>
+      if (layoutMode === 'list') {
+        return (
+          <div>
+            {renderToolbar(paperResults.total)}
+            <div className={styles.resultList}>
+              {allItems.map((item, i) => renderPaperListItem(item, i))}
+            </div>
+          </div>
+        )
+      }
+      if (layoutMode === 'grid') {
+        return (
+          <div>
+            {renderToolbar(paperResults.total)}
+            <m.div className={styles.resultGrid} variants={staggerContainer} initial="initial" animate="animate">
+              {allItems.map((item, i) => renderPaperGridCard(item, i))}
+            </m.div>
+          </div>
+        )
+      }
       return (
         <m.div variants={staggerContainer} initial="initial" animate="animate">
-          <div className={styles.resultCount}>{t('search.resultCount', { count: paperResults.total })}</div>
+          {renderToolbar(paperResults.total)}
           {allItems.map((item, i) => renderPaperCard(item, i))}
         </m.div>
       )
@@ -350,9 +596,29 @@ export function SearchPage() {
     if (tab === 'patent' && patentResults) {
       const allItems = patentResults.results.flatMap((r) => r.results) as PatentResult[]
       if (allItems.length === 0) return <div className={styles.errorState}>{t('search.noResults')}</div>
+      if (layoutMode === 'list') {
+        return (
+          <div>
+            {renderToolbar(patentResults.total)}
+            <div className={styles.resultList}>
+              {allItems.map((item, i) => renderPatentListItem(item, i))}
+            </div>
+          </div>
+        )
+      }
+      if (layoutMode === 'grid') {
+        return (
+          <div>
+            {renderToolbar(patentResults.total)}
+            <m.div className={styles.resultGrid} variants={staggerContainer} initial="initial" animate="animate">
+              {allItems.map((item, i) => renderPatentGridCard(item, i))}
+            </m.div>
+          </div>
+        )
+      }
       return (
         <m.div variants={staggerContainer} initial="initial" animate="animate">
-          <div className={styles.resultCount}>{t('search.resultCount', { count: patentResults.total })}</div>
+          {renderToolbar(patentResults.total)}
           {allItems.map((item, i) => renderPatentCard(item, i))}
         </m.div>
       )
@@ -360,9 +626,29 @@ export function SearchPage() {
 
     if (tab === 'web' && webResults) {
       if (webResults.results.length === 0) return <div className={styles.errorState}>{t('search.noResults')}</div>
+      if (layoutMode === 'list') {
+        return (
+          <div>
+            {renderToolbar(webResults.total_results)}
+            <div className={styles.resultList}>
+              {webResults.results.map((item, i) => renderWebListItem(item, i))}
+            </div>
+          </div>
+        )
+      }
+      if (layoutMode === 'grid') {
+        return (
+          <div>
+            {renderToolbar(webResults.total_results)}
+            <m.div className={styles.resultGrid} variants={staggerContainer} initial="initial" animate="animate">
+              {webResults.results.map((item, i) => renderWebGridCard(item, i))}
+            </m.div>
+          </div>
+        )
+      }
       return (
         <m.div variants={staggerContainer} initial="initial" animate="animate">
-          <div className={styles.resultCount}>{t('search.resultCount', { count: webResults.total_results })}</div>
+          {renderToolbar(webResults.total_results)}
           {webResults.results.map((item, i) => renderWebCard(item, i))}
         </m.div>
       )

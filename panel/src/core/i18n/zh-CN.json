@@ -131,7 +131,14 @@
     "suggestion3": "CRISPR 基因编辑",
     "suggestion4": "Transformer 架构",
     "suggestion5": "气候变化",
-    "suggestion6": "神经辐射场"
+    "suggestion6": "神经辐射场",
+    "layoutList": "列表",
+    "layoutCard": "卡片",
+    "layoutGrid": "网格",
+    "exportCSV": "导出 CSV",
+    "exportXLS": "导出 Excel",
+    "exportTitle": "导出",
+    "exported": "已导出 {{count}} 条记录"
   },
   "sources": {
     "title": "数据源",
