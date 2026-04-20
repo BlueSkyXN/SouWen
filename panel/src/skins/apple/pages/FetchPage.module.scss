@@ -44,11 +44,11 @@
 
 /* ── Panel ── */
 .panel {
-  max-width: $content-max-wide;
+  max-width: $content-max-data;
   margin: 0 auto 32px;
   width: 100%;
   background: var(--bg-card-solid);
-  border-radius: $radius-card;
+  border-radius: $radius-lg;
   box-shadow: $shadow-card;
   overflow: hidden;
 }
@@ -250,7 +250,7 @@
 
 /* ── Results ── */
 .results {
-  max-width: $content-max-wide;
+  max-width: $content-max-data;
   margin: 0 auto;
   width: 100%;
 }
@@ -385,10 +385,10 @@
 
 .resultCard {
   background: var(--bg-card-solid);
-  border-radius: $radius-card;
+  border-radius: $radius-lg;
   padding: 24px;
   box-shadow: $shadow-card;
-  transition: box-shadow $transition-normal;
+  transition: box-shadow $transition;
 
   &:hover {
     box-shadow: $shadow-card-hover;
@@ -585,7 +585,7 @@
 }
 
 /* ── Responsive ── */
-@media (max-width: $mobile-bp) {
+@media (max-width: 640px) {
   .hero {
     min-height: 300px;
   }

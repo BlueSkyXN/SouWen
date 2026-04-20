@@ -71,7 +71,7 @@
   border-radius: 2px;
   margin-bottom: 24px;
   box-shadow: 4px 4px 0 var(--shadow);
-  transition: all $transition-normal;
+  transition: all $transition;
 
   &:hover {
     box-shadow: 6px 6px 0 var(--shadow);
@@ -637,7 +637,7 @@
 }
 
 /* ── Responsive ── */
-@media (max-width: $mobile-bp) {
+@media (max-width: 768px) {
   .hero {
     min-height: 200px;
   }
