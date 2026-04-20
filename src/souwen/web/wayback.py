@@ -8,21 +8,22 @@
 函数/类清单：
     WaybackClient（类）
         - 功能：Wayback Machine 抓取客户端，先查可用性再拉取原始 HTML
-        - 继承：SouWenHttpClient（HTTP 客户端基类）
+        - 继承：BaseScraper（爬虫基类，提供 TLS 指纹 / WARP / 退避）
         - 关键属性：ENGINE_NAME = "wayback", BASE_URL = "https://web.archive.org",
                   PROVIDER_NAME = "wayback"
         - 主要方法：fetch(url, timeout) -> FetchResult,
                   fetch_batch(urls, max_concurrency, timeout) -> FetchResponse
 
     WaybackClient.__init__()
-        - 功能：初始化 Wayback 客户端（无需 API Key），设置自定义 User-Agent
+        - 功能：初始化 Wayback 客户端（无需 API Key），设置较低的礼貌延迟
+                以匹配 archive.org ~1 req/s 的限流
         - 输入：无
         - 输出：实例
 
     WaybackClient.fetch(url, timeout=30.0) -> FetchResult
         - 功能：查询最新存档快照并抓取其原始 HTML（避免 Wayback 工具栏注入）
-        - 步骤：① archive.org/wayback/available 查可用性；
-               ② 在快照 URL 中插入 id_ 修饰符获取原始 HTML；
+        - 步骤：① archive.org/wayback/available 查可用性（普通 httpx，纯 API 调用）；
+               ② 在快照 URL 中插入 id_ 修饰符获取原始 HTML（走 BaseScraper._fetch）；
                ③ 调 extract_from_html 提取正文
         - 输入：url 目标网页 URL，timeout 超时秒数
         - 输出：FetchResult，附带快照 URL 与时间戳
@@ -37,19 +38,22 @@
     - asyncio: 异步并发控制（Semaphore + gather + sleep 限流）
     - logging: 日志记录
     - re: 正则表达式（向快照 URL 插入 id_ 修饰符）
-    - souwen.http_client: SouWenHttpClient HTTP 客户端基类
+    - httpx: 直接调用 archive.org 可用性 API（非网页抓取，不需要指纹）
+    - souwen.scraper.base: BaseScraper 基类（TLS 指纹 / WARP / 自适应退避）
     - souwen.models: FetchResponse, FetchResult 数据模型
     - souwen.web._html_extract: 共享 HTML → Markdown/Text 提取工具
 
 技术要点：
     - 可用性 API：GET https://archive.org/wayback/available?url={url}
       响应字段：archived_snapshots.closest.{available, url, timestamp, status}
+      —— 这是 JSON API，使用 httpx 直连即可，无需 TLS 指纹
     - 快照原始 HTML 端点形如：http://web.archive.org/web/<ts>id_/<original_url>
       `id_` 修饰符告诉 Wayback 返回原始字节（不注入工具栏 JS/CSS），
       该修饰符是内容提取干净度的关键
     - 插入 id_ 的正则：re.sub(r"(/web/\\d+)(/)", r"\\1id_\\2", snapshot_url)
-    - 限流：Internet Archive 约 1 req/s，故 max_concurrency=2 + 0.5s sleep
-    - User-Agent：Internet Archive 要求设置可识别 UA，便于联系与封禁分级
+    - 限流：Internet Archive 约 1 req/s，故 min_delay=0.5/max_delay=1.0
+      + max_concurrency=2 + 0.5s sleep
+    - User-Agent：由 BaseScraper 浏览器指纹自动提供，可被频道配置覆盖
     - published_date：从快照时间戳 YYYYMMDDHHMMSS 截取前 8 位作为 YYYY-MM-DD
 """
 
@@ -58,32 +62,43 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+from typing import Any
 
-from souwen.http_client import SouWenHttpClient
+import httpx
+
 from souwen.models import FetchResponse, FetchResult
+from souwen.scraper.base import BaseScraper
 from souwen.web._html_extract import extract_from_html
 
 logger = logging.getLogger("souwen.web.wayback")
 
 
-class WaybackClient(SouWenHttpClient):
-    """Wayback Machine 抓取客户端（无需 API Key）"""
+class WaybackClient(BaseScraper):
+    """Wayback Machine 抓取客户端（无需 API Key）
+
+    继承 BaseScraper 获得 TLS 指纹伪装、WARP 代理、自适应退避等反反爬能力。
+    archive.org 限流 ~1 req/s，故采用较低的礼貌延迟与并发。
+    """
 
     ENGINE_NAME = "wayback"
     BASE_URL = "https://web.archive.org"
     PROVIDER_NAME = "wayback"
 
     def __init__(self) -> None:
-        # Internet Archive 要求设置可识别 UA，便于联系与封禁分级
+        # archive.org 限流约 1 req/s，使用 0.5~1.0s 的礼貌延迟
         super().__init__(
-            base_url=self.BASE_URL,
-            headers={
-                "User-Agent": (
-                    "SouWen/0.7 (Academic Search Tool; +https://github.com/BlueSkyXN/SouWen)"
-                ),
-            },
-            source_name="wayback",
+            min_delay=0.5,
+            max_delay=1.0,
+            max_retries=3,
+            follow_redirects=True,
         )
+
+    async def __aenter__(self) -> "WaybackClient":
+        await super().__aenter__()
+        return self
+
+    async def __aexit__(self, *args: Any) -> None:
+        await super().__aexit__(*args)
 
     @staticmethod
     def _to_raw_snapshot_url(snapshot_url: str) -> str:
@@ -101,23 +116,36 @@ class WaybackClient(SouWenHttpClient):
             return None
         return f"{timestamp[0:4]}-{timestamp[4:6]}-{timestamp[6:8]}"
 
+    async def _check_availability(self, url: str, timeout: float) -> dict[str, Any]:
+        """查询 archive.org 可用性 API（纯 JSON 接口，使用 httpx 直连）
+
+        Args:
+            url: 待查询的目标 URL
+            timeout: 单次请求超时
+
+        Returns:
+            archive.org/wayback/available 的 JSON 响应（解析后的 dict）
+        """
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            resp = await client.get(
+                "https://archive.org/wayback/available",
+                params={"url": url},
+            )
+            return resp.json() or {}
+
     async def fetch(self, url: str, timeout: float = 30.0) -> FetchResult:
         """查询最新存档快照并抓取原始 HTML
 
         Args:
             url: 目标网页 URL
-            timeout: 超时秒数（应用于 HTTP 层）
+            timeout: 超时秒数（应用于可用性 API 调用层）
 
         Returns:
             FetchResult 包含提取的内容与快照元数据
         """
         try:
-            # Step 1: 查询最新可用快照（注意：可用性 API 在 archive.org 域名下）
-            avail_resp = await self.get(
-                "https://archive.org/wayback/available",
-                params={"url": url},
-            )
-            avail_data = avail_resp.json() or {}
+            # Step 1: 查询最新可用快照（archive.org 域名下的 JSON API）
+            avail_data = await self._check_availability(url, timeout=timeout)
             closest = (avail_data.get("archived_snapshots") or {}).get("closest") or {}
             snapshot_url = closest.get("url") or ""
             timestamp = closest.get("timestamp") or ""
@@ -135,8 +163,8 @@ class WaybackClient(SouWenHttpClient):
             # Step 2: 注入 id_ 修饰符获取无注入的原始 HTML
             raw_snapshot_url = self._to_raw_snapshot_url(snapshot_url)
 
-            # Step 3: 拉取原始存档 HTML（follow_redirects 已默认开启）
-            snap_resp = await self.get(raw_snapshot_url)
+            # Step 3: 拉取原始存档 HTML（走 BaseScraper，享 TLS 指纹 + WARP + 退避）
+            snap_resp = await self._fetch(raw_snapshot_url)
             html = snap_resp.text or ""
 
             # Step 4: 委托共享工具提取正文
