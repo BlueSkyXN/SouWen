@@ -224,6 +224,7 @@ class SouWenConfig(BaseModel):
     perplexity_api_key: str | None = None  # Perplexity Sonar API
     linkup_api_key: str | None = None  # Linkup 搜索 API
     scrapingdog_api_key: str | None = None  # ScrapingDog SERP API
+    metaso_api_key: str | None = None  # Metaso 秘塔搜索 API
     whoogle_url: str | None = None  # Whoogle 自建实例 URL
     websurfx_url: str | None = None  # Websurfx 自建实例 URL
     # 社区 / 视频平台
@@ -615,6 +616,7 @@ web:
   perplexity_api_key: ~
   linkup_api_key: ~
   scrapingdog_api_key: ~
+  metaso_api_key: ~
   whoogle_url: ~
   websurfx_url: ~
   github_token: ~

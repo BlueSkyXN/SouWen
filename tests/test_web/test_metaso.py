@@ -361,7 +361,9 @@ async def test_reader_success(httpx_mock):
 
 async def test_reader_error(httpx_mock):
     """Reader API 失败时返回错误"""
-    httpx_mock.add_exception(Exception("Network timeout"))
+    import httpx
+
+    httpx_mock.add_exception(httpx.ReadError("Network timeout"))
 
     async with MetasoClient(api_key="mk-test") as client:
         resp = await client.reader("https://example.com/fail")
