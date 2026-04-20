@@ -77,6 +77,7 @@ import type {
   ReloadResponse,
   SearchResponse,
   WebSearchResponse,
+  FetchResponse,
   WarpStatus,
   WarpActionResult,
   HttpBackendResponse,
@@ -168,10 +169,12 @@ class ApiService {
    * 超时处理流程：
    *   1. 创建 AbortController 管理超时
    *   2. 若上游已传入 AbortSignal（如组件卸载），则关联两个信号
-   *   3. 30 秒后若未收到响应，自动 abort
+   *   3. 默认 30 秒后若未收到响应，自动 abort；可通过 options.timeoutMs 覆盖
    *   4. 区分超时错误与上游中止
+   *
+   * @param options.timeoutMs 可选的客户端超时时间（毫秒），用于覆盖默认的 REQUEST_TIMEOUT_MS
    */
-  private async request<T>(path: string, options?: RequestInit): Promise<T> {
+  private async request<T>(path: string, options?: RequestInit & { timeoutMs?: number }): Promise<T> {
     const controller = new AbortController()
     const upstreamSignal = options?.signal
     let timedOut = false
@@ -180,14 +183,18 @@ class ApiService {
       abortFromUpstream()
     }
     upstreamSignal?.addEventListener('abort', abortFromUpstream)
+    const effectiveTimeout = options?.timeoutMs ?? REQUEST_TIMEOUT_MS
     const timer = setTimeout(() => {
       timedOut = true
       controller.abort()
-    }, REQUEST_TIMEOUT_MS)
+    }, effectiveTimeout)
+
+    // 剥离 timeoutMs，避免传入浏览器原生 fetch 引发未知属性
+    const { timeoutMs: _timeoutMs, ...fetchOptions } = options ?? {}
 
     try {
       const res = await fetch(`${this.baseUrl}${path}`, {
-        ...options,
+        ...fetchOptions,
         signal: controller.signal,
       })
 
@@ -279,6 +286,22 @@ class ApiService {
     let url = `/api/v1/search/web?q=${encodeURIComponent(q)}&engines=${encodeURIComponent(engines)}&max_results=${maxResults}`
     if (timeout) url += `&timeout=${timeout}`
     return this.request<WebSearchResponse>(url, { headers: this.headers(), signal })
+  }
+
+  /**
+   * 抓取网页内容
+   * 使用 builtin / jina_reader / tavily / firecrawl / exa 提取网页正文
+   */
+  async fetch(urls: string[], provider = 'builtin', timeout = 30, signal?: AbortSignal): Promise<FetchResponse> {
+    // 客户端超时 = 后端 timeout + 20s 缓冲（覆盖后端 +15s 缓冲及网络开销）
+    const clientTimeoutMs = timeout * 1000 + 20_000
+    return this.request<FetchResponse>('/api/v1/fetch', {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify({ urls, provider, timeout }),
+      signal,
+      timeoutMs: clientTimeoutMs,
+    })
   }
 
   /**
