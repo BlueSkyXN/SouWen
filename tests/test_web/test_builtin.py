@@ -255,3 +255,128 @@ class TestCountWords:
     def test_whitespace_only(self):
         """纯空白"""
         assert _count_words("   \n\t  ") == 0
+
+
+class TestSSRFRedirectProtection:
+    """SSRF 重定向防护：确保每一跳都经过 IP 校验"""
+
+    @pytest.mark.asyncio
+    async def test_redirect_to_private_ip_blocked(self):
+        """302 跳转到私有 IP 被拦截"""
+        redirect_resp = MagicMock()
+        redirect_resp.status_code = 302
+        redirect_resp.headers = {"location": "http://169.254.169.254/latest/meta-data/"}
+        redirect_resp.url = "https://evil.com/redir"
+
+        with (
+            patch.object(BuiltinFetcherClient, "_fetch", new_callable=AsyncMock) as mock_fetch,
+            patch("souwen.web.fetch.validate_fetch_url") as mock_validate,
+        ):
+            mock_fetch.return_value = redirect_resp
+            mock_validate.return_value = (False, "目标地址为内部/私有 IP: 169.254.169.254")
+            async with BuiltinFetcherClient() as client:
+                result = await client.fetch("https://evil.com/redir")
+
+        assert result.error is not None
+        assert "SSRF" in result.error
+        assert "169.254.169.254" in result.final_url
+
+    @pytest.mark.asyncio
+    async def test_redirect_to_loopback_blocked(self):
+        """跳转到 127.0.0.1 被拦截"""
+        redirect_resp = MagicMock()
+        redirect_resp.status_code = 301
+        redirect_resp.headers = {"location": "http://127.0.0.1:6379/"}
+        redirect_resp.url = "https://evil.com/redir"
+
+        with (
+            patch.object(BuiltinFetcherClient, "_fetch", new_callable=AsyncMock) as mock_fetch,
+            patch("souwen.web.fetch.validate_fetch_url") as mock_validate,
+        ):
+            mock_fetch.return_value = redirect_resp
+            mock_validate.return_value = (False, "目标地址为内部/私有 IP: 127.0.0.1")
+            async with BuiltinFetcherClient() as client:
+                result = await client.fetch("https://evil.com/redir")
+
+        assert result.error is not None
+        assert "SSRF" in result.error
+
+    @pytest.mark.asyncio
+    async def test_safe_redirect_allowed(self):
+        """合法 302 跳转正常工作"""
+        redirect_resp = MagicMock()
+        redirect_resp.status_code = 302
+        redirect_resp.headers = {"location": "https://example.com/final"}
+        redirect_resp.url = "https://example.com/start"
+
+        html = (
+            "<html><head><title>Final</title></head>"
+            "<body><article><p>" + "Redirected content here. " * 20 + "</p></article></body></html>"
+        )
+        final_resp = MagicMock()
+        final_resp.status_code = 200
+        final_resp.text = html
+        final_resp.url = "https://example.com/final"
+
+        with (
+            patch.object(BuiltinFetcherClient, "_fetch", new_callable=AsyncMock) as mock_fetch,
+            patch("souwen.web.fetch.validate_fetch_url") as mock_validate,
+        ):
+            mock_fetch.side_effect = [redirect_resp, final_resp]
+            mock_validate.return_value = (True, "")
+            async with BuiltinFetcherClient() as client:
+                result = await client.fetch("https://example.com/start")
+
+        assert result.error is None
+        assert result.content is not None
+
+    @pytest.mark.asyncio
+    async def test_too_many_redirects(self):
+        """超过最大重定向次数报错"""
+        redirect_resp = MagicMock()
+        redirect_resp.status_code = 302
+        redirect_resp.headers = {"location": "https://example.com/loop"}
+        redirect_resp.url = "https://example.com/loop"
+
+        with (
+            patch.object(BuiltinFetcherClient, "_fetch", new_callable=AsyncMock) as mock_fetch,
+            patch("souwen.web.fetch.validate_fetch_url") as mock_validate,
+        ):
+            mock_fetch.return_value = redirect_resp
+            mock_validate.return_value = (True, "")
+            async with BuiltinFetcherClient() as client:
+                result = await client.fetch("https://example.com/loop")
+
+        assert result.error is not None
+        assert "重定向次数" in result.error
+
+    @pytest.mark.asyncio
+    async def test_multihop_ssrf_blocked(self):
+        """多跳链中间某一跳指向私有 IP 时被拦截"""
+        hop1 = MagicMock()
+        hop1.status_code = 302
+        hop1.headers = {"location": "https://middle.example.com/step2"}
+        hop1.url = "https://start.example.com/"
+
+        hop2 = MagicMock()
+        hop2.status_code = 302
+        hop2.headers = {"location": "http://10.0.0.1/internal"}
+        hop2.url = "https://middle.example.com/step2"
+
+        def validate_side_effect(url: str):
+            if "10.0.0.1" in url:
+                return (False, "目标地址为内部/私有 IP: 10.0.0.1")
+            return (True, "")
+
+        with (
+            patch.object(BuiltinFetcherClient, "_fetch", new_callable=AsyncMock) as mock_fetch,
+            patch("souwen.web.fetch.validate_fetch_url") as mock_validate,
+        ):
+            mock_fetch.side_effect = [hop1, hop2]
+            mock_validate.side_effect = validate_side_effect
+            async with BuiltinFetcherClient() as client:
+                result = await client.fetch("https://start.example.com/")
+
+        assert result.error is not None
+        assert "SSRF" in result.error
+        assert "10.0.0.1" in result.final_url
