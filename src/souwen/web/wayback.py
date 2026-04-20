@@ -360,12 +360,23 @@ class WaybackClient(BaseScraper):
                             snapshot_data[field] = row[i]
 
                     # 提取关键字段
-                    timestamp = snapshot_data.get("timestamp", "")
+                    timestamp = str(snapshot_data.get("timestamp") or "")
                     original_url = snapshot_data.get("original", url)
-                    status = snapshot_data.get("statuscode", "200")
-                    mime = snapshot_data.get("mimetype", "")
-                    digest = snapshot_data.get("digest", "")
-                    length = snapshot_data.get("length", "0")
+                    # CDX 字段类型不稳定（偶尔返回 int 或 None），统一转 str 后再判断，避免 AttributeError
+                    status_raw = snapshot_data.get("statuscode")
+                    if isinstance(status_raw, int):
+                        status_code = status_raw
+                    else:
+                        status_str = str(status_raw or "")
+                        status_code = int(status_str) if status_str.isdigit() else 200
+                    mime = str(snapshot_data.get("mimetype") or "")
+                    digest = str(snapshot_data.get("digest") or "")
+                    length_raw = snapshot_data.get("length")
+                    if isinstance(length_raw, int):
+                        length_val = length_raw
+                    else:
+                        length_str = str(length_raw or "")
+                        length_val = int(length_str) if length_str.isdigit() else 0
 
                     # 构建快照 URL
                     archive_url = f"https://web.archive.org/web/{timestamp}/{original_url}"
@@ -378,10 +389,10 @@ class WaybackClient(BaseScraper):
                         timestamp=timestamp,
                         url=original_url,
                         archive_url=archive_url,
-                        status_code=int(status) if status.isdigit() else 200,
+                        status_code=status_code,
                         mime_type=mime,
                         digest=digest,
-                        length=int(length) if isinstance(length, str) and length.isdigit() else 0,
+                        length=length_val,
                         published_date=published_date,
                     )
                     snapshots.append(snapshot)

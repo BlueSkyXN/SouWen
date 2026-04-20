@@ -1,6 +1,10 @@
 """Wayback Machine 客户端单元测试"""
 
+import re
+
+import httpx
 import pytest
+from pytest_httpx import HTTPXMock
 
 from souwen.models import WaybackCDXResponse, WaybackSnapshot
 from souwen.web.wayback import WaybackClient
@@ -151,3 +155,189 @@ class TestWaybackClient:
                     # 日期应该在 2023 年范围内
                     if snapshot.published_date:
                         assert snapshot.published_date.startswith("2023")
+
+
+# ---------------------------------------------------------------------------
+# query_snapshots() — 基于 pytest-httpx 的 mock 单元测试
+# ---------------------------------------------------------------------------
+
+CDX_URL_PATTERN = re.compile(r"https://web\.archive\.org/cdx/search/cdx")
+
+# 标准 CDX 响应：第一行是字段名，后续行是数据值
+CDX_FIELDS = ["urlkey", "timestamp", "original", "mimetype", "statuscode", "digest", "length"]
+CDX_SAMPLE_RESPONSE = [
+    CDX_FIELDS,
+    [
+        "com,example)/",
+        "20230115120000",
+        "http://example.com/",
+        "text/html",
+        "200",
+        "ABC123DEF456",
+        "1234",
+    ],
+    [
+        "com,example)/",
+        "20230516093000",
+        "http://example.com/",
+        "text/html",
+        "301",
+        "XYZ789",
+        "567",
+    ],
+]
+
+
+async def test_query_snapshots_parses_cdx_response(httpx_mock: HTTPXMock):
+    """正常解析：CDX JSON → WaybackSnapshot 列表"""
+    httpx_mock.add_response(url=CDX_URL_PATTERN, json=CDX_SAMPLE_RESPONSE)
+
+    async with WaybackClient() as client:
+        resp = await client.query_snapshots(url="example.com")
+
+    assert resp.error is None
+    assert resp.url == "example.com"
+    assert resp.total == 2
+    assert len(resp.snapshots) == 2
+
+    snap0 = resp.snapshots[0]
+    assert snap0.timestamp == "20230115120000"
+    assert snap0.url == "http://example.com/"
+    assert snap0.status_code == 200
+    assert snap0.mime_type == "text/html"
+    assert snap0.digest == "ABC123DEF456"
+    assert snap0.length == 1234
+    assert snap0.published_date == "2023-01-15"
+    assert snap0.archive_url == "https://web.archive.org/web/20230115120000/http://example.com/"
+
+    assert resp.snapshots[1].status_code == 301
+    assert resp.snapshots[1].length == 567
+
+
+async def test_query_snapshots_passes_filter_params(httpx_mock: HTTPXMock):
+    """验证 status_code / mime / collapse / limit / 日期 参数正确传递给 CDX API"""
+    httpx_mock.add_response(url=CDX_URL_PATTERN, json=[CDX_FIELDS])
+
+    async with WaybackClient() as client:
+        resp = await client.query_snapshots(
+            url="example.com",
+            from_date="2023-01-01",
+            to_date="2023-12-31",
+            filter_status=[200, 301],
+            filter_mime="text/html",
+            limit=50,
+            collapse="timestamp:8",
+        )
+
+    # 验证响应元数据
+    assert resp.from_date == "20230101"
+    assert resp.to_date == "20231231"
+    assert resp.filter_status == [200, 301]
+    assert resp.filter_mime == "text/html"
+
+    # 验证实际发出的请求参数
+    request = httpx_mock.get_requests()[0]
+    qs = request.url.params
+    assert qs["url"] == "example.com"
+    assert qs["output"] == "json"
+    assert qs["from"] == "20230101"
+    assert qs["to"] == "20231231"
+    assert qs["limit"] == "50"
+    assert qs["collapse"] == "timestamp:8"
+    # filter 是多值参数：状态码 + mime
+    filters = qs.get_list("filter")
+    assert "statuscode:200" in filters
+    assert "statuscode:301" in filters
+    assert "mimetype:text/html" in filters
+
+
+async def test_query_snapshots_empty_result(httpx_mock: HTTPXMock):
+    """空结果：CDX 仅返回字段头或空数组"""
+    httpx_mock.add_response(url=CDX_URL_PATTERN, json=[CDX_FIELDS])
+
+    async with WaybackClient() as client:
+        resp = await client.query_snapshots(url="no-such-domain.invalid")
+
+    assert resp.error is None
+    assert resp.total == 0
+    assert resp.snapshots == []
+
+
+async def test_query_snapshots_skips_dirty_rows(httpx_mock: HTTPXMock):
+    """脏数据：长度不足/类型不符的行应被跳过"""
+    dirty_response = [
+        CDX_FIELDS,
+        ["com,example)/", "20230101000000"],  # 字段不足
+        "not-a-list",  # 类型错误
+        [
+            "com,example)/",
+            "20230301000000",
+            "http://example.com/",
+            "text/html",
+            "200",
+            "DIGEST",
+            "100",
+        ],
+    ]
+    httpx_mock.add_response(url=CDX_URL_PATTERN, json=dirty_response)
+
+    async with WaybackClient() as client:
+        resp = await client.query_snapshots(url="example.com")
+
+    assert resp.error is None
+    assert resp.total == 1
+    assert resp.snapshots[0].timestamp == "20230301000000"
+
+
+async def test_query_snapshots_handles_non_string_status_and_length(httpx_mock: HTTPXMock):
+    """类型安全：CDX 偶尔返回 int 或 None，不应抛 AttributeError"""
+    response = [
+        CDX_FIELDS,
+        # status / length 是 int
+        ["com,example)/", "20230101000000", "http://example.com/", "text/html", 200, "D1", 1024],
+        # status / length 是 None
+        ["com,example)/", "20230102000000", "http://example.com/", "text/html", None, "D2", None],
+        # length 是非数字脏字符串
+        ["com,example)/", "20230103000000", "http://example.com/", "text/html", "abc", "D3", "n/a"],
+    ]
+    httpx_mock.add_response(url=CDX_URL_PATTERN, json=response)
+
+    async with WaybackClient() as client:
+        resp = await client.query_snapshots(url="example.com")
+
+    assert resp.error is None
+    assert len(resp.snapshots) == 3
+    # int 类型应被正确解析
+    assert resp.snapshots[0].status_code == 200
+    assert resp.snapshots[0].length == 1024
+    # None 应回退到默认值
+    assert resp.snapshots[1].status_code == 200
+    assert resp.snapshots[1].length == 0
+    # 非数字字符串应回退到默认值，不报错
+    assert resp.snapshots[2].status_code == 200
+    assert resp.snapshots[2].length == 0
+
+
+async def test_query_snapshots_network_error_into_error_field(httpx_mock: HTTPXMock):
+    """网络异常应被捕获并写入 WaybackCDXResponse.error，不向上抛"""
+    httpx_mock.add_exception(httpx.ConnectError("connection refused"))
+
+    async with WaybackClient() as client:
+        resp = await client.query_snapshots(url="example.com")
+
+    assert resp.snapshots == []
+    assert resp.total == 0
+    assert resp.error is not None
+    assert "connection refused" in resp.error or "ConnectError" in resp.error
+
+
+async def test_query_snapshots_http_error_into_error_field(httpx_mock: HTTPXMock):
+    """HTTP 5xx 应被 raise_for_status 捕获并写入 error 字段"""
+    httpx_mock.add_response(url=CDX_URL_PATTERN, status_code=503, text="Service Unavailable")
+
+    async with WaybackClient() as client:
+        resp = await client.query_snapshots(url="example.com")
+
+    assert resp.snapshots == []
+    assert resp.total == 0
+    assert resp.error is not None
