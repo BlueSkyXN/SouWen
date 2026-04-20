@@ -4,6 +4,7 @@
  * 路由清单：
  *   / - DashboardPage（首页/仪表板）
  *   /search - SearchPage（搜索页面）
+ *   /fetch - FetchPage（网页抓取页面）
  *   /sources - SourcesPage（数据源管理页面）
  *   /network - NetworkPage（网络连接页面）
  *   /config - ConfigPage（应用配置页面）
@@ -16,6 +17,7 @@
 import { Route } from 'react-router-dom'
 import { DashboardPage } from './pages/DashboardPage'
 import { SearchPage } from './pages/SearchPage'
+import { FetchPage } from './pages/FetchPage'
 import { SourcesPage } from './pages/SourcesPage'
 import { NetworkPage } from './pages/NetworkPage'
 import { ConfigPage } from './pages/ConfigPage'
@@ -29,6 +31,7 @@ export const skinRoutes = (
   <>
     <Route path="/" element={<DashboardPage />} />
     <Route path="/search" element={<SearchPage />} />
+    <Route path="/fetch" element={<FetchPage />} />
     <Route path="/sources" element={<SourcesPage />} />
     <Route path="/network" element={<NetworkPage />} />
     <Route path="/config" element={<ConfigPage />} />
