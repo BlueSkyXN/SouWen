@@ -29,6 +29,10 @@ const PROVIDERS: { value: Provider; label: string }[] = [
   { value: 'zenrows', label: 'ZenRows' },
   { value: 'scraperapi', label: 'ScraperAPI' },
   { value: 'apify', label: 'Apify' },
+  { value: 'cloudflare', label: 'Cloudflare' },
+  { value: 'wayback', label: 'Wayback Machine' },
+  { value: 'newspaper', label: 'Newspaper' },
+  { value: 'readability', label: 'Readability' },
 ]
 
 export function FetchPage() {

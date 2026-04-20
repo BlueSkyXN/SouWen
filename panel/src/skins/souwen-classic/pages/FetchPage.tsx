@@ -32,6 +32,10 @@ const PROVIDERS: { value: Provider; label: string; description: string }[] = [
   { value: 'zenrows', label: 'ZenRows', description: 'Proxy + JS rendering + anti-bot' },
   { value: 'scraperapi', label: 'ScraperAPI', description: 'Proxy pool + JS rendering' },
   { value: 'apify', label: 'Apify', description: 'Actor-based web crawler platform' },
+  { value: 'cloudflare', label: 'Cloudflare', description: 'Edge browser rendering (markdown)' },
+  { value: 'wayback', label: 'Wayback Machine', description: 'Internet Archive cached pages (free)' },
+  { value: 'newspaper', label: 'Newspaper', description: 'News article extraction (local)' },
+  { value: 'readability', label: 'Readability', description: 'Mozilla Readability algorithm (local)' },
 ]
 
 export function FetchPage() {
