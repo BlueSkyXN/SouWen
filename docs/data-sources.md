@@ -9,6 +9,7 @@
 | 论文 | 8 | 5（OpenAlex、Crossref、arXiv、DBLP、PubMed） | 3（Semantic Scholar 可选、CORE、Unpaywall） |
 | 专利 | 8 | 2（PatentsView、PQAI） | 6（EPO、USPTO ODP、The Lens、CNIPA、PatSnap、Google Patents 爬虫） |
 | 搜索引擎 | 21 | 9（爬虫类） + 2（自建实例） | 10（API 类） |
+| 内容抓取 | 5 | 1（内置 builtin） | 4（Jina Reader、Tavily、Firecrawl、Exa） |
 
 ## 论文数据源
 
@@ -94,3 +95,32 @@
 | 聚合搜索 | `web_search()` | 并发多引擎搜索 + URL 去重 |
 
 默认使用 DuckDuckGo + Bing 双引擎并发（在零配置场景下更稳定），可通过 `engines` 参数自定义组合。
+
+## 内容抓取提供者
+
+> v0.7.1 新增。通过 `POST /api/v1/fetch` 或 CLI `souwen fetch` 调用。
+
+| 提供者 | 标识 | 鉴权 | 特点 |
+|--------|------|------|------|
+| 内置抓取 | `builtin` | 无需 Key | httpx/curl_cffi + trafilatura，零配置，SSRF 防护 + 重定向校验 |
+| Jina Reader | `jina_reader` | 可选 Key | 云端 Markdown 提取，免费层可用 |
+| Tavily | `tavily` | API Key | AI Agent 原生，结构化提取 |
+| Firecrawl | `firecrawl` | API Key | 高级网页爬取 + 内容清洗 |
+| Exa | `exa` | API Key | 语义搜索 + 内容提取 |
+
+### 分级说明
+
+- **Tier 1（零配置）**：builtin — 使用内置 HTTP 客户端 + trafilatura（可选安装 `pip install souwen[web]`），无需任何 API Key
+- **Tier 2（推荐）**：jina_reader — 免费层可直接使用，设置 Key 可提高速率
+- **Tier 3（需注册）**：tavily、firecrawl、exa — 需申请 API Key
+
+### 内置抓取（builtin）技术栈
+
+- **HTTP 请求**：继承 `BaseScraper`（TLS 指纹模拟 / WARP 代理 / 自适应退避）
+- **内容提取**：trafilatura（优先）→ html2text（回退）→ 正则剥离（最终回退）
+- **输出格式**：Markdown（trafilatura）/ 纯文本（回退）
+- **安全特性**：
+  - 请求前 DNS 解析 + 私有/保留 IP 拒绝（SSRF 防护）
+  - 手动重定向跟踪，每一跳校验目标 IP（防多跳 SSRF）
+  - 最大重定向 5 次
+- **CJK 支持**：自定义词数统计，正确处理中文/日文/韩文
