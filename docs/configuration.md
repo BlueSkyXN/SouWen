@@ -61,6 +61,10 @@ web:
   jina_api_key: your_key             # Jina Reader（可选，免费层无需 Key）
   scrapfly_api_key: your_key         # Scrapfly（JS 渲染+AI 提取）
   diffbot_api_token: your_token      # Diffbot（结构化内容提取）
+  scrapingbee_api_key: your_key      # ScrapingBee（代理+JS 渲染+反爬）
+  zenrows_api_key: your_key          # ZenRows（代理+JS 渲染+反爬）
+  scraperapi_api_key: your_key       # ScraperAPI（代理池+JS 渲染）
+  apify_api_token: your_token        # Apify（平台化 Actor 爬虫）
   perplexity_api_key: your_key
   linkup_api_key: your_key
   scrapingdog_api_key: your_key
@@ -148,6 +152,10 @@ sources: {}
 | `jina_api_key` | `SOUWEN_JINA_API_KEY` | 可选 | Jina Reader 网页抓取（免费层无需 Key） |
 | `scrapfly_api_key` | `SOUWEN_SCRAPFLY_API_KEY` | Scrapfly 必需 | JS 渲染+AI 提取+反爬绕过 |
 | `diffbot_api_token` | `SOUWEN_DIFFBOT_API_TOKEN` | Diffbot 必需 | 结构化内容提取（文章/学术） |
+| `scrapingbee_api_key` | `SOUWEN_SCRAPINGBEE_API_KEY` | ScrapingBee 必需 | 代理池+JS 渲染+反爬绕过 |
+| `zenrows_api_key` | `SOUWEN_ZENROWS_API_KEY` | ZenRows 必需 | 代理池+JS 渲染+自动解析 |
+| `scraperapi_api_key` | `SOUWEN_SCRAPERAPI_API_KEY` | ScraperAPI 必需 | 大规模代理池+JS 渲染 |
+| `apify_api_token` | `SOUWEN_APIFY_API_TOKEN` | Apify 必需 | 平台化 Actor 爬虫 |
 
 ### 网络设置
 

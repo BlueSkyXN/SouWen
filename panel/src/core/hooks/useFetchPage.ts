@@ -12,7 +12,7 @@ import { useNotificationStore } from '../stores/notificationStore'
 import { formatError } from '../lib/errors'
 import type { FetchResponse, FetchResult } from '../types'
 
-export type Provider = 'builtin' | 'jina_reader' | 'tavily' | 'firecrawl' | 'exa' | 'crawl4ai' | 'scrapfly' | 'diffbot'
+export type Provider = 'builtin' | 'jina_reader' | 'tavily' | 'firecrawl' | 'exa' | 'crawl4ai' | 'scrapfly' | 'diffbot' | 'scrapingbee' | 'zenrows' | 'scraperapi' | 'apify'
 
 export const MAX_URLS = 20
 

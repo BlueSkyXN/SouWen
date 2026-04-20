@@ -28,6 +28,10 @@ const PROVIDERS: { value: Provider; label: string; description: string }[] = [
   { value: 'crawl4ai', label: 'Crawl4AI', description: 'Headless browser (local)' },
   { value: 'scrapfly', label: 'Scrapfly', description: 'JS rendering + AI extraction' },
   { value: 'diffbot', label: 'Diffbot', description: 'Structured article extraction' },
+  { value: 'scrapingbee', label: 'ScrapingBee', description: 'Proxy + JS rendering + anti-bot' },
+  { value: 'zenrows', label: 'ZenRows', description: 'Proxy + JS rendering + anti-bot' },
+  { value: 'scraperapi', label: 'ScraperAPI', description: 'Proxy pool + JS rendering' },
+  { value: 'apify', label: 'Apify', description: 'Actor-based web crawler platform' },
 ]
 
 export function FetchPage() {

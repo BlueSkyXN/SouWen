@@ -25,6 +25,10 @@ const PROVIDERS: { value: Provider; label: string }[] = [
   { value: 'crawl4ai', label: 'Crawl4AI' },
   { value: 'scrapfly', label: 'Scrapfly' },
   { value: 'diffbot', label: 'Diffbot' },
+  { value: 'scrapingbee', label: 'ScrapingBee' },
+  { value: 'zenrows', label: 'ZenRows' },
+  { value: 'scraperapi', label: 'ScraperAPI' },
+  { value: 'apify', label: 'Apify' },
 ]
 
 export function FetchPage() {
