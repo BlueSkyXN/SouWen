@@ -9,7 +9,7 @@
 | 论文 | 8 | 5（OpenAlex、Crossref、arXiv、DBLP、PubMed） | 3（Semantic Scholar 可选、CORE、Unpaywall） |
 | 专利 | 8 | 2（PatentsView、PQAI） | 6（EPO、USPTO ODP、The Lens、CNIPA、PatSnap、Google Patents 爬虫） |
 | 搜索引擎 | 21 | 9（爬虫类） + 2（自建实例） | 10（API 类） |
-| 内容抓取 | 5 | 1（内置 builtin） | 4（Jina Reader、Tavily、Firecrawl、Exa） |
+| 内容抓取 | 8 | 2（builtin、Crawl4AI） | 6（Jina Reader、Tavily、Firecrawl、Exa、Scrapfly、Diffbot） |
 
 ## 论文数据源
 
@@ -103,16 +103,20 @@
 | 提供者 | 标识 | 鉴权 | 特点 |
 |--------|------|------|------|
 | 内置抓取 | `builtin` | 无需 Key | httpx/curl_cffi + trafilatura，零配置，SSRF 防护 + 重定向校验 |
+| Crawl4AI | `crawl4ai` | 无需 Key | 开源无头浏览器（Playwright），适合 JS 重度页面，本地运行 |
 | Jina Reader | `jina_reader` | 可选 Key | 云端 Markdown 提取，免费层可用 |
 | Tavily | `tavily` | API Key | AI Agent 原生，结构化提取 |
 | Firecrawl | `firecrawl` | API Key | 高级网页爬取 + 内容清洗 |
 | Exa | `exa` | API Key | 语义搜索 + 内容提取 |
+| Scrapfly | `scrapfly` | API Key | JS 渲染 + AI 提取 + 反爬绕过，高成功率 |
+| Diffbot | `diffbot` | API Key | AI 结构化提取，擅长新闻/学术页面，含作者/日期元数据 |
 
 ### 分级说明
 
 - **Tier 1（零配置）**：builtin — 使用内置 HTTP 客户端 + trafilatura（可选安装 `pip install souwen[web]`），无需任何 API Key
+- **Tier 1.5（零配置，需浏览器）**：crawl4ai — 开源 Playwright 无头浏览器（安装 `pip install souwen[crawl4ai]`），适合 JS 重度页面
 - **Tier 2（推荐）**：jina_reader — 免费层可直接使用，设置 Key 可提高速率
-- **Tier 3（需注册）**：tavily、firecrawl、exa — 需申请 API Key
+- **Tier 3（需注册）**：tavily、firecrawl、exa、scrapfly、diffbot — 需申请 API Key
 
 ### 内置抓取（builtin）技术栈
 

@@ -59,6 +59,8 @@ web:
   serpapi_api_key: your_key
   firecrawl_api_key: your_key
   jina_api_key: your_key             # Jina Reader（可选，免费层无需 Key）
+  scrapfly_api_key: your_key         # Scrapfly（JS 渲染+AI 提取）
+  diffbot_api_token: your_token      # Diffbot（结构化内容提取）
   perplexity_api_key: your_key
   linkup_api_key: your_key
   scrapingdog_api_key: your_key
@@ -144,6 +146,8 @@ sources: {}
 | `stackoverflow_api_key` | `SOUWEN_STACKOVERFLOW_API_KEY` | 可选 | StackOverflow API Key（提升配额） |
 | `youtube_api_key` | `SOUWEN_YOUTUBE_API_KEY` | YouTube 必需 | YouTube Data API v3 Key |
 | `jina_api_key` | `SOUWEN_JINA_API_KEY` | 可选 | Jina Reader 网页抓取（免费层无需 Key） |
+| `scrapfly_api_key` | `SOUWEN_SCRAPFLY_API_KEY` | Scrapfly 必需 | JS 渲染+AI 提取+反爬绕过 |
+| `diffbot_api_token` | `SOUWEN_DIFFBOT_API_TOKEN` | Diffbot 必需 | 结构化内容提取（文章/学术） |
 
 ### 网络设置
 
