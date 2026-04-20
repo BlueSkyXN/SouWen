@@ -415,4 +415,3 @@ class WaybackClient(BaseScraper):
                 total=0,
                 error=str(exc),
             )
-
