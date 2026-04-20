@@ -68,8 +68,10 @@ web:
   github_token: ~
   # StackOverflow API Key（可选，提升配额；https://stackapps.com/apps/oauth/register）
   stackoverflow_api_key: ~
-  # YouTube Data API v3 Key（必填，https://console.cloud.google.com/apis/credentials）
+  # YouTube Data API v3 Key（启用 youtube 源时必填；https://console.cloud.google.com/apis/credentials）
   youtube_api_key: ~
+  # Jina Reader API Key（可选，免费层无需 Key；https://jina.ai/reader/）
+  jina_api_key: ~
   # 以下数据源无需 API Key，可直接使用（如需禁用请在 sources 段配置 enabled: false）：
   #   reddit     — Reddit 帖子搜索
   #   wikipedia  — Wikipedia 百科搜索
@@ -115,6 +117,7 @@ server:
   visitor_password: ~
   # 管理密码（仅保护管理端点，优先于 api_password）
   admin_password: ~
+  # 注：将 visitor_password 或 admin_password 设为空字符串（""）表示强制开放对应端点组，忽略 api_password 回退
   # CORS 允许的来源列表（默认不启用 CORS）
   # 示例: ["http://localhost:3000", "https://my-app.example.com"]
   # 设为 ["*"] 允许所有来源（不推荐在生产环境使用）

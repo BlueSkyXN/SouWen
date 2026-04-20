@@ -166,7 +166,8 @@ class SouWenConfig(BaseModel):
         搜索源 API Key: searxng_url, tavily_api_key, exa_api_key, serper_api_key,
                         brave_api_key, serpapi_api_key, firecrawl_api_key,
                         perplexity_api_key, linkup_api_key, scrapingdog_api_key,
-                        whoogle_url, websurfx_url
+                        whoogle_url, websurfx_url, github_token,
+                        stackoverflow_api_key, youtube_api_key, jina_api_key
 
         通用设置: proxy, proxy_pool (代理池), timeout (超时秒数),
                  max_retries (重试次数), data_dir (数据存储目录)
@@ -221,6 +222,12 @@ class SouWenConfig(BaseModel):
     scrapingdog_api_key: str | None = None  # ScrapingDog SERP API
     whoogle_url: str | None = None  # Whoogle 自建实例 URL
     websurfx_url: str | None = None  # Websurfx 自建实例 URL
+    # 社区 / 视频平台
+    github_token: str | None = None  # GitHub PAT（可选，提升速率限制）
+    stackoverflow_api_key: str | None = None  # StackOverflow API Key（可选，提升配额）
+    youtube_api_key: str | None = None  # YouTube Data API v3 Key
+    # 内容抓取
+    jina_api_key: str | None = None  # Jina Reader API Key（可选，免费层无需 Key）
 
     # ===== 通用 =====
     proxy: str | None = None
@@ -559,7 +566,7 @@ def reload_config() -> SouWenConfig:
 
 
 # ---------------------------------------------------------------------------
-# 默认配置模板(与 souwen.example.yaml 保持一致)
+# 默认配置模板（涵盖主要字段，详见 souwen.example.yaml 获取完整示例）
 # ---------------------------------------------------------------------------
 _DEFAULT_CONFIG_TEMPLATE = """\
 # SouWen 配置文件(自动生成)
@@ -598,6 +605,10 @@ web:
   scrapingdog_api_key: ~
   whoogle_url: ~
   websurfx_url: ~
+  github_token: ~
+  stackoverflow_api_key: ~
+  youtube_api_key: ~
+  jina_api_key: ~
 
 # ===== 通用设置 =====
 general:
@@ -617,6 +628,8 @@ server:
   visitor_password: ~
   # 管理密码（仅保护管理端点，优先于 api_password）
   admin_password: ~
+  # 允许跨域的来源列表（CORS Origins），留空表示不启用 CORS
+  cors_origins: []
   # 受信反向代理 IP/CIDR 列表;只有来自这些地址的请求才会读取 X-Forwarded-For
   # 解析真实客户端 IP.不在此列表的直连客户端的 XFF 头将被忽略,避免伪造.
   # 示例: ["10.0.0.0/8", "172.16.0.0/12", "127.0.0.1"]
