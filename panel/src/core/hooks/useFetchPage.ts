@@ -132,7 +132,7 @@ export function useFetchPage() {
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
-      a.download = `${item.title?.replace(/[^a-zA-Z0-9]/g, '_') || 'content'}.md`
+      a.download = `${item.title?.replace(/[\\/:*?"<>|]/g, '_') || 'content'}.md`
       a.click()
       URL.revokeObjectURL(url)
       addToast('success', t('fetch.downloaded', 'Downloaded as Markdown'))
