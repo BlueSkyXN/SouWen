@@ -55,6 +55,7 @@ from souwen.web.zhihu import ZhihuClient
 from souwen.web.weibo import WeiboClient
 from souwen.web.jina_reader import JinaReaderClient
 from souwen.web.builtin import BuiltinFetcherClient
+from souwen.web.wayback import WaybackClient
 from souwen.web.search import web_search
 from souwen.web.fetch import fetch_content
 
@@ -95,6 +96,7 @@ __all__ = [
     # 内容抓取类 (fetch)
     "BuiltinFetcherClient",
     "JinaReaderClient",
+    "WaybackClient",
     # 聚合搜索/抓取
     "web_search",
     "fetch_content",
