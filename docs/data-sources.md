@@ -9,7 +9,7 @@
 | 论文 | 8 | 5（OpenAlex、Crossref、arXiv、DBLP、PubMed） | 3（Semantic Scholar 可选、CORE、Unpaywall） |
 | 专利 | 8 | 2（PatentsView、PQAI） | 6（EPO、USPTO ODP、The Lens、CNIPA、PatSnap、Google Patents 爬虫） |
 | 搜索引擎 | 21 | 9（爬虫类） + 2（自建实例） | 10（API 类） |
-| 内容抓取 | 8 | 2（builtin、Crawl4AI） | 6（Jina Reader、Tavily、Firecrawl、Exa、Scrapfly、Diffbot） |
+| 内容抓取 | 12 | 2（builtin、Crawl4AI） | 10（Jina Reader、Tavily、Firecrawl、Exa、Scrapfly、Diffbot、ScrapingBee、ZenRows、ScraperAPI、Apify） |
 
 ## 论文数据源
 
@@ -110,13 +110,17 @@
 | Exa | `exa` | API Key | 语义搜索 + 内容提取 |
 | Scrapfly | `scrapfly` | API Key | JS 渲染 + AI 提取 + 反爬绕过，高成功率 |
 | Diffbot | `diffbot` | API Key | AI 结构化提取，擅长新闻/学术页面，含作者/日期元数据 |
+| ScrapingBee | `scrapingbee` | API Key | 代理池 + JS 渲染 + 反爬绕过，返回 HTML 后自动提取 |
+| ZenRows | `zenrows` | API Key | 代理池 + JS 渲染 + 自动解析，高成功率反爬 |
+| ScraperAPI | `scraperapi` | API Key | 大规模代理池 + JS 渲染，性价比高 |
+| Apify | `apify` | API Token | 平台化 Actor 爬虫（4000+ 预构建任务），内容直出 Markdown |
 
 ### 分级说明
 
 - **Tier 1（零配置）**：builtin — 使用内置 HTTP 客户端 + trafilatura（可选安装 `pip install souwen[web]`），无需任何 API Key
 - **Tier 1.5（零配置，需浏览器）**：crawl4ai — 开源 Playwright 无头浏览器（安装 `pip install souwen[crawl4ai]`），适合 JS 重度页面
 - **Tier 2（推荐）**：jina_reader — 免费层可直接使用，设置 Key 可提高速率
-- **Tier 3（需注册）**：tavily、firecrawl、exa、scrapfly、diffbot — 需申请 API Key
+- **Tier 3（需注册）**：tavily、firecrawl、exa、scrapfly、diffbot、scrapingbee、zenrows、scraperapi、apify — 需申请 API Key/Token
 
 ### 内置抓取（builtin）技术栈
 

@@ -168,7 +168,9 @@ class SouWenConfig(BaseModel):
                         perplexity_api_key, linkup_api_key, scrapingdog_api_key,
                         whoogle_url, websurfx_url, github_token,
                         stackoverflow_api_key, youtube_api_key, jina_api_key,
-                        scrapfly_api_key, diffbot_api_token
+                        scrapfly_api_key, diffbot_api_token,
+                        scrapingbee_api_key, zenrows_api_key,
+                        scraperapi_api_key, apify_api_token
 
         通用设置: proxy, proxy_pool (代理池), timeout (超时秒数),
                  max_retries (重试次数), data_dir (数据存储目录)
@@ -231,6 +233,10 @@ class SouWenConfig(BaseModel):
     jina_api_key: str | None = None  # Jina Reader API Key（可选，免费层无需 Key）
     scrapfly_api_key: str | None = None  # Scrapfly API Key（JS 渲染+AI 提取）
     diffbot_api_token: str | None = None  # Diffbot API Token（结构化内容提取）
+    scrapingbee_api_key: str | None = None  # ScrapingBee API Key（代理+JS 渲染+反爬）
+    zenrows_api_key: str | None = None  # ZenRows API Key（代理+JS 渲染+反爬）
+    scraperapi_api_key: str | None = None  # ScraperAPI API Key（代理+JS 渲染）
+    apify_api_token: str | None = None  # Apify API Token（平台化 Actor 爬虫）
 
     # ===== 通用 =====
     proxy: str | None = None
@@ -614,6 +620,10 @@ web:
   jina_api_key: ~
   scrapfly_api_key: ~
   diffbot_api_token: ~
+  scrapingbee_api_key: ~
+  zenrows_api_key: ~
+  scraperapi_api_key: ~
+  apify_api_token: ~
 
 # ===== 通用设置 =====
 general:

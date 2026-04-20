@@ -76,6 +76,14 @@ web:
   scrapfly_api_key: ~
   # Diffbot API Token（结构化内容提取，适合新闻/学术页面；https://www.diffbot.com/）
   diffbot_api_token: ~
+  # ScrapingBee API Key（代理+JS 渲染+反爬绕过；https://www.scrapingbee.com/）
+  scrapingbee_api_key: ~
+  # ZenRows API Key（代理+JS 渲染+反爬绕过；https://www.zenrows.com/）
+  zenrows_api_key: ~
+  # ScraperAPI API Key（代理池+JS 渲染；https://www.scraperapi.com/）
+  scraperapi_api_key: ~
+  # Apify API Token（平台化 Actor 爬虫，4000+ 预构建任务；https://apify.com/）
+  apify_api_token: ~
   # 以下数据源无需 API Key，可直接使用（如需禁用请在 sources 段配置 enabled: false）：
   #   reddit     — Reddit 帖子搜索
   #   wikipedia  — Wikipedia 百科搜索
