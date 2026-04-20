@@ -115,6 +115,7 @@ class BaseScraper:
         max_delay: float = 5.0,
         max_retries: int = 3,
         use_curl_cffi: bool | None = None,
+        follow_redirects: bool = True,
     ):
         self.min_delay = min_delay
         self.max_delay = max_delay
@@ -158,6 +159,7 @@ class BaseScraper:
         )
 
         self._use_curl_cffi = use_curl_cffi
+        self._follow_redirects = follow_redirects
         self._curl_session: Any = None
         self._httpx_client: httpx.AsyncClient | None = None
 
@@ -172,7 +174,7 @@ class BaseScraper:
             self._httpx_client = httpx.AsyncClient(
                 timeout=httpx.Timeout(config.timeout),
                 proxy=proxy,
-                follow_redirects=True,
+                follow_redirects=follow_redirects,
             )
 
     async def __aenter__(self) -> "BaseScraper":
@@ -304,7 +306,13 @@ class BaseScraper:
         """
         if self._use_curl_cffi and self._curl_session is not None:
             # curl_cffi 路径 — TLS 指纹模拟
-            return await self._curl_session.request(method, url, params=params, headers=headers)
+            return await self._curl_session.request(
+                method,
+                url,
+                params=params,
+                headers=headers,
+                allow_redirects=self._follow_redirects,
+            )
         elif self._httpx_client is not None:
             # httpx 回退路径
             return await self._httpx_client.request(method, url, params=params, headers=headers)

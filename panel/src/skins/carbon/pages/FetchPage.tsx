@@ -246,7 +246,7 @@ export function FetchPage() {
               required
             />
             <div className={styles.urlCount}>
-              {validUrls.length} {t('fetch.validUrls', 'valid URLs')}
+              {t('fetch.validUrls', { count: validUrls.length })}
             </div>
           </div>
 

@@ -55,6 +55,8 @@ souwen = "souwen.cli:app"
 [project.optional-dependencies]
 # TLS 指纹伪装（规避反爬虫检测）
 tls = ["curl-cffi>=0.14.0"]
+# 网页内容抓取（trafilatura 提取 + Markdown 转换）
+web = ["trafilatura>=1.0"]
 # 浏览器爬虫（Playwright）+ TLS 伪装
 scraper = ["playwright>=1.40", "curl-cffi>=0.14.0"]
 # Web 服务器（FastAPI + Uvicorn）

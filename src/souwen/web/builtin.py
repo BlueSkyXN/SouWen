@@ -40,6 +40,7 @@ import asyncio
 import logging
 import re
 from typing import Any
+from urllib.parse import urljoin
 
 from souwen.models import FetchResponse, FetchResult
 from souwen.scraper.base import BaseScraper
@@ -201,16 +202,22 @@ class BuiltinFetcherClient(BaseScraper):
 
     ENGINE_NAME = "builtin_fetch"
     PROVIDER_NAME = "builtin"
+    MAX_REDIRECTS = 5
+    _REDIRECT_CODES = frozenset({301, 302, 303, 307, 308})
 
     def __init__(self) -> None:
         super().__init__(
             min_delay=0,
             max_delay=0.3,
             max_retries=2,
+            follow_redirects=False,
         )
 
     async def fetch(self, url: str, timeout: float = 30.0) -> FetchResult:
         """抓取单个 URL 的内容
+
+        手动跟踪重定向并在每一跳校验 SSRF，防止攻击者通过 302 跳转
+        到内部/云元数据地址泄露数据。
 
         Args:
             url: 目标网页 URL
@@ -220,9 +227,56 @@ class BuiltinFetcherClient(BaseScraper):
             FetchResult 包含提取的正文内容
         """
         try:
-            resp = await self._fetch(url)
+            from souwen.web.fetch import validate_fetch_url
+
+            # 手动重定向循环 — 每一跳做 SSRF 校验
+            current_url = url
+            resp = None
+            for hop in range(self.MAX_REDIRECTS + 1):
+                resp = await self._fetch(current_url)
+
+                if resp.status_code not in self._REDIRECT_CODES:
+                    break
+
+                location = resp.headers.get("location")
+                if not location:
+                    break
+
+                redirect_url = urljoin(current_url, location)
+                ok, reason = validate_fetch_url(redirect_url)
+                if not ok:
+                    logger.warning(
+                        "SSRF redirect blocked: %s → %s (%s)",
+                        url,
+                        redirect_url,
+                        reason,
+                    )
+                    return FetchResult(
+                        url=url,
+                        final_url=redirect_url,
+                        source=self.PROVIDER_NAME,
+                        error=f"SSRF: 重定向目标被拦截 ({reason})",
+                    )
+                current_url = redirect_url
+            else:
+                # 超过 MAX_REDIRECTS 仍在跳转
+                return FetchResult(
+                    url=url,
+                    final_url=current_url,
+                    source=self.PROVIDER_NAME,
+                    error=f"重定向次数超过上限 ({self.MAX_REDIRECTS})",
+                )
+
+            if resp is None:
+                return FetchResult(
+                    url=url,
+                    final_url=url,
+                    source=self.PROVIDER_NAME,
+                    error="请求失败",
+                )
+
+            final_url = current_url
             html = resp.text
-            final_url = str(resp.url) if hasattr(resp, "url") else url
 
             if not html or len(html.strip()) < 100:
                 return FetchResult(
