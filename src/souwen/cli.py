@@ -483,6 +483,7 @@ web:
   perplexity_api_key: ~
   linkup_api_key: ~
   scrapingdog_api_key: ~
+  metaso_api_key: ~
   whoogle_url: ~
   websurfx_url: ~
 

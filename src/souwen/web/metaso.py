@@ -55,8 +55,10 @@ from __future__ import annotations
 import logging
 from typing import Any, Literal
 
+import httpx
+
 from souwen.config import get_config
-from souwen.exceptions import ConfigError
+from souwen.exceptions import ConfigError, ParseError, SouWenError
 from souwen.http_client import SouWenHttpClient
 from souwen.models import FetchResponse, FetchResult, SourceType, WebSearchResponse, WebSearchResult
 
@@ -134,8 +136,6 @@ class MetasoClient(SouWenHttpClient):
             # 解析 JSON 响应
             data = resp.json()
         except Exception as e:
-            from souwen.exceptions import ParseError
-
             raise ParseError(f"Metaso 响应解析失败: {e}") from e
 
         results: list[WebSearchResult] = []
@@ -232,7 +232,7 @@ class MetasoClient(SouWenHttpClient):
                 total_failed=0,
                 provider="metaso",
             )
-        except Exception as e:
+        except (httpx.HTTPError, SouWenError, OSError, ValueError) as e:
             logger.warning("Metaso Reader 提取失败: url=%s err=%s", url, e)
 
             results = [
