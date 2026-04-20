@@ -200,7 +200,7 @@ SouWen/
 │   ├── cli.py              # Typer CLI 命令
 │   ├── paper/              # 8 个论文数据源
 │   ├── patent/             # 8 个专利数据源
-│   ├── web/                # 21 搜索引擎 + 5 内容抓取提供者
+│   ├── web/                # 21 搜索引擎 + 16 内容抓取提供者
 │   ├── scraper/            # 爬虫基础层（TLS 指纹 + 礼貌爬取）
 │   ├── server/             # FastAPI 服务
 │   │   └── panel.html      # 前端构建产物（单文件 HTML）

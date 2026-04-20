@@ -290,7 +290,9 @@ class ApiService {
 
   /**
    * 抓取网页内容
-   * 使用 builtin / jina_reader / tavily / firecrawl / exa 提取网页正文
+   * 支持 16 个提供者：builtin / jina_reader / tavily / firecrawl / exa /
+   * crawl4ai / scrapfly / diffbot / scrapingbee / zenrows /
+   * scraperapi / apify / cloudflare / wayback / newspaper / readability
    */
   async fetch(urls: string[], provider = 'builtin', timeout = 30, signal?: AbortSignal): Promise<FetchResponse> {
     // 客户端超时 = 后端 timeout + 20s 缓冲（覆盖后端 +15s 缓冲及网络开销）

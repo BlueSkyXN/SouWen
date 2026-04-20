@@ -51,9 +51,12 @@ class Crawl4AIFetcherClient:
         try:
             from crawl4ai import AsyncWebCrawler
         except ImportError:
-            raise ImportError(
-                "Crawl4AI 未安装。请运行: pip install souwen[crawl4ai]\n"
-                "首次使用还需安装浏览器: crawl4ai-setup"
+            from souwen.exceptions import ConfigError
+
+            raise ConfigError(
+                "crawl4ai",
+                "Crawl4AI",
+                "pip install souwen[crawl4ai]",
             )
         self._crawler = AsyncWebCrawler(verbose=False)
         await self._crawler.__aenter__()

@@ -17,11 +17,13 @@
         - 功能：调度指定提供者执行批量抓取，未知提供者返回失败结果集
         - 输入：provider 提供者名称, urls URL 列表, timeout 单 URL 超时秒数
         - 输出：FetchResponse 聚合响应
-        - 关键变量：分支 jina_reader / tavily / firecrawl / exa / crawl4ai / scrapfly / diffbot
+        - 关键变量：分支 jina_reader / tavily / firecrawl / exa / crawl4ai / scrapfly /
+                    diffbot / scrapingbee / zenrows / scraperapi / apify /
+                    cloudflare / wayback / newspaper / readability
 
     fetch_content(urls, providers=None, timeout=30.0, skip_ssrf_check=False) -> FetchResponse
         - 功能：并发多提供者聚合抓取入口（用户显式选择提供者，不自动级联）
-        - 输入：urls 目标 URL 列表, providers 提供者列表(默认 ["jina_reader"]),
+        - 输入：urls 目标 URL 列表, providers 提供者列表(默认 ["builtin"]),
                 timeout 每 URL 超时, skip_ssrf_check 是否跳过 SSRF 校验
         - 输出：FetchResponse 聚合结果（含 SSRF 拦截记录）
         - 关键变量：selected 选用的提供者列表, valid_urls SSRF 通过的 URL,
