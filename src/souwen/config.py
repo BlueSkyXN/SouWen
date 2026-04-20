@@ -167,7 +167,8 @@ class SouWenConfig(BaseModel):
                         brave_api_key, serpapi_api_key, firecrawl_api_key,
                         perplexity_api_key, linkup_api_key, scrapingdog_api_key,
                         whoogle_url, websurfx_url, github_token,
-                        stackoverflow_api_key, youtube_api_key, jina_api_key
+                        stackoverflow_api_key, youtube_api_key, jina_api_key,
+                        scrapfly_api_key, diffbot_api_token
 
         通用设置: proxy, proxy_pool (代理池), timeout (超时秒数),
                  max_retries (重试次数), data_dir (数据存储目录)
@@ -228,6 +229,8 @@ class SouWenConfig(BaseModel):
     youtube_api_key: str | None = None  # YouTube Data API v3 Key
     # 内容抓取
     jina_api_key: str | None = None  # Jina Reader API Key（可选，免费层无需 Key）
+    scrapfly_api_key: str | None = None  # Scrapfly API Key（JS 渲染+AI 提取）
+    diffbot_api_token: str | None = None  # Diffbot API Token（结构化内容提取）
 
     # ===== 通用 =====
     proxy: str | None = None
@@ -609,6 +612,8 @@ web:
   stackoverflow_api_key: ~
   youtube_api_key: ~
   jina_api_key: ~
+  scrapfly_api_key: ~
+  diffbot_api_token: ~
 
 # ===== 通用设置 =====
 general:

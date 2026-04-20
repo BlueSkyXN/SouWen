@@ -1,7 +1,7 @@
 """并发多提供者聚合内容抓取
 
 文件用途：
-    核心网页内容抓取聚合模块。支持 5 个提供者（内置抓取、Jina Reader、Tavily、Firecrawl、Exa），
+    核心网页内容抓取聚合模块。支持 8 个提供者（内置抓取、Jina Reader、Tavily、Firecrawl、Exa、Crawl4AI、Scrapfly、Diffbot），
     通过 asyncio 并发抓取、聚合结果，为用户提供统一内容提取接口。
 
 函数/类清单：
@@ -15,7 +15,7 @@
         - 功能：调度指定提供者执行批量抓取，未知提供者返回失败结果集
         - 输入：provider 提供者名称, urls URL 列表, timeout 单 URL 超时秒数
         - 输出：FetchResponse 聚合响应
-        - 关键变量：分支 jina_reader / tavily / firecrawl / exa
+        - 关键变量：分支 jina_reader / tavily / firecrawl / exa / crawl4ai / scrapfly / diffbot
 
     fetch_content(urls, providers=None, timeout=30.0, skip_ssrf_check=False) -> FetchResponse
         - 功能：并发多提供者聚合抓取入口（用户显式选择提供者，不自动级联）
@@ -32,7 +32,7 @@
     - logging: 日志记录
     - souwen.config: 配置读取（API Key）
     - souwen.models: FetchResult, FetchResponse 数据模型
-    - souwen.web.jina_reader / tavily / firecrawl / exa: 各提供者客户端（懒加载）
+    - souwen.web.jina_reader / tavily / firecrawl / exa / crawl4ai_fetcher / scrapfly / diffbot: 各提供者客户端（懒加载）
 
 技术要点：
     - SSRF 防护：解析 DNS 后逐个 IP 校验，拒绝私有/回环/链路本地/保留段
@@ -151,6 +151,24 @@ async def _fetch_with_provider(
 
         async with ExaClient() as client:
             return await client.contents(urls, timeout=timeout)
+
+    elif provider == "crawl4ai":
+        from souwen.web.crawl4ai_fetcher import Crawl4AIFetcherClient
+
+        async with Crawl4AIFetcherClient() as client:
+            return await client.fetch_batch(urls, timeout=timeout)
+
+    elif provider == "scrapfly":
+        from souwen.web.scrapfly import ScrapflyClient
+
+        async with ScrapflyClient() as client:
+            return await client.fetch_batch(urls, timeout=timeout)
+
+    elif provider == "diffbot":
+        from souwen.web.diffbot import DiffbotClient
+
+        async with DiffbotClient() as client:
+            return await client.fetch_batch(urls, timeout=timeout)
 
     else:
         # 未知提供者 → 全部标记失败
