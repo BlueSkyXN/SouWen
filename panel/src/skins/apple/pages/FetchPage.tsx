@@ -29,6 +29,10 @@ const PROVIDERS: { value: Provider; label: string }[] = [
   { value: 'exa', label: 'Exa' },
 ]
 
+const MAX_URLS = 20
+
+const isSafeUrl = (url: string): boolean => /^https?:\/\//i.test(url)
+
 type FetchState =
   | { status: 'idle'; message: null }
   | { status: 'loading'; message: null }
@@ -71,6 +75,10 @@ export function FetchPage() {
       const urlList = parseUrls(urls)
       if (urlList.length === 0) {
         addToast('error', t('fetch.noValidUrls', 'No valid URLs found'))
+        return
+      }
+      if (urlList.length > MAX_URLS) {
+        addToast('error', t('fetch.tooManyUrls', { max: MAX_URLS, count: urlList.length }))
         return
       }
 
@@ -193,8 +201,8 @@ export function FetchPage() {
       <div>
         <div className={styles.resultsHeader}>
           <div className={styles.stats}>
-            <span className={styles.statBadge}>{results.total_ok} successful</span>
-            <span className={styles.statBadge}>{results.total_failed} failed</span>
+            <span className={styles.statBadge}>{t('fetch.successfulCount', { count: results.total_ok })}</span>
+            <span className={styles.statBadge}>{t('fetch.failedCount', { count: results.total_failed })}</span>
             <span className={styles.statBadge}>{results.provider}</span>
           </div>
           <button
@@ -203,7 +211,7 @@ export function FetchPage() {
             onClick={exportAllAsMarkdown}
           >
             <Download size={14} />
-            Export All
+            {t('fetch.exportAll', 'Export All')}
           </button>
         </div>
 
@@ -225,16 +233,20 @@ export function FetchPage() {
                     <h3 className={styles.cardTitle}>{item.title || item.url}</h3>
                   </div>
                   <span className={hasError ? styles.badgeError : styles.badgeSuccess}>
-                    {hasError ? 'Failed' : 'Success'}
+                    {hasError ? t('fetch.statusFailed', 'Failed') : t('fetch.statusSuccess', 'Success')}
                   </span>
                 </div>
 
                 <div className={styles.cardUrl}>
                   <Globe size={12} />
-                  <a href={item.final_url} target="_blank" rel="noopener noreferrer">
-                    {item.final_url}
-                    <ExternalLink size={12} />
-                  </a>
+                  {isSafeUrl(item.final_url) ? (
+                    <a href={item.final_url} target="_blank" rel="noopener noreferrer">
+                      {item.final_url}
+                      <ExternalLink size={12} />
+                    </a>
+                  ) : (
+                    <span>{item.final_url}</span>
+                  )}
                 </div>
 
                 {hasError ? (
@@ -257,14 +269,14 @@ export function FetchPage() {
                             onClick={() => toggleExpanded(i)}
                           >
                             {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                            {isExpanded ? 'Hide Content' : 'Show Content'}
+                            {isExpanded ? t('fetch.hideContent', 'Hide Content') : t('fetch.showContent', 'Show Content')}
                           </button>
                           <div className={styles.actions}>
                             <button
                               type="button"
                               className={styles.iconBtn}
                               onClick={() => copyToClipboard(item.content || '')}
-                              title="Copy"
+                              title={t('fetch.copy', 'Copy')}
                             >
                               <Copy size={13} />
                             </button>
@@ -272,7 +284,7 @@ export function FetchPage() {
                               type="button"
                               className={styles.iconBtn}
                               onClick={() => downloadAsMarkdown(item)}
-                              title="Download"
+                              title={t('fetch.download', 'Download')}
                             >
                               <Download size={13} />
                             </button>
@@ -289,8 +301,8 @@ export function FetchPage() {
 
                     {(item.author || item.published_date) && (
                       <div className={styles.metadata}>
-                        {item.author && <span>Author: {item.author}</span>}
-                        {item.published_date && <span>Published: {item.published_date}</span>}
+                        {item.author && <span>{t('fetch.author', 'Author')}: {item.author}</span>}
+                        {item.published_date && <span>{t('fetch.published', 'Published')}: {item.published_date}</span>}
                       </div>
                     )}
                   </>
@@ -320,10 +332,11 @@ export function FetchPage() {
       <m.div className={styles.panel} {...fadeInUp}>
         <form className={styles.form} onSubmit={handleFetch}>
           <div className={styles.field}>
-            <label className={styles.label}>
+            <label className={styles.label} htmlFor="fetch-urls">
               {t('fetch.urlsLabel', 'URLs')} <span className={styles.hint}>(one per line)</span>
             </label>
             <textarea
+              id="fetch-urls"
               ref={inputRef}
               className={styles.textarea}
               value={urls}
@@ -333,14 +346,15 @@ export function FetchPage() {
               required
             />
             <div className={styles.urlCount}>
-              {parseUrls(urls).length} valid URLs
+              {t('fetch.validUrls', { count: parseUrls(urls).length })}
             </div>
           </div>
 
           <div className={styles.controlRow}>
             <div className={styles.providerField}>
-              <label className={styles.label}>{t('fetch.provider', 'Provider')}</label>
+              <label className={styles.label} htmlFor="fetch-provider">{t('fetch.provider', 'Provider')}</label>
               <select
+                id="fetch-provider"
                 className={styles.select}
                 value={provider}
                 onChange={(e) => setProvider(e.target.value as Provider)}
@@ -356,9 +370,9 @@ export function FetchPage() {
             <button
               type="submit"
               className={styles.submitBtn}
-              disabled={!canFetch}
+              disabled={!canFetch || isLoading}
             >
-              {isLoading ? 'Fetching...' : 'Fetch'}
+              {isLoading ? t('fetch.fetching', 'Fetching...') : t('fetch.button', 'Fetch')}
             </button>
           </div>
 
@@ -368,16 +382,17 @@ export function FetchPage() {
             onClick={() => setShowAdvanced((v) => !v)}
           >
             <Settings size={14} />
-            Advanced
+            {t('advancedSearch.title', 'Advanced')}
           </button>
 
           {showAdvanced && (
             <div className={styles.advancedPanel}>
               <div className={styles.field}>
-                <label className={styles.label}>
-                  Timeout: <strong>{timeout}s</strong>
+                <label className={styles.label} htmlFor="fetch-timeout">
+                  {t('fetch.timeout', 'Timeout')}: <strong>{timeout}s</strong>
                 </label>
                 <input
+                  id="fetch-timeout"
                   type="range"
                   min={5}
                   max={120}
@@ -385,14 +400,14 @@ export function FetchPage() {
                   onChange={(e) => setTimeout_(Number(e.target.value))}
                   className={styles.slider}
                 />
-                <div className={styles.hint}>5-120 seconds</div>
+                <div className={styles.hint}>{t('fetch.timeoutHint', '5-120 seconds')}</div>
               </div>
               <button
                 type="button"
                 className={styles.resetBtn}
                 onClick={() => setTimeout_(30)}
               >
-                Reset to Default
+                {t('advancedSearch.reset', 'Reset to Default')}
               </button>
             </div>
           )}

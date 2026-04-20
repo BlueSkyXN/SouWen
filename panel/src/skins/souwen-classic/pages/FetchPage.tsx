@@ -30,6 +30,10 @@ import type { FetchResponse, FetchResult } from '@core/types'
 import { staggerContainer, staggerItem, fadeInUp } from '@core/lib/animations'
 import styles from './FetchPage.module.scss'
 
+const isSafeUrl = (url: string): boolean => /^https?:\/\//i.test(url)
+
+const MAX_URLS = 20
+
 type Provider = 'builtin' | 'jina_reader' | 'tavily' | 'firecrawl' | 'exa'
 
 const PROVIDERS: { value: Provider; label: string; description: string }[] = [
@@ -82,6 +86,10 @@ export function FetchPage() {
       const urlList = parseUrls(urls)
       if (urlList.length === 0) {
         addToast('error', t('fetch.noValidUrls', 'No valid URLs found'))
+        return
+      }
+      if (urlList.length > MAX_URLS) {
+        addToast('error', t('fetch.tooManyUrls', { max: MAX_URLS, count: urlList.length }))
         return
       }
 
@@ -202,7 +210,7 @@ export function FetchPage() {
         <div className={styles.resultsToolbar}>
           <div className={styles.resultStats}>
             <Badge color="green">{t('fetch.successful', { count: results.total_ok })}</Badge>
-            <Badge color="red">{t('fetch.failed', { count: results.total_failed })}</Badge>
+            <Badge color="red">{t('fetch.failedCount', { count: results.total_failed })}</Badge>
             <Badge color="blue">{results.provider}</Badge>
           </div>
           <button
@@ -241,10 +249,14 @@ export function FetchPage() {
 
                 <div className={styles.resultUrl}>
                   <Globe size={12} />
-                  <a href={item.final_url} target="_blank" rel="noopener noreferrer">
-                    {item.final_url}
-                    <ExternalLink size={12} className={styles.externalIcon} />
-                  </a>
+                  {isSafeUrl(item.final_url) ? (
+                    <a href={item.final_url} target="_blank" rel="noopener noreferrer">
+                      {item.final_url}
+                      <ExternalLink size={12} className={styles.externalIcon} />
+                    </a>
+                  ) : (
+                    <span>{item.final_url}</span>
+                  )}
                 </div>
 
                 {hasError ? (
@@ -342,12 +354,13 @@ export function FetchPage() {
 
         <m.form className={styles.fetchForm} onSubmit={handleFetch} aria-busy={isLoading}>
           <div className={styles.formGroup}>
-            <label className={styles.label}>
+            <label className={styles.label} htmlFor="fetch-urls">
               {t('fetch.urlsLabel', 'URLs (one per line)')}
             </label>
             <div className={styles.textareaWrapper}>
               <Sparkles size={20} className={styles.inputIcon} />
               <textarea
+                id="fetch-urls"
                 ref={inputRef}
                 className={styles.textarea}
                 value={urls}
@@ -364,8 +377,9 @@ export function FetchPage() {
 
           <div className={styles.controlsRow}>
             <div className={styles.providerGroup}>
-              <label className={styles.label}>{t('fetch.provider', 'Provider')}</label>
+              <label className={styles.label} htmlFor="fetch-provider">{t('fetch.provider', 'Provider')}</label>
               <select
+                id="fetch-provider"
                 className={styles.select}
                 value={provider}
                 onChange={(e) => setProvider(e.target.value as Provider)}
@@ -381,7 +395,7 @@ export function FetchPage() {
             <button
               type="submit"
               className={styles.fetchButton}
-              disabled={!canFetch}
+              disabled={!canFetch || isLoading}
               aria-label={t('fetch.button', 'Fetch')}
             >
               {isLoading ? t('fetch.fetching', 'Fetching...') : t('fetch.button', 'Fetch')}
@@ -403,10 +417,11 @@ export function FetchPage() {
         {showAdvanced && (
           <div className={styles.advancedPanel}>
             <div className={styles.advancedField}>
-              <label className={styles.advancedLabel}>
+              <label className={styles.advancedLabel} htmlFor="fetch-timeout">
                 {t('fetch.timeout', 'Timeout')}: <strong>{timeout}s</strong>
               </label>
               <input
+                id="fetch-timeout"
                 type="range"
                 min={5}
                 max={120}
