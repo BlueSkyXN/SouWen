@@ -24,6 +24,16 @@ from souwen.web.builtin import (
     _extract_with_trafilatura,
 )
 
+_has_trafilatura = False
+try:
+    import trafilatura  # noqa: F401
+
+    _has_trafilatura = True
+except ImportError:
+    pass
+
+requires_trafilatura = pytest.mark.skipif(not _has_trafilatura, reason="trafilatura not installed")
+
 
 class TestExtractFallback:
     """纯正则回退提取"""
@@ -62,6 +72,7 @@ class TestExtractWithTrafilatura:
         result = _extract_with_trafilatura("", "https://example.com")
         assert result["content"] == ""
 
+    @requires_trafilatura
     def test_content_without_metadata(self):
         """有内容但无元数据时不丢弃"""
         with (
@@ -78,6 +89,7 @@ class TestExtractWithTrafilatura:
         assert result["title"] == ""
         assert result["author"] is None
 
+    @requires_trafilatura
     def test_no_yaml_frontmatter(self):
         """content should not contain YAML front-matter"""
         mock_metadata = MagicMock()
