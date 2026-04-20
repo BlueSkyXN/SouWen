@@ -21,6 +21,11 @@
 - 前端 4 皮肤 + CLI + API 全部同步支持 16 个提供者
 - source_registry 新增 11 个 fetch 类注册条目
 
+### Refactor
+- **wayback** + **newspaper** 改为继承 `BaseScraper`，获得 curl_cffi TLS 指纹 + WARP 代理支持
+  - wayback: 快照抓取走 BaseScraper（curl_cffi + WARP），可用性检查走 httpx
+  - newspaper: HTML 抓取走 BaseScraper，newspaper4k 仅做解析（不再使用自带 requests）
+
 ## v0.7.1
 
 Web 内容抓取功能增强与修复。

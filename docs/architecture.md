@@ -45,7 +45,7 @@ SearchResponse(results=[PaperResult | PatentResult | WebSearchResult])
 
 1. **用户调用** `fetch_content(urls, providers=["builtin"])` 或 `POST /api/v1/fetch`
 2. **SSRF 校验** `validate_fetch_url()` 对每个 URL 做 DNS 解析 + IP 类型校验
-3. **提供者调度** `_fetch_with_provider()` 路由到 builtin / jina_reader / tavily 等
+3. **提供者调度** `_fetch_with_provider()` 路由到 16 个提供者（builtin / jina_reader / tavily 等）
 4. **HTTP 请求** 内置提供者继承 `BaseScraper`（`follow_redirects=False`，手动重定向）
 5. **重定向安全** 每一跳调用 `validate_fetch_url()` 校验目标 IP，最多 5 跳
 6. **内容提取** trafilatura（Markdown）→ html2text → 正则剥离（三级回退）
