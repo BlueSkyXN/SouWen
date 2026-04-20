@@ -39,6 +39,7 @@ paper:
   core_api_key: your_key
   pubmed_api_key: your_key
   unpaywall_email: your@email.com
+  ieee_api_key: your_key
 
 patent:
   epo_consumer_key: your_key
@@ -63,6 +64,9 @@ web:
   scrapingdog_api_key: your_key
   whoogle_url: http://localhost:5000
   websurfx_url: http://localhost:8080
+  github_token: ghp_your_token
+  stackoverflow_api_key: your_key
+  youtube_api_key: your_key
 
 general:
   proxy: http://proxy:7890
@@ -73,6 +77,8 @@ general:
   timeout: 30
   max_retries: 3
   data_dir: ~/.local/share/souwen
+  default_http_backend: auto
+  http_backend: {}
 
 server:
   api_password: ~              # 旧版统一密码（向后兼容）
@@ -83,6 +89,14 @@ server:
     - 10.0.0.0/8
     - 127.0.0.1
   expose_docs: true            # 是否暴露 /docs、/redoc、/openapi.json
+
+warp:
+  warp_enabled: false
+  warp_mode: auto
+  warp_socks_port: 1080
+  warp_endpoint: ~
+
+sources: {}
 ```
 
 ## 全部配置字段
@@ -96,6 +110,7 @@ server:
 | `core_api_key` | `SOUWEN_CORE_API_KEY` | CORE 必需 | 申请：https://core.ac.uk/services/api |
 | `pubmed_api_key` | `SOUWEN_PUBMED_API_KEY` | 可选 | 提高速率限制 |
 | `unpaywall_email` | `SOUWEN_UNPAYWALL_EMAIL` | Unpaywall 必需 | 作为请求标识 |
+| `ieee_api_key` | `SOUWEN_IEEE_API_KEY` | 可选 | IEEE Xplore API Key |
 
 ### 专利 API
 
@@ -125,6 +140,9 @@ server:
 | `scrapingdog_api_key` | `SOUWEN_SCRAPINGDOG_API_KEY` | ScrapingDog 必需 | SERP 代理 |
 | `whoogle_url` | `SOUWEN_WHOOGLE_URL` | Whoogle 必需 | 自建实例 URL |
 | `websurfx_url` | `SOUWEN_WEBSURFX_URL` | Websurfx 必需 | 自建实例 URL |
+| `github_token` | `SOUWEN_GITHUB_TOKEN` | 可选 | GitHub Personal Access Token（提升速率限制） |
+| `stackoverflow_api_key` | `SOUWEN_STACKOVERFLOW_API_KEY` | 可选 | StackOverflow API Key（提升配额） |
+| `youtube_api_key` | `SOUWEN_YOUTUBE_API_KEY` | YouTube 必需 | YouTube Data API v3 Key |
 | `jina_api_key` | `SOUWEN_JINA_API_KEY` | 可选 | Jina Reader 网页抓取（免费层无需 Key） |
 
 ### 网络设置
@@ -132,10 +150,12 @@ server:
 | 字段 | 环境变量 | 默认值 | 说明 |
 |------|---------|--------|------|
 | `proxy` | `SOUWEN_PROXY` | None | 单个代理 URL |
-| `proxy_pool` | — | `[]` | 多代理 URL 列表，随机选取 |
+| `proxy_pool` | `SOUWEN_PROXY_POOL` | `[]` | 多代理 URL 列表，随机选取（逗号分隔） |
 | `timeout` | `SOUWEN_TIMEOUT` | `30` | 请求超时秒数 |
 | `max_retries` | `SOUWEN_MAX_RETRIES` | `3` | 最大重试次数 |
 | `data_dir` | `SOUWEN_DATA_DIR` | `~/.local/share/souwen` | 数据存储目录 |
+| `default_http_backend` | `SOUWEN_DEFAULT_HTTP_BACKEND` | `"auto"` | 全局 HTTP 后端：auto &#124; curl_cffi &#124; httpx |
+| `http_backend` | `SOUWEN_HTTP_BACKEND` | `{}` | 按源覆盖 HTTP 后端（JSON 对象） |
 | — | `SOUWEN_MAX_CONCURRENCY` | `10` | 聚合搜索并发上限（v0.6.0，仅环境变量） |
 
 ### 服务端
@@ -145,7 +165,7 @@ server:
 | `api_password` | `SOUWEN_API_PASSWORD` | None | 旧版统一密码（同时作用于搜索 + 管理，向后兼容） |
 | `visitor_password` | `SOUWEN_VISITOR_PASSWORD` | None | 访客密码，仅保护搜索端点（v0.6.3） |
 | `admin_password` | `SOUWEN_ADMIN_PASSWORD` | None | 管理密码，仅保护 `/api/v1/admin/*`（v0.6.3） |
-| `cors_origins` | — | `[]` | CORS 允许来源列表，为空时不启用 CORS |
+| `cors_origins` | `SOUWEN_CORS_ORIGINS` | `[]` | CORS 允许来源列表（逗号分隔），为空时不启用 CORS |
 | `trusted_proxies` | `SOUWEN_TRUSTED_PROXIES` | `[]` | 受信反向代理 IP/CIDR 列表，逗号分隔 |
 | `expose_docs` | `SOUWEN_EXPOSE_DOCS` | `true` | 是否暴露 `/docs`、`/redoc`、`/openapi.json` |
 
@@ -223,3 +243,46 @@ server:
 ```
 
 关闭后这些路径会返回 404，`/health`、`/api/v1/*` 不受影响。
+
+### WARP 代理
+
+| 字段 | 环境变量 | 默认值 | 说明 |
+|------|---------|--------|------|
+| `warp_enabled` | `SOUWEN_WARP_ENABLED` / `WARP_ENABLED` | `false` | 是否启用内嵌 WARP 代理 |
+| `warp_mode` | `SOUWEN_WARP_MODE` / `WARP_MODE` | `"auto"` | 模式：auto &#124; wireproxy &#124; kernel |
+| `warp_socks_port` | `SOUWEN_WARP_SOCKS_PORT` / `WARP_SOCKS_PORT` | `1080` | SOCKS5 代理监听端口 |
+| `warp_endpoint` | `SOUWEN_WARP_ENDPOINT` / `WARP_ENDPOINT` | None | 自定义 Endpoint（如 `162.159.192.1:4500`） |
+
+> WARP 字段支持不带 `SOUWEN_` 前缀的环境变量（Docker entrypoint 兼容）。
+
+### 数据源频道配置（sources）
+
+按源名称覆盖全局默认值。所有字段可选，只需覆盖想要自定义的部分。
+
+| 字段 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `enabled` | bool | `true` | 是否启用此数据源 |
+| `proxy` | string | `"inherit"` | 代理策略：inherit &#124; none &#124; warp &#124; 显式 URL |
+| `http_backend` | string | `"auto"` | HTTP 后端：auto &#124; curl_cffi &#124; httpx |
+| `base_url` | string | None | 覆盖数据源的基础 URL |
+| `api_key` | string | None | 覆盖 API Key（优先于全局 flat key） |
+| `headers` | object | `{}` | 附加请求头 |
+| `params` | object | `{}` | 附加参数（传递给搜索方法） |
+
+环境变量：`SOUWEN_SOURCES='{"duckduckgo":{"proxy":"warp"}}'`（JSON 格式）
+
+示例：
+
+```yaml
+sources:
+  duckduckgo:
+    enabled: true
+    proxy: warp
+    http_backend: curl_cffi
+  tavily:
+    api_key: tvly-xxxx
+    params:
+      search_depth: advanced
+  google_patents:
+    enabled: false
+```
