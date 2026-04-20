@@ -1,5 +1,28 @@
 # Changelog
 
+## v0.7.1
+
+Web 内容抓取功能增强与修复。
+
+### Feature
+- **网页内容抓取页面**：4 个皮肤（souwen-classic、carbon、apple、ios）新增 FetchPage，支持批量 URL 输入、多提供商选择（builtin/jina_reader/tavily/firecrawl/exa）、超时配置、结果导出。
+- **内置抓取增强**：trafilatura 提取改为原生 Markdown 输出，支持链接、图片、表格保留。
+
+### Breaking Change
+- **`content_format` 字段变更**：内置抓取器（builtin fetcher）的 `FetchResult.content_format` 从 `"text"` 改为 `"markdown"`。下游消费者若依赖 `content_format == "text"` 分支需适配。
+
+### Fix
+- 修复 CJK（中日韩）内容因空格分词导致的误判过短问题
+- 修复 `with_metadata=True` 导致 YAML front-matter 注入正文
+- 修复 metadata 为 None 时丢弃有效提取内容
+- 修复前端 30s 硬编码超时覆盖用户配置的超时值
+- 修复 `final_url` 未校验协议导致的 XSS 风险
+- 修复 `fetch.failed` i18n key 冲突
+- 修复 apple/ios 皮肤大量硬编码英文字符串
+- 新增前端 20 URL 上限校验
+- 修复表单 label 缺少 htmlFor/id 关联
+- 修复加载中按钮未禁用可重复提交
+
 ## v0.7.0
 
 新增 8 个数据源 + 源分类体系重构。

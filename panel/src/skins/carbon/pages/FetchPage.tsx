@@ -19,6 +19,10 @@ import type { FetchResponse, FetchResult } from '@core/types'
 import { staggerContainer, staggerItem, fadeInUp } from '@core/lib/animations'
 import styles from './FetchPage.module.scss'
 
+const isSafeUrl = (url: string): boolean => /^https?:\/\//i.test(url)
+
+const MAX_URLS = 20
+
 type Provider = 'builtin' | 'jina_reader' | 'tavily' | 'firecrawl' | 'exa'
 
 const PROVIDERS: { value: Provider; label: string; description: string }[] = [
@@ -71,6 +75,10 @@ export function FetchPage() {
       const urlList = parseUrls(urls)
       if (urlList.length === 0) {
         addToast('error', t('fetch.noValidUrls', 'No valid URLs found'))
+        return
+      }
+      if (urlList.length > MAX_URLS) {
+        addToast('error', t('fetch.tooManyUrls', { max: MAX_URLS, count: urlList.length }))
         return
       }
 
@@ -232,7 +240,7 @@ export function FetchPage() {
                       <CheckCircle2 size={16} className={styles.statusIconSuccess} />
                     )}
                     <span className={styles.statusText}>
-                      {hasError ? 'FAILED' : 'SUCCESS'}
+                      {hasError ? t('fetch.statusFailed', 'FAILED') : t('fetch.statusSuccess', 'SUCCESS')}
                     </span>
                   </div>
                   <div className={styles.resultTitle}>
@@ -242,10 +250,14 @@ export function FetchPage() {
 
                 <div className={styles.resultUrl}>
                   <Globe size={12} />
-                  <a href={item.final_url} target="_blank" rel="noopener noreferrer">
-                    {item.final_url}
-                    <ExternalLink size={12} />
-                  </a>
+                  {isSafeUrl(item.final_url) ? (
+                    <a href={item.final_url} target="_blank" rel="noopener noreferrer">
+                      {item.final_url}
+                      <ExternalLink size={12} />
+                    </a>
+                  ) : (
+                    <span>{item.final_url}</span>
+                  )}
                 </div>
 
                 {hasError ? (
@@ -268,14 +280,14 @@ export function FetchPage() {
                             onClick={() => toggleExpanded(i)}
                           >
                             {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                            {isExpanded ? 'HIDE_CONTENT' : 'SHOW_CONTENT'}
+                            {isExpanded ? t('fetch.hideContent', 'HIDE_CONTENT') : t('fetch.showContent', 'SHOW_CONTENT')}
                           </button>
                           <div className={styles.contentActions}>
                             <button
                               type="button"
                               className={styles.iconBtn}
                               onClick={() => copyToClipboard(item.content || '')}
-                              title="COPY"
+                              title={t('fetch.copy', 'COPY')}
                             >
                               <Copy size={14} />
                             </button>
@@ -283,7 +295,7 @@ export function FetchPage() {
                               type="button"
                               className={styles.iconBtn}
                               onClick={() => downloadAsMarkdown(item)}
-                              title="DOWNLOAD"
+                              title={t('fetch.download', 'DOWNLOAD')}
                             >
                               <Download size={14} />
                             </button>
@@ -300,8 +312,8 @@ export function FetchPage() {
 
                     {(item.author || item.published_date) && (
                       <div className={styles.meta}>
-                        {item.author && <span>AUTHOR: {item.author}</span>}
-                        {item.published_date && <span>PUBLISHED: {item.published_date}</span>}
+                        {item.author && <span>{t('fetch.author', 'AUTHOR')}: {item.author}</span>}
+                        {item.published_date && <span>{t('fetch.published', 'PUBLISHED')}: {item.published_date}</span>}
                       </div>
                     )}
                   </>
@@ -338,10 +350,11 @@ export function FetchPage() {
 
         <form className={styles.form} onSubmit={handleFetch}>
           <div className={styles.field}>
-            <label className={styles.fieldLabel}>
+            <label className={styles.fieldLabel} htmlFor="fetch-urls">
               {t('fetch.urlsLabel', 'URLS')} <span className={styles.hint}>(one per line)</span>
             </label>
             <textarea
+              id="fetch-urls"
               ref={inputRef}
               className={styles.textarea}
               value={urls}
@@ -357,8 +370,9 @@ export function FetchPage() {
 
           <div className={styles.controlRow}>
             <div className={styles.field}>
-              <label className={styles.fieldLabel}>{t('fetch.provider', 'PROVIDER')}</label>
+              <label className={styles.fieldLabel} htmlFor="fetch-provider">{t('fetch.provider', 'PROVIDER')}</label>
               <select
+                id="fetch-provider"
                 className={styles.select}
                 value={provider}
                 onChange={(e) => setProvider(e.target.value as Provider)}
@@ -374,9 +388,9 @@ export function FetchPage() {
             <button
               type="submit"
               className={styles.submitBtn}
-              disabled={!canFetch}
+              disabled={!canFetch || isLoading}
             >
-              {isLoading ? 'FETCHING...' : 'FETCH'}
+              {isLoading ? t('fetch.fetching', 'FETCHING...') : t('fetch.button', 'FETCH')}
             </button>
           </div>
         </form>
@@ -395,10 +409,11 @@ export function FetchPage() {
         {showAdvanced && (
           <div className={styles.advancedPanel}>
             <div className={styles.field}>
-              <label className={styles.fieldLabel}>
+              <label className={styles.fieldLabel} htmlFor="fetch-timeout">
                 {t('fetch.timeout', 'TIMEOUT')}: {timeout}s
               </label>
               <input
+                id="fetch-timeout"
                 type="range"
                 min={5}
                 max={120}
@@ -413,7 +428,7 @@ export function FetchPage() {
               className={styles.resetBtn}
               onClick={() => setTimeout_(30)}
             >
-              RESET
+              {t('advancedSearch.reset', 'RESET')}
             </button>
           </div>
         )}

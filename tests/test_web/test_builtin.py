@@ -19,6 +19,7 @@ import pytest
 
 from souwen.web.builtin import (
     BuiltinFetcherClient,
+    _count_words,
     _extract_fallback,
     _extract_with_trafilatura,
 )
@@ -60,6 +61,39 @@ class TestExtractWithTrafilatura:
         """空 HTML 回退到 regex"""
         result = _extract_with_trafilatura("", "https://example.com")
         assert result["content"] == ""
+
+    def test_content_without_metadata(self):
+        """有内容但无元数据时不丢弃"""
+        with patch('trafilatura.extract') as mock_extract, \
+             patch('trafilatura.extract_metadata') as mock_meta, \
+             patch('souwen.web.builtin._HAS_TRAFILATURA', True):
+            mock_extract.return_value = "This is valid content for testing purposes"
+            mock_meta.return_value = None
+            result = _extract_with_trafilatura("<html><body>test</body></html>", "https://example.com")
+        assert result["content"] == "This is valid content for testing purposes"
+        assert result["title"] == ""
+        assert result["author"] is None
+
+    def test_no_yaml_frontmatter(self):
+        """content should not contain YAML front-matter"""
+        mock_metadata = MagicMock()
+        mock_metadata.title = "Test"
+        mock_metadata.author = None
+        mock_metadata.date = None
+        mock_metadata.description = ""
+        mock_metadata.sitename = None
+        mock_metadata.language = None
+        mock_metadata.tags = None
+        mock_metadata.categories = None
+        with patch('trafilatura.extract') as mock_extract, \
+             patch('trafilatura.extract_metadata') as mock_meta, \
+             patch('souwen.web.builtin._HAS_TRAFILATURA', True):
+            mock_extract.return_value = "Clean content without frontmatter"
+            mock_meta.return_value = mock_metadata
+            result = _extract_with_trafilatura("<html><body>test</body></html>", "https://example.com")
+        assert not result["content"].startswith("---")
+        assert "content_format" in result
+        assert result["content_format"] == "markdown"
 
 
 class TestBuiltinFetcherSingle:
@@ -119,6 +153,26 @@ class TestBuiltinFetcherSingle:
         assert result.error is not None
         assert "过短" in result.error or "为空" in result.error
 
+    @pytest.mark.asyncio
+    async def test_fetch_chinese_content(self):
+        """中文内容不应被错误拒绝"""
+        html = (
+            "<html><head><title>测试页面</title></head>"
+            "<body><article><p>" + "这是一段中文测试内容，包含足够的字符来通过验证。" * 5 + "</p></article></body></html>"
+        )
+        mock_resp = MagicMock()
+        mock_resp.text = html
+        mock_resp.status_code = 200
+        mock_resp.url = "https://example.com/chinese"
+
+        with patch.object(BuiltinFetcherClient, "_fetch", new_callable=AsyncMock) as mock_fetch:
+            mock_fetch.return_value = mock_resp
+            async with BuiltinFetcherClient() as client:
+                result = await client.fetch("https://example.com/chinese")
+
+        assert result.error is None or "过短" not in (result.error or "")
+        assert result.source == "builtin"
+
 
 class TestBuiltinFetcherBatch:
     """批量抓取"""
@@ -144,3 +198,38 @@ class TestBuiltinFetcherBatch:
         assert resp.total_ok == 2
         assert resp.total_failed == 0
         assert len(resp.results) == 2
+
+
+class TestCountWords:
+    """CJK-aware word counting"""
+
+    def test_pure_chinese(self):
+        """纯中文按字符计数"""
+        assert _count_words("这是一个中文句子") == 8
+
+    def test_pure_english(self):
+        """英文按空格分词"""
+        assert _count_words("Hello world test") == 3
+
+    def test_mixed_cjk_latin(self):
+        """混合文本分别计数"""
+        count = _count_words("Hello 世界 test 你好")
+        assert count == 6
+
+    def test_japanese_kana(self):
+        """日语假名算作 CJK"""
+        count = _count_words("こんにちは世界")
+        assert count == 7
+
+    def test_korean(self):
+        """韩语音节算作 CJK"""
+        count = _count_words("안녕하세요")
+        assert count == 5
+
+    def test_empty_string(self):
+        """空字符串"""
+        assert _count_words("") == 0
+
+    def test_whitespace_only(self):
+        """纯空白"""
+        assert _count_words("   \n\t  ") == 0
