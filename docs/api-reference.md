@@ -54,6 +54,27 @@ from souwen import search, search_papers, search_patents, web_search
 | `engines` | `list[str] \| None` | `["duckduckgo", "bing"]` | 引擎列表 |
 | `max_results_per_engine` | `int` | `10` | 每个引擎最大结果数 |
 
+### 网页内容抓取
+
+```python
+from souwen.web.fetch import fetch_content, validate_fetch_url
+```
+
+#### `fetch_content(urls, providers=None, timeout=30.0, skip_ssrf_check=False)` → `FetchResponse`
+
+并发内容抓取，支持 5 个提供者。
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `urls` | `list[str]` | — | 目标 URL 列表 |
+| `providers` | `list[str] \| None` | `["builtin"]` | 提供者: builtin / jina_reader / tavily / firecrawl / exa |
+| `timeout` | `float` | `30.0` | 每个 URL 超时秒数 |
+| `skip_ssrf_check` | `bool` | `False` | 跳过 SSRF 校验（仅内部使用） |
+
+#### `validate_fetch_url(url)` → `tuple[bool, str]`
+
+SSRF 防护 URL 校验（DNS 解析 + 私有/保留 IP 拦截）。
+
 ### 配置管理
 
 ```python
@@ -142,6 +163,36 @@ class WebSearchResult(BaseModel):
     raw: dict                       # 原始响应
 ```
 
+### FetchResult
+
+```python
+class FetchResult(BaseModel):
+    url: str                                    # 请求 URL
+    final_url: str                              # 重定向后最终 URL
+    title: str = ""                             # 页面标题
+    content: str = ""                           # 提取正文（优先 Markdown）
+    content_format: Literal["markdown", "text", "html"] = "markdown"
+    source: str = ""                            # 提供者标识
+    snippet: str = ""                           # 摘要（前 500 字）
+    published_date: str | None = None           # 发布日期
+    author: str | None = None                   # 作者
+    error: str | None = None                    # 错误信息（无错误为 None）
+    raw: dict = {}                              # 原始响应
+```
+
+### FetchResponse
+
+```python
+class FetchResponse(BaseModel):
+    urls: list[str]                             # 请求 URL 列表
+    results: list[FetchResult]                  # 抓取结果
+    total: int = 0                              # 总数
+    total_ok: int = 0                           # 成功数
+    total_failed: int = 0                       # 失败数
+    provider: str = ""                          # 使用的提供者
+    meta: dict = {}                             # 元数据
+```
+
 ### SearchResponse
 
 ```python
@@ -203,6 +254,18 @@ souwen sources        # 列出所有数据源及其状态
 
 ```bash
 souwen doctor         # 检查所有数据源可用性
+```
+
+### 内容抓取
+
+```bash
+# 抓取网页内容（默认 builtin，零配置）
+souwen fetch <urls...> [--provider/-p builtin] [--timeout/-t 30] [--json/-j]
+
+# 示例
+souwen fetch https://example.com                      # 内置抓取
+souwen fetch https://a.com https://b.com -p jina_reader  # Jina Reader
+souwen fetch https://example.com --json               # JSON 输出
 ```
 
 ### API 服务
@@ -499,6 +562,67 @@ Cache-Control: public, max-age=3600
 ```json
 { "ok": true }
 ```
+
+---
+
+### 内容抓取端点 (`/api/v1/fetch`)
+
+受 `require_auth`（管理密码）与 `rate_limit_search` 双重保护。
+
+#### `POST /api/v1/fetch`
+
+抓取网页内容，支持 5 个提供者。
+
+**请求体 (JSON)：**
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `urls` | `list[str]` (1-20) | *(必填)* | 目标 URL 列表 |
+| `provider` | `string` | `"builtin"` | 提供者: `builtin` / `jina_reader` / `tavily` / `firecrawl` / `exa` |
+| `timeout` | `float` (1-300) | `30` | 每 URL 超时秒数 |
+
+**请求示例：**
+```json
+{
+  "urls": ["https://example.com/article"],
+  "provider": "builtin",
+  "timeout": 30
+}
+```
+
+**响应示例：**
+```json
+{
+  "urls": ["https://example.com/article"],
+  "results": [
+    {
+      "url": "https://example.com/article",
+      "final_url": "https://example.com/article",
+      "title": "示例文章",
+      "content": "# 示例文章\n\n正文内容...",
+      "content_format": "markdown",
+      "source": "builtin",
+      "snippet": "正文内容...",
+      "published_date": "2024-01-01",
+      "author": "作者",
+      "error": null,
+      "raw": {}
+    }
+  ],
+  "total": 1,
+  "total_ok": 1,
+  "total_failed": 0,
+  "provider": "builtin",
+  "meta": {}
+}
+```
+
+**错误状态码：** `400`（无效提供者）、`504`（超时）
+
+**安全特性：**
+- SSRF 防护：DNS 解析 + 私有/保留 IP 拦截
+- 重定向安全：每一跳校验目标 IP，防止多跳 SSRF 攻击
+- 管理密码认证：需要 `admin_password`（或回退 `api_password`）
 
 ## MCP 工具
 

@@ -57,6 +57,7 @@ web:
   brave_api_key: your_key
   serpapi_api_key: your_key
   firecrawl_api_key: your_key
+  jina_api_key: your_key             # Jina Reader（可选，免费层无需 Key）
   perplexity_api_key: your_key
   linkup_api_key: your_key
   scrapingdog_api_key: your_key
@@ -124,6 +125,7 @@ server:
 | `scrapingdog_api_key` | `SOUWEN_SCRAPINGDOG_API_KEY` | ScrapingDog 必需 | SERP 代理 |
 | `whoogle_url` | `SOUWEN_WHOOGLE_URL` | Whoogle 必需 | 自建实例 URL |
 | `websurfx_url` | `SOUWEN_WEBSURFX_URL` | Websurfx 必需 | 自建实例 URL |
+| `jina_api_key` | `SOUWEN_JINA_API_KEY` | 可选 | Jina Reader 网页抓取（免费层无需 Key） |
 
 ### 网络设置
 

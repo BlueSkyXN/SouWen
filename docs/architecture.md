@@ -12,9 +12,9 @@ User / AI Agent
        ▼
   search(query, domain)          ← 统一入口 (search.py)
        │
-  ┌────┼────────────┐
-  ▼    ▼            ▼
-search_papers  search_patents  web_search
+  ┌────┼────────────┐─────────┐
+  ▼    ▼            ▼          ▼
+search_papers  search_patents  web_search  fetch_content
   │              │               │
   ▼              ▼               ▼
 _search_source_limited()         ← per-event-loop Semaphore 并发控制
@@ -40,6 +40,17 @@ SearchResponse(results=[PaperResult | PatentResult | WebSearchResult])
 5. **HTTP 请求** 客户端通过 `SouWenHttpClient`（API 类）或 `BaseScraper`（爬虫类）发送请求
 6. **结果解析** 各客户端将原始 JSON/HTML 解析为统一的 `PaperResult` / `PatentResult` / `WebSearchResult`
 7. **异常隔离** 每个数据源独立捕获异常，失败不影响其他源
+
+### 内容抓取数据流（v0.7.1）
+
+1. **用户调用** `fetch_content(urls, providers=["builtin"])` 或 `POST /api/v1/fetch`
+2. **SSRF 校验** `validate_fetch_url()` 对每个 URL 做 DNS 解析 + IP 类型校验
+3. **提供者调度** `_fetch_with_provider()` 路由到 builtin / jina_reader / tavily 等
+4. **HTTP 请求** 内置提供者继承 `BaseScraper`（`follow_redirects=False`，手动重定向）
+5. **重定向安全** 每一跳调用 `validate_fetch_url()` 校验目标 IP，最多 5 跳
+6. **内容提取** trafilatura（Markdown）→ html2text → 正则剥离（三级回退）
+7. **CJK 词数校验** `_count_words()` 正确处理中日韩文本
+8. **结果聚合** 返回 `FetchResponse(results=[FetchResult, ...])`
 
 ## 两种基类模式
 
@@ -76,7 +87,8 @@ BaseScraper(
     min_delay: float = 2.0,       # 最小请求间隔
     max_delay: float = 5.0,       # 最大请求间隔
     max_retries: int = 3,
-    use_curl_cffi: bool | None = None  # 自动检测
+    use_curl_cffi: bool | None = None,  # 自动检测
+    follow_redirects: bool = True       # v0.7.1: 子类可关闭自动重定向
 )
 ```
 
@@ -188,7 +200,7 @@ SouWen/
 │   ├── cli.py              # Typer CLI 命令
 │   ├── paper/              # 8 个论文数据源
 │   ├── patent/             # 8 个专利数据源
-│   ├── web/                # 21 个搜索引擎（9 爬虫 + 10 API + 2 自建）
+│   ├── web/                # 21 搜索引擎 + 5 内容抓取提供者
 │   ├── scraper/            # 爬虫基础层（TLS 指纹 + 礼貌爬取）
 │   ├── server/             # FastAPI 服务
 │   │   └── panel.html      # 前端构建产物（单文件 HTML）
@@ -232,6 +244,7 @@ Skin（皮肤）→ Mode（模式）→ Scheme（配色）
 | `core/types/` | TypeScript 类型定义（API 响应模型、共享类型） |
 | `core/i18n/` | 国际化（i18next，当前支持中文） |
 | `core/lib/` | 工具函数（动画预设、数据归一化、错误处理） |
+| `core/hooks/` | 跨皮肤共享 React Hooks（`useFetchPage` 等） |
 | `core/styles/` | 共享 CSS 重置与基础样式（`base.scss`） |
 | `core/test/` | 共享测试工具与测试用例 |
 
@@ -248,7 +261,7 @@ skins/souwen-classic/
 ├── components/
 │   ├── layout/        # 布局组件（MainLayout, Sidebar, Header）
 │   └── common/        # 通用 UI 组件（Button, Card, Modal, Toast, ErrorBoundary, Spinner）
-├── pages/             # 页面（Dashboard, Search, Sources, Config, Login）
+├── pages/             # 页面（Dashboard, Search, Sources, Config, Fetch, Login）
 ├── styles/            # SCSS 样式（全局 token，通过 html[data-skin] 命名空间隔离）
 └── test/              # 皮肤专属测试
 ```

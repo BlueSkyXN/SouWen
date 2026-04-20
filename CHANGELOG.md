@@ -23,6 +23,12 @@ Web 内容抓取功能增强与修复。
 - 修复表单 label 缺少 htmlFor/id 关联
 - 修复加载中按钮未禁用可重复提交
 
+### Security
+- **SSRF 重定向防护**：BuiltinFetcherClient 关闭自动重定向，手动跟踪每一跳并校验目标 IP，防止多跳 302 跳转到云元数据/内网地址
+- BaseScraper 新增 `follow_redirects` 参数（默认 `True`，内置抓取器设为 `False`）
+- Carbon 皮肤修复 i18n 插值缺失（`fetch.validUrls` 未传 `count` 参数）
+- `pyproject.toml` 声明 `web` 可选依赖组（`trafilatura>=1.0`）
+
 ## v0.7.0
 
 新增 8 个数据源 + 源分类体系重构。
