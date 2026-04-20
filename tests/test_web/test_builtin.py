@@ -64,12 +64,16 @@ class TestExtractWithTrafilatura:
 
     def test_content_without_metadata(self):
         """有内容但无元数据时不丢弃"""
-        with patch('trafilatura.extract') as mock_extract, \
-             patch('trafilatura.extract_metadata') as mock_meta, \
-             patch('souwen.web.builtin._HAS_TRAFILATURA', True):
+        with (
+            patch("trafilatura.extract") as mock_extract,
+            patch("trafilatura.extract_metadata") as mock_meta,
+            patch("souwen.web.builtin._HAS_TRAFILATURA", True),
+        ):
             mock_extract.return_value = "This is valid content for testing purposes"
             mock_meta.return_value = None
-            result = _extract_with_trafilatura("<html><body>test</body></html>", "https://example.com")
+            result = _extract_with_trafilatura(
+                "<html><body>test</body></html>", "https://example.com"
+            )
         assert result["content"] == "This is valid content for testing purposes"
         assert result["title"] == ""
         assert result["author"] is None
@@ -85,12 +89,16 @@ class TestExtractWithTrafilatura:
         mock_metadata.language = None
         mock_metadata.tags = None
         mock_metadata.categories = None
-        with patch('trafilatura.extract') as mock_extract, \
-             patch('trafilatura.extract_metadata') as mock_meta, \
-             patch('souwen.web.builtin._HAS_TRAFILATURA', True):
+        with (
+            patch("trafilatura.extract") as mock_extract,
+            patch("trafilatura.extract_metadata") as mock_meta,
+            patch("souwen.web.builtin._HAS_TRAFILATURA", True),
+        ):
             mock_extract.return_value = "Clean content without frontmatter"
             mock_meta.return_value = mock_metadata
-            result = _extract_with_trafilatura("<html><body>test</body></html>", "https://example.com")
+            result = _extract_with_trafilatura(
+                "<html><body>test</body></html>", "https://example.com"
+            )
         assert not result["content"].startswith("---")
         assert "content_format" in result
         assert result["content_format"] == "markdown"
@@ -158,7 +166,9 @@ class TestBuiltinFetcherSingle:
         """中文内容不应被错误拒绝"""
         html = (
             "<html><head><title>测试页面</title></head>"
-            "<body><article><p>" + "这是一段中文测试内容，包含足够的字符来通过验证。" * 5 + "</p></article></body></html>"
+            "<body><article><p>"
+            + "这是一段中文测试内容，包含足够的字符来通过验证。" * 5
+            + "</p></article></body></html>"
         )
         mock_resp = MagicMock()
         mock_resp.text = html
