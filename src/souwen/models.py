@@ -161,6 +161,7 @@ class SourceType(str, Enum):
     WEB_YANDEX = "web_yandex"
     WEB_WHOOGLE = "web_whoogle"
     WEB_WEBSURFX = "web_websurfx"
+    WEB_METASO = "web_metaso"
     # 社交/平台搜索
     WEB_GITHUB = "web_github"
     WEB_STACKOVERFLOW = "web_stackoverflow"
