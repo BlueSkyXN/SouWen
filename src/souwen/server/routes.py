@@ -361,7 +361,24 @@ async def list_sources():
 # 内容抓取端点 — 需要管理密码认证（比搜索更重，SSRF 风险）
 # ---------------------------------------------------------------------------
 
-VALID_FETCH_PROVIDERS = {"builtin", "jina_reader", "tavily", "firecrawl", "exa"}
+VALID_FETCH_PROVIDERS = {
+    "builtin",
+    "jina_reader",
+    "tavily",
+    "firecrawl",
+    "exa",
+    "crawl4ai",
+    "scrapfly",
+    "diffbot",
+    "scrapingbee",
+    "zenrows",
+    "scraperapi",
+    "apify",
+    "cloudflare",
+    "wayback",
+    "newspaper",
+    "readability",
+}
 
 
 @router.post(
@@ -369,10 +386,13 @@ VALID_FETCH_PROVIDERS = {"builtin", "jina_reader", "tavily", "firecrawl", "exa"}
     dependencies=[Depends(rate_limit_search), Depends(require_auth)],
 )
 async def fetch_content_endpoint(body: FetchRequest):
-    """抓取网页内容 — 支持内置抓取 / Jina Reader / Tavily / Firecrawl / Exa
+    """抓取网页内容 — 支持 16 个提供者
 
     通过指定的提供者抓取 URL 列表内容，返回提取的 Markdown/文本。
     默认使用 builtin（内置，httpx/curl_cffi + trafilatura，零配置）。
+    全部提供者：builtin / jina_reader / tavily / firecrawl / exa /
+    crawl4ai / scrapfly / diffbot / scrapingbee / zenrows /
+    scraperapi / apify / cloudflare / wayback / newspaper / readability
 
     需要管理密码认证（比搜索端点更重，有 SSRF 风险）。
 

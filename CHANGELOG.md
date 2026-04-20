@@ -1,5 +1,26 @@
 # Changelog
 
+## v0.7.2
+
+新增 11 个网页内容抓取提供者（总计 16 个）。
+
+### Feature
+- **Crawl4AI**：开源 Playwright 无头浏览器，适合 JS 重度页面（`pip install souwen[crawl4ai]`）
+- **Scrapfly**：JS 渲染 + AI 提取 + 反爬绕过
+- **Diffbot**：AI 结构化文章提取（作者、日期、元数据）
+- **ScrapingBee**：代理池 + JS 渲染 + 反爬
+- **ZenRows**：代理池 + JS 渲染 + 自动解析
+- **ScraperAPI**：大规模代理池 + JS 渲染
+- **Apify**：平台化 Actor 爬虫（4000+ 预构建任务）
+- **Cloudflare Browser Rendering**：边缘浏览器渲染，直出 Markdown
+- **Wayback Machine**：Internet Archive 存档快照（免费，无需 Key）
+- **newspaper4k**：新闻文章专用提取（作者、日期、关键词、NLP 摘要，`pip install souwen[newspaper]`）
+- **readability-lxml**：Mozilla Readability 算法（`pip install souwen[readability]`）
+- 共享 HTML→Markdown 提取工具（`_html_extract.py`），供 HTML 返回型提供者复用
+- 新增 `cloudflare_api_token` / `cloudflare_account_id` 配置字段
+- 前端 4 皮肤 + CLI + API 全部同步支持 16 个提供者
+- source_registry 新增 11 个 fetch 类注册条目
+
 ## v0.7.1
 
 Web 内容抓取功能增强与修复。

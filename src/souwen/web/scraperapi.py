@@ -107,7 +107,7 @@ class ScraperAPIClient(SouWenHttpClient):
         }
         try:
             # ScraperAPI 的根路径即为抓取端点，响应体直接是渲染后的 HTML
-            resp = await self.get("/", params=params, timeout=timeout)
+            resp = await self.get("/", params=params)
             html = resp.text or ""
 
             # 使用共享提取器把原始 HTML 转为 Markdown/Text 与元数据

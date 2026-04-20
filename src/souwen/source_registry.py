@@ -224,6 +224,47 @@ _reg(
     description="Jina Reader 内容抓取 (免费, 可选 Key)",
 )
 # Note: tavily/firecrawl/exa 的 fetch 能力复用其搜索注册条目（同一 API Key）
+_reg("crawl4ai", "fetch", "self_hosted", None, description="Crawl4AI 无头浏览器抓取 (本地)")
+_reg(
+    "scrapfly",
+    "fetch",
+    "official_api",
+    "scrapfly_api_key",
+    description="Scrapfly JS 渲染 + AI 抽取",
+)
+_reg("diffbot", "fetch", "official_api", "diffbot_api_key", description="Diffbot 结构化文章抽取")
+_reg(
+    "scrapingbee",
+    "fetch",
+    "official_api",
+    "scrapingbee_api_key",
+    description="ScrapingBee 代理 + JS 渲染",
+)
+_reg(
+    "zenrows",
+    "fetch",
+    "official_api",
+    "zenrows_api_key",
+    description="ZenRows 代理 + JS 渲染 + 反爬",
+)
+_reg(
+    "scraperapi",
+    "fetch",
+    "official_api",
+    "scraperapi_api_key",
+    description="ScraperAPI 代理池 + JS 渲染",
+)
+_reg("apify", "fetch", "official_api", "apify_api_token", description="Apify Actor 爬虫平台")
+_reg(
+    "cloudflare",
+    "fetch",
+    "official_api",
+    "cloudflare_api_token",
+    description="Cloudflare Browser Rendering",
+)
+_reg("wayback", "fetch", "open_api", None, description="Internet Archive Wayback (免费)")
+_reg("newspaper", "fetch", "self_hosted", None, description="newspaper4k 文章抽取 (本地)")
+_reg("readability", "fetch", "self_hosted", None, description="Mozilla Readability 算法 (本地)")
 
 
 # ── 公开 API ──────────────────────────────────────────────

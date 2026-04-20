@@ -91,10 +91,9 @@ class NewspaperFetcherClient:
                 error="客户端未初始化，请使用 async with 上下文管理器",
             )
         try:
-            # newspaper.article() 是同步函数，丢到默认 executor 执行
-            loop = asyncio.get_event_loop()
+            # newspaper.article() 是同步函数，丢到线程池执行
             article = await asyncio.wait_for(
-                loop.run_in_executor(None, lambda: self._newspaper.article(url)),
+                asyncio.to_thread(self._newspaper.article, url),
                 timeout=timeout,
             )
 

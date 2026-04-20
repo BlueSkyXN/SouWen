@@ -358,7 +358,11 @@ def fetch_cmd(
         "builtin",
         "--provider",
         "-p",
-        help="内容提供者: builtin/jina_reader/tavily/firecrawl/exa",
+        help=(
+            "内容提供者: builtin/jina_reader/tavily/firecrawl/exa/"
+            "crawl4ai/scrapfly/diffbot/scrapingbee/zenrows/scraperapi/"
+            "apify/cloudflare/wayback/newspaper/readability"
+        ),
     ),
     json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),
     timeout: int = typer.Option(30, "--timeout", "-t", help="每 URL 超时（秒）"),

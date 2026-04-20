@@ -62,12 +62,12 @@ from souwen.web.fetch import fetch_content, validate_fetch_url
 
 #### `fetch_content(urls, providers=None, timeout=30.0, skip_ssrf_check=False)` → `FetchResponse`
 
-并发内容抓取，支持 5 个提供者。
+并发内容抓取，支持 16 个提供者。
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `urls` | `list[str]` | — | 目标 URL 列表 |
-| `providers` | `list[str] \| None` | `["builtin"]` | 提供者: builtin / jina_reader / tavily / firecrawl / exa |
+| `providers` | `list[str] \| None` | `["builtin"]` | 提供者: builtin / jina_reader / tavily / firecrawl / exa / crawl4ai / scrapfly / diffbot / scrapingbee / zenrows / scraperapi / apify / cloudflare / wayback / newspaper / readability |
 | `timeout` | `float` | `30.0` | 每个 URL 超时秒数 |
 | `skip_ssrf_check` | `bool` | `False` | 跳过 SSRF 校验（仅内部使用） |
 
@@ -571,14 +571,14 @@ Cache-Control: public, max-age=3600
 
 #### `POST /api/v1/fetch`
 
-抓取网页内容，支持 5 个提供者。
+抓取网页内容，支持 16 个提供者。
 
 **请求体 (JSON)：**
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `urls` | `list[str]` (1-20) | *(必填)* | 目标 URL 列表 |
-| `provider` | `string` | `"builtin"` | 提供者: `builtin` / `jina_reader` / `tavily` / `firecrawl` / `exa` |
+| `provider` | `string` | `"builtin"` | 提供者: `builtin` / `jina_reader` / `tavily` / `firecrawl` / `exa` / `crawl4ai` / `scrapfly` / `diffbot` / `scrapingbee` / `zenrows` / `scraperapi` / `apify` / `cloudflare` / `wayback` / `newspaper` / `readability` |
 | `timeout` | `float` (1-300) | `30` | 每 URL 超时秒数 |
 
 **请求示例：**
