@@ -1,8 +1,9 @@
 """并发多提供者聚合内容抓取
 
 文件用途：
-    核心网页内容抓取聚合模块。支持 12 个提供者（内置抓取、Jina Reader、Tavily、Firecrawl、Exa、
-    Crawl4AI、Scrapfly、Diffbot、ScrapingBee、ZenRows、ScraperAPI、Apify），
+    核心网页内容抓取聚合模块。支持 16 个提供者（内置抓取、Jina Reader、Tavily、Firecrawl、Exa、
+    Crawl4AI、Scrapfly、Diffbot、ScrapingBee、ZenRows、ScraperAPI、Apify、
+    Cloudflare Browser Rendering、Wayback Machine、newspaper4k、readability），
     通过 asyncio 并发抓取、聚合结果，为用户提供统一内容提取接口。
 
 函数/类清单：
@@ -193,6 +194,30 @@ async def _fetch_with_provider(
         from souwen.web.apify import ApifyClient
 
         async with ApifyClient() as client:
+            return await client.fetch_batch(urls, timeout=timeout)
+
+    elif provider == "cloudflare":
+        from souwen.web.cloudflare_browser import CloudflareBrowserClient
+
+        async with CloudflareBrowserClient() as client:
+            return await client.fetch_batch(urls, timeout=timeout)
+
+    elif provider == "wayback":
+        from souwen.web.wayback import WaybackClient
+
+        async with WaybackClient() as client:
+            return await client.fetch_batch(urls, timeout=timeout)
+
+    elif provider == "newspaper":
+        from souwen.web.newspaper_fetcher import NewspaperFetcherClient
+
+        async with NewspaperFetcherClient() as client:
+            return await client.fetch_batch(urls, timeout=timeout)
+
+    elif provider == "readability":
+        from souwen.web.readability_fetcher import ReadabilityFetcherClient
+
+        async with ReadabilityFetcherClient() as client:
             return await client.fetch_batch(urls, timeout=timeout)
 
     else:

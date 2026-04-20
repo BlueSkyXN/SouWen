@@ -170,7 +170,8 @@ class SouWenConfig(BaseModel):
                         stackoverflow_api_key, youtube_api_key, jina_api_key,
                         scrapfly_api_key, diffbot_api_token,
                         scrapingbee_api_key, zenrows_api_key,
-                        scraperapi_api_key, apify_api_token
+                        scraperapi_api_key, apify_api_token,
+                        cloudflare_api_token, cloudflare_account_id
 
         通用设置: proxy, proxy_pool (代理池), timeout (超时秒数),
                  max_retries (重试次数), data_dir (数据存储目录)
@@ -237,6 +238,8 @@ class SouWenConfig(BaseModel):
     zenrows_api_key: str | None = None  # ZenRows API Key（代理+JS 渲染+反爬）
     scraperapi_api_key: str | None = None  # ScraperAPI API Key（代理+JS 渲染）
     apify_api_token: str | None = None  # Apify API Token（平台化 Actor 爬虫）
+    cloudflare_api_token: str | None = None  # Cloudflare API Token（Browser Rendering）
+    cloudflare_account_id: str | None = None  # Cloudflare Account ID（Browser Rendering）
 
     # ===== 通用 =====
     proxy: str | None = None
@@ -624,6 +627,8 @@ web:
   zenrows_api_key: ~
   scraperapi_api_key: ~
   apify_api_token: ~
+  cloudflare_api_token: ~
+  cloudflare_account_id: ~
 
 # ===== 通用设置 =====
 general:

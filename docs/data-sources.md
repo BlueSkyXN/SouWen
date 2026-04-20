@@ -9,7 +9,7 @@
 | 论文 | 8 | 5（OpenAlex、Crossref、arXiv、DBLP、PubMed） | 3（Semantic Scholar 可选、CORE、Unpaywall） |
 | 专利 | 8 | 2（PatentsView、PQAI） | 6（EPO、USPTO ODP、The Lens、CNIPA、PatSnap、Google Patents 爬虫） |
 | 搜索引擎 | 21 | 9（爬虫类） + 2（自建实例） | 10（API 类） |
-| 内容抓取 | 12 | 2（builtin、Crawl4AI） | 10（Jina Reader、Tavily、Firecrawl、Exa、Scrapfly、Diffbot、ScrapingBee、ZenRows、ScraperAPI、Apify） |
+| 内容抓取 | 16 | 5（builtin、Crawl4AI、Wayback Machine、newspaper4k、readability） | 11（Jina Reader、Tavily、Firecrawl、Exa、Scrapfly、Diffbot、ScrapingBee、ZenRows、ScraperAPI、Apify、Cloudflare） |
 
 ## 论文数据源
 
@@ -114,13 +114,17 @@
 | ZenRows | `zenrows` | API Key | 代理池 + JS 渲染 + 自动解析，高成功率反爬 |
 | ScraperAPI | `scraperapi` | API Key | 大规模代理池 + JS 渲染，性价比高 |
 | Apify | `apify` | API Token | 平台化 Actor 爬虫（4000+ 预构建任务），内容直出 Markdown |
+| Cloudflare | `cloudflare` | API Token | 边缘浏览器渲染，直出 Markdown，全球低延迟 |
+| Wayback Machine | `wayback` | 无需 Key | Internet Archive 存档快照，免费，适合历史页面 |
+| Newspaper4k | `newspaper` | 无需 Key | 新闻文章专用提取（作者、日期、关键词、NLP 摘要），本地运行 |
+| Readability | `readability` | 无需 Key | Mozilla Readability 算法（不同于 trafilatura），本地运行 |
 
 ### 分级说明
 
-- **Tier 1（零配置）**：builtin — 使用内置 HTTP 客户端 + trafilatura（可选安装 `pip install souwen[web]`），无需任何 API Key
-- **Tier 1.5（零配置，需浏览器）**：crawl4ai — 开源 Playwright 无头浏览器（安装 `pip install souwen[crawl4ai]`），适合 JS 重度页面
+- **Tier 1（零配置）**：builtin、wayback — 无需任何 API Key 即可使用
+- **Tier 1.5（零配置，需安装库）**：crawl4ai（需 Playwright）、newspaper（`pip install souwen[newspaper]`）、readability（`pip install souwen[readability]`）
 - **Tier 2（推荐）**：jina_reader — 免费层可直接使用，设置 Key 可提高速率
-- **Tier 3（需注册）**：tavily、firecrawl、exa、scrapfly、diffbot、scrapingbee、zenrows、scraperapi、apify — 需申请 API Key/Token
+- **Tier 3（需注册）**：tavily、firecrawl、exa、scrapfly、diffbot、scrapingbee、zenrows、scraperapi、apify、cloudflare — 需申请 API Key/Token
 
 ### 内置抓取（builtin）技术栈
 

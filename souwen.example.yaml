@@ -84,6 +84,10 @@ web:
   scraperapi_api_key: ~
   # Apify API Token（平台化 Actor 爬虫，4000+ 预构建任务；https://apify.com/）
   apify_api_token: ~
+  # Cloudflare Browser Rendering API Token（边缘浏览器渲染，/markdown 直出；https://dash.cloudflare.com/）
+  cloudflare_api_token: ~
+  # Cloudflare Account ID（与 cloudflare_api_token 配合使用）
+  cloudflare_account_id: ~
   # 以下数据源无需 API Key，可直接使用（如需禁用请在 sources 段配置 enabled: false）：
   #   reddit     — Reddit 帖子搜索
   #   wikipedia  — Wikipedia 百科搜索

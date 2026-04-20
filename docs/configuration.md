@@ -65,6 +65,8 @@ web:
   zenrows_api_key: your_key          # ZenRows（代理+JS 渲染+反爬）
   scraperapi_api_key: your_key       # ScraperAPI（代理池+JS 渲染）
   apify_api_token: your_token        # Apify（平台化 Actor 爬虫）
+  cloudflare_api_token: your_token  # Cloudflare Browser Rendering
+  cloudflare_account_id: your_id    # Cloudflare 账户 ID
   perplexity_api_key: your_key
   linkup_api_key: your_key
   scrapingdog_api_key: your_key
@@ -156,6 +158,8 @@ sources: {}
 | `zenrows_api_key` | `SOUWEN_ZENROWS_API_KEY` | ZenRows 必需 | 代理池+JS 渲染+自动解析 |
 | `scraperapi_api_key` | `SOUWEN_SCRAPERAPI_API_KEY` | ScraperAPI 必需 | 大规模代理池+JS 渲染 |
 | `apify_api_token` | `SOUWEN_APIFY_API_TOKEN` | Apify 必需 | 平台化 Actor 爬虫 |
+| `cloudflare_api_token` | `SOUWEN_CLOUDFLARE_API_TOKEN` | Cloudflare 必需 | Browser Rendering API Token |
+| `cloudflare_account_id` | `SOUWEN_CLOUDFLARE_ACCOUNT_ID` | Cloudflare 必需 | Cloudflare 账户 ID |
 
 ### 网络设置
 

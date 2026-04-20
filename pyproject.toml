@@ -59,6 +59,10 @@ tls = ["curl-cffi>=0.14.0"]
 web = ["trafilatura>=1.0"]
 # Crawl4AI 无头浏览器抓取（基于 Playwright，适合 JS 重度页面）
 crawl4ai = ["crawl4ai>=0.4.0"]
+# newspaper4k 新闻文章提取（作者/日期/关键词/摘要）
+newspaper = ["newspaper4k>=0.9"]
+# readability 提取（Mozilla Readability 算法 + markdownify 转换）
+readability = ["readability-lxml>=0.8", "markdownify>=0.12"]
 # 浏览器爬虫（Playwright）+ TLS 伪装
 scraper = ["playwright>=1.40", "curl-cffi>=0.14.0"]
 # Web 服务器（FastAPI + Uvicorn）
