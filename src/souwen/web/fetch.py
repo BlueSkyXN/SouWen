@@ -36,7 +36,9 @@
     - logging: 日志记录
     - souwen.config: 配置读取（API Key）
     - souwen.models: FetchResult, FetchResponse 数据模型
-    - souwen.web.jina_reader / tavily / firecrawl / exa / crawl4ai_fetcher / scrapfly / diffbot: 各提供者客户端（懒加载）
+    - souwen.web.jina_reader / tavily / firecrawl / exa / crawl4ai_fetcher / scrapfly /
+      diffbot / scrapingbee / zenrows / scraperapi / apify / cloudflare_browser /
+      wayback / newspaper_fetcher / readability_fetcher: 各提供者客户端（懒加载）
 
 技术要点：
     - SSRF 防护：解析 DNS 后逐个 IP 校验，拒绝私有/回环/链路本地/保留段

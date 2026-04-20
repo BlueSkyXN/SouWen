@@ -25,7 +25,7 @@
         - 列出当前可用数据源及其配置（隐藏未配置 Key 的授权接口）
 
     POST /api/v1/fetch
-        - 抓取网页内容（Jina Reader / Tavily / Firecrawl / Exa）
+        - 抓取网页内容（16 个提供者，详见 VALID_FETCH_PROVIDERS）
         - 依赖：速率限制 + 管理密码认证（SSRF 风险）
 
 管理端点（强制认证）：

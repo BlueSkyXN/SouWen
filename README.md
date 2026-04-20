@@ -13,7 +13,7 @@
 
 ## 🎯 简介
 
-SouWen（搜文）为 AI Agent 提供统一的学术论文、专利和网页搜索接口，整合 **37 个数据源**，归一化为 Pydantic v2 数据模型。
+SouWen（搜文）为 AI Agent 提供统一的学术论文、专利和网页搜索接口，整合 **58 个数据源**，归一化为 Pydantic v2 数据模型。
 
 - **8 论文源 + 8 专利源 + 21 搜索引擎** — 18 个零配置即用（5 论文 + 2 专利 + 9 爬虫 + 2 自建）
 - **统一数据模型** — `PaperResult` / `PatentResult` / `WebSearchResult`
@@ -128,7 +128,7 @@ asyncio.run(main())
 
 | 文档 | 内容 |
 |------|------|
-| [数据源详情](docs/data-sources.md) | 37 个数据源完整列表、分级说明 |
+| [数据源详情](docs/data-sources.md) | 58 个数据源完整列表、分级说明 |
 | [配置详解](docs/configuration.md) | 配置优先级、全部字段、代理池、YAML 格式 |
 | [架构设计](docs/architecture.md) | 数据流、基类模式、限流器、异常体系、项目结构 |
 | [外观定制](docs/appearance.md) | 皮肤、明暗模式、配色方案、自定义皮肤指南 |
