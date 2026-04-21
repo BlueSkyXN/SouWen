@@ -23,6 +23,8 @@
         - 输入：entry arXiv API 返回的 <entry> XML 元素
         - 输出：统一的 PaperResult 模型，包含标题、作者、PDF 链接、分类等
         - 关键变量：arxiv_id (str) arXiv 唯一标识符, categories (list[str]) 学科分类
+        - raw 字段：categories, primary_category, comment, journal_ref,
+                   updated（最后修订日期）, version（版本号，如 "v2"）
 
     _build_search_query(query: str, categories: list[str]|None, date_from: str|None,
                         date_to: str|None) -> str
@@ -44,6 +46,15 @@
         - 注意：含日期过滤时直接拼接 URL 字符串，避免 httpx 把 ``+TO+`` 编码为
                ``%2BTO%2B``（arXiv 要求字面 ``+`` 字符）
 
+    search_all(query: str, id_list: list|None, sort_by: str|None,
+               sort_order: str|None, categories: list[str]|None,
+               date_from: str|None, date_to: str|None,
+               batch_size: int) -> AsyncIterator[PaperResult]
+        - 功能：无限分页异步迭代器，逐批获取所有匹配结果
+        - 输入：与 search() 相同（无 start/max_results），batch_size 每批请求数量（默认 100）
+        - 输出：AsyncIterator[PaperResult]，逐条 yield
+        - 说明：自动根据 total_results 决定何时停止，比 search() 更适合大批量获取
+
 模块依赖：
     - SouWenHttpClient: 统一 HTTP 客户端
     - TokenBucketLimiter: 令牌桶限流器
@@ -55,7 +66,7 @@ from __future__ import annotations
 import logging
 import re
 import defusedxml.ElementTree as ET
-from typing import Any
+from typing import Any, AsyncIterator
 
 from souwen.exceptions import ParseError
 from souwen.http_client import SouWenHttpClient
@@ -78,6 +89,8 @@ _NS = {
 
 # 从 arXiv ID URL 提取纯 ID 的正则
 _ARXIV_ID_RE = re.compile(r"abs/(.+)$")
+# 从 arXiv ID 提取版本号（如 "2301.00001v2" 中的 "v2"）
+_ARXIV_VERSION_RE = re.compile(r"v(\d+)$")
 
 
 class ArxivClient:
@@ -209,6 +222,18 @@ class ArxivClient:
             comment_el = entry.find("arxiv:comment", _NS)
             comment = cls._text(comment_el) if comment_el is not None else None
 
+            # 提取期刊引用（部分论文在接受后会填写此字段，如 "Phys.Rev.Lett. 120 (2018) 161601"）
+            journal_ref_el = entry.find("arxiv:journal_ref", _NS)
+            journal_ref = cls._text(journal_ref_el) if journal_ref_el is not None else None
+
+            # 提取最后修订日期（<updated> 与 <published> 不同，表示最近一次版本更新时间）
+            updated = cls._text(entry.find("atom:updated", _NS))
+            updated_date: str | None = updated[:10] if updated else None
+
+            # 从 arXiv ID 中提取版本号（如 "2301.00001v2" → "v2"）
+            vm = _ARXIV_VERSION_RE.search(arxiv_id)
+            version = vm.group(0) if vm else None
+
             return PaperResult(
                 title=title,
                 authors=authors,
@@ -224,6 +249,9 @@ class ArxivClient:
                     "categories": categories,
                     "primary_category": categories[0] if categories else None,
                     "comment": comment,
+                    "journal_ref": journal_ref,
+                    "updated": updated_date,
+                    "version": version,
                 },
             )
         except Exception as exc:
@@ -360,3 +388,70 @@ class ArxivClient:
             results=results,
             source=SourceType.ARXIV,
         )
+
+    async def search_all(
+        self,
+        query: str,
+        id_list: list[str] | None = None,
+        sort_by: str | None = None,
+        sort_order: str | None = None,
+        categories: list[str] | None = None,
+        date_from: str | None = None,
+        date_to: str | None = None,
+        batch_size: int = 100,
+    ) -> AsyncIterator[PaperResult]:
+        """无限分页异步迭代器，获取所有匹配的 arXiv 论文。
+
+        与 search() 不同，本方法不限制返回数量，自动分批请求直到取尽所有结果。
+        适合大批量数据采集场景（对应 arxiv.py 的 ``max_results=None`` 行为）。
+
+        Args:
+            query: arXiv 搜索查询，支持字段前缀如 ``ti:``、``au:``。
+            id_list: arXiv ID 列表，如 ``["2301.00001", "2301.00002"]``。
+            sort_by: 排序字段: ``"relevance"``、``"lastUpdatedDate"``、
+                     ``"submittedDate"``。
+            sort_order: ``"ascending"`` 或 ``"descending"``。
+            categories: 学科分类过滤列表，如 ``["cs.AI", "cs.LG"]``。
+            date_from: 起始日期 ``YYYY-MM-DD`` 格式。
+            date_to: 结束日期 ``YYYY-MM-DD`` 格式。
+            batch_size: 每次 API 请求的批量大小（默认 100，上限 2000）。
+
+        Yields:
+            PaperResult：逐条返回论文结果。
+
+        Note:
+            - 每批请求受速率限制（3 秒间隔），大批量采集请注意时间成本。
+            - 当 API 返回结果数少于 batch_size 时，迭代自动终止。
+        """
+        batch = min(batch_size, 2000)
+        start = 0
+        seen = 0
+        total_known: int | None = None
+
+        while True:
+            response = await self.search(
+                query=query,
+                id_list=id_list,
+                start=start,
+                max_results=batch,
+                sort_by=sort_by,
+                sort_order=sort_order,
+                categories=categories,
+                date_from=date_from,
+                date_to=date_to,
+            )
+
+            if total_known is None:
+                total_known = response.total_results
+
+            for paper in response.results:
+                yield paper
+                seen += 1
+
+            # 当本批次无结果或已取尽所有结果时停止
+            if not response.results:
+                break
+            if total_known is not None and seen >= total_known:
+                break
+
+            start += batch
