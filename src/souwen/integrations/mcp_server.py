@@ -38,6 +38,11 @@ Model Context Protocol (MCP) 集成，使 Claude Code、Cursor、Windsurf 等 AI
         - 参数：无
         - 返回：健康检查报告
 
+    fetch_content
+        - 抓取网页内容
+        - 参数：urls (list), provider (可选，默认 builtin)
+        - 返回：抓取结果 (JSON)
+
 主要函数：
     create_server() -> Server
         - 创建并配置 MCP 服务器
@@ -168,6 +173,26 @@ def create_server() -> "Server":
                 description="检查 SouWen 数据源可用性状态",
                 inputSchema={"type": "object", "properties": {}},
             ),
+            Tool(
+                name="fetch_content",
+                description="获取网页内容。支持 URL 直接抓取，使用 SouWen 内置提取器（零配置）。",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "urls": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "要抓取的 URL 列表",
+                        },
+                        "provider": {
+                            "type": "string",
+                            "default": "builtin",
+                            "description": "内容提取提供者，默认 builtin（零配置）",
+                        },
+                    },
+                    "required": ["urls"],
+                },
+            ),
         ]
 
     @server.call_tool()
@@ -219,6 +244,14 @@ def create_server() -> "Server":
 
                 results = check_all()
                 result = format_report(results)
+
+            elif name == "fetch_content":
+                from souwen.web.fetch import fetch_content
+
+                urls = arguments["urls"]
+                provider = arguments.get("provider", "builtin")
+                response = await fetch_content(urls=urls, providers=[provider])
+                result = response.model_dump(mode="json")
 
             else:
                 result = f"Unknown tool: {name}"
