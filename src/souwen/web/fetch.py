@@ -1,9 +1,10 @@
 """并发多提供者聚合内容抓取
 
 文件用途：
-    核心网页内容抓取聚合模块。支持 17 个提供者（内置抓取、Jina Reader、Tavily、Firecrawl、Exa、
+    核心网页内容抓取聚合模块。支持 19 个提供者（内置抓取、Jina Reader、Tavily、Firecrawl、Exa、
     Crawl4AI、Scrapfly、Diffbot、ScrapingBee、ZenRows、ScraperAPI、Apify、
-    Cloudflare Browser Rendering、Wayback Machine、newspaper4k、readability、MCP），
+    Cloudflare Browser Rendering、Wayback Machine、newspaper4k、readability、MCP、
+    site_crawler（多页 BFS 爬虫）、deepwiki（DeepWiki 文档抓取）），
     通过 asyncio 并发抓取、聚合结果，为用户提供统一内容提取接口。
 
 函数/类清单：
@@ -228,6 +229,19 @@ async def _fetch_with_provider(
         from souwen.web.mcp_fetch import MCPFetchClient
 
         async with MCPFetchClient() as client:
+            return await client.fetch_batch(urls, timeout=timeout)
+
+    elif provider == "site_crawler":
+        from souwen.web.site_crawler import SiteCrawlerClient
+
+        async with SiteCrawlerClient() as client:
+            # max_depth=1 默认爬取根页面 + 一级子页面
+            return await client.fetch_batch(urls, timeout=timeout, max_depth=1)
+
+    elif provider == "deepwiki":
+        from souwen.web.deepwiki import DeepWikiClient
+
+        async with DeepWikiClient() as client:
             return await client.fetch_batch(urls, timeout=timeout)
 
     else:
