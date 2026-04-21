@@ -384,6 +384,10 @@ export interface YouTubeTranscriptResponse {
   available: boolean
 }
 
+// === Bilibili ===
+// 注：Bilibili 视频搜索通过聚合搜索（/api/v1/search/web?engine=bilibili）使用 VideoResult/VideoSearchResponse。
+// 此处仅保留 SouWen 自身仍在使用的 BV 详情/用户/文章搜索响应结构。
+
 // === Wayback Machine ===
 export interface WaybackSnapshot {
   url: string
