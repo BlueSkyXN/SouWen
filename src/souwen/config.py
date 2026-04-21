@@ -200,6 +200,10 @@ class SouWenConfig(BaseModel):
     pubmed_api_key: str | None = None
     unpaywall_email: str | None = None
     ieee_api_key: str | None = None
+    # Zotero 个人文献库
+    zotero_api_key: str | None = None  # Zotero Web API Key
+    zotero_library_id: str | None = None  # 用户 ID 或群组 ID
+    zotero_library_type: str | None = None  # "user" (默认) 或 "group"
 
     # ===== 专利数据源 =====
     uspto_api_key: str | None = None
