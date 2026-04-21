@@ -24,6 +24,7 @@ API 类（需 Key / 自建实例）：
 - SerperClient: Serper Google SERP API
 - BraveApiClient: Brave 官方 API
 - MetasoClient: 秘塔搜索（文档/网页/学术三种范围）
+- ZhipuAISearchClient: 智谱 AI Web Search Pro（含 AI 摘要，中英文友好）
 
 聚合搜索：
 - web_search(): 并发多引擎聚合 + URL 去重
@@ -69,6 +70,7 @@ from souwen.web.twitter import TwitterClient
 from souwen.web.facebook import FacebookClient
 from souwen.web.feishu_drive import FeishuDriveClient
 from souwen.web.metaso import MetasoClient
+from souwen.web.zhipuai_search import ZhipuAISearchClient
 from souwen.web.jina_reader import JinaReaderClient
 from souwen.web.builtin import BuiltinFetcherClient
 from souwen.web.wayback import WaybackClient
@@ -131,6 +133,7 @@ __all__ = [
     "FeishuDriveClient",
     # API 类（需 Key）- 中文搜索
     "MetasoClient",
+    "ZhipuAISearchClient",
     # 内容抓取类 (fetch)
     "BuiltinFetcherClient",
     "JinaReaderClient",
