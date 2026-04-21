@@ -204,10 +204,11 @@ class TestModels:
             SourceType.WEB_WEIBO,
             SourceType.WEB_FEISHU_DRIVE,
             SourceType.WEB_ZHIPUAI,
+            SourceType.WEB_ALIYUN_IQS,
         ]
         assert len(paper_sources) == 8
         assert len(patent_sources) == 8
-        assert len(web_sources) == 20
+        assert len(web_sources) == 21
 
 
 class TestExceptions:
@@ -501,7 +502,7 @@ class TestCLI:
             len(ALL_SOURCES[c])
             for c in ("general", "professional", "social", "developer", "wiki", "video")
         )
-        assert total_web == 30
+        assert total_web == 31
         assert len(ALL_SOURCES["fetch"]) == 5
 
 

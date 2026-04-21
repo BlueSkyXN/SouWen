@@ -232,6 +232,7 @@ class SouWenConfig(BaseModel):
     whoogle_url: str | None = None  # Whoogle 自建实例 URL
     websurfx_url: str | None = None  # Websurfx 自建实例 URL
     zhipuai_api_key: str | None = None  # 智谱 AI Web Search Pro
+    aliyun_iqs_api_key: str | None = None  # 阿里云 IQS 通义晓搜
     # 社区 / 视频平台
     github_token: str | None = None  # GitHub PAT（可选，提升速率限制）
     stackoverflow_api_key: str | None = None  # StackOverflow API Key（可选，提升配额）
@@ -641,6 +642,7 @@ web:
   whoogle_url: ~
   websurfx_url: ~
   zhipuai_api_key: ~
+  aliyun_iqs_api_key: ~
   github_token: ~
   stackoverflow_api_key: ~
   youtube_api_key: ~
