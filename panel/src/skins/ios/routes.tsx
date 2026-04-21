@@ -19,6 +19,7 @@ import { DashboardPage } from './pages/DashboardPage'
 import { SearchPage } from './pages/SearchPage'
 import { FetchPage } from './pages/FetchPage'
 import { VideoPage } from './pages/VideoPage'
+import { BilibiliPage } from './pages/BilibiliPage'
 import { ToolsPage } from './pages/ToolsPage'
 import { SourcesPage } from './pages/SourcesPage'
 import { NetworkPage } from './pages/NetworkPage'
@@ -33,6 +34,7 @@ export const skinRoutes = (
     <Route path="/search" element={<SearchPage />} />
     <Route path="/fetch" element={<FetchPage />} />
     <Route path="/video" element={<VideoPage />} />
+    <Route path="/bilibili" element={<BilibiliPage />} />
     <Route path="/tools" element={<ToolsPage />} />
     <Route path="/sources" element={<SourcesPage />} />
     <Route path="/network" element={<NetworkPage />} />
