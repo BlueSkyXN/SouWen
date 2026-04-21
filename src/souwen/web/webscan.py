@@ -247,13 +247,14 @@ async def crawl_site(
                             return
                         links = _parse_links(html, page_url)
                         for link_url, _ in links:
+                            if len(crawled) >= max_urls:
+                                break
                             parsed = urlparse(link_url)
                             link_origin = f"{parsed.scheme}://{parsed.netloc}"
                             if link_origin == base_origin and link_url not in visited:
                                 visited.add(link_url)
                                 crawled.append(link_url)
-                                if len(crawled) < max_urls:
-                                    queue.put_nowait((link_url, depth + 1))
+                                queue.put_nowait((link_url, depth + 1))
                     except Exception:
                         pass
 
