@@ -94,8 +94,7 @@ class BilibiliClient(BaseScraper):
 
         # 可选 SESSDATA 登录态（提升风控通过率、可访问部分需要登录的接口）
         cfg = get_config()
-        self._sessdata: str | None = getattr(cfg, "bilibili_sessdata", None)
-        self._bili_jct: str | None = getattr(cfg, "bilibili_bili_jct", None)
+        self._sessdata: str | None = getattr(cfg, "bilibili_sessdata", None) or None
 
     # ── 基础工具 ────────────────────────────────────────────
 
@@ -120,8 +119,6 @@ class BilibiliClient(BaseScraper):
         cookie_parts: list[str] = [_ANON_BUVID_COOKIE]
         if self._sessdata:
             cookie_parts.append(f"SESSDATA={self._sessdata}")
-        if self._bili_jct:
-            cookie_parts.append(f"bili_jct={self._bili_jct}")
         headers["Cookie"] = "; ".join(cookie_parts)
 
         if extra:

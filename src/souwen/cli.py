@@ -715,14 +715,14 @@ def _bili_print_json(obj) -> None:
 def bilibili_search(
     keyword: str = typer.Argument(..., help="搜索关键词"),
     limit: int = typer.Option(20, "--limit", "-n", help="最大结果数"),
-    page: int = typer.Option(1, "--page", "-p", help="页码（当前接口暂不支持，保留兼容）"),
+    _page: int = typer.Option(1, "--page", "-p", hidden=True, help="页码（保留兼容）"),
     json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),
     timeout: int | None = typer.Option(None, "--timeout", "-t", help="超时（秒）"),
 ) -> None:
     """搜索 Bilibili 视频"""
     from souwen.web.bilibili import BilibiliClient
 
-    _ = page  # 保留 CLI 选项以匹配其他命令风格
+    _ = _page  # hidden option kept for CLI symmetry
 
     async def _do():
         async with BilibiliClient() as client:
@@ -784,6 +784,42 @@ def bilibili_search_users(
     for u in results:
         table.add_row(u.uname, str(u.mid), f"{u.fans:,}", u.usign or "")
     console.print(table)
+
+
+@bilibili_app.command("video")
+def bilibili_video(
+    bvid: str = typer.Argument(..., help="BV 号（如 BV1xx411c7mD）"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),
+    timeout: int | None = typer.Option(None, "--timeout", "-t", help="超时（秒）"),
+) -> None:
+    """获取 Bilibili 视频详情（标题、UP 主、播放量等元数据）"""
+    from souwen.web.bilibili import BilibiliClient
+
+    async def _do():
+        async with BilibiliClient() as client:
+            return await client.get_video_details(bvid)
+
+    with console.status(f"[bold green]获取视频详情: {bvid} ..."):
+        detail = _bilibili_run(_do(), timeout)
+
+    if json_output:
+        _bili_print_json(detail)
+        return
+
+    console.print(f"[bold cyan]📹 {detail.title}[/bold cyan]")
+    console.print(f"  BV号: [dim]{detail.bvid}[/dim]")
+    console.print(f"  UP主: [yellow]{detail.owner.name}[/yellow]  ({detail.space_url})")
+    console.print(f"  时长: {detail.duration_str}")
+    console.print(
+        f"  播放: {detail.stat.view:,}  弹幕: {detail.stat.danmaku:,}"
+        f"  点赞: {detail.stat.like:,}  投币: {detail.stat.coin:,}"
+        f"  收藏: {detail.stat.favorite:,}"
+    )
+    if detail.tags:
+        console.print(f"  标签: {', '.join(detail.tags[:10])}")
+    if detail.desc:
+        console.print(f"\n[dim]{detail.desc[:300]}[/dim]")
+    console.print(f"\n  🔗 {detail.url}")
 
 
 @bilibili_app.command("search-articles")
