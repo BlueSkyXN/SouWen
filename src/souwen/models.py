@@ -131,6 +131,13 @@ class SourceType(str, Enum):
     UNPAYWALL = "unpaywall"
     ZOTERO = "zotero"
     HUGGINGFACE = "huggingface"
+    EUROPEPMC = "europepmc"
+    PMC = "pmc"
+    DOAJ = "doaj"
+    ZENODO = "zenodo"
+    HAL = "hal"
+    OPENAIRE = "openaire"
+    IACR = "iacr"
     # 专利数据源
     PATENTSVIEW = "patentsview"
     USPTO_ODP = "uspto_odp"
@@ -441,6 +448,13 @@ ALL_SOURCES: dict[str, list[tuple[str, bool, str]]] = {
         ("pubmed", False, "PubMed 生物医学"),
         ("zotero", True, "Zotero 个人文献库搜索 (需 API Key + Library ID)"),
         ("huggingface", False, "HuggingFace Papers 社区精选（语义搜索 + 热度排行）"),
+        ("europepmc", False, "Europe PMC 欧洲生物医学文献"),
+        ("pmc", False, "PubMed Central 生物医学全文"),
+        ("doaj", False, "DOAJ 开放获取期刊目录（可选 Key）"),
+        ("zenodo", False, "Zenodo CERN 开放科学仓库（可选 Token）"),
+        ("hal", False, "HAL 法国开放档案（Solr API，无需 Key）"),
+        ("openaire", False, "OpenAIRE 欧盟开放科研基础设施（可选 API Key）"),
+        ("iacr", False, "IACR ePrint 密码学预印本（实验性）"),
     ],
     "patent": [
         ("epo_ops", True, "EPO OPS 欧洲专利 (OAuth)"),
