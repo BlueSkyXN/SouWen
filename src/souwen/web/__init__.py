@@ -62,6 +62,8 @@ from souwen.web.weibo import WeiboClient
 from souwen.web.csdn import CSDNClient
 from souwen.web.juejin import JuejinClient
 from souwen.web.linuxdo import LinuxDoClient
+from souwen.web.twitter import TwitterClient
+from souwen.web.facebook import FacebookClient
 from souwen.web.metaso import MetasoClient
 from souwen.web.jina_reader import JinaReaderClient
 from souwen.web.builtin import BuiltinFetcherClient
@@ -118,6 +120,9 @@ __all__ = [
     "CSDNClient",
     "JuejinClient",
     "LinuxDoClient",
+    # 国际社交媒体（官方 API）
+    "TwitterClient",
+    "FacebookClient",
     # API 类（需 Key）- 中文搜索
     "MetasoClient",
     # 内容抓取类 (fetch)
