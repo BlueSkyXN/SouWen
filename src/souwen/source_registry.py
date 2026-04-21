@@ -124,6 +124,16 @@ _reg(
     None,
     description="HuggingFace Papers 社区精选（语义搜索 + 热度排行，无需 Key）",
 )
+_reg("europepmc", "paper", "open_api", None, description="Europe PMC 欧洲生物医学文献")
+_reg("pmc", "paper", "open_api", None, description="PubMed Central 生物医学全文")
+_reg("hal", "paper", "open_api", None, description="HAL 法国开放档案（Solr API）")
+_reg(
+    "iacr",
+    "paper",
+    "scraper",
+    None,
+    description="IACR ePrint 密码学预印本（实验性 HTML 爬虫）",
+)
 
 # ── 论文：授权接口 ────────────────────────────────────────
 _reg(
@@ -141,6 +151,21 @@ _reg(
     "official_api",
     "zotero_api_key",
     description="Zotero 个人文献库搜索 (需 API Key + Library ID)",
+)
+_reg("doaj", "paper", "official_api", "doaj_api_key", description="DOAJ 开放获取期刊目录（可选 Key）")
+_reg(
+    "zenodo",
+    "paper",
+    "official_api",
+    "zenodo_access_token",
+    description="Zenodo CERN 开放科学仓库（可选 Token）",
+)
+_reg(
+    "openaire",
+    "paper",
+    "official_api",
+    "openaire_api_key",
+    description="OpenAIRE 欧盟研究基础设施（可选 Key）",
 )
 
 # ── 专利：公开接口 ────────────────────────────────────────
