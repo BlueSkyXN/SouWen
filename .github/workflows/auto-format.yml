@@ -1,0 +1,51 @@
+name: Auto Format
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - '**.py'
+      - 'pyproject.toml'
+      - '.github/workflows/auto-format.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: auto-format-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  auto-format:
+    name: 自动格式化
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    # 仅处理同仓库 PR（fork PR 无写入权限，跳过）
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.head_ref }}
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.10'
+          cache: 'pip'
+
+      - name: 安装 ruff
+        run: pip install ruff
+
+      - name: 运行 ruff format
+        run: ruff format src/ tests/
+
+      - name: 提交格式化修复
+        uses: stefanzweifel/git-auto-commit-action@v5
+        with:
+          commit_message: "style: auto-format with ruff"
+          commit_author: "github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
+          file_pattern: "src/**/*.py tests/**/*.py"
+
+      - name: 最终格式检查（Gate）
+        run: ruff format --check src/ tests/
