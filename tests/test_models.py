@@ -36,18 +36,25 @@ class TestAllSources:
         assert len(ALL_SOURCES["patent"]) == 6
 
     def test_web_count(self):
-        """web-derived categories have correct source counts"""
-        assert len(ALL_SOURCES["general"]) == 16
+        """web-derived categories have correct source counts（v1 从 registry 派生）
+
+        v0 的 ALL_SOURCES 漏列了 source_registry 已登记的 bing_cn / ddg_news /
+        ddg_images / ddg_videos / metaso / twitter / facebook。v1 统一从 registry
+        派生，修复漂移；因此 general/social 数字比 v0 更高。
+        """
+        assert len(ALL_SOURCES["general"]) == 21  # v0: 16
         assert len(ALL_SOURCES["professional"]) == 7
-        assert len(ALL_SOURCES["social"]) == 3
+        assert len(ALL_SOURCES["social"]) == 5  # v0: 3
         assert len(ALL_SOURCES["developer"]) == 2
         assert len(ALL_SOURCES["wiki"]) == 1
         assert len(ALL_SOURCES["video"]) == 2
+        # v1 新增：cn_tech 独立分类
+        assert len(ALL_SOURCES["cn_tech"]) == 3
 
     def test_total_count(self):
-        """总计暴露 66 个可选数据源"""
+        """总计暴露的数据源数量（v1 修复漂移后为 83）。"""
         total = sum(len(v) for v in ALL_SOURCES.values())
-        assert total == 73
+        assert total == 83  # v0: 73
 
     def test_each_entry_is_tuple_of_three(self):
         """每条目是 (name, requires_key, desc) 三元组"""

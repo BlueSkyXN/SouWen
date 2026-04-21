@@ -18,6 +18,7 @@ panel/dist/
 .playwright-mcp/
 /.gemini
 /validation-worktree/
+# CLAUDE.md 已入库；保留此行只防护本地临时副本被意外 add（git 已跟踪的不受影响）
 CLAUDE.md
 
 # Temporary screenshots

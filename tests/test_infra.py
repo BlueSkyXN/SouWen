@@ -422,20 +422,35 @@ class TestUnifiedSearch:
         assert callable(web_search)
 
     def test_search_paper_sources_mapping(self):
-        """论文数据源映射完整性"""
-        from souwen.search import _PAPER_SOURCES, _DEFAULT_PAPER_SOURCES
+        """论文数据源映射完整性（v1 从 registry 派生）
 
-        assert len(_PAPER_SOURCES) == 16  # 16 sources (unpaywall excluded as DOI resolver)
-        for s in _DEFAULT_PAPER_SOURCES:
-            assert s in _PAPER_SOURCES, f"默认源 {s} 不在映射中"
+        v0 有 `_PAPER_SOURCES` 和 `_DEFAULT_PAPER_SOURCES`。
+        v1 改为 `registry.by_domain_and_capability('paper', 'search')` 和
+        `search._default_paper_sources()`。
+        """
+        from souwen.registry import by_domain_and_capability
+        from souwen.search import _default_paper_sources
+
+        paper_adapters = by_domain_and_capability("paper", "search")
+        assert len(paper_adapters) == 16  # 16 source 支持 search（排除 unpaywall，它只有 find_oa）
+        defaults = _default_paper_sources()
+        assert defaults  # 必须非空
+        names = {a.name for a in paper_adapters}
+        for s in defaults:
+            assert s in names, f"默认源 {s} 不在 paper adapters 中"
 
     def test_search_patent_sources_mapping(self):
-        """专利数据源映射完整性"""
-        from souwen.search import _PATENT_SOURCES, _DEFAULT_PATENT_SOURCES
+        """专利数据源映射完整性（v1 从 registry 派生）"""
+        from souwen.registry import by_domain_and_capability
+        from souwen.search import _default_patent_sources
 
-        assert len(_PATENT_SOURCES) == 8  # 8 patent sources
-        for s in _DEFAULT_PATENT_SOURCES:
-            assert s in _PATENT_SOURCES, f"默认源 {s} 不在映射中"
+        patent_adapters = by_domain_and_capability("patent", "search")
+        assert len(patent_adapters) == 8  # 8 个专利源全部支持 search
+        defaults = _default_patent_sources()
+        assert defaults
+        names = {a.name for a in patent_adapters}
+        for s in defaults:
+            assert s in names, f"默认源 {s} 不在 patent adapters 中"
 
     @pytest.mark.asyncio
     async def test_search_invalid_domain(self):
@@ -501,7 +516,13 @@ class TestCLI:
         assert "ab" not in short_masked
 
     def test_cli_all_sources_data(self):
-        """数据源清单完整性"""
+        """数据源清单完整性（v1 从 registry 派生）
+
+        注意：v0 的 `ALL_SOURCES` 与 `source_registry` 之间存在漂移
+        （bing_cn / ddg_news / ddg_images / ddg_videos / metaso / twitter / facebook
+        在 source_registry 登记但 ALL_SOURCES 漏列）。
+        v1 统一由 registry 派生，修复漂移；因此 general/social 数字比 v0 更高。
+        """
         from souwen.models import ALL_SOURCES
 
         assert len(ALL_SOURCES["paper"]) == 16
@@ -510,8 +531,11 @@ class TestCLI:
             len(ALL_SOURCES[c])
             for c in ("general", "professional", "social", "developer", "wiki", "video")
         )
-        assert total_web == 31
+        # v0 期望 31；v1 修复漂移后为 38
+        assert total_web == 38
         assert len(ALL_SOURCES["fetch"]) == 19
+        # v1 新增分类（v0 的 ALL_SOURCES 漏列）
+        assert len(ALL_SOURCES["cn_tech"]) == 3
 
 
 class TestServer:

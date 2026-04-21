@@ -1,5 +1,74 @@
 # Changelog
 
+## v0.9.0 — v1 过渡版（2026-04-22）
+
+**架构级改造**：建立数据源单一事实源（registry），引入 facade 门面层，按 v1 的 10 个 domain 重组目录。保持所有 v0 入口（Python import / CLI 命令 / REST 路径）完全兼容。
+
+### Architecture
+- **feat(registry)**：建立 `souwen.registry` 单一事实源。76+ 源的元数据 + 执行适配（`MethodSpec.param_map`）集中在 `registry/sources.py`。新增源的代价从"改 7 处"降到"改 1-2 处"。
+- **feat(adapter)**：定义 `SourceAdapter` + `MethodSpec` 抽象，替代 v0 的 `SourceMeta` + `_PAPER_SOURCES/_PATENT_SOURCES` 24 个 lambda + `engine_map/source_map` 两张 45 条映射表。
+- **feat(facade)**：新增 `souwen.facade` 门面层：`search(domain=, capability=)` / `fetch_content(urls, provider=)` / `archive_lookup/save/fetch` / `search_all(domains=)`（D1 显式跨域聚合）。
+- **feat(core)**：抽取平台层 `souwen.core`（http_client / rate_limiter / retry / session_cache / fingerprint / exceptions / scraper / parsing / concurrency）。原路径保留 shim，外部 import 不破坏。
+- **feat(domain)**：按 v1 新增 domain 子包：`social/` / `video/` / `knowledge/` / `developer/` / `cn_tech/` / `office/` / `archive/` / `fetch/providers/`，`web/` 新增 `engines/` / `api/` / `self_hosted/` 子目录（均以 re-export shim 的形式；客户端文件暂留原位）。
+
+### Domain 变化
+- **archive 独立 domain**（原 v0 放在 fetch）：`souwen archive cdx/check/save/fetch`，底层共享 `WaybackClient`。
+- **cn_tech 独立 category**：csdn / juejin / linuxdo 从杂项归入 `ALL_SOURCES["cn_tech"]`（v0 漏列）。
+- **DeepWiki 归 fetch**（D2）：代码验证 DeepWikiClient 只有 `fetch`，没有 search。
+
+### Patent
+- **refactor**：统一 Google Patents 实现——删除 `patent/google_patents.py` 的 Playwright 孤儿版 + 自写 _BrowserPool，`GooglePatentsClient` 成为 `GooglePatentsScraper` 的别名。`scraper` extras 移除 `playwright` 依赖。
+
+### Concurrency
+- **fix(concurrency)**：`loop._souwen_sem = sem  # type: ignore` 黑魔法 → `core.concurrency.get_semaphore(channel)` 基于 `WeakKeyDictionary[loop, Semaphore]`。两个独立 channel（`search` / `web`）互不阻塞；loop GC 后自动清理。
+
+### Integrations
+- **refactor(mcp)**：`integrations/mcp_server.py` → `integrations/mcp/server.py`；`integrations/_tools_bilibili.py` → `integrations/mcp/tools/bilibili.py`。原路径 shim 保留。
+
+### Tests
+- **test(registry)**：新增 `tests/registry/test_consistency.py` 含 21 项硬断言（D11 的 8 项 + 13 项补充）。每个 MethodSpec 的方法名在 Client 上真实存在 / 每个 param_map 的目标参数是方法签名参数 / 每个 config_field 在 SouWenConfig 上存在 / SourceType 规范化后 ⊆ registry / 12 项标准 capability 全部覆盖 / 各 domain 至少 1 个源等。
+
+### Dependencies
+- **chore(deps)**：删除 `requirements.txt` / `requirements-server.txt` / `requirements-full.txt` 三份文件。pyproject.toml `[project.optional-dependencies]` 是唯一事实源。Docker/HFS/ModelScope 改用 `pip install ".[server,tls,web,scraper]"`。
+- **chore(deps)**：`scraper` extras 移除 `playwright`（v1 不再使用）。
+
+### CI
+- **ci**：新增 `.github/workflows/registry-consistency.yml`（每 PR 运行 registry 一致性测试）
+- **ci**：新增 `.github/workflows/panel-sync.yml`（检查 panel/src/** 改动是否同步到 src/souwen/server/panel.html）
+
+### Tools
+- **tools**：新增 `tools/gen_sourcetype.py`（从 registry 派生 SourceType + `--check` 模式供 CI）
+- **tools**：新增 `tools/gen_docs.py`（从 registry 生成 docs/data-sources.md 的 Markdown 表格）
+
+### Frontend
+- **feat(hooks)**：新增 `panel/src/core/hooks/useSearchPage.ts` 通用搜索 hook（按 domain 参数化）。4 皮肤 SearchPage 的视图层改造按后续版本推进。
+
+### Docs
+- **docs**：全量重写 README.md（按 v1 特性组织）
+- **docs**：重写 docs/architecture.md（v1 三层分离 / SourceAdapter 核心 / 12 capability 矩阵 / 21 项一致性测试）
+- **docs**：`tools/gen_docs.py -o docs/data-sources.md` 生成完整数据源清单（83 个源）
+
+### Misc
+- **chore**：`.gitignore` 中 CLAUDE.md 条目加注释说明（已入库文件不受影响）
+
+### Breaking Changes
+
+**无**。所有 v0 符号通过 shim 保留：
+- `from souwen.paper import OpenAlexClient` ✓
+- `from souwen.web import DuckDuckGoClient` ✓
+- `from souwen.http_client import SouWenHttpClient` ✓
+- `souwen search paper "..."` CLI 命令 ✓
+- `GET /api/v1/search/paper?q=...` REST 路径 ✓
+- `SouWenConfig.openalex_email` 等配置字段 ✓
+
+v0 的 ALL_SOURCES 在 v1 从 registry 派生，**数值修正**：
+- `ALL_SOURCES["general"]` 从 16 → 21（补全 ddg_news/images/videos + bing_cn + metaso）
+- `ALL_SOURCES["social"]` 从 3 → 5（补全 twitter + facebook）
+- `ALL_SOURCES["cn_tech"]` 新分类（v0 漏列，3 源）
+- 总计 73 → 83
+
+---
+
 ## v0.8.0
 
 大版本升级：76 数据源 × 4 皮肤 × 全模式适配。
