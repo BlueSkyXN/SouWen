@@ -4,15 +4,18 @@
     通过 Internet Archive 的 Wayback Machine 公开服务，抓取目标 URL 的
     最新存档快照。无需 API Key，零成本可用，适合作为活页失效或被墙站点
     的兜底抓取方案。返回经 _html_extract 转换的 Markdown/Text 内容。
+    支持 CDX Server API 查询历史快照列表。
 
 函数/类清单：
     WaybackClient（类）
-        - 功能：Wayback Machine 抓取客户端，先查可用性再拉取原始 HTML
+        - 功能：Wayback Machine 抓取客户端，先查可用性再拉取原始 HTML，
+                支持 CDX API 查询历史快照列表
         - 继承：BaseScraper（爬虫基类，提供 TLS 指纹 / WARP / 退避）
         - 关键属性：ENGINE_NAME = "wayback", BASE_URL = "https://web.archive.org",
                   PROVIDER_NAME = "wayback"
         - 主要方法：fetch(url, timeout) -> FetchResult,
-                  fetch_batch(urls, max_concurrency, timeout) -> FetchResponse
+                  fetch_batch(urls, max_concurrency, timeout) -> FetchResponse,
+                  query_snapshots(url, from_date, to_date, ...) -> WaybackCDXResponse
 
     WaybackClient.__init__()
         - 功能：初始化 Wayback 客户端（无需 API Key），设置较低的礼貌延迟
@@ -34,6 +37,14 @@
         - 输入：urls URL 列表，max_concurrency 最大并发数，timeout 单 URL 超时
         - 输出：FetchResponse 聚合结果
 
+    WaybackClient.query_snapshots(url, from_date, to_date, ...) -> WaybackCDXResponse
+        - 功能：使用 CDX Server API 查询 URL 的所有历史快照列表
+        - 输入：url 目标 URL（支持通配符 *），from_date/to_date 日期范围（YYYYMMDD），
+                filter_status 状态码过滤，filter_mime MIME 类型过滤，
+                limit 最大快照数，collapse 去重规则，timeout 超时
+        - 输出：WaybackCDXResponse 包含快照列表和查询元数据
+        - 示例用途：查看网页历史版本、分析内容演变、批量获取域名下所有存档
+
 模块依赖：
     - asyncio: 异步并发控制（Semaphore + gather + sleep 限流）
     - logging: 日志记录
@@ -47,6 +58,12 @@
     - 可用性 API：GET https://archive.org/wayback/available?url={url}
       响应字段：archived_snapshots.closest.{available, url, timestamp, status}
       —— 这是 JSON API，使用 httpx 直连即可，无需 TLS 指纹
+    - CDX Server API：GET https://web.archive.org/cdx/search/cdx?url={url}&output=json
+      支持参数：from/to（日期范围 YYYYMMDD）、filter（statuscode/mimetype）、
+               limit（数量限制）、collapse（去重：timestamp:8 按天，digest 按内容）
+      响应格式：JSON 数组，第一行是字段名，后续行是数据值
+      常用字段：timestamp（YYYYMMDDHHMMSS）、original（原始 URL）、
+               statuscode、mimetype、digest（SHA-1）、length（字节数）
     - 快照原始 HTML 端点形如：http://web.archive.org/web/<ts>id_/<original_url>
       `id_` 修饰符告诉 Wayback 返回原始字节（不注入工具栏 JS/CSS），
       该修饰符是内容提取干净度的关键
@@ -66,7 +83,7 @@ from typing import Any
 
 import httpx
 
-from souwen.models import FetchResponse, FetchResult
+from souwen.models import FetchResponse, FetchResult, WaybackCDXResponse, WaybackSnapshot
 from souwen.scraper.base import BaseScraper
 from souwen.web._html_extract import extract_from_html
 
@@ -241,3 +258,160 @@ class WaybackClient(BaseScraper):
             total_failed=len(result_list) - ok,
             provider=self.PROVIDER_NAME,
         )
+
+    async def query_snapshots(
+        self,
+        url: str,
+        from_date: str | None = None,
+        to_date: str | None = None,
+        filter_status: list[int] | None = None,
+        filter_mime: str | None = None,
+        limit: int | None = None,
+        collapse: str | None = None,
+        timeout: float = 30.0,
+    ) -> WaybackCDXResponse:
+        """查询 URL 的所有历史快照（CDX Server API）
+
+        Args:
+            url: 目标 URL（支持通配符 * 查询整个域名）
+            from_date: 起始日期（YYYYMMDD 或 YYYY-MM-DD 格式）
+            to_date: 结束日期（YYYYMMDD 或 YYYY-MM-DD 格式）
+            filter_status: 过滤状态码列表（如 [200, 301]）
+            filter_mime: 过滤 MIME 类型（如 "text/html"）
+            limit: 最大返回快照数量（默认无限制）
+            collapse: 去重字段（如 "timestamp:8" 按天去重，"digest" 按内容去重）
+            timeout: 请求超时秒数
+
+        Returns:
+            WaybackCDXResponse 包含快照列表和元数据
+
+        示例:
+            # 查询某个 URL 的所有快照
+            resp = await client.query_snapshots("example.com")
+
+            # 查询 2023 年的快照
+            resp = await client.query_snapshots("example.com", from_date="20230101", to_date="20231231")
+
+            # 只查询成功的 HTML 页面
+            resp = await client.query_snapshots("example.com", filter_status=[200], filter_mime="text/html")
+
+            # 按天去重，只返回每天第一个快照
+            resp = await client.query_snapshots("example.com", collapse="timestamp:8")
+        """
+        try:
+            # 构建 CDX API 请求参数
+            params: dict[str, Any] = {
+                "url": url,
+                "output": "json",  # JSON 格式输出
+            }
+
+            # 添加日期范围过滤
+            if from_date:
+                # 支持 YYYY-MM-DD 格式，转换为 YYYYMMDD
+                params["from"] = from_date.replace("-", "")
+            if to_date:
+                params["to"] = to_date.replace("-", "")
+
+            # 添加状态码过滤
+            if filter_status:
+                params["filter"] = [f"statuscode:{code}" for code in filter_status]
+
+            # 添加 MIME 类型过滤
+            if filter_mime:
+                if "filter" not in params:
+                    params["filter"] = []
+                params["filter"].append(f"mimetype:{filter_mime}")
+
+            # 添加限制和去重
+            if limit:
+                params["limit"] = limit
+            if collapse:
+                params["collapse"] = collapse
+
+            # 调用 CDX API
+            async with httpx.AsyncClient(timeout=timeout) as client:
+                resp = await client.get(
+                    "https://web.archive.org/cdx/search/cdx",
+                    params=params,
+                )
+                resp.raise_for_status()
+                data = resp.json()
+
+            # 解析 CDX 响应
+            # CDX JSON 格式：第一行是字段名数组，后续每行是值数组
+            # 示例：[["urlkey", "timestamp", "original", "mimetype", "statuscode", "digest", "length"],
+            #       ["com,example)/", "20230101000000", "http://example.com/", "text/html", "200", "ABC123", "1234"], ...]
+
+            snapshots: list[WaybackSnapshot] = []
+
+            if isinstance(data, list) and len(data) > 1:
+                # 第一行是字段名
+                fields = data[0] if data else []
+
+                # 后续行是数据
+                for row in data[1:]:
+                    if not isinstance(row, list) or len(row) < 3:
+                        continue
+
+                    # 构建字段映射
+                    snapshot_data: dict[str, Any] = {}
+                    for i, field in enumerate(fields):
+                        if i < len(row):
+                            snapshot_data[field] = row[i]
+
+                    # 提取关键字段
+                    timestamp = str(snapshot_data.get("timestamp") or "")
+                    original_url = snapshot_data.get("original", url)
+                    # CDX 字段类型不稳定（偶尔返回 int 或 None），统一转 str 后再判断，避免 AttributeError
+                    status_raw = snapshot_data.get("statuscode")
+                    if isinstance(status_raw, int):
+                        status_code = status_raw
+                    else:
+                        status_str = str(status_raw or "")
+                        status_code = int(status_str) if status_str.isdigit() else 200
+                    mime = str(snapshot_data.get("mimetype") or "")
+                    digest = str(snapshot_data.get("digest") or "")
+                    length_raw = snapshot_data.get("length")
+                    if isinstance(length_raw, int):
+                        length_val = length_raw
+                    else:
+                        length_str = str(length_raw or "")
+                        length_val = int(length_str) if length_str.isdigit() else 0
+
+                    # 构建快照 URL
+                    archive_url = f"https://web.archive.org/web/{timestamp}/{original_url}"
+
+                    # 格式化日期
+                    published_date = self._format_published_date(timestamp)
+
+                    # 创建快照对象
+                    snapshot = WaybackSnapshot(
+                        timestamp=timestamp,
+                        url=original_url,
+                        archive_url=archive_url,
+                        status_code=status_code,
+                        mime_type=mime,
+                        digest=digest,
+                        length=length_val,
+                        published_date=published_date,
+                    )
+                    snapshots.append(snapshot)
+
+            return WaybackCDXResponse(
+                url=url,
+                snapshots=snapshots,
+                total=len(snapshots),
+                from_date=params.get("from"),
+                to_date=params.get("to"),
+                filter_status=filter_status,
+                filter_mime=filter_mime,
+            )
+
+        except Exception as exc:
+            logger.warning("CDX query failed: url=%s err=%s", url, exc)
+            return WaybackCDXResponse(
+                url=url,
+                snapshots=[],
+                total=0,
+                error=str(exc),
+            )
