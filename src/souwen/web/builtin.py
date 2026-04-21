@@ -289,6 +289,7 @@ class BuiltinFetcherClient(BaseScraper):
         start_index: int = 0,
         max_length: int | None = None,
         respect_robots_txt: bool | None = None,
+        selector: str | None = None,
     ) -> FetchResult:
         """抓取单个 URL 的内容
 
@@ -301,6 +302,7 @@ class BuiltinFetcherClient(BaseScraper):
             start_index: 内容起始切片位置（用于分页续读）
             max_length: 内容最大长度，超出则截断并设置 next_start_index
             respect_robots_txt: 覆盖实例级 ``respect_robots_txt`` 设置（仅作用本次调用）
+            selector: CSS 选择器，仅提取匹配元素内容（需 bs4 + lxml 支持）
 
         Returns:
             FetchResult 包含提取的正文内容
@@ -310,7 +312,12 @@ class BuiltinFetcherClient(BaseScraper):
         if respect_robots_txt is not None:
             self.respect_robots_txt = respect_robots_txt
         try:
-            return await self._fetch_impl(url, start_index=start_index, max_length=max_length)
+            return await self._fetch_impl(
+                url,
+                start_index=start_index,
+                max_length=max_length,
+                selector=selector,
+            )
         finally:
             self.respect_robots_txt = prev_robots
 
@@ -319,6 +326,7 @@ class BuiltinFetcherClient(BaseScraper):
         url: str,
         start_index: int = 0,
         max_length: int | None = None,
+        selector: str | None = None,
     ) -> FetchResult:
         try:
             from souwen.web.fetch import validate_fetch_url
@@ -447,8 +455,62 @@ class BuiltinFetcherClient(BaseScraper):
                     raw={"status_code": resp.status_code, "content_length": len(html)},
                 )
 
-            # 提取正文
-            extracted = _extract_with_trafilatura(html, url)
+            # 提取正文：CSS 选择器优先，否则 trafilatura 全页提取
+            selector_matched = False
+            if selector:
+                try:
+                    from bs4 import BeautifulSoup
+
+                    soup = BeautifulSoup(html, "lxml")
+                    selected_elements = soup.select(selector)
+                    if selected_elements:
+                        selector_matched = True
+                        selected_html = "\n".join(str(el) for el in selected_elements)
+                        title_text = soup.title.string if soup.title and soup.title.string else ""
+                        if _HAS_HTML2TEXT:
+                            import html2text
+
+                            h = html2text.HTML2Text()
+                            h.ignore_links = False
+                            h.ignore_images = True
+                            h.body_width = 0
+                            extracted = {
+                                "content": h.handle(selected_html).strip(),
+                                "title": title_text,
+                                "author": None,
+                                "date": None,
+                                "description": "",
+                                "content_format": "markdown",
+                            }
+                        else:
+                            extracted = {
+                                "content": "\n".join(
+                                    el.get_text(separator="\n", strip=True)
+                                    for el in selected_elements
+                                ),
+                                "title": title_text,
+                                "author": None,
+                                "date": None,
+                                "description": "",
+                                "content_format": "text",
+                            }
+                        logger.debug(
+                            "CSS selector '%s' matched %d elements",
+                            selector,
+                            len(selected_elements),
+                        )
+                    else:
+                        logger.info(
+                            "CSS selector '%s' matched 0 elements on %s, falling back to full page",
+                            selector,
+                            url,
+                        )
+                        extracted = _extract_with_trafilatura(html, url)
+                except ImportError:
+                    logger.warning("bs4/lxml not installed, ignoring CSS selector")
+                    extracted = _extract_with_trafilatura(html, url)
+            else:
+                extracted = _extract_with_trafilatura(html, url)
             content = extracted["content"]
 
             # 更好的内容验证：检查长度和词数（基于完整提取结果）
@@ -518,6 +580,8 @@ class BuiltinFetcherClient(BaseScraper):
                     "categories": extracted.get("categories"),
                     "has_trafilatura": _HAS_TRAFILATURA,
                     "has_html2text": _HAS_HTML2TEXT,
+                    "selector": selector,
+                    "selector_matched": selector_matched,
                 },
             )
 

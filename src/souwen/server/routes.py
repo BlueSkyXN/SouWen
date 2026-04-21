@@ -772,6 +772,10 @@ async def fetch_content_endpoint(body: FetchRequest):
                 urls=body.urls,
                 providers=[body.provider],
                 timeout=body.timeout,
+                selector=body.selector,
+                start_index=body.start_index,
+                max_length=body.max_length,
+                respect_robots_txt=body.respect_robots_txt,
             ),
             timeout=body.timeout + 15,  # 给聚合层留缓冲
         )
@@ -790,6 +794,64 @@ async def fetch_content_endpoint(body: FetchRequest):
     except Exception:
         logger.warning("内容抓取内部错误: provider=%s", body.provider, exc_info=True)
         raise
+
+
+@router.get(
+    "/links",
+    dependencies=[Depends(rate_limit_search), Depends(require_auth)],
+)
+async def extract_links_endpoint(
+    url: str = Query(..., description="目标页面 URL"),
+    base_url_filter: str | None = Query(None, alias="base_url", description="URL 前缀过滤"),
+    limit: int = Query(100, ge=1, le=1000, description="最大返回链接数"),
+):
+    """提取页面链接 — 返回去重、SSRF 过滤后的链接列表
+
+    从指定 URL 的页面中提取所有 <a href> 链接，返回结构化列表。
+    自动过滤内部/私有 IP 链接（SSRF 防护）。
+    """
+    from souwen.web.links import extract_links
+
+    try:
+        result = await asyncio.wait_for(
+            extract_links(url=url, base_url_filter=base_url_filter, limit=limit),
+            timeout=30,
+        )
+        return result.model_dump(mode="json")
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="链接提取超时")
+
+
+@router.get(
+    "/sitemap",
+    dependencies=[Depends(rate_limit_search), Depends(require_auth)],
+)
+async def parse_sitemap_endpoint(
+    url: str = Query(..., description="Sitemap URL 或站点根 URL"),
+    discover: bool = Query(False, description="自动发现 sitemap（从 robots.txt 等）"),
+    limit: int = Query(1000, ge=1, le=50000, description="最大返回条目数"),
+):
+    """解析 sitemap.xml — 提取站点 URL 列表
+
+    支持标准 sitemap XML、sitemap index、gzip 压缩。
+    设置 discover=true 自动从 robots.txt 发现 sitemap。
+    """
+    from souwen.web.sitemap import discover_sitemap, parse_sitemap
+
+    try:
+        if discover:
+            result = await asyncio.wait_for(
+                discover_sitemap(url, max_entries=limit),
+                timeout=60,
+            )
+        else:
+            result = await asyncio.wait_for(
+                parse_sitemap(url, max_entries=limit),
+                timeout=60,
+            )
+        return result.model_dump(mode="json")
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Sitemap 解析超时")
 
 
 # ---------------------------------------------------------------------------
