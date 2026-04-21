@@ -64,6 +64,11 @@ const LANGUAGES = [
   { value: 'de', label: 'Deutsch' },
 ]
 
+/** Sanitize YouTube video ID to prevent XSS via href injection */
+function sanitizeVideoId(id: string): string {
+  return id.trim().replace(/[^a-zA-Z0-9_-]/g, '')
+}
+
 function formatDuration(seconds: number): string {
   if (!seconds || seconds < 0) return '--:--'
   const h = Math.floor(seconds / 3600)
@@ -449,7 +454,7 @@ export function VideoPage() {
                 </button>
                 <a
                   className={styles.secondaryBtn}
-                  href={`https://www.youtube.com/watch?v=${videoId.trim()}`}
+                  href={`https://www.youtube.com/watch?v=${sanitizeVideoId(videoId)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                 >
