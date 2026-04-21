@@ -2,6 +2,7 @@
 
 覆盖 link extraction、sitemap parsing、CSS selector fetch 的核心逻辑。
 """
+
 from __future__ import annotations
 
 from unittest.mock import patch
@@ -13,22 +14,26 @@ import pytest
 # Link Extraction Tests
 # ---------------------------------------------------------------------------
 
+
 class TestLinkModels:
     """LinkItem / LinkExtractionResult 模型测试"""
 
     def test_link_item_basic(self):
         from souwen.web.links import LinkItem
+
         item = LinkItem(url="https://example.com", text="Example")
         assert item.url == "https://example.com"
         assert item.text == "Example"
 
     def test_link_item_empty_text(self):
         from souwen.web.links import LinkItem
+
         item = LinkItem(url="https://example.com")
         assert item.text == ""
 
     def test_link_extraction_result_basic(self):
         from souwen.web.links import LinkExtractionResult, LinkItem
+
         result = LinkExtractionResult(
             source_url="https://example.com",
             final_url="https://example.com",
@@ -43,6 +48,7 @@ class TestLinkModels:
 
     def test_link_extraction_result_error(self):
         from souwen.web.links import LinkExtractionResult
+
         result = LinkExtractionResult(
             source_url="https://example.com",
             error="SSRF blocked",
@@ -121,8 +127,10 @@ class TestExtractLinks:
             <a href="https://example.com/a">Dup</a>
         </body></html>
         """
-        with patch("souwen.web.fetch.validate_fetch_url", return_value=(True, "ok")), \
-             _patch_scraper(html, "https://example.com/"):
+        with (
+            patch("souwen.web.fetch.validate_fetch_url", return_value=(True, "ok")),
+            _patch_scraper(html, "https://example.com/"),
+        ):
             result = await extract_links("https://example.com/")
 
         assert result.error is None
@@ -145,8 +153,10 @@ class TestExtractLinks:
         <html><head><base href="https://other.example.org/path/"></head>
         <body><a href="page.html">P</a></body></html>
         """
-        with patch("souwen.web.fetch.validate_fetch_url", return_value=(True, "ok")), \
-             _patch_scraper(html, "https://example.com/"):
+        with (
+            patch("souwen.web.fetch.validate_fetch_url", return_value=(True, "ok")),
+            _patch_scraper(html, "https://example.com/"),
+        ):
             result = await extract_links("https://example.com/")
 
         assert result.error is None
@@ -163,8 +173,10 @@ class TestExtractLinks:
             <a href="https://other.com/drop">d</a>
         </body></html>
         """
-        with patch("souwen.web.fetch.validate_fetch_url", return_value=(True, "ok")), \
-             _patch_scraper(html, "https://example.com/"):
+        with (
+            patch("souwen.web.fetch.validate_fetch_url", return_value=(True, "ok")),
+            _patch_scraper(html, "https://example.com/"),
+        ):
             result = await extract_links(
                 "https://example.com/",
                 base_url_filter="https://example.com/",
@@ -178,12 +190,12 @@ class TestExtractLinks:
         """limit 应截断返回数量"""
         from souwen.web.links import extract_links
 
-        anchors = "".join(
-            f'<a href="https://example.com/p{i}">p{i}</a>' for i in range(20)
-        )
+        anchors = "".join(f'<a href="https://example.com/p{i}">p{i}</a>' for i in range(20))
         html = f"<html><body>{anchors}</body></html>"
-        with patch("souwen.web.fetch.validate_fetch_url", return_value=(True, "ok")), \
-             _patch_scraper(html, "https://example.com/"):
+        with (
+            patch("souwen.web.fetch.validate_fetch_url", return_value=(True, "ok")),
+            _patch_scraper(html, "https://example.com/"),
+        ):
             result = await extract_links("https://example.com/", limit=5)
 
         assert result.total == 5
@@ -206,8 +218,10 @@ class TestExtractLinks:
                 return (False, "private IP")
             return (True, "ok")
 
-        with patch("souwen.web.fetch.validate_fetch_url", side_effect=_fake_validate), \
-             _patch_scraper(html, "https://example.com/"):
+        with (
+            patch("souwen.web.fetch.validate_fetch_url", side_effect=_fake_validate),
+            _patch_scraper(html, "https://example.com/"),
+        ):
             result = await extract_links("https://example.com/")
 
         urls = [link.url for link in result.links]
@@ -220,11 +234,13 @@ class TestExtractLinks:
 # Sitemap Parsing Tests
 # ---------------------------------------------------------------------------
 
+
 class TestSitemapParsing:
     """Sitemap XML 解析测试"""
 
     def test_parse_urlset(self):
         from souwen.web.sitemap import _parse_sitemap_xml
+
         xml = b"""<?xml version="1.0" encoding="UTF-8"?>
         <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
             <url>
@@ -249,6 +265,7 @@ class TestSitemapParsing:
 
     def test_parse_sitemapindex(self):
         from souwen.web.sitemap import _parse_sitemap_xml
+
         xml = b"""<?xml version="1.0" encoding="UTF-8"?>
         <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
             <sitemap>
@@ -267,6 +284,7 @@ class TestSitemapParsing:
     def test_parse_no_namespace(self):
         """Without xmlns namespace"""
         from souwen.web.sitemap import _parse_sitemap_xml
+
         xml = b"""<?xml version="1.0"?>
         <urlset>
             <url><loc>https://example.com/</loc></url>
@@ -278,6 +296,7 @@ class TestSitemapParsing:
 
     def test_safe_float(self):
         from souwen.web.sitemap import _safe_float
+
         assert _safe_float("0.8") == 0.8
         assert _safe_float("1.0") == 1.0
         assert _safe_float(" 0.5 ") == 0.5
@@ -287,6 +306,7 @@ class TestSitemapParsing:
 
     def test_extract_sitemaps_from_robots(self):
         from souwen.web.sitemap import _extract_sitemaps_from_robots
+
         robots = """User-agent: *
 Disallow: /admin/
 Sitemap: https://example.com/sitemap.xml
@@ -299,6 +319,7 @@ Sitemap: https://example.com/sitemap-news.xml
 
     def test_extract_sitemaps_from_robots_empty(self):
         from souwen.web.sitemap import _extract_sitemaps_from_robots
+
         robots = """User-agent: *
 Disallow: /
 """
@@ -307,16 +328,15 @@ Disallow: /
 
     def test_extract_sitemaps_case_insensitive(self):
         from souwen.web.sitemap import _extract_sitemaps_from_robots
-        robots = (
-            "SITEMAP: https://example.com/sitemap.xml\n"
-            "sitemap: https://example.com/other.xml"
-        )
+
+        robots = "SITEMAP: https://example.com/sitemap.xml\nsitemap: https://example.com/other.xml"
         result = _extract_sitemaps_from_robots(robots, "https://example.com")
         assert len(result) == 2
 
     def test_extract_sitemaps_relative_resolved(self):
         """robots.txt 中的相对 sitemap 路径应通过 base_url 解析为绝对地址"""
         from souwen.web.sitemap import _extract_sitemaps_from_robots
+
         robots = "Sitemap: /sitemap.xml"
         result = _extract_sitemaps_from_robots(robots, "https://example.com")
         assert len(result) == 1
@@ -328,6 +348,7 @@ class TestSitemapModels:
 
     def test_sitemap_entry(self):
         from souwen.web.sitemap import SitemapEntry
+
         entry = SitemapEntry(
             loc="https://example.com/page",
             lastmod="2024-06-01",
@@ -340,6 +361,7 @@ class TestSitemapModels:
 
     def test_sitemap_entry_minimal(self):
         from souwen.web.sitemap import SitemapEntry
+
         entry = SitemapEntry(loc="https://example.com/")
         assert entry.loc == "https://example.com/"
         assert entry.lastmod is None
@@ -348,6 +370,7 @@ class TestSitemapModels:
 
     def test_sitemap_result_defaults(self):
         from souwen.web.sitemap import SitemapResult
+
         result = SitemapResult(root_url="https://example.com")
         assert result.root_url == "https://example.com"
         assert result.total == 0
@@ -360,6 +383,7 @@ class TestSitemapModels:
 # CSS Selector + Fetch Params Tests
 # ---------------------------------------------------------------------------
 
+
 class TestFetchParams:
     """fetch 参数签名测试"""
 
@@ -367,6 +391,7 @@ class TestFetchParams:
         """BuiltinFetcherClient.fetch() 应接受 selector / 分页 / robots 参数"""
         import inspect
         from souwen.web.builtin import BuiltinFetcherClient
+
         sig = inspect.signature(BuiltinFetcherClient.fetch)
         params = list(sig.parameters.keys())
         assert "selector" in params
@@ -378,6 +403,7 @@ class TestFetchParams:
         """fetch_content() 应接受 selector / 分页 / robots 参数"""
         import inspect
         from souwen.web.fetch import fetch_content
+
         sig = inspect.signature(fetch_content)
         params = list(sig.parameters.keys())
         assert "selector" in params
@@ -388,6 +414,7 @@ class TestFetchParams:
     def test_fetch_request_schema_has_new_fields(self):
         """FetchRequest model 应包含 selector / start_index / max_length / respect_robots_txt"""
         from souwen.server.schemas import FetchRequest
+
         fields = FetchRequest.model_fields
         assert "selector" in fields
         assert "start_index" in fields

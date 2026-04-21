@@ -365,14 +365,10 @@ def fetch_cmd(
             "mcp/site_crawler/deepwiki"
         ),
     ),
-    selector: str = typer.Option(
-        None, "--selector", "-s", help="CSS 选择器（仅 builtin 支持）"
-    ),
+    selector: str = typer.Option(None, "--selector", "-s", help="CSS 选择器（仅 builtin 支持）"),
     start_index: int = typer.Option(0, "--start-index", help="内容起始切片位置"),
     max_length: int = typer.Option(None, "--max-length", help="内容最大长度"),
-    respect_robots: bool = typer.Option(
-        False, "--respect-robots", help="遵守 robots.txt"
-    ),
+    respect_robots: bool = typer.Option(False, "--respect-robots", help="遵守 robots.txt"),
     json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),
     timeout: int = typer.Option(30, "--timeout", "-t", help="每 URL 超时（秒）"),
 ) -> None:
@@ -494,9 +490,7 @@ def sitemap_cmd(
             parts.append(f"[dim]p={entry.priority}[/dim]")
         console.print(" ".join(parts))
     if result.total > 50:
-        console.print(
-            f"  [dim]... 还有 {result.total - 50} 个 URL（使用 --json 查看全部）[/dim]"
-        )
+        console.print(f"  [dim]... 还有 {result.total - 50} 个 URL（使用 --json 查看全部）[/dim]")
 
 
 # ---------------------------------------------------------------------------
