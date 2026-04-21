@@ -53,8 +53,8 @@ from souwen.config import get_config
 from souwen.models import WebSearchResult, WebSearchResponse, SourceType
 from souwen.web.duckduckgo import DuckDuckGoClient
 from souwen.web.ddg_news import DuckDuckGoNewsClient
-from souwen.web.ddg_images import DuckDuckGoImagesClient  # noqa: F401
-from souwen.web.ddg_videos import DuckDuckGoVideosClient  # noqa: F401
+from souwen.web.ddg_images import DuckDuckGoImagesClient
+from souwen.web.ddg_videos import DuckDuckGoVideosClient
 from souwen.web.yahoo import YahooClient
 from souwen.web.brave import BraveClient
 from souwen.web.google import GoogleClient
@@ -216,6 +216,8 @@ async def web_search(
         # 爬虫引擎（无需 API Key）
         "duckduckgo": DuckDuckGoClient,
         "duckduckgo_news": DuckDuckGoNewsClient,
+        "duckduckgo_images": DuckDuckGoImagesClient,
+        "duckduckgo_videos": DuckDuckGoVideosClient,
         "yahoo": YahooClient,
         "brave": BraveClient,
         "google": GoogleClient,
@@ -257,6 +259,8 @@ async def web_search(
     source_map: dict[str, SourceType] = {
         "duckduckgo": SourceType.WEB_DUCKDUCKGO,
         "duckduckgo_news": SourceType.WEB_DDG_NEWS,
+        "duckduckgo_images": SourceType.WEB_DDG_IMAGES,
+        "duckduckgo_videos": SourceType.WEB_DDG_VIDEOS,
         "yahoo": SourceType.WEB_YAHOO,
         "brave": SourceType.WEB_BRAVE,
         "google": SourceType.WEB_GOOGLE,
