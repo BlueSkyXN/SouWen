@@ -738,9 +738,7 @@ def bilibili_search(
         print_json(json.dumps(response.model_dump(mode="json"), ensure_ascii=False))
         return
 
-    table = Table(
-        title=f"🔍 Bilibili 搜索: {keyword} ({len(results)} 条)", show_lines=True
-    )
+    table = Table(title=f"🔍 Bilibili 搜索: {keyword} ({len(results)} 条)", show_lines=True)
     table.add_column("Title", style="cyan", max_width=40)
     table.add_column("UP主", style="yellow", max_width=15)
     table.add_column("播放", style="green", justify="right")
@@ -778,9 +776,7 @@ def bilibili_search_users(
         _bili_print_json(results)
         return
 
-    table = Table(
-        title=f"👤 用户搜索: {keyword} ({len(results)} 条)", show_lines=True
-    )
+    table = Table(title=f"👤 用户搜索: {keyword} ({len(results)} 条)", show_lines=True)
     table.add_column("Name", style="cyan")
     table.add_column("MID", style="yellow")
     table.add_column("Fans", style="green", justify="right")
@@ -812,9 +808,7 @@ def bilibili_search_articles(
         _bili_print_json(results)
         return
 
-    table = Table(
-        title=f"📰 专栏搜索: {keyword} ({len(results)} 条)", show_lines=True
-    )
+    table = Table(title=f"📰 专栏搜索: {keyword} ({len(results)} 条)", show_lines=True)
     table.add_column("Title", style="cyan", max_width=40)
     table.add_column("Author", style="yellow", max_width=15)
     table.add_column("分类", style="magenta", max_width=12)
@@ -829,7 +823,6 @@ def bilibili_search_articles(
             a.url,
         )
     console.print(table)
-
 
 
 # ---------------------------------------------------------------------------
