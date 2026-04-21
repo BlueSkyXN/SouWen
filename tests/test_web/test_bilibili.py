@@ -20,11 +20,13 @@ Mock 策略：
 from __future__ import annotations
 
 import asyncio
+import time
 from unittest.mock import AsyncMock, patch
 
 import pytest
 
 from souwen.web.bilibili import BilibiliClient
+from souwen.web.bilibili.wbi import WbiSigner
 from souwen.models import SourceType
 
 
@@ -60,6 +62,14 @@ def _build_client() -> BilibiliClient:
     client._curl_session = None
     client._httpx_client = None
     client._resolved_base_url = BilibiliClient.BASE_URL
+    client._sessdata = None
+    client._bili_jct = None
+    # 预填 WBI 缓存，避免触发 nav 抓取
+    signer = WbiSigner()
+    signer._img_key = "7cd084941338484aae1ad9425b84077c"
+    signer._sub_key = "4932caff0ff746eab6f01bf08b70ac45"
+    signer._fetched_at = time.time()
+    client._wbi = signer
     return client
 
 
