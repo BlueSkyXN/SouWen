@@ -8,6 +8,7 @@
 - BraveClient: Brave 独立索引搜索
 - GoogleClient: Google 搜索（高风险，建议配代理）
 - BingClient: Bing 搜索
+- BingCnClient: 必应中文搜索（cn.bing.com，中文优化）
 - StartpageClient: Startpage 隐私搜索（Google 结果）
 - BaiduClient: 百度搜索（中文首选）
 - MojeekClient: Mojeek 独立索引搜索（英国）
@@ -33,6 +34,7 @@ from souwen.web.yahoo import YahooClient
 from souwen.web.brave import BraveClient
 from souwen.web.google import GoogleClient
 from souwen.web.bing import BingClient
+from souwen.web.bing_cn import BingCnClient
 from souwen.web.startpage import StartpageClient
 from souwen.web.baidu import BaiduClient
 from souwen.web.mojeek import MojeekClient
@@ -83,6 +85,7 @@ __all__ = [
     "BraveClient",
     "GoogleClient",
     "BingClient",
+    "BingCnClient",
     "StartpageClient",
     "BaiduClient",
     "MojeekClient",
