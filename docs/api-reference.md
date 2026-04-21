@@ -648,6 +648,31 @@ python -m souwen.integrations.mcp_server
 
 返回：JSON `SearchResponse` 数组
 
+#### `fetch_paper_details`
+
+按 Paper ID / DOI / arXiv ID 获取单篇论文完整详情（含 TL;DR、开放获取状态、PDF 链接）。
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `paper_id` | string | — | Semantic Scholar Paper ID、`DOI:10.xxx`、`ARXIV:2301.xxx` 或 Crossref DOI |
+| `source` | string | `"semantic_scholar"` | 数据源：`"semantic_scholar"` 或 `"crossref"` |
+
+返回：JSON `PaperResult` 对象
+
+#### `search_by_topic`
+
+带年份范围过滤的主题搜索，聚合 arXiv / Semantic Scholar / Crossref 多源结果。
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `topic` | string | — | 搜索主题/关键词 |
+| `year_start` | int | `null` | 起始年份（含），如 `2020` |
+| `year_end` | int | `null` | 结束年份（含），如 `2024` |
+| `sources` | array | `["arxiv", "semantic_scholar", "crossref"]` | 数据源 |
+| `limit` | int | `10` | 每源返回数量 |
+
+返回：JSON `PaperResult` 对象数组（各源结果拼接）
+
 #### `search_patents`
 
 | 参数 | 类型 | 默认值 | 说明 |

@@ -22,6 +22,16 @@ Model Context Protocol (MCP) 集成，使 Claude Code、Cursor、Windsurf 等 AI
         - 参数：query, sources (可选), limit (可选，默认 5)
         - 返回：论文列表 (JSON)
 
+    fetch_paper_details
+        - 按 ID 或 DOI 获取单篇论文详情
+        - 参数：paper_id (SS Paper ID / DOI:xxx / ARXIV:xxx), source (可选，默认 "semantic_scholar")
+        - 返回：PaperResult (JSON)，含 TL;DR、OA 状态、PDF 链接等
+
+    search_by_topic
+        - 带年份范围过滤的主题搜索
+        - 参数：topic, year_start (可选), year_end (可选), sources (可选), limit (可选，默认 10)
+        - 返回：论文列表 (JSON)
+
     search_patents
         - 搜索专利
         - 参数：query, sources (可选), limit (可选，默认 5)
@@ -76,9 +86,11 @@ def create_server() -> "Server":
 
     工具列表：
     1. search_papers - 论文搜索
-    2. search_patents - 专利搜索
-    3. web_search - 网页搜索
-    4. get_status - 数据源健康检查
+    2. fetch_paper_details - 按 ID/DOI 获取论文详情
+    3. search_by_topic - 带年份范围的主题搜索
+    4. search_patents - 专利搜索
+    5. web_search - 网页搜索
+    6. get_status - 数据源健康检查
 
     Returns:
         mcp.server.Server 实例
@@ -115,6 +127,67 @@ def create_server() -> "Server":
                         },
                     },
                     "required": ["query"],
+                },
+            ),
+            Tool(
+                name="fetch_paper_details",
+                description=(
+                    "按 Paper ID 或 DOI 获取单篇论文详情。"
+                    "Semantic Scholar 支持 Paper ID、DOI:xxx、ARXIV:xxx 格式；"
+                    "Crossref 接受标准 DOI（如 10.1038/s41586-021-03819-2）。"
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "paper_id": {
+                            "type": "string",
+                            "description": (
+                                "论文标识符：Semantic Scholar Paper ID、"
+                                "DOI（如 DOI:10.1038/xxx 或直接 10.1038/xxx）、"
+                                "arXiv ID（如 ARXIV:2301.00001）"
+                            ),
+                        },
+                        "source": {
+                            "type": "string",
+                            "enum": ["semantic_scholar", "crossref"],
+                            "default": "semantic_scholar",
+                            "description": "数据源，默认 semantic_scholar",
+                        },
+                    },
+                    "required": ["paper_id"],
+                },
+            ),
+            Tool(
+                name="search_by_topic",
+                description=(
+                    "按主题搜索论文，支持年份范围过滤。"
+                    "可指定 year_start / year_end 限定发表时间段，"
+                    "适合跟踪特定领域的最新或历史研究。"
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "topic": {"type": "string", "description": "搜索主题/关键词"},
+                        "year_start": {
+                            "type": "integer",
+                            "description": "起始年份（含），如 2020",
+                        },
+                        "year_end": {
+                            "type": "integer",
+                            "description": "结束年份（含），如 2024",
+                        },
+                        "sources": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "description": "数据源列表，默认 arxiv,semantic_scholar,crossref",
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "default": 10,
+                            "description": "每源返回数量",
+                        },
+                    },
+                    "required": ["topic"],
                 },
             ),
             Tool(
@@ -174,7 +247,8 @@ def create_server() -> "Server":
         """工具调用处理器 — 调用对应的搜索函数
 
         参数：
-            name: 工具名称（search_papers、search_patents、web_search、get_status）
+            name: 工具名称（search_papers、fetch_paper_details、search_by_topic、
+                  search_patents、web_search、get_status）
             arguments: 工具参数字典
 
         Returns:
@@ -192,6 +266,89 @@ def create_server() -> "Server":
                 limit = arguments.get("limit", 5)
                 responses = await search_papers(arguments["query"], sources=sources, per_page=limit)
                 result = [r.model_dump(mode="json") for r in responses]
+
+            elif name == "fetch_paper_details":
+                paper_id: str = arguments["paper_id"]
+                source: str = arguments.get("source", "semantic_scholar")
+
+                if source == "semantic_scholar":
+                    from souwen.paper.semantic_scholar import SemanticScholarClient
+
+                    async with SemanticScholarClient() as client:
+                        paper = await client.get_paper(paper_id)
+                    result = paper.model_dump(mode="json")
+                elif source == "crossref":
+                    from souwen.paper.crossref import CrossrefClient
+
+                    async with CrossrefClient() as client:
+                        paper = await client.get_by_doi(paper_id)
+                    result = paper.model_dump(mode="json")
+                else:
+                    result = f"不支持的数据源: {source!r}，请使用 'semantic_scholar' 或 'crossref'"
+
+            elif name == "search_by_topic":
+                from souwen.search import search_papers
+                from souwen.paper.arxiv import ArxivClient
+                from souwen.paper.semantic_scholar import SemanticScholarClient
+                from souwen.paper.crossref import CrossrefClient
+
+                topic: str = arguments["topic"]
+                year_start: int | None = arguments.get("year_start")
+                year_end: int | None = arguments.get("year_end")
+                limit = arguments.get("limit", 10)
+                sources = arguments.get("sources", ["arxiv", "semantic_scholar", "crossref"])
+
+                all_papers = []
+
+                for src in sources:
+                    try:
+                        if src == "arxiv":
+                            date_from = f"{year_start}-01-01" if year_start else None
+                            date_to = f"{year_end}-12-31" if year_end else None
+                            async with ArxivClient() as client:
+                                resp = await client.search(
+                                    topic,
+                                    max_results=limit,
+                                    date_from=date_from,
+                                    date_to=date_to,
+                                )
+                            all_papers.extend(
+                                p.model_dump(mode="json") for p in resp.results
+                            )
+                        elif src == "semantic_scholar":
+                            # Semantic Scholar 支持 year=YYYY-YYYY 过滤
+                            query = topic
+                            if year_start or year_end:
+                                y_start = str(year_start) if year_start else "0001"
+                                y_end = str(year_end) if year_end else "9999"
+                                query = f"{topic} year:{y_start}-{y_end}"
+                            async with SemanticScholarClient() as client:
+                                resp = await client.search(query, limit=limit)
+                            all_papers.extend(
+                                p.model_dump(mode="json") for p in resp.results
+                            )
+                        elif src == "crossref":
+                            filters: dict[str, str] = {}
+                            if year_start:
+                                filters["from-pub-date"] = str(year_start)
+                            if year_end:
+                                filters["until-pub-date"] = str(year_end)
+                            async with CrossrefClient() as client:
+                                resp = await client.search(
+                                    topic,
+                                    filters=filters if filters else None,
+                                    rows=limit,
+                                )
+                            all_papers.extend(
+                                p.model_dump(mode="json") for p in resp.results
+                            )
+                    except Exception as src_exc:
+                        # 单个源失败不阻止其他源继续
+                        all_papers.append(
+                            {"source": src, "error": f"{type(src_exc).__name__}: {src_exc}"}
+                        )
+
+                result = all_papers
 
             elif name == "search_patents":
                 from souwen.search import search_patents
