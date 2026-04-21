@@ -80,6 +80,7 @@
 | Perplexity Sonar | `PerplexitySonarClient` | API Key | AI 搜索，带引用来源 |
 | Linkup | `LinkupClient` | API Key | 聚合搜索 API |
 | ScrapingDog | `ScrapingDogClient` | API Key | SERP 代理抓取 |
+| 阿里云 IQS | `AliyunIQSClient` | API Key | LLM 优化多源实时搜索（通义晓搜）|
 
 ### 自建实例类（仅需 URL）
 

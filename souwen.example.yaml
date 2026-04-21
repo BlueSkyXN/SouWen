@@ -94,6 +94,8 @@ web:
   feishu_app_secret: ~
   # 智谱 AI Web Search Pro API Key（含 AI 摘要，适合中英文搜索；https://open.bigmodel.cn/）
   zhipuai_api_key: ~
+  # 阿里云 IQS 智能查询服务 API Key（通义晓搜，含 AI 摘要；https://help.aliyun.com/）
+  aliyun_iqs_api_key: ~
   # Metaso（秘塔）搜索 API Key（支持文档/网页/学术三种范围；https://metaso.cn/）
   metaso_api_key: ~
   # 以下数据源无需 API Key，可直接使用（如需禁用请在 sources 段配置 enabled: false）：
