@@ -75,6 +75,7 @@ export interface SourcesResponse {
   developer: SourceInfo[]
   wiki: SourceInfo[]
   video: SourceInfo[]
+  fetch: SourceInfo[]
 }
 
 /**
@@ -289,6 +290,130 @@ export interface WebSearchResponse {
   results: WebResult[]
   page: number
   per_page: number
+}
+
+/**
+ * 通用搜索元数据（图片/视频搜索响应中的 meta 字段）
+ */
+export interface SearchMeta {
+  [key: string]: unknown
+}
+
+// === 图片搜索 ===
+export interface ImageResult {
+  source: string
+  title: string
+  url: string
+  image_url: string
+  thumbnail_url: string
+  width: number
+  height: number
+  image_source: string
+  engine: string
+}
+
+export interface ImageSearchResponse {
+  query: string
+  results: ImageResult[]
+  total: number
+  meta: SearchMeta
+}
+
+// === 视频搜索 ===
+export interface VideoResult {
+  source: string
+  title: string
+  url: string
+  duration: string
+  publisher: string
+  published: string
+  description: string
+  thumbnail: string
+  embed_url: string
+  view_count: number
+  engine: string
+}
+
+export interface VideoSearchResponse {
+  query: string
+  results: VideoResult[]
+  total: number
+  meta: SearchMeta
+}
+
+// === YouTube ===
+export interface YouTubeVideoDetail {
+  video_id: string
+  title: string
+  description: string
+  channel_title: string
+  channel_id: string
+  published_at: string
+  duration_seconds: number
+  view_count: number
+  like_count: number
+  comment_count: number
+  thumbnail_url: string
+  tags: string[]
+  category_id: string
+}
+
+export interface YouTubeTrendingResponse {
+  region: string
+  category: string
+  results: YouTubeVideoDetail[]
+  total: number
+}
+
+export interface YouTubeVideoDetailResponse {
+  video_ids: string[]
+  results: YouTubeVideoDetail[]
+  total: number
+}
+
+export interface TranscriptSegment {
+  text: string
+  start: number
+  duration: number
+}
+
+export interface YouTubeTranscriptResponse {
+  video_id: string
+  lang: string
+  segments: TranscriptSegment[]
+  available: boolean
+}
+
+// === Wayback Machine ===
+export interface WaybackSnapshot {
+  url: string
+  timestamp: string
+  status_code: number
+  mime_type: string
+  length: number
+  digest: string
+}
+
+export interface WaybackCDXResponse {
+  url: string
+  snapshots: WaybackSnapshot[]
+  total: number
+}
+
+export interface WaybackAvailabilityResponse {
+  url: string
+  available: boolean
+  snapshot_url: string | null
+  timestamp: string | null
+  status: number | null
+}
+
+export interface WaybackSaveResponse {
+  url: string
+  success: boolean
+  snapshot_url: string | null
+  timestamp: string | null
+  error: string | null
 }
 
 /**

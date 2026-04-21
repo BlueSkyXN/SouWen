@@ -21,6 +21,7 @@ import {
   Moon,
   Sun,
   Check,
+  FileText,
 } from 'lucide-react'
 import { useAuthStore } from '@core/stores/authStore'
 import { useSkinStore } from '../../stores/skinStore'
@@ -31,6 +32,7 @@ import styles from './MainLayout.module.scss'
 const NAV_ITEMS = [
   { to: '/search', icon: Search, labelKey: 'nav.search' },
   { to: '/', icon: LayoutDashboard, labelKey: 'nav.dashboard' },
+  { to: '/fetch', icon: FileText, labelKey: 'nav.fetch' },
   { to: '/sources', icon: Database, labelKey: 'nav.sources' },
   { to: '/network', icon: Wifi, labelKey: 'nav.network' },
   { to: '/config', icon: Settings, labelKey: 'nav.config' },
