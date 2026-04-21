@@ -797,7 +797,7 @@ async def fetch_content_endpoint(body: FetchRequest):
 # ---------------------------------------------------------------------------
 admin_router = APIRouter(dependencies=[Depends(require_auth)])
 
-_SECRET_KEYWORDS = {"key", "secret", "token", "password"}
+_SECRET_KEYWORDS = {"key", "secret", "token", "password", "sessdata"}
 
 
 def _is_secret_field(name: str) -> bool:
