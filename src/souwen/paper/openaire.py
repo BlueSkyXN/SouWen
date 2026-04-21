@@ -105,9 +105,7 @@ class OpenAireClient:
         if self.api_key:
             headers["Authorization"] = f"Bearer {self.api_key}"
 
-        self._client = SouWenHttpClient(
-            base_url=_BASE_URL, headers=headers, source_name="openaire"
-        )
+        self._client = SouWenHttpClient(base_url=_BASE_URL, headers=headers, source_name="openaire")
         self._limiter = TokenBucketLimiter(rate=_DEFAULT_RPS, burst=_DEFAULT_RPS)
 
     # ------------------------------------------------------------------

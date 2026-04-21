@@ -264,9 +264,7 @@ class TestZenodo:
                 "title": "No PDF Record",
                 "publication_date": "2023-05-01",
             },
-            "files": [
-                {"key": "data.csv", "links": {"self": "https://zenodo.org/data.csv"}}
-            ],
+            "files": [{"key": "data.csv", "links": {"self": "https://zenodo.org/data.csv"}}],
             "links": {"html": "https://zenodo.org/records/999"},
         }
         paper = ZenodoClient._parse_record(sample)

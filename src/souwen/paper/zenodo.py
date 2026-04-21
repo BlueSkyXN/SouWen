@@ -77,8 +77,8 @@ class ZenodoClient:
                           从全局配置读取，仍未配置则匿名访问。
         """
         cfg = get_config()
-        self.access_token: str | None = (
-            access_token or cfg.resolve_api_key("zenodo", "zenodo_access_token")
+        self.access_token: str | None = access_token or cfg.resolve_api_key(
+            "zenodo", "zenodo_access_token"
         )
 
         headers: dict[str, str] = {}
@@ -169,11 +169,7 @@ class ZenodoClient:
             # 作者：creators[].name 通常为 "Last, First"，原样保留
             authors: list[Author] = []
             for creator in metadata.get("creators", []) or []:
-                name = (
-                    creator.get("name", "")
-                    if isinstance(creator, dict)
-                    else str(creator)
-                )
+                name = creator.get("name", "") if isinstance(creator, dict) else str(creator)
                 if name:
                     authors.append(Author(name=name))
 
@@ -206,16 +202,13 @@ class ZenodoClient:
                     break
 
             # 详情页 URL
-            source_url: str = (
-                links.get("html")
-                or (f"{_RECORDS_URL}/{record_id}" if record_id else _RECORDS_URL)
+            source_url: str = links.get("html") or (
+                f"{_RECORDS_URL}/{record_id}" if record_id else _RECORDS_URL
             )
 
             # license / resource_type 提取
             license_obj = metadata.get("license") or {}
-            license_id = (
-                license_obj.get("id") if isinstance(license_obj, dict) else license_obj
-            )
+            license_id = license_obj.get("id") if isinstance(license_obj, dict) else license_obj
             resource_type = metadata.get("resource_type") or {}
             resource_subtype = (
                 resource_type.get("subtype") if isinstance(resource_type, dict) else None

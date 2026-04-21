@@ -208,9 +208,8 @@ class DoajClient:
                     fulltext_url = fulltext_url or url
 
             # source_url：优先 fulltext 链接，否则用 DOAJ 文章页
-            source_url: str = (
-                fulltext_url
-                or (f"{_ARTICLE_URL}/{doaj_id}" if doaj_id else _ARTICLE_URL)
+            source_url: str = fulltext_url or (
+                f"{_ARTICLE_URL}/{doaj_id}" if doaj_id else _ARTICLE_URL
             )
 
             # 主题：[{"term": "..."}]
