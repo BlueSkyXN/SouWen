@@ -116,6 +116,10 @@ async def _fetch_with_provider(
     provider: str,
     urls: list[str],
     timeout: float,
+    selector: str | None = None,
+    start_index: int = 0,
+    max_length: int | None = None,
+    respect_robots_txt: bool = False,
 ) -> FetchResponse:
     """使用指定提供者抓取内容
 
@@ -123,6 +127,10 @@ async def _fetch_with_provider(
         provider: 提供者名称
         urls: URL 列表
         timeout: 超时秒数
+        selector: CSS 选择器（仅 builtin 支持）
+        start_index: 内容起始切片位置（仅 builtin 支持）
+        max_length: 内容最大长度（仅 builtin 支持）
+        respect_robots_txt: 是否遵守 robots.txt（仅 builtin 支持）
 
     Returns:
         FetchResponse
@@ -130,7 +138,28 @@ async def _fetch_with_provider(
     if provider == "builtin":
         from souwen.web.builtin import BuiltinFetcherClient
 
-        async with BuiltinFetcherClient() as client:
+        async with BuiltinFetcherClient(respect_robots_txt=respect_robots_txt) as client:
+            # 涉及 selector / 分页参数时按单 URL 调用以传递参数
+            if selector or start_index > 0 or max_length is not None:
+                results = []
+                for u in urls:
+                    r = await client.fetch(
+                        u,
+                        timeout=timeout,
+                        start_index=start_index,
+                        max_length=max_length,
+                        selector=selector,
+                    )
+                    results.append(r)
+                ok = sum(1 for r in results if r.error is None)
+                return FetchResponse(
+                    urls=urls,
+                    results=results,
+                    total=len(results),
+                    total_ok=ok,
+                    total_failed=len(results) - ok,
+                    provider="builtin",
+                )
             return await client.fetch_batch(urls, timeout=timeout)
 
     elif provider == "jina_reader":
@@ -265,6 +294,10 @@ async def fetch_content(
     providers: list[str] | None = None,
     timeout: float = 30.0,
     skip_ssrf_check: bool = False,
+    selector: str | None = None,
+    start_index: int = 0,
+    max_length: int | None = None,
+    respect_robots_txt: bool = False,
 ) -> FetchResponse:
     """并发多提供者聚合内容抓取
 
@@ -318,7 +351,15 @@ async def fetch_content(
 
     try:
         resp = await asyncio.wait_for(
-            _fetch_with_provider(provider, valid_urls, timeout=timeout),
+            _fetch_with_provider(
+                provider,
+                valid_urls,
+                timeout=timeout,
+                selector=selector,
+                start_index=start_index,
+                max_length=max_length,
+                respect_robots_txt=respect_robots_txt,
+            ),
             timeout=timeout + 10,  # 超出每 URL 超时的全局宽限期
         )
     except asyncio.TimeoutError:
