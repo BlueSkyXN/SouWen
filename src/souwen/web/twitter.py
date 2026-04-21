@@ -113,9 +113,8 @@ class TwitterClient(SouWenHttpClient):
                           ``ConfigError``，调度层应捕获并跳过本源。
         """
         config = get_config()
-        self._bearer_token = (
-            bearer_token
-            or config.resolve_api_key("twitter", "twitter_bearer_token")
+        self._bearer_token = bearer_token or config.resolve_api_key(
+            "twitter", "twitter_bearer_token"
         )
         if not self._bearer_token:
             raise ConfigError(
@@ -161,8 +160,7 @@ class TwitterClient(SouWenHttpClient):
         """
         if sort_order not in self.VALID_SORT_ORDERS:
             raise ValueError(
-                f"无效的 sort_order: {sort_order!r}，"
-                f"可选值: {sorted(self.VALID_SORT_ORDERS)}"
+                f"无效的 sort_order: {sort_order!r}，可选值: {sorted(self.VALID_SORT_ORDERS)}"
             )
 
         # Twitter API 强制 max_results 在 10–100 之间
