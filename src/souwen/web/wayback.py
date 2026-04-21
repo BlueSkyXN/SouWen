@@ -4,18 +4,22 @@
     通过 Internet Archive 的 Wayback Machine 公开服务，抓取目标 URL 的
     最新存档快照。无需 API Key，零成本可用，适合作为活页失效或被墙站点
     的兜底抓取方案。返回经 _html_extract 转换的 Markdown/Text 内容。
-    支持 CDX Server API 查询历史快照列表。
+    支持 CDX Server API 查询历史快照列表、Availability API 查询可用性、
+    Save Page Now 触发即时存档。
 
 函数/类清单：
     WaybackClient（类）
         - 功能：Wayback Machine 抓取客户端，先查可用性再拉取原始 HTML，
-                支持 CDX API 查询历史快照列表
+                支持 CDX API 查询历史快照列表、Availability API 结构化查询、
+                Save Page Now 触发即时存档
         - 继承：BaseScraper（爬虫基类，提供 TLS 指纹 / WARP / 退避）
         - 关键属性：ENGINE_NAME = "wayback", BASE_URL = "https://web.archive.org",
                   PROVIDER_NAME = "wayback"
         - 主要方法：fetch(url, timeout) -> FetchResult,
                   fetch_batch(urls, max_concurrency, timeout) -> FetchResponse,
-                  query_snapshots(url, from_date, to_date, ...) -> WaybackCDXResponse
+                  query_snapshots(url, from_date, to_date, ...) -> WaybackCDXResponse,
+                  check_availability(url, timestamp, timeout) -> WaybackAvailability,
+                  save_page(url, timeout) -> WaybackSaveResult
 
     WaybackClient.__init__()
         - 功能：初始化 Wayback 客户端（无需 API Key），设置较低的礼貌延迟
@@ -45,6 +49,19 @@
         - 输出：WaybackCDXResponse 包含快照列表和查询元数据
         - 示例用途：查看网页历史版本、分析内容演变、批量获取域名下所有存档
 
+    WaybackClient.check_availability(url, timestamp=None, timeout=30.0) -> WaybackAvailability
+        - 功能：查询 URL 是否有 Wayback Machine 存档（公开 Availability API）
+        - 输入：url 目标 URL，timestamp 可选指定查询最接近时间的快照
+                （YYYYMMDD 或 YYYYMMDDHHMMSS），timeout 超时
+        - 输出：WaybackAvailability 结构化可用性信息（含快照 URL、时间戳、状态码、日期）
+        - 异常：所有异常封装到 error 字段
+
+    WaybackClient.save_page(url, timeout=60.0) -> WaybackSaveResult
+        - 功能：通过 Save Page Now 触发 Internet Archive 立即存档指定 URL（无需 API Key）
+        - 输入：url 待存档网页 URL，timeout 超时（默认 60s，存档可能较慢）
+        - 输出：WaybackSaveResult 包含 success、snapshot_url、timestamp、error
+        - 异常：所有异常封装到 error 字段
+
 模块依赖：
     - asyncio: 异步并发控制（Semaphore + gather + sleep 限流）
     - logging: 日志记录
@@ -55,9 +72,14 @@
     - souwen.web._html_extract: 共享 HTML → Markdown/Text 提取工具
 
 技术要点：
-    - 可用性 API：GET https://archive.org/wayback/available?url={url}
+    - 可用性 API：GET https://archive.org/wayback/available?url={url}[&timestamp={ts}]
       响应字段：archived_snapshots.closest.{available, url, timestamp, status}
       —— 这是 JSON API，使用 httpx 直连即可，无需 TLS 指纹
+      —— 通过 timestamp 参数可定位最接近指定时间的快照（YYYYMMDD 或 YYYYMMDDHHMMSS）
+    - Save Page Now（SPN 基础版）：POST/GET https://web.archive.org/save/{url}
+      无需 API Key，受全局限流约束。成功时通过 Location/Content-Location header
+      或响应体内嵌的 /web/<ts>/<url> 路径返回快照 URL。SPN2 v2（异步任务/作业 ID）
+      需要 S3 凭证，本实现仅覆盖免认证基础版。
     - CDX Server API：GET https://web.archive.org/cdx/search/cdx?url={url}&output=json
       支持参数：from/to（日期范围 YYYYMMDD）、filter（statuscode/mimetype）、
                limit（数量限制）、collapse（去重：timestamp:8 按天，digest 按内容）
@@ -83,7 +105,14 @@ from typing import Any
 
 import httpx
 
-from souwen.models import FetchResponse, FetchResult, WaybackCDXResponse, WaybackSnapshot
+from souwen.models import (
+    FetchResponse,
+    FetchResult,
+    WaybackAvailability,
+    WaybackCDXResponse,
+    WaybackSaveResult,
+    WaybackSnapshot,
+)
 from souwen.scraper.base import BaseScraper
 from souwen.web._html_extract import extract_from_html
 
@@ -133,22 +162,150 @@ class WaybackClient(BaseScraper):
             return None
         return f"{timestamp[0:4]}-{timestamp[4:6]}-{timestamp[6:8]}"
 
-    async def _check_availability(self, url: str, timeout: float) -> dict[str, Any]:
+    async def _check_availability(
+        self, url: str, timeout: float, timestamp: str | None = None
+    ) -> dict[str, Any]:
         """查询 archive.org 可用性 API（纯 JSON 接口，使用 httpx 直连）
 
         Args:
             url: 待查询的目标 URL
             timeout: 单次请求超时
+            timestamp: 可选，指定查询最接近该时间的快照（YYYYMMDD 或 YYYYMMDDHHMMSS）
 
         Returns:
             archive.org/wayback/available 的 JSON 响应（解析后的 dict）
         """
+        params: dict[str, Any] = {"url": url}
+        if timestamp:
+            params["timestamp"] = timestamp
         async with httpx.AsyncClient(timeout=timeout) as client:
             resp = await client.get(
                 "https://archive.org/wayback/available",
-                params={"url": url},
+                params=params,
             )
             return resp.json() or {}
+
+    async def check_availability(
+        self,
+        url: str,
+        timestamp: str | None = None,
+        timeout: float = 30.0,
+    ) -> WaybackAvailability:
+        """检查 URL 是否有 Wayback Machine 存档（公开 Availability API）
+
+        Args:
+            url: 目标 URL
+            timestamp: 可选，指定查询最接近该时间的快照（YYYYMMDD 或 YYYYMMDDHHMMSS）
+            timeout: 超时秒数
+
+        Returns:
+            WaybackAvailability 结构化可用性信息；任何异常都会被封装到 error 字段
+        """
+        try:
+            avail_data = await self._check_availability(url, timeout=timeout, timestamp=timestamp)
+            closest = (avail_data.get("archived_snapshots") or {}).get("closest") or {}
+            snapshot_url = closest.get("url") or None
+            ts = closest.get("timestamp") or None
+            available = bool(closest.get("available", False)) and bool(snapshot_url)
+
+            # status 字段在响应里通常是字符串，统一转 int；非数字时回退 None
+            status_raw = closest.get("status")
+            status_code: int | None
+            if isinstance(status_raw, int):
+                status_code = status_raw
+            elif isinstance(status_raw, str) and status_raw.isdigit():
+                status_code = int(status_raw)
+            else:
+                status_code = None
+
+            return WaybackAvailability(
+                url=url,
+                available=available,
+                snapshot_url=snapshot_url,
+                timestamp=ts,
+                published_date=self._format_published_date(ts) if ts else None,
+                status_code=status_code,
+            )
+        except Exception as exc:
+            logger.warning("Wayback availability check failed: url=%s err=%s", url, exc)
+            return WaybackAvailability(
+                url=url,
+                available=False,
+                error=str(exc),
+            )
+
+    async def save_page(self, url: str, timeout: float = 60.0) -> WaybackSaveResult:
+        """触发 Wayback Machine 立即存档指定 URL（Save Page Now 基础版）
+
+        通过 Save Page Now 服务请求 Internet Archive 立即抓取并存档网页当前状态。
+        无需 API Key，但受 archive.org 全局限流约束。
+
+        Args:
+            url: 要存档的网页 URL
+            timeout: 超时秒数（存档可能需要较长时间，默认 60s）
+
+        Returns:
+            WaybackSaveResult 包含存档结果；任何异常都会被封装到 error 字段
+        """
+        try:
+            save_endpoint = f"https://web.archive.org/save/{url}"
+            async with httpx.AsyncClient(timeout=timeout, follow_redirects=False) as client:
+                # SPN 基础版：POST 即可触发存档；失败的状态码会在下方判定为 success=False
+                resp = await client.post(save_endpoint)
+
+            # IA 在不同情况下会返回：3xx 重定向（Location 指向 /web/<ts>/<url>）、
+            # 200 + Content-Location header、或 200 + HTML 内嵌快照路径。
+            snapshot_url: str | None = None
+
+            location = resp.headers.get("location") or resp.headers.get("content-location")
+            if location:
+                snapshot_url = (
+                    location
+                    if location.startswith("http")
+                    else (
+                        f"https://web.archive.org{location}" if location.startswith("/") else None
+                    )
+                )
+
+            # 回退：在响应体中提取形如 /web/YYYYMMDDHHMMSS/<url> 的路径
+            if not snapshot_url:
+                body = resp.text or ""
+                match = re.search(r"(/web/\d{14}/\S+?)(?=[\s\"'<>])", body)
+                if match:
+                    snapshot_url = f"https://web.archive.org{match.group(1)}"
+
+            # 从快照 URL 中抽取时间戳
+            timestamp: str | None = None
+            if snapshot_url:
+                ts_match = re.search(r"/web/(\d{14})", snapshot_url)
+                if ts_match:
+                    timestamp = ts_match.group(1)
+
+            # 判定成功：状态码 2xx/3xx + 拿到了快照 URL 即视为成功触发
+            success = 200 <= resp.status_code < 400 and bool(snapshot_url)
+
+            if success:
+                return WaybackSaveResult(
+                    url=url,
+                    success=True,
+                    snapshot_url=snapshot_url,
+                    timestamp=timestamp,
+                )
+
+            return WaybackSaveResult(
+                url=url,
+                success=False,
+                snapshot_url=snapshot_url,
+                timestamp=timestamp,
+                error=f"Save Page Now 未返回有效快照（HTTP {resp.status_code}）",
+            )
+        except Exception as exc:
+            logger.warning("Wayback save failed: url=%s err=%s", url, exc)
+            return WaybackSaveResult(
+                url=url,
+                success=False,
+                error=str(exc),
+            )
 
     async def fetch(self, url: str, timeout: float = 30.0) -> FetchResult:
         """查询最新存档快照并抓取原始 HTML
