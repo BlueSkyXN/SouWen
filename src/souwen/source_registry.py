@@ -152,7 +152,9 @@ _reg(
     "zotero_api_key",
     description="Zotero 个人文献库搜索 (需 API Key + Library ID)",
 )
-_reg("doaj", "paper", "official_api", "doaj_api_key", description="DOAJ 开放获取期刊目录（可选 Key）")
+_reg(
+    "doaj", "paper", "official_api", "doaj_api_key", description="DOAJ 开放获取期刊目录（可选 Key）"
+)
 _reg(
     "zenodo",
     "paper",

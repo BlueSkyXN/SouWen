@@ -140,7 +140,9 @@ class EuropePmcClient:
             # 作者解析：authorList.author[] -> [{fullName: "..."}]
             authors: list[Author] = []
             author_list = item.get("authorList") or {}
-            for author_item in author_list.get("author", []) if isinstance(author_list, dict) else []:
+            for author_item in (
+                author_list.get("author", []) if isinstance(author_list, dict) else []
+            ):
                 if isinstance(author_item, dict):
                     name = author_item.get("fullName") or author_item.get("collectiveName") or ""
                 else:
@@ -156,7 +158,9 @@ class EuropePmcClient:
                     year = int(str(pub_year_raw)[:4])
                 except (ValueError, TypeError):
                     year = None
-            pub_date: str | None = item.get("firstPublicationDate") or item.get("electronicPublicationDate") or None
+            pub_date: str | None = (
+                item.get("firstPublicationDate") or item.get("electronicPublicationDate") or None
+            )
 
             # 引用数
             citation_count: int | None = None
