@@ -184,7 +184,7 @@ def create_server() -> "Server":
             *get_bilibili_tools(),
             Tool(
                 name="fetch_content",
-                description="获取网页内容。支持 URL 直接抓取，使用 SouWen 内置提取器（零配置）。",
+                description="获取网页内容。支持 URL 直接抓取，使用 SouWen 内置提取器（零配置）。支持 CSS 选择器提取指定元素、分页续读。",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -198,8 +198,73 @@ def create_server() -> "Server":
                             "default": "builtin",
                             "description": "内容提取提供者，默认 builtin（零配置）",
                         },
+                        "selector": {
+                            "type": "string",
+                            "description": "CSS 选择器，仅提取匹配元素内容（仅 builtin 支持）",
+                        },
+                        "start_index": {
+                            "type": "integer",
+                            "default": 0,
+                            "description": "内容起始切片位置（用于分页续读）",
+                        },
+                        "max_length": {
+                            "type": "integer",
+                            "description": "内容最大长度，超出则截断并返回 next_start_index",
+                        },
+                        "respect_robots_txt": {
+                            "type": "boolean",
+                            "default": False,
+                            "description": "是否遵守 robots.txt（仅 builtin 支持）",
+                        },
                     },
                     "required": ["urls"],
+                },
+            ),
+            Tool(
+                name="extract_links",
+                description="提取网页中的所有链接。返回去重、SSRF 过滤后的链接列表（URL + 锚文本）。",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "url": {
+                            "type": "string",
+                            "description": "目标页面 URL",
+                        },
+                        "base_url_filter": {
+                            "type": "string",
+                            "description": "URL 前缀过滤（仅返回以此开头的链接）",
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "default": 100,
+                            "description": "最大返回链接数（1-1000）",
+                        },
+                    },
+                    "required": ["url"],
+                },
+            ),
+            Tool(
+                name="parse_sitemap",
+                description="解析网站 sitemap.xml，提取 URL 列表。支持 sitemap index 递归、gzip 压缩、robots.txt 自动发现。",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "url": {
+                            "type": "string",
+                            "description": "Sitemap URL 或站点根 URL",
+                        },
+                        "discover": {
+                            "type": "boolean",
+                            "default": False,
+                            "description": "自动从 robots.txt 发现 sitemap",
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "default": 1000,
+                            "description": "最大返回条目数",
+                        },
+                    },
+                    "required": ["url"],
                 },
             ),
         ]
@@ -262,8 +327,41 @@ def create_server() -> "Server":
 
                 urls = arguments["urls"]
                 provider = arguments.get("provider", "builtin")
-                response = await fetch_content(urls=urls, providers=[provider])
+                selector = arguments.get("selector")
+                start_index = arguments.get("start_index", 0)
+                max_length = arguments.get("max_length")
+                respect_robots_txt = arguments.get("respect_robots_txt", False)
+                response = await fetch_content(
+                    urls=urls,
+                    providers=[provider],
+                    selector=selector,
+                    start_index=start_index,
+                    max_length=max_length,
+                    respect_robots_txt=respect_robots_txt,
+                )
                 result = response.model_dump(mode="json")
+
+            elif name == "extract_links":
+                from souwen.web.links import extract_links
+
+                result_obj = await extract_links(
+                    url=arguments["url"],
+                    base_url_filter=arguments.get("base_url_filter"),
+                    limit=arguments.get("limit", 100),
+                )
+                result = result_obj.model_dump(mode="json")
+
+            elif name == "parse_sitemap":
+                from souwen.web.sitemap import discover_sitemap, parse_sitemap
+
+                sitemap_url = arguments["url"]
+                do_discover = arguments.get("discover", False)
+                limit = arguments.get("limit", 1000)
+                if do_discover:
+                    result_obj = await discover_sitemap(sitemap_url, max_entries=limit)
+                else:
+                    result_obj = await parse_sitemap(sitemap_url, max_entries=limit)
+                result = result_obj.model_dump(mode="json")
 
             else:
                 result = f"Unknown tool: {name}"
