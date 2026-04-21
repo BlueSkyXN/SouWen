@@ -24,13 +24,25 @@
         - 输出：统一的 PaperResult 模型，包含标题、作者、PDF 链接、分类等
         - 关键变量：arxiv_id (str) arXiv 唯一标识符, categories (list[str]) 学科分类
 
+    _build_search_query(query: str, categories: list[str]|None, date_from: str|None,
+                        date_to: str|None) -> str
+        - 功能：组合用户查询、学科分类、提交日期范围，生成 arXiv 检索字符串
+        - 输入：query 原始查询；categories 分类列表（如 ["cs.AI", "cs.LG"]）；
+               date_from/date_to 日期 YYYY-MM-DD
+        - 输出：完整的 search_query 字符串，已按 arXiv 语法拼接
+
     search(query: str, id_list: list|None, start: int, max_results: int,
-           sort_by: str|None, sort_order: str|None) -> SearchResponse
-        - 功能：搜索 arXiv 论文或按 ID 列表查询
+           sort_by: str|None, sort_order: str|None,
+           categories: list[str]|None, date_from: str|None,
+           date_to: str|None) -> SearchResponse
+        - 功能：搜索 arXiv 论文或按 ID 列表查询，支持分类与日期范围过滤
         - 输入：query 检索查询（支持字段前缀如 ti:/au:）, id_list arXiv ID 列表,
-               start 起始偏移, max_results 返回条数（最多 2000）, sort_by/sort_order 排序参数
+               start 起始偏移, max_results 返回条数（最多 2000）, sort_by/sort_order 排序参数,
+               categories 学科分类过滤, date_from/date_to 提交日期范围过滤
         - 输出：SearchResponse 包含结果列表及分页信息
         - 限流：通过 _limiter.acquire() 控制每 3 秒最多 1 次请求
+        - 注意：含日期过滤时直接拼接 URL 字符串，避免 httpx 把 ``+TO+`` 编码为
+               ``%2BTO%2B``（arXiv 要求字面 ``+`` 字符）
 
 模块依赖：
     - SouWenHttpClient: 统一 HTTP 客户端
@@ -221,6 +233,37 @@ class ArxivClient:
     # 公开方法
     # ------------------------------------------------------------------
 
+    @staticmethod
+    def _build_search_query(
+        query: str,
+        categories: list[str] | None = None,
+        date_from: str | None = None,
+        date_to: str | None = None,
+    ) -> str:
+        """组合查询、分类与日期，生成 arXiv ``search_query`` 字符串。
+
+        - 多个分类以 ``OR`` 连接，整体以 ``AND`` 拼接到原 query。
+        - 日期范围使用 ``submittedDate:[YYYYMMDD0000+TO+YYYYMMDD2359]`` 语法。
+          其中 ``+TO+`` 为字面 ``+`` 字符，调用方需绕过 URL 编码。
+        - 仅缺省 ``date_from`` 时使用 ``00000101``，仅缺省 ``date_to`` 时使用 ``99991231``。
+        """
+        parts: list[str] = []
+        if query:
+            # 含空格/括号时已由调用方控制是否加括号；此处只要存在原 query 就保留
+            parts.append(f"({query})" if (categories or date_from or date_to) and query else query)
+
+        if categories:
+            cat_clause = " OR ".join(f"cat:{c}" for c in categories)
+            parts.append(f"({cat_clause})")
+
+        if date_from or date_to:
+            start_compact = (date_from or "0000-01-01").replace("-", "") + "0000"
+            end_compact = (date_to or "9999-12-31").replace("-", "") + "2359"
+            # ``+TO+`` 使用字面 ``+``，外层调用方需通过手工拼接 URL 避免被编码
+            parts.append(f"submittedDate:[{start_compact}+TO+{end_compact}]")
+
+        return " AND ".join(parts)
+
     async def search(
         self,
         query: str,
@@ -229,6 +272,9 @@ class ArxivClient:
         max_results: int = 10,
         sort_by: str | None = None,
         sort_order: str | None = None,
+        categories: list[str] | None = None,
+        date_from: str | None = None,
+        date_to: str | None = None,
     ) -> SearchResponse:
         """搜索 arXiv 论文。
 
@@ -241,27 +287,51 @@ class ArxivClient:
             sort_by: 排序字段: ``"relevance"``、``"lastUpdatedDate"``、
                      ``"submittedDate"``。
             sort_order: ``"ascending"`` 或 ``"descending"``。
+            categories: 学科分类过滤列表，如 ``["cs.AI", "cs.LG"]``，多个分类间以
+                        ``OR`` 连接后 ``AND`` 到原查询。
+            date_from: 起始日期 ``YYYY-MM-DD`` 格式（按 submittedDate 过滤）。
+            date_to: 结束日期 ``YYYY-MM-DD`` 格式。
 
         Returns:
             SearchResponse 包含结果列表及分页信息。
         """
         await self._limiter.acquire()
 
-        params: dict[str, str | int] = {
-            "start": start,
-            "max_results": min(max_results, 2000),
-        }
+        # 组合查询字符串：基础 query + 分类过滤 + 日期范围
+        effective_query = self._build_search_query(query, categories, date_from, date_to)
+        has_date_filter = bool(date_from or date_to)
 
-        if query:
-            params["search_query"] = query
-        if id_list:
-            params["id_list"] = ",".join(id_list)
-        if sort_by:
-            params["sortBy"] = sort_by
-        if sort_order:
-            params["sortOrder"] = sort_order
+        capped_max = min(max_results, 2000)
 
-        resp = await self._client.get("/query", params=params)
+        if has_date_filter:
+            # 日期过滤含 ``+TO+`` 字面 ``+``，httpx 会将 ``+`` URL 编码为 ``%2B``，
+            # 因此手工拼接 URL 字符串绕过 params 编码。其余参数仍按原样附加。
+            url_parts: list[str] = [f"search_query={effective_query}"]
+            if id_list:
+                url_parts.append(f"id_list={','.join(id_list)}")
+            url_parts.append(f"start={start}")
+            url_parts.append(f"max_results={capped_max}")
+            if sort_by:
+                url_parts.append(f"sortBy={sort_by}")
+            if sort_order:
+                url_parts.append(f"sortOrder={sort_order}")
+            full_url = "/query?" + "&".join(url_parts)
+            resp = await self._client.get(full_url)
+        else:
+            params: dict[str, str | int] = {
+                "start": start,
+                "max_results": capped_max,
+            }
+            if effective_query:
+                params["search_query"] = effective_query
+            if id_list:
+                params["id_list"] = ",".join(id_list)
+            if sort_by:
+                params["sortBy"] = sort_by
+            if sort_order:
+                params["sortOrder"] = sort_order
+            resp = await self._client.get("/query", params=params)
+
         xml_text = resp.text
 
         try:
