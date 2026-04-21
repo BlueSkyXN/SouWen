@@ -65,6 +65,8 @@ crawl4ai = ["crawl4ai>=0.4.0"]
 newspaper = ["newspaper4k>=0.9"]
 # readability 提取（Mozilla Readability 算法 + markdownify 转换）
 readability = ["readability-lxml>=0.8", "markdownify>=0.12"]
+# arXiv 全文 PDF 解析（PyMuPDF + Markdown 转换）
+pdf = ["pymupdf4llm>=0.0.17"]
 # 浏览器爬虫（Playwright）+ TLS 伪装
 scraper = ["playwright>=1.40", "curl-cffi>=0.14.0"]
 # Web 服务器（FastAPI + Uvicorn）

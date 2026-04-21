@@ -5,6 +5,7 @@
 - SemanticScholarClient: Semantic Scholar (可选Key)
 - CrossrefClient: Crossref (无需Key)
 - ArxivClient: arXiv (无需Key)
+- ArxivFulltextClient: arXiv 论文全文（HTML 优先 + PDF 回退，无需 Key）
 - DblpClient: DBLP (无需Key)
 - CoreClient: CORE (需Key)
 - PubMedClient: PubMed (可选Key)
@@ -16,6 +17,7 @@ from souwen.paper.openalex import OpenAlexClient
 from souwen.paper.semantic_scholar import SemanticScholarClient
 from souwen.paper.crossref import CrossrefClient
 from souwen.paper.arxiv import ArxivClient
+from souwen.paper.arxiv_fulltext import ArxivFulltextClient
 from souwen.paper.dblp import DblpClient
 from souwen.paper.core import CoreClient
 from souwen.paper.pubmed import PubMedClient
@@ -27,6 +29,7 @@ __all__ = [
     "SemanticScholarClient",
     "CrossrefClient",
     "ArxivClient",
+    "ArxivFulltextClient",
     "DblpClient",
     "CoreClient",
     "PubMedClient",

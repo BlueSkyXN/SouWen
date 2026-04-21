@@ -33,6 +33,13 @@
         - 输入：paper_id Semantic Scholar Paper ID, limit 返回条数
         - 输出：推荐论文列表
 
+    get_citations(paper_id: str, limit: int) -> dict
+        - 功能：获取论文的引用图谱（被该论文引用 + 引用该论文的论文）
+        - 输入：paper_id Paper ID / DOI:xxx / ARXIV:xxx
+               limit 每个方向（citations/references）的最大返回数
+        - 输出：dict，含 paper_id、citation_count、reference_count、citations、
+               references 字段，每条记录提供轻量摘要（含 arxiv_id 交叉引用）
+
 模块依赖：
     - SouWenHttpClient: 统一 HTTP 客户端
     - SlidingWindowLimiter: 滑动窗口限流器
@@ -292,3 +299,82 @@ class SemanticScholarClient:
 
         data: dict[str, Any] = resp.json()
         return [self._parse_paper(p) for p in data.get("recommendedPapers", [])]
+
+    async def get_citations(self, paper_id: str, limit: int = 100) -> dict[str, Any]:
+        """获取论文的引用关系图谱（引用该论文的 + 该论文引用的）。
+
+        Args:
+            paper_id: Semantic Scholar Paper ID, DOI (``DOI:xxx``)，
+                      或 arXiv ID (``ARXIV:xxx``)。
+            limit: 每个方向（citations/references）的最大返回数。
+
+        Returns:
+            包含 ``citing_papers`` 和 ``referenced_papers`` 摘要的字典：
+
+            .. code-block:: python
+
+                {
+                    "paper_id": str,
+                    "citation_count": int,
+                    "reference_count": int,
+                    "citations": [{"paper_id", "title", "year", "authors", "arxiv_id"}, ...],
+                    "references": [{"paper_id", "title", "year", "authors", "arxiv_id"}, ...],
+                }
+
+        Raises:
+            NotFoundError: 论文不存在。
+            RateLimitError: 超出请求频率限制。
+        """
+        fields = "paperId,title,year,authors,externalIds"
+        capped_limit = min(limit, 1000)
+
+        # citations 端点（被谁引用）
+        await self._limiter.acquire()
+        cit_resp = await self._client.get(
+            f"/paper/{paper_id}/citations",
+            params={"fields": fields, "limit": capped_limit},
+        )
+        if cit_resp.status_code == 404:
+            raise NotFoundError(f"Semantic Scholar 未找到论文: {paper_id}")
+        if cit_resp.status_code == 429:
+            raise RateLimitError("Semantic Scholar 请求频率超限")
+
+        # references 端点（该论文引用谁）
+        await self._limiter.acquire()
+        ref_resp = await self._client.get(
+            f"/paper/{paper_id}/references",
+            params={"fields": fields, "limit": capped_limit},
+        )
+        if ref_resp.status_code == 404:
+            raise NotFoundError(f"Semantic Scholar 未找到论文: {paper_id}")
+        if ref_resp.status_code == 429:
+            raise RateLimitError("Semantic Scholar 请求频率超限")
+
+        citations = [
+            self._summarize_citation_node(item.get("citingPaper") or {})
+            for item in cit_resp.json().get("data", [])
+        ]
+        references = [
+            self._summarize_citation_node(item.get("citedPaper") or {})
+            for item in ref_resp.json().get("data", [])
+        ]
+
+        return {
+            "paper_id": paper_id,
+            "citation_count": len(citations),
+            "reference_count": len(references),
+            "citations": citations,
+            "references": references,
+        }
+
+    @staticmethod
+    def _summarize_citation_node(node: dict[str, Any]) -> dict[str, Any]:
+        """从 citations/references 子结构提取轻量字段摘要。"""
+        external_ids: dict[str, str] = node.get("externalIds") or {}
+        return {
+            "paper_id": node.get("paperId"),
+            "title": node.get("title"),
+            "year": node.get("year"),
+            "authors": [a.get("name", "") for a in (node.get("authors") or [])],
+            "arxiv_id": external_ids.get("ArXiv"),
+        }
