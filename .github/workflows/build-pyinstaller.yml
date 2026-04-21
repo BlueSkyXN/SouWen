@@ -2,14 +2,13 @@
 # PyInstaller 构建工作流 — 将 SouWen 打包为单文件可执行程序
 #
 # 触发条件:
-#   - 推送 v* 标签时（创建 Release）
-#   - 推送到主分支且修改了源码/依赖文件
-#   - Pull Request 修改了相关文件
-#   - 手动触发
+#   - 推送版本标签时（0.x.x 格式，自动创建 Release）
+#   - 手动触发（可选择构建层级和平台）
 #
-# 构建产物（两种变体）:
-#   - Full 版: 包含 FastAPI 服务 + MCP 集成，适合完整部署
-#   - CLI-only 版: 仅命令行搜索工具，体积更小
+# 构建产物（三种层级）:
+#   - CLI 版: 纯命令行搜索工具，体积最小
+#   - Server 版: CLI + FastAPI 服务 + 内嵌前端面板
+#   - Full 版: Server + MCP 集成 + 全部可选依赖
 #
 # 支持平台: Linux (amd64/arm64)、macOS (arm64)、Windows (amd64)
 # =============================================================================
@@ -18,32 +17,102 @@ name: Build with PyInstaller
 on:
   push:
     tags:
-      - 'v*'
-    branches:
-      - main
-      - master
-      - dev
-    paths:
-      - 'src/**'
-      - 'panel/**'
-      - 'cli.py'
-      - 'requirements*.txt'
-      - '.github/workflows/build-pyinstaller.yml'
-  pull_request:
-    paths:
-      - 'src/**'
-      - 'panel/**'
-      - 'cli.py'
-      - 'requirements*.txt'
+      - '[0-9]*'
   workflow_dispatch:
+    inputs:
+      build_tier:
+        description: '构建层级'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - cli
+          - server
+          - full
+      platforms:
+        description: '目标平台'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - linux-only
+          - macos-only
+          - windows-only
 
 env:
   APP_NAME: souwen
   PYTHON_VERSION: '3.11'
 
 jobs:
+  # ---------------------------------------------------------------------------
+  # 动态生成构建矩阵
+  # ---------------------------------------------------------------------------
+  prepare:
+    name: 准备构建矩阵
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+      need_panel: ${{ steps.set-matrix.outputs.need_panel }}
+    steps:
+      - name: 生成矩阵
+        id: set-matrix
+        run: |
+          # 确定构建层级
+          TIER="${{ inputs.build_tier || 'all' }}"
+          PLATFORM="${{ inputs.platforms || 'all' }}"
+
+          # 基础平台定义
+          LINUX_AMD='{"os":"ubuntu-24.04","arch":"linux-amd64"}'
+          LINUX_ARM='{"os":"ubuntu-24.04-arm","arch":"linux-arm64"}'
+          MACOS='{"os":"macos-15","arch":"macos-arm64"}'
+          WINDOWS='{"os":"windows-2025","arch":"windows-amd64"}'
+
+          # 根据平台选择过滤
+          case "$PLATFORM" in
+            linux-only) PLATFORMS="[$LINUX_AMD,$LINUX_ARM]" ;;
+            macos-only) PLATFORMS="[$MACOS]" ;;
+            windows-only) PLATFORMS="[$WINDOWS]" ;;
+            *) PLATFORMS="[$LINUX_AMD,$LINUX_ARM,$MACOS,$WINDOWS]" ;;
+          esac
+
+          # 根据层级生成 include 列表
+          INCLUDES="[]"
+          for PLAT in $(echo "$PLATFORMS" | jq -c '.[]'); do
+            OS=$(echo "$PLAT" | jq -r '.os')
+            ARCH=$(echo "$PLAT" | jq -r '.arch')
+            EXT=""
+            if echo "$ARCH" | grep -q "windows"; then EXT=".exe"; fi
+
+            if [ "$TIER" = "all" ] || [ "$TIER" = "cli" ]; then
+              INCLUDES=$(echo "$INCLUDES" | jq -c ". + [{\"os\":\"$OS\",\"build_type\":\"cli\",\"artifact_name\":\"souwen-${ARCH}-cli${EXT}\"}]")
+            fi
+            if [ "$TIER" = "all" ] || [ "$TIER" = "server" ]; then
+              INCLUDES=$(echo "$INCLUDES" | jq -c ". + [{\"os\":\"$OS\",\"build_type\":\"server\",\"artifact_name\":\"souwen-${ARCH}-server${EXT}\"}]")
+            fi
+            if [ "$TIER" = "all" ] || [ "$TIER" = "full" ]; then
+              INCLUDES=$(echo "$INCLUDES" | jq -c ". + [{\"os\":\"$OS\",\"build_type\":\"full\",\"artifact_name\":\"souwen-${ARCH}-full${EXT}\"}]")
+            fi
+          done
+
+          MATRIX="{\"include\":$INCLUDES}"
+          echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
+
+          # 如果包含 server 或 full 层级，需要 panel 检查
+          if [ "$TIER" = "all" ] || [ "$TIER" = "server" ] || [ "$TIER" = "full" ]; then
+            echo "need_panel=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "need_panel=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ---------------------------------------------------------------------------
+  # Panel 产物检查（仅 server/full 层级需要）
+  # ---------------------------------------------------------------------------
   panel-check:
     name: Panel 产物检查
+    needs: prepare
+    if: needs.prepare.outputs.need_panel == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -63,47 +132,23 @@ jobs:
           npm ci
           npm run build
           npm run check:artifact
-          test -z "$(git -C .. status --short --untracked-files=all -- src/souwen/server/panel.html)" || (echo "❌ src/souwen/server/panel.html 未提交最新构建产物" >&2 && git -C .. status --short --untracked-files=all -- src/souwen/server/panel.html >&2 && exit 1)
+          test -z "$(git -C .. status --short --untracked-files=all -- src/souwen/server/panel.html)" || (echo "❌ src/souwen/server/panel.html 未提交最新构建产物" >&2 && exit 1)
 
       - name: 显示 panel.html 信息
         run: |
           echo "✅ panel.html 大小: $(wc -c < src/souwen/server/panel.html) 字节"
 
+  # ---------------------------------------------------------------------------
+  # 构建
+  # ---------------------------------------------------------------------------
   build:
     name: Build ${{ matrix.build_type }} on ${{ matrix.os }}
-    needs: panel-check
+    needs: [prepare, panel-check]
+    if: always() && needs.prepare.result == 'success' && (needs.panel-check.result == 'success' || needs.panel-check.result == 'skipped')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          # Full 版本（包含 FastAPI + MCP）
-          - os: ubuntu-24.04
-            build_type: full
-            artifact_name: souwen-linux-amd64-full
-          - os: ubuntu-24.04-arm
-            build_type: full
-            artifact_name: souwen-linux-arm64-full
-          - os: macos-15
-            build_type: full
-            artifact_name: souwen-macos-arm64-full
-          - os: windows-2025
-            build_type: full
-            artifact_name: souwen-windows-amd64-full.exe
-
-          # CLI-only 版本（仅搜索命令行）
-          - os: ubuntu-24.04
-            build_type: cli-only
-            artifact_name: souwen-linux-amd64-cli
-          - os: ubuntu-24.04-arm
-            build_type: cli-only
-            artifact_name: souwen-linux-arm64-cli
-          - os: macos-15
-            build_type: cli-only
-            artifact_name: souwen-macos-arm64-cli
-          - os: windows-2025
-            build_type: cli-only
-            artifact_name: souwen-windows-amd64-cli.exe
+      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
 
     steps:
       - name: Checkout repository
@@ -115,18 +160,25 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
 
+      - name: Install dependencies (CLI)
+        if: matrix.build_type == 'cli'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install pyinstaller
+
+      - name: Install dependencies (Server)
+        if: matrix.build_type == 'server'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-server.txt
+          pip install pyinstaller
+
       - name: Install dependencies (Full)
         if: matrix.build_type == 'full'
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements-full.txt
-          pip install pyinstaller
-
-      - name: Install dependencies (CLI-only)
-        if: matrix.build_type == 'cli-only'
-        run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
           pip install pyinstaller
 
       - name: Verify CLI
@@ -150,8 +202,21 @@ jobs:
             --hidden-import=souwen.integrations.mcp_server \
             cli.py
 
-      - name: Build with PyInstaller (Unix - CLI-only)
-        if: runner.os != 'Windows' && matrix.build_type == 'cli-only'
+      - name: Build with PyInstaller (Unix - Server)
+        if: runner.os != 'Windows' && matrix.build_type == 'server'
+        run: |
+          pyinstaller --onefile --clean --name ${{ env.APP_NAME }} \
+            --paths src \
+            --add-data "src/souwen/server/panel.html:souwen/server" \
+            --hidden-import=souwen.server \
+            --hidden-import=souwen.server.app \
+            --hidden-import=souwen.server.routes \
+            --exclude-module=souwen.integrations \
+            --exclude-module=mcp \
+            cli.py
+
+      - name: Build with PyInstaller (Unix - CLI)
+        if: runner.os != 'Windows' && matrix.build_type == 'cli'
         run: |
           pyinstaller --onefile --clean --name ${{ env.APP_NAME }} \
             --paths src \
@@ -167,8 +232,13 @@ jobs:
         run: |
           pyinstaller --onefile --clean --name ${{ env.APP_NAME }} --paths src --add-data "src/souwen/server/panel.html;souwen/server" --hidden-import=souwen.server --hidden-import=souwen.server.app --hidden-import=souwen.server.routes --hidden-import=souwen.integrations --hidden-import=souwen.integrations.mcp_server cli.py
 
-      - name: Build with PyInstaller (Windows - CLI-only)
-        if: runner.os == 'Windows' && matrix.build_type == 'cli-only'
+      - name: Build with PyInstaller (Windows - Server)
+        if: runner.os == 'Windows' && matrix.build_type == 'server'
+        run: |
+          pyinstaller --onefile --clean --name ${{ env.APP_NAME }} --paths src --add-data "src/souwen/server/panel.html;souwen/server" --hidden-import=souwen.server --hidden-import=souwen.server.app --hidden-import=souwen.server.routes --exclude-module=souwen.integrations --exclude-module=mcp cli.py
+
+      - name: Build with PyInstaller (Windows - CLI)
+        if: runner.os == 'Windows' && matrix.build_type == 'cli'
         run: |
           pyinstaller --onefile --clean --name ${{ env.APP_NAME }} --paths src --exclude-module=souwen.server --exclude-module=souwen.integrations --exclude-module=fastapi --exclude-module=uvicorn --exclude-module=mcp cli.py
 
@@ -188,11 +258,14 @@ jobs:
           path: dist/${{ matrix.artifact_name }}
           retention-days: 30
 
+  # ---------------------------------------------------------------------------
+  # Release（仅 tag 触发时）
+  # ---------------------------------------------------------------------------
   release:
     name: Create Release
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/')
 
     steps:
       - name: Download all artifacts
@@ -212,13 +285,19 @@ jobs:
 
             ### Downloads
 
-            **完整版（Full — 包含 FastAPI + MCP）：**
+            **完整版（Full — CLI + API Server + MCP 集成）：**
             - **Linux (x64)**: `souwen-linux-amd64-full`
             - **Linux (ARM64)**: `souwen-linux-arm64-full`
             - **macOS (Apple Silicon)**: `souwen-macos-arm64-full`
             - **Windows (x64)**: `souwen-windows-amd64-full.exe`
 
-            **CLI 版本（仅搜索命令行，体积更小）：**
+            **服务版（Server — CLI + API Server + 前端面板）：**
+            - **Linux (x64)**: `souwen-linux-amd64-server`
+            - **Linux (ARM64)**: `souwen-linux-arm64-server`
+            - **macOS (Apple Silicon)**: `souwen-macos-arm64-server`
+            - **Windows (x64)**: `souwen-windows-amd64-server.exe`
+
+            **命令行版（CLI — 纯搜索工具，体积最小）：**
             - **Linux (x64)**: `souwen-linux-amd64-cli`
             - **Linux (ARM64)**: `souwen-linux-arm64-cli`
             - **macOS (Apple Silicon)**: `souwen-macos-arm64-cli`
@@ -228,13 +307,14 @@ jobs:
             ```bash
             chmod +x souwen-*           # Unix
             ./souwen-linux-amd64-full search paper "transformer"
-            ./souwen-linux-amd64-full serve --port 8000
-            ./souwen-linux-amd64-full doctor
+            ./souwen-linux-amd64-server serve --port 8000
+            ./souwen-linux-amd64-cli doctor
             ```
 
             ### 版本说明
-            - **Full 版**：包含 FastAPI REST API 服务 + MCP Server 集成
-            - **CLI 版**：仅包含搜索命令行工具（search/sources/doctor），体积更小
+            - **Full 版**：包含 FastAPI REST API 服务 + MCP Server 集成 + 全部可选依赖
+            - **Server 版**：包含 CLI + FastAPI API 服务 + 内嵌前端面板
+            - **CLI 版**：仅包含搜索命令行工具（search/fetch/sources/doctor），体积更小
           files: |
             artifacts/**/*
           generate_release_notes: true
