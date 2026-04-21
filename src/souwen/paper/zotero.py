@@ -81,17 +81,9 @@ class ZoteroClient:
         library_type: str | None = None,
     ) -> None:
         cfg = get_config()
-        self.api_key: str | None = api_key or cfg.resolve_api_key(
-            "zotero", "zotero_api_key"
-        )
-        self.library_id: str | None = library_id or getattr(
-            cfg, "zotero_library_id", None
-        )
-        self.library_type: str = (
-            library_type
-            or getattr(cfg, "zotero_library_type", None)
-            or "user"
-        )
+        self.api_key: str | None = api_key or cfg.resolve_api_key("zotero", "zotero_api_key")
+        self.library_id: str | None = library_id or getattr(cfg, "zotero_library_id", None)
+        self.library_type: str = library_type or getattr(cfg, "zotero_library_type", None) or "user"
 
         if not self.api_key:
             raise ConfigError(
@@ -110,9 +102,7 @@ class ZoteroClient:
         self.library_id = str(self.library_id).strip()
 
         headers: dict[str, str] = {"Zotero-API-Key": self.api_key}
-        self._client = SouWenHttpClient(
-            base_url=_BASE_URL, headers=headers, source_name="zotero"
-        )
+        self._client = SouWenHttpClient(base_url=_BASE_URL, headers=headers, source_name="zotero")
         self._limiter = TokenBucketLimiter(rate=_DEFAULT_RPS, burst=_DEFAULT_RPS)
 
     # ------------------------------------------------------------------
@@ -201,11 +191,7 @@ class ZoteroClient:
                 url = f"{_BASE_URL}{self._base_path}/items/{item_key}"
 
             # 提取标签
-            tags = [
-                t.get("tag", "")
-                for t in data.get("tags", [])
-                if t.get("tag")
-            ]
+            tags = [t.get("tag", "") for t in data.get("tags", []) if t.get("tag")]
 
             return PaperResult(
                 source=SourceType.ZOTERO,
@@ -215,16 +201,8 @@ class ZoteroClient:
                 doi=doi,
                 year=year,
                 publication_date=pub_date,
-                journal=(
-                    data.get("publicationTitle")
-                    or data.get("bookTitle")
-                    or None
-                ),
-                venue=(
-                    data.get("conferenceName")
-                    or data.get("proceedingsTitle")
-                    or None
-                ),
+                journal=(data.get("publicationTitle") or data.get("bookTitle") or None),
+                venue=(data.get("conferenceName") or data.get("proceedingsTitle") or None),
                 source_url=url,
                 raw={
                     "item_key": item_key,
@@ -254,18 +232,11 @@ class ZoteroClient:
             return None
 
         # 分类：PDF / HTML / 其他
-        pdfs = [
-            c for c in candidates
-            if c["data"].get("contentType") == "application/pdf"
-        ]
+        pdfs = [c for c in candidates if c["data"].get("contentType") == "application/pdf"]
         htmls = [
-            c for c in candidates
-            if (c["data"].get("contentType") or "").startswith("text/html")
+            c for c in candidates if (c["data"].get("contentType") or "").startswith("text/html")
         ]
-        others = [
-            c for c in candidates
-            if c not in pdfs and c not in htmls
-        ]
+        others = [c for c in candidates if c not in pdfs and c not in htmls]
 
         # 每组按 dateAdded 倒序
         def _sort_key(c: dict[str, Any]) -> str:
@@ -314,20 +285,14 @@ class ZoteroClient:
         if tag:
             params["tag"] = tag
 
-        resp = await self._client.get(
-            f"{self._base_path}/items", params=params
-        )
+        resp = await self._client.get(f"{self._base_path}/items", params=params)
         await self._respect_backoff(resp)
 
         # Zotero 通过 Total-Results 头返回总数
         total = int(resp.headers.get("Total-Results", "0"))
         items: list[dict[str, Any]] = resp.json()
 
-        results = [
-            self._parse_item(item)
-            for item in items
-            if self._is_paper_type(item)
-        ]
+        results = [self._parse_item(item) for item in items if self._is_paper_type(item)]
 
         return SearchResponse(
             query=query,
@@ -351,9 +316,7 @@ class ZoteroClient:
             NotFoundError: 条目不存在。
         """
         await self._limiter.acquire()
-        resp = await self._client.get(
-            f"{self._base_path}/items/{item_key}"
-        )
+        resp = await self._client.get(f"{self._base_path}/items/{item_key}")
         await self._respect_backoff(resp)
 
         if resp.status_code == 404:
@@ -379,9 +342,7 @@ class ZoteroClient:
         await self._limiter.acquire()
 
         # 获取条目信息
-        resp = await self._client.get(
-            f"{self._base_path}/items/{item_key}"
-        )
+        resp = await self._client.get(f"{self._base_path}/items/{item_key}")
         await self._respect_backoff(resp)
 
         if resp.status_code == 404:
@@ -394,35 +355,25 @@ class ZoteroClient:
         attachment_key = item_key
         if item_type != "attachment":
             await self._limiter.acquire()
-            children_resp = await self._client.get(
-                f"{self._base_path}/items/{item_key}/children"
-            )
+            children_resp = await self._client.get(f"{self._base_path}/items/{item_key}/children")
             await self._respect_backoff(children_resp)
 
             children: list[dict[str, Any]] = children_resp.json()
             best = self._pick_best_attachment(children)
             if not best:
-                raise NotFoundError(
-                    f"Zotero 条目 {item_key} 没有可提取全文的附件"
-                )
+                raise NotFoundError(f"Zotero 条目 {item_key} 没有可提取全文的附件")
             attachment_key = best
 
         # 获取全文
         await self._limiter.acquire()
         try:
-            ft_resp = await self._client.get(
-                f"{self._base_path}/items/{attachment_key}/fulltext"
-            )
+            ft_resp = await self._client.get(f"{self._base_path}/items/{attachment_key}/fulltext")
             await self._respect_backoff(ft_resp)
         except Exception:
-            raise NotFoundError(
-                f"Zotero 附件 {attachment_key} 的全文未被索引（需 Zotero 7.1+）"
-            )
+            raise NotFoundError(f"Zotero 附件 {attachment_key} 的全文未被索引（需 Zotero 7.1+）")
 
         if ft_resp.status_code == 404:
-            raise NotFoundError(
-                f"Zotero 附件 {attachment_key} 的全文未被索引"
-            )
+            raise NotFoundError(f"Zotero 附件 {attachment_key} 的全文未被索引")
 
         data = ft_resp.json()
         content = data.get("content", "")
@@ -445,9 +396,7 @@ class ZoteroClient:
             集合列表，每项包含 ``key``、``name``、``parent`` 字段。
         """
         await self._limiter.acquire()
-        resp = await self._client.get(
-            f"{self._base_path}/collections"
-        )
+        resp = await self._client.get(f"{self._base_path}/collections")
         await self._respect_backoff(resp)
 
         return [
