@@ -76,9 +76,7 @@ def test_sign_params():
 
     mixin = get_mixin_key(_IMG_KEY, _SUB_KEY)
     expected_query = f"baz=1&foo=bar&wts={ts}"
-    expected_w_rid = hashlib.md5(
-        (expected_query + mixin).encode("utf-8")
-    ).hexdigest()
+    expected_w_rid = hashlib.md5((expected_query + mixin).encode("utf-8")).hexdigest()
     assert out["w_rid"] == expected_w_rid
 
 
@@ -90,9 +88,7 @@ def test_sign_params_filters_special_chars():
 
     mixin = get_mixin_key(_IMG_KEY, _SUB_KEY)
     expected_query = f"q=bar&wts={ts}"
-    expected_w_rid = hashlib.md5(
-        (expected_query + mixin).encode("utf-8")
-    ).hexdigest()
+    expected_w_rid = hashlib.md5((expected_query + mixin).encode("utf-8")).hexdigest()
     assert out["w_rid"] == expected_w_rid
 
 
@@ -105,9 +101,7 @@ def test_sign_params_sorts_keys():
 
     mixin = get_mixin_key(_IMG_KEY, _SUB_KEY)
     expected_query = f"a=2&b=1&c=3&wts={ts}"
-    expected_w_rid = hashlib.md5(
-        (expected_query + mixin).encode("utf-8")
-    ).hexdigest()
+    expected_w_rid = hashlib.md5((expected_query + mixin).encode("utf-8")).hexdigest()
     assert a["w_rid"] == expected_w_rid
 
 

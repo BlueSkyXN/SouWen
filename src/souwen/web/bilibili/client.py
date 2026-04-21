@@ -484,18 +484,14 @@ class BilibiliClient(BaseScraper):
             BilibiliNotFound / BilibiliError
         """
         # 1) /x/space/wbi/acc/info — 主信息（WBI）
-        info_payload = await self._wbi_get(
-            "/x/space/wbi/acc/info", {"mid": int(mid)}
-        )
+        info_payload = await self._wbi_get("/x/space/wbi/acc/info", {"mid": int(mid)})
         info = self._check_code(info_payload)
 
         # 2) /x/relation/stat — 关注/粉丝（无需 WBI）
         following = 0
         follower = 0
         try:
-            stat_payload = await self._plain_get(
-                "/x/relation/stat", {"vmid": int(mid)}
-            )
+            stat_payload = await self._plain_get("/x/relation/stat", {"vmid": int(mid)})
             stat = self._check_code(stat_payload)
             following = int(stat.get("following", 0) or 0)
             follower = int(stat.get("follower", 0) or 0)
@@ -506,9 +502,7 @@ class BilibiliClient(BaseScraper):
         # 3) /x/space/navnum — 投稿数（best-effort）
         archive_count = 0
         try:
-            nav_payload = await self._plain_get(
-                "/x/space/navnum", {"mid": int(mid)}
-            )
+            nav_payload = await self._plain_get("/x/space/navnum", {"mid": int(mid)})
             nav = self._check_code(nav_payload)
             archive_count = int(nav.get("video", 0) or 0)
         except Exception as e:
@@ -670,9 +664,7 @@ class BilibiliClient(BaseScraper):
                                 "avatar": str(member.get("avatar", "") or ""),
                                 "level_info": member.get("level_info") or {},
                             },
-                            content={
-                                "message": str(content.get("message", "") or "")
-                            },
+                            content={"message": str(content.get("message", "") or "")},
                         )
                     )
                     if len(results) >= max_comments:
@@ -762,12 +754,8 @@ class BilibiliClient(BaseScraper):
                                             **{
                                                 "from": float(line.get("from", 0) or 0),
                                                 "to": float(line.get("to", 0) or 0),
-                                                "content": str(
-                                                    line.get("content", "") or ""
-                                                ),
-                                                "location": int(
-                                                    line.get("location", 0) or 0
-                                                ),
+                                                "content": str(line.get("content", "") or ""),
+                                                "location": int(line.get("location", 0) or 0),
                                             }
                                         )
                                     )

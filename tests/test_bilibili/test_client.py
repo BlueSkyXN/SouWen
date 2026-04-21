@@ -227,11 +227,13 @@ async def test_get_user_info_merges_endpoints():
     }
 
     # 三次顺序调用：acc/info → relation/stat → space/navnum
-    fetch = AsyncMock(side_effect=[
-        _resp(info_payload),
-        _resp(stat_payload),
-        _resp(nav_payload),
-    ])
+    fetch = AsyncMock(
+        side_effect=[
+            _resp(info_payload),
+            _resp(stat_payload),
+            _resp(nav_payload),
+        ]
+    )
     with patch.object(BilibiliClient, "_fetch", new=fetch):
         u = await client.get_user_info(12345)
 
@@ -287,12 +289,14 @@ async def test_get_comments_pagination():
         "data": {"replies": _make_replies(41, 10), "page": {"count": 50, "size": 20, "num": 3}},
     }
 
-    fetch = AsyncMock(side_effect=[
-        _resp(view_payload),
-        _resp(page1),
-        _resp(page2),
-        _resp(page3),
-    ])
+    fetch = AsyncMock(
+        side_effect=[
+            _resp(view_payload),
+            _resp(page1),
+            _resp(page2),
+            _resp(page3),
+        ]
+    )
     with patch.object(BilibiliClient, "_fetch", new=fetch):
         comments = await client.get_comments("BV1xx", max_comments=25)
 

@@ -175,9 +175,7 @@ async def bilibili_user_videos(
     """获取用户投稿视频列表，并附带总条数。"""
     try:
         async with BilibiliClient() as client:
-            items, total = await client.get_user_videos(
-                mid, page=page, page_size=page_size
-            )
+            items, total = await client.get_user_videos(mid, page=page, page_size=page_size)
             return {
                 "items": [v.model_dump() for v in items],
                 "total": total,
@@ -233,9 +231,7 @@ async def bilibili_search_users(
     """按关键词搜索 Bilibili 用户（聚合接口，失败降级为空列表）。"""
     try:
         async with BilibiliClient() as client:
-            items = await client.search_users(
-                keyword, page=page, max_results=max_results
-            )
+            items = await client.search_users(keyword, page=page, max_results=max_results)
             return [u.model_dump() for u in items]
     except BilibiliError as e:
         _raise_for_bilibili(e)
