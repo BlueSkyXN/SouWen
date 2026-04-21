@@ -8,7 +8,7 @@
 类清单（[已修正] 与实际定义对齐）：
     SourceType（str, Enum）
         - 功能：所有数据源的字符串枚举（论文 / 专利 / Web）
-        - 论文：openalex / semantic_scholar / crossref / arxiv / dblp / core / pubmed / unpaywall
+        - 论文：openalex / semantic_scholar / crossref / arxiv / dblp / core / pubmed / unpaywall / huggingface
         - 专利：patents_view / pqai / epo_ops / uspto_odp / the_lens / cnipa / patsnap / google_patents
         - Web：google / bing / duckduckgo / yahoo / brave / startpage / baidu / mojeek / yandex /
               searxng / whoogle / websurfx / tavily / exa / serper / brave_api / serpapi /
@@ -115,7 +115,7 @@ class SourceType(str, Enum):
     """数据源类型枚举
 
     分为三大类：
-    - 论文源：OpenAlex, Semantic Scholar, CrossRef, arXiv, DBLP, CORE, PubMed, Unpaywall, IEEE
+    - 论文源：OpenAlex, Semantic Scholar, CrossRef, arXiv, DBLP, CORE, PubMed, Unpaywall, HuggingFace Papers
     - 专利源：PatentsView, USPTO ODP, EPO OPS, CNIPA, Lens, PatSnap
     - Web 源：Google, DuckDuckGo, Tavily, Serper, Brave Search, Exa 等
     """
@@ -130,6 +130,7 @@ class SourceType(str, Enum):
     PUBMED = "pubmed"
     UNPAYWALL = "unpaywall"
     ZOTERO = "zotero"
+    HUGGINGFACE = "huggingface"
     # 专利数据源
     PATENTSVIEW = "patentsview"
     USPTO_ODP = "uspto_odp"
@@ -439,6 +440,7 @@ ALL_SOURCES: dict[str, list[tuple[str, bool, str]]] = {
         ("core", True, "CORE 全文开放获取"),
         ("pubmed", False, "PubMed 生物医学"),
         ("zotero", True, "Zotero 个人文献库搜索 (需 API Key + Library ID)"),
+        ("huggingface", False, "HuggingFace Papers 社区精选（语义搜索 + 热度排行）"),
     ],
     "patent": [
         ("epo_ops", True, "EPO OPS 欧洲专利 (OAuth)"),

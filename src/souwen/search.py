@@ -84,6 +84,7 @@ from souwen.paper.dblp import DblpClient
 from souwen.paper.core import CoreClient
 from souwen.paper.pubmed import PubMedClient
 from souwen.paper.zotero import ZoteroClient
+from souwen.paper.huggingface import HuggingFaceClient
 
 # ── 专利客户端 ──────────────────────────────────────────────
 from souwen.patent.patentsview import PatentsViewClient
@@ -262,6 +263,13 @@ _PAPER_SOURCES: dict[str, Any] = {
         "search",
         query=q,
         limit=n,
+        **kw,
+    ),
+    "huggingface": lambda q, n, **kw: _run_client(
+        HuggingFaceClient,
+        "search",
+        query=q,
+        top_n=n,
         **kw,
     ),
 }

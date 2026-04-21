@@ -20,6 +20,7 @@ Model Context Protocol (MCP) 集成，使 Claude Code、Cursor、Windsurf 等 AI
     search_papers
         - 搜索学术论文
         - 参数：query, sources (可选), limit (可选，默认 5)
+        - 支持：OpenAlex, Semantic Scholar, Crossref, arXiv, DBLP, CORE, PubMed, HuggingFace Papers
         - 返回：论文列表 (JSON)
 
     search_patents
@@ -97,7 +98,7 @@ def create_server() -> "Server":
                 name="search_papers",
                 description=(
                     "搜索学术论文。支持 OpenAlex, Semantic Scholar, "
-                    "Crossref, arXiv, DBLP, CORE, PubMed, Unpaywall。"
+                    "Crossref, arXiv, DBLP, CORE, PubMed, Unpaywall, HuggingFace Papers。"
                 ),
                 inputSchema={
                     "type": "object",
