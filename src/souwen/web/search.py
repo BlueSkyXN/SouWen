@@ -88,6 +88,8 @@ from souwen.web.weibo import WeiboClient
 from souwen.web.csdn import CSDNClient
 from souwen.web.juejin import JuejinClient
 from souwen.web.linuxdo import LinuxDoClient
+from souwen.web.twitter import TwitterClient
+from souwen.web.facebook import FacebookClient
 
 logger = logging.getLogger("souwen.web.search")
 _WEB_ENGINE_TIMEOUT_CAP_SECONDS = 15.0
@@ -255,6 +257,8 @@ async def web_search(
         "csdn": CSDNClient,
         "juejin": JuejinClient,
         "linuxdo": LinuxDoClient,
+        "twitter": TwitterClient,
+        "facebook": FacebookClient,
     }
 
     # 引擎名 -> SourceType 的映射，用于标记结果来源
@@ -296,6 +300,8 @@ async def web_search(
         "csdn": SourceType.WEB_CSDN,
         "juejin": SourceType.WEB_JUEJIN,
         "linuxdo": SourceType.WEB_LINUXDO,
+        "twitter": SourceType.WEB_TWITTER,
+        "facebook": SourceType.WEB_FACEBOOK,
     }
 
     # 默认使用在当前零配置场景下更稳定的公开引擎组合
