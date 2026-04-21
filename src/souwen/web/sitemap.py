@@ -116,9 +116,7 @@ async def _fetch_url_bytes(url: str) -> bytes | None:
     try:
         from souwen.scraper.base import BaseScraper
 
-        scraper = BaseScraper(
-            min_delay=0, max_delay=0.1, max_retries=1, follow_redirects=True
-        )
+        scraper = BaseScraper(min_delay=0, max_delay=0.1, max_retries=1, follow_redirects=True)
         async with scraper:
             resp = await scraper._fetch(url)
             if resp.status_code >= 400:
@@ -276,9 +274,7 @@ async def discover_sitemap(
     for sitemap_url in sitemap_urls:
         if len(all_entries) >= max_entries:
             break
-        result = await parse_sitemap(
-            sitemap_url, max_entries=max_entries - len(all_entries)
-        )
+        result = await parse_sitemap(sitemap_url, max_entries=max_entries - len(all_entries))
         all_entries.extend(result.entries)
         total_parsed += result.sitemaps_parsed
         all_errors.extend(result.errors)
