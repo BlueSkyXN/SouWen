@@ -180,3 +180,94 @@ async def test_get_paper_rate_limit(httpx_mock: HTTPXMock):
     async with SemanticScholarClient(api_key=None) as c:
         with pytest.raises(RateLimitError):
             await c.get_paper("abc")
+
+
+# ---------------------------------------------------------------------------
+# Citation graph (Feature 2)
+# ---------------------------------------------------------------------------
+
+
+S2_CITATIONS_RESPONSE = {
+    "data": [
+        {
+            "citingPaper": {
+                "paperId": "cite1",
+                "title": "Citing Paper One",
+                "year": 2024,
+                "authors": [{"name": "Alice"}, {"name": "Bob"}],
+                "externalIds": {"ArXiv": "2401.00001"},
+            }
+        },
+        {
+            "citingPaper": {
+                "paperId": "cite2",
+                "title": "Citing Paper Two",
+                "year": 2023,
+                "authors": [{"name": "Carol"}],
+                "externalIds": {},
+            }
+        },
+    ]
+}
+
+S2_REFERENCES_RESPONSE = {
+    "data": [
+        {
+            "citedPaper": {
+                "paperId": "ref1",
+                "title": "Referenced Paper",
+                "year": 2020,
+                "authors": [{"name": "Dave"}],
+                "externalIds": {"ArXiv": "2001.12345"},
+            }
+        }
+    ]
+}
+
+
+async def test_get_citations_basic(httpx_mock: HTTPXMock):
+    """get_citations() 同时拉取 citations 与 references 并组装为字典。"""
+    httpx_mock.add_response(
+        url=re.compile(r".*/paper/abc123/citations.*"),
+        json=S2_CITATIONS_RESPONSE,
+    )
+    httpx_mock.add_response(
+        url=re.compile(r".*/paper/abc123/references.*"),
+        json=S2_REFERENCES_RESPONSE,
+    )
+
+    async with SemanticScholarClient(api_key=None) as c:
+        result = await c.get_citations("abc123", limit=10)
+
+    assert result["paper_id"] == "abc123"
+    assert result["citation_count"] == 2
+    assert result["reference_count"] == 1
+
+    cite0 = result["citations"][0]
+    assert cite0["paper_id"] == "cite1"
+    assert cite0["title"] == "Citing Paper One"
+    assert cite0["year"] == 2024
+    assert cite0["authors"] == ["Alice", "Bob"]
+    assert cite0["arxiv_id"] == "2401.00001"
+
+    cite1 = result["citations"][1]
+    assert cite1["arxiv_id"] is None  # 无 ArXiv 外部 ID
+
+    ref0 = result["references"][0]
+    assert ref0["paper_id"] == "ref1"
+    assert ref0["arxiv_id"] == "2001.12345"
+
+
+async def test_get_citations_not_found(httpx_mock: HTTPXMock):
+    """404 抛 NotFoundError。"""
+    from souwen.exceptions import NotFoundError
+
+    httpx_mock.add_response(
+        url=re.compile(r".*/paper/missing/citations.*"),
+        status_code=404,
+        json={"error": "not found"},
+    )
+
+    async with SemanticScholarClient(api_key=None) as c:
+        with pytest.raises(NotFoundError):
+            await c.get_citations("missing")
