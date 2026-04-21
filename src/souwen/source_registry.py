@@ -198,6 +198,11 @@ _reg("reddit", "social", "open_api", None, description="Reddit 帖子搜索")
 _reg("weibo", "social", "scraper", None, description="微博搜索")
 _reg("zhihu", "social", "scraper", None, description="知乎问答搜索")
 
+# ── 中文技术社区 (cn_tech)：公开接口/爬虫 ─────────────────
+_reg("csdn", "cn_tech", "scraper", None, description="CSDN 技术博客搜索")
+_reg("juejin", "cn_tech", "scraper", None, description="稀土掘金技术文章搜索")
+_reg("linuxdo", "cn_tech", "open_api", None, description="LinuxDo 论坛搜索（Discourse）")
+
 # ── 开发 (developer)：公开接口 ───────────────────────────
 _reg("github", "developer", "open_api", "github_token", description="GitHub 仓库搜索 (可选 Token)")
 _reg(

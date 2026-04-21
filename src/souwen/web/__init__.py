@@ -54,6 +54,9 @@ from souwen.web.wikipedia import WikipediaClient
 from souwen.web.youtube import YouTubeClient
 from souwen.web.zhihu import ZhihuClient
 from souwen.web.weibo import WeiboClient
+from souwen.web.csdn import CSDNClient
+from souwen.web.juejin import JuejinClient
+from souwen.web.linuxdo import LinuxDoClient
 from souwen.web.metaso import MetasoClient
 from souwen.web.jina_reader import JinaReaderClient
 from souwen.web.builtin import BuiltinFetcherClient
@@ -97,6 +100,10 @@ __all__ = [
     "YouTubeClient",
     "ZhihuClient",
     "WeiboClient",
+    # 中文技术社区
+    "CSDNClient",
+    "JuejinClient",
+    "LinuxDoClient",
     # API 类（需 Key）- 中文搜索
     "MetasoClient",
     # 内容抓取类 (fetch)
