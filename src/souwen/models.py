@@ -178,6 +178,7 @@ class SourceType(str, Enum):
     WEB_CSDN = "web_csdn"
     WEB_JUEJIN = "web_juejin"
     WEB_LINUXDO = "web_linuxdo"
+    WEB_BING_CN = "web_bing_cn"
     # ── 内容抓取 (fetch) ──
     FETCH_BUILTIN = "fetch_builtin"
     FETCH_JINA_READER = "fetch_jina_reader"
