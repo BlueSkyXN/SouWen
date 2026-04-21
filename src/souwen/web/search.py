@@ -90,6 +90,7 @@ from souwen.web.juejin import JuejinClient
 from souwen.web.linuxdo import LinuxDoClient
 from souwen.web.twitter import TwitterClient
 from souwen.web.facebook import FacebookClient
+from souwen.web.feishu_drive import FeishuDriveClient
 
 logger = logging.getLogger("souwen.web.search")
 _WEB_ENGINE_TIMEOUT_CAP_SECONDS = 15.0
@@ -259,6 +260,8 @@ async def web_search(
         "linuxdo": LinuxDoClient,
         "twitter": TwitterClient,
         "facebook": FacebookClient,
+        # 企业/办公平台搜索
+        "feishu_drive": FeishuDriveClient,
     }
 
     # 引擎名 -> SourceType 的映射，用于标记结果来源
@@ -302,6 +305,7 @@ async def web_search(
         "linuxdo": SourceType.WEB_LINUXDO,
         "twitter": SourceType.WEB_TWITTER,
         "facebook": SourceType.WEB_FACEBOOK,
+        "feishu_drive": SourceType.WEB_FEISHU_DRIVE,
     }
 
     # 默认使用在当前零配置场景下更稳定的公开引擎组合

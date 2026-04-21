@@ -182,6 +182,8 @@ class SourceType(str, Enum):
     # 国际社交媒体（官方 API）
     WEB_TWITTER = "web_twitter"
     WEB_FACEBOOK = "web_facebook"
+    # 办公/企业平台搜索
+    WEB_FEISHU_DRIVE = "web_feishu_drive"
     # ── 内容抓取 (fetch) ──
     FETCH_BUILTIN = "fetch_builtin"
     FETCH_JINA_READER = "fetch_jina_reader"
@@ -472,6 +474,9 @@ ALL_SOURCES: dict[str, list[tuple[str, bool, str]]] = {
         ("reddit", False, "Reddit 帖子搜索"),
         ("weibo", False, "微博搜索 (爬虫)"),
         ("zhihu", False, "知乎问答搜索 (爬虫)"),
+    ],
+    "office": [
+        ("feishu_drive", True, "飞书云文档搜索 (需 App ID + App Secret)"),
     ],
     "developer": [
         ("github", False, "GitHub 仓库搜索 (可选 Token)"),

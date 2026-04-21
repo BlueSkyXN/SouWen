@@ -241,6 +241,9 @@ class SouWenConfig(BaseModel):
     reddit_client_secret: str | None = None  # Reddit OAuth2 App Client Secret
     facebook_app_id: str | None = None  # Meta Facebook App ID
     facebook_app_secret: str | None = None  # Meta Facebook App Secret
+    # 企业/办公平台
+    feishu_app_id: str | None = None  # 飞书自建应用 App ID
+    feishu_app_secret: str | None = None  # 飞书自建应用 App Secret
     # 内容抓取
     jina_api_key: str | None = None  # Jina Reader API Key（可选，免费层无需 Key）
     scrapfly_api_key: str | None = None  # Scrapfly API Key（JS 渲染+AI 提取）
@@ -648,6 +651,8 @@ web:
   apify_api_token: ~
   cloudflare_api_token: ~
   cloudflare_account_id: ~
+  feishu_app_id: ~
+  feishu_app_secret: ~
 
 # ===== 通用设置 =====
 general:
