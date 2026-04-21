@@ -80,6 +80,14 @@ try:
 except ImportError:
     HAS_MCP = False
 
+# ── 年份范围过滤用常量 ───────────────────────────────────────
+# arXiv 日期过滤后缀
+_MONTH_START = "-01-01"  # 年份起始月日（YYYY-01-01）
+_MONTH_END = "-12-31"  # 年份结束月日（YYYY-12-31）
+# Semantic Scholar year 过滤占位值（未指定端点时）
+_YEAR_MIN = "0001"
+_YEAR_MAX = "9999"
+
 
 def create_server() -> "Server":
     """创建并配置 MCP 服务器 — 注册工具和处理函数
@@ -244,141 +252,17 @@ def create_server() -> "Server":
 
     @server.call_tool()
     async def call_tool(name: str, arguments: dict) -> list[TextContent]:
-        """工具调用处理器 — 调用对应的搜索函数
+        """工具调用处理器 — 委托给 handle_tool_call，封装为 MCP TextContent。
 
         参数：
-            name: 工具名称（search_papers、fetch_paper_details、search_by_topic、
-                  search_patents、web_search、get_status）
+            name: 工具名称
             arguments: 工具参数字典
 
         Returns:
             list[TextContent]：单个文本内容项，包含 JSON 结果
-
-        说明：
-            所有异常均被捕获并返回为文本错误消息（避免服务崩溃）。
-            结果格式化为 JSON 字符串，便于 LLM 解析。
         """
         try:
-            if name == "search_papers":
-                from souwen.search import search_papers
-
-                sources = arguments.get("sources", ["openalex", "arxiv", "crossref"])
-                limit = arguments.get("limit", 5)
-                responses = await search_papers(arguments["query"], sources=sources, per_page=limit)
-                result = [r.model_dump(mode="json") for r in responses]
-
-            elif name == "fetch_paper_details":
-                paper_id: str = arguments["paper_id"]
-                source: str = arguments.get("source", "semantic_scholar")
-
-                if source == "semantic_scholar":
-                    from souwen.paper.semantic_scholar import SemanticScholarClient
-
-                    async with SemanticScholarClient() as client:
-                        paper = await client.get_paper(paper_id)
-                    result = paper.model_dump(mode="json")
-                elif source == "crossref":
-                    from souwen.paper.crossref import CrossrefClient
-
-                    async with CrossrefClient() as client:
-                        paper = await client.get_by_doi(paper_id)
-                    result = paper.model_dump(mode="json")
-                else:
-                    result = f"不支持的数据源: {source!r}，请使用 'semantic_scholar' 或 'crossref'"
-
-            elif name == "search_by_topic":
-                from souwen.search import search_papers
-                from souwen.paper.arxiv import ArxivClient
-                from souwen.paper.semantic_scholar import SemanticScholarClient
-                from souwen.paper.crossref import CrossrefClient
-
-                topic: str = arguments["topic"]
-                year_start: int | None = arguments.get("year_start")
-                year_end: int | None = arguments.get("year_end")
-                limit = arguments.get("limit", 10)
-                sources = arguments.get("sources", ["arxiv", "semantic_scholar", "crossref"])
-
-                all_papers = []
-
-                for src in sources:
-                    try:
-                        if src == "arxiv":
-                            date_from = f"{year_start}-01-01" if year_start else None
-                            date_to = f"{year_end}-12-31" if year_end else None
-                            async with ArxivClient() as client:
-                                resp = await client.search(
-                                    topic,
-                                    max_results=limit,
-                                    date_from=date_from,
-                                    date_to=date_to,
-                                )
-                            all_papers.extend(
-                                p.model_dump(mode="json") for p in resp.results
-                            )
-                        elif src == "semantic_scholar":
-                            # Semantic Scholar 支持 year=YYYY-YYYY 过滤
-                            query = topic
-                            if year_start or year_end:
-                                y_start = str(year_start) if year_start else "0001"
-                                y_end = str(year_end) if year_end else "9999"
-                                query = f"{topic} year:{y_start}-{y_end}"
-                            async with SemanticScholarClient() as client:
-                                resp = await client.search(query, limit=limit)
-                            all_papers.extend(
-                                p.model_dump(mode="json") for p in resp.results
-                            )
-                        elif src == "crossref":
-                            filters: dict[str, str] = {}
-                            if year_start:
-                                filters["from-pub-date"] = str(year_start)
-                            if year_end:
-                                filters["until-pub-date"] = str(year_end)
-                            async with CrossrefClient() as client:
-                                resp = await client.search(
-                                    topic,
-                                    filters=filters if filters else None,
-                                    rows=limit,
-                                )
-                            all_papers.extend(
-                                p.model_dump(mode="json") for p in resp.results
-                            )
-                    except Exception as src_exc:
-                        # 单个源失败不阻止其他源继续
-                        all_papers.append(
-                            {"source": src, "error": f"{type(src_exc).__name__}: {src_exc}"}
-                        )
-
-                result = all_papers
-
-            elif name == "search_patents":
-                from souwen.search import search_patents
-
-                sources = arguments.get("sources", ["google_patents"])
-                limit = arguments.get("limit", 5)
-                responses = await search_patents(
-                    arguments["query"], sources=sources, per_page=limit
-                )
-                result = [r.model_dump(mode="json") for r in responses]
-
-            elif name == "web_search":
-                from souwen.web.search import web_search
-
-                engines = arguments.get("engines")
-                limit = arguments.get("limit", 10)
-                response = await web_search(
-                    arguments["query"], engines=engines, max_results_per_engine=limit
-                )
-                result = response.model_dump(mode="json")
-
-            elif name == "get_status":
-                from souwen.doctor import check_all, format_report
-
-                results = check_all()
-                result = format_report(results)
-
-            else:
-                result = f"Unknown tool: {name}"
-
+            result = await handle_tool_call(name, arguments)
             text = (
                 json.dumps(result, ensure_ascii=False, indent=2)
                 if isinstance(result, (dict, list))
@@ -389,6 +273,135 @@ def create_server() -> "Server":
             return [TextContent(type="text", text=f"Error: {type(e).__name__}: {e}")]
 
     return server
+
+
+async def handle_tool_call(name: str, arguments: dict):
+    """工具调用业务逻辑 — 独立于 MCP SDK，可直接测试。
+
+    参数：
+        name: 工具名称（search_papers、fetch_paper_details、search_by_topic、
+              search_patents、web_search、get_status）
+        arguments: 工具参数字典
+
+    Returns:
+        JSON 可序列化的 Python 对象（dict / list / str）
+
+    说明：
+        单个数据源的失败（search_by_topic）被捕获后以错误条目形式附加到结果，
+        不影响其余源。其余工具的异常向上抛出，由调用方处理。
+    """
+    if name == "search_papers":
+        from souwen.search import search_papers
+
+        sources = arguments.get("sources", ["openalex", "arxiv", "crossref"])
+        limit = arguments.get("limit", 5)
+        responses = await search_papers(arguments["query"], sources=sources, per_page=limit)
+        return [r.model_dump(mode="json") for r in responses]
+
+    if name == "fetch_paper_details":
+        from souwen.paper.semantic_scholar import SemanticScholarClient
+        from souwen.paper.crossref import CrossrefClient
+
+        paper_id: str = arguments["paper_id"]
+        source: str = arguments.get("source", "semantic_scholar")
+
+        if source == "semantic_scholar":
+            async with SemanticScholarClient() as client:
+                paper = await client.get_paper(paper_id)
+            return paper.model_dump(mode="json")
+        if source == "crossref":
+            async with CrossrefClient() as client:
+                paper = await client.get_by_doi(paper_id)
+            return paper.model_dump(mode="json")
+        return {
+            "error": f"不支持的数据源: {source!r}",
+            "supported_sources": ["semantic_scholar", "crossref"],
+        }
+
+    if name == "search_by_topic":
+        from souwen.paper.arxiv import ArxivClient
+        from souwen.paper.semantic_scholar import SemanticScholarClient
+        from souwen.paper.crossref import CrossrefClient
+
+        topic: str = arguments["topic"]
+        year_start: int | None = arguments.get("year_start")
+        year_end: int | None = arguments.get("year_end")
+        limit = arguments.get("limit", 10)
+        sources = arguments.get("sources", ["arxiv", "semantic_scholar", "crossref"])
+
+        all_papers: list = []
+
+        for src in sources:
+            try:
+                if src == "arxiv":
+                    date_from = f"{year_start}{_MONTH_START}" if year_start else None
+                    date_to = f"{year_end}{_MONTH_END}" if year_end else None
+                    async with ArxivClient() as client:
+                        resp = await client.search(
+                            topic,
+                            max_results=limit,
+                            date_from=date_from,
+                            date_to=date_to,
+                        )
+                    all_papers.extend(p.model_dump(mode="json") for p in resp.results)
+                elif src == "semantic_scholar":
+                    # Semantic Scholar 支持 year=YYYY-YYYY 过滤
+                    query = topic
+                    if year_start or year_end:
+                        y_start = str(year_start) if year_start else _YEAR_MIN
+                        y_end = str(year_end) if year_end else _YEAR_MAX
+                        query = f"{topic} year:{y_start}-{y_end}"
+                    async with SemanticScholarClient() as client:
+                        resp = await client.search(query, limit=limit)
+                    all_papers.extend(p.model_dump(mode="json") for p in resp.results)
+                elif src == "crossref":
+                    filters: dict[str, str] = {}
+                    if year_start:
+                        filters["from-pub-date"] = str(year_start)
+                    if year_end:
+                        filters["until-pub-date"] = str(year_end)
+                    async with CrossrefClient() as client:
+                        resp = await client.search(
+                            topic,
+                            filters=filters if filters else None,
+                            rows=limit,
+                        )
+                    all_papers.extend(p.model_dump(mode="json") for p in resp.results)
+            except Exception as src_exc:
+                # 单个源失败不阻止其他源继续
+                all_papers.append(
+                    {"source": src, "error": f"{type(src_exc).__name__}: {src_exc}"}
+                )
+
+        return all_papers
+
+    if name == "search_patents":
+        from souwen.search import search_patents
+
+        sources = arguments.get("sources", ["google_patents"])
+        limit = arguments.get("limit", 5)
+        responses = await search_patents(
+            arguments["query"], sources=sources, per_page=limit
+        )
+        return [r.model_dump(mode="json") for r in responses]
+
+    if name == "web_search":
+        from souwen.web.search import web_search
+
+        engines = arguments.get("engines")
+        limit = arguments.get("limit", 10)
+        response = await web_search(
+            arguments["query"], engines=engines, max_results_per_engine=limit
+        )
+        return response.model_dump(mode="json")
+
+    if name == "get_status":
+        from souwen.doctor import check_all, format_report
+
+        results = check_all()
+        return format_report(results)
+
+    return f"Unknown tool: {name}"
 
 
 async def main() -> None:
