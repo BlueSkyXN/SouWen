@@ -238,7 +238,7 @@ async def crawl_site(
 
             async def process_one(item: tuple[str, int]) -> None:
                 page_url, depth = item
-                if depth >= max_depth:
+                if depth > max_depth:
                     return
                 async with sem:
                     try:
@@ -423,6 +423,7 @@ async def generate_sitemap(
     url: str,
     max_depth: int = 2,
     limit: int = 1000,
+    concurrency: int = 10,
     timeout: float = 10.0,
 ) -> SitemapResult:
     """爬取网站并生成 XML Sitemap
@@ -434,13 +435,14 @@ async def generate_sitemap(
         url: 起始 URL
         max_depth: 最大爬取深度，默认 2
         limit: Sitemap 最大 URL 数量，默认 1000
+        concurrency: 并发请求数，默认 10
         timeout: 每页请求超时秒数，默认 10.0
 
     Returns:
         SitemapResult，包含 XML 字符串和 URL 数量
     """
     crawl = await crawl_site(
-        url, max_depth=max_depth, max_urls=limit, timeout=timeout
+        url, max_depth=max_depth, max_urls=limit, concurrency=concurrency, timeout=timeout
     )
     urls = crawl.crawled_urls[:limit]
     today = date.today().isoformat()
