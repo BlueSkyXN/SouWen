@@ -54,7 +54,7 @@ from souwen.web.stackoverflow import StackOverflowClient
 from souwen.web.reddit import RedditClient
 from souwen.web.bilibili import BilibiliClient
 from souwen.web.wikipedia import WikipediaClient
-from souwen.web.youtube import YouTubeClient
+from souwen.web.youtube import VideoDetail, YouTubeClient
 from souwen.web.zhihu import ZhihuClient
 from souwen.web.weibo import WeiboClient
 from souwen.web.csdn import CSDNClient
@@ -108,6 +108,7 @@ __all__ = [
     "BilibiliClient",
     "WikipediaClient",
     "YouTubeClient",
+    "VideoDetail",
     "ZhihuClient",
     "WeiboClient",
     # 中文技术社区
