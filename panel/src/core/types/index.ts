@@ -450,6 +450,47 @@ export interface FetchResponse {
   meta?: Record<string, unknown>
 }
 
+/**
+ * 链接提取 — 单个链接项
+ */
+export interface LinkItem {
+  url: string
+  text: string
+}
+
+/**
+ * 链接提取响应
+ */
+export interface LinkExtractionResult {
+  source_url: string
+  final_url: string
+  links: LinkItem[]
+  total: number
+  filtered_count: number
+  error: string | null
+}
+
+/**
+ * Sitemap 条目
+ */
+export interface SitemapEntry {
+  loc: string
+  lastmod: string | null
+  changefreq: string | null
+  priority: number | null
+}
+
+/**
+ * Sitemap 解析响应
+ */
+export interface SitemapResult {
+  root_url: string
+  entries: SitemapEntry[]
+  total: number
+  sitemaps_parsed: number
+  errors: string[]
+}
+
 /* ===== UI Types ===== */
 
 /**

@@ -78,6 +78,8 @@ import type {
   SearchResponse,
   WebSearchResponse,
   FetchResponse,
+  LinkExtractionResult,
+  SitemapResult,
   WarpStatus,
   WarpActionResult,
   HttpBackendResponse,
@@ -302,16 +304,46 @@ class ApiService {
    * crawl4ai / scrapfly / diffbot / scrapingbee / zenrows /
    * scraperapi / apify / cloudflare / wayback / newspaper / readability
    */
-  async fetch(urls: string[], provider = 'builtin', timeout = 30, signal?: AbortSignal): Promise<FetchResponse> {
+  async fetch(
+    urls: string[],
+    provider = 'builtin',
+    timeout = 30,
+    signal?: AbortSignal,
+    options?: { selector?: string; startIndex?: number; maxLength?: number; respectRobotsTxt?: boolean },
+  ): Promise<FetchResponse> {
     // 客户端超时 = 后端 timeout + 20s 缓冲（覆盖后端 +15s 缓冲及网络开销）
     const clientTimeoutMs = timeout * 1000 + 20_000
+    const body: Record<string, unknown> = { urls, provider, timeout }
+    if (options?.selector) body.selector = options.selector
+    if (options?.startIndex) body.start_index = options.startIndex
+    if (options?.maxLength) body.max_length = options.maxLength
+    if (options?.respectRobotsTxt) body.respect_robots_txt = options.respectRobotsTxt
     return this.request<FetchResponse>('/api/v1/fetch', {
       method: 'POST',
       headers: this.headers(),
-      body: JSON.stringify({ urls, provider, timeout }),
+      body: JSON.stringify(body),
       signal,
       timeoutMs: clientTimeoutMs,
     })
+  }
+
+  /**
+   * 提取页面链接
+   */
+  async extractLinks(url: string, baseUrl?: string, limit = 100, signal?: AbortSignal): Promise<LinkExtractionResult> {
+    let endpoint = `/api/v1/links?url=${encodeURIComponent(url)}&limit=${limit}`
+    if (baseUrl) endpoint += `&base_url=${encodeURIComponent(baseUrl)}`
+    return this.request<LinkExtractionResult>(endpoint, { headers: this.headers(), signal })
+  }
+
+  /**
+   * 解析 sitemap.xml
+   */
+  async parseSitemap(url: string, discover = false, limit = 1000, signal?: AbortSignal): Promise<SitemapResult> {
+    return this.request<SitemapResult>(
+      `/api/v1/sitemap?url=${encodeURIComponent(url)}&discover=${discover}&limit=${limit}`,
+      { headers: this.headers(), signal },
+    )
   }
 
   /**

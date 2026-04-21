@@ -45,6 +45,8 @@ export function FetchPage() {
     provider, setProvider,
     timeout, setTimeout_,
     showAdvanced, setShowAdvanced,
+    selector, setSelector,
+    respectRobots, setRespectRobots,
     fetchState,
     results,
     expandedItems,
@@ -298,6 +300,34 @@ export function FetchPage() {
                 />
                 <div className={styles.hint}>{t('fetch.timeoutHint', '5-120 seconds')}</div>
               </div>
+              {provider === 'builtin' && (
+                <div className={styles.field}>
+                  <label className={styles.label} htmlFor="fetch-selector">
+                    {t('fetch.selector', 'CSS Selector')}
+                  </label>
+                  <input
+                    id="fetch-selector"
+                    type="text"
+                    value={selector}
+                    onChange={(e) => setSelector(e.target.value)}
+                    placeholder={t('fetch.selectorPlaceholder', 'e.g. article, .content, #main')}
+                    disabled={isLoading}
+                  />
+                </div>
+              )}
+              {provider === 'builtin' && (
+                <div className={styles.field}>
+                  <label className={styles.label}>
+                    <input
+                      type="checkbox"
+                      checked={respectRobots}
+                      onChange={(e) => setRespectRobots(e.target.checked)}
+                      disabled={isLoading}
+                    />
+                    {' '}{t('fetch.respectRobots', 'Respect robots.txt')}
+                  </label>
+                </div>
+              )}
               <button
                 type="button"
                 className={styles.resetBtn}
