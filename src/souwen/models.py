@@ -140,6 +140,9 @@ class SourceType(str, Enum):
     GOOGLE_PATENTS = "google_patents"
     # 常规搜索引擎
     WEB_DUCKDUCKGO = "web_duckduckgo"
+    WEB_DDG_NEWS = "web_ddg_news"
+    WEB_DDG_IMAGES = "web_ddg_images"
+    WEB_DDG_VIDEOS = "web_ddg_videos"
     WEB_YAHOO = "web_yahoo"
     WEB_BRAVE = "web_brave"
     WEB_GOOGLE = "web_google"
