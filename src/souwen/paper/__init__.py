@@ -10,6 +10,7 @@
 - CoreClient: CORE (需Key)
 - PubMedClient: PubMed (可选Key)
 - UnpaywallClient: Unpaywall (需email)
+- HuggingFaceClient: HuggingFace Papers (无需Key，语义搜索 + 社区热度)
 - fetch_pdf: PDF 回退链获取器
 """
 
@@ -24,6 +25,7 @@ from souwen.paper.pubmed import PubMedClient
 from souwen.paper.unpaywall import UnpaywallClient
 from souwen.paper.pdf_fetcher import fetch_pdf
 from souwen.paper.zotero import ZoteroClient
+from souwen.paper.huggingface import HuggingFaceClient
 
 __all__ = [
     "OpenAlexClient",
@@ -37,4 +39,5 @@ __all__ = [
     "UnpaywallClient",
     "fetch_pdf",
     "ZoteroClient",
+    "HuggingFaceClient",
 ]

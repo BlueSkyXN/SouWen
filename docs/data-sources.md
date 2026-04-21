@@ -1,12 +1,12 @@
 # 数据源详情
 
-> SouWen 支持的全部 61 个数据源
+> SouWen 支持的全部 62 个数据源
 
 ## 概览
 
 | 类别 | 数量 | 免费可用 | 需要 Key |
 |------|------|----------|----------|
-| 论文 | 8 | 5（OpenAlex、Crossref、arXiv、DBLP、PubMed） | 3（Semantic Scholar 可选、CORE、Unpaywall） |
+| 论文 | 9 | 6（OpenAlex、Crossref、arXiv、DBLP、PubMed、HuggingFace Papers） | 3（Semantic Scholar 可选、CORE、Unpaywall） |
 | 专利 | 8 | 2（PatentsView、PQAI） | 6（EPO、USPTO ODP、The Lens、CNIPA、PatSnap、Google Patents 爬虫） |
 | 搜索引擎 | 24 | 9（爬虫类）+ 2（自建实例）+ Reddit（公开模式零配置） | 10（API 类）+ Twitter/X、Reddit OAuth、Facebook（需 Key） |
 | 内容抓取 | 16 | 5（builtin、Crawl4AI、Wayback Machine、newspaper4k、readability） | 11（Jina Reader、Tavily、Firecrawl、Exa、Scrapfly、Diffbot、ScrapingBee、ZenRows、ScraperAPI、Apify、Cloudflare） |
@@ -23,10 +23,11 @@
 | CORE | `CoreClient` | 需 Key | 开放获取聚合平台，全文检索 |
 | PubMed | `PubMedClient` | 可选 Key | 生物医学权威数据库 |
 | Unpaywall | `UnpaywallClient` | 需 Email | OA PDF 查找，需提供邮箱作为标识 |
+| HuggingFace Papers | `HuggingFaceClient` | 无需 Key | 社区精选 + 语义搜索，upvotes 热度信号，每篇均对应 arXiv |
 
 ### 分级说明
 
-- **Tier 1（零配置）**：OpenAlex、Crossref、arXiv、DBLP — 无需任何配置即可使用
+- **Tier 1（零配置）**：OpenAlex、Crossref、arXiv、DBLP、HuggingFace Papers — 无需任何配置即可使用
 - **Tier 2（推荐配置）**：PubMed（可选 Key 提高速率）、Semantic Scholar（可选 Key 提高速率）、Unpaywall（需 Email）
 - **Tier 3（需注册）**：CORE（需申请 API Key）
 

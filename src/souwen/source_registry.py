@@ -117,6 +117,13 @@ _reg("crossref", "paper", "open_api", None, description="CrossRef 跨库检索")
 _reg("arxiv", "paper", "open_api", None, description="arXiv 预印本")
 _reg("dblp", "paper", "open_api", None, description="DBLP 计算机科学文献")
 _reg("pubmed", "paper", "open_api", None, description="PubMed 生物医学")
+_reg(
+    "huggingface",
+    "paper",
+    "open_api",
+    None,
+    description="HuggingFace Papers 社区精选（语义搜索 + 热度排行，无需 Key）",
+)
 
 # ── 论文：授权接口 ────────────────────────────────────────
 _reg(
