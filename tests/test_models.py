@@ -29,7 +29,7 @@ class TestAllSources:
 
     def test_paper_count(self):
         """paper 暴露 8 个搜索数据源"""
-        assert len(ALL_SOURCES["paper"]) == 9
+        assert len(ALL_SOURCES["paper"]) == 16
 
     def test_patent_count(self):
         """patent 暴露 6 个搜索数据源"""
@@ -47,7 +47,7 @@ class TestAllSources:
     def test_total_count(self):
         """总计暴露 66 个可选数据源"""
         total = sum(len(v) for v in ALL_SOURCES.values())
-        assert total == 66
+        assert total == 73
 
     def test_each_entry_is_tuple_of_three(self):
         """每条目是 (name, requires_key, desc) 三元组"""
@@ -82,7 +82,7 @@ class TestSourceTypeEnum:
 
     def test_has_59_values(self):
         """枚举有 59 个值"""
-        assert len(SourceType) == 62
+        assert len(SourceType) == 69
 
     def test_paper_sources_exist(self):
         """论文数据源枚举存在"""

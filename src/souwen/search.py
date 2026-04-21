@@ -85,6 +85,13 @@ from souwen.paper.core import CoreClient
 from souwen.paper.pubmed import PubMedClient
 from souwen.paper.zotero import ZoteroClient
 from souwen.paper.huggingface import HuggingFaceClient
+from souwen.paper.europepmc import EuropePmcClient
+from souwen.paper.pmc import PmcClient
+from souwen.paper.doaj import DoajClient
+from souwen.paper.zenodo import ZenodoClient
+from souwen.paper.hal import HalClient
+from souwen.paper.openaire import OpenAireClient
+from souwen.paper.iacr import IacrClient
 
 # ── 专利客户端 ──────────────────────────────────────────────
 from souwen.patent.patentsview import PatentsViewClient
@@ -270,6 +277,55 @@ _PAPER_SOURCES: dict[str, Any] = {
         "search",
         query=q,
         top_n=n,
+        **kw,
+    ),
+    "europepmc": lambda q, n, **kw: _run_client(
+        EuropePmcClient,
+        "search",
+        query=q,
+        page_size=n,
+        **kw,
+    ),
+    "pmc": lambda q, n, **kw: _run_client(
+        PmcClient,
+        "search",
+        query=q,
+        retmax=n,
+        **kw,
+    ),
+    "doaj": lambda q, n, **kw: _run_client(
+        DoajClient,
+        "search",
+        query=q,
+        page_size=n,
+        **kw,
+    ),
+    "zenodo": lambda q, n, **kw: _run_client(
+        ZenodoClient,
+        "search",
+        query=q,
+        size=n,
+        **kw,
+    ),
+    "hal": lambda q, n, **kw: _run_client(
+        HalClient,
+        "search",
+        query=q,
+        rows=n,
+        **kw,
+    ),
+    "openaire": lambda q, n, **kw: _run_client(
+        OpenAireClient,
+        "search",
+        query=q,
+        size=n,
+        **kw,
+    ),
+    "iacr": lambda q, n, **kw: _run_client(
+        IacrClient,
+        "search",
+        query=q,
+        max_results=n,
         **kw,
     ),
 }
