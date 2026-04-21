@@ -128,6 +128,13 @@ _reg(
 )
 _reg("core", "paper", "official_api", "core_api_key", description="CORE 开放获取聚合")
 _reg("unpaywall", "paper", "official_api", "unpaywall_email", description="Unpaywall OA 查找")
+_reg(
+    "zotero",
+    "paper",
+    "official_api",
+    "zotero_api_key",
+    description="Zotero 个人文献库搜索 (需 API Key + Library ID)",
+)
 
 # ── 专利：公开接口 ────────────────────────────────────────
 _reg("patentsview", "patent", "open_api", None, description="PatentsView 美国专利 (待修复)")

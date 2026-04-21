@@ -23,6 +23,7 @@ from souwen.paper.core import CoreClient
 from souwen.paper.pubmed import PubMedClient
 from souwen.paper.unpaywall import UnpaywallClient
 from souwen.paper.pdf_fetcher import fetch_pdf
+from souwen.paper.zotero import ZoteroClient
 
 __all__ = [
     "OpenAlexClient",
@@ -35,4 +36,5 @@ __all__ = [
     "PubMedClient",
     "UnpaywallClient",
     "fetch_pdf",
+    "ZoteroClient",
 ]
