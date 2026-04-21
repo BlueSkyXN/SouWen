@@ -84,6 +84,7 @@ from souwen.config import ensure_config_file, get_config
 from souwen.logging_config import setup_logging
 from souwen.server.middleware import RequestIDMiddleware, get_request_id
 from souwen.server.routes import router, admin_router
+from souwen.server.routes_bilibili import bilibili_router
 from souwen.server.schemas import ErrorResponse, HealthResponse, ReadinessResponse
 
 logger = logging.getLogger("souwen.server")
@@ -199,6 +200,7 @@ app.add_middleware(RequestIDMiddleware)
 
 app.include_router(router, prefix="/api/v1")
 app.include_router(admin_router, prefix="/api/v1/admin")
+app.include_router(bilibili_router, prefix="/api/v1")
 
 
 # --- 全局异常处理器（统一 ErrorResponse 格式）---

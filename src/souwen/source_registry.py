@@ -273,7 +273,13 @@ _reg("wikipedia", "wiki", "open_api", None, description="Wikipedia 百科搜索"
 
 # ── 视频 (video)：授权接口/爬虫 ──────────────────────────
 _reg("youtube", "video", "official_api", "youtube_api_key", description="YouTube 视频搜索")
-_reg("bilibili", "video", "scraper", None, description="Bilibili 视频搜索")
+_reg(
+    "bilibili",
+    "video",
+    "scraper",
+    "bilibili_sessdata",
+    description="Bilibili 视频搜索（支持视频/用户/热门/排行/评论/字幕）",
+)
 
 # ── 内容抓取 (fetch)：内置/公开接口/授权接口 ──────────────
 _reg(
