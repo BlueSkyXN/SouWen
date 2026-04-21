@@ -82,7 +82,7 @@ class TestSourceTypeEnum:
 
     def test_has_37_values(self):
         """枚举有 48 个值"""
-        assert len(SourceType) == 48
+        assert len(SourceType) == 51
 
     def test_paper_sources_exist(self):
         """论文数据源枚举存在"""
