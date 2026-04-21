@@ -82,6 +82,14 @@ import type {
   WarpActionResult,
   HttpBackendResponse,
   SourceChannelConfig,
+  ImageSearchResponse,
+  VideoSearchResponse,
+  YouTubeTrendingResponse,
+  YouTubeVideoDetailResponse,
+  YouTubeTranscriptResponse,
+  WaybackCDXResponse,
+  WaybackAvailabilityResponse,
+  WaybackSaveResponse,
 } from '../types'
 
 const REQUEST_TIMEOUT_MS = 30_000
@@ -434,6 +442,147 @@ class ApiService {
       method: 'PUT',
       headers: this.headers(),
       body: JSON.stringify(params),
+    })
+  }
+
+  // === 图片搜索 ===
+  async searchImages(
+    q: string,
+    maxResults = 20,
+    region = 'wt-wt',
+    safesearch = 'moderate',
+    signal?: AbortSignal,
+    timeout?: number,
+  ): Promise<ImageSearchResponse> {
+    const params = new URLSearchParams({
+      q,
+      max_results: String(maxResults),
+      region,
+      safesearch,
+    })
+    if (timeout) params.set('timeout', String(timeout))
+    return this.request<ImageSearchResponse>(`/api/v1/search/images?${params}`, {
+      headers: this.headers(),
+      signal,
+    })
+  }
+
+  // === 视频搜索 ===
+  async searchVideos(
+    q: string,
+    maxResults = 20,
+    region = 'wt-wt',
+    safesearch = 'moderate',
+    signal?: AbortSignal,
+    timeout?: number,
+  ): Promise<VideoSearchResponse> {
+    const params = new URLSearchParams({
+      q,
+      max_results: String(maxResults),
+      region,
+      safesearch,
+    })
+    if (timeout) params.set('timeout', String(timeout))
+    return this.request<VideoSearchResponse>(`/api/v1/search/videos?${params}`, {
+      headers: this.headers(),
+      signal,
+    })
+  }
+
+  // === YouTube ===
+  async getYouTubeTrending(
+    region = 'US',
+    category = '',
+    maxResults = 20,
+    signal?: AbortSignal,
+    timeout?: number,
+  ): Promise<YouTubeTrendingResponse> {
+    const params = new URLSearchParams({
+      region,
+      max_results: String(maxResults),
+    })
+    if (category) params.set('category', category)
+    if (timeout) params.set('timeout', String(timeout))
+    return this.request<YouTubeTrendingResponse>(`/api/v1/youtube/trending?${params}`, {
+      headers: this.headers(),
+      signal,
+    })
+  }
+
+  async getYouTubeVideoDetail(
+    videoId: string,
+    signal?: AbortSignal,
+    timeout?: number,
+  ): Promise<YouTubeVideoDetailResponse> {
+    const params = new URLSearchParams()
+    if (timeout) params.set('timeout', String(timeout))
+    const qs = params.toString()
+    return this.request<YouTubeVideoDetailResponse>(
+      `/api/v1/youtube/video/${encodeURIComponent(videoId)}${qs ? '?' + qs : ''}`,
+      { headers: this.headers(), signal },
+    )
+  }
+
+  async getYouTubeTranscript(
+    videoId: string,
+    lang = 'en',
+    signal?: AbortSignal,
+    timeout?: number,
+  ): Promise<YouTubeTranscriptResponse> {
+    const params = new URLSearchParams({ lang })
+    if (timeout) params.set('timeout', String(timeout))
+    return this.request<YouTubeTranscriptResponse>(
+      `/api/v1/youtube/transcript/${encodeURIComponent(videoId)}?${params}`,
+      { headers: this.headers(), signal },
+    )
+  }
+
+  // === Wayback Machine ===
+  async waybackCDX(
+    url: string,
+    options: { from?: string; to?: string; limit?: number; filterStatus?: number; collapse?: string } = {},
+    signal?: AbortSignal,
+    timeout?: number,
+  ): Promise<WaybackCDXResponse> {
+    const params = new URLSearchParams({ url })
+    if (options.from) params.set('from', options.from)
+    if (options.to) params.set('to', options.to)
+    if (options.limit) params.set('limit', String(options.limit))
+    if (options.filterStatus) params.set('filter_status', String(options.filterStatus))
+    if (options.collapse) params.set('collapse', options.collapse)
+    if (timeout) params.set('timeout', String(timeout))
+    return this.request<WaybackCDXResponse>(`/api/v1/wayback/cdx?${params}`, {
+      headers: this.headers(),
+      signal,
+    })
+  }
+
+  async waybackCheck(
+    url: string,
+    timestamp?: string,
+    signal?: AbortSignal,
+    timeout?: number,
+  ): Promise<WaybackAvailabilityResponse> {
+    const params = new URLSearchParams({ url })
+    if (timestamp) params.set('timestamp', timestamp)
+    if (timeout) params.set('timeout', String(timeout))
+    return this.request<WaybackAvailabilityResponse>(`/api/v1/wayback/check?${params}`, {
+      headers: this.headers(),
+      signal,
+    })
+  }
+
+  async waybackSave(
+    url: string,
+    timeout = 60,
+    signal?: AbortSignal,
+  ): Promise<WaybackSaveResponse> {
+    return this.request<WaybackSaveResponse>('/api/v1/wayback/save', {
+      method: 'POST',
+      headers: this.headers(),
+      body: JSON.stringify({ url, timeout }),
+      signal,
+      timeoutMs: timeout * 1000 + 20_000,
     })
   }
 }

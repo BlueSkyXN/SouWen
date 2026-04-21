@@ -77,15 +77,30 @@ class SourceInfo(BaseModel):
 class SourcesResponse(BaseModel):
     """数据源列表响应 — 按类别分组
 
+    与 souwen.models.ALL_SOURCES 的 9 个分类一一对应，/sources 端点
+    会按类别返回当前可用（凭据满足）的数据源列表。
+
     Attributes:
-        paper: 论文搜索数据源列表
-        patent: 专利搜索数据源列表
-        web: 网页搜索数据源列表
+        paper: 论文搜索数据源
+        patent: 专利搜索数据源
+        general: 通用网页搜索引擎
+        professional: 商业 / 专业搜索 API
+        social: 社交平台搜索
+        developer: 开发者社区搜索
+        wiki: 百科类搜索
+        video: 视频平台搜索
+        fetch: 内容抓取提供者
     """
 
     paper: list[SourceInfo] = []
     patent: list[SourceInfo] = []
-    web: list[SourceInfo] = []
+    general: list[SourceInfo] = []
+    professional: list[SourceInfo] = []
+    social: list[SourceInfo] = []
+    developer: list[SourceInfo] = []
+    wiki: list[SourceInfo] = []
+    video: list[SourceInfo] = []
+    fetch: list[SourceInfo] = []
 
 
 class SearchMeta(BaseModel):
@@ -291,3 +306,110 @@ class FetchRequest(BaseModel):
     urls: list[str] = Field(..., min_length=1, max_length=20)
     provider: str = Field(default="builtin")
     timeout: float = Field(default=30.0, ge=1.0, le=120.0)
+
+
+# ---------------------------------------------------------------------------
+# 多媒体搜索响应（图片 / 视频）
+# ---------------------------------------------------------------------------
+
+
+class SearchImagesResponse(BaseModel):
+    """图片搜索响应 — DuckDuckGo Images"""
+
+    query: str
+    results: list[dict]
+    total: int
+    meta: SearchMeta = Field(
+        default_factory=lambda: SearchMeta(requested=[], succeeded=[], failed=[])
+    )
+
+
+class SearchVideosResponse(BaseModel):
+    """视频搜索响应 — DuckDuckGo Videos"""
+
+    query: str
+    results: list[dict]
+    total: int
+    meta: SearchMeta = Field(
+        default_factory=lambda: SearchMeta(requested=[], succeeded=[], failed=[])
+    )
+
+
+# ---------------------------------------------------------------------------
+# YouTube Data API 响应
+# ---------------------------------------------------------------------------
+
+
+class YouTubeTrendingResponse(BaseModel):
+    """YouTube 热门视频响应 — 按地区/分类聚合"""
+
+    region: str
+    category: str = ""
+    results: list[dict]
+    total: int
+
+
+class YouTubeVideoDetailResponse(BaseModel):
+    """YouTube 视频详情响应 — 含统计信息"""
+
+    video_ids: list[str]
+    results: list[dict]
+    total: int
+
+
+class YouTubeTranscriptResponse(BaseModel):
+    """YouTube 字幕响应 — 零配额消耗
+
+    Attributes:
+        video_id: 视频 ID
+        lang: 字幕语言代码
+        segments: 字幕段落列表（{text, start, duration}）；纯文本模式下可能为空
+        text: 完整字幕文本（按段落换行拼接），无字幕时为空字符串
+        available: 是否有字幕可用
+    """
+
+    video_id: str
+    lang: str
+    segments: list[dict] = Field(default_factory=list)
+    text: str = ""
+    available: bool = True
+
+
+# ---------------------------------------------------------------------------
+# Wayback Machine 响应
+# ---------------------------------------------------------------------------
+
+
+class WaybackCDXApiResponse(BaseModel):
+    """Wayback CDX 查询响应 — URL 历史快照列表"""
+
+    url: str
+    snapshots: list[dict] = Field(default_factory=list)
+    total: int = 0
+
+
+class WaybackAvailabilityResponse(BaseModel):
+    """Wayback 可用性检查响应"""
+
+    url: str
+    available: bool = False
+    snapshot_url: str | None = None
+    timestamp: str | None = None
+    status: int | None = None
+
+
+class WaybackSaveRequest(BaseModel):
+    """Wayback 存档请求体"""
+
+    url: str = Field(..., description="待存档 URL")
+    timeout: float = Field(60.0, ge=10, le=300, description="超时秒数")
+
+
+class WaybackSaveResponse(BaseModel):
+    """Wayback 存档响应"""
+
+    url: str
+    success: bool = False
+    snapshot_url: str | None = None
+    timestamp: str | None = None
+    error: str | None = None

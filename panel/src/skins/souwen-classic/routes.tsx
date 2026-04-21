@@ -18,6 +18,8 @@ import { Route } from 'react-router-dom'
 import { DashboardPage } from './pages/DashboardPage'
 import { SearchPage } from './pages/SearchPage'
 import { FetchPage } from './pages/FetchPage'
+import { VideoPage } from './pages/VideoPage'
+import { ToolsPage } from './pages/ToolsPage'
 import { SourcesPage } from './pages/SourcesPage'
 import { NetworkPage } from './pages/NetworkPage'
 import { ConfigPage } from './pages/ConfigPage'
@@ -27,6 +29,8 @@ export const skinRoutes = (
     <Route path="/" element={<DashboardPage />} />
     <Route path="/search" element={<SearchPage />} />
     <Route path="/fetch" element={<FetchPage />} />
+    <Route path="/video" element={<VideoPage />} />
+    <Route path="/tools" element={<ToolsPage />} />
     <Route path="/sources" element={<SourcesPage />} />
     <Route path="/network" element={<NetworkPage />} />
     <Route path="/config" element={<ConfigPage />} />

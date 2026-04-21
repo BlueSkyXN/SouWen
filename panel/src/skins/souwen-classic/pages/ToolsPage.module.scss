@@ -1,0 +1,346 @@
+@use '../styles/variables' as *;
+
+.page {
+  max-width: 1100px;
+  margin: 0 auto;
+  padding: $space-8 $space-6;
+  display: flex;
+  flex-direction: column;
+  gap: $space-6;
+}
+
+.hero {
+  text-align: center;
+}
+
+.heroTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-3;
+  font-size: $text-3xl;
+  font-weight: $font-bold;
+  background: var(--accent-gradient-wide);
+  background-clip: text;
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  letter-spacing: $tracking-tight;
+  margin: 0 0 $space-2;
+}
+
+.heroIcon {
+  color: var(--accent);
+  -webkit-text-fill-color: currentColor;
+}
+
+.heroSubtitle {
+  font-size: $text-md;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* ─── Tabs ─── */
+.tabs {
+  display: inline-flex;
+  align-self: center;
+  gap: $space-1;
+  padding: 4px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: $radius-full;
+}
+
+.tab {
+  display: inline-flex;
+  align-items: center;
+  gap: $space-2;
+  padding: 8px $space-4;
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  color: var(--text-muted);
+  background: transparent;
+  border: none;
+  border-radius: $radius-full;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    color: var(--text);
+  }
+}
+
+.tabActive {
+  color: #fff;
+  background: var(--accent-gradient);
+  box-shadow: 0 2px 8px var(--accent-shadow);
+
+  &:hover {
+    color: #fff;
+  }
+}
+
+/* ─── Panels & Forms ─── */
+.panel {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: $radius-xl;
+  padding: $space-6;
+  display: flex;
+  flex-direction: column;
+  gap: $space-5;
+}
+
+.form {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: $space-3;
+  align-items: end;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+  min-width: 0;
+}
+
+.fieldFull {
+  grid-column: 1 / -1;
+}
+
+.label {
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  color: var(--text);
+}
+
+.input {
+  padding: 10px $space-4;
+  border: 1.5px solid var(--border);
+  border-radius: $radius-lg;
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: $text-base;
+  outline: none;
+  transition: all 0.2s ease;
+
+  &:focus {
+    border-color: var(--accent-border-strong);
+    box-shadow: 0 0 0 4px var(--accent-glow);
+  }
+}
+
+.primaryBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 10px $space-6;
+  border: none;
+  border-radius: $radius-lg;
+  background: var(--accent-gradient);
+  color: #fff;
+  font-size: $text-base;
+  font-weight: $font-semibold;
+  cursor: pointer;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px var(--accent-shadow);
+  transition: all 0.2s ease;
+  height: fit-content;
+
+  &:hover:not(:disabled) {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 14px var(--accent-shadow-strong);
+  }
+
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+  }
+}
+
+/* ─── Empty / Table ─── */
+.empty {
+  text-align: center;
+  padding: $space-10 $space-4;
+  color: var(--text-muted);
+  font-size: $text-base;
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: $radius-lg;
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: $text-sm;
+
+  thead {
+    background: var(--bg-subtle);
+  }
+
+  th,
+  td {
+    padding: $space-3 $space-4;
+    text-align: left;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+
+  th {
+    font-weight: $font-semibold;
+    color: var(--text);
+    font-size: $text-xs;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+  }
+
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  tbody tr:hover {
+    background: var(--accent-bg-subtle, var(--bg-subtle));
+  }
+}
+
+.cellMono {
+  font-family: $font-mono;
+  font-size: $text-xs;
+  color: var(--text);
+}
+
+.cellMuted {
+  color: var(--text-muted);
+}
+
+.statusOk {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: $text-xs;
+  font-weight: $font-semibold;
+  color: #059669;
+  background: rgba(5, 150, 105, 0.1);
+  border-radius: $radius-full;
+}
+
+.statusErr {
+  display: inline-block;
+  padding: 2px 8px;
+  font-size: $text-xs;
+  font-weight: $font-semibold;
+  color: #dc2626;
+  background: rgba(220, 38, 38, 0.1);
+  border-radius: $radius-full;
+}
+
+.link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  color: var(--accent);
+  text-decoration: none;
+  word-break: break-all;
+
+  &:hover {
+    text-decoration: underline;
+  }
+}
+
+/* ─── Result Card (check / save) ─── */
+.resultCard {
+  border: 1px solid var(--border);
+  border-radius: $radius-lg;
+  background: var(--bg-card);
+  overflow: hidden;
+}
+
+.resultOk {
+  border-left: 4px solid #059669;
+}
+
+.resultErr {
+  border-left: 4px solid #dc2626;
+}
+
+.resultHeader {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  padding: $space-4 $space-5;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg-subtle);
+}
+
+.iconOk {
+  color: #059669;
+}
+
+.iconErr {
+  color: #dc2626;
+}
+
+.resultTitle {
+  font-size: $text-base;
+  font-weight: $font-semibold;
+  color: var(--text);
+}
+
+.resultBody {
+  padding: $space-4 $space-5;
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+}
+
+.resultRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-3;
+  font-size: $text-sm;
+  align-items: baseline;
+}
+
+.resultLabel {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  min-width: 100px;
+  font-weight: $font-medium;
+  color: var(--text-muted);
+  font-size: $text-xs;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.resultVal {
+  flex: 1;
+  min-width: 0;
+  color: var(--text);
+  word-break: break-all;
+}
+
+/* ─── Responsive ─── */
+@media (max-width: $mobile-bp) {
+  .page {
+    padding: $space-4;
+  }
+
+  .panel {
+    padding: $space-4;
+  }
+
+  .form {
+    grid-template-columns: 1fr;
+  }
+
+  .primaryBtn {
+    width: 100%;
+  }
+
+  .resultLabel {
+    min-width: 0;
+  }
+}
