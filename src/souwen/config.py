@@ -197,6 +197,9 @@ class SouWenConfig(BaseModel):
     openalex_email: str | None = None
     semantic_scholar_api_key: str | None = None
     core_api_key: str | None = None
+    openaire_api_key: str | None = None
+    doaj_api_key: str | None = None
+    zenodo_access_token: str | None = None
     pubmed_api_key: str | None = None
     unpaywall_email: str | None = None
     ieee_api_key: str | None = None
@@ -618,6 +621,9 @@ paper:
   pubmed_api_key: ~
   unpaywall_email: ~
   ieee_api_key: ~
+  openaire_api_key: ~
+  doaj_api_key: ~
+  zenodo_access_token: ~
 
 # ===== 专利数据源 =====
 patent:

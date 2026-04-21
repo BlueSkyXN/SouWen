@@ -11,6 +11,13 @@
 - PubMedClient: PubMed (可选Key)
 - UnpaywallClient: Unpaywall (需email)
 - HuggingFaceClient: HuggingFace Papers (无需Key，语义搜索 + 社区热度)
+- EuropePmcClient: Europe PMC (无需Key)
+- PmcClient: PubMed Central (可选Key，复用 PubMed Key)
+- DoajClient: DOAJ (可选Key)
+- ZenodoClient: Zenodo (可选Token)
+- HalClient: HAL (无需Key)
+- OpenAireClient: OpenAIRE (可选Key)
+- IacrClient: IACR ePrint (无需Key，实验性 HTML 爬虫)
 - fetch_pdf: PDF 回退链获取器
 """
 
@@ -26,6 +33,13 @@ from souwen.paper.unpaywall import UnpaywallClient
 from souwen.paper.pdf_fetcher import fetch_pdf
 from souwen.paper.zotero import ZoteroClient
 from souwen.paper.huggingface import HuggingFaceClient
+from souwen.paper.europepmc import EuropePmcClient
+from souwen.paper.pmc import PmcClient
+from souwen.paper.doaj import DoajClient
+from souwen.paper.zenodo import ZenodoClient
+from souwen.paper.hal import HalClient
+from souwen.paper.openaire import OpenAireClient
+from souwen.paper.iacr import IacrClient
 
 __all__ = [
     "OpenAlexClient",
@@ -40,4 +54,11 @@ __all__ = [
     "fetch_pdf",
     "ZoteroClient",
     "HuggingFaceClient",
+    "EuropePmcClient",
+    "PmcClient",
+    "DoajClient",
+    "ZenodoClient",
+    "HalClient",
+    "OpenAireClient",
+    "IacrClient",
 ]

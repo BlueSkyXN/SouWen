@@ -173,6 +173,13 @@ class TestModels:
             SourceType.PUBMED,
             SourceType.UNPAYWALL,
             SourceType.HUGGINGFACE,
+            SourceType.EUROPEPMC,
+            SourceType.PMC,
+            SourceType.DOAJ,
+            SourceType.ZENODO,
+            SourceType.HAL,
+            SourceType.OPENAIRE,
+            SourceType.IACR,
         ]
         patent_sources = [
             SourceType.PATENTSVIEW,
@@ -207,7 +214,7 @@ class TestModels:
             SourceType.WEB_ZHIPUAI,
             SourceType.WEB_ALIYUN_IQS,
         ]
-        assert len(paper_sources) == 9
+        assert len(paper_sources) == 16
         assert len(patent_sources) == 8
         assert len(web_sources) == 21
 
@@ -418,7 +425,7 @@ class TestUnifiedSearch:
         """论文数据源映射完整性"""
         from souwen.search import _PAPER_SOURCES, _DEFAULT_PAPER_SOURCES
 
-        assert len(_PAPER_SOURCES) == 9  # 9 sources (unpaywall excluded as DOI resolver)
+        assert len(_PAPER_SOURCES) == 16  # 16 sources (unpaywall excluded as DOI resolver)
         for s in _DEFAULT_PAPER_SOURCES:
             assert s in _PAPER_SOURCES, f"默认源 {s} 不在映射中"
 
@@ -497,7 +504,7 @@ class TestCLI:
         """数据源清单完整性"""
         from souwen.models import ALL_SOURCES
 
-        assert len(ALL_SOURCES["paper"]) == 9
+        assert len(ALL_SOURCES["paper"]) == 16
         assert len(ALL_SOURCES["patent"]) == 6
         total_web = sum(
             len(ALL_SOURCES[c])
