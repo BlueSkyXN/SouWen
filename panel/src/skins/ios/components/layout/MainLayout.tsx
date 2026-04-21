@@ -37,6 +37,7 @@ import {
   Sun,
   Layers,
   Check,
+  FileText,
 } from 'lucide-react'
 import { useAuthStore } from '@core/stores/authStore'
 import { useSkinStore } from '../../stores/skinStore'
@@ -47,6 +48,7 @@ import styles from './MainLayout.module.scss'
 const NAV_ITEMS = [
   { to: '/', icon: LayoutDashboard, labelKey: 'nav.dashboard', color: '#007aff' },
   { to: '/search', icon: Search, labelKey: 'nav.search', color: '#5ac8fa' },
+  { to: '/fetch', icon: FileText, labelKey: 'nav.fetch', color: '#ff9500' },
   { to: '/sources', icon: Database, labelKey: 'nav.sources', color: '#5856d6' },
   { to: '/network', icon: Globe, labelKey: 'nav.network', color: '#34c759' },
   { to: '/config', icon: Settings, labelKey: 'nav.config', color: '#8e8e93' },

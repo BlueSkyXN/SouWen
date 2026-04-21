@@ -108,11 +108,20 @@ from souwen.server.schemas import (
     FetchRequest,
     HttpBackendResponse,
     ProxyConfigResponse,
+    SearchImagesResponse,
     SearchPaperResponse,
     SearchPatentResponse,
+    SearchVideosResponse,
     SearchWebResponse,
     UpdateProxyConfigRequest,
     UpdateSourceConfigRequest,
+    WaybackAvailabilityResponse,
+    WaybackCDXApiResponse,
+    WaybackSaveRequest,
+    WaybackSaveResponse,
+    YouTubeTranscriptResponse,
+    YouTubeTrendingResponse,
+    YouTubeVideoDetailResponse,
 )
 
 logger = logging.getLogger("souwen.server")
@@ -306,6 +315,352 @@ async def api_search_web(
         raise HTTPException(status_code=502, detail="所有上游搜索引擎均不可用")
     except Exception:
         logger.warning("网页搜索内部错误: q=%s", q, exc_info=True)
+        raise
+
+
+# ---------------------------------------------------------------------------
+# 多媒体搜索 — 图片 / 视频（DuckDuckGo）
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/search/images",
+    response_model=SearchImagesResponse,
+    dependencies=[Depends(rate_limit_search), Depends(check_search_auth)],
+)
+async def api_search_images(
+    q: str = Query(..., description="搜索关键词", min_length=1, max_length=500),
+    max_results: int = Query(20, ge=1, le=100, description="最大结果数"),
+    region: str = Query("wt-wt", description="区域 (wt-wt=全球, cn-zh=中国)"),
+    safesearch: str = Query("moderate", description="安全搜索 (on/moderate/off)"),
+    timeout: float | None = Query(None, ge=1, le=120, description="端点硬超时（秒），超时返回 504"),
+):
+    """搜索图片 — DuckDuckGo Images
+
+    支持 region/safesearch 等基础过滤；如需 size/color/license 过滤请使用底层客户端。
+
+    Raises:
+        HTTPException：504 超时，502 引擎不可用
+    """
+    from souwen.web.ddg_images import DuckDuckGoImagesClient
+
+    try:
+        client = DuckDuckGoImagesClient()
+        coro = client.search(query=q, max_results=max_results, region=region, safesearch=safesearch)
+        if timeout is not None:
+            resp = await asyncio.wait_for(coro, timeout=timeout)
+        else:
+            resp = await coro
+        return {
+            "query": resp.query,
+            "results": [r.model_dump(mode="json") for r in resp.results],
+            "total": len(resp.results),
+            "meta": {
+                "requested": ["duckduckgo_images"],
+                "succeeded": ["duckduckgo_images"],
+                "failed": [],
+            },
+        }
+    except asyncio.TimeoutError:
+        logger.warning("图片搜索超时: q=%s timeout=%ss", q, timeout)
+        raise HTTPException(status_code=504, detail=f"图片搜索超时（{timeout}s）")
+    except Exception:
+        logger.warning("图片搜索内部错误: q=%s", q, exc_info=True)
+        raise HTTPException(status_code=502, detail="图片搜索引擎不可用")
+
+
+@router.get(
+    "/search/videos",
+    response_model=SearchVideosResponse,
+    dependencies=[Depends(rate_limit_search), Depends(check_search_auth)],
+)
+async def api_search_videos(
+    q: str = Query(..., description="搜索关键词", min_length=1, max_length=500),
+    max_results: int = Query(20, ge=1, le=100, description="最大结果数"),
+    region: str = Query("wt-wt", description="区域"),
+    safesearch: str = Query("moderate", description="安全搜索 (on/moderate/off)"),
+    timeout: float | None = Query(None, ge=1, le=120, description="端点硬超时（秒），超时返回 504"),
+):
+    """搜索视频 — DuckDuckGo Videos
+
+    返回视频元信息（标题、时长、发布者、缩略图、嵌入 URL 等）。
+
+    Raises:
+        HTTPException：504 超时，502 引擎不可用
+    """
+    from souwen.web.ddg_videos import DuckDuckGoVideosClient
+
+    try:
+        client = DuckDuckGoVideosClient()
+        coro = client.search(query=q, max_results=max_results, region=region, safesearch=safesearch)
+        if timeout is not None:
+            resp = await asyncio.wait_for(coro, timeout=timeout)
+        else:
+            resp = await coro
+        return {
+            "query": resp.query,
+            "results": [r.model_dump(mode="json") for r in resp.results],
+            "total": len(resp.results),
+            "meta": {
+                "requested": ["duckduckgo_videos"],
+                "succeeded": ["duckduckgo_videos"],
+                "failed": [],
+            },
+        }
+    except asyncio.TimeoutError:
+        logger.warning("视频搜索超时: q=%s timeout=%ss", q, timeout)
+        raise HTTPException(status_code=504, detail=f"视频搜索超时（{timeout}s）")
+    except Exception:
+        logger.warning("视频搜索内部错误: q=%s", q, exc_info=True)
+        raise HTTPException(status_code=502, detail="视频搜索引擎不可用")
+
+
+# ---------------------------------------------------------------------------
+# YouTube Data API — 热门 / 详情 / 字幕
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/youtube/trending",
+    response_model=YouTubeTrendingResponse,
+    dependencies=[Depends(rate_limit_search), Depends(check_search_auth)],
+)
+async def api_youtube_trending(
+    region: str = Query("US", description="地区代码 (US/CN/JP/KR 等 ISO 3166-1 alpha-2)"),
+    category: str = Query("", description="视频分类 ID (空=全部, 10=音乐, 20=游戏, 25=新闻)"),
+    max_results: int = Query(20, ge=1, le=50, description="最大结果数"),
+    timeout: float | None = Query(None, ge=1, le=60, description="端点硬超时（秒），超时返回 504"),
+):
+    """获取 YouTube 热门视频 — 按地区/分类
+
+    需要配置 YOUTUBE_API_KEY；缺失时返回 503。
+
+    Raises:
+        HTTPException：503 未配置 Key，429 配额耗尽，504 超时
+    """
+    from souwen.exceptions import ConfigError, RateLimitError
+    from souwen.web.youtube import YouTubeClient
+
+    try:
+        client = YouTubeClient()
+        coro = client.get_trending(
+            region_code=region,
+            video_category_id=category or None,
+            max_results=max_results,
+        )
+        if timeout is not None:
+            results = await asyncio.wait_for(coro, timeout=timeout)
+        else:
+            results = await coro
+        return {
+            "region": region,
+            "category": category,
+            "results": [r.model_dump(mode="json") for r in results],
+            "total": len(results),
+        }
+    except ConfigError as e:
+        raise HTTPException(status_code=503, detail=f"YouTube API 未配置: {e}")
+    except RateLimitError:
+        raise HTTPException(status_code=429, detail="YouTube API 配额已用尽")
+    except asyncio.TimeoutError:
+        logger.warning("YouTube trending 超时: region=%s timeout=%ss", region, timeout)
+        raise HTTPException(status_code=504, detail=f"请求超时（{timeout}s）")
+    except Exception:
+        logger.warning("YouTube trending 错误: region=%s", region, exc_info=True)
+        raise
+
+
+@router.get(
+    "/youtube/video/{video_id}",
+    response_model=YouTubeVideoDetailResponse,
+    dependencies=[Depends(rate_limit_search), Depends(check_search_auth)],
+)
+async def api_youtube_video_detail(
+    video_id: str,
+    timeout: float | None = Query(None, ge=1, le=60, description="端点硬超时（秒），超时返回 504"),
+):
+    """获取 YouTube 视频详情 — 含统计信息（播放量/点赞/评论）
+
+    Raises:
+        HTTPException：404 视频不存在，503 未配置 Key，429 配额耗尽，504 超时
+    """
+    from dataclasses import asdict
+
+    from souwen.exceptions import ConfigError, RateLimitError
+    from souwen.web.youtube import YouTubeClient
+
+    try:
+        client = YouTubeClient()
+        coro = client.get_video_details([video_id])
+        if timeout is not None:
+            results = await asyncio.wait_for(coro, timeout=timeout)
+        else:
+            results = await coro
+        if not results:
+            raise HTTPException(status_code=404, detail=f"视频 {video_id} 不存在或不可用")
+        return {
+            "video_ids": [video_id],
+            "results": [asdict(r) for r in results],
+            "total": len(results),
+        }
+    except HTTPException:
+        raise
+    except ConfigError as e:
+        raise HTTPException(status_code=503, detail=f"YouTube API 未配置: {e}")
+    except RateLimitError:
+        raise HTTPException(status_code=429, detail="YouTube API 配额已用尽")
+    except asyncio.TimeoutError:
+        logger.warning("YouTube video detail 超时: video_id=%s", video_id)
+        raise HTTPException(status_code=504, detail=f"请求超时（{timeout}s）")
+    except Exception:
+        logger.warning("YouTube video detail 错误: video_id=%s", video_id, exc_info=True)
+        raise
+
+
+@router.get(
+    "/youtube/transcript/{video_id}",
+    response_model=YouTubeTranscriptResponse,
+    dependencies=[Depends(rate_limit_search), Depends(check_search_auth)],
+)
+async def api_youtube_transcript(
+    video_id: str,
+    lang: str = Query("en", description="字幕语言代码 (en/zh/ja/ko 等)"),
+    timeout: float | None = Query(None, ge=1, le=60, description="端点硬超时（秒），超时返回 504"),
+):
+    """提取 YouTube 视频字幕 — 零配额消耗（页面抓取方式）
+
+    返回纯文本字幕（按段落换行）；构造 YouTubeClient 仍要求配置 API Key。
+
+    Raises:
+        HTTPException：503 未配置 Key，504 超时
+    """
+    from souwen.exceptions import ConfigError
+    from souwen.web.youtube import YouTubeClient
+
+    try:
+        client = YouTubeClient()
+        coro = client.get_transcript(video_id, lang=lang)
+        if timeout is not None:
+            text = await asyncio.wait_for(coro, timeout=timeout)
+        else:
+            text = await coro
+        if text is None:
+            return {
+                "video_id": video_id,
+                "lang": lang,
+                "segments": [],
+                "text": "",
+                "available": False,
+            }
+        return {
+            "video_id": video_id,
+            "lang": lang,
+            "segments": [],
+            "text": text,
+            "available": True,
+        }
+    except ConfigError as e:
+        raise HTTPException(status_code=503, detail=f"YouTube API 未配置: {e}")
+    except asyncio.TimeoutError:
+        logger.warning("YouTube transcript 超时: video_id=%s", video_id)
+        raise HTTPException(status_code=504, detail=f"请求超时（{timeout}s）")
+    except Exception:
+        logger.warning("YouTube transcript 错误: video_id=%s", video_id, exc_info=True)
+        raise
+
+
+# ---------------------------------------------------------------------------
+# Wayback Machine — 公开查询（CDX / Availability）
+# ---------------------------------------------------------------------------
+
+
+@router.get(
+    "/wayback/cdx",
+    response_model=WaybackCDXApiResponse,
+    dependencies=[Depends(rate_limit_search), Depends(check_search_auth)],
+)
+async def api_wayback_cdx(
+    url: str = Query(..., description="查询 URL (支持通配符 *)"),
+    from_date: str | None = Query(None, alias="from", description="起始日期 (YYYYMMDD)"),
+    to_date: str | None = Query(None, alias="to", description="结束日期 (YYYYMMDD)"),
+    limit: int = Query(100, ge=1, le=10000, description="最大快照数"),
+    filter_status: int | None = Query(None, description="HTTP 状态码过滤 (如 200)"),
+    collapse: str | None = Query(None, description="去重规则 (如 timestamp:8 按天去重)"),
+    timeout: float | None = Query(None, ge=1, le=120, description="端点硬超时（秒），超时返回 504"),
+):
+    """查询 Wayback Machine CDX — URL 历史快照列表
+
+    Raises:
+        HTTPException：504 超时
+    """
+    from souwen.web.wayback import WaybackClient
+
+    inner_timeout = timeout or 60.0
+    try:
+        client = WaybackClient()
+        coro = client.query_snapshots(
+            url=url,
+            from_date=from_date,
+            to_date=to_date,
+            filter_status=[filter_status] if filter_status is not None else None,
+            limit=limit,
+            collapse=collapse,
+            timeout=inner_timeout,
+        )
+        if timeout is not None:
+            resp = await asyncio.wait_for(coro, timeout=timeout + 5)
+        else:
+            resp = await coro
+        return {
+            "url": url,
+            "snapshots": [s.model_dump(mode="json") for s in resp.snapshots],
+            "total": resp.total,
+        }
+    except asyncio.TimeoutError:
+        logger.warning("Wayback CDX 超时: url=%s timeout=%ss", url, timeout)
+        raise HTTPException(status_code=504, detail=f"CDX 查询超时（{timeout}s）")
+    except Exception:
+        logger.warning("Wayback CDX 错误: url=%s", url, exc_info=True)
+        raise
+
+
+@router.get(
+    "/wayback/check",
+    response_model=WaybackAvailabilityResponse,
+    dependencies=[Depends(rate_limit_search), Depends(check_search_auth)],
+)
+async def api_wayback_check(
+    url: str = Query(..., description="目标 URL"),
+    timestamp: str | None = Query(None, description="目标时间戳 (YYYYMMDD 或 YYYYMMDDHHMMSS)"),
+    timeout: float | None = Query(None, ge=1, le=60, description="端点硬超时（秒），超时返回 504"),
+):
+    """检查 URL 在 Wayback Machine 中的可用性
+
+    Raises:
+        HTTPException：504 超时
+    """
+    from souwen.web.wayback import WaybackClient
+
+    inner_timeout = timeout or 30.0
+    try:
+        client = WaybackClient()
+        coro = client.check_availability(url=url, timestamp=timestamp, timeout=inner_timeout)
+        if timeout is not None:
+            resp = await asyncio.wait_for(coro, timeout=timeout + 5)
+        else:
+            resp = await coro
+        return {
+            "url": url,
+            "available": resp.available,
+            "snapshot_url": resp.snapshot_url,
+            "timestamp": resp.timestamp,
+            "status": resp.status_code,
+        }
+    except asyncio.TimeoutError:
+        logger.warning("Wayback availability 超时: url=%s timeout=%ss", url, timeout)
+        raise HTTPException(status_code=504, detail=f"可用性检查超时（{timeout}s）")
+    except Exception:
+        logger.warning("Wayback availability 错误: url=%s", url, exc_info=True)
         raise
 
 
@@ -976,3 +1331,41 @@ async def warp_disable():
     if not result["ok"]:
         raise HTTPException(status_code=400, detail=result["error"])
     return result
+
+
+# ---------------------------------------------------------------------------
+# Wayback Machine — 写入操作（管理认证）
+# ---------------------------------------------------------------------------
+
+
+@admin_router.post("/wayback/save", response_model=WaybackSaveResponse)
+async def api_wayback_save(body: WaybackSaveRequest):
+    """触发 Wayback Machine 立即存档 — 需要管理认证
+
+    Internet Archive 的 Save Page Now 受全局速率限制约束（约 15 次/分钟），
+    存档完成可能需要 30-120 秒，请合理设置 timeout。
+
+    Raises:
+        HTTPException：504 超时
+    """
+    from souwen.web.wayback import WaybackClient
+
+    try:
+        client = WaybackClient()
+        resp = await asyncio.wait_for(
+            client.save_page(url=body.url, timeout=body.timeout),
+            timeout=body.timeout + 15,
+        )
+        return {
+            "url": body.url,
+            "success": resp.success,
+            "snapshot_url": resp.snapshot_url,
+            "timestamp": resp.timestamp,
+            "error": resp.error,
+        }
+    except asyncio.TimeoutError:
+        logger.warning("Wayback save 超时: url=%s timeout=%ss", body.url, body.timeout)
+        raise HTTPException(status_code=504, detail=f"存档超时（{body.timeout}s）")
+    except Exception:
+        logger.warning("Wayback save 错误: url=%s", body.url, exc_info=True)
+        raise
