@@ -192,7 +192,7 @@ class TestCrawlSite:
 
         # external.com should not be in crawled_urls
         assert all("other.com" not in u for u in result.crawled_urls)
-        assert "https://example.com/" in result.crawled_urls
+        assert result.start_url in result.crawled_urls
 
     @pytest.mark.asyncio
     async def test_max_urls_respected(self):
@@ -386,9 +386,10 @@ class TestGenerateSitemap:
         with patch("souwen.web.webscan.crawl_site", new_callable=AsyncMock, return_value=mock_crawl):
             result = await generate_sitemap("https://example.com/")
 
+        expected_namespace = "http://www.sitemaps.org/schemas/sitemap/0.9"
         assert '<?xml version="1.0"' in result.sitemap_xml
         assert "urlset" in result.sitemap_xml
-        assert "sitemaps.org" in result.sitemap_xml
+        assert expected_namespace in result.sitemap_xml
         assert "<loc>" in result.sitemap_xml
         assert "<lastmod>" in result.sitemap_xml
 
