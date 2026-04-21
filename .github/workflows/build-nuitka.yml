@@ -2,49 +2,108 @@
 # Nuitka 构建工作流 — 将 SouWen 编译为原生机器码
 #
 # 触发条件:
-#   - 推送 v* 标签时（创建 Release）
-#   - 推送到主分支且修改了源码/依赖文件
-#   - Pull Request 修改了相关文件
-#   - 手动触发
+#   - 推送版本标签时（0.x.x 格式，自动创建 Release）
+#   - 手动触发（可选择构建层级和平台）
 #
-# 构建产物:
-#   - Linux (amd64/arm64)、macOS (arm64)、Windows (amd64) 单文件可执行程序
+# 构建产物（三种层级）:
+#   - CLI 版: 纯命令行搜索工具，体积最小
+#   - Server 版: CLI + FastAPI 服务 + 内嵌前端面板
+#   - Full 版: Server + MCP 集成 + 全部可选依赖
 #
 # Nuitka 编译为原生机器码，启动更快、运行性能更好
+# 支持平台: Linux (amd64/arm64)、macOS (arm64)、Windows (amd64)
 # =============================================================================
 name: Build with Nuitka
 
 on:
   push:
     tags:
-      - 'v*'
-  pull_request:
-    paths:
-      - 'src/**'
-      - 'cli.py'
-      - 'requirements*.txt'
+      - '[0-9]*'
   workflow_dispatch:
+    inputs:
+      build_tier:
+        description: '构建层级'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - cli
+          - server
+          - full
+      platforms:
+        description: '目标平台'
+        required: true
+        default: 'all'
+        type: choice
+        options:
+          - all
+          - linux-only
+          - macos-only
+          - windows-only
 
 env:
   APP_NAME: souwen
   PYTHON_VERSION: '3.11'
 
 jobs:
+  # ---------------------------------------------------------------------------
+  # 动态生成构建矩阵
+  # ---------------------------------------------------------------------------
+  prepare:
+    name: 准备构建矩阵
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    steps:
+      - name: 生成矩阵
+        id: set-matrix
+        run: |
+          TIER="${{ inputs.build_tier || 'all' }}"
+          PLATFORM="${{ inputs.platforms || 'all' }}"
+
+          LINUX_AMD='{"os":"ubuntu-24.04","arch":"linux-amd64"}'
+          LINUX_ARM='{"os":"ubuntu-24.04-arm","arch":"linux-arm64"}'
+          MACOS='{"os":"macos-15","arch":"macos-arm64"}'
+          WINDOWS='{"os":"windows-2025","arch":"windows-amd64"}'
+
+          case "$PLATFORM" in
+            linux-only) PLATFORMS="[$LINUX_AMD,$LINUX_ARM]" ;;
+            macos-only) PLATFORMS="[$MACOS]" ;;
+            windows-only) PLATFORMS="[$WINDOWS]" ;;
+            *) PLATFORMS="[$LINUX_AMD,$LINUX_ARM,$MACOS,$WINDOWS]" ;;
+          esac
+
+          INCLUDES="[]"
+          for PLAT in $(echo "$PLATFORMS" | jq -c '.[]'); do
+            OS=$(echo "$PLAT" | jq -r '.os')
+            ARCH=$(echo "$PLAT" | jq -r '.arch')
+            EXT=""
+            if echo "$ARCH" | grep -q "windows"; then EXT=".exe"; fi
+
+            if [ "$TIER" = "all" ] || [ "$TIER" = "cli" ]; then
+              INCLUDES=$(echo "$INCLUDES" | jq -c ". + [{\"os\":\"$OS\",\"build_type\":\"cli\",\"artifact_name\":\"souwen-nuitka-${ARCH}-cli${EXT}\"}]")
+            fi
+            if [ "$TIER" = "all" ] || [ "$TIER" = "server" ]; then
+              INCLUDES=$(echo "$INCLUDES" | jq -c ". + [{\"os\":\"$OS\",\"build_type\":\"server\",\"artifact_name\":\"souwen-nuitka-${ARCH}-server${EXT}\"}]")
+            fi
+            if [ "$TIER" = "all" ] || [ "$TIER" = "full" ]; then
+              INCLUDES=$(echo "$INCLUDES" | jq -c ". + [{\"os\":\"$OS\",\"build_type\":\"full\",\"artifact_name\":\"souwen-nuitka-${ARCH}-full${EXT}\"}]")
+            fi
+          done
+
+          echo "matrix={\"include\":$INCLUDES}" >> "$GITHUB_OUTPUT"
+
+  # ---------------------------------------------------------------------------
+  # 构建
+  # ---------------------------------------------------------------------------
   build:
-    name: Build on ${{ matrix.os }}
+    name: Build ${{ matrix.build_type }} on ${{ matrix.os }}
+    needs: prepare
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - os: ubuntu-24.04
-            artifact_name: souwen-nuitka-linux-amd64
-          - os: ubuntu-24.04-arm
-            artifact_name: souwen-nuitka-linux-arm64
-          - os: macos-15
-            artifact_name: souwen-nuitka-macos-arm64
-          - os: windows-2025
-            artifact_name: souwen-nuitka-windows-amd64.exe
+      matrix: ${{ fromJson(needs.prepare.outputs.matrix) }}
 
     steps:
       - name: Checkout repository
@@ -56,10 +115,27 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
 
-      - name: Install dependencies
+      - name: Install dependencies (CLI)
+        if: matrix.build_type == 'cli'
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
+          pip install -e .
+          pip install nuitka ordered-set zstandard
+
+      - name: Install dependencies (Server)
+        if: matrix.build_type == 'server'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-server.txt
+          pip install -e .
+          pip install nuitka ordered-set zstandard
+
+      - name: Install dependencies (Full)
+        if: matrix.build_type == 'full'
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-full.txt
           pip install -e .
           pip install nuitka ordered-set zstandard
 
@@ -81,8 +157,9 @@ jobs:
           python cli.py --help
           python cli.py sources
 
-      - name: Build with Nuitka (Unix)
-        if: runner.os != 'Windows'
+      # --- Nuitka 编译 ---
+      - name: Build with Nuitka (Unix - Full)
+        if: runner.os != 'Windows' && matrix.build_type == 'full'
         run: |
           python -m nuitka \
             --onefile \
@@ -94,11 +171,55 @@ jobs:
             --output-dir=dist \
             cli.py
 
-      - name: Build with Nuitka (Windows)
-        if: runner.os == 'Windows'
+      - name: Build with Nuitka (Unix - Server)
+        if: runner.os != 'Windows' && matrix.build_type == 'server'
+        run: |
+          python -m nuitka \
+            --onefile \
+            --standalone \
+            --assume-yes-for-downloads \
+            --include-package=souwen \
+            --include-package-data=souwen \
+            --nofollow-import-to=souwen.integrations \
+            --nofollow-import-to=mcp \
+            --output-filename=${{ env.APP_NAME }} \
+            --output-dir=dist \
+            cli.py
+
+      - name: Build with Nuitka (Unix - CLI)
+        if: runner.os != 'Windows' && matrix.build_type == 'cli'
+        run: |
+          python -m nuitka \
+            --onefile \
+            --standalone \
+            --assume-yes-for-downloads \
+            --include-package=souwen \
+            --include-package-data=souwen \
+            --nofollow-import-to=souwen.server \
+            --nofollow-import-to=souwen.integrations \
+            --nofollow-import-to=fastapi \
+            --nofollow-import-to=uvicorn \
+            --nofollow-import-to=mcp \
+            --output-filename=${{ env.APP_NAME }} \
+            --output-dir=dist \
+            cli.py
+
+      - name: Build with Nuitka (Windows - Full)
+        if: runner.os == 'Windows' && matrix.build_type == 'full'
         run: |
           python -m nuitka --onefile --standalone --assume-yes-for-downloads --include-package=souwen --include-package-data=souwen --output-filename=${{ env.APP_NAME }}.exe --output-dir=dist cli.py
 
+      - name: Build with Nuitka (Windows - Server)
+        if: runner.os == 'Windows' && matrix.build_type == 'server'
+        run: |
+          python -m nuitka --onefile --standalone --assume-yes-for-downloads --include-package=souwen --include-package-data=souwen --nofollow-import-to=souwen.integrations --nofollow-import-to=mcp --output-filename=${{ env.APP_NAME }}.exe --output-dir=dist cli.py
+
+      - name: Build with Nuitka (Windows - CLI)
+        if: runner.os == 'Windows' && matrix.build_type == 'cli'
+        run: |
+          python -m nuitka --onefile --standalone --assume-yes-for-downloads --include-package=souwen --include-package-data=souwen --nofollow-import-to=souwen.server --nofollow-import-to=souwen.integrations --nofollow-import-to=fastapi --nofollow-import-to=uvicorn --nofollow-import-to=mcp --output-filename=${{ env.APP_NAME }}.exe --output-dir=dist cli.py
+
+      # --- 重命名并上传 ---
       - name: Rename artifact (Unix)
         if: runner.os != 'Windows'
         run: mv dist/${{ env.APP_NAME }} dist/${{ matrix.artifact_name }}
@@ -114,11 +235,14 @@ jobs:
           path: dist/${{ matrix.artifact_name }}
           retention-days: 30
 
+  # ---------------------------------------------------------------------------
+  # Release（仅 tag 触发时）
+  # ---------------------------------------------------------------------------
   release:
-    name: Create Release
+    name: Create Release (Nuitka)
     needs: build
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/v')
+    if: startsWith(github.ref, 'refs/tags/')
 
     steps:
       - name: Download all artifacts
@@ -139,18 +263,37 @@ jobs:
             Nuitka 编译为原生机器码，启动更快、运行性能更好。
 
             ### Downloads
-            - **Linux (x64)**: `souwen-nuitka-linux-amd64`
-            - **Linux (ARM64)**: `souwen-nuitka-linux-arm64`
-            - **macOS (Apple Silicon)**: `souwen-nuitka-macos-arm64`
-            - **Windows (x64)**: `souwen-nuitka-windows-amd64.exe`
+
+            **完整版（Full — CLI + API Server + MCP 集成）：**
+            - **Linux (x64)**: `souwen-nuitka-linux-amd64-full`
+            - **Linux (ARM64)**: `souwen-nuitka-linux-arm64-full`
+            - **macOS (Apple Silicon)**: `souwen-nuitka-macos-arm64-full`
+            - **Windows (x64)**: `souwen-nuitka-windows-amd64-full.exe`
+
+            **服务版（Server — CLI + API Server + 前端面板）：**
+            - **Linux (x64)**: `souwen-nuitka-linux-amd64-server`
+            - **Linux (ARM64)**: `souwen-nuitka-linux-arm64-server`
+            - **macOS (Apple Silicon)**: `souwen-nuitka-macos-arm64-server`
+            - **Windows (x64)**: `souwen-nuitka-windows-amd64-server.exe`
+
+            **命令行版（CLI — 纯搜索工具，体积最小）：**
+            - **Linux (x64)**: `souwen-nuitka-linux-amd64-cli`
+            - **Linux (ARM64)**: `souwen-nuitka-linux-arm64-cli`
+            - **macOS (Apple Silicon)**: `souwen-nuitka-macos-arm64-cli`
+            - **Windows (x64)**: `souwen-nuitka-windows-amd64-cli.exe`
 
             ### 使用
             ```bash
             chmod +x souwen-nuitka-*    # Unix
-            ./souwen-nuitka-linux-amd64 search paper "transformer"
-            ./souwen-nuitka-linux-amd64 serve --port 8000
-            ./souwen-nuitka-linux-amd64 doctor
+            ./souwen-nuitka-linux-amd64-full search paper "transformer"
+            ./souwen-nuitka-linux-amd64-server serve --port 8000
+            ./souwen-nuitka-linux-amd64-cli doctor
             ```
+
+            ### 版本说明
+            - **Full 版**：包含 FastAPI REST API 服务 + MCP Server 集成 + 全部可选依赖
+            - **Server 版**：包含 CLI + FastAPI API 服务 + 内嵌前端面板
+            - **CLI 版**：仅包含搜索命令行工具（search/fetch/sources/doctor），体积更小
           files: |
             artifacts/**/*
           generate_release_notes: true
