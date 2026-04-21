@@ -130,9 +130,7 @@ def get_bilibili_tools() -> list[Any]:
         ),
         Tool(
             name="bilibili_comments",
-            description=(
-                "获取 Bilibili 视频评论列表，按指定方式排序，可累积跨多页。"
-            ),
+            description=("获取 Bilibili 视频评论列表，按指定方式排序，可累积跨多页。"),
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -196,9 +194,7 @@ def get_bilibili_tools() -> list[Any]:
         ),
         Tool(
             name="bilibili_ranking",
-            description=(
-                "获取 Bilibili 排行榜视频列表。可指定分区与排行类型。"
-            ),
+            description=("获取 Bilibili 排行榜视频列表。可指定分区与排行类型。"),
             inputSchema={
                 "type": "object",
                 "properties": {
@@ -268,7 +264,7 @@ async def dispatch_bilibili_tool(name: str, arguments: dict) -> Any:
 
     Returns:
         JSON 兼容结构（dict / list / 原始类型）；
-        若 name 不属于 Bilibili 工具集，返回特殊 sentinel None — 
+        若 name 不属于 Bilibili 工具集，返回特殊 sentinel None —
         调用方需在外层结合 is_bilibili_tool 判断。
     """
     from souwen.web.bilibili.client import BilibiliClient

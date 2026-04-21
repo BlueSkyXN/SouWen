@@ -31,13 +31,13 @@ class VideoStat(BaseModel):
     """视频统计数据"""
 
     model_config = ConfigDict(extra="allow")
-    view: int = 0       # 播放
-    danmaku: int = 0    # 弹幕
-    reply: int = 0      # 评论
-    favorite: int = 0   # 收藏
-    coin: int = 0       # 投币
-    share: int = 0      # 分享
-    like: int = 0       # 点赞
+    view: int = 0  # 播放
+    danmaku: int = 0  # 弹幕
+    reply: int = 0  # 评论
+    favorite: int = 0  # 收藏
+    coin: int = 0  # 投币
+    share: int = 0  # 分享
+    like: int = 0  # 点赞
 
 
 class BilibiliVideoDetail(BaseModel):
@@ -46,17 +46,17 @@ class BilibiliVideoDetail(BaseModel):
     model_config = ConfigDict(extra="allow")
     bvid: str = ""
     aid: int = 0
-    cid: int = 0        # 主分P的 cid
+    cid: int = 0  # 主分P的 cid
     title: str = ""
     description: str = ""
-    pic: str = ""        # 封面图 URL
-    duration: int = 0    # 总时长（秒）
-    pubdate: int = 0     # 发布时间（Unix 时间戳）
-    ctime: int = 0       # 创建时间
+    pic: str = ""  # 封面图 URL
+    duration: int = 0  # 总时长（秒）
+    pubdate: int = 0  # 发布时间（Unix 时间戳）
+    ctime: int = 0  # 创建时间
     owner: VideoOwner = Field(default_factory=VideoOwner)
     stat: VideoStat = Field(default_factory=VideoStat)
-    tname: str = ""      # 分区名
-    dynamic: str = ""    # 动态文字
+    tname: str = ""  # 分区名
+    dynamic: str = ""  # 动态文字
     tags: list[str] = Field(default_factory=list)
 
     @property
@@ -77,8 +77,8 @@ class UserVip(BaseModel):
     """用户大会员信息"""
 
     model_config = ConfigDict(extra="allow")
-    vip_type: int = 0       # 0=无, 1=月度, 2=年度
-    vip_status: int = 0     # 1=有效
+    vip_type: int = 0  # 0=无, 1=月度, 2=年度
+    vip_status: int = 0  # 1=有效
 
 
 class UserOfficial(BaseModel):
@@ -96,19 +96,19 @@ class BilibiliUserInfo(BaseModel):
     model_config = ConfigDict(extra="allow")
     mid: int = 0
     name: str = ""
-    face: str = ""           # 头像 URL
-    sign: str = ""           # 签名
+    face: str = ""  # 头像 URL
+    sign: str = ""  # 签名
     level: int = 0
     sex: str = ""
     birthday: str = ""
     coins: float = 0.0
-    following: int = 0       # 关注数（from /x/relation/stat）
-    follower: int = 0        # 粉丝数（from /x/relation/stat）
-    archive_count: int = 0   # 投稿数
+    following: int = 0  # 关注数（from /x/relation/stat）
+    follower: int = 0  # 粉丝数（from /x/relation/stat）
+    archive_count: int = 0  # 投稿数
     vip: UserVip = Field(default_factory=UserVip)
     official: UserOfficial = Field(default_factory=UserOfficial)
     live_room_url: str = ""
-    live_status: int = 0     # 0=未开播, 1=直播中
+    live_status: int = 0  # 0=未开播, 1=直播中
 
     @property
     def space_url(self) -> str:
@@ -139,11 +139,11 @@ class BilibiliComment(BaseModel):
     """单条评论（/x/v2/reply）"""
 
     model_config = ConfigDict(extra="allow")
-    rpid: int = 0            # 评论 ID
-    mid: int = 0             # 发布者 UID
-    ctime: int = 0           # 发布时间（Unix）
-    like: int = 0            # 点赞数
-    rcount: int = 0          # 回复数
+    rpid: int = 0  # 评论 ID
+    mid: int = 0  # 发布者 UID
+    ctime: int = 0  # 发布时间（Unix）
+    like: int = 0  # 点赞数
+    rcount: int = 0  # 回复数
     member: CommentMember = Field(default_factory=CommentMember)
     content: CommentContent = Field(default_factory=CommentContent)
 
@@ -169,9 +169,9 @@ class BilibiliSubtitle(BaseModel):
     """字幕信息"""
 
     model_config = ConfigDict(extra="allow")
-    lan: str = ""            # 语言代码 (zh-CN, en 等)
-    lan_doc: str = ""        # 语言名称
-    subtitle_url: str = ""   # 字幕 JSON URL
+    lan: str = ""  # 语言代码 (zh-CN, en 等)
+    lan_doc: str = ""  # 语言名称
+    subtitle_url: str = ""  # 字幕 JSON URL
     lines: list[BilibiliSubtitleLine] = Field(default_factory=list)
 
     @property
@@ -189,7 +189,7 @@ class BilibiliAISummary(BaseModel):
     model_config = ConfigDict(extra="allow")
     summary: str = ""
     stids: list[int] = Field(default_factory=list)
-    result_type: int = 0     # 0=无摘要, 其他=有
+    result_type: int = 0  # 0=无摘要, 其他=有
 
 
 # ── 热门/排行 ─────────────────────────────────────────────
@@ -208,7 +208,7 @@ class BilibiliPopularVideo(BaseModel):
     pubdate: int = 0
     owner: VideoOwner = Field(default_factory=VideoOwner)
     stat: VideoStat = Field(default_factory=VideoStat)
-    rcmd_reason: str = ""    # 推荐理由
+    rcmd_reason: str = ""  # 推荐理由
 
     @property
     def url(self) -> str:
@@ -228,8 +228,8 @@ class BilibiliRankVideo(BaseModel):
     pubdate: int = 0
     owner: VideoOwner = Field(default_factory=VideoOwner)
     stat: VideoStat = Field(default_factory=VideoStat)
-    rank_index: int = 0      # 排名位次
-    score: int = 0           # 综合得分
+    rank_index: int = 0  # 排名位次
+    score: int = 0  # 综合得分
 
     @property
     def url(self) -> str:
@@ -245,11 +245,11 @@ class BilibiliSearchUserItem(BaseModel):
     model_config = ConfigDict(extra="allow")
     mid: int = 0
     uname: str = ""
-    usign: str = ""          # 签名
-    fans: int = 0            # 粉丝数
-    videos: int = 0          # 视频数
+    usign: str = ""  # 签名
+    fans: int = 0  # 粉丝数
+    videos: int = 0  # 视频数
     level: int = 0
-    upic: str = ""           # 头像 URL
+    upic: str = ""  # 头像 URL
     official_verify_type: int = -1  # -1=无认证, 0=个人, 1=机构
 
     @property
@@ -268,11 +268,11 @@ class BilibiliUserVideoItem(BaseModel):
     aid: int = 0
     title: str = ""
     description: str = ""
-    pic: str = ""            # 封面 URL
-    length: str = ""         # "mm:ss" 格式时长
-    play: int = 0            # 播放量
-    comment: int = 0         # 评论数
-    created: int = 0         # 发布时间（Unix）
+    pic: str = ""  # 封面 URL
+    length: str = ""  # "mm:ss" 格式时长
+    play: int = 0  # 播放量
+    comment: int = 0  # 评论数
+    created: int = 0  # 发布时间（Unix）
 
     @property
     def url(self) -> str:
