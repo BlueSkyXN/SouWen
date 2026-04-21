@@ -59,6 +59,7 @@ from souwen.web.yahoo import YahooClient
 from souwen.web.brave import BraveClient
 from souwen.web.google import GoogleClient
 from souwen.web.bing import BingClient
+from souwen.web.bing_cn import BingCnClient
 from souwen.web.searxng import SearXNGClient
 from souwen.web.tavily import TavilyClient
 from souwen.web.exa import ExaClient
@@ -222,6 +223,7 @@ async def web_search(
         "brave": BraveClient,
         "google": GoogleClient,
         "bing": BingClient,
+        "bing_cn": BingCnClient,
         "startpage": StartpageClient,
         "baidu": BaiduClient,
         "mojeek": MojeekClient,
@@ -265,6 +267,7 @@ async def web_search(
         "brave": SourceType.WEB_BRAVE,
         "google": SourceType.WEB_GOOGLE,
         "bing": SourceType.WEB_BING,
+        "bing_cn": SourceType.WEB_BING_CN,
         "searxng": SourceType.WEB_SEARXNG,
         "tavily": SourceType.WEB_TAVILY,
         "exa": SourceType.WEB_EXA,
