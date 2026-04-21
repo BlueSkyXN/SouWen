@@ -6,7 +6,12 @@ import httpx
 import pytest
 from pytest_httpx import HTTPXMock
 
-from souwen.models import WaybackCDXResponse, WaybackSnapshot
+from souwen.models import (
+    WaybackAvailability,
+    WaybackCDXResponse,
+    WaybackSaveResult,
+    WaybackSnapshot,
+)
 from souwen.web.wayback import WaybackClient
 
 
@@ -341,3 +346,179 @@ async def test_query_snapshots_http_error_into_error_field(httpx_mock: HTTPXMock
     assert resp.snapshots == []
     assert resp.total == 0
     assert resp.error is not None
+
+
+# ---------------------------------------------------------------------------
+# check_availability() — Availability API mock 测试
+# ---------------------------------------------------------------------------
+
+AVAILABILITY_URL_PATTERN = re.compile(r"https://archive\.org/wayback/available")
+
+
+async def test_check_availability_found(httpx_mock: HTTPXMock):
+    """有快照时返回结构化 WaybackAvailability"""
+    httpx_mock.add_response(
+        url=AVAILABILITY_URL_PATTERN,
+        json={
+            "url": "example.com",
+            "archived_snapshots": {
+                "closest": {
+                    "status": "200",
+                    "available": True,
+                    "url": "http://web.archive.org/web/20240101000000/http://example.com/",
+                    "timestamp": "20240101000000",
+                }
+            },
+        },
+    )
+
+    async with WaybackClient() as client:
+        resp = await client.check_availability("http://example.com/")
+
+    assert isinstance(resp, WaybackAvailability)
+    assert resp.error is None
+    assert resp.url == "http://example.com/"
+    assert resp.available is True
+    assert resp.snapshot_url == "http://web.archive.org/web/20240101000000/http://example.com/"
+    assert resp.timestamp == "20240101000000"
+    assert resp.published_date == "2024-01-01"
+    assert resp.status_code == 200
+
+
+async def test_check_availability_not_found(httpx_mock: HTTPXMock):
+    """无快照时 available=False，snapshot_url=None"""
+    httpx_mock.add_response(
+        url=AVAILABILITY_URL_PATTERN,
+        json={"url": "no-such-domain.invalid", "archived_snapshots": {}},
+    )
+
+    async with WaybackClient() as client:
+        resp = await client.check_availability("no-such-domain.invalid")
+
+    assert resp.error is None
+    assert resp.available is False
+    assert resp.snapshot_url is None
+    assert resp.timestamp is None
+    assert resp.published_date is None
+    assert resp.status_code is None
+
+
+async def test_check_availability_with_timestamp(httpx_mock: HTTPXMock):
+    """指定 timestamp 时应作为查询参数传递给 archive.org"""
+    httpx_mock.add_response(
+        url=AVAILABILITY_URL_PATTERN,
+        json={
+            "url": "example.com",
+            "archived_snapshots": {
+                "closest": {
+                    "status": "200",
+                    "available": True,
+                    "url": "http://web.archive.org/web/20200615120000/http://example.com/",
+                    "timestamp": "20200615120000",
+                }
+            },
+        },
+    )
+
+    async with WaybackClient() as client:
+        resp = await client.check_availability("http://example.com/", timestamp="20200615")
+
+    assert resp.available is True
+    assert resp.timestamp == "20200615120000"
+    assert resp.published_date == "2020-06-15"
+
+    # 验证请求带上了 timestamp 参数
+    request = httpx_mock.get_requests()[0]
+    qs = request.url.params
+    assert qs["url"] == "http://example.com/"
+    assert qs["timestamp"] == "20200615"
+
+
+async def test_check_availability_error(httpx_mock: HTTPXMock):
+    """网络错误应封装到 error 字段，不向上抛"""
+    httpx_mock.add_exception(httpx.ConnectError("connection refused"))
+
+    async with WaybackClient() as client:
+        resp = await client.check_availability("http://example.com/")
+
+    assert resp.available is False
+    assert resp.snapshot_url is None
+    assert resp.error is not None
+    assert "connection refused" in resp.error or "ConnectError" in resp.error
+
+
+# ---------------------------------------------------------------------------
+# save_page() — Save Page Now mock 测试
+# ---------------------------------------------------------------------------
+
+SAVE_URL_PATTERN = re.compile(r"https://web\.archive\.org/save/")
+
+
+async def test_save_page_success(httpx_mock: HTTPXMock):
+    """成功触发存档：通过 Content-Location header 返回快照 URL"""
+    httpx_mock.add_response(
+        url=SAVE_URL_PATTERN,
+        method="POST",
+        status_code=200,
+        headers={"Content-Location": "/web/20240501123045/http://example.com/"},
+        text="<html>Saved</html>",
+    )
+
+    async with WaybackClient() as client:
+        resp = await client.save_page("http://example.com/")
+
+    assert isinstance(resp, WaybackSaveResult)
+    assert resp.success is True
+    assert resp.url == "http://example.com/"
+    assert resp.snapshot_url == "https://web.archive.org/web/20240501123045/http://example.com/"
+    assert resp.timestamp == "20240501123045"
+    assert resp.error is None
+
+
+async def test_save_page_success_via_html_body(httpx_mock: HTTPXMock):
+    """无 Location header 时，从响应体中正则提取 /web/<ts>/<url>"""
+    body = '<html><a href="/web/20240701080910/http://example.com/page">snapshot</a></html>'
+    httpx_mock.add_response(
+        url=SAVE_URL_PATTERN,
+        method="POST",
+        status_code=200,
+        text=body,
+    )
+
+    async with WaybackClient() as client:
+        resp = await client.save_page("http://example.com/page")
+
+    assert resp.success is True
+    assert resp.snapshot_url == "https://web.archive.org/web/20240701080910/http://example.com/page"
+    assert resp.timestamp == "20240701080910"
+
+
+async def test_save_page_error(httpx_mock: HTTPXMock):
+    """网络异常封装到 error 字段"""
+    httpx_mock.add_exception(httpx.ConnectError("connection refused"))
+
+    async with WaybackClient() as client:
+        resp = await client.save_page("http://example.com/")
+
+    assert resp.success is False
+    assert resp.snapshot_url is None
+    assert resp.error is not None
+    assert "connection refused" in resp.error or "ConnectError" in resp.error
+
+
+async def test_save_page_http_error_no_snapshot(httpx_mock: HTTPXMock):
+    """非 2xx/3xx 且无快照 URL 时 success=False，error 描述"""
+    httpx_mock.add_response(
+        url=SAVE_URL_PATTERN,
+        method="POST",
+        status_code=429,
+        text="Too Many Requests",
+    )
+
+    async with WaybackClient() as client:
+        resp = await client.save_page("http://example.com/")
+
+    assert resp.success is False
+    assert resp.snapshot_url is None
+    assert resp.error is not None
+    assert "429" in resp.error
