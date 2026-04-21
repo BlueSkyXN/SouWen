@@ -1,14 +1,14 @@
 /**
- * 工具箱页面 - Classic 皮肤版本
+ * 工具箱页面 - Carbon 皮肤版本
  *
  * 文件用途：Wayback Machine 网页归档查询与存档工具集合
  *
- * 业务逻辑统一抽取至 `@core/hooks/useToolsPage`，本文件仅保留 Classic 皮肤特有的 UI 渲染。
+ * 业务逻辑统一抽取至 `@core/hooks/useToolsPage`，本文件仅保留 Carbon 皮肤特有的 UI 渲染。
  */
 
 import { m } from 'framer-motion'
 import {
-  Wrench, Database, CheckCircle2, XCircle, Save, ExternalLink, Clock,
+  Wrench, Database, CheckCircle2, XCircle, Save, ExternalLink, Clock, Terminal,
 } from 'lucide-react'
 import {
   useToolsPage,
@@ -46,7 +46,9 @@ export function ToolsPage() {
           <Wrench size={28} className={styles.heroIcon} />
           {t('tools.title')}
         </h1>
-        <p className={styles.heroSubtitle}>{t('tools.subtitle')}</p>
+        <p className={styles.heroSubtitle}>
+          <Terminal size={12} /> {t('tools.subtitle')}
+        </p>
       </m.div>
 
       <div className={styles.tabs} role="tablist">
@@ -78,6 +80,9 @@ export function ToolsPage() {
 
       {tab === 'cdx' && (
         <section className={styles.panel}>
+          <div className={styles.panelHeader}>
+            <Database size={12} /> {t('tools.cdx')}
+          </div>
           <form className={styles.form} onSubmit={handleCdxQuery}>
             <div className={`${styles.field} ${styles.fieldFull}`}>
               <label className={styles.label} htmlFor="cdx-url">{t('tools.url')}</label>
@@ -90,41 +95,43 @@ export function ToolsPage() {
                 onChange={(e) => setCdxUrl(e.target.value)}
               />
             </div>
-            <div className={styles.field}>
-              <label className={styles.label} htmlFor="cdx-from">{t('tools.dateFrom')}</label>
-              <input
-                id="cdx-from"
-                type="date"
-                className={styles.input}
-                value={cdxFrom}
-                onChange={(e) => setCdxFrom(e.target.value)}
-              />
-            </div>
-            <div className={styles.field}>
-              <label className={styles.label} htmlFor="cdx-to">{t('tools.dateTo')}</label>
-              <input
-                id="cdx-to"
-                type="date"
-                className={styles.input}
-                value={cdxTo}
-                onChange={(e) => setCdxTo(e.target.value)}
-              />
-            </div>
-            <div className={styles.field}>
-              <label className={styles.label} htmlFor="cdx-limit">{t('tools.limit')}</label>
-              <input
-                id="cdx-limit"
-                type="number"
-                min={1}
-                max={500}
-                className={styles.input}
-                value={cdxLimit}
-                onChange={(e) => setCdxLimit(Math.max(1, Number(e.target.value) || 50))}
-              />
+            <div className={styles.row}>
+              <div className={styles.field}>
+                <label className={styles.label} htmlFor="cdx-from">{t('tools.dateFrom')}</label>
+                <input
+                  id="cdx-from"
+                  type="date"
+                  className={styles.input}
+                  value={cdxFrom}
+                  onChange={(e) => setCdxFrom(e.target.value)}
+                />
+              </div>
+              <div className={styles.field}>
+                <label className={styles.label} htmlFor="cdx-to">{t('tools.dateTo')}</label>
+                <input
+                  id="cdx-to"
+                  type="date"
+                  className={styles.input}
+                  value={cdxTo}
+                  onChange={(e) => setCdxTo(e.target.value)}
+                />
+              </div>
+              <div className={styles.field}>
+                <label className={styles.label} htmlFor="cdx-limit">{t('tools.limit')}</label>
+                <input
+                  id="cdx-limit"
+                  type="number"
+                  min={1}
+                  max={500}
+                  className={styles.input}
+                  value={cdxLimit}
+                  onChange={(e) => setCdxLimit(Math.max(1, Number(e.target.value) || 50))}
+                />
+              </div>
             </div>
             <button
               type="submit"
-              className={styles.primaryBtn}
+              className={styles.submitBtn}
               disabled={cdxLoading || !cdxUrl.trim()}
             >
               {cdxLoading ? t('tools.querying') : t('tools.query')}
@@ -149,9 +156,7 @@ export function ToolsPage() {
                 <tbody>
                   {cdxResults.map((s, i) => (
                     <tr key={`${s.timestamp}-${i}`}>
-                      <td className={styles.cellMono}>
-                        {formatWaybackTimestamp(s.timestamp)}
-                      </td>
+                      <td className={styles.cellMono}>{formatWaybackTimestamp(s.timestamp)}</td>
                       <td>
                         <span
                           className={
@@ -185,6 +190,9 @@ export function ToolsPage() {
 
       {tab === 'check' && (
         <section className={styles.panel}>
+          <div className={styles.panelHeader}>
+            <CheckCircle2 size={12} /> {t('tools.check')}
+          </div>
           <form className={styles.form} onSubmit={handleCheck}>
             <div className={`${styles.field} ${styles.fieldFull}`}>
               <label className={styles.label} htmlFor="chk-url">{t('tools.url')}</label>
@@ -199,7 +207,7 @@ export function ToolsPage() {
             </div>
             <button
               type="submit"
-              className={styles.primaryBtn}
+              className={styles.submitBtn}
               disabled={checkLoading || !checkUrl.trim()}
             >
               {checkLoading ? t('tools.querying') : t('tools.query')}
@@ -264,6 +272,9 @@ export function ToolsPage() {
 
       {tab === 'save' && (
         <section className={styles.panel}>
+          <div className={styles.panelHeader}>
+            <Save size={12} /> {t('tools.save')}
+          </div>
           <form className={styles.form} onSubmit={handleSave}>
             <div className={`${styles.field} ${styles.fieldFull}`}>
               <label className={styles.label} htmlFor="save-url">{t('tools.url')}</label>
@@ -278,7 +289,7 @@ export function ToolsPage() {
             </div>
             <button
               type="submit"
-              className={styles.primaryBtn}
+              className={styles.submitBtn}
               disabled={saveLoading || !saveUrl.trim()}
             >
               {saveLoading ? t('tools.saving') : t('tools.saveSubmit')}
@@ -331,7 +342,7 @@ export function ToolsPage() {
                 )}
                 {saveResult.error && (
                   <div className={styles.resultRow}>
-                    <span className={styles.resultLabel}>Error</span>
+                    <span className={styles.resultLabel}>ERROR</span>
                     <span className={styles.resultVal}>{saveResult.error}</span>
                   </div>
                 )}

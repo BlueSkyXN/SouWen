@@ -1,12 +1,9 @@
 /**
- * 视频中心页面 - Classic 皮肤版本
+ * 视频中心页面 - iOS 皮肤版本
  *
- * 文件用途：YouTube 热门视频、视频搜索和字幕提取的统一入口
+ * 文件用途：YouTube 热门视频、视频搜索和字幕提取的统一入口（iOS 移动优先风格）
  *
- * 三个 Tab：
- *   - trending: YouTube 热门视频（可选地区与分类）
- *   - search: 视频搜索（基于 /api/v1/search/videos）
- *   - transcript: 字幕提取（输入 video_id + 语言）
+ * 业务逻辑统一抽取至 `@core/hooks/useVideoPage`，本文件仅保留 iOS 皮肤特有的 UI 渲染。
  */
 
 import { m } from 'framer-motion'
@@ -182,21 +179,17 @@ export function VideoPage() {
             )}
           </div>
 
-          {trendingResults.length > 0 && (
+          {trendingResults.length > 0 && trendingResults[0] && (
             <div className={styles.statsRow}>
-              {trendingResults[0] && (
-                <>
-                  <span className={styles.statBadge}>
-                    <Eye size={12} /> {t('video.views')}: {trendingResults[0].view_count.toLocaleString()}
-                  </span>
-                  <span className={styles.statBadge}>
-                    <ThumbsUp size={12} /> {t('video.likes')}: {trendingResults[0].like_count.toLocaleString()}
-                  </span>
-                  <span className={styles.statBadge}>
-                    <MessageCircle size={12} /> {t('video.comments')}: {trendingResults[0].comment_count.toLocaleString()}
-                  </span>
-                </>
-              )}
+              <span className={styles.statBadge}>
+                <Eye size={12} /> {t('video.views')}: {trendingResults[0].view_count.toLocaleString()}
+              </span>
+              <span className={styles.statBadge}>
+                <ThumbsUp size={12} /> {t('video.likes')}: {trendingResults[0].like_count.toLocaleString()}
+              </span>
+              <span className={styles.statBadge}>
+                <MessageCircle size={12} /> {t('video.comments')}: {trendingResults[0].comment_count.toLocaleString()}
+              </span>
             </div>
           )}
         </section>

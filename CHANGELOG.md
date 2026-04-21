@@ -1,5 +1,43 @@
 # Changelog
 
+## v0.8.0
+
+大版本升级：76 数据源 × 4 皮肤 × 全模式适配。
+
+### Feature
+- **VideoPage 全皮肤适配**：YouTube 热门/视频搜索/字幕提取页面从 souwen-classic 移植到 carbon/apple/ios（含 useVideoPage hook 抽取）
+- **ToolsPage 全皮肤适配**：Wayback Machine CDX/可用性检测/存档工具页面移植到全部 4 套皮肤（含 useToolsPage hook 抽取）
+- **版本号 0.7.3 → 0.8.0**
+
+### Fix
+- `routes.py` VALID_FETCH_PROVIDERS 补齐 mcp/site_crawler/deepwiki（API 400 → 正常）
+- `models.py` ALL_SOURCES[fetch] 5→19（/sources 端点完整暴露）
+- `source_registry.py` 补齐 3 个 fetch 注册（doctor/sources 完整覆盖）
+- Panel useFetchPage.ts Provider 类型 + 4 套 FetchPage PROVIDERS 数组补齐
+
+### Docs
+- README / data-sources / configuration / api-reference / CHANGELOG / .env.example / souwen.example.yaml 全面更新
+
+## v0.7.4
+
+整合 PR #7 / #12 / #13 / #14 / #15 / #23 — 数据源数量从 66 增至 76，全链路同步（registry / models / routes / panel / CLI）。
+
+### Feature
+- **PR #7 — 飞书云文档**：新增 `feishu_drive` 源（`office` 分类），通过自建应用 App ID + App Secret 搜索企业飞书 / Lark 文档、表格、多维表格。
+- **PR #12 — 智谱 AI Web Search Pro**：新增 `zhipuai` 源（`professional` 分类），含 AI 摘要与中文优化。配置项 `zhipuai_api_key`。
+- **PR #13 — 阿里云 IQS（通义晓搜）**：新增 `aliyun_iqs` 源（`professional` 分类），LLM 优化的多源实时搜索 + AI 摘要。配置项 `aliyun_iqs_api_key`。
+- **PR #14 — SiteCrawler + DeepWiki**：fetch 新增两个零配置提供者。
+  - `site_crawler`：BFS 多页爬虫（参照 deepwiki-mcp `httpCrawler.ts` 复现），适合批量抓取整个文档站点。
+  - `deepwiki`：抓取 deepwiki.com 上 GitHub 仓库的 AI 生成文档，使用 site_crawler + jina_reader 双策略。
+- **PR #15 — HuggingFace Papers**：新增 `huggingface` 论文源，社区精选 + 语义搜索 + upvotes 热度排行，每篇均关联 arXiv ID。
+- **PR #23 — Bing 增强 + fetch_content MCP 工具**：
+  - 新增 `bing_cn` 源（必应中文 cn.bing.com），更适合中文检索场景。
+  - MCP server 新增 `fetch_content` 工具，使 AI Agent 可直接通过 MCP 协议调用网页抓取（共 5 个 MCP 工具）。
+- **本次集成审计**：
+  - `ALL_SOURCES`（display）扩充至 66；`source_registry` 总计 76 条目。
+  - fetch 提供者增至 19（含 `mcp` 协议提供者），跨 registry / models / routes / 4 套前端皮肤 / CLI 全部对齐。
+  - 文档（README、`docs/data-sources.md`、`docs/configuration.md`、`docs/api-reference.md`）按当前实际数据源数量重写。
+
 ## v0.7.3
 
 新增 11 个网页内容抓取提供者（总计 16 个）。

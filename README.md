@@ -13,15 +13,15 @@
 
 ## 🎯 简介
 
-SouWen（搜文）为 AI Agent 提供统一的学术论文、专利和网页搜索接口，整合 **66 个数据源**，归一化为 Pydantic v2 数据模型。
+SouWen（搜文）为 AI Agent 提供统一的学术论文、专利和网页搜索接口，整合 **76 个数据源**，归一化为 Pydantic v2 数据模型。
 
-- **9 论文源 + 8 专利源 + 22 搜索引擎** — 19 个零配置即用（6 论文 + 2 专利 + 9 爬虫 + 2 自建）
+- **9 论文源 + 6 专利源 + 30 搜索引擎** — 大量零配置即用（爬虫类 + 自建实例 + 公开 API）
 - **统一数据模型** — `PaperResult` / `PatentResult` / `WebSearchResult`
 - **异步优先** — httpx async + `asyncio.Semaphore` 全局并发控制
 - **智能限流** — 令牌桶 + 滑动窗口，每源独立限流
 - **反爬绕过** — TLS 指纹模拟 + 浏览器池化 + 自适应退避
 - **PDF 回退链** — 5 级降级策略自动获取全文
-- **网页内容抓取** — 16 个提供者（5 零配置 + Jina Reader 免费层 + 10 API），SSRF 防护
+- **网页内容抓取** — 19 个提供者（6 零配置 + 3 免费 + 10 API），SSRF 防护
 
 ## 📦 安装
 
@@ -156,7 +156,7 @@ asyncio.run(main())
 
 | 文档 | 内容 |
 |------|------|
-| [数据源详情](docs/data-sources.md) | 66 个数据源完整列表、分级说明 |
+| [数据源详情](docs/data-sources.md) | 76 个数据源完整列表、分级说明 |
 | [配置详解](docs/configuration.md) | 配置优先级、全部字段、代理池、YAML 格式 |
 | [架构设计](docs/architecture.md) | 数据流、基类模式、限流器、异常体系、项目结构 |
 | [外观定制](docs/appearance.md) | 皮肤、明暗模式、配色方案、自定义皮肤指南 |
@@ -166,13 +166,15 @@ asyncio.run(main())
 
 ## 📊 数据源
 
-**论文**（9 源）：OpenAlex、Semantic Scholar、Crossref、arXiv、DBLP、CORE、PubMed、Unpaywall、HuggingFace Papers — 其中 6 个零配置
+**论文**（9 源）：OpenAlex、Semantic Scholar、Crossref、arXiv、DBLP、CORE、PubMed、Zotero、HuggingFace Papers — 多数零配置
 
-**专利**（8 源）：PatentsView、PQAI、EPO OPS、USPTO ODP、The Lens、CNIPA、PatSnap、Google Patents — 其中 2 个零配置
+**专利**（6 源）：EPO OPS、USPTO ODP、The Lens、CNIPA、PatSnap、Google Patents
 
-**搜索引擎**（25 个）：12 个爬虫（DuckDuckGo Web/News/Images/Videos、Yahoo、Brave 等）+ 10 个 API（Tavily、Exa、Metaso、Perplexity 等）+ 3 个自建实例（SearXNG、Whoogle、Websurfx）
+**搜索引擎**（约 30 个）：通用爬虫（DuckDuckGo Web/News/Images/Videos、Yahoo、Brave、Google、Bing、必应中文 等）+ 专业 API（Tavily、Exa、Metaso、Perplexity、Linkup、智谱 AI、阿里云 IQS 等）+ 自建实例（SearXNG、Whoogle、Websurfx）+ 社交（Reddit、Twitter、Facebook、微博、知乎）+ 开发者（GitHub、StackOverflow）+ 视频（YouTube、Bilibili）+ Wikipedia + 飞书云文档
 
 **中文技术社区**（3 个）：CSDN、稀土掘金（Juejin）、LinuxDo — 全部零配置
+
+**网页内容抓取**（19 个提供者）：6 个零配置（builtin、crawl4ai、newspaper、readability、site_crawler、deepwiki）+ 3 个免费（jina_reader、wayback、mcp）+ 10 个 API（tavily、firecrawl、exa、scrapfly、diffbot、scrapingbee、zenrows、scraperapi、apify、cloudflare）
 
 → 完整列表见 [数据源详情](docs/data-sources.md)
 

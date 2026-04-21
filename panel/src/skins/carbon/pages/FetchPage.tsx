@@ -33,6 +33,9 @@ const PROVIDERS: { value: Provider; label: string; description: string }[] = [
   { value: 'wayback', label: 'WAYBACK', description: 'Archive cached pages' },
   { value: 'newspaper', label: 'NEWSPAPER', description: 'News extraction (local)' },
   { value: 'readability', label: 'READABILITY', description: 'Mozilla algo (local)' },
+  { value: 'mcp', label: 'MCP', description: 'MCP protocol fetch' },
+  { value: 'site_crawler', label: 'SITE_CRAWLER', description: 'BFS site crawler' },
+  { value: 'deepwiki', label: 'DEEPWIKI', description: 'Open-source docs' },
 ]
 
 export function FetchPage() {

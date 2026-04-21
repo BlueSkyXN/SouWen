@@ -332,6 +332,9 @@ _reg(
 _reg("wayback", "fetch", "open_api", None, description="Internet Archive Wayback (免费)")
 _reg("newspaper", "fetch", "scraper", None, description="newspaper4k 文章抽取 (本地)")
 _reg("readability", "fetch", "scraper", None, description="Mozilla Readability 算法 (本地)")
+_reg("mcp", "fetch", "open_api", None, description="MCP 协议内容抓取 (外部工具)")
+_reg("site_crawler", "fetch", "scraper", None, description="BFS 站点爬虫 (批量多页面)")
+_reg("deepwiki", "fetch", "open_api", None, description="DeepWiki 开源项目文档抓取 (免费)")
 
 
 # ── 公开 API ──────────────────────────────────────────────

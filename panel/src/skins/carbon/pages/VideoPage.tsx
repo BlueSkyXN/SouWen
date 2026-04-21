@@ -1,18 +1,15 @@
 /**
- * 视频中心页面 - Classic 皮肤版本
+ * 视频中心页面 - Carbon 皮肤版本
  *
- * 文件用途：YouTube 热门视频、视频搜索和字幕提取的统一入口
+ * 文件用途：YouTube 热门视频、视频搜索和字幕提取的统一入口（Carbon 工业风格）
  *
- * 三个 Tab：
- *   - trending: YouTube 热门视频（可选地区与分类）
- *   - search: 视频搜索（基于 /api/v1/search/videos）
- *   - transcript: 字幕提取（输入 video_id + 语言）
+ * 业务逻辑统一抽取至 `@core/hooks/useVideoPage`，本文件仅保留 Carbon 皮肤特有的 UI 渲染。
  */
 
 import { m } from 'framer-motion'
 import {
   Play, Search as SearchIcon, FileText, Copy, ExternalLink,
-  Clock, Eye, ThumbsUp, MessageCircle, Tv,
+  Clock, Eye, ThumbsUp, MessageCircle, Tv, Terminal,
 } from 'lucide-react'
 import {
   useVideoPage,
@@ -90,9 +87,14 @@ export function VideoPage() {
 
   return (
     <div className={styles.page}>
+      <div className={styles.gridOverlay} />
+
       <m.div className={styles.hero} {...fadeInUp}>
-        <h1 className={styles.heroTitle}>{t('video.title')}</h1>
-        <p className={styles.heroSubtitle}>{t('video.subtitle')}</p>
+        <h1 className={styles.heroTitle}>VIDEO_HUB</h1>
+        <div className={styles.heroSubtitle}>
+          <Terminal size={14} />
+          {t('video.subtitle')}
+        </div>
       </m.div>
 
       <div className={styles.tabs} role="tablist">
@@ -124,6 +126,10 @@ export function VideoPage() {
 
       {tab === 'trending' && (
         <section className={styles.panel}>
+          <div className={styles.panelHeader}>
+            <Play size={14} />
+            <span>TRENDING_VIDEOS</span>
+          </div>
           <div className={styles.controls}>
             <div className={styles.field}>
               <label className={styles.label} htmlFor="vid-region">{t('video.region')}</label>
@@ -182,21 +188,17 @@ export function VideoPage() {
             )}
           </div>
 
-          {trendingResults.length > 0 && (
+          {trendingResults.length > 0 && trendingResults[0] && (
             <div className={styles.statsRow}>
-              {trendingResults[0] && (
-                <>
-                  <span className={styles.statBadge}>
-                    <Eye size={12} /> {t('video.views')}: {trendingResults[0].view_count.toLocaleString()}
-                  </span>
-                  <span className={styles.statBadge}>
-                    <ThumbsUp size={12} /> {t('video.likes')}: {trendingResults[0].like_count.toLocaleString()}
-                  </span>
-                  <span className={styles.statBadge}>
-                    <MessageCircle size={12} /> {t('video.comments')}: {trendingResults[0].comment_count.toLocaleString()}
-                  </span>
-                </>
-              )}
+              <span className={styles.statBadge}>
+                <Eye size={12} /> {t('video.views')}: {trendingResults[0].view_count.toLocaleString()}
+              </span>
+              <span className={styles.statBadge}>
+                <ThumbsUp size={12} /> {t('video.likes')}: {trendingResults[0].like_count.toLocaleString()}
+              </span>
+              <span className={styles.statBadge}>
+                <MessageCircle size={12} /> {t('video.comments')}: {trendingResults[0].comment_count.toLocaleString()}
+              </span>
             </div>
           )}
         </section>
@@ -204,6 +206,10 @@ export function VideoPage() {
 
       {tab === 'search' && (
         <section className={styles.panel}>
+          <div className={styles.panelHeader}>
+            <SearchIcon size={14} />
+            <span>SEARCH_VIDEOS</span>
+          </div>
           <form className={styles.searchForm} onSubmit={handleSearch}>
             <div className={styles.searchInputWrap}>
               <SearchIcon size={16} className={styles.searchIcon} />
@@ -249,6 +255,10 @@ export function VideoPage() {
 
       {tab === 'transcript' && (
         <section className={styles.panel}>
+          <div className={styles.panelHeader}>
+            <FileText size={14} />
+            <span>TRANSCRIPT_EXTRACT</span>
+          </div>
           <form className={styles.transcriptForm} onSubmit={handleGetTranscript}>
             <div className={styles.field}>
               <label className={styles.label} htmlFor="vid-id">{t('video.videoId')}</label>
@@ -291,7 +301,7 @@ export function VideoPage() {
             <>
               <div className={styles.transcriptToolbar}>
                 <span className={styles.statBadge}>
-                  <Clock size={12} /> {transcriptSegments.length} segments
+                  <Clock size={12} /> {transcriptSegments.length} SEGMENTS
                 </span>
                 <button
                   type="button"
@@ -306,7 +316,7 @@ export function VideoPage() {
                   target="_blank"
                   rel="noopener noreferrer"
                 >
-                  <ExternalLink size={13} /> YouTube
+                  <ExternalLink size={13} /> YOUTUBE
                 </a>
               </div>
 
