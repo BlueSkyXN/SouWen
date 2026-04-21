@@ -1,5 +1,23 @@
 # Changelog
 
+## v0.8.0
+
+大版本升级：76 数据源 × 4 皮肤 × 全模式适配。
+
+### Feature
+- **VideoPage 全皮肤适配**：YouTube 热门/视频搜索/字幕提取页面从 souwen-classic 移植到 carbon/apple/ios（含 useVideoPage hook 抽取）
+- **ToolsPage 全皮肤适配**：Wayback Machine CDX/可用性检测/存档工具页面移植到全部 4 套皮肤（含 useToolsPage hook 抽取）
+- **版本号 0.7.3 → 0.8.0**
+
+### Fix
+- `routes.py` VALID_FETCH_PROVIDERS 补齐 mcp/site_crawler/deepwiki（API 400 → 正常）
+- `models.py` ALL_SOURCES[fetch] 5→19（/sources 端点完整暴露）
+- `source_registry.py` 补齐 3 个 fetch 注册（doctor/sources 完整覆盖）
+- Panel useFetchPage.ts Provider 类型 + 4 套 FetchPage PROVIDERS 数组补齐
+
+### Docs
+- README / data-sources / configuration / api-reference / CHANGELOG / .env.example / souwen.example.yaml 全面更新
+
 ## v0.7.4
 
 整合 PR #7 / #12 / #13 / #14 / #15 / #23 — 数据源数量从 66 增至 76，全链路同步（registry / models / routes / panel / CLI）。
