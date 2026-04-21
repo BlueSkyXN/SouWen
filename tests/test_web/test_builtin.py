@@ -380,3 +380,290 @@ class TestSSRFRedirectProtection:
         assert result.error is not None
         assert "SSRF" in result.error
         assert "10.0.0.1" in result.final_url
+
+
+_has_protego = False
+try:
+    import protego  # noqa: F401
+
+    _has_protego = True
+except ImportError:
+    pass
+
+requires_protego = pytest.mark.skipif(not _has_protego, reason="protego not installed")
+
+
+def _ok_html() -> str:
+    """生成一段足以通过最小内容校验的 HTML。"""
+    return (
+        "<html><head><title>P</title></head><body><article><p>"
+        + ("Pagination test content. " * 40)
+        + "</p></article></body></html>"
+    )
+
+
+class TestPagination:
+    """start_index / max_length 分页"""
+
+    @pytest.mark.asyncio
+    async def test_no_pagination_returns_full_content(self):
+        mock_resp = MagicMock()
+        mock_resp.text = _ok_html()
+        mock_resp.status_code = 200
+        mock_resp.headers = {}
+        mock_resp.url = "https://example.com/p"
+
+        with patch.object(BuiltinFetcherClient, "_fetch", new_callable=AsyncMock) as mock_fetch:
+            mock_fetch.return_value = mock_resp
+            async with BuiltinFetcherClient() as client:
+                result = await client.fetch("https://example.com/p")
+
+        assert result.error is None
+        assert result.content_truncated is False
+        assert result.next_start_index is None
+        assert len(result.content) > 0
+
+    @pytest.mark.asyncio
+    async def test_max_length_truncates_and_sets_next(self):
+        mock_resp = MagicMock()
+        mock_resp.text = _ok_html()
+        mock_resp.status_code = 200
+        mock_resp.headers = {}
+        mock_resp.url = "https://example.com/p"
+
+        with patch.object(BuiltinFetcherClient, "_fetch", new_callable=AsyncMock) as mock_fetch:
+            mock_fetch.return_value = mock_resp
+            async with BuiltinFetcherClient() as client:
+                full = await client.fetch("https://example.com/p")
+                truncated = await client.fetch("https://example.com/p", max_length=100)
+
+        assert truncated.error is None
+        assert truncated.content_truncated is True
+        assert truncated.next_start_index == 100
+        assert len(truncated.content) == 100
+        # snippet 来自切片后的内容，长度不超过 max_length
+        assert len(truncated.snippet) <= 100
+        # 切片是完整内容的前缀
+        assert full.content.startswith(truncated.content)
+
+    @pytest.mark.asyncio
+    async def test_start_index_slices_content(self):
+        mock_resp = MagicMock()
+        mock_resp.text = _ok_html()
+        mock_resp.status_code = 200
+        mock_resp.headers = {}
+        mock_resp.url = "https://example.com/p"
+
+        with patch.object(BuiltinFetcherClient, "_fetch", new_callable=AsyncMock) as mock_fetch:
+            mock_fetch.return_value = mock_resp
+            async with BuiltinFetcherClient() as client:
+                full = await client.fetch("https://example.com/p")
+                offset = await client.fetch("https://example.com/p", start_index=50)
+
+        assert offset.error is None
+        assert offset.content == full.content[50:]
+        # 未给 max_length 不应标记截断
+        assert offset.content_truncated is False
+        assert offset.next_start_index is None
+
+    @pytest.mark.asyncio
+    async def test_start_index_plus_max_length(self):
+        mock_resp = MagicMock()
+        mock_resp.text = _ok_html()
+        mock_resp.status_code = 200
+        mock_resp.headers = {}
+        mock_resp.url = "https://example.com/p"
+
+        with patch.object(BuiltinFetcherClient, "_fetch", new_callable=AsyncMock) as mock_fetch:
+            mock_fetch.return_value = mock_resp
+            async with BuiltinFetcherClient() as client:
+                page = await client.fetch("https://example.com/p", start_index=20, max_length=80)
+
+        assert page.error is None
+        assert len(page.content) == 80
+        assert page.content_truncated is True
+        assert page.next_start_index == 100
+
+
+class TestMaxResponseSize:
+    """MAX_RESPONSE_SIZE 防 OOM 保护"""
+
+    @pytest.mark.asyncio
+    async def test_oversized_content_length_header_rejected(self):
+        big = BuiltinFetcherClient.MAX_RESPONSE_SIZE + 1
+        mock_resp = MagicMock()
+        mock_resp.text = ""
+        mock_resp.status_code = 200
+        mock_resp.headers = {"content-length": str(big)}
+        mock_resp.url = "https://example.com/big"
+
+        with patch.object(BuiltinFetcherClient, "_fetch", new_callable=AsyncMock) as mock_fetch:
+            mock_fetch.return_value = mock_resp
+            async with BuiltinFetcherClient() as client:
+                result = await client.fetch("https://example.com/big")
+
+        assert result.error is not None
+        assert "过大" in result.error
+        assert result.raw.get("oversized") is True
+
+    @pytest.mark.asyncio
+    async def test_oversized_actual_body_rejected(self):
+        body = "x" * (BuiltinFetcherClient.MAX_RESPONSE_SIZE + 10)
+        mock_resp = MagicMock()
+        mock_resp.text = body
+        mock_resp.status_code = 200
+        mock_resp.headers = {}  # 没有 content-length
+        mock_resp.url = "https://example.com/big"
+
+        with patch.object(BuiltinFetcherClient, "_fetch", new_callable=AsyncMock) as mock_fetch:
+            mock_fetch.return_value = mock_resp
+            async with BuiltinFetcherClient() as client:
+                result = await client.fetch("https://example.com/big")
+
+        assert result.error is not None
+        assert "过大" in result.error
+        assert result.raw.get("oversized") is True
+
+    @pytest.mark.asyncio
+    async def test_normal_size_ok(self):
+        mock_resp = MagicMock()
+        mock_resp.text = _ok_html()
+        mock_resp.status_code = 200
+        mock_resp.headers = {"content-length": str(len(_ok_html()))}
+        mock_resp.url = "https://example.com/p"
+
+        with patch.object(BuiltinFetcherClient, "_fetch", new_callable=AsyncMock) as mock_fetch:
+            mock_fetch.return_value = mock_resp
+            async with BuiltinFetcherClient() as client:
+                result = await client.fetch("https://example.com/p")
+
+        assert result.error is None
+
+
+class TestRobotsTxt:
+    """robots.txt 可选合规"""
+
+    @pytest.mark.asyncio
+    async def test_disabled_by_default(self):
+        """默认不启用 → 不抓取 robots.txt，也不阻塞"""
+        mock_resp = MagicMock()
+        mock_resp.text = _ok_html()
+        mock_resp.status_code = 200
+        mock_resp.headers = {}
+        mock_resp.url = "https://example.com/p"
+
+        with patch.object(BuiltinFetcherClient, "_fetch", new_callable=AsyncMock) as mock_fetch:
+            mock_fetch.return_value = mock_resp
+            async with BuiltinFetcherClient() as client:
+                assert client.respect_robots_txt is False
+                result = await client.fetch("https://example.com/p")
+
+        assert result.error is None
+        # 仅一次抓取目标 URL，未额外请求 robots.txt
+        assert mock_fetch.call_count == 1
+
+    @requires_protego
+    @pytest.mark.asyncio
+    async def test_blocked_by_robots(self):
+        robots_resp = MagicMock()
+        robots_resp.text = "User-agent: *\nDisallow: /private/\n"
+        robots_resp.status_code = 200
+        robots_resp.headers = {}
+        robots_resp.url = "https://example.com/robots.txt"
+
+        with patch.object(BuiltinFetcherClient, "_fetch", new_callable=AsyncMock) as mock_fetch:
+            mock_fetch.return_value = robots_resp
+            async with BuiltinFetcherClient(respect_robots_txt=True) as client:
+                result = await client.fetch("https://example.com/private/secret")
+
+        assert result.error is not None
+        assert "robots.txt" in result.error
+        assert result.raw.get("blocked_by_robots") is True
+
+    @requires_protego
+    @pytest.mark.asyncio
+    async def test_allowed_by_robots(self):
+        robots_resp = MagicMock()
+        robots_resp.text = "User-agent: *\nDisallow: /private/\n"
+        robots_resp.status_code = 200
+        robots_resp.headers = {}
+        robots_resp.url = "https://example.com/robots.txt"
+
+        page_resp = MagicMock()
+        page_resp.text = _ok_html()
+        page_resp.status_code = 200
+        page_resp.headers = {}
+        page_resp.url = "https://example.com/public/p"
+
+        with patch.object(BuiltinFetcherClient, "_fetch", new_callable=AsyncMock) as mock_fetch:
+            mock_fetch.side_effect = [robots_resp, page_resp]
+            async with BuiltinFetcherClient(respect_robots_txt=True) as client:
+                result = await client.fetch("https://example.com/public/p")
+
+        assert result.error is None
+
+    @requires_protego
+    @pytest.mark.asyncio
+    async def test_robots_cached_per_domain(self):
+        """同域多 URL 只抓取一次 robots.txt"""
+        robots_resp = MagicMock()
+        robots_resp.text = "User-agent: *\nAllow: /\n"
+        robots_resp.status_code = 200
+        robots_resp.headers = {}
+        robots_resp.url = "https://example.com/robots.txt"
+
+        page_resp = MagicMock()
+        page_resp.text = _ok_html()
+        page_resp.status_code = 200
+        page_resp.headers = {}
+        page_resp.url = "https://example.com/x"
+
+        with patch.object(BuiltinFetcherClient, "_fetch", new_callable=AsyncMock) as mock_fetch:
+            mock_fetch.side_effect = [robots_resp, page_resp, page_resp]
+            async with BuiltinFetcherClient(respect_robots_txt=True) as client:
+                r1 = await client.fetch("https://example.com/a")
+                r2 = await client.fetch("https://example.com/b")
+
+        assert r1.error is None and r2.error is None
+        # 1 次 robots + 2 次正文 = 3 次
+        assert mock_fetch.call_count == 3
+
+    @requires_protego
+    @pytest.mark.asyncio
+    async def test_robots_fetch_failure_fail_open(self):
+        """robots.txt 抓取失败时按允许处理（fail-open）"""
+        page_resp = MagicMock()
+        page_resp.text = _ok_html()
+        page_resp.status_code = 200
+        page_resp.headers = {}
+        page_resp.url = "https://example.com/p"
+
+        async def side_effect(u, *args, **kwargs):
+            if u.endswith("/robots.txt"):
+                raise Exception("network down")
+            return page_resp
+
+        with patch.object(BuiltinFetcherClient, "_fetch", new_callable=AsyncMock) as mock_fetch:
+            mock_fetch.side_effect = side_effect
+            async with BuiltinFetcherClient(respect_robots_txt=True) as client:
+                result = await client.fetch("https://example.com/p")
+
+        assert result.error is None
+
+    @pytest.mark.asyncio
+    async def test_per_call_override(self):
+        """fetch() 的 respect_robots_txt 参数覆盖实例配置"""
+        mock_resp = MagicMock()
+        mock_resp.text = _ok_html()
+        mock_resp.status_code = 200
+        mock_resp.headers = {}
+        mock_resp.url = "https://example.com/p"
+
+        with patch.object(BuiltinFetcherClient, "_fetch", new_callable=AsyncMock) as mock_fetch:
+            mock_fetch.return_value = mock_resp
+            async with BuiltinFetcherClient(respect_robots_txt=False) as client:
+                result = await client.fetch("https://example.com/p", respect_robots_txt=False)
+                # 调用结束后实例配置应被还原
+                assert client.respect_robots_txt is False
+
+        assert result.error is None

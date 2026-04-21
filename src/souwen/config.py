@@ -254,6 +254,7 @@ class SouWenConfig(BaseModel):
     timeout: int = 30
     max_retries: int = 3
     data_dir: str = "~/.local/share/souwen"
+    respect_robots_txt: bool = False  # 是否遵守目标站点 robots.txt（builtin fetcher 使用）
 
     # ===== HTTP 后端 =====
     # 全局默认 HTTP 后端:auto(自动选择)| curl_cffi | httpx
