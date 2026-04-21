@@ -213,6 +213,7 @@ class BaseScraper:
         method: str = "GET",
         params: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
+        data: dict[str, Any] | None = None,
     ) -> httpx.Response:
         """带重试和礼貌延迟的请求方法
 
@@ -224,6 +225,7 @@ class BaseScraper:
             method: HTTP 方法
             params: 查询参数
             headers: 额外请求头
+            data: POST 表单数据（application/x-www-form-urlencoded）
 
         Returns:
             httpx.Response（或 curl_cffi 兼容的响应对象）
@@ -245,7 +247,7 @@ class BaseScraper:
             await self._polite_delay()
 
             try:
-                resp = await self._do_request(method, url, params, request_headers)
+                resp = await self._do_request(method, url, params, request_headers, data=data)
 
                 if resp.status_code == 429:
                     # 被限流：退避系数翻倍（上限 16x），大幅增加后续请求间隔
@@ -286,6 +288,7 @@ class BaseScraper:
         url: str,
         params: dict[str, Any] | None,
         headers: dict[str, str],
+        data: dict[str, Any] | None = None,
     ) -> Any:
         """执行实际的 HTTP 请求 — curl_cffi 或 httpx 双引擎
 
@@ -297,6 +300,7 @@ class BaseScraper:
             url: 目标 URL
             params: 查询参数字典
             headers: 请求头字典（已包含浏览器指纹和频道自定义头）
+            data: POST 表单数据
 
         Returns:
             响应对象（curl_cffi.Response 或 httpx.Response）
@@ -311,10 +315,13 @@ class BaseScraper:
                 url,
                 params=params,
                 headers=headers,
+                data=data,
                 allow_redirects=self._follow_redirects,
             )
         elif self._httpx_client is not None:
             # httpx 回退路径
-            return await self._httpx_client.request(method, url, params=params, headers=headers)
+            return await self._httpx_client.request(
+                method, url, params=params, headers=headers, data=data
+            )
         else:
             raise RuntimeError("无可用 HTTP 客户端")
