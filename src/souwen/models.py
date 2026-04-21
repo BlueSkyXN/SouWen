@@ -387,6 +387,30 @@ class WaybackCDXResponse(BaseModel):
     error: str | None = None
 
 
+class WaybackAvailability(BaseModel):
+    """Wayback Machine Availability API 响应（archive.org/wayback/available）"""
+
+    model_config = ConfigDict(extra="allow")
+    url: str  # 查询的目标 URL
+    available: bool = False  # 是否有可用存档
+    snapshot_url: str | None = None  # 最近快照 URL（web.archive.org/web/...）
+    timestamp: str | None = None  # 快照时间戳（YYYYMMDDHHMMSS）
+    published_date: str | None = None  # 格式化日期（YYYY-MM-DD）
+    status_code: int | None = None  # 快照原始 HTTP 状态码
+    error: str | None = None
+
+
+class WaybackSaveResult(BaseModel):
+    """Wayback Machine Save Page Now 触发存档结果"""
+
+    model_config = ConfigDict(extra="allow")
+    url: str  # 请求保存的目标 URL
+    success: bool = False  # 是否成功触发存档
+    snapshot_url: str | None = None  # 存档后的快照 URL
+    timestamp: str | None = None  # 快照时间戳（YYYYMMDDHHMMSS）
+    error: str | None = None
+
+
 ALL_SOURCES: dict[str, list[tuple[str, bool, str]]] = {
     "paper": [
         ("openalex", False, "OpenAlex 开放学术图谱"),
