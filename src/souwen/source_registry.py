@@ -210,6 +210,13 @@ _reg(
     "zhipuai_api_key",
     description="智谱 AI Web Search Pro",
 )
+_reg(
+    "aliyun_iqs",
+    "professional",
+    "official_api",
+    "aliyun_iqs_api_key",
+    description="阿里云 IQS 通义晓搜",
+)
 
 # ── 社交 (social)：公开接口/爬虫 ─────────────────────────
 _reg("reddit", "social", "open_api", None, description="Reddit 帖子搜索")
