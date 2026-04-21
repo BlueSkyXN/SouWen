@@ -88,6 +88,8 @@ web:
   cloudflare_api_token: ~
   # Cloudflare Account ID（与 cloudflare_api_token 配合使用）
   cloudflare_account_id: ~
+  # Metaso（秘塔）搜索 API Key（支持文档/网页/学术三种范围；https://metaso.cn/）
+  metaso_api_key: ~
   # 以下数据源无需 API Key，可直接使用（如需禁用请在 sources 段配置 enabled: false）：
   #   reddit     — Reddit 帖子搜索
   #   wikipedia  — Wikipedia 百科搜索

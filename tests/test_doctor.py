@@ -23,7 +23,7 @@ class TestCheckAll:
 
         get_config.cache_clear()
         results = check_all()
-        assert len(results) == 58
+        assert len(results) == 59
 
     def test_result_has_required_keys(self):
         """每条结果包含必要字段"""
@@ -101,8 +101,8 @@ class TestCheckAll:
             get_config.cache_clear()
 
     def test_source_config_matches_37(self):
-        """source registry 有 58 个数据源"""
-        assert len(get_all_sources()) == 58
+        """source registry 有 59 个数据源"""
+        assert len(get_all_sources()) == 59
 
     def test_semantic_scholar_without_key_is_limited(self, monkeypatch):
         """Semantic Scholar 无 Key 时标记为 limited。"""

@@ -13,9 +13,9 @@
 
 ## 🎯 简介
 
-SouWen（搜文）为 AI Agent 提供统一的学术论文、专利和网页搜索接口，整合 **58 个数据源**，归一化为 Pydantic v2 数据模型。
+SouWen（搜文）为 AI Agent 提供统一的学术论文、专利和网页搜索接口，整合 **59 个数据源**，归一化为 Pydantic v2 数据模型。
 
-- **8 论文源 + 8 专利源 + 21 搜索引擎** — 18 个零配置即用（5 论文 + 2 专利 + 9 爬虫 + 2 自建）
+- **8 论文源 + 8 专利源 + 22 搜索引擎** — 18 个零配置即用（5 论文 + 2 专利 + 9 爬虫 + 2 自建）
 - **统一数据模型** — `PaperResult` / `PatentResult` / `WebSearchResult`
 - **异步优先** — httpx async + `asyncio.Semaphore` 全局并发控制
 - **智能限流** — 令牌桶 + 滑动窗口，每源独立限流
@@ -102,6 +102,34 @@ async def main():
 asyncio.run(main())
 ```
 
+### Metaso 搜索（支持文档/网页/学术）
+
+```python
+import asyncio
+from souwen.web import MetasoClient
+
+async def main():
+    # 文档搜索
+    async with MetasoClient(api_key="mk-YOUR_API_KEY") as client:
+        results = await client.search("AI", scope="document", max_results=5)
+        for r in results.results:
+            print(f"[文档] {r.title} → {r.url}")
+
+    # 网页搜索
+    async with MetasoClient(api_key="mk-YOUR_API_KEY") as client:
+        results = await client.search("Python asyncio", scope="webpage", max_results=5)
+        for r in results.results:
+            print(f"[网页] {r.title} → {r.url}")
+
+    # 学术搜索
+    async with MetasoClient(api_key="mk-YOUR_API_KEY") as client:
+        results = await client.search("machine learning", scope="scholar", max_results=5)
+        for r in results.results:
+            print(f"[学术] {r.title} → {r.url}")
+
+asyncio.run(main())
+```
+
 ### 网页内容抓取（零配置）
 
 ```python
@@ -142,7 +170,7 @@ asyncio.run(main())
 
 **专利**（8 源）：PatentsView、PQAI、EPO OPS、USPTO ODP、The Lens、CNIPA、PatSnap、Google Patents — 其中 2 个零配置
 
-**搜索引擎**（21 个）：9 个爬虫（DuckDuckGo、Yahoo、Brave 等）+ 10 个 API（Tavily、Exa、SearXNG 等）+ 2 个自建实例
+**搜索引擎**（22 个）：9 个爬虫（DuckDuckGo、Yahoo、Brave 等）+ 10 个 API（Tavily、Exa、Metaso、Perplexity 等）+ 3 个自建实例（SearXNG、Whoogle、Websurfx）
 
 → 完整列表见 [数据源详情](docs/data-sources.md)
 
