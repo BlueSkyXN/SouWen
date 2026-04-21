@@ -358,6 +358,34 @@ class FetchResponse(BaseModel):
     meta: dict = Field(default_factory=dict)
 
 
+class WaybackSnapshot(BaseModel):
+    """Wayback Machine 单个历史快照记录（CDX 格式）"""
+
+    model_config = ConfigDict(extra="allow")
+    timestamp: str  # YYYYMMDDHHMMSS 格式
+    url: str  # 原始 URL
+    archive_url: str  # 快照 URL（web.archive.org/web/...）
+    status_code: int = 200  # HTTP 状态码
+    mime_type: str = ""  # MIME 类型
+    digest: str = ""  # 内容摘要（SHA-1）
+    length: int = 0  # 内容长度（字节）
+    published_date: str | None = None  # 格式化后的日期 YYYY-MM-DD
+
+
+class WaybackCDXResponse(BaseModel):
+    """Wayback Machine CDX Server API 响应"""
+
+    model_config = ConfigDict(extra="allow")
+    url: str  # 查询的 URL
+    snapshots: list[WaybackSnapshot] = Field(default_factory=list)
+    total: int = 0  # 快照总数
+    from_date: str | None = None  # 查询起始日期（YYYYMMDD）
+    to_date: str | None = None  # 查询结束日期（YYYYMMDD）
+    filter_status: list[int] | None = None  # 过滤的状态码
+    filter_mime: str | None = None  # 过滤的 MIME 类型
+    error: str | None = None
+
+
 ALL_SOURCES: dict[str, list[tuple[str, bool, str]]] = {
     "paper": [
         ("openalex", False, "OpenAlex 开放学术图谱"),
