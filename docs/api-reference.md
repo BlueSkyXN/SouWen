@@ -62,12 +62,12 @@ from souwen.web.fetch import fetch_content, validate_fetch_url
 
 #### `fetch_content(urls, providers=None, timeout=30.0, skip_ssrf_check=False)` → `FetchResponse`
 
-并发内容抓取，支持 16 个提供者。
+并发内容抓取，支持 19 个提供者。
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `urls` | `list[str]` | — | 目标 URL 列表 |
-| `providers` | `list[str] \| None` | `["builtin"]` | 提供者: builtin / jina_reader / tavily / firecrawl / exa / crawl4ai / scrapfly / diffbot / scrapingbee / zenrows / scraperapi / apify / cloudflare / wayback / newspaper / readability |
+| `providers` | `list[str] \| None` | `["builtin"]` | 提供者: builtin / jina_reader / tavily / firecrawl / exa / crawl4ai / scrapfly / diffbot / scrapingbee / zenrows / scraperapi / apify / cloudflare / wayback / newspaper / readability / mcp / site_crawler / deepwiki |
 | `timeout` | `float` | `30.0` | 每个 URL 超时秒数 |
 | `skip_ssrf_check` | `bool` | `False` | 跳过 SSRF 校验（仅内部使用） |
 
@@ -571,14 +571,14 @@ Cache-Control: public, max-age=3600
 
 #### `POST /api/v1/fetch`
 
-抓取网页内容，支持 16 个提供者。
+抓取网页内容，支持 19 个提供者。
 
 **请求体 (JSON)：**
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `urls` | `list[str]` (1-20) | *(必填)* | 目标 URL 列表 |
-| `provider` | `string` | `"builtin"` | 提供者: `builtin` / `jina_reader` / `tavily` / `firecrawl` / `exa` / `crawl4ai` / `scrapfly` / `diffbot` / `scrapingbee` / `zenrows` / `scraperapi` / `apify` / `cloudflare` / `wayback` / `newspaper` / `readability` |
+| `provider` | `string` | `"builtin"` | 提供者: `builtin` / `jina_reader` / `tavily` / `firecrawl` / `exa` / `crawl4ai` / `scrapfly` / `diffbot` / `scrapingbee` / `zenrows` / `scraperapi` / `apify` / `cloudflare` / `wayback` / `newspaper` / `readability` / `mcp` / `site_crawler` / `deepwiki` |
 | `timeout` | `float` (1-300) | `30` | 每 URL 超时秒数 |
 
 **请求示例：**
@@ -671,3 +671,14 @@ python -m souwen.integrations.mcp_server
 #### `get_status`
 
 无参数。返回所有数据源的健康状态报告。
+
+#### `fetch_content`
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `urls` | array | — | 待抓取的 URL 列表 |
+| `provider` | string | `"builtin"` | 内容提取提供者，默认 `builtin`（零配置）。可选：`jina_reader` / `tavily` / `firecrawl` / `exa` / `crawl4ai` / `scrapfly` / `diffbot` / `scrapingbee` / `zenrows` / `scraperapi` / `apify` / `cloudflare` / `wayback` / `newspaper` / `readability` / `mcp` / `site_crawler` / `deepwiki` |
+
+返回：JSON `FetchResponse` 对象（含 `results`、`total`、`total_ok`、`total_failed`）。
+
+> 共 5 个 MCP 工具：`search_papers`、`search_patents`、`web_search`、`get_status`、`fetch_content`（PR #23）。

@@ -25,7 +25,7 @@
         - 列出当前可用数据源及其配置（隐藏未配置 Key 的授权接口）
 
     POST /api/v1/fetch
-        - 抓取网页内容（16 个提供者，详见 VALID_FETCH_PROVIDERS）
+        - 抓取网页内容（19 个提供者，详见 VALID_FETCH_PROVIDERS）
         - 依赖：速率限制 + 管理密码认证（SSRF 风险）
 
 管理端点（强制认证）：
@@ -733,6 +733,9 @@ VALID_FETCH_PROVIDERS = {
     "wayback",
     "newspaper",
     "readability",
+    "mcp",
+    "site_crawler",
+    "deepwiki",
 }
 
 
@@ -741,13 +744,14 @@ VALID_FETCH_PROVIDERS = {
     dependencies=[Depends(rate_limit_search), Depends(require_auth)],
 )
 async def fetch_content_endpoint(body: FetchRequest):
-    """抓取网页内容 — 支持 16 个提供者
+    """抓取网页内容 — 支持 19 个提供者
 
     通过指定的提供者抓取 URL 列表内容，返回提取的 Markdown/文本。
     默认使用 builtin（内置，httpx/curl_cffi + trafilatura，零配置）。
     全部提供者：builtin / jina_reader / tavily / firecrawl / exa /
     crawl4ai / scrapfly / diffbot / scrapingbee / zenrows /
-    scraperapi / apify / cloudflare / wayback / newspaper / readability
+    scraperapi / apify / cloudflare / wayback / newspaper / readability /
+    mcp / site_crawler / deepwiki
 
     需要管理密码认证（比搜索端点更重，有 SSRF 风险）。
 
