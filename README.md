@@ -15,7 +15,7 @@
 
 SouWen（搜文）为 AI Agent 提供统一的学术论文、专利和网页搜索接口，整合 **66 个数据源**，归一化为 Pydantic v2 数据模型。
 
-- **8 论文源 + 8 专利源 + 22 搜索引擎** — 18 个零配置即用（5 论文 + 2 专利 + 9 爬虫 + 2 自建）
+- **9 论文源 + 8 专利源 + 22 搜索引擎** — 19 个零配置即用（6 论文 + 2 专利 + 9 爬虫 + 2 自建）
 - **统一数据模型** — `PaperResult` / `PatentResult` / `WebSearchResult`
 - **异步优先** — httpx async + `asyncio.Semaphore` 全局并发控制
 - **智能限流** — 令牌桶 + 滑动窗口，每源独立限流
@@ -166,7 +166,7 @@ asyncio.run(main())
 
 ## 📊 数据源
 
-**论文**（8 源）：OpenAlex、Semantic Scholar、Crossref、arXiv、DBLP、CORE、PubMed、Unpaywall — 其中 5 个零配置
+**论文**（9 源）：OpenAlex、Semantic Scholar、Crossref、arXiv、DBLP、CORE、PubMed、Unpaywall、HuggingFace Papers — 其中 6 个零配置
 
 **专利**（8 源）：PatentsView、PQAI、EPO OPS、USPTO ODP、The Lens、CNIPA、PatSnap、Google Patents — 其中 2 个零配置
 
