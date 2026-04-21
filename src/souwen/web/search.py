@@ -1,46 +1,17 @@
-"""并发多引擎聚合搜索
+"""并发多引擎聚合搜索（v1 从注册表派生的精简版）
 
 文件用途：
-    核心网页搜索聚合模块。支持 22+ 搜索引擎（爬虫、API、元搜索混合），
-    通过 asyncio 并发查询、聚合结果、URL 去重，为用户提供统一搜索接口。
+    网页搜索聚合模块。v1 改造（阶段 P0-H）：
 
-函数/类清单：
-    _search_engine(engine_cls, query, max_results, **kwargs) -> list[WebSearchResult]
-        - 功能：执行单个引擎的搜索（异常安全 + 超时控制 + 并发度限制）
-        - 输入：engine_cls (type) 引擎类, query (str) 搜索词, max_results (int) 最大结果数
-        - 输出：list[WebSearchResult] 搜索结果列表，异常返回空列表
-        - 关键变量：_WEB_ENGINE_TIMEOUT_CAP_SECONDS = 15.0 超时上限, _get_web_semaphore() 并发信号量
+    - 删除 v0 两张 45 条的手写映射表（`engine_map` + `source_map`）
+    - 引擎类改由 `souwen.registry` 懒加载
+    - `SourceType` 标签改由 v1 adapter 名 → `SourceType` 的派生映射（见 `_source_type_for`）
 
-    _get_engine_timeout_seconds() -> float
-        - 功能：从配置读取超时时间，取值范围 [1.0, 15.0] 秒
-        - 输入：无
-        - 输出：float 单个引擎的搜索超时秒数
-        - 关键变量：_WEB_ENGINE_TIMEOUT_CAP_SECONDS = 15.0 上限
+对外函数签名不变：
+    web_search(query, engines=None, max_results_per_engine=10, deduplicate=True, **kw)
+      → WebSearchResponse
 
-    _deduplicate(results: Sequence[WebSearchResult]) -> list[WebSearchResult]
-        - 功能：按 URL 去重（规范化后的小写 URL），保留首次出现的结果
-        - 输入：results 搜索结果序列
-        - 输出：去重后的结果列表
-
-    web_search(query, engines=None, max_results_per_engine=10, deduplicate=True, **kwargs) -> WebSearchResponse
-        - 功能：并发查询多个搜索引擎，聚合并可选去重结果
-        - 输入：query 搜索词, engines 引擎列表(默认 ["duckduckgo", "bing"]),
-                max_results_per_engine 每引擎最大结果数, deduplicate 是否去重, **kwargs 引擎特定参数
-        - 输出：WebSearchResponse 聚合响应对象
-        - 关键变量：engine_map 引擎名->类映射, source_map 引擎名->SourceType 映射, selected 最终选用的引擎列表
-
-模块依赖：
-    - asyncio: 异步并发框架
-    - logging: 日志记录
-    - souwen.config: 配置读取（超时、引擎开启状态）
-    - souwen.models: WebSearchResult, WebSearchResponse, SourceType 数据模型
-    - souwen.web.*: 各个搜索引擎客户端（22+ 个）
-
-技术要点：
-    - asyncio.gather 并发（等价 Rust 的 FuturesUnordered + tokio::spawn）
-    - 部分引擎失败不影响整体结果（return_exceptions=True）
-    - URL 去重避免重复（规范化小写 + 去尾部斜杠）
-    - 全局并发度限制（_get_web_semaphore()）确保不过载
+并发与超时策略与 v0 一致；Semaphore 改用 ContextVar（D12；`souwen.core.concurrency`）。
 """
 
 from __future__ import annotations
@@ -50,65 +21,64 @@ import logging
 from typing import Sequence
 
 from souwen.config import get_config
-from souwen.models import WebSearchResult, WebSearchResponse, SourceType
-from souwen.web.duckduckgo import DuckDuckGoClient
-from souwen.web.ddg_news import DuckDuckGoNewsClient
-from souwen.web.ddg_images import DuckDuckGoImagesClient
-from souwen.web.ddg_videos import DuckDuckGoVideosClient
-from souwen.web.yahoo import YahooClient
-from souwen.web.brave import BraveClient
-from souwen.web.google import GoogleClient
-from souwen.web.bing import BingClient
-from souwen.web.bing_cn import BingCnClient
-from souwen.web.searxng import SearXNGClient
-from souwen.web.tavily import TavilyClient
-from souwen.web.exa import ExaClient
-from souwen.web.serper import SerperClient
-from souwen.web.brave_api import BraveApiClient
-from souwen.web.serpapi import SerpApiClient
-from souwen.web.firecrawl import FirecrawlClient
-from souwen.web.perplexity import PerplexityClient
-from souwen.web.linkup import LinkupClient
-from souwen.web.scrapingdog import ScrapingDogClient
-from souwen.web.metaso import MetasoClient
-from souwen.web.startpage import StartpageClient
-from souwen.web.baidu import BaiduClient
-from souwen.web.mojeek import MojeekClient
-from souwen.web.yandex import YandexClient
-from souwen.web.whoogle import WhoogleClient
-from souwen.web.websurfx import WebsurfxClient
-from souwen.web.github import GitHubClient
-from souwen.web.stackoverflow import StackOverflowClient
-from souwen.web.reddit import RedditClient
-from souwen.web.bilibili import BilibiliClient
-from souwen.web.wikipedia import WikipediaClient
-from souwen.web.youtube import YouTubeClient
-from souwen.web.zhihu import ZhihuClient
-from souwen.web.weibo import WeiboClient
-from souwen.web.csdn import CSDNClient
-from souwen.web.juejin import JuejinClient
-from souwen.web.linuxdo import LinuxDoClient
-from souwen.web.twitter import TwitterClient
-from souwen.web.facebook import FacebookClient
-from souwen.web.feishu_drive import FeishuDriveClient
-from souwen.web.zhipuai_search import ZhipuAISearchClient
-from souwen.web.aliyun_iqs import AliyunIQSClient
+from souwen.core.concurrency import get_semaphore
+from souwen.models import SourceType, WebSearchResponse, WebSearchResult
+from souwen.registry import get as _registry_get
 
 logger = logging.getLogger("souwen.web.search")
 _WEB_ENGINE_TIMEOUT_CAP_SECONDS = 15.0
 
+# ── Registry 名字 → SourceType 枚举值的映射 ─────────────────
+# 为 `WebSearchResponse.source` 字段提供 SourceType 标签。
+# v0 的 engine_map 里包含跨 domain 的源（youtube / bilibili / reddit / github / stackoverflow /
+# wikipedia / twitter / facebook / feishu_drive / zhihu / weibo / csdn / juejin / linuxdo），
+# v1 保留这个行为以不破坏 web_search 的 "可以点名任意已注册源" 契约。
+# 如果 `SourceType` 里找不到匹配项（如 archive / fetch-only 源），回退到 WEB_DUCKDUCKGO。
+
+def _source_type_for(name: str) -> SourceType:
+    """把 registry 里的 adapter.name 映射为 SourceType 枚举值。
+
+    命名规则（与 v0 枚举一致）：
+      - 爬虫/API 类网页引擎 → `WEB_{NAME_UPPER}`
+      - DDG 变种 → `WEB_DDG_{VARIANT}`（ddg_news/images/videos）
+      - paper/patent → 自身枚举（`OPENALEX` / `ARXIV` / ...）
+      - fetch-only（builtin / jina_reader / ...）→ `FETCH_{NAME_UPPER}`
+      - 未知源 → `WEB_DUCKDUCKGO` 作兜底
+
+    该映射用于 `WebSearchResponse.source`——它只在 web 聚合入口返回时填充。
+    """
+    # 特殊重命名
+    specials = {
+        "duckduckgo_news": SourceType.WEB_DDG_NEWS,
+        "duckduckgo_images": SourceType.WEB_DDG_IMAGES,
+        "duckduckgo_videos": SourceType.WEB_DDG_VIDEOS,
+        "zhipuai": SourceType.WEB_ZHIPUAI,
+    }
+    if name in specials:
+        return specials[name]
+
+    upper = name.upper()
+    # 尝试 WEB_XXX
+    try:
+        return SourceType[f"WEB_{upper}"]
+    except KeyError:
+        pass
+    # 尝试 FETCH_XXX
+    try:
+        return SourceType[f"FETCH_{upper}"]
+    except KeyError:
+        pass
+    # 尝试直接枚举（论文/专利名）
+    try:
+        return SourceType[upper]
+    except KeyError:
+        pass
+    return SourceType.WEB_DUCKDUCKGO
+
 
 def _get_web_semaphore() -> asyncio.Semaphore:
-    """返回与当前 running event loop 绑定的 Semaphore（per-loop 懒加载）
-
-    避免在模块导入时创建 Semaphore，防止跨事件循环使用导致的错误。
-    """
-    loop = asyncio.get_running_loop()
-    sem = getattr(loop, "_souwen_web_sem", None)
-    if sem is None:
-        sem = asyncio.Semaphore(10)
-        loop._souwen_web_sem = sem  # type: ignore[attr-defined]
-    return sem
+    """返回 web 聚合门面的 Semaphore（与 `search` 门面互相独立，避免阻塞）。"""
+    return get_semaphore("web")
 
 
 async def _search_engine(
@@ -119,12 +89,8 @@ async def _search_engine(
 ) -> list[WebSearchResult]:
     """搜索单个引擎（异常安全 + 并发度限制）
 
-    执行单个搜索引擎的查询任务，在信号量保护下运行，限制并发度。
-    所有异常（超时、网络错误、解析错误等）都被捕获，
-    返回空列表以不中断其他引擎的搜索。
-
     Args:
-        engine_cls: 引擎客户端类（如 DuckDuckGoClient）
+        engine_cls: 引擎客户端类（懒加载后的真实类型）
         query: 搜索关键词
         max_results: 最大返回结果数
         **kwargs: 传递给引擎构造函数的参数
@@ -135,54 +101,35 @@ async def _search_engine(
     timeout = _get_engine_timeout_seconds()
 
     async def _run() -> list[WebSearchResult]:
-        # 创建引擎实例、执行搜索、返回结果列表
         async with engine_cls(**kwargs) as client:
             resp = await client.search(query, max_results=max_results)
             return list(resp.results)
 
     async with _get_web_semaphore():
         try:
-            # 执行搜索任务，设置超时上限
             return await asyncio.wait_for(_run(), timeout=timeout)
         except asyncio.TimeoutError:
             logger.warning("%s 搜索超时，已跳过 (%.1fs)", engine_cls.__name__, timeout)
             return []
         except Exception as e:
-            # 捕获所有异常（包括 API 错误、网络异常、解析错误等）
             logger.warning("%s 搜索失败 [%s]: %s", engine_cls.__name__, type(e).__name__, e)
             return []
 
 
 def _get_engine_timeout_seconds() -> float:
-    """单个 Web 引擎搜索超时（秒数）
-
-    从配置读取超时时间，夹在 [1.0, 15.0] 之间确保合理范围。
-    防止过短的超时导致引擎查询失败，也防止过长的超时拖累整体性能。
-
-    Returns:
-        float: 超时秒数，范围 [1.0, 15.0]
-    """
+    """单个 Web 引擎搜索超时（秒数），受 [1.0, 15.0] 约束。"""
     timeout = float(get_config().timeout)
-    # 确保超时时间不超过上限、不少于 1 秒
     return max(1.0, min(timeout, _WEB_ENGINE_TIMEOUT_CAP_SECONDS))
 
 
 def _deduplicate(results: Sequence[WebSearchResult]) -> list[WebSearchResult]:
-    """URL 去重，保留首次出现的结果
+    """URL 去重，保留首次出现的结果。
 
-    规范化 URL（小写、去尾部斜杠），按规范化 URL 去重。
-    保留首次出现的结果，确保结果列表顺序不变。
-
-    Args:
-        results: 待去重的搜索结果序列
-
-    Returns:
-        list[WebSearchResult]: 去重后的结果列表
+    规范化：小写 + 去尾部斜杠。
     """
     seen_urls: set[str] = set()
     deduped: list[WebSearchResult] = []
     for r in results:
-        # 规范化 URL：转小写 + 去尾部斜杠，避免 http://example.com 和 http://example.com/ 被重复计算
         normalized = r.url.rstrip("/").lower()
         if normalized not in seen_urls:
             seen_urls.add(normalized)
@@ -199,12 +146,17 @@ async def web_search(
 ) -> WebSearchResponse:
     """并发多引擎聚合搜索
 
-    同时查询 DuckDuckGo、Bing（或指定子集），
-    聚合结果并可选去重。
+    同时查询多个搜索引擎（默认 ["duckduckgo", "bing"]），聚合结果并可选去重。
+    Engine 通过 `souwen.registry` 懒加载，因此该函数调用时才会 import 对应客户端。
+
+    v1 注意事项：
+      - 可选用任何 `registry` 中声明了 `search` capability 的源（含跨 domain 的源，
+        如 `youtube` / `bilibili` / `github`）——与 v0 行为一致。
+      - 源的默认启用状态遵从 `SouWenConfig.is_source_enabled`。
 
     Args:
         query: 搜索关键词
-        engines: 引擎列表，默认 ["duckduckgo", "bing"]
+        engines: 引擎名列表，默认 ["duckduckgo", "bing"]
         max_results_per_engine: 每个引擎最大返回数
         deduplicate: 是否按 URL 去重
         **kwargs: 传递给各引擎构造函数的参数（如 use_curl_cffi）
@@ -217,138 +169,42 @@ async def web_search(
         >>> for r in resp.results:
         ...     print(f"[{r.engine}] {r.title} → {r.url}")
     """
-    # 引擎名 -> 客户端类的映射，用于动态加载引擎
-    engine_map: dict[str, type] = {
-        # 爬虫引擎（无需 API Key）
-        "duckduckgo": DuckDuckGoClient,
-        "duckduckgo_news": DuckDuckGoNewsClient,
-        "duckduckgo_images": DuckDuckGoImagesClient,
-        "duckduckgo_videos": DuckDuckGoVideosClient,
-        "yahoo": YahooClient,
-        "brave": BraveClient,
-        "google": GoogleClient,
-        "bing": BingClient,
-        "bing_cn": BingCnClient,
-        "startpage": StartpageClient,
-        "baidu": BaiduClient,
-        "mojeek": MojeekClient,
-        "yandex": YandexClient,
-        # API 引擎（需要对应 Key）
-        "searxng": SearXNGClient,
-        "tavily": TavilyClient,
-        "exa": ExaClient,
-        "serper": SerperClient,
-        "brave_api": BraveApiClient,
-        "serpapi": SerpApiClient,
-        "firecrawl": FirecrawlClient,
-        "perplexity": PerplexityClient,
-        "linkup": LinkupClient,
-        "scrapingdog": ScrapingDogClient,
-        "metaso": MetasoClient,
-        # 自部署元搜索（需自建实例）
-        "whoogle": WhoogleClient,
-        "websurfx": WebsurfxClient,
-        # 社交/平台搜索
-        "github": GitHubClient,
-        "stackoverflow": StackOverflowClient,
-        "reddit": RedditClient,
-        "bilibili": BilibiliClient,
-        "wikipedia": WikipediaClient,
-        "youtube": YouTubeClient,
-        "zhihu": ZhihuClient,
-        "weibo": WeiboClient,
-        "csdn": CSDNClient,
-        "juejin": JuejinClient,
-        "linuxdo": LinuxDoClient,
-        "twitter": TwitterClient,
-        "facebook": FacebookClient,
-        # 企业/办公平台搜索
-        "feishu_drive": FeishuDriveClient,
-        # AI 搜索引擎（含摘要）
-        "zhipuai": ZhipuAISearchClient,
-        "aliyun_iqs": AliyunIQSClient,
-    }
-
-    # 引擎名 -> SourceType 的映射，用于标记结果来源
-    source_map: dict[str, SourceType] = {
-        "duckduckgo": SourceType.WEB_DUCKDUCKGO,
-        "duckduckgo_news": SourceType.WEB_DDG_NEWS,
-        "duckduckgo_images": SourceType.WEB_DDG_IMAGES,
-        "duckduckgo_videos": SourceType.WEB_DDG_VIDEOS,
-        "yahoo": SourceType.WEB_YAHOO,
-        "brave": SourceType.WEB_BRAVE,
-        "google": SourceType.WEB_GOOGLE,
-        "bing": SourceType.WEB_BING,
-        "bing_cn": SourceType.WEB_BING_CN,
-        "searxng": SourceType.WEB_SEARXNG,
-        "tavily": SourceType.WEB_TAVILY,
-        "exa": SourceType.WEB_EXA,
-        "serper": SourceType.WEB_SERPER,
-        "brave_api": SourceType.WEB_BRAVE_API,
-        "serpapi": SourceType.WEB_SERPAPI,
-        "firecrawl": SourceType.WEB_FIRECRAWL,
-        "perplexity": SourceType.WEB_PERPLEXITY,
-        "linkup": SourceType.WEB_LINKUP,
-        "scrapingdog": SourceType.WEB_SCRAPINGDOG,
-        "metaso": SourceType.WEB_METASO,
-        "startpage": SourceType.WEB_STARTPAGE,
-        "baidu": SourceType.WEB_BAIDU,
-        "mojeek": SourceType.WEB_MOJEEK,
-        "yandex": SourceType.WEB_YANDEX,
-        "whoogle": SourceType.WEB_WHOOGLE,
-        "websurfx": SourceType.WEB_WEBSURFX,
-        "github": SourceType.WEB_GITHUB,
-        "stackoverflow": SourceType.WEB_STACKOVERFLOW,
-        "reddit": SourceType.WEB_REDDIT,
-        "bilibili": SourceType.WEB_BILIBILI,
-        "wikipedia": SourceType.WEB_WIKIPEDIA,
-        "youtube": SourceType.WEB_YOUTUBE,
-        "zhihu": SourceType.WEB_ZHIHU,
-        "weibo": SourceType.WEB_WEIBO,
-        "csdn": SourceType.WEB_CSDN,
-        "juejin": SourceType.WEB_JUEJIN,
-        "linuxdo": SourceType.WEB_LINUXDO,
-        "twitter": SourceType.WEB_TWITTER,
-        "facebook": SourceType.WEB_FACEBOOK,
-        "feishu_drive": SourceType.WEB_FEISHU_DRIVE,
-        "zhipuai": SourceType.WEB_ZHIPUAI,
-        "aliyun_iqs": SourceType.WEB_ALIYUN_IQS,
-    }
-
-    # 默认使用在当前零配置场景下更稳定的公开引擎组合
     selected = engines or ["duckduckgo", "bing"]
 
     tasks = []
     cfg = get_config()
-    # 为每个选中的引擎创建搜索任务
     for name in selected:
-        # 检查引擎是否在配置中被启用
         if not cfg.is_source_enabled(name):
             logger.info("引擎 %s 已禁用，跳过", name)
             continue
-        # 获取对应的引擎类
-        cls = engine_map.get(name)
-        if cls is None:
+        adapter = _registry_get(name)
+        if adapter is None:
             logger.warning("未知引擎: %s，跳过", name)
             continue
-        # 添加到任务列表，后续并发执行
+        # 必须支持 'search' capability 才能走 web_search
+        if "search" not in adapter.capabilities:
+            logger.warning(
+                "引擎 %s 不支持 'search' capability (有: %s)，跳过",
+                name,
+                sorted(adapter.capabilities),
+            )
+            continue
+        try:
+            cls = adapter.client_loader()
+        except ImportError as e:
+            logger.warning("引擎 %s Client 加载失败: %s", name, e)
+            continue
         tasks.append(_search_engine(cls, query, max_results_per_engine, **kwargs))
 
-    # 并发执行所有引擎（等价 Rust 的 FuturesUnordered + tokio::spawn）
-    # return_exceptions=True 确保单个引擎失败不阻塞整体任务
     engine_results = await asyncio.gather(*tasks, return_exceptions=True)
 
     all_results: list[WebSearchResult] = []
-    # 聚合来自各引擎的结果
     for result in engine_results:
         if isinstance(result, list):
-            # 正常的搜索结果列表
             all_results.extend(result)
         elif isinstance(result, Exception):
-            # 记录引擎的异常（虽然已在 _search_engine 中处理，这是额外的保障）
             logger.warning("引擎返回异常: %s", result)
 
-    # 可选的 URL 去重
     if deduplicate:
         all_results = _deduplicate(all_results)
 
@@ -359,12 +215,13 @@ async def web_search(
         selected,
     )
 
-    # 返回聚合响应，source 取第一个引擎的类型
+    # v0 行为：source 字段用"第一个引擎"的 SourceType
+    first = selected[0] if selected else None
+    source_tag = _source_type_for(first) if first else SourceType.WEB_DUCKDUCKGO
+
     return WebSearchResponse(
         query=query,
-        source=source_map.get(selected[0], SourceType.WEB_DUCKDUCKGO)
-        if selected
-        else SourceType.WEB_DUCKDUCKGO,
+        source=source_tag,
         results=all_results,
         total_results=len(all_results),
     )

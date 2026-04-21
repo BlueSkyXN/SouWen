@@ -1,304 +1,224 @@
-# 架构设计
+# SouWen v1 架构概览
 
-> SouWen 的内部架构、数据流与设计原则
+> 本文档描述 v0.9+ 的目标架构。v1 的核心变化：**所有数据源元数据 + 执行适配集中到 `registry/` 单一事实源**，解决 v0 时期"同一份信息散落 7 处手工维护、频繁漂移"的问题。
 
-## 总体架构
+---
 
-SouWen 采用**搜索门面（Search Facade）**模式，通过统一入口分发请求到 37 个异构数据源，并将结果归一化为统一的 Pydantic v2 数据模型。
+## 1. 分层图
 
 ```
-User / AI Agent
-       │
-       ▼
-  search(query, domain)          ← 统一入口 (search.py)
-       │
-  ┌────┼────────────┐─────────┐
-  ▼    ▼            ▼          ▼
-search_papers  search_patents  web_search  fetch_content
-  │              │               │
-  ▼              ▼               ▼
-_search_source_limited()         ← per-event-loop Semaphore 并发控制
-                                   （默认 10，可由 SOUWEN_MAX_CONCURRENCY 覆盖）
-  │
-  ▼
-_run_client(ClientClass, "search", **kwargs)
-  │
-  ▼
-async with ClientClass() as client:
-    response = await client.search(...)   ← 各数据源客户端
-  │
-  ▼
-SearchResponse(results=[PaperResult | PatentResult | WebSearchResult])
+┌────────────────────────────────────────────────────────────────┐
+│ 展示层 Presentation                                            │
+│   souwen.cli/*        CLI（按 domain 拆分）                    │
+│   souwen.server/*     FastAPI（按 domain 拆分）                │
+│   souwen.integrations/mcp/*  MCP 协议集成                      │
+│   panel/              Web UI（4 皮肤 + 共享 core）             │
+├────────────────────────────────────────────────────────────────┤
+│ 门面层 Facade                                                   │
+│   souwen.facade.search     search(domain=, capability=) 派发   │
+│   souwen.facade.fetch      fetch_content(urls, provider=)      │
+│   souwen.facade.archive    archive_{lookup,save,fetch}         │
+│   souwen.facade.aggregate  search_all(domains=)                │
+├────────────────────────────────────────────────────────────────┤
+│ 注册表层 Registry —— 单一事实源                                │
+│   souwen.registry.adapter    SourceAdapter / MethodSpec        │
+│   souwen.registry.sources    83 个 _reg(...) 声明（权威）      │
+│   souwen.registry.loader     字符串懒加载（避免启动 import）  │
+│   souwen.registry.views      by_domain / by_capability / ...   │
+├────────────────────────────────────────────────────────────────┤
+│ 业务层 Domain —— 按 domain 组织的 Client                        │
+│   paper/  patent/  web/{engines,api,self_hosted}/              │
+│   social/  video/  knowledge/  developer/                       │
+│   cn_tech/  office/  archive/  fetch/providers/                 │
+├────────────────────────────────────────────────────────────────┤
+│ 平台层 Platform —— 所有域共用的基础设施                         │
+│   souwen.core.http_client       SouWenHttpClient / OAuthClient │
+│   souwen.core.scraper.base      BaseScraper                    │
+│   souwen.core.rate_limiter      Token Bucket + 滑窗            │
+│   souwen.core.retry             tenacity 重试                  │
+│   souwen.core.session_cache     OAuth token 持久化             │
+│   souwen.core.fingerprint       curl_cffi 指纹                 │
+│   souwen.core.exceptions        全部异常类型                   │
+│   souwen.core.parsing           HTML/JSON 辅助                 │
+│   souwen.core.concurrency       per-loop Semaphore（D12）      │
+│   souwen.core.models            Pydantic 模型（SourceType 等） │
+└────────────────────────────────────────────────────────────────┘
 ```
 
-## 数据流
+**依赖方向**：展示层 → 门面层 → 注册表层 ↔ 业务层；平台层被任何层引用。业务层内部 domain 之间不互相依赖。
 
-1. **用户调用** `search(query, domain="paper")` 或直接调用 `search_papers()`
-2. **门面层** 根据 domain 路由到对应的搜索函数
-3. **并发控制** `_search_source_limited()` 通过 per-event-loop 懒加载的 `asyncio.Semaphore` 防止连接过载（默认上限 10，可通过环境变量 `SOUWEN_MAX_CONCURRENCY` 覆盖；v0.6.0 起改为按事件循环绑定，避免跨循环复用导致的 `RuntimeError`）
-4. **客户端实例化** `_run_client()` 使用 async context manager 创建客户端并调用搜索方法
-5. **HTTP 请求** 客户端通过 `SouWenHttpClient`（API 类）或 `BaseScraper`（爬虫类）发送请求
-6. **结果解析** 各客户端将原始 JSON/HTML 解析为统一的 `PaperResult` / `PatentResult` / `WebSearchResult`
-7. **异常隔离** 每个数据源独立捕获异常，失败不影响其他源
+---
 
-### 内容抓取数据流（v0.7.1）
-
-1. **用户调用** `fetch_content(urls, providers=["builtin"])` 或 `POST /api/v1/fetch`
-2. **SSRF 校验** `validate_fetch_url()` 对每个 URL 做 DNS 解析 + IP 类型校验
-3. **提供者调度** `_fetch_with_provider()` 路由到 16 个提供者（builtin / jina_reader / tavily 等）
-4. **HTTP 请求** 内置提供者继承 `BaseScraper`（`follow_redirects=False`，手动重定向）
-5. **重定向安全** 每一跳调用 `validate_fetch_url()` 校验目标 IP，最多 5 跳
-6. **内容提取** trafilatura（Markdown）→ html2text → 正则剥离（三级回退）
-7. **CJK 词数校验** `_count_words()` 正确处理中日韩文本
-8. **结果聚合** 返回 `FetchResponse(results=[FetchResult, ...])`
-
-## 两种基类模式
-
-### SouWenHttpClient（API 类数据源）
-
-用于有正式 REST API 的数据源（OpenAlex、Crossref、Semantic Scholar 等）。
+## 2. 核心抽象：`SourceAdapter`
 
 ```python
-SouWenHttpClient(
-    base_url: str = "",
-    headers: dict[str, str] | None = None,
-    timeout: int | None = None,       # 默认取 config.timeout
-    max_retries: int | None = None    # 默认取 config.max_retries
-)
+@dataclass(frozen=True, slots=True)
+class SourceAdapter:
+    name: str                                    # 'openalex' / 'tavily' / ...
+    domain: str                                  # paper|patent|web|social|...
+    integration: str                             # open_api|scraper|official_api|self_hosted
+    description: str
+    config_field: str | None                     # SouWenConfig 对应字段（None=零配置）
+    client_loader: Callable[[], type]            # lazy("souwen.paper.openalex:OpenAlexClient")
+    methods: Mapping[str, MethodSpec]            # capability → MethodSpec
+    extra_domains: frozenset[str] = frozenset()  # 跨域（v1 初期仅允许 "fetch"）
+    default_enabled: bool = True                 # 高风险源设 False
+    default_for: frozenset[str] = frozenset()    # {"paper:search"} 声明默认源
+    tags: frozenset[str] = frozenset()           # {"high_risk"} / ...
+
+@dataclass(frozen=True, slots=True)
+class MethodSpec:
+    method_name: str                             # Client 上的方法名
+    param_map: Mapping[str, str] = {}            # 'limit' → 'per_page' 的映射
+    pre_call: Callable[[dict], dict] | None = None  # 复杂变换逃生舱
 ```
 
-特性：
-- `async get()` / `async post()` 封装 httpx 异步请求
-- `@retry` 装饰器：3 次重试，指数退避 2-10s
-- HTTP 状态码自动映射异常：401/403 → `AuthError`，429 → `RateLimitError`，5xx → `SourceUnavailableError`
-- 支持 `async with` 上下文管理器
+### 为什么需要 MethodSpec
 
-**OAuthClient(SouWenHttpClient)** 扩展了 OAuth 2.0 自动管理：
-- `_ensure_token()` 自动获取和缓存 Bearer Token
-- Token 过期前 60s 自动刷新
-- 通过 `SessionCache`（aiosqlite）持久化 Token
+v0 时代每个 Client 的 search 参数名都不一样：
 
-### BaseScraper（爬虫类数据源）
+```
+OpenAlex.search(query, per_page=, ...)
+Crossref.search(query, rows=, ...)
+arXiv.search(query, max_results=, ...)
+PubMed.search(query, retmax=, ...)
+HuggingFace.search(query, top_n=, ...)
+PatentsView.search(query=<dict>, ...)  # 查询结构是 {"_contains": ...}
+EPO OPS.search(cql_query=, range_end=, ...)
+USPTO ODP.search_applications(query=, per_page=, ...)  # 方法名都不一样
+```
 
-用于无正式 API 的数据源（DuckDuckGo、Google、Bing 等搜索引擎）。
+v0 用 24 个 lambda 硬映射（两个巨大 dict），一加源要改多处。v1 固化在 adapter 声明：
 
 ```python
-BaseScraper(
-    min_delay: float = 2.0,       # 最小请求间隔
-    max_delay: float = 5.0,       # 最大请求间隔
-    max_retries: int = 3,
-    use_curl_cffi: bool | None = None,  # 自动检测
-    follow_redirects: bool = True       # v0.7.1: 子类可关闭自动重定向
-)
+_reg(SourceAdapter(
+    name="uspto_odp", domain="patent", ...,
+    client_loader=lazy("souwen.patent.uspto_odp:UsptoOdpClient"),
+    methods={"search": MethodSpec("search_applications", {"limit": "per_page"})},
+))
+
+_reg(SourceAdapter(
+    name="patentsview", ...,
+    methods={"search": MethodSpec("search", {"limit": "per_page"}, pre_call=_pv_pre_call)},
+))
 ```
 
-特性：
-- **TLS 指纹模拟**：优先使用 curl_cffi 模拟 Chrome JA3 指纹
-- **浏览器请求头**：13 个头（Sec-CH-UA 系列、Sec-Fetch 系列等）
-- **礼貌爬取**：随机延迟 + 自适应退避
-- **429 处理**：退避倍数 ×2（最大 16×），成功后 ×0.8 渐进恢复
-- 未安装 curl_cffi 时自动回退到 httpx
+### 懒加载
 
-## 限流器架构
-
-```
-RateLimiterBase(ABC)
-├── TokenBucketLimiter    固定速率限流（如 PatentsView 45次/分钟）
-└── SlidingWindowLimiter  动态窗口限流（可根据响应头动态调整）
-```
-
-### TokenBucketLimiter
-
-令牌桶算法，适用于固定速率限制：
+注册表模块导入时**不**加载 80+ 个 Client：
 
 ```python
-TokenBucketLimiter(rate=0.75, burst=1)  # 0.75 req/s = 45 req/min
+client_loader=lazy("souwen.paper.openalex:OpenAlexClient")
+# ...
+client_cls = adapter.client_loader()  # 此刻才 importlib.import_module
 ```
 
-- `_tokens` 浮点计数，范围 0 到 burst
-- `acquire()` 等待令牌可用后消耗 1 个
-- `_refill()` 按时间流逝 × rate 补充令牌
+`lazy()` 基于 `functools.lru_cache` 保证同一路径只解析一次。
 
-### SlidingWindowLimiter
+---
 
-滑动窗口算法，适用于需要根据响应头动态调整的场景：
+## 3. Domain × Capability 矩阵
 
-```python
-SlidingWindowLimiter(max_requests=100, window_seconds=60.0)
-```
+**10 个 domain + 横切 `fetch`**：
 
-- 维护 `deque[float]` 时间戳队列
-- `update_from_headers(remaining, retry_after)` 支持从响应头动态调整
+| Domain | 说明 | 常见 capability |
+|---|---|---|
+| `paper` | 学术论文 | search, get_detail |
+| `patent` | 专利 | search, get_detail |
+| `web` | 通用网页搜索 | search, search_news, search_images, search_videos |
+| `social` | 社交平台 | search |
+| `video` | 视频平台 | search, get_trending, get_detail, get_transcript |
+| `knowledge` | 百科/知识库 | search, get_detail |
+| `developer` | 开发者社区 | search, search_users, get_detail |
+| `cn_tech` | 中文技术社区 | search |
+| `office` | 企业/办公 | search |
+| `archive` | 档案/历史 | archive_lookup, archive_save |
+| `fetch` *(横切)* | 内容抓取 | fetch |
 
-### 扩展接口
+**12 个标准 capability**：`search` / `search_news` / `search_images` / `search_videos` / `search_articles` / `search_users` / `get_detail` / `get_trending` / `get_transcript` / `fetch` / `archive_lookup` / `archive_save`。
 
-`RateLimiterBase(ABC)` 支持自定义实现，例如 Redis 分布式限流器：
+非标准能力使用命名空间前缀（D8），如 `exa:find_similar` / `unpaywall:find_oa`——注册表接受任意字符串 capability，但只有标准 12 个参与门面自动派发。
 
-```python
-class RedisRateLimiter(RateLimiterBase):
-    async def acquire(self):
-        # 使用 Redis Lua 脚本实现原子计数 + 过期
-        ...
-```
+### 跨域能力
 
-## 异常体系
+有些源同时可做搜索和抓取（`extra_domains={"fetch"}`）：
 
-```
-SouWenError (base)
-├── ConfigError            缺少 API Key 等配置错误
-├── AuthError              401/403 认证失败
-├── RateLimitError         429 限流（包含 retry_after）
-├── SourceUnavailableError 5xx 或网络错误
-├── ParseError             JSON/HTML 解析失败
-└── NotFoundError          无结果
-```
+| 源 | 主 domain | fetch 方法 |
+|---|---|---|
+| Tavily | web | `extract` |
+| Firecrawl | web | `scrape` |
+| Exa | web | `contents` |
+| Wayback | archive | `fetch` |
 
-多源搜索中，每个数据源独立捕获异常：
-- `ConfigError` → 跳过并记录 info（缺 Key 属预期行为）
-- `RateLimitError` → 跳过并记录 warning
-- 其他异常 → 跳过并记录 warning
+---
 
-## 重试策略（分层）
+## 4. 并发与超时
 
-| 级别 | 装饰器 | 次数 | 退避 | 适用场景 |
-|------|--------|------|------|----------|
-| L1 | `http_retry` | 3 | 2-10s 指数 | 常规 API 请求 |
-| L2 | `scraper_retry` | 5 | 5-30s 指数 | 网页爬取 |
-| L3 | `captcha_retry` | 5 | 5-30s 指数 | CAPTCHA 场景 |
-| L4 | `poll_retry` | 可配置 | 固定间隔 | 异步任务轮询 |
+- **per-event-loop Semaphore**（D12）：`core.concurrency.get_semaphore(channel)` 按当前 running loop 存 `WeakKeyDictionary[loop, Semaphore]`。同 loop 多次调用返回同一个；跨 `asyncio.new_event_loop()` 自动隔离；loop 被 GC 后自动清理。取代 v0 的 `loop._souwen_sem = sem  # type: ignore` 黑魔法。
+- **两个独立 channel**：`search` 与 `web`，互不阻塞。
+- **单源超时上限 15s**，受 `SouWenConfig.timeout` 约束；超时源丢弃，不影响其他源。
+- **异常隔离**：单源抛异常（ConfigError / RateLimitError / 其他）时只记 log，不阻塞其他源。
 
-## 会话缓存（aiosqlite）
+## 5. 限流与反爬
 
-`SessionCache` 使用异步 SQLite 持久化 OAuth Token 和 Cookie：
+见 [anti-scraping.md](anti-scraping.md)。要点：
 
-- **数据库位置**：`~/.local/share/souwen/session_cache.db`
-- **sessions 表**：网站会话数据（Cookie、Header），支持 TTL
-- **oauth_tokens 表**：OAuth 2.0 Token（access_token、refresh_token、expires_at）
-- Token 提前 60s 过期，避免边界情况
-- 全异步操作（aiosqlite），首次导入时同步建表
+- **TLS 指纹**：`curl_cffi` 为 15+ 爬虫类源伪装 Chrome/Safari TLS ClientHello
+- **Token Bucket + 滑窗双层限流**：每源独立
+- **WARP 双方案**：kernel（wireguard-go + microsocks）/ wireproxy（用户态）
+- **SSRF 防护**：fetch 入口的重定向跟踪 + 私网/回环/链路本地 IP 黑名单
 
-## 项目结构
+## 6. 配置
 
-```
-SouWen/
-├── .github/workflows/     # CI/CD (lint + test + publish)
-├── pyproject.toml
-├── .env.example
-├── souwen.example.yaml
-├── src/souwen/
-│   ├── __init__.py         # 公开 API 导出
-│   ├── search.py           # 搜索门面（search, search_papers, search_patents）
-│   ├── config.py           # 统一配置管理
-│   ├── models.py           # Pydantic v2 统一数据模型
-│   ├── exceptions.py       # 6 类自定义异常体系
-│   ├── rate_limiter.py     # 限流器（令牌桶 + 滑动窗口）
-│   ├── http_client.py      # httpx async + OAuth 2.0 Token 自动刷新
-│   ├── fingerprint.py      # Chrome TLS 指纹库
-│   ├── session_cache.py    # SQLite 会话/Token 持久化缓存
-│   ├── retry.py            # 分层重试策略
-│   ├── doctor.py           # 健康检查 / 诊断
-│   ├── cli.py              # Typer CLI 命令
-│   ├── paper/              # 8 个论文数据源
-│   ├── patent/             # 8 个专利数据源
-│   ├── web/                # 21 搜索引擎 + 16 内容抓取提供者
-│   ├── scraper/            # 爬虫基础层（TLS 指纹 + 礼貌爬取）
-│   ├── server/             # FastAPI 服务
-│   │   └── panel.html      # 前端构建产物（单文件 HTML）
-│   └── integrations/       # MCP Server 集成
-├── panel/                  # 前端源码（React + TypeScript）
-│   └── src/
-│       ├── core/           # 跨皮肤共享层
-│       └── skins/          # 皮肤层（每个皮肤完全独立的 UI）
-├── tests/                  # 单元测试
-├── examples/               # 使用示例
-├── docs/                   # 项目文档
-└── local/                  # 设计文档（不纳入包）
-```
+- **层级优先级**：env > `./souwen.yaml` > `~/.config/souwen/config.yaml` > `.env` > 默认值
+- **频道级覆盖**：每个源可独立配 proxy / http_backend / base_url / headers / params（见 `SouWenConfig.sources`）
+- 完整字段列表见 [configuration.md](configuration.md)
 
-## 前端架构（管理面板）
+## 7. 扩展：新增一个数据源
 
-管理面板采用**多皮肤架构**，分为共享核心层和独立皮肤层。
+**最少只改 2 处**：
 
-### 三层分离模型
+1. `src/souwen/<domain>/<name>.py` 写 Client（继承 `SouWenHttpClient` / `BaseScraper`）
+2. `src/souwen/registry/sources.py` 加一个 `_reg(SourceAdapter(...))`
 
-```
-Skin（皮肤）→ Mode（模式）→ Scheme（配色）
-│                │              │
-│                │              └── 每皮肤独立配色（运行时切换）
-│                └── light / dark（运行时切换）
-└── souwen-classic / carbon / apple / ios / ...（运行时切换，或单皮肤构建）
-```
+如需 API Key，加第 3 处：`SouWenConfig` 加字段。完整流程见 [adding-a-source.md](adding-a-source.md)。
 
-- **Skin（皮肤）**：完全独立的前端 UI——不同的布局、组件、路由、交互逻辑。当前内置 4 个皮肤（`souwen-classic`、`carbon`、`apple`、`ios`）。默认全皮肤构建，支持运行时切换；也可通过 `VITE_SKINS` 环境变量指定单皮肤或子集构建。
-- **Mode（模式）**：明暗模式（light/dark），用户在面板内实时切换。
-- **Scheme（配色方案）**：强调色方案，每个皮肤可定义自己支持的配色集。
+## 8. 结构一致性测试（护栏）
 
-### 共享层（core/）
+`tests/registry/test_consistency.py` 含 21 项硬断言，CI 每次 PR 必跑：
 
-跨皮肤共享的非 UI 模块：
+- capability 全部在标准集或命名空间形式
+- extra_domains 只允许 `fetch`（v1 初期）
+- MethodSpec.method_name 在 Client 类上真实存在
+- param_map 的目标参数名是方法签名里的参数
+- config_field 在 `SouWenConfig.model_fields` 里存在
+- default_for 的 key 能解析为 (domain, capability) 且都合法
+- 注册表无重名
+- `ALL_SOURCES` 与 `registry.as_all_sources_dict()` 派生一致
+- high_risk 源不在任何默认源集
+- `resolve_params` 对所有 adapter/method 不抛异常
+- SourceType 枚举 ⊆ registry.enum_values（通过规范化映射）
+- 所有标准 capability 都有源实现
+- 每个 domain 至少有一个源支持 search / archive_lookup
+- fetch 提供者 ≥ 10 个
 
-| 模块 | 用途 |
-|------|------|
-| `core/stores/` | Zustand 状态管理（authStore, notificationStore） |
-| `core/services/` | API 客户端（封装 fetch，统一错误处理） |
-| `core/types/` | TypeScript 类型定义（API 响应模型、共享类型） |
-| `core/i18n/` | 国际化（i18next，当前支持中文） |
-| `core/lib/` | 工具函数（动画预设、数据归一化、错误处理） |
-| `core/hooks/` | 跨皮肤共享 React Hooks（`useFetchPage` 等） |
-| `core/styles/` | 共享 CSS 重置与基础样式（`base.scss`） |
-| `core/test/` | 共享测试工具与测试用例 |
+## 9. v0 兼容承诺
 
-### 皮肤层（skins/）
+- `from souwen.paper import OpenAlexClient` 等 v0 import 路径全保留（shim re-export）
+- v0 CLI 命令（`souwen search paper`）继续可用
+- v0 REST 路径（`/api/v1/search/paper`）继续可用
+- v0 配置字段名不变（只增不改）
+- SourceType 枚举手写保留（v2.0 引入 `SourceName = Literal[...]`）
 
-每个皮肤是一个完全自包含的前端应用：
+详见 [CHANGELOG.md](../CHANGELOG.md) 与 `local/v1-初步定义.md §10` 的 15 项 Final 决定。
 
-```
-skins/souwen-classic/
-├── index.ts           # 皮肤入口（导出 AppShell, LoginPage, routes, config, bootstrap）
-├── skin.config.ts     # 皮肤配置（配色方案、默认模式等）
-├── routes.tsx         # 路由定义
-├── stores/            # 皮肤状态（skinStore：mode/scheme 管理）
-├── components/
-│   ├── layout/        # 布局组件（MainLayout, Sidebar, Header）
-│   └── common/        # 通用 UI 组件（Button, Card, Modal, Toast, ErrorBoundary, Spinner）
-├── pages/             # 页面（Dashboard, Search, Sources, Config, Fetch, Login）
-├── styles/            # SCSS 样式（全局 token，通过 html[data-skin] 命名空间隔离）
-└── test/              # 皮肤专属测试
-```
+---
 
-### 构建系统
+## 附：版本路线图
 
-- **Vite + vite-plugin-singlefile** → 打包为单个 `index.html`，复制到 `src/souwen/server/panel.html`
-- **虚拟模块**：`virtual:skin-loader` 根据 `VITE_SKINS` 导入并注册指定皮肤
-- **皮肤注册表**：`core/skin-registry.ts` 管理运行时皮肤注册、查找、切换
-- **路径别名**：`@core` → `src/core`
-- **默认全皮肤构建**：`npm run build`（等同于 `VITE_SKINS=all`）
-- **单皮肤构建**：`npm run build:classic` 或 `VITE_SKINS=souwen-classic npm run build`
-
-### CSS 架构
-
-- **SCSS Modules**：组件样式通过 CSS Modules 隔离（`.module.scss`）
-- **CSS 自定义属性**：全局 token（`--accent`、`--bg`、`--card-bg` 等）通过 `html[data-skin]`、`[data-mode]` 和 `[data-scheme]` 选择器切换
-- **皮肤级 CSS 隔离**：每个皮肤的 `global.scss` 使用 `html[data-skin='xxx']` 命名空间，多皮肤共存时互不干扰
-- **无 Tailwind**：项目使用纯 SCSS + CSS Variables
-
-### 状态管理
-
-| Store | 位置 | 用途 |
-|-------|------|------|
-| `useAuthStore` | core/ | 登录状态、token、版本号 |
-| `useNotificationStore` | core/ | Toast 通知 |
-| `useSkinStore` | skin/ | 明暗模式、配色方案、localStorage 持久化 |
-
-HTML 属性映射：`data-mode`（light/dark）、`data-scheme`（nebula/aurora/obsidian）
-
-## 设计原则
-
-1. **AI Agent 友好**：统一数据模型，结构化输出，最小化 Token 消耗
-2. **渐进式配置**：无需 Key 的数据源开箱即用，需要 Key 的友好报错并给出注册指引
-3. **稳健性**：自动重试、限流保护、优雅降级
-4. **可观测性**：结构化日志，请求耗时追踪
-
-## 版本演进
-
-详细的版本变更（新增数据源、面板/皮肤升级、并发模型修复、测试覆盖等）请参考根目录 [`CHANGELOG.md`](../CHANGELOG.md)。
+| 版本 | 阶段 | 关键内容 |
+|---|---|---|
+| 0.8.x | 当前 v0 | bugfix only |
+| **0.9.x** | **v1 过渡** | registry 落地 / 目录重组 / facade 层 / 全部 v0 入口别名保留 |
+| 1.0.0 | v1 正式 | v0 别名打 deprecated 标签；文档全部迁到 v1 |
+| 2.0.0 | 清理 | 移除 v0 别名；`SourceType` 降级为 `SourceName = Literal[...]`；可考虑抽 `souwen-core` 独立包 |

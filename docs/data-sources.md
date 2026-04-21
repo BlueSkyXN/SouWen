@@ -1,238 +1,166 @@
-# 数据源详情
+# SouWen 数据源清单
 
-> SouWen 支持的全部 76 个数据源
+**总计**：**83** 个数据源（从 registry 自动生成）。
 
-## 概览
+<!-- BEGIN AUTO -->
 
-| 类别 | 数量 | 免费可用 | 需要 Key |
-|------|------|----------|----------|
-| 论文 | 9 | 6（OpenAlex、Crossref、arXiv、DBLP、PubMed、HuggingFace Papers） | 3（Semantic Scholar 可选、CORE、Zotero） |
-| 专利 | 6 | 1（Google Patents 爬虫） | 5（EPO、USPTO ODP、The Lens、CNIPA、PatSnap） |
-| 搜索引擎 | ~30 | 通用爬虫 + 自建实例 + Reddit / Wikipedia / GitHub / StackOverflow / Bilibili | 专业 API（Tavily、Exa、Metaso、Perplexity、Linkup、智谱 AI、阿里云 IQS）+ Twitter/X、Facebook、YouTube、飞书云文档 |
-| 内容抓取 | 19 | 6 零配置（builtin、crawl4ai、newspaper、readability、site_crawler、deepwiki）+ 3 免费（jina_reader、wayback、mcp） | 10（Tavily、Firecrawl、Exa、Scrapfly、Diffbot、ScrapingBee、ZenRows、ScraperAPI、Apify、Cloudflare） |
+## 学术论文 · `paper`（17 源）
 
-## 论文数据源
+| Name | Integration | Capabilities | Config Field |
+|---|---|---|---|
+| `arxiv` | open_api | search | — |
+| `core` | official_api | search | `core_api_key` |
+| `crossref` | open_api | search | — |
+| `dblp` | open_api | search | — |
+| `doaj` | official_api | search | `doaj_api_key` |
+| `europepmc` | open_api | search | — |
+| `hal` | open_api | search | — |
+| `huggingface` | open_api | search | — |
+| `iacr` | scraper | search | — |
+| `openaire` | official_api | search | `openaire_api_key` |
+| `openalex` | open_api | search | `openalex_email` |
+| `pmc` | open_api | search | — |
+| `pubmed` | open_api | search | — |
+| `semantic_scholar` | official_api | search | `semantic_scholar_api_key` |
+| `unpaywall` | official_api | unpaywall:find_oa | `unpaywall_email` |
+| `zenodo` | official_api | search | `zenodo_access_token` |
+| `zotero` | official_api | search | `zotero_api_key` |
 
-| 数据源 | 客户端类 | 鉴权 | 特点 |
-|--------|---------|------|------|
-| OpenAlex | `OpenAlexClient` | 无需 Key | 最全面的开放学术数据，2.5 亿篇文献 |
-| Semantic Scholar | `SemanticScholarClient` | 可选 Key | AI 生成 TLDR 摘要，语义搜索 |
-| Crossref | `CrossrefClient` | 无需 Key | DOI 元数据权威源，1.5 亿条记录 |
-| arXiv | `ArxivClient` | 无需 Key | 全文免费预印本，支持高级检索语法 |
-| DBLP | `DblpClient` | 无需 Key | 计算机科学权威索引 |
-| CORE | `CoreClient` | 需 Key | 开放获取聚合平台，全文检索 |
-| PubMed | `PubMedClient` | 可选 Key | 生物医学权威数据库 |
-| Zotero | `ZoteroClient` | 需 Key + Library ID | 个人 / 团队文献库搜索 |
-| HuggingFace Papers | `HuggingFaceClient` | 无需 Key | 社区精选 + 语义搜索，upvotes 热度信号，每篇均对应 arXiv |
+## 专利 · `patent`（8 源）
 
-> 此外 SouWen 内置 Unpaywall 客户端（需 Email），仅作为 PDF 全文回退链使用，不暴露为搜索源。
+| Name | Integration | Capabilities | Config Field |
+|---|---|---|---|
+| `cnipa` | official_api | search | `cnipa_client_id` |
+| `epo_ops` | official_api | search | `epo_consumer_key` |
+| `google_patents` | scraper | search | — |
+| `patentsview` | open_api | search | — |
+| `patsnap` | official_api | search | `patsnap_api_key` |
+| `pqai` | open_api | search | — |
+| `the_lens` | official_api | search | `lens_api_token` |
+| `uspto_odp` | official_api | search | `uspto_api_key` |
 
-### 分级说明
+## 通用网页搜索 · `web`（28 源）
 
-- **Tier 1（零配置）**：OpenAlex、Crossref、arXiv、DBLP、PubMed、HuggingFace Papers — 无需任何配置即可使用
-- **Tier 2（推荐配置）**：PubMed（可选 Key 提高速率）、Semantic Scholar（可选 Key 提高速率）
-- **Tier 3（需注册）**：CORE（需申请 API Key）、Zotero（需 API Key + Library ID）
+| Name | Integration | Capabilities | Config Field |
+|---|---|---|---|
+| `aliyun_iqs` | official_api | search | `aliyun_iqs_api_key` |
+| `baidu` ⚠️ | scraper | search | — |
+| `bing` | scraper | search | — |
+| `bing_cn` | scraper | search | — |
+| `brave` | scraper | search | — |
+| `brave_api` | official_api | search | `brave_api_key` |
+| `duckduckgo` | scraper | search | — |
+| `duckduckgo_images` | scraper | search_images | — |
+| `duckduckgo_news` | scraper | search_news | — |
+| `duckduckgo_videos` | scraper | search_videos | — |
+| `exa` | official_api | exa:find_similar, fetch, search | `exa_api_key` |
+| `firecrawl` | official_api | fetch, search | `firecrawl_api_key` |
+| `google` ⚠️ | scraper | search | — |
+| `linkup` | official_api | search | `linkup_api_key` |
+| `metaso` | official_api | search | `metaso_api_key` |
+| `mojeek` | scraper | search | — |
+| `perplexity` | official_api | search | `perplexity_api_key` |
+| `scrapingdog` | official_api | search | `scrapingdog_api_key` |
+| `searxng` | self_hosted | search | `searxng_url` |
+| `serpapi` | official_api | search | `serpapi_api_key` |
+| `serper` | official_api | search | `serper_api_key` |
+| `startpage` | scraper | search | — |
+| `tavily` | official_api | fetch, search | `tavily_api_key` |
+| `websurfx` | self_hosted | search | `websurfx_url` |
+| `whoogle` | self_hosted | search | `whoogle_url` |
+| `yahoo` | scraper | search | — |
+| `yandex` | scraper | search | — |
+| `zhipuai` | official_api | search | `zhipuai_api_key` |
 
-## 专利数据源
+## 社交平台 · `social`（5 源）
 
-| 数据源 | 客户端类 | 鉴权 | 特点 |
-|--------|---------|------|------|
-| EPO OPS | `EpoOpsClient` | OAuth 2.0 | 欧洲专利局，CQL 检索语法 |
-| USPTO ODP | `UsptoOdpClient` | API Key | USPTO 官方数据门户，全量数据 |
-| The Lens | `TheLensClient` | Bearer Token | 专利-学术交叉引用分析 |
-| CNIPA | `CnipaClient` | OAuth 2.0 | 中国知识产权局 |
-| PatSnap | `PatSnapClient` | API Key | 覆盖 172 个司法管辖区 |
-| Google Patents | `GooglePatentsClient` | 爬虫 | 兜底方案，需 Playwright |
+| Name | Integration | Capabilities | Config Field |
+|---|---|---|---|
+| `facebook` | official_api | search | `facebook_app_id` |
+| `reddit` | open_api | search | — |
+| `twitter` ⚠️ | official_api | search | `twitter_bearer_token` |
+| `weibo` | scraper | search | — |
+| `zhihu` | scraper | search | — |
 
-> SouWen 仍保留 PatentsView 与 PQAI 客户端注册条目，但其上游 API 当前不稳定（标记为 “待修复”），暂不计入对外暴露的搜索源。
+## 视频平台 · `video`（2 源）
 
-### 分级说明
+| Name | Integration | Capabilities | Config Field |
+|---|---|---|---|
+| `bilibili` | scraper | get_detail, search, search_articles, search_users | `bilibili_sessdata` |
+| `youtube` | official_api | get_detail, get_transcript, get_trending, search | `youtube_api_key` |
 
-- **Tier 1（零配置/爬虫）**：Google Patents — 需安装 `souwen[scraper]`，无需 Key
-- **Tier 2（OAuth）**：EPO OPS（需注册获取 Consumer Key/Secret）、CNIPA（需注册获取 Client ID/Secret）
-- **Tier 3（API Key）**：USPTO ODP、The Lens、PatSnap — 需申请 API Key
+## 百科/知识库 · `knowledge`（1 源）
 
-## 网页搜索引擎
+| Name | Integration | Capabilities | Config Field |
+|---|---|---|---|
+| `wikipedia` | open_api | search | — |
 
-### 爬虫类（无需 Key，零配置即用）
+## 开发者社区 · `developer`（2 源）
 
-| 引擎 | 客户端类 | 鉴权 | 特点 |
-|------|---------|------|------|
-| DuckDuckGo | `DuckDuckGoClient` | 无需 Key | HTML 轻量版，无 JS 依赖 |
-| DuckDuckGo News/Images/Videos | `DuckDuckGo*Client` | 无需 Key | DDG 多维度变体（新闻/图片/视频） |
-| Yahoo | `YahooClient` | 无需 Key | Bing 驱动，对 DC IP 宽容 |
-| Brave | `BraveClient` | 无需 Key | 独立索引，隐私友好 |
-| Google | `GoogleClient` | 无需 Key | 高风险，建议配代理 |
-| Bing | `BingClient` | 无需 Key | 反爬宽松，微软生态 |
-| 必应中文 (bing.com/cn) | `BingCNClient` | 无需 Key | Bing 中文专版，更适合中文检索 |
-| Startpage | `StartpageClient` | 无需 Key | Google 代理，隐私友好 |
-| Baidu | `BaiduClient` | 无需 Key | 中文搜索首选 |
-| Mojeek | `MojeekClient` | 无需 Key | 独立索引，英国引擎 |
-| Yandex | `YandexClient` | 无需 Key | 俄语搜索首选 |
+| Name | Integration | Capabilities | Config Field |
+|---|---|---|---|
+| `github` | open_api | search | `github_token` |
+| `stackoverflow` | open_api | search | `stackoverflow_api_key` |
 
-### API 类（需 Key）
+## 中文技术社区 · `cn_tech`（3 源）
 
-| 服务 | 客户端类 | 鉴权 | 特点 |
-|------|---------|------|------|
-| SearXNG | `SearXNGClient` | 实例 URL | 一个接入 = 250+ 引擎 |
-| Tavily | `TavilyClient` | API Key | AI Agent 原生设计 |
-| Exa | `ExaClient` | API Key | 语义搜索（神经索引） |
-| Serper | `SerperClient` | API Key | Google 结构化 JSON |
-| Brave API | `BraveApiClient` | API Key | 官方 REST API，免费 2000 次/月 |
-| SerpAPI | `SerpApiClient` | API Key | 多引擎 SERP 结构化数据 |
-| Firecrawl | `FirecrawlClient` | API Key | 网页爬取 + 内容提取 |
-| Perplexity Sonar | `PerplexitySonarClient` | API Key | AI 搜索，带引用来源 |
-| Linkup | `LinkupClient` | API Key | 聚合搜索 API |
-| ScrapingDog | `ScrapingDogClient` | API Key | SERP 代理抓取 |
-| Metaso（秘塔） | `MetasoClient` | API Key | 文档 / 网页 / 学术三种范围 |
-| 智谱 AI Web Search Pro | `ZhipuAIClient` | API Key | 含 AI 摘要，中文友好（PR #12） |
-| 阿里云 IQS（通义晓搜） | `AliyunIQSClient` | API Key | LLM 优化多源实时搜索 + AI 摘要（PR #13） |
+| Name | Integration | Capabilities | Config Field |
+|---|---|---|---|
+| `csdn` | scraper | search | — |
+| `juejin` | scraper | search | — |
+| `linuxdo` | open_api | search | — |
 
-### 自建实例类（仅需 URL）
+## 企业/办公 · `office`（1 源）
 
-| 服务 | 客户端类 | 鉴权 | 特点 |
-|------|---------|------|------|
-| Whoogle | `WhoogleClient` | 实例 URL | 自托管 Google 前端，无追踪 |
-| Websurfx | `WebsurfxClient` | 实例 URL | 自托管元搜索引擎 |
+| Name | Integration | Capabilities | Config Field |
+|---|---|---|---|
+| `feishu_drive` | official_api | search | `feishu_app_id` |
 
-### 办公 / 企业（office）
+## 档案/历史 · `archive`（1 源）
 
-| 服务 | 客户端类 | 鉴权 | 特点 |
-|------|---------|------|------|
-| 飞书云文档 | `FeishuDriveClient` | App ID + App Secret | 企业内自建应用搜索飞书文档 / 表格 / 多维表格（PR #7） |
+| Name | Integration | Capabilities | Config Field |
+|---|---|---|---|
+| `wayback` | open_api | archive_lookup, archive_save, fetch | — |
 
-### 聚合搜索
+## 内容抓取 · `fetch`（19 源）
 
-| 功能 | 函数 | 说明 |
-|------|------|------|
-| 聚合搜索 | `web_search()` | 并发多引擎搜索 + URL 去重 |
+| Name | Integration | Capabilities | Config Field |
+|---|---|---|---|
+| `apify` | official_api | fetch | `apify_api_token` |
+| `builtin` | scraper | fetch | — |
+| `cloudflare` | official_api | fetch | `cloudflare_api_token` |
+| `crawl4ai` | scraper | fetch | — |
+| `deepwiki` | open_api | fetch | — |
+| `diffbot` | official_api | fetch | `diffbot_api_token` |
+| `exa` | official_api | exa:find_similar, fetch, search | `exa_api_key` |
+| `firecrawl` | official_api | fetch, search | `firecrawl_api_key` |
+| `jina_reader` | open_api | fetch | `jina_api_key` |
+| `mcp` | open_api | fetch | — |
+| `newspaper` | scraper | fetch | — |
+| `readability` | scraper | fetch | — |
+| `scraperapi` | official_api | fetch | `scraperapi_api_key` |
+| `scrapfly` | official_api | fetch | `scrapfly_api_key` |
+| `scrapingbee` | official_api | fetch | `scrapingbee_api_key` |
+| `site_crawler` | scraper | fetch | — |
+| `tavily` | official_api | fetch, search | `tavily_api_key` |
+| `wayback` | open_api | archive_lookup, archive_save, fetch | — |
+| `zenrows` | official_api | fetch | `zenrows_api_key` |
 
-默认使用 DuckDuckGo + Bing 双引擎并发（在零配置场景下更稳定），可通过 `engines` 参数自定义组合。
+<!-- END AUTO -->
 
-## 国际社交媒体（官方 API）
+---
 
-### 调研结论
+## 图例
 
-| 平台 | 官方搜索 API | 鉴权 | 搜索能力 | 说明 |
-|------|------------|------|----------|------|
-| Twitter/X | ✅ 支持 | Bearer Token | 推文搜索（最近 7 天） | Basic 套餐（$100/月）起，Free 套餐不含搜索 |
-| Reddit | ✅ 支持 | OAuth2 client_credentials | 全站帖子搜索 | 注册应用免费使用，降级到公开 JSON 无需注册 |
-| Facebook | ⚠️ 受限 | App Access Token | 仅页面 / 地点搜索 | 公开帖子搜索已于 2018 年弃用；页面搜索仍可用 |
-| Discord | ❌ 不支持 | — | 无公开搜索 API | 仅支持在特定频道内搜索（需 Bot Token），无跨服务器搜索 |
+- ⚠️ high_risk：源易被反爬/限流，默认不启用
+- Integration 类型：
+  - `open_api` — 公开接口，免 Key
+  - `scraper` — 爬虫抓取，需 TLS 伪装
+  - `official_api` — 授权接口，需 API Key
+  - `self_hosted` — 自托管实例
 
-### Twitter/X API v2
+## 重新生成
 
-| 数据源 | 客户端类 | 鉴权 | 特点 |
-|--------|---------|------|------|
-| Twitter/X | `TwitterClient` | Bearer Token | 最近 7 天推文搜索，支持 Twitter 搜索算子，含互动指标 |
-
-**配置项：**
-
-```env
-SOUWEN_TWITTER_BEARER_TOKEN=your-bearer-token
+```bash
+python tools/gen_docs.py -o docs/data-sources.md
 ```
-
-**搜索端点：** `GET https://api.twitter.com/2/tweets/search/recent`
-
-**限制：**
-- Free 套餐：不支持搜索（返回 403）
-- Basic 套餐（$100/月）：60 req/15min，支持 recent 搜索（最近 7 天）
-- Pro 套餐（$5000/月）：全量历史搜索（`/2/tweets/search/all`）
-
-**支持的搜索算子：** `lang:en`、`-is:retweet`、`from:username`、`#hashtag` 等
-
-申请 Bearer Token：<https://developer.twitter.com/en/portal/dashboard>
-
-### Reddit 官方 OAuth2 API
-
-| 数据源 | 客户端类 | 鉴权 | 特点 |
-|--------|---------|------|------|
-| Reddit | `RedditClient` | OAuth2（可选）或公开 JSON | 全站帖子搜索，支持排序和时间过滤 |
-
-**配置项（OAuth2 模式，推荐）：**
-
-```env
-SOUWEN_REDDIT_CLIENT_ID=your-client-id
-SOUWEN_REDDIT_CLIENT_SECRET=your-client-secret
-```
-
-**搜索端点：**
-- OAuth2 模式：`GET https://oauth.reddit.com/search`（100 QPM）
-- 公开 JSON 模式（兜底）：`GET https://www.reddit.com/search.json`（~60 req/min）
-
-**模式说明：**
-- 提供 client_id + client_secret → 自动启用 OAuth2 官方模式（遵循服务条款）
-- 未配置凭据 → 自动降级到公开 JSON 模式（零配置即可用）
-
-注册 Reddit 应用获取凭据：<https://www.reddit.com/prefs/apps>
-
-### Facebook/Meta Graph API
-
-| 数据源 | 客户端类 | 鉴权 | 特点 |
-|--------|---------|------|------|
-| Facebook | `FacebookClient` | App Access Token | 公开页面 / 地点搜索（公开帖子搜索已弃用） |
-
-**配置项：**
-
-```env
-SOUWEN_FACEBOOK_APP_ID=your-app-id
-SOUWEN_FACEBOOK_APP_SECRET=your-app-secret
-```
-
-**搜索端点：** `GET https://graph.facebook.com/v19.0/search`
-
-**支持的搜索类型：**
-- `page`：公开 Facebook 页面（品牌、组织、名人等），无需用户登录
-- `place`：包含地理位置的地点页面
-
-**弃用说明：** 公开帖子搜索（`type=post`）自 2018 年起已弃用，不再开放。
-
-申请 Meta 应用 ID：<https://developers.facebook.com/apps/>
-
-### Discord（不支持）
-
-Discord 官方 API 不提供公开内容搜索接口。现有的消息搜索接口（`GET /guilds/{id}/messages/search`）仅支持在特定频道内搜索，需要 Bot Token 且仅限 Bot 已加入的服务器，无法跨服务器搜索。SouWen 不集成此接口。
-
-## 内容抓取提供者
-
-> v0.7.1 新增。通过 `POST /api/v1/fetch` 或 CLI `souwen fetch` 调用。当前共 **19 个提供者**。
-
-| 提供者 | 标识 | 鉴权 | 特点 |
-|--------|------|------|------|
-| 内置抓取 | `builtin` | 无需 Key | httpx/curl_cffi + trafilatura，零配置，SSRF 防护 + 重定向校验 |
-| Crawl4AI | `crawl4ai` | 无需 Key | 开源无头浏览器（Playwright），适合 JS 重度页面，本地运行 |
-| Jina Reader | `jina_reader` | 可选 Key | 云端 Markdown 提取，免费层可用 |
-| Tavily | `tavily` | API Key | AI Agent 原生，结构化提取 |
-| Firecrawl | `firecrawl` | API Key | 高级网页爬取 + 内容清洗 |
-| Exa | `exa` | API Key | 语义搜索 + 内容提取 |
-| Scrapfly | `scrapfly` | API Key | JS 渲染 + AI 提取 + 反爬绕过，高成功率 |
-| Diffbot | `diffbot` | API Key | AI 结构化提取，擅长新闻/学术页面，含作者/日期元数据 |
-| ScrapingBee | `scrapingbee` | API Key | 代理池 + JS 渲染 + 反爬绕过，返回 HTML 后自动提取 |
-| ZenRows | `zenrows` | API Key | 代理池 + JS 渲染 + 自动解析，高成功率反爬 |
-| ScraperAPI | `scraperapi` | API Key | 大规模代理池 + JS 渲染，性价比高 |
-| Apify | `apify` | API Token | 平台化 Actor 爬虫（4000+ 预构建任务），内容直出 Markdown |
-| Cloudflare | `cloudflare` | API Token | 边缘浏览器渲染，直出 Markdown，全球低延迟 |
-| Wayback Machine | `wayback` | 无需 Key | Internet Archive 存档快照，免费，适合历史页面 |
-| Newspaper4k | `newspaper` | 无需 Key | 新闻文章专用提取（作者、日期、关键词、NLP 摘要），本地运行 |
-| Readability | `readability` | 无需 Key | Mozilla Readability 算法（不同于 trafilatura），本地运行 |
-| 站点爬虫 | `site_crawler` | 无需 Key | 多页 BFS 爬虫，爬取整个文档站点（参照 deepwiki-mcp httpCrawler.ts 复现），零配置 |
-| DeepWiki | `deepwiki` | 无需 Key | GitHub 仓库 AI 文档抓取（deepwiki.com），site_crawler + jina_reader 双策略 |
-| MCP Fetch | `mcp` | 无需 Key | 通过 Model Context Protocol 调用外部抓取工具（streamable_http / sse） |
-
-### 分级说明
-
-- **Tier 1（零配置）**：builtin、wayback、mcp — 无需任何 API Key 即可使用（mcp 仅需配置 server URL）
-- **Tier 1.5（零配置，需安装库）**：crawl4ai（需 Playwright）、newspaper（`pip install souwen[newspaper]`）、readability（`pip install souwen[readability]`）、site_crawler（继承 BaseScraper，零依赖）、deepwiki（site_crawler + jina_reader 双策略）
-- **Tier 2（推荐）**：jina_reader — 免费层可直接使用，设置 Key 可提高速率
-- **Tier 3（需注册）**：tavily、firecrawl、exa、scrapfly、diffbot、scrapingbee、zenrows、scraperapi、apify、cloudflare — 需申请 API Key/Token
-
-### 内置抓取（builtin）技术栈
-
-- **HTTP 请求**：继承 `BaseScraper`（TLS 指纹模拟 / WARP 代理 / 自适应退避）
-- **内容提取**：trafilatura（优先）→ html2text（回退）→ 正则剥离（最终回退）
-- **输出格式**：Markdown（trafilatura）/ 纯文本（回退）
-- **安全特性**：
-  - 请求前 DNS 解析 + 私有/保留 IP 拒绝（SSRF 防护）
-  - 手动重定向跟踪，每一跳校验目标 IP（防多跳 SSRF）
-  - 最大重定向 5 次
-- **CJK 支持**：自定义词数统计，正确处理中文/日文/韩文

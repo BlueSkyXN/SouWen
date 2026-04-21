@@ -1,350 +1,193 @@
 # SouWen 搜文
 
-> 面向 AI Agent 的学术论文 + 专利 + 网页信息统一获取工具库
+> 面向 AI Agent 的**统一搜索库**：学术论文 + 专利 + 网页 + 社交 + 视频 + 百科 + 开发者社区 + 中文技术 + 企业办公 + 档案 + 内容抓取
 
 [![Python](https://img.shields.io/badge/python-≥3.10-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-GPLv3-blue)](LICENSE)
+[![Version](https://img.shields.io/badge/version-0.9.0--v1--transition-orange)](CHANGELOG.md)
 
 **作者**: [@BlueSkyXN](https://github.com/BlueSkyXN) · **项目地址**: [github.com/BlueSkyXN/SouWen](https://github.com/BlueSkyXN/SouWen) · **协议**: [GPLv3](LICENSE)
 
-> **⚠️ 声明：本项目仅供 Python 学习与技术研究使用。**
-> 涵盖的学习方向包括：API 对接与聚合、全栈开发（FastAPI + React）、爬虫技术（TLS 指纹模拟 / 浏览器池化 / 反爬绕过）、CLI 开发（Rich / Click）、异步编程（asyncio / httpx）等。
-> 请勿将本项目用于任何违反相关法律法规或第三方服务条款的用途。
+> **⚠️ 声明：本项目仅供 Python 学习与技术研究使用。** 涵盖 API 聚合、全栈开发（FastAPI + React）、爬虫技术（TLS 指纹 / 反爬绕过）、CLI、异步编程等方向。请勿用于违反法律法规或第三方服务条款的用途。
+
+---
 
 ## 🎯 简介
 
-SouWen（搜文）为 AI Agent 提供统一的学术论文、专利和网页搜索接口，整合 **76 个数据源**，归一化为 Pydantic v2 数据模型。
+SouWen（搜文）为 AI Agent 提供统一的多源搜索接口，**所有数据源通过 `SourceAdapter` 单一事实源声明**，归一化为 Pydantic v2 数据模型。
 
-- **9 论文源 + 6 专利源 + 30 搜索引擎** — 大量零配置即用（爬虫类 + 自建实例 + 公开 API）
-- **统一数据模型** — `PaperResult` / `PatentResult` / `WebSearchResult`
-- **异步优先** — httpx async + `asyncio.Semaphore` 全局并发控制
-- **智能限流** — 令牌桶 + 滑动窗口，每源独立限流
-- **反爬绕过** — TLS 指纹模拟 + 浏览器池化 + 自适应退避
-- **PDF 回退链** — 5 级降级策略自动获取全文
-- **网页内容抓取** — 19 个提供者（6 零配置 + 3 免费 + 10 API），SSRF 防护
+**v0.9 起**进入 v1 过渡期：注册表重构完成，源的新增成本从"改 7 处"降到"改 1-2 处"；CLI / API / 前端均按 10 个 domain 重新组织，同时保留全部 v0 入口别名。
+
+### 特性
+
+- **83 个异构数据源**（由 `registry` 统一派生）：
+  - `paper` 17 源 · `patent` 8 源 · `web` 28 源（engines/api/self_hosted）
+  - `social` 5 源 · `video` 2 源 · `knowledge` 1 源
+  - `developer` 2 源 · `cn_tech` 3 源 · `office` 1 源 · `archive` 1 源
+  - `fetch` 横切能力：15 个抓取提供者 + 4 个跨域提供者
+- **统一 Pydantic v2 数据模型**：`PaperResult` / `PatentResult` / `WebSearchResult` / `FetchResult` / `WaybackCDXResponse` / ...
+- **异步优先**：httpx + asyncio，per-loop Semaphore 控制并发
+- **智能限流**：Token Bucket + 滑动窗口，每源独立
+- **curl_cffi TLS 指纹**：15+ 爬虫类源用浏览器指纹伪装过盾
+- **WARP 双方案代理**：kernel 模式（wireguard-go + microsocks）/ wireproxy 模式（纯用户态）
+- **MCP 协议**：供 Claude Code / Cursor / Windsurf 等 AI 助手直接调用
+- **多皮肤 Web UI**：classic / apple / carbon / ios（SCSS Modules + Zustand）
 
 ## 📦 安装
 
 ```bash
+# 核心：Python 库 + CLI
 pip install souwen
 
-# 如需 TLS 指纹模拟（curl-cffi，可选；缺失时自动回退 httpx）
-pip install souwen[tls]
+# API 服务（FastAPI）+ TLS 指纹 + 网页搜索
+pip install "souwen[server,tls,web,scraper]"
 
-# 如需 Google Patents 爬虫（Playwright 动态渲染 + curl-cffi）
-pip install souwen[scraper]
-
-# 如需网页内容抓取（trafilatura 提取 + Markdown 转换）
-pip install souwen[web]
+# 全量（含 PDF / Crawl4AI / newspaper 等）
+pip install "souwen[server,tls,web,scraper,pdf,crawl4ai,newspaper,readability,robots,mcp]"
 ```
-
-> `curl-cffi` 已从核心依赖移至可选 extras（`tls` / `scraper`）。未安装时 SouWen 会自动回退到 httpx，TLS 指纹模拟特性会被禁用。
 
 ## 🚀 快速开始
 
-### 论文搜索（无需 Key）
+### CLI
+
+```bash
+# v0 命令（仍然可用）
+souwen search paper "transformer"
+souwen search patent "quantum computing"
+souwen search web "python asyncio"
+souwen fetch https://example.com
+souwen youtube trending
+souwen bilibili search "编程"
+souwen wayback cdx https://example.com
+
+# v1 主命令形式（推荐）
+souwen paper search "transformer"
+souwen patent search "quantum"
+souwen web search "python asyncio"
+souwen social search "AI"              # 新：social domain 独立
+souwen video search "tutorial"
+souwen knowledge search "quantum entanglement"
+souwen developer search "react hooks"
+souwen archive cdx https://example.com  # 新：wayback → archive
+souwen search-all "quantum"             # 新：跨域显式聚合
+
+# 管理
+souwen sources                          # 列出所有数据源
+souwen serve                             # 启动 API 服务 (默认 :49265)
+souwen doctor                            # 健康检查
+souwen mcp                               # MCP server info
+```
+
+### Python 库
 
 ```python
 import asyncio
-from souwen.paper import OpenAlexClient, ArxivClient
+from souwen import search_papers, search_patents
 
 async def main():
-    async with OpenAlexClient() as client:
-        results = await client.search("deep learning network security", per_page=5)
-        for paper in results.results:
-            print(f"{paper.title} ({paper.year}) 引用:{paper.citation_count}")
+    # v0 API（继续可用）
+    resp = await search_papers("quantum computing", per_page=5)
+    for r in resp[0].results:
+        print(r.title, "—", r.doi)
 
-    async with ArxivClient() as client:
-        results = await client.search("cat:cs.AI AND ti:transformer", max_results=5)
-        for paper in results.results:
-            print(f"{paper.title} → {paper.pdf_url}")
+    # v1 facade API（推荐）
+    from souwen.facade import search, search_all, fetch_content, archive_lookup
+
+    # 按 domain + capability 派发
+    papers = await search("transformer", domain="paper", limit=5)
+    articles = await search("AI news", domain="web", capability="search_news")
+    results = await search_all("quantum", domains=["paper", "web", "knowledge"])
+
+    # 抓取
+    resp = await fetch_content(["https://example.com"], provider="builtin")
+
+    # Wayback 归档
+    snapshots = await archive_lookup("https://example.com")
 
 asyncio.run(main())
 ```
 
-### 专利搜索（无需 Key）
+### API Server
 
-```python
-import asyncio
-from souwen.patent import PatentsViewClient, PqaiClient
-
-async def main():
-    async with PatentsViewClient() as client:
-        results = await client.search_by_assignee("Huawei", per_page=5)
-        for patent in results.results:
-            print(f"{patent.patent_id}: {patent.title}")
-
-    async with PqaiClient() as client:
-        results = await client.search("wireless authentication using ML", n_results=5)
-        for patent in results.results:
-            print(f"{patent.patent_id}: {patent.title}")
-
-asyncio.run(main())
+```bash
+souwen serve --host 0.0.0.0 --port 49265
 ```
 
-### 网页搜索（无需 Key）
+主要端点（v0 + v1 双形式）：
 
-```python
-import asyncio
-from souwen.web import DuckDuckGoClient, web_search
+```bash
+# v0 形式
+curl "http://localhost:49265/api/v1/search/paper?q=transformer&per_page=5"
+curl "http://localhost:49265/api/v1/search/web?q=python"
+curl "http://localhost:49265/api/v1/fetch" -X POST -d '{"urls":["https://example.com"]}'
 
-async def main():
-    async with DuckDuckGoClient() as client:
-        results = await client.search("Python asyncio", max_results=5)
-        for r in results.results:
-            print(f"{r.title} → {r.url}")
-
-    # 并发多引擎聚合（默认 DuckDuckGo + Bing；可通过 engines=[...] 自定义）
-    resp = await web_search("machine learning tutorial", max_results_per_engine=5)
-    for r in resp.results:
-        print(f"[{r.engine}] {r.title} → {r.url}")
-
-asyncio.run(main())
+# v1 形式（规划中，后端路由拆分后上线）
+curl "http://localhost:49265/api/v1/paper/search?q=transformer"
+curl "http://localhost:49265/api/v1/archive/cdx?url=https://example.com"
 ```
 
-### Metaso 搜索（支持文档/网页/学术）
+访问 `/docs` 查看完整 OpenAPI 文档；访问 `/` 进入 Web UI（默认 souwen-classic 皮肤）。
 
-```python
-import asyncio
-from souwen.web import MetasoClient
+## 🏗 架构
 
-async def main():
-    # 文档搜索
-    async with MetasoClient(api_key="mk-YOUR_API_KEY") as client:
-        results = await client.search("AI", scope="document", max_results=5)
-        for r in results.results:
-            print(f"[文档] {r.title} → {r.url}")
+三层分离：**展示层（CLI / Server / Panel / Integrations）→ 门面层（facade/）→ 注册表层（registry/）+ 业务层（paper/patent/...）+ 平台层（core/）**。
 
-    # 网页搜索
-    async with MetasoClient(api_key="mk-YOUR_API_KEY") as client:
-        results = await client.search("Python asyncio", scope="webpage", max_results=5)
-        for r in results.results:
-            print(f"[网页] {r.title} → {r.url}")
+详见 [docs/architecture.md](docs/architecture.md)。
 
-    # 学术搜索
-    async with MetasoClient(api_key="mk-YOUR_API_KEY") as client:
-        results = await client.search("machine learning", scope="scholar", max_results=5)
-        for r in results.results:
-            print(f"[学术] {r.title} → {r.url}")
-
-asyncio.run(main())
+```
+src/souwen/
+├── core/              平台层：http_client / scraper / rate_limiter / retry / ...
+├── registry/          单一事实源：adapter / sources / loader / views
+├── facade/            门面层：search / fetch / archive / aggregate
+├── paper/             17 个论文客户端
+├── patent/            8 个专利客户端
+├── web/               30 个网页相关（engines / api / self_hosted）
+├── social/ video/ knowledge/ developer/ cn_tech/ office/ archive/ fetch/
+├── cli/ (子包)        CLI 命令（按 domain 组织）
+└── server/            FastAPI 应用
 ```
 
-### 网页内容抓取（零配置）
+## 🚢 部署
 
-```python
-import asyncio
-from souwen.web.fetch import fetch_content
+**Docker**（推荐）：
 
-async def main():
-    resp = await fetch_content(
-        urls=["https://example.com/article"],
-        providers=["builtin"],
-        timeout=30.0,
-    )
-    for r in resp.results:
-        if r.error:
-            print(f"失败: {r.url} — {r.error}")
-        else:
-            print(f"标题: {r.title}")
-            print(f"内容: {r.content[:200]}...")
-
-asyncio.run(main())
+```bash
+docker build -t souwen .
+docker run -p 49265:49265 \
+  -e SOUWEN_API_PASSWORD=your-password \
+  -v ~/.config/souwen:/app/data \
+  souwen
 ```
+
+**HuggingFace Spaces**：参见 `cloud/hfs/`。
+**ModelScope**：参见 `cloud/modelscope/`。
+
+**WARP 代理嵌入**（可选，绕过国内网络）：见 `docs/anti-scraping.md` 的 WARP 双方案章节。
 
 ## 📚 文档
 
-| 文档 | 内容 |
-|------|------|
-| [数据源详情](docs/data-sources.md) | 76 个数据源完整列表、分级说明 |
-| [配置详解](docs/configuration.md) | 配置优先级、全部字段、代理池、YAML 格式 |
-| [架构设计](docs/architecture.md) | 数据流、基类模式、限流器、异常体系、项目结构 |
-| [外观定制](docs/appearance.md) | 皮肤、明暗模式、配色方案、自定义皮肤指南 |
-| [反爬技术栈](docs/anti-scraping.md) | TLS 指纹、浏览器池化、自适应退避 |
-| [API 参考](docs/api-reference.md) | Python API、数据模型、CLI 命令、MCP 工具 |
-| [贡献指南](docs/contributing.md) | 添加数据源、测试、代码风格、PR 流程 |
-
-## 📊 数据源
-
-**论文**（9 源）：OpenAlex、Semantic Scholar、Crossref、arXiv、DBLP、CORE、PubMed、Zotero、HuggingFace Papers — 多数零配置
-
-**专利**（6 源）：EPO OPS、USPTO ODP、The Lens、CNIPA、PatSnap、Google Patents
-
-**搜索引擎**（约 30 个）：通用爬虫（DuckDuckGo Web/News/Images/Videos、Yahoo、Brave、Google、Bing、必应中文 等）+ 专业 API（Tavily、Exa、Metaso、Perplexity、Linkup、智谱 AI、阿里云 IQS 等）+ 自建实例（SearXNG、Whoogle、Websurfx）+ 社交（Reddit、Twitter、Facebook、微博、知乎）+ 开发者（GitHub、StackOverflow）+ 视频（YouTube、Bilibili）+ Wikipedia + 飞书云文档
-
-**中文技术社区**（3 个）：CSDN、稀土掘金（Juejin）、LinuxDo — 全部零配置
-
-**网页内容抓取**（19 个提供者）：6 个零配置（builtin、crawl4ai、newspaper、readability、site_crawler、deepwiki）+ 3 个免费（jina_reader、wayback、mcp）+ 10 个 API（tavily、firecrawl、exa、scrapfly、diffbot、scrapingbee、zenrows、scraperapi、apify、cloudflare）
-
-→ 完整列表见 [数据源详情](docs/data-sources.md)
+- [docs/architecture.md](docs/architecture.md) — 架构概览
+- [docs/data-sources.md](docs/data-sources.md) — 完整数据源清单（由 registry 自动生成）
+- [docs/configuration.md](docs/configuration.md) — 配置层级 / WARP / HTTP backend
+- [docs/api-reference.md](docs/api-reference.md) — REST API 参考
+- [docs/anti-scraping.md](docs/anti-scraping.md) — TLS 指纹 / WARP / 限流
+- [docs/appearance.md](docs/appearance.md) — 多皮肤前端
+- [docs/adding-a-source.md](docs/adding-a-source.md) — 新增数据源指南
+- [docs/contributing.md](docs/contributing.md) — 开发者指南
+- [CHANGELOG.md](CHANGELOG.md) — 版本变更
 
 ## ⚙️ 配置
 
-配置优先级：环境变量 > `./souwen.yaml` > `~/.config/souwen/config.yaml` > `.env` > 默认值
+配置优先级：env > `./souwen.yaml` > `~/.config/souwen/config.yaml` > `.env` > 默认值。
 
-```bash
-souwen config init   # 生成 YAML 模板
-souwen config show   # 查看当前配置
-```
+首次运行 `souwen config init` 会在 `~/.config/souwen/config.yaml` 生成模板。
 
-推荐配置（进入 polite pool 获得更快响应）：
+## 🤝 贡献
 
-```env
-SOUWEN_OPENALEX_EMAIL=your@email.com
-SOUWEN_UNPAYWALL_EMAIL=your@email.com
-```
-
-**双密码鉴权**（v0.6.3+）：服务端支持访客 / 管理双密码分离，互不影响：
-
-```env
-SOUWEN_VISITOR_PASSWORD=visitor-secret   # 保护搜索端点 (/api/v1/search/*)
-SOUWEN_ADMIN_PASSWORD=admin-secret       # 保护管理端点 (/api/v1/admin/*)
-# 旧版 SOUWEN_API_PASSWORD 仍受支持，作为两者均未设置时的统一回退值（向后兼容）
-```
-
-> 管理密码同时可访问搜索端点（admin 是 visitor 的超集）；密码均未配置时端点开放访问，但 admin 端点要求显式 `SOUWEN_ADMIN_OPEN=1` 才会开放。
-
-→ 全部配置字段见 [配置详解](docs/configuration.md)
-
-## 🐳 Docker 部署
-
-### 标准 Docker
-
-```bash
-# 构建（Docker 默认包含所有皮肤，支持运行时切换）
-docker build -t souwen .
-
-# 运行（可选：设置 API 密码和配置）
-# 推荐使用双密码：访客密码保护搜索端点，管理密码保护 /api/v1/admin/*
-docker run -d -p 49265:49265 \
-  -e SOUWEN_VISITOR_PASSWORD=visitor-secret \
-  -e SOUWEN_ADMIN_PASSWORD=admin-secret \
-  -v souwen-data:/app/data \
-  souwen
-
-# 或使用旧版统一密码（同时作为访客与管理密码的回退值，向后兼容）
-# docker run -d -p 49265:49265 -e SOUWEN_API_PASSWORD=your-secret souwen
-
-# 或使用 docker compose
-docker compose up -d
-```
-
-### HuggingFace Spaces
-
-将 `cloud/hfs/` 目录内容推送到 HF Space 仓库（SDK 类型选 Docker）。通过 Space Settings → Variables 设置 `SOUWEN_CONFIG_B64`（base64 编码的 souwen.yaml）。
-
-### ModelScope 创空间
-
-将 `cloud/modelscope/` 目录内容推送到 ModelScope 创空间仓库。端口固定为 7860。
-
-→ 部署后访问 `/panel` 进入管理面板，`/health` 检查健康状态，`/docs` 查看 API 文档。
-
-## 🎨 前端管理面板
-
-管理面板 (`/panel`) 基于 React + TypeScript + SCSS Modules + Framer Motion 构建，采用**多皮肤架构**，支持**运行时皮肤切换**。
-
-### 三层分离
-
-```
-Skin（皮肤）→ Mode（模式）→ Scheme（配色）
-│                │              │
-│                │              └── 每皮肤独立配色（运行时切换）
-│                └── light / dark（运行时切换）
-└── souwen-classic / carbon / apple / ios（构建时选择或运行时切换）
-```
-
-- **Skin** = 完全独立的前端 UI（布局、组件、路由、交互逻辑），目前提供 4 套：
-  - `souwen-classic` — 经典默认皮肤（多层阴影 + hover 提升）
-  - `carbon` — 暗色科技风（辉光 + 扫描线）
-  - `apple` — Apple 风格（毛玻璃 + 大圆角）
-  - `ios` — iOS 风格（hairline 分割线 + 弹性过渡）
-- **Mode** = 明暗模式（light/dark），面板内切换
-- **Scheme** = 强调色方案，每皮肤独立定义，面板内切换
-
-### 构建模式
-
-通过 `VITE_SKINS` 环境变量控制构建模式（默认全皮肤）：
-
-| 模式 | 命令 | 说明 |
-|------|------|------|
-| 全皮肤（默认） | `npm run build` | 包含全部 4 套皮肤，支持运行时切换 |
-| 单皮肤（classic） | `npm run build:classic` | 仅含 souwen-classic，体积最小 |
-| 单皮肤（carbon） | `npm run build:carbon` | 仅含 carbon |
-| 单皮肤（apple/ios） | `VITE_SKINS=apple npm run build` 或 `VITE_SKINS=ios npm run build` | 仅含指定皮肤 |
-| 指定多皮肤 | `VITE_SKINS=souwen-classic,carbon npm run build` | 包含逗号分隔的皮肤集合 |
-
-多皮肤构建时，面板内会显示「切换皮肤」按钮。
-
-### 前端开发
-
-```bash
-cd panel
-
-# 开发模式（默认全皮肤，可运行时切换）
-npm run dev
-
-# 单皮肤开发
-npm run dev:classic
-npm run dev:carbon
-VITE_SKINS=apple npm run dev   # apple 皮肤
-VITE_SKINS=ios npm run dev     # ios 皮肤
-
-# 构建产物（单文件 HTML，自动复制到 src/souwen/server/panel.html）
-npm run build            # 默认全皮肤
-npm run build:classic    # 单皮肤（体积更小）
-
-# 测试
-npm test
-```
-
-### 目录结构
-
-```
-panel/src/
-  core/           # 跨皮肤共享（stores, API, types, i18n, lib）
-  skins/
-    souwen-classic/  # 默认皮肤
-      components/    # UI 组件
-      pages/         # 页面
-      styles/        # SCSS 样式
-      stores/        # 皮肤状态
-      routes.tsx     # 路由定义
-      skin.config.ts # 皮肤配置（配色方案等）
-      index.ts       # 皮肤入口
-```
-
-## 🛠️ 高级用法
-
-```bash
-souwen search paper "transformer" -n 5          # 论文搜索
-souwen search patent "lithium battery" -s pqai   # 专利搜索
-souwen search web "Python asyncio" --json        # 网页搜索（JSON 输出）
-souwen fetch https://example.com -p builtin       # 内容抓取（默认 builtin）
-souwen fetch https://a.com https://b.com --json    # 批量抓取 JSON 输出
-souwen sources                                    # 查看数据源
-souwen doctor                                     # 健康检查
-souwen serve --port 8000                          # 启动 API 服务
-python -m souwen.integrations.mcp_server          # MCP 工具服务
-```
-
-→ 完整 API 和 CLI 文档见 [API 参考](docs/api-reference.md)
-
-## 🧪 开发
-
-```bash
-pip install -e ".[dev]"           # 安装后端开发依赖
-pytest tests/ -v                  # 运行后端测试
-ruff check src/                   # 代码检查
-ruff format --check src/          # 格式检查
-
-cd panel && npm install           # 安装前端依赖
-npm run dev:classic               # 前端开发服务器
-npm test                          # 前端测试
-npm run build:classic             # 前端构建
-```
-
-→ 贡献代码见 [贡献指南](docs/contributing.md)
+- 新增数据源：参考 [docs/adding-a-source.md](docs/adding-a-source.md)（`registry/sources.py` 加一条 `_reg(...)` 即可）
+- 代码风格：`ruff format && ruff check`
+- 测试：`pytest tests/`
 
 ## 📄 License
 
-GPL-3.0-or-later
+[GPLv3](LICENSE) · 仅供学习研究用途

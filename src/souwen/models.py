@@ -437,98 +437,22 @@ class WaybackSaveResult(BaseModel):
     error: str | None = None
 
 
-ALL_SOURCES: dict[str, list[tuple[str, bool, str]]] = {
-    "paper": [
-        ("openalex", False, "OpenAlex 开放学术图谱"),
-        ("semantic_scholar", False, "Semantic Scholar（免 Key 可试用，但易限流）"),
-        ("crossref", False, "Crossref DOI 权威源"),
-        ("arxiv", False, "arXiv 预印本"),
-        ("dblp", False, "DBLP 计算机科学索引"),
-        ("core", True, "CORE 全文开放获取"),
-        ("pubmed", False, "PubMed 生物医学"),
-        ("zotero", True, "Zotero 个人文献库搜索 (需 API Key + Library ID)"),
-        ("huggingface", False, "HuggingFace Papers 社区精选（语义搜索 + 热度排行）"),
-        ("europepmc", False, "Europe PMC 欧洲生物医学文献"),
-        ("pmc", False, "PubMed Central 生物医学全文"),
-        ("doaj", False, "DOAJ 开放获取期刊目录（可选 Key）"),
-        ("zenodo", False, "Zenodo CERN 开放科学仓库（可选 Token）"),
-        ("hal", False, "HAL 法国开放档案（Solr API，无需 Key）"),
-        ("openaire", False, "OpenAIRE 欧盟开放科研基础设施（可选 API Key）"),
-        ("iacr", False, "IACR ePrint 密码学预印本（实验性）"),
-    ],
-    "patent": [
-        ("epo_ops", True, "EPO OPS 欧洲专利 (OAuth)"),
-        ("uspto_odp", True, "USPTO ODP 官方 API"),
-        ("the_lens", True, "The Lens 全球专利+论文"),
-        ("cnipa", True, "CNIPA 中国知识产权局 (OAuth)"),
-        ("patsnap", True, "PatSnap 智慧芽"),
-        ("google_patents", False, "Google Patents 实验性爬虫"),
-    ],
-    "general": [
-        ("duckduckgo", False, "DuckDuckGo (爬虫)"),
-        ("yahoo", False, "Yahoo (爬虫)"),
-        ("brave", False, "Brave (爬虫，易限流)"),
-        ("google", False, "Google (爬虫, 高风险)"),
-        ("bing", False, "Bing (爬虫)"),
-        ("startpage", False, "Startpage 隐私搜索 (爬虫)"),
-        ("baidu", False, "百度搜索 (爬虫)"),
-        ("mojeek", False, "Mojeek 独立搜索 (爬虫)"),
-        ("yandex", False, "Yandex 搜索 (爬虫)"),
-        ("searxng", True, "SearXNG 元搜索 (需自建实例)"),
-        ("whoogle", True, "Whoogle Google 代理 (需自建实例)"),
-        ("websurfx", True, "Websurfx 元搜索 (需自建实例)"),
-        ("serpapi", True, "SerpAPI 多引擎 SERP"),
-        ("brave_api", True, "Brave 官方 API"),
-        ("serper", True, "Serper Google SERP API"),
-        ("scrapingdog", True, "ScrapingDog SERP API"),
-    ],
-    "professional": [
-        ("tavily", True, "Tavily AI 搜索"),
-        ("exa", True, "Exa 语义搜索"),
-        ("perplexity", True, "Perplexity Sonar AI 搜索"),
-        ("firecrawl", True, "Firecrawl 搜索+爬取"),
-        ("linkup", True, "Linkup 实时搜索"),
-        ("zhipuai", True, "智谱 AI Web Search Pro (含 AI 摘要，支持中文)"),
-        ("aliyun_iqs", True, "阿里云 IQS 通义晓搜 (含 AI 摘要，支持中文)"),
-    ],
-    "social": [
-        ("reddit", False, "Reddit 帖子搜索"),
-        ("weibo", False, "微博搜索 (爬虫)"),
-        ("zhihu", False, "知乎问答搜索 (爬虫)"),
-    ],
-    "office": [
-        ("feishu_drive", True, "飞书云文档搜索 (需 App ID + App Secret)"),
-    ],
-    "developer": [
-        ("github", False, "GitHub 仓库搜索 (可选 Token)"),
-        ("stackoverflow", False, "StackOverflow 问答搜索 (可选 Key)"),
-    ],
-    "wiki": [
-        ("wikipedia", False, "Wikipedia 百科搜索"),
-    ],
-    "video": [
-        ("youtube", False, "YouTube 视频搜索 (可选 Key)"),
-        ("bilibili", False, "Bilibili 视频搜索 (爬虫)"),
-    ],
-    "fetch": [
-        ("builtin", False, "内置抓取 (httpx/curl_cffi + trafilatura, 零配置)"),
-        ("jina_reader", False, "Jina Reader 内容抓取 (免费)"),
-        ("tavily", True, "Tavily Extract 内容抓取"),
-        ("firecrawl", True, "Firecrawl Scrape 内容抓取"),
-        ("exa", True, "Exa Contents 内容抓取"),
-        ("crawl4ai", False, "Crawl4AI 无头浏览器抓取 (本地)"),
-        ("scrapfly", True, "Scrapfly JS 渲染 + AI 抽取"),
-        ("diffbot", True, "Diffbot 结构化文章抽取"),
-        ("scrapingbee", True, "ScrapingBee 代理 + JS 渲染"),
-        ("zenrows", True, "ZenRows 代理 + JS 渲染 + 反爬"),
-        ("scraperapi", True, "ScraperAPI 代理池 + JS 渲染"),
-        ("apify", True, "Apify Actor 爬虫平台"),
-        ("cloudflare", True, "Cloudflare Browser Rendering"),
-        ("wayback", False, "Internet Archive Wayback (免费)"),
-        ("newspaper", False, "newspaper4k 文章抽取 (本地)"),
-        ("readability", False, "Mozilla Readability 算法 (本地)"),
-        ("mcp", False, "MCP 协议内容抓取 (外部工具)"),
-        ("site_crawler", False, "BFS 站点爬虫 (批量多页面, 零配置)"),
-        ("deepwiki", False, "DeepWiki 开源项目文档抓取 (免费)"),
-    ],
-}
+ALL_SOURCES: dict[str, list[tuple[str, bool, str]]]
+# ALL_SOURCES 在 v1 从注册表派生（P0-I）。为了保持向后兼容：
+#   - 字典的 shape 与 v0 完全一致：`{category: [(name, needs_config, description), ...]}`
+#   - v0 category 映射：paper / patent / general / professional / social / office /
+#     developer / wiki / cn_tech / video / fetch
+#   - "general" 下的源（SERP 爬虫 + self_hosted + 部分 SERP API）从 v1 adapter
+#     用 `tags={"v0_category:general"}` 显式标记
+#   - "professional" 同理（`v0_category:professional`）
+#   - 实验性/"待修复" 源（unpaywall / patentsview / pqai）通过
+#     `tags={"v0_all_sources:exclude"}` 排除，保持 v0 的 `len(ALL_SOURCES["paper"]) == 16`
+#     与 `len(ALL_SOURCES["patent"]) == 6` 一致
+# 详见 `souwen.registry.views.as_all_sources_dict()`。
+def _load_all_sources() -> dict[str, list[tuple[str, bool, str]]]:
+    from souwen.registry import as_all_sources_dict
+
+    return as_all_sources_dict()
+
+
+ALL_SOURCES = _load_all_sources()
