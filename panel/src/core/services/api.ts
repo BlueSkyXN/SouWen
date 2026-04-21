@@ -537,6 +537,10 @@ class ApiService {
     )
   }
 
+  // === Bilibili ===
+  // 视频搜索请走聚合搜索：getWebSearch(query, ['bilibili']).
+  // 视频详情/用户搜索/文章搜索如需直连，请在调用方按需补充 fetch 实现。
+
   // === Wayback Machine ===
   async waybackCDX(
     url: string,

@@ -1,4 +1,4 @@
-"""Bilibili 客户端单元测试
+"""Bilibili 客户端单元测试（精简版：搜索 + 抓取）
 
 Mock 策略：
     - 使用 BilibiliClient.__new__ 跳过 BaseScraper 真实 HTTP 客户端初始化
@@ -10,7 +10,7 @@ Mock 策略：
 from __future__ import annotations
 
 import time
-from unittest.mock import AsyncMock, MagicMock, patch
+from unittest.mock import AsyncMock, patch
 
 import pytest
 
@@ -18,9 +18,8 @@ from souwen.models import SourceType, WebSearchResponse
 from souwen.web.bilibili import BilibiliClient
 from souwen.web.bilibili._errors import BilibiliNotFound
 from souwen.web.bilibili.models import (
-    BilibiliPopularVideo,
-    BilibiliRankVideo,
-    BilibiliUserInfo,
+    BilibiliArticleResult,
+    BilibiliSearchUserItem,
     BilibiliVideoDetail,
 )
 from souwen.web.bilibili.wbi import WbiSigner
@@ -43,7 +42,6 @@ class _FakeResponse:
 def _build_client() -> BilibiliClient:
     """构造一个跳过网络初始化、且 WBI 缓存已预填充的客户端"""
     client = BilibiliClient.__new__(BilibiliClient)
-    # BaseScraper 内部属性占位
     client.min_delay = 0.0
     client.max_delay = 0.0
     client.max_retries = 1
@@ -54,10 +52,8 @@ def _build_client() -> BilibiliClient:
     client._curl_session = None
     client._httpx_client = None
     client._resolved_base_url = BilibiliClient.BASE_URL
-    # bilibili 自身属性
     client._sessdata = None
     client._bili_jct = None
-    # 预填 WBI 缓存（避免触发 nav 抓取）
     signer = WbiSigner()
     signer._img_key = "7cd084941338484aae1ad9425b84077c"
     signer._sub_key = "4932caff0ff746eab6f01bf08b70ac45"
@@ -113,13 +109,11 @@ async def test_search_returns_web_search_response():
 
 
 async def test_search_empty_on_error():
-    """code != 0 时降级为空结果，不抛异常"""
     client = _build_client()
     payload = {"code": -412, "message": "rate limited", "data": {}}
     with patch.object(BilibiliClient, "_fetch", new=AsyncMock(return_value=_resp(payload))):
         resp = await client.search("x")
     assert resp.results == []
-    # error 路径下 numResults 缺失，total_results 退化为 0/len
     assert resp.source == SourceType.WEB_BILIBILI
 
 
@@ -142,6 +136,116 @@ async def test_search_cleans_html_titles():
     with patch.object(BilibiliClient, "_fetch", new=AsyncMock(return_value=_resp(payload))):
         resp = await client.search("ai")
     assert resp.results[0].title == "AI 大模型教程"
+
+
+# ─── search_users() ─────────────────────────────────────────────────────
+
+
+async def test_search_users_returns_items():
+    client = _build_client()
+    payload = {
+        "code": 0,
+        "data": {
+            "result": [
+                {
+                    "mid": 100,
+                    "uname": "测试 UP",
+                    "usign": "签名",
+                    "fans": 10000,
+                    "videos": 50,
+                    "level": 5,
+                    "upic": "https://x/avatar.jpg",
+                    "official_verify": {"type": 0},
+                },
+                {
+                    "mid": 200,
+                    "uname": "B",
+                    "fans": 5,
+                },
+            ],
+        },
+    }
+    with patch.object(BilibiliClient, "_fetch", new=AsyncMock(return_value=_resp(payload))):
+        items = await client.search_users("kw", max_results=5)
+    assert len(items) == 2
+    assert isinstance(items[0], BilibiliSearchUserItem)
+    assert items[0].mid == 100
+    assert items[0].uname == "测试 UP"
+    assert items[0].official_verify_type == 0
+    assert items[0].space_url == "https://space.bilibili.com/100"
+
+
+async def test_search_users_soft_fail():
+    client = _build_client()
+    payload = {"code": -412, "message": "rate", "data": None}
+    with patch.object(BilibiliClient, "_fetch", new=AsyncMock(return_value=_resp(payload))):
+        items = await client.search_users("x")
+    assert items == []
+
+
+# ─── search_articles() ─────────────────────────────────────────────────
+
+
+async def test_search_articles_success():
+    client = _build_client()
+    payload = {
+        "code": 0,
+        "data": {
+            "result": [
+                {
+                    "id": 12345,
+                    "title": '<em class="keyword">AI</em> 文章',
+                    "author": "作者",
+                    "mid": 999,
+                    "category_name": "科技",
+                    "desc": "摘要",
+                    "view": 1000,
+                    "like": 100,
+                    "reply": 10,
+                    "pub_date": 1700000000,
+                    "image_urls": ["https://x/cover.jpg", ""],
+                },
+                {
+                    "id": 67890,
+                    "title": "另一篇",
+                    "author": "作者2",
+                },
+            ],
+        },
+    }
+    with patch.object(BilibiliClient, "_fetch", new=AsyncMock(return_value=_resp(payload))):
+        results = await client.search_articles("ai", max_results=5)
+
+    assert len(results) == 2
+    assert isinstance(results[0], BilibiliArticleResult)
+    assert results[0].id == 12345
+    assert results[0].title == "AI 文章"
+    assert results[0].author == "作者"
+    assert results[0].category_name == "科技"
+    assert results[0].view == 1000
+    assert results[0].url == "https://www.bilibili.com/read/cv12345"
+    assert results[0].image_urls == ["https://x/cover.jpg"]
+    assert results[1].id == 67890
+    assert results[1].view == 0
+    assert results[1].url == "https://www.bilibili.com/read/cv67890"
+
+
+async def test_search_articles_soft_fail():
+    client = _build_client()
+    payload = {"code": -412, "message": "rate", "data": None}
+    with patch.object(BilibiliClient, "_fetch", new=AsyncMock(return_value=_resp(payload))):
+        results = await client.search_articles("x")
+    assert results == []
+
+
+async def test_search_articles_max_results_truncation():
+    client = _build_client()
+    raw_items = [{"id": i, "title": f"t{i}"} for i in range(1, 11)]
+    payload = {"code": 0, "data": {"result": raw_items}}
+    with patch.object(BilibiliClient, "_fetch", new=AsyncMock(return_value=_resp(payload))):
+        results = await client.search_articles("kw", max_results=3)
+    assert len(results) == 3
+    assert [r.id for r in results] == [1, 2, 3]
 
 
 # ─── get_video_details() ────────────────────────────────────────────────
@@ -194,202 +298,6 @@ async def test_get_video_details_not_found():
     assert exc.value.code == -404
 
 
-# ─── get_user_info() ────────────────────────────────────────────────────
-
-
-async def test_get_user_info_merges_endpoints():
-    """get_user_info 调用三个接口，合并结果"""
-    client = _build_client()
-
-    info_payload = {
-        "code": 0,
-        "data": {
-            "mid": 12345,
-            "name": "测试用户",
-            "face": "https://x/face.jpg",
-            "sign": "签名",
-            "level": 5,
-            "sex": "男",
-            "birthday": "01-01",
-            "coins": 12.0,
-            "vip": {"vip_type": 2, "vip_status": 1},
-            "official": {"role": 1, "title": "官方", "desc": ""},
-            "live_room": {"url": "https://live/1", "liveStatus": 1},
-        },
-    }
-    stat_payload = {
-        "code": 0,
-        "data": {"following": 100, "follower": 5000},
-    }
-    nav_payload = {
-        "code": 0,
-        "data": {"video": 42},
-    }
-
-    # 三次顺序调用：acc/info → relation/stat → space/navnum
-    fetch = AsyncMock(
-        side_effect=[
-            _resp(info_payload),
-            _resp(stat_payload),
-            _resp(nav_payload),
-        ]
-    )
-    with patch.object(BilibiliClient, "_fetch", new=fetch):
-        u = await client.get_user_info(12345)
-
-    assert isinstance(u, BilibiliUserInfo)
-    assert u.mid == 12345
-    assert u.name == "测试用户"
-    assert u.following == 100
-    assert u.follower == 5000
-    assert u.archive_count == 42
-    assert u.vip.vip_type == 2
-    assert u.live_status == 1
-    assert u.live_room_url == "https://live/1"
-    assert u.space_url == "https://space.bilibili.com/12345"
-    assert fetch.await_count == 3
-
-
-# ─── get_comments() ─────────────────────────────────────────────────────
-
-
-async def test_get_comments_pagination():
-    """跨多页累积评论，max_comments 截断"""
-    client = _build_client()
-
-    view_payload = {
-        "code": 0,
-        "data": {"bvid": "BV1xx", "aid": 999, "cid": 1},
-    }
-
-    def _make_replies(start: int, n: int):
-        return [
-            {
-                "rpid": start + i,
-                "mid": 1000 + i,
-                "ctime": 1700000000,
-                "like": i,
-                "rcount": 0,
-                "member": {"mid": 1000 + i, "uname": f"u{i}", "avatar": "", "level_info": {}},
-                "content": {"message": f"msg-{start + i}"},
-            }
-            for i in range(n)
-        ]
-
-    page1 = {
-        "code": 0,
-        "data": {"replies": _make_replies(1, 20), "page": {"count": 50, "size": 20, "num": 1}},
-    }
-    page2 = {
-        "code": 0,
-        "data": {"replies": _make_replies(21, 20), "page": {"count": 50, "size": 20, "num": 2}},
-    }
-    page3 = {
-        "code": 0,
-        "data": {"replies": _make_replies(41, 10), "page": {"count": 50, "size": 20, "num": 3}},
-    }
-
-    fetch = AsyncMock(
-        side_effect=[
-            _resp(view_payload),
-            _resp(page1),
-            _resp(page2),
-            _resp(page3),
-        ]
-    )
-    with patch.object(BilibiliClient, "_fetch", new=fetch):
-        comments = await client.get_comments("BV1xx", max_comments=25)
-
-    # max_comments 截断到 25
-    assert len(comments) == 25
-    assert comments[0].text == "msg-1"
-    assert comments[24].text == "msg-25"
-
-
-# ─── get_popular() / get_ranking() — 软失败 ─────────────────────────────
-
-
-async def test_get_popular_soft_fail():
-    client = _build_client()
-    payload = {"code": -412, "message": "rate", "data": None}
-    with patch.object(BilibiliClient, "_fetch", new=AsyncMock(return_value=_resp(payload))):
-        items = await client.get_popular()
-    assert items == []
-
-
-async def test_get_popular_success():
-    client = _build_client()
-    payload = {
-        "code": 0,
-        "data": {
-            "list": [
-                {
-                    "bvid": "BV1aa",
-                    "aid": 1,
-                    "title": "热门 1",
-                    "pic": "",
-                    "desc": "d",
-                    "duration": 60,
-                    "pubdate": 1700000000,
-                    "owner": {"mid": 1, "name": "U"},
-                    "stat": {"view": 100},
-                    "rcmd_reason": {"content": "推荐理由"},
-                }
-            ]
-        },
-    }
-    with patch.object(BilibiliClient, "_fetch", new=AsyncMock(return_value=_resp(payload))):
-        items = await client.get_popular()
-    assert len(items) == 1
-    assert isinstance(items[0], BilibiliPopularVideo)
-    assert items[0].rcmd_reason == "推荐理由"
-    assert items[0].description == "d"
-
-
-async def test_get_ranking_soft_fail():
-    client = _build_client()
-    payload = {"code": -352, "message": "risk", "data": None}
-    with patch.object(BilibiliClient, "_fetch", new=AsyncMock(return_value=_resp(payload))):
-        items = await client.get_ranking()
-    assert items == []
-
-
-async def test_get_ranking_success():
-    client = _build_client()
-    payload = {
-        "code": 0,
-        "data": {
-            "list": [
-                {
-                    "bvid": "BV1aa",
-                    "aid": 1,
-                    "title": "rank1",
-                    "pic": "",
-                    "desc": "",
-                    "duration": 60,
-                    "pubdate": 1700000000,
-                    "owner": {"mid": 1, "name": "U"},
-                    "stat": {"view": 100},
-                    "score": 9999,
-                },
-                {
-                    "bvid": "BV1bb",
-                    "aid": 2,
-                    "title": "rank2",
-                    "score": 8888,
-                },
-            ]
-        },
-    }
-    with patch.object(BilibiliClient, "_fetch", new=AsyncMock(return_value=_resp(payload))):
-        items = await client.get_ranking(rid=0, type="all")
-    assert len(items) == 2
-    assert isinstance(items[0], BilibiliRankVideo)
-    assert items[0].rank_index == 1
-    assert items[1].rank_index == 2
-    assert items[0].score == 9999
-
-
 # ─── _clean_html ────────────────────────────────────────────────────────
 
 
@@ -399,5 +307,4 @@ def test_clean_html():
     assert BilibiliClient._clean_html("  <em>x</em>  ") == "x"
     assert BilibiliClient._clean_html("") == ""
     assert BilibiliClient._clean_html(None) == ""  # type: ignore[arg-type]
-    # 无 HTML 标签则保留原文
     assert BilibiliClient._clean_html("plain text") == "plain text"

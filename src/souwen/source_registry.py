@@ -278,7 +278,7 @@ _reg(
     "video",
     "scraper",
     "bilibili_sessdata",
-    description="Bilibili 视频搜索（支持视频/用户/热门/排行/评论/字幕）",
+    description="Bilibili 搜索（视频/用户/专栏文章）+ 视频详情抓取",
 )
 
 # ── 内容抓取 (fetch)：内置/公开接口/授权接口 ──────────────
