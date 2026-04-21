@@ -81,6 +81,9 @@ from souwen.web.wikipedia import WikipediaClient
 from souwen.web.youtube import YouTubeClient
 from souwen.web.zhihu import ZhihuClient
 from souwen.web.weibo import WeiboClient
+from souwen.web.csdn import CSDNClient
+from souwen.web.juejin import JuejinClient
+from souwen.web.linuxdo import LinuxDoClient
 
 logger = logging.getLogger("souwen.web.search")
 _WEB_ENGINE_TIMEOUT_CAP_SECONDS = 15.0
@@ -241,6 +244,9 @@ async def web_search(
         "youtube": YouTubeClient,
         "zhihu": ZhihuClient,
         "weibo": WeiboClient,
+        "csdn": CSDNClient,
+        "juejin": JuejinClient,
+        "linuxdo": LinuxDoClient,
     }
 
     # 引擎名 -> SourceType 的映射，用于标记结果来源
@@ -275,6 +281,9 @@ async def web_search(
         "youtube": SourceType.WEB_YOUTUBE,
         "zhihu": SourceType.WEB_ZHIHU,
         "weibo": SourceType.WEB_WEIBO,
+        "csdn": SourceType.WEB_CSDN,
+        "juejin": SourceType.WEB_JUEJIN,
+        "linuxdo": SourceType.WEB_LINUXDO,
     }
 
     # 默认使用在当前零配置场景下更稳定的公开引擎组合

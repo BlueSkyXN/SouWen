@@ -1,11 +1,11 @@
 """SouWen doctor 模块测试。
 
 覆盖 ``souwen.doctor`` 中 ``check_all()`` 与 ``format_report()`` 的诊断功能。
-验证：58 个数据源的完整性检查、状态判断（ok/missing_key/limited/unavailable/warning）、
+验证：62 个数据源的完整性检查、状态判断（ok/missing_key/limited/unavailable/warning）、
 报告格式化与符号呈现、以及 Tier 分层显示。
 
 测试清单：
-- ``TestCheckAll``：check_all() 返回 58 源、必要字段完整性、Key 配置状态检测
+- ``TestCheckAll``：check_all() 返回 62 源、必要字段完整性、Key 配置状态检测
 - ``TestFormatReport``：format_report() 字符串输出、标题/Tier 分组、状态符号
 """
 
@@ -23,7 +23,7 @@ class TestCheckAll:
 
         get_config.cache_clear()
         results = check_all()
-        assert len(results) == 59
+        assert len(results) == 62
 
     def test_result_has_required_keys(self):
         """每条结果包含必要字段"""
@@ -61,6 +61,7 @@ class TestCheckAll:
             "wiki",
             "video",
             "fetch",
+            "cn_tech",
         }
         for r in results:
             assert r["category"] in valid_cats
@@ -101,8 +102,8 @@ class TestCheckAll:
             get_config.cache_clear()
 
     def test_source_config_matches_37(self):
-        """source registry 有 59 个数据源"""
-        assert len(get_all_sources()) == 59
+        """source registry 有 62 个数据源"""
+        assert len(get_all_sources()) == 62
 
     def test_semantic_scholar_without_key_is_limited(self, monkeypatch):
         """Semantic Scholar 无 Key 时标记为 limited。"""
