@@ -36,6 +36,10 @@ export function useFetchPage() {
   const [provider, setProvider] = useState<Provider>('builtin')
   const [timeout, setTimeout_] = useState(30)
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const [selector, setSelector] = useState('')
+  const [startIndex, setStartIndex] = useState(0)
+  const [maxLength, setMaxLength] = useState<number | undefined>(undefined)
+  const [respectRobots, setRespectRobots] = useState(false)
   const [fetchState, setFetchState] = useState<FetchState>({ status: 'idle', message: null })
   const [results, setResults] = useState<FetchResponse | null>(null)
   const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set())
@@ -78,7 +82,13 @@ export function useFetchPage() {
       setExpandedItems(new Set())
 
       try {
-        const res = await api.fetch(urlList, provider, timeout, controller.signal)
+        const fetchOptions = {
+          selector: selector || undefined,
+          startIndex: startIndex > 0 ? startIndex : undefined,
+          maxLength: maxLength,
+          respectRobotsTxt: respectRobots || undefined,
+        }
+        const res = await api.fetch(urlList, provider, timeout, controller.signal, fetchOptions)
         setResults(res)
         setFetchState({ status: 'idle', message: null })
         addToast('success', t('fetch.success', { count: res.total_ok, total: res.total }))
@@ -93,7 +103,7 @@ export function useFetchPage() {
         }
       }
     },
-    [urls, provider, timeout, canFetch, addToast, t],
+    [urls, provider, timeout, selector, startIndex, maxLength, respectRobots, canFetch, addToast, t],
   )
 
   const handleRetry = useCallback(() => {
@@ -165,6 +175,14 @@ export function useFetchPage() {
     setTimeout_,
     showAdvanced,
     setShowAdvanced,
+    selector,
+    setSelector,
+    startIndex,
+    setStartIndex,
+    maxLength,
+    setMaxLength,
+    respectRobots,
+    setRespectRobots,
     fetchState,
     results,
     expandedItems,
