@@ -1,6 +1,6 @@
 # 数据源详情
 
-> SouWen 支持的全部 58 个数据源
+> SouWen 支持的全部 61 个数据源
 
 ## 概览
 
@@ -8,7 +8,7 @@
 |------|------|----------|----------|
 | 论文 | 8 | 5（OpenAlex、Crossref、arXiv、DBLP、PubMed） | 3（Semantic Scholar 可选、CORE、Unpaywall） |
 | 专利 | 8 | 2（PatentsView、PQAI） | 6（EPO、USPTO ODP、The Lens、CNIPA、PatSnap、Google Patents 爬虫） |
-| 搜索引擎 | 21 | 9（爬虫类） + 2（自建实例） | 10（API 类） |
+| 搜索引擎 | 24 | 9（爬虫类）+ 2（自建实例）+ Reddit（公开模式零配置） | 10（API 类）+ Twitter/X、Reddit OAuth、Facebook（需 Key） |
 | 内容抓取 | 16 | 5（builtin、Crawl4AI、Wayback Machine、newspaper4k、readability） | 11（Jina Reader、Tavily、Firecrawl、Exa、Scrapfly、Diffbot、ScrapingBee、ZenRows、ScraperAPI、Apify、Cloudflare） |
 
 ## 论文数据源
@@ -95,6 +95,90 @@
 | 聚合搜索 | `web_search()` | 并发多引擎搜索 + URL 去重 |
 
 默认使用 DuckDuckGo + Bing 双引擎并发（在零配置场景下更稳定），可通过 `engines` 参数自定义组合。
+
+## 国际社交媒体（官方 API）
+
+### 调研结论
+
+| 平台 | 官方搜索 API | 鉴权 | 搜索能力 | 说明 |
+|------|------------|------|----------|------|
+| Twitter/X | ✅ 支持 | Bearer Token | 推文搜索（最近 7 天） | Basic 套餐（$100/月）起，Free 套餐不含搜索 |
+| Reddit | ✅ 支持 | OAuth2 client_credentials | 全站帖子搜索 | 注册应用免费使用，降级到公开 JSON 无需注册 |
+| Facebook | ⚠️ 受限 | App Access Token | 仅页面 / 地点搜索 | 公开帖子搜索已于 2018 年弃用；页面搜索仍可用 |
+| Discord | ❌ 不支持 | — | 无公开搜索 API | 仅支持在特定频道内搜索（需 Bot Token），无跨服务器搜索 |
+
+### Twitter/X API v2
+
+| 数据源 | 客户端类 | 鉴权 | 特点 |
+|--------|---------|------|------|
+| Twitter/X | `TwitterClient` | Bearer Token | 最近 7 天推文搜索，支持 Twitter 搜索算子，含互动指标 |
+
+**配置项：**
+
+```env
+SOUWEN_TWITTER_BEARER_TOKEN=your-bearer-token
+```
+
+**搜索端点：** `GET https://api.twitter.com/2/tweets/search/recent`
+
+**限制：**
+- Free 套餐：不支持搜索（返回 403）
+- Basic 套餐（$100/月）：60 req/15min，支持 recent 搜索（最近 7 天）
+- Pro 套餐（$5000/月）：全量历史搜索（`/2/tweets/search/all`）
+
+**支持的搜索算子：** `lang:en`、`-is:retweet`、`from:username`、`#hashtag` 等
+
+申请 Bearer Token：<https://developer.twitter.com/en/portal/dashboard>
+
+### Reddit 官方 OAuth2 API
+
+| 数据源 | 客户端类 | 鉴权 | 特点 |
+|--------|---------|------|------|
+| Reddit | `RedditClient` | OAuth2（可选）或公开 JSON | 全站帖子搜索，支持排序和时间过滤 |
+
+**配置项（OAuth2 模式，推荐）：**
+
+```env
+SOUWEN_REDDIT_CLIENT_ID=your-client-id
+SOUWEN_REDDIT_CLIENT_SECRET=your-client-secret
+```
+
+**搜索端点：**
+- OAuth2 模式：`GET https://oauth.reddit.com/search`（100 QPM）
+- 公开 JSON 模式（兜底）：`GET https://www.reddit.com/search.json`（~60 req/min）
+
+**模式说明：**
+- 提供 client_id + client_secret → 自动启用 OAuth2 官方模式（遵循服务条款）
+- 未配置凭据 → 自动降级到公开 JSON 模式（零配置即可用）
+
+注册 Reddit 应用获取凭据：<https://www.reddit.com/prefs/apps>
+
+### Facebook/Meta Graph API
+
+| 数据源 | 客户端类 | 鉴权 | 特点 |
+|--------|---------|------|------|
+| Facebook | `FacebookClient` | App Access Token | 公开页面 / 地点搜索（公开帖子搜索已弃用） |
+
+**配置项：**
+
+```env
+SOUWEN_FACEBOOK_APP_ID=your-app-id
+SOUWEN_FACEBOOK_APP_SECRET=your-app-secret
+```
+
+**搜索端点：** `GET https://graph.facebook.com/v19.0/search`
+
+**支持的搜索类型：**
+- `page`：公开 Facebook 页面（品牌、组织、名人等），无需用户登录
+- `place`：包含地理位置的地点页面
+
+**弃用说明：** 公开帖子搜索（`type=post`）自 2018 年起已弃用，不再开放。
+
+申请 Meta 应用 ID：<https://developers.facebook.com/apps/>
+
+### Discord（不支持）
+
+Discord 官方 API 不提供公开内容搜索接口。现有的消息搜索接口（`GET /guilds/{id}/messages/search`）仅支持在特定频道内搜索，需要 Bot Token 且仅限 Bot 已加入的服务器，无法跨服务器搜索。SouWen 不集成此接口。
 
 ## 内容抓取提供者
 
