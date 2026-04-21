@@ -203,6 +203,13 @@ _reg(
     description="Firecrawl 搜索+爬取",
 )
 _reg("linkup", "professional", "official_api", "linkup_api_key", description="Linkup 实时搜索")
+_reg(
+    "zhipuai",
+    "professional",
+    "official_api",
+    "zhipuai_api_key",
+    description="智谱 AI Web Search Pro",
+)
 
 # ── 社交 (social)：公开接口/爬虫 ─────────────────────────
 _reg("reddit", "social", "open_api", None, description="Reddit 帖子搜索")

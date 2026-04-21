@@ -231,6 +231,7 @@ class SouWenConfig(BaseModel):
     metaso_api_key: str | None = None  # Metaso 秘塔搜索 API
     whoogle_url: str | None = None  # Whoogle 自建实例 URL
     websurfx_url: str | None = None  # Websurfx 自建实例 URL
+    zhipuai_api_key: str | None = None  # 智谱 AI Web Search Pro
     # 社区 / 视频平台
     github_token: str | None = None  # GitHub PAT（可选，提升速率限制）
     stackoverflow_api_key: str | None = None  # StackOverflow API Key（可选，提升配额）
@@ -639,6 +640,7 @@ web:
   metaso_api_key: ~
   whoogle_url: ~
   websurfx_url: ~
+  zhipuai_api_key: ~
   github_token: ~
   stackoverflow_api_key: ~
   youtube_api_key: ~
