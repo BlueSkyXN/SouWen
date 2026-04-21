@@ -1,113 +1,188 @@
-"""DuckDuckGo HTML 搜索引擎
+"""DuckDuckGo 网页文本搜索引擎
 
-文件用途：
-    DuckDuckGo 轻量 HTML 搜索引擎爬虫客户端。使用 HTML 版本避免 JavaScript 依赖，
-    通过重定向参数解码获取真实 URL，无需 API Key。
+使用 html.duckduckgo.com POST 接口实现网页搜索。
+支持区域、安全搜索、时间范围过滤及多页分页。
 
-函数/类清单：
-    DuckDuckGoClient（类）
-        - 功能：DuckDuckGo HTML 版本爬虫客户端，通过 CSS 选择器解析搜索结果
-        - 继承：BaseScraper（基础爬虫类）
-        - 关键属性：ENGINE_NAME = "duckduckgo", BASE_URL = "https://html.duckduckgo.com/html/",
-                  min_delay = 1.0, max_delay = 3.0, max_retries = 3
-        - 主要方法：search(query, max_results) -> WebSearchResponse
-
-    DuckDuckGoClient.__init__(**kwargs)
-        - 功能：初始化 DuckDuckGo 搜索客户端
-        - 输入：**kwargs 传递给 BaseScraper 的参数
-        - 输出：实例
-
-    DuckDuckGoClient.search(query, max_results=20) -> WebSearchResponse
-        - 功能：查询 DuckDuckGo，返回聚合结果
-        - 输入：query 搜索关键词, max_results 最大返回结果数（默认20）
-        - 输出：WebSearchResponse 包含搜索结果
-
-    DuckDuckGoClient._decode_ddg_url(url) -> str
-        - 功能：解码 DuckDuckGo 重定向 URL（从 uddg= 参数提取真实 URL）
-        - 输入：url DuckDuckGo 格式的 URL 字符串
-        - 输出：解码后的真实 URL
-
-模块依赖：
-    - logging: 日志记录
-    - urllib.parse: URL 编码/解码
-    - bs4: HTML 解析
-    - souwen.models: SourceType, WebSearchResult, WebSearchResponse 数据模型
-    - souwen.scraper.base: BaseScraper 基础爬虫类
-
-技术要点：
-    - 使用 HTML 版本避免 JavaScript 渲染
-    - CSS 选择器：.result（结果容器）、.result__a（标题）、.result__snippet（描述）
-    - 解码 DuckDuckGo 重定向 URL：//duckduckgo.com/l/?uddg=ENCODED_URL&rut=...
-    - URL 必须是 http/https 开头（过滤相对路径）
+技术方案：
+    - POST 表单提交搜索（html 后端）
+    - 分页：echo 服务端返回的 hidden form inputs
+    - TLS 指纹模拟 via BaseScraper (curl_cffi)
+    - 禁用 follow_redirects（301 = 反爬信号）
+    - 多模式 no-results 检测
 """
 
 from __future__ import annotations
 
 import logging
-from urllib.parse import unquote, quote_plus
+from html import unescape
 
-from bs4 import BeautifulSoup
+from lxml import html as lxml_html
 
 from souwen.models import SourceType, WebSearchResult, WebSearchResponse
 from souwen.scraper.base import BaseScraper
+from souwen.web.ddg_utils import normalize_url, normalize_text, parse_next_form_data
 
 logger = logging.getLogger("souwen.web.duckduckgo")
 
+# DDG 的 "无结果" 标记 — html 后端用两个空格
+_NO_RESULTS_HTML = b"No  results."
+_NO_RESULTS_LITE = b"No more results."
+
+# 广告 URL 前缀 — 需要过滤
+_AD_PREFIXES = (
+    "http://www.google.com/search?q=",
+    "https://duckduckgo.com/y.js?ad_domain",
+)
+
 
 class DuckDuckGoClient(BaseScraper):
-    """DuckDuckGo HTML 搜索客户端
+    """DuckDuckGo 网页搜索客户端
 
-    使用 html.duckduckgo.com 轻量版本，无需 JavaScript 渲染。
-    通过 CSS 选择器解析搜索结果。
+    通过 POST 提交搜索并解析 HTML 结果。
+    支持区域、安全搜索、时间范围、分页。
+    TLS 指纹模拟 + 自适应退避。
     """
 
     ENGINE_NAME = "duckduckgo"
     BASE_URL = "https://html.duckduckgo.com/html/"
 
     def __init__(self, **kwargs):
-        # 初始化爬虫配置：最小延迟 1.0s、最大延迟 3.0s、最多重试 3 次
-        super().__init__(min_delay=1.0, max_delay=3.0, max_retries=3, **kwargs)
+        super().__init__(
+            min_delay=0.75,
+            max_delay=1.5,
+            max_retries=3,
+            follow_redirects=False,
+            **kwargs,
+        )
 
-    async def search(self, query: str, max_results: int = 20) -> WebSearchResponse:
-        """搜索 DuckDuckGo
+    async def search(
+        self,
+        query: str,
+        max_results: int = 20,
+        region: str = "wt-wt",
+        safesearch: str = "moderate",
+        time_range: str | None = None,
+        max_pages: int = 3,
+    ) -> WebSearchResponse:
+        """搜索 DuckDuckGo 网页
 
         Args:
             query: 搜索关键词
             max_results: 最大返回结果数
+            region: 区域代码，如 "wt-wt"(全球), "us-en", "cn-zh"
+            safesearch: 安全搜索级别 "on"/"moderate"/"off"
+            time_range: 时间范围 "d"(天)/"w"(周)/"m"(月)/"y"(年)/None
+            max_pages: 最大分页数（默认 3）
 
         Returns:
             WebSearchResponse 包含搜索结果
         """
-        url = f"{self._resolved_base_url}?q={quote_plus(query)}"
+        results: list[WebSearchResult] = []
+        seen_urls: set[str] = set()
 
-        resp = await self._fetch(url)
-        html = resp.text
+        # 首次请求的 form data
+        form_data: dict[str, str] = {
+            "q": query,
+            "b": "",
+            "kl": region,
+        }
+        if time_range:
+            form_data["df"] = time_range
 
-        soup = BeautifulSoup(html, "lxml")
+        url = self._resolved_base_url
+
+        for page in range(max_pages):
+            try:
+                resp = await self._fetch(url, method="POST", data=form_data)
+
+                # 301/302/202/403 = DDG 反爬信号
+                if resp.status_code in (301, 302, 202, 403, 418):
+                    logger.warning("DDG 反爬响应 status=%d，停止分页", resp.status_code)
+                    break
+
+                if resp.status_code != 200:
+                    logger.warning("DDG 异常状态码 %d", resp.status_code)
+                    break
+
+                content = resp.content if hasattr(resp, "content") else resp.text.encode()
+
+                # 检测 no-results 标记
+                if _NO_RESULTS_HTML in content or _NO_RESULTS_LITE in content:
+                    break
+
+                # 解析结果
+                page_results = self._parse_html_results(content, seen_urls)
+                results.extend(page_results)
+
+                if len(results) >= max_results:
+                    results = results[:max_results]
+                    break
+
+                # 没有解析出任何结果 → 可能被阻断
+                if not page_results:
+                    break
+
+                # 提取分页 form data
+                next_data = parse_next_form_data(content)
+                if not next_data:
+                    break
+                form_data = next_data
+
+            except Exception as e:
+                logger.warning("DDG 第 %d 页请求失败: %s", page + 1, e)
+                break
+
+        logger.info("DuckDuckGo 返回 %d 条结果 (query=%s)", len(results), query)
+        return WebSearchResponse(
+            query=query,
+            source=SourceType.WEB_DUCKDUCKGO,
+            results=results,
+            total_results=len(results),
+        )
+
+    def _parse_html_results(self, content: bytes, seen_urls: set[str]) -> list[WebSearchResult]:
+        """解析 DuckDuckGo HTML 搜索结果页"""
         results: list[WebSearchResult] = []
 
         try:
-            # 遍历 DuckDuckGo 搜索结果的容器 .result
-            for element in soup.select(".result"):
-                # 标题在 .result__a
-                title_el = element.select_one(".result__a")
-                if title_el is None:
+            tree = lxml_html.fromstring(content)
+        except Exception as e:
+            logger.warning("HTML 解析失败: %s", e)
+            return results
+
+        # html 后端: div[h2] 格式
+        for div in tree.xpath("//div[h2]"):
+            try:
+                # 标题 + href — 仅从 h2 内的 a 提取
+                anchors = div.xpath("./h2/a/@href")
+                if not anchors:
+                    anchors = div.xpath("./a/@href")
+                titles = div.xpath("./h2/a//text()")
+                if not anchors or not titles:
                     continue
 
-                title = title_el.get_text(strip=True)
-                raw_url = title_el.get("href", "")
+                raw_url = anchors[0]
+                title = unescape("".join(t.strip() for t in titles if t.strip()))
 
-                # 提取 snippet（描述文本）
-                snippet_el = element.select_one(".result__snippet")
-                snippet = snippet_el.get_text(strip=True) if snippet_el else ""
-
-                # DuckDuckGo URL 重定向解码
-                # 格式: //duckduckgo.com/l/?uddg=ENCODED_URL&rut=...
-                real_url = self._decode_ddg_url(str(raw_url))
-
-                # 过滤非 HTTP 链接
-                if not real_url or not real_url.startswith(("http://", "https://")):
+                # 跳过广告
+                if any(raw_url.startswith(p) for p in _AD_PREFIXES):
                     continue
+
+                real_url = normalize_url(self._decode_ddg_url(str(raw_url)))
+                if not real_url.startswith(("http://", "https://")):
+                    continue
+
+                if real_url in seen_urls:
+                    continue
+                seen_urls.add(real_url)
+
+                # 描述文本
+                body_parts = div.xpath(".//a[@class='result__snippet']//text()")
+                if not body_parts:
+                    body_parts = div.xpath(".//td[@class='result-snippet']//text()")
+                if not body_parts:
+                    body_parts = div.xpath(".//a[contains(@class,'snippet')]//text()")
+                snippet = normalize_text(" ".join(body_parts)) if body_parts else ""
 
                 if title:
                     results.append(
@@ -119,40 +194,22 @@ class DuckDuckGoClient(BaseScraper):
                             engine=self.ENGINE_NAME,
                         )
                     )
+            except Exception:
+                continue
 
-                if len(results) >= max_results:
-                    break
-        except Exception as e:
-            logger.warning("DuckDuckGo HTML 解析失败: %s", e)
-
-        logger.info("DuckDuckGo 返回 %d 条结果 (query=%s)", len(results), query)
-
-        return WebSearchResponse(
-            query=query,
-            source=SourceType.WEB_DUCKDUCKGO,
-            results=results,
-            total_results=len(results),
-        )
+        return results
 
     @staticmethod
     def _decode_ddg_url(url: str) -> str:
         """解码 DuckDuckGo 重定向 URL
 
         DuckDuckGo 通过 //duckduckgo.com/l/?uddg=ENCODED_URL 跳转。
-        提取真实 URL 并解码。
-
-        Args:
-            url: DuckDuckGo 格式的 URL 字符串（可能包含 uddg 重定向参数）
-
-        Returns:
-            str: 解码后的真实 URL；不是重定向格式则返回原 URL
         """
-        if url.startswith("//duckduckgo.com/l/?uddg="):
-            # 提取 uddg= 之后的部分（& 前面的内容）
+        from urllib.parse import unquote as _unquote
+
+        if "uddg=" in url:
             parts = url.split("uddg=", 1)
             if len(parts) > 1:
-                # 获取编码的 URL，忽略后续参数（& 分隔）
                 encoded = parts[1].split("&", 1)[0]
-                # URL 解码还原真实链接
-                return unquote(encoded)
+                return _unquote(encoded)
         return url
