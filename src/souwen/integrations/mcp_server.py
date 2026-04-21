@@ -76,6 +76,12 @@ try:
 except ImportError:
     HAS_MCP = False
 
+from souwen.integrations._tools_bilibili import (
+    dispatch_bilibili_tool,
+    get_bilibili_tools,
+    is_bilibili_tool,
+)
+
 
 def create_server() -> "Server":
     """创建并配置 MCP 服务器 — 注册工具和处理函数
@@ -173,6 +179,7 @@ def create_server() -> "Server":
                 description="检查 SouWen 数据源可用性状态",
                 inputSchema={"type": "object", "properties": {}},
             ),
+            *get_bilibili_tools(),
             Tool(
                 name="fetch_content",
                 description="获取网页内容。支持 URL 直接抓取，使用 SouWen 内置提取器（零配置）。",
@@ -244,6 +251,9 @@ def create_server() -> "Server":
 
                 results = check_all()
                 result = format_report(results)
+
+            elif is_bilibili_tool(name):
+                result = await dispatch_bilibili_tool(name, arguments)
 
             elif name == "fetch_content":
                 from souwen.web.fetch import fetch_content

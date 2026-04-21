@@ -825,6 +825,7 @@ def config_show() -> None:
             or "secret" in field_name
             or "token" in field_name
             or "password" in field_name
+            or "sessdata" in field_name
         )
         if is_secret:
             display = _mask_value(str(raw_val) if raw_val is not None else None)
