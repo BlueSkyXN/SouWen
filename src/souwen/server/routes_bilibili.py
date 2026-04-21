@@ -218,8 +218,23 @@ async def bilibili_ranking(
 
 
 # ---------------------------------------------------------------------------
-# 搜索：用户
+# 搜索
 # ---------------------------------------------------------------------------
+
+
+@bilibili_router.get("/search")
+async def bilibili_search(
+    keyword: str = Query(..., min_length=1, max_length=200, description="搜索关键词"),
+    page: int = Query(1, ge=1, description="页码"),
+    max_results: int = Query(20, ge=1, le=50, description="最大返回条数"),
+):
+    """按关键词搜索 Bilibili 视频（聚合接口，失败降级为空列表）。"""
+    try:
+        async with BilibiliClient() as client:
+            results = await client.search(keyword, page=page, max_results=max_results)
+            return [r.model_dump() for r in results]
+    except BilibiliError as e:
+        _raise_for_bilibili(e)
 
 
 @bilibili_router.get("/search/users")

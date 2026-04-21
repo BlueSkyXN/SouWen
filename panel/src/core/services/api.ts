@@ -87,6 +87,16 @@ import type {
   YouTubeTrendingResponse,
   YouTubeVideoDetailResponse,
   YouTubeTranscriptResponse,
+  BilibiliVideoDetail,
+  BilibiliUserInfo,
+  BilibiliUserVideoItem,
+  BilibiliComment,
+  BilibiliSubtitle,
+  BilibiliAISummary,
+  BilibiliRelatedVideo,
+  BilibiliPopularVideo,
+  BilibiliRankVideo,
+  BilibiliSearchUserItem,
   WaybackCDXResponse,
   WaybackAvailabilityResponse,
   WaybackSaveResponse,
@@ -533,6 +543,153 @@ class ApiService {
     if (timeout) params.set('timeout', String(timeout))
     return this.request<YouTubeTranscriptResponse>(
       `/api/v1/youtube/transcript/${encodeURIComponent(videoId)}?${params}`,
+      { headers: this.headers(), signal },
+    )
+  }
+
+  // === Bilibili ===
+  async getBilibiliSearch(
+    keyword: string,
+    page = 1,
+    maxResults = 20,
+    signal?: AbortSignal,
+  ): Promise<BilibiliVideoDetail[]> {
+    const params = new URLSearchParams({
+      keyword,
+      page: String(page),
+      max_results: String(maxResults),
+    })
+    return this.request<BilibiliVideoDetail[]>(`/api/v1/bilibili/search?${params}`, {
+      headers: this.headers(),
+      signal,
+    })
+  }
+
+  async getBilibiliVideo(
+    bvid: string,
+    signal?: AbortSignal,
+  ): Promise<BilibiliVideoDetail> {
+    return this.request<BilibiliVideoDetail>(
+      `/api/v1/bilibili/video/${encodeURIComponent(bvid)}`,
+      { headers: this.headers(), signal },
+    )
+  }
+
+  async getBilibiliUser(
+    mid: number,
+    signal?: AbortSignal,
+  ): Promise<BilibiliUserInfo> {
+    return this.request<BilibiliUserInfo>(
+      `/api/v1/bilibili/user/${mid}`,
+      { headers: this.headers(), signal },
+    )
+  }
+
+  async getBilibiliUserVideos(
+    mid: number,
+    page = 1,
+    pageSize = 30,
+    signal?: AbortSignal,
+  ): Promise<BilibiliUserVideoItem[]> {
+    const params = new URLSearchParams({
+      page: String(page),
+      page_size: String(pageSize),
+    })
+    return this.request<BilibiliUserVideoItem[]>(
+      `/api/v1/bilibili/user/${mid}/videos?${params}`,
+      { headers: this.headers(), signal },
+    )
+  }
+
+  async getBilibiliComments(
+    bvid: string,
+    sort = 1,
+    maxComments = 20,
+    signal?: AbortSignal,
+  ): Promise<BilibiliComment[]> {
+    const params = new URLSearchParams({
+      sort: String(sort),
+      max_comments: String(maxComments),
+    })
+    return this.request<BilibiliComment[]>(
+      `/api/v1/bilibili/video/${encodeURIComponent(bvid)}/comments?${params}`,
+      { headers: this.headers(), signal },
+    )
+  }
+
+  async getBilibiliSubtitles(
+    bvid: string,
+    signal?: AbortSignal,
+  ): Promise<BilibiliSubtitle[]> {
+    return this.request<BilibiliSubtitle[]>(
+      `/api/v1/bilibili/video/${encodeURIComponent(bvid)}/subtitles`,
+      { headers: this.headers(), signal },
+    )
+  }
+
+  async getBilibiliAiSummary(
+    bvid: string,
+    signal?: AbortSignal,
+  ): Promise<BilibiliAISummary> {
+    return this.request<BilibiliAISummary>(
+      `/api/v1/bilibili/video/${encodeURIComponent(bvid)}/ai-summary`,
+      { headers: this.headers(), signal },
+    )
+  }
+
+  async getBilibiliRelated(
+    bvid: string,
+    signal?: AbortSignal,
+  ): Promise<BilibiliRelatedVideo[]> {
+    return this.request<BilibiliRelatedVideo[]>(
+      `/api/v1/bilibili/video/${encodeURIComponent(bvid)}/related`,
+      { headers: this.headers(), signal },
+    )
+  }
+
+  async getBilibiliPopular(
+    page = 1,
+    pageSize = 20,
+    signal?: AbortSignal,
+  ): Promise<BilibiliPopularVideo[]> {
+    const params = new URLSearchParams({
+      page: String(page),
+      page_size: String(pageSize),
+    })
+    return this.request<BilibiliPopularVideo[]>(
+      `/api/v1/bilibili/popular?${params}`,
+      { headers: this.headers(), signal },
+    )
+  }
+
+  async getBilibiliRanking(
+    rid = 0,
+    type = 'all',
+    signal?: AbortSignal,
+  ): Promise<BilibiliRankVideo[]> {
+    const params = new URLSearchParams({
+      rid: String(rid),
+      type,
+    })
+    return this.request<BilibiliRankVideo[]>(
+      `/api/v1/bilibili/ranking?${params}`,
+      { headers: this.headers(), signal },
+    )
+  }
+
+  async getBilibiliSearchUsers(
+    keyword: string,
+    page = 1,
+    maxResults = 20,
+    signal?: AbortSignal,
+  ): Promise<BilibiliSearchUserItem[]> {
+    const params = new URLSearchParams({
+      keyword,
+      page: String(page),
+      max_results: String(maxResults),
+    })
+    return this.request<BilibiliSearchUserItem[]>(
+      `/api/v1/bilibili/search/users?${params}`,
       { headers: this.headers(), signal },
     )
   }

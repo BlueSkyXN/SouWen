@@ -659,6 +659,455 @@ def youtube_transcript(
 
 
 # ---------------------------------------------------------------------------
+# bilibili 子命令组
+# ---------------------------------------------------------------------------
+bilibili_app = typer.Typer(help="Bilibili 视频工具")
+app.add_typer(bilibili_app, name="bilibili")
+
+
+def _bilibili_run(coro, timeout: int | None):
+    """运行 bilibili 协程并统一处理超时与异常映射"""
+    from souwen.web.bilibili._errors import (
+        BilibiliAuthRequired,
+        BilibiliError,
+        BilibiliNotFound,
+        BilibiliRateLimited,
+        BilibiliRiskControl,
+    )
+
+    try:
+        if timeout is not None:
+            return _run_async(asyncio.wait_for(coro, timeout=timeout))
+        return _run_async(coro)
+    except BilibiliNotFound as e:
+        console.print(f"[yellow]⚠ 未找到: {e}[/yellow]")
+        raise typer.Exit(1)
+    except BilibiliAuthRequired as e:
+        console.print(f"[red]❌ 需要登录: {e}[/red]")
+        raise typer.Exit(1)
+    except BilibiliRateLimited:
+        console.print("[red]❌ 请求被限流[/red]")
+        raise typer.Exit(1)
+    except BilibiliRiskControl as e:
+        console.print(f"[red]❌ 触发风控: {e}[/red]")
+        raise typer.Exit(1)
+    except BilibiliError as e:
+        console.print(f"[red]❌ Bilibili 错误: {e}[/red]")
+        raise typer.Exit(1)
+    except asyncio.TimeoutError:
+        console.print(f"[red]⏱ 请求超时 (>{timeout}s)[/red]")
+        raise typer.Exit(124)
+
+
+def _bili_print_json(obj) -> None:
+    from rich import print_json
+
+    if isinstance(obj, list):
+        data = [r.model_dump(mode="json") if hasattr(r, "model_dump") else r for r in obj]
+    elif hasattr(obj, "model_dump"):
+        data = obj.model_dump(mode="json")
+    else:
+        data = obj
+    print_json(json.dumps(data, ensure_ascii=False))
+
+
+@bilibili_app.command("search")
+def bilibili_search(
+    keyword: str = typer.Argument(..., help="搜索关键词"),
+    limit: int = typer.Option(20, "--limit", "-n", help="最大结果数"),
+    page: int = typer.Option(1, "--page", "-p", help="页码（当前接口暂不支持，保留兼容）"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),
+    timeout: int | None = typer.Option(None, "--timeout", "-t", help="超时（秒）"),
+) -> None:
+    """搜索 Bilibili 视频"""
+    from souwen.web.bilibili import BilibiliClient
+
+    _ = page  # 保留 CLI 选项以匹配其他命令风格
+
+    async def _do():
+        async with BilibiliClient() as client:
+            return await client.search(keyword, max_results=limit)
+
+    with console.status(f"[bold green]搜索 Bilibili: {keyword} ..."):
+        response = _bilibili_run(_do(), timeout)
+
+    results = response.results
+    if json_output:
+        from rich import print_json
+
+        print_json(json.dumps(response.model_dump(mode="json"), ensure_ascii=False))
+        return
+
+    table = Table(
+        title=f"🔍 Bilibili 搜索: {keyword} ({len(results)} 条)", show_lines=True
+    )
+    table.add_column("Title", style="cyan", max_width=40)
+    table.add_column("UP主", style="yellow", max_width=15)
+    table.add_column("播放", style="green", justify="right")
+    table.add_column("URL", style="blue", max_width=35)
+    for item in results:
+        raw = item.raw or {}
+        play = raw.get("play") or 0
+        try:
+            play_str = f"{int(play):,}"
+        except (TypeError, ValueError):
+            play_str = str(play)
+        table.add_row(item.title, str(raw.get("author") or ""), play_str, item.url)
+    console.print(table)
+
+
+@bilibili_app.command("search-users")
+def bilibili_search_users(
+    keyword: str = typer.Argument(..., help="搜索关键词"),
+    limit: int = typer.Option(20, "--limit", "-n", help="最大结果数"),
+    page: int = typer.Option(1, "--page", "-p", help="页码"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),
+    timeout: int | None = typer.Option(None, "--timeout", "-t", help="超时（秒）"),
+) -> None:
+    """搜索 Bilibili 用户"""
+    from souwen.web.bilibili import BilibiliClient
+
+    async def _do():
+        async with BilibiliClient() as client:
+            return await client.search_users(keyword, page=page, max_results=limit)
+
+    with console.status(f"[bold green]搜索 Bilibili 用户: {keyword} ..."):
+        results = _bilibili_run(_do(), timeout)
+
+    if json_output:
+        _bili_print_json(results)
+        return
+
+    table = Table(
+        title=f"👤 用户搜索: {keyword} ({len(results)} 条)", show_lines=True
+    )
+    table.add_column("Name", style="cyan")
+    table.add_column("MID", style="yellow")
+    table.add_column("Fans", style="green", justify="right")
+    table.add_column("Sign", style="dim", max_width=30)
+    for u in results:
+        table.add_row(u.uname, str(u.mid), f"{u.fans:,}", u.usign or "")
+    console.print(table)
+
+
+@bilibili_app.command("video")
+def bilibili_video(
+    bvid: str = typer.Argument(..., help="视频 BV 号"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),
+    timeout: int | None = typer.Option(None, "--timeout", "-t", help="超时（秒）"),
+) -> None:
+    """获取 Bilibili 视频详情"""
+    from souwen.web.bilibili import BilibiliClient
+
+    async def _do():
+        async with BilibiliClient() as client:
+            return await client.get_video_details(bvid)
+
+    with console.status(f"[bold green]获取视频详情: {bvid} ..."):
+        detail = _bilibili_run(_do(), timeout)
+
+    if json_output:
+        _bili_print_json(detail)
+        return
+
+    console.print(f"[bold cyan]📹 {detail.title}[/bold cyan]")
+    console.print(f"  UP主: [yellow]{detail.owner.name}[/yellow]")
+    console.print(
+        f"  播放: {detail.stat.view:,}  点赞: {detail.stat.like:,}  "
+        f"投币: {detail.stat.coin:,}  收藏: {detail.stat.favorite:,}"
+    )
+    console.print(f"  时长: {detail.duration_str}  BV: {detail.bvid}")
+    console.print(f"  URL: [blue]{detail.url}[/blue]")
+    if detail.tags:
+        console.print(f"  标签: {', '.join(detail.tags[:10])}")
+    if detail.description:
+        console.print(f"\n[dim]{detail.description[:300]}[/dim]")
+
+
+@bilibili_app.command("user")
+def bilibili_user(
+    mid: int = typer.Argument(..., help="用户 UID"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),
+    timeout: int | None = typer.Option(None, "--timeout", "-t", help="超时（秒）"),
+) -> None:
+    """获取 Bilibili 用户信息"""
+    from souwen.web.bilibili import BilibiliClient
+
+    async def _do():
+        async with BilibiliClient() as client:
+            return await client.get_user_info(mid)
+
+    with console.status(f"[bold green]获取用户信息: {mid} ..."):
+        info = _bilibili_run(_do(), timeout)
+
+    if json_output:
+        _bili_print_json(info)
+        return
+
+    console.print(f"[bold cyan]👤 {info.name}[/bold cyan]  (UID: {info.mid})")
+    console.print(f"  Level: {info.level}")
+    console.print(
+        f"  粉丝: {info.follower:,}  关注: {info.following:,}  投稿: {info.archive_count:,}"
+    )
+    if info.sign:
+        console.print(f"  签名: [dim]{info.sign}[/dim]")
+
+
+@bilibili_app.command("user-videos")
+def bilibili_user_videos(
+    mid: int = typer.Argument(..., help="用户 UID"),
+    limit: int = typer.Option(30, "--limit", "-n", help="每页条数"),
+    page: int = typer.Option(1, "--page", "-p", help="页码"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),
+    timeout: int | None = typer.Option(None, "--timeout", "-t", help="超时（秒）"),
+) -> None:
+    """获取用户投稿视频列表"""
+    from datetime import datetime
+
+    from souwen.web.bilibili import BilibiliClient
+
+    async def _do():
+        async with BilibiliClient() as client:
+            return await client.get_user_videos(mid, page=page, page_size=limit)
+
+    with console.status(f"[bold green]获取用户视频: {mid} ..."):
+        results = _bilibili_run(_do(), timeout)
+
+    if json_output:
+        _bili_print_json(results)
+        return
+
+    table = Table(
+        title=f"📺 UP {mid} 的投稿 ({len(results)} 条)", show_lines=True
+    )
+    table.add_column("BV号", style="magenta")
+    table.add_column("Title", style="cyan", max_width=40)
+    table.add_column("播放", style="green", justify="right")
+    table.add_column("时长")
+    table.add_column("发布日期")
+    for v in results:
+        try:
+            date_str = (
+                datetime.fromtimestamp(v.created).strftime("%Y-%m-%d") if v.created else ""
+            )
+        except (OverflowError, OSError, ValueError):
+            date_str = str(v.created)
+        table.add_row(v.bvid, v.title, f"{v.play:,}", v.length or "", date_str)
+    console.print(table)
+
+
+@bilibili_app.command("comments")
+def bilibili_comments(
+    bvid: str = typer.Argument(..., help="视频 BV 号"),
+    limit: int = typer.Option(20, "--limit", "-n", help="最大评论数"),
+    sort: str = typer.Option("hot", "--sort", help="排序方式 (hot/time)"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),
+    timeout: int | None = typer.Option(None, "--timeout", "-t", help="超时（秒）"),
+) -> None:
+    """获取视频评论"""
+    from datetime import datetime
+
+    from souwen.web.bilibili import BilibiliClient
+
+    sort_map = {"hot": 1, "time": 2}
+    sort_int = sort_map.get(sort.lower())
+    if sort_int is None:
+        console.print("[red]❌ --sort 仅支持 hot / time[/red]")
+        raise typer.Exit(2)
+
+    async def _do():
+        async with BilibiliClient() as client:
+            return await client.get_comments(bvid, sort=sort_int, max_comments=limit)
+
+    with console.status(f"[bold green]获取评论: {bvid} ..."):
+        results = _bilibili_run(_do(), timeout)
+
+    if json_output:
+        _bili_print_json(results)
+        return
+
+    table = Table(title=f"💬 评论 {bvid} ({len(results)} 条)", show_lines=True)
+    table.add_column("User", style="yellow", max_width=12)
+    table.add_column("Content", max_width=50)
+    table.add_column("👍", style="green", justify="right")
+    table.add_column("Time", style="dim")
+    for c in results:
+        try:
+            time_str = (
+                datetime.fromtimestamp(c.ctime).strftime("%Y-%m-%d %H:%M") if c.ctime else ""
+            )
+        except (OverflowError, OSError, ValueError):
+            time_str = str(c.ctime)
+        table.add_row(
+            c.member.uname or "", c.content.message or "", f"{c.like:,}", time_str
+        )
+    console.print(table)
+
+
+@bilibili_app.command("subtitles")
+def bilibili_subtitles(
+    bvid: str = typer.Argument(..., help="视频 BV 号"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),
+    timeout: int | None = typer.Option(None, "--timeout", "-t", help="超时（秒）"),
+) -> None:
+    """获取视频字幕"""
+    from souwen.web.bilibili import BilibiliClient
+
+    async def _do():
+        async with BilibiliClient() as client:
+            return await client.get_subtitles(bvid)
+
+    with console.status(f"[bold green]获取字幕: {bvid} ..."):
+        results = _bilibili_run(_do(), timeout)
+
+    if json_output:
+        _bili_print_json(results)
+        return
+
+    if not results:
+        console.print("[yellow]⚠ 该视频暂无字幕[/yellow]")
+        return
+
+    for sub in results:
+        label = sub.lan_doc or sub.lan
+        console.print(f"\n[bold cyan]📝 字幕: {label} ({sub.lan})[/bold cyan]")
+        for line in sub.lines:
+            minutes = int(line.from_time) // 60
+            seconds = int(line.from_time) % 60
+            console.print(f"[dim][{minutes:02d}:{seconds:02d}][/dim] {line.content}")
+
+
+@bilibili_app.command("summary")
+def bilibili_summary(
+    bvid: str = typer.Argument(..., help="视频 BV 号"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),
+    timeout: int | None = typer.Option(None, "--timeout", "-t", help="超时（秒）"),
+) -> None:
+    """获取视频 AI 摘要"""
+    from souwen.web.bilibili import BilibiliClient
+
+    async def _do():
+        async with BilibiliClient() as client:
+            return await client.get_ai_summary(bvid)
+
+    with console.status(f"[bold green]获取 AI 摘要: {bvid} ..."):
+        summary = _bilibili_run(_do(), timeout)
+
+    if json_output:
+        _bili_print_json(summary)
+        return
+
+    if summary.result_type == 0 or not summary.summary:
+        console.print("[yellow]⚠ 该视频暂未生成 AI 摘要[/yellow]")
+        return
+
+    console.print(f"[bold cyan]🤖 AI 摘要[/bold cyan]\n{summary.summary}")
+    outline = getattr(summary, "outline", None)
+    if outline:
+        console.print("\n[bold]大纲：[/bold]")
+        for item in outline:
+            title = getattr(item, "title", "")
+            content = getattr(item, "content", "")
+            ts = getattr(item, "timestamp", "")
+            console.print(f"  • [yellow]{title}[/yellow] {ts}\n    [dim]{content}[/dim]")
+
+
+@bilibili_app.command("popular")
+def bilibili_popular(
+    limit: int = typer.Option(20, "--limit", "-n", help="每页条数"),
+    page: int = typer.Option(1, "--page", "-p", help="页码"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),
+    timeout: int | None = typer.Option(None, "--timeout", "-t", help="超时（秒）"),
+) -> None:
+    """获取 Bilibili 热门视频"""
+    from souwen.web.bilibili import BilibiliClient
+
+    async def _do():
+        async with BilibiliClient() as client:
+            return await client.get_popular(page=page, page_size=limit)
+
+    with console.status("[bold green]获取 Bilibili 热门 ..."):
+        results = _bilibili_run(_do(), timeout)
+
+    if json_output:
+        _bili_print_json(results)
+        return
+
+    table = Table(title=f"🔥 Bilibili 热门 ({len(results)} 条)", show_lines=True)
+    table.add_column("Title", style="cyan", max_width=40)
+    table.add_column("UP主", style="yellow")
+    table.add_column("播放", style="green", justify="right")
+    table.add_column("URL", style="blue")
+    for v in results:
+        table.add_row(v.title, v.owner.name, f"{v.stat.view:,}", v.url)
+    console.print(table)
+
+
+@bilibili_app.command("ranking")
+def bilibili_ranking(
+    type_: str = typer.Option("all", "--type", help="排行榜类型 (all/origin/rookie)"),
+    rid: int = typer.Option(0, "--rid", help="分区 ID（0=全站）"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),
+    timeout: int | None = typer.Option(None, "--timeout", "-t", help="超时（秒）"),
+) -> None:
+    """获取 Bilibili 排行榜"""
+    from souwen.web.bilibili import BilibiliClient
+
+    async def _do():
+        async with BilibiliClient() as client:
+            return await client.get_ranking(rid=rid, type=type_)
+
+    with console.status(f"[bold green]获取排行榜 ({type_}, rid={rid}) ..."):
+        results = _bilibili_run(_do(), timeout)
+
+    if json_output:
+        _bili_print_json(results)
+        return
+
+    table = Table(
+        title=f"🏆 排行榜 {type_} (rid={rid}, {len(results)} 条)", show_lines=True
+    )
+    table.add_column("#", style="magenta", justify="right")
+    table.add_column("Title", style="cyan", max_width=40)
+    table.add_column("Score", style="green", justify="right")
+    table.add_column("UP主", style="yellow")
+    for idx, v in enumerate(results, start=1):
+        rank = getattr(v, "rank_index", 0) or idx
+        table.add_row(str(rank), v.title, f"{v.score:,}", v.owner.name)
+    console.print(table)
+
+
+@bilibili_app.command("related")
+def bilibili_related(
+    bvid: str = typer.Argument(..., help="视频 BV 号"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),
+    timeout: int | None = typer.Option(None, "--timeout", "-t", help="超时（秒）"),
+) -> None:
+    """获取相关推荐视频"""
+    from souwen.web.bilibili import BilibiliClient
+
+    async def _do():
+        async with BilibiliClient() as client:
+            return await client.get_related(bvid)
+
+    with console.status(f"[bold green]获取相关推荐: {bvid} ..."):
+        results = _bilibili_run(_do(), timeout)
+
+    if json_output:
+        _bili_print_json(results)
+        return
+
+    table = Table(title=f"🔗 相关视频 {bvid} ({len(results)} 条)", show_lines=True)
+    table.add_column("Title", style="cyan", max_width=45)
+    table.add_column("UP主", style="yellow")
+    table.add_column("播放", style="green", justify="right")
+    table.add_column("URL", style="blue")
+    for v in results:
+        table.add_row(v.title, v.owner.name, f"{v.stat.view:,}", v.url)
+    console.print(table)
+
+
+# ---------------------------------------------------------------------------
 # wayback 子命令组
 # ---------------------------------------------------------------------------
 wayback_app = typer.Typer(help="Wayback Machine 归档工具")
