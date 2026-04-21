@@ -206,6 +206,20 @@ _reg("linkup", "professional", "official_api", "linkup_api_key", description="Li
 
 # ── 社交 (social)：公开接口/爬虫 ─────────────────────────
 _reg("reddit", "social", "open_api", None, description="Reddit 帖子搜索")
+_reg(
+    "twitter",
+    "social",
+    "official_api",
+    "twitter_bearer_token",
+    description="Twitter/X 推文搜索（API v2）",
+)
+_reg(
+    "facebook",
+    "social",
+    "official_api",
+    "facebook_app_id",
+    description="Facebook 页面/地点搜索（Graph API）",
+)
 _reg("weibo", "social", "scraper", None, description="微博搜索")
 _reg("zhihu", "social", "scraper", None, description="知乎问答搜索")
 

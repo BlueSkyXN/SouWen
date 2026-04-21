@@ -235,6 +235,12 @@ class SouWenConfig(BaseModel):
     github_token: str | None = None  # GitHub PAT（可选，提升速率限制）
     stackoverflow_api_key: str | None = None  # StackOverflow API Key（可选，提升配额）
     youtube_api_key: str | None = None  # YouTube Data API v3 Key
+    # 国际社交媒体（官方 API）
+    twitter_bearer_token: str | None = None  # Twitter/X API v2 Bearer Token（Basic 套餐及以上）
+    reddit_client_id: str | None = None  # Reddit OAuth2 App Client ID
+    reddit_client_secret: str | None = None  # Reddit OAuth2 App Client Secret
+    facebook_app_id: str | None = None  # Meta Facebook App ID
+    facebook_app_secret: str | None = None  # Meta Facebook App Secret
     # 内容抓取
     jina_api_key: str | None = None  # Jina Reader API Key（可选，免费层无需 Key）
     scrapfly_api_key: str | None = None  # Scrapfly API Key（JS 渲染+AI 提取）

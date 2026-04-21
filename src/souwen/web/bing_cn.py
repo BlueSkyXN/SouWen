@@ -116,12 +116,7 @@ class BingCnClient(BaseScraper):
         """
         # first: 起始位置（1-based），count: 请求数量（多请求一些以防过滤损失）
         count = min(max_results + 5, 50)
-        url = (
-            f"{self._resolved_base_url}"
-            f"?q={quote_plus(query)}"
-            f"&first={offset + 1}"
-            f"&count={count}"
-        )
+        url = f"{self._resolved_base_url}?q={quote_plus(query)}&first={offset + 1}&count={count}"
 
         resp = await self._fetch(url, headers=_ZH_LANGUAGE_HEADER)
         html = resp.text
