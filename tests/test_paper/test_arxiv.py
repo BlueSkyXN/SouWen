@@ -256,3 +256,86 @@ async def test_pagination(httpx_mock: HTTPXMock):
         resp = await c.search("test", start=20, max_results=10)
 
     assert resp.page == 3  # (20 // 10) + 1
+
+
+# ---------------------------------------------------------------------------
+# Categories & date range filtering (Feature 1)
+# ---------------------------------------------------------------------------
+
+
+def test_build_search_query_categories_only():
+    """仅给定 categories 时，将 ``OR`` 拼接的分类子句 ``AND`` 到原 query。"""
+    q = ArxivClient._build_search_query("transformer", categories=["cs.AI", "cs.LG"])
+    assert q == "(transformer) AND (cat:cs.AI OR cat:cs.LG)"
+
+
+def test_build_search_query_date_range():
+    """日期范围使用 ``+TO+`` 字面 ``+`` 字符。"""
+    q = ArxivClient._build_search_query("transformer", date_from="2024-01-01", date_to="2024-06-30")
+    assert "submittedDate:[202401010000+TO+202406302359]" in q
+    assert "(transformer) AND" in q
+
+
+def test_build_search_query_partial_date():
+    """缺省 date_to 时使用极大值占位。"""
+    q = ArxivClient._build_search_query("", date_from="2024-01-01")
+    assert "202401010000+TO+999912312359" in q
+
+
+async def test_search_with_categories(httpx_mock: HTTPXMock):
+    """search() categories 参数正确拼到 search_query。"""
+    httpx_mock.add_response(
+        url=re.compile(r"http://export\.arxiv\.org/api/query.*"),
+        text=ARXIV_SEARCH_XML,
+    )
+
+    async with ArxivClient() as c:
+        await c.search("attention", categories=["cs.AI", "cs.LG"])
+
+    request = httpx_mock.get_requests()[0]
+    # 注意 httpx 会将空格编码为 + 或 %20，我们检查关键子串
+    url_str = str(request.url)
+    assert "cat:cs.AI" in url_str or "cat%3Acs.AI" in url_str
+    assert "cat:cs.LG" in url_str or "cat%3Acs.LG" in url_str
+
+
+async def test_search_with_date_range_preserves_plus_to_plus(httpx_mock: HTTPXMock):
+    """search() date_from/date_to 拼到 URL 时，``+TO+`` 不被编码为 ``%2BTO%2B``。"""
+    httpx_mock.add_response(
+        url=re.compile(r"http://export\.arxiv\.org/api/query.*"),
+        text=ARXIV_SEARCH_XML,
+    )
+
+    async with ArxivClient() as c:
+        await c.search(
+            "attention",
+            date_from="2024-01-01",
+            date_to="2024-06-30",
+        )
+
+    request = httpx_mock.get_requests()[0]
+    raw_url = str(request.url)
+    # 关键不变量：字面 ``+TO+`` 必须保留
+    assert "+TO+" in raw_url
+    assert "%2BTO%2B" not in raw_url
+    assert "submittedDate:[202401010000+TO+202406302359]" in raw_url
+
+
+async def test_search_with_categories_and_date_range(httpx_mock: HTTPXMock):
+    """同时给定 categories 与 date 时两段都附加。"""
+    httpx_mock.add_response(
+        url=re.compile(r"http://export\.arxiv\.org/api/query.*"),
+        text=ARXIV_SEARCH_XML,
+    )
+
+    async with ArxivClient() as c:
+        await c.search(
+            "transformer",
+            categories=["cs.AI"],
+            date_from="2024-01-01",
+            date_to="2024-12-31",
+        )
+
+    raw_url = str(httpx_mock.get_requests()[0].url)
+    assert "cat:cs.AI" in raw_url
+    assert "+TO+" in raw_url
