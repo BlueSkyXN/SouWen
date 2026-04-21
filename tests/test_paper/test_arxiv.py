@@ -339,3 +339,180 @@ async def test_search_with_categories_and_date_range(httpx_mock: HTTPXMock):
     raw_url = str(httpx_mock.get_requests()[0].url)
     assert "cat:cs.AI" in raw_url
     assert "+TO+" in raw_url
+
+
+# ---------------------------------------------------------------------------
+# New raw fields: journal_ref, updated, version (Feature 2)
+# ---------------------------------------------------------------------------
+
+ARXIV_WITH_JOURNAL_REF_XML = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom"
+      xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/"
+      xmlns:arxiv="http://arxiv.org/schemas/atom">
+  <opensearch:totalResults>1</opensearch:totalResults>
+  <entry>
+    <id>http://arxiv.org/abs/1706.03762v7</id>
+    <title>Attention Is All You Need</title>
+    <summary>Abstract text.</summary>
+    <published>2017-06-12T17:57:34Z</published>
+    <updated>2023-08-02T00:41:18Z</updated>
+    <author><name>Ashish Vaswani</name></author>
+    <link href="http://arxiv.org/abs/1706.03762v7" rel="alternate" type="text/html"/>
+    <arxiv:journal_ref>Advances in Neural Information Processing Systems 30 (2017)</arxiv:journal_ref>
+    <arxiv:comment>15 pages, 5 figures</arxiv:comment>
+    <category term="cs.CL"/>
+  </entry>
+</feed>
+"""
+
+
+async def test_raw_journal_ref(httpx_mock: HTTPXMock):
+    """raw['journal_ref'] 正确从 arxiv:journal_ref 解析"""
+    httpx_mock.add_response(
+        url=re.compile(r"http://export\.arxiv\.org/api/query.*"),
+        text=ARXIV_WITH_JOURNAL_REF_XML,
+    )
+
+    async with ArxivClient() as c:
+        resp = await c.search("transformer")
+
+    raw = resp.results[0].raw
+    assert raw["journal_ref"] == "Advances in Neural Information Processing Systems 30 (2017)"
+
+
+async def test_raw_updated_date(httpx_mock: HTTPXMock):
+    """raw['updated'] 正确从 <updated> 元素提取日期字符串"""
+    httpx_mock.add_response(
+        url=re.compile(r"http://export\.arxiv\.org/api/query.*"),
+        text=ARXIV_WITH_JOURNAL_REF_XML,
+    )
+
+    async with ArxivClient() as c:
+        resp = await c.search("transformer")
+
+    raw = resp.results[0].raw
+    assert raw["updated"] == "2023-08-02"
+
+
+async def test_raw_version_extracted(httpx_mock: HTTPXMock):
+    """raw['version'] 正确从 arXiv ID 中提取版本号"""
+    httpx_mock.add_response(
+        url=re.compile(r"http://export\.arxiv\.org/api/query.*"),
+        text=ARXIV_WITH_JOURNAL_REF_XML,
+    )
+
+    async with ArxivClient() as c:
+        resp = await c.search("transformer")
+
+    raw = resp.results[0].raw
+    # ID 是 1706.03762v7，应提取出 "v7"
+    assert raw["version"] == "v7"
+
+
+async def test_raw_no_journal_ref(httpx_mock: HTTPXMock):
+    """无 arxiv:journal_ref 时 raw['journal_ref'] 为 None"""
+    httpx_mock.add_response(
+        url=re.compile(r"http://export\.arxiv\.org/api/query.*"),
+        text=ARXIV_SEARCH_XML,  # 现有 fixture 无 journal_ref
+    )
+
+    async with ArxivClient() as c:
+        resp = await c.search("test")
+
+    raw = resp.results[0].raw
+    assert raw.get("journal_ref") is None
+
+
+async def test_raw_version_v1(httpx_mock: HTTPXMock):
+    """v1 版本 ID 正确提取版本号"""
+    httpx_mock.add_response(
+        url=re.compile(r"http://export\.arxiv\.org/api/query.*"),
+        text=ARXIV_NO_DOI_XML,  # ID: 2301.00001v1
+    )
+
+    async with ArxivClient() as c:
+        resp = await c.search("test")
+
+    raw = resp.results[0].raw
+    assert raw["version"] == "v1"
+
+
+# ---------------------------------------------------------------------------
+# search_all() async generator (Feature 3)
+# ---------------------------------------------------------------------------
+
+ARXIV_PAGE1_XML = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom"
+      xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/"
+      xmlns:arxiv="http://arxiv.org/schemas/atom">
+  <opensearch:totalResults>2</opensearch:totalResults>
+  <entry>
+    <id>http://arxiv.org/abs/2001.00001v1</id>
+    <title>Paper One</title>
+    <summary>Abstract one.</summary>
+    <published>2020-01-01T00:00:00Z</published>
+    <updated>2020-01-01T00:00:00Z</updated>
+    <author><name>Author A</name></author>
+    <link href="http://arxiv.org/abs/2001.00001v1" rel="alternate" type="text/html"/>
+    <category term="cs.AI"/>
+  </entry>
+</feed>
+"""
+
+ARXIV_PAGE2_XML = """\
+<?xml version="1.0" encoding="UTF-8"?>
+<feed xmlns="http://www.w3.org/2005/Atom"
+      xmlns:opensearch="http://a9.com/-/spec/opensearch/1.1/"
+      xmlns:arxiv="http://arxiv.org/schemas/atom">
+  <opensearch:totalResults>2</opensearch:totalResults>
+  <entry>
+    <id>http://arxiv.org/abs/2001.00002v1</id>
+    <title>Paper Two</title>
+    <summary>Abstract two.</summary>
+    <published>2020-01-02T00:00:00Z</published>
+    <updated>2020-01-02T00:00:00Z</updated>
+    <author><name>Author B</name></author>
+    <link href="http://arxiv.org/abs/2001.00002v1" rel="alternate" type="text/html"/>
+    <category term="cs.LG"/>
+  </entry>
+</feed>
+"""
+
+
+async def test_search_all_yields_all_results(httpx_mock: HTTPXMock):
+    """search_all() 自动分批请求并逐条 yield 所有结果"""
+    # 第一次请求返回 page1（total=2），第二次返回 page2，第三次空（不会到达）
+    httpx_mock.add_response(
+        url=re.compile(r"http://export\.arxiv\.org/api/query.*"),
+        text=ARXIV_PAGE1_XML,
+    )
+    httpx_mock.add_response(
+        url=re.compile(r"http://export\.arxiv\.org/api/query.*"),
+        text=ARXIV_PAGE2_XML,
+    )
+
+    papers = []
+    async with ArxivClient() as c:
+        async for paper in c.search_all("test", batch_size=1):
+            papers.append(paper)
+
+    assert len(papers) == 2
+    assert papers[0].title == "Paper One"
+    assert papers[1].title == "Paper Two"
+
+
+async def test_search_all_stops_on_empty(httpx_mock: HTTPXMock):
+    """search_all() 在 API 返回空批次时停止迭代"""
+    httpx_mock.add_response(
+        url=re.compile(r"http://export\.arxiv\.org/api/query.*"),
+        text=ARXIV_EMPTY_XML,  # total=0, no entries
+    )
+
+    papers = []
+    async with ArxivClient() as c:
+        async for paper in c.search_all("nonexistent"):
+            papers.append(paper)
+
+    assert papers == []

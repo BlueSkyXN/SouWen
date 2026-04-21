@@ -37,6 +37,21 @@ Model Context Protocol (MCP) 集成，使 Claude Code、Cursor、Windsurf 等 AI
         - 参数：无
         - 返回：健康检查报告
 
+    get_bilibili_user
+        - 获取 B 站用户信息（用户名、粉丝/关注数、等级、签名、认证等）
+        - 参数：mid (整数，用户数字 ID)
+        - 返回：用户信息 (JSON)
+
+    get_bilibili_video
+        - 获取 B 站视频详情（标题、简介、UP 主、统计数据等）
+        - 参数：bvid (字符串，视频 BVID)
+        - 返回：视频详情 (JSON)
+
+    get_bilibili_related
+        - 获取 B 站视频相关推荐列表
+        - 参数：bvid (字符串，视频 BVID)
+        - 返回：相关视频列表 (JSON)
+
 主要函数：
     create_server() -> Server
         - 创建并配置 MCP 服务器
@@ -54,6 +69,7 @@ Model Context Protocol (MCP) 集成，使 Claude Code、Cursor、Windsurf 等 AI
     - mcp：Model Context Protocol SDK（可选依赖）
     - souwen.search：搜索函数
     - souwen.doctor：健康检查
+    - souwen.web.bilibili：Bilibili 用户/视频信息
 """
 
 from __future__ import annotations
@@ -167,6 +183,54 @@ def create_server() -> "Server":
                 description="检查 SouWen 数据源可用性状态",
                 inputSchema={"type": "object", "properties": {}},
             ),
+            Tool(
+                name="get_bilibili_user",
+                description=(
+                    "获取 B 站用户信息，包含用户名、粉丝数、关注数、等级、"
+                    "个性签名、认证信息和直播间状态。"
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "mid": {
+                            "type": "integer",
+                            "description": "用户数字 ID（mid），如 2搜索用户主页 URL 中的数字",
+                        },
+                    },
+                    "required": ["mid"],
+                },
+            ),
+            Tool(
+                name="get_bilibili_video",
+                description=(
+                    "获取 B 站视频详情，包含标题、简介、UP 主信息、"
+                    "播放/弹幕/点赞/收藏等统计数据和发布时间。"
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "bvid": {
+                            "type": "string",
+                            "description": "视频 BVID，如 'BV1xx411c7mD'（视频 URL 中的 BV 号）",
+                        },
+                    },
+                    "required": ["bvid"],
+                },
+            ),
+            Tool(
+                name="get_bilibili_related",
+                description="获取 B 站视频的相关推荐视频列表。",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "bvid": {
+                            "type": "string",
+                            "description": "视频 BVID，如 'BV1xx411c7mD'",
+                        },
+                    },
+                    "required": ["bvid"],
+                },
+            ),
         ]
 
     @server.call_tool()
@@ -218,6 +282,27 @@ def create_server() -> "Server":
 
                 results = check_all()
                 result = format_report(results)
+
+            elif name == "get_bilibili_user":
+                from souwen.web.bilibili import BilibiliClient
+
+                mid = int(arguments["mid"])
+                async with BilibiliClient() as client:
+                    result = await client.get_user_info(mid)
+
+            elif name == "get_bilibili_video":
+                from souwen.web.bilibili import BilibiliClient
+
+                bvid = str(arguments["bvid"])
+                async with BilibiliClient() as client:
+                    result = await client.get_video_detail(bvid)
+
+            elif name == "get_bilibili_related":
+                from souwen.web.bilibili import BilibiliClient
+
+                bvid = str(arguments["bvid"])
+                async with BilibiliClient() as client:
+                    result = await client.get_related_videos(bvid)
 
             else:
                 result = f"Unknown tool: {name}"
