@@ -97,6 +97,19 @@ web:
   #   zhihu      — 知乎问答搜索（爬虫）
   #   weibo      — 微博搜索（爬虫）
 
+# ===== MCP (Model Context Protocol) 配置 =====
+# 通过 MCP 协议连接远程工具服务器，获取网页内容抓取等能力
+mcp:
+  # MCP Server 端点 URL（如 https://mcp.modelscope.cn/mcp 或本地 http://localhost:8000/mcp）
+  mcp_server_url: ~
+  # 传输方式: streamable_http（推荐，2025 新协议）或 sse（兼容旧版）
+  mcp_transport: streamable_http
+  # MCP fetch 工具名称（不同 server 可能不同，如 fetch / fetch_url / scrape）
+  mcp_fetch_tool_name: fetch
+  # 附加请求头（如认证 token）
+  # mcp_extra_headers:
+  #   Authorization: "Bearer YOUR_TOKEN"
+
 # ===== 通用设置 =====
 # 全局代理、超时、重试、HTTP 后端等配置
 general:

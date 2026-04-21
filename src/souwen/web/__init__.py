@@ -58,6 +58,8 @@ from souwen.web.metaso import MetasoClient
 from souwen.web.jina_reader import JinaReaderClient
 from souwen.web.builtin import BuiltinFetcherClient
 from souwen.web.wayback import WaybackClient
+from souwen.web.mcp_client import MCPClient
+from souwen.web.mcp_fetch import MCPFetchClient
 from souwen.web.search import web_search
 from souwen.web.fetch import fetch_content
 
@@ -101,6 +103,9 @@ __all__ = [
     "BuiltinFetcherClient",
     "JinaReaderClient",
     "WaybackClient",
+    # MCP 客户端
+    "MCPClient",
+    "MCPFetchClient",
     # 聚合搜索/抓取
     "web_search",
     "fetch_content",
