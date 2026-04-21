@@ -14,6 +14,9 @@
 - MojeekClient: Mojeek 独立索引搜索（英国）
 - YandexClient: Yandex 搜索（俄罗斯）
 
+办公/企业平台（官方 API）：
+- FeishuDriveClient: 飞书云文档搜索（需 App ID + App Secret）
+
 API 类（需 Key / 自建实例）：
 - SearXNGClient: SearXNG 元搜索（250+ 引擎）
 - TavilyClient: Tavily AI 搜索（为 Agent 设计）
@@ -64,6 +67,7 @@ from souwen.web.juejin import JuejinClient
 from souwen.web.linuxdo import LinuxDoClient
 from souwen.web.twitter import TwitterClient
 from souwen.web.facebook import FacebookClient
+from souwen.web.feishu_drive import FeishuDriveClient
 from souwen.web.metaso import MetasoClient
 from souwen.web.jina_reader import JinaReaderClient
 from souwen.web.builtin import BuiltinFetcherClient
@@ -123,6 +127,8 @@ __all__ = [
     # 国际社交媒体（官方 API）
     "TwitterClient",
     "FacebookClient",
+    # 办公/企业平台（官方 API）
+    "FeishuDriveClient",
     # API 类（需 Key）- 中文搜索
     "MetasoClient",
     # 内容抓取类 (fetch)

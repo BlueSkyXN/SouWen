@@ -223,6 +223,15 @@ _reg(
 _reg("weibo", "social", "scraper", None, description="微博搜索")
 _reg("zhihu", "social", "scraper", None, description="知乎问答搜索")
 
+# ── 办公/企业 (office)：授权接口 ──────────────────────────
+_reg(
+    "feishu_drive",
+    "office",
+    "official_api",
+    "feishu_app_id",
+    description="飞书云文档搜索 (需 App ID + App Secret)",
+)
+
 # ── 中文技术社区 (cn_tech)：公开接口/爬虫 ─────────────────
 _reg("csdn", "cn_tech", "scraper", None, description="CSDN 技术博客搜索")
 _reg("juejin", "cn_tech", "scraper", None, description="稀土掘金技术文章搜索")

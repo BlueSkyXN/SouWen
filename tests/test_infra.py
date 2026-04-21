@@ -202,10 +202,11 @@ class TestModels:
             SourceType.WEB_YOUTUBE,
             SourceType.WEB_ZHIHU,
             SourceType.WEB_WEIBO,
+            SourceType.WEB_FEISHU_DRIVE,
         ]
         assert len(paper_sources) == 8
         assert len(patent_sources) == 8
-        assert len(web_sources) == 18
+        assert len(web_sources) == 19
 
 
 class TestExceptions:
