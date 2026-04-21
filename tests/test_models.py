@@ -38,7 +38,7 @@ class TestAllSources:
     def test_web_count(self):
         """web-derived categories have correct source counts"""
         assert len(ALL_SOURCES["general"]) == 16
-        assert len(ALL_SOURCES["professional"]) == 6
+        assert len(ALL_SOURCES["professional"]) == 7
         assert len(ALL_SOURCES["social"]) == 3
         assert len(ALL_SOURCES["developer"]) == 2
         assert len(ALL_SOURCES["wiki"]) == 1
@@ -47,7 +47,7 @@ class TestAllSources:
     def test_total_count(self):
         """总计暴露 34 个可选数据源"""
         total = sum(len(v) for v in ALL_SOURCES.values())
-        assert total == 50
+        assert total == 51
 
     def test_each_entry_is_tuple_of_three(self):
         """每条目是 (name, requires_key, desc) 三元组"""
@@ -82,7 +82,7 @@ class TestSourceTypeEnum:
 
     def test_has_59_values(self):
         """枚举有 59 个值"""
-        assert len(SourceType) == 60
+        assert len(SourceType) == 61
 
     def test_paper_sources_exist(self):
         """论文数据源枚举存在"""

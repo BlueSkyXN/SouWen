@@ -186,6 +186,7 @@ class SourceType(str, Enum):
     WEB_FEISHU_DRIVE = "web_feishu_drive"
     # AI 搜索引擎（含摘要）
     WEB_ZHIPUAI = "web_zhipuai"
+    WEB_ALIYUN_IQS = "web_aliyun_iqs"
     # ── 内容抓取 (fetch) ──
     FETCH_BUILTIN = "fetch_builtin"
     FETCH_JINA_READER = "fetch_jina_reader"
@@ -472,6 +473,7 @@ ALL_SOURCES: dict[str, list[tuple[str, bool, str]]] = {
         ("firecrawl", True, "Firecrawl 搜索+爬取"),
         ("linkup", True, "Linkup 实时搜索"),
         ("zhipuai", True, "智谱 AI Web Search Pro (含 AI 摘要，支持中文)"),
+        ("aliyun_iqs", True, "阿里云 IQS 通义晓搜 (含 AI 摘要，支持中文)"),
     ],
     "social": [
         ("reddit", False, "Reddit 帖子搜索"),
