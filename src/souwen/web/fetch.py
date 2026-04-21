@@ -1,9 +1,9 @@
 """并发多提供者聚合内容抓取
 
 文件用途：
-    核心网页内容抓取聚合模块。支持 16 个提供者（内置抓取、Jina Reader、Tavily、Firecrawl、Exa、
+    核心网页内容抓取聚合模块。支持 17 个提供者（内置抓取、Jina Reader、Tavily、Firecrawl、Exa、
     Crawl4AI、Scrapfly、Diffbot、ScrapingBee、ZenRows、ScraperAPI、Apify、
-    Cloudflare Browser Rendering、Wayback Machine、newspaper4k、readability），
+    Cloudflare Browser Rendering、Wayback Machine、newspaper4k、readability、MCP），
     通过 asyncio 并发抓取、聚合结果，为用户提供统一内容提取接口。
 
 函数/类清单：
@@ -222,6 +222,12 @@ async def _fetch_with_provider(
         from souwen.web.readability_fetcher import ReadabilityFetcherClient
 
         async with ReadabilityFetcherClient() as client:
+            return await client.fetch_batch(urls, timeout=timeout)
+
+    elif provider == "mcp":
+        from souwen.web.mcp_fetch import MCPFetchClient
+
+        async with MCPFetchClient() as client:
             return await client.fetch_batch(urls, timeout=timeout)
 
     else:
