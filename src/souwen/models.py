@@ -361,6 +361,121 @@ class FetchResponse(BaseModel):
     meta: dict = Field(default_factory=dict)
 
 
+# ── 网页扫描模型 (WebScan) ─────────────────────────
+
+
+class LinkResult(BaseModel):
+    """单个链接提取结果
+
+    Attributes:
+        url: 链接的绝对 URL
+        text: 链接的显示文本（锚文本）
+    """
+
+    url: str
+    text: str = ""
+
+
+class LinkCheckResult(BaseModel):
+    """单个链接有效性检查结果
+
+    Attributes:
+        url: 被检查的 URL
+        status: 检查状态（valid/broken/invalid_url/error）
+        status_code: HTTP 状态码（若已获取）
+        error: 错误信息（若检查失败）
+    """
+
+    url: str
+    status: Literal["valid", "broken", "invalid_url", "error"] = "error"
+    status_code: int | None = None
+    error: str | None = None
+
+
+class CrawlResult(BaseModel):
+    """网站爬取结果
+
+    Attributes:
+        start_url: 爬取起始 URL
+        crawled_urls: 发现的所有 URL 列表
+        total_urls: 发现 URL 总数
+        max_depth: 最大爬取深度
+    """
+
+    start_url: str
+    crawled_urls: list[str] = Field(default_factory=list)
+    total_urls: int = 0
+    max_depth: int = 2
+
+
+class SitemapResult(BaseModel):
+    """XML Sitemap 生成结果
+
+    Attributes:
+        start_url: Sitemap 起始 URL
+        sitemap_xml: 生成的 XML 字符串
+        url_count: Sitemap 包含的 URL 数量
+    """
+
+    start_url: str
+    sitemap_xml: str = ""
+    url_count: int = 0
+
+
+class ExtractLinksResponse(BaseModel):
+    """链接提取响应
+
+    Attributes:
+        url: 被解析的页面 URL
+        links: 提取的链接列表
+        total: 链接总数
+        error: 错误信息（若提取失败）
+    """
+
+    url: str
+    links: list[LinkResult] = Field(default_factory=list)
+    total: int = 0
+    error: str | None = None
+
+
+class CheckLinksResponse(BaseModel):
+    """链接检查响应
+
+    Attributes:
+        url: 被检查的页面 URL
+        results: 各链接的检查结果列表
+        total: 链接总数
+        valid_count: 有效链接数
+        broken_count: 失效链接数
+        error: 错误信息（若整体失败）
+    """
+
+    url: str
+    results: list[LinkCheckResult] = Field(default_factory=list)
+    total: int = 0
+    valid_count: int = 0
+    broken_count: int = 0
+    error: str | None = None
+
+
+class FindPatternsResponse(BaseModel):
+    """URL 模式匹配响应
+
+    Attributes:
+        url: 被搜索的页面 URL
+        pattern: 用于匹配的正则表达式模式
+        matches: 匹配的 URL 列表
+        total: 匹配 URL 总数
+        error: 错误信息（若失败）
+    """
+
+    url: str
+    pattern: str
+    matches: list[str] = Field(default_factory=list)
+    total: int = 0
+    error: str | None = None
+
+
 class WaybackSnapshot(BaseModel):
     """Wayback Machine 单个历史快照记录（CDX 格式）"""
 

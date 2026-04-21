@@ -908,5 +908,174 @@ def mcp_info() -> None:
     console.print("[dim]Cursor: .cursor/mcp.json[/dim]")
 
 
+# ---------------------------------------------------------------------------
+# webscan 子命令组
+# ---------------------------------------------------------------------------
+webscan_app = typer.Typer(help="网页扫描工具（链接提取/爬取/检查/Sitemap）")
+app.add_typer(webscan_app, name="webscan")
+
+
+@webscan_app.command("links")
+def webscan_links(
+    url: str = typer.Argument(..., help="目标页面 URL"),
+    base_url: str | None = typer.Option(None, "--base-url", "-b", help="过滤链接的基础 URL"),
+    limit: int = typer.Option(100, "--limit", "-n", help="最大链接数量"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),
+    timeout: float = typer.Option(10.0, "--timeout", "-t", help="超时（秒）"),
+) -> None:
+    """从页面提取所有链接"""
+    from souwen.web.webscan import extract_links
+
+    async def _do():
+        return await extract_links(url, base_url=base_url, limit=limit, timeout=timeout)
+
+    with console.status(f"[bold green]提取链接: {url} ..."):
+        resp = _run_async(_do())
+
+    if resp.error:
+        console.print(f"[red]✗ 错误: {resp.error}[/red]")
+        raise typer.Exit(1)
+
+    if json_output:
+        from rich import print_json
+
+        print_json(json.dumps(resp.model_dump(mode="json"), ensure_ascii=False))
+        return
+
+    table = Table(title=f"🔗 链接提取结果 ({resp.total} 条)", show_lines=True)
+    table.add_column("URL", style="cyan", max_width=70)
+    table.add_column("文本", style="dim", max_width=30)
+    for link in resp.links:
+        table.add_row(link.url, link.text)
+    console.print(table)
+
+
+@webscan_app.command("crawl")
+def webscan_crawl(
+    url: str = typer.Argument(..., help="起始 URL"),
+    max_depth: int = typer.Option(2, "--depth", "-d", help="最大爬取深度（0-5）"),
+    max_urls: int = typer.Option(500, "--max-urls", "-m", help="最大 URL 数量"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),
+    timeout: float = typer.Option(10.0, "--timeout", "-t", help="每页超时（秒）"),
+) -> None:
+    """递归爬取网站（仅限同源链接）"""
+    from souwen.web.webscan import crawl_site
+
+    async def _do():
+        return await crawl_site(url, max_depth=max_depth, max_urls=max_urls, timeout=timeout)
+
+    with console.status(f"[bold green]爬取网站: {url} (depth={max_depth}) ..."):
+        result = _run_async(_do())
+
+    if json_output:
+        from rich import print_json
+
+        print_json(json.dumps(result.model_dump(mode="json"), ensure_ascii=False))
+        return
+
+    console.print(f"[bold]🕷️ 爬取完成：共发现 {result.total_urls} 个 URL[/bold]")
+    for u in result.crawled_urls:
+        console.print(f"  [cyan]{u}[/cyan]")
+
+
+@webscan_app.command("check")
+def webscan_check(
+    url: str = typer.Argument(..., help="目标页面 URL"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),
+    timeout: float = typer.Option(10.0, "--timeout", "-t", help="每链接超时（秒）"),
+) -> None:
+    """检查页面上所有链接的有效性"""
+    from souwen.web.webscan import check_links
+
+    async def _do():
+        return await check_links(url, timeout=timeout)
+
+    with console.status(f"[bold green]检查链接: {url} ..."):
+        resp = _run_async(_do())
+
+    if resp.error:
+        console.print(f"[red]✗ 错误: {resp.error}[/red]")
+        raise typer.Exit(1)
+
+    if json_output:
+        from rich import print_json
+
+        print_json(json.dumps(resp.model_dump(mode="json"), ensure_ascii=False))
+        return
+
+    table = Table(
+        title=f"🔍 链接检查结果（有效 {resp.valid_count} / 失效 {resp.broken_count}）",
+        show_lines=True,
+    )
+    table.add_column("URL", style="cyan", max_width=60)
+    table.add_column("状态", justify="center")
+    table.add_column("HTTP", justify="center")
+    for r in resp.results:
+        status_str = (
+            "[green]✓ valid[/green]" if r.status == "valid" else f"[red]✗ {r.status}[/red]"
+        )
+        table.add_row(r.url, status_str, str(r.status_code or ""))
+    console.print(table)
+
+
+@webscan_app.command("patterns")
+def webscan_patterns(
+    url: str = typer.Argument(..., help="目标页面 URL"),
+    pattern: str = typer.Argument(..., help="正则表达式模式"),
+    limit: int = typer.Option(100, "--limit", "-n", help="最大返回数量"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),
+    timeout: float = typer.Option(10.0, "--timeout", "-t", help="超时（秒）"),
+) -> None:
+    """从页面提取匹配正则模式的 URL"""
+    from souwen.web.webscan import find_patterns
+
+    async def _do():
+        return await find_patterns(url, pattern, limit=limit, timeout=timeout)
+
+    with console.status(f"[bold green]模式匹配: {url} ({pattern}) ..."):
+        resp = _run_async(_do())
+
+    if resp.error:
+        console.print(f"[red]✗ 错误: {resp.error}[/red]")
+        raise typer.Exit(1)
+
+    if json_output:
+        from rich import print_json
+
+        print_json(json.dumps(resp.model_dump(mode="json"), ensure_ascii=False))
+        return
+
+    console.print(f"[bold]🔎 匹配结果：{resp.total} 个 URL 匹配模式 `{pattern}`[/bold]")
+    for u in resp.matches:
+        console.print(f"  [cyan]{u}[/cyan]")
+
+
+@webscan_app.command("sitemap")
+def webscan_sitemap(
+    url: str = typer.Argument(..., help="起始 URL"),
+    max_depth: int = typer.Option(2, "--depth", "-d", help="最大爬取深度"),
+    limit: int = typer.Option(1000, "--limit", "-n", help="最大 URL 数量"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出（含 XML 字符串）"),
+    timeout: float = typer.Option(10.0, "--timeout", "-t", help="每页超时（秒）"),
+) -> None:
+    """爬取网站并生成 XML Sitemap"""
+    from souwen.web.webscan import generate_sitemap
+
+    async def _do():
+        return await generate_sitemap(url, max_depth=max_depth, limit=limit, timeout=timeout)
+
+    with console.status(f"[bold green]生成 Sitemap: {url} ..."):
+        result = _run_async(_do())
+
+    if json_output:
+        from rich import print_json
+
+        print_json(json.dumps(result.model_dump(mode="json"), ensure_ascii=False))
+        return
+
+    console.print(f"[bold]🗺️ Sitemap 生成完成：包含 {result.url_count} 个 URL[/bold]")
+    console.print(result.sitemap_xml)
+
+
 if __name__ == "__main__":
     app()

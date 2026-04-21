@@ -62,6 +62,13 @@ from souwen.web.mcp_client import MCPClient
 from souwen.web.mcp_fetch import MCPFetchClient
 from souwen.web.search import web_search
 from souwen.web.fetch import fetch_content
+from souwen.web.webscan import (
+    extract_links,
+    crawl_site,
+    check_links,
+    find_patterns,
+    generate_sitemap,
+)
 
 __all__ = [
     # 爬虫类（无需 Key）
@@ -109,4 +116,10 @@ __all__ = [
     # 聚合搜索/抓取
     "web_search",
     "fetch_content",
+    # 网页扫描工具
+    "extract_links",
+    "crawl_site",
+    "check_links",
+    "find_patterns",
+    "generate_sitemap",
 ]

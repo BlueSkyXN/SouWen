@@ -167,6 +167,96 @@ def create_server() -> "Server":
                 description="检查 SouWen 数据源可用性状态",
                 inputSchema={"type": "object", "properties": {}},
             ),
+            Tool(
+                name="extract_links",
+                description="从网页提取所有链接。支持按 base_url 过滤和数量限制。",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "url": {"type": "string", "description": "目标页面 URL"},
+                        "base_url": {
+                            "type": "string",
+                            "description": "过滤链接的基础 URL（可选）",
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "default": 100,
+                            "description": "最大链接数量",
+                        },
+                    },
+                    "required": ["url"],
+                },
+            ),
+            Tool(
+                name="crawl_site",
+                description="递归爬取网站（仅限同源链接），返回发现的所有 URL。",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "url": {"type": "string", "description": "起始 URL"},
+                        "max_depth": {
+                            "type": "integer",
+                            "default": 2,
+                            "description": "最大爬取深度（0-5）",
+                        },
+                        "max_urls": {
+                            "type": "integer",
+                            "default": 500,
+                            "description": "最大 URL 数量",
+                        },
+                    },
+                    "required": ["url"],
+                },
+            ),
+            Tool(
+                name="check_links",
+                description="检查页面上的所有链接是否有效（200 OK）或失效（broken）。",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "url": {"type": "string", "description": "目标页面 URL"},
+                    },
+                    "required": ["url"],
+                },
+            ),
+            Tool(
+                name="find_patterns",
+                description="从页面提取链接并按正则表达式模式过滤，返回匹配的 URL 列表。",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "url": {"type": "string", "description": "目标页面 URL"},
+                        "pattern": {"type": "string", "description": "正则表达式模式"},
+                        "limit": {
+                            "type": "integer",
+                            "default": 100,
+                            "description": "最大返回数量",
+                        },
+                    },
+                    "required": ["url", "pattern"],
+                },
+            ),
+            Tool(
+                name="generate_sitemap",
+                description="爬取网站并生成 XML Sitemap 格式输出。",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "url": {"type": "string", "description": "起始 URL"},
+                        "max_depth": {
+                            "type": "integer",
+                            "default": 2,
+                            "description": "最大爬取深度",
+                        },
+                        "limit": {
+                            "type": "integer",
+                            "default": 1000,
+                            "description": "最大 URL 数量",
+                        },
+                    },
+                    "required": ["url"],
+                },
+            ),
         ]
 
     @server.call_tool()
@@ -218,6 +308,52 @@ def create_server() -> "Server":
 
                 results = check_all()
                 result = format_report(results)
+
+            elif name == "extract_links":
+                from souwen.web.webscan import extract_links
+
+                resp = await extract_links(
+                    arguments["url"],
+                    base_url=arguments.get("base_url"),
+                    limit=arguments.get("limit", 100),
+                )
+                result = resp.model_dump(mode="json")
+
+            elif name == "crawl_site":
+                from souwen.web.webscan import crawl_site
+
+                resp = await crawl_site(
+                    arguments["url"],
+                    max_depth=arguments.get("max_depth", 2),
+                    max_urls=arguments.get("max_urls", 500),
+                )
+                result = resp.model_dump(mode="json")
+
+            elif name == "check_links":
+                from souwen.web.webscan import check_links
+
+                resp = await check_links(arguments["url"])
+                result = resp.model_dump(mode="json")
+
+            elif name == "find_patterns":
+                from souwen.web.webscan import find_patterns
+
+                resp = await find_patterns(
+                    arguments["url"],
+                    arguments["pattern"],
+                    limit=arguments.get("limit", 100),
+                )
+                result = resp.model_dump(mode="json")
+
+            elif name == "generate_sitemap":
+                from souwen.web.webscan import generate_sitemap
+
+                resp = await generate_sitemap(
+                    arguments["url"],
+                    max_depth=arguments.get("max_depth", 2),
+                    limit=arguments.get("limit", 1000),
+                )
+                result = resp.model_dump(mode="json")
 
             else:
                 result = f"Unknown tool: {name}"
