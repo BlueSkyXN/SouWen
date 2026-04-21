@@ -124,7 +124,11 @@ class HuggingFaceClient:
             # 作者解析：API 返回 [{"name": "..."}, ...]
             authors: list[Author] = []
             for author_item in paper.get("authors", []):
-                name = author_item.get("name", "") if isinstance(author_item, dict) else str(author_item)
+                name = (
+                    author_item.get("name", "")
+                    if isinstance(author_item, dict)
+                    else str(author_item)
+                )
                 if name:
                     authors.append(Author(name=name))
 
