@@ -92,6 +92,8 @@ web:
   feishu_app_id: ~
   # 飞书（Feishu/Lark）自建应用 App Secret（云文档搜索必填）
   feishu_app_secret: ~
+  # 智谱 AI Web Search Pro API Key（含 AI 摘要，适合中英文搜索；https://open.bigmodel.cn/）
+  zhipuai_api_key: ~
   # Metaso（秘塔）搜索 API Key（支持文档/网页/学术三种范围；https://metaso.cn/）
   metaso_api_key: ~
   # 以下数据源无需 API Key，可直接使用（如需禁用请在 sources 段配置 enabled: false）：

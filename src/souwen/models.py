@@ -184,6 +184,8 @@ class SourceType(str, Enum):
     WEB_FACEBOOK = "web_facebook"
     # 办公/企业平台搜索
     WEB_FEISHU_DRIVE = "web_feishu_drive"
+    # AI 搜索引擎（含摘要）
+    WEB_ZHIPUAI = "web_zhipuai"
     # ── 内容抓取 (fetch) ──
     FETCH_BUILTIN = "fetch_builtin"
     FETCH_JINA_READER = "fetch_jina_reader"
@@ -469,6 +471,7 @@ ALL_SOURCES: dict[str, list[tuple[str, bool, str]]] = {
         ("perplexity", True, "Perplexity Sonar AI 搜索"),
         ("firecrawl", True, "Firecrawl 搜索+爬取"),
         ("linkup", True, "Linkup 实时搜索"),
+        ("zhipuai", True, "智谱 AI Web Search Pro (含 AI 摘要，支持中文)"),
     ],
     "social": [
         ("reddit", False, "Reddit 帖子搜索"),
