@@ -201,6 +201,7 @@ class SemanticScholarClient:
         fields: str | None = None,
         limit: int = 10,
         offset: int = 0,
+        year_range: str | None = None,
     ) -> SearchResponse:
         """关键词搜索论文。
 
@@ -209,6 +210,9 @@ class SemanticScholarClient:
             fields: 逗号分隔的字段列表。默认使用完整字段集。
             limit: 返回条数，上限 100。
             offset: 偏移量。
+            year_range: 年份范围过滤，格式为 ``"YYYY-YYYY"``、``"YYYY-"``（含起始年份）
+                或 ``"-YYYY"``（含结束年份）。由 Semantic Scholar ``year`` 参数直接支持，
+                无需拼入查询字符串。
 
         Returns:
             SearchResponse 包含结果列表及分页信息。
@@ -224,6 +228,8 @@ class SemanticScholarClient:
             "limit": min(limit, 100),
             "offset": offset,
         }
+        if year_range:
+            params["year"] = year_range
 
         resp = await self._client.get("/paper/search", params=params)
 

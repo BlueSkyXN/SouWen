@@ -3,6 +3,7 @@
 覆盖 souwen.integrations.mcp_server.handle_tool_call 中的以下工具：
 - fetch_paper_details（semantic_scholar / crossref / 未知源 / 默认源）
 - search_by_topic（无日期过滤 / 仅 year_start / 仅 year_end / 两端均指定 / 单源失败容错）
+- 查询长度截断（search_papers / search_by_topic）
 
 不依赖 MCP SDK，直接测试模块级 handle_tool_call 函数。
 使用 unittest.mock 模拟客户端，不需要真实 API Key 或网络访问。
@@ -18,8 +19,7 @@ import pytest
 from souwen.integrations.mcp_server import (
     _MONTH_END,
     _MONTH_START,
-    _YEAR_MAX,
-    _YEAR_MIN,
+    _MAX_QUERY_LENGTH,
     handle_tool_call,
 )
 from souwen.models import Author, PaperResult, SearchResponse, SourceType
@@ -187,6 +187,10 @@ async def test_search_by_topic_no_date_filter():
     assert arxiv_kwargs.get("date_from") is None
     assert arxiv_kwargs.get("date_to") is None
 
+    # S2 无日期过滤时 year_range 应为 None
+    s2_args = mock_s2.search.call_args
+    assert s2_args.kwargs.get("year_range") is None
+
 
 @pytest.mark.asyncio
 async def test_search_by_topic_with_year_start_only():
@@ -213,10 +217,9 @@ async def test_search_by_topic_with_year_start_only():
     assert arxiv_kwargs["date_from"] == f"2022{_MONTH_START}"
     assert arxiv_kwargs["date_to"] is None
 
-    # Semantic Scholar: query 中含 year:2022-{YEAR_MAX}
+    # Semantic Scholar: year_range kwarg = "2022-" (start only, open end)
     s2_args = mock_s2.search.call_args
-    s2_query = s2_args.args[0] if s2_args.args else s2_args.kwargs.get("query", "")
-    assert f"year:2022-{_YEAR_MAX}" in s2_query
+    assert s2_args.kwargs.get("year_range") == "2022-"
 
     # Crossref: filters 含 from-pub-date, 不含 until-pub-date
     crossref_kwargs = mock_crossref.search.call_args.kwargs
@@ -250,10 +253,9 @@ async def test_search_by_topic_with_year_end_only():
     assert arxiv_kwargs["date_from"] is None
     assert arxiv_kwargs["date_to"] == f"2021{_MONTH_END}"
 
-    # Semantic Scholar: query 中含 year:{YEAR_MIN}-2021
+    # Semantic Scholar: year_range kwarg = "-2021" (end only, open start)
     s2_args = mock_s2.search.call_args
-    s2_query = s2_args.args[0] if s2_args.args else s2_args.kwargs.get("query", "")
-    assert f"year:{_YEAR_MIN}-2021" in s2_query
+    assert s2_args.kwargs.get("year_range") == "-2021"
 
     # Crossref: filters 含 until-pub-date, 不含 from-pub-date
     crossref_kwargs = mock_crossref.search.call_args.kwargs
@@ -288,10 +290,9 @@ async def test_search_by_topic_with_both_years():
     assert arxiv_kwargs["date_from"] == f"2020{_MONTH_START}"
     assert arxiv_kwargs["date_to"] == f"2023{_MONTH_END}"
 
-    # Semantic Scholar
+    # Semantic Scholar: year_range kwarg = "2020-2023"
     s2_args = mock_s2.search.call_args
-    s2_query = s2_args.args[0] if s2_args.args else s2_args.kwargs.get("query", "")
-    assert "year:2020-2023" in s2_query
+    assert s2_args.kwargs.get("year_range") == "2020-2023"
 
     # Crossref
     crossref_kwargs = mock_crossref.search.call_args.kwargs
@@ -337,3 +338,42 @@ async def test_handle_tool_call_unknown_tool():
     assert isinstance(result, str)
     assert "Unknown tool" in result
     assert "nonexistent_tool" in result
+
+
+# ── 查询长度截断 ──────────────────────────────────────────────
+
+
+@pytest.mark.asyncio
+async def test_search_papers_truncates_long_query():
+    """search_papers 中超过 _MAX_QUERY_LENGTH 的查询应被截断后传给搜索函数。"""
+    long_query = "a" * (_MAX_QUERY_LENGTH + 50)
+    received: list[str] = []
+
+    async def fake_search_papers(query, sources, per_page):
+        received.append(query)
+        return []
+
+    with patch("souwen.search.search_papers", side_effect=fake_search_papers):
+        await handle_tool_call("search_papers", {"query": long_query})
+
+    assert len(received) == 1
+    assert len(received[0]) == _MAX_QUERY_LENGTH
+
+
+@pytest.mark.asyncio
+async def test_search_by_topic_truncates_long_topic():
+    """search_by_topic 中超过 _MAX_QUERY_LENGTH 的 topic 应被截断，各源只收到截断后的查询。"""
+    long_topic = "b" * (_MAX_QUERY_LENGTH + 100)
+    arxiv_resp = _make_search_response(SourceType.ARXIV, n=0)
+    mock_arxiv = _make_mock_client(search_resp=arxiv_resp)
+
+    with patch("souwen.paper.arxiv.ArxivClient", return_value=mock_arxiv):
+        await handle_tool_call(
+            "search_by_topic",
+            {"topic": long_topic, "sources": ["arxiv"]},
+        )
+
+    # arXiv search 收到的第一个位置参数（query）应已被截断
+    arxiv_call = mock_arxiv.search.call_args
+    actual_query = arxiv_call.args[0] if arxiv_call.args else arxiv_call.kwargs.get("query", "")
+    assert len(actual_query) == _MAX_QUERY_LENGTH

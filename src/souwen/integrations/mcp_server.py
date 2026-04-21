@@ -84,9 +84,9 @@ except ImportError:
 # arXiv 日期过滤后缀
 _MONTH_START = "-01-01"  # 年份起始月日（YYYY-01-01）
 _MONTH_END = "-12-31"  # 年份结束月日（YYYY-12-31）
-# Semantic Scholar year 过滤占位值（未指定端点时）
-_YEAR_MIN = "0001"
-_YEAR_MAX = "9999"
+
+# 搜索查询最大长度（超出时截断，与参考实现一致）
+_MAX_QUERY_LENGTH = 300
 
 
 def create_server() -> "Server":
@@ -293,9 +293,12 @@ async def handle_tool_call(name: str, arguments: dict):
     if name == "search_papers":
         from souwen.search import search_papers
 
+        query: str = arguments["query"]
+        if len(query) > _MAX_QUERY_LENGTH:
+            query = query[:_MAX_QUERY_LENGTH]
         sources = arguments.get("sources", ["openalex", "arxiv", "crossref"])
         limit = arguments.get("limit", 5)
-        responses = await search_papers(arguments["query"], sources=sources, per_page=limit)
+        responses = await search_papers(query, sources=sources, per_page=limit)
         return [r.model_dump(mode="json") for r in responses]
 
     if name == "fetch_paper_details":
@@ -324,6 +327,8 @@ async def handle_tool_call(name: str, arguments: dict):
         from souwen.paper.crossref import CrossrefClient
 
         topic: str = arguments["topic"]
+        if len(topic) > _MAX_QUERY_LENGTH:
+            topic = topic[:_MAX_QUERY_LENGTH]
         year_start: int | None = arguments.get("year_start")
         year_end: int | None = arguments.get("year_end")
         limit = arguments.get("limit", 10)
@@ -345,14 +350,17 @@ async def handle_tool_call(name: str, arguments: dict):
                         )
                     all_papers.extend(p.model_dump(mode="json") for p in resp.results)
                 elif src == "semantic_scholar":
-                    # Semantic Scholar 支持 year=YYYY-YYYY 过滤
-                    query = topic
-                    if year_start or year_end:
-                        y_start = str(year_start) if year_start else _YEAR_MIN
-                        y_end = str(year_end) if year_end else _YEAR_MAX
-                        query = f"{topic} year:{y_start}-{y_end}"
+                    # 使用 Semantic Scholar API 原生 year 参数过滤
+                    # 格式：YYYY-YYYY / YYYY-（含起始）/ -YYYY（含结束）
+                    year_range: str | None = None
+                    if year_start and year_end:
+                        year_range = f"{year_start}-{year_end}"
+                    elif year_start:
+                        year_range = f"{year_start}-"
+                    elif year_end:
+                        year_range = f"-{year_end}"
                     async with SemanticScholarClient() as client:
-                        resp = await client.search(query, limit=limit)
+                        resp = await client.search(topic, limit=limit, year_range=year_range)
                     all_papers.extend(p.model_dump(mode="json") for p in resp.results)
                 elif src == "crossref":
                     filters: dict[str, str] = {}
