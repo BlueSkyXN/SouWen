@@ -370,25 +370,19 @@ async def test_list_collections(httpx_mock: HTTPXMock, zotero_env):
 
 def test_pick_best_attachment_prefers_pdf():
     """附件选择优先 PDF，按 dateAdded 倒序。"""
-    key = ZoteroClient._pick_best_attachment(
-        [ZOTERO_ATTACHMENT_HTML, ZOTERO_ATTACHMENT_PDF]
-    )
+    key = ZoteroClient._pick_best_attachment([ZOTERO_ATTACHMENT_HTML, ZOTERO_ATTACHMENT_PDF])
     assert key == "PDF00001"
 
 
 def test_pick_best_attachment_filters_linked():
     """排除 linked_url 模式的附件。"""
-    key = ZoteroClient._pick_best_attachment(
-        [ZOTERO_ATTACHMENT_LINKED]
-    )
+    key = ZoteroClient._pick_best_attachment([ZOTERO_ATTACHMENT_LINKED])
     assert key is None
 
 
 def test_pick_best_attachment_falls_back_to_html():
     """无 PDF 时回退到 HTML。"""
-    key = ZoteroClient._pick_best_attachment(
-        [ZOTERO_ATTACHMENT_HTML]
-    )
+    key = ZoteroClient._pick_best_attachment([ZOTERO_ATTACHMENT_HTML])
     assert key == "HTML0001"
 
 
