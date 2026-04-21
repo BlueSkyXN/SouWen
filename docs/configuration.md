@@ -67,6 +67,11 @@ web:
   apify_api_token: your_token        # Apify（平台化 Actor 爬虫）
   cloudflare_api_token: your_token  # Cloudflare Browser Rendering
   cloudflare_account_id: your_id    # Cloudflare 账户 ID
+  feishu_app_id: your_app_id        # 飞书云文档搜索（PR #7）
+  feishu_app_secret: your_app_secret
+  zhipuai_api_key: your_key         # 智谱 AI Web Search Pro（PR #12）
+  aliyun_iqs_api_key: your_key      # 阿里云 IQS 通义晓搜（PR #13）
+  metaso_api_key: your_key          # Metaso（秘塔）搜索
   perplexity_api_key: your_key
   linkup_api_key: your_key
   scrapingdog_api_key: your_key
@@ -160,6 +165,11 @@ sources: {}
 | `apify_api_token` | `SOUWEN_APIFY_API_TOKEN` | Apify 必需 | 平台化 Actor 爬虫 |
 | `cloudflare_api_token` | `SOUWEN_CLOUDFLARE_API_TOKEN` | Cloudflare 必需 | Browser Rendering API Token |
 | `cloudflare_account_id` | `SOUWEN_CLOUDFLARE_ACCOUNT_ID` | Cloudflare 必需 | Cloudflare 账户 ID |
+| `feishu_app_id` | `SOUWEN_FEISHU_APP_ID` | 飞书云文档必需 | 飞书 / Lark 自建应用 App ID（PR #7） |
+| `feishu_app_secret` | `SOUWEN_FEISHU_APP_SECRET` | 飞书云文档必需 | 飞书 / Lark 自建应用 App Secret |
+| `zhipuai_api_key` | `SOUWEN_ZHIPUAI_API_KEY` | 智谱 AI 必需 | Web Search Pro API Key（含 AI 摘要，PR #12） |
+| `aliyun_iqs_api_key` | `SOUWEN_ALIYUN_IQS_API_KEY` | 阿里云 IQS 必需 | 通义晓搜 API Key（含 AI 摘要，PR #13） |
+| `metaso_api_key` | `SOUWEN_METASO_API_KEY` | Metaso 必需 | 秘塔搜索 API Key（文档/网页/学术） |
 
 ### 网络设置
 

@@ -1,9 +1,9 @@
 /**
- * 工具箱页面 - Classic 皮肤版本
+ * 工具箱页面 - iOS 皮肤版本
  *
  * 文件用途：Wayback Machine 网页归档查询与存档工具集合
  *
- * 业务逻辑统一抽取至 `@core/hooks/useToolsPage`，本文件仅保留 Classic 皮肤特有的 UI 渲染。
+ * 业务逻辑统一抽取至 `@core/hooks/useToolsPage`，本文件仅保留 iOS 皮肤特有的 UI 渲染。
  */
 
 import { m } from 'framer-motion'
@@ -49,37 +49,40 @@ export function ToolsPage() {
         <p className={styles.heroSubtitle}>{t('tools.subtitle')}</p>
       </m.div>
 
-      <div className={styles.tabs} role="tablist">
+      <div className={styles.segmented} role="tablist">
         <button
           role="tab"
           aria-selected={tab === 'cdx'}
-          className={`${styles.tab} ${tab === 'cdx' ? styles.tabActive : ''}`}
+          className={`${styles.segment} ${tab === 'cdx' ? styles.segmentActive : ''}`}
           onClick={() => setTab('cdx')}
         >
-          <Database size={14} /> {t('tools.cdx')}
+          <Database size={14} />
+          <span>{t('tools.cdx')}</span>
         </button>
         <button
           role="tab"
           aria-selected={tab === 'check'}
-          className={`${styles.tab} ${tab === 'check' ? styles.tabActive : ''}`}
+          className={`${styles.segment} ${tab === 'check' ? styles.segmentActive : ''}`}
           onClick={() => setTab('check')}
         >
-          <CheckCircle2 size={14} /> {t('tools.check')}
+          <CheckCircle2 size={14} />
+          <span>{t('tools.check')}</span>
         </button>
         <button
           role="tab"
           aria-selected={tab === 'save'}
-          className={`${styles.tab} ${tab === 'save' ? styles.tabActive : ''}`}
+          className={`${styles.segment} ${tab === 'save' ? styles.segmentActive : ''}`}
           onClick={() => setTab('save')}
         >
-          <Save size={14} /> {t('tools.save')}
+          <Save size={14} />
+          <span>{t('tools.save')}</span>
         </button>
       </div>
 
       {tab === 'cdx' && (
         <section className={styles.panel}>
           <form className={styles.form} onSubmit={handleCdxQuery}>
-            <div className={`${styles.field} ${styles.fieldFull}`}>
+            <div className={styles.field}>
               <label className={styles.label} htmlFor="cdx-url">{t('tools.url')}</label>
               <input
                 id="cdx-url"
@@ -90,41 +93,43 @@ export function ToolsPage() {
                 onChange={(e) => setCdxUrl(e.target.value)}
               />
             </div>
-            <div className={styles.field}>
-              <label className={styles.label} htmlFor="cdx-from">{t('tools.dateFrom')}</label>
-              <input
-                id="cdx-from"
-                type="date"
-                className={styles.input}
-                value={cdxFrom}
-                onChange={(e) => setCdxFrom(e.target.value)}
-              />
-            </div>
-            <div className={styles.field}>
-              <label className={styles.label} htmlFor="cdx-to">{t('tools.dateTo')}</label>
-              <input
-                id="cdx-to"
-                type="date"
-                className={styles.input}
-                value={cdxTo}
-                onChange={(e) => setCdxTo(e.target.value)}
-              />
-            </div>
-            <div className={styles.field}>
-              <label className={styles.label} htmlFor="cdx-limit">{t('tools.limit')}</label>
-              <input
-                id="cdx-limit"
-                type="number"
-                min={1}
-                max={500}
-                className={styles.input}
-                value={cdxLimit}
-                onChange={(e) => setCdxLimit(Math.max(1, Number(e.target.value) || 50))}
-              />
+            <div className={styles.row}>
+              <div className={styles.field}>
+                <label className={styles.label} htmlFor="cdx-from">{t('tools.dateFrom')}</label>
+                <input
+                  id="cdx-from"
+                  type="date"
+                  className={styles.input}
+                  value={cdxFrom}
+                  onChange={(e) => setCdxFrom(e.target.value)}
+                />
+              </div>
+              <div className={styles.field}>
+                <label className={styles.label} htmlFor="cdx-to">{t('tools.dateTo')}</label>
+                <input
+                  id="cdx-to"
+                  type="date"
+                  className={styles.input}
+                  value={cdxTo}
+                  onChange={(e) => setCdxTo(e.target.value)}
+                />
+              </div>
+              <div className={styles.field}>
+                <label className={styles.label} htmlFor="cdx-limit">{t('tools.limit')}</label>
+                <input
+                  id="cdx-limit"
+                  type="number"
+                  min={1}
+                  max={500}
+                  className={styles.input}
+                  value={cdxLimit}
+                  onChange={(e) => setCdxLimit(Math.max(1, Number(e.target.value) || 50))}
+                />
+              </div>
             </div>
             <button
               type="submit"
-              className={styles.primaryBtn}
+              className={styles.submitBtn}
               disabled={cdxLoading || !cdxUrl.trim()}
             >
               {cdxLoading ? t('tools.querying') : t('tools.query')}
@@ -136,49 +141,35 @@ export function ToolsPage() {
           )}
 
           {cdxResults.length > 0 && (
-            <div className={styles.tableWrap}>
-              <table className={styles.table}>
-                <thead>
-                  <tr>
-                    <th>{t('tools.timestamp')}</th>
-                    <th>{t('tools.statusCode')}</th>
-                    <th>MIME</th>
-                    <th>{t('tools.snapshotUrl')}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {cdxResults.map((s, i) => (
-                    <tr key={`${s.timestamp}-${i}`}>
-                      <td className={styles.cellMono}>
-                        {formatWaybackTimestamp(s.timestamp)}
-                      </td>
-                      <td>
-                        <span
-                          className={
-                            s.status_code >= 200 && s.status_code < 400
-                              ? styles.statusOk
-                              : styles.statusErr
-                          }
-                        >
-                          {s.status_code}
-                        </span>
-                      </td>
-                      <td className={styles.cellMuted}>{s.mime_type || '—'}</td>
-                      <td>
-                        <a
-                          className={styles.link}
-                          href={snapshotViewUrl(s.url, s.timestamp)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                        >
-                          {t('tools.snapshotUrl')} <ExternalLink size={12} />
-                        </a>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <ul className={styles.list}>
+              {cdxResults.map((s, i) => (
+                <li key={`${s.timestamp}-${i}`} className={styles.listItem}>
+                  <div className={styles.listMain}>
+                    <div className={styles.listTimestamp}>{formatWaybackTimestamp(s.timestamp)}</div>
+                    <div className={styles.listMeta}>
+                      <span
+                        className={
+                          s.status_code >= 200 && s.status_code < 400
+                            ? styles.statusOk
+                            : styles.statusErr
+                        }
+                      >
+                        {s.status_code}
+                      </span>
+                      <span className={styles.cellMuted}>{s.mime_type || '—'}</span>
+                    </div>
+                  </div>
+                  <a
+                    className={styles.link}
+                    href={snapshotViewUrl(s.url, s.timestamp)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    {t('tools.snapshotUrl')} <ExternalLink size={14} />
+                  </a>
+                </li>
+              ))}
+            </ul>
           )}
         </section>
       )}
@@ -186,7 +177,7 @@ export function ToolsPage() {
       {tab === 'check' && (
         <section className={styles.panel}>
           <form className={styles.form} onSubmit={handleCheck}>
-            <div className={`${styles.field} ${styles.fieldFull}`}>
+            <div className={styles.field}>
               <label className={styles.label} htmlFor="chk-url">{t('tools.url')}</label>
               <input
                 id="chk-url"
@@ -199,7 +190,7 @@ export function ToolsPage() {
             </div>
             <button
               type="submit"
-              className={styles.primaryBtn}
+              className={styles.submitBtn}
               disabled={checkLoading || !checkUrl.trim()}
             >
               {checkLoading ? t('tools.querying') : t('tools.query')}
@@ -214,9 +205,9 @@ export function ToolsPage() {
             >
               <div className={styles.resultHeader}>
                 {checkResult.available ? (
-                  <CheckCircle2 size={20} className={styles.iconOk} />
+                  <CheckCircle2 size={22} className={styles.iconOk} />
                 ) : (
-                  <XCircle size={20} className={styles.iconErr} />
+                  <XCircle size={22} className={styles.iconErr} />
                 )}
                 <span className={styles.resultTitle}>
                   {checkResult.available ? t('tools.available') : t('tools.notAvailable')}
@@ -252,7 +243,7 @@ export function ToolsPage() {
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      {checkResult.snapshot_url} <ExternalLink size={12} />
+                      {checkResult.snapshot_url} <ExternalLink size={14} />
                     </a>
                   </div>
                 )}
@@ -265,7 +256,7 @@ export function ToolsPage() {
       {tab === 'save' && (
         <section className={styles.panel}>
           <form className={styles.form} onSubmit={handleSave}>
-            <div className={`${styles.field} ${styles.fieldFull}`}>
+            <div className={styles.field}>
               <label className={styles.label} htmlFor="save-url">{t('tools.url')}</label>
               <input
                 id="save-url"
@@ -278,7 +269,7 @@ export function ToolsPage() {
             </div>
             <button
               type="submit"
-              className={styles.primaryBtn}
+              className={styles.submitBtn}
               disabled={saveLoading || !saveUrl.trim()}
             >
               {saveLoading ? t('tools.saving') : t('tools.saveSubmit')}
@@ -293,9 +284,9 @@ export function ToolsPage() {
             >
               <div className={styles.resultHeader}>
                 {saveResult.success ? (
-                  <CheckCircle2 size={20} className={styles.iconOk} />
+                  <CheckCircle2 size={22} className={styles.iconOk} />
                 ) : (
-                  <XCircle size={20} className={styles.iconErr} />
+                  <XCircle size={22} className={styles.iconErr} />
                 )}
                 <span className={styles.resultTitle}>
                   {saveResult.success ? t('tools.saveSuccess') : t('tools.saveFailed')}
@@ -325,7 +316,7 @@ export function ToolsPage() {
                       target="_blank"
                       rel="noopener noreferrer"
                     >
-                      {saveResult.snapshot_url} <ExternalLink size={12} />
+                      {saveResult.snapshot_url} <ExternalLink size={14} />
                     </a>
                   </div>
                 )}
