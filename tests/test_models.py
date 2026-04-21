@@ -45,9 +45,9 @@ class TestAllSources:
         assert len(ALL_SOURCES["video"]) == 2
 
     def test_total_count(self):
-        """总计暴露 34 个可选数据源"""
+        """总计暴露 66 个可选数据源"""
         total = sum(len(v) for v in ALL_SOURCES.values())
-        assert total == 52
+        assert total == 66
 
     def test_each_entry_is_tuple_of_three(self):
         """每条目是 (name, requires_key, desc) 三元组"""

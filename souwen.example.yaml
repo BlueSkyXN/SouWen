@@ -39,7 +39,7 @@ patent:
 # ===== 网页搜索数据源配置 =====
 # 网页搜索引擎和语义搜索服务的 API 密钥
 web:
-  # 爬虫引擎 (DuckDuckGo/Yahoo/Brave/Google/Bing/Startpage/Baidu/Mojeek/Yandex) 无需 Key
+  # 爬虫引擎 (DuckDuckGo/Yahoo/Brave/Google/Bing/必应中文 bing_cn/Startpage/Baidu/Mojeek/Yandex) 无需 Key
   # SearXNG 自建实例 URL（例如 http://localhost:8080）
   searxng_url: ~
   # Tavily AI 搜索 API Key（https://app.tavily.com/）
@@ -99,11 +99,14 @@ web:
   # Metaso（秘塔）搜索 API Key（支持文档/网页/学术三种范围；https://metaso.cn/）
   metaso_api_key: ~
   # 以下数据源无需 API Key，可直接使用（如需禁用请在 sources 段配置 enabled: false）：
-  #   reddit     — Reddit 帖子搜索
-  #   wikipedia  — Wikipedia 百科搜索
-  #   bilibili   — Bilibili 视频搜索（爬虫）
-  #   zhihu      — 知乎问答搜索（爬虫）
-  #   weibo      — 微博搜索（爬虫）
+  #   reddit       — Reddit 帖子搜索
+  #   wikipedia    — Wikipedia 百科搜索
+  #   bilibili     — Bilibili 视频搜索（爬虫）
+  #   zhihu        — 知乎问答搜索（爬虫）
+  #   weibo        — 微博搜索（爬虫）
+  #   huggingface  — HuggingFace Papers 论文搜索（PR #15）
+  #   site_crawler — fetch 多页 BFS 站点爬虫（PR #14，零配置）
+  #   deepwiki     — fetch deepwiki.com GitHub 仓库文档（PR #14，零配置）
 
 # ===== MCP (Model Context Protocol) 配置 =====
 # 通过 MCP 协议连接远程工具服务器，获取网页内容抓取等能力

@@ -361,7 +361,8 @@ def fetch_cmd(
         help=(
             "内容提供者: builtin/jina_reader/tavily/firecrawl/exa/"
             "crawl4ai/scrapfly/diffbot/scrapingbee/zenrows/scraperapi/"
-            "apify/cloudflare/wayback/newspaper/readability"
+            "apify/cloudflare/wayback/newspaper/readability/"
+            "mcp/site_crawler/deepwiki"
         ),
     ),
     json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),

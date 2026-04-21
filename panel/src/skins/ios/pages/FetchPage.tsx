@@ -33,6 +33,9 @@ const PROVIDERS: { value: Provider; label: string }[] = [
   { value: 'wayback', label: 'Wayback Machine' },
   { value: 'newspaper', label: 'Newspaper' },
   { value: 'readability', label: 'Readability' },
+  { value: 'mcp', label: 'MCP' },
+  { value: 'site_crawler', label: 'SiteCrawler' },
+  { value: 'deepwiki', label: 'DeepWiki' },
 ]
 
 export function FetchPage() {
