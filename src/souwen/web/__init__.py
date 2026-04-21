@@ -27,6 +27,14 @@ API 类（需 Key / 自建实例）：
 - ZhipuAISearchClient: 智谱 AI Web Search Pro（含 AI 摘要，中英文友好）
 - AliyunIQSClient: 阿里云 IQS 通义晓搜（含 AI 摘要，中英文友好）
 
+内容抓取（fetch 提供者）：
+- SiteCrawlerClient: 多页 BFS 站点爬虫（参照 deepwiki-mcp httpCrawler.ts，零配置）
+- DeepWikiClient: DeepWiki GitHub 仓库文档抓取（参照 deepwiki-mcp，零配置）
+
+辅助函数：
+- crawl_site(): 便捷 BFS 爬取函数
+- resolve_github_repo(): 将库名解析为 owner/repo（GitHub Search API）
+
 聚合搜索：
 - web_search(): 并发多引擎聚合 + URL 去重
 """
@@ -78,6 +86,8 @@ from souwen.web.builtin import BuiltinFetcherClient
 from souwen.web.wayback import WaybackClient
 from souwen.web.mcp_client import MCPClient
 from souwen.web.mcp_fetch import MCPFetchClient
+from souwen.web.site_crawler import SiteCrawlerClient, crawl_site
+from souwen.web.deepwiki import DeepWikiClient, resolve_github_repo
 from souwen.web.search import web_search
 from souwen.web.fetch import fetch_content
 
@@ -144,6 +154,11 @@ __all__ = [
     # MCP 客户端
     "MCPClient",
     "MCPFetchClient",
+    # 站点爬虫 + DeepWiki
+    "SiteCrawlerClient",
+    "crawl_site",
+    "DeepWikiClient",
+    "resolve_github_repo",
     # 聚合搜索/抓取
     "web_search",
     "fetch_content",
