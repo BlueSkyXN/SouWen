@@ -83,6 +83,7 @@ from souwen.paper.arxiv import ArxivClient
 from souwen.paper.dblp import DblpClient
 from souwen.paper.core import CoreClient
 from souwen.paper.pubmed import PubMedClient
+from souwen.paper.zotero import ZoteroClient
 
 # ── 专利客户端 ──────────────────────────────────────────────
 from souwen.patent.patentsview import PatentsViewClient
@@ -254,6 +255,13 @@ _PAPER_SOURCES: dict[str, Any] = {
         "search",
         query=q,
         retmax=n,
+        **kw,
+    ),
+    "zotero": lambda q, n, **kw: _run_client(
+        ZoteroClient,
+        "search",
+        query=q,
+        limit=n,
         **kw,
     ),
 }

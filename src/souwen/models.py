@@ -129,6 +129,7 @@ class SourceType(str, Enum):
     CORE = "core"
     PUBMED = "pubmed"
     UNPAYWALL = "unpaywall"
+    ZOTERO = "zotero"
     # 专利数据源
     PATENTSVIEW = "patentsview"
     USPTO_ODP = "uspto_odp"
@@ -428,6 +429,7 @@ ALL_SOURCES: dict[str, list[tuple[str, bool, str]]] = {
         ("dblp", False, "DBLP 计算机科学索引"),
         ("core", True, "CORE 全文开放获取"),
         ("pubmed", False, "PubMed 生物医学"),
+        ("zotero", True, "Zotero 个人文献库搜索 (需 API Key + Library ID)"),
     ],
     "patent": [
         ("epo_ops", True, "EPO OPS 欧洲专利 (OAuth)"),
