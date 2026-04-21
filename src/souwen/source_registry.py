@@ -166,6 +166,13 @@ _reg("serper", "general", "official_api", "serper_api_key", description="Serper 
 _reg(
     "scrapingdog", "general", "official_api", "scrapingdog_api_key", description="ScrapingDog SERP"
 )
+_reg(
+    "metaso",
+    "general",
+    "official_api",
+    "metaso_api_key",
+    description="Metaso 秘塔搜索 (文档/网页/学术)",
+)
 
 # ── 专业搜索 (professional)：授权接口 ────────────────────
 _reg("tavily", "professional", "official_api", "tavily_api_key", description="Tavily AI 搜索")

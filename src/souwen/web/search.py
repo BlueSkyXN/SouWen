@@ -66,6 +66,7 @@ from souwen.web.firecrawl import FirecrawlClient
 from souwen.web.perplexity import PerplexityClient
 from souwen.web.linkup import LinkupClient
 from souwen.web.scrapingdog import ScrapingDogClient
+from souwen.web.metaso import MetasoClient
 from souwen.web.startpage import StartpageClient
 from souwen.web.baidu import BaiduClient
 from souwen.web.mojeek import MojeekClient
@@ -227,6 +228,7 @@ async def web_search(
         "perplexity": PerplexityClient,
         "linkup": LinkupClient,
         "scrapingdog": ScrapingDogClient,
+        "metaso": MetasoClient,
         # 自部署元搜索（需自建实例）
         "whoogle": WhoogleClient,
         "websurfx": WebsurfxClient,
@@ -258,6 +260,7 @@ async def web_search(
         "perplexity": SourceType.WEB_PERPLEXITY,
         "linkup": SourceType.WEB_LINKUP,
         "scrapingdog": SourceType.WEB_SCRAPINGDOG,
+        "metaso": SourceType.WEB_METASO,
         "startpage": SourceType.WEB_STARTPAGE,
         "baidu": SourceType.WEB_BAIDU,
         "mojeek": SourceType.WEB_MOJEEK,

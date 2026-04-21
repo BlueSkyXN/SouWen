@@ -1,6 +1,6 @@
 """常规网页搜索模块
 
-提供 14 个搜索引擎客户端，分为爬虫和 API 两类：
+提供 15 个搜索引擎客户端，分为爬虫和 API 两类：
 
 爬虫类（无需 Key，零配置即用）：
 - DuckDuckGoClient: DuckDuckGo HTML 搜索
@@ -19,6 +19,7 @@ API 类（需 Key / 自建实例）：
 - ExaClient: Exa 语义搜索（神经索引）
 - SerperClient: Serper Google SERP API
 - BraveApiClient: Brave 官方 API
+- MetasoClient: 秘塔搜索（文档/网页/学术三种范围）
 
 聚合搜索：
 - web_search(): 并发多引擎聚合 + URL 去重
@@ -53,6 +54,7 @@ from souwen.web.wikipedia import WikipediaClient
 from souwen.web.youtube import YouTubeClient
 from souwen.web.zhihu import ZhihuClient
 from souwen.web.weibo import WeiboClient
+from souwen.web.metaso import MetasoClient
 from souwen.web.jina_reader import JinaReaderClient
 from souwen.web.builtin import BuiltinFetcherClient
 from souwen.web.wayback import WaybackClient
@@ -93,6 +95,8 @@ __all__ = [
     "YouTubeClient",
     "ZhihuClient",
     "WeiboClient",
+    # API 类（需 Key）- 中文搜索
+    "MetasoClient",
     # 内容抓取类 (fetch)
     "BuiltinFetcherClient",
     "JinaReaderClient",
