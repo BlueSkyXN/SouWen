@@ -144,7 +144,10 @@ _reg("patsnap", "patent", "official_api", "patsnap_api_key", description="PatSna
 _reg("google_patents", "patent", "scraper", None, description="Google Patents 爬虫")
 
 # ── 通用搜索 (general)：爬虫 ──────────────────────────────
-_reg("duckduckgo", "general", "scraper", None, description="DuckDuckGo HTML 搜索")
+_reg("duckduckgo", "general", "scraper", None, description="DuckDuckGo 网页搜索")
+_reg("duckduckgo_news", "general", "scraper", None, description="DuckDuckGo 新闻搜索")
+_reg("duckduckgo_images", "general", "scraper", None, description="DuckDuckGo 图片搜索")
+_reg("duckduckgo_videos", "general", "scraper", None, description="DuckDuckGo 视频搜索")
 _reg("yahoo", "general", "scraper", None, description="Yahoo 搜索")
 _reg("brave", "general", "scraper", None, description="Brave 搜索")
 _reg("google", "general", "scraper", None, description="Google 搜索")

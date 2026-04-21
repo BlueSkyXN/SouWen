@@ -26,6 +26,9 @@ API 类（需 Key / 自建实例）：
 """
 
 from souwen.web.duckduckgo import DuckDuckGoClient
+from souwen.web.ddg_news import DuckDuckGoNewsClient
+from souwen.web.ddg_images import DuckDuckGoImagesClient, ImageSearchResult, ImageSearchResponse
+from souwen.web.ddg_videos import DuckDuckGoVideosClient, VideoSearchResult, VideoSearchResponse
 from souwen.web.yahoo import YahooClient
 from souwen.web.brave import BraveClient
 from souwen.web.google import GoogleClient
@@ -69,6 +72,13 @@ from souwen.web.fetch import fetch_content
 __all__ = [
     # 爬虫类（无需 Key）
     "DuckDuckGoClient",
+    "DuckDuckGoNewsClient",
+    "DuckDuckGoImagesClient",
+    "DuckDuckGoVideosClient",
+    "ImageSearchResult",
+    "ImageSearchResponse",
+    "VideoSearchResult",
+    "VideoSearchResponse",
     "YahooClient",
     "BraveClient",
     "GoogleClient",
