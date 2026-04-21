@@ -414,7 +414,7 @@ class TestUnifiedSearch:
         """论文数据源映射完整性"""
         from souwen.search import _PAPER_SOURCES, _DEFAULT_PAPER_SOURCES
 
-        assert len(_PAPER_SOURCES) == 7  # 7 sources (unpaywall excluded as DOI resolver)
+        assert len(_PAPER_SOURCES) == 13  # 13 sources (unpaywall excluded as DOI resolver)
         for s in _DEFAULT_PAPER_SOURCES:
             assert s in _PAPER_SOURCES, f"默认源 {s} 不在映射中"
 

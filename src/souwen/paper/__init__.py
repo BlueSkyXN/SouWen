@@ -10,6 +10,12 @@
 - CoreClient: CORE (需Key)
 - PubMedClient: PubMed (可选Key)
 - UnpaywallClient: Unpaywall (需email)
+- BiorxivClient: bioRxiv (无需Key)
+- MedrxivClient: medRxiv (无需Key)
+- PmcClient: PubMed Central (可选Key)
+- EuropepmcClient: Europe PMC (无需Key)
+- ZenodoClient: Zenodo (无需Key)
+- IacrClient: IACR ePrint (无需Key)
 - fetch_pdf: PDF 回退链获取器
 """
 
@@ -22,6 +28,12 @@ from souwen.paper.dblp import DblpClient
 from souwen.paper.core import CoreClient
 from souwen.paper.pubmed import PubMedClient
 from souwen.paper.unpaywall import UnpaywallClient
+from souwen.paper.biorxiv import BiorxivClient
+from souwen.paper.medrxiv import MedrxivClient
+from souwen.paper.pmc import PmcClient
+from souwen.paper.europepmc import EuropepmcClient
+from souwen.paper.zenodo import ZenodoClient
+from souwen.paper.iacr import IacrClient
 from souwen.paper.pdf_fetcher import fetch_pdf
 
 __all__ = [
@@ -34,5 +46,11 @@ __all__ = [
     "CoreClient",
     "PubMedClient",
     "UnpaywallClient",
+    "BiorxivClient",
+    "MedrxivClient",
+    "PmcClient",
+    "EuropepmcClient",
+    "ZenodoClient",
+    "IacrClient",
     "fetch_pdf",
 ]

@@ -83,6 +83,12 @@ from souwen.paper.arxiv import ArxivClient
 from souwen.paper.dblp import DblpClient
 from souwen.paper.core import CoreClient
 from souwen.paper.pubmed import PubMedClient
+from souwen.paper.biorxiv import BiorxivClient
+from souwen.paper.medrxiv import MedrxivClient
+from souwen.paper.pmc import PmcClient
+from souwen.paper.europepmc import EuropepmcClient
+from souwen.paper.zenodo import ZenodoClient
+from souwen.paper.iacr import IacrClient
 
 # ── 专利客户端 ──────────────────────────────────────────────
 from souwen.patent.patentsview import PatentsViewClient
@@ -107,6 +113,10 @@ _DEFAULT_PAPER_SOURCES: list[str] = [
     "arxiv",
     "dblp",
     "pubmed",
+    "biorxiv",
+    "medrxiv",
+    "europepmc",
+    "zenodo",
 ]
 _DEFAULT_PATENT_SOURCES: list[str] = ["google_patents"]
 
@@ -254,6 +264,48 @@ _PAPER_SOURCES: dict[str, Any] = {
         "search",
         query=q,
         retmax=n,
+        **kw,
+    ),
+    "biorxiv": lambda q, n, **kw: _run_client(
+        BiorxivClient,
+        "search",
+        query=q,
+        max_results=n,
+        **kw,
+    ),
+    "medrxiv": lambda q, n, **kw: _run_client(
+        MedrxivClient,
+        "search",
+        query=q,
+        max_results=n,
+        **kw,
+    ),
+    "pmc": lambda q, n, **kw: _run_client(
+        PmcClient,
+        "search",
+        query=q,
+        retmax=n,
+        **kw,
+    ),
+    "europepmc": lambda q, n, **kw: _run_client(
+        EuropepmcClient,
+        "search",
+        query=q,
+        page_size=n,
+        **kw,
+    ),
+    "zenodo": lambda q, n, **kw: _run_client(
+        ZenodoClient,
+        "search",
+        query=q,
+        size=n,
+        **kw,
+    ),
+    "iacr": lambda q, n, **kw: _run_client(
+        IacrClient,
+        "search",
+        query=q,
+        max_results=n,
         **kw,
     ),
 }

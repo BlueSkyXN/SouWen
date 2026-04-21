@@ -129,6 +129,12 @@ class SourceType(str, Enum):
     CORE = "core"
     PUBMED = "pubmed"
     UNPAYWALL = "unpaywall"
+    BIORXIV = "biorxiv"
+    MEDRXIV = "medrxiv"
+    PMC = "pmc"
+    EUROPEPMC = "europepmc"
+    ZENODO = "zenodo"
+    IACR = "iacr"
     # 专利数据源
     PATENTSVIEW = "patentsview"
     USPTO_ODP = "uspto_odp"
