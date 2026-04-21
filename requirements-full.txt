@@ -17,3 +17,5 @@ fastapi>=0.111
 uvicorn[standard]>=0.29
 # MCP 集成
 mcp>=1.0
+# robots.txt 合规解析（builtin fetcher 可选启用）
+protego>=0.3.0
