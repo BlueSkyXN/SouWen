@@ -57,6 +57,8 @@ souwen = "souwen.cli:app"
 tls = ["curl-cffi>=0.14.0"]
 # 网页内容抓取（trafilatura 提取 + Markdown 转换）
 web = ["trafilatura>=1.0"]
+# robots.txt 合规解析（builtin fetcher 可选启用）
+robots = ["protego>=0.3.0"]
 # Crawl4AI 无头浏览器抓取（基于 Playwright，适合 JS 重度页面）
 crawl4ai = ["crawl4ai>=0.4.0"]
 # newspaper4k 新闻文章提取（作者/日期/关键词/摘要）

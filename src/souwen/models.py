@@ -338,6 +338,8 @@ class FetchResult(BaseModel):
     title: str = ""
     content: str = ""  # 提取的正文（优先 markdown）
     content_format: Literal["markdown", "text", "html"] = "markdown"
+    content_truncated: bool = False  # 内容是否因 max_length 被截断
+    next_start_index: int | None = None  # 续读起点（仅在截断时设置）
     source: str = ""  # 提供者标识: jina_reader / tavily / firecrawl / exa / builtin
     snippet: str = ""  # 截断的摘要（前 500 字）
     published_date: str | None = None

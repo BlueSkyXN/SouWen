@@ -32,6 +32,7 @@
     - souwen.models: FetchResult, FetchResponse 数据模型
     - trafilatura（可选）: HTML 正文提取 + Markdown 转换
     - html2text（可选）: HTML→Markdown 回退方案
+    - protego（可选）: robots.txt 解析（启用 respect_robots_txt 时使用）
 """
 
 from __future__ import annotations
@@ -40,7 +41,7 @@ import asyncio
 import logging
 import re
 from typing import Any
-from urllib.parse import urljoin
+from urllib.parse import urljoin, urlparse
 
 from souwen.models import FetchResponse, FetchResult
 from souwen.scraper.base import BaseScraper
@@ -50,6 +51,7 @@ logger = logging.getLogger("souwen.web.builtin")
 # 可选依赖探测
 _HAS_TRAFILATURA = False
 _HAS_HTML2TEXT = False
+_HAS_PROTEGO = False
 
 try:
     import trafilatura  # noqa: F401
@@ -64,6 +66,17 @@ try:
     _HAS_HTML2TEXT = True
 except ImportError:
     pass
+
+try:
+    import protego  # noqa: F401
+
+    _HAS_PROTEGO = True
+except ImportError:
+    pass
+
+
+# robots.txt 校验使用的固定 User-Agent
+_ROBOTS_USER_AGENT = "SouWen/1.0 (+https://github.com/BlueSkyXN/SouWen)"
 
 
 _CJK_PATTERN = r"[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff\u3040-\u30ff\u31f0-\u31ff\uac00-\ud7af]"
@@ -203,17 +216,80 @@ class BuiltinFetcherClient(BaseScraper):
     ENGINE_NAME = "builtin_fetch"
     PROVIDER_NAME = "builtin"
     MAX_REDIRECTS = 5
+    MAX_RESPONSE_SIZE = 10 * 1024 * 1024  # 10 MiB 响应体大小上限，防 OOM
     _REDIRECT_CODES = frozenset({301, 302, 303, 307, 308})
 
-    def __init__(self) -> None:
+    def __init__(self, respect_robots_txt: bool = False) -> None:
         super().__init__(
             min_delay=0,
             max_delay=0.3,
             max_retries=2,
             follow_redirects=False,
         )
+        self.respect_robots_txt = respect_robots_txt
+        # robots.txt 缓存：{ "scheme://host[:port]": Protego | None }
+        # None 表示该域 robots.txt 拉取失败 / 不存在 → 视为允许
+        self._robots_cache: dict[str, Any] = {}
 
-    async def fetch(self, url: str, timeout: float = 30.0) -> FetchResult:
+    async def _check_robots(self, url: str) -> tuple[bool, str]:
+        """检查目标 URL 是否被该域的 robots.txt 允许
+
+        若 protego 未安装或抓取 robots.txt 失败，按"允许"处理（fail-open）。
+        缓存按 scheme+netloc 维度，避免针对同域多 URL 重复抓取。
+
+        Args:
+            url: 待检查的 URL
+
+        Returns:
+            (allowed, reason)：allowed=False 时 reason 给出拒绝原因
+        """
+        if not self.respect_robots_txt:
+            return True, ""
+        if not _HAS_PROTEGO:
+            logger.debug("protego 未安装，跳过 robots.txt 检查")
+            return True, ""
+
+        parsed = urlparse(url)
+        if not parsed.scheme or not parsed.netloc:
+            return True, ""
+        origin = f"{parsed.scheme}://{parsed.netloc}"
+
+        if origin not in self._robots_cache:
+            robots_url = f"{origin}/robots.txt"
+            try:
+                resp = await self._fetch(robots_url, headers={"User-Agent": _ROBOTS_USER_AGENT})
+                if 200 <= resp.status_code < 300 and resp.text:
+                    from protego import Protego
+
+                    self._robots_cache[origin] = Protego.parse(resp.text)
+                else:
+                    self._robots_cache[origin] = None
+            except Exception as exc:  # noqa: BLE001
+                logger.debug("robots.txt 抓取失败 %s: %s", robots_url, exc)
+                self._robots_cache[origin] = None
+
+        parser = self._robots_cache.get(origin)
+        if parser is None:
+            return True, ""
+
+        try:
+            allowed = parser.can_fetch(url, _ROBOTS_USER_AGENT)
+        except Exception as exc:  # noqa: BLE001
+            logger.debug("robots.txt 解析异常 %s: %s", url, exc)
+            return True, ""
+
+        if not allowed:
+            return False, f"robots.txt 拒绝抓取（UA={_ROBOTS_USER_AGENT}）"
+        return True, ""
+
+    async def fetch(
+        self,
+        url: str,
+        timeout: float = 30.0,
+        start_index: int = 0,
+        max_length: int | None = None,
+        respect_robots_txt: bool | None = None,
+    ) -> FetchResult:
         """抓取单个 URL 的内容
 
         手动跟踪重定向并在每一跳校验 SSRF，防止攻击者通过 302 跳转
@@ -222,12 +298,42 @@ class BuiltinFetcherClient(BaseScraper):
         Args:
             url: 目标网页 URL
             timeout: 超时秒数（预留，实际由 BaseScraper 的重试机制控制）
+            start_index: 内容起始切片位置（用于分页续读）
+            max_length: 内容最大长度，超出则截断并设置 next_start_index
+            respect_robots_txt: 覆盖实例级 ``respect_robots_txt`` 设置（仅作用本次调用）
 
         Returns:
             FetchResult 包含提取的正文内容
         """
+        # 临时覆盖实例级配置
+        prev_robots = self.respect_robots_txt
+        if respect_robots_txt is not None:
+            self.respect_robots_txt = respect_robots_txt
+        try:
+            return await self._fetch_impl(url, start_index=start_index, max_length=max_length)
+        finally:
+            self.respect_robots_txt = prev_robots
+
+    async def _fetch_impl(
+        self,
+        url: str,
+        start_index: int = 0,
+        max_length: int | None = None,
+    ) -> FetchResult:
         try:
             from souwen.web.fetch import validate_fetch_url
+
+            # robots.txt 合规检查（在任何重定向 / 抓取之前）
+            allowed, reason = await self._check_robots(url)
+            if not allowed:
+                logger.info("robots.txt 拒绝: %s (%s)", url, reason)
+                return FetchResult(
+                    url=url,
+                    final_url=url,
+                    source=self.PROVIDER_NAME,
+                    error=reason,
+                    raw={"provider": "builtin", "blocked_by_robots": True},
+                )
 
             # 手动重定向循环 — 每一跳做 SSRF 校验
             current_url = url
@@ -276,7 +382,61 @@ class BuiltinFetcherClient(BaseScraper):
                 )
 
             final_url = current_url
+
+            # 大小保护一：响应头声明的 Content-Length
+            content_length_header = resp.headers.get("content-length") or resp.headers.get(
+                "Content-Length"
+            )
+            if content_length_header:
+                try:
+                    declared_size = int(content_length_header)
+                except (TypeError, ValueError):
+                    declared_size = -1
+                if declared_size > self.MAX_RESPONSE_SIZE:
+                    logger.warning(
+                        "拒绝超大响应 url=%s declared=%d max=%d",
+                        url,
+                        declared_size,
+                        self.MAX_RESPONSE_SIZE,
+                    )
+                    return FetchResult(
+                        url=url,
+                        final_url=final_url,
+                        source=self.PROVIDER_NAME,
+                        error=(
+                            f"响应体过大: Content-Length={declared_size} "
+                            f"> 上限 {self.MAX_RESPONSE_SIZE}"
+                        ),
+                        raw={
+                            "provider": "builtin",
+                            "status_code": resp.status_code,
+                            "content_length": declared_size,
+                            "oversized": True,
+                        },
+                    )
+
             html = resp.text
+
+            # 大小保护二：实际正文长度（防御 Content-Length 缺失或撒谎）
+            if html and len(html) > self.MAX_RESPONSE_SIZE:
+                logger.warning(
+                    "拒绝超大响应 url=%s actual=%d max=%d",
+                    url,
+                    len(html),
+                    self.MAX_RESPONSE_SIZE,
+                )
+                return FetchResult(
+                    url=url,
+                    final_url=final_url,
+                    source=self.PROVIDER_NAME,
+                    error=(f"响应体过大: 实际 {len(html)} 字节 > 上限 {self.MAX_RESPONSE_SIZE}"),
+                    raw={
+                        "provider": "builtin",
+                        "status_code": resp.status_code,
+                        "content_length": len(html),
+                        "oversized": True,
+                    },
+                )
 
             if not html or len(html.strip()) < 100:
                 return FetchResult(
@@ -291,7 +451,7 @@ class BuiltinFetcherClient(BaseScraper):
             extracted = _extract_with_trafilatura(html, url)
             content = extracted["content"]
 
-            # 更好的内容验证：检查长度和词数
+            # 更好的内容验证：检查长度和词数（基于完整提取结果）
             MIN_CONTENT_LENGTH = 50
             MIN_WORD_COUNT = 10
             word_count = _count_words(content) if content else 0
@@ -310,14 +470,34 @@ class BuiltinFetcherClient(BaseScraper):
                     },
                 )
 
-            snippet = content[:500] if content else ""
+            # 分页切片：start_index / max_length
+            full_length = len(content)
+            sliced = content
+            content_truncated = False
+            next_start_index: int | None = None
+
+            if start_index < 0:
+                start_index = 0
+            if start_index >= full_length and full_length > 0:
+                sliced = ""
+            elif start_index > 0:
+                sliced = content[start_index:]
+
+            if max_length is not None and max_length >= 0 and len(sliced) > max_length:
+                sliced = sliced[:max_length]
+                content_truncated = True
+                next_start_index = start_index + max_length
+
+            snippet = sliced[:500] if sliced else ""
 
             return FetchResult(
                 url=url,
                 final_url=final_url,
                 title=extracted["title"],
-                content=content,
+                content=sliced,
                 content_format=extracted["content_format"],
+                content_truncated=content_truncated,
+                next_start_index=next_start_index,
                 source=self.PROVIDER_NAME,
                 snippet=snippet,
                 published_date=extracted["date"],
@@ -326,7 +506,10 @@ class BuiltinFetcherClient(BaseScraper):
                     "provider": "builtin",
                     "status_code": resp.status_code,
                     "content_length": len(html),
-                    "extracted_length": len(content),
+                    "extracted_length": full_length,
+                    "returned_length": len(sliced),
+                    "start_index": start_index,
+                    "max_length": max_length,
                     "word_count": word_count,
                     "description": extracted.get("description"),
                     "sitename": extracted.get("sitename"),
