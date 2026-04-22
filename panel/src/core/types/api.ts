@@ -60,6 +60,7 @@ export interface DoctorSource {
   status: string
   integration_type: string
   required_key: string | null
+  key_requirement: 'none' | 'optional' | 'required' | 'self_hosted'
   message: string
   enabled: boolean
   description?: string
