@@ -365,7 +365,7 @@ VITE_SKINS=my-skin npm run build
 
 ```typescript
 import { useAuthStore } from '@core/stores/authStore'
-import { api } from '@core/services/api'
+import { api } from '@core/services'
 import type { SearchResult } from '@core/types'
 ```
 

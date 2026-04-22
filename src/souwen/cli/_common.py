@@ -13,10 +13,10 @@ from souwen import __version__
 console = Console()
 
 
-def _deprecation_notice(old_cmd: str, new_cmd: str) -> None:
-    """Print a one-line v0→v1 deprecation notice to stderr (non-blocking)."""
+def _deprecation_notice(old_cmd: str) -> None:
+    """Print a one-line deprecation notice to stderr (non-blocking)."""
     print(
-        f"⚠ '{old_cmd}' is deprecated; use '{new_cmd}' in a future release.",
+        f"⚠ '{old_cmd}' will be reorganized in v2.0. See `souwen --help` for details.",
         file=sys.stderr,
     )
 
