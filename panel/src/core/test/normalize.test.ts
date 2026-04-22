@@ -110,7 +110,7 @@ function makeWeb(overrides: Partial<WebResult> = {}): WebResult {
 function makeDoctor(overrides: Partial<DoctorSource> = {}): DoctorSource {
   return {
     name: '', category: 'paper', status: 'ok', integration_type: 'open_api',
-    required_key: null, message: '', enabled: true,
+    required_key: null, key_requirement: 'none', message: '', enabled: true,
     ...overrides,
   }
 }
@@ -269,7 +269,7 @@ describe('normalizeDoctor', () => {
   it('marks unreachable with error message', () => {
     const result = normalizeDoctor(makeDoctor({
       name: 'core', category: 'paper', status: 'error', integration_type: 'official_api',
-      required_key: 'CORE_API_KEY', message: 'missing key',
+      required_key: 'CORE_API_KEY', key_requirement: 'required', message: 'missing key',
     }))
     expect(result.reachable).toBe(false)
     expect(result.error).toBe('missing key')

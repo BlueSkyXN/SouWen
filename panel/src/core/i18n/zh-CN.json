@@ -336,6 +336,14 @@
     "colCategory": "类型",
     "colIntegration": "集成类型",
     "colKey": "所需配置",
+    "colKeyReq": "密钥需求",
+    "keyNone": "免配置",
+    "keyOptional": "可选Key",
+    "keyRequired": "需要Key",
+    "keySelfHosted": "需自建",
+    "keyOptionalShort": "可选",
+    "keyRequiredShort": "必须",
+    "keySelfHostedShort": "自建",
     "colMessage": "说明"
   },
   "config": {

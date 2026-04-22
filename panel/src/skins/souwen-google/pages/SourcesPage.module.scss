@@ -403,9 +403,41 @@
   line-height: 1.4;
 }
 
+.configBadgeOptional {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: $radius-full;
+  background: #fef7e0;
+  color: #b06000;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.4;
+}
+
+.configBadgeSelfHosted {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: $radius-full;
+  background: #f3e8fd;
+  color: #6f2da8;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  line-height: 1.4;
+}
+
 [data-mode='dark'] {
-  .configBadgeOk  { background: rgba(26, 115, 232, 0.18); color: #8ab4f8; }
-  .configBadgeKey { background: rgba(234, 67, 53, 0.18); color: #f28b82; }
+  .configBadgeOk           { background: rgba(26, 115, 232, 0.18); color: #8ab4f8; }
+  .configBadgeKey          { background: rgba(234, 67, 53, 0.18); color: #f28b82; }
+  .configBadgeOptional     { background: rgba(249, 171, 0, 0.18); color: #fbbc04; }
+  .configBadgeSelfHosted   { background: rgba(147, 52, 230, 0.22); color: #d7aefb; }
 }
 
 .cardDescription {

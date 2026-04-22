@@ -62,6 +62,7 @@ class SourceMeta:
     integration_type: str
     config_field: str | None
     description: str
+    needs_config: bool
 
     @property
     def is_scraper(self) -> bool:
@@ -90,6 +91,7 @@ def _build_source_meta_view() -> dict[str, SourceMeta]:
             integration_type=adapter.integration,
             config_field=adapter.config_field,
             description=adapter.description,
+            needs_config=adapter.resolved_needs_config,
         )
     return result
 
