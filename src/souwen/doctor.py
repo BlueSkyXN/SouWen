@@ -221,7 +221,12 @@ def format_report(results: list[dict]) -> str:
             icon = _STATUS_ICONS.get(r["status"], "⬜")
             cat_tag = f"[{r['category']}]"
             kr = r.get("key_requirement", "")
-            kr_tag = {"none": "免配置", "optional": "可选Key", "required": "需Key", "self_hosted": "需自建"}.get(kr, "")
+            kr_tag = {
+                "none": "免配置",
+                "optional": "可选Key",
+                "required": "需Key",
+                "self_hosted": "需自建",
+            }.get(kr, "")
             lines.append(f"  {icon} {r['name']:20s} {cat_tag:10s} {kr_tag:6s}  {r['message']}")
         lines.append("")
 
