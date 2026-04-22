@@ -23,6 +23,7 @@
  */
 
 import { useEffect, useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { RefreshCw } from 'lucide-react'
 import { api } from '@core/services/api'
@@ -38,6 +39,7 @@ import styles from './DashboardPage.module.scss'
  */
 export function DashboardPage() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const [doctor, setDoctor] = useState<DoctorResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState(false)
@@ -86,6 +88,7 @@ export function DashboardPage() {
   // 从诊断数据中提取统计信息
   const paperCount = doctor.sources.filter((s) => s.category === 'paper').length
   const patentCount = doctor.sources.filter((s) => s.category === 'patent').length
+  const webCount = doctor.sources.filter((s) => !['paper', 'patent'].includes(s.category)).length
   const okCount = doctor.ok
   const totalCount = doctor.total
   const healthPct = totalCount > 0 ? Math.round((okCount / totalCount) * 100) : 0
@@ -113,17 +116,46 @@ export function DashboardPage() {
 
         {/* ── Giant Metric Numbers 巨大的核心指标卡 ── */}
         <div className={styles.metricsRow}>
-          <div className={styles.metricItem}>
+          <div
+            className={`${styles.metricItem} ${styles.clickable}`}
+            onClick={() => navigate('/search/paper')}
+            role="link"
+            tabIndex={0}
+            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/search/paper')}
+          >
             <div className={styles.metricLabel}>{t('dashboard.paperSources')}</div>
             <div className={styles.metricValue}>{paperCount}</div>
             <div className={styles.metricDesc}>{t('dashboard.ready', '就绪')}</div>
           </div>
-          <div className={styles.metricItem}>
+          <div
+            className={`${styles.metricItem} ${styles.clickable}`}
+            onClick={() => navigate('/search/patent')}
+            role="link"
+            tabIndex={0}
+            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/search/patent')}
+          >
             <div className={styles.metricLabel}>{t('dashboard.patentSources')}</div>
             <div className={styles.metricValue}>{patentCount}</div>
             <div className={styles.metricDesc}>{t('dashboard.ready', '就绪')}</div>
           </div>
-          <div className={styles.metricItem}>
+          <div
+            className={`${styles.metricItem} ${styles.clickable}`}
+            onClick={() => navigate('/search/web')}
+            role="link"
+            tabIndex={0}
+            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/search/web')}
+          >
+            <div className={styles.metricLabel}>{t('dashboard.webEngines')}</div>
+            <div className={styles.metricValue}>{webCount}</div>
+            <div className={styles.metricDesc}>{t('dashboard.ready', '就绪')}</div>
+          </div>
+          <div
+            className={`${styles.metricItem} ${styles.clickable}`}
+            onClick={() => navigate('/sources')}
+            role="link"
+            tabIndex={0}
+            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/sources')}
+          >
             <div className={styles.metricLabel}>{t('dashboard.availableSources')}</div>
             <div className={styles.metricValue}>
               {okCount}<span className={styles.metricFraction}>/{totalCount}</span>

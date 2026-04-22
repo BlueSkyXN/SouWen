@@ -23,9 +23,10 @@
  */
 
 import { useEffect, useState, useCallback } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { m } from 'framer-motion'
-import { Activity, FileText, Shield, Globe, RefreshCw } from 'lucide-react'
+import { Activity, FileText, Shield, Globe, RefreshCw, ChevronRight } from 'lucide-react'
 import { api } from '@core/services/api'
 import { useNotificationStore } from '@core/stores/notificationStore'
 import { useAuthStore } from '@core/stores/authStore'
@@ -38,6 +39,7 @@ import styles from './DashboardPage.module.scss'
 // DashboardPage 组件 - 系统仪表板
 export function DashboardPage() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const [doctor, setDoctor] = useState<DoctorResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState(false)
@@ -103,7 +105,7 @@ export function DashboardPage() {
         initial="initial"
         animate="animate"
       >
-        <m.div variants={staggerItem} className={styles.statCard}>
+        <m.div variants={staggerItem} className={`${styles.statCard} ${styles.clickable}`} onClick={() => navigate('/search/paper')} role="link" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/search/paper')}>
           <span className={styles.statIcon} style={{ background: '#007aff' }}>
             <FileText size={18} color="#fff" />
           </span>
@@ -111,9 +113,10 @@ export function DashboardPage() {
             <div className={styles.statValue}>{paperCount}</div>
             <div className={styles.statLabel}>{t('dashboard.paperSources')}</div>
           </div>
+          <ChevronRight size={18} className={styles.statChevron} />
         </m.div>
 
-        <m.div variants={staggerItem} className={styles.statCard}>
+        <m.div variants={staggerItem} className={`${styles.statCard} ${styles.clickable}`} onClick={() => navigate('/search/patent')} role="link" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/search/patent')}>
           <span className={styles.statIcon} style={{ background: '#ff9500' }}>
             <Shield size={18} color="#fff" />
           </span>
@@ -121,9 +124,10 @@ export function DashboardPage() {
             <div className={styles.statValue}>{patentCount}</div>
             <div className={styles.statLabel}>{t('dashboard.patentSources')}</div>
           </div>
+          <ChevronRight size={18} className={styles.statChevron} />
         </m.div>
 
-        <m.div variants={staggerItem} className={styles.statCard}>
+        <m.div variants={staggerItem} className={`${styles.statCard} ${styles.clickable}`} onClick={() => navigate('/search/web')} role="link" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/search/web')}>
           <span className={styles.statIcon} style={{ background: '#34c759' }}>
             <Globe size={18} color="#fff" />
           </span>
@@ -131,9 +135,10 @@ export function DashboardPage() {
             <div className={styles.statValue}>{webCount}</div>
             <div className={styles.statLabel}>{t('dashboard.webEngines')}</div>
           </div>
+          <ChevronRight size={18} className={styles.statChevron} />
         </m.div>
 
-        <m.div variants={staggerItem} className={styles.statCard}>
+        <m.div variants={staggerItem} className={`${styles.statCard} ${styles.clickable}`} onClick={() => navigate('/sources')} role="link" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/sources')}>
           <span className={styles.statIcon} style={{ background: '#5856d6' }}>
             <Activity size={18} color="#fff" />
           </span>
@@ -143,6 +148,7 @@ export function DashboardPage() {
             </div>
             <div className={styles.statLabel}>{t('dashboard.availableSources')}</div>
           </div>
+          <ChevronRight size={18} className={styles.statChevron} />
         </m.div>
       </m.div>
 
