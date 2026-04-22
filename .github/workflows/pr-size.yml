@@ -1,0 +1,34 @@
+name: PR Size Label
+
+on:
+  pull_request_target:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  pull-requests: write
+
+jobs:
+  size-label:
+    name: PR 大小标签
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: codelytv/pr-size-labeler@v1
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          xs_label: 'size/XS'
+          xs_max_size: 10
+          s_label: 'size/S'
+          s_max_size: 50
+          m_label: 'size/M'
+          m_max_size: 200
+          l_label: 'size/L'
+          l_max_size: 500
+          xl_label: 'size/XL'
+          fail_if_xl: false
+          message_if_xl: >
+            ⚠️ 这个 PR 很大 (XL)。请考虑拆分为更小的 PR 以便 review。
+          files_to_ignore: |
+            package-lock.json
+            panel/package-lock.json
+            *.lock

@@ -1,0 +1,45 @@
+# Path-based PR labeling rules
+# See: https://github.com/actions/labeler
+
+frontend:
+  - changed-files:
+    - any-glob-to-any-file: 'panel/**'
+
+backend:
+  - changed-files:
+    - any-glob-to-any-file: 'src/**'
+
+tests:
+  - changed-files:
+    - any-glob-to-any-file: 'tests/**'
+
+ci:
+  - changed-files:
+    - any-glob-to-any-file: '.github/**'
+
+docs:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'docs/**'
+      - '*.md'
+      - 'CHANGELOG.md'
+
+config:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'pyproject.toml'
+      - 'souwen.example.yaml'
+      - 'Dockerfile'
+      - 'docker-compose.yml'
+
+search:
+  - changed-files:
+    - any-glob-to-any-file:
+      - 'src/souwen/paper/**'
+      - 'src/souwen/patent/**'
+      - 'src/souwen/web/**'
+      - 'src/souwen/search.py'
+
+server:
+  - changed-files:
+    - any-glob-to-any-file: 'src/souwen/server/**'
