@@ -124,12 +124,22 @@ async def lifespan(app: FastAPI):
     if path:
         logger.info("配置文件: %s", path)
     cfg = get_config()
+    admin_pw = cfg.effective_admin_password
+    user_pw = cfg.effective_user_password
+    auth_parts = []
+    if admin_pw:
+        auth_parts.append("管理员")
+    if user_pw:
+        auth_parts.append("用户")
+    if cfg.guest_enabled:
+        auth_parts.append("游客(开放)")
+    auth_desc = " + ".join(auth_parts) if auth_parts else "全开放"
     logger.info(
-        "SouWen %s 启动 | 密码保护: %s",
+        "SouWen %s 启动 | 角色: %s",
         __version__,
-        "已启用" if cfg.api_password else "未启用",
+        auth_desc,
     )
-    if not cfg.api_password and os.getenv("SOUWEN_ADMIN_OPEN", "").strip().lower() in (
+    if not admin_pw and not user_pw and os.getenv("SOUWEN_ADMIN_OPEN", "").strip().lower() in (
         "1",
         "true",
         "yes",
