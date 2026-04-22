@@ -33,7 +33,6 @@ import { EmptyState } from '../components/common/EmptyState'
 import { StatsGridSkeleton, TableSkeleton } from '../components/common/Skeleton'
 import { formatError } from '@core/lib/errors'
 import { staggerContainer, staggerItem } from '@core/lib/animations'
-import { categoryBadgeColor, integrationBadgeColor, categoryLabel } from '@core/lib/ui'
 import type { DoctorResponse } from '@core/types'
 import styles from './DashboardPage.module.scss'
 
@@ -131,75 +130,7 @@ function HealthRing({ pct }: { pct: number }) {
   )
 }
 
-/* ── Source matrix view ── */
-type SourceLike = DoctorResponse['sources'][number]
-
-/** 根据数据源状态返回对应的 CSS 类（绿点/红点/黄点） */
-function matrixDotClass(status: string): string {
-  if (status === 'ok') return styles.matrixDotOk
-  if (status === 'error' || status === 'timeout') return styles.matrixDotErr
-  return styles.matrixDotWarn
-}
-
-/** 根据数据源集成类型返回对应的 CSS 类 */
-function matrixIntegrationClass(integration_type: string): string {
-  if (integration_type === 'open_api') return styles.matrixTierT0
-  if (integration_type === 'official_api') return styles.matrixTierT1
-  if (integration_type === 'scraper') return styles.matrixTierT2
-  if (integration_type === 'self_hosted') return styles.matrixTierT1
-  return styles.matrixTierT2
-}
-
-/**
- * SourceMatrix 组件：以矩阵视图展示所有数据源
- * 按分类分组显示，每个芯片包含状态点 + 名称 + 集成类型标签
- */
-function SourceMatrix({ sources }: { sources: SourceLike[] }) {
-  const { t } = useTranslation()
-  const order: Array<string> = ['paper', 'patent', 'general', 'professional', 'social', 'developer', 'wiki', 'video']
-  const grouped = order
-    .map((cat) => ({ cat, items: sources.filter((s) => s.category === cat) }))
-    .filter((g) => g.items.length > 0)
-
-  return (
-    <Card className={styles.matrixCard}>
-      <div className={styles.matrixHeader}>
-        <div>
-          <h3 className={styles.matrixTitle}>
-            <span className={styles.matrixCount}>{sources.length}</span>
-            {t('dashboard.sourceMatrix')}
-          </h3>
-          <p className={styles.matrixSubtitle}>{t('dashboard.sourceMatrixDesc')}</p>
-        </div>
-        <span className={styles.matrixToggle}>MATRIX VIEW</span>
-      </div>
-      <div className={styles.matrixGroups}>
-        {grouped.map((group, idx) => (
-          <div
-            key={group.cat}
-            className={`${styles.matrixGroup} ${idx > 0 ? styles.matrixGroupDivided : ''}`}
-          >
-            <div className={styles.matrixGroupLabel}>
-              <span className={styles.matrixGroupName}>{categoryLabel(t, group.cat)}</span>
-              <span className={styles.matrixGroupCount}>{group.items.length}</span>
-            </div>
-            <div className={styles.matrixChips}>
-              {group.items.map((src) => (
-                <span key={src.name} className={styles.matrixChip} title={src.message}>
-                  <span className={`${styles.matrixDot} ${matrixDotClass(src.status)}`} />
-                  <span className={styles.matrixChipName}>{src.name}</span>
-                  <span className={`${styles.matrixTier} ${matrixIntegrationClass(src.integration_type)}`}>
-                    {src.integration_type === 'open_api' ? '开放' : src.integration_type === 'scraper' ? '爬虫' : src.integration_type === 'official_api' ? '授权' : '自建'}
-                  </span>
-                </span>
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-    </Card>
-  )
-}
+/* ── Source matrix moved to Sources page (Health view) ── */
 
 /* ── Availability progress bar ── */
 /** AvailabilityBar 组件：可用性进度条，显示 ok/total 数据源比例 */
@@ -288,13 +219,6 @@ export function DashboardPage() {
   const okCount = doctor.ok
   const totalCount = doctor.total
   const healthPct = totalCount > 0 ? Math.round((okCount / totalCount) * 100) : 0
-
-  // 排序：可用(ok) → 降级 → 需配置 → 错误/超时，同状态按名称字母序
-  const statusOrder: Record<string, number> = { ok: 0, degraded: 1, needs_key: 2, error: 3, timeout: 4 }
-  const sortedSources = [...doctor.sources].sort((a, b) => {
-    const diff = (statusOrder[a.status] ?? 5) - (statusOrder[b.status] ?? 5)
-    return diff !== 0 ? diff : a.name.localeCompare(b.name)
-  })
 
   return (
     <div className={styles.page}>
@@ -386,53 +310,6 @@ export function DashboardPage() {
           <RefreshCw size={12} />
           {t('dashboard.refresh')}
         </button>
-      </div>
-
-      {/* ── Source matrix view ── */}
-      <SourceMatrix sources={sortedSources} />
-
-      {/* ── Source health table ── */}
-      <div className={styles.sectionHeader}>
-        <h3 className={styles.sectionTitle}>{t('dashboard.sourceHealth')}</h3>
-        <p className={styles.sectionDesc}>{t('dashboard.sourceHealthDesc')}</p>
-      </div>
-      <div className={styles.tableWrap}>
-        <table className={styles.table}>
-          <thead>
-            <tr>
-              <th>{t('dashboard.status')}</th>
-              <th>{t('dashboard.source')}</th>
-              <th>{t('dashboard.type')}</th>
-              <th>{t('dashboard.tier')}</th>
-              <th>{t('dashboard.requiredKey')}</th>
-              <th>{t('dashboard.description')}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {sortedSources.map((src) => (
-              <tr key={src.name}>
-                <td>
-                  <span className={`${styles.dot} ${src.status === 'ok' ? styles.dotOk : styles.dotErr}`} />
-                </td>
-                <td className={styles.sourceName}>{src.name}</td>
-                <td>
-                  <Badge color={categoryBadgeColor(src.category)}>
-                    {categoryLabel(t, src.category)}
-                  </Badge>
-                </td>
-                <td>
-                  <Badge color={integrationBadgeColor(src.integration_type)}>
-                    {src.integration_type === 'open_api' ? '公开' : src.integration_type === 'scraper' ? '爬虫' : src.integration_type === 'official_api' ? '授权' : '自建'}
-                  </Badge>
-                </td>
-                <td>
-                  <code className={styles.code}>{src.required_key ?? '—'}</code>
-                </td>
-                <td className={styles.message}>{src.message}</td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
       </div>
     </div>
   )

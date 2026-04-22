@@ -48,6 +48,10 @@ import type {
   WaybackCDXResponse,
   WaybackAvailabilityResponse,
   WaybackSaveResponse,
+  BilibiliSearchResponse,
+  BilibiliVideoDetailResponse,
+  BilibiliUserSearchResponse,
+  BilibiliArticleSearchResponse,
 } from '../types'
 
 export class ApiService extends ApiServiceBase {}
@@ -130,7 +134,10 @@ export interface ApiService {
   waybackSave(url: string, timeout?: number, signal?: AbortSignal): Promise<WaybackSaveResponse>
 
   // === bilibili ===
-  // 当前无直连方法，详见 ./bilibili.ts
+  searchBilibili(keyword: string, maxResults?: number, order?: string, signal?: AbortSignal, timeout?: number): Promise<BilibiliSearchResponse>
+  getBilibiliVideoDetail(bvid: string, signal?: AbortSignal, timeout?: number): Promise<BilibiliVideoDetailResponse>
+  searchBilibiliUsers(keyword: string, maxResults?: number, signal?: AbortSignal, timeout?: number): Promise<BilibiliUserSearchResponse>
+  searchBilibiliArticles(keyword: string, maxResults?: number, signal?: AbortSignal, timeout?: number): Promise<BilibiliArticleSearchResponse>
 }
 
 // 在原型上注入各域方法。顺序无关——各域方法名互不重叠。

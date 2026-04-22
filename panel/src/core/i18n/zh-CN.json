@@ -77,7 +77,15 @@
     "transcriptNotAvailable": "该视频暂无字幕",
     "copyTranscript": "复制字幕",
     "copied": "已复制",
-    "searchPlaceholder": "搜索视频..."
+    "searchPlaceholder": "搜索视频...",
+    "bilibili": "Bilibili",
+    "bilibiliPlaceholder": "搜索 Bilibili 视频...",
+    "bilibiliOrder": "排序",
+    "bilibiliOrderDefault": "综合排序",
+    "bilibiliOrderPlay": "播放最多",
+    "bilibiliOrderPubdate": "最新发布",
+    "bilibiliOrderDanmaku": "弹幕最多",
+    "bilibiliOrderFavorite": "收藏最多"
   },
   "tools": {
     "title": "工具箱",
@@ -316,7 +324,19 @@
     "confirmDisableMessage": "确定要禁用 {{name}} 吗？禁用后该数据源将不再参与搜索。",
     "confirmDisable": "禁用",
     "errorTitle": "加载数据源失败",
-    "errorDescription": "无法获取数据源信息，请检查网络连接后重试"
+    "errorDescription": "无法获取数据源信息，请检查网络连接后重试",
+    "viewSources": "数据源",
+    "viewHealth": "健康检查",
+    "sourceMatrix": "数据源实时状态",
+    "sourceMatrixDesc": "按类别 × 集成类型分布 · 色点代表健康",
+    "healthTitle": "数据源健康检查",
+    "healthDesc": "各数据源的连接状态与配置详情",
+    "colStatus": "状态",
+    "colSource": "数据源",
+    "colCategory": "类型",
+    "colIntegration": "集成类型",
+    "colKey": "所需配置",
+    "colMessage": "说明"
   },
   "config": {
     "title": "配置",

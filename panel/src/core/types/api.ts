@@ -357,8 +357,97 @@ export interface YouTubeTranscriptResponse {
 }
 
 // === Bilibili ===
-// 注：Bilibili 视频搜索通过聚合搜索（/api/v1/search/web?engine=bilibili）使用 VideoResult/VideoSearchResponse。
-// 此处仅保留 SouWen 自身仍在使用的 BV 详情/用户/文章搜索响应结构。
+// 注：除聚合搜索（/api/v1/search/web?engine=bilibili）外，后端还暴露 /api/v1/bilibili/* 直连接口，
+// 这里给出对应的响应结构。
+
+export interface BilibiliSearchItem {
+  bvid: string
+  aid?: number
+  title: string
+  author: string
+  mid?: number
+  play: number
+  danmaku: number
+  favorites?: number
+  description: string
+  duration: string
+  pic: string
+  pubdate?: number
+  tag?: string
+  type?: string
+}
+
+export interface BilibiliSearchResponse {
+  keyword: string
+  results: BilibiliSearchItem[]
+  total: number
+  page: number
+  page_size?: number
+  order?: string
+}
+
+export interface BilibiliVideoDetail {
+  bvid: string
+  aid?: number
+  title: string
+  description?: string
+  pic: string
+  duration?: number | string
+  pubdate?: number
+  owner?: { mid?: number; name?: string; face?: string }
+  stat?: {
+    view?: number
+    danmaku?: number
+    reply?: number
+    favorite?: number
+    coin?: number
+    share?: number
+    like?: number
+  }
+  tags?: string[]
+  [key: string]: unknown
+}
+
+export interface BilibiliVideoDetailResponse {
+  bvid: string
+  data: BilibiliVideoDetail
+}
+
+export interface BilibiliUserItem {
+  mid: number
+  uname: string
+  usign?: string
+  fans?: number
+  videos?: number
+  upic?: string
+  level?: number
+  [key: string]: unknown
+}
+
+export interface BilibiliArticleItem {
+  id: number
+  title: string
+  author?: string
+  view?: number
+  like?: number
+  description?: string
+  image_urls?: string[]
+  [key: string]: unknown
+}
+
+export interface BilibiliUserSearchResponse {
+  keyword: string
+  results: BilibiliUserItem[]
+  total: number
+  page: number
+}
+
+export interface BilibiliArticleSearchResponse {
+  keyword: string
+  results: BilibiliArticleItem[]
+  total: number
+  page: number
+}
 
 // === Wayback Machine ===
 export interface WaybackSnapshot {

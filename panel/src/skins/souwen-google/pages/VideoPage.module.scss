@@ -66,20 +66,21 @@ $transcript-fg: #137333;
   &:hover { background: var(--bg-subtle); color: var(--text); }
 }
 
-/* Active variants — first tab uses YouTube red theme, second uses Bilibili blue, third uses transcript green */
-.tab:nth-child(1).tabActive {
+/* Active variants — tab order: trending(YT red) / search(YT red) / bilibili(blue) / transcript(green) */
+.tab:nth-child(1).tabActive,
+.tab:nth-child(2).tabActive {
   background: $yt-bg;
   color: $yt-fg;
   border-color: transparent;
   > svg { color: $yt-fg; }
 }
-.tab:nth-child(2).tabActive {
+.tab:nth-child(3).tabActive {
   background: $bili-bg;
   color: $bili-fg;
   border-color: transparent;
   > svg { color: $bili-fg; }
 }
-.tab:nth-child(3).tabActive {
+.tab:nth-child(4).tabActive {
   background: $transcript-bg;
   color: $transcript-fg;
   border-color: transparent;
@@ -87,9 +88,10 @@ $transcript-fg: #137333;
 }
 
 [data-mode='dark'] {
-  .tab:nth-child(1).tabActive { background: rgba(197, 34, 31, 0.18); color: #f6b6b3; > svg { color: #f6b6b3; } }
-  .tab:nth-child(2).tabActive { background: rgba(2, 119, 189, 0.20); color: #8ecbf2; > svg { color: #8ecbf2; } }
-  .tab:nth-child(3).tabActive { background: rgba(19, 115, 51, 0.20); color: #92d5a8; > svg { color: #92d5a8; } }
+  .tab:nth-child(1).tabActive,
+  .tab:nth-child(2).tabActive { background: rgba(197, 34, 31, 0.18); color: #f6b6b3; > svg { color: #f6b6b3; } }
+  .tab:nth-child(3).tabActive { background: rgba(2, 119, 189, 0.20); color: #8ecbf2; > svg { color: #8ecbf2; } }
+  .tab:nth-child(4).tabActive { background: rgba(19, 115, 51, 0.20); color: #92d5a8; > svg { color: #92d5a8; } }
 }
 
 /* ===== Panels ===== */
@@ -389,6 +391,24 @@ $transcript-fg: #137333;
 .transcriptText {
   color: var(--text);
   word-break: break-word;
+}
+
+/* ===== Bilibili-specific accents ===== */
+.biliBadge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: $radius-xs;
+  font-size: $text-xs;
+  font-weight: $font-medium;
+  color: $bili-fg;
+  background: $bili-bg;
+}
+
+[data-mode='dark'] .biliBadge {
+  color: #8ecbf2;
+  background: rgba(2, 119, 189, 0.20);
 }
 
 /* ===== Responsive ===== */
