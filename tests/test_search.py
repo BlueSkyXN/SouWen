@@ -12,9 +12,6 @@ from __future__ import annotations
 import asyncio
 import importlib
 from contextlib import AsyncExitStack, asynccontextmanager
-from typing import Any
-
-import pytest
 
 from souwen.models import SearchResponse, SourceType
 from souwen.registry.adapter import MethodSpec, SourceAdapter
