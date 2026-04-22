@@ -120,6 +120,14 @@ export interface ReloadResponse {
 }
 
 /**
+ * 原始 YAML 配置文件内容响应
+ */
+export interface YamlConfigResponse {
+  content: string
+  path: string | null
+}
+
+/**
  * Cloudflare Warp 代理状态
  */
 export interface WarpStatus {
