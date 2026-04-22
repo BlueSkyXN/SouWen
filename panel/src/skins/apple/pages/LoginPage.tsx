@@ -46,6 +46,7 @@ export function LoginPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const setAuth = useAuthStore((s) => s.setAuth)
+  const setRole = useAuthStore((s) => s.setRole)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const addToast = useNotificationStore((s) => s.addToast)
 
@@ -82,6 +83,7 @@ export function LoginPage() {
         await api.verifyAuth(url, '')
         if (cancelled) return
         setAuth(url, '', health.version, remember)
+        try { const whoami = await api.whoami(); setRole(whoami) } catch { /* non-critical */ }
         navigate('/', { replace: true })
       } catch {
         // 服务器需要密码 — 显示登录表单
@@ -106,6 +108,7 @@ export function LoginPage() {
         const health = await api.health(url)
         await api.verifyAuth(url, password)
         setAuth(url, password, health.version, remember)
+        try { const whoami = await api.whoami(); setRole(whoami) } catch { /* non-critical */ }
         setSuccess(true) // 显示成功动画
         addToast('success', t('login.success', { version: health.version }))
         // 延迟 400ms 让动画完成后再导航
@@ -120,7 +123,7 @@ export function LoginPage() {
         setLoading(false)
       }
     },
-    [baseUrl, password, remember, setAuth, addToast, navigate, t],
+    [baseUrl, password, remember, setAuth, setRole, addToast, navigate, t],
   )
 
   // 自动连接中 - 显示加载状态
