@@ -115,111 +115,57 @@ ruff check --fix src/
 ruff format src/
 ```
 
-## 添加新数据源
+## 添加新数据源（V1）
 
-### 1. 创建客户端文件
+V1 把 v0 时代分散的"7 处修改"压缩到 **1-2 处**：
 
-根据数据源类型，在对应目录创建文件：
+1. 实现 `Client` 类（继承 `SouWenHttpClient` / `OAuthClient` / `BaseScraper`）。
+2. 在 `src/souwen/registry/sources.py` 添加一个 `_reg(SourceAdapter(...))`。
+3. 若需要 API Key，在 `src/souwen/config.py` 的 `SouWenConfig` 加字段并在 adapter 里通过 `config_field="..."` 引用。
 
-- 论文：`src/souwen/paper/<source_name>.py`
-- 专利：`src/souwen/patent/<source_name>.py`
-- 搜索引擎：`src/souwen/web/<source_name>.py`
+完整步骤、模板与一致性测试要求请看 **[adding-a-source.md](./adding-a-source.md)**。
 
-### 2. 选择基类
+> 注意：V1 注册表会被 `tests/registry/test_consistency.py` 守护——`client_loader` 指向的类、`MethodSpec.method_name`、`param_map` 的目标参数、`config_field` 是否在 `SouWenConfig` 中存在等都会被自动校验，新增源**必须**让该测试通过。
 
-- **有正式 API**：继承 `SouWenHttpClient`
-- **需要 HTML 爬取**：继承 `BaseScraper`
-- **需要 OAuth**：继承 `OAuthClient`
+## V0 / V1 兼容规则
 
-### 3. 实现搜索方法
+V1 重构期间（v0.9.x 过渡版本）必须保持以下兼容性：
 
-```python
-from souwen.http_client import SouWenHttpClient
-from souwen.models import SearchResponse, PaperResult, SourceType
+- ✅ **保留 v0 公开入口**：`souwen.search.search_papers / search_patents / web_search`、`souwen.web.fetch.fetch_content`、`souwen.web.wayback.WaybackClient` 等仍然可用，内部转发到 `souwen.facade.*`。
+- ✅ **保留 `souwen.models.SourceType` 与 `ALL_SOURCES`**：现在由 `registry.views.enum_values()` / `as_all_sources_dict()` 派生，但导出名不变。
+- ✅ **保留 v0 配置字段**：`SouWenConfig` 的所有 flat key（如 `tavily_api_key`）在 V1 仍可用；新增源若选用 flat key 需同时支持 `sources.<name>.api_key` 频道覆盖。
+- ✅ **shim 模块**：`souwen.scraper.base` / `souwen.http_client` / `souwen.fingerprint` 仍存在，内部 `from souwen.core.* import *`。请在新代码中**优先使用 `souwen.core.*` 路径**。
+- ❌ **不要新增 v0 风格的 dispatcher dict**：搜索路由、`source_map`、`engine_map` 等都已下沉到 registry 派发，新源不要再去改 `search.py` / `web/search.py`。
+- ❌ **不要绕过 registry**：CLI / 服务端 / MCP / 文档生成都应通过 `souwen.registry` 查询，避免再次出现"信息散落 7 处"的旧问题。
 
-class MySourceClient(SouWenHttpClient):
-    def __init__(self, api_key: str | None = None):
-        config = get_config()
-        self.api_key = api_key or config.my_source_api_key
-        super().__init__(base_url="https://api.example.com")
+## 提交规范（Conventional Commits）
 
-    async def search(self, query: str, per_page: int = 10) -> SearchResponse:
-        resp = await self.get("/search", params={"q": query, "limit": per_page})
-        data = resp.json()
-        results = [self._parse_result(item) for item in data["results"]]
-        return SearchResponse(
-            query=query,
-            source=SourceType.my_source,
-            total_results=data.get("total"),
-            results=results,
-            per_page=per_page,
-        )
+提交信息遵循 [Conventional Commits 1.0](https://www.conventionalcommits.org/)：
 
-    def _parse_result(self, item: dict) -> PaperResult:
-        return PaperResult(
-            source=SourceType.my_source,
-            title=item["title"],
-            # ... 映射所有字段
-        )
+```
+<type>(<scope>): <subject>
+
+[optional body]
+
+[optional footer(s)]
 ```
 
-### 4. 注册数据源
+常用 `type`：`feat` / `fix` / `docs` / `refactor` / `test` / `chore` / `perf`。`scope` 推荐使用 domain 名（`paper` / `patent` / `web` / `social` / `video` / `registry` / `facade` / `panel` / `docker` 等）。
 
-1. **models.py** — 在 `SourceType` 枚举中添加新值：
+示例：
 
-   ```python
-   class SourceType(str, Enum):
-       my_source = "my_source"
-   ```
-
-2. **models.py** — 在 `ALL_SOURCES` 中添加条目：
-
-   ```python
-   ALL_SOURCES = {
-       "paper": [
-           # ...
-           ("my_source", True, "My Source 描述"),  # (名称, 需要Key, 描述)
-       ],
-   }
-   ```
-
-3. **config.py** — 如需配置字段，在 `SouWenConfig` 中添加：
-
-   ```python
-   my_source_api_key: str | None = None
-   ```
-
-4. **search.py** — 在对应搜索函数中添加路由：
-
-   ```python
-   # search_papers() 中的 source_map
-   "my_source": lambda: _run_client(MySourceClient, "search", query=query, per_page=per_page),
-   ```
-
-5. **`__init__.py`** — 在模块的 `__init__.py` 中导出客户端类
-
-### 5. 添加测试
-
-在 `tests/` 目录创建测试文件，使用 `pytest-httpx` mock HTTP 请求：
-
-```python
-import pytest
-from souwen.paper.my_source import MySourceClient
-
-@pytest.fixture
-def mock_response(httpx_mock):
-    httpx_mock.add_response(
-        url="https://api.example.com/search",
-        json={"results": [{"title": "Test Paper"}], "total": 1},
-    )
-
-@pytest.mark.asyncio
-async def test_search(mock_response):
-    async with MySourceClient(api_key="test") as client:
-        resp = await client.search("test query")
-        assert len(resp.results) == 1
-        assert resp.results[0].title == "Test Paper"
 ```
+feat(registry): add aliyun_iqs as web search provider
+fix(scraper): retry on curl_cffi connection reset
+docs(api): document /api/v1/sitemap endpoint
+refactor(core): move BaseScraper into core/scraper
+```
+
+## 分支策略
+
+- `main` — 受保护的发布分支，CI 必须全绿才能合并。
+- `feat/*` `fix/*` `docs/*` — 特性 / 缺陷 / 文档分支，从 `main` 切出，PR 合并后删除。
+- 重大重构（如 V1）使用专门的长寿命分支，期间通过 RFC 文档（`local/`）跟踪决策。
 
 ## PR 流程
 

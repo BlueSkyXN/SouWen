@@ -116,3 +116,104 @@ general:
 ```
 
 每次请求随机选取一个代理，分散请求来源。对于高风险目标（如 Google），强烈建议配置代理。
+
+## SSRF 防护（fetch / links / sitemap）
+
+V1 的 `/api/v1/fetch`、`/links`、`/sitemap` 端点在抓取前对每个 URL 调用 `souwen.web.fetch.validate_fetch_url(url)`：
+
+1. 仅允许 `http` / `https` scheme；
+2. DNS 解析所有 A/AAAA 记录；
+3. 拒绝**任一**解析结果落在私有段（10/8、172.16/12、192.168/16）、回环（127/8、::1）、链路本地（169.254/16、fe80::/10）、保留段、组播段；
+4. 重定向跟随过程中**逐跳**重新校验，防止多跳 SSRF。
+
+被 SSRF 拦截的 URL 仍会出现在响应的 `results` 中，但 `error` 字段会标注 `ssrf_blocked` 类的原因，方便客户端区分。
+
+## WARP（Cloudflare 代理）
+
+WARP 以 SOCKS5 形式暴露给 SouWen，是绕过区域 / IP 风控的关键一环。V1 同时支持两种实现：
+
+| 模式 | 实现 | 需要权限 | 适用场景 |
+|------|------|---------|----------|
+| `wireproxy` | 用户态 WireGuard → SOCKS5 | 无 | 任何容器 / 主机，开箱即用 |
+| `kernel` | 内核 WireGuard + microsocks | `NET_ADMIN` + `/dev/net/tun` | 高吞吐场景，性能更好 |
+| `auto` | 启动时自动检测：`kernel` > `wireproxy` | — | 默认推荐 |
+
+### 启动方式
+
+**方式 A — 容器入口脚本（推荐）**
+
+`scripts/warp-init.sh` 由 `entrypoint.sh` 调用，根据环境变量自动准备 wgcf / wireproxy 配置：
+
+```bash
+docker run -d \
+  -e WARP_ENABLED=1 \
+  -e WARP_MODE=auto \
+  -e WARP_SOCKS_PORT=1080 \
+  --cap-add NET_ADMIN \
+  --device /dev/net/tun \
+  -p 8000:8000 \
+  ghcr.io/blueskyxn/souwen
+```
+
+入口脚本会把状态写入 `/run/souwen-warp.json`，Python 端的 `WarpManager` 启动时通过 `reconcile()` 同步。
+
+**方式 B — 运行时通过管理 API 切换**
+
+```bash
+# 启用（使用 admin_password）
+curl -X POST 'http://localhost:8000/api/v1/admin/warp/enable?mode=auto&socks_port=1080' \
+     -H "Authorization: Bearer $ADMIN_PASSWORD"
+
+# 查询状态
+curl 'http://localhost:8000/api/v1/admin/warp' -H "Authorization: Bearer $ADMIN_PASSWORD"
+
+# 禁用
+curl -X POST 'http://localhost:8000/api/v1/admin/warp/disable' -H "Authorization: Bearer $ADMIN_PASSWORD"
+```
+
+`get_status()` 返回 `{status, mode, owner, socks_port, ip, pid, interface, last_error, available_modes}`，`owner` 字段用于区分进程归属（`shell`=容器入口启动，`python`=运行时管理 API 启动）。
+
+### 让单源走 WARP
+
+不必把整个 SouWen 走 WARP，直接在频道配置里把高风险源切到 WARP：
+
+```yaml
+sources:
+  google:        { proxy: warp }
+  baidu:         { proxy: warp }
+  google_patents:{ proxy: warp }
+  twitter:       { proxy: warp }
+```
+
+`SouWenConfig.resolve_proxy(source)` 在解析 `proxy: warp` 时会返回 `socks5://localhost:{warp_socks_port}`，再交给 `BaseScraper` / `SouWenHttpClient`。
+
+## 数据源专属网络要求
+
+| 源 | 网络/反爬要求 | 建议配置 |
+|----|--------------|----------|
+| `google`, `bing`, `baidu`, `yandex`, `mojeek` | 高风险 SERP，IP 容易被 Captcha | `http_backend: curl_cffi` + `proxy: warp` 或代理池 |
+| `google_patents` | JS 渲染 + Captcha 风控 | `http_backend: curl_cffi`，必要时启用 Playwright 池 |
+| `twitter / x` | 必须官方 Bearer Token，地区限制 | 配 `twitter_bearer_token` + WARP |
+| `bilibili` | 部分接口要求授权 + 风控（403 RiskControl） | 设置 `bilibili_sessdata`，控制频率 |
+| `duckduckgo` | 偶发风控弹窗，对 TLS 指纹敏感 | `http_backend: curl_cffi` |
+| `cnipa` (中国知识产权局) | OAuth + 仅大陆 IP 可达 | 关闭 WARP；走大陆出口或不配代理 |
+| `wayback` | IA 全局速率约 15 次/分钟 | 控制 `archive_save` 调用频率 |
+
+## 全局开关与可选依赖
+
+```bash
+# 完整安装（含 TLS 指纹 + Playwright + trafilatura）
+pip install -e .[scraper,web]
+playwright install chromium
+
+# 仅 TLS 指纹
+pip install -e .[tls]
+```
+
+未安装 `curl_cffi` 时所有爬虫源会自动回退 `httpx`，TLS 指纹模拟将被禁用——只要没把 `default_http_backend` 强制设为 `curl_cffi`，即可正常运行。
+
+## 交叉引用
+
+- 代理 / 频道配置语义：[configuration.md](./configuration.md#数据源频道配置sources)
+- WARP 管理 REST 端点：[api-reference.md](./api-reference.md#post-apiv1adminwarpenable)
+- 添加新 scraper 类源：[adding-a-source.md](./adding-a-source.md)

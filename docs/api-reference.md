@@ -2,6 +2,8 @@
 
 > SouWen 公开 API、数据模型、CLI 命令与 MCP 工具
 
+> **V1 架构提示**：所有路由都派发到 `souwen.facade.*`（统一门面层），门面再通过 `souwen.registry`（单一事实源）挑选 Client。新增数据源不需要改路由，参见 [adding-a-source.md](./adding-a-source.md)。
+
 > **⚠️ 声明：本项目仅供 Python 学习与技术研究使用。**
 > 涵盖的学习方向包括：API 对接与聚合、全栈开发（FastAPI + React）、爬虫技术（TLS 指纹 / 浏览器池化 / 反爬绕过）、CLI 开发（Rich / Click）、异步编程（asyncio / httpx）等。
 > 请勿将本项目用于任何违反相关法律法规或第三方服务条款的用途。
@@ -682,3 +684,85 @@ python -m souwen.integrations.mcp_server
 返回：JSON `FetchResponse` 对象（含 `results`、`total`、`total_ok`、`total_failed`）。
 
 > 共 5 个 MCP 工具：`search_papers`、`search_patents`、`web_search`、`get_status`、`fetch_content`（PR #23）。
+
+---
+
+## 多媒体与扩展端点（V1 新增）
+
+下列端点在 V1 中陆续随领域子包接入，统一受 `check_search_auth` + `rate_limit_search` 保护。
+
+### 图片 / 视频（DuckDuckGo）
+
+#### `GET /api/v1/search/images`
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `q` | string (1-500) | *(必填)* | 关键词 |
+| `max_results` | int (1-100) | `20` | 最大结果数 |
+| `region` | string | `wt-wt` | 区域（`wt-wt`=全球，`cn-zh`=中国） |
+| `safesearch` | string | `moderate` | `on` / `moderate` / `off` |
+| `timeout` | float (1-120) \| null | `null` | 端点硬超时秒数 |
+
+#### `GET /api/v1/search/videos`
+
+参数同 `/search/images`，返回 `title / duration / publisher / thumbnail / embed_url` 等字段。
+
+### YouTube Data API
+
+需配置 `youtube_api_key`，缺失时返回 `503`。
+
+| 端点 | 主要参数 | 说明 |
+|------|----------|------|
+| `GET /api/v1/youtube/trending` | `region`, `category`, `max_results` | 按地区/分类拉取热门视频 |
+| `GET /api/v1/youtube/video/{video_id}` | — | 视频详情（含播放/点赞/评论统计） |
+| `GET /api/v1/youtube/transcript/{video_id}` | `lang` | 提取字幕（**零配额**，页面抓取方式） |
+
+### Wayback Machine（archive 域）
+
+| 端点 | 认证 | 主要参数 | 说明 |
+|------|------|----------|------|
+| `GET /api/v1/wayback/cdx` | 访客 | `url`, `from`, `to`, `limit`, `filter_status`, `collapse` | URL 历史快照列表 |
+| `GET /api/v1/wayback/check` | 访客 | `url`, `timestamp` | 快照可用性查询 |
+| `POST /api/v1/admin/wayback/save` | 管理 | `url`, `timeout` | 触发即时存档（IA 全局速率约 15 次/分钟） |
+
+### 链接与 sitemap 工具（fetch 域）
+
+需要管理密码（含 SSRF 风险）。
+
+| 端点 | 主要参数 | 说明 |
+|------|----------|------|
+| `GET /api/v1/links` | `url`, `base_url`, `limit` (1-1000) | 提取页面 `<a href>` 链接，去重 + SSRF 过滤 |
+| `GET /api/v1/sitemap` | `url`, `discover`, `limit` (1-50000) | 解析 sitemap.xml / sitemap index / gzip；`discover=true` 时从 robots.txt 自动发现 |
+
+### Bilibili（video / social 域）
+
+`prefix=/api/v1/bilibili`，受访客认证保护。错误码映射：`BilibiliNotFound→404`、`BilibiliAuthRequired→401`、`BilibiliRateLimited→429`、`BilibiliRiskControl→403`、`BilibiliError→502`。
+
+| 端点 | 主要参数 | 说明 |
+|------|----------|------|
+| `GET /api/v1/bilibili/video/{bvid}` | — | 视频详情（标题、UP、统计、标签） |
+| `GET /api/v1/bilibili/search` | `keyword`, `max_results` (1-50), `order` | 视频搜索（`order` ∈ totalrank/click/pubdate/dm/stow） |
+| `GET /api/v1/bilibili/search/users` | `keyword`, `page`, `max_results` | 用户搜索 |
+| `GET /api/v1/bilibili/search/articles` | `keyword`, `page`, `max_results` | 专栏文章搜索 |
+
+### 数据源频道配置（V1 admin）
+
+| 端点 | 说明 |
+|------|------|
+| `GET /api/v1/admin/sources/config` | 列出所有源的频道配置（`enabled / proxy / http_backend / base_url / has_api_key / headers / params / category / integration_type`） |
+| `GET /api/v1/admin/sources/config/{source_name}` | 单源频道配置（404 未知源） |
+| `PUT /api/v1/admin/sources/config/{source_name}` | JSON 体更新单源运行时配置（避免 Key 入日志），重启不持久化 |
+| `GET /api/v1/admin/proxy` / `PUT` | 全局 `proxy` 与 `proxy_pool` 读写（含 SOCKS 依赖检查） |
+| `GET /api/v1/admin/http-backend` / `PUT` | HTTP 后端总览与按源覆盖（`auto`/`curl_cffi`/`httpx`） |
+
+请求体示例（`PUT /api/v1/admin/sources/config/duckduckgo`）：
+
+```json
+{
+  "enabled": true,
+  "proxy": "warp",
+  "http_backend": "curl_cffi"
+}
+```
+
+> 完整字段语义见 [configuration.md](./configuration.md#数据源频道配置sources)。

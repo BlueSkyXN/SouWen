@@ -1,4 +1,30 @@
 {
+  "domains": {
+    "paper": "论文",
+    "patent": "专利",
+    "web": "网页",
+    "social": "社交",
+    "video": "视频",
+    "knowledge": "知识库",
+    "developer": "开发者",
+    "cn_tech": "中文技术",
+    "office": "办公",
+    "archive": "归档"
+  },
+  "capabilities": {
+    "search": "搜索",
+    "search_news": "搜索新闻",
+    "search_images": "搜索图片",
+    "search_videos": "搜索视频",
+    "search_articles": "搜索文章",
+    "search_users": "搜索用户",
+    "get_detail": "获取详情",
+    "get_trending": "获取热门",
+    "get_transcript": "获取字幕",
+    "fetch": "抓取内容",
+    "archive_lookup": "查询归档",
+    "archive_save": "保存归档"
+  },
   "app": {
     "name": "SouWen 搜文",
     "subtitle": "学术搜索聚合引擎 · 管理面板",

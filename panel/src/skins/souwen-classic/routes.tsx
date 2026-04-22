@@ -14,7 +14,7 @@
  * 导出格式：JSX Fragment 包含 <Route> 元素，由父 Router 组件加载
  */
 
-import { Route } from 'react-router-dom'
+import { Route, Navigate } from 'react-router-dom'
 import { DashboardPage } from './pages/DashboardPage'
 import { SearchPage } from './pages/SearchPage'
 import { FetchPage } from './pages/FetchPage'
@@ -27,7 +27,8 @@ import { ConfigPage } from './pages/ConfigPage'
 export const skinRoutes = (
   <>
     <Route path="/" element={<DashboardPage />} />
-    <Route path="/search" element={<SearchPage />} />
+    <Route path="/search" element={<Navigate to="/search/paper" replace />} />
+    <Route path="/search/:domain" element={<SearchPage />} />
     <Route path="/fetch" element={<FetchPage />} />
     <Route path="/video" element={<VideoPage />} />
     <Route path="/tools" element={<ToolsPage />} />
