@@ -15,6 +15,8 @@ concurrency:
 
 permissions:
   contents: write
+  actions: write
+  pull-requests: write
 
 jobs:
   auto-format:
@@ -44,11 +46,28 @@ jobs:
         run: ruff format src/ tests/
 
       - name: 提交格式化修复
+        id: auto-commit
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
           commit_message: "style: auto-format (ruff check --fix + ruff format)"
           commit_author: "github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
           file_pattern: "src/**/*.py tests/**/*.py"
+
+      - name: 触发 CI 重新检查
+        if: steps.auto-commit.outputs.changes_detected == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "🔄 格式化已修复，触发 CI 重新运行..."
+          gh workflow run ci.yml --ref "${{ github.head_ref }}"
+
+      - name: PR 评论通知
+        if: steps.auto-commit.outputs.changes_detected == 'true' && github.event_name == 'pull_request'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh pr comment "${{ github.event.pull_request.number }}" \
+            --body "🤖 **Auto-format**: 已自动修复代码格式并提交，CI 已触发重新检查。"
 
       - name: 最终格式检查（Gate）
         run: ruff format --check src/ tests/
