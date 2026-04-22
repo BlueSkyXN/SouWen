@@ -1,13 +1,28 @@
-"""管理端配置查看与重载 — /admin/config、/admin/config/reload"""
+"""管理端配置查看与重载 — /admin/config、/admin/config/reload、/admin/config/yaml"""
 
 from __future__ import annotations
 
-from fastapi import APIRouter
+from pathlib import Path
+
+from fastapi import APIRouter, HTTPException
 
 from souwen.server.routes._common import _is_secret_field
-from souwen.server.schemas import ConfigReloadResponse
+from souwen.server.schemas import ConfigReloadResponse, YamlConfigResponse, YamlConfigSaveRequest
 
 router = APIRouter()
+
+_YAML_CANDIDATES = [
+    Path("souwen.yaml"),
+    Path("~/.config/souwen/config.yaml").expanduser(),
+]
+
+
+def _find_config_path() -> Path | None:
+    """返回当前存在的配置文件路径，不存在返回 None。"""
+    for p in _YAML_CANDIDATES:
+        if p.is_file():
+            return p
+    return None
 
 
 @router.get("/config")
@@ -34,5 +49,71 @@ async def reload_config_endpoint():
     cfg = reload_config()
     return {
         "status": "ok",
+        "password_set": cfg.effective_admin_password is not None,
+    }
+
+
+@router.get("/config/yaml", response_model=YamlConfigResponse)
+async def get_config_yaml():
+    """获取原始 YAML 配置文件内容 — 管理端点。
+
+    若未找到配置文件，返回内置默认模板（path 为 None）。
+    """
+    try:
+        import yaml as _yaml  # noqa: F401
+    except ImportError:
+        raise HTTPException(status_code=500, detail="PyYAML 未安装，无法读取 YAML 配置")
+
+    path = _find_config_path()
+    if path is None:
+        from souwen.config.template import _DEFAULT_CONFIG_TEMPLATE
+
+        return YamlConfigResponse(content=_DEFAULT_CONFIG_TEMPLATE, path=None)
+
+    try:
+        content = path.read_text(encoding="utf-8")
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"读取配置文件失败: {exc}")
+
+    return YamlConfigResponse(content=content, path=str(path))
+
+
+@router.put("/config/yaml")
+async def save_config_yaml(body: YamlConfigSaveRequest):
+    """保存 YAML 配置文件并重载 — 管理端点。
+
+    先校验 YAML 语法，再写入配置文件，最后重载并返回结果。
+    若当前无配置文件，写入 ~/.config/souwen/config.yaml。
+    """
+    try:
+        import yaml as _yaml
+    except ImportError:
+        raise HTTPException(status_code=500, detail="PyYAML 未安装，无法写入 YAML 配置")
+
+    # 语法校验
+    try:
+        _yaml.safe_load(body.content)
+    except _yaml.YAMLError as exc:
+        raise HTTPException(status_code=422, detail=f"YAML 语法错误: {exc}")
+
+    # 确定写入路径
+    target = _find_config_path()
+    if target is None:
+        target = Path("~/.config/souwen/config.yaml").expanduser()
+        target.parent.mkdir(parents=True, exist_ok=True)
+
+    try:
+        target.write_text(body.content, encoding="utf-8")
+    except OSError as exc:
+        raise HTTPException(status_code=500, detail=f"写入配置文件失败: {exc}")
+
+    # 重载配置
+    from souwen.config import reload_config
+
+    cfg = reload_config()
+
+    return {
+        "status": "ok",
+        "path": str(target),
         "password_set": cfg.effective_admin_password is not None,
     }
