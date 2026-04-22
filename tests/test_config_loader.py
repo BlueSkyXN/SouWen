@@ -29,6 +29,7 @@ def _isolate_filesystem(monkeypatch, tmp_path):
     """每个用例切到独立 tmp_path 工作目录并重写 HOME，避免误读真实配置文件。"""
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
     get_config.cache_clear()
     yield
     get_config.cache_clear()
