@@ -581,7 +581,7 @@ Cache-Control: public, max-age=3600
 |------|------|--------|------|
 | `urls` | `list[str]` (1-20) | *(必填)* | 目标 URL 列表 |
 | `provider` | `string` | `"builtin"` | 提供者: `builtin` / `jina_reader` / `tavily` / `firecrawl` / `exa` / `crawl4ai` / `scrapfly` / `diffbot` / `scrapingbee` / `zenrows` / `scraperapi` / `apify` / `cloudflare` / `wayback` / `newspaper` / `readability` / `mcp` / `site_crawler` / `deepwiki` |
-| `timeout` | `float` (1-300) | `30` | 每 URL 超时秒数 |
+| `timeout` | `float` (1-120) | `30` | 每 URL 超时秒数 |
 
 **请求示例：**
 ```json

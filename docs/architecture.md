@@ -41,7 +41,7 @@
 │   souwen.core.exceptions        全部异常类型                   │
 │   souwen.core.parsing           HTML/JSON 辅助                 │
 │   souwen.core.concurrency       per-loop Semaphore（D12）      │
-│   souwen.core.models            Pydantic 模型（SourceType 等） │
+│   souwen.models                 Pydantic 模型（SourceType 等） │
 └────────────────────────────────────────────────────────────────┘
 ```
 

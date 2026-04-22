@@ -14,9 +14,6 @@ pip install -e ".[dev]"
 
 # 安装爬虫可选依赖（TLS 指纹模拟）
 pip install -e ".[scraper]"
-
-# 安装 Playwright 浏览器
-playwright install chromium
 ```
 
 ## 运行测试
