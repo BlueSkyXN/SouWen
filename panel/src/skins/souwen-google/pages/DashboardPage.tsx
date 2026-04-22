@@ -158,6 +158,7 @@ export function DashboardPage() {
   const [fetchError, setFetchError] = useState(false)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
   const version = useAuthStore((s) => s.version)
+  const role = useAuthStore((s) => s.role)
   const addToast = useNotificationStore((s) => s.addToast)
 
   const fetchData = useCallback(async () => {
@@ -237,6 +238,9 @@ export function DashboardPage() {
               <span className={styles.statusText}>{t('dashboard.running')}</span>
             </div>
             <Badge color="gray">{version || '—'}</Badge>
+            <Badge color={role === 'admin' ? 'green' : role === 'user' ? 'blue' : 'gray'}>
+              {role === 'admin' ? '管理员' : role === 'user' ? '用户' : '游客'}
+            </Badge>
           </div>
           <div className={styles.headerRight}>
             <span className={styles.headerLabel}>{t('dashboard.availableSources')}</span>

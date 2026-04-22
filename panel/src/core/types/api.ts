@@ -552,3 +552,19 @@ export interface SitemapResult {
   sitemaps_parsed: number
   errors: string[]
 }
+
+/* ===== Auth / Whoami ===== */
+
+/**
+ * 角色枚举（与后端 Role IntEnum 对齐）
+ */
+export type UserRole = 'guest' | 'user' | 'admin'
+
+/**
+ * /api/v1/whoami 响应
+ */
+export interface WhoamiResponse {
+  role: UserRole
+  features: Record<string, boolean | string>
+  guest_enabled: boolean
+}

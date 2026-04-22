@@ -60,6 +60,7 @@
  */
 
 import { create } from 'zustand'
+import type { UserRole, WhoamiResponse } from '../types'
 
 /**
  * 认证状态树接口
@@ -70,10 +71,17 @@ interface AuthState {
   isAuthenticated: boolean
   version: string
   issuedAt: number // token 发放时间戳 (ms since epoch)；0 表示未登录
+  role: UserRole // 当前角色（从 /whoami 获取）
+  features: Record<string, boolean | string> // 可用功能映射
   setAuth: (baseUrl: string, token: string, version: string, remember?: boolean) => void
+  setRole: (data: WhoamiResponse) => void // 更新角色信息
   logout: () => void
   loadFromStorage: () => void
   isExpired: (ttlMs?: number) => boolean
+  hasFeature: (key: string) => boolean // 检查是否有某项功能
+  isAdmin: () => boolean
+  isUser: () => boolean
+  isGuest: () => boolean
 }
 
 // 默认 token 有效期：30 分钟。超过则视为过期，组件挂载时会自动登出
@@ -89,6 +97,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   isAuthenticated: false,
   version: '',
   issuedAt: 0,
+  role: 'guest' as UserRole,
+  features: {},
 
   /**
    * 设置认证状态（登录）
@@ -128,20 +138,31 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   },
 
   /**
-   * 登出
+   * 更新角色信息（从 /whoami 响应）
+   */
+  setRole: (data: WhoamiResponse) => {
+    set({ role: data.role, features: data.features })
+    // 持久化角色到当前存储
+    const storage = localStorage.getItem('souwen_remember') ? localStorage : sessionStorage
+    storage.setItem('souwen_role', data.role)
+  },
+
+  /**
    * 清空所有认证状态和本地存储
    */
   logout: () => {
-    set({ baseUrl: '', token: '', isAuthenticated: false, version: '', issuedAt: 0 })
+    set({ baseUrl: '', token: '', isAuthenticated: false, version: '', issuedAt: 0, role: 'guest' as UserRole, features: {} })
     localStorage.removeItem('souwen_baseUrl')
     localStorage.removeItem('souwen_token')
     localStorage.removeItem('souwen_version')
     localStorage.removeItem('souwen_issuedAt')
     localStorage.removeItem('souwen_remember')
+    localStorage.removeItem('souwen_role')
     sessionStorage.removeItem('souwen_baseUrl')
     sessionStorage.removeItem('souwen_token')
     sessionStorage.removeItem('souwen_version')
     sessionStorage.removeItem('souwen_issuedAt')
+    sessionStorage.removeItem('souwen_role')
   },
 
   /**
@@ -154,14 +175,14 @@ export const useAuthStore = create<AuthState>((set, get) => ({
    *   3. 若 baseUrl 非空，表示有有效登录，更新状态为已认证
    */
   loadFromStorage: () => {
-    // 优先 sessionStorage（更安全）；回退 localStorage（记住我）
     const baseUrl = sessionStorage.getItem('souwen_baseUrl') ?? localStorage.getItem('souwen_baseUrl') ?? ''
     const token = sessionStorage.getItem('souwen_token') ?? localStorage.getItem('souwen_token') ?? ''
     const version = sessionStorage.getItem('souwen_version') ?? localStorage.getItem('souwen_version') ?? ''
     const issuedAtRaw = sessionStorage.getItem('souwen_issuedAt') ?? localStorage.getItem('souwen_issuedAt') ?? '0'
     const issuedAt = Number(issuedAtRaw) || 0
+    const role = (sessionStorage.getItem('souwen_role') ?? localStorage.getItem('souwen_role') ?? 'guest') as UserRole
     if (baseUrl) {
-      set({ baseUrl, token, isAuthenticated: true, version, issuedAt })
+      set({ baseUrl, token, isAuthenticated: true, version, issuedAt, role })
     }
   },
 
@@ -175,4 +196,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     if (!issuedAt) return true
     return Date.now() - issuedAt > ttlMs
   },
+
+  hasFeature: (key: string) => {
+    const { features } = get()
+    return !!features[key]
+  },
+
+  isAdmin: () => get().role === 'admin',
+  isUser: () => get().role === 'user' || get().role === 'admin',
+  isGuest: () => get().role === 'guest',
 }))

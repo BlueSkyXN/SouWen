@@ -26,6 +26,7 @@ import { youtubeMethods } from './youtube'
 import { waybackMethods } from './wayback'
 import { proxyMethods } from './proxy'
 import { bilibiliMethods } from './bilibili'
+import { whoamiMethods } from './whoami'
 import type {
   SearchResponse,
   WebSearchResponse,
@@ -52,6 +53,7 @@ import type {
   BilibiliVideoDetailResponse,
   BilibiliUserSearchResponse,
   BilibiliArticleSearchResponse,
+  WhoamiResponse,
 } from '../types'
 
 export class ApiService extends ApiServiceBase {}
@@ -138,6 +140,9 @@ export interface ApiService {
   getBilibiliVideoDetail(bvid: string, signal?: AbortSignal, timeout?: number): Promise<BilibiliVideoDetailResponse>
   searchBilibiliUsers(keyword: string, maxResults?: number, signal?: AbortSignal, timeout?: number): Promise<BilibiliUserSearchResponse>
   searchBilibiliArticles(keyword: string, maxResults?: number, signal?: AbortSignal, timeout?: number): Promise<BilibiliArticleSearchResponse>
+
+  // === whoami ===
+  whoami(): Promise<WhoamiResponse>
 }
 
 // 在原型上注入各域方法。顺序无关——各域方法名互不重叠。
@@ -154,6 +159,7 @@ Object.assign(
   waybackMethods,
   proxyMethods,
   bilibiliMethods,
+  whoamiMethods,
 )
 
 /**
