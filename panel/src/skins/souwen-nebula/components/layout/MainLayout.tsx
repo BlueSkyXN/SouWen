@@ -134,7 +134,7 @@ export function MainLayout() {
   ) as Record<string, string>
 
   // 获取当前激活的 skin ID
-  const currentSkinId = document.documentElement.getAttribute('data-skin') || 'souwen-classic'
+  const currentSkinId = document.documentElement.getAttribute('data-skin') || 'souwen-nebula'
 
   // 外部点击或 ESC 关闭调色板菜单
   useEffect(() => {

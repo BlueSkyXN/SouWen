@@ -1,7 +1,7 @@
 /**
  * 视频中心页面共享逻辑 Hook
  *
- * 抽取自 souwen-classic 的 VideoPage 组件，包含 Trending / Search / Transcript
+ * 抽取自 souwen-google 的 VideoPage 组件，包含 Trending / Search / Transcript
  * 三个 Tab 的状态管理、API 调用与中止控制器逻辑，以及若干工具函数与常量。
  * 所有皮肤的 VideoPage 仅负责 UI 渲染，业务逻辑统一在此处维护。
  */

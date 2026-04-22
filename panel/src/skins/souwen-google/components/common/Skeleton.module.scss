@@ -1,0 +1,126 @@
+@use '../../styles/variables' as *;
+
+.skeleton {
+  background: var(--bg-subtle);
+  border-radius: var(--radius-sm);
+  position: relative;
+  overflow: hidden;
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      rgba(255, 255, 255, 0.6) 50%,
+      transparent 100%
+    );
+    animation: shimmer 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
+  }
+}
+
+[data-mode='dark'] .skeleton::after {
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.06) 50%,
+    transparent 100%
+  );
+}
+
+@keyframes shimmer {
+  0% { transform: translateX(-100%); }
+  100% { transform: translateX(100%); }
+}
+
+/* Variants */
+.text {
+  height: 14px;
+  width: 60%;
+  border-radius: 8px;
+}
+
+.textShort {
+  height: 14px;
+  width: 35%;
+  border-radius: 8px;
+}
+
+.textLong {
+  height: 14px;
+  width: 85%;
+  border-radius: 8px;
+}
+
+.title {
+  height: 24px;
+  width: 50%;
+  border-radius: 10px;
+}
+
+.circle {
+  border-radius: 50%;
+}
+
+.rect {
+  border-radius: var(--radius-sm);
+}
+
+/* Composite Layouts */
+.statCardSkeleton {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: $space-6 $space-7;
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+}
+
+.statCardHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.tableRowSkeleton {
+  display: flex;
+  align-items: center;
+  gap: $space-4;
+  padding: $space-3 $space-4;
+  border-bottom: 1px solid var(--border);
+}
+
+.resultCardSkeleton {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: $space-6 $space-7;
+  margin-bottom: $space-3;
+  display: flex;
+  flex-direction: column;
+  gap: $space-3;
+}
+
+.statsGridSkeleton {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: $space-4;
+  margin-bottom: $space-8;
+}
+
+.tableWrapSkeleton {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  background: var(--bg-card);
+  overflow: hidden;
+}
+
+.tableHeaderSkeleton {
+  display: flex;
+  gap: $space-8;
+  padding: $space-3 $space-4;
+  background: var(--bg-subtle);
+  border-bottom: 1px solid var(--border);
+}

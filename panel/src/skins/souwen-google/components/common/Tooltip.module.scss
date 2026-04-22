@@ -1,0 +1,92 @@
+@use '../../styles/variables' as *;
+
+.wrapper {
+  position: relative;
+  display: inline-flex;
+}
+
+.bubble {
+  position: absolute;
+  z-index: 50;
+  max-width: 280px;
+  padding: 8px 12px;
+  border-radius: $radius;
+  background: #3c4043;
+  color: #fff;
+  font-size: 12px;
+  font-weight: $font-medium;
+  line-height: $leading-normal;
+  word-wrap: break-word;
+  box-shadow: 0 1px 3px rgba(60, 64, 67, 0.3), 0 4px 8px 3px rgba(60, 64, 67, 0.15);
+  border: none;
+  pointer-events: none;
+  white-space: normal;
+
+  // Arrow base
+  &::after {
+    content: '';
+    position: absolute;
+    width: 8px;
+    height: 8px;
+    background: #3c4043;
+    border: none;
+    transform: rotate(45deg);
+  }
+}
+
+// ─── Positions ───
+.top {
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform-origin: center bottom;
+
+  &::after {
+    bottom: -5px;
+    left: 50%;
+    margin-left: -4px;
+    border-top: none;
+    border-left: none;
+  }
+}
+
+.bottom {
+  top: calc(100% + 8px);
+  left: 50%;
+  transform-origin: center top;
+
+  &::after {
+    top: -5px;
+    left: 50%;
+    margin-left: -4px;
+    border-bottom: none;
+    border-right: none;
+  }
+}
+
+.left {
+  right: calc(100% + 8px);
+  top: 50%;
+  transform-origin: right center;
+
+  &::after {
+    right: -5px;
+    top: 50%;
+    margin-top: -4px;
+    border-bottom: none;
+    border-left: none;
+  }
+}
+
+.right {
+  left: calc(100% + 8px);
+  top: 50%;
+  transform-origin: left center;
+
+  &::after {
+    left: -5px;
+    top: 50%;
+    margin-top: -4px;
+    border-top: none;
+    border-right: none;
+  }
+}

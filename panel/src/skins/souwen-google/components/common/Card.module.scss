@@ -1,0 +1,24 @@
+.card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-xl);
+  padding: 28px;
+  box-shadow: var(--shadow-card);
+  transition:
+    background var(--transition),
+    border-color var(--transition),
+    box-shadow var(--transition);
+
+  &:hover {
+    box-shadow: var(--shadow-card-hover);
+    border-color: var(--border);
+  }
+}
+
+.title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  margin-bottom: 12px;
+  letter-spacing: 0.1px;
+}

@@ -23,8 +23,8 @@
     "paths": {
       "@core": ["src/core"],
       "@core/*": ["src/core/*"],
-      "@skin": ["src/skins/souwen-classic"],
-      "@skin/*": ["src/skins/souwen-classic/*"]
+      "@skin": ["src/skins/souwen-google"],
+      "@skin/*": ["src/skins/souwen-google/*"]
     }
   },
   "include": ["src"]

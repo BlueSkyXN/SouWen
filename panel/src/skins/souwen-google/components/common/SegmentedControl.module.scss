@@ -1,0 +1,62 @@
+@use '../../styles/variables' as *;
+
+.container {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px;
+  background: var(--bg-subtle);
+  border-radius: $radius-full;
+  position: relative;
+}
+
+.option {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 8px 18px;
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  font-size: 13px;
+  font-weight: $font-medium;
+  letter-spacing: 0.1px;
+  border-radius: $radius-full;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+  z-index: 1;
+  white-space: nowrap;
+  user-select: none;
+
+  &:hover:not(.active) {
+    color: var(--text);
+  }
+}
+
+.active {
+  color: #001d35;
+}
+
+.indicator {
+  position: absolute;
+  border-radius: $radius-full;
+  background: #d3e3fd;
+  z-index: 0;
+  // inset is managed by framer-motion layout
+}
+
+[data-mode='dark'] .active {
+  color: #d3e3fd;
+}
+
+[data-mode='dark'] .indicator {
+  background: rgba(26, 115, 232, 0.32);
+}
+
+.iconSlot {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}
