@@ -254,7 +254,7 @@ export function DashboardPage() {
       {/* ── Stats + Health ring ── */}
       <m.div className={styles.statsSection} variants={staggerContainer} initial="initial" animate="animate">
         <div className={styles.statsGrid}>
-          <m.div variants={staggerItem} className={`${styles.statCard} ${styles.statBlue} ${styles.clickable}`} onClick={() => navigate('/search/paper')} role="link" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && navigate('/search/paper')}>
+          <m.div variants={staggerItem} className={`${styles.statCard} ${styles.statBlue} ${styles.clickable}`} onClick={() => navigate('/search/paper')} role="link" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/search/paper')}>
             <div className={styles.statBlob} />
             <div className={styles.statHeader}>
               <div className={`${styles.statIcon} ${styles.iconBlue}`}><FileText size={18} /></div>
@@ -264,7 +264,7 @@ export function DashboardPage() {
             <span className={styles.statTitle}>{t('dashboard.paperSources')}</span>
           </m.div>
 
-          <m.div variants={staggerItem} className={`${styles.statCard} ${styles.statAmber} ${styles.clickable}`} onClick={() => navigate('/search/patent')} role="link" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && navigate('/search/patent')}>
+          <m.div variants={staggerItem} className={`${styles.statCard} ${styles.statAmber} ${styles.clickable}`} onClick={() => navigate('/search/patent')} role="link" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/search/patent')}>
             <div className={styles.statBlob} />
             <div className={styles.statHeader}>
               <div className={`${styles.statIcon} ${styles.iconAmber}`}><Shield size={18} /></div>
@@ -274,7 +274,7 @@ export function DashboardPage() {
             <span className={styles.statTitle}>{t('dashboard.patentSources')}</span>
           </m.div>
 
-          <m.div variants={staggerItem} className={`${styles.statCard} ${styles.statGreen} ${styles.clickable}`} onClick={() => navigate('/search/web')} role="link" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && navigate('/search/web')}>
+          <m.div variants={staggerItem} className={`${styles.statCard} ${styles.statGreen} ${styles.clickable}`} onClick={() => navigate('/search/web')} role="link" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/search/web')}>
             <div className={styles.statBlob} />
             <div className={styles.statHeader}>
               <div className={`${styles.statIcon} ${styles.iconGreen}`}><Globe size={18} /></div>
@@ -284,7 +284,7 @@ export function DashboardPage() {
             <span className={styles.statTitle}>{t('dashboard.webEngines')}</span>
           </m.div>
 
-          <m.div variants={staggerItem} className={`${styles.statCard} ${styles.statIndigo} ${styles.clickable}`} onClick={() => navigate('/sources')} role="link" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && navigate('/sources')}>
+          <m.div variants={staggerItem} className={`${styles.statCard} ${styles.statIndigo} ${styles.clickable}`} onClick={() => navigate('/sources')} role="link" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/sources')}>
             <div className={styles.statBlob} />
             <div className={styles.statHeader}>
               <div className={`${styles.statIcon} ${styles.iconIndigo}`}><Layers size={18} /></div>
@@ -296,7 +296,7 @@ export function DashboardPage() {
         </div>
 
         {/* Health ring card */}
-        <m.div variants={staggerItem} className={`${styles.healthCard} ${styles.clickable}`} onClick={() => navigate('/sources')} role="link" tabIndex={0} onKeyDown={(e) => e.key === 'Enter' && navigate('/sources')}>
+        <m.div variants={staggerItem} className={`${styles.healthCard} ${styles.clickable}`} onClick={() => navigate('/sources')} role="link" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/sources')}>
           <HealthRing pct={healthPct} />
         </m.div>
       </m.div>
