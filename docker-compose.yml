@@ -7,7 +7,7 @@ services:
     # build:
     #   context: .
     #   args:
-    #     SKINS: souwen-classic             # 前端皮肤（默认 all，支持运行时切换）
+    #     SKINS: souwen-google             # 前端皮肤（默认 all，支持运行时切换）
     #     WGCF_VERSION: "2.2.30"            # 自定义 wgcf 版本
     #     WIREPROXY_VERSION: "1.1.2"        # 自定义 wireproxy 版本
     

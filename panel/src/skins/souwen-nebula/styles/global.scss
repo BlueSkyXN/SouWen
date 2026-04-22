@@ -1,7 +1,7 @@
 @use 'variables' as *;
 
 /* ===== CSS Custom Properties ===== */
-html[data-skin='souwen-classic'] {
+html[data-skin='souwen-nebula'] {
   /* Backgrounds */
   --bg: #f8f9fb;
   --bg-card: #ffffff;
@@ -128,7 +128,7 @@ html[data-skin='souwen-classic'] {
   --sp-20: #{$space-20};
 }
 
-html[data-skin='souwen-classic'][data-mode='dark'] {
+html[data-skin='souwen-nebula'][data-mode='dark'] {
   --bg: #0a0a0f;
   --bg-card: #16161d;
   --bg-input: #16161d;
@@ -198,7 +198,7 @@ html[data-skin='souwen-classic'][data-mode='dark'] {
 }
 
 /* ===== Visual Theme: Aurora (teal/cyan) ===== */
-html[data-skin='souwen-classic'][data-scheme='aurora'] {
+html[data-skin='souwen-nebula'][data-scheme='aurora'] {
   --accent: #0d9488;
   --accent-secondary: #06b6d4;
   --accent-tertiary: #14b8a6;
@@ -223,7 +223,7 @@ html[data-skin='souwen-classic'][data-scheme='aurora'] {
   --primary-glow: rgba(13, 148, 136, 0.15);
 }
 
-html[data-skin='souwen-classic'][data-mode='dark'][data-scheme='aurora'] {
+html[data-skin='souwen-nebula'][data-mode='dark'][data-scheme='aurora'] {
   --accent: #2dd4bf;
   --accent-secondary: #22d3ee;
   --accent-tertiary: #5eead4;
@@ -249,7 +249,7 @@ html[data-skin='souwen-classic'][data-mode='dark'][data-scheme='aurora'] {
 }
 
 /* ===== Visual Theme: Obsidian (slate/neutral monochrome) ===== */
-html[data-skin='souwen-classic'][data-scheme='obsidian'] {
+html[data-skin='souwen-nebula'][data-scheme='obsidian'] {
   --accent: #475569;
   --accent-secondary: #64748b;
   --accent-tertiary: #334155;
@@ -274,7 +274,7 @@ html[data-skin='souwen-classic'][data-scheme='obsidian'] {
   --primary-glow: rgba(71, 85, 105, 0.15);
 }
 
-html[data-skin='souwen-classic'][data-mode='dark'][data-scheme='obsidian'] {
+html[data-skin='souwen-nebula'][data-mode='dark'][data-scheme='obsidian'] {
   --accent: #94a3b8;
   --accent-secondary: #cbd5e1;
   --accent-tertiary: #64748b;
@@ -300,12 +300,12 @@ html[data-skin='souwen-classic'][data-mode='dark'][data-scheme='obsidian'] {
 }
 
 /* ===== Skin-specific Base ===== */
-html[data-skin='souwen-classic'] {
+html[data-skin='souwen-nebula'] {
   font-size: #{$text-base};
   text-rendering: optimizeLegibility;
 }
 
-html[data-skin='souwen-classic'] body {
+html[data-skin='souwen-nebula'] body {
   font-family: var(--font);
   background: var(--bg);
   color: var(--text);
@@ -316,7 +316,7 @@ html[data-skin='souwen-classic'] body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-html[data-skin='souwen-classic'] :where(a) {
+html[data-skin='souwen-nebula'] :where(a) {
   color: var(--primary);
   text-decoration: none;
   transition: color var(--transition-fast);
@@ -326,7 +326,7 @@ html[data-skin='souwen-classic'] :where(a) {
 }
 
 /* ===== Button System ===== */
-html[data-skin='souwen-classic'] .btn {
+html[data-skin='souwen-nebula'] .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -348,7 +348,7 @@ html[data-skin='souwen-classic'] .btn {
   }
 }
 
-html[data-skin='souwen-classic'] .btn-primary {
+html[data-skin='souwen-nebula'] .btn-primary {
   background: linear-gradient(to bottom, color-mix(in srgb, var(--primary) 100%, white 8%), var(--primary));
   color: #fff;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.12);
@@ -371,7 +371,7 @@ html[data-skin='souwen-classic'] .btn-primary {
   }
 }
 
-html[data-skin='souwen-classic'] .btn-danger {
+html[data-skin='souwen-nebula'] .btn-danger {
   background: linear-gradient(to bottom, color-mix(in srgb, var(--error) 100%, white 6%), var(--error));
   color: #fff;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1);
@@ -385,17 +385,17 @@ html[data-skin='souwen-classic'] .btn-danger {
   }
 }
 
-html[data-skin='souwen-classic'] .btn-block {
+html[data-skin='souwen-nebula'] .btn-block {
   width: 100%;
 }
 
-html[data-skin='souwen-classic'] .btn-sm {
+html[data-skin='souwen-nebula'] .btn-sm {
   padding: 7px 14px;
   font-size: #{$text-sm};
   gap: 5px;
 }
 
-html[data-skin='souwen-classic'] .btn-outline {
+html[data-skin='souwen-nebula'] .btn-outline {
   background: transparent;
   border: 1px solid var(--border-strong);
   color: var(--text-secondary);
@@ -411,7 +411,7 @@ html[data-skin='souwen-classic'] .btn-outline {
   }
 }
 
-html[data-skin='souwen-classic'] .btn-ghost {
+html[data-skin='souwen-nebula'] .btn-ghost {
   background: transparent;
   border: none;
   color: var(--text-secondary);
@@ -421,7 +421,7 @@ html[data-skin='souwen-classic'] .btn-ghost {
   }
 }
 
-html[data-skin='souwen-classic'] .btn-success {
+html[data-skin='souwen-nebula'] .btn-success {
   background: linear-gradient(to bottom, color-mix(in srgb, var(--success) 100%, white 6%), var(--success));
   color: #fff;
   box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1);
@@ -436,7 +436,7 @@ html[data-skin='souwen-classic'] .btn-success {
 }
 
 /* ===== Scrollbar (classic skin) ===== */
-html[data-skin='souwen-classic'] ::-webkit-scrollbar-thumb {
+html[data-skin='souwen-nebula'] ::-webkit-scrollbar-thumb {
   background: rgba(0, 0, 0, 0.10);
   border-radius: 99px;
   &:hover {
@@ -444,7 +444,7 @@ html[data-skin='souwen-classic'] ::-webkit-scrollbar-thumb {
   }
 }
 
-html[data-skin='souwen-classic'][data-mode='dark'] ::-webkit-scrollbar-thumb {
+html[data-skin='souwen-nebula'][data-mode='dark'] ::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.08);
   &:hover {
     background: rgba(255, 255, 255, 0.16);

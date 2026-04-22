@@ -1,0 +1,79 @@
+@use '../../styles/variables' as *;
+
+.accordion {
+  border-radius: $radius-xl;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  margin-bottom: $space-2;
+  overflow: hidden;
+  transition: background var(--transition), border-color var(--transition), box-shadow var(--transition);
+}
+
+.open {
+  box-shadow: var(--shadow-card);
+}
+
+.trigger {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  width: 100%;
+  padding: $space-4 $space-5;
+  border: none;
+  background: none;
+  cursor: pointer;
+  text-align: left;
+  color: var(--text);
+  transition: background var(--transition-fast);
+
+  &:hover {
+    background: var(--bg-subtle);
+  }
+}
+
+.iconSlot {
+  display: flex;
+  align-items: center;
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.titleGroup {
+  flex: 1;
+  min-width: 0;
+}
+
+.title {
+  font-size: 15px;
+  font-weight: $font-medium;
+  color: var(--text);
+  line-height: $leading-tight;
+}
+
+.description {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: $leading-normal;
+  margin-top: 4px;
+}
+
+.chevron {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+  transition: transform 0.25s cubic-bezier(0.2, 0, 0, 1);
+}
+
+.chevronOpen {
+  transform: rotate(180deg);
+}
+
+.content {
+  overflow: hidden;
+}
+
+.inner {
+  padding: 0 $space-5 $space-5;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: $leading-relaxed;
+}

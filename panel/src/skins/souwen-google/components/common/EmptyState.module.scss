@@ -1,0 +1,53 @@
+@use '../../styles/variables' as *;
+
+.emptyState {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: $space-16 $space-6;
+  text-align: center;
+}
+
+.illustration {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  background: #e8f0fe;
+  color: var(--primary);
+  margin-bottom: $space-6;
+
+  svg, img {
+    width: 48px;
+    height: 48px;
+  }
+}
+
+.title {
+  font-size: 22px;
+  font-weight: $font-normal;
+  color: var(--text);
+  margin-bottom: $space-2;
+  letter-spacing: 0;
+  line-height: 1.3;
+}
+
+.description {
+  font-size: 15px;
+  color: var(--text-secondary);
+  max-width: 400px;
+  line-height: 1.6;
+  margin-bottom: $space-6;
+}
+
+.action {
+  margin-top: $space-2;
+}
+
+[data-mode='dark'] .illustration {
+  background: rgba(26, 115, 232, 0.18);
+  color: #8ab4f8;
+}

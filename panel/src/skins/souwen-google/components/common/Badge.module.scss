@@ -1,0 +1,78 @@
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 10px;
+  border-radius: var(--radius-full);
+  font-size: 12px;
+  font-weight: 500;
+  line-height: 1.4;
+  white-space: nowrap;
+  letter-spacing: 0.1px;
+  border: 1px solid transparent;
+}
+
+.green {
+  background: #e6f4ea;
+  color: #137333;
+}
+
+.blue {
+  background: #e8f0fe;
+  color: #1967d2;
+}
+
+.amber {
+  background: #fef7e0;
+  color: #b06000;
+}
+
+.red {
+  background: #fce8e6;
+  color: #c5221f;
+}
+
+.gray {
+  background: var(--bg-subtle);
+  color: var(--text-secondary);
+}
+
+.indigo {
+  background: #e8eaf6;
+  color: #3f51b5;
+}
+
+.teal {
+  background: #e0f2f1;
+  color: #00796b;
+}
+
+[data-mode='dark'] .green {
+  background: rgba(30, 142, 62, 0.24);
+  color: #81c995;
+}
+
+[data-mode='dark'] .blue {
+  background: rgba(26, 115, 232, 0.24);
+  color: #8ab4f8;
+}
+
+[data-mode='dark'] .amber {
+  background: rgba(249, 171, 0, 0.24);
+  color: #fdd663;
+}
+
+[data-mode='dark'] .red {
+  background: rgba(234, 67, 53, 0.24);
+  color: #f28b82;
+}
+
+[data-mode='dark'] .indigo {
+  background: rgba(63, 81, 181, 0.28);
+  color: #aab6fe;
+}
+
+[data-mode='dark'] .teal {
+  background: rgba(0, 121, 107, 0.28);
+  color: #80cbc4;
+}

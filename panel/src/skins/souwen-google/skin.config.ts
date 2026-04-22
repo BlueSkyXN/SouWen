@@ -1,7 +1,7 @@
 /**
- * Skin 配置文件 - souwen-classic 皮肤配置
+ * Skin 配置文件 - souwen-google 皮肤配置
  *
- * 文件用途：定义 souwen-classic 皮肤的元数据、默认主题设置和可用配色方案
+ * 文件用途：定义 souwen-google 皮肤的元数据、默认主题设置和可用配色方案
  *
  * SkinConfig 结构：
  *   - id (string): 皮肤唯一标识符
@@ -18,14 +18,14 @@
 import type { SkinConfig } from '@core/types'
 
 export const skinConfig: SkinConfig = {
-  id: 'souwen-classic',
-  labelKey: 'skin.classic',
-  descriptionKey: 'skin.classicDesc',
-  defaultScheme: 'nebula',
+  id: 'souwen-google',
+  labelKey: 'skin.google',
+  descriptionKey: 'skin.googleDesc',
+  defaultScheme: 'google',
   defaultMode: 'light',
-  // 三种配色方案：星云蓝、极光青、黑曜石灰
+  // 三种配色方案：Google 科技炫彩、极光青、黑曜石灰
   schemes: [
-    { id: 'nebula', labelKey: 'theme.nebula', dotColor: '#4f46e5' },
+    { id: 'google', labelKey: 'theme.google', dotColor: '#1a73e8' },
     { id: 'aurora', labelKey: 'theme.aurora', dotColor: '#0d9488' },
     { id: 'obsidian', labelKey: 'theme.obsidian', dotColor: '#475569' },
   ],

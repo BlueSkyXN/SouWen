@@ -1,0 +1,160 @@
+@use '../../styles/variables' as *;
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+  border-radius: $radius-full;
+  font-size: 14px;
+  font-weight: $font-medium;
+  line-height: $leading-tight;
+  letter-spacing: 0.1px;
+  cursor: pointer;
+  transition: background var(--transition-fast), box-shadow var(--transition-fast),
+    color var(--transition-fast), border-color var(--transition-fast),
+    transform 60ms ease;
+  position: relative;
+  white-space: nowrap;
+  user-select: none;
+
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    pointer-events: none;
+  }
+
+  &:focus-visible {
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.25);
+  }
+}
+
+// ─── Sizes ───
+.sm {
+  padding: 8px 18px;
+  font-size: 13px;
+  gap: 6px;
+}
+
+.md {
+  padding: 10px 24px;
+}
+
+.lg {
+  padding: 12px 28px;
+  font-size: 15px;
+  gap: 10px;
+}
+
+// ─── Block ───
+.block {
+  width: 100%;
+}
+
+// ─── Variants ───
+.primary {
+  background: var(--primary);
+  color: #fff;
+
+  &:hover:not(:disabled) {
+    background: var(--primary-hover);
+    box-shadow: 0 1px 3px rgba(60, 64, 67, 0.15), 0 4px 8px 3px rgba(60, 64, 67, 0.08);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.98);
+    box-shadow: 0 1px 2px rgba(60, 64, 67, 0.18);
+  }
+}
+
+.secondary {
+  background: var(--bg-card);
+  color: var(--text);
+  border: 1px solid var(--border-input);
+
+  &:hover:not(:disabled) {
+    background: #f8f9fa;
+    box-shadow: 0 1px 3px rgba(60, 64, 67, 0.1);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+}
+
+.ghost {
+  background: transparent;
+  color: var(--primary);
+
+  &:hover:not(:disabled) {
+    background: rgba(26, 115, 232, 0.08);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.98);
+    background: rgba(26, 115, 232, 0.12);
+  }
+}
+
+.danger {
+  background: var(--error);
+  color: #fff;
+
+  &:hover:not(:disabled) {
+    background: #d33b2c;
+    box-shadow: 0 1px 3px rgba(234, 67, 53, 0.25), 0 4px 8px 3px rgba(234, 67, 53, 0.1);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+}
+
+.success {
+  background: var(--success);
+  color: #fff;
+
+  &:hover:not(:disabled) {
+    background: #188038;
+    box-shadow: 0 1px 3px rgba(30, 142, 62, 0.25), 0 4px 8px 3px rgba(30, 142, 62, 0.1);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.98);
+  }
+}
+
+.outline {
+  background: transparent;
+  border: 1px solid var(--border-input);
+  color: var(--primary);
+
+  &:hover:not(:disabled) {
+    background: rgba(26, 115, 232, 0.04);
+    border-color: var(--primary);
+  }
+
+  &:active:not(:disabled) {
+    transform: scale(0.98);
+    background: rgba(26, 115, 232, 0.08);
+  }
+}
+
+// ─── Loading spinner ───
+.spinner {
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.iconSlot {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}

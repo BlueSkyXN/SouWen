@@ -562,8 +562,10 @@
     "commit": "提交"
   },
   "skin": {
-    "classic": "经典",
-    "classicDesc": "经典侧栏，多配色方案",
+    "google": "Google",
+    "googleDesc": "Google 科技炫彩风，Material You 设计",
+    "nebula": "星云",
+    "nebulaDesc": "经典侧栏，靛蓝紫色调",
     "carbon": "Carbon",
     "carbonDesc": "终端风格，极客美学",
     "switchSkin": "切换皮肤",
@@ -574,6 +576,8 @@
   },
   "theme": {
     "label": "主题风格",
+    "google": "Google 炫彩",
+    "googleDesc": "Google 科技炫彩风，蓝绿黄红四色谱",
     "nebula": "星云",
     "nebulaDesc": "靛蓝紫色调，科技与深邃",
     "aurora": "极光",

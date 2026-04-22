@@ -1,0 +1,378 @@
+@use '../styles/variables' as *;
+
+.page {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: $space-10 $space-6;
+  display: flex;
+  flex-direction: column;
+  gap: $space-6;
+}
+
+/* ===== Page Header ===== */
+.pageHeader {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: $space-4;
+  flex-wrap: wrap;
+  padding-bottom: $space-6;
+  border-bottom: 1px solid var(--bg-subtle);
+}
+
+.pageTitle {
+  font-size: $text-4xl;
+  font-weight: $font-normal;
+  letter-spacing: $tracking-tight;
+  color: var(--text);
+  margin: 0 0 $space-2;
+  line-height: 1.15;
+}
+
+.pageDesc {
+  font-size: $text-lg;
+  color: var(--text-secondary);
+  line-height: $leading-normal;
+  margin: 0;
+  max-width: 640px;
+}
+
+/* ===== Section Card (rounded subtle bg container) ===== */
+.sectionCard {
+  background: var(--bg-subtle) !important;
+  border: 1px solid var(--border) !important;
+  border-radius: $radius-xl !important;
+  padding: $space-7 !important;
+  box-shadow: none !important;
+
+  &:hover {
+    box-shadow: none !important;
+  }
+}
+
+.sectionHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: $space-6;
+  gap: $space-4;
+  flex-wrap: wrap;
+}
+
+.sectionTitle {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  font-size: $text-xl;
+  font-weight: $font-medium;
+  letter-spacing: $tracking-normal;
+  color: var(--text);
+
+  > svg {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    padding: 8px;
+    box-sizing: content-box;
+    color: var(--primary-hover, var(--primary));
+    background: var(--primary-light);
+    border-radius: $radius-full;
+  }
+}
+
+/* ===== Info Note (warning-style banner) ===== */
+.infoNote {
+  display: flex;
+  align-items: flex-start;
+  gap: $space-3;
+  font-size: $text-sm;
+  color: var(--warning-strong, #b45309);
+  line-height: $leading-relaxed;
+  padding: $space-4 $space-5;
+  background: var(--warning-light);
+  border: 1px solid var(--warning-muted);
+  border-radius: $radius;
+  margin-bottom: $space-4;
+
+  > svg {
+    flex-shrink: 0;
+    margin-top: 2px;
+    color: var(--warning);
+  }
+}
+
+/* ===== Status Indicator ===== */
+.statusIndicator {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+}
+
+@keyframes pulseGlow {
+  0%, 100% { box-shadow: 0 0 6px var(--success-muted); }
+  50% { box-shadow: 0 0 12px var(--success), 0 0 4px var(--success-muted); }
+}
+
+@keyframes breathe {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
+}
+
+.statusDot {
+  width: 8px;
+  height: 8px;
+  border-radius: $radius-full;
+  flex-shrink: 0;
+
+  &.dot_green { background: var(--success); animation: pulseGlow 2s ease-in-out infinite; }
+  &.dot_red { background: var(--error); box-shadow: 0 0 6px var(--error-muted); }
+  &.dot_amber { background: var(--warning); animation: breathe 2s ease-in-out infinite; }
+  &.dot_gray { background: var(--text-muted); }
+}
+
+/* ===== HTTP Backend Engine List ===== */
+.engineList {
+  display: flex;
+  flex-direction: column;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: $radius-xl;
+  overflow: hidden;
+  margin-bottom: $space-4;
+}
+
+.engineRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-4;
+  padding: $space-4 $space-5;
+  border-bottom: 1px solid var(--border);
+  transition: background var(--transition-fast);
+
+  &:last-child { border-bottom: none; }
+  &:hover { background: var(--bg-subtle); }
+}
+
+.engineRowDefault {
+  background: var(--primary-light);
+
+  &:hover { background: var(--primary-light); }
+}
+
+.engineName {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  font-size: $text-base;
+  font-weight: $font-medium;
+  color: var(--text);
+}
+
+.engineSelect {
+  padding: 8px $space-3;
+  border: 1px solid var(--border-input);
+  border-radius: $radius-sm;
+  font-size: $text-sm;
+  background: var(--bg-card);
+  color: var(--text);
+  min-width: 200px;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary-hover, var(--primary));
+    box-shadow: 0 0 0 1px var(--primary-hover, var(--primary));
+  }
+
+  &:disabled { opacity: 0.5; cursor: not-allowed; }
+}
+
+.helpIcon {
+  color: var(--text-muted);
+  cursor: help;
+  flex-shrink: 0;
+  opacity: 0.7;
+  transition: opacity var(--transition-fast), color var(--transition-fast);
+
+  &:hover {
+    opacity: 1;
+    color: var(--primary-hover, var(--primary));
+  }
+}
+
+/* ===== WARP fields ===== */
+.warpGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: $space-3;
+  margin-bottom: $space-5;
+}
+
+.warpField {
+  padding: $space-4 $space-5;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: $radius;
+
+  .fieldLabel {
+    display: flex;
+    align-items: center;
+    gap: $space-1;
+    font-size: $text-xs;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    margin-bottom: $space-2;
+
+    > svg { opacity: 0.6; }
+  }
+
+  .fieldValue {
+    font-size: $text-md;
+    font-weight: $font-medium;
+    font-family: var(--font-mono);
+    word-break: break-all;
+    color: var(--text);
+  }
+}
+
+.warpModes {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  padding: $space-3 $space-4;
+  margin-bottom: $space-5;
+  font-size: $text-sm;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: $radius;
+}
+
+.fieldLabelSmall {
+  font-size: $text-xs;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--text-muted);
+}
+
+.fieldValueInline {
+  font-family: var(--font-mono);
+  font-size: $text-sm;
+  color: var(--text-secondary);
+}
+
+.warpError {
+  padding: $space-4 $space-5;
+  margin-bottom: $space-4;
+  background: var(--error-light);
+  border: 1px solid var(--error-muted);
+  border-radius: $radius;
+  font-size: $text-sm;
+  color: var(--error);
+}
+
+.warpActions {
+  display: flex;
+  flex-direction: column;
+  gap: $space-5;
+}
+
+.warpForm {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: $space-5;
+  padding: $space-5;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: $radius-xl;
+}
+
+.formField {
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
+}
+
+.formLabel {
+  display: flex;
+  align-items: center;
+  gap: $space-1;
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  color: var(--text-secondary);
+}
+
+.formSelect {
+  padding: 12px $space-3;
+  border: 1px solid var(--border-input);
+  border-radius: $radius;
+  font-size: $text-base;
+  background: var(--bg-card);
+  color: var(--text);
+  cursor: pointer;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary-hover, var(--primary));
+    box-shadow: 0 0 0 1px var(--primary-hover, var(--primary));
+  }
+}
+
+/* ===== Proxy Config ===== */
+.proxyField {
+  margin-top: $space-4;
+}
+
+.proxyLabel {
+  display: block;
+  font-weight: $font-medium;
+  margin-bottom: $space-2;
+  font-size: $text-base;
+  color: var(--text);
+}
+
+.proxyHint {
+  font-size: $text-sm;
+  color: var(--text-muted);
+  margin: 0 0 $space-2 0;
+}
+
+.proxyTextarea {
+  width: 100%;
+  min-height: 5rem;
+  padding: $space-3 $space-4;
+  border-radius: $radius;
+  border: 1px solid var(--border-input);
+  background: var(--bg-card);
+  color: var(--text);
+  font-family: $font-mono;
+  font-size: $text-sm;
+  resize: vertical;
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+
+  &:focus {
+    border-color: var(--primary-hover, var(--primary));
+    box-shadow: 0 0 0 1px var(--primary-hover, var(--primary));
+  }
+}
+
+.proxyActions {
+  display: flex;
+  gap: $space-3;
+  margin-top: $space-4;
+}
+
+/* ===== Responsive ===== */
+@media (max-width: $mobile-bp) {
+  .page { padding: $space-6 $space-4; gap: $space-5; }
+  .pageTitle { font-size: $text-3xl; }
+  .sectionCard { padding: $space-5 !important; }
+  .warpGrid { grid-template-columns: 1fr 1fr; }
+  .warpForm { grid-template-columns: 1fr; padding: $space-4; }
+  .engineSelect { min-width: 140px; }
+  .engineRow { flex-direction: column; align-items: stretch; gap: $space-2; }
+}
