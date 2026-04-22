@@ -41,6 +41,20 @@ def test_help_lists_subcommands():
     assert "serve" in result.output
 
 
+def test_fetch_help_lists_arxiv_fulltext_provider():
+    """fetch --help 应暴露 arxiv_fulltext provider。"""
+    result = runner.invoke(app, ["fetch", "--help"], env={"COLUMNS": "200"})
+    assert result.exit_code == 0
+    assert "arxiv_fulltext" in result.output
+
+
+def test_fetch_rejects_unknown_provider():
+    """fetch 命令应在参数校验阶段拒绝未知 provider。"""
+    result = runner.invoke(app, ["fetch", "https://example.com", "-p", "nope"])
+    assert result.exit_code != 0
+    assert "无效提供者" in result.output
+
+
 def test_config_show_indicates_unconfigured(monkeypatch, tmp_path):
     """无密码、无配置文件环境下，``config show`` 必须明确提示"未配置"。
 
@@ -79,3 +93,22 @@ def test_keyboard_interrupt_exits_130(monkeypatch):
     monkeypatch.setattr(search_module, "search_papers", fake_search)
     result = runner.invoke(app, ["search", "paper", "test"])
     assert result.exit_code == 130
+
+
+def test_search_paper_uses_registry_defaults_when_sources_omitted(monkeypatch):
+    """未显式传 ``--sources`` 时，应透传 ``None`` 让 registry 默认源生效。"""
+    import sys
+
+    search_module = sys.modules["souwen.search"]
+    captured = {}
+
+    async def fake_search(query, sources=None, per_page=10, **kwargs):
+        captured["query"] = query
+        captured["sources"] = sources
+        captured["per_page"] = per_page
+        return []
+
+    monkeypatch.setattr(search_module, "search_papers", fake_search)
+    result = runner.invoke(app, ["search", "paper", "test", "--json"])
+    assert result.exit_code == 0
+    assert captured == {"query": "test", "sources": None, "per_page": 5}

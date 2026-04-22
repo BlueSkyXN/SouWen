@@ -6,6 +6,7 @@ import asyncio
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from souwen.registry import fetch_providers
 from souwen.server.auth import require_auth
 from souwen.server.limiter import rate_limit_search
 from souwen.server.routes._common import logger
@@ -13,27 +14,7 @@ from souwen.server.schemas import FetchRequest
 
 router = APIRouter()
 
-VALID_FETCH_PROVIDERS = {
-    "builtin",
-    "jina_reader",
-    "tavily",
-    "firecrawl",
-    "exa",
-    "crawl4ai",
-    "scrapfly",
-    "diffbot",
-    "scrapingbee",
-    "zenrows",
-    "scraperapi",
-    "apify",
-    "cloudflare",
-    "wayback",
-    "newspaper",
-    "readability",
-    "mcp",
-    "site_crawler",
-    "deepwiki",
-}
+VALID_FETCH_PROVIDERS = frozenset(adapter.name for adapter in fetch_providers())
 
 
 @router.post(
@@ -41,7 +22,7 @@ VALID_FETCH_PROVIDERS = {
     dependencies=[Depends(rate_limit_search), Depends(require_auth)],
 )
 async def fetch_content_endpoint(body: FetchRequest):
-    """抓取网页内容 — 支持 19 个提供者。"""
+    """抓取网页内容。"""
     from souwen.web.fetch import fetch_content
 
     if body.provider not in VALID_FETCH_PROVIDERS:

@@ -533,7 +533,7 @@ class TestCLI:
         )
         # v0 期望 31；v1 修复漂移后为 38
         assert total_web == 38
-        assert len(ALL_SOURCES["fetch"]) == 19
+        assert len(ALL_SOURCES["fetch"]) == 20
         # v1 新增分类（v0 的 ALL_SOURCES 漏列）
         assert len(ALL_SOURCES["cn_tech"]) == 3
 

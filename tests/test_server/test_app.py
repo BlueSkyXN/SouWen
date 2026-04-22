@@ -590,6 +590,32 @@ class TestSearchWebResponseShape:
         assert data["total"] == 1
 
 
+class TestSearchPaperDefaults:
+    """API-PAPER-DEFAULTS: /search/paper 默认源与 registry 保持一致"""
+
+    def test_paper_defaults_come_from_registry(self, client, monkeypatch):
+        """未传 ``sources`` 时，应由 ``souwen.search`` 自行应用 registry 默认源。"""
+        import importlib
+
+        from souwen.server.routes import search as routes_search
+
+        search_mod = importlib.import_module("souwen.search")
+        captured: dict = {}
+
+        async def fake_search(q, sources=None, per_page=10, **kw):
+            captured["sources"] = sources
+            return []
+
+        monkeypatch.setattr(search_mod, "search_papers", fake_search)
+        resp = client.get("/api/v1/search/paper?q=foo")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert captured["sources"] is None
+        assert data["sources"] == routes_search._DEFAULT_PAPER_SOURCES
+        assert data["meta"]["requested"] == routes_search._DEFAULT_PAPER_SOURCES
+        assert data["meta"]["failed"] == routes_search._DEFAULT_PAPER_SOURCES
+
+
 class TestPerPageAlias:
     """API-PAGE-NAME: /search/web 支持 per_page + max_results"""
 

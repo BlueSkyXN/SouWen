@@ -9,14 +9,22 @@ import typer
 from rich.table import Table
 
 from souwen.cli._common import _run_async, console
+from souwen.registry import defaults_for
 
 search_app = typer.Typer(help="搜索论文/专利/网页")
+_DEFAULT_PAPER_SOURCES = defaults_for("paper", "search")
+_DEFAULT_PAPER_SOURCES_LABEL = ",".join(_DEFAULT_PAPER_SOURCES)
 
 
 @search_app.command("paper")
 def search_paper(
     query: str = typer.Argument(..., help="搜索关键词"),
-    sources: str = typer.Option("openalex,arxiv", "--sources", "-s", help="数据源，逗号分隔"),
+    sources: str | None = typer.Option(
+        None,
+        "--sources",
+        "-s",
+        help=f"数据源，逗号分隔；默认 {_DEFAULT_PAPER_SOURCES_LABEL}",
+    ),
     limit: int = typer.Option(5, "--limit", "-n", help="每个源返回数量"),
     json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),
     timeout: int | None = typer.Option(None, "--timeout", "-t", help="总超时（秒），默认不限制"),
@@ -24,10 +32,15 @@ def search_paper(
     """搜索学术论文"""
     from souwen.search import search_papers
 
-    source_list = [s.strip() for s in sources.split(",") if s.strip()]
+    requested_sources = None
+    if sources is None:
+        source_list = list(_DEFAULT_PAPER_SOURCES)
+    else:
+        source_list = [s.strip() for s in sources.split(",") if s.strip()]
+        requested_sources = source_list
 
     async def _do():
-        coro = search_papers(query, sources=source_list, per_page=limit)
+        coro = search_papers(query, sources=requested_sources, per_page=limit)
         if timeout is not None:
             return await asyncio.wait_for(coro, timeout=timeout)
         return await coro

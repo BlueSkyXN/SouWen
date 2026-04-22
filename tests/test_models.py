@@ -52,9 +52,9 @@ class TestAllSources:
         assert len(ALL_SOURCES["cn_tech"]) == 3
 
     def test_total_count(self):
-        """总计暴露的数据源数量（v1 修复漂移后为 83）。"""
+        """总计暴露的数据源数量（新增 arxiv_fulltext 后为 84）。"""
         total = sum(len(v) for v in ALL_SOURCES.values())
-        assert total == 83  # v0: 73
+        assert total == 84  # v0: 73
 
     def test_each_entry_is_tuple_of_three(self):
         """每条目是 (name, requires_key, desc) 三元组"""

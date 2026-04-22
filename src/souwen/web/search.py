@@ -34,6 +34,7 @@ _WEB_ENGINE_TIMEOUT_CAP_SECONDS = 15.0
 # 以维持 web_search "可以点名任意已注册源" 的契约。
 # 如果 `SourceType` 里找不到匹配项（如 archive / fetch-only 源），回退到 WEB_DUCKDUCKGO。
 
+
 def _source_type_for(name: str) -> SourceType:
     """把 registry 里的 adapter.name 映射为 SourceType 枚举值。
 

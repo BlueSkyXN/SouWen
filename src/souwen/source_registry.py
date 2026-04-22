@@ -71,6 +71,7 @@ class SourceMeta:
 
 # ── 派生缓存 ──────────────────────────────────────────────
 
+
 def _build_source_meta_view() -> dict[str, SourceMeta]:
     """从注册表派生 SourceMeta 视图。
 
@@ -105,6 +106,7 @@ def _meta_view() -> dict[str, SourceMeta]:
 
 
 # ── 公开 API ────────────────────────────────────────────────
+
 
 def get_all_sources() -> dict[str, SourceMeta]:
     """返回所有已注册数据源的字典
@@ -173,11 +175,7 @@ def get_sources_by_integration_type(integration_type: str) -> list[SourceMeta]:
     Returns:
         该集成类型下的 SourceMeta 对象列表
     """
-    return [
-        meta
-        for meta in _meta_view().values()
-        if meta.integration_type == integration_type
-    ]
+    return [meta for meta in _meta_view().values() if meta.integration_type == integration_type]
 
 
 # 即时从 registry 派生所有源名称
