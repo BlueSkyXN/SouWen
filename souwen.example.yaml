@@ -153,13 +153,16 @@ general:
 # ===== 服务器配置 =====
 # SouWen API 服务器运行参数
 server:
-  # 旧版统一密码（同时作用于访客和管理端点，向后兼容）
+  # 旧版统一密码（同时作用于用户和管理端点，向后兼容）
   api_password: ~
-  # 访客密码（仅保护搜索端点，优先于 api_password）
-  visitor_password: ~
-  # 管理密码（仅保护管理端点，优先于 api_password）
+  # 用户密码（保护搜索+只读管理端点，优先于 api_password）
+  user_password: ~
+  # 管理密码（保护全部管理端点，优先于 api_password）
   admin_password: ~
-  # 注：将 visitor_password 或 admin_password 设为空字符串（""）表示强制开放对应端点组，忽略 api_password 回退
+  # 是否启用游客访问（无 Token 也可搜索，受限源+限速）
+  guest_enabled: false
+  # 注：旧版 visitor_password 仍可使用，会自动映射为 user_password
+  # 将 user_password 或 admin_password 设为空字符串（""）表示强制开放对应端点组
   # CORS 允许的来源列表（默认不启用 CORS）
   # 示例: ["http://localhost:3000", "https://my-app.example.com"]
   # 设为 ["*"] 允许所有来源（不推荐在生产环境使用）

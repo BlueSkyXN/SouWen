@@ -1,2 +1,1 @@
-# Treat the single-file panel build as binary in diffs
-src/souwen/server/panel.html -diff linguist-generated
+# Panel HTML is not tracked in git (built in CI / local dev)

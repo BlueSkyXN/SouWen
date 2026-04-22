@@ -76,12 +76,16 @@ general:
 
 # ===== 服务 =====
 server:
-  # 旧版统一密码（同时作用于访客和管理端点，向后兼容）
+  # 旧版统一密码（同时作用于用户和管理端点，向后兼容）
   api_password: ~
-  # 访客密码（仅保护搜索端点，优先于 api_password）
-  visitor_password: ~
-  # 管理密码（仅保护管理端点，优先于 api_password）
+  # 用户密码（保护搜索+只读管理端点，优先于 api_password）
+  user_password: ~
+  # 管理密码（保护全部管理端点，优先于 api_password）
   admin_password: ~
+  # 旧版访客密码（已映射为 user_password 别名，向后兼容）
+  # visitor_password: ~
+  # 是否启用游客访问（无 Token 也可访问搜索端点，受限源+限速）
+  guest_enabled: false
   # 允许跨域的来源列表（CORS Origins），留空表示不启用 CORS
   cors_origins: []
   # 受信反向代理 IP/CIDR 列表;只有来自这些地址的请求才会读取 X-Forwarded-For

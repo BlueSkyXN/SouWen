@@ -79,6 +79,10 @@ dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "pytest-httpx>=0.30", "pytest-cov>
 [tool.hatch.build.targets.wheel]
 packages = ["src/souwen"]
 
+# panel.html 是构建产物（gitignored），需显式声明以便打入 wheel
+[tool.hatch.build]
+artifacts = ["src/souwen/server/panel.html"]
+
 # 代码风格和质量检查配置（使用 Ruff）
 [tool.ruff]
 line-length = 100
