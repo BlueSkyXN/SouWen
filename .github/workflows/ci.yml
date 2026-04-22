@@ -151,10 +151,21 @@ jobs:
           cache: 'npm'
           cache-dependency-path: panel/package-lock.json
 
+      - name: 安装 panel 依赖
+        working-directory: panel
+        run: npm ci
+
+      - name: TypeScript 类型检查
+        working-directory: panel
+        run: npx tsc --noEmit
+
+      - name: 前端单元测试
+        working-directory: panel
+        run: npx vitest run
+
       - name: 构建 panel 并验证产物
         working-directory: panel
         run: |
-          npm ci
           npm run build:local
           npm run check:artifact
 
