@@ -280,24 +280,26 @@ souwen serve [--port 8000]   # 启动 FastAPI 服务
 
 ## HTTP API（Server 模式）
 
-### 认证：三密码系统
+### 认证：三角色系统
 
-SouWen 自 v0.6.x 起支持独立的访客密码与管理密码，并向后兼容旧版统一密码：
+SouWen 支持三级角色认证（Guest/User/Admin），并向后兼容旧版密码配置：
 
-| 配置字段 | 作用范围 | 说明 |
-|----------|----------|------|
-| `visitor_password` | `/api/v1/search/*`、`/api/v1/sources` | 访客密码，仅保护搜索类端点 |
-| `admin_password` | `/api/v1/admin/*` | 管理密码，保护管理端点 |
-| `api_password` | 兼容回退 | 旧版统一密码，当 visitor / admin 未设置时回退到此 |
+| 角色 | Token 来源 | 可访问端点 |
+|------|------------|-----------|
+| Guest 游客 | 无 Token（需 `guest_enabled=true`） | 搜索（受限源、限速） |
+| User 用户 | `user_password` / `visitor_password` / `api_password` | 搜索 + `/sources` + 只读管理 |
+| Admin 管理员 | `admin_password` / `api_password` | 全部端点 |
 
-**生效优先级：**
+**密码优先级：**
 
-- 访客端点：`visitor_password` > `api_password` > 无密码（开放）
-- 管理端点：`admin_password` > `api_password` > 无密码（开放）
-- 管理密码同时可用于访客端点（`admin` 是 `visitor` 的超集）
-- 显式将 `visitor_password` 或 `admin_password` 设为空字符串 `""` 表示**强制开放**该作用域，忽略 `api_password` 回退
+- 用户端点：`user_password` > `visitor_password` > `api_password` > 无（开放）
+- 管理端点：`admin_password` > `api_password` > 无（开放）
+- Admin Token 自动满足所有低级别端点（Admin ⊃ User ⊃ Guest）
+- 显式将 `user_password` 或 `admin_password` 设为空字符串 `""` 表示**强制开放**该作用域
 
-**请求格式：** `Authorization: Bearer <password>`，认证失败返回 `401 unauthorized`。
+**请求格式：** `Authorization: Bearer <password>`
+
+**角色自检：** `GET /api/v1/whoami` — 返回当前角色和可用功能列表，用于前端 UI 动态渲染。
 
 > ⚠️ 当未设置任何密码时，所有端点（含管理端点）开放访问。生产部署务必至少设置 `admin_password`。
 > 此外，可通过环境变量 `SOUWEN_ADMIN_OPEN=1` 显式声明"管理端开放"以避免启动告警。
