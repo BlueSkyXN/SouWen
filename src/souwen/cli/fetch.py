@@ -18,9 +18,7 @@ _FETCH_PROVIDER_HELP = "内容提供者: " + "/".join(_FETCH_PROVIDER_NAMES)
 def _validate_fetch_provider(value: str) -> str:
     """校验 CLI fetch provider 选项。"""
     if value not in _FETCH_PROVIDER_NAMES:
-        raise typer.BadParameter(
-            f"无效提供者: {value}，可选: {', '.join(_FETCH_PROVIDER_NAMES)}"
-        )
+        raise typer.BadParameter(f"无效提供者: {value}，可选: {', '.join(_FETCH_PROVIDER_NAMES)}")
     return value
 
 

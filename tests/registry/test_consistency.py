@@ -45,6 +45,7 @@ from souwen.registry.adapter import (
 
 # ── 基础不变量 ──────────────────────────────────────────────
 
+
 class TestRegistryInvariants:
     """注册表自身的基础不变量。"""
 
@@ -55,14 +56,16 @@ class TestRegistryInvariants:
     def test_all_source_names_unique(self):
         """D11-7：名字全局唯一（_reg 已做运行时检查，这里静态再做一次）。"""
         names = [a.name for a in all_adapters().values()]
-        assert len(names) == len(set(names)), f"重复源名: {set([n for n in names if names.count(n) > 1])}"
+        assert len(names) == len(set(names)), (
+            f"重复源名: {set([n for n in names if names.count(n) > 1])}"
+        )
 
     def test_domain_set_consistent(self):
         """所有 adapter 的 domain 都在 DOMAINS ∪ {fetch} 里。"""
         for adapter in all_adapters().values():
-            assert (
-                adapter.domain in DOMAINS or adapter.domain == FETCH_DOMAIN
-            ), f"{adapter.name}: domain={adapter.domain!r} 非法"
+            assert adapter.domain in DOMAINS or adapter.domain == FETCH_DOMAIN, (
+                f"{adapter.name}: domain={adapter.domain!r} 非法"
+            )
 
     def test_integration_set_consistent(self):
         """所有 integration 值合法。"""
@@ -74,6 +77,7 @@ class TestRegistryInvariants:
 
 # ── D11 硬断言 ──────────────────────────────────────────────
 
+
 class TestD11HardAsserts:
     """D11 要求的 8 项断言。"""
 
@@ -83,9 +87,7 @@ class TestD11HardAsserts:
             for cap in adapter.capabilities:
                 if cap in CAPABILITIES:
                     continue
-                assert ":" in cap, (
-                    f"{adapter.name}: capability={cap!r} 既不在标准集也不是命名空间"
-                )
+                assert ":" in cap, f"{adapter.name}: capability={cap!r} 既不在标准集也不是命名空间"
 
     def test_extra_domains_only_fetch(self):
         """D11-2：extra_domains 目前只允许 {"fetch"}。"""
@@ -108,9 +110,7 @@ class TestD11HardAsserts:
                     f"{adapter.name}.{spec.method_name} (capability={cap!r}) "
                     f"不在 {client_cls.__name__} 上"
                 )
-                assert callable(method), (
-                    f"{adapter.name}.{spec.method_name} 不可调用"
-                )
+                assert callable(method), f"{adapter.name}.{spec.method_name} 不可调用"
 
     def test_param_map_targets_exist_in_signature(self):
         """D11-4：param_map 的 native 参数名是方法签名的真实参数。"""
@@ -122,8 +122,7 @@ class TestD11HardAsserts:
                 method = getattr(client_cls, spec.method_name)
                 sig = inspect.signature(method)
                 has_var_keyword = any(
-                    p.kind == inspect.Parameter.VAR_KEYWORD
-                    for p in sig.parameters.values()
+                    p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.parameters.values()
                 )
                 for unified_name, native_name in spec.param_map.items():
                     # 如果方法接受 **kwargs，不强制检查（逃生舱）
@@ -186,6 +185,7 @@ class TestD11HardAsserts:
 
 # ── 补充一致性检查 ─────────────────────────────────────────
 
+
 class TestExtraConsistency:
     """门面 / SourceType / 默认源等补充检查。"""
 
@@ -225,6 +225,7 @@ class TestExtraConsistency:
 
 # ── SourceType 枚举与 registry 对齐 ────────────────────────
 
+
 class TestSourceTypeDerivation:
     """SourceType 枚举值与 registry 关系（D4）。
 
@@ -253,7 +254,7 @@ class TestSourceTypeDerivation:
             # 去掉 web_ / fetch_ 前缀
             for prefix in ("web_", "fetch_"):
                 if v.startswith(prefix):
-                    v = v[len(prefix):]
+                    v = v[len(prefix) :]
                     break
             # 应用别名
             v = aliases.get(v, v)
@@ -264,6 +265,7 @@ class TestSourceTypeDerivation:
 
 
 # ── Fetch 提供者覆盖 ───────────────────────────────────────
+
 
 class TestFetchProviders:
     """fetch 能力的派发面不能掉链子。"""
@@ -284,12 +286,11 @@ class TestFetchProviders:
     def test_fetch_default(self):
         """fetch:fetch 默认提供者是 builtin。"""
         defaults = defaults_for("fetch", "fetch")
-        assert defaults == ["builtin"], (
-            f"fetch:fetch 默认应该只有 builtin，实际 {defaults}"
-        )
+        assert defaults == ["builtin"], f"fetch:fetch 默认应该只有 builtin，实际 {defaults}"
 
 
 # ── Domain 完整性 ──────────────────────────────────────────
+
 
 class TestDomainCoverage:
     """v1 的 10 个 domain 都应该至少有一个源。"""
@@ -308,12 +309,11 @@ class TestDomainCoverage:
             if dom == "archive":
                 # archive 用 archive_lookup 作主能力
                 adapters = by_domain_and_capability(dom, "archive_lookup")
-            assert len(adapters) >= 1, (
-                f"domain={dom!r} 没有源支持 search/archive_lookup"
-            )
+            assert len(adapters) >= 1, f"domain={dom!r} 没有源支持 search/archive_lookup"
 
 
 # ── Capability 枚举稳定性 ──────────────────────────────────
+
 
 class TestCapabilityStability:
     """capability 常量集稳定。"""
@@ -322,11 +322,18 @@ class TestCapabilityStability:
         """标准 capability 12 个（v1-初步定义 §1.2 列了 11 项，但 archive_lookup/save 算 2 个）。"""
         assert len(CAPABILITIES) == 12
         expected = {
-            "search", "search_news", "search_images", "search_videos",
-            "search_articles", "search_users",
-            "get_detail", "get_trending", "get_transcript",
+            "search",
+            "search_news",
+            "search_images",
+            "search_videos",
+            "search_articles",
+            "search_users",
+            "get_detail",
+            "get_trending",
+            "get_transcript",
             "fetch",
-            "archive_lookup", "archive_save",
+            "archive_lookup",
+            "archive_save",
         }
         assert CAPABILITIES == expected
 
@@ -336,6 +343,5 @@ class TestCapabilityStability:
         used = set(all_capabilities())
         for cap in CAPABILITIES - allowed_unused:
             assert cap in used, (
-                f"标准 capability {cap!r} 没有源实现；"
-                f"如果预留未用，请加入 allowed_unused 集合"
+                f"标准 capability {cap!r} 没有源实现；如果预留未用，请加入 allowed_unused 集合"
             )

@@ -17,48 +17,55 @@ from typing import Any
 # ── 常量 ────────────────────────────────────────────────────
 
 #: 业务领域（10 个）
-DOMAINS: frozenset[str] = frozenset({
-    "paper",
-    "patent",
-    "web",
-    "social",
-    "video",
-    "knowledge",
-    "developer",
-    "cn_tech",
-    "office",
-    "archive",
-})
+DOMAINS: frozenset[str] = frozenset(
+    {
+        "paper",
+        "patent",
+        "web",
+        "social",
+        "video",
+        "knowledge",
+        "developer",
+        "cn_tech",
+        "office",
+        "archive",
+    }
+)
 
 #: 横切能力（不是独立领域）
 FETCH_DOMAIN: str = "fetch"
 
 #: 11 个标准 capability。超出的（如 Exa 的 find_similar）采用命名空间前缀（D8）。
-CAPABILITIES: frozenset[str] = frozenset({
-    "search",
-    "search_news",
-    "search_images",
-    "search_videos",
-    "search_articles",
-    "search_users",
-    "get_detail",
-    "get_trending",
-    "get_transcript",
-    "fetch",
-    "archive_lookup",
-    "archive_save",
-})
+CAPABILITIES: frozenset[str] = frozenset(
+    {
+        "search",
+        "search_news",
+        "search_images",
+        "search_videos",
+        "search_articles",
+        "search_users",
+        "get_detail",
+        "get_trending",
+        "get_transcript",
+        "fetch",
+        "archive_lookup",
+        "archive_save",
+    }
+)
 
 #: 集成类型
-INTEGRATIONS: frozenset[str] = frozenset({
-    "open_api",
-    "scraper",
-    "official_api",
-    "self_hosted",
-})
+INTEGRATIONS: frozenset[str] = frozenset(
+    {
+        "open_api",
+        "scraper",
+        "official_api",
+        "self_hosted",
+    }
+)
 
 
 # ── 数据类 ──────────────────────────────────────────────────
+
 
 @dataclass(frozen=True, slots=True)
 class MethodSpec:
@@ -202,8 +209,7 @@ class SourceAdapter:
         for extra in self.extra_domains:
             if extra != FETCH_DOMAIN:
                 raise ValueError(
-                    f"SourceAdapter({self.name!r}) extra_domains 仅允许 {{'fetch'}}，"
-                    f"得到 {extra!r}"
+                    f"SourceAdapter({self.name!r}) extra_domains 仅允许 {{'fetch'}}，得到 {extra!r}"
                 )
         for key in self.default_for:
             if ":" not in key:

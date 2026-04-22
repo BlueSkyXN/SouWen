@@ -117,17 +117,13 @@ class TestFetchEndpoint:
 
     def test_empty_urls_returns_422(self, client, stub_fetch):
         """``urls`` 至少 1 条（min_length=1），空列表应被拒绝。"""
-        resp = client.post(
-            "/api/v1/fetch", json={"urls": [], "provider": "builtin"}
-        )
+        resp = client.post("/api/v1/fetch", json={"urls": [], "provider": "builtin"})
         assert resp.status_code == 422
 
     def test_too_many_urls_returns_422(self, client, stub_fetch):
         """``urls`` 上限 20 条（max_length=20），超出应被拒绝。"""
         urls = [f"https://example.com/{i}" for i in range(21)]
-        resp = client.post(
-            "/api/v1/fetch", json={"urls": urls, "provider": "builtin"}
-        )
+        resp = client.post("/api/v1/fetch", json={"urls": urls, "provider": "builtin"})
         assert resp.status_code == 422
 
     def test_invalid_provider_returns_400(self, client, stub_fetch):

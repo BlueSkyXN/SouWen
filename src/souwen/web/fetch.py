@@ -73,7 +73,7 @@ def _extract_arxiv_paper_id(url: str) -> str | None:
     for prefix in ("/abs/", "/html/", "/pdf/"):
         if not path.startswith(prefix):
             continue
-        paper_id = path[len(prefix):]
+        paper_id = path[len(prefix) :]
         if prefix == "/pdf/" and paper_id.endswith(".pdf"):
             paper_id = paper_id[:-4]
         return paper_id or None

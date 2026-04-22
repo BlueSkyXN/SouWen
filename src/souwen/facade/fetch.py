@@ -46,8 +46,7 @@ async def fetch_content(
         raise ValueError(f"unknown fetch provider: {provider!r}")
     if "fetch" not in adapter.capabilities:
         raise ValueError(
-            f"provider {provider!r} 不支持 fetch capability "
-            f"(has: {sorted(adapter.capabilities)})"
+            f"provider {provider!r} 不支持 fetch capability (has: {sorted(adapter.capabilities)})"
         )
 
     from souwen.web.fetch import fetch_content as _impl_fetch
