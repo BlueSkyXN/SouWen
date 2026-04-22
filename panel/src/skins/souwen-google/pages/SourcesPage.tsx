@@ -29,7 +29,7 @@ import { useTranslation } from 'react-i18next'
 import { m, AnimatePresence } from 'framer-motion'
 import {
   RefreshCw, FileText, Shield, Globe, Key, Star, Check, Sparkles, Zap, Server,
-  ChevronDown, AlertTriangle, Save, Info, X, Activity,
+  ChevronDown, AlertTriangle, Save, Info, X, Activity, LayoutGrid, List,
 } from 'lucide-react'
 import { api } from '@core/services/api'
 import { useNotificationStore } from '@core/stores/notificationStore'
@@ -414,6 +414,7 @@ export function SourcesPage() {
   const [sourcesConfig, setSourcesConfig] = useState<Record<string, SourceChannelConfig>>({})
   const [selectedCategory, setSelectedCategory] = useState<'all' | CategoryKey>('all')
   const [viewMode, setViewMode] = useState<'sources' | 'health'>('sources')
+  const [displayMode, setDisplayMode] = useState<'grid' | 'list'>('grid')
   const addToast = useNotificationStore((s) => s.addToast)
 
   const fetchSourcesConfig = useCallback(async () => {
@@ -577,25 +578,47 @@ export function SourcesPage() {
           })),
         ]
         return (
-          <div className={styles.filterTabs} role="tablist" aria-label={t('sources.pageTitle')}>
-            {tabs.map((tab) => {
-              const Icon = tab.Icon
-              const active = selectedCategory === tab.key
-              return (
-                <button
-                  key={tab.key}
-                  type="button"
-                  role="tab"
-                  aria-selected={active}
-                  className={`${styles.filterTab} ${active ? styles.filterTabActive : ''}`}
-                  onClick={() => setSelectedCategory(tab.key)}
-                >
-                  {Icon && <Icon size={14} />}
-                  <span>{tab.label}</span>
-                  <span className={`${styles.filterTabCount} ${active ? styles.filterTabCountActive : ''}`}>{tab.count}</span>
-                </button>
-              )
-            })}
+          <div className={styles.filterRow}>
+            <div className={styles.filterTabs} role="tablist" aria-label={t('sources.pageTitle')}>
+              {tabs.map((tab) => {
+                const Icon = tab.Icon
+                const active = selectedCategory === tab.key
+                return (
+                  <button
+                    key={tab.key}
+                    type="button"
+                    role="tab"
+                    aria-selected={active}
+                    className={`${styles.filterTab} ${active ? styles.filterTabActive : ''}`}
+                    onClick={() => setSelectedCategory(tab.key)}
+                  >
+                    {Icon && <Icon size={14} />}
+                    <span>{tab.label}</span>
+                    <span className={`${styles.filterTabCount} ${active ? styles.filterTabCountActive : ''}`}>{tab.count}</span>
+                  </button>
+                )
+              })}
+            </div>
+            <div className={styles.displayToggle}>
+              <button
+                type="button"
+                className={`${styles.displayToggleBtn} ${displayMode === 'grid' ? styles.displayToggleBtnActive : ''}`}
+                onClick={() => setDisplayMode('grid')}
+                aria-label="Grid view"
+                title="Grid view"
+              >
+                <LayoutGrid size={16} />
+              </button>
+              <button
+                type="button"
+                className={`${styles.displayToggleBtn} ${displayMode === 'list' ? styles.displayToggleBtnActive : ''}`}
+                onClick={() => setDisplayMode('list')}
+                aria-label="List view"
+                title="List view"
+              >
+                <List size={16} />
+              </button>
+            </div>
           </div>
         )
       })()}
@@ -607,6 +630,56 @@ export function SourcesPage() {
             ? CATEGORY_ORDER.flatMap((cat) => sourcesByCategory[cat] ?? [])
             : sourcesByCategory[selectedCategory] ?? []
         if (list.length === 0) return null
+        if (displayMode === 'list') {
+          return (
+            <div className={styles.listTableWrap}>
+              <table className={styles.listTable}>
+                <thead>
+                  <tr>
+                    <th></th>
+                    <th>{t('sources.colName', { defaultValue: '名称' })}</th>
+                    <th>{t('sources.colDescription', { defaultValue: '描述' })}</th>
+                    <th>{t('sources.colType', { defaultValue: '类型' })}</th>
+                    <th>{t('sources.colKey', { defaultValue: '密钥' })}</th>
+                    <th>{t('sources.colStatus', { defaultValue: '状态' })}</th>
+                    <th>{t('sources.colEnabled', { defaultValue: '启用' })}</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {list.map((src) => (
+                    <tr key={src.name} className={!src.enabled ? styles.listRowDisabled : ''}>
+                      <td>
+                        <StatusDot status={src.enabled ? src.status : 'disabled'} />
+                      </td>
+                      <td className={styles.listName}>{src.name}</td>
+                      <td className={styles.listDesc}>{src.description || '—'}</td>
+                      <td>
+                        <IntegrationBadge integration_type={src.integration_type} t={t} />
+                      </td>
+                      <td>
+                        <code className={styles.listCode}>{src.required_key ?? '—'}</code>
+                      </td>
+                      <td className={styles.listMessage}>{src.message}</td>
+                      <td>
+                        <button
+                          className={`${styles.toggleBtn} ${src.enabled ? styles.toggleBtnEnabled : ''}`}
+                          onClick={() => handleToggle(src)}
+                          disabled={toggling === src.name}
+                          title={src.enabled ? t('sources.clickToDisable') : t('sources.clickToEnable')}
+                          aria-label={src.enabled ? t('sources.clickToDisable') : t('sources.clickToEnable')}
+                        >
+                          <span className={`${styles.toggleKnob} ${src.enabled ? styles.toggleKnobEnabled : ''}`}>
+                            {src.enabled && <Check size={12} strokeWidth={3} />}
+                          </span>
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )
+        }
         return (
           <m.div
             key={selectedCategory}
@@ -626,6 +699,9 @@ export function SourcesPage() {
 
                   <div className={styles.cardBody}>
                     <div className={styles.sourceName}>{src.name}</div>
+                    {src.description && (
+                      <div className={styles.sourceDescription}>{src.description}</div>
+                    )}
                     <div className={styles.badges}>
                       <IntegrationBadge integration_type={src.integration_type} t={t} />
                       {src.required_key ? (
