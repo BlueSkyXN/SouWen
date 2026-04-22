@@ -35,12 +35,14 @@ html[data-skin='souwen-classic'] {
   --primary-lighter: #d3e3fd;
   --primary-strong: #0b57d0;
   --primary-glow: rgba(26, 115, 232, 0.15);
+  --on-primary: #ffffff;
 
   /* Semantic colors (Google) */
   --success: #{$success};
   --success-light: #e6f4ea;
   --success-muted: #ceead6;
   --success-strong: #137333;
+  --on-success: #ffffff;
   --warning: #{$warning};
   --warning-light: #fef7e0;
   --warning-muted: #feefc3;
@@ -166,11 +168,13 @@ html[data-skin='souwen-classic'][data-mode='dark'] {
   --primary-lighter: rgba(138, 180, 248, 0.20);
   --primary-strong: #c2e0ff;
   --primary-glow: rgba(138, 180, 248, 0.22);
+  --on-primary: #001d35;
 
   --success: #34d399;
   --success-light: rgba(52, 211, 153, 0.12);
   --success-muted: rgba(52, 211, 153, 0.22);
   --success-strong: #6ee7b7;
+  --on-success: #003822;
   --warning: #fbbf24;
   --warning-light: rgba(251, 191, 36, 0.12);
   --warning-muted: rgba(251, 191, 36, 0.22);
@@ -179,6 +183,7 @@ html[data-skin='souwen-classic'][data-mode='dark'] {
   --error-light: rgba(248, 113, 113, 0.12);
   --error-muted: rgba(248, 113, 113, 0.22);
   --error-strong: #fca5a5;
+  --on-error: #3b0a0a;
 
   --accent-indigo: #8ab4f8;
   --accent-indigo-light: rgba(138, 180, 248, 0.10);
@@ -266,6 +271,7 @@ html[data-skin='souwen-classic'][data-mode='dark'][data-scheme='aurora'] {
   --primary-light: rgba(45, 212, 191, 0.10);
   --primary-strong: #99f6e4;
   --primary-glow: rgba(45, 212, 191, 0.22);
+  --on-primary: #002e2b;
 }
 
 /* ===== Visual Theme: Obsidian (refreshed slate/neutral) ===== */
@@ -317,6 +323,7 @@ html[data-skin='souwen-classic'][data-mode='dark'][data-scheme='obsidian'] {
   --primary-light: rgba(148, 163, 184, 0.10);
   --primary-strong: #e2e8f0;
   --primary-glow: rgba(148, 163, 184, 0.22);
+  --on-primary: #0f172a;
 }
 
 /* ===== Skin-specific Base ===== */
@@ -377,7 +384,7 @@ html[data-skin='souwen-classic'] .btn {
 /* Primary — pill-shaped Google Blue, shadow upgrade on hover (no translateY) */
 html[data-skin='souwen-classic'] .btn-primary {
   background: var(--primary);
-  color: #fff;
+  color: var(--on-primary);
   border-radius: var(--radius-full);
   padding: 10px 24px;
   box-shadow: 0 1px 2px rgba(60, 64, 67, 0.15);
@@ -400,7 +407,7 @@ html[data-skin='souwen-classic'] .btn-primary {
 
 html[data-skin='souwen-classic'] .btn-danger {
   background: var(--error);
-  color: #fff;
+  color: var(--on-error);
   border-radius: var(--radius-full);
   padding: 10px 24px;
   box-shadow: 0 1px 2px rgba(60, 64, 67, 0.15);
@@ -416,7 +423,7 @@ html[data-skin='souwen-classic'] .btn-danger {
 
 html[data-skin='souwen-classic'] .btn-success {
   background: var(--success);
-  color: #fff;
+  color: var(--on-success);
   border-radius: var(--radius-full);
   padding: 10px 24px;
   box-shadow: 0 1px 2px rgba(60, 64, 67, 0.15);
