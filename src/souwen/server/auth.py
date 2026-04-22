@@ -48,6 +48,7 @@ _bearer_scheme = HTTPBearer(auto_error=False)
 
 class Role(enum.IntEnum):
     """三级角色枚举，数值越大权限越高"""
+
     GUEST = 0
     USER = 1
     ADMIN = 2
@@ -113,6 +114,7 @@ def require_role(min_role: Role):
     Returns:
         FastAPI Depends 依赖函数
     """
+
     def _check(role: Role = Depends(resolve_role)) -> Role:
         if role < min_role:
             if role == Role.GUEST:
@@ -126,12 +128,14 @@ def require_role(min_role: Role):
                 detail="权限不足：此端点需要管理员权限",
             )
         return role
+
     return Depends(_check)
 
 
 # ===== 向后兼容 thin wrappers =====
 # 现有路由代码中的 Depends(require_auth) 和 Depends(check_search_auth)
 # 无需任何改动即可继续工作
+
 
 def require_auth(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),

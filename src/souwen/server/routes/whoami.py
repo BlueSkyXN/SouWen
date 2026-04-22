@@ -24,9 +24,7 @@ async def whoami(role: Role = Depends(resolve_role)):
         "fetch": role >= Role.ADMIN,
         "wayback_save": role >= Role.ADMIN,
         "config_read": (
-            "full" if role >= Role.ADMIN
-            else "minimal" if role >= Role.USER
-            else False
+            "full" if role >= Role.ADMIN else "minimal" if role >= Role.USER else False
         ),
         "config_write": role >= Role.ADMIN,
         "sources_config_read": role >= Role.USER,
