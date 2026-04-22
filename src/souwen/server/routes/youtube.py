@@ -22,7 +22,6 @@ router = APIRouter()
     "/youtube/trending",
     response_model=YouTubeTrendingResponse,
     dependencies=[Depends(rate_limit_search), Depends(check_search_auth)],
-    deprecated=True,
 )
 async def api_youtube_trending(
     region: str = Query("US", description="地区代码 (US/CN/JP/KR 等 ISO 3166-1 alpha-2)"),
@@ -67,7 +66,6 @@ async def api_youtube_trending(
     "/youtube/video/{video_id}",
     response_model=YouTubeVideoDetailResponse,
     dependencies=[Depends(rate_limit_search), Depends(check_search_auth)],
-    deprecated=True,
 )
 async def api_youtube_video_detail(
     video_id: str,
@@ -111,7 +109,6 @@ async def api_youtube_video_detail(
     "/youtube/transcript/{video_id}",
     response_model=YouTubeTranscriptResponse,
     dependencies=[Depends(rate_limit_search), Depends(check_search_auth)],
-    deprecated=True,
 )
 async def api_youtube_transcript(
     video_id: str,
