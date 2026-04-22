@@ -138,21 +138,73 @@
 
 .providerGroup { flex: 1; min-width: 220px; display: flex; flex-direction: column; gap: $space-2; }
 
+/* Material Design 3 select with custom dropdown arrow */
 .select {
   width: 100%;
-  padding: 12px $space-4;
+  height: 56px;
+  padding: 0 $space-12 0 $space-4;
   border: 1px solid var(--border-input);
-  border-radius: $radius;
+  border-radius: 8px;
+  background-color: var(--bg-card);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 24 24' fill='none' stroke='%235f6368' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right $space-4 center;
+  background-size: 20px 20px;
+  color: var(--text);
+  font-size: $text-md;
+  font-family: $font-family;
+  line-height: 1.4;
+  cursor: pointer;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+
+  &:hover:not(:disabled) {
+    border-color: var(--text-secondary);
+  }
+
+  &:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px var(--primary);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+}
+
+/* Material Design 3 text input */
+.input {
+  width: 100%;
+  height: 56px;
+  padding: 0 $space-4;
+  border: 1px solid var(--border-input);
+  border-radius: 8px;
   background: var(--bg-card);
   color: var(--text);
-  font-size: $text-base;
-  cursor: pointer;
+  font-size: $text-md;
+  font-family: $font-family;
+  line-height: 1.4;
   outline: none;
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 
+  &::placeholder { color: var(--text-muted); }
+
+  &:hover:not(:disabled):not(:focus) {
+    border-color: var(--text-secondary);
+  }
+
   &:focus {
-    border-color: var(--primary-hover, var(--primary));
-    box-shadow: 0 0 0 1px var(--primary-hover, var(--primary));
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px var(--primary);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 }
 
@@ -231,7 +283,148 @@
   font-weight: $font-medium;
 }
 
-.slider { width: 100%; cursor: pointer; accent-color: var(--primary); }
+/* Material Design 3 range slider */
+.slider {
+  width: 100%;
+  height: 20px;
+  margin: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  outline: none;
+
+  /* Track - WebKit */
+  &::-webkit-slider-runnable-track {
+    height: 4px;
+    border-radius: $radius-full;
+    background: var(--border-input);
+  }
+
+  /* Track - Firefox */
+  &::-moz-range-track {
+    height: 4px;
+    border-radius: $radius-full;
+    background: var(--border-input);
+  }
+
+  /* Progress fill - Firefox */
+  &::-moz-range-progress {
+    height: 4px;
+    border-radius: $radius-full;
+    background: var(--primary);
+  }
+
+  /* Thumb - WebKit */
+  &::-webkit-slider-thumb {
+    appearance: none;
+    -webkit-appearance: none;
+    width: 20px;
+    height: 20px;
+    margin-top: -8px;
+    border: 2px solid var(--primary);
+    border-radius: $radius-full;
+    background: var(--bg-card);
+    cursor: pointer;
+    box-shadow: $shadow-card;
+    transition: box-shadow var(--transition-fast), transform var(--transition-fast);
+  }
+
+  /* Thumb - Firefox */
+  &::-moz-range-thumb {
+    width: 16px;
+    height: 16px;
+    border: 2px solid var(--primary);
+    border-radius: $radius-full;
+    background: var(--bg-card);
+    cursor: pointer;
+    box-shadow: $shadow-card;
+    transition: box-shadow var(--transition-fast), transform var(--transition-fast);
+  }
+
+  &:hover::-webkit-slider-thumb {
+    box-shadow: 0 0 0 8px rgba(26, 115, 232, 0.12), $shadow-card;
+  }
+
+  &:hover::-moz-range-thumb {
+    box-shadow: 0 0 0 8px rgba(26, 115, 232, 0.12), $shadow-card;
+  }
+
+  &:focus::-webkit-slider-thumb {
+    box-shadow: 0 0 0 8px rgba(26, 115, 232, 0.18), $shadow-card;
+  }
+
+  &:focus::-moz-range-thumb {
+    box-shadow: 0 0 0 8px rgba(26, 115, 232, 0.18), $shadow-card;
+  }
+}
+
+/* Material Design 3 toggle switch */
+.toggleField {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+  cursor: pointer;
+  font-size: $text-sm;
+  color: var(--text);
+  font-weight: $font-medium;
+  user-select: none;
+}
+
+.toggleSwitch {
+  position: relative;
+  flex-shrink: 0;
+  display: inline-block;
+  width: 44px;
+  height: 24px;
+}
+
+.toggleInput {
+  position: absolute;
+  opacity: 0;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+}
+
+.toggleSlider {
+  position: absolute;
+  inset: 0;
+  background: var(--border-input);
+  border-radius: $radius-full;
+  transition: background var(--transition-fast);
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 3px;
+    left: 3px;
+    width: 18px;
+    height: 18px;
+    background: #fff;
+    border-radius: $radius-full;
+    box-shadow: $shadow-card;
+    transition: transform var(--transition-fast), background var(--transition-fast);
+  }
+}
+
+.toggleInput:checked + .toggleSlider {
+  background: var(--primary);
+
+  &::before {
+    transform: translateX(20px);
+  }
+}
+
+.toggleInput:focus-visible + .toggleSlider {
+  box-shadow: 0 0 0 3px rgba(26, 115, 232, 0.25);
+}
+
+.toggleInput:disabled + .toggleSlider {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
 
 .rangeHint { font-size: $text-xs; color: var(--text-muted); }
 

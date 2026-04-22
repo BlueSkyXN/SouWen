@@ -29,7 +29,7 @@ import { useTranslation } from 'react-i18next'
 import { m, AnimatePresence } from 'framer-motion'
 import {
   RefreshCw, FileText, Shield, Globe, Key, Star, Check, Sparkles, Zap, Server,
-  ChevronDown, AlertTriangle, Save, Info, X,
+  ChevronDown, AlertTriangle, Save, Info, X, Activity,
 } from 'lucide-react'
 import { api } from '@core/services/api'
 import { useNotificationStore } from '@core/stores/notificationStore'
@@ -41,6 +41,7 @@ import { Button } from '../components/common/Button'
 import { Input } from '../components/common/Input'
 import { formatError } from '@core/lib/errors'
 import { staggerContainerFast, staggerItemSmall } from '@core/lib/animations'
+import { categoryBadgeColor, integrationBadgeColor, categoryLabel } from '@core/lib/ui'
 
 import type { DoctorResponse, DoctorSource, SourceChannelConfig } from '@core/types'
 import styles from './SourcesPage.module.scss'
@@ -412,6 +413,7 @@ export function SourcesPage() {
   const [expandedSource, setExpandedSource] = useState<string | null>(null)
   const [sourcesConfig, setSourcesConfig] = useState<Record<string, SourceChannelConfig>>({})
   const [selectedCategory, setSelectedCategory] = useState<'all' | CategoryKey>('all')
+  const [viewMode, setViewMode] = useState<'sources' | 'health'>('sources')
   const addToast = useNotificationStore((s) => s.addToast)
 
   const fetchSourcesConfig = useCallback(async () => {
@@ -499,8 +501,16 @@ export function SourcesPage() {
   const totalCount = doctor.total
 
   const sourcesByCategory: Record<string, DoctorSource[]> = {}
+  const statusOrder: Record<string, number> = { ok: 0, degraded: 1, needs_key: 2, error: 3, timeout: 4 }
   for (const cat of CATEGORY_ORDER) {
-    sourcesByCategory[cat] = doctor.sources.filter((s) => s.category === cat)
+    sourcesByCategory[cat] = doctor.sources
+      .filter((s) => s.category === cat)
+      .sort((a, b) => {
+        // Enabled sources first, then by status priority, then alphabetically
+        if (a.enabled !== b.enabled) return a.enabled ? -1 : 1
+        const diff = (statusOrder[a.status] ?? 5) - (statusOrder[b.status] ?? 5)
+        return diff !== 0 ? diff : a.name.localeCompare(b.name)
+      })
   }
 
   const healthPercent = totalCount > 0 ? Math.round((okCount / totalCount) * 100) : 0
@@ -532,6 +542,27 @@ export function SourcesPage() {
         </div>
       </div>
 
+      {/* View Mode Toggle */}
+      <div className={styles.viewToggle}>
+        <button
+          type="button"
+          className={`${styles.viewToggleBtn} ${viewMode === 'sources' ? styles.viewToggleBtnActive : ''}`}
+          onClick={() => setViewMode('sources')}
+        >
+          <Server size={16} />
+          {t('sources.viewSources')}
+        </button>
+        <button
+          type="button"
+          className={`${styles.viewToggleBtn} ${viewMode === 'health' ? styles.viewToggleBtnActive : ''}`}
+          onClick={() => setViewMode('health')}
+        >
+          <Activity size={16} />
+          {t('sources.viewHealth')}
+        </button>
+      </div>
+
+      {viewMode === 'sources' && (<>
       {/* Filter Tabs */}
       {(() => {
         const tabs: Array<{ key: 'all' | CategoryKey; label: string; count: number; Icon?: typeof FileText }> = [
@@ -664,6 +695,110 @@ export function SourcesPage() {
           </m.div>
         )
       })()}
+      </>)}
+
+      {viewMode === 'health' && (
+        <>
+          {/* Source Matrix */}
+          <div className={styles.matrixCard}>
+            <div className={styles.matrixHeader}>
+              <div>
+                <h3 className={styles.matrixTitle}>
+                  <span className={styles.matrixCount}>{doctor.sources.length}</span>
+                  {t('sources.sourceMatrix')}
+                </h3>
+                <p className={styles.matrixSubtitle}>{t('sources.sourceMatrixDesc')}</p>
+              </div>
+              <span className={styles.matrixToggle}>MATRIX VIEW</span>
+            </div>
+            <div className={styles.matrixGroups}>
+              {CATEGORY_ORDER
+                .map((cat) => ({ cat, items: sourcesByCategory[cat] ?? [] }))
+                .filter((g) => g.items.length > 0)
+                .map((group, idx) => (
+                  <div
+                    key={group.cat}
+                    className={`${styles.matrixGroup} ${idx > 0 ? styles.matrixGroupDivided : ''}`}
+                  >
+                    <div className={styles.matrixGroupLabel}>
+                      <span className={styles.matrixGroupName}>{categoryLabel(t, group.cat)}</span>
+                      <span className={styles.matrixGroupCount}>{group.items.length}</span>
+                    </div>
+                    <div className={styles.matrixChips}>
+                      {group.items.map((src) => (
+                        <span key={src.name} className={styles.matrixChip} title={src.message}>
+                          <span className={`${styles.matrixDot} ${
+                            src.status === 'ok' ? styles.matrixDotOk
+                            : (src.status === 'error' || src.status === 'timeout') ? styles.matrixDotErr
+                            : styles.matrixDotWarn
+                          }`} />
+                          <span className={styles.matrixChipName}>{src.name}</span>
+                          <span className={`${styles.matrixTier} ${
+                            src.integration_type === 'open_api' ? styles.matrixTierT0
+                            : (src.integration_type === 'official_api' || src.integration_type === 'self_hosted') ? styles.matrixTierT1
+                            : styles.matrixTierT2
+                          }`}>
+                            {src.integration_type === 'open_api' ? '开放'
+                             : src.integration_type === 'scraper' ? '爬虫'
+                             : src.integration_type === 'official_api' ? '授权' : '自建'}
+                          </span>
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+            </div>
+          </div>
+
+          {/* Health Detail Table */}
+          <div className={styles.sectionHeader}>
+            <h3 className={styles.sectionTitle}>{t('sources.healthTitle')}</h3>
+            <p className={styles.sectionDesc}>{t('sources.healthDesc')}</p>
+          </div>
+          <div className={styles.tableWrap}>
+            <table className={styles.table}>
+              <thead>
+                <tr>
+                  <th>{t('sources.colStatus')}</th>
+                  <th>{t('sources.colSource')}</th>
+                  <th>{t('sources.colCategory')}</th>
+                  <th>{t('sources.colIntegration')}</th>
+                  <th>{t('sources.colKey')}</th>
+                  <th>{t('sources.colMessage')}</th>
+                </tr>
+              </thead>
+              <tbody>
+                {CATEGORY_ORDER.flatMap((cat) => sourcesByCategory[cat] ?? []).map((src) => (
+                  <tr key={src.name}>
+                    <td>
+                      <span className={`${styles.dot} ${
+                        src.status === 'ok' ? styles.dotOk
+                        : (src.status === 'error' || src.status === 'timeout') ? styles.dotErr
+                        : styles.dotWarn
+                      }`} />
+                    </td>
+                    <td className={styles.tableSourceName}>{src.name}</td>
+                    <td>
+                      <Badge color={categoryBadgeColor(src.category)}>
+                        {categoryLabel(t, src.category)}
+                      </Badge>
+                    </td>
+                    <td>
+                      <Badge color={integrationBadgeColor(src.integration_type)}>
+                        {src.integration_type === 'open_api' ? '公开'
+                         : src.integration_type === 'scraper' ? '爬虫'
+                         : src.integration_type === 'official_api' ? '授权' : '自建'}
+                      </Badge>
+                    </td>
+                    <td><code className={styles.codeCell}>{src.required_key ?? '—'}</code></td>
+                    <td className={styles.messageCell}>{src.message}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
 
       {/* Confirmation Modal */}
       <Modal

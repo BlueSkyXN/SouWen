@@ -14,9 +14,43 @@ import type {
   YouTubeVideoDetail,
   TranscriptSegment,
   VideoResult,
+  BilibiliSearchItem,
 } from '../types'
 
-export type Tab = 'trending' | 'search' | 'transcript'
+export type Tab = 'trending' | 'search' | 'bilibili' | 'transcript'
+
+export const BILIBILI_ORDERS = [
+  { value: 'totalrank', labelKey: 'video.bilibiliOrderDefault' },
+  { value: 'click', labelKey: 'video.bilibiliOrderPlay' },
+  { value: 'pubdate', labelKey: 'video.bilibiliOrderPubdate' },
+  { value: 'dm', labelKey: 'video.bilibiliOrderDanmaku' },
+  { value: 'stow', labelKey: 'video.bilibiliOrderFavorite' },
+]
+
+/** 修正 Bilibili API 返回的协议相对 URL（如 //i0.hdslb.com/...）为 https。 */
+export function normalizeBiliUrl(url: string): string {
+  if (!url) return ''
+  if (url.startsWith('//')) return `https:${url}`
+  return url
+}
+
+/** 去除 Bilibili 标题里的 <em class="keyword"> 高亮标签，避免 XSS。 */
+export function stripHtml(s: string): string {
+  if (!s) return ''
+  return s.replace(/<[^>]*>/g, '')
+}
+
+/** Sanitize a Bilibili BV id (alphanumeric only). */
+export function sanitizeBvid(id: string): string {
+  return id.trim().replace(/[^a-zA-Z0-9]/g, '')
+}
+
+export function formatPlayCount(n: number): string {
+  if (!n || n < 0) return '0'
+  if (n >= 100_000_000) return `${(n / 100_000_000).toFixed(1)}亿`
+  if (n >= 10_000) return `${(n / 10_000).toFixed(1)}万`
+  return n.toLocaleString()
+}
 
 export const REGIONS = [
   { value: 'US', label: 'US' },
@@ -105,6 +139,12 @@ export function useVideoPage() {
   const [transcriptSegments, setTranscriptSegments] = useState<TranscriptSegment[]>([])
   const [transcriptAvailable, setTranscriptAvailable] = useState<boolean | null>(null)
 
+  // Bilibili search state
+  const [biliQuery, setBiliQuery] = useState('')
+  const [biliOrder, setBiliOrder] = useState('totalrank')
+  const [biliLoading, setBiliLoading] = useState(false)
+  const [biliResults, setBiliResults] = useState<BilibiliSearchItem[]>([])
+
   useEffect(() => {
     return () => abortRef.current?.abort()
   }, [])
@@ -167,6 +207,23 @@ export function useVideoPage() {
     }
   }
 
+  const handleBiliSearch = async (e?: FormEvent) => {
+    e?.preventDefault()
+    if (!biliQuery.trim()) return
+    const signal = cancelInflight()
+    setBiliLoading(true)
+    try {
+      const res = await api.searchBilibili(biliQuery.trim(), 20, biliOrder, signal)
+      setBiliResults(res.results ?? [])
+    } catch (err) {
+      if (err instanceof Error && err.name !== 'AbortError') {
+        addToast('error', err.message)
+      }
+    } finally {
+      setBiliLoading(false)
+    }
+  }
+
   const copyTranscript = async () => {
     const text = transcriptSegments
       .map((seg) => `[${formatTimestamp(seg.start)}] ${seg.text}`)
@@ -194,9 +251,14 @@ export function useVideoPage() {
     transcriptLoading,
     transcriptSegments,
     transcriptAvailable,
+    biliQuery, setBiliQuery,
+    biliOrder, setBiliOrder,
+    biliLoading,
+    biliResults,
     handleLoadTrending,
     handleSearch,
     handleGetTranscript,
+    handleBiliSearch,
     copyTranscript,
   }
 }

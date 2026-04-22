@@ -365,8 +365,15 @@ export function SourcesPage() {
 
   // 按类别对数据源进行分组
   const sourcesByCategory: Record<string, DoctorSource[]> = {}
+  const statusOrder: Record<string, number> = { ok: 0, degraded: 1, needs_key: 2, error: 3, timeout: 4 }
   for (const cat of CATEGORY_ORDER) {
-    sourcesByCategory[cat] = doctor.sources.filter((s) => s.category === cat)
+    sourcesByCategory[cat] = doctor.sources
+      .filter((s) => s.category === cat)
+      .sort((a, b) => {
+        if (a.enabled !== b.enabled) return a.enabled ? -1 : 1
+        const diff = (statusOrder[a.status] ?? 5) - (statusOrder[b.status] ?? 5)
+        return diff !== 0 ? diff : a.name.localeCompare(b.name)
+      })
   }
 
   return (

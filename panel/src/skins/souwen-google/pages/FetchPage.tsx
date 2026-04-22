@@ -331,6 +331,7 @@ export function FetchPage() {
                 <input
                   id="fetch-selector"
                   type="text"
+                  className={styles.input}
                   value={selector}
                   onChange={(e) => setSelector(e.target.value)}
                   placeholder={t('fetch.selectorPlaceholder', 'e.g. article, .content, #main')}
@@ -340,14 +341,18 @@ export function FetchPage() {
             )}
             {provider === 'builtin' && (
               <div className={styles.advancedField}>
-                <label className={styles.advancedLabel}>
-                  <input
-                    type="checkbox"
-                    checked={respectRobots}
-                    onChange={(e) => setRespectRobots(e.target.checked)}
-                    disabled={isLoading}
-                  />
-                  {' '}{t('fetch.respectRobots', 'Respect robots.txt')}
+                <label className={styles.toggleField}>
+                  <span className={styles.toggleSwitch}>
+                    <input
+                      type="checkbox"
+                      className={styles.toggleInput}
+                      checked={respectRobots}
+                      onChange={(e) => setRespectRobots(e.target.checked)}
+                      disabled={isLoading}
+                    />
+                    <span className={styles.toggleSlider} />
+                  </span>
+                  <span>{t('fetch.respectRobots', 'Respect robots.txt')}</span>
                 </label>
               </div>
             )}
