@@ -88,7 +88,16 @@ from souwen.server.schemas import ErrorResponse, HealthResponse, ReadinessRespon
 
 logger = logging.getLogger("souwen.server")
 
+# Panel HTML lookup: installed package → source tree → env override
 _PANEL_HTML = Path(__file__).parent / "panel.html"
+if not _PANEL_HTML.is_file():
+    # Docker: panel.html may be COPY'd to source tree after pip install
+    _src_fallback = Path("/app/src/souwen/server/panel.html")
+    if _src_fallback.is_file():
+        _PANEL_HTML = _src_fallback
+_panel_env = os.environ.get("SOUWEN_PANEL_HTML")
+if _panel_env:
+    _PANEL_HTML = Path(_panel_env)
 _panel_cache: str | None = None
 _panel_etag: str | None = None
 _panel_cache_lock = asyncio.Lock()
