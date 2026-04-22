@@ -137,6 +137,13 @@ jobs:
         run: |
           echo "✅ panel.html 大小: $(wc -c < src/souwen/server/panel.html) 字节"
 
+      - name: Upload panel.html artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: panel-html
+          path: src/souwen/server/panel.html
+          retention-days: 1
+
   # ---------------------------------------------------------------------------
   # 构建
   # ---------------------------------------------------------------------------
@@ -152,6 +159,12 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+
+      - name: Download panel.html
+        uses: actions/download-artifact@v4
+        with:
+          name: panel-html
+          path: src/souwen/server/
 
       - name: Set up Python ${{ env.PYTHON_VERSION }}
         uses: actions/setup-python@v5
