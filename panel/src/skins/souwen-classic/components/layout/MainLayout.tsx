@@ -54,6 +54,19 @@ import { skinConfig } from '../../skin.config'
 import { getSkinOrDefault, isSingleSkin, listSkinIds } from '@core/skin-registry'
 import styles from './MainLayout.module.scss'
 
+/** Google-colorful magnifier brand icon (4-color search ring) */
+function BrandLogoIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <circle cx="11" cy="11" r="8" stroke="#4285F4" strokeWidth="3.2" />
+      <path d="M11 3A8 8 0 0 1 19 11" stroke="#EA4335" strokeWidth="3.2" />
+      <path d="M19 11A8 8 0 0 1 11 19" stroke="#34A853" strokeWidth="3.2" />
+      <path d="M11 19A8 8 0 0 1 3 11" stroke="#FBBC05" strokeWidth="3.2" />
+      <path d="M21.5 21.5l-4.85-4.85" stroke="#4285F4" strokeLinecap="round" strokeWidth="3.2" />
+    </svg>
+  )
+}
+
 // 导航菜单项定义
 const NAV_ITEMS = [
   { to: '/', icon: LayoutDashboard, labelKey: 'nav.dashboard' },
@@ -189,7 +202,7 @@ export function MainLayout() {
     <>
       <div className={styles.brand}>
         <span className={styles.logo}>
-          <Search size={22} />
+          <BrandLogoIcon />
         </span>
         <span className={styles.brandText}>{t('app.name')}</span>
       </div>
@@ -207,24 +220,26 @@ export function MainLayout() {
             }
           >
             <span className={styles.icon}>
-              <item.icon size={18} />
+              <item.icon size={22} />
             </span>
             <span className={styles.label}>{t(item.labelKey)}</span>
           </NavLink>
         ))}
       </nav>
 
-      {/* 底部操作区：版本号、链接、折叠按钮、登出 */}
+      {/* 底部操作区：版本号、链接、折叠按钮 */}
       <div className={styles.footer}>
-        {version && <div className={styles.version}>v{version}</div>}
-        <a
-          className={styles.authorLink}
-          href="https://github.com/BlueSkyXN/SouWen"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          SouWen · @BlueSkyXN · GPLv3
-        </a>
+        <div className={styles.footerMeta}>
+          {version && <div className={styles.version}>v{version}</div>}
+          <a
+            className={styles.authorLink}
+            href="https://github.com/BlueSkyXN/SouWen"
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            SouWen · @BlueSkyXN · GPLv3
+          </a>
+        </div>
         <button
           className={styles.collapseBtn}
           onClick={() => setCollapsed((c) => !c)}
@@ -288,7 +303,7 @@ export function MainLayout() {
             >
               <Menu size={20} />
             </button>
-            <h2>{t(pageTitleKey)}</h2>
+            <h2 className={styles.pageTitle}>{t(pageTitleKey)}</h2>
           </div>
           <div className={styles.headerRight}>
             <span className={styles.connBadge}>
@@ -300,7 +315,7 @@ export function MainLayout() {
               onClick={toggleMode}
               aria-label={mode === 'light' ? t('common.darkMode') : t('common.lightMode')}
             >
-              {mode === 'light' ? <Moon size={16} /> : <Sun size={16} />}
+              {mode === 'light' ? <Moon size={18} /> : <Sun size={18} />}
             </button>
             <div className={styles.themePaletteWrap} ref={paletteRef}>
               <button
@@ -310,7 +325,7 @@ export function MainLayout() {
                 aria-expanded={themePaletteOpen}
                 aria-haspopup="listbox"
               >
-                <Palette size={16} />
+                <Palette size={18} />
               </button>
               <AnimatePresence>
                 {themePaletteOpen && (
@@ -388,10 +403,23 @@ export function MainLayout() {
                 </AnimatePresence>
               </div>
             )}
-            <button className={styles.logoutBtn} onClick={handleLogout}>
-              <LogOut size={15} />
-              <span>{t('nav.logout')}</span>
+            <button
+              className={styles.logoutBtn}
+              onClick={handleLogout}
+              aria-label={t('nav.logout')}
+              title={t('nav.logout')}
+            >
+              <LogOut size={18} />
             </button>
+            <div
+              className={styles.userAvatar}
+              role="button"
+              tabIndex={0}
+              aria-label="User"
+              title="User"
+            >
+              U
+            </div>
           </div>
         </header>
 

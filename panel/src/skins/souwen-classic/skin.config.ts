@@ -21,11 +21,11 @@ export const skinConfig: SkinConfig = {
   id: 'souwen-classic',
   labelKey: 'skin.classic',
   descriptionKey: 'skin.classicDesc',
-  defaultScheme: 'nebula',
+  defaultScheme: 'google',
   defaultMode: 'light',
-  // 三种配色方案：星云蓝、极光青、黑曜石灰
+  // 三种配色方案：Google 科技炫彩、极光青、黑曜石灰
   schemes: [
-    { id: 'nebula', labelKey: 'theme.nebula', dotColor: '#4f46e5' },
+    { id: 'google', labelKey: 'theme.google', dotColor: '#1a73e8' },
     { id: 'aurora', labelKey: 'theme.aurora', dotColor: '#0d9488' },
     { id: 'obsidian', labelKey: 'theme.obsidian', dotColor: '#475569' },
   ],

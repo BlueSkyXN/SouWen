@@ -9,18 +9,16 @@
   position: absolute;
   z-index: 50;
   max-width: 280px;
-  padding: $space-2 $space-3;
-  border-radius: $radius-sm;
-  background: var(--bg-frosted);
-  backdrop-filter: blur(16px) saturate(1.6);
-  -webkit-backdrop-filter: blur(16px) saturate(1.6);
-  color: var(--text);
-  font-size: $text-sm;
-  font-weight: $font-normal;
+  padding: 8px 12px;
+  border-radius: $radius;
+  background: #3c4043;
+  color: #fff;
+  font-size: 12px;
+  font-weight: $font-medium;
   line-height: $leading-normal;
   word-wrap: break-word;
-  box-shadow: var(--shadow-md);
-  border: 1px solid var(--border);
+  box-shadow: 0 1px 3px rgba(60, 64, 67, 0.3), 0 4px 8px 3px rgba(60, 64, 67, 0.15);
+  border: none;
   pointer-events: none;
   white-space: normal;
 
@@ -30,8 +28,8 @@
     position: absolute;
     width: 8px;
     height: 8px;
-    background: var(--bg-frosted);
-    border: 1px solid var(--border);
+    background: #3c4043;
+    border: none;
     transform: rotate(45deg);
   }
 }

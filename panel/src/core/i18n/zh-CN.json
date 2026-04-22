@@ -574,6 +574,8 @@
   },
   "theme": {
     "label": "主题风格",
+    "google": "Google 炫彩",
+    "googleDesc": "Google 科技炫彩风，蓝绿黄红四色谱",
     "nebula": "星云",
     "nebulaDesc": "靛蓝紫色调，科技与深邃",
     "aurora": "极光",

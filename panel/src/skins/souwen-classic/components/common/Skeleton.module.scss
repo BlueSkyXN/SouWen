@@ -13,10 +13,10 @@
     background: linear-gradient(
       90deg,
       transparent 0%,
-      rgba(255, 255, 255, 0.08) 50%,
+      rgba(255, 255, 255, 0.6) 50%,
       transparent 100%
     );
-    animation: shimmer 1.8s ease-in-out infinite;
+    animation: shimmer 1.6s cubic-bezier(0.4, 0, 0.2, 1) infinite;
   }
 }
 
@@ -24,7 +24,7 @@
   background: linear-gradient(
     90deg,
     transparent 0%,
-    rgba(255, 255, 255, 0.04) 50%,
+    rgba(255, 255, 255, 0.06) 50%,
     transparent 100%
   );
 }
@@ -38,25 +38,25 @@
 .text {
   height: 14px;
   width: 60%;
-  border-radius: 4px;
+  border-radius: 8px;
 }
 
 .textShort {
   height: 14px;
   width: 35%;
-  border-radius: 4px;
+  border-radius: 8px;
 }
 
 .textLong {
   height: 14px;
   width: 85%;
-  border-radius: 4px;
+  border-radius: 8px;
 }
 
 .title {
-  height: 22px;
+  height: 24px;
   width: 50%;
-  border-radius: 6px;
+  border-radius: 10px;
 }
 
 .circle {
@@ -71,8 +71,8 @@
 .statCardSkeleton {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: $space-5 $space-6;
+  border-radius: var(--radius-xl);
+  padding: $space-6 $space-7;
   display: flex;
   flex-direction: column;
   gap: $space-3;
@@ -95,8 +95,8 @@
 .resultCardSkeleton {
   background: var(--bg-card);
   border: 1px solid var(--border);
-  border-radius: var(--radius);
-  padding: $space-5 $space-6;
+  border-radius: var(--radius-xl);
+  padding: $space-6 $space-7;
   margin-bottom: $space-3;
   display: flex;
   flex-direction: column;
@@ -112,7 +112,7 @@
 
 .tableWrapSkeleton {
   border: 1px solid var(--border);
-  border-radius: var(--radius);
+  border-radius: var(--radius-xl);
   background: var(--bg-card);
   overflow: hidden;
 }

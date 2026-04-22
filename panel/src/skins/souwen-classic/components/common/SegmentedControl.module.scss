@@ -3,11 +3,10 @@
 .container {
   display: inline-flex;
   align-items: center;
-  gap: 2px;
-  padding: 3px;
+  gap: 4px;
+  padding: 4px;
   background: var(--bg-subtle);
   border-radius: $radius-full;
-  border: 1px solid var(--border);
   position: relative;
 }
 
@@ -16,13 +15,14 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  gap: 5px;
-  padding: 6px 16px;
+  gap: 6px;
+  padding: 8px 18px;
   border: none;
   background: none;
   color: var(--text-secondary);
-  font-size: $text-sm;
+  font-size: 13px;
   font-weight: $font-medium;
+  letter-spacing: 0.1px;
   border-radius: $radius-full;
   cursor: pointer;
   transition: color var(--transition-fast);
@@ -36,16 +36,23 @@
 }
 
 .active {
-  color: var(--text);
+  color: #001d35;
 }
 
 .indicator {
   position: absolute;
   border-radius: $radius-full;
-  background: var(--bg-elevated);
-  box-shadow: var(--shadow-sm);
+  background: #d3e3fd;
   z-index: 0;
   // inset is managed by framer-motion layout
+}
+
+[data-mode='dark'] .active {
+  color: #d3e3fd;
+}
+
+[data-mode='dark'] .indicator {
+  background: rgba(26, 115, 232, 0.32);
 }
 
 .iconSlot {

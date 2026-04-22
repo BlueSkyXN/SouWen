@@ -27,15 +27,15 @@
 
 .input {
   width: 100%;
-  height: 40px;
-  padding: 0 $space-3;
+  height: 48px;
+  padding: 12px 20px;
   border: 1px solid var(--border-input);
   border-radius: $radius-sm;
   background: var(--bg-input);
   color: var(--text);
-  font-size: $text-base;
+  font-size: 15px;
   line-height: $leading-normal;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
   outline: none;
 
   &::placeholder {
@@ -43,12 +43,13 @@
   }
 
   &:hover:not(:disabled) {
-    border-color: var(--border-strong);
+    border-color: var(--text-secondary);
   }
 
   &:focus {
     border-color: var(--primary);
-    box-shadow: var(--shadow-glow);
+    border-width: 1px;
+    box-shadow: 0 2px 12px rgba(26, 115, 232, 0.15), inset 0 0 0 1px var(--primary);
   }
 
   &:disabled {
@@ -58,35 +59,35 @@
 }
 
 .hasIcon {
-  padding-left: 36px;
+  padding-left: 44px;
 }
 
 .hasSuffix {
-  padding-right: 36px;
+  padding-right: 44px;
 }
 
 .icon {
   position: absolute;
-  left: $space-3;
+  left: 16px;
   display: flex;
   align-items: center;
-  color: var(--text-muted);
+  color: var(--text-secondary);
   pointer-events: none;
 }
 
 .suffix {
   position: absolute;
-  right: $space-3;
+  right: 16px;
   display: flex;
   align-items: center;
-  color: var(--text-muted);
+  color: var(--text-secondary);
 }
 
 .error {
   border-color: var(--error) !important;
 
   &:focus {
-    box-shadow: 0 0 0 3px rgba(220, 38, 38, 0.12);
+    box-shadow: 0 2px 12px rgba(234, 67, 53, 0.15), inset 0 0 0 1px var(--error);
   }
 }
 

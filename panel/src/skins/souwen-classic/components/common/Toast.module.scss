@@ -1,31 +1,31 @@
 .container {
   position: fixed;
-  top: 20px;
-  right: 20px;
+  top: 24px;
+  right: 24px;
   z-index: 9999;
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 12px;
   pointer-events: none;
 }
 
 .toast {
   pointer-events: auto;
-  padding: 14px 18px;
+  padding: 14px 20px 14px 18px;
   border-radius: var(--radius);
-  font-size: 13px;
+  font-size: 14px;
   color: var(--text);
-  box-shadow: var(--shadow-lg);
-  max-width: 380px;
+  background: var(--bg-card);
+  box-shadow: 0 1px 3px rgba(60, 64, 67, 0.12), 0 4px 8px 3px rgba(60, 64, 67, 0.08);
+  max-width: 400px;
   display: flex;
   align-items: flex-start;
-  gap: 10px;
+  gap: 12px;
   cursor: pointer;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  font-weight: 450;
-  letter-spacing: -0.01em;
-  border: 1px solid transparent;
+  font-weight: 500;
+  letter-spacing: 0.1px;
+  border: 1px solid var(--border);
+  border-left: 4px solid var(--text-muted);
 }
 
 .icon {
@@ -34,38 +34,30 @@
 }
 
 .success {
-  background: rgba(236, 253, 245, 0.94);
-  border-color: rgba(5, 150, 105, 0.18);
-  color: var(--success-strong);
+  border-left-color: var(--success);
+
+  .icon {
+    color: var(--success);
+  }
 }
 
 .error {
-  background: rgba(254, 242, 242, 0.94);
-  border-color: rgba(220, 38, 38, 0.18);
-  color: var(--error-strong);
+  border-left-color: var(--error);
+
+  .icon {
+    color: var(--error);
+  }
 }
 
 .info {
-  background: rgba(239, 246, 255, 0.94);
-  border-color: rgba(37, 99, 235, 0.18);
-  color: var(--primary-strong);
+  border-left-color: var(--primary);
+
+  .icon {
+    color: var(--primary);
+  }
 }
 
 [data-mode='dark'] .toast {
-  color: #fff;
-}
-
-[data-mode='dark'] .success {
-  background: rgba(5, 150, 105, 0.92);
-  border-color: rgba(16, 185, 129, 0.24);
-}
-
-[data-mode='dark'] .error {
-  background: rgba(220, 38, 38, 0.92);
-  border-color: rgba(239, 68, 68, 0.24);
-}
-
-[data-mode='dark'] .info {
-  background: rgba(37, 99, 235, 0.92);
-  border-color: rgba(59, 130, 246, 0.24);
+  background: var(--bg-card);
+  color: var(--text);
 }

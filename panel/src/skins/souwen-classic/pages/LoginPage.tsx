@@ -167,7 +167,7 @@ export function LoginPage() {
         initial={{ opacity: 0, scale: 0.96, y: 24 }}
         animate={{ opacity: 1, scale: 1, y: 0 }}
         transition={{ type: 'spring', stiffness: 280, damping: 24 }}
-        style={{ width: '100%', maxWidth: 420, zIndex: 1 }}
+        style={{ width: '100%', maxWidth: 460, zIndex: 1 }}
       >
         <div
           className={`${styles.card} ${shake ? styles.cardShake : ''} ${success ? styles.cardSuccess : ''}`}

@@ -1,168 +1,196 @@
 @use '../styles/variables' as *;
 
 .page {
+  max-width: 1000px;
+  margin: 0 auto;
+  padding: $space-10 $space-6;
   display: flex;
   flex-direction: column;
   gap: $space-6;
 }
 
 /* ===== Page Header ===== */
-
 .pageHeader {
   display: flex;
-  align-items: flex-start;
+  align-items: flex-end;
   justify-content: space-between;
   gap: $space-4;
   flex-wrap: wrap;
+  padding-bottom: $space-6;
+  border-bottom: 1px solid var(--bg-subtle);
 }
 
 .pageTitle {
-  font-size: $text-2xl;
-  font-weight: $font-bold;
+  font-size: $text-4xl;
+  font-weight: $font-normal;
   letter-spacing: $tracking-tight;
   color: var(--text);
-  margin-bottom: $space-1;
+  margin: 0 0 $space-2;
+  line-height: 1.15;
 }
 
 .pageDesc {
-  font-size: $text-base;
-  color: var(--text-muted);
-  line-height: $leading-relaxed;
-  max-width: 560px;
+  font-size: $text-lg;
+  color: var(--text-secondary);
+  line-height: $leading-normal;
+  margin: 0;
+  max-width: 640px;
 }
 
-/* ===== Info Note ===== */
-
-.infoNote {
+/* ===== Accordion Group (each accordion = expandable Google card) ===== */
+.accordionGroup {
   display: flex;
-  align-items: flex-start;
-  gap: $space-3;
-  font-size: $text-sm;
-  color: var(--text-muted);
-  line-height: $leading-relaxed;
-  padding: $space-3 $space-4;
-  background: var(--bg-subtle);
-  border-radius: $radius-sm;
-  margin-bottom: $space-3;
-  border-left: 3px solid var(--primary);
+  flex-direction: column;
+  gap: $space-4;
 
-  > svg {
-    flex-shrink: 0;
-    margin-top: 2px;
-    color: var(--primary);
+  /* Override the inner Accordion component look so each section becomes a Google-style card */
+  > * { background: transparent !important; border: none !important; box-shadow: none !important; }
+
+  /* Target the Accordion DOM (it uses its own scope) — wrap with a card container */
+  > div {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: $radius-xl;
+    overflow: hidden;
+    transition: border-color var(--transition), box-shadow var(--transition);
+  }
+
+  > div:hover {
+    border-color: var(--border-input);
+  }
+
+  /* When the Accordion is open, show blue active border (uses .open class added to .accordion root) */
+  > div:has(button[aria-expanded='true']) {
+    border-color: var(--primary-hover, var(--primary));
+    box-shadow: 0 1px 4px rgba(11, 87, 208, 0.08);
   }
 }
 
-/* ===== Accordion Group ===== */
-
-.accordionGroup {
-  background: var(--bg-card);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  overflow: hidden;
-  box-shadow: var(--shadow-card);
-}
-
-/* ===== Config Rows (inside Accordion) ===== */
-
+/* ===== Config rows inside Accordion ===== */
 .configRows {
   display: flex;
   flex-direction: column;
-  padding: $space-2 $space-3;
+  gap: $space-3;
+  padding-top: $space-2;
 }
 
 .configRow {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: $space-4;
-  padding: $space-4 $space-3;
-  border-bottom: 1px solid var(--border);
-  transition: background 0.3s ease;
-  border-radius: $radius-xs;
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  align-items: start;
+  gap: $space-6;
+  padding: $space-4 $space-2;
+  border-top: 1px solid var(--bg-subtle);
+  transition: background var(--transition-fast);
 
-  &:last-child {
-    border-bottom: none;
-  }
-
-  &:hover {
-    background: var(--bg-hover);
-  }
+  &:first-child { border-top: none; }
 }
 
 .configRowLabel {
   display: flex;
-  align-items: center;
-  gap: $space-2;
-  flex: 1;
+  flex-direction: column;
+  gap: $space-1;
   min-width: 0;
 }
 
 .configRowName {
-  font-weight: $font-semibold;
   font-size: $text-md;
+  font-weight: $font-medium;
   color: var(--text);
-  white-space: nowrap;
+  word-break: break-word;
 }
 
 .configRowKey {
   font-size: $text-xs;
-  font-family: var(--font-mono);
+  font-family: $font-mono;
   color: var(--text-muted);
-  background: var(--bg-subtle);
-  padding: 1px $space-2;
-  border-radius: $radius-xs;
-  white-space: nowrap;
-  opacity: 0.7;
+  word-break: break-all;
 }
 
 .helpIcon {
+  display: inline-block;
+  margin-left: $space-1;
+  vertical-align: middle;
   color: var(--text-muted);
   cursor: help;
-  flex-shrink: 0;
   opacity: 0.6;
-  transition: opacity var(--transition-fast);
+  transition: opacity var(--transition-fast), color var(--transition-fast);
 
   &:hover {
     opacity: 1;
-    color: var(--primary);
+    color: var(--primary-hover, var(--primary));
   }
 }
 
+/* M3-style value display (mimics input look — bg #f1f3f4, bottom-border feel) */
 .configRowValue {
-  flex-shrink: 0;
-  text-align: right;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: $space-2;
 }
 
 .nullVal {
+  display: inline-block;
+  padding: 10px $space-4;
+  background: var(--bg-subtle);
+  border-radius: $radius-sm $radius-sm 2px 2px;
+  border-bottom: 2px solid var(--border-input);
   color: var(--text-muted);
   font-style: italic;
-  font-size: $text-sm;
+  font-size: $text-base;
 }
 
 .codeVal {
+  display: inline-block;
   background: var(--bg-subtle);
-  padding: 2px $space-2;
-  border-radius: $radius-xs;
+  padding: 10px $space-4;
+  border-radius: $radius-sm $radius-sm 2px 2px;
+  border-bottom: 2px solid var(--border-input);
   font-size: $text-sm;
-  font-family: var(--font-mono);
+  font-family: $font-mono;
   word-break: break-all;
   color: var(--text);
 }
 
 .plainVal {
+  display: inline-block;
+  padding: 10px $space-4;
+  background: var(--bg-subtle);
+  border-radius: $radius-sm $radius-sm 2px 2px;
+  border-bottom: 2px solid var(--border-input);
   font-size: $text-base;
-  font-family: var(--font-mono);
+  font-family: $font-mono;
   color: var(--text);
+  word-break: break-all;
 }
 
-/* ===== Section Card (WARP / HTTP Backend) ===== */
+/* ===== Info Note (kept for legacy uses) ===== */
+.infoNote {
+  display: flex;
+  align-items: flex-start;
+  gap: $space-3;
+  font-size: $text-sm;
+  color: var(--text-secondary);
+  line-height: $leading-relaxed;
+  padding: $space-3 $space-4;
+  background: var(--primary-light);
+  border-radius: $radius;
+  margin-bottom: $space-3;
 
+  > svg {
+    flex-shrink: 0;
+    margin-top: 2px;
+    color: var(--primary-hover, var(--primary));
+  }
+}
+
+/* ===== Section card (compat) ===== */
 .sectionCard {
-  margin: 0;
-  border-top: 3px solid transparent;
-  border-image: linear-gradient(90deg, var(--accent), var(--accent-secondary), var(--accent-tertiary)) 1;
-  border-image-slice: 1 0 0 0;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: $radius-xl;
+  padding: $space-6;
 }
 
 .sectionHeader {
@@ -176,82 +204,40 @@
   display: flex;
   align-items: center;
   gap: $space-2;
-  font-size: $text-xl;
-  font-weight: $font-bold;
-  letter-spacing: $tracking-tight;
+  font-size: $text-lg;
+  font-weight: $font-medium;
   color: var(--text);
 }
 
-/* ===== Status Indicator ===== */
-
-.statusIndicator {
-  display: flex;
-  align-items: center;
-  gap: $space-2;
-}
+/* ===== Status Indicator (compat) ===== */
+.statusIndicator { display: flex; align-items: center; gap: $space-2; }
 
 @keyframes pulseGlow {
-  0%, 100% {
-    box-shadow: 0 0 6px var(--success-muted);
-  }
-  50% {
-    box-shadow: 0 0 12px var(--success), 0 0 4px var(--success-muted);
-  }
+  0%, 100% { box-shadow: 0 0 6px var(--success-muted); }
+  50% { box-shadow: 0 0 12px var(--success), 0 0 4px var(--success-muted); }
 }
 
 @keyframes breathe {
-  0%, 100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.5;
-    transform: scale(0.85);
-  }
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(0.85); }
 }
 
 .statusDot {
-  width: 8px;
-  height: 8px;
-  border-radius: $radius-full;
-  flex-shrink: 0;
+  width: 8px; height: 8px; border-radius: $radius-full; flex-shrink: 0;
 
-  &.dot_green {
-    background: var(--success);
-    box-shadow: 0 0 6px var(--success-muted);
-    animation: pulseGlow 2s ease-in-out infinite;
-  }
-
-  &.dot_red {
-    background: var(--error);
-    box-shadow: 0 0 6px var(--error-muted);
-  }
-
-  &.dot_amber {
-    background: var(--warning);
-    box-shadow: 0 0 6px var(--warning-muted);
-    animation: breathe 2s ease-in-out infinite;
-  }
-
-  &.dot_gray {
-    background: var(--text-muted);
-  }
+  &.dot_green { background: var(--success); animation: pulseGlow 2s ease-in-out infinite; }
+  &.dot_red { background: var(--error); box-shadow: 0 0 6px var(--error-muted); }
+  &.dot_amber { background: var(--warning); animation: breathe 2s ease-in-out infinite; }
+  &.dot_gray { background: var(--text-muted); }
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.4; }
-}
-
-/* ===== HTTP Backend Engine List ===== */
-
+/* ===== Engine list compat ===== */
 .engineList {
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border);
-  border-radius: $radius-sm;
+  border-radius: $radius;
   overflow: hidden;
-  margin-bottom: $space-4;
 }
 
 .engineRow {
@@ -261,59 +247,30 @@
   gap: $space-4;
   padding: $space-3 $space-4;
   border-bottom: 1px solid var(--border);
-  transition: background var(--transition-fast);
 
-  &:last-child {
-    border-bottom: none;
-  }
-
-  &:nth-child(even) {
-    background: var(--bg-subtle);
-  }
-
-  &:hover {
-    background: var(--bg-hover);
-  }
+  &:last-child { border-bottom: none; }
+  &:hover { background: var(--bg-subtle); }
 }
 
-.engineRowDefault {
-  background: var(--bg-subtle);
-}
+.engineRowDefault { background: var(--primary-light); }
 
 .engineName {
-  display: flex;
-  align-items: center;
-  gap: $space-2;
-  font-size: $text-base;
-  font-weight: $font-medium;
-  color: var(--text);
+  display: flex; align-items: center; gap: $space-2;
+  font-size: $text-base; font-weight: $font-medium; color: var(--text);
 }
 
 .engineSelect {
-  padding: $space-2 $space-3;
+  padding: 8px $space-3;
   border: 1px solid var(--border-input);
   border-radius: $radius-sm;
   font-size: $text-sm;
-  background: var(--bg-input);
+  background: var(--bg-card);
   color: var(--text);
   min-width: 180px;
   cursor: pointer;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
-
-  &:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px var(--accent-bg-medium), var(--shadow-glow);
-  }
-
-  &:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
-  }
 }
 
-/* ===== WARP Card ===== */
-
+/* ===== WARP compat ===== */
 .warpGrid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
@@ -327,103 +284,26 @@
   border-radius: $radius-sm;
 
   .fieldLabel {
-    display: flex;
-    align-items: center;
-    gap: $space-1;
-    font-size: $text-xs;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-    color: var(--text-muted);
-    margin-bottom: $space-1;
-
-    > svg {
-      opacity: 0.6;
-    }
+    display: flex; align-items: center; gap: $space-1;
+    font-size: $text-xs; text-transform: uppercase; letter-spacing: 0.5px;
+    color: var(--text-muted); margin-bottom: $space-1;
   }
-
-  .fieldValue {
-    font-size: $text-md;
-    font-weight: $font-medium;
-    font-family: var(--font-mono);
-    word-break: break-all;
-    color: var(--text);
-  }
+  .fieldValue { font-size: $text-md; font-weight: $font-medium; font-family: $font-mono; color: var(--text); word-break: break-all; }
 }
 
-.warpModes {
-  display: flex;
-  align-items: center;
-  gap: $space-3;
-  padding: $space-2 $space-3;
-  margin-bottom: $space-4;
-  font-size: $text-sm;
-}
+.warpModes { display: flex; align-items: center; gap: $space-3; padding: $space-2 $space-3; margin-bottom: $space-4; font-size: $text-sm; }
+.fieldLabelSmall { font-size: $text-xs; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
+.fieldValueInline { font-family: $font-mono; font-size: $text-sm; color: var(--text-secondary); }
+.warpError { padding: $space-3 $space-4; margin-bottom: $space-3; background: var(--error-light); border: 1px solid var(--error-muted); border-radius: $radius; font-size: $text-sm; color: var(--error); }
+.warpActions { display: flex; flex-direction: column; gap: $space-4; }
+.warpForm { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: $space-5; }
+.formField { display: flex; flex-direction: column; gap: $space-2; }
+.formLabel { display: flex; align-items: center; gap: $space-1; font-size: $text-xs; font-weight: $font-medium; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); }
+.formSelect { padding: $space-2 $space-3; border: 1px solid var(--border-input); border-radius: $radius-sm; font-size: $text-base; background: var(--bg-card); color: var(--text); cursor: pointer; }
 
-.fieldLabelSmall {
-  font-size: $text-xs;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--text-muted);
-}
-
-.fieldValueInline {
-  font-family: var(--font-mono);
-  font-size: $text-sm;
-  color: var(--text-secondary);
-}
-
-.warpError {
-  padding: $space-3 $space-4;
-  margin-bottom: $space-3;
-  background: var(--error-light);
-  border: 1px solid rgba(220, 38, 38, 0.15);
-  border-radius: $radius-sm;
-  font-size: $text-sm;
-  color: var(--error);
-}
-
-.warpActions {
-  display: flex;
-  flex-direction: column;
-  gap: $space-4;
-}
-
-.warpForm {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: $space-5;
-}
-
-.formField {
-  display: flex;
-  flex-direction: column;
-  gap: $space-2;
-}
-
-.formLabel {
-  display: flex;
-  align-items: center;
-  gap: $space-1;
-  font-size: $text-xs;
-  font-weight: $font-semibold;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: var(--text-muted);
-}
-
-.formSelect {
-  padding: $space-2 $space-3;
-  border: 1px solid var(--border-input);
-  border-radius: $radius-sm;
-  font-size: $text-base;
-  background: var(--bg-input);
-  color: var(--text);
-  cursor: pointer;
-  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
-
-  &:focus {
-    outline: none;
-    border-color: var(--primary);
-    box-shadow: 0 0 0 3px var(--accent-bg-medium), var(--shadow-glow);
-  }
+/* ===== Responsive ===== */
+@media (max-width: $mobile-bp) {
+  .page { padding: $space-6 $space-4; gap: $space-5; }
+  .pageTitle { font-size: $text-3xl; }
+  .configRow { grid-template-columns: 1fr; gap: $space-2; }
 }
