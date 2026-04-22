@@ -34,11 +34,14 @@ RUN ARCH=$(dpkg --print-architecture 2>/dev/null || (uname -m | sed 's/x86_64/am
     curl -fsSL "${WP_URL}" | tar xz -C /usr/local/bin/ wireproxy && \
     chmod +x /usr/local/bin/wireproxy
 
-RUN git clone --depth 1 --branch "${SOUWEN_REF}" "${SOUWEN_REPO}" . \
-    && pip install ".[server,tls]" \
-    && python -c "import curl_cffi; print('curl_cffi OK')"
+RUN git clone --depth 1 --branch "${SOUWEN_REF}" "${SOUWEN_REPO}" .
 
+# 前端面板：从 panel-builder 阶段复制构建产物（必须在 pip install 之前，
+# 否则 panel.html 不会被打包进 site-packages）
 COPY --from=panel-builder /build/panel/dist/index.html ./src/souwen/server/panel.html
+
+RUN pip install ".[server,tls]" \
+    && python -c "import curl_cffi; print('curl_cffi OK')"
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN cp scripts/warp-init.sh /usr/local/bin/warp-init.sh 2>/dev/null || true
