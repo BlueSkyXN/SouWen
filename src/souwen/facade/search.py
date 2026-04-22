@@ -1,8 +1,7 @@
 """facade/search.py — 按 domain 统一搜索入口
 
-本模块是 v1 的搜索门面，派发给具体 adapter。v0 的 `souwen.search` 现在是
-本模块的**入口别名**：`souwen.search.search_papers` 与 `souwen.facade.search.search_papers`
-是同一个东西。
+本模块是搜索门面，派发给具体 adapter。`souwen.search` 是本模块的**入口别名**：
+`souwen.search.search_papers` 与 `souwen.facade.search.search_papers` 是同一个东西。
 
 公开 API：
   - search(query, domain="paper", capability="search", sources=None, limit=10, **kw)
@@ -15,7 +14,7 @@
   - search_by_capability(query, capability, sources=None, ...)
       忽略 domain，对所有支持某 capability 的源派发（谨慎使用，一般走 search_all）。
 
-  - search_papers / search_patents —— v0 兼容，内部调 search(domain=...)。
+  - search_papers / search_patents —— 便捷入口，内部调 search(domain=...)。
 """
 
 from __future__ import annotations
@@ -241,7 +240,7 @@ async def search_by_capability(
     return [r for r in results if isinstance(r, SearchResponse)]
 
 
-# ── v0 兼容 API ────────────────────────────────────────────
+# ── 便捷 API ────────────────────────────────────────────
 
 async def search_papers(
     query: str,
@@ -249,7 +248,7 @@ async def search_papers(
     per_page: int = 10,
     **kwargs: Any,
 ) -> list[SearchResponse]:
-    """v0 兼容：并发多源论文搜索。"""
+    """并发多源论文搜索。"""
     return await search(query, "paper", "search", sources, per_page, **kwargs)
 
 
@@ -259,5 +258,5 @@ async def search_patents(
     per_page: int = 10,
     **kwargs: Any,
 ) -> list[SearchResponse]:
-    """v0 兼容：并发多源专利搜索。"""
+    """并发多源专利搜索。"""
     return await search(query, "patent", "search", sources, per_page, **kwargs)

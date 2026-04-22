@@ -1,9 +1,9 @@
-"""SouWen 数据源注册表（v0 兼容 shim）
+"""SouWen 数据源元数据视图
 
-v1 已经把单一事实源迁到 `souwen.registry`（含执行适配：MethodSpec）。
-本模块保留全部 v0 公开符号，内部从 `souwen.registry.views` 派生。
+`souwen.registry` 是单一事实源（含执行适配 MethodSpec）。本模块对外提供基于
+分类（category）的便捷视图与查询函数，从 `souwen.registry.views` 派生。
 
-v0 公开 API（全部保留）：
+公开 API：
     SourceMeta              —— 数据类（只读字段，视图）
     INTEGRATION_TYPES       —— 4 种集成类型常量集
     INTEGRATION_TYPE_LABELS —— 用户可读标签
@@ -15,13 +15,13 @@ v0 公开 API（全部保留）：
     get_sources_by_integration_type(itype)   —— list[SourceMeta]
     ALL_SOURCE_NAMES        —— frozenset[str]
 
-迁移备注（v1 → v0 category 映射）：
-    v1 的 10 个 domain 中有 8 个与 v0 重名：paper / patent / social / video / knowledge /
-    developer / cn_tech / office。另外：
-      - v1 `web` 下的 scraper / self_hosted + 部分 SERP API → v0 `general`
-      - v1 `web` 下的 AI/语义 API → v0 `professional`
-      - v1 `knowledge` → v0 `wiki`
-      - v1 `archive` → v0 `fetch`（Wayback 原本就在 fetch 列表）
+domain → category 映射：
+    10 个 domain 中有 8 个直接对应 category：paper / patent / social / video /
+    knowledge / developer / cn_tech / office。另外：
+      - `web` 下的 scraper / self_hosted + 部分 SERP API → `general`
+      - `web` 下的 AI/语义 API → `professional`
+      - `knowledge` → `wiki`
+      - `archive` → `fetch`（Wayback 在 fetch 列表）
     映射规则实现在 `souwen.registry.views._v0_category_for`。
 """
 
@@ -32,7 +32,6 @@ from dataclasses import dataclass
 from souwen.registry import views as _views
 from souwen.registry.adapter import INTEGRATIONS
 
-# v0 公开常量 —— 保持原符号
 INTEGRATION_TYPES: frozenset[str] = INTEGRATIONS
 
 INTEGRATION_TYPE_LABELS: dict[str, str] = {
@@ -45,17 +44,17 @@ INTEGRATION_TYPE_LABELS: dict[str, str] = {
 
 @dataclass(frozen=True, slots=True)
 class SourceMeta:
-    """数据源元数据（v0 兼容视图）
+    """数据源元数据视图
 
-    这是 v1 `SourceAdapter` 的**只读投影**。仅保留 v0 原有字段：
+    `SourceAdapter` 的**只读投影**，包含字段：
         name / category / integration_type / config_field / description
 
-    v0 的 category 值：
+    category 取值：
         paper | patent | general | professional | social | office |
         cn_tech | developer | wiki | video | fetch
-    （对应 v1 的 domain，通过 `_v0_category_for()` 映射）
+    （由 `_v0_category_for()` 把 adapter 的 domain 映射到对应 category）
 
-    新代码应使用 `from souwen.registry import get, by_domain` 等 v1 API。
+    新代码可直接使用 `from souwen.registry import get, by_domain` 等 API。
     """
 
     name: str
@@ -73,16 +72,14 @@ class SourceMeta:
 # ── 派生缓存 ──────────────────────────────────────────────
 
 def _build_source_meta_view() -> dict[str, SourceMeta]:
-    """从注册表派生 v0 SourceMeta 视图。
+    """从注册表派生 SourceMeta 视图。
 
-    注意：一个 adapter 只产生一个 SourceMeta（使用 v0 category 映射）。
-    跨域（如 Tavily domain=web + extra_domains={fetch}）在 v0 视图里只显示
-    主 category。这是 v0 的行为（source_registry 里也只登记一个类别）。
+    一个 adapter 只产生一个 SourceMeta（按主 category 映射）。跨域源
+    （如 Tavily domain=web + extra_domains={fetch}）只在主 category 下出现。
     """
     result: dict[str, SourceMeta] = {}
     for adapter in _views.all_adapters().values():
-        # v0 ALL_SOURCES 被排除的源（experimental/待修复）也要保留到 source_registry 视图
-        # ——v0 source_registry 本身就登记了它们。
+        # ALL_SOURCES 排除集合外的源（experimental/待修复）也会保留到本视图。
         category = _views._v0_category_for(adapter)
         if category is None:
             continue
@@ -107,7 +104,7 @@ def _meta_view() -> dict[str, SourceMeta]:
     return _SOURCE_META_CACHE
 
 
-# ── v0 公开 API（签名不变）──────────────────────────────────
+# ── 公开 API ────────────────────────────────────────────────
 
 def get_all_sources() -> dict[str, SourceMeta]:
     """返回所有已注册数据源的字典
@@ -158,7 +155,7 @@ def get_sources_by_category(category: str) -> list[SourceMeta]:
     """按内容分类筛选数据源
 
     Args:
-        category: v0 分类标签（paper / patent / general / professional / social /
+        category: 分类标签（paper / patent / general / professional / social /
             office / cn_tech / developer / wiki / video / fetch）
 
     Returns:
@@ -183,14 +180,10 @@ def get_sources_by_integration_type(integration_type: str) -> list[SourceMeta]:
     ]
 
 
-# frozenset of all names —— 即时从 registry 派生
-# 与 v0 相比：
-#   - v0 里 `twitter` / `facebook` 登记在 social
-#   - v1 保留这些 + 新增 `bing_cn` / `ddg_news` / `ddg_images` / `ddg_videos` / `metaso` 等
-# 因此这个集合**允许比 v0 大一些**——新增源是正常演进。
+# 即时从 registry 派生所有源名称
 def _compute_all_source_names() -> frozenset[str]:
     return frozenset(_meta_view().keys())
 
 
-# 保留 v0 的名字（立即计算；消费者一般只做 `name in ALL_SOURCE_NAMES`）
+# 立即计算（消费者一般只做 `name in ALL_SOURCE_NAMES`）
 ALL_SOURCE_NAMES: frozenset[str] = _compute_all_source_names()

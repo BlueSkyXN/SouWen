@@ -1,7 +1,7 @@
 """facade/archive.py — Wayback Machine 归档门面
 
-薄封装 `souwen.web.wayback.WaybackClient`，把 v0 的入口统一在 facade 层。
-v1 API 暴露为：
+薄封装 `souwen.web.wayback.WaybackClient`，把归档相关入口统一在 facade 层。
+公开 API：
   - archive_lookup(url, ...) —— CDX 检索历史快照
   - archive_check(url)       —— 有/无存档快速查询
   - archive_save(url, ...)   —— Save Page Now 触发存档

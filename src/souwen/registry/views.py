@@ -5,7 +5,7 @@
 使用者：
   - souwen.search（门面）
   - souwen.web.search（门面）
-  - souwen.source_registry（v0 shim）
+  - souwen.source_registry（SourceMeta 视图）
   - souwen.models.ALL_SOURCES（派生）
   - server/routes 的 /sources 端点
   - CLI 的 sources 子命令
@@ -69,7 +69,7 @@ def by_domain_and_capability(domain: str, capability: str) -> list[SourceAdapter
 def defaults_for(domain: str, capability: str = "search") -> list[str]:
     """(domain, capability) 未显式指定 sources 时的默认源列表。
 
-    来自 adapter.default_for 字段（D9）。淘汰 v0 的 `_DEFAULT_PAPER_SOURCES` 硬编码。
+    来自 adapter.default_for 字段（D9）。
     """
     key = f"{domain}:{capability}"
     return [a.name for a in _REGISTRY.values() if key in a.default_for]
@@ -83,7 +83,7 @@ def all_domains() -> list[str]:
     seen: set[str] = set()
     for a in _REGISTRY.values():
         seen.update(a.domains)
-    # 保持一个相对稳定的显示顺序：v1 官方 10 个 + fetch 放最后
+    # 保持一个相对稳定的显示顺序：官方 10 个 domain + fetch 放最后
     order = [
         "paper", "patent", "web", "social", "video",
         "knowledge", "developer", "cn_tech", "office", "archive",
@@ -118,27 +118,27 @@ def enum_values() -> list[str]:
     return sorted(_REGISTRY.keys())
 
 
-# ── v0 兼容视图 ────────────────────────────────────────────
+# ── ALL_SOURCES 兼容视图 ────────────────────────────────────
 
-#: v1 domain → v0 ALL_SOURCES 分类的映射（ALL_SOURCES 仍需要的 9 个分类）。
-#: 注意：v0 `general` 混了 engines + self_hosted + 部分 SERP API，
-#:      `professional` 是另一批 SERP/AI 类 API。本映射维持 v0 行为。
-_V1_DOMAIN_TO_V0_CATEGORY: dict[str, str] = {
+#: domain → ALL_SOURCES 分类的映射（ALL_SOURCES 包含的 9 个分类）。
+#: 注意：`general` 混了 engines + self_hosted + 部分 SERP API，
+#:      `professional` 是另一批 SERP/AI 类 API。
+_DOMAIN_TO_CATEGORY: dict[str, str] = {
     "paper": "paper",
     "patent": "patent",
     "social": "social",
     "video": "video",
-    "knowledge": "wiki",     # v0 用 "wiki"
+    "knowledge": "wiki",     # 历史命名 "wiki"
     "developer": "developer",
-    "cn_tech": "cn_tech",    # v0 原本没有，新增
+    "cn_tech": "cn_tech",
     "office": "office",
-    "archive": "fetch",      # v0 把 wayback 归在 fetch
+    "archive": "fetch",      # wayback 归在 fetch
     FETCH_DOMAIN: "fetch",
 }
 
 
 def _v0_category_for(adapter: SourceAdapter) -> str | None:
-    """把 adapter 映射到 v0 的 ALL_SOURCES key。web 分两类：general / professional。
+    """把 adapter 映射到 ALL_SOURCES key。web 分两类：general / professional。
 
     对 domain=web 的源：
       - integration ∈ {scraper, self_hosted, 部分 official_api 型 SERP 引擎} → general
@@ -151,11 +151,11 @@ def _v0_category_for(adapter: SourceAdapter) -> str | None:
         return "general"
     if "v0_category:professional" in adapter.tags:
         return "professional"
-    return _V1_DOMAIN_TO_V0_CATEGORY.get(adapter.domain)
+    return _DOMAIN_TO_CATEGORY.get(adapter.domain)
 
 
 def as_all_sources_dict() -> dict[str, list[tuple[str, bool, str]]]:
-    """派生 v0 `ALL_SOURCES` 等价结构（用于 `models.ALL_SOURCES`）。
+    """派生 `ALL_SOURCES` 字典结构（用于 `models.ALL_SOURCES`）。
 
     返回格式：`{category: [(name, needs_config, description), ...]}`
     category 仅包含 adapter 实际覆盖到的（空分类不会出现）。
@@ -164,8 +164,8 @@ def as_all_sources_dict() -> dict[str, list[tuple[str, bool, str]]]:
     都会出现在 fetch 列表里。
 
     排除规则：adapter.tags 含 `v0_all_sources:exclude` 的源**不出现**在返回值中。
-    用于 v0 ALL_SOURCES 历史上未列出的实验性/"待修复"源（unpaywall / patentsview / pqai），
-    保证派生结果与 v0 完全一致，同时这些源仍然保留在注册表里供未来启用。
+    用于历史上未列入 ALL_SOURCES 的实验性/"待修复"源（unpaywall / patentsview / pqai），
+    这些源仍然保留在注册表里供未来启用。
     """
     result: dict[str, list[tuple[str, bool, str]]] = {}
     for adapter in _REGISTRY.values():
@@ -183,7 +183,7 @@ def as_all_sources_dict() -> dict[str, list[tuple[str, bool, str]]]:
                 fetch_list.append(
                     (adapter.name, adapter.resolved_needs_config, adapter.description)
                 )
-    # 与 v0 保持同样的 category 顺序
+    # 稳定的 category 顺序
     order = [
         "paper", "patent", "general", "professional",
         "social", "office", "developer", "wiki",

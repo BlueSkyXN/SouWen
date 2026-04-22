@@ -16,7 +16,7 @@
 
 SouWen（搜文）为 AI Agent 提供统一的多源搜索接口，**所有数据源通过 `SourceAdapter` 单一事实源声明**，归一化为 Pydantic v2 数据模型。
 
-**v0.9 起**进入 v1 过渡期：注册表重构完成，源的新增成本从"改 7 处"降到"改 1-2 处"；CLI / API / 前端均按 10 个 domain 重新组织，同时保留全部 v0 入口别名。
+注册表架构使源的新增成本降到 **1-2 处**改动；CLI / API / 前端均按 10 个 domain 组织。
 
 ### 特性
 
@@ -51,7 +51,7 @@ pip install "souwen[server,tls,web,scraper,pdf,crawl4ai,newspaper,readability,ro
 ### CLI
 
 ```bash
-# v0 命令（仍然可用）
+# 顶层动词形式
 souwen search paper "transformer"
 souwen search patent "quantum computing"
 souwen search web "python asyncio"
@@ -60,16 +60,16 @@ souwen youtube trending
 souwen bilibili search "编程"
 souwen wayback cdx https://example.com
 
-# v1 主命令形式（推荐）
+# Domain 主命令形式（推荐）
 souwen paper search "transformer"
 souwen patent search "quantum"
 souwen web search "python asyncio"
-souwen social search "AI"              # 新：social domain 独立
+souwen social search "AI"               # social domain 独立
 souwen video search "tutorial"
 souwen knowledge search "quantum entanglement"
 souwen developer search "react hooks"
-souwen archive cdx https://example.com  # 新：wayback → archive
-souwen search-all "quantum"             # 新：跨域显式聚合
+souwen archive cdx https://example.com  # wayback 归入 archive
+souwen search-all "quantum"             # 跨域显式聚合
 
 # 管理
 souwen sources                          # 列出所有数据源
@@ -85,12 +85,12 @@ import asyncio
 from souwen import search_papers, search_patents
 
 async def main():
-    # v0 API（继续可用）
+    # 便捷入口
     resp = await search_papers("quantum computing", per_page=5)
     for r in resp[0].results:
         print(r.title, "—", r.doi)
 
-    # v1 facade API（推荐）
+    # facade API（推荐）
     from souwen.facade import search, search_all, fetch_content, archive_lookup
 
     # 按 domain + capability 派发
@@ -113,15 +113,15 @@ asyncio.run(main())
 souwen serve --host 0.0.0.0 --port 49265
 ```
 
-主要端点（v0 + v1 双形式）：
+主要端点：
 
 ```bash
-# v0 形式
+# 顶层动词形式
 curl "http://localhost:49265/api/v1/search/paper?q=transformer&per_page=5"
 curl "http://localhost:49265/api/v1/search/web?q=python"
 curl "http://localhost:49265/api/v1/fetch" -X POST -d '{"urls":["https://example.com"]}'
 
-# v1 形式（规划中，后端路由拆分后上线）
+# Domain 形式（规划中，后端路由拆分后上线）
 curl "http://localhost:49265/api/v1/paper/search?q=transformer"
 curl "http://localhost:49265/api/v1/archive/cdx?url=https://example.com"
 ```

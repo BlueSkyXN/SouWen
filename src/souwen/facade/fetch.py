@@ -5,7 +5,7 @@
 公开 API：
   - fetch_content(urls, provider='builtin', timeout=30.0, **kw) → FetchResponse
 
-行为与 v0 `souwen.web.fetch.fetch_content` 保持一致；v0 入口继续可用。
+底层委托给 `souwen.web.fetch.fetch_content`（同一实现，两条入口等价）。
 """
 
 from __future__ import annotations
@@ -25,7 +25,7 @@ async def fetch_content(
 ):
     """通过 registry 里声明 fetch 能力的 adapter 抓取内容。
 
-    v0 的 `souwen.web.fetch.fetch_content` 已经实现了 SSRF 防护、重定向跟踪、
+    底层调用 `souwen.web.fetch.fetch_content`，该实现内置了 SSRF 防护、重定向跟踪、
     响应聚合等完整管道逻辑。本门面**委托**给它，而不是重写。
 
     Args:
@@ -36,7 +36,7 @@ async def fetch_content(
         **kwargs: 透传给 provider
 
     Returns:
-        FetchResponse（v0 格式）
+        FetchResponse
 
     Raises:
         ValueError: provider 在 registry 中未声明 fetch capability
@@ -50,7 +50,6 @@ async def fetch_content(
             f"(has: {sorted(adapter.capabilities)})"
         )
 
-    # 委托给 v0 的实现（该实现已经内置了 SSRF 防护 / 重定向 / 批量聚合等管道逻辑）
-    from souwen.web.fetch import fetch_content as _v0_fetch
+    from souwen.web.fetch import fetch_content as _impl_fetch
 
-    return await _v0_fetch(urls, provider=provider, timeout=timeout, **kwargs)
+    return await _impl_fetch(urls, provider=provider, timeout=timeout, **kwargs)

@@ -8,7 +8,7 @@ import json
 import typer
 from rich.table import Table
 
-from souwen.cli._common import _deprecation_notice, _run_async, console
+from souwen.cli._common import _run_async, console
 
 search_app = typer.Typer(help="搜索论文/专利/网页")
 
@@ -22,7 +22,6 @@ def search_paper(
     timeout: int | None = typer.Option(None, "--timeout", "-t", help="总超时（秒），默认不限制"),
 ) -> None:
     """搜索学术论文"""
-    _deprecation_notice("souwen search paper")
     from souwen.search import search_papers
 
     source_list = [s.strip() for s in sources.split(",") if s.strip()]
@@ -87,7 +86,6 @@ def search_patent(
     timeout: int | None = typer.Option(None, "--timeout", "-t", help="总超时（秒），默认不限制"),
 ) -> None:
     """搜索专利"""
-    _deprecation_notice("souwen search patent")
     from souwen.search import search_patents
 
     source_list = [s.strip() for s in sources.split(",") if s.strip()]
@@ -154,7 +152,6 @@ def search_web_cmd(
     timeout: int | None = typer.Option(None, "--timeout", "-t", help="总超时（秒），默认不限制"),
 ) -> None:
     """搜索网页"""
-    _deprecation_notice("souwen search web")
     from souwen.web.search import web_search
 
     engine_list = [e.strip() for e in engines.split(",") if e.strip()]
@@ -205,7 +202,6 @@ def search_images_cmd(
     timeout: int | None = typer.Option(None, "--timeout", "-t", help="超时（秒）"),
 ) -> None:
     """搜索图片 — DuckDuckGo Images"""
-    _deprecation_notice("souwen search images")
     from souwen.web.ddg_images import DuckDuckGoImagesClient
 
     async def _do():
@@ -253,7 +249,6 @@ def search_videos_cmd(
     timeout: int | None = typer.Option(None, "--timeout", "-t", help="超时（秒）"),
 ) -> None:
     """搜索视频 — DuckDuckGo Videos"""
-    _deprecation_notice("souwen search videos")
     from souwen.web.ddg_videos import DuckDuckGoVideosClient
 
     async def _do():

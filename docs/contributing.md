@@ -115,9 +115,9 @@ ruff check --fix src/
 ruff format src/
 ```
 
-## 添加新数据源（V1）
+## 添加新数据源
 
-V1 把 v0 时代分散的"7 处修改"压缩到 **1-2 处**：
+新增源只需 **1-2 处**改动：
 
 1. 实现 `Client` 类（继承 `SouWenHttpClient` / `OAuthClient` / `BaseScraper`）。
 2. 在 `src/souwen/registry/sources.py` 添加一个 `_reg(SourceAdapter(...))`。
@@ -125,18 +125,18 @@ V1 把 v0 时代分散的"7 处修改"压缩到 **1-2 处**：
 
 完整步骤、模板与一致性测试要求请看 **[adding-a-source.md](./adding-a-source.md)**。
 
-> 注意：V1 注册表会被 `tests/registry/test_consistency.py` 守护——`client_loader` 指向的类、`MethodSpec.method_name`、`param_map` 的目标参数、`config_field` 是否在 `SouWenConfig` 中存在等都会被自动校验，新增源**必须**让该测试通过。
+> 注意：注册表会被 `tests/registry/test_consistency.py` 守护——`client_loader` 指向的类、`MethodSpec.method_name`、`param_map` 的目标参数、`config_field` 是否在 `SouWenConfig` 中存在等都会被自动校验，新增源**必须**让该测试通过。
 
-## V0 / V1 兼容规则
+## 公开 API 入口约定
 
-V1 重构期间（v0.9.x 过渡版本）必须保持以下兼容性：
+注册表是单一事实源，但提供多条等价的入口路径：
 
-- ✅ **保留 v0 公开入口**：`souwen.search.search_papers / search_patents / web_search`、`souwen.web.fetch.fetch_content`、`souwen.web.wayback.WaybackClient` 等仍然可用，内部转发到 `souwen.facade.*`。
-- ✅ **保留 `souwen.models.SourceType` 与 `ALL_SOURCES`**：现在由 `registry.views.enum_values()` / `as_all_sources_dict()` 派生，但导出名不变。
-- ✅ **保留 v0 配置字段**：`SouWenConfig` 的所有 flat key（如 `tavily_api_key`）在 V1 仍可用；新增源若选用 flat key 需同时支持 `sources.<name>.api_key` 频道覆盖。
-- ✅ **shim 模块**：`souwen.scraper.base` / `souwen.http_client` / `souwen.fingerprint` 仍存在，内部 `from souwen.core.* import *`。请在新代码中**优先使用 `souwen.core.*` 路径**。
-- ❌ **不要新增 v0 风格的 dispatcher dict**：搜索路由、`source_map`、`engine_map` 等都已下沉到 registry 派发，新源不要再去改 `search.py` / `web/search.py`。
-- ❌ **不要绕过 registry**：CLI / 服务端 / MCP / 文档生成都应通过 `souwen.registry` 查询，避免再次出现"信息散落 7 处"的旧问题。
+- ✅ **顶层便捷入口**：`souwen.search.search_papers / search_patents / web_search`、`souwen.web.fetch.fetch_content`、`souwen.web.wayback.WaybackClient` 等；内部转发到 `souwen.facade.*`。
+- ✅ **`souwen.models.SourceType` 与 `ALL_SOURCES`**：由 `registry.views.enum_values()` / `as_all_sources_dict()` 派生。
+- ✅ **配置字段**：`SouWenConfig` 的 flat key（如 `tavily_api_key`）与频道覆盖 `sources.<name>.api_key` 都支持；新增源若选用 flat key 需同时支持频道覆盖。
+- ✅ **平台层 re-export**：`souwen.scraper.base` / `souwen.http_client` / `souwen.fingerprint` 是 `souwen.core.*` 的便捷入口；新代码任选其一即可。
+- ❌ **不要新增 dispatcher dict**：搜索路由、`source_map`、`engine_map` 等都已下沉到 registry 派发，新源不要再去改 `search.py` / `web/search.py`。
+- ❌ **不要绕过 registry**：CLI / 服务端 / MCP / 文档生成都应通过 `souwen.registry` 查询，避免出现"信息散落多处"的回退。
 
 ## 提交规范（Conventional Commits）
 

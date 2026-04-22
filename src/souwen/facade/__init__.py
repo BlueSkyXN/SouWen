@@ -1,4 +1,4 @@
-"""facade/ — v1 门面层
+"""facade/ — 门面层
 
 门面层负责把请求分发到具体数据源客户端，做并发调度 / 超时保护 / 异常隔离。
 具体客户端通过 `souwen.registry` 派发，不直接 import。
@@ -9,10 +9,10 @@
   - archive    —— Wayback 归档查询（archive_lookup/save/fetch）
   - aggregate  —— 多 domain 并发聚合（search_all）
 
-v0 兼容入口：
+公开入口别名：
   - `souwen.search.search_papers()` / `search_patents()` / `web_search()`
   - `souwen.web.fetch.fetch_content()` / `souwen.web.wayback.WaybackClient`
-    均可继续使用；facade 层是新入口，不破坏旧路径。
+    与 facade 层等价，可任选其一。
 """
 
 from __future__ import annotations

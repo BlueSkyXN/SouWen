@@ -1,6 +1,6 @@
 """registry/sources.py — 声明式数据源注册
 
-**这是 v1 的单一事实源**。新增一个数据源 = 在这个文件里加一个 `_reg(SourceAdapter(...))`。
+**这是单一事实源**。新增一个数据源 = 在这个文件里加一个 `_reg(SourceAdapter(...))`。
 
 组织顺序：
   1. paper（17 源）
@@ -21,9 +21,9 @@
   - `client_loader` 使用 `lazy("path:Class")` 字符串懒加载，registry 模块导入时
     **不会**把 80+ 个 Client 全部 import 进来。
   - `param_map` 把统一入参（limit/query）翻译为源原生参数名（per_page/rows/retmax/size/...）。
-  - `default_for` 声明 (domain, capability) 下的默认源（淘汰 v0 的 `_DEFAULT_PAPER_SOURCES`）。
-  - `tags={"v0_category:general"}` / `{"v0_category:professional"}` 是 v0 ALL_SOURCES 的分类映射
-    （让 `as_all_sources_dict()` 能准确派生 v0 结构；新代码不需要管）。
+  - `default_for` 声明 (domain, capability) 下的默认源。
+  - `tags={"v0_category:general"}` / `{"v0_category:professional"}` 用于 ALL_SOURCES 分类映射
+    （让 `as_all_sources_dict()` 能正确派生 general / professional 划分）。
 
 本文件的变更会被 `tests/registry/test_consistency.py` 验证：
   - 所有 client_loader 的目标类真实存在
@@ -39,7 +39,7 @@ from souwen.registry.adapter import MethodSpec, SourceAdapter
 from souwen.registry.loader import lazy
 from souwen.registry.views import _reg  # 模块内使用的注册函数
 
-# v0 category 标签速记
+# ALL_SOURCES 分类标签速记
 _T_GENERAL: frozenset[str] = frozenset({"v0_category:general"})
 _T_PROFESSIONAL: frozenset[str] = frozenset({"v0_category:professional"})
 _T_HIGH_RISK_GENERAL: frozenset[str] = frozenset({"v0_category:general", "high_risk"})
@@ -243,7 +243,7 @@ _reg(SourceAdapter(
     client_loader=lazy("souwen.paper.unpaywall:UnpaywallClient"),
     # unpaywall 没有 search 方法，只有 find_oa(doi)；用命名空间声明（D8）
     methods={"unpaywall:find_oa": MethodSpec("find_oa")},
-    # 不参与 search 调度，v0 ALL_SOURCES["paper"] 也不收录
+    # 不参与 search 调度，ALL_SOURCES["paper"] 也不收录
     tags=frozenset({"v0_all_sources:exclude"}),
 ))
 
@@ -274,7 +274,7 @@ _reg(SourceAdapter(
             pre_call=_patentsview_pre_call,
         ),
     },
-    # "待修复"状态，v0 ALL_SOURCES["patent"] 也不收录
+    # "待修复"状态，ALL_SOURCES["patent"] 也不收录
     tags=frozenset({"v0_all_sources:exclude"}),
 ))
 
@@ -355,7 +355,7 @@ _reg(SourceAdapter(
 
 
 # ═════════════════════════════════════════════════════════════
-#  3. web.engines（爬虫类 SERP，13 个；对应 v0 category="general"）
+#  3. web.engines（爬虫类 SERP，13 个；对应 category="general"）
 # ═════════════════════════════════════════════════════════════
 
 _reg(SourceAdapter(
@@ -509,7 +509,7 @@ _reg(SourceAdapter(
 # ═════════════════════════════════════════════════════════════
 #  4. web.api（授权 API）
 # ═════════════════════════════════════════════════════════════
-# 按 v0 ALL_SOURCES 的划分：SERP 类（serpapi/brave_api/serper/scrapingdog/metaso）进 general，
+# 按 ALL_SOURCES 的划分：SERP 类（serpapi/brave_api/serper/scrapingdog/metaso）进 general，
 # AI/语义类（tavily/exa/perplexity/firecrawl/linkup/zhipuai/aliyun_iqs）进 professional。
 
 _reg(SourceAdapter(
@@ -659,7 +659,7 @@ _reg(SourceAdapter(
 
 
 # ═════════════════════════════════════════════════════════════
-#  5. web.self_hosted（自托管元搜索，3 个；对应 v0 category="general"）
+#  5. web.self_hosted（自托管元搜索，3 个；对应 category="general"）
 # ═════════════════════════════════════════════════════════════
 
 _reg(SourceAdapter(

@@ -8,8 +8,8 @@
  *      重复书写方法签名；同时通过同名 interface 声明合并，将各方法显式宣告为
  *      ApiService 的"成员方法"（method shorthand），保持与原单一类等价的类型形态，
  *      使 vitest `vi.mocked()` 等工具能识别其为可 mock 方法；
- *   3. 暴露单例 `api` 与 `default` 导出，原 `import { api } from '@core/services/api'`
- *      及 `import api from '@core/services/api'` 均不受影响（api.ts 已转为 shim）。
+ *   3. 暴露单例 `api` 与 `default` 导出，`import { api } from '@core/services/api'`
+ *      及 `import api from '@core/services/api'` 均等价（api.ts 是公开入口别名）。
  *
  * 同时再导出 assertBaseUrlAllowed / ApiServiceBase / 常量，便于在测试或工具中复用。
  */

@@ -1,3 +1,3 @@
-"""v1 shim: 请改用 `souwen.core.parsing`（v1 去除下划线前缀）。"""
+"""Public re-export of `souwen.core.parsing`."""
 
 from souwen.core.parsing import *  # noqa: F401,F403

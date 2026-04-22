@@ -1,6 +1,6 @@
-# SouWen v1 架构概览
+# SouWen 架构概览
 
-> 本文档描述 v0.9+ 的目标架构。v1 的核心变化：**所有数据源元数据 + 执行适配集中到 `registry/` 单一事实源**，解决 v0 时期"同一份信息散落 7 处手工维护、频繁漂移"的问题。
+> 本文档描述 SouWen 当前的架构。核心原则：**所有数据源元数据 + 执行适配集中到 `registry/` 单一事实源**，避免"同一份信息散落多处手工维护、频繁漂移"。
 
 ---
 
@@ -75,7 +75,7 @@ class MethodSpec:
 
 ### 为什么需要 MethodSpec
 
-v0 时代每个 Client 的 search 参数名都不一样：
+各 Client 的 search 参数名各不相同：
 
 ```
 OpenAlex.search(query, per_page=, ...)
@@ -88,7 +88,7 @@ EPO OPS.search(cql_query=, range_end=, ...)
 USPTO ODP.search_applications(query=, per_page=, ...)  # 方法名都不一样
 ```
 
-v0 用 24 个 lambda 硬映射（两个巨大 dict），一加源要改多处。v1 固化在 adapter 声明：
+如果用一张大 dict 把这些 lambda 硬映射，每加一个源都要改多处。改由 adapter 声明：
 
 ```python
 _reg(SourceAdapter(
@@ -154,7 +154,7 @@ client_cls = adapter.client_loader()  # 此刻才 importlib.import_module
 
 ## 4. 并发与超时
 
-- **per-event-loop Semaphore**（D12）：`core.concurrency.get_semaphore(channel)` 按当前 running loop 存 `WeakKeyDictionary[loop, Semaphore]`。同 loop 多次调用返回同一个；跨 `asyncio.new_event_loop()` 自动隔离；loop 被 GC 后自动清理。取代 v0 的 `loop._souwen_sem = sem  # type: ignore` 黑魔法。
+- **per-event-loop Semaphore**（D12）：`core.concurrency.get_semaphore(channel)` 按当前 running loop 存 `WeakKeyDictionary[loop, Semaphore]`。同 loop 多次调用返回同一个；跨 `asyncio.new_event_loop()` 自动隔离；loop 被 GC 后自动清理。
 - **两个独立 channel**：`search` 与 `web`，互不阻塞。
 - **单源超时上限 15s**，受 `SouWenConfig.timeout` 约束；超时源丢弃，不影响其他源。
 - **异常隔离**：单源抛异常（ConfigError / RateLimitError / 其他）时只记 log，不阻塞其他源。
@@ -188,7 +188,7 @@ client_cls = adapter.client_loader()  # 此刻才 importlib.import_module
 `tests/registry/test_consistency.py` 含 21 项硬断言，CI 每次 PR 必跑：
 
 - capability 全部在标准集或命名空间形式
-- extra_domains 只允许 `fetch`（v1 初期）
+- extra_domains 只允许 `fetch`
 - MethodSpec.method_name 在 Client 类上真实存在
 - param_map 的目标参数名是方法签名里的参数
 - config_field 在 `SouWenConfig.model_fields` 里存在
@@ -202,23 +202,13 @@ client_cls = adapter.client_loader()  # 此刻才 importlib.import_module
 - 每个 domain 至少有一个源支持 search / archive_lookup
 - fetch 提供者 ≥ 10 个
 
-## 9. v0 兼容承诺
+## 9. 公开 API 入口
 
-- `from souwen.paper import OpenAlexClient` 等 v0 import 路径全保留（shim re-export）
-- v0 CLI 命令（`souwen search paper`）继续可用
-- v0 REST 路径（`/api/v1/search/paper`）继续可用
-- v0 配置字段名不变（只增不改）
-- SourceType 枚举手写保留（v2.0 引入 `SourceName = Literal[...]`）
+注册表是单一事实源，但提供多条便捷入口：
 
-详见 [CHANGELOG.md](../CHANGELOG.md) 与 `local/v1-初步定义.md §10` 的 15 项 Final 决定。
+- `from souwen.paper import OpenAlexClient` 等按 domain 的直接 import 路径
+- 顶层 CLI 动词：`souwen search paper`、`souwen fetch`、`souwen wayback cdx` 等
+- REST 路径：`/api/v1/search/paper`、`/api/v1/fetch` 等
+- `SouWenConfig` 字段名稳定（只增不改）
 
----
-
-## 附：版本路线图
-
-| 版本 | 阶段 | 关键内容 |
-|---|---|---|
-| 0.8.x | 当前 v0 | bugfix only |
-| **0.9.x** | **v1 过渡** | registry 落地 / 目录重组 / facade 层 / 全部 v0 入口别名保留 |
-| 1.0.0 | v1 正式 | v0 别名打 deprecated 标签；文档全部迁到 v1 |
-| 2.0.0 | 清理 | 移除 v0 别名；`SourceType` 降级为 `SourceName = Literal[...]`；可考虑抽 `souwen-core` 独立包 |
+详见 [CHANGELOG.md](../CHANGELOG.md)。

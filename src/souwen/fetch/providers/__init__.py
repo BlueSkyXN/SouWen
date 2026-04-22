@@ -1,6 +1,6 @@
-"""fetch/providers/ — 抓取提供者实现（v1）
+"""fetch/providers/ — 抓取提供者实现
 
-re-export v0 的 fetch 客户端，保持 import 路径兼容。
+Public API: re-export 各 fetch 客户端，保持 import 路径稳定。
 """
 
 from souwen.web.apify import ApifyClient

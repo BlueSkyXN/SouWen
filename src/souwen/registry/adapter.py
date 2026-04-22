@@ -1,9 +1,9 @@
 """registry/adapter.py — SourceAdapter + MethodSpec + 常量
 
-SourceAdapter 是 v1 架构的最小数据源单元，替代 v0 的：
-  - source_registry.SourceMeta（元数据）
-  - search.py 的 _PAPER_SOURCES / _PATENT_SOURCES 大 dict（执行适配 lambda）
-  - web/search.py 的 engine_map / source_map（同上）
+SourceAdapter 是架构的最小数据源单元，统一承载：
+  - 元数据（name / domain / integration / config_field / description）
+  - 执行适配（method_specs / param_map / client_loader）
+  - 默认源声明（default_for）
 
 设计见 `local/v1-初步定义.md §5`。
 """
@@ -16,7 +16,7 @@ from typing import Any
 
 # ── 常量 ────────────────────────────────────────────────────
 
-#: v1 的 10 个业务领域
+#: 业务领域（10 个）
 DOMAINS: frozenset[str] = frozenset({
     "paper",
     "patent",
@@ -33,7 +33,7 @@ DOMAINS: frozenset[str] = frozenset({
 #: 横切能力（不是独立领域）
 FETCH_DOMAIN: str = "fetch"
 
-#: v1 的 11 个标准 capability。超出的（如 Exa 的 find_similar）采用命名空间前缀（D8）。
+#: 11 个标准 capability。超出的（如 Exa 的 find_similar）采用命名空间前缀（D8）。
 CAPABILITIES: frozenset[str] = frozenset({
     "search",
     "search_news",
@@ -49,7 +49,7 @@ CAPABILITIES: frozenset[str] = frozenset({
     "archive_save",
 })
 
-#: 集成类型（沿用 v0 定义）
+#: 集成类型
 INTEGRATIONS: frozenset[str] = frozenset({
     "open_api",
     "scraper",
@@ -142,7 +142,7 @@ class SourceAdapter:
     def resolved_needs_config(self) -> bool:
         """确定性的 needs_config：显式值优先，否则从 integration 推断。
 
-        推断规则（保持与 v0 ALL_SOURCES 一致）：
+        推断规则：
           - official_api / self_hosted 且 config_field 非 None → True
           - 其他 → False
           - 注意：`openalex` / `github` / `doaj` / `zenodo` / `openaire` 等

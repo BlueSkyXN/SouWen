@@ -1,8 +1,7 @@
-"""v1 shim: 请改用 `souwen.core.http_client`。
+"""Public re-export of `souwen.core.http_client`.
 
-v0 历史位置保持可用：
+便捷入口：
     from souwen.http_client import SouWenHttpClient, OAuthClient, DEFAULT_USER_AGENT
-内部实际指向 `souwen.core.http_client`（v1 真身）。
 """
 
 from souwen.core.http_client import *  # noqa: F401,F403

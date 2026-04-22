@@ -97,7 +97,7 @@ DEFAULT_HTTP_EXCEPTIONS: tuple[type[BaseException], ...] = (
 
 # 反爬层默认异常集合。
 # 注意：此处显式纳入 ``RuntimeError`` 是因为 curl_cffi 在底层连接
-# 异常时会抛出裸 RuntimeError（而非 httpx 异常）；若将来彻底迁移出
+# 异常时会抛出裸 RuntimeError（而非 httpx 异常）；若将来不再使用
 # curl_cffi 可从此集合移除。
 DEFAULT_SCRAPER_EXCEPTIONS: tuple[type[BaseException], ...] = (
     RateLimitError,
