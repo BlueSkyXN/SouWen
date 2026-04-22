@@ -24,7 +24,6 @@ router = APIRouter()
     "/search/paper",
     response_model=SearchPaperResponse,
     dependencies=[Depends(rate_limit_search), Depends(check_search_auth)],
-    deprecated=True,
 )
 async def api_search_paper(
     q: str = Query(..., description="搜索关键词", min_length=1, max_length=500),
@@ -70,7 +69,6 @@ async def api_search_paper(
     "/search/patent",
     response_model=SearchPatentResponse,
     dependencies=[Depends(rate_limit_search), Depends(check_search_auth)],
-    deprecated=True,
 )
 async def api_search_patent(
     q: str = Query(..., description="搜索关键词", min_length=1, max_length=500),
@@ -116,7 +114,6 @@ async def api_search_patent(
     "/search/web",
     response_model=SearchWebResponse,
     dependencies=[Depends(rate_limit_search), Depends(check_search_auth)],
-    deprecated=True,
 )
 async def api_search_web(
     q: str = Query(..., description="搜索关键词", min_length=1, max_length=500),
@@ -168,7 +165,6 @@ async def api_search_web(
     "/search/images",
     response_model=SearchImagesResponse,
     dependencies=[Depends(rate_limit_search), Depends(check_search_auth)],
-    deprecated=True,
 )
 async def api_search_images(
     q: str = Query(..., description="搜索关键词", min_length=1, max_length=500),
@@ -209,7 +205,6 @@ async def api_search_images(
     "/search/videos",
     response_model=SearchVideosResponse,
     dependencies=[Depends(rate_limit_search), Depends(check_search_auth)],
-    deprecated=True,
 )
 async def api_search_videos(
     q: str = Query(..., description="搜索关键词", min_length=1, max_length=500),

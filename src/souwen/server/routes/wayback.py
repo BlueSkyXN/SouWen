@@ -21,7 +21,6 @@ router = APIRouter()
     "/wayback/cdx",
     response_model=WaybackCDXApiResponse,
     dependencies=[Depends(rate_limit_search), Depends(check_search_auth)],
-    deprecated=True,
 )
 async def api_wayback_cdx(
     url: str = Query(..., description="查询 URL (支持通配符 *)"),
@@ -68,7 +67,6 @@ async def api_wayback_cdx(
     "/wayback/check",
     response_model=WaybackAvailabilityResponse,
     dependencies=[Depends(rate_limit_search), Depends(check_search_auth)],
-    deprecated=True,
 )
 async def api_wayback_check(
     url: str = Query(..., description="目标 URL"),
