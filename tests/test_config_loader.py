@@ -78,9 +78,7 @@ class TestYamlLoading:
 
     def test_malformed_yaml_falls_back_to_defaults(self, tmp_path):
         """YAML 解析失败时不抛异常，使用默认值（warning 由 loader 自行打日志）。"""
-        (tmp_path / "souwen.yaml").write_text(
-            "timeout: [unterminated\n", encoding="utf-8"
-        )
+        (tmp_path / "souwen.yaml").write_text("timeout: [unterminated\n", encoding="utf-8")
         # 不应抛异常
         cfg = reload_config()
         assert cfg.timeout == SouWenConfig().timeout
@@ -129,9 +127,7 @@ class TestEnvOverride:
 
     def test_env_list_csv(self, monkeypatch):
         """proxy_pool / cors_origins 等列表字段使用逗号分隔。"""
-        monkeypatch.setenv(
-            "SOUWEN_CORS_ORIGINS", "https://a.example, https://b.example"
-        )
+        monkeypatch.setenv("SOUWEN_CORS_ORIGINS", "https://a.example, https://b.example")
         cfg = reload_config()
         assert cfg.cors_origins == ["https://a.example", "https://b.example"]
 
