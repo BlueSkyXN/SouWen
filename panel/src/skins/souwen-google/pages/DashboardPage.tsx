@@ -289,6 +289,13 @@ export function DashboardPage() {
   const totalCount = doctor.total
   const healthPct = totalCount > 0 ? Math.round((okCount / totalCount) * 100) : 0
 
+  // 排序：可用(ok) → 降级 → 需配置 → 错误/超时，同状态按名称字母序
+  const statusOrder: Record<string, number> = { ok: 0, degraded: 1, needs_key: 2, error: 3, timeout: 4 }
+  const sortedSources = [...doctor.sources].sort((a, b) => {
+    const diff = (statusOrder[a.status] ?? 5) - (statusOrder[b.status] ?? 5)
+    return diff !== 0 ? diff : a.name.localeCompare(b.name)
+  })
+
   return (
     <div className={styles.page}>
       {/* ── Page title ── */}
@@ -382,7 +389,7 @@ export function DashboardPage() {
       </div>
 
       {/* ── Source matrix view ── */}
-      <SourceMatrix sources={doctor.sources} />
+      <SourceMatrix sources={sortedSources} />
 
       {/* ── Source health table ── */}
       <div className={styles.sectionHeader}>
@@ -402,7 +409,7 @@ export function DashboardPage() {
             </tr>
           </thead>
           <tbody>
-            {doctor?.sources.map((src) => (
+            {sortedSources.map((src) => (
               <tr key={src.name}>
                 <td>
                   <span className={`${styles.dot} ${src.status === 'ok' ? styles.dotOk : styles.dotErr}`} />
