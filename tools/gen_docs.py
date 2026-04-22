@@ -50,13 +50,22 @@ def render() -> str:
         title = DOMAIN_TITLES.get(dom, dom)
         lines.append(f"## {title} · `{dom}`（{len(dom_adapters)} 源）")
         lines.append("")
-        lines.append("| Name | Integration | Capabilities | Config Field |")
-        lines.append("|---|---|---|---|")
+        lines.append("| Name | Integration | Key Req | Capabilities | Config Field |")
+        lines.append("|---|---|---|---|---|")
         for a in dom_adapters:
             caps = ", ".join(sorted(a.capabilities))
             cf = f"`{a.config_field}`" if a.config_field else "—"
             high_risk = " ⚠️" if "high_risk" in a.tags else ""
-            lines.append(f"| `{a.name}`{high_risk} | {a.integration} | {caps} | {cf} |")
+            # Derive key_requirement from adapter metadata
+            if a.integration == "self_hosted":
+                kr = "需自建"
+            elif a.config_field is None:
+                kr = "免配置"
+            elif a.resolved_needs_config:
+                kr = "需Key"
+            else:
+                kr = "可选Key"
+            lines.append(f"| `{a.name}`{high_risk} | {a.integration} | {kr} | {caps} | {cf} |")
         lines.append("")
 
     lines.append("<!-- END AUTO -->")
@@ -71,6 +80,11 @@ def render() -> str:
     lines.append("  - `scraper` — 爬虫抓取，需 TLS 伪装")
     lines.append("  - `official_api` — 授权接口，需 API Key")
     lines.append("  - `self_hosted` — 自托管实例")
+    lines.append("- Key Req（密钥需求）：")
+    lines.append("  - 免配置 — 无需任何配置")
+    lines.append("  - 可选Key — 有 Key 字段但无 Key 也能用")
+    lines.append("  - 需Key — 必须配置 API Key")
+    lines.append("  - 需自建 — 需要自建服务实例")
     lines.append("")
     lines.append("## 重新生成")
     lines.append("")
