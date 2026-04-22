@@ -12,7 +12,7 @@
 2. 在 src/souwen/registry/sources.py 添加 _reg(SourceAdapter(...))
         │
         ▼
-3. 若需要 API Key/凭证：在 src/souwen/config.py 的 SouWenConfig 加字段
+3. 若需要 API Key/凭证：在 src/souwen/config/models.py 的 SouWenConfig 加字段
         │
         ▼
 4. （可选）把默认源标记为 default_for=frozenset({"<domain>:<capability>"})
@@ -144,7 +144,7 @@ methods={"search": MethodSpec("search", pre_call=_wrap_query)}
 ## 3. 在 SouWenConfig 加字段（仅当需要 API Key）
 
 ```python
-# src/souwen/config.py
+# src/souwen/config/models.py
 class SouWenConfig(BaseModel):
     # ===== 论文数据源 =====
     ...

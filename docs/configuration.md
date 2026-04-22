@@ -2,7 +2,7 @@
 
 > SouWen 配置系统：从零配置到完全自定义
 
-> **V1 架构提示**：所有配置项均集中在 `src/souwen/config.py` 的 `SouWenConfig`（Pydantic 模型）。新增数据源时若需要 API Key，只需在 `SouWenConfig` 加一个字段，再在 `registry/sources.py` 的 `SourceAdapter` 里通过 `config_field="..."` 引用即可。详见 [adding-a-source.md](./adding-a-source.md)。
+> **V1 架构提示**：所有配置项均集中在 `src/souwen/config/models.py` 的 `SouWenConfig`（Pydantic 模型）。新增数据源时若需要 API Key，只需在 `SouWenConfig` 加一个字段，再在 `registry/sources.py` 的 `SourceAdapter` 里通过 `config_field="..."` 引用即可。详见 [adding-a-source.md](./adding-a-source.md)。
 
 ## 配置优先级
 

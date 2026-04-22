@@ -12,7 +12,7 @@
 | **Playwright 池化** | 单例复用 Chromium 实例，减少启动开销 | `scraper/browser_pool.py` |
 | **分层重试** | http (3次) / scraper (5次) / captcha (5次) | `retry.py` |
 | **异步会话缓存** | aiosqlite 异步 SQLite 持久化 OAuth Token / Cookie | `session_cache.py` |
-| **代理池轮换** | 多代理 URL 随机选取 | `config.py` |
+| **代理池轮换** | 多代理 URL 随机选取 | `config/models.py` |
 | **礼貌爬取** | 随机间隔 + 自适应退避 + 429 处理 | `scraper/base.py` |
 
 > curl_cffi 为可选依赖，未安装时自动回退到 httpx。
