@@ -44,7 +44,7 @@ python examples/search_web.py
 cd panel
 npm install
 npm run dev              # 启动开发服务器（默认全皮肤，可运行时切换）
-npm run dev:classic      # 单皮肤开发
+npm run dev:google       # 单皮肤开发
 ```
 
 ### 目录结构
@@ -73,8 +73,10 @@ panel/src/
 
 ```bash
 npm run build            # 默认全皮肤构建
-npm run build:classic    # 单皮肤构建（体积更小）
-# 产物：单文件 dist/index.html，自动复制到 src/souwen/server/panel.html
+npm run build:google     # 单皮肤构建（体积更小）
+# 产物：单文件 dist/index.html
+# 本地开发用 build:local 会额外复制到 src/souwen/server/panel.html
+# Docker 构建由 Dockerfile COPY 指令完成
 ```
 
 ### 创建新皮肤
