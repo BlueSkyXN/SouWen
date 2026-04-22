@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from pydantic import BaseModel, Field
 
+from souwen.registry import fetch_providers
+
+_FETCH_PROVIDER_NAMES = tuple(adapter.name for adapter in fetch_providers())
+
 
 class FetchRequest(BaseModel):
     """内容抓取请求体
@@ -15,7 +19,10 @@ class FetchRequest(BaseModel):
     """
 
     urls: list[str] = Field(..., min_length=1, max_length=20)
-    provider: str = Field(default="builtin")
+    provider: str = Field(
+        default="builtin",
+        description=f"抓取提供者，可选: {', '.join(_FETCH_PROVIDER_NAMES)}",
+    )
     timeout: float = Field(default=30.0, ge=1.0, le=120.0)
     selector: str | None = Field(
         default=None,

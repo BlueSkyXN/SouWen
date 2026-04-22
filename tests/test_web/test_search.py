@@ -148,13 +148,17 @@ def test_deduplicate_empty():
 
 
 async def test_web_search_aggregates_engines():
-    ddg_resp = _make_engine_response("duckduckgo", [_make_result("duckduckgo", "DDG 1", "https://ddg1.com")])
+    ddg_resp = _make_engine_response(
+        "duckduckgo", [_make_result("duckduckgo", "DDG 1", "https://ddg1.com")]
+    )
     bing_resp = _make_engine_response("bing", [_make_result("bing", "Bing 1", "https://bing1.com")])
 
-    async with _override_adapters({
-        "duckduckgo": _make_fake_client_class(search_resp=ddg_resp),
-        "bing": _make_fake_client_class(search_resp=bing_resp),
-    }):
+    async with _override_adapters(
+        {
+            "duckduckgo": _make_fake_client_class(search_resp=ddg_resp),
+            "bing": _make_fake_client_class(search_resp=bing_resp),
+        }
+    ):
         result = await web_search("test query")
 
     assert len(result.results) == 2
@@ -168,10 +172,12 @@ async def test_web_search_deduplication():
     ddg_resp = _make_engine_response("duckduckgo", [r1])
     bing_resp = _make_engine_response("bing", [r2])
 
-    async with _override_adapters({
-        "duckduckgo": _make_fake_client_class(search_resp=ddg_resp),
-        "bing": _make_fake_client_class(search_resp=bing_resp),
-    }):
+    async with _override_adapters(
+        {
+            "duckduckgo": _make_fake_client_class(search_resp=ddg_resp),
+            "bing": _make_fake_client_class(search_resp=bing_resp),
+        }
+    ):
         result = await web_search("test", deduplicate=True)
 
     assert len(result.results) == 1
@@ -180,10 +186,12 @@ async def test_web_search_deduplication():
 async def test_web_search_engine_failure_graceful():
     bing_resp = _make_engine_response("bing", [_make_result("bing", "Bing 1", "https://bing1.com")])
 
-    async with _override_adapters({
-        "duckduckgo": _make_fake_client_class(search_exc=RuntimeError("DDG down")),
-        "bing": _make_fake_client_class(search_resp=bing_resp),
-    }):
+    async with _override_adapters(
+        {
+            "duckduckgo": _make_fake_client_class(search_exc=RuntimeError("DDG down")),
+            "bing": _make_fake_client_class(search_resp=bing_resp),
+        }
+    ):
         result = await web_search("test")
 
     assert len(result.results) == 1
@@ -199,10 +207,12 @@ async def test_web_search_engine_timeout_graceful(monkeypatch):
 
     monkeypatch.setattr("souwen.web.search._get_engine_timeout_seconds", lambda: 0.01)
 
-    async with _override_adapters({
-        "duckduckgo": _make_fake_client_class(search_side_effect=slow_search),
-        "bing": _make_fake_client_class(search_resp=bing_resp),
-    }):
+    async with _override_adapters(
+        {
+            "duckduckgo": _make_fake_client_class(search_side_effect=slow_search),
+            "bing": _make_fake_client_class(search_resp=bing_resp),
+        }
+    ):
         result = await web_search("test")
 
     assert len(result.results) == 1
@@ -210,11 +220,15 @@ async def test_web_search_engine_timeout_graceful(monkeypatch):
 
 
 async def test_web_search_custom_engines():
-    ddg_resp = _make_engine_response("duckduckgo", [_make_result("duckduckgo", "DDG 1", "https://ddg1.com")])
+    ddg_resp = _make_engine_response(
+        "duckduckgo", [_make_result("duckduckgo", "DDG 1", "https://ddg1.com")]
+    )
 
-    async with _override_adapters({
-        "duckduckgo": _make_fake_client_class(search_resp=ddg_resp),
-    }):
+    async with _override_adapters(
+        {
+            "duckduckgo": _make_fake_client_class(search_resp=ddg_resp),
+        }
+    ):
         result = await web_search("test", engines=["duckduckgo"])
 
     assert len(result.results) == 1

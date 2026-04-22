@@ -135,7 +135,7 @@ jobs:
           pip install -e ".[dev,server]"
 
       - name: 运行服务端测试
-        run: pytest tests/test_server.py -v --tb=short
+        run: pytest tests/test_server -v --tb=short
 
   panel-build:
     name: Panel 构建检查

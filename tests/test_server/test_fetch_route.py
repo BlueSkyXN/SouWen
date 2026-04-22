@@ -97,6 +97,19 @@ class TestFetchEndpoint:
         assert body["results"][0]["url"] == "https://example.com/a"
         assert stub_fetch and stub_fetch[0]["timeout"] == 10
 
+    def test_arxiv_fulltext_provider_is_accepted(self, client, stub_fetch):
+        """新 provider 应通过路由白名单校验并透传到底层 fetch。"""
+        resp = client.post(
+            "/api/v1/fetch",
+            json={
+                "urls": ["https://arxiv.org/abs/2301.00001"],
+                "provider": "arxiv_fulltext",
+            },
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["provider"] == "arxiv_fulltext"
+        assert stub_fetch and stub_fetch[0]["providers"] == ["arxiv_fulltext"]
+
     def test_missing_urls_returns_422(self, client, stub_fetch):
         """缺少必填字段 ``urls`` 应被 Pydantic 拒绝（422）。"""
         resp = client.post("/api/v1/fetch", json={"provider": "builtin"})
@@ -104,17 +117,13 @@ class TestFetchEndpoint:
 
     def test_empty_urls_returns_422(self, client, stub_fetch):
         """``urls`` 至少 1 条（min_length=1），空列表应被拒绝。"""
-        resp = client.post(
-            "/api/v1/fetch", json={"urls": [], "provider": "builtin"}
-        )
+        resp = client.post("/api/v1/fetch", json={"urls": [], "provider": "builtin"})
         assert resp.status_code == 422
 
     def test_too_many_urls_returns_422(self, client, stub_fetch):
         """``urls`` 上限 20 条（max_length=20），超出应被拒绝。"""
         urls = [f"https://example.com/{i}" for i in range(21)]
-        resp = client.post(
-            "/api/v1/fetch", json={"urls": urls, "provider": "builtin"}
-        )
+        resp = client.post("/api/v1/fetch", json={"urls": urls, "provider": "builtin"})
         assert resp.status_code == 422
 
     def test_invalid_provider_returns_400(self, client, stub_fetch):

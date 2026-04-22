@@ -26,13 +26,12 @@ _REGISTRY: dict[str, SourceAdapter] = {}
 def _reg(adapter: SourceAdapter) -> None:
     """注册一个 adapter。同名重复注册抛异常（避免 sources.py 里的漂移）。"""
     if adapter.name in _REGISTRY:
-        raise ValueError(
-            f"重复注册数据源: {adapter.name!r}（已存在 {_REGISTRY[adapter.name]!r}）"
-        )
+        raise ValueError(f"重复注册数据源: {adapter.name!r}（已存在 {_REGISTRY[adapter.name]!r}）")
     _REGISTRY[adapter.name] = adapter
 
 
 # ── 查询 API ────────────────────────────────────────────────
+
 
 def get(name: str) -> SourceAdapter | None:
     """按名字取单个 adapter，不存在返回 None。"""
@@ -59,11 +58,7 @@ def by_capability(capability: str) -> list[SourceAdapter]:
 
 def by_domain_and_capability(domain: str, capability: str) -> list[SourceAdapter]:
     """同时满足 domain + capability 的 adapter（门面主要的派发路径）。"""
-    return [
-        a
-        for a in _REGISTRY.values()
-        if domain in a.domains and capability in a.capabilities
-    ]
+    return [a for a in _REGISTRY.values() if domain in a.domains and capability in a.capabilities]
 
 
 def defaults_for(domain: str, capability: str = "search") -> list[str]:
@@ -85,8 +80,16 @@ def all_domains() -> list[str]:
         seen.update(a.domains)
     # 保持一个相对稳定的显示顺序：官方 10 个 domain + fetch 放最后
     order = [
-        "paper", "patent", "web", "social", "video",
-        "knowledge", "developer", "cn_tech", "office", "archive",
+        "paper",
+        "patent",
+        "web",
+        "social",
+        "video",
+        "knowledge",
+        "developer",
+        "cn_tech",
+        "office",
+        "archive",
         FETCH_DOMAIN,
     ]
     sorted_list: list[str] = [d for d in order if d in seen]
@@ -128,11 +131,11 @@ _DOMAIN_TO_CATEGORY: dict[str, str] = {
     "patent": "patent",
     "social": "social",
     "video": "video",
-    "knowledge": "wiki",     # 历史命名 "wiki"
+    "knowledge": "wiki",  # 历史命名 "wiki"
     "developer": "developer",
     "cn_tech": "cn_tech",
     "office": "office",
-    "archive": "fetch",      # wayback 归在 fetch
+    "archive": "fetch",  # wayback 归在 fetch
     FETCH_DOMAIN: "fetch",
 }
 
@@ -185,14 +188,23 @@ def as_all_sources_dict() -> dict[str, list[tuple[str, bool, str]]]:
                 )
     # 稳定的 category 顺序
     order = [
-        "paper", "patent", "general", "professional",
-        "social", "office", "developer", "wiki",
-        "cn_tech", "video", "fetch",
+        "paper",
+        "patent",
+        "general",
+        "professional",
+        "social",
+        "office",
+        "developer",
+        "wiki",
+        "cn_tech",
+        "video",
+        "fetch",
     ]
     return {k: result[k] for k in order if k in result}
 
 
 # ── 便于测试 / 脚本使用 ────────────────────────────────────
+
 
 def _reset_registry() -> None:
     """仅供测试：清空注册表。生产代码不要调用。"""

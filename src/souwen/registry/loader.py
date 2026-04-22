@@ -26,20 +26,14 @@ def _import_by_path(import_path: str) -> type:
     """
     module_path, _, class_name = import_path.partition(":")
     if not module_path or not class_name:
-        raise ValueError(
-            f"lazy() 参数必须是 'module.path:ClassName' 形式，得到 {import_path!r}"
-        )
+        raise ValueError(f"lazy() 参数必须是 'module.path:ClassName' 形式，得到 {import_path!r}")
     module = importlib.import_module(module_path)
     try:
         obj = getattr(module, class_name)
     except AttributeError as exc:
-        raise ImportError(
-            f"无法从模块 {module_path!r} 获取 {class_name!r}：{exc}"
-        ) from exc
+        raise ImportError(f"无法从模块 {module_path!r} 获取 {class_name!r}：{exc}") from exc
     if not isinstance(obj, type):
-        raise TypeError(
-            f"lazy({import_path!r}) 期望得到类，实际得到 {type(obj).__name__}"
-        )
+        raise TypeError(f"lazy({import_path!r}) 期望得到类，实际得到 {type(obj).__name__}")
     return obj
 
 
