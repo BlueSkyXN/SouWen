@@ -1,33 +1,38 @@
-"""SouWen API 双密钥认证模块
+"""SouWen API 三级角色认证模块
 
 文件用途：
-    提供 Bearer Token 认证和授权检查，保护搜索端点和管理端点。
-    支持独立的访客密码（visitor_password）和管理密码（admin_password），
-    并向后兼容旧版统一密码（api_password）。
+    提供 Bearer Token 认证和三级角色（Guest/User/Admin）授权检查。
+    支持独立的用户密码（user_password）和管理密码（admin_password），
+    并向后兼容旧版统一密码（api_password）和访客密码（visitor_password）。
+
+角色层级（Admin ⊃ User ⊃ Guest）：
+    - Guest 游客：无 Token 即可访问搜索端点（受限源、限速）
+    - User 用户：提供 user_password，可访问搜索 + 只读管理端点
+    - Admin 管理员：提供 admin_password，拥有全部权限
 
 密码解析优先级：
-    - 访客端点：visitor_password > api_password > 无密码（开放）
+    - 用户端点：user_password > visitor_password > api_password > 无密码（开放）
     - 管理端点：admin_password > api_password > 无密码（开放）
-    - 管理密码同时可用于访客端点（admin 是 visitor 的超集）
+    - Admin Token 自动满足 User/Guest 端点
 
-主要函数：
-    require_auth(credentials) -> None
-        - 功能：强制认证依赖 — 用于 /api/v1/admin/* 管理端点
-        - 使用 effective_admin_password 验证
+主要接口：
+    Role（枚举）：GUEST=0, USER=1, ADMIN=2
 
-    check_search_auth(credentials) -> None
-        - 功能：搜索端点认证检查
-        - 使用 effective_visitor_password 验证
-        - 同时接受管理密码（admin 是超集）
+    resolve_role(credentials) -> Role
+        - 根据 Bearer Token 判定角色
+        - 始终执行恒定时间比较防时序攻击
 
-认证流程：
-    - 请求头格式：Authorization: Bearer <password>
-    - HTTP 方案：HTTPBearer (auto_error=False)
-    - 密码未配置时默认开放访问
+    require_role(min_role) -> Depends
+        - 工厂函数，生成 FastAPI 依赖
+        - 低于 min_role 抛 401/403
+
+    require_auth / check_search_auth
+        - 向后兼容 thin wrapper
 """
 
 from __future__ import annotations
 
+import enum
 import logging
 import secrets
 
@@ -41,25 +46,111 @@ logger = logging.getLogger("souwen.server")
 _bearer_scheme = HTTPBearer(auto_error=False)
 
 
+class Role(enum.IntEnum):
+    """三级角色枚举，数值越大权限越高"""
+
+    GUEST = 0
+    USER = 1
+    ADMIN = 2
+
+
+def resolve_role(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+) -> Role:
+    """根据 Bearer Token 判定角色
+
+    三密码始终执行 compare_digest（哪怕未配置用空串占位），消除时序差异。
+
+    Returns:
+        Role.ADMIN / Role.USER / Role.GUEST
+
+    Raises:
+        HTTPException 401: guest_enabled=False 且无有效 Token
+    """
+    cfg = get_config()
+    admin_pw = cfg.effective_admin_password or ""
+    user_pw = cfg.effective_user_password or ""
+    token = credentials.credentials if credentials else ""
+
+    # 恒定时间比较 — 始终执行三次，消除时序旁路
+    is_admin = bool(admin_pw) and secrets.compare_digest(token, admin_pw)
+    is_user = bool(user_pw) and secrets.compare_digest(token, user_pw)
+    # 如果 admin_pw == user_pw，admin token 也应算 user
+    # （已由 is_admin 覆盖，因为 admin ⊃ user）
+
+    if is_admin:
+        return Role.ADMIN
+    if is_user:
+        return Role.USER
+
+    # Guest 逻辑：
+    # 1. 未配置任何密码 → 全开放，给 ADMIN
+    # 2. guest_enabled=True → 允许无 Token 访问（GUEST）
+    # 3. guest_enabled=False → 无有效 Token 则拒绝
+    if not admin_pw and not user_pw:
+        return Role.ADMIN  # 全开放模式
+
+    if cfg.guest_enabled:
+        return Role.GUEST
+
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="认证失败：需要有效的 Bearer Token",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+def require_role(min_role: Role):
+    """工厂函数：生成要求最低角色的 FastAPI 依赖
+
+    用法::
+
+        @router.get("/sources", dependencies=[Depends(require_role(Role.GUEST))])
+        def list_sources(role: Role = Depends(resolve_role)): ...
+
+    Args:
+        min_role: 端点要求的最低角色
+
+    Returns:
+        FastAPI Depends 依赖函数
+    """
+
+    def _check(role: Role = Depends(resolve_role)) -> Role:
+        if role < min_role:
+            if role == Role.GUEST:
+                raise HTTPException(
+                    status_code=status.HTTP_401_UNAUTHORIZED,
+                    detail="认证失败：此端点需要用户或管理员权限",
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="权限不足：此端点需要管理员权限",
+            )
+        return role
+
+    return Depends(_check)
+
+
+# ===== 向后兼容 thin wrappers =====
+# 现有路由代码中的 Depends(require_auth) 和 Depends(check_search_auth)
+# 无需任何改动即可继续工作
+
+
 def require_auth(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
 ) -> None:
-    """强制认证依赖 — 用于 /api/v1/admin/* 管理端点
+    """向后兼容：管理端点认证
 
-    认证规则：
-        1. 若 effective_admin_password 未配置 → 放行（开放访问）
-        2. 若已配置 → 验证 Bearer Token（恒定时间比较防时序攻击）
-
-    Args:
-        credentials: 从请求头 Authorization: Bearer <token> 提取的凭证
-
-    Raises:
-        HTTPException：401 Unauthorized
+    行为与旧版一致：
+    - 若管理密码未配置（effective_admin_password 为 None）→ 放行
+    - 否则要求 ADMIN 角色（non-ADMIN 一律 401，与旧版相同）
     """
-    password = get_config().effective_admin_password
-    if not password:
-        return
-    if credentials is None or not secrets.compare_digest(credentials.credentials, password):
+    cfg = get_config()
+    if not cfg.effective_admin_password:
+        return  # 管理密码未配置 → 管理端点开放
+    role = resolve_role(credentials)
+    if role < Role.ADMIN:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="认证失败：无效的管理端 Bearer Token",
@@ -70,37 +161,19 @@ def require_auth(
 def check_search_auth(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
 ) -> None:
-    """搜索端点认证检查 — 同时接受访客密码和管理密码
+    """向后兼容：搜索端点认证
 
-    认证规则：
-        1. 若 effective_visitor_password 未配置 → 放行
-        2. 若已配置 → 验证 Bearer Token（同时接受管理密码）
-
-    Args:
-        credentials: 从请求头 Authorization: Bearer <token> 提取的凭证
-
-    Raises:
-        HTTPException：401 Unauthorized（仅当密码已配置但验证失败）
+    行为与旧版一致：
+    - 若搜索密码未配置（effective_user_password 为 None）→ 放行
+    - 否则要求 USER+ 角色
     """
     cfg = get_config()
-    visitor_pw = cfg.effective_visitor_password
-    if not visitor_pw:
-        return
-    if credentials is None:
+    if not cfg.effective_user_password:
+        return  # 搜索密码未配置 → 搜索端点开放
+    role = resolve_role(credentials)
+    if role < Role.USER:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="认证失败：无效的 Bearer Token",
+            detail="认证失败：需要有效的 Bearer Token",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    token = credentials.credentials
-    # Always execute both comparisons to prevent timing side-channel leaks
-    visitor_ok = secrets.compare_digest(token, visitor_pw)
-    admin_pw = cfg.effective_admin_password or ""
-    admin_ok = secrets.compare_digest(token, admin_pw) if admin_pw else False
-    if visitor_ok or admin_ok:
-        return
-    raise HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="认证失败：无效的 Bearer Token",
-        headers={"WWW-Authenticate": "Bearer"},
-    )

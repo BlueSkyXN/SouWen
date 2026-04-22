@@ -27,6 +27,7 @@ from souwen.server.routes.fetch import router as fetch_router
 from souwen.server.routes.search import router as search_router
 from souwen.server.routes.sources import router as sources_router
 from souwen.server.routes.wayback import router as wayback_router
+from souwen.server.routes.whoami import router as whoami_router
 from souwen.server.routes.youtube import router as youtube_router
 
 router = APIRouter()
@@ -37,5 +38,6 @@ router.include_router(youtube_router)
 router.include_router(wayback_router)
 router.include_router(sources_router)
 router.include_router(bilibili_router)
+router.include_router(whoami_router)
 
 __all__ = ["router", "admin_router"]

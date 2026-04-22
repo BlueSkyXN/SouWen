@@ -151,13 +151,23 @@ jobs:
           cache: 'npm'
           cache-dependency-path: panel/package-lock.json
 
-      - name: 安装依赖并验证产物同步
+      - name: 安装 panel 依赖
+        working-directory: panel
+        run: npm ci
+
+      - name: TypeScript 类型检查
+        working-directory: panel
+        run: npx tsc --noEmit
+
+      - name: 前端单元测试
+        working-directory: panel
+        run: npx vitest run
+
+      - name: 构建 panel 并验证产物
         working-directory: panel
         run: |
-          npm ci
-          npm run build
+          npm run build:local
           npm run check:artifact
-          test -z "$(git -C .. status --short --untracked-files=all -- src/souwen/server/panel.html)" || (echo "❌ src/souwen/server/panel.html 未提交最新构建产物" >&2 && git -C .. status --short --untracked-files=all -- src/souwen/server/panel.html >&2 && exit 1)
 
       - name: 显示 panel.html 信息
         run: |

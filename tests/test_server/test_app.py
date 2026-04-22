@@ -276,6 +276,76 @@ class TestSearchAuth:
 
 
 # ---------------------------------------------------------------------------
+# Three-role auth (new system)
+# ---------------------------------------------------------------------------
+
+
+class TestThreeRoleAuth:
+    """三角色认证系统测试（Guest/User/Admin）。"""
+
+    def test_whoami_no_password_returns_admin(self, client):
+        """无密码配置时 /whoami 返回 admin 角色。"""
+        resp = client.get("/api/v1/whoami")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["role"] == "admin"
+        assert data["features"]["fetch"] is True
+        assert data["features"]["config_write"] is True
+
+    def test_whoami_admin_token(self, dual_key_client):
+        """admin token 返回 admin 角色。"""
+        resp = dual_key_client.get(
+            "/api/v1/whoami",
+            headers={"Authorization": "Bearer admin-pw"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["role"] == "admin"
+        assert data["features"]["fetch"] is True
+
+    def test_whoami_user_token(self, dual_key_client):
+        """visitor/user token 返回 user 角色。"""
+        resp = dual_key_client.get(
+            "/api/v1/whoami",
+            headers={"Authorization": "Bearer visitor-pw"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["role"] == "user"
+        assert data["features"]["search"] is True
+        assert data["features"]["fetch"] is False
+        assert data["features"]["config_write"] is False
+
+    def test_whoami_guest_enabled(self, client, monkeypatch):
+        """guest_enabled=True 时无 token 返回 guest 角色。"""
+        monkeypatch.setenv("SOUWEN_ADMIN_PASSWORD", "admin-pw")
+        monkeypatch.setenv("SOUWEN_GUEST_ENABLED", "true")
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        resp = client.get("/api/v1/whoami")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["role"] == "guest"
+        assert data["features"]["search"] is True
+        assert data["features"]["fetch"] is False
+        assert data["features"]["doctor"] is False
+
+    def test_whoami_guest_disabled_no_token_401(self, dual_key_client):
+        """guest_enabled=False（默认）时无 token 返回 401。"""
+        resp = dual_key_client.get("/api/v1/whoami")
+        assert resp.status_code == 401
+
+    def test_role_hierarchy_admin_satisfies_user(self, dual_key_client):
+        """admin token 可以访问 user 级别端点（/sources）。"""
+        resp = dual_key_client.get(
+            "/api/v1/sources",
+            headers={"Authorization": "Bearer admin-pw"},
+        )
+        assert resp.status_code == 200
+
+
+# ---------------------------------------------------------------------------
 # Rate limiter
 # ---------------------------------------------------------------------------
 

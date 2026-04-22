@@ -44,6 +44,7 @@ export function LoginPage() {
   const { t } = useTranslation()
   const navigate = useNavigate()
   const setAuth = useAuthStore((s) => s.setAuth)
+  const setRole = useAuthStore((s) => s.setRole)
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
   const { mode, toggleMode } = useSkinStore()
   const addToast = useNotificationStore((s) => s.addToast)
@@ -78,6 +79,7 @@ export function LoginPage() {
         await api.verifyAuth(url, '')
         if (cancelled) return
         setAuth(url, '', health.version, remember)
+        try { const whoami = await api.whoami(); setRole(whoami) } catch { /* non-critical */ }
         navigate('/', { replace: true })
       } catch {
         // Server requires a password — show the login form
@@ -106,6 +108,7 @@ export function LoginPage() {
         const health = await api.health(url)
         await api.verifyAuth(url, password)
         setAuth(url, password, health.version, remember)
+        try { const whoami = await api.whoami(); setRole(whoami) } catch { /* non-critical */ }
         setSuccess(true)
         addToast('success', t('login.success', { version: health.version }))
         await new Promise((r) => setTimeout(r, 400))
@@ -118,7 +121,7 @@ export function LoginPage() {
         setLoading(false)
       }
     },
-    [baseUrl, password, remember, setAuth, addToast, navigate, t],
+    [baseUrl, password, remember, setAuth, setRole, addToast, navigate, t],
   )
 
   // Show a brief loading state while attempting auto-login
