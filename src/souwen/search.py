@@ -45,6 +45,7 @@ _SEARCH_SOURCE_TIMEOUT_CAP_SECONDS = 15.0
 
 # ── 通用客户端执行器 ───────────────────────────────────────
 
+
 async def _run_via_adapter(
     adapter: SourceAdapter,
     capability: str,
@@ -119,6 +120,7 @@ async def _search_source_limited(name: str, coro: Any) -> SearchResponse | None:
 
 
 # ── 域派发（paper / patent）────────────────────────────────
+
 
 def _select_adapters(
     domain: str,
@@ -204,6 +206,7 @@ async def _execute_search(
 
 # ── 公开 API ────────────────────────────────────────────
 
+
 async def search_papers(
     query: str,
     sources: list[str] | None = None,
@@ -271,6 +274,7 @@ async def search(
 
 # ── 内部辅助：默认源派生（保留私有名字便于测试 mock/patch）─────
 
+
 def _default_paper_sources() -> list[str]:
     """默认论文源列表（从 registry 派生）。"""
     return defaults_for("paper", "search")
@@ -282,6 +286,7 @@ def _default_patent_sources() -> list[str]:
 
 
 # ── 为测试方便保留的入口 ───────────────────────────────────
+
 
 def _get_max_concurrency() -> int:
     """便捷入口（重定向到 core.concurrency）。"""

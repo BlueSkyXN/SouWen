@@ -9,6 +9,17 @@ import typer
 
 from souwen.cli import app
 from souwen.cli._common import _run_async, console
+from souwen.registry import fetch_providers
+
+_FETCH_PROVIDER_NAMES = tuple(adapter.name for adapter in fetch_providers())
+_FETCH_PROVIDER_HELP = "内容提供者: " + "/".join(_FETCH_PROVIDER_NAMES)
+
+
+def _validate_fetch_provider(value: str) -> str:
+    """校验 CLI fetch provider 选项。"""
+    if value not in _FETCH_PROVIDER_NAMES:
+        raise typer.BadParameter(f"无效提供者: {value}，可选: {', '.join(_FETCH_PROVIDER_NAMES)}")
+    return value
 
 
 @app.command("fetch")
@@ -18,12 +29,8 @@ def fetch_cmd(
         "builtin",
         "--provider",
         "-p",
-        help=(
-            "内容提供者: builtin/jina_reader/tavily/firecrawl/exa/"
-            "crawl4ai/scrapfly/diffbot/scrapingbee/zenrows/scraperapi/"
-            "apify/cloudflare/wayback/newspaper/readability/"
-            "mcp/site_crawler/deepwiki"
-        ),
+        callback=_validate_fetch_provider,
+        help=_FETCH_PROVIDER_HELP,
     ),
     selector: str = typer.Option(None, "--selector", "-s", help="CSS 选择器（仅 builtin 支持）"),
     start_index: int = typer.Option(0, "--start-index", help="内容起始切片位置"),

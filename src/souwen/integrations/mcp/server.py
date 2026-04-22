@@ -77,11 +77,15 @@ try:
 except ImportError:
     HAS_MCP = False
 
+from souwen.registry import defaults_for
 from souwen.integrations.mcp.tools.bilibili import (
     dispatch_bilibili_tool,
     get_bilibili_tools,
     is_bilibili_tool,
 )
+
+_DEFAULT_PAPER_SOURCES = defaults_for("paper", "search")
+_DEFAULT_PAPER_SOURCES_LABEL = ",".join(_DEFAULT_PAPER_SOURCES)
 
 
 def create_server() -> "Server":
@@ -120,7 +124,7 @@ def create_server() -> "Server":
                         "sources": {
                             "type": "array",
                             "items": {"type": "string"},
-                            "description": "数据源列表，默认 openalex,arxiv,crossref",
+                            "description": f"数据源列表，默认 {_DEFAULT_PAPER_SOURCES_LABEL}",
                         },
                         "limit": {
                             "type": "integer",
@@ -288,7 +292,7 @@ def create_server() -> "Server":
             if name == "search_papers":
                 from souwen.search import search_papers
 
-                sources = arguments.get("sources", ["openalex", "arxiv", "crossref"])
+                sources = arguments.get("sources")
                 limit = arguments.get("limit", 5)
                 responses = await search_papers(arguments["query"], sources=sources, per_page=limit)
                 result = [r.model_dump(mode="json") for r in responses]

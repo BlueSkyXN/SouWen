@@ -438,6 +438,8 @@ class WaybackSaveResult(BaseModel):
 
 
 ALL_SOURCES: dict[str, list[tuple[str, bool, str]]]
+
+
 # ALL_SOURCES 从注册表派生：
 #   - 字典 shape：`{category: [(name, needs_config, description), ...]}`
 #   - category 取值：paper / patent / general / professional / social / office /

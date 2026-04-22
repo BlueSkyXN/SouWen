@@ -110,9 +110,7 @@ async def test_search_patents_skips_timed_out_source(monkeypatch):
     fast_resp = SearchResponse(
         query="test", source=SourceType.PATENTSVIEW, results=[], total_results=0
     )
-    slow_resp = SearchResponse(
-        query="test", source=SourceType.PQAI, results=[], total_results=0
-    )
+    slow_resp = SearchResponse(query="test", source=SourceType.PQAI, results=[], total_results=0)
     FastClient = _make_fake_client(fast_resp, delay=0.0)
     SlowClient = _make_fake_client(slow_resp, delay=0.05)
 

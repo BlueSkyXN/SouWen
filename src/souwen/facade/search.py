@@ -144,9 +144,7 @@ async def _execute_search(
         if not cfg.is_source_enabled(adapter.name):
             logger.info("数据源 %s 已禁用，跳过", adapter.name)
             continue
-        coro = _run_via_adapter(
-            adapter, capability, query=query, limit=limit, **kwargs
-        )
+        coro = _run_via_adapter(adapter, capability, query=query, limit=limit, **kwargs)
         tasks.append((adapter.name, coro))
 
     results = await asyncio.gather(
@@ -165,6 +163,7 @@ async def _execute_search(
 
 
 # ── 公开 API ───────────────────────────────────────────────
+
 
 async def search(
     query: str,
@@ -232,7 +231,10 @@ async def search_by_capability(
         if not cfg.is_source_enabled(adapter.name):
             continue
         tasks.append(
-            (adapter.name, _run_via_adapter(adapter, capability, query=query, limit=limit, **kwargs))
+            (
+                adapter.name,
+                _run_via_adapter(adapter, capability, query=query, limit=limit, **kwargs),
+            )
         )
     results = await asyncio.gather(
         *[_search_source_limited(n, coro) for n, coro in tasks],
@@ -241,6 +243,7 @@ async def search_by_capability(
 
 
 # ── 便捷 API ────────────────────────────────────────────
+
 
 async def search_papers(
     query: str,
