@@ -5,27 +5,37 @@ on:
     branches: [main]
 
 jobs:
-  check:
+  build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Check panel.html sync
+      - name: Check if panel/src changed
+        id: check
         run: |
           BASE="${{ github.event.pull_request.base.sha }}"
           HEAD="${{ github.event.pull_request.head.sha }}"
           CHANGED=$(git diff --name-only "$BASE" "$HEAD")
           if echo "$CHANGED" | grep -q '^panel/src/'; then
-            if ! echo "$CHANGED" | grep -q '^src/souwen/server/panel\.html$'; then
-              echo "❌ panel/src/* 改动但未同步到 src/souwen/server/panel.html"
-              echo ""
-              echo "修复："
-              echo "    cd panel && npm run build"
-              echo "    git add src/souwen/server/panel.html && git commit --amend --no-edit"
-              exit 1
-            fi
-            echo "✓ panel/src 改动已同步到 panel.html"
+            echo "changed=true" >> "$GITHUB_OUTPUT"
           else
-            echo "ℹ️ 本 PR 未触碰 panel/src，跳过 sync 检查"
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "ℹ️ 本 PR 未触碰 panel/src，跳过构建检查"
           fi
+      - uses: actions/setup-node@v4
+        if: steps.check.outputs.changed == 'true'
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: panel/package-lock.json
+      - name: Build panel
+        if: steps.check.outputs.changed == 'true'
+        run: |
+          cd panel && npm ci && npm run build
+          if [ ! -f dist/index.html ]; then
+            echo "❌ panel 构建失败：dist/index.html 未生成"
+            exit 1
+          fi
+          echo "✓ panel 构建成功"
+          ls -lh dist/index.html
