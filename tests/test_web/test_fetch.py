@@ -162,7 +162,9 @@ class TestFetchContent:
 
         assert resp.total_ok == 0
         assert resp.total_failed == 1
-        assert "arxiv.org" in (resp.results[0].error or "")
+        assert resp.results[0].error == (
+            "arxiv_fulltext 仅支持 arxiv.org 的 /abs/、/html/ 或 /pdf/ URL"
+        )
 
     @pytest.mark.asyncio
     async def test_arxiv_fulltext_enforces_per_url_timeout(self, monkeypatch):
