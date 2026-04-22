@@ -55,7 +55,7 @@ function totalCountOf(domain: Domain, responses: Array<SearchResponse | WebSearc
   if (domain === 'paper' || domain === 'patent') {
     return (responses as SearchResponse[]).reduce((sum, r) => sum + (r.total ?? 0), 0)
   }
-  return (responses as WebSearchResponse[]).reduce((sum, r) => sum + (r.total_results ?? 0), 0)
+  return (responses as WebSearchResponse[]).reduce((sum, r) => sum + (r.total ?? 0), 0)
 }
 
 export function SearchPage() {

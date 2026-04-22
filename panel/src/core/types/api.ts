@@ -258,11 +258,10 @@ export interface SearchResponse {
  */
 export interface WebSearchResponse {
   query: string
-  source: string
-  total_results: number
+  engines: string[]
   results: WebResult[]
-  page: number
-  per_page: number
+  total: number
+  meta: SearchMeta
 }
 
 /**
