@@ -139,11 +139,16 @@ async def lifespan(app: FastAPI):
         __version__,
         auth_desc,
     )
-    if not admin_pw and not user_pw and os.getenv("SOUWEN_ADMIN_OPEN", "").strip().lower() in (
-        "1",
-        "true",
-        "yes",
-        "on",
+    if (
+        not admin_pw
+        and not user_pw
+        and os.getenv("SOUWEN_ADMIN_OPEN", "").strip().lower()
+        in (
+            "1",
+            "true",
+            "yes",
+            "on",
+        )
     ):
         logger.warning(
             "SOUWEN_ADMIN_OPEN=1 已显式解除 Admin API 锁定；"
