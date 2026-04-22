@@ -908,7 +908,7 @@ _reg(SourceAdapter(
 
 
 # ═════════════════════════════════════════════════════════════
-# 13. fetch providers（15 个横切，仅 fetch capability）
+# 13. fetch providers（16 个横切，仅 fetch capability）
 # ═════════════════════════════════════════════════════════════
 
 _reg(SourceAdapter(
@@ -931,6 +931,16 @@ _reg(SourceAdapter(
     needs_config=False,                  # Key 可选
     client_loader=lazy("souwen.web.jina_reader:JinaReaderClient"),
     methods={"fetch": MethodSpec("fetch")},
+))
+
+_reg(SourceAdapter(
+    name="arxiv_fulltext",
+    domain="fetch",
+    integration="open_api",
+    description="arXiv 论文全文抓取（按 arxiv.org 论文 URL 提取正文）",
+    config_field=None,
+    client_loader=lazy("souwen.paper.arxiv_fulltext:ArxivFulltextClient"),
+    methods={"fetch": MethodSpec("get_fulltext")},
 ))
 
 _reg(SourceAdapter(

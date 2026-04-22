@@ -274,6 +274,7 @@ class TestFetchProviders:
         assert len(providers) >= 10, "fetch 提供者至少 10 个"
         names = [p.name for p in providers]
         assert "builtin" in names
+        assert "arxiv_fulltext" in names
         # 跨域源应该在这里
         assert "tavily" in names
         assert "firecrawl" in names

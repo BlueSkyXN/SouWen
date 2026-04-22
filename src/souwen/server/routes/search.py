@@ -6,6 +6,7 @@ import asyncio
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from souwen.registry import defaults_for
 from souwen.server.auth import check_search_auth
 from souwen.server.limiter import rate_limit_search
 from souwen.server.routes._common import logger
@@ -18,6 +19,8 @@ from souwen.server.schemas import (
 )
 
 router = APIRouter()
+_DEFAULT_PAPER_SOURCES = defaults_for("paper", "search")
+_DEFAULT_PAPER_SOURCES_LABEL = ",".join(_DEFAULT_PAPER_SOURCES)
 
 
 @router.get(
@@ -27,7 +30,10 @@ router = APIRouter()
 )
 async def api_search_paper(
     q: str = Query(..., description="搜索关键词", min_length=1, max_length=500),
-    sources: str = Query("openalex,arxiv", description="数据源，逗号分隔"),
+    sources: str | None = Query(
+        None,
+        description=f"数据源，逗号分隔；默认 {_DEFAULT_PAPER_SOURCES_LABEL}",
+    ),
     per_page: int = Query(10, ge=1, le=100, description="每页结果数"),
     timeout: float | None = Query(None, ge=1, le=300, description="端点硬超时（秒），超时返回 504"),
 ):
@@ -35,9 +41,14 @@ async def api_search_paper(
     from souwen.exceptions import SouWenError
     from souwen.search import search_papers
 
-    source_list = [s.strip() for s in sources.split(",") if s.strip()]
+    requested_sources = None
+    if sources is None:
+        source_list = list(_DEFAULT_PAPER_SOURCES)
+    else:
+        source_list = [s.strip() for s in sources.split(",") if s.strip()]
+        requested_sources = source_list
     try:
-        coro = search_papers(q, sources=source_list, per_page=per_page)
+        coro = search_papers(q, sources=requested_sources, per_page=per_page)
         if timeout is not None:
             results = await asyncio.wait_for(coro, timeout=timeout)
         else:

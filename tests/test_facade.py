@@ -126,10 +126,10 @@ class TestFacadeFetch:
             facade_fetch, "_registry_get", lambda name: adapter_stub
         )
 
-        async def fake_impl(urls, provider="builtin", timeout=30.0, **kw):
+        async def fake_impl(urls, providers=None, timeout=30.0, **kw):
             captured["call"] = {
                 "urls": list(urls),
-                "provider": provider,
+                "providers": list(providers) if providers else providers,
                 "timeout": timeout,
                 "kwargs": kw,
             }
@@ -138,7 +138,7 @@ class TestFacadeFetch:
                 results=[FetchResult(url=urls[0], final_url=urls[0])],
                 total=1,
                 total_ok=1,
-                provider=provider,
+                provider=(providers[0] if providers else "builtin"),
             )
 
         # facade.fetch 在函数体内 from souwen.web.fetch import fetch_content
@@ -152,7 +152,7 @@ class TestFacadeFetch:
         )
         assert isinstance(resp, FetchResponse)
         assert captured["call"]["urls"] == ["https://example.com"]
-        assert captured["call"]["provider"] == "builtin"
+        assert captured["call"]["providers"] == ["builtin"]
         assert captured["call"]["timeout"] == 12.5
 
 

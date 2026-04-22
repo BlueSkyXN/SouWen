@@ -1,10 +1,11 @@
 """并发多提供者聚合内容抓取
 
 文件用途：
-    核心网页内容抓取聚合模块。支持 19 个提供者（内置抓取、Jina Reader、Tavily、Firecrawl、Exa、
-    Crawl4AI、Scrapfly、Diffbot、ScrapingBee、ZenRows、ScraperAPI、Apify、
-    Cloudflare Browser Rendering、Wayback Machine、newspaper4k、readability、MCP、
-    site_crawler（多页 BFS 爬虫）、deepwiki（DeepWiki 文档抓取）），
+    核心网页内容抓取聚合模块。支持 20 个提供者（内置抓取、Jina Reader、arXiv Fulltext、
+    Tavily、Firecrawl、Exa、Crawl4AI、Scrapfly、Diffbot、ScrapingBee、ZenRows、
+    ScraperAPI、Apify、Cloudflare Browser Rendering、Wayback Machine、
+    newspaper4k、readability、MCP、site_crawler（多页 BFS 爬虫）、
+    deepwiki（DeepWiki 文档抓取）），
     通过 asyncio 并发抓取、聚合结果，为用户提供统一内容提取接口。
 
 函数/类清单：
@@ -18,9 +19,9 @@
         - 功能：调度指定提供者执行批量抓取，未知提供者返回失败结果集
         - 输入：provider 提供者名称, urls URL 列表, timeout 单 URL 超时秒数
         - 输出：FetchResponse 聚合响应
-        - 关键变量：分支 jina_reader / tavily / firecrawl / exa / crawl4ai / scrapfly /
-                    diffbot / scrapingbee / zenrows / scraperapi / apify /
-                    cloudflare / wayback / newspaper / readability
+        - 关键变量：分支 jina_reader / arxiv_fulltext / tavily / firecrawl / exa /
+                    crawl4ai / scrapfly / diffbot / scrapingbee / zenrows /
+                    scraperapi / apify / cloudflare / wayback / newspaper / readability
 
     fetch_content(urls, providers=None, timeout=30.0, skip_ssrf_check=False) -> FetchResponse
         - 功能：并发多提供者聚合抓取入口（用户显式选择提供者，不自动级联）
@@ -60,6 +61,35 @@ from souwen.config import get_config
 from souwen.models import FetchResponse, FetchResult
 
 logger = logging.getLogger("souwen.web.fetch")
+
+
+def _extract_arxiv_paper_id(url: str) -> str | None:
+    """从 arxiv.org 的 abs/html/pdf URL 提取论文 ID。"""
+    parsed = urlparse(url)
+    if parsed.hostname not in {"arxiv.org", "www.arxiv.org"}:
+        return None
+
+    path = parsed.path.rstrip("/")
+    for prefix in ("/abs/", "/html/", "/pdf/"):
+        if not path.startswith(prefix):
+            continue
+        paper_id = path[len(prefix):]
+        if prefix == "/pdf/" and paper_id.endswith(".pdf"):
+            paper_id = paper_id[:-4]
+        return paper_id or None
+    return None
+
+
+def _get_provider_global_timeout(provider: str, url_count: int, timeout: float) -> float:
+    """计算 provider 级总超时预算。
+
+    大多数 provider 会在一个请求内完成整批抓取，沿用 ``timeout + 10`` 的宽限。
+    ``arxiv_fulltext`` 逐条提取全文，且内部自带 3 秒节流，因此按 URL 数量放大总预算，
+    避免健康请求在批量时被聚合层全局超时一锅端。
+    """
+    if provider == "arxiv_fulltext":
+        return timeout * max(1, url_count) + 10
+    return timeout + 10
 
 
 def validate_fetch_url(url: str) -> tuple[bool, str]:
@@ -169,6 +199,60 @@ async def _fetch_with_provider(
         api_key = getattr(config, "jina_api_key", None) or None
         async with JinaReaderClient(api_key=api_key) as client:
             return await client.fetch_batch(urls, timeout=timeout)
+
+    elif provider == "arxiv_fulltext":
+        from souwen.paper.arxiv_fulltext import ArxivFulltextClient
+
+        async with ArxivFulltextClient() as client:
+            results: list[FetchResult] = []
+            for url in urls:
+                paper_id = _extract_arxiv_paper_id(url)
+                if paper_id is None:
+                    results.append(
+                        FetchResult(
+                            url=url,
+                            final_url=url,
+                            source="arxiv_fulltext",
+                            error="arxiv_fulltext 仅支持 arxiv.org 的 /abs/、/html/ 或 /pdf/ URL",
+                        )
+                    )
+                    continue
+                try:
+                    result = await asyncio.wait_for(
+                        client.get_fulltext(paper_id),
+                        timeout=timeout,
+                    )
+                except asyncio.TimeoutError:
+                    results.append(
+                        FetchResult(
+                            url=url,
+                            final_url=url,
+                            source="arxiv_fulltext",
+                            error=f"单 URL 超时（{timeout}s）",
+                        )
+                    )
+                    continue
+                except Exception as exc:
+                    results.append(
+                        FetchResult(
+                            url=url,
+                            final_url=url,
+                            source="arxiv_fulltext",
+                            error=str(exc),
+                        )
+                    )
+                    continue
+                results.append(result.model_copy(update={"url": url}))
+
+            ok = sum(1 for result in results if result.error is None)
+            return FetchResponse(
+                urls=urls,
+                results=results,
+                total=len(results),
+                total_ok=ok,
+                total_failed=len(results) - ok,
+                provider="arxiv_fulltext",
+            )
 
     elif provider == "tavily":
         from souwen.web.tavily import TavilyClient
@@ -348,6 +432,7 @@ async def fetch_content(
 
     # 用户显式选择单提供者（不做多提供者扇出）
     provider = selected[0]
+    global_timeout = _get_provider_global_timeout(provider, len(valid_urls), timeout)
 
     try:
         resp = await asyncio.wait_for(
@@ -360,7 +445,7 @@ async def fetch_content(
                 max_length=max_length,
                 respect_robots_txt=respect_robots_txt,
             ),
-            timeout=timeout + 10,  # 超出每 URL 超时的全局宽限期
+            timeout=global_timeout,
         )
     except asyncio.TimeoutError:
         logger.warning("Fetch 全局超时: provider=%s urls=%d", provider, len(valid_urls))

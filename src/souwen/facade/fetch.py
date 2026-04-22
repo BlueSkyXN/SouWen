@@ -52,4 +52,4 @@ async def fetch_content(
 
     from souwen.web.fetch import fetch_content as _impl_fetch
 
-    return await _impl_fetch(urls, provider=provider, timeout=timeout, **kwargs)
+    return await _impl_fetch(urls, providers=[provider], timeout=timeout, **kwargs)

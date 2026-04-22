@@ -13,8 +13,11 @@
 
 from __future__ import annotations
 
+import asyncio
+
 import pytest
 
+from souwen.models import FetchResult
 from souwen.web.fetch import validate_fetch_url, fetch_content
 
 
@@ -104,3 +107,153 @@ class TestFetchContent:
         )
         # 全部被 SSRF 拦截，但 provider 应为 builtin
         assert resp.provider == "builtin"
+
+    @pytest.mark.asyncio
+    async def test_arxiv_fulltext_provider_dispatches(self, monkeypatch):
+        """arxiv_fulltext provider 应从 arxiv URL 提取 paper_id 并复用现有 client。"""
+        calls: list[str] = []
+
+        class FakeArxivFulltextClient:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return None
+
+            async def get_fulltext(self, paper_id: str):
+                calls.append(paper_id)
+                return FetchResult(
+                    url=f"https://arxiv.org/abs/{paper_id}",
+                    final_url=f"https://arxiv.org/html/{paper_id}",
+                    title="stub title",
+                    content="stub content",
+                    content_format="text",
+                    source="arxiv_fulltext",
+                )
+
+        import souwen.paper.arxiv_fulltext as arxiv_fulltext_mod
+
+        monkeypatch.setattr(
+            arxiv_fulltext_mod,
+            "ArxivFulltextClient",
+            FakeArxivFulltextClient,
+        )
+
+        resp = await fetch_content(
+            urls=["https://arxiv.org/abs/2301.00001v2"],
+            providers=["arxiv_fulltext"],
+            skip_ssrf_check=True,
+        )
+
+        assert calls == ["2301.00001v2"]
+        assert resp.provider == "arxiv_fulltext"
+        assert resp.total_ok == 1
+        assert resp.results[0].url == "https://arxiv.org/abs/2301.00001v2"
+        assert resp.results[0].final_url == "https://arxiv.org/html/2301.00001v2"
+
+    @pytest.mark.asyncio
+    async def test_arxiv_fulltext_rejects_non_arxiv_urls(self):
+        """arxiv_fulltext provider 对非 arxiv URL 返回 provider 级错误。"""
+        resp = await fetch_content(
+            urls=["https://example.com/paper"],
+            providers=["arxiv_fulltext"],
+            skip_ssrf_check=True,
+        )
+
+        assert resp.total_ok == 0
+        assert resp.total_failed == 1
+        assert "arxiv.org" in (resp.results[0].error or "")
+
+    @pytest.mark.asyncio
+    async def test_arxiv_fulltext_enforces_per_url_timeout(self, monkeypatch):
+        """arxiv_fulltext 应对每个 URL 单独应用用户请求的 timeout。"""
+
+        class SlowArxivFulltextClient:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return None
+
+            async def get_fulltext(self, paper_id: str):
+                await asyncio.sleep(0.05)
+                return FetchResult(
+                    url=f"https://arxiv.org/abs/{paper_id}",
+                    final_url=f"https://arxiv.org/html/{paper_id}",
+                    title="slow title",
+                    content="slow content",
+                    content_format="text",
+                    source="arxiv_fulltext",
+                )
+
+        import souwen.paper.arxiv_fulltext as arxiv_fulltext_mod
+
+        monkeypatch.setattr(
+            arxiv_fulltext_mod,
+            "ArxivFulltextClient",
+            SlowArxivFulltextClient,
+        )
+
+        resp = await fetch_content(
+            urls=["https://arxiv.org/abs/2301.00001"],
+            providers=["arxiv_fulltext"],
+            timeout=0.01,
+            skip_ssrf_check=True,
+        )
+
+        assert resp.total_ok == 0
+        assert resp.total_failed == 1
+        assert "超时" in (resp.results[0].error or "")
+
+    @pytest.mark.asyncio
+    async def test_arxiv_fulltext_scales_global_timeout_with_batch_size(self, monkeypatch):
+        """arxiv_fulltext 的 provider 级总超时应按 URL 数量伸缩。"""
+        captured_timeouts: list[float] = []
+        original_wait_for = asyncio.wait_for
+
+        async def recording_wait_for(awaitable, timeout):
+            captured_timeouts.append(timeout)
+            return await original_wait_for(awaitable, timeout)
+
+        class FastArxivFulltextClient:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, exc_type, exc, tb):
+                return None
+
+            async def get_fulltext(self, paper_id: str):
+                return FetchResult(
+                    url=f"https://arxiv.org/abs/{paper_id}",
+                    final_url=f"https://arxiv.org/html/{paper_id}",
+                    title="fast title",
+                    content="fast content",
+                    content_format="text",
+                    source="arxiv_fulltext",
+                )
+
+        import souwen.paper.arxiv_fulltext as arxiv_fulltext_mod
+        import souwen.web.fetch as fetch_mod
+
+        monkeypatch.setattr(
+            arxiv_fulltext_mod,
+            "ArxivFulltextClient",
+            FastArxivFulltextClient,
+        )
+        monkeypatch.setattr(fetch_mod.asyncio, "wait_for", recording_wait_for)
+
+        urls = [
+            "https://arxiv.org/abs/2301.00001",
+            "https://arxiv.org/abs/2301.00002",
+            "https://arxiv.org/abs/2301.00003",
+        ]
+        resp = await fetch_content(
+            urls=urls,
+            providers=["arxiv_fulltext"],
+            timeout=2.0,
+            skip_ssrf_check=True,
+        )
+
+        assert resp.total_ok == 3
+        assert captured_timeouts[0] == pytest.approx(16.0)
+        assert captured_timeouts[1:] == pytest.approx([2.0, 2.0, 2.0])
