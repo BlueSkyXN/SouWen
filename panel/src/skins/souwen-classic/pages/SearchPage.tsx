@@ -1,57 +1,56 @@
 /**
- * 搜索页面 - 论文/专利/网页综合搜索
+ * 搜索页面 - 论文/专利/网页综合搜索（souwen-classic v1 单 domain 版）
  *
- * 文件用途：提供统一的搜索界面，支持八个搜索类别（paper/patent/general/professional/social/developer/wiki/video）、数据源选择、结果展示和过滤
- *
- * 核心功能模块：
- *   - 搜索类别切换：分段控制器在三个类别间切换
- *   - 数据源选择：多选器选择每个类别的数据源
- *   - 搜索输入：关键词输入框 + 搜索建议
- *   - 结果展示：动画列表显示各数据源的搜索结果
- *   - 状态管理：加载中、错误、空结果、成功等状态
- *   - 竞态处理：新搜索自动取消前一个请求
- *
- * 常量定义：
- *   SOURCE_ICONS - 数据源名称到图标组件的映射
- *   DEFAULT_SELECTED - 默认选中的数据源
- *   SEARCH_SUGGESTIONS - 搜索建议词列表
- *
- * 主要交互：
- *   - 选择搜索类别 → 加载对应类别的数据源
- *   - 选择数据源 → 更新搜索配置
- *   - 输入关键词 → 显示搜索建议
- *   - 点击搜索 → 并发调用各数据源的搜索 API
- *   - 处理竞态：新搜索覆盖前一个搜索
+ * 路由 /search/:domain 决定本页搜索域；顶部 tabs 切换 domain 时本组件更新本地 state。
+ * 业务状态由 useSearchPage 集中托管（query / sources / capability / loading / error）。
  */
 
-import { useState, useCallback, useEffect, useRef, type FormEvent } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import { useParams } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { m } from 'framer-motion'
 import {
   FileText, Shield, Globe, Users, Calendar, Link, Building,
   Search, ExternalLink, Sparkles, BookOpen, Database, Library,
   GraduationCap, Unlock, Heart, CheckCircle2, Circle,
-  SlidersHorizontal, Command, Settings,
+  SlidersHorizontal, Command,
   List, LayoutGrid, Grid3X3, Download,
   Zap, MessageCircle, Code2, Play,
 } from 'lucide-react'
-import { api } from '@core/services/api'
 import { useNotificationStore } from '@core/stores/notificationStore'
 import { ResultsSkeleton } from '../components/common/Skeleton'
 import { EmptyState } from '../components/common/EmptyState'
 import { Badge } from '../components/common/Badge'
-import { formatError } from '@core/lib/errors'
 import { normalizePaper, normalizePatent, normalizeWeb } from '@core/lib/normalize'
 import { extractDomain } from '@core/lib/url'
 import { exportPapers, exportPatents, exportWebResults, type ExportFormat } from '@core/lib/export'
-import type { SearchCategory, SourceInfo, SearchResponse, WebSearchResponse, WebResult, PaperResult, PatentResult } from '@core/types'
-import { WEB_CATEGORIES, ALL_CATEGORIES } from '@core/types'
+import { useSearchPage, type Domain } from '@core/hooks/useSearchPage'
+import type {
+  SearchResponse, WebSearchResponse,
+  WebResult, PaperResult, PatentResult,
+} from '@core/types'
 import { staggerContainer, staggerItem, fadeInUp } from '@core/lib/animations'
 import styles from './SearchPage.module.scss'
 
 type LayoutMode = 'list' | 'card' | 'grid'
 
-/* ─── Source icon mapping ─── */
+const DISPLAY_DOMAINS: Domain[] = [
+  'paper', 'patent', 'web', 'cn_tech', 'social', 'developer', 'knowledge', 'video',
+]
+
+const DOMAIN_ICONS: Record<Domain, React.ComponentType<{ size?: number }>> = {
+  paper: FileText,
+  patent: Shield,
+  web: Globe,
+  cn_tech: Zap,
+  social: MessageCircle,
+  developer: Code2,
+  knowledge: BookOpen,
+  video: Play,
+  office: FileText,
+  archive: FileText,
+}
+
 /** 数据源名称到 Lucide 图标组件的映射表，用于在 UI 中可视化各数据源 */
 const SOURCE_ICONS: Record<string, React.ComponentType<{ size?: number }>> = {
   openalex: Library,
@@ -72,115 +71,40 @@ const SOURCE_ICONS: Record<string, React.ComponentType<{ size?: number }>> = {
   patsnap: Shield,
 }
 
-/** 根据数据源名称返回对应图标组件，未注册的数据源使用 Globe 作为兜底 */
 function getSourceIcon(name: string): React.ComponentType<{ size?: number }> {
   return SOURCE_ICONS[name] ?? Globe
 }
 
-interface SourceOption {
-  value: string
-  label: string
-  description?: string
-  needsKey?: boolean
-}
-
-/** 将后端返回的 SourceInfo 列表转换为下拉选项格式 */
-function toSourceOptions(sources: SourceInfo[]): SourceOption[] {
-  return sources.map((s) => ({
-    value: s.name,
-    label: s.name,
-    description: s.description,
-    needsKey: s.needs_key,
-  }))
-}
-
-/** 当 API 返回的数据源列表为空时使用的兜底选项（保证 UI 始终有可选项） */
-function makeFallbackOptions(t: (key: string) => string): Record<SearchCategory, SourceOption[]> {
-  return {
-    paper: [
-      { value: 'openalex', label: 'openalex', description: t('search.source_openalex') },
-      { value: 'arxiv', label: 'arxiv', description: t('search.source_arxiv') },
-    ],
-    patent: [
-      { value: 'google_patents', label: 'google_patents', description: t('search.source_google_patents') },
-    ],
-    general: [
-      { value: 'duckduckgo', label: 'duckduckgo', description: t('search.source_duckduckgo') },
-      { value: 'bing', label: 'bing', description: t('search.source_bing') },
-    ],
-    professional: [],
-    social: [],
-    developer: [],
-    wiki: [],
-    video: [],
+function flattenItems(domain: Domain, responses: Array<SearchResponse | WebSearchResponse>): unknown[] {
+  if (domain === 'paper' || domain === 'patent') {
+    return (responses as SearchResponse[]).flatMap((r) => r.results.flatMap((s) => s.results))
   }
+  return (responses as WebSearchResponse[]).flatMap((r) => r.results)
 }
 
-const DEFAULT_SELECTED: Record<SearchCategory, string[]> = {
-  paper: ['openalex', 'arxiv'],
-  patent: ['google_patents'],
-  general: ['duckduckgo', 'bing'],
-  professional: [],
-  social: [],
-  developer: [],
-  wiki: [],
-  video: [],
+function totalCountOf(domain: Domain, responses: Array<SearchResponse | WebSearchResponse>): number {
+  if (domain === 'paper' || domain === 'patent') {
+    return (responses as SearchResponse[]).reduce((sum, r) => sum + (r.total ?? 0), 0)
+  }
+  return (responses as WebSearchResponse[]).reduce((sum, r) => sum + (r.total_results ?? 0), 0)
 }
 
-// SEARCH_SUGGESTIONS 已移至组件内部以支持 i18n
-
-/** 解析某分类的数据源选项：API 有数据时使用 API，否则回退到默认选项 */
-function resolveSourceOptions(
-  category: SearchCategory,
-  sources: SourceInfo[],
-  fallback: Record<SearchCategory, SourceOption[]>,
-): SourceOption[] {
-  const options = toSourceOptions(sources)
-  return options.length > 0 ? options : fallback[category]
-}
-
-/**
- * 净化用户的数据源选择：移除不再可用的源，若清空则回退到默认值
- * 用途：在 API 返回新的数据源列表后，确保用户的选择只包含合法值
- */
-function sanitizeSelections(
-  current: Record<SearchCategory, string[]>,
-  options: Record<SearchCategory, SourceOption[]>,
-): Record<SearchCategory, string[]> {
-  return (Object.keys(options) as SearchCategory[]).reduce(
-    (next, category) => {
-      const allowed = new Set(options[category].map((option) => option.value))
-      const selected = current[category].filter((value) => allowed.has(value))
-      if (selected.length > 0) {
-        next[category] = selected
-        return next
-      }
-
-      next[category] = (DEFAULT_SELECTED[category] ?? []).filter((value) => allowed.has(value))
-      return next
-    },
-    Object.fromEntries(ALL_CATEGORIES.map((c) => [c, [] as string[]])) as Record<SearchCategory, string[]>,
-  )
-}
-
-/**
- * 搜索状态机：idle（空闲）→ loading（搜索中）→ error（失败） / 成功后回到 idle
- * tab 字段记录正在搜索的分类，用于实现"切换 tab 不影响其他 tab 状态"
- */
-type SearchState =
-  | { status: 'idle'; tab: null; message: null }
-  | { status: 'loading'; tab: SearchCategory; message: null }
-  | { status: 'error'; tab: SearchCategory; message: string }
-
-/**
- * SearchPage 主组件
- * 状态：当前分类 tab、查询词 query、各分类数据源选项与选择、三类结果（论文/专利/网页）
- * 关键机制：
- *   - 通过 activeRequestRef + requestIdRef 实现请求竞态控制（新请求会取消上一个未完成的请求）
- *   - 卸载时自动 abort 进行中的请求，防止 setState on unmounted
- */
 export function SearchPage() {
   const { t } = useTranslation()
+  const { domain: urlDomain } = useParams<{ domain: string }>()
+  const initialDomain = (DISPLAY_DOMAINS.includes(urlDomain as Domain) ? urlDomain : 'paper') as Domain
+  const [domain, setDomain] = useState<Domain>(initialDomain)
+  const [layoutMode, setLayoutMode] = useState<LayoutMode>('card')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  const {
+    query, setQuery,
+    responses, loading, error,
+    availableSources, selectedSources, toggleSource, setSelectedSources,
+    handleSearch,
+  } = useSearchPage(domain)
+
+  const addToast = useNotificationStore((s) => s.addToast)
   const SEARCH_SUGGESTIONS = [
     t('search.suggestion1', '大语言模型'),
     t('search.suggestion2', '量子计算'),
@@ -189,78 +113,16 @@ export function SearchPage() {
     t('search.suggestion5', '气候变化'),
     t('search.suggestion6', '神经辐射场'),
   ]
-  const fallbackOptions = makeFallbackOptions(t)
-  const [tab, setTab] = useState<SearchCategory>('paper')
-  const [query, setQuery] = useState('')
-  const [sourceOptions, setSourceOptions] = useState<Record<SearchCategory, SourceOption[]>>(fallbackOptions)
-  const [selections, setSelections] = useState<Record<SearchCategory, string[]>>({
-    ...DEFAULT_SELECTED,
-  })
-  const [count, setCount] = useState(10)
-  const [showAdvanced, setShowAdvanced] = useState(false)
-  const [timeout, setTimeout_] = useState<number | undefined>(undefined)
-  const [searchState, setSearchState] = useState<SearchState>({ status: 'idle', tab: null, message: null })
-  const [paperResults, setPaperResults] = useState<SearchResponse | null>(null)
-  const [patentResults, setPatentResults] = useState<SearchResponse | null>(null)
-  const [webResultsMap, setWebResultsMap] = useState<Record<string, WebSearchResponse | null>>({})
-  const [layoutMode, setLayoutMode] = useState<LayoutMode>('card')
-  const addToast = useNotificationStore((s) => s.addToast)
-  const activeRequestRef = useRef<{ id: number; controller: AbortController } | null>(null)
-  const requestIdRef = useRef(0)
 
+  // Sync URL → domain
   useEffect(() => {
-    let cancelled = false
-    api.getSources().then((res) => {
-      if (cancelled) return
-      const nextOptions = Object.fromEntries(
-        ALL_CATEGORIES.map((c) => [c, resolveSourceOptions(c, res[c] ?? [], fallbackOptions)])
-      ) as Record<SearchCategory, SourceOption[]>
-      setSourceOptions(nextOptions)
-      setSelections((prev) => sanitizeSelections(prev, nextOptions))
-    }).catch((err) => { console.warn('[SouWen] Failed to load sources from API, using fallback:', err) })
-    return () => { cancelled = true }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  useEffect(() => {
-    return () => {
-      activeRequestRef.current?.controller.abort()
+    if (urlDomain && DISPLAY_DOMAINS.includes(urlDomain as Domain) && urlDomain !== domain) {
+      setDomain(urlDomain as Domain)
     }
-  }, [])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [urlDomain])
 
-  const handleTabChange = useCallback((key: SearchCategory) => {
-    setTab(key)
-  }, [])
-
-  const toggleSource = useCallback((sourceName: string) => {
-    setSelections((prev) => {
-      const curr = prev[tab]
-      const next = curr.includes(sourceName)
-        ? curr.filter((s) => s !== sourceName)
-        : [...curr, sourceName]
-      return { ...prev, [tab]: next }
-    })
-  }, [tab])
-
-  const selectAllSources = useCallback(() => {
-    setSelections((prev) => ({
-      ...prev,
-      [tab]: sourceOptions[tab].map((s) => s.value),
-    }))
-  }, [tab, sourceOptions])
-
-  const clearAllSources = useCallback(() => {
-    setSelections((prev) => ({ ...prev, [tab]: [] }))
-  }, [tab])
-
-  const currentSources = selections[tab]
-  const canSearch = query.trim().length > 0 && currentSources.length > 0
-  const isSearchingCurrentTab = searchState.status === 'loading' && searchState.tab === tab
-  const maxPerPage = WEB_CATEGORIES.has(tab) ? 50 : 100
-
-  /* ─── Keyboard shortcut ⌘K ─── */
-  /** ⌘K / Ctrl+K 快捷键：聚焦搜索输入框 */
-  const inputRef = useRef<HTMLInputElement>(null)
+  // ⌘K shortcut
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
@@ -272,66 +134,23 @@ export function SearchPage() {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [])
 
-  /**
-   * 处理搜索提交
-   * 关键逻辑：
-   *   1. 生成单调递增的 requestId 并 abort 上一个进行中的请求（竞态保护）
-   *   2. 根据当前 tab 调用对应分类的 API（searchPaper/searchPatent/searchWeb）
-   *   3. 检查 activeRequestRef.id === requestId 才更新结果，避免老请求覆盖新结果
-   *   4. abort 错误被静默忽略（仅展示真实失败）
-   */
-  const handleSearch = useCallback(
-    async (e: FormEvent) => {
-      e.preventDefault()
-      if (!canSearch) return
-      const requestId = requestIdRef.current + 1
-      requestIdRef.current = requestId
-      activeRequestRef.current?.controller.abort()
-      const controller = new AbortController()
-      activeRequestRef.current = { id: requestId, controller }
-      setSearchState({ status: 'loading', tab, message: null })
-      const joined = currentSources.join(',')
-      try {
-        if (tab === 'paper') {
-          setPaperResults(null)
-          const res = await api.searchPaper(query, joined, count, controller.signal, timeout)
-          if (activeRequestRef.current?.id !== requestId) return
-          setPaperResults(res)
-          setSearchState({ status: 'idle', tab: null, message: null })
-          addToast('success', t('search.success', { count: res.total }))
-        } else if (tab === 'patent') {
-          setPatentResults(null)
-          const res = await api.searchPatent(query, joined, count, controller.signal, timeout)
-          if (activeRequestRef.current?.id !== requestId) return
-          setPatentResults(res)
-          setSearchState({ status: 'idle', tab: null, message: null })
-          addToast('success', t('search.success', { count: res.total }))
-        } else {
-          setWebResultsMap((prev) => ({ ...prev, [tab]: null }))
-          const res = await api.searchWeb(query, joined, count, controller.signal, timeout)
-          if (activeRequestRef.current?.id !== requestId) return
-          setWebResultsMap((prev) => ({ ...prev, [tab]: res }))
-          setSearchState({ status: 'idle', tab: null, message: null })
-          addToast('success', t('search.success', { count: res.total_results }))
-        }
-      } catch (err) {
-        if (controller.signal.aborted || activeRequestRef.current?.id !== requestId) return
-        const message = formatError(err)
-        setSearchState({ status: 'error', tab, message })
-        addToast('error', t('search.failed', { message }))
-      } finally {
-        if (activeRequestRef.current?.id === requestId) {
-          activeRequestRef.current = null
-        }
-      }
-    },
-    [tab, query, currentSources, canSearch, count, timeout, addToast, t],
-  )
+  // Toast on search completion / error
+  const prevLoadingRef = useRef(false)
+  useEffect(() => {
+    if (prevLoadingRef.current && !loading) {
+      if (error) addToast('error', t('search.failed', { message: error.message }))
+      else if (responses.length > 0) addToast('success', t('search.success', { count: totalCountOf(domain, responses) }))
+    }
+    prevLoadingRef.current = loading
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading])
 
-  const handleRetry = useCallback(() => {
-    const syntheticEvent = { preventDefault: () => {} } as FormEvent
-    handleSearch(syntheticEvent)
-  }, [handleSearch])
+  const canSearch = query.trim().length > 0 && selectedSources.length > 0
+  const items = flattenItems(domain, responses)
+  const hasResults = responses.length > 0
+
+  const selectAllSources = () => setSelectedSources(availableSources.map((s) => s.name))
+  const clearAllSources = () => setSelectedSources([])
 
   const renderPaperCard = (raw: PaperResult, i: number) => {
     const p = normalizePaper(raw)
@@ -340,29 +159,16 @@ export function SearchPage() {
       <m.article key={key} className={styles.resultCard} variants={staggerItem}>
         <div className={styles.cardHeader}>
           <h3 className={styles.resultTitle}>
-            {p.url ? (
-              <a href={p.url} target="_blank" rel="noopener noreferrer">
-                {p.title || t('search.untitled')}
-                <ExternalLink size={14} className={styles.externalIcon} />
-              </a>
-            ) : (
-              p.title || t('search.untitled')
-            )}
+            {p.url ? <a href={p.url} target="_blank" rel="noopener noreferrer">{p.title || t('search.untitled')}<ExternalLink size={14} className={styles.externalIcon} /></a> : (p.title || t('search.untitled'))}
           </h3>
           {p.source && <Badge color="blue">{p.source}</Badge>}
         </div>
         <div className={styles.resultMeta}>
-          {p.authors.length > 0 && (
-            <span><Users size={14} /> {p.authors.slice(0, 3).join(', ')}{p.authors.length > 3 ? t('search.andMore') : ''}</span>
-          )}
+          {p.authors.length > 0 && <span><Users size={14} /> {p.authors.slice(0, 3).join(', ')}{p.authors.length > 3 ? t('search.andMore') : ''}</span>}
           {p.year && <span><Calendar size={14} /> {p.year}</span>}
           {p.doi && <span><Link size={14} /> {p.doi}</span>}
         </div>
-        {p.abstract && (
-          <p className={styles.resultAbstract}>
-            {p.abstract.slice(0, 300)}{p.abstract.length > 300 ? '...' : ''}
-          </p>
-        )}
+        {p.abstract && <p className={styles.resultAbstract}>{p.abstract.slice(0, 300)}{p.abstract.length > 300 ? '...' : ''}</p>}
       </m.article>
     )
   }
@@ -374,31 +180,16 @@ export function SearchPage() {
       <m.article key={key} className={styles.resultCard} variants={staggerItem}>
         <div className={styles.cardHeader}>
           <h3 className={styles.resultTitle}>
-            {p.url ? (
-              <a href={p.url} target="_blank" rel="noopener noreferrer">
-                {p.title || t('search.untitled')}
-                <ExternalLink size={14} className={styles.externalIcon} />
-              </a>
-            ) : (
-              p.title || t('search.untitled')
-            )}
+            {p.url ? <a href={p.url} target="_blank" rel="noopener noreferrer">{p.title || t('search.untitled')}<ExternalLink size={14} className={styles.externalIcon} /></a> : (p.title || t('search.untitled'))}
           </h3>
           {p.source && <Badge color="indigo">{p.source}</Badge>}
         </div>
         <div className={styles.resultMeta}>
-          {p.patentNumber && (
-            <span><FileText size={14} /> {p.patentNumber}</span>
-          )}
-          {p.applicant && (
-            <span><Building size={14} /> {p.applicant}</span>
-          )}
+          {p.patentNumber && <span><FileText size={14} /> {p.patentNumber}</span>}
+          {p.applicant && <span><Building size={14} /> {p.applicant}</span>}
           {p.publicationDate && <span><Calendar size={14} /> {p.publicationDate}</span>}
         </div>
-        {p.abstract && (
-          <p className={styles.resultAbstract}>
-            {p.abstract.slice(0, 300)}{p.abstract.length > 300 ? '...' : ''}
-          </p>
-        )}
+        {p.abstract && <p className={styles.resultAbstract}>{p.abstract.slice(0, 300)}{p.abstract.length > 300 ? '...' : ''}</p>}
       </m.article>
     )
   }
@@ -406,211 +197,138 @@ export function SearchPage() {
   const renderWebCard = (raw: WebResult, i: number) => {
     const item = normalizeWeb(raw)
     const key = item.url || `web-${item.source}-${i}`
-    const domain = item.url ? extractDomain(item.url) : ''
+    const dom = item.url ? extractDomain(item.url) : ''
     return (
       <m.article key={key} className={styles.resultCard} variants={staggerItem}>
         <div className={styles.cardHeader}>
           <h3 className={styles.resultTitle}>
-            {item.url ? (
-              <a href={item.url} target="_blank" rel="noopener noreferrer">
-                {item.title}
-                <ExternalLink size={14} className={styles.externalIcon} />
-              </a>
-            ) : (
-              item.title
-            )}
+            {item.url ? <a href={item.url} target="_blank" rel="noopener noreferrer">{item.title}<ExternalLink size={14} className={styles.externalIcon} /></a> : item.title}
           </h3>
           {(item.source || raw.engine) && <Badge color="teal">{item.source || raw.engine}</Badge>}
         </div>
-        {item.url && (
-          <div className={styles.resultUrl} title={item.url}>
-            <Globe size={12} /> {domain}
-          </div>
-        )}
+        {item.url && <div className={styles.resultUrl} title={item.url}><Globe size={12} /> {dom}</div>}
         {item.snippet && <p className={styles.resultAbstract}>{item.snippet}</p>}
       </m.article>
     )
   }
 
-  /* ─── List mode renderers (single-line, dense) ─── */
-  const renderPaperListItem = (raw: PaperResult, i: number) => {
-    const p = normalizePaper(raw)
-    const key = p.doi || `paper-list-${p.source}-${i}`
-    const domain = p.url ? extractDomain(p.url) : ''
-    const authorStr = p.authors.slice(0, 3).join(', ') + (p.authors.length > 3 ? '…' : '')
-    return (
-      <div key={key} className={styles.resultListItem}>
-        {p.source && <Badge color="blue">{p.source}</Badge>}
-        <span className={styles.listTitle}>
-          {p.url ? (
-            <a href={p.url} target="_blank" rel="noopener noreferrer">
-              {p.title || t('search.untitled')}
-              <ExternalLink size={12} className={styles.externalIcon} />
-            </a>
-          ) : (
-            p.title || t('search.untitled')
-          )}
-        </span>
-        {authorStr && <span className={styles.listMeta}>— {authorStr}</span>}
-        {p.year && <span className={styles.listMeta}>— {p.year}</span>}
-        {domain && <span className={styles.listDomain} title={p.url}>— {domain}</span>}
-      </div>
-    )
+  const renderItemCard = (item: unknown, i: number) => {
+    if (domain === 'paper') return renderPaperCard(item as PaperResult, i)
+    if (domain === 'patent') return renderPatentCard(item as PatentResult, i)
+    return renderWebCard(item as WebResult, i)
   }
 
-  const renderPatentListItem = (raw: PatentResult, i: number) => {
-    const p = normalizePatent(raw)
-    const key = p.patentNumber || `patent-list-${p.source}-${i}`
-    const domain = p.url ? extractDomain(p.url) : ''
+  const renderItemListItem = (item: unknown, i: number) => {
+    if (domain === 'paper') {
+      const p = normalizePaper(item as PaperResult)
+      const key = p.doi || `paper-list-${p.source}-${i}`
+      const dom = p.url ? extractDomain(p.url) : ''
+      const authorStr = p.authors.slice(0, 3).join(', ') + (p.authors.length > 3 ? '…' : '')
+      return (
+        <div key={key} className={styles.resultListItem}>
+          {p.source && <Badge color="blue">{p.source}</Badge>}
+          <span className={styles.listTitle}>
+            {p.url ? <a href={p.url} target="_blank" rel="noopener noreferrer">{p.title || t('search.untitled')}<ExternalLink size={12} className={styles.externalIcon} /></a> : (p.title || t('search.untitled'))}
+          </span>
+          {authorStr && <span className={styles.listMeta}>— {authorStr}</span>}
+          {p.year && <span className={styles.listMeta}>— {p.year}</span>}
+          {dom && <span className={styles.listDomain} title={p.url}>— {dom}</span>}
+        </div>
+      )
+    }
+    if (domain === 'patent') {
+      const p = normalizePatent(item as PatentResult)
+      const key = p.patentNumber || `patent-list-${p.source}-${i}`
+      const dom = p.url ? extractDomain(p.url) : ''
+      return (
+        <div key={key} className={styles.resultListItem}>
+          {p.source && <Badge color="indigo">{p.source}</Badge>}
+          <span className={styles.listTitle}>
+            {p.url ? <a href={p.url} target="_blank" rel="noopener noreferrer">{p.title || t('search.untitled')}<ExternalLink size={12} className={styles.externalIcon} /></a> : (p.title || t('search.untitled'))}
+          </span>
+          {p.patentNumber && <span className={styles.listMeta}>— {p.patentNumber}</span>}
+          {p.applicant && <span className={styles.listMeta}>— {p.applicant}</span>}
+          {p.publicationDate && <span className={styles.listMeta}>— {p.publicationDate}</span>}
+          {dom && <span className={styles.listDomain} title={p.url}>— {dom}</span>}
+        </div>
+      )
+    }
+    const w = item as WebResult
+    const wn = normalizeWeb(w)
+    const key = wn.url || `web-list-${wn.source}-${i}`
+    const dom = wn.url ? extractDomain(wn.url) : ''
+    const snippet = wn.snippet.length > 80 ? wn.snippet.slice(0, 80) + '…' : wn.snippet
     return (
       <div key={key} className={styles.resultListItem}>
-        {p.source && <Badge color="indigo">{p.source}</Badge>}
+        {(wn.source || w.engine) && <Badge color="teal">{wn.source || w.engine}</Badge>}
         <span className={styles.listTitle}>
-          {p.url ? (
-            <a href={p.url} target="_blank" rel="noopener noreferrer">
-              {p.title || t('search.untitled')}
-              <ExternalLink size={12} className={styles.externalIcon} />
-            </a>
-          ) : (
-            p.title || t('search.untitled')
-          )}
+          {wn.url ? <a href={wn.url} target="_blank" rel="noopener noreferrer">{wn.title}<ExternalLink size={12} className={styles.externalIcon} /></a> : wn.title}
         </span>
-        {p.patentNumber && <span className={styles.listMeta}>— {p.patentNumber}</span>}
-        {p.applicant && <span className={styles.listMeta}>— {p.applicant}</span>}
-        {p.publicationDate && <span className={styles.listMeta}>— {p.publicationDate}</span>}
-        {domain && <span className={styles.listDomain} title={p.url}>— {domain}</span>}
-      </div>
-    )
-  }
-
-  const renderWebListItem = (raw: WebResult, i: number) => {
-    const item = normalizeWeb(raw)
-    const key = item.url || `web-list-${item.source}-${i}`
-    const domain = item.url ? extractDomain(item.url) : ''
-    const snippet = item.snippet.length > 80 ? item.snippet.slice(0, 80) + '…' : item.snippet
-    return (
-      <div key={key} className={styles.resultListItem}>
-        {(item.source || raw.engine) && <Badge color="teal">{item.source || raw.engine}</Badge>}
-        <span className={styles.listTitle}>
-          {item.url ? (
-            <a href={item.url} target="_blank" rel="noopener noreferrer">
-              {item.title}
-              <ExternalLink size={12} className={styles.externalIcon} />
-            </a>
-          ) : (
-            item.title
-          )}
-        </span>
-        {domain && <span className={styles.listDomain} title={item.url}>— {domain}</span>}
+        {dom && <span className={styles.listDomain} title={wn.url}>— {dom}</span>}
         {snippet && <span className={styles.listMeta}>— {snippet}</span>}
       </div>
     )
   }
 
-  /* ─── Grid mode renderers (compact NxN cards) ─── */
-  const renderPaperGridCard = (raw: PaperResult, i: number) => {
-    const p = normalizePaper(raw)
-    const key = p.doi || `paper-grid-${p.source}-${i}`
-    const domain = p.url ? extractDomain(p.url) : ''
+  const renderItemGridCard = (item: unknown, i: number) => {
+    let title = '', url = '', source = '', abstract = ''
+    let badgeColor: 'blue' | 'indigo' | 'teal' = 'teal'
+    if (domain === 'paper') {
+      const p = normalizePaper(item as PaperResult)
+      title = p.title || t('search.untitled'); url = p.url; source = p.source; abstract = p.abstract || ''
+      badgeColor = 'blue'
+    } else if (domain === 'patent') {
+      const p = normalizePatent(item as PatentResult)
+      title = p.title || t('search.untitled'); url = p.url; source = p.source; abstract = p.abstract || ''
+      badgeColor = 'indigo'
+    } else {
+      const w = item as WebResult
+      const wn = normalizeWeb(w)
+      title = wn.title; url = wn.url; source = wn.source || w.engine; abstract = wn.snippet
+    }
+    const key = url || `${domain}-grid-${source}-${i}`
+    const dom = url ? extractDomain(url) : ''
     return (
       <m.article key={key} className={styles.resultGridCard} variants={staggerItem}>
         <div className={styles.gridCardHeader}>
-          {p.source && <Badge color="blue">{p.source}</Badge>}
-          {domain && <span className={styles.gridDomain} title={p.url}><Globe size={11} /> {domain}</span>}
+          {source && <Badge color={badgeColor}>{source}</Badge>}
+          {dom && <span className={styles.gridDomain} title={url}><Globe size={11} /> {dom}</span>}
         </div>
         <h3 className={styles.gridCardTitle}>
-          {p.url ? (
-            <a href={p.url} target="_blank" rel="noopener noreferrer">
-              {p.title || t('search.untitled')}
-              <ExternalLink size={12} className={styles.externalIcon} />
-            </a>
-          ) : (
-            p.title || t('search.untitled')
-          )}
+          {url ? <a href={url} target="_blank" rel="noopener noreferrer">{title}<ExternalLink size={12} className={styles.externalIcon} /></a> : title}
         </h3>
-        {p.abstract && <p className={styles.gridCardAbstract}>{p.abstract}</p>}
+        {abstract && <p className={styles.gridCardAbstract}>{abstract}</p>}
       </m.article>
     )
   }
 
-  const renderPatentGridCard = (raw: PatentResult, i: number) => {
-    const p = normalizePatent(raw)
-    const key = p.patentNumber || `patent-grid-${p.source}-${i}`
-    const domain = p.url ? extractDomain(p.url) : ''
-    return (
-      <m.article key={key} className={styles.resultGridCard} variants={staggerItem}>
-        <div className={styles.gridCardHeader}>
-          {p.source && <Badge color="indigo">{p.source}</Badge>}
-          {domain && <span className={styles.gridDomain} title={p.url}><Globe size={11} /> {domain}</span>}
-        </div>
-        <h3 className={styles.gridCardTitle}>
-          {p.url ? (
-            <a href={p.url} target="_blank" rel="noopener noreferrer">
-              {p.title || t('search.untitled')}
-              <ExternalLink size={12} className={styles.externalIcon} />
-            </a>
-          ) : (
-            p.title || t('search.untitled')
-          )}
-        </h3>
-        {p.abstract && <p className={styles.gridCardAbstract}>{p.abstract}</p>}
-      </m.article>
-    )
-  }
-
-  const renderWebGridCard = (raw: WebResult, i: number) => {
-    const item = normalizeWeb(raw)
-    const key = item.url || `web-grid-${item.source}-${i}`
-    const domain = item.url ? extractDomain(item.url) : ''
-    return (
-      <m.article key={key} className={styles.resultGridCard} variants={staggerItem}>
-        <div className={styles.gridCardHeader}>
-          {(item.source || raw.engine) && <Badge color="teal">{item.source || raw.engine}</Badge>}
-          {domain && <span className={styles.gridDomain} title={item.url}><Globe size={11} /> {domain}</span>}
-        </div>
-        <h3 className={styles.gridCardTitle}>
-          {item.url ? (
-            <a href={item.url} target="_blank" rel="noopener noreferrer">
-              {item.title}
-              <ExternalLink size={12} className={styles.externalIcon} />
-            </a>
-          ) : (
-            item.title
-          )}
-        </h3>
-        {item.snippet && <p className={styles.gridCardAbstract}>{item.snippet}</p>}
-      </m.article>
-    )
-  }
-
-  /* ─── Export handler ─── */
-  const handleExport = useCallback((format: ExportFormat) => {
+  const handleExport = (format: ExportFormat) => {
     let exportedCount = 0
-    if (tab === 'paper' && paperResults) {
-      const items = (paperResults.results.flatMap((r) => r.results) as PaperResult[]).map(normalizePaper)
-      exportedCount = items.length
-      exportPapers(items, format)
-    } else if (tab === 'patent' && patentResults) {
-      const items = (patentResults.results.flatMap((r) => r.results) as PatentResult[]).map(normalizePatent)
-      exportedCount = items.length
-      exportPatents(items, format)
-    } else if (WEB_CATEGORIES.has(tab) && webResultsMap[tab]) {
-      const items = webResultsMap[tab]!.results.map(normalizeWeb)
-      exportedCount = items.length
-      exportWebResults(items, format)
-    }
-    if (exportedCount > 0) {
-      addToast('success', t('search.exported', { count: exportedCount }))
-    }
-  }, [tab, paperResults, patentResults, webResultsMap, addToast, t])
+    if (domain === 'paper') { const list = (items as PaperResult[]).map(normalizePaper); exportedCount = list.length; exportPapers(list, format) }
+    else if (domain === 'patent') { const list = (items as PatentResult[]).map(normalizePatent); exportedCount = list.length; exportPatents(list, format) }
+    else { const list = (items as WebResult[]).map(normalizeWeb); exportedCount = list.length; exportWebResults(list, format) }
+    if (exportedCount > 0) addToast('success', t('search.exported', { count: exportedCount }))
+  }
 
-  const hasResults =
-    (tab === 'paper' && paperResults) ||
-    (tab === 'patent' && patentResults) ||
-    (WEB_CATEGORIES.has(tab) && webResultsMap[tab])
+  const renderToolbar = (totalCount: number) => (
+    <div className={styles.resultsToolbar}>
+      <div className={styles.resultCount}>{t('search.resultCount', { count: totalCount })}</div>
+      <div className={styles.toolbarActions}>
+        <div className={styles.layoutToggle} role="group" aria-label={t('search.layoutCard')}>
+          <button type="button" className={`${styles.layoutBtn} ${layoutMode === 'list' ? styles.layoutBtnActive : ''}`} onClick={() => setLayoutMode('list')} aria-label={t('search.layoutList')}><List size={14} /></button>
+          <button type="button" className={`${styles.layoutBtn} ${layoutMode === 'card' ? styles.layoutBtnActive : ''}`} onClick={() => setLayoutMode('card')} aria-label={t('search.layoutCard')}><LayoutGrid size={14} /></button>
+          <button type="button" className={`${styles.layoutBtn} ${layoutMode === 'grid' ? styles.layoutBtnActive : ''}`} onClick={() => setLayoutMode('grid')} aria-label={t('search.layoutGrid')}><Grid3X3 size={14} /></button>
+        </div>
+        <div className={styles.exportGroup} role="group" aria-label={t('search.exportTitle')}>
+          <button type="button" className={styles.exportBtn} onClick={() => handleExport('csv')}><Download size={13} /> {t('search.exportCSV')}</button>
+          <button type="button" className={styles.exportBtn} onClick={() => handleExport('xls')}><Download size={13} /> {t('search.exportXLS')}</button>
+        </div>
+      </div>
+    </div>
+  )
 
   const renderResults = () => {
-    if (isSearchingCurrentTab) {
+    if (loading) {
       return (
         <div role="status" aria-live="polite" aria-busy="true">
           <div className={styles.searchingHint}>{t('search.searchingHint')}</div>
@@ -618,176 +336,30 @@ export function SearchPage() {
         </div>
       )
     }
-
-    if (searchState.status === 'error' && searchState.tab === tab) {
+    if (error) {
       return (
         <EmptyState
           type="error"
           title={t('search.errorStateTitle')}
-          description={searchState.message}
-          action={
-            <button type="button" className="btn btn-primary btn-sm" onClick={handleRetry}>
-              {t('search.retrySearch')}
-            </button>
-          }
+          description={error.message}
+          action={<button type="button" className="btn btn-primary btn-sm" onClick={() => handleSearch()}>{t('search.retrySearch')}</button>}
         />
       )
     }
-
-    const renderToolbar = (totalCount: number) => (
-      <div className={styles.resultsToolbar}>
-        <div className={styles.resultCount}>{t('search.resultCount', { count: totalCount })}</div>
-        <div className={styles.toolbarActions}>
-          <div className={styles.layoutToggle} role="group" aria-label={t('search.layoutCard')}>
-            <button
-              type="button"
-              className={`${styles.layoutBtn} ${layoutMode === 'list' ? styles.layoutBtnActive : ''}`}
-              onClick={() => setLayoutMode('list')}
-              aria-label={t('search.layoutList')}
-              title={t('search.layoutList')}
-            >
-              <List size={14} />
-            </button>
-            <button
-              type="button"
-              className={`${styles.layoutBtn} ${layoutMode === 'card' ? styles.layoutBtnActive : ''}`}
-              onClick={() => setLayoutMode('card')}
-              aria-label={t('search.layoutCard')}
-              title={t('search.layoutCard')}
-            >
-              <LayoutGrid size={14} />
-            </button>
-            <button
-              type="button"
-              className={`${styles.layoutBtn} ${layoutMode === 'grid' ? styles.layoutBtnActive : ''}`}
-              onClick={() => setLayoutMode('grid')}
-              aria-label={t('search.layoutGrid')}
-              title={t('search.layoutGrid')}
-            >
-              <Grid3X3 size={14} />
-            </button>
-          </div>
-          <div className={styles.exportGroup} role="group" aria-label={t('search.exportTitle')}>
-            <button
-              type="button"
-              className={styles.exportBtn}
-              onClick={() => handleExport('csv')}
-              title={t('search.exportCSV')}
-            >
-              <Download size={13} /> {t('search.exportCSV')}
-            </button>
-            <button
-              type="button"
-              className={styles.exportBtn}
-              onClick={() => handleExport('xls')}
-              title={t('search.exportXLS')}
-            >
-              <Download size={13} /> {t('search.exportXLS')}
-            </button>
-          </div>
-        </div>
-      </div>
-    )
-
-    if (tab === 'paper' && paperResults) {
-      const allItems = paperResults.results.flatMap((r) => r.results) as PaperResult[]
-      if (allItems.length === 0) return <EmptyState type="search" title={t('search.noResults')} />
-      if (layoutMode === 'list') {
-        return (
-          <div>
-            {renderToolbar(paperResults.total)}
-            <div className={styles.resultList}>
-              {allItems.map((item, i) => renderPaperListItem(item, i))}
-            </div>
-          </div>
-        )
-      }
-      if (layoutMode === 'grid') {
-        return (
-          <div>
-            {renderToolbar(paperResults.total)}
-            <m.div className={styles.resultGrid} variants={staggerContainer} initial="initial" animate="animate">
-              {allItems.map((item, i) => renderPaperGridCard(item, i))}
-            </m.div>
-          </div>
-        )
-      }
-      return (
-        <m.div variants={staggerContainer} initial="initial" animate="animate">
-          {renderToolbar(paperResults.total)}
-          {allItems.map((item, i) => renderPaperCard(item, i))}
-        </m.div>
-      )
+    if (!hasResults) return null
+    if (items.length === 0) return <EmptyState type="search" title={t('search.noResults')} />
+    const total = totalCountOf(domain, responses)
+    if (layoutMode === 'list') {
+      return <div>{renderToolbar(total)}<div className={styles.resultList}>{items.map(renderItemListItem)}</div></div>
     }
-
-    if (tab === 'patent' && patentResults) {
-      const allItems = patentResults.results.flatMap((r) => r.results) as PatentResult[]
-      if (allItems.length === 0) return <EmptyState type="search" title={t('search.noResults')} />
-      if (layoutMode === 'list') {
-        return (
-          <div>
-            {renderToolbar(patentResults.total)}
-            <div className={styles.resultList}>
-              {allItems.map((item, i) => renderPatentListItem(item, i))}
-            </div>
-          </div>
-        )
-      }
-      if (layoutMode === 'grid') {
-        return (
-          <div>
-            {renderToolbar(patentResults.total)}
-            <m.div className={styles.resultGrid} variants={staggerContainer} initial="initial" animate="animate">
-              {allItems.map((item, i) => renderPatentGridCard(item, i))}
-            </m.div>
-          </div>
-        )
-      }
-      return (
-        <m.div variants={staggerContainer} initial="initial" animate="animate">
-          {renderToolbar(patentResults.total)}
-          {allItems.map((item, i) => renderPatentCard(item, i))}
-        </m.div>
-      )
+    if (layoutMode === 'grid') {
+      return <div>{renderToolbar(total)}<m.div className={styles.resultGrid} variants={staggerContainer} initial="initial" animate="animate">{items.map(renderItemGridCard)}</m.div></div>
     }
-
-    if (WEB_CATEGORIES.has(tab) && webResultsMap[tab]) {
-      const wr = webResultsMap[tab]!
-      if (wr.results.length === 0) return <EmptyState type="search" title={t('search.noResults')} />
-      if (layoutMode === 'list') {
-        return (
-          <div>
-            {renderToolbar(wr.total_results)}
-            <div className={styles.resultList}>
-              {wr.results.map((item, i) => renderWebListItem(item, i))}
-            </div>
-          </div>
-        )
-      }
-      if (layoutMode === 'grid') {
-        return (
-          <div>
-            {renderToolbar(wr.total_results)}
-            <m.div className={styles.resultGrid} variants={staggerContainer} initial="initial" animate="animate">
-              {wr.results.map((item, i) => renderWebGridCard(item, i))}
-            </m.div>
-          </div>
-        )
-      }
-      return (
-        <m.div variants={staggerContainer} initial="initial" animate="animate">
-          {renderToolbar(wr.total_results)}
-          {wr.results.map((item, i) => renderWebCard(item, i))}
-        </m.div>
-      )
-    }
-
-    return null
+    return <m.div variants={staggerContainer} initial="initial" animate="animate">{renderToolbar(total)}{items.map(renderItemCard)}</m.div>
   }
 
   return (
     <div className={styles.page}>
-      {/* ─── Hero Title (only when no results) ─── */}
       {!hasResults && (
         <m.div className={styles.heroTitle} {...fadeInUp}>
           <h1 className={styles.heroHeading}>{t('search.heroTitle')}</h1>
@@ -795,32 +367,21 @@ export function SearchPage() {
         </m.div>
       )}
 
-      {/* ─── Command Center Card ─── */}
       <m.div className={`${styles.commandCard} ${hasResults ? styles.compact : ''}`} {...fadeInUp}>
-        {/* Top bar: tabs + ⌘K hint */}
+        {/* Tabs + ⌘K hint */}
         <div className={styles.commandHeader}>
           <div className={styles.tabGroup}>
-            {ALL_CATEGORIES.map((key) => {
-              const icons: Record<SearchCategory, React.ComponentType<{ size?: number }>> = {
-                paper: FileText, patent: Shield, general: Globe, professional: Zap,
-                social: MessageCircle, developer: Code2, wiki: BookOpen, video: Play,
-              }
-              const labels: Record<SearchCategory, string> = {
-                paper: t('search.papers'), patent: t('search.patents'),
-                general: t('search.general'), professional: t('search.professional'),
-                social: t('search.social'), developer: t('search.developer'),
-                wiki: t('search.wiki'), video: t('search.video'),
-              }
-              const Icon = icons[key]
+            {DISPLAY_DOMAINS.map((key) => {
+              const Icon = DOMAIN_ICONS[key]
               return (
                 <button
                   key={key}
                   type="button"
-                  className={`${styles.tabBtn} ${tab === key ? styles.tabActive : ''}`}
-                  onClick={() => handleTabChange(key)}
+                  className={`${styles.tabBtn} ${domain === key ? styles.tabActive : ''}`}
+                  onClick={() => setDomain(key)}
                 >
                   <Icon size={15} />
-                  {labels[key]}
+                  {t(`domains.${key}`)}
                 </button>
               )
             })}
@@ -831,8 +392,12 @@ export function SearchPage() {
           </div>
         </div>
 
-        {/* Search input row */}
-        <m.form className={styles.searchForm} onSubmit={handleSearch} aria-busy={isSearchingCurrentTab}>
+        {/* Search form */}
+        <m.form
+          className={styles.searchForm}
+          onSubmit={(e) => { e.preventDefault(); if (canSearch) handleSearch() }}
+          aria-busy={loading}
+        >
           <div className={styles.searchBar}>
             <Sparkles size={20} className={styles.searchIcon} />
             <input
@@ -850,107 +415,42 @@ export function SearchPage() {
               disabled={!canSearch}
               aria-label={t('search.button')}
             >
-              {isSearchingCurrentTab ? t('search.searching') : t('search.button')}
+              {loading ? t('search.searching') : t('search.button')}
             </button>
           </div>
         </m.form>
 
-        {/* Advanced search panel */}
-        <div className={styles.advancedToggle}>
-          <button
-            type="button"
-            className={styles.advancedToggleBtn}
-            onClick={() => setShowAdvanced((v) => !v)}
-          >
-            <Settings size={14} />
-            {t('advancedSearch.title')}
-          </button>
-        </div>
-        {showAdvanced && (
-          <div className={styles.advancedPanel}>
-            <div className={styles.advancedField}>
-              <label className={styles.advancedLabel}>
-                {t('advancedSearch.perPage')}: <strong>{count}</strong>
-              </label>
-              <input
-                type="range"
-                min={1}
-                max={maxPerPage}
-                value={count}
-                onChange={(e) => setCount(Number(e.target.value))}
-                className={styles.slider}
-              />
-              <div className={styles.rangeHint}>
-                {t('advancedSearch.perPageHint', { max: maxPerPage })}
-              </div>
-            </div>
-            <div className={styles.advancedField}>
-              <label className={styles.advancedLabel}>{t('advancedSearch.timeout')}</label>
-              <input
-                type="number"
-                className={styles.numberInput}
-                min={1}
-                max={300}
-                value={timeout ?? ''}
-                onChange={(e) => {
-                  const v = e.target.value
-                  setTimeout_(v === '' ? undefined : Number(v))
-                }}
-                placeholder={t('advancedSearch.timeoutPlaceholder')}
-              />
-            </div>
-            <button
-              type="button"
-              className={styles.resetBtn}
-              onClick={() => { setCount(10); setTimeout_(undefined) }}
-            >
-              {t('advancedSearch.reset')}
-            </button>
-          </div>
-        )}
-
-        {/* Source cards section (collapsible when has results) */}
+        {/* Source cards (hidden after results) */}
         {!hasResults && (
           <div className={styles.sourceSection}>
             <div className={styles.sourceSectionHeader}>
               <div className={styles.sourceSectionLeft}>
                 <SlidersHorizontal size={16} />
                 <span className={styles.sourceSectionTitle}>{t('search.searchScope')}</span>
-                <Badge color="indigo">{t('search.selectedCount', { count: currentSources.length })}</Badge>
+                <Badge color="indigo">{t('search.selectedCount', { count: selectedSources.length })}</Badge>
               </div>
               <div className={styles.sourceSectionActions}>
-                <button type="button" className={styles.sourceActionBtn} onClick={selectAllSources}>
-                  {t('search.selectAll')}
-                </button>
-                <button type="button" className={styles.sourceActionBtn} onClick={clearAllSources}>
-                  {t('search.clearAll')}
-                </button>
+                <button type="button" className={styles.sourceActionBtn} onClick={selectAllSources}>{t('search.selectAll')}</button>
+                <button type="button" className={styles.sourceActionBtn} onClick={clearAllSources}>{t('search.clearAll')}</button>
               </div>
             </div>
             <div className={styles.sourceGrid}>
-              {sourceOptions[tab].map((source) => {
-                const isSelected = currentSources.includes(source.value)
-                const Icon = getSourceIcon(source.value)
+              {availableSources.map((source) => {
+                const isSelected = selectedSources.includes(source.name)
+                const Icon = getSourceIcon(source.name)
                 return (
                   <button
-                    key={source.value}
+                    key={source.name}
                     type="button"
                     className={`${styles.sourceCard} ${isSelected ? styles.sourceCardActive : ''}`}
-                    onClick={() => toggleSource(source.value)}
+                    onClick={() => toggleSource(source.name)}
                   >
                     <div className={styles.sourceCardTop}>
-                      <span className={styles.sourceCardIcon}>
-                        <Icon size={18} />
-                      </span>
-                      {isSelected
-                        ? <CheckCircle2 size={20} className={styles.sourceCheck} />
-                        : <Circle size={20} className={styles.sourceUncheck} />
-                      }
+                      <span className={styles.sourceCardIcon}><Icon size={18} /></span>
+                      {isSelected ? <CheckCircle2 size={20} className={styles.sourceCheck} /> : <Circle size={20} className={styles.sourceUncheck} />}
                     </div>
-                    <div className={styles.sourceCardName}>{source.label}</div>
-                    {source.description && (
-                      <div className={styles.sourceCardDesc}>{source.description}</div>
-                    )}
+                    <div className={styles.sourceCardName}>{source.name}</div>
+                    {source.description && <div className={styles.sourceCardDesc}>{source.description}</div>}
                   </button>
                 )
               })}
@@ -959,26 +459,15 @@ export function SearchPage() {
         )}
       </m.div>
 
-      {/* ─── Suggestion chips (only when idle / no results) ─── */}
-      {!hasResults && searchState.status === 'idle' && (
+      {!hasResults && !loading && !error && (
         <m.div className={styles.suggestions} {...fadeInUp}>
           {SEARCH_SUGGESTIONS.map((s) => (
-            <button
-              key={s}
-              type="button"
-              className={styles.suggestionChip}
-              onClick={() => setQuery(s)}
-            >
-              {s}
-            </button>
+            <button key={s} type="button" className={styles.suggestionChip} onClick={() => setQuery(s)}>{s}</button>
           ))}
         </m.div>
       )}
 
-      {/* ─── Results ─── */}
-      <div className={styles.results} aria-live="polite">
-        {renderResults()}
-      </div>
+      <div className={styles.results} aria-live="polite">{renderResults()}</div>
     </div>
   )
 }

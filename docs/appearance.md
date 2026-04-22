@@ -407,3 +407,70 @@ html[data-skin='ios'][data-scheme='default']             { --accent: #007aff; }
 | `souwen_scheme` | classic：`nebula` / `aurora` / `obsidian`<br>carbon：`terminal` / `matrix` / `ember`<br>apple：`blue`<br>ios：`default` | 配色方案（按当前皮肤可选值取值） |
 
 > 向后兼容：旧版 `souwen_theme` 和 `souwen_visual_theme` 键会在加载时自动迁移。
+
+## V1 前端架构：core/hooks → skins → pages
+
+V1 把"业务流程"从皮肤里抽离到 `panel/src/core/hooks/*`，皮肤页面只负责 UI。
+
+```
+panel/src/
+  core/
+    hooks/                    # 业务逻辑（多皮肤共享）
+      useSearchPage.ts        # 搜索表单状态机、调用 api、提示去重
+      useFetchPage.ts         # 抓取页：URL 列表、provider 选择、SSRF 提示
+      useToolsPage.ts         # 工具页（links / sitemap / wayback）
+      useVideoPage.ts         # 视频/字幕组合调用
+    services/api.ts           # axios 实例 + 后端契约
+    stores/                   # zustand：authStore / notificationStore
+    i18n/zh-CN.json           # 唯一翻译源（默认 zh-CN）
+    skin-registry.ts          # 运行时皮肤注册
+  skins/<skin>/
+    pages/                    # 视图层；调用对应 useXxxPage 取数据并渲染
+    components/               # 皮肤独有组件（不可跨皮肤复用）
+    styles/                   # SCSS Modules + html[data-skin] 命名空间
+    routes.tsx                # 皮肤路由
+    skin.config.ts            # 元信息：id / labelKey / 默认 mode/scheme / 配色集合
+    index.ts                  # 必须导出 SkinModule（AppShell / LoginPage / skinRoutes / bootstrap / ErrorBoundary / ToastContainer / Spinner）
+```
+
+### 职责切分
+
+| 关心… | 写在 |
+|-------|------|
+| "调用哪个后端 API、如何处理错误、如何更新通知" | `core/hooks/useXxxPage.ts` |
+| "界面长什么样、用什么动效、怎么组合卡片" | `skins/<skin>/pages/` 与 `skins/<skin>/components/` |
+| "全局状态：登录态、通知队列" | `core/stores/` |
+| "皮肤独有的本地状态：明暗 / 配色" | `skins/<skin>/stores/skinStore.ts` |
+| "请求契约（response shape / 鉴权头）" | `core/services/api.ts` 与 `core/types/` |
+
+页面写法范式：
+
+```tsx
+// skins/souwen-classic/pages/SearchPage.tsx
+import { useSearchPage } from '@core/hooks/useSearchPage'
+
+export function SearchPage() {
+  const { domain, setDomain, query, setQuery, results, loading, submit } = useSearchPage()
+  return (
+    <Layout>
+      <DomainTabs value={domain} onChange={setDomain} />
+      <SearchInput value={query} onChange={setQuery} onSubmit={submit} loading={loading} />
+      <ResultsGrid items={results} />
+    </Layout>
+  )
+}
+```
+
+> 新加 hook 时先想清楚"是不是所有皮肤都需要"，**是**则放 `core/hooks`，**否**则放当前 `skins/<skin>/`。
+
+## i18n
+
+- 默认语言：简体中文（`zh-CN`），词表唯一存放在 `panel/src/core/i18n/zh-CN.json`。
+- 新增页面 / 组件**必须**通过 `t('xxx.yyy')` 引用 key，禁止硬编码文案。
+- 皮肤侧 `skin.config.ts` 中暴露 `labelKey` / `descriptionKey` / 配色 `labelKey`，由 i18next 在运行时翻译。
+- 当前未启用多语言切换，未来可在 `core/i18n/` 增加 `en-US.json` 等并接入 i18next 语言检测。
+
+## 交叉引用
+
+- 添加新搜索域 / 数据源时如何让前端识别：[adding-a-source.md](./adding-a-source.md)
+- 后端 API 契约（搜索 / 抓取 / 管理）：[api-reference.md](./api-reference.md)

@@ -101,6 +101,8 @@ export function useSearchPage(domain: string): SearchPageState {
         const key = DOMAIN_TO_V0_CATEGORY[domain] ?? domain
         const sources = ((data as unknown) as Record<string, SourceInfo[]>)[key] || []
         setAvailableSources(sources)
+        // 默认选中全部可用源（与旧版 DEFAULT_SELECTED 行为一致）
+        setSelectedSources((prev) => (prev.length === 0 ? sources.map((s) => s.name) : prev))
       } catch {
         // silently fail; UI can fall back
       }

@@ -2,6 +2,8 @@
 
 > SouWen 配置系统：从零配置到完全自定义
 
+> **V1 架构提示**：所有配置项均集中在 `src/souwen/config.py` 的 `SouWenConfig`（Pydantic 模型）。新增数据源时若需要 API Key，只需在 `SouWenConfig` 加一个字段，再在 `registry/sources.py` 的 `SourceAdapter` 里通过 `config_field="..."` 引用即可。详见 [adding-a-source.md](./adding-a-source.md)。
+
 ## 配置优先级
 
 从高到低：
@@ -171,6 +173,28 @@ sources: {}
 | `aliyun_iqs_api_key` | `SOUWEN_ALIYUN_IQS_API_KEY` | 阿里云 IQS 必需 | 通义晓搜 API Key（含 AI 摘要，PR #13） |
 | `metaso_api_key` | `SOUWEN_METASO_API_KEY` | Metaso 必需 | 秘塔搜索 API Key（文档/网页/学术） |
 
+### 社交 / 视频 / 办公 / 个人库
+
+| 字段 | 环境变量 | 必需 | 说明 |
+|------|---------|------|------|
+| `bilibili_sessdata` | `SOUWEN_BILIBILI_SESSDATA` | 可选 | Bilibili SESSDATA Cookie（启用授权 API：高画质 / 字幕 / 高频） |
+| `twitter_bearer_token` | `SOUWEN_TWITTER_BEARER_TOKEN` | Twitter 必需 | X API v2 Bearer Token（Basic 套餐及以上） |
+| `reddit_client_id` | `SOUWEN_REDDIT_CLIENT_ID` | Reddit 必需 | OAuth2 App Client ID |
+| `reddit_client_secret` | `SOUWEN_REDDIT_CLIENT_SECRET` | Reddit 必需 | OAuth2 App Client Secret |
+| `facebook_app_id` / `facebook_app_secret` | `SOUWEN_FACEBOOK_APP_*` | Facebook 必需 | Meta 应用凭证 |
+| `zotero_api_key` | `SOUWEN_ZOTERO_API_KEY` | Zotero 必需 | Zotero Web API Key |
+| `zotero_library_id` | `SOUWEN_ZOTERO_LIBRARY_ID` | Zotero 必需 | 用户 ID 或群组 ID |
+| `zotero_library_type` | `SOUWEN_ZOTERO_LIBRARY_TYPE` | 可选 | `user`（默认）或 `group` |
+
+### MCP（Model Context Protocol）
+
+| 字段 | 环境变量 | 默认值 | 说明 |
+|------|---------|--------|------|
+| `mcp_server_url` | `SOUWEN_MCP_SERVER_URL` | None | 远端 MCP Server 端点（启用 fetch provider=mcp 时必需） |
+| `mcp_transport` | `SOUWEN_MCP_TRANSPORT` | `streamable_http` | `streamable_http` 或 `sse` |
+| `mcp_fetch_tool_name` | `SOUWEN_MCP_FETCH_TOOL_NAME` | `fetch` | 远端 MCP fetch 工具名 |
+| `mcp_extra_headers` | `SOUWEN_MCP_EXTRA_HEADERS` | `{}` | JSON 对象，附加给 MCP 请求 |
+
 ### 网络设置
 
 | 字段 | 环境变量 | 默认值 | 说明 |
@@ -312,3 +336,25 @@ sources:
   google_patents:
     enabled: false
 ```
+
+## Docker 专用环境变量
+
+容器入口脚本（`entrypoint.sh` + `scripts/warp-init.sh`）会在 SouWen 启动前生效，因此 WARP 系列变量同时支持**不带** `SOUWEN_` 前缀：
+
+| 环境变量 | 等价 YAML 字段 | 说明 |
+|----------|---------------|------|
+| `WARP_ENABLED` | `warp.warp_enabled` | `1`/`true` 启用 WARP |
+| `WARP_MODE` | `warp.warp_mode` | `auto` / `wireproxy` / `kernel` |
+| `WARP_SOCKS_PORT` | `warp.warp_socks_port` | SOCKS5 监听端口（默认 1080） |
+| `WARP_ENDPOINT` | `warp.warp_endpoint` | 自定义 WARP Endpoint（如 `162.159.192.1:4500`） |
+| `WARP_CONFIG_B64` | — | Base64 编码的 wireproxy / WireGuard 完整配置（仅 entrypoint 使用） |
+| `GH_PROXY` | — | GitHub 下载加速前缀（用于 wgcf / wireproxy 二进制下载） |
+| `SOUWEN_ADMIN_OPEN` | — | 管理端"显式开放"开关，未设管理密码时避免启动告警 |
+
+> 详细 WARP 部署与双模式选择见 [anti-scraping.md](./anti-scraping.md#warp-cloudflare-代理)。
+
+## 配置相关交叉引用
+
+- 添加新数据源（含 `config_field` 配置）：[adding-a-source.md](./adding-a-source.md)
+- WARP 与代理细节：[anti-scraping.md](./anti-scraping.md)
+- 服务端认证 / 管理端口 / 速率限制：[api-reference.md](./api-reference.md#http-apiserver-模式)
