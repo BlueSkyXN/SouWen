@@ -4,7 +4,7 @@
 
 [![Python](https://img.shields.io/badge/python-≥3.10-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-GPLv3-blue)](LICENSE)
-[![Version](https://img.shields.io/badge/version-0.9.0--v1--transition-orange)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.0.0-orange)](CHANGELOG.md)
 
 **作者**: [@BlueSkyXN](https://github.com/BlueSkyXN) · **项目地址**: [github.com/BlueSkyXN/SouWen](https://github.com/BlueSkyXN/SouWen) · **协议**: [GPLv3](LICENSE)
 
@@ -51,29 +51,20 @@ pip install "souwen[server,tls,web,scraper,pdf,crawl4ai,newspaper,readability,ro
 ### CLI
 
 ```bash
-# 顶层动词形式
+# 多源搜索
 souwen search paper "transformer"
 souwen search patent "quantum computing"
 souwen search web "python asyncio"
+
+# 抓取与平台命令
 souwen fetch https://example.com
 souwen youtube trending
 souwen bilibili search "编程"
 souwen wayback cdx https://example.com
 
-# Domain 主命令形式（推荐）
-souwen paper search "transformer"
-souwen patent search "quantum"
-souwen web search "python asyncio"
-souwen social search "AI"               # social domain 独立
-souwen video search "tutorial"
-souwen knowledge search "quantum entanglement"
-souwen developer search "react hooks"
-souwen archive cdx https://example.com  # wayback 归入 archive
-souwen search-all "quantum"             # 跨域显式聚合
-
 # 管理
 souwen sources                          # 列出所有数据源
-souwen serve                             # 启动 API 服务 (默认 :49265)
+souwen serve                             # 启动 API 服务 (默认 :8000)
 souwen doctor                            # 健康检查
 souwen mcp                               # MCP server info
 ```
@@ -110,20 +101,20 @@ asyncio.run(main())
 ### API Server
 
 ```bash
-souwen serve --host 0.0.0.0 --port 49265
+souwen serve --host 0.0.0.0 --port 8000
 ```
 
 主要端点：
 
 ```bash
 # 顶层动词形式
-curl "http://localhost:49265/api/v1/search/paper?q=transformer&per_page=5"
-curl "http://localhost:49265/api/v1/search/web?q=python"
-curl "http://localhost:49265/api/v1/fetch" -X POST -d '{"urls":["https://example.com"]}'
+curl "http://localhost:8000/api/v1/search/paper?q=transformer&per_page=5"
+curl "http://localhost:8000/api/v1/search/web?q=python"
+curl "http://localhost:8000/api/v1/fetch" -X POST -d '{"urls":["https://example.com"]}'
 
 # Domain 形式（规划中，后端路由拆分后上线）
-curl "http://localhost:49265/api/v1/paper/search?q=transformer"
-curl "http://localhost:49265/api/v1/archive/cdx?url=https://example.com"
+curl "http://localhost:8000/api/v1/paper/search?q=transformer"
+curl "http://localhost:8000/api/v1/archive/cdx?url=https://example.com"
 ```
 
 访问 `/docs` 查看完整 OpenAPI 文档；访问 `/` 进入 Web UI（默认 souwen-classic 皮肤）。
@@ -153,7 +144,7 @@ src/souwen/
 
 ```bash
 docker build -t souwen .
-docker run -p 49265:49265 \
+docker run -p 8000:8000 \
   -e SOUWEN_API_PASSWORD=your-password \
   -v ~/.config/souwen:/app/data \
   souwen

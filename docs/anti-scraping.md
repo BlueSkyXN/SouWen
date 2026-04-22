@@ -9,7 +9,6 @@
 | **TLS 指纹模拟** | curl_cffi impersonate Chrome 120/124 | `fingerprint.py` |
 | **浏览器指纹库** | 10 个指纹（Chrome + Edge + Safari + Android） | `fingerprint.py` |
 | **浏览器请求头** | 13 个头（Sec-CH-UA 系列、Sec-Fetch 系列） | `fingerprint.py` |
-| **Playwright 池化** | 单例复用 Chromium 实例，减少启动开销 | `scraper/browser_pool.py` |
 | **分层重试** | http (3次) / scraper (5次) / captcha (5次) | `retry.py` |
 | **异步会话缓存** | aiosqlite 异步 SQLite 持久化 OAuth Token / Cookie | `session_cache.py` |
 | **代理池轮换** | 多代理 URL 随机选取 | `config/models.py` |
@@ -65,18 +64,7 @@ new_fingerprint = fingerprint.rotate()
 
 ## Playwright 浏览器池化
 
-`_BrowserPool` 单例管理 Chromium 实例，用于需要 JavaScript 渲染的场景（如 Google Patents）：
-
-- **单例模式**：避免重复启动浏览器的开销
-- **实例复用**：多个爬虫共享同一 Chromium 进程
-- **资源管理**：自动清理过期页面
-
-安装方式：
-
-```bash
-pip install souwen[scraper]
-playwright install chromium
-```
+> **状态：规划中，尚未实现。** 仓库中目前没有 `scraper/browser_pool.py`，也没有内置的 Playwright 单例池。需要 JavaScript 渲染的源（如 `google_patents`）当前依赖 `curl_cffi` 模拟浏览器或 `crawl4ai` 等可选 fetch provider。后续如引入统一浏览器池，将在此处补充配置说明。
 
 ## 自适应退避
 
@@ -192,7 +180,7 @@ sources:
 | 源 | 网络/反爬要求 | 建议配置 |
 |----|--------------|----------|
 | `google`, `bing`, `baidu`, `yandex`, `mojeek` | 高风险 SERP，IP 容易被 Captcha | `http_backend: curl_cffi` + `proxy: warp` 或代理池 |
-| `google_patents` | JS 渲染 + Captcha 风控 | `http_backend: curl_cffi`，必要时启用 Playwright 池 |
+| `google_patents` | JS 渲染 + Captcha 风控 | `http_backend: curl_cffi`；JS 渲染场景可改用 `crawl4ai` provider |
 | `twitter / x` | 必须官方 Bearer Token，地区限制 | 配 `twitter_bearer_token` + WARP |
 | `bilibili` | 部分接口要求授权 + 风控（403 RiskControl） | 设置 `bilibili_sessdata`，控制频率 |
 | `duckduckgo` | 偶发风控弹窗，对 TLS 指纹敏感 | `http_backend: curl_cffi` |
@@ -202,9 +190,8 @@ sources:
 ## 全局开关与可选依赖
 
 ```bash
-# 完整安装（含 TLS 指纹 + Playwright + trafilatura）
+# 完整安装（含 TLS 指纹 + 网页抓取）
 pip install -e .[scraper,web]
-playwright install chromium
 
 # 仅 TLS 指纹
 pip install -e .[tls]
