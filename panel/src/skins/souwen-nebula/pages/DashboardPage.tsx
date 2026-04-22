@@ -21,9 +21,10 @@
  */
 
 import { useEffect, useState, useCallback, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { m } from 'framer-motion'
-import { FileText, Shield, Globe, Layers, RefreshCw } from 'lucide-react'
+import { FileText, Shield, Globe, Layers, RefreshCw, ArrowRight } from 'lucide-react'
 import { api } from '@core/services/api'
 import { useNotificationStore } from '@core/stores/notificationStore'
 import { useAuthStore } from '@core/stores/authStore'
@@ -222,6 +223,7 @@ function AvailabilityBar({ ok, total }: { ok: number; total: number }) {
  */
 export function DashboardPage() {
   const { t } = useTranslation()
+  const navigate = useNavigate()
   const [doctor, setDoctor] = useState<DoctorResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState(false)
@@ -323,37 +325,41 @@ export function DashboardPage() {
       {/* ── Stats + Health ring ── */}
       <m.div className={styles.statsSection} variants={staggerContainer} initial="initial" animate="animate">
         <div className={styles.statsGrid}>
-          <m.div variants={staggerItem} className={`${styles.statCard} ${styles.statBlue}`}>
+          <m.div variants={staggerItem} className={`${styles.statCard} ${styles.statBlue} ${styles.clickable}`} onClick={() => navigate('/search/paper')} role="link" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/search/paper')}>
             <div className={styles.statBlob} />
             <div className={styles.statHeader}>
               <div className={`${styles.statIcon} ${styles.iconBlue}`}><FileText size={18} /></div>
+              <ArrowRight size={14} className={styles.statArrow} />
             </div>
             <div className={`${styles.statValue} ${styles.valueBlue}`}>{paperCount}</div>
             <span className={styles.statTitle}>{t('dashboard.paperSources')}</span>
           </m.div>
 
-          <m.div variants={staggerItem} className={`${styles.statCard} ${styles.statAmber}`}>
+          <m.div variants={staggerItem} className={`${styles.statCard} ${styles.statAmber} ${styles.clickable}`} onClick={() => navigate('/search/patent')} role="link" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/search/patent')}>
             <div className={styles.statBlob} />
             <div className={styles.statHeader}>
               <div className={`${styles.statIcon} ${styles.iconAmber}`}><Shield size={18} /></div>
+              <ArrowRight size={14} className={styles.statArrow} />
             </div>
             <div className={`${styles.statValue} ${styles.valueAmber}`}>{patentCount}</div>
             <span className={styles.statTitle}>{t('dashboard.patentSources')}</span>
           </m.div>
 
-          <m.div variants={staggerItem} className={`${styles.statCard} ${styles.statGreen}`}>
+          <m.div variants={staggerItem} className={`${styles.statCard} ${styles.statGreen} ${styles.clickable}`} onClick={() => navigate('/search/web')} role="link" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/search/web')}>
             <div className={styles.statBlob} />
             <div className={styles.statHeader}>
               <div className={`${styles.statIcon} ${styles.iconGreen}`}><Globe size={18} /></div>
+              <ArrowRight size={14} className={styles.statArrow} />
             </div>
             <div className={`${styles.statValue} ${styles.valueGreen}`}>{webCount}</div>
             <span className={styles.statTitle}>{t('dashboard.webEngines')}</span>
           </m.div>
 
-          <m.div variants={staggerItem} className={`${styles.statCard} ${styles.statIndigo}`}>
+          <m.div variants={staggerItem} className={`${styles.statCard} ${styles.statIndigo} ${styles.clickable}`} onClick={() => navigate('/sources')} role="link" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/sources')}>
             <div className={styles.statBlob} />
             <div className={styles.statHeader}>
               <div className={`${styles.statIcon} ${styles.iconIndigo}`}><Layers size={18} /></div>
+              <ArrowRight size={14} className={styles.statArrow} />
             </div>
             <div className={`${styles.statValue} ${styles.valueIndigo}`}>{okCount}<span className={styles.statFraction}>/{totalCount}</span></div>
             <span className={styles.statTitle}>{t('dashboard.availableSources')}</span>
@@ -361,7 +367,7 @@ export function DashboardPage() {
         </div>
 
         {/* Health ring card */}
-        <m.div variants={staggerItem} className={styles.healthCard}>
+        <m.div variants={staggerItem} className={`${styles.healthCard} ${styles.clickable}`} onClick={() => navigate('/sources')} role="link" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/sources')}>
           <HealthRing pct={healthPct} />
         </m.div>
       </m.div>
