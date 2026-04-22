@@ -89,6 +89,12 @@ export function DashboardPage() {
   const totalCount = doctor.total
   const healthPct = totalCount > 0 ? Math.round((okCount / totalCount) * 100) : 0
 
+  const statusOrder: Record<string, number> = { ok: 0, degraded: 1, needs_key: 2, error: 3, timeout: 4 }
+  const sortedSources = [...doctor.sources].sort((a, b) => {
+    const diff = (statusOrder[a.status] ?? 5) - (statusOrder[b.status] ?? 5)
+    return diff !== 0 ? diff : a.name.localeCompare(b.name)
+  })
+
   return (
     <div className={styles.page}>
       {/* ── Header 页面头部 ── */}
@@ -160,7 +166,7 @@ export function DashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {doctor.sources.map((src) => {
+              {sortedSources.map((src) => {
                 // 根据数据源状态（ok/needs_key/error）显示不同的符号和样式
                 const statusSymbol = src.status === 'ok'
                   ? '●'

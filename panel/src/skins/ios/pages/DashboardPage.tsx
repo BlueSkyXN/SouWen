@@ -86,6 +86,12 @@ export function DashboardPage() {
   const totalCount = doctor.total
   const healthPct = totalCount > 0 ? Math.round((okCount / totalCount) * 100) : 0
 
+  const statusOrder: Record<string, number> = { ok: 0, degraded: 1, needs_key: 2, error: 3, timeout: 4 }
+  const sortedSources = [...doctor.sources].sort((a, b) => {
+    const diff = (statusOrder[a.status] ?? 5) - (statusOrder[b.status] ?? 5)
+    return diff !== 0 ? diff : a.name.localeCompare(b.name)
+  })
+
   return (
     <div className={styles.page}>
       <h1 className={styles.pageTitle}>{t('dashboard.title', '仪表盘')}</h1>
@@ -165,7 +171,7 @@ export function DashboardPage() {
       <div className={styles.formGroup}>
         <div className={styles.groupTitle}>{t('dashboard.name', 'Sources')}</div>
         <div className={styles.groupCard}>
-          {doctor.sources.map((src, i) => {
+          {sortedSources.map((src, i) => {
             const statusClass = src.status === 'ok'
               ? styles.statusOk
               : src.status === 'needs_key'
@@ -173,7 +179,7 @@ export function DashboardPage() {
                 : styles.statusErr
 
             return (
-              <div key={src.name} className={`${styles.formRow} ${i < doctor.sources.length - 1 ? styles.formRowSep : ''}`}>
+              <div key={src.name} className={`${styles.formRow} ${i < sortedSources.length - 1 ? styles.formRowSep : ''}`}>
                 <div className={styles.sourceInfo}>
                   <span className={`${styles.statusDot} ${statusClass}`} />
                   <span className={styles.sourceName}>{src.name}</span>

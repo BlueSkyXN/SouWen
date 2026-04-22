@@ -90,6 +90,12 @@ export function DashboardPage() {
   const totalCount = doctor.total
   const healthPct = totalCount > 0 ? Math.round((okCount / totalCount) * 100) : 0
 
+  const statusOrder: Record<string, number> = { ok: 0, degraded: 1, needs_key: 2, error: 3, timeout: 4 }
+  const sortedSources = [...doctor.sources].sort((a, b) => {
+    const diff = (statusOrder[a.status] ?? 5) - (statusOrder[b.status] ?? 5)
+    return diff !== 0 ? diff : a.name.localeCompare(b.name)
+  })
+
   return (
     <div className={styles.page}>
       {/* ── Hero Section 英雄区：标题、描述和核心指标 ── */}
@@ -148,7 +154,7 @@ export function DashboardPage() {
               </tr>
             </thead>
             <tbody>
-              {doctor.sources.map((src) => {
+              {sortedSources.map((src) => {
                 const statusClass = src.status === 'ok'
                   ? styles.statusOk
                   : src.status === 'needs_key'
