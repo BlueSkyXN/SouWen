@@ -1,7 +1,7 @@
 @use 'variables' as *;
 
 /* ===== CSS Custom Properties (Light) — Google Tech Colorful ===== */
-html[data-skin='souwen-classic'] {
+html[data-skin='souwen-google'] {
   /* Backgrounds */
   --bg: #f0f4f9;                  /* Google blue-gray surface */
   --bg-card: #ffffff;
@@ -137,7 +137,7 @@ html[data-skin='souwen-classic'] {
 }
 
 /* ===== CSS Custom Properties (Dark) ===== */
-html[data-skin='souwen-classic'][data-mode='dark'] {
+html[data-skin='souwen-google'][data-mode='dark'] {
   --bg: #111827;                  /* dark blue-gray, more Google-like */
   --bg-card: #1e293b;
   --bg-input: #1e293b;
@@ -223,7 +223,7 @@ html[data-skin='souwen-classic'][data-mode='dark'] {
 }
 
 /* ===== Visual Theme: Aurora (refreshed teal/cyan) ===== */
-html[data-skin='souwen-classic'][data-scheme='aurora'] {
+html[data-skin='souwen-google'][data-scheme='aurora'] {
   --accent: #0d9488;
   --accent-secondary: #06b6d4;
   --accent-tertiary: #14b8a6;
@@ -248,7 +248,7 @@ html[data-skin='souwen-classic'][data-scheme='aurora'] {
   --primary-glow: rgba(13, 148, 136, 0.15);
 }
 
-html[data-skin='souwen-classic'][data-mode='dark'][data-scheme='aurora'] {
+html[data-skin='souwen-google'][data-mode='dark'][data-scheme='aurora'] {
   --accent: #2dd4bf;
   --accent-secondary: #22d3ee;
   --accent-tertiary: #5eead4;
@@ -275,7 +275,7 @@ html[data-skin='souwen-classic'][data-mode='dark'][data-scheme='aurora'] {
 }
 
 /* ===== Visual Theme: Obsidian (refreshed slate/neutral) ===== */
-html[data-skin='souwen-classic'][data-scheme='obsidian'] {
+html[data-skin='souwen-google'][data-scheme='obsidian'] {
   --accent: #475569;
   --accent-secondary: #64748b;
   --accent-tertiary: #334155;
@@ -300,7 +300,7 @@ html[data-skin='souwen-classic'][data-scheme='obsidian'] {
   --primary-glow: rgba(71, 85, 105, 0.15);
 }
 
-html[data-skin='souwen-classic'][data-mode='dark'][data-scheme='obsidian'] {
+html[data-skin='souwen-google'][data-mode='dark'][data-scheme='obsidian'] {
   --accent: #94a3b8;
   --accent-secondary: #cbd5e1;
   --accent-tertiary: #64748b;
@@ -327,12 +327,12 @@ html[data-skin='souwen-classic'][data-mode='dark'][data-scheme='obsidian'] {
 }
 
 /* ===== Skin-specific Base ===== */
-html[data-skin='souwen-classic'] {
+html[data-skin='souwen-google'] {
   font-size: #{$text-base};
   text-rendering: optimizeLegibility;
 }
 
-html[data-skin='souwen-classic'] body {
+html[data-skin='souwen-google'] body {
   font-family: var(--font);
   background: var(--bg);
   color: var(--text);
@@ -343,7 +343,7 @@ html[data-skin='souwen-classic'] body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-html[data-skin='souwen-classic'] :where(a) {
+html[data-skin='souwen-google'] :where(a) {
   color: var(--primary);
   text-decoration: none;
   transition: color var(--transition-fast);
@@ -353,13 +353,13 @@ html[data-skin='souwen-classic'] :where(a) {
 }
 
 /* ===== Selection (Google Blue highlight) ===== */
-html[data-skin='souwen-classic'] ::selection {
+html[data-skin='souwen-google'] ::selection {
   background: var(--selection-bg);
   color: var(--selection-fg);
 }
 
 /* ===== Button System (Google Material You — pill primary) ===== */
-html[data-skin='souwen-classic'] .btn {
+html[data-skin='souwen-google'] .btn {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -382,7 +382,7 @@ html[data-skin='souwen-classic'] .btn {
 }
 
 /* Primary — pill-shaped Google Blue, shadow upgrade on hover (no translateY) */
-html[data-skin='souwen-classic'] .btn-primary {
+html[data-skin='souwen-google'] .btn-primary {
   background: var(--primary);
   color: var(--on-primary);
   border-radius: var(--radius-full);
@@ -405,7 +405,7 @@ html[data-skin='souwen-classic'] .btn-primary {
   }
 }
 
-html[data-skin='souwen-classic'] .btn-danger {
+html[data-skin='souwen-google'] .btn-danger {
   background: var(--error);
   color: var(--on-error);
   border-radius: var(--radius-full);
@@ -421,7 +421,7 @@ html[data-skin='souwen-classic'] .btn-danger {
   }
 }
 
-html[data-skin='souwen-classic'] .btn-success {
+html[data-skin='souwen-google'] .btn-success {
   background: var(--success);
   color: var(--on-success);
   border-radius: var(--radius-full);
@@ -437,18 +437,18 @@ html[data-skin='souwen-classic'] .btn-success {
   }
 }
 
-html[data-skin='souwen-classic'] .btn-block {
+html[data-skin='souwen-google'] .btn-block {
   width: 100%;
 }
 
-html[data-skin='souwen-classic'] .btn-sm {
+html[data-skin='souwen-google'] .btn-sm {
   padding: 7px 16px;
   font-size: #{$text-sm};
   gap: 6px;
 }
 
 /* Outlined — Google Material chip-style, larger radius */
-html[data-skin='souwen-classic'] .btn-outline {
+html[data-skin='souwen-google'] .btn-outline {
   background: transparent;
   border: 1px solid var(--border-strong);
   color: var(--text-secondary);
@@ -467,7 +467,7 @@ html[data-skin='souwen-classic'] .btn-outline {
 }
 
 /* Ghost — soft hover surface, generous radius */
-html[data-skin='souwen-classic'] .btn-ghost {
+html[data-skin='souwen-google'] .btn-ghost {
   background: transparent;
   border: none;
   color: var(--text-secondary);
@@ -484,16 +484,16 @@ html[data-skin='souwen-classic'] .btn-ghost {
 }
 
 /* ===== Scrollbar (Google-style — hidden until hover) ===== */
-html[data-skin='souwen-classic'] ::-webkit-scrollbar {
+html[data-skin='souwen-google'] ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
 
-html[data-skin='souwen-classic'] ::-webkit-scrollbar-track {
+html[data-skin='souwen-google'] ::-webkit-scrollbar-track {
   background: transparent;
 }
 
-html[data-skin='souwen-classic'] ::-webkit-scrollbar-thumb {
+html[data-skin='souwen-google'] ::-webkit-scrollbar-thumb {
   background: transparent;
   border-radius: 99px;
   border: 2px solid transparent;
@@ -501,23 +501,23 @@ html[data-skin='souwen-classic'] ::-webkit-scrollbar-thumb {
   transition: background var(--transition);
 }
 
-html[data-skin='souwen-classic'] *:hover > ::-webkit-scrollbar-thumb,
-html[data-skin='souwen-classic'] :hover::-webkit-scrollbar-thumb {
+html[data-skin='souwen-google'] *:hover > ::-webkit-scrollbar-thumb,
+html[data-skin='souwen-google'] :hover::-webkit-scrollbar-thumb {
   background: rgba(60, 64, 67, 0.20);
   background-clip: padding-box;
 }
 
-html[data-skin='souwen-classic'] ::-webkit-scrollbar-thumb:hover {
+html[data-skin='souwen-google'] ::-webkit-scrollbar-thumb:hover {
   background: rgba(60, 64, 67, 0.40);
   background-clip: padding-box;
 }
 
-html[data-skin='souwen-classic'][data-mode='dark'] :hover::-webkit-scrollbar-thumb {
+html[data-skin='souwen-google'][data-mode='dark'] :hover::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.12);
   background-clip: padding-box;
 }
 
-html[data-skin='souwen-classic'][data-mode='dark'] ::-webkit-scrollbar-thumb:hover {
+html[data-skin='souwen-google'][data-mode='dark'] ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.28);
   background-clip: padding-box;
 }

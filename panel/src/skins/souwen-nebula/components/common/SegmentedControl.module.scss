@@ -1,0 +1,55 @@
+@use '../../styles/variables' as *;
+
+.container {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  padding: 3px;
+  background: var(--bg-subtle);
+  border-radius: $radius-full;
+  border: 1px solid var(--border);
+  position: relative;
+}
+
+.option {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  padding: 6px 16px;
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  font-size: $text-sm;
+  font-weight: $font-medium;
+  border-radius: $radius-full;
+  cursor: pointer;
+  transition: color var(--transition-fast);
+  z-index: 1;
+  white-space: nowrap;
+  user-select: none;
+
+  &:hover:not(.active) {
+    color: var(--text);
+  }
+}
+
+.active {
+  color: var(--text);
+}
+
+.indicator {
+  position: absolute;
+  border-radius: $radius-full;
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-sm);
+  z-index: 0;
+  // inset is managed by framer-motion layout
+}
+
+.iconSlot {
+  display: inline-flex;
+  align-items: center;
+  flex-shrink: 0;
+}

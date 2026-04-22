@@ -1,5 +1,5 @@
 /**
- * 搜索页面 - 论文/专利/网页综合搜索（souwen-classic v1 单 domain 版）
+ * 搜索页面 - 论文/专利/网页综合搜索（souwen-google v1 单 domain 版）
  *
  * 路由 /search/:domain 决定本页搜索域；顶部 tabs 切换 domain 时本组件更新本地 state。
  * 业务状态由 useSearchPage 集中托管（query / sources / capability / loading / error）。

@@ -117,7 +117,7 @@ curl "http://localhost:8000/api/v1/paper/search?q=transformer"
 curl "http://localhost:8000/api/v1/archive/cdx?url=https://example.com"
 ```
 
-访问 `/docs` 查看完整 OpenAPI 文档；访问 `/` 进入 Web UI（默认 souwen-classic 皮肤）。
+访问 `/docs` 查看完整 OpenAPI 文档；访问 `/` 进入 Web UI（默认 souwen-google 皮肤）。
 
 ## 🏗 架构
 

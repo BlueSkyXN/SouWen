@@ -55,7 +55,8 @@ panel/src/
     styles/base.scss     # 共享 CSS 重置
     skin-registry.ts     # 运行时皮肤注册表
   skins/
-    souwen-classic/      # 经典皮肤
+    souwen-google/      # Google 炫彩皮肤（默认）
+    souwen-nebula/      # 星云皮肤
       components/        # UI 组件（含 ErrorBoundary, Toast, Spinner）
       pages/             # 页面
       styles/            # SCSS 样式（通过 html[data-skin] 命名空间隔离）
@@ -78,7 +79,7 @@ npm run build:classic    # 单皮肤构建（体积更小）
 
 ### 创建新皮肤
 
-1. 复制 `panel/src/skins/souwen-classic/` 为新目录（如 `skins/my-skin/`）
+1. 复制 `panel/src/skins/souwen-google/` 为新目录（如 `skins/my-skin/`）
 2. 修改 `skin.config.ts` 中的皮肤元信息和配色方案
 3. 确保 `index.ts` 导出完整的 `SkinModule` 接口（含 `bootstrap`、`ErrorBoundary`、`Spinner`）
 4. CSS 使用 `html[data-skin='my-skin']` 命名空间

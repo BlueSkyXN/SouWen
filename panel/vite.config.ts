@@ -4,7 +4,7 @@ import react from '@vitejs/plugin-react'
 import { viteSingleFile } from 'vite-plugin-singlefile'
 import path from 'path'
 
-const ALL_SKINS = ['souwen-classic', 'carbon', 'apple', 'ios']
+const ALL_SKINS = ['souwen-google', 'souwen-nebula', 'carbon', 'apple', 'ios']
 
 function parseSkins(): string[] {
   const raw = process.env.VITE_SKINS || process.env.VITE_SKIN || 'all'

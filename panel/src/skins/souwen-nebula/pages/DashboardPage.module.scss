@@ -1,0 +1,789 @@
+@use '../styles/variables' as *;
+
+/* ===== Keyframes ===== */
+@keyframes pulse-glow {
+  0%, 100% {
+    box-shadow: 0 0 0 3px var(--success-light), 0 0 6px 2px rgba(34, 197, 94, 0.25);
+  }
+  50% {
+    box-shadow: 0 0 0 5px var(--success-light), 0 0 12px 4px rgba(34, 197, 94, 0.4);
+  }
+}
+
+@keyframes dot-glow-green {
+  0%, 100% {
+    box-shadow: 0 0 0 3px rgba(108,184,154,0.18), 0 0 6px 2px rgba(108,184,154,0.15);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(108,184,154,0.28), 0 0 10px 4px rgba(108,184,154,0.25);
+  }
+}
+
+@keyframes dot-glow-red {
+  0%, 100% {
+    box-shadow: 0 0 0 3px rgba(209,138,138,0.18), 0 0 6px 2px rgba(209,138,138,0.15);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgba(209,138,138,0.28), 0 0 10px 4px rgba(209,138,138,0.25);
+  }
+}
+
+@keyframes value-pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.92; }
+}
+
+/* ===== Page ===== */
+.page { }
+
+/* ===== Page title ===== */
+.pageTitle {
+  margin-bottom: $space-6;
+}
+
+.pageTitleText {
+  font-size: 27px;
+  font-weight: $font-bold;
+  letter-spacing: $tracking-tight;
+  line-height: $leading-tight;
+  margin: 0 0 $space-1 0;
+}
+
+.pageSubtitle {
+  font-size: $text-sm;
+  color: var(--text-muted);
+  margin: 0;
+  line-height: $leading-normal;
+}
+
+/* ===== Header card ===== */
+.headerCard {
+  margin-bottom: $space-6;
+}
+
+.headerRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: $space-4;
+}
+
+.headerLeft {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+}
+
+.headerRight {
+  display: flex;
+  align-items: center;
+  gap: $space-3;
+}
+
+.headerLabel {
+  font-size: $text-sm;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+/* connection indicator */
+.statusChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 14px 5px 10px;
+  background: linear-gradient(135deg, var(--success-light) 0%, var(--success-muted) 100%);
+  border-radius: $radius-full;
+  border: 1px solid rgba(34, 197, 94, 0.12);
+}
+
+.statusDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success);
+  flex-shrink: 0;
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+.statusText {
+  font-size: $text-sm;
+  font-weight: $font-semibold;
+  color: var(--success-strong);
+}
+
+/* availability bar */
+.availBar {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+}
+
+.availTrack {
+  width: 140px;
+  height: 8px;
+  border-radius: $radius-full;
+  background: var(--bg-subtle);
+  overflow: hidden;
+}
+
+.availFill {
+  height: 100%;
+  border-radius: $radius-full;
+  background: linear-gradient(90deg, var(--accent-teal), var(--success));
+  transition: width 0.6s cubic-bezier(.4,0,.2,1);
+}
+
+.availText {
+  font-size: $text-sm;
+  font-weight: $font-semibold;
+  color: var(--text-secondary);
+  min-width: 42px;
+  text-align: right;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+/* loading skeleton helpers */
+.headerSkeleton {
+  display: flex;
+  gap: $space-6;
+  align-items: center;
+}
+
+.skeletonLine {
+  height: 18px;
+  background: var(--bg-subtle);
+  border-radius: 6px;
+}
+
+/* ===== Stats + Health section ===== */
+.statsSection {
+  display: flex;
+  gap: $space-4;
+  margin-bottom: $space-4;
+
+  @media (max-width: $mobile-bp) {
+    flex-direction: column;
+  }
+}
+
+.statsGrid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: $space-3;
+  min-width: 0;
+
+  @media (max-width: 1100px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (max-width: $mobile-bp) {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* ── Stat card (compact, command-center density) ── */
+.statCard {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  padding: $space-4 $space-4 $space-3;
+  box-shadow: var(--shadow-card);
+  transition: box-shadow var(--transition), border-color var(--transition), transform var(--transition);
+  display: flex;
+  flex-direction: column;
+  gap: $space-1;
+  min-height: 96px;
+
+  &:hover {
+    box-shadow: var(--shadow-card-hover);
+    border-color: var(--border-strong);
+    transform: translateY(-1px);
+  }
+
+  // bottom accent bar
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: 2px;
+    border-radius: 0 0 var(--radius) var(--radius);
+  }
+}
+
+// decorative gradient blob (smaller for compact card)
+.statBlob {
+  position: absolute;
+  top: -24px;
+  right: -24px;
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  pointer-events: none;
+}
+
+// subtle tinted backgrounds + accent bar + blob per color
+.statBlue {
+  background: linear-gradient(135deg, rgba(37,99,235,0.07) 0%, var(--bg-card) 100%);
+
+  &::after { background: linear-gradient(90deg, rgba(37,99,235,0.6), rgba(37,99,235,0.15)); }
+  .statBlob { background: radial-gradient(circle, rgba(37,99,235,0.06) 0%, transparent 70%); }
+}
+
+.statAmber {
+  background: linear-gradient(135deg, rgba(217,119,6,0.07) 0%, var(--bg-card) 100%);
+
+  &::after { background: linear-gradient(90deg, rgba(217,119,6,0.6), rgba(217,119,6,0.15)); }
+  .statBlob { background: radial-gradient(circle, rgba(217,119,6,0.05) 0%, transparent 70%); }
+}
+
+.statGreen {
+  background: linear-gradient(135deg, rgba(5,150,105,0.07) 0%, var(--bg-card) 100%);
+
+  &::after { background: linear-gradient(90deg, rgba(5,150,105,0.6), rgba(5,150,105,0.15)); }
+  .statBlob { background: radial-gradient(circle, rgba(5,150,105,0.05) 0%, transparent 70%); }
+}
+
+.statIndigo {
+  background: linear-gradient(135deg, var(--accent-bg) 0%, var(--bg-card) 100%);
+
+  &::after { background: linear-gradient(90deg, var(--accent-border-strong), var(--accent-glow-strong)); }
+  .statBlob { background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%); }
+}
+
+.statHeader {
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  margin-bottom: 2px;
+}
+
+.statTitle {
+  font-size: 10px;
+  font-weight: $font-semibold;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-family: var(--font-mono);
+}
+
+.statValue {
+  font-size: $text-3xl;
+  font-weight: $font-bold;
+  letter-spacing: -0.02em;
+  line-height: 1;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  animation: value-pulse 3.2s ease-in-out infinite;
+}
+
+// themed stat value colors
+.valueBlue   { color: rgba(37, 99, 235, 0.9); }
+.valueAmber  { color: rgba(217, 119, 6, 0.9); }
+.valueGreen  { color: rgba(5, 150, 105, 0.9); }
+.valueIndigo { color: var(--accent); }
+
+[data-mode='dark'] {
+  .valueBlue   { color: rgba(96, 165, 250, 0.95); }
+  .valueAmber  { color: rgba(251, 191, 36, 0.95); }
+  .valueGreen  { color: rgba(52, 211, 153, 0.95); }
+}
+
+.statFraction {
+  font-size: $text-md;
+  font-weight: $font-medium;
+  color: var(--text-muted);
+  margin-left: 2px;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.statIcon {
+  width: 30px;
+  height: 30px;
+  border-radius: $radius-xs;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  svg {
+    width: 14px;
+    height: 14px;
+  }
+}
+
+.iconBlue {
+  background: var(--primary-light);
+  color: var(--primary);
+}
+
+.iconAmber {
+  background: var(--warning-light);
+  color: var(--warning);
+}
+
+.iconGreen {
+  background: var(--success-light);
+  color: var(--success);
+}
+
+.iconIndigo {
+  background: var(--accent-indigo-light);
+  color: var(--accent-indigo);
+}
+
+.iconTeal {
+  background: var(--accent-teal-light);
+  color: var(--accent-teal);
+}
+
+/* ===== Health ring card ===== */
+.healthCard {
+  flex: 0 0 auto;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: $space-5;
+  min-width: 200px;
+  transition: box-shadow var(--transition), border-color var(--transition);
+
+  &:hover {
+    box-shadow: var(--shadow-card-hover);
+  }
+}
+
+.healthRingWrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  filter: drop-shadow(0 0 8px rgba(5, 150, 105, 0.15));
+}
+
+.healthRingSvg {
+  display: block;
+}
+
+.healthStroke {
+  transform-origin: center;
+}
+
+.healthValue {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.healthPct {
+  font-size: $text-3xl;
+  font-weight: $font-bold;
+  letter-spacing: -0.03em;
+  line-height: 1;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  animation: value-pulse 3.2s ease-in-out infinite;
+}
+
+.healthLabel {
+  font-size: $text-xs;
+  font-weight: $font-medium;
+  color: var(--text-muted);
+  margin-top: 6px;
+}
+
+/* ===== Source matrix view ===== */
+.matrixCard {
+  margin-bottom: $space-6;
+  padding: $space-6;
+}
+
+.matrixHeader {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: $space-4;
+  margin-bottom: $space-5;
+  flex-wrap: wrap;
+}
+
+.matrixTitle {
+  font-size: $text-xl;
+  font-weight: $font-semibold;
+  margin: 0 0 $space-1 0;
+  letter-spacing: -0.01em;
+  display: flex;
+  align-items: baseline;
+  gap: $space-2;
+}
+
+.matrixCount {
+  font-size: $text-2xl;
+  font-weight: $font-bold;
+  color: var(--accent);
+  letter-spacing: -0.03em;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+}
+
+.matrixSubtitle {
+  font-size: $text-sm;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.matrixToggle {
+  display: inline-flex;
+  align-items: center;
+  padding: 4px $space-3;
+  border-radius: $radius-full;
+  border: 1px solid var(--border);
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+  font-size: $text-xs;
+  font-weight: $font-semibold;
+  letter-spacing: 0.08em;
+  font-family: var(--font-mono);
+}
+
+.matrixGroups {
+  display: flex;
+  flex-direction: column;
+  gap: $space-4;
+}
+
+.matrixGroup {
+  display: flex;
+  align-items: flex-start;
+  gap: $space-5;
+  padding-top: $space-4;
+
+  @media (max-width: $mobile-bp) {
+    flex-direction: column;
+    gap: $space-2;
+  }
+}
+
+.matrixGroupDivided {
+  border-top: 1px solid var(--border);
+}
+
+.matrixGroupLabel {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  min-width: 96px;
+  flex-shrink: 0;
+  padding-top: 4px;
+}
+
+.matrixGroupName {
+  font-size: $text-sm;
+  font-weight: $font-semibold;
+  color: var(--text);
+}
+
+.matrixGroupCount {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 22px;
+  height: 18px;
+  padding: 0 6px;
+  border-radius: $radius-full;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: $text-xs;
+  font-weight: $font-semibold;
+  font-family: var(--font-mono);
+}
+
+.matrixChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-2;
+  flex: 1;
+  min-width: 0;
+}
+
+.matrixChip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px 4px 8px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: $radius;
+  transition: border-color var(--transition-fast), background var(--transition-fast);
+
+  &:hover {
+    border-color: var(--border-strong);
+    background: var(--bg-hover);
+  }
+}
+
+.matrixDot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.matrixDotOk {
+  background: var(--success);
+  box-shadow: 0 0 0 2px rgba(108, 184, 154, 0.18);
+}
+
+.matrixDotErr {
+  background: var(--error);
+  box-shadow: 0 0 0 2px rgba(209, 138, 138, 0.18);
+}
+
+.matrixDotWarn {
+  background: var(--warning);
+  box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.18);
+}
+
+.matrixChipName {
+  font-family: var(--font-mono);
+  font-size: $text-xs;
+  color: var(--text);
+  font-weight: $font-medium;
+}
+
+.matrixTier {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1px 6px;
+  border-radius: $radius-xs;
+  font-size: 10px;
+  font-weight: $font-bold;
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+  line-height: 1.4;
+}
+
+.matrixTierT0 {
+  background: var(--accent-bg);
+  color: var(--accent);
+  border: 1px solid var(--accent-border-strong);
+}
+
+.matrixTierT1 {
+  background: var(--primary-light);
+  color: var(--primary);
+  border: 1px solid rgba(37, 99, 235, 0.25);
+}
+
+.matrixTierT2 {
+  background: var(--bg-subtle);
+  color: var(--text-muted);
+  border: 1px solid var(--border);
+}
+
+/* ===== Source health table ===== */
+.sectionHeader {
+  margin-bottom: $space-4;
+}
+
+.sectionTitle {
+  font-size: $text-xl;
+  font-weight: $font-semibold;
+  margin: 0 0 $space-1 0;
+  letter-spacing: -0.01em;
+}
+
+.sectionDesc {
+  font-size: $text-sm;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.tableWrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-card);
+}
+
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: $text-base;
+
+  th {
+    background: var(--bg-subtle);
+    text-align: left;
+    padding: $space-3 $space-5;
+    font-weight: $font-semibold;
+    font-size: $text-xs;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-muted);
+    border-bottom: 1px solid var(--border);
+    white-space: nowrap;
+  }
+
+  td {
+    padding: $space-3 $space-5;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+
+  tr:last-child td {
+    border-bottom: none;
+  }
+
+  tr {
+    transition: background var(--transition-fast);
+  }
+
+  tbody tr:nth-child(even) td {
+    background: rgba(0,0,0,0.025);
+  }
+
+  [data-mode='dark'] & tbody tr:nth-child(even) td {
+    background: rgba(255,255,255,0.03);
+  }
+
+  tr:hover td {
+    background: var(--bg-hover);
+  }
+}
+
+/* status dots with glow */
+.dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.dotOk {
+  background: #6cb89a;
+  animation: dot-glow-green 2.5s ease-in-out infinite;
+}
+
+.dotErr {
+  background: #d18a8a;
+  animation: dot-glow-red 2.5s ease-in-out infinite;
+}
+
+.sourceName {
+  font-weight: $font-semibold;
+  font-size: $text-base;
+}
+
+.code {
+  background: var(--bg-subtle);
+  padding: 2px $space-2;
+  border-radius: $radius-xs;
+  font-size: $text-xs;
+  font-family: var(--font-mono);
+}
+
+.message {
+  color: var(--text-muted);
+  font-size: $text-sm;
+  max-width: 320px;
+  line-height: $leading-normal;
+}
+
+/* ===== Last-updated timestamp + refresh ===== */
+.metaBar {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: $space-3;
+  margin-bottom: $space-6;
+  padding: 0 $space-1;
+}
+
+.lastUpdated {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: $text-xs;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+}
+
+.lastUpdatedLabel {
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  font-weight: $font-semibold;
+  opacity: 0.8;
+}
+
+.lastUpdatedValue {
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+}
+
+.lastUpdatedDot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--success);
+  box-shadow: 0 0 0 2px rgba(108, 184, 154, 0.18);
+  animation: dot-glow-green 2.5s ease-in-out infinite;
+}
+
+.refreshBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: $radius-xs;
+  border: 1px solid var(--border);
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: $text-xs;
+  font-weight: $font-semibold;
+  cursor: pointer;
+  transition: border-color var(--transition-fast), background var(--transition-fast), color var(--transition-fast);
+  font-family: var(--font-mono);
+  letter-spacing: 0.04em;
+
+  &:hover {
+    border-color: var(--border-strong);
+    background: var(--bg-hover);
+    color: var(--text);
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  svg {
+    width: 12px;
+    height: 12px;
+  }
+
+  &.refreshing svg {
+    animation: spin 1s linear infinite;
+  }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}

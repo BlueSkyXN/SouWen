@@ -1,0 +1,468 @@
+@use 'variables' as *;
+
+/* ===== CSS Custom Properties ===== */
+html[data-skin='souwen-nebula'] {
+  /* Backgrounds */
+  --bg: #f8f9fb;
+  --bg-card: #ffffff;
+  --bg-input: #ffffff;
+  --bg-hover: rgba(0, 0, 0, 0.025);
+  --bg-subtle: #f2f3f5;
+  --bg-elevated: #ffffff;
+  --bg-frosted: rgba(255, 255, 255, 0.72);
+
+  /* Text */
+  --text: #1a1a2e;
+  --text-secondary: #64748b;
+  --text-muted: #94a3b8;
+  --text-sidebar: rgba(255, 255, 255, 0.55);
+  --text-sidebar-active: #ffffff;
+
+  /* Borders */
+  --border: rgba(0, 0, 0, 0.06);
+  --border-input: #e2e5ea;
+  --border-strong: rgba(0, 0, 0, 0.10);
+
+  /* Primary */
+  --primary: #{$primary};
+  --primary-hover: #{$primary-hover};
+  --primary-light: #eef4ff;
+  --primary-strong: #1d4ed8;
+  --primary-glow: rgba(37, 99, 235, 0.15);
+
+  /* Semantic colors (Morandi-inspired, softer tones) */
+  --success: #{$success};
+  --success-light: #ecfdf5;
+  --success-muted: #a7f3d0;
+  --success-strong: #047857;
+  --warning: #{$warning};
+  --warning-light: #fffbeb;
+  --warning-muted: #fde68a;
+  --warning-strong: #b45309;
+  --error: #{$error};
+  --error-light: #fef2f2;
+  --error-muted: #fecaca;
+  --error-strong: #b91c1c;
+
+  /* Accent colors */
+  --accent-indigo: #{$accent-indigo};
+  --accent-indigo-light: #eef2ff;
+  --accent-indigo-strong: #4338ca;
+  --accent-teal: #{$accent-teal};
+  --accent-teal-light: #f0fdfa;
+  --accent-teal-strong: #0f766e;
+
+  /* ── Visual theme accent tokens (default = nebula) ── */
+  --accent: #4f46e5;
+  --accent-secondary: #7c3aed;
+  --accent-tertiary: #6366f1;
+  --accent-soft: #818cf8;
+  --accent-bg: rgba(79, 70, 229, 0.08);
+  --accent-bg-subtle: rgba(79, 70, 229, 0.03);
+  --accent-bg-medium: rgba(79, 70, 229, 0.12);
+  --accent-border: rgba(79, 70, 229, 0.2);
+  --accent-border-strong: rgba(79, 70, 229, 0.4);
+  --accent-glow: rgba(79, 70, 229, 0.06);
+  --accent-glow-strong: rgba(79, 70, 229, 0.15);
+  --accent-shadow: rgba(79, 70, 229, 0.25);
+  --accent-shadow-strong: rgba(79, 70, 229, 0.35);
+  --accent-gradient: linear-gradient(135deg, #4f46e5, #6366f1);
+  --accent-gradient-wide: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #6366f1 100%);
+  --accent-gradient-strip: linear-gradient(90deg, transparent, #4f46e5, #7c3aed, #6366f1, transparent);
+  --accent-gradient-border: linear-gradient(90deg, #4f46e5, #7c3aed, #6366f1);
+
+  /* Shadows — soft diffused Apple-style */
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.03);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.03), 0 1px 2px -1px rgba(0, 0, 0, 0.02);
+  --shadow: 0 2px 8px -2px rgba(0, 0, 0, 0.06), 0 4px 12px -4px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 16px -4px rgba(0, 0, 0, 0.08), 0 8px 24px -8px rgba(0, 0, 0, 0.04);
+  --shadow-lg: 0 8px 32px -8px rgba(0, 0, 0, 0.10), 0 16px 48px -16px rgba(0, 0, 0, 0.06);
+  --shadow-xl: 0 16px 56px -12px rgba(0, 0, 0, 0.14), 0 24px 64px -16px rgba(0, 0, 0, 0.08);
+  --shadow-glow: 0 0 0 3px var(--primary-glow);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.02), 0 4px 12px -2px rgba(0, 0, 0, 0.04);
+  --shadow-card-hover: 0 2px 8px rgba(0, 0, 0, 0.04), 0 8px 24px -4px rgba(0, 0, 0, 0.08);
+
+  /* Radii */
+  --radius-xs: #{$radius-xs};
+  --radius-sm: #{$radius-sm};
+  --radius: #{$radius};
+  --radius-lg: #{$radius-lg};
+  --radius-xl: #{$radius-xl};
+  --radius-2xl: #{$radius-2xl};
+  --radius-full: #{$radius-full};
+
+  /* Transitions */
+  --transition-fast: 120ms ease;
+  --transition: 200ms cubic-bezier(0.25, 0.1, 0.25, 1);
+  --transition-slow: 320ms cubic-bezier(0.25, 0.1, 0.25, 1);
+  --transition-spring: 500ms cubic-bezier(0.34, 1.56, 0.64, 1);
+  --transition-bounce: 600ms cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+  /* Z-index */
+  --z-header: 90;
+  --z-sidebar: 100;
+  --z-overlay: 150;
+  --z-modal: 180;
+  --z-toast: 200;
+
+  /* Layout */
+  --sidebar-w: #{$sidebar-width};
+  --header-h: #{$header-height};
+
+  /* Fonts */
+  --font: #{$font-family};
+  --font-mono: #{$font-mono};
+
+  /* Spacing tokens */
+  --sp-1: #{$space-1};
+  --sp-2: #{$space-2};
+  --sp-3: #{$space-3};
+  --sp-4: #{$space-4};
+  --sp-5: #{$space-5};
+  --sp-6: #{$space-6};
+  --sp-8: #{$space-8};
+  --sp-10: #{$space-10};
+  --sp-12: #{$space-12};
+  --sp-14: #{$space-14};
+  --sp-16: #{$space-16};
+  --sp-20: #{$space-20};
+}
+
+html[data-skin='souwen-nebula'][data-mode='dark'] {
+  --bg: #0a0a0f;
+  --bg-card: #16161d;
+  --bg-input: #16161d;
+  --bg-hover: rgba(255, 255, 255, 0.04);
+  --bg-subtle: #1e1e28;
+  --bg-elevated: #1c1c26;
+  --bg-frosted: rgba(22, 22, 29, 0.78);
+  --text: #f0f0f5;
+  --text-secondary: #9ca3b4;
+  --text-muted: #8b93a8;
+  --text-sidebar: rgba(255, 255, 255, 0.45);
+  --text-sidebar-active: #ffffff;
+  --border: rgba(255, 255, 255, 0.06);
+  --border-input: #2d2d3a;
+  --border-strong: rgba(255, 255, 255, 0.10);
+  --primary: #3b82f6;
+  --primary-hover: #2563eb;
+  --primary-light: rgba(59, 130, 246, 0.10);
+  --primary-strong: #93c5fd;
+  --primary-glow: rgba(59, 130, 246, 0.20);
+  --success: #10b981;
+  --success-light: rgba(16, 185, 129, 0.10);
+  --success-muted: rgba(16, 185, 129, 0.20);
+  --success-strong: #6ee7b7;
+  --warning: #f59e0b;
+  --warning-light: rgba(245, 158, 11, 0.10);
+  --warning-muted: rgba(245, 158, 11, 0.20);
+  --warning-strong: #fcd34d;
+  --error: #ef4444;
+  --error-light: rgba(239, 68, 68, 0.10);
+  --error-muted: rgba(239, 68, 68, 0.20);
+  --error-strong: #fca5a5;
+  --accent-indigo: #818cf8;
+  --accent-indigo-light: rgba(129, 140, 248, 0.10);
+  --accent-indigo-strong: #c7d2fe;
+  --accent-teal: #2dd4bf;
+  --accent-teal-light: rgba(45, 212, 191, 0.10);
+  --accent-teal-strong: #99f6e4;
+  --shadow-xs: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.4);
+  --shadow: 0 2px 8px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.5);
+  --shadow-xl: 0 16px 56px rgba(0, 0, 0, 0.55);
+  --shadow-glow: 0 0 0 3px var(--primary-glow);
+  --shadow-card: 0 1px 3px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255, 255, 255, 0.03);
+  --shadow-card-hover: 0 2px 8px rgba(0, 0, 0, 0.4), 0 0 0 1px rgba(255, 255, 255, 0.05);
+
+  /* ── Dark accent tokens (nebula default) ── */
+  --accent: #818cf8;
+  --accent-secondary: #a78bfa;
+  --accent-tertiary: #6366f1;
+  --accent-soft: #c7d2fe;
+  --accent-bg: rgba(99, 102, 241, 0.12);
+  --accent-bg-subtle: rgba(99, 102, 241, 0.06);
+  --accent-bg-medium: rgba(99, 102, 241, 0.18);
+  --accent-border: rgba(99, 102, 241, 0.25);
+  --accent-border-strong: rgba(99, 102, 241, 0.4);
+  --accent-glow: rgba(99, 102, 241, 0.1);
+  --accent-glow-strong: rgba(99, 102, 241, 0.2);
+  --accent-shadow: rgba(99, 102, 241, 0.3);
+  --accent-shadow-strong: rgba(99, 102, 241, 0.4);
+  --accent-gradient: linear-gradient(135deg, #6366f1, #818cf8);
+  --accent-gradient-wide: linear-gradient(135deg, #6366f1 0%, #a78bfa 50%, #818cf8 100%);
+  --accent-gradient-strip: linear-gradient(90deg, transparent, #6366f1, #a78bfa, #818cf8, transparent);
+  --accent-gradient-border: linear-gradient(90deg, #6366f1, #a78bfa, #818cf8);
+}
+
+/* ===== Visual Theme: Aurora (teal/cyan) ===== */
+html[data-skin='souwen-nebula'][data-scheme='aurora'] {
+  --accent: #0d9488;
+  --accent-secondary: #06b6d4;
+  --accent-tertiary: #14b8a6;
+  --accent-soft: #5eead4;
+  --accent-bg: rgba(13, 148, 136, 0.08);
+  --accent-bg-subtle: rgba(13, 148, 136, 0.03);
+  --accent-bg-medium: rgba(13, 148, 136, 0.12);
+  --accent-border: rgba(13, 148, 136, 0.2);
+  --accent-border-strong: rgba(13, 148, 136, 0.4);
+  --accent-glow: rgba(13, 148, 136, 0.06);
+  --accent-glow-strong: rgba(13, 148, 136, 0.15);
+  --accent-shadow: rgba(13, 148, 136, 0.25);
+  --accent-shadow-strong: rgba(13, 148, 136, 0.35);
+  --accent-gradient: linear-gradient(135deg, #0d9488, #14b8a6);
+  --accent-gradient-wide: linear-gradient(135deg, #0d9488 0%, #06b6d4 50%, #14b8a6 100%);
+  --accent-gradient-strip: linear-gradient(90deg, transparent, #0d9488, #06b6d4, #14b8a6, transparent);
+  --accent-gradient-border: linear-gradient(90deg, #0d9488, #06b6d4, #14b8a6);
+  --primary: #0d9488;
+  --primary-hover: #0f766e;
+  --primary-light: #f0fdfa;
+  --primary-strong: #0f766e;
+  --primary-glow: rgba(13, 148, 136, 0.15);
+}
+
+html[data-skin='souwen-nebula'][data-mode='dark'][data-scheme='aurora'] {
+  --accent: #2dd4bf;
+  --accent-secondary: #22d3ee;
+  --accent-tertiary: #5eead4;
+  --accent-soft: #99f6e4;
+  --accent-bg: rgba(45, 212, 191, 0.12);
+  --accent-bg-subtle: rgba(45, 212, 191, 0.06);
+  --accent-bg-medium: rgba(45, 212, 191, 0.18);
+  --accent-border: rgba(45, 212, 191, 0.25);
+  --accent-border-strong: rgba(45, 212, 191, 0.4);
+  --accent-glow: rgba(45, 212, 191, 0.1);
+  --accent-glow-strong: rgba(45, 212, 191, 0.2);
+  --accent-shadow: rgba(45, 212, 191, 0.3);
+  --accent-shadow-strong: rgba(45, 212, 191, 0.4);
+  --accent-gradient: linear-gradient(135deg, #14b8a6, #2dd4bf);
+  --accent-gradient-wide: linear-gradient(135deg, #14b8a6 0%, #22d3ee 50%, #2dd4bf 100%);
+  --accent-gradient-strip: linear-gradient(90deg, transparent, #14b8a6, #22d3ee, #2dd4bf, transparent);
+  --accent-gradient-border: linear-gradient(90deg, #14b8a6, #22d3ee, #2dd4bf);
+  --primary: #2dd4bf;
+  --primary-hover: #14b8a6;
+  --primary-light: rgba(45, 212, 191, 0.10);
+  --primary-strong: #99f6e4;
+  --primary-glow: rgba(45, 212, 191, 0.20);
+}
+
+/* ===== Visual Theme: Obsidian (slate/neutral monochrome) ===== */
+html[data-skin='souwen-nebula'][data-scheme='obsidian'] {
+  --accent: #475569;
+  --accent-secondary: #64748b;
+  --accent-tertiary: #334155;
+  --accent-soft: #94a3b8;
+  --accent-bg: rgba(71, 85, 105, 0.08);
+  --accent-bg-subtle: rgba(71, 85, 105, 0.03);
+  --accent-bg-medium: rgba(71, 85, 105, 0.12);
+  --accent-border: rgba(71, 85, 105, 0.2);
+  --accent-border-strong: rgba(71, 85, 105, 0.4);
+  --accent-glow: rgba(71, 85, 105, 0.06);
+  --accent-glow-strong: rgba(71, 85, 105, 0.15);
+  --accent-shadow: rgba(71, 85, 105, 0.25);
+  --accent-shadow-strong: rgba(71, 85, 105, 0.35);
+  --accent-gradient: linear-gradient(135deg, #475569, #64748b);
+  --accent-gradient-wide: linear-gradient(135deg, #475569 0%, #64748b 50%, #334155 100%);
+  --accent-gradient-strip: linear-gradient(90deg, transparent, #475569, #64748b, #334155, transparent);
+  --accent-gradient-border: linear-gradient(90deg, #475569, #64748b, #334155);
+  --primary: #475569;
+  --primary-hover: #334155;
+  --primary-light: #f1f5f9;
+  --primary-strong: #334155;
+  --primary-glow: rgba(71, 85, 105, 0.15);
+}
+
+html[data-skin='souwen-nebula'][data-mode='dark'][data-scheme='obsidian'] {
+  --accent: #94a3b8;
+  --accent-secondary: #cbd5e1;
+  --accent-tertiary: #64748b;
+  --accent-soft: #e2e8f0;
+  --accent-bg: rgba(148, 163, 184, 0.12);
+  --accent-bg-subtle: rgba(148, 163, 184, 0.06);
+  --accent-bg-medium: rgba(148, 163, 184, 0.18);
+  --accent-border: rgba(148, 163, 184, 0.25);
+  --accent-border-strong: rgba(148, 163, 184, 0.4);
+  --accent-glow: rgba(148, 163, 184, 0.1);
+  --accent-glow-strong: rgba(148, 163, 184, 0.2);
+  --accent-shadow: rgba(148, 163, 184, 0.3);
+  --accent-shadow-strong: rgba(148, 163, 184, 0.4);
+  --accent-gradient: linear-gradient(135deg, #64748b, #94a3b8);
+  --accent-gradient-wide: linear-gradient(135deg, #64748b 0%, #cbd5e1 50%, #94a3b8 100%);
+  --accent-gradient-strip: linear-gradient(90deg, transparent, #64748b, #cbd5e1, #94a3b8, transparent);
+  --accent-gradient-border: linear-gradient(90deg, #64748b, #cbd5e1, #94a3b8);
+  --primary: #94a3b8;
+  --primary-hover: #64748b;
+  --primary-light: rgba(148, 163, 184, 0.10);
+  --primary-strong: #e2e8f0;
+  --primary-glow: rgba(148, 163, 184, 0.20);
+}
+
+/* ===== Skin-specific Base ===== */
+html[data-skin='souwen-nebula'] {
+  font-size: #{$text-base};
+  text-rendering: optimizeLegibility;
+}
+
+html[data-skin='souwen-nebula'] body {
+  font-family: var(--font);
+  background: var(--bg);
+  color: var(--text);
+  line-height: #{$leading-relaxed};
+  letter-spacing: #{$tracking-normal};
+  transition: background var(--transition-slow), color var(--transition-slow);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+html[data-skin='souwen-nebula'] :where(a) {
+  color: var(--primary);
+  text-decoration: none;
+  transition: color var(--transition-fast);
+  &:hover {
+    color: var(--primary-hover);
+  }
+}
+
+/* ===== Button System ===== */
+html[data-skin='souwen-nebula'] .btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px 20px;
+  border-radius: var(--radius-sm);
+  font-size: #{$text-md};
+  font-weight: #{$font-medium};
+  border: none;
+  transition: all var(--transition);
+  white-space: nowrap;
+  letter-spacing: #{$tracking-normal};
+  position: relative;
+  user-select: none;
+
+  &:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 2px;
+  }
+}
+
+html[data-skin='souwen-nebula'] .btn-primary {
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--primary) 100%, white 8%), var(--primary));
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  &:hover {
+    background: linear-gradient(to bottom, var(--primary), var(--primary-hover));
+    box-shadow: 0 4px 14px var(--accent-shadow), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+    transform: translateY(-1px);
+  }
+  &:active {
+    transform: translateY(0) scale(0.98);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12);
+    transition-duration: 60ms;
+  }
+  &:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
+    transform: none;
+    box-shadow: none;
+    pointer-events: none;
+  }
+}
+
+html[data-skin='souwen-nebula'] .btn-danger {
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--error) 100%, white 6%), var(--error));
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  &:hover {
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--error) 28%, transparent);
+    transform: translateY(-1px);
+  }
+  &:active {
+    transform: translateY(0) scale(0.98);
+    transition-duration: 60ms;
+  }
+}
+
+html[data-skin='souwen-nebula'] .btn-block {
+  width: 100%;
+}
+
+html[data-skin='souwen-nebula'] .btn-sm {
+  padding: 7px 14px;
+  font-size: #{$text-sm};
+  gap: 5px;
+}
+
+html[data-skin='souwen-nebula'] .btn-outline {
+  background: transparent;
+  border: 1px solid var(--border-strong);
+  color: var(--text-secondary);
+  &:hover {
+    background: var(--bg-hover);
+    border-color: var(--primary);
+    color: var(--primary);
+    transform: translateY(-0.5px);
+  }
+  &:active {
+    transform: translateY(0) scale(0.98);
+    transition-duration: 60ms;
+  }
+}
+
+html[data-skin='souwen-nebula'] .btn-ghost {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  &:hover {
+    background: var(--bg-hover);
+    color: var(--text);
+  }
+}
+
+html[data-skin='souwen-nebula'] .btn-success {
+  background: linear-gradient(to bottom, color-mix(in srgb, var(--success) 100%, white 6%), var(--success));
+  color: #fff;
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.1);
+  &:hover {
+    box-shadow: 0 4px 14px color-mix(in srgb, var(--success) 28%, transparent);
+    transform: translateY(-1px);
+  }
+  &:active {
+    transform: translateY(0) scale(0.98);
+    transition-duration: 60ms;
+  }
+}
+
+/* ===== Scrollbar (classic skin) ===== */
+html[data-skin='souwen-nebula'] ::-webkit-scrollbar-thumb {
+  background: rgba(0, 0, 0, 0.10);
+  border-radius: 99px;
+  &:hover {
+    background: rgba(0, 0, 0, 0.18);
+  }
+}
+
+html[data-skin='souwen-nebula'][data-mode='dark'] ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+  &:hover {
+    background: rgba(255, 255, 255, 0.16);
+  }
+}
+
+/* ===== Keyframes (classic skin) ===== */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
