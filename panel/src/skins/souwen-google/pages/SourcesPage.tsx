@@ -120,6 +120,22 @@ function IntegrationBadge({ integration_type, t }: { integration_type: string; t
   )
 }
 
+function KeyRequirementBadge({ value, t }: { value: DoctorSource['key_requirement']; t: (k: string, opts?: { defaultValue?: string }) => string }) {
+  if (value === 'none') {
+    return <Badge color="green">{t('sources.keyNone', { defaultValue: '免配置' })}</Badge>
+  }
+  if (value === 'optional') {
+    return <Badge color="blue">{t('sources.keyOptionalShort', { defaultValue: '可选' })}</Badge>
+  }
+  if (value === 'required') {
+    return <Badge color="amber">{t('sources.keyRequiredShort', { defaultValue: '必须' })}</Badge>
+  }
+  if (value === 'self_hosted') {
+    return <Badge color="indigo">{t('sources.keySelfHostedShort', { defaultValue: '自建' })}</Badge>
+  }
+  return <Badge color="gray">—</Badge>
+}
+
 function SourceCardSkeleton() {
   return (
     <div className={styles.skeletonCard}>
@@ -640,6 +656,7 @@ export function SourcesPage() {
                     <th>{t('sources.colName', { defaultValue: '名称' })}</th>
                     <th>{t('sources.colDescription', { defaultValue: '描述' })}</th>
                     <th>{t('sources.colType', { defaultValue: '类型' })}</th>
+                    <th>{t('sources.colKeyReq', { defaultValue: '密钥需求' })}</th>
                     <th>{t('sources.colKey', { defaultValue: '密钥' })}</th>
                     <th>{t('sources.colStatus', { defaultValue: '状态' })}</th>
                     <th>{t('sources.colEnabled', { defaultValue: '启用' })}</th>
@@ -655,6 +672,9 @@ export function SourcesPage() {
                       <td className={styles.listDesc}>{src.description || '—'}</td>
                       <td>
                         <IntegrationBadge integration_type={src.integration_type} t={t} />
+                      </td>
+                      <td>
+                        <KeyRequirementBadge value={src.key_requirement} t={t} />
                       </td>
                       <td>
                         <code className={styles.listCode}>{src.required_key ?? '—'}</code>
@@ -704,15 +724,28 @@ export function SourcesPage() {
                     )}
                     <div className={styles.badges}>
                       <IntegrationBadge integration_type={src.integration_type} t={t} />
-                      {src.required_key ? (
-                        <span className={styles.configBadgeKey}>
-                          <Key size={10} />
-                          {t('sources.needsApiKey')}
-                        </span>
-                      ) : (
+                      {src.key_requirement === 'none' && (
                         <span className={styles.configBadgeOk}>
                           <Check size={10} />
-                          {t('sources.noConfigNeeded')}
+                          {t('sources.keyNone', { defaultValue: '免配置' })}
+                        </span>
+                      )}
+                      {src.key_requirement === 'optional' && (
+                        <span className={styles.configBadgeOptional}>
+                          <Key size={10} />
+                          {t('sources.keyOptional', { defaultValue: '可选Key' })}
+                        </span>
+                      )}
+                      {src.key_requirement === 'required' && (
+                        <span className={styles.configBadgeKey}>
+                          <Key size={10} />
+                          {t('sources.keyRequired', { defaultValue: '需要Key' })}
+                        </span>
+                      )}
+                      {src.key_requirement === 'self_hosted' && (
+                        <span className={styles.configBadgeSelfHosted}>
+                          <Server size={10} />
+                          {t('sources.keySelfHosted', { defaultValue: '需自建' })}
                         </span>
                       )}
                     </div>
@@ -839,6 +872,7 @@ export function SourcesPage() {
                   <th>{t('sources.colSource')}</th>
                   <th>{t('sources.colCategory')}</th>
                   <th>{t('sources.colIntegration')}</th>
+                  <th>{t('sources.colKeyReq', { defaultValue: '密钥需求' })}</th>
                   <th>{t('sources.colKey')}</th>
                   <th>{t('sources.colMessage')}</th>
                 </tr>
@@ -865,6 +899,9 @@ export function SourcesPage() {
                          : src.integration_type === 'scraper' ? '爬虫'
                          : src.integration_type === 'official_api' ? '授权' : '自建'}
                       </Badge>
+                    </td>
+                    <td>
+                      <KeyRequirementBadge value={src.key_requirement} t={t} />
                     </td>
                     <td><code className={styles.codeCell}>{src.required_key ?? '—'}</code></td>
                     <td className={styles.messageCell}>{src.message}</td>

@@ -65,6 +65,7 @@ def check_all() -> list[dict]:
         - status: 状态（ok|warning|limited|unavailable|missing_key|disabled）
         - integration_type: 集成类型（open_api|scraper|official_api|self_hosted）
         - required_key: 必需的配置字段名（或 None）
+        - key_requirement: 配置 Key 需求级别（self_hosted|none|required|optional）
         - message: 状态说明文本
         - enabled: 是否启用
         - description: 源描述
@@ -150,6 +151,16 @@ def check_all() -> list[dict]:
         if sc.base_url:
             channel_info["base_url"] = sc.base_url
 
+        # 派生 key_requirement：self_hosted 类源单独标识；其余按 config_field/needs_config 判定
+        if meta.integration_type == "self_hosted":
+            key_requirement = "self_hosted"
+        elif field is None:
+            key_requirement = "none"
+        elif meta.needs_config:
+            key_requirement = "required"
+        else:
+            key_requirement = "optional"
+
         results.append(
             {
                 "name": name,
@@ -157,6 +168,7 @@ def check_all() -> list[dict]:
                 "status": status,
                 "integration_type": meta.integration_type,
                 "required_key": field,
+                "key_requirement": key_requirement,
                 "message": message,
                 "enabled": enabled,
                 "description": meta.description,
@@ -208,7 +220,14 @@ def format_report(results: list[dict]) -> str:
         for r in items:
             icon = _STATUS_ICONS.get(r["status"], "⬜")
             cat_tag = f"[{r['category']}]"
-            lines.append(f"  {icon} {r['name']:20s} {cat_tag:10s} {r['message']}")
+            kr = r.get("key_requirement", "")
+            kr_tag = {
+                "none": "免配置",
+                "optional": "可选Key",
+                "required": "需Key",
+                "self_hosted": "需自建",
+            }.get(kr, "")
+            lines.append(f"  {icon} {r['name']:20s} {cat_tag:10s} {kr_tag:6s}  {r['message']}")
         lines.append("")
 
     return "\n".join(lines)
