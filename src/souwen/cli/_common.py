@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import sys
 
 import typer
 from rich.console import Console
@@ -11,14 +10,6 @@ from rich.console import Console
 from souwen import __version__
 
 console = Console()
-
-
-def _deprecation_notice(old_cmd: str) -> None:
-    """Print a one-line deprecation notice to stderr (non-blocking)."""
-    print(
-        f"⚠ '{old_cmd}' will be reorganized in v2.0. See `souwen --help` for details.",
-        file=sys.stderr,
-    )
 
 
 def _version_callback(value: bool) -> None:

@@ -1,4 +1,4 @@
-"""SouWen 核心平台层（v1 正式落地）
+"""SouWen 核心平台层
 
 本包聚合所有"平台层"基础设施——与业务 domain 无关、被所有 Client 共用的底层组件。
 
@@ -12,10 +12,10 @@
   - exceptions     —— 全部异常类型
   - parsing        —— 轻量 HTML/JSON 辅助解析
   - concurrency    —— per-loop Semaphore（D12）
-  - models         —— （保留在 souwen.models，以兼容；未来版本迁到此处）
+  - models         —— 数据模型（位于 souwen.models）
 
-v0 兼容：所有 v0 根目录下的平台模块仍可直接 import（`from souwen.http_client import ...`），
-它们现在都是本包的 re-export shim。新代码推荐 `from souwen.core.xxx import ...`。
+`souwen` 根目录下的同名模块（如 `souwen.http_client`）作为公开入口 re-export 自本包，
+两条路径等价；新代码推荐 `from souwen.core.xxx import ...`。
 """
 
 from __future__ import annotations

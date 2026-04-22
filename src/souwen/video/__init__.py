@@ -1,6 +1,6 @@
-"""video/ — 视频平台搜索域（v1）
+"""video/ — 视频平台搜索域
 
-re-export v0 的 video 客户端。
+Public API: re-export 视频客户端，保持对外 import 稳定。
 
 Sources: youtube / bilibili
 """

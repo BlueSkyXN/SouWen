@@ -1,17 +1,16 @@
-"""并发多引擎聚合搜索（v1 从注册表派生的精简版）
+"""并发多引擎聚合搜索（从注册表派生）
 
 文件用途：
-    网页搜索聚合模块。v1 改造（阶段 P0-H）：
+    网页搜索聚合模块。引擎调度由 `souwen.registry` 派生：
 
-    - 删除 v0 两张 45 条的手写映射表（`engine_map` + `source_map`）
-    - 引擎类改由 `souwen.registry` 懒加载
-    - `SourceType` 标签改由 v1 adapter 名 → `SourceType` 的派生映射（见 `_source_type_for`）
+    - 引擎类通过 registry 字符串懒加载（不再有手写 engine_map / source_map）
+    - `SourceType` 标签由 adapter 名 → `SourceType` 的派生映射（见 `_source_type_for`）
 
-对外函数签名不变：
+公开函数签名：
     web_search(query, engines=None, max_results_per_engine=10, deduplicate=True, **kw)
       → WebSearchResponse
 
-并发与超时策略与 v0 一致；Semaphore 改用 ContextVar（D12；`souwen.core.concurrency`）。
+并发与超时策略：Semaphore 使用 ContextVar（D12；`souwen.core.concurrency`）。
 """
 
 from __future__ import annotations
@@ -30,15 +29,15 @@ _WEB_ENGINE_TIMEOUT_CAP_SECONDS = 15.0
 
 # ── Registry 名字 → SourceType 枚举值的映射 ─────────────────
 # 为 `WebSearchResponse.source` 字段提供 SourceType 标签。
-# v0 的 engine_map 里包含跨 domain 的源（youtube / bilibili / reddit / github / stackoverflow /
+# 允许跨 domain 的源（youtube / bilibili / reddit / github / stackoverflow /
 # wikipedia / twitter / facebook / feishu_drive / zhihu / weibo / csdn / juejin / linuxdo），
-# v1 保留这个行为以不破坏 web_search 的 "可以点名任意已注册源" 契约。
+# 以维持 web_search "可以点名任意已注册源" 的契约。
 # 如果 `SourceType` 里找不到匹配项（如 archive / fetch-only 源），回退到 WEB_DUCKDUCKGO。
 
 def _source_type_for(name: str) -> SourceType:
     """把 registry 里的 adapter.name 映射为 SourceType 枚举值。
 
-    命名规则（与 v0 枚举一致）：
+    命名规则：
       - 爬虫/API 类网页引擎 → `WEB_{NAME_UPPER}`
       - DDG 变种 → `WEB_DDG_{VARIANT}`（ddg_news/images/videos）
       - paper/patent → 自身枚举（`OPENALEX` / `ARXIV` / ...）
@@ -149,9 +148,9 @@ async def web_search(
     同时查询多个搜索引擎（默认 ["duckduckgo", "bing"]），聚合结果并可选去重。
     Engine 通过 `souwen.registry` 懒加载，因此该函数调用时才会 import 对应客户端。
 
-    v1 注意事项：
+    备注：
       - 可选用任何 `registry` 中声明了 `search` capability 的源（含跨 domain 的源，
-        如 `youtube` / `bilibili` / `github`）——与 v0 行为一致。
+        如 `youtube` / `bilibili` / `github`）。
       - 源的默认启用状态遵从 `SouWenConfig.is_source_enabled`。
 
     Args:
@@ -215,7 +214,7 @@ async def web_search(
         selected,
     )
 
-    # v0 行为：source 字段用"第一个引擎"的 SourceType
+    # source 字段使用"第一个引擎"的 SourceType
     first = selected[0] if selected else None
     source_tag = _source_type_for(first) if first else SourceType.WEB_DUCKDUCKGO
 

@@ -8,7 +8,7 @@ import json
 import typer
 from rich.table import Table
 
-from souwen.cli._common import _deprecation_notice, _run_async, console
+from souwen.cli._common import _run_async, console
 
 youtube_app = typer.Typer(help="YouTube 视频工具")
 
@@ -24,7 +24,6 @@ def youtube_trending(
     timeout: int | None = typer.Option(None, "--timeout", "-t", help="超时（秒）"),
 ) -> None:
     """获取 YouTube 热门视频"""
-    _deprecation_notice("souwen youtube trending")
     from souwen.exceptions import ConfigError, RateLimitError
     from souwen.web.youtube import YouTubeClient
 
@@ -73,7 +72,6 @@ def youtube_video(
     timeout: int | None = typer.Option(None, "--timeout", "-t", help="超时（秒）"),
 ) -> None:
     """获取 YouTube 视频详情"""
-    _deprecation_notice("souwen youtube video")
     from dataclasses import asdict
 
     from souwen.exceptions import ConfigError, RateLimitError
@@ -132,7 +130,6 @@ def youtube_transcript(
     timeout: int | None = typer.Option(None, "--timeout", "-t", help="超时（秒）"),
 ) -> None:
     """提取 YouTube 视频字幕"""
-    _deprecation_notice("souwen youtube transcript")
     from souwen.exceptions import ConfigError
     from souwen.web.youtube import YouTubeClient
 

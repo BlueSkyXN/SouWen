@@ -183,7 +183,7 @@ pytest tests/registry/test_consistency.py -v
 6. capability 在标准集 `CAPABILITIES` 里或为 `xxx:yyy` 命名空间形式；
 7. `extra_domains` 仅允许 `{"fetch"}`；
 8. 注册表无重名；
-9. v0 `ALL_SOURCES` 派生与新 registry 对齐；
+9. `ALL_SOURCES` 派生与 registry 对齐；
 10. 高风险源未进入默认集；
 11. `resolve_params` 能完整覆盖每个 adapter（不抛异常）。
 

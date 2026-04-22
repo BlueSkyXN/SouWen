@@ -26,7 +26,7 @@
     "ok" (✅) — 正常可用（配置完整或无需配置）
     "warning" (⚠️) — 警告（如爬虫缺少 curl_cffi，但仍可尝试）
     "limited" (⚠️) — 受限（如无 API Key 的 Semantic Scholar 易限流）
-    "unavailable" (❌) — 不可用（服务迁移、已下线等）
+    "unavailable" (❌) — 不可用（接入待修复 / 已下线等）
     "missing_key" (⬜) — 缺少必要配置
     "disabled" (🚫) — 用户手动禁用
 
@@ -108,7 +108,7 @@ def check_all() -> list[dict]:
                 message = "免 Key 模式易限流，建议设置 semantic_scholar_api_key"
         elif name == "patentsview":
             status = "unavailable"
-            message = "公开搜索端点已迁移，当前接入待修复"
+            message = "公开搜索端点已变更，当前接入待修复"
         elif name == "pqai":
             status = "unavailable"
             message = "匿名 API 当前返回 401，暂不建议默认使用"

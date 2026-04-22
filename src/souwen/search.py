@@ -1,7 +1,6 @@
-"""SouWen 统一搜索门面 — 从注册表派生的精简版
+"""SouWen 统一搜索门面 — 从注册表派生
 
-v1 改造（阶段 P0-G）：删除 v0 的 `_PAPER_SOURCES` / `_PATENT_SOURCES` 24 lambda 大 dict，
-改由 `souwen.registry` 派生调度。对外函数签名不变：
+源调度由 `souwen.registry` 派生。对外函数签名：
 
     search(query, domain="paper", **kwargs) → list[SearchResponse]
     search_papers(query, sources=None, per_page=10, **kwargs) → list[SearchResponse]
@@ -9,11 +8,10 @@ v1 改造（阶段 P0-G）：删除 v0 的 `_PAPER_SOURCES` / `_PATENT_SOURCES` 
     web_search                              —— 从 souwen.web.search re-export
 
 默认源来源：
-    v0：硬编码 `_DEFAULT_PAPER_SOURCES` / `_DEFAULT_PATENT_SOURCES`
-    v1：`registry.views.defaults_for(domain, "search")`（由 adapter.default_for 声明，D9）
+    `registry.views.defaults_for(domain, "search")`（由 adapter.default_for 声明，D9）
 
 并发策略：
-    - asyncio.gather 并发（同 v0）
+    - asyncio.gather 并发
     - 单源超时（<= 15s；受 SouWenConfig.timeout 约束）
     - 全局并发度 Semaphore（10，可 SOUWEN_MAX_CONCURRENCY 覆盖）
     - **Semaphore 改用 ContextVar**（D12；见 `souwen.core.concurrency`）
@@ -204,7 +202,7 @@ async def _execute_search(
     return responses
 
 
-# ── 公开 API（签名与 v0 完全一致）──────────────────────────
+# ── 公开 API ────────────────────────────────────────────
 
 async def search_papers(
     query: str,
@@ -218,8 +216,8 @@ async def search_papers(
         query: 搜索关键词
         sources: 数据源列表；None 表示使用 registry 的默认源（由 adapter.default_for 声明）
         per_page: 每个源返回的结果数
-        **kwargs: 额外参数透传到各 Client 的 search 方法（注意：v1 走
-            adapter.param_map 翻译，源原生参数名可以用 extra_domains 时的 param_map）
+        **kwargs: 额外参数透传到各 Client 的 search 方法（注意：走 adapter.param_map
+            翻译，源原生参数名可以用 extra_domains 时的 param_map）
 
     Returns:
         每个数据源一个 SearchResponse 的列表
@@ -238,7 +236,7 @@ async def search_patents(
 
     Args:
         query: 搜索关键词
-        sources: 数据源列表；None 表示使用 registry 的默认源（v1 默认 ["google_patents"]）
+        sources: 数据源列表；None 表示使用 registry 的默认源（默认 ["google_patents"]）
         per_page: 每个源返回的结果数
         **kwargs: 额外参数
 
@@ -271,36 +269,33 @@ async def search(
     raise ValueError(f"未知搜索领域: {domain!r}，支持 'paper' | 'patent' | 'web'")
 
 
-# ── v0 兼容：保留私有符号以供测试 mock/patch ─────────────────
-# v0 测试里可能有 `from souwen.search import _DEFAULT_PAPER_SOURCES` 之类的，
-# 但 grep 仓库确认没有此类测试引用。保留名字只是信号：
-#   "defaults 在 registry/sources.py 的 default_for 声明"
+# ── 内部辅助：默认源派生（保留私有名字便于测试 mock/patch）─────
 
 def _default_paper_sources() -> list[str]:
-    """v1：默认论文源列表（从 registry 派生）。"""
+    """默认论文源列表（从 registry 派生）。"""
     return defaults_for("paper", "search")
 
 
 def _default_patent_sources() -> list[str]:
-    """v1：默认专利源列表（从 registry 派生）。"""
+    """默认专利源列表（从 registry 派生）。"""
     return defaults_for("patent", "search")
 
 
-# ── 为测试方便保留的兼容符号 ───────────────────────────────
+# ── 为测试方便保留的入口 ───────────────────────────────────
 
 def _get_max_concurrency() -> int:
-    """v0 兼容入口（重定向到 core.concurrency）。"""
+    """便捷入口（重定向到 core.concurrency）。"""
     from souwen.core.concurrency import get_max_concurrency
 
     return get_max_concurrency()
 
 
 def _get_semaphore() -> asyncio.Semaphore:
-    """v0 兼容入口（重定向到 core.concurrency）。"""
+    """便捷入口（重定向到 core.concurrency）。"""
     return get_semaphore("search")
 
 
-# 公开给外部用户的符号（向后兼容）
+# 公开给外部用户的符号
 __all__ = [
     "search",
     "search_papers",

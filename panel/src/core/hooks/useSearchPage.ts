@@ -1,8 +1,7 @@
 /**
- * useSearchPage — v1 通用搜索页 Hook（骨架版，v0.9 初版）
+ * useSearchPage — 通用搜索页 Hook
  *
- * 当前 v0.9 状态：仅提供状态管理骨架，具体调用由调用者实现。
- * 未来 v1.0 会接入 services/*.ts 的派发，4 皮肤 SearchPage 视图直接使用本 hook。
+ * 提供统一的搜索状态管理；具体派发由调用者实现。各皮肤的 SearchPage 视图直接使用本 hook。
  *
  * 契约示例：
  *   const { query, setQuery, loading, error, handleSearch } = useSearchPage('paper')
@@ -62,8 +61,8 @@ const DOMAIN_CAPABILITIES: Record<string, Capability[]> = {
   archive: ['archive_lookup'],
 }
 
-/** v0 ALL_SOURCES category ↔ v1 domain 映射（前端过滤 /sources 响应时用） */
-const DOMAIN_TO_V0_CATEGORY: Record<string, string> = {
+/** Domain ↔ ALL_SOURCES category 映射（前端过滤 /sources 响应时用） */
+const DOMAIN_TO_CATEGORY: Record<string, string> = {
   paper: 'paper',
   patent: 'patent',
   web: 'general',
@@ -98,7 +97,7 @@ export function useSearchPage(domain: string): SearchPageState {
       try {
         const data = await api.getSources()
         if (!mounted) return
-        const key = DOMAIN_TO_V0_CATEGORY[domain] ?? domain
+        const key = DOMAIN_TO_CATEGORY[domain] ?? domain
         const sources = ((data as unknown) as Record<string, SourceInfo[]>)[key] || []
         setAvailableSources(sources)
         // domain 切换时总是重置为新 domain 的全部源，避免残留上一个 domain 的源名

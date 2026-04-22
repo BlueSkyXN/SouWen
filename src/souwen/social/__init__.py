@@ -1,6 +1,6 @@
-"""social/ — 社交平台搜索域（v1）
+"""social/ — 社交平台搜索域
 
-re-export v0 的 social 客户端，保持对外 import 稳定。
+Public API: re-export 社交客户端，保持对外 import 稳定。
 
 Sources: reddit / twitter / facebook / weibo / zhihu
 """

@@ -8,7 +8,7 @@ import json
 import typer
 from rich.table import Table
 
-from souwen.cli._common import _deprecation_notice, _run_async, console
+from souwen.cli._common import _run_async, console
 
 wayback_app = typer.Typer(help="Wayback Machine 归档工具")
 
@@ -23,7 +23,6 @@ def wayback_cdx(
     timeout: int = typer.Option(60, "--timeout", "-t", help="超时（秒）"),
 ) -> None:
     """查询 URL 的历史快照列表"""
-    _deprecation_notice("souwen wayback cdx")
     from souwen.web.wayback import WaybackClient
 
     async def _do():
@@ -71,7 +70,6 @@ def wayback_check(
     timeout: int = typer.Option(30, "--timeout", "-t", help="超时（秒）"),
 ) -> None:
     """检查 URL 是否有 Wayback 存档"""
-    _deprecation_notice("souwen wayback check")
     from souwen.web.wayback import WaybackClient
 
     async def _do():
@@ -112,7 +110,6 @@ def wayback_save(
     timeout: int = typer.Option(90, "--timeout", "-t", help="超时（秒，存档较慢）"),
 ) -> None:
     """提交 URL 到 Internet Archive 即时存档"""
-    _deprecation_notice("souwen wayback save")
     from souwen.web.wayback import WaybackClient
 
     async def _do():
