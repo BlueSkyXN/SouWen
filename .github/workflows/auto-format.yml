@@ -37,13 +37,16 @@ jobs:
       - name: 安装 ruff
         run: pip install ruff
 
+      - name: 运行 ruff check --fix（仅安全修复）
+        run: ruff check --fix src/ tests/
+
       - name: 运行 ruff format
         run: ruff format src/ tests/
 
       - name: 提交格式化修复
         uses: stefanzweifel/git-auto-commit-action@v5
         with:
-          commit_message: "style: auto-format with ruff"
+          commit_message: "style: auto-format (ruff check --fix + ruff format)"
           commit_author: "github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
           file_pattern: "src/**/*.py tests/**/*.py"
 
