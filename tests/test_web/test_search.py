@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import asynccontextmanager
-from unittest.mock import AsyncMock
 
 from souwen.models import SearchResponse, SourceType, WebSearchResult
 from souwen.registry.adapter import MethodSpec, SourceAdapter
