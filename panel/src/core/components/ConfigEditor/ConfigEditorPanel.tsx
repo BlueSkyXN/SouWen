@@ -247,6 +247,7 @@ export function ConfigEditorPanel({ className }: Props) {
     // Check data-theme or class attribute for theme detection
     return (
       htmlEl.dataset.theme === 'dark' ||
+      htmlEl.dataset.mode === 'dark' ||
       htmlEl.className.includes('dark') ||
       window.matchMedia('(prefers-color-scheme: dark)').matches
     )
@@ -258,6 +259,7 @@ export function ConfigEditorPanel({ className }: Props) {
       const htmlEl = document.documentElement
       const dark =
         htmlEl.dataset.theme === 'dark' ||
+        htmlEl.dataset.mode === 'dark' ||
         htmlEl.className.includes('dark') ||
         window.matchMedia('(prefers-color-scheme: dark)').matches
       setIsDarkTheme(dark)
@@ -303,7 +305,7 @@ export function ConfigEditorPanel({ className }: Props) {
   const handleTabChange = useCallback(
     (tab: TabId) => {
       if (activeTab === 'visual' && tab === 'source' && visualDirty) {
-        const newYaml = flatToYaml(visualValues, originalYaml)
+        const newYaml = flatToYaml(visualValues, yamlContent)
         setYamlContent(newYaml)
       } else if (activeTab === 'source' && tab === 'visual') {
         // Validate YAML syntax before switching

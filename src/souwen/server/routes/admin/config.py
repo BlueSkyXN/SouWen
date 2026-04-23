@@ -103,10 +103,24 @@ async def save_config_yaml(body: YamlConfigSaveRequest):
             raise HTTPException(status_code=422, detail=f"YAML 语法错误: {exc}")
 
         # Pydantic 模型校验（dry-run）
+        # parsed_dict 是嵌套结构 {paper: {...}, web: {...}, ...}，
+        # 而 SouWenConfig 期望扁平字段名，需先扁平化（与 loader._load_yaml_config 一致）
         try:
             from souwen.config import SouWenConfig
 
-            SouWenConfig(**parsed_dict)
+            valid_fields = set(SouWenConfig.model_fields)
+            flat_dict: dict = {}
+            for key, values in parsed_dict.items():
+                if key == "sources" and isinstance(values, dict):
+                    flat_dict["sources"] = values
+                elif isinstance(values, dict):
+                    for k, v in values.items():
+                        if k in valid_fields:
+                            flat_dict[k] = v
+                elif key in valid_fields:
+                    flat_dict[key] = values
+
+            SouWenConfig(**flat_dict)
         except Exception as exc:
             raise HTTPException(status_code=422, detail=f"配置校验失败: {exc}")
 
