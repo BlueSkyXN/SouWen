@@ -94,7 +94,7 @@ export interface ApiService {
   reloadConfig(): Promise<ReloadResponse>
   getDoctor(): Promise<DoctorResponse>
   getConfigYaml(): Promise<YamlConfigResponse>
-  saveConfigYaml(content: string): Promise<{ status: string; path: string; password_set: boolean }>
+  saveConfigYaml(content: string): Promise<YamlConfigResponse>
 
   // === warp ===
   getWarpStatus(): Promise<WarpStatus>

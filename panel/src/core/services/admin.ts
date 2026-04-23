@@ -11,7 +11,7 @@ export interface AdminApi {
   reloadConfig(): Promise<ReloadResponse>
   getDoctor(): Promise<DoctorResponse>
   getConfigYaml(): Promise<YamlConfigResponse>
-  saveConfigYaml(content: string): Promise<{ status: string; path: string; password_set: boolean }>
+  saveConfigYaml(content: string): Promise<YamlConfigResponse>
 }
 
 export const adminMethods = {
@@ -42,8 +42,8 @@ export const adminMethods = {
   async saveConfigYaml(
     this: ApiServiceBase,
     content: string,
-  ): Promise<{ status: string; path: string; password_set: boolean }> {
-    return this.request<{ status: string; path: string; password_set: boolean }>(
+  ): Promise<YamlConfigResponse> {
+    return this.request<YamlConfigResponse>(
       '/api/v1/admin/config/yaml',
       {
         method: 'PUT',
