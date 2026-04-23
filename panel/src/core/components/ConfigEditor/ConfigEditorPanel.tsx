@@ -8,11 +8,12 @@
  * 公共 Props: className?: string
  */
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import { useTranslation } from 'react-i18next'
 import CodeMirror from '@uiw/react-codemirror'
 import { yaml } from '@codemirror/lang-yaml'
 import { EditorView } from '@codemirror/view'
+import { oneDark } from '@codemirror/theme-one-dark'
 import * as jsyaml from 'js-yaml'
 import {
   Code2,
@@ -44,9 +45,19 @@ function parseYamlToFlat(content: string): Record<string, Record<string, unknown
   return {}
 }
 
-function flatToYaml(sections: Record<string, Record<string, unknown>>): string {
-  // Preserve null values to keep YAML structure intact; remove empty strings
-  const cleaned: Record<string, Record<string, unknown>> = {}
+function flatToYaml(sections: Record<string, Record<string, unknown>>, originalYaml?: string): string {
+  // Preserve unknown top-level keys and fields from original YAML
+  let baseObj: Record<string, Record<string, unknown>> = {}
+  if (originalYaml) {
+    try {
+      baseObj = parseYamlToFlat(originalYaml)
+    } catch {
+      // If parsing fails, start with empty object
+    }
+  }
+
+  // Merge visual values into base object, preserving unknown keys
+  const merged: Record<string, Record<string, unknown>> = { ...baseObj }
   for (const [sec, fields] of Object.entries(sections)) {
     const cleanedFields: Record<string, unknown> = {}
     for (const [k, v] of Object.entries(fields)) {
@@ -56,9 +67,10 @@ function flatToYaml(sections: Record<string, Record<string, unknown>>): string {
         cleanedFields[k] = null
       }
     }
-    cleaned[sec] = cleanedFields
+    merged[sec] = { ...(baseObj[sec] ?? {}), ...cleanedFields }
   }
-  return jsyaml.dump(cleaned, { indent: 2, lineWidth: 120, noRefs: true })
+
+  return jsyaml.dump(merged, { indent: 2, lineWidth: 120, noRefs: true })
 }
 
 /* ── VisualField ─────────────────────────── */
@@ -228,6 +240,43 @@ export function ConfigEditorPanel({ className }: Props) {
   // Track original yaml for source editor dirty detection
   const [originalYaml, setOriginalYaml] = useState('')
 
+  // Detect dark theme by checking document theme attribute or CSS variables
+  const [isDarkTheme, setIsDarkTheme] = useState(() => {
+    if (typeof document === 'undefined') return false
+    const htmlEl = document.documentElement
+    // Check data-theme or class attribute for theme detection
+    return (
+      htmlEl.dataset.theme === 'dark' ||
+      htmlEl.className.includes('dark') ||
+      window.matchMedia('(prefers-color-scheme: dark)').matches
+    )
+  })
+
+  // Monitor theme changes
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      const htmlEl = document.documentElement
+      const dark =
+        htmlEl.dataset.theme === 'dark' ||
+        htmlEl.className.includes('dark') ||
+        window.matchMedia('(prefers-color-scheme: dark)').matches
+      setIsDarkTheme(dark)
+    })
+
+    observer.observe(document.documentElement, { attributes: true })
+
+    const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)')
+    const handleChange = (e: MediaQueryListEvent) => setIsDarkTheme(e.matches)
+    mediaQuery.addEventListener('change', handleChange)
+
+    return () => {
+      observer.disconnect()
+      mediaQuery.removeEventListener('change', handleChange)
+    }
+  }, [])
+
+  const codemirrorTheme = useMemo(() => (isDarkTheme ? oneDark : undefined), [isDarkTheme])
+
   const loadConfig = useCallback(async () => {
     setLoading(true)
     try {
@@ -254,9 +303,16 @@ export function ConfigEditorPanel({ className }: Props) {
   const handleTabChange = useCallback(
     (tab: TabId) => {
       if (activeTab === 'visual' && tab === 'source' && visualDirty) {
-        const newYaml = flatToYaml(visualValues)
+        const newYaml = flatToYaml(visualValues, originalYaml)
         setYamlContent(newYaml)
       } else if (activeTab === 'source' && tab === 'visual') {
+        // Validate YAML syntax before switching
+        try {
+          jsyaml.load(yamlContent)
+        } catch (err) {
+          addToast('error', t('config.yamlSyntaxError', { message: String(err) }))
+          return // Prevent tab switch on validation error
+        }
         // Re-parse source YAML into visual state
         const parsed = parseYamlToFlat(yamlContent)
         setVisualValues(parsed)
@@ -264,7 +320,7 @@ export function ConfigEditorPanel({ className }: Props) {
       }
       setActiveTab(tab)
     },
-    [activeTab, visualDirty, visualValues, yamlContent],
+    [activeTab, visualDirty, visualValues, yamlContent, originalYaml, addToast, t],
   )
 
   const handleVisualFieldChange = useCallback(
@@ -302,7 +358,7 @@ export function ConfigEditorPanel({ className }: Props) {
   const handleSaveVisual = useCallback(async () => {
     setSaving(true)
     try {
-      const newYaml = flatToYaml(visualValues)
+      const newYaml = flatToYaml(visualValues, originalYaml)
       const res = await api.saveConfigYaml(newYaml)
       setYamlContent(newYaml)
       setOriginalYaml(newYaml)
@@ -314,7 +370,7 @@ export function ConfigEditorPanel({ className }: Props) {
     } finally {
       setSaving(false)
     }
-  }, [addToast, t, visualValues])
+  }, [addToast, t, visualValues, originalYaml])
 
   const sourceDirty = yamlContent !== originalYaml
 
@@ -353,6 +409,7 @@ export function ConfigEditorPanel({ className }: Props) {
                 value={yamlContent}
                 onChange={setYamlContent}
                 extensions={[yaml(), EditorView.lineWrapping]}
+                theme={codemirrorTheme}
                 basicSetup={{
                   lineNumbers: true,
                   foldGutter: true,
@@ -408,7 +465,7 @@ export function ConfigEditorPanel({ className }: Props) {
               </div>
               <div className={styles.sectionBody}>
                 <p style={{ fontSize: '0.8125rem', color: 'var(--text-secondary, #888)', margin: 0 }}>
-                  此节配置结构复杂，请在「源文件编辑」标签中直接编辑。
+                  {t('config.visualSectionSourcesHint')}
                 </p>
               </div>
             </div>
