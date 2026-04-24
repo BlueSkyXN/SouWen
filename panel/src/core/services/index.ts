@@ -39,6 +39,7 @@ import type {
   ConfigResponse,
   ReloadResponse,
   DoctorResponse,
+  YamlConfigResponse,
   WarpStatus,
   WarpActionResult,
   HttpBackendResponse,
@@ -92,6 +93,8 @@ export interface ApiService {
   getConfig(): Promise<ConfigResponse>
   reloadConfig(): Promise<ReloadResponse>
   getDoctor(): Promise<DoctorResponse>
+  getConfigYaml(): Promise<YamlConfigResponse>
+  saveConfigYaml(content: string): Promise<YamlConfigResponse>
 
   // === warp ===
   getWarpStatus(): Promise<WarpStatus>

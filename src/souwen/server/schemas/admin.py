@@ -123,3 +123,16 @@ class WaybackSaveResponse(BaseModel):
     snapshot_url: str | None = None
     timestamp: str | None = None
     error: str | None = None
+
+
+class YamlConfigResponse(BaseModel):
+    """原始 YAML 配置文件内容响应"""
+
+    content: str = Field(..., description="YAML 文件内容")
+    path: str | None = Field(None, description="配置文件路径，None 表示返回默认模板")
+
+
+class YamlConfigSaveRequest(BaseModel):
+    """保存 YAML 配置文件请求体"""
+
+    content: str = Field(..., description="YAML 配置文件内容")
