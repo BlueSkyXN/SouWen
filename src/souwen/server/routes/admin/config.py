@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import tempfile
 from pathlib import Path
@@ -11,6 +12,8 @@ from fastapi import APIRouter, HTTPException
 
 from souwen.server.routes._common import _is_secret_field
 from souwen.server.schemas import ConfigReloadResponse, YamlConfigResponse, YamlConfigSaveRequest
+
+log = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -150,8 +153,14 @@ async def save_config_yaml(body: YamlConfigSaveRequest):
             bak_path = target.with_suffix(target.suffix + ".bak")
             try:
                 _atomic_write(bak_path, backup_content)
-            except OSError:
-                pass  # .bak 写入失败不阻塞主流程
+                # 镜像源文件权限，避免 .bak 权限漂移泄露敏感配置
+                try:
+                    src_mode = target.stat().st_mode
+                    os.chmod(bak_path, src_mode & 0o7777)
+                except OSError:
+                    pass
+            except OSError as exc:
+                log.warning("Failed to write config backup %s: %s", bak_path, exc)
 
         # 原子写入：先写临时文件再 rename
         try:
