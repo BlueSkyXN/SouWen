@@ -145,6 +145,14 @@ async def save_config_yaml(body: YamlConfigSaveRequest):
             except OSError as exc:
                 raise HTTPException(status_code=500, detail=f"读取旧配置失败: {exc}")
 
+        # 持久化 .bak 备份（即使进程崩溃也可手动恢复）
+        if backup_content is not None:
+            bak_path = target.with_suffix(target.suffix + ".bak")
+            try:
+                _atomic_write(bak_path, backup_content)
+            except OSError:
+                pass  # .bak 写入失败不阻塞主流程
+
         # 原子写入：先写临时文件再 rename
         try:
             _atomic_write(target, body.content)

@@ -28,3 +28,6 @@ CLAUDE.md
 check-*.png
 verify-*.png
 local/
+
+# Config backups
+*.yaml.bak
