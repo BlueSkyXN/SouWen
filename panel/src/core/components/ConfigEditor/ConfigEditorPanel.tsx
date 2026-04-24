@@ -374,7 +374,7 @@ export function ConfigEditorPanel({ className }: Props) {
     } finally {
       setSaving(false)
     }
-  }, [addToast, t, visualValues, originalYaml])
+  }, [addToast, t, visualValues, yamlContent])
 
   const sourceDirty = yamlContent !== originalYaml
 
