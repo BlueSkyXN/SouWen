@@ -156,7 +156,7 @@ async def save_config_yaml(body: YamlConfigSaveRequest):
                 # 镜像源文件权限，避免 .bak 权限漂移泄露敏感配置
                 try:
                     src_mode = target.stat().st_mode
-                    os.chmod(bak_path, src_mode & 0o7777)
+                    os.chmod(bak_path, src_mode & 0o777)
                 except OSError:
                     pass
             except OSError as exc:
