@@ -362,7 +362,7 @@ export function ConfigEditorPanel({ className }: Props) {
   const handleSaveVisual = useCallback(async () => {
     setSaving(true)
     try {
-      const newYaml = flatToYaml(visualValues, originalYaml)
+      const newYaml = flatToYaml(visualValues, yamlContent)
       const res = await api.saveConfigYaml(newYaml)
       setYamlContent(newYaml)
       setOriginalYaml(newYaml)
@@ -374,7 +374,7 @@ export function ConfigEditorPanel({ className }: Props) {
     } finally {
       setSaving(false)
     }
-  }, [addToast, t, visualValues, originalYaml])
+  }, [addToast, t, visualValues, yamlContent])
 
   const sourceDirty = yamlContent !== originalYaml
 

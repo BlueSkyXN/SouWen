@@ -185,13 +185,16 @@ async def save_config_yaml(body: YamlConfigSaveRequest):
 
 
 def _atomic_write(target: Path, content: str) -> None:
-    """原子写入：写到同目录临时文件后 os.replace。"""
+    """原子写入：写到同目录临时文件后 os.replace，保留原文件权限。"""
+    old_mode = target.stat().st_mode if target.exists() else None
     tmp_fd, tmp_path = tempfile.mkstemp(dir=str(target.parent), suffix=".tmp")
     try:
         with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
             f.write(content)
             f.flush()
             os.fsync(f.fileno())
+        if old_mode is not None:
+            os.chmod(tmp_path, old_mode)
         os.replace(tmp_path, str(target))
     except BaseException:
         try:
