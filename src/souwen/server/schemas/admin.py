@@ -130,6 +130,10 @@ class YamlConfigResponse(BaseModel):
 
     content: str = Field(..., description="YAML 文件内容")
     path: str | None = Field(None, description="配置文件路径，None 表示返回默认模板")
+    unknown_keys: list[str] = Field(
+        default_factory=list,
+        description="保存时被忽略的未知配置键（typo 或不支持的字段），仅在 PUT 响应中可能非空",
+    )
 
 
 class YamlConfigSaveRequest(BaseModel):

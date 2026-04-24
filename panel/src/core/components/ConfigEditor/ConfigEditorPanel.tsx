@@ -318,7 +318,9 @@ export function ConfigEditorPanel({ className }: Props) {
         // Re-parse source YAML into visual state
         const parsed = parseYamlToFlat(yamlContent)
         setVisualValues(parsed)
-        setVisualDirty(false)
+        // Preserve dirty state: if source has unsaved changes, the visual state
+        // now reflects those unsaved changes too.
+        setVisualDirty(yamlContent !== originalYaml)
       }
       setActiveTab(tab)
     },
@@ -473,7 +475,7 @@ export function ConfigEditorPanel({ className }: Props) {
             </div>
           </div>
           <div className={styles.editorActions}>
-            {visualDirty && (
+            {(visualDirty || sourceDirty) && (
               <span className={styles.unsavedBadge}>
                 <AlertTriangle size={12} />
                 {t('config.unsavedChanges')}
@@ -482,7 +484,7 @@ export function ConfigEditorPanel({ className }: Props) {
             <button
               className={styles.saveBtn}
               onClick={() => void handleSaveVisual()}
-              disabled={saving || !visualDirty}
+              disabled={saving || (!visualDirty && !sourceDirty)}
             >
               <Save size={14} />
               {saving ? t('config.savingYaml') : t('config.saveYaml')}
