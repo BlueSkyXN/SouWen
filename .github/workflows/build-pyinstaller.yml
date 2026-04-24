@@ -138,7 +138,7 @@ jobs:
           echo "✅ panel.html 大小: $(wc -c < src/souwen/server/panel.html) 字节"
 
       - name: Upload panel.html artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: panel-html
           path: src/souwen/server/panel.html
@@ -264,7 +264,7 @@ jobs:
         run: move dist\${{ env.APP_NAME }}.exe dist\${{ matrix.artifact_name }}
 
       - name: Upload artifact
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.artifact_name }}
           path: dist/${{ matrix.artifact_name }}
