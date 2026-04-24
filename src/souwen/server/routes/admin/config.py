@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+import os
+import tempfile
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
@@ -105,6 +107,7 @@ async def save_config_yaml(body: YamlConfigSaveRequest):
         # Pydantic 模型校验（dry-run）
         # parsed_dict 是嵌套结构 {paper: {...}, web: {...}, ...}，
         # 而 SouWenConfig 期望扁平字段名，需先扁平化（与 loader._load_yaml_config 一致）
+        unknown_keys: list[str] = []
         try:
             from souwen.config import SouWenConfig
 
@@ -117,8 +120,12 @@ async def save_config_yaml(body: YamlConfigSaveRequest):
                     for k, v in values.items():
                         if k in valid_fields:
                             flat_dict[k] = v
+                        else:
+                            unknown_keys.append(f"{key}.{k}")
                 elif key in valid_fields:
                     flat_dict[key] = values
+                else:
+                    unknown_keys.append(key)
 
             SouWenConfig(**flat_dict)
         except Exception as exc:
@@ -130,20 +137,65 @@ async def save_config_yaml(body: YamlConfigSaveRequest):
             target = Path("~/.config/souwen/config.yaml").expanduser()
             target.parent.mkdir(parents=True, exist_ok=True)
 
+        # 备份旧内容用于回滚
+        backup_content: str | None = None
+        if target.exists():
+            try:
+                backup_content = target.read_text(encoding="utf-8")
+            except OSError as exc:
+                raise HTTPException(status_code=500, detail=f"读取旧配置失败: {exc}")
+
+        # 原子写入：先写临时文件再 rename
         try:
-            target.write_text(body.content, encoding="utf-8")
+            _atomic_write(target, body.content)
         except OSError as exc:
             raise HTTPException(status_code=500, detail=f"写入配置文件失败: {exc}")
 
-        # 重载配置（可能失败）
+        # 重载配置（可能失败 → 回滚）
         from souwen.config import reload_config
 
         try:
             reload_config()
         except Exception as exc:
+            # 回滚到旧内容并重新加载
+            rollback_note = ""
+            try:
+                if backup_content is not None:
+                    _atomic_write(target, backup_content)
+                else:
+                    # 之前不存在配置文件，删除新写入的
+                    try:
+                        target.unlink()
+                    except OSError:
+                        pass
+                reload_config()
+                rollback_note = "，已回滚到上一版本"
+            except Exception as rollback_exc:
+                rollback_note = f"，回滚失败: {rollback_exc}"
             raise HTTPException(
-                status_code=500,
-                detail=f"配置重载失败（文件已写入）: {exc}，请手动检查配置文件或重启服务",
+                status_code=422,
+                detail=f"配置重载失败: {exc}{rollback_note}",
             )
 
-        return YamlConfigResponse(content=body.content, path=str(target))
+        return YamlConfigResponse(
+            content=body.content,
+            path=str(target),
+            unknown_keys=unknown_keys,
+        )
+
+
+def _atomic_write(target: Path, content: str) -> None:
+    """原子写入：写到同目录临时文件后 os.replace。"""
+    tmp_fd, tmp_path = tempfile.mkstemp(dir=str(target.parent), suffix=".tmp")
+    try:
+        with os.fdopen(tmp_fd, "w", encoding="utf-8") as f:
+            f.write(content)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, str(target))
+    except BaseException:
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise
