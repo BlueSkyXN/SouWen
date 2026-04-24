@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import tempfile
 from pathlib import Path
@@ -11,6 +12,8 @@ from fastapi import APIRouter, HTTPException
 
 from souwen.server.routes._common import _is_secret_field
 from souwen.server.schemas import ConfigReloadResponse, YamlConfigResponse, YamlConfigSaveRequest
+
+log = logging.getLogger(__name__)
 
 router = APIRouter()
 
@@ -144,6 +147,20 @@ async def save_config_yaml(body: YamlConfigSaveRequest):
                 backup_content = target.read_text(encoding="utf-8")
             except OSError as exc:
                 raise HTTPException(status_code=500, detail=f"读取旧配置失败: {exc}")
+
+        # 持久化 .bak 备份（即使进程崩溃也可手动恢复）
+        if backup_content is not None:
+            bak_path = target.with_suffix(target.suffix + ".bak")
+            try:
+                _atomic_write(bak_path, backup_content)
+                # 镜像源文件权限，避免 .bak 权限漂移泄露敏感配置
+                try:
+                    src_mode = target.stat().st_mode
+                    os.chmod(bak_path, src_mode & 0o777)
+                except OSError:
+                    pass
+            except OSError as exc:
+                log.warning("Failed to write config backup %s: %s", bak_path, exc)
 
         # 原子写入：先写临时文件再 rename
         try:
