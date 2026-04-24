@@ -1,14 +1,17 @@
 /**
  * 文件用途：管理端 API — 配置读取/重载、诊断（getConfig / reloadConfig / getDoctor）。
+ * 新增：getConfigYaml / saveConfigYaml 用于在线 YAML 配置文件编辑。
  */
 
 import type { ApiServiceBase } from './_base'
-import type { ConfigResponse, ReloadResponse, DoctorResponse } from '../types'
+import type { ConfigResponse, ReloadResponse, DoctorResponse, YamlConfigResponse } from '../types'
 
 export interface AdminApi {
   getConfig(): Promise<ConfigResponse>
   reloadConfig(): Promise<ReloadResponse>
   getDoctor(): Promise<DoctorResponse>
+  getConfigYaml(): Promise<YamlConfigResponse>
+  saveConfigYaml(content: string): Promise<YamlConfigResponse>
 }
 
 export const adminMethods = {
@@ -28,5 +31,25 @@ export const adminMethods = {
   /** 获取系统诊断信息（源可达性、配置状态等） */
   async getDoctor(this: ApiServiceBase): Promise<DoctorResponse> {
     return this.request<DoctorResponse>('/api/v1/admin/doctor', { headers: this.headers() })
+  },
+
+  /** 获取原始 YAML 配置文件内容 */
+  async getConfigYaml(this: ApiServiceBase): Promise<YamlConfigResponse> {
+    return this.request<YamlConfigResponse>('/api/v1/admin/config/yaml', { headers: this.headers() })
+  },
+
+  /** 保存 YAML 配置文件并重载（PUT） */
+  async saveConfigYaml(
+    this: ApiServiceBase,
+    content: string,
+  ): Promise<YamlConfigResponse> {
+    return this.request<YamlConfigResponse>(
+      '/api/v1/admin/config/yaml',
+      {
+        method: 'PUT',
+        headers: { ...this.headers(), 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content }),
+      },
+    )
   },
 }
