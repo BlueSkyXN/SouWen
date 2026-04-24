@@ -1,5 +1,7 @@
 # SouWen 搜文
 
+**[English](README.en.md)** | 中文
+
 > 面向 AI Agent 的**统一搜索库**：学术论文 + 专利 + 网页 + 社交 + 视频 + 百科 + 开发者社区 + 中文技术 + 企业办公 + 档案 + 内容抓取
 
 [![Python](https://img.shields.io/badge/python-≥3.10-blue)](https://www.python.org/)
@@ -9,6 +11,20 @@
 **作者**: [@BlueSkyXN](https://github.com/BlueSkyXN) · **项目地址**: [github.com/BlueSkyXN/SouWen](https://github.com/BlueSkyXN/SouWen) · **协议**: [GPLv3](LICENSE)
 
 > **⚠️ 声明：本项目仅供 Python 学习与技术研究使用。** 涵盖 API 聚合、全栈开发（FastAPI + React）、爬虫技术（TLS 指纹 / 反爬绕过）、CLI、异步编程等方向。请勿用于违反法律法规或第三方服务条款的用途。
+
+---
+
+## 📖 目录
+
+- [简介](#-简介)
+- [安装](#-安装)
+- [快速开始](#-快速开始)
+- [配置](#️-配置)
+- [架构](#-架构)
+- [部署](#-部署)
+- [文档](#-文档)
+- [贡献](#-贡献)
+- [License](#-license)
 
 ---
 
@@ -119,6 +135,12 @@ curl "http://localhost:8000/api/v1/archive/cdx?url=https://example.com"
 
 访问 `/docs` 查看完整 OpenAPI 文档；访问 `/` 进入 Web UI（默认 souwen-google 皮肤）。
 
+## ⚙️ 配置
+
+配置优先级：env > `./souwen.yaml` > `~/.config/souwen/config.yaml` > `.env` > 默认值。
+
+首次运行 `souwen config init` 会在 `~/.config/souwen/config.yaml` 生成模板。
+
 ## 🏗 架构
 
 三层分离：**展示层（CLI / Server / Panel / Integrations）→ 门面层（facade/）→ 注册表层（registry/）+ 业务层（paper/patent/...）+ 平台层（core/）**。
@@ -166,12 +188,6 @@ docker run -p 8000:8000 \
 - [docs/adding-a-source.md](docs/adding-a-source.md) — 新增数据源指南
 - [docs/contributing.md](docs/contributing.md) — 开发者指南
 - [CHANGELOG.md](CHANGELOG.md) — 版本变更
-
-## ⚙️ 配置
-
-配置优先级：env > `./souwen.yaml` > `~/.config/souwen/config.yaml` > `.env` > 默认值。
-
-首次运行 `souwen config init` 会在 `~/.config/souwen/config.yaml` 生成模板。
 
 ## 🤝 贡献
 
