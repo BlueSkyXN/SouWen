@@ -1,6 +1,6 @@
 # SouWen 数据源清单
 
-**总计**：**85** 个数据源（从 registry 自动生成）。
+**总计**：**90** 个数据源（从 registry 自动生成）。
 
 <!-- BEGIN AUTO -->
 
@@ -102,14 +102,21 @@
 | `github` | open_api | 可选Key | search | `github_token` |
 | `stackoverflow` | open_api | 可选Key | search | `stackoverflow_api_key` |
 
-## 中文技术社区 · `cn_tech`（4 源）
+## 中文技术社区 · `cn_tech`（9 源）
 
 | Name | Integration | Key Req | Capabilities | Config Field |
 |---|---|---|---|---|
 | `community_cn` | scraper | 免配置 | search | — |
+| `coolapk` | scraper | 免配置 | search | — |
 | `csdn` | scraper | 免配置 | search | — |
+| `hostloc` | scraper | 免配置 | search | — |
 | `juejin` | scraper | 免配置 | search | — |
 | `linuxdo` | open_api | 免配置 | search | — |
+| `nodeseek` | scraper | 免配置 | search | — |
+| `v2ex` | scraper | 免配置 | search | — |
+| `xiaohongshu` | scraper | 免配置 | search | — |
+
+> 说明：`community_cn` 为兼容保留的聚合入口（已弃用），建议优先使用拆分后的独立源。
 
 ## 企业/办公 · `office`（1 源）
 

@@ -6,7 +6,7 @@ WebSearchResult 必要字段等不变量。
 
 测试清单：
 - ``TestAllSources``：ALL_SOURCES 字典结构、计数、论文/专利/Web 源统计
-- ``TestSourceTypeEnum``：SourceType 有 37 个枚举值、各源名称
+- ``TestSourceTypeEnum``：SourceType 枚举值完整性、各源名称
 - ``TestExtraForbid``：拒绝未知字段
 - ``TestWebSearchResult``：必要字段校验、snippet 默认值
 """
@@ -48,13 +48,13 @@ class TestAllSources:
         assert len(ALL_SOURCES["developer"]) == 2
         assert len(ALL_SOURCES["wiki"]) == 1
         assert len(ALL_SOURCES["video"]) == 2
-        # v1 新增：cn_tech 独立分类
-        assert len(ALL_SOURCES["cn_tech"]) == 4
+        # cn_tech 拆分后独立源
+        assert len(ALL_SOURCES["cn_tech"]) == 9
 
     def test_total_count(self):
-        """总计暴露的数据源数量（新增 community_cn 后为 85）。"""
+        """总计暴露的数据源数量。"""
         total = sum(len(v) for v in ALL_SOURCES.values())
-        assert total == 85  # v0: 73
+        assert total == 90  # v0: 73
 
     def test_each_entry_is_tuple_of_three(self):
         """每条目是 (name, requires_key, desc) 三元组"""
@@ -88,8 +88,8 @@ class TestSourceTypeEnum:
     """SourceType 枚举测试"""
 
     def test_has_59_values(self):
-        """枚举有 70 个值"""
-        assert len(SourceType) == 70
+        """枚举有 75 个值"""
+        assert len(SourceType) == 75
 
     def test_paper_sources_exist(self):
         """论文数据源枚举存在"""

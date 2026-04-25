@@ -1,0 +1,10 @@
+from __future__ import annotations
+
+from souwen.models import SourceType
+from souwen.web._ddg_site_search import DdgSiteSearchClient
+
+
+class V2EXClient(DdgSiteSearchClient):
+    ENGINE_NAME = "v2ex"
+    SITE_DOMAIN = "v2ex.com"
+    SOURCE_TYPE = SourceType.WEB_V2EX
