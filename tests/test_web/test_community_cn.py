@@ -268,6 +268,6 @@ class TestCommunityCnClient:
 
         resp = await client.search("Python")
 
-        v2ex_results = [r for r in resp.results if "v2ex.com" in r.engine]
+        v2ex_results = [r for r in resp.results if r.engine == "community_cn:v2ex.com"]
         assert len(v2ex_results) == 1
         assert v2ex_results[0].engine == "community_cn:v2ex.com"
