@@ -47,7 +47,14 @@ class TestPlatformDomains:
     """平台常量测试"""
 
     def test_has_required_platforms(self):
-        required = {"linux.do", "nodeseek.com", "hostloc.com", "v2ex.com", "coolapk.com", "xiaohongshu.com"}
+        required = {
+            "linux.do",
+            "nodeseek.com",
+            "hostloc.com",
+            "v2ex.com",
+            "coolapk.com",
+            "xiaohongshu.com",
+        }
         assert required == set(PLATFORM_DOMAINS.keys())
 
     def test_labels_non_empty(self):
@@ -99,7 +106,13 @@ class TestCommunityCnClient:
             for domain in PLATFORM_DOMAINS:
                 if f"site:{domain}" in query:
                     return _make_ddg_response(
-                        [{"title": f"Post on {domain}", "url": f"https://{domain}/post/1", "snippet": "content"}],
+                        [
+                            {
+                                "title": f"Post on {domain}",
+                                "url": f"https://{domain}/post/1",
+                                "snippet": "content",
+                            }
+                        ],
                         query=query,
                     )
             return _make_ddg_response([], query=query)
@@ -152,9 +165,21 @@ class TestCommunityCnClient:
             call_count += 1
             return _make_ddg_response(
                 [
-                    {"title": f"R{call_count}-1", "url": f"https://example.com/{call_count}/1", "snippet": "a"},
-                    {"title": f"R{call_count}-2", "url": f"https://example.com/{call_count}/2", "snippet": "b"},
-                    {"title": f"R{call_count}-3", "url": f"https://example.com/{call_count}/3", "snippet": "c"},
+                    {
+                        "title": f"R{call_count}-1",
+                        "url": f"https://example.com/{call_count}/1",
+                        "snippet": "a",
+                    },
+                    {
+                        "title": f"R{call_count}-2",
+                        "url": f"https://example.com/{call_count}/2",
+                        "snippet": "b",
+                    },
+                    {
+                        "title": f"R{call_count}-3",
+                        "url": f"https://example.com/{call_count}/3",
+                        "snippet": "c",
+                    },
                 ],
                 query=query,
             )
