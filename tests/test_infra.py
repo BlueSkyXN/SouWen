@@ -210,13 +210,18 @@ class TestModels:
             SourceType.WEB_YOUTUBE,
             SourceType.WEB_ZHIHU,
             SourceType.WEB_WEIBO,
+            SourceType.WEB_NODESEEK,
+            SourceType.WEB_HOSTLOC,
+            SourceType.WEB_V2EX,
+            SourceType.WEB_COOLAPK,
+            SourceType.WEB_XIAOHONGSHU,
             SourceType.WEB_FEISHU_DRIVE,
             SourceType.WEB_ZHIPUAI,
             SourceType.WEB_ALIYUN_IQS,
         ]
         assert len(paper_sources) == 16
         assert len(patent_sources) == 8
-        assert len(web_sources) == 21
+        assert len(web_sources) == 26
 
 
 class TestExceptions:
@@ -534,8 +539,8 @@ class TestCLI:
         # v0 期望 31；v1 修复漂移后为 38
         assert total_web == 38
         assert len(ALL_SOURCES["fetch"]) == 20
-        # v1 新增分类（v0 的 ALL_SOURCES 漏列）
-        assert len(ALL_SOURCES["cn_tech"]) == 4
+        # cn_tech 拆分后独立源
+        assert len(ALL_SOURCES["cn_tech"]) == 9
 
 
 class TestServer:
