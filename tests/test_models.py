@@ -49,12 +49,12 @@ class TestAllSources:
         assert len(ALL_SOURCES["wiki"]) == 1
         assert len(ALL_SOURCES["video"]) == 2
         # v1 新增：cn_tech 独立分类
-        assert len(ALL_SOURCES["cn_tech"]) == 3
+        assert len(ALL_SOURCES["cn_tech"]) == 4
 
     def test_total_count(self):
-        """总计暴露的数据源数量（新增 arxiv_fulltext 后为 84）。"""
+        """总计暴露的数据源数量（新增 community_cn 后为 85）。"""
         total = sum(len(v) for v in ALL_SOURCES.values())
-        assert total == 84  # v0: 73
+        assert total == 85  # v0: 73
 
     def test_each_entry_is_tuple_of_three(self):
         """每条目是 (name, requires_key, desc) 三元组"""
@@ -88,8 +88,8 @@ class TestSourceTypeEnum:
     """SourceType 枚举测试"""
 
     def test_has_59_values(self):
-        """枚举有 59 个值"""
-        assert len(SourceType) == 69
+        """枚举有 70 个值"""
+        assert len(SourceType) == 70
 
     def test_paper_sources_exist(self):
         """论文数据源枚举存在"""

@@ -161,6 +161,12 @@ class SouWenConfig(BaseModel):
     mcp_fetch_tool_name: str = "fetch"  # MCP fetch 工具名称
     mcp_extra_headers: dict[str, str] = Field(default_factory=dict)  # MCP 请求附加头
 
+    # ===== MCP HTTP 网络端点（服务端） =====
+    mcp_http_enabled: bool = False  # 是否启用网络 MCP（SHTTP），挂载于 /mcp
+    mcp_http_enable_sse: bool = True  # 是否额外启用 SSE 传输，挂载于 /mcp/sse
+    mcp_http_stateless: bool = True  # SHTTP 是否使用无状态模式
+    mcp_http_json_response: bool = True  # SHTTP 是否使用 JSON 响应（而非 SSE 流）
+
     # ===== 通用 =====
     proxy: str | None = None
     proxy_pool: list[str] = []
