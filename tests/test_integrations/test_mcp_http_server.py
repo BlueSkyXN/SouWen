@@ -14,6 +14,9 @@ import pytest
 
 from souwen.config.models import SouWenConfig
 
+pytest.importorskip("starlette")
+pytest.importorskip("fastapi")
+
 
 # ---------------------------------------------------------------------------
 # a. 鉴权中间件测试
