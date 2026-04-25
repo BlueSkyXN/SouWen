@@ -43,9 +43,7 @@ def mcp_info() -> None:
     console.print("  [yellow]SOUWEN_MCP_HTTP_ENABLED=true[/yellow]       # 启用网络 MCP")
     console.print("  [dim]SOUWEN_MCP_HTTP_ENABLE_SSE=true[/dim]    # 额外启用 SSE（默认 true）")
     console.print("  [dim]SOUWEN_MCP_HTTP_STATELESS=true[/dim]     # SHTTP 无状态模式（默认 true）")
-    console.print(
-        "  [dim]SOUWEN_MCP_HTTP_JSON_RESPONSE=true[/dim]  # SHTTP JSON 响应（默认 true）"
-    )
+    console.print("  [dim]SOUWEN_MCP_HTTP_JSON_RESPONSE=true[/dim]  # SHTTP JSON 响应（默认 true）")
     console.print(
         "\n[dim]鉴权：复用现有 User/Admin Bearer Token，Guest 不可访问 MCP 网络端点。[/dim]"
     )
