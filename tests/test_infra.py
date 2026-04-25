@@ -535,7 +535,7 @@ class TestCLI:
         assert total_web == 38
         assert len(ALL_SOURCES["fetch"]) == 20
         # v1 新增分类（v0 的 ALL_SOURCES 漏列）
-        assert len(ALL_SOURCES["cn_tech"]) == 3
+        assert len(ALL_SOURCES["cn_tech"]) == 4
 
 
 class TestServer:

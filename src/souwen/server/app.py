@@ -172,7 +172,30 @@ async def lifespan(app: FastAPI):
     except Exception:
         logger.warning("WARP 状态协调失败，跳过", exc_info=True)
 
+    # MCP Streamable HTTP lifespan（仅在启用时）
+    _mcp_http_ctx = None
+    if cfg.mcp_http_enabled:
+        try:
+            from souwen.integrations.mcp.http_server import shttp_lifespan
+
+            _mcp_http_ctx = shttp_lifespan()
+            await _mcp_http_ctx.__aenter__()
+            logger.info("MCP HTTP 网络端点已启用")
+        except ImportError:
+            logger.warning("MCP HTTP 已配置启用，但 mcp 依赖未安装，跳过")
+            _mcp_http_ctx = None
+        except Exception:
+            logger.warning("MCP HTTP lifespan 启动失败，跳过", exc_info=True)
+            _mcp_http_ctx = None
+
     yield
+
+    # 关闭 MCP HTTP lifespan
+    if _mcp_http_ctx is not None:
+        try:
+            await _mcp_http_ctx.__aexit__(None, None, None)
+        except Exception:
+            logger.warning("MCP HTTP lifespan 关闭失败", exc_info=True)
 
     # 关闭会话缓存的 aiosqlite 连接
     try:
@@ -223,6 +246,23 @@ app.add_middleware(RequestIDMiddleware)
 
 app.include_router(router, prefix="/api/v1")
 app.include_router(admin_router, prefix="/api/v1/admin")
+
+# --- MCP 网络端点挂载（可选） ---
+_mcp_cfg = get_config()
+if _mcp_cfg.mcp_http_enabled:
+    try:
+        from souwen.integrations.mcp.http_server import create_shttp_app, create_sse_app
+
+        app.mount("/mcp/sse", create_sse_app()) if _mcp_cfg.mcp_http_enable_sse else None
+        app.mount("/mcp", create_shttp_app())
+        logger.info(
+            "MCP 网络端点已挂载: /mcp (SHTTP)%s",
+            " + /mcp/sse (SSE)" if _mcp_cfg.mcp_http_enable_sse else "",
+        )
+    except ImportError:
+        logger.warning("MCP HTTP 已配置启用，但 mcp 依赖未安装，跳过挂载")
+    except Exception:
+        logger.warning("MCP HTTP 子应用创建失败，跳过挂载", exc_info=True)
 
 
 # --- 全局异常处理器（统一 ErrorResponse 格式）---

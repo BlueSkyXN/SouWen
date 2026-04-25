@@ -12,7 +12,7 @@
   7. video（2 源）
   8. knowledge（1 源 Wikipedia；DeepWiki 归 fetch）
   9. developer（2 源）
- 10. cn_tech（3 源）
+ 10. cn_tech（4 源）
  11. office（1 源）
  12. archive（1 源：Wayback，extra_domains={"fetch"}）
  13. fetch providers（15 个横切 + 上面几个跨域源）
@@ -964,7 +964,7 @@ _reg(
 
 
 # ═════════════════════════════════════════════════════════════
-# 10. cn_tech（3 源）
+# 10. cn_tech（4 源）
 # ═════════════════════════════════════════════════════════════
 
 _reg(
@@ -999,6 +999,18 @@ _reg(
         description="LinuxDo 论坛搜索（Discourse）",
         config_field=None,
         client_loader=lazy("souwen.web.linuxdo:LinuxDoClient"),
+        methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
+    )
+)
+
+_reg(
+    SourceAdapter(
+        name="community_cn",
+        domain="cn_tech",
+        integration="scraper",
+        description="中文社区聚合搜索（linux.do/NodeSeek/HostLoc/V2EX/Coolapk/小红书）",
+        config_field=None,
+        client_loader=lazy("souwen.web.community_cn:CommunityCnClient"),
         methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
     )
 )

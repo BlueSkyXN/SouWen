@@ -1,6 +1,6 @@
 # SouWen 数据源清单
 
-**总计**：**84** 个数据源（从 registry 自动生成）。
+**总计**：**85** 个数据源（从 registry 自动生成）。
 
 <!-- BEGIN AUTO -->
 
@@ -102,10 +102,11 @@
 | `github` | open_api | 可选Key | search | `github_token` |
 | `stackoverflow` | open_api | 可选Key | search | `stackoverflow_api_key` |
 
-## 中文技术社区 · `cn_tech`（3 源）
+## 中文技术社区 · `cn_tech`（4 源）
 
 | Name | Integration | Key Req | Capabilities | Config Field |
 |---|---|---|---|---|
+| `community_cn` | scraper | 免配置 | search | — |
 | `csdn` | scraper | 免配置 | search | — |
 | `juejin` | scraper | 免配置 | search | — |
 | `linuxdo` | open_api | 免配置 | search | — |
