@@ -36,10 +36,10 @@ The registry architecture reduces the cost of adding a new source to **1–2 cod
 
 ### Features
 
-- **83 heterogeneous data sources** (derived from a unified `registry`):
+- **90 heterogeneous data sources** (derived from a unified `registry`):
   - `paper` 17 · `patent` 8 · `web` 28 (engines/api/self_hosted)
   - `social` 5 · `video` 2 · `knowledge` 1
-  - `developer` 2 · `cn_tech` 3 · `office` 1 · `archive` 1
+  - `developer` 2 · `cn_tech` 9 · `office` 1 · `archive` 1
   - `fetch` cross-cutting: 15 fetch providers + 4 cross-domain providers
 - **Unified Pydantic v2 models**: `PaperResult` / `PatentResult` / `WebSearchResult` / `FetchResult` / `WaybackCDXResponse` / …
 - **Async-first**: httpx + asyncio, per-loop Semaphore concurrency control
