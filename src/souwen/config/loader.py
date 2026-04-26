@@ -173,7 +173,18 @@ def get_config() -> SouWenConfig:
                     continue
             kwargs[field_name] = val
 
-    return SouWenConfig(**kwargs)
+    cfg = SouWenConfig(**kwargs)
+
+    # 配置加载完成后，加载 config.plugins 中手动指定的插件
+    if cfg.plugins:
+        try:
+            from souwen.plugin import load_config_plugins
+
+            load_config_plugins(cfg.plugins)
+        except Exception:  # noqa: BLE001 — 插件加载不能拖垮配置
+            logger.warning("配置插件加载失败,已跳过", exc_info=True)
+
+    return cfg
 
 
 def reload_config() -> SouWenConfig:
