@@ -22,7 +22,7 @@
 ├────────────────────────────────────────────────────────────────┤
 │ 注册表层 Registry —— 单一事实源                                │
 │   souwen.registry.adapter    SourceAdapter / MethodSpec        │
-│   souwen.registry.sources    83 个 _reg(...) 声明（权威）      │
+│   souwen.registry.sources    91 个 _reg(...) 声明（权威）      │
 │   souwen.registry.loader     字符串懒加载（避免启动 import）  │
 │   souwen.registry.views      by_domain / by_capability / ...   │
 ├────────────────────────────────────────────────────────────────┤
@@ -105,7 +105,7 @@ _reg(SourceAdapter(
 
 ### 懒加载
 
-注册表模块导入时**不**加载 80+ 个 Client：
+注册表模块导入时**不**加载 90+ 个 Client：
 
 ```python
 client_loader=lazy("souwen.paper.openalex:OpenAlexClient")
@@ -185,8 +185,21 @@ client_cls = adapter.client_loader()  # 此刻才 importlib.import_module
 
 ## 8. 插件系统（外部扩展）
 
-注册表除了承载内置的 80+ 个 `_reg()`，还能在运行时**通过外部插件**追加新的
+注册表除了承载内置的 90+ 个 `_reg()`，还能在运行时**通过外部插件**追加新的
 `SourceAdapter`，让第三方 / 私有源在不改主仓代码的前提下被 SouWen 发现。
+
+### 双模式加载
+
+插件可以通过两种方式部署，二者使用同一套 entry_points 机制：
+
+| 模式 | 安装命令 | 适用场景 |
+|---|---|---|
+| **运行时发现** | `pip install superweb2pdf` | 已发布 PyPI 包；与 SouWen 解耦升级 |
+| **打包嵌入** | `pip install "souwen[web2pdf]"` | Docker / 一键部署；插件依赖随 SouWen extras 自动拉取 |
+
+Docker 镜像示例：`pip install ".[server,tls,web2pdf]"`。
+两种模式都依赖同一个 `[project.entry-points."souwen.plugins"]` 声明，
+SouWen 启动时统一通过 `importlib.metadata` 扫描发现。
 
 ### 加载流程
 
@@ -194,7 +207,7 @@ client_cls = adapter.client_loader()  # 此刻才 importlib.import_module
 ┌─────────────────────────────────────────────────────────────────┐
 │  registry/__init__.py 导入                                       │
 │      ↓                                                           │
-│  1. import sources       —— 触发 80+ 个 _reg()，填满 _REGISTRY  │
+│  1. import sources       —— 触发 90+ 个 _reg()，填满 _REGISTRY  │
 │      ↓                                                           │
 │  2. plugin.load_plugins()                                        │
 │       ├─ discover_entrypoint_plugins()                           │
