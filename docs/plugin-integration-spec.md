@@ -40,6 +40,28 @@ SouWen 的所有数据源都通过 [`SourceAdapter`](../src/souwen/registry/adap
 my-source = "my_plugin:plugin"
 ```
 
+### 双模式加载（运行时发现 vs 打包嵌入）
+
+同一份 entry_points 声明支持两种部署形态，二者使用**完全相同**的发现机制：
+
+| 模式 | 安装方式 | 适用场景 |
+|---|---|---|
+| **运行时发现** | `pip install superweb2pdf` 单独安装第三方包 | 已发布到 PyPI；插件随宿主升级解耦；社区分发 |
+| **打包嵌入（optional dependency）** | `pip install "souwen[web2pdf]"` | Docker 镜像 / 一键部署；插件依赖随 SouWen extras 自动安装 |
+
+**Docker / 多 extras**：`pip install ".[server,tls,web2pdf]"`。
+
+要把插件挂到 SouWen 的 optional dependencies 上，宿主项目在 `pyproject.toml`
+中追加（仅 SouWen 主仓维护者关心）：
+
+```toml
+[project.optional-dependencies]
+web2pdf = ["superweb2pdf>=0.1.0"]
+```
+
+无论哪种模式，启动时 SouWen 都通过 `importlib.metadata.entry_points(group="souwen.plugins")`
+扫描发现。**插件作者通常只需声明 entry_points**，是否打包嵌入由宿主决定。
+
 ### Entry Point 目标可以是三种形态
 
 | 形态 | 示例 | 用途 |
@@ -585,6 +607,7 @@ def test_fetch_handler_registered():
 
 - 架构总览：[architecture.md](architecture.md)
 - 添加内置源（仓内贡献）：[adding-a-source.md](adding-a-source.md)
+- **最小示例插件**：[`examples/minimal-plugin/`](../examples/minimal-plugin/) —— 可直接 `pip install -e .` 体验
 - 数据模型：[`src/souwen/models.py`](../src/souwen/models.py)
 - 配置字段：[configuration.md](configuration.md)
 - 反爬 / TLS 指纹（写 scraper 类插件时）：[anti-scraping.md](anti-scraping.md)
