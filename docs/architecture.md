@@ -22,7 +22,7 @@
 ├────────────────────────────────────────────────────────────────┤
 │ 注册表层 Registry —— 单一事实源                                │
 │   souwen.registry.adapter    SourceAdapter / MethodSpec        │
-│   souwen.registry.sources    91 个 _reg(...) 声明（权威）      │
+│   souwen.registry.sources    90 个 _reg(...) 声明（权威）      │
 │   souwen.registry.loader     字符串懒加载（避免启动 import）  │
 │   souwen.registry.views      by_domain / by_capability / ...   │
 ├────────────────────────────────────────────────────────────────┤

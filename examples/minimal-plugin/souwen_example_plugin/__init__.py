@@ -21,3 +21,10 @@ plugin = SourceAdapter(
     default_enabled=False,  # 示例插件默认不启用
     tags=frozenset({"external_plugin", "example"}),
 )
+
+# Auto-register fetch handler when loaded by SouWen's plugin discovery
+try:
+    from .handler import register
+    register()
+except Exception:
+    pass  # handler registration is optional

@@ -132,28 +132,37 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
-      - name: 安装依赖（含 web2pdf 插件）
+      - name: 安装依赖
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev,web2pdf]"
+          pip install -e ".[dev]"
+
+      - name: 安装 web2pdf 插件（可选，PyPI 上可能尚未发布）
+        run: pip install "superweb2pdf[capture]>=0.2.0" || echo "superweb2pdf not available on PyPI, skipping"
+        continue-on-error: true
 
       - name: 运行插件相关测试
         run: pytest tests/test_plugin.py tests/test_fetch_handlers.py -v --tb=short
 
-      - name: 验证 entry_point 插件发现
+      - name: 安装最小示例插件
+        run: pip install -e examples/minimal-plugin
+
+      - name: 验证 entry_point 插件发现机制
         run: |
           python -c "
           from souwen.plugin import discover_entrypoint_plugins
           loaded, errors = discover_entrypoint_plugins()
-          assert 'superweb2pdf' in loaded, f'superweb2pdf not found in {loaded}'
           assert not errors, f'Plugin errors: {errors}'
-          print(f'Plugin discovery OK: {loaded}')
+          assert 'example_echo' in loaded, f'example_echo (minimal-plugin) not found in {loaded}'
+          if 'superweb2pdf' not in loaded:
+              print(f'WARN: superweb2pdf not installed (optional); loaded plugins: {loaded}')
+          else:
+              print(f'Plugin discovery OK (incl. superweb2pdf): {loaded}')
+          print(f'entry_point mechanism verified via minimal-plugin: {loaded}')
           "
 
-      - name: 安装并测试最小示例插件
-        run: |
-          pip install -e examples/minimal-plugin
-          pytest examples/minimal-plugin/tests/ -v --tb=short
+      - name: 测试最小示例插件
+        run: pytest examples/minimal-plugin/tests/ -v --tb=short
 
   server-test:
     name: 服务端测试
