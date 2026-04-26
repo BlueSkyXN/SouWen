@@ -380,7 +380,7 @@ export SOUWEN_PLUGINS='["my_plugin:plugin","other_pkg.mod:make_adapter"]'
 `load_plugins()` 返回值：
 
 ```python
-{"loaded": ["my-source", "..."], "errors": [{"path": "...", "reason": "..."}]}
+{"loaded": ["my-source", "..."], "errors": [{"source": "...", "name": "...", "error": "..."}]}
 ```
 
 可在启动日志或 `/api/v1/plugins` 端点（如有）中暴露给运维。
