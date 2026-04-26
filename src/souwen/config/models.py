@@ -236,6 +236,12 @@ class SouWenConfig(BaseModel):
     # ===== 数据源频道配置 =====
     sources: dict[str, SourceChannelConfig] = Field(default_factory=dict)
 
+    # ===== 插件系统 =====
+    plugins: list[str] = Field(
+        default_factory=list,
+        description="手动指定的插件列表，格式为 'module.path:attribute'",
+    )
+
     @field_validator("proxy")
     @classmethod
     def _check_proxy(cls, v: str | None) -> str | None:

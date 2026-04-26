@@ -228,9 +228,17 @@ curl 'http://localhost:8000/api/v1/search/paper?q=transformer&sources=my_source&
 - **`extra_domains` 滥用**：V1 初期仅允许 `{"fetch"}`。需要跨更多域请先在 `local/` 写 RFC 讨论。
 - **没在 `souwen.example.yaml` 加注释**：用户找不到字段是 V1 之后最高频的工单来源，请补上。
 
+## 7. 替代方案：作为外部插件发布
+
+如果数据源不打算合入主仓（私有、实验性或商业插件），可以作为独立 Python 包发布。
+SouWen 通过 setuptools entry_points 或配置文件自动发现外部插件。
+
+完整对接规范见 [plugin-integration-spec.md](./plugin-integration-spec.md)。
+
 ## 交叉引用
 
 - 配置字段总览：[configuration.md](./configuration.md)
 - 反爬 / 代理 / WARP：[anti-scraping.md](./anti-scraping.md)
 - 后端 API 契约（`/api/v1/sources` 自动列出新源）：[api-reference.md](./api-reference.md)
 - 通用贡献流程 / V0 兼容规则：[contributing.md](./contributing.md)
+- 外部插件对接规范：[plugin-integration-spec.md](./plugin-integration-spec.md)

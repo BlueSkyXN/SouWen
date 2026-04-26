@@ -160,6 +160,14 @@ src/souwen/
 └── server/            FastAPI application
 ```
 
+## 🧩 Plugin System
+
+SouWen supports extending data sources and fetch providers via external Python packages.
+Plugins integrate through setuptools `entry_points` or the `plugins` field in `souwen.yaml`,
+without modifying SouWen's codebase.
+
+- Integration spec: [docs/plugin-integration-spec.md](docs/plugin-integration-spec.md)
+
 ## 🚢 Deployment
 
 **Docker** (recommended):
