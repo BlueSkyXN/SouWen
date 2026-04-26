@@ -115,6 +115,45 @@ jobs:
           from souwen.doctor import check_all
           print('全部数据源 + doctor 导入成功 ✅')
           "
+          python -c "from souwen.plugin import discover_entrypoint_plugins, load_plugins; print('plugin OK')"
+          python -c "from souwen.web.fetch import register_fetch_handler, get_fetch_handlers; print('fetch_handlers OK')"
+          python -c "from souwen.registry.views import external_plugins; print('external_plugins OK')"
+
+  plugin-test:
+    name: 插件系统测试
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 安装依赖（含 web2pdf 插件）
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,web2pdf]"
+
+      - name: 运行插件相关测试
+        run: pytest tests/test_plugin.py tests/test_fetch_handlers.py -v --tb=short
+
+      - name: 验证 entry_point 插件发现
+        run: |
+          python -c "
+          from souwen.plugin import discover_entrypoint_plugins
+          loaded, errors = discover_entrypoint_plugins()
+          assert 'superweb2pdf' in loaded, f'superweb2pdf not found in {loaded}'
+          assert not errors, f'Plugin errors: {errors}'
+          print(f'Plugin discovery OK: {loaded}')
+          "
+
+      - name: 安装并测试最小示例插件
+        run: |
+          pip install -e examples/minimal-plugin
+          pytest examples/minimal-plugin/tests/ -v --tb=short
 
   server-test:
     name: 服务端测试
