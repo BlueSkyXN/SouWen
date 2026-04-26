@@ -186,6 +186,12 @@ class SourceType(str, Enum):
     WEB_CSDN = "web_csdn"
     WEB_JUEJIN = "web_juejin"
     WEB_LINUXDO = "web_linuxdo"
+    WEB_NODESEEK = "web_nodeseek"
+    WEB_HOSTLOC = "web_hostloc"
+    WEB_V2EX = "web_v2ex"
+    WEB_COOLAPK = "web_coolapk"
+    WEB_XIAOHONGSHU = "web_xiaohongshu"
+    WEB_COMMUNITY_CN = "web_community_cn"
     WEB_BING_CN = "web_bing_cn"
     # 国际社交媒体（官方 API）
     WEB_TWITTER = "web_twitter"

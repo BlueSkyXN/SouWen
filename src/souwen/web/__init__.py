@@ -75,6 +75,12 @@ from souwen.web.weibo import WeiboClient
 from souwen.web.csdn import CSDNClient
 from souwen.web.juejin import JuejinClient
 from souwen.web.linuxdo import LinuxDoClient
+from souwen.web.nodeseek import NodeSeekClient
+from souwen.web.hostloc import HostLocClient
+from souwen.web.v2ex import V2EXClient
+from souwen.web.coolapk import CoolapkClient
+from souwen.web.xiaohongshu import XiaohongshuClient
+from souwen.web.community_cn import CommunityCnClient
 from souwen.web.twitter import TwitterClient
 from souwen.web.facebook import FacebookClient
 from souwen.web.feishu_drive import FeishuDriveClient
@@ -138,6 +144,12 @@ __all__ = [
     "CSDNClient",
     "JuejinClient",
     "LinuxDoClient",
+    "NodeSeekClient",
+    "HostLocClient",
+    "V2EXClient",
+    "CoolapkClient",
+    "XiaohongshuClient",
+    "CommunityCnClient",
     # 国际社交媒体（官方 API）
     "TwitterClient",
     "FacebookClient",

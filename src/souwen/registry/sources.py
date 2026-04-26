@@ -12,7 +12,7 @@
   7. video（2 源）
   8. knowledge（1 源 Wikipedia；DeepWiki 归 fetch）
   9. developer（2 源）
- 10. cn_tech（3 源）
+ 10. cn_tech（9 源）
  11. office（1 源）
  12. archive（1 源：Wayback，extra_domains={"fetch"}）
  13. fetch providers（15 个横切 + 上面几个跨域源）
@@ -964,7 +964,7 @@ _reg(
 
 
 # ═════════════════════════════════════════════════════════════
-# 10. cn_tech（3 源）
+# 10. cn_tech（9 源）
 # ═════════════════════════════════════════════════════════════
 
 _reg(
@@ -999,6 +999,78 @@ _reg(
         description="LinuxDo 论坛搜索（Discourse）",
         config_field=None,
         client_loader=lazy("souwen.web.linuxdo:LinuxDoClient"),
+        methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
+    )
+)
+
+_reg(
+    SourceAdapter(
+        name="nodeseek",
+        domain="cn_tech",
+        integration="scraper",
+        description="NodeSeek 社区搜索（DDG site:nodeseek.com）",
+        config_field=None,
+        client_loader=lazy("souwen.web.nodeseek:NodeSeekClient"),
+        methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
+    )
+)
+
+_reg(
+    SourceAdapter(
+        name="hostloc",
+        domain="cn_tech",
+        integration="scraper",
+        description="HostLoc 论坛搜索（DDG site:hostloc.com）",
+        config_field=None,
+        client_loader=lazy("souwen.web.hostloc:HostLocClient"),
+        methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
+    )
+)
+
+_reg(
+    SourceAdapter(
+        name="v2ex",
+        domain="cn_tech",
+        integration="scraper",
+        description="V2EX 社区搜索（DDG site:v2ex.com）",
+        config_field=None,
+        client_loader=lazy("souwen.web.v2ex:V2EXClient"),
+        methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
+    )
+)
+
+_reg(
+    SourceAdapter(
+        name="coolapk",
+        domain="cn_tech",
+        integration="scraper",
+        description="Coolapk 社区搜索（DDG site:coolapk.com）",
+        config_field=None,
+        client_loader=lazy("souwen.web.coolapk:CoolapkClient"),
+        methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
+    )
+)
+
+_reg(
+    SourceAdapter(
+        name="xiaohongshu",
+        domain="cn_tech",
+        integration="scraper",
+        description="小红书搜索（DDG site:xiaohongshu.com）",
+        config_field=None,
+        client_loader=lazy("souwen.web.xiaohongshu:XiaohongshuClient"),
+        methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
+    )
+)
+
+_reg(
+    SourceAdapter(
+        name="community_cn",
+        domain="cn_tech",
+        integration="scraper",
+        description="【已弃用兼容入口】中文社区聚合搜索（请改用 linuxdo/nodeseek/hostloc/v2ex/coolapk/xiaohongshu）",
+        config_field=None,
+        client_loader=lazy("souwen.web.community_cn:CommunityCnClient"),
         methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
     )
 )
