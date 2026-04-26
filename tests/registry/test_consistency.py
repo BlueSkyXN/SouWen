@@ -35,12 +35,17 @@ from souwen.registry import (
     fetch_providers,
     high_risk_sources,
 )
+from souwen.registry import external_plugins
 from souwen.registry.adapter import (
     CAPABILITIES,
     DOMAINS,
     FETCH_DOMAIN,
     INTEGRATIONS,
+    MethodSpec,
+    SourceAdapter,
 )
+from souwen.registry.loader import lazy
+from souwen.registry.views import _reg_external
 
 
 # ── 基础不变量 ──────────────────────────────────────────────
@@ -344,4 +349,62 @@ class TestCapabilityStability:
         for cap in CAPABILITIES - allowed_unused:
             assert cap in used, (
                 f"标准 capability {cap!r} 没有源实现；如果预留未用，请加入 allowed_unused 集合"
+            )
+
+
+# ── 外部插件支持 ───────────────────────────────────────────
+
+
+class TestExternalPlugins:
+    """`external_plugins()` 视图与 `_reg_external` 的集成行为。"""
+
+    def test_external_plugins_returns_list(self):
+        out = external_plugins()
+        assert isinstance(out, list)
+        # 列表内容必定是 _REGISTRY 子集
+        names = set(all_adapters().keys())
+        for n in out:
+            assert n in names, f"external_plugins() 返回的 {n!r} 不在 registry"
+
+    def test_reg_external_does_not_corrupt_registry(self, clean_registry):
+        """注册并恢复后，所有 D11 不变量仍然成立。"""
+        adapter = SourceAdapter(
+            name="ext_consistency_probe",
+            domain="fetch",
+            integration="scraper",
+            description="probe",
+            config_field=None,
+            client_loader=lazy("souwen.web.builtin:BuiltinFetcherClient"),
+            methods={"fetch": MethodSpec("fetch")},
+            needs_config=False,
+        )
+        ok = _reg_external(adapter)
+        assert ok is True
+        # 注册后，注册表里能找到；并且 capability/domain 都合法
+        adapters = all_adapters()
+        assert "ext_consistency_probe" in adapters
+        a = adapters["ext_consistency_probe"]
+        assert a.domain in DOMAINS or a.domain == FETCH_DOMAIN
+        assert a.integration in INTEGRATIONS
+        for cap in a.capabilities:
+            assert cap in CAPABILITIES or ":" in cap
+
+    def test_external_adapter_passes_d11_validation(self, clean_registry):
+        """外部 adapter 也要满足：methods 指向真实存在的 client 方法。"""
+        adapter = SourceAdapter(
+            name="ext_d11_probe",
+            domain="fetch",
+            integration="scraper",
+            description="probe",
+            config_field=None,
+            client_loader=lazy("souwen.web.builtin:BuiltinFetcherClient"),
+            methods={"fetch": MethodSpec("fetch")},
+            needs_config=False,
+        )
+        _reg_external(adapter)
+        a = all_adapters()["ext_d11_probe"]
+        client_cls = a.client_loader()
+        for cap, spec in a.methods.items():
+            assert callable(getattr(client_cls, spec.method_name, None)), (
+                f"external adapter {a.name} method {spec.method_name} 不可调用"
             )

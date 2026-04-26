@@ -183,7 +183,73 @@ client_cls = adapter.client_loader()  # 此刻才 importlib.import_module
 
 如需 API Key，加第 3 处：`SouWenConfig` 加字段。完整流程见 [adding-a-source.md](adding-a-source.md)。
 
-## 8. 结构一致性测试（护栏）
+## 8. 插件系统（外部扩展）
+
+注册表除了承载内置的 80+ 个 `_reg()`，还能在运行时**通过外部插件**追加新的
+`SourceAdapter`，让第三方 / 私有源在不改主仓代码的前提下被 SouWen 发现。
+
+### 加载流程
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  registry/__init__.py 导入                                       │
+│      ↓                                                           │
+│  1. import sources       —— 触发 80+ 个 _reg()，填满 _REGISTRY  │
+│      ↓                                                           │
+│  2. plugin.load_plugins()                                        │
+│       ├─ discover_entrypoint_plugins()                           │
+│       │     扫描 importlib.metadata entry_points(group=          │
+│       │     "souwen.plugins")，逐个 ep.load() → _coerce_to_     │
+│       │     adapters() → _reg_external()                         │
+│       └─ load_config_plugins(config.plugins)                     │
+│             解析 "module:attr" 字符串列表，同上                  │
+│      ↓                                                           │
+│  3. _reg_external(adapter)                                       │
+│       与已有源重名 → 记 warning 跳过（不抛）                    │
+│       否则插入 _REGISTRY 并加入 _EXTERNAL_PLUGINS                │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+外部插件名出现在 `external_plugins()` 视图里，便于 CLI / `/sources` 端点审计。
+
+### 与内置注册的关键差异
+
+| 维度 | 内置 `_reg()` | 外部 `_reg_external()` |
+|---|---|---|
+| 声明位置 | `registry/sources.py` | 第三方包的 entry point |
+| 重名 | 抛 `ValueError`（启动失败） | 记 warning 跳过 |
+| 一致性测试 | 必跑 `tests/registry/test_consistency.py` | 不强制 |
+| 暴露视图 | 同上 | 额外出现在 `external_plugins()` |
+
+### Fetch Handler 注册表
+
+`fetch` 域的派发不在 registry 层，而在 [`souwen.web.fetch`](../src/souwen/web/fetch.py)
+的独立 dict `_FETCH_HANDLERS: dict[str, FetchHandler]`：
+
+```python
+FetchHandler = Callable[..., Awaitable[FetchResponse]]
+
+_FETCH_HANDLERS["builtin"]      = _handle_builtin
+_FETCH_HANDLERS["jina_reader"]  = _handle_jina_reader
+# ... 20 个内置 provider
+```
+
+外部插件通过 `register_fetch_handler(provider, handler)` 加入这张表，让
+`facade.fetch_content(providers=["my_source"])` 能派发到自己的实现。
+
+> 设计原因：fetch 调用的入参形态（`urls`/`timeout`/各种 provider 私有 kwarg）
+> 与 `MethodSpec` 的统一入参不完全对齐，单独一张 handler 表更直接。
+> SourceAdapter 负责"出现在 registry / `souwen sources`"，handler 负责"能被
+> facade 真正派发"，二者互补。
+
+### 对接规范
+
+完整的插件对接契约（SourceAdapter / MethodSpec / Client / Fetch handler / 配置 /
+打包 / 测试）见 [docs/plugin-integration-spec.md](plugin-integration-spec.md)。
+
+---
+
+## 9. 结构一致性测试（护栏）
 
 `tests/registry/test_consistency.py` 含 21 项硬断言，CI 每次 PR 必跑：
 
@@ -202,7 +268,7 @@ client_cls = adapter.client_loader()  # 此刻才 importlib.import_module
 - 每个 domain 至少有一个源支持 search / archive_lookup
 - fetch 提供者 ≥ 10 个
 
-## 9. 公开 API 入口
+## 10. 公开 API 入口
 
 注册表是单一事实源，但提供多条便捷入口：
 
