@@ -56,7 +56,7 @@ my-source = "my_plugin:plugin"
 
 ```toml
 [project.optional-dependencies]
-web2pdf = ["superweb2pdf>=0.1.0"]
+web2pdf = ["superweb2pdf[capture]>=0.2.0"]
 ```
 
 无论哪种模式，启动时 SouWen 都通过 `importlib.metadata.entry_points(group="souwen.plugins")`
