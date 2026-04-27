@@ -207,12 +207,17 @@ async def warp_config():
         "warp_socks_port": cfg.warp_socks_port,
         "warp_http_port": cfg.warp_http_port,
         "warp_endpoint": cfg.warp_endpoint,
+        "warp_bind_address": cfg.warp_bind_address,
+        "warp_startup_timeout": cfg.warp_startup_timeout,
+        "warp_device_name": cfg.warp_device_name,
+        "warp_usque_transport": cfg.warp_usque_transport,
         "warp_external_proxy": _mask_proxy_url(cfg.warp_external_proxy),
         "warp_usque_path": cfg.warp_usque_path,
         "warp_usque_config": cfg.warp_usque_config,
         "warp_gost_args": cfg.warp_gost_args,
         "has_license_key": bool(cfg.warp_license_key),
         "has_team_token": bool(cfg.warp_team_token),
+        "has_proxy_auth": bool(cfg.warp_proxy_username and cfg.warp_proxy_password),
     }
 
 

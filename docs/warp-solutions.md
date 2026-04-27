@@ -311,13 +311,13 @@ Docker 启动时，`entrypoint.sh` 会加载 `/usr/local/bin/warp-init.sh`。当
 
 ```text
 external（如已配置 warp_external_proxy）
-  → kernel（wg-quick + microsocks + /dev/net/tun 可用）
   → usque（usque 可执行文件可用）
   → wireproxy（wireproxy 可执行文件可用）
+  → kernel（wg-quick + microsocks + /dev/net/tun 可用）
   → none（无可用组件）
 ```
 
-选择逻辑强调“优先使用已显式配置的外部代理，其次选择性能更好的内核模式，再选择 MASQUE/QUIC，最后回落到最通用的 wireproxy”。如果你希望稳定固定某种方案，建议不要使用 `auto`，而是显式设置 `warp_mode`。
+选择逻辑强调“优先使用已显式配置的外部代理，其次选择 MASQUE/QUIC，再回落到最通用的 wireproxy，最后尝试内核模式”。如果你希望稳定固定某种方案，建议不要使用 `auto`，而是显式设置 `warp_mode`。
 
 ## 配置参数
 
@@ -328,12 +328,17 @@ external（如已配置 warp_external_proxy）
 | `warp_enabled` | `WARP_ENABLED` | `bool`，默认 `false` | 是否启用 WARP 代理。Docker 初始化脚本仅在 `WARP_ENABLED=1` 时启动。 |
 | `warp_mode` | `WARP_MODE` | `str`，默认 `auto` | 模式：`auto`、`wireproxy`、`kernel`、`usque`、`warp-cli`、`external`。 |
 | `warp_socks_port` | `WARP_SOCKS_PORT` | `int`，默认 `1080` | 本地 SOCKS5 监听端口。 |
+| `warp_bind_address` | `WARP_BIND_ADDRESS` | `str`，默认 `127.0.0.1` | SOCKS5/HTTP 代理监听地址；`0.0.0.0` 允许外部访问，建议同时配置代理认证。 |
+| `warp_startup_timeout` | `WARP_STARTUP_TIMEOUT` | `int`，默认 `15` | WARP 启动后的健康检查等待秒数。 |
+| `warp_device_name` | `WARP_DEVICE_NAME` | `str | None` | 注册 WARP 账号时使用的设备名称或标识。 |
 | `warp_endpoint` | `WARP_ENDPOINT` | `str | None` | 自定义 WARP Endpoint，例如 `162.159.192.1:4500`，用于规避特定网络限制。 |
 | `warp_usque_path` | 可按配置映射 | `str | None` | `usque` 二进制路径；为空时从 `PATH` 查找。 |
 | `warp_usque_config` | `WARP_USQUE_CONFIG` | `str | None` | `usque config.json` 路径；为空时查找 `/app/data/usque-config.json` 或当前目录 `config.json`。 |
+| `warp_usque_transport` | `WARP_USQUE_TRANSPORT` | `str`，默认 `auto` | `usque` 传输模式：`auto`（QUIC 优先，失败回退 HTTP/2）、`quic`、`http2`。 |
 | `warp_http_port` | `WARP_HTTP_PORT` | `int`，默认 `0` | HTTP 代理端口；`0` 表示不启用。适用于 `usque` 和 `warp-cli`。 |
 | `warp_license_key` | `WARP_LICENSE_KEY` | `str | None` | WARP+ License Key，仅 `warp-cli` 注册流程使用。 |
 | `warp_team_token` | `WARP_TEAM_TOKEN` | `str | None` | ZeroTrust Team Token（JWT），仅 `warp-cli` 注册组织时使用。 |
+| `warp_proxy_username` / `warp_proxy_password` | `WARP_PROXY_USERNAME` / `WARP_PROXY_PASSWORD` | `str | None` | SOCKS5/HTTP 代理认证账号密码；绑定 `0.0.0.0` 时建议配置。 |
 | `warp_gost_args` | `WARP_GOST_ARGS` | `str | None` | 自定义 GOST 启动参数；设置后会覆盖默认 GOST 监听和转发参数。 |
 | `warp_external_proxy` | `WARP_EXTERNAL_PROXY` | `str | None` | 外部代理地址，如 `socks5://warp:1080` 或 `http://proxy:8080`。 |
 
