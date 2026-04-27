@@ -52,9 +52,9 @@ class TestAllSources:
         assert len(ALL_SOURCES["cn_tech"]) == 9
 
     def test_total_count(self):
-        """总计暴露的数据源数量。"""
+        """总计暴露的数据源数量（含可能的外部插件）。"""
         total = sum(len(v) for v in ALL_SOURCES.values())
-        assert total == 90  # v0: 73
+        assert total >= 90  # v0: 73, v1 内置: 90, 外部插件可增加
 
     def test_each_entry_is_tuple_of_three(self):
         """每条目是 (name, requires_key, desc) 三元组"""

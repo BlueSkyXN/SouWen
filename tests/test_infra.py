@@ -538,7 +538,7 @@ class TestCLI:
         )
         # v0 期望 31；v1 修复漂移后为 38
         assert total_web == 38
-        assert len(ALL_SOURCES["fetch"]) == 20
+        assert len(ALL_SOURCES["fetch"]) >= 20  # 20 内置 + 可能有外部插件
         # cn_tech 拆分后独立源
         assert len(ALL_SOURCES["cn_tech"]) == 9
 

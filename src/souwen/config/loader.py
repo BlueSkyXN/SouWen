@@ -132,9 +132,21 @@ def get_config() -> SouWenConfig:
                 except (ValueError, TypeError):
                     logger.warning("环境变量 %s=%r 无法转为整数,已忽略", env_key, val)
                     continue
-            # proxy_pool / cors_origins / trusted_proxies: 逗号分隔字符串 → list[str]
-            elif field_name in ("proxy_pool", "cors_origins", "trusted_proxies"):
-                val = [p.strip() for p in val.split(",") if p.strip()]
+            # proxy_pool / cors_origins / trusted_proxies / plugins: 逗号分隔字符串 或 JSON 数组 → list[str]
+            elif field_name in ("proxy_pool", "cors_origins", "trusted_proxies", "plugins"):
+                stripped = val.strip()
+                if stripped.startswith("["):
+                    try:
+                        parsed = json.loads(stripped)
+                    except json.JSONDecodeError:
+                        logger.warning("环境变量 %s JSON 解析失败,已忽略", env_key)
+                        continue
+                    if not isinstance(parsed, list):
+                        logger.warning("环境变量 %s 应为 JSON 数组,已忽略", env_key)
+                        continue
+                    val = [str(p).strip() for p in parsed if str(p).strip()]
+                else:
+                    val = [p.strip() for p in val.split(",") if p.strip()]
             # http_backend: JSON 字符串 → dict[str, str]
             elif field_name == "http_backend":
                 try:
@@ -161,7 +173,18 @@ def get_config() -> SouWenConfig:
                     continue
             kwargs[field_name] = val
 
-    return SouWenConfig(**kwargs)
+    cfg = SouWenConfig(**kwargs)
+
+    # 配置加载完成后，加载 config.plugins 中手动指定的插件
+    if cfg.plugins:
+        try:
+            from souwen.plugin import load_config_plugins
+
+            load_config_plugins(cfg.plugins)
+        except Exception:  # noqa: BLE001 — 插件加载不能拖垮配置
+            logger.warning("配置插件加载失败,已跳过", exc_info=True)
+
+    return cfg
 
 
 def reload_config() -> SouWenConfig:

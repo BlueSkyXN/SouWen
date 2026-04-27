@@ -55,12 +55,48 @@ import asyncio
 import ipaddress
 import logging
 import socket
+from collections.abc import Awaitable, Callable
+from typing import Any
 from urllib.parse import urlparse
 
 from souwen.config import get_config
 from souwen.models import FetchResponse, FetchResult
 
 logger = logging.getLogger("souwen.web.fetch")
+
+
+FetchHandler = Callable[..., Awaitable[FetchResponse]]
+"""Fetch handler signature: ``async (urls: list[str], timeout: float, **kwargs) -> FetchResponse``."""
+
+_FETCH_HANDLERS: dict[str, FetchHandler] = {}
+
+
+def register_fetch_handler(
+    provider: str,
+    handler: FetchHandler,
+    *,
+    override: bool = False,
+) -> None:
+    """注册某个 provider 的抓取处理函数。
+
+    External plugins call this to add their fetch capabilities. Built-in providers
+    are registered at module import time.
+
+    Args:
+        provider: Provider name (must match registry SourceAdapter name)
+        handler: Async callable ``(urls, timeout, **kwargs) -> FetchResponse``
+        override: If True, allows overriding existing handlers
+    """
+    if provider in _FETCH_HANDLERS and not override:
+        logger.warning("Fetch handler %r already registered, skipping", provider)
+        return
+    _FETCH_HANDLERS[provider] = handler
+    logger.debug("Registered fetch handler: %s", provider)
+
+
+def get_fetch_handlers() -> dict[str, FetchHandler]:
+    """Return a shallow copy of the fetch handler registry (for introspection)."""
+    return dict(_FETCH_HANDLERS)
 
 
 def _extract_arxiv_paper_id(url: str) -> str | None:
@@ -142,235 +178,285 @@ def validate_fetch_url(url: str) -> tuple[bool, str]:
     return True, ""
 
 
-async def _fetch_with_provider(
-    provider: str,
+async def _handle_builtin(
     urls: list[str],
     timeout: float,
+    *,
     selector: str | None = None,
     start_index: int = 0,
     max_length: int | None = None,
     respect_robots_txt: bool = False,
+    **_kwargs: Any,
 ) -> FetchResponse:
-    """使用指定提供者抓取内容
+    from souwen.web.builtin import BuiltinFetcherClient
 
-    Args:
-        provider: 提供者名称
-        urls: URL 列表
-        timeout: 超时秒数
-        selector: CSS 选择器（仅 builtin 支持）
-        start_index: 内容起始切片位置（仅 builtin 支持）
-        max_length: 内容最大长度（仅 builtin 支持）
-        respect_robots_txt: 是否遵守 robots.txt（仅 builtin 支持）
-
-    Returns:
-        FetchResponse
-    """
-    if provider == "builtin":
-        from souwen.web.builtin import BuiltinFetcherClient
-
-        async with BuiltinFetcherClient(respect_robots_txt=respect_robots_txt) as client:
-            # 涉及 selector / 分页参数时按单 URL 调用以传递参数
-            if selector or start_index > 0 or max_length is not None:
-                results = []
-                for u in urls:
-                    r = await client.fetch(
-                        u,
-                        timeout=timeout,
-                        start_index=start_index,
-                        max_length=max_length,
-                        selector=selector,
-                    )
-                    results.append(r)
-                ok = sum(1 for r in results if r.error is None)
-                return FetchResponse(
-                    urls=urls,
-                    results=results,
-                    total=len(results),
-                    total_ok=ok,
-                    total_failed=len(results) - ok,
-                    provider="builtin",
-                )
-            return await client.fetch_batch(urls, timeout=timeout)
-
-    elif provider == "jina_reader":
-        from souwen.web.jina_reader import JinaReaderClient
-
-        config = get_config()
-        api_key = getattr(config, "jina_api_key", None) or None
-        async with JinaReaderClient(api_key=api_key) as client:
-            return await client.fetch_batch(urls, timeout=timeout)
-
-    elif provider == "arxiv_fulltext":
-        from souwen.paper.arxiv_fulltext import ArxivFulltextClient
-
-        async with ArxivFulltextClient() as client:
+    async with BuiltinFetcherClient(respect_robots_txt=respect_robots_txt) as client:
+        # 涉及 selector / 分页参数时按单 URL 调用以传递参数
+        if selector or start_index > 0 or max_length is not None:
             results: list[FetchResult] = []
-            for url in urls:
-                paper_id = _extract_arxiv_paper_id(url)
-                if paper_id is None:
-                    results.append(
-                        FetchResult(
-                            url=url,
-                            final_url=url,
-                            source="arxiv_fulltext",
-                            error="arxiv_fulltext 仅支持 arxiv.org 的 /abs/、/html/ 或 /pdf/ URL",
-                        )
-                    )
-                    continue
-                try:
-                    result = await asyncio.wait_for(
-                        client.get_fulltext(paper_id),
-                        timeout=timeout,
-                    )
-                except asyncio.TimeoutError:
-                    results.append(
-                        FetchResult(
-                            url=url,
-                            final_url=url,
-                            source="arxiv_fulltext",
-                            error=f"单 URL 超时（{timeout}s）",
-                        )
-                    )
-                    continue
-                except Exception as exc:
-                    results.append(
-                        FetchResult(
-                            url=url,
-                            final_url=url,
-                            source="arxiv_fulltext",
-                            error=str(exc),
-                        )
-                    )
-                    continue
-                results.append(result.model_copy(update={"url": url}))
-
-            ok = sum(1 for result in results if result.error is None)
+            for u in urls:
+                r = await client.fetch(
+                    u,
+                    timeout=timeout,
+                    start_index=start_index,
+                    max_length=max_length,
+                    selector=selector,
+                )
+                results.append(r)
+            ok = sum(1 for r in results if r.error is None)
             return FetchResponse(
                 urls=urls,
                 results=results,
                 total=len(results),
                 total_ok=ok,
                 total_failed=len(results) - ok,
-                provider="arxiv_fulltext",
+                provider="builtin",
             )
+        return await client.fetch_batch(urls, timeout=timeout)
 
-    elif provider == "tavily":
-        from souwen.web.tavily import TavilyClient
 
-        async with TavilyClient() as client:
-            return await client.extract(urls, timeout=timeout)
+async def _handle_jina_reader(urls: list[str], timeout: float, **_kwargs: Any) -> FetchResponse:
+    from souwen.web.jina_reader import JinaReaderClient
 
-    elif provider == "firecrawl":
-        from souwen.web.firecrawl import FirecrawlClient
+    config = get_config()
+    api_key = getattr(config, "jina_api_key", None) or None
+    async with JinaReaderClient(api_key=api_key) as client:
+        return await client.fetch_batch(urls, timeout=timeout)
 
-        async with FirecrawlClient() as client:
-            return await client.scrape_batch(urls, timeout=timeout)
 
-    elif provider == "exa":
-        from souwen.web.exa import ExaClient
+async def _handle_arxiv_fulltext(urls: list[str], timeout: float, **_kwargs: Any) -> FetchResponse:
+    from souwen.paper.arxiv_fulltext import ArxivFulltextClient
 
-        async with ExaClient() as client:
-            return await client.contents(urls, timeout=timeout)
+    async with ArxivFulltextClient() as client:
+        results: list[FetchResult] = []
+        for url in urls:
+            paper_id = _extract_arxiv_paper_id(url)
+            if paper_id is None:
+                results.append(
+                    FetchResult(
+                        url=url,
+                        final_url=url,
+                        source="arxiv_fulltext",
+                        error="arxiv_fulltext 仅支持 arxiv.org 的 /abs/、/html/ 或 /pdf/ URL",
+                    )
+                )
+                continue
+            try:
+                result = await asyncio.wait_for(
+                    client.get_fulltext(paper_id),
+                    timeout=timeout,
+                )
+            except asyncio.TimeoutError:
+                results.append(
+                    FetchResult(
+                        url=url,
+                        final_url=url,
+                        source="arxiv_fulltext",
+                        error=f"单 URL 超时（{timeout}s）",
+                    )
+                )
+                continue
+            except Exception as exc:
+                results.append(
+                    FetchResult(
+                        url=url,
+                        final_url=url,
+                        source="arxiv_fulltext",
+                        error=str(exc),
+                    )
+                )
+                continue
+            results.append(result.model_copy(update={"url": url}))
 
-    elif provider == "crawl4ai":
-        from souwen.web.crawl4ai_fetcher import Crawl4AIFetcherClient
-
-        async with Crawl4AIFetcherClient() as client:
-            return await client.fetch_batch(urls, timeout=timeout)
-
-    elif provider == "scrapfly":
-        from souwen.web.scrapfly import ScrapflyClient
-
-        async with ScrapflyClient() as client:
-            return await client.fetch_batch(urls, timeout=timeout)
-
-    elif provider == "diffbot":
-        from souwen.web.diffbot import DiffbotClient
-
-        async with DiffbotClient() as client:
-            return await client.fetch_batch(urls, timeout=timeout)
-
-    elif provider == "scrapingbee":
-        from souwen.web.scrapingbee import ScrapingBeeClient
-
-        async with ScrapingBeeClient() as client:
-            return await client.fetch_batch(urls, timeout=timeout)
-
-    elif provider == "zenrows":
-        from souwen.web.zenrows import ZenRowsClient
-
-        async with ZenRowsClient() as client:
-            return await client.fetch_batch(urls, timeout=timeout)
-
-    elif provider == "scraperapi":
-        from souwen.web.scraperapi import ScraperAPIClient
-
-        async with ScraperAPIClient() as client:
-            return await client.fetch_batch(urls, timeout=timeout)
-
-    elif provider == "apify":
-        from souwen.web.apify import ApifyClient
-
-        async with ApifyClient() as client:
-            return await client.fetch_batch(urls, timeout=timeout)
-
-    elif provider == "cloudflare":
-        from souwen.web.cloudflare_browser import CloudflareBrowserClient
-
-        async with CloudflareBrowserClient() as client:
-            return await client.fetch_batch(urls, timeout=timeout)
-
-    elif provider == "wayback":
-        from souwen.web.wayback import WaybackClient
-
-        async with WaybackClient() as client:
-            return await client.fetch_batch(urls, timeout=timeout)
-
-    elif provider == "newspaper":
-        from souwen.web.newspaper_fetcher import NewspaperFetcherClient
-
-        async with NewspaperFetcherClient() as client:
-            return await client.fetch_batch(urls, timeout=timeout)
-
-    elif provider == "readability":
-        from souwen.web.readability_fetcher import ReadabilityFetcherClient
-
-        async with ReadabilityFetcherClient() as client:
-            return await client.fetch_batch(urls, timeout=timeout)
-
-    elif provider == "mcp":
-        from souwen.web.mcp_fetch import MCPFetchClient
-
-        async with MCPFetchClient() as client:
-            return await client.fetch_batch(urls, timeout=timeout)
-
-    elif provider == "site_crawler":
-        from souwen.web.site_crawler import SiteCrawlerClient
-
-        async with SiteCrawlerClient() as client:
-            # max_depth=1 默认爬取根页面 + 一级子页面
-            return await client.fetch_batch(urls, timeout=timeout, max_depth=1)
-
-    elif provider == "deepwiki":
-        from souwen.web.deepwiki import DeepWikiClient
-
-        async with DeepWikiClient() as client:
-            return await client.fetch_batch(urls, timeout=timeout)
-
-    else:
-        # 未知提供者 → 全部标记失败
-        results = [
-            FetchResult(url=u, final_url=u, source=provider, error=f"未知提供者: {provider}")
-            for u in urls
-        ]
+        ok = sum(1 for result in results if result.error is None)
         return FetchResponse(
             urls=urls,
             results=results,
-            total=len(urls),
-            total_ok=0,
-            total_failed=len(urls),
-            provider=provider,
+            total=len(results),
+            total_ok=ok,
+            total_failed=len(results) - ok,
+            provider="arxiv_fulltext",
         )
+
+
+async def _handle_tavily(urls: list[str], timeout: float, **_kwargs: Any) -> FetchResponse:
+    from souwen.web.tavily import TavilyClient
+
+    async with TavilyClient() as client:
+        return await client.extract(urls, timeout=timeout)
+
+
+async def _handle_firecrawl(urls: list[str], timeout: float, **_kwargs: Any) -> FetchResponse:
+    from souwen.web.firecrawl import FirecrawlClient
+
+    async with FirecrawlClient() as client:
+        return await client.scrape_batch(urls, timeout=timeout)
+
+
+async def _handle_exa(urls: list[str], timeout: float, **_kwargs: Any) -> FetchResponse:
+    from souwen.web.exa import ExaClient
+
+    async with ExaClient() as client:
+        return await client.contents(urls, timeout=timeout)
+
+
+async def _handle_crawl4ai(urls: list[str], timeout: float, **_kwargs: Any) -> FetchResponse:
+    from souwen.web.crawl4ai_fetcher import Crawl4AIFetcherClient
+
+    async with Crawl4AIFetcherClient() as client:
+        return await client.fetch_batch(urls, timeout=timeout)
+
+
+async def _handle_scrapfly(urls: list[str], timeout: float, **_kwargs: Any) -> FetchResponse:
+    from souwen.web.scrapfly import ScrapflyClient
+
+    async with ScrapflyClient() as client:
+        return await client.fetch_batch(urls, timeout=timeout)
+
+
+async def _handle_diffbot(urls: list[str], timeout: float, **_kwargs: Any) -> FetchResponse:
+    from souwen.web.diffbot import DiffbotClient
+
+    async with DiffbotClient() as client:
+        return await client.fetch_batch(urls, timeout=timeout)
+
+
+async def _handle_scrapingbee(urls: list[str], timeout: float, **_kwargs: Any) -> FetchResponse:
+    from souwen.web.scrapingbee import ScrapingBeeClient
+
+    async with ScrapingBeeClient() as client:
+        return await client.fetch_batch(urls, timeout=timeout)
+
+
+async def _handle_zenrows(urls: list[str], timeout: float, **_kwargs: Any) -> FetchResponse:
+    from souwen.web.zenrows import ZenRowsClient
+
+    async with ZenRowsClient() as client:
+        return await client.fetch_batch(urls, timeout=timeout)
+
+
+async def _handle_scraperapi(urls: list[str], timeout: float, **_kwargs: Any) -> FetchResponse:
+    from souwen.web.scraperapi import ScraperAPIClient
+
+    async with ScraperAPIClient() as client:
+        return await client.fetch_batch(urls, timeout=timeout)
+
+
+async def _handle_apify(urls: list[str], timeout: float, **_kwargs: Any) -> FetchResponse:
+    from souwen.web.apify import ApifyClient
+
+    async with ApifyClient() as client:
+        return await client.fetch_batch(urls, timeout=timeout)
+
+
+async def _handle_cloudflare(urls: list[str], timeout: float, **_kwargs: Any) -> FetchResponse:
+    from souwen.web.cloudflare_browser import CloudflareBrowserClient
+
+    async with CloudflareBrowserClient() as client:
+        return await client.fetch_batch(urls, timeout=timeout)
+
+
+async def _handle_wayback(urls: list[str], timeout: float, **_kwargs: Any) -> FetchResponse:
+    from souwen.web.wayback import WaybackClient
+
+    async with WaybackClient() as client:
+        return await client.fetch_batch(urls, timeout=timeout)
+
+
+async def _handle_newspaper(urls: list[str], timeout: float, **_kwargs: Any) -> FetchResponse:
+    from souwen.web.newspaper_fetcher import NewspaperFetcherClient
+
+    async with NewspaperFetcherClient() as client:
+        return await client.fetch_batch(urls, timeout=timeout)
+
+
+async def _handle_readability(urls: list[str], timeout: float, **_kwargs: Any) -> FetchResponse:
+    from souwen.web.readability_fetcher import ReadabilityFetcherClient
+
+    async with ReadabilityFetcherClient() as client:
+        return await client.fetch_batch(urls, timeout=timeout)
+
+
+async def _handle_mcp(urls: list[str], timeout: float, **_kwargs: Any) -> FetchResponse:
+    from souwen.web.mcp_fetch import MCPFetchClient
+
+    async with MCPFetchClient() as client:
+        return await client.fetch_batch(urls, timeout=timeout)
+
+
+async def _handle_site_crawler(urls: list[str], timeout: float, **_kwargs: Any) -> FetchResponse:
+    from souwen.web.site_crawler import SiteCrawlerClient
+
+    async with SiteCrawlerClient() as client:
+        # max_depth=1 默认爬取根页面 + 一级子页面
+        return await client.fetch_batch(urls, timeout=timeout, max_depth=1)
+
+
+async def _handle_deepwiki(urls: list[str], timeout: float, **_kwargs: Any) -> FetchResponse:
+    from souwen.web.deepwiki import DeepWikiClient
+
+    async with DeepWikiClient() as client:
+        return await client.fetch_batch(urls, timeout=timeout)
+
+
+# 注册全部内置 provider 的抓取处理函数（外部插件可通过 register_fetch_handler 扩展）
+register_fetch_handler("builtin", _handle_builtin)
+register_fetch_handler("jina_reader", _handle_jina_reader)
+register_fetch_handler("arxiv_fulltext", _handle_arxiv_fulltext)
+register_fetch_handler("tavily", _handle_tavily)
+register_fetch_handler("firecrawl", _handle_firecrawl)
+register_fetch_handler("exa", _handle_exa)
+register_fetch_handler("crawl4ai", _handle_crawl4ai)
+register_fetch_handler("scrapfly", _handle_scrapfly)
+register_fetch_handler("diffbot", _handle_diffbot)
+register_fetch_handler("scrapingbee", _handle_scrapingbee)
+register_fetch_handler("zenrows", _handle_zenrows)
+register_fetch_handler("scraperapi", _handle_scraperapi)
+register_fetch_handler("apify", _handle_apify)
+register_fetch_handler("cloudflare", _handle_cloudflare)
+register_fetch_handler("wayback", _handle_wayback)
+register_fetch_handler("newspaper", _handle_newspaper)
+register_fetch_handler("readability", _handle_readability)
+register_fetch_handler("mcp", _handle_mcp)
+register_fetch_handler("site_crawler", _handle_site_crawler)
+register_fetch_handler("deepwiki", _handle_deepwiki)
+
+
+async def _fetch_with_provider(
+    provider: str,
+    urls: list[str],
+    timeout: float,
+    **kwargs: Any,
+) -> FetchResponse:
+    """通过注册表派发到指定 provider 的抓取处理函数。
+
+    Args:
+        provider: 提供者名称
+        urls: URL 列表
+        timeout: 超时秒数
+        **kwargs: provider 特定参数（例如 builtin 的 selector / start_index / max_length /
+            respect_robots_txt），未识别的参数会被对应 handler 忽略
+
+    Returns:
+        FetchResponse
+    """
+    handler = _FETCH_HANDLERS.get(provider)
+    if handler is not None:
+        return await handler(urls, timeout, **kwargs)
+
+    # 未知提供者 → 全部标记失败
+    results = [
+        FetchResult(url=u, final_url=u, source=provider, error=f"未知提供者: {provider}")
+        for u in urls
+    ]
+    return FetchResponse(
+        urls=urls,
+        results=results,
+        total=len(urls),
+        total_ok=0,
+        total_failed=len(urls),
+        provider=provider,
+    )
 
 
 async def fetch_content(

@@ -1,5 +1,33 @@
 # Changelog
 
+## [Unreleased] — Plugin System
+
+### Architecture
+- 新增插件系统：通过 setuptools entry_points 或配置文件发现外部数据源
+- Fetch dispatch 重构：20 个 if/elif 分支 → handler 注册表模式
+- 支持双模式加载：运行时发现 (`pip install superweb2pdf`) 和打包嵌入 (`pip install "souwen[web2pdf]"`)
+
+### Features
+- `src/souwen/plugin.py`：插件发现与加载模块
+- `register_fetch_handler()`：外部 fetch provider 注册 API
+- `_reg_external()`：外部适配器注册（重名自动跳过）
+- `SOUWEN_PLUGINS` 环境变量 / `plugins` 配置字段支持手动指定插件
+- `web2pdf` optional dependency：`pip install "souwen[web2pdf]"`
+
+### Docs
+- 新增 `docs/plugin-integration-spec.md`：插件对接规范
+- 新增 `examples/minimal-plugin/`：最小示例插件
+- 更新 `docs/architecture.md`、`docs/adding-a-source.md`
+
+### Tests
+- 新增 `tests/test_plugin.py`（37 tests）：插件系统全覆盖
+- 新增 `tests/test_fetch_handlers.py`（9 tests）：handler 注册表测试
+- 更新 `tests/registry/test_consistency.py`：外部插件一致性检查
+
+### CI
+- 新增 `plugin-test` job：安装 web2pdf extra，验证 entry_point 发现
+- import-check 步骤扩展：插件模块导入验证
+
 ## v0.9.0 — v1 过渡版（2026-04-22）
 
 **架构级改造**：建立数据源单一事实源（registry），引入 facade 门面层，按 v1 的 10 个 domain 重组目录。保持所有 v0 入口（Python import / CLI 命令 / REST 路径）完全兼容。
