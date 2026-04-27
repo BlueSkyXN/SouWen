@@ -9,9 +9,11 @@
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import json
 import logging
 import os
+import re as _re
 import shutil
 import signal
 import subprocess
@@ -25,6 +27,34 @@ logger = logging.getLogger("souwen.warp")
 
 STATE_FILE = Path("/run/souwen-warp.json")
 WARP_DATA_DIR = Path("/app/data")
+
+# ---------- input sanitisation helpers ----------
+
+_SAFE_TOKEN_RE = _re.compile(r"^[\w.:/+@=-]{1,512}$")
+
+
+def _validate_bind_address(addr: str) -> str:
+    """确保 bind address 是合法的 IP 地址字面量。"""
+    try:
+        return str(ipaddress.ip_address(addr))
+    except ValueError:
+        raise ValueError(f"非法 bind_address: {addr!r}") from None  # noqa: B904
+
+
+def _validate_port(port: int) -> int:
+    """确保端口号在合法范围内。"""
+    if not (0 < port < 65536):
+        raise ValueError(f"非法端口号: {port}")
+    return port
+
+
+def _sanitize_token(value: str | None, label: str = "参数") -> str | None:
+    """校验简单 token 类字符串（路径/用户名/密码/key）不含 shell 元字符。"""
+    if value is None:
+        return None
+    if not _SAFE_TOKEN_RE.match(value):
+        raise ValueError(f"{label} 包含非法字符: {value!r}")
+    return value
 
 
 class WarpStatus(str, Enum):
@@ -852,13 +882,12 @@ class WarpManager:
         ipv4_addr = ""
         public_key = ""
         endpoint_val = ""
-        import re
 
         for line in text.splitlines():
             if line.startswith("PrivateKey"):
                 private_key = line.split("=", 1)[1].strip()
             elif line.startswith("Address"):
-                m = re.search(r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d+)", line)
+                m = _re.search(r"(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d+)", line)
                 if m and not ipv4_addr:
                     ipv4_addr = m.group(1)
             elif line.startswith("PublicKey"):
@@ -886,16 +915,15 @@ class WarpManager:
         cfg = get_config()
         bind_addr = cfg.warp_bind_address or "127.0.0.1"
         text = conf.read_text(encoding="utf-8")
-        import re
 
-        text = re.sub(
+        text = _re.sub(
             r"^BindAddress\s*=.*$",
             f"BindAddress = {bind_addr}:{socks_port}",
             text,
-            flags=re.MULTILINE,
+            flags=_re.MULTILINE,
         )
         if endpoint:
-            text = re.sub(r"^Endpoint\s*=.*$", f"Endpoint = {endpoint}", text, flags=re.MULTILINE)
+            text = _re.sub(r"^Endpoint\s*=.*$", f"Endpoint = {endpoint}", text, flags=_re.MULTILINE)
         conf.write_text(text, encoding="utf-8")
         return conf
 
@@ -986,6 +1014,12 @@ class WarpManager:
         username: str | None,
         password: str | None,
     ) -> list[str]:
+        bind_addr = _validate_bind_address(bind_addr)
+        port = _validate_port(port)
+        if subcommand not in ("socks", "http-proxy"):
+            raise ValueError(f"非法 usque 子命令: {subcommand!r}")
+        _sanitize_token(username, "proxy username")
+        _sanitize_token(password, "proxy password")
         cmd = [usque_bin, "-c", config_path]
         if http2:
             cmd.append("--http2")
@@ -1012,11 +1046,13 @@ class WarpManager:
 
         cfg = get_config()
         _ = endpoint
-        bind_addr = cfg.warp_bind_address or "127.0.0.1"
+        bind_addr = _validate_bind_address(cfg.warp_bind_address or "127.0.0.1")
         transport = (cfg.warp_usque_transport or "auto").lower()
+        if transport not in ("auto", "quic", "http2"):
+            raise ValueError(f"非法 usque transport: {transport!r}")
 
         usque_bin = cfg.warp_usque_path or shutil.which("usque")
-        if not usque_bin:
+        if not usque_bin or not Path(usque_bin).is_file():
             raise RuntimeError("usque 未安装")
 
         # 确定配置文件路径
@@ -1103,6 +1139,7 @@ class WarpManager:
         cfg = get_config()
         cmd = [usque_bin, "-c", config_path, "register"]
         if cfg.warp_device_name:
+            _sanitize_token(cfg.warp_device_name, "warp_device_name")
             cmd.extend(["-n", cfg.warp_device_name])
         try:
             result = subprocess.run(
@@ -1171,6 +1208,7 @@ class WarpManager:
 
                 # 设置 License Key（如果有）
                 if cfg.warp_license_key:
+                    _sanitize_token(cfg.warp_license_key, "warp_license_key")
                     subprocess.run(
                         [
                             "warp-cli",
@@ -1185,6 +1223,7 @@ class WarpManager:
 
                 # 设置 ZeroTrust Token（如果有）
                 if cfg.warp_team_token:
+                    _sanitize_token(cfg.warp_team_token, "warp_team_token")
                     subprocess.run(
                         [
                             "warp-cli",
@@ -1226,12 +1265,17 @@ class WarpManager:
         from souwen.config import get_config
 
         cfg = get_config()
-        bind_addr = cfg.warp_bind_address or "127.0.0.1"
+        bind_addr = _validate_bind_address(cfg.warp_bind_address or "127.0.0.1")
+        _validate_port(socks_port)
         # warp-cli proxy 模式默认监听 127.0.0.1:40000
         warp_upstream = "socks5://127.0.0.1:40000"
         if cfg.warp_gost_args:
+            # warp_gost_args 允许管理员自定义 GOST 参数，校验每个 token
             gost_args = cfg.warp_gost_args.split()
+            for arg in gost_args:
+                _sanitize_token(arg, "warp_gost_args")
         elif http_port > 0:
+            _validate_port(http_port)
             gost_args = [
                 "-L",
                 f"socks5://{bind_addr}:{socks_port}",
@@ -1274,9 +1318,7 @@ class WarpManager:
             raise RuntimeError("未配置 warp_external_proxy 外部代理地址")
 
         # 解析代理地址获取端口（用于健康检查）
-        import re
-
-        port_match = re.search(r":(\d+)$", proxy_url.rstrip("/"))
+        port_match = _re.search(r":(\d+)$", proxy_url.rstrip("/"))
         if port_match:
             self._state.socks_port = int(port_match.group(1))
 
@@ -1297,16 +1339,15 @@ class WarpManager:
             - 强制 PersistentKeepalive=15 防止 NAT 老化
             - 可选覆盖 Endpoint
         """
-        import re
 
         text = conf.read_text(encoding="utf-8")
         # 提取 IPv4
-        m = re.search(r"Address\s*=\s*(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d+)", text)
+        m = _re.search(r"Address\s*=\s*(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}/\d+)", text)
         ipv4 = m.group(1) if m else ""
         # 清除旧字段
-        text = re.sub(r"^Address\s*=.*$", "", text, flags=re.MULTILINE)
-        text = re.sub(r"^AllowedIPs\s*=.*$", "", text, flags=re.MULTILINE)
-        text = re.sub(r"^DNS\s*=.*$", "", text, flags=re.MULTILINE)
+        text = _re.sub(r"^Address\s*=.*$", "", text, flags=_re.MULTILINE)
+        text = _re.sub(r"^AllowedIPs\s*=.*$", "", text, flags=_re.MULTILINE)
+        text = _re.sub(r"^DNS\s*=.*$", "", text, flags=_re.MULTILINE)
         # 注入
         if ipv4:
             text = text.replace("[Interface]", f"[Interface]\nAddress = {ipv4}", 1)
@@ -1315,10 +1356,10 @@ class WarpManager:
         if "PersistentKeepalive" not in text:
             text = text.replace("[Peer]", "[Peer]\nPersistentKeepalive = 15", 1)
         else:
-            text = re.sub(r"PersistentKeepalive\s*=.*", "PersistentKeepalive = 15", text)
+            text = _re.sub(r"PersistentKeepalive\s*=.*", "PersistentKeepalive = 15", text)
         # Endpoint
         if endpoint:
-            text = re.sub(r"^Endpoint\s*=.*$", f"Endpoint = {endpoint}", text, flags=re.MULTILINE)
+            text = _re.sub(r"^Endpoint\s*=.*$", f"Endpoint = {endpoint}", text, flags=_re.MULTILINE)
         conf.write_text(text, encoding="utf-8")
 
     # ------ internal: helpers ------
