@@ -70,6 +70,12 @@ function ownerLabel(t: ReturnType<typeof useTranslation>['t'], owner?: string) {
   return t('warp.ownerNone')
 }
 
+function usqueTransportLabel(t: ReturnType<typeof useTranslation>['t'], transport?: string) {
+  if (transport === 'auto') return t('warp.usqueTransportAuto')
+  if (transport === 'http2') return t('warp.usqueTransportHttp2')
+  return t('warp.usqueTransportQuic')
+}
+
 function WarpStatusCard({ warp, loading, refreshing, onRefresh }: {
   warp: WarpStatus | null
   loading: boolean
@@ -311,6 +317,11 @@ function WarpAdvancedCard({ config, registering, onRegister }: {
       <div className={styles.advancedSection}>
         <StatusField icon={<KeyRound size={13} />} label={t('warp.licenseKey')} value={config?.has_license_key ? t('warp.configured') : t('warp.notConfigured')} />
         <StatusField icon={<ShieldCheck size={13} />} label={t('warp.teamToken')} value={config?.has_team_token ? t('warp.configured') : t('warp.notConfigured')} />
+        <StatusField icon={<Wifi size={13} />} label={t('warp.bindAddress')} value={config?.warp_bind_address || '—'} />
+        <StatusField icon={<Settings size={13} />} label={t('warp.startupTimeout')} value={config ? `${config.warp_startup_timeout}s` : '—'} />
+        <StatusField icon={<Network size={13} />} label={t('warp.usqueTransport')} value={usqueTransportLabel(t, config?.warp_usque_transport)} />
+        <StatusField icon={<Shield size={13} />} label={t('warp.proxyAuth')} value={config?.has_proxy_auth ? t('warp.hasProxyAuth') : t('warp.noProxyAuth')} />
+        <StatusField icon={<Server size={13} />} label={t('warp.deviceName')} value={config?.warp_device_name || '—'} />
         <StatusField icon={<TerminalSquare size={13} />} label={t('warp.gostArgs')} value={config?.warp_gost_args || '—'} />
         <StatusField icon={<Server size={13} />} label={t('warp.usquePath')} value={config?.warp_usque_path || '—'} />
         <StatusField icon={<Settings size={13} />} label={t('warp.usqueConfig')} value={config?.warp_usque_config || '—'} />

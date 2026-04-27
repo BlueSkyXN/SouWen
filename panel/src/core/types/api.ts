@@ -182,12 +182,17 @@ export interface WarpConfigResponse {
   warp_socks_port: number
   warp_http_port: number
   warp_endpoint: string | null
+  warp_bind_address: string
+  warp_startup_timeout: number
+  warp_device_name: string | null
+  warp_usque_transport: string
   warp_external_proxy: string | null
   warp_usque_path: string | null
   warp_usque_config: string | null
   warp_gost_args: string | null
   has_license_key: boolean
   has_team_token: boolean
+  has_proxy_auth: boolean
 }
 
 /**

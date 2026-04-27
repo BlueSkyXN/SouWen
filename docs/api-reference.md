@@ -627,14 +627,27 @@ Cache-Control: public, max-age=3600
   "warp_socks_port": 1080,
   "warp_http_port": 0,
   "warp_endpoint": null,
+  "warp_bind_address": "127.0.0.1",
+  "warp_startup_timeout": 15,
+  "warp_device_name": null,
+  "warp_usque_transport": "auto",
   "warp_external_proxy": null,
   "warp_usque_path": null,
   "warp_usque_config": null,
   "warp_gost_args": null,
   "has_license_key": false,
-  "has_team_token": false
+  "has_team_token": false,
+  "has_proxy_auth": false
 }
 ```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `warp_bind_address` | string | 代理监听地址，例如 `127.0.0.1` 或 `0.0.0.0` |
+| `warp_startup_timeout` | int | 启动后健康检查等待秒数 |
+| `warp_device_name` | string \| null | 注册 WARP 时使用的设备标识 |
+| `warp_usque_transport` | string | `usque` 传输模式：`auto` / `quic` / `http2` |
+| `has_proxy_auth` | bool | 是否已配置 `warp_proxy_username` / `warp_proxy_password` |
 
 #### `POST /api/v1/admin/warp/disable`
 

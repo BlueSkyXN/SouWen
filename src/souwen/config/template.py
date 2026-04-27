@@ -103,9 +103,15 @@ warp:
   warp_mode: auto         # auto | wireproxy | kernel | usque | warp-cli | external
   warp_socks_port: 1080
   warp_endpoint: ~        # 自定义 Endpoint (如 162.159.192.1:4500)
+  warp_bind_address: 127.0.0.1  # 代理绑定地址
+  warp_startup_timeout: 15      # 启动健康检查超时(秒)
+  warp_device_name: ~           # 注册设备名
+  warp_proxy_username: ~        # SOCKS5/HTTP 代理认证用户名
+  warp_proxy_password: ~        # SOCKS5/HTTP 代理认证密码
   # usque 模式
   warp_usque_path: ~      # usque 二进制路径(默认从 PATH 查找)
   warp_usque_config: ~    # usque config.json 路径
+  warp_usque_transport: auto  # auto | quic | http2
   warp_http_port: 0       # HTTP 代理端口(usque/warp-cli 模式,0=不启用)
   # warp-cli 模式
   warp_license_key: ~     # WARP+ License Key

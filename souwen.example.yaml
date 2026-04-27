@@ -179,9 +179,10 @@ server:
 # 内嵌 Cloudflare WARP 代理（Docker 部署专用）
 # 支持 wireproxy (用户态, 全平台)、kernel (内核 WireGuard, 高性能)、
 # usque (MASQUE)、warp-cli (官方客户端+GOST) 和 external (外部代理)
-# 也可通过环境变量 WARP_ENABLED / WARP_MODE / WARP_SOCKS_PORT / WARP_HTTP_PORT /
-# WARP_USQUE_CONFIG / WARP_LICENSE_KEY / WARP_TEAM_TOKEN / WARP_GOST_ARGS /
-# WARP_EXTERNAL_PROXY / WARP_ENDPOINT 等控制
+# 也可通过环境变量 WARP_ENABLED / WARP_MODE / WARP_SOCKS_PORT / WARP_BIND_ADDRESS /
+# WARP_STARTUP_TIMEOUT / WARP_DEVICE_NAME / WARP_PROXY_USERNAME / WARP_PROXY_PASSWORD /
+# WARP_USQUE_CONFIG / WARP_USQUE_TRANSPORT / WARP_LICENSE_KEY / WARP_TEAM_TOKEN /
+# WARP_GOST_ARGS / WARP_EXTERNAL_PROXY / WARP_ENDPOINT 等控制
 warp:
   # 是否启用 WARP (默认关闭)
   warp_enabled: false
@@ -192,10 +193,21 @@ warp:
   warp_socks_port: 1080
   # 自定义 WARP Endpoint (规避 QoS, 如 162.159.192.1:4500)
   warp_endpoint: ~
+  # 代理绑定地址（Docker 默认建议 127.0.0.1；sidecar 暴露可设 0.0.0.0）
+  warp_bind_address: 127.0.0.1
+  # 启动健康检查超时（秒）
+  warp_startup_timeout: 15
+  # 注册设备名（usque register -n）
+  warp_device_name: ~
+  # SOCKS5/HTTP 代理认证（需同时设置用户名和密码）
+  warp_proxy_username: ~
+  warp_proxy_password: ~
   # usque 模式: usque 二进制路径（默认从 PATH 查找）
   warp_usque_path: ~
   # usque 模式: config.json 路径
   warp_usque_config: ~
+  # usque 传输: auto (QUIC 失败自动重试 HTTP/2) | quic | http2
+  warp_usque_transport: auto
   # usque/warp-cli 模式: HTTP 代理监听端口（0=不启用）
   warp_http_port: 0
   # warp-cli 模式: WARP+ License Key（敏感字段，config show 会隐藏）
