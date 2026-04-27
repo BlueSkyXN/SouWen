@@ -228,6 +228,33 @@ class WarpManager:
             return "kernel"
         return "none"
 
+    def log_capabilities(self) -> None:
+        """在启动时记录 WARP 能力检测结果。"""
+        from souwen.config import get_config
+
+        cap = {
+            "wireproxy": self._has_wireproxy(),
+            "kernel": self._has_kernel_wg(),
+            "usque": self._has_usque(),
+            "warp-cli": self._has_warp_cli(),
+        }
+        try:
+            cfg = get_config()
+            cap["external"] = bool(cfg.warp_external_proxy)
+        except Exception:
+            cap["external"] = False
+
+        installed = [k for k, v in cap.items() if v]
+        missing = [k for k, v in cap.items() if not v]
+        best = self.detect_best_mode()
+
+        logger.info(
+            "WARP 能力检测: 已安装=%s, 未安装=%s, 推荐模式=%s",
+            ", ".join(installed) or "(无)",
+            ", ".join(missing) or "(无)",
+            best,
+        )
+
     @staticmethod
     def _local_socks_url(port: int) -> str:
         """构造本机 SOCKS5 代理地址，包含可选认证。"""
@@ -385,6 +412,7 @@ class WarpManager:
 
         不阻塞初始化，后台异步启动新的 WARP 实例。
         """
+        self.log_capabilities()
         async with self._lock:
             shell_state = self._load_state()
             if shell_state and shell_state.status == "enabled":

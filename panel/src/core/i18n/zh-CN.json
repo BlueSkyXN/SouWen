@@ -514,6 +514,7 @@
     "dockerOnly": "Docker",
     "configured": "已配置",
     "notConfigured": "未配置",
+    "notInstalled": "未安装",
     "externalProxy": "外部代理",
     "externalProxyDesc": "外部 WARP 代理地址（需在配置文件中持久化修改）",
     "runtimeNote": "运行时启停立即生效；如需持久化端口、Endpoint 或外部代理，请修改 souwen.yaml 后重载配置。",
