@@ -43,9 +43,12 @@ def _reg_external(adapter: SourceAdapter) -> bool:
     保证宿主程序不会因为第三方插件冲突而崩溃。
 
     Returns:
-        True 表示注册成功；False 表示与已有源冲突，已跳过。
+        True 表示注册成功；False 表示与已有源冲突或已注册，已跳过。
     """
     if adapter.name in _REGISTRY:
+        if adapter.name in _EXTERNAL_PLUGINS:
+            # 已由之前的 discover/load 调用注册过，幂等跳过
+            return False
         logger.warning(
             "插件源 %r 与已有数据源同名，已跳过（请重命名插件以避免冲突）",
             adapter.name,
