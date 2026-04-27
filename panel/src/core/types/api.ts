@@ -161,6 +161,7 @@ export interface WarpModeInfo {
   docker_only: boolean
   proxy_types: string[]
   description: string
+  reason?: string
   external_proxy?: string
 }
 

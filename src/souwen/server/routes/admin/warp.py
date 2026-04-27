@@ -45,59 +45,71 @@ async def warp_modes():
 
     mgr = WarpManager.get_instance()
     cfg = get_config()
+    has_wireproxy = mgr._has_wireproxy()
+    has_kernel_wg = mgr._has_kernel_wg()
+    has_usque = mgr._has_usque()
+    has_warp_cli = mgr._has_warp_cli()
+    has_external_proxy = bool(cfg.warp_external_proxy)
 
     modes = [
         {
             "id": "wireproxy",
             "name": "wireproxy (用户态)",
             "protocol": "wireguard",
-            "installed": mgr._has_wireproxy(),
+            "installed": has_wireproxy,
             "requires_privilege": False,
             "docker_only": False,
             "proxy_types": ["socks5"],
             "description": "用户态 WireGuard → SOCKS5 代理，跨平台兼容，无需内核权限",
+            "reason": "" if has_wireproxy else "wireproxy 二进制未找到",
         },
         {
             "id": "kernel",
             "name": "kernel (内核态)",
             "protocol": "wireguard",
-            "installed": mgr._has_kernel_wg(),
+            "installed": has_kernel_wg,
             "requires_privilege": True,
             "docker_only": False,
             "proxy_types": ["socks5"],
             "description": "Linux 内核 WireGuard + microsocks，高性能低延迟，需要 NET_ADMIN",
+            "reason": "" if has_kernel_wg else "需要 wg (wireguard-tools) 和 microsocks",
         },
         {
             "id": "usque",
             "name": "usque (MASQUE/QUIC)",
             "protocol": "masque",
-            "installed": mgr._has_usque(),
+            "installed": has_usque,
             "requires_privilege": False,
             "docker_only": False,
             "proxy_types": ["socks5", "http"],
             "description": "MASQUE/QUIC 协议，现代化方案，支持 SOCKS5 和 HTTP 代理",
+            "reason": ""
+            if has_usque
+            else "usque 二进制未找到 (需在 Docker 镜像中预装或手动安装到 PATH)",
         },
         {
             "id": "warp-cli",
             "name": "warp-cli (官方客户端)",
             "protocol": "official",
-            "installed": mgr._has_warp_cli(),
+            "installed": has_warp_cli,
             "requires_privilege": True,
             "docker_only": True,
             "proxy_types": ["socks5", "http"],
             "description": "Cloudflare 官方客户端 + GOST，功能最全，仅 Docker 可用",
+            "reason": "" if has_warp_cli else "warp-cli 未安装 (仅 Docker 可用)",
         },
         {
             "id": "external",
             "name": "外部代理",
             "protocol": "any",
             "installed": True,
-            "configured": bool(cfg.warp_external_proxy),
+            "configured": has_external_proxy,
             "requires_privilege": False,
             "docker_only": False,
             "proxy_types": ["socks5", "http"],
             "description": "连接外部 WARP 代理容器，零侵入，适合 sidecar 架构",
             "external_proxy": _mask_proxy_url(cfg.warp_external_proxy),
+            "reason": "" if has_external_proxy else "未配置 warp_external_proxy 地址",
         },
     ]
     return {"modes": modes}
@@ -211,6 +223,9 @@ async def warp_config():
         "warp_startup_timeout": cfg.warp_startup_timeout,
         "warp_device_name": cfg.warp_device_name,
         "warp_usque_transport": cfg.warp_usque_transport,
+        "warp_usque_system_dns": cfg.warp_usque_system_dns,
+        "warp_usque_on_connect": cfg.warp_usque_on_connect,
+        "warp_usque_on_disconnect": cfg.warp_usque_on_disconnect,
         "warp_external_proxy": _mask_proxy_url(cfg.warp_external_proxy),
         "warp_usque_path": cfg.warp_usque_path,
         "warp_usque_config": cfg.warp_usque_config,

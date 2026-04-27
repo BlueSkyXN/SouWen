@@ -203,9 +203,13 @@ function WarpModesCard({ modes, activeMode }: { modes: WarpModeInfo[]; activeMod
               </div>
               <div className={styles.modeMeta}>
                 <Badge color={available ? 'green' : 'gray'}>{available ? t('warp.available') : t('warp.unavailable')}</Badge>
+                {mode.id === 'usque' && <Badge color="green">推荐</Badge>}
                 <span>{mode.protocol}</span>
               </div>
               <p className={styles.modeDesc}>{mode.description}</p>
+              {!mode.installed && mode.reason && (
+                <p className={styles.modeReason}>💡 {mode.reason}</p>
+              )}
               <div className={styles.modeTags}>
                 {mode.proxy_types.map((proxy) => <span key={proxy}>{proxy}</span>)}
                 {mode.requires_privilege && <span>{t('warp.requiresPrivilege')}</span>}

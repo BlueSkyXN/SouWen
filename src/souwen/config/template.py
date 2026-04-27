@@ -112,6 +112,9 @@ warp:
   warp_usque_path: ~      # usque 二进制路径(默认从 PATH 查找)
   warp_usque_config: ~    # usque config.json 路径
   warp_usque_transport: auto  # auto | quic | http2
+  warp_usque_system_dns: false    # 使用系统 DNS（不走隧道 DNS）
+  warp_usque_on_connect: ~        # 连接成功后执行的脚本路径
+  warp_usque_on_disconnect: ~     # 连接断开后执行的脚本路径
   warp_http_port: 0       # HTTP 代理端口(usque/warp-cli 模式,0=不启用)
   # warp-cli 模式
   warp_license_key: ~     # WARP+ License Key

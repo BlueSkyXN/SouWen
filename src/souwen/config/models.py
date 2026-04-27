@@ -80,6 +80,8 @@ class SouWenConfig(BaseModel):
                   warp_startup_timeout, warp_device_name,
                   warp_proxy_username, warp_proxy_password,
                   warp_usque_path, warp_usque_config, warp_usque_transport,
+                  warp_usque_system_dns, warp_usque_on_connect,
+                  warp_usque_on_disconnect,
                   warp_http_port, warp_license_key, warp_team_token, warp_gost_args,
                   warp_external_proxy
 
@@ -247,6 +249,9 @@ class SouWenConfig(BaseModel):
     warp_usque_path: str | None = None  # usque 二进制路径（默认从 PATH 查找）
     warp_usque_config: str | None = None  # usque config.json 路径
     warp_usque_transport: str = "auto"  # auto | quic | http2
+    warp_usque_system_dns: bool = False  # 使用系统 DNS 而非隧道 DNS
+    warp_usque_on_connect: str | None = None  # 连接后执行的脚本路径
+    warp_usque_on_disconnect: str | None = None  # 断开后执行的脚本路径
     warp_http_port: int = 0  # HTTP 代理端口（usque/warp-cli 模式，0=不启用）
     # warp-cli 模式
     warp_license_key: str | None = None  # WARP+ License Key

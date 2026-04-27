@@ -282,6 +282,13 @@
   flex: 1;
 }
 
+.modeReason {
+  margin: -$space-2 0 0;
+  color: var(--text-muted);
+  font-size: $text-xs;
+  line-height: $leading-relaxed;
+}
+
 .modeTags {
   display: flex;
   gap: $space-2;
