@@ -1,7 +1,7 @@
 """SouWen WARP 代理运行时管理器
 
 提供从管理面板和 API 动态控制 Cloudflare WARP 代理的能力。
-支持 wireproxy (用户态) 和 kernel (内核 WireGuard + microsocks) 两种模式。
+支持 wireproxy、kernel、usque、warp-cli、external 等模式。
 
 状态持久化通过 /run/souwen-warp.json 与 shell entrypoint 共享。
 """
@@ -39,6 +39,9 @@ class WarpMode(str, Enum):
     AUTO = "auto"
     WIREPROXY = "wireproxy"
     KERNEL = "kernel"
+    USQUE = "usque"
+    WARP_CLI = "warp-cli"
+    EXTERNAL = "external"
 
 
 @dataclass
@@ -47,11 +50,14 @@ class WarpState:
     mode: str = "auto"
     status: str = "disabled"
     socks_port: int = 1080
+    http_port: int = 0  # HTTP 代理端口（usque/warp-cli）
     pid: int = 0
     interface: str = "wg0"
     ip: str = ""
     last_error: str = ""
     config_path: str = ""
+    protocol: str = "wireguard"  # wireguard | masque | official
+    proxy_type: str = "socks5"  # socks5 | http | both
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -59,11 +65,14 @@ class WarpState:
             "mode": self.mode,
             "status": self.status,
             "socks_port": self.socks_port,
+            "http_port": self.http_port,
             "pid": self.pid,
             "interface": self.interface,
             "ip": self.ip,
             "last_error": self.last_error,
             "config_path": self.config_path,
+            "protocol": self.protocol,
+            "proxy_type": self.proxy_type,
         }
 
     @classmethod
@@ -73,11 +82,14 @@ class WarpState:
             mode=d.get("mode", "auto"),
             status=d.get("status", "disabled"),
             socks_port=d.get("socks_port", 1080),
+            http_port=d.get("http_port", 0),
             pid=d.get("pid", 0),
             interface=d.get("interface", "wg0"),
             ip=d.get("ip", ""),
             last_error=d.get("last_error", ""),
             config_path=d.get("config_path", ""),
+            protocol=d.get("protocol", "wireguard"),
+            proxy_type=d.get("proxy_type", "socks5"),
         )
 
 
@@ -91,6 +103,8 @@ class WarpManager:
         self._lock = asyncio.Lock()
         self._state = WarpState()
         self._process: subprocess.Popen | None = None
+        self._http_process: subprocess.Popen | None = None
+        self._warp_svc_process: subprocess.Popen | None = None
 
     @classmethod
     def get_instance(cls) -> WarpManager:
@@ -153,17 +167,33 @@ class WarpManager:
             and Path("/dev/net/tun").exists()
         )
 
+    @staticmethod
+    def _has_usque() -> bool:
+        """检测 usque 二进制是否可用"""
+        return shutil.which("usque") is not None
+
+    @staticmethod
+    def _has_warp_cli() -> bool:
+        """检测 warp-cli 和 GOST 是否可用"""
+        return shutil.which("warp-cli") is not None and shutil.which("gost") is not None
+
     def detect_best_mode(self) -> str:
         """自动检测最优可用 WARP 模式
 
-        优先级：kernel > wireproxy > none。
-        kernel 模式性能更好但需要权限；wireproxy 模式无权限要求。
+        优先级：external(已配置) > kernel > usque > wireproxy > none
 
         Returns:
-            "kernel" / "wireproxy" / "none"
+            "external" / "kernel" / "usque" / "wireproxy" / "none"
         """
+        from souwen.config import get_config
+
+        cfg = get_config()
+        if cfg.warp_external_proxy:
+            return "external"
         if self._has_kernel_wg():
             return "kernel"
+        if self._has_usque():
+            return "usque"
         if self._has_wireproxy():
             return "wireproxy"
         return "none"
@@ -218,6 +248,57 @@ class WarpManager:
                     "-s",
                     "--socks5-hostname",
                     f"127.0.0.1:{port}",
+                    "--max-time",
+                    "3",
+                    "https://1.1.1.1/cdn-cgi/trace",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            for line in result.stdout.splitlines():
+                if line.startswith("ip="):
+                    return line[3:]
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            pass
+        return "unknown"
+
+    @staticmethod
+    def _check_external_proxy_alive(proxy_url: str) -> bool:
+        """检查外部代理是否可用 — 使用 curl 通过代理访问 Cloudflare trace"""
+        if not proxy_url:
+            return False
+        try:
+            result = subprocess.run(
+                [
+                    "curl",
+                    "-s",
+                    "--proxy",
+                    proxy_url,
+                    "--max-time",
+                    "3",
+                    "https://1.1.1.1/cdn-cgi/trace",
+                ],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            return "warp=" in result.stdout
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            return False
+
+    @staticmethod
+    def _get_external_proxy_ip(proxy_url: str) -> str:
+        """获取通过外部代理出口访问时的 IP 地址"""
+        if not proxy_url:
+            return "unknown"
+        try:
+            result = subprocess.run(
+                [
+                    "curl",
+                    "-s",
+                    "--proxy",
+                    proxy_url,
                     "--max-time",
                     "3",
                     "https://1.1.1.1/cdn-cgi/trace",
@@ -290,7 +371,12 @@ class WarpManager:
                 # 释放锁后调用 enable
                 asyncio.get_event_loop().call_soon(
                     lambda: asyncio.ensure_future(
-                        self.enable(cfg.warp_mode, cfg.warp_socks_port, cfg.warp_endpoint)
+                        self.enable(
+                            mode=cfg.warp_mode,
+                            socks_port=cfg.warp_socks_port,
+                            endpoint=cfg.warp_endpoint,
+                            http_port=cfg.warp_http_port,
+                        )
                     )
                 )
 
@@ -301,6 +387,7 @@ class WarpManager:
         mode: str = "auto",
         socks_port: int = 1080,
         endpoint: str | None = None,
+        http_port: int | None = None,
     ) -> dict[str, Any]:
         """启用 WARP 代理
 
@@ -308,9 +395,10 @@ class WarpManager:
         启动成功后会更新 SOUWEN_PROXY 环境变量并重载配置，使新代理立即生效。
 
         Args:
-            mode: 启动模式（auto / wireproxy / kernel）
+            mode: 启动模式（auto / wireproxy / kernel / usque / warp-cli / external）
             socks_port: 本地 SOCKS5 监听端口
             endpoint: 自定义 WARP Endpoint（可选）
+            http_port: 本地 HTTP 代理监听端口（None 表示使用配置值）
 
         Returns:
             {"ok": True, "mode": str, "ip": str} 成功；
@@ -323,6 +411,7 @@ class WarpManager:
             self._state.status = "starting"
             self._state.last_error = ""
             self._state.socks_port = socks_port
+            self._state.http_port = 0
 
             # 解析模式
             resolved_mode = mode
@@ -338,18 +427,68 @@ class WarpManager:
             self._state.mode = resolved_mode
 
             try:
+                from souwen.config import get_config
+
+                cfg = get_config()
+                effective_http_port = cfg.warp_http_port if http_port is None else http_port
+
                 if resolved_mode == "wireproxy":
                     await self._start_wireproxy(socks_port, endpoint)
                 elif resolved_mode == "kernel":
                     success = await self._start_kernel(socks_port, endpoint)
                     if not success:
-                        # kernel 失败时尝试回退到 wireproxy
-                        if mode == "auto" and self._has_wireproxy():
+                        # kernel 失败时按 auto 链路回退: usque -> wireproxy
+                        if mode == "auto" and self._has_usque():
+                            logger.warning("内核模式失败，回退到 usque")
+                            self._state.mode = "usque"
+                            try:
+                                await self._start_usque(socks_port, effective_http_port, endpoint)
+                            except Exception:
+                                if self._has_wireproxy():
+                                    logger.warning("usque 模式失败，继续回退到 wireproxy")
+                                    self._state.mode = "wireproxy"
+                                    await self._start_wireproxy(socks_port, endpoint)
+                                else:
+                                    raise
+                        elif mode == "auto" and self._has_wireproxy():
                             logger.warning("内核模式失败，回退到 wireproxy")
                             self._state.mode = "wireproxy"
                             await self._start_wireproxy(socks_port, endpoint)
                         else:
                             raise RuntimeError(self._state.last_error or "内核模式启动失败")
+                elif resolved_mode == "usque":
+                    try:
+                        await self._start_usque(socks_port, effective_http_port, endpoint)
+                    except Exception:
+                        if mode == "auto" and self._has_wireproxy():
+                            logger.warning("usque 模式失败，回退到 wireproxy")
+                            self._state.mode = "wireproxy"
+                            await self._start_wireproxy(socks_port, endpoint)
+                        else:
+                            raise
+                elif resolved_mode == "warp-cli":
+                    success = await self._start_warp_cli(socks_port, effective_http_port, endpoint)
+                    if not success:
+                        if mode == "auto" and self._has_usque():
+                            logger.warning("warp-cli 模式失败，回退到 usque")
+                            self._state.mode = "usque"
+                            try:
+                                await self._start_usque(socks_port, effective_http_port, endpoint)
+                            except Exception:
+                                if self._has_wireproxy():
+                                    logger.warning("usque 模式失败，继续回退到 wireproxy")
+                                    self._state.mode = "wireproxy"
+                                    await self._start_wireproxy(socks_port, endpoint)
+                                else:
+                                    raise
+                        elif mode == "auto" and self._has_wireproxy():
+                            logger.warning("warp-cli 模式失败，回退到 wireproxy")
+                            self._state.mode = "wireproxy"
+                            await self._start_wireproxy(socks_port, endpoint)
+                        else:
+                            raise RuntimeError(self._state.last_error or "warp-cli 模式启动失败")
+                elif resolved_mode == "external":
+                    await self._start_external()
                 else:
                     self._state.status = "error"
                     self._state.last_error = f"未知模式: {resolved_mode}"
@@ -357,9 +496,12 @@ class WarpManager:
                     return {"ok": False, "error": self._state.last_error}
 
                 # 等待代理就绪
-                ready = await self._wait_for_proxy(socks_port)
+                ready = True if self._state.mode == "external" else await self._wait_for_proxy(socks_port)
                 if ready:
-                    self._state.ip = self._get_warp_ip(socks_port)
+                    if self._state.mode == "external":
+                        self._state.ip = self._get_external_proxy_ip(self._state.config_path)
+                    else:
+                        self._state.ip = self._get_warp_ip(socks_port)
                     self._state.status = "enabled"
                 else:
                     self._state.ip = "pending"
@@ -370,7 +512,10 @@ class WarpManager:
                 self._save_state()
 
                 # 更新 SouWen 代理配置
-                self._apply_proxy(socks_port)
+                if self._state.mode == "external":
+                    self._apply_external_proxy(self._state.config_path)
+                else:
+                    self._apply_proxy(socks_port)
 
                 return {"ok": True, "mode": self._state.mode, "ip": self._state.ip}
 
@@ -432,6 +577,33 @@ class WarpManager:
                     except (subprocess.TimeoutExpired, FileNotFoundError):
                         pass
 
+                # warp-cli 模式: 断开连接并停止本管理器启动的守护进程
+                if mode == "warp-cli":
+                    try:
+                        subprocess.run(
+                            ["warp-cli", "--accept-tos", "disconnect"],
+                            capture_output=True,
+                            timeout=10,
+                        )
+                    except (subprocess.TimeoutExpired, FileNotFoundError):
+                        pass
+                    if self._warp_svc_process and self._warp_svc_process.poll() is None:
+                        self._warp_svc_process.terminate()
+                        try:
+                            self._warp_svc_process.wait(timeout=5)
+                        except subprocess.TimeoutExpired:
+                            self._warp_svc_process.kill()
+                    self._warp_svc_process = None
+
+                # usque 模式: 停止 HTTP 代理进程
+                if self._http_process and self._http_process.poll() is None:
+                    self._http_process.terminate()
+                    try:
+                        self._http_process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        self._http_process.kill()
+                self._http_process = None
+
                 # 清除代理配置
                 self._clear_proxy()
 
@@ -458,9 +630,15 @@ class WarpManager:
         若发现进程已退出，会自动将状态改为 error 并持久化。
 
         Returns:
-            包含 status、mode、owner、socks_port、ip、pid、interface、
+            包含 status、mode、owner、socks_port、http_port、ip、pid、interface、
             last_error 和 available_modes 的字典
         """
+        from souwen.config import get_config
+
+        try:
+            cfg = get_config()
+        except Exception:
+            cfg = None
         s = self._state
 
         # 实时验证: 如果状态是 enabled, 检查进程是否还活着
@@ -470,6 +648,10 @@ class WarpManager:
                 alive = (self._process and self._process.poll() is None) or self._pid_alive(s.pid)
             elif s.mode == "kernel":
                 alive = self._pid_alive(s.pid) or self._check_socks_alive(s.socks_port)
+            elif s.mode in ("usque", "warp-cli"):
+                alive = (self._process and self._process.poll() is None) or self._pid_alive(s.pid)
+            elif s.mode == "external":
+                alive = self._check_external_proxy_alive(s.config_path)
             if not alive:
                 s.status = "error"
                 s.last_error = "WARP 进程已退出"
@@ -480,13 +662,19 @@ class WarpManager:
             "mode": s.mode,
             "owner": s.owner,
             "socks_port": s.socks_port,
+            "http_port": s.http_port,
             "ip": s.ip,
             "pid": s.pid,
             "interface": s.interface if s.mode == "kernel" else None,
             "last_error": s.last_error,
+            "protocol": s.protocol,
+            "proxy_type": s.proxy_type,
             "available_modes": {
                 "wireproxy": self._has_wireproxy(),
                 "kernel": self._has_kernel_wg(),
+                "usque": self._has_usque(),
+                "warp-cli": self._has_warp_cli(),
+                "external": bool(cfg.warp_external_proxy) if cfg else False,
             },
         }
 
@@ -724,6 +912,266 @@ class WarpManager:
         self._state.pid = self._process.pid
         return True
 
+    async def _start_usque(self, socks_port: int, http_port: int, endpoint: str | None) -> None:
+        """启动 usque MASQUE/QUIC 代理
+
+        usque 是 Cloudflare WARP 的 MASQUE 协议开源实现。
+        支持 SOCKS5 和 HTTP 代理模式。
+
+        流程：
+            1. 查找 usque 二进制和配置文件
+            2. 如果没有配置，尝试自动注册 (usque register)
+            3. 启动 usque socks 或 usque http-proxy 子进程
+
+        Raises:
+            RuntimeError: usque 未安装或注册失败
+        """
+        from souwen.config import get_config
+
+        cfg = get_config()
+        _ = endpoint
+
+        usque_bin = cfg.warp_usque_path or shutil.which("usque")
+        if not usque_bin:
+            raise RuntimeError("usque 未安装")
+
+        # 确定配置文件路径
+        config_path = cfg.warp_usque_config
+        if not config_path:
+            # 默认查找路径: /app/data/usque-config.json > 当前目录 config.json
+            for candidate in [WARP_DATA_DIR / "usque-config.json", Path("config.json")]:
+                if candidate.is_file():
+                    config_path = str(candidate)
+                    break
+
+        # 如果没有配置文件，尝试自动注册
+        if not config_path or not Path(config_path).is_file():
+            config_path = str(WARP_DATA_DIR / "usque-config.json")
+            Path(config_path).parent.mkdir(parents=True, exist_ok=True)
+            reg_result = await self._usque_register(usque_bin, config_path)
+            if not reg_result:
+                raise RuntimeError("usque 注册失败（可能触发速率限制）")
+
+        # 构建启动命令 - 优先 SOCKS5 模式
+        cmd = [usque_bin, "-c", config_path, "socks", "--bind", "127.0.0.1", "--port", str(socks_port)]
+
+        self._process = subprocess.Popen(
+            cmd,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        self._state.pid = self._process.pid
+        self._state.config_path = config_path
+        self._state.protocol = "masque"
+        self._state.proxy_type = "socks5"
+
+        # 如果配置了 HTTP 端口，额外启动 HTTP 代理进程
+        if http_port > 0:
+            http_cmd = [
+                usque_bin,
+                "-c",
+                config_path,
+                "http-proxy",
+                "--bind",
+                "127.0.0.1",
+                "--port",
+                str(http_port),
+            ]
+            self._http_process = subprocess.Popen(
+                http_cmd,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            self._state.http_port = http_port
+            self._state.proxy_type = "both"
+
+    @staticmethod
+    async def _usque_register(usque_bin: str, config_path: str) -> bool:
+        """调用 usque register 注册新的 WARP 账号
+
+        Args:
+            usque_bin: usque 二进制路径
+            config_path: 配置输出路径
+
+        Returns:
+            True 注册成功，False 失败
+        """
+        try:
+            result = subprocess.run(
+                [usque_bin, "-c", config_path, "register"],
+                capture_output=True,
+                text=True,
+                timeout=30,
+            )
+            return result.returncode == 0 and Path(config_path).is_file()
+        except (subprocess.TimeoutExpired, FileNotFoundError):
+            return False
+
+    async def _start_warp_cli(
+        self,
+        socks_port: int,
+        http_port: int,
+        endpoint: str | None,
+    ) -> bool:
+        """启动 warp-cli 官方客户端 + GOST 代理
+
+        流程：
+            1. 启动 warp-svc 守护进程
+            2. 配置 warp-cli（注册、模式设置等）
+            3. 连接 WARP
+            4. 启动 GOST 提供 SOCKS5/HTTP 代理
+
+        Returns:
+            True 启动成功，False 失败
+        """
+        _ = endpoint
+        if not shutil.which("warp-cli") or not shutil.which("gost"):
+            self._state.last_error = "warp-cli 或 GOST 未安装"
+            return False
+
+        # 启动 warp-svc 守护进程
+        try:
+            self._warp_svc_process = subprocess.Popen(
+                ["warp-svc"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            await asyncio.sleep(2)  # 等待守护进程就绪
+        except FileNotFoundError:
+            self._state.last_error = "warp-svc 未找到"
+            return False
+
+        # 检查注册状态，必要时注册
+        try:
+            reg_check = subprocess.run(
+                ["warp-cli", "--accept-tos", "registration", "show"],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            if reg_check.returncode != 0:
+                # 需要注册
+                from souwen.config import get_config
+
+                cfg = get_config()
+
+                subprocess.run(
+                    ["warp-cli", "--accept-tos", "registration", "new"],
+                    capture_output=True,
+                    timeout=15,
+                )
+
+                # 设置 License Key（如果有）
+                if cfg.warp_license_key:
+                    subprocess.run(
+                        ["warp-cli", "--accept-tos", "registration", "license", cfg.warp_license_key],
+                        capture_output=True,
+                        timeout=10,
+                    )
+
+                # 设置 ZeroTrust Token（如果有）
+                if cfg.warp_team_token:
+                    subprocess.run(
+                        [
+                            "warp-cli",
+                            "--accept-tos",
+                            "registration",
+                            "organization",
+                            "--jwt-token",
+                            cfg.warp_team_token,
+                        ],
+                        capture_output=True,
+                        timeout=15,
+                    )
+        except subprocess.TimeoutExpired:
+            self._state.last_error = "warp-cli 注册失败: 命令超时"
+            return False
+        except FileNotFoundError as exc:
+            self._state.last_error = f"warp-cli 注册失败: {exc}"
+            return False
+
+        # 设置代理模式
+        subprocess.run(
+            ["warp-cli", "--accept-tos", "mode", "proxy"],
+            capture_output=True,
+            timeout=5,
+        )
+
+        # 连接
+        result = subprocess.run(
+            ["warp-cli", "--accept-tos", "connect"],
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        if result.returncode != 0:
+            self._state.last_error = f"warp-cli connect 失败: {result.stderr.strip()}"
+            return False
+
+        # 启动 GOST 代理
+        from souwen.config import get_config
+
+        cfg = get_config()
+        # warp-cli proxy 模式默认监听 127.0.0.1:40000
+        warp_upstream = "socks5://127.0.0.1:40000"
+        if cfg.warp_gost_args:
+            gost_args = cfg.warp_gost_args.split()
+        elif http_port > 0:
+            gost_args = [
+                "-L",
+                f"socks5://127.0.0.1:{socks_port}",
+                "-F",
+                warp_upstream,
+                "-L",
+                f"http://127.0.0.1:{http_port}",
+                "-F",
+                warp_upstream,
+            ]
+            self._state.http_port = http_port
+        else:
+            gost_args = ["-L", f"socks5://127.0.0.1:{socks_port}", "-F", warp_upstream]
+
+        self._process = subprocess.Popen(
+            ["gost", *gost_args],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        self._state.pid = self._process.pid
+        self._state.protocol = "official"
+        self._state.proxy_type = "both" if self._state.http_port > 0 else "socks5"
+
+        return True
+
+    async def _start_external(self) -> None:
+        """启动 external 外部代理模式
+
+        不启动任何进程，仅验证外部代理连通性并记录状态。
+
+        Raises:
+            RuntimeError: 外部代理地址未配置或不可达
+        """
+        from souwen.config import get_config
+
+        cfg = get_config()
+
+        proxy_url = cfg.warp_external_proxy
+        if not proxy_url:
+            raise RuntimeError("未配置 warp_external_proxy 外部代理地址")
+
+        # 解析代理地址获取端口（用于健康检查）
+        import re
+
+        port_match = re.search(r":(\d+)$", proxy_url.rstrip("/"))
+        if port_match:
+            self._state.socks_port = int(port_match.group(1))
+
+        self._state.protocol = "wireguard"  # 外部代理协议未知，默认 wireguard
+        self._state.proxy_type = "socks5" if "socks" in proxy_url.lower() else "http"
+        self._state.config_path = proxy_url
+
+        if not self._check_external_proxy_alive(proxy_url):
+            raise RuntimeError("外部 WARP 代理不可达")
+
     @staticmethod
     def _patch_kernel_conf(conf: Path, endpoint: str | None) -> None:
         """规范化内核 WireGuard 配置以适配 wg-quick
@@ -788,6 +1236,15 @@ class WarpManager:
 
         reload_config()
         logger.info("SOUWEN_PROXY=%s (已重载配置)", proxy_url)
+
+    @staticmethod
+    def _apply_external_proxy(proxy_url: str) -> None:
+        """将外部 WARP 代理写入 SOUWEN_PROXY 并重载配置"""
+        os.environ["SOUWEN_PROXY"] = proxy_url
+        from souwen.config import reload_config
+
+        reload_config()
+        logger.info("SOUWEN_PROXY=%s (外部代理，已重载配置)", proxy_url)
 
     @staticmethod
     def _clear_proxy() -> None:

@@ -22,6 +22,7 @@ import { VideoPage } from './pages/VideoPage'
 import { ToolsPage } from './pages/ToolsPage'
 import { SourcesPage } from './pages/SourcesPage'
 import { NetworkPage } from './pages/NetworkPage'
+import { WarpPage } from './pages/WarpPage'
 import { ConfigPage } from './pages/ConfigPage'
 
 export const skinRoutes = (
@@ -34,6 +35,7 @@ export const skinRoutes = (
     <Route path="/tools" element={<ToolsPage />} />
     <Route path="/sources" element={<SourcesPage />} />
     <Route path="/network" element={<NetworkPage />} />
+    <Route path="/warp" element={<WarpPage />} />
     <Route path="/config" element={<ConfigPage />} />
   </>
 )

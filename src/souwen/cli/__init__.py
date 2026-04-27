@@ -18,6 +18,7 @@
     cli/serve.py         - serve
     cli/doctor.py        - doctor
     cli/mcp.py           - mcp
+    cli/warp.py          - warp status/enable/disable/modes/register/test
 
 全局选项（main 回调）：
     --version / -V：显示版本并退出
@@ -92,6 +93,7 @@ from souwen.cli import (  # noqa: E402, F401
     search,
     serve,
     sources,
+    warp,
     wayback,
     youtube,
 )
@@ -102,6 +104,7 @@ app.add_typer(youtube.youtube_app, name="youtube")
 app.add_typer(bilibili.bilibili_app, name="bilibili")
 app.add_typer(wayback.wayback_app, name="wayback")
 app.add_typer(config_cmds.config_app, name="config")
+app.add_typer(warp.warp_app, name="warp")
 
 # 兼容性导出：tests/test_infra.py 直接 `from souwen.cli import _mask_value`
 from souwen.cli.config_cmds import _mask_value  # noqa: E402, F401

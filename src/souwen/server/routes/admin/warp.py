@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import asyncio
+from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 
 from fastapi import APIRouter, HTTPException, Query
 
@@ -10,6 +12,20 @@ from souwen.server.routes._common import logger
 from souwen.server.schemas import WaybackSaveRequest, WaybackSaveResponse
 
 router = APIRouter()
+
+
+def _mask_proxy_url(proxy_url: str | None) -> str:
+    """返回可展示的代理地址，避免泄露 URL 中的用户名和密码。"""
+    if not proxy_url:
+        return ""
+    parsed = urlsplit(proxy_url)
+    if "@" not in parsed.netloc:
+        return proxy_url
+    host = parsed.hostname or ""
+    if parsed.port is not None:
+        host = f"{host}:{parsed.port}"
+    masked_netloc = f"***@{host}"
+    return urlunsplit((parsed.scheme, masked_netloc, parsed.path, parsed.query, parsed.fragment))
 
 
 @router.get("/warp")
@@ -21,20 +37,183 @@ async def warp_status():
     return mgr.get_status()
 
 
-@router.post("/warp/enable")
-async def warp_enable(
-    mode: str = Query("auto", description="模式: auto | wireproxy | kernel"),
-    socks_port: int = Query(1080, ge=1, le=65535, description="SOCKS5 端口"),
-    endpoint: str | None = Query(None, description="自定义 WARP Endpoint"),
-):
-    """启用 WARP 代理 — 支持 auto、wireproxy、kernel 三种模式。"""
+@router.get("/warp/modes")
+async def warp_modes():
+    """列出所有 WARP 模式的可用性和详细信息。"""
+    from souwen.config import get_config
     from souwen.server.warp import WarpManager
 
     mgr = WarpManager.get_instance()
-    result = await mgr.enable(mode=mode, socks_port=socks_port, endpoint=endpoint)
+    cfg = get_config()
+
+    modes = [
+        {
+            "id": "wireproxy",
+            "name": "wireproxy (用户态)",
+            "protocol": "wireguard",
+            "installed": mgr._has_wireproxy(),
+            "requires_privilege": False,
+            "docker_only": False,
+            "proxy_types": ["socks5"],
+            "description": "用户态 WireGuard → SOCKS5 代理，跨平台兼容，无需内核权限",
+        },
+        {
+            "id": "kernel",
+            "name": "kernel (内核态)",
+            "protocol": "wireguard",
+            "installed": mgr._has_kernel_wg(),
+            "requires_privilege": True,
+            "docker_only": False,
+            "proxy_types": ["socks5"],
+            "description": "Linux 内核 WireGuard + microsocks，高性能低延迟，需要 NET_ADMIN",
+        },
+        {
+            "id": "usque",
+            "name": "usque (MASQUE/QUIC)",
+            "protocol": "masque",
+            "installed": mgr._has_usque(),
+            "requires_privilege": False,
+            "docker_only": False,
+            "proxy_types": ["socks5", "http"],
+            "description": "MASQUE/QUIC 协议，现代化方案，支持 SOCKS5 和 HTTP 代理",
+        },
+        {
+            "id": "warp-cli",
+            "name": "warp-cli (官方客户端)",
+            "protocol": "official",
+            "installed": mgr._has_warp_cli(),
+            "requires_privilege": True,
+            "docker_only": True,
+            "proxy_types": ["socks5", "http"],
+            "description": "Cloudflare 官方客户端 + GOST，功能最全，仅 Docker 可用",
+        },
+        {
+            "id": "external",
+            "name": "外部代理",
+            "protocol": "any",
+            "installed": True,
+            "configured": bool(cfg.warp_external_proxy),
+            "requires_privilege": False,
+            "docker_only": False,
+            "proxy_types": ["socks5", "http"],
+            "description": "连接外部 WARP 代理容器，零侵入，适合 sidecar 架构",
+            "external_proxy": _mask_proxy_url(cfg.warp_external_proxy),
+        },
+    ]
+    return {"modes": modes}
+
+
+@router.post("/warp/enable")
+async def warp_enable(
+    mode: str = Query(
+        "auto",
+        description="模式: auto | wireproxy | kernel | usque | warp-cli | external",
+    ),
+    socks_port: int = Query(1080, ge=1, le=65535, description="SOCKS5 端口"),
+    http_port: int = Query(0, ge=0, le=65535, description="HTTP 代理端口（0=不启用）"),
+    endpoint: str | None = Query(None, description="自定义 WARP Endpoint"),
+):
+    """启用 WARP 代理 — 支持 auto、wireproxy、kernel、usque、warp-cli、external 模式。"""
+    from souwen.server.warp import WarpManager
+
+    mgr = WarpManager.get_instance()
+    result = await mgr.enable(
+        mode=mode,
+        socks_port=socks_port,
+        http_port=http_port,
+        endpoint=endpoint,
+    )
     if not result["ok"]:
         raise HTTPException(status_code=400, detail=result["error"])
     return result
+
+
+@router.post("/warp/register")
+async def warp_register(
+    backend: str = Query("wgcf", description="注册后端: wgcf | usque"),
+):
+    """注册新的 Cloudflare WARP 账号。
+
+    支持 wgcf（WireGuard 配置）和 usque（MASQUE 配置）两种注册方式。
+    """
+    from souwen.server.warp import WarpManager
+
+    mgr = WarpManager.get_instance()
+
+    if backend == "usque":
+        import shutil
+
+        usque_bin = shutil.which("usque")
+        if not usque_bin:
+            raise HTTPException(status_code=400, detail="usque 未安装")
+        config_path = "/app/data/usque-config.json"
+        Path(config_path).parent.mkdir(parents=True, exist_ok=True)
+        success = await mgr._usque_register(usque_bin, config_path)
+        if success:
+            return {"ok": True, "backend": "usque", "config_path": config_path}
+        raise HTTPException(status_code=500, detail="usque 注册失败（可能触发速率限制）")
+
+    if backend == "wgcf":
+        result = await asyncio.to_thread(mgr._wgcf_register)
+        if result:
+            return {"ok": True, "backend": "wgcf", "config_path": str(result)}
+        raise HTTPException(status_code=500, detail="wgcf 注册失败（可能触发速率限制）")
+
+    raise HTTPException(status_code=400, detail=f"未知注册后端: {backend}")
+
+
+@router.post("/warp/test")
+async def warp_test():
+    """测试当前 WARP 代理连接 — 返回出口 IP 和 WARP 状态。"""
+    from souwen.server.warp import WarpManager
+
+    mgr = WarpManager.get_instance()
+    status = mgr.get_status()
+
+    if status["status"] != "enabled":
+        raise HTTPException(status_code=400, detail="WARP 未启用")
+
+    if status["mode"] == "external":
+        from souwen.config import get_config
+
+        proxy_url = get_config().warp_external_proxy or ""
+        alive = await asyncio.to_thread(mgr._check_external_proxy_alive, proxy_url)
+        ip = await asyncio.to_thread(mgr._get_external_proxy_ip, proxy_url) if alive else "unknown"
+        port = status["socks_port"]
+    else:
+        port = status["socks_port"]
+        alive = await asyncio.to_thread(mgr._check_socks_alive, port)
+        ip = await asyncio.to_thread(mgr._get_warp_ip, port) if alive else "unknown"
+
+    return {
+        "ok": alive,
+        "ip": ip,
+        "port": port,
+        "mode": status["mode"],
+        "protocol": status.get("protocol", "wireguard"),
+        "proxy_type": status.get("proxy_type", "socks5"),
+    }
+
+
+@router.get("/warp/config")
+async def warp_config():
+    """获取当前 WARP 相关配置项。"""
+    from souwen.config import get_config
+
+    cfg = get_config()
+    return {
+        "warp_enabled": cfg.warp_enabled,
+        "warp_mode": cfg.warp_mode,
+        "warp_socks_port": cfg.warp_socks_port,
+        "warp_http_port": cfg.warp_http_port,
+        "warp_endpoint": cfg.warp_endpoint,
+        "warp_external_proxy": _mask_proxy_url(cfg.warp_external_proxy),
+        "warp_usque_path": cfg.warp_usque_path,
+        "warp_usque_config": cfg.warp_usque_config,
+        "warp_gost_args": cfg.warp_gost_args,
+        "has_license_key": bool(cfg.warp_license_key),
+        "has_team_token": bool(cfg.warp_team_token),
+    }
 
 
 @router.post("/warp/disable")

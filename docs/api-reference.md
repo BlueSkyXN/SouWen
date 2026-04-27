@@ -529,12 +529,39 @@ Cache-Control: public, max-age=3600
 **响应示例：**
 ```json
 {
-  "enabled": true,
+  "status": "enabled",
   "mode": "wireproxy",
+  "owner": "shell",
   "socks_port": 1080,
+  "http_port": 0,
   "ip": "104.28.x.x",
   "pid": 12345,
-  "owner": "shell"
+  "protocol": "wireguard",
+  "proxy_type": "socks5"
+}
+```
+
+#### `GET /api/v1/admin/warp/modes`
+
+列出所有 WARP 模式的可用性、协议、代理类型和部署要求。
+
+**模式：** `wireproxy` / `kernel` / `usque` / `warp-cli` / `external`
+
+**响应示例：**
+```json
+{
+  "modes": [
+    {
+      "id": "usque",
+      "name": "usque (MASQUE/QUIC)",
+      "protocol": "masque",
+      "installed": true,
+      "requires_privilege": false,
+      "docker_only": false,
+      "proxy_types": ["socks5", "http"],
+      "description": "MASQUE/QUIC 协议，现代化方案，支持 SOCKS5 和 HTTP 代理"
+    }
+  ]
 }
 ```
 
@@ -544,8 +571,9 @@ Cache-Control: public, max-age=3600
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `mode` | string | `"auto"` | 模式: `auto` / `wireproxy` / `kernel` |
+| `mode` | string | `"auto"` | 模式: `auto` / `wireproxy` / `kernel` / `usque` / `warp-cli` / `external` |
 | `socks_port` | int (1-65535) | `1080` | SOCKS5 端口 |
+| `http_port` | int (0-65535) | `0` | HTTP 代理端口（`0` 表示不启用；适用于 `usque` 等支持 HTTP 代理的模式） |
 | `endpoint` | string \| null | `null` | 自定义 WARP Endpoint |
 
 **响应示例：**
@@ -556,6 +584,56 @@ Cache-Control: public, max-age=3600
 **错误响应 (400)：**
 ```json
 { "detail": "wireproxy binary not found" }
+```
+
+#### `POST /api/v1/admin/warp/register`
+
+注册新的 Cloudflare WARP 账号。
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `backend` | string | `"wgcf"` | 注册后端：`wgcf`（WireGuard 配置）/ `usque`（MASQUE 配置） |
+
+**响应示例：**
+```json
+{ "ok": true, "backend": "wgcf", "config_path": ".../wgcf-raw.conf" }
+```
+
+#### `POST /api/v1/admin/warp/test`
+
+测试当前 WARP 代理连接，返回出口 IP、端口、模式与协议。
+
+**响应示例：**
+```json
+{
+  "ok": true,
+  "ip": "104.28.x.x",
+  "port": 1080,
+  "mode": "usque",
+  "protocol": "masque",
+  "proxy_type": "both"
+}
+```
+
+#### `GET /api/v1/admin/warp/config`
+
+获取当前 WARP 相关配置项；`warp_license_key` 和 `warp_team_token` 仅返回是否已配置，代理 URL 中的用户名和密码会被掩码。
+
+**响应示例：**
+```json
+{
+  "warp_enabled": false,
+  "warp_mode": "auto",
+  "warp_socks_port": 1080,
+  "warp_http_port": 0,
+  "warp_endpoint": null,
+  "warp_external_proxy": null,
+  "warp_usque_path": null,
+  "warp_usque_config": null,
+  "warp_gost_args": null,
+  "has_license_key": false,
+  "has_team_token": false
+}
 ```
 
 #### `POST /api/v1/admin/warp/disable`
