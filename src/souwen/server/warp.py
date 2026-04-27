@@ -520,7 +520,9 @@ class WarpManager:
                 for index, resolved_mode in enumerate(candidate_modes):
                     self._state.mode = resolved_mode
                     try:
-                        await self._start_mode(resolved_mode, socks_port, effective_http_port, endpoint)
+                        await self._start_mode(
+                            resolved_mode, socks_port, effective_http_port, endpoint
+                        )
 
                         ready = (
                             True
@@ -531,7 +533,9 @@ class WarpManager:
                             raise RuntimeError("WARP 代理验证超时")
                         if ready:
                             if self._state.mode == "external":
-                                self._state.ip = self._get_external_proxy_ip(self._state.config_path)
+                                self._state.ip = self._get_external_proxy_ip(
+                                    self._state.config_path
+                                )
                             else:
                                 self._state.ip = self._get_warp_ip(socks_port)
                             self._state.status = "enabled"
@@ -1076,7 +1080,9 @@ class WarpManager:
         use_http2 = transport == "http2"
         await start_usque_processes(http2=use_http2)
 
-        if transport == "auto" and not await self._wait_for_proxy(socks_port, cfg.warp_startup_timeout):
+        if transport == "auto" and not await self._wait_for_proxy(
+            socks_port, cfg.warp_startup_timeout
+        ):
             logger.warning("usque QUIC 启动健康检查失败，重试 HTTP/2 transport")
             self._cleanup_failed_start("usque")
             await start_usque_processes(http2=True)
@@ -1166,7 +1172,13 @@ class WarpManager:
                 # 设置 License Key（如果有）
                 if cfg.warp_license_key:
                     subprocess.run(
-                        ["warp-cli", "--accept-tos", "registration", "license", cfg.warp_license_key],
+                        [
+                            "warp-cli",
+                            "--accept-tos",
+                            "registration",
+                            "license",
+                            cfg.warp_license_key,
+                        ],
                         capture_output=True,
                         timeout=10,
                     )
