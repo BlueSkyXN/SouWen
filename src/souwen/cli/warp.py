@@ -61,8 +61,7 @@ def warp_status() -> None:
 
     modes = s.get("available_modes", {})
     mode_text = "  ".join(
-        f"[green]✓[/green] {m}" if avail else f"[dim]✗ {m}[/dim]"
-        for m, avail in modes.items()
+        f"[green]✓[/green] {m}" if avail else f"[dim]✗ {m}[/dim]" for m, avail in modes.items()
     )
     console.print(f"\n可用模式: {mode_text}")
 
@@ -130,9 +129,23 @@ def warp_modes() -> None:
 
     modes_info = [
         ("wireproxy", mgr._has_wireproxy(), "WireGuard", False, "SOCKS5", "用户态 WireGuard"),
-        ("kernel", mgr._has_kernel_wg(), "WireGuard", True, "SOCKS5", "内核 WireGuard + microsocks"),
+        (
+            "kernel",
+            mgr._has_kernel_wg(),
+            "WireGuard",
+            True,
+            "SOCKS5",
+            "内核 WireGuard + microsocks",
+        ),
         ("usque", mgr._has_usque(), "MASQUE/QUIC", False, "SOCKS5+HTTP", "MASQUE 协议"),
-        ("warp-cli", mgr._has_warp_cli(), "官方客户端", True, "SOCKS5+HTTP", "Cloudflare 官方 + GOST"),
+        (
+            "warp-cli",
+            mgr._has_warp_cli(),
+            "官方客户端",
+            True,
+            "SOCKS5+HTTP",
+            "Cloudflare 官方 + GOST",
+        ),
         ("external", bool(cfg.warp_external_proxy), "任意", False, "SOCKS5/HTTP", "外部代理容器"),
     ]
 
@@ -196,10 +209,7 @@ def warp_test() -> None:
     if alive:
         console.print(
             Panel(
-                f"[green]✅ 连接正常[/green]\n"
-                f"出口 IP: {ip}\n"
-                f"端口: {port}\n"
-                f"模式: {s['mode']}",
+                f"[green]✅ 连接正常[/green]\n出口 IP: {ip}\n端口: {port}\n模式: {s['mode']}",
                 title="WARP 连接测试",
                 border_style="green",
             )
