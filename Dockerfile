@@ -61,6 +61,8 @@ WORKDIR /app
 
 # 步骤 1：复制项目配置和版本信息，安装核心依赖
 # 注：curl_cffi 位于 [tls] extras，用于专利爬虫/反爬指纹，必须同时安装
+# 可选插件：追加 web2pdf 启用 SuperWeb2PDF 网页截图转 PDF
+#   pip install ".[server,tls,web2pdf]"  # 需额外安装 playwright chromium
 COPY pyproject.toml README.md LICENSE ./
 COPY src/souwen/__init__.py ./src/souwen/__init__.py
 RUN pip install ".[server,tls]"

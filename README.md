@@ -160,6 +160,13 @@ src/souwen/
 └── server/            FastAPI 应用
 ```
 
+## 🧩 插件系统
+
+SouWen 支持通过外部 Python 包扩展数据源和 fetch provider。插件通过 setuptools
+`entry_points` 或 `souwen.yaml` 的 `plugins` 字段接入，无需修改 SouWen 主仓代码。
+
+- 对接规范：[docs/plugin-integration-spec.md](docs/plugin-integration-spec.md)
+
 ## 🚢 部署
 
 **Docker**（推荐）：
@@ -186,12 +193,14 @@ docker run -p 8000:8000 \
 - [docs/anti-scraping.md](docs/anti-scraping.md) — TLS 指纹 / WARP / 限流
 - [docs/appearance.md](docs/appearance.md) — 多皮肤前端
 - [docs/adding-a-source.md](docs/adding-a-source.md) — 新增数据源指南
+- [docs/plugin-integration-spec.md](docs/plugin-integration-spec.md) — 外部插件对接规范
 - [docs/contributing.md](docs/contributing.md) — 开发者指南
 - [CHANGELOG.md](CHANGELOG.md) — 版本变更
 
 ## 🤝 贡献
 
 - 新增数据源：参考 [docs/adding-a-source.md](docs/adding-a-source.md)（`registry/sources.py` 加一条 `_reg(...)` 即可）
+- 开发外部插件：参考 [docs/plugin-integration-spec.md](docs/plugin-integration-spec.md)
 - 代码风格：`ruff format && ruff check`
 - 测试：`pytest tests/`
 

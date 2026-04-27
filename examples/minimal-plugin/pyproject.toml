@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "souwen-example-plugin"
+version = "0.1.0"
+description = "SouWen 最小插件示例 / Minimal SouWen plugin example"
+requires-python = ">=3.10"
+dependencies = []  # souwen is a runtime peer dependency, not declared here
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-asyncio>=0.23"]
+
+[project.entry-points."souwen.plugins"]
+example_echo = "souwen_example_plugin:plugin"
+
+[tool.setuptools.packages.find]
+include = ["souwen_example_plugin*"]
