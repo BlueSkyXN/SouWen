@@ -42,6 +42,9 @@ import type {
   YamlConfigResponse,
   WarpStatus,
   WarpActionResult,
+  WarpModesResponse,
+  WarpTestResult,
+  WarpConfigResponse,
   HttpBackendResponse,
   SourceChannelConfig,
   YouTubeTrendingResponse,
@@ -98,8 +101,12 @@ export interface ApiService {
 
   // === warp ===
   getWarpStatus(): Promise<WarpStatus>
-  enableWarp(mode?: string, socksPort?: number, endpoint?: string): Promise<WarpActionResult>
+  enableWarp(mode?: string, socksPort?: number, endpoint?: string, httpPort?: number): Promise<WarpActionResult>
   disableWarp(): Promise<WarpActionResult>
+  getWarpModes(): Promise<WarpModesResponse>
+  registerWarp(backend?: string): Promise<WarpActionResult>
+  testWarp(): Promise<WarpTestResult>
+  getWarpConfig(): Promise<WarpConfigResponse>
 
   // === http-backend ===
   getHttpBackend(): Promise<HttpBackendResponse>

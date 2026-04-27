@@ -21,8 +21,17 @@ FROM python:3.11-slim
 # 依赖版本配置
 ARG WGCF_VERSION=2.2.30
 ARG WIREPROXY_VERSION=1.1.2
+# usque: MASQUE/QUIC 协议 WARP 客户端
+ARG USQUE_VERSION=3.0.0
 
 # 环境变量配置
+# WARP 代理环境变量
+# WARP_ENABLED=1          启用 WARP
+# WARP_MODE=auto          模式: auto|wireproxy|kernel|usque|warp-cli|external
+# WARP_SOCKS_PORT=1080    SOCKS5 端口
+# WARP_HTTP_PORT=0        HTTP 代理端口（0=不启用）
+# WARP_ENDPOINT           自定义 Endpoint
+# WARP_EXTERNAL_PROXY     外部代理地址（external 模式）
 ENV PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
     TZ=Asia/Shanghai
@@ -40,6 +49,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # 预装所有 WARP 相关工具以支持代理功能
 # - wgcf: Cloudflare WARP 配置生成工具
 # - wireproxy: 用户态 WireGuard SOCKS5 代理
+# - usque: MASQUE/QUIC 协议 WARP 客户端
 # - microsocks: 轻量级 SOCKS5 代理（内核模式）
 RUN ARCH=$(dpkg --print-architecture) && \
     curl -fsSL -o /usr/local/bin/wgcf \
@@ -47,7 +57,10 @@ RUN ARCH=$(dpkg --print-architecture) && \
     chmod +x /usr/local/bin/wgcf && \
     curl -fsSL "https://github.com/pufferffish/wireproxy/releases/download/v${WIREPROXY_VERSION}/wireproxy_linux_${ARCH}.tar.gz" \
         | tar xz -C /usr/local/bin/ wireproxy && \
-    chmod +x /usr/local/bin/wireproxy
+    chmod +x /usr/local/bin/wireproxy && \
+    curl -fsSL "https://github.com/Diniboy1123/usque/releases/download/v${USQUE_VERSION}/usque_${USQUE_VERSION}_linux_${ARCH}.zip" \
+        | python -c "import io, sys, zipfile; zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).extract('usque', '/usr/local/bin')" && \
+    chmod +x /usr/local/bin/usque
 
 # 复制预编译的 microsocks 可执行文件
 COPY --from=microsocks-builder /src/microsocks /usr/local/bin/microsocks

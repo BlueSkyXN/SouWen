@@ -113,6 +113,19 @@ def get_config() -> SouWenConfig:
         "warp_mode": "WARP_MODE",
         "warp_socks_port": "WARP_SOCKS_PORT",
         "warp_endpoint": "WARP_ENDPOINT",
+        "warp_bind_address": "WARP_BIND_ADDRESS",
+        "warp_startup_timeout": "WARP_STARTUP_TIMEOUT",
+        "warp_device_name": "WARP_DEVICE_NAME",
+        "warp_proxy_username": "WARP_PROXY_USERNAME",
+        "warp_proxy_password": "WARP_PROXY_PASSWORD",
+        "warp_usque_path": "WARP_USQUE_PATH",
+        "warp_usque_config": "WARP_USQUE_CONFIG",
+        "warp_usque_transport": "WARP_USQUE_TRANSPORT",
+        "warp_http_port": "WARP_HTTP_PORT",
+        "warp_license_key": "WARP_LICENSE_KEY",
+        "warp_team_token": "WARP_TEAM_TOKEN",
+        "warp_gost_args": "WARP_GOST_ARGS",
+        "warp_external_proxy": "WARP_EXTERNAL_PROXY",
     }
     for field_name in SouWenConfig.model_fields:
         env_key = f"{env_prefix}{field_name.upper()}"
