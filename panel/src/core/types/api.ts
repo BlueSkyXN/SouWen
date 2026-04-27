@@ -135,14 +135,64 @@ export interface WarpStatus {
   mode: string
   owner: string
   socks_port: number
+  http_port: number
   ip: string
   pid: number
   interface: string | null
   last_error: string
+  protocol: string
+  proxy_type: string
   available_modes: {
     wireproxy: boolean
     kernel: boolean
+    usque: boolean
+    'warp-cli': boolean
+    external: boolean
   }
+}
+
+export interface WarpModeInfo {
+  id: string
+  name: string
+  protocol: string
+  installed: boolean
+  configured?: boolean
+  requires_privilege: boolean
+  docker_only: boolean
+  proxy_types: string[]
+  description: string
+  external_proxy?: string
+}
+
+export interface WarpModesResponse {
+  modes: WarpModeInfo[]
+}
+
+export interface WarpTestResult {
+  ok: boolean
+  ip: string
+  port: number
+  mode: string
+  protocol: string
+}
+
+export interface WarpConfigResponse {
+  warp_enabled: boolean
+  warp_mode: string
+  warp_socks_port: number
+  warp_http_port: number
+  warp_endpoint: string | null
+  warp_bind_address: string
+  warp_startup_timeout: number
+  warp_device_name: string | null
+  warp_usque_transport: string
+  warp_external_proxy: string | null
+  warp_usque_path: string | null
+  warp_usque_config: string | null
+  warp_gost_args: string | null
+  has_license_key: boolean
+  has_team_token: boolean
+  has_proxy_auth: boolean
 }
 
 /**

@@ -1,5 +1,21 @@
 # Changelog
 
+## v1.1.0 — WARP 五模式扩展（2026-04-27）
+
+### Features
+- 新增 3 种 WARP 代理模式：usque MASQUE/QUIC、warp-cli 官方客户端、external 外部代理
+- 新增前端 WarpPage 专属管理页面（souwen-nebula 皮肤）
+- 新增 CLI `souwen warp` 命令组：status / enable / disable / modes / register / test
+- 新增 API 端点：`/warp/modes`、`/warp/register`、`/warp/test`、`/warp/config`
+- Dockerfile 预装 usque v3.0.0 二进制
+
+### Behavior
+- 自动模式降级链：external > kernel > usque > wireproxy
+- NetworkPage WarpCard 简化为摘要卡片，引导至专属页面
+
+### Docs
+- 新增 WARP 方案对比文档：`docs/warp-solutions.md`
+
 ## [Unreleased] — Plugin System
 
 ### Architecture

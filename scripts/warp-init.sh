@@ -3,16 +3,31 @@
 #  SouWen WARP 初始化脚本
 #  用途：为容器环境自动配置和启动 Cloudflare WARP 代理
 #
-#  支持两种代理模式:
+#  支持五种代理模式:
 #    wireproxy — 用户态 WireGuard → SOCKS5 (默认, 全平台兼容)
 #    kernel    — 内核 WireGuard + microsocks (需 NET_ADMIN, 高性能)
+#    usque     — MASQUE/QUIC 协议 (现代化方案, 支持 SOCKS5+HTTP)
+#    warp-cli  — 官方 Cloudflare 客户端 + GOST (功能最全, Docker 专用)
+#    external  — 外部代理容器 (零侵入, sidecar 架构)
 #
 #  环境变量:
 #    WARP_ENABLED=1          启用 WARP (默认关闭)
-#    WARP_MODE=auto          模式: auto (默认,自动检测) | wireproxy | kernel
+#    WARP_MODE=auto          模式: auto (默认,自动检测) | wireproxy | kernel | usque | warp-cli | external
 #    WARP_CONFIG_B64          Base64 编码的配置 (wireproxy格式 或 WireGuard格式)
 #    WARP_ENDPOINT            自定义 WARP Endpoint (如 162.159.192.1:4500)
 #    WARP_SOCKS_PORT          SOCKS5 监听端口 (默认 1080)
+#    WARP_BIND_ADDRESS        代理绑定地址 (默认 127.0.0.1)
+#    WARP_STARTUP_TIMEOUT     启动健康检查超时秒数 (默认 15)
+#    WARP_DEVICE_NAME         usque 注册设备名
+#    WARP_PROXY_USERNAME      代理认证用户名
+#    WARP_PROXY_PASSWORD      代理认证密码
+#    WARP_USQUE_CONFIG        usque 配置文件路径
+#    WARP_USQUE_TRANSPORT     usque 传输: auto | quic | http2
+#    WARP_HTTP_PORT           HTTP 代理端口 (usque/warp-cli, 默认不启用)
+#    WARP_LICENSE_KEY         WARP+ License Key (warp-cli 模式)
+#    WARP_TEAM_TOKEN          ZeroTrust Team Token (warp-cli 模式)
+#    WARP_GOST_ARGS           自定义 GOST 参数 (默认 -L :1080)
+#    WARP_EXTERNAL_PROXY      外部代理地址 (external 模式)
 #    GH_PROXY                 GitHub 下载代理前缀
 #
 #  用法: 在 entrypoint.sh 中 source 本脚本:
@@ -27,6 +42,7 @@ _warp_convert_to_wireproxy() {
     SRC="$1"
     DST="$2"
     SOCKS_PORT="${WARP_SOCKS_PORT:-1080}"
+    BIND_ADDRESS="${WARP_BIND_ADDRESS:-127.0.0.1}"
 
     # 从 WireGuard 配置中提取关键参数
     PRIVATE_KEY=$(grep '^PrivateKey' "$SRC" | sed 's/^PrivateKey[[:space:]]*=[[:space:]]*//')
@@ -47,7 +63,7 @@ Endpoint = ${ENDPOINT}
 PersistentKeepalive = 15
 
 [Socks5]
-BindAddress = 127.0.0.1:${SOCKS_PORT}
+BindAddress = ${BIND_ADDRESS}:${SOCKS_PORT}
 WIREPROXY_EOF
 }
 
@@ -155,7 +171,8 @@ _warp_start_wireproxy() {
         sed -i "s|^Endpoint.*|Endpoint = ${_escaped_ep}|" "$WIREPROXY_CONF"
         echo "==> [WARP] 🔀 自定义 Endpoint: ${WARP_ENDPOINT}"
     fi
-    sed -i "s|^BindAddress.*|BindAddress = 127.0.0.1:${WARP_SOCKS_PORT}|" "$WIREPROXY_CONF"
+    WARP_BIND_ADDRESS="${WARP_BIND_ADDRESS:-127.0.0.1}"
+    sed -i "s|^BindAddress.*|BindAddress = ${WARP_BIND_ADDRESS}:${WARP_SOCKS_PORT}|" "$WIREPROXY_CONF"
 
     # 检查 wireproxy 可执行文件
     if ! command -v wireproxy >/dev/null 2>&1; then
@@ -218,25 +235,244 @@ _warp_start_kernel() {
     wg-quick up wg0 2>/dev/null
 
     # 启动 microsocks SOCKS5 代理（监听本地端口）
-    microsocks -i 127.0.0.1 -p "${WARP_SOCKS_PORT}" &
+    WARP_BIND_ADDRESS="${WARP_BIND_ADDRESS:-127.0.0.1}"
+    microsocks -i "${WARP_BIND_ADDRESS}" -p "${WARP_SOCKS_PORT}" &
     MICROSOCKS_PID=$!
     echo "==> [WARP] microsocks 已启动 (PID: ${MICROSOCKS_PID})"
+}
+
+# usque 模式 ===== MASQUE/QUIC 协议代理 =====
+
+_warp_start_usque() {
+    # 启动 usque MASQUE/QUIC 代理
+    # 特点：现代协议、跨平台、支持 SOCKS5+HTTP、无需内核权限
+    USQUE_CONFIG="${WARP_USQUE_CONFIG:-/app/data/usque-config.json}"
+
+    # 检查 usque 可执行文件
+    if ! command -v usque >/dev/null 2>&1; then
+        echo "==> [WARP] ❌ usque 未安装"
+        return 1
+    fi
+
+    # 如果没有配置文件，尝试自动注册
+    if [ ! -f "$USQUE_CONFIG" ]; then
+        echo "==> [WARP] 正在注册 usque 账号..."
+        USQUE_REGISTER_ARGS=""
+        if [ -n "${WARP_DEVICE_NAME:-}" ]; then
+            USQUE_REGISTER_ARGS="-n ${WARP_DEVICE_NAME}"
+        fi
+        if ! usque -c "$USQUE_CONFIG" register ${USQUE_REGISTER_ARGS} 2>/dev/null; then
+            echo "==> [WARP] ❌ usque 注册失败（可能触发速率限制）"
+            return 1
+        fi
+        echo "==> [WARP] ✅ usque 注册成功"
+    fi
+
+    # 启动 SOCKS5 代理
+    WARP_BIND_ADDRESS="${WARP_BIND_ADDRESS:-127.0.0.1}"
+    USQUE_GLOBAL_ARGS=""
+    if [ "${WARP_USQUE_TRANSPORT:-auto}" = "http2" ]; then
+        USQUE_GLOBAL_ARGS="--http2"
+    fi
+    USQUE_AUTH_ARGS=""
+    if [ -n "${WARP_PROXY_USERNAME:-}" ] && [ -n "${WARP_PROXY_PASSWORD:-}" ]; then
+        USQUE_AUTH_ARGS="-u ${WARP_PROXY_USERNAME} -w ${WARP_PROXY_PASSWORD}"
+    fi
+    usque -c "$USQUE_CONFIG" ${USQUE_GLOBAL_ARGS} socks --bind "${WARP_BIND_ADDRESS}" --port "${WARP_SOCKS_PORT}" ${USQUE_AUTH_ARGS} &
+    USQUE_PID=$!
+    echo "==> [WARP] usque SOCKS5 已启动 (PID: ${USQUE_PID})"
+
+    # 如果配置了 HTTP 端口，额外启动 HTTP 代理
+    WARP_HTTP_PORT="${WARP_HTTP_PORT:-0}"
+    if [ "$WARP_HTTP_PORT" -gt 0 ] 2>/dev/null; then
+        usque -c "$USQUE_CONFIG" ${USQUE_GLOBAL_ARGS} http-proxy --bind "${WARP_BIND_ADDRESS}" --port "${WARP_HTTP_PORT}" ${USQUE_AUTH_ARGS} &
+        USQUE_HTTP_PID=$!
+        echo "==> [WARP] usque HTTP 代理已启动 (PID: ${USQUE_HTTP_PID}, 端口: ${WARP_HTTP_PORT})"
+    fi
+}
+
+# warp-cli 模式 ===== 官方客户端 + GOST 代理 =====
+
+_warp_start_warp_cli() {
+    # 启动 Cloudflare 官方 warp-cli + GOST 代理
+    # 特点：功能最全、支持 WARP+/ZeroTrust、资源占用较大
+
+    if ! command -v warp-cli >/dev/null 2>&1; then
+        echo "==> [WARP] ❌ warp-cli 未安装"
+        return 1
+    fi
+    if ! command -v gost >/dev/null 2>&1; then
+        echo "==> [WARP] ❌ GOST 未安装"
+        return 1
+    fi
+
+    # 启动 warp-svc 守护进程
+    warp-svc &
+    sleep "${WARP_SLEEP:-2}"
+
+    # 注册（如果需要）
+    if ! warp-cli --accept-tos registration show >/dev/null 2>&1; then
+        echo "==> [WARP] 正在注册 warp-cli..."
+        warp-cli --accept-tos registration new 2>/dev/null
+
+        # 设置 License Key
+        if [ -n "${WARP_LICENSE_KEY:-}" ]; then
+            warp-cli --accept-tos registration license "${WARP_LICENSE_KEY}" 2>/dev/null
+            echo "==> [WARP] ✅ License Key 已应用"
+        fi
+
+        # 设置 ZeroTrust
+        if [ -n "${WARP_TEAM_TOKEN:-}" ]; then
+            warp-cli --accept-tos registration organization --jwt-token "${WARP_TEAM_TOKEN}" 2>/dev/null
+            echo "==> [WARP] ✅ ZeroTrust 已配置"
+        fi
+    fi
+
+    # 设置代理模式并连接
+    warp-cli --accept-tos mode proxy 2>/dev/null
+    warp-cli --accept-tos connect 2>/dev/null
+    sleep 1
+
+    # 启动 GOST 代理
+    # warp-cli proxy 模式默认监听 127.0.0.1:40000，GOST 需转发到上游
+    WARP_UPSTREAM="socks5://127.0.0.1:40000"
+    WARP_BIND_ADDRESS="${WARP_BIND_ADDRESS:-127.0.0.1}"
+    GOST_ARGS="${WARP_GOST_ARGS:--L socks5://${WARP_BIND_ADDRESS}:${WARP_SOCKS_PORT} -F ${WARP_UPSTREAM}}"
+    gost ${GOST_ARGS} &
+    GOST_PID=$!
+    echo "==> [WARP] GOST 代理已启动 (PID: ${GOST_PID})"
+}
+
+# external 模式 ===== 外部代理容器 =====
+
+_warp_start_external() {
+    # 使用外部 WARP 代理容器
+    # 特点：零侵入、独立容器、适合 sidecar 架构
+    EXTERNAL_PROXY="${WARP_EXTERNAL_PROXY:-}"
+
+    if [ -z "$EXTERNAL_PROXY" ]; then
+        echo "==> [WARP] ❌ 未配置 WARP_EXTERNAL_PROXY"
+        return 1
+    fi
+
+    echo "==> [WARP] 使用外部代理: ${EXTERNAL_PROXY}"
+    # 外部模式不启动任何进程，仅设置代理地址
+    export SOUWEN_PROXY="${EXTERNAL_PROXY}"
 }
 
 # 主入口 ===== 模式检测与初始化 =====
 
 _warp_detect_mode() {
     # 自动检测最佳可用代理模式
-    # 优先级：kernel（性能最优）> wireproxy（兼容性好）> none（不可用）
-    if command -v wg-quick >/dev/null 2>&1 && \
-       [ -e /dev/net/tun ] && \
-       command -v microsocks >/dev/null 2>&1; then
-        echo "kernel"
-    elif command -v wireproxy >/dev/null 2>&1; then
-        echo "wireproxy"
-    else
-        echo "none"
+    # 优先级：external(已配置) > usque > wireproxy > kernel > none
+    local modes="external usque wireproxy kernel"
+
+    for mode in $modes; do
+        case $mode in
+            external)
+                [ -n "${WARP_EXTERNAL_PROXY:-}" ] && echo "external" && return 0
+                ;;
+            usque)
+                command -v usque >/dev/null 2>&1 && echo "usque" && return 0
+                ;;
+            wireproxy)
+                command -v wireproxy >/dev/null 2>&1 && echo "wireproxy" && return 0
+                ;;
+            kernel)
+                command -v wg-quick >/dev/null 2>&1 && \
+                    command -v microsocks >/dev/null 2>&1 && \
+                    echo "kernel" && return 0
+                ;;
+        esac
+    done
+    echo "none"
+}
+
+_warp_mode_available() {
+    case "$1" in
+        external)
+            [ -n "${WARP_EXTERNAL_PROXY:-}" ]
+            ;;
+        usque)
+            command -v usque >/dev/null 2>&1
+            ;;
+        wireproxy)
+            command -v wireproxy >/dev/null 2>&1
+            ;;
+        kernel)
+            command -v wg-quick >/dev/null 2>&1 && command -v microsocks >/dev/null 2>&1
+            ;;
+        warp-cli)
+            command -v warp-cli >/dev/null 2>&1 && command -v gost >/dev/null 2>&1
+            ;;
+        *)
+            return 1
+            ;;
+    esac
+}
+
+_warp_start_mode() {
+    case "$1" in
+        wireproxy) _warp_start_wireproxy ;;
+        kernel) _warp_start_kernel ;;
+        usque) _warp_start_usque ;;
+        warp-cli) _warp_start_warp_cli ;;
+        external) _warp_start_external ;;
+        *) return 1 ;;
+    esac
+}
+
+_warp_stop_mode() {
+    case "$1" in
+        wireproxy)
+            [ -n "${WIREPROXY_PID:-}" ] && kill "${WIREPROXY_PID}" 2>/dev/null || true
+            ;;
+        kernel)
+            [ -n "${MICROSOCKS_PID:-}" ] && kill "${MICROSOCKS_PID}" 2>/dev/null || true
+            wg-quick down wg0 >/dev/null 2>&1 || true
+            ;;
+        usque)
+            [ -n "${USQUE_PID:-}" ] && kill "${USQUE_PID}" 2>/dev/null || true
+            [ -n "${USQUE_HTTP_PID:-}" ] && kill "${USQUE_HTTP_PID}" 2>/dev/null || true
+            ;;
+        warp-cli)
+            [ -n "${GOST_PID:-}" ] && kill "${GOST_PID}" 2>/dev/null || true
+            warp-cli --accept-tos disconnect >/dev/null 2>&1 || true
+            ;;
+    esac
+}
+
+_warp_verify_mode() {
+    if [ "$1" = "external" ]; then
+        WARP_READY=1
+        WARP_STATUS="enabled"
+        WARP_IP="ip=external"
+        return 0
     fi
+
+    WARP_READY=0
+    _proxy_auth=""
+    if [ -n "${WARP_PROXY_USERNAME:-}" ] && [ -n "${WARP_PROXY_PASSWORD:-}" ]; then
+        _proxy_auth="${WARP_PROXY_USERNAME}:${WARP_PROXY_PASSWORD}@"
+    fi
+    for _i in $(seq 1 "${WARP_STARTUP_TIMEOUT:-15}"); do
+        sleep 1
+        if curl -s --socks5-hostname "${_proxy_auth}127.0.0.1:${WARP_SOCKS_PORT}" \
+               --max-time 5 https://1.1.1.1/cdn-cgi/trace 2>/dev/null | grep -q "warp="; then
+            WARP_READY=1
+            break
+        fi
+    done
+
+    if [ "$WARP_READY" = "1" ]; then
+        WARP_IP=$(curl -s --socks5-hostname "${_proxy_auth}127.0.0.1:${WARP_SOCKS_PORT}" \
+                      --max-time 5 https://1.1.1.1/cdn-cgi/trace 2>/dev/null | grep "ip=" || echo "ip=unknown")
+        WARP_STATUS="enabled"
+        return 0
+    fi
+    WARP_STATUS="enabled"
+    WARP_IP="ip=pending"
+    return 1
 }
 
 warp_init() {
@@ -249,75 +485,100 @@ warp_init() {
 
     # 读取环境变量的默认值
     WARP_SOCKS_PORT="${WARP_SOCKS_PORT:-1080}"
+    WARP_HTTP_PORT="${WARP_HTTP_PORT:-0}"
+    WARP_BIND_ADDRESS="${WARP_BIND_ADDRESS:-127.0.0.1}"
+    WARP_STARTUP_TIMEOUT="${WARP_STARTUP_TIMEOUT:-15}"
     WARP_MODE="${WARP_MODE:-auto}"
 
-    # 自动检测模式
+    WARP_AUTO_MODE=0
     if [ "$WARP_MODE" = "auto" ]; then
-        WARP_MODE=$(_warp_detect_mode)
-        if [ "$WARP_MODE" = "none" ]; then
-            echo "==> [WARP] ⚠️ 未检测到可用的 WARP 组件 (wireproxy/wg-quick)，跳过"
+        WARP_AUTO_MODE=1
+        if [ "$(_warp_detect_mode)" = "none" ]; then
+            echo "==> [WARP] ⚠️ 未检测到可用的 WARP 组件 (wireproxy/wg-quick/usque)，跳过"
             return 0
         fi
-        echo "==> [WARP] 自动检测模式: ${WARP_MODE}"
     fi
 
     echo "==> [WARP] 初始化 Cloudflare WARP 代理 (模式: ${WARP_MODE})"
 
-    # 启动对应模式的代理
-    case "$WARP_MODE" in
-        wireproxy)
-            _warp_start_wireproxy || { echo "==> [WARP] ⚠️ wireproxy 启动失败，继续无代理运行"; return 0; }
-            ;;
-        kernel)
-            _warp_start_kernel || { echo "==> [WARP] ⚠️ 内核模式启动失败，继续无代理运行"; return 0; }
-            ;;
-        *)
-            echo "==> [WARP] ❌ 未知模式: ${WARP_MODE} (支持: auto, wireproxy, kernel)"
+    if [ "$WARP_AUTO_MODE" = "1" ]; then
+        WARP_STARTED=0
+        for candidate in external usque wireproxy kernel; do
+            if ! _warp_mode_available "$candidate"; then
+                continue
+            fi
+            echo "==> [WARP] auto 尝试模式: ${candidate}"
+            if _warp_start_mode "$candidate"; then
+                WARP_MODE="$candidate"
+                if _warp_verify_mode "$candidate"; then
+                    WARP_STARTED=1
+                    break
+                fi
+                echo "==> [WARP] ⚠️ ${candidate} 验证失败，继续降级"
+                _warp_stop_mode "$candidate"
+            else
+                echo "==> [WARP] ⚠️ ${candidate} 启动失败，继续降级"
+            fi
+        done
+        if [ "$WARP_STARTED" != "1" ]; then
+            echo "==> [WARP] ⚠️ auto 候选全部失败，继续无代理运行"
             return 0
-            ;;
-    esac
-
-    # 验证代理连接 ===== 可用性检测 =====
-    WARP_READY=0
-    for i in 1 2 3 4 5 6 7 8 9 10; do
-        sleep 1
-        # 通过 curl 测试 SOCKS5 代理是否就绪（检测 WARP 标记）
-        if curl -s --socks5-hostname "127.0.0.1:${WARP_SOCKS_PORT}" \
-               --max-time 5 https://1.1.1.1/cdn-cgi/trace 2>/dev/null | grep -q "warp="; then
-            WARP_READY=1
-            break
         fi
-    done
-
-    # 输出代理状态
-    if [ "$WARP_READY" = "1" ]; then
-        WARP_IP=$(curl -s --socks5-hostname "127.0.0.1:${WARP_SOCKS_PORT}" \
-                      --max-time 5 https://1.1.1.1/cdn-cgi/trace 2>/dev/null | grep "ip=" || echo "ip=unknown")
-        echo "==> [WARP] ✅ 代理就绪 (${WARP_IP})"
-        WARP_STATUS="enabled"
+        echo "==> [WARP] 自动选择模式: ${WARP_MODE}"
     else
-        echo "==> [WARP] ⚠️ 代理验证超时（可能仍在建立连接，继续启动应用）"
-        WARP_STATUS="enabled"
-        WARP_IP="ip=pending"
+        if ! _warp_mode_available "$WARP_MODE"; then
+            echo "==> [WARP] ❌ 未知或不可用模式: ${WARP_MODE} (支持: auto, wireproxy, kernel, usque, warp-cli, external)"
+            return 0
+        fi
+        _warp_start_mode "$WARP_MODE" || { echo "==> [WARP] ⚠️ ${WARP_MODE} 启动失败，继续无代理运行"; return 0; }
+        if _warp_verify_mode "$WARP_MODE"; then
+            :
+        else
+            echo "==> [WARP] ⚠️ 代理验证超时（可能仍在建立连接，继续启动应用）"
+        fi
+    fi
+
+    if [ "${WARP_READY:-0}" = "1" ]; then
+        echo "==> [WARP] ✅ 代理就绪 (${WARP_IP})"
     fi
 
     # 写入状态文件 ===== Python WARP 管理器读取 =====
     # 记录 WARP 代理的运行参数，供 Python 应用程序读取和管理
     WARP_STATE_FILE="/run/souwen-warp.json"
     _WARP_PID=""
+    _WARP_PROTOCOL="wireguard"
+    _WARP_PROXY_TYPE="socks5"
     if [ "$WARP_MODE" = "wireproxy" ]; then
         _WARP_PID="${WIREPROXY_PID:-}"
     elif [ "$WARP_MODE" = "kernel" ]; then
         _WARP_PID="${MICROSOCKS_PID:-}"
+    elif [ "$WARP_MODE" = "usque" ]; then
+        _WARP_PID="${USQUE_PID:-}"
+        _WARP_PROTOCOL="masque"
+        if [ "${WARP_HTTP_PORT:-0}" -gt 0 ] 2>/dev/null; then
+            _WARP_PROXY_TYPE="both"
+        fi
+    elif [ "$WARP_MODE" = "warp-cli" ]; then
+        _WARP_PID="${GOST_PID:-}"
+        _WARP_PROTOCOL="official"
+        _WARP_PROXY_TYPE="both"
+    elif [ "$WARP_MODE" = "external" ]; then
+        _WARP_PID="0"
     fi
     cat > "$WARP_STATE_FILE" << STATE_EOF
-{"owner":"shell","mode":"${WARP_MODE}","status":"${WARP_STATUS}","socks_port":${WARP_SOCKS_PORT},"pid":${_WARP_PID:-0},"interface":"wg0","ip":"${WARP_IP#ip=}"}
+{"owner":"shell","mode":"${WARP_MODE}","status":"${WARP_STATUS}","socks_port":${WARP_SOCKS_PORT},"http_port":${WARP_HTTP_PORT:-0},"pid":${_WARP_PID:-0},"interface":"wg0","ip":"${WARP_IP#ip=}","protocol":"${_WARP_PROTOCOL}","proxy_type":"${_WARP_PROXY_TYPE}"}
 STATE_EOF
     echo "==> [WARP] 状态已写入 ${WARP_STATE_FILE}"
 
     # 导出代理地址 ===== 供应用程序使用 =====
     # 设置 SOUWEN_PROXY 环境变量，应用程序可直接使用此代理
-    export SOUWEN_PROXY="socks5://127.0.0.1:${WARP_SOCKS_PORT}"
+    if [ "$WARP_MODE" != "external" ]; then
+        if [ -n "${WARP_PROXY_USERNAME:-}" ] && [ -n "${WARP_PROXY_PASSWORD:-}" ]; then
+            export SOUWEN_PROXY="socks5://${WARP_PROXY_USERNAME}:${WARP_PROXY_PASSWORD}@127.0.0.1:${WARP_SOCKS_PORT}"
+        else
+            export SOUWEN_PROXY="socks5://127.0.0.1:${WARP_SOCKS_PORT}"
+        fi
+    fi
     echo "==> [WARP] SOUWEN_PROXY=${SOUWEN_PROXY}"
 }
 

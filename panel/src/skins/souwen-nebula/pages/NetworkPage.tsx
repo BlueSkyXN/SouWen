@@ -25,9 +25,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { m } from 'framer-motion'
 import {
-  Info, Shield, ShieldOff, Plug,
-  Settings, Globe, HelpCircle,
-  CircleDot, Wifi,
+  Info, Shield, Plug, HelpCircle,
 } from 'lucide-react'
 import { api } from '@core/services/api'
 import { useNotificationStore } from '@core/stores/notificationStore'
@@ -166,86 +164,20 @@ function HttpBackendCard() {
 }
 
 /**
- * WarpCard 组件：Cloudflare WARP 代理状态与控制卡片
- * 功能：显示 WARP 安装/运行状态，提供 connect/disconnect 操作及代理参数（mode/port/endpoint）配置
+ * WarpSummaryCard 组件：WARP 状态摘要，引导用户进入专属管理页面
  */
-function WarpCard() {
+function WarpSummaryCard() {
   const { t } = useTranslation()
-  const addToast = useNotificationStore((s) => s.addToast)
   const [warp, setWarp] = useState<WarpStatus | null>(null)
   const [loading, setLoading] = useState(true)
-  const [acting, setActing] = useState(false)
-  const [mode, setMode] = useState('auto')
-  const [port, setPort] = useState('1080')
-  const [endpoint, setEndpoint] = useState('')
 
-  const fetchWarp = useCallback(async () => {
-    try {
-      const s = await api.getWarpStatus()
-      setWarp(s)
-    } catch {
-      setWarp(null)
-    } finally {
-      setLoading(false)
-    }
+  useEffect(() => {
+    api.getWarpStatus().then(setWarp).catch(() => null).finally(() => setLoading(false))
   }, [])
-
-  useEffect(() => { void fetchWarp() }, [fetchWarp])
-
-  const handleEnable = useCallback(async () => {
-    setActing(true)
-    try {
-      const portNum = Math.min(Math.max(parseInt(port) || 1080, 1), 65535)
-      const res = await api.enableWarp(mode, portNum, endpoint || undefined)
-      addToast('success', t('warp.enableSuccess', { mode: res.mode, ip: res.ip }))
-      void fetchWarp()
-    } catch (err) {
-      addToast('error', t('warp.enableFailed', { message: formatError(err) }))
-    } finally {
-      setActing(false)
-    }
-  }, [mode, port, endpoint, addToast, fetchWarp, t])
-
-  const handleDisable = useCallback(async () => {
-    setActing(true)
-    try {
-      await api.disableWarp()
-      addToast('success', t('warp.disableSuccess'))
-      void fetchWarp()
-    } catch (err) {
-      addToast('error', t('warp.disableFailed', { message: formatError(err) }))
-    } finally {
-      setActing(false)
-    }
-  }, [addToast, fetchWarp, t])
 
   if (loading) return null
 
-  if (!warp) return (
-    <Card className={styles.sectionCard}>
-      <div className={styles.sectionHeader}>
-        <div className={styles.sectionTitle}>
-          <Shield size={18} />
-          {t('warp.title')}
-        </div>
-        <Badge color="gray">{t('warp.disabled')}</Badge>
-      </div>
-      <div className={styles.infoNote}>
-        <Info size={14} />
-        <span>{t('warp.notAvailable')}</span>
-      </div>
-    </Card>
-  )
-
-  const isActive = warp.status === 'enabled' || warp.status === 'starting'
-  const statusColor = warp.status === 'enabled' ? 'green'
-    : warp.status === 'error' ? 'red'
-    : warp.status === 'starting' || warp.status === 'stopping' ? 'amber'
-    : 'gray'
-
-  const ownerLabel = warp.owner === 'shell' ? t('warp.ownerShell')
-    : warp.owner === 'python' ? t('warp.ownerPython')
-    : t('warp.ownerNone')
+  const statusColor = warp?.status === 'enabled' ? 'green' : warp?.status === 'error' ? 'red' : 'gray'
 
   return (
     <Card className={styles.sectionCard}>
@@ -254,126 +186,24 @@ function WarpCard() {
           <Shield size={18} />
           {t('warp.title')}
         </div>
-        <div className={styles.statusIndicator}>
-          <span className={`${styles.statusDot} ${styles[`dot_${statusColor}`]}`} />
-          <Badge color={statusColor}>{t(`warp.${warp.status}`)}</Badge>
-        </div>
+        {warp && <Badge color={statusColor}>{t(`warp.${warp.status}`)}</Badge>}
       </div>
-
-      {warp.status !== 'disabled' && (
+      {warp && warp.status !== 'disabled' && (
         <div className={styles.warpGrid}>
           <div className={styles.warpField}>
-            <div className={styles.fieldLabel}>
-              <CircleDot size={12} />
-              {t('warp.mode')}
-            </div>
+            <div className={styles.fieldLabel}>{t('warp.mode')}</div>
             <div className={styles.fieldValue}>{warp.mode}</div>
           </div>
           <div className={styles.warpField}>
-            <div className={styles.fieldLabel}>
-              <Settings size={12} />
-              {t('warp.owner')}
-            </div>
-            <div className={styles.fieldValue}>{ownerLabel}</div>
+            <div className={styles.fieldLabel}>{t('warp.ip')}</div>
+            <div className={styles.fieldValue}>{warp.ip || '—'}</div>
           </div>
-          <div className={styles.warpField}>
-            <div className={styles.fieldLabel}>
-              <Wifi size={12} />
-              {t('warp.socksPort')}
-            </div>
-            <div className={styles.fieldValue}>{warp.socks_port}</div>
-          </div>
-          {warp.ip && (
-            <div className={styles.warpField}>
-              <div className={styles.fieldLabel}>
-                <Globe size={12} />
-                {t('warp.ip')}
-              </div>
-              <div className={styles.fieldValue}>{warp.ip}</div>
-            </div>
-          )}
-          {warp.pid > 0 && (
-            <div className={styles.warpField}>
-              <div className={styles.fieldLabel}>{t('warp.pid')}</div>
-              <div className={styles.fieldValue}>{warp.pid}</div>
-            </div>
-          )}
-          {warp.interface && (
-            <div className={styles.warpField}>
-              <div className={styles.fieldLabel}>{t('warp.interface')}</div>
-              <div className={styles.fieldValue}>{warp.interface}</div>
-            </div>
-          )}
         </div>
       )}
-
-      {warp.last_error && (
-        <div className={styles.warpError}>{warp.last_error}</div>
-      )}
-
-      <div className={styles.warpModes}>
-        <span className={styles.fieldLabelSmall}>{t('warp.availableModes')}</span>
-        <span className={styles.fieldValueInline}>
-          {warp.available_modes.wireproxy && 'wireproxy '}
-          {warp.available_modes.kernel && 'kernel '}
-          {!warp.available_modes.wireproxy && !warp.available_modes.kernel && '—'}
-        </span>
-      </div>
-
-      <div className={styles.warpActions}>
-        {!isActive ? (
-          <>
-            <div className={styles.warpForm}>
-              <div className={styles.formField}>
-                <label className={styles.formLabel}>{t('warp.mode')}</label>
-                <Tooltip content={t('warp.modeDesc')} position="top">
-                  <HelpCircle size={13} className={styles.helpIcon} />
-                </Tooltip>
-                <select className={styles.formSelect} value={mode} onChange={(e) => setMode(e.target.value)}>
-                  <option value="auto">{t('warp.auto')}</option>
-                  {warp.available_modes.wireproxy && <option value="wireproxy">{t('warp.wireproxy')}</option>}
-                  {warp.available_modes.kernel && <option value="kernel">{t('warp.kernel')}</option>}
-                </select>
-              </div>
-              <Input
-                label={t('warp.socksPort')}
-                description={t('warp.portDesc')}
-                type="number"
-                value={port}
-                onChange={(e) => setPort(e.target.value)}
-                min={1}
-                max={65535}
-              />
-              <Input
-                label={t('warp.endpoint')}
-                description={t('warp.endpointDesc')}
-                type="text"
-                value={endpoint}
-                onChange={(e) => setEndpoint(e.target.value)}
-                placeholder={t('warp.endpointPlaceholder')}
-              />
-            </div>
-            <Button
-              variant="primary"
-              size="sm"
-              loading={acting}
-              icon={<Shield size={14} />}
-              onClick={handleEnable}
-            >
-              {acting ? t('warp.enabling') : t('warp.enable')}
-            </Button>
-          </>
-        ) : (
-          <Button
-            variant="danger"
-            size="sm"
-            loading={acting}
-            icon={<ShieldOff size={14} />}
-            onClick={handleDisable}
-          >
-            {acting ? t('warp.disabling') : t('warp.disable')}
-          </Button>
-        )}
+      <div style={{ marginTop: '12px' }}>
+        <a href="/warp" style={{ color: 'var(--primary)', textDecoration: 'none', fontSize: '14px' }}>
+          → {t('warp.pageTitle')}
+        </a>
       </div>
     </Card>
   )
@@ -489,7 +319,7 @@ function ProxyConfigCard() {
 
 /**
  * NetworkPage 主组件
- * 组合 HttpBackendCard 与 WarpCard，提供网络层配置入口
+ * 组合 WARP 摘要、ProxyConfigCard 与 HttpBackendCard，提供网络层配置入口
  */
 export function NetworkPage() {
   const { t } = useTranslation()
@@ -509,7 +339,7 @@ export function NetworkPage() {
       </m.div>
 
       <m.div variants={staggerItem}>
-        <WarpCard />
+        <WarpSummaryCard />
       </m.div>
 
       <m.div variants={staggerItem}>
