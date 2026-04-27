@@ -43,7 +43,7 @@
     "@vitejs/plugin-react": "^4.4.1",
     "jsdom": "^29.0.2",
     "sass-embedded": "^1.86.0",
-    "typescript": "~5.7.2",
+    "typescript": "~6.0.3",
     "vite": "^6.3.1",
     "vite-plugin-singlefile": "^2.0.3",
     "vitest": "^4.1.3"
