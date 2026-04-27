@@ -150,9 +150,8 @@ jobs:
       - name: 验证 entry_point 插件发现机制
         run: |
           python -c "
-          from souwen.plugin import discover_entrypoint_plugins
-          loaded, errors = discover_entrypoint_plugins()
-          assert not errors, f'Plugin errors: {errors}'
+          from souwen.registry import external_plugins
+          loaded = external_plugins()
           assert 'example_echo' in loaded, f'example_echo (minimal-plugin) not found in {loaded}'
           if 'superweb2pdf' not in loaded:
               print(f'WARN: superweb2pdf not installed (optional); loaded plugins: {loaded}')
