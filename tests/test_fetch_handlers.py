@@ -139,9 +139,7 @@ class TestFetchWithProvider:
             return _make_response("dispatch_test", urls)
 
         register_fetch_handler("dispatch_test", my_handler)
-        resp = await _fetch_with_provider(
-            "dispatch_test", ["http://example.com"], 5.0, foo="bar"
-        )
+        resp = await _fetch_with_provider("dispatch_test", ["http://example.com"], 5.0, foo="bar")
         assert resp.provider == "dispatch_test"
         assert called["urls"] == ["http://example.com"]
         assert called["timeout"] == 5.0
