@@ -356,7 +356,7 @@ export function WarpPage() {
           <label style={styles.formField}>
             <span style={styles.label}>模式选择</span>
             <select style={styles.input} value={mode} onChange={(event) => setMode(event.target.value)}>
-              {MODE_OPTIONS.map((item) => <option key={item.id} value={item.id}>{item.label}</option>)}
+              {MODE_OPTIONS.map((item) => { const info = modes.find((m) => m.id === item.id); const notInstalled = info && !info.installed; return <option key={item.id} value={item.id} disabled={notInstalled || false}>{item.label}{notInstalled ? " (未安装)" : ""}</option> })}
             </select>
           </label>
           <label style={styles.formField}>

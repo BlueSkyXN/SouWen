@@ -270,7 +270,9 @@ function WarpControlPanel({ warp, modes, config, acting, onEnable, onDisable }: 
           <select className={styles.formSelect} value={mode} onChange={(e) => setMode(e.target.value)} disabled={active || acting}>
             <option value="auto">{t('warp.auto')}</option>
             {modes.map((item) => (
-              <option key={item.id} value={item.id} disabled={!availableModes.includes(item.id)}>{item.name}</option>
+              <option key={item.id} value={item.id} disabled={!availableModes.includes(item.id)}>
+                {item.name}{!item.installed ? ` (${t('warp.notInstalled')})` : item.id === 'external' && !item.configured ? ` (${t('warp.notConfigured')})` : ''}
+              </option>
             ))}
           </select>
         </div>
