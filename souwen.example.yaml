@@ -177,17 +177,35 @@ server:
 
 # ===== WARP 代理配置 =====
 # 内嵌 Cloudflare WARP 代理（Docker 部署专用）
-# 支持 wireproxy (用户态, 全平台) 和 kernel (内核 WireGuard, 高性能)
-# 也可通过环境变量 WARP_ENABLED / WARP_MODE / WARP_SOCKS_PORT / WARP_ENDPOINT 控制
+# 支持 wireproxy (用户态, 全平台)、kernel (内核 WireGuard, 高性能)、
+# usque (MASQUE)、warp-cli (官方客户端+GOST) 和 external (外部代理)
+# 也可通过环境变量 WARP_ENABLED / WARP_MODE / WARP_SOCKS_PORT / WARP_HTTP_PORT /
+# WARP_USQUE_CONFIG / WARP_LICENSE_KEY / WARP_TEAM_TOKEN / WARP_GOST_ARGS /
+# WARP_EXTERNAL_PROXY / WARP_ENDPOINT 等控制
 warp:
   # 是否启用 WARP (默认关闭)
   warp_enabled: false
   # 模式: auto (自动检测) | wireproxy (用户态) | kernel (需 NET_ADMIN)
+  #       | usque | warp-cli | external
   warp_mode: auto
   # SOCKS5 代理监听端口
   warp_socks_port: 1080
   # 自定义 WARP Endpoint (规避 QoS, 如 162.159.192.1:4500)
   warp_endpoint: ~
+  # usque 模式: usque 二进制路径（默认从 PATH 查找）
+  warp_usque_path: ~
+  # usque 模式: config.json 路径
+  warp_usque_config: ~
+  # usque/warp-cli 模式: HTTP 代理监听端口（0=不启用）
+  warp_http_port: 0
+  # warp-cli 模式: WARP+ License Key（敏感字段，config show 会隐藏）
+  warp_license_key: ~
+  # warp-cli 模式: ZeroTrust Team Token (JWT，敏感字段，config show 会隐藏)
+  warp_team_token: ~
+  # warp-cli 模式: 自定义 GOST 启动参数
+  warp_gost_args: ~
+  # external 模式: 外部 WARP 代理地址（如 socks5://warp:1080）
+  warp_external_proxy: ~
 
 # ===== 数据源频道配置 =====
 # 按源名称配置，覆盖全局默认值。

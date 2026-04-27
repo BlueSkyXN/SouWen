@@ -74,8 +74,11 @@ class SouWenConfig(BaseModel):
                  admin_password (管理密码), cors_origins, trusted_proxies,
                  expose_docs (是否暴露 Swagger 文档)
 
-        WARP 代理: warp_enabled, warp_mode (auto|wireproxy|kernel),
-                  warp_socks_port, warp_endpoint
+        WARP 代理: warp_enabled,
+                  warp_mode (auto|wireproxy|kernel|usque|warp-cli|external),
+                  warp_socks_port, warp_endpoint, warp_usque_path, warp_usque_config,
+                  warp_http_port, warp_license_key, warp_team_token, warp_gost_args,
+                  warp_external_proxy
 
         频道配置: sources (dict[源名, SourceChannelConfig])
 
@@ -229,9 +232,19 @@ class SouWenConfig(BaseModel):
 
     # ===== WARP 代理 =====
     warp_enabled: bool = False
-    warp_mode: str = "auto"  # auto | wireproxy | kernel
+    warp_mode: str = "auto"  # auto | wireproxy | kernel | usque | warp-cli | external
     warp_socks_port: int = 1080
     warp_endpoint: str | None = None
+    # usque 模式
+    warp_usque_path: str | None = None  # usque 二进制路径（默认从 PATH 查找）
+    warp_usque_config: str | None = None  # usque config.json 路径
+    warp_http_port: int = 0  # HTTP 代理端口（usque/warp-cli 模式，0=不启用）
+    # warp-cli 模式
+    warp_license_key: str | None = None  # WARP+ License Key
+    warp_team_token: str | None = None  # ZeroTrust Team Token (JWT)
+    warp_gost_args: str | None = None  # 自定义 GOST 启动参数
+    # external 模式
+    warp_external_proxy: str | None = None  # 外部 WARP 代理地址，如 socks5://warp:1080
 
     # ===== 数据源频道配置 =====
     sources: dict[str, SourceChannelConfig] = Field(default_factory=dict)
