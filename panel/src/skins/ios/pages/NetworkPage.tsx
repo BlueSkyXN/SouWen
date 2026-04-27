@@ -42,6 +42,30 @@ const SCRAPER_ENGINES = [
 
 const BACKEND_OPTIONS = ['auto', 'curl_cffi', 'httpx'] as const
 
+const WARP_MODE_OPTIONS = [
+  { value: 'auto', label: '自动选择', description: '自动选择最佳可用模式' },
+  { value: 'wireproxy', label: 'WireProxy (用户态)', description: '用户态 SOCKS5 代理，兼容性较好' },
+  { value: 'kernel', label: '内核 WireGuard', description: '内核 WireGuard 接口，性能较高' },
+  { value: 'usque', label: 'MASQUE/QUIC (usque)', description: '基于 MASQUE/QUIC 的新协议模式' },
+  { value: 'warp-cli', label: '官方客户端 (warp-cli)', description: '使用 Cloudflare 官方客户端接管连接' },
+  { value: 'external', label: '外部代理', description: '使用已配置的外部 WARP 代理' },
+] as const
+
+type WarpModeValue = typeof WARP_MODE_OPTIONS[number]['value']
+type ConcreteWarpModeValue = Exclude<WarpModeValue, 'auto'>
+
+function isWarpModeAvailable(warp: WarpStatus, mode: WarpModeValue) {
+  if (mode === 'auto') return true
+  return Boolean(warp.available_modes?.[mode as ConcreteWarpModeValue])
+}
+
+function formatAvailableWarpModes(warp: WarpStatus) {
+  const modes = WARP_MODE_OPTIONS
+    .filter((option) => option.value !== 'auto' && isWarpModeAvailable(warp, option.value))
+    .map((option) => option.label)
+  return modes.length > 0 ? modes.join('、') : '—'
+}
+
 // ── WARP Section ──
 // WARP 代理配置子组件
 function WarpSection() {
@@ -142,6 +166,24 @@ function WarpSection() {
               <span className={styles.rowLabel}>{t('network.port', 'Port')}</span>
               <span className={styles.rowValueMuted}>{warp.socks_port}</span>
             </div>
+            {warp.protocol && (
+              <div className={`${styles.formRow} ${styles.formRowSep}`}>
+                <span className={styles.rowLabel}>协议</span>
+                <span className={styles.rowValueMuted}>{warp.protocol}</span>
+              </div>
+            )}
+            {warp.proxy_type && (
+              <div className={`${styles.formRow} ${styles.formRowSep}`}>
+                <span className={styles.rowLabel}>代理类型</span>
+                <span className={styles.rowValueMuted}>{warp.proxy_type}</span>
+              </div>
+            )}
+            {warp.http_port > 0 && (
+              <div className={`${styles.formRow} ${styles.formRowSep}`}>
+                <span className={styles.rowLabel}>HTTP 端口</span>
+                <span className={styles.rowValueMuted}>{warp.http_port}</span>
+              </div>
+            )}
             {warp.ip && (
               <div className={`${styles.formRow} ${styles.formRowSep}`}>
                 <span className={styles.rowLabel}>{t('network.ip', 'IP')}</span>
@@ -162,6 +204,10 @@ function WarpSection() {
             )}
           </>
         )}
+        <div className={`${styles.formRow} ${styles.formRowSep}`}>
+          <span className={styles.rowLabel}>可用模式</span>
+          <span className={styles.rowValueMuted}>{formatAvailableWarpModes(warp)}</span>
+        </div>
 
         {warp.last_error && (
           <div className={styles.errorBanner}>
@@ -180,13 +226,14 @@ function WarpSection() {
                 value={mode}
                 onChange={(e) => setMode(e.target.value)}
               >
-                <option value="auto">{t('warp.auto')}</option>
-                {warp.available_modes.wireproxy && (
-                  <option value="wireproxy">{t('warp.wireproxy')}</option>
-                )}
-                {warp.available_modes.kernel && (
-                  <option value="kernel">{t('warp.kernel')}</option>
-                )}
+                {WARP_MODE_OPTIONS.map((option) => {
+                  const available = isWarpModeAvailable(warp, option.value)
+                  return (
+                    <option key={option.value} value={option.value} disabled={!available}>
+                      {option.label} — {option.description}{available ? '' : '（不可用）'}
+                    </option>
+                  )
+                })}
               </select>
             </div>
             <div className={`${styles.formRow} ${styles.formRowSep}`}>
