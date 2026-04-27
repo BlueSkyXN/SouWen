@@ -60,9 +60,7 @@ def _coerce_to_adapters(obj: Any) -> list[SourceAdapter]:
         adapters: list[SourceAdapter] = []
         for item in obj:
             if not isinstance(item, SourceAdapter):
-                raise TypeError(
-                    f"插件返回的列表包含非 SourceAdapter 元素: {type(item).__name__}"
-                )
+                raise TypeError(f"插件返回的列表包含非 SourceAdapter 元素: {type(item).__name__}")
             adapters.append(item)
         return adapters
 
@@ -83,9 +81,7 @@ def _register_adapters(
         try:
             ok = _reg_external(adapter)
         except Exception as exc:  # noqa: BLE001 — 第三方代码未知异常
-            logger.warning(
-                "注册插件源 %r (来自 %s) 失败: %s", adapter.name, source_label, exc
-            )
+            logger.warning("注册插件源 %r (来自 %s) 失败: %s", adapter.name, source_label, exc)
             errors.append({"source": source_label, "name": adapter.name, "error": str(exc)})
             continue
         if ok:
@@ -213,9 +209,7 @@ def load_plugins(config: SouWenConfig | None = None) -> dict[str, Any]:
                 all_errors.extend(errors)
             except Exception as exc:  # noqa: BLE001
                 logger.warning("配置插件加载整体失败: %s", exc)
-                all_errors.append(
-                    {"source": "config", "name": "<load>", "error": str(exc)}
-                )
+                all_errors.append({"source": "config", "name": "<load>", "error": str(exc)})
 
     return {"loaded": all_loaded, "errors": all_errors}
 
