@@ -1041,6 +1041,9 @@ class WarpManager:
         http2: bool,
         username: str | None,
         password: str | None,
+        system_dns: bool = False,
+        on_connect: str | None = None,
+        on_disconnect: str | None = None,
     ) -> list[str]:
         bind_addr = _validate_bind_address(bind_addr)
         port = _validate_port(port)
@@ -1054,6 +1057,14 @@ class WarpManager:
         cmd.extend([subcommand, "--bind", bind_addr, "--port", str(port)])
         if username and password:
             cmd.extend(["-u", username, "-w", password])
+        if system_dns:
+            cmd.append("--system-dns")
+        if on_connect:
+            _sanitize_token(on_connect, "on_connect path")
+            cmd.extend(["--on-connect", on_connect])
+        if on_disconnect:
+            _sanitize_token(on_disconnect, "on_disconnect path")
+            cmd.extend(["--on-disconnect", on_disconnect])
         return cmd
 
     async def _start_usque(self, socks_port: int, http_port: int, endpoint: str | None) -> None:
@@ -1101,6 +1112,9 @@ class WarpManager:
                 raise RuntimeError("usque 注册失败（可能触发速率限制）")
 
         async def start_usque_processes(*, http2: bool) -> None:
+            system_dns = cfg.warp_usque_system_dns
+            on_connect = cfg.warp_usque_on_connect
+            on_disconnect = cfg.warp_usque_on_disconnect
             cmd = self._build_usque_cmd(
                 usque_bin,
                 config_path,
@@ -1110,6 +1124,9 @@ class WarpManager:
                 http2=http2,
                 username=cfg.warp_proxy_username,
                 password=cfg.warp_proxy_password,
+                system_dns=system_dns,
+                on_connect=on_connect,
+                on_disconnect=on_disconnect,
             )
             self._process = subprocess.Popen(
                 cmd,
@@ -1132,6 +1149,9 @@ class WarpManager:
                     http2=http2,
                     username=cfg.warp_proxy_username,
                     password=cfg.warp_proxy_password,
+                    system_dns=system_dns,
+                    on_connect=on_connect,
+                    on_disconnect=on_disconnect,
                 )
                 self._http_process = subprocess.Popen(
                     http_cmd,
@@ -1169,6 +1189,9 @@ class WarpManager:
         if cfg.warp_device_name:
             _sanitize_token(cfg.warp_device_name, "warp_device_name")
             cmd.extend(["-n", cfg.warp_device_name])
+        if cfg.warp_team_token:
+            _sanitize_token(cfg.warp_team_token, "warp_team_token")
+            cmd.extend(["--jwt", cfg.warp_team_token])
         try:
             result = subprocess.run(
                 cmd,

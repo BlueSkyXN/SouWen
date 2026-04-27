@@ -397,6 +397,10 @@ export function WarpPage() {
                   </span>
                 </div>
                 <p style={styles.modeDesc}>{item.description}</p>
+                {!item.installed && item.reason && (
+                  <p style={styles.modeReason}>💡 {item.reason}</p>
+                )}
+                {item.id === 'usque' && <span style={styles.recommendedBadge}>推荐</span>}
                 <div style={styles.tags}>
                   <span style={styles.tag}>{item.protocol || 'unknown'}</span>
                   {item.proxy_types.map((proxy) => <span key={proxy} style={styles.tag}>{proxy}</span>)}
@@ -699,6 +703,25 @@ function makeStyles(): Record<string, CSSProperties> {
       lineHeight: 1.6,
       fontSize: 13,
       margin: '12px 0',
+    },
+    modeReason: {
+      color: theme.muted,
+      lineHeight: 1.5,
+      fontSize: 12,
+      margin: '-6px 0 10px',
+    },
+    recommendedBadge: {
+      display: 'inline-flex',
+      alignSelf: 'flex-start',
+      width: 'fit-content',
+      color: theme.success,
+      background: theme.successSoft,
+      border: `1px solid ${theme.successBorder}`,
+      borderRadius: theme.badgeRadius,
+      padding: '3px 8px',
+      fontSize: 11,
+      fontWeight: 700,
+      margin: '-4px 0 10px',
     },
     tags: {
       display: 'flex',
