@@ -23,6 +23,7 @@ import { ToolsPage } from './pages/ToolsPage'
 import { SourcesPage } from './pages/SourcesPage'
 import { NetworkPage } from './pages/NetworkPage'
 import { ConfigPage } from './pages/ConfigPage'
+import { WarpPage } from './pages/WarpPage'
 
 /**
  * Apple 皮肤的路由配置
@@ -39,6 +40,7 @@ export const skinRoutes = (
     <Route path="/tools" element={<ToolsPage />} />
     <Route path="/sources" element={<SourcesPage />} />
     <Route path="/network" element={<NetworkPage />} />
+    <Route path="/warp" element={<WarpPage />} />
     <Route path="/config" element={<ConfigPage />} />
   </>
 )

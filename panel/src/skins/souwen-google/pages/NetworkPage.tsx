@@ -50,6 +50,30 @@ const SCRAPER_ENGINES = [
 /** HTTP 后端可选项：auto 自动选择 / curl_cffi 浏览器指纹 / httpx 标准客户端 */
 const BACKEND_OPTIONS = ['auto', 'curl_cffi', 'httpx'] as const
 
+const WARP_MODE_OPTIONS = [
+  { value: 'auto', label: '自动选择', description: '自动选择最佳可用模式' },
+  { value: 'wireproxy', label: 'WireProxy (用户态)', description: '用户态 SOCKS5 代理，兼容性较好' },
+  { value: 'kernel', label: '内核 WireGuard', description: '内核 WireGuard 接口，性能较高' },
+  { value: 'usque', label: 'MASQUE/QUIC (usque)', description: '基于 MASQUE/QUIC 的新协议模式' },
+  { value: 'warp-cli', label: '官方客户端 (warp-cli)', description: '使用 Cloudflare 官方客户端接管连接' },
+  { value: 'external', label: '外部代理', description: '使用已配置的外部 WARP 代理' },
+] as const
+
+type WarpModeValue = typeof WARP_MODE_OPTIONS[number]['value']
+type ConcreteWarpModeValue = Exclude<WarpModeValue, 'auto'>
+
+function isWarpModeAvailable(warp: WarpStatus, mode: WarpModeValue) {
+  if (mode === 'auto') return true
+  return Boolean(warp.available_modes?.[mode as ConcreteWarpModeValue])
+}
+
+function formatAvailableWarpModes(warp: WarpStatus) {
+  const modes = WARP_MODE_OPTIONS
+    .filter((option) => option.value !== 'auto' && isWarpModeAvailable(warp, option.value))
+    .map((option) => option.label)
+  return modes.length > 0 ? modes.join('、') : '—'
+}
+
 /**
  * HttpBackendCard 组件：HTTP 后端配置卡片
  * 功能：展示当前后端、curl_cffi 安装状态，允许设置默认后端及为单个数据源覆盖后端
@@ -283,6 +307,24 @@ function WarpCard() {
             </div>
             <div className={styles.fieldValue}>{warp.socks_port}</div>
           </div>
+          {warp.protocol && (
+            <div className={styles.warpField}>
+              <div className={styles.fieldLabel}>协议</div>
+              <div className={styles.fieldValue}>{warp.protocol}</div>
+            </div>
+          )}
+          {warp.proxy_type && (
+            <div className={styles.warpField}>
+              <div className={styles.fieldLabel}>代理类型</div>
+              <div className={styles.fieldValue}>{warp.proxy_type}</div>
+            </div>
+          )}
+          {warp.http_port > 0 && (
+            <div className={styles.warpField}>
+              <div className={styles.fieldLabel}>HTTP 端口</div>
+              <div className={styles.fieldValue}>{warp.http_port}</div>
+            </div>
+          )}
           {warp.ip && (
             <div className={styles.warpField}>
               <div className={styles.fieldLabel}>
@@ -314,9 +356,7 @@ function WarpCard() {
       <div className={styles.warpModes}>
         <span className={styles.fieldLabelSmall}>{t('warp.availableModes')}</span>
         <span className={styles.fieldValueInline}>
-          {warp.available_modes.wireproxy && 'wireproxy '}
-          {warp.available_modes.kernel && 'kernel '}
-          {!warp.available_modes.wireproxy && !warp.available_modes.kernel && '—'}
+          {formatAvailableWarpModes(warp)}
         </span>
       </div>
 
@@ -330,9 +370,14 @@ function WarpCard() {
                   <HelpCircle size={13} className={styles.helpIcon} />
                 </Tooltip>
                 <select className={styles.formSelect} value={mode} onChange={(e) => setMode(e.target.value)}>
-                  <option value="auto">{t('warp.auto')}</option>
-                  {warp.available_modes.wireproxy && <option value="wireproxy">{t('warp.wireproxy')}</option>}
-                  {warp.available_modes.kernel && <option value="kernel">{t('warp.kernel')}</option>}
+                  {WARP_MODE_OPTIONS.map((option) => {
+                    const available = isWarpModeAvailable(warp, option.value)
+                    return (
+                      <option key={option.value} value={option.value} disabled={!available}>
+                        {option.label} — {option.description}{available ? '' : '（不可用）'}
+                      </option>
+                    )
+                  })}
                 </select>
               </div>
               <Input

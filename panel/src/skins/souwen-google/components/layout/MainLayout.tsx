@@ -35,6 +35,7 @@ import {
   Database,
   Settings,
   Globe,
+  Shield,
   FileText,
   Play,
   Wrench,
@@ -76,6 +77,7 @@ const NAV_ITEMS = [
   { to: '/tools', icon: Wrench, labelKey: 'nav.tools' },
   { to: '/sources', icon: Database, labelKey: 'nav.sources' },
   { to: '/network', icon: Globe, labelKey: 'nav.network' },
+  { to: '/warp', icon: Shield, labelKey: 'nav.warp' },
   { to: '/config', icon: Settings, labelKey: 'nav.config' },
 ]
 

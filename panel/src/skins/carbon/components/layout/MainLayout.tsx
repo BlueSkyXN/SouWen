@@ -12,6 +12,7 @@ import {
   Search,
   Database,
   Wifi,
+  Shield,
   Settings,
   Terminal,
   LogOut,
@@ -35,6 +36,7 @@ const NAV_ITEMS = [
   { to: '/fetch', icon: FileText, labelKey: 'nav.fetch' },
   { to: '/sources', icon: Database, labelKey: 'nav.sources' },
   { to: '/network', icon: Wifi, labelKey: 'nav.network' },
+  { to: '/warp', icon: Shield, labelKey: 'nav.warp' },
   { to: '/config', icon: Settings, labelKey: 'nav.config' },
 ]
 

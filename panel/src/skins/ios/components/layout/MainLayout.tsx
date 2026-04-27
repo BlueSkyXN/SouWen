@@ -29,6 +29,7 @@ import {
   Search,
   Database,
   Globe,
+  Shield,
   Settings,
   LogOut,
   Menu,
@@ -51,6 +52,7 @@ const NAV_ITEMS = [
   { to: '/fetch', icon: FileText, labelKey: 'nav.fetch', color: '#ff9500' },
   { to: '/sources', icon: Database, labelKey: 'nav.sources', color: '#5856d6' },
   { to: '/network', icon: Globe, labelKey: 'nav.network', color: '#34c759' },
+  { to: '/warp', icon: Shield, labelKey: 'nav.warp', color: '#32d74b' },
   { to: '/config', icon: Settings, labelKey: 'nav.config', color: '#8e8e93' },
 ]
 

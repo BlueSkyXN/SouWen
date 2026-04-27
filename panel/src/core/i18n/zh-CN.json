@@ -41,6 +41,7 @@
     "tools": "工具箱",
     "sources": "数据源",
     "network": "网络",
+    "warp": "WARP 代理",
     "config": "配置",
     "collapse": "收起",
     "logout": "退出",
