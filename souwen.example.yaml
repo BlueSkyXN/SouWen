@@ -182,7 +182,15 @@ server:
 # 也可通过环境变量 WARP_ENABLED / WARP_MODE / WARP_SOCKS_PORT / WARP_BIND_ADDRESS /
 # WARP_STARTUP_TIMEOUT / WARP_DEVICE_NAME / WARP_PROXY_USERNAME / WARP_PROXY_PASSWORD /
 # WARP_USQUE_CONFIG / WARP_USQUE_TRANSPORT / WARP_LICENSE_KEY / WARP_TEAM_TOKEN /
-# WARP_GOST_ARGS / WARP_EXTERNAL_PROXY / WARP_ENDPOINT 等控制
+# WARP_GOST_ARGS / WARP_EXTERNAL_PROXY / WARP_ENDPOINT / WARP_ENTRYPOINT_INIT 等控制
+#
+# Docker 启动行为:
+#   WARP_ENTRYPOINT_INIT=0 (默认): 跳过同步 shell 初始化，由 Python WarpManager 后台启动（推荐）
+#   WARP_ENTRYPOINT_INIT=1: 在 entrypoint.sh 中同步初始化 WARP（旧行为）
+#
+# 运行时组件安装:
+#   如果系统缺少 usque/wireproxy/wgcf，可通过 Web 面板或 API 动态安装到 /app/data/bin/
+#   设置 GH_PROXY 环境变量可通过镜像站下载（如 GH_PROXY=https://ghgo.xyz/）
 warp:
   # 是否启用 WARP (默认关闭)
   warp_enabled: false
