@@ -48,7 +48,7 @@ from souwen.web.fetch import (
     register_fetch_handler,
     unregister_fetch_handlers_by_owner,
 )
-from souwen.testing import assert_valid_plugin
+from souwen.testing import assert_valid_plugin, validate_client_contract
 
 
 # ── helpers ────────────────────────────────────────────────
@@ -373,6 +373,62 @@ class TestLoadPlugins:
         assert len(result["errors"]) == 1
         assert "ep system down" in result["errors"][0]["error"]
 
+    def test_autoload_zero_skips_entry_point_discovery(
+        self, clean_registry, clean_plugins, monkeypatch
+    ):
+        calls: list[set[str]] = []
+
+        def discover(*, skip_names: set[str] | None = None, config: Any = None):
+            calls.append(skip_names or set())
+            return [], []
+
+        monkeypatch.setenv("SOUWEN_PLUGIN_AUTOLOAD", "0")
+        monkeypatch.setattr("souwen.plugin.discover_entrypoint_plugins", discover)
+        result = load_plugins(None)
+
+        assert result == {"loaded": [], "errors": []}
+        assert calls == []
+
+    def test_autoload_false_skips_entry_points_but_allows_config_plugins(
+        self, clean_registry, clean_plugins, monkeypatch
+    ):
+        monkeypatch.setenv("SOUWEN_PLUGIN_AUTOLOAD", "false")
+        monkeypatch.setattr(
+            "souwen.plugin.discover_entrypoint_plugins",
+            lambda **_: pytest.fail("entry point discovery should be disabled"),
+        )
+        adapter = make_test_adapter("explicit_config_allowed")
+        import souwen.plugin as plugin_mod
+
+        monkeypatch.setattr(plugin_mod, "_test_autoload_off_factory", lambda: adapter, raising=False)
+
+        class FakeConfig:
+            plugins = ["souwen.plugin:_test_autoload_off_factory"]
+
+        result = load_plugins(FakeConfig())
+
+        assert result["loaded"] == ["explicit_config_allowed"]
+        assert result["errors"] == []
+
+    def test_env_denylist_is_merged_into_skip_names(self, clean_registry, monkeypatch):
+        captured: list[set[str]] = []
+
+        def discover(*, skip_names: set[str] | None = None, config: Any = None):
+            captured.append(set(skip_names or set()))
+            return [], []
+
+        monkeypatch.setenv("SOUWEN_PLUGIN_DENYLIST", "ops_blocked, adapter_blocked ,")
+        monkeypatch.setattr(
+            "souwen.plugin_manager._load_state",
+            lambda: {"disabled_plugins": ["state_blocked"], "installed_via_api": []},
+        )
+        monkeypatch.setattr("souwen.plugin.discover_entrypoint_plugins", discover)
+
+        result = load_plugins(None)
+
+        assert result == {"loaded": [], "errors": []}
+        assert captured == [{"ops_blocked", "adapter_blocked", "state_blocked"}]
+
 
 # ── 集成 / 状态清理 ────────────────────────────────────────
 
@@ -422,6 +478,9 @@ class TestPluginDataclass:
         assert p.name == "test"
         assert p.adapters == []
         assert p.version == "0.0.0"
+        assert p.api_version == "1"
+        assert p.min_souwen_version is None
+        assert p.max_souwen_version is None
         assert p.config == {}
         assert p._registered_adapter_names == []
 
@@ -574,6 +633,42 @@ class TestRegisterPlugin:
         assert "bad_config" not in _PLUGINS
         assert len(errors) == 1
         assert errors[0]["name"] == "bad_config"
+
+    def test_min_souwen_version_too_high_rejects_plugin(
+        self, clean_registry, clean_plugins, clean_fetch_handlers
+    ):
+        p = Plugin(
+            name="future_plugin",
+            adapters=[make_test_adapter("future_adapter")],
+            min_souwen_version="99.0.0",
+        )
+        loaded: list[str] = []
+        errors: list[dict[str, str]] = []
+
+        _register_plugin(p, source_label="t", loaded=loaded, errors=errors)
+
+        assert loaded == []
+        assert "future_plugin" not in _PLUGINS
+        assert len(errors) == 1
+        assert "99.0.0" in errors[0]["error"]
+
+    def test_compatible_souwen_version_accepts_plugin(
+        self, clean_registry, clean_plugins, clean_fetch_handlers
+    ):
+        p = Plugin(
+            name="compatible_plugin",
+            adapters=[make_test_adapter("compatible_adapter")],
+            min_souwen_version="0.9.0",
+            max_souwen_version="2.0.0",
+        )
+        loaded: list[str] = []
+        errors: list[dict[str, str]] = []
+
+        _register_plugin(p, source_label="t", loaded=loaded, errors=errors)
+
+        assert loaded == ["compatible_adapter"]
+        assert errors == []
+        assert "compatible_plugin" in _PLUGINS
 
     def test_lifecycle_helper_supports_async_hooks(self, clean_plugins, monkeypatch):
         import asyncio
@@ -790,6 +885,31 @@ class TestConfigPluginsWithPluginEnvelope:
 
 
 class TestPluginContractHelper:
+    class ValidClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args: Any) -> None:
+            return None
+
+        async def fetch(self, url: str) -> dict[str, str]:
+            return {"url": url}
+
+    class MissingContractClient:
+        pass
+
+    def make_contract_adapter(self, name: str, client_loader: Any) -> SourceAdapter:
+        return SourceAdapter(
+            name=name,
+            domain="fetch",
+            integration="scraper",
+            description="Contract adapter",
+            config_field=None,
+            client_loader=client_loader,
+            methods={"fetch": MethodSpec("fetch")},
+            needs_config=False,
+        )
+
     def test_valid_plugin_passes_contract(self):
         plugin = Plugin(name="valid_contract", adapters=[make_test_adapter("valid_contract_adapter")])
 
@@ -826,3 +946,45 @@ class TestPluginContractHelper:
 
         with pytest.raises(AssertionError, match="built-in source"):
             assert_valid_plugin(plugin)
+
+    def test_validate_client_contract_accepts_valid_client(self):
+        adapter = self.make_contract_adapter("valid_deep_contract", lambda: self.ValidClient)
+
+        assert validate_client_contract(adapter) == []
+
+    def test_validate_client_contract_reports_invalid_client(self):
+        adapter = self.make_contract_adapter(
+            "invalid_deep_contract",
+            lambda: self.MissingContractClient,
+        )
+
+        issues = validate_client_contract(adapter)
+
+        assert any("__aenter__" in issue for issue in issues)
+        assert any("__aexit__" in issue for issue in issues)
+        assert any("'fetch'" in issue for issue in issues)
+
+    def test_assert_valid_plugin_includes_deep_contract_issues(self):
+        adapter = self.make_contract_adapter(
+            "invalid_assert_contract",
+            lambda: self.MissingContractClient,
+        )
+        plugin = Plugin(name="invalid_assert_plugin", adapters=[adapter])
+
+        with pytest.raises(AssertionError, match="__aenter__"):
+            assert_valid_plugin(plugin)
+
+    def test_validate_client_contract_warns_when_loader_fails(
+        self,
+        caplog: pytest.LogCaptureFixture,
+    ):
+        def broken_loader() -> type:
+            raise RuntimeError("optional dependency missing")
+
+        adapter = self.make_contract_adapter("missing_dependency_contract", broken_loader)
+
+        with caplog.at_level(logging.WARNING, logger="souwen.testing"):
+            issues = validate_client_contract(adapter)
+
+        assert issues == []
+        assert "optional dependency missing" in caplog.text

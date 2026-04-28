@@ -2,11 +2,50 @@
 
 from __future__ import annotations
 
+import inspect
+import logging
 from typing import Any
 
 from souwen.plugin import Plugin, _coerce_to_plugin
 from souwen.registry.adapter import SourceAdapter
 from souwen.registry.views import all_adapters, external_plugins
+
+logger = logging.getLogger("souwen.testing")
+
+
+def validate_client_contract(adapter: SourceAdapter) -> list[str]:
+    """Deep-validate an adapter's lazy client contract where importable."""
+    issues: list[str] = []
+
+    if not callable(adapter.client_loader):
+        return [f"Adapter {adapter.name!r} client_loader must be callable."]
+
+    try:
+        client_cls = adapter.client_loader()
+    except Exception as exc:  # noqa: BLE001
+        logger.warning(
+            "Skipping client contract validation for adapter %r: %s",
+            adapter.name,
+            exc,
+        )
+        return issues
+
+    if not inspect.isclass(client_cls):
+        issues.append(f"Adapter {adapter.name!r} client_loader must return a client class.")
+        return issues
+
+    for method_name in ("__aenter__", "__aexit__"):
+        if not hasattr(client_cls, method_name):
+            issues.append(f"Client class for adapter {adapter.name!r} must define {method_name}.")
+
+    for capability, method_spec in adapter.methods.items():
+        if not hasattr(client_cls, method_spec.method_name):
+            issues.append(
+                f"Client class for adapter {adapter.name!r} must define method "
+                f"{method_spec.method_name!r} for capability {capability!r}."
+            )
+
+    return issues
 
 
 def assert_valid_plugin(plugin_or_entry_point: Any) -> None:
@@ -47,4 +86,9 @@ def assert_valid_plugin(plugin_or_entry_point: Any) -> None:
         assert adapter.name not in builtin_names, (
             f"Adapter name {adapter.name!r} conflicts with a built-in source."
         )
+        client_issues = validate_client_contract(adapter)
+        assert not client_issues, "\n".join(client_issues)
         seen_adapter_names.add(adapter.name)
+
+
+__all__ = ["assert_valid_plugin", "validate_client_contract"]

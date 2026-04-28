@@ -26,18 +26,25 @@ from __future__ import annotations
 
 import importlib
 import logging
+import os
 from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass, field
 from dataclasses import asdict, is_dataclass
 from importlib import metadata
 from typing import TYPE_CHECKING, Any
 
+from souwen import __version__ as SOUWEN_VERSION
 from souwen.registry.adapter import SourceAdapter
 from souwen.registry.views import _reg_external, _unreg_external
 from souwen.web.fetch import _current_plugin_owner, unregister_fetch_handlers_by_owner
 
 if TYPE_CHECKING:
     from souwen.config.models import SouWenConfig
+
+try:  # pragma: no cover — packaging is expected but keep a no-dependency fallback
+    from packaging.version import Version
+except ImportError:  # pragma: no cover
+    Version = None  # type: ignore[assignment]
 
 logger = logging.getLogger("souwen.plugin")
 
@@ -60,6 +67,9 @@ class Plugin:
     name: str
     adapters: list[SourceAdapter] = field(default_factory=list)
     version: str = "0.0.0"
+    api_version: str = "1"
+    min_souwen_version: str | None = None
+    max_souwen_version: str | None = None
     config_schema: type | None = None
     config: dict[str, Any] = field(default_factory=dict)
     on_startup: LifecycleHook | None = None
@@ -224,6 +234,47 @@ def _inject_plugin_config(
     return True
 
 
+def _version_key(version: str) -> Any:
+    """Return a comparable version object with a tiny fallback for simple semver."""
+    if Version is not None:
+        return Version(version)
+    return tuple(int(part) if part.isdigit() else part for part in version.split("."))
+
+
+def _check_plugin_version_compatibility(
+    plugin: Plugin,
+    *,
+    source_label: str,
+    errors: list[dict[str, str]],
+) -> bool:
+    """Validate optional SouWen version constraints declared by a plugin."""
+    current_version = _version_key(SOUWEN_VERSION)
+
+    if plugin.min_souwen_version is not None:
+        min_version = _version_key(plugin.min_souwen_version)
+        if current_version < min_version:
+            message = (
+                f"插件 {plugin.name!r} 需要 SouWen >= {plugin.min_souwen_version}, "
+                f"当前版本为 {SOUWEN_VERSION}"
+            )
+            logger.warning(message)
+            errors.append({"source": source_label, "name": plugin.name, "error": message})
+            return False
+
+    if plugin.max_souwen_version is not None:
+        max_version = _version_key(plugin.max_souwen_version)
+        if current_version > max_version:
+            message = (
+                f"插件 {plugin.name!r} 需要 SouWen <= {plugin.max_souwen_version}, "
+                f"当前版本为 {SOUWEN_VERSION}"
+            )
+            logger.warning(message)
+            errors.append({"source": source_label, "name": plugin.name, "error": message})
+            return False
+
+    return True
+
+
 def _register_plugin(
     plugin: Plugin,
     *,
@@ -239,6 +290,8 @@ def _register_plugin(
             "name": plugin.name,
             "error": f"插件 {plugin.name!r} 已加载，跳过重复注册",
         })
+        return
+    if not _check_plugin_version_compatibility(plugin, source_label=source_label, errors=errors):
         return
     if not _inject_plugin_config(plugin, config, source_label=source_label, errors=errors):
         return
@@ -454,6 +507,15 @@ def load_config_plugins(
         path = path.strip()
         label = f"config:{path}"
 
+        if path in _skip:
+            logger.info(
+                "跳过已禁用的配置插件 %r (来自 %s)",
+                path,
+                label,
+                extra={"event": "plugin_disabled", "plugin": path, "source": label},
+            )
+            continue
+
         token = _current_plugin_owner.set(path)
         try:
             try:
@@ -470,6 +532,15 @@ def load_config_plugins(
                 continue
         finally:
             _current_plugin_owner.reset(token)
+
+        if plugin.name in _skip:
+            logger.info(
+                "跳过已禁用的配置插件 %r (来自 %s)",
+                plugin.name,
+                label,
+                extra={"event": "plugin_disabled", "plugin": plugin.name, "source": label},
+            )
+            continue
 
         if _skip:
             plugin.adapters = [a for a in plugin.adapters if a.name not in _skip]
@@ -508,13 +579,26 @@ def load_plugins(config: SouWenConfig | None = None) -> dict[str, Any]:
     except Exception as exc:  # noqa: BLE001
         logger.warning("读取插件禁用列表失败，将加载所有插件: %s", exc)
 
-    try:
-        loaded, errors = discover_entrypoint_plugins(skip_names=skip_names, config=config)
-        all_loaded.extend(loaded)
-        all_errors.extend(errors)
-    except Exception as exc:  # noqa: BLE001 — 兜底，绝不让插件系统拖垮宿主
-        logger.warning("entry points 插件发现整体失败: %s", exc)
-        all_errors.append({"source": "entry_points", "name": "<discover>", "error": str(exc)})
+    denylist = {
+        name.strip()
+        for name in os.environ.get("SOUWEN_PLUGIN_DENYLIST", "").split(",")
+        if name.strip()
+    }
+    if denylist:
+        skip_names.update(denylist)
+        logger.info("插件环境拒绝列表: %s", ", ".join(sorted(denylist)))
+
+    autoload = os.environ.get("SOUWEN_PLUGIN_AUTOLOAD", "1").lower()
+    if autoload in {"0", "false"}:
+        logger.info("Entry point plugin auto-discovery disabled via SOUWEN_PLUGIN_AUTOLOAD=0")
+    else:
+        try:
+            loaded, errors = discover_entrypoint_plugins(skip_names=skip_names, config=config)
+            all_loaded.extend(loaded)
+            all_errors.extend(errors)
+        except Exception as exc:  # noqa: BLE001 — 兜底，绝不让插件系统拖垮宿主
+            logger.warning("entry points 插件发现整体失败: %s", exc)
+            all_errors.append({"source": "entry_points", "name": "<discover>", "error": str(exc)})
 
     if config is not None:
         try:
