@@ -14,12 +14,14 @@ import {
   CircleDot,
   Cloud,
   Container,
+  Download,
   ExternalLink,
   Globe,
   HelpCircle,
   KeyRound,
   Loader2,
   Network,
+  Package,
   RefreshCw,
   Route,
   Server,
@@ -35,7 +37,7 @@ import { api } from '@core/services/api'
 import { formatError } from '@core/lib/errors'
 import { staggerContainer, staggerItem } from '@core/lib/animations'
 import { useNotificationStore } from '@core/stores/notificationStore'
-import type { WarpConfigResponse, WarpModeInfo, WarpStatus, WarpTestResult } from '@core/types'
+import type { WarpComponentInfo, WarpConfigResponse, WarpModeInfo, WarpStatus, WarpTestResult } from '@core/types'
 import { Badge } from '../components/common/Badge'
 import { Button } from '../components/common/Button'
 import { Card } from '../components/common/Card'
@@ -345,6 +347,56 @@ function WarpAdvancedCard({ config, registering, onRegister }: {
   )
 }
 
+
+function WarpComponentsCard({ components, installingComponent, onInstall }: {
+  components: WarpComponentInfo[]
+  installingComponent: string | null
+  onInstall: (name: string) => Promise<void>
+}) {
+  return (
+    <Card className={styles.sectionCard}>
+      <div className={styles.sectionHeader}>
+        <div className={styles.sectionTitle}><Package size={18} />WARP 组件</div>
+        <Badge color="teal">{components.filter((comp) => comp.installed).length}/{components.length || 3} 已安装</Badge>
+      </div>
+      {components.length === 0 ? (
+        <div className={styles.infoNote}><AlertCircle size={14} />组件状态暂不可用。</div>
+      ) : (
+        <div className={styles.componentsGrid}>
+          {components.map((comp) => (
+            <div key={comp.name} className={styles.componentItem}>
+              <div className={styles.componentInfo}>
+                <span className={styles.componentName}>{comp.name}</span>
+                <span className={styles.componentStatus}>
+                  {comp.source === 'system' && '系统预装'}
+                  {comp.source === 'runtime' && (comp.version ? `v${comp.version}` : '已安装')}
+                  {comp.source === 'not_installed' && '未安装'}
+                </span>
+              </div>
+              <div className={styles.componentActions}>
+                {comp.source === 'not_installed' && (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    icon={<Download size={14} />}
+                    loading={installingComponent === comp.name}
+                    disabled={installingComponent !== null}
+                    onClick={() => void onInstall(comp.name)}
+                  >
+                    安装
+                  </Button>
+                )}
+                {comp.source === 'runtime' && <Badge color="green">✓ 已安装</Badge>}
+                {comp.source === 'system' && <Badge color="blue">✓ 预装</Badge>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </Card>
+  )
+}
+
 function WarpEnvironmentCard({ warp, modes }: { warp: WarpStatus | null; modes: WarpModeInfo[] }) {
   const { t } = useTranslation()
   const dockerReady = modes.some((mode) => mode.docker_only && mode.installed)
@@ -378,6 +430,17 @@ export function WarpPage() {
   const [refreshing, setRefreshing] = useState(false)
   const [acting, setActing] = useState(false)
   const [registering, setRegistering] = useState(false)
+  const [components, setComponents] = useState<WarpComponentInfo[]>([])
+  const [installingComponent, setInstallingComponent] = useState<string | null>(null)
+
+  const fetchComponents = useCallback(async () => {
+    try {
+      const res = await api.getWarpComponents()
+      setComponents(res.components)
+    } catch {
+      // ignore component status failures
+    }
+  }, [])
 
   const loadAll = useCallback(async (silent = false) => {
     if (silent) setRefreshing(true)
@@ -399,7 +462,7 @@ export function WarpPage() {
     }
   }, [addToast, t])
 
-  useEffect(() => { void loadAll() }, [loadAll])
+  useEffect(() => { void loadAll(); void fetchComponents() }, [fetchComponents, loadAll])
 
   const handleEnable = useCallback(async (params: { mode: string; socksPort: number; httpPort: number; endpoint?: string }) => {
     setActing(true)
@@ -426,6 +489,19 @@ export function WarpPage() {
       setActing(false)
     }
   }, [addToast, loadAll, t])
+
+  const handleInstallComponent = useCallback(async (name: string) => {
+    setInstallingComponent(name)
+    try {
+      await api.installWarpComponent(name)
+      addToast('success', `${name} 安装成功`)
+      await Promise.all([fetchComponents(), loadAll(true)])
+    } catch (err) {
+      addToast('error', `${name} 安装失败：${formatError(err)}`)
+    } finally {
+      setInstallingComponent(null)
+    }
+  }, [addToast, fetchComponents, loadAll])
 
   const handleRegister = useCallback(async (backend: string) => {
     setRegistering(true)
@@ -468,6 +544,9 @@ export function WarpPage() {
       </m.div>
       <m.div variants={staggerItem}>
         <WarpEnvironmentCard warp={warp} modes={modes} />
+      </m.div>
+      <m.div variants={staggerItem}>
+        <WarpComponentsCard components={components} installingComponent={installingComponent} onInstall={handleInstallComponent} />
       </m.div>
     </m.div>
   )

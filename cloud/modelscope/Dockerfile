@@ -15,6 +15,7 @@ ARG SOUWEN_REPO=https://github.com/BlueSkyXN/SouWen.git
 ARG SOUWEN_REF=main
 ARG WGCF_VERSION=2.2.30
 ARG WIREPROXY_VERSION=1.1.2
+ARG USQUE_VERSION=3.0.0
 ARG GH_PROXY=""
 
 ENV PORT=7860 \
@@ -24,15 +25,19 @@ ENV PORT=7860 \
 
 WORKDIR /home/user/app
 
-# 预装 WARP 组件 (wireproxy 用户态 WireGuard + wgcf 注册工具)
+# 预装 WARP 组件 (wireproxy + wgcf + usque)
 RUN ARCH=$(dpkg --print-architecture 2>/dev/null || (uname -m | sed 's/x86_64/amd64/;s/aarch64/arm64/')) && \
     WGCF_URL="https://github.com/ViRb3/wgcf/releases/download/v${WGCF_VERSION}/wgcf_${WGCF_VERSION}_linux_${ARCH}" && \
     WP_URL="https://github.com/pufferffish/wireproxy/releases/download/v${WIREPROXY_VERSION}/wireproxy_linux_${ARCH}.tar.gz" && \
-    if [ -n "${GH_PROXY}" ]; then WGCF_URL="${GH_PROXY}/${WGCF_URL}"; WP_URL="${GH_PROXY}/${WP_URL}"; fi && \
+    USQUE_URL="https://github.com/Diniboy1123/usque/releases/download/v${USQUE_VERSION}/usque_${USQUE_VERSION}_linux_${ARCH}.zip" && \
+    if [ -n "${GH_PROXY}" ]; then WGCF_URL="${GH_PROXY}/${WGCF_URL}"; WP_URL="${GH_PROXY}/${WP_URL}"; USQUE_URL="${GH_PROXY}/${USQUE_URL}"; fi && \
     curl -fsSL -o /usr/local/bin/wgcf "${WGCF_URL}" && \
     chmod +x /usr/local/bin/wgcf && \
     curl -fsSL "${WP_URL}" | tar xz -C /usr/local/bin/ wireproxy && \
-    chmod +x /usr/local/bin/wireproxy
+    chmod +x /usr/local/bin/wireproxy && \
+    curl -fsSL "${USQUE_URL}" \
+        | python -c "import io, sys, zipfile; zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).extract('usque', '/usr/local/bin')" && \
+    chmod +x /usr/local/bin/usque
 
 RUN git clone --depth 1 --branch "${SOUWEN_REF}" "${SOUWEN_REPO}" .
 
