@@ -52,11 +52,20 @@ class FetchSummarizeResponse(BaseModel):
 
 router = APIRouter()
 
-_fetch_summarize_limiter = InMemoryRateLimiter(max_requests=20, window_seconds=60)
+_fetch_summarize_limiter: InMemoryRateLimiter | None = None
+
+
+def _get_fetch_summarize_limiter() -> InMemoryRateLimiter:
+    from souwen.config import get_config
+    cfg = get_config()
+    return InMemoryRateLimiter(max_requests=cfg.llm.rate_limit_fetch, window_seconds=60)
 
 
 def rate_limit_fetch_summarize(request: Request) -> None:
-    """Rate limit for fetch+summarize (LLM-consuming)."""
+    """Rate limit for fetch+summarize based on llm.rate_limit_fetch config."""
+    global _fetch_summarize_limiter  # noqa: PLW0603
+    if _fetch_summarize_limiter is None:
+        _fetch_summarize_limiter = _get_fetch_summarize_limiter()
     _fetch_summarize_limiter.check(get_client_ip(request))
 
 

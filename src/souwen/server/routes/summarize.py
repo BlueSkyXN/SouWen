@@ -43,12 +43,21 @@ class SummarizeResponse(BaseModel):
 
 router = APIRouter()
 
-_summarize_limiter = InMemoryRateLimiter(max_requests=20, window_seconds=60)
+
+def _get_summarize_limiter() -> InMemoryRateLimiter:
+    from souwen.config import get_config
+    cfg = get_config()
+    return InMemoryRateLimiter(max_requests=cfg.llm.rate_limit_summarize, window_seconds=60)
+
+
+_summarize_limiter: InMemoryRateLimiter | None = None
 
 
 def rate_limit_summarize(request: Request) -> None:
-    """Limit summarize calls separately because they invoke the LLM service."""
-
+    """Limit summarize calls based on llm.rate_limit_summarize config."""
+    global _summarize_limiter  # noqa: PLW0603
+    if _summarize_limiter is None:
+        _summarize_limiter = _get_summarize_limiter()
     _summarize_limiter.check(get_client_ip(request))
 
 

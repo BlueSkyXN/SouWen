@@ -55,12 +55,21 @@ class DeepSummarizeResponse(BaseModel):
 
 router = APIRouter()
 
-# Stricter rate limit for deep search (more expensive: search + fetch + multi-pass LLM)
-_deep_limiter = InMemoryRateLimiter(max_requests=5, window_seconds=60)
+# Deep search rate limit — configurable via llm.rate_limit_deep
+_deep_limiter: InMemoryRateLimiter | None = None
+
+
+def _get_deep_limiter() -> InMemoryRateLimiter:
+    from souwen.config import get_config
+    cfg = get_config()
+    return InMemoryRateLimiter(max_requests=cfg.llm.rate_limit_deep, window_seconds=60)
 
 
 def rate_limit_deep_summarize(request: Request) -> None:
-    """Stricter rate limit for deep search (expensive pipeline)."""
+    """Rate limit for deep search based on llm.rate_limit_deep config."""
+    global _deep_limiter  # noqa: PLW0603
+    if _deep_limiter is None:
+        _deep_limiter = _get_deep_limiter()
     _deep_limiter.check(get_client_ip(request))
 
 

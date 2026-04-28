@@ -153,6 +153,10 @@ llm:
   system_prompt: ~
   # 默认摘要模式：brief（简要）/ detailed（详细）/ academic（学术）
   default_mode: brief
+  # AI 端点限流（次/分钟）— 各端点独立配置
+  rate_limit_summarize: 20    # POST /api/v1/summarize
+  rate_limit_fetch: 20        # POST /api/v1/fetch/summarize
+  rate_limit_deep: 10         # POST /api/v1/deep-summarize
   # Anthropic API 版本头（仅 anthropic_messages 协议使用）
   # anthropic_version: "2023-06-01"
 

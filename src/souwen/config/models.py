@@ -78,6 +78,12 @@ class LLMConfig(BaseModel):
     max_input_tokens: int = 6000
     system_prompt: str | None = None
     default_mode: str = "brief"
+    rate_limit_summarize: int = 20
+    """摘要端点限流（次/分钟）"""
+    rate_limit_fetch: int = 20
+    """Fetch+Summarize 端点限流（次/分钟）"""
+    rate_limit_deep: int = 10
+    """Deep Search 端点限流（次/分钟）"""
     anthropic_version: str = "2023-06-01"
     """Anthropic API 版本头（仅 anthropic_messages 协议使用）"""
 
