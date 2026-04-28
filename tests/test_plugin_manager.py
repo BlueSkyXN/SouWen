@@ -915,3 +915,32 @@ class TestAPIEndpoints:
         assert response.status_code == 200
         assert response.json()["loaded"] == ["alpha"]
         assert response.json()["errors"] == []
+
+
+# ── Fix verification: disable by plugin name (not just adapter name) ──
+
+
+class TestDisableByPluginName:
+    """Fix #1: _valid_disable_target accepts loaded Plugin names."""
+
+    def test_disable_accepts_loaded_plugin_name(
+        self, state_dir: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Plugin named 'plugin_x' with adapter 'adapter_x' should be disableable."""
+        from souwen.plugin import Plugin, _PLUGINS
+
+        saved = dict(_PLUGINS)
+        try:
+            _PLUGINS["plugin_x"] = Plugin(name="plugin_x")
+            monkeypatch.setattr(
+                "souwen.plugin_manager.unload_plugin",
+                lambda name: {
+                    "name": name, "status": "unloaded",
+                    "removed_adapters": [], "removed_handlers": [], "errors": [],
+                },
+            )
+            result = disable_plugin("plugin_x")
+            assert result["success"] is True
+        finally:
+            _PLUGINS.clear()
+            _PLUGINS.update(saved)

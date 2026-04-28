@@ -364,13 +364,14 @@ def get_plugin_info(name: str) -> PluginInfo | None:
 
 
 def _valid_disable_target(name: str) -> bool:
-    """检查插件名是否为可禁用目标（外部插件或目录中的插件）。"""
+    """检查插件名是否为可禁用目标（外部插件、目录条目或已加载的 Plugin）。"""
     catalog_names = set(_catalog_by_name())
+    loaded_names = set(get_loaded_plugins())
     try:
         ext = set(external_plugins())
     except Exception:  # noqa: BLE001
         ext = set()
-    return name in ext or name in catalog_names
+    return name in ext or name in catalog_names or name in loaded_names
 
 
 def enable_plugin(name: str) -> dict[str, Any]:

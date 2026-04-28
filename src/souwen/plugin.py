@@ -358,8 +358,11 @@ def unload_plugin(name: str) -> dict[str, Any]:
         try:
             result = plugin.on_shutdown(plugin)
             if hasattr(result, "__await__"):
+                # 关闭协程避免 RuntimeWarning，并标记跳过
+                result.close()
+                errs.append("on_shutdown: async hook skipped in sync unload path")
                 logger.warning(
-                    "插件 %r on_shutdown 返回了协程，同步路径不支持 — 已跳过",
+                    "插件 %r on_shutdown 返回了协程，同步路径不支持 — 已跳过并关闭",
                     name,
                     extra={"event": "plugin_shutdown_skipped", "plugin": name},
                 )
@@ -480,6 +483,14 @@ def discover_entrypoint_plugins(
 
         if plugin.adapters:
             _register_plugin(plugin, source_label=label, loaded=loaded, errors=errors, config=config)
+        else:
+            # 所有 adapter 被过滤，清理 ep.load() 期间注册的 orphan fetch handler
+            orphan_removed = unregister_fetch_handlers_by_owner(ep_name)
+            if orphan_removed:
+                logger.info(
+                    "已清理被跳过插件 %r 的孤立 fetch handler: %s",
+                    ep_name, ", ".join(orphan_removed),
+                )
 
     return loaded, errors
 
@@ -547,6 +558,13 @@ def load_config_plugins(
 
         if plugin.adapters:
             _register_plugin(plugin, source_label=label, loaded=loaded, errors=errors, config=config)
+        else:
+            orphan_removed = unregister_fetch_handlers_by_owner(path)
+            if orphan_removed:
+                logger.info(
+                    "已清理被跳过配置插件 %r 的孤立 fetch handler: %s",
+                    path, ", ".join(orphan_removed),
+                )
 
     return loaded, errors
 

@@ -988,3 +988,53 @@ class TestPluginContractHelper:
 
         assert issues == []
         assert "optional dependency missing" in caplog.text
+
+
+# ── Fix verification: orphan handler cleanup + async shutdown ──────
+
+
+class TestOrphanHandlerCleanup:
+    """Fix #2: disabled plugins' side-effect handlers cleaned up."""
+
+    def test_filtered_adapters_cleanup_orphan_handlers(
+        self, clean_registry, clean_plugins, clean_fetch_handlers, monkeypatch
+    ):
+        """When all adapters are filtered, ep.load() side-effect handlers must be removed."""
+
+        async def orphan_handler(*a, **kw):
+            pass
+
+        def side_effect_loader():
+            register_fetch_handler("orphan_prov", orphan_handler)
+            return make_test_adapter("blocked_adapter")
+
+        eps = _FakeEntryPoints([_FakeEntryPoint("ep_x", side_effect_loader)])
+        monkeypatch.setattr("souwen.plugin.metadata.entry_points", lambda: eps)
+
+        loaded, errors = discover_entrypoint_plugins(skip_names={"blocked_adapter"})
+        assert loaded == []
+        # Orphan handler must have been cleaned up
+        assert "orphan_prov" not in _FETCH_HANDLERS
+        assert "ep_x" not in _PLUGINS
+
+
+class TestAsyncShutdownClose:
+    """Fix #3: async shutdown coroutine is properly closed."""
+
+    def test_async_shutdown_closed_not_leaked(self, clean_registry, clean_plugins, clean_fetch_handlers):
+        closed = []
+
+        async def async_shutdown(plugin):
+            try:
+                pass
+            except GeneratorExit:
+                closed.append(True)
+                raise
+
+        p = Plugin(name="async_test", adapters=[], on_shutdown=async_shutdown)
+        _register_plugin(p, source_label="t", loaded=[], errors=[])
+        result = unload_plugin("async_test")
+
+        assert result["status"] == "unloaded"
+        # Should report the skip in errors
+        assert any("async hook skipped" in e for e in result["errors"])

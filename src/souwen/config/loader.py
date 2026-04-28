@@ -227,7 +227,7 @@ def get_config() -> SouWenConfig:
                 skip_names = set(_load_state().get("disabled_plugins", []))
             except Exception:  # noqa: BLE001
                 pass
-            load_config_plugins(cfg.plugins, skip_names=skip_names)
+            load_config_plugins(cfg.plugins, skip_names=skip_names, config=cfg)
         except Exception:  # noqa: BLE001 — 插件加载不能拖垮配置
             logger.warning("配置插件加载失败,已跳过", exc_info=True)
 
