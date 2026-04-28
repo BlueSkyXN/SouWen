@@ -7,6 +7,7 @@
 - 新增前端 WarpPage 专属管理页面（souwen-nebula 皮肤）
 - 新增 CLI `souwen warp` 命令组：status / enable / disable / modes / register / test
 - 新增 API 端点：`/warp/modes`、`/warp/register`、`/warp/test`、`/warp/config`
+- 新增 WARP 组件管理卡片：展示 usque / wireproxy / wgcf 安装来源与版本，并支持一键安装
 - Dockerfile 预装 usque v3.0.0 二进制
 
 ### Behavior

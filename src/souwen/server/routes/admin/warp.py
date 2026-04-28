@@ -7,6 +7,7 @@ from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
 
 from fastapi import APIRouter, HTTPException, Query
+from starlette.responses import StreamingResponse
 
 from souwen.server.routes._common import logger
 from souwen.server.schemas import WaybackSaveRequest, WaybackSaveResponse
@@ -246,6 +247,120 @@ async def warp_disable():
     if not result["ok"]:
         raise HTTPException(status_code=400, detail=result["error"])
     return result
+
+
+@router.get("/warp/components")
+async def warp_components():
+    """获取 WARP 组件安装状态列表。"""
+    from souwen.server.warp_installer import WarpInstaller
+
+    installer = WarpInstaller()
+    return {"components": installer.get_components_status()}
+
+
+@router.post("/warp/components/install")
+async def warp_component_install(
+    component: str = Query(..., description="组件名: usque | wireproxy | wgcf"),
+    version: str | None = Query(None, description="版本号 (如 3.0.0)，留空使用默认版本"),
+):
+    """从 GitHub Releases 下载安装 WARP 组件。"""
+    from souwen.server.warp_installer import WarpInstaller
+
+    installer = WarpInstaller()
+    try:
+        result = await installer.install(component, version)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.post("/warp/components/uninstall")
+async def warp_component_uninstall(
+    component: str = Query(..., description="组件名"),
+):
+    """卸载运行时安装的 WARP 组件（不影响系统预装）。"""
+    from souwen.server.warp_installer import WarpInstaller
+
+    installer = WarpInstaller()
+    try:
+        result = await installer.uninstall(component)
+        return result
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
+    except RuntimeError as e:
+        raise HTTPException(status_code=500, detail=str(e)) from e
+
+
+@router.post("/warp/switch")
+async def warp_switch(
+    mode: str = Query(..., description="目标模式"),
+    socks_port: int = Query(1080, ge=1, le=65535),
+    http_port: int = Query(0, ge=0, le=65535),
+    endpoint: str | None = Query(None),
+):
+    """一步切换 WARP 模式 — 先禁用当前模式，再以目标模式启用。"""
+    from souwen.server.warp import WarpManager
+
+    mgr = WarpManager.get_instance()
+
+    status = mgr.get_status()
+    if status["status"] in ("enabled", "starting", "error"):
+        disable_result = await mgr.disable()
+        if not disable_result["ok"]:
+            raise HTTPException(status_code=500, detail=f"禁用失败: {disable_result.get('error')}")
+
+    result = await mgr.enable(
+        mode=mode,
+        socks_port=socks_port,
+        http_port=http_port,
+        endpoint=endpoint,
+    )
+    if not result["ok"]:
+        raise HTTPException(status_code=400, detail=result["error"])
+    return result
+
+
+@router.get("/warp/events")
+async def warp_events():
+    """SSE 实时推送 WARP 状态变化。
+
+    每 2 秒推送一次当前状态。客户端使用 EventSource 连接。
+    """
+    from souwen.server.warp import WarpManager
+
+    async def event_stream():
+        mgr = WarpManager.get_instance()
+        last_status = None
+        heartbeat = 0
+        while True:
+            try:
+                current = mgr.get_status()
+                status_key = (current["status"], current["mode"], current["ip"])
+                heartbeat += 1
+                if status_key != last_status or heartbeat >= 10:
+                    import json
+
+                    data = json.dumps(current, ensure_ascii=False)
+                    yield f"data: {data}\n\n"
+                    last_status = status_key
+                    heartbeat = 0
+                await asyncio.sleep(2)
+            except asyncio.CancelledError:
+                break
+            except Exception:
+                break
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
 
 
 # ---------------------------------------------------------------------------
