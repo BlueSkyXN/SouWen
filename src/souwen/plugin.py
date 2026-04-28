@@ -105,17 +105,21 @@ def _resolve_dotted_path(path: str) -> Any:
 
 def discover_entrypoint_plugins(
     group: str = ENTRY_POINT_GROUP,
+    *,
+    skip_names: set[str] | None = None,
 ) -> tuple[list[str], list[dict[str, str]]]:
     """通过 entry points 发现并注册插件。
 
     Args:
         group: entry point 分组名，默认 `"souwen.plugins"`。
+        skip_names: 要跳过（不注册）的 adapter 名称集合，用于实现插件禁用。
 
     Returns:
         `(loaded_names, errors)` 二元组。
     """
     loaded: list[str] = []
     errors: list[dict[str, str]] = []
+    _skip = skip_names or set()
 
     try:
         eps = metadata.entry_points()
@@ -139,20 +143,35 @@ def discover_entrypoint_plugins(
             logger.warning("加载插件 entry point %r 失败: %s", ep_name, exc)
             errors.append({"source": label, "name": ep_name, "error": str(exc)})
             continue
-        _register_adapters(adapters, source_label=label, loaded=loaded, errors=errors)
+        # 按 adapter.name 过滤已禁用的插件（B1: 必须在 load 之后按 adapter 名过滤）
+        if _skip:
+            active = [a for a in adapters if a.name not in _skip]
+            skipped = [a for a in adapters if a.name in _skip]
+            for a in skipped:
+                logger.info("跳过已禁用的插件源 %r (来自 %s)", a.name, label)
+            adapters = active
+        if adapters:
+            _register_adapters(adapters, source_label=label, loaded=loaded, errors=errors)
 
     return loaded, errors
 
 
 def load_config_plugins(
     plugin_paths: list[str],
+    *,
+    skip_names: set[str] | None = None,
 ) -> tuple[list[str], list[dict[str, str]]]:
     """从 `"module.path:attribute"` 字符串列表加载插件。
 
     用于处理 YAML 配置 / 环境变量里手动声明的插件。
+
+    Args:
+        plugin_paths: 插件路径列表。
+        skip_names: 要跳过（不注册）的 adapter 名称集合，用于实现插件禁用。
     """
     loaded: list[str] = []
     errors: list[dict[str, str]] = []
+    _skip = skip_names or set()
 
     for path in plugin_paths or []:
         if not isinstance(path, str) or not path.strip():
@@ -167,7 +186,14 @@ def load_config_plugins(
             logger.warning("加载配置插件 %r 失败: %s", path, exc)
             errors.append({"source": label, "name": path, "error": str(exc)})
             continue
-        _register_adapters(adapters, source_label=label, loaded=loaded, errors=errors)
+        if _skip:
+            active = [a for a in adapters if a.name not in _skip]
+            skipped = [a for a in adapters if a.name in _skip]
+            for a in skipped:
+                logger.info("跳过已禁用的配置插件源 %r (来自 %s)", a.name, label)
+            adapters = active
+        if adapters:
+            _register_adapters(adapters, source_label=label, loaded=loaded, errors=errors)
 
     return loaded, errors
 
@@ -176,6 +202,7 @@ def load_plugins(config: SouWenConfig | None = None) -> dict[str, Any]:
     """加载所有插件（entry points + 配置文件指定）。
 
     这是面向 `souwen.registry` 的统一入口，应该在内置源注册完成后调用。
+    自动读取插件禁用列表，跳过已禁用的插件。
 
     Args:
         config: 可选的 `SouWenConfig`。提供则会读取其 `plugins` 字段。
@@ -188,8 +215,19 @@ def load_plugins(config: SouWenConfig | None = None) -> dict[str, Any]:
     all_loaded: list[str] = []
     all_errors: list[dict[str, str]] = []
 
+    # 读取插件禁用列表（函数级 import 避免循环依赖）
+    skip_names: set[str] = set()
     try:
-        loaded, errors = discover_entrypoint_plugins()
+        from souwen.plugin_manager import _load_state
+
+        skip_names = set(_load_state().get("disabled_plugins", []))
+        if skip_names:
+            logger.info("插件禁用列表: %s", ", ".join(sorted(skip_names)))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("读取插件禁用列表失败，将加载所有插件: %s", exc)
+
+    try:
+        loaded, errors = discover_entrypoint_plugins(skip_names=skip_names)
         all_loaded.extend(loaded)
         all_errors.extend(errors)
     except Exception as exc:  # noqa: BLE001 — 兜底，绝不让插件系统拖垮宿主
@@ -204,7 +242,7 @@ def load_plugins(config: SouWenConfig | None = None) -> dict[str, Any]:
             paths = []
         if paths:
             try:
-                loaded, errors = load_config_plugins(paths)
+                loaded, errors = load_config_plugins(paths, skip_names=skip_names)
                 all_loaded.extend(loaded)
                 all_errors.extend(errors)
             except Exception as exc:  # noqa: BLE001

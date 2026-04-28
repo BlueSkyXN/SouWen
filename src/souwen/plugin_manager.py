@@ -271,11 +271,27 @@ def get_plugin_info(name: str) -> PluginInfo | None:
     return None
 
 
+def _valid_disable_target(name: str) -> bool:
+    """检查插件名是否为可禁用目标（外部插件或目录中的插件）。"""
+    catalog_names = {item.get("name") for item in PLUGIN_CATALOG if item.get("name")}
+    try:
+        ext = set(external_plugins())
+    except Exception:  # noqa: BLE001
+        ext = set()
+    return name in ext or name in catalog_names
+
+
 def enable_plugin(name: str) -> dict[str, Any]:
     """启用插件（从禁用列表移除，重启后生效）。"""
     try:
         state = _load_state()
         disabled = set(state.get("disabled_plugins", []))
+        if name not in disabled:
+            return {
+                "success": True,
+                "restart_required": False,
+                "message": f"插件 {name!r} 已处于启用状态。",
+            }
         disabled.discard(name)
         state["disabled_plugins"] = sorted(disabled)
         _save_state(state)
@@ -291,18 +307,45 @@ def enable_plugin(name: str) -> dict[str, Any]:
 
 
 def disable_plugin(name: str) -> dict[str, Any]:
-    """禁用插件（写入禁用列表，重启后生效）。"""
+    """禁用插件（写入禁用列表 + 运行时从注册表移除）。
+
+    运行时立即从 _REGISTRY 移除（新请求不再使用该插件），
+    完全生效（含 fetch handler 清理）需重启。
+    """
     try:
+        if not _valid_disable_target(name):
+            return {
+                "success": False,
+                "restart_required": False,
+                "message": f"插件 {name!r} 不是可禁用的外部插件。",
+            }
         state = _load_state()
         disabled = set(state.get("disabled_plugins", []))
+        if name in disabled:
+            return {
+                "success": True,
+                "restart_required": False,
+                "message": f"插件 {name!r} 已处于禁用状态。",
+            }
         disabled.add(name)
         state["disabled_plugins"] = sorted(disabled)
         _save_state(state)
+
+        # 运行时从注册表移除（B2: 仅移除 _REGISTRY，不动 _FETCH_HANDLERS 避免误删内置处理器）
+        try:
+            from souwen.registry.views import _unreg_external
+
+            removed = _unreg_external(name)
+            if removed:
+                logger.info("已从注册表运行时移除插件 %r", name)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("运行时移除插件 %r 失败: %s", name, exc)
+
         _mark_restart_required()
         return {
             "success": True,
             "restart_required": True,
-            "message": f"插件 {name!r} 已禁用，重启后完全生效。",
+            "message": f"插件 {name!r} 已禁用，搜索源已立即停用，完全清理需重启。",
         }
     except Exception as exc:  # noqa: BLE001
         logger.warning("禁用插件 %r 失败: %s", name, exc)
@@ -400,11 +443,15 @@ async def uninstall_plugin(package: str) -> dict[str, Any]:
 
 
 def reload_plugins() -> dict[str, Any]:
-    """重新扫描 entry point 插件并追加注册新插件。"""
+    """重新扫描 entry point 插件并追加注册新插件（尊重禁用列表）。"""
     try:
         importlib.invalidate_caches()
-        loaded, errors = discover_entrypoint_plugins()
+        state = _load_state()
+        skip_names = set(state.get("disabled_plugins", []))
+        loaded, errors = discover_entrypoint_plugins(skip_names=skip_names)
         message = f"插件重新扫描完成，新增加载 {len(loaded)} 个，错误 {len(errors)} 个。"
+        if skip_names:
+            message += f" 已跳过禁用插件: {', '.join(sorted(skip_names))}。"
         return {"loaded": loaded, "errors": errors, "message": message}
     except Exception as exc:  # noqa: BLE001
         logger.warning("重新扫描插件失败: %s", exc)

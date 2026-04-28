@@ -280,8 +280,11 @@ class TestEnableDisable:
     def test_disable_plugin_adds_to_disabled_list_and_sets_restart_flag(
         self,
         state_dir: Path,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         _save_state({"disabled_plugins": ["alpha"], "installed_via_api": []})
+        monkeypatch.setattr("souwen.plugin_manager._valid_disable_target", lambda name: True)
+        monkeypatch.setattr("souwen.registry.views._unreg_external", lambda name: False)
 
         result = disable_plugin("beta")
 
@@ -290,12 +293,22 @@ class TestEnableDisable:
         assert _load_state()["disabled_plugins"] == ["alpha", "beta"]
         assert is_restart_required() is True
 
-    def test_disable_plugin_deduplicates_disabled_list(self, state_dir: Path) -> None:
+    def test_disable_plugin_deduplicates_disabled_list(
+        self, state_dir: Path, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
         _save_state({"disabled_plugins": ["alpha"], "installed_via_api": []})
+        monkeypatch.setattr("souwen.plugin_manager._valid_disable_target", lambda name: True)
+        monkeypatch.setattr("souwen.registry.views._unreg_external", lambda name: False)
 
         disable_plugin("alpha")
 
         assert _load_state()["disabled_plugins"] == ["alpha"]
+
+    def test_disable_plugin_rejects_unknown_target(self, state_dir: Path) -> None:
+        result = disable_plugin("nonexistent_xyz")
+
+        assert result["success"] is False
+        assert "不是可禁用" in result["message"]
 
 
 class TestInstallUninstall:
@@ -397,10 +410,11 @@ class TestReloadPlugins:
     def test_reload_plugins_calls_discover_entrypoint_plugins(
         self,
         monkeypatch: pytest.MonkeyPatch,
+        state_dir: Path,
     ) -> None:
         called = False
 
-        def fake_discover() -> tuple[list[str], list[dict[str, str]]]:
+        def fake_discover(*, skip_names: set[str] | None = None) -> tuple[list[str], list[dict[str, str]]]:
             nonlocal called
             called = True
             return ["alpha"], [{"source": "entry_points", "name": "broken", "error": "boom"}]
@@ -414,6 +428,100 @@ class TestReloadPlugins:
         assert result["errors"] == [{"source": "entry_points", "name": "broken", "error": "boom"}]
         assert "新增加载 1 个" in result["message"]
         assert "错误 1 个" in result["message"]
+
+    def test_reload_respects_disabled_list(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        state_dir: Path,
+    ) -> None:
+        _save_state({"disabled_plugins": ["beta"], "installed_via_api": []})
+        captured_skip: set[str] | None = None
+
+        def fake_discover(*, skip_names: set[str] | None = None) -> tuple[list[str], list[dict[str, str]]]:
+            nonlocal captured_skip
+            captured_skip = skip_names
+            return [], []
+
+        monkeypatch.setattr("souwen.plugin_manager.discover_entrypoint_plugins", fake_discover)
+
+        reload_plugins()
+
+        assert captured_skip == {"beta"}
+
+
+class TestRuntimeDisable:
+    def test_disable_runtime_unreg_called(
+        self,
+        state_dir: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        unreg_called_with: list[str] = []
+        monkeypatch.setattr("souwen.plugin_manager._valid_disable_target", lambda name: True)
+        monkeypatch.setattr(
+            "souwen.registry.views._unreg_external",
+            lambda name: (unreg_called_with.append(name), True)[-1],
+        )
+
+        result = disable_plugin("test_plugin")
+
+        assert result["success"] is True
+        assert "test_plugin" in unreg_called_with
+
+    def test_enable_already_enabled_noop(self, state_dir: Path) -> None:
+        _save_state({"disabled_plugins": [], "installed_via_api": []})
+
+        result = enable_plugin("something")
+
+        assert result["success"] is True
+        assert result["restart_required"] is False
+        assert "已处于启用状态" in result["message"]
+
+    def test_disable_already_disabled_noop(
+        self,
+        state_dir: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        _save_state({"disabled_plugins": ["alpha"], "installed_via_api": []})
+        monkeypatch.setattr("souwen.plugin_manager._valid_disable_target", lambda name: True)
+
+        result = disable_plugin("alpha")
+
+        assert result["success"] is True
+        assert result["restart_required"] is False
+        assert "已处于禁用状态" in result["message"]
+
+
+class TestValidDisableTarget:
+    def test_catalog_plugin_is_valid_target(self) -> None:
+        from souwen.plugin_manager import _valid_disable_target
+
+        assert _valid_disable_target("superweb2pdf") is True
+
+    def test_unknown_name_is_invalid_target(self) -> None:
+        from souwen.plugin_manager import _valid_disable_target
+
+        assert _valid_disable_target("totally_fake_plugin_xyz") is False
+
+
+class TestUnregExternal:
+    def test_unreg_external_removes_plugin(self) -> None:
+        from souwen.registry.views import _EXTERNAL_PLUGINS, _REGISTRY, _unreg_external
+
+        # 临时插入一个假的外部插件
+        _REGISTRY["_test_fake"] = object()  # type: ignore[assignment]
+        _EXTERNAL_PLUGINS.add("_test_fake")
+        try:
+            assert _unreg_external("_test_fake") is True
+            assert "_test_fake" not in _REGISTRY
+            assert "_test_fake" not in _EXTERNAL_PLUGINS
+        finally:
+            _REGISTRY.pop("_test_fake", None)
+            _EXTERNAL_PLUGINS.discard("_test_fake")
+
+    def test_unreg_external_rejects_builtin(self) -> None:
+        from souwen.registry.views import _unreg_external
+
+        assert _unreg_external("arxiv") is False
 
 
 class TestPackageNameValidation:
@@ -505,7 +613,11 @@ class TestAPIEndpoints:
         self,
         client: Any,
         state_dir: Path,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
+        monkeypatch.setattr("souwen.plugin_manager._valid_disable_target", lambda name: True)
+        monkeypatch.setattr("souwen.registry.views._unreg_external", lambda name: False)
+
         response = client.post("/plugins/alpha/disable")
 
         assert response.status_code == 200
@@ -529,11 +641,12 @@ class TestAPIEndpoints:
     def test_post_reload(
         self,
         client: Any,
+        state_dir: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         monkeypatch.setattr(
             "souwen.plugin_manager.discover_entrypoint_plugins",
-            lambda: (["alpha"], []),
+            lambda *, skip_names=None: (["alpha"], []),
         )
 
         response = client.post("/plugins/reload")

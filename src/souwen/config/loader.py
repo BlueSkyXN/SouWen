@@ -219,7 +219,15 @@ def get_config() -> SouWenConfig:
         try:
             from souwen.plugin import load_config_plugins
 
-            load_config_plugins(cfg.plugins)
+            # 读取禁用列表，跳过已禁用的配置插件
+            skip_names: set[str] = set()
+            try:
+                from souwen.plugin_manager import _load_state
+
+                skip_names = set(_load_state().get("disabled_plugins", []))
+            except Exception:  # noqa: BLE001
+                pass
+            load_config_plugins(cfg.plugins, skip_names=skip_names)
         except Exception:  # noqa: BLE001 — 插件加载不能拖垮配置
             logger.warning("配置插件加载失败,已跳过", exc_info=True)
 
