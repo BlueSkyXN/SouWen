@@ -90,8 +90,6 @@ class LLMConfig(BaseModel):
     def get_api_key(self) -> str | None:
         """获取 API Key：优先从 api_keys 轮询，否则用单一 api_key"""
         if self.api_keys:
-            import random
-
             return random.choice(self.api_keys)
         return self.api_key
 

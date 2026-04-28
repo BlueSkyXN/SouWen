@@ -6,12 +6,13 @@ import logging
 
 logger = logging.getLogger("souwen.server")
 
-_SECRET_KEYWORDS = {"key", "secret", "token", "password", "sessdata"}
+_SECRET_KEYWORDS = {"key", "keys", "secret", "token", "password", "sessdata"}
 
 
 def _is_secret_field(name: str) -> bool:
     """判断字段名是否包含敏感信息 — 用于脱敏配置输出
 
-    检查字段名中是否包含 key、secret、token、password 关键词。
+    按下划线分词后精确匹配关键字，避免 max_tokens / max_input_tokens 等
+    非敏感字段被误判为密钥字段。
     """
-    return any(kw in name for kw in _SECRET_KEYWORDS)
+    return any(part in _SECRET_KEYWORDS for part in name.lower().split("_"))
