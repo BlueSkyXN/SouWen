@@ -1,0 +1,17 @@
+# Auto-generated from pyproject.toml
+# For server builds (souwen server with TLS + web)
+httpx[socks]>=0.27.0
+pydantic>=2.0
+tenacity>=8.0
+python-dotenv>=1.0
+rich>=13.0
+lxml>=5.0
+beautifulsoup4>=4.12
+defusedxml>=0.7.0
+typer>=0.12
+pyyaml>=6.0
+aiosqlite>=0.20.0
+fastapi>=0.111
+uvicorn[standard]>=0.29
+curl-cffi>=0.14.0
+trafilatura>=1.0
