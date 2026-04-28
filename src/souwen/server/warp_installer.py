@@ -156,7 +156,9 @@ class WarpInstaller:
             self._cleanup_paths(download_path, new_binary_path)
             await self._download(url, download_path)
             self._validate_download(download_path)
-            self._materialize_binary(download_path, new_binary_path, binary_name, str(spec["extract_type"]))
+            self._materialize_binary(
+                download_path, new_binary_path, binary_name, str(spec["extract_type"])
+            )
             self._validate_binary(new_binary_path)
             sha256 = self._sha256_file(new_binary_path)
             os.replace(new_binary_path, target_path)
@@ -266,7 +268,9 @@ class WarpInstaller:
 
     async def _download(self, url: str, path: Path) -> None:
         try:
-            async with httpx.AsyncClient(timeout=_DOWNLOAD_TIMEOUT, follow_redirects=True) as client:
+            async with httpx.AsyncClient(
+                timeout=_DOWNLOAD_TIMEOUT, follow_redirects=True
+            ) as client:
                 async with client.stream("GET", url) as response:
                     if response.status_code >= 400:
                         raise RuntimeError(f"下载失败 HTTP {response.status_code}: {url}")
@@ -345,7 +349,9 @@ class WarpInstaller:
             raise RuntimeError("二进制文件校验失败，内容疑似 HTML 错误页")
 
     def _ensure_space(self) -> None:
-        probe = self.bin_dir if self.bin_dir.exists() else self._nearest_existing_parent(self.bin_dir)
+        probe = (
+            self.bin_dir if self.bin_dir.exists() else self._nearest_existing_parent(self.bin_dir)
+        )
         usage = shutil.disk_usage(probe)
         if usage.free < _MIN_FREE_BYTES:
             raise RuntimeError("磁盘剩余空间不足，无法安装 WARP 组件")
