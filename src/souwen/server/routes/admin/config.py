@@ -141,7 +141,7 @@ async def save_config_yaml(body: YamlConfigSaveRequest):
             flat_dict: dict = {}
             for key, values in parsed_dict.items():
                 if key in ("sources", "llm") and isinstance(values, dict):
-                    flat_dict["sources"] = values
+                    flat_dict[key] = values
                 elif isinstance(values, dict):
                     for k, v in values.items():
                         if k in valid_fields:

@@ -4,20 +4,25 @@ from __future__ import annotations
 
 import logging
 
+import re
+
 from fastapi import HTTPException
 
 logger = logging.getLogger("souwen.server")
 
-_SECRET_KEYWORDS = {"key", "keys", "secret", "token", "password", "sessdata"}
+_SECRET_KEYWORDS = {"key", "keys", "secret", "token", "password", "sessdata", "authorization", "auth"}
+
+# Pre-compiled splitter: underscore or hyphen
+_FIELD_SPLITTER = re.compile(r"[_\-]")
 
 
 def _is_secret_field(name: str) -> bool:
     """判断字段名是否包含敏感信息 — 用于脱敏配置输出
 
-    按下划线分词后精确匹配关键字，避免 max_tokens / max_input_tokens 等
-    非敏感字段被误判为密钥字段。
+    按下划线/连字符分词后精确匹配关键字。同时完整匹配 Authorization 等常见 header 名。
     """
-    return any(part in _SECRET_KEYWORDS for part in name.lower().split("_"))
+    parts = _FIELD_SPLITTER.split(name.lower())
+    return any(part in _SECRET_KEYWORDS for part in parts)
 
 
 def require_llm_enabled() -> None:
