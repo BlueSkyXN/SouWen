@@ -13,9 +13,22 @@ echo "  PYTHON:   $(python --version 2>&1)"
 echo "  SOUWEN:   $(python -c 'import souwen; print(souwen.__version__)' 2>/dev/null || echo 'unknown')"
 echo "=========================================="
 
-# ----- WARP 代理初始化 (在所有 Python 代码之前) -----
-if [ "${WARP_ENABLED:-0}" = "1" ] && [ -f /usr/local/bin/warp-init.sh ]; then
-    . /usr/local/bin/warp-init.sh
+# ----- Runtime bin 目录 (WARP 组件动态安装目录) -----
+RUNTIME_BIN="${WARP_RUNTIME_BIN_DIR:-/app/data/bin}"
+if [ -d "$RUNTIME_BIN" ]; then
+    export PATH="${RUNTIME_BIN}:${PATH}"
+fi
+
+# ----- WARP 代理初始化 -----
+# WARP_ENTRYPOINT_INIT=1 时在 entrypoint 同步初始化 (旧行为, 阻塞启动)
+# WARP_ENTRYPOINT_INIT=0 (默认) 跳过, 由 Python WarpManager 后台异步启动
+if [ "${WARP_ENABLED:-0}" = "1" ]; then
+    if [ "${WARP_ENTRYPOINT_INIT:-0}" = "1" ] && [ -f /usr/local/bin/warp-init.sh ]; then
+        echo "==> [WARP] entrypoint 同步初始化 (WARP_ENTRYPOINT_INIT=1)"
+        . /usr/local/bin/warp-init.sh
+    else
+        echo "==> [WARP] 已启用, 将由 Python WarpManager 后台启动"
+    fi
 fi
 
 # ----- 配置注入 -----

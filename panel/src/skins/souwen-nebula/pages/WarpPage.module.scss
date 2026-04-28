@@ -372,6 +372,50 @@
   }
 }
 
+
+.componentsGrid {
+  display: grid;
+  gap: $space-3;
+}
+
+.componentItem {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-3;
+  padding: $space-3 $space-4;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border);
+  border-radius: $radius-sm;
+  flex-wrap: wrap;
+}
+
+.componentInfo {
+  display: flex;
+  flex-direction: column;
+  gap: $space-1;
+  min-width: 0;
+}
+
+.componentName {
+  font-family: var(--font-mono);
+  font-size: $text-base;
+  font-weight: $font-bold;
+  color: var(--text);
+}
+
+.componentStatus {
+  font-size: $text-xs;
+  color: var(--text-muted);
+}
+
+.componentActions {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  margin-left: auto;
+}
+
 .docLink {
   display: inline-flex;
   align-items: center;

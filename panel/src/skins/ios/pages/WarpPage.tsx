@@ -14,7 +14,9 @@ import {
   Container,
   Globe,
   Loader2,
+  Download,
   Network,
+  Package,
   Play,
   Power,
   RefreshCw,
@@ -32,7 +34,7 @@ import { api } from '@core/services/api'
 import { formatError } from '@core/lib/errors'
 import { staggerContainer, staggerItem } from '@core/lib/animations'
 import { useNotificationStore } from '@core/stores/notificationStore'
-import type { WarpConfigResponse, WarpModeInfo, WarpStatus, WarpTestResult } from '@core/types'
+import type { WarpComponentInfo, WarpConfigResponse, WarpModeInfo, WarpStatus, WarpTestResult } from '@core/types'
 
 const MODE_OPTIONS = [
   { id: 'auto', label: '自动选择' },
@@ -197,6 +199,17 @@ export function WarpPage() {
   const [socksPort, setSocksPort] = useState('1080')
   const [httpPort, setHttpPort] = useState('0')
   const [endpoint, setEndpoint] = useState('')
+  const [components, setComponents] = useState<WarpComponentInfo[]>([])
+  const [installingComponent, setInstallingComponent] = useState<string | null>(null)
+
+  const fetchComponents = useCallback(async () => {
+    try {
+      const res = await api.getWarpComponents()
+      setComponents(res.components)
+    } catch {
+      // ignore component status failures
+    }
+  }, [])
 
   const loadData = useCallback(async (silent = false) => {
     if (silent) setRefreshing(true)
@@ -237,12 +250,25 @@ export function WarpPage() {
     }
   }, [addToast])
 
-  useEffect(() => { void loadData() }, [loadData])
+  useEffect(() => { void loadData(); void fetchComponents() }, [fetchComponents, loadData])
 
   const visibleModes = useMemo(() => {
     const modeMap = new Map(modes.map((item) => [item.id, item]))
     return MODE_OPTIONS.filter((item) => item.id !== 'auto').map((item) => modeMap.get(item.id) || fallbackMode(item.id, warp))
   }, [modes, warp])
+
+  const handleInstallComponent = useCallback(async (name: string) => {
+    setInstallingComponent(name)
+    try {
+      await api.installWarpComponent(name)
+      addToast('success', `${name} 安装成功`)
+      await Promise.all([fetchComponents(), loadData(true)])
+    } catch (err) {
+      addToast('error', `${name} 安装失败：${formatError(err)}`)
+    } finally {
+      setInstallingComponent(null)
+    }
+  }, [addToast, fetchComponents, loadData])
 
   const handleEnable = useCallback(async () => {
     setActing(true)
@@ -441,6 +467,42 @@ export function WarpPage() {
             <StatusField label="当前代理类型" value={warp?.proxy_type || '—'} />
           </div>
         </div>
+      </m.section>
+
+      <m.section style={styles.card} variants={staggerItem}>
+        <CardHeader icon={<Package size={19} />} title="WARP 组件" badge={`${components.filter((comp) => comp.installed).length}/${components.length || 3} 已安装`} badgeColor={theme.success} />
+        {components.length === 0 ? (
+          <Notice icon={<AlertTriangle size={15} />} tone="warning">组件状态暂不可用。</Notice>
+        ) : (
+          <div style={styles.componentList}>
+            {components.map((comp) => (
+              <div key={comp.name} style={styles.componentRow}>
+                <div style={styles.componentInfo}>
+                  <span style={styles.componentName}>{comp.name}</span>
+                  <span style={styles.componentStatus}>
+                    {comp.source === 'system' && '系统预装'}
+                    {comp.source === 'runtime' && (comp.version ? `v${comp.version}` : '已安装')}
+                    {comp.source === 'not_installed' && '未安装'}
+                  </span>
+                </div>
+                <div style={styles.componentActions}>
+                  {comp.source === 'not_installed' && (
+                    <button
+                      style={styles.installButton}
+                      onClick={() => void handleInstallComponent(comp.name)}
+                      disabled={installingComponent !== null}
+                    >
+                      {installingComponent === comp.name ? <Loader2 size={15} /> : <Download size={15} />}
+                      安装
+                    </button>
+                  )}
+                  {comp.source === 'runtime' && <span style={styles.installedMark}>✓ 已安装</span>}
+                  {comp.source === 'system' && <span style={styles.preinstalledMark}>✓ 预装</span>}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
       </m.section>
     </m.div>
   )
@@ -749,6 +811,72 @@ function makeStyles(): Record<string, CSSProperties> {
       display: 'grid',
       gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))',
       gap: 10,
+    },
+
+    componentList: {
+      display: 'grid',
+      gap: 12,
+    },
+    componentRow: {
+      display: 'flex',
+      justifyContent: 'space-between',
+      alignItems: 'center',
+      gap: 14,
+      padding: '13px 14px',
+      background: theme.fieldBg,
+      border: `1px solid ${theme.fieldBorder}`,
+      borderRadius: theme.fieldRadius,
+      flexWrap: 'wrap',
+    },
+    componentInfo: {
+      display: 'flex',
+      flexDirection: 'column',
+      gap: 6,
+      minWidth: 0,
+    },
+    componentName: {
+      color: theme.text,
+      fontSize: 15,
+      fontWeight: 800,
+      fontFamily: 'monospace',
+    },
+    componentStatus: {
+      color: theme.muted,
+      fontSize: 12,
+      fontWeight: 700,
+    },
+    componentActions: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: 10,
+      marginLeft: 'auto',
+    },
+    installButton: {
+      ...buttonBase(),
+      minHeight: 34,
+      padding: '0 12px',
+      fontSize: 13,
+      color: theme.primaryButtonText,
+      background: theme.primaryButtonBg,
+      border: `1px solid ${theme.primaryButtonBorder}`,
+    },
+    installedMark: {
+      color: theme.success,
+      background: theme.successSoft,
+      border: `1px solid ${theme.successBorder}`,
+      borderRadius: theme.badgeRadius,
+      padding: '5px 9px',
+      fontSize: 12,
+      fontWeight: 800,
+    },
+    preinstalledMark: {
+      color: theme.info,
+      background: theme.surfaceMuted,
+      border: `1px solid ${theme.border}`,
+      borderRadius: theme.badgeRadius,
+      padding: '5px 9px',
+      fontSize: 12,
+      fontWeight: 800,
     },
   }
 }

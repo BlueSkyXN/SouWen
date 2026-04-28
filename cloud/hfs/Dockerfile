@@ -15,6 +15,7 @@ ARG SOUWEN_REPO=https://github.com/BlueSkyXN/SouWen.git
 ARG SOUWEN_REF=main
 ARG WGCF_VERSION=2.2.30
 ARG WIREPROXY_VERSION=1.1.2
+ARG USQUE_VERSION=3.0.0
 
 ENV PORT=49265 \
     PYTHONUNBUFFERED=1 \
@@ -27,14 +28,17 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && echo "${TZ}" > /etc/timezone \
     && rm -rf /var/lib/apt/lists/*
 
-# 预装 WARP 组件 (wireproxy 用户态 WireGuard + wgcf 注册工具)
+# 预装 WARP 组件 (wireproxy + wgcf + usque)
 RUN ARCH=$(dpkg --print-architecture) && \
     curl -fsSL -o /usr/local/bin/wgcf \
         "https://github.com/ViRb3/wgcf/releases/download/v${WGCF_VERSION}/wgcf_${WGCF_VERSION}_linux_${ARCH}" && \
     chmod +x /usr/local/bin/wgcf && \
     curl -fsSL "https://github.com/pufferffish/wireproxy/releases/download/v${WIREPROXY_VERSION}/wireproxy_linux_${ARCH}.tar.gz" \
         | tar xz -C /usr/local/bin/ wireproxy && \
-    chmod +x /usr/local/bin/wireproxy
+    chmod +x /usr/local/bin/wireproxy && \
+    curl -fsSL "https://github.com/Diniboy1123/usque/releases/download/v${USQUE_VERSION}/usque_${USQUE_VERSION}_linux_${ARCH}.zip" \
+        | python -c "import io, sys, zipfile; zipfile.ZipFile(io.BytesIO(sys.stdin.buffer.read())).extract('usque', '/usr/local/bin')" && \
+    chmod +x /usr/local/bin/usque
 
 WORKDIR /app
 
