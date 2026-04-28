@@ -231,6 +231,7 @@ def _dedup_key(result: Any) -> str:
         return f"web:{result.url}"
     return ""
 
+
 # ── Fetch 页面摘要 prompt ─────────────────────────────────
 
 _PAGE_SUMMARY_PROMPTS: dict[str, str] = {
@@ -350,4 +351,3 @@ def format_extractions_for_synthesis(
         header = f"[{cid}] {title}" if title else f"[{cid}] {url}"
         parts.append(f"{header}\n{text}")
     return "\n\n---\n\n".join(parts)
-

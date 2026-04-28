@@ -51,8 +51,7 @@ try:
     router.include_router(deep_summarize_router)
 except Exception:
     import logging as _logging
-    _logging.getLogger("souwen.server").warning(
-        "LLM 路由注册失败，LLM 端点不可用", exc_info=True
-    )
+
+    _logging.getLogger("souwen.server").warning("LLM 路由注册失败，LLM 端点不可用", exc_info=True)
 
 __all__ = ["router", "admin_router"]

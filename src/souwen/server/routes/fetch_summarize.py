@@ -18,7 +18,9 @@ class FetchSummarizeRequest(BaseModel):
     urls: list[str] = Field(..., min_length=1, max_length=10, description="待抓取并摘要的 URL 列表")
     provider: str = Field("builtin", description="Fetch 提供者")
     timeout: float = Field(30.0, ge=5.0, le=120.0, description="每 URL 超时秒数")
-    mode: Literal["brief", "detailed", "academic"] | None = Field(None, description="摘要模式（默认使用配置 llm.default_mode）")
+    mode: Literal["brief", "detailed", "academic"] | None = Field(
+        None, description="摘要模式（默认使用配置 llm.default_mode）"
+    )
     model: str | None = Field(None, description="可选 LLM 模型覆盖")
     max_tokens: int | None = Field(None, ge=100, le=8192, description="可选最大 token 数")
     temperature: float | None = Field(None, ge=0.0, le=2.0, description="可选温度覆盖")
@@ -57,6 +59,7 @@ _fetch_summarize_limiter: InMemoryRateLimiter | None = None
 
 def _get_fetch_summarize_limiter() -> InMemoryRateLimiter:
     from souwen.config import get_config
+
     cfg = get_config()
     return InMemoryRateLimiter(max_requests=cfg.llm.rate_limit_fetch, window_seconds=60)
 
@@ -72,7 +75,11 @@ def rate_limit_fetch_summarize(request: Request) -> None:
 @router.post(
     "/fetch/summarize",
     response_model=FetchSummarizeResponse,
-    dependencies=[Depends(rate_limit_fetch_summarize), Depends(require_llm_enabled), Depends(check_search_auth)],
+    dependencies=[
+        Depends(rate_limit_fetch_summarize),
+        Depends(require_llm_enabled),
+        Depends(check_search_auth),
+    ],
 )
 async def api_fetch_summarize(body: FetchSummarizeRequest):
     """抓取 URL 页面内容并用 LLM 逐页生成摘要"""

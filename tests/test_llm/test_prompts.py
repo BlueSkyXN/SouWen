@@ -130,9 +130,13 @@ def test_format_results_for_llm_web():
 
 
 def test_format_results_for_llm_dedup():
-    duplicate = _paper("Duplicate Paper", doi="10.1234/TEST", source_url="https://example.com/paper2")
+    duplicate = _paper(
+        "Duplicate Paper", doi="10.1234/TEST", source_url="https://example.com/paper2"
+    )
 
-    text, citations = format_results_for_llm([_response(SourceType.OPENALEX, [_paper(), duplicate])])
+    text, citations = format_results_for_llm(
+        [_response(SourceType.OPENALEX, [_paper(), duplicate])]
+    )
 
     assert "Test Paper" in text
     assert "Duplicate Paper" not in text
@@ -145,7 +149,9 @@ def test_format_results_for_llm_max_results():
         for idx in range(5)
     ]
 
-    text, citations = format_results_for_llm([_response(SourceType.OPENALEX, papers)], max_results=3)
+    text, citations = format_results_for_llm(
+        [_response(SourceType.OPENALEX, papers)], max_results=3
+    )
 
     assert len(citations) == 3
     assert "Paper 0" in text

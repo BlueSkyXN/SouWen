@@ -22,7 +22,9 @@ class DeepSummarizeRequest(BaseModel):
     max_fetch: int = Field(5, ge=1, le=10, description="最多抓取页面数")
     fetch_provider: str = Field("builtin", description="内容抓取提供者")
     fetch_timeout: float = Field(30.0, ge=5.0, le=120.0, description="每页抓取超时")
-    mode: Literal["brief", "detailed", "academic"] | None = Field(None, description="摘要模式（默认使用配置 llm.default_mode）")
+    mode: Literal["brief", "detailed", "academic"] | None = Field(
+        None, description="摘要模式（默认使用配置 llm.default_mode）"
+    )
     model: str | None = Field(None, description="可选 LLM 模型覆盖")
     max_tokens: int | None = Field(None, ge=100, le=8192, description="可选最大 token 数")
     temperature: float | None = Field(None, ge=0.0, le=2.0, description="可选温度覆盖")
@@ -61,6 +63,7 @@ _deep_limiter: InMemoryRateLimiter | None = None
 
 def _get_deep_limiter() -> InMemoryRateLimiter:
     from souwen.config import get_config
+
     cfg = get_config()
     return InMemoryRateLimiter(max_requests=cfg.llm.rate_limit_deep, window_seconds=60)
 
@@ -76,7 +79,11 @@ def rate_limit_deep_summarize(request: Request) -> None:
 @router.post(
     "/deep-summarize",
     response_model=DeepSummarizeResponse,
-    dependencies=[Depends(rate_limit_deep_summarize), Depends(require_llm_enabled), Depends(check_search_auth)],
+    dependencies=[
+        Depends(rate_limit_deep_summarize),
+        Depends(require_llm_enabled),
+        Depends(check_search_auth),
+    ],
 )
 async def api_deep_summarize(body: DeepSummarizeRequest):
     """Deep Search — 搜索 + 抓取 + 两轮 LLM 深度综合"""

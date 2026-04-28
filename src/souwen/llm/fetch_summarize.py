@@ -63,13 +63,15 @@ async def summarize_pages(
     for result in fetch_response.results:
         # Failed fetch
         if result.error or not result.content:
-            items.append(PageSummaryItem(
-                url=result.url,
-                final_url=result.final_url,
-                title=result.title,
-                error=result.error or "Empty content",
-                provider=result.source,
-            ))
+            items.append(
+                PageSummaryItem(
+                    url=result.url,
+                    final_url=result.final_url,
+                    title=result.title,
+                    error=result.error or "Empty content",
+                    provider=result.source,
+                )
+            )
             continue
 
         # Truncate long content
@@ -95,7 +97,10 @@ async def summarize_pages(
 
         try:
             llm_response = await llm_complete(
-                messages, model=model, max_tokens=max_tokens, temperature=temperature,
+                messages,
+                model=model,
+                max_tokens=max_tokens,
+                temperature=temperature,
             )
             actual_model = llm_response.model
             # Accumulate usage
@@ -103,35 +108,41 @@ async def summarize_pages(
             total_usage.completion_tokens += llm_response.usage.completion_tokens
             total_usage.total_tokens += llm_response.usage.total_tokens
 
-            items.append(PageSummaryItem(
-                url=result.url,
-                final_url=result.final_url,
-                title=result.title,
-                summary=llm_response.content,
-                word_count=word_count,
-                content_truncated=truncated,
-                provider=result.source,
-            ))
+            items.append(
+                PageSummaryItem(
+                    url=result.url,
+                    final_url=result.final_url,
+                    title=result.title,
+                    summary=llm_response.content,
+                    word_count=word_count,
+                    content_truncated=truncated,
+                    provider=result.source,
+                )
+            )
         except ConfigError:
             raise
         except Exception as exc:
             logger.warning("LLM summarize failed for %s: %s", result.url, exc)
-            items.append(PageSummaryItem(
-                url=result.url,
-                final_url=result.final_url,
-                title=result.title,
-                word_count=word_count,
-                content_truncated=truncated,
-                error=f"LLM error: {exc}",
-                provider=result.source,
-            ))
+            items.append(
+                PageSummaryItem(
+                    url=result.url,
+                    final_url=result.final_url,
+                    title=result.title,
+                    word_count=word_count,
+                    content_truncated=truncated,
+                    error=f"LLM error: {exc}",
+                    provider=result.source,
+                )
+            )
 
     ok_count = sum(1 for item in items if item.error is None)
     failed_count = len(items) - ok_count
 
     logger.info(
         "Fetch+Summarize completed: total=%d ok=%d failed=%d",
-        len(items), ok_count, failed_count,
+        len(items),
+        ok_count,
+        failed_count,
     )
 
     return PageSummaryResult(

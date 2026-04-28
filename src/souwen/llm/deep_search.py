@@ -186,10 +186,7 @@ async def deep_summarize(
 
     for idx, (url, title, source, content) in enumerate(pages, start=1):
         user_msg = (
-            f"User Query: {query}\n\n"
-            f"Page Title: {title}\n"
-            f"URL: {url}\n\n"
-            f"Page Content:\n{content}"
+            f"User Query: {query}\n\nPage Title: {title}\nURL: {url}\n\nPage Content:\n{content}"
         )
         messages = [
             LLMMessage(role="system", content=extract_prompt),

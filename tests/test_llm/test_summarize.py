@@ -97,7 +97,9 @@ async def test_summarize_mode_forwarding():
     with (
         patch("souwen.llm.summarize.llm_complete", mock_llm),
         patch("souwen.llm.summarize.get_config", return_value=_mock_config()),
-        patch("souwen.llm.summarize.get_system_prompt", return_value="detailed prompt") as prompt_mock,
+        patch(
+            "souwen.llm.summarize.get_system_prompt", return_value="detailed prompt"
+        ) as prompt_mock,
     ):
         result = await summarize("test query", [_response([_paper()])], mode="detailed")
 
@@ -114,7 +116,9 @@ async def test_summarize_custom_prompt():
     with (
         patch("souwen.llm.summarize.llm_complete", mock_llm),
         patch("souwen.llm.summarize.get_config", return_value=_mock_config()),
-        patch("souwen.llm.summarize.get_system_prompt", return_value="custom prompt") as prompt_mock,
+        patch(
+            "souwen.llm.summarize.get_system_prompt", return_value="custom prompt"
+        ) as prompt_mock,
     ):
         await summarize(
             "test query",

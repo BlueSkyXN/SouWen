@@ -20,7 +20,9 @@ class SummarizeRequest(BaseModel):
     domain: str = Field("paper", description="搜索域: paper/patent/web")
     sources: list[str] | None = Field(None, description="指定数据源列表")
     per_page: int = Field(10, ge=1, le=50, description="每源结果数")
-    mode: Literal["brief", "detailed", "academic"] | None = Field(None, description="摘要模式（默认使用配置 llm.default_mode）")
+    mode: Literal["brief", "detailed", "academic"] | None = Field(
+        None, description="摘要模式（默认使用配置 llm.default_mode）"
+    )
     model: str | None = Field(None, description="可选 LLM 模型覆盖")
     max_tokens: int | None = Field(None, ge=100, le=8192, description="可选最大 token 数")
     temperature: float | None = Field(None, ge=0.0, le=2.0, description="可选温度覆盖")
@@ -46,6 +48,7 @@ router = APIRouter()
 
 def _get_summarize_limiter() -> InMemoryRateLimiter:
     from souwen.config import get_config
+
     cfg = get_config()
     return InMemoryRateLimiter(max_requests=cfg.llm.rate_limit_summarize, window_seconds=60)
 
@@ -64,7 +67,11 @@ def rate_limit_summarize(request: Request) -> None:
 @router.post(
     "/summarize",
     response_model=SummarizeResponse,
-    dependencies=[Depends(rate_limit_summarize), Depends(require_llm_enabled), Depends(check_search_auth)],
+    dependencies=[
+        Depends(rate_limit_summarize),
+        Depends(require_llm_enabled),
+        Depends(check_search_auth),
+    ],
 )
 async def api_summarize(body: SummarizeRequest):
     """搜索 + LLM 摘要 — 一站式智能搜索总结"""
