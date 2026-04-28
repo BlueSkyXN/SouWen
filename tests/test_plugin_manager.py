@@ -2,7 +2,11 @@
 
 from __future__ import annotations
 
+import importlib.util
 import json
+import logging
+import sys
+import types
 from pathlib import Path
 from typing import Any
 
@@ -13,6 +17,9 @@ from souwen.plugin_manager import (
     PLUGIN_CATALOG,
     PluginInfo,
     _PACKAGE_NAME_RE,
+    _catalog_by_name,
+    _catalog_packages,
+    _discover_catalog_entries,
     _load_state,
     _save_state,
     disable_plugin,
@@ -38,6 +45,25 @@ def state_dir(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
 class _DummyAdapter:
     def __init__(self, description: str = "Dummy plugin") -> None:
         self.description = description
+
+
+class _FakeCatalogEntryPoint:
+    def __init__(self, name: str, loader: Any) -> None:
+        self.name = name
+        self._loader = loader
+
+    def load(self) -> Any:
+        return self._loader()
+
+
+class _FakeCatalogEntryPoints:
+    def __init__(self, eps: list[_FakeCatalogEntryPoint]) -> None:
+        self._eps = eps
+
+    def select(self, *, group: str) -> list[_FakeCatalogEntryPoint]:
+        if group == "souwen.plugin_catalog":
+            return list(self._eps)
+        return []
 
 
 class TestPluginInfo:
@@ -89,6 +115,148 @@ class TestPluginInfo:
 
         assert second.source_adapters == []
         assert second.fetch_handlers == []
+
+
+class TestCatalogDiscovery:
+    def test_dynamic_catalog_entries_are_discovered(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        entry = {
+            "name": "dynamic_demo",
+            "package": "dynamic-demo",
+            "description": "Dynamic demo",
+            "entry_point": "dynamic_demo",
+            "first_party": "false",
+        }
+        monkeypatch.setattr(
+            "souwen.plugin_manager.metadata.entry_points",
+            lambda: _FakeCatalogEntryPoints([_FakeCatalogEntryPoint("dynamic_demo", lambda: entry)]),
+        )
+
+        assert _discover_catalog_entries() == [entry]
+        assert _catalog_by_name()["dynamic_demo"] == entry
+        assert "dynamic-demo" in _catalog_packages()
+
+    def test_static_catalog_overrides_dynamic_entries(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        static = PLUGIN_CATALOG[0]
+        dynamic_override = {
+            "name": static["name"],
+            "package": "different-package",
+            "description": "Dynamic should not win",
+            "entry_point": "different_entry_point",
+            "first_party": "false",
+        }
+        monkeypatch.setattr(
+            "souwen.plugin_manager.metadata.entry_points",
+            lambda: _FakeCatalogEntryPoints([
+                _FakeCatalogEntryPoint(static["name"], lambda: dynamic_override)
+            ]),
+        )
+
+        assert _catalog_by_name()[static["name"]] == static
+
+    def test_malformed_catalog_entries_are_warned_and_skipped(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        def boom() -> dict[str, str]:
+            raise RuntimeError("broken catalog")
+
+        monkeypatch.setattr(
+            "souwen.plugin_manager.metadata.entry_points",
+            lambda: _FakeCatalogEntryPoints([
+                _FakeCatalogEntryPoint("bad_type", lambda: ["not", "a", "dict"]),
+                _FakeCatalogEntryPoint("missing", lambda: {"name": "missing"}),
+                _FakeCatalogEntryPoint(
+                    "bad_value",
+                    lambda: {
+                        "name": "bad_value",
+                        "package": 123,
+                        "description": "Bad value",
+                        "entry_point": "bad_value",
+                    },
+                ),
+                _FakeCatalogEntryPoint("boom", boom),
+            ]),
+        )
+
+        with caplog.at_level(logging.WARNING, logger="souwen.plugin_manager"):
+            assert _discover_catalog_entries() == []
+
+        messages = "\n".join(record.getMessage() for record in caplog.records)
+        assert "bad_type" in messages
+        assert "missing" in messages
+        assert "bad_value" in messages
+        assert "boom" in messages
+
+
+class TestExamplePluginLogging:
+    def _load_example_plugin(
+        self,
+        *,
+        package_name: str,
+        handler_module: types.ModuleType | None = None,
+        hide_handler: bool = False,
+    ) -> None:
+        init_path = (
+            Path(__file__).resolve().parents[1]
+            / "examples/minimal-plugin/souwen_example_plugin/__init__.py"
+        )
+        search_path = init_path.parent / "__missing_handler__" if hide_handler else init_path.parent
+        spec = importlib.util.spec_from_file_location(
+            package_name,
+            init_path,
+            submodule_search_locations=[str(search_path)],
+        )
+        assert spec is not None
+        assert spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        sys.modules[package_name] = module
+        if handler_module is not None:
+            sys.modules[f"{package_name}.handler"] = handler_module
+        try:
+            spec.loader.exec_module(module)
+        finally:
+            for key in list(sys.modules):
+                if key == package_name or key.startswith(f"{package_name}."):
+                    sys.modules.pop(key, None)
+
+    def test_optional_handler_import_error_is_logged(
+        self,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        with caplog.at_level(logging.WARNING):
+            self._load_example_plugin(
+                package_name="_souwen_example_plugin_missing_handler",
+                hide_handler=True,
+            )
+
+        assert "可选 fetch handler 注册不可用" in caplog.text
+
+    def test_optional_handler_runtime_error_is_logged(
+        self,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        handler = types.ModuleType("_souwen_example_plugin_broken_handler.handler")
+
+        def register() -> None:
+            raise RuntimeError("handler boom")
+
+        handler.register = register  # type: ignore[attr-defined]
+
+        with caplog.at_level(logging.WARNING):
+            self._load_example_plugin(
+                package_name="_souwen_example_plugin_broken_handler",
+                handler_module=handler,
+            )
+
+        assert "可选 fetch handler 注册失败" in caplog.text
+        assert "handler boom" in caplog.text
 
 
 class TestStateFile:
@@ -612,6 +780,54 @@ class TestAPIEndpoints:
         monkeypatch.setattr("souwen.plugin_manager._is_package_importable", lambda item: False)
 
         response = client.get("/plugins/unknown")
+
+        assert response.status_code == 404
+
+    def test_plugin_health_with_callable(
+        self,
+        client: Any,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from souwen.plugin import Plugin
+
+        async def health_check() -> dict[str, Any]:
+            return {"status": "ok", "latency_ms": 1}
+
+        monkeypatch.setattr(
+            "souwen.plugin.get_loaded_plugins",
+            lambda: {"healthy": Plugin(name="healthy", health_check=health_check)},
+        )
+
+        response = client.get("/plugins/healthy/health")
+
+        assert response.status_code == 200
+        assert response.json() == {"status": "ok", "latency_ms": 1}
+
+    def test_plugin_health_without_callable(
+        self,
+        client: Any,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from souwen.plugin import Plugin
+
+        monkeypatch.setattr(
+            "souwen.plugin.get_loaded_plugins",
+            lambda: {"plain": Plugin(name="plain")},
+        )
+
+        response = client.get("/plugins/plain/health")
+
+        assert response.status_code == 200
+        assert response.json() == {"status": "ok", "message": "no health check defined"}
+
+    def test_plugin_health_unknown_returns_404(
+        self,
+        client: Any,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr("souwen.plugin.get_loaded_plugins", lambda: {})
+
+        response = client.get("/plugins/missing/health")
 
         assert response.status_code == 404
 

@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 import random
 from pathlib import Path
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -300,6 +300,10 @@ class SouWenConfig(BaseModel):
     plugins: list[str] = Field(
         default_factory=list,
         description="手动指定的插件列表，格式为 'module.path:attribute'",
+    )
+    plugin_config: dict[str, dict[str, Any]] = Field(
+        default_factory=dict,
+        description="按插件名传递给第三方插件的配置字典",
     )
 
     # ===== LLM 摘要 =====

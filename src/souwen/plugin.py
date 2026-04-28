@@ -28,6 +28,7 @@ import importlib
 import logging
 from collections.abc import Awaitable, Callable, Iterable
 from dataclasses import dataclass, field
+from dataclasses import asdict, is_dataclass
 from importlib import metadata
 from typing import TYPE_CHECKING, Any
 
@@ -60,6 +61,7 @@ class Plugin:
     adapters: list[SourceAdapter] = field(default_factory=list)
     version: str = "0.0.0"
     config_schema: type | None = None
+    config: dict[str, Any] = field(default_factory=dict)
     on_startup: LifecycleHook | None = None
     on_shutdown: LifecycleHook | None = None
     health_check: HealthCheck | None = None
@@ -154,20 +156,72 @@ def _register_adapters(
             logger.info("已加载插件源 %r (来自 %s)", adapter.name, source_label)
 
 
+def _validated_plugin_config(plugin: Plugin, raw_config: dict[str, Any]) -> dict[str, Any]:
+    """Validate a plugin config with ``plugin.config_schema`` when provided."""
+    schema = plugin.config_schema
+    if schema is None:
+        return dict(raw_config)
+
+    model_validate = getattr(schema, "model_validate", None)
+    if callable(model_validate):
+        validated = model_validate(raw_config)
+    else:
+        validated = schema(**raw_config)
+
+    model_dump = getattr(validated, "model_dump", None)
+    if callable(model_dump):
+        return dict(model_dump())
+    if is_dataclass(validated) and not isinstance(validated, type):
+        return dict(asdict(validated))
+    if isinstance(validated, dict):
+        return dict(validated)
+    return dict(vars(validated))
+
+
+def _inject_plugin_config(
+    plugin: Plugin,
+    config: SouWenConfig | None,
+    *,
+    source_label: str,
+    errors: list[dict[str, str]],
+) -> bool:
+    """Inject matching per-plugin config. Returns False if validation failed."""
+    if config is None:
+        return True
+    plugin_config = getattr(config, "plugin_config", {}) or {}
+    if plugin.name not in plugin_config:
+        return True
+    raw_config = plugin_config[plugin.name]
+    try:
+        plugin.config = _validated_plugin_config(plugin, raw_config)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("插件 %r 配置验证失败: %s", plugin.name, exc)
+        errors.append({
+            "source": source_label,
+            "name": plugin.name,
+            "error": f"config: {exc}",
+        })
+        return False
+    return True
+
+
 def _register_plugin(
     plugin: Plugin,
     *,
     source_label: str,
     loaded: list[str],
     errors: list[dict[str, str]],
+    config: SouWenConfig | None = None,
 ) -> None:
-    """注册 Plugin：adapter 注册 + on_startup 调用，全程在 owner contextvar 下。"""
+    """注册 Plugin：配置注入 + adapter 注册，全程在 owner contextvar 下。"""
     if plugin.name in _PLUGINS:
         errors.append({
             "source": source_label,
             "name": plugin.name,
             "error": f"插件 {plugin.name!r} 已加载，跳过重复注册",
         })
+        return
+    if not _inject_plugin_config(plugin, config, source_label=source_label, errors=errors):
         return
 
     token = _current_plugin_owner.set(plugin.name)
@@ -188,23 +242,6 @@ def _register_plugin(
                 logger.info(
                     "已加载插件源 %r (插件 %r, %s)", adapter.name, plugin.name, source_label
                 )
-
-        # 同步路径调用 on_startup；异步钩子由 app 启动时单独调用
-        if plugin.on_startup is not None:
-            try:
-                result = plugin.on_startup(plugin)
-                if hasattr(result, "__await__"):
-                    logger.warning(
-                        "插件 %r on_startup 返回了协程，同步加载路径不支持异步钩子 — 已跳过",
-                        plugin.name,
-                    )
-            except Exception as exc:  # noqa: BLE001
-                logger.warning("插件 %r on_startup 失败: %s", plugin.name, exc)
-                errors.append({
-                    "source": source_label,
-                    "name": plugin.name,
-                    "error": f"on_startup: {exc}",
-                })
     finally:
         _current_plugin_owner.reset(token)
 
@@ -265,6 +302,7 @@ def discover_entrypoint_plugins(
     group: str = ENTRY_POINT_GROUP,
     *,
     skip_names: set[str] | None = None,
+    config: SouWenConfig | None = None,
 ) -> tuple[list[str], list[dict[str, str]]]:
     """通过 entry points 发现并注册插件。
 
@@ -317,7 +355,7 @@ def discover_entrypoint_plugins(
             plugin.adapters = [a for a in plugin.adapters if a.name not in _skip]
 
         if plugin.adapters:
-            _register_plugin(plugin, source_label=label, loaded=loaded, errors=errors)
+            _register_plugin(plugin, source_label=label, loaded=loaded, errors=errors, config=config)
 
     return loaded, errors
 
@@ -326,6 +364,7 @@ def load_config_plugins(
     plugin_paths: list[str],
     *,
     skip_names: set[str] | None = None,
+    config: SouWenConfig | None = None,
 ) -> tuple[list[str], list[dict[str, str]]]:
     """从 `"module.path:attribute"` 字符串列表加载插件。
 
@@ -360,7 +399,7 @@ def load_config_plugins(
             plugin.adapters = [a for a in plugin.adapters if a.name not in _skip]
 
         if plugin.adapters:
-            _register_plugin(plugin, source_label=label, loaded=loaded, errors=errors)
+            _register_plugin(plugin, source_label=label, loaded=loaded, errors=errors, config=config)
 
     return loaded, errors
 
@@ -394,7 +433,7 @@ def load_plugins(config: SouWenConfig | None = None) -> dict[str, Any]:
         logger.warning("读取插件禁用列表失败，将加载所有插件: %s", exc)
 
     try:
-        loaded, errors = discover_entrypoint_plugins(skip_names=skip_names)
+        loaded, errors = discover_entrypoint_plugins(skip_names=skip_names, config=config)
         all_loaded.extend(loaded)
         all_errors.extend(errors)
     except Exception as exc:  # noqa: BLE001 — 兜底，绝不让插件系统拖垮宿主
@@ -409,7 +448,7 @@ def load_plugins(config: SouWenConfig | None = None) -> dict[str, Any]:
             paths = []
         if paths:
             try:
-                loaded, errors = load_config_plugins(paths, skip_names=skip_names)
+                loaded, errors = load_config_plugins(paths, skip_names=skip_names, config=config)
                 all_loaded.extend(loaded)
                 all_errors.extend(errors)
             except Exception as exc:  # noqa: BLE001

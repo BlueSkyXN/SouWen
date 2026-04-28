@@ -63,6 +63,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import inspect
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -82,6 +83,7 @@ from starlette.middleware.gzip import GZipMiddleware
 from souwen import __version__
 from souwen.config import ensure_config_file, get_config
 from souwen.logging_config import setup_logging
+from souwen.plugin import get_loaded_plugins
 from souwen.server.auth import is_admin_open_enabled
 from souwen.server.middleware import RequestIDMiddleware, get_request_id
 from souwen.server.routes import router, admin_router
@@ -102,6 +104,20 @@ if _panel_env:
 _panel_cache: str | None = None
 _panel_etag: str | None = None
 _panel_cache_lock = asyncio.Lock()
+
+
+async def _call_plugin_lifecycle_hooks(hook_name: str) -> None:
+    """Call loaded plugin lifecycle hooks, supporting sync and async callables."""
+    for plugin in get_loaded_plugins().values():
+        hook = getattr(plugin, hook_name, None)
+        if hook is None:
+            continue
+        try:
+            result = hook(plugin)
+            if inspect.isawaitable(result):
+                await result
+        except Exception:
+            logger.warning("插件 %r %s 失败", plugin.name, hook_name, exc_info=True)
 
 
 @asynccontextmanager
@@ -183,7 +199,11 @@ async def lifespan(app: FastAPI):
             logger.warning("MCP HTTP lifespan 启动失败，跳过", exc_info=True)
             _mcp_http_ctx = None
 
+    await _call_plugin_lifecycle_hooks("on_startup")
+
     yield
+
+    await _call_plugin_lifecycle_hooks("on_shutdown")
 
     # 关闭 MCP HTTP lifespan
     if _mcp_http_ctx is not None:

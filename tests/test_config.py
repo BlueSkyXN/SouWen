@@ -77,6 +77,16 @@ class TestDefaults:
         cfg = SouWenConfig()
         assert cfg.proxy_pool == []
 
+    def test_plugin_config_default_empty(self):
+        """plugin_config 默认空字典。"""
+        cfg = SouWenConfig()
+        assert cfg.plugin_config == {}
+
+    def test_plugin_config_field(self):
+        """plugin_config 保存按插件名分组的配置。"""
+        cfg = SouWenConfig(plugin_config={"demo": {"api_key": "k", "limit": 3}})
+        assert cfg.plugin_config["demo"] == {"api_key": "k", "limit": 3}
+
     def test_all_api_keys_default_none(self):
         """所有 API Key 字段默认 None"""
         cfg = SouWenConfig()

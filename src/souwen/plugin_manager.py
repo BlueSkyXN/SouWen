@@ -14,6 +14,7 @@ import logging
 import os
 import re
 import sys
+from importlib import metadata
 from pathlib import Path
 from typing import Any
 
@@ -24,6 +25,8 @@ from souwen.registry.views import all_adapters, external_plugins
 from souwen.web.fetch import get_fetch_handler_owners, get_fetch_handlers
 
 logger = logging.getLogger("souwen.plugin_manager")
+
+CATALOG_ENTRY_POINT_GROUP = "souwen.plugin_catalog"
 
 PLUGIN_CATALOG: list[dict[str, str]] = [
     {
@@ -133,14 +136,78 @@ def _save_state(state: dict[str, Any]) -> None:
             pass
 
 
+def _discover_catalog_entries() -> list[dict[str, str]]:
+    """通过 entry points 发现插件目录条目。"""
+    try:
+        eps = metadata.entry_points()
+        if hasattr(eps, "select"):
+            candidates = list(eps.select(group=CATALOG_ENTRY_POINT_GROUP))
+        else:  # pragma: no cover — 兼容老接口
+            candidates = list(eps.get(CATALOG_ENTRY_POINT_GROUP, []))  # type: ignore[union-attr]
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("读取插件目录 entry points 失败: %s", exc)
+        return []
+
+    required_keys = {"name", "package", "description", "entry_point"}
+    entries: list[dict[str, str]] = []
+    for ep in candidates:
+        ep_name = getattr(ep, "name", "<unknown>")
+        try:
+            item = ep.load()
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("加载插件目录 entry point %r 失败: %s", ep_name, exc)
+            continue
+
+        if not isinstance(item, dict):
+            logger.warning(
+                "跳过非法插件目录 entry point %r: 期望 dict[str, str]，得到 %s",
+                ep_name,
+                type(item).__name__,
+            )
+            continue
+
+        missing = sorted(required_keys - item.keys())
+        if missing:
+            logger.warning("跳过非法插件目录 entry point %r: 缺少字段 %s", ep_name, missing)
+            continue
+
+        keys = required_keys | {"first_party"}
+        invalid_keys = sorted(key for key in keys if key in item and not isinstance(item[key], str))
+        if invalid_keys:
+            logger.warning(
+                "跳过非法插件目录 entry point %r: 字段必须为 str: %s",
+                ep_name,
+                invalid_keys,
+            )
+            continue
+
+        name = item.get("name", "").strip()
+        if not name:
+            logger.warning("跳过非法插件目录 entry point %r: name 不能为空", ep_name)
+            continue
+
+        entries.append({key: item[key] for key in keys if key in item})
+
+    return entries
+
+
 def _catalog_by_name() -> dict[str, dict[str, str]]:
-    """按名称索引插件目录。"""
-    return {item["name"]: item for item in PLUGIN_CATALOG if item.get("name")}
+    """按名称索引插件目录；静态目录覆盖动态发现结果。"""
+    catalog: dict[str, dict[str, str]] = {}
+    for item in _discover_catalog_entries():
+        name = item.get("name", "").strip()
+        if name and name not in catalog:
+            catalog[name] = item
+    for item in PLUGIN_CATALOG:
+        name = item.get("name", "").strip()
+        if name:
+            catalog[name] = item
+    return catalog
 
 
 def _catalog_packages() -> set[str]:
     """返回目录中声明的包名集合。"""
-    return {item["package"] for item in PLUGIN_CATALOG if item.get("package")}
+    return {item["package"] for item in _catalog_by_name().values() if item.get("package")}
 
 
 def _is_truthy(value: str | None) -> bool:
@@ -247,7 +314,7 @@ def list_plugins() -> list[PluginInfo]:
                 restart_required=_restart_required,
             )
 
-        for item in PLUGIN_CATALOG:
+        for item in catalog.values():
             name = item.get("name", "").strip()
             if not name or name in result:
                 continue
@@ -298,7 +365,7 @@ def get_plugin_info(name: str) -> PluginInfo | None:
 
 def _valid_disable_target(name: str) -> bool:
     """检查插件名是否为可禁用目标（外部插件或目录中的插件）。"""
-    catalog_names = {item.get("name") for item in PLUGIN_CATALOG if item.get("name")}
+    catalog_names = set(_catalog_by_name())
     try:
         ext = set(external_plugins())
     except Exception:  # noqa: BLE001
@@ -494,6 +561,7 @@ def is_restart_required() -> bool:
 
 __all__ = [
     "ALLOWED_PACKAGES",
+    "CATALOG_ENTRY_POINT_GROUP",
     "PLUGIN_CATALOG",
     "PluginInfo",
     "disable_plugin",

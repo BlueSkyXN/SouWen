@@ -15,6 +15,7 @@ from __future__ import annotations
 from typing import Any
 
 import pytest
+from pydantic import BaseModel
 
 from souwen.plugin import (
     Plugin,
@@ -419,6 +420,7 @@ class TestPluginDataclass:
         assert p.name == "test"
         assert p.adapters == []
         assert p.version == "0.0.0"
+        assert p.config == {}
         assert p._registered_adapter_names == []
 
     def test_with_adapters(self):
@@ -497,11 +499,77 @@ class TestRegisterPlugin:
         assert len(errors2) == 1
         assert "已加载" in errors2[0]["error"]
 
-    def test_on_startup_called(self, clean_registry, clean_plugins, clean_fetch_handlers):
+    def test_on_startup_not_called_during_registration(
+        self, clean_registry, clean_plugins, clean_fetch_handlers
+    ):
         calls = []
         p = Plugin(name="startup_test", adapters=[], on_startup=lambda plug: calls.append(plug.name))
         _register_plugin(p, source_label="t", loaded=[], errors=[])
-        assert calls == ["startup_test"]
+        assert calls == []
+
+    def test_injects_validated_config(self, clean_registry, clean_plugins, clean_fetch_handlers):
+        class DemoConfig(BaseModel):
+            api_key: str
+            limit: int = 5
+
+        class FakeConfig:
+            plugin_config = {"config_test": {"api_key": "secret", "limit": 7}}
+
+        p = Plugin(name="config_test", adapters=[], config_schema=DemoConfig)
+        errors: list[dict[str, str]] = []
+        _register_plugin(p, source_label="t", loaded=[], errors=errors, config=FakeConfig())
+
+        assert not errors
+        assert _PLUGINS["config_test"].config == {"api_key": "secret", "limit": 7}
+
+    def test_config_without_schema_is_injected_raw(
+        self, clean_registry, clean_plugins, clean_fetch_handlers
+    ):
+        class FakeConfig:
+            plugin_config = {"raw_config_test": {"enabled": True}}
+
+        p = Plugin(name="raw_config_test", adapters=[])
+        _register_plugin(p, source_label="t", loaded=[], errors=[], config=FakeConfig())
+
+        assert _PLUGINS["raw_config_test"].config == {"enabled": True}
+
+    def test_invalid_config_prevents_registration(
+        self, clean_registry, clean_plugins, clean_fetch_handlers
+    ):
+        class DemoConfig(BaseModel):
+            api_key: str
+
+        class FakeConfig:
+            plugin_config = {"bad_config": {"limit": 7}}
+
+        errors: list[dict[str, str]] = []
+        p = Plugin(name="bad_config", adapters=[], config_schema=DemoConfig)
+        _register_plugin(p, source_label="t", loaded=[], errors=errors, config=FakeConfig())
+
+        assert "bad_config" not in _PLUGINS
+        assert len(errors) == 1
+        assert errors[0]["name"] == "bad_config"
+
+    def test_lifecycle_helper_supports_async_hooks(self, clean_plugins, monkeypatch):
+        import asyncio
+
+        from souwen.server import app as app_mod
+
+        calls: list[str] = []
+
+        async def startup(plug):
+            calls.append(f"startup:{plug.name}")
+
+        async def shutdown(plug):
+            calls.append(f"shutdown:{plug.name}")
+
+        p = Plugin(name="async_life", on_startup=startup, on_shutdown=shutdown)
+        monkeypatch.setattr(app_mod, "get_loaded_plugins", lambda: {"async_life": p})
+
+        asyncio.run(app_mod._call_plugin_lifecycle_hooks("on_startup"))
+        asyncio.run(app_mod._call_plugin_lifecycle_hooks("on_shutdown"))
+
+        assert calls == ["startup:async_life", "shutdown:async_life"]
 
 
 class TestUnloadPlugin:
