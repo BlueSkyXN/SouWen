@@ -19,9 +19,9 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from souwen.plugin import discover_entrypoint_plugins
+from souwen.plugin import discover_entrypoint_plugins, get_loaded_plugins, unload_plugin
 from souwen.registry.views import all_adapters, external_plugins
-from souwen.web.fetch import get_fetch_handlers
+from souwen.web.fetch import get_fetch_handler_owners, get_fetch_handlers
 
 logger = logging.getLogger("souwen.plugin_manager")
 
@@ -199,10 +199,35 @@ def list_plugins() -> list[PluginInfo]:
         adapters = all_adapters()
         external = set(external_plugins())
         fetch_handlers = get_fetch_handlers()
+        handler_owners = get_fetch_handler_owners()
+        loaded_plugins = get_loaded_plugins()
         catalog = _catalog_by_name()
         result: dict[str, PluginInfo] = {}
 
+        # 从已加载的 Plugin 对象构建信息（优先级最高）
+        for pname, plugin in loaded_plugins.items():
+            catalog_item = catalog.get(pname, {})
+            package = catalog_item.get("package") or None
+            status = "disabled" if pname in disabled else "loaded"
+            plugin_adapters = [a for a in plugin._registered_adapter_names if a in adapters]
+            plugin_handlers = [p for p, o in handler_owners.items() if o == pname]
+            result[pname] = PluginInfo(
+                name=pname,
+                package=package,
+                version=plugin.version if plugin.version != "0.0.0" else _package_version(package),
+                status=status,
+                source=_source_for_plugin(pname, catalog),
+                first_party=_is_truthy(catalog_item.get("first_party")),
+                description=catalog_item.get("description", ""),
+                source_adapters=plugin_adapters,
+                fetch_handlers=plugin_handlers,
+                restart_required=_restart_required,
+            )
+
+        # 兼容：旧式注册（没有 Plugin 对象，只有 adapter）
         for name in sorted(external):
+            if name in result:
+                continue
             adapter = adapters.get(name)
             catalog_item = catalog.get(name, {})
             package = catalog_item.get("package") or None
@@ -307,10 +332,9 @@ def enable_plugin(name: str) -> dict[str, Any]:
 
 
 def disable_plugin(name: str) -> dict[str, Any]:
-    """禁用插件（写入禁用列表 + 运行时从注册表移除）。
+    """禁用插件（写入禁用列表 + 运行时完整卸载）。
 
-    运行时立即从 _REGISTRY 移除（新请求不再使用该插件），
-    完全生效（含 fetch handler 清理）需重启。
+    运行时通过 unload_plugin 完整清理：on_shutdown → 移除 fetch handler → 移除 adapter。
     """
     try:
         if not _valid_disable_target(name):
@@ -331,21 +355,22 @@ def disable_plugin(name: str) -> dict[str, Any]:
         state["disabled_plugins"] = sorted(disabled)
         _save_state(state)
 
-        # 运行时从注册表移除（B2: 仅移除 _REGISTRY，不动 _FETCH_HANDLERS 避免误删内置处理器）
-        try:
-            from souwen.registry.views import _unreg_external
-
-            removed = _unreg_external(name)
-            if removed:
-                logger.info("已从注册表运行时移除插件 %r", name)
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("运行时移除插件 %r 失败: %s", name, exc)
+        # 运行时完整卸载（adapter + fetch handler + shutdown hook）
+        unload_result = unload_plugin(name)
+        removed_adapters = unload_result.get("removed_adapters", [])
+        removed_handlers = unload_result.get("removed_handlers", [])
 
         _mark_restart_required()
+        parts = [f"插件 {name!r} 已禁用"]
+        if removed_adapters:
+            parts.append(f"已移除数据源: {', '.join(removed_adapters)}")
+        if removed_handlers:
+            parts.append(f"已移除处理器: {', '.join(removed_handlers)}")
+        parts.append("重启后完全生效")
         return {
             "success": True,
             "restart_required": True,
-            "message": f"插件 {name!r} 已禁用，搜索源已立即停用，完全清理需重启。",
+            "message": "，".join(parts) + "。",
         }
     except Exception as exc:  # noqa: BLE001
         logger.warning("禁用插件 %r 失败: %s", name, exc)

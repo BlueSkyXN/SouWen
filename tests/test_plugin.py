@@ -17,11 +17,17 @@ from typing import Any
 import pytest
 
 from souwen.plugin import (
+    Plugin,
+    _PLUGINS,
     _coerce_to_adapters,
+    _coerce_to_plugin,
+    _register_plugin,
     _resolve_dotted_path,
     discover_entrypoint_plugins,
+    get_loaded_plugins,
     load_config_plugins,
     load_plugins,
+    unload_plugin,
 )
 from souwen.registry.adapter import MethodSpec, SourceAdapter
 from souwen.registry.loader import lazy
@@ -32,6 +38,13 @@ from souwen.registry.views import (
     _reset_registry,
     all_adapters,
     external_plugins,
+)
+from souwen.web.fetch import (
+    _FETCH_HANDLERS,
+    _current_plugin_owner,
+    get_fetch_handler_owners,
+    register_fetch_handler,
+    unregister_fetch_handlers_by_owner,
 )
 
 
@@ -103,7 +116,7 @@ class TestCoerceToAdapters:
         assert out == [a1, a2]
 
     def test_invalid_type_raises(self):
-        with pytest.raises(TypeError, match="必须是 SourceAdapter"):
+        with pytest.raises(TypeError, match="必须是 Plugin"):
             _coerce_to_adapters(123)
 
     def test_invalid_type_string_raises(self):
@@ -375,3 +388,270 @@ class TestPluginIntegration:
         assert _EXTERNAL_PLUGINS == set()
         assert _REGISTRY == {}
         # clean_registry fixture 会在 yield 后恢复
+
+
+# ── Phase 1: Plugin 信封 + Handler 溯源 ────────────────────
+
+
+@pytest.fixture()
+def clean_plugins():
+    """清理 _PLUGINS 字典。"""
+    saved = dict(_PLUGINS)
+    _PLUGINS.clear()
+    yield
+    _PLUGINS.clear()
+    _PLUGINS.update(saved)
+
+
+@pytest.fixture()
+def clean_fetch_handlers():
+    """清理 _FETCH_HANDLERS 字典。"""
+    saved = dict(_FETCH_HANDLERS)
+    _FETCH_HANDLERS.clear()
+    yield
+    _FETCH_HANDLERS.clear()
+    _FETCH_HANDLERS.update(saved)
+
+
+class TestPluginDataclass:
+    def test_basic_creation(self):
+        p = Plugin(name="test")
+        assert p.name == "test"
+        assert p.adapters == []
+        assert p.version == "0.0.0"
+        assert p._registered_adapter_names == []
+
+    def test_with_adapters(self):
+        a = make_test_adapter("src1")
+        p = Plugin(name="my_plugin", adapters=[a], version="1.0.0")
+        assert len(p.adapters) == 1
+        assert p.version == "1.0.0"
+
+
+class TestCoerceToPlugin:
+    def test_plugin_passthrough(self):
+        p = Plugin(name="orig")
+        result = _coerce_to_plugin(p, plugin_name="override")
+        assert result.name == "override"
+        assert result is p
+
+    def test_adapter_wrapped(self):
+        a = make_test_adapter("adapter1")
+        result = _coerce_to_plugin(a, plugin_name="my_ep")
+        assert isinstance(result, Plugin)
+        assert result.name == "my_ep"
+        assert len(result.adapters) == 1
+        assert result.adapters[0].name == "adapter1"
+
+    def test_adapter_list_wrapped(self):
+        a1 = make_test_adapter("a1")
+        a2 = make_test_adapter("a2")
+        result = _coerce_to_plugin([a1, a2], plugin_name="multi")
+        assert len(result.adapters) == 2
+
+    def test_callable_factory(self):
+        a = make_test_adapter("factory_out")
+        result = _coerce_to_plugin(lambda: a, plugin_name="from_factory")
+        assert result.name == "from_factory"
+        assert len(result.adapters) == 1
+
+    def test_callable_returning_plugin(self):
+        p = Plugin(name="inner", adapters=[make_test_adapter("inner_a")])
+        result = _coerce_to_plugin(lambda: p, plugin_name="outer")
+        assert result.name == "outer"
+
+    def test_invalid_type_raises(self):
+        with pytest.raises(TypeError, match="Plugin"):
+            _coerce_to_plugin(123, plugin_name="bad")
+
+    def test_invalid_list_element_raises(self):
+        with pytest.raises(TypeError, match="非 SourceAdapter"):
+            _coerce_to_plugin([42], plugin_name="bad_list")
+
+
+class TestRegisterPlugin:
+    def test_registers_adapters_and_tracks(self, clean_registry, clean_plugins, clean_fetch_handlers):
+        a = make_test_adapter("reg_test_adapter")
+        p = Plugin(name="reg_test", adapters=[a])
+        loaded: list[str] = []
+        errors: list[dict] = []
+        _register_plugin(p, source_label="test", loaded=loaded, errors=errors)
+
+        assert "reg_test_adapter" in loaded
+        assert not errors
+        assert "reg_test" in _PLUGINS
+        assert _PLUGINS["reg_test"]._registered_adapter_names == ["reg_test_adapter"]
+
+    def test_duplicate_plugin_rejected(self, clean_registry, clean_plugins):
+        a = make_test_adapter("dup_adapter")
+        p = Plugin(name="dup_plugin", adapters=[a])
+        loaded: list[str] = []
+        errors: list[dict] = []
+        _register_plugin(p, source_label="t1", loaded=loaded, errors=errors)
+        assert not errors
+
+        loaded2: list[str] = []
+        errors2: list[dict] = []
+        p2 = Plugin(name="dup_plugin", adapters=[make_test_adapter("dup_adapter2")])
+        _register_plugin(p2, source_label="t2", loaded=loaded2, errors=errors2)
+        assert len(errors2) == 1
+        assert "已加载" in errors2[0]["error"]
+
+    def test_on_startup_called(self, clean_registry, clean_plugins, clean_fetch_handlers):
+        calls = []
+        p = Plugin(name="startup_test", adapters=[], on_startup=lambda plug: calls.append(plug.name))
+        _register_plugin(p, source_label="t", loaded=[], errors=[])
+        assert calls == ["startup_test"]
+
+
+class TestUnloadPlugin:
+    def test_unload_removes_everything(self, clean_registry, clean_plugins, clean_fetch_handlers):
+        a = make_test_adapter("unload_adapter")
+        p = Plugin(name="unload_test", adapters=[a])
+        _register_plugin(p, source_label="t", loaded=[], errors=[])
+        assert "unload_test" in _PLUGINS
+        assert "unload_adapter" in all_adapters()
+
+        # Also register a fetch handler owned by this plugin
+        async def fake_handler(*a, **kw):
+            pass
+        register_fetch_handler("unload_adapter", fake_handler, owner="unload_test")
+
+        result = unload_plugin("unload_test")
+        assert result["status"] == "unloaded"
+        assert "unload_adapter" in result["removed_adapters"]
+        assert "unload_adapter" in result["removed_handlers"]
+        assert "unload_test" not in _PLUGINS
+        assert "unload_adapter" not in all_adapters()
+
+    def test_unload_not_loaded(self, clean_plugins):
+        result = unload_plugin("ghost")
+        assert result["status"] == "not_loaded"
+
+    def test_on_shutdown_called(self, clean_registry, clean_plugins, clean_fetch_handlers):
+        calls = []
+        p = Plugin(
+            name="shutdown_test",
+            adapters=[],
+            on_shutdown=lambda plug: calls.append(plug.name),
+        )
+        _register_plugin(p, source_label="t", loaded=[], errors=[])
+        unload_plugin("shutdown_test")
+        assert calls == ["shutdown_test"]
+
+
+class TestGetLoadedPlugins:
+    def test_returns_copy(self, clean_plugins):
+        _PLUGINS["test"] = Plugin(name="test")
+        result = get_loaded_plugins()
+        assert "test" in result
+        result.pop("test")
+        assert "test" in _PLUGINS  # original unchanged
+
+
+class TestFetchHandlerProvenance:
+    def test_register_with_explicit_owner(self, clean_fetch_handlers):
+        async def handler(*a, **kw):
+            pass
+        register_fetch_handler("prov_test", handler, owner="my_plugin")
+        owners = get_fetch_handler_owners()
+        assert owners["prov_test"] == "my_plugin"
+
+    def test_register_picks_up_contextvar(self, clean_fetch_handlers):
+        async def handler(*a, **kw):
+            pass
+        token = _current_plugin_owner.set("ctx_plugin")
+        try:
+            register_fetch_handler("ctx_test", handler)
+        finally:
+            _current_plugin_owner.reset(token)
+        assert get_fetch_handler_owners()["ctx_test"] == "ctx_plugin"
+
+    def test_unregister_by_owner(self, clean_fetch_handlers):
+        async def h1(*a, **kw):
+            pass
+        async def h2(*a, **kw):
+            pass
+        register_fetch_handler("owned1", h1, owner="plugin_x")
+        register_fetch_handler("owned2", h2, owner="plugin_x")
+        register_fetch_handler("other", h1, owner="plugin_y")
+
+        removed = unregister_fetch_handlers_by_owner("plugin_x")
+        assert set(removed) == {"owned1", "owned2"}
+        assert "other" in _FETCH_HANDLERS
+        assert "owned1" not in _FETCH_HANDLERS
+
+    def test_builtin_handler_has_none_owner(self, clean_fetch_handlers):
+        async def handler(*a, **kw):
+            pass
+        register_fetch_handler("builtin", handler)
+        assert get_fetch_handler_owners()["builtin"] is None
+
+
+class TestDiscoverWithPluginEnvelope:
+    """discover_entrypoint_plugins now uses Plugin-based flow."""
+
+    def test_entry_point_creates_plugin_object(self, clean_registry, clean_plugins, monkeypatch):
+        adapter = make_test_adapter("ep_plugin_test")
+        eps = _FakeEntryPoints([_FakeEntryPoint("my_ep", lambda: adapter)])
+        monkeypatch.setattr("souwen.plugin.metadata.entry_points", lambda: eps)
+
+        loaded, errors = discover_entrypoint_plugins()
+        assert "ep_plugin_test" in loaded
+        assert not errors
+        assert "my_ep" in _PLUGINS
+        assert _PLUGINS["my_ep"]._registered_adapter_names == ["ep_plugin_test"]
+
+    def test_skip_names_by_ep_name(self, clean_registry, clean_plugins, monkeypatch):
+        """skip_names 按 entry-point 名预筛（不触发 import）。"""
+        load_count = []
+        def tracked_loader():
+            load_count.append(1)
+            return make_test_adapter("should_not_load")
+
+        eps = _FakeEntryPoints([_FakeEntryPoint("skip_me", tracked_loader)])
+        monkeypatch.setattr("souwen.plugin.metadata.entry_points", lambda: eps)
+
+        loaded, errors = discover_entrypoint_plugins(skip_names={"skip_me"})
+        assert loaded == []
+        assert load_count == []  # ep.load() never called
+
+    def test_skip_names_by_adapter_name(self, clean_registry, clean_plugins, monkeypatch):
+        """skip_names 也按 adapter.name 二次过滤。"""
+        adapter = make_test_adapter("blocked_adapter")
+        eps = _FakeEntryPoints([_FakeEntryPoint("allowed_ep", lambda: adapter)])
+        monkeypatch.setattr("souwen.plugin.metadata.entry_points", lambda: eps)
+
+        loaded, errors = discover_entrypoint_plugins(skip_names={"blocked_adapter"})
+        assert loaded == []
+
+    def test_contextvar_set_during_load(self, clean_registry, clean_plugins, clean_fetch_handlers, monkeypatch):
+        """entry-point load 期间 _current_plugin_owner contextvar 被设置。"""
+        captured_owner = []
+
+        async def capturing_handler(*a, **kw):
+            pass
+
+        def side_effect_loader():
+            # 模拟插件在 import 时注册 fetch handler
+            register_fetch_handler("side_effect_prov", capturing_handler)
+            captured_owner.append(_current_plugin_owner.get())
+            return make_test_adapter("side_effect_adapter")
+
+        eps = _FakeEntryPoints([_FakeEntryPoint("side_ep", side_effect_loader)])
+        monkeypatch.setattr("souwen.plugin.metadata.entry_points", lambda: eps)
+
+        loaded, errors = discover_entrypoint_plugins()
+        assert captured_owner == ["side_ep"]
+        assert get_fetch_handler_owners().get("side_effect_prov") == "side_ep"
+
+
+class TestConfigPluginsWithPluginEnvelope:
+    def test_config_plugin_creates_plugin_object(self, clean_registry, clean_plugins, monkeypatch):
+        adapter = make_test_adapter("cfg_envelope_test")
+        import souwen.plugin as plugin_mod
+        monkeypatch.setattr(plugin_mod, "_test_cfg_factory", lambda: adapter, raising=False)
+
+        loaded, errors = load_config_plugins(["souwen.plugin:_test_cfg_factory"])
+        assert "cfg_envelope_test" in loaded
+        assert "souwen.plugin:_test_cfg_factory" in _PLUGINS

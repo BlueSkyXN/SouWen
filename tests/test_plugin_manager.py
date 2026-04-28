@@ -166,6 +166,8 @@ class TestListPlugins:
         monkeypatch.setattr("souwen.plugin_manager.external_plugins", lambda: [])
         monkeypatch.setattr("souwen.plugin_manager.all_adapters", lambda: {})
         monkeypatch.setattr("souwen.plugin_manager.get_fetch_handlers", lambda: {})
+        monkeypatch.setattr("souwen.plugin_manager.get_fetch_handler_owners", lambda: {})
+        monkeypatch.setattr("souwen.plugin_manager.get_loaded_plugins", lambda: {})
         monkeypatch.setattr("souwen.plugin_manager._is_package_importable", lambda item: False)
         monkeypatch.setattr("souwen.plugin_manager._package_version", lambda package: None)
 
@@ -188,6 +190,8 @@ class TestListPlugins:
             lambda: {"external_demo": _DummyAdapter("External demo")},
         )
         monkeypatch.setattr("souwen.plugin_manager.get_fetch_handlers", lambda: {})
+        monkeypatch.setattr("souwen.plugin_manager.get_fetch_handler_owners", lambda: {})
+        monkeypatch.setattr("souwen.plugin_manager.get_loaded_plugins", lambda: {})
         monkeypatch.setattr("souwen.plugin_manager._is_package_importable", lambda item: False)
 
         plugin = next(item for item in list_plugins() if item.name == "external_demo")
@@ -209,6 +213,8 @@ class TestListPlugins:
             lambda: {catalog_name: _DummyAdapter("Loaded catalog plugin")},
         )
         monkeypatch.setattr("souwen.plugin_manager.get_fetch_handlers", lambda: {catalog_name: object()})
+        monkeypatch.setattr("souwen.plugin_manager.get_fetch_handler_owners", lambda: {})
+        monkeypatch.setattr("souwen.plugin_manager.get_loaded_plugins", lambda: {})
         monkeypatch.setattr("souwen.plugin_manager._package_version", lambda package: "9.9.9")
 
         plugin = next(item for item in list_plugins() if item.name == catalog_name)
@@ -229,6 +235,8 @@ class TestListPlugins:
         monkeypatch.setattr("souwen.plugin_manager.external_plugins", lambda: [])
         monkeypatch.setattr("souwen.plugin_manager.all_adapters", lambda: {})
         monkeypatch.setattr("souwen.plugin_manager.get_fetch_handlers", lambda: {})
+        monkeypatch.setattr("souwen.plugin_manager.get_fetch_handler_owners", lambda: {})
+        monkeypatch.setattr("souwen.plugin_manager.get_loaded_plugins", lambda: {})
         monkeypatch.setattr("souwen.plugin_manager._is_package_importable", lambda item: False)
 
         plugins_by_name = {plugin.name: plugin for plugin in list_plugins()}
@@ -247,6 +255,8 @@ class TestGetPluginInfo:
         monkeypatch.setattr("souwen.plugin_manager.external_plugins", lambda: [])
         monkeypatch.setattr("souwen.plugin_manager.all_adapters", lambda: {})
         monkeypatch.setattr("souwen.plugin_manager.get_fetch_handlers", lambda: {})
+        monkeypatch.setattr("souwen.plugin_manager.get_fetch_handler_owners", lambda: {})
+        monkeypatch.setattr("souwen.plugin_manager.get_loaded_plugins", lambda: {})
         monkeypatch.setattr("souwen.plugin_manager._is_package_importable", lambda item: False)
 
         info = get_plugin_info("superweb2pdf")
@@ -258,6 +268,8 @@ class TestGetPluginInfo:
         monkeypatch.setattr("souwen.plugin_manager.external_plugins", lambda: [])
         monkeypatch.setattr("souwen.plugin_manager.all_adapters", lambda: {})
         monkeypatch.setattr("souwen.plugin_manager.get_fetch_handlers", lambda: {})
+        monkeypatch.setattr("souwen.plugin_manager.get_fetch_handler_owners", lambda: {})
+        monkeypatch.setattr("souwen.plugin_manager.get_loaded_plugins", lambda: {})
         monkeypatch.setattr("souwen.plugin_manager._is_package_importable", lambda item: False)
 
         assert get_plugin_info("missing-plugin") is None
@@ -455,17 +467,20 @@ class TestRuntimeDisable:
         state_dir: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        unreg_called_with: list[str] = []
+        unload_called_with: list[str] = []
         monkeypatch.setattr("souwen.plugin_manager._valid_disable_target", lambda name: True)
         monkeypatch.setattr(
-            "souwen.registry.views._unreg_external",
-            lambda name: (unreg_called_with.append(name), True)[-1],
+            "souwen.plugin_manager.unload_plugin",
+            lambda name: (
+                unload_called_with.append(name),
+                {"name": name, "status": "unloaded", "removed_adapters": [name], "removed_handlers": [], "errors": []},
+            )[-1],
         )
 
         result = disable_plugin("test_plugin")
 
         assert result["success"] is True
-        assert "test_plugin" in unreg_called_with
+        assert "test_plugin" in unload_called_with
 
     def test_enable_already_enabled_noop(self, state_dir: Path) -> None:
         _save_state({"disabled_plugins": [], "installed_via_api": []})
@@ -571,6 +586,8 @@ class TestAPIEndpoints:
         monkeypatch.setattr("souwen.plugin_manager.external_plugins", lambda: [])
         monkeypatch.setattr("souwen.plugin_manager.all_adapters", lambda: {})
         monkeypatch.setattr("souwen.plugin_manager.get_fetch_handlers", lambda: {})
+        monkeypatch.setattr("souwen.plugin_manager.get_fetch_handler_owners", lambda: {})
+        monkeypatch.setattr("souwen.plugin_manager.get_loaded_plugins", lambda: {})
         monkeypatch.setattr("souwen.plugin_manager._is_package_importable", lambda item: False)
 
         response = client.get("/plugins")
@@ -590,6 +607,8 @@ class TestAPIEndpoints:
         monkeypatch.setattr("souwen.plugin_manager.external_plugins", lambda: [])
         monkeypatch.setattr("souwen.plugin_manager.all_adapters", lambda: {})
         monkeypatch.setattr("souwen.plugin_manager.get_fetch_handlers", lambda: {})
+        monkeypatch.setattr("souwen.plugin_manager.get_fetch_handler_owners", lambda: {})
+        monkeypatch.setattr("souwen.plugin_manager.get_loaded_plugins", lambda: {})
         monkeypatch.setattr("souwen.plugin_manager._is_package_importable", lambda item: False)
 
         response = client.get("/plugins/unknown")
