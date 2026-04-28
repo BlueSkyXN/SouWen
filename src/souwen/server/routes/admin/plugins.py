@@ -70,7 +70,12 @@ async def disable(name: str):
     """禁用插件（重启后生效）"""
     from souwen.plugin_manager import disable_plugin
 
-    return disable_plugin(name)
+    result = disable_plugin(name)
+    return {
+        "success": result.get("success", False),
+        "restart_required": result.get("restart_required", False),
+        "message": result.get("message", ""),
+    }
 
 
 @router.post("/plugins/install")
@@ -89,9 +94,22 @@ async def uninstall(req: UninstallRequest):
     return await uninstall_plugin(req.package)
 
 
+def _sanitize_errors(errors: list[dict]) -> list[dict]:
+    """Strip exception details from plugin error dicts before API response."""
+    return [
+        {"source": e.get("source", ""), "name": e.get("name", "")}
+        for e in errors
+    ]
+
+
 @router.post("/plugins/reload")
 async def reload():
     """重新扫描 entry point 插件（追加模式）"""
     from souwen.plugin_manager import reload_plugins
 
-    return reload_plugins()
+    result = reload_plugins()
+    return {
+        "loaded": result.get("loaded", []),
+        "errors": _sanitize_errors(result.get("errors", [])),
+        "message": result.get("message", ""),
+    }
