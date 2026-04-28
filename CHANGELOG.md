@@ -1,18 +1,22 @@
 # Changelog
 
-## v1.1.0 — WARP 五模式扩展（2026-04-27）
+## v1.1.0 — WARP 五模式扩展 + 动态组件管理（2026-04-28）
 
 ### Features
 - 新增 3 种 WARP 代理模式：usque MASQUE/QUIC、warp-cli 官方客户端、external 外部代理
-- 新增前端 WarpPage 专属管理页面（souwen-nebula 皮肤）
+- 新增前端 WarpPage 专属管理页面（5 个皮肤全覆盖）
 - 新增 CLI `souwen warp` 命令组：status / enable / disable / modes / register / test
 - 新增 API 端点：`/warp/modes`、`/warp/register`、`/warp/test`、`/warp/config`
 - 新增 WARP 组件管理卡片：展示 usque / wireproxy / wgcf 安装来源与版本，并支持一键安装
-- Dockerfile 预装 usque v3.0.0 二进制
+- Dockerfile 预装 usque v3.0.0 二进制（主镜像 + HFS + ModelScope）
+- **新增 WarpInstaller 运行时安装器**：从 GitHub Releases 下载 usque/wireproxy/wgcf 到 `/app/data/bin/`，支持 `GH_PROXY` 代理
+- **新增 5 个动态管理 API 端点**：`/admin/warp/components`、`/admin/warp/components/install`、`/admin/warp/components/uninstall`、`/admin/warp/switch`、`/admin/warp/events`（SSE 实时推送）
+- **WarpManager 增强**：`_find_binary()` 搜索 runtime bin 目录，优先级：配置路径 > runtime bin > system PATH
 
 ### Behavior
 - 自动模式降级链：external > kernel > usque > wireproxy
 - NetworkPage WarpCard 简化为摘要卡片，引导至专属页面
+- **非阻塞启动**：entrypoint.sh 默认跳过同步 `warp-init.sh`（`WARP_ENTRYPOINT_INIT=0`），由 Python WarpManager 后台异步启动。设为 `1` 恢复旧行为
 
 ### Docs
 - 新增 WARP 方案对比文档：`docs/warp-solutions.md`
