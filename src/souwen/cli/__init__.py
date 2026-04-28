@@ -90,6 +90,7 @@ from souwen.cli import (  # noqa: E402, F401
     doctor,
     fetch,
     mcp,
+    plugins,
     search,
     serve,
     sources,
@@ -105,6 +106,7 @@ app.add_typer(bilibili.bilibili_app, name="bilibili")
 app.add_typer(wayback.wayback_app, name="wayback")
 app.add_typer(config_cmds.config_app, name="config")
 app.add_typer(warp.warp_app, name="warp")
+app.add_typer(plugins.plugins_app, name="plugins")
 
 # 兼容性导出：tests/test_infra.py 直接 `from souwen.cli import _mask_value`
 from souwen.cli.config_cmds import _mask_value  # noqa: E402, F401
