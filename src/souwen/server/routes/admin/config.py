@@ -46,8 +46,31 @@ async def get_config_view():
         if _is_secret_field(field_name) and val is not None:
             result[field_name] = "***"
         else:
-            result[field_name] = val
+            result[field_name] = _redact_value(val)
     return result
+
+
+def _redact_value(val: object) -> object:
+    """递归遮蔽 Pydantic 模型 / dict / list 中的敏感字段。"""
+    from pydantic import BaseModel
+
+    if isinstance(val, BaseModel):
+        out = {}
+        for k in val.model_fields:
+            v = getattr(val, k)
+            if _is_secret_field(k) and v is not None:
+                out[k] = "***"
+            else:
+                out[k] = _redact_value(v)
+        return out
+    if isinstance(val, dict):
+        return {
+            k: ("***" if _is_secret_field(k) and v is not None else _redact_value(v))
+            for k, v in val.items()
+        }
+    if isinstance(val, list):
+        return [_redact_value(item) for item in val]
+    return val
 
 
 @router.post("/config/reload", response_model=ConfigReloadResponse)
