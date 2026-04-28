@@ -32,3 +32,4 @@ local/
 # Config backups
 *.yaml.bak
 *.yml.bak
+/.vscode
