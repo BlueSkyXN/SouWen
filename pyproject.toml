@@ -69,6 +69,8 @@ readability = ["readability-lxml>=0.8", "markdownify>=0.12"]
 pdf = ["pymupdf4llm>=0.0.17"]
 # TLS 伪装（爬虫类客户端需要：csdn/juejin/bilibili/weibo/zhihu/google_patents 等）
 scraper = ["curl-cffi>=0.14.0"]
+# LLM 搜索结果总结（当前无额外依赖，预留 extras 组）
+llm = []
 # Web 服务器（FastAPI + Uvicorn）
 server = ["fastapi>=0.111", "uvicorn[standard]>=0.29"]
 # MCP 服务器协议支持
