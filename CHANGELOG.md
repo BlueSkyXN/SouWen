@@ -6,12 +6,19 @@
 - 新增 `souwen.llm` 模块：为搜索结果提供 LLM 驱动的智能总结
 - 新增 `POST /api/v1/summarize` 端点：搜索 + 摘要一站式接口
 - 支持三种摘要模式：brief（简洁）、detailed（详细）、academic（学术）
-- 支持所有 OpenAI-compatible API（OpenAI/Azure/vLLM/Ollama/DeepSeek 等）
+- 多协议支持：OpenAI Chat Completions / OpenAI Responses API / Anthropic Claude Messages
+- 协议通过 `llm.protocol` 配置切换，所有 OpenAI-compatible 服务均可使用
 - 跨源去重（按 DOI/URL/patent_id）、结果截断保护、[N] 式引用
 - 独立限流（20 req/min）、复用搜索认证体系
 
+### Architecture
+- `providers/` 协议适配层：每种 LLM API 协议独立实现
+- `client.py` 为调度器，按 `protocol` 配置自动路由到对应 provider
+- 鲁棒的响应解析：遍历 content blocks 而非假设 `[0]`
+
 ### Configuration
 - 新增 `llm:` 配置段（YAML / SOUWEN_LLM_* 环境变量）
+- `protocol` 字段：`openai_chat`（默认）/ `openai_responses` / `anthropic_messages`
 - 默认关闭（`enabled: false`），需显式启用并配置 API Key
 
 ### Tests

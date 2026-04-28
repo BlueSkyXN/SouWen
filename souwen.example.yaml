@@ -127,6 +127,10 @@ mcp:
 llm:
   # 是否启用 LLM 摘要功能（默认关闭）
   enabled: false
+  # LLM API 协议: openai_chat (OpenAI Chat Completions)
+  #              openai_responses (OpenAI Responses API)
+  #              anthropic_messages (Claude Messages API)
+  protocol: openai_chat
   # API Key（也可通过环境变量 SOUWEN_LLM_API_KEY 设置）
   api_key: ~
   # 多 Key 轮询（优先于单 api_key）
@@ -149,6 +153,8 @@ llm:
   system_prompt: ~
   # 默认摘要模式：brief（简要）/ detailed（详细）/ academic（学术）
   default_mode: brief
+  # Anthropic API 版本头（仅 anthropic_messages 协议使用）
+  # anthropic_version: "2023-06-01"
 
 # ===== 通用设置 =====
 # 全局代理、超时、重试、HTTP 后端等配置

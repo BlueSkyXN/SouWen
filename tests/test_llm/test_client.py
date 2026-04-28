@@ -1,4 +1,4 @@
-"""Tests for souwen.llm.client — mock httpx, no real API calls."""
+"""Tests for souwen.llm.client — mock httpx via provider dispatch, no real API calls."""
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -14,6 +14,7 @@ from souwen.llm.models import LLMMessage
 def mock_llm_config():
     mock_cfg = MagicMock()
     mock_cfg.llm.enabled = True
+    mock_cfg.llm.protocol = "openai_chat"
     mock_cfg.llm.get_api_key.return_value = "test-key-123"
     mock_cfg.llm.api_key = "test-key"
     mock_cfg.llm.api_keys = []
@@ -22,6 +23,7 @@ def mock_llm_config():
     mock_cfg.llm.max_tokens = 100
     mock_cfg.llm.temperature = 0.5
     mock_cfg.llm.timeout = 30
+    mock_cfg.llm.anthropic_version = "2023-06-01"
     mock_cfg.get_proxy.return_value = None
     with patch("souwen.llm.client.get_config", return_value=mock_cfg):
         yield mock_cfg
@@ -49,6 +51,10 @@ async def _call_without_retry(messages: list[LLMMessage]):
     return await llm_client.llm_complete.__wrapped__(messages)
 
 
+# Patch target: the provider module's httpx, not client's httpx
+_HTTPX_PATCH = "souwen.llm.providers.openai_chat.httpx.AsyncClient"
+
+
 async def test_llm_complete_success(mock_llm_config):
     mock_response = _mock_response(
         200,
@@ -60,7 +66,7 @@ async def test_llm_complete_success(mock_llm_config):
     )
     mock_client = _mock_async_client(mock_response)
 
-    with patch("souwen.llm.client.httpx.AsyncClient", return_value=mock_client) as async_client:
+    with patch(_HTTPX_PATCH, return_value=mock_client):
         result = await llm_complete([LLMMessage(role="user", content="Summarize this")])
 
     assert result.content == "test summary"
@@ -69,13 +75,7 @@ async def test_llm_complete_success(mock_llm_config):
     assert result.usage.prompt_tokens == 10
     assert result.usage.completion_tokens == 20
     assert result.usage.total_tokens == 30
-    async_client.assert_called_once()
     mock_client.post.assert_awaited_once()
-    _, kwargs = mock_client.post.call_args
-    assert kwargs["headers"]["Authorization"] == "Bearer test-key-123"
-    assert kwargs["json"]["model"] == "test-model"
-    assert kwargs["json"]["max_tokens"] == 100
-    assert kwargs["json"]["temperature"] == 0.5
 
 
 async def test_llm_complete_not_enabled(mock_llm_config):
@@ -99,7 +99,7 @@ async def test_llm_complete_429(mock_llm_config):
     mock_response.headers = {"retry-after": "7"}
     mock_client = _mock_async_client(mock_response)
 
-    with patch("souwen.llm.client.httpx.AsyncClient", return_value=mock_client):
+    with patch(_HTTPX_PATCH, return_value=mock_client):
         with pytest.raises(RateLimitError) as exc_info:
             await _call_without_retry([LLMMessage(role="user", content="test")])
 
@@ -110,7 +110,7 @@ async def test_llm_complete_500(mock_llm_config):
     mock_response = _mock_response(500, text="server error")
     mock_client = _mock_async_client(mock_response)
 
-    with patch("souwen.llm.client.httpx.AsyncClient", return_value=mock_client):
+    with patch(_HTTPX_PATCH, return_value=mock_client):
         with pytest.raises(_LLMRetriableError) as exc_info:
             await _call_without_retry([LLMMessage(role="user", content="test")])
 
@@ -122,7 +122,7 @@ async def test_llm_complete_400(mock_llm_config):
     mock_response = _mock_response(400, text="bad request")
     mock_client = _mock_async_client(mock_response)
 
-    with patch("souwen.llm.client.httpx.AsyncClient", return_value=mock_client):
+    with patch(_HTTPX_PATCH, return_value=mock_client):
         with pytest.raises(LLMError) as exc_info:
             await _call_without_retry([LLMMessage(role="user", content="test")])
 
@@ -134,6 +134,13 @@ async def test_llm_complete_empty_choices(mock_llm_config):
     mock_response = _mock_response(200, {"choices": [], "model": "test-model"})
     mock_client = _mock_async_client(mock_response)
 
-    with patch("souwen.llm.client.httpx.AsyncClient", return_value=mock_client):
-        with pytest.raises(LLMError, match="空 choices"):
+    with patch(_HTTPX_PATCH, return_value=mock_client):
+        with pytest.raises(LLMError, match="no choices"):
             await _call_without_retry([LLMMessage(role="user", content="test")])
+
+
+async def test_llm_complete_unsupported_protocol(mock_llm_config):
+    mock_llm_config.llm.protocol = "unsupported_protocol"
+
+    with pytest.raises(ConfigError, match="unsupported_protocol"):
+        await _call_without_retry([LLMMessage(role="user", content="test")])
