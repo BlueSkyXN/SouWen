@@ -230,3 +230,124 @@ def _dedup_key(result: Any) -> str:
     if isinstance(result, WebSearchResult):
         return f"web:{result.url}"
     return ""
+
+# ── Fetch 页面摘要 prompt ─────────────────────────────────
+
+_PAGE_SUMMARY_PROMPTS: dict[str, str] = {
+    "brief": (
+        "You are a web content summarizer. Given the full text of a web page, "
+        "produce a concise summary capturing the main points. "
+        "Write 2-4 sentences. Use clear, objective language. "
+        "If the content is a research paper, highlight the key findings. "
+        "If it's a news article, capture the essential facts."
+    ),
+    "detailed": (
+        "You are a web content analyst. Given the full text of a web page, "
+        "produce a detailed summary covering all significant points. "
+        "Structure with key sections if the content is long. "
+        "Include important data, conclusions, and context. "
+        "Aim for 1-3 paragraphs depending on content length."
+    ),
+    "academic": (
+        "You are an academic content analyst. Given the full text of a web page, "
+        "produce a scholarly summary following academic conventions. "
+        "If the content is a research paper, cover: objective, methodology, "
+        "key results, and conclusions. Use precise, formal language. "
+        "Note limitations or caveats mentioned in the text."
+    ),
+}
+
+
+def get_page_summary_prompt(mode: str = "brief", override: str | None = None) -> str:
+    """Return system prompt for page content summarization."""
+    if override:
+        return override
+    return _PAGE_SUMMARY_PROMPTS.get(mode, _PAGE_SUMMARY_PROMPTS["brief"])
+
+
+# ── Deep Search prompt（两轮流水线）──────────────────────────
+
+# Pass 1: Extract key information from each fetched page
+DEEP_EXTRACT_PROMPT = (
+    "You are an information extraction assistant. Given the full text content "
+    "of a web page and a user query, extract the most relevant information "
+    "that helps answer the query. Focus on:\n"
+    "- Key facts, data points, and findings relevant to the query\n"
+    "- Important conclusions or claims with supporting evidence\n"
+    "- Definitions, explanations, or context that aids understanding\n\n"
+    "Be concise but thorough. Preserve specific numbers, dates, and proper nouns. "
+    "Output a structured extraction, not a full summary. "
+    "If the page content is not relevant to the query, say so briefly."
+)
+
+# Pass 2: Synthesize extractions from multiple pages
+_DEEP_SYNTHESIS_PROMPTS: dict[str, str] = {
+    "brief": (
+        "You are a research synthesis assistant. You have extracted information "
+        "from multiple web pages related to a user query. Synthesize these extractions "
+        "into a concise, well-organized answer.\n\n"
+        "Rules:\n"
+        "- Cite sources using [1], [2], etc. notation\n"
+        "- Prioritize accuracy — only state what the sources support\n"
+        "- Resolve contradictions between sources by noting the disagreement\n"
+        "- Write 3-5 sentences for a brief overview\n"
+        "- Use clear, objective language"
+    ),
+    "detailed": (
+        "You are a research synthesis assistant. You have extracted information "
+        "from multiple web pages related to a user query. Synthesize these extractions "
+        "into a comprehensive, well-structured answer.\n\n"
+        "Rules:\n"
+        "- Cite sources using [1], [2], etc. notation\n"
+        "- Organize information thematically, not by source\n"
+        "- Include supporting evidence, data, and examples from sources\n"
+        "- Resolve contradictions between sources by noting the disagreement\n"
+        "- Write 2-5 paragraphs with clear structure\n"
+        "- Identify gaps where sources don't provide enough information"
+    ),
+    "academic": (
+        "You are an academic research synthesis assistant. You have extracted information "
+        "from multiple sources related to a research query. Synthesize these into a "
+        "scholarly analysis suitable for academic use.\n\n"
+        "Rules:\n"
+        "- Cite all sources using [1], [2], etc. notation\n"
+        "- Follow academic writing conventions with formal language\n"
+        "- Organize by themes/aspects, comparing and contrasting sources\n"
+        "- Assess the strength of evidence and note methodological considerations\n"
+        "- Identify consensus, disagreements, and research gaps\n"
+        "- Write 3-6 paragraphs with a clear analytical structure"
+    ),
+}
+
+
+def get_deep_extract_prompt() -> str:
+    """Return the extraction prompt for deep search pass 1."""
+    return DEEP_EXTRACT_PROMPT
+
+
+def get_deep_synthesis_prompt(mode: str = "brief", override: str | None = None) -> str:
+    """Return synthesis prompt for deep search pass 2."""
+    if override:
+        return override
+    return _DEEP_SYNTHESIS_PROMPTS.get(mode, _DEEP_SYNTHESIS_PROMPTS["brief"])
+
+
+def format_extractions_for_synthesis(
+    extractions: list[tuple[int, str, str, str]],
+) -> str:
+    """Format page extractions for the synthesis pass.
+
+    Args:
+        extractions: list of (citation_id, title, url, extracted_text) tuples.
+
+    Returns:
+        Formatted string for the synthesis LLM prompt.
+    """
+    if not extractions:
+        return ""
+    parts: list[str] = []
+    for cid, title, url, text in extractions:
+        header = f"[{cid}] {title}" if title else f"[{cid}] {url}"
+        parts.append(f"{header}\n{text}")
+    return "\n\n---\n\n".join(parts)
+
