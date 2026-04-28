@@ -47,7 +47,7 @@ jobs:
 
       - name: 提交格式化修复
         id: auto-commit
-        uses: stefanzweifel/git-auto-commit-action@v5
+        uses: stefanzweifel/git-auto-commit-action@v7
         with:
           commit_message: "style: auto-format (ruff check --fix + ruff format)"
           commit_author: "github-actions[bot] <41898282+github-actions[bot]@users.noreply.github.com>"
