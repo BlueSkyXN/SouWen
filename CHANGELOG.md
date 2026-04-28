@@ -1,5 +1,13 @@
 # Changelog
 
+## v1.1.1（2026-04-28）
+
+### Security
+- WARP admin API 端点不再泄露内部异常信息，错误消息改为通用提示
+
+### Docs
+- CHANGELOG / README / warp-solutions.md / souwen.example.yaml 补充动态管理和非阻塞启动说明
+
 ## v1.1.0 — WARP 五模式扩展 + 动态组件管理（2026-04-28）
 
 ### Features
