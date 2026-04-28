@@ -1,5 +1,22 @@
 # Changelog
 
+## v1.2.0 — LLM 搜索摘要（Unreleased）
+
+### Features
+- 新增 `souwen.llm` 模块：为搜索结果提供 LLM 驱动的智能总结
+- 新增 `POST /api/v1/summarize` 端点：搜索 + 摘要一站式接口
+- 支持三种摘要模式：brief（简洁）、detailed（详细）、academic（学术）
+- 支持所有 OpenAI-compatible API（OpenAI/Azure/vLLM/Ollama/DeepSeek 等）
+- 跨源去重（按 DOI/URL/patent_id）、结果截断保护、[N] 式引用
+- 独立限流（20 req/min）、复用搜索认证体系
+
+### Configuration
+- 新增 `llm:` 配置段（YAML / SOUWEN_LLM_* 环境变量）
+- 默认关闭（`enabled: false`），需显式启用并配置 API Key
+
+### Tests
+- 新增 `tests/test_llm/`：25 个单元测试覆盖 client/prompts/summarize
+
 ## v1.1.1 — WARP 动态组件管理与非阻塞启动（2026-04-28）
 
 ### Features

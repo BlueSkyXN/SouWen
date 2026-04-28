@@ -13,7 +13,7 @@ from pathlib import Path
 
 from dotenv import load_dotenv
 
-from .models import SouWenConfig
+from .models import LLMConfig, SouWenConfig
 from .template import _DEFAULT_CONFIG_TEMPLATE
 
 logger = logging.getLogger("souwen.config")
@@ -66,9 +66,9 @@ def _load_yaml_config() -> dict:
     valid_fields = set(SouWenConfig.model_fields)
     flat: dict = {}
     for key, values in raw.items():
-        if key == "sources" and isinstance(values, dict):
-            # sources 是嵌套结构,直接传递给 Pydantic 解析
-            flat["sources"] = values
+        if key in ("sources", "llm") and isinstance(values, dict):
+            # sources / llm 是嵌套结构,直接传递给 Pydantic 解析
+            flat[key] = values
         elif isinstance(values, dict):
             # 嵌套分组结构: paper: {openalex_email: ...}
             for k, v in values.items():
@@ -187,7 +187,62 @@ def get_config() -> SouWenConfig:
                 except json.JSONDecodeError:
                     logger.warning("环境变量 %s JSON 解析失败,已忽略", env_key)
                     continue
+            # llm: JSON 字符串 → LLMConfig
+            elif field_name == "llm":
+                try:
+                    parsed = json.loads(val)
+                    if isinstance(parsed, dict):
+                        val = parsed
+                    else:
+                        logger.warning("环境变量 %s 应为 JSON 对象,已忽略", env_key)
+                        continue
+                except json.JSONDecodeError:
+                    logger.warning("环境变量 %s JSON 解析失败,已忽略", env_key)
+                    continue
             kwargs[field_name] = val
+
+    # LLM 嵌套字段环境变量覆盖：SOUWEN_LLM_ENABLED / SOUWEN_LLM_API_KEY / ...
+    llm_env: dict = dict(kwargs.get("llm") or {}) if isinstance(kwargs.get("llm"), dict) else {}
+    for field_name in LLMConfig.model_fields:
+        env_key = f"{env_prefix}LLM_{field_name.upper()}"
+        val = os.getenv(env_key)
+        if val is None:
+            continue
+
+        field_info = LLMConfig.model_fields[field_name]
+        if field_info.annotation is bool:
+            val = val.lower() in ("1", "true", "yes", "on")
+        elif field_info.annotation in (int, int | None):
+            try:
+                val = int(val)
+            except (ValueError, TypeError):
+                logger.warning("环境变量 %s=%r 无法转为整数,已忽略", env_key, val)
+                continue
+        elif field_info.annotation in (float, float | None):
+            try:
+                val = float(val)
+            except (ValueError, TypeError):
+                logger.warning("环境变量 %s=%r 无法转为浮点数,已忽略", env_key, val)
+                continue
+        elif field_name == "api_keys":
+            stripped = val.strip()
+            if stripped.startswith("["):
+                try:
+                    parsed = json.loads(stripped)
+                except json.JSONDecodeError:
+                    logger.warning("环境变量 %s JSON 解析失败,已忽略", env_key)
+                    continue
+                if not isinstance(parsed, list):
+                    logger.warning("环境变量 %s 应为 JSON 数组,已忽略", env_key)
+                    continue
+                val = [str(p).strip() for p in parsed if str(p).strip()]
+            else:
+                val = [p.strip() for p in val.split(",") if p.strip()]
+
+        llm_env[field_name] = val
+
+    if llm_env:
+        kwargs["llm"] = llm_env
 
     cfg = SouWenConfig(**kwargs)
 

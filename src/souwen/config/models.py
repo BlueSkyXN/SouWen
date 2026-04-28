@@ -43,6 +43,47 @@ class SourceChannelConfig(BaseModel):
     params: dict[str, str | int | float | bool] = Field(default_factory=dict)
 
 
+class LLMConfig(BaseModel):
+    """LLM 配置
+
+    控制 LLM 摘要功能的行为。支持 OpenAI-compatible API（覆盖 OpenAI、Azure、
+    vLLM、Ollama、OpenRouter、DeepSeek 等）。
+
+    Attributes:
+        enabled: 是否启用 LLM 摘要功能
+        api_key: API Key（单 Key 模式）
+        api_keys: API Key 列表（多 Key 轮询模式，优先于 api_key）
+        base_url: API 基础 URL
+        model: 模型名称
+        max_tokens: 最大生成 token 数
+        temperature: 生成温度（0.0-2.0）
+        timeout: 请求超时（秒）
+        max_input_tokens: 输入 token 上限（超出则截断结果）
+        system_prompt: 自定义系统 prompt（覆盖内置默认值）
+        default_mode: 默认摘要模式
+    """
+
+    enabled: bool = False
+    api_key: str | None = None
+    api_keys: list[str] = Field(default_factory=list)
+    base_url: str = "https://api.openai.com/v1"
+    model: str = "gpt-4o-mini"
+    max_tokens: int = 2048
+    temperature: float = 0.3
+    timeout: float = 60.0
+    max_input_tokens: int = 6000
+    system_prompt: str | None = None
+    default_mode: str = "brief"
+
+    def get_api_key(self) -> str | None:
+        """获取 API Key：优先从 api_keys 轮询，否则用单一 api_key"""
+        if self.api_keys:
+            import random
+
+            return random.choice(self.api_keys)
+        return self.api_key
+
+
 class SouWenConfig(BaseModel):
     """SouWen 全局配置
 
@@ -268,6 +309,9 @@ class SouWenConfig(BaseModel):
         default_factory=list,
         description="手动指定的插件列表，格式为 'module.path:attribute'",
     )
+
+    # ===== LLM 摘要 =====
+    llm: LLMConfig = Field(default_factory=LLMConfig)
 
     @field_validator("proxy")
     @classmethod

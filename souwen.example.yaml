@@ -121,6 +121,35 @@ mcp:
   # mcp_extra_headers:
   #   Authorization: "Bearer YOUR_TOKEN"
 
+# ===== LLM 摘要配置 =====
+# 为搜索结果提供 AI 智能摘要，支持 OpenAI-compatible API
+# （OpenAI / Azure / vLLM / Ollama / OpenRouter / DeepSeek 等）
+llm:
+  # 是否启用 LLM 摘要功能（默认关闭）
+  enabled: false
+  # API Key（也可通过环境变量 SOUWEN_LLM_API_KEY 设置）
+  api_key: ~
+  # 多 Key 轮询（优先于单 api_key）
+  # api_keys:
+  #   - sk-key1
+  #   - sk-key2
+  # API 基础 URL（默认 OpenAI）
+  base_url: https://api.openai.com/v1
+  # 模型名称
+  model: gpt-4o-mini
+  # 最大生成 token 数
+  max_tokens: 2048
+  # 生成温度（0.0=确定性, 2.0=最随机）
+  temperature: 0.3
+  # 请求超时（秒）
+  timeout: 60
+  # 输入 token 上限（超出则截断搜索结果）
+  max_input_tokens: 6000
+  # 自定义系统 prompt（覆盖内置默认值，留空使用内置）
+  system_prompt: ~
+  # 默认摘要模式：brief（简要）/ detailed（详细）/ academic（学术）
+  default_mode: brief
+
 # ===== 通用设置 =====
 # 全局代理、超时、重试、HTTP 后端等配置
 general:
