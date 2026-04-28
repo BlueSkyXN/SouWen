@@ -176,7 +176,6 @@ async def deep_summarize(
     if not pages:
         raise ValueError("No pages with usable content after fetching")
 
-    used_urls = [url for url, _, _, _ in pages]
     total_usage = LLMUsage()
     actual_model = ""
 
@@ -226,6 +225,9 @@ async def deep_summarize(
 
     if not extractions:
         raise ValueError("All page extractions failed")
+
+    # Build used_urls from successful extractions only
+    used_urls = [url for _, _, url, _ in extractions]
 
     # Step 5: Pass 2 — Synthesize across extractions
     synthesis_prompt = get_deep_synthesis_prompt(mode, system_prompt_override)

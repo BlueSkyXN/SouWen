@@ -140,7 +140,7 @@ async def save_config_yaml(body: YamlConfigSaveRequest):
             valid_fields = set(SouWenConfig.model_fields)
             flat_dict: dict = {}
             for key, values in parsed_dict.items():
-                if key == "sources" and isinstance(values, dict):
+                if key in ("sources", "llm") and isinstance(values, dict):
                     flat_dict["sources"] = values
                 elif isinstance(values, dict):
                     for k, v in values.items():

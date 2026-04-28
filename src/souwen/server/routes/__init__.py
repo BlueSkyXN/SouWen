@@ -40,18 +40,15 @@ router.include_router(sources_router)
 router.include_router(bilibili_router)
 router.include_router(whoami_router)
 
-# LLM 端点 — 仅在配置启用时注册
+# LLM 端点 — 始终注册，运行时检查 llm.enabled
 try:
-    from souwen.config import get_config
+    from souwen.server.routes.deep_summarize import router as deep_summarize_router
+    from souwen.server.routes.fetch_summarize import router as fetch_summarize_router
+    from souwen.server.routes.summarize import router as summarize_router
 
-    if get_config().llm.enabled:
-        from souwen.server.routes.deep_summarize import router as deep_summarize_router
-        from souwen.server.routes.fetch_summarize import router as fetch_summarize_router
-        from souwen.server.routes.summarize import router as summarize_router
-
-        router.include_router(summarize_router)
-        router.include_router(fetch_summarize_router)
-        router.include_router(deep_summarize_router)
+    router.include_router(summarize_router)
+    router.include_router(fetch_summarize_router)
+    router.include_router(deep_summarize_router)
 except Exception:
     import logging as _logging
     _logging.getLogger("souwen.server").warning(

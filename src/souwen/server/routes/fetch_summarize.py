@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 
 from souwen.server.auth import check_search_auth
 from souwen.server.limiter import InMemoryRateLimiter, get_client_ip
-from souwen.server.routes._common import logger
+from souwen.server.routes._common import logger, require_llm_enabled
 
 
 class FetchSummarizeRequest(BaseModel):
@@ -18,7 +18,7 @@ class FetchSummarizeRequest(BaseModel):
     urls: list[str] = Field(..., min_length=1, max_length=10, description="待抓取并摘要的 URL 列表")
     provider: str = Field("builtin", description="Fetch 提供者")
     timeout: float = Field(30.0, ge=5.0, le=120.0, description="每 URL 超时秒数")
-    mode: Literal["brief", "detailed", "academic"] = Field("brief", description="摘要模式")
+    mode: Literal["brief", "detailed", "academic"] | None = Field(None, description="摘要模式（默认使用配置 llm.default_mode）")
     model: str | None = Field(None, description="可选 LLM 模型覆盖")
     max_tokens: int | None = Field(None, ge=100, le=8192, description="可选最大 token 数")
     temperature: float | None = Field(None, ge=0.0, le=2.0, description="可选温度覆盖")
@@ -72,25 +72,30 @@ def rate_limit_fetch_summarize(request: Request) -> None:
 @router.post(
     "/fetch/summarize",
     response_model=FetchSummarizeResponse,
-    dependencies=[Depends(rate_limit_fetch_summarize), Depends(check_search_auth)],
+    dependencies=[Depends(rate_limit_fetch_summarize), Depends(require_llm_enabled), Depends(check_search_auth)],
 )
 async def api_fetch_summarize(body: FetchSummarizeRequest):
     """抓取 URL 页面内容并用 LLM 逐页生成摘要"""
 
+    from souwen.config import get_config
     from souwen.exceptions import ConfigError, SouWenError
     from souwen.llm.client import LLMError
     from souwen.llm.fetch_summarize import summarize_pages
+
+    cfg = get_config()
+    effective_mode = body.mode or cfg.llm.default_mode
+    effective_system_prompt = body.system_prompt or cfg.llm.system_prompt
 
     try:
         result = await summarize_pages(
             urls=body.urls,
             provider=body.provider,
             timeout=body.timeout,
-            mode=body.mode,
+            mode=effective_mode,
             model=body.model,
             max_tokens=body.max_tokens,
             temperature=body.temperature,
-            system_prompt_override=body.system_prompt,
+            system_prompt_override=effective_system_prompt,
         )
 
         return FetchSummarizeResponse(

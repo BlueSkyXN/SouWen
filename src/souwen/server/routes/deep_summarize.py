@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 
 from souwen.server.auth import check_search_auth
 from souwen.server.limiter import InMemoryRateLimiter, get_client_ip
-from souwen.server.routes._common import logger
+from souwen.server.routes._common import logger, require_llm_enabled
 
 
 class DeepSummarizeRequest(BaseModel):
@@ -22,7 +22,7 @@ class DeepSummarizeRequest(BaseModel):
     max_fetch: int = Field(5, ge=1, le=10, description="最多抓取页面数")
     fetch_provider: str = Field("builtin", description="内容抓取提供者")
     fetch_timeout: float = Field(30.0, ge=5.0, le=120.0, description="每页抓取超时")
-    mode: Literal["brief", "detailed", "academic"] = Field("detailed", description="摘要模式")
+    mode: Literal["brief", "detailed", "academic"] | None = Field(None, description="摘要模式（默认使用配置 llm.default_mode）")
     model: str | None = Field(None, description="可选 LLM 模型覆盖")
     max_tokens: int | None = Field(None, ge=100, le=8192, description="可选最大 token 数")
     temperature: float | None = Field(None, ge=0.0, le=2.0, description="可选温度覆盖")
@@ -76,14 +76,19 @@ def rate_limit_deep_summarize(request: Request) -> None:
 @router.post(
     "/deep-summarize",
     response_model=DeepSummarizeResponse,
-    dependencies=[Depends(rate_limit_deep_summarize), Depends(check_search_auth)],
+    dependencies=[Depends(rate_limit_deep_summarize), Depends(require_llm_enabled), Depends(check_search_auth)],
 )
 async def api_deep_summarize(body: DeepSummarizeRequest):
     """Deep Search — 搜索 + 抓取 + 两轮 LLM 深度综合"""
 
+    from souwen.config import get_config
     from souwen.exceptions import ConfigError, SouWenError
     from souwen.llm.client import LLMError
     from souwen.llm.deep_search import deep_summarize
+
+    cfg = get_config()
+    effective_mode = body.mode or cfg.llm.default_mode
+    effective_system_prompt = body.system_prompt or cfg.llm.system_prompt
 
     try:
         result = await deep_summarize(
@@ -94,11 +99,11 @@ async def api_deep_summarize(body: DeepSummarizeRequest):
             max_fetch=body.max_fetch,
             fetch_provider=body.fetch_provider,
             fetch_timeout=body.fetch_timeout,
-            mode=body.mode,
+            mode=effective_mode,
             model=body.model,
             max_tokens=body.max_tokens,
             temperature=body.temperature,
-            system_prompt_override=body.system_prompt,
+            system_prompt_override=effective_system_prompt,
         )
 
         return DeepSummarizeResponse(
