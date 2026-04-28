@@ -208,6 +208,29 @@ export interface WarpActionResult {
 }
 
 /**
+ * WARP 组件安装状态
+ */
+export interface WarpComponentInfo {
+  name: string
+  installed: boolean
+  version: string | null
+  path: string | null
+  system_path: string | null
+  source: 'runtime' | 'system' | 'not_installed'
+}
+
+export interface WarpComponentsResponse {
+  components: WarpComponentInfo[]
+}
+
+export interface WarpInstallResult {
+  ok: boolean
+  component: string
+  version: string
+  path: string
+}
+
+/**
  * HTTP 代理后端配置
  */
 export interface HttpBackendResponse {

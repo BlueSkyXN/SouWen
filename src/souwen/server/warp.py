@@ -27,6 +27,7 @@ logger = logging.getLogger("souwen.warp")
 
 STATE_FILE = Path("/run/souwen-warp.json")
 WARP_DATA_DIR = Path("/app/data")
+RUNTIME_BIN_DIR = Path("/app/data/bin")
 
 # ---------- input sanitisation helpers ----------
 
@@ -178,9 +179,29 @@ class WarpManager:
     # ------ capability detection ------
 
     @staticmethod
+    def _find_binary(name: str, extra_path: str | None = None) -> str | None:
+        """在 PATH 和 runtime bin 目录中查找二进制。
+
+        查找顺序: extra_path (配置指定) > runtime bin dir > system PATH
+
+        Args:
+            name: 二进制名称
+            extra_path: 配置中指定的自定义路径
+
+        Returns:
+            二进制完整路径, 或 None
+        """
+        if extra_path and Path(extra_path).is_file():
+            return extra_path
+        runtime = RUNTIME_BIN_DIR / name
+        if runtime.is_file() and os.access(runtime, os.X_OK):
+            return str(runtime)
+        return shutil.which(name)
+
+    @staticmethod
     def _has_wireproxy() -> bool:
         """检测当前系统是否已安装 wireproxy 二进制（用户态模式可用性）"""
-        return shutil.which("wireproxy") is not None
+        return WarpManager._find_binary("wireproxy") is not None
 
     @staticmethod
     def _has_kernel_wg() -> bool:
@@ -200,7 +221,7 @@ class WarpManager:
     @staticmethod
     def _has_usque() -> bool:
         """检测 usque 二进制是否可用"""
-        return shutil.which("usque") is not None
+        return WarpManager._find_binary("usque") is not None
 
     @staticmethod
     def _has_warp_cli() -> bool:
@@ -798,11 +819,12 @@ class WarpManager:
         if not conf_path:
             raise RuntimeError("无法获取 wireproxy 配置 (需要 WARP_CONFIG_B64 或已注册配置)")
 
-        if not shutil.which("wireproxy"):
+        wireproxy_bin = self._find_binary("wireproxy")
+        if not wireproxy_bin:
             raise RuntimeError("wireproxy 未安装")
 
         self._process = subprocess.Popen(
-            ["wireproxy", "-c", str(conf_path)],
+            [wireproxy_bin, "-c", str(conf_path)],
             stdout=subprocess.DEVNULL,
             stderr=subprocess.DEVNULL,
         )
@@ -1090,7 +1112,7 @@ class WarpManager:
         if transport not in ("auto", "quic", "http2"):
             raise ValueError(f"非法 usque transport: {transport!r}")
 
-        usque_bin = cfg.warp_usque_path or shutil.which("usque")
+        usque_bin = self._find_binary("usque", cfg.warp_usque_path)
         if not usque_bin or not Path(usque_bin).is_file():
             raise RuntimeError("usque 未安装")
 
