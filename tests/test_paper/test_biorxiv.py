@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 from datetime import date
+from unittest.mock import AsyncMock, MagicMock, patch
+
+import pytest
 
 from souwen.models import SourceType
 from souwen.paper.biorxiv import BioRxivClient
@@ -86,3 +89,41 @@ class TestBioRxiv:
         assert BioRxivClient._matches_query(self.SAMPLE, "coordinated neural") is True
         assert BioRxivClient._matches_query(self.SAMPLE, "not-present") is False
         assert BioRxivClient._matches_query(self.SAMPLE, "") is True
+
+    @pytest.mark.asyncio
+    async def test_search_uses_api_metadata_for_pagination(self):
+        """API 每页 30 条时，按 total/cursor/count 继续请求下一页。"""
+
+        def item(index: int) -> dict[str, str]:
+            return {
+                **self.SAMPLE,
+                "doi": f"10.1101/2024.01.01.{index:06d}",
+                "title": f"Memory pagination result {index}",
+            }
+
+        page1 = {
+            "messages": [{"total": "40", "count": "30", "cursor": "0"}],
+            "collection": [item(i) for i in range(30)],
+        }
+        page2 = {
+            "messages": [{"total": "40", "count": "10", "cursor": "30"}],
+            "collection": [item(i) for i in range(30, 40)],
+        }
+        page1_resp = MagicMock()
+        page1_resp.json.return_value = page1
+        page2_resp = MagicMock()
+        page2_resp.json.return_value = page2
+
+        client = BioRxivClient()
+        mock_get = AsyncMock(side_effect=[page1_resp, page2_resp])
+        with (
+            patch.object(client._limiter, "acquire", new=AsyncMock()),
+            patch.object(client._client, "get", new=mock_get),
+        ):
+            resp = await client.search("memory", per_page=35)
+
+        assert len(resp.results) == 35
+        assert mock_get.await_count == 2
+        requested_paths = [call.args[0] for call in mock_get.await_args_list]
+        assert requested_paths[0].endswith("/0/json")
+        assert requested_paths[1].endswith("/30/json")

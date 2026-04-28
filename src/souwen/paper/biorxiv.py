@@ -25,8 +25,8 @@ logger = logging.getLogger(__name__)
 _BASE_URL = "https://api.biorxiv.org"
 _DEFAULT_RPS = 1.0
 _DEFAULT_LOOKBACK_DAYS = 30
-_PAGE_SIZE = 100
 _MAX_FETCHED = 1000
+_MAX_API_REQUESTS = 10
 _VALID_SERVERS = {"biorxiv", "medrxiv"}
 
 
@@ -151,6 +151,14 @@ class BioRxivClient:
         ).lower()
         return normalized_query in haystack
 
+    @staticmethod
+    def _int_or_none(value: Any) -> int | None:
+        """将 bioRxiv API 元数据中的数字字段安全转换为 int。"""
+        try:
+            return int(value)
+        except (TypeError, ValueError):
+            return None
+
     # ------------------------------------------------------------------
     # 公开方法
     # ------------------------------------------------------------------
@@ -183,14 +191,32 @@ class BioRxivClient:
         results: list[PaperResult] = []
         fetched = 0
         cursor = 0
+        requests_made = 0
 
-        while len(results) < page_size and fetched < _MAX_FETCHED:
+        while (
+            len(results) < page_size
+            and fetched < _MAX_FETCHED
+            and requests_made < _MAX_API_REQUESTS
+        ):
             await self._limiter.acquire()
             resp = await self._client.get(f"/details/{normalized_server}/{interval}/{cursor}/json")
+            requests_made += 1
             data: dict[str, Any] = resp.json()
             items = data.get("collection") or []
             if not isinstance(items, list) or not items:
                 break
+
+            messages = data.get("messages") or []
+            metadata = messages[0] if isinstance(messages, list) and messages else {}
+            if not isinstance(metadata, dict):
+                metadata = {}
+            total = self._int_or_none(metadata.get("total"))
+            count = self._int_or_none(metadata.get("count"))
+            current_cursor = self._int_or_none(metadata.get("cursor"))
+            if count is None:
+                count = len(items)
+            if current_cursor is None:
+                current_cursor = cursor
 
             fetched += len(items)
             for item in items:
@@ -203,9 +229,10 @@ class BioRxivClient:
                 if len(results) >= page_size:
                     break
 
-            if len(items) < _PAGE_SIZE:
+            next_cursor = current_cursor + count
+            if total is None or next_cursor >= total or next_cursor <= cursor:
                 break
-            cursor += len(items)
+            cursor = next_cursor
 
         return SearchResponse(
             query=query,
