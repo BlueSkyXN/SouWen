@@ -96,10 +96,7 @@ async def uninstall(req: UninstallRequest):
 
 def _sanitize_errors(errors: list[dict]) -> list[dict]:
     """Strip exception details from plugin error dicts before API response."""
-    return [
-        {"source": e.get("source", ""), "name": e.get("name", "")}
-        for e in errors
-    ]
+    return [{"source": e.get("source", ""), "name": e.get("name", "")} for e in errors]
 
 
 @router.post("/plugins/reload")

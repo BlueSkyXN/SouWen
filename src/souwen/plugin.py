@@ -225,11 +225,13 @@ def _inject_plugin_config(
                 "source": source_label,
             },
         )
-        errors.append({
-            "source": source_label,
-            "name": plugin.name,
-            "error": f"config: {exc}",
-        })
+        errors.append(
+            {
+                "source": source_label,
+                "name": plugin.name,
+                "error": f"config: {exc}",
+            }
+        )
         return False
     return True
 
@@ -285,11 +287,13 @@ def _register_plugin(
 ) -> None:
     """注册 Plugin：配置注入 + adapter 注册，全程在 owner contextvar 下。"""
     if plugin.name in _PLUGINS:
-        errors.append({
-            "source": source_label,
-            "name": plugin.name,
-            "error": f"插件 {plugin.name!r} 已加载，跳过重复注册",
-        })
+        errors.append(
+            {
+                "source": source_label,
+                "name": plugin.name,
+                "error": f"插件 {plugin.name!r} 已加载，跳过重复注册",
+            }
+        )
         return
     if not _check_plugin_version_compatibility(plugin, source_label=source_label, errors=errors):
         return
@@ -304,7 +308,10 @@ def _register_plugin(
             except Exception as exc:  # noqa: BLE001
                 logger.warning(
                     "注册插件源 %r (插件 %r, %s) 失败: %s",
-                    adapter.name, plugin.name, source_label, exc,
+                    adapter.name,
+                    plugin.name,
+                    source_label,
+                    exc,
                     extra={
                         "event": "adapter_register_failed",
                         "plugin": plugin.name,
@@ -482,14 +489,17 @@ def discover_entrypoint_plugins(
             plugin.adapters = [a for a in plugin.adapters if a.name not in _skip]
 
         if plugin.adapters:
-            _register_plugin(plugin, source_label=label, loaded=loaded, errors=errors, config=config)
+            _register_plugin(
+                plugin, source_label=label, loaded=loaded, errors=errors, config=config
+            )
         else:
             # 所有 adapter 被过滤，清理 ep.load() 期间注册的 orphan fetch handler
             orphan_removed = unregister_fetch_handlers_by_owner(ep_name)
             if orphan_removed:
                 logger.info(
                     "已清理被跳过插件 %r 的孤立 fetch handler: %s",
-                    ep_name, ", ".join(orphan_removed),
+                    ep_name,
+                    ", ".join(orphan_removed),
                 )
 
     return loaded, errors
@@ -557,13 +567,16 @@ def load_config_plugins(
             plugin.adapters = [a for a in plugin.adapters if a.name not in _skip]
 
         if plugin.adapters:
-            _register_plugin(plugin, source_label=label, loaded=loaded, errors=errors, config=config)
+            _register_plugin(
+                plugin, source_label=label, loaded=loaded, errors=errors, config=config
+            )
         else:
             orphan_removed = unregister_fetch_handlers_by_owner(path)
             if orphan_removed:
                 logger.info(
                     "已清理被跳过配置插件 %r 的孤立 fetch handler: %s",
-                    path, ", ".join(orphan_removed),
+                    path,
+                    ", ".join(orphan_removed),
                 )
 
     return loaded, errors

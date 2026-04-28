@@ -401,7 +401,11 @@ def enable_plugin(name: str) -> dict[str, Any]:
         }
     except Exception as exc:  # noqa: BLE001
         logger.warning("启用插件 %r 失败: %s", name, exc)
-        return {"success": False, "restart_required": False, "message": "启用插件失败，请查看服务端日志。"}
+        return {
+            "success": False,
+            "restart_required": False,
+            "message": "启用插件失败，请查看服务端日志。",
+        }
 
 
 def disable_plugin(name: str) -> dict[str, Any]:
@@ -457,7 +461,11 @@ def disable_plugin(name: str) -> dict[str, Any]:
         }
     except Exception as exc:  # noqa: BLE001
         logger.warning("禁用插件 %r 失败: %s", name, exc)
-        return {"success": False, "restart_required": False, "message": "禁用插件失败，请查看服务端日志。"}
+        return {
+            "success": False,
+            "restart_required": False,
+            "message": "禁用插件失败，请查看服务端日志。",
+        }
 
 
 def _plugin_install_enabled() -> bool:
@@ -525,7 +533,11 @@ async def install_plugin(package: str) -> dict[str, Any]:
         return {"success": success, "output": output, "restart_required": success}
     except Exception as exc:  # noqa: BLE001
         logger.warning("安装插件包 %r 失败: %s", package, exc)
-        return {"success": False, "output": "安装插件失败，请查看服务端日志。", "restart_required": False}
+        return {
+            "success": False,
+            "output": "安装插件失败，请查看服务端日志。",
+            "restart_required": False,
+        }
 
 
 async def uninstall_plugin(package: str) -> dict[str, Any]:
@@ -557,7 +569,11 @@ async def uninstall_plugin(package: str) -> dict[str, Any]:
         return {"success": success, "output": output, "restart_required": success}
     except Exception as exc:  # noqa: BLE001
         logger.warning("卸载插件包 %r 失败: %s", package, exc)
-        return {"success": False, "output": "卸载插件失败，请查看服务端日志。", "restart_required": False}
+        return {
+            "success": False,
+            "output": "卸载插件失败，请查看服务端日志。",
+            "restart_required": False,
+        }
 
 
 def reload_plugins() -> dict[str, Any]:
@@ -575,7 +591,13 @@ def reload_plugins() -> dict[str, Any]:
         logger.warning("重新扫描插件失败: %s", exc)
         return {
             "loaded": [],
-            "errors": [{"source": "entry_points", "name": "<reload>", "error": "插件重新扫描失败，请查看服务端日志。"}],
+            "errors": [
+                {
+                    "source": "entry_points",
+                    "name": "<reload>",
+                    "error": "插件重新扫描失败，请查看服务端日志。",
+                }
+            ],
             "message": "插件重新扫描失败。",
         }
 
