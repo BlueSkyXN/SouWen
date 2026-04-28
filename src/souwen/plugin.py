@@ -236,10 +236,44 @@ def _inject_plugin_config(
     return True
 
 
+def _inject_config_into_loaded_plugins(config: SouWenConfig) -> list[str]:
+    """Retroactively inject plugin_config into already-loaded entry-point plugins.
+
+    Called after config is available to bridge the gap between early plugin loading
+    (in ``registry/__init__``) and late config availability.
+
+    Returns list of plugin names that received config.
+    """
+    injected: list[str] = []
+    plugin_config = getattr(config, "plugin_config", {}) or {}
+    if not plugin_config:
+        return injected
+    for name, plugin in _PLUGINS.items():
+        if name in plugin_config and not plugin.config:
+            raw_config = plugin_config[name]
+            try:
+                plugin.config = _validated_plugin_config(plugin, raw_config)
+                injected.append(name)
+                logger.info(
+                    "已向已加载插件 %r 注入配置",
+                    name,
+                    extra={"event": "plugin_config_injected", "plugin": name},
+                )
+            except Exception as exc:  # noqa: BLE001
+                logger.warning("插件 %r 配置验证失败: %s", name, exc)
+    return injected
+
+
 def _version_key(version: str) -> Any:
-    """Return a comparable version object with a tiny fallback for simple semver."""
+    """Return a comparable version object with a tiny fallback for simple semver.
+
+    Raises ``ValueError`` if *version* is not parseable.
+    """
     if Version is not None:
-        return Version(version)
+        try:
+            return Version(version)
+        except Exception as exc:
+            raise ValueError(f"无法解析版本号 {version!r}: {exc}") from exc
     return tuple(int(part) if part.isdigit() else part for part in version.split("."))
 
 
@@ -250,10 +284,23 @@ def _check_plugin_version_compatibility(
     errors: list[dict[str, str]],
 ) -> bool:
     """Validate optional SouWen version constraints declared by a plugin."""
-    current_version = _version_key(SOUWEN_VERSION)
+    try:
+        current_version = _version_key(SOUWEN_VERSION)
+    except ValueError:
+        # Should not happen — own version is always valid.
+        return True
 
     if plugin.min_souwen_version is not None:
-        min_version = _version_key(plugin.min_souwen_version)
+        try:
+            min_version = _version_key(plugin.min_souwen_version)
+        except ValueError:
+            message = (
+                f"插件 {plugin.name!r} 声明了无法解析的 min_souwen_version="
+                f"{plugin.min_souwen_version!r}"
+            )
+            logger.warning(message)
+            errors.append({"source": source_label, "name": plugin.name, "error": message})
+            return False
         if current_version < min_version:
             message = (
                 f"插件 {plugin.name!r} 需要 SouWen >= {plugin.min_souwen_version}, "
@@ -264,7 +311,16 @@ def _check_plugin_version_compatibility(
             return False
 
     if plugin.max_souwen_version is not None:
-        max_version = _version_key(plugin.max_souwen_version)
+        try:
+            max_version = _version_key(plugin.max_souwen_version)
+        except ValueError:
+            message = (
+                f"插件 {plugin.name!r} 声明了无法解析的 max_souwen_version="
+                f"{plugin.max_souwen_version!r}"
+            )
+            logger.warning(message)
+            errors.append({"source": source_label, "name": plugin.name, "error": message})
+            return False
         if current_version > max_version:
             message = (
                 f"插件 {plugin.name!r} 需要 SouWen <= {plugin.max_souwen_version}, "
@@ -486,7 +542,19 @@ def discover_entrypoint_plugins(
 
         # 按 adapter.name 二次过滤（adapter 名可能与 ep 名不同）
         if _skip:
+            skipped_adapters = {a.name for a in plugin.adapters if a.name in _skip}
             plugin.adapters = [a for a in plugin.adapters if a.name not in _skip]
+            # 清理被跳过 adapter 的 fetch handler（部分禁用场景）
+            if skipped_adapters:
+                from souwen.web.fetch import unregister_fetch_handler
+
+                for adapter_name in skipped_adapters:
+                    if unregister_fetch_handler(adapter_name):
+                        logger.info(
+                            "已清理被禁用 adapter %r 的 fetch handler（插件 %r）",
+                            adapter_name,
+                            ep_name,
+                        )
 
         if plugin.adapters:
             _register_plugin(
@@ -632,6 +700,13 @@ def load_plugins(config: SouWenConfig | None = None) -> dict[str, Any]:
             all_errors.append({"source": "entry_points", "name": "<discover>", "error": str(exc)})
 
     if config is not None:
+        # Retroactively inject plugin_config into entry-point plugins that were
+        # loaded before config was available (e.g. in registry.__init__).
+        try:
+            _inject_config_into_loaded_plugins(config)
+        except Exception as exc:  # noqa: BLE001
+            logger.warning("向已加载插件注入配置失败: %s", exc)
+
         try:
             paths = list(getattr(config, "plugins", []) or [])
         except Exception as exc:  # noqa: BLE001

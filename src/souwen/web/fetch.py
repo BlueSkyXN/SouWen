@@ -139,6 +139,15 @@ def unregister_fetch_handlers_by_owner(owner: str) -> list[str]:
     return removed
 
 
+def unregister_fetch_handler(provider: str) -> bool:
+    """移除指定 provider 名的 fetch handler。返回是否有移除。"""
+    if provider in _FETCH_HANDLERS:
+        del _FETCH_HANDLERS[provider]
+        logger.info("已移除 fetch handler: %s", provider)
+        return True
+    return False
+
+
 def get_fetch_handlers() -> dict[str, FetchHandler]:
     """Return a shallow copy of the fetch handler registry (for introspection)."""
     return {p: e.handler for p, e in _FETCH_HANDLERS.items()}

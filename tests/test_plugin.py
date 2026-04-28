@@ -1038,3 +1038,94 @@ class TestAsyncShutdownClose:
         assert result["status"] == "unloaded"
         # Should report the skip in errors
         assert any("async hook skipped" in e for e in result["errors"])
+
+
+# ── GPT-5.5 Review Fix Verification Tests ──────────────────
+
+
+class TestInvalidVersionConstraint:
+    """Fix #4: Invalid version strings should not crash all discovery."""
+
+    def test_invalid_min_souwen_version_reports_error(self, clean_plugins):
+        """A plugin with unparseable min_souwen_version should be rejected gracefully."""
+        from souwen.plugin import _check_plugin_version_compatibility
+
+        p = Plugin(name="bad_version", adapters=[], min_souwen_version="not-a-version")
+        errors: list[dict] = []
+        result = _check_plugin_version_compatibility(p, source_label="test", errors=errors)
+        assert result is False
+        assert len(errors) == 1
+        assert "无法解析" in errors[0]["error"]
+
+    def test_invalid_max_souwen_version_reports_error(self, clean_plugins):
+        """A plugin with unparseable max_souwen_version should be rejected gracefully."""
+        from souwen.plugin import _check_plugin_version_compatibility
+
+        p = Plugin(name="bad_max", adapters=[], max_souwen_version="!!!bad!!!")
+        errors: list[dict] = []
+        result = _check_plugin_version_compatibility(p, source_label="test", errors=errors)
+        assert result is False
+        assert len(errors) == 1
+        assert "无法解析" in errors[0]["error"]
+
+
+class TestPartialAdapterDisable:
+    """Fix #2: Disabling one adapter in a multi-adapter plugin should remove its fetch handler."""
+
+    def test_skipped_adapter_handler_removed(self, clean_plugins):
+        """When one adapter is disabled, its fetch handler should be cleaned up."""
+        from souwen.web.fetch import unregister_fetch_handler
+
+        # Simulate: plugin registers 2 fetch handlers
+        async def handler_a(urls, timeout, **_):
+            return []
+
+        async def handler_b(urls, timeout, **_):
+            return []
+
+        register_fetch_handler("adapter_a", handler_a)
+        register_fetch_handler("adapter_b", handler_b)
+
+        assert "adapter_a" in _FETCH_HANDLERS
+        assert "adapter_b" in _FETCH_HANDLERS
+
+        # Unregister one by provider name
+        assert unregister_fetch_handler("adapter_b") is True
+        assert "adapter_a" in _FETCH_HANDLERS
+        assert "adapter_b" not in _FETCH_HANDLERS
+
+        # Second call returns False (already removed)
+        assert unregister_fetch_handler("adapter_b") is False
+
+
+class TestRetroactiveConfigInjection:
+    """Fix #1: Entry-point plugins should receive plugin_config after config loads."""
+
+    def test_inject_config_into_loaded_plugins(self, clean_plugins):
+        """_inject_config_into_loaded_plugins should inject config into already-loaded plugins."""
+        from souwen.plugin import _inject_config_into_loaded_plugins
+
+        p = Plugin(name="my_ep_plugin", adapters=[], config_schema=dict)
+        _PLUGINS["my_ep_plugin"] = p
+
+        # Create a mock config with plugin_config
+        class MockConfig:
+            plugin_config = {"my_ep_plugin": {"key": "value"}}
+
+        injected = _inject_config_into_loaded_plugins(MockConfig())
+        assert "my_ep_plugin" in injected
+        assert p.config == {"key": "value"}
+
+    def test_inject_skips_already_configured_plugins(self, clean_plugins):
+        """If a plugin already has config, it should not be overwritten."""
+        from souwen.plugin import _inject_config_into_loaded_plugins
+
+        p = Plugin(name="configured", adapters=[], config={"existing": True})
+        _PLUGINS["configured"] = p
+
+        class MockConfig:
+            plugin_config = {"configured": {"new": "val"}}
+
+        injected = _inject_config_into_loaded_plugins(MockConfig())
+        assert "configured" not in injected
+        assert p.config == {"existing": True}
