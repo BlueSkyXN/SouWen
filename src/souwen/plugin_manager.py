@@ -388,6 +388,11 @@ def enable_plugin(name: str) -> dict[str, Any]:
         state["disabled_plugins"] = sorted(disabled)
         _save_state(state)
         _mark_restart_required()
+        logger.info(
+            "插件 %r 已启用，重启后完全生效。",
+            name,
+            extra={"event": "plugin_enabled", "plugin": name},
+        )
         return {
             "success": True,
             "restart_required": True,
@@ -434,6 +439,16 @@ def disable_plugin(name: str) -> dict[str, Any]:
         if removed_handlers:
             parts.append(f"已移除处理器: {', '.join(removed_handlers)}")
         parts.append("重启后完全生效")
+        logger.info(
+            "插件 %r 已禁用，重启后完全生效。",
+            name,
+            extra={
+                "event": "plugin_disabled",
+                "plugin": name,
+                "removed_adapters": list(removed_adapters),
+                "removed_handlers": list(removed_handlers),
+            },
+        )
         return {
             "success": True,
             "restart_required": True,
@@ -501,6 +516,11 @@ async def install_plugin(package: str) -> dict[str, Any]:
             state["installed_via_api"] = sorted(installed)
             _save_state(state)
             _mark_restart_required()
+            logger.info(
+                "插件包 %r 已安装，重启后生效。",
+                package,
+                extra={"event": "plugin_installed", "plugin": package, "package": package},
+            )
         return {"success": success, "output": output, "restart_required": success}
     except Exception as exc:  # noqa: BLE001
         logger.warning("安装插件包 %r 失败: %s", package, exc)
@@ -528,6 +548,11 @@ async def uninstall_plugin(package: str) -> dict[str, Any]:
             state["installed_via_api"] = sorted(installed)
             _save_state(state)
             _mark_restart_required()
+            logger.info(
+                "插件包 %r 已卸载，重启后生效。",
+                package,
+                extra={"event": "plugin_uninstalled", "plugin": package, "package": package},
+            )
         return {"success": success, "output": output, "restart_required": success}
     except Exception as exc:  # noqa: BLE001
         logger.warning("卸载插件包 %r 失败: %s", package, exc)

@@ -447,31 +447,43 @@ class TestEnableDisable:
     def test_enable_plugin_removes_from_disabled_list_and_sets_restart_flag(
         self,
         state_dir: Path,
+        caplog: pytest.LogCaptureFixture,
     ) -> None:
         _save_state({"disabled_plugins": ["alpha", "beta"], "installed_via_api": []})
 
-        result = enable_plugin("alpha")
+        with caplog.at_level(logging.INFO, logger="souwen.plugin_manager"):
+            result = enable_plugin("alpha")
 
         assert result["success"] is True
         assert result["restart_required"] is True
         assert _load_state()["disabled_plugins"] == ["beta"]
         assert is_restart_required() is True
+        record = next(
+            record for record in caplog.records if getattr(record, "event", None) == "plugin_enabled"
+        )
+        assert record.plugin == "alpha"
 
     def test_disable_plugin_adds_to_disabled_list_and_sets_restart_flag(
         self,
         state_dir: Path,
         monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
     ) -> None:
         _save_state({"disabled_plugins": ["alpha"], "installed_via_api": []})
         monkeypatch.setattr("souwen.plugin_manager._valid_disable_target", lambda name: True)
         monkeypatch.setattr("souwen.registry.views._unreg_external", lambda name: False)
 
-        result = disable_plugin("beta")
+        with caplog.at_level(logging.INFO, logger="souwen.plugin_manager"):
+            result = disable_plugin("beta")
 
         assert result["success"] is True
         assert result["restart_required"] is True
         assert _load_state()["disabled_plugins"] == ["alpha", "beta"]
         assert is_restart_required() is True
+        record = next(
+            record for record in caplog.records if getattr(record, "event", None) == "plugin_disabled"
+        )
+        assert record.plugin == "beta"
 
     def test_disable_plugin_deduplicates_disabled_list(
         self, state_dir: Path, monkeypatch: pytest.MonkeyPatch
@@ -549,6 +561,7 @@ class TestInstallUninstall:
         self,
         state_dir: Path,
         monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
     ) -> None:
         async def fake_run_pip(args: list[str], timeout: float) -> tuple[bool, str]:
             assert args == ["install", "superweb2pdf"]
@@ -558,17 +571,24 @@ class TestInstallUninstall:
         monkeypatch.setenv("SOUWEN_ENABLE_PLUGIN_INSTALL", "1")
         monkeypatch.setattr("souwen.plugin_manager._run_pip", fake_run_pip)
 
-        result = await install_plugin("superweb2pdf")
+        with caplog.at_level(logging.INFO, logger="souwen.plugin_manager"):
+            result = await install_plugin("superweb2pdf")
 
         assert result == {"success": True, "output": "installed", "restart_required": True}
         assert _load_state()["installed_via_api"] == ["superweb2pdf"]
         assert is_restart_required() is True
+        record = next(
+            record for record in caplog.records if getattr(record, "event", None) == "plugin_installed"
+        )
+        assert record.plugin == "superweb2pdf"
+        assert record.package == "superweb2pdf"
 
     @pytest.mark.asyncio
     async def test_uninstall_plugin_success_updates_state_and_restart_required(
         self,
         state_dir: Path,
         monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
     ) -> None:
         async def fake_run_pip(args: list[str], timeout: float) -> tuple[bool, str]:
             assert args == ["uninstall", "-y", "superweb2pdf"]
@@ -579,11 +599,17 @@ class TestInstallUninstall:
         monkeypatch.setenv("SOUWEN_ENABLE_PLUGIN_INSTALL", "1")
         monkeypatch.setattr("souwen.plugin_manager._run_pip", fake_run_pip)
 
-        result = await uninstall_plugin("superweb2pdf")
+        with caplog.at_level(logging.INFO, logger="souwen.plugin_manager"):
+            result = await uninstall_plugin("superweb2pdf")
 
         assert result == {"success": True, "output": "uninstalled", "restart_required": True}
         assert _load_state()["installed_via_api"] == []
         assert is_restart_required() is True
+        record = next(
+            record for record in caplog.records if getattr(record, "event", None) == "plugin_uninstalled"
+        )
+        assert record.plugin == "superweb2pdf"
+        assert record.package == "superweb2pdf"
 
 
 class TestReloadPlugins:

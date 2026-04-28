@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 import pytest
@@ -47,6 +48,7 @@ from souwen.web.fetch import (
     register_fetch_handler,
     unregister_fetch_handlers_by_owner,
 )
+from souwen.testing import assert_valid_plugin
 
 
 # ── helpers ────────────────────────────────────────────────
@@ -484,6 +486,29 @@ class TestRegisterPlugin:
         assert "reg_test" in _PLUGINS
         assert _PLUGINS["reg_test"]._registered_adapter_names == ["reg_test_adapter"]
 
+    def test_register_plugin_logs_structured_events(
+        self,
+        clean_registry,
+        clean_plugins,
+        clean_fetch_handlers,
+        caplog: pytest.LogCaptureFixture,
+    ):
+        p = Plugin(name="log_test", adapters=[make_test_adapter("log_adapter")])
+
+        with caplog.at_level(logging.INFO, logger="souwen.plugin"):
+            _register_plugin(p, source_label="test", loaded=[], errors=[])
+
+        adapter_record = next(
+            record for record in caplog.records if getattr(record, "event", None) == "adapter_registered"
+        )
+        plugin_record = next(
+            record for record in caplog.records if getattr(record, "event", None) == "plugin_loaded"
+        )
+        assert adapter_record.plugin == "log_test"
+        assert adapter_record.adapter == "log_adapter"
+        assert plugin_record.plugin == "log_test"
+        assert plugin_record.adapters == ["log_adapter"]
+
     def test_duplicate_plugin_rejected(self, clean_registry, clean_plugins):
         a = make_test_adapter("dup_adapter")
         p = Plugin(name="dup_plugin", adapters=[a])
@@ -607,6 +632,26 @@ class TestUnloadPlugin:
         unload_plugin("shutdown_test")
         assert calls == ["shutdown_test"]
 
+    def test_unload_plugin_logs_structured_event(
+        self,
+        clean_registry,
+        clean_plugins,
+        clean_fetch_handlers,
+        caplog: pytest.LogCaptureFixture,
+    ):
+        p = Plugin(name="unload_log", adapters=[make_test_adapter("unload_log_adapter")])
+        _register_plugin(p, source_label="t", loaded=[], errors=[])
+        caplog.clear()
+
+        with caplog.at_level(logging.INFO, logger="souwen.plugin"):
+            unload_plugin("unload_log")
+
+        record = next(
+            record for record in caplog.records if getattr(record, "event", None) == "plugin_unloaded"
+        )
+        assert record.plugin == "unload_log"
+        assert record.removed_adapters == ["unload_log_adapter"]
+
 
 class TestGetLoadedPlugins:
     def test_returns_copy(self, clean_plugins):
@@ -624,6 +669,25 @@ class TestFetchHandlerProvenance:
         register_fetch_handler("prov_test", handler, owner="my_plugin")
         owners = get_fetch_handler_owners()
         assert owners["prov_test"] == "my_plugin"
+
+    def test_register_fetch_handler_logs_structured_event(
+        self,
+        clean_fetch_handlers,
+        caplog: pytest.LogCaptureFixture,
+    ):
+        async def handler(*a, **kw):
+            pass
+
+        with caplog.at_level(logging.DEBUG, logger="souwen.web.fetch"):
+            register_fetch_handler("log_handler", handler, owner="handler_plugin")
+
+        record = next(
+            record
+            for record in caplog.records
+            if getattr(record, "event", None) == "fetch_handler_registered"
+        )
+        assert record.plugin == "handler_plugin"
+        assert record.provider == "log_handler"
 
     def test_register_picks_up_contextvar(self, clean_fetch_handlers):
         async def handler(*a, **kw):
@@ -723,3 +787,42 @@ class TestConfigPluginsWithPluginEnvelope:
         loaded, errors = load_config_plugins(["souwen.plugin:_test_cfg_factory"])
         assert "cfg_envelope_test" in loaded
         assert "souwen.plugin:_test_cfg_factory" in _PLUGINS
+
+
+class TestPluginContractHelper:
+    def test_valid_plugin_passes_contract(self):
+        plugin = Plugin(name="valid_contract", adapters=[make_test_adapter("valid_contract_adapter")])
+
+        assert_valid_plugin(plugin)
+
+    def test_invalid_entry_point_fails_with_clear_message(self):
+        with pytest.raises(AssertionError, match="cannot be coerced"):
+            assert_valid_plugin(123)
+
+    def test_non_callable_health_check_fails(self):
+        plugin = Plugin(name="bad_health", health_check="not-callable")  # type: ignore[arg-type]
+
+        with pytest.raises(AssertionError, match="health_check"):
+            assert_valid_plugin(plugin)
+
+    def test_adapter_without_methods_fails(self):
+        adapter = SourceAdapter(
+            name="no_methods",
+            domain="fetch",
+            integration="scraper",
+            description="No methods",
+            config_field=None,
+            client_loader=lazy("souwen.web.builtin:BuiltinFetcherClient"),
+            methods={},
+            needs_config=False,
+        )
+        plugin = Plugin(name="no_methods_plugin", adapters=[adapter])
+
+        with pytest.raises(AssertionError, match="at least one method"):
+            assert_valid_plugin(plugin)
+
+    def test_builtin_name_conflict_fails(self):
+        plugin = Plugin(name="conflict", adapters=[make_test_adapter("arxiv")])
+
+        with pytest.raises(AssertionError, match="built-in source"):
+            assert_valid_plugin(plugin)

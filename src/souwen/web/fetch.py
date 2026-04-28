@@ -116,7 +116,16 @@ def register_fetch_handler(
         )
         return False
     _FETCH_HANDLERS[provider] = _HandlerEntry(handler=handler, owner=effective_owner)
-    logger.debug("Registered fetch handler: %s (owner=%s)", provider, effective_owner)
+    logger.debug(
+        "Registered fetch handler: %s (owner=%s)",
+        provider,
+        effective_owner,
+        extra={
+            "event": "fetch_handler_registered",
+            "plugin": effective_owner,
+            "provider": provider,
+        },
+    )
     return True
 
 

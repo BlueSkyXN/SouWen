@@ -153,7 +153,17 @@ def _register_adapters(
             continue
         if ok:
             loaded.append(adapter.name)
-            logger.info("已加载插件源 %r (来自 %s)", adapter.name, source_label)
+            logger.info(
+                "已加载插件源 %r (来自 %s)",
+                adapter.name,
+                source_label,
+                extra={
+                    "event": "adapter_registered",
+                    "plugin": source_label,
+                    "adapter": adapter.name,
+                    "source": source_label,
+                },
+            )
 
 
 def _validated_plugin_config(plugin: Plugin, raw_config: dict[str, Any]) -> dict[str, Any]:
@@ -195,7 +205,16 @@ def _inject_plugin_config(
     try:
         plugin.config = _validated_plugin_config(plugin, raw_config)
     except Exception as exc:  # noqa: BLE001
-        logger.warning("插件 %r 配置验证失败: %s", plugin.name, exc)
+        logger.warning(
+            "插件 %r 配置验证失败: %s",
+            plugin.name,
+            exc,
+            extra={
+                "event": "plugin_config_invalid",
+                "plugin": plugin.name,
+                "source": source_label,
+            },
+        )
         errors.append({
             "source": source_label,
             "name": plugin.name,
@@ -233,6 +252,12 @@ def _register_plugin(
                 logger.warning(
                     "注册插件源 %r (插件 %r, %s) 失败: %s",
                     adapter.name, plugin.name, source_label, exc,
+                    extra={
+                        "event": "adapter_register_failed",
+                        "plugin": plugin.name,
+                        "adapter": adapter.name,
+                        "source": source_label,
+                    },
                 )
                 errors.append({"source": source_label, "name": adapter.name, "error": str(exc)})
                 continue
@@ -240,12 +265,32 @@ def _register_plugin(
                 plugin._registered_adapter_names.append(adapter.name)
                 loaded.append(adapter.name)
                 logger.info(
-                    "已加载插件源 %r (插件 %r, %s)", adapter.name, plugin.name, source_label
+                    "已加载插件源 %r (插件 %r, %s)",
+                    adapter.name,
+                    plugin.name,
+                    source_label,
+                    extra={
+                        "event": "adapter_registered",
+                        "plugin": plugin.name,
+                        "adapter": adapter.name,
+                        "source": source_label,
+                    },
                 )
     finally:
         _current_plugin_owner.reset(token)
 
     _PLUGINS[plugin.name] = plugin
+    logger.info(
+        "已加载插件 %r (来自 %s)",
+        plugin.name,
+        source_label,
+        extra={
+            "event": "plugin_loaded",
+            "plugin": plugin.name,
+            "source": source_label,
+            "adapters": list(plugin._registered_adapter_names),
+        },
+    )
 
 
 def unload_plugin(name: str) -> dict[str, Any]:
@@ -260,7 +305,11 @@ def unload_plugin(name: str) -> dict[str, Any]:
         try:
             result = plugin.on_shutdown(plugin)
             if hasattr(result, "__await__"):
-                logger.warning("插件 %r on_shutdown 返回了协程，同步路径不支持 — 已跳过", name)
+                logger.warning(
+                    "插件 %r on_shutdown 返回了协程，同步路径不支持 — 已跳过",
+                    name,
+                    extra={"event": "plugin_shutdown_skipped", "plugin": name},
+                )
         except Exception as exc:  # noqa: BLE001
             errs.append(f"on_shutdown: {exc}")
 
@@ -269,6 +318,18 @@ def unload_plugin(name: str) -> dict[str, Any]:
     for adapter_name in plugin._registered_adapter_names:
         if _unreg_external(adapter_name):
             removed_adapters.append(adapter_name)
+
+    logger.info(
+        "已卸载插件 %r",
+        name,
+        extra={
+            "event": "plugin_unloaded",
+            "plugin": name,
+            "removed_handlers": list(removed_handlers),
+            "removed_adapters": list(removed_adapters),
+            "errors": list(errs),
+        },
+    )
 
     return {
         "name": name,
@@ -334,7 +395,12 @@ def discover_entrypoint_plugins(
 
         # 按 entry-point 名预筛（快速跳过，不触发 import）
         if ep_name in _skip:
-            logger.info("跳过已禁用的插件 %r (来自 %s)", ep_name, label)
+            logger.info(
+                "跳过已禁用的插件 %r (来自 %s)",
+                ep_name,
+                label,
+                extra={"event": "plugin_disabled", "plugin": ep_name, "source": label},
+            )
             continue
 
         # 设置 contextvar 覆盖模块级 import 时的 fetch handler 注册
@@ -344,7 +410,12 @@ def discover_entrypoint_plugins(
                 obj = ep.load()
                 plugin = _coerce_to_plugin(obj, plugin_name=ep_name)
             except Exception as exc:  # noqa: BLE001
-                logger.warning("加载插件 entry point %r 失败: %s", ep_name, exc)
+                logger.warning(
+                    "加载插件 entry point %r 失败: %s",
+                    ep_name,
+                    exc,
+                    extra={"event": "plugin_load_failed", "plugin": ep_name, "source": label},
+                )
                 errors.append({"source": label, "name": ep_name, "error": str(exc)})
                 continue
         finally:
@@ -389,7 +460,12 @@ def load_config_plugins(
                 obj = _resolve_dotted_path(path)
                 plugin = _coerce_to_plugin(obj, plugin_name=path)
             except Exception as exc:  # noqa: BLE001
-                logger.warning("加载配置插件 %r 失败: %s", path, exc)
+                logger.warning(
+                    "加载配置插件 %r 失败: %s",
+                    path,
+                    exc,
+                    extra={"event": "plugin_load_failed", "plugin": path, "source": label},
+                )
                 errors.append({"source": label, "name": path, "error": str(exc)})
                 continue
         finally:
