@@ -280,6 +280,18 @@ _reg(
 
 _reg(
     SourceAdapter(
+        name="ieee_xplore",
+        domain="paper",
+        integration="official_api",
+        description="IEEE Xplore 电气电子工程文献",
+        config_field="ieee_api_key",
+        client_loader=lazy("souwen.paper.ieee_xplore:IeeeXploreClient"),
+        methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
+    )
+)
+
+_reg(
+    SourceAdapter(
         name="unpaywall",
         domain="paper",
         integration="official_api",

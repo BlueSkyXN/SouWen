@@ -97,6 +97,7 @@ class TestSourceTypeEnum:
         assert SourceType.ARXIV.value == "arxiv"
         assert SourceType.CROSSREF.value == "crossref"
         assert SourceType.BIORXIV.value == "biorxiv"
+        assert SourceType.IEEE_XPLORE.value == "ieee_xplore"
 
     def test_patent_sources_exist(self):
         """专利数据源枚举存在"""

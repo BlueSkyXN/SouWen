@@ -180,6 +180,7 @@ class TestModels:
             SourceType.HAL,
             SourceType.OPENAIRE,
             SourceType.IACR,
+            SourceType.IEEE_XPLORE,
         ]
         patent_sources = [
             SourceType.PATENTSVIEW,
@@ -219,7 +220,7 @@ class TestModels:
             SourceType.WEB_ZHIPUAI,
             SourceType.WEB_ALIYUN_IQS,
         ]
-        assert len(paper_sources) == 16
+        assert len(paper_sources) == 17
         assert len(patent_sources) == 8
         assert len(web_sources) == 26
 
