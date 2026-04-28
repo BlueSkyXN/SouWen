@@ -21,8 +21,19 @@
 - `protocol` 字段：`openai_chat`（默认）/ `openai_responses` / `anthropic_messages`
 - 默认关闭（`enabled: false`），需显式启用并配置 API Key
 
+### Fetch + Summarize
+- 新增 `POST /api/v1/fetch/summarize` 端点：抓取 URL 页面内容并逐页 LLM 摘要
+- 支持多种 fetch 提供者（builtin/jina_reader/tavily 等）
+- 逐页独立摘要，含截断保护和失败容错
+
+### Deep Search
+- 新增 `POST /api/v1/deep-summarize` 端点：搜索 + 抓取 + 两轮 LLM 深度综合
+- 两轮流水线：Pass 1 逐页信息抽取 → Pass 2 跨源综合
+- Round-robin URL 选取 + URL 归一化去重
+- 严格限流（5 req/min），独立于普通摘要端点
+
 ### Tests
-- 新增 `tests/test_llm/`：25 个单元测试覆盖 client/prompts/summarize
+- 新增 `tests/test_llm/`：56 个单元测试覆盖 client/prompts/summarize/providers/fetch/deep
 
 ## v1.1.1 — WARP 动态组件管理与非阻塞启动（2026-04-28）
 
