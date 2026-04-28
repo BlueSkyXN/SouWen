@@ -13,7 +13,7 @@ from datetime import datetime
 from typing import Any
 
 from souwen.config import get_config
-from souwen.exceptions import ParseError
+from souwen.exceptions import ConfigError, ParseError
 from souwen.http_client import SouWenHttpClient
 from souwen.models import Author, PaperResult, SearchResponse, SourceType
 from souwen.rate_limiter import TokenBucketLimiter
@@ -21,6 +21,7 @@ from souwen.rate_limiter import TokenBucketLimiter
 logger = logging.getLogger(__name__)
 
 _BASE_URL = "https://ieeexploreapi.ieee.org/api/v1"
+_REGISTER_URL = "https://developer.ieee.org/"
 _DEFAULT_RPS = 3.0
 
 
@@ -66,13 +67,20 @@ def _terms_list(index_terms: dict[str, Any], key: str) -> list[str]:
 
 
 class IeeeXploreClient:
-    """IEEE Xplore 电气电子工程文献搜索客户端。"""
+    """IEEE Xplore 电气电子工程文献搜索客户端。
+
+    Raises:
+        ConfigError: 未配置 ieee_api_key 时抛出。
+    """
 
     def __init__(self, api_key: str | None = None) -> None:
         """初始化 IEEE Xplore 客户端。
 
         Args:
             api_key: IEEE Xplore API Key。未提供时从全局配置读取。
+
+        Raises:
+            ConfigError: API Key 未配置。
         """
         cfg = get_config()
         self.api_key: str = (
@@ -80,6 +88,13 @@ class IeeeXploreClient:
             if api_key is not None
             else cfg.resolve_api_key("ieee_xplore", "ieee_api_key") or ""
         )
+        if not self.api_key:
+            raise ConfigError(
+                key="ieee_api_key",
+                service="IEEE Xplore",
+                register_url=_REGISTER_URL,
+            )
+
         self._client = SouWenHttpClient(base_url=_BASE_URL, source_name="ieee_xplore")
         self._limiter = TokenBucketLimiter(rate=_DEFAULT_RPS, burst=_DEFAULT_RPS)
 
@@ -171,17 +186,6 @@ class IeeeXploreClient:
         start_record: int = 1,
     ) -> SearchResponse:
         """使用 IEEE Xplore Metadata API 检索文献。"""
-        if not self.api_key:
-            logger.warning("未配置 ieee_api_key，跳过 IEEE Xplore 搜索")
-            return SearchResponse(
-                query=query,
-                total_results=0,
-                page=1,
-                per_page=max_results,
-                results=[],
-                source=SourceType.IEEE_XPLORE,
-            )
-
         await self._limiter.acquire()
 
         limit = min(max(max_results, 1), 200)
@@ -196,6 +200,9 @@ class IeeeXploreClient:
             "format": "json",
         }
 
+        # NOTE: IEEE Xplore (Mashery) may return 403 for rate-limit/quota errors.
+        # The shared HTTP client maps these to AuthError; a Mashery-specific handler
+        # would need to inspect X-Mashery-Error-Code headers to distinguish auth vs rate-limit.
         resp = await self._client.get("/search/articles", params=params)
         data: dict[str, Any] = resp.json()
 

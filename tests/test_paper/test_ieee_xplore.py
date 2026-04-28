@@ -3,10 +3,9 @@
 from __future__ import annotations
 
 from datetime import date
-from unittest.mock import patch
-
 import pytest
 
+from souwen.exceptions import ConfigError
 from souwen.models import SourceType
 from souwen.paper.ieee_xplore import IeeeXploreClient
 
@@ -85,17 +84,9 @@ class TestIeeeXplore:
 
         assert paper.source_url == "https://ieeexplore.ieee.org/document/9876543"
 
-    @pytest.mark.asyncio
-    async def test_search_without_api_key_returns_empty_response(self):
-        client = IeeeXploreClient(api_key="")
+    def test_client_without_api_key_raises_config_error(self):
+        with pytest.raises(ConfigError) as exc_info:
+            IeeeXploreClient(api_key="")
 
-        with patch("souwen.paper.ieee_xplore.logger.warning") as warn:
-            response = await client.search("machine learning", max_results=5)
-
-        assert response.query == "machine learning"
-        assert response.total_results == 0
-        assert response.per_page == 5
-        assert response.results == []
-        assert response.source == SourceType.IEEE_XPLORE
-        warn.assert_called_once()
-        assert "ieee_api_key" in warn.call_args.args[0]
+        assert exc_info.value.key == "ieee_api_key"
+        assert exc_info.value.service == "IEEE Xplore"
