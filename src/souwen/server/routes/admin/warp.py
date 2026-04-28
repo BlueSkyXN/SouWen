@@ -271,9 +271,13 @@ async def warp_component_install(
         result = await installer.install(component, version)
         return result
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
-    except RuntimeError as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.warning("组件安装参数错误: %s — %s", component, e)
+        raise HTTPException(status_code=400, detail=f"参数错误: {component}") from e
+    except Exception as e:
+        logger.exception("组件安装失败: %s", component)
+        raise HTTPException(
+            status_code=500, detail=f"安装 {component} 失败，请查看服务端日志"
+        ) from e
 
 
 @router.post("/warp/components/uninstall")
@@ -288,9 +292,13 @@ async def warp_component_uninstall(
         result = await installer.uninstall(component)
         return result
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e)) from e
-    except RuntimeError as e:
-        raise HTTPException(status_code=500, detail=str(e)) from e
+        logger.warning("组件卸载参数错误: %s — %s", component, e)
+        raise HTTPException(status_code=400, detail=f"参数错误: {component}") from e
+    except Exception as e:
+        logger.exception("组件卸载失败: %s", component)
+        raise HTTPException(
+            status_code=500, detail=f"卸载 {component} 失败，请查看服务端日志"
+        ) from e
 
 
 @router.post("/warp/switch")
@@ -309,7 +317,8 @@ async def warp_switch(
     if status["status"] in ("enabled", "starting", "error"):
         disable_result = await mgr.disable()
         if not disable_result["ok"]:
-            raise HTTPException(status_code=500, detail=f"禁用失败: {disable_result.get('error')}")
+            logger.error("WARP 禁用失败: %s", disable_result.get("error"))
+            raise HTTPException(status_code=500, detail="禁用当前模式失败，请查看服务端日志")
 
     result = await mgr.enable(
         mode=mode,
@@ -318,8 +327,10 @@ async def warp_switch(
         endpoint=endpoint,
     )
     if not result["ok"]:
-        raise HTTPException(status_code=400, detail=result["error"])
-    return result
+        logger.warning("WARP 切换失败: %s → %s", mode, result.get("error"))
+        raise HTTPException(status_code=400, detail=f"切换到 {mode} 模式失败")
+    safe_result = {k: v for k, v in result.items() if k != "error"}
+    return safe_result
 
 
 @router.get("/warp/events")
