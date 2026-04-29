@@ -24,23 +24,26 @@ logger = logging.getLogger(__name__)
 
 _BASE_URL = "https://api.biorxiv.org"
 _DEFAULT_RPS = 1.0
-_DEFAULT_LOOKBACK_DAYS = 30
+_DEFAULT_LOOKBACK_DAYS = 7
 _MAX_FETCHED = 1000
-_MAX_API_REQUESTS = 10
+# bioRxiv has no server-side search; we fetch recent preprints and filter locally.
+# To limit API calls, only the last 7 days are scanned by default.
+_MAX_API_REQUESTS = 34
 _VALID_SERVERS = {"biorxiv", "medrxiv"}
+_BIORXIV_LIMITER = TokenBucketLimiter(rate=_DEFAULT_RPS, burst=_DEFAULT_RPS)
 
 
 class BioRxivClient:
     """bioRxiv / medRxiv 生物医学预印本搜索客户端。
 
-    bioRxiv 官方 API 没有全文搜索端点，本客户端拉取最近 30 天内容详情，
+    bioRxiv 官方 API 没有全文搜索端点，本客户端拉取最近 7 天内容详情，
     再按 query 在 title / abstract 中做大小写不敏感过滤。
     """
 
     def __init__(self) -> None:
         """初始化 bioRxiv API 客户端。"""
         self._client = SouWenHttpClient(base_url=_BASE_URL, source_name="biorxiv")
-        self._limiter = TokenBucketLimiter(rate=_DEFAULT_RPS, burst=_DEFAULT_RPS)
+        self._limiter = _BIORXIV_LIMITER
 
     # ------------------------------------------------------------------
     # async context manager
@@ -149,7 +152,8 @@ class BioRxivClient:
                 str(item.get("abstract") or ""),
             ]
         ).lower()
-        return normalized_query in haystack
+        terms = normalized_query.split()
+        return all(term in haystack for term in terms)
 
     @staticmethod
     def _int_or_none(value: Any) -> int | None:

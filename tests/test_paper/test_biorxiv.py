@@ -90,6 +90,16 @@ class TestBioRxiv:
         assert BioRxivClient._matches_query(self.SAMPLE, "not-present") is False
         assert BioRxivClient._matches_query(self.SAMPLE, "") is True
 
+    def test_matches_query_multi_word_terms_anywhere(self):
+        assert BioRxivClient._matches_query(self.SAMPLE, "neural coordinated") is True
+        assert BioRxivClient._matches_query(self.SAMPLE, "neural absent") is False
+
+    def test_clients_share_rate_limiter(self):
+        first = BioRxivClient()
+        second = BioRxivClient()
+
+        assert first._limiter is second._limiter
+
     @pytest.mark.asyncio
     async def test_search_uses_api_metadata_for_pagination(self):
         """API 每页 30 条时，按 total/cursor/count 继续请求下一页。"""
