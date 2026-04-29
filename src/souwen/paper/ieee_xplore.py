@@ -83,11 +83,7 @@ class IeeeXploreClient:
             ConfigError: API Key 未配置。
         """
         cfg = get_config()
-        self.api_key: str = (
-            api_key
-            if api_key is not None
-            else cfg.resolve_api_key("ieee_xplore", "ieee_api_key") or ""
-        )
+        self.api_key: str = api_key or cfg.resolve_api_key("ieee_xplore", "ieee_api_key") or ""
         if not self.api_key:
             raise ConfigError(
                 key="ieee_api_key",

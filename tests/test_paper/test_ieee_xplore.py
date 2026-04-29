@@ -84,9 +84,17 @@ class TestIeeeXplore:
 
         assert paper.source_url == "https://ieeexplore.ieee.org/document/9876543"
 
-    def test_client_without_api_key_raises_config_error(self):
-        with pytest.raises(ConfigError) as exc_info:
-            IeeeXploreClient(api_key="")
+    def test_client_without_api_key_raises_config_error(self, monkeypatch):
+        monkeypatch.delenv("SOUWEN_IEEE_API_KEY", raising=False)
+        monkeypatch.delenv("IEEE_API_KEY", raising=False)
+        from souwen.config import reload_config
 
-        assert exc_info.value.key == "ieee_api_key"
-        assert exc_info.value.service == "IEEE Xplore"
+        reload_config()
+        try:
+            with pytest.raises(ConfigError) as exc_info:
+                IeeeXploreClient()
+
+            assert exc_info.value.key == "ieee_api_key"
+            assert exc_info.value.service == "IEEE Xplore"
+        finally:
+            reload_config()
