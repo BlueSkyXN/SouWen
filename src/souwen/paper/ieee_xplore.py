@@ -25,12 +25,21 @@ _REGISTER_URL = "https://developer.ieee.org/"
 _DEFAULT_RPS = 3.0
 
 
-def _safe_int(value: Any) -> int | None:
-    if value in (None, ""):
-        return None
+def _safe_int(v: Any, default: int = 0) -> int:
+    """Parse any value as int, return default on failure."""
     try:
-        return int(str(value)[:4])
-    except (ValueError, TypeError):
+        return int(v)
+    except (TypeError, ValueError):
+        return default
+
+
+def _parse_year(v: Any) -> int | None:
+    """Extract a 4-digit year from a value. Returns None on failure."""
+    s = str(v).strip()[:4]
+    try:
+        year = int(s)
+        return year if 1900 <= year <= 2100 else None
+    except (TypeError, ValueError):
         return None
 
 
@@ -127,7 +136,7 @@ class IeeeXploreClient:
                 if name:
                     authors.append(Author(name=name, affiliation=affiliation))
 
-            year = _safe_int(article.get("publication_year"))
+            year = _parse_year(article.get("publication_year"))
             publication_date = _parse_publication_date(article.get("publication_date"))
 
             citation_count = _safe_int(article.get("citing_paper_count"))
@@ -144,7 +153,8 @@ class IeeeXploreClient:
             else:
                 source_url = "https://ieeexplore.ieee.org/"
 
-            is_open_access = bool(article.get("is_open_access"))
+            access_type = article.get("access_type", article.get("accessType", ""))
+            is_open_access = "open" in str(access_type).lower()
 
             return PaperResult(
                 title=article.get("title", "") or "",
@@ -166,8 +176,8 @@ class IeeeXploreClient:
                     "content_type": article.get("content_type"),
                     "publisher": article.get("publisher"),
                     "is_open_access": is_open_access,
-                    "start_page": article.get("start_page"),
-                    "end_page": article.get("end_page"),
+                    "start_page": _safe_int(article.get("start_page")),
+                    "end_page": _safe_int(article.get("end_page")),
                     "ieee_terms": ieee_terms,
                     "author_terms": author_terms,
                 },
@@ -191,8 +201,6 @@ class IeeeXploreClient:
             "querytext": query,
             "max_records": limit,
             "start_record": start,
-            "sort_field": "publication_year",
-            "sort_order": "desc",
             "format": "json",
         }
 
