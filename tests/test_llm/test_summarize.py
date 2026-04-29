@@ -1,12 +1,14 @@
 """Tests for souwen.llm.summarize — mock LLM client."""
 
+import importlib
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from souwen.llm.models import LLMResponse, LLMUsage
-from souwen.llm.summarize import summarize
 from souwen.models import Author, PaperResult, SearchResponse, SourceType
+
+summarize_module = importlib.import_module("souwen.llm.summarize")
 
 
 def _paper(idx: int = 1, abstract: str = "This is a test abstract") -> PaperResult:
@@ -49,10 +51,10 @@ async def test_summarize_success():
     mock_llm = AsyncMock(return_value=_llm_response())
 
     with (
-        patch("souwen.llm.summarize.llm_complete", mock_llm),
-        patch("souwen.llm.summarize.get_config", return_value=_mock_config()),
+        patch.object(summarize_module, "llm_complete", mock_llm),
+        patch.object(summarize_module, "get_config", return_value=_mock_config()),
     ):
-        result = await summarize("test query", [_response([_paper(1), _paper(2)])])
+        result = await summarize_module.summarize("test query", [_response([_paper(1), _paper(2)])])
 
     assert result.query == "test query"
     assert result.summary == "This is a test summary [1][2]."
@@ -67,12 +69,12 @@ async def test_summarize_success():
 
 async def test_summarize_empty_responses():
     with pytest.raises(ValueError, match="No search results"):
-        await summarize("test query", [])
+        await summarize_module.summarize("test query", [])
 
 
 async def test_summarize_all_empty_results():
     with pytest.raises(ValueError, match="No search results"):
-        await summarize("test query", [_response([])])
+        await summarize_module.summarize("test query", [_response([])])
 
 
 async def test_summarize_truncation():
@@ -80,10 +82,14 @@ async def test_summarize_truncation():
     mock_llm = AsyncMock(return_value=_llm_response())
 
     with (
-        patch("souwen.llm.summarize.llm_complete", mock_llm),
-        patch("souwen.llm.summarize.get_config", return_value=_mock_config(max_input_tokens=50)),
+        patch.object(summarize_module, "llm_complete", mock_llm),
+        patch.object(
+            summarize_module, "get_config", return_value=_mock_config(max_input_tokens=50)
+        ),
     ):
-        await summarize("test query", [_response([_paper(1, abstract=long_abstract)])])
+        await summarize_module.summarize(
+            "test query", [_response([_paper(1, abstract=long_abstract)])]
+        )
 
     messages = mock_llm.await_args.args[0]
     user_message = messages[1].content
@@ -95,13 +101,15 @@ async def test_summarize_mode_forwarding():
     mock_llm = AsyncMock(return_value=_llm_response())
 
     with (
-        patch("souwen.llm.summarize.llm_complete", mock_llm),
-        patch("souwen.llm.summarize.get_config", return_value=_mock_config()),
-        patch(
-            "souwen.llm.summarize.get_system_prompt", return_value="detailed prompt"
+        patch.object(summarize_module, "llm_complete", mock_llm),
+        patch.object(summarize_module, "get_config", return_value=_mock_config()),
+        patch.object(
+            summarize_module, "get_system_prompt", return_value="detailed prompt"
         ) as prompt_mock,
     ):
-        result = await summarize("test query", [_response([_paper()])], mode="detailed")
+        result = await summarize_module.summarize(
+            "test query", [_response([_paper()])], mode="detailed"
+        )
 
     prompt_mock.assert_called_once_with("detailed", None)
     assert result.mode == "detailed"
@@ -114,13 +122,13 @@ async def test_summarize_custom_prompt():
     mock_llm = AsyncMock(return_value=_llm_response())
 
     with (
-        patch("souwen.llm.summarize.llm_complete", mock_llm),
-        patch("souwen.llm.summarize.get_config", return_value=_mock_config()),
-        patch(
-            "souwen.llm.summarize.get_system_prompt", return_value="custom prompt"
+        patch.object(summarize_module, "llm_complete", mock_llm),
+        patch.object(summarize_module, "get_config", return_value=_mock_config()),
+        patch.object(
+            summarize_module, "get_system_prompt", return_value="custom prompt"
         ) as prompt_mock,
     ):
-        await summarize(
+        await summarize_module.summarize(
             "test query",
             [_response([_paper()])],
             system_prompt_override="custom prompt",

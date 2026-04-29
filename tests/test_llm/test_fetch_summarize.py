@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import importlib
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -9,6 +10,10 @@ import pytest
 from souwen.llm.deep_search import _extract_urls_round_robin
 from souwen.llm.models import LLMResponse, LLMUsage
 from souwen.models import FetchResponse, FetchResult, SearchResponse, SourceType, WebSearchResult
+
+deep_search_module = importlib.import_module("souwen.llm.deep_search")
+facade_search_module = importlib.import_module("souwen.facade.search")
+web_fetch_module = importlib.import_module("souwen.web.fetch")
 
 
 # ── Helpers ──────────────────────────────────────────────
@@ -245,10 +250,16 @@ class TestDeepSummarize:
     @pytest.fixture(autouse=True)
     def _mock_deps(self):
         with (
-            patch("souwen.facade.search.search", new_callable=AsyncMock) as self.mock_search,
-            patch("souwen.web.fetch.fetch_content", new_callable=AsyncMock) as self.mock_fetch,
-            patch("souwen.llm.deep_search.llm_complete", new_callable=AsyncMock) as self.mock_llm,
-            patch("souwen.llm.deep_search.get_config") as mock_cfg,
+            patch.object(
+                facade_search_module, "search", new_callable=AsyncMock
+            ) as self.mock_search,
+            patch.object(
+                web_fetch_module, "fetch_content", new_callable=AsyncMock
+            ) as self.mock_fetch,
+            patch.object(
+                deep_search_module, "llm_complete", new_callable=AsyncMock
+            ) as self.mock_llm,
+            patch.object(deep_search_module, "get_config") as mock_cfg,
         ):
             mock_cfg.return_value = _mock_config()
             yield
