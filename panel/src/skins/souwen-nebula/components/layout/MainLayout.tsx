@@ -50,6 +50,7 @@ import {
   Layers,
 } from 'lucide-react'
 import { useAuthStore } from '@core/stores/authStore'
+import { canAccessNavItem } from '@core/lib/access'
 import { useSkinStore } from '../../stores/skinStore'
 import { skinConfig } from '../../skin.config'
 import { getSkinOrDefault, isSingleSkin, listSkinIds } from '@core/skin-registry'
@@ -121,6 +122,8 @@ export function MainLayout() {
   const location = useLocation()
   const logout = useAuthStore((s) => s.logout)
   const version = useAuthStore((s) => s.version)
+  const features = useAuthStore((s) => s.features)
+  const role = useAuthStore((s) => s.role)
   const { mode, toggleMode, scheme, setScheme } = useSkinStore()
   // 主题调色板和 skin 选择器的显示状态
   const [themePaletteOpen, setThemePaletteOpen] = useState(false)
@@ -138,6 +141,7 @@ export function MainLayout() {
 
   // 获取当前激活的 skin ID
   const currentSkinId = document.documentElement.getAttribute('data-skin') || 'souwen-nebula'
+  const visibleNavItems = NAV_ITEMS.filter((item) => canAccessNavItem(item.to, features, role))
 
   // 外部点击或 ESC 关闭调色板菜单
   useEffect(() => {
@@ -200,7 +204,7 @@ export function MainLayout() {
 
       {/* 导航菜单 */}
       <nav className={styles.nav}>
-        {NAV_ITEMS.map((item) => (
+        {visibleNavItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}

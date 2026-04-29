@@ -157,6 +157,22 @@ class TestPrecedence:
         assert cfg.timeout == 13
         assert cfg.timeout != SouWenConfig().timeout
 
+    def test_yaml_beats_dotenv(self, monkeypatch, tmp_path):
+        """.env 低于 YAML，不能悄悄覆盖 souwen.yaml。"""
+        monkeypatch.delenv("SOUWEN_TIMEOUT", raising=False)
+        (tmp_path / ".env").write_text("SOUWEN_TIMEOUT=99\n", encoding="utf-8")
+        (tmp_path / "souwen.yaml").write_text("timeout: 13\n", encoding="utf-8")
+        cfg = reload_config()
+        assert cfg.timeout == 13
+
+    def test_env_beats_dotenv_and_yaml(self, monkeypatch, tmp_path):
+        """真实环境变量仍高于 YAML 和 .env。"""
+        (tmp_path / ".env").write_text("SOUWEN_TIMEOUT=22\n", encoding="utf-8")
+        (tmp_path / "souwen.yaml").write_text("timeout: 33\n", encoding="utf-8")
+        monkeypatch.setenv("SOUWEN_TIMEOUT", "44")
+        cfg = reload_config()
+        assert cfg.timeout == 44
+
     def test_default_when_neither_set(self):
         """既无 YAML 也无环境变量时，使用 SouWenConfig 默认值。"""
         cfg = reload_config()

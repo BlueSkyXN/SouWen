@@ -7,12 +7,14 @@
 请求，对外部数据源（souwen.search / souwen.web）统一 monkeypatch。
 
 Fixtures：
-- ``client``：不设任何密码的裸客户端，管理/搜索端点默认均开放。
+- ``client``：不设任何密码的裸客户端，搜索端点开放，管理端点默认锁定。
 - ``authed_client``：预先设 ``SOUWEN_API_PASSWORD=test-secret-123``，
   用于验证旧版统一密码 Bearer Token 鉴权通路。
 - ``dual_key_client``：设 visitor_password 和 admin_password 为不同值，
   验证双密钥独立认证。
 """
+
+from types import SimpleNamespace
 
 import pytest
 
@@ -27,7 +29,7 @@ except ImportError:
 
 @pytest.fixture()
 def client():
-    """裸 TestClient：不设任何密码，所有端点默认开放（用于公开行为测试）。"""
+    """裸 TestClient：不设任何密码，管理端点默认锁定。"""
     from souwen.server.app import app
 
     return TestClient(app, raise_server_exceptions=False)
@@ -84,9 +86,20 @@ class TestHealth:
 
 
 class TestAdminAuth:
-    # --- 无密码时默认开放 ---
-    def test_admin_open_without_any_password(self, client):
-        """无任何密码配置时，管理端点默认开放。"""
+    # --- 无密码时默认锁定，需显式开放 ---
+    def test_admin_locked_without_any_password(self, client):
+        """无任何密码且未设 SOUWEN_ADMIN_OPEN 时，管理端点默认锁定。"""
+        resp = client.get("/api/v1/admin/config")
+        assert resp.status_code == 401
+
+    def test_admin_open_without_any_password_when_explicitly_enabled(
+        self, client, monkeypatch
+    ):
+        """SOUWEN_ADMIN_OPEN=1 时，无管理密码才显式开放管理端点。"""
+        monkeypatch.setenv("SOUWEN_ADMIN_OPEN", "1")
+        from souwen.config import get_config
+
+        get_config.cache_clear()
         resp = client.get("/api/v1/admin/config")
         assert resp.status_code == 200
 
@@ -161,23 +174,36 @@ class TestAdminAuth:
         assert resp.status_code == 200
 
     def test_dual_key_visitor_password_rejected_for_admin(self, dual_key_client):
-        """visitor_password 不能访问管理端点。"""
+        """visitor_password 有效但权限不足，访问管理端点返回 403。"""
         resp = dual_key_client.get(
             "/api/v1/admin/config",
             headers={"Authorization": "Bearer visitor-pw"},
         )
-        assert resp.status_code == 401
+        assert resp.status_code == 403
 
     def test_dual_key_no_token_rejected(self, dual_key_client):
         """admin_password 已设时，无 Token 必须 401。"""
         resp = dual_key_client.get("/api/v1/admin/config")
         assert resp.status_code == 401
 
-    # --- admin_password 显式空字符串 → 强制开放 ---
-    def test_admin_explicit_empty_overrides_api_password(self, client, monkeypatch):
-        """admin_password="" 时即使 api_password 已设也强制开放管理端点。"""
+    # --- admin_password 显式空字符串 → 忽略 api_password 回退，但仍需显式开放 ---
+    def test_admin_explicit_empty_overrides_api_password_but_stays_locked(
+        self, client, monkeypatch
+    ):
+        """admin_password="" 时忽略 api_password 回退，未设 SOUWEN_ADMIN_OPEN 仍锁定。"""
         monkeypatch.setenv("SOUWEN_API_PASSWORD", "legacy-pw")
         monkeypatch.setenv("SOUWEN_ADMIN_PASSWORD", "")
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        resp = client.get("/api/v1/admin/config")
+        assert resp.status_code == 401
+
+    def test_admin_explicit_empty_can_open_with_admin_open(self, client, monkeypatch):
+        """admin_password="" 且 SOUWEN_ADMIN_OPEN=1 时才开放管理端点。"""
+        monkeypatch.setenv("SOUWEN_API_PASSWORD", "legacy-pw")
+        monkeypatch.setenv("SOUWEN_ADMIN_PASSWORD", "")
+        monkeypatch.setenv("SOUWEN_ADMIN_OPEN", "1")
         from souwen.config import get_config
 
         get_config.cache_clear()
@@ -223,6 +249,18 @@ class TestSearchAuth:
         assert "patent" in data
         assert "general" in data
 
+    def test_sources_omits_disabled_entries(self, client, monkeypatch):
+        """sources.<name>.enabled=false 后，/sources 不应再展示该源。"""
+        monkeypatch.setenv("SOUWEN_SOURCES", '{"duckduckgo": {"enabled": false}}')
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        resp = client.get("/api/v1/sources")
+        assert resp.status_code == 200
+        data = resp.json()
+        names = {item["name"] for entries in data.values() for item in entries}
+        assert "duckduckgo" not in names
+
     # --- 双密钥：visitor 和 admin 密码均可访问搜索端点 ---
     def test_dual_key_visitor_password_accepted(self, dual_key_client):
         """visitor_password 可以访问搜索端点。"""
@@ -264,15 +302,15 @@ class TestSearchAuth:
         resp = client.get("/api/v1/sources")
         assert resp.status_code == 200
 
-    # --- 仅 visitor_password 时 admin 端开放 ---
-    def test_only_visitor_password_leaves_admin_open(self, client, monkeypatch):
-        """仅设 visitor_password，管理端点应开放。"""
+    # --- 仅 visitor_password 时 admin 端仍锁定 ---
+    def test_only_visitor_password_leaves_admin_locked(self, client, monkeypatch):
+        """仅设 visitor_password，管理端点仍需 admin 密码或 SOUWEN_ADMIN_OPEN。"""
         monkeypatch.setenv("SOUWEN_VISITOR_PASSWORD", "visitor-pw")
         from souwen.config import get_config
 
         get_config.cache_clear()
         resp = client.get("/api/v1/admin/config")
-        assert resp.status_code == 200
+        assert resp.status_code == 401
 
 
 # ---------------------------------------------------------------------------
@@ -283,8 +321,21 @@ class TestSearchAuth:
 class TestThreeRoleAuth:
     """三角色认证系统测试（Guest/User/Admin）。"""
 
-    def test_whoami_no_password_returns_admin(self, client):
-        """无密码配置时 /whoami 返回 admin 角色。"""
+    def test_whoami_no_password_returns_user_when_admin_locked(self, client):
+        """无密码但未显式开放 admin 时，/whoami 只返回 user 权限。"""
+        resp = client.get("/api/v1/whoami")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["role"] == "user"
+        assert data["features"]["fetch"] is False
+        assert data["features"]["config_write"] is False
+
+    def test_whoami_no_password_admin_open_returns_admin(self, client, monkeypatch):
+        """SOUWEN_ADMIN_OPEN=1 时，无密码 /whoami 才返回 admin 权限。"""
+        monkeypatch.setenv("SOUWEN_ADMIN_OPEN", "1")
+        from souwen.config import get_config
+
+        get_config.cache_clear()
         resp = client.get("/api/v1/whoami")
         assert resp.status_code == 200
         data = resp.json()
@@ -344,6 +395,43 @@ class TestThreeRoleAuth:
         )
         assert resp.status_code == 200
 
+
+
+# ---------------------------------------------------------------------------
+# Wayback admin save route
+# ---------------------------------------------------------------------------
+
+
+class TestWaybackAdminSave:
+    def test_public_wayback_save_route_is_not_mounted(self, authed_client):
+        """写入操作不应暴露在公开 /wayback/save 路径。"""
+        resp = authed_client.post(
+            "/api/v1/wayback/save",
+            headers={"Authorization": "Bearer test-secret-123"},
+            json={"url": "https://example.com", "timeout": 10},
+        )
+        assert resp.status_code == 404
+
+    def test_admin_wayback_save_route_is_mounted(self, authed_client, monkeypatch):
+        """前端应调用 /api/v1/admin/wayback/save，且管理认证后能命中路由。"""
+
+        class FakeWaybackClient:
+            async def save_page(self, url, timeout):
+                return SimpleNamespace(
+                    success=True,
+                    snapshot_url="https://web.archive.org/web/20240101000000/https://example.com",
+                    timestamp="20240101000000",
+                    error=None,
+                )
+
+        monkeypatch.setattr("souwen.web.wayback.WaybackClient", FakeWaybackClient)
+        resp = authed_client.post(
+            "/api/v1/admin/wayback/save",
+            headers={"Authorization": "Bearer test-secret-123"},
+            json={"url": "https://example.com", "timeout": 10},
+        )
+        assert resp.status_code == 200
+        assert resp.json()["success"] is True
 
 # ---------------------------------------------------------------------------
 # Rate limiter

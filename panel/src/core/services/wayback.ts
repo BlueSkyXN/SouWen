@@ -63,7 +63,7 @@ export const waybackMethods = {
     timeout = 60,
     signal?: AbortSignal,
   ): Promise<WaybackSaveResponse> {
-    return this.request<WaybackSaveResponse>('/api/v1/wayback/save', {
+    return this.request<WaybackSaveResponse>('/api/v1/admin/wayback/save', {
       method: 'POST',
       headers: this.headers(),
       body: JSON.stringify({ url, timeout }),

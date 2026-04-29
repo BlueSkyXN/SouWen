@@ -26,6 +26,7 @@ def serve(
     setup_logging()
 
     from souwen.config import get_config
+    from souwen.server.auth import is_admin_open_enabled
 
     cfg = get_config()
     console.print("[bold]━━━ SouWen 启动配置 ━━━[/bold]")
@@ -36,8 +37,9 @@ def serve(
     console.print(f"  访客密码:        [{v_color}]{v_text}[/]")
     # 管理密码状态
     a_pw = cfg.effective_admin_password
-    a_color = "green" if a_pw else "yellow"
-    a_text = "已启用" if a_pw else "未启用（管理端开放）"
+    admin_open = is_admin_open_enabled()
+    a_color = "green" if a_pw else "yellow" if admin_open else "red"
+    a_text = "已启用" if a_pw else "未启用（显式开放）" if admin_open else "未启用（默认锁定）"
     console.print(f"  管理密码:        [{a_color}]{a_text}[/]")
     console.print(f"  Docs:            {'已开放' if cfg.expose_docs else '已隐藏'}")
     console.print(

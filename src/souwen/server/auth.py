@@ -7,12 +7,12 @@
 
 角色层级（Admin ⊃ User ⊃ Guest）：
     - Guest 游客：无 Token 即可访问搜索端点（受限源、限速）
-    - User 用户：提供 user_password，可访问搜索 + 只读管理端点
+    - User 用户：提供 user_password，可访问搜索 + /sources
     - Admin 管理员：提供 admin_password，拥有全部权限
 
 密码解析优先级：
     - 用户端点：user_password > visitor_password > api_password > 无密码（开放）
-    - 管理端点：admin_password > api_password > 无密码（开放）
+    - 管理端点：admin_password > api_password > 无密码（需 SOUWEN_ADMIN_OPEN=1 显式开放）
     - Admin Token 自动满足 User/Guest 端点
 
 主要接口：
@@ -34,6 +34,7 @@ from __future__ import annotations
 
 import enum
 import logging
+import os
 import secrets
 
 from fastapi import Depends, HTTPException, status
@@ -44,6 +45,12 @@ from souwen.config import get_config
 logger = logging.getLogger("souwen.server")
 
 _bearer_scheme = HTTPBearer(auto_error=False)
+_ADMIN_OPEN_VALUES = {"1", "true", "yes", "on"}
+
+
+def is_admin_open_enabled() -> bool:
+    """是否显式开放无密码 admin 端点。"""
+    return os.getenv("SOUWEN_ADMIN_OPEN", "").strip().lower() in _ADMIN_OPEN_VALUES
 
 
 class Role(enum.IntEnum):
@@ -83,15 +90,12 @@ def resolve_role(
     if is_user:
         return Role.USER
 
-    # Guest 逻辑：
-    # 1. 未配置任何密码 → 全开放，给 ADMIN
-    # 2. guest_enabled=True → 允许无 Token 访问（GUEST）
-    # 3. guest_enabled=False → 无有效 Token 则拒绝
-    if not admin_pw and not user_pw:
-        return Role.ADMIN  # 全开放模式
-
+    if not admin_pw and is_admin_open_enabled():
+        return Role.ADMIN
     if cfg.guest_enabled:
         return Role.GUEST
+    if not user_pw:
+        return Role.USER
 
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -142,20 +146,43 @@ def require_auth(
 ) -> None:
     """向后兼容：管理端点认证
 
-    行为与旧版一致：
-    - 若管理密码未配置（effective_admin_password 为 None）→ 放行
-    - 否则要求 ADMIN 角色（non-ADMIN 一律 401，与旧版相同）
+    行为：
+    - 若管理密码未配置，必须设置 SOUWEN_ADMIN_OPEN=1 才显式放行
+    - 否则要求 ADMIN 角色；有效但权限不足的 USER 返回 403
     """
     cfg = get_config()
     if not cfg.effective_admin_password:
-        return  # 管理密码未配置 → 管理端点开放
-    role = resolve_role(credentials)
-    if role < Role.ADMIN:
+        if is_admin_open_enabled():
+            return
+        if credentials and cfg.effective_user_password:
+            role = resolve_role(credentials)
+            if role >= Role.USER:
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="权限不足：此端点需要管理员权限",
+                )
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="认证失败：无效的管理端 Bearer Token",
+            detail="认证失败：管理端未配置密码，需设置 SOUWEN_ADMIN_OPEN=1 才允许无密码访问",
             headers={"WWW-Authenticate": "Bearer"},
         )
+    token = credentials.credentials if credentials else ""
+    admin_pw = cfg.effective_admin_password or ""
+    user_pw = cfg.effective_user_password or ""
+    is_admin = bool(admin_pw) and secrets.compare_digest(token, admin_pw)
+    is_user = bool(user_pw) and secrets.compare_digest(token, user_pw)
+    if is_admin:
+        return
+    if is_user:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="权限不足：此端点需要管理员权限",
+        )
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="认证失败：无效的管理端 Bearer Token",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
 
 
 def check_search_auth(

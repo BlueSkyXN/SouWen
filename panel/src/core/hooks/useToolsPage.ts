@@ -8,7 +8,9 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { api } from '../services/api'
+import { hasFeatureAccess } from '../lib/access'
 import { useNotificationStore } from '../stores/notificationStore'
+import { useAuthStore } from '../stores/authStore'
 import type {
   WaybackSnapshot,
   WaybackAvailabilityResponse,
@@ -47,6 +49,9 @@ function toWaybackDate(s: string): string | undefined {
 export function useToolsPage() {
   const { t } = useTranslation()
   const addToast = useNotificationStore((s) => s.addToast)
+  const features = useAuthStore((s) => s.features)
+  const role = useAuthStore((s) => s.role)
+  const canSave = hasFeatureAccess(features, role, 'wayback_save')
   const [tab, setTab] = useState<Tab>('cdx')
   const abortRef = useRef<AbortController | null>(null)
 
@@ -71,6 +76,10 @@ export function useToolsPage() {
   useEffect(() => {
     return () => abortRef.current?.abort()
   }, [])
+
+  useEffect(() => {
+    if (!canSave && tab === 'save') setTab('cdx')
+  }, [canSave, tab])
 
   const cancelInflight = () => {
     abortRef.current?.abort()
@@ -124,6 +133,7 @@ export function useToolsPage() {
 
   const handleSave = async (e?: FormEvent) => {
     e?.preventDefault()
+    if (!canSave) return
     if (!saveUrl.trim()) return
     const signal = cancelInflight()
     setSaveLoading(true)
@@ -163,6 +173,7 @@ export function useToolsPage() {
     checkResult,
     handleCheck,
     // save
+    canSave,
     saveUrl, setSaveUrl,
     saveLoading,
     saveResult,
