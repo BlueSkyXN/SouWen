@@ -168,6 +168,7 @@ class SourceType(str, Enum):
     WEB_FIRECRAWL = "web_firecrawl"
     WEB_PERPLEXITY = "web_perplexity"
     WEB_LINKUP = "web_linkup"
+    WEB_XCRAWL = "web_xcrawl"
     WEB_SCRAPINGDOG = "web_scrapingdog"
     WEB_STARTPAGE = "web_startpage"
     WEB_BAIDU = "web_baidu"

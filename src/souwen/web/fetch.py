@@ -1,8 +1,8 @@
 """并发多提供者聚合内容抓取
 
 文件用途：
-    核心网页内容抓取聚合模块。支持 20 个提供者（内置抓取、Jina Reader、arXiv Fulltext、
-    Tavily、Firecrawl、Exa、Crawl4AI、Scrapfly、Diffbot、ScrapingBee、ZenRows、
+    核心网页内容抓取聚合模块。支持 21 个提供者（内置抓取、Jina Reader、arXiv Fulltext、
+    Tavily、Firecrawl、Exa、XCrawl、Crawl4AI、Scrapfly、Diffbot、ScrapingBee、ZenRows、
     ScraperAPI、Apify、Cloudflare Browser Rendering、Wayback Machine、
     newspaper4k、readability、MCP、site_crawler（多页 BFS 爬虫）、
     deepwiki（DeepWiki 文档抓取）），
@@ -293,6 +293,13 @@ async def _handle_firecrawl(urls: list[str], timeout: float, **_kwargs: Any) -> 
         return await client.scrape_batch(urls, timeout=timeout)
 
 
+async def _handle_xcrawl(urls: list[str], timeout: float, **_kwargs: Any) -> FetchResponse:
+    from souwen.web.xcrawl import XCrawlClient
+
+    async with XCrawlClient() as client:
+        return await client.scrape_batch(urls, timeout=timeout)
+
+
 async def _handle_exa(urls: list[str], timeout: float, **_kwargs: Any) -> FetchResponse:
     from souwen.web.exa import ExaClient
 
@@ -405,6 +412,7 @@ register_fetch_handler("jina_reader", _handle_jina_reader)
 register_fetch_handler("arxiv_fulltext", _handle_arxiv_fulltext)
 register_fetch_handler("tavily", _handle_tavily)
 register_fetch_handler("firecrawl", _handle_firecrawl)
+register_fetch_handler("xcrawl", _handle_xcrawl)
 register_fetch_handler("exa", _handle_exa)
 register_fetch_handler("crawl4ai", _handle_crawl4ai)
 register_fetch_handler("scrapfly", _handle_scrapfly)
