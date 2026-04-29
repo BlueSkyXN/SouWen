@@ -77,7 +77,7 @@ class LLMConfig(BaseModel):
     timeout: float = 60.0
     max_input_tokens: int = 6000
     system_prompt: str | None = None
-    default_mode: str = "brief"
+    default_mode: Literal["brief", "detailed", "academic"] = "brief"
     rate_limit_summarize: int = 20
     """摘要端点限流（次/分钟）"""
     rate_limit_fetch: int = 20
