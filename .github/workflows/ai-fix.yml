@@ -270,7 +270,6 @@ jobs:
           effort: ${{ inputs.effort || vars.CODEX_EFFORT || 'xhigh' }}
           sandbox: workspace-write
           safety-strategy: drop-sudo
-          codex-args: '["--ask-for-approval", "never"]'
           prompt: |
             你是一个 AI Coding Agent，负责为 GitHub PR 执行代码修复。
 

@@ -531,7 +531,6 @@ jobs:
           effort: ${{ inputs.effort || vars.CODEX_EFFORT || 'xhigh' }}
           sandbox: ${{ needs.resolve-pr.outputs.review_mode == 'deep' && 'workspace-write' || 'read-only' }}
           safety-strategy: ${{ needs.resolve-pr.outputs.review_mode == 'deep' && 'drop-sudo' || 'read-only' }}
-          codex-args: '["--ask-for-approval", "never", "--ephemeral"]'
           prompt: |
             你正在为 GitHub Pull Request 做代码评审。
 
@@ -639,7 +638,6 @@ jobs:
           effort: ${{ inputs.effort || vars.CODEX_EFFORT || 'xhigh' }}
           sandbox: read-only
           safety-strategy: read-only
-          codex-args: '["--ask-for-approval", "never", "--ephemeral"]'
           prompt-file: .codex-review-condense-prompt.md
 
       - name: Prepare final review comment
