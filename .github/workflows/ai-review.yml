@@ -216,27 +216,57 @@ jobs:
             core.setOutput('body', pr.body || '');
             core.setOutput('html_url', pr.html_url || '');
 
-            // Determine review mode: deep if triggered by repo owner, safe otherwise.
-            // NOTE: For org-owned repos, github.repository_owner is the org name,
-            // not a user login. This logic works for personal repos (BlueSkyXN/SouWen).
-            // For org repos, consider using author_association or an allowlist variable.
+            // Determine review mode: deep if triggered by a high-trust principal,
+            // safe otherwise. Decision order:
+            //   1) login === repository_owner          (fast path, works for personal repos)
+            //   2) pr.author_association ∈ {OWNER, MEMBER, COLLABORATOR}
+            //                                          (handles org repos + invited collaborators)
+            //   3) for manual dispatch, query collaborator permission
+            //                                          (admin/maintain → deep)
+            //   4) otherwise safe
+            // CONTRIBUTOR / FIRST_TIME_CONTRIBUTOR / NONE never get deep — they may be
+            // external users we should not trust with workspace-write sandbox.
             const repoOwner = process.env.REPO_OWNER || '';
+            const TRUSTED_ASSOC = new Set(['OWNER', 'MEMBER', 'COLLABORATOR']);
+            const TRUSTED_PERM = new Set(['admin', 'maintain']);
             let reviewMode = 'safe';
             let modeReason = '';
+
             if (isPullRequestEvent) {
-              if (pr.user.login === repoOwner) {
+              const author = pr.user && pr.user.login ? pr.user.login : '';
+              const assoc = pr.author_association || 'NONE';
+              if (author && author === repoOwner) {
                 reviewMode = 'deep';
-                modeReason = `PR author (${pr.user.login}) is repository owner`;
+                modeReason = `PR author (${author}) === repository_owner`;
+              } else if (TRUSTED_ASSOC.has(assoc)) {
+                reviewMode = 'deep';
+                modeReason = `PR author (${author}) author_association=${assoc}`;
               } else {
-                modeReason = `PR author (${pr.user.login}) is not repository owner (${repoOwner})`;
+                modeReason = `PR author (${author}) not trusted (owner=${repoOwner}, assoc=${assoc})`;
               }
             } else {
               const actor = process.env.ACTOR || '';
-              if (actor === repoOwner) {
+              if (actor && actor === repoOwner) {
                 reviewMode = 'deep';
-                modeReason = `Manual dispatch actor (${actor}) is repository owner`;
+                modeReason = `Manual dispatch actor (${actor}) === repository_owner`;
+              } else if (actor) {
+                try {
+                  const { data: permData } = await github.rest.repos.getCollaboratorPermissionLevel({
+                    owner: context.repo.owner,
+                    repo: context.repo.repo,
+                    username: actor,
+                  });
+                  if (TRUSTED_PERM.has(permData.permission)) {
+                    reviewMode = 'deep';
+                    modeReason = `Manual dispatch actor (${actor}) collaborator permission=${permData.permission}`;
+                  } else {
+                    modeReason = `Manual dispatch actor (${actor}) collaborator permission=${permData.permission} (not trusted)`;
+                  }
+                } catch (err) {
+                  modeReason = `Manual dispatch actor (${actor}) permission lookup failed: ${err.message}`;
+                }
               } else {
-                modeReason = `Manual dispatch actor (${actor}) is not repository owner (${repoOwner})`;
+                modeReason = 'Manual dispatch actor missing';
               }
             }
             core.setOutput('review_mode', reviewMode);
