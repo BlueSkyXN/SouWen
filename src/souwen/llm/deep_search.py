@@ -15,7 +15,7 @@ from urllib.parse import urlparse
 
 from souwen.config import get_config
 from souwen.core.exceptions import ConfigError
-from souwen.llm.client import llm_complete
+from souwen.llm.client import LLMError, llm_complete
 from souwen.llm.models import (
     DeepFetchStats,
     DeepSummaryResult,
@@ -214,11 +214,10 @@ async def deep_summarize(
                     source=source,
                 )
             )
-        except ConfigError:
+        except (ConfigError, LLMError):
             raise
         except Exception as exc:
             logger.warning("Deep search extract failed for %s: %s", url, exc)
-            # Skip this page but don't fail the whole pipeline
 
     if not extractions:
         raise ValueError("All page extractions failed")

@@ -10,7 +10,7 @@ import logging
 
 from souwen.config import get_config
 from souwen.core.exceptions import ConfigError
-from souwen.llm.client import llm_complete
+from souwen.llm.client import LLMError, llm_complete
 from souwen.llm.models import LLMMessage, LLMUsage, PageSummaryItem, PageSummaryResult
 from souwen.llm.prompts import get_page_summary_prompt
 
@@ -119,10 +119,9 @@ async def summarize_pages(
                     provider=result.source,
                 )
             )
-        except ConfigError:
+        except (ConfigError, LLMError):
             raise
         except Exception as exc:
-            logger.warning("LLM summarize failed for %s: %s", result.url, exc)
             items.append(
                 PageSummaryItem(
                     url=result.url,

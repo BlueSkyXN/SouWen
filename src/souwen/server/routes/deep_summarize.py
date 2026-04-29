@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -59,6 +60,7 @@ router = APIRouter()
 
 # Deep search rate limit — configurable via llm.rate_limit_deep
 _deep_limiter: InMemoryRateLimiter | None = None
+_deep_lock = threading.Lock()
 
 
 def _get_deep_limiter() -> InMemoryRateLimiter:
@@ -72,7 +74,9 @@ def rate_limit_deep_summarize(request: Request) -> None:
     """Rate limit for deep search based on llm.rate_limit_deep config."""
     global _deep_limiter  # noqa: PLW0603
     if _deep_limiter is None:
-        _deep_limiter = _get_deep_limiter()
+        with _deep_lock:
+            if _deep_limiter is None:
+                _deep_limiter = _get_deep_limiter()
     _deep_limiter.check(get_client_ip(request))
 
 

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -54,13 +55,16 @@ def _get_summarize_limiter() -> InMemoryRateLimiter:
 
 
 _summarize_limiter: InMemoryRateLimiter | None = None
+_summarize_lock = threading.Lock()
 
 
 def rate_limit_summarize(request: Request) -> None:
     """Limit summarize calls based on llm.rate_limit_summarize config."""
     global _summarize_limiter  # noqa: PLW0603
     if _summarize_limiter is None:
-        _summarize_limiter = _get_summarize_limiter()
+        with _summarize_lock:
+            if _summarize_limiter is None:
+                _summarize_limiter = _get_summarize_limiter()
     _summarize_limiter.check(get_client_ip(request))
 
 

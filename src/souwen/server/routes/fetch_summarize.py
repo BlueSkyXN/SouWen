@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import threading
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -55,6 +56,7 @@ class FetchSummarizeResponse(BaseModel):
 router = APIRouter()
 
 _fetch_summarize_limiter: InMemoryRateLimiter | None = None
+_fetch_summarize_lock = threading.Lock()
 
 
 def _get_fetch_summarize_limiter() -> InMemoryRateLimiter:
@@ -68,7 +70,9 @@ def rate_limit_fetch_summarize(request: Request) -> None:
     """Rate limit for fetch+summarize based on llm.rate_limit_fetch config."""
     global _fetch_summarize_limiter  # noqa: PLW0603
     if _fetch_summarize_limiter is None:
-        _fetch_summarize_limiter = _get_fetch_summarize_limiter()
+        with _fetch_summarize_lock:
+            if _fetch_summarize_limiter is None:
+                _fetch_summarize_limiter = _get_fetch_summarize_limiter()
     _fetch_summarize_limiter.check(get_client_ip(request))
 
 
