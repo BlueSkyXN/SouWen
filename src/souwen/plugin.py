@@ -350,7 +350,9 @@ def _register_plugin(
                 "error": f"插件 {plugin.name!r} 已加载，跳过重复注册",
             }
         )
-        unregister_fetch_handlers_by_owner(plugin.name)
+        # 注意：不清理 handler，因为已加载插件的 handler 仍然有效。
+        # ep.load() 期间重复调用 register_fetch_handler() 会被跳过（override=False），
+        # 所以不会产生新的 orphan handler。
         return
     if not _check_plugin_version_compatibility(plugin, source_label=source_label, errors=errors):
         unregister_fetch_handlers_by_owner(plugin.name)
@@ -639,7 +641,19 @@ def load_config_plugins(
             continue
 
         if _skip:
+            skipped_adapters = {a.name for a in plugin.adapters if a.name in _skip}
             plugin.adapters = [a for a in plugin.adapters if a.name not in _skip]
+            # 清理被跳过 adapter 的 fetch handler（部分禁用场景）
+            if skipped_adapters:
+                from souwen.web.fetch import unregister_fetch_handler
+
+                for adapter_name in skipped_adapters:
+                    if unregister_fetch_handler(adapter_name):
+                        logger.info(
+                            "已清理被禁用 adapter %r 的 fetch handler（配置插件 %r）",
+                            adapter_name,
+                            path,
+                        )
 
         if plugin.adapters:
             _register_plugin(

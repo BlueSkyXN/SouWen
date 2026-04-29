@@ -1149,16 +1149,16 @@ class TestFailedPluginHandlerCleanup:
         assert "leaked_provider" in removed
         assert "leaked_provider" not in _FETCH_HANDLERS
 
-    def test_rejected_duplicate_cleans_handlers(self, clean_plugins, clean_fetch_handlers):
-        """When _register_plugin rejects a duplicate, handlers are cleaned up."""
+    def test_rejected_duplicate_preserves_existing_handlers(self, clean_plugins, clean_fetch_handlers):
+        """When _register_plugin rejects a duplicate, existing handlers are preserved."""
         adapter = make_test_adapter("dup_src")
         p1 = Plugin(name="my_dup_plugin", adapters=[adapter])
         _register_plugin(p1, source_label="test", loaded=[], errors=[])
         assert "my_dup_plugin" in _PLUGINS
 
-        # Simulate: second load of same plugin registered a handler
-        register_fetch_handler("dup_handler", lambda: None, owner="my_dup_plugin")
-        # Attempt to register duplicate should clean up
+        # Simulate: the already-loaded plugin has a live handler
+        register_fetch_handler("live_handler", lambda: None, owner="my_dup_plugin")
+        # Attempt to register duplicate — should NOT remove the live handler
         errors: list[dict] = []
         _register_plugin(
             Plugin(name="my_dup_plugin", adapters=[]),
@@ -1166,5 +1166,7 @@ class TestFailedPluginHandlerCleanup:
             loaded=[],
             errors=errors,
         )
-        # Handler should have been cleaned up by the duplicate rejection
-        assert "dup_handler" not in _FETCH_HANDLERS
+        # Live handler should still be there
+        assert "live_handler" in _FETCH_HANDLERS
+        assert len(errors) == 1
+        assert "已加载" in errors[0]["error"]
