@@ -41,6 +41,11 @@ concurrency:
   group: ai-pr-review-${{ github.event.pull_request.number || inputs.pr_number || inputs.target_branch || github.ref_name }}
   cancel-in-progress: true
 
+# Force Node.js 24 for all JavaScript actions (upload-artifact, download-artifact, etc.)
+# to avoid Node.js 20 deprecation bugs on newer runners.
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
 permissions:
   contents: read
   actions: read
