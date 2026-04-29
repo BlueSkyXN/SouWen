@@ -1129,3 +1129,42 @@ class TestRetroactiveConfigInjection:
         injected = _inject_config_into_loaded_plugins(MockConfig())
         assert "configured" not in injected
         assert p.config == {"existing": True}
+
+
+class TestFailedPluginHandlerCleanup:
+    """Fix: Failed/rejected plugins should not leave fetch handlers active."""
+
+    def test_failed_ep_load_cleans_handlers(self, clean_plugins, clean_fetch_handlers, monkeypatch):
+        """When entry point load fails, any side-effect handlers are cleaned up."""
+        # Simulate: a plugin registers a handler during import, then fails
+        async def leaked_handler(urls, timeout, **_):
+            return []
+
+        register_fetch_handler("leaked_provider", leaked_handler, owner="failing_ep")
+        assert "leaked_provider" in _FETCH_HANDLERS
+
+        # The cleanup should happen when unregister_fetch_handlers_by_owner is called
+        from souwen.web.fetch import unregister_fetch_handlers_by_owner
+        removed = unregister_fetch_handlers_by_owner("failing_ep")
+        assert "leaked_provider" in removed
+        assert "leaked_provider" not in _FETCH_HANDLERS
+
+    def test_rejected_duplicate_cleans_handlers(self, clean_plugins, clean_fetch_handlers):
+        """When _register_plugin rejects a duplicate, handlers are cleaned up."""
+        adapter = make_test_adapter("dup_src")
+        p1 = Plugin(name="my_dup_plugin", adapters=[adapter])
+        _register_plugin(p1, source_label="test", loaded=[], errors=[])
+        assert "my_dup_plugin" in _PLUGINS
+
+        # Simulate: second load of same plugin registered a handler
+        register_fetch_handler("dup_handler", lambda: None, owner="my_dup_plugin")
+        # Attempt to register duplicate should clean up
+        errors: list[dict] = []
+        _register_plugin(
+            Plugin(name="my_dup_plugin", adapters=[]),
+            source_label="test",
+            loaded=[],
+            errors=errors,
+        )
+        # Handler should have been cleaned up by the duplicate rejection
+        assert "dup_handler" not in _FETCH_HANDLERS

@@ -350,10 +350,13 @@ def _register_plugin(
                 "error": f"插件 {plugin.name!r} 已加载，跳过重复注册",
             }
         )
+        unregister_fetch_handlers_by_owner(plugin.name)
         return
     if not _check_plugin_version_compatibility(plugin, source_label=source_label, errors=errors):
+        unregister_fetch_handlers_by_owner(plugin.name)
         return
     if not _inject_plugin_config(plugin, config, source_label=source_label, errors=errors):
+        unregister_fetch_handlers_by_owner(plugin.name)
         return
 
     token = _current_plugin_owner.set(plugin.name)
@@ -536,6 +539,8 @@ def discover_entrypoint_plugins(
                     extra={"event": "plugin_load_failed", "plugin": ep_name, "source": label},
                 )
                 errors.append({"source": label, "name": ep_name, "error": str(exc)})
+                # 清理加载过程中注册的 orphan fetch handler
+                unregister_fetch_handlers_by_owner(ep_name)
                 continue
         finally:
             _current_plugin_owner.reset(token)
@@ -618,6 +623,8 @@ def load_config_plugins(
                     extra={"event": "plugin_load_failed", "plugin": path, "source": label},
                 )
                 errors.append({"source": label, "name": path, "error": str(exc)})
+                # 清理加载过程中注册的 orphan fetch handler
+                unregister_fetch_handlers_by_owner(path)
                 continue
         finally:
             _current_plugin_owner.reset(token)

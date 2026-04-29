@@ -220,11 +220,22 @@ def get_config() -> SouWenConfig:
             from souwen.plugin import load_config_plugins
 
             # 读取禁用列表，跳过已禁用的配置插件
+            # 注意：不能使用 _load_state() 因为它会回调 get_config() 造成递归。
+            # 直接从 cfg 对象获取状态路径。
             skip_names: set[str] = set()
             try:
-                from souwen.plugin_manager import _load_state
+                from souwen.plugin_manager import _normalize_state
 
-                skip_names = set(_load_state().get("disabled_plugins", []))
+                data_path = getattr(cfg, "data_path", None)
+                if data_path is not None:
+                    state_file = Path(data_path) / "plugins.state.json"
+                else:
+                    data_dir = getattr(cfg, "data_dir", "~/.local/share/souwen")
+                    state_file = Path(data_dir).expanduser() / "plugins.state.json"
+                if state_file.exists():
+                    raw = json.loads(state_file.read_text(encoding="utf-8"))
+                    skip_names = set(_normalize_state(raw).get("disabled_plugins", []))
+                # else: no state file yet, skip_names stays empty
             except Exception:  # noqa: BLE001
                 pass
             load_config_plugins(cfg.plugins, skip_names=skip_names, config=cfg)
