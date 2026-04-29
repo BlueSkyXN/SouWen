@@ -6,6 +6,9 @@ import importlib
 from unittest.mock import MagicMock
 
 import pytest
+
+pytest.importorskip("fastapi")
+
 from fastapi import HTTPException
 from fastapi.routing import APIRoute
 
