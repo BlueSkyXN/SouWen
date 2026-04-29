@@ -92,9 +92,7 @@ class TestAdminAuth:
         resp = client.get("/api/v1/admin/config")
         assert resp.status_code == 401
 
-    def test_admin_open_without_any_password_when_explicitly_enabled(
-        self, client, monkeypatch
-    ):
+    def test_admin_open_without_any_password_when_explicitly_enabled(self, client, monkeypatch):
         """SOUWEN_ADMIN_OPEN=1 时，无管理密码才显式开放管理端点。"""
         monkeypatch.setenv("SOUWEN_ADMIN_OPEN", "1")
         from souwen.config import get_config
@@ -396,7 +394,6 @@ class TestThreeRoleAuth:
         assert resp.status_code == 200
 
 
-
 # ---------------------------------------------------------------------------
 # Wayback admin save route
 # ---------------------------------------------------------------------------
@@ -432,6 +429,7 @@ class TestWaybackAdminSave:
         )
         assert resp.status_code == 200
         assert resp.json()["success"] is True
+
 
 # ---------------------------------------------------------------------------
 # Rate limiter

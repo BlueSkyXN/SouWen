@@ -144,10 +144,7 @@ async def lifespan(app: FastAPI):
         __version__,
         auth_desc,
     )
-    if (
-        not admin_pw
-        and is_admin_open_enabled()
-    ):
+    if not admin_pw and is_admin_open_enabled():
         logger.warning(
             "SOUWEN_ADMIN_OPEN=1 已显式解除 Admin API 锁定；"
             "任何能访问 /api/v1/admin/* 的客户端都将获得管理员权限，生产环境禁用。"
