@@ -11,7 +11,7 @@
  *   - 主题系统：支持 light/dark 模式和多种配色方案（nebula/aurora/obsidian）
  *
  * 常量定义：
- *   NAV_ITEMS - 导航菜单项列表（dashboard/search/sources/network/config）
+ *   NAV_ITEMS - 导航菜单项列表（dashboard / search / fetch / video / tools / sources / network / warp / config）
  *   PAGE_TITLE_KEYS - URL 路径到标题 i18n 键的映射
  *   pageVariants / pageTransition - 页面进出动画配置
  *   overlayVariants / drawerVariants - 移动端抽屉动画配置
@@ -91,6 +91,7 @@ const PAGE_TITLE_KEYS: Record<string, string> = {
   '/tools': 'nav.tools',
   '/sources': 'nav.sources',
   '/network': 'nav.network',
+  '/warp': 'nav.warp',
   '/config': 'nav.config',
 }
 

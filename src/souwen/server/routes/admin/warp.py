@@ -1,4 +1,4 @@
-"""WARP 代理管理与 Wayback 写入 — /admin/warp/*、/admin/wayback/save"""
+"""WARP 代理管理 — /admin/warp/*"""
 
 from __future__ import annotations
 
@@ -10,7 +10,6 @@ from fastapi import APIRouter, HTTPException, Query
 from starlette.responses import StreamingResponse
 
 from souwen.server.routes._common import logger
-from souwen.server.schemas import WaybackSaveRequest, WaybackSaveResponse
 
 router = APIRouter()
 
@@ -372,34 +371,3 @@ async def warp_events():
             "X-Accel-Buffering": "no",
         },
     )
-
-
-# ---------------------------------------------------------------------------
-# Wayback Machine — 写入操作（管理认证）
-# ---------------------------------------------------------------------------
-
-
-@router.post("/wayback/save", response_model=WaybackSaveResponse)
-async def api_wayback_save(body: WaybackSaveRequest):
-    """触发 Wayback Machine 立即存档 — 需要管理认证。"""
-    from souwen.web.wayback import WaybackClient
-
-    try:
-        client = WaybackClient()
-        resp = await asyncio.wait_for(
-            client.save_page(url=body.url, timeout=body.timeout),
-            timeout=body.timeout + 15,
-        )
-        return {
-            "url": body.url,
-            "success": resp.success,
-            "snapshot_url": resp.snapshot_url,
-            "timestamp": resp.timestamp,
-            "error": resp.error,
-        }
-    except asyncio.TimeoutError:
-        logger.warning("Wayback save 超时: url=%s timeout=%ss", body.url, body.timeout)
-        raise HTTPException(status_code=504, detail=f"存档超时（{body.timeout}s）")
-    except Exception:
-        logger.warning("Wayback save 错误: url=%s", body.url, exc_info=True)
-        raise

@@ -1,5 +1,21 @@
 # Changelog
 
+## [Unreleased] — 全面评审修复（2026-04-29）
+
+### Bug Fixes
+- **fix(panel)**：修正 Wayback Save 前端调用路径（`/api/v1/wayback/save` → `/api/v1/admin/wayback/save`）。原路径与后端 admin 路由前缀不一致，导致所有 5 个皮肤的 ToolsPage 中"存档"按钮固定 404。
+- **fix(panel)**：补齐 `souwen-google` 皮肤 `PAGE_TITLE_KEYS` 缺失的 `/warp` 路径标题映射，避免落到默认 `nav.dashboard`。
+- **fix(panel/skins)**：carbon / apple / ios 三个皮肤补齐 `/video` 与 `/tools` 导航入口，与 souwen-google / souwen-nebula 保持一致；之前路由已注册但侧栏不可达。
+- **fix(panel/skins)**：更新 souwen-google / souwen-nebula 的 `MainLayout.tsx` 顶部注释，反映当前 9 个 NAV_ITEMS（dashboard / search / fetch / video / tools / sources / network / warp / config）。
+
+### Refactor
+- **refactor(server/routes)**：把 `/admin/wayback/save` 端点从 `routes/admin/warp.py` 拆出到独立的 `routes/admin/wayback.py`，保持 SRP；`admin_router` 在 `routes/admin/__init__.py` 中合并新模块。
+
+### Docs
+- **docs(README)**：更正 fetch 横切能力计数（15+4 → 16+4 = 20 源），与 `docs/data-sources.md` 自动生成结果对齐。
+- **docs(api-reference)**：更新示例 JSON 中过期的 `version` 字段（0.6.3 → 1.1.1），并补充"动态返回，示例值仅作参考"的说明。
+- **docs(api-reference)**：补齐 fetch provider 列表中遗漏的 `arxiv_fulltext`，并把"19 个提供者"修正为"20 个"，与 registry 实际注册一致。
+
 ## v1.1.2 — AI Workflow 安全加固与功能深化（2026-05-04）
 
 ### Features
