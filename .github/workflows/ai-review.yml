@@ -369,33 +369,34 @@ jobs:
         continue-on-error: true
         run: |
           set +e
-          mkdir -p .ai-review-context/local-checks
+          CTX="$GITHUB_WORKSPACE/.ai-review-context/local-checks"
+          mkdir -p "$CTX"
 
           {
             echo '$ python -m pip install --upgrade pip'
             python -m pip install --upgrade pip
             echo '$ pip install -e ".[dev]"'
             pip install -e ".[dev]"
-          } > .ai-review-context/local-checks/python-install.log 2>&1
-          echo "$?" > .ai-review-context/local-checks/python-install.exitcode
+          } > "$CTX/python-install.log" 2>&1
+          echo "$?" > "$CTX/python-install.exitcode"
 
           {
             echo '$ ruff check src/ tests/'
             ruff check src/ tests/
-          } > .ai-review-context/local-checks/ruff-check.log 2>&1
-          echo "$?" > .ai-review-context/local-checks/ruff-check.exitcode
+          } > "$CTX/ruff-check.log" 2>&1
+          echo "$?" > "$CTX/ruff-check.exitcode"
 
           {
             echo '$ ruff format --check src/ tests/'
             ruff format --check src/ tests/
-          } > .ai-review-context/local-checks/ruff-format.log 2>&1
-          echo "$?" > .ai-review-context/local-checks/ruff-format.exitcode
+          } > "$CTX/ruff-format.log" 2>&1
+          echo "$?" > "$CTX/ruff-format.exitcode"
 
           {
             echo '$ pytest tests/ -v --tb=short'
             pytest tests/ -v --tb=short
-          } > .ai-review-context/local-checks/pytest.log 2>&1
-          echo "$?" > .ai-review-context/local-checks/pytest.exitcode
+          } > "$CTX/pytest.log" 2>&1
+          echo "$?" > "$CTX/pytest.exitcode"
 
       - name: Set up Node.js for panel checks
         if: github.event_name == 'pull_request' || inputs.run_local_checks == 'true'
@@ -410,41 +411,50 @@ jobs:
         continue-on-error: true
         run: |
           set +e
-          mkdir -p .ai-review-context/local-checks
+          CTX="$GITHUB_WORKSPACE/.ai-review-context/local-checks"
+          mkdir -p "$CTX"
 
-          {
+          # Use subshells ( ) so cd panel does NOT leak into parent shell
+          (
             echo '$ npm ci'
             cd panel && npm ci
-          } > .ai-review-context/local-checks/panel-install.log 2>&1
-          echo "$?" > .ai-review-context/local-checks/panel-install.exitcode
+          ) > "$CTX/panel-install.log" 2>&1
+          echo "$?" > "$CTX/panel-install.exitcode"
 
-          {
+          (
             echo '$ npx tsc --noEmit'
             cd panel && npx tsc --noEmit
-          } > .ai-review-context/local-checks/panel-tsc.log 2>&1
-          echo "$?" > .ai-review-context/local-checks/panel-tsc.exitcode
+          ) > "$CTX/panel-tsc.log" 2>&1
+          echo "$?" > "$CTX/panel-tsc.exitcode"
 
-          {
+          (
             echo '$ npx vitest run'
             cd panel && npx vitest run
-          } > .ai-review-context/local-checks/panel-vitest.log 2>&1
-          echo "$?" > .ai-review-context/local-checks/panel-vitest.exitcode
+          ) > "$CTX/panel-vitest.log" 2>&1
+          echo "$?" > "$CTX/panel-vitest.exitcode"
 
-          {
+          (
             echo '$ npm run build:local'
             cd panel
             npm run build:local
             echo '$ npm run check:artifact'
             npm run check:artifact
-          } > .ai-review-context/local-checks/panel-build.log 2>&1
-          echo "$?" > .ai-review-context/local-checks/panel-build.exitcode
+          ) > "$CTX/panel-build.log" 2>&1
+          echo "$?" > "$CTX/panel-build.exitcode"
+
+      - name: Verify context directory
+        run: |
+          echo "=== .ai-review-context contents ==="
+          find .ai-review-context -type f | head -30 || echo "Directory missing!"
+          echo "=== total files ==="
+          find .ai-review-context -type f | wc -l || echo "0"
 
       - name: Upload AI review context
         uses: actions/upload-artifact@v4
         with:
           name: ai-review-context-${{ needs.resolve-pr.outputs.pr_number }}
-          path: .ai-review-context
-          if-no-files-found: warn
+          path: ${{ github.workspace }}/.ai-review-context
+          if-no-files-found: error
           retention-days: 7
 
   codex-review:
