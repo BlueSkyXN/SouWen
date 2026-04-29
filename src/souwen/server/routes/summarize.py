@@ -60,11 +60,25 @@ _summarize_lock = threading.Lock()
 
 def rate_limit_summarize(request: Request) -> None:
     """Limit summarize calls based on llm.rate_limit_summarize config."""
+    from souwen.config import get_config
+
     global _summarize_limiter  # noqa: PLW0603
-    if _summarize_limiter is None:
+    max_requests = get_config().llm.rate_limit_summarize
+    if (
+        _summarize_limiter is None
+        or _summarize_limiter.max_requests != max_requests
+        or _summarize_limiter.window_seconds != 60
+    ):
         with _summarize_lock:
-            if _summarize_limiter is None:
-                _summarize_limiter = _get_summarize_limiter()
+            if (
+                _summarize_limiter is None
+                or _summarize_limiter.max_requests != max_requests
+                or _summarize_limiter.window_seconds != 60
+            ):
+                _summarize_limiter = InMemoryRateLimiter(
+                    max_requests=max_requests,
+                    window_seconds=60,
+                )
     _summarize_limiter.check(get_client_ip(request))
 
 
@@ -72,8 +86,8 @@ def rate_limit_summarize(request: Request) -> None:
     "/summarize",
     response_model=SummarizeResponse,
     dependencies=[
-        Depends(rate_limit_summarize),
         Depends(require_llm_enabled),
+        Depends(rate_limit_summarize),
         Depends(check_search_auth),
     ],
 )

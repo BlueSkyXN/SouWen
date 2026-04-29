@@ -72,11 +72,25 @@ def _get_deep_limiter() -> InMemoryRateLimiter:
 
 def rate_limit_deep_summarize(request: Request) -> None:
     """Rate limit for deep search based on llm.rate_limit_deep config."""
+    from souwen.config import get_config
+
     global _deep_limiter  # noqa: PLW0603
-    if _deep_limiter is None:
+    max_requests = get_config().llm.rate_limit_deep
+    if (
+        _deep_limiter is None
+        or _deep_limiter.max_requests != max_requests
+        or _deep_limiter.window_seconds != 60
+    ):
         with _deep_lock:
-            if _deep_limiter is None:
-                _deep_limiter = _get_deep_limiter()
+            if (
+                _deep_limiter is None
+                or _deep_limiter.max_requests != max_requests
+                or _deep_limiter.window_seconds != 60
+            ):
+                _deep_limiter = InMemoryRateLimiter(
+                    max_requests=max_requests,
+                    window_seconds=60,
+                )
     _deep_limiter.check(get_client_ip(request))
 
 
@@ -84,8 +98,8 @@ def rate_limit_deep_summarize(request: Request) -> None:
     "/deep-summarize",
     response_model=DeepSummarizeResponse,
     dependencies=[
-        Depends(rate_limit_deep_summarize),
         Depends(require_llm_enabled),
+        Depends(rate_limit_deep_summarize),
         Depends(check_search_auth),
     ],
 )

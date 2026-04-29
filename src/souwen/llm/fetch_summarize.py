@@ -74,6 +74,9 @@ async def summarize_pages(
             )
             continue
 
+        # word_count reflects the fetched content before this LLM-specific truncation.
+        word_count = len(result.content.split())
+
         # Truncate long content
         content = result.content
         truncated = result.content_truncated
@@ -81,8 +84,6 @@ async def summarize_pages(
             cutoff = max(0, max_input_chars - len(_TRUNCATION_NOTE))
             content = content[:cutoff].rstrip() + _TRUNCATION_NOTE
             truncated = True
-
-        word_count = len(content.split())
 
         # Build messages
         user_prompt = (

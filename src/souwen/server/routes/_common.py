@@ -10,7 +10,16 @@ from fastapi import HTTPException
 
 logger = logging.getLogger("souwen.server")
 
-_SECRET_KEYWORDS = {"key", "keys", "secret", "token", "password", "sessdata", "authorization", "auth"}
+_SECRET_KEYWORDS = {
+    "key",
+    "keys",
+    "secret",
+    "token",
+    "password",
+    "sessdata",
+    "authorization",
+    "auth",
+}
 
 # Pre-compiled splitter: underscore or hyphen
 _FIELD_SPLITTER = re.compile(r"[_\-]")

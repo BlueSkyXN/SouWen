@@ -68,11 +68,25 @@ def _get_fetch_summarize_limiter() -> InMemoryRateLimiter:
 
 def rate_limit_fetch_summarize(request: Request) -> None:
     """Rate limit for fetch+summarize based on llm.rate_limit_fetch config."""
+    from souwen.config import get_config
+
     global _fetch_summarize_limiter  # noqa: PLW0603
-    if _fetch_summarize_limiter is None:
+    max_requests = get_config().llm.rate_limit_fetch
+    if (
+        _fetch_summarize_limiter is None
+        or _fetch_summarize_limiter.max_requests != max_requests
+        or _fetch_summarize_limiter.window_seconds != 60
+    ):
         with _fetch_summarize_lock:
-            if _fetch_summarize_limiter is None:
-                _fetch_summarize_limiter = _get_fetch_summarize_limiter()
+            if (
+                _fetch_summarize_limiter is None
+                or _fetch_summarize_limiter.max_requests != max_requests
+                or _fetch_summarize_limiter.window_seconds != 60
+            ):
+                _fetch_summarize_limiter = InMemoryRateLimiter(
+                    max_requests=max_requests,
+                    window_seconds=60,
+                )
     _fetch_summarize_limiter.check(get_client_ip(request))
 
 
@@ -80,8 +94,8 @@ def rate_limit_fetch_summarize(request: Request) -> None:
     "/fetch/summarize",
     response_model=FetchSummarizeResponse,
     dependencies=[
-        Depends(rate_limit_fetch_summarize),
         Depends(require_llm_enabled),
+        Depends(rate_limit_fetch_summarize),
         Depends(check_search_auth),
     ],
 )

@@ -66,26 +66,32 @@ class LLMConfig(BaseModel):
     """
 
     enabled: bool = False
-    protocol: str = "openai_chat"
+    protocol: Literal["openai_chat", "openai_responses", "anthropic_messages"] = "openai_chat"
     """LLM API 协议: openai_chat | openai_responses | anthropic_messages"""
     api_key: str | None = None
     api_keys: list[str] = Field(default_factory=list)
     base_url: str = "https://api.openai.com/v1"
     model: str = "gpt-4o-mini"
-    max_tokens: int = 2048
-    temperature: float = 0.3
-    timeout: float = 60.0
-    max_input_tokens: int = 6000
+    max_tokens: int = Field(2048, ge=1)
+    temperature: float = Field(0.3, ge=0.0, le=2.0)
+    timeout: float = Field(60.0, gt=0)
+    max_input_tokens: int = Field(6000, ge=1)
     system_prompt: str | None = None
     default_mode: Literal["brief", "detailed", "academic"] = "brief"
-    rate_limit_summarize: int = 20
+    rate_limit_summarize: int = Field(20, ge=1)
     """摘要端点限流（次/分钟）"""
-    rate_limit_fetch: int = 20
+    rate_limit_fetch: int = Field(20, ge=1)
     """Fetch+Summarize 端点限流（次/分钟）"""
-    rate_limit_deep: int = 10
+    rate_limit_deep: int = Field(10, ge=1)
     """Deep Search 端点限流（次/分钟）"""
     anthropic_version: str = "2023-06-01"
     """Anthropic API 版本头（仅 anthropic_messages 协议使用）"""
+
+    @field_validator("api_keys")
+    @classmethod
+    def _normalize_api_keys(cls, v: list[str]) -> list[str]:
+        """去掉 YAML 中误写的空 key，避免随机选中空字符串。"""
+        return [str(item).strip() for item in (v or []) if str(item).strip()]
 
     def get_api_key(self) -> str | None:
         """获取 API Key：优先从 api_keys 轮询，否则用单一 api_key"""

@@ -13,6 +13,7 @@
 """
 
 import pytest
+from pydantic import ValidationError
 
 from souwen.config import SouWenConfig, get_config, reload_config
 
@@ -83,6 +84,39 @@ class TestDefaults:
         key_fields = [f for f in SouWenConfig.model_fields if "key" in f or "token" in f]
         for field in key_fields:
             assert getattr(cfg, field) is None, f"{field} 应默认为 None"
+
+
+class TestLLMConfig:
+    """LLM 嵌套配置测试。"""
+
+    def test_invalid_llm_protocol_rejected(self):
+        """LLM 协议拼写错误应在配置加载阶段被拒绝。"""
+        with pytest.raises(ValidationError):
+            SouWenConfig(llm={"protocol": "openai_reponses"})
+
+    def test_invalid_llm_default_mode_rejected(self):
+        """默认摘要模式拼写错误应在配置加载阶段被拒绝。"""
+        with pytest.raises(ValidationError):
+            SouWenConfig(llm={"default_mode": "detail"})
+
+    def test_invalid_llm_rate_limit_rejected(self):
+        """端点限流必须为正数，避免请求期初始化 limiter 时 500。"""
+        with pytest.raises(ValidationError):
+            SouWenConfig(llm={"rate_limit_summarize": 0})
+
+    def test_invalid_llm_generation_bounds_rejected(self):
+        """生成参数越界应在配置阶段失败。"""
+        with pytest.raises(ValidationError):
+            SouWenConfig(llm={"temperature": 2.5})
+        with pytest.raises(ValidationError):
+            SouWenConfig(llm={"max_tokens": 0})
+        with pytest.raises(ValidationError):
+            SouWenConfig(llm={"max_input_tokens": 0})
+
+    def test_llm_api_keys_strip_empty_values(self):
+        """YAML 中的空 key 不应进入多 key 选择池。"""
+        cfg = SouWenConfig(llm={"api_keys": [" key-1 ", "", "  ", "key-2"]})
+        assert cfg.llm.api_keys == ["key-1", "key-2"]
 
 
 class TestEnvOverride:

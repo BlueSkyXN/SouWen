@@ -150,6 +150,7 @@ class TestSummarizePages:
         result = await summarize_pages(["https://example.com"])
 
         assert result.items[0].content_truncated is True
+        assert result.items[0].word_count == 10000
         assert result.items[0].summary == "Truncated summary"
 
     async def test_multiple_urls_mixed(self):
