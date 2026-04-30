@@ -26,6 +26,7 @@ name: AI Agent
 # 2. JS gate: actor !== repoOwner → should_run=false
 # 3. API check: getCollaboratorPermissionLevel → 必须 admin
 # 额外：Fork PR 拒绝、persist-credentials: false、GH_TOKEN=github.token(短期)
+# 额外：Codex prompt 从 workflow_sha 物化，不信任目标 PR/branch 中的 prompt 文件
 #
 # 【触发来源能力分级】
 # - pr_comment: 改代码 + gh 操作(仅限该 PR) + fix-pr/direct
@@ -495,6 +496,16 @@ jobs:
             echo "AI secrets are present. Enable log_level=debug to print non-sensitive lengths."
           fi
 
+      - name: Materialize trusted agent prompt
+        env:
+          WORKFLOW_SHA: ${{ github.workflow_sha || github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p .ai-agent-context
+          git fetch --no-tags --depth=1 origin "$WORKFLOW_SHA"
+          git show "$WORKFLOW_SHA:.github/prompts/ai-agent.md" > .ai-agent-context/trusted-ai-agent.md
+          test -s .ai-agent-context/trusted-ai-agent.md
+
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -710,7 +721,7 @@ jobs:
           effort: ${{ inputs.effort || vars.CODEX_EFFORT || 'xhigh' }}
           sandbox: workspace-write
           safety-strategy: drop-sudo
-          prompt-file: .github/prompts/ai-agent.md
+          prompt-file: .ai-agent-context/trusted-ai-agent.md
 
       - name: Post-Codex diagnostic
         if: always()
@@ -800,6 +811,7 @@ jobs:
       - name: Condense long Codex summary
         id: condense-codex
         if: always() && steps.summary-length.outputs.too_long == 'true'
+        continue-on-error: true
         env:
           RUST_LOG: ${{ steps.log-config.outputs.rust_log }}
         uses: openai/codex-action@v1

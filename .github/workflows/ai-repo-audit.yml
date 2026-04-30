@@ -31,7 +31,7 @@ name: AI Repo Audit
 # - 修复禁区：.github/workflows/、.ai-audit-context/、构建产物、local/、
 #   公共 API 等（详见 prompt-file）
 # - prompt 中明确标记 commit 内容、PR 描述、issue 内容为不可信来源
-# - 报告长度有 60K 字符软上限 + 80K 硬上限保护（超长自动压缩）
+# - 报告长度有 60K 字符发布上限保护（超长自动压缩，失败时硬截断）
 #
 # 【工作流程】
 # gate (5min) → collect-context (15min) → codex-audit (90min) → open-pr / notify-no-changes / notify-failure (5min)
@@ -599,6 +599,7 @@ jobs:
       - name: Condense long Codex audit
         id: condense-codex
         if: always() && steps.summary-length.outputs.too_long == 'true'
+        continue-on-error: true
         env:
           RUST_LOG: ${{ steps.log-config.outputs.rust_log }}
         uses: openai/codex-action@v1
@@ -625,7 +626,7 @@ jobs:
           const raw = process.env.RAW_SUMMARY || '';
           const condensed = process.env.CONDENSED_SUMMARY || '';
           const wasCondensed = process.env.WAS_CONDENSED === 'true';
-          const hardMax = 80000;
+          const hardMax = 60000;
 
           let finalSummary = wasCondensed && condensed.trim() ? condensed : raw;
 
@@ -645,7 +646,7 @@ jobs:
           }
 
           if (finalSummary.length > hardMax) {
-            const note = '\n\n_压缩后的审计报告仍超过安全长度，已保留前半部分。完整报告请看 workflow 日志或重新运行降低 effort。_';
+            const note = '\n\n_压缩后的审计报告仍超过发布安全长度，已保留前半部分。完整报告请看 workflow 日志或缩短 lookback_days 后重新运行。_';
             finalSummary = finalSummary.slice(0, hardMax - note.length) + note;
           }
 
