@@ -101,6 +101,7 @@ jobs:
       fix_branch: ${{ steps.gate.outputs.fix_branch }}
       pr_number_for_comment: ${{ steps.gate.outputs.pr_number_for_comment }}
       issue_number_for_link: ${{ steps.gate.outputs.issue_number_for_link }}
+      trigger_source: ${{ steps.gate.outputs.trigger_source }}
 
     steps:
       - name: Gate and parse
@@ -130,6 +131,30 @@ jobs:
             const owner = context.repo.owner;
             const repo = context.repo.repo;
             const fullRepo = `${owner}/${repo}`;
+
+            // Defense-in-depth: verify actor has admin permission (prevents
+            // name-spoofing edge cases in org transfers / renames)
+            try {
+              const { data: perm } = await github.rest.repos.getCollaboratorPermissionLevel({
+                owner, repo, username: actor,
+              });
+              if (perm.permission !== 'admin') {
+                core.setOutput('should_run', 'false');
+                core.notice(`Actor ${actor} has "${perm.permission}" permission, need "admin". Ignoring.`);
+                return;
+              }
+            } catch (permErr) {
+              core.setOutput('should_run', 'false');
+              core.notice(`Permission check failed for ${actor}: ${permErr.message}. Ignoring.`);
+              return;
+            }
+
+            // Determine trigger source
+            let triggerSource = 'workflow_dispatch';
+            if (context.eventName === 'issue_comment') {
+              const isPR = !!(context.payload.issue && context.payload.issue.pull_request);
+              triggerSource = isPR ? 'pr_comment' : 'issue_comment';
+            }
 
             // ── Phase 1: 把触发参数归一化 ──
             let targetType = '';
@@ -277,9 +302,10 @@ jobs:
             core.setOutput('fix_branch', fixBranch);
             core.setOutput('pr_number_for_comment', prNumberForComment);
             core.setOutput('issue_number_for_link', issueNumberForLink);
+            core.setOutput('trigger_source', triggerSource);
 
             core.notice(
-              `AI Agent: ${targetType}=${targetRaw} mode=${mode} ` +
+              `AI Agent: ${targetType}=${targetRaw} mode=${mode} trigger=${triggerSource} ` +
               `head=${headRef}@${headSha.slice(0, 7)} base=${baseRef} ` +
               `→ branch=${fixBranch}`
             );
@@ -406,6 +432,7 @@ jobs:
           FIX_BRANCH: ${{ needs.gate.outputs.fix_branch }}
           PR_FOR_COMMENT: ${{ needs.gate.outputs.pr_number_for_comment }}
           ISSUE_FOR_LINK: ${{ needs.gate.outputs.issue_number_for_link }}
+          TRIGGER_SOURCE: ${{ needs.gate.outputs.trigger_source }}
           REPO: ${{ github.repository }}
         run: |
           mkdir -p .ai-agent-context
@@ -437,6 +464,7 @@ jobs:
             `- Head Ref: ${process.env.HEAD_REF} @ ${process.env.HEAD_SHA}`,
             `- Mode: ${process.env.MODE}`,
             `- Working Branch: ${process.env.FIX_BRANCH}`,
+            `- Trigger Source: ${process.env.TRIGGER_SOURCE}`,
             '',
           ];
 
@@ -511,6 +539,7 @@ jobs:
           echo ""
           echo "Target: ${{ needs.gate.outputs.target_type }}=${{ needs.gate.outputs.target_id }}"
           echo "Mode: ${{ needs.gate.outputs.mode }}"
+          echo "Trigger: ${{ needs.gate.outputs.trigger_source }}"
           echo "Working branch: ${{ needs.gate.outputs.fix_branch }}"
           echo "Model: ${{ vars.CODEX_MODEL || 'gpt-5.5' }}"
           echo "Effort: ${{ inputs.effort || vars.CODEX_EFFORT || 'xhigh' }}"
@@ -552,6 +581,30 @@ jobs:
               - 绝对不要 echo/打印/写入文件/网络发送 GH_TOKEN 的值
               - 不要把 token 传给任何外部服务
               - 不要在 gh CLI body 参数中包含 $GH_TOKEN 或环境变量展开
+
+            === 触发来源与能力分级 ===
+            context.md 中 "Trigger Source" 字段标明了本次触发来源，据此执行不同限制：
+
+            **pr_comment**（OWNER 在 PR 上评论 /ai-do）：
+            - ✅ 改代码、跑验证
+            - ✅ gh pr comment / gh pr edit（仅限该 PR）
+            - ✅ 支持 fix-pr 和 direct 两种模式
+            - ❌ 不创建新 Issue / 不评论其他 PR
+
+            **issue_comment**（OWNER 在 Issue 上评论 /ai-do）：
+            - ✅ 改代码、跑验证（生成代码修复）
+            - ✅ gh issue comment（仅限该 Issue 的讨论回复）
+            - ✅ 模式固定 fix-pr（由 gate 强制）
+            - ❌ 不使用 direct 模式
+            - ❌ 不 gh pr merge
+
+            **workflow_dispatch**（OWNER 手动在 Actions 页面触发）：
+            - ✅ 改代码、跑验证
+            - ✅ gh pr comment / gh issue comment / gh pr edit
+            - ✅ 支持 fix-pr 和 direct 两种模式
+            - ✅ 更宽松：用户指令可以覆盖默认限制（如指令明确要求 merge）
+            - ❌ 仍不可泄露 token、不可跨仓库操作
+
             === 流程 ===
             1. 读 .ai-agent-context/context.md：明确 target_type / target_id / mode / 用户指令。
             2. 用 git diff 理解差异：
