@@ -3,7 +3,7 @@
 **这是单一事实源**。新增一个数据源 = 在这个文件里加一个 `_reg(SourceAdapter(...))`。
 
 组织顺序：
-  1. paper（17 源）
+  1. paper（18 源）
   2. patent（8 源）
   3. web.engines（爬虫类 SERP，13 个）
   4. web.api（授权 API，14 个）
@@ -60,7 +60,7 @@ _P_RANGE_END: dict[str, str] = {"limit": "range_end", "query": "cql_query"}
 
 
 # ═════════════════════════════════════════════════════════════
-#  1. paper（17 源）
+#  1. paper（18 源）
 # ═════════════════════════════════════════════════════════════
 
 _reg(
@@ -150,6 +150,19 @@ _reg(
         config_field=None,
         client_loader=lazy("souwen.paper.pubmed:PubMedClient"),
         methods={"search": MethodSpec("search", _P_RETMAX)},
+        default_for=frozenset({"paper:search"}),
+    )
+)
+
+_reg(
+    SourceAdapter(
+        name="biorxiv",
+        domain="paper",
+        integration="open_api",
+        description="bioRxiv/medRxiv 生物医学预印本",
+        config_field=None,
+        client_loader=lazy("souwen.paper.biorxiv:BioRxivClient"),
+        methods={"search": MethodSpec("search", _P_PER_PAGE)},
         default_for=frozenset({"paper:search"}),
     )
 )
