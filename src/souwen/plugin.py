@@ -638,6 +638,10 @@ def load_config_plugins(
                 label,
                 extra={"event": "plugin_disabled", "plugin": plugin.name, "source": label},
             )
+            # 清理 import 阶段可能注册的 orphan fetch handler
+            unregister_fetch_handlers_by_owner(path)
+            if plugin.name != path:
+                unregister_fetch_handlers_by_owner(plugin.name)
             continue
 
         if _skip:
