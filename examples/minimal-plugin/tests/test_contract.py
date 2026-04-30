@@ -36,6 +36,7 @@ class TestClientContract:
     @pytest.mark.asyncio
     async def test_fetch_returns_response(self, client):
         from souwen.models import FetchResponse
+
         resp = await client.fetch(["https://example.com"], timeout=10)
         assert isinstance(resp, FetchResponse)
         assert resp.total == 1
@@ -48,11 +49,13 @@ class TestHandlerContract:
     def test_handler_is_async(self):
         import asyncio
         from souwen_example_plugin.handler import example_echo_handler
+
         assert asyncio.iscoroutinefunction(example_echo_handler)
 
     @pytest.mark.asyncio
     async def test_handler_returns_fetch_response(self):
         from souwen.models import FetchResponse
         from souwen_example_plugin.handler import example_echo_handler
+
         resp = await example_echo_handler(["https://example.com"])
         assert isinstance(resp, FetchResponse)

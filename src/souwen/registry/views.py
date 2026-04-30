@@ -59,6 +59,20 @@ def _reg_external(adapter: SourceAdapter) -> bool:
     return True
 
 
+def _unreg_external(name: str) -> bool:
+    """运行时注销外部插件 adapter（仅限外部插件，不影响内置源）。
+
+    Returns:
+        True 表示成功移除；False 表示不存在或非外部插件。
+    """
+    if name not in _EXTERNAL_PLUGINS:
+        return False
+    _EXTERNAL_PLUGINS.discard(name)
+    _REGISTRY.pop(name, None)
+    logger.info("已注销外部插件源 %r", name)
+    return True
+
+
 def external_plugins() -> list[str]:
     """返回通过外部插件加载的源名（按字母序）。"""
     return sorted(_EXTERNAL_PLUGINS)
@@ -283,4 +297,4 @@ __all__ = [
 ]
 
 # 注：保留下列符号供 sources.py 内部使用，但不公开
-_public_internal: tuple[Callable[..., Any], ...] = (_reg, _reg_external)  # type: ignore[assignment]
+_public_internal: tuple[Callable[..., Any], ...] = (_reg, _reg_external, _unreg_external)  # type: ignore[assignment]

@@ -99,7 +99,7 @@ class TestRegisterFetchHandler:
             return _make_response("my_new", urls)
 
         register_fetch_handler("my_new", my_handler)
-        assert _FETCH_HANDLERS["my_new"] is my_handler
+        assert _FETCH_HANDLERS["my_new"].handler is my_handler
 
     def test_duplicate_no_override_skips(self, clean_fetch_handlers):
         async def first(urls, timeout, **_):
@@ -111,7 +111,7 @@ class TestRegisterFetchHandler:
         register_fetch_handler("dup", first)
         register_fetch_handler("dup", second)
         # 重名不覆盖，保留第一个
-        assert _FETCH_HANDLERS["dup"] is first
+        assert _FETCH_HANDLERS["dup"].handler is first
 
     def test_override_true_replaces(self, clean_fetch_handlers):
         async def first(urls, timeout, **_):
@@ -122,7 +122,7 @@ class TestRegisterFetchHandler:
 
         register_fetch_handler("ovr", first)
         register_fetch_handler("ovr", second, override=True)
-        assert _FETCH_HANDLERS["ovr"] is second
+        assert _FETCH_HANDLERS["ovr"].handler is second
 
 
 # ── _fetch_with_provider ───────────────────────────────────
