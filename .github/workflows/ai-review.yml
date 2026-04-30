@@ -1,4 +1,56 @@
 name: AI PR Review
+# Version: 1.1.2
+#
+# ═══════════════════════════════════════════════════════════════════════════
+# AI PR Review — 自动化 Pull Request 代码评审工作流
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# 【功能简介】
+# 当 PR 被打开/同步/重新打开时，或仓库 OWNER 手动触发时，自动对 PR 代码变更
+# 进行 AI 驱动的代码评审。评审结果以 sticky comment 发布到 PR 上（更新而非重复发布）。
+#
+# 【触发条件】
+# 1. pull_request (open/synchronize/reopened/ready_for_review) — 自动触发
+#    - 忽略 *.md 和 docs/、local/ 目录变更
+#    - Draft PR 和 Fork PR 自动跳过
+# 2. workflow_dispatch — 手动触发
+#    - 可指定 pr_number 直接评审某个 PR
+#    - 可指定 target_branch 查找该分支关联的 open PR
+#    - 可调整 effort（low/medium/high/xhigh）和 run_local_checks
+#
+# 【评审模式】
+# - deep（仓库 OWNER 的 PR 或 OWNER 手动触发）：
+#   - Codex 获得 workspace-write 沙盒，可运行 pytest/ruff/tsc 验证评审假设
+#   - Python + Node.js 依赖预装
+#   - 更深入的动态分析能力
+# - safe（外部贡献者的 PR）：
+#   - Codex 使用 read-only 沙盒，仅阅读代码和预收集的自动化日志
+#   - 不执行 PR 中可能包含恶意代码的脚本
+#   - 安全但评审深度略低
+#
+# 【安全措施】
+# - Fork PR 直接跳过（避免暴露 AI API key 和仓库 secrets）
+# - Codex 不获取 GH_TOKEN（review 是纯只读操作，由 workflow 后续步骤发布评论）
+# - persist-credentials: false 防止 git 凭据泄露
+# - Prompt 中明确标记 PR 内容为不可信来源（防 prompt injection）
+# - 评审内容有 45,000 字符上限保护（超长自动压缩）
+#
+# 【工作流程】
+# resolve-pr (5min) → collect-review-context (20min) → codex-review (60min) → post-review-comment (5min)
+#   │                    │                                │                        │
+#   │ 定位目标PR         │ 收集checks/logs/本地测试       │ AI评审 (+可选压缩)     │ 发布sticky评论
+#   │ 决定deep/safe      │ 上传artifact                  │                        │
+#
+# 【与 ai-agent.yml 的联动】
+# 评审评论底部包含提示: "回复 /ai-do [指令] 让 AI 修复"
+# 当 OWNER 在 PR 上回复 /ai-do 时，ai-agent.yml 会接手执行修复。
+#
+# 【依赖的 Secrets/Variables】
+# - secrets.CUSTOM_AI_API_KEY — OpenAI/兼容 API 密钥
+# - secrets.CUSTOM_AI_RESPONSES_ENDPOINT — AI API 端点 URL
+# - vars.CODEX_MODEL — 模型名（默认 gpt-5.5）
+# - vars.CODEX_EFFORT — 推理强度（默认 xhigh）
+# ═══════════════════════════════════════════════════════════════════════════
 
 on:
   pull_request:
@@ -703,6 +755,7 @@ jobs:
           RAW_REVIEW: ${{ steps.run-codex.outputs.final-message }}
           CONDENSED_REVIEW: ${{ steps.condense-codex.outputs.final-message }}
           WAS_CONDENSED: ${{ steps.review-length.outputs.too_long }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           node <<'NODE'
           const fs = require('fs');
@@ -712,6 +765,23 @@ jobs:
           const hardMax = 60000;
 
           let finalMessage = wasCondensed && condensed.trim() ? condensed : raw;
+
+          // Fallback: if Codex returned empty output, post a diagnostic message
+          if (!finalMessage.trim()) {
+            finalMessage = [
+              '⚠️ AI 评审未产生输出。',
+              '',
+              '可能原因：',
+              '- AI API 服务暂时不可用（超时/502/522）',
+              '- PR 变更过大导致 token 超限',
+              '- 网络问题',
+              '',
+              `请查看 [workflow 日志](${process.env.RUN_URL}) 中的 Post-Codex diagnostic 步骤了解详情。`,
+              '',
+              '可尝试重新运行此 workflow 或使用 workflow_dispatch 手动触发。',
+            ].join('\n');
+          }
+
           if (finalMessage.length > hardMax) {
             const note = '\n\n_压缩后的评审仍超过 GitHub comment 安全长度，已保留前半部分。请手动重新运行并选择较低范围的评审。_';
             finalMessage = finalMessage.slice(0, hardMax - note.length) + note;

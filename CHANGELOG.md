@@ -1,5 +1,32 @@
 # Changelog
 
+## v1.1.2 — AI Workflow 安全加固与功能深化（2026-05-04）
+
+### Features
+- **ai-review.yml**: 新增空输出回退评论（Codex 无输出时自动发布诊断消息而非静默跳过）
+- **ai-agent.yml**: 新增 `trigger_source` 输出字段（pr_comment / issue_comment / workflow_dispatch）
+- **ai-agent.yml**: 新增触发来源能力分级（不同触发方式有不同 gh CLI 操作权限）
+- **ai-agent.yml**: 新增 Job Summary 步骤（所有触发来源均可在 Actions Summary 中看到执行结果）
+- **ai-agent.yml**: open-pr 更新时现在同步更新 title + base_ref（修复重复运行时 base 不同步问题）
+- **ai-agent.yml**: 恢复 GH_TOKEN（使用 github.token）让 AI 可自主 `gh pr comment` / `gh issue comment`
+
+### Security
+- **ai-agent.yml**: 三重 OWNER 验证（YAML `if` + JS name check + API `admin` permission check）
+- **ai-agent.yml**: `persist-credentials: false` + 单独凭据配置步骤（防止 git creds 泄露给 Codex workspace）
+- **ai-agent.yml**: Direct mode 使用显式 `--force-with-lease=ref:sha` 防止覆盖并发推送
+- **ai-agent.yml**: Prompt 安全红线：禁止打印/写入/发送 token 值
+- **ai-review.yml**: 评审 Codex 不获取 GH_TOKEN（review 是只读操作）
+
+### Observability
+- 两个 workflow 均新增 Codex 前后诊断步骤（pre/post diagnostic）
+- `RUST_LOG=info` 启用 Codex CLI 调试日志
+- Codex timeout 统一 60 分钟
+
+### Docs
+- 两个 workflow 添加版本号 1.1.2 + 架构注释文档头
+- 通知 Job 注释标明 ChatOps 评论 vs Job Summary 的适用场景
+- ai-review.yml 底部评论从 `/ai-fix` 更新为 `/ai-do`（对齐新 ai-agent 命令）
+
 ## v1.1.1 — WARP 动态组件管理与非阻塞启动（2026-04-28）
 
 ### Features
