@@ -229,7 +229,9 @@ jobs:
     name: Codex 审计与修复
     runs-on: ubuntu-latest
     timeout-minutes: 90
-    environment: auto-ai
+    environment:
+      name: auto-ai
+      deployment: false
     needs: [gate, collect-context]
 
     outputs:

@@ -491,7 +491,9 @@ jobs:
     name: Codex 代码评审
     runs-on: ubuntu-latest
     timeout-minutes: 60
-    environment: auto-ai
+    environment:
+      name: auto-ai
+      deployment: false
     needs: [resolve-pr, collect-review-context]
     if: needs.resolve-pr.outputs.should_review == 'true'
 
