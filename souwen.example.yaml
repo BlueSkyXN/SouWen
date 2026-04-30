@@ -17,7 +17,7 @@ paper:
   pubmed_api_key: ~
   # Unpaywall —— 免费，填写邮箱即可
   unpaywall_email: ~
-  # IEEE Xplore API Key
+  # IEEE Xplore API Key（必需）
   ieee_api_key: ~
 
 # ===== 专利数据源配置 =====

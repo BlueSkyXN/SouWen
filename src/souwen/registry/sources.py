@@ -3,7 +3,7 @@
 **这是单一事实源**。新增一个数据源 = 在这个文件里加一个 `_reg(SourceAdapter(...))`。
 
 组织顺序：
-  1. paper（18 源）
+  1. paper（19 源）
   2. patent（8 源）
   3. web.engines（爬虫类 SERP，13 个）
   4. web.api（授权 API，14 个）
@@ -60,7 +60,7 @@ _P_RANGE_END: dict[str, str] = {"limit": "range_end", "query": "cql_query"}
 
 
 # ═════════════════════════════════════════════════════════════
-#  1. paper（18 源）
+#  1. paper（19 源）
 # ═════════════════════════════════════════════════════════════
 
 _reg(
@@ -274,6 +274,18 @@ _reg(
         description="IACR ePrint 密码学预印本（实验性 HTML 爬虫）",
         config_field=None,
         client_loader=lazy("souwen.paper.iacr:IacrClient"),
+        methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
+    )
+)
+
+_reg(
+    SourceAdapter(
+        name="ieee_xplore",
+        domain="paper",
+        integration="official_api",
+        description="IEEE Xplore 电气电子工程文献",
+        config_field="ieee_api_key",
+        client_loader=lazy("souwen.paper.ieee_xplore:IeeeXploreClient"),
         methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
     )
 )

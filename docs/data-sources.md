@@ -1,10 +1,10 @@
 # SouWen 数据源清单
 
-**总计**：**90** 个数据源（从 registry 自动生成）。
+**总计**：**91** 个数据源（从 registry 自动生成）。
 
 <!-- BEGIN AUTO -->
 
-## 学术论文 · `paper`（17 源）
+## 学术论文 · `paper`（18 源）
 
 | Name | Integration | Key Req | Capabilities | Config Field |
 |---|---|---|---|---|
@@ -17,6 +17,7 @@
 | `hal` | open_api | 免配置 | search | — |
 | `huggingface` | open_api | 免配置 | search | — |
 | `iacr` | scraper | 免配置 | search | — |
+| `ieee_xplore` | official_api | 需Key | search | `ieee_api_key` |
 | `openaire` | official_api | 可选Key | search | `openaire_api_key` |
 | `openalex` | open_api | 可选Key | search | `openalex_email` |
 | `pmc` | open_api | 免配置 | search | — |
