@@ -832,7 +832,7 @@ jobs:
               modeNote,
               raw,
               '',
-              '> 💡 想让 AI 修复这些问题？回复 `/ai-do [可选指令]`（仅仓库 OWNER 可用）',
+              '> 💡 想让 AI 修复这些问题？回复 `/ai-do [可选指令]`（仅仓库 OWNER 可用；加 `--mode=direct` 直推 PR head）',
               '',
               `Workflow: ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`,
             ].join('\n');
