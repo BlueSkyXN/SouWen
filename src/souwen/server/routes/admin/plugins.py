@@ -92,7 +92,7 @@ async def install(req: InstallRequest):
     from souwen.plugin_manager import install_plugin
 
     result = await install_plugin(req.package)
-    return _sanitize_pip_result(result)
+    return _sanitize_pip_result(result, package=req.package)
 
 
 @router.post("/plugins/uninstall")
@@ -101,10 +101,10 @@ async def uninstall(req: UninstallRequest):
     from souwen.plugin_manager import uninstall_plugin
 
     result = await uninstall_plugin(req.package)
-    return _sanitize_pip_result(result)
+    return _sanitize_pip_result(result, package=req.package)
 
 
-def _sanitize_pip_result(result: dict) -> dict:
+def _sanitize_pip_result(result: dict, package: str = "") -> dict:
     """Strip raw pip output from install/uninstall result before API response."""
     import logging
 
@@ -114,7 +114,8 @@ def _sanitize_pip_result(result: dict) -> dict:
         )
     return {
         "success": result.get("success", False),
-        "package": result.get("package", ""),
+        "package": result.get("package", package),
+        "restart_required": result.get("restart_required", False),
         "message": "操作成功" if result.get("success") else "操作失败，详见服务端日志",
     }
 
