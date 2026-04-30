@@ -1,22 +1,24 @@
 name: AI Agent
-
-# 触发方式：
-# 1. PR / Issue 评论 `/ai-do [flags] <指令>`
-#    - flags（可选）：`--mode=direct`（默认 fix-pr）、`--base=<branch>`（覆盖 base ref）
-#    - PR 评论：target = 当前 PR
-#    - Issue 评论：target = 当前 Issue（从默认分支拉新分支并开 PR 关联 Issue）
-# 2. workflow_dispatch 手动触发：target_type + target + instruction + mode + base_ref + effort
-# 仅仓库 OWNER 可触发，非 OWNER 静默忽略。
+# Version: 1.1.2
 #
-# AI Agent 能力：
-# - 改代码、跑 ruff/pytest/panel 验证
-# - workflow 自动 commit & push（fix-pr：推到 ai-agent/* 并开 PR；direct：直推目标分支）
-# - 通过 gh CLI 自主决定是否在 PR/Issue 留言、更新 PR 描述、创建 PR
-#
-# NOTE: 用 GITHUB_TOKEN 推送的分支不会触发 CI。AI_FIX_TOKEN secret（PAT 或 GitHub
-# App token，需 contents:write + pull-requests:write + issues:write）可让 fix PR
-# 自动跑 CI，并让 AI 通过 gh CLI 完成全部 Repo 操作。
-# (secret 名暂不改，以兼容现有配置)
+# ┌─────────────────────────────────────────────────────────────────────┐
+# │ AI Coding Agent — 自主代码修改 + 验证 + GitHub 操作                    │
+# │                                                                       │
+# │ 触发方式：                                                             │
+# │  1. PR/Issue 评论 `/ai-do [flags] <指令>`                             │
+# │     flags: --mode=direct (默认fix-pr), --base=<branch>                │
+# │  2. workflow_dispatch 手动触发                                         │
+# │                                                                       │
+# │ 安全模型：                                                             │
+# │  - 仅 OWNER 可触发（YAML if + JS gate + API admin 权限三重验证）      │
+# │  - Fork PR 拒绝                                                       │
+# │  - GH_TOKEN = github.token（短期有效，运行结束即失效）                 │
+# │  - 触发来源分级：pr_comment / issue_comment / workflow_dispatch        │
+# │                                                                       │
+# │ 工作流：gate → codex-run → open-pr / notify-direct / notify-*        │
+# │                                                                       │
+# │ NOTE: issue_comment 触发仅在此文件存在于默认分支时生效！               │
+# └─────────────────────────────────────────────────────────────────────┘
 
 on:
   issue_comment:
@@ -710,6 +712,37 @@ jobs:
             git push --force-with-lease origin "HEAD:refs/heads/$FIX_BRANCH"
           fi
 
+      - name: Write job summary
+        if: always()
+        env:
+          TARGET_TYPE: ${{ needs.gate.outputs.target_type }}
+          TARGET_ID: ${{ needs.gate.outputs.target_id }}
+          MODE: ${{ needs.gate.outputs.mode }}
+          FIX_BRANCH: ${{ needs.gate.outputs.fix_branch }}
+          TRIGGER_SOURCE: ${{ needs.gate.outputs.trigger_source }}
+          HAS_CHANGES: ${{ steps.check-changes.outputs.has_changes }}
+          AI_SUMMARY: ${{ steps.run-codex.outputs.final-message }}
+        run: |
+          {
+            echo "## 🤖 AI Agent 执行结果"
+            echo ""
+            echo "| 字段 | 值 |"
+            echo "|------|----|"
+            echo "| Target | \`${TARGET_TYPE}=${TARGET_ID}\` |"
+            echo "| Mode | \`${MODE}\` |"
+            echo "| Trigger | \`${TRIGGER_SOURCE}\` |"
+            echo "| Branch | \`${FIX_BRANCH}\` |"
+            echo "| Changes | ${HAS_CHANGES:-unknown} |"
+            echo ""
+            if [ -n "${AI_SUMMARY:-}" ]; then
+              echo "<details><summary>AI Summary</summary>"
+              echo ""
+              echo "${AI_SUMMARY:0:5000}"
+              echo ""
+              echo "</details>"
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
   # ─────────────────────────────────────────────
   # Job 3: fix-pr 模式 — 创建/更新 fix PR 并通知
   # ─────────────────────────────────────────────
@@ -790,8 +823,10 @@ jobs:
             let fixPrUrl;
             if (existingPrs.length > 0) {
               const existing = existingPrs[0];
+              // Update title, body, and base ref (supports reuse after --base change)
               await github.rest.pulls.update({
-                owner, repo, pull_number: existing.number, body,
+                owner, repo, pull_number: existing.number,
+                title, body, base: baseRef,
               });
               fixPrUrl = existing.html_url;
               core.notice(`Updated fix PR: ${fixPrUrl}`);
@@ -818,7 +853,8 @@ jobs:
             }
 
   # ─────────────────────────────────────────────
-  # Job 4: direct 模式 — 通知已直推（仅 ChatOps 触发）
+  # Job 4: direct 模式 — 通知已直推
+  # NOTE: ChatOps 触发时评论通知；workflow_dispatch 时依赖 Job Summary
   # ─────────────────────────────────────────────
   notify-direct:
     name: 通知 direct 推送
@@ -864,7 +900,8 @@ jobs:
             });
 
   # ─────────────────────────────────────────────
-  # Job 5: 无变更通知（仅 ChatOps 触发）
+  # Job 5: 无变更通知
+  # NOTE: ChatOps 触发时评论通知；workflow_dispatch 时依赖 Job Summary
   # ─────────────────────────────────────────────
   notify-no-changes:
     name: 通知无变更
@@ -902,7 +939,8 @@ jobs:
             });
 
   # ─────────────────────────────────────────────
-  # Job 6: codex-run 失败通知（仅 ChatOps 触发）
+  # Job 6: codex-run 失败通知
+  # NOTE: ChatOps 触发时评论通知；workflow_dispatch 时依赖 Job Summary
   # ─────────────────────────────────────────────
   notify-failure:
     name: 通知执行失败
