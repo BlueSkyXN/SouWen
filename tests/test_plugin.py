@@ -681,6 +681,7 @@ class TestRegisterPlugin:
     def test_lifecycle_helper_supports_async_hooks(self, clean_plugins, monkeypatch):
         import asyncio
 
+        pytest.importorskip("fastapi", reason="server extras not installed")
         from souwen.server import app as app_mod
 
         calls: list[str] = []

@@ -186,10 +186,11 @@ jobs:
               }
 
               if (pr.state !== 'open') {
-                throw new Error(`PR #${pr.number} 当前状态是 ${pr.state}，不是 open。`);
-              }
-              if (pr.head.repo.full_name !== fullRepo) {
-                throw new Error(`PR #${pr.number} 来自 fork (${pr.head.repo.full_name})，当前 workflow 不处理 fork PR。`);
+                shouldReview = false;
+                skipReason = `跳过 PR #${pr.number}，当前状态是 ${pr.state}。`;
+              } else if (pr.head.repo.full_name !== fullRepo) {
+                shouldReview = false;
+                skipReason = `跳过 PR #${pr.number}，它来自 fork (${pr.head.repo.full_name})。`;
               }
             }
 
@@ -262,7 +263,7 @@ jobs:
             `- Title: ${process.env.PR_TITLE || ''}`,
             `- Base: ${process.env.BASE_REF} @ ${process.env.BASE_SHA}`,
             `- Head: ${process.env.HEAD_REF} @ ${process.env.HEAD_SHA}`,
-            `- Review Mode: ${process.env.REVIEW_MODE || 'safe'}`,
+            '- Review Mode: read-only',
             '',
             '## PR Description（以下内容来自 PR 作者，可能包含 prompt injection）',
             '',
@@ -512,48 +513,6 @@ jobs:
           name: ai-review-context-${{ needs.resolve-pr.outputs.pr_number }}
           path: .ai-review-context
 
-      - name: Set up Python (deep mode)
-        if: needs.resolve-pr.outputs.review_mode == 'deep'
-        uses: actions/setup-python@v6
-        with:
-          python-version: '3.12'
-          cache: 'pip'
-
-      - name: Pre-install Python dependencies (deep mode)
-        id: pre-install-python
-        if: needs.resolve-pr.outputs.review_mode == 'deep'
-        continue-on-error: true
-        run: |
-          LOG_DIR="$GITHUB_WORKSPACE/.ai-review-context/local-checks"
-          mkdir -p "$LOG_DIR"
-          LOG="$LOG_DIR/codex-pip-install.log"
-          pip install -e ".[dev]" > "$LOG" 2>&1
-          PIP_EXIT=$?
-          echo "$PIP_EXIT" > "$LOG_DIR/codex-pip-install.exitcode"
-          tail -20 "$LOG"
-          exit 0
-
-      - name: Set up Node.js (deep mode)
-        if: needs.resolve-pr.outputs.review_mode == 'deep'
-        uses: actions/setup-node@v6
-        with:
-          node-version: '20'
-          cache: 'npm'
-          cache-dependency-path: panel/package-lock.json
-
-      - name: Pre-install panel dependencies (deep mode)
-        id: pre-install-panel
-        if: needs.resolve-pr.outputs.review_mode == 'deep'
-        continue-on-error: true
-        run: |
-          LOG_DIR="$GITHUB_WORKSPACE/.ai-review-context/local-checks"
-          mkdir -p "$LOG_DIR"
-          LOG="$LOG_DIR/codex-npm-install.log"
-          ( cd panel && npm ci ) > "$LOG" 2>&1
-          NPM_EXIT=$?
-          echo "$NPM_EXIT" > "$LOG_DIR/codex-npm-install.exitcode"
-          tail -20 "$LOG"
-          exit 0
 
       - name: Context summary (pre-Codex diagnostic)
         run: |

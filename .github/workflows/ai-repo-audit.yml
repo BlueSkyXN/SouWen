@@ -1,11 +1,10 @@
 name: AI 仓库审计
 
-# 全仓库自动审计 + 自动修复 + 中文 PR
+# 全仓库手动审计 + 中文报告
 #
 # 仅 workflow_dispatch 触发，且仅 OWNER 可触发（非 OWNER 静默忽略）。
-# 设计目标：从全局维护者视角扫描整个仓库，重点关注最近 N 天的引入修改，
-# 找出"过度 / 不当 / 错误 / 破坏性 / 冲突 / 安全 / 隐藏债"类问题，
-# 按严重性阈值自动修复，开 PR 到 main 并附中文报告（多备选方案 + 推荐理由）。
+# 默认 dry_run=true：只生成报告 issue，不自动修复、不自动开修复 PR。
+# 如确实需要自动修复，手动 dispatch 时显式选择 dry_run=false。
 #
 # 注意：使用 GITHUB_TOKEN 推送的分支不会触发其它 workflow（CI 等）。
 # 如需 audit PR 自动跑 CI，请在 secrets 或 auto-ai environment 配置 AI_FIX_TOKEN。
@@ -29,9 +28,9 @@ on:
           - high
           - xhigh
       severity_threshold:
-        description: '自动修复的最低严重性（all=全部修；其它仅修等级 ≥ 阈值）'
+        description: 'dry_run=false 时自动修复的最低严重性（默认仅报告）'
         required: false
-        default: all
+        default: major
         type: choice
         options:
           - all
@@ -39,13 +38,13 @@ on:
           - major
           - critical
       dry_run:
-        description: 'true=只生成报告 issue，不开修复 PR'
+        description: 'true=只生成报告 issue，不开修复 PR（推荐默认）'
         required: false
-        default: 'false'
+        default: 'true'
         type: choice
         options:
-          - 'false'
           - 'true'
+          - 'false'
 
 concurrency:
   group: ai-repo-audit
@@ -92,13 +91,13 @@ jobs:
 
           {
             echo "lookback_days=$DAYS"
-            echo "severity_threshold=${{ inputs.severity_threshold || 'all' }}"
-            echo "dry_run=${{ inputs.dry_run || 'false' }}"
+            echo "severity_threshold=${{ inputs.severity_threshold || 'major' }}"
+            echo "dry_run=${{ inputs.dry_run || 'true' }}"
             echo "audit_branch=$BRANCH"
             echo "audit_date=$DATE"
           } >> "$GITHUB_OUTPUT"
 
-          echo "::notice::AI Repo Audit lookback=${DAYS}d severity=${{ inputs.severity_threshold || 'all' }} dry_run=${{ inputs.dry_run || 'false' }} branch=$BRANCH"
+          echo "::notice::AI Repo Audit lookback=${DAYS}d severity=${{ inputs.severity_threshold || 'major' }} dry_run=${{ inputs.dry_run || 'true' }} branch=$BRANCH"
 
   # ─────────────────────────────────────────────
   # Job 2: 收集仓库审计上下文（git log / 改动统计 / 仓库结构 / 近期 PR）
@@ -335,7 +334,7 @@ jobs:
             - 严重性阈值：${{ needs.gate.outputs.severity_threshold }}
               （all=全部修；critical/major/minor 表示仅修该级及以上）
             - dry_run：${{ needs.gate.outputs.dry_run }}
-              （true 时**仅输出报告，不修改任何代码**）
+              （默认 true；true 时**仅输出报告，不修改任何代码**）
             - audit_branch：${{ needs.gate.outputs.audit_branch }}
               （workflow 已切到该分支，你修改的内容会被自动 commit）
 
