@@ -19,6 +19,7 @@
 - OpenAireClient: OpenAIRE (可选Key)
 - IacrClient: IACR ePrint (无需Key，实验性 HTML 爬虫)
 - BioRxivClient: bioRxiv/medRxiv 预印本 (无需Key)
+- IeeeXploreClient: IEEE Xplore (需Key)
 - fetch_pdf: PDF 回退链获取器
 """
 
@@ -42,6 +43,7 @@ from souwen.paper.hal import HalClient
 from souwen.paper.openaire import OpenAireClient
 from souwen.paper.iacr import IacrClient
 from souwen.paper.biorxiv import BioRxivClient
+from souwen.paper.ieee_xplore import IeeeXploreClient
 
 __all__ = [
     "OpenAlexClient",
@@ -64,4 +66,5 @@ __all__ = [
     "OpenAireClient",
     "IacrClient",
     "BioRxivClient",
+    "IeeeXploreClient",
 ]

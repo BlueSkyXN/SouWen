@@ -125,7 +125,7 @@ sources: {}
 | `core_api_key` | `SOUWEN_CORE_API_KEY` | CORE 必需 | 申请：https://core.ac.uk/services/api |
 | `pubmed_api_key` | `SOUWEN_PUBMED_API_KEY` | 可选 | 提高速率限制 |
 | `unpaywall_email` | `SOUWEN_UNPAYWALL_EMAIL` | Unpaywall 必需 | 作为请求标识 |
-| `ieee_api_key` | `SOUWEN_IEEE_API_KEY` | 可选 | IEEE Xplore API Key |
+| `ieee_api_key` | `SOUWEN_IEEE_API_KEY` | IEEE Xplore 必需 | IEEE Xplore API Key |
 
 ### 专利 API
 
