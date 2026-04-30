@@ -44,6 +44,8 @@ async def get_plugin(name: str):
 @router.get("/plugins/{name}/health")
 async def plugin_health(name: str):
     """运行单个已加载插件的健康检查。"""
+    import logging
+
     from souwen.plugin import get_loaded_plugins
 
     plugin = get_loaded_plugins().get(name)
@@ -51,10 +53,16 @@ async def plugin_health(name: str):
         raise HTTPException(status_code=404, detail=f"插件 {name!r} 未加载")
     if plugin.health_check is None:
         return {"status": "ok", "message": "no health check defined"}
-    result = plugin.health_check()
-    if inspect.isawaitable(result):
-        result = await result
-    return result
+    try:
+        result = plugin.health_check()
+        if inspect.isawaitable(result):
+            result = await result
+        return result
+    except Exception as exc:
+        logging.getLogger("souwen.server").warning(
+            "插件 %r 健康检查失败: %s", name, exc, exc_info=True
+        )
+        return {"status": "error", "message": f"插件 {name!r} 健康检查异常"}
 
 
 @router.post("/plugins/{name}/enable")
@@ -83,7 +91,8 @@ async def install(req: InstallRequest):
     """安装插件包（需 SOUWEN_ENABLE_PLUGIN_INSTALL=1）"""
     from souwen.plugin_manager import install_plugin
 
-    return await install_plugin(req.package)
+    result = await install_plugin(req.package)
+    return _sanitize_pip_result(result)
 
 
 @router.post("/plugins/uninstall")
@@ -91,7 +100,23 @@ async def uninstall(req: UninstallRequest):
     """卸载插件包（需 SOUWEN_ENABLE_PLUGIN_INSTALL=1）"""
     from souwen.plugin_manager import uninstall_plugin
 
-    return await uninstall_plugin(req.package)
+    result = await uninstall_plugin(req.package)
+    return _sanitize_pip_result(result)
+
+
+def _sanitize_pip_result(result: dict) -> dict:
+    """Strip raw pip output from install/uninstall result before API response."""
+    import logging
+
+    if not result.get("success"):
+        logging.getLogger("souwen.server").warning(
+            "pip 操作失败，原始输出: %s", result.get("output", "")
+        )
+    return {
+        "success": result.get("success", False),
+        "package": result.get("package", ""),
+        "message": "操作成功" if result.get("success") else "操作失败，详见服务端日志",
+    }
 
 
 def _sanitize_errors(errors: list[dict]) -> list[dict]:

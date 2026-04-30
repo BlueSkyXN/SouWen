@@ -24,7 +24,7 @@ ARG WIREPROXY_VERSION=1.1.2
 # usque: MASQUE/QUIC 协议 WARP 客户端
 ARG USQUE_VERSION=3.0.0
 # 默认安装 web2pdf/SuperWeb2PDF 插件及其浏览器运行时
-ARG WITH_WEB2PDF=1
+ARG WITH_WEB2PDF=0
 
 # 环境变量配置
 # WARP 代理环境变量
