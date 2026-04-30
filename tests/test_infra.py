@@ -180,6 +180,8 @@ class TestModels:
             SourceType.HAL,
             SourceType.OPENAIRE,
             SourceType.IACR,
+            SourceType.BIORXIV,
+            SourceType.ZOTERO,
             SourceType.IEEE_XPLORE,
         ]
         patent_sources = [
@@ -220,7 +222,7 @@ class TestModels:
             SourceType.WEB_ZHIPUAI,
             SourceType.WEB_ALIYUN_IQS,
         ]
-        assert len(paper_sources) == 17
+        assert len(paper_sources) == 19
         assert len(patent_sources) == 8
         assert len(web_sources) == 26
 
@@ -438,7 +440,7 @@ class TestUnifiedSearch:
         from souwen.search import _default_paper_sources
 
         paper_adapters = by_domain_and_capability("paper", "search")
-        assert len(paper_adapters) == 17  # 17 source 支持 search（排除 unpaywall，它只有 find_oa）
+        assert len(paper_adapters) == 18  # 19 paper 源中 unpaywall 只有 find_oa，不含 search
         defaults = _default_paper_sources()
         assert defaults  # 必须非空
         names = {a.name for a in paper_adapters}
@@ -531,7 +533,7 @@ class TestCLI:
         """
         from souwen.models import ALL_SOURCES
 
-        assert len(ALL_SOURCES["paper"]) == 17
+        assert len(ALL_SOURCES["paper"]) == 18
         assert len(ALL_SOURCES["patent"]) == 6
         total_web = sum(
             len(ALL_SOURCES[c])
