@@ -39,6 +39,8 @@ import {
   Layers,
   Check,
   FileText,
+  Play,
+  Wrench,
 } from 'lucide-react'
 import { useAuthStore } from '@core/stores/authStore'
 import { canAccessNavItem } from '@core/lib/access'
@@ -51,6 +53,8 @@ const NAV_ITEMS = [
   { to: '/', icon: LayoutDashboard, labelKey: 'nav.dashboard', color: '#007aff' },
   { to: '/search', icon: Search, labelKey: 'nav.search', color: '#5ac8fa' },
   { to: '/fetch', icon: FileText, labelKey: 'nav.fetch', color: '#ff9500' },
+  { to: '/video', icon: Play, labelKey: 'nav.video', color: '#ff2d55' },
+  { to: '/tools', icon: Wrench, labelKey: 'nav.tools', color: '#af52de' },
   { to: '/sources', icon: Database, labelKey: 'nav.sources', color: '#5856d6' },
   { to: '/network', icon: Globe, labelKey: 'nav.network', color: '#34c759' },
   { to: '/warp', icon: Shield, labelKey: 'nav.warp', color: '#32d74b' },
