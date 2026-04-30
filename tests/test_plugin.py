@@ -701,6 +701,63 @@ class TestRegisterPlugin:
 
         assert calls == ["startup:async_life", "shutdown:async_life"]
 
+    def test_lifecycle_helper_sets_plugin_owner_contextvar(
+        self, clean_plugins, clean_fetch_handlers, monkeypatch
+    ):
+        """lifecycle hook 内 register_fetch_handler 应自动归属 plugin.name。
+
+        覆盖契约：on_startup 中注册的 handler 必须能被 unload_plugin
+        通过 unregister_fetch_handlers_by_owner(plugin.name) 清理，
+        否则禁用插件后 handler 会残留在 _FETCH_HANDLERS。
+        """
+        import asyncio
+
+        pytest.importorskip("fastapi", reason="server extras not installed")
+        from souwen.server import app as app_mod
+        from souwen.web.fetch import (
+            get_fetch_handler_owners,
+            register_fetch_handler,
+            unregister_fetch_handlers_by_owner,
+        )
+
+        async def fake_handler(*_args, **_kwargs):
+            return None
+
+        def startup(plugin):
+            register_fetch_handler("hook_provider", fake_handler)
+
+        p = Plugin(name="hook_owner_plugin", on_startup=startup)
+        monkeypatch.setattr(app_mod, "get_loaded_plugins", lambda: {"hook_owner_plugin": p})
+
+        try:
+            asyncio.run(app_mod._call_plugin_lifecycle_hooks("on_startup"))
+
+            owners = get_fetch_handler_owners()
+            assert owners.get("hook_provider") == "hook_owner_plugin"
+
+            removed = unregister_fetch_handlers_by_owner("hook_owner_plugin")
+            assert "hook_provider" in removed
+        finally:
+            unregister_fetch_handlers_by_owner("hook_owner_plugin")
+
+    def test_lifecycle_helper_resets_contextvar_after_hook(self, clean_plugins, monkeypatch):
+        """hook 抛异常或正常返回后 contextvar 都应复位为 None。"""
+        import asyncio
+
+        pytest.importorskip("fastapi", reason="server extras not installed")
+        from souwen.server import app as app_mod
+        from souwen.web.fetch import _current_plugin_owner
+
+        def boom(_plugin):
+            raise RuntimeError("hook failure")
+
+        p = Plugin(name="boom_plugin", on_startup=boom)
+        monkeypatch.setattr(app_mod, "get_loaded_plugins", lambda: {"boom_plugin": p})
+
+        # hook 异常被吞掉后 contextvar 也必须复位
+        asyncio.run(app_mod._call_plugin_lifecycle_hooks("on_startup"))
+        assert _current_plugin_owner.get() is None
+
 
 class TestUnloadPlugin:
     def test_unload_removes_everything(self, clean_registry, clean_plugins, clean_fetch_handlers):
