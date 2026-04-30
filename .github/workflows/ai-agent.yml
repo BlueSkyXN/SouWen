@@ -432,6 +432,69 @@ jobs:
           FIX_BRANCH: ${{ needs.gate.outputs.fix_branch }}
         run: git checkout -B "$FIX_BRANCH"
 
+      - name: Resolve AI agent log config
+        id: log-config
+        env:
+          INPUT_LOG_LEVEL: ${{ inputs.log_level }}
+          VAR_LOG_LEVEL: ${{ vars.AI_AGENT_LOG_LEVEL }}
+          VAR_RUST_LOG: ${{ vars.AI_AGENT_RUST_LOG }}
+        run: |
+          set -euo pipefail
+          LOG_LEVEL="${INPUT_LOG_LEVEL:-${VAR_LOG_LEVEL:-quiet}}"
+          case "$LOG_LEVEL" in
+            quiet|normal|debug) ;;
+            *)
+              echo "::warning::Invalid AI_AGENT_LOG_LEVEL='$LOG_LEVEL', falling back to quiet"
+              LOG_LEVEL="quiet"
+              ;;
+          esac
+
+          if [ -n "${VAR_RUST_LOG:-}" ]; then
+            RUST_LOG_VALUE="$VAR_RUST_LOG"
+          elif [ "$LOG_LEVEL" = "debug" ]; then
+            RUST_LOG_VALUE="info"
+          else
+            RUST_LOG_VALUE="warn"
+          fi
+
+          {
+            echo "log_level=$LOG_LEVEL"
+            echo "rust_log=$RUST_LOG_VALUE"
+          } >> "$GITHUB_OUTPUT"
+
+          echo "::notice::AI Agent log level: $LOG_LEVEL (RUST_LOG=$RUST_LOG_VALUE)"
+
+      - name: Validate AI secrets
+        env:
+          CUSTOM_AI_API_KEY: ${{ secrets.CUSTOM_AI_API_KEY }}
+          CUSTOM_AI_RESPONSES_ENDPOINT: ${{ secrets.CUSTOM_AI_RESPONSES_ENDPOINT }}
+          LOG_LEVEL: ${{ steps.log-config.outputs.log_level }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CUSTOM_AI_API_KEY:-}" ]; then
+            echo "::error::CUSTOM_AI_API_KEY is empty"
+            exit 1
+          fi
+          if [ -z "${CUSTOM_AI_RESPONSES_ENDPOINT:-}" ]; then
+            echo "::error::CUSTOM_AI_RESPONSES_ENDPOINT is empty"
+            exit 1
+          fi
+
+          {
+            echo "## AI Agent Secret 校验"
+            echo
+            echo "- CUSTOM_AI_API_KEY: present"
+            echo "- CUSTOM_AI_RESPONSES_ENDPOINT: present"
+            echo
+          } >> "$GITHUB_STEP_SUMMARY"
+
+          if [ "$LOG_LEVEL" = "debug" ]; then
+            echo "CUSTOM_AI_API_KEY length: ${#CUSTOM_AI_API_KEY}"
+            echo "CUSTOM_AI_RESPONSES_ENDPOINT length: ${#CUSTOM_AI_RESPONSES_ENDPOINT}"
+          else
+            echo "AI secrets are present. Enable log_level=debug to print non-sensitive lengths."
+          fi
+
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -582,38 +645,6 @@ jobs:
           fs.writeFileSync('.ai-agent-context/context.md', lines.join('\n'));
           NODE
 
-      - name: Resolve AI agent log config
-        id: log-config
-        env:
-          INPUT_LOG_LEVEL: ${{ inputs.log_level }}
-          VAR_LOG_LEVEL: ${{ vars.AI_AGENT_LOG_LEVEL }}
-          VAR_RUST_LOG: ${{ vars.AI_AGENT_RUST_LOG }}
-        run: |
-          set -euo pipefail
-          LOG_LEVEL="${INPUT_LOG_LEVEL:-${VAR_LOG_LEVEL:-quiet}}"
-          case "$LOG_LEVEL" in
-            quiet|normal|debug) ;;
-            *)
-              echo "::warning::Invalid AI_AGENT_LOG_LEVEL='$LOG_LEVEL', falling back to quiet"
-              LOG_LEVEL="quiet"
-              ;;
-          esac
-
-          if [ -n "${VAR_RUST_LOG:-}" ]; then
-            RUST_LOG_VALUE="$VAR_RUST_LOG"
-          elif [ "$LOG_LEVEL" = "debug" ]; then
-            RUST_LOG_VALUE="info"
-          else
-            RUST_LOG_VALUE="warn"
-          fi
-
-          {
-            echo "log_level=$LOG_LEVEL"
-            echo "rust_log=$RUST_LOG_VALUE"
-          } >> "$GITHUB_OUTPUT"
-
-          echo "::notice::AI Agent log level: $LOG_LEVEL (RUST_LOG=$RUST_LOG_VALUE)"
-
       - name: Context summary (pre-Codex diagnostic)
         env:
           LOG_LEVEL: ${{ steps.log-config.outputs.log_level }}
@@ -664,37 +695,6 @@ jobs:
             echo "AI Agent context summary written to job summary."
           fi
           echo "Codex start: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-
-      - name: Validate AI secrets
-        env:
-          CUSTOM_AI_API_KEY: ${{ secrets.CUSTOM_AI_API_KEY }}
-          CUSTOM_AI_RESPONSES_ENDPOINT: ${{ secrets.CUSTOM_AI_RESPONSES_ENDPOINT }}
-          LOG_LEVEL: ${{ steps.log-config.outputs.log_level }}
-        run: |
-          set -euo pipefail
-          if [ -z "${CUSTOM_AI_API_KEY:-}" ]; then
-            echo "::error::CUSTOM_AI_API_KEY is empty"
-            exit 1
-          fi
-          if [ -z "${CUSTOM_AI_RESPONSES_ENDPOINT:-}" ]; then
-            echo "::error::CUSTOM_AI_RESPONSES_ENDPOINT is empty"
-            exit 1
-          fi
-
-          {
-            echo "## AI Agent Secret 校验"
-            echo
-            echo "- CUSTOM_AI_API_KEY: present"
-            echo "- CUSTOM_AI_RESPONSES_ENDPOINT: present"
-            echo
-          } >> "$GITHUB_STEP_SUMMARY"
-
-          if [ "$LOG_LEVEL" = "debug" ]; then
-            echo "CUSTOM_AI_API_KEY length: ${#CUSTOM_AI_API_KEY}"
-            echo "CUSTOM_AI_RESPONSES_ENDPOINT length: ${#CUSTOM_AI_RESPONSES_ENDPOINT}"
-          else
-            echo "AI secrets are present. Enable log_level=debug to print non-sensitive lengths."
-          fi
 
       - name: Run Codex agent
         id: run-codex
