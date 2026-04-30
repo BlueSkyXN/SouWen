@@ -30,6 +30,7 @@ from souwen.plugin import (
     load_config_plugins,
     load_plugins,
     unload_plugin,
+    unload_plugin_async,
 )
 from souwen.registry.adapter import MethodSpec, SourceAdapter
 from souwen.registry.loader import lazy
@@ -758,6 +759,45 @@ class TestUnloadPlugin:
         )
         assert record.plugin == "unload_log"
         assert record.removed_adapters == ["unload_log_adapter"]
+
+    @pytest.mark.asyncio
+    async def test_unload_async_awaits_async_shutdown(
+        self, clean_registry, clean_plugins, clean_fetch_handlers
+    ):
+        calls: list[str] = []
+
+        async def shutdown(plugin):
+            calls.append(plugin.name)
+
+        p = Plugin(name="async_shutdown", on_shutdown=shutdown)
+        _register_plugin(p, source_label="t", loaded=[], errors=[])
+
+        result = await unload_plugin_async("async_shutdown")
+
+        assert calls == ["async_shutdown"]
+        assert result["status"] == "unloaded"
+        assert not any("async hook skipped" in err for err in result["errors"])
+
+    @pytest.mark.asyncio
+    async def test_unload_async_cleans_resources_after_shutdown_error(
+        self, clean_registry, clean_plugins, clean_fetch_handlers
+    ):
+        async def shutdown(_plugin):
+            raise RuntimeError("shutdown boom")
+
+        p = Plugin(
+            name="async_error",
+            adapters=[make_test_adapter("async_error_adapter")],
+            on_shutdown=shutdown,
+        )
+        _register_plugin(p, source_label="t", loaded=[], errors=[])
+
+        result = await unload_plugin_async("async_error")
+
+        assert result["status"] == "unloaded"
+        assert "async_error_adapter" in result["removed_adapters"]
+        assert "async_error_adapter" not in all_adapters()
+        assert any("shutdown boom" in err for err in result["errors"])
 
 
 class TestGetLoadedPlugins:

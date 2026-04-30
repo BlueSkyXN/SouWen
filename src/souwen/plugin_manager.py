@@ -20,9 +20,18 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from souwen.plugin import discover_entrypoint_plugins, get_loaded_plugins, unload_plugin
+from souwen.plugin import (
+    discover_entrypoint_plugins,
+    get_loaded_plugins,
+    unload_plugin,
+    unload_plugin_async,
+)
 from souwen.registry.views import all_adapters, external_plugins
-from souwen.web.fetch import get_fetch_handler_owners, get_fetch_handlers
+from souwen.web.fetch import (
+    get_fetch_handler_owners,
+    get_fetch_handlers,
+    unregister_fetch_handler,
+)
 
 logger = logging.getLogger("souwen.plugin_manager")
 
@@ -363,15 +372,27 @@ def get_plugin_info(name: str) -> PluginInfo | None:
     return None
 
 
+def _resolve_disable_target(name: str) -> tuple[str, str | None] | None:
+    """解析禁用目标，返回 (持久化名称, 当前可卸载的 Plugin 名)。"""
+    loaded_plugins = get_loaded_plugins()
+    if name in loaded_plugins:
+        return name, name
+    for plugin_name, plugin in loaded_plugins.items():
+        if name in plugin._registered_adapter_names:
+            return plugin_name, plugin_name
+    if name in _catalog_by_name():
+        return name, name if name in loaded_plugins else None
+    try:
+        if name in set(external_plugins()):
+            return name, None
+    except Exception:  # noqa: BLE001
+        pass
+    return None
+
+
 def _valid_disable_target(name: str) -> bool:
     """检查插件名是否为可禁用目标（外部插件、目录条目或已加载的 Plugin）。"""
-    catalog_names = set(_catalog_by_name())
-    loaded_names = set(get_loaded_plugins())
-    try:
-        ext = set(external_plugins())
-    except Exception:  # noqa: BLE001
-        ext = set()
-    return name in ext or name in catalog_names or name in loaded_names
+    return _resolve_disable_target(name) is not None
 
 
 def enable_plugin(name: str) -> dict[str, Any]:
@@ -379,13 +400,17 @@ def enable_plugin(name: str) -> dict[str, Any]:
     try:
         state = _load_state()
         disabled = set(state.get("disabled_plugins", []))
-        if name not in disabled:
+        resolved = _resolve_disable_target(name)
+        state_name = resolved[0] if resolved is not None else name
+        if state_name not in disabled and name in disabled:
+            state_name = name
+        if state_name not in disabled:
             return {
                 "success": True,
                 "restart_required": False,
                 "message": f"插件 {name!r} 已处于启用状态。",
             }
-        disabled.discard(name)
+        disabled.discard(state_name)
         state["disabled_plugins"] = sorted(disabled)
         _save_state(state)
         _mark_restart_required()
@@ -408,57 +433,122 @@ def enable_plugin(name: str) -> dict[str, Any]:
         }
 
 
-def disable_plugin(name: str) -> dict[str, Any]:
-    """禁用插件（写入禁用列表 + 运行时完整卸载）。
+def _disable_result(
+    requested_name: str,
+    state_name: str,
+    unload_result: dict[str, Any],
+) -> dict[str, Any]:
+    removed_adapters = unload_result.get("removed_adapters", [])
+    removed_handlers = unload_result.get("removed_handlers", [])
+    _mark_restart_required()
+    parts = [f"插件 {requested_name!r} 已禁用"]
+    if state_name != requested_name:
+        parts.append(f"解析为插件 {state_name!r}")
+    if unload_result.get("status") == "not_loaded":
+        parts.append("当前进程未加载该插件")
+    if removed_adapters:
+        parts.append(f"已移除数据源: {', '.join(removed_adapters)}")
+    if removed_handlers:
+        parts.append(f"已移除处理器: {', '.join(removed_handlers)}")
+    parts.append("重启后完全生效")
+    logger.info(
+        "插件 %r 已禁用，重启后完全生效。",
+        state_name,
+        extra={
+            "event": "plugin_disabled",
+            "plugin": state_name,
+            "requested_plugin": requested_name,
+            "removed_adapters": list(removed_adapters),
+            "removed_handlers": list(removed_handlers),
+        },
+    )
+    return {
+        "success": True,
+        "restart_required": True,
+        "message": "，".join(parts) + "。",
+    }
 
-    运行时通过 unload_plugin 完整清理：on_shutdown → 移除 fetch handler → 移除 adapter。
-    """
-    try:
-        if not _valid_disable_target(name):
-            return {
+
+def _prepare_disable(name: str) -> tuple[dict[str, Any] | None, str | None, str | None]:
+    resolved = _resolve_disable_target(name)
+    if resolved is None:
+        return (
+            {
                 "success": False,
                 "restart_required": False,
                 "message": f"插件 {name!r} 不是可禁用的外部插件。",
-            }
-        state = _load_state()
-        disabled = set(state.get("disabled_plugins", []))
-        if name in disabled:
-            return {
+            },
+            None,
+            None,
+        )
+    state_name, loaded_plugin_name = resolved
+    state = _load_state()
+    disabled = set(state.get("disabled_plugins", []))
+    if state_name in disabled:
+        return (
+            {
                 "success": True,
                 "restart_required": False,
                 "message": f"插件 {name!r} 已处于禁用状态。",
-            }
-        disabled.add(name)
-        state["disabled_plugins"] = sorted(disabled)
-        _save_state(state)
-
-        # 运行时完整卸载（adapter + fetch handler + shutdown hook）
-        unload_result = unload_plugin(name)
-        removed_adapters = unload_result.get("removed_adapters", [])
-        removed_handlers = unload_result.get("removed_handlers", [])
-
-        _mark_restart_required()
-        parts = [f"插件 {name!r} 已禁用"]
-        if removed_adapters:
-            parts.append(f"已移除数据源: {', '.join(removed_adapters)}")
-        if removed_handlers:
-            parts.append(f"已移除处理器: {', '.join(removed_handlers)}")
-        parts.append("重启后完全生效")
-        logger.info(
-            "插件 %r 已禁用，重启后完全生效。",
-            name,
-            extra={
-                "event": "plugin_disabled",
-                "plugin": name,
-                "removed_adapters": list(removed_adapters),
-                "removed_handlers": list(removed_handlers),
             },
+            None,
+            None,
         )
+    disabled.add(state_name)
+    state["disabled_plugins"] = sorted(disabled)
+    _save_state(state)
+    return None, state_name, loaded_plugin_name
+
+
+def disable_plugin(name: str) -> dict[str, Any]:
+    """禁用插件（写入禁用列表 + 运行时完整卸载）。"""
+    try:
+        early, state_name, loaded_plugin_name = _prepare_disable(name)
+        if early is not None:
+            return early
+        assert state_name is not None
+        if loaded_plugin_name is not None:
+            unload_result = unload_plugin(loaded_plugin_name)
+        elif state_name in set(external_plugins()):
+            unload_result = {
+                "name": state_name,
+                "status": "unloaded",
+                "removed_adapters": [state_name] if unregister_fetch_handler(state_name) else [],
+                "removed_handlers": [],
+                "errors": [],
+            }
+        else:
+            unload_result = {"name": state_name, "status": "not_loaded"}
+        return _disable_result(name, state_name, unload_result)
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("禁用插件 %r 失败: %s", name, exc)
         return {
-            "success": True,
-            "restart_required": True,
-            "message": "，".join(parts) + "。",
+            "success": False,
+            "restart_required": False,
+            "message": "禁用插件失败，请查看服务端日志。",
         }
+
+
+async def disable_plugin_async(name: str) -> dict[str, Any]:
+    """异步禁用插件，运行时卸载会 await async on_shutdown。"""
+    try:
+        early, state_name, loaded_plugin_name = _prepare_disable(name)
+        if early is not None:
+            return early
+        assert state_name is not None
+        if loaded_plugin_name is not None:
+            unload_result = await unload_plugin_async(loaded_plugin_name)
+        elif state_name in set(external_plugins()):
+            unload_result = {
+                "name": state_name,
+                "status": "unloaded",
+                "removed_adapters": [state_name] if unregister_fetch_handler(state_name) else [],
+                "removed_handlers": [],
+                "errors": [],
+            }
+        else:
+            unload_result = {"name": state_name, "status": "not_loaded"}
+        return _disable_result(name, state_name, unload_result)
     except Exception as exc:  # noqa: BLE001
         logger.warning("禁用插件 %r 失败: %s", name, exc)
         return {
@@ -613,6 +703,7 @@ __all__ = [
     "PLUGIN_CATALOG",
     "PluginInfo",
     "disable_plugin",
+    "disable_plugin_async",
     "enable_plugin",
     "get_plugin_info",
     "install_plugin",

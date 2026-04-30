@@ -298,9 +298,9 @@ def disable_cmd(
     name: str = typer.Argument(..., help="插件名称"),
 ) -> None:
     """禁用插件（重启后生效）"""
-    from souwen.plugin_manager import disable_plugin
+    from souwen.plugin_manager import disable_plugin_async
 
-    result = disable_plugin(name)
+    result = _run_async(disable_plugin_async(name))
     if result["success"]:
         console.print(f"[green]✅ {result['message']}[/green]")
     else:

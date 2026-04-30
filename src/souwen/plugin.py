@@ -25,6 +25,7 @@
 from __future__ import annotations
 
 import importlib
+import inspect
 import logging
 import os
 from collections.abc import Awaitable, Callable, Iterable
@@ -414,29 +415,8 @@ def _register_plugin(
     )
 
 
-def unload_plugin(name: str) -> dict[str, Any]:
-    """卸载插件：on_shutdown → 移除 fetch handler → 移除 adapter。"""
-    plugin = _PLUGINS.pop(name, None)
-    if plugin is None:
-        return {"name": name, "status": "not_loaded"}
-
-    errs: list[str] = []
-
-    if plugin.on_shutdown is not None:
-        try:
-            result = plugin.on_shutdown(plugin)
-            if hasattr(result, "__await__"):
-                # 关闭协程避免 RuntimeWarning，并标记跳过
-                result.close()
-                errs.append("on_shutdown: async hook skipped in sync unload path")
-                logger.warning(
-                    "插件 %r on_shutdown 返回了协程，同步路径不支持 — 已跳过并关闭",
-                    name,
-                    extra={"event": "plugin_shutdown_skipped", "plugin": name},
-                )
-        except Exception as exc:  # noqa: BLE001
-            errs.append(f"on_shutdown: {exc}")
-
+def _finish_unload_plugin(name: str, plugin: Plugin, errors: list[str]) -> dict[str, Any]:
+    """移除插件运行时资源并返回卸载结果。"""
     removed_handlers = unregister_fetch_handlers_by_owner(name)
     removed_adapters: list[str] = []
     for adapter_name in plugin._registered_adapter_names:
@@ -451,7 +431,7 @@ def unload_plugin(name: str) -> dict[str, Any]:
             "plugin": name,
             "removed_handlers": list(removed_handlers),
             "removed_adapters": list(removed_adapters),
-            "errors": list(errs),
+            "errors": list(errors),
         },
     )
 
@@ -460,8 +440,52 @@ def unload_plugin(name: str) -> dict[str, Any]:
         "status": "unloaded",
         "removed_handlers": removed_handlers,
         "removed_adapters": removed_adapters,
-        "errors": errs,
+        "errors": errors,
     }
+
+
+def unload_plugin(name: str) -> dict[str, Any]:
+    """卸载插件：on_shutdown → 移除 fetch handler → 移除 adapter。"""
+    plugin = _PLUGINS.pop(name, None)
+    if plugin is None:
+        return {"name": name, "status": "not_loaded"}
+
+    errors: list[str] = []
+    if plugin.on_shutdown is not None:
+        try:
+            result = plugin.on_shutdown(plugin)
+            if inspect.isawaitable(result):
+                close = getattr(result, "close", None)
+                if callable(close):
+                    close()
+                errors.append("on_shutdown: async hook skipped in sync unload path")
+                logger.warning(
+                    "插件 %r on_shutdown 返回了协程，同步路径不支持 — 已跳过并关闭",
+                    name,
+                    extra={"event": "plugin_shutdown_skipped", "plugin": name},
+                )
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"on_shutdown: {exc}")
+
+    return _finish_unload_plugin(name, plugin, errors)
+
+
+async def unload_plugin_async(name: str) -> dict[str, Any]:
+    """异步卸载插件，支持 await async on_shutdown。"""
+    plugin = _PLUGINS.pop(name, None)
+    if plugin is None:
+        return {"name": name, "status": "not_loaded"}
+
+    errors: list[str] = []
+    if plugin.on_shutdown is not None:
+        try:
+            result = plugin.on_shutdown(plugin)
+            if inspect.isawaitable(result):
+                await result
+        except Exception as exc:  # noqa: BLE001
+            errors.append(f"on_shutdown: {exc}")
+
+    return _finish_unload_plugin(name, plugin, errors)
 
 
 def get_loaded_plugins() -> dict[str, Plugin]:
@@ -759,4 +783,5 @@ __all__ = [
     "load_config_plugins",
     "load_plugins",
     "unload_plugin",
+    "unload_plugin_async",
 ]

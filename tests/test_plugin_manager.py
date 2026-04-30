@@ -23,6 +23,7 @@ from souwen.plugin_manager import (
     _load_state,
     _save_state,
     disable_plugin,
+    disable_plugin_async,
     enable_plugin,
     get_plugin_info,
     install_plugin,
@@ -478,7 +479,9 @@ class TestEnableDisable:
         caplog: pytest.LogCaptureFixture,
     ) -> None:
         _save_state({"disabled_plugins": ["alpha"], "installed_via_api": []})
-        monkeypatch.setattr("souwen.plugin_manager._valid_disable_target", lambda name: True)
+        monkeypatch.setattr(
+            "souwen.plugin_manager._resolve_disable_target", lambda name: (name, None)
+        )
         monkeypatch.setattr("souwen.registry.views._unreg_external", lambda name: False)
 
         with caplog.at_level(logging.INFO, logger="souwen.plugin_manager"):
@@ -499,7 +502,9 @@ class TestEnableDisable:
         self, state_dir: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
         _save_state({"disabled_plugins": ["alpha"], "installed_via_api": []})
-        monkeypatch.setattr("souwen.plugin_manager._valid_disable_target", lambda name: True)
+        monkeypatch.setattr(
+            "souwen.plugin_manager._resolve_disable_target", lambda name: (name, None)
+        )
         monkeypatch.setattr("souwen.registry.views._unreg_external", lambda name: False)
 
         disable_plugin("alpha")
@@ -684,7 +689,9 @@ class TestRuntimeDisable:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         unload_called_with: list[str] = []
-        monkeypatch.setattr("souwen.plugin_manager._valid_disable_target", lambda name: True)
+        monkeypatch.setattr(
+            "souwen.plugin_manager._resolve_disable_target", lambda name: (name, name)
+        )
         monkeypatch.setattr(
             "souwen.plugin_manager.unload_plugin",
             lambda name: (
@@ -719,13 +726,89 @@ class TestRuntimeDisable:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         _save_state({"disabled_plugins": ["alpha"], "installed_via_api": []})
-        monkeypatch.setattr("souwen.plugin_manager._valid_disable_target", lambda name: True)
+        monkeypatch.setattr(
+            "souwen.plugin_manager._resolve_disable_target", lambda name: (name, None)
+        )
 
         result = disable_plugin("alpha")
 
         assert result["success"] is True
         assert result["restart_required"] is False
         assert "已处于禁用状态" in result["message"]
+
+    def test_disable_by_adapter_name_unloads_owning_plugin(
+        self,
+        state_dir: Path,
+        clean_registry: None,
+    ) -> None:
+        from souwen.plugin import Plugin, _PLUGINS, _register_plugin
+        from souwen.registry.adapter import MethodSpec, SourceAdapter
+        from souwen.registry.loader import lazy
+        from souwen.registry.views import all_adapters
+
+        adapter = SourceAdapter(
+            name="adapter_demo",
+            domain="fetch",
+            integration="self_hosted",
+            description="adapter demo",
+            config_field=None,
+            client_loader=lazy("souwen.web.builtin:BuiltinFetcherClient"),
+            methods={"fetch": MethodSpec("fetch")},
+            tags=frozenset({"external_plugin"}),
+        )
+        saved = dict(_PLUGINS)
+        _PLUGINS.clear()
+        try:
+            _register_plugin(
+                Plugin(name="plugin_demo", adapters=[adapter]),
+                source_label="t",
+                loaded=[],
+                errors=[],
+            )
+
+            result = disable_plugin("adapter_demo")
+
+            assert result["success"] is True
+            assert _load_state()["disabled_plugins"] == ["plugin_demo"]
+            assert "plugin_demo" not in _PLUGINS
+            assert "adapter_demo" not in all_adapters()
+            assert "解析为插件 'plugin_demo'" in result["message"]
+        finally:
+            _PLUGINS.clear()
+            _PLUGINS.update(saved)
+
+    @pytest.mark.asyncio
+    async def test_disable_async_awaits_shutdown(
+        self,
+        state_dir: Path,
+        clean_registry: None,
+    ) -> None:
+        from souwen.plugin import Plugin, _PLUGINS, _register_plugin
+
+        calls: list[str] = []
+
+        async def shutdown(plugin):
+            calls.append(plugin.name)
+
+        saved = dict(_PLUGINS)
+        _PLUGINS.clear()
+        try:
+            _register_plugin(
+                Plugin(name="async_disable", on_shutdown=shutdown),
+                source_label="t",
+                loaded=[],
+                errors=[],
+            )
+
+            result = await disable_plugin_async("async_disable")
+
+            assert result["success"] is True
+            assert calls == ["async_disable"]
+            assert _load_state()["disabled_plugins"] == ["async_disable"]
+            assert "async_disable" not in _PLUGINS
+        finally:
+            _PLUGINS.clear()
+            _PLUGINS.update(saved)
 
 
 class TestValidDisableTarget:
@@ -906,7 +989,9 @@ class TestAPIEndpoints:
         state_dir: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
-        monkeypatch.setattr("souwen.plugin_manager._valid_disable_target", lambda name: True)
+        monkeypatch.setattr(
+            "souwen.plugin_manager._resolve_disable_target", lambda name: (name, None)
+        )
         monkeypatch.setattr("souwen.registry.views._unreg_external", lambda name: False)
 
         response = client.post("/plugins/alpha/disable")

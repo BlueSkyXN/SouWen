@@ -76,9 +76,9 @@ async def enable(name: str):
 @router.post("/plugins/{name}/disable")
 async def disable(name: str):
     """禁用插件（重启后生效）"""
-    from souwen.plugin_manager import disable_plugin
+    from souwen.plugin_manager import disable_plugin_async
 
-    result = disable_plugin(name)
+    result = await disable_plugin_async(name)
     return {
         "success": result.get("success", False),
         "restart_required": result.get("restart_required", False),
