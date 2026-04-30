@@ -28,8 +28,8 @@ class TestAllSources:
     """ALL_SOURCES 元信息测试"""
 
     def test_paper_count(self):
-        """paper 暴露 8 个搜索数据源"""
-        assert len(ALL_SOURCES["paper"]) == 16
+        """paper 暴露 17 个搜索数据源"""
+        assert len(ALL_SOURCES["paper"]) == 17
 
     def test_patent_count(self):
         """patent 暴露 6 个搜索数据源"""
@@ -88,14 +88,15 @@ class TestSourceTypeEnum:
     """SourceType 枚举测试"""
 
     def test_has_59_values(self):
-        """枚举有 75 个值"""
-        assert len(SourceType) == 75
+        """枚举有 76 个值"""
+        assert len(SourceType) == 76
 
     def test_paper_sources_exist(self):
         """论文数据源枚举存在"""
         assert SourceType.OPENALEX.value == "openalex"
         assert SourceType.ARXIV.value == "arxiv"
         assert SourceType.CROSSREF.value == "crossref"
+        assert SourceType.BIORXIV.value == "biorxiv"
 
     def test_patent_sources_exist(self):
         """专利数据源枚举存在"""

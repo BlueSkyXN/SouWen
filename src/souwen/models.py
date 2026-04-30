@@ -138,6 +138,7 @@ class SourceType(str, Enum):
     HAL = "hal"
     OPENAIRE = "openaire"
     IACR = "iacr"
+    BIORXIV = "biorxiv"
     # 专利数据源
     PATENTSVIEW = "patentsview"
     USPTO_ODP = "uspto_odp"
