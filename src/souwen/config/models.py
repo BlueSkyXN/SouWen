@@ -43,6 +43,36 @@ class SourceChannelConfig(BaseModel):
     params: dict[str, str | int | float | bool] = Field(default_factory=dict)
 
 
+class LLMConfig(BaseModel):
+    """LLM 配置 — 控制搜索摘要和页面摘要功能
+
+    支持 OpenAI-compatible API（覆盖 OpenAI、Azure、vLLM、Ollama、
+    OpenRouter、DeepSeek 等）和 Anthropic Messages API。
+    """
+
+    enabled: bool = False
+    protocol: Literal["openai_chat", "openai_responses", "anthropic_messages"] = "openai_chat"
+    api_key: str | None = None
+    api_keys: list[str] = Field(default_factory=list)
+    base_url: str = "https://api.openai.com/v1"
+    model: str = "gpt-4o-mini"
+    max_tokens: int = Field(2048, ge=1)
+    temperature: float = Field(0.3, ge=0.0, le=2.0)
+    timeout: float = Field(60.0, gt=0)
+    max_input_tokens: int = Field(6000, ge=1)
+    system_prompt: str | None = None
+    default_mode: Literal["brief", "detailed", "academic"] = "brief"
+    rate_limit_summarize: int = Field(20, ge=1)
+    rate_limit_fetch: int = Field(20, ge=1)
+    anthropic_version: str = "2023-06-01"
+
+    def get_api_key(self) -> str | None:
+        """获取 API Key：优先从 api_keys 轮询，否则用单一 api_key"""
+        if self.api_keys:
+            return random.choice(self.api_keys)
+        return self.api_key
+
+
 class SouWenConfig(BaseModel):
     """SouWen 全局配置
 
@@ -271,6 +301,9 @@ class SouWenConfig(BaseModel):
         default_factory=list,
         description="手动指定的插件列表，格式为 'module.path:attribute'",
     )
+
+    # ===== LLM 摘要 =====
+    llm: LLMConfig = Field(default_factory=LLMConfig)
 
     @field_validator("proxy")
     @classmethod

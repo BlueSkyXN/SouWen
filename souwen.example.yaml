@@ -259,3 +259,20 @@ warp:
 #   openalex:
 #     base_url: https://my-proxy.example.com  # 使用自建代理
 sources: {}
+
+# ─── LLM 摘要配置 ──────────────────────────────────────────────
+# llm:
+#   enabled: true               — 启用 LLM 摘要功能
+#   protocol: openai_chat       — openai_chat / openai_responses / anthropic_messages
+#   api_key: sk-xxx             — API Key
+#   base_url: https://api.openai.com/v1
+#   model: gpt-4o-mini
+#   max_tokens: 2048
+#   temperature: 0.3
+#   timeout: 60
+#   max_input_tokens: 6000      — 超出则截断
+#   default_mode: brief         — brief / detailed / academic
+#   rate_limit_summarize: 20    — POST /api/v1/summarize 限流（次/分钟）
+#   rate_limit_fetch: 20        — POST /api/v1/fetch/summarize 限流（次/分钟）
+llm:
+  enabled: false

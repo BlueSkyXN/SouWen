@@ -62,9 +62,9 @@ def _load_yaml_config() -> dict:
     valid_fields = set(SouWenConfig.model_fields)
     flat: dict = {}
     for key, values in raw.items():
-        if key == "sources" and isinstance(values, dict):
-            # sources 是嵌套结构,直接传递给 Pydantic 解析
-            flat["sources"] = values
+        if key in ("sources", "llm") and isinstance(values, dict):
+            # sources / llm 是嵌套结构,直接传递给 Pydantic 解析
+            flat[key] = values
         elif isinstance(values, dict):
             # 嵌套分组结构: paper: {openalex_email: ...}
             for k, v in values.items():
@@ -136,6 +136,16 @@ def _coerce_env_value(field_name: str, raw_val: str, env_key: str):
         logger.warning("环境变量 %s 应为 JSON 对象,已忽略", env_key)
         return None
     if field_name == "sources":
+        try:
+            parsed = json.loads(val)
+        except json.JSONDecodeError:
+            logger.warning("环境变量 %s JSON 解析失败,已忽略", env_key)
+            return None
+        if isinstance(parsed, dict):
+            return parsed
+        logger.warning("环境变量 %s 应为 JSON 对象,已忽略", env_key)
+        return None
+    if field_name == "llm":
         try:
             parsed = json.loads(val)
         except json.JSONDecodeError:
