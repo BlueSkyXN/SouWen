@@ -650,3 +650,101 @@ export interface WhoamiResponse {
   features: Record<string, boolean | string>
   guest_enabled: boolean
 }
+
+/* ===== Plugin Management ===== */
+
+/**
+ * 插件状态枚举（对齐后端 PluginInfo.status）：
+ *   - loaded：当前进程已加载
+ *   - available：目录中可用但未导入（通常需安装/启用）
+ *   - disabled：已通过 disable 写入禁用列表，重启后跳过
+ *   - error：加载失败
+ */
+export type PluginStatus = 'loaded' | 'available' | 'disabled' | 'error'
+
+/**
+ * 插件来源（对齐后端 PluginInfo.source）：
+ *   - entry_point：通过 setuptools entry_points 静态目录发现
+ *   - catalog：动态目录条目
+ *   - config_path：通过 souwen.yaml 的 plugins 字段或 SOUWEN_PLUGINS 环境变量加载
+ */
+export type PluginSource = 'entry_point' | 'catalog' | 'config_path'
+
+/**
+ * 单个插件的状态视图（对齐 src/souwen/plugin_manager.py::PluginInfo）
+ */
+export interface PluginInfo {
+  name: string
+  package?: string | null
+  version?: string | null
+  status: PluginStatus | string
+  source: PluginSource | string
+  first_party: boolean
+  description: string
+  error?: string | null
+  source_adapters: string[]
+  fetch_handlers: string[]
+  restart_required: boolean
+}
+
+/**
+ * GET /api/v1/admin/plugins 响应
+ *
+ * - plugins：按字典序排列的插件清单
+ * - restart_required：服务端是否有任何 enable/disable/install/uninstall 操作未生效，前端用作横幅提示
+ * - install_enabled：是否允许 install/uninstall 操作（受 SOUWEN_ENABLE_PLUGIN_INSTALL 控制）
+ */
+export interface PluginListResponse {
+  plugins: PluginInfo[]
+  restart_required: boolean
+  install_enabled: boolean
+}
+
+/**
+ * GET /api/v1/admin/plugins/{name}/health 响应
+ *
+ * 后端透传 `plugin.health_check()` 返回，因此 `status` 之外的字段不固定。
+ * 当插件未声明 health_check 时返回 {status: "ok", message: "no health check defined"}。
+ */
+export interface PluginHealthResponse {
+  status: string
+  message?: string
+  [key: string]: unknown
+}
+
+/**
+ * POST /api/v1/admin/plugins/{name}/enable 响应
+ */
+export interface PluginEnableResponse {
+  success: boolean
+  restart_required: boolean
+  message: string
+}
+
+/**
+ * POST /api/v1/admin/plugins/{name}/disable 响应
+ */
+export interface PluginDisableResponse {
+  success: boolean
+  restart_required: boolean
+  message: string
+}
+
+/**
+ * POST /api/v1/admin/plugins/install 与 uninstall 共用响应
+ */
+export interface PluginInstallResponse {
+  success: boolean
+  package: string
+  restart_required: boolean
+  message: string
+}
+
+/**
+ * POST /api/v1/admin/plugins/reload 响应
+ */
+export interface PluginReloadResponse {
+  loaded: string[]
+  errors: { source: string; name: string }[]
+  message: string
+}
