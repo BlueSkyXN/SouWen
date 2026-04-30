@@ -904,6 +904,9 @@ class TestAPIEndpoints:
         assert "plugins" in payload
         assert isinstance(payload["plugins"], list)
         assert payload["restart_required"] is False
+        # install_enabled 字段供前端决定是否展示安装/卸载入口
+        assert "install_enabled" in payload
+        assert isinstance(payload["install_enabled"], bool)
 
     def test_get_plugin_unknown_returns_404(
         self,

@@ -20,13 +20,22 @@ class UninstallRequest(BaseModel):
 
 @router.get("/plugins")
 async def list_all_plugins():
-    """列出所有插件（已加载 + 目录 + 禁用）"""
-    from souwen.plugin_manager import is_restart_required, list_plugins
+    """列出所有插件（已加载 + 目录 + 禁用）。
+
+    返回的 ``install_enabled`` 反映服务端是否允许 install/uninstall（受
+    ``SOUWEN_ENABLE_PLUGIN_INSTALL`` 控制），便于前端按需展示安装入口。
+    """
+    from souwen.plugin_manager import (
+        _plugin_install_enabled,
+        is_restart_required,
+        list_plugins,
+    )
 
     plugins = list_plugins()
     return {
         "plugins": [p.model_dump() for p in plugins],
         "restart_required": is_restart_required(),
+        "install_enabled": _plugin_install_enabled(),
     }
 
 

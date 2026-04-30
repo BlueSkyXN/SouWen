@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import asyncio
+import inspect
 import re
 from pathlib import Path
+from typing import Any
 
 import typer
 from rich.table import Table
@@ -14,9 +17,60 @@ _PLUGIN_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
 plugins_app = typer.Typer(
     name="plugins",
-    help="插件管理 — 列表、启用/禁用、安装/卸载、重载",
+    help="插件管理 — 列表、启用/禁用、安装/卸载、重载、健康检查",
     no_args_is_help=True,
 )
+
+
+async def _run_plugin_health(name: str) -> dict[str, Any]:
+    """Run a single plugin's health_check. Mirrors the API endpoint behavior."""
+    from souwen.plugin import get_loaded_plugins
+
+    plugin = get_loaded_plugins().get(name)
+    if plugin is None:
+        return {"status": "not_loaded", "message": f"插件 {name!r} 未加载"}
+    if plugin.health_check is None:
+        return {"status": "ok", "message": "no health check defined"}
+    try:
+        result = plugin.health_check()
+        if inspect.isawaitable(result):
+            result = await result
+    except Exception as exc:  # noqa: BLE001 — health 错误返回，避免拖垮 CLI
+        return {"status": "error", "message": f"health_check 抛出异常: {exc}"}
+    if isinstance(result, dict):
+        result.setdefault("status", "ok")
+        return result
+    return {"status": "ok", "details": str(result)}
+
+
+async def _collect_plugin_health(names: list[str]) -> dict[str, dict[str, Any]]:
+    """Run health_check across many plugins concurrently."""
+    if not names:
+        return {}
+    coros = [_run_plugin_health(n) for n in names]
+    results = await asyncio.gather(*coros, return_exceptions=False)
+    return dict(zip(names, results, strict=True))
+
+
+def _render_health_cell(
+    name: str,
+    status: str,
+    health_map: dict[str, dict[str, Any]],
+) -> str:
+    """Render the health cell for the list table."""
+    if status != "loaded":
+        return "[dim]—[/dim]"
+    info = health_map.get(name)
+    if info is None:
+        return "[dim]?[/dim]"
+    state = str(info.get("status", "")).lower()
+    if state in {"ok", "healthy"}:
+        return "[green]✅ ok[/green]"
+    if state in {"degraded", "warn", "warning"}:
+        return f"[yellow]⚠ {state}[/yellow]"
+    if state in {"not_loaded"}:
+        return "[dim]未加载[/dim]"
+    return f"[red]❌ {state or 'error'}[/red]"
 
 
 def _plugin_scaffold_files(name: str) -> dict[Path, str]:
@@ -209,7 +263,13 @@ def new_cmd(
 
 
 @plugins_app.command("list")
-def list_cmd() -> None:
+def list_cmd(
+    show_health: bool = typer.Option(
+        False,
+        "--health",
+        help="并发执行已加载插件的 health_check 并附加状态列。",
+    ),
+) -> None:
     """列出所有插件"""
     from souwen.plugin_manager import is_restart_required, list_plugins
 
@@ -223,11 +283,19 @@ def list_cmd() -> None:
         console.print("[dim]未发现任何插件。[/dim]")
         return
 
+    health_map: dict[str, dict[str, str]] = {}
+    if show_health:
+        loaded_names = [p.name for p in plugins if p.status == "loaded"]
+        if loaded_names:
+            health_map = _run_async(_collect_plugin_health(loaded_names))
+
     table = Table(title="🔌 SouWen 插件", show_lines=True)
     table.add_column("Name", style="cyan")
     table.add_column("Status", justify="center")
     table.add_column("Source", style="magenta")
     table.add_column("Version", style="dim")
+    if show_health:
+        table.add_column("Health", justify="center")
     table.add_column("Description", style="dim")
 
     status_icons = {
@@ -238,13 +306,16 @@ def list_cmd() -> None:
     }
 
     for p in plugins:
-        table.add_row(
+        row = [
             p.name,
             status_icons.get(p.status, p.status),
             p.source,
             p.version or "-",
-            p.description or "-",
-        )
+        ]
+        if show_health:
+            row.append(_render_health_cell(p.name, p.status, health_map))
+        row.append(p.description or "-")
+        table.add_row(*row)
 
     console.print(table)
 
@@ -352,3 +423,27 @@ def reload_cmd() -> None:
     if result["errors"]:
         for err in result["errors"]:
             console.print(f"  [red]错误: {err.get('name', '?')} — {err.get('error', '?')}[/red]")
+
+
+@plugins_app.command("health")
+def health_cmd(
+    name: str = typer.Argument(..., help="插件名称（必须已加载）"),
+) -> None:
+    """运行单个插件的 health_check（对应 GET /admin/plugins/{name}/health）。"""
+    result = _run_async(_run_plugin_health(name))
+    state = str(result.get("status", "")).lower()
+    if state == "not_loaded":
+        console.print(f"[red]❌ {result.get('message', '插件未加载')}[/red]")
+        raise typer.Exit(code=1)
+    if state in {"ok", "healthy"}:
+        console.print(f"[green]✅ {name} 健康[/green]")
+    elif state in {"degraded", "warn", "warning"}:
+        console.print(f"[yellow]⚠ {name}: {state}[/yellow]")
+    else:
+        console.print(f"[red]❌ {name}: {state or 'error'}[/red]")
+    for key, value in result.items():
+        if key == "status":
+            continue
+        console.print(f"  {key}: {value}")
+    if state not in {"ok", "healthy", "degraded", "warn", "warning"}:
+        raise typer.Exit(code=1)
