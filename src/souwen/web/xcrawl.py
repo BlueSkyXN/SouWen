@@ -138,9 +138,7 @@ class XCrawlClient(SouWenHttpClient):
             webhook=webhook,
         )
         try:
-            resp = await asyncio.wait_for(
-                self.post("/v1/scrape", json=payload), timeout=timeout
-            )
+            resp = await asyncio.wait_for(self.post("/v1/scrape", json=payload), timeout=timeout)
             try:
                 data = resp.json()
             except Exception as exc:
