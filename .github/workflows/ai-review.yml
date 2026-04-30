@@ -536,6 +536,23 @@ jobs:
           echo "Sandbox: read-only"
           echo "Codex start: $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 
+      - name: Validate AI secrets
+        env:
+          CUSTOM_AI_API_KEY: ${{ secrets.CUSTOM_AI_API_KEY }}
+          CUSTOM_AI_RESPONSES_ENDPOINT: ${{ secrets.CUSTOM_AI_RESPONSES_ENDPOINT }}
+        run: |
+          set -euo pipefail
+          if [ -z "${CUSTOM_AI_API_KEY:-}" ]; then
+            echo "::error::CUSTOM_AI_API_KEY is empty"
+            exit 1
+          fi
+          if [ -z "${CUSTOM_AI_RESPONSES_ENDPOINT:-}" ]; then
+            echo "::error::CUSTOM_AI_RESPONSES_ENDPOINT is empty"
+            exit 1
+          fi
+          echo "CUSTOM_AI_API_KEY length: ${#CUSTOM_AI_API_KEY}"
+          echo "CUSTOM_AI_RESPONSES_ENDPOINT length: ${#CUSTOM_AI_RESPONSES_ENDPOINT}"
+
       - name: Run Codex review
         id: run-codex
         env:
