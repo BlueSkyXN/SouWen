@@ -221,10 +221,11 @@ class TestModels:
             SourceType.WEB_FEISHU_DRIVE,
             SourceType.WEB_ZHIPUAI,
             SourceType.WEB_ALIYUN_IQS,
+            SourceType.WEB_XCRAWL,
         ]
         assert len(paper_sources) == 19
         assert len(patent_sources) == 8
-        assert len(web_sources) == 26
+        assert len(web_sources) == 27
 
 
 class TestExceptions:
@@ -539,9 +540,9 @@ class TestCLI:
             len(ALL_SOURCES[c])
             for c in ("general", "professional", "social", "developer", "wiki", "video")
         )
-        # v0 期望 31；v1 修复漂移后为 38
-        assert total_web == 38
-        assert len(ALL_SOURCES["fetch"]) >= 20  # 20 内置 + 可能有外部插件
+        # v0 期望 31；v1 修复漂移后为 39
+        assert total_web == 39
+        assert len(ALL_SOURCES["fetch"]) >= 21  # 21 内置 + 可能有外部插件
         # cn_tech 拆分后独立源
         assert len(ALL_SOURCES["cn_tech"]) == 9
 

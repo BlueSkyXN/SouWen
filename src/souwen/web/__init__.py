@@ -24,6 +24,7 @@ API 类（需 Key / 自建实例）：
 - SerperClient: Serper Google SERP API
 - BraveApiClient: Brave 官方 API
 - MetasoClient: 秘塔搜索（文档/网页/学术三种范围）
+- XCrawlClient: XCrawl 搜索+抓取
 - ZhipuAISearchClient: 智谱 AI Web Search Pro（含 AI 摘要，中英文友好）
 - AliyunIQSClient: 阿里云 IQS 通义晓搜（含 AI 摘要，中英文友好）
 
@@ -59,6 +60,7 @@ from souwen.web.serper import SerperClient
 from souwen.web.brave_api import BraveApiClient
 from souwen.web.serpapi import SerpApiClient
 from souwen.web.firecrawl import FirecrawlClient
+from souwen.web.xcrawl import XCrawlClient
 from souwen.web.perplexity import PerplexityClient
 from souwen.web.linkup import LinkupClient
 from souwen.web.scrapingdog import ScrapingDogClient
@@ -124,6 +126,7 @@ __all__ = [
     "BraveApiClient",
     "SerpApiClient",
     "FirecrawlClient",
+    "XCrawlClient",
     "PerplexityClient",
     "LinkupClient",
     "ScrapingDogClient",

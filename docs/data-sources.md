@@ -40,7 +40,7 @@
 | `the_lens` | official_api | 需Key | search | `lens_api_token` |
 | `uspto_odp` | official_api | 需Key | search | `uspto_api_key` |
 
-## 通用网页搜索 · `web`（28 源）
+## 通用网页搜索 · `web`（29 源）
 
 | Name | Integration | Key Req | Capabilities | Config Field |
 |---|---|---|---|---|
@@ -69,6 +69,7 @@
 | `tavily` | official_api | 需Key | fetch, search | `tavily_api_key` |
 | `websurfx` | self_hosted | 需自建 | search | `websurfx_url` |
 | `whoogle` | self_hosted | 需自建 | search | `whoogle_url` |
+| `xcrawl` | official_api | 需Key | fetch, search | `xcrawl_api_key` |
 | `yahoo` | scraper | 免配置 | search | — |
 | `yandex` | scraper | 免配置 | search | — |
 | `zhipuai` | official_api | 需Key | search | `zhipuai_api_key` |
@@ -131,7 +132,7 @@
 |---|---|---|---|---|
 | `wayback` | open_api | 免配置 | archive_lookup, archive_save, fetch | — |
 
-## 内容抓取 · `fetch`（20 源）
+## 内容抓取 · `fetch`（21 源）
 
 | Name | Integration | Key Req | Capabilities | Config Field |
 |---|---|---|---|---|
@@ -154,6 +155,7 @@
 | `site_crawler` | scraper | 免配置 | fetch | — |
 | `tavily` | official_api | 需Key | fetch, search | `tavily_api_key` |
 | `wayback` | open_api | 免配置 | archive_lookup, archive_save, fetch | — |
+| `xcrawl` | official_api | 需Key | fetch, search | `xcrawl_api_key` |
 | `zenrows` | official_api | 需Key | fetch | `zenrows_api_key` |
 
 <!-- END AUTO -->

@@ -22,7 +22,7 @@
 ├────────────────────────────────────────────────────────────────┤
 │ 注册表层 Registry —— 单一事实源                                │
 │   souwen.registry.adapter    SourceAdapter / MethodSpec        │
-│   souwen.registry.sources    90 个 _reg(...) 声明（权威）      │
+│   souwen.registry.sources    91 个 _reg(...) 声明（权威）      │
 │   souwen.registry.loader     字符串懒加载（避免启动 import）  │
 │   souwen.registry.views      by_domain / by_capability / ...   │
 ├────────────────────────────────────────────────────────────────┤
@@ -105,7 +105,7 @@ _reg(SourceAdapter(
 
 ### 懒加载
 
-注册表模块导入时**不**加载 90+ 个 Client：
+注册表模块导入时**不**加载 91+ 个 Client：
 
 ```python
 client_loader=lazy("souwen.paper.openalex:OpenAlexClient")
@@ -185,7 +185,7 @@ client_cls = adapter.client_loader()  # 此刻才 importlib.import_module
 
 ## 8. 插件系统（外部扩展）
 
-注册表除了承载内置的 90+ 个 `_reg()`，还能在运行时**通过外部插件**追加新的
+注册表除了承载内置的 91+ 个 `_reg()`，还能在运行时**通过外部插件**追加新的
 `SourceAdapter`，让第三方 / 私有源在不改主仓代码的前提下被 SouWen 发现。
 
 ### 双模式加载
@@ -207,7 +207,7 @@ SouWen 启动时统一通过 `importlib.metadata` 扫描发现。
 ┌─────────────────────────────────────────────────────────────────┐
 │  registry/__init__.py 导入                                       │
 │      ↓                                                           │
-│  1. import sources       —— 触发 90+ 个 _reg()，填满 _REGISTRY  │
+│  1. import sources       —— 触发 91+ 个 _reg()，填满 _REGISTRY  │
 │      ↓                                                           │
 │  2. plugin.load_plugins()                                        │
 │       ├─ discover_entrypoint_plugins()                           │
