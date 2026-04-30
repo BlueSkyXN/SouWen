@@ -1015,6 +1015,38 @@ class TestAPIEndpoints:
 
         assert response.status_code == 200
         assert response.json()["success"] is False
+        assert "未启用" in response.json()["message"]
+
+    def test_post_install_with_invalid_package_returns_actionable_message(
+        self,
+        client: Any,
+        state_dir: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("SOUWEN_ENABLE_PLUGIN_INSTALL", "1")
+
+        response = client.post("/plugins/install", json={"package": "bad package"})
+
+        assert response.status_code == 200
+        assert response.json()["success"] is False
+        assert response.json()["message"] == "非法插件包名。"
+
+    def test_post_install_sanitizes_raw_pip_failure_output(
+        self,
+        client: Any,
+        state_dir: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        async def fake_run_pip(args: list[str], timeout: float) -> tuple[bool, str]:
+            return False, "Collecting superweb2pdf\nERROR: private index token leaked"
+
+        monkeypatch.setenv("SOUWEN_ENABLE_PLUGIN_INSTALL", "1")
+        monkeypatch.setattr("souwen.plugin_manager._run_pip", fake_run_pip)
+
+        response = client.post("/plugins/install", json={"package": "superweb2pdf"})
+
+        assert response.status_code == 200
+        assert response.json()["success"] is False
         assert response.json()["message"] == "操作失败，详见服务端日志"
 
     def test_post_reload(
