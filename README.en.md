@@ -166,7 +166,18 @@ SouWen supports extending data sources and fetch providers via external Python p
 Plugins integrate through setuptools `entry_points` or the `plugins` field in `souwen.yaml`,
 without modifying SouWen's codebase.
 
-- Integration spec: [docs/plugin-integration-spec.md](docs/plugin-integration-spec.md)
+Three equivalent entry points are provided for managing plugins at runtime:
+
+- **Web Panel** — `/plugins` route: list, enable/disable, run `health_check`, install/uninstall
+- **CLI** — `souwen plugins list/info/enable/disable/health/reload/install/uninstall/new`
+- **HTTP API** — `/api/v1/admin/plugins/*` (see [docs/api-reference.md](docs/api-reference.md))
+
+> Install/uninstall is gated by `SOUWEN_ENABLE_PLUGIN_INSTALL=1`; disabled by default.
+
+Docs:
+
+- Integration spec (plugin authors): [docs/plugin-integration-spec.md](docs/plugin-integration-spec.md)
+- Operations guide: [docs/plugin-management.md](docs/plugin-management.md)
 
 ## 🚢 Deployment
 
@@ -195,6 +206,7 @@ docker run -p 8000:8000 \
 - [docs/appearance.md](docs/appearance.md) — Multi-skin frontend
 - [docs/adding-a-source.md](docs/adding-a-source.md) — Adding a new source guide
 - [docs/plugin-integration-spec.md](docs/plugin-integration-spec.md) — External plugin integration spec
+- [docs/plugin-management.md](docs/plugin-management.md) — Plugin management (Web Panel / CLI / API)
 - [docs/contributing.md](docs/contributing.md) — Developer guide
 - [CHANGELOG.md](CHANGELOG.md) — Changelog
 
