@@ -120,11 +120,16 @@ def _get_provider_global_timeout(provider: str, url_count: int, timeout: float) 
     """计算 provider 级总超时预算。
 
     大多数 provider 会在一个请求内完成整批抓取，沿用 ``timeout + 10`` 的宽限。
-    ``arxiv_fulltext`` 逐条提取全文，且内部自带 3 秒节流，因此按 URL 数量放大总预算，
-    避免健康请求在批量时被聚合层全局超时一锅端。
+    ``arxiv_fulltext`` 逐条提取全文，且内部自带 3 秒节流，因此按 URL 数量放大总预算。
+    ``xcrawl`` 使用并发度 3 的 semaphore 逐条抓取，按 ceil(url_count/3) 轮放大。
     """
     if provider == "arxiv_fulltext":
         return timeout * max(1, url_count) + 10
+    if provider == "xcrawl":
+        import math
+
+        waves = math.ceil(max(1, url_count) / 3)
+        return timeout * waves + 10
     return timeout + 10
 
 

@@ -125,8 +125,8 @@ class XCrawlClient(SouWenHttpClient):
         """通过 XCrawl Scrape API 抓取单个 URL。
 
         SouWen fetch provider 默认使用 ``mode="sync"``，直接返回页面内容。
+        per-URL timeout 通过 asyncio.wait_for 强制执行。
         """
-        del timeout  # 请求级 timeout 由 SouWenHttpClient 统一配置。
         payload = self._build_scrape_payload(
             url=url,
             formats=formats,
@@ -138,12 +138,23 @@ class XCrawlClient(SouWenHttpClient):
             webhook=webhook,
         )
         try:
-            resp = await self.post("/v1/scrape", json=payload)
+            resp = await asyncio.wait_for(
+                self.post("/v1/scrape", json=payload), timeout=timeout
+            )
             try:
                 data = resp.json()
             except Exception as exc:
                 raise ParseError(f"XCrawl Scrape 响应解析失败: {exc}") from exc
             return self._scrape_response_to_fetch_result(url, data)
+        except asyncio.TimeoutError:
+            logger.warning("XCrawl scrape timeout: url=%s timeout=%.1fs", url, timeout)
+            return FetchResult(
+                url=url,
+                final_url=url,
+                source=self.PROVIDER_NAME,
+                error=f"XCrawl scrape 超时 ({timeout:.0f}s)",
+                raw={"provider": "xcrawl_scrape"},
+            )
         except Exception as exc:
             logger.warning("XCrawl scrape failed: url=%s err=%s", url, exc)
             return FetchResult(
