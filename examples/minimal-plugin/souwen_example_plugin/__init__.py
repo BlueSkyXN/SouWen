@@ -6,8 +6,12 @@
 
 from __future__ import annotations
 
+import logging
+
 from souwen.registry.adapter import MethodSpec, SourceAdapter
 from souwen.registry.loader import lazy
+
+logger = logging.getLogger(__name__)
 
 plugin = SourceAdapter(
     name="example_echo",
@@ -25,6 +29,9 @@ plugin = SourceAdapter(
 # Auto-register fetch handler when loaded by SouWen's plugin discovery
 try:
     from .handler import register
+
     register()
-except Exception:
-    pass  # handler registration is optional
+except ImportError as exc:
+    logger.warning("可选 fetch handler 注册不可用: %s", exc, exc_info=True)
+except Exception as exc:
+    logger.warning("可选 fetch handler 注册失败: %s", exc, exc_info=True)

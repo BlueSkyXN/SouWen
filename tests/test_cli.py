@@ -17,6 +17,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from typer.testing import CliRunner
 
 from souwen.cli import app
@@ -112,3 +114,51 @@ def test_search_paper_uses_registry_defaults_when_sources_omitted(monkeypatch):
     result = runner.invoke(app, ["search", "paper", "test", "--json"])
     assert result.exit_code == 0
     assert captured == {"query": "test", "sources": None, "per_page": 5}
+
+
+def test_plugins_new_scaffolds_project(monkeypatch, tmp_path: Path):
+    """``plugins new`` creates a complete plugin project skeleton."""
+    monkeypatch.chdir(tmp_path)
+
+    result = runner.invoke(app, ["plugins", "new", "demo_plugin"])
+
+    assert result.exit_code == 0
+    root = tmp_path / "demo_plugin"
+    expected_files = [
+        "pyproject.toml",
+        "demo_plugin/__init__.py",
+        "demo_plugin/client.py",
+        "demo_plugin/handler.py",
+        "tests/test_demo_plugin.py",
+        "README.md",
+    ]
+    for rel_path in expected_files:
+        assert (root / rel_path).is_file()
+
+    pyproject = (root / "pyproject.toml").read_text(encoding="utf-8")
+    init_py = (root / "demo_plugin/__init__.py").read_text(encoding="utf-8")
+    assert '[project.entry-points."souwen.plugins"]' in pyproject
+    assert 'demo_plugin = "demo_plugin:plugin"' in pyproject
+    assert "Plugin(" in init_py
+    assert "SourceAdapter(" in init_py
+
+
+def test_plugins_new_rejects_invalid_name(monkeypatch, tmp_path: Path):
+    """Plugin scaffold names must be lowercase alphanumeric plus underscores."""
+    monkeypatch.chdir(tmp_path)
+
+    result = runner.invoke(app, ["plugins", "new", "Bad-Plugin"])
+
+    assert result.exit_code == 1
+    assert "必须以小写字母开头" in result.output
+    assert not (tmp_path / "Bad-Plugin").exists()
+
+
+def test_plugins_new_rejects_digit_prefix(monkeypatch, tmp_path: Path):
+    """Plugin scaffold names must also be valid Python package identifiers."""
+    monkeypatch.chdir(tmp_path)
+
+    result = runner.invoke(app, ["plugins", "new", "1plugin"])
+
+    assert result.exit_code == 1
+    assert not (tmp_path / "1plugin").exists()

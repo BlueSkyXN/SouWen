@@ -8,6 +8,8 @@
 
 from __future__ import annotations
 
+from types import SimpleNamespace
+
 import pytest
 
 try:
@@ -128,7 +130,7 @@ class TestFetchEndpoint:
         assert resp.status_code == 422
 
     def test_invalid_provider_returns_400(self, client, stub_fetch):
-        """非 VALID_FETCH_PROVIDERS 中的 provider 应返回 400。"""
+        """非动态 provider 集合中的 provider 应返回 400。"""
         resp = client.post(
             "/api/v1/fetch",
             json={
@@ -138,6 +140,27 @@ class TestFetchEndpoint:
         )
         assert resp.status_code == 400
         assert "无效提供者" in resp.json().get("detail", "")
+
+    def test_late_registered_provider_is_accepted(self, client, stub_fetch, monkeypatch):
+        """路由应在请求时动态读取 provider，支持 reload 后新增插件。"""
+        import souwen.server.routes.fetch as fetch_route
+
+        monkeypatch.setattr(
+            fetch_route,
+            "fetch_providers",
+            lambda: [SimpleNamespace(name="late_provider")],
+        )
+
+        resp = client.post(
+            "/api/v1/fetch",
+            json={
+                "urls": ["https://example.com"],
+                "provider": "late_provider",
+            },
+        )
+
+        assert resp.status_code == 200, resp.text
+        assert stub_fetch and stub_fetch[0]["providers"] == ["late_provider"]
 
     def test_timeout_below_min_returns_422(self, client, stub_fetch):
         """timeout < 1 应被 Pydantic 校验拒绝（422）。"""

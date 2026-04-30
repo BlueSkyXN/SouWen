@@ -37,4 +37,5 @@ async def example_echo_handler(
 def register() -> None:
     """注册 fetch handler — 插件 __init__.py 或 conftest 中调用。"""
     from souwen.web.fetch import register_fetch_handler
+
     register_fetch_handler("example_echo", example_echo_handler)

@@ -22,6 +22,7 @@ import pytest
 
 from souwen.config import SouWenConfig, get_config
 from souwen.config.loader import ensure_config_file, reload_config
+from souwen.plugin import Plugin
 
 
 @pytest.fixture(autouse=True)
@@ -92,6 +93,24 @@ class TestYamlLoading:
         cfg = reload_config()
         assert cfg.timeout == 12
 
+    def test_loads_top_level_plugin_config(self, tmp_path):
+        """顶层 plugin_config 应作为插件配置字典保留。"""
+        (tmp_path / "souwen.yaml").write_text(
+            textwrap.dedent(
+                """
+                plugin_config:
+                  demo_plugin:
+                    api_key: secret
+                    limit: 3
+                """
+            ).strip(),
+            encoding="utf-8",
+        )
+
+        cfg = reload_config()
+
+        assert cfg.plugin_config == {"demo_plugin": {"api_key": "secret", "limit": 3}}
+
 
 class TestEnvOverride:
     """环境变量解析与类型转换。"""
@@ -131,6 +150,25 @@ class TestEnvOverride:
         monkeypatch.setenv("SOUWEN_CORS_ORIGINS", "https://a.example, https://b.example")
         cfg = reload_config()
         assert cfg.cors_origins == ["https://a.example", "https://b.example"]
+
+    def test_env_plugin_config_json_object(self, monkeypatch):
+        """SOUWEN_PLUGIN_CONFIG 应按 JSON 对象解析。"""
+        monkeypatch.setenv(
+            "SOUWEN_PLUGIN_CONFIG",
+            '{"demo_plugin":{"enabled":true,"limit":7}}',
+        )
+
+        cfg = reload_config()
+
+        assert cfg.plugin_config == {"demo_plugin": {"enabled": True, "limit": 7}}
+
+    def test_env_plugin_config_invalid_json_is_ignored(self, monkeypatch):
+        """非法 SOUWEN_PLUGIN_CONFIG 不应破坏配置加载。"""
+        monkeypatch.setenv("SOUWEN_PLUGIN_CONFIG", "{bad json")
+
+        cfg = reload_config()
+
+        assert cfg.plugin_config == {}
 
     def test_warp_alias_without_prefix(self, monkeypatch):
         """``WARP_ENABLED`` 不带 SOUWEN_ 前缀也应生效（Docker entrypoint 兼容）。"""
@@ -177,6 +215,35 @@ class TestPrecedence:
         """既无 YAML 也无环境变量时，使用 SouWenConfig 默认值。"""
         cfg = reload_config()
         assert cfg.timeout == SouWenConfig().timeout
+
+
+class TestPluginConfigInjection:
+    """已加载 entry point 插件的配置回溯注入。"""
+
+    def test_get_config_injects_loaded_plugin_config_without_manual_plugins(self, tmp_path):
+        """即使 cfg.plugins 为空，已加载插件也应收到 plugin_config。"""
+        from souwen.plugin import _PLUGINS
+
+        (tmp_path / "souwen.yaml").write_text(
+            textwrap.dedent(
+                """
+                plugin_config:
+                  early_plugin:
+                    api_key: secret
+                """
+            ).strip(),
+            encoding="utf-8",
+        )
+        saved = dict(_PLUGINS)
+        _PLUGINS.clear()
+        _PLUGINS["early_plugin"] = Plugin(name="early_plugin")
+        try:
+            cfg = reload_config()
+            assert cfg.plugins == []
+            assert _PLUGINS["early_plugin"].config == {"api_key": "secret"}
+        finally:
+            _PLUGINS.clear()
+            _PLUGINS.update(saved)
 
 
 class TestReloadConfig:

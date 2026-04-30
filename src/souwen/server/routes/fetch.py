@@ -14,7 +14,9 @@ from souwen.server.schemas import FetchRequest
 
 router = APIRouter()
 
-VALID_FETCH_PROVIDERS = frozenset(adapter.name for adapter in fetch_providers())
+
+def _valid_fetch_provider_names() -> frozenset[str]:
+    return frozenset(adapter.name for adapter in fetch_providers())
 
 
 @router.post(
@@ -25,10 +27,11 @@ async def fetch_content_endpoint(body: FetchRequest):
     """抓取网页内容。"""
     from souwen.web.fetch import fetch_content
 
-    if body.provider not in VALID_FETCH_PROVIDERS:
+    valid_fetch_providers = _valid_fetch_provider_names()
+    if body.provider not in valid_fetch_providers:
         raise HTTPException(
             status_code=400,
-            detail=f"无效提供者: {body.provider}，可选: {', '.join(sorted(VALID_FETCH_PROVIDERS))}",
+            detail=f"无效提供者: {body.provider}，可选: {', '.join(sorted(valid_fetch_providers))}",
         )
 
     try:

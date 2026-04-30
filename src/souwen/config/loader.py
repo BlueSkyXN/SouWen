@@ -62,8 +62,8 @@ def _load_yaml_config() -> dict:
     valid_fields = set(SouWenConfig.model_fields)
     flat: dict = {}
     for key, values in raw.items():
-        if key in ("sources", "llm") and isinstance(values, dict):
-            # sources / llm 是嵌套结构,直接传递给 Pydantic 解析
+        if key in ("sources", "llm", "plugin_config") and isinstance(values, dict):
+            # sources / llm / plugin_config 是嵌套结构,直接传递给 Pydantic 解析
             flat[key] = values
         elif isinstance(values, dict):
             # 嵌套分组结构: paper: {openalex_email: ...}
@@ -125,27 +125,7 @@ def _coerce_env_value(field_name: str, raw_val: str, env_key: str):
                 return None
             return [str(p).strip() for p in parsed if str(p).strip()]
         return [p.strip() for p in val.split(",") if p.strip()]
-    if field_name == "http_backend":
-        try:
-            parsed = json.loads(val)
-        except json.JSONDecodeError:
-            logger.warning("环境变量 %s JSON 解析失败,已忽略", env_key)
-            return None
-        if isinstance(parsed, dict):
-            return parsed
-        logger.warning("环境变量 %s 应为 JSON 对象,已忽略", env_key)
-        return None
-    if field_name == "sources":
-        try:
-            parsed = json.loads(val)
-        except json.JSONDecodeError:
-            logger.warning("环境变量 %s JSON 解析失败,已忽略", env_key)
-            return None
-        if isinstance(parsed, dict):
-            return parsed
-        logger.warning("环境变量 %s 应为 JSON 对象,已忽略", env_key)
-        return None
-    if field_name == "llm":
+    if field_name in ("http_backend", "sources", "llm", "plugin_config"):
         try:
             parsed = json.loads(val)
         except json.JSONDecodeError:
@@ -214,12 +194,38 @@ def get_config() -> SouWenConfig:
 
     cfg = SouWenConfig(**kwargs)
 
+    try:
+        from souwen.plugin import _inject_config_into_loaded_plugins
+
+        _inject_config_into_loaded_plugins(cfg)
+    except Exception:  # noqa: BLE001 — 插件配置注入不能拖垮配置加载
+        logger.warning("已加载插件配置注入失败,已跳过", exc_info=True)
+
     # 配置加载完成后，加载 config.plugins 中手动指定的插件
     if cfg.plugins:
         try:
             from souwen.plugin import load_config_plugins
 
-            load_config_plugins(cfg.plugins)
+            # 读取禁用列表，跳过已禁用的配置插件
+            # 注意：不能使用 _load_state() 因为它会回调 get_config() 造成递归。
+            # 直接从 cfg 对象获取状态路径。
+            skip_names: set[str] = set()
+            try:
+                from souwen.plugin_manager import _normalize_state
+
+                data_path = getattr(cfg, "data_path", None)
+                if data_path is not None:
+                    state_file = Path(data_path) / "plugins.state.json"
+                else:
+                    data_dir = getattr(cfg, "data_dir", "~/.local/share/souwen")
+                    state_file = Path(data_dir).expanduser() / "plugins.state.json"
+                if state_file.exists():
+                    raw = json.loads(state_file.read_text(encoding="utf-8"))
+                    skip_names = set(_normalize_state(raw).get("disabled_plugins", []))
+                # else: no state file yet, skip_names stays empty
+            except Exception:  # noqa: BLE001
+                pass
+            load_config_plugins(cfg.plugins, skip_names=skip_names, config=cfg)
         except Exception:  # noqa: BLE001 — 插件加载不能拖垮配置
             logger.warning("配置插件加载失败,已跳过", exc_info=True)
 
