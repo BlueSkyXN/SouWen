@@ -213,7 +213,7 @@ sources: {}
 | 字段 | 环境变量 | 默认值 | 说明 |
 |------|---------|--------|------|
 | `api_password` | `SOUWEN_API_PASSWORD` | None | 旧版统一密码（向后兼容，同时作用于用户 + 管理） |
-| `user_password` | `SOUWEN_USER_PASSWORD` | None | 用户密码，保护搜索 + 只读管理端点 |
+| `user_password` | `SOUWEN_USER_PASSWORD` | None | 用户密码，保护搜索和 `/sources` |
 | `admin_password` | `SOUWEN_ADMIN_PASSWORD` | None | 管理密码，保护全部 `/api/v1/admin/*` |
 | `guest_enabled` | `SOUWEN_GUEST_ENABLED` | `false` | 是否启用游客访问（无 Token 也可搜索，受限源） |
 | `cors_origins` | `SOUWEN_CORS_ORIGINS` | `[]` | CORS 允许来源列表（逗号分隔），为空时不启用 CORS |
@@ -227,16 +227,16 @@ sources: {}
 | 角色 | 获取方式 | 可用端点 |
 |------|----------|----------|
 | Guest 游客 | 无 Token（需 `guest_enabled=true`） | 搜索（受限源、限速） |
-| User 用户 | `user_password` / `visitor_password` / `api_password` | 搜索 + 只读管理 |
+| User 用户 | `user_password` / `visitor_password` / `api_password` | 搜索 + `/sources` |
 | Admin 管理员 | `admin_password` / `api_password` | 全部权限 |
 
 **密码优先级**：
 
 - 用户端点：`user_password` > `visitor_password` > `api_password` > 无（开放）
-- 管理端点：`admin_password` > `api_password` > 无（开放，且需 `SOUWEN_ADMIN_OPEN=1` 显式放行）
+- 管理端点：`admin_password` > `api_password` > 无（默认锁定，需 `SOUWEN_ADMIN_OPEN=1` 显式放行）
 - Admin Token 自动满足 User/Guest 端点（角色层级：Admin ⊃ User ⊃ Guest）
 
-显式将 `user_password` 或 `admin_password` 设为空字符串可"强制开放"对应分组，忽略 `api_password` 回退。
+显式将 `user_password` 设为空字符串可开放用户端点；显式将 `admin_password` 设为空字符串只表示忽略 `api_password` 回退，管理端仍需 `SOUWEN_ADMIN_OPEN=1` 才开放。
 
 ## 代理池配置
 

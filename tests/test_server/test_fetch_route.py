@@ -19,8 +19,9 @@ from souwen.models import FetchResponse, FetchResult
 
 
 @pytest.fixture()
-def client():
-    """裸 TestClient（无密码、无鉴权）。"""
+def client(monkeypatch):
+    """显式开放 admin 的 TestClient，用于聚焦 fetch 入参校验。"""
+    monkeypatch.setenv("SOUWEN_ADMIN_OPEN", "1")
     from souwen.server.app import app
 
     return TestClient(app, raise_server_exceptions=False)

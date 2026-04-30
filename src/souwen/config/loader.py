@@ -11,7 +11,7 @@ import os
 from functools import lru_cache
 from pathlib import Path
 
-from dotenv import load_dotenv
+from dotenv import dotenv_values
 
 from .models import SouWenConfig
 from .template import _DEFAULT_CONFIG_TEMPLATE
@@ -22,10 +22,6 @@ try:
     import yaml
 except ImportError:  # pragma: no cover
     yaml = None  # type: ignore[assignment]
-
-
-# 加载 .env 文件
-load_dotenv()
 
 
 def _load_yaml_config() -> dict:
@@ -80,6 +76,106 @@ def _load_yaml_config() -> dict:
     return flat
 
 
+_WARP_ENV_ALIASES = {
+    "warp_enabled": "WARP_ENABLED",
+    "warp_mode": "WARP_MODE",
+    "warp_socks_port": "WARP_SOCKS_PORT",
+    "warp_endpoint": "WARP_ENDPOINT",
+    "warp_bind_address": "WARP_BIND_ADDRESS",
+    "warp_startup_timeout": "WARP_STARTUP_TIMEOUT",
+    "warp_device_name": "WARP_DEVICE_NAME",
+    "warp_proxy_username": "WARP_PROXY_USERNAME",
+    "warp_proxy_password": "WARP_PROXY_PASSWORD",
+    "warp_usque_path": "WARP_USQUE_PATH",
+    "warp_usque_config": "WARP_USQUE_CONFIG",
+    "warp_usque_transport": "WARP_USQUE_TRANSPORT",
+    "warp_usque_system_dns": "WARP_USQUE_SYSTEM_DNS",
+    "warp_usque_on_connect": "WARP_USQUE_ON_CONNECT",
+    "warp_usque_on_disconnect": "WARP_USQUE_ON_DISCONNECT",
+    "warp_http_port": "WARP_HTTP_PORT",
+    "warp_license_key": "WARP_LICENSE_KEY",
+    "warp_team_token": "WARP_TEAM_TOKEN",
+    "warp_gost_args": "WARP_GOST_ARGS",
+    "warp_external_proxy": "WARP_EXTERNAL_PROXY",
+}
+
+
+def _coerce_env_value(field_name: str, raw_val: str, env_key: str):
+    """按 SouWenConfig 字段类型解析环境变量 / .env 字符串值。"""
+    val = raw_val
+    field_info = SouWenConfig.model_fields[field_name]
+    if field_info.annotation is bool:
+        return val.lower() in ("1", "true", "yes", "on")
+    if field_info.annotation in (int, int | None):
+        try:
+            return int(val)
+        except (ValueError, TypeError):
+            logger.warning("环境变量 %s=%r 无法转为整数,已忽略", env_key, val)
+            return None
+    if field_name in ("proxy_pool", "cors_origins", "trusted_proxies", "plugins"):
+        stripped = val.strip()
+        if stripped.startswith("["):
+            try:
+                parsed = json.loads(stripped)
+            except json.JSONDecodeError:
+                logger.warning("环境变量 %s JSON 解析失败,已忽略", env_key)
+                return None
+            if not isinstance(parsed, list):
+                logger.warning("环境变量 %s 应为 JSON 数组,已忽略", env_key)
+                return None
+            return [str(p).strip() for p in parsed if str(p).strip()]
+        return [p.strip() for p in val.split(",") if p.strip()]
+    if field_name == "http_backend":
+        try:
+            parsed = json.loads(val)
+        except json.JSONDecodeError:
+            logger.warning("环境变量 %s JSON 解析失败,已忽略", env_key)
+            return None
+        if isinstance(parsed, dict):
+            return parsed
+        logger.warning("环境变量 %s 应为 JSON 对象,已忽略", env_key)
+        return None
+    if field_name == "sources":
+        try:
+            parsed = json.loads(val)
+        except json.JSONDecodeError:
+            logger.warning("环境变量 %s JSON 解析失败,已忽略", env_key)
+            return None
+        if isinstance(parsed, dict):
+            return parsed
+        logger.warning("环境变量 %s 应为 JSON 对象,已忽略", env_key)
+        return None
+    return val
+
+
+def _load_env_mapping(values: dict[str, str | None]) -> dict:
+    """将 .env 或 os.environ 的键值映射为 SouWenConfig kwargs。"""
+    kwargs: dict = {}
+    env_prefix = "SOUWEN_"
+    for field_name in SouWenConfig.model_fields:
+        env_key = f"{env_prefix}{field_name.upper()}"
+        val = values.get(env_key)
+        alias_key = None
+        if val is None and field_name in _WARP_ENV_ALIASES:
+            alias_key = _WARP_ENV_ALIASES[field_name]
+            val = values.get(alias_key)
+        if val is None:
+            continue
+        source_key = alias_key or env_key
+        parsed = _coerce_env_value(field_name, val, source_key)
+        if parsed is not None:
+            kwargs[field_name] = parsed
+    return kwargs
+
+
+def _load_dotenv_config() -> dict:
+    """加载当前目录 .env，优先级低于 YAML，且不污染 os.environ。"""
+    path = Path(".env")
+    if not path.is_file():
+        return {}
+    return _load_env_mapping(dotenv_values(path))
+
+
 @lru_cache(maxsize=1)
 def get_config() -> SouWenConfig:
     """获取全局配置(LRU 缓存单例)
@@ -102,92 +198,9 @@ def get_config() -> SouWenConfig:
     Note:
         若需要重新加载配置,调用 reload_config().
     """
-    # 先加载 YAML 配置(优先级低于环境变量)
-    kwargs: dict = _load_yaml_config()
-
-    # 环境变量覆盖 YAML 值
-    env_prefix = "SOUWEN_"
-    # WARP 相关字段也支持不带前缀的环境变量 (兼容 Docker entrypoint)
-    _warp_env_aliases = {
-        "warp_enabled": "WARP_ENABLED",
-        "warp_mode": "WARP_MODE",
-        "warp_socks_port": "WARP_SOCKS_PORT",
-        "warp_endpoint": "WARP_ENDPOINT",
-        "warp_bind_address": "WARP_BIND_ADDRESS",
-        "warp_startup_timeout": "WARP_STARTUP_TIMEOUT",
-        "warp_device_name": "WARP_DEVICE_NAME",
-        "warp_proxy_username": "WARP_PROXY_USERNAME",
-        "warp_proxy_password": "WARP_PROXY_PASSWORD",
-        "warp_usque_path": "WARP_USQUE_PATH",
-        "warp_usque_config": "WARP_USQUE_CONFIG",
-        "warp_usque_transport": "WARP_USQUE_TRANSPORT",
-        "warp_usque_system_dns": "WARP_USQUE_SYSTEM_DNS",
-        "warp_usque_on_connect": "WARP_USQUE_ON_CONNECT",
-        "warp_usque_on_disconnect": "WARP_USQUE_ON_DISCONNECT",
-        "warp_http_port": "WARP_HTTP_PORT",
-        "warp_license_key": "WARP_LICENSE_KEY",
-        "warp_team_token": "WARP_TEAM_TOKEN",
-        "warp_gost_args": "WARP_GOST_ARGS",
-        "warp_external_proxy": "WARP_EXTERNAL_PROXY",
-    }
-    for field_name in SouWenConfig.model_fields:
-        env_key = f"{env_prefix}{field_name.upper()}"
-        val = os.getenv(env_key)
-        # 回退到不带前缀的别名
-        if val is None and field_name in _warp_env_aliases:
-            val = os.getenv(_warp_env_aliases[field_name])
-        if val is not None:
-            field_info = SouWenConfig.model_fields[field_name]
-            # 布尔字段
-            if field_info.annotation is bool:
-                val = val.lower() in ("1", "true", "yes", "on")
-            # 整数字段
-            elif field_info.annotation in (int, int | None):
-                try:
-                    val = int(val)
-                except (ValueError, TypeError):
-                    logger.warning("环境变量 %s=%r 无法转为整数,已忽略", env_key, val)
-                    continue
-            # proxy_pool / cors_origins / trusted_proxies / plugins: 逗号分隔字符串 或 JSON 数组 → list[str]
-            elif field_name in ("proxy_pool", "cors_origins", "trusted_proxies", "plugins"):
-                stripped = val.strip()
-                if stripped.startswith("["):
-                    try:
-                        parsed = json.loads(stripped)
-                    except json.JSONDecodeError:
-                        logger.warning("环境变量 %s JSON 解析失败,已忽略", env_key)
-                        continue
-                    if not isinstance(parsed, list):
-                        logger.warning("环境变量 %s 应为 JSON 数组,已忽略", env_key)
-                        continue
-                    val = [str(p).strip() for p in parsed if str(p).strip()]
-                else:
-                    val = [p.strip() for p in val.split(",") if p.strip()]
-            # http_backend: JSON 字符串 → dict[str, str]
-            elif field_name == "http_backend":
-                try:
-                    parsed = json.loads(val)
-                    if isinstance(parsed, dict):
-                        val = parsed
-                    else:
-                        logger.warning("环境变量 %s 应为 JSON 对象,已忽略", env_key)
-                        continue
-                except json.JSONDecodeError:
-                    logger.warning("环境变量 %s JSON 解析失败,已忽略", env_key)
-                    continue
-            # sources: JSON 字符串 → dict[str, SourceChannelConfig]
-            elif field_name == "sources":
-                try:
-                    parsed = json.loads(val)
-                    if isinstance(parsed, dict):
-                        val = parsed
-                    else:
-                        logger.warning("环境变量 %s 应为 JSON 对象,已忽略", env_key)
-                        continue
-                except json.JSONDecodeError:
-                    logger.warning("环境变量 %s JSON 解析失败,已忽略", env_key)
-                    continue
-            kwargs[field_name] = val
+    kwargs: dict = _load_dotenv_config()
+    kwargs.update(_load_yaml_config())
+    kwargs.update(_load_env_mapping(dict(os.environ)))
 
     cfg = SouWenConfig(**kwargs)
 
@@ -206,14 +219,11 @@ def get_config() -> SouWenConfig:
 def reload_config() -> SouWenConfig:
     """清除缓存并返回重新加载的配置
 
-    重新读取 .env 文件但不覆盖已有的环境变量(override=False),
-    这样 `docker run -e SOUWEN_API_PASSWORD=xxx` 不会被 .env 文件冲掉.
-    用于 Docker 容器初始化或配置热更新场景.
+    清理缓存后重新按 环境变量 > YAML > .env > 默认值 的顺序加载配置。
 
     Returns:
         新加载的 SouWenConfig 实例
     """
-    load_dotenv(override=False)
     get_config.cache_clear()
     return get_config()
 

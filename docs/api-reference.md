@@ -287,22 +287,21 @@ SouWen 支持三级角色认证（Guest/User/Admin），并向后兼容旧版密
 | 角色 | Token 来源 | 可访问端点 |
 |------|------------|-----------|
 | Guest 游客 | 无 Token（需 `guest_enabled=true`） | 搜索（受限源、限速） |
-| User 用户 | `user_password` / `visitor_password` / `api_password` | 搜索 + `/sources` + 只读管理 |
+| User 用户 | `user_password` / `visitor_password` / `api_password` | 搜索 + `/sources` |
 | Admin 管理员 | `admin_password` / `api_password` | 全部端点 |
 
 **密码优先级：**
 
 - 用户端点：`user_password` > `visitor_password` > `api_password` > 无（开放）
-- 管理端点：`admin_password` > `api_password` > 无（开放）
+- 管理端点：`admin_password` > `api_password` > 无（默认锁定，需 `SOUWEN_ADMIN_OPEN=1` 显式开放）
 - Admin Token 自动满足所有低级别端点（Admin ⊃ User ⊃ Guest）
-- 显式将 `user_password` 或 `admin_password` 设为空字符串 `""` 表示**强制开放**该作用域
+- 显式将 `user_password` 设为空字符串 `""` 表示开放用户端点；显式将 `admin_password` 设为空字符串 `""` 表示不回退 `api_password`，但管理端仍需 `SOUWEN_ADMIN_OPEN=1` 才开放。
 
 **请求格式：** `Authorization: Bearer <password>`
 
 **角色自检：** `GET /api/v1/whoami` — 返回当前角色和可用功能列表，用于前端 UI 动态渲染。
 
-> ⚠️ 当未设置任何密码时，所有端点（含管理端点）开放访问。生产部署务必至少设置 `admin_password`。
-> 此外，可通过环境变量 `SOUWEN_ADMIN_OPEN=1` 显式声明"管理端开放"以避免启动告警。
+> ⚠️ 当未设置管理密码时，管理端点默认拒绝访问。仅在本地开发或 CI 冒烟测试中使用 `SOUWEN_ADMIN_OPEN=1` 显式开放；生产部署务必设置 `admin_password`。
 
 ### 错误响应格式
 
@@ -467,7 +466,7 @@ Cache-Control: public, max-age=3600
 ### 管理端点 (`/api/v1/admin/...`)
 
 > 管理端点由 `require_auth` 强制保护，验证 `effective_admin_password`（`admin_password` > `api_password`）。
-> 未设置任一密码时管理端点开放访问，建议生产环境至少设置 `admin_password`。
+> 未设置任一管理密码时，管理端点默认返回 `401 Unauthorized`；只有设置 `SOUWEN_ADMIN_OPEN=1` 才会显式开放。
 
 #### `GET /api/v1/admin/config`
 

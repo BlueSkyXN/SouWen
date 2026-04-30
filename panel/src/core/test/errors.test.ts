@@ -11,8 +11,8 @@
  *             it('creates auth error for 401')
  *                 - 验证：401 状态码自动标记为认证错误（isAuth=true）
  *
- *             it('creates auth error for 403')
- *                 - 验证：403 状态码也标记为认证错误
+ *             it('creates permission error for 403')
+ *                 - 验证：403 状态码不标记为认证错误
  *                 - 验证：空响应体时用 HTTP 状态文本作为消息
  *
  *             it('creates non-auth error for 500')
@@ -64,11 +64,11 @@ describe('AppError', () => {
     })
 
     /**
-     * 测试：403 响应创建认证错误
+     * 测试：403 响应创建权限错误，不触发认证登出
      */
-    it('creates auth error for 403', () => {
+    it('creates permission error for 403', () => {
       const err = AppError.fromResponse(403, '')
-      expect(err.isAuth).toBe(true)
+      expect(err.isAuth).toBe(false)
       expect(err.message).toBe('HTTP 403')
     })
 

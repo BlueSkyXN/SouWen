@@ -33,6 +33,7 @@ export function ToolsPage() {
     checkLoading,
     checkResult,
     handleCheck,
+    canSave,
     saveUrl, setSaveUrl,
     saveLoading,
     saveResult,
@@ -66,14 +67,16 @@ export function ToolsPage() {
         >
           <CheckCircle2 size={16} /> {t('tools.check')}
         </button>
-        <button
-          role="tab"
-          aria-selected={tab === 'save'}
-          className={`${styles.tab} ${tab === 'save' ? styles.tabActive : ''}`}
-          onClick={() => setTab('save')}
-        >
-          <Save size={16} /> {t('tools.save')}
-        </button>
+        {canSave && (
+          <button
+            role="tab"
+            aria-selected={tab === 'save'}
+            className={`${styles.tab} ${tab === 'save' ? styles.tabActive : ''}`}
+            onClick={() => setTab('save')}
+          >
+            <Save size={16} /> {t('tools.save')}
+          </button>
+        )}
       </div>
 
       {tab === 'cdx' && (
@@ -266,7 +269,7 @@ export function ToolsPage() {
         </section>
       )}
 
-      {tab === 'save' && (
+      {canSave && tab === 'save' && (
         <section className={styles.panel}>
           <form className={styles.form} onSubmit={handleSave}>
             <div className={styles.field}>

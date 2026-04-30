@@ -25,6 +25,7 @@ import {
   FileText,
 } from 'lucide-react'
 import { useAuthStore } from '@core/stores/authStore'
+import { canAccessNavItem } from '@core/lib/access'
 import { useSkinStore } from '../../stores/skinStore'
 import { skinConfig } from '../../skin.config'
 import { isSingleSkin, listSkinIds, getSkinOrDefault } from '@core/skin-registry'
@@ -58,6 +59,8 @@ export function MainLayout() {
   const location = useLocation()
   const logout = useAuthStore((s) => s.logout)
   const version = useAuthStore((s) => s.version)
+  const features = useAuthStore((s) => s.features)
+  const role = useAuthStore((s) => s.role)
   const { mode, toggleMode, scheme, setScheme } = useSkinStore()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [skinPaletteOpen, setSkinPaletteOpen] = useState(false)
@@ -99,6 +102,7 @@ export function MainLayout() {
   }, [skinPaletteOpen, schemePaletteOpen])
 
   const currentSkinId = document.documentElement.getAttribute('data-skin') || 'carbon'
+  const visibleNavItems = NAV_ITEMS.filter((item) => canAccessNavItem(item.to, features, role))
 
   const handleSkinSwitch = (nextId: string) => {
     if (nextId === currentSkinId) {
@@ -133,7 +137,7 @@ export function MainLayout() {
           </div>
 
           <nav className={styles.nav}>
-            {NAV_ITEMS.map((item) => (
+            {visibleNavItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}
@@ -294,7 +298,7 @@ export function MainLayout() {
               SouWen.
             </div>
             <nav className={styles.drawerNav}>
-              {NAV_ITEMS.map((item) => (
+              {visibleNavItems.map((item) => (
                 <NavLink
                   key={item.to}
                   to={item.to}

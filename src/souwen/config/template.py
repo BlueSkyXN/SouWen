@@ -78,7 +78,7 @@ general:
 server:
   # 旧版统一密码（同时作用于用户和管理端点，向后兼容）
   api_password: ~
-  # 用户密码（保护搜索+只读管理端点，优先于 api_password）
+  # 用户密码（保护搜索和 /sources，优先于 api_password）
   user_password: ~
   # 管理密码（保护全部管理端点，优先于 api_password）
   admin_password: ~

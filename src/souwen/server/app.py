@@ -82,6 +82,7 @@ from starlette.middleware.gzip import GZipMiddleware
 from souwen import __version__
 from souwen.config import ensure_config_file, get_config
 from souwen.logging_config import setup_logging
+from souwen.server.auth import is_admin_open_enabled
 from souwen.server.middleware import RequestIDMiddleware, get_request_id
 from souwen.server.routes import router, admin_router
 from souwen.server.schemas import ErrorResponse, HealthResponse, ReadinessResponse
@@ -129,27 +130,21 @@ async def lifespan(app: FastAPI):
     auth_parts = []
     if admin_pw:
         auth_parts.append("管理员")
+    elif is_admin_open_enabled():
+        auth_parts.append("管理员(开放)")
+    else:
+        auth_parts.append("管理员(锁定)")
     if user_pw:
         auth_parts.append("用户")
     if cfg.guest_enabled:
         auth_parts.append("游客(开放)")
-    auth_desc = " + ".join(auth_parts) if auth_parts else "全开放"
+    auth_desc = " + ".join(auth_parts)
     logger.info(
         "SouWen %s 启动 | 角色: %s",
         __version__,
         auth_desc,
     )
-    if (
-        not admin_pw
-        and not user_pw
-        and os.getenv("SOUWEN_ADMIN_OPEN", "").strip().lower()
-        in (
-            "1",
-            "true",
-            "yes",
-            "on",
-        )
-    ):
+    if not admin_pw and is_admin_open_enabled():
         logger.warning(
             "SOUWEN_ADMIN_OPEN=1 已显式解除 Admin API 锁定；"
             "任何能访问 /api/v1/admin/* 的客户端都将获得管理员权限，生产环境禁用。"
