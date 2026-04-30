@@ -31,7 +31,7 @@ def _normalize_source_type_value(v: str) -> str:
     """SourceType.value → adapter.name。"""
     for prefix in ("web_", "fetch_"):
         if v.startswith(prefix):
-            v = v[len(prefix):]
+            v = v[len(prefix) :]
             break
     return _DDG_ALIASES.get(v, v)
 
@@ -41,7 +41,7 @@ def render() -> str:
     from souwen.registry import enum_values
 
     names = enum_values()
-    lines = ['class SourceType(str, Enum):', '    """数据源类型枚举（从 registry 自动生成）"""', '']
+    lines = ["class SourceType(str, Enum):", '    """数据源类型枚举（从 registry 自动生成）"""', ""]
     for name in names:
         key = name.upper()
         lines.append(f'    {key} = "{name}"')

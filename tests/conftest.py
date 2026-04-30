@@ -60,3 +60,19 @@ def _auto_clear_config_cache():
         get_config.cache_clear()
     except AttributeError:
         pass
+
+
+@pytest.fixture(autouse=True)
+def _ensure_log_propagation():
+    """Ensure souwen loggers propagate to root so caplog works after test_app.py.
+
+    setup_logging() sets propagate=False on the souwen root logger;
+    this fixture restores it for each test.
+    """
+    import logging
+
+    souwen_logger = logging.getLogger("souwen")
+    original = souwen_logger.propagate
+    souwen_logger.propagate = True
+    yield
+    souwen_logger.propagate = original

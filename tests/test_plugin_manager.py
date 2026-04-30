@@ -131,7 +131,9 @@ class TestCatalogDiscovery:
         }
         monkeypatch.setattr(
             "souwen.plugin_manager.metadata.entry_points",
-            lambda: _FakeCatalogEntryPoints([_FakeCatalogEntryPoint("dynamic_demo", lambda: entry)]),
+            lambda: _FakeCatalogEntryPoints(
+                [_FakeCatalogEntryPoint("dynamic_demo", lambda: entry)]
+            ),
         )
 
         assert _discover_catalog_entries() == [entry]
@@ -152,9 +154,9 @@ class TestCatalogDiscovery:
         }
         monkeypatch.setattr(
             "souwen.plugin_manager.metadata.entry_points",
-            lambda: _FakeCatalogEntryPoints([
-                _FakeCatalogEntryPoint(static["name"], lambda: dynamic_override)
-            ]),
+            lambda: _FakeCatalogEntryPoints(
+                [_FakeCatalogEntryPoint(static["name"], lambda: dynamic_override)]
+            ),
         )
 
         assert _catalog_by_name()[static["name"]] == static
@@ -169,20 +171,22 @@ class TestCatalogDiscovery:
 
         monkeypatch.setattr(
             "souwen.plugin_manager.metadata.entry_points",
-            lambda: _FakeCatalogEntryPoints([
-                _FakeCatalogEntryPoint("bad_type", lambda: ["not", "a", "dict"]),
-                _FakeCatalogEntryPoint("missing", lambda: {"name": "missing"}),
-                _FakeCatalogEntryPoint(
-                    "bad_value",
-                    lambda: {
-                        "name": "bad_value",
-                        "package": 123,
-                        "description": "Bad value",
-                        "entry_point": "bad_value",
-                    },
-                ),
-                _FakeCatalogEntryPoint("boom", boom),
-            ]),
+            lambda: _FakeCatalogEntryPoints(
+                [
+                    _FakeCatalogEntryPoint("bad_type", lambda: ["not", "a", "dict"]),
+                    _FakeCatalogEntryPoint("missing", lambda: {"name": "missing"}),
+                    _FakeCatalogEntryPoint(
+                        "bad_value",
+                        lambda: {
+                            "name": "bad_value",
+                            "package": 123,
+                            "description": "Bad value",
+                            "entry_point": "bad_value",
+                        },
+                    ),
+                    _FakeCatalogEntryPoint("boom", boom),
+                ]
+            ),
         )
 
         with caplog.at_level(logging.WARNING, logger="souwen.plugin_manager"):
@@ -380,7 +384,9 @@ class TestListPlugins:
             "souwen.plugin_manager.all_adapters",
             lambda: {catalog_name: _DummyAdapter("Loaded catalog plugin")},
         )
-        monkeypatch.setattr("souwen.plugin_manager.get_fetch_handlers", lambda: {catalog_name: object()})
+        monkeypatch.setattr(
+            "souwen.plugin_manager.get_fetch_handlers", lambda: {catalog_name: object()}
+        )
         monkeypatch.setattr("souwen.plugin_manager.get_fetch_handler_owners", lambda: {})
         monkeypatch.setattr("souwen.plugin_manager.get_loaded_plugins", lambda: {})
         monkeypatch.setattr("souwen.plugin_manager._package_version", lambda package: "9.9.9")
@@ -459,7 +465,9 @@ class TestEnableDisable:
         assert _load_state()["disabled_plugins"] == ["beta"]
         assert is_restart_required() is True
         record = next(
-            record for record in caplog.records if getattr(record, "event", None) == "plugin_enabled"
+            record
+            for record in caplog.records
+            if getattr(record, "event", None) == "plugin_enabled"
         )
         assert record.plugin == "alpha"
 
@@ -481,7 +489,9 @@ class TestEnableDisable:
         assert _load_state()["disabled_plugins"] == ["alpha", "beta"]
         assert is_restart_required() is True
         record = next(
-            record for record in caplog.records if getattr(record, "event", None) == "plugin_disabled"
+            record
+            for record in caplog.records
+            if getattr(record, "event", None) == "plugin_disabled"
         )
         assert record.plugin == "beta"
 
@@ -540,7 +550,11 @@ class TestInstallUninstall:
 
         result = await install_plugin("unknown-plugin")
 
-        assert result == {"success": False, "output": "插件包不在允许列表中。", "restart_required": False}
+        assert result == {
+            "success": False,
+            "output": "插件包不在允许列表中。",
+            "restart_required": False,
+        }
 
     @pytest.mark.asyncio
     async def test_uninstall_plugin_when_env_not_set_returns_error(
@@ -578,7 +592,9 @@ class TestInstallUninstall:
         assert _load_state()["installed_via_api"] == ["superweb2pdf"]
         assert is_restart_required() is True
         record = next(
-            record for record in caplog.records if getattr(record, "event", None) == "plugin_installed"
+            record
+            for record in caplog.records
+            if getattr(record, "event", None) == "plugin_installed"
         )
         assert record.plugin == "superweb2pdf"
         assert record.package == "superweb2pdf"
@@ -606,7 +622,9 @@ class TestInstallUninstall:
         assert _load_state()["installed_via_api"] == []
         assert is_restart_required() is True
         record = next(
-            record for record in caplog.records if getattr(record, "event", None) == "plugin_uninstalled"
+            record
+            for record in caplog.records
+            if getattr(record, "event", None) == "plugin_uninstalled"
         )
         assert record.plugin == "superweb2pdf"
         assert record.package == "superweb2pdf"
@@ -620,7 +638,9 @@ class TestReloadPlugins:
     ) -> None:
         called = False
 
-        def fake_discover(*, skip_names: set[str] | None = None) -> tuple[list[str], list[dict[str, str]]]:
+        def fake_discover(
+            *, skip_names: set[str] | None = None
+        ) -> tuple[list[str], list[dict[str, str]]]:
             nonlocal called
             called = True
             return ["alpha"], [{"source": "entry_points", "name": "broken", "error": "boom"}]
@@ -643,7 +663,9 @@ class TestReloadPlugins:
         _save_state({"disabled_plugins": ["beta"], "installed_via_api": []})
         captured_skip: set[str] | None = None
 
-        def fake_discover(*, skip_names: set[str] | None = None) -> tuple[list[str], list[dict[str, str]]]:
+        def fake_discover(
+            *, skip_names: set[str] | None = None
+        ) -> tuple[list[str], list[dict[str, str]]]:
             nonlocal captured_skip
             captured_skip = skip_names
             return [], []
@@ -667,7 +689,13 @@ class TestRuntimeDisable:
             "souwen.plugin_manager.unload_plugin",
             lambda name: (
                 unload_called_with.append(name),
-                {"name": name, "status": "unloaded", "removed_adapters": [name], "removed_handlers": [], "errors": []},
+                {
+                    "name": name,
+                    "status": "unloaded",
+                    "removed_adapters": [name],
+                    "removed_handlers": [],
+                    "errors": [],
+                },
             )[-1],
         )
 
@@ -736,7 +764,9 @@ class TestUnregExternal:
 class TestPackageNameValidation:
     @pytest.mark.parametrize(
         "package",
-        sorted(ALLOWED_PACKAGES | {item["package"] for item in PLUGIN_CATALOG if item.get("package")}),
+        sorted(
+            ALLOWED_PACKAGES | {item["package"] for item in PLUGIN_CATALOG if item.get("package")}
+        ),
     )
     def test_allowed_package_names_pass_regex(self, package: str) -> None:
         assert _PACKAGE_NAME_RE.fullmatch(package)
@@ -897,7 +927,7 @@ class TestAPIEndpoints:
 
         assert response.status_code == 200
         assert response.json()["success"] is False
-        assert "未启用" in response.json()["output"]
+        assert response.json()["message"] == "操作失败，详见服务端日志"
 
     def test_post_reload(
         self,
@@ -935,8 +965,11 @@ class TestDisableByPluginName:
             monkeypatch.setattr(
                 "souwen.plugin_manager.unload_plugin",
                 lambda name: {
-                    "name": name, "status": "unloaded",
-                    "removed_adapters": [], "removed_handlers": [], "errors": [],
+                    "name": name,
+                    "status": "unloaded",
+                    "removed_adapters": [],
+                    "removed_handlers": [],
+                    "errors": [],
                 },
             )
             result = disable_plugin("plugin_x")

@@ -400,7 +400,9 @@ class TestLoadPlugins:
         adapter = make_test_adapter("explicit_config_allowed")
         import souwen.plugin as plugin_mod
 
-        monkeypatch.setattr(plugin_mod, "_test_autoload_off_factory", lambda: adapter, raising=False)
+        monkeypatch.setattr(
+            plugin_mod, "_test_autoload_off_factory", lambda: adapter, raising=False
+        )
 
         class FakeConfig:
             plugins = ["souwen.plugin:_test_autoload_off_factory"]
@@ -533,7 +535,9 @@ class TestCoerceToPlugin:
 
 
 class TestRegisterPlugin:
-    def test_registers_adapters_and_tracks(self, clean_registry, clean_plugins, clean_fetch_handlers):
+    def test_registers_adapters_and_tracks(
+        self, clean_registry, clean_plugins, clean_fetch_handlers
+    ):
         a = make_test_adapter("reg_test_adapter")
         p = Plugin(name="reg_test", adapters=[a])
         loaded: list[str] = []
@@ -558,7 +562,9 @@ class TestRegisterPlugin:
             _register_plugin(p, source_label="test", loaded=[], errors=[])
 
         adapter_record = next(
-            record for record in caplog.records if getattr(record, "event", None) == "adapter_registered"
+            record
+            for record in caplog.records
+            if getattr(record, "event", None) == "adapter_registered"
         )
         plugin_record = next(
             record for record in caplog.records if getattr(record, "event", None) == "plugin_loaded"
@@ -587,7 +593,9 @@ class TestRegisterPlugin:
         self, clean_registry, clean_plugins, clean_fetch_handlers
     ):
         calls = []
-        p = Plugin(name="startup_test", adapters=[], on_startup=lambda plug: calls.append(plug.name))
+        p = Plugin(
+            name="startup_test", adapters=[], on_startup=lambda plug: calls.append(plug.name)
+        )
         _register_plugin(p, source_label="t", loaded=[], errors=[])
         assert calls == []
 
@@ -703,6 +711,7 @@ class TestUnloadPlugin:
         # Also register a fetch handler owned by this plugin
         async def fake_handler(*a, **kw):
             pass
+
         register_fetch_handler("unload_adapter", fake_handler, owner="unload_test")
 
         result = unload_plugin("unload_test")
@@ -742,7 +751,9 @@ class TestUnloadPlugin:
             unload_plugin("unload_log")
 
         record = next(
-            record for record in caplog.records if getattr(record, "event", None) == "plugin_unloaded"
+            record
+            for record in caplog.records
+            if getattr(record, "event", None) == "plugin_unloaded"
         )
         assert record.plugin == "unload_log"
         assert record.removed_adapters == ["unload_log_adapter"]
@@ -761,6 +772,7 @@ class TestFetchHandlerProvenance:
     def test_register_with_explicit_owner(self, clean_fetch_handlers):
         async def handler(*a, **kw):
             pass
+
         register_fetch_handler("prov_test", handler, owner="my_plugin")
         owners = get_fetch_handler_owners()
         assert owners["prov_test"] == "my_plugin"
@@ -787,6 +799,7 @@ class TestFetchHandlerProvenance:
     def test_register_picks_up_contextvar(self, clean_fetch_handlers):
         async def handler(*a, **kw):
             pass
+
         token = _current_plugin_owner.set("ctx_plugin")
         try:
             register_fetch_handler("ctx_test", handler)
@@ -797,8 +810,10 @@ class TestFetchHandlerProvenance:
     def test_unregister_by_owner(self, clean_fetch_handlers):
         async def h1(*a, **kw):
             pass
+
         async def h2(*a, **kw):
             pass
+
         register_fetch_handler("owned1", h1, owner="plugin_x")
         register_fetch_handler("owned2", h2, owner="plugin_x")
         register_fetch_handler("other", h1, owner="plugin_y")
@@ -811,6 +826,7 @@ class TestFetchHandlerProvenance:
     def test_builtin_handler_has_none_owner(self, clean_fetch_handlers):
         async def handler(*a, **kw):
             pass
+
         register_fetch_handler("builtin", handler)
         assert get_fetch_handler_owners()["builtin"] is None
 
@@ -832,6 +848,7 @@ class TestDiscoverWithPluginEnvelope:
     def test_skip_names_by_ep_name(self, clean_registry, clean_plugins, monkeypatch):
         """skip_names 按 entry-point 名预筛（不触发 import）。"""
         load_count = []
+
         def tracked_loader():
             load_count.append(1)
             return make_test_adapter("should_not_load")
@@ -852,7 +869,9 @@ class TestDiscoverWithPluginEnvelope:
         loaded, errors = discover_entrypoint_plugins(skip_names={"blocked_adapter"})
         assert loaded == []
 
-    def test_contextvar_set_during_load(self, clean_registry, clean_plugins, clean_fetch_handlers, monkeypatch):
+    def test_contextvar_set_during_load(
+        self, clean_registry, clean_plugins, clean_fetch_handlers, monkeypatch
+    ):
         """entry-point load 期间 _current_plugin_owner contextvar 被设置。"""
         captured_owner = []
 
@@ -877,6 +896,7 @@ class TestConfigPluginsWithPluginEnvelope:
     def test_config_plugin_creates_plugin_object(self, clean_registry, clean_plugins, monkeypatch):
         adapter = make_test_adapter("cfg_envelope_test")
         import souwen.plugin as plugin_mod
+
         monkeypatch.setattr(plugin_mod, "_test_cfg_factory", lambda: adapter, raising=False)
 
         loaded, errors = load_config_plugins(["souwen.plugin:_test_cfg_factory"])
@@ -911,7 +931,9 @@ class TestPluginContractHelper:
         )
 
     def test_valid_plugin_passes_contract(self):
-        plugin = Plugin(name="valid_contract", adapters=[make_test_adapter("valid_contract_adapter")])
+        plugin = Plugin(
+            name="valid_contract", adapters=[make_test_adapter("valid_contract_adapter")]
+        )
 
         assert_valid_plugin(plugin)
 
@@ -1021,7 +1043,9 @@ class TestOrphanHandlerCleanup:
 class TestAsyncShutdownClose:
     """Fix #3: async shutdown coroutine is properly closed."""
 
-    def test_async_shutdown_closed_not_leaked(self, clean_registry, clean_plugins, clean_fetch_handlers):
+    def test_async_shutdown_closed_not_leaked(
+        self, clean_registry, clean_plugins, clean_fetch_handlers
+    ):
         closed = []
 
         async def async_shutdown(plugin):
@@ -1136,6 +1160,7 @@ class TestFailedPluginHandlerCleanup:
 
     def test_failed_ep_load_cleans_handlers(self, clean_plugins, clean_fetch_handlers, monkeypatch):
         """When entry point load fails, any side-effect handlers are cleaned up."""
+
         # Simulate: a plugin registers a handler during import, then fails
         async def leaked_handler(urls, timeout, **_):
             return []
@@ -1145,11 +1170,14 @@ class TestFailedPluginHandlerCleanup:
 
         # The cleanup should happen when unregister_fetch_handlers_by_owner is called
         from souwen.web.fetch import unregister_fetch_handlers_by_owner
+
         removed = unregister_fetch_handlers_by_owner("failing_ep")
         assert "leaked_provider" in removed
         assert "leaked_provider" not in _FETCH_HANDLERS
 
-    def test_rejected_duplicate_preserves_existing_handlers(self, clean_plugins, clean_fetch_handlers):
+    def test_rejected_duplicate_preserves_existing_handlers(
+        self, clean_plugins, clean_fetch_handlers
+    ):
         """When _register_plugin rejects a duplicate, existing handlers are preserved."""
         adapter = make_test_adapter("dup_src")
         p1 = Plugin(name="my_dup_plugin", adapters=[adapter])
