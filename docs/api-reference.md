@@ -353,10 +353,10 @@ SouWen 支持三级角色认证（Guest/User/Admin），并向后兼容旧版密
 
 **响应示例：**
 ```json
-{ "status": "ok", "version": "0.6.3" }
+{ "status": "ok", "version": "1.1.1" }
 ```
 
-> `version` 字段动态返回当前 `souwen.__version__`。
+> `version` 字段动态返回当前 `souwen.__version__`，示例值仅作参考。
 
 #### `GET /readiness`
 
@@ -364,12 +364,12 @@ K8s readiness 探针（v0.6.1 引入）。仅做本地检查（配置可加载 +
 
 **响应示例（就绪）：**
 ```json
-{ "ready": true, "version": "0.6.3", "error": null }
+{ "ready": true, "version": "1.1.1", "error": null }
 ```
 
 **响应示例（503 未就绪）：**
 ```json
-{ "ready": false, "version": "0.6.3", "error": "source registry is empty" }
+{ "ready": false, "version": "1.1.1", "error": "source registry is empty" }
 ```
 
 #### `GET /` 与 `GET /panel`
@@ -771,7 +771,7 @@ python -m souwen.integrations.mcp_server
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `urls` | array | — | 待抓取的 URL 列表 |
-| `provider` | string | `"builtin"` | 内容提取提供者，默认 `builtin`（零配置）。可选：`jina_reader` / `tavily` / `firecrawl` / `exa` / `crawl4ai` / `scrapfly` / `diffbot` / `scrapingbee` / `zenrows` / `scraperapi` / `apify` / `cloudflare` / `wayback` / `newspaper` / `readability` / `mcp` / `site_crawler` / `deepwiki` |
+| `provider` | string | `"builtin"` | 内容提取提供者，默认 `builtin`（零配置）。可选：`jina_reader` / `arxiv_fulltext` / `tavily` / `firecrawl` / `exa` / `crawl4ai` / `scrapfly` / `diffbot` / `scrapingbee` / `zenrows` / `scraperapi` / `apify` / `cloudflare` / `wayback` / `newspaper` / `readability` / `mcp` / `site_crawler` / `deepwiki` |
 
 返回：JSON `FetchResponse` 对象（含 `results`、`total`、`total_ok`、`total_failed`）。
 

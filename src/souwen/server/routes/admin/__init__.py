@@ -16,6 +16,7 @@ from souwen.server.routes.admin.http_backend import router as http_backend_route
 from souwen.server.routes.admin.proxy import router as proxy_router
 from souwen.server.routes.admin.sources import router as sources_router
 from souwen.server.routes.admin.warp import router as warp_router
+from souwen.server.routes.admin.wayback import router as wayback_router
 
 admin_router = APIRouter(dependencies=[Depends(require_auth)])
 
@@ -25,5 +26,6 @@ admin_router.include_router(sources_router)
 admin_router.include_router(proxy_router)
 admin_router.include_router(http_backend_router)
 admin_router.include_router(warp_router)
+admin_router.include_router(wayback_router)
 
 __all__ = ["admin_router"]
