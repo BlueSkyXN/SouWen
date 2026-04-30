@@ -57,7 +57,8 @@ class SouWenConfig(BaseModel):
 
         搜索源 API Key: searxng_url, tavily_api_key, exa_api_key, serper_api_key,
                         brave_api_key, serpapi_api_key, firecrawl_api_key,
-                        perplexity_api_key, linkup_api_key, scrapingdog_api_key,
+                        perplexity_api_key, linkup_api_key, xcrawl_api_key,
+                        scrapingdog_api_key,
                         whoogle_url, websurfx_url, github_token,
                         stackoverflow_api_key, youtube_api_key, jina_api_key,
                         scrapfly_api_key, diffbot_api_token,
@@ -130,6 +131,7 @@ class SouWenConfig(BaseModel):
     firecrawl_api_key: str | None = None  # Firecrawl (搜索+爬取)
     perplexity_api_key: str | None = None  # Perplexity Sonar API
     linkup_api_key: str | None = None  # Linkup 搜索 API
+    xcrawl_api_key: str | None = None  # XCrawl 搜索+抓取 API
     scrapingdog_api_key: str | None = None  # ScrapingDog SERP API
     metaso_api_key: str | None = None  # Metaso 秘塔搜索 API
     whoogle_url: str | None = None  # Whoogle 自建实例 URL

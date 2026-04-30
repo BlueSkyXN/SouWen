@@ -6,7 +6,7 @@
   1. paper（19 源）
   2. patent（8 源）
   3. web.engines（爬虫类 SERP，13 个）
-  4. web.api（授权 API，14 个）
+  4. web.api（授权 API，13 个）
   5. web.self_hosted（自托管元搜索，3 个）
   6. social（5 源）
   7. video（2 源）
@@ -15,7 +15,7 @@
  10. cn_tech（9 源）
  11. office（1 源）
  12. archive（1 源：Wayback，extra_domains={"fetch"}）
- 13. fetch providers（15 个横切 + 上面几个跨域源）
+ 13. fetch providers（16 个横切 + 上面 5 个跨域源）
 
 注意：
   - `client_loader` 使用 `lazy("path:Class")` 字符串懒加载，registry 模块导入时
@@ -612,7 +612,7 @@ _reg(
 #  4. web.api（授权 API）
 # ═════════════════════════════════════════════════════════════
 # 按 ALL_SOURCES 的划分：SERP 类（serpapi/brave_api/serper/scrapingdog/metaso）进 general，
-# AI/语义类（tavily/exa/perplexity/firecrawl/linkup/zhipuai/aliyun_iqs）进 professional。
+# AI/语义类（tavily/exa/perplexity/firecrawl/linkup/xcrawl/zhipuai/aliyun_iqs）进 professional。
 
 _reg(
     SourceAdapter(
@@ -753,6 +753,23 @@ _reg(
         config_field="linkup_api_key",
         client_loader=lazy("souwen.web.linkup:LinkupClient"),
         methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
+        tags=_T_PROFESSIONAL,
+    )
+)
+
+_reg(
+    SourceAdapter(
+        name="xcrawl",
+        domain="web",
+        integration="official_api",
+        description="XCrawl 搜索+抓取",
+        config_field="xcrawl_api_key",
+        client_loader=lazy("souwen.web.xcrawl:XCrawlClient"),
+        extra_domains=frozenset({"fetch"}),
+        methods={
+            "search": MethodSpec("search", _P_MAX_RESULTS),
+            "fetch": MethodSpec("scrape"),
+        },
         tags=_T_PROFESSIONAL,
     )
 )

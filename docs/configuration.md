@@ -76,6 +76,7 @@ web:
   metaso_api_key: your_key          # Metaso（秘塔）搜索
   perplexity_api_key: your_key
   linkup_api_key: your_key
+  xcrawl_api_key: your_key
   scrapingdog_api_key: your_key
   whoogle_url: http://localhost:5000
   websurfx_url: http://localhost:8080
@@ -152,6 +153,7 @@ sources: {}
 | `firecrawl_api_key` | `SOUWEN_FIRECRAWL_API_KEY` | Firecrawl 必需 | 网页爬取 API |
 | `perplexity_api_key` | `SOUWEN_PERPLEXITY_API_KEY` | Perplexity 必需 | AI 搜索 API |
 | `linkup_api_key` | `SOUWEN_LINKUP_API_KEY` | Linkup 必需 | 聚合搜索 API |
+| `xcrawl_api_key` | `SOUWEN_XCRAWL_API_KEY` | XCrawl 必需 | 搜索+抓取 API |
 | `scrapingdog_api_key` | `SOUWEN_SCRAPINGDOG_API_KEY` | ScrapingDog 必需 | SERP 代理 |
 | `whoogle_url` | `SOUWEN_WHOOGLE_URL` | Whoogle 必需 | 自建实例 URL |
 | `websurfx_url` | `SOUWEN_WEBSURFX_URL` | Websurfx 必需 | 自建实例 URL |

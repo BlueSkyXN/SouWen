@@ -91,6 +91,7 @@ SouWen 的设计理念是**零配置可用** — 尽可能多的数据源无需 
 | Firecrawl | `firecrawl_api_key` | 搜索+爬取 |
 | Perplexity | `perplexity_api_key` | Sonar AI 搜索 |
 | Linkup | `linkup_api_key` | 实时搜索 |
+| XCrawl | `xcrawl_api_key` | 搜索+抓取 |
 | ScrapingDog | `scrapingdog_api_key` | SERP 代理 |
 
 ### 自建实例引擎（需要 URL，未测试）

@@ -43,7 +43,7 @@ class TestAllSources:
         派生，修复漂移；因此 general/social 数字比 v0 更高。
         """
         assert len(ALL_SOURCES["general"]) == 21  # v0: 16
-        assert len(ALL_SOURCES["professional"]) == 7
+        assert len(ALL_SOURCES["professional"]) == 8
         assert len(ALL_SOURCES["social"]) == 5  # v0: 3
         assert len(ALL_SOURCES["developer"]) == 2
         assert len(ALL_SOURCES["wiki"]) == 1
@@ -54,7 +54,7 @@ class TestAllSources:
     def test_total_count(self):
         """总计暴露的数据源数量（含可能的外部插件）。"""
         total = sum(len(v) for v in ALL_SOURCES.values())
-        assert total >= 90  # v0: 73, v1 内置: 90, 外部插件可增加
+        assert total >= 91  # v0: 73, v1 内置: 91, 外部插件可增加
 
     def test_each_entry_is_tuple_of_three(self):
         """每条目是 (name, requires_key, desc) 三元组"""
@@ -88,8 +88,8 @@ class TestSourceTypeEnum:
     """SourceType 枚举测试"""
 
     def test_has_59_values(self):
-        """枚举有 76 个值"""
-        assert len(SourceType) == 77
+        """枚举有 78 个值"""
+        assert len(SourceType) == 78
 
     def test_paper_sources_exist(self):
         """论文数据源枚举存在"""
