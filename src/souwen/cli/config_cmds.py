@@ -22,14 +22,14 @@ def _mask_value(value: str | None) -> str:
 @config_app.command("show")
 def config_show() -> None:
     """显示当前配置（隐藏 Key 值）"""
-    from souwen.config import get_config
+    from souwen.config import SouWenConfig, get_config
 
     cfg = get_config()
     table = Table(title="⚙️  SouWen 配置", show_lines=True)
     table.add_column("字段", style="cyan")
     table.add_column("值", style="green")
 
-    for field_name, field_info in cfg.model_fields.items():
+    for field_name, field_info in SouWenConfig.model_fields.items():
         raw_val = getattr(cfg, field_name)
         is_secret = (
             "key" in field_name

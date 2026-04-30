@@ -31,6 +31,7 @@ import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-d
 import { LazyMotion, domAnimation, AnimatePresence } from 'framer-motion'
 import { useAuthStore } from '@core/stores/authStore'
 import { getActiveSkin } from '@core/skin-registry'
+import { canAccessPath } from '@core/lib/access'
 
 /**
  * AuthGuard 组件：认证保护装饰器
@@ -38,7 +39,11 @@ import { getActiveSkin } from '@core/skin-registry'
  */
 function AuthGuard({ children }: { children: React.ReactNode }) {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
+  const features = useAuthStore((s) => s.features)
+  const role = useAuthStore((s) => s.role)
+  const location = useLocation()
   if (!isAuthenticated) return <Navigate to="/login" replace />
+  if (!canAccessPath(location.pathname, features, role)) return <Navigate to="/search/paper" replace />
   return <>{children}</>
 }
 

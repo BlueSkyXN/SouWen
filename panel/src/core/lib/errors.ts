@@ -14,8 +14,8 @@
  *     AppError.fromResponse（静态方法）
  *         - 功能：从 HTTP 响应创建错误实例
  *         - 输入：status 响应码，body 响应体文本
- *         - 输出：AppError 实例（自动检测 401/403 为认证错误）
- *         - 逻辑：状态码 401 或 403 时，isAuth 标记为 true；空 body 时用 HTTP 状态信息作消息
+ *         - 输出：AppError 实例（自动检测 401 为认证错误）
+ *         - 逻辑：状态码 401 时，isAuth 标记为 true；空 body 时用 HTTP 状态信息作消息
  *
  *     AppError.network（静态方法）
  *         - 功能：创建网络错误实例
@@ -52,10 +52,10 @@ export class AppError extends Error {
 
   /**
    * 从 HTTP 响应创建 AppError 实例
-   * 自动判断 401/403 为认证错误，使用响应状态信息作为备用消息
+   * 自动判断 401 为认证错误，使用响应状态信息作为备用消息
    */
   static fromResponse(status: number, body: string): AppError {
-    const isAuth = status === 401 || status === 403
+    const isAuth = status === 401
     return new AppError(body || `HTTP ${status}`, status, isAuth)
   }
 

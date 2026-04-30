@@ -41,6 +41,7 @@ import {
   FileText,
 } from 'lucide-react'
 import { useAuthStore } from '@core/stores/authStore'
+import { canAccessNavItem } from '@core/lib/access'
 import { useSkinStore } from '../../stores/skinStore'
 import { isSingleSkin, listSkinIds, getSkinOrDefault } from '@core/skin-registry'
 import styles from './MainLayout.module.scss'
@@ -77,6 +78,8 @@ export function MainLayout() {
   const location = useLocation()
   const logout = useAuthStore((s) => s.logout)
   const version = useAuthStore((s) => s.version)
+  const features = useAuthStore((s) => s.features)
+  const role = useAuthStore((s) => s.role)
   const { mode, toggleMode } = useSkinStore()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [skinPaletteOpen, setSkinPaletteOpen] = useState(false)
@@ -84,6 +87,7 @@ export function MainLayout() {
 
   // 获取当前应用皮肤（默认为 'ios'）
   const currentSkinId = document.documentElement.getAttribute('data-skin') || 'ios'
+  const visibleNavItems = NAV_ITEMS.filter((item) => canAccessNavItem(item.to, features, role))
 
   // 路由变化时关闭移动菜单
   useEffect(() => {
@@ -130,7 +134,7 @@ export function MainLayout() {
 
       {/* Navigation items */}
       <nav className={styles.sidebarNav}>
-        {NAV_ITEMS.map((item) => (
+        {visibleNavItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}

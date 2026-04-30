@@ -41,6 +41,7 @@ import {
   FileText,
 } from 'lucide-react'
 import { useAuthStore } from '@core/stores/authStore'
+import { canAccessNavItem } from '@core/lib/access'
 import { useSkinStore } from '../../stores/skinStore'
 import { isSingleSkin, listSkinIds, getSkinOrDefault } from '@core/skin-registry'
 import styles from './MainLayout.module.scss'
@@ -90,6 +91,8 @@ export function MainLayout() {
   const location = useLocation()
   const logout = useAuthStore((s) => s.logout)
   const version = useAuthStore((s) => s.version)
+  const features = useAuthStore((s) => s.features)
+  const role = useAuthStore((s) => s.role)
   const { mode, toggleMode } = useSkinStore()
   const [mobileOpen, setMobileOpen] = useState(false)
   const [skinPaletteOpen, setSkinPaletteOpen] = useState(false)
@@ -97,6 +100,7 @@ export function MainLayout() {
 
   // 从 HTML 根元素的 data-skin 属性获取当前皮肤 ID，默认为 'apple'
   const currentSkinId = document.documentElement.getAttribute('data-skin') || 'apple'
+  const visibleNavItems = NAV_ITEMS.filter((item) => canAccessNavItem(item.to, features, role))
 
   // 路由路径变化时关闭移动端菜单
   useEffect(() => {
@@ -162,7 +166,7 @@ export function MainLayout() {
             </NavLink>
             {/* 桌面端导航链接列表 */}
             <div className={styles.navLinks}>
-              {NAV_ITEMS.map((item) => (
+              {visibleNavItems.map((item) => (
                 <NavLink
                   key={item.to}
                   to={item.to}
@@ -270,7 +274,7 @@ export function MainLayout() {
                 <X size={20} />
               </button>
             </div>
-            {NAV_ITEMS.map((item) => (
+            {visibleNavItems.map((item) => (
               <NavLink
                 key={item.to}
                 to={item.to}

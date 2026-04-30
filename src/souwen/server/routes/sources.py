@@ -23,6 +23,8 @@ async def list_sources():
     cfg = get_config()
 
     def _is_usable(name: str, needs_key: bool) -> bool:
+        if not cfg.is_source_enabled(name):
+            return False
         if not needs_key:
             return True
         meta = get_source(name)

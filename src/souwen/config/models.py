@@ -192,7 +192,7 @@ class SouWenConfig(BaseModel):
     # ===== 服务（认证） =====
     api_password: str | None = None  # 旧版统一密码(向后兼容,同时作用于访客和管理)
     visitor_password: str | None = None  # 旧版访客密码(映射为 user_password)
-    user_password: str | None = None  # 用户密码(保护搜索/只读管理端点)
+    user_password: str | None = None  # 用户密码(保护搜索和 /sources)
     admin_password: str | None = None  # 管理密码(保护管理端点)
     guest_enabled: bool = False  # 是否启用游客访问(无Token可访问搜索)
 
@@ -213,8 +213,9 @@ class SouWenConfig(BaseModel):
 
     @property
     def effective_admin_password(self) -> str | None:
-        """解析生效的管理密码: admin_password > api_password > None(开放)。
-        显式设为空字符串表示"强制开放,忽略 api_password 回退"。"""
+        """解析生效的管理密码: admin_password > api_password > None。
+        显式设为空字符串表示"不使用密码,忽略 api_password 回退";
+        无密码 admin 访问仍需 SOUWEN_ADMIN_OPEN=1 显式放行。"""
         if self.admin_password is not None:
             return self.admin_password or None
         return self.api_password
