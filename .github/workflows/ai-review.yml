@@ -1,4 +1,25 @@
 name: AI PR Review
+# Version: 1.1.2
+#
+# ┌─────────────────────────────────────────────────────────────────────┐
+# │ AI PR Review — 自动化代码评审                                         │
+# │                                                                       │
+# │ 触发方式：                                                             │
+# │  1. pull_request open/sync/reopen/ready (自动)                        │
+# │  2. workflow_dispatch (手动指定 PR number 或分支)                      │
+# │                                                                       │
+# │ 评审模式：                                                             │
+# │  - deep: OWNER 触发，可写沙盒，AI 可运行 pytest/ruff 验证             │
+# │  - safe: 非 OWNER PR，只读沙盒，AI 仅阅读预收集日志                   │
+# │                                                                       │
+# │ 安全：                                                                 │
+# │  - Fork PR 跳过（不暴露 API key）                                     │
+# │  - Draft PR 跳过                                                      │
+# │  - Codex 不获取 GH_TOKEN（review 不需要写操作）                       │
+# │  - Prompt injection 防护：PR 内容标记为不可信                          │
+# │                                                                       │
+# │ 工作流：resolve-pr → collect-context → codex-review → post-comment   │
+# └─────────────────────────────────────────────────────────────────────┘
 
 on:
   pull_request:
@@ -703,6 +724,7 @@ jobs:
           RAW_REVIEW: ${{ steps.run-codex.outputs.final-message }}
           CONDENSED_REVIEW: ${{ steps.condense-codex.outputs.final-message }}
           WAS_CONDENSED: ${{ steps.review-length.outputs.too_long }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           node <<'NODE'
           const fs = require('fs');
@@ -712,6 +734,23 @@ jobs:
           const hardMax = 60000;
 
           let finalMessage = wasCondensed && condensed.trim() ? condensed : raw;
+
+          // Fallback: if Codex returned empty output, post a diagnostic message
+          if (!finalMessage.trim()) {
+            finalMessage = [
+              '⚠️ AI 评审未产生输出。',
+              '',
+              '可能原因：',
+              '- AI API 服务暂时不可用（超时/502/522）',
+              '- PR 变更过大导致 token 超限',
+              '- 网络问题',
+              '',
+              `请查看 [workflow 日志](${process.env.RUN_URL}) 中的 Post-Codex diagnostic 步骤了解详情。`,
+              '',
+              '可尝试重新运行此 workflow 或使用 workflow_dispatch 手动触发。',
+            ].join('\n');
+          }
+
           if (finalMessage.length > hardMax) {
             const note = '\n\n_压缩后的评审仍超过 GitHub comment 安全长度，已保留前半部分。请手动重新运行并选择较低范围的评审。_';
             finalMessage = finalMessage.slice(0, hardMax - note.length) + note;
