@@ -1,24 +1,62 @@
 name: AI Agent
 # Version: 1.1.2
 #
-# ┌─────────────────────────────────────────────────────────────────────┐
-# │ AI Coding Agent — 自主代码修改 + 验证 + GitHub 操作                    │
-# │                                                                       │
-# │ 触发方式：                                                             │
-# │  1. PR/Issue 评论 `/ai-do [flags] <指令>`                             │
-# │     flags: --mode=direct (默认fix-pr), --base=<branch>                │
-# │  2. workflow_dispatch 手动触发                                         │
-# │                                                                       │
-# │ 安全模型：                                                             │
-# │  - 仅 OWNER 可触发（YAML if + JS gate + API admin 权限三重验证）      │
-# │  - Fork PR 拒绝                                                       │
-# │  - GH_TOKEN = github.token（短期有效，运行结束即失效）                 │
-# │  - 触发来源分级：pr_comment / issue_comment / workflow_dispatch        │
-# │                                                                       │
-# │ 工作流：gate → codex-run → open-pr / notify-direct / notify-*        │
-# │                                                                       │
-# │ NOTE: issue_comment 触发仅在此文件存在于默认分支时生效！               │
-# └─────────────────────────────────────────────────────────────────────┘
+# ═══════════════════════════════════════════════════════════════════════════
+# AI Coding Agent — 自主代码修改 + 验证 + GitHub 操作 工作流
+# ═══════════════════════════════════════════════════════════════════════════
+#
+# 【功能简介】
+# 接收仓库 OWNER 的指令，使用 OpenAI Codex 自主完成代码修改、运行验证、
+# 并通过 gh CLI 与 GitHub 交互（评论/编辑 PR/Issue）。支持两种提交模式：
+# - fix-pr：在 ai-agent/* 分支上修改并自动开 PR（安全，可 review）
+# - direct：直推目标分支（适合紧急小修复，有 force-with-lease 保护）
+#
+# 【触发条件】
+# 1. issue_comment — 在 PR 或 Issue 上评论 `/ai-do [flags] <指令>`
+#    - PR 评论：target = 该 PR，可 fix-pr 或 direct
+#    - Issue 评论：target = 该 Issue，仅 fix-pr 模式
+#    - flags: --mode=direct, --base=<branch>
+#    ⚠️ issue_comment 触发仅在此文件存在于默认分支 (main) 时生效！
+# 2. workflow_dispatch — 在 Actions 页面手动触发
+#    - 可指定 target_type (pr/branch/issue)、target、instruction、mode、effort
+#    - 适合批量操作或非评论触发的场景
+#
+# 【安全模型 — 三重 OWNER 验证】
+# 1. YAML if: github.actor == github.repository_owner（最快拒绝）
+# 2. JS gate: actor !== repoOwner → should_run=false
+# 3. API check: getCollaboratorPermissionLevel → 必须 admin
+# 额外：Fork PR 拒绝、persist-credentials: false、GH_TOKEN=github.token(短期)
+#
+# 【触发来源能力分级】
+# - pr_comment: 改代码 + gh 操作(仅限该 PR) + fix-pr/direct
+# - issue_comment: 改代码 + gh 回复(仅限该 Issue) + 仅 fix-pr
+# - workflow_dispatch: 最宽松，用户指令可覆盖默认限制
+#
+# 【工作流程】
+# gate (5min) → codex-run (60min) → open-pr / notify-direct / notify-* (5min)
+#   │               │                    │
+#   │ 验证OWNER     │ Codex执行指令      │ 创建/更新 PR 或通知结果
+#   │ 解析参数      │ commit+push        │
+#   │ 分级能力      │ Job Summary        │
+#
+# 【与 ai-review.yml 的联动】
+# ai-review 评论底部提示 "/ai-do [指令]" → 触发本 workflow
+# 本 workflow 修复后开 PR → ai-review 自动对 fix PR 评审 → 形成闭环
+#
+# 【依赖的 Secrets/Variables】
+# - secrets.CUSTOM_AI_API_KEY — OpenAI/兼容 API 密钥
+# - secrets.CUSTOM_AI_RESPONSES_ENDPOINT — AI API 端点 URL
+# - secrets.AI_FIX_TOKEN (可选) — PAT, 让 fix PR 触发 CI; 缺省用 github.token
+# - vars.CODEX_MODEL — 模型名（默认 gpt-5.5）
+# - vars.CODEX_EFFORT — 推理强度（默认 xhigh）
+# - environment: auto-ai — 需在 repo settings 中配置
+#
+# 【fix 分支命名规则】
+# - PR 目标: ai-agent/pr-<number>
+# - Branch 目标: ai-agent/branch-<sanitized-name>
+# - Issue 目标: ai-agent/issue-<number>
+# 重复运行同一目标会更新同一 fix PR（强制推送到同一分支）
+# ═══════════════════════════════════════════════════════════════════════════
 
 on:
   issue_comment:
