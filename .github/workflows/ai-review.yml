@@ -43,8 +43,9 @@ name: AI PR Review
 # 【依赖的 Secrets/Variables】
 # - secrets.CUSTOM_AI_API_KEY — OpenAI/兼容 API 密钥
 # - secrets.CUSTOM_AI_RESPONSES_ENDPOINT — AI API 端点 URL
-# - vars.CODEX_MODEL — 模型名（默认 gpt-5.5）
+# - vars.CODEX_MODEL — 模型名（默认 gpt-5.4）
 # - vars.CODEX_EFFORT — 推理强度（默认 xhigh）
+# - vars.CODEX_ARGS — 可选，额外传给 codex exec；适合用 -c 覆盖 config.toml 项
 # ═══════════════════════════════════════════════════════════════════════════
 
 on:
@@ -559,12 +560,18 @@ jobs:
       - name: Context summary (pre-Codex diagnostic)
         env:
           LOG_LEVEL: ${{ steps.log-config.outputs.log_level }}
-          MODEL: ${{ vars.CODEX_MODEL || 'gpt-5.5' }}
+          MODEL: ${{ vars.CODEX_MODEL || 'gpt-5.4' }}
           EFFORT: ${{ inputs.effort || vars.CODEX_EFFORT || 'xhigh' }}
+          CODEX_ARGS: ${{ vars.CODEX_ARGS }}
         run: |
           set -euo pipefail
           CONTEXT_SIZE="$(du -sh .ai-review-context/ 2>/dev/null | awk '{print $1}' || echo 'missing')"
           CONTEXT_FILES="$(find .ai-review-context -type f 2>/dev/null | wc -l | tr -d ' ')"
+          if [ -n "${CODEX_ARGS:-}" ]; then
+            CODEX_ARGS_STATUS="configured"
+          else
+            CODEX_ARGS_STATUS="unset"
+          fi
 
           {
             echo "## AI Review 配置摘要"
@@ -574,6 +581,7 @@ jobs:
             echo "| Log level | \`$LOG_LEVEL\` |"
             echo "| Model | \`$MODEL\` |"
             echo "| Effort | \`$EFFORT\` |"
+            echo "| Codex args | \`$CODEX_ARGS_STATUS\` |"
             echo "| Sandbox | \`read-only\` |"
             echo "| Context size | \`$CONTEXT_SIZE\` |"
             echo "| Context files | \`$CONTEXT_FILES\` |"
@@ -640,8 +648,9 @@ jobs:
         with:
           openai-api-key: ${{ secrets.CUSTOM_AI_API_KEY }}
           responses-api-endpoint: ${{ secrets.CUSTOM_AI_RESPONSES_ENDPOINT }}
-          model: ${{ vars.CODEX_MODEL || 'gpt-5.5' }}
+          model: ${{ vars.CODEX_MODEL || 'gpt-5.4' }}
           effort: ${{ inputs.effort || vars.CODEX_EFFORT || 'xhigh' }}
+          codex-args: ${{ vars.CODEX_ARGS }}
           sandbox: read-only
           safety-strategy: read-only
           prompt-file: .github/prompts/ai-review.md
@@ -739,8 +748,9 @@ jobs:
         with:
           openai-api-key: ${{ secrets.CUSTOM_AI_API_KEY }}
           responses-api-endpoint: ${{ secrets.CUSTOM_AI_RESPONSES_ENDPOINT }}
-          model: ${{ vars.CODEX_MODEL || 'gpt-5.5' }}
+          model: ${{ vars.CODEX_MODEL || 'gpt-5.4' }}
           effort: ${{ inputs.effort || vars.CODEX_EFFORT || 'xhigh' }}
+          codex-args: ${{ vars.CODEX_ARGS }}
           sandbox: read-only
           safety-strategy: read-only
           prompt-file: .codex-review-condense-prompt.md

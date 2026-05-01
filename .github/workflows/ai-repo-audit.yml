@@ -49,8 +49,9 @@ name: AI Repo Audit
 # - secrets.CUSTOM_AI_API_KEY — OpenAI/兼容 API 密钥
 # - secrets.CUSTOM_AI_RESPONSES_ENDPOINT — AI API 端点 URL
 # - secrets.AI_FIX_TOKEN (可选) — PAT，让 audit PR 触发 CI；缺省用 github.token
-# - vars.CODEX_MODEL — 模型名（默认 gpt-5.5）
+# - vars.CODEX_MODEL — 模型名（默认 gpt-5.4）
 # - vars.CODEX_EFFORT — 推理强度（默认 xhigh）
+# - vars.CODEX_ARGS — 可选，额外传给 codex exec；适合用 -c 覆盖 config.toml 项
 # - environment: auto-ai — 需在 repo settings 中配置
 #
 # 注意：使用 GITHUB_TOKEN 推送的分支不会触发其它 workflow（CI 等）。
@@ -461,8 +462,9 @@ jobs:
       - name: Pre-Codex diagnostic
         env:
           LOG_LEVEL: ${{ steps.log-config.outputs.log_level }}
-          MODEL: ${{ vars.CODEX_MODEL || 'gpt-5.5' }}
+          MODEL: ${{ vars.CODEX_MODEL || 'gpt-5.4' }}
           EFFORT: ${{ inputs.effort || vars.CODEX_EFFORT || 'xhigh' }}
+          CODEX_ARGS: ${{ vars.CODEX_ARGS }}
           LOOKBACK: ${{ needs.gate.outputs.lookback_days }}
           SEVERITY: ${{ needs.gate.outputs.severity_threshold }}
           DRY_RUN: ${{ needs.gate.outputs.dry_run }}
@@ -471,6 +473,11 @@ jobs:
           set -euo pipefail
           CONTEXT_SIZE="$(du -sh .ai-audit-context/ 2>/dev/null | awk '{print $1}' || echo 'missing')"
           CONTEXT_FILES="$(find .ai-audit-context -type f 2>/dev/null | wc -l | tr -d ' ')"
+          if [ -n "${CODEX_ARGS:-}" ]; then
+            CODEX_ARGS_STATUS="configured"
+          else
+            CODEX_ARGS_STATUS="unset"
+          fi
 
           {
             echo "## AI Audit 配置摘要"
@@ -480,6 +487,7 @@ jobs:
             echo "| Log level | \`$LOG_LEVEL\` |"
             echo "| Model | \`$MODEL\` |"
             echo "| Effort | \`$EFFORT\` |"
+            echo "| Codex args | \`$CODEX_ARGS_STATUS\` |"
             echo "| Sandbox | \`workspace-write\` |"
             echo "| Lookback | \`${LOOKBACK} days\` |"
             echo "| Severity | \`$SEVERITY\` |"
@@ -516,8 +524,9 @@ jobs:
         with:
           openai-api-key: ${{ secrets.CUSTOM_AI_API_KEY }}
           responses-api-endpoint: ${{ secrets.CUSTOM_AI_RESPONSES_ENDPOINT }}
-          model: ${{ vars.CODEX_MODEL || 'gpt-5.5' }}
+          model: ${{ vars.CODEX_MODEL || 'gpt-5.4' }}
           effort: ${{ inputs.effort || vars.CODEX_EFFORT || 'xhigh' }}
+          codex-args: ${{ vars.CODEX_ARGS }}
           sandbox: workspace-write
           safety-strategy: drop-sudo
           prompt-file: .ai-audit-context/trusted-ai-repo-audit.md
@@ -617,8 +626,9 @@ jobs:
         with:
           openai-api-key: ${{ secrets.CUSTOM_AI_API_KEY }}
           responses-api-endpoint: ${{ secrets.CUSTOM_AI_RESPONSES_ENDPOINT }}
-          model: ${{ vars.CODEX_MODEL || 'gpt-5.5' }}
+          model: ${{ vars.CODEX_MODEL || 'gpt-5.4' }}
           effort: ${{ inputs.effort || vars.CODEX_EFFORT || 'xhigh' }}
+          codex-args: ${{ vars.CODEX_ARGS }}
           sandbox: read-only
           safety-strategy: read-only
           prompt-file: .ai-audit-context/condense-prompt.md
