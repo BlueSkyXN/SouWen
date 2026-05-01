@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -206,6 +207,23 @@ def test_plugins_health_handles_health_exception(monkeypatch):
     assert result.exit_code == 1
 
 
+def test_plugins_health_times_out(monkeypatch):
+    """单个插件 health_check 超时应返回错误，而不是无限等待。"""
+    from souwen.plugin import Plugin
+
+    async def slow() -> dict[str, str]:
+        await asyncio.sleep(1)
+        return {"status": "ok"}
+
+    plugin = Plugin(name="slow", health_check=slow)
+    monkeypatch.setattr("souwen.plugin.get_loaded_plugins", lambda: {"slow": plugin})
+
+    result = runner.invoke(app, ["plugins", "health", "slow", "--timeout", "0.01"])
+
+    assert result.exit_code == 1
+    assert "超时" in result.output
+
+
 def test_plugins_list_with_health_flag(monkeypatch):
     """``plugins list --health`` 给已加载插件附加 Health 列。"""
     from souwen.plugin import Plugin
@@ -235,3 +253,39 @@ def test_plugins_list_with_health_flag(monkeypatch):
     assert result.exit_code == 0
     assert "Health" in result.output
     assert "demo" in result.output
+
+
+def test_plugins_list_health_marks_timeout(monkeypatch):
+    """批量 health check 中单个插件超时应落到 error 状态，不拖住列表命令。"""
+    from souwen.plugin import Plugin
+    from souwen.plugin_manager import PluginInfo
+
+    async def slow() -> dict[str, str]:
+        await asyncio.sleep(1)
+        return {"status": "ok"}
+
+    plugin = Plugin(name="slow", health_check=slow)
+    monkeypatch.setattr("souwen.plugin.get_loaded_plugins", lambda: {"slow": plugin})
+    monkeypatch.setattr(
+        "souwen.plugin_manager.list_plugins",
+        lambda: [
+            PluginInfo(
+                name="slow",
+                status="loaded",
+                source="entry_point",
+                version="1.0.0",
+                description="slow plugin",
+            ),
+        ],
+    )
+    monkeypatch.setattr("souwen.plugin_manager.is_restart_required", lambda: False)
+
+    result = runner.invoke(
+        app,
+        ["plugins", "list", "--health", "--health-timeout", "0.01"],
+        env={"COLUMNS": "200"},
+    )
+
+    assert result.exit_code == 0
+    assert "Health" in result.output
+    assert "error" in result.output
