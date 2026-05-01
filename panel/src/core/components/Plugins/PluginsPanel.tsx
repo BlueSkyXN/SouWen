@@ -177,6 +177,7 @@ function PluginRow({ plugin, state, onShowDetail }: PluginRowProps) {
   const disableBusy = state.busy.has(`disable:${plugin.name}`)
   const healthBusy = state.busy.has(`health:${plugin.name}`)
   const installBusy = state.busy.has('install')
+  const packageBusy = installBusy || state.busy.has('uninstall')
   const isLoaded = plugin.status === 'loaded'
   const isDisabled = plugin.status === 'disabled'
   const isAvailable = plugin.status === 'available'
@@ -227,7 +228,7 @@ function PluginRow({ plugin, state, onShowDetail }: PluginRowProps) {
             type="button"
             className={`${styles.actionBtn} ${styles.primary}`}
             onClick={() => void state.installPackage(plugin.package as string)}
-            disabled={!state.installEnabled || installBusy}
+            disabled={!state.installEnabled || packageBusy}
             title={
               state.installEnabled
                 ? (t('plugins.actions.install') as string)
@@ -336,6 +337,7 @@ function InstallCard({
   onUninstall,
 }: InstallCardProps) {
   const { t } = useTranslation()
+  const packageBusy = installBusy || uninstallBusy
   return (
     <section className={styles.installCard} aria-label={t('plugins.install.panelTitle') as string}>
       <header className={styles.installHeader}>
@@ -354,13 +356,13 @@ function InstallCard({
           value={pkgInput}
           placeholder={t('plugins.install.packagePlaceholder') as string}
           onChange={(e) => onPkgChange(e.target.value)}
-          disabled={!installEnabled || installBusy || uninstallBusy}
+          disabled={!installEnabled || packageBusy}
         />
         <button
           type="button"
           className={`${styles.actionBtn} ${styles.primary}`}
           onClick={onInstall}
-          disabled={!installEnabled || installBusy || !pkgInput.trim()}
+          disabled={!installEnabled || packageBusy || !pkgInput.trim()}
           title={t('plugins.install.submitInstall') as string}
         >
           <PackagePlus size={14} />
@@ -370,7 +372,7 @@ function InstallCard({
           type="button"
           className={`${styles.actionBtn} ${styles.warn}`}
           onClick={onUninstall}
-          disabled={!installEnabled || uninstallBusy || !pkgInput.trim()}
+          disabled={!installEnabled || packageBusy || !pkgInput.trim()}
           title={t('plugins.install.submitUninstall') as string}
         >
           <PackageMinus size={14} />

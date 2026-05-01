@@ -56,6 +56,8 @@ ALLOWED_PACKAGES: frozenset[str] = frozenset(
 _PACKAGE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,100}$")
 
 _restart_required: bool = False
+_pip_operation_lock: asyncio.Lock | None = None
+_pip_operation_loop: asyncio.AbstractEventLoop | None = None
 
 
 class PluginInfo(BaseModel):
@@ -265,6 +267,16 @@ def _mark_restart_required() -> None:
     """标记有变更需要重启后完全生效。"""
     global _restart_required
     _restart_required = True
+
+
+def _get_pip_operation_lock() -> asyncio.Lock:
+    """返回当前事件循环内的 pip 操作锁，串行化安装/卸载。"""
+    global _pip_operation_lock, _pip_operation_loop
+    loop = asyncio.get_running_loop()
+    if _pip_operation_lock is None or _pip_operation_loop is not loop:
+        _pip_operation_lock = asyncio.Lock()
+        _pip_operation_loop = loop
+    return _pip_operation_lock
 
 
 def list_plugins() -> list[PluginInfo]:
@@ -612,19 +624,20 @@ async def install_plugin(package: str) -> dict[str, Any]:
         return {"success": False, "output": error, "restart_required": False}
 
     try:
-        success, output = await _run_pip(["install", package], timeout=120)
-        if success:
-            state = _load_state()
-            installed = set(state.get("installed_via_api", []))
-            installed.add(package)
-            state["installed_via_api"] = sorted(installed)
-            _save_state(state)
-            _mark_restart_required()
-            logger.info(
-                "插件包 %r 已安装，重启后生效。",
-                package,
-                extra={"event": "plugin_installed", "plugin": package, "package": package},
-            )
+        async with _get_pip_operation_lock():
+            success, output = await _run_pip(["install", package], timeout=120)
+            if success:
+                state = _load_state()
+                installed = set(state.get("installed_via_api", []))
+                installed.add(package)
+                state["installed_via_api"] = sorted(installed)
+                _save_state(state)
+                _mark_restart_required()
+                logger.info(
+                    "插件包 %r 已安装，重启后生效。",
+                    package,
+                    extra={"event": "plugin_installed", "plugin": package, "package": package},
+                )
         return {"success": success, "output": output, "restart_required": success}
     except Exception as exc:  # noqa: BLE001
         logger.warning("安装插件包 %r 失败: %s", package, exc)
@@ -648,19 +661,20 @@ async def uninstall_plugin(package: str) -> dict[str, Any]:
         return {"success": False, "output": error, "restart_required": False}
 
     try:
-        success, output = await _run_pip(["uninstall", "-y", package], timeout=60)
-        if success:
-            state = _load_state()
-            installed = set(state.get("installed_via_api", []))
-            installed.discard(package)
-            state["installed_via_api"] = sorted(installed)
-            _save_state(state)
-            _mark_restart_required()
-            logger.info(
-                "插件包 %r 已卸载，重启后生效。",
-                package,
-                extra={"event": "plugin_uninstalled", "plugin": package, "package": package},
-            )
+        async with _get_pip_operation_lock():
+            success, output = await _run_pip(["uninstall", "-y", package], timeout=60)
+            if success:
+                state = _load_state()
+                installed = set(state.get("installed_via_api", []))
+                installed.discard(package)
+                state["installed_via_api"] = sorted(installed)
+                _save_state(state)
+                _mark_restart_required()
+                logger.info(
+                    "插件包 %r 已卸载，重启后生效。",
+                    package,
+                    extra={"event": "plugin_uninstalled", "plugin": package, "package": package},
+                )
         return {"success": success, "output": output, "restart_required": success}
     except Exception as exc:  # noqa: BLE001
         logger.warning("卸载插件包 %r 失败: %s", package, exc)

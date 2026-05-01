@@ -1047,6 +1047,7 @@ class TestAPIEndpoints:
         client: Any,
         state_dir: Path,
         monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
     ) -> None:
         async def fake_run_pip(args: list[str], timeout: float) -> tuple[bool, str]:
             return False, "Collecting superweb2pdf\nERROR: private index token leaked"
@@ -1054,11 +1055,14 @@ class TestAPIEndpoints:
         monkeypatch.setenv("SOUWEN_ENABLE_PLUGIN_INSTALL", "1")
         monkeypatch.setattr("souwen.plugin_manager._run_pip", fake_run_pip)
 
+        caplog.set_level(logging.WARNING, logger="souwen.server")
         response = client.post("/plugins/install", json={"package": "superweb2pdf"})
 
         assert response.status_code == 200
         assert response.json()["success"] is False
         assert response.json()["message"] == "操作失败，详见服务端日志"
+        assert "private index token leaked" not in caplog.text
+        assert "Collecting superweb2pdf" not in caplog.text
 
     def test_post_reload(
         self,

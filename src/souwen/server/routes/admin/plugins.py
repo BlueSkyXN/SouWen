@@ -129,9 +129,13 @@ def _sanitize_pip_result(result: dict, package: str = "") -> dict:
 
     success = result.get("success", False)
     output = str(result.get("output", "")).strip()
-    if not success and output:
-        logging.getLogger("souwen.server").warning("pip 操作失败，原始输出: %s", output)
     failure_message = output if output in _SAFE_PIP_FAILURE_MESSAGES else "操作失败，详见服务端日志"
+    if not success:
+        logging.getLogger("souwen.server").warning(
+            "pip 操作失败: package=%r, message=%s",
+            result.get("package", package),
+            failure_message,
+        )
     return {
         "success": success,
         "package": result.get("package", package),
