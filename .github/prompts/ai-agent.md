@@ -73,7 +73,8 @@ context.md 中 "Trigger Source" 字段标明了本次触发来源，据此执行
 === 通用规则 ===
 - 只修改与指令 / review / issue 相关的代码，不做无关重构。
 - 保持项目现有代码风格一致。
-- **不要修改 .github/ 下的 workflow 文件**（除非用户指令明确要求且谨慎）。
+- **不要修改 .github/workflows/ 下的 workflow 文件**（这是 AI workflow 控制面）。
+- **不要修改 .github/prompts/ 下的 AI prompt 文件**（这是 AI workflow 控制面）。
 - 不要泄露 secrets、环境变量、token 或凭据。
 - 不要删除已有测试用例（除非指令明确要求）。
 - 不要修改 .ai-agent-context/ 下的文件。

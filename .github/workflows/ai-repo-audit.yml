@@ -22,14 +22,15 @@ name: AI Repo Audit
 #
 # 【审计模式】
 # - sandbox=workspace-write，可改代码文件、跑测试。
-# - prompt-file=.github/prompts/ai-repo-audit.md，权威参数走 audit-meta.md。
+# - Codex prompt 从 workflow_sha 物化，权威参数走 audit-meta.md。
 # - dry_run=true 时即使 Codex 改了文件也会被丢弃，仅输出报告 issue。
 #
 # 【安全措施】
 # - if: github.actor == github.repository_owner 严格门控
 # - persist-credentials: true 用于 push（限于 codex-audit job）
-# - 修复禁区：.github/workflows/、.ai-audit-context/、构建产物、local/、
-#   公共 API 等（详见 prompt-file）
+# - 修复禁区：.github/workflows/、.github/prompts/、.ai-audit-context/、
+#   构建产物、local/、公共 API 等（详见 prompt-file）
+# - 提交前硬拦截 .github/workflows/ 与 .github/prompts/ 控制面变更
 # - prompt 中明确标记 commit 内容、PR 描述、issue 内容为不可信来源
 # - 报告长度有 60K 字符发布上限保护（超长自动压缩，失败时硬截断）
 #
@@ -412,6 +413,16 @@ jobs:
             echo "AI secrets are present. Enable log_level=debug to print non-sensitive lengths."
           fi
 
+      - name: Materialize trusted audit prompt
+        env:
+          WORKFLOW_SHA: ${{ github.workflow_sha || github.sha }}
+        run: |
+          set -euo pipefail
+          mkdir -p .ai-audit-context
+          git fetch --no-tags --depth=1 origin "$WORKFLOW_SHA"
+          git show "$WORKFLOW_SHA:.github/prompts/ai-repo-audit.md" > .ai-audit-context/trusted-ai-repo-audit.md
+          test -s .ai-audit-context/trusted-ai-repo-audit.md
+
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
@@ -509,7 +520,7 @@ jobs:
           effort: ${{ inputs.effort || vars.CODEX_EFFORT || 'xhigh' }}
           sandbox: workspace-write
           safety-strategy: drop-sudo
-          prompt-file: .github/prompts/ai-repo-audit.md
+          prompt-file: .ai-audit-context/trusted-ai-repo-audit.md
 
       - name: Post-Codex diagnostic
         if: always()
@@ -688,6 +699,13 @@ jobs:
           fi
 
           git add -A
+          FORBIDDEN_CHANGES="$(git diff --cached --name-only -- .github/workflows .github/prompts || true)"
+          if [ -n "$FORBIDDEN_CHANGES" ]; then
+            echo "::error::AI Repo Audit is not allowed to modify AI control-plane files (.github/workflows/ or .github/prompts/)."
+            echo "$FORBIDDEN_CHANGES"
+            exit 1
+          fi
+
           if git diff --cached --quiet; then
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
             echo "Codex did not produce any file changes."

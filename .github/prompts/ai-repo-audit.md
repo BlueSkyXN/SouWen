@@ -66,6 +66,7 @@
 
 **修复禁区（无论 dry_run / severity 如何都不能改）**：
 - .github/workflows/（避免自我修改）
+- .github/prompts/（AI workflow 控制面，避免自我修改）
 - .ai-audit-context/
 - 构建产物：dist/、build/、panel/dist/、src/souwen/server/panel.html、*.egg-info/
 - local/ 目录

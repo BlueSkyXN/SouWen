@@ -27,6 +27,7 @@ name: AI Agent
 # 3. API check: getCollaboratorPermissionLevel → 必须 admin
 # 额外：Fork PR 拒绝、persist-credentials: false、GH_TOKEN=github.token(短期)
 # 额外：Codex prompt 从 workflow_sha 物化，不信任目标 PR/branch 中的 prompt 文件
+# 额外：提交前硬拦截 .github/workflows/ 与 .github/prompts/ 控制面变更
 #
 # 【触发来源能力分级】
 # - pr_comment: 改代码 + gh 操作(仅限该 PR) + fix-pr/direct
@@ -883,8 +884,17 @@ jobs:
       - name: Check for changes
         id: check-changes
         run: |
+          set -euo pipefail
           rm -rf .ai-agent-context
           git add -A
+
+          FORBIDDEN_CHANGES="$(git diff --cached --name-only -- .github/workflows .github/prompts || true)"
+          if [ -n "$FORBIDDEN_CHANGES" ]; then
+            echo "::error::AI Agent is not allowed to modify AI control-plane files (.github/workflows/ or .github/prompts/)."
+            echo "$FORBIDDEN_CHANGES"
+            exit 1
+          fi
+
           if git diff --cached --quiet; then
             echo "has_changes=false" >> "$GITHUB_OUTPUT"
             echo "No file changes produced by Codex."
