@@ -47,7 +47,10 @@ name: AI Repo Audit
 #
 # 【依赖的 Secrets/Variables】
 # - secrets.CUSTOM_AI_API_KEY — OpenAI/兼容 API 密钥
-# - secrets.CUSTOM_AI_RESPONSES_ENDPOINT — AI API 端点 URL
+# - workflow_dispatch inputs.model — 手动指定模型，优先级最高
+# - workflow_dispatch inputs.responses_endpoint — 手动指定 Responses API 端点，优先级最高
+# - vars.CUSTOM_AI_RESPONSES_ENDPOINT — 可选，environment 级 AI API 端点 URL
+# - secrets.CUSTOM_AI_RESPONSES_ENDPOINT — 可选，secret 级 AI API 端点 URL
 # - secrets.AI_FIX_TOKEN (可选) — PAT，让 audit PR 触发 CI；缺省用 github.token
 # - vars.CODEX_MODEL — 模型名（默认 gpt-5.4）
 # - vars.CODEX_EFFORT — 推理强度（默认 xhigh）
@@ -65,6 +68,14 @@ on:
         description: '重点审计最近多少天的提交（默认 7）'
         required: false
         default: '7'
+        type: string
+      model:
+        description: '可选：覆盖 Codex 模型；留空则使用 environment 变量或默认值'
+        required: false
+        type: string
+      responses_endpoint:
+        description: '可选：覆盖 Responses API endpoint URL；留空则使用 environment 变量/secret 或 action 默认端点'
+        required: false
         type: string
       effort:
         description: 'Codex reasoning effort'
@@ -386,7 +397,7 @@ jobs:
       - name: Validate AI secrets
         env:
           CUSTOM_AI_API_KEY: ${{ secrets.CUSTOM_AI_API_KEY }}
-          CUSTOM_AI_RESPONSES_ENDPOINT: ${{ secrets.CUSTOM_AI_RESPONSES_ENDPOINT }}
+          CUSTOM_AI_RESPONSES_ENDPOINT: ${{ inputs.responses_endpoint || vars.CUSTOM_AI_RESPONSES_ENDPOINT || secrets.CUSTOM_AI_RESPONSES_ENDPOINT }}
           LOG_LEVEL: ${{ steps.log-config.outputs.log_level }}
         run: |
           set -euo pipefail
@@ -394,22 +405,27 @@ jobs:
             echo "::error::CUSTOM_AI_API_KEY is empty"
             exit 1
           fi
-          if [ -z "${CUSTOM_AI_RESPONSES_ENDPOINT:-}" ]; then
-            echo "::error::CUSTOM_AI_RESPONSES_ENDPOINT is empty"
-            exit 1
+          if [ -n "${CUSTOM_AI_RESPONSES_ENDPOINT:-}" ]; then
+            RESPONSES_ENDPOINT_STATUS="present"
+          else
+            RESPONSES_ENDPOINT_STATUS="action default"
           fi
 
           {
-            echo "## AI Audit Secret 校验"
+            echo "## AI Audit 凭据校验"
             echo
             echo "- CUSTOM_AI_API_KEY: present"
-            echo "- CUSTOM_AI_RESPONSES_ENDPOINT: present"
+            echo "- Responses endpoint: $RESPONSES_ENDPOINT_STATUS"
             echo
           } >> "$GITHUB_STEP_SUMMARY"
 
           if [ "$LOG_LEVEL" = "debug" ]; then
             echo "CUSTOM_AI_API_KEY length: ${#CUSTOM_AI_API_KEY}"
-            echo "CUSTOM_AI_RESPONSES_ENDPOINT length: ${#CUSTOM_AI_RESPONSES_ENDPOINT}"
+            if [ -n "${CUSTOM_AI_RESPONSES_ENDPOINT:-}" ]; then
+              echo "CUSTOM_AI_RESPONSES_ENDPOINT length: ${#CUSTOM_AI_RESPONSES_ENDPOINT}"
+            else
+              echo "CUSTOM_AI_RESPONSES_ENDPOINT: action default"
+            fi
           else
             echo "AI secrets are present. Enable log_level=debug to print non-sensitive lengths."
           fi
@@ -462,7 +478,12 @@ jobs:
       - name: Pre-Codex diagnostic
         env:
           LOG_LEVEL: ${{ steps.log-config.outputs.log_level }}
-          MODEL: ${{ vars.CODEX_MODEL || 'gpt-5.4' }}
+          MODEL: ${{ inputs.model || vars.CODEX_MODEL || 'gpt-5.4' }}
+          INPUT_MODEL: ${{ inputs.model }}
+          VAR_MODEL: ${{ vars.CODEX_MODEL }}
+          INPUT_RESPONSES_ENDPOINT: ${{ inputs.responses_endpoint }}
+          VAR_RESPONSES_ENDPOINT: ${{ vars.CUSTOM_AI_RESPONSES_ENDPOINT }}
+          SECRET_RESPONSES_ENDPOINT: ${{ secrets.CUSTOM_AI_RESPONSES_ENDPOINT }}
           EFFORT: ${{ inputs.effort || vars.CODEX_EFFORT || 'xhigh' }}
           CODEX_ARGS: ${{ vars.CODEX_ARGS }}
           LOOKBACK: ${{ needs.gate.outputs.lookback_days }}
@@ -473,6 +494,22 @@ jobs:
           set -euo pipefail
           CONTEXT_SIZE="$(du -sh .ai-audit-context/ 2>/dev/null | awk '{print $1}' || echo 'missing')"
           CONTEXT_FILES="$(find .ai-audit-context -type f 2>/dev/null | wc -l | tr -d ' ')"
+          if [ -n "${INPUT_MODEL:-}" ]; then
+            MODEL_SOURCE="workflow_dispatch input"
+          elif [ -n "${VAR_MODEL:-}" ]; then
+            MODEL_SOURCE="environment variable"
+          else
+            MODEL_SOURCE="workflow default"
+          fi
+          if [ -n "${INPUT_RESPONSES_ENDPOINT:-}" ]; then
+            RESPONSES_ENDPOINT_STATUS="configured (workflow_dispatch input)"
+          elif [ -n "${VAR_RESPONSES_ENDPOINT:-}" ]; then
+            RESPONSES_ENDPOINT_STATUS="configured (environment variable)"
+          elif [ -n "${SECRET_RESPONSES_ENDPOINT:-}" ]; then
+            RESPONSES_ENDPOINT_STATUS="configured (secret)"
+          else
+            RESPONSES_ENDPOINT_STATUS="action default"
+          fi
           if [ -n "${CODEX_ARGS:-}" ]; then
             CODEX_ARGS_STATUS="configured"
           else
@@ -486,7 +523,9 @@ jobs:
             echo "|---|---|"
             echo "| Log level | \`$LOG_LEVEL\` |"
             echo "| Model | \`$MODEL\` |"
+            echo "| Model source | \`$MODEL_SOURCE\` |"
             echo "| Effort | \`$EFFORT\` |"
+            echo "| Responses endpoint | \`$RESPONSES_ENDPOINT_STATUS\` |"
             echo "| Codex args | \`$CODEX_ARGS_STATUS\` |"
             echo "| Sandbox | \`workspace-write\` |"
             echo "| Lookback | \`${LOOKBACK} days\` |"
@@ -523,8 +562,8 @@ jobs:
         uses: openai/codex-action@v1
         with:
           openai-api-key: ${{ secrets.CUSTOM_AI_API_KEY }}
-          responses-api-endpoint: ${{ secrets.CUSTOM_AI_RESPONSES_ENDPOINT }}
-          model: ${{ vars.CODEX_MODEL || 'gpt-5.4' }}
+          responses-api-endpoint: ${{ inputs.responses_endpoint || vars.CUSTOM_AI_RESPONSES_ENDPOINT || secrets.CUSTOM_AI_RESPONSES_ENDPOINT }}
+          model: ${{ inputs.model || vars.CODEX_MODEL || 'gpt-5.4' }}
           effort: ${{ inputs.effort || vars.CODEX_EFFORT || 'xhigh' }}
           codex-args: ${{ vars.CODEX_ARGS }}
           sandbox: workspace-write
@@ -625,8 +664,8 @@ jobs:
         uses: openai/codex-action@v1
         with:
           openai-api-key: ${{ secrets.CUSTOM_AI_API_KEY }}
-          responses-api-endpoint: ${{ secrets.CUSTOM_AI_RESPONSES_ENDPOINT }}
-          model: ${{ vars.CODEX_MODEL || 'gpt-5.4' }}
+          responses-api-endpoint: ${{ inputs.responses_endpoint || vars.CUSTOM_AI_RESPONSES_ENDPOINT || secrets.CUSTOM_AI_RESPONSES_ENDPOINT }}
+          model: ${{ inputs.model || vars.CODEX_MODEL || 'gpt-5.4' }}
           effort: ${{ inputs.effort || vars.CODEX_EFFORT || 'xhigh' }}
           codex-args: ${{ vars.CODEX_ARGS }}
           sandbox: read-only
