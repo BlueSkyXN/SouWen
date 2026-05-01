@@ -730,7 +730,8 @@ Cache-Control: public, max-age=3600
 ```
 
 声明了 `health_check` 时，端点透传插件返回的 dict（约定至少包含 `status` 字段，常见值：
-`ok` / `healthy` / `degraded` / `error`）。
+`ok` / `healthy` / `degraded` / `error`）。`health_check` 可以是同步函数直接返回
+`dict`，也可以是 `async def`；同步函数返回 coroutine 会被视为声明错误。
 
 #### `POST /api/v1/admin/plugins/{name}/enable`
 

@@ -146,6 +146,12 @@ export function usePluginsPage(): UsePluginsPageState {
   const checkHealth = useCallback(
     async (name: string) => {
       setBusyKey(`health:${name}`, true)
+      setHealthMap((prev) => {
+        if (!(name in prev)) return prev
+        const next = { ...prev }
+        delete next[name]
+        return next
+      })
       try {
         const res = await api.getPluginHealth(name)
         setHealthMap((prev) => ({ ...prev, [name]: res }))
@@ -157,7 +163,9 @@ export function usePluginsPage(): UsePluginsPageState {
           )
         }
       } catch (err) {
-        addToast('error', t('plugins.toast.healthFailed', { name, message: formatError(err) }))
+        const message = formatError(err)
+        setHealthMap((prev) => ({ ...prev, [name]: { status: 'error', message } }))
+        addToast('error', t('plugins.toast.healthFailed', { name, message }))
       } finally {
         setBusyKey(`health:${name}`, false)
       }

@@ -7,6 +7,8 @@
 from __future__ import annotations
 
 import asyncio
+import contextvars
+import functools
 import importlib
 import importlib.util
 import inspect
@@ -63,40 +65,131 @@ _restart_required: bool = False
 _pip_operation_lock: asyncio.Lock | None = None
 _pip_operation_loop: asyncio.AbstractEventLoop | None = None
 DEFAULT_PLUGIN_HEALTH_TIMEOUT_SECONDS = 10.0
+_PLUGIN_HEALTH_MAX_WORKERS = 4
+_plugin_health_capacity = threading.BoundedSemaphore(_PLUGIN_HEALTH_MAX_WORKERS)
+_plugin_health_queue: queue.Queue["_PluginHealthJob"] = queue.Queue()
+_plugin_health_workers_started = False
+_plugin_health_workers_lock = threading.Lock()
+
+_PluginHealthJob = tuple[
+    asyncio.AbstractEventLoop,
+    asyncio.Future[Any],
+    contextvars.Context,
+    Callable[[], Any],
+]
 
 
-async def _call_sync_health_check(health_check: Callable[[], Any]) -> Any:
-    result_queue: queue.Queue[tuple[str, Any]] = queue.Queue(maxsize=1)
+class _InvalidPluginHealthCheck(TypeError):
+    """health_check 声明形态不符合运行时约束。"""
 
-    def invoke() -> None:
-        try:
-            result_queue.put(("ok", health_check()))
-        except Exception as exc:  # noqa: BLE001 — 转成 health 错误结果
-            result_queue.put(("error", exc))
 
-    thread = threading.Thread(
-        target=invoke,
-        name="souwen-plugin-health-check",
-        daemon=True,
-    )
-    thread.start()
+def _complete_plugin_health_future(
+    future: asyncio.Future[Any],
+    *,
+    result: Any = None,
+    error: BaseException | None = None,
+) -> None:
+    if future.done():
+        return
+    if error is not None:
+        future.set_exception(error)
+    else:
+        future.set_result(result)
+
+
+def _consume_plugin_health_exception(future: asyncio.Future[Any]) -> None:
+    if future.cancelled():
+        return
+    try:
+        future.exception()
+    except Exception:  # noqa: BLE001 — 仅避免超时后无人读取异常导致日志噪声
+        pass
+
+
+def _plugin_health_worker() -> None:
     while True:
+        loop, future, context, health_check = _plugin_health_queue.get()
         try:
-            status, value = result_queue.get_nowait()
-            break
-        except queue.Empty:
-            await asyncio.sleep(0.01)
-    if status == "error":
-        raise value
-    return value
+            result = context.run(health_check)
+        except Exception as exc:  # noqa: BLE001 — 转成 health 错误结果
+            try:
+                loop.call_soon_threadsafe(
+                    functools.partial(_complete_plugin_health_future, future, error=exc),
+                )
+            except RuntimeError:
+                pass
+        else:
+            try:
+                loop.call_soon_threadsafe(
+                    functools.partial(_complete_plugin_health_future, future, result=result),
+                )
+            except RuntimeError:
+                pass
+        finally:
+            _plugin_health_capacity.release()
 
 
-async def _invoke_plugin_health_check(health_check: Callable[[], Any]) -> Any:
+def _ensure_plugin_health_workers() -> None:
+    global _plugin_health_workers_started
+
+    if _plugin_health_workers_started:
+        return
+    with _plugin_health_workers_lock:
+        if _plugin_health_workers_started:
+            return
+        for index in range(_PLUGIN_HEALTH_MAX_WORKERS):
+            threading.Thread(
+                target=_plugin_health_worker,
+                name=f"souwen-plugin-health-{index}",
+                daemon=True,
+            ).start()
+        _plugin_health_workers_started = True
+
+
+async def _acquire_plugin_health_capacity(timeout: float) -> None:
+    loop = asyncio.get_running_loop()
+    deadline = loop.time() + max(timeout, 0)
+    while True:
+        if _plugin_health_capacity.acquire(blocking=False):
+            return
+        remaining = deadline - loop.time()
+        if remaining <= 0:
+            raise asyncio.TimeoutError
+        await asyncio.sleep(min(0.01, remaining))
+
+
+async def _call_sync_health_check(health_check: Callable[[], Any], timeout: float) -> Any:
+    await _acquire_plugin_health_capacity(timeout)
+    _ensure_plugin_health_workers()
+
+    loop = asyncio.get_running_loop()
+    future: asyncio.Future[Any] = loop.create_future()
+    future.add_done_callback(_consume_plugin_health_exception)
+    context = contextvars.copy_context()
+    try:
+        _plugin_health_queue.put_nowait((loop, future, context, health_check))
+    except Exception:
+        _plugin_health_capacity.release()
+        raise
+
+    return await asyncio.wait_for(
+        asyncio.shield(future),
+        timeout=timeout,
+    )
+
+
+async def _invoke_plugin_health_check(health_check: Callable[[], Any], timeout: float) -> Any:
     if inspect.iscoroutinefunction(health_check):
-        return await health_check()
-    result = await _call_sync_health_check(health_check)
+        return await asyncio.wait_for(health_check(), timeout=timeout)
+
+    result = await _call_sync_health_check(health_check, timeout=timeout)
     if inspect.isawaitable(result):
-        result = await result
+        close = getattr(result, "close", None)
+        if callable(close):
+            close()
+        raise _InvalidPluginHealthCheck(
+            "同步 health_check 不能返回 awaitable；请改成 async def health_check(...)"
+        )
     return result
 
 
@@ -118,10 +211,7 @@ async def run_plugin_health(
 
     timeout_seconds = DEFAULT_PLUGIN_HEALTH_TIMEOUT_SECONDS if timeout is None else timeout
     try:
-        result = await asyncio.wait_for(
-            _invoke_plugin_health_check(plugin.health_check),
-            timeout=timeout_seconds,
-        )
+        result = await _invoke_plugin_health_check(plugin.health_check, timeout=timeout_seconds)
     except asyncio.TimeoutError:
         logger.warning("插件 %r 健康检查超时: >%gs", name, timeout_seconds)
         return {"status": "error", "message": f"health_check 超时（>{timeout_seconds:g}s）"}

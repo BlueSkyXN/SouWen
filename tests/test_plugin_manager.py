@@ -6,6 +6,7 @@ import importlib.util
 import json
 import logging
 import sys
+import threading
 import time
 import types
 from pathlib import Path
@@ -1087,6 +1088,48 @@ class TestAPIEndpoints:
         assert response.status_code == 200
         assert response.json()["status"] == "error"
         assert "超时" in response.json()["message"]
+
+    @pytest.mark.asyncio
+    async def test_sync_health_timeouts_use_bounded_worker_pool(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from souwen.plugin import Plugin
+        from souwen.plugin_manager import _PLUGIN_HEALTH_MAX_WORKERS, collect_plugin_health
+
+        release = threading.Event()
+
+        def blocking_health_check() -> dict[str, str]:
+            release.wait(timeout=1)
+            return {"status": "ok"}
+
+        monkeypatch.setattr(
+            "souwen.plugin.get_loaded_plugins",
+            lambda: {
+                f"slow-{index}": Plugin(
+                    name=f"slow-{index}",
+                    health_check=blocking_health_check,
+                )
+                for index in range(_PLUGIN_HEALTH_MAX_WORKERS * 2)
+            },
+        )
+
+        try:
+            result = await collect_plugin_health(
+                [f"slow-{index}" for index in range(_PLUGIN_HEALTH_MAX_WORKERS * 2)],
+                timeout=0.01,
+            )
+            health_threads = [
+                thread
+                for thread in threading.enumerate()
+                if thread.name.startswith("souwen-plugin-health-")
+            ]
+        finally:
+            release.set()
+
+        assert set(result) == {f"slow-{index}" for index in range(_PLUGIN_HEALTH_MAX_WORKERS * 2)}
+        assert {item["status"] for item in result.values()} == {"error"}
+        assert len(health_threads) <= _PLUGIN_HEALTH_MAX_WORKERS
 
     def test_post_enable_plugin(
         self,

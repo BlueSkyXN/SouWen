@@ -207,6 +207,25 @@ def test_plugins_health_handles_health_exception(monkeypatch):
     assert result.exit_code == 1
 
 
+def test_plugins_health_rejects_sync_wrapper_returning_coroutine(monkeypatch):
+    """异步 health_check 必须声明为 async def，避免同步入口返回 coroutine。"""
+    from souwen.plugin import Plugin
+
+    async def inner() -> dict[str, str]:
+        return {"status": "ok"}
+
+    def wrapper():
+        return inner()
+
+    plugin = Plugin(name="wrapped", health_check=wrapper)
+    monkeypatch.setattr("souwen.plugin.get_loaded_plugins", lambda: {"wrapped": plugin})
+
+    result = runner.invoke(app, ["plugins", "health", "wrapped"])
+
+    assert result.exit_code == 1
+    assert "async def" in result.output
+
+
 def test_plugins_health_times_out(monkeypatch):
     """单个插件 health_check 超时应返回错误，而不是无限等待。"""
     from souwen.plugin import Plugin

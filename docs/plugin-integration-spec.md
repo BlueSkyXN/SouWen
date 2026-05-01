@@ -615,4 +615,6 @@ def test_fetch_handler_registered():
 
 > **Tip：** 你的插件如果需要 `health_check`，请尽可能保持低开销（毫秒级），
 > 因为运维会在 Web Panel 与 CLI（`souwen plugins list --health`）批量并发调用。
-> 业务侧的"实时探测"应放在专用的 doctor 端点，而不是 health_check。
+> `health_check` 支持同步函数直接返回 `dict`，或 `async def` 返回 `dict`；
+> 不支持同步函数返回 coroutine。业务侧的"实时探测"应放在专用的 doctor
+> 端点，而不是 health_check。
