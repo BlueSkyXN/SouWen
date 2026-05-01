@@ -78,7 +78,7 @@ async def _run_plugin_health(
             _invoke_plugin_health_check(plugin.health_check),
             timeout=timeout,
         )
-    except TimeoutError:
+    except asyncio.TimeoutError:
         return {"status": "error", "message": f"health_check 超时（>{timeout:g}s）"}
     except Exception as exc:  # noqa: BLE001 — health 错误返回，避免拖垮 CLI
         return {"status": "error", "message": f"health_check 抛出异常: {exc}"}
