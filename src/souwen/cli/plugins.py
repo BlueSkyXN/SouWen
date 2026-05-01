@@ -2,22 +2,20 @@
 
 from __future__ import annotations
 
-import asyncio
-import inspect
-import queue
 import re
-import threading
 from pathlib import Path
-from collections.abc import Callable
-from typing import Any
 
 import typer
 from rich.table import Table
 
 from souwen.cli._common import _run_async, console
+from souwen.plugin_manager import (
+    DEFAULT_PLUGIN_HEALTH_TIMEOUT_SECONDS,
+    collect_plugin_health,
+    run_plugin_health,
+)
 
 _PLUGIN_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
-_DEFAULT_PLUGIN_HEALTH_TIMEOUT_SECONDS = 10.0
 
 plugins_app = typer.Typer(
     name="plugins",
@@ -26,84 +24,10 @@ plugins_app = typer.Typer(
 )
 
 
-async def _call_sync_health_check(health_check: Callable[[], Any]) -> Any:
-    result_queue: queue.Queue[tuple[str, Any]] = queue.Queue(maxsize=1)
-
-    def invoke() -> None:
-        try:
-            result_queue.put(("ok", health_check()))
-        except Exception as exc:  # noqa: BLE001 — 转成 health 错误结果
-            result_queue.put(("error", exc))
-
-    thread = threading.Thread(
-        target=invoke,
-        name="souwen-plugin-health-check",
-        daemon=True,
-    )
-    thread.start()
-    while True:
-        try:
-            status, value = result_queue.get_nowait()
-            break
-        except queue.Empty:
-            await asyncio.sleep(0.01)
-    if status == "error":
-        raise value
-    return value
-
-
-async def _invoke_plugin_health_check(health_check: Callable[[], Any]) -> Any:
-    if inspect.iscoroutinefunction(health_check):
-        return await health_check()
-    result = await _call_sync_health_check(health_check)
-    if inspect.isawaitable(result):
-        result = await result
-    return result
-
-
-async def _run_plugin_health(
-    name: str,
-    timeout: float = _DEFAULT_PLUGIN_HEALTH_TIMEOUT_SECONDS,
-) -> dict[str, Any]:
-    """Run a single plugin's health_check. Mirrors the API endpoint behavior."""
-    from souwen.plugin import get_loaded_plugins
-
-    plugin = get_loaded_plugins().get(name)
-    if plugin is None:
-        return {"status": "not_loaded", "message": f"插件 {name!r} 未加载"}
-    if plugin.health_check is None:
-        return {"status": "ok", "message": "no health check defined"}
-    try:
-        result = await asyncio.wait_for(
-            _invoke_plugin_health_check(plugin.health_check),
-            timeout=timeout,
-        )
-    except asyncio.TimeoutError:
-        return {"status": "error", "message": f"health_check 超时（>{timeout:g}s）"}
-    except Exception as exc:  # noqa: BLE001 — health 错误返回，避免拖垮 CLI
-        return {"status": "error", "message": f"health_check 抛出异常: {exc}"}
-    if isinstance(result, dict):
-        result.setdefault("status", "ok")
-        return result
-    return {"status": "ok", "details": str(result)}
-
-
-async def _collect_plugin_health(
-    names: list[str],
-    timeout: float = _DEFAULT_PLUGIN_HEALTH_TIMEOUT_SECONDS,
-) -> dict[str, dict[str, Any]]:
-    """Run health_check across many plugins concurrently."""
-    if not names:
-        return {}
-    coros = [_run_plugin_health(n, timeout=timeout) for n in names]
-    results = await asyncio.gather(*coros, return_exceptions=False)
-    return dict(zip(names, results, strict=True))
-
-
 def _render_health_cell(
     name: str,
     status: str,
-    health_map: dict[str, dict[str, Any]],
+    health_map: dict[str, dict[str, object]],
 ) -> str:
     """Render the health cell for the list table."""
     if status != "loaded":
@@ -318,7 +242,7 @@ def list_cmd(
         help="并发执行已加载插件的 health_check 并附加状态列。",
     ),
     health_timeout: float = typer.Option(
-        _DEFAULT_PLUGIN_HEALTH_TIMEOUT_SECONDS,
+        DEFAULT_PLUGIN_HEALTH_TIMEOUT_SECONDS,
         "--health-timeout",
         help="单个 health_check 的超时秒数。",
     ),
@@ -336,11 +260,11 @@ def list_cmd(
         console.print("[dim]未发现任何插件。[/dim]")
         return
 
-    health_map: dict[str, dict[str, str]] = {}
+    health_map: dict[str, dict[str, object]] = {}
     if show_health:
         loaded_names = [p.name for p in plugins if p.status == "loaded"]
         if loaded_names:
-            health_map = _run_async(_collect_plugin_health(loaded_names, timeout=health_timeout))
+            health_map = _run_async(collect_plugin_health(loaded_names, timeout=health_timeout))
 
     table = Table(title="🔌 SouWen 插件", show_lines=True)
     table.add_column("Name", style="cyan")
@@ -482,14 +406,14 @@ def reload_cmd() -> None:
 def health_cmd(
     name: str = typer.Argument(..., help="插件名称（必须已加载）"),
     timeout: float = typer.Option(
-        _DEFAULT_PLUGIN_HEALTH_TIMEOUT_SECONDS,
+        DEFAULT_PLUGIN_HEALTH_TIMEOUT_SECONDS,
         "--timeout",
         "-t",
         help="health_check 超时秒数。",
     ),
 ) -> None:
     """运行单个插件的 health_check（对应 GET /admin/plugins/{name}/health）。"""
-    result = _run_async(_run_plugin_health(name, timeout=timeout))
+    result = _run_async(run_plugin_health(name, timeout=timeout))
     state = str(result.get("status", "")).lower()
     if state == "not_loaded":
         console.print(f"[red]❌ {result.get('message', '插件未加载')}[/red]")

@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import inspect
-
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -63,25 +61,12 @@ async def get_plugin(name: str):
 @router.get("/plugins/{name}/health")
 async def plugin_health(name: str):
     """运行单个已加载插件的健康检查。"""
-    import logging
+    from souwen.plugin_manager import run_plugin_health
 
-    from souwen.plugin import get_loaded_plugins
-
-    plugin = get_loaded_plugins().get(name)
-    if plugin is None:
+    result = await run_plugin_health(name, include_error_detail=False)
+    if result.get("status") == "not_loaded":
         raise HTTPException(status_code=404, detail=f"插件 {name!r} 未加载")
-    if plugin.health_check is None:
-        return {"status": "ok", "message": "no health check defined"}
-    try:
-        result = plugin.health_check()
-        if inspect.isawaitable(result):
-            result = await result
-        return result
-    except Exception as exc:
-        logging.getLogger("souwen.server").warning(
-            "插件 %r 健康检查失败: %s", name, exc, exc_info=True
-        )
-        return {"status": "error", "message": f"插件 {name!r} 健康检查异常"}
+    return result
 
 
 @router.post("/plugins/{name}/enable")

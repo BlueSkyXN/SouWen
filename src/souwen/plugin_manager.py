@@ -9,11 +9,15 @@ from __future__ import annotations
 import asyncio
 import importlib
 import importlib.util
+import inspect
 import json
 import logging
 import os
+import queue
 import re
 import sys
+import threading
+from collections.abc import Callable
 from importlib import metadata
 from pathlib import Path
 from typing import Any
@@ -26,7 +30,7 @@ from souwen.plugin import (
     unload_plugin,
     unload_plugin_async,
 )
-from souwen.registry.views import all_adapters, external_plugins
+from souwen.registry.views import _unreg_external, all_adapters, external_plugins
 from souwen.web.fetch import (
     get_fetch_handler_owners,
     get_fetch_handlers,
@@ -58,6 +62,94 @@ _PACKAGE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,100}$")
 _restart_required: bool = False
 _pip_operation_lock: asyncio.Lock | None = None
 _pip_operation_loop: asyncio.AbstractEventLoop | None = None
+DEFAULT_PLUGIN_HEALTH_TIMEOUT_SECONDS = 10.0
+
+
+async def _call_sync_health_check(health_check: Callable[[], Any]) -> Any:
+    result_queue: queue.Queue[tuple[str, Any]] = queue.Queue(maxsize=1)
+
+    def invoke() -> None:
+        try:
+            result_queue.put(("ok", health_check()))
+        except Exception as exc:  # noqa: BLE001 — 转成 health 错误结果
+            result_queue.put(("error", exc))
+
+    thread = threading.Thread(
+        target=invoke,
+        name="souwen-plugin-health-check",
+        daemon=True,
+    )
+    thread.start()
+    while True:
+        try:
+            status, value = result_queue.get_nowait()
+            break
+        except queue.Empty:
+            await asyncio.sleep(0.01)
+    if status == "error":
+        raise value
+    return value
+
+
+async def _invoke_plugin_health_check(health_check: Callable[[], Any]) -> Any:
+    if inspect.iscoroutinefunction(health_check):
+        return await health_check()
+    result = await _call_sync_health_check(health_check)
+    if inspect.isawaitable(result):
+        result = await result
+    return result
+
+
+async def run_plugin_health(
+    name: str,
+    *,
+    timeout: float | None = None,
+    include_error_detail: bool = True,
+) -> dict[str, Any]:
+    """运行单个已加载插件的 health_check，并统一处理超时与异常。"""
+    from souwen.plugin import get_loaded_plugins as current_get_loaded_plugins
+
+    loaded_plugins = current_get_loaded_plugins()
+    plugin = loaded_plugins.get(name)
+    if plugin is None:
+        return {"status": "not_loaded", "message": f"插件 {name!r} 未加载"}
+    if plugin.health_check is None:
+        return {"status": "ok", "message": "no health check defined"}
+
+    timeout_seconds = DEFAULT_PLUGIN_HEALTH_TIMEOUT_SECONDS if timeout is None else timeout
+    try:
+        result = await asyncio.wait_for(
+            _invoke_plugin_health_check(plugin.health_check),
+            timeout=timeout_seconds,
+        )
+    except asyncio.TimeoutError:
+        logger.warning("插件 %r 健康检查超时: >%gs", name, timeout_seconds)
+        return {"status": "error", "message": f"health_check 超时（>{timeout_seconds:g}s）"}
+    except Exception as exc:  # noqa: BLE001 — health 错误返回，避免拖垮调用方
+        logger.warning("插件 %r 健康检查失败: %s", name, exc, exc_info=True)
+        if include_error_detail:
+            message = f"health_check 抛出异常: {exc}"
+        else:
+            message = f"插件 {name!r} 健康检查异常"
+        return {"status": "error", "message": message}
+
+    if isinstance(result, dict):
+        result.setdefault("status", "ok")
+        return result
+    return {"status": "ok", "details": str(result)}
+
+
+async def collect_plugin_health(
+    names: list[str],
+    *,
+    timeout: float | None = None,
+) -> dict[str, dict[str, Any]]:
+    """并发运行多个插件的 health_check。"""
+    if not names:
+        return {}
+    coros = [run_plugin_health(n, timeout=timeout) for n in names]
+    results = await asyncio.gather(*coros, return_exceptions=False)
+    return dict(zip(names, results, strict=True))
 
 
 class PluginInfo(BaseModel):
@@ -340,8 +432,7 @@ def list_plugins() -> list[PluginInfo]:
             if not name or name in result:
                 continue
             package = item.get("package") or None
-            importable = _is_package_importable(item)
-            status = "disabled" if name in disabled else ("loaded" if importable else "available")
+            status = "disabled" if name in disabled else "available"
             result[name] = PluginInfo(
                 name=name,
                 package=package,
@@ -481,6 +572,19 @@ def _disable_result(
     }
 
 
+def _unload_adapter_only_external(name: str) -> dict[str, Any]:
+    """卸载没有 Plugin 信封的旧式外部 adapter。"""
+    removed_handlers = [name] if unregister_fetch_handler(name) else []
+    removed_adapters = [name] if _unreg_external(name) else []
+    return {
+        "name": name,
+        "status": "unloaded",
+        "removed_adapters": removed_adapters,
+        "removed_handlers": removed_handlers,
+        "errors": [],
+    }
+
+
 def _prepare_disable(name: str) -> tuple[dict[str, Any] | None, str | None, str | None]:
     resolved = _resolve_disable_target(name)
     if resolved is None:
@@ -522,13 +626,7 @@ def disable_plugin(name: str) -> dict[str, Any]:
         if loaded_plugin_name is not None:
             unload_result = unload_plugin(loaded_plugin_name)
         elif state_name in set(external_plugins()):
-            unload_result = {
-                "name": state_name,
-                "status": "unloaded",
-                "removed_adapters": [state_name] if unregister_fetch_handler(state_name) else [],
-                "removed_handlers": [],
-                "errors": [],
-            }
+            unload_result = _unload_adapter_only_external(state_name)
         else:
             unload_result = {"name": state_name, "status": "not_loaded"}
         return _disable_result(name, state_name, unload_result)
@@ -551,13 +649,7 @@ async def disable_plugin_async(name: str) -> dict[str, Any]:
         if loaded_plugin_name is not None:
             unload_result = await unload_plugin_async(loaded_plugin_name)
         elif state_name in set(external_plugins()):
-            unload_result = {
-                "name": state_name,
-                "status": "unloaded",
-                "removed_adapters": [state_name] if unregister_fetch_handler(state_name) else [],
-                "removed_handlers": [],
-                "errors": [],
-            }
+            unload_result = _unload_adapter_only_external(state_name)
         else:
             unload_result = {"name": state_name, "status": "not_loaded"}
         return _disable_result(name, state_name, unload_result)

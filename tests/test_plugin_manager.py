@@ -6,6 +6,7 @@ import importlib.util
 import json
 import logging
 import sys
+import time
 import types
 from pathlib import Path
 from typing import Any
@@ -66,6 +67,22 @@ class _FakeCatalogEntryPoints:
         if group == "souwen.plugin_catalog":
             return list(self._eps)
         return []
+
+
+def _make_fetch_adapter(name: str):
+    from souwen.registry.adapter import MethodSpec, SourceAdapter
+    from souwen.registry.loader import lazy
+
+    return SourceAdapter(
+        name=name,
+        domain="fetch",
+        integration="self_hosted",
+        description=f"{name} adapter",
+        config_field=None,
+        client_loader=lazy("souwen.web.builtin:BuiltinFetcherClient"),
+        methods={"fetch": MethodSpec("fetch")},
+        tags=frozenset({"external_plugin"}),
+    )
 
 
 class TestPluginInfo:
@@ -351,6 +368,25 @@ class TestListPlugins:
         assert catalog_names <= {plugin.name for plugin in plugins}
         assert all(plugin.status == "available" for plugin in plugins)
         assert all(plugin.source == "catalog" for plugin in plugins)
+
+    def test_importable_catalog_entry_stays_available_until_runtime_loaded(
+        self,
+        state_dir: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        catalog_name = PLUGIN_CATALOG[0]["name"]
+        monkeypatch.setattr("souwen.plugin_manager.external_plugins", lambda: [])
+        monkeypatch.setattr("souwen.plugin_manager.all_adapters", lambda: {})
+        monkeypatch.setattr("souwen.plugin_manager.get_fetch_handlers", lambda: {})
+        monkeypatch.setattr("souwen.plugin_manager.get_fetch_handler_owners", lambda: {})
+        monkeypatch.setattr("souwen.plugin_manager.get_loaded_plugins", lambda: {})
+        monkeypatch.setattr("souwen.plugin_manager._is_package_importable", lambda item: True)
+        monkeypatch.setattr("souwen.plugin_manager._package_version", lambda package: "1.2.3")
+
+        plugin = next(item for item in list_plugins() if item.name == catalog_name)
+
+        assert plugin.status == "available"
+        assert plugin.version == "1.2.3"
 
     def test_external_plugins_are_reported_as_loaded(
         self,
@@ -788,6 +824,32 @@ class TestRuntimeDisable:
             _PLUGINS.clear()
             _PLUGINS.update(saved)
 
+    def test_disable_adapter_only_external_removes_adapter_and_handler(
+        self,
+        state_dir: Path,
+        clean_registry: None,
+        clean_fetch_handlers: None,
+    ) -> None:
+        from souwen.registry.views import _reg_external, all_adapters, external_plugins
+        from souwen.web.fetch import get_fetch_handlers, register_fetch_handler
+
+        async def handler(*args: Any, **kwargs: Any) -> Any:
+            return None
+
+        adapter = _make_fetch_adapter("legacy_adapter")
+        assert _reg_external(adapter) is True
+        assert register_fetch_handler("legacy_adapter", handler) is True
+
+        result = disable_plugin("legacy_adapter")
+
+        assert result["success"] is True
+        assert _load_state()["disabled_plugins"] == ["legacy_adapter"]
+        assert "legacy_adapter" not in all_adapters()
+        assert "legacy_adapter" not in external_plugins()
+        assert "legacy_adapter" not in get_fetch_handlers()
+        assert "已移除数据源: legacy_adapter" in result["message"]
+        assert "已移除处理器: legacy_adapter" in result["message"]
+
     @pytest.mark.asyncio
     async def test_disable_async_awaits_shutdown(
         self,
@@ -820,6 +882,25 @@ class TestRuntimeDisable:
         finally:
             _PLUGINS.clear()
             _PLUGINS.update(saved)
+
+    @pytest.mark.asyncio
+    async def test_disable_async_adapter_only_external_removes_adapter(
+        self,
+        state_dir: Path,
+        clean_registry: None,
+        clean_fetch_handlers: None,
+    ) -> None:
+        from souwen.registry.views import _reg_external, all_adapters, external_plugins
+
+        adapter = _make_fetch_adapter("async_legacy_adapter")
+        assert _reg_external(adapter) is True
+
+        result = await disable_plugin_async("async_legacy_adapter")
+
+        assert result["success"] is True
+        assert _load_state()["disabled_plugins"] == ["async_legacy_adapter"]
+        assert "async_legacy_adapter" not in all_adapters()
+        assert "async_legacy_adapter" not in external_plugins()
 
 
 class TestValidDisableTarget:
@@ -983,6 +1064,29 @@ class TestAPIEndpoints:
         response = client.get("/plugins/missing/health")
 
         assert response.status_code == 404
+
+    def test_plugin_health_times_out_sync_callable_without_blocking_route(
+        self,
+        client: Any,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from souwen.plugin import Plugin
+
+        def slow_health_check() -> dict[str, str]:
+            time.sleep(1)
+            return {"status": "ok"}
+
+        monkeypatch.setattr("souwen.plugin_manager.DEFAULT_PLUGIN_HEALTH_TIMEOUT_SECONDS", 0.01)
+        monkeypatch.setattr(
+            "souwen.plugin.get_loaded_plugins",
+            lambda: {"slow": Plugin(name="slow", health_check=slow_health_check)},
+        )
+
+        response = client.get("/plugins/slow/health")
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "error"
+        assert "超时" in response.json()["message"]
 
     def test_post_enable_plugin(
         self,
