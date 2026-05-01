@@ -6,12 +6,12 @@
  *   - 视觉风格：使用 CSS 变量（var(--bg) / var(--text) / var(--accent) 等），
  *               跟随皮肤主题；不写硬编码颜色
  *   - 可访问性：所有按钮加 aria-label / disabled，禁用状态明确反馈
- *   - 安装入口：只有当后端 install_enabled=true 时才显示"安装/卸载"卡片
+ *   - 安装入口：后端未启用 install_enabled 时禁用操作，并给出服务端配置提示
  *
  * 公共 Props 暂时只暴露 className，让皮肤可以用自己的容器约束布局。
  */
 
-import { useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import {
   RefreshCw,
@@ -41,16 +41,17 @@ export function PluginsPanel({ className }: PluginsPanelProps) {
   const state = usePluginsPage()
   const [detail, setDetail] = useState<PluginInfo | null>(null)
   const [pkgInput, setPkgInput] = useState('')
+  const { installPackage, uninstallPackage } = state
 
-  const handleInstall = async () => {
-    const ok = await state.installPackage(pkgInput)
+  const handleInstall = useCallback(async () => {
+    const ok = await installPackage(pkgInput)
     if (ok) setPkgInput('')
-  }
+  }, [installPackage, pkgInput])
 
-  const handleUninstall = async () => {
-    const ok = await state.uninstallPackage(pkgInput)
+  const handleUninstall = useCallback(async () => {
+    const ok = await uninstallPackage(pkgInput)
     if (ok) setPkgInput('')
-  }
+  }, [pkgInput, uninstallPackage])
 
   return (
     <div className={`${styles.panel}${className ? ` ${className}` : ''}`}>
@@ -175,8 +176,10 @@ function PluginRow({ plugin, state, onShowDetail }: PluginRowProps) {
   const enableBusy = state.busy.has(`enable:${plugin.name}`)
   const disableBusy = state.busy.has(`disable:${plugin.name}`)
   const healthBusy = state.busy.has(`health:${plugin.name}`)
+  const installBusy = state.busy.has('install')
   const isLoaded = plugin.status === 'loaded'
   const isDisabled = plugin.status === 'disabled'
+  const isAvailable = plugin.status === 'available'
 
   const statusKey = ['loaded', 'available', 'disabled', 'error'].includes(plugin.status)
     ? plugin.status
@@ -207,7 +210,7 @@ function PluginRow({ plugin, state, onShowDetail }: PluginRowProps) {
       </td>
       <td className={styles.descCell}>{plugin.description || '—'}</td>
       <td className={styles.actionsCell}>
-        {isLoaded && !isDisabled && (
+        {isLoaded && (
           <button
             type="button"
             className={`${styles.actionBtn} ${styles.warn}`}
@@ -217,6 +220,22 @@ function PluginRow({ plugin, state, onShowDetail }: PluginRowProps) {
           >
             <PowerOff size={14} />
             <span>{t('plugins.actions.disable')}</span>
+          </button>
+        )}
+        {isAvailable && plugin.package && (
+          <button
+            type="button"
+            className={`${styles.actionBtn} ${styles.primary}`}
+            onClick={() => void state.installPackage(plugin.package as string)}
+            disabled={!state.installEnabled || installBusy}
+            title={
+              state.installEnabled
+                ? (t('plugins.actions.install') as string)
+                : (t('plugins.actions.configureInstall') as string)
+            }
+          >
+            <PackagePlus size={14} />
+            <span>{installBusy ? t('plugins.install.installing') : t('plugins.actions.install')}</span>
           </button>
         )}
         {isDisabled && (
@@ -370,6 +389,7 @@ interface DetailDialogProps {
 
 function DetailDialog({ plugin, health, onClose }: DetailDialogProps) {
   const { t } = useTranslation()
+  const dialogRef = useRef<HTMLDivElement>(null)
   const sourceKey = ['entry_point', 'catalog', 'config_path'].includes(plugin.source)
     ? plugin.source
     : 'unknown'
@@ -380,15 +400,67 @@ function DetailDialog({ plugin, health, onClose }: DetailDialogProps) {
     if (!health) return []
     return Object.entries(health).map(([k, v]) => [k, typeof v === 'object' ? JSON.stringify(v) : String(v)])
   }, [health])
+  const titleId = useMemo(
+    () => `souwen-plugin-detail-${plugin.name.replace(/[^a-zA-Z0-9_-]/g, '-')}`,
+    [plugin.name],
+  )
+  useEffect(() => {
+    const previous = document.activeElement instanceof HTMLElement ? document.activeElement : null
+    const first = getFocusableElements(dialogRef.current)[0] ?? dialogRef.current
+    first?.focus()
+    return () => previous?.focus()
+  }, [])
+
+  const handleKeyDown = useCallback(
+    (event: KeyboardEvent<HTMLDivElement>) => {
+      if (event.key === 'Escape') {
+        event.stopPropagation()
+        onClose()
+        return
+      }
+      if (event.key !== 'Tab') return
+
+      const focusable = getFocusableElements(dialogRef.current)
+      if (focusable.length === 0) {
+        event.preventDefault()
+        return
+      }
+      const first = focusable[0]
+      const last = focusable[focusable.length - 1]
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault()
+        last.focus()
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault()
+        first.focus()
+      }
+    },
+    [onClose],
+  )
+
   return (
-    <div className={styles.dialogBackdrop} role="dialog" aria-modal="true" onClick={onClose}>
-      <div className={styles.dialog} onClick={(e) => e.stopPropagation()}>
+    <div className={styles.dialogBackdrop} onClick={onClose}>
+      <div
+        ref={dialogRef}
+        className={styles.dialog}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        onKeyDown={handleKeyDown}
+        onClick={(e) => e.stopPropagation()}
+      >
         <header className={styles.dialogHeader}>
-          <h3>
+          <h3 id={titleId}>
             <PlugZap size={16} />
             <span>{t('plugins.detail.title', { name: plugin.name })}</span>
           </h3>
-          <button type="button" className={styles.iconBtn} onClick={onClose} aria-label="Close">
+          <button
+            type="button"
+            className={styles.iconBtn}
+            onClick={onClose}
+            aria-label={t('plugins.detail.close') as string}
+          >
             <X size={16} />
           </button>
         </header>
@@ -440,4 +512,23 @@ function DetailDialog({ plugin, health, onClose }: DetailDialogProps) {
       </div>
     </div>
   )
+}
+
+function getFocusableElements(root: HTMLElement | null): HTMLElement[] {
+  if (!root) return []
+  return Array.from(
+    root.querySelectorAll<HTMLElement>(
+      [
+        'a[href]',
+        'button:not([disabled])',
+        'input:not([disabled])',
+        'select:not([disabled])',
+        'textarea:not([disabled])',
+        '[tabindex]:not([tabindex="-1"])',
+      ].join(','),
+    ),
+  ).filter((element) => {
+    const style = window.getComputedStyle(element)
+    return style.display !== 'none' && style.visibility !== 'hidden'
+  })
 }

@@ -36,7 +36,7 @@ async def list_all_plugins():
     ``SOUWEN_ENABLE_PLUGIN_INSTALL`` 控制），便于前端按需展示安装入口。
     """
     from souwen.plugin_manager import (
-        _plugin_install_enabled,
+        is_plugin_install_enabled,
         is_restart_required,
         list_plugins,
     )
@@ -45,7 +45,7 @@ async def list_all_plugins():
     return {
         "plugins": [p.model_dump() for p in plugins],
         "restart_required": is_restart_required(),
-        "install_enabled": _plugin_install_enabled(),
+        "install_enabled": is_plugin_install_enabled(),
     }
 
 

@@ -27,6 +27,7 @@ from souwen.plugin_manager import (
     enable_plugin,
     get_plugin_info,
     install_plugin,
+    is_plugin_install_enabled,
     is_restart_required,
     list_plugins,
     reload_plugins,
@@ -519,6 +520,16 @@ class TestEnableDisable:
 
 
 class TestInstallUninstall:
+    def test_install_enabled_helper_reflects_env(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.delenv("SOUWEN_ENABLE_PLUGIN_INSTALL", raising=False)
+        assert is_plugin_install_enabled() is False
+
+        monkeypatch.setenv("SOUWEN_ENABLE_PLUGIN_INSTALL", "1")
+        assert is_plugin_install_enabled() is True
+
     @pytest.mark.asyncio
     async def test_install_plugin_when_env_not_set_returns_error(
         self,
