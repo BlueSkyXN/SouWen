@@ -33,3 +33,4 @@ local/
 *.yaml.bak
 *.yml.bak
 /.vscode
+/.claude
