@@ -24,6 +24,7 @@ import { SourcesPage } from './pages/SourcesPage'
 import { NetworkPage } from './pages/NetworkPage'
 import { ConfigPage } from './pages/ConfigPage'
 import { WarpPage } from './pages/WarpPage'
+import { PluginsPage } from './pages/PluginsPage'
 
 // iOS 皮肤的路由配置
 // 返回一个 React Router Route 片段，由主应用在初始化时嵌入到路由树中
@@ -40,5 +41,6 @@ export const skinRoutes = (
     <Route path="/network" element={<NetworkPage />} />
     <Route path="/warp" element={<WarpPage />} />
     <Route path="/config" element={<ConfigPage />} />
+    <Route path="/plugins" element={<PluginsPage />} />
   </>
 )

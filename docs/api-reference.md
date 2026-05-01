@@ -278,6 +278,22 @@ souwen serve [--port 8000]   # 启动 FastAPI 服务
 
 启动后可访问 OpenAPI 文档：`GET /docs`
 
+### 插件管理
+
+```bash
+souwen plugins list [--health]            # 列出所有插件，--health 附加健康检查列
+souwen plugins info <name>                # 查看插件详情
+souwen plugins enable <name>              # 启用（重启后生效）
+souwen plugins disable <name>             # 禁用并尽力卸载运行时（重启后完全生效）
+souwen plugins health <name>              # 调用插件 health_check（与 API 同源）
+souwen plugins reload                     # 重新扫描 entry-point 插件（追加加载）
+souwen plugins install <package>          # 通过 pip 安装（需 SOUWEN_ENABLE_PLUGIN_INSTALL=1）
+souwen plugins uninstall <package>        # 卸载（同上）
+souwen plugins new <name>                 # 生成插件项目骨架
+```
+
+完整生命周期、目录机制与故障排查请见 [plugin-management.md](./plugin-management.md)。
+
 ## HTTP API（Server 模式）
 
 ### 认证：三角色系统
@@ -655,6 +671,119 @@ Cache-Control: public, max-age=3600
 **响应示例：**
 ```json
 { "ok": true }
+```
+
+---
+
+### 插件管理端点 (`/api/v1/admin/plugins/...`)
+
+> 受 `require_auth` 强制保护。Web Panel 与 CLI（`souwen plugins ...`）共用这组端点，
+> 完整的用户视角说明参见 [plugin-management.md](./plugin-management.md)。
+
+#### `GET /api/v1/admin/plugins`
+
+列出所有已加载、可用、禁用的插件，并附带是否需要重启与 install 开关。
+
+**响应示例：**
+```json
+{
+  "plugins": [
+    {
+      "name": "superweb2pdf",
+      "package": "superweb2pdf",
+      "version": "0.3.1",
+      "status": "loaded",
+      "source": "entry_point",
+      "first_party": true,
+      "description": "SuperWeb2PDF — 网页截图转 PDF（基于 Playwright Chromium）",
+      "error": null,
+      "source_adapters": ["superweb2pdf"],
+      "fetch_handlers": ["superweb2pdf"],
+      "restart_required": false
+    }
+  ],
+  "restart_required": false,
+  "install_enabled": false
+}
+```
+
+字段说明：
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `plugins[*].status` | string | `loaded` / `available` / `disabled` / `error`；`available` 表示目录可见但当前进程未加载，若同时有 `version` 则说明包已安装、需要重新扫描或重启生效 |
+| `plugins[*].source` | string | `entry_point` / `catalog` / `config_path` |
+| `plugins[*].first_party` | bool | 是否为官方维护插件（来自目录元数据） |
+| `restart_required` | bool | 服务端是否有任何 enable / disable / install / uninstall 操作未生效 |
+| `install_enabled` | bool | 是否允许 `install` / `uninstall`（受 `SOUWEN_ENABLE_PLUGIN_INSTALL=1` 控制） |
+
+#### `GET /api/v1/admin/plugins/{name}`
+
+查询单个插件详情。`name` 不存在或未加载时返回 `404`。
+
+#### `GET /api/v1/admin/plugins/{name}/health`
+
+调用插件的 `health_check`。仅对已加载插件可用，未加载返回 `404`；插件未声明 `health_check` 时返回：
+
+```json
+{ "status": "ok", "message": "no health check defined" }
+```
+
+声明了 `health_check` 时，端点透传插件返回的 dict（约定至少包含 `status` 字段，常见值：
+`ok` / `healthy` / `degraded` / `error`）。`health_check` 可以是同步函数直接返回
+`dict`，也可以是 `async def`；同步函数返回 coroutine 会被视为声明错误。
+
+#### `POST /api/v1/admin/plugins/{name}/enable`
+
+把插件从禁用列表中移除（重启后生效）。响应：
+
+```json
+{ "success": true, "restart_required": true, "message": "插件 'superweb2pdf' 已启用..." }
+```
+
+#### `POST /api/v1/admin/plugins/{name}/disable`
+
+把插件加入禁用列表，**并尽力在运行时卸载** adapter / fetch handler 与执行 `on_shutdown`
+（异步钩子会被 await）。完整禁用需要重启。
+
+#### `POST /api/v1/admin/plugins/install`
+
+通过 `pip` 安装允许列表中的插件包；需要 `SOUWEN_ENABLE_PLUGIN_INSTALL=1`。
+
+**请求体：**
+```json
+{ "package": "superweb2pdf" }
+```
+
+**响应：**
+```json
+{
+  "success": true,
+  "package": "superweb2pdf",
+  "restart_required": true,
+  "message": "操作成功"
+}
+```
+
+> 服务端会净化 pip 原始输出，仅返回标准化的 `success` / `message` 字段；详细错误打印到服务端日志。
+> 如果未启用，会返回 `success=false` 与说明性 message，HTTP 状态码仍为 200。
+
+#### `POST /api/v1/admin/plugins/uninstall`
+
+反向操作，请求/响应字段同上。
+
+#### `POST /api/v1/admin/plugins/reload`
+
+重新扫描 `souwen.plugins` entry points，**追加加载**未在禁用列表中的新插件，
+不会触碰已加载的旧插件实例。
+
+**响应：**
+```json
+{
+  "loaded": ["superweb2pdf"],
+  "errors": [],
+  "message": "插件重新扫描完成，新增加载 1 个，错误 0 个。"
+}
 ```
 
 ---

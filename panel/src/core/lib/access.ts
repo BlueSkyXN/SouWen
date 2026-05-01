@@ -23,6 +23,7 @@ const NAV_FEATURES: Record<string, string | undefined> = {
   '/network': 'proxy_admin',
   '/warp': 'warp_admin',
   '/config': 'config_write',
+  '/plugins': 'config_write',
 }
 
 const ROUTE_FEATURES: Array<{ prefix: string; feature: string }> = [
@@ -32,6 +33,7 @@ const ROUTE_FEATURES: Array<{ prefix: string; feature: string }> = [
   { prefix: '/network', feature: 'proxy_admin' },
   { prefix: '/warp', feature: 'warp_admin' },
   { prefix: '/config', feature: 'config_write' },
+  { prefix: '/plugins', feature: 'config_write' },
 ]
 
 export function hasFeatureAccess(features: Features, role: UserRole, feature: string): boolean {

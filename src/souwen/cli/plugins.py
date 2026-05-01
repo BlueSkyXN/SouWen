@@ -9,14 +9,40 @@ import typer
 from rich.table import Table
 
 from souwen.cli._common import _run_async, console
+from souwen.plugin_manager import (
+    DEFAULT_PLUGIN_HEALTH_TIMEOUT_SECONDS,
+    collect_plugin_health,
+    run_plugin_health,
+)
 
 _PLUGIN_NAME_RE = re.compile(r"^[a-z][a-z0-9_]*$")
 
 plugins_app = typer.Typer(
     name="plugins",
-    help="插件管理 — 列表、启用/禁用、安装/卸载、重载",
+    help="插件管理 — 列表、启用/禁用、安装/卸载、重载、健康检查",
     no_args_is_help=True,
 )
+
+
+def _render_health_cell(
+    name: str,
+    status: str,
+    health_map: dict[str, dict[str, object]],
+) -> str:
+    """Render the health cell for the list table."""
+    if status != "loaded":
+        return "[dim]—[/dim]"
+    info = health_map.get(name)
+    if info is None:
+        return "[dim]?[/dim]"
+    state = str(info.get("status", "")).lower()
+    if state in {"ok", "healthy"}:
+        return "[green]✅ ok[/green]"
+    if state in {"degraded", "warn", "warning"}:
+        return f"[yellow]⚠ {state}[/yellow]"
+    if state in {"not_loaded"}:
+        return "[dim]未加载[/dim]"
+    return f"[red]❌ {state or 'error'}[/red]"
 
 
 def _plugin_scaffold_files(name: str) -> dict[Path, str]:
@@ -209,7 +235,18 @@ def new_cmd(
 
 
 @plugins_app.command("list")
-def list_cmd() -> None:
+def list_cmd(
+    show_health: bool = typer.Option(
+        False,
+        "--health",
+        help="并发执行已加载插件的 health_check 并附加状态列。",
+    ),
+    health_timeout: float = typer.Option(
+        DEFAULT_PLUGIN_HEALTH_TIMEOUT_SECONDS,
+        "--health-timeout",
+        help="单个 health_check 的超时秒数。",
+    ),
+) -> None:
     """列出所有插件"""
     from souwen.plugin_manager import is_restart_required, list_plugins
 
@@ -223,11 +260,19 @@ def list_cmd() -> None:
         console.print("[dim]未发现任何插件。[/dim]")
         return
 
+    health_map: dict[str, dict[str, object]] = {}
+    if show_health:
+        loaded_names = [p.name for p in plugins if p.status == "loaded"]
+        if loaded_names:
+            health_map = _run_async(collect_plugin_health(loaded_names, timeout=health_timeout))
+
     table = Table(title="🔌 SouWen 插件", show_lines=True)
     table.add_column("Name", style="cyan")
     table.add_column("Status", justify="center")
     table.add_column("Source", style="magenta")
     table.add_column("Version", style="dim")
+    if show_health:
+        table.add_column("Health", justify="center")
     table.add_column("Description", style="dim")
 
     status_icons = {
@@ -238,13 +283,16 @@ def list_cmd() -> None:
     }
 
     for p in plugins:
-        table.add_row(
+        row = [
             p.name,
             status_icons.get(p.status, p.status),
             p.source,
             p.version or "-",
-            p.description or "-",
-        )
+        ]
+        if show_health:
+            row.append(_render_health_cell(p.name, p.status, health_map))
+        row.append(p.description or "-")
+        table.add_row(*row)
 
     console.print(table)
 
@@ -352,3 +400,33 @@ def reload_cmd() -> None:
     if result["errors"]:
         for err in result["errors"]:
             console.print(f"  [red]错误: {err.get('name', '?')} — {err.get('error', '?')}[/red]")
+
+
+@plugins_app.command("health")
+def health_cmd(
+    name: str = typer.Argument(..., help="插件名称（必须已加载）"),
+    timeout: float = typer.Option(
+        DEFAULT_PLUGIN_HEALTH_TIMEOUT_SECONDS,
+        "--timeout",
+        "-t",
+        help="health_check 超时秒数。",
+    ),
+) -> None:
+    """运行单个插件的 health_check（对应 GET /admin/plugins/{name}/health）。"""
+    result = _run_async(run_plugin_health(name, timeout=timeout))
+    state = str(result.get("status", "")).lower()
+    if state == "not_loaded":
+        console.print(f"[red]❌ {result.get('message', '插件未加载')}[/red]")
+        raise typer.Exit(code=1)
+    if state in {"ok", "healthy"}:
+        console.print(f"[green]✅ {name} 健康[/green]")
+    elif state in {"degraded", "warn", "warning"}:
+        console.print(f"[yellow]⚠ {name}: {state}[/yellow]")
+    else:
+        console.print(f"[red]❌ {name}: {state or 'error'}[/red]")
+    for key, value in result.items():
+        if key == "status":
+            continue
+        console.print(f"  {key}: {value}")
+    if state not in {"ok", "healthy", "degraded", "warn", "warning"}:
+        raise typer.Exit(code=1)
