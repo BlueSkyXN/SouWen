@@ -21,15 +21,18 @@ describe('access helpers', () => {
     }
     expect(canAccessNavItem('/fetch', features, 'user')).toBe(false)
     expect(canAccessNavItem('/config', features, 'user')).toBe(false)
+    expect(canAccessNavItem('/plugins', features, 'user')).toBe(false)
     expect(canAccessNavItem('/', features, 'user')).toBe(false)
     expect(canAccessPath('/', features, 'user')).toBe(false)
     expect(canAccessPath('/network', features, 'user')).toBe(false)
     expect(canAccessPath('/sources', features, 'user')).toBe(false)
+    expect(canAccessPath('/plugins', features, 'user')).toBe(false)
   })
 
   it('allows admin navigation from explicit features or restored admin role fallback', () => {
     expect(canAccessNavItem('/fetch', { fetch: true }, 'user')).toBe(true)
     expect(canAccessPath('/config', {}, 'admin')).toBe(true)
+    expect(canAccessPath('/plugins', {}, 'admin')).toBe(true)
     expect(canAccessPath('/', {}, 'admin')).toBe(true)
     expect(hasFeatureAccess({ wayback_save: true }, 'user', 'wayback_save')).toBe(true)
   })

@@ -165,7 +165,18 @@ src/souwen/
 SouWen 支持通过外部 Python 包扩展数据源和 fetch provider。插件通过 setuptools
 `entry_points` 或 `souwen.yaml` 的 `plugins` 字段接入，无需修改 SouWen 主仓代码。
 
-- 对接规范：[docs/plugin-integration-spec.md](docs/plugin-integration-spec.md)
+提供三种等价的运维入口管理插件：
+
+- **Web Panel** — `/plugins` 路由：图形化列表、启用/禁用、健康检查、安装/卸载
+- **CLI** — `souwen plugins list/info/enable/disable/health/reload/install/uninstall/new`
+- **HTTP API** — `/api/v1/admin/plugins/*`，详见 [docs/api-reference.md](docs/api-reference.md)
+
+> 安装/卸载默认关闭，需要服务端显式设置 `SOUWEN_ENABLE_PLUGIN_INSTALL=1` 才允许。
+
+文档：
+
+- 对接规范（插件作者）：[docs/plugin-integration-spec.md](docs/plugin-integration-spec.md)
+- 运维使用指南：[docs/plugin-management.md](docs/plugin-management.md)
 
 ## 🚢 部署
 
@@ -194,6 +205,7 @@ docker run -p 8000:8000 \
 - [docs/appearance.md](docs/appearance.md) — 多皮肤前端
 - [docs/adding-a-source.md](docs/adding-a-source.md) — 新增数据源指南
 - [docs/plugin-integration-spec.md](docs/plugin-integration-spec.md) — 外部插件对接规范
+- [docs/plugin-management.md](docs/plugin-management.md) — 插件管理（Web Panel / CLI / API）
 - [docs/contributing.md](docs/contributing.md) — 开发者指南
 - [CHANGELOG.md](CHANGELOG.md) — 版本变更
 

@@ -43,6 +43,7 @@
     "network": "网络",
     "warp": "WARP 代理",
     "config": "配置",
+    "plugins": "插件",
     "collapse": "收起",
     "logout": "退出",
     "menu": "菜单"
@@ -720,6 +721,103 @@
     "clearAll": "清空",
     "noResults": "无匹配项",
     "needsKey": "需要 API Key"
+  },
+  "plugins": {
+    "title": "插件管理",
+    "subtitle": "管理已加载、可用与禁用插件 — 启用/禁用、运行健康检查、安装/卸载第三方插件包。",
+    "refresh": "刷新",
+    "refreshing": "刷新中...",
+    "reloadCatalog": "重新扫描",
+    "reloading": "扫描中...",
+    "restartBanner": "插件状态已变更，重启 SouWen 服务后才能完全生效。",
+    "loading": "加载插件列表中...",
+    "empty": "未发现任何插件。",
+    "loadFailed": "加载插件列表失败：{{message}}",
+    "columns": {
+      "name": "名称",
+      "package": "包名",
+      "version": "版本",
+      "status": "状态",
+      "source": "来源",
+      "description": "描述",
+      "health": "健康",
+      "actions": "操作"
+    },
+    "status": {
+      "loaded": "已加载",
+      "available": "可用",
+      "disabled": "已禁用",
+      "error": "错误",
+      "unknown": "未知"
+    },
+    "source": {
+      "entry_point": "Entry Point",
+      "catalog": "目录",
+      "config_path": "配置项",
+      "unknown": "—"
+    },
+    "actions": {
+      "enable": "启用",
+      "disable": "禁用",
+      "checkHealth": "运行健康检查",
+      "viewDetail": "详情",
+      "install": "安装",
+      "uninstall": "卸载",
+      "configureInstall": "需在服务端设置 SOUWEN_ENABLE_PLUGIN_INSTALL=1 才能启用安装/卸载入口",
+      "firstParty": "官方"
+    },
+    "install": {
+      "panelTitle": "安装 / 卸载",
+      "panelDesc": "通过 pip 安装允许列表中的插件包；卸载后需要重启服务才能完全生效。",
+      "packageLabel": "包名",
+      "packagePlaceholder": "如：superweb2pdf",
+      "submitInstall": "安装",
+      "submitUninstall": "卸载",
+      "installing": "安装中...",
+      "uninstalling": "卸载中...",
+      "disabledHint": "服务端未启用安装功能（SOUWEN_ENABLE_PLUGIN_INSTALL≠1）。"
+    },
+    "health": {
+      "ok": "✅ 正常",
+      "degraded": "⚠ 降级",
+      "error": "❌ 异常",
+      "unknown": "—",
+      "running": "检测中..."
+    },
+    "detail": {
+      "title": "插件详情：{{name}}",
+      "package": "包名",
+      "version": "版本",
+      "status": "状态",
+      "source": "来源",
+      "description": "描述",
+      "firstParty": "官方插件",
+      "adapters": "数据源",
+      "handlers": "Fetch 处理器",
+      "error": "错误信息",
+      "restartRequired": "需要重启",
+      "yes": "是",
+      "no": "否",
+      "close": "关闭",
+      "lastHealth": "最近一次健康检查",
+      "noHealth": "尚未运行健康检查"
+    },
+    "toast": {
+      "listFailed": "加载插件列表失败：{{message}}",
+      "enableSuccess": "插件 {{name}} 已启用。",
+      "enableFailed": "启用 {{name}} 失败：{{message}}",
+      "disableSuccess": "插件 {{name}} 已禁用。",
+      "disableFailed": "禁用 {{name}} 失败：{{message}}",
+      "healthDegraded": "插件 {{name}} 状态为 {{status}}",
+      "healthFailed": "运行 {{name}} 健康检查失败：{{message}}",
+      "installSuccess": "插件包 {{package}} 安装成功，重启后生效。",
+      "installFailed": "安装 {{package}} 失败：{{message}}",
+      "uninstallSuccess": "插件包 {{package}} 已卸载，重启后生效。",
+      "uninstallFailed": "卸载 {{package}} 失败：{{message}}",
+      "reloadFailed": "重新扫描失败：{{message}}",
+      "reloadPartialError": "{{count}} 个插件加载失败：{{names}}",
+      "packageRequired": "请输入插件包名。"
+    }
   },
   "status": {
     "ok": "正常",

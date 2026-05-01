@@ -27,6 +27,7 @@ from souwen.plugin_manager import (
     enable_plugin,
     get_plugin_info,
     install_plugin,
+    is_plugin_install_enabled,
     is_restart_required,
     list_plugins,
     reload_plugins,
@@ -519,6 +520,16 @@ class TestEnableDisable:
 
 
 class TestInstallUninstall:
+    def test_install_enabled_helper_reflects_env(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.delenv("SOUWEN_ENABLE_PLUGIN_INSTALL", raising=False)
+        assert is_plugin_install_enabled() is False
+
+        monkeypatch.setenv("SOUWEN_ENABLE_PLUGIN_INSTALL", "1")
+        assert is_plugin_install_enabled() is True
+
     @pytest.mark.asyncio
     async def test_install_plugin_when_env_not_set_returns_error(
         self,
@@ -904,6 +915,9 @@ class TestAPIEndpoints:
         assert "plugins" in payload
         assert isinstance(payload["plugins"], list)
         assert payload["restart_required"] is False
+        # install_enabled 字段供前端决定是否展示安装/卸载入口
+        assert "install_enabled" in payload
+        assert isinstance(payload["install_enabled"], bool)
 
     def test_get_plugin_unknown_returns_404(
         self,
@@ -1007,6 +1021,38 @@ class TestAPIEndpoints:
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
         monkeypatch.delenv("SOUWEN_ENABLE_PLUGIN_INSTALL", raising=False)
+
+        response = client.post("/plugins/install", json={"package": "superweb2pdf"})
+
+        assert response.status_code == 200
+        assert response.json()["success"] is False
+        assert "未启用" in response.json()["message"]
+
+    def test_post_install_with_invalid_package_returns_actionable_message(
+        self,
+        client: Any,
+        state_dir: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("SOUWEN_ENABLE_PLUGIN_INSTALL", "1")
+
+        response = client.post("/plugins/install", json={"package": "bad package"})
+
+        assert response.status_code == 200
+        assert response.json()["success"] is False
+        assert response.json()["message"] == "非法插件包名。"
+
+    def test_post_install_sanitizes_raw_pip_failure_output(
+        self,
+        client: Any,
+        state_dir: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        async def fake_run_pip(args: list[str], timeout: float) -> tuple[bool, str]:
+            return False, "Collecting superweb2pdf\nERROR: private index token leaked"
+
+        monkeypatch.setenv("SOUWEN_ENABLE_PLUGIN_INSTALL", "1")
+        monkeypatch.setattr("souwen.plugin_manager._run_pip", fake_run_pip)
 
         response = client.post("/plugins/install", json={"package": "superweb2pdf"})
 

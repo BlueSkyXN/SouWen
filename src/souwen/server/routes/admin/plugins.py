@@ -18,15 +18,34 @@ class UninstallRequest(BaseModel):
     package: str
 
 
+_SAFE_PIP_FAILURE_MESSAGES = {
+    "插件安装功能未启用，请设置 SOUWEN_ENABLE_PLUGIN_INSTALL=1。",
+    "插件卸载功能未启用，请设置 SOUWEN_ENABLE_PLUGIN_INSTALL=1。",
+    "非法插件包名。",
+    "插件包不在允许列表中。",
+    "安装插件失败，请查看服务端日志。",
+    "卸载插件失败，请查看服务端日志。",
+}
+
+
 @router.get("/plugins")
 async def list_all_plugins():
-    """列出所有插件（已加载 + 目录 + 禁用）"""
-    from souwen.plugin_manager import is_restart_required, list_plugins
+    """列出所有插件（已加载 + 目录 + 禁用）。
+
+    返回的 ``install_enabled`` 反映服务端是否允许 install/uninstall（受
+    ``SOUWEN_ENABLE_PLUGIN_INSTALL`` 控制），便于前端按需展示安装入口。
+    """
+    from souwen.plugin_manager import (
+        is_plugin_install_enabled,
+        is_restart_required,
+        list_plugins,
+    )
 
     plugins = list_plugins()
     return {
         "plugins": [p.model_dump() for p in plugins],
         "restart_required": is_restart_required(),
+        "install_enabled": is_plugin_install_enabled(),
     }
 
 
@@ -108,15 +127,16 @@ def _sanitize_pip_result(result: dict, package: str = "") -> dict:
     """Strip raw pip output from install/uninstall result before API response."""
     import logging
 
-    if not result.get("success"):
-        logging.getLogger("souwen.server").warning(
-            "pip 操作失败，原始输出: %s", result.get("output", "")
-        )
+    success = result.get("success", False)
+    output = str(result.get("output", "")).strip()
+    if not success and output:
+        logging.getLogger("souwen.server").warning("pip 操作失败，原始输出: %s", output)
+    failure_message = output if output in _SAFE_PIP_FAILURE_MESSAGES else "操作失败，详见服务端日志"
     return {
-        "success": result.get("success", False),
+        "success": success,
         "package": result.get("package", package),
         "restart_required": result.get("restart_required", False),
-        "message": "操作成功" if result.get("success") else "操作失败，详见服务端日志",
+        "message": "操作成功" if success else failure_message,
     }
 
 

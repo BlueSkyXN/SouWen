@@ -24,6 +24,7 @@ import { SourcesPage } from './pages/SourcesPage'
 import { NetworkPage } from './pages/NetworkPage'
 import { ConfigPage } from './pages/ConfigPage'
 import { WarpPage } from './pages/WarpPage'
+import { PluginsPage } from './pages/PluginsPage'
 
 /**
  * Carbon 皮肤的路由配置
@@ -42,5 +43,6 @@ export const skinRoutes = (
     <Route path="/network" element={<NetworkPage />} />
     <Route path="/warp" element={<WarpPage />} />
     <Route path="/config" element={<ConfigPage />} />
+    <Route path="/plugins" element={<PluginsPage />} />
   </>
 )

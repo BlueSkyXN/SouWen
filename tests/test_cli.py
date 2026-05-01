@@ -162,3 +162,76 @@ def test_plugins_new_rejects_digit_prefix(monkeypatch, tmp_path: Path):
 
     assert result.exit_code == 1
     assert not (tmp_path / "1plugin").exists()
+
+
+def test_plugins_health_with_loaded_plugin(monkeypatch):
+    """``plugins health <name>`` 调用本进程的 health_check（与 API 同源）。"""
+    from souwen.plugin import Plugin
+
+    async def healthy() -> dict[str, str]:
+        return {"status": "ok", "latency_ms": "1"}
+
+    plugin = Plugin(name="demo", health_check=healthy)
+    monkeypatch.setattr("souwen.plugin.get_loaded_plugins", lambda: {"demo": plugin})
+
+    result = runner.invoke(app, ["plugins", "health", "demo"])
+
+    assert result.exit_code == 0
+    assert "demo 健康" in result.output
+    assert "latency_ms" in result.output
+
+
+def test_plugins_health_returns_error_when_not_loaded(monkeypatch):
+    """未加载的插件应当退出码 1，并提示未加载。"""
+    monkeypatch.setattr("souwen.plugin.get_loaded_plugins", lambda: {})
+
+    result = runner.invoke(app, ["plugins", "health", "missing"])
+
+    assert result.exit_code == 1
+    assert "未加载" in result.output
+
+
+def test_plugins_health_handles_health_exception(monkeypatch):
+    """health_check 抛异常时应捕获并以 error 状态退出码 1。"""
+    from souwen.plugin import Plugin
+
+    def boom() -> dict[str, str]:
+        raise RuntimeError("upstream timeout")
+
+    plugin = Plugin(name="boom", health_check=boom)
+    monkeypatch.setattr("souwen.plugin.get_loaded_plugins", lambda: {"boom": plugin})
+
+    result = runner.invoke(app, ["plugins", "health", "boom"])
+
+    assert result.exit_code == 1
+
+
+def test_plugins_list_with_health_flag(monkeypatch):
+    """``plugins list --health`` 给已加载插件附加 Health 列。"""
+    from souwen.plugin import Plugin
+    from souwen.plugin_manager import PluginInfo
+
+    async def healthy() -> dict[str, str]:
+        return {"status": "ok"}
+
+    plugin = Plugin(name="demo", health_check=healthy)
+    monkeypatch.setattr("souwen.plugin.get_loaded_plugins", lambda: {"demo": plugin})
+    monkeypatch.setattr(
+        "souwen.plugin_manager.list_plugins",
+        lambda: [
+            PluginInfo(
+                name="demo",
+                status="loaded",
+                source="entry_point",
+                version="1.0.0",
+                description="demo plugin",
+            ),
+        ],
+    )
+    monkeypatch.setattr("souwen.plugin_manager.is_restart_required", lambda: False)
+
+    result = runner.invoke(app, ["plugins", "list", "--health"], env={"COLUMNS": "200"})
+
+    assert result.exit_code == 0
+    assert "Health" in result.output
+    assert "demo" in result.output

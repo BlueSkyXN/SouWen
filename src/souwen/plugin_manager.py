@@ -558,9 +558,14 @@ async def disable_plugin_async(name: str) -> dict[str, Any]:
         }
 
 
-def _plugin_install_enabled() -> bool:
+def is_plugin_install_enabled() -> bool:
     """安装/卸载开关，默认关闭。"""
     return os.environ.get("SOUWEN_ENABLE_PLUGIN_INSTALL") == "1"
+
+
+def _plugin_install_enabled() -> bool:
+    """兼容旧内部调用的私有别名。"""
+    return is_plugin_install_enabled()
 
 
 def _validate_package(package: str) -> str | None:
@@ -596,7 +601,7 @@ async def _run_pip(args: list[str], timeout: float) -> tuple[bool, str]:
 
 async def install_plugin(package: str) -> dict[str, Any]:
     """安装允许列表中的插件包。"""
-    if not _plugin_install_enabled():
+    if not is_plugin_install_enabled():
         return {
             "success": False,
             "output": "插件安装功能未启用，请设置 SOUWEN_ENABLE_PLUGIN_INSTALL=1。",
@@ -632,7 +637,7 @@ async def install_plugin(package: str) -> dict[str, Any]:
 
 async def uninstall_plugin(package: str) -> dict[str, Any]:
     """卸载允许列表中的插件包。"""
-    if not _plugin_install_enabled():
+    if not is_plugin_install_enabled():
         return {
             "success": False,
             "output": "插件卸载功能未启用，请设置 SOUWEN_ENABLE_PLUGIN_INSTALL=1。",
@@ -707,6 +712,7 @@ __all__ = [
     "enable_plugin",
     "get_plugin_info",
     "install_plugin",
+    "is_plugin_install_enabled",
     "is_restart_required",
     "list_plugins",
     "reload_plugins",
