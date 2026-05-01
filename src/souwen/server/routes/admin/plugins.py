@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import inspect
-
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
@@ -18,15 +16,34 @@ class UninstallRequest(BaseModel):
     package: str
 
 
+_SAFE_PIP_FAILURE_MESSAGES = {
+    "插件安装功能未启用，请设置 SOUWEN_ENABLE_PLUGIN_INSTALL=1。",
+    "插件卸载功能未启用，请设置 SOUWEN_ENABLE_PLUGIN_INSTALL=1。",
+    "非法插件包名。",
+    "插件包不在允许列表中。",
+    "安装插件失败，请查看服务端日志。",
+    "卸载插件失败，请查看服务端日志。",
+}
+
+
 @router.get("/plugins")
 async def list_all_plugins():
-    """列出所有插件（已加载 + 目录 + 禁用）"""
-    from souwen.plugin_manager import is_restart_required, list_plugins
+    """列出所有插件（已加载 + 目录 + 禁用）。
+
+    返回的 ``install_enabled`` 反映服务端是否允许 install/uninstall（受
+    ``SOUWEN_ENABLE_PLUGIN_INSTALL`` 控制），便于前端按需展示安装入口。
+    """
+    from souwen.plugin_manager import (
+        is_plugin_install_enabled,
+        is_restart_required,
+        list_plugins,
+    )
 
     plugins = list_plugins()
     return {
         "plugins": [p.model_dump() for p in plugins],
         "restart_required": is_restart_required(),
+        "install_enabled": is_plugin_install_enabled(),
     }
 
 
@@ -44,25 +61,12 @@ async def get_plugin(name: str):
 @router.get("/plugins/{name}/health")
 async def plugin_health(name: str):
     """运行单个已加载插件的健康检查。"""
-    import logging
+    from souwen.plugin_manager import run_plugin_health
 
-    from souwen.plugin import get_loaded_plugins
-
-    plugin = get_loaded_plugins().get(name)
-    if plugin is None:
+    result = await run_plugin_health(name, include_error_detail=False)
+    if result.get("status") == "not_loaded":
         raise HTTPException(status_code=404, detail=f"插件 {name!r} 未加载")
-    if plugin.health_check is None:
-        return {"status": "ok", "message": "no health check defined"}
-    try:
-        result = plugin.health_check()
-        if inspect.isawaitable(result):
-            result = await result
-        return result
-    except Exception as exc:
-        logging.getLogger("souwen.server").warning(
-            "插件 %r 健康检查失败: %s", name, exc, exc_info=True
-        )
-        return {"status": "error", "message": f"插件 {name!r} 健康检查异常"}
+    return result
 
 
 @router.post("/plugins/{name}/enable")
@@ -108,15 +112,20 @@ def _sanitize_pip_result(result: dict, package: str = "") -> dict:
     """Strip raw pip output from install/uninstall result before API response."""
     import logging
 
-    if not result.get("success"):
+    success = result.get("success", False)
+    output = str(result.get("output", "")).strip()
+    failure_message = output if output in _SAFE_PIP_FAILURE_MESSAGES else "操作失败，详见服务端日志"
+    if not success:
         logging.getLogger("souwen.server").warning(
-            "pip 操作失败，原始输出: %s", result.get("output", "")
+            "pip 操作失败: package=%r, message=%s",
+            result.get("package", package),
+            failure_message,
         )
     return {
-        "success": result.get("success", False),
+        "success": success,
         "package": result.get("package", package),
         "restart_required": result.get("restart_required", False),
-        "message": "操作成功" if result.get("success") else "操作失败，详见服务端日志",
+        "message": "操作成功" if success else failure_message,
     }
 
 

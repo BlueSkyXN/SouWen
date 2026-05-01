@@ -6,6 +6,8 @@ import importlib.util
 import json
 import logging
 import sys
+import threading
+import time
 import types
 from pathlib import Path
 from typing import Any
@@ -27,6 +29,7 @@ from souwen.plugin_manager import (
     enable_plugin,
     get_plugin_info,
     install_plugin,
+    is_plugin_install_enabled,
     is_restart_required,
     list_plugins,
     reload_plugins,
@@ -65,6 +68,22 @@ class _FakeCatalogEntryPoints:
         if group == "souwen.plugin_catalog":
             return list(self._eps)
         return []
+
+
+def _make_fetch_adapter(name: str):
+    from souwen.registry.adapter import MethodSpec, SourceAdapter
+    from souwen.registry.loader import lazy
+
+    return SourceAdapter(
+        name=name,
+        domain="fetch",
+        integration="self_hosted",
+        description=f"{name} adapter",
+        config_field=None,
+        client_loader=lazy("souwen.web.builtin:BuiltinFetcherClient"),
+        methods={"fetch": MethodSpec("fetch")},
+        tags=frozenset({"external_plugin"}),
+    )
 
 
 class TestPluginInfo:
@@ -351,6 +370,25 @@ class TestListPlugins:
         assert all(plugin.status == "available" for plugin in plugins)
         assert all(plugin.source == "catalog" for plugin in plugins)
 
+    def test_importable_catalog_entry_stays_available_until_runtime_loaded(
+        self,
+        state_dir: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        catalog_name = PLUGIN_CATALOG[0]["name"]
+        monkeypatch.setattr("souwen.plugin_manager.external_plugins", lambda: [])
+        monkeypatch.setattr("souwen.plugin_manager.all_adapters", lambda: {})
+        monkeypatch.setattr("souwen.plugin_manager.get_fetch_handlers", lambda: {})
+        monkeypatch.setattr("souwen.plugin_manager.get_fetch_handler_owners", lambda: {})
+        monkeypatch.setattr("souwen.plugin_manager.get_loaded_plugins", lambda: {})
+        monkeypatch.setattr("souwen.plugin_manager._is_package_importable", lambda item: True)
+        monkeypatch.setattr("souwen.plugin_manager._package_version", lambda package: "1.2.3")
+
+        plugin = next(item for item in list_plugins() if item.name == catalog_name)
+
+        assert plugin.status == "available"
+        assert plugin.version == "1.2.3"
+
     def test_external_plugins_are_reported_as_loaded(
         self,
         state_dir: Path,
@@ -519,6 +557,16 @@ class TestEnableDisable:
 
 
 class TestInstallUninstall:
+    def test_install_enabled_helper_reflects_env(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.delenv("SOUWEN_ENABLE_PLUGIN_INSTALL", raising=False)
+        assert is_plugin_install_enabled() is False
+
+        monkeypatch.setenv("SOUWEN_ENABLE_PLUGIN_INSTALL", "1")
+        assert is_plugin_install_enabled() is True
+
     @pytest.mark.asyncio
     async def test_install_plugin_when_env_not_set_returns_error(
         self,
@@ -777,6 +825,32 @@ class TestRuntimeDisable:
             _PLUGINS.clear()
             _PLUGINS.update(saved)
 
+    def test_disable_adapter_only_external_removes_adapter_and_handler(
+        self,
+        state_dir: Path,
+        clean_registry: None,
+        clean_fetch_handlers: None,
+    ) -> None:
+        from souwen.registry.views import _reg_external, all_adapters, external_plugins
+        from souwen.web.fetch import get_fetch_handlers, register_fetch_handler
+
+        async def handler(*args: Any, **kwargs: Any) -> Any:
+            return None
+
+        adapter = _make_fetch_adapter("legacy_adapter")
+        assert _reg_external(adapter) is True
+        assert register_fetch_handler("legacy_adapter", handler) is True
+
+        result = disable_plugin("legacy_adapter")
+
+        assert result["success"] is True
+        assert _load_state()["disabled_plugins"] == ["legacy_adapter"]
+        assert "legacy_adapter" not in all_adapters()
+        assert "legacy_adapter" not in external_plugins()
+        assert "legacy_adapter" not in get_fetch_handlers()
+        assert "已移除数据源: legacy_adapter" in result["message"]
+        assert "已移除处理器: legacy_adapter" in result["message"]
+
     @pytest.mark.asyncio
     async def test_disable_async_awaits_shutdown(
         self,
@@ -809,6 +883,25 @@ class TestRuntimeDisable:
         finally:
             _PLUGINS.clear()
             _PLUGINS.update(saved)
+
+    @pytest.mark.asyncio
+    async def test_disable_async_adapter_only_external_removes_adapter(
+        self,
+        state_dir: Path,
+        clean_registry: None,
+        clean_fetch_handlers: None,
+    ) -> None:
+        from souwen.registry.views import _reg_external, all_adapters, external_plugins
+
+        adapter = _make_fetch_adapter("async_legacy_adapter")
+        assert _reg_external(adapter) is True
+
+        result = await disable_plugin_async("async_legacy_adapter")
+
+        assert result["success"] is True
+        assert _load_state()["disabled_plugins"] == ["async_legacy_adapter"]
+        assert "async_legacy_adapter" not in all_adapters()
+        assert "async_legacy_adapter" not in external_plugins()
 
 
 class TestValidDisableTarget:
@@ -904,6 +997,9 @@ class TestAPIEndpoints:
         assert "plugins" in payload
         assert isinstance(payload["plugins"], list)
         assert payload["restart_required"] is False
+        # install_enabled 字段供前端决定是否展示安装/卸载入口
+        assert "install_enabled" in payload
+        assert isinstance(payload["install_enabled"], bool)
 
     def test_get_plugin_unknown_returns_404(
         self,
@@ -959,6 +1055,19 @@ class TestAPIEndpoints:
         assert response.status_code == 200
         assert response.json() == {"status": "ok", "message": "no health check defined"}
 
+    def test_plugin_health_adapter_only_external_without_plugin_object(
+        self,
+        client: Any,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr("souwen.plugin.get_loaded_plugins", lambda: {})
+        monkeypatch.setattr("souwen.plugin_manager.external_plugins", lambda: ["legacy_adapter"])
+
+        response = client.get("/plugins/legacy_adapter/health")
+
+        assert response.status_code == 200
+        assert response.json() == {"status": "ok", "message": "no health check defined"}
+
     def test_plugin_health_unknown_returns_404(
         self,
         client: Any,
@@ -969,6 +1078,71 @@ class TestAPIEndpoints:
         response = client.get("/plugins/missing/health")
 
         assert response.status_code == 404
+
+    def test_plugin_health_times_out_sync_callable_without_blocking_route(
+        self,
+        client: Any,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from souwen.plugin import Plugin
+
+        def slow_health_check() -> dict[str, str]:
+            time.sleep(1)
+            return {"status": "ok"}
+
+        monkeypatch.setattr("souwen.plugin_manager.DEFAULT_PLUGIN_HEALTH_TIMEOUT_SECONDS", 0.01)
+        monkeypatch.setattr(
+            "souwen.plugin.get_loaded_plugins",
+            lambda: {"slow": Plugin(name="slow", health_check=slow_health_check)},
+        )
+
+        response = client.get("/plugins/slow/health")
+
+        assert response.status_code == 200
+        assert response.json()["status"] == "error"
+        assert "超时" in response.json()["message"]
+
+    @pytest.mark.asyncio
+    async def test_sync_health_timeouts_use_bounded_worker_pool(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from souwen.plugin import Plugin
+        from souwen.plugin_manager import _PLUGIN_HEALTH_MAX_WORKERS, collect_plugin_health
+
+        release = threading.Event()
+
+        def blocking_health_check() -> dict[str, str]:
+            release.wait(timeout=1)
+            return {"status": "ok"}
+
+        monkeypatch.setattr(
+            "souwen.plugin.get_loaded_plugins",
+            lambda: {
+                f"slow-{index}": Plugin(
+                    name=f"slow-{index}",
+                    health_check=blocking_health_check,
+                )
+                for index in range(_PLUGIN_HEALTH_MAX_WORKERS * 2)
+            },
+        )
+
+        try:
+            result = await collect_plugin_health(
+                [f"slow-{index}" for index in range(_PLUGIN_HEALTH_MAX_WORKERS * 2)],
+                timeout=0.01,
+            )
+            health_threads = [
+                thread
+                for thread in threading.enumerate()
+                if thread.name.startswith("souwen-plugin-health-")
+            ]
+        finally:
+            release.set()
+
+        assert set(result) == {f"slow-{index}" for index in range(_PLUGIN_HEALTH_MAX_WORKERS * 2)}
+        assert {item["status"] for item in result.values()} == {"error"}
+        assert len(health_threads) <= _PLUGIN_HEALTH_MAX_WORKERS
 
     def test_post_enable_plugin(
         self,
@@ -1012,7 +1186,43 @@ class TestAPIEndpoints:
 
         assert response.status_code == 200
         assert response.json()["success"] is False
+        assert "未启用" in response.json()["message"]
+
+    def test_post_install_with_invalid_package_returns_actionable_message(
+        self,
+        client: Any,
+        state_dir: Path,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setenv("SOUWEN_ENABLE_PLUGIN_INSTALL", "1")
+
+        response = client.post("/plugins/install", json={"package": "bad package"})
+
+        assert response.status_code == 200
+        assert response.json()["success"] is False
+        assert response.json()["message"] == "非法插件包名。"
+
+    def test_post_install_sanitizes_raw_pip_failure_output(
+        self,
+        client: Any,
+        state_dir: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        async def fake_run_pip(args: list[str], timeout: float) -> tuple[bool, str]:
+            return False, "Collecting superweb2pdf\nERROR: private index token leaked"
+
+        monkeypatch.setenv("SOUWEN_ENABLE_PLUGIN_INSTALL", "1")
+        monkeypatch.setattr("souwen.plugin_manager._run_pip", fake_run_pip)
+
+        caplog.set_level(logging.WARNING, logger="souwen.server")
+        response = client.post("/plugins/install", json={"package": "superweb2pdf"})
+
+        assert response.status_code == 200
+        assert response.json()["success"] is False
         assert response.json()["message"] == "操作失败，详见服务端日志"
+        assert "private index token leaked" not in caplog.text
+        assert "Collecting superweb2pdf" not in caplog.text
 
     def test_post_reload(
         self,

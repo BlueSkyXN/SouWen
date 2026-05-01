@@ -607,7 +607,14 @@ def test_fetch_handler_registered():
 
 - 架构总览：[architecture.md](architecture.md)
 - 添加内置源（仓内贡献）：[adding-a-source.md](adding-a-source.md)
+- **运维侧管理（Web Panel / CLI / API）**：[plugin-management.md](plugin-management.md)
 - **最小示例插件**：[`examples/minimal-plugin/`](../examples/minimal-plugin/) —— 可直接 `pip install -e .` 体验
 - 数据模型：[`src/souwen/models.py`](../src/souwen/models.py)
 - 配置字段：[configuration.md](configuration.md)
 - 反爬 / TLS 指纹（写 scraper 类插件时）：[anti-scraping.md](anti-scraping.md)
+
+> **Tip：** 你的插件如果需要 `health_check`，请尽可能保持低开销（毫秒级），
+> 因为运维会在 Web Panel 与 CLI（`souwen plugins list --health`）批量并发调用。
+> `health_check` 支持同步函数直接返回 `dict`，或 `async def` 返回 `dict`；
+> 不支持同步函数返回 coroutine。业务侧的"实时探测"应放在专用的 doctor
+> 端点，而不是 health_check。

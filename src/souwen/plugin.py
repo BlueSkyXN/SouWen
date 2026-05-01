@@ -54,7 +54,12 @@ ENTRY_POINT_GROUP = "souwen.plugins"
 # ── Plugin 信封类 ────────────────────────────────────────────
 
 LifecycleHook = Callable[["Plugin"], None | Awaitable[None]]
-HealthCheck = Callable[[], dict[str, Any] | Awaitable[dict[str, Any]]]
+# Sync health checks must return dict directly. Async checks must be declared
+# with ``async def``; sync wrappers that return coroutine objects are rejected
+# by plugin_manager so blocking sync checks can run in the bounded worker pool.
+SyncHealthCheck = Callable[[], dict[str, Any]]
+AsyncHealthCheck = Callable[[], Awaitable[dict[str, Any]]]
+HealthCheck = SyncHealthCheck | AsyncHealthCheck
 
 
 @dataclass

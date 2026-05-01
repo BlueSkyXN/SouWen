@@ -17,6 +17,7 @@
 
 from __future__ import annotations
 
+import asyncio
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -162,3 +163,148 @@ def test_plugins_new_rejects_digit_prefix(monkeypatch, tmp_path: Path):
 
     assert result.exit_code == 1
     assert not (tmp_path / "1plugin").exists()
+
+
+def test_plugins_health_with_loaded_plugin(monkeypatch):
+    """``plugins health <name>`` 调用本进程的 health_check（与 API 同源）。"""
+    from souwen.plugin import Plugin
+
+    async def healthy() -> dict[str, str]:
+        return {"status": "ok", "latency_ms": "1"}
+
+    plugin = Plugin(name="demo", health_check=healthy)
+    monkeypatch.setattr("souwen.plugin.get_loaded_plugins", lambda: {"demo": plugin})
+
+    result = runner.invoke(app, ["plugins", "health", "demo"])
+
+    assert result.exit_code == 0
+    assert "demo 健康" in result.output
+    assert "latency_ms" in result.output
+
+
+def test_plugins_health_returns_error_when_not_loaded(monkeypatch):
+    """未加载的插件应当退出码 1，并提示未加载。"""
+    monkeypatch.setattr("souwen.plugin.get_loaded_plugins", lambda: {})
+
+    result = runner.invoke(app, ["plugins", "health", "missing"])
+
+    assert result.exit_code == 1
+    assert "未加载" in result.output
+
+
+def test_plugins_health_handles_health_exception(monkeypatch):
+    """health_check 抛异常时应捕获并以 error 状态退出码 1。"""
+    from souwen.plugin import Plugin
+
+    def boom() -> dict[str, str]:
+        raise RuntimeError("upstream timeout")
+
+    plugin = Plugin(name="boom", health_check=boom)
+    monkeypatch.setattr("souwen.plugin.get_loaded_plugins", lambda: {"boom": plugin})
+
+    result = runner.invoke(app, ["plugins", "health", "boom"])
+
+    assert result.exit_code == 1
+
+
+def test_plugins_health_rejects_sync_wrapper_returning_coroutine(monkeypatch):
+    """异步 health_check 必须声明为 async def，避免同步入口返回 coroutine。"""
+    from souwen.plugin import Plugin
+
+    async def inner() -> dict[str, str]:
+        return {"status": "ok"}
+
+    def wrapper():
+        return inner()
+
+    plugin = Plugin(name="wrapped", health_check=wrapper)
+    monkeypatch.setattr("souwen.plugin.get_loaded_plugins", lambda: {"wrapped": plugin})
+
+    result = runner.invoke(app, ["plugins", "health", "wrapped"])
+
+    assert result.exit_code == 1
+    assert "async def" in result.output
+
+
+def test_plugins_health_times_out(monkeypatch):
+    """单个插件 health_check 超时应返回错误，而不是无限等待。"""
+    from souwen.plugin import Plugin
+
+    async def slow() -> dict[str, str]:
+        await asyncio.sleep(1)
+        return {"status": "ok"}
+
+    plugin = Plugin(name="slow", health_check=slow)
+    monkeypatch.setattr("souwen.plugin.get_loaded_plugins", lambda: {"slow": plugin})
+
+    result = runner.invoke(app, ["plugins", "health", "slow", "--timeout", "0.01"])
+
+    assert result.exit_code == 1
+    assert "超时" in result.output
+
+
+def test_plugins_list_with_health_flag(monkeypatch):
+    """``plugins list --health`` 给已加载插件附加 Health 列。"""
+    from souwen.plugin import Plugin
+    from souwen.plugin_manager import PluginInfo
+
+    async def healthy() -> dict[str, str]:
+        return {"status": "ok"}
+
+    plugin = Plugin(name="demo", health_check=healthy)
+    monkeypatch.setattr("souwen.plugin.get_loaded_plugins", lambda: {"demo": plugin})
+    monkeypatch.setattr(
+        "souwen.plugin_manager.list_plugins",
+        lambda: [
+            PluginInfo(
+                name="demo",
+                status="loaded",
+                source="entry_point",
+                version="1.0.0",
+                description="demo plugin",
+            ),
+        ],
+    )
+    monkeypatch.setattr("souwen.plugin_manager.is_restart_required", lambda: False)
+
+    result = runner.invoke(app, ["plugins", "list", "--health"], env={"COLUMNS": "200"})
+
+    assert result.exit_code == 0
+    assert "Health" in result.output
+    assert "demo" in result.output
+
+
+def test_plugins_list_health_marks_timeout(monkeypatch):
+    """批量 health check 中单个插件超时应落到 error 状态，不拖住列表命令。"""
+    from souwen.plugin import Plugin
+    from souwen.plugin_manager import PluginInfo
+
+    async def slow() -> dict[str, str]:
+        await asyncio.sleep(1)
+        return {"status": "ok"}
+
+    plugin = Plugin(name="slow", health_check=slow)
+    monkeypatch.setattr("souwen.plugin.get_loaded_plugins", lambda: {"slow": plugin})
+    monkeypatch.setattr(
+        "souwen.plugin_manager.list_plugins",
+        lambda: [
+            PluginInfo(
+                name="slow",
+                status="loaded",
+                source="entry_point",
+                version="1.0.0",
+                description="slow plugin",
+            ),
+        ],
+    )
+    monkeypatch.setattr("souwen.plugin_manager.is_restart_required", lambda: False)
+
+    result = runner.invoke(
+        app,
+        ["plugins", "list", "--health", "--health-timeout", "0.01"],
+        env={"COLUMNS": "200"},
+    )
+
+    assert result.exit_code == 0
+    assert "Health" in result.output
+    assert "error" in result.output
