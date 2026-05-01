@@ -1055,6 +1055,19 @@ class TestAPIEndpoints:
         assert response.status_code == 200
         assert response.json() == {"status": "ok", "message": "no health check defined"}
 
+    def test_plugin_health_adapter_only_external_without_plugin_object(
+        self,
+        client: Any,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        monkeypatch.setattr("souwen.plugin.get_loaded_plugins", lambda: {})
+        monkeypatch.setattr("souwen.plugin_manager.external_plugins", lambda: ["legacy_adapter"])
+
+        response = client.get("/plugins/legacy_adapter/health")
+
+        assert response.status_code == 200
+        assert response.json() == {"status": "ok", "message": "no health check defined"}
+
     def test_plugin_health_unknown_returns_404(
         self,
         client: Any,

@@ -205,6 +205,8 @@ async def run_plugin_health(
     loaded_plugins = current_get_loaded_plugins()
     plugin = loaded_plugins.get(name)
     if plugin is None:
+        if name in set(external_plugins()):
+            return {"status": "ok", "message": "no health check defined"}
         return {"status": "not_loaded", "message": f"插件 {name!r} 未加载"}
     if plugin.health_check is None:
         return {"status": "ok", "message": "no health check defined"}

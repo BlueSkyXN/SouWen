@@ -656,7 +656,7 @@ export interface WhoamiResponse {
 /**
  * 插件状态枚举（对齐后端 PluginInfo.status）：
  *   - loaded：当前进程已加载
- *   - available：目录中可用但未导入（通常需安装/启用）
+ *   - available：目录中可用但当前进程未加载，可能需要安装，也可能已安装但待重新扫描/重启
  *   - disabled：已通过 disable 写入禁用列表，重启后跳过
  *   - error：加载失败
  */

@@ -178,9 +178,12 @@ function PluginRow({ plugin, state, onShowDetail }: PluginRowProps) {
   const healthBusy = state.busy.has(`health:${plugin.name}`)
   const installBusy = state.busy.has('install')
   const packageBusy = installBusy || state.busy.has('uninstall')
+  const reloadBusy = state.busy.has('reload')
   const isLoaded = plugin.status === 'loaded'
   const isDisabled = plugin.status === 'disabled'
   const isAvailable = plugin.status === 'available'
+  const isInstalledAvailable = isAvailable && Boolean(plugin.version)
+  const canInstall = isAvailable && Boolean(plugin.package) && !isInstalledAvailable
 
   const statusKey = ['loaded', 'available', 'disabled', 'error'].includes(plugin.status)
     ? plugin.status
@@ -223,7 +226,7 @@ function PluginRow({ plugin, state, onShowDetail }: PluginRowProps) {
             <span>{t('plugins.actions.disable')}</span>
           </button>
         )}
-        {isAvailable && plugin.package && (
+        {canInstall && (
           <button
             type="button"
             className={`${styles.actionBtn} ${styles.primary}`}
@@ -237,6 +240,18 @@ function PluginRow({ plugin, state, onShowDetail }: PluginRowProps) {
           >
             <PackagePlus size={14} />
             <span>{installBusy ? t('plugins.install.installing') : t('plugins.actions.install')}</span>
+          </button>
+        )}
+        {isInstalledAvailable && (
+          <button
+            type="button"
+            className={styles.actionBtn}
+            onClick={() => void state.reloadPlugins()}
+            disabled={reloadBusy}
+            title={t('plugins.reloadCatalog') as string}
+          >
+            <RefreshCw size={14} className={reloadBusy ? styles.spinning : undefined} />
+            <span>{reloadBusy ? t('plugins.reloading') : t('plugins.reloadCatalog')}</span>
           </button>
         )}
         {isDisabled && (

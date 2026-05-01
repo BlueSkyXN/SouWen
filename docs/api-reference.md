@@ -711,7 +711,7 @@ Cache-Control: public, max-age=3600
 
 | 字段 | 类型 | 说明 |
 |---|---|---|
-| `plugins[*].status` | string | `loaded` / `available` / `disabled` / `error` |
+| `plugins[*].status` | string | `loaded` / `available` / `disabled` / `error`；`available` 表示目录可见但当前进程未加载，若同时有 `version` 则说明包已安装、需要重新扫描或重启生效 |
 | `plugins[*].source` | string | `entry_point` / `catalog` / `config_path` |
 | `plugins[*].first_party` | bool | 是否为官方维护插件（来自目录元数据） |
 | `restart_required` | bool | 服务端是否有任何 enable / disable / install / uninstall 操作未生效 |
