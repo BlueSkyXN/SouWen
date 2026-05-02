@@ -285,6 +285,24 @@ class TestSearchAuth:
         names = {item["name"] for entries in data.values() for item in entries}
         assert "duckduckgo" not in names
 
+    def test_sources_require_multifield_secondary_credentials(self, client, monkeypatch):
+        """/sources 与 admin 配置不能把仅有 primary override 的多字段源标成可用。"""
+        monkeypatch.setenv("SOUWEN_ADMIN_OPEN", "1")
+        monkeypatch.setenv("SOUWEN_EPO_CONSUMER_KEY", "")
+        monkeypatch.setenv("SOUWEN_EPO_CONSUMER_SECRET", "")
+        monkeypatch.setenv("SOUWEN_SOURCES", '{"epo_ops":{"api_key":"epo-key"}}')
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        sources_resp = client.get("/api/v1/sources")
+        assert sources_resp.status_code == 200
+        patent_names = {item["name"] for item in sources_resp.json().get("patent", [])}
+        assert "epo_ops" not in patent_names
+
+        admin_resp = client.get("/api/v1/admin/sources/config/epo_ops")
+        assert admin_resp.status_code == 200
+        assert admin_resp.json()["has_api_key"] is False
+
     # --- 双密钥：visitor 和 admin 密码均可访问搜索端点 ---
     def test_dual_key_visitor_password_accepted(self, dual_key_client):
         """visitor_password 可以访问搜索端点。"""

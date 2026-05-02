@@ -240,28 +240,6 @@ class TestCheckAll:
         finally:
             get_config.cache_clear()
 
-    @pytest.mark.asyncio
-    async def test_sources_routes_require_multifield_secondary_credentials(self, monkeypatch):
-        """/sources 与 admin 配置不能把仅有 primary override 的多字段源标成可用。"""
-        monkeypatch.setenv("SOUWEN_EPO_CONSUMER_KEY", "")
-        monkeypatch.setenv("SOUWEN_EPO_CONSUMER_SECRET", "")
-        monkeypatch.setenv("SOUWEN_SOURCES", '{"epo_ops":{"api_key":"epo-key"}}')
-
-        from souwen.config import get_config
-        from souwen.server.routes.admin.sources import get_source_config
-        from souwen.server.routes.sources import list_sources
-
-        get_config.cache_clear()
-        try:
-            sources = await list_sources()
-            patent_names = {item["name"] for item in sources.get("patent", [])}
-            assert "epo_ops" not in patent_names
-
-            admin_entry = await get_source_config("epo_ops")
-            assert admin_entry["has_api_key"] is False
-        finally:
-            get_config.cache_clear()
-
     def test_known_broken_patent_sources_are_not_ok(self):
         """已知不可用的免费专利源应直接暴露 unavailable。"""
         results = check_all()
