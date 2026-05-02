@@ -30,6 +30,7 @@ domain → category 映射：
 from __future__ import annotations
 
 from dataclasses import dataclass
+from typing import Any
 
 from souwen.registry import views as _views
 from souwen.registry.adapter import AUTH_REQUIREMENTS, DISTRIBUTIONS, INTEGRATIONS
@@ -165,7 +166,8 @@ def _build_source_meta_view() -> dict[str, SourceMeta]:
     return result
 
 
-# 首次访问时懒构建；后续直接用缓存（注册表是启动时一次性填充的，运行期不可变）
+# 首次访问时懒构建；后续直接用缓存。内置注册表在启动时填充；
+# 外部插件运行时注册/注销时会显式调用 invalidate_source_meta_cache()。
 _SOURCE_META_CACHE: dict[str, SourceMeta] | None = None
 
 
@@ -174,6 +176,17 @@ def _meta_view() -> dict[str, SourceMeta]:
     if _SOURCE_META_CACHE is None:
         _SOURCE_META_CACHE = _build_source_meta_view()
     return _SOURCE_META_CACHE
+
+
+def invalidate_source_meta_cache() -> None:
+    """清理并重建 SourceMeta 派生缓存。
+
+    外部插件运行时注册/注销 adapter 后，底层 registry 已变化；这里同步刷新
+    `get_source()` / `is_known_source()` / `ALL_SOURCE_NAMES` 的视图。
+    """
+    global _SOURCE_META_CACHE, ALL_SOURCE_NAMES
+    _SOURCE_META_CACHE = _build_source_meta_view()
+    ALL_SOURCE_NAMES = frozenset(_SOURCE_META_CACHE.keys())
 
 
 # ── 公开 API ────────────────────────────────────────────────
@@ -257,6 +270,69 @@ def get_sources_by_auth_requirement(requirement: str) -> list[SourceMeta]:
 def get_sources_by_distribution(distribution: str) -> list[SourceMeta]:
     """按推荐分发范围筛选数据源。"""
     return [meta for meta in _meta_view().values() if meta.distribution == distribution]
+
+
+# ── 凭据解析工具 ──────────────────────────────────────────────
+
+
+def credential_value(
+    cfg: Any,
+    source_name: str,
+    field: str,
+    primary_field: str | None,
+    auth_requirement: str | None = None,
+) -> str | None:
+    """读取单个凭据字段。
+
+    频道级 `sources.<name>.api_key` 只覆盖主 config_field；多字段凭据的
+    secondary 字段仍读取 flat config，避免同一个 api_key 被误判成
+    client_id 和 secret 同时满足。
+    """
+    if auth_requirement == "self_hosted" and field == primary_field:
+        return cfg.resolve_base_url(source_name) or getattr(cfg, field, None)
+    if field == primary_field:
+        return cfg.resolve_api_key(source_name, field)
+    return getattr(cfg, field, None)
+
+
+def missing_credential_fields(cfg: Any, source_name: str, meta: Any) -> list[str]:
+    """返回尚未满足的凭据字段列表。"""
+    fields = tuple(meta.credential_fields)
+    if not fields:
+        return []
+    missing: list[str] = []
+    for field in fields:
+        value = credential_value(
+            cfg,
+            source_name,
+            field,
+            meta.config_field,
+            meta.auth_requirement,
+        )
+        if not value:
+            missing.append(field)
+    return missing
+
+
+def has_required_credentials(cfg: Any, source_name: str, meta: Any) -> bool:
+    """判断必需凭据是否满足；none/optional 源始终可作为可用候选。"""
+    if meta.auth_requirement in {"none", "optional"}:
+        return True
+    if not meta.credential_fields:
+        return True
+    return not missing_credential_fields(cfg, source_name, meta)
+
+
+def has_configured_credentials(cfg: Any, source_name: str, meta: Any) -> bool:
+    """判断该源声明的凭据字段是否已全部配置。"""
+    if not meta.credential_fields:
+        return False
+    return not missing_credential_fields(cfg, source_name, meta)
+
+
+def credential_fields_label(fields: list[str] | tuple[str, ...]) -> str:
+    """把多个凭据字段格式化为用户可读标签。"""
+    return " / ".join(fields)
 
 
 # 即时从 registry 派生所有源名称

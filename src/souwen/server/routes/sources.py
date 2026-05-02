@@ -18,29 +18,9 @@ async def list_sources():
     """
     from souwen.config import get_config
     from souwen.models import ALL_SOURCES
-    from souwen.source_registry import get_source
+    from souwen.source_registry import get_source, has_required_credentials
 
     cfg = get_config()
-
-    def _credential_value(name: str, field: str, primary_field: str | None) -> str | None:
-        if field == primary_field:
-            return cfg.resolve_api_key(name, field)
-        return getattr(cfg, field, None)
-
-    def _has_required_credentials(name: str, meta) -> bool:
-        if meta.auth_requirement == "none" or meta.auth_requirement == "optional":
-            return True
-        fields = meta.credential_fields
-        if not fields:
-            return True
-        for field in fields:
-            if meta.auth_requirement == "self_hosted" and field == meta.config_field:
-                value = cfg.resolve_base_url(name) or getattr(cfg, field, None)
-            else:
-                value = _credential_value(name, field, meta.config_field)
-            if not value:
-                return False
-        return True
 
     def _is_usable(name: str) -> bool:
         if not cfg.is_source_enabled(name):
@@ -48,7 +28,7 @@ async def list_sources():
         meta = get_source(name)
         if meta is None:
             return True
-        return _has_required_credentials(name, meta)
+        return has_required_credentials(cfg, name, meta)
 
     def _source_item(name: str, needs_key: bool, desc: str) -> dict:
         meta = get_source(name)

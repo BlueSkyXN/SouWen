@@ -269,11 +269,8 @@ class SourceAdapter:
 
     @property
     def resolved_risk_reasons(self) -> frozenset[str]:
-        """返回风险原因；旧 high_risk tag 默认解释为反爬风险。"""
-        reasons = set(self.risk_reasons)
-        if "high_risk" in self.tags:
-            reasons.add("anti_scraping")
-        return frozenset(reasons)
+        """返回风险原因；旧 high_risk tag 只提升风险等级，不臆造原因。"""
+        return frozenset(self.risk_reasons)
 
     @property
     def resolved_package_extra(self) -> str | None:
@@ -370,6 +367,22 @@ class SourceAdapter:
         if self.stability not in STABILITIES:
             raise ValueError(
                 f"SourceAdapter({self.name!r}) stability={self.stability!r} 不在 STABILITIES 中"
+            )
+        effective_auth = self.resolved_auth_requirement
+        resolved_fields = self.resolved_credential_fields
+        if effective_auth == "none" and resolved_fields:
+            raise ValueError(
+                f"SourceAdapter({self.name!r}) auth_requirement='none' 不能声明 credential_fields"
+            )
+        if effective_auth == "required" and not resolved_fields:
+            raise ValueError(
+                f"SourceAdapter({self.name!r}) auth_requirement={effective_auth!r} "
+                "必须声明 config_field 或 credential_fields"
+            )
+        if self.optional_credential_effect is not None and effective_auth != "optional":
+            raise ValueError(
+                f"SourceAdapter({self.name!r}) optional_credential_effect 仅适用于 "
+                "auth_requirement='optional'"
             )
         for cap in self.methods.keys():
             if cap in CAPABILITIES:

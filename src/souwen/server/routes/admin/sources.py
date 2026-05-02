@@ -3,8 +3,6 @@
 from __future__ import annotations
 
 from urllib.parse import urlparse
-from typing import Any
-
 from fastapi import APIRouter, HTTPException
 
 from souwen.server.schemas import UpdateSourceConfigRequest
@@ -12,29 +10,7 @@ from souwen.server.schemas import UpdateSourceConfigRequest
 router = APIRouter()
 
 
-def _credential_value(
-    cfg: Any, source_name: str, field: str, primary_field: str | None
-) -> str | None:
-    if field == primary_field:
-        return cfg.resolve_api_key(source_name, field)
-    return getattr(cfg, field, None)
-
-
-def _has_configured_credentials(cfg: Any, source_name: str, meta: Any) -> bool:
-    fields = meta.credential_fields
-    if not fields:
-        return False
-    for field in fields:
-        if meta.auth_requirement == "self_hosted" and field == meta.config_field:
-            value = cfg.resolve_base_url(source_name) or getattr(cfg, field, None)
-        else:
-            value = _credential_value(cfg, source_name, field, meta.config_field)
-        if not value:
-            return False
-    return True
-
-
-def _catalog_fields(meta: Any) -> dict:
+def _catalog_fields(meta) -> dict:
     return {
         "auth_requirement": meta.auth_requirement,
         "key_requirement": meta.key_requirement,
@@ -53,7 +29,7 @@ def _catalog_fields(meta: Any) -> dict:
 async def get_sources_config():
     """查看所有数据源的频道配置 — 包含启用状态、API Key（仅指示）、代理等。"""
     from souwen.config import get_config
-    from souwen.source_registry import get_all_sources
+    from souwen.source_registry import get_all_sources, has_configured_credentials
 
     cfg = get_config()
     all_sources = get_all_sources()
@@ -65,7 +41,7 @@ async def get_sources_config():
             "proxy": sc.proxy,
             "http_backend": sc.http_backend,
             "base_url": sc.base_url,
-            "has_api_key": _has_configured_credentials(cfg, name, meta),
+            "has_api_key": has_configured_credentials(cfg, name, meta),
             "headers": sc.headers,
             "params": sc.params,
             "category": meta.category,
@@ -81,7 +57,7 @@ async def get_sources_config():
 async def get_source_config(source_name: str):
     """查看单个数据源的频道配置。"""
     from souwen.config import get_config
-    from souwen.source_registry import get_source
+    from souwen.source_registry import get_source, has_configured_credentials
 
     meta = get_source(source_name)
     if meta is None:
@@ -95,7 +71,7 @@ async def get_source_config(source_name: str):
         "proxy": sc.proxy,
         "http_backend": sc.http_backend,
         "base_url": sc.base_url,
-        "has_api_key": _has_configured_credentials(cfg, source_name, meta),
+        "has_api_key": has_configured_credentials(cfg, source_name, meta),
         "headers": sc.headers,
         "params": sc.params,
         "category": meta.category,

@@ -51,7 +51,7 @@ from souwen.registry.adapter import (
     STABILITIES,
 )
 from souwen.registry.loader import lazy
-from souwen.registry.views import _reg_external
+from souwen.registry.views import _reg_external, _unreg_external
 
 
 # ── 基础不变量 ──────────────────────────────────────────────
@@ -108,6 +108,62 @@ class TestRegistryInvariants:
             assert adapter.resolved_stability in STABILITIES, (
                 f"{adapter.name}: stability={adapter.resolved_stability!r} 非法"
             )
+
+
+class TestSourceAdapterCatalogValidation:
+    """SourceAdapter catalog 字段的注册期防呆。"""
+
+    @staticmethod
+    def _adapter(**overrides) -> SourceAdapter:
+        base = {
+            "name": "catalog_validation_probe",
+            "domain": "fetch",
+            "integration": "scraper",
+            "description": "probe",
+            "config_field": None,
+            "client_loader": lazy("souwen.web.builtin:BuiltinFetcherClient"),
+            "methods": {"fetch": MethodSpec("fetch")},
+        }
+        base.update(overrides)
+        return SourceAdapter(**base)
+
+    def test_required_auth_must_have_credential_fields(self):
+        with pytest.raises(ValueError, match="必须声明 config_field 或 credential_fields"):
+            self._adapter(auth_requirement="required")
+
+    def test_none_auth_cannot_declare_credentials(self):
+        with pytest.raises(ValueError, match="不能声明 credential_fields"):
+            self._adapter(
+                auth_requirement="none",
+                credential_fields=("tavily_api_key",),
+            )
+
+    def test_implicit_auth_with_credentials_needs_primary_or_explicit_auth(self):
+        with pytest.raises(ValueError, match="不能声明 credential_fields"):
+            self._adapter(credential_fields=("tavily_api_key", "serper_api_key"))
+
+    def test_optional_credential_effect_only_allowed_for_optional_auth(self):
+        with pytest.raises(ValueError, match="仅适用于 auth_requirement='optional'"):
+            self._adapter(
+                config_field="tavily_api_key",
+                auth_requirement="required",
+                optional_credential_effect="rate_limit",
+            )
+
+    def test_implicit_optional_credentials_remain_supported(self):
+        adapter = self._adapter(
+            config_field="openalex_email",
+            integration="official_api",
+            needs_config=False,
+            optional_credential_effect="politeness",
+        )
+        assert adapter.resolved_auth_requirement == "optional"
+        assert adapter.resolved_credential_fields == ("openalex_email",)
+
+    def test_self_hosted_without_declared_fields_remains_plugin_compatible(self):
+        adapter = self._adapter(auth_requirement="self_hosted")
+        assert adapter.resolved_auth_requirement == "self_hosted"
+        assert adapter.resolved_credential_fields == ()
 
 
 # ── D11 硬断言 ──────────────────────────────────────────────
@@ -449,3 +505,31 @@ class TestExternalPlugins:
             assert callable(getattr(client_cls, spec.method_name, None)), (
                 f"external adapter {a.name} method {spec.method_name} 不可调用"
             )
+
+    def test_reg_external_refreshes_source_meta_cache(self, clean_registry):
+        """运行时注册/注销插件源后，SourceMeta 视图必须同步刷新。"""
+        from souwen import source_registry
+
+        # 先构建一次缓存，复现旧问题：之后注册插件若不失效会读不到新源。
+        assert "ext_cache_probe" not in source_registry.get_all_sources()
+        assert source_registry.get_source("ext_cache_probe") is None
+
+        adapter = SourceAdapter(
+            name="ext_cache_probe",
+            domain="fetch",
+            integration="scraper",
+            description="probe",
+            config_field=None,
+            client_loader=lazy("souwen.web.builtin:BuiltinFetcherClient"),
+            methods={"fetch": MethodSpec("fetch")},
+            needs_config=False,
+        )
+        assert _reg_external(adapter) is True
+        assert source_registry.get_source("ext_cache_probe") is not None
+        assert source_registry.is_known_source("ext_cache_probe") is True
+        assert "ext_cache_probe" in source_registry.ALL_SOURCE_NAMES
+
+        assert _unreg_external("ext_cache_probe") is True
+        assert source_registry.get_source("ext_cache_probe") is None
+        assert source_registry.is_known_source("ext_cache_probe") is False
+        assert "ext_cache_probe" not in source_registry.ALL_SOURCE_NAMES

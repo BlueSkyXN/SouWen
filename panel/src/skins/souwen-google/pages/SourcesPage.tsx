@@ -1,11 +1,11 @@
 /**
  * 数据源页面 - 源的配置和健康状态管理
  *
- * 文件用途：展示所有数据源（8 类），显示源的状态、配置信息、API 密钥需求，
+ * 文件用途：展示所有数据源（11 类），显示源的状态、配置信息、API 密钥需求，
  * 支持启用/禁用源以及编辑配置（如 API 密钥）
  *
  * 核心功能：
- *   - 源分类展示：按 8 类分组显示
+ *   - 源分类展示：按 11 类分组显示
  *   - 状态徽章：ok / needs_key / error / disabled
  *   - 源信息卡片：名称、描述、层级（core/extended/experimental）
  *   - 配置编辑：弹窗编辑 API 密钥和其他源配置
@@ -13,7 +13,7 @@
  *   - 实时反馈：配置更新成功/失败提示
  *
  * 类型与常量：
- *   CategoryKey - 搜索类别（8 类）
+ *   SourceCategory - 搜索类别（11 类）
  *   CATEGORY_ORDER / CATEGORY_ICONS / CATEGORY_STYLE - 分类配置
  *   statusBorderClass / StatusDot / TierBadge - 状态显示组件
  *
@@ -43,22 +43,25 @@ import { formatError } from '@core/lib/errors'
 import { staggerContainerFast, staggerItemSmall } from '@core/lib/animations'
 import { categoryBadgeColor, integrationBadgeColor, categoryLabel } from '@core/lib/ui'
 
-import type { DoctorResponse, DoctorSource, SourceChannelConfig } from '@core/types'
+import { SOURCE_CATEGORY_LABEL_KEYS, SOURCE_CATEGORY_ORDER } from '@core/types'
+import type { DoctorResponse, DoctorSource, SourceCategory, SourceChannelConfig } from '@core/types'
 import styles from './SourcesPage.module.scss'
 
-type CategoryKey = 'paper' | 'patent' | 'general' | 'professional' | 'social' | 'developer' | 'wiki' | 'video'
+const CATEGORY_ORDER = SOURCE_CATEGORY_ORDER
+const CATEGORY_LABELS = SOURCE_CATEGORY_LABEL_KEYS
 
-const CATEGORY_ORDER: CategoryKey[] = ['paper', 'patent', 'general', 'professional', 'social', 'developer', 'wiki', 'video']
-
-const CATEGORY_ICONS: Record<CategoryKey, typeof FileText> = {
+const CATEGORY_ICONS: Record<SourceCategory, typeof FileText> = {
   paper: FileText,
   patent: Shield,
   general: Globe,
   professional: Globe,
   social: Globe,
+  office: Globe,
   developer: Globe,
   wiki: Globe,
+  cn_tech: Globe,
   video: Globe,
+  fetch: Globe,
 }
 
 function integrationBorderClass(src: DoctorSource): string {
@@ -78,7 +81,7 @@ function StatusDot({ status }: { status: string }) {
       ? styles.statusOk
       : status === 'disabled'
         ? styles.statusDisabled
-        : status === 'needs_key'
+        : ['missing_key', 'needs_key', 'limited', 'warning', 'degraded'].includes(status)
           ? styles.statusWarning
           : styles.statusError
   return <span className={`${styles.statusDot} ${cls}`} />
@@ -440,7 +443,7 @@ export function SourcesPage() {
   const [confirmSource, setConfirmSource] = useState<DoctorSource | null>(null)
   const [expandedSource, setExpandedSource] = useState<string | null>(null)
   const [sourcesConfig, setSourcesConfig] = useState<Record<string, SourceChannelConfig>>({})
-  const [selectedCategory, setSelectedCategory] = useState<'all' | CategoryKey>('all')
+  const [selectedCategory, setSelectedCategory] = useState<'all' | SourceCategory>('all')
   const [viewMode, setViewMode] = useState<'sources' | 'health'>('sources')
   const [displayMode, setDisplayMode] = useState<'grid' | 'list'>('grid')
   const addToast = useNotificationStore((s) => s.addToast)
@@ -530,7 +533,18 @@ export function SourcesPage() {
   const totalCount = doctor.total
 
   const sourcesByCategory: Record<string, DoctorSource[]> = {}
-  const statusOrder: Record<string, number> = { ok: 0, degraded: 1, needs_key: 2, error: 3, timeout: 4 }
+  const statusOrder: Record<string, number> = {
+    ok: 0,
+    limited: 1,
+    warning: 2,
+    degraded: 2,
+    missing_key: 3,
+    needs_key: 3,
+    unavailable: 4,
+    error: 5,
+    timeout: 6,
+    disabled: 7,
+  }
   for (const cat of CATEGORY_ORDER) {
     sourcesByCategory[cat] = doctor.sources
       .filter((s) => s.category === cat)
@@ -594,13 +608,11 @@ export function SourcesPage() {
       {viewMode === 'sources' && (<>
       {/* Filter Tabs */}
       {(() => {
-        const tabs: Array<{ key: 'all' | CategoryKey; label: string; count: number; Icon?: typeof FileText }> = [
+        const tabs: Array<{ key: 'all' | SourceCategory; label: string; count: number; Icon?: typeof FileText }> = [
           { key: 'all', label: t('sources.categoryAll'), count: doctor.sources.length },
-          { key: 'paper', label: t('sources.categoryPaper'), count: sourcesByCategory.paper?.length ?? 0, Icon: CATEGORY_ICONS.paper },
-          { key: 'patent', label: t('sources.categoryPatent'), count: sourcesByCategory.patent?.length ?? 0, Icon: CATEGORY_ICONS.patent },
-          ...(['general', 'professional', 'social', 'developer', 'wiki', 'video'] as CategoryKey[]).map((cat) => ({
+          ...CATEGORY_ORDER.map((cat) => ({
             key: cat,
-            label: t(`sources.category${cat.charAt(0).toUpperCase() + cat.slice(1)}`),
+            label: t(CATEGORY_LABELS[cat]),
             count: sourcesByCategory[cat]?.length ?? 0,
             Icon: CATEGORY_ICONS[cat],
           })),
@@ -864,7 +876,7 @@ export function SourcesPage() {
                         <span key={src.name} className={styles.matrixChip} title={src.message}>
                           <span className={`${styles.matrixDot} ${
                             src.status === 'ok' ? styles.matrixDotOk
-                            : (src.status === 'error' || src.status === 'timeout') ? styles.matrixDotErr
+                            : (src.status === 'error' || src.status === 'timeout' || src.status === 'unavailable') ? styles.matrixDotErr
                             : styles.matrixDotWarn
                           }`} />
                           <span className={styles.matrixChipName}>{src.name}</span>
@@ -909,7 +921,7 @@ export function SourcesPage() {
                     <td>
                       <span className={`${styles.dot} ${
                         src.status === 'ok' ? styles.dotOk
-                        : (src.status === 'error' || src.status === 'timeout') ? styles.dotErr
+                        : (src.status === 'error' || src.status === 'timeout' || src.status === 'unavailable') ? styles.dotErr
                         : styles.dotWarn
                       }`} />
                     </td>

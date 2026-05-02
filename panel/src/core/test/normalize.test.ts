@@ -274,6 +274,15 @@ describe('normalizeDoctor', () => {
     expect(result.reachable).toBe(false)
     expect(result.error).toBe('missing key')
   })
+
+  /**
+   * 测试：保留 source catalog 新增分类
+   */
+  it('keeps catalog-only category values', () => {
+    expect(normalizeDoctor(makeDoctor({ category: 'office' })).type).toBe('office')
+    expect(normalizeDoctor(makeDoctor({ category: 'cn_tech' })).type).toBe('cn_tech')
+    expect(normalizeDoctor(makeDoctor({ category: 'fetch' })).type).toBe('fetch')
+  })
 })
 
 describe('integrationTypeLabel', () => {

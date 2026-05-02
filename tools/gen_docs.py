@@ -148,7 +148,7 @@ def main() -> int:
         args.output.write_text(content, encoding="utf-8")
         print(f"✓ 写入 {args.output}")
     else:
-        print(content)
+        sys.stdout.write(content)
     return 0
 
 

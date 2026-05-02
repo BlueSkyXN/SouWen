@@ -44,7 +44,9 @@ from souwen.source_registry import (
     AUTH_REQUIREMENT_LABELS,
     INTEGRATION_TYPE_LABELS,
     OPTIONAL_CREDENTIAL_EFFECT_LABELS,
+    credential_fields_label,
     get_all_sources,
+    missing_credential_fields,
 )
 
 # 集成类型分组的展示顺序
@@ -68,42 +70,9 @@ _LIMITED_OPTIONAL_EFFECTS = {
 }
 
 
-def _credential_value(
-    cfg: Any, source_name: str, field: str, primary_field: str | None
-) -> str | None:
-    """读取单个凭据字段。
-
-    频道级 `sources.<name>.api_key` 只覆盖主 config_field；多字段凭据的第二字段
-    仍读取 flat config，避免一个 api_key 误判为同时满足 client_id/secret。
-    """
-    if field == primary_field:
-        return cfg.resolve_api_key(source_name, field)
-    return getattr(cfg, field, None)
-
-
-def _missing_credential_fields(cfg: Any, source_name: str, meta: Any) -> list[str]:
-    """返回尚未满足的凭据字段列表。"""
-    fields = list(meta.credential_fields)
-    if not fields:
-        return []
-    missing: list[str] = []
-    for field in fields:
-        if meta.auth_requirement == "self_hosted" and field == meta.config_field:
-            value = cfg.resolve_base_url(source_name) or getattr(cfg, field, None)
-        else:
-            value = _credential_value(cfg, source_name, field, meta.config_field)
-        if not value:
-            missing.append(field)
-    return missing
-
-
-def _credential_fields_label(fields: list[str] | tuple[str, ...]) -> str:
-    return " / ".join(fields)
-
-
 def _optional_credential_message(meta: Any, configured: bool) -> tuple[str, str]:
     """生成可选凭据源的状态与提示。"""
-    field_label = _credential_fields_label(meta.credential_fields)
+    field_label = credential_fields_label(meta.credential_fields)
     if not field_label:
         return "ok", "免配置可用"
     if configured:
@@ -150,7 +119,7 @@ def check_all() -> list[dict]:
     for name, meta in all_sources.items():
         enabled = cfg.is_source_enabled(name)
         field = meta.config_field
-        missing_fields = _missing_credential_fields(cfg, name, meta)
+        missing_fields = missing_credential_fields(cfg, name, meta)
         has_all_credentials = not missing_fields
 
         if not enabled:
@@ -176,18 +145,18 @@ def check_all() -> list[dict]:
                 message = "自建实例配置由插件或默认配置提供"
             elif has_all_credentials:
                 status = "ok"
-                message = f"{_credential_fields_label(meta.credential_fields)} 已配置"
+                message = f"{credential_fields_label(meta.credential_fields)} 已配置"
             else:
                 status = "missing_key"
-                message = f"需要配置自建实例: {_credential_fields_label(missing_fields)}"
+                message = f"需要配置自建实例: {credential_fields_label(missing_fields)}"
         else:
             if has_all_credentials:
                 status = "ok"
-                message = f"{_credential_fields_label(meta.credential_fields)} 已配置"
+                message = f"{credential_fields_label(meta.credential_fields)} 已配置"
             else:
                 status = "missing_key"
                 suffix = "（仅支持 DOI OA 查找）" if name == "unpaywall" else ""
-                message = f"需要设置 {_credential_fields_label(missing_fields)}{suffix}"
+                message = f"需要设置 {credential_fields_label(missing_fields)}{suffix}"
 
         if (
             enabled

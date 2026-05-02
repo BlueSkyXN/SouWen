@@ -32,6 +32,12 @@ def clean_registry():
         _REGISTRY.update(saved_registry)
         _EXTERNAL_PLUGINS.clear()
         _EXTERNAL_PLUGINS.update(saved_plugins)
+        try:
+            from souwen.source_registry import invalidate_source_meta_cache
+
+            invalidate_source_meta_cache()
+        except ImportError:
+            pass
 
 
 @pytest.fixture

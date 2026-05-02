@@ -28,6 +28,50 @@ export interface HealthResponse {
 }
 
 /**
+ * 后端 source catalog 的固定分类，与 souwen.models.ALL_SOURCES 保持一致。
+ */
+export type SourceCategory =
+  | 'paper'
+  | 'patent'
+  | 'general'
+  | 'professional'
+  | 'social'
+  | 'office'
+  | 'developer'
+  | 'wiki'
+  | 'cn_tech'
+  | 'video'
+  | 'fetch'
+
+export const SOURCE_CATEGORY_ORDER: readonly SourceCategory[] = [
+  'paper',
+  'patent',
+  'general',
+  'professional',
+  'social',
+  'office',
+  'developer',
+  'wiki',
+  'cn_tech',
+  'video',
+  'fetch',
+]
+
+export const SOURCE_CATEGORY_LABEL_KEYS: Record<SourceCategory, string> = {
+  paper: 'sources.categoryPaper',
+  patent: 'sources.categoryPatent',
+  general: 'sources.categoryGeneral',
+  professional: 'sources.categoryProfessional',
+  social: 'sources.categorySocial',
+  office: 'sources.categoryOffice',
+  developer: 'sources.categoryDeveloper',
+  wiki: 'sources.categoryWiki',
+  cn_tech: 'sources.categoryCnTech',
+  video: 'sources.categoryVideo',
+  fetch: 'sources.categoryFetch',
+}
+
+/**
  * 数据源信息（可用性、需要的密钥）
  */
 export interface SourceInfo {
@@ -56,8 +100,10 @@ export interface SourcesResponse {
   general: SourceInfo[]
   professional: SourceInfo[]
   social: SourceInfo[]
+  office: SourceInfo[]
   developer: SourceInfo[]
   wiki: SourceInfo[]
+  cn_tech: SourceInfo[]
   video: SourceInfo[]
   fetch: SourceInfo[]
 }
@@ -67,7 +113,7 @@ export interface SourcesResponse {
  */
 export interface DoctorSource {
   name: string
-  category: string
+  category: SourceCategory
   status: string
   integration_type: string
   required_key: string | null
@@ -97,7 +143,7 @@ export interface SourceChannelConfig {
   has_api_key: boolean
   headers: Record<string, string>
   params: Record<string, string | number | boolean>
-  category: string
+  category: SourceCategory
   integration_type: string
   key_requirement?: 'none' | 'optional' | 'required' | 'self_hosted'
   auth_requirement?: 'none' | 'optional' | 'required' | 'self_hosted'
@@ -117,7 +163,7 @@ export interface SourceChannelConfig {
  */
 export interface DoctorResult {
   source: string
-  category: string
+  category: SourceCategory
   integration_type: string
   reachable: boolean
   latency_ms?: number

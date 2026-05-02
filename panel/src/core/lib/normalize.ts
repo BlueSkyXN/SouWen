@@ -53,7 +53,7 @@
  *     - ../i18n: 国际化（标签翻译）
  */
 
-import type { PaperResult, PatentResult, WebResult, DoctorSource } from '../types'
+import type { PaperResult, PatentResult, WebResult, DoctorSource, SourceCategory } from '../types'
 import i18n from '../i18n'
 
 /**
@@ -101,7 +101,7 @@ export interface NormalizedWeb {
  */
 export interface NormalizedSource {
   name: string
-  type: 'paper' | 'patent' | 'general' | 'professional' | 'social' | 'developer' | 'wiki' | 'video' | 'fetch'
+  type: SourceCategory
   integration_type: string
   key_requirement: 'none' | 'optional' | 'required' | 'self_hosted'
   risk_level: 'low' | 'medium' | 'high'
@@ -172,7 +172,7 @@ export function normalizeWeb(raw: WebResult): NormalizedWeb {
 export function normalizeDoctor(raw: DoctorSource): NormalizedSource {
   return {
     name: raw.name || '',
-    type: (raw.category as NormalizedSource['type']) || 'paper',
+    type: raw.category || 'paper',
     integration_type: typeof raw.integration_type === 'string' ? raw.integration_type : 'open_api',
     key_requirement: raw.key_requirement || 'none',
     risk_level: raw.risk_level || 'low',
@@ -206,9 +206,12 @@ export function typeLabel(type: string): string {
     case 'general': return i18n.t('common.general')
     case 'professional': return i18n.t('common.professional')
     case 'social': return i18n.t('common.social')
+    case 'office': return i18n.t('common.office')
     case 'developer': return i18n.t('common.developer')
     case 'wiki': return i18n.t('common.wiki')
+    case 'cn_tech': return i18n.t('common.cn_tech')
     case 'video': return i18n.t('common.video')
+    case 'fetch': return i18n.t('common.fetch')
     default: return type
   }
 }

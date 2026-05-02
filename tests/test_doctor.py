@@ -9,7 +9,10 @@
 - ``TestFormatReport``：format_report() 字符串输出、标题/Tier 分组、状态符号
 """
 
+import pytest
+
 from souwen.doctor import check_all, format_report
+from souwen.exceptions import ConfigError
 from souwen.source_registry import get_all_sources
 
 
@@ -133,6 +136,129 @@ class TestCheckAll:
             assert source["status"] == "missing_key"
             assert source["credential_fields"] == ["epo_consumer_key", "epo_consumer_secret"]
             assert "epo_consumer_key / epo_consumer_secret" in source["message"]
+        finally:
+            get_config.cache_clear()
+
+    @pytest.mark.asyncio
+    async def test_multifield_channel_primary_override_matches_client_init(self, monkeypatch):
+        """频道 api_key 可覆盖主字段，但第二凭据字段仍来自 flat/env 配置。"""
+        for key in (
+            "SOUWEN_EPO_CONSUMER_KEY",
+            "SOUWEN_EPO_CONSUMER_SECRET",
+            "SOUWEN_CNIPA_CLIENT_ID",
+            "SOUWEN_CNIPA_CLIENT_SECRET",
+            "SOUWEN_FACEBOOK_APP_ID",
+            "SOUWEN_FACEBOOK_APP_SECRET",
+            "SOUWEN_FEISHU_APP_ID",
+            "SOUWEN_FEISHU_APP_SECRET",
+        ):
+            monkeypatch.delenv(key, raising=False)
+        monkeypatch.setenv(
+            "SOUWEN_SOURCES",
+            (
+                '{"epo_ops":{"api_key":"epo-key"},'
+                '"cnipa":{"api_key":"cnipa-id"},'
+                '"facebook":{"api_key":"fb-app"},'
+                '"feishu_drive":{"api_key":"feishu-app"}}'
+            ),
+        )
+        monkeypatch.setenv("SOUWEN_EPO_CONSUMER_SECRET", "epo-secret")
+        monkeypatch.setenv("SOUWEN_CNIPA_CLIENT_SECRET", "cnipa-secret")
+        monkeypatch.setenv("SOUWEN_FACEBOOK_APP_SECRET", "fb-secret")
+        monkeypatch.setenv("SOUWEN_FEISHU_APP_SECRET", "feishu-secret")
+
+        from souwen.config import get_config
+        from souwen.patent.cnipa import CnipaClient
+        from souwen.patent.epo_ops import EpoOpsClient
+        from souwen.web.facebook import FacebookClient
+        from souwen.web.feishu_drive import FeishuDriveClient
+
+        get_config.cache_clear()
+        clients = []
+        try:
+            results = check_all()
+            for source_name in ("epo_ops", "cnipa", "facebook", "feishu_drive"):
+                source = next(r for r in results if r["name"] == source_name)
+                assert source["status"] == "ok"
+
+            epo = EpoOpsClient()
+            cnipa = CnipaClient()
+            facebook = FacebookClient()
+            feishu = FeishuDriveClient()
+            clients.extend([epo, cnipa, facebook, feishu])
+
+            assert epo._http.client_id == "epo-key"
+            assert epo._http.client_secret == "epo-secret"
+            assert cnipa._http.client_id == "cnipa-id"
+            assert cnipa._http.client_secret == "cnipa-secret"
+            assert facebook._access_token == "fb-app|fb-secret"
+            assert feishu.app_id == "feishu-app"
+            assert feishu.app_secret == "feishu-secret"
+        finally:
+            for client in clients:
+                await client.close()
+            get_config.cache_clear()
+
+    def test_multifield_secondary_credentials_do_not_use_channel_api_key(self, monkeypatch):
+        """多字段第二字段不能被同一个频道 api_key 误判为已配置。"""
+        for key in (
+            "SOUWEN_FACEBOOK_APP_ID",
+            "SOUWEN_FACEBOOK_APP_SECRET",
+            "SOUWEN_FEISHU_APP_ID",
+            "SOUWEN_FEISHU_APP_SECRET",
+        ):
+            monkeypatch.delenv(key, raising=False)
+        monkeypatch.setenv("SOUWEN_FACEBOOK_APP_SECRET", "")
+        monkeypatch.setenv("SOUWEN_FEISHU_APP_SECRET", "")
+        monkeypatch.setenv(
+            "SOUWEN_SOURCES",
+            (
+                '{"facebook":{"api_key":"fb-app"},'
+                '"feishu_drive":{"api_key":"feishu-app"},'
+                '"feishu_drive_secret":{"api_key":"feishu-secret"}}'
+            ),
+        )
+
+        from souwen.config import get_config
+        from souwen.web.facebook import FacebookClient
+        from souwen.web.feishu_drive import FeishuDriveClient
+
+        get_config.cache_clear()
+        try:
+            results = check_all()
+            facebook = next(r for r in results if r["name"] == "facebook")
+            feishu = next(r for r in results if r["name"] == "feishu_drive")
+
+            assert facebook["status"] == "missing_key"
+            assert "facebook_app_secret" in facebook["message"]
+            assert feishu["status"] == "missing_key"
+            assert "feishu_app_secret" in feishu["message"]
+            with pytest.raises(ConfigError):
+                FacebookClient()
+            with pytest.raises(ConfigError):
+                FeishuDriveClient()
+        finally:
+            get_config.cache_clear()
+
+    @pytest.mark.asyncio
+    async def test_sources_routes_require_multifield_secondary_credentials(self, monkeypatch):
+        """/sources 与 admin 配置不能把仅有 primary override 的多字段源标成可用。"""
+        monkeypatch.setenv("SOUWEN_EPO_CONSUMER_KEY", "")
+        monkeypatch.setenv("SOUWEN_EPO_CONSUMER_SECRET", "")
+        monkeypatch.setenv("SOUWEN_SOURCES", '{"epo_ops":{"api_key":"epo-key"}}')
+
+        from souwen.config import get_config
+        from souwen.server.routes.admin.sources import get_source_config
+        from souwen.server.routes.sources import list_sources
+
+        get_config.cache_clear()
+        try:
+            sources = await list_sources()
+            patent_names = {item["name"] for item in sources.get("patent", [])}
+            assert "epo_ops" not in patent_names
+
+            admin_entry = await get_source_config("epo_ops")
+            assert admin_entry["has_api_key"] is False
         finally:
             get_config.cache_clear()
 
