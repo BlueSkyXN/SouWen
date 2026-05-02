@@ -11,7 +11,7 @@
 
 import pytest
 
-from souwen.doctor import check_all, format_report
+from souwen.doctor import check_all, format_report, summarize_statuses
 from souwen.exceptions import ConfigError
 from souwen.source_registry import get_all_sources
 
@@ -255,6 +255,25 @@ class TestCheckAll:
         assert source["status"] == "warning"
         assert "实验性爬虫" in source["message"]
 
+    def test_status_summary_counts_available_and_degraded(self):
+        """doctor 汇总应把 limited/warning 计为可用但降级。"""
+        counts = summarize_statuses(
+            [
+                {"status": "ok"},
+                {"status": "limited"},
+                {"status": "warning"},
+                {"status": "degraded"},
+                {"status": "missing_key"},
+                {"status": "unavailable"},
+            ]
+        )
+        assert counts["total"] == 6
+        assert counts["ok"] == 1
+        assert counts["available"] == 4
+        assert counts["degraded"] == 3
+        assert counts["status_counts"]["degraded"] == 1
+        assert counts["failed"] == 2
+
 
 class TestFormatReport:
     """format_report() 测试"""
@@ -297,6 +316,6 @@ class TestFormatReport:
     def test_counts_in_header(self):
         """标题行显示 可用数/总数"""
         results = check_all()
-        ok_count = sum(1 for r in results if r["status"] == "ok")
+        ok_count = summarize_statuses(results)["available"]
         report = format_report(results)
         assert f"{ok_count}/{len(results)}" in report

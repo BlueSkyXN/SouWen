@@ -152,6 +152,36 @@ class TestAdminAuth:
         assert "risk_level" in first_source
         assert "distribution" in first_source
 
+    def test_admin_doctor_counts_limited_and_warning_as_available(self, authed_client, monkeypatch):
+        """doctor 汇总应区分严格 ok、可用、降级和失败。"""
+        import souwen.doctor as doctor_mod
+
+        monkeypatch.setattr(
+            doctor_mod,
+            "check_all",
+            lambda: [
+                {"name": "ok", "status": "ok"},
+                {"name": "limited", "status": "limited"},
+                {"name": "warning", "status": "warning"},
+                {"name": "degraded", "status": "degraded"},
+                {"name": "missing", "status": "missing_key"},
+                {"name": "unavailable", "status": "unavailable"},
+            ],
+        )
+        resp = authed_client.get(
+            "/api/v1/admin/doctor",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 6
+        assert data["ok"] == 1
+        assert data["available"] == 4
+        assert data["degraded"] == 3
+        assert data["status_counts"]["degraded"] == 1
+        assert data["failed"] == 2
+        assert data["status_counts"]["limited"] == 1
+
     def test_admin_sources_config_includes_catalog_fields(self, authed_client):
         """数据源频道配置应返回 source catalog 字段，供前端展示和运维判断。"""
         resp = authed_client.get(
@@ -302,6 +332,33 @@ class TestSearchAuth:
         admin_resp = client.get("/api/v1/admin/sources/config/epo_ops")
         assert admin_resp.status_code == 200
         assert admin_resp.json()["has_api_key"] is False
+
+    def test_sources_uses_live_registry_for_runtime_plugins(self, client, clean_registry):
+        """/sources 应从 live registry 派生，插件注销后不再返回死源。"""
+        from souwen.registry.adapter import MethodSpec, SourceAdapter
+        from souwen.registry.loader import lazy
+        from souwen.registry.views import _reg_external, _unreg_external
+
+        adapter = SourceAdapter(
+            name="runtime_sources_probe",
+            domain="fetch",
+            integration="scraper",
+            description="runtime source probe",
+            config_field=None,
+            client_loader=lazy("souwen.web.builtin:BuiltinFetcherClient"),
+            methods={"fetch": MethodSpec("fetch")},
+            needs_config=False,
+        )
+
+        assert _reg_external(adapter) is True
+        data = client.get("/api/v1/sources").json()
+        assert "runtime_sources_probe" in {item["name"] for item in data.get("fetch", [])}
+
+        assert _unreg_external("runtime_sources_probe") is True
+        data = client.get("/api/v1/sources").json()
+        assert "runtime_sources_probe" not in {
+            item["name"] for entries in data.values() for item in entries
+        }
 
     # --- 双密钥：visitor 和 admin 密码均可访问搜索端点 ---
     def test_dual_key_visitor_password_accepted(self, dual_key_client):

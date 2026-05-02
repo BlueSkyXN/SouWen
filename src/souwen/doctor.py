@@ -69,6 +69,40 @@ _LIMITED_OPTIONAL_EFFECTS = {
     "private_access",
 }
 
+AVAILABLE_STATUSES = frozenset({"ok", "limited", "warning", "degraded"})
+DEGRADED_STATUSES = frozenset({"limited", "warning", "degraded"})
+
+
+def is_available_status(status: str | None) -> bool:
+    """判断 doctor 状态是否仍可用。"""
+    return status in AVAILABLE_STATUSES
+
+
+def summarize_statuses(results: list[dict]) -> dict[str, int | dict[str, int]]:
+    """汇总 doctor 状态，区分严格 ok、可用、降级与失败。"""
+    status_counts: dict[str, int] = {}
+    for result in results:
+        status = str(result.get("status") or "unknown")
+        status_counts[status] = status_counts.get(status, 0) + 1
+
+    total = len(results)
+    available = sum(status_counts.get(status, 0) for status in AVAILABLE_STATUSES)
+    degraded = sum(status_counts.get(status, 0) for status in DEGRADED_STATUSES)
+    failed = total - available
+    return {
+        "total": total,
+        "ok": status_counts.get("ok", 0),
+        "available": available,
+        "degraded": degraded,
+        "failed": failed,
+        "limited": status_counts.get("limited", 0),
+        "warning": status_counts.get("warning", 0),
+        "missing_key": status_counts.get("missing_key", 0),
+        "unavailable": status_counts.get("unavailable", 0),
+        "disabled": status_counts.get("disabled", 0),
+        "status_counts": status_counts,
+    }
+
 
 def _optional_credential_message(meta: Any, configured: bool) -> tuple[str, str]:
     """生成可选凭据源的状态与提示。"""
@@ -225,11 +259,12 @@ def format_report(results: list[dict]) -> str:
           ✅ openalex           [paper]    可免配置使用；设置 openalex_email...
           ...
     """
-    total = len(results)
-    ok_count = sum(1 for r in results if r["status"] == "ok")
+    counts = summarize_statuses(results)
+    total = int(counts["total"])
+    available_count = int(counts["available"])
     lines: list[str] = [
         "🩺 SouWen Doctor — 数据源健康检查",
-        f"   {ok_count}/{total} 个数据源可用\n",
+        f"   {available_count}/{total} 个数据源可用\n",
     ]
 
     # 按集成类型分组
@@ -241,7 +276,7 @@ def format_report(results: list[dict]) -> str:
         items = by_type[itype]
         if not items:
             continue
-        type_ok = sum(1 for r in items if r["status"] == "ok")
+        type_ok = sum(1 for r in items if is_available_status(r.get("status")))
         label = INTEGRATION_TYPE_LABELS.get(itype, itype)
         lines.append(f"── {label}  ({type_ok}/{len(items)}) ──")
         for r in items:

@@ -32,6 +32,7 @@ import { useNotificationStore } from '@core/stores/notificationStore'
 import { useAuthStore } from '@core/stores/authStore'
 import { formatError } from '@core/lib/errors'
 import { staggerContainer, staggerItem } from '@core/lib/animations'
+import { doctorAvailableCount, doctorStatusOrder, doctorStatusTone } from '@core/lib/sourceStatus'
 import { Spinner } from '../components/common/Spinner'
 import type { DoctorResponse } from '@core/types'
 import styles from './DashboardPage.module.scss'
@@ -84,13 +85,12 @@ export function DashboardPage() {
   const paperCount = doctor.sources.filter((s) => s.category === 'paper').length
   const patentCount = doctor.sources.filter((s) => s.category === 'patent').length
   const webCount = doctor.sources.filter((s) => !['paper', 'patent'].includes(s.category)).length
-  const okCount = doctor.ok
+  const okCount = doctorAvailableCount(doctor.sources, doctor.available)
   const totalCount = doctor.total
   const healthPct = totalCount > 0 ? Math.round((okCount / totalCount) * 100) : 0
 
-  const statusOrder: Record<string, number> = { ok: 0, degraded: 1, needs_key: 2, error: 3, timeout: 4 }
   const sortedSources = [...doctor.sources].sort((a, b) => {
-    const diff = (statusOrder[a.status] ?? 5) - (statusOrder[b.status] ?? 5)
+    const diff = doctorStatusOrder(a.status) - doctorStatusOrder(b.status)
     return diff !== 0 ? diff : a.name.localeCompare(b.name)
   })
 
@@ -178,9 +178,10 @@ export function DashboardPage() {
         <div className={styles.groupTitle}>{t('dashboard.name', 'Sources')}</div>
         <div className={styles.groupCard}>
           {sortedSources.map((src, i) => {
-            const statusClass = src.status === 'ok'
+            const statusTone = doctorStatusTone(src.status)
+            const statusClass = statusTone === 'ok'
               ? styles.statusOk
-              : src.status === 'needs_key'
+              : statusTone === 'warn' || statusTone === 'muted'
                 ? styles.statusWarn
                 : styles.statusErr
 

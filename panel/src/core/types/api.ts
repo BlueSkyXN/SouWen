@@ -176,6 +176,15 @@ export interface DoctorResult {
 export interface DoctorResponse {
   total: number
   ok: number
+  available?: number
+  degraded?: number
+  failed?: number
+  limited?: number
+  warning?: number
+  missing_key?: number
+  unavailable?: number
+  disabled?: number
+  status_counts?: Record<string, number>
   sources: DoctorSource[]
 }
 

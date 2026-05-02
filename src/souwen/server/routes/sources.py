@@ -17,23 +17,24 @@ async def list_sources():
     确保前端搜索页只展示真正可用的通道。
     """
     from souwen.config import get_config
-    from souwen.models import ALL_SOURCES
+    from souwen.registry import as_all_sources_dict
     from souwen.source_registry import get_source, has_required_credentials
 
     cfg = get_config()
+    all_sources = as_all_sources_dict()
 
     def _is_usable(name: str) -> bool:
         if not cfg.is_source_enabled(name):
             return False
         meta = get_source(name)
         if meta is None:
-            return True
+            return False
         return has_required_credentials(cfg, name, meta)
 
-    def _source_item(name: str, needs_key: bool, desc: str) -> dict:
+    def _source_item(name: str) -> dict | None:
         meta = get_source(name)
         if meta is None:
-            return {"name": name, "needs_key": needs_key, "description": desc}
+            return None
         return {
             "name": name,
             "needs_key": meta.needs_config,
@@ -51,11 +52,13 @@ async def list_sources():
             "description": meta.description,
         }
 
-    return {
-        category: [
-            _source_item(name, needs_key, desc)
-            for name, needs_key, desc in entries
-            if _is_usable(name)
-        ]
-        for category, entries in ALL_SOURCES.items()
-    }
+    result: dict[str, list[dict]] = {}
+    for category, entries in all_sources.items():
+        result[category] = []
+        for name, _needs_key, _desc in entries:
+            if not _is_usable(name):
+                continue
+            item = _source_item(name)
+            if item is not None:
+                result[category].append(item)
+    return result

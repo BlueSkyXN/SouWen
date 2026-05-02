@@ -464,7 +464,7 @@ Cache-Control: public, max-age=3600
 
 #### `GET /api/v1/sources`
 
-列出所有可用数据源及其状态（受访客认证保护）。返回结果按展示分类分组，并且只包含当前配置下可用的源：必须凭据或自建实例缺失的源会被隐藏；可选凭据源仍会返回，但会带上 `auth_requirement="optional"` 与 `credential_fields` 供前端提示。
+列出所有可用数据源及其状态（受访客认证保护）。返回结果按展示分类分组，并且从运行时 live registry 派生：必须凭据或自建实例缺失的源会被隐藏，插件注册/注销后的源会随请求即时反映；可选凭据源仍会返回，但会带上 `auth_requirement="optional"` 与 `credential_fields` 供前端提示。
 
 **响应示例：**
 ```json
@@ -545,6 +545,21 @@ Cache-Control: public, max-age=3600
 {
   "total": 93,
   "ok": 48,
+  "available": 72,
+  "degraded": 24,
+  "failed": 21,
+  "limited": 20,
+  "warning": 4,
+  "missing_key": 18,
+  "unavailable": 3,
+  "disabled": 0,
+  "status_counts": {
+    "ok": 48,
+    "limited": 20,
+    "warning": 4,
+    "missing_key": 18,
+    "unavailable": 3
+  },
   "sources": [
     {
       "name": "openalex",

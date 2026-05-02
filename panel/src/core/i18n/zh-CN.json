@@ -827,7 +827,10 @@
   },
   "status": {
     "ok": "正常",
+    "limited": "受限",
+    "degraded": "降级",
     "warn": "警告",
-    "err": "异常"
+    "err": "异常",
+    "timeout": "超时"
   }
 }

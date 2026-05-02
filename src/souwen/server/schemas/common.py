@@ -43,7 +43,7 @@ class SourceInfo(BaseModel):
 class SourcesResponse(BaseModel):
     """数据源列表响应 — 按类别分组
 
-    与 souwen.models.ALL_SOURCES 的 11 个分类一一对应，/sources 端点
+    与 registry live 兼容视图的 11 个分类一一对应，/sources 端点
     会按类别返回当前可用（凭据满足）的数据源列表。
     """
 

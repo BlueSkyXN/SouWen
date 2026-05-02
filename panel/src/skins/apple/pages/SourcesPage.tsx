@@ -33,6 +33,7 @@ import { api } from '@core/services/api'
 import { useNotificationStore } from '@core/stores/notificationStore'
 import { formatError } from '@core/lib/errors'
 import { staggerContainer, staggerItem } from '@core/lib/animations'
+import { doctorStatusOrder, isDoctorStatusAvailable, sourceCredentialLabel } from '@core/lib/sourceStatus'
 import { Spinner } from '../components/common/Spinner'
 import { SOURCE_CATEGORY_LABEL_KEYS, SOURCE_CATEGORY_ORDER } from '@core/types'
 import type { DoctorResponse, DoctorSource, SourceCategory, SourceChannelConfig, WarpStatus } from '@core/types'
@@ -306,7 +307,7 @@ export function SourcesPage() {
   }, [fetchData, addToast, t])
 
   const handleToggle = useCallback((src: DoctorSource) => {
-    if (src.enabled && src.status === 'ok') {
+    if (src.enabled && isDoctorStatusAvailable(src.status)) {
       setConfirmSource(src)
     } else {
       void executeToggle(src.name, src.enabled)
@@ -336,24 +337,12 @@ export function SourcesPage() {
   }
 
   const sourcesByCategory: Record<string, DoctorSource[]> = {}
-  const statusOrder: Record<string, number> = {
-    ok: 0,
-    limited: 1,
-    warning: 2,
-    degraded: 2,
-    missing_key: 3,
-    needs_key: 3,
-    unavailable: 4,
-    error: 5,
-    timeout: 6,
-    disabled: 7,
-  }
   for (const cat of CATEGORY_ORDER) {
     sourcesByCategory[cat] = doctor.sources
       .filter((s) => s.category === cat)
       .sort((a, b) => {
         if (a.enabled !== b.enabled) return a.enabled ? -1 : 1
-        const diff = (statusOrder[a.status] ?? 5) - (statusOrder[b.status] ?? 5)
+        const diff = doctorStatusOrder(a.status) - doctorStatusOrder(b.status)
         return diff !== 0 ? diff : a.name.localeCompare(b.name)
       })
   }
@@ -425,10 +414,10 @@ export function SourcesPage() {
 
                   <div className={styles.cardDesc}>{src.message}</div>
 
-                  {src.required_key && (
+                  {sourceCredentialLabel(src) && (
                     <div className={styles.authInfo}>
                       <Key size={11} />
-                      <code className={styles.authKey}>{src.required_key}</code>
+                      <code className={styles.authKey}>{sourceCredentialLabel(src)}</code>
                     </div>
                   )}
 

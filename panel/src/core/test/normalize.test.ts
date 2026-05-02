@@ -263,6 +263,18 @@ describe('normalizeDoctor', () => {
     expect(result.error).toBeNull()
   })
 
+  it('marks limited, warning, and degraded statuses as reachable', () => {
+    expect(normalizeDoctor(makeDoctor({
+      name: 'semantic_scholar', status: 'limited', message: 'limited by quota',
+    })).reachable).toBe(true)
+    expect(normalizeDoctor(makeDoctor({
+      name: 'google_patents', status: 'warning', message: 'experimental',
+    })).reachable).toBe(true)
+    expect(normalizeDoctor(makeDoctor({
+      name: 'legacy_source', status: 'degraded', message: 'legacy degraded status',
+    })).reachable).toBe(true)
+  })
+
   /**
    * 测试：status=error 标记为不可达并保留错误消息
    */

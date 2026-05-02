@@ -55,6 +55,7 @@
 
 import type { PaperResult, PatentResult, WebResult, DoctorSource, SourceCategory } from '../types'
 import i18n from '../i18n'
+import { isDoctorStatusAvailable } from './sourceStatus'
 
 /**
  * 论文搜索结果规范格式
@@ -170,6 +171,7 @@ export function normalizeWeb(raw: WebResult): NormalizedWeb {
  * 规范化诊断系统数据源信息
  */
 export function normalizeDoctor(raw: DoctorSource): NormalizedSource {
+  const reachable = isDoctorStatusAvailable(raw.status)
   return {
     name: raw.name || '',
     type: raw.category || 'paper',
@@ -178,8 +180,8 @@ export function normalizeDoctor(raw: DoctorSource): NormalizedSource {
     risk_level: raw.risk_level || 'low',
     distribution: raw.distribution || 'core',
     stability: raw.stability || 'stable',
-    reachable: raw.status === 'ok',
-    error: raw.status !== 'ok' ? raw.message || null : null,
+    reachable,
+    error: reachable ? null : raw.message || null,
   }
 }
 
