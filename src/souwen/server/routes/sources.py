@@ -22,23 +22,60 @@ async def list_sources():
 
     cfg = get_config()
 
-    def _is_usable(name: str, needs_key: bool) -> bool:
+    def _credential_value(name: str, field: str, primary_field: str | None) -> str | None:
+        if field == primary_field:
+            return cfg.resolve_api_key(name, field)
+        return getattr(cfg, field, None)
+
+    def _has_required_credentials(name: str, meta) -> bool:
+        if meta.auth_requirement == "none" or meta.auth_requirement == "optional":
+            return True
+        fields = meta.credential_fields
+        if not fields:
+            return True
+        for field in fields:
+            if meta.auth_requirement == "self_hosted" and field == meta.config_field:
+                value = cfg.resolve_base_url(name) or getattr(cfg, field, None)
+            else:
+                value = _credential_value(name, field, meta.config_field)
+            if not value:
+                return False
+        return True
+
+    def _is_usable(name: str) -> bool:
         if not cfg.is_source_enabled(name):
             return False
-        if not needs_key:
-            return True
         meta = get_source(name)
-        if meta is None or meta.config_field is None:
+        if meta is None:
             return True
-        if meta.integration_type == "self_hosted":
-            return bool(cfg.resolve_base_url(name) or getattr(cfg, meta.config_field, None))
-        return bool(cfg.resolve_api_key(name, meta.config_field))
+        return _has_required_credentials(name, meta)
+
+    def _source_item(name: str, needs_key: bool, desc: str) -> dict:
+        meta = get_source(name)
+        if meta is None:
+            return {"name": name, "needs_key": needs_key, "description": desc}
+        return {
+            "name": name,
+            "needs_key": meta.needs_config,
+            "key_requirement": meta.key_requirement,
+            "auth_requirement": meta.auth_requirement,
+            "credential_fields": list(meta.credential_fields),
+            "optional_credential_effect": meta.optional_credential_effect,
+            "integration_type": meta.integration_type,
+            "risk_level": meta.risk_level,
+            "risk_reasons": sorted(meta.risk_reasons),
+            "distribution": meta.distribution,
+            "package_extra": meta.package_extra,
+            "stability": meta.stability,
+            "default_enabled": meta.default_enabled,
+            "description": meta.description,
+        }
 
     return {
         category: [
-            {"name": name, "needs_key": needs_key, "description": desc}
+            _source_item(name, needs_key, desc)
             for name, needs_key, desc in entries
-            if _is_usable(name, needs_key)
+            if _is_usable(name)
         ]
         for category, entries in ALL_SOURCES.items()
     }

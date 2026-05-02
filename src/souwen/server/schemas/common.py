@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 
@@ -18,30 +20,44 @@ class SourceInfo(BaseModel):
     Attributes:
         name: 数据源名称（如 "openalex"）
         needs_key: 是否需要 API Key 才能使用
+        key_requirement/auth_requirement: none / optional / required / self_hosted
         description: 对数据源的描述
     """
 
     name: str
     needs_key: bool
     description: str
+    key_requirement: Literal["none", "optional", "required", "self_hosted"] = "none"
+    auth_requirement: Literal["none", "optional", "required", "self_hosted"] = "none"
+    credential_fields: list[str] = Field(default_factory=list)
+    optional_credential_effect: str | None = None
+    integration_type: str | None = None
+    risk_level: Literal["low", "medium", "high"] = "low"
+    risk_reasons: list[str] = Field(default_factory=list)
+    distribution: Literal["core", "extra", "plugin"] = "core"
+    package_extra: str | None = None
+    stability: Literal["stable", "beta", "experimental", "deprecated"] = "stable"
+    default_enabled: bool = True
 
 
 class SourcesResponse(BaseModel):
     """数据源列表响应 — 按类别分组
 
-    与 souwen.models.ALL_SOURCES 的 9 个分类一一对应，/sources 端点
+    与 souwen.models.ALL_SOURCES 的 11 个分类一一对应，/sources 端点
     会按类别返回当前可用（凭据满足）的数据源列表。
     """
 
-    paper: list[SourceInfo] = []
-    patent: list[SourceInfo] = []
-    general: list[SourceInfo] = []
-    professional: list[SourceInfo] = []
-    social: list[SourceInfo] = []
-    developer: list[SourceInfo] = []
-    wiki: list[SourceInfo] = []
-    video: list[SourceInfo] = []
-    fetch: list[SourceInfo] = []
+    paper: list[SourceInfo] = Field(default_factory=list)
+    patent: list[SourceInfo] = Field(default_factory=list)
+    general: list[SourceInfo] = Field(default_factory=list)
+    professional: list[SourceInfo] = Field(default_factory=list)
+    social: list[SourceInfo] = Field(default_factory=list)
+    developer: list[SourceInfo] = Field(default_factory=list)
+    wiki: list[SourceInfo] = Field(default_factory=list)
+    video: list[SourceInfo] = Field(default_factory=list)
+    fetch: list[SourceInfo] = Field(default_factory=list)
+    cn_tech: list[SourceInfo] = Field(default_factory=list)
+    office: list[SourceInfo] = Field(default_factory=list)
 
 
 class SearchMeta(BaseModel):

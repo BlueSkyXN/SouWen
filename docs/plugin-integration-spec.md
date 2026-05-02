@@ -116,6 +116,48 @@ registry/__init__.py 导入
 | `default_for` | `frozenset()` | 形如 `{"web:search"}`；外部插件**不建议**抢占默认位 |
 | `tags` | `frozenset()` | 见下表 |
 | `needs_config` | `None` | 是否"必须配置才能工作"；建议显式声明（`True` / `False`） |
+| `auth_requirement` | `None` | `none` / `optional` / `required` / `self_hosted`；None 时从旧字段派生 |
+| `credential_fields` | `()` | 完整凭据字段；多字段凭据应列全 |
+| `optional_credential_effect` | `None` | 可选凭据收益：`rate_limit` / `quota` / `quality` / `personalization` / `private_access` / `write_access` / `politeness` / `unknown` |
+| `risk_level` | `"low"` | `low` / `medium` / `high` |
+| `risk_reasons` | `frozenset()` | 风险原因标签，如 `anti_scraping` / `captcha` / `quota_cost` / `requires_browser` |
+| `distribution` | `"core"` | 内置或插件推荐分发范围：`core` / `extra` / `plugin`；外部插件运行时会被视为 `plugin` |
+| `package_extra` | `None` | 建议 optional dependency 组，如 `browser` / `scraper` |
+| `stability` | `"stable"` | `stable` / `beta` / `experimental` / `deprecated` |
+
+### 鉴权、风险与分发建议
+
+`integration` 只描述技术接入方式，不描述凭据强度。插件作者应显式声明 catalog 字段，让 CLI、doctor、API 和 Panel 能给出一致提示：
+
+```python
+plugin = SourceAdapter(
+    name="my_source",
+    domain="web",
+    integration="official_api",
+    description="My Source Search",
+    config_field="my_source_api_key",
+    needs_config=False,
+    auth_requirement="optional",
+    credential_fields=("my_source_api_key",),
+    optional_credential_effect="rate_limit",
+    risk_level="low",
+    distribution="plugin",
+    package_extra="my_source",
+    stability="stable",
+    client_loader=lazy("my_plugin.client:MySourceClient"),
+    methods={"search": MethodSpec("search")},
+)
+```
+
+常见组合：
+
+| 场景 | 推荐声明 |
+|---|---|
+| 无凭据即可运行 | `auth_requirement="none"` |
+| Key 只提升限流或配额 | `auth_requirement="optional"` + `optional_credential_effect="rate_limit"` / `"quota"` |
+| 必须凭据 | `auth_requirement="required"` + `credential_fields=(...)` |
+| 自建实例 | `auth_requirement="self_hosted"` + `config_field="<source>_url"` |
+| 高风控/重依赖插件 | `risk_level="medium"` 或 `"high"`，并填写 `risk_reasons` / `package_extra` |
 
 ### 推荐 tag
 
@@ -143,6 +185,12 @@ from souwen.registry.adapter import (
                     #  "search_articles","search_users","get_detail","get_trending",
                     #  "get_transcript","fetch","archive_lookup","archive_save"}
     INTEGRATIONS,   # {"open_api","scraper","official_api","self_hosted"}
+    AUTH_REQUIREMENTS,
+    OPTIONAL_CREDENTIAL_EFFECTS,
+    RISK_LEVELS,
+    RISK_REASONS,
+    DISTRIBUTIONS,
+    STABILITIES,
 )
 ```
 

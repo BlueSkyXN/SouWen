@@ -53,7 +53,7 @@ CAPABILITIES: frozenset[str] = frozenset(
     }
 )
 
-#: 集成类型
+#: 集成类型：描述"怎么接入"，不描述鉴权强度。
 INTEGRATIONS: frozenset[str] = frozenset(
     {
         "open_api",
@@ -62,6 +62,56 @@ INTEGRATIONS: frozenset[str] = frozenset(
         "self_hosted",
     }
 )
+
+#: 鉴权/配置要求：描述"运行前需要什么凭据或实例"。
+AUTH_REQUIREMENTS: frozenset[str] = frozenset(
+    {
+        "none",
+        "optional",
+        "required",
+        "self_hosted",
+    }
+)
+
+#: 可选凭据带来的主要收益。
+OPTIONAL_CREDENTIAL_EFFECTS: frozenset[str] = frozenset(
+    {
+        "rate_limit",
+        "quota",
+        "quality",
+        "personalization",
+        "private_access",
+        "write_access",
+        "politeness",
+        "unknown",
+    }
+)
+
+#: 风险等级：影响默认启用、默认搜索、文档提示，不等同于 integration。
+RISK_LEVELS: frozenset[str] = frozenset({"low", "medium", "high"})
+
+#: 风险原因标签。用于解释为什么一个源不适合默认调度。
+RISK_REASONS: frozenset[str] = frozenset(
+    {
+        "anti_scraping",
+        "account_ban",
+        "ip_block",
+        "captcha",
+        "quota_cost",
+        "legal_tos",
+        "unstable_html",
+        "requires_browser",
+        "geo_sensitive",
+        "rate_limit",
+        "unknown",
+    }
+)
+
+#: 分发范围：描述推荐安装/治理边界，不代表源码一定物理拆包。
+DISTRIBUTIONS: frozenset[str] = frozenset({"core", "extra", "plugin"})
+
+#: 接入成熟度。
+STABILITIES: frozenset[str] = frozenset({"stable", "beta", "experimental", "deprecated"})
 
 
 # ── 数据类 ──────────────────────────────────────────────────
@@ -114,6 +164,12 @@ class SourceAdapter:
         tags: 预留标签集合，如 {"high_risk"}（D10）/ {"ai_summarize"} / {"chinese_friendly"}。
         needs_config: 是否"**必须**配置才能工作"（API Key 类；注意不等同于 `config_field is not None`，
             因为 openalex / github / doaj 等有**可选**配置字段）。默认按 integration 推断但可覆盖。
+        auth_requirement: 鉴权/配置要求；None 表示从旧字段派生，便于渐进迁移。
+        credential_fields: 完整凭据字段。多字段 OAuth 源应列全，如 ("client_id", "client_secret")。
+        optional_credential_effect: 可选凭据的收益，如提高 rate limit 或解锁个性化能力。
+        risk_level / risk_reasons: 风险等级与原因，兼容旧 tag high_risk。
+        distribution / package_extra: 推荐分发范围与 optional dependency 组。
+        stability: 源的成熟度。v0_all_sources:exclude 会被视为 experimental。
     """
 
     name: str
@@ -129,6 +185,14 @@ class SourceAdapter:
     tags: frozenset[str] = field(default_factory=frozenset)
     needs_config: bool | None = None
     # None 表示从 (integration, config_field) 推断；测试里可用 `resolved_needs_config` 取确定值
+    auth_requirement: str | None = None
+    credential_fields: tuple[str, ...] = ()
+    optional_credential_effect: str | None = None
+    risk_level: str = "low"
+    risk_reasons: frozenset[str] = field(default_factory=frozenset)
+    distribution: str = "core"
+    package_extra: str | None = None
+    stability: str = "stable"
 
     @property
     def capabilities(self) -> frozenset[str]:
@@ -155,11 +219,90 @@ class SourceAdapter:
           - 注意：`openalex` / `github` / `doaj` / `zenodo` / `openaire` 等
             integration=official_api 但 Key 是"可选"的源，声明时需显式传 `needs_config=False`。
         """
+        requirement = self.resolved_auth_requirement
+        if requirement == "required":
+            return True
+        if requirement == "self_hosted":
+            return bool(self.resolved_credential_fields)
+        if requirement in {"none", "optional"}:
+            return False
         if self.needs_config is not None:
             return self.needs_config
         if self.integration in {"official_api", "self_hosted"} and self.config_field is not None:
             return True
         return False
+
+    @property
+    def resolved_auth_requirement(self) -> str:
+        """确定性的鉴权/配置要求。
+
+        新字段 `auth_requirement` 显式声明时优先；未声明时从旧的
+        integration/config_field/needs_config 组合派生，保证外部插件兼容。
+        """
+        if self.auth_requirement is not None:
+            return self.auth_requirement
+        if self.integration == "self_hosted":
+            return "self_hosted"
+        if self.config_field is None:
+            return "none"
+        if self.needs_config is not None:
+            return "required" if self.needs_config else "optional"
+        if self.integration == "official_api":
+            return "required"
+        return "optional"
+
+    @property
+    def resolved_credential_fields(self) -> tuple[str, ...]:
+        """返回完整凭据字段列表；未显式列出时回退到 config_field。"""
+        if self.credential_fields:
+            return self.credential_fields
+        if self.config_field:
+            return (self.config_field,)
+        return ()
+
+    @property
+    def resolved_risk_level(self) -> str:
+        """兼容旧 high_risk tag 的风险等级。"""
+        if "high_risk" in self.tags:
+            return "high"
+        return self.risk_level
+
+    @property
+    def resolved_risk_reasons(self) -> frozenset[str]:
+        """返回风险原因；旧 high_risk tag 默认解释为反爬风险。"""
+        reasons = set(self.risk_reasons)
+        if "high_risk" in self.tags:
+            reasons.add("anti_scraping")
+        return frozenset(reasons)
+
+    @property
+    def resolved_package_extra(self) -> str | None:
+        """推荐 optional dependency 组。"""
+        if self.package_extra:
+            return self.package_extra
+        if self.integration == "scraper":
+            return "scraper"
+        return None
+
+    @property
+    def resolved_distribution(self) -> str:
+        """推荐分发范围。
+
+        显式字段优先；否则把依赖 optional extra 的内置源归到 extra。
+        外部插件会由 SourceMeta 视图按 external_plugins() 进一步标记为 plugin。
+        """
+        if self.distribution != "core":
+            return self.distribution
+        if self.resolved_package_extra:
+            return "extra"
+        return "core"
+
+    @property
+    def resolved_stability(self) -> str:
+        """兼容 v0 排除标签的成熟度。"""
+        if "v0_all_sources:exclude" in self.tags and self.stability == "stable":
+            return "experimental"
+        return self.stability
 
     def resolve_params(
         self,
@@ -197,6 +340,36 @@ class SourceAdapter:
         if self.integration not in INTEGRATIONS:
             raise ValueError(
                 f"SourceAdapter({self.name!r}) integration={self.integration!r} 不在 INTEGRATIONS 中"
+            )
+        if self.auth_requirement is not None and self.auth_requirement not in AUTH_REQUIREMENTS:
+            raise ValueError(
+                f"SourceAdapter({self.name!r}) auth_requirement={self.auth_requirement!r} "
+                f"不在 AUTH_REQUIREMENTS 中"
+            )
+        if (
+            self.optional_credential_effect is not None
+            and self.optional_credential_effect not in OPTIONAL_CREDENTIAL_EFFECTS
+        ):
+            raise ValueError(
+                f"SourceAdapter({self.name!r}) optional_credential_effect="
+                f"{self.optional_credential_effect!r} 不在 OPTIONAL_CREDENTIAL_EFFECTS 中"
+            )
+        if self.risk_level not in RISK_LEVELS:
+            raise ValueError(
+                f"SourceAdapter({self.name!r}) risk_level={self.risk_level!r} 不在 RISK_LEVELS 中"
+            )
+        invalid_reasons = self.risk_reasons - RISK_REASONS
+        if invalid_reasons:
+            raise ValueError(
+                f"SourceAdapter({self.name!r}) risk_reasons 包含非法值: {sorted(invalid_reasons)}"
+            )
+        if self.distribution not in DISTRIBUTIONS:
+            raise ValueError(
+                f"SourceAdapter({self.name!r}) distribution={self.distribution!r} 不在 DISTRIBUTIONS 中"
+            )
+        if self.stability not in STABILITIES:
+            raise ValueError(
+                f"SourceAdapter({self.name!r}) stability={self.stability!r} 不在 STABILITIES 中"
             )
         for cap in self.methods.keys():
             if cap in CAPABILITIES:

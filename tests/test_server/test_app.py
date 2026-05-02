@@ -146,6 +146,26 @@ class TestAdminAuth:
         assert "total" in data
         assert "ok" in data
         assert "sources" in data
+        first_source = data["sources"][0]
+        assert "auth_requirement" in first_source
+        assert "credential_fields" in first_source
+        assert "risk_level" in first_source
+        assert "distribution" in first_source
+
+    def test_admin_sources_config_includes_catalog_fields(self, authed_client):
+        """数据源频道配置应返回 source catalog 字段，供前端展示和运维判断。"""
+        resp = authed_client.get(
+            "/api/v1/admin/sources/config/openalex",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["auth_requirement"] == "optional"
+        assert data["key_requirement"] == "optional"
+        assert data["credential_fields"] == ["openalex_email"]
+        assert data["optional_credential_effect"] == "politeness"
+        assert data["risk_level"] == "low"
+        assert data["distribution"] == "core"
 
     def test_admin_ping_requires_auth(self, authed_client):
         """/admin/ping 未授权拒绝。"""
@@ -246,6 +266,12 @@ class TestSearchAuth:
         assert "paper" in data
         assert "patent" in data
         assert "general" in data
+        openalex = next(item for item in data["paper"] if item["name"] == "openalex")
+        assert openalex["key_requirement"] == "optional"
+        assert openalex["auth_requirement"] == "optional"
+        assert openalex["credential_fields"] == ["openalex_email"]
+        assert openalex["risk_level"] == "low"
+        assert openalex["distribution"] == "core"
 
     def test_sources_omits_disabled_entries(self, client, monkeypatch):
         """sources.<name>.enabled=false 后，/sources 不应再展示该源。"""

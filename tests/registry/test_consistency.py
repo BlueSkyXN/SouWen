@@ -37,12 +37,18 @@ from souwen.registry import (
 )
 from souwen.registry import external_plugins
 from souwen.registry.adapter import (
+    AUTH_REQUIREMENTS,
     CAPABILITIES,
+    DISTRIBUTIONS,
     DOMAINS,
     FETCH_DOMAIN,
     INTEGRATIONS,
     MethodSpec,
+    OPTIONAL_CREDENTIAL_EFFECTS,
+    RISK_LEVELS,
+    RISK_REASONS,
     SourceAdapter,
+    STABILITIES,
 )
 from souwen.registry.loader import lazy
 from souwen.registry.views import _reg_external
@@ -77,6 +83,30 @@ class TestRegistryInvariants:
         for adapter in all_adapters().values():
             assert adapter.integration in INTEGRATIONS, (
                 f"{adapter.name}: integration={adapter.integration!r} 非法"
+            )
+
+    def test_catalog_metadata_sets_consistent(self):
+        """source catalog 新增元数据字段均在枚举常量内。"""
+        for adapter in all_adapters().values():
+            assert adapter.resolved_auth_requirement in AUTH_REQUIREMENTS, (
+                f"{adapter.name}: auth_requirement={adapter.resolved_auth_requirement!r} 非法"
+            )
+            if adapter.optional_credential_effect is not None:
+                assert adapter.optional_credential_effect in OPTIONAL_CREDENTIAL_EFFECTS, (
+                    f"{adapter.name}: optional_credential_effect="
+                    f"{adapter.optional_credential_effect!r} 非法"
+                )
+            assert adapter.resolved_risk_level in RISK_LEVELS, (
+                f"{adapter.name}: risk_level={adapter.resolved_risk_level!r} 非法"
+            )
+            assert adapter.resolved_risk_reasons <= RISK_REASONS, (
+                f"{adapter.name}: risk_reasons={sorted(adapter.resolved_risk_reasons)} 非法"
+            )
+            assert adapter.resolved_distribution in DISTRIBUTIONS, (
+                f"{adapter.name}: distribution={adapter.resolved_distribution!r} 非法"
+            )
+            assert adapter.resolved_stability in STABILITIES, (
+                f"{adapter.name}: stability={adapter.resolved_stability!r} 非法"
             )
 
 
@@ -150,6 +180,17 @@ class TestD11HardAsserts:
             assert adapter.config_field in config_fields, (
                 f"{adapter.name}.config_field={adapter.config_field!r} 不在 SouWenConfig"
             )
+
+    def test_credential_fields_reference_valid(self):
+        """每个 credential_fields 字段也必须能被 SouWenConfig 解析。"""
+        from souwen.config import SouWenConfig
+
+        config_fields = set(SouWenConfig.model_fields.keys())
+        for adapter in all_adapters().values():
+            for field in adapter.resolved_credential_fields:
+                assert field in config_fields, (
+                    f"{adapter.name}.credential_fields 包含 {field!r}，但它不在 SouWenConfig"
+                )
 
     def test_default_for_references_valid(self):
         """D11-6：default_for 的每个 key 能解析为 (domain, capability) 且都合法。"""

@@ -34,6 +34,17 @@ export interface SourceInfo {
   name: string
   needs_key: boolean
   description: string
+  key_requirement?: 'none' | 'optional' | 'required' | 'self_hosted'
+  auth_requirement?: 'none' | 'optional' | 'required' | 'self_hosted'
+  credential_fields?: string[]
+  optional_credential_effect?: string | null
+  integration_type?: string
+  risk_level?: 'low' | 'medium' | 'high'
+  risk_reasons?: string[]
+  distribution?: 'core' | 'extra' | 'plugin'
+  package_extra?: string | null
+  stability?: 'stable' | 'beta' | 'experimental' | 'deprecated'
+  default_enabled?: boolean
 }
 
 /**
@@ -61,6 +72,14 @@ export interface DoctorSource {
   integration_type: string
   required_key: string | null
   key_requirement: 'none' | 'optional' | 'required' | 'self_hosted'
+  auth_requirement?: 'none' | 'optional' | 'required' | 'self_hosted'
+  credential_fields?: string[]
+  optional_credential_effect?: string | null
+  risk_level?: 'low' | 'medium' | 'high'
+  risk_reasons?: string[]
+  distribution?: 'core' | 'extra' | 'plugin'
+  package_extra?: string | null
+  stability?: 'stable' | 'beta' | 'experimental' | 'deprecated'
   message: string
   enabled: boolean
   description?: string
@@ -80,6 +99,16 @@ export interface SourceChannelConfig {
   params: Record<string, string | number | boolean>
   category: string
   integration_type: string
+  key_requirement?: 'none' | 'optional' | 'required' | 'self_hosted'
+  auth_requirement?: 'none' | 'optional' | 'required' | 'self_hosted'
+  credential_fields?: string[]
+  optional_credential_effect?: string | null
+  risk_level?: 'low' | 'medium' | 'high'
+  risk_reasons?: string[]
+  distribution?: 'core' | 'extra' | 'plugin'
+  package_extra?: string | null
+  stability?: 'stable' | 'beta' | 'experimental' | 'deprecated'
+  default_enabled?: boolean
   description: string
 }
 

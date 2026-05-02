@@ -116,7 +116,23 @@ class TestCheckAll:
             results = check_all()
             source = next(r for r in results if r["name"] == "semantic_scholar")
             assert source["status"] == "limited"
-            assert "易限流" in source["message"]
+            assert "提升限流" in source["message"]
+        finally:
+            get_config.cache_clear()
+
+    def test_multifield_credentials_are_reported(self, monkeypatch):
+        """多字段凭据源缺配置时应列出全部缺失字段。"""
+        for key in ("SOUWEN_EPO_CONSUMER_KEY", "SOUWEN_EPO_CONSUMER_SECRET"):
+            monkeypatch.delenv(key, raising=False)
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        try:
+            results = check_all()
+            source = next(r for r in results if r["name"] == "epo_ops")
+            assert source["status"] == "missing_key"
+            assert source["credential_fields"] == ["epo_consumer_key", "epo_consumer_secret"]
+            assert "epo_consumer_key / epo_consumer_secret" in source["message"]
         finally:
             get_config.cache_clear()
 
@@ -155,7 +171,7 @@ class TestFormatReport:
         report = format_report(check_all())
         assert "公开接口" in report
         assert "爬虫抓取" in report
-        assert "授权接口" in report
+        assert "官方接口" in report
 
     def test_contains_all_source_names(self):
         """报告包含所有数据源名称"""

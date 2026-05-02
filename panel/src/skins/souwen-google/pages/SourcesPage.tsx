@@ -136,6 +136,18 @@ function KeyRequirementBadge({ value, t }: { value: DoctorSource['key_requiremen
   return <Badge color="gray">—</Badge>
 }
 
+function RiskBadge({ value, t }: { value?: DoctorSource['risk_level']; t: (k: string, opts?: { defaultValue?: string }) => string }) {
+  if (value === 'high') return <Badge color="red">{t('sources.riskHigh', { defaultValue: '高风险' })}</Badge>
+  if (value === 'medium') return <Badge color="amber">{t('sources.riskMedium', { defaultValue: '中风险' })}</Badge>
+  return <Badge color="green">{t('sources.riskLow', { defaultValue: '低风险' })}</Badge>
+}
+
+function DistributionBadge({ value, t }: { value?: DoctorSource['distribution']; t: (k: string, opts?: { defaultValue?: string }) => string }) {
+  if (value === 'plugin') return <Badge color="indigo">{t('sources.distPlugin', { defaultValue: '插件' })}</Badge>
+  if (value === 'extra') return <Badge color="teal">{t('sources.distExtra', { defaultValue: '可选依赖' })}</Badge>
+  return <Badge color="gray">{t('sources.distCore', { defaultValue: '内置' })}</Badge>
+}
+
 function SourceCardSkeleton() {
   return (
     <div className={styles.skeletonCard}>
@@ -657,6 +669,8 @@ export function SourcesPage() {
                     <th>{t('sources.colDescription', { defaultValue: '描述' })}</th>
                     <th>{t('sources.colType', { defaultValue: '类型' })}</th>
                     <th>{t('sources.colKeyReq', { defaultValue: '密钥需求' })}</th>
+                    <th>{t('sources.colRisk', { defaultValue: '风险' })}</th>
+                    <th>{t('sources.colDistribution', { defaultValue: '分发' })}</th>
                     <th>{t('sources.colKey', { defaultValue: '密钥' })}</th>
                     <th>{t('sources.colStatus', { defaultValue: '状态' })}</th>
                     <th>{t('sources.colEnabled', { defaultValue: '启用' })}</th>
@@ -677,7 +691,17 @@ export function SourcesPage() {
                         <KeyRequirementBadge value={src.key_requirement} t={t} />
                       </td>
                       <td>
-                        <code className={styles.listCode}>{src.required_key ?? '—'}</code>
+                        <RiskBadge value={src.risk_level} t={t} />
+                      </td>
+                      <td>
+                        <DistributionBadge value={src.distribution} t={t} />
+                      </td>
+                      <td>
+                        <code className={styles.listCode}>
+                          {(src.credential_fields && src.credential_fields.length > 0)
+                            ? src.credential_fields.join(', ')
+                            : src.required_key ?? '—'}
+                        </code>
                       </td>
                       <td className={styles.listMessage}>{src.message}</td>
                       <td>
@@ -724,6 +748,8 @@ export function SourcesPage() {
                     )}
                     <div className={styles.badges}>
                       <IntegrationBadge integration_type={src.integration_type} t={t} />
+                      <RiskBadge value={src.risk_level} t={t} />
+                      <DistributionBadge value={src.distribution} t={t} />
                       {src.key_requirement === 'none' && (
                         <span className={styles.configBadgeOk}>
                           <Check size={10} />

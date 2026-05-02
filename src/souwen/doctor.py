@@ -37,8 +37,15 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from souwen.config import get_config
-from souwen.source_registry import INTEGRATION_TYPE_LABELS, get_all_sources
+from souwen.source_registry import (
+    AUTH_REQUIREMENT_LABELS,
+    INTEGRATION_TYPE_LABELS,
+    OPTIONAL_CREDENTIAL_EFFECT_LABELS,
+    get_all_sources,
+)
 
 # 集成类型分组的展示顺序
 _INTEGRATION_TYPE_ORDER = ("open_api", "scraper", "official_api", "self_hosted")
@@ -51,6 +58,62 @@ _STATUS_ICONS = {
     "missing_key": "⬜",
     "disabled": "🚫",
 }
+
+_LIMITED_OPTIONAL_EFFECTS = {
+    "rate_limit",
+    "quota",
+    "quality",
+    "personalization",
+    "private_access",
+}
+
+
+def _credential_value(
+    cfg: Any, source_name: str, field: str, primary_field: str | None
+) -> str | None:
+    """读取单个凭据字段。
+
+    频道级 `sources.<name>.api_key` 只覆盖主 config_field；多字段凭据的第二字段
+    仍读取 flat config，避免一个 api_key 误判为同时满足 client_id/secret。
+    """
+    if field == primary_field:
+        return cfg.resolve_api_key(source_name, field)
+    return getattr(cfg, field, None)
+
+
+def _missing_credential_fields(cfg: Any, source_name: str, meta: Any) -> list[str]:
+    """返回尚未满足的凭据字段列表。"""
+    fields = list(meta.credential_fields)
+    if not fields:
+        return []
+    missing: list[str] = []
+    for field in fields:
+        if meta.auth_requirement == "self_hosted" and field == meta.config_field:
+            value = cfg.resolve_base_url(source_name) or getattr(cfg, field, None)
+        else:
+            value = _credential_value(cfg, source_name, field, meta.config_field)
+        if not value:
+            missing.append(field)
+    return missing
+
+
+def _credential_fields_label(fields: list[str] | tuple[str, ...]) -> str:
+    return " / ".join(fields)
+
+
+def _optional_credential_message(meta: Any, configured: bool) -> tuple[str, str]:
+    """生成可选凭据源的状态与提示。"""
+    field_label = _credential_fields_label(meta.credential_fields)
+    if not field_label:
+        return "ok", "免配置可用"
+    if configured:
+        return "ok", f"{field_label} 已配置"
+    effect = meta.optional_credential_effect or "unknown"
+    effect_label = OPTIONAL_CREDENTIAL_EFFECT_LABELS.get(effect, "增强能力")
+    message = f"免配置可用；设置 {field_label} 可{effect_label}"
+    if effect in _LIMITED_OPTIONAL_EFFECTS:
+        return "limited", message
+    return "ok", message
 
 
 def check_all() -> list[dict]:
@@ -87,26 +150,12 @@ def check_all() -> list[dict]:
     for name, meta in all_sources.items():
         enabled = cfg.is_source_enabled(name)
         field = meta.config_field
+        missing_fields = _missing_credential_fields(cfg, name, meta)
+        has_all_credentials = not missing_fields
 
         if not enabled:
             status = "disabled"
             message = "已通过频道配置禁用"
-        elif name == "openalex":
-            value = cfg.resolve_api_key("openalex", "openalex_email")
-            if value:
-                status = "ok"
-                message = "openalex_email 已配置"
-            else:
-                status = "ok"
-                message = "可免配置使用；设置 openalex_email 可帮助礼貌访问"
-        elif name == "semantic_scholar":
-            value = cfg.resolve_api_key("semantic_scholar", "semantic_scholar_api_key")
-            if value:
-                status = "ok"
-                message = "semantic_scholar_api_key 已配置"
-            else:
-                status = "limited"
-                message = "免 Key 模式易限流，建议设置 semantic_scholar_api_key"
         elif name == "patentsview":
             status = "unavailable"
             message = "公开搜索端点已变更，当前接入待修复"
@@ -116,30 +165,41 @@ def check_all() -> list[dict]:
         elif name == "google_patents":
             status = "warning"
             message = "实验性爬虫，易受反爬影响"
-        elif name == "unpaywall":
-            value = cfg.resolve_api_key("unpaywall", "unpaywall_email")
-            if value:
+        elif meta.auth_requirement == "none":
+            status = "ok"
+            message = "免配置；未做实时可用性探测"
+        elif meta.auth_requirement == "optional":
+            status, message = _optional_credential_message(meta, has_all_credentials)
+        elif meta.auth_requirement == "self_hosted":
+            if not meta.credential_fields:
                 status = "ok"
-                message = "unpaywall_email 已配置（仅 DOI OA 查找）"
+                message = "自建实例配置由插件或默认配置提供"
+            elif has_all_credentials:
+                status = "ok"
+                message = f"{_credential_fields_label(meta.credential_fields)} 已配置"
             else:
                 status = "missing_key"
-                message = "需要设置 unpaywall_email（仅支持 DOI OA 查找）"
-        elif field is None:
-            # 爬虫引擎需要 curl_cffi 才能正常工作
-            if meta.is_scraper and not _has_tls_impersonation:
+                message = f"需要配置自建实例: {_credential_fields_label(missing_fields)}"
+        else:
+            if has_all_credentials:
+                status = "ok"
+                message = f"{_credential_fields_label(meta.credential_fields)} 已配置"
+            else:
+                status = "missing_key"
+                suffix = "（仅支持 DOI OA 查找）" if name == "unpaywall" else ""
+                message = f"需要设置 {_credential_fields_label(missing_fields)}{suffix}"
+
+        if (
+            enabled
+            and status in {"ok", "limited"}
+            and meta.is_scraper
+            and not _has_tls_impersonation
+        ):
+            if status == "ok":
                 status = "warning"
                 message = "curl_cffi 未安装，TLS 指纹伪装不可用，爬虫可能被拦截"
             else:
-                status = "ok"
-                message = "免配置；未做实时可用性探测"
-        else:
-            value = cfg.resolve_api_key(name, field)
-            if value:
-                status = "ok"
-                message = f"{field} 已配置"
-            else:
-                status = "missing_key"
-                message = f"需要设置 {field}"
+                message = f"{message}；curl_cffi 未安装，爬虫能力可能受限"
 
         # 频道配置摘要
         sc = cfg.get_source_config(name)
@@ -151,16 +211,6 @@ def check_all() -> list[dict]:
         if sc.base_url:
             channel_info["base_url"] = sc.base_url
 
-        # 派生 key_requirement：self_hosted 类源单独标识；其余按 config_field/needs_config 判定
-        if meta.integration_type == "self_hosted":
-            key_requirement = "self_hosted"
-        elif field is None:
-            key_requirement = "none"
-        elif meta.needs_config:
-            key_requirement = "required"
-        else:
-            key_requirement = "optional"
-
         results.append(
             {
                 "name": name,
@@ -168,7 +218,15 @@ def check_all() -> list[dict]:
                 "status": status,
                 "integration_type": meta.integration_type,
                 "required_key": field,
-                "key_requirement": key_requirement,
+                "key_requirement": meta.key_requirement,
+                "auth_requirement": meta.auth_requirement,
+                "credential_fields": list(meta.credential_fields),
+                "optional_credential_effect": meta.optional_credential_effect,
+                "risk_level": meta.risk_level,
+                "risk_reasons": sorted(meta.risk_reasons),
+                "distribution": meta.distribution,
+                "package_extra": meta.package_extra,
+                "stability": meta.stability,
                 "message": message,
                 "enabled": enabled,
                 "description": meta.description,
@@ -221,12 +279,7 @@ def format_report(results: list[dict]) -> str:
             icon = _STATUS_ICONS.get(r["status"], "⬜")
             cat_tag = f"[{r['category']}]"
             kr = r.get("key_requirement", "")
-            kr_tag = {
-                "none": "免配置",
-                "optional": "可选Key",
-                "required": "需Key",
-                "self_hosted": "需自建",
-            }.get(kr, "")
+            kr_tag = AUTH_REQUIREMENT_LABELS.get(kr, "")
             lines.append(f"  {icon} {r['name']:20s} {cat_tag:10s} {kr_tag:6s}  {r['message']}")
         lines.append("")
 

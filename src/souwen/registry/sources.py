@@ -71,6 +71,7 @@ _reg(
         description="OpenAlex 开放学术数据",
         config_field="openalex_email",  # 可选 email（提升速率限制）
         needs_config=False,  # 零配置可用
+        optional_credential_effect="politeness",
         client_loader=lazy("souwen.paper.openalex:OpenAlexClient"),
         methods={"search": MethodSpec("search", _P_PER_PAGE)},
         default_for=frozenset({"paper:search"}),
@@ -85,6 +86,7 @@ _reg(
         description="Semantic Scholar API",
         config_field="semantic_scholar_api_key",
         needs_config=False,  # 免 Key 可试用
+        optional_credential_effect="rate_limit",
         client_loader=lazy("souwen.paper.semantic_scholar:SemanticScholarClient"),
         methods={"search": MethodSpec("search")},  # limit → limit 同名
     )
@@ -174,6 +176,7 @@ _reg(
         integration="official_api",
         description="Zotero 个人文献库搜索 (需 API Key + Library ID)",
         config_field="zotero_api_key",
+        credential_fields=("zotero_api_key", "zotero_library_id"),
         client_loader=lazy("souwen.paper.zotero:ZoteroClient"),
         methods={"search": MethodSpec("search")},  # limit → limit
     )
@@ -223,6 +226,7 @@ _reg(
         description="DOAJ 开放获取期刊目录（可选 Key）",
         config_field="doaj_api_key",
         needs_config=False,  # 可选 Key
+        optional_credential_effect="rate_limit",
         client_loader=lazy("souwen.paper.doaj:DoajClient"),
         methods={"search": MethodSpec("search", _P_PAGE_SIZE)},
     )
@@ -236,6 +240,7 @@ _reg(
         description="Zenodo CERN 开放科学仓库（可选 Token）",
         config_field="zenodo_access_token",
         needs_config=False,  # 可选 Token
+        optional_credential_effect="quota",
         client_loader=lazy("souwen.paper.zenodo:ZenodoClient"),
         methods={"search": MethodSpec("search", _P_SIZE)},
     )
@@ -261,6 +266,7 @@ _reg(
         description="OpenAIRE 欧盟研究基础设施（可选 Key）",
         config_field="openaire_api_key",
         needs_config=False,  # 可选 Key
+        optional_credential_effect="quota",
         client_loader=lazy("souwen.paper.openaire:OpenAireClient"),
         methods={"search": MethodSpec("search", _P_SIZE)},
     )
@@ -275,6 +281,9 @@ _reg(
         config_field=None,
         client_loader=lazy("souwen.paper.iacr:IacrClient"),
         methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
+        risk_level="medium",
+        risk_reasons=frozenset({"unstable_html"}),
+        stability="experimental",
     )
 )
 
@@ -297,7 +306,7 @@ _reg(
         integration="official_api",
         description="Unpaywall OA 查找",
         config_field="unpaywall_email",
-        needs_config=False,  # email 可选
+        needs_config=True,  # 客户端初始化会要求 email
         client_loader=lazy("souwen.paper.unpaywall:UnpaywallClient"),
         # unpaywall 没有 search 方法，只有 find_oa(doi)；用命名空间声明（D8）
         methods={"unpaywall:find_oa": MethodSpec("find_oa")},
@@ -337,6 +346,7 @@ _reg(
         },
         # "待修复"状态，ALL_SOURCES["patent"] 也不收录
         tags=frozenset({"v0_all_sources:exclude"}),
+        stability="experimental",
     )
 )
 
@@ -350,6 +360,7 @@ _reg(
         client_loader=lazy("souwen.patent.pqai:PqaiClient"),
         methods={"search": MethodSpec("search", _P_N_RESULTS)},
         tags=frozenset({"v0_all_sources:exclude"}),
+        stability="experimental",
     )
 )
 
@@ -360,6 +371,7 @@ _reg(
         integration="official_api",
         description="EPO OPS 欧洲专利局",
         config_field="epo_consumer_key",
+        credential_fields=("epo_consumer_key", "epo_consumer_secret"),
         client_loader=lazy("souwen.patent.epo_ops:EpoOpsClient"),
         # epo_ops 的方法是 search(cql_query, range_end)
         methods={"search": MethodSpec("search", _P_RANGE_END)},
@@ -398,6 +410,7 @@ _reg(
         integration="official_api",
         description="CNIPA 中国国知局",
         config_field="cnipa_client_id",
+        credential_fields=("cnipa_client_id", "cnipa_client_secret"),
         client_loader=lazy("souwen.patent.cnipa:CnipaClient"),
         methods={"search": MethodSpec("search", _P_PER_PAGE)},
     )
@@ -426,6 +439,9 @@ _reg(
         client_loader=lazy("souwen.scraper.google_patents_scraper:GooglePatentsScraper"),
         methods={"search": MethodSpec("search", _P_NUM_RESULTS)},
         default_for=frozenset({"patent:search"}),
+        risk_level="medium",
+        risk_reasons=frozenset({"anti_scraping", "captcha", "requires_browser"}),
+        stability="experimental",
     )
 )
 
@@ -524,6 +540,7 @@ _reg(
         methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
         default_enabled=False,  # D10：高风险
         tags=_T_HIGH_RISK_GENERAL,
+        risk_reasons=frozenset({"anti_scraping", "captcha", "ip_block"}),
     )
 )
 
@@ -578,6 +595,7 @@ _reg(
         methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
         default_enabled=False,
         tags=_T_HIGH_RISK_GENERAL,
+        risk_reasons=frozenset({"anti_scraping", "captcha", "ip_block"}),
     )
 )
 
@@ -872,6 +890,7 @@ _reg(
         methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
         default_enabled=False,
         tags=_T_HIGH_RISK_SOCIAL,
+        risk_reasons=frozenset({"account_ban", "quota_cost", "geo_sensitive"}),
     )
 )
 
@@ -882,6 +901,7 @@ _reg(
         integration="official_api",
         description="Facebook 页面/地点搜索（Graph API）",
         config_field="facebook_app_id",
+        credential_fields=("facebook_app_id", "facebook_app_secret"),
         client_loader=lazy("souwen.web.facebook:FacebookClient"),
         methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
     )
@@ -942,6 +962,7 @@ _reg(
         description="Bilibili 搜索（视频/用户/专栏文章）+ 视频详情抓取",
         config_field="bilibili_sessdata",
         needs_config=False,  # sessdata 可选
+        optional_credential_effect="personalization",
         client_loader=lazy("souwen.web.bilibili:BilibiliClient"),
         methods={
             "search": MethodSpec("search", _P_MAX_RESULTS),
@@ -984,6 +1005,7 @@ _reg(
         description="GitHub 仓库搜索 (可选 Token)",
         config_field="github_token",
         needs_config=False,  # Token 可选
+        optional_credential_effect="rate_limit",
         client_loader=lazy("souwen.web.github:GitHubClient"),
         methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
         default_for=frozenset({"developer:search"}),
@@ -998,6 +1020,7 @@ _reg(
         description="StackOverflow 问答搜索",
         config_field="stackoverflow_api_key",
         needs_config=False,  # Key 可选
+        optional_credential_effect="quota",
         client_loader=lazy("souwen.web.stackoverflow:StackOverflowClient"),
         methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
         default_for=frozenset({"developer:search"}),
@@ -1129,6 +1152,7 @@ _reg(
         integration="official_api",
         description="飞书云文档搜索 (需 App ID + App Secret)",
         config_field="feishu_app_id",
+        credential_fields=("feishu_app_id", "feishu_app_secret"),
         client_loader=lazy("souwen.web.feishu_drive:FeishuDriveClient"),
         methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
     )
@@ -1172,6 +1196,7 @@ _reg(
         client_loader=lazy("souwen.web.builtin:BuiltinFetcherClient"),
         methods={"fetch": MethodSpec("fetch")},
         default_for=frozenset({"fetch:fetch"}),
+        package_extra="web",
     )
 )
 
@@ -1183,6 +1208,7 @@ _reg(
         description="Jina Reader 内容抓取 (免费, 可选 Key)",
         config_field="jina_api_key",
         needs_config=False,  # Key 可选
+        optional_credential_effect="rate_limit",
         client_loader=lazy("souwen.web.jina_reader:JinaReaderClient"),
         methods={"fetch": MethodSpec("fetch")},
     )
@@ -1197,6 +1223,7 @@ _reg(
         config_field=None,
         client_loader=lazy("souwen.paper.arxiv_fulltext:ArxivFulltextClient"),
         methods={"fetch": MethodSpec("get_fulltext")},
+        package_extra="pdf",
     )
 )
 
@@ -1209,6 +1236,9 @@ _reg(
         config_field=None,
         client_loader=lazy("souwen.web.crawl4ai_fetcher:Crawl4AIFetcherClient"),
         methods={"fetch": MethodSpec("fetch")},
+        package_extra="crawl4ai",
+        risk_level="medium",
+        risk_reasons=frozenset({"requires_browser"}),
     )
 )
 
@@ -1291,8 +1321,10 @@ _reg(
         integration="official_api",
         description="Cloudflare Browser Rendering",
         config_field="cloudflare_api_token",
+        credential_fields=("cloudflare_api_token", "cloudflare_account_id"),
         client_loader=lazy("souwen.web.cloudflare_browser:CloudflareBrowserClient"),
         methods={"fetch": MethodSpec("fetch")},
+        risk_reasons=frozenset({"quota_cost"}),
     )
 )
 
@@ -1305,6 +1337,7 @@ _reg(
         config_field=None,
         client_loader=lazy("souwen.web.newspaper_fetcher:NewspaperFetcherClient"),
         methods={"fetch": MethodSpec("fetch")},
+        package_extra="newspaper",
     )
 )
 
@@ -1317,6 +1350,7 @@ _reg(
         config_field=None,
         client_loader=lazy("souwen.web.readability_fetcher:ReadabilityFetcherClient"),
         methods={"fetch": MethodSpec("fetch")},
+        package_extra="readability",
     )
 )
 
@@ -1329,6 +1363,7 @@ _reg(
         config_field=None,
         client_loader=lazy("souwen.web.mcp_fetch:MCPFetchClient"),
         methods={"fetch": MethodSpec("fetch")},
+        package_extra="mcp",
     )
 )
 

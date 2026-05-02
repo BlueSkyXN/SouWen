@@ -28,7 +28,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { m, AnimatePresence } from 'framer-motion'
 import {
-  RefreshCw, FileText, Shield, Globe, Key, Star, Check, Sparkles, Zap, Server,
+  RefreshCw, FileText, Shield, Globe, Star, Check, Sparkles, Zap, Server,
   ChevronDown, AlertTriangle, Save, Info, X,
 } from 'lucide-react'
 import { api } from '@core/services/api'
@@ -117,6 +117,26 @@ function IntegrationBadge({ integration_type, t }: { integration_type: string; t
       <Sparkles size={10} /> {t('sources.tierExperimental')}
     </span>
   )
+}
+
+function KeyRequirementBadge({ value, t }: { value: DoctorSource['key_requirement']; t: (k: string, opts?: { defaultValue?: string }) => string }) {
+  if (value === 'none') return <Badge color="green">{t('sources.keyNone', { defaultValue: '免配置' })}</Badge>
+  if (value === 'optional') return <Badge color="blue">{t('sources.keyOptionalShort', { defaultValue: '可选' })}</Badge>
+  if (value === 'required') return <Badge color="amber">{t('sources.keyRequiredShort', { defaultValue: '必须' })}</Badge>
+  if (value === 'self_hosted') return <Badge color="indigo">{t('sources.keySelfHostedShort', { defaultValue: '自建' })}</Badge>
+  return <Badge color="gray">—</Badge>
+}
+
+function RiskBadge({ value, t }: { value?: DoctorSource['risk_level']; t: (k: string, opts?: { defaultValue?: string }) => string }) {
+  if (value === 'high') return <Badge color="red">{t('sources.riskHigh', { defaultValue: '高风险' })}</Badge>
+  if (value === 'medium') return <Badge color="amber">{t('sources.riskMedium', { defaultValue: '中风险' })}</Badge>
+  return <Badge color="green">{t('sources.riskLow', { defaultValue: '低风险' })}</Badge>
+}
+
+function DistributionBadge({ value, t }: { value?: DoctorSource['distribution']; t: (k: string, opts?: { defaultValue?: string }) => string }) {
+  if (value === 'plugin') return <Badge color="indigo">{t('sources.distPlugin', { defaultValue: '插件' })}</Badge>
+  if (value === 'extra') return <Badge color="teal">{t('sources.distExtra', { defaultValue: '可选依赖' })}</Badge>
+  return <Badge color="gray">{t('sources.distCore', { defaultValue: '内置' })}</Badge>
 }
 
 function SourceCardSkeleton() {
@@ -604,17 +624,9 @@ export function SourcesPage() {
                     <div className={styles.sourceName}>{src.name}</div>
                     <div className={styles.badges}>
                       <IntegrationBadge integration_type={src.integration_type} t={t} />
-                      {src.required_key ? (
-                        <span className={styles.configBadgeKey}>
-                          <Key size={10} />
-                          {t('sources.needsApiKey')}
-                        </span>
-                      ) : (
-                        <span className={styles.configBadgeOk}>
-                          <Check size={10} />
-                          {t('sources.noConfigNeeded')}
-                        </span>
-                      )}
+                      <KeyRequirementBadge value={src.key_requirement} t={t} />
+                      <RiskBadge value={src.risk_level} t={t} />
+                      <DistributionBadge value={src.distribution} t={t} />
                     </div>
                     <div className={styles.cardDescription}>
                       {src.message}

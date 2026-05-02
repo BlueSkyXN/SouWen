@@ -13,6 +13,8 @@
     get_scraper_sources()   —— list[str]
     get_sources_by_category(category)        —— list[SourceMeta]
     get_sources_by_integration_type(itype)   —— list[SourceMeta]
+    get_sources_by_auth_requirement(requirement) —— list[SourceMeta]
+    get_sources_by_distribution(distribution)     —— list[SourceMeta]
     ALL_SOURCE_NAMES        —— frozenset[str]
 
 domain → category 映射：
@@ -30,15 +32,54 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from souwen.registry import views as _views
-from souwen.registry.adapter import INTEGRATIONS
+from souwen.registry.adapter import AUTH_REQUIREMENTS, DISTRIBUTIONS, INTEGRATIONS
 
 INTEGRATION_TYPES: frozenset[str] = INTEGRATIONS
+AUTH_REQUIREMENT_TYPES: frozenset[str] = AUTH_REQUIREMENTS
+DISTRIBUTION_TYPES: frozenset[str] = DISTRIBUTIONS
 
 INTEGRATION_TYPE_LABELS: dict[str, str] = {
-    "open_api": "公开接口 — 免配置 / 官方开放 API",
+    "open_api": "公开接口 — 公开开放 API",
     "scraper": "爬虫抓取 — 无官方 API / 需 TLS 伪装",
-    "official_api": "授权接口 — 需 API Key",
+    "official_api": "官方接口 — 凭据要求见 Auth",
     "self_hosted": "自托管 — 需自建服务实例",
+}
+
+AUTH_REQUIREMENT_LABELS: dict[str, str] = {
+    "none": "免配置",
+    "optional": "可选凭据",
+    "required": "必须凭据",
+    "self_hosted": "自建实例",
+}
+
+OPTIONAL_CREDENTIAL_EFFECT_LABELS: dict[str, str] = {
+    "rate_limit": "提升限流",
+    "quota": "提升配额",
+    "quality": "提升质量",
+    "personalization": "个性化/登录态增强",
+    "private_access": "访问私有内容",
+    "write_access": "写入能力",
+    "politeness": "礼貌访问",
+    "unknown": "作用待确认",
+}
+
+RISK_LEVEL_LABELS: dict[str, str] = {
+    "low": "低风险",
+    "medium": "中风险",
+    "high": "高风险",
+}
+
+DISTRIBUTION_LABELS: dict[str, str] = {
+    "core": "核心内置",
+    "extra": "可选依赖",
+    "plugin": "外部插件",
+}
+
+STABILITY_LABELS: dict[str, str] = {
+    "stable": "稳定",
+    "beta": "Beta",
+    "experimental": "实验性",
+    "deprecated": "已弃用",
 }
 
 
@@ -47,7 +88,8 @@ class SourceMeta:
     """数据源元数据视图
 
     `SourceAdapter` 的**只读投影**，包含字段：
-        name / category / integration_type / config_field / description
+        name / category / integration_type / config_field / description，以及
+        auth/risk/distribution/stability 等 source catalog 元数据。
 
     category 取值：
         paper | patent | general | professional | social | office |
@@ -63,11 +105,26 @@ class SourceMeta:
     config_field: str | None
     description: str
     needs_config: bool
+    auth_requirement: str
+    credential_fields: tuple[str, ...]
+    optional_credential_effect: str | None
+    risk_level: str
+    risk_reasons: frozenset[str]
+    distribution: str
+    package_extra: str | None
+    stability: str
+    default_enabled: bool
+    default_for: frozenset[str]
 
     @property
     def is_scraper(self) -> bool:
         """是否爬虫类源（需要 curl_cffi TLS 指纹支持）"""
         return self.integration_type == "scraper"
+
+    @property
+    def key_requirement(self) -> str:
+        """兼容 doctor/API 口径的密钥需求字段。"""
+        return self.auth_requirement
 
 
 # ── 派生缓存 ──────────────────────────────────────────────
@@ -80,11 +137,13 @@ def _build_source_meta_view() -> dict[str, SourceMeta]:
     （如 Tavily domain=web + extra_domains={fetch}）只在主 category 下出现。
     """
     result: dict[str, SourceMeta] = {}
+    external_names = set(_views.external_plugins())
     for adapter in _views.all_adapters().values():
         # ALL_SOURCES 排除集合外的源（experimental/待修复）也会保留到本视图。
         category = _views._v0_category_for(adapter)
         if category is None:
             continue
+        distribution = "plugin" if adapter.name in external_names else adapter.resolved_distribution
         result[adapter.name] = SourceMeta(
             name=adapter.name,
             category=category,
@@ -92,6 +151,16 @@ def _build_source_meta_view() -> dict[str, SourceMeta]:
             config_field=adapter.config_field,
             description=adapter.description,
             needs_config=adapter.resolved_needs_config,
+            auth_requirement=adapter.resolved_auth_requirement,
+            credential_fields=adapter.resolved_credential_fields,
+            optional_credential_effect=adapter.optional_credential_effect,
+            risk_level=adapter.resolved_risk_level,
+            risk_reasons=adapter.resolved_risk_reasons,
+            distribution=distribution,
+            package_extra=adapter.resolved_package_extra,
+            stability=adapter.resolved_stability,
+            default_enabled=adapter.default_enabled,
+            default_for=adapter.default_for,
         )
     return result
 
@@ -178,6 +247,16 @@ def get_sources_by_integration_type(integration_type: str) -> list[SourceMeta]:
         该集成类型下的 SourceMeta 对象列表
     """
     return [meta for meta in _meta_view().values() if meta.integration_type == integration_type]
+
+
+def get_sources_by_auth_requirement(requirement: str) -> list[SourceMeta]:
+    """按鉴权/配置要求筛选数据源。"""
+    return [meta for meta in _meta_view().values() if meta.auth_requirement == requirement]
+
+
+def get_sources_by_distribution(distribution: str) -> list[SourceMeta]:
+    """按推荐分发范围筛选数据源。"""
+    return [meta for meta in _meta_view().values() if meta.distribution == distribution]
 
 
 # 即时从 registry 派生所有源名称

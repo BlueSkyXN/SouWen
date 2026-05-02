@@ -101,8 +101,12 @@ export interface NormalizedWeb {
  */
 export interface NormalizedSource {
   name: string
-  type: 'paper' | 'patent' | 'general' | 'professional' | 'social' | 'developer' | 'wiki' | 'video'
+  type: 'paper' | 'patent' | 'general' | 'professional' | 'social' | 'developer' | 'wiki' | 'video' | 'fetch'
   integration_type: string
+  key_requirement: 'none' | 'optional' | 'required' | 'self_hosted'
+  risk_level: 'low' | 'medium' | 'high'
+  distribution: 'core' | 'extra' | 'plugin'
+  stability: 'stable' | 'beta' | 'experimental' | 'deprecated'
   reachable: boolean
   error: string | null
 }
@@ -170,6 +174,10 @@ export function normalizeDoctor(raw: DoctorSource): NormalizedSource {
     name: raw.name || '',
     type: (raw.category as NormalizedSource['type']) || 'paper',
     integration_type: typeof raw.integration_type === 'string' ? raw.integration_type : 'open_api',
+    key_requirement: raw.key_requirement || 'none',
+    risk_level: raw.risk_level || 'low',
+    distribution: raw.distribution || 'core',
+    stability: raw.stability || 'stable',
     reachable: raw.status === 'ok',
     error: raw.status !== 'ok' ? raw.message || null : null,
   }

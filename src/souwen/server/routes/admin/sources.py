@@ -3,12 +3,50 @@
 from __future__ import annotations
 
 from urllib.parse import urlparse
+from typing import Any
 
 from fastapi import APIRouter, HTTPException
 
 from souwen.server.schemas import UpdateSourceConfigRequest
 
 router = APIRouter()
+
+
+def _credential_value(
+    cfg: Any, source_name: str, field: str, primary_field: str | None
+) -> str | None:
+    if field == primary_field:
+        return cfg.resolve_api_key(source_name, field)
+    return getattr(cfg, field, None)
+
+
+def _has_configured_credentials(cfg: Any, source_name: str, meta: Any) -> bool:
+    fields = meta.credential_fields
+    if not fields:
+        return False
+    for field in fields:
+        if meta.auth_requirement == "self_hosted" and field == meta.config_field:
+            value = cfg.resolve_base_url(source_name) or getattr(cfg, field, None)
+        else:
+            value = _credential_value(cfg, source_name, field, meta.config_field)
+        if not value:
+            return False
+    return True
+
+
+def _catalog_fields(meta: Any) -> dict:
+    return {
+        "auth_requirement": meta.auth_requirement,
+        "key_requirement": meta.key_requirement,
+        "credential_fields": list(meta.credential_fields),
+        "optional_credential_effect": meta.optional_credential_effect,
+        "risk_level": meta.risk_level,
+        "risk_reasons": sorted(meta.risk_reasons),
+        "distribution": meta.distribution,
+        "package_extra": meta.package_extra,
+        "stability": meta.stability,
+        "default_enabled": meta.default_enabled,
+    }
 
 
 @router.get("/sources/config")
@@ -27,12 +65,13 @@ async def get_sources_config():
             "proxy": sc.proxy,
             "http_backend": sc.http_backend,
             "base_url": sc.base_url,
-            "has_api_key": bool(cfg.resolve_api_key(name, meta.config_field)),
+            "has_api_key": _has_configured_credentials(cfg, name, meta),
             "headers": sc.headers,
             "params": sc.params,
             "category": meta.category,
             "integration_type": meta.integration_type,
             "description": meta.description,
+            **_catalog_fields(meta),
         }
         result[name] = entry
     return result
@@ -56,12 +95,13 @@ async def get_source_config(source_name: str):
         "proxy": sc.proxy,
         "http_backend": sc.http_backend,
         "base_url": sc.base_url,
-        "has_api_key": bool(cfg.resolve_api_key(source_name, meta.config_field)),
+        "has_api_key": _has_configured_credentials(cfg, source_name, meta),
         "headers": sc.headers,
         "params": sc.params,
         "category": meta.category,
         "integration_type": meta.integration_type,
         "description": meta.description,
+        **_catalog_fields(meta),
     }
 
 
