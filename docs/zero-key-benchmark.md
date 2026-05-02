@@ -14,7 +14,7 @@
 - 默认论文源表现稳定：WARP 关闭时 5/6 可用，WARP 开启后 6/6 可用。
 - 可手动选择的额外论文源中，WARP 开启后有 7/9 返回结果。
 - Google Patents 当前不应计入实用可用源：多查询、多 backend、多 WARP 组合均未返回专利结果。
-- 网页搜索显著弱于旧报告：当前稳定可用的 scraper 引擎只有 Yahoo、Baidu、DuckDuckGo，其中 DuckDuckGo 需要 `curl_cffi + WARP`。
+- 网页搜索显著弱于旧报告：本轮主矩阵中稳定返回结果的 scraper 引擎主要是 Yahoo、Baidu、DuckDuckGo，其中 DuckDuckGo 需要 `curl_cffi + WARP`；`auto + WARP` 下引擎组成存在波动。
 - `httpx` 不适合作为网页 scraper backend；即使开启 WARP，复测也没有稳定可用结果。
 
 ### 控制面状态
@@ -39,7 +39,7 @@
 - 默认论文源（OpenAlex、CrossRef、arXiv、DBLP、PubMed、bioRxiv）主要走开放 API，按 WARP 开关测试。
 - 网页搜索使用 `/api/v1/search/web`，按 `WARP × HTTP backend` 做 2×2 测试。
 - 对网页搜索失败项又做了单引擎复核，避免把聚合请求失败误判为源不可用。
-- `default_http_backend=auto` 在当前实现下仍建议保留；本报告的 2×2 矩阵用显式 `curl_cffi/httpx` 来验证边界。
+- `default_http_backend=auto` 在当前实现下仍建议保留；本报告的 2×2 矩阵用显式 `curl_cffi/httpx` 来验证边界，并用 `auto + WARP` 做推荐配置 spot check。
 
 ---
 
@@ -126,10 +126,14 @@ Google Patents 在部分请求中会被端点计入 `succeeded`，但 `total=0` 
 
 在 `httpx + WARP 开` 下，逐个复核 DuckDuckGo、Bing、Bing CN、Yahoo、Baidu 均未返回结果；主矩阵中 Bing CN 的 5 条结果按不稳定处理，不计入稳定可用数。
 
+### 推荐配置复核
+
+在 `default_http_backend=auto + WARP 开` 的补充复核中，网页搜索同样返回 15 条结果，但引擎组合变为 DuckDuckGo、Baidu、Bing CN；Yahoo 在这次 spot check 中未返回结果。这说明推荐配置下网页 0key 能力大致维持在 **约 3/10**，但具体可用引擎会随上游反爬、出口 IP 和搜索引擎响应波动，不能把 Yahoo 或 Bing CN 作为稳定承诺。
+
 ### 关键发现
 
 1. `httpx` 不适合作为网页 scraper backend：WARP 关闭全失败，WARP 开启也无稳定可用源。
-2. `curl_cffi` 仍是网页搜索的必要条件，但当前只能稳定支撑 Yahoo、Baidu；WARP 开启后可额外支撑 DuckDuckGo。
+2. `curl_cffi` 仍是网页搜索的必要条件，但当前只能较稳定支撑 Yahoo/Baidu 这类低反爬源；WARP 开启后可额外支撑 DuckDuckGo。
 3. WARP 对 DBLP 和 DuckDuckGo 有实际提升，但没有恢复 Bing、Mojeek、Yandex。
 4. Brave、Google、Startpage 在当前远程部署下仍不可用。
 5. 旧报告中 “`curl_cffi + WARP` 可解锁 Mojeek/Yandex，Bing 稳定可用” 的结论已不适用于当前部署。
@@ -173,7 +177,7 @@ Google Patents 在部分请求中会被端点计入 `succeeded`，但 `total=0` 
 | `httpx` + WARP 关 | 5/6 | 未测 | 0/1 | 0/10 | 不推荐 |
 | `httpx` + WARP 开 | 6/6 | 7/9 | 0/1 | 0/10 稳定 | 不推荐用于网页 |
 | `curl_cffi` + WARP 关 | 5/6 | 未测 | 0/1 | 2/10 | 可临时使用 |
-| **`curl_cffi` + WARP 开** | **6/6** | **7/9** | **0/1** | **3/10** | **当前最佳 0key 组合** |
+| **`curl_cffi/auto` + WARP 开** | **6/6** | **7/9** | **0/1** | **约 3/10** | **当前最佳 0key 组合** |
 
 > 专利列按“能返回实际结果”计数，不把 HTTP 200 但 `total=0` 计为可用。
 
@@ -190,11 +194,11 @@ curl -X PUT "https://blueskyxn-souwen.hf.space/api/v1/admin/http-backend?default
 curl -X POST "https://blueskyxn-souwen.hf.space/api/v1/admin/warp/enable?mode=auto&socks_port=1080&http_port=0"
 ```
 
-该组合当前可稳定获得：
+该组合当前可获得：
 
 - 默认论文源 6 个：OpenAlex、CrossRef、arXiv、DBLP、PubMed、bioRxiv。
 - 额外论文源 7 个：Europe PMC、PMC、DOAJ、Zenodo、HAL、OpenAIRE、IACR。
-- 网页搜索 3 个：DuckDuckGo、Yahoo、Baidu。
+- 网页搜索约 3 个：主矩阵为 DuckDuckGo、Yahoo、Baidu；`auto + WARP` spot check 为 DuckDuckGo、Baidu、Bing CN，说明网页源组成会波动。
 
 ### 不建议依赖
 
@@ -226,7 +230,7 @@ curl -X POST "https://blueskyxn-souwen.hf.space/api/v1/admin/warp/enable?mode=au
 | 额外论文源 | 未覆盖 | WARP 开 7/9 可用 |
 | 专利源 | Google Patents WARP 后稳定 | Google Patents 无实际结果，不计入可用 |
 | 网页引擎范围 | 9 个 scraper 引擎 | 10 个 scraper 引擎，新增 Bing CN |
-| 最佳网页组合 | `curl_cffi + WARP` 可用 6/9 | `curl_cffi + WARP` 稳定可用 3/10 |
+| 最佳网页组合 | `curl_cffi + WARP` 可用 6/9 | `curl_cffi/auto + WARP` 约 3/10，具体引擎会波动 |
 | Mojeek / Yandex | WARP 后可用 | 当前不可用 |
 | Bing | 多组合可用 | 当前不可用或不稳定 |
 | 推荐组合 | `auto + WARP` 可获 12/16 | `auto + WARP` 仍最佳，但能力边界应降级描述 |
