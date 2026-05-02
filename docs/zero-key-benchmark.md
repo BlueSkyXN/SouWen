@@ -14,7 +14,7 @@
 - 默认论文源本轮表现最好：WARP 关闭时 5/6 可用，WARP 开启后 6/6 可用。
 - 可手动选择的额外论文源中，WARP 开启后有 7/9 返回结果。
 - Google Patents 当前不应计入实用可用源：多查询、多 backend、多 WARP 组合均未返回专利结果。
-- 网页搜索显著弱于旧报告：本轮主矩阵中返回结果的 scraper 引擎主要是 Yahoo、Baidu、DuckDuckGo，其中 DuckDuckGo 需要 `curl_cffi + WARP`；`auto + WARP` 下引擎组成存在波动。
+- 网页搜索显著弱于旧报告：本轮返回结果主要集中在 DuckDuckGo、Baidu、Yahoo、Bing CN，具体组合会随 backend、WARP 出口和上游反爬状态波动；不能把某个网页源作为固定承诺。
 - `httpx` 不适合作为网页 scraper backend；即使开启 WARP，复测也没有形成可重复结果。
 
 ### 控制面状态
@@ -107,24 +107,26 @@ Google Patents 在部分请求中会被端点计入 `succeeded`，但 `total=0` 
 |------|:---------------------:|:---------------------:|:-----------------:|:-----------------:|
 | DuckDuckGo | 失败 | 可用，5 条 | 失败 | 失败 |
 | Bing | 失败 | 失败 | 失败 | 失败 |
-| Bing CN | 失败 | 失败 | 失败 | 不稳定，0~5 条 |
-| Yahoo | 可用，5 条 | 可用，5 条 | 失败 | 失败 |
+| Bing CN | 失败 | 波动，0~5 条 | 失败 | 波动，0~5 条 |
+| Yahoo | 可用，5 条 | 波动，1~5 条 | 失败 | 失败 |
 | Baidu | 可用，5 条 | 可用，5 条 | 失败 | 失败 |
 | Mojeek | 失败 | 失败 | 失败 | 失败 |
 | Yandex | 失败 | 失败 | 失败 | 失败 |
 | Brave | 失败 | 失败 | 失败 | 失败 |
 | Google | 失败 | 失败 | 失败 | 失败 |
 | Startpage | 失败 | 失败 | 失败 | 失败 |
-| **本轮返回结果引擎数** | **2/10** | **3/10** | **0/10** | **0/10** |
+| **可重复/近似可用引擎数** | **2/10** | **约 3/10** | **0/10** | **0/10 可重复** |
 
 ### 单引擎复核
 
-在 `curl_cffi + WARP 开` 下，逐个请求复核确认：
+在 `curl_cffi + WARP 开` 下，逐个请求与聚合请求复核确认：
 
-- 本轮单引擎返回结果：DuckDuckGo、Yahoo、Baidu。
-- 仍不可用：Bing、Bing CN、Mojeek、Yandex、Brave、Google、Startpage。
+- 可重复性较好的返回：DuckDuckGo、Baidu。
+- Yahoo 在不同复核中有返回，但结果条数波动。
+- Bing CN 在部分聚合请求和 `auto + WARP` spot check 中可返回结果，但不稳定，不计入固定承诺。
+- 仍未形成可重复结果：Bing、Mojeek、Yandex、Brave、Google、Startpage。
 
-在 `httpx + WARP 开` 下，逐个复核 DuckDuckGo、Bing、Bing CN、Yahoo、Baidu 均未返回结果；主矩阵中 Bing CN 的 5 条结果按波动结果处理，不计入可重复可用数。
+在 `httpx + WARP 开` 下，逐个复核 DuckDuckGo、Bing、Bing CN、Yahoo、Baidu 均未形成可重复结果；Bing CN 的偶发返回按波动结果处理，不计入可重复可用数。
 
 ### 推荐配置复核
 
@@ -133,8 +135,8 @@ Google Patents 在部分请求中会被端点计入 `succeeded`，但 `total=0` 
 ### 关键发现
 
 1. `httpx` 不适合作为网页 scraper backend：WARP 关闭全失败，WARP 开启也未形成可重复结果。
-2. `curl_cffi` 仍是网页搜索的必要条件；本轮它支撑了 Yahoo/Baidu，WARP 开启后又支撑 DuckDuckGo。
-3. WARP 对 DBLP 和 DuckDuckGo 有实际提升，但没有恢复 Bing、Mojeek、Yandex。
+2. `curl_cffi` 仍是网页搜索的必要条件；本轮它主要支撑 Baidu/Yahoo 这类低反爬源，其中 Yahoo 有波动；WARP 开启后又支撑 DuckDuckGo。
+3. WARP 对 DBLP 和 DuckDuckGo 有实际提升，但没有恢复 Bing、Mojeek、Yandex；Bing CN 只适合按波动源记录。
 4. Brave、Google、Startpage 在当前远程部署下仍不可用。
 5. 旧报告中 “`curl_cffi + WARP` 可解锁 Mojeek/Yandex，Bing 稳定可用” 的结论已不适用于当前部署。
 
@@ -198,13 +200,13 @@ curl -X POST "https://blueskyxn-souwen.hf.space/api/v1/admin/warp/enable?mode=au
 
 - 默认论文源 6 个：OpenAlex、CrossRef、arXiv、DBLP、PubMed、bioRxiv。
 - 额外论文源 7 个：Europe PMC、PMC、DOAJ、Zenodo、HAL、OpenAIRE、IACR。
-- 网页搜索约 3 个：主矩阵为 DuckDuckGo、Yahoo、Baidu；`auto + WARP` spot check 为 DuckDuckGo、Baidu、Bing CN，说明网页源组成会波动。
+- 网页搜索约 3 个：显式 `curl_cffi + WARP` 与 `auto + WARP` 的返回组合在 DuckDuckGo、Baidu、Yahoo、Bing CN 之间波动，不能固定承诺某三个源。
 
 ### 不建议依赖
 
 - 不建议把 Google Patents 作为当前 0key 专利能力对外承诺。
 - 不建议在网页搜索场景切到 `httpx`。
-- 不建议继续宣传 Bing、Mojeek、Yandex 在当前 HF Space 上可用，除非后续单独修复并复测。
+- 不建议继续宣传 Bing、Bing CN、Mojeek、Yandex 在当前 HF Space 上固定可用，除非后续单独修复并复测。
 
 ---
 
