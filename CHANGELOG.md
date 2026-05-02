@@ -11,6 +11,7 @@
 - 可选凭据源不再被粗略显示为"必须 Key"；缺少可选 Key 时按 `optional_credential_effect` 显示 `ok` 或 `limited`。
 - doctor 与 admin doctor 汇总现在区分严格 `ok`、可用 `available`、降级 `degraded` 与失败 `failed`；`limited` / `warning` 仍计入可用源。
 - `/api/v1/sources` 从运行时 live registry 派生，插件注册/注销后的数据源不会被静态兼容视图缓存误报。
+- `self_hosted` 源统一支持 channel `base_url`、旧 channel `api_key` 与 flat `<name>_url`，避免 doctor/API 与客户端初始化口径分叉。
 - `unpaywall` 按实际客户端要求改为必须 `unpaywall_email`，继续保留在实验/排除旧 `ALL_SOURCES` 视图中。
 - `tools/gen_docs.py` 默认只生成内置源清单，避免本机已安装外部插件造成文档漂移；可用 `--include-plugins` 查看运行时插件 catalog。
 

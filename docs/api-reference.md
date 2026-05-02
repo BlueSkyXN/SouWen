@@ -506,6 +506,9 @@ Cache-Control: public, max-age=3600
 | `distribution` / `package_extra` | 推荐分发范围与 optional dependency 组 |
 | `stability` | 成熟度：`stable` / `beta` / `experimental` / `deprecated` |
 
+自建实例源（`auth_requirement="self_hosted"`）优先使用 `sources.<name>.base_url`；
+旧版 `sources.<name>.api_key` 与 flat `<name>_url` 仍保留兼容。
+
 ---
 
 ### 管理端点 (`/api/v1/admin/...`)

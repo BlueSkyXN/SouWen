@@ -289,7 +289,7 @@ def credential_value(
     client_id 和 secret 同时满足。
     """
     if auth_requirement == "self_hosted" and field == primary_field:
-        return cfg.resolve_base_url(source_name) or getattr(cfg, field, None)
+        return cfg.resolve_base_url(source_name) or cfg.resolve_api_key(source_name, field)
     if field == primary_field:
         return cfg.resolve_api_key(source_name, field)
     return getattr(cfg, field, None)

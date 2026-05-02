@@ -31,19 +31,27 @@ DOMAIN_TITLES = {
 
 
 def render(*, include_plugins: bool = False) -> str:
+    old_autoload = os.environ.get("SOUWEN_PLUGIN_AUTOLOAD")
     if not include_plugins:
         # Checked-in docs should be reproducible even when local development
         # environments have third-party souwen.plugins entry points installed.
-        os.environ.setdefault("SOUWEN_PLUGIN_AUTOLOAD", "0")
+        os.environ["SOUWEN_PLUGIN_AUTOLOAD"] = "0"
 
-    from souwen.registry import all_adapters, all_domains, external_plugins
-    from souwen.source_registry import (
-        AUTH_REQUIREMENT_LABELS,
-        DISTRIBUTION_LABELS,
-        OPTIONAL_CREDENTIAL_EFFECT_LABELS,
-        RISK_LEVEL_LABELS,
-        STABILITY_LABELS,
-    )
+    try:
+        from souwen.registry import all_adapters, all_domains, external_plugins
+        from souwen.source_registry import (
+            AUTH_REQUIREMENT_LABELS,
+            DISTRIBUTION_LABELS,
+            OPTIONAL_CREDENTIAL_EFFECT_LABELS,
+            RISK_LEVEL_LABELS,
+            STABILITY_LABELS,
+        )
+    finally:
+        if not include_plugins:
+            if old_autoload is None:
+                os.environ.pop("SOUWEN_PLUGIN_AUTOLOAD", None)
+            else:
+                os.environ["SOUWEN_PLUGIN_AUTOLOAD"] = old_autoload
 
     loaded_adapters = all_adapters()
     external_names = set(external_plugins())

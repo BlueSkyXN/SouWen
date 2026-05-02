@@ -333,6 +333,60 @@ class TestSearchAuth:
         assert admin_resp.status_code == 200
         assert admin_resp.json()["has_api_key"] is False
 
+    @pytest.mark.parametrize(
+        ("source_name", "legacy_field", "client_path"),
+        [
+            ("searxng", "searxng_url", "souwen.web.searxng:SearXNGClient"),
+            ("whoogle", "whoogle_url", "souwen.web.whoogle:WhoogleClient"),
+            ("websurfx", "websurfx_url", "souwen.web.websurfx:WebsurfxClient"),
+        ],
+    )
+    def test_sources_self_hosted_base_url_matches_clients(
+        self,
+        client,
+        monkeypatch,
+        source_name,
+        legacy_field,
+        client_path,
+    ):
+        """self_hosted 源的 base_url 判定必须和真实客户端初始化一致。"""
+        import importlib
+
+        monkeypatch.setenv(f"SOUWEN_{legacy_field.upper()}", "")
+        monkeypatch.setenv(
+            "SOUWEN_SOURCES",
+            f'{{"{source_name}":{{"base_url":"https://{source_name}.example"}}}}',
+        )
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        data = client.get("/api/v1/sources").json()
+        names = {item["name"] for item in data.get("general", [])}
+        assert source_name in names
+
+        module_name, class_name = client_path.split(":")
+        client_cls = getattr(importlib.import_module(module_name), class_name)
+        instance = client_cls()
+        assert instance.instance_url == f"https://{source_name}.example"
+
+    def test_sources_self_hosted_legacy_channel_api_key_still_works(self, client, monkeypatch):
+        """旧版 sources.<name>.api_key 自建实例 URL 仍应被 catalog 与客户端接受。"""
+        monkeypatch.setenv("SOUWEN_SEARXNG_URL", "")
+        monkeypatch.setenv(
+            "SOUWEN_SOURCES",
+            '{"searxng":{"api_key":"https://legacy-searxng.example"}}',
+        )
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        data = client.get("/api/v1/sources").json()
+        names = {item["name"] for item in data.get("general", [])}
+        assert "searxng" in names
+
+        from souwen.web.searxng import SearXNGClient
+
+        assert SearXNGClient().instance_url == "https://legacy-searxng.example"
+
     def test_sources_uses_live_registry_for_runtime_plugins(self, client, clean_registry):
         """/sources 应从 live registry 派生，插件注销后不再返回死源。"""
         from souwen.registry.adapter import MethodSpec, SourceAdapter
