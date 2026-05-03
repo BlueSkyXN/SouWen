@@ -1,0 +1,133 @@
+name: Deploy Hugging Face Space
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "panel/**"
+      - "pyproject.toml"
+      - "README.md"
+      - "souwen.example.yaml"
+      - "entrypoint.sh"
+      - "scripts/warp-init.sh"
+      - "cloud/hfs/**"
+      - ".github/workflows/deploy-hf-space.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-hf-space-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  deploy:
+    name: Sync changed wrapper files and factory rebuild
+    environment:
+      name: hf
+      url: https://huggingface.co/spaces/BlueSkyXN/SouWen
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Check HF token
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+        run: |
+          if [ -z "$HF_TOKEN" ]; then
+            echo "::error::HF_TOKEN is not configured. Add a Hugging Face write token to the hf environment secrets."
+            exit 1
+          fi
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install Hugging Face Hub client
+        run: python -m pip install --upgrade huggingface_hub
+
+      - name: Sync changed HFS wrapper files
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE_ID: BlueSkyXN/SouWen
+        run: |
+          python - <<'PY'
+          import os
+          import tempfile
+          from pathlib import Path
+
+          from huggingface_hub import CommitOperationAdd, HfApi, hf_hub_download
+          from huggingface_hub.errors import EntryNotFoundError
+
+          FILES = {
+              "cloud/hfs/Dockerfile": "Dockerfile",
+              "cloud/hfs/README.md": "README.md",
+              "cloud/hfs/.dockerignore": ".dockerignore",
+              "cloud/hfs/entrypoint.sh": "entrypoint.sh",
+          }
+
+          api = HfApi(token=os.environ["HF_TOKEN"])
+          space_id = os.environ["HF_SPACE_ID"]
+          sha = os.environ["GITHUB_SHA"][:7]
+          operations = []
+
+          with tempfile.TemporaryDirectory() as tmpdir:
+              for local_name, remote_name in FILES.items():
+                  local_path = Path(local_name)
+                  local_bytes = local_path.read_bytes()
+
+                  try:
+                      remote_path = hf_hub_download(
+                          repo_id=space_id,
+                          repo_type="space",
+                          filename=remote_name,
+                          token=os.environ["HF_TOKEN"],
+                          local_dir=tmpdir,
+                          force_download=True,
+                      )
+                      remote_bytes = Path(remote_path).read_bytes()
+                  except EntryNotFoundError:
+                      remote_bytes = None
+
+                  if remote_bytes != local_bytes:
+                      operations.append(
+                          CommitOperationAdd(
+                              path_in_repo=remote_name,
+                              path_or_fileobj=str(local_path),
+                          )
+                      )
+
+          if operations:
+              changed = ", ".join(op.path_in_repo for op in operations)
+              print(f"Sync changed HFS wrapper files: {changed}")
+              api.create_commit(
+                  repo_id=space_id,
+                  repo_type="space",
+                  operations=operations,
+                  commit_message=f"Sync HFS wrapper from GitHub {sha}",
+              )
+          else:
+              print("No HFS wrapper file changes to sync.")
+          PY
+
+      - name: Factory rebuild Space
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE_ID: BlueSkyXN/SouWen
+        run: |
+          python - <<'PY'
+          import os
+          from huggingface_hub import HfApi
+
+          api = HfApi(token=os.environ["HF_TOKEN"])
+          space_id = os.environ["HF_SPACE_ID"]
+          runtime = api.restart_space(
+              repo_id=space_id,
+              factory_reboot=True,
+          )
+          print(f"Requested factory rebuild for {space_id}; stage={runtime.stage}")
+          PY
