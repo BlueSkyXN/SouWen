@@ -2,15 +2,18 @@
 
 from __future__ import annotations
 
+from typing import Any
 from urllib.parse import urlparse
+
 from fastapi import APIRouter, HTTPException
 
 from souwen.server.schemas import UpdateSourceConfigRequest
+from souwen.source_registry import SourceMeta
 
 router = APIRouter()
 
 
-def _catalog_fields(meta) -> dict:
+def _catalog_fields(meta: SourceMeta) -> dict[str, Any]:
     return {
         "auth_requirement": meta.auth_requirement,
         "key_requirement": meta.key_requirement,
@@ -21,6 +24,7 @@ def _catalog_fields(meta) -> dict:
         "distribution": meta.distribution,
         "package_extra": meta.package_extra,
         "stability": meta.stability,
+        "usage_note": meta.usage_note,
         "default_enabled": meta.default_enabled,
     }
 

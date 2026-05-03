@@ -24,18 +24,7 @@ async def list_sources():
     cfg = get_config()
     all_sources = as_all_sources_dict()
 
-    def _is_usable(name: str) -> bool:
-        if not cfg.is_source_enabled(name):
-            return False
-        meta = get_source(name)
-        if meta is None:
-            return False
-        return has_required_credentials(cfg, name, meta)
-
-    def _source_item(name: str) -> dict | None:
-        meta = get_source(name)
-        if meta is None:
-            return None
+    def _source_item(name: str, meta) -> dict:
         return {
             "name": name,
             "needs_key": meta.needs_config,
@@ -49,6 +38,7 @@ async def list_sources():
             "distribution": meta.distribution,
             "package_extra": meta.package_extra,
             "stability": meta.stability,
+            "usage_note": meta.usage_note,
             "default_enabled": meta.default_enabled,
             "description": meta.description,
         }
@@ -57,9 +47,13 @@ async def list_sources():
     for category, entries in all_sources.items():
         result.setdefault(category, [])
         for name, _needs_key, _desc in entries:
-            if not _is_usable(name):
+            # 单次查询 meta，避免 _is_usable 与 _source_item 的重复 dict 查找
+            meta = get_source(name)
+            if meta is None:
                 continue
-            item = _source_item(name)
-            if item is not None:
-                result[category].append(item)
+            if not cfg.is_source_enabled(name):
+                continue
+            if not has_required_credentials(cfg, name, meta):
+                continue
+            result[category].append(_source_item(name, meta))
     return result

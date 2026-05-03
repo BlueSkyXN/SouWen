@@ -88,6 +88,7 @@ export interface SourceInfo {
   distribution?: 'core' | 'extra' | 'plugin'
   package_extra?: string | null
   stability?: 'stable' | 'beta' | 'experimental' | 'deprecated'
+  usage_note?: string | null
   default_enabled?: boolean
 }
 
@@ -126,6 +127,7 @@ export interface DoctorSource {
   distribution: 'core' | 'extra' | 'plugin'
   package_extra: string | null
   stability: 'stable' | 'beta' | 'experimental' | 'deprecated'
+  usage_note: string | null
   message: string
   enabled: boolean
   description?: string
@@ -155,6 +157,7 @@ export interface SourceChannelConfig {
   distribution?: 'core' | 'extra' | 'plugin'
   package_extra?: string | null
   stability?: 'stable' | 'beta' | 'experimental' | 'deprecated'
+  usage_note?: string | null
   default_enabled?: boolean
   description: string
 }

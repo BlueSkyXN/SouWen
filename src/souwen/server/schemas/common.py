@@ -52,6 +52,7 @@ class SourceInfo(BaseModel):
     distribution: Literal["core", "extra", "plugin"] = "core"
     package_extra: str | None = None
     stability: Literal["stable", "beta", "experimental", "deprecated"] = "stable"
+    usage_note: str | None = None
     default_enabled: bool = True
 
 

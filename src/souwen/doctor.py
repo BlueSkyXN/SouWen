@@ -120,6 +120,37 @@ def _optional_credential_message(meta: Any, configured: bool) -> tuple[str, str]
     return "ok", message
 
 
+def _append_usage_note(message: str, meta: Any) -> str:
+    """如果 meta 提供了 usage_note，把它追加到 message 末尾。"""
+    note = getattr(meta, "usage_note", None)
+    if not note:
+        return message
+    if note in message:
+        return message
+    return f"{message}（{note}）"
+
+
+def _stability_status(meta: Any) -> tuple[str, str] | None:
+    """按 stability 维度推断状态/消息；非 deprecated/experimental scraper 返回 None。
+
+    规则：
+      - ``stability == "deprecated"`` → ``unavailable``。message 优先取 usage_note，
+        回退为 description 中的 "（待修复）" 类提示。
+      - ``stability == "experimental"`` 且为爬虫源 → ``warning``。message 优先取
+        usage_note，回退为通用"实验性爬虫"提示。
+
+    其他 stability 值（``stable`` / ``beta`` / 非爬虫的 ``experimental``）继续走
+    标准 auth_requirement 路径。
+    """
+    stability = getattr(meta, "stability", "stable")
+    note = getattr(meta, "usage_note", None)
+    if stability == "deprecated":
+        return "unavailable", note or f"{meta.name} 当前接入待修复"
+    if stability == "experimental" and meta.is_scraper:
+        return "warning", note or "实验性爬虫，可能受反爬或 HTML 变更影响"
+    return None
+
+
 def check_all() -> list[dict]:
     """检查所有数据源的可用性
 
@@ -157,41 +188,43 @@ def check_all() -> list[dict]:
         missing_fields = missing_credential_fields(cfg, name, meta)
         has_all_credentials = not missing_fields
 
+        # 状态判定优先级：
+        #   1. 频道禁用 → disabled
+        #   2. stability == "deprecated" → unavailable（接入待修复 / 已下线）
+        #   3. stability == "experimental" + scraper → warning（默认调度需谨慎）
+        #   4. auth_requirement 标准路径（none / optional / self_hosted / required）
+        #   5. scraper 缺 curl_cffi 时把可用状态升级为 warning
+        # ``usage_note`` 始终作为消息后缀附加（如 unpaywall 的"仅支持 DOI OA 查找"）。
         if not enabled:
             status = "disabled"
             message = "已通过频道配置禁用"
-        elif name == "patentsview":
-            status = "unavailable"
-            message = "公开搜索端点已变更，当前接入待修复"
-        elif name == "pqai":
-            status = "unavailable"
-            message = "匿名 API 当前返回 401，暂不建议默认使用"
-        elif name == "google_patents":
-            status = "warning"
-            message = "实验性爬虫，易受反爬影响"
-        elif meta.auth_requirement == "none":
-            status = "ok"
-            message = "免配置；未做实时可用性探测"
-        elif meta.auth_requirement == "optional":
-            status, message = _optional_credential_message(meta, has_all_credentials)
-        elif meta.auth_requirement == "self_hosted":
-            if not meta.credential_fields:
-                status = "ok"
-                message = "自建实例配置由插件或默认配置提供"
-            elif has_all_credentials:
-                status = "ok"
-                message = f"{credential_fields_label(meta.credential_fields)} 已配置"
-            else:
-                status = "missing_key"
-                message = f"需要配置自建实例: {credential_fields_label(missing_fields)}"
         else:
-            if has_all_credentials:
+            stability_override = _stability_status(meta)
+            if stability_override is not None:
+                status, message = stability_override
+            elif meta.auth_requirement == "none":
                 status = "ok"
-                message = f"{credential_fields_label(meta.credential_fields)} 已配置"
+                message = "免配置；未做实时可用性探测"
+            elif meta.auth_requirement == "optional":
+                status, message = _optional_credential_message(meta, has_all_credentials)
+            elif meta.auth_requirement == "self_hosted":
+                if not meta.credential_fields:
+                    status = "ok"
+                    message = "自建实例配置由插件或默认配置提供"
+                elif has_all_credentials:
+                    status = "ok"
+                    message = f"{credential_fields_label(meta.credential_fields)} 已配置"
+                else:
+                    status = "missing_key"
+                    message = f"需要配置自建实例: {credential_fields_label(missing_fields)}"
             else:
-                status = "missing_key"
-                suffix = "（仅支持 DOI OA 查找）" if name == "unpaywall" else ""
-                message = f"需要设置 {credential_fields_label(missing_fields)}{suffix}"
+                if has_all_credentials:
+                    status = "ok"
+                    message = f"{credential_fields_label(meta.credential_fields)} 已配置"
+                else:
+                    status = "missing_key"
+                    message = f"需要设置 {credential_fields_label(missing_fields)}"
+            message = _append_usage_note(message, meta)
 
         if (
             enabled
@@ -231,6 +264,7 @@ def check_all() -> list[dict]:
                 "distribution": meta.distribution,
                 "package_extra": meta.package_extra,
                 "stability": meta.stability,
+                "usage_note": meta.usage_note,
                 "message": message,
                 "enabled": enabled,
                 "description": meta.description,

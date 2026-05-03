@@ -174,6 +174,9 @@ class SourceAdapter:
         risk_level / risk_reasons: 风险等级与原因，兼容旧 tag high_risk。
         distribution / package_extra: 推荐分发范围与 optional dependency 组。
         stability: 源的成熟度。v0_all_sources:exclude 会被视为 experimental。
+        usage_note: 用户级提示，给 doctor / API / Panel 展示该源的运行时限制
+            或注意事项（如 unpaywall 的 "仅支持 DOI OA 查找"）。**不参与可用性
+            判定**——状态推断走 stability/auth_requirement 维度。
     """
 
     name: str
@@ -197,6 +200,7 @@ class SourceAdapter:
     distribution: str = "core"
     package_extra: str | None = None
     stability: str = "stable"
+    usage_note: str | None = None
 
     @property
     def capabilities(self) -> frozenset[str]:

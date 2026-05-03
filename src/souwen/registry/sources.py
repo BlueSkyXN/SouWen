@@ -312,6 +312,7 @@ _reg(
         methods={"unpaywall:find_oa": MethodSpec("find_oa")},
         # 不参与 search 调度，ALL_SOURCES["paper"] 也不收录
         tags=frozenset({"v0_all_sources:exclude"}),
+        usage_note="仅支持 DOI OA 查找",
     )
 )
 
@@ -346,7 +347,8 @@ _reg(
         },
         # "待修复"状态，ALL_SOURCES["patent"] 也不收录
         tags=frozenset({"v0_all_sources:exclude"}),
-        stability="experimental",
+        stability="deprecated",
+        usage_note="公开搜索端点已变更，当前接入待修复",
     )
 )
 
@@ -360,7 +362,8 @@ _reg(
         client_loader=lazy("souwen.patent.pqai:PqaiClient"),
         methods={"search": MethodSpec("search", _P_N_RESULTS)},
         tags=frozenset({"v0_all_sources:exclude"}),
-        stability="experimental",
+        stability="deprecated",
+        usage_note="匿名 API 当前返回 401，暂不建议默认使用",
     )
 )
 
@@ -442,6 +445,7 @@ _reg(
         risk_level="medium",
         risk_reasons=frozenset({"anti_scraping", "captcha", "requires_browser"}),
         stability="experimental",
+        usage_note="实验性爬虫，易受反爬影响",
     )
 )
 

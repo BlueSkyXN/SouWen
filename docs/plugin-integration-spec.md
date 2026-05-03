@@ -417,6 +417,20 @@ export SOUWEN_PLUGINS='["my_plugin:plugin","other_pkg.mod:make_adapter"]'
 
 `SOUWEN_PLUGINS` 与 `souwen.yaml` 的 `plugins` 字段会被合并，去重后一并加载。
 
+#### `SOUWEN_PLUGIN_AUTOLOAD`（仅文档生成 / CI 隔离用，非用户面向）
+
+| 取值 | 行为 |
+|---|---|
+| 未设置 / `1`（默认） | 启动时自动扫描 `souwen.plugins` entry point |
+| `0` | 跳过 entry point 自动发现，仅加载内置源 + 显式 `SOUWEN_PLUGINS` / `souwen.yaml` 路径 |
+
+> ⚠️ **不要在生产 / 运维场景手动设置 `SOUWEN_PLUGIN_AUTOLOAD=0`**。它是
+> `tools/gen_docs.py` 内部协议，用于让 checked-in `docs/data-sources.md`
+> 在本机装了第三方 entry point 时也保持稳定（详见
+> [`tools/gen_docs.py`](../tools/gen_docs.py) 中的 `render` /
+> `render_cli_content`）。希望屏蔽某个插件，请用 `souwen.yaml` 的 `plugins`
+> 显式列表或 `SOUWEN_PLUGINS` 覆盖，而不是关掉 autoload。
+
 ### 字符串路径格式
 
 `"module.path:attribute"`，attribute 三种合法形态见 §2。

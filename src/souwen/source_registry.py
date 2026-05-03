@@ -128,6 +128,9 @@ class SourceMeta:
     distribution: str
     package_extra: str | None
     stability: str
+    #: 用户级提示，描述该源运行时的限制或注意事项（如 "仅支持 DOI OA 查找"）。
+    #: doctor / API / Panel 会展示，不参与可用性判定。
+    usage_note: str | None
     default_enabled: bool
     default_for: frozenset[str]
 
@@ -174,6 +177,7 @@ def _build_source_meta_view() -> dict[str, SourceMeta]:
             distribution=distribution,
             package_extra=adapter.resolved_package_extra,
             stability=adapter.resolved_stability,
+            usage_note=adapter.usage_note,
             default_enabled=adapter.default_enabled,
             default_for=adapter.default_for,
         )
@@ -306,6 +310,17 @@ def credential_value(
     频道级 `sources.<name>.api_key` 只覆盖主 config_field；多字段凭据的
     secondary 字段仍读取 flat config，避免同一个 api_key 被误判成
     client_id 和 secret 同时满足。
+
+    self_hosted 优先级：
+        - 仅当 ``auth_requirement == "self_hosted"`` 且 ``field == primary_field``
+          时，主字段会优先从 ``cfg.resolve_base_url(source_name)`` 读取，再回退
+          到旧 channel ``api_key`` 路径，保持与 doctor / `/api/v1/sources` /
+          各 self-hosted 客户端的解析口径一致。
+        - **限制**：当前所有内置 self_hosted 源的凭据字段均为单字段
+          (``credential_fields == (config_field,)``)，因此 secondary 字段不会
+          走 ``resolve_base_url``。如果未来出现声明多字段的 self_hosted 源
+          （例如同时需要 ``*_url`` 与 ``*_token``），需重新审视此处优先级
+          规则，决定 secondary 字段是否也参与 base URL 解析。
     """
     if auth_requirement == "self_hosted" and field == primary_field:
         return cfg.resolve_base_url(source_name) or cfg.resolve_api_key(source_name, field)

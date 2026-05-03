@@ -34,7 +34,7 @@
  */
 
 import type { TFunction } from 'i18next'
-import { SOURCE_CATEGORY_LABEL_KEYS } from '../types'
+import { SOURCE_CATEGORY_LABEL_KEYS, SOURCE_CATEGORY_ORDER } from '../types'
 import type { SourceCategory } from '../types'
 
 /**
@@ -77,9 +77,19 @@ export function integrationBadgeColor(integration_type: string): BadgeColor {
 }
 
 /**
+ * Type guard：判断给定字符串是否是合法的 SourceCategory
+ */
+function isSourceCategory(value: string): value is SourceCategory {
+  return (SOURCE_CATEGORY_ORDER as readonly string[]).includes(value)
+}
+
+/**
  * 获取分类的本地化标签
  * 调用 i18n 获取中文标签（如果无翻译则返回原分类名）
  */
 export function categoryLabel(t: TFunction, category: string): string {
-  return t(SOURCE_CATEGORY_LABEL_KEYS[category as SourceCategory] ?? `dashboard.${category}`, category)
+  const key = isSourceCategory(category)
+    ? SOURCE_CATEGORY_LABEL_KEYS[category]
+    : `dashboard.${category}`
+  return t(key, category)
 }
