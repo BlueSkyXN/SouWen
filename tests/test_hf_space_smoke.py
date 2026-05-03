@@ -2,6 +2,48 @@ from scripts import hf_space_smoke as smoke
 from souwen.registry import all_adapters, fetch_providers
 
 
+class FakeSmokeClient:
+    def __init__(self):
+        self.json_routes = {
+            "/health": smoke.ResponseData(
+                200,
+                {"status": "ok", "version": "1.2.3"},
+                0.1,
+            ),
+            "/readiness": smoke.ResponseData(
+                200,
+                {"ready": True, "version": "1.2.3", "error": None},
+                0.1,
+            ),
+            "/openapi.json": smoke.ResponseData(
+                200,
+                {"info": {"title": "SouWen API", "version": "1.2.3"}},
+                0.1,
+            ),
+            "/api/v1/whoami": smoke.ResponseData(200, {"role": "admin"}, 0.1),
+        }
+        self.text_routes = {
+            "/docs": smoke.TextResponseData(
+                200,
+                "<html><title>Swagger UI</title></html>",
+                {"content-type": "text/html; charset=utf-8"},
+                0.1,
+            ),
+            "/panel": smoke.TextResponseData(
+                200,
+                '<html><body><div id="root"></div></body></html>',
+                {"content-type": "text/html; charset=utf-8"},
+                0.1,
+            ),
+        }
+
+    def get(self, path, **_kwargs):
+        return self.json_routes[path]
+
+    def get_text(self, path, **_kwargs):
+        return self.text_routes[path]
+
+
 def test_normalize_base_url_adds_scheme_and_trims_slash():
     assert smoke.normalize_base_url("blueskyxn-souwen.hf.space/") == (
         "https://blueskyxn-souwen.hf.space"
@@ -38,6 +80,46 @@ def test_build_markdown_report_includes_gate_summary():
     assert "Result: **passed**" in report
     assert "`basic/health`" in report
     assert "`curl_cffi+warp-on`" in report
+
+
+def test_basic_checks_cover_docs_and_panel_routes():
+    config = smoke.SmokeConfig(
+        base_url="https://example.test",
+        expected_version="1.2.3",
+        request_timeout=1,
+    )
+    state = smoke.RunState()
+
+    results = smoke.run_basic_checks(FakeSmokeClient(), config, state)  # type: ignore[arg-type]
+
+    by_name = {item.name: item for item in results}
+    assert by_name["openapi"].outcome == "pass"
+    assert by_name["docs"].outcome == "pass"
+    assert by_name["panel"].outcome == "pass"
+    assert by_name["whoami"].outcome == "pass"
+    assert state.admin_available is True
+
+
+def test_surface_only_report_skips_mutating_matrix_and_restore(monkeypatch):
+    config = smoke.SmokeConfig(
+        base_url="https://example.test",
+        expected_version="1.2.3",
+        request_timeout=1,
+        surface_only=True,
+    )
+    monkeypatch.setattr(smoke, "ApiClient", lambda _config: FakeSmokeClient())
+    monkeypatch.setattr(
+        smoke,
+        "run_admin_checks",
+        lambda _client, _config, state: [
+            smoke.ProbeResult("admin", "ping", "pass", "ok", required=True)
+        ],
+    )
+
+    results = smoke.run_report(config)
+
+    assert all(item.section != "matrix" for item in results)
+    assert all(item.section != "restore" for item in results)
 
 
 def test_build_markdown_report_includes_source_matrix():
@@ -155,7 +237,9 @@ def test_zero_key_search_sources_are_covered_or_explicitly_excluded():
     required_key = set(smoke.EXCLUDED_REQUIRED_KEY_SEARCH_SOURCES)
     self_hosted = set(smoke.EXCLUDED_SELF_HOSTED_SEARCH_SOURCES)
 
-    adapters = all_adapters().values()
+    adapters = [
+        adapter for adapter in all_adapters().values() if "external_plugin" not in adapter.tags
+    ]
     search_sources = [adapter for adapter in adapters if "search" in adapter.capabilities]
     zero_key_search = {
         adapter.name for adapter in search_sources if not adapter.resolved_needs_config
@@ -181,7 +265,9 @@ def test_zero_key_fetch_providers_are_covered_or_explicitly_excluded():
     skipped = {item["provider"] for item in smoke.ZERO_KEY_FETCH_SKIPPED}
     required_key = set(smoke.EXCLUDED_REQUIRED_KEY_FETCH_PROVIDERS)
 
-    providers = fetch_providers()
+    providers = [
+        provider for provider in fetch_providers() if "external_plugin" not in provider.tags
+    ]
     zero_key_fetch = {provider.name for provider in providers if not provider.resolved_needs_config}
     required_fetch = {provider.name for provider in providers if provider.resolved_needs_config}
 
@@ -198,7 +284,9 @@ def test_non_search_zero_key_capabilities_are_tested_or_explicitly_excluded():
     non_search = {
         adapter.name
         for adapter in all_adapters().values()
-        if "search" not in adapter.capabilities and not adapter.resolved_needs_config
+        if "external_plugin" not in adapter.tags
+        and "search" not in adapter.capabilities
+        and not adapter.resolved_needs_config
     }
 
     assert non_search <= covered_routes | covered_fetch | skipped_fetch | no_public_endpoint
