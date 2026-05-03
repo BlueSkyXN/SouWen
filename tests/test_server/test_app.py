@@ -429,6 +429,28 @@ class TestSearchAuth:
             item["name"] for entries in data.values() for item in entries
         }
 
+    def test_sources_keeps_runtime_web_plugin_without_internal_v0_tag(self, client, clean_registry):
+        """外部 web 插件不应因缺少内部 v0_category:* tag 从 /sources 消失。"""
+        from souwen.registry.adapter import MethodSpec, SourceAdapter
+        from souwen.registry.loader import lazy
+        from souwen.registry.views import _reg_external
+
+        adapter = SourceAdapter(
+            name="runtime_web_sources_probe",
+            domain="web",
+            integration="scraper",
+            description="runtime web source probe",
+            config_field=None,
+            client_loader=lazy("souwen.web.duckduckgo:DuckDuckGoClient"),
+            methods={"search": MethodSpec("search")},
+            needs_config=False,
+        )
+
+        assert _reg_external(adapter) is True
+        data = client.get("/api/v1/sources").json()
+        names = {item["name"] for item in data.get("general", [])}
+        assert "runtime_web_sources_probe" in names
+
     # --- 双密钥：visitor 和 admin 密码均可访问搜索端点 ---
     def test_dual_key_visitor_password_accepted(self, dual_key_client):
         """visitor_password 可以访问搜索端点。"""

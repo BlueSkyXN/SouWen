@@ -206,13 +206,15 @@ def _v0_category_for(adapter: SourceAdapter) -> str | None:
       - integration ∈ {scraper, self_hosted, 部分 official_api 型 SERP 引擎} → general
       - integration=official_api 且以 AI/搜索聚合为主 → professional
 
-    判定走 tags（"v0_category:general" / "v0_category:professional"）显式标记，
-    这样不会在维度推断上纠结。
+    判定优先走 tags（"v0_category:general" / "v0_category:professional"）显式标记；
+    未显式标记的 web 插件按公开 domain 语义保底归入 general。
     """
     if "v0_category:general" in adapter.tags:
         return "general"
     if "v0_category:professional" in adapter.tags:
         return "professional"
+    if adapter.domain == "web":
+        return "general"
     return _DOMAIN_TO_CATEGORY.get(adapter.domain)
 
 

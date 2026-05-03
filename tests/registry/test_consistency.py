@@ -554,3 +554,26 @@ class TestExternalPlugins:
         assert source_registry.get_source("ext_cache_probe") is None
         assert source_registry.is_known_source("ext_cache_probe") is False
         assert "ext_cache_probe" not in source_registry.ALL_SOURCE_NAMES
+
+    def test_external_web_plugin_without_internal_v0_tag_is_visible(self, clean_registry):
+        """外部 web 插件不应依赖内部 v0_category:* tag 才进入兼容视图。"""
+        from souwen import source_registry
+
+        adapter = SourceAdapter(
+            name="ext_web_probe",
+            domain="web",
+            integration="scraper",
+            description="web probe",
+            config_field=None,
+            client_loader=lazy("souwen.web.duckduckgo:DuckDuckGoClient"),
+            methods={"search": MethodSpec("search")},
+            needs_config=False,
+        )
+
+        assert _reg_external(adapter) is True
+        meta = source_registry.get_source("ext_web_probe")
+        assert meta is not None
+        assert meta.category == "general"
+        assert meta.distribution == "plugin"
+        assert source_registry.is_known_source("ext_web_probe") is True
+        assert "ext_web_probe" in source_registry.ALL_SOURCE_NAMES
