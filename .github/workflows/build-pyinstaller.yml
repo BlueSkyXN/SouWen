@@ -269,6 +269,7 @@ jobs:
           dist/${{ env.APP_NAME }} --version
           dist/${{ env.APP_NAME }} sources
           dist/${{ env.APP_NAME }} config show
+          dist/${{ env.APP_NAME }} config backend
 
       - name: Verify bundled CLI (Windows)
         if: runner.os == 'Windows'
@@ -280,6 +281,7 @@ jobs:
           ./dist/${{ env.APP_NAME }}.exe --version
           ./dist/${{ env.APP_NAME }}.exe sources
           ./dist/${{ env.APP_NAME }}.exe config show
+          ./dist/${{ env.APP_NAME }}.exe config backend
 
       # --- 重命名并上传构建产物 ---
       - name: Rename artifact (Unix)

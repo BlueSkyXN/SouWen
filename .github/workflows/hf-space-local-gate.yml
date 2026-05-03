@@ -76,6 +76,7 @@ jobs:
           python cli.py --version
           python cli.py sources
           python cli.py config show
+          python cli.py config backend
           python -m souwen --help
 
   pyinstaller-cli:
@@ -118,6 +119,7 @@ jobs:
           ./dist/souwen-local --version
           ./dist/souwen-local sources
           ./dist/souwen-local config show
+          ./dist/souwen-local config backend
 
       - name: Upload PyInstaller CLI artifact
         uses: actions/upload-artifact@v7
