@@ -9,7 +9,7 @@
 
 ### Behavior
 - 可选凭据源不再被粗略显示为"必须 Key"；缺少可选 Key 时按 `optional_credential_effect` 显示 `ok` 或 `limited`。
-- doctor 与 admin doctor 汇总现在区分严格 `ok`、可用 `available`、降级 `degraded` 与失败 `failed`；`limited` / `warning` 仍计入可用源。
+- doctor 与 admin doctor 汇总现在区分严格 `ok`、可用 `available`、降级总数 `degraded_total` 与失败 `failed`；`degraded` 保留为兼容别名。
 - `/api/v1/sources` 从运行时 live registry 派生，插件注册/注销后的数据源不会被静态兼容视图缓存误报。
 - `self_hosted` 源统一支持 channel `base_url`、旧 channel `api_key` 与 flat `<name>_url`，避免 doctor/API 与客户端初始化口径分叉。
 - `SourceAdapter` 现在要求 `self_hosted` 源必须声明 `config_field` 或 `credential_fields`，避免外部自托管插件注册成看似可用但无法解析实例地址的状态。

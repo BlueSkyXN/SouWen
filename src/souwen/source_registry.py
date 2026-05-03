@@ -30,6 +30,7 @@ domain → category 映射：
 from __future__ import annotations
 
 from dataclasses import dataclass
+from threading import RLock
 from typing import Any
 
 from souwen.registry import views as _views
@@ -182,12 +183,15 @@ def _build_source_meta_view() -> dict[str, SourceMeta]:
 # 首次访问时懒构建；后续直接用缓存。内置注册表在启动时填充；
 # 外部插件运行时注册/注销时会显式调用 invalidate_source_meta_cache()。
 _SOURCE_META_CACHE: dict[str, SourceMeta] | None = None
+_SOURCE_META_LOCK = RLock()
 
 
 def _meta_view() -> dict[str, SourceMeta]:
     global _SOURCE_META_CACHE
     if _SOURCE_META_CACHE is None:
-        _SOURCE_META_CACHE = _build_source_meta_view()
+        with _SOURCE_META_LOCK:
+            if _SOURCE_META_CACHE is None:
+                _SOURCE_META_CACHE = _build_source_meta_view()
     return _SOURCE_META_CACHE
 
 
@@ -198,8 +202,10 @@ def invalidate_source_meta_cache() -> None:
     `get_source()` / `is_known_source()` / `ALL_SOURCE_NAMES` 的视图。
     """
     global _SOURCE_META_CACHE, ALL_SOURCE_NAMES
-    _SOURCE_META_CACHE = _build_source_meta_view()
-    ALL_SOURCE_NAMES = frozenset(_SOURCE_META_CACHE.keys())
+    next_cache = _build_source_meta_view()
+    with _SOURCE_META_LOCK:
+        _SOURCE_META_CACHE = next_cache
+        ALL_SOURCE_NAMES = frozenset(next_cache.keys())
 
 
 # ── 公开 API ────────────────────────────────────────────────
@@ -335,8 +341,7 @@ def has_required_credentials(cfg: Any, source_name: str, meta: Any) -> bool:
 
     返回 ``True`` 的情况：
         - ``auth_requirement`` ∈ {``none``, ``optional``}：缺凭据也照样可用；
-        - 源未声明任何 ``credential_fields``（如 fetch 类的 builtin scraper）；
-        - ``required`` / ``self_hosted`` 源所有字段都已配置。
+        - ``required`` / ``self_hosted`` 源声明的所有字段都已配置。
 
     与 :func:`has_configured_credentials` 的区别：
         - **本函数**回答"运行时是否满足"——免配置/可选凭据源永远是 ``True``，因为
@@ -348,9 +353,7 @@ def has_required_credentials(cfg: Any, source_name: str, meta: Any) -> bool:
     """
     if meta.auth_requirement in {"none", "optional"}:
         return True
-    if not meta.credential_fields:
-        return True
-    return not missing_credential_fields(cfg, source_name, meta)
+    return bool(meta.credential_fields) and not missing_credential_fields(cfg, source_name, meta)
 
 
 def has_configured_credentials(cfg: Any, source_name: str, meta: Any) -> bool:

@@ -541,7 +541,7 @@ Cache-Control: public, max-age=3600
 
 #### `GET /api/v1/admin/doctor`
 
-数据源健康检查，返回配置状态和已知限制提示；当前不执行实时连通性探测。
+数据源健康检查，返回配置状态和已知限制提示；当前不执行实时连通性探测。`available` 统计 `ok` / `limited` / `warning` / `degraded`，`degraded_total` 统计 `limited` / `warning` / `degraded`；`degraded` 为兼容旧客户端的同值别名，精确状态计数请读取 `status_counts.degraded`。
 
 **响应示例：**
 ```json
@@ -550,6 +550,7 @@ Cache-Control: public, max-age=3600
   "ok": 48,
   "available": 72,
   "degraded": 24,
+  "degraded_total": 24,
   "failed": 21,
   "limited": 20,
   "warning": 4,

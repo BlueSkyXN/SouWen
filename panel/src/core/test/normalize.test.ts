@@ -110,7 +110,10 @@ function makeWeb(overrides: Partial<WebResult> = {}): WebResult {
 function makeDoctor(overrides: Partial<DoctorSource> = {}): DoctorSource {
   return {
     name: '', category: 'paper', status: 'ok', integration_type: 'open_api',
-    required_key: null, key_requirement: 'none', message: '', enabled: true,
+    required_key: null, key_requirement: 'none', auth_requirement: 'none',
+    credential_fields: [], optional_credential_effect: null,
+    risk_level: 'low', risk_reasons: [], distribution: 'core',
+    package_extra: null, stability: 'stable', message: '', enabled: true,
     ...overrides,
   }
 }

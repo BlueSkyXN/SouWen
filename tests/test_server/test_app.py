@@ -178,6 +178,7 @@ class TestAdminAuth:
         assert data["ok"] == 1
         assert data["available"] == 4
         assert data["degraded"] == 3
+        assert data["degraded_total"] == 3
         assert data["status_counts"]["degraded"] == 1
         assert data["failed"] == 2
         assert data["status_counts"]["limited"] == 1

@@ -293,6 +293,7 @@ class TestCheckAll:
         assert counts["ok"] == 1
         assert counts["available"] == 4
         assert counts["degraded"] == 3
+        assert counts["degraded_total"] == 3
         status_counts = cast(dict[str, int], counts["status_counts"])
         assert status_counts["degraded"] == 1
         assert counts["failed"] == 2

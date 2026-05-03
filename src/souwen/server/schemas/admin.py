@@ -18,9 +18,11 @@ class DoctorResponse(BaseModel):
     total: int
     # 严格正常源数量，仅 status == "ok"。
     ok: int
-    # 可用源数量，包含 ok / limited / warning。
+    # 可用源数量，包含 ok / limited / warning / degraded。
     available: int = 0
+    # 兼容字段：limited / warning / degraded 三类降级可用源总数。
     degraded: int = 0
+    degraded_total: int = 0
     failed: int = 0
     limited: int = 0
     warning: int = 0

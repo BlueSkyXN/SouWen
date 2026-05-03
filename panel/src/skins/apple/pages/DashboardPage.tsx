@@ -29,7 +29,7 @@ import { RefreshCw } from 'lucide-react'
 import { api } from '@core/services/api'
 import { useNotificationStore } from '@core/stores/notificationStore'
 import { formatError } from '@core/lib/errors'
-import { doctorAvailableCount, doctorStatusLabel, doctorStatusOrder, doctorStatusTone, sourceCredentialLabel } from '@core/lib/sourceStatus'
+import { doctorStatusLabel, doctorStatusOrder, doctorStatusTone, sourceCredentialLabel } from '@core/lib/sourceStatus'
 import { Spinner } from '../components/common/Spinner'
 import type { DoctorResponse } from '@core/types'
 import styles from './DashboardPage.module.scss'
@@ -90,7 +90,7 @@ export function DashboardPage() {
   const paperCount = doctor.sources.filter((s) => s.category === 'paper').length
   const patentCount = doctor.sources.filter((s) => s.category === 'patent').length
   const webCount = doctor.sources.filter((s) => !['paper', 'patent'].includes(s.category)).length
-  const okCount = doctorAvailableCount(doctor.sources, doctor.available)
+  const okCount = doctor.available
   const totalCount = doctor.total
   const healthPct = totalCount > 0 ? Math.round((okCount / totalCount) * 100) : 0
 

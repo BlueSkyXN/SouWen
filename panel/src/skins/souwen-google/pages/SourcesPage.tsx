@@ -42,7 +42,7 @@ import { Input } from '../components/common/Input'
 import { formatError } from '@core/lib/errors'
 import { staggerContainerFast, staggerItemSmall } from '@core/lib/animations'
 import { categoryBadgeColor, integrationBadgeColor, categoryLabel } from '@core/lib/ui'
-import { doctorAvailableCount, doctorStatusOrder, isDoctorStatusAvailable, sourceCredentialLabel } from '@core/lib/sourceStatus'
+import { doctorStatusOrder, isDoctorStatusAvailable, sourceCredentialLabel } from '@core/lib/sourceStatus'
 
 import { SOURCE_CATEGORY_LABEL_KEYS, SOURCE_CATEGORY_ORDER } from '@core/types'
 import type { DoctorResponse, DoctorSource, SourceCategory, SourceChannelConfig } from '@core/types'
@@ -530,7 +530,7 @@ export function SourcesPage() {
     )
   }
 
-  const okCount = doctorAvailableCount(doctor.sources, doctor.available)
+  const okCount = doctor.available
   const totalCount = doctor.total
 
   const sourcesByCategory: Record<string, DoctorSource[]> = {}

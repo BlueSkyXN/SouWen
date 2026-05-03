@@ -25,6 +25,7 @@ import inspect
 
 import pytest
 
+from souwen.config import SouWenConfig
 from souwen.registry import (
     all_adapters,
     all_capabilities,
@@ -192,6 +193,19 @@ class TestSourceAdapterCatalogValidation:
             ValueError, match="self_hosted 源必须声明 config_field 或 credential_fields"
         ):
             self._adapter(integration="self_hosted", needs_config=False)
+
+    def test_has_required_credentials_rejects_required_meta_without_fields(self):
+        from types import SimpleNamespace
+
+        from souwen.source_registry import has_required_credentials
+
+        meta = SimpleNamespace(
+            auth_requirement="required",
+            credential_fields=(),
+            config_field=None,
+        )
+
+        assert has_required_credentials(SouWenConfig(), "catalog_validation_probe", meta) is False
 
 
 # ── D11 硬断言 ──────────────────────────────────────────────

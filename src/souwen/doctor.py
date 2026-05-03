@@ -79,7 +79,7 @@ def is_available_status(status: str | None) -> bool:
 
 
 def summarize_statuses(results: list[dict]) -> dict[str, int | dict[str, int]]:
-    """汇总 doctor 状态，区分严格 ok、可用、降级与失败。"""
+    """汇总 doctor 状态，区分严格 ok、可用、降级总数与失败。"""
     status_counts: dict[str, int] = {}
     for result in results:
         status = str(result.get("status") or "unknown")
@@ -87,13 +87,14 @@ def summarize_statuses(results: list[dict]) -> dict[str, int | dict[str, int]]:
 
     total = len(results)
     available = sum(status_counts.get(status, 0) for status in AVAILABLE_STATUSES)
-    degraded = sum(status_counts.get(status, 0) for status in DEGRADED_STATUSES)
+    degraded_total = sum(status_counts.get(status, 0) for status in DEGRADED_STATUSES)
     failed = total - available
     return {
         "total": total,
         "ok": status_counts.get("ok", 0),
         "available": available,
-        "degraded": degraded,
+        "degraded": degraded_total,
+        "degraded_total": degraded_total,
         "failed": failed,
         "limited": status_counts.get("limited", 0),
         "warning": status_counts.get("warning", 0),
