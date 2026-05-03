@@ -2375,6 +2375,24 @@ def append_zero_key_matrix(lines: list[str], results: list[ProbeResult]) -> None
 def build_markdown_report(config: SmokeConfig, results: list[ProbeResult]) -> str:
     failures = required_failures(results)
     status = "failed" if failures else "passed"
+    if config.surface_only:
+        capability_lines = [
+            "- WARP enable modes: `skipped (surface-only)`",
+            "- HTTP backend mutation matrix: `skipped (surface-only)`",
+            "- Per-source matrix: `skipped (surface-only)`",
+            "- Fetch provider matrix: `skipped (surface-only)`",
+            "- Direct zero-key routes: `skipped (surface-only)`",
+        ]
+    else:
+        capability_lines = [
+            f"- WARP modes: `off,{','.join(config.warp_modes)}`",
+            f"- HTTP backend matrix: `{','.join(MATRIX_HTTP_BACKENDS)}`",
+            f"- Per-source matrix: `{'enabled' if config.full_matrix else 'quick aggregate only'}`",
+            f"- Fetch provider matrix: `{len(ZERO_KEY_FETCH_PROVIDER_TESTS)} tested, "
+            f"{len(ZERO_KEY_FETCH_SKIPPED)} skipped external-runtime`",
+            "- Direct zero-key routes: `/api/v1/sources`, `/api/v1/bilibili/*`, "
+            "`/api/v1/wayback/*`, `/api/v1/links`, `/api/v1/sitemap`",
+        ]
     lines = [
         "# SouWen HF Space CD Test Report",
         "",
@@ -2382,13 +2400,7 @@ def build_markdown_report(config: SmokeConfig, results: list[ProbeResult]) -> st
         f"- Base URL: `{config.base_url}`",
         f"- Expected version: `{config.expected_version or 'not pinned'}`",
         f"- Mode: `{'surface-only' if config.surface_only else 'post-deploy capability'}`",
-        f"- WARP modes: `off,{','.join(config.warp_modes)}`",
-        f"- HTTP backend matrix: `{','.join(MATRIX_HTTP_BACKENDS)}`",
-        f"- Per-source matrix: `{'enabled' if config.full_matrix else 'quick aggregate only'}`",
-        f"- Fetch provider matrix: `{len(ZERO_KEY_FETCH_PROVIDER_TESTS)} tested, "
-        f"{len(ZERO_KEY_FETCH_SKIPPED)} skipped external-runtime`",
-        "- Direct zero-key routes: `/api/v1/sources`, `/api/v1/bilibili/*`, "
-        "`/api/v1/wayback/*`, `/api/v1/links`, `/api/v1/sitemap`",
+        *capability_lines,
         f"- Required failures: `{len(failures)}`",
         "",
         "## Gate Summary",

@@ -117,9 +117,13 @@ def test_surface_only_report_skips_mutating_matrix_and_restore(monkeypatch):
     )
 
     results = smoke.run_report(config)
+    report = smoke.build_markdown_report(config, results)
 
     assert all(item.section != "matrix" for item in results)
     assert all(item.section != "restore" for item in results)
+    assert "- HTTP backend mutation matrix: `skipped (surface-only)`" in report
+    assert "- Direct zero-key routes: `skipped (surface-only)`" in report
+    assert "- HTTP backend matrix: `auto,httpx,curl_cffi`" not in report
 
 
 def test_build_markdown_report_includes_source_matrix():
