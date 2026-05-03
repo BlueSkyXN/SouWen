@@ -157,7 +157,9 @@ def test_zero_key_search_sources_are_covered_or_explicitly_excluded():
 
     adapters = all_adapters().values()
     search_sources = [adapter for adapter in adapters if "search" in adapter.capabilities]
-    zero_key_search = {adapter.name for adapter in search_sources if not adapter.resolved_needs_config}
+    zero_key_search = {
+        adapter.name for adapter in search_sources if not adapter.resolved_needs_config
+    }
     required_search = {
         adapter.name
         for adapter in search_sources
@@ -200,6 +202,34 @@ def test_non_search_zero_key_capabilities_are_tested_or_explicitly_excluded():
     }
 
     assert non_search <= covered_routes | covered_fetch | skipped_fetch | no_public_endpoint
+
+
+def test_zero_key_checks_refuse_mutation_without_safe_snapshots():
+    config = smoke.SmokeConfig(
+        base_url="https://example.test",
+        expected_version=None,
+        request_timeout=1,
+    )
+    state = smoke.RunState(admin_available=True, backend_snapshot_ok=True, warp_snapshot_ok=False)
+
+    results = smoke.run_zero_key_checks(object(), config, state)  # type: ignore[arg-type]
+
+    assert len(results) == 1
+    assert results[0].name == "mutation-snapshot"
+    assert results[0].outcome == "fail"
+    assert results[0].required is True
+    assert "mutation matrix skipped" in results[0].detail
+
+
+def test_restore_state_does_not_mutate_when_snapshots_are_unknown():
+    state = smoke.RunState(admin_available=True)
+
+    results = smoke.restore_state(object(), state)  # type: ignore[arg-type]
+
+    assert [(item.name, item.outcome) for item in results] == [
+        ("http-backend", "skip"),
+        ("warp", "skip"),
+    ]
 
 
 def test_summarize_search_response_handles_missing_meta():

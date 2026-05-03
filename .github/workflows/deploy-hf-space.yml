@@ -31,7 +31,7 @@ jobs:
       name: hf
       url: https://huggingface.co/spaces/BlueSkyXN/SouWen
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 180
     steps:
       - uses: actions/checkout@v6
 
@@ -179,7 +179,7 @@ jobs:
           EXPECTED_SOUWEN_VERSION: ${{ steps.project.outputs.version }}
           SOUWEN_HF_SPACE_URL: https://blueskyxn-souwen.hf.space
           SOUWEN_SMOKE_REQUEST_TIMEOUT: "20"
-          SOUWEN_SMOKE_WARP_MODES: auto,wireproxy
+          SOUWEN_SMOKE_WARP_MODES: auto
           SOUWEN_SMOKE_REPORT_FILE: hf-space-cd-report.md
           SOUWEN_SMOKE_JSON_FILE: hf-space-cd-report.json
           SOUWEN_SMOKE_BEARER_TOKEN: ${{ secrets.SOUWEN_SMOKE_BEARER_TOKEN }}

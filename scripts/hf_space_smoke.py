@@ -246,11 +246,13 @@ class ProbeResult:
 
 @dataclass
 class RunState:
-    original_backend: str = "auto"
-    original_warp_status: dict[str, Any] = field(default_factory=dict)
+    original_backend: str | None = None
+    original_warp_status: dict[str, Any] | None = None
     available_warp_modes: dict[str, bool] = field(default_factory=dict)
     observed_warp_status: dict[str, dict[str, Any]] = field(default_factory=dict)
     admin_available: bool = False
+    backend_snapshot_ok: bool = False
+    warp_snapshot_ok: bool = False
     warp_available: bool = False
 
 
@@ -520,8 +522,10 @@ def run_admin_checks(client: ApiClient, config: SmokeConfig, state: RunState) ->
 
     def _http_backend_get() -> ProbeResult:
         resp = client.get("/api/v1/admin/http-backend", auth=True)
-        state.original_backend = str(resp.data.get("default") or "auto")
         ok = resp.status == 200 and resp.data.get("default") in {"auto", "curl_cffi", "httpx"}
+        if ok:
+            state.original_backend = str(resp.data.get("default"))
+            state.backend_snapshot_ok = True
         detail = (
             f"status={resp.status}, default={resp.data.get('default')!r}, "
             f"curl_cffi_available={resp.data.get('curl_cffi_available')!r}"
@@ -536,13 +540,15 @@ def run_admin_checks(client: ApiClient, config: SmokeConfig, state: RunState) ->
 
     def _warp_status() -> ProbeResult:
         resp = client.get("/api/v1/admin/warp", auth=True)
-        state.original_warp_status = dict(resp.data)
+        ok = resp.status == 200 and "status" in resp.data and "available_modes" in resp.data
+        if ok:
+            state.original_warp_status = dict(resp.data)
+            state.warp_snapshot_ok = True
         available_modes = resp.data.get("available_modes")
         if isinstance(available_modes, dict):
             state.available_warp_modes.update(
                 {str(key): bool(value) for key, value in available_modes.items()}
             )
-        ok = resp.status == 200 and "status" in resp.data and "available_modes" in resp.data
         detail = (
             f"status={resp.status}, warp_status={resp.data.get('status')!r}, "
             f"mode={resp.data.get('mode')!r}, ip={resp.data.get('ip')!r}"
@@ -616,8 +622,7 @@ def run_admin_checks(client: ApiClient, config: SmokeConfig, state: RunState) ->
         resp = client.get("/api/v1/admin/doctor", auth=True, timeout=60)
         ok = resp.status == 200 and int(resp.data.get("total") or 0) > 0
         detail = (
-            f"status={resp.status}, total={resp.data.get('total')!r}, "
-            f"ok={resp.data.get('ok')!r}"
+            f"status={resp.status}, total={resp.data.get('total')!r}, ok={resp.data.get('ok')!r}"
         )
         return (
             pass_result("admin", "doctor", detail, required=True, elapsed=resp.elapsed)
@@ -1806,6 +1811,21 @@ def run_zero_key_checks(
 ) -> list[ProbeResult]:
     if not state.admin_available:
         return [skip_result("matrix", "zero-key-matrix", "admin access unavailable")]
+    if not (state.backend_snapshot_ok and state.warp_snapshot_ok):
+        missing = []
+        if not state.backend_snapshot_ok:
+            missing.append("http-backend")
+        if not state.warp_snapshot_ok:
+            missing.append("warp")
+        return [
+            fail_result(
+                "matrix",
+                "mutation-snapshot",
+                f"missing original state snapshot: {','.join(missing)}; "
+                "mutation matrix skipped to avoid unsafe restore",
+                required=True,
+            )
+        ]
 
     results: list[ProbeResult] = []
 
@@ -1901,9 +1921,7 @@ def run_zero_key_checks(
         safe_call("zero-key-route", "bilibili-users", lambda: bilibili_users_route(client))
     )
     results.append(
-        safe_call(
-            "zero-key-route", "bilibili-articles", lambda: bilibili_articles_route(client)
-        )
+        safe_call("zero-key-route", "bilibili-articles", lambda: bilibili_articles_route(client))
     )
     results.append(
         safe_call(
@@ -1935,19 +1953,38 @@ def restore_state(client: ApiClient, state: RunState) -> list[ProbeResult]:
     if not state.admin_available:
         return results
 
-    results.append(
-        safe_call(
-            "restore",
-            "http-backend",
-            lambda: set_http_backend(
-                client,
-                state.original_backend or "auto",
-                section="restore",
-                name="http-backend",
-                required=True,
-            ),
+    if state.backend_snapshot_ok and state.original_backend:
+        results.append(
+            safe_call(
+                "restore",
+                "http-backend",
+                lambda: set_http_backend(
+                    client,
+                    str(state.original_backend),
+                    section="restore",
+                    name="http-backend",
+                    required=True,
+                ),
+            )
         )
-    )
+    else:
+        results.append(
+            skip_result(
+                "restore",
+                "http-backend",
+                "original backend snapshot unavailable; no restore attempted",
+            )
+        )
+
+    if not state.warp_snapshot_ok or state.original_warp_status is None:
+        results.append(
+            skip_result(
+                "restore",
+                "warp",
+                "original WARP snapshot unavailable; no restore attempted",
+            )
+        )
+        return results
 
     original_status = state.original_warp_status.get("status")
     original_mode = state.original_warp_status.get("mode") or "auto"
@@ -2070,9 +2107,7 @@ def append_zero_key_matrix(lines: list[str], results: list[ProbeResult]) -> None
     fetch_sources = [
         result for result in results if result.meta.get("matrix_kind") == "fetch-source"
     ]
-    open_search = [
-        result for result in results if result.meta.get("matrix_kind") == "open-search"
-    ]
+    open_search = [result for result in results if result.meta.get("matrix_kind") == "open-search"]
     direct_routes = [
         result for result in results if result.meta.get("matrix_kind") == "direct-route"
     ]
