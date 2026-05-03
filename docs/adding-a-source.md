@@ -129,7 +129,7 @@ _reg(SourceAdapter(
 | `extra_domains` | — | 跨域能力，**目前仅允许 `frozenset({"fetch"})`**（如 Tavily 同时是 web 搜索引擎和 fetch provider） |
 | `default_enabled` | — | UI 默认是否勾选；高风险源（google/baidu/twitter）建议 `False` |
 | `default_for` | — | 形如 `{"paper:search"}`，声明此源是否进入 `(domain, capability)` 默认集 |
-| `tags` | — | `{"high_risk"}` / `{"v0_category:general"}` / `{"v0_category:professional"}` |
+| `tags` | — | `{"high_risk"}`；内置 web 源可用 `v0_category:*`，外部 web 插件用公开 `category:general/professional` |
 | `needs_config` | 推荐 | 显式声明是否"必须配置才能工作"（None 时按 integration 推断） |
 | `auth_requirement` | 推荐 | `none` / `optional` / `required` / `self_hosted`；新代码优先使用它 |
 | `credential_fields` | 推荐 | 完整凭据字段；多字段 OAuth 源列全，如 `("client_id", "client_secret")` |
@@ -147,7 +147,7 @@ _reg(SourceAdapter(
 | 完全免配置 | `auth_requirement="none"`, `config_field=None` |
 | 可选 Key 提高限流/配额 | `auth_requirement="optional"`, `needs_config=False`, `optional_credential_effect="rate_limit"` |
 | 必须凭据 | `auth_requirement="required"`, `credential_fields=(...)` |
-| 自建实例 | `auth_requirement="self_hosted"`, `config_field="<source>_url"` |
+| 自建实例 | `auth_requirement="self_hosted"`, `config_field="<source>_url"`；必须声明 URL/凭据字段 |
 | 纯抓取 / fetch provider | `domain="fetch"`, `methods={"fetch": MethodSpec("fetch")}` |
 | 重依赖或长尾源 | `distribution="extra"` 并设置 `package_extra`，或作为外部插件发布 |
 

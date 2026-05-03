@@ -182,6 +182,24 @@ class TestAdminAuth:
         assert data["failed"] == 2
         assert data["status_counts"]["limited"] == 1
 
+    def test_admin_doctor_keeps_runtime_web_plugin_without_internal_v0_tag(
+        self,
+        authed_client,
+        clean_registry,
+    ):
+        """admin doctor 应返回不带内部 v0_category:* tag 的外部 web 插件。"""
+        from tests.test_doctor import register_runtime_web_doctor_probe
+
+        name = register_runtime_web_doctor_probe()
+        resp = authed_client.get(
+            "/api/v1/admin/doctor",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+        assert resp.status_code == 200
+        sources = {item["name"]: item for item in resp.json()["sources"]}
+        assert sources[name]["category"] == "general"
+        assert sources[name]["distribution"] == "plugin"
+
     def test_admin_sources_config_includes_catalog_fields(self, authed_client):
         """数据源频道配置应返回 source catalog 字段，供前端展示和运维判断。"""
         resp = authed_client.get(

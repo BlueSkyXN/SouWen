@@ -584,3 +584,25 @@ class TestExternalPlugins:
         assert meta.distribution == "plugin"
         assert source_registry.is_known_source("ext_web_probe") is True
         assert "ext_web_probe" in source_registry.ALL_SOURCE_NAMES
+
+    def test_external_web_plugin_can_use_public_professional_category_tag(self, clean_registry):
+        """外部 web 插件可用公开 category:* tag 选择 professional 分类。"""
+        from souwen import source_registry
+
+        adapter = SourceAdapter(
+            name="ext_professional_web_probe",
+            domain="web",
+            integration="official_api",
+            description="professional web probe",
+            config_field="tavily_api_key",
+            client_loader=lazy("souwen.web.tavily:TavilyClient"),
+            methods={"search": MethodSpec("search")},
+            auth_requirement="required",
+            credential_fields=("tavily_api_key",),
+            tags=frozenset({"category:professional"}),
+        )
+
+        assert _reg_external(adapter) is True
+        meta = source_registry.get_source("ext_professional_web_probe")
+        assert meta is not None
+        assert meta.category == "professional"

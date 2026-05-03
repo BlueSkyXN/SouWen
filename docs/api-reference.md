@@ -1029,7 +1029,7 @@ python -m souwen.integrations.mcp_server
 
 | 端点 | 说明 |
 |------|------|
-| `GET /api/v1/admin/sources/config` | 列出所有源的频道配置（`enabled / proxy / http_backend / base_url / has_api_key / headers / params / category / integration_type`，以及 source catalog 字段） |
+| `GET /api/v1/admin/sources/config` | 列出所有源的频道配置（`enabled / proxy / http_backend / base_url / has_api_key / credentials_satisfied / headers / params / category / integration_type`，以及 source catalog 字段） |
 | `GET /api/v1/admin/sources/config/{source_name}` | 单源频道配置（404 未知源） |
 | `PUT /api/v1/admin/sources/config/{source_name}` | JSON 体更新单源运行时配置（避免 Key 入日志），重启不持久化 |
 | `GET /api/v1/admin/proxy` / `PUT` | 全局 `proxy` 与 `proxy_pool` 读写（含 SOCKS 依赖检查） |
@@ -1049,7 +1049,8 @@ python -m souwen.integrations.mcp_server
 
 | 字段 | 说明 |
 |---|---|
-| `has_api_key` | 对必须凭据/多字段凭据表示全部必需字段已配置；可选凭据缺失时为 `false` |
+| `has_api_key` | 是否显式配置了该源声明的凭据字段；免配置源为 `false`，表示没有 Key，而不是不可用 |
+| `credentials_satisfied` | 该源运行所需凭据是否满足；`auth_requirement="none"` / `optional` 源通常为 `true` |
 | `auth_requirement` / `key_requirement` | `none` / `optional` / `required` / `self_hosted` |
 | `credential_fields` | 完整凭据字段列表 |
 | `risk_level` / `risk_reasons` | 风险等级和原因 |

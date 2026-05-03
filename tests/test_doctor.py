@@ -11,9 +11,31 @@
 
 import pytest
 
+from typing import cast
+
 from souwen.doctor import check_all, format_report, summarize_statuses
 from souwen.exceptions import ConfigError
+from souwen.registry.adapter import MethodSpec, SourceAdapter
+from souwen.registry.loader import lazy
+from souwen.registry.views import _reg_external
 from souwen.source_registry import get_all_sources
+
+
+def register_runtime_web_doctor_probe() -> str:
+    """注册一个不带内部 v0_category:* tag 的外部 web 插件。"""
+    name = "doctor_web_probe"
+    adapter = SourceAdapter(
+        name=name,
+        domain="web",
+        integration="scraper",
+        description="doctor web probe",
+        config_field=None,
+        client_loader=lazy("souwen.web.duckduckgo:DuckDuckGoClient"),
+        methods={"search": MethodSpec("search")},
+        needs_config=False,
+    )
+    assert _reg_external(adapter) is True
+    return name
 
 
 class TestCheckAll:
@@ -271,8 +293,19 @@ class TestCheckAll:
         assert counts["ok"] == 1
         assert counts["available"] == 4
         assert counts["degraded"] == 3
-        assert counts["status_counts"]["degraded"] == 1
+        status_counts = cast(dict[str, int], counts["status_counts"])
+        assert status_counts["degraded"] == 1
         assert counts["failed"] == 2
+
+    def test_runtime_web_plugin_without_internal_v0_tag_is_visible(self, clean_registry):
+        """外部 web 插件应出现在 doctor 路径，不依赖内部 v0_category:* tag。"""
+        name = register_runtime_web_doctor_probe()
+
+        results = check_all()
+        source = next(r for r in results if r["name"] == name)
+        assert source["category"] == "general"
+        assert source["distribution"] == "plugin"
+        assert source["status"] in {"ok", "warning"}
 
 
 class TestFormatReport:

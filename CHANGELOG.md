@@ -12,6 +12,9 @@
 - doctor 与 admin doctor 汇总现在区分严格 `ok`、可用 `available`、降级 `degraded` 与失败 `failed`；`limited` / `warning` 仍计入可用源。
 - `/api/v1/sources` 从运行时 live registry 派生，插件注册/注销后的数据源不会被静态兼容视图缓存误报。
 - `self_hosted` 源统一支持 channel `base_url`、旧 channel `api_key` 与 flat `<name>_url`，避免 doctor/API 与客户端初始化口径分叉。
+- `SourceAdapter` 现在要求 `self_hosted` 源必须声明 `config_field` 或 `credential_fields`，避免外部自托管插件注册成看似可用但无法解析实例地址的状态。
+- admin source config 新增 `credentials_satisfied`，用于区分"是否配置了 Key"与"当前凭据要求是否已满足"。
+- 外部 `domain="web"` 插件不再依赖内部 `v0_category:*` tag；默认归入 `general`，可用公开 `category:professional` tag 进入专业搜索分类。
 - `unpaywall` 按实际客户端要求改为必须 `unpaywall_email`，继续保留在实验/排除旧 `ALL_SOURCES` 视图中。
 - `tools/gen_docs.py` 默认只生成内置源清单，避免本机已安装外部插件造成文档漂移；可用 `--include-plugins` 查看运行时插件 catalog。
 

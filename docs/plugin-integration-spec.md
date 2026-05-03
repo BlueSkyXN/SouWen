@@ -115,7 +115,7 @@ registry/__init__.py 导入
 | `extra_domains` | `frozenset()` | 跨域能力；当前仅允许 `frozenset({"fetch"})` |
 | `default_enabled` | `True` | UI 默认是否勾选 |
 | `default_for` | `frozenset()` | 形如 `{"web:search"}`；外部插件**不建议**抢占默认位 |
-| `tags` | `frozenset()` | 见下表 |
+| `tags` | `frozenset()` | 见下表；web 插件可用 `category:professional` 进入专业搜索分类 |
 | `needs_config` | `None` | 是否"必须配置才能工作"；建议显式声明（`True` / `False`） |
 | `auth_requirement` | `None` | `none` / `optional` / `required` / `self_hosted`；None 时从旧字段派生 |
 | `credential_fields` | `()` | 完整凭据字段；多字段凭据应列全 |
@@ -157,7 +157,7 @@ plugin = SourceAdapter(
 | 无凭据即可运行 | `auth_requirement="none"` |
 | Key 只提升限流或配额 | `auth_requirement="optional"` + `optional_credential_effect="rate_limit"` / `"quota"` |
 | 必须凭据 | `auth_requirement="required"` + `credential_fields=(...)` |
-| 自建实例 | `auth_requirement="self_hosted"` + `config_field="<source>_url"` |
+| 自建实例 | `auth_requirement="self_hosted"` + `config_field="<source>_url"`；`self_hosted` 必须声明 URL/凭据字段 |
 | 高风控/重依赖插件 | `risk_level="medium"` 或 `"high"`，并填写 `risk_reasons` / `package_extra` |
 
 ### 推荐 tag
@@ -166,6 +166,11 @@ plugin = SourceAdapter(
 |---|---|
 | `"external_plugin"` | **强烈建议所有外部插件加上**，便于审计与故障排查 |
 | `"high_risk"` | 高风控源，会被 `high_risk_sources()` 视图收录 |
+| `"category:professional"` | 仅适用于 `domain="web"` 的插件；进入专业搜索分类 |
+| `"category:general"` | 仅适用于 `domain="web"` 的插件；显式进入通用搜索分类（默认也是 general） |
+
+`domain="web"` 的外部插件如果不声明 `category:*`，会按公开 domain 语义归入 `general`。
+只有 AI/聚合搜索、商业 SERP API 等更接近内置 `professional` 分类的插件，才建议声明 `category:professional`。
 
 > ⚠️ 不要使用 `v0_category:*` / `v0_all_sources:exclude` 等内置兼容标签——这些仅用于
 > 内置源对旧版 `ALL_SOURCES` 的向下兼容。
