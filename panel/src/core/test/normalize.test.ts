@@ -110,7 +110,11 @@ function makeWeb(overrides: Partial<WebResult> = {}): WebResult {
 function makeDoctor(overrides: Partial<DoctorSource> = {}): DoctorSource {
   return {
     name: '', category: 'paper', status: 'ok', integration_type: 'open_api',
-    required_key: null, key_requirement: 'none', message: '', enabled: true,
+    required_key: null, key_requirement: 'none', auth_requirement: 'none',
+    credential_fields: [], optional_credential_effect: null,
+    risk_level: 'low', risk_reasons: [], distribution: 'core',
+    package_extra: null, stability: 'stable', usage_note: null,
+    message: '', enabled: true,
     ...overrides,
   }
 }
@@ -263,6 +267,18 @@ describe('normalizeDoctor', () => {
     expect(result.error).toBeNull()
   })
 
+  it('marks limited, warning, and degraded statuses as reachable', () => {
+    expect(normalizeDoctor(makeDoctor({
+      name: 'semantic_scholar', status: 'limited', message: 'limited by quota',
+    })).reachable).toBe(true)
+    expect(normalizeDoctor(makeDoctor({
+      name: 'google_patents', status: 'warning', message: 'experimental',
+    })).reachable).toBe(true)
+    expect(normalizeDoctor(makeDoctor({
+      name: 'legacy_source', status: 'degraded', message: 'legacy degraded status',
+    })).reachable).toBe(true)
+  })
+
   /**
    * 测试：status=error 标记为不可达并保留错误消息
    */
@@ -273,6 +289,15 @@ describe('normalizeDoctor', () => {
     }))
     expect(result.reachable).toBe(false)
     expect(result.error).toBe('missing key')
+  })
+
+  /**
+   * 测试：保留 source catalog 新增分类
+   */
+  it('keeps catalog-only category values', () => {
+    expect(normalizeDoctor(makeDoctor({ category: 'office' })).type).toBe('office')
+    expect(normalizeDoctor(makeDoctor({ category: 'cn_tech' })).type).toBe('cn_tech')
+    expect(normalizeDoctor(makeDoctor({ category: 'fetch' })).type).toBe('fetch')
   })
 })
 

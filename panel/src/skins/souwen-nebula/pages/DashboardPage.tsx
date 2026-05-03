@@ -35,6 +35,7 @@ import { StatsGridSkeleton, TableSkeleton } from '../components/common/Skeleton'
 import { formatError } from '@core/lib/errors'
 import { staggerContainer, staggerItem } from '@core/lib/animations'
 import { categoryBadgeColor, integrationBadgeColor, categoryLabel } from '@core/lib/ui'
+import { doctorStatusOrder, doctorStatusTone, sourceCredentialLabel } from '@core/lib/sourceStatus'
 import type { DoctorResponse } from '@core/types'
 import styles from './DashboardPage.module.scss'
 
@@ -137,9 +138,11 @@ type SourceLike = DoctorResponse['sources'][number]
 
 /** 根据数据源状态返回对应的 CSS 类（绿点/红点/黄点） */
 function matrixDotClass(status: string): string {
-  if (status === 'ok') return styles.matrixDotOk
-  if (status === 'error' || status === 'timeout') return styles.matrixDotErr
-  return styles.matrixDotWarn
+  const tone = doctorStatusTone(status)
+  if (tone === 'ok') return styles.matrixDotOk
+  if (tone === 'warn') return styles.matrixDotWarn
+  if (tone === 'muted') return styles.matrixDotMuted
+  return styles.matrixDotErr
 }
 
 /** 根据数据源集成类型返回对应的 CSS 类 */
@@ -157,7 +160,10 @@ function matrixIntegrationClass(integration_type: string): string {
  */
 function SourceMatrix({ sources }: { sources: SourceLike[] }) {
   const { t } = useTranslation()
-  const order: Array<string> = ['paper', 'patent', 'general', 'professional', 'social', 'developer', 'wiki', 'video']
+  const order: Array<string> = [
+    'paper', 'patent', 'general', 'professional', 'social', 'office',
+    'developer', 'wiki', 'cn_tech', 'video', 'fetch',
+  ]
   const grouped = order
     .map((cat) => ({ cat, items: sources.filter((s) => s.category === cat) }))
     .filter((g) => g.items.length > 0)
@@ -287,13 +293,12 @@ export function DashboardPage() {
   const paperCount = doctor.sources.filter((s) => s.category === 'paper').length
   const patentCount = doctor.sources.filter((s) => s.category === 'patent').length
   const webCount = doctor.sources.filter((s) => !['paper', 'patent'].includes(s.category)).length
-  const okCount = doctor.ok
+  const okCount = doctor.available
   const totalCount = doctor.total
   const healthPct = totalCount > 0 ? Math.round((okCount / totalCount) * 100) : 0
 
-  const statusOrder: Record<string, number> = { ok: 0, degraded: 1, needs_key: 2, error: 3, timeout: 4 }
   const sortedSources = [...doctor.sources].sort((a, b) => {
-    const diff = (statusOrder[a.status] ?? 5) - (statusOrder[b.status] ?? 5)
+    const diff = doctorStatusOrder(a.status) - doctorStatusOrder(b.status)
     return diff !== 0 ? diff : a.name.localeCompare(b.name)
   })
 
@@ -414,28 +419,39 @@ export function DashboardPage() {
             </tr>
           </thead>
           <tbody>
-            {sortedSources.map((src) => (
-              <tr key={src.name}>
-                <td>
-                  <span className={`${styles.dot} ${src.status === 'ok' ? styles.dotOk : styles.dotErr}`} />
-                </td>
-                <td className={styles.sourceName}>{src.name}</td>
-                <td>
-                  <Badge color={categoryBadgeColor(src.category)}>
-                    {categoryLabel(t, src.category)}
-                  </Badge>
-                </td>
-                <td>
-                  <Badge color={integrationBadgeColor(src.integration_type)}>
-                    {src.integration_type === 'open_api' ? '公开' : src.integration_type === 'scraper' ? '爬虫' : src.integration_type === 'official_api' ? '授权' : '自建'}
-                  </Badge>
-                </td>
-                <td>
-                  <code className={styles.code}>{src.required_key ?? '—'}</code>
-                </td>
-                <td className={styles.message}>{src.message}</td>
-              </tr>
-            ))}
+            {sortedSources.map((src) => {
+              const statusTone = doctorStatusTone(src.status)
+              const dotClass = statusTone === 'ok'
+                ? styles.dotOk
+                : statusTone === 'warn'
+                  ? styles.dotWarn
+                  : statusTone === 'muted'
+                    ? styles.dotMuted
+                    : styles.dotErr
+
+              return (
+                <tr key={src.name}>
+                  <td>
+                    <span className={`${styles.dot} ${dotClass}`} />
+                  </td>
+                  <td className={styles.sourceName}>{src.name}</td>
+                  <td>
+                    <Badge color={categoryBadgeColor(src.category)}>
+                      {categoryLabel(t, src.category)}
+                    </Badge>
+                  </td>
+                  <td>
+                    <Badge color={integrationBadgeColor(src.integration_type)}>
+                      {src.integration_type === 'open_api' ? '公开' : src.integration_type === 'scraper' ? '爬虫' : src.integration_type === 'official_api' ? '授权' : '自建'}
+                    </Badge>
+                  </td>
+                  <td>
+                    <code className={styles.code}>{sourceCredentialLabel(src) || '—'}</code>
+                  </td>
+                  <td className={styles.message}>{src.message}</td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>

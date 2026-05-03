@@ -35,7 +35,8 @@
  */
 
 import { describe, it, expect } from 'vitest'
-import { categoryBadgeColor, integrationBadgeColor } from '../lib/ui'
+import { SOURCE_CATEGORY_LABEL_KEYS, SOURCE_CATEGORY_ORDER } from '../types'
+import { categoryBadgeColor, categoryLabel, integrationBadgeColor } from '../lib/ui'
 
 describe('categoryBadgeColor', () => {
   /**
@@ -67,10 +68,32 @@ describe('categoryBadgeColor', () => {
   })
 
   /**
+   * 测试：source catalog 新增分类有明确颜色映射
+   */
+  it('returns mapped colors for catalog-only categories', () => {
+    expect(categoryBadgeColor('office')).toBe('teal')
+    expect(categoryBadgeColor('cn_tech')).toBe('teal')
+    expect(categoryBadgeColor('fetch')).toBe('amber')
+  })
+
+  /**
    * 测试：未知类型默认返回蓝色
    */
   it('defaults to blue for unknown', () => {
     expect(categoryBadgeColor('other')).toBe('blue')
+  })
+})
+
+describe('categoryLabel', () => {
+  /**
+   * 测试：所有后端 source catalog 分类都有前端翻译 key
+   */
+  it('uses source category label keys for every catalog category', () => {
+    const t = ((key: string, fallback?: string) => key || fallback) as never
+
+    for (const category of SOURCE_CATEGORY_ORDER) {
+      expect(categoryLabel(t, category)).toBe(SOURCE_CATEGORY_LABEL_KEYS[category])
+    }
   })
 })
 

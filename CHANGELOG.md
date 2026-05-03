@@ -1,5 +1,29 @@
 # Changelog
 
+## [Unreleased] — Source Catalog Governance（2026-05-02）
+
+### Features
+- **feat(registry)**：扩展 `SourceAdapter` / `SourceMeta`，新增 `auth_requirement`、`credential_fields`、`optional_credential_effect`、`risk_level`、`risk_reasons`、`distribution`、`package_extra`、`stability` 等 source catalog 元数据。
+- **feat(doctor/server/cli)**：统一 doctor、`/sources`、admin source config、`souwen sources` 与 `souwen config source` 的鉴权/风险/分发展示口径，并支持多字段凭据。
+- **feat(panel)**：更新 source 相关 API 类型，并在 souwen-google / souwen-nebula 数据源页展示风险与分发标签。
+
+### Behavior
+- 可选凭据源不再被粗略显示为"必须 Key"；缺少可选 Key 时按 `optional_credential_effect` 显示 `ok` 或 `limited`。
+- doctor 与 admin doctor 汇总现在区分严格 `ok`、可用 `available`、降级总数 `degraded_total` 与失败 `failed`；`degraded` 保留为兼容别名。
+- `/api/v1/sources` 从运行时 live registry 派生，插件注册/注销后的数据源不会被静态兼容视图缓存误报。
+- `self_hosted` 源统一支持 channel `base_url`、旧 channel `api_key` 与 flat `<name>_url`，避免 doctor/API 与客户端初始化口径分叉。
+- `SourceAdapter` 现在要求 `self_hosted` 源必须声明 `config_field` 或 `credential_fields`，避免外部自托管插件注册成看似可用但无法解析实例地址的状态。
+- admin source config 新增 `credentials_satisfied`，用于区分"是否配置了 Key"与"当前凭据要求是否已满足"。
+- 外部 `domain="web"` 插件不再依赖内部 `v0_category:*` tag；默认归入 `general`，可用公开 `category:professional` tag 进入专业搜索分类。
+- `unpaywall` 按实际客户端要求改为必须 `unpaywall_email`，继续保留在实验/排除旧 `ALL_SOURCES` 视图中。
+- `tools/gen_docs.py` 默认只生成内置源清单，避免本机已安装外部插件造成文档漂移；可用 `--include-plugins` 查看运行时插件 catalog。
+
+### Docs
+- 更新 README、架构文档、新增数据源指南、插件对接规范、API 文档和自动生成的数据源清单。
+
+### Tests
+- 增加 registry catalog 元数据合法性、多字段凭据、source catalog 维度查询、server/API 返回字段等测试覆盖。
+
 ## [Unreleased] — 全面评审修复（2026-04-29）
 
 ### Bug Fixes

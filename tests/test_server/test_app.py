@@ -146,6 +146,88 @@ class TestAdminAuth:
         assert "total" in data
         assert "ok" in data
         assert "sources" in data
+        first_source = data["sources"][0]
+        assert "auth_requirement" in first_source
+        assert "credential_fields" in first_source
+        assert "risk_level" in first_source
+        assert "distribution" in first_source
+
+    def test_admin_doctor_counts_limited_and_warning_as_available(self, authed_client, monkeypatch):
+        """doctor 汇总应区分严格 ok、可用、降级和失败。"""
+        import souwen.doctor as doctor_mod
+
+        monkeypatch.setattr(
+            doctor_mod,
+            "check_all",
+            lambda: [
+                {"name": "ok", "status": "ok"},
+                {"name": "limited", "status": "limited"},
+                {"name": "warning", "status": "warning"},
+                {"name": "degraded", "status": "degraded"},
+                {"name": "missing", "status": "missing_key"},
+                {"name": "unavailable", "status": "unavailable"},
+            ],
+        )
+        resp = authed_client.get(
+            "/api/v1/admin/doctor",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 6
+        assert data["ok"] == 1
+        assert data["available"] == 4
+        assert data["degraded"] == 3
+        assert data["degraded_total"] == 3
+        assert data["status_counts"]["degraded"] == 1
+        assert data["failed"] == 2
+        assert data["status_counts"]["limited"] == 1
+
+    def test_admin_doctor_keeps_runtime_web_plugin_without_internal_v0_tag(
+        self,
+        authed_client,
+        clean_registry,
+    ):
+        """admin doctor 应返回不带内部 v0_category:* tag 的外部 web 插件。"""
+        from tests.test_doctor import register_runtime_web_doctor_probe
+
+        name = register_runtime_web_doctor_probe()
+        resp = authed_client.get(
+            "/api/v1/admin/doctor",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+        assert resp.status_code == 200
+        sources = {item["name"]: item for item in resp.json()["sources"]}
+        assert sources[name]["category"] == "general"
+        assert sources[name]["distribution"] == "plugin"
+
+    def test_admin_sources_config_includes_catalog_fields(self, authed_client):
+        """数据源频道配置应返回 source catalog 字段，供前端展示和运维判断。"""
+        resp = authed_client.get(
+            "/api/v1/admin/sources/config/openalex",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["auth_requirement"] == "optional"
+        assert data["key_requirement"] == "optional"
+        assert data["credential_fields"] == ["openalex_email"]
+        assert data["optional_credential_effect"] == "politeness"
+        assert data["risk_level"] == "low"
+        assert data["distribution"] == "core"
+        assert data["credentials_satisfied"] is True
+
+    def test_admin_sources_config_marks_no_auth_credentials_satisfied(self, authed_client):
+        """免配置源不应显示有 API Key，但应明确标记凭据要求已满足。"""
+        resp = authed_client.get(
+            "/api/v1/admin/sources/config/arxiv",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["auth_requirement"] == "none"
+        assert data["has_api_key"] is False
+        assert data["credentials_satisfied"] is True
 
     def test_admin_ping_requires_auth(self, authed_client):
         """/admin/ping 未授权拒绝。"""
@@ -236,16 +318,23 @@ class TestSearchAuth:
         assert resp.status_code == 401
 
     def test_sources_with_valid_token(self, authed_client):
-        """带正确 Token 访问 ``/sources`` 应 200，响应含 paper/patent/web 三类分组。"""
+        """带正确 Token 访问 ``/sources`` 应 200，并返回固定 source catalog 分类。"""
+        from souwen.server.schemas import SOURCE_CATEGORY_ORDER
+
         resp = authed_client.get(
             "/api/v1/sources",
             headers={"Authorization": "Bearer test-secret-123"},
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert "paper" in data
-        assert "patent" in data
-        assert "general" in data
+        assert list(data) == list(SOURCE_CATEGORY_ORDER)
+        assert all(isinstance(entries, list) for entries in data.values())
+        openalex = next(item for item in data["paper"] if item["name"] == "openalex")
+        assert openalex["key_requirement"] == "optional"
+        assert openalex["auth_requirement"] == "optional"
+        assert openalex["credential_fields"] == ["openalex_email"]
+        assert openalex["risk_level"] == "low"
+        assert openalex["distribution"] == "core"
 
     def test_sources_omits_disabled_entries(self, client, monkeypatch):
         """sources.<name>.enabled=false 后，/sources 不应再展示该源。"""
@@ -258,6 +347,175 @@ class TestSearchAuth:
         data = resp.json()
         names = {item["name"] for entries in data.values() for item in entries}
         assert "duckduckgo" not in names
+
+    def test_sources_require_multifield_secondary_credentials(self, client, monkeypatch):
+        """/sources 与 admin 配置不能把仅有 primary override 的多字段源标成可用。"""
+        monkeypatch.setenv("SOUWEN_ADMIN_OPEN", "1")
+        monkeypatch.setenv("SOUWEN_EPO_CONSUMER_KEY", "")
+        monkeypatch.setenv("SOUWEN_EPO_CONSUMER_SECRET", "")
+        monkeypatch.setenv("SOUWEN_SOURCES", '{"epo_ops":{"api_key":"epo-key"}}')
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        sources_resp = client.get("/api/v1/sources")
+        assert sources_resp.status_code == 200
+        patent_names = {item["name"] for item in sources_resp.json().get("patent", [])}
+        assert "epo_ops" not in patent_names
+
+        admin_resp = client.get("/api/v1/admin/sources/config/epo_ops")
+        assert admin_resp.status_code == 200
+        assert admin_resp.json()["has_api_key"] is False
+
+    @pytest.mark.parametrize(
+        ("source_name", "legacy_field", "client_path"),
+        [
+            ("searxng", "searxng_url", "souwen.web.searxng:SearXNGClient"),
+            ("whoogle", "whoogle_url", "souwen.web.whoogle:WhoogleClient"),
+            ("websurfx", "websurfx_url", "souwen.web.websurfx:WebsurfxClient"),
+        ],
+    )
+    def test_sources_self_hosted_base_url_matches_clients(
+        self,
+        client,
+        monkeypatch,
+        source_name,
+        legacy_field,
+        client_path,
+    ):
+        """self_hosted 源的 base_url 判定必须和真实客户端初始化一致。"""
+        import importlib
+
+        monkeypatch.setenv(f"SOUWEN_{legacy_field.upper()}", "")
+        monkeypatch.setenv(
+            "SOUWEN_SOURCES",
+            f'{{"{source_name}":{{"base_url":"https://{source_name}.example"}}}}',
+        )
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        data = client.get("/api/v1/sources").json()
+        names = {item["name"] for item in data.get("general", [])}
+        assert source_name in names
+
+        module_name, class_name = client_path.split(":")
+        client_cls = getattr(importlib.import_module(module_name), class_name)
+        instance = client_cls()
+        assert instance.instance_url == f"https://{source_name}.example"
+
+    @pytest.mark.parametrize(
+        ("source_name", "legacy_field", "client_path"),
+        [
+            ("searxng", "searxng_url", "souwen.web.searxng:SearXNGClient"),
+            ("whoogle", "whoogle_url", "souwen.web.whoogle:WhoogleClient"),
+            ("websurfx", "websurfx_url", "souwen.web.websurfx:WebsurfxClient"),
+        ],
+    )
+    def test_sources_self_hosted_legacy_channel_api_key_still_works(
+        self,
+        client,
+        monkeypatch,
+        source_name,
+        legacy_field,
+        client_path,
+    ):
+        """旧版 sources.<name>.api_key 自建实例 URL 仍应被 catalog 与客户端接受。"""
+        import importlib
+
+        monkeypatch.setenv(f"SOUWEN_{legacy_field.upper()}", "")
+        monkeypatch.setenv(
+            "SOUWEN_SOURCES",
+            f'{{"{source_name}":{{"api_key":"https://legacy-{source_name}.example"}}}}',
+        )
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        data = client.get("/api/v1/sources").json()
+        names = {item["name"] for item in data.get("general", [])}
+        assert source_name in names
+
+        module_name, class_name = client_path.split(":")
+        client_cls = getattr(importlib.import_module(module_name), class_name)
+        assert client_cls().instance_url == f"https://legacy-{source_name}.example"
+
+    @pytest.mark.parametrize(
+        ("source_name", "legacy_field"),
+        [
+            ("searxng", "searxng_url"),
+            ("whoogle", "whoogle_url"),
+            ("websurfx", "websurfx_url"),
+        ],
+    )
+    def test_admin_source_config_self_hosted_legacy_channel_api_key(
+        self,
+        client,
+        monkeypatch,
+        source_name,
+        legacy_field,
+    ):
+        """CLI/admin 共用的凭据 helper 应识别旧版 self-hosted URL 通道。"""
+        monkeypatch.setenv("SOUWEN_ADMIN_OPEN", "1")
+        monkeypatch.setenv(f"SOUWEN_{legacy_field.upper()}", "")
+        monkeypatch.setenv(
+            "SOUWEN_SOURCES",
+            f'{{"{source_name}":{{"api_key":"https://legacy-{source_name}.example"}}}}',
+        )
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        resp = client.get(f"/api/v1/admin/sources/config/{source_name}")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["has_api_key"] is True
+        assert data["credentials_satisfied"] is True
+
+    def test_sources_uses_live_registry_for_runtime_plugins(self, client, clean_registry):
+        """/sources 应从 live registry 派生，插件注销后不再返回死源。"""
+        from souwen.registry.adapter import MethodSpec, SourceAdapter
+        from souwen.registry.loader import lazy
+        from souwen.registry.views import _reg_external, _unreg_external
+
+        adapter = SourceAdapter(
+            name="runtime_sources_probe",
+            domain="fetch",
+            integration="scraper",
+            description="runtime source probe",
+            config_field=None,
+            client_loader=lazy("souwen.web.builtin:BuiltinFetcherClient"),
+            methods={"fetch": MethodSpec("fetch")},
+            needs_config=False,
+        )
+
+        assert _reg_external(adapter) is True
+        data = client.get("/api/v1/sources").json()
+        assert "runtime_sources_probe" in {item["name"] for item in data.get("fetch", [])}
+
+        assert _unreg_external("runtime_sources_probe") is True
+        data = client.get("/api/v1/sources").json()
+        assert "runtime_sources_probe" not in {
+            item["name"] for entries in data.values() for item in entries
+        }
+
+    def test_sources_keeps_runtime_web_plugin_without_internal_v0_tag(self, client, clean_registry):
+        """外部 web 插件不应因缺少内部 v0_category:* tag 从 /sources 消失。"""
+        from souwen.registry.adapter import MethodSpec, SourceAdapter
+        from souwen.registry.loader import lazy
+        from souwen.registry.views import _reg_external
+
+        adapter = SourceAdapter(
+            name="runtime_web_sources_probe",
+            domain="web",
+            integration="scraper",
+            description="runtime web source probe",
+            config_field=None,
+            client_loader=lazy("souwen.web.duckduckgo:DuckDuckGoClient"),
+            methods={"search": MethodSpec("search")},
+            needs_config=False,
+        )
+
+        assert _reg_external(adapter) is True
+        data = client.get("/api/v1/sources").json()
+        names = {item["name"] for item in data.get("general", [])}
+        assert "runtime_web_sources_probe" in names
 
     # --- 双密钥：visitor 和 admin 密码均可访问搜索端点 ---
     def test_dual_key_visitor_password_accepted(self, dual_key_client):

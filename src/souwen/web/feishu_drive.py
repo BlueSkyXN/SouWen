@@ -119,11 +119,7 @@ class FeishuDriveClient(SouWenHttpClient):
     ) -> None:
         config = get_config()
         self.app_id = app_id or config.resolve_api_key("feishu_drive", "feishu_app_id")
-        self.app_secret = (
-            app_secret
-            or getattr(config, "feishu_app_secret", None)
-            or config.resolve_api_key("feishu_drive_secret", "feishu_app_secret")
-        )
+        self.app_secret = app_secret or config.feishu_app_secret
 
         if not self.app_id or not self.app_secret:
             from souwen.exceptions import ConfigError

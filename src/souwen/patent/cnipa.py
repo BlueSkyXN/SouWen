@@ -89,7 +89,9 @@ class CnipaClient:
             ConfigError: 缺少必要的 OAuth 凭证时抛出
         """
         cfg = get_config()
-        if not cfg.cnipa_client_id or not cfg.cnipa_client_secret:
+        client_id = cfg.resolve_api_key("cnipa", "cnipa_client_id")
+        client_secret = cfg.cnipa_client_secret
+        if not client_id or not client_secret:
             raise ConfigError(
                 key="cnipa_client_id / cnipa_client_secret",
                 service="CNIPA (CNIPR 开放平台)",
@@ -99,8 +101,8 @@ class CnipaClient:
         self._http = OAuthClient(
             base_url=self.BASE_URL,
             token_url=self.TOKEN_URL,
-            client_id=cfg.cnipa_client_id,
-            client_secret=cfg.cnipa_client_secret,
+            client_id=client_id,
+            client_secret=client_secret,
             source_name="cnipa",
         )
         # 限流：2 请求/秒，突增容量 5 请求

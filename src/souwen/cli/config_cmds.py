@@ -230,7 +230,14 @@ def config_source(
 ) -> None:
     """查看/修改数据源频道配置"""
     from souwen.config import SourceChannelConfig, get_config
-    from souwen.source_registry import get_all_sources, is_known_source
+    from souwen.source_registry import (
+        AUTH_REQUIREMENT_LABELS,
+        DISTRIBUTION_LABELS,
+        RISK_LEVEL_LABELS,
+        get_all_sources,
+        has_configured_credentials,
+        is_known_source,
+    )
 
     cfg = get_config()
 
@@ -249,6 +256,9 @@ def config_source(
         table.add_column("源", style="cyan")
         table.add_column("类别", style="yellow")
         table.add_column("集成", style="magenta")
+        table.add_column("鉴权", style="blue")
+        table.add_column("风险", style="red")
+        table.add_column("分发", style="green")
         table.add_column("启用", justify="center")
         table.add_column("代理", style="dim")
         table.add_column("后端", style="dim")
@@ -270,6 +280,9 @@ def config_source(
                 src_name,
                 meta.category,
                 _INTEGRATION_SHORT.get(meta.integration_type, meta.integration_type),
+                AUTH_REQUIREMENT_LABELS.get(meta.key_requirement, meta.key_requirement),
+                RISK_LEVEL_LABELS.get(meta.risk_level, meta.risk_level),
+                DISTRIBUTION_LABELS.get(meta.distribution, meta.distribution),
                 enabled_icon,
                 sc.proxy,
                 sc.http_backend,
@@ -317,12 +330,22 @@ def config_source(
     meta = get_source(name)
     console.print(f"\n[bold]{name}[/bold] ({meta.description})")
     console.print(f"  类别: {meta.category}  集成: {meta.integration_type}")
+    console.print(
+        "  鉴权: "
+        f"{AUTH_REQUIREMENT_LABELS.get(meta.key_requirement, meta.key_requirement)}"
+        f"  风险: {RISK_LEVEL_LABELS.get(meta.risk_level, meta.risk_level)}"
+        f"  分发: {DISTRIBUTION_LABELS.get(meta.distribution, meta.distribution)}"
+    )
+    if meta.credential_fields:
+        console.print(f"  凭据字段: {', '.join(meta.credential_fields)}")
+    if meta.package_extra:
+        console.print(f"  Extra: {meta.package_extra}")
     console.print(f"  启用: {'✅' if sc.enabled else '🚫'}")
     console.print(f"  代理: {sc.proxy}")
     console.print(f"  后端: {sc.http_backend}")
     if sc.base_url:
         console.print(f"  Base URL: {sc.base_url}")
-    has_key = bool(cfg.resolve_api_key(name, meta.config_field))
+    has_key = has_configured_credentials(cfg, name, meta)
     console.print(f"  API Key: {'✅ 已配置' if has_key else '⬜ 未配置'}")
     if sc.headers:
         console.print(f"  Headers: {json.dumps(sc.headers)}")

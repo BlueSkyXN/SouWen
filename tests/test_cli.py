@@ -80,6 +80,19 @@ def test_sources_list():
     assert result.exit_code == 0
 
 
+def test_config_source_self_hosted_legacy_channel_api_key(monkeypatch):
+    """``config source`` 详情页应识别旧版 self-hosted URL 通道。"""
+    monkeypatch.setenv("SOUWEN_SEARXNG_URL", "")
+    monkeypatch.setenv("SOUWEN_SOURCES", '{"searxng":{"api_key":"https://legacy-searxng.example"}}')
+    from souwen.config import get_config
+
+    get_config.cache_clear()
+    result = runner.invoke(app, ["config", "source", "searxng"])
+    assert result.exit_code == 0
+    assert "API Key" in result.output
+    assert "已配置" in result.output
+
+
 def test_keyboard_interrupt_exits_130(monkeypatch):
     """用户 Ctrl+C 中断时，CLI 必须以 exit code 130 优雅退出。
 

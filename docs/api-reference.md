@@ -464,18 +464,52 @@ Cache-Control: public, max-age=3600
 
 #### `GET /api/v1/sources`
 
-列出所有可用数据源及其状态（受访客认证保护）。
+列出所有可用数据源及其状态（受访客认证保护）。返回结果按展示分类分组，并且从运行时 live registry 派生：必须凭据或自建实例缺失的源会被隐藏，插件注册/注销后的源会随请求即时反映；可选凭据源仍会返回，但会带上 `auth_requirement="optional"` 与 `credential_fields` 供前端提示。
 
 **响应示例：**
 ```json
 {
   "paper": [
-    { "name": "openalex", "needs_key": false, "description": "OpenAlex 开放学术图谱" }
+    {
+      "name": "openalex",
+      "needs_key": false,
+      "key_requirement": "optional",
+      "auth_requirement": "optional",
+      "credential_fields": ["openalex_email"],
+      "optional_credential_effect": "politeness",
+      "integration_type": "open_api",
+      "risk_level": "low",
+      "risk_reasons": [],
+      "distribution": "core",
+      "package_extra": null,
+      "stability": "stable",
+      "usage_note": null,
+      "default_enabled": true,
+      "description": "OpenAlex 开放学术数据"
+    }
   ],
   "patent": [ ... ],
-  "web": [ ... ]
+  "general": [ ... ],
+  "professional": [ ... ],
+  "fetch": [ ... ]
 }
 ```
+
+关键字段语义：
+
+| 字段 | 说明 |
+|---|---|
+| `integration_type` | 接入方式：`open_api` / `scraper` / `official_api` / `self_hosted` |
+| `auth_requirement` / `key_requirement` | 鉴权要求：`none` / `optional` / `required` / `self_hosted` |
+| `credential_fields` | 完整凭据字段，多字段凭据会列出全部字段 |
+| `optional_credential_effect` | 可选凭据收益，如 `rate_limit`、`quota`、`politeness` |
+| `risk_level` / `risk_reasons` | 默认调度风险与原因，不等同于接入方式 |
+| `distribution` / `package_extra` | 推荐分发范围与 optional dependency 组 |
+| `stability` | 成熟度：`stable` / `beta` / `experimental` / `deprecated` |
+| `usage_note` | 用户级提示文案(如 `"仅支持 DOI OA 查找"`),前端可作为 tooltip 或副标题展示;不参与可用性判定 |
+
+自建实例源（`auth_requirement="self_hosted"`）优先使用 `sources.<name>.base_url`；
+旧版 `sources.<name>.api_key` 与 flat `<name>_url` 仍保留兼容。
 
 ---
 
@@ -509,13 +543,29 @@ Cache-Control: public, max-age=3600
 
 #### `GET /api/v1/admin/doctor`
 
-数据源健康检查，返回配置状态和已知限制提示；当前不执行实时连通性探测。
+数据源健康检查，返回配置状态和已知限制提示；当前不执行实时连通性探测。`available` 统计 `ok` / `limited` / `warning` / `degraded`，`degraded_total` 统计 `limited` / `warning` / `degraded`；`degraded` 为兼容旧客户端的同值别名，精确状态计数请读取 `status_counts.degraded`。
 
 **响应示例：**
 ```json
 {
-  "total": 37,
-  "ok": 24,
+  "total": 93,
+  "ok": 48,
+  "available": 72,
+  "degraded": 24,
+  "degraded_total": 24,
+  "failed": 21,
+  "limited": 20,
+  "warning": 4,
+  "missing_key": 18,
+  "unavailable": 3,
+  "disabled": 0,
+  "status_counts": {
+    "ok": 48,
+    "limited": 20,
+    "warning": 4,
+    "missing_key": 18,
+    "unavailable": 3
+  },
   "sources": [
     {
       "name": "openalex",
@@ -523,7 +573,17 @@ Cache-Control: public, max-age=3600
       "status": "ok",
       "integration_type": "open_api",
       "required_key": "openalex_email",
-      "message": "可免配置使用；设置 openalex_email 可帮助礼貌访问"
+      "key_requirement": "optional",
+      "auth_requirement": "optional",
+      "credential_fields": ["openalex_email"],
+      "optional_credential_effect": "politeness",
+      "risk_level": "low",
+      "risk_reasons": [],
+      "distribution": "core",
+      "package_extra": null,
+      "stability": "stable",
+      "usage_note": null,
+      "message": "免配置可用；设置 openalex_email 可礼貌访问"
     },
     {
       "name": "semantic_scholar",
@@ -531,7 +591,10 @@ Cache-Control: public, max-age=3600
       "status": "limited",
       "integration_type": "official_api",
       "required_key": "semantic_scholar_api_key",
-      "message": "免 Key 模式易限流，建议设置 semantic_scholar_api_key"
+      "key_requirement": "optional",
+      "credential_fields": ["semantic_scholar_api_key"],
+      "optional_credential_effect": "rate_limit",
+      "message": "免配置可用；设置 semantic_scholar_api_key 可提升限流"
     }
   ]
 }
@@ -970,7 +1033,7 @@ python -m souwen.integrations.mcp_server
 
 | 端点 | 说明 |
 |------|------|
-| `GET /api/v1/admin/sources/config` | 列出所有源的频道配置（`enabled / proxy / http_backend / base_url / has_api_key / headers / params / category / integration_type`） |
+| `GET /api/v1/admin/sources/config` | 列出所有源的频道配置（`enabled / proxy / http_backend / base_url / has_api_key / credentials_satisfied / headers / params / category / integration_type`，以及 source catalog 字段） |
 | `GET /api/v1/admin/sources/config/{source_name}` | 单源频道配置（404 未知源） |
 | `PUT /api/v1/admin/sources/config/{source_name}` | JSON 体更新单源运行时配置（避免 Key 入日志），重启不持久化 |
 | `GET /api/v1/admin/proxy` / `PUT` | 全局 `proxy` 与 `proxy_pool` 读写（含 SOCKS 依赖检查） |
@@ -985,5 +1048,18 @@ python -m souwen.integrations.mcp_server
   "http_backend": "curl_cffi"
 }
 ```
+
+单源配置响应会额外包含：
+
+| 字段 | 说明 |
+|---|---|
+| `has_api_key` | 是否显式配置了该源声明的凭据字段；免配置源为 `false`，表示没有 Key，而不是不可用 |
+| `credentials_satisfied` | 该源运行所需凭据是否满足；`auth_requirement="none"` / `optional` 源通常为 `true` |
+| `auth_requirement` / `key_requirement` | `none` / `optional` / `required` / `self_hosted` |
+| `credential_fields` | 完整凭据字段列表 |
+| `risk_level` / `risk_reasons` | 风险等级和原因 |
+| `distribution` / `package_extra` | 推荐安装/治理边界 |
+| `stability` | 成熟度 |
+| `usage_note` | 用户级提示文案,Panel / CLI 作为状态消息后缀展示;不参与可用性判定 |
 
 > 完整字段语义见 [configuration.md](./configuration.md#数据源频道配置sources)。

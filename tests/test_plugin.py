@@ -195,6 +195,17 @@ class TestRegExternal:
         assert "ext_visible" in all_adapters()
         assert all_adapters()["ext_visible"] is a
 
+    def test_external_registration_invalidates_source_registry_cache(self, clean_registry):
+        import souwen.source_registry as source_registry
+
+        source_registry.get_all_sources()  # warm cache before runtime plugin registration
+        _reg_external(make_test_adapter("ext_meta_cache"))
+
+        meta = source_registry.get_source("ext_meta_cache")
+        assert meta is not None
+        assert meta.distribution == "plugin"
+        assert "ext_meta_cache" in source_registry.ALL_SOURCE_NAMES
+
 
 # ── discover_entrypoint_plugins ────────────────────────────
 

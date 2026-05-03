@@ -318,9 +318,12 @@
     "categoryGeneral": "通用搜索",
     "categoryProfessional": "专业搜索",
     "categorySocial": "社交",
+    "categoryOffice": "办公",
     "categoryDeveloper": "开发",
     "categoryWiki": "百科",
+    "categoryCnTech": "中文技术",
     "categoryVideo": "视频",
+    "categoryFetch": "内容抓取",
     "needsApiKey": "需要 API Key",
     "confirmDisableTitle": "确认禁用",
     "confirmDisableMessage": "确定要禁用 {{name}} 吗？禁用后该数据源将不再参与搜索。",
@@ -629,9 +632,12 @@
     "general": "通用",
     "professional": "专业",
     "social": "社交",
+    "office": "办公",
     "developer": "开发",
     "wiki": "百科",
-    "video": "视频"
+    "cn_tech": "中文技术",
+    "video": "视频",
+    "fetch": "内容抓取"
   },
   "network": {
     "title": "网络",
@@ -821,7 +827,10 @@
   },
   "status": {
     "ok": "正常",
+    "limited": "受限",
+    "degraded": "降级",
     "warn": "警告",
-    "err": "异常"
+    "err": "异常",
+    "timeout": "超时"
   }
 }

@@ -53,8 +53,9 @@
  *     - ../i18n: 国际化（标签翻译）
  */
 
-import type { PaperResult, PatentResult, WebResult, DoctorSource } from '../types'
+import type { PaperResult, PatentResult, WebResult, DoctorSource, SourceCategory } from '../types'
 import i18n from '../i18n'
+import { isDoctorStatusAvailable } from './sourceStatus'
 
 /**
  * 论文搜索结果规范格式
@@ -101,8 +102,12 @@ export interface NormalizedWeb {
  */
 export interface NormalizedSource {
   name: string
-  type: 'paper' | 'patent' | 'general' | 'professional' | 'social' | 'developer' | 'wiki' | 'video'
+  type: SourceCategory
   integration_type: string
+  key_requirement: 'none' | 'optional' | 'required' | 'self_hosted'
+  risk_level: 'low' | 'medium' | 'high'
+  distribution: 'core' | 'extra' | 'plugin'
+  stability: 'stable' | 'beta' | 'experimental' | 'deprecated'
   reachable: boolean
   error: string | null
 }
@@ -166,12 +171,17 @@ export function normalizeWeb(raw: WebResult): NormalizedWeb {
  * 规范化诊断系统数据源信息
  */
 export function normalizeDoctor(raw: DoctorSource): NormalizedSource {
+  const reachable = isDoctorStatusAvailable(raw.status)
   return {
     name: raw.name || '',
-    type: (raw.category as NormalizedSource['type']) || 'paper',
+    type: raw.category || 'paper',
     integration_type: typeof raw.integration_type === 'string' ? raw.integration_type : 'open_api',
-    reachable: raw.status === 'ok',
-    error: raw.status !== 'ok' ? raw.message || null : null,
+    key_requirement: raw.key_requirement || 'none',
+    risk_level: raw.risk_level || 'low',
+    distribution: raw.distribution || 'core',
+    stability: raw.stability || 'stable',
+    reachable,
+    error: reachable ? null : raw.message || null,
   }
 }
 
@@ -198,9 +208,12 @@ export function typeLabel(type: string): string {
     case 'general': return i18n.t('common.general')
     case 'professional': return i18n.t('common.professional')
     case 'social': return i18n.t('common.social')
+    case 'office': return i18n.t('common.office')
     case 'developer': return i18n.t('common.developer')
     case 'wiki': return i18n.t('common.wiki')
+    case 'cn_tech': return i18n.t('common.cn_tech')
     case 'video': return i18n.t('common.video')
+    case 'fetch': return i18n.t('common.fetch')
     default: return type
   }
 }

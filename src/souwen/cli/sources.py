@@ -11,7 +11,12 @@ from souwen.cli._common import console
 @app.command("sources")
 def list_sources() -> None:
     """列出所有可用数据源"""
-    from souwen.source_registry import get_all_sources
+    from souwen.source_registry import (
+        AUTH_REQUIREMENT_LABELS,
+        DISTRIBUTION_LABELS,
+        RISK_LEVEL_LABELS,
+        get_all_sources,
+    )
 
     _INTEGRATION_SHORT = {
         "open_api": "公开",
@@ -24,13 +29,16 @@ def list_sources() -> None:
     table.add_column("Name", style="cyan")
     table.add_column("Category", style="yellow")
     table.add_column("Integration", style="magenta")
-    table.add_column("Needs Key", justify="center")
+    table.add_column("Key Req", justify="center")
+    table.add_column("Risk", justify="center")
+    table.add_column("Dist", justify="center")
     table.add_column("Description", style="dim")
 
     for name, meta in get_all_sources().items():
-        needs_key = meta.config_field is not None
-        key_indicator = "🔑" if needs_key else "✅"
+        key_indicator = AUTH_REQUIREMENT_LABELS.get(meta.key_requirement, meta.key_requirement)
         integration = _INTEGRATION_SHORT.get(meta.integration_type, meta.integration_type)
-        table.add_row(name, meta.category, integration, key_indicator, meta.description)
+        risk = RISK_LEVEL_LABELS.get(meta.risk_level, meta.risk_level)
+        dist = DISTRIBUTION_LABELS.get(meta.distribution, meta.distribution)
+        table.add_row(name, meta.category, integration, key_indicator, risk, dist, meta.description)
 
     console.print(table)

@@ -91,14 +91,18 @@ class MySourceClient(SouWenHttpClient):
 打开 `src/souwen/registry/sources.py`，按域插入新条目：
 
 ```python
-# === paper（17 源） 区段末尾追加 ===
+# === paper（19 源） 区段末尾追加 ===
 _reg(SourceAdapter(
     name="my_source",
     domain="paper",
     integration="official_api",
     description="My Source 论文检索（含全文链接）",
     config_field="my_source_api_key",
-    needs_config=True,                      # 必须配 Key 才能工作；可选 Key 的源传 False
+    needs_config=True,                      # 旧兼容字段：必须配 Key 才能工作
+    auth_requirement="required",            # none / optional / required / self_hosted
+    credential_fields=("my_source_api_key",),
+    risk_level="low",
+    distribution="core",
     client_loader=lazy("souwen.paper.my_source:MySourceClient"),
     methods={
         "search": MethodSpec(
@@ -116,7 +120,7 @@ _reg(SourceAdapter(
 | 字段 | 必填 | 说明 |
 |------|------|------|
 | `name` | ✅ | 全局唯一，建议小写下划线 |
-| `domain` | ✅ | 见 `DOMAINS`：paper/patent/web/social/video/knowledge/developer/cn_tech/office/archive |
+| `domain` | ✅ | 见 `DOMAINS ∪ {FETCH_DOMAIN}`：paper/patent/web/social/video/knowledge/developer/cn_tech/office/archive/fetch |
 | `integration` | ✅ | `open_api` / `official_api` / `self_hosted` / `scraper` |
 | `description` | ✅ | UI / `/api/v1/sources` 展示文案 |
 | `config_field` | 推荐 | `SouWenConfig` 的字段名；零配置源传 `None` |
@@ -125,8 +129,28 @@ _reg(SourceAdapter(
 | `extra_domains` | — | 跨域能力，**目前仅允许 `frozenset({"fetch"})`**（如 Tavily 同时是 web 搜索引擎和 fetch provider） |
 | `default_enabled` | — | UI 默认是否勾选；高风险源（google/baidu/twitter）建议 `False` |
 | `default_for` | — | 形如 `{"paper:search"}`，声明此源是否进入 `(domain, capability)` 默认集 |
-| `tags` | — | `{"high_risk"}` / `{"v0_category:general"}` / `{"v0_category:professional"}` |
+| `tags` | — | `{"high_risk"}`；内置 web 源可用 `v0_category:*`，外部 web 插件用公开 `category:general/professional` |
 | `needs_config` | 推荐 | 显式声明是否"必须配置才能工作"（None 时按 integration 推断） |
+| `auth_requirement` | 推荐 | `none` / `optional` / `required` / `self_hosted`；新代码优先使用它 |
+| `credential_fields` | 推荐 | 完整凭据字段；多字段 OAuth 源列全，如 `("client_id", "client_secret")` |
+| `optional_credential_effect` | 可选 | 可选凭据收益：`rate_limit` / `quota` / `politeness` / `personalization` 等 |
+| `risk_level` / `risk_reasons` | 推荐 | `low` / `medium` / `high` 与原因标签，用于默认启用和运维提示 |
+| `distribution` / `package_extra` | 推荐 | `core` / `extra` / `plugin` 与建议 optional dependency 组 |
+| `stability` | 推荐 | `stable` / `beta` / `experimental` / `deprecated` |
+| `usage_note` | 可选 | 用户级提示文案(如 `"仅支持 DOI OA 查找"`、`"公开搜索端点已变更,当前接入待修复"`);doctor / API / Panel 会把它附加到状态消息末尾,**不参与可用性判定**。`stability="deprecated"` / `experimental` + scraper 的源建议显式声明该字段 |
+
+### 鉴权与分发口径
+
+`integration` 只描述"怎么接入"，不描述 Key 强度。官方 API 也可能匿名可用，可通过可选 Key 提升限流；爬虫源也可能有登录态 Cookie。新增源时优先按下面的组合声明：
+
+| 场景 | 推荐声明 |
+|---|---|
+| 完全免配置 | `auth_requirement="none"`, `config_field=None` |
+| 可选 Key 提高限流/配额 | `auth_requirement="optional"`, `needs_config=False`, `optional_credential_effect="rate_limit"` |
+| 必须凭据 | `auth_requirement="required"`, `credential_fields=(...)` |
+| 自建实例 | `auth_requirement="self_hosted"`, `config_field="<source>_url"`；必须声明 URL/凭据字段 |
+| 纯抓取 / fetch provider | `domain="fetch"`, `methods={"fetch": MethodSpec("fetch")}` |
+| 重依赖或长尾源 | `distribution="extra"` 并设置 `package_extra`，或作为外部插件发布 |
 
 关于 `MethodSpec.param_map`：
 
@@ -179,13 +203,15 @@ pytest tests/registry/test_consistency.py -v
 2. `MethodSpec.method_name` 在该类上可解析；
 3. `MethodSpec.param_map` 的目标参数名是方法签名的真实参数；
 4. `config_field`（若非 None）确实存在于 `SouWenConfig`；
-5. `default_for` 形如 `<domain>:<capability>` 且都合法；
-6. capability 在标准集 `CAPABILITIES` 里或为 `xxx:yyy` 命名空间形式；
-7. `extra_domains` 仅允许 `{"fetch"}`；
-8. 注册表无重名；
-9. `ALL_SOURCES` 派生与 registry 对齐；
-10. 高风险源未进入默认集；
-11. `resolve_params` 能完整覆盖每个 adapter（不抛异常）。
+5. `credential_fields` 中每个字段也存在于 `SouWenConfig`；
+6. `default_for` 形如 `<domain>:<capability>` 且都合法；
+7. capability 在标准集 `CAPABILITIES` 里或为 `xxx:yyy` 命名空间形式；
+8. `extra_domains` 仅允许 `{"fetch"}`；
+9. 注册表无重名；
+10. `ALL_SOURCES` 派生与 registry 对齐；
+11. 高风险源未进入默认集；
+12. source catalog 的 auth/risk/distribution/stability 字段均在枚举范围内；
+13. `resolve_params` 能完整覆盖每个 adapter（不抛异常）。
 
 ### 源自身的单元测试
 
@@ -223,7 +249,7 @@ curl 'http://localhost:8000/api/v1/search/paper?q=transformer&sources=my_source&
 ## 常见陷阱
 
 - **忘了 `lazy()`**：直接 `client_loader=lambda: MySourceClient` 会让 registry 在导入期就 import 你的 Client，破坏启动延迟优化。
-- **`needs_config` 与 `config_field` 不一致**：可选 Key 的源（如 `openalex` / `github` / `doaj`）需显式 `needs_config=False`，否则会被推断为"必须配置"。
+- **`needs_config` 与 `config_field` 不一致**：可选 Key 的源（如 `openalex` / `github` / `doaj`）需显式 `needs_config=False` 或 `auth_requirement="optional"`，否则会被推断为"必须配置"。
 - **`scraper` 类源忘了走 BaseScraper**：直接用 `httpx.AsyncClient` 会缺失 TLS 指纹与礼貌爬取，被风控的几率显著上升。详见 [anti-scraping.md](./anti-scraping.md)。
 - **`extra_domains` 滥用**：V1 初期仅允许 `{"fetch"}`。需要跨更多域请先在 `local/` 写 RFC 讨论。
 - **没在 `souwen.example.yaml` 加注释**：用户找不到字段是 V1 之后最高频的工单来源，请补上。

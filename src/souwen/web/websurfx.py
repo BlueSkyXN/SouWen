@@ -64,7 +64,10 @@ class WebsurfxClient(SouWenHttpClient):
         # 从参数或配置读取 Websurfx 实例 URL
         config = get_config()
         self.instance_url = (
-            instance_url or config.resolve_api_key("websurfx", "websurfx_url") or ""
+            instance_url
+            or config.resolve_base_url("websurfx")
+            or config.resolve_api_key("websurfx", "websurfx_url")
+            or ""
         ).rstrip("/")
         if not self.instance_url:
             # 未提供实例 URL 时抛出配置错误

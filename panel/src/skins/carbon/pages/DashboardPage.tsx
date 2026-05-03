@@ -32,6 +32,7 @@ import { useNotificationStore } from '@core/stores/notificationStore'
 import { useAuthStore } from '@core/stores/authStore'
 import { formatError } from '@core/lib/errors'
 import { staggerContainer, staggerItem } from '@core/lib/animations'
+import { doctorStatusLabel, doctorStatusOrder, doctorStatusTone, sourceCredentialLabel } from '@core/lib/sourceStatus'
 import { Spinner } from '../components/common/Spinner'
 import type { DoctorResponse } from '@core/types'
 import styles from './DashboardPage.module.scss'
@@ -87,13 +88,12 @@ export function DashboardPage() {
   const paperCount = doctor.sources.filter((s) => s.category === 'paper').length
   const patentCount = doctor.sources.filter((s) => s.category === 'patent').length
   const webCount = doctor.sources.filter((s) => !['paper', 'patent'].includes(s.category)).length
-  const okCount = doctor.ok
+  const okCount = doctor.available
   const totalCount = doctor.total
   const healthPct = totalCount > 0 ? Math.round((okCount / totalCount) * 100) : 0
 
-  const statusOrder: Record<string, number> = { ok: 0, degraded: 1, needs_key: 2, error: 3, timeout: 4 }
   const sortedSources = [...doctor.sources].sort((a, b) => {
-    const diff = (statusOrder[a.status] ?? 5) - (statusOrder[b.status] ?? 5)
+    const diff = doctorStatusOrder(a.status) - doctorStatusOrder(b.status)
     return diff !== 0 ? diff : a.name.localeCompare(b.name)
   })
 
@@ -170,21 +170,22 @@ export function DashboardPage() {
             <tbody>
               {sortedSources.map((src) => {
                 // 根据数据源状态（ok/needs_key/error）显示不同的符号和样式
-                const statusSymbol = src.status === 'ok'
+                const statusTone = doctorStatusTone(src.status)
+                const statusSymbol = statusTone === 'ok'
                   ? '●'
-                  : src.status === 'needs_key'
+                  : statusTone === 'warn'
                     ? '▲'
-                    : '■'
-                const statusClass = src.status === 'ok'
+                    : statusTone === 'muted'
+                      ? '○'
+                      : '■'
+                const statusClass = statusTone === 'ok'
                   ? styles.statusOk
-                  : src.status === 'needs_key'
+                  : statusTone === 'warn'
                     ? styles.statusWarn
-                    : styles.statusErr
-                const statusLabel = src.status === 'ok'
-                  ? t('status.ok', 'OK')
-                  : src.status === 'needs_key'
-                    ? t('status.warn', 'WARN')
-                    : t('status.err', 'ERR')
+                    : statusTone === 'muted'
+                      ? styles.statusMuted
+                      : styles.statusErr
+                const statusLabel = doctorStatusLabel(src.status, t)
 
                 return (
                   <tr key={src.name}>
@@ -203,7 +204,7 @@ export function DashboardPage() {
                       <span className={styles.tierBadge}>{src.integration_type === 'open_api' ? '开放' : src.integration_type === 'scraper' ? '爬虫' : src.integration_type === 'official_api' ? '授权' : '自建'}</span>
                     </td>
                     <td>
-                      <code className={styles.keyCode}>{src.required_key ?? '—'}</code>
+                      <code className={styles.keyCode}>{sourceCredentialLabel(src) || '—'}</code>
                     </td>
                     <td className={styles.diagMessage}>{src.message}</td>
                   </tr>

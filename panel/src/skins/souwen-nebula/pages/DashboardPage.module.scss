@@ -599,6 +599,11 @@
   box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.18);
 }
 
+.matrixDotMuted {
+  background: var(--text-muted);
+  box-shadow: 0 0 0 2px rgba(107, 114, 128, 0.18);
+}
+
 .matrixChipName {
   font-family: var(--font-mono);
   font-size: $text-xs;
@@ -724,6 +729,16 @@
 .dotErr {
   background: #d18a8a;
   animation: dot-glow-red 2.5s ease-in-out infinite;
+}
+
+.dotWarn {
+  background: #d97706;
+  box-shadow: 0 0 0 2px rgba(217, 119, 6, 0.18);
+}
+
+.dotMuted {
+  background: var(--text-muted);
+  box-shadow: 0 0 0 2px rgba(107, 114, 128, 0.18);
 }
 
 .sourceName {

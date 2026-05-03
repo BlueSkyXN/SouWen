@@ -1,11 +1,11 @@
 /**
  * 数据源页面 - 源的配置和健康状态管理
  *
- * 文件用途：展示所有数据源（8 类），显示源的状态、配置信息、API 密钥需求，
+ * 文件用途：展示所有数据源（11 类），显示源的状态、配置信息、API 密钥需求，
  * 支持启用/禁用源以及编辑配置（如 API 密钥）
  *
  * 核心功能：
- *   - 源分类展示：按 8 类分组显示
+ *   - 源分类展示：按 11 类分组显示
  *   - 状态徽章：ok / needs_key / error / disabled
  *   - 源信息卡片：名称、描述、层级（core/extended/experimental）
  *   - 配置编辑：弹窗编辑 API 密钥和其他源配置
@@ -13,7 +13,7 @@
  *   - 实时反馈：配置更新成功/失败提示
  *
  * 类型与常量：
- *   CategoryKey - 搜索类别（8 类）
+ *   SourceCategory - 搜索类别（11 类）
  *   CATEGORY_ORDER / CATEGORY_ICONS / CATEGORY_STYLE - 分类配置
  *   statusBorderClass / StatusDot / TierBadge - 状态显示组件
  *
@@ -42,23 +42,27 @@ import { Input } from '../components/common/Input'
 import { formatError } from '@core/lib/errors'
 import { staggerContainerFast, staggerItemSmall } from '@core/lib/animations'
 import { categoryBadgeColor, integrationBadgeColor, categoryLabel } from '@core/lib/ui'
+import { doctorStatusOrder, isDoctorStatusAvailable, sourceCredentialLabel } from '@core/lib/sourceStatus'
 
-import type { DoctorResponse, DoctorSource, SourceChannelConfig } from '@core/types'
+import { SOURCE_CATEGORY_LABEL_KEYS, SOURCE_CATEGORY_ORDER } from '@core/types'
+import type { DoctorResponse, DoctorSource, SourceCategory, SourceChannelConfig } from '@core/types'
 import styles from './SourcesPage.module.scss'
 
-type CategoryKey = 'paper' | 'patent' | 'general' | 'professional' | 'social' | 'developer' | 'wiki' | 'video'
+const CATEGORY_ORDER = SOURCE_CATEGORY_ORDER
+const CATEGORY_LABELS = SOURCE_CATEGORY_LABEL_KEYS
 
-const CATEGORY_ORDER: CategoryKey[] = ['paper', 'patent', 'general', 'professional', 'social', 'developer', 'wiki', 'video']
-
-const CATEGORY_ICONS: Record<CategoryKey, typeof FileText> = {
+const CATEGORY_ICONS: Record<SourceCategory, typeof FileText> = {
   paper: FileText,
   patent: Shield,
   general: Globe,
   professional: Globe,
   social: Globe,
+  office: Globe,
   developer: Globe,
   wiki: Globe,
+  cn_tech: Globe,
   video: Globe,
+  fetch: Globe,
 }
 
 function integrationBorderClass(src: DoctorSource): string {
@@ -78,7 +82,7 @@ function StatusDot({ status }: { status: string }) {
       ? styles.statusOk
       : status === 'disabled'
         ? styles.statusDisabled
-        : status === 'needs_key'
+        : ['missing_key', 'needs_key', 'limited', 'warning', 'degraded'].includes(status)
           ? styles.statusWarning
           : styles.statusError
   return <span className={`${styles.statusDot} ${cls}`} />
@@ -134,6 +138,18 @@ function KeyRequirementBadge({ value, t }: { value: DoctorSource['key_requiremen
     return <Badge color="indigo">{t('sources.keySelfHostedShort', { defaultValue: '自建' })}</Badge>
   }
   return <Badge color="gray">—</Badge>
+}
+
+function RiskBadge({ value, t }: { value?: DoctorSource['risk_level']; t: (k: string, opts?: { defaultValue?: string }) => string }) {
+  if (value === 'high') return <Badge color="red">{t('sources.riskHigh', { defaultValue: '高风险' })}</Badge>
+  if (value === 'medium') return <Badge color="amber">{t('sources.riskMedium', { defaultValue: '中风险' })}</Badge>
+  return <Badge color="green">{t('sources.riskLow', { defaultValue: '低风险' })}</Badge>
+}
+
+function DistributionBadge({ value, t }: { value?: DoctorSource['distribution']; t: (k: string, opts?: { defaultValue?: string }) => string }) {
+  if (value === 'plugin') return <Badge color="indigo">{t('sources.distPlugin', { defaultValue: '插件' })}</Badge>
+  if (value === 'extra') return <Badge color="teal">{t('sources.distExtra', { defaultValue: '可选依赖' })}</Badge>
+  return <Badge color="gray">{t('sources.distCore', { defaultValue: '内置' })}</Badge>
 }
 
 function SourceCardSkeleton() {
@@ -428,7 +444,7 @@ export function SourcesPage() {
   const [confirmSource, setConfirmSource] = useState<DoctorSource | null>(null)
   const [expandedSource, setExpandedSource] = useState<string | null>(null)
   const [sourcesConfig, setSourcesConfig] = useState<Record<string, SourceChannelConfig>>({})
-  const [selectedCategory, setSelectedCategory] = useState<'all' | CategoryKey>('all')
+  const [selectedCategory, setSelectedCategory] = useState<'all' | SourceCategory>('all')
   const [viewMode, setViewMode] = useState<'sources' | 'health'>('sources')
   const [displayMode, setDisplayMode] = useState<'grid' | 'list'>('grid')
   const addToast = useNotificationStore((s) => s.addToast)
@@ -478,7 +494,7 @@ export function SourcesPage() {
   }, [fetchData, addToast, t])
 
   const handleToggle = useCallback((src: DoctorSource) => {
-    if (src.enabled && src.status === 'ok') {
+    if (src.enabled && isDoctorStatusAvailable(src.status)) {
       setConfirmSource(src)
     } else {
       void executeToggle(src.name, src.enabled)
@@ -514,18 +530,17 @@ export function SourcesPage() {
     )
   }
 
-  const okCount = doctor.ok
+  const okCount = doctor.available
   const totalCount = doctor.total
 
   const sourcesByCategory: Record<string, DoctorSource[]> = {}
-  const statusOrder: Record<string, number> = { ok: 0, degraded: 1, needs_key: 2, error: 3, timeout: 4 }
   for (const cat of CATEGORY_ORDER) {
     sourcesByCategory[cat] = doctor.sources
       .filter((s) => s.category === cat)
       .sort((a, b) => {
         // Enabled sources first, then by status priority, then alphabetically
         if (a.enabled !== b.enabled) return a.enabled ? -1 : 1
-        const diff = (statusOrder[a.status] ?? 5) - (statusOrder[b.status] ?? 5)
+        const diff = doctorStatusOrder(a.status) - doctorStatusOrder(b.status)
         return diff !== 0 ? diff : a.name.localeCompare(b.name)
       })
   }
@@ -582,13 +597,11 @@ export function SourcesPage() {
       {viewMode === 'sources' && (<>
       {/* Filter Tabs */}
       {(() => {
-        const tabs: Array<{ key: 'all' | CategoryKey; label: string; count: number; Icon?: typeof FileText }> = [
+        const tabs: Array<{ key: 'all' | SourceCategory; label: string; count: number; Icon?: typeof FileText }> = [
           { key: 'all', label: t('sources.categoryAll'), count: doctor.sources.length },
-          { key: 'paper', label: t('sources.categoryPaper'), count: sourcesByCategory.paper?.length ?? 0, Icon: CATEGORY_ICONS.paper },
-          { key: 'patent', label: t('sources.categoryPatent'), count: sourcesByCategory.patent?.length ?? 0, Icon: CATEGORY_ICONS.patent },
-          ...(['general', 'professional', 'social', 'developer', 'wiki', 'video'] as CategoryKey[]).map((cat) => ({
+          ...CATEGORY_ORDER.map((cat) => ({
             key: cat,
-            label: t(`sources.category${cat.charAt(0).toUpperCase() + cat.slice(1)}`),
+            label: t(CATEGORY_LABELS[cat]),
             count: sourcesByCategory[cat]?.length ?? 0,
             Icon: CATEGORY_ICONS[cat],
           })),
@@ -657,6 +670,8 @@ export function SourcesPage() {
                     <th>{t('sources.colDescription', { defaultValue: '描述' })}</th>
                     <th>{t('sources.colType', { defaultValue: '类型' })}</th>
                     <th>{t('sources.colKeyReq', { defaultValue: '密钥需求' })}</th>
+                    <th>{t('sources.colRisk', { defaultValue: '风险' })}</th>
+                    <th>{t('sources.colDistribution', { defaultValue: '分发' })}</th>
                     <th>{t('sources.colKey', { defaultValue: '密钥' })}</th>
                     <th>{t('sources.colStatus', { defaultValue: '状态' })}</th>
                     <th>{t('sources.colEnabled', { defaultValue: '启用' })}</th>
@@ -677,7 +692,15 @@ export function SourcesPage() {
                         <KeyRequirementBadge value={src.key_requirement} t={t} />
                       </td>
                       <td>
-                        <code className={styles.listCode}>{src.required_key ?? '—'}</code>
+                        <RiskBadge value={src.risk_level} t={t} />
+                      </td>
+                      <td>
+                        <DistributionBadge value={src.distribution} t={t} />
+                      </td>
+                      <td>
+                        <code className={styles.listCode}>
+                          {sourceCredentialLabel(src) || '—'}
+                        </code>
                       </td>
                       <td className={styles.listMessage}>{src.message}</td>
                       <td>
@@ -724,6 +747,8 @@ export function SourcesPage() {
                     )}
                     <div className={styles.badges}>
                       <IntegrationBadge integration_type={src.integration_type} t={t} />
+                      <RiskBadge value={src.risk_level} t={t} />
+                      <DistributionBadge value={src.distribution} t={t} />
                       {src.key_requirement === 'none' && (
                         <span className={styles.configBadgeOk}>
                           <Check size={10} />
@@ -838,7 +863,7 @@ export function SourcesPage() {
                         <span key={src.name} className={styles.matrixChip} title={src.message}>
                           <span className={`${styles.matrixDot} ${
                             src.status === 'ok' ? styles.matrixDotOk
-                            : (src.status === 'error' || src.status === 'timeout') ? styles.matrixDotErr
+                            : (src.status === 'error' || src.status === 'timeout' || src.status === 'unavailable') ? styles.matrixDotErr
                             : styles.matrixDotWarn
                           }`} />
                           <span className={styles.matrixChipName}>{src.name}</span>
@@ -883,7 +908,7 @@ export function SourcesPage() {
                     <td>
                       <span className={`${styles.dot} ${
                         src.status === 'ok' ? styles.dotOk
-                        : (src.status === 'error' || src.status === 'timeout') ? styles.dotErr
+                        : (src.status === 'error' || src.status === 'timeout' || src.status === 'unavailable') ? styles.dotErr
                         : styles.dotWarn
                       }`} />
                     </td>
@@ -903,7 +928,7 @@ export function SourcesPage() {
                     <td>
                       <KeyRequirementBadge value={src.key_requirement} t={t} />
                     </td>
-                    <td><code className={styles.codeCell}>{src.required_key ?? '—'}</code></td>
+                    <td><code className={styles.codeCell}>{sourceCredentialLabel(src) || '—'}</code></td>
                     <td className={styles.messageCell}>{src.message}</td>
                   </tr>
                 ))}
