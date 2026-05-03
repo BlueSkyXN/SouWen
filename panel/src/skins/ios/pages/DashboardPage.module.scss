@@ -214,6 +214,10 @@
   background: $ios-orange;
 }
 
+.statusMuted {
+  background: var(--text-muted);
+}
+
 .statusErr {
   background: $ios-red;
 }

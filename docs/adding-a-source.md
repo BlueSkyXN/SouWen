@@ -120,7 +120,7 @@ _reg(SourceAdapter(
 | 字段 | 必填 | 说明 |
 |------|------|------|
 | `name` | ✅ | 全局唯一，建议小写下划线 |
-| `domain` | ✅ | 见 `DOMAINS`：paper/patent/web/social/video/knowledge/developer/cn_tech/office/archive |
+| `domain` | ✅ | 见 `DOMAINS ∪ {FETCH_DOMAIN}`：paper/patent/web/social/video/knowledge/developer/cn_tech/office/archive/fetch |
 | `integration` | ✅ | `open_api` / `official_api` / `self_hosted` / `scraper` |
 | `description` | ✅ | UI / `/api/v1/sources` 展示文案 |
 | `config_field` | 推荐 | `SouWenConfig` 的字段名；零配置源传 `None` |
@@ -148,6 +148,7 @@ _reg(SourceAdapter(
 | 可选 Key 提高限流/配额 | `auth_requirement="optional"`, `needs_config=False`, `optional_credential_effect="rate_limit"` |
 | 必须凭据 | `auth_requirement="required"`, `credential_fields=(...)` |
 | 自建实例 | `auth_requirement="self_hosted"`, `config_field="<source>_url"` |
+| 纯抓取 / fetch provider | `domain="fetch"`, `methods={"fetch": MethodSpec("fetch")}` |
 | 重依赖或长尾源 | `distribution="extra"` 并设置 `package_extra`，或作为外部插件发布 |
 
 关于 `MethodSpec.param_map`：

@@ -282,6 +282,10 @@
   color: $warning;
 }
 
+.statusMuted {
+  color: var(--text-muted);
+}
+
 .statusErr {
   color: $error;
 }

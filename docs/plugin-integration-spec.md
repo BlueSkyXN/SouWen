@@ -62,12 +62,13 @@ web2pdf = ["superweb2pdf[capture]>=0.2.0"]
 无论哪种模式，启动时 SouWen 都通过 `importlib.metadata.entry_points(group="souwen.plugins")`
 扫描发现。**插件作者通常只需声明 entry_points**，是否打包嵌入由宿主决定。
 
-### Entry Point 目标可以是三种形态
+### Entry Point 目标可以是四种形态
 
 | 形态 | 示例 | 用途 |
 |---|---|---|
-| `SourceAdapter` 实例 | `plugin = SourceAdapter(...)` | 单源插件 |
-| 零参 callable 返回 `SourceAdapter` | `def make() -> SourceAdapter` | 需要运行时构造 |
+| `Plugin` 实例 | `plugin = Plugin(name="my_plugin", adapters=[...])` | 需要生命周期、配置 schema 或健康检查 |
+| `SourceAdapter` 实例 | `adapter = SourceAdapter(...)` | 单源插件 |
+| 零参 callable 返回 `Plugin` / `SourceAdapter` | `def make() -> Plugin` | 需要运行时构造 |
 | 零参 callable 返回 `list[SourceAdapter]` | `def make_all() -> list[SourceAdapter]` | 一次注册多个源 |
 
 ### 加载流程
@@ -171,8 +172,10 @@ plugin = SourceAdapter(
 
 ### 校验时机
 
-`_reg_external()` 在注册时进行 dataclass 字段类型校验；语义校验（如 capability 是否
-在标准集中、`MethodSpec.method_name` 是否存在于 Client）由插件自己负责。
+`SourceAdapter` 构造时会做枚举值、`auth_requirement`/`credential_fields` 组合、
+`extra_domains` 与 `default_for` 格式等基础防呆；`_reg_external()` 注册时只做重名隔离。
+`MethodSpec.method_name` 是否存在于 Client、`param_map` 目标参数是否匹配签名等深度契约，
+由插件作者在测试中使用 `souwen.testing.assert_valid_plugin()` / `validate_client_contract()` 校验。
 
 ### 常量速查
 
@@ -219,8 +222,8 @@ class MethodSpec:
 门面层调用顺序：
 
 1. 收集统一参数（如 `query`, `limit`）
-2. 若有 `pre_call`，先 `kwargs = pre_call(kwargs)`
-3. 应用 `param_map` 重命名
+2. 应用 `param_map` 重命名
+3. 若有 `pre_call`，再 `kwargs = pre_call(kwargs)`
 4. `await client.<method_name>(**kwargs)`
 
 ---

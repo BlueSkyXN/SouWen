@@ -159,6 +159,27 @@ class TestSourceAdapterCatalogValidation:
         )
         assert adapter.resolved_auth_requirement == "optional"
         assert adapter.resolved_credential_fields == ("openalex_email",)
+        assert adapter.resolved_needs_config is False
+
+    def test_self_hosted_can_explicitly_skip_config_requirement(self):
+        adapter = self._adapter(
+            integration="self_hosted",
+            config_field="searxng_url",
+            needs_config=False,
+        )
+        assert adapter.resolved_auth_requirement == "optional"
+        assert adapter.resolved_credential_fields == ("searxng_url",)
+        assert adapter.resolved_needs_config is False
+
+    def test_none_field_can_explicitly_require_config(self):
+        adapter = self._adapter(
+            config_field=None,
+            credential_fields=("tavily_api_key",),
+            needs_config=True,
+        )
+        assert adapter.resolved_auth_requirement == "required"
+        assert adapter.resolved_credential_fields == ("tavily_api_key",)
+        assert adapter.resolved_needs_config is True
 
     def test_self_hosted_without_declared_fields_remains_plugin_compatible(self):
         adapter = self._adapter(auth_requirement="self_hosted")

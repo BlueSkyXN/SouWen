@@ -140,7 +140,8 @@ type SourceLike = DoctorResponse['sources'][number]
 function matrixDotClass(status: string): string {
   const tone = doctorStatusTone(status)
   if (tone === 'ok') return styles.matrixDotOk
-  if (tone === 'warn' || tone === 'muted') return styles.matrixDotWarn
+  if (tone === 'warn') return styles.matrixDotWarn
+  if (tone === 'muted') return styles.matrixDotMuted
   return styles.matrixDotErr
 }
 
@@ -418,28 +419,39 @@ export function DashboardPage() {
             </tr>
           </thead>
           <tbody>
-            {sortedSources.map((src) => (
-              <tr key={src.name}>
-                <td>
-                  <span className={`${styles.dot} ${doctorStatusTone(src.status) === 'ok' ? styles.dotOk : doctorStatusTone(src.status) === 'error' ? styles.dotErr : styles.dotWarn}`} />
-                </td>
-                <td className={styles.sourceName}>{src.name}</td>
-                <td>
-                  <Badge color={categoryBadgeColor(src.category)}>
-                    {categoryLabel(t, src.category)}
-                  </Badge>
-                </td>
-                <td>
-                  <Badge color={integrationBadgeColor(src.integration_type)}>
-                    {src.integration_type === 'open_api' ? '公开' : src.integration_type === 'scraper' ? '爬虫' : src.integration_type === 'official_api' ? '授权' : '自建'}
-                  </Badge>
-                </td>
-                <td>
-                  <code className={styles.code}>{sourceCredentialLabel(src) || '—'}</code>
-                </td>
-                <td className={styles.message}>{src.message}</td>
-              </tr>
-            ))}
+            {sortedSources.map((src) => {
+              const statusTone = doctorStatusTone(src.status)
+              const dotClass = statusTone === 'ok'
+                ? styles.dotOk
+                : statusTone === 'warn'
+                  ? styles.dotWarn
+                  : statusTone === 'muted'
+                    ? styles.dotMuted
+                    : styles.dotErr
+
+              return (
+                <tr key={src.name}>
+                  <td>
+                    <span className={`${styles.dot} ${dotClass}`} />
+                  </td>
+                  <td className={styles.sourceName}>{src.name}</td>
+                  <td>
+                    <Badge color={categoryBadgeColor(src.category)}>
+                      {categoryLabel(t, src.category)}
+                    </Badge>
+                  </td>
+                  <td>
+                    <Badge color={integrationBadgeColor(src.integration_type)}>
+                      {src.integration_type === 'open_api' ? '公开' : src.integration_type === 'scraper' ? '爬虫' : src.integration_type === 'official_api' ? '授权' : '自建'}
+                    </Badge>
+                  </td>
+                  <td>
+                    <code className={styles.code}>{sourceCredentialLabel(src) || '—'}</code>
+                  </td>
+                  <td className={styles.message}>{src.message}</td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>

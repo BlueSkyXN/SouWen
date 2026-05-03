@@ -211,25 +211,23 @@ class SourceAdapter:
 
     @property
     def resolved_needs_config(self) -> bool:
-        """确定性的 needs_config：显式值优先，否则从 integration 推断。
+        """确定性的 needs_config：显式值优先，否则从鉴权口径推断。
 
         推断规则：
-          - official_api / self_hosted 且 config_field 非 None → True
-          - 其他 → False
+          - explicit needs_config → 原样采用
+          - required → True
+          - self_hosted 且存在配置字段 → True
+          - none / optional → False
           - 注意：`openalex` / `github` / `doaj` / `zenodo` / `openaire` 等
             integration=official_api 但 Key 是"可选"的源，声明时需显式传 `needs_config=False`。
         """
+        if self.needs_config is not None:
+            return self.needs_config
         requirement = self.resolved_auth_requirement
         if requirement == "required":
             return True
         if requirement == "self_hosted":
             return bool(self.resolved_credential_fields)
-        if requirement in {"none", "optional"}:
-            return False
-        if self.needs_config is not None:
-            return self.needs_config
-        if self.integration in {"official_api", "self_hosted"} and self.config_field is not None:
-            return True
         return False
 
     @property
@@ -241,12 +239,14 @@ class SourceAdapter:
         """
         if self.auth_requirement is not None:
             return self.auth_requirement
+        if self.needs_config is not None:
+            if self.needs_config:
+                return "self_hosted" if self.integration == "self_hosted" else "required"
+            return "optional" if self.config_field or self.credential_fields else "none"
         if self.integration == "self_hosted":
             return "self_hosted"
         if self.config_field is None:
             return "none"
-        if self.needs_config is not None:
-            return "required" if self.needs_config else "optional"
         if self.integration == "official_api":
             return "required"
         return "optional"

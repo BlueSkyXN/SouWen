@@ -387,6 +387,21 @@ class TestSearchAuth:
 
         assert SearXNGClient().instance_url == "https://legacy-searxng.example"
 
+    def test_admin_source_config_self_hosted_legacy_channel_api_key(self, client, monkeypatch):
+        """CLI/admin 共用的凭据 helper 应识别旧版 self-hosted URL 通道。"""
+        monkeypatch.setenv("SOUWEN_ADMIN_OPEN", "1")
+        monkeypatch.setenv("SOUWEN_SEARXNG_URL", "")
+        monkeypatch.setenv(
+            "SOUWEN_SOURCES",
+            '{"searxng":{"api_key":"https://legacy-searxng.example"}}',
+        )
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        resp = client.get("/api/v1/admin/sources/config/searxng")
+        assert resp.status_code == 200
+        assert resp.json()["has_api_key"] is True
+
     def test_sources_uses_live_registry_for_runtime_plugins(self, client, clean_registry):
         """/sources 应从 live registry 派生，插件注销后不再返回死源。"""
         from souwen.registry.adapter import MethodSpec, SourceAdapter

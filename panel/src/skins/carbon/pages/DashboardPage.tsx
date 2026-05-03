@@ -173,14 +173,18 @@ export function DashboardPage() {
                 const statusTone = doctorStatusTone(src.status)
                 const statusSymbol = statusTone === 'ok'
                   ? '●'
-                  : statusTone === 'warn' || statusTone === 'muted'
+                  : statusTone === 'warn'
                     ? '▲'
-                    : '■'
+                    : statusTone === 'muted'
+                      ? '○'
+                      : '■'
                 const statusClass = statusTone === 'ok'
                   ? styles.statusOk
-                  : statusTone === 'warn' || statusTone === 'muted'
+                  : statusTone === 'warn'
                     ? styles.statusWarn
-                    : styles.statusErr
+                    : statusTone === 'muted'
+                      ? styles.statusMuted
+                      : styles.statusErr
                 const statusLabel = doctorStatusLabel(src.status, t)
 
                 return (

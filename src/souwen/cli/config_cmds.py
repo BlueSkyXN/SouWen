@@ -235,6 +235,7 @@ def config_source(
         DISTRIBUTION_LABELS,
         RISK_LEVEL_LABELS,
         get_all_sources,
+        has_configured_credentials,
         is_known_source,
     )
 
@@ -344,18 +345,7 @@ def config_source(
     console.print(f"  后端: {sc.http_backend}")
     if sc.base_url:
         console.print(f"  Base URL: {sc.base_url}")
-    if meta.credential_fields:
-        configured = []
-        for field in meta.credential_fields:
-            if meta.auth_requirement == "self_hosted" and field == meta.config_field:
-                configured.append(bool(cfg.resolve_base_url(name) or getattr(cfg, field, None)))
-            elif field == meta.config_field:
-                configured.append(bool(cfg.resolve_api_key(name, field)))
-            else:
-                configured.append(bool(getattr(cfg, field, None)))
-        has_key = all(configured)
-    else:
-        has_key = False
+    has_key = has_configured_credentials(cfg, name, meta)
     console.print(f"  API Key: {'✅ 已配置' if has_key else '⬜ 未配置'}")
     if sc.headers:
         console.print(f"  Headers: {json.dumps(sc.headers)}")

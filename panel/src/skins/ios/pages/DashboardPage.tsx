@@ -32,7 +32,7 @@ import { useNotificationStore } from '@core/stores/notificationStore'
 import { useAuthStore } from '@core/stores/authStore'
 import { formatError } from '@core/lib/errors'
 import { staggerContainer, staggerItem } from '@core/lib/animations'
-import { doctorAvailableCount, doctorStatusOrder, doctorStatusTone } from '@core/lib/sourceStatus'
+import { doctorAvailableCount, doctorStatusLabel, doctorStatusOrder, doctorStatusTone, sourceCredentialLabel } from '@core/lib/sourceStatus'
 import { Spinner } from '../components/common/Spinner'
 import type { DoctorResponse } from '@core/types'
 import styles from './DashboardPage.module.scss'
@@ -181,9 +181,14 @@ export function DashboardPage() {
             const statusTone = doctorStatusTone(src.status)
             const statusClass = statusTone === 'ok'
               ? styles.statusOk
-              : statusTone === 'warn' || statusTone === 'muted'
+              : statusTone === 'warn'
                 ? styles.statusWarn
-                : styles.statusErr
+                : statusTone === 'muted'
+                  ? styles.statusMuted
+                  : styles.statusErr
+            const statusLabel = doctorStatusLabel(src.status, t)
+            const credentialLabel = sourceCredentialLabel(src, ' / ')
+            const integrationLabel = src.integration_type === 'open_api' ? '开放' : src.integration_type === 'scraper' ? '爬虫' : src.integration_type === 'official_api' ? '授权' : '自建'
 
             return (
               <div key={src.name} className={`${styles.formRow} ${i < sortedSources.length - 1 ? styles.formRowSep : ''}`}>
@@ -191,8 +196,9 @@ export function DashboardPage() {
                   <span className={`${styles.statusDot} ${statusClass}`} />
                   <span className={styles.sourceName}>{src.name}</span>
                   <span className={styles.typeBadge}>{src.category}</span>
+                  <span className={styles.typeBadge}>{statusLabel}</span>
                 </div>
-                <span className={styles.rowValueMuted}>{src.integration_type === 'open_api' ? '开放' : src.integration_type === 'scraper' ? '爬虫' : src.integration_type === 'official_api' ? '授权' : '自建'}</span>
+                <span className={styles.rowValueMuted}>{credentialLabel ? `${integrationLabel} · ${credentialLabel}` : integrationLabel}</span>
               </div>
             )
           })}
