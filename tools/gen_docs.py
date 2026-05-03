@@ -154,12 +154,14 @@ def render_cli_content(*, include_plugins: bool = False) -> str:
 
     env = os.environ.copy()
     env["SOUWEN_PLUGIN_AUTOLOAD"] = "0"
+    env["PYTHONIOENCODING"] = "utf-8"
     proc = subprocess.run(
         [sys.executable, str(Path(__file__).resolve()), "--_render-only"],
         check=True,
         env=env,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
+        encoding="utf-8",
         text=True,
     )
     return proc.stdout
