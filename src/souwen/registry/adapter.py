@@ -374,6 +374,10 @@ class SourceAdapter:
             raise ValueError(
                 f"SourceAdapter({self.name!r}) auth_requirement='none' 不能声明 credential_fields"
             )
+        if (self.integration == "self_hosted" or effective_auth == "self_hosted") and not resolved_fields:
+            raise ValueError(
+                f"SourceAdapter({self.name!r}) self_hosted 源必须声明 config_field 或 credential_fields"
+            )
         if effective_auth == "required" and not resolved_fields:
             raise ValueError(
                 f"SourceAdapter({self.name!r}) auth_requirement={effective_auth!r} "

@@ -141,6 +141,7 @@ export interface SourceChannelConfig {
   http_backend: string
   base_url: string | null
   has_api_key: boolean
+  credentials_satisfied?: boolean
   headers: Record<string, string>
   params: Record<string, string | number | boolean>
   category: SourceCategory

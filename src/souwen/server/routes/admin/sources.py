@@ -29,7 +29,11 @@ def _catalog_fields(meta) -> dict:
 async def get_sources_config():
     """查看所有数据源的频道配置 — 包含启用状态、API Key（仅指示）、代理等。"""
     from souwen.config import get_config
-    from souwen.source_registry import get_all_sources, has_configured_credentials
+    from souwen.source_registry import (
+        get_all_sources,
+        has_configured_credentials,
+        has_required_credentials,
+    )
 
     cfg = get_config()
     all_sources = get_all_sources()
@@ -42,6 +46,7 @@ async def get_sources_config():
             "http_backend": sc.http_backend,
             "base_url": sc.base_url,
             "has_api_key": has_configured_credentials(cfg, name, meta),
+            "credentials_satisfied": has_required_credentials(cfg, name, meta),
             "headers": sc.headers,
             "params": sc.params,
             "category": meta.category,
@@ -57,7 +62,7 @@ async def get_sources_config():
 async def get_source_config(source_name: str):
     """查看单个数据源的频道配置。"""
     from souwen.config import get_config
-    from souwen.source_registry import get_source, has_configured_credentials
+    from souwen.source_registry import get_source, has_configured_credentials, has_required_credentials
 
     meta = get_source(source_name)
     if meta is None:
@@ -72,6 +77,7 @@ async def get_source_config(source_name: str):
         "http_backend": sc.http_backend,
         "base_url": sc.base_url,
         "has_api_key": has_configured_credentials(cfg, source_name, meta),
+        "credentials_satisfied": has_required_credentials(cfg, source_name, meta),
         "headers": sc.headers,
         "params": sc.params,
         "category": meta.category,

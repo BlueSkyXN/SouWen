@@ -196,6 +196,19 @@ class TestAdminAuth:
         assert data["optional_credential_effect"] == "politeness"
         assert data["risk_level"] == "low"
         assert data["distribution"] == "core"
+        assert data["credentials_satisfied"] is True
+
+    def test_admin_sources_config_marks_no_auth_credentials_satisfied(self, authed_client):
+        """免配置源不应显示有 API Key，但应明确标记凭据要求已满足。"""
+        resp = authed_client.get(
+            "/api/v1/admin/sources/config/arxiv",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["auth_requirement"] == "none"
+        assert data["has_api_key"] is False
+        assert data["credentials_satisfied"] is True
 
     def test_admin_ping_requires_auth(self, authed_client):
         """/admin/ping 未授权拒绝。"""
@@ -369,38 +382,71 @@ class TestSearchAuth:
         instance = client_cls()
         assert instance.instance_url == f"https://{source_name}.example"
 
-    def test_sources_self_hosted_legacy_channel_api_key_still_works(self, client, monkeypatch):
+    @pytest.mark.parametrize(
+        ("source_name", "legacy_field", "client_path"),
+        [
+            ("searxng", "searxng_url", "souwen.web.searxng:SearXNGClient"),
+            ("whoogle", "whoogle_url", "souwen.web.whoogle:WhoogleClient"),
+            ("websurfx", "websurfx_url", "souwen.web.websurfx:WebsurfxClient"),
+        ],
+    )
+    def test_sources_self_hosted_legacy_channel_api_key_still_works(
+        self,
+        client,
+        monkeypatch,
+        source_name,
+        legacy_field,
+        client_path,
+    ):
         """旧版 sources.<name>.api_key 自建实例 URL 仍应被 catalog 与客户端接受。"""
-        monkeypatch.setenv("SOUWEN_SEARXNG_URL", "")
+        import importlib
+
+        monkeypatch.setenv(f"SOUWEN_{legacy_field.upper()}", "")
         monkeypatch.setenv(
             "SOUWEN_SOURCES",
-            '{"searxng":{"api_key":"https://legacy-searxng.example"}}',
+            f'{{"{source_name}":{{"api_key":"https://legacy-{source_name}.example"}}}}',
         )
         from souwen.config import get_config
 
         get_config.cache_clear()
         data = client.get("/api/v1/sources").json()
         names = {item["name"] for item in data.get("general", [])}
-        assert "searxng" in names
+        assert source_name in names
 
-        from souwen.web.searxng import SearXNGClient
+        module_name, class_name = client_path.split(":")
+        client_cls = getattr(importlib.import_module(module_name), class_name)
+        assert client_cls().instance_url == f"https://legacy-{source_name}.example"
 
-        assert SearXNGClient().instance_url == "https://legacy-searxng.example"
-
-    def test_admin_source_config_self_hosted_legacy_channel_api_key(self, client, monkeypatch):
+    @pytest.mark.parametrize(
+        ("source_name", "legacy_field"),
+        [
+            ("searxng", "searxng_url"),
+            ("whoogle", "whoogle_url"),
+            ("websurfx", "websurfx_url"),
+        ],
+    )
+    def test_admin_source_config_self_hosted_legacy_channel_api_key(
+        self,
+        client,
+        monkeypatch,
+        source_name,
+        legacy_field,
+    ):
         """CLI/admin 共用的凭据 helper 应识别旧版 self-hosted URL 通道。"""
         monkeypatch.setenv("SOUWEN_ADMIN_OPEN", "1")
-        monkeypatch.setenv("SOUWEN_SEARXNG_URL", "")
+        monkeypatch.setenv(f"SOUWEN_{legacy_field.upper()}", "")
         monkeypatch.setenv(
             "SOUWEN_SOURCES",
-            '{"searxng":{"api_key":"https://legacy-searxng.example"}}',
+            f'{{"{source_name}":{{"api_key":"https://legacy-{source_name}.example"}}}}',
         )
         from souwen.config import get_config
 
         get_config.cache_clear()
-        resp = client.get("/api/v1/admin/sources/config/searxng")
+        resp = client.get(f"/api/v1/admin/sources/config/{source_name}")
         assert resp.status_code == 200
-        assert resp.json()["has_api_key"] is True
+        data = resp.json()
+        assert data["has_api_key"] is True
+        assert data["credentials_satisfied"] is True
 
     def test_sources_uses_live_registry_for_runtime_plugins(self, client, clean_registry):
         """/sources 应从 live registry 派生，插件注销后不再返回死源。"""

@@ -181,10 +181,13 @@ class TestSourceAdapterCatalogValidation:
         assert adapter.resolved_credential_fields == ("tavily_api_key",)
         assert adapter.resolved_needs_config is True
 
-    def test_self_hosted_without_declared_fields_remains_plugin_compatible(self):
-        adapter = self._adapter(auth_requirement="self_hosted")
-        assert adapter.resolved_auth_requirement == "self_hosted"
-        assert adapter.resolved_credential_fields == ()
+    def test_self_hosted_without_declared_fields_is_rejected(self):
+        with pytest.raises(ValueError, match="self_hosted 源必须声明 config_field 或 credential_fields"):
+            self._adapter(auth_requirement="self_hosted")
+
+    def test_self_hosted_integration_without_declared_fields_is_rejected(self):
+        with pytest.raises(ValueError, match="self_hosted 源必须声明 config_field 或 credential_fields"):
+            self._adapter(integration="self_hosted", needs_config=False)
 
 
 # ── D11 硬断言 ──────────────────────────────────────────────
