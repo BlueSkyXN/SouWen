@@ -182,11 +182,15 @@ class TestSourceAdapterCatalogValidation:
         assert adapter.resolved_needs_config is True
 
     def test_self_hosted_without_declared_fields_is_rejected(self):
-        with pytest.raises(ValueError, match="self_hosted 源必须声明 config_field 或 credential_fields"):
+        with pytest.raises(
+            ValueError, match="self_hosted 源必须声明 config_field 或 credential_fields"
+        ):
             self._adapter(auth_requirement="self_hosted")
 
     def test_self_hosted_integration_without_declared_fields_is_rejected(self):
-        with pytest.raises(ValueError, match="self_hosted 源必须声明 config_field 或 credential_fields"):
+        with pytest.raises(
+            ValueError, match="self_hosted 源必须声明 config_field 或 credential_fields"
+        ):
             self._adapter(integration="self_hosted", needs_config=False)
 
 

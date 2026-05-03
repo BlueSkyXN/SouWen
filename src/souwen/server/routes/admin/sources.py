@@ -62,7 +62,11 @@ async def get_sources_config():
 async def get_source_config(source_name: str):
     """查看单个数据源的频道配置。"""
     from souwen.config import get_config
-    from souwen.source_registry import get_source, has_configured_credentials, has_required_credentials
+    from souwen.source_registry import (
+        get_source,
+        has_configured_credentials,
+        has_required_credentials,
+    )
 
     meta = get_source(source_name)
     if meta is None:
