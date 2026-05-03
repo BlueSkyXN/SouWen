@@ -10,6 +10,7 @@ on:
       - "README.md"
       - "souwen.example.yaml"
       - "entrypoint.sh"
+      - "scripts/hf_space_smoke.py"
       - "scripts/warp-init.sh"
       - "cloud/hfs/**"
       - ".github/workflows/deploy-hf-space.yml"
@@ -24,13 +25,13 @@ permissions:
 
 jobs:
   deploy:
-    name: Sync changed wrapper files and factory rebuild
+    name: Sync changed wrapper files, factory rebuild, and smoke test
     if: github.ref == 'refs/heads/main'
     environment:
       name: hf
       url: https://huggingface.co/spaces/BlueSkyXN/SouWen
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 90
     steps:
       - uses: actions/checkout@v6
 
@@ -50,6 +51,17 @@ jobs:
 
       - name: Install Hugging Face Hub client
         run: python -m pip install "huggingface_hub>=1.8,<2"
+
+      - name: Read expected SouWen version
+        id: project
+        run: |
+          python - <<'PY' >> "$GITHUB_OUTPUT"
+          import tomllib
+
+          with open("pyproject.toml", "rb") as file:
+              project = tomllib.load(file)["project"]
+          print(f"version={project['version']}")
+          PY
 
       - name: Sync changed HFS wrapper files
         env:
@@ -132,3 +144,53 @@ jobs:
           )
           print(f"Requested factory rebuild for {space_id}; stage={runtime.stage}")
           PY
+
+      - name: Wait for Space runtime
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE_ID: BlueSkyXN/SouWen
+        run: |
+          python - <<'PY'
+          import os
+          import time
+
+          from huggingface_hub import HfApi
+
+          api = HfApi(token=os.environ["HF_TOKEN"])
+          space_id = os.environ["HF_SPACE_ID"]
+          deadline = time.monotonic() + 900
+          last_stage = "unknown"
+
+          while time.monotonic() < deadline:
+              runtime = api.get_space_runtime(repo_id=space_id)
+              stage = getattr(runtime.stage, "value", runtime.stage)
+              last_stage = str(stage)
+              print(f"Space runtime stage={last_stage}")
+              if last_stage.upper().endswith("RUNNING"):
+                  print("Space runtime is RUNNING.")
+                  break
+              time.sleep(20)
+          else:
+              raise SystemExit(f"Space runtime did not reach RUNNING; last_stage={last_stage}")
+          PY
+
+      - name: Post-deploy smoke test
+        env:
+          EXPECTED_SOUWEN_VERSION: ${{ steps.project.outputs.version }}
+          SOUWEN_HF_SPACE_URL: https://blueskyxn-souwen.hf.space
+          SOUWEN_SMOKE_REQUEST_TIMEOUT: "20"
+          SOUWEN_SMOKE_WARP_MODES: auto,wireproxy
+          SOUWEN_SMOKE_REPORT_FILE: hf-space-cd-report.md
+          SOUWEN_SMOKE_JSON_FILE: hf-space-cd-report.json
+          SOUWEN_SMOKE_BEARER_TOKEN: ${{ secrets.SOUWEN_SMOKE_BEARER_TOKEN }}
+        run: python scripts/hf_space_smoke.py
+
+      - name: Upload post-deploy test report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: hf-space-cd-report
+          path: |
+            hf-space-cd-report.md
+            hf-space-cd-report.json
+          if-no-files-found: warn
