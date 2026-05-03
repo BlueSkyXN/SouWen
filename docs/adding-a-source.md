@@ -137,6 +137,7 @@ _reg(SourceAdapter(
 | `risk_level` / `risk_reasons` | 推荐 | `low` / `medium` / `high` 与原因标签，用于默认启用和运维提示 |
 | `distribution` / `package_extra` | 推荐 | `core` / `extra` / `plugin` 与建议 optional dependency 组 |
 | `stability` | 推荐 | `stable` / `beta` / `experimental` / `deprecated` |
+| `usage_note` | 可选 | 用户级提示文案(如 `"仅支持 DOI OA 查找"`、`"公开搜索端点已变更,当前接入待修复"`);doctor / API / Panel 会把它附加到状态消息末尾,**不参与可用性判定**。`stability="deprecated"` / `experimental` + scraper 的源建议显式声明该字段 |
 
 ### 鉴权与分发口径
 

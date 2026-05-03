@@ -483,6 +483,7 @@ Cache-Control: public, max-age=3600
       "distribution": "core",
       "package_extra": null,
       "stability": "stable",
+      "usage_note": null,
       "default_enabled": true,
       "description": "OpenAlex 开放学术数据"
     }
@@ -505,6 +506,7 @@ Cache-Control: public, max-age=3600
 | `risk_level` / `risk_reasons` | 默认调度风险与原因，不等同于接入方式 |
 | `distribution` / `package_extra` | 推荐分发范围与 optional dependency 组 |
 | `stability` | 成熟度：`stable` / `beta` / `experimental` / `deprecated` |
+| `usage_note` | 用户级提示文案(如 `"仅支持 DOI OA 查找"`),前端可作为 tooltip 或副标题展示;不参与可用性判定 |
 
 自建实例源（`auth_requirement="self_hosted"`）优先使用 `sources.<name>.base_url`；
 旧版 `sources.<name>.api_key` 与 flat `<name>_url` 仍保留兼容。
@@ -580,6 +582,7 @@ Cache-Control: public, max-age=3600
       "distribution": "core",
       "package_extra": null,
       "stability": "stable",
+      "usage_note": null,
       "message": "免配置可用；设置 openalex_email 可礼貌访问"
     },
     {
@@ -1057,5 +1060,6 @@ python -m souwen.integrations.mcp_server
 | `risk_level` / `risk_reasons` | 风险等级和原因 |
 | `distribution` / `package_extra` | 推荐安装/治理边界 |
 | `stability` | 成熟度 |
+| `usage_note` | 用户级提示文案,Panel / CLI 作为状态消息后缀展示;不参与可用性判定 |
 
 > 完整字段语义见 [configuration.md](./configuration.md#数据源频道配置sources)。

@@ -113,7 +113,8 @@ function makeDoctor(overrides: Partial<DoctorSource> = {}): DoctorSource {
     required_key: null, key_requirement: 'none', auth_requirement: 'none',
     credential_fields: [], optional_credential_effect: null,
     risk_level: 'low', risk_reasons: [], distribution: 'core',
-    package_extra: null, stability: 'stable', message: '', enabled: true,
+    package_extra: null, stability: 'stable', usage_note: null,
+    message: '', enabled: true,
     ...overrides,
   }
 }

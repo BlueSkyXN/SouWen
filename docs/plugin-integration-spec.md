@@ -125,6 +125,7 @@ registry/__init__.py 导入
 | `distribution` | `"core"` | 内置或插件推荐分发范围：`core` / `extra` / `plugin`；外部插件运行时会被视为 `plugin` |
 | `package_extra` | `None` | 建议 optional dependency 组，如 `browser` / `scraper` |
 | `stability` | `"stable"` | `stable` / `beta` / `experimental` / `deprecated` |
+| `usage_note` | `None` | 用户级提示文案,在 doctor / API / Panel 中作为状态消息后缀展示。**不参与可用性判定**。`deprecated` / 实验性爬虫建议显式声明,例如 `"公开搜索端点已变更,当前接入待修复"`、`"实验性爬虫,易受反爬影响"` |
 
 ### 鉴权、风险与分发建议
 
