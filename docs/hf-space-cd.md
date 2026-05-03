@@ -21,7 +21,7 @@
 |---|---|---|
 | `API surface and source CLI` | `tests/test_server`、`tests/test_hf_space_smoke.py`、源码 CLI 真实进程 | 覆盖服务端基础路由、smoke 脚本契约和 `python cli.py ...` / `python -m souwen ...` |
 | `PyInstaller CLI smoke` | Linux CLI-only 单文件构建后执行 | 验证 PyInstaller 产物至少能完成帮助、版本、sources、config show 等非网络命令 |
-| `HF Space Docker surface smoke` | 使用 `cloud/hfs/Dockerfile` 构建并本地启动容器 | 验证 `/health`、`/readiness`、`/docs`、`/panel` 和核心 admin API surface |
+| `HF Space Docker surface smoke` | 使用 `cloud/hfs/Dockerfile` 从当前 PR head SHA 构建并本地启动容器 | 验证 `/health`、`/readiness`、`/docs`、`/panel` 和核心 admin API surface |
 
 这层只验证本地 API/CLI/容器启动契约，不代表外部搜索源在远端网络环境中稳定可用。
 
@@ -56,13 +56,13 @@
 
 ## Docker 是否需要拉取远端镜像
 
-当前 PR 预检不拉取线上镜像，而是用 `cloud/hfs/Dockerfile` 从 PR 分支构建临时镜像。这样可以验证即将合入的 wrapper、源码、panel 构建和 Python 依赖组合。线上 Space 的最终结果仍以 `main` 合入后的真实 factory rebuild 和远端 smoke 为准。
+当前 PR 预检不拉取线上镜像，而是用 `cloud/hfs/Dockerfile` 从当前 PR head SHA 构建临时镜像。这样可以验证本次 check 对应的固定源码状态、wrapper、panel 构建和 Python 依赖组合，避免分支名在 workflow 运行期间移动导致验证对象不准确。线上 Space 的最终结果仍以 `main` 合入后的真实 factory rebuild 和远端 smoke 为准。
 
 ## 本地复现策略
 
 - API 与源码 CLI：直接运行 `pytest tests/test_server tests/test_hf_space_smoke.py`，再执行 `python cli.py --help`、`python cli.py --version`、`python cli.py sources`、`python cli.py config show`、`python -m souwen --help`。
 - PyInstaller CLI：使用干净 virtualenv 复现，避免全局 Python 环境把 unrelated 包带入分析。CLI-only 构建需要固定 `setuptools<82`，并显式 `--collect-submodules=rich._unicode_data`，否则单文件包可能在启动或 Rich help 输出时失败。
-- Docker / `act`：这层依赖 Docker daemon，会拉取 `node:*` 和 `python:*` 基础镜像，并按 PR 分支重新构建 HFS 镜像。没有 Docker 的本机不应把该层视为已验证；以 GitHub-hosted runner 的 `HF Space Docker surface smoke` 为准。
+- Docker / `act`：这层依赖 Docker daemon，会拉取 `node:*` 和 `python:*` 基础镜像，并按 PR head SHA 重新构建 HFS 镜像。没有 Docker 的本机不应把该层视为已验证；以 GitHub-hosted runner 的 `HF Space Docker surface smoke` 为准。
 
 ## 失败处理
 

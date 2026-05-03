@@ -132,9 +132,9 @@ jobs:
     timeout-minutes: 45
     env:
       PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.clone_url }}
-      PR_HEAD_REF: ${{ github.head_ref }}
+      PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       DEFAULT_REPO: https://github.com/${{ github.repository }}.git
-      DEFAULT_REF: ${{ github.ref_name }}
+      DEFAULT_REF: ${{ github.sha }}
     steps:
       - uses: actions/checkout@v6
 
@@ -142,7 +142,7 @@ jobs:
         id: source
         run: |
           SOURCE_REPO="${PR_HEAD_REPO:-$DEFAULT_REPO}"
-          SOURCE_REF="${PR_HEAD_REF:-$DEFAULT_REF}"
+          SOURCE_REF="${PR_HEAD_SHA:-$DEFAULT_REF}"
           if [ -z "$SOURCE_REPO" ] || [ -z "$SOURCE_REF" ]; then
             echo "::error::Cannot resolve source repo/ref for Docker build"
             exit 1
