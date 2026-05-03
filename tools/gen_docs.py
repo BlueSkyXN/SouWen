@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -33,14 +34,9 @@ DOMAIN_TITLES = {
 def render(*, include_plugins: bool = False) -> str:
     """渲染 docs/data-sources.md 的 Markdown 内容。
 
-    .. warning::
-
-        本函数**仅适合在 CLI 启动期调用一次**。当 ``include_plugins=False`` 时
-        会临时设置 ``SOUWEN_PLUGIN_AUTOLOAD=0`` 抑制外部插件加载，并在 finally
-        中恢复环境变量；但已经被 ``souwen.registry.plugin`` 读取并应用的运行时
-        状态（已加载的 entry points、注册到 registry 的 adapter 等）不会回滚。
-        在长期运行的进程或测试套件里复用 ``render()`` 可能会观测到不一致的
-        registry 状态，应改为开新子进程调用 ``tools/gen_docs.py``。
+    ``include_plugins=False`` 只会阻止本次首次导入 registry 时自动加载外部插件；
+    若调用前 registry 已在当前进程被插件污染，请使用 CLI 默认路径或
+    ``render_cli_content()``，它会在需要时开新子进程隔离 runtime 状态。
     """
     old_autoload = os.environ.get("SOUWEN_PLUGIN_AUTOLOAD")
     if not include_plugins:
@@ -152,6 +148,23 @@ def render(*, include_plugins: bool = False) -> str:
     return "\n".join(lines) + "\n"
 
 
+def render_cli_content(*, include_plugins: bool = False) -> str:
+    if include_plugins or "souwen.registry" not in sys.modules:
+        return render(include_plugins=include_plugins)
+
+    env = os.environ.copy()
+    env["SOUWEN_PLUGIN_AUTOLOAD"] = "0"
+    proc = subprocess.run(
+        [sys.executable, str(Path(__file__).resolve()), "--_render-only"],
+        check=True,
+        env=env,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.PIPE,
+        text=True,
+    )
+    return proc.stdout
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("-o", "--output", type=Path, help="写入文件；缺省则打印到 stdout")
@@ -160,9 +173,14 @@ def main() -> int:
         action="store_true",
         help="包含当前环境已加载的外部 souwen.plugins entry point；默认只生成内置源",
     )
+    parser.add_argument("--_render-only", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
 
-    content = render(include_plugins=args.include_plugins)
+    content = (
+        render(include_plugins=args.include_plugins)
+        if args._render_only
+        else render_cli_content(include_plugins=args.include_plugins)
+    )
     if args.output:
         args.output.write_text(content, encoding="utf-8")
         print(f"✓ 写入 {args.output}")

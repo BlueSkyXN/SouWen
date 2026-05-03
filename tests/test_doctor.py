@@ -1,11 +1,11 @@
 """SouWen doctor 模块测试。
 
 覆盖 ``souwen.doctor`` 中 ``check_all()`` 与 ``format_report()`` 的诊断功能。
-验证：92 个数据源的完整性检查、状态判断（ok/missing_key/limited/unavailable/warning）、
-报告格式化与符号呈现、以及 Tier 分层显示。
+验证：数据源完整性检查、状态判断（ok/missing_key/limited/unavailable/warning）、
+报告格式化与符号呈现、以及集成类型分组显示。
 
 测试清单：
-- ``TestCheckAll``：check_all() 返回 92 源、必要字段完整性、Key 配置状态检测
+- ``TestCheckAll``：check_all() 返回全部源、必要字段完整性、Key 配置状态检测
 - ``TestFormatReport``：format_report() 字符串输出、标题/Tier 分组、状态符号
 """
 

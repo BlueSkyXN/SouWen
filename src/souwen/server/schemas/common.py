@@ -7,6 +7,21 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 
+SOURCE_CATEGORY_ORDER = (
+    "paper",
+    "patent",
+    "general",
+    "professional",
+    "social",
+    "office",
+    "developer",
+    "wiki",
+    "cn_tech",
+    "video",
+    "fetch",
+)
+
+
 class HealthResponse(BaseModel):
     """健康检查响应 — 用于容器编排系统探针"""
 
@@ -52,12 +67,12 @@ class SourcesResponse(BaseModel):
     general: list[SourceInfo] = Field(default_factory=list)
     professional: list[SourceInfo] = Field(default_factory=list)
     social: list[SourceInfo] = Field(default_factory=list)
+    office: list[SourceInfo] = Field(default_factory=list)
     developer: list[SourceInfo] = Field(default_factory=list)
     wiki: list[SourceInfo] = Field(default_factory=list)
+    cn_tech: list[SourceInfo] = Field(default_factory=list)
     video: list[SourceInfo] = Field(default_factory=list)
     fetch: list[SourceInfo] = Field(default_factory=list)
-    cn_tech: list[SourceInfo] = Field(default_factory=list)
-    office: list[SourceInfo] = Field(default_factory=list)
 
 
 class SearchMeta(BaseModel):

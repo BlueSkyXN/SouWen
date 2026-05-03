@@ -24,6 +24,7 @@ from souwen.server.schemas.admin import (
     YouTubeVideoDetailResponse,
 )
 from souwen.server.schemas.common import (
+    SOURCE_CATEGORY_ORDER,
     ErrorResponse,
     HealthResponse,
     ReadinessResponse,
@@ -41,6 +42,7 @@ from souwen.server.schemas.search import (
 )
 
 __all__ = [
+    "SOURCE_CATEGORY_ORDER",
     "ConfigReloadResponse",
     "DoctorResponse",
     "ErrorResponse",

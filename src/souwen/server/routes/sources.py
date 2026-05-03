@@ -5,11 +5,12 @@ from __future__ import annotations
 from fastapi import APIRouter, Depends
 
 from souwen.server.auth import check_search_auth
+from souwen.server.schemas import SOURCE_CATEGORY_ORDER, SourcesResponse
 
 router = APIRouter()
 
 
-@router.get("/sources", dependencies=[Depends(check_search_auth)])
+@router.get("/sources", response_model=SourcesResponse, dependencies=[Depends(check_search_auth)])
 async def list_sources():
     """列出当前可用数据源 — 按类别分组。
 
@@ -52,9 +53,9 @@ async def list_sources():
             "description": meta.description,
         }
 
-    result: dict[str, list[dict]] = {}
+    result: dict[str, list[dict]] = {category: [] for category in SOURCE_CATEGORY_ORDER}
     for category, entries in all_sources.items():
-        result[category] = []
+        result.setdefault(category, [])
         for name, _needs_key, _desc in entries:
             if not _is_usable(name):
                 continue

@@ -318,16 +318,17 @@ class TestSearchAuth:
         assert resp.status_code == 401
 
     def test_sources_with_valid_token(self, authed_client):
-        """带正确 Token 访问 ``/sources`` 应 200，响应含 paper/patent/web 三类分组。"""
+        """带正确 Token 访问 ``/sources`` 应 200，并返回固定 source catalog 分类。"""
+        from souwen.server.schemas import SOURCE_CATEGORY_ORDER
+
         resp = authed_client.get(
             "/api/v1/sources",
             headers={"Authorization": "Bearer test-secret-123"},
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert "paper" in data
-        assert "patent" in data
-        assert "general" in data
+        assert list(data) == list(SOURCE_CATEGORY_ORDER)
+        assert all(isinstance(entries, list) for entries in data.values())
         openalex = next(item for item in data["paper"] if item["name"] == "openalex")
         assert openalex["key_requirement"] == "optional"
         assert openalex["auth_requirement"] == "optional"
