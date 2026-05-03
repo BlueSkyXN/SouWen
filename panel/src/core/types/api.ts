@@ -28,12 +28,68 @@ export interface HealthResponse {
 }
 
 /**
+ * 后端 source catalog 的固定分类，与 souwen.models.ALL_SOURCES 保持一致。
+ */
+export type SourceCategory =
+  | 'paper'
+  | 'patent'
+  | 'general'
+  | 'professional'
+  | 'social'
+  | 'office'
+  | 'developer'
+  | 'wiki'
+  | 'cn_tech'
+  | 'video'
+  | 'fetch'
+
+export const SOURCE_CATEGORY_ORDER: readonly SourceCategory[] = [
+  'paper',
+  'patent',
+  'general',
+  'professional',
+  'social',
+  'office',
+  'developer',
+  'wiki',
+  'cn_tech',
+  'video',
+  'fetch',
+]
+
+export const SOURCE_CATEGORY_LABEL_KEYS: Record<SourceCategory, string> = {
+  paper: 'sources.categoryPaper',
+  patent: 'sources.categoryPatent',
+  general: 'sources.categoryGeneral',
+  professional: 'sources.categoryProfessional',
+  social: 'sources.categorySocial',
+  office: 'sources.categoryOffice',
+  developer: 'sources.categoryDeveloper',
+  wiki: 'sources.categoryWiki',
+  cn_tech: 'sources.categoryCnTech',
+  video: 'sources.categoryVideo',
+  fetch: 'sources.categoryFetch',
+}
+
+/**
  * 数据源信息（可用性、需要的密钥）
  */
 export interface SourceInfo {
   name: string
   needs_key: boolean
   description: string
+  key_requirement?: 'none' | 'optional' | 'required' | 'self_hosted'
+  auth_requirement?: 'none' | 'optional' | 'required' | 'self_hosted'
+  credential_fields?: string[]
+  optional_credential_effect?: string | null
+  integration_type?: string
+  risk_level?: 'low' | 'medium' | 'high'
+  risk_reasons?: string[]
+  distribution?: 'core' | 'extra' | 'plugin'
+  package_extra?: string | null
+  stability?: 'stable' | 'beta' | 'experimental' | 'deprecated'
+  usage_note?: string | null
+  default_enabled?: boolean
 }
 
 /**
@@ -45,8 +101,10 @@ export interface SourcesResponse {
   general: SourceInfo[]
   professional: SourceInfo[]
   social: SourceInfo[]
+  office: SourceInfo[]
   developer: SourceInfo[]
   wiki: SourceInfo[]
+  cn_tech: SourceInfo[]
   video: SourceInfo[]
   fetch: SourceInfo[]
 }
@@ -56,11 +114,20 @@ export interface SourcesResponse {
  */
 export interface DoctorSource {
   name: string
-  category: string
+  category: SourceCategory
   status: string
   integration_type: string
   required_key: string | null
   key_requirement: 'none' | 'optional' | 'required' | 'self_hosted'
+  auth_requirement: 'none' | 'optional' | 'required' | 'self_hosted'
+  credential_fields: string[]
+  optional_credential_effect: string | null
+  risk_level: 'low' | 'medium' | 'high'
+  risk_reasons: string[]
+  distribution: 'core' | 'extra' | 'plugin'
+  package_extra: string | null
+  stability: 'stable' | 'beta' | 'experimental' | 'deprecated'
+  usage_note: string | null
   message: string
   enabled: boolean
   description?: string
@@ -76,10 +143,22 @@ export interface SourceChannelConfig {
   http_backend: string
   base_url: string | null
   has_api_key: boolean
+  credentials_satisfied?: boolean
   headers: Record<string, string>
   params: Record<string, string | number | boolean>
-  category: string
+  category: SourceCategory
   integration_type: string
+  key_requirement?: 'none' | 'optional' | 'required' | 'self_hosted'
+  auth_requirement?: 'none' | 'optional' | 'required' | 'self_hosted'
+  credential_fields?: string[]
+  optional_credential_effect?: string | null
+  risk_level?: 'low' | 'medium' | 'high'
+  risk_reasons?: string[]
+  distribution?: 'core' | 'extra' | 'plugin'
+  package_extra?: string | null
+  stability?: 'stable' | 'beta' | 'experimental' | 'deprecated'
+  usage_note?: string | null
+  default_enabled?: boolean
   description: string
 }
 
@@ -88,7 +167,7 @@ export interface SourceChannelConfig {
  */
 export interface DoctorResult {
   source: string
-  category: string
+  category: SourceCategory
   integration_type: string
   reachable: boolean
   latency_ms?: number
@@ -101,6 +180,16 @@ export interface DoctorResult {
 export interface DoctorResponse {
   total: number
   ok: number
+  available: number
+  degraded: number
+  degraded_total: number
+  failed: number
+  limited: number
+  warning: number
+  missing_key: number
+  unavailable: number
+  disabled: number
+  status_counts: Record<string, number>
   sources: DoctorSource[]
 }
 

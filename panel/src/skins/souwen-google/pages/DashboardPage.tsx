@@ -219,7 +219,7 @@ export function DashboardPage() {
   const paperCount = doctor.sources.filter((s) => s.category === 'paper').length
   const patentCount = doctor.sources.filter((s) => s.category === 'patent').length
   const webCount = doctor.sources.filter((s) => !['paper', 'patent'].includes(s.category)).length
-  const okCount = doctor.ok
+  const okCount = doctor.available
   const totalCount = doctor.total
   const healthPct = totalCount > 0 ? Math.round((okCount / totalCount) * 100) : 0
 

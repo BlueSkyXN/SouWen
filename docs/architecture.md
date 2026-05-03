@@ -22,7 +22,7 @@
 ├────────────────────────────────────────────────────────────────┤
 │ 注册表层 Registry —— 单一事实源                                │
 │   souwen.registry.adapter    SourceAdapter / MethodSpec        │
-│   souwen.registry.sources    91 个 _reg(...) 声明（权威）      │
+│   souwen.registry.sources    93 个内置 _reg(...) 声明（权威） │
 │   souwen.registry.loader     字符串懒加载（避免启动 import）  │
 │   souwen.registry.views      by_domain / by_capability / ...   │
 ├────────────────────────────────────────────────────────────────┤
@@ -65,6 +65,15 @@ class SourceAdapter:
     default_enabled: bool = True                 # 高风险源设 False
     default_for: frozenset[str] = frozenset()    # {"paper:search"} 声明默认源
     tags: frozenset[str] = frozenset()           # {"high_risk"} / ...
+    auth_requirement: str | None = None          # none|optional|required|self_hosted
+    credential_fields: tuple[str, ...] = ()      # 支持多字段凭据
+    optional_credential_effect: str | None = None
+    risk_level: str = "low"                      # low|medium|high
+    risk_reasons: frozenset[str] = frozenset()
+    distribution: str = "core"                   # core|extra|plugin
+    package_extra: str | None = None
+    stability: str = "stable"                    # stable|beta|experimental|deprecated
+    usage_note: str | None = None                # 用户级提示（如"仅支持 DOI OA 查找"），不参与可用性判定
 
 @dataclass(frozen=True, slots=True)
 class MethodSpec:
@@ -114,6 +123,22 @@ client_cls = adapter.client_loader()  # 此刻才 importlib.import_module
 ```
 
 `lazy()` 基于 `functools.lru_cache` 保证同一路径只解析一次。
+
+### Source Catalog 治理维度
+
+`SourceAdapter` 的元数据被拆成几个正交维度，避免把"是否需要 Key"、"怎么接入"和"是否适合默认启用"混在一个 tier 里：
+
+| 维度 | 字段 | 用途 |
+|---|---|---|
+| 接入方式 | `integration` | 描述技术路径：`open_api` / `scraper` / `official_api` / `self_hosted` |
+| 鉴权要求 | `auth_requirement` / `credential_fields` | 描述运行前是否需要凭据，支持可选凭据和多字段凭据 |
+| 可选凭据收益 | `optional_credential_effect` | 标注可选 Key 是提升限流、配额、质量、个性化还是礼貌访问 |
+| 风险治理 | `risk_level` / `risk_reasons` | 控制默认启用和默认搜索范围,解释反爬、封号、配额成本等原因 |
+| 分发范围 | `distribution` / `package_extra` | 表示核心内置、可选依赖或外部插件,以及建议 extra 组 |
+| 成熟度 | `stability` | 区分 stable / beta / experimental / deprecated |
+| 用户提示 | `usage_note` | 描述源运行时的限制或注意事项(如 unpaywall "仅支持 DOI OA 查找"、`stability="deprecated"` 源的修复进度);doctor / API / Panel 会作为消息后缀展示,**不参与可用性判定** |
+
+兼容字段仍保留：`needs_config`、`config_field`、`tags={"high_risk"}` 与 `v0_all_sources:exclude` 会派生到新的 catalog 视图中。
 
 ---
 
@@ -185,7 +210,7 @@ client_cls = adapter.client_loader()  # 此刻才 importlib.import_module
 
 ## 8. 插件系统（外部扩展）
 
-注册表除了承载内置的 91+ 个 `_reg()`，还能在运行时**通过外部插件**追加新的
+注册表除了承载内置的 93 个 `_reg()`，还能在运行时**通过外部插件**追加新的
 `SourceAdapter`，让第三方 / 私有源在不改主仓代码的前提下被 SouWen 发现。
 
 ### 双模式加载
@@ -207,7 +232,7 @@ SouWen 启动时统一通过 `importlib.metadata` 扫描发现。
 ┌─────────────────────────────────────────────────────────────────┐
 │  registry/__init__.py 导入                                       │
 │      ↓                                                           │
-│  1. import sources       —— 触发 91+ 个 _reg()，填满 _REGISTRY  │
+│  1. import sources       —— 触发 93 个内置 _reg()，填满 _REGISTRY │
 │      ↓                                                           │
 │  2. plugin.load_plugins()                                        │
 │       ├─ discover_entrypoint_plugins()                           │
@@ -270,7 +295,7 @@ _FETCH_HANDLERS["jina_reader"]  = _handle_jina_reader
 - extra_domains 只允许 `fetch`
 - MethodSpec.method_name 在 Client 类上真实存在
 - param_map 的目标参数名是方法签名里的参数
-- config_field 在 `SouWenConfig.model_fields` 里存在
+- config_field / credential_fields 在 `SouWenConfig.model_fields` 里存在
 - default_for 的 key 能解析为 (domain, capability) 且都合法
 - 注册表无重名
 - `ALL_SOURCES` 与 `registry.as_all_sources_dict()` 派生一致

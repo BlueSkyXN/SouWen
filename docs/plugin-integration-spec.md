@@ -62,12 +62,13 @@ web2pdf = ["superweb2pdf[capture]>=0.2.0"]
 无论哪种模式，启动时 SouWen 都通过 `importlib.metadata.entry_points(group="souwen.plugins")`
 扫描发现。**插件作者通常只需声明 entry_points**，是否打包嵌入由宿主决定。
 
-### Entry Point 目标可以是三种形态
+### Entry Point 目标可以是四种形态
 
 | 形态 | 示例 | 用途 |
 |---|---|---|
-| `SourceAdapter` 实例 | `plugin = SourceAdapter(...)` | 单源插件 |
-| 零参 callable 返回 `SourceAdapter` | `def make() -> SourceAdapter` | 需要运行时构造 |
+| `Plugin` 实例 | `plugin = Plugin(name="my_plugin", adapters=[...])` | 需要生命周期、配置 schema 或健康检查 |
+| `SourceAdapter` 实例 | `adapter = SourceAdapter(...)` | 单源插件 |
+| 零参 callable 返回 `Plugin` / `SourceAdapter` | `def make() -> Plugin` | 需要运行时构造 |
 | 零参 callable 返回 `list[SourceAdapter]` | `def make_all() -> list[SourceAdapter]` | 一次注册多个源 |
 
 ### 加载流程
@@ -114,8 +115,51 @@ registry/__init__.py 导入
 | `extra_domains` | `frozenset()` | 跨域能力；当前仅允许 `frozenset({"fetch"})` |
 | `default_enabled` | `True` | UI 默认是否勾选 |
 | `default_for` | `frozenset()` | 形如 `{"web:search"}`；外部插件**不建议**抢占默认位 |
-| `tags` | `frozenset()` | 见下表 |
+| `tags` | `frozenset()` | 见下表；web 插件可用 `category:professional` 进入专业搜索分类 |
 | `needs_config` | `None` | 是否"必须配置才能工作"；建议显式声明（`True` / `False`） |
+| `auth_requirement` | `None` | `none` / `optional` / `required` / `self_hosted`；None 时从旧字段派生 |
+| `credential_fields` | `()` | 完整凭据字段；多字段凭据应列全 |
+| `optional_credential_effect` | `None` | 可选凭据收益：`rate_limit` / `quota` / `quality` / `personalization` / `private_access` / `write_access` / `politeness` / `unknown` |
+| `risk_level` | `"low"` | `low` / `medium` / `high` |
+| `risk_reasons` | `frozenset()` | 风险原因标签，如 `anti_scraping` / `captcha` / `quota_cost` / `requires_browser` |
+| `distribution` | `"core"` | 内置或插件推荐分发范围：`core` / `extra` / `plugin`；外部插件运行时会被视为 `plugin` |
+| `package_extra` | `None` | 建议 optional dependency 组，如 `browser` / `scraper` |
+| `stability` | `"stable"` | `stable` / `beta` / `experimental` / `deprecated` |
+| `usage_note` | `None` | 用户级提示文案,在 doctor / API / Panel 中作为状态消息后缀展示。**不参与可用性判定**。`deprecated` / 实验性爬虫建议显式声明,例如 `"公开搜索端点已变更,当前接入待修复"`、`"实验性爬虫,易受反爬影响"` |
+
+### 鉴权、风险与分发建议
+
+`integration` 只描述技术接入方式，不描述凭据强度。插件作者应显式声明 catalog 字段，让 CLI、doctor、API 和 Panel 能给出一致提示：
+
+```python
+plugin = SourceAdapter(
+    name="my_source",
+    domain="web",
+    integration="official_api",
+    description="My Source Search",
+    config_field="my_source_api_key",
+    needs_config=False,
+    auth_requirement="optional",
+    credential_fields=("my_source_api_key",),
+    optional_credential_effect="rate_limit",
+    risk_level="low",
+    distribution="plugin",
+    package_extra="my_source",
+    stability="stable",
+    client_loader=lazy("my_plugin.client:MySourceClient"),
+    methods={"search": MethodSpec("search")},
+)
+```
+
+常见组合：
+
+| 场景 | 推荐声明 |
+|---|---|
+| 无凭据即可运行 | `auth_requirement="none"` |
+| Key 只提升限流或配额 | `auth_requirement="optional"` + `optional_credential_effect="rate_limit"` / `"quota"` |
+| 必须凭据 | `auth_requirement="required"` + `credential_fields=(...)` |
+| 自建实例 | `auth_requirement="self_hosted"` + `config_field="<source>_url"`；`self_hosted` 必须声明 URL/凭据字段 |
+| 高风控/重依赖插件 | `risk_level="medium"` 或 `"high"`，并填写 `risk_reasons` / `package_extra` |
 
 ### 推荐 tag
 
@@ -123,14 +167,21 @@ registry/__init__.py 导入
 |---|---|
 | `"external_plugin"` | **强烈建议所有外部插件加上**，便于审计与故障排查 |
 | `"high_risk"` | 高风控源，会被 `high_risk_sources()` 视图收录 |
+| `"category:professional"` | 仅适用于 `domain="web"` 的插件；进入专业搜索分类 |
+| `"category:general"` | 仅适用于 `domain="web"` 的插件；显式进入通用搜索分类（默认也是 general） |
+
+`domain="web"` 的外部插件如果不声明 `category:*`，会按公开 domain 语义归入 `general`。
+只有 AI/聚合搜索、商业 SERP API 等更接近内置 `professional` 分类的插件，才建议声明 `category:professional`。
 
 > ⚠️ 不要使用 `v0_category:*` / `v0_all_sources:exclude` 等内置兼容标签——这些仅用于
 > 内置源对旧版 `ALL_SOURCES` 的向下兼容。
 
 ### 校验时机
 
-`_reg_external()` 在注册时进行 dataclass 字段类型校验；语义校验（如 capability 是否
-在标准集中、`MethodSpec.method_name` 是否存在于 Client）由插件自己负责。
+`SourceAdapter` 构造时会做枚举值、`auth_requirement`/`credential_fields` 组合、
+`extra_domains` 与 `default_for` 格式等基础防呆；`_reg_external()` 注册时只做重名隔离。
+`MethodSpec.method_name` 是否存在于 Client、`param_map` 目标参数是否匹配签名等深度契约，
+由插件作者在测试中使用 `souwen.testing.assert_valid_plugin()` / `validate_client_contract()` 校验。
 
 ### 常量速查
 
@@ -143,6 +194,12 @@ from souwen.registry.adapter import (
                     #  "search_articles","search_users","get_detail","get_trending",
                     #  "get_transcript","fetch","archive_lookup","archive_save"}
     INTEGRATIONS,   # {"open_api","scraper","official_api","self_hosted"}
+    AUTH_REQUIREMENTS,
+    OPTIONAL_CREDENTIAL_EFFECTS,
+    RISK_LEVELS,
+    RISK_REASONS,
+    DISTRIBUTIONS,
+    STABILITIES,
 )
 ```
 
@@ -171,8 +228,8 @@ class MethodSpec:
 门面层调用顺序：
 
 1. 收集统一参数（如 `query`, `limit`）
-2. 若有 `pre_call`，先 `kwargs = pre_call(kwargs)`
-3. 应用 `param_map` 重命名
+2. 应用 `param_map` 重命名
+3. 若有 `pre_call`，再 `kwargs = pre_call(kwargs)`
 4. `await client.<method_name>(**kwargs)`
 
 ---
@@ -360,6 +417,20 @@ export SOUWEN_PLUGINS='["my_plugin:plugin","other_pkg.mod:make_adapter"]'
 ```
 
 `SOUWEN_PLUGINS` 与 `souwen.yaml` 的 `plugins` 字段会被合并，去重后一并加载。
+
+#### `SOUWEN_PLUGIN_AUTOLOAD`（仅文档生成 / CI 隔离用，非用户面向）
+
+| 取值 | 行为 |
+|---|---|
+| 未设置 / `1`（默认） | 启动时自动扫描 `souwen.plugins` entry point |
+| `0` | 跳过 entry point 自动发现，仅加载内置源 + 显式 `SOUWEN_PLUGINS` / `souwen.yaml` 路径 |
+
+> ⚠️ **不要在生产 / 运维场景手动设置 `SOUWEN_PLUGIN_AUTOLOAD=0`**。它是
+> `tools/gen_docs.py` 内部协议，用于让 checked-in `docs/data-sources.md`
+> 在本机装了第三方 entry point 时也保持稳定（详见
+> [`tools/gen_docs.py`](../tools/gen_docs.py) 中的 `render` /
+> `render_cli_content`）。希望屏蔽某个插件，请用 `souwen.yaml` 的 `plugins`
+> 显式列表或 `SOUWEN_PLUGINS` 覆盖，而不是关掉 autoload。
 
 ### 字符串路径格式
 

@@ -29,6 +29,15 @@ _REGISTRY: dict[str, SourceAdapter] = {}
 _EXTERNAL_PLUGINS: set[str] = set()
 
 
+def _invalidate_source_meta_cache() -> None:
+    """外部插件改动 registry 后，同步刷新 SourceMeta 兼容视图。"""
+    try:
+        from souwen.source_registry import invalidate_source_meta_cache
+    except ImportError:  # pragma: no cover - 仅防御极早期 import 环
+        return
+    invalidate_source_meta_cache()
+
+
 def _reg(adapter: SourceAdapter) -> None:
     """注册一个 adapter。同名重复注册抛异常（避免 sources.py 里的漂移）。"""
     if adapter.name in _REGISTRY:
@@ -56,6 +65,7 @@ def _reg_external(adapter: SourceAdapter) -> bool:
         return False
     _REGISTRY[adapter.name] = adapter
     _EXTERNAL_PLUGINS.add(adapter.name)
+    _invalidate_source_meta_cache()
     return True
 
 
@@ -69,6 +79,7 @@ def _unreg_external(name: str) -> bool:
         return False
     _EXTERNAL_PLUGINS.discard(name)
     _REGISTRY.pop(name, None)
+    _invalidate_source_meta_cache()
     logger.info("已注销外部插件源 %r", name)
     return True
 
@@ -195,13 +206,15 @@ def _v0_category_for(adapter: SourceAdapter) -> str | None:
       - integration ∈ {scraper, self_hosted, 部分 official_api 型 SERP 引擎} → general
       - integration=official_api 且以 AI/搜索聚合为主 → professional
 
-    判定走 tags（"v0_category:general" / "v0_category:professional"）显式标记，
-    这样不会在维度推断上纠结。
+    判定优先走 tags（"category:*" / "v0_category:*"）显式标记；
+    未显式标记的 web 插件按公开 domain 语义保底归入 general。
     """
-    if "v0_category:general" in adapter.tags:
+    if "category:general" in adapter.tags or "v0_category:general" in adapter.tags:
         return "general"
-    if "v0_category:professional" in adapter.tags:
+    if "category:professional" in adapter.tags or "v0_category:professional" in adapter.tags:
         return "professional"
+    if adapter.domain == "web":
+        return "general"
     return _DOMAIN_TO_CATEGORY.get(adapter.domain)
 
 
@@ -258,6 +271,7 @@ def _reset_registry() -> None:
     """仅供测试：清空注册表。生产代码不要调用。"""
     _REGISTRY.clear()
     _EXTERNAL_PLUGINS.clear()
+    _invalidate_source_meta_cache()
 
 
 def _load_default_sources() -> None:

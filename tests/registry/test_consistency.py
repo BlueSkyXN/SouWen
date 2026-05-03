@@ -25,6 +25,7 @@ import inspect
 
 import pytest
 
+from souwen.config import SouWenConfig
 from souwen.registry import (
     all_adapters,
     all_capabilities,
@@ -37,15 +38,21 @@ from souwen.registry import (
 )
 from souwen.registry import external_plugins
 from souwen.registry.adapter import (
+    AUTH_REQUIREMENTS,
     CAPABILITIES,
+    DISTRIBUTIONS,
     DOMAINS,
     FETCH_DOMAIN,
     INTEGRATIONS,
     MethodSpec,
+    OPTIONAL_CREDENTIAL_EFFECTS,
+    RISK_LEVELS,
+    RISK_REASONS,
     SourceAdapter,
+    STABILITIES,
 )
 from souwen.registry.loader import lazy
-from souwen.registry.views import _reg_external
+from souwen.registry.views import _reg_external, _unreg_external
 
 
 # ── 基础不变量 ──────────────────────────────────────────────
@@ -78,6 +85,127 @@ class TestRegistryInvariants:
             assert adapter.integration in INTEGRATIONS, (
                 f"{adapter.name}: integration={adapter.integration!r} 非法"
             )
+
+    def test_catalog_metadata_sets_consistent(self):
+        """source catalog 新增元数据字段均在枚举常量内。"""
+        for adapter in all_adapters().values():
+            assert adapter.resolved_auth_requirement in AUTH_REQUIREMENTS, (
+                f"{adapter.name}: auth_requirement={adapter.resolved_auth_requirement!r} 非法"
+            )
+            if adapter.optional_credential_effect is not None:
+                assert adapter.optional_credential_effect in OPTIONAL_CREDENTIAL_EFFECTS, (
+                    f"{adapter.name}: optional_credential_effect="
+                    f"{adapter.optional_credential_effect!r} 非法"
+                )
+            assert adapter.resolved_risk_level in RISK_LEVELS, (
+                f"{adapter.name}: risk_level={adapter.resolved_risk_level!r} 非法"
+            )
+            assert adapter.resolved_risk_reasons <= RISK_REASONS, (
+                f"{adapter.name}: risk_reasons={sorted(adapter.resolved_risk_reasons)} 非法"
+            )
+            assert adapter.resolved_distribution in DISTRIBUTIONS, (
+                f"{adapter.name}: distribution={adapter.resolved_distribution!r} 非法"
+            )
+            assert adapter.resolved_stability in STABILITIES, (
+                f"{adapter.name}: stability={adapter.resolved_stability!r} 非法"
+            )
+
+
+class TestSourceAdapterCatalogValidation:
+    """SourceAdapter catalog 字段的注册期防呆。"""
+
+    @staticmethod
+    def _adapter(**overrides) -> SourceAdapter:
+        base = {
+            "name": "catalog_validation_probe",
+            "domain": "fetch",
+            "integration": "scraper",
+            "description": "probe",
+            "config_field": None,
+            "client_loader": lazy("souwen.web.builtin:BuiltinFetcherClient"),
+            "methods": {"fetch": MethodSpec("fetch")},
+        }
+        base.update(overrides)
+        return SourceAdapter(**base)
+
+    def test_required_auth_must_have_credential_fields(self):
+        with pytest.raises(ValueError, match="必须声明 config_field 或 credential_fields"):
+            self._adapter(auth_requirement="required")
+
+    def test_none_auth_cannot_declare_credentials(self):
+        with pytest.raises(ValueError, match="不能声明 credential_fields"):
+            self._adapter(
+                auth_requirement="none",
+                credential_fields=("tavily_api_key",),
+            )
+
+    def test_implicit_auth_with_credentials_needs_primary_or_explicit_auth(self):
+        with pytest.raises(ValueError, match="不能声明 credential_fields"):
+            self._adapter(credential_fields=("tavily_api_key", "serper_api_key"))
+
+    def test_optional_credential_effect_only_allowed_for_optional_auth(self):
+        with pytest.raises(ValueError, match="仅适用于 auth_requirement='optional'"):
+            self._adapter(
+                config_field="tavily_api_key",
+                auth_requirement="required",
+                optional_credential_effect="rate_limit",
+            )
+
+    def test_implicit_optional_credentials_remain_supported(self):
+        adapter = self._adapter(
+            config_field="openalex_email",
+            integration="official_api",
+            needs_config=False,
+            optional_credential_effect="politeness",
+        )
+        assert adapter.resolved_auth_requirement == "optional"
+        assert adapter.resolved_credential_fields == ("openalex_email",)
+        assert adapter.resolved_needs_config is False
+
+    def test_self_hosted_can_explicitly_skip_config_requirement(self):
+        adapter = self._adapter(
+            integration="self_hosted",
+            config_field="searxng_url",
+            needs_config=False,
+        )
+        assert adapter.resolved_auth_requirement == "optional"
+        assert adapter.resolved_credential_fields == ("searxng_url",)
+        assert adapter.resolved_needs_config is False
+
+    def test_none_field_can_explicitly_require_config(self):
+        adapter = self._adapter(
+            config_field=None,
+            credential_fields=("tavily_api_key",),
+            needs_config=True,
+        )
+        assert adapter.resolved_auth_requirement == "required"
+        assert adapter.resolved_credential_fields == ("tavily_api_key",)
+        assert adapter.resolved_needs_config is True
+
+    def test_self_hosted_without_declared_fields_is_rejected(self):
+        with pytest.raises(
+            ValueError, match="self_hosted 源必须声明 config_field 或 credential_fields"
+        ):
+            self._adapter(auth_requirement="self_hosted")
+
+    def test_self_hosted_integration_without_declared_fields_is_rejected(self):
+        with pytest.raises(
+            ValueError, match="self_hosted 源必须声明 config_field 或 credential_fields"
+        ):
+            self._adapter(integration="self_hosted", needs_config=False)
+
+    def test_has_required_credentials_rejects_required_meta_without_fields(self):
+        from types import SimpleNamespace
+
+        from souwen.source_registry import has_required_credentials
+
+        meta = SimpleNamespace(
+            auth_requirement="required",
+            credential_fields=(),
+            config_field=None,
+        )
+
+        assert has_required_credentials(SouWenConfig(), "catalog_validation_probe", meta) is False
 
 
 # ── D11 硬断言 ──────────────────────────────────────────────
@@ -150,6 +278,17 @@ class TestD11HardAsserts:
             assert adapter.config_field in config_fields, (
                 f"{adapter.name}.config_field={adapter.config_field!r} 不在 SouWenConfig"
             )
+
+    def test_credential_fields_reference_valid(self):
+        """每个 credential_fields 字段也必须能被 SouWenConfig 解析。"""
+        from souwen.config import SouWenConfig
+
+        config_fields = set(SouWenConfig.model_fields.keys())
+        for adapter in all_adapters().values():
+            for field in adapter.resolved_credential_fields:
+                assert field in config_fields, (
+                    f"{adapter.name}.credential_fields 包含 {field!r}，但它不在 SouWenConfig"
+                )
 
     def test_default_for_references_valid(self):
         """D11-6：default_for 的每个 key 能解析为 (domain, capability) 且都合法。"""
@@ -408,3 +547,76 @@ class TestExternalPlugins:
             assert callable(getattr(client_cls, spec.method_name, None)), (
                 f"external adapter {a.name} method {spec.method_name} 不可调用"
             )
+
+    def test_reg_external_refreshes_source_meta_cache(self, clean_registry):
+        """运行时注册/注销插件源后，SourceMeta 视图必须同步刷新。"""
+        from souwen import source_registry
+
+        # 先构建一次缓存，复现旧问题：之后注册插件若不失效会读不到新源。
+        assert "ext_cache_probe" not in source_registry.get_all_sources()
+        assert source_registry.get_source("ext_cache_probe") is None
+
+        adapter = SourceAdapter(
+            name="ext_cache_probe",
+            domain="fetch",
+            integration="scraper",
+            description="probe",
+            config_field=None,
+            client_loader=lazy("souwen.web.builtin:BuiltinFetcherClient"),
+            methods={"fetch": MethodSpec("fetch")},
+            needs_config=False,
+        )
+        assert _reg_external(adapter) is True
+        assert source_registry.get_source("ext_cache_probe") is not None
+        assert source_registry.is_known_source("ext_cache_probe") is True
+        assert "ext_cache_probe" in source_registry.ALL_SOURCE_NAMES
+
+        assert _unreg_external("ext_cache_probe") is True
+        assert source_registry.get_source("ext_cache_probe") is None
+        assert source_registry.is_known_source("ext_cache_probe") is False
+        assert "ext_cache_probe" not in source_registry.ALL_SOURCE_NAMES
+
+    def test_external_web_plugin_without_internal_v0_tag_is_visible(self, clean_registry):
+        """外部 web 插件不应依赖内部 v0_category:* tag 才进入兼容视图。"""
+        from souwen import source_registry
+
+        adapter = SourceAdapter(
+            name="ext_web_probe",
+            domain="web",
+            integration="scraper",
+            description="web probe",
+            config_field=None,
+            client_loader=lazy("souwen.web.duckduckgo:DuckDuckGoClient"),
+            methods={"search": MethodSpec("search")},
+            needs_config=False,
+        )
+
+        assert _reg_external(adapter) is True
+        meta = source_registry.get_source("ext_web_probe")
+        assert meta is not None
+        assert meta.category == "general"
+        assert meta.distribution == "plugin"
+        assert source_registry.is_known_source("ext_web_probe") is True
+        assert "ext_web_probe" in source_registry.ALL_SOURCE_NAMES
+
+    def test_external_web_plugin_can_use_public_professional_category_tag(self, clean_registry):
+        """外部 web 插件可用公开 category:* tag 选择 professional 分类。"""
+        from souwen import source_registry
+
+        adapter = SourceAdapter(
+            name="ext_professional_web_probe",
+            domain="web",
+            integration="official_api",
+            description="professional web probe",
+            config_field="tavily_api_key",
+            client_loader=lazy("souwen.web.tavily:TavilyClient"),
+            methods={"search": MethodSpec("search")},
+            auth_requirement="required",
+            credential_fields=("tavily_api_key",),
+            tags=frozenset({"category:professional"}),
+        )
+
+        assert _reg_external(adapter) is True
+        meta = source_registry.get_source("ext_professional_web_probe")
+        assert meta is not None
+        assert meta.category == "professional"

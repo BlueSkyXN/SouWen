@@ -13,7 +13,7 @@ class TestPluginContract:
     def test_required_fields(self):
         assert plugin.name == "example_echo"
         assert plugin.domain == "fetch"
-        assert plugin.integration in ("open_api", "scraper", "official_api", "self_hosted")
+        assert plugin.integration == "scraper"
         assert plugin.description
         assert plugin.client_loader is not None
         assert "fetch" in plugin.methods

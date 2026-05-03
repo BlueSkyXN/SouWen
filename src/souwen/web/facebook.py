@@ -158,9 +158,7 @@ class FacebookClient(SouWenHttpClient):
         else:
             # 尝试从配置解析 App ID 和 Secret
             resolved_app_id = app_id or config.resolve_api_key("facebook", "facebook_app_id")
-            resolved_app_secret = app_secret or config.resolve_api_key(
-                "facebook", "facebook_app_secret"
-            )
+            resolved_app_secret = app_secret or config.facebook_app_secret
             if not resolved_app_id or not resolved_app_secret:
                 raise ConfigError(
                     "facebook_app_id / facebook_app_secret",

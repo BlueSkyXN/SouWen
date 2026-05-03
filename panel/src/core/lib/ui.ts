@@ -34,11 +34,13 @@
  */
 
 import type { TFunction } from 'i18next'
+import { SOURCE_CATEGORY_LABEL_KEYS, SOURCE_CATEGORY_ORDER } from '../types'
+import type { SourceCategory } from '../types'
 
 /**
  * 徽章颜色类型
  */
-type BadgeColor = 'blue' | 'amber' | 'green' | 'red'
+type BadgeColor = 'blue' | 'amber' | 'green' | 'red' | 'indigo' | 'teal'
 
 /**
  * 根据搜索结果分类获取徽章颜色
@@ -48,11 +50,14 @@ export function categoryBadgeColor(category: string): BadgeColor {
     case 'paper': return 'blue'
     case 'patent': return 'amber'
     case 'general': return 'green'
-    case 'professional': return 'blue'
+    case 'professional': return 'indigo'
     case 'social': return 'amber'
+    case 'office': return 'teal'
     case 'developer': return 'green'
     case 'wiki': return 'blue'
+    case 'cn_tech': return 'teal'
     case 'video': return 'red'
+    case 'fetch': return 'amber'
     default: return 'blue'
   }
 }
@@ -72,9 +77,19 @@ export function integrationBadgeColor(integration_type: string): BadgeColor {
 }
 
 /**
+ * Type guard：判断给定字符串是否是合法的 SourceCategory
+ */
+function isSourceCategory(value: string): value is SourceCategory {
+  return (SOURCE_CATEGORY_ORDER as readonly string[]).includes(value)
+}
+
+/**
  * 获取分类的本地化标签
  * 调用 i18n 获取中文标签（如果无翻译则返回原分类名）
  */
 export function categoryLabel(t: TFunction, category: string): string {
-  return t(`dashboard.${category}`, category)
+  const key = isSourceCategory(category)
+    ? SOURCE_CATEGORY_LABEL_KEYS[category]
+    : `dashboard.${category}`
+  return t(key, category)
 }

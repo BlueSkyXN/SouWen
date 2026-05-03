@@ -8,7 +8,7 @@
  *       2. 为每个数据源显示配置面板，支持修改代理、HTTP 后端、基础 URL、API 密钥
  *       3. 支持保存配置到服务器
  *     - State 状态：doctor (DoctorResponse) 包含所有数据源信息, loading/error 状态
- *     - 关键类型：CategoryKey 数据源类别（8 类）
+ *     - 关键类型：SourceCategory 数据源类别（11 类）
  *     - 关键钩子：useTranslation, useNotificationStore
  *
  *   SourceConfigPanel（子组件）
@@ -33,34 +33,27 @@ import { api } from '@core/services/api'
 import { useNotificationStore } from '@core/stores/notificationStore'
 import { formatError } from '@core/lib/errors'
 import { staggerContainer, staggerItem } from '@core/lib/animations'
+import { doctorStatusOrder, isDoctorStatusAvailable, sourceCredentialLabel } from '@core/lib/sourceStatus'
 import { Spinner } from '../components/common/Spinner'
-import type { DoctorResponse, DoctorSource, SourceChannelConfig, WarpStatus } from '@core/types'
+import { SOURCE_CATEGORY_LABEL_KEYS, SOURCE_CATEGORY_ORDER } from '@core/types'
+import type { DoctorResponse, DoctorSource, SourceCategory, SourceChannelConfig, WarpStatus } from '@core/types'
 import styles from './SourcesPage.module.scss'
 
-type CategoryKey = 'paper' | 'patent' | 'general' | 'professional' | 'social' | 'developer' | 'wiki' | 'video'
+const CATEGORY_ORDER = SOURCE_CATEGORY_ORDER
+const CATEGORY_LABELS = SOURCE_CATEGORY_LABEL_KEYS
 
-const CATEGORY_ORDER: CategoryKey[] = ['paper', 'patent', 'general', 'professional', 'social', 'developer', 'wiki', 'video']
-
-const CATEGORY_ICONS: Record<CategoryKey, typeof FileText> = {
+const CATEGORY_ICONS: Record<SourceCategory, typeof FileText> = {
   paper: FileText,
   patent: Shield,
   general: Globe,
   professional: Globe,
   social: Globe,
+  office: Globe,
   developer: Globe,
   wiki: Globe,
+  cn_tech: Globe,
   video: Globe,
-}
-
-const CATEGORY_LABELS: Record<CategoryKey, string> = {
-  paper: 'sources.categoryPaper',
-  patent: 'sources.categoryPatent',
-  general: 'sources.categoryGeneral',
-  professional: 'sources.categoryProfessional',
-  social: 'sources.categorySocial',
-  developer: 'sources.categoryDeveloper',
-  wiki: 'sources.categoryWiki',
-  video: 'sources.categoryVideo',
+  fetch: Globe,
 }
 
 const PROXY_OPTIONS = ['inherit', 'none', 'warp', 'custom'] as const
@@ -314,7 +307,7 @@ export function SourcesPage() {
   }, [fetchData, addToast, t])
 
   const handleToggle = useCallback((src: DoctorSource) => {
-    if (src.enabled && src.status === 'ok') {
+    if (src.enabled && isDoctorStatusAvailable(src.status)) {
       setConfirmSource(src)
     } else {
       void executeToggle(src.name, src.enabled)
@@ -344,13 +337,12 @@ export function SourcesPage() {
   }
 
   const sourcesByCategory: Record<string, DoctorSource[]> = {}
-  const statusOrder: Record<string, number> = { ok: 0, degraded: 1, needs_key: 2, error: 3, timeout: 4 }
   for (const cat of CATEGORY_ORDER) {
     sourcesByCategory[cat] = doctor.sources
       .filter((s) => s.category === cat)
       .sort((a, b) => {
         if (a.enabled !== b.enabled) return a.enabled ? -1 : 1
-        const diff = (statusOrder[a.status] ?? 5) - (statusOrder[b.status] ?? 5)
+        const diff = doctorStatusOrder(a.status) - doctorStatusOrder(b.status)
         return diff !== 0 ? diff : a.name.localeCompare(b.name)
       })
   }
@@ -422,10 +414,10 @@ export function SourcesPage() {
 
                   <div className={styles.cardDesc}>{src.message}</div>
 
-                  {src.required_key && (
+                  {sourceCredentialLabel(src) && (
                     <div className={styles.authInfo}>
                       <Key size={11} />
-                      <code className={styles.authKey}>{src.required_key}</code>
+                      <code className={styles.authKey}>{sourceCredentialLabel(src)}</code>
                     </div>
                   )}
 

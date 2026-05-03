@@ -44,9 +44,13 @@ from souwen.exceptions import (
 from souwen.config import SouWenConfig
 from souwen.rate_limiter import TokenBucketLimiter, SlidingWindowLimiter
 from souwen.source_registry import (
-    get_sources_by_integration_type,
-    get_all_sources,
+    AUTH_REQUIREMENT_TYPES,
+    DISTRIBUTION_TYPES,
     INTEGRATION_TYPES,
+    get_all_sources,
+    get_sources_by_auth_requirement,
+    get_sources_by_distribution,
+    get_sources_by_integration_type,
 )
 
 
@@ -605,6 +609,50 @@ class TestSourceRegistryIntegrationType:
         """未知集成类型应返回空列表"""
         assert get_sources_by_integration_type("nonexistent_type") == []
         assert get_sources_by_integration_type("") == []
+
+
+class TestSourceRegistryCatalogViews:
+    """数据源注册表 — source catalog 维度查询测试"""
+
+    def test_auth_requirement_views_cover_all_sources(self):
+        """鉴权分层并集应覆盖所有已注册数据源。"""
+        all_sources = get_all_sources()
+        union: set[str] = set()
+        for requirement in AUTH_REQUIREMENT_TYPES:
+            sources = get_sources_by_auth_requirement(requirement)
+            for meta in sources:
+                assert meta.auth_requirement == requirement
+            union.update(meta.name for meta in sources)
+        assert union == set(all_sources.keys())
+
+    def test_distribution_views_cover_all_sources(self):
+        """分发范围并集应覆盖所有已注册数据源。"""
+        all_sources = get_all_sources()
+        union: set[str] = set()
+        for distribution in DISTRIBUTION_TYPES:
+            sources = get_sources_by_distribution(distribution)
+            for meta in sources:
+                assert meta.distribution == distribution
+            union.update(meta.name for meta in sources)
+        assert union == set(all_sources.keys())
+
+    def test_known_optional_and_multifield_sources(self):
+        """可选凭据与多字段凭据的代表源元数据应稳定。"""
+        sources = get_all_sources()
+        openalex = sources["openalex"]
+        assert openalex.auth_requirement == "optional"
+        assert openalex.needs_config is False
+        assert openalex.optional_credential_effect == "politeness"
+        assert openalex.credential_fields == ("openalex_email",)
+
+        epo_ops = sources["epo_ops"]
+        assert epo_ops.auth_requirement == "required"
+        assert epo_ops.credential_fields == ("epo_consumer_key", "epo_consumer_secret")
+
+    def test_unknown_catalog_views_return_empty(self):
+        """未知 catalog 维度值应返回空列表。"""
+        assert get_sources_by_auth_requirement("unknown") == []
+        assert get_sources_by_distribution("unknown") == []
 
 
 class TestOAuthTokenConcurrency:

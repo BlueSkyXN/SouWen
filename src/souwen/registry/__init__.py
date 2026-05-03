@@ -24,12 +24,18 @@
 from __future__ import annotations
 
 from souwen.registry.adapter import (
+    AUTH_REQUIREMENTS,
     CAPABILITIES,
+    DISTRIBUTIONS,
     DOMAINS,
     FETCH_DOMAIN,
     INTEGRATIONS,
     MethodSpec,
+    OPTIONAL_CREDENTIAL_EFFECTS,
+    RISK_LEVELS,
+    RISK_REASONS,
     SourceAdapter,
+    STABILITIES,
 )
 from souwen.registry.loader import lazy
 from souwen.registry.views import (
@@ -72,6 +78,12 @@ __all__ = [
     "FETCH_DOMAIN",
     "CAPABILITIES",
     "INTEGRATIONS",
+    "AUTH_REQUIREMENTS",
+    "OPTIONAL_CREDENTIAL_EFFECTS",
+    "RISK_LEVELS",
+    "RISK_REASONS",
+    "DISTRIBUTIONS",
+    "STABILITIES",
     # 懒加载
     "lazy",
     # 视图

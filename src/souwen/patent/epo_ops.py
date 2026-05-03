@@ -108,7 +108,9 @@ class EpoOpsClient:
             ConfigError: 缺少必要的 OAuth 凭证时抛出
         """
         cfg = get_config()
-        if not cfg.epo_consumer_key or not cfg.epo_consumer_secret:
+        consumer_key = cfg.resolve_api_key("epo_ops", "epo_consumer_key")
+        consumer_secret = cfg.epo_consumer_secret
+        if not consumer_key or not consumer_secret:
             raise ConfigError(
                 key="epo_consumer_key / epo_consumer_secret",
                 service="EPO OPS",
@@ -117,8 +119,8 @@ class EpoOpsClient:
         self._http = OAuthClient(
             base_url=self.BASE_URL,
             token_url=self.TOKEN_URL,
-            client_id=cfg.epo_consumer_key,
-            client_secret=cfg.epo_consumer_secret,
+            client_id=consumer_key,
+            client_secret=consumer_secret,
             source_name="epo_ops",
         )
         # EPO 免费配额 4GB/月，限流取决于用量级别

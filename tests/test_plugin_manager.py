@@ -77,7 +77,7 @@ def _make_fetch_adapter(name: str):
     return SourceAdapter(
         name=name,
         domain="fetch",
-        integration="self_hosted",
+        integration="scraper",
         description=f"{name} adapter",
         config_field=None,
         client_loader=lazy("souwen.web.builtin:BuiltinFetcherClient"),
@@ -797,7 +797,7 @@ class TestRuntimeDisable:
         adapter = SourceAdapter(
             name="adapter_demo",
             domain="fetch",
-            integration="self_hosted",
+            integration="scraper",
             description="adapter demo",
             config_field=None,
             client_loader=lazy("souwen.web.builtin:BuiltinFetcherClient"),

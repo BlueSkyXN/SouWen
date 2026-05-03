@@ -2,7 +2,7 @@
 
 > SouWen 配置系统：从零配置到完全自定义
 
-> **V1 架构提示**：所有配置项均集中在 `src/souwen/config/models.py` 的 `SouWenConfig`（Pydantic 模型）。新增数据源时若需要 API Key，只需在 `SouWenConfig` 加一个字段，再在 `registry/sources.py` 的 `SourceAdapter` 里通过 `config_field="..."` 引用即可。详见 [adding-a-source.md](./adding-a-source.md)。
+> **V1 架构提示**：所有配置项均集中在 `src/souwen/config/models.py` 的 `SouWenConfig`（Pydantic 模型）。新增数据源时若需要凭据，需要在 `SouWenConfig` 加字段，并在 `registry/sources.py` 的 `SourceAdapter` 里通过 `config_field` / `credential_fields` 引用。详见 [adding-a-source.md](./adding-a-source.md)。
 
 ## 配置优先级
 
@@ -329,7 +329,7 @@ server:
 | `proxy` | string | `"inherit"` | 代理策略：inherit &#124; none &#124; warp &#124; 显式 URL |
 | `http_backend` | string | `"auto"` | HTTP 后端：auto &#124; curl_cffi &#124; httpx |
 | `base_url` | string | None | 覆盖数据源的基础 URL |
-| `api_key` | string | None | 覆盖 API Key（优先于全局 flat key） |
+| `api_key` | string | None | 覆盖主 API Key（优先于全局 flat key；多字段凭据的其他字段仍读取全局 flat 配置） |
 | `headers` | object | `{}` | 附加请求头 |
 | `params` | object | `{}` | 附加参数（传递给搜索方法） |
 

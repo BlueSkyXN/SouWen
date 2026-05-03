@@ -1,11 +1,11 @@
 /**
  * 数据源页面 - 源的配置和健康状态管理
  *
- * 文件用途：展示所有数据源（8 类），显示源的状态、配置信息、API 密钥需求，
+ * 文件用途：展示所有数据源（11 类），显示源的状态、配置信息、API 密钥需求，
  * 支持启用/禁用源以及编辑配置（如 API 密钥）
  *
  * 核心功能：
- *   - 源分类展示：按 8 类分组显示
+ *   - 源分类展示：按 11 类分组显示
  *   - 状态徽章：ok / needs_key / error / disabled
  *   - 源信息卡片：名称、描述、层级（core/extended/experimental）
  *   - 配置编辑：弹窗编辑 API 密钥和其他源配置
@@ -13,7 +13,7 @@
  *   - 实时反馈：配置更新成功/失败提示
  *
  * 类型与常量：
- *   CategoryKey - 搜索类别（8 类）
+ *   SourceCategory - 搜索类别（11 类）
  *   CATEGORY_ORDER / CATEGORY_ICONS / CATEGORY_STYLE - 分类配置
  *   statusBorderClass / StatusDot / TierBadge - 状态显示组件
  *
@@ -28,7 +28,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { m, AnimatePresence } from 'framer-motion'
 import {
-  RefreshCw, FileText, Shield, Globe, Key, Star, Check, Sparkles, Zap, Server,
+  RefreshCw, FileText, Shield, Globe, Star, Check, Sparkles, Zap, Server,
   ChevronDown, AlertTriangle, Save, Info, X,
 } from 'lucide-react'
 import { api } from '@core/services/api'
@@ -41,23 +41,27 @@ import { Button } from '../components/common/Button'
 import { Input } from '../components/common/Input'
 import { formatError } from '@core/lib/errors'
 import { staggerContainerFast, staggerItemSmall } from '@core/lib/animations'
+import { doctorStatusOrder, isDoctorStatusAvailable } from '@core/lib/sourceStatus'
 
-import type { DoctorResponse, DoctorSource, SourceChannelConfig } from '@core/types'
+import { SOURCE_CATEGORY_LABEL_KEYS, SOURCE_CATEGORY_ORDER } from '@core/types'
+import type { DoctorResponse, DoctorSource, SourceCategory, SourceChannelConfig } from '@core/types'
 import styles from './SourcesPage.module.scss'
 
-type CategoryKey = 'paper' | 'patent' | 'general' | 'professional' | 'social' | 'developer' | 'wiki' | 'video'
+const CATEGORY_ORDER = SOURCE_CATEGORY_ORDER
+const CATEGORY_LABELS = SOURCE_CATEGORY_LABEL_KEYS
 
-const CATEGORY_ORDER: CategoryKey[] = ['paper', 'patent', 'general', 'professional', 'social', 'developer', 'wiki', 'video']
-
-const CATEGORY_ICONS: Record<CategoryKey, typeof FileText> = {
+const CATEGORY_ICONS: Record<SourceCategory, typeof FileText> = {
   paper: FileText,
   patent: Shield,
   general: Globe,
   professional: Globe,
   social: Globe,
+  office: Globe,
   developer: Globe,
   wiki: Globe,
+  cn_tech: Globe,
   video: Globe,
+  fetch: Globe,
 }
 
 function integrationBorderClass(src: DoctorSource): string {
@@ -77,7 +81,7 @@ function StatusDot({ status }: { status: string }) {
       ? styles.statusOk
       : status === 'disabled'
         ? styles.statusDisabled
-        : status === 'needs_key'
+        : ['missing_key', 'needs_key', 'limited', 'warning', 'degraded'].includes(status)
           ? styles.statusWarning
           : styles.statusError
   return <span className={`${styles.statusDot} ${cls}`} />
@@ -117,6 +121,26 @@ function IntegrationBadge({ integration_type, t }: { integration_type: string; t
       <Sparkles size={10} /> {t('sources.tierExperimental')}
     </span>
   )
+}
+
+function KeyRequirementBadge({ value, t }: { value: DoctorSource['key_requirement']; t: (k: string, opts?: { defaultValue?: string }) => string }) {
+  if (value === 'none') return <Badge color="green">{t('sources.keyNone', { defaultValue: '免配置' })}</Badge>
+  if (value === 'optional') return <Badge color="blue">{t('sources.keyOptionalShort', { defaultValue: '可选' })}</Badge>
+  if (value === 'required') return <Badge color="amber">{t('sources.keyRequiredShort', { defaultValue: '必须' })}</Badge>
+  if (value === 'self_hosted') return <Badge color="indigo">{t('sources.keySelfHostedShort', { defaultValue: '自建' })}</Badge>
+  return <Badge color="gray">—</Badge>
+}
+
+function RiskBadge({ value, t }: { value?: DoctorSource['risk_level']; t: (k: string, opts?: { defaultValue?: string }) => string }) {
+  if (value === 'high') return <Badge color="red">{t('sources.riskHigh', { defaultValue: '高风险' })}</Badge>
+  if (value === 'medium') return <Badge color="amber">{t('sources.riskMedium', { defaultValue: '中风险' })}</Badge>
+  return <Badge color="green">{t('sources.riskLow', { defaultValue: '低风险' })}</Badge>
+}
+
+function DistributionBadge({ value, t }: { value?: DoctorSource['distribution']; t: (k: string, opts?: { defaultValue?: string }) => string }) {
+  if (value === 'plugin') return <Badge color="indigo">{t('sources.distPlugin', { defaultValue: '插件' })}</Badge>
+  if (value === 'extra') return <Badge color="teal">{t('sources.distExtra', { defaultValue: '可选依赖' })}</Badge>
+  return <Badge color="gray">{t('sources.distCore', { defaultValue: '内置' })}</Badge>
 }
 
 function SourceCardSkeleton() {
@@ -411,7 +435,7 @@ export function SourcesPage() {
   const [confirmSource, setConfirmSource] = useState<DoctorSource | null>(null)
   const [expandedSource, setExpandedSource] = useState<string | null>(null)
   const [sourcesConfig, setSourcesConfig] = useState<Record<string, SourceChannelConfig>>({})
-  const [selectedCategory, setSelectedCategory] = useState<'all' | CategoryKey>('all')
+  const [selectedCategory, setSelectedCategory] = useState<'all' | SourceCategory>('all')
   const addToast = useNotificationStore((s) => s.addToast)
 
   const fetchSourcesConfig = useCallback(async () => {
@@ -459,7 +483,7 @@ export function SourcesPage() {
   }, [fetchData, addToast, t])
 
   const handleToggle = useCallback((src: DoctorSource) => {
-    if (src.enabled && src.status === 'ok') {
+    if (src.enabled && isDoctorStatusAvailable(src.status)) {
       setConfirmSource(src)
     } else {
       void executeToggle(src.name, src.enabled)
@@ -495,17 +519,16 @@ export function SourcesPage() {
     )
   }
 
-  const okCount = doctor.ok
+  const okCount = doctor.available
   const totalCount = doctor.total
 
   const sourcesByCategory: Record<string, DoctorSource[]> = {}
-  const statusOrder: Record<string, number> = { ok: 0, degraded: 1, needs_key: 2, error: 3, timeout: 4 }
   for (const cat of CATEGORY_ORDER) {
     sourcesByCategory[cat] = doctor.sources
       .filter((s) => s.category === cat)
       .sort((a, b) => {
         if (a.enabled !== b.enabled) return a.enabled ? -1 : 1
-        const diff = (statusOrder[a.status] ?? 5) - (statusOrder[b.status] ?? 5)
+        const diff = doctorStatusOrder(a.status) - doctorStatusOrder(b.status)
         return diff !== 0 ? diff : a.name.localeCompare(b.name)
       })
   }
@@ -541,13 +564,11 @@ export function SourcesPage() {
 
       {/* Filter Tabs */}
       {(() => {
-        const tabs: Array<{ key: 'all' | CategoryKey; label: string; count: number; Icon?: typeof FileText }> = [
+        const tabs: Array<{ key: 'all' | SourceCategory; label: string; count: number; Icon?: typeof FileText }> = [
           { key: 'all', label: t('sources.categoryAll'), count: doctor.sources.length },
-          { key: 'paper', label: t('sources.categoryPaper'), count: sourcesByCategory.paper?.length ?? 0, Icon: CATEGORY_ICONS.paper },
-          { key: 'patent', label: t('sources.categoryPatent'), count: sourcesByCategory.patent?.length ?? 0, Icon: CATEGORY_ICONS.patent },
-          ...(['general', 'professional', 'social', 'developer', 'wiki', 'video'] as CategoryKey[]).map((cat) => ({
+          ...CATEGORY_ORDER.map((cat) => ({
             key: cat,
-            label: t(`sources.category${cat.charAt(0).toUpperCase() + cat.slice(1)}`),
+            label: t(CATEGORY_LABELS[cat]),
             count: sourcesByCategory[cat]?.length ?? 0,
             Icon: CATEGORY_ICONS[cat],
           })),
@@ -604,17 +625,9 @@ export function SourcesPage() {
                     <div className={styles.sourceName}>{src.name}</div>
                     <div className={styles.badges}>
                       <IntegrationBadge integration_type={src.integration_type} t={t} />
-                      {src.required_key ? (
-                        <span className={styles.configBadgeKey}>
-                          <Key size={10} />
-                          {t('sources.needsApiKey')}
-                        </span>
-                      ) : (
-                        <span className={styles.configBadgeOk}>
-                          <Check size={10} />
-                          {t('sources.noConfigNeeded')}
-                        </span>
-                      )}
+                      <KeyRequirementBadge value={src.key_requirement} t={t} />
+                      <RiskBadge value={src.risk_level} t={t} />
+                      <DistributionBadge value={src.distribution} t={t} />
                     </div>
                     <div className={styles.cardDescription}>
                       {src.message}

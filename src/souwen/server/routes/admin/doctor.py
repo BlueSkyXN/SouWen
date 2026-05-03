@@ -12,13 +12,12 @@ router = APIRouter()
 @router.get("/doctor", response_model=DoctorResponse)
 async def doctor_check():
     """数据源健康检查 — 测试所有数据源连接性。"""
-    from souwen.doctor import check_all
+    from souwen.doctor import check_all, summarize_statuses
 
     results = check_all()
-    ok_count = sum(1 for r in results if r["status"] == "ok")
+    counts = summarize_statuses(results)
     return {
-        "total": len(results),
-        "ok": ok_count,
+        **counts,
         "sources": results,
     }
 

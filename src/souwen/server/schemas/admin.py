@@ -16,7 +16,20 @@ class DoctorResponse(BaseModel):
     """数据源健康检查聚合响应"""
 
     total: int
+    # 严格正常源数量，仅 status == "ok"。
     ok: int
+    # 可用源数量，包含 ok / limited / warning / degraded。
+    available: int = 0
+    # 兼容字段：limited / warning / degraded 三类降级可用源总数。
+    degraded: int = 0
+    degraded_total: int = 0
+    failed: int = 0
+    limited: int = 0
+    warning: int = 0
+    missing_key: int = 0
+    unavailable: int = 0
+    disabled: int = 0
+    status_counts: dict[str, int] = Field(default_factory=dict)
     sources: list[dict]
 
 

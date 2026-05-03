@@ -37,8 +37,17 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from souwen.config import get_config
-from souwen.source_registry import INTEGRATION_TYPE_LABELS, get_all_sources
+from souwen.source_registry import (
+    AUTH_REQUIREMENT_LABELS,
+    INTEGRATION_TYPE_LABELS,
+    OPTIONAL_CREDENTIAL_EFFECT_LABELS,
+    credential_fields_label,
+    get_all_sources,
+    missing_credential_fields,
+)
 
 # 集成类型分组的展示顺序
 _INTEGRATION_TYPE_ORDER = ("open_api", "scraper", "official_api", "self_hosted")
@@ -51,6 +60,95 @@ _STATUS_ICONS = {
     "missing_key": "⬜",
     "disabled": "🚫",
 }
+
+_LIMITED_OPTIONAL_EFFECTS = {
+    "rate_limit",
+    "quota",
+    "quality",
+    "personalization",
+    "private_access",
+}
+
+AVAILABLE_STATUSES = frozenset({"ok", "limited", "warning", "degraded"})
+DEGRADED_STATUSES = frozenset({"limited", "warning", "degraded"})
+
+
+def is_available_status(status: str | None) -> bool:
+    """判断 doctor 状态是否仍可用。"""
+    return status in AVAILABLE_STATUSES
+
+
+def summarize_statuses(results: list[dict]) -> dict[str, int | dict[str, int]]:
+    """汇总 doctor 状态，区分严格 ok、可用、降级总数与失败。"""
+    status_counts: dict[str, int] = {}
+    for result in results:
+        status = str(result.get("status") or "unknown")
+        status_counts[status] = status_counts.get(status, 0) + 1
+
+    total = len(results)
+    available = sum(status_counts.get(status, 0) for status in AVAILABLE_STATUSES)
+    degraded_total = sum(status_counts.get(status, 0) for status in DEGRADED_STATUSES)
+    failed = total - available
+    return {
+        "total": total,
+        "ok": status_counts.get("ok", 0),
+        "available": available,
+        "degraded": degraded_total,
+        "degraded_total": degraded_total,
+        "failed": failed,
+        "limited": status_counts.get("limited", 0),
+        "warning": status_counts.get("warning", 0),
+        "missing_key": status_counts.get("missing_key", 0),
+        "unavailable": status_counts.get("unavailable", 0),
+        "disabled": status_counts.get("disabled", 0),
+        "status_counts": status_counts,
+    }
+
+
+def _optional_credential_message(meta: Any, configured: bool) -> tuple[str, str]:
+    """生成可选凭据源的状态与提示。"""
+    field_label = credential_fields_label(meta.credential_fields)
+    if not field_label:
+        return "ok", "免配置可用"
+    if configured:
+        return "ok", f"{field_label} 已配置"
+    effect = meta.optional_credential_effect or "unknown"
+    effect_label = OPTIONAL_CREDENTIAL_EFFECT_LABELS.get(effect, "增强能力")
+    message = f"免配置可用；设置 {field_label} 可{effect_label}"
+    if effect in _LIMITED_OPTIONAL_EFFECTS:
+        return "limited", message
+    return "ok", message
+
+
+def _append_usage_note(message: str, meta: Any) -> str:
+    """如果 meta 提供了 usage_note，把它追加到 message 末尾。"""
+    note = getattr(meta, "usage_note", None)
+    if not note:
+        return message
+    if note in message:
+        return message
+    return f"{message}（{note}）"
+
+
+def _stability_status(meta: Any) -> tuple[str, str] | None:
+    """按 stability 维度推断状态/消息；非 deprecated/experimental scraper 返回 None。
+
+    规则：
+      - ``stability == "deprecated"`` → ``unavailable``。message 优先取 usage_note，
+        回退为 description 中的 "（待修复）" 类提示。
+      - ``stability == "experimental"`` 且为爬虫源 → ``warning``。message 优先取
+        usage_note，回退为通用"实验性爬虫"提示。
+
+    其他 stability 值（``stable`` / ``beta`` / 非爬虫的 ``experimental``）继续走
+    标准 auth_requirement 路径。
+    """
+    stability = getattr(meta, "stability", "stable")
+    note = getattr(meta, "usage_note", None)
+    if stability == "deprecated":
+        return "unavailable", note or f"{meta.name} 当前接入待修复"
+    if stability == "experimental" and meta.is_scraper:
+        return "warning", note or "实验性爬虫，可能受反爬或 HTML 变更影响"
+    return None
 
 
 def check_all() -> list[dict]:
@@ -87,59 +185,58 @@ def check_all() -> list[dict]:
     for name, meta in all_sources.items():
         enabled = cfg.is_source_enabled(name)
         field = meta.config_field
+        missing_fields = missing_credential_fields(cfg, name, meta)
+        has_all_credentials = not missing_fields
 
+        # 状态判定优先级：
+        #   1. 频道禁用 → disabled
+        #   2. stability == "deprecated" → unavailable（接入待修复 / 已下线）
+        #   3. stability == "experimental" + scraper → warning（默认调度需谨慎）
+        #   4. auth_requirement 标准路径（none / optional / self_hosted / required）
+        #   5. scraper 缺 curl_cffi 时把可用状态升级为 warning
+        # ``usage_note`` 始终作为消息后缀附加（如 unpaywall 的"仅支持 DOI OA 查找"）。
         if not enabled:
             status = "disabled"
             message = "已通过频道配置禁用"
-        elif name == "openalex":
-            value = cfg.resolve_api_key("openalex", "openalex_email")
-            if value:
+        else:
+            stability_override = _stability_status(meta)
+            if stability_override is not None:
+                status, message = stability_override
+            elif meta.auth_requirement == "none":
                 status = "ok"
-                message = "openalex_email 已配置"
+                message = "免配置；未做实时可用性探测"
+            elif meta.auth_requirement == "optional":
+                status, message = _optional_credential_message(meta, has_all_credentials)
+            elif meta.auth_requirement == "self_hosted":
+                if not meta.credential_fields:
+                    status = "ok"
+                    message = "自建实例配置由插件或默认配置提供"
+                elif has_all_credentials:
+                    status = "ok"
+                    message = f"{credential_fields_label(meta.credential_fields)} 已配置"
+                else:
+                    status = "missing_key"
+                    message = f"需要配置自建实例: {credential_fields_label(missing_fields)}"
             else:
-                status = "ok"
-                message = "可免配置使用；设置 openalex_email 可帮助礼貌访问"
-        elif name == "semantic_scholar":
-            value = cfg.resolve_api_key("semantic_scholar", "semantic_scholar_api_key")
-            if value:
-                status = "ok"
-                message = "semantic_scholar_api_key 已配置"
-            else:
-                status = "limited"
-                message = "免 Key 模式易限流，建议设置 semantic_scholar_api_key"
-        elif name == "patentsview":
-            status = "unavailable"
-            message = "公开搜索端点已变更，当前接入待修复"
-        elif name == "pqai":
-            status = "unavailable"
-            message = "匿名 API 当前返回 401，暂不建议默认使用"
-        elif name == "google_patents":
-            status = "warning"
-            message = "实验性爬虫，易受反爬影响"
-        elif name == "unpaywall":
-            value = cfg.resolve_api_key("unpaywall", "unpaywall_email")
-            if value:
-                status = "ok"
-                message = "unpaywall_email 已配置（仅 DOI OA 查找）"
-            else:
-                status = "missing_key"
-                message = "需要设置 unpaywall_email（仅支持 DOI OA 查找）"
-        elif field is None:
-            # 爬虫引擎需要 curl_cffi 才能正常工作
-            if meta.is_scraper and not _has_tls_impersonation:
+                if has_all_credentials:
+                    status = "ok"
+                    message = f"{credential_fields_label(meta.credential_fields)} 已配置"
+                else:
+                    status = "missing_key"
+                    message = f"需要设置 {credential_fields_label(missing_fields)}"
+            message = _append_usage_note(message, meta)
+
+        if (
+            enabled
+            and status in {"ok", "limited"}
+            and meta.is_scraper
+            and not _has_tls_impersonation
+        ):
+            if status == "ok":
                 status = "warning"
                 message = "curl_cffi 未安装，TLS 指纹伪装不可用，爬虫可能被拦截"
             else:
-                status = "ok"
-                message = "免配置；未做实时可用性探测"
-        else:
-            value = cfg.resolve_api_key(name, field)
-            if value:
-                status = "ok"
-                message = f"{field} 已配置"
-            else:
-                status = "missing_key"
-                message = f"需要设置 {field}"
+                message = f"{message}；curl_cffi 未安装，爬虫能力可能受限"
 
         # 频道配置摘要
         sc = cfg.get_source_config(name)
@@ -151,16 +248,6 @@ def check_all() -> list[dict]:
         if sc.base_url:
             channel_info["base_url"] = sc.base_url
 
-        # 派生 key_requirement：self_hosted 类源单独标识；其余按 config_field/needs_config 判定
-        if meta.integration_type == "self_hosted":
-            key_requirement = "self_hosted"
-        elif field is None:
-            key_requirement = "none"
-        elif meta.needs_config:
-            key_requirement = "required"
-        else:
-            key_requirement = "optional"
-
         results.append(
             {
                 "name": name,
@@ -168,7 +255,16 @@ def check_all() -> list[dict]:
                 "status": status,
                 "integration_type": meta.integration_type,
                 "required_key": field,
-                "key_requirement": key_requirement,
+                "key_requirement": meta.key_requirement,
+                "auth_requirement": meta.auth_requirement,
+                "credential_fields": list(meta.credential_fields),
+                "optional_credential_effect": meta.optional_credential_effect,
+                "risk_level": meta.risk_level,
+                "risk_reasons": sorted(meta.risk_reasons),
+                "distribution": meta.distribution,
+                "package_extra": meta.package_extra,
+                "stability": meta.stability,
+                "usage_note": meta.usage_note,
                 "message": message,
                 "enabled": enabled,
                 "description": meta.description,
@@ -198,11 +294,12 @@ def format_report(results: list[dict]) -> str:
           ✅ openalex           [paper]    可免配置使用；设置 openalex_email...
           ...
     """
-    total = len(results)
-    ok_count = sum(1 for r in results if r["status"] == "ok")
+    counts = summarize_statuses(results)
+    total = int(counts["total"])
+    available_count = int(counts["available"])
     lines: list[str] = [
         "🩺 SouWen Doctor — 数据源健康检查",
-        f"   {ok_count}/{total} 个数据源可用\n",
+        f"   {available_count}/{total} 个数据源可用\n",
     ]
 
     # 按集成类型分组
@@ -214,19 +311,14 @@ def format_report(results: list[dict]) -> str:
         items = by_type[itype]
         if not items:
             continue
-        type_ok = sum(1 for r in items if r["status"] == "ok")
+        type_ok = sum(1 for r in items if is_available_status(r.get("status")))
         label = INTEGRATION_TYPE_LABELS.get(itype, itype)
         lines.append(f"── {label}  ({type_ok}/{len(items)}) ──")
         for r in items:
             icon = _STATUS_ICONS.get(r["status"], "⬜")
             cat_tag = f"[{r['category']}]"
             kr = r.get("key_requirement", "")
-            kr_tag = {
-                "none": "免配置",
-                "optional": "可选Key",
-                "required": "需Key",
-                "self_hosted": "需自建",
-            }.get(kr, "")
+            kr_tag = AUTH_REQUIREMENT_LABELS.get(kr, "")
             lines.append(f"  {icon} {r['name']:20s} {cat_tag:10s} {kr_tag:6s}  {r['message']}")
         lines.append("")
 

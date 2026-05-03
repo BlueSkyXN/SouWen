@@ -1,16 +1,41 @@
 """SouWen doctor 模块测试。
 
 覆盖 ``souwen.doctor`` 中 ``check_all()`` 与 ``format_report()`` 的诊断功能。
-验证：92 个数据源的完整性检查、状态判断（ok/missing_key/limited/unavailable/warning）、
-报告格式化与符号呈现、以及 Tier 分层显示。
+验证：数据源完整性检查、状态判断（ok/missing_key/limited/unavailable/warning）、
+报告格式化与符号呈现、以及集成类型分组显示。
 
 测试清单：
-- ``TestCheckAll``：check_all() 返回 92 源、必要字段完整性、Key 配置状态检测
+- ``TestCheckAll``：check_all() 返回全部源、必要字段完整性、Key 配置状态检测
 - ``TestFormatReport``：format_report() 字符串输出、标题/Tier 分组、状态符号
 """
 
-from souwen.doctor import check_all, format_report
+import pytest
+
+from typing import cast
+
+from souwen.doctor import check_all, format_report, summarize_statuses
+from souwen.exceptions import ConfigError
+from souwen.registry.adapter import MethodSpec, SourceAdapter
+from souwen.registry.loader import lazy
+from souwen.registry.views import _reg_external
 from souwen.source_registry import get_all_sources
+
+
+def register_runtime_web_doctor_probe() -> str:
+    """注册一个不带内部 v0_category:* tag 的外部 web 插件。"""
+    name = "doctor_web_probe"
+    adapter = SourceAdapter(
+        name=name,
+        domain="web",
+        integration="scraper",
+        description="doctor web probe",
+        config_field=None,
+        client_loader=lazy("souwen.web.duckduckgo:DuckDuckGoClient"),
+        methods={"search": MethodSpec("search")},
+        needs_config=False,
+    )
+    assert _reg_external(adapter) is True
+    return name
 
 
 class TestCheckAll:
@@ -116,7 +141,124 @@ class TestCheckAll:
             results = check_all()
             source = next(r for r in results if r["name"] == "semantic_scholar")
             assert source["status"] == "limited"
-            assert "易限流" in source["message"]
+            assert "提升限流" in source["message"]
+        finally:
+            get_config.cache_clear()
+
+    def test_multifield_credentials_are_reported(self, monkeypatch):
+        """多字段凭据源缺配置时应列出全部缺失字段。"""
+        for key in ("SOUWEN_EPO_CONSUMER_KEY", "SOUWEN_EPO_CONSUMER_SECRET"):
+            monkeypatch.delenv(key, raising=False)
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        try:
+            results = check_all()
+            source = next(r for r in results if r["name"] == "epo_ops")
+            assert source["status"] == "missing_key"
+            assert source["credential_fields"] == ["epo_consumer_key", "epo_consumer_secret"]
+            assert "epo_consumer_key / epo_consumer_secret" in source["message"]
+        finally:
+            get_config.cache_clear()
+
+    @pytest.mark.asyncio
+    async def test_multifield_channel_primary_override_matches_client_init(self, monkeypatch):
+        """频道 api_key 可覆盖主字段，但第二凭据字段仍来自 flat/env 配置。"""
+        for key in (
+            "SOUWEN_EPO_CONSUMER_KEY",
+            "SOUWEN_EPO_CONSUMER_SECRET",
+            "SOUWEN_CNIPA_CLIENT_ID",
+            "SOUWEN_CNIPA_CLIENT_SECRET",
+            "SOUWEN_FACEBOOK_APP_ID",
+            "SOUWEN_FACEBOOK_APP_SECRET",
+            "SOUWEN_FEISHU_APP_ID",
+            "SOUWEN_FEISHU_APP_SECRET",
+        ):
+            monkeypatch.delenv(key, raising=False)
+        monkeypatch.setenv(
+            "SOUWEN_SOURCES",
+            (
+                '{"epo_ops":{"api_key":"epo-key"},'
+                '"cnipa":{"api_key":"cnipa-id"},'
+                '"facebook":{"api_key":"fb-app"},'
+                '"feishu_drive":{"api_key":"feishu-app"}}'
+            ),
+        )
+        monkeypatch.setenv("SOUWEN_EPO_CONSUMER_SECRET", "epo-secret")
+        monkeypatch.setenv("SOUWEN_CNIPA_CLIENT_SECRET", "cnipa-secret")
+        monkeypatch.setenv("SOUWEN_FACEBOOK_APP_SECRET", "fb-secret")
+        monkeypatch.setenv("SOUWEN_FEISHU_APP_SECRET", "feishu-secret")
+
+        from souwen.config import get_config
+        from souwen.patent.cnipa import CnipaClient
+        from souwen.patent.epo_ops import EpoOpsClient
+        from souwen.web.facebook import FacebookClient
+        from souwen.web.feishu_drive import FeishuDriveClient
+
+        get_config.cache_clear()
+        clients = []
+        try:
+            results = check_all()
+            for source_name in ("epo_ops", "cnipa", "facebook", "feishu_drive"):
+                source = next(r for r in results if r["name"] == source_name)
+                assert source["status"] == "ok"
+
+            epo = EpoOpsClient()
+            cnipa = CnipaClient()
+            facebook = FacebookClient()
+            feishu = FeishuDriveClient()
+            clients.extend([epo, cnipa, facebook, feishu])
+
+            assert epo._http.client_id == "epo-key"
+            assert epo._http.client_secret == "epo-secret"
+            assert cnipa._http.client_id == "cnipa-id"
+            assert cnipa._http.client_secret == "cnipa-secret"
+            assert facebook._access_token == "fb-app|fb-secret"
+            assert feishu.app_id == "feishu-app"
+            assert feishu.app_secret == "feishu-secret"
+        finally:
+            for client in clients:
+                await client.close()
+            get_config.cache_clear()
+
+    def test_multifield_secondary_credentials_do_not_use_channel_api_key(self, monkeypatch):
+        """多字段第二字段不能被同一个频道 api_key 误判为已配置。"""
+        for key in (
+            "SOUWEN_FACEBOOK_APP_ID",
+            "SOUWEN_FACEBOOK_APP_SECRET",
+            "SOUWEN_FEISHU_APP_ID",
+            "SOUWEN_FEISHU_APP_SECRET",
+        ):
+            monkeypatch.delenv(key, raising=False)
+        monkeypatch.setenv("SOUWEN_FACEBOOK_APP_SECRET", "")
+        monkeypatch.setenv("SOUWEN_FEISHU_APP_SECRET", "")
+        monkeypatch.setenv(
+            "SOUWEN_SOURCES",
+            (
+                '{"facebook":{"api_key":"fb-app"},'
+                '"feishu_drive":{"api_key":"feishu-app"},'
+                '"feishu_drive_secret":{"api_key":"feishu-secret"}}'
+            ),
+        )
+
+        from souwen.config import get_config
+        from souwen.web.facebook import FacebookClient
+        from souwen.web.feishu_drive import FeishuDriveClient
+
+        get_config.cache_clear()
+        try:
+            results = check_all()
+            facebook = next(r for r in results if r["name"] == "facebook")
+            feishu = next(r for r in results if r["name"] == "feishu_drive")
+
+            assert facebook["status"] == "missing_key"
+            assert "facebook_app_secret" in facebook["message"]
+            assert feishu["status"] == "missing_key"
+            assert "feishu_app_secret" in feishu["message"]
+            with pytest.raises(ConfigError):
+                FacebookClient()
+            with pytest.raises(ConfigError):
+                FeishuDriveClient()
         finally:
             get_config.cache_clear()
 
@@ -134,6 +276,37 @@ class TestCheckAll:
         source = next(r for r in results if r["name"] == "google_patents")
         assert source["status"] == "warning"
         assert "实验性爬虫" in source["message"]
+
+    def test_status_summary_counts_available_and_degraded(self):
+        """doctor 汇总应把 limited/warning 计为可用但降级。"""
+        counts = summarize_statuses(
+            [
+                {"status": "ok"},
+                {"status": "limited"},
+                {"status": "warning"},
+                {"status": "degraded"},
+                {"status": "missing_key"},
+                {"status": "unavailable"},
+            ]
+        )
+        assert counts["total"] == 6
+        assert counts["ok"] == 1
+        assert counts["available"] == 4
+        assert counts["degraded"] == 3
+        assert counts["degraded_total"] == 3
+        status_counts = cast(dict[str, int], counts["status_counts"])
+        assert status_counts["degraded"] == 1
+        assert counts["failed"] == 2
+
+    def test_runtime_web_plugin_without_internal_v0_tag_is_visible(self, clean_registry):
+        """外部 web 插件应出现在 doctor 路径，不依赖内部 v0_category:* tag。"""
+        name = register_runtime_web_doctor_probe()
+
+        results = check_all()
+        source = next(r for r in results if r["name"] == name)
+        assert source["category"] == "general"
+        assert source["distribution"] == "plugin"
+        assert source["status"] in {"ok", "warning"}
 
 
 class TestFormatReport:
@@ -155,7 +328,7 @@ class TestFormatReport:
         report = format_report(check_all())
         assert "公开接口" in report
         assert "爬虫抓取" in report
-        assert "授权接口" in report
+        assert "官方接口" in report
 
     def test_contains_all_source_names(self):
         """报告包含所有数据源名称"""
@@ -177,6 +350,6 @@ class TestFormatReport:
     def test_counts_in_header(self):
         """标题行显示 可用数/总数"""
         results = check_all()
-        ok_count = sum(1 for r in results if r["status"] == "ok")
+        ok_count = summarize_statuses(results)["available"]
         report = format_report(results)
         assert f"{ok_count}/{len(results)}" in report
