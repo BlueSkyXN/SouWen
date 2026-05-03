@@ -10,8 +10,18 @@ export function isDoctorStatusAvailable(status?: string): boolean {
   return AVAILABLE_STATUSES.has(status ?? '')
 }
 
-export function doctorAvailableCount(sources: DoctorSource[], fallback?: number): number {
-  if (typeof fallback === 'number') return fallback
+/**
+ * 计算可用源数量。
+ *
+ * 当后端 doctor 响应包含 `available` 字段时直接使用（避免与服务端的判定漂移）；
+ * 否则在前端按 {@link isDoctorStatusAvailable} 兜底统计。
+ *
+ * @param sources doctor 返回的数据源数组
+ * @param preferred 后端预先聚合的可用数（通常来自 `DoctorResponse.available`）；
+ *                  传入 `undefined` 时退回到本地兜底统计。
+ */
+export function doctorAvailableCount(sources: DoctorSource[], preferred?: number): number {
+  if (typeof preferred === 'number') return preferred
   return sources.filter((source) => isDoctorStatusAvailable(source.status)).length
 }
 

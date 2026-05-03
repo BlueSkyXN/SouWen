@@ -31,6 +31,17 @@ DOMAIN_TITLES = {
 
 
 def render(*, include_plugins: bool = False) -> str:
+    """渲染 docs/data-sources.md 的 Markdown 内容。
+
+    .. warning::
+
+        本函数**仅适合在 CLI 启动期调用一次**。当 ``include_plugins=False`` 时
+        会临时设置 ``SOUWEN_PLUGIN_AUTOLOAD=0`` 抑制外部插件加载，并在 finally
+        中恢复环境变量；但已经被 ``souwen.registry.plugin`` 读取并应用的运行时
+        状态（已加载的 entry points、注册到 registry 的 adapter 等）不会回滚。
+        在长期运行的进程或测试套件里复用 ``render()`` 可能会观测到不一致的
+        registry 状态，应改为开新子进程调用 ``tools/gen_docs.py``。
+    """
     old_autoload = os.environ.get("SOUWEN_PLUGIN_AUTOLOAD")
     if not include_plugins:
         # Checked-in docs should be reproducible even when local development

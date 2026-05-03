@@ -91,6 +91,10 @@ OPTIONAL_CREDENTIAL_EFFECTS: frozenset[str] = frozenset(
 RISK_LEVELS: frozenset[str] = frozenset({"low", "medium", "high"})
 
 #: 风险原因标签。用于解释为什么一个源不适合默认调度。
+#:
+#: 注意：这里的 ``rate_limit_concern`` 描述"该源外部限流较严，调度需保守"，
+#: 区别于 :data:`OPTIONAL_CREDENTIAL_EFFECTS` 中的 ``rate_limit``（"配置 Key 可
+#: 提升限流"）；两者意义相反，故采用不同名称避免混淆。
 RISK_REASONS: frozenset[str] = frozenset(
     {
         "anti_scraping",
@@ -102,7 +106,7 @@ RISK_REASONS: frozenset[str] = frozenset(
         "unstable_html",
         "requires_browser",
         "geo_sensitive",
-        "rate_limit",
+        "rate_limit_concern",
         "unknown",
     }
 )

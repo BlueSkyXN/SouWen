@@ -97,6 +97,17 @@ class SourceMeta:
         cn_tech | developer | wiki | video | fetch
     （由 `_v0_category_for()` 把 adapter 的 domain 映射到对应 category）
 
+    字段语义注解：
+        - ``credential_fields`` / ``risk_level`` / ``risk_reasons`` /
+          ``distribution`` / ``package_extra`` / ``stability`` 均存储
+          ``SourceAdapter`` 上的 ``resolved_*`` 投影（即已根据兼容字段如
+          ``high_risk`` tag、``v0_all_sources:exclude`` tag、scraper 默认 extra
+          推断出的最终值），消费者无需再访问 adapter 本体。
+        - ``distribution`` 在外部插件场景会被 ``_build_source_meta_view`` 强制改写
+          为 ``"plugin"``，与 adapter 上的声明可能不同。
+        - ``key_requirement`` 是 ``auth_requirement`` 的别名 property，保持
+          doctor / API / Panel 的历史字段名兼容。
+
     新代码可直接使用 `from souwen.registry import get, by_domain` 等 API。
     """
 
@@ -107,6 +118,8 @@ class SourceMeta:
     description: str
     needs_config: bool
     auth_requirement: str
+    #: 等同于 ``adapter.resolved_credential_fields``：显式 ``credential_fields``
+    #: 优先；为空时回退为 ``(config_field,)``；都为空则 ``()``。
     credential_fields: tuple[str, ...]
     optional_credential_effect: str | None
     risk_level: str
@@ -315,7 +328,24 @@ def missing_credential_fields(cfg: Any, source_name: str, meta: Any) -> list[str
 
 
 def has_required_credentials(cfg: Any, source_name: str, meta: Any) -> bool:
-    """判断必需凭据是否满足；none/optional 源始终可作为可用候选。"""
+    """判断当前配置是否满足该源的"运行时凭据要求"。
+
+    回答的问题是："这个源现在能不能跑？"——也就是 doctor / `/api/v1/sources` /
+    admin source config 中"是否对外可见 / 是否能投入调度"的判定口径。
+
+    返回 ``True`` 的情况：
+        - ``auth_requirement`` ∈ {``none``, ``optional``}：缺凭据也照样可用；
+        - 源未声明任何 ``credential_fields``（如 fetch 类的 builtin scraper）；
+        - ``required`` / ``self_hosted`` 源所有字段都已配置。
+
+    与 :func:`has_configured_credentials` 的区别：
+        - **本函数**回答"运行时是否满足"——免配置/可选凭据源永远是 ``True``，因为
+          它们就算没 Key 也合法可用。
+        - **has_configured_credentials** 回答"用户是否显式配置了 Key"——免凭据源
+          永远是 ``False``，因为它们根本没有 Key 可配。
+        admin source config 同时返回这两个布尔值（``credentials_satisfied`` /
+        ``has_api_key``），区分"该源可用"与"用户给了 Key"。
+    """
     if meta.auth_requirement in {"none", "optional"}:
         return True
     if not meta.credential_fields:
@@ -324,7 +354,21 @@ def has_required_credentials(cfg: Any, source_name: str, meta: Any) -> bool:
 
 
 def has_configured_credentials(cfg: Any, source_name: str, meta: Any) -> bool:
-    """判断该源声明的凭据字段是否已全部配置。"""
+    """判断该源声明的凭据字段是否已全部配置。
+
+    回答的问题是："用户给了 Key 吗？"——用于 admin source config 的
+    ``has_api_key`` 字段，以及 CLI ``souwen config source`` 详情页的
+    "API Key: ✅ 已配置 / ⬜ 未配置" 提示。
+
+    返回 ``False`` 的情况：
+        - 源未声明任何 ``credential_fields``：免配置源根本没 Key 可配置，所以从
+          "是否配置了 Key"的视角看，永远是 ``False``。这与
+          :func:`has_required_credentials` 在同样输入下返回 ``True`` 是有意的
+          反向设计：见该函数 docstring 的对照说明。
+        - 声明了字段但至少一个未配置。
+
+    返回 ``True`` 仅当：声明的所有 ``credential_fields`` 都解析到非空值。
+    """
     if not meta.credential_fields:
         return False
     return not missing_credential_fields(cfg, source_name, meta)
