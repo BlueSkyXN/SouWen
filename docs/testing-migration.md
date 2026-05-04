@@ -69,3 +69,13 @@ Scrapling 属于 PR required functional check：
 - `scripts/scrapling_functional_check.py` 验证真实 `scrapling.fetchers` import、本地 fixture 抓取和 browser dynamic 抓取。
 - CI 显式执行 `scrapling install`。
 - CI 上传 `scrapling-functional.json` 和 `scrapling-functional.md`。
+
+## 迁移示例：Crawl4AI
+
+Crawl4AI 属于 PR required functional check：
+
+- pytest 保留 handler 注册、参数派发和错误聚合契约。
+- `scripts/crawl4ai_functional_check.py` 验证真实 `crawl4ai.AsyncWebCrawler` import 和本地 fixture browser 抓取。
+- 脚本本地默认允许缺 runtime 时 `SKIP`，CI 使用 `--require-runtime` 把缺 browser runtime 或启动失败提升为 `FAIL`。
+- CI 显式执行 `python -m playwright install --with-deps chromium`，不把 browser 安装隐藏在 Python 脚本里。
+- CI 上传 `crawl4ai-functional.json` 和 `crawl4ai-functional.md`。
