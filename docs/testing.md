@@ -7,6 +7,44 @@ SouWen 的测试体系分成两层：
 
 这个分层的目标是让本地开发反馈保持稳定，同时让 CI 能发现 mock 测试覆盖不到的真实运行问题。
 
+## GitHub Actions 五层语义
+
+GitHub Actions 中的 job 应尽量回答单一问题，避免把单元测试、真实外部能力、
+部署可用性和完整系统流程混在同一个日志里。当前测试体系按五层归因：
+
+| 层级 | 目标 | 典型入口 |
+|---|---|---|
+| 单元测试 | 验证函数、模型、parser、配置合并等局部契约 | `pytest tests/` |
+| 集成测试 | 验证 server、registry、plugin、handler 等模块组合 | `server-test`、`plugin-test` |
+| 功能测试 | 验证真实 runtime / package / plugin 安装后的可用性 | `*_functional_check.py` |
+| 冒烟测试 | 验证 CLI、API surface、Docker/HF Space 入口仍活着 | `scripts/ci/run_profile.py`、`hf_space_smoke.py` |
+| 系统测试 | 验证完整用户路径和多 profile 环境组合 | manual / nightly / release gate |
+
+## 环境 Profile Runner
+
+`scripts/ci/run_profile.py` 承接稳定、可重复的环境完整度 profile。它不安装依赖、
+不下载 browser runtime，也不访问真实外部服务；workflow 仍负责显式安装环境，
+runner 只负责运行场景并输出 JSON/Markdown report。
+
+当前 profile：
+
+| Profile | 覆盖内容 | 运行位置 |
+|---|---|---|
+| `minimal` | 源码 CLI 的 help/version/sources/config 等无网络入口 | `HF Space CD / API surface and source CLI` |
+| `server` | `tests/test_server` 与 `tests/test_hf_space_smoke.py` 的本地 API/smoke 契约 | `HF Space CD / API surface and source CLI` |
+| `full` | 全部 source、doctor、plugin、fetch handler 的 import surface | `CI / 测试 (Python 3.11, ubuntu-latest)` |
+| `plugin` | 本地插件契约、示例插件测试和 entry point discovery | 后续 plugin profile job 或手动验证 |
+
+示例：
+
+```bash
+python scripts/ci/run_profile.py \
+  --profile server \
+  --profile minimal \
+  --json-report artifacts/api-source-cli-profile.json \
+  --markdown-report artifacts/api-source-cli-profile.md
+```
+
 ## 本地确定性测试
 
 默认本地测试不应依赖真实互联网、浏览器运行时、真实 API key 或云端服务。
