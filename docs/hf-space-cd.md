@@ -36,7 +36,7 @@
 2. `Factory rebuild Space`：触发 Space factory rebuild，并等待 Space runtime 进入 `RUNNING`。
 3. `Post-deploy smoke matrix` / `surface`：访问真实远端地址，执行 `--surface-only`，快速确认页面入口和 API surface。
 4. `Post-deploy smoke matrix` / `capability`：访问真实远端地址，执行完整部署后 capability smoke，覆盖 zero-key 搜索、fetch、archive、WARP/backend 矩阵等能力。
-5. 两个 smoke job 分别上传 Markdown/JSON 报告 artifact：`hf-space-cd-surface-report` 和 `hf-space-cd-capability-report`。
+5. 两个 smoke job 分别上传 Markdown/JSON 报告 artifact：`hf-space-cd-surface-report` 和 `hf-space-cd-capability-report`。JSON report 使用统一 `schema_version`、`script`、`mode`、`overall`、`checks` 结构，作为后续 dashboard / trend 分析的 source of truth；Markdown 只作为排障阅读视图。
 
 部署后 `surface` 与 `capability` 两个 smoke 入口可在 factory rebuild 完成后并行运行。完整 capability smoke 会修改并恢复 HTTP backend / WARP 状态，因此这部分保持单 job 单写者，避免多个矩阵 job 同时改同一个线上实例。外部搜索源受上游风控、出口 IP、速率限制影响，报告中的 `WARN` 应理解为当次观测结果，不应写成固定可用承诺。
 
