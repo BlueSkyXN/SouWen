@@ -162,6 +162,13 @@ class TestFetchEndpoint:
         assert resp.status_code == 200, resp.text
         assert stub_fetch and stub_fetch[0]["providers"] == ["late_provider"]
 
+    def test_scrapling_route_timeout_scales_with_provider_budget(self):
+        """Scrapling API 外层 timeout 应与 fetch 层批量预算一致。"""
+        from souwen.server.routes.fetch import _fetch_route_timeout
+
+        assert _fetch_route_timeout("builtin", 5, 10) == 25
+        assert _fetch_route_timeout("scrapling", 5, 10) == 65
+
     def test_timeout_below_min_returns_422(self, client, stub_fetch):
         """timeout < 1 应被 Pydantic 校验拒绝（422）。"""
         resp = client.post(

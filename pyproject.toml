@@ -61,6 +61,8 @@ web = ["trafilatura>=1.0"]
 robots = ["protego>=0.3.0"]
 # Crawl4AI 无头浏览器抓取（基于 Playwright，适合 JS 重度页面）
 crawl4ai = ["crawl4ai>=0.4.0"]
+# Scrapling 本地抓取（HTTP/TLS 指纹 + 动态/stealth 浏览器模式）
+scrapling = ["scrapling[fetchers]>=0.4.7"]
 # newspaper4k 新闻文章提取（作者/日期/关键词/摘要）
 newspaper = ["newspaper4k>=0.9"]
 # readability 提取（Mozilla Readability 算法 + markdownify 转换）

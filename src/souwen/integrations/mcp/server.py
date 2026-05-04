@@ -188,7 +188,7 @@ def create_server() -> "Server":
             *get_bilibili_tools(),
             Tool(
                 name="fetch_content",
-                description="获取网页内容。支持 URL 直接抓取，使用 SouWen 内置提取器（零配置）。支持 CSS 选择器提取指定元素、分页续读。",
+                description="获取网页内容。支持 URL 直接抓取，可通过 provider 选择 builtin / scrapling 等 fetch provider。支持 CSS 选择器提取指定元素、分页续读。",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -200,11 +200,11 @@ def create_server() -> "Server":
                         "provider": {
                             "type": "string",
                             "default": "builtin",
-                            "description": "内容提取提供者，默认 builtin（零配置）",
+                            "description": "内容提取提供者，默认 builtin（零配置）；可选 scrapling 等已注册 fetch provider",
                         },
                         "selector": {
                             "type": "string",
-                            "description": "CSS 选择器，仅提取匹配元素内容（仅 builtin 支持）",
+                            "description": "CSS 选择器，仅提取匹配元素内容（builtin / scrapling 支持）",
                         },
                         "start_index": {
                             "type": "integer",
@@ -218,7 +218,7 @@ def create_server() -> "Server":
                         "respect_robots_txt": {
                             "type": "boolean",
                             "default": False,
-                            "description": "是否遵守 robots.txt（仅 builtin 支持）",
+                            "description": "是否遵守 robots.txt（provider 支持时生效）",
                         },
                     },
                     "required": ["urls"],

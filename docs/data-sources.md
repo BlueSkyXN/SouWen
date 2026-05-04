@@ -1,6 +1,6 @@
 # SouWen 数据源指南与清单
 
-**总计**：**93** 个数据源（从 registry 自动生成；其中外部插件 **0** 个）。
+**总计**：**94** 个数据源（从 registry 自动生成；其中外部插件 **0** 个）。
 
 ## 事实来源
 
@@ -154,7 +154,7 @@
 |---|---|---|---|---|---|---|---|---|
 | `wayback` | open_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | archive_lookup, archive_save, fetch | — |
 
-## 内容抓取 · `fetch`（21 源）
+## 内容抓取 · `fetch`（22 源）
 
 | Name | Integration | Auth | Risk | Distribution | Stability | Extra | Capabilities | Credentials |
 |---|---|---|---|---|---|---|---|---|
@@ -174,6 +174,7 @@
 | `scraperapi` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch | `scraperapi_api_key` |
 | `scrapfly` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch | `scrapfly_api_key` |
 | `scrapingbee` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch | `scrapingbee_api_key` |
+| `scrapling` | scraper | 免配置 | 中风险 | 可选依赖 | 稳定 | `scrapling` | fetch | — |
 | `site_crawler` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `scraper` | fetch | — |
 | `tavily` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch, search | `tavily_api_key` |
 | `wayback` | open_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | archive_lookup, archive_save, fetch | — |

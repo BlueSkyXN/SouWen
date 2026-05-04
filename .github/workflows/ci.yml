@@ -7,6 +7,7 @@ on:
       - 'src/**'
       - 'tests/**'
       - 'panel/**'
+      - 'scripts/scrapling_functional_check.py'
       - 'pyproject.toml'
       - '.github/workflows/ci.yml'
   pull_request:
@@ -34,10 +35,10 @@ jobs:
         run: pip install ruff
 
       - name: Ruff 语法检查
-        run: ruff check src/ tests/
+        run: ruff check src/ tests/ scripts/scrapling_functional_check.py
 
       - name: Ruff 格式检查
-        run: ruff format --check src/ tests/
+        run: ruff format --check src/ tests/ scripts/scrapling_functional_check.py
 
   test:
     name: 测试 (Python ${{ matrix.python }}, ${{ matrix.os }})
@@ -183,6 +184,28 @@ jobs:
 
       - name: 运行服务端测试
         run: pytest tests/test_server -v --tb=short
+
+  scrapling-functional:
+    name: Scrapling 云端功能测试
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 安装当前源码与 Scrapling 运行时
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,server,scrapling]"
+          scrapling install
+
+      - name: 运行 Scrapling 专用功能测试
+        run: python scripts/scrapling_functional_check.py --browser
 
   panel-build:
     name: Panel 构建检查
