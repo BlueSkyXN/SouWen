@@ -220,12 +220,21 @@ class SmokeConfig:
     min_default_paper_no_warp: int = 4
     min_default_paper_warp: int = 5
     min_best_web_engines: int = 1
+    surface_only: bool = False
 
 
 @dataclass(frozen=True)
 class ResponseData:
     status: int
     data: Any
+    elapsed: float
+
+
+@dataclass(frozen=True)
+class TextResponseData:
+    status: int
+    text: str
+    headers: dict[str, str]
     elapsed: float
 
 
@@ -269,7 +278,7 @@ class ApiClient:
     def __init__(self, config: SmokeConfig):
         self.config = config
 
-    def request(
+    def _request_raw(
         self,
         method: str,
         path: str,
@@ -278,7 +287,7 @@ class ApiClient:
         body: dict[str, Any] | None = None,
         auth: bool = False,
         timeout: float | None = None,
-    ) -> ResponseData:
+    ) -> tuple[int, bytes, dict[str, str], float]:
         url = urljoin(f"{self.config.base_url}/", path.lstrip("/"))
         if params:
             clean_params = {
@@ -306,13 +315,35 @@ class ApiClient:
             ) as response:
                 status = int(response.status)
                 raw = response.read()
+                response_headers = dict(response.headers.items())
         except HTTPError as exc:
             status = int(exc.code)
             raw = exc.read()
+            response_headers = dict(exc.headers.items())
         except (TimeoutError, URLError, OSError) as exc:
             raise SmokeError(f"{method.upper()} {path} failed: {exc}") from exc
 
         elapsed = time.monotonic() - started
+        return status, raw, response_headers, elapsed
+
+    def request(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: dict[str, Any] | None = None,
+        body: dict[str, Any] | None = None,
+        auth: bool = False,
+        timeout: float | None = None,
+    ) -> ResponseData:
+        status, raw, _headers, elapsed = self._request_raw(
+            method,
+            path,
+            params=params,
+            body=body,
+            auth=auth,
+            timeout=timeout,
+        )
         try:
             decoded = json.loads(raw.decode("utf-8"))
         except Exception as exc:  # noqa: BLE001 - report endpoint behavior in CI
@@ -327,8 +358,32 @@ class ApiClient:
             )
         return ResponseData(status=status, data=decoded, elapsed=elapsed)
 
+    def request_text(
+        self,
+        method: str,
+        path: str,
+        *,
+        params: dict[str, Any] | None = None,
+        body: dict[str, Any] | None = None,
+        auth: bool = False,
+        timeout: float | None = None,
+    ) -> TextResponseData:
+        status, raw, headers, elapsed = self._request_raw(
+            method,
+            path,
+            params=params,
+            body=body,
+            auth=auth,
+            timeout=timeout,
+        )
+        text = raw.decode("utf-8", errors="replace")
+        return TextResponseData(status=status, text=text, headers=headers, elapsed=elapsed)
+
     def get(self, path: str, **kwargs: Any) -> ResponseData:
         return self.request("GET", path, **kwargs)
+
+    def get_text(self, path: str, **kwargs: Any) -> TextResponseData:
+        return self.request_text("GET", path, **kwargs)
 
     def post(self, path: str, **kwargs: Any) -> ResponseData:
         return self.request("POST", path, **kwargs)
@@ -453,6 +508,40 @@ def run_basic_checks(client: ApiClient, config: SmokeConfig, state: RunState) ->
             else fail_result("basic", "openapi", detail, required=True, elapsed=resp.elapsed)
         )
 
+    def _docs() -> ProbeResult:
+        if not config.require_openapi:
+            return skip_result("basic", "docs", "not required")
+        resp = client.get_text("/docs")
+        content_type = resp.headers.get("content-type", resp.headers.get("Content-Type", ""))
+        text_lower = resp.text.lower()
+        ok = (
+            resp.status == 200
+            and "text/html" in content_type.lower()
+            and ("swagger ui" in text_lower or "swagger-ui" in text_lower)
+        )
+        detail = f"status={resp.status}, content_type={content_type!r}, html_len={len(resp.text)}"
+        return (
+            pass_result("basic", "docs", detail, required=True, elapsed=resp.elapsed)
+            if ok
+            else fail_result("basic", "docs", detail, required=True, elapsed=resp.elapsed)
+        )
+
+    def _panel() -> ProbeResult:
+        resp = client.get_text("/panel")
+        content_type = resp.headers.get("content-type", resp.headers.get("Content-Type", ""))
+        text_lower = resp.text.lower()
+        ok = (
+            resp.status == 200
+            and "text/html" in content_type.lower()
+            and ('<div id="root"' in text_lower or "souwen" in text_lower)
+        )
+        detail = f"status={resp.status}, content_type={content_type!r}, html_len={len(resp.text)}"
+        return (
+            pass_result("basic", "panel", detail, required=True, elapsed=resp.elapsed)
+            if ok
+            else fail_result("basic", "panel", detail, required=True, elapsed=resp.elapsed)
+        )
+
     def _whoami() -> ProbeResult:
         resp = client.get("/api/v1/whoami", auth=True)
         role = resp.data.get("role")
@@ -484,6 +573,8 @@ def run_basic_checks(client: ApiClient, config: SmokeConfig, state: RunState) ->
         ("health", _health),
         ("readiness", _readiness),
         ("openapi", _openapi),
+        ("docs", _docs),
+        ("panel", _panel),
         ("whoami", _whoami),
     ]:
         results.append(safe_call("basic", name, func, required=name != "whoami"))
@@ -2055,10 +2146,11 @@ def run_report(config: SmokeConfig) -> list[ProbeResult]:
     try:
         results.extend(run_basic_checks(client, config, state))
         results.extend(run_admin_checks(client, config, state))
-        if state.admin_available:
+        if state.admin_available and not config.surface_only:
             results.extend(run_zero_key_checks(client, config, state))
     finally:
-        results.extend(restore_state(client, state))
+        if not config.surface_only:
+            results.extend(restore_state(client, state))
     return results
 
 
@@ -2283,19 +2375,32 @@ def append_zero_key_matrix(lines: list[str], results: list[ProbeResult]) -> None
 def build_markdown_report(config: SmokeConfig, results: list[ProbeResult]) -> str:
     failures = required_failures(results)
     status = "failed" if failures else "passed"
+    if config.surface_only:
+        capability_lines = [
+            "- WARP enable modes: `skipped (surface-only)`",
+            "- HTTP backend mutation matrix: `skipped (surface-only)`",
+            "- Per-source matrix: `skipped (surface-only)`",
+            "- Fetch provider matrix: `skipped (surface-only)`",
+            "- Direct zero-key routes: `skipped (surface-only)`",
+        ]
+    else:
+        capability_lines = [
+            f"- WARP modes: `off,{','.join(config.warp_modes)}`",
+            f"- HTTP backend matrix: `{','.join(MATRIX_HTTP_BACKENDS)}`",
+            f"- Per-source matrix: `{'enabled' if config.full_matrix else 'quick aggregate only'}`",
+            f"- Fetch provider matrix: `{len(ZERO_KEY_FETCH_PROVIDER_TESTS)} tested, "
+            f"{len(ZERO_KEY_FETCH_SKIPPED)} skipped external-runtime`",
+            "- Direct zero-key routes: `/api/v1/sources`, `/api/v1/bilibili/*`, "
+            "`/api/v1/wayback/*`, `/api/v1/links`, `/api/v1/sitemap`",
+        ]
     lines = [
         "# SouWen HF Space CD Test Report",
         "",
         f"- Result: **{status}**",
         f"- Base URL: `{config.base_url}`",
         f"- Expected version: `{config.expected_version or 'not pinned'}`",
-        f"- WARP modes: `off,{','.join(config.warp_modes)}`",
-        f"- HTTP backend matrix: `{','.join(MATRIX_HTTP_BACKENDS)}`",
-        f"- Per-source matrix: `{'enabled' if config.full_matrix else 'quick aggregate only'}`",
-        f"- Fetch provider matrix: `{len(ZERO_KEY_FETCH_PROVIDER_TESTS)} tested, "
-        f"{len(ZERO_KEY_FETCH_SKIPPED)} skipped external-runtime`",
-        "- Direct zero-key routes: `/api/v1/sources`, `/api/v1/bilibili/*`, "
-        "`/api/v1/wayback/*`, `/api/v1/links`, `/api/v1/sitemap`",
+        f"- Mode: `{'surface-only' if config.surface_only else 'post-deploy capability'}`",
+        *capability_lines,
         f"- Required failures: `{len(failures)}`",
         "",
         "## Gate Summary",
@@ -2440,6 +2545,14 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help="Only run aggregate 0key checks; skip per-source matrix probes.",
     )
     parser.add_argument(
+        "--surface-only",
+        action="store_true",
+        help=(
+            "Only verify health/readiness/docs/panel and admin API surface; "
+            "skip mutating backend/WARP and external zero-key capability probes."
+        ),
+    )
+    parser.add_argument(
         "--allow-locked-admin",
         action="store_true",
         help="Do not fail if admin endpoints are locked; admin-dependent checks are skipped.",
@@ -2494,6 +2607,7 @@ def main(argv: list[str] | None = None) -> int:
         min_default_paper_no_warp=args.min_default_paper_no_warp,
         min_default_paper_warp=args.min_default_paper_warp,
         min_best_web_engines=args.min_best_web_engines,
+        surface_only=args.surface_only,
     )
     results = run_report(config)
     print_console_report(results)

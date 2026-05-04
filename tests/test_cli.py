@@ -74,6 +74,18 @@ def test_config_show_indicates_unconfigured(monkeypatch, tmp_path):
     assert "未配置" in result.output
 
 
+def test_config_backend_lists_current_backends(monkeypatch, tmp_path):
+    """``config backend`` 应能读取 HTTP backend 快照，不依赖 re-export 私有变量。"""
+    monkeypatch.chdir(tmp_path)
+    from souwen.config import reload_config
+
+    reload_config()
+    result = runner.invoke(app, ["config", "backend"])
+    assert result.exit_code == 0
+    assert "curl_cffi" in result.output
+    assert "duckduckgo" in result.output
+
+
 def test_sources_list():
     """``sources`` 子命令可以正常打印数据源列表（仅校验 exit 0）。"""
     result = runner.invoke(app, ["sources"])

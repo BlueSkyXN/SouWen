@@ -27,7 +27,7 @@ _SCRAPER_ENGINES = [
 async def get_http_backend():
     """查看 HTTP 后端配置。"""
     from souwen.config import get_config
-    from souwen.scraper.base import _HAS_CURL_CFFI
+    from souwen.core.scraper.base import _HAS_CURL_CFFI
 
     cfg = get_config()
     return {

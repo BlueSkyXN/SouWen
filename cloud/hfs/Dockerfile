@@ -5,7 +5,10 @@ ARG SKINS=all
 RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /build
-RUN git clone --depth 1 --branch "${SOUWEN_REF}" "${SOUWEN_REPO}" .
+RUN git init . \
+    && git remote add origin "${SOUWEN_REPO}" \
+    && git fetch --depth 1 origin "${SOUWEN_REF}" \
+    && git checkout --detach FETCH_HEAD
 WORKDIR /build/panel
 RUN npm ci --ignore-scripts && VITE_SKINS=${SKINS} npm run build
 
@@ -45,7 +48,10 @@ RUN ARCH=$(dpkg --print-architecture) && \
 
 WORKDIR /app
 
-RUN git clone --depth 1 --branch "${SOUWEN_REF}" "${SOUWEN_REPO}" .
+RUN git init . \
+    && git remote add origin "${SOUWEN_REPO}" \
+    && git fetch --depth 1 origin "${SOUWEN_REF}" \
+    && git checkout --detach FETCH_HEAD
 
 # 前端面板：从 panel-builder 阶段复制构建产物（必须在 pip install 之前，
 # 否则 panel.html 不会被打包进 site-packages）
