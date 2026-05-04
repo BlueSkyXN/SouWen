@@ -16,6 +16,7 @@ name: AI PR Review
 # 2. workflow_dispatch — 手动触发
 #    - 可指定 pr_number 直接评审某个 PR
 #    - 可指定 target_branch 查找该分支关联的 open PR
+#    - 仅仓库 OWNER 可手动触发；仅评审 base 为 main 的 PR
 #    - 可调整 effort（low/medium/high/xhigh）和 run_local_checks
 #
 # 【评审模式】
@@ -168,6 +169,10 @@ jobs:
                 skipReason = '跳过 fork PR，避免暴露 AI API key。';
               }
             } else {
+              if (process.env.ACTOR !== process.env.REPO_OWNER) {
+                throw new Error('只有 repository owner 可以手动触发 AI Review，避免自定义 endpoint 或手动目标解析暴露 AI secrets。');
+              }
+
               const prNumberInput = (process.env.PR_NUMBER_INPUT || '').trim();
               const targetBranchInput = (process.env.TARGET_BRANCH || '').trim();
               const selectedBranch = process.env.REF_TYPE === 'branch'
@@ -216,6 +221,11 @@ jobs:
                 shouldReview = false;
                 skipReason = `跳过 PR #${pr.number}，它来自 fork (${pr.head.repo.full_name})。`;
               }
+            }
+
+            if (shouldReview && pr && pr.base.ref !== 'main') {
+              shouldReview = false;
+              skipReason = `跳过 PR #${pr.number}，base 分支是 ${pr.base.ref}，AI Review 只评审 base 为 main 的 PR。`;
             }
 
             core.setOutput('should_review', shouldReview ? 'true' : 'false');
