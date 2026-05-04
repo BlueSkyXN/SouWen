@@ -89,3 +89,13 @@ Crawl4AI 属于 PR required functional check：
 - 示例插件未安装时本地默认 `SKIP`；CI 使用 `--require-installed` 把缺失安装提升为 `FAIL`。
 - 可选外部插件 `superweb2pdf` 缺失或加载失败记录为 `WARN`，不阻断 PR；需要收紧时再使用 `--require-web2pdf`。
 - CI 上传 `plugin-functional.json` 和 `plugin-functional.md`。
+
+## 迁移示例：HF Space smoke
+
+HF Space smoke 属于 deploy smoke / release gate：
+
+- pytest 保留 `hf_space_smoke` 的参数解析、矩阵覆盖、Markdown 渲染和 offline report 单测。
+- `scripts/hf_space_smoke.py` 继续负责部署后 surface / capability smoke，但 JSON report 对齐统一 `schema_version`、`script`、`mode`、`overall`、`checks` 结构。
+- `--json-report` / `--markdown-report` 作为统一 CLI alias，兼容原有 `--json-file` / `--report-file`。
+- 本地可用 `--mode offline` 验证 report 写入，不触碰真实 HF Space endpoint。
+- `HF Space CD` 上传 surface / capability 两类 JSON + Markdown artifact；JSON 是 source of truth，Markdown 只用于排障阅读。

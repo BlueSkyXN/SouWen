@@ -1,3 +1,5 @@
+import json
+
 from scripts import hf_space_smoke as smoke
 from souwen.registry import all_adapters, fetch_providers
 
@@ -78,8 +80,69 @@ def test_build_markdown_report_includes_gate_summary():
 
     assert "# SouWen HF Space CD Test Report" in report
     assert "Result: **passed**" in report
+    assert "Overall outcome: **WARN**" in report
     assert "`basic/health`" in report
     assert "`curl_cffi+warp-on`" in report
+
+
+def test_build_json_payload_uses_functional_schema():
+    config = smoke.SmokeConfig(
+        base_url="https://example.test",
+        expected_version="1.2.3",
+        request_timeout=1,
+        mode="capability",
+    )
+    results = [
+        smoke.ProbeResult("basic", "health", "pass", "ok", required=True, elapsed=0.1),
+        smoke.ProbeResult("web", "bing", "warn", "flaky"),
+        smoke.ProbeResult("media", "images", "fail", "upstream", required=False),
+        smoke.ProbeResult("fetch", "mcp", "skip", "missing runtime"),
+    ]
+
+    payload = smoke.build_json_payload(config, results)
+
+    assert payload["schema_version"] == 1
+    assert payload["script"] == "hf_space_smoke"
+    assert payload["mode"] == "capability"
+    assert payload["overall"] == "WARN"
+    by_name = {item["name"]: item for item in payload["checks"]}
+    assert by_name["basic/health"]["outcome"] == "PASS"
+    assert by_name["web/bing"]["outcome"] == "WARN"
+    assert by_name["media/images"]["outcome"] == "WARN"
+    assert by_name["media/images"]["details"]["legacy_outcome"] == "fail"
+    assert by_name["fetch/mcp"]["outcome"] == "SKIP"
+
+
+def test_offline_mode_writes_skip_reports_without_live_calls(monkeypatch, tmp_path):
+    def fail_if_called(_config):
+        raise AssertionError("offline mode must not run live probes")
+
+    json_report = tmp_path / "hf-space.json"
+    markdown_report = tmp_path / "hf-space.md"
+    monkeypatch.setattr(smoke, "run_report", fail_if_called)
+
+    code = smoke.main(
+        [
+            "--mode",
+            "offline",
+            "--base-url",
+            "https://example.test",
+            "--json-report",
+            str(json_report),
+            "--markdown-report",
+            str(markdown_report),
+            "--summary-file",
+            "",
+        ]
+    )
+
+    assert code == 0
+    payload = json.loads(json_report.read_text(encoding="utf-8"))
+    assert payload["mode"] == "offline"
+    assert payload["overall"] == "SKIP"
+    assert payload["checks"][0]["name"] == "mode/offline"
+    assert payload["checks"][0]["outcome"] == "SKIP"
+    assert "Overall outcome: **SKIP**" in markdown_report.read_text(encoding="utf-8")
 
 
 def test_basic_checks_cover_docs_and_panel_routes():

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 """Post-CD report for the public Hugging Face Space.
 
-The script intentionally uses only the Python standard library so it can run in
-GitHub Actions immediately after the Space factory rebuild request.
+The script intentionally uses only the Python standard library plus the local
+functional report helper so it can run in GitHub Actions immediately after the
+Space factory rebuild request.
 """
 
 from __future__ import annotations
@@ -17,6 +18,11 @@ from typing import Any
 from urllib.error import HTTPError, URLError
 from urllib.parse import urlencode, urljoin
 from urllib.request import Request, urlopen
+
+try:
+    from scripts._functional_common import Outcome, ResultRecorder
+except ModuleNotFoundError:  # pragma: no cover - direct `python scripts/...` execution.
+    from _functional_common import Outcome, ResultRecorder
 
 
 DEFAULT_BASE_URL = "https://blueskyxn-souwen.hf.space"
@@ -215,6 +221,7 @@ class SmokeConfig:
     base_url: str
     expected_version: str | None
     request_timeout: float
+    mode: str = "capability"
     bearer_token: str | None = None
     warp_modes: list[str] = field(default_factory=lambda: list(DEFAULT_WARP_MODES))
     require_admin: bool = True
@@ -2162,6 +2169,70 @@ def required_failures(results: list[ProbeResult]) -> list[ProbeResult]:
     return [result for result in results if result.required and result.outcome == "fail"]
 
 
+def normalized_outcome(result: ProbeResult) -> Outcome:
+    if result.outcome == "pass":
+        return Outcome.PASS
+    if result.outcome == "skip":
+        return Outcome.SKIP
+    if result.outcome == "fail" and result.required:
+        return Outcome.FAIL
+    return Outcome.WARN
+
+
+def overall_outcome(results: list[ProbeResult]) -> Outcome:
+    if any(normalized_outcome(item) == Outcome.FAIL for item in results):
+        return Outcome.FAIL
+    if results and all(normalized_outcome(item) == Outcome.SKIP for item in results):
+        return Outcome.SKIP
+    if any(normalized_outcome(item) == Outcome.WARN for item in results):
+        return Outcome.WARN
+    return Outcome.PASS
+
+
+def make_result_recorder(config: SmokeConfig) -> ResultRecorder:
+    return ResultRecorder(
+        script="hf_space_smoke",
+        mode=config.mode,
+        environment={
+            "base_url": config.base_url,
+            "expected_version": config.expected_version or "",
+            "surface_only": config.surface_only,
+            "full_matrix": config.full_matrix,
+            "warp_modes": list(config.warp_modes),
+        },
+    )
+
+
+def record_probe_results(recorder: ResultRecorder, results: list[ProbeResult]) -> None:
+    for item in results:
+        details: dict[str, Any] = {
+            "section": item.section,
+            "probe": item.name,
+            "legacy_outcome": item.outcome,
+        }
+        if item.meta:
+            details["meta"] = item.meta
+        recorder.record(
+            f"{item.section}/{item.name}",
+            normalized_outcome(item),
+            required=item.required,
+            duration_seconds=item.elapsed or 0.0,
+            message=item.detail,
+            details=details,
+        )
+
+
+def build_json_payload(
+    config: SmokeConfig,
+    results: list[ProbeResult],
+    recorder: ResultRecorder | None = None,
+) -> dict[str, Any]:
+    active_recorder = recorder or make_result_recorder(config)
+    if not active_recorder.checks:
+        record_probe_results(active_recorder, results)
+    return active_recorder.to_json()
+
+
 def escape_summary_cell(value: str) -> str:
     return value.replace("|", "\\|").replace("\n", "<br>")
 
@@ -2379,6 +2450,7 @@ def append_zero_key_matrix(lines: list[str], results: list[ProbeResult]) -> None
 def build_markdown_report(config: SmokeConfig, results: list[ProbeResult]) -> str:
     failures = required_failures(results)
     status = "failed" if failures else "passed"
+    overall = overall_outcome(results).value
     if config.surface_only:
         capability_lines = [
             "- WARP enable modes: `skipped (surface-only)`",
@@ -2401,9 +2473,10 @@ def build_markdown_report(config: SmokeConfig, results: list[ProbeResult]) -> st
         "# SouWen HF Space CD Test Report",
         "",
         f"- Result: **{status}**",
+        f"- Overall outcome: **{overall}**",
         f"- Base URL: `{config.base_url}`",
         f"- Expected version: `{config.expected_version or 'not pinned'}`",
-        f"- Mode: `{'surface-only' if config.surface_only else 'post-deploy capability'}`",
+        f"- Mode: `{config.mode}`",
         *capability_lines,
         f"- Required failures: `{len(failures)}`",
         "",
@@ -2469,21 +2542,15 @@ def write_text(path: str | None, content: str, *, append: bool = False) -> None:
             file.write("\n")
 
 
-def write_json(path: str | None, results: list[ProbeResult]) -> None:
+def write_json(
+    path: str | None,
+    config: SmokeConfig,
+    results: list[ProbeResult],
+    recorder: ResultRecorder | None = None,
+) -> None:
     if not path:
         return
-    payload = [
-        {
-            "section": item.section,
-            "name": item.name,
-            "outcome": item.outcome,
-            "required": item.required,
-            "detail": item.detail,
-            "elapsed": item.elapsed,
-            "meta": item.meta,
-        }
-        for item in results
-    ]
+    payload = build_json_payload(config, results, recorder)
     write_text(path, json.dumps(payload, ensure_ascii=False, indent=2))
 
 
@@ -2522,11 +2589,15 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     )
     parser.add_argument(
         "--report-file",
+        "--markdown-report",
+        dest="report_file",
         default=os.environ.get("SOUWEN_SMOKE_REPORT_FILE", "hf-space-cd-report.md"),
         help="Markdown report output path.",
     )
     parser.add_argument(
         "--json-file",
+        "--json-report",
+        dest="json_file",
         default=os.environ.get("SOUWEN_SMOKE_JSON_FILE", "hf-space-cd-report.json"),
         help="JSON result output path.",
     )
@@ -2541,6 +2612,15 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help=(
             "Comma-separated WARP enable modes to test after the warp-off matrix. "
             "Use values such as auto,wireproxy,usque."
+        ),
+    )
+    parser.add_argument(
+        "--mode",
+        choices=("surface", "capability", "offline"),
+        default=os.environ.get("SOUWEN_SMOKE_MODE"),
+        help=(
+            "Smoke mode. `surface` is equivalent to --surface-only; "
+            "`offline` writes SKIP reports without touching the network."
         ),
     )
     parser.add_argument(
@@ -2598,10 +2678,12 @@ def parse_csv(value: str | None, default: list[str]) -> list[str]:
 
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(sys.argv[1:] if argv is None else argv)
+    mode = args.mode or ("surface" if args.surface_only else "capability")
     config = SmokeConfig(
         base_url=normalize_base_url(args.base_url),
         expected_version=args.expected_version,
         request_timeout=args.request_timeout,
+        mode=mode,
         bearer_token=args.bearer_token,
         warp_modes=parse_csv(args.warp_modes, DEFAULT_WARP_MODES),
         require_admin=not args.allow_locked_admin,
@@ -2611,15 +2693,20 @@ def main(argv: list[str] | None = None) -> int:
         min_default_paper_no_warp=args.min_default_paper_no_warp,
         min_default_paper_warp=args.min_default_paper_warp,
         min_best_web_engines=args.min_best_web_engines,
-        surface_only=args.surface_only,
+        surface_only=args.surface_only or mode in {"surface", "offline"},
     )
-    results = run_report(config)
+    recorder = make_result_recorder(config)
+    if mode == "offline":
+        results = [skip_result("mode", "offline", "offline mode requested; live smoke skipped")]
+    else:
+        results = run_report(config)
+    record_probe_results(recorder, results)
     print_console_report(results)
 
     report = build_markdown_report(config, results)
     write_text(args.report_file, report)
     write_text(args.summary_file, report, append=True)
-    write_json(args.json_file, results)
+    write_json(args.json_file, config, results, recorder)
 
     failures = required_failures(results)
     if failures:
