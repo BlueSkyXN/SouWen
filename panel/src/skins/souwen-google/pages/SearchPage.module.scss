@@ -792,9 +792,25 @@
   .heroHeading { font-size: 30px; }
   .heroSubtitle { font-size: 14px; }
 
-  .commandHeader { padding: $space-2 $space-3 0; }
+  .commandHeader {
+    padding: $space-2 $space-3 0;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  .tabGroup {
+    flex: 0 0 auto;
+    min-width: max-content;
+  }
 
   .tabBtn {
+    flex: 0 0 auto;
     padding: 10px 14px;
     font-size: 13px;
   }

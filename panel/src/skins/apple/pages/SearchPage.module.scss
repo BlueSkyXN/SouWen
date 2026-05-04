@@ -389,6 +389,24 @@
     font-size: 40px;
   }
 
+  .tabGroup {
+    display: flex;
+    width: 100%;
+    max-width: 100%;
+    justify-content: flex-start;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  .tabBtn {
+    flex: 0 0 auto;
+  }
+
   .searchBar {
     flex-direction: column;
     border-radius: $radius-md;
