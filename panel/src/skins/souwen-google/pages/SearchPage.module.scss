@@ -792,9 +792,8 @@
   .heroHeading { font-size: 30px; }
   .heroSubtitle { font-size: 14px; }
 
-  .commandHeader { padding: $space-2 $space-3 0; }
-
   .commandHeader {
+    padding: $space-2 $space-3 0;
     flex-wrap: nowrap;
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
