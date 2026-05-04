@@ -27,7 +27,7 @@ name: AI PR Review
 # - Fork PR 直接跳过（避免暴露 AI API key 和仓库 secrets）
 # - Codex 不获取 GH_TOKEN（review 是纯只读操作，由 workflow 后续步骤发布评论）
 # - persist-credentials: false 防止 git 凭据泄露
-# - Codex prompt 从 workflow_sha 物化，不信任目标 PR 中的 prompt 文件
+# - Codex prompt 从目标 PR base SHA 物化，不信任目标 PR 中的 prompt 文件
 # - PR 内容在 prompt 中明确标记为不可信来源（防 prompt injection）
 # - 评审内容有 45,000 字符上限保护（超长自动压缩）
 #
@@ -687,12 +687,12 @@ jobs:
 
       - name: Materialize trusted review prompt
         env:
-          WORKFLOW_SHA: ${{ github.workflow_sha || github.sha }}
+          TRUSTED_PROMPT_SHA: ${{ needs.resolve-pr.outputs.base_sha }}
         run: |
           set -euo pipefail
           mkdir -p .ai-review-context
-          git fetch --no-tags --depth=1 origin "$WORKFLOW_SHA"
-          git show "$WORKFLOW_SHA:.github/prompts/ai-review.md" > .ai-review-context/trusted-ai-review.md
+          git fetch --no-tags --depth=1 origin "$TRUSTED_PROMPT_SHA"
+          git show "$TRUSTED_PROMPT_SHA:.github/prompts/ai-review.md" > .ai-review-context/trusted-ai-review.md
           test -s .ai-review-context/trusted-ai-review.md
 
       - name: Run Codex review
