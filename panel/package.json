@@ -44,7 +44,7 @@
     "jsdom": "^29.1.0",
     "sass-embedded": "^1.86.0",
     "typescript": "~5.7.2",
-    "vite": "^6.3.1",
+    "vite": "^8.0.10",
     "vite-plugin-singlefile": "^2.3.3",
     "vitest": "^4.1.3"
   }
