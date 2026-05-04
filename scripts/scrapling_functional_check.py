@@ -84,7 +84,14 @@ def configure_scrapling(mode: str) -> None:
     reload_config()
 
 
-async def run_provider_check(url: str, mode: str) -> None:
+async def run_provider_check(
+    url: str,
+    mode: str,
+    *,
+    selector: str,
+    expected_title: str,
+    expected_marker: str,
+) -> None:
     configure_scrapling(mode)
 
     from souwen.web.fetch import fetch_content
@@ -94,7 +101,7 @@ async def run_provider_check(url: str, mode: str) -> None:
         providers=["scrapling"],
         timeout=30,
         skip_ssrf_check=True,
-        selector="main",
+        selector=selector,
         respect_robots_txt=True,
     )
     assert response.provider == "scrapling", response
@@ -103,8 +110,8 @@ async def run_provider_check(url: str, mode: str) -> None:
     result = response.results[0]
     assert result.error is None, result.error
     assert result.source == "scrapling", result
-    assert result.title == "Scrapling Functional Fixture", result.title
-    assert "SouWen Scrapling provider reached the fixture" in result.content, result.content
+    assert result.title == expected_title, result.title
+    assert expected_marker in result.content, result.content
     assert result.raw["mode"] == mode, result.raw
     print(f"scrapling {mode} check passed: {result.final_url}")
 
@@ -129,9 +136,21 @@ async def main() -> None:
 
     verify_real_scrapling_import()
     with local_fixture_server() as url:
-        await run_provider_check(url, "fetcher")
-        if args.browser:
-            await run_provider_check(url, "dynamic")
+        await run_provider_check(
+            url,
+            "fetcher",
+            selector="main",
+            expected_title="Scrapling Functional Fixture",
+            expected_marker="SouWen Scrapling provider reached the fixture",
+        )
+    if args.browser:
+        await run_provider_check(
+            os.environ.get("SCRAPLING_BROWSER_CHECK_URL", "https://example.com/"),
+            "dynamic",
+            selector="body",
+            expected_title=os.environ.get("SCRAPLING_BROWSER_CHECK_TITLE", "Example Domain"),
+            expected_marker=os.environ.get("SCRAPLING_BROWSER_CHECK_MARKER", "Example Domain"),
+        )
 
 
 if __name__ == "__main__":
