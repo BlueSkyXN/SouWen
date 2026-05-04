@@ -802,11 +802,24 @@
 
   .commandHeader {
     padding: $space-3 $space-4;
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
     gap: $space-2;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+
+    &::-webkit-scrollbar {
+      display: none;
+    }
+  }
+
+  .tabGroup {
+    flex: 0 0 auto;
+    min-width: max-content;
   }
 
   .tabBtn {
+    flex: 0 0 auto;
     padding: 8px $space-3;
     font-size: 13px;
   }

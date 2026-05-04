@@ -2,9 +2,13 @@
 
 .layout {
   min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
   background: var(--bg);
+  overflow-x: clip;
 }
 
 /* ── Top Navigation Bar ── */
@@ -21,18 +25,21 @@
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--border);
+  min-width: 0;
 }
 
 .headerLeft {
   display: flex;
   align-items: center;
   gap: 24px;
+  min-width: 0;
 }
 
 .brand {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
   text-decoration: none;
   color: var(--text);
   font-weight: 700;
@@ -41,6 +48,7 @@
   letter-spacing: -0.02em;
   cursor: default;
   user-select: none;
+  white-space: nowrap;
 }
 
 .brandIcon {
@@ -97,6 +105,7 @@
   display: flex;
   align-items: center;
   gap: 16px;
+  flex-shrink: 0;
 }
 
 .statusBadge {
@@ -314,6 +323,7 @@
   flex: 1;
   width: 100%;
   max-width: $content-max-width;
+  min-width: 0;
   margin: 0 auto;
   padding: $content-padding;
 }
@@ -358,13 +368,15 @@
   left: 0;
   bottom: 0;
   z-index: 100;
-  width: 260px;
+  width: calc(100vw - 32px);
+  max-width: 260px;
   background: var(--bg-card-solid);
   border-right: 1px solid var(--border);
   padding: 20px 16px;
   display: flex;
   flex-direction: column;
   gap: 8px;
+  overflow-y: auto;
 }
 
 .drawerBrand {
@@ -412,6 +424,22 @@
 
 /* ── Responsive ── */
 @media (max-width: 768px) {
+  .header {
+    padding: 0 12px;
+  }
+
+  .headerLeft {
+    gap: 10px;
+  }
+
+  .brand {
+    font-size: 16px;
+  }
+
+  .headerRight {
+    gap: 8px;
+  }
+
   .nav {
     display: none;
   }
@@ -422,6 +450,24 @@
 
   .logoutBtn span {
     display: none;
+  }
+
+  .skinSwitcherBtn {
+    width: 32px;
+    height: 32px;
+    padding: 0;
+  }
+
+  .skinSwitcherBtn span {
+    display: none;
+  }
+
+  .avatar {
+    display: none;
+  }
+
+  .palette {
+    max-width: calc(100vw - 32px);
   }
 
   .main {

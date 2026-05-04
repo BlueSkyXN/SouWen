@@ -4,7 +4,11 @@
 .layout {
   display: flex;
   min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  max-width: 100%;
   background: var(--bg);
+  overflow-x: clip;
 }
 
 /* ===== Overlay (mobile frosted glass) ===== */
@@ -32,6 +36,7 @@
   top: 0;
   left: 0;
   height: 100vh;
+  height: 100dvh;
   z-index: var(--z-sidebar);
   transition:
     width 0.32s cubic-bezier(0.4, 0, 0.2, 1),
@@ -52,7 +57,8 @@
 
 .mobileDrawer {
   display: flex;
-  width: $sidebar-width !important;
+  width: calc(100vw - #{$space-6}) !important;
+  max-width: $sidebar-width;
   z-index: calc(var(--z-overlay) + 10);
 }
 
@@ -265,10 +271,13 @@
 .main {
   flex: 1;
   margin-left: $sidebar-width;
+  min-width: 0;
+  width: 100%;
   transition: margin-left 0.32s cubic-bezier(0.4, 0, 0.2, 1);
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+  min-height: 100dvh;
 
   @media (max-width: $mobile-bp) {
     margin-left: 0 !important;
@@ -294,18 +303,35 @@
   top: 0;
   z-index: var(--z-header);
   transition: background var(--transition-slow);
+
+  @media (max-width: $mobile-bp) {
+    padding: 0 $space-3;
+  }
 }
 
 .headerLeft {
   display: flex;
   align-items: center;
   gap: $space-4;
+  min-width: 0;
 
   h2 {
     font-size: $text-lg;
     font-weight: $font-semibold;
     letter-spacing: $tracking-tight;
     color: var(--text);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+
+    @media (max-width: $mobile-bp) {
+      font-size: $text-md;
+    }
+  }
+
+  @media (max-width: $mobile-bp) {
+    gap: $space-2;
   }
 }
 
@@ -334,6 +360,11 @@
   display: flex;
   align-items: center;
   gap: $space-3;
+  flex-shrink: 0;
+
+  @media (max-width: $mobile-bp) {
+    gap: $space-1;
+  }
 }
 
 .connBadge {
@@ -423,6 +454,26 @@
   &:active {
     transform: scale(0.97);
     transition-duration: 60ms;
+  }
+}
+
+@media (max-width: $mobile-bp) {
+  .connBadge,
+  .logoutBtn span,
+  .skinSwitcherBtn span {
+    display: none;
+  }
+
+  .logoutBtn,
+  .skinSwitcherBtn {
+    width: 34px;
+    height: 34px;
+    padding: 0;
+    flex-shrink: 0;
+  }
+
+  .themePalette {
+    max-width: calc(100vw - #{$space-6});
   }
 }
 
@@ -529,6 +580,8 @@
   padding: $space-10 $space-8;
   max-width: $content-max;
   width: 100%;
+  min-width: 0;
+  overflow-x: clip;
 
   @media (max-width: $mobile-bp) {
     padding: $space-6 $space-4;

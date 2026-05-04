@@ -4,8 +4,12 @@
 
 .layout {
   min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  max-width: 100%;
   display: flex;
   background: var(--bg);
+  overflow-x: clip;
 }
 
 /* ── Desktop Sidebar ── */
@@ -241,6 +245,8 @@
   margin-left: $sidebar-width;
   overflow-y: auto;
   min-height: 100vh;
+  min-height: 100dvh;
+  min-width: 0;
 
   @media (max-width: 768px) {
     margin-left: 0;
@@ -252,6 +258,7 @@
   max-width: 960px;
   margin: 0 auto;
   padding: 24px;
+  min-width: 0;
 
   @media (min-width: 1280px) {
     max-width: 1100px;
@@ -316,7 +323,8 @@
   left: 0;
   bottom: 0;
   z-index: 100;
-  width: $sidebar-width;
+  width: calc(100vw - 32px);
+  max-width: $sidebar-width;
   background: var(--bg-nav);
   border-right: 1px solid var(--nav-border);
   padding: 12px;

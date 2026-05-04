@@ -10,6 +10,9 @@ $sw-card-gap: 12px;
 .layout {
   display: flex;
   min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  max-width: 100%;
   background: var(--bg);
   color: var(--text);
   overflow: hidden;
@@ -40,6 +43,7 @@ $sw-card-gap: 12px;
   top: 0;
   left: 0;
   height: 100vh;
+  height: 100dvh;
   z-index: var(--z-sidebar);
   transition:
     width 0.32s cubic-bezier(0.4, 0, 0.2, 1),
@@ -59,7 +63,8 @@ $sw-card-gap: 12px;
 
 .mobileDrawer {
   display: flex;
-  width: $sw-sidebar-width !important;
+  width: calc(100vw - #{$space-6}) !important;
+  max-width: $sw-sidebar-width;
   z-index: calc(var(--z-overlay) + 10);
   box-shadow: var(--shadow-lg);
 }
@@ -362,6 +367,7 @@ $sw-card-gap: 12px;
   @media (max-width: $mobile-bp) {
     margin: $sw-card-gap;
     margin-left: $sw-card-gap !important;
+    max-width: calc(100vw - #{$sw-card-gap * 2});
   }
 }
 
@@ -387,6 +393,10 @@ $sw-card-gap: 12px;
 
   [data-mode='dark'] & {
     background: var(--bg-card);
+  }
+
+  @media (max-width: $mobile-bp) {
+    padding: 0 $space-3;
   }
 }
 
@@ -430,6 +440,11 @@ $sw-card-gap: 12px;
   display: flex;
   align-items: center;
   gap: $space-2;
+  flex-shrink: 0;
+
+  @media (max-width: $mobile-bp) {
+    gap: 2px;
+  }
 }
 
 /* ===== Connection badge (Google pill) ===== */
@@ -528,6 +543,25 @@ $sw-card-gap: 12px;
   &:hover {
     background: var(--bg, #f0f4f9);
     color: var(--primary);
+  }
+}
+
+@media (max-width: $mobile-bp) {
+  .skinSwitcherBtn {
+    width: 40px;
+    padding: 0;
+  }
+
+  .skinSwitcherBtn span {
+    display: none;
+  }
+
+  .userAvatar {
+    display: none;
+  }
+
+  .themePalette {
+    max-width: calc(100vw - #{$space-6});
   }
 }
 
