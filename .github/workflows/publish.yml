@@ -11,6 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     permissions:
+      contents: read
       id-token: write  # PyPI trusted publisher
     steps:
       - uses: actions/checkout@v4
@@ -55,5 +56,3 @@ jobs:
 
       - name: 发布到 PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
-        with:
-          password: ${{ secrets.PYPI_API_TOKEN }}
