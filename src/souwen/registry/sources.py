@@ -15,7 +15,7 @@
  10. cn_tech（9 源）
  11. office（1 源）
  12. archive（1 源：Wayback，extra_domains={"fetch"}）
- 13. fetch providers（16 个横切 + 上面 5 个跨域源）
+ 13. fetch providers（17 个横切 + 上面 5 个跨域源）
 
 注意：
   - `client_loader` 使用 `lazy("path:Class")` 字符串懒加载，registry 模块导入时
@@ -1187,7 +1187,7 @@ _reg(
 
 
 # ═════════════════════════════════════════════════════════════
-# 13. fetch providers（16 个横切，仅 fetch capability）
+# 13. fetch providers（17 个横切，仅 fetch capability）
 # ═════════════════════════════════════════════════════════════
 
 _reg(
@@ -1243,6 +1243,25 @@ _reg(
         package_extra="crawl4ai",
         risk_level="medium",
         risk_reasons=frozenset({"requires_browser"}),
+    )
+)
+
+_reg(
+    SourceAdapter(
+        name="scrapling",
+        domain="fetch",
+        integration="scraper",
+        description="Scrapling 本地抓取 (HTTP/TLS 指纹/动态/Stealth)",
+        config_field=None,
+        client_loader=lazy("souwen.web.scrapling_fetcher:ScraplingFetcherClient"),
+        methods={"fetch": MethodSpec("fetch")},
+        package_extra="scrapling",
+        risk_level="medium",
+        risk_reasons=frozenset({"anti_scraping", "requires_browser"}),
+        usage_note=(
+            "默认使用 HTTP Fetcher；可通过 sources.scrapling.params.mode=dynamic/stealthy "
+            "启用浏览器模式"
+        ),
     )
 )
 

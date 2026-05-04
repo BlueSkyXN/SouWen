@@ -83,3 +83,31 @@ async def test_search_papers_tool_uses_registry_defaults(monkeypatch):
     assert captured == {"query": "foo", "sources": None, "per_page": 5}
     assert len(result) == 1
     assert result[0].text == "[]"
+
+
+@pytest.mark.asyncio
+async def test_fetch_content_tool_schema_mentions_scrapling(monkeypatch):
+    """MCP fetch_content 工具说明应同步 fetch provider 能力。"""
+    created: dict[str, _FakeServer] = {}
+
+    def fake_server_factory(name: str):
+        server = _FakeServer(name)
+        created["server"] = server
+        return server
+
+    monkeypatch.setattr(mcp_server, "Server", fake_server_factory, raising=False)
+    monkeypatch.setattr(mcp_server, "Tool", _FakeTool, raising=False)
+    monkeypatch.setattr(mcp_server, "TextContent", _FakeTextContent, raising=False)
+    monkeypatch.setattr(mcp_server, "get_bilibili_tools", lambda: [])
+
+    mcp_server.create_server()
+    tools = await created["server"]._list_tools()
+    fetch_tool = next(tool for tool in tools if tool.name == "fetch_content")
+
+    props = fetch_tool.inputSchema["properties"]
+    assert "builtin / scrapling" in fetch_tool.description
+    assert "scrapling" in props["provider"]["description"]
+    assert "builtin / scrapling" in props["selector"]["description"]
+    assert (
+        props["respect_robots_txt"]["description"] == "是否遵守 robots.txt（provider 支持时生效）"
+    )

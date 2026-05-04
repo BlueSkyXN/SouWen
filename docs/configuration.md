@@ -336,7 +336,7 @@ server:
 | `base_url` | string | None | 覆盖数据源的基础 URL |
 | `api_key` | string | None | 覆盖主 API Key（优先于全局 flat key；多字段凭据的其他字段仍读取全局 flat 配置） |
 | `headers` | object | `{}` | 附加请求头 |
-| `params` | object | `{}` | 附加参数（传递给搜索方法） |
+| `params` | object | `{}` | 附加参数（传递给搜索方法；值仅支持字符串/数字/布尔值） |
 
 环境变量：`SOUWEN_SOURCES='{"duckduckgo":{"proxy":"warp"}}'`（JSON 格式）
 
@@ -354,9 +354,15 @@ sources:
     api_key: tvly-xxxx
     params:
       search_depth: advanced
+  scrapling:
+    params:
+      mode: fetcher        # fetcher / dynamic / stealthy
+      content_format: text # text / html
   google_patents:
     enabled: false
 ```
+
+`sources.scrapling.params` 只暴露可由 YAML 表达的 primitive 选项。`cookies`、`blocked_domains`、`page_setup` / `page_action` 等结构化或函数参数不作为配置入口；浏览器模式的 SSRF 请求拦截由 SouWen 内部注入。
 
 ## Docker 专用环境变量
 

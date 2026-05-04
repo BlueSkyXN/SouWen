@@ -32,7 +32,9 @@ def fetch_cmd(
         callback=_validate_fetch_provider,
         help=_FETCH_PROVIDER_HELP,
     ),
-    selector: str = typer.Option(None, "--selector", "-s", help="CSS 选择器（仅 builtin 支持）"),
+    selector: str = typer.Option(
+        None, "--selector", "-s", help="CSS 选择器（builtin / scrapling 支持）"
+    ),
     start_index: int = typer.Option(0, "--start-index", help="内容起始切片位置"),
     max_length: int = typer.Option(None, "--max-length", help="内容最大长度"),
     respect_robots: bool = typer.Option(False, "--respect-robots", help="遵守 robots.txt"),

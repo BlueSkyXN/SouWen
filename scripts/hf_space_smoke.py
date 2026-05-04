@@ -148,6 +148,10 @@ ZERO_KEY_FETCH_SKIPPED = [
         "provider": "mcp",
         "reason": "requires an external MCP fetch server URL (SOUWEN_MCP_SERVER_URL)",
     },
+    {
+        "provider": "scrapling",
+        "reason": "requires optional scrapling[fetchers] runtime; not installed in baseline HF Space image",
+    },
 ]
 EXCLUDED_REQUIRED_KEY_SEARCH_SOURCES = [
     "core",
