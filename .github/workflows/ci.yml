@@ -7,7 +7,9 @@ on:
       - 'src/**'
       - 'tests/**'
       - 'panel/**'
+      - 'scripts/_functional_common.py'
       - 'scripts/scrapling_functional_check.py'
+      - 'scripts/crawl4ai_functional_check.py'
       - 'pyproject.toml'
       - '.github/workflows/ci.yml'
   pull_request:
@@ -35,10 +37,10 @@ jobs:
         run: pip install ruff
 
       - name: Ruff 语法检查
-        run: ruff check src/ tests/ scripts/scrapling_functional_check.py
+        run: ruff check src/ tests/ scripts/_functional_common.py scripts/scrapling_functional_check.py scripts/crawl4ai_functional_check.py
 
       - name: Ruff 格式检查
-        run: ruff format --check src/ tests/ scripts/scrapling_functional_check.py
+        run: ruff format --check src/ tests/ scripts/_functional_common.py scripts/scrapling_functional_check.py scripts/crawl4ai_functional_check.py
 
   test:
     name: 测试 (Python ${{ matrix.python }}, ${{ matrix.os }})
@@ -190,6 +192,9 @@ jobs:
     needs: lint
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    concurrency:
+      group: scrapling-functional-${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v6
 
@@ -198,6 +203,13 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/ms-playwright
+            ~/.cache/scrapling
+          key: browser-${{ runner.os }}-py311-${{ hashFiles('pyproject.toml') }}
+
       - name: 安装当前源码与 Scrapling 运行时
         run: |
           python -m pip install --upgrade pip
@@ -205,7 +217,70 @@ jobs:
           scrapling install
 
       - name: 运行 Scrapling 专用功能测试
-        run: python scripts/scrapling_functional_check.py --browser
+        run: |
+          mkdir -p artifacts
+          python scripts/scrapling_functional_check.py \
+            --mode live \
+            --browser \
+            --json-report artifacts/scrapling-functional.json \
+            --markdown-report artifacts/scrapling-functional.md
+
+      - name: 上传 Scrapling 专项测试报告
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: scrapling-functional-report
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 7
+
+  crawl4ai-functional:
+    name: Crawl4AI 云端功能测试
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: crawl4ai-functional-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/ms-playwright
+            ~/.cache/crawl4ai
+            ~/.crawl4ai
+          key: crawl4ai-browser-${{ runner.os }}-py311-${{ hashFiles('pyproject.toml') }}
+
+      - name: 安装当前源码与 Crawl4AI 浏览器运行时
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,server,crawl4ai]"
+          python -m playwright install --with-deps chromium
+
+      - name: 运行 Crawl4AI 专用功能测试
+        run: |
+          mkdir -p artifacts
+          python scripts/crawl4ai_functional_check.py \
+            --mode fixture \
+            --require-runtime \
+            --json-report artifacts/crawl4ai-functional.json \
+            --markdown-report artifacts/crawl4ai-functional.md
+
+      - name: 上传 Crawl4AI 专项测试报告
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: crawl4ai-functional-report
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 7
 
   panel-build:
     name: Panel 构建检查
