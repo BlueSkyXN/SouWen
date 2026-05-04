@@ -45,6 +45,8 @@
 - [ ] `push.paths` 或 changes gate 覆盖相关源码、脚本、依赖文件和 workflow。
 - [ ] secret-backed job 挂 GitHub Environment。
 - [ ] fork PR 不运行 secret-backed job。
+- [ ] nightly / release gate 类 job 接入 `External Smoke Gate` 或说明为什么不接入。
+- [ ] nightly failure 能创建或更新带 `ci:external` / `smoke-failure` label 的 issue。
 
 ## 4. 更新文档
 
@@ -60,6 +62,7 @@
 - [ ] required failure 会让 job 失败。
 - [ ] warn-only failure 不会让 job 失败，但会进入 report。
 - [ ] 远端 PR checks 回读确认对应 job 通过。
+- [ ] 对 nightly / release gate，确认 schedule / tag / manual 入口不会静默遗忘。
 
 ## 迁移示例：Scrapling
 
@@ -99,3 +102,13 @@ HF Space smoke 属于 deploy smoke / release gate：
 - `--json-report` / `--markdown-report` 作为统一 CLI alias，兼容原有 `--json-file` / `--report-file`。
 - 本地可用 `--mode offline` 验证 report 写入，不触碰真实 HF Space endpoint。
 - `HF Space CD` 上传 surface / capability 两类 JSON + Markdown artifact；JSON 是 source of truth，Markdown 只用于排障阅读。
+
+## 迁移示例：External Smoke Gate
+
+`External Smoke Gate` 承担 nightly / release gate 治理：
+
+- `workflow_dispatch` 用于手动验证外部 gate。
+- `schedule` 每天 02:17 Asia/Shanghai 自动运行；失败时创建或更新 `ci:external` / `smoke-failure` issue，恢复后自动关闭。
+- tag `v*` 触发 release gate，发版前串行确认外部 runtime gate。
+- gate job 复用专项脚本，不在 workflow 中重新定义测试语义。
+- gate artifact 使用 `external-gate-*-report` 命名，保留 JSON + Markdown 报告 14 天。
