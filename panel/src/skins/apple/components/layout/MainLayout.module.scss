@@ -4,8 +4,12 @@
 
 .layout {
   min-height: 100vh;
+  min-height: 100dvh;
+  width: 100%;
+  max-width: 100%;
   display: flex;
   flex-direction: column;
+  overflow-x: clip;
 }
 
 /* ── Glass Navigation Bar — Always Dark ── */
@@ -28,24 +32,28 @@
   display: flex;
   align-items: center;
   justify-content: space-between;
+  min-width: 0;
 }
 
 .navLeft {
   display: flex;
   align-items: center;
   gap: 24px;
+  min-width: 0;
 }
 
 .brand {
   display: flex;
   align-items: center;
   gap: 8px;
+  min-width: 0;
   font-family: $font-display;
   font-weight: 600;
   font-size: 17px;
   color: var(--nav-text);
   text-decoration: none;
   letter-spacing: -0.022em;
+  white-space: nowrap;
 
   &:hover {
     text-decoration: none;
@@ -196,6 +204,7 @@
   flex: 1;
   width: 100%;
   max-width: $content-max-data;
+  min-width: 0;
   margin: 0 auto;
   padding: $content-padding;
 }
@@ -242,13 +251,15 @@
   left: 0;
   bottom: 0;
   z-index: 100;
-  width: 280px;
+  width: calc(100vw - 32px);
+  max-width: 280px;
   background: var(--bg-card-solid);
   border-right: 1px solid var(--border);
   padding: 16px;
   display: flex;
   flex-direction: column;
   gap: 4px;
+  overflow-y: auto;
 }
 
 .drawerHeader {
@@ -301,6 +312,18 @@
 
 /* ── Responsive ── */
 @media (max-width: 768px) {
+  .navInner {
+    padding: 0 12px;
+  }
+
+  .navLeft {
+    gap: 10px;
+  }
+
+  .palette {
+    max-width: calc(100vw - 32px);
+  }
+
   .main {
     padding: 16px;
   }
