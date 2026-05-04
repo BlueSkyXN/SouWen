@@ -169,7 +169,7 @@ jobs:
     steps:
       - name: Gate and parse
         id: gate
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           REPO_OWNER: ${{ github.repository_owner }}
           ACTOR: ${{ github.actor }}
@@ -380,7 +380,7 @@ jobs:
 
       - name: React to trigger comment
         if: github.event_name == 'issue_comment' && steps.gate.outputs.should_run == 'true'
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           github-token: ${{ github.token }}
           script: |
@@ -1035,7 +1035,7 @@ jobs:
 
     steps:
       - name: Create or update fix PR and notify
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           FIX_BRANCH: ${{ needs.gate.outputs.fix_branch }}
           BASE_REF: ${{ needs.gate.outputs.base_ref }}
@@ -1145,7 +1145,7 @@ jobs:
 
     steps:
       - name: Comment on PR / issue
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           FIX_BRANCH: ${{ needs.gate.outputs.fix_branch }}
           AI_SUMMARY: ${{ needs.codex-run.outputs.ai_summary }}
@@ -1191,7 +1191,7 @@ jobs:
 
     steps:
       - name: Comment on issue/PR
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           AI_SUMMARY: ${{ needs.codex-run.outputs.ai_summary }}
         with:
@@ -1231,7 +1231,7 @@ jobs:
 
     steps:
       - name: Comment on issue/PR
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         with:
           github-token: ${{ github.token }}
           script: |

@@ -141,7 +141,7 @@ jobs:
     steps:
       - name: Resolve pull request
         id: resolve
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           TARGET_BRANCH: ${{ inputs.target_branch }}
           PR_NUMBER_INPUT: ${{ inputs.pr_number }}
@@ -905,7 +905,7 @@ jobs:
           path: .ai-review-comment
 
       - name: Create or update sticky PR comment
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           COMMENT_FILE: .ai-review-comment/final-review-comment.md
           PR_NUMBER: ${{ needs.resolve-pr.outputs.pr_number }}

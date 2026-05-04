@@ -799,7 +799,7 @@ jobs:
 
     steps:
       - name: Create or update audit PR
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           AUDIT_BRANCH: ${{ needs.gate.outputs.audit_branch }}
           AUDIT_DATE: ${{ needs.gate.outputs.audit_date }}
@@ -892,7 +892,7 @@ jobs:
 
     steps:
       - name: Open report issue
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           AUDIT_DATE: ${{ needs.gate.outputs.audit_date }}
           AUDIT_SUMMARY: ${{ needs.codex-audit.outputs.audit_summary }}
@@ -957,7 +957,7 @@ jobs:
 
     steps:
       - name: Open failure issue
-        uses: actions/github-script@v7
+        uses: actions/github-script@v9
         env:
           AUDIT_DATE: ${{ needs.gate.outputs.audit_date }}
         with:
