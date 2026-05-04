@@ -10,6 +10,8 @@ on:
       - 'scripts/_functional_common.py'
       - 'scripts/scrapling_functional_check.py'
       - 'scripts/crawl4ai_functional_check.py'
+      - 'scripts/plugin_functional_check.py'
+      - 'examples/minimal-plugin/**'
       - 'pyproject.toml'
       - '.github/workflows/ci.yml'
   pull_request:
@@ -37,10 +39,10 @@ jobs:
         run: pip install ruff
 
       - name: Ruff 语法检查
-        run: ruff check src/ tests/ scripts/_functional_common.py scripts/scrapling_functional_check.py scripts/crawl4ai_functional_check.py
+        run: ruff check src/ tests/ scripts/_functional_common.py scripts/scrapling_functional_check.py scripts/crawl4ai_functional_check.py scripts/plugin_functional_check.py
 
       - name: Ruff 格式检查
-        run: ruff format --check src/ tests/ scripts/_functional_common.py scripts/scrapling_functional_check.py scripts/crawl4ai_functional_check.py
+        run: ruff format --check src/ tests/ scripts/_functional_common.py scripts/scrapling_functional_check.py scripts/crawl4ai_functional_check.py scripts/plugin_functional_check.py
 
   test:
     name: 测试 (Python ${{ matrix.python }}, ${{ matrix.os }})
@@ -140,31 +142,52 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
 
-      - name: 安装 web2pdf 插件（可选，PyPI 上可能尚未发布）
-        run: pip install "superweb2pdf[capture]>=0.2.0" || echo "superweb2pdf not available on PyPI, skipping"
-        continue-on-error: true
-
       - name: 运行插件相关测试
         run: pytest tests/test_plugin.py tests/test_fetch_handlers.py -v --tb=short
 
-      - name: 安装最小示例插件
-        run: pip install -e examples/minimal-plugin
+  plugin-functional:
+    name: 插件云端功能测试
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: plugin-functional-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v6
 
-      - name: 验证 entry_point 插件发现机制
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 安装当前源码与示例插件
         run: |
-          python -c "
-          from souwen.registry import external_plugins
-          loaded = external_plugins()
-          assert 'example_echo' in loaded, f'example_echo (minimal-plugin) not found in {loaded}'
-          if 'superweb2pdf' not in loaded:
-              print(f'WARN: superweb2pdf not installed (optional); loaded plugins: {loaded}')
-          else:
-              print(f'Plugin discovery OK (incl. superweb2pdf): {loaded}')
-          print(f'entry_point mechanism verified via minimal-plugin: {loaded}')
-          "
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          pip install -e examples/minimal-plugin
 
-      - name: 测试最小示例插件
-        run: pytest examples/minimal-plugin/tests/ -v --tb=short
+      - name: 安装可选 web2pdf 插件
+        run: pip install "superweb2pdf[capture]>=0.2.0" || echo "superweb2pdf not available on PyPI, recording WARN in report"
+        continue-on-error: true
+
+      - name: 运行插件专用功能测试
+        run: |
+          mkdir -p artifacts
+          python scripts/plugin_functional_check.py \
+            --mode fixture \
+            --require-installed \
+            --json-report artifacts/plugin-functional.json \
+            --markdown-report artifacts/plugin-functional.md
+
+      - name: 上传插件专项测试报告
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: plugin-functional-report
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 7
 
   server-test:
     name: 服务端测试
