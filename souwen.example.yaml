@@ -258,6 +258,8 @@ warp:
 #     params:
 #       mode: fetcher         # fetcher|dynamic|stealthy；浏览器模式需安装 souwen[scrapling] 后运行 scrapling install
 #       content_format: text  # text|html
+#       # params 仅支持字符串/数字/布尔值
+#       # cookies/page_setup/blocked_domains 等结构化或函数参数不通过 YAML 暴露
 #   google_patents:
 #     enabled: false           # 禁用 Google Patents
 #   openalex:

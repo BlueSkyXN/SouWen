@@ -191,7 +191,7 @@ client_cls = adapter.client_loader()  # 此刻才 importlib.import_module
 - **TLS 指纹**：`curl_cffi` 为 15+ 爬虫类源伪装 Chrome/Safari TLS ClientHello
 - **Token Bucket + 滑窗双层限流**：每源独立
 - **WARP 五模式**：wireproxy / kernel / usque / warp-cli / external
-- **SSRF 防护**：fetch 入口的重定向跟踪 + 私网/回环/链路本地 IP 黑名单
+- **SSRF 防护**：fetch 入口的重定向跟踪 + 私网/回环/链路本地 IP 黑名单；Scrapling 浏览器模式额外安装 Playwright 请求拦截
 
 ## 6. 配置
 

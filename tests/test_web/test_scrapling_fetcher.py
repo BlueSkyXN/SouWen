@@ -62,6 +62,36 @@ class _FakeRobotsPage:
     html_content = body.decode()
 
 
+class _FakeBrowserRequest:
+    def __init__(self, url: str) -> None:
+        self.url = url
+
+
+class _FakeBrowserRoute:
+    def __init__(self, url: str, *, has_fallback: bool = True) -> None:
+        self.request = _FakeBrowserRequest(url)
+        self.actions: list[str] = []
+        if not has_fallback:
+            self.fallback = None
+
+    async def fallback(self) -> None:
+        self.actions.append("fallback")
+
+    async def continue_(self) -> None:
+        self.actions.append("continue")
+
+    async def abort(self) -> None:
+        self.actions.append("abort")
+
+
+class _FakeBrowserPage:
+    def __init__(self) -> None:
+        self.routes: list[tuple[str, Any]] = []
+
+    async def route(self, pattern: str, handler: Any) -> None:
+        self.routes.append((pattern, handler))
+
+
 @pytest.fixture
 def fake_scrapling_modules(monkeypatch):
     calls: dict[str, list[tuple[str, dict[str, Any]]]] = {
@@ -141,6 +171,7 @@ async def test_scrapling_fetcher_maps_selected_text_and_options(
             {
                 "impersonate": "chrome",
                 "timeout": 4.5,
+                "follow_redirects": "safe",
                 "headers": {"X-Test": "1"},
                 "proxy": "socks5://proxy.example:1080",
             },
@@ -169,9 +200,70 @@ async def test_scrapling_dynamic_mode_uses_browser_timeout(fake_scrapling_module
     assert result.error is None
     assert result.content_format == "html"
     assert result.content.startswith("<html>")
-    assert fake_scrapling_modules["dynamic"] == [
-        ("https://example.com", {"network_idle": True, "timeout": 3000})
-    ]
+    assert len(fake_scrapling_modules["dynamic"]) == 1
+    url, options = fake_scrapling_modules["dynamic"][0]
+    page_setup = options.pop("page_setup")
+    assert url == "https://example.com"
+    assert options == {"network_idle": True, "timeout": 3000}
+    assert callable(page_setup)
+
+
+@pytest.mark.asyncio
+async def test_scrapling_browser_page_setup_blocks_ssrf_requests(
+    fake_scrapling_modules,
+    monkeypatch,
+):
+    cfg = SouWenConfig(sources={"scrapling": {"params": {"mode": "dynamic"}}})
+    monkeypatch.setattr("souwen.web.scrapling_fetcher.get_config", lambda: cfg)
+    monkeypatch.setattr(
+        "souwen.web.fetch.validate_fetch_url",
+        lambda url: (not url.startswith("http://127.0.0.1"), "blocked"),
+    )
+
+    async with ScraplingFetcherClient() as client:
+        await client.fetch("https://example.com", timeout=3)
+
+    _, options = fake_scrapling_modules["dynamic"][0]
+    page = _FakeBrowserPage()
+    await options["page_setup"](page)
+    assert len(page.routes) == 1
+    pattern, handler = page.routes[0]
+    assert pattern == "**/*"
+
+    safe_route = _FakeBrowserRoute("https://example.com/style.css")
+    await handler(safe_route)
+    assert safe_route.actions == ["fallback"]
+
+    blocked_route = _FakeBrowserRoute("http://127.0.0.1:8080/admin")
+    await handler(blocked_route)
+    assert blocked_route.actions == ["abort"]
+
+
+@pytest.mark.asyncio
+async def test_scrapling_fetcher_forces_safe_redirects_and_filters_structured_options(
+    fake_scrapling_modules,
+    monkeypatch,
+):
+    cfg = SouWenConfig(
+        sources={
+            "scrapling": {
+                "params": {
+                    "follow_redirects": True,
+                    "cookies": "session=ignored",
+                    "dns_over_https": True,
+                }
+            }
+        }
+    )
+    monkeypatch.setattr("souwen.web.scrapling_fetcher.get_config", lambda: cfg)
+
+    async with ScraplingFetcherClient() as client:
+        await client.fetch("https://example.com", timeout=2)
+
+    _, options = fake_scrapling_modules["fetcher"][0]
+    assert options["follow_redirects"] == "safe"
+    assert "cookies" not in options
+    assert "dns_over_https" not in options
 
 
 @pytest.mark.asyncio

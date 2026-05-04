@@ -920,6 +920,7 @@ Cache-Control: public, max-age=3600
 **安全特性：**
 - SSRF 防护：DNS 解析 + 私有/保留 IP 拦截
 - 重定向安全：每一跳校验目标 IP，防止多跳 SSRF 攻击
+- Scrapling 浏览器模式：`dynamic` / `stealthy` 会对 navigation、子资源、XHR/fetch 等浏览器请求安装同一套 SSRF 拦截
 - 管理密码认证：需要 `admin_password`（或回退 `api_password`）
 
 ## MCP 工具

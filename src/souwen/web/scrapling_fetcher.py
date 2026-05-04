@@ -9,6 +9,7 @@ fetcher。这里把它封装成 SouWen 的 fetch provider，使用户可以通�
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 from typing import Any, Literal
 from urllib.parse import urlparse
@@ -31,7 +32,6 @@ _FETCHER_PARAM_KEYS = frozenset(
         "follow_redirects",
         "impersonate",
         "http3",
-        "cookies",
         "max_redirects",
         "verify",
         "retries",
@@ -42,7 +42,6 @@ _BROWSER_PARAM_KEYS = frozenset(
     {
         "headless",
         "disable_resources",
-        "cookies",
         "useragent",
         "network_idle",
         "load_dom",
@@ -56,7 +55,6 @@ _BROWSER_PARAM_KEYS = frozenset(
         "cdp_url",
         "user_data_dir",
         "block_ads",
-        "dns_over_https",
         "retries",
         "retry_delay",
         "capture_xhr",
@@ -101,6 +99,14 @@ def _filter_params(
     return {k: v for k, v in params.items() if k in allowed}
 
 
+def _safe_follow_redirects(value: object) -> bool | str:
+    if value is False:
+        return False
+    if isinstance(value, str) and value.strip().lower() in {"false", "0", "no", "off"}:
+        return False
+    return "safe"
+
+
 class ScraplingFetcherClient:
     """Scrapling fetch provider。
 
@@ -125,7 +131,7 @@ class ScraplingFetcherClient:
             raise ConfigError(
                 "scrapling[fetchers]",
                 "Scrapling",
-                'pip install "souwen[scrapling]" && scrapling install',
+                'pip install -e ".[scrapling]" 或 pip install "souwen[scrapling]"，然后执行 scrapling install',
             ) from None
 
         self._async_fetcher = AsyncFetcher
@@ -147,18 +153,23 @@ class ScraplingFetcherClient:
         if mode == "fetcher":
             options = _filter_params(params, _FETCHER_PARAM_KEYS)
             options.setdefault("timeout", timeout)
+            options["follow_redirects"] = _safe_follow_redirects(
+                options.get("follow_redirects", "safe")
+            )
             headers = cfg.resolve_headers(self.PROVIDER_NAME)
             if headers and "headers" not in options:
                 options["headers"] = headers
         elif mode == "dynamic":
             options = _filter_params(params, _BROWSER_PARAM_KEYS)
             options.setdefault("timeout", int(timeout * 1000))
+            options["page_setup"] = self._browser_page_setup()
             headers = cfg.resolve_headers(self.PROVIDER_NAME)
             if headers and "extra_headers" not in options:
                 options["extra_headers"] = headers
         else:
             options = _filter_params(params, _STEALTH_PARAM_KEYS)
             options.setdefault("timeout", int(timeout * 1000))
+            options["page_setup"] = self._browser_page_setup()
             headers = cfg.resolve_headers(self.PROVIDER_NAME)
             if headers and "extra_headers" not in options:
                 options["extra_headers"] = headers
@@ -167,6 +178,45 @@ class ScraplingFetcherClient:
         if proxy and "proxy" not in options:
             options["proxy"] = proxy
         return mode, content_format, options
+
+    @staticmethod
+    async def _call_route_method(route: Any, method_name: str) -> None:
+        method = getattr(route, method_name, None)
+        if method is None:
+            return
+        result = method()
+        if inspect.isawaitable(result):
+            await result
+
+    @classmethod
+    def _browser_page_setup(cls):
+        """给 Scrapling 浏览器模式安装请求层 SSRF 防护。"""
+
+        async def _setup(page: Any) -> None:
+            from souwen.web.fetch import validate_fetch_url
+
+            async def _guard_route(route: Any) -> None:
+                request = getattr(route, "request", None)
+                target_url = str(getattr(request, "url", "") or "")
+                ok, reason = validate_fetch_url(target_url)
+                if ok:
+                    # fallback 可保留 Scrapling/Playwright 后续 route 规则；旧版本退回 continue_。
+                    proceed = "fallback" if hasattr(route, "fallback") else "continue_"
+                    await cls._call_route_method(route, proceed)
+                    return
+
+                logger.warning(
+                    "Scrapling browser SSRF blocked: url=%s reason=%s",
+                    target_url,
+                    reason,
+                )
+                await cls._call_route_method(route, "abort")
+
+            result = page.route("**/*", _guard_route)
+            if inspect.isawaitable(result):
+                await result
+
+        return _setup
 
     async def _check_robots(self, url: str, timeout: float) -> tuple[bool, str]:
         """按 scheme+host 缓存 robots.txt 检查结果。
