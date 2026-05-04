@@ -1,0 +1,239 @@
+name: External Smoke Gate
+
+run-name: External Smoke Gate (${{ inputs.suite || github.event_name }})
+
+on:
+  workflow_dispatch:
+    inputs:
+      suite:
+        description: "外部能力 gate 范围"
+        type: choice
+        options:
+          - pr-required
+          - release
+        default: release
+  schedule:
+    # 02:17 Asia/Shanghai. Nightly failures open or update a tracking issue.
+    - cron: "17 18 * * *"
+  push:
+    tags:
+      - "v*"
+  pull_request:
+    branches: [main]
+    paths:
+      - "scripts/_functional_common.py"
+      - "scripts/scrapling_functional_check.py"
+      - "scripts/crawl4ai_functional_check.py"
+      - "pyproject.toml"
+      - ".github/workflows/external-smoke-gate.yml"
+
+concurrency:
+  group: external-smoke-gate-${{ github.event_name }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  scrapling-gate:
+    name: Scrapling release/nightly gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: external-smoke-gate-scrapling-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/ms-playwright
+            ~/.cache/scrapling
+          key: release-gate-scrapling-${{ runner.os }}-py311-${{ hashFiles('pyproject.toml') }}
+
+      - name: 安装当前源码与 Scrapling 运行时
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,server,scrapling]"
+          scrapling install
+
+      - name: 运行 Scrapling release/nightly gate
+        run: |
+          mkdir -p artifacts
+          python scripts/scrapling_functional_check.py \
+            --mode live \
+            --browser \
+            --json-report artifacts/scrapling-gate.json \
+            --markdown-report artifacts/scrapling-gate.md
+
+      - name: 上传 Scrapling gate 报告
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: external-gate-scrapling-report
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 14
+
+  crawl4ai-gate:
+    name: Crawl4AI release/nightly gate
+    needs: scrapling-gate
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    concurrency:
+      group: external-smoke-gate-crawl4ai-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - uses: actions/cache@v5
+        with:
+          path: |
+            ~/.cache/ms-playwright
+            ~/.cache/crawl4ai
+            ~/.crawl4ai
+          key: release-gate-crawl4ai-${{ runner.os }}-py311-${{ hashFiles('pyproject.toml') }}
+
+      - name: 安装当前源码与 Crawl4AI 浏览器运行时
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,server,crawl4ai]"
+          python -m playwright install --with-deps chromium
+
+      - name: 运行 Crawl4AI release/nightly gate
+        run: |
+          mkdir -p artifacts
+          python scripts/crawl4ai_functional_check.py \
+            --mode fixture \
+            --require-runtime \
+            --json-report artifacts/crawl4ai-gate.json \
+            --markdown-report artifacts/crawl4ai-gate.md
+
+      - name: 上传 Crawl4AI gate 报告
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: external-gate-crawl4ai-report
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 14
+
+  open-nightly-failure-issue:
+    name: Nightly failure issue
+    needs: [scrapling-gate, crawl4ai-gate]
+    if: >-
+      ${{
+        always() &&
+        github.event_name == 'schedule' &&
+        (needs.scrapling-gate.result == 'failure' || needs.crawl4ai-gate.result == 'failure')
+      }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Create or update nightly failure issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MARKER: "<!-- external-smoke-nightly-failure -->"
+        run: |
+          set -euo pipefail
+          gh label create "ci:external" \
+            --description "External capability smoke failures" \
+            --color "D93F0B" \
+            --force
+          gh label create "smoke-failure" \
+            --description "Scheduled smoke gate failure" \
+            --color "B60205" \
+            --force
+
+          failed_jobs="$(gh run view "$GITHUB_RUN_ID" --json jobs --jq '
+            [.jobs[] | select(.conclusion == "failure") | "- [" + .name + "](" + .url + ")"] | join("\n")
+          ')"
+          if [ -z "$failed_jobs" ]; then
+            failed_jobs="- Failed job list was not available yet. See the run URL below."
+          fi
+
+          body="$(mktemp)"
+          cat > "$body" <<EOF
+          $MARKER
+          ## External smoke nightly failed
+
+          - Run: $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID
+          - Ref: $GITHUB_REF
+          - SHA: $GITHUB_SHA
+          - Trigger: $GITHUB_EVENT_NAME
+
+          ## Failed jobs
+
+          $failed_jobs
+
+          ## Next steps
+
+          Download the JSON report artifacts first. Treat required \`FAIL\` as a release blocker; treat \`WARN\` as observed external volatility unless it repeats.
+          EOF
+
+          issue_number="$(gh issue list \
+            --state open \
+            --limit 100 \
+            --json number,body \
+            --jq '.[] | select(.body | contains(env.MARKER)) | .number' \
+            | head -n 1)"
+
+          if [ -n "$issue_number" ]; then
+            gh issue comment "$issue_number" --body-file "$body"
+          else
+            gh issue create \
+              --title "External smoke nightly failure" \
+              --label "ci:external" \
+              --label "smoke-failure" \
+              --body-file "$body"
+          fi
+
+  close-nightly-failure-issue:
+    name: Close recovered nightly issue
+    needs: [scrapling-gate, crawl4ai-gate]
+    if: >-
+      ${{
+        always() &&
+        github.event_name == 'schedule' &&
+        needs.scrapling-gate.result == 'success' &&
+        needs.crawl4ai-gate.result == 'success'
+      }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+    steps:
+      - name: Close recovered nightly failure issue
+        env:
+          GH_TOKEN: ${{ github.token }}
+          MARKER: "<!-- external-smoke-nightly-failure -->"
+        run: |
+          set -euo pipefail
+          gh label create "ci:external" \
+            --description "External capability smoke failures" \
+            --color "D93F0B" \
+            --force
+          issue_number="$(gh issue list \
+            --state open \
+            --limit 100 \
+            --json number,body \
+            --jq '.[] | select(.body | contains(env.MARKER)) | .number' \
+            | head -n 1)"
+          if [ -n "$issue_number" ]; then
+            gh issue close "$issue_number" \
+              --comment "External smoke nightly recovered in $GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID."
+          fi
