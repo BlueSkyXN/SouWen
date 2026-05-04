@@ -13,12 +13,15 @@
 
 ## GitHub Actions 分层
 
-### PR 本地预检
+所有 Hugging Face Space 相关门禁和部署都收敛在 `.github/workflows/deploy-hf-space.yml`，工作流名称为 `HF Space CD`。它支持 `pull_request`、`main` 分支 `push` 和 `workflow_dispatch` 三类入口：
 
-`.github/workflows/hf-space-local-gate.yml` 在 PR 阶段执行，不依赖 Hugging Face secrets，目标是提前拦截本地可复现的问题：
+### PR / Push 本地预检
+
+本地预检 job 不依赖 Hugging Face secrets，目标是提前拦截本地可复现的问题。它们在同一个 workflow 中并行运行：
 
 | Job | 覆盖内容 | 说明 |
 |---|---|---|
+| `Resolve deploy eligibility` | `main` push / 手动触发的部署路径判断 | 文档或测试-only 变更仍跑本地预检，但不会触发远端部署 |
 | `API surface and source CLI` | `tests/test_server`、`tests/test_hf_space_smoke.py`、源码 CLI 真实进程 | 覆盖服务端基础路由、smoke 脚本契约和 `python cli.py ...` / `python -m souwen ...` |
 | `PyInstaller CLI smoke` | Linux CLI-only 单文件构建后执行 | 验证 PyInstaller 产物至少能完成帮助、版本、sources、config show 等非网络命令 |
 | `HF Space Docker surface smoke` | 使用 `cloud/hfs/Dockerfile` 从当前 PR head SHA 构建并本地启动容器 | 验证 `/health`、`/readiness`、`/docs`、`/panel` 和核心 admin API surface |
@@ -27,15 +30,15 @@
 
 ### Main 部署
 
-`.github/workflows/deploy-hf-space.yml` 只在 `main` 分支运行：
+远端部署 job 只在 `main` 分支运行，并且必须等待本地预检 job 全部通过：
 
-1. 同步 `cloud/hfs/` wrapper 文件到 Hugging Face Space 仓库。
-2. 触发 Space factory rebuild。
-3. 等待 Space runtime 进入 `RUNNING`。
-4. 运行 `scripts/hf_space_smoke.py` 做部署后 smoke。
-5. 上传 Markdown/JSON 报告 artifact。
+1. `Sync HFS wrapper files`：同步 `cloud/hfs/` wrapper 文件到 Hugging Face Space 仓库，并输出预期 SouWen 版本。
+2. `Factory rebuild Space`：触发 Space factory rebuild，并等待 Space runtime 进入 `RUNNING`。
+3. `Post-deploy smoke matrix` / `surface`：访问真实远端地址，执行 `--surface-only`，快速确认页面入口和 API surface。
+4. `Post-deploy smoke matrix` / `capability`：访问真实远端地址，执行完整部署后 capability smoke，覆盖 zero-key 搜索、fetch、archive、WARP/backend 矩阵等能力。
+5. 两个 smoke job 分别上传 Markdown/JSON 报告 artifact：`hf-space-cd-surface-report` 和 `hf-space-cd-capability-report`。
 
-部署后 smoke 会访问真实远端地址，既检查页面/API surface，也会按矩阵验证部分 0key 能力。外部搜索源受上游风控、出口 IP、速率限制影响，报告中的 `WARN` 应理解为观测结果，不应写成固定可用承诺。
+部署后 `surface` 与 `capability` 两个 smoke 入口可在 factory rebuild 完成后并行运行。完整 capability smoke 会修改并恢复 HTTP backend / WARP 状态，因此这部分保持单 job 单写者，避免多个矩阵 job 同时改同一个线上实例。外部搜索源受上游风控、出口 IP、速率限制影响，报告中的 `WARN` 应理解为当次观测结果，不应写成固定可用承诺。
 
 ## 必测入口
 
@@ -60,7 +63,7 @@
 
 ## 本地复现策略
 
-- API 与源码 CLI：直接运行 `pytest tests/test_server tests/test_hf_space_smoke.py`，再执行 `python cli.py --help`、`python cli.py --version`、`python cli.py sources`、`python cli.py config show`、`python -m souwen --help`。
+- API 与源码 CLI：直接运行 `pytest tests/test_server tests/test_hf_space_smoke.py`，再执行 `python cli.py --help`、`python cli.py --version`、`python cli.py sources`、`python cli.py config show`、`python cli.py config backend`、`python -m souwen --help`。
 - PyInstaller CLI：使用干净 virtualenv 复现，避免全局 Python 环境把 unrelated 包带入分析。CLI-only 构建需要固定 `setuptools<82`，并显式 `--collect-submodules=rich._unicode_data`，否则单文件包可能在启动或 Rich help 输出时失败。
 - Docker / `act`：这层依赖 Docker daemon，会拉取 `node:*` 和 `python:*` 基础镜像，并按 PR head SHA 重新构建 HFS 镜像。没有 Docker 的本机不应把该层视为已验证；以 GitHub-hosted runner 的 `HF Space Docker surface smoke` 为准。
 

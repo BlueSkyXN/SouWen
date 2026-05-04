@@ -60,7 +60,7 @@ pinned: false
 
 ## 部署与验收
 
-GitHub 上的 PR 阶段会先运行本地预检：源码 CLI、PyInstaller CLI、HF Space Docker 容器启动和 API surface smoke。合入 `main` 后，`Deploy Hugging Face Space` workflow 会同步本目录 wrapper 文件、触发 Space factory rebuild，并在远端执行部署后 smoke。
+GitHub 上的 `HF Space CD` workflow 会在 PR 阶段先运行本地预检：源码 CLI、PyInstaller CLI、HF Space Docker 容器启动和 API surface smoke。合入 `main` 后，同一个 workflow 会同步本目录 wrapper 文件、触发 Space factory rebuild，并在远端分 `surface` / `capability` 两个 smoke job 执行部署后验收。
 
 部署后人工验收至少访问：
 

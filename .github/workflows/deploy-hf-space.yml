@@ -1,37 +1,320 @@
-name: Deploy Hugging Face Space
+name: HF Space CD
 
 on:
   push:
     branches: [main]
     paths:
       - "src/**"
+      - "tests/**"
       - "panel/**"
       - "pyproject.toml"
       - "README.md"
+      - "README.en.md"
+      - "docs/**"
       - "souwen.example.yaml"
       - "entrypoint.sh"
+      - "cli.py"
       - "scripts/hf_space_smoke.py"
       - "scripts/warp-init.sh"
       - "cloud/hfs/**"
       - ".github/workflows/deploy-hf-space.yml"
+      - ".github/workflows/build-pyinstaller.yml"
+  pull_request:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "tests/**"
+      - "panel/**"
+      - "pyproject.toml"
+      - "README.md"
+      - "README.en.md"
+      - "docs/**"
+      - "souwen.example.yaml"
+      - "entrypoint.sh"
+      - "cli.py"
+      - "scripts/hf_space_smoke.py"
+      - "scripts/warp-init.sh"
+      - "cloud/hfs/**"
+      - ".github/workflows/deploy-hf-space.yml"
+      - ".github/workflows/build-pyinstaller.yml"
   workflow_dispatch:
 
 concurrency:
-  group: deploy-hf-space-${{ github.ref }}
+  group: hf-space-cd-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
 
 permissions:
   contents: read
 
 jobs:
-  deploy:
-    name: Sync changed wrapper files, factory rebuild, and smoke test
-    if: github.ref == 'refs/heads/main'
+  detect-changes:
+    name: Resolve deploy eligibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      deploy_changed: ${{ steps.deploy-paths.outputs.deploy_changed }}
+      reason: ${{ steps.deploy-paths.outputs.reason }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Detect deploy-related path changes
+        id: deploy-paths
+        env:
+          BEFORE_SHA: ${{ github.event.before }}
+          AFTER_SHA: ${{ github.sha }}
+        run: |
+          python - <<'PY'
+          import fnmatch
+          import os
+          import subprocess
+
+          deploy_patterns = [
+              "src/**",
+              "panel/**",
+              "pyproject.toml",
+              "README.md",
+              "souwen.example.yaml",
+              "entrypoint.sh",
+              "scripts/hf_space_smoke.py",
+              "scripts/warp-init.sh",
+              "cloud/hfs/**",
+              ".github/workflows/deploy-hf-space.yml",
+          ]
+
+          event = os.environ["GITHUB_EVENT_NAME"]
+          ref = os.environ["GITHUB_REF"]
+          output_path = os.environ["GITHUB_OUTPUT"]
+
+          def write_output(deploy_changed: bool, reason: str) -> None:
+              with open(output_path, "a", encoding="utf-8") as output:
+                  output.write(f"deploy_changed={'true' if deploy_changed else 'false'}\n")
+                  output.write(f"reason={reason}\n")
+              print(f"deploy_changed={deploy_changed}, reason={reason}")
+
+          if event == "workflow_dispatch":
+              write_output(ref == "refs/heads/main", "manual-main" if ref == "refs/heads/main" else "manual-non-main")
+              raise SystemExit
+
+          if event != "push" or ref != "refs/heads/main":
+              write_output(False, f"{event}:{ref}")
+              raise SystemExit
+
+          before = os.environ.get("BEFORE_SHA") or ""
+          after = os.environ["AFTER_SHA"]
+          if before and set(before) != {"0"}:
+              command = ["git", "diff", "--name-only", before, after]
+          else:
+              command = ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", after]
+          changed_paths = subprocess.check_output(command, text=True).splitlines()
+
+          def matches_deploy_path(path: str) -> bool:
+              return any(fnmatch.fnmatch(path, pattern) for pattern in deploy_patterns)
+
+          matched = [path for path in changed_paths if matches_deploy_path(path)]
+          print("Changed paths:")
+          for path in changed_paths:
+              print(f"  {path}")
+          print("Deploy-matched paths:")
+          for path in matched:
+              print(f"  {path}")
+          write_output(bool(matched), "deploy-path-changed" if matched else "no-deploy-path-changed")
+          PY
+
+  api-source-cli:
+    name: API surface and source CLI
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install source package
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,server,tls]"
+
+      - name: Run API and smoke unit tests
+        run: |
+          pytest tests/test_server tests/test_hf_space_smoke.py -v --tb=short
+
+      - name: Run source CLI smoke commands
+        env:
+          PYTHONIOENCODING: utf-8
+        run: |
+          python cli.py --help
+          python cli.py --version
+          python cli.py sources
+          python cli.py config show
+          python cli.py config backend
+          python -m souwen --help
+
+  pyinstaller-cli:
+    name: PyInstaller CLI smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install package and PyInstaller
+        run: |
+          python -m pip install --upgrade pip
+          pip install .
+          pip install "setuptools<82" pyinstaller
+
+      - name: Build CLI-only executable
+        run: |
+          pyinstaller --onefile --clean --name souwen-local \
+            --paths src \
+            --exclude-module=souwen.server \
+            --exclude-module=souwen.integrations \
+            --exclude-module=fastapi \
+            --exclude-module=uvicorn \
+            --exclude-module=mcp \
+            --exclude-module=pkg_resources \
+            --exclude-module=setuptools \
+            --collect-submodules=rich._unicode_data \
+            cli.py
+
+      - name: Run bundled CLI smoke commands
+        env:
+          PYTHONIOENCODING: utf-8
+        run: |
+          ./dist/souwen-local --help
+          ./dist/souwen-local --version
+          ./dist/souwen-local sources
+          ./dist/souwen-local config show
+          ./dist/souwen-local config backend
+
+      - name: Upload PyInstaller CLI artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: souwen-local-pyinstaller-cli
+          path: dist/souwen-local
+          retention-days: 7
+
+  docker-hfs:
+    name: HF Space Docker surface smoke
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    env:
+      PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.clone_url }}
+      PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+      DEFAULT_REPO: https://github.com/${{ github.repository }}.git
+      DEFAULT_REF: ${{ github.sha }}
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Resolve source ref for HFS Dockerfile clone
+        id: source
+        run: |
+          SOURCE_REPO="${PR_HEAD_REPO:-$DEFAULT_REPO}"
+          SOURCE_REF="${PR_HEAD_SHA:-$DEFAULT_REF}"
+          if [ -z "$SOURCE_REPO" ] || [ -z "$SOURCE_REF" ]; then
+            echo "::error::Cannot resolve source repo/ref for Docker build"
+            exit 1
+          fi
+          {
+            echo "repo=$SOURCE_REPO"
+            echo "ref=$SOURCE_REF"
+          } >> "$GITHUB_OUTPUT"
+          echo "HFS Docker source: $SOURCE_REPO @ $SOURCE_REF"
+
+      - name: Build HF Space Docker image from current ref
+        run: |
+          docker build \
+            -f cloud/hfs/Dockerfile \
+            --build-arg SOUWEN_REPO="${{ steps.source.outputs.repo }}" \
+            --build-arg SOUWEN_REF="${{ steps.source.outputs.ref }}" \
+            --build-arg SKINS=souwen-google \
+            --build-arg WITH_WEB2PDF=0 \
+            -t "souwen-hfs-local:${GITHUB_SHA::7}" \
+            cloud/hfs
+
+      - name: Run container and wait for readiness
+        run: |
+          docker run -d --name souwen-hfs-local \
+            -p 49265:49265 \
+            -e SOUWEN_ADMIN_OPEN=1 \
+            -e SOUWEN_EXPOSE_DOCS=1 \
+            -e WARP_ENABLED=0 \
+            "souwen-hfs-local:${GITHUB_SHA::7}"
+
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:49265/health; then
+              exit 0
+            fi
+            echo "Waiting for health (${attempt}/60)"
+            sleep 2
+          done
+
+          docker logs souwen-hfs-local
+          exit 1
+
+      - name: Run local API surface smoke
+        env:
+          SOUWEN_SMOKE_REPORT_FILE: hf-space-local-surface-report.md
+          SOUWEN_SMOKE_JSON_FILE: hf-space-local-surface-report.json
+        run: |
+          VERSION="$(python3 - <<'PY'
+          import tomllib
+          with open("pyproject.toml", "rb") as file:
+              print(tomllib.load(file)["project"]["version"])
+          PY
+          )"
+          python3 scripts/hf_space_smoke.py \
+            --base-url http://127.0.0.1:49265 \
+            --expected-version "$VERSION" \
+            --request-timeout 10 \
+            --surface-only
+
+      - name: Verify browser entry HTML explicitly
+        run: |
+          curl -fsSL http://127.0.0.1:49265/docs -o /tmp/souwen-docs.html
+          grep -Eiq 'Swagger UI|swagger-ui' /tmp/souwen-docs.html
+          curl -fsSL http://127.0.0.1:49265/panel -o /tmp/souwen-panel.html
+          grep -Eiq 'id="root"|SouWen|souwen' /tmp/souwen-panel.html
+
+      - name: Show container logs
+        if: always()
+        run: docker logs souwen-hfs-local || true
+
+      - name: Stop container
+        if: always()
+        run: docker rm -f souwen-hfs-local || true
+
+      - name: Upload local smoke reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: hf-space-local-surface-report
+          path: |
+            hf-space-local-surface-report.md
+            hf-space-local-surface-report.json
+          if-no-files-found: warn
+          retention-days: 7
+
+  sync-hfs-wrapper:
+    name: Sync HFS wrapper files
+    if: needs.detect-changes.outputs.deploy_changed == 'true' && github.ref == 'refs/heads/main'
+    needs: [detect-changes, api-source-cli, pyinstaller-cli, docker-hfs]
     environment:
       name: hf
-      url: https://huggingface.co/spaces/BlueSkyXN/SouWen
+      deployment: false
     runs-on: ubuntu-latest
-    timeout-minutes: 180
+    timeout-minutes: 20
+    outputs:
+      version: ${{ steps.project.outputs.version }}
     steps:
       - uses: actions/checkout@v6
 
@@ -127,6 +410,26 @@ jobs:
               print("No HFS wrapper file changes to sync.")
           PY
 
+  rebuild-space:
+    name: Factory rebuild Space
+    if: needs.detect-changes.outputs.deploy_changed == 'true' && github.ref == 'refs/heads/main'
+    needs: [detect-changes, sync-hfs-wrapper]
+    environment:
+      name: hf
+      url: https://huggingface.co/spaces/BlueSkyXN/SouWen
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install Hugging Face Hub client
+        run: python -m pip install "huggingface_hub>=1.8,<2"
+
       - name: Factory rebuild Space
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
@@ -174,23 +477,55 @@ jobs:
               raise SystemExit(f"Space runtime did not reach RUNNING; last_stage={last_stage}")
           PY
 
-      - name: Post-deploy smoke test
+  post-deploy-smoke:
+    name: Post-deploy smoke matrix
+    if: needs.detect-changes.outputs.deploy_changed == 'true' && github.ref == 'refs/heads/main'
+    needs: [detect-changes, sync-hfs-wrapper, rebuild-space]
+    environment:
+      name: hf
+      deployment: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - mode: surface
+            args: "--surface-only"
+            report: hf-space-cd-surface-report.md
+            json: hf-space-cd-surface-report.json
+            artifact: hf-space-cd-surface-report
+          - mode: capability
+            args: ""
+            report: hf-space-cd-capability-report.md
+            json: hf-space-cd-capability-report.json
+            artifact: hf-space-cd-capability-report
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Run ${{ matrix.mode }} post-deploy smoke
         env:
-          EXPECTED_SOUWEN_VERSION: ${{ steps.project.outputs.version }}
+          EXPECTED_SOUWEN_VERSION: ${{ needs.sync-hfs-wrapper.outputs.version }}
           SOUWEN_HF_SPACE_URL: https://blueskyxn-souwen.hf.space
           SOUWEN_SMOKE_REQUEST_TIMEOUT: "20"
           SOUWEN_SMOKE_WARP_MODES: auto
-          SOUWEN_SMOKE_REPORT_FILE: hf-space-cd-report.md
-          SOUWEN_SMOKE_JSON_FILE: hf-space-cd-report.json
+          SOUWEN_SMOKE_REPORT_FILE: ${{ matrix.report }}
+          SOUWEN_SMOKE_JSON_FILE: ${{ matrix.json }}
           SOUWEN_SMOKE_BEARER_TOKEN: ${{ secrets.SOUWEN_SMOKE_BEARER_TOKEN }}
-        run: python scripts/hf_space_smoke.py
+          SMOKE_ARGS: ${{ matrix.args }}
+        run: |
+          args=()
+          if [ -n "$SMOKE_ARGS" ]; then
+            args+=("$SMOKE_ARGS")
+          fi
+          python scripts/hf_space_smoke.py "${args[@]}"
 
       - name: Upload post-deploy test report
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: hf-space-cd-report
+          name: ${{ matrix.artifact }}
           path: |
-            hf-space-cd-report.md
-            hf-space-cd-report.json
+            ${{ matrix.report }}
+            ${{ matrix.json }}
           if-no-files-found: warn
