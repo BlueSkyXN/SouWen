@@ -22,7 +22,7 @@
 | Job | 覆盖内容 | 说明 |
 |---|---|---|
 | `Resolve deploy eligibility` | `main` push / 手动触发的部署路径判断 | 文档或测试-only 变更仍跑本地预检，但不会触发远端部署 |
-| `API surface and source CLI` | `tests/test_server`、`tests/test_hf_space_smoke.py`、源码 CLI 真实进程 | 覆盖服务端基础路由、smoke 脚本契约和 `python cli.py ...` / `python -m souwen ...` |
+| `API surface and source CLI` | `scripts/ci/run_profile.py --profile server --profile minimal` | 覆盖服务端基础路由、smoke 脚本契约和 `python cli.py ...` / `python -m souwen ...`，并上传 JSON/Markdown profile report |
 | `PyInstaller CLI smoke` | Linux CLI-only 单文件构建后执行 | 验证 PyInstaller 产物至少能完成帮助、版本、sources、config show 等非网络命令 |
 | `HF Space Docker surface smoke` | 使用 `cloud/hfs/Dockerfile` 从当前 PR head SHA 构建并本地启动容器 | 验证 `/health`、`/readiness`、`/docs`、`/panel` 和核心 admin API surface |
 
@@ -63,7 +63,7 @@
 
 ## 本地复现策略
 
-- API 与源码 CLI：直接运行 `pytest tests/test_server tests/test_hf_space_smoke.py`，再执行 `python cli.py --help`、`python cli.py --version`、`python cli.py sources`、`python cli.py config show`、`python cli.py config backend`、`python -m souwen --help`。
+- API 与源码 CLI：直接运行 `python scripts/ci/run_profile.py --profile server --profile minimal`。该 runner 内部执行 `pytest tests/test_server tests/test_hf_space_smoke.py` 和 `python cli.py --help`、`python cli.py --version`、`python cli.py sources`、`python cli.py config show`、`python cli.py config backend`、`python -m souwen --help`，并可通过 `--json-report` / `--markdown-report` 生成排障报告。
 - PyInstaller CLI：使用干净 virtualenv 复现，避免全局 Python 环境把 unrelated 包带入分析。CLI-only 构建需要固定 `setuptools<82`，并显式 `--collect-submodules=rich._unicode_data`，否则单文件包可能在启动或 Rich help 输出时失败。
 - Docker / `act`：这层依赖 Docker daemon，会拉取 `node:*` 和 `python:*` 基础镜像，并按 PR head SHA 重新构建 HFS 镜像。没有 Docker 的本机不应把该层视为已验证；以 GitHub-hosted runner 的 `HF Space Docker surface smoke` 为准。
 

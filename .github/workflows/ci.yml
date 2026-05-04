@@ -8,6 +8,7 @@ on:
       - 'tests/**'
       - 'panel/**'
       - 'scripts/_functional_common.py'
+      - 'scripts/ci/**'
       - 'scripts/scrapling_functional_check.py'
       - 'scripts/crawl4ai_functional_check.py'
       - 'scripts/plugin_functional_check.py'
@@ -39,10 +40,10 @@ jobs:
         run: pip install ruff
 
       - name: Ruff 语法检查
-        run: ruff check src/ tests/ scripts/_functional_common.py scripts/scrapling_functional_check.py scripts/crawl4ai_functional_check.py scripts/plugin_functional_check.py
+        run: ruff check src/ tests/ scripts/_functional_common.py scripts/ci/run_profile.py scripts/scrapling_functional_check.py scripts/crawl4ai_functional_check.py scripts/plugin_functional_check.py
 
       - name: Ruff 格式检查
-        run: ruff format --check src/ tests/ scripts/_functional_common.py scripts/scrapling_functional_check.py scripts/crawl4ai_functional_check.py scripts/plugin_functional_check.py
+        run: ruff format --check src/ tests/ scripts/_functional_common.py scripts/ci/run_profile.py scripts/scrapling_functional_check.py scripts/crawl4ai_functional_check.py scripts/plugin_functional_check.py
 
   test:
     name: 测试 (Python ${{ matrix.python }}, ${{ matrix.os }})
@@ -92,37 +93,23 @@ jobs:
         if: matrix.os == 'ubuntu-latest' && matrix.python == '3.11'
         run: pip install "curl-cffi>=0.14.0"
 
-      - name: 验证全部导入
+      - name: 运行 full runtime profile
         if: matrix.os == 'ubuntu-latest' && matrix.python == '3.11'
         run: |
-          python -c "
-          from souwen.paper import (
-              OpenAlexClient, SemanticScholarClient, CrossrefClient,
-              ArxivClient, DblpClient, CoreClient, PubMedClient, UnpaywallClient,
-          )
-          from souwen.patent import (
-              PatentsViewClient, PqaiClient, EpoOpsClient, UsptoOdpClient,
-              TheLensClient, CnipaClient, PatSnapClient, GooglePatentsClient,
-          )
-          from souwen.web import (
-              DuckDuckGoClient, YahooClient, BraveClient,
-              GoogleClient, BingClient,
-              SearXNGClient, TavilyClient, ExaClient, SerperClient, BraveApiClient,
-              SerpApiClient, FirecrawlClient, PerplexityClient,
-              LinkupClient, ScrapingDogClient,
-              StartpageClient, BaiduClient, MojeekClient, YandexClient,
-              WhoogleClient, WebsurfxClient,
-              GitHubClient, StackOverflowClient, RedditClient, BilibiliClient,
-              WikipediaClient, YouTubeClient, ZhihuClient, WeiboClient,
-              BuiltinFetcherClient, JinaReaderClient,
-              web_search, fetch_content,
-          )
-          from souwen.doctor import check_all
-          print('全部数据源 + doctor 导入成功 ✅')
-          "
-          python -c "from souwen.plugin import discover_entrypoint_plugins, load_plugins; print('plugin OK')"
-          python -c "from souwen.web.fetch import register_fetch_handler, get_fetch_handlers; print('fetch_handlers OK')"
-          python -c "from souwen.registry.views import external_plugins; print('external_plugins OK')"
+          mkdir -p artifacts
+          python scripts/ci/run_profile.py \
+            --profile full \
+            --json-report artifacts/runtime-profile-full.json \
+            --markdown-report artifacts/runtime-profile-full.md
+
+      - name: 上传 full runtime profile 报告
+        if: always() && matrix.os == 'ubuntu-latest' && matrix.python == '3.11'
+        uses: actions/upload-artifact@v7
+        with:
+          name: runtime-profile-full-report
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 7
 
   plugin-test:
     name: 插件系统测试
