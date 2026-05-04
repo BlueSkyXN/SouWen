@@ -254,6 +254,10 @@ warp:
 #     api_key: tvly-xxxx      # 覆盖 web.tavily_api_key
 #     params:
 #       search_depth: advanced
+#   scrapling:
+#     params:
+#       mode: fetcher         # fetcher|dynamic|stealthy；浏览器模式需安装 souwen[scrapling] 后运行 scrapling install
+#       content_format: text  # text|html
 #   google_patents:
 #     enabled: false           # 禁用 Google Patents
 #   openalex:

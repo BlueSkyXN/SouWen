@@ -1,11 +1,11 @@
 """并发多提供者聚合内容抓取
 
 文件用途：
-    核心网页内容抓取聚合模块。支持 21 个提供者（内置抓取、Jina Reader、arXiv Fulltext、
+    核心网页内容抓取聚合模块。支持 22 个提供者（内置抓取、Jina Reader、arXiv Fulltext、
     Tavily、Firecrawl、Exa、XCrawl、Crawl4AI、Scrapfly、Diffbot、ScrapingBee、ZenRows、
     ScraperAPI、Apify、Cloudflare Browser Rendering、Wayback Machine、
     newspaper4k、readability、MCP、site_crawler（多页 BFS 爬虫）、
-    deepwiki（DeepWiki 文档抓取）），
+    deepwiki（DeepWiki 文档抓取）、Scrapling），
     通过 asyncio 并发抓取、聚合结果，为用户提供统一内容提取接口。
 
 函数/类清单：
@@ -38,9 +38,10 @@
     - logging: 日志记录
     - souwen.config: 配置读取（API Key）
     - souwen.models: FetchResult, FetchResponse 数据模型
-    - souwen.web.jina_reader / tavily / firecrawl / exa / crawl4ai_fetcher / scrapfly /
-      diffbot / scrapingbee / zenrows / scraperapi / apify / cloudflare_browser /
-      wayback / newspaper_fetcher / readability_fetcher: 各提供者客户端（懒加载）
+    - souwen.web.jina_reader / tavily / firecrawl / exa / crawl4ai_fetcher /
+      scrapling_fetcher / scrapfly / diffbot / scrapingbee / zenrows / scraperapi /
+      apify / cloudflare_browser / wayback / newspaper_fetcher / readability_fetcher:
+      各提供者客户端（懒加载）
 
 技术要点：
     - SSRF 防护：解析 DNS 后逐个 IP 校验，拒绝私有/回环/链路本地/保留段
@@ -189,6 +190,11 @@ def _get_provider_global_timeout(provider: str, url_count: int, timeout: float) 
 
         waves = math.ceil(max(1, url_count) / 3)
         return timeout * waves + 10
+    if provider == "scrapling":
+        import math
+
+        waves = math.ceil(max(1, url_count) / 2)
+        return timeout * waves + 30
     return timeout + 10
 
 
@@ -378,6 +384,29 @@ async def _handle_crawl4ai(urls: list[str], timeout: float, **_kwargs: Any) -> F
         return await client.fetch_batch(urls, timeout=timeout)
 
 
+async def _handle_scrapling(
+    urls: list[str],
+    timeout: float,
+    *,
+    selector: str | None = None,
+    start_index: int = 0,
+    max_length: int | None = None,
+    respect_robots_txt: bool = False,
+    **_kwargs: Any,
+) -> FetchResponse:
+    from souwen.web.scrapling_fetcher import ScraplingFetcherClient
+
+    async with ScraplingFetcherClient() as client:
+        return await client.fetch_batch(
+            urls,
+            timeout=timeout,
+            selector=selector,
+            start_index=start_index,
+            max_length=max_length,
+            respect_robots_txt=respect_robots_txt,
+        )
+
+
 async def _handle_scrapfly(urls: list[str], timeout: float, **_kwargs: Any) -> FetchResponse:
     from souwen.web.scrapfly import ScrapflyClient
 
@@ -479,6 +508,7 @@ register_fetch_handler("firecrawl", _handle_firecrawl)
 register_fetch_handler("xcrawl", _handle_xcrawl)
 register_fetch_handler("exa", _handle_exa)
 register_fetch_handler("crawl4ai", _handle_crawl4ai)
+register_fetch_handler("scrapling", _handle_scrapling)
 register_fetch_handler("scrapfly", _handle_scrapfly)
 register_fetch_handler("diffbot", _handle_diffbot)
 register_fetch_handler("scrapingbee", _handle_scrapingbee)

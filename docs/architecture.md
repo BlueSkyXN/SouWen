@@ -22,7 +22,7 @@
 ├────────────────────────────────────────────────────────────────┤
 │ 注册表层 Registry —— 单一事实源                                │
 │   souwen.registry.adapter    SourceAdapter / MethodSpec        │
-│   souwen.registry.sources    93 个内置 _reg(...) 声明（权威） │
+│   souwen.registry.sources    94 个内置 _reg(...) 声明（权威） │
 │   souwen.registry.loader     字符串懒加载（避免启动 import）  │
 │   souwen.registry.views      by_domain / by_capability / ...   │
 ├────────────────────────────────────────────────────────────────┤
@@ -210,7 +210,7 @@ client_cls = adapter.client_loader()  # 此刻才 importlib.import_module
 
 ## 8. 插件系统（外部扩展）
 
-注册表除了承载内置的 93 个 `_reg()`，还能在运行时**通过外部插件**追加新的
+注册表除了承载内置的 94 个 `_reg()`，还能在运行时**通过外部插件**追加新的
 `SourceAdapter`，让第三方 / 私有源在不改主仓代码的前提下被 SouWen 发现。
 
 ### 双模式加载
@@ -232,7 +232,7 @@ SouWen 启动时统一通过 `importlib.metadata` 扫描发现。
 ┌─────────────────────────────────────────────────────────────────┐
 │  registry/__init__.py 导入                                       │
 │      ↓                                                           │
-│  1. import sources       —— 触发 93 个内置 _reg()，填满 _REGISTRY │
+│  1. import sources       —— 触发 94 个内置 _reg()，填满 _REGISTRY │
 │      ↓                                                           │
 │  2. plugin.load_plugins()                                        │
 │       ├─ discover_entrypoint_plugins()                           │
@@ -269,7 +269,7 @@ FetchHandler = Callable[..., Awaitable[FetchResponse]]
 
 _FETCH_HANDLERS["builtin"]      = _handle_builtin
 _FETCH_HANDLERS["jina_reader"]  = _handle_jina_reader
-# ... 20 个内置 provider
+# ... 22 个内置 provider
 ```
 
 外部插件通过 `register_fetch_handler(provider, handler)` 加入这张表，让

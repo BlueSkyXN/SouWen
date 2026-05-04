@@ -62,16 +62,20 @@ from souwen import search, search_papers, search_patents, web_search
 from souwen.web.fetch import fetch_content, validate_fetch_url
 ```
 
-#### `fetch_content(urls, providers=None, timeout=30.0, skip_ssrf_check=False)` → `FetchResponse`
+#### `fetch_content(urls, providers=None, timeout=30.0, skip_ssrf_check=False, selector=None, start_index=0, max_length=None, respect_robots_txt=False)` → `FetchResponse`
 
-并发内容抓取，支持 21 个提供者。
+并发内容抓取，支持 22 个提供者。
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `urls` | `list[str]` | — | 目标 URL 列表 |
-| `providers` | `list[str] \| None` | `["builtin"]` | 提供者: builtin / jina_reader / arxiv_fulltext / tavily / firecrawl / xcrawl / exa / crawl4ai / scrapfly / diffbot / scrapingbee / zenrows / scraperapi / apify / cloudflare / wayback / newspaper / readability / mcp / site_crawler / deepwiki |
+| `providers` | `list[str] \| None` | `["builtin"]` | 提供者: builtin / jina_reader / arxiv_fulltext / tavily / firecrawl / xcrawl / exa / crawl4ai / scrapling / scrapfly / diffbot / scrapingbee / zenrows / scraperapi / apify / cloudflare / wayback / newspaper / readability / mcp / site_crawler / deepwiki |
 | `timeout` | `float` | `30.0` | 每个 URL 超时秒数 |
 | `skip_ssrf_check` | `bool` | `False` | 跳过 SSRF 校验（仅内部使用） |
+| `selector` | `str \| None` | `None` | CSS 选择器，仅提取匹配元素（builtin / scrapling 支持） |
+| `start_index` | `int` | `0` | 内容起始切片位置 |
+| `max_length` | `int \| None` | `None` | 内容最大长度，超出则截断 |
+| `respect_robots_txt` | `bool` | `False` | 是否遵守 robots.txt（provider 支持时生效） |
 
 #### `validate_fetch_url(url)` → `tuple[bool, str]`
 
@@ -552,23 +556,23 @@ Cache-Control: public, max-age=3600
 **响应示例：**
 ```json
 {
-  "total": 93,
-  "ok": 48,
-  "available": 72,
-  "degraded": 24,
-  "degraded_total": 24,
-  "failed": 21,
-  "limited": 20,
-  "warning": 4,
-  "missing_key": 18,
-  "unavailable": 3,
+  "total": 94,
+  "ok": 46,
+  "available": 56,
+  "degraded": 10,
+  "degraded_total": 10,
+  "failed": 38,
+  "limited": 8,
+  "warning": 2,
+  "missing_key": 36,
+  "unavailable": 2,
   "disabled": 0,
   "status_counts": {
-    "ok": 48,
-    "limited": 20,
-    "warning": 4,
-    "missing_key": 18,
-    "unavailable": 3
+    "ok": 46,
+    "limited": 8,
+    "warning": 2,
+    "missing_key": 36,
+    "unavailable": 2
   },
   "sources": [
     {
@@ -861,15 +865,19 @@ Cache-Control: public, max-age=3600
 
 #### `POST /api/v1/fetch`
 
-抓取网页内容，支持 21 个提供者。
+抓取网页内容，支持 22 个提供者。
 
 **请求体 (JSON)：**
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `urls` | `list[str]` (1-20) | *(必填)* | 目标 URL 列表 |
-| `provider` | `string` | `"builtin"` | 提供者: `builtin` / `jina_reader` / `arxiv_fulltext` / `tavily` / `firecrawl` / `xcrawl` / `exa` / `crawl4ai` / `scrapfly` / `diffbot` / `scrapingbee` / `zenrows` / `scraperapi` / `apify` / `cloudflare` / `wayback` / `newspaper` / `readability` / `mcp` / `site_crawler` / `deepwiki` |
+| `provider` | `string` | `"builtin"` | 提供者: `builtin` / `jina_reader` / `arxiv_fulltext` / `tavily` / `firecrawl` / `xcrawl` / `exa` / `crawl4ai` / `scrapling` / `scrapfly` / `diffbot` / `scrapingbee` / `zenrows` / `scraperapi` / `apify` / `cloudflare` / `wayback` / `newspaper` / `readability` / `mcp` / `site_crawler` / `deepwiki` |
 | `timeout` | `float` (1-120) | `30` | 每 URL 超时秒数 |
+| `selector` | `string \| null` | `null` | CSS 选择器，仅提取匹配元素（builtin / scrapling 支持） |
+| `start_index` | `integer` (≥0) | `0` | 内容起始切片位置 |
+| `max_length` | `integer \| null` (≥0) | `null` | 内容最大长度，超出则截断 |
+| `respect_robots_txt` | `boolean` | `false` | 是否遵守 robots.txt（provider 支持时生效） |
 
 **请求示例：**
 ```json
@@ -967,7 +975,7 @@ python -m souwen.integrations.mcp_server
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `urls` | array | — | 待抓取的 URL 列表 |
-| `provider` | string | `"builtin"` | 内容提取提供者，默认 `builtin`（零配置）。可选：`jina_reader` / `arxiv_fulltext` / `tavily` / `firecrawl` / `exa` / `crawl4ai` / `scrapfly` / `diffbot` / `scrapingbee` / `zenrows` / `scraperapi` / `apify` / `cloudflare` / `wayback` / `newspaper` / `readability` / `mcp` / `site_crawler` / `deepwiki` |
+| `provider` | string | `"builtin"` | 内容提取提供者，默认 `builtin`（零配置）。可选：`jina_reader` / `arxiv_fulltext` / `tavily` / `firecrawl` / `exa` / `crawl4ai` / `scrapling` / `scrapfly` / `diffbot` / `scrapingbee` / `zenrows` / `scraperapi` / `apify` / `cloudflare` / `wayback` / `newspaper` / `readability` / `mcp` / `site_crawler` / `deepwiki` |
 
 返回：JSON `FetchResponse` 对象（含 `results`、`total`、`total_ok`、`total_failed`）。
 
