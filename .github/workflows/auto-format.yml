@@ -24,11 +24,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     # 仅处理同仓库 PR（fork PR 无写入权限，跳过）
-    if: github.event.pull_request.head.repo.full_name == github.repository
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ github.head_ref }}
+          ref: ${{ github.head_ref || github.ref_name }}
           token: ${{ secrets.GITHUB_TOKEN }}
 
       - uses: actions/setup-python@v6
@@ -57,16 +57,18 @@ jobs:
         if: steps.auto-commit.outputs.changes_detected == 'true'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FORMAT_REF: ${{ github.head_ref || github.ref_name }}
         run: |
           echo "🔄 格式化已修复，触发 CI 重新运行..."
-          gh workflow run ci.yml --ref "${{ github.head_ref }}"
+          gh workflow run ci.yml --ref "$FORMAT_REF"
 
       - name: PR 评论通知
         if: steps.auto-commit.outputs.changes_detected == 'true' && github.event_name == 'pull_request'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          gh pr comment "${{ github.event.pull_request.number }}" \
+          gh pr comment "$PR_NUMBER" \
             --body "🤖 **Auto-format**: 已自动修复代码格式并提交，CI 已触发重新检查。"
 
       - name: 最终格式检查（Gate）

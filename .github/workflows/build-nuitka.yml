@@ -223,7 +223,8 @@ jobs:
 
       - name: Rename artifact (Windows)
         if: runner.os == 'Windows'
-        run: move dist\${{ env.APP_NAME }}.exe dist\${{ matrix.artifact_name }}
+        shell: pwsh
+        run: Move-Item -Path "dist/${{ env.APP_NAME }}.exe" -Destination "dist/${{ matrix.artifact_name }}"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7
