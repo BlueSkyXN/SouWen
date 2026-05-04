@@ -133,7 +133,7 @@ curl "http://localhost:8000/api/v1/paper/search?q=transformer"
 curl "http://localhost:8000/api/v1/archive/cdx?url=https://example.com"
 ```
 
-访问 `/docs` 查看完整 OpenAPI 文档；访问 `/` 进入 Web UI（默认 souwen-google 皮肤）。
+访问 `/docs` 查看完整 OpenAPI 文档；访问 `/panel#/` 进入 Web UI（默认 souwen-google 皮肤）。`/` 在默认配置下重定向到 `/docs`。
 
 ## ⚙️ 配置
 
@@ -190,7 +190,7 @@ docker run -p 8000:8000 \
   souwen
 ```
 
-**HuggingFace Spaces**：参见 `cloud/hfs/`。
+**HuggingFace Spaces**：参见 `cloud/hfs/` 与 [docs/hf-space-cd.md](docs/hf-space-cd.md)。
 **ModelScope**：参见 `cloud/modelscope/`。
 
 **WARP 代理嵌入**（可选，绕过国内网络）：见 `docs/warp-solutions.md` 的五种模式方案对比和 `docs/anti-scraping.md` 的反爬策略。支持运行时通过 Web 面板一键安装 WARP 组件。
@@ -201,6 +201,7 @@ docker run -p 8000:8000 \
 - [docs/data-sources.md](docs/data-sources.md) — 完整数据源清单（由 registry 自动生成）
 - [docs/configuration.md](docs/configuration.md) — 配置层级 / WARP / HTTP backend
 - [docs/api-reference.md](docs/api-reference.md) — REST API 参考
+- [docs/hf-space-cd.md](docs/hf-space-cd.md) — Hugging Face Space CD / 本地预检 / 部署后验收
 - [docs/anti-scraping.md](docs/anti-scraping.md) — TLS 指纹 / WARP / 限流
 - [docs/appearance.md](docs/appearance.md) — 多皮肤前端
 - [docs/adding-a-source.md](docs/adding-a-source.md) — 新增数据源指南

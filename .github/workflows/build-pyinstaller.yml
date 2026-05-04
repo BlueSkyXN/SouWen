@@ -161,6 +161,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Download panel.html
+        if: needs.prepare.outputs.need_panel == 'true'
         uses: actions/download-artifact@v8
         with:
           name: panel-html
@@ -177,21 +178,21 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install .
-          pip install pyinstaller
+          pip install "setuptools<82" pyinstaller
 
       - name: Install dependencies (Server)
         if: matrix.build_type == 'server'
         run: |
           python -m pip install --upgrade pip
           pip install ".[server,tls,web]"
-          pip install pyinstaller
+          pip install "setuptools<82" pyinstaller
 
       - name: Install dependencies (Full)
         if: matrix.build_type == 'full'
         run: |
           python -m pip install --upgrade pip
           pip install ".[server,tls,web,scraper,newspaper,readability,pdf,mcp,web2pdf]"
-          pip install pyinstaller
+          pip install "setuptools<82" pyinstaller
 
       - name: Verify CLI
         env:
@@ -212,6 +213,7 @@ jobs:
             --hidden-import=souwen.server.routes \
             --hidden-import=souwen.integrations \
             --hidden-import=souwen.integrations.mcp_server \
+            --collect-submodules=rich._unicode_data \
             cli.py
 
       - name: Build with PyInstaller (Unix - Server)
@@ -225,6 +227,7 @@ jobs:
             --hidden-import=souwen.server.routes \
             --exclude-module=souwen.integrations \
             --exclude-module=mcp \
+            --collect-submodules=rich._unicode_data \
             cli.py
 
       - name: Build with PyInstaller (Unix - CLI)
@@ -237,22 +240,48 @@ jobs:
             --exclude-module=fastapi \
             --exclude-module=uvicorn \
             --exclude-module=mcp \
+            --exclude-module=pkg_resources \
+            --exclude-module=setuptools \
+            --collect-submodules=rich._unicode_data \
             cli.py
 
       - name: Build with PyInstaller (Windows - Full)
         if: runner.os == 'Windows' && matrix.build_type == 'full'
         run: |
-          pyinstaller --onefile --clean --name ${{ env.APP_NAME }} --paths src --add-data "src/souwen/server/panel.html;souwen/server" --hidden-import=souwen.server --hidden-import=souwen.server.app --hidden-import=souwen.server.routes --hidden-import=souwen.integrations --hidden-import=souwen.integrations.mcp_server cli.py
+          pyinstaller --onefile --clean --name ${{ env.APP_NAME }} --paths src --add-data "src/souwen/server/panel.html;souwen/server" --hidden-import=souwen.server --hidden-import=souwen.server.app --hidden-import=souwen.server.routes --hidden-import=souwen.integrations --hidden-import=souwen.integrations.mcp_server --collect-submodules=rich._unicode_data cli.py
 
       - name: Build with PyInstaller (Windows - Server)
         if: runner.os == 'Windows' && matrix.build_type == 'server'
         run: |
-          pyinstaller --onefile --clean --name ${{ env.APP_NAME }} --paths src --add-data "src/souwen/server/panel.html;souwen/server" --hidden-import=souwen.server --hidden-import=souwen.server.app --hidden-import=souwen.server.routes --exclude-module=souwen.integrations --exclude-module=mcp cli.py
+          pyinstaller --onefile --clean --name ${{ env.APP_NAME }} --paths src --add-data "src/souwen/server/panel.html;souwen/server" --hidden-import=souwen.server --hidden-import=souwen.server.app --hidden-import=souwen.server.routes --exclude-module=souwen.integrations --exclude-module=mcp --collect-submodules=rich._unicode_data cli.py
 
       - name: Build with PyInstaller (Windows - CLI)
         if: runner.os == 'Windows' && matrix.build_type == 'cli'
         run: |
-          pyinstaller --onefile --clean --name ${{ env.APP_NAME }} --paths src --exclude-module=souwen.server --exclude-module=souwen.integrations --exclude-module=fastapi --exclude-module=uvicorn --exclude-module=mcp cli.py
+          pyinstaller --onefile --clean --name ${{ env.APP_NAME }} --paths src --exclude-module=souwen.server --exclude-module=souwen.integrations --exclude-module=fastapi --exclude-module=uvicorn --exclude-module=mcp --exclude-module=pkg_resources --exclude-module=setuptools --collect-submodules=rich._unicode_data cli.py
+
+      - name: Verify bundled CLI (Unix)
+        if: runner.os != 'Windows'
+        env:
+          PYTHONIOENCODING: utf-8
+        run: |
+          dist/${{ env.APP_NAME }} --help
+          dist/${{ env.APP_NAME }} --version
+          dist/${{ env.APP_NAME }} sources
+          dist/${{ env.APP_NAME }} config show
+          dist/${{ env.APP_NAME }} config backend
+
+      - name: Verify bundled CLI (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          PYTHONIOENCODING: utf-8
+        run: |
+          ./dist/${{ env.APP_NAME }}.exe --help
+          ./dist/${{ env.APP_NAME }}.exe --version
+          ./dist/${{ env.APP_NAME }}.exe sources
+          ./dist/${{ env.APP_NAME }}.exe config show
+          ./dist/${{ env.APP_NAME }}.exe config backend
 
       # --- 重命名并上传构建产物 ---
       - name: Rename artifact (Unix)
@@ -261,7 +290,8 @@ jobs:
 
       - name: Rename artifact (Windows)
         if: runner.os == 'Windows'
-        run: move dist\${{ env.APP_NAME }}.exe dist\${{ matrix.artifact_name }}
+        shell: pwsh
+        run: Move-Item -Path "dist/${{ env.APP_NAME }}.exe" -Destination "dist/${{ matrix.artifact_name }}"
 
       - name: Upload artifact
         uses: actions/upload-artifact@v7

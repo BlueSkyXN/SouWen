@@ -18,11 +18,15 @@ pinned: false
 |------|------|------|
 | GET | `/health` | 存活探针 |
 | GET | `/readiness` | 就绪探针（v0.6.1，检查配置可加载 + 数据源注册表非空） |
+| GET | `/docs` | OpenAPI / Swagger UI 文档 |
+| GET | `/panel` | 管理面板 HTML；浏览器访问入口为 `/panel#/` |
+| GET | `/openapi.json` | OpenAPI schema |
 | GET | `/api/v1/search/paper?q=...` | 搜索学术论文 |
 | GET | `/api/v1/search/patent?q=...` | 搜索专利 |
 | GET | `/api/v1/search/web?q=...` | 搜索网页（默认 `engines=duckduckgo,bing`） |
 | GET | `/api/v1/sources` | 列出所有可用数据源 |
 | GET | `/api/v1/admin/config` | 查看配置（需认证） |
+| GET / PUT | `/api/v1/admin/http-backend` | 查看或临时切换 HTTP backend（需认证） |
 | POST | `/api/v1/admin/config/reload` | 重载配置（需认证） |
 | GET | `/api/v1/admin/doctor` | 数据源健康检查（需认证） |
 | GET | `/api/v1/admin/warp` | 查询 WARP 状态（需认证） |
@@ -53,6 +57,17 @@ pinned: false
 | ... | 其他 SOUWEN_* 环境变量均可直接设置 |
 
 > 大部分爬虫引擎（DuckDuckGo、Yahoo、Brave Scraper、Google Scraper 等）无需 API Key 即可使用。
+
+## 部署与验收
+
+GitHub 上的 PR 阶段会先运行本地预检：源码 CLI、PyInstaller CLI、HF Space Docker 容器启动和 API surface smoke。合入 `main` 后，`Deploy Hugging Face Space` workflow 会同步本目录 wrapper 文件、触发 Space factory rebuild，并在远端执行部署后 smoke。
+
+部署后人工验收至少访问：
+
+- 管理面板：<https://blueskyxn-souwen.hf.space/panel#/>
+- API 文档：<https://blueskyxn-souwen.hf.space/docs>
+
+详细边界见 `docs/hf-space-cd.md`。远端 smoke 中的 zero-key 结果会受上游风控、出口 IP 和速率限制影响，`WARN` 表示当次观测结果，不代表功能代码一定不可用。
 
 ## 源码
 

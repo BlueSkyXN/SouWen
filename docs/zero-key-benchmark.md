@@ -24,7 +24,7 @@
 | 认证状态 | 无 Bearer Token 返回 `role=admin` | 当前部署显式开放管理端，无需密码 |
 | 搜索相关 Key | 论文/专利/网页搜索 Key 均为空 | Bilibili 凭据不属于本报告范围 |
 | HTTP backend | `default_http_backend=auto`, `http_backend={}` | `PUT /api/v1/admin/http-backend` 可用 |
-| HTTP backend GET | 500 `internal_error` | 状态读取端点异常；本次通过 `PUT` 响应确认切换成功 |
+| HTTP backend GET | 当次观测为 500 `internal_error` | 这是控制面读取端点异常，已纳入 CD 回归修复；本报告当次矩阵通过 `PUT` 响应确认切换成功 |
 | WARP 初始状态 | `disabled` | 测试结束后已恢复 |
 | WARP 可用模式 | `wireproxy=true`; `kernel/usque/warp-cli=false`; `external` 未配置 | `POST /warp/enable?mode=auto` 实际启用 `wireproxy` |
 | WARP 出口 | `104.28.196.75` | 本次启用 WARP 时观测到的出口 IP |

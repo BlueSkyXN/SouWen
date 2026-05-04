@@ -148,7 +148,7 @@ def config_backend(
 ) -> None:
     """查看/修改 HTTP 后端配置（仅影响爬虫源）"""
     from souwen.config import get_config
-    from souwen.scraper.base import _HAS_CURL_CFFI
+    from souwen.core.scraper.base import _HAS_CURL_CFFI
 
     _VALID = {"auto", "curl_cffi", "httpx"}
     _SCRAPER_ENGINES = [

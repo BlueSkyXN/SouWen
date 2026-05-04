@@ -133,7 +133,7 @@ curl "http://localhost:8000/api/v1/paper/search?q=transformer"
 curl "http://localhost:8000/api/v1/archive/cdx?url=https://example.com"
 ```
 
-Visit `/docs` for the full OpenAPI documentation; visit `/` to enter the Web UI (default: souwen-google skin).
+Visit `/docs` for the full OpenAPI documentation; visit `/panel#/` to enter the Web UI (default: souwen-google skin). `/` redirects to `/docs` with the default configuration.
 
 ## ⚙️ Configuration
 
@@ -191,7 +191,7 @@ docker run -p 8000:8000 \
   souwen
 ```
 
-**HuggingFace Spaces**: see `cloud/hfs/`.
+**HuggingFace Spaces**: see `cloud/hfs/` and [docs/hf-space-cd.md](docs/hf-space-cd.md).
 **ModelScope**: see `cloud/modelscope/`.
 
 **WARP proxy embedding** (optional, bypass network restrictions): see the WARP section in `docs/anti-scraping.md`.
@@ -202,6 +202,7 @@ docker run -p 8000:8000 \
 - [docs/data-sources.md](docs/data-sources.md) — Full data source list (auto-generated from registry)
 - [docs/configuration.md](docs/configuration.md) — Configuration hierarchy / WARP / HTTP backend
 - [docs/api-reference.md](docs/api-reference.md) — REST API reference
+- [docs/hf-space-cd.md](docs/hf-space-cd.md) — Hugging Face Space CD / local gates / post-deploy validation
 - [docs/anti-scraping.md](docs/anti-scraping.md) — TLS fingerprinting / WARP / rate limiting
 - [docs/appearance.md](docs/appearance.md) — Multi-skin frontend
 - [docs/adding-a-source.md](docs/adding-a-source.md) — Adding a new source guide

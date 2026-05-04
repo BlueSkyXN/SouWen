@@ -125,6 +125,18 @@ class TestAdminAuth:
         data = resp.json()
         assert data.get("api_password") == "***"
 
+    def test_admin_http_backend_get_valid_token(self, authed_client):
+        """``GET /admin/http-backend`` 应返回当前后端快照，供 CD smoke 安全恢复状态。"""
+        resp = authed_client.get(
+            "/api/v1/admin/http-backend",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["default"] in {"auto", "curl_cffi", "httpx"}
+        assert isinstance(data["overrides"], dict)
+        assert isinstance(data["curl_cffi_available"], bool)
+
     def test_admin_reload_valid_token(self, authed_client):
         """``POST /admin/config/reload`` 鉴权通过后返回 ``status=ok`` 与 ``password_set=True``。"""
         resp = authed_client.post(

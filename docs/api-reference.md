@@ -392,7 +392,7 @@ K8s readiness 探针（v0.6.1 引入）。仅做本地检查（配置可加载 +
 
 - 当 `expose_docs=true`（默认）时，`GET /` 重定向到 `/docs`（Swagger UI）。
 - 当 `expose_docs=false` 时，`GET /` 返回 JSON 元信息（`{name, version, panel, docs}`）。
-- `GET /panel` 返回管理面板 HTML（不含在 OpenAPI schema 中）。
+- `GET /panel` 返回管理面板 HTML（不含在 OpenAPI schema 中）；浏览器侧的完整入口通常写作 `/panel#/`，其中 `#` 后内容由前端 router 处理。
 
 `/panel` 的 HTML 经内存缓存，并附带：
 
