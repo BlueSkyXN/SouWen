@@ -11,10 +11,16 @@ import argparse
 import asyncio
 import json
 import os
+import sys
 import threading
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Iterator
+
+try:
+    from scripts._functional_common import Outcome, ResultRecorder, add_common_args, run_check
+except ModuleNotFoundError:  # pragma: no cover - direct `python scripts/...` execution.
+    from _functional_common import Outcome, ResultRecorder, add_common_args, run_check
 
 
 HTML = """<!doctype html>
@@ -84,6 +90,11 @@ def configure_scrapling(mode: str) -> None:
     reload_config()
 
 
+def require(condition: bool, message: str) -> None:
+    if not condition:
+        raise AssertionError(message)
+
+
 async def run_provider_check(
     url: str,
     mode: str,
@@ -91,7 +102,8 @@ async def run_provider_check(
     selector: str,
     expected_title: str,
     expected_marker: str,
-) -> None:
+    timeout: float,
+) -> tuple[str, dict[str, object]]:
     configure_scrapling(mode)
 
     from souwen.web.fetch import fetch_content
@@ -99,58 +111,134 @@ async def run_provider_check(
     response = await fetch_content(
         urls=[url],
         providers=["scrapling"],
-        timeout=30,
+        timeout=timeout,
         skip_ssrf_check=True,
         selector=selector,
         respect_robots_txt=True,
     )
-    assert response.provider == "scrapling", response
-    assert response.total == 1, response
-    assert response.total_ok == 1, response
+    require(response.provider == "scrapling", f"unexpected provider: {response.provider}")
+    require(response.total == 1, f"unexpected total: {response.total}")
+    require(response.total_ok == 1, f"unexpected total_ok: {response.total_ok}")
     result = response.results[0]
-    assert result.error is None, result.error
-    assert result.source == "scrapling", result
-    assert result.title == expected_title, result.title
-    assert expected_marker in result.content, result.content
-    assert result.raw["mode"] == mode, result.raw
-    print(f"scrapling {mode} check passed: {result.final_url}")
+    require(result.error is None, f"unexpected error: {result.error}")
+    require(result.source == "scrapling", f"unexpected source: {result.source}")
+    require(result.title == expected_title, f"unexpected title: {result.title}")
+    require(expected_marker in result.content, "expected marker not found in content")
+    require(result.raw["mode"] == mode, f"unexpected raw mode: {result.raw}")
+    return (
+        f"scrapling {mode} check passed: {result.final_url}",
+        {
+            "url": url,
+            "final_url": result.final_url,
+            "mode": mode,
+            "title": result.title,
+        },
+    )
 
 
-def verify_real_scrapling_import() -> None:
+def verify_real_scrapling_import() -> tuple[str, dict[str, object]]:
     from scrapling.fetchers import AsyncFetcher, DynamicFetcher, StealthyFetcher
 
-    assert hasattr(AsyncFetcher, "get")
-    assert hasattr(DynamicFetcher, "async_fetch")
-    assert hasattr(StealthyFetcher, "async_fetch")
-    print("real scrapling.fetchers import check passed")
+    require(hasattr(AsyncFetcher, "get"), "AsyncFetcher.get missing")
+    require(hasattr(DynamicFetcher, "async_fetch"), "DynamicFetcher.async_fetch missing")
+    require(hasattr(StealthyFetcher, "async_fetch"), "StealthyFetcher.async_fetch missing")
+    return (
+        "real scrapling.fetchers import check passed",
+        {
+            "async_fetcher": AsyncFetcher.__name__,
+            "dynamic_fetcher": DynamicFetcher.__name__,
+            "stealthy_fetcher": StealthyFetcher.__name__,
+        },
+    )
 
 
 async def main() -> None:
     parser = argparse.ArgumentParser(description="Run cloud-only Scrapling functional checks.")
+    add_common_args(parser, default_mode="fixture")
     parser.add_argument(
         "--browser",
         action="store_true",
         help="Also exercise Scrapling DynamicFetcher. Requires `scrapling install` first.",
     )
     args = parser.parse_args()
+    recorder = ResultRecorder(script="scrapling_functional_check", mode=args.mode)
 
-    verify_real_scrapling_import()
-    with local_fixture_server() as url:
-        await run_provider_check(
-            url,
-            "fetcher",
-            selector="main",
-            expected_title="Scrapling Functional Fixture",
-            expected_marker="SouWen Scrapling provider reached the fixture",
+    try:
+        if args.mode == "offline":
+            recorder.record(
+                "offline_mode",
+                outcome=Outcome.SKIP,
+                required=False,
+                message="offline mode requested; live Scrapling checks skipped",
+            )
+        else:
+            await run_check(
+                recorder,
+                "import_scrapling_fetchers",
+                verify_real_scrapling_import,
+                required=True,
+                timeout=args.timeout,
+            )
+            with local_fixture_server() as url:
+                await run_check(
+                    recorder,
+                    "fetcher_fixture",
+                    lambda: run_provider_check(
+                        url,
+                        "fetcher",
+                        selector="main",
+                        expected_title="Scrapling Functional Fixture",
+                        expected_marker="SouWen Scrapling provider reached the fixture",
+                        timeout=args.timeout,
+                    ),
+                    required=True,
+                    timeout=args.timeout,
+                )
+            if args.browser and args.mode == "live":
+                await run_check(
+                    recorder,
+                    "dynamic_browser_live",
+                    lambda: run_provider_check(
+                        os.environ.get("SCRAPLING_BROWSER_CHECK_URL", "https://example.com/"),
+                        "dynamic",
+                        selector="body",
+                        expected_title=os.environ.get(
+                            "SCRAPLING_BROWSER_CHECK_TITLE", "Example Domain"
+                        ),
+                        expected_marker=os.environ.get(
+                            "SCRAPLING_BROWSER_CHECK_MARKER", "Example Domain"
+                        ),
+                        timeout=args.timeout,
+                    ),
+                    required=True,
+                    timeout=args.timeout,
+                )
+            elif args.browser:
+                recorder.record(
+                    "dynamic_browser_live",
+                    outcome=Outcome.SKIP,
+                    required=False,
+                    message="browser live check requires --mode live",
+                )
+    finally:
+        try:
+            recorder.write_reports(
+                json_report=args.json_report,
+                markdown_report=args.markdown_report,
+            )
+        except Exception as exc:  # noqa: BLE001 - report write failures have a fixed exit code.
+            print(f"failed to write functional check reports: {exc}", file=sys.stderr)
+            raise SystemExit(2) from exc
+
+    for check in recorder.checks:
+        print(
+            "{outcome} {name}: {message}".format(
+                outcome=check.outcome.value,
+                name=check.name,
+                message=check.message,
+            )
         )
-    if args.browser:
-        await run_provider_check(
-            os.environ.get("SCRAPLING_BROWSER_CHECK_URL", "https://example.com/"),
-            "dynamic",
-            selector="body",
-            expected_title=os.environ.get("SCRAPLING_BROWSER_CHECK_TITLE", "Example Domain"),
-            expected_marker=os.environ.get("SCRAPLING_BROWSER_CHECK_MARKER", "Example Domain"),
-        )
+    raise SystemExit(recorder.exit_code())
 
 
 if __name__ == "__main__":
