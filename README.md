@@ -197,8 +197,9 @@ docker run -p 8000:8000 \
 
 ## 📚 文档
 
+- [docs/README.md](docs/README.md) — 技术文档入口与阅读导航
 - [docs/architecture.md](docs/architecture.md) — 架构概览
-- [docs/data-sources.md](docs/data-sources.md) — 完整数据源清单（由 registry 自动生成）
+- [docs/data-sources.md](docs/data-sources.md) — 完整数据源指南与清单（由 registry 自动生成）
 - [docs/configuration.md](docs/configuration.md) — 配置层级 / WARP / HTTP backend
 - [docs/api-reference.md](docs/api-reference.md) — REST API 参考
 - [docs/hf-space-cd.md](docs/hf-space-cd.md) — Hugging Face Space CD / 本地预检 / 部署后验收
@@ -208,6 +209,7 @@ docker run -p 8000:8000 \
 - [docs/plugin-integration-spec.md](docs/plugin-integration-spec.md) — 外部插件对接规范
 - [docs/plugin-management.md](docs/plugin-management.md) — 插件管理（Web Panel / CLI / API）
 - [docs/contributing.md](docs/contributing.md) — 开发者指南
+- [GitHub Wiki](https://github.com/BlueSkyXN/SouWen/wiki) — 用户手册与场景化导航
 - [CHANGELOG.md](CHANGELOG.md) — 版本变更
 
 ## 🤝 贡献

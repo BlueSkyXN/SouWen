@@ -110,7 +110,9 @@ warp:
   warp_enabled: false
   warp_mode: auto
   warp_socks_port: 1080
+  warp_http_port: 0
   warp_endpoint: ~
+  warp_external_proxy: ~
 
 sources: {}
 ```
@@ -313,9 +315,12 @@ server:
 | 字段 | 环境变量 | 默认值 | 说明 |
 |------|---------|--------|------|
 | `warp_enabled` | `SOUWEN_WARP_ENABLED` / `WARP_ENABLED` | `false` | 是否启用内嵌 WARP 代理 |
-| `warp_mode` | `SOUWEN_WARP_MODE` / `WARP_MODE` | `"auto"` | 模式：auto &#124; wireproxy &#124; kernel |
+| `warp_mode` | `SOUWEN_WARP_MODE` / `WARP_MODE` | `"auto"` | 模式：auto &#124; wireproxy &#124; kernel &#124; usque &#124; warp-cli &#124; external |
 | `warp_socks_port` | `SOUWEN_WARP_SOCKS_PORT` / `WARP_SOCKS_PORT` | `1080` | SOCKS5 代理监听端口 |
+| `warp_http_port` | `SOUWEN_WARP_HTTP_PORT` / `WARP_HTTP_PORT` | `0` | HTTP 代理监听端口；`0` 表示不启用，适用于 `usque` / `warp-cli` |
 | `warp_endpoint` | `SOUWEN_WARP_ENDPOINT` / `WARP_ENDPOINT` | None | 自定义 Endpoint（如 `162.159.192.1:4500`） |
+| `warp_usque_config` | `SOUWEN_WARP_USQUE_CONFIG` / `WARP_USQUE_CONFIG` | None | `usque` 模式的 config.json 路径 |
+| `warp_external_proxy` | `SOUWEN_WARP_EXTERNAL_PROXY` / `WARP_EXTERNAL_PROXY` | None | `external` 模式使用的外部代理地址 |
 
 > WARP 字段支持不带 `SOUWEN_` 前缀的环境变量（Docker entrypoint 兼容）。
 
@@ -334,6 +339,8 @@ server:
 | `params` | object | `{}` | 附加参数（传递给搜索方法） |
 
 环境变量：`SOUWEN_SOURCES='{"duckduckgo":{"proxy":"warp"}}'`（JSON 格式）
+
+自建实例源（如 `searxng` / `whoogle` / `websurfx`）优先使用 `sources.<name>.base_url`；旧版 `sources.<name>.api_key` 与 flat `<name>_url` 仍作为兼容入口。数据源字段和运行时可见性规则见 [data-sources.md](./data-sources.md) 与 [api-reference.md](./api-reference.md#数据源频道配置v1-admin)。
 
 示例：
 
@@ -358,14 +365,17 @@ sources:
 | 环境变量 | 等价 YAML 字段 | 说明 |
 |----------|---------------|------|
 | `WARP_ENABLED` | `warp.warp_enabled` | `1`/`true` 启用 WARP |
-| `WARP_MODE` | `warp.warp_mode` | `auto` / `wireproxy` / `kernel` |
+| `WARP_MODE` | `warp.warp_mode` | `auto` / `wireproxy` / `kernel` / `usque` / `warp-cli` / `external` |
 | `WARP_SOCKS_PORT` | `warp.warp_socks_port` | SOCKS5 监听端口（默认 1080） |
+| `WARP_HTTP_PORT` | `warp.warp_http_port` | HTTP 代理监听端口（`usque` / `warp-cli` 模式可用，默认 0 表示关闭） |
 | `WARP_ENDPOINT` | `warp.warp_endpoint` | 自定义 WARP Endpoint（如 `162.159.192.1:4500`） |
+| `WARP_USQUE_CONFIG` | `warp.warp_usque_config` | `usque` 模式的 config.json 路径 |
+| `WARP_EXTERNAL_PROXY` | `warp.warp_external_proxy` | `external` 模式使用的外部代理地址 |
 | `WARP_CONFIG_B64` | — | Base64 编码的 wireproxy / WireGuard 完整配置（仅 entrypoint 使用） |
 | `GH_PROXY` | — | GitHub 下载加速前缀（用于 wgcf / wireproxy 二进制下载） |
 | `SOUWEN_ADMIN_OPEN` | — | 管理端"显式开放"开关，未设管理密码时避免启动告警 |
 
-> 详细 WARP 部署与双模式选择见 [anti-scraping.md](./anti-scraping.md#warp-cloudflare-代理)。
+> 详细 WARP 部署与五模式选择见 [warp-solutions.md](./warp-solutions.md)，反爬和代理使用建议见 [anti-scraping.md](./anti-scraping.md#warp-cloudflare-代理)。
 
 ## 配置相关交叉引用
 

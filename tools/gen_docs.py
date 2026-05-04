@@ -5,11 +5,13 @@
 用法：
     python tools/gen_docs.py                   # 打印
     python tools/gen_docs.py -o docs/data-sources.md  # 写入文件
+    python tools/gen_docs.py --check           # 校验 docs/data-sources.md 是否最新
 """
 
 from __future__ import annotations
 
 import argparse
+import difflib
 import os
 import subprocess
 import sys
@@ -29,6 +31,14 @@ DOMAIN_TITLES = {
     "archive": "档案/历史",
     "fetch": "内容抓取",
 }
+
+
+def _configure_cli_stdio() -> None:
+    """Use UTF-8 for CLI output so generated Chinese docs work on Windows."""
+    for stream in (sys.stdout, sys.stderr):
+        reconfigure = getattr(stream, "reconfigure", None)
+        if callable(reconfigure):
+            reconfigure(encoding="utf-8")
 
 
 def render(*, include_plugins: bool = False) -> str:
@@ -70,11 +80,69 @@ def render(*, include_plugins: bool = False) -> str:
     visible_external_count = len(external_names) if include_plugins else 0
 
     lines: list[str] = []
-    lines.append("# SouWen 数据源清单")
+    lines.append("# SouWen 数据源指南与清单")
     lines.append("")
     lines.append(
         f"**总计**：**{len(adapters)}** 个数据源（从 registry 自动生成；"
         f"其中外部插件 **{visible_external_count}** 个）。"
+    )
+    lines.append("")
+    lines.append("## 事实来源")
+    lines.append("")
+    lines.append(
+        "本页不是手工维护的静态表，而是由 `src/souwen/registry/sources.py` 中的 "
+        "`SourceAdapter` 声明经 `tools/gen_docs.py` 生成。`SourceAdapter` 同时驱动 "
+        "CLI、REST API、doctor、Panel 和插件视图。"
+    )
+    lines.append("")
+    lines.append(
+        "默认生成只包含内置源，并显式关闭外部插件自动加载；这样即使本机安装了 "
+        "`souwen.plugins` entry point，checked-in 文档也能稳定复现。需要把本机插件一并"
+        "展示时再使用 `--include-plugins`。"
+    )
+    lines.append("")
+    lines.append("## 如何阅读")
+    lines.append("")
+    lines.append(
+        "- 本页主表按 registry domain 展示：`paper` / `patent` / `web` / `social` / "
+        "`video` / `knowledge` / `developer` / `cn_tech` / `office` / `archive` / `fetch`。"
+    )
+    lines.append(
+        "- `/api/v1/sources` 和 Panel 使用兼容分类：`general` / `professional` 会拆分 "
+        "`web` 源，`knowledge` 显示为 `wiki`，`archive` 与跨域抓取能力归入 `fetch`。"
+    )
+    lines.append(
+        "- `Capabilities` 是门面层可派发能力；`fetch` 既可以是主 domain，也可以是 "
+        "`tavily` / `firecrawl` / `exa` / `xcrawl` / `wayback` 等源的跨域能力。"
+    )
+    lines.append("")
+    lines.append("## 配置口径")
+    lines.append("")
+    lines.append(
+        "- Auth 的取值是 `none` / `optional` / `required` / `self_hosted`。"
+        "`optional` 表示缺凭据仍可用，但配置后可提升限流、配额、质量或登录态能力；"
+        "`required` 与 `self_hosted` 缺少声明字段时不会出现在 `/api/v1/sources`。"
+    )
+    lines.append(
+        "- `Credentials` 列出完整字段；多字段源必须全部满足。频道级 "
+        "`sources.<name>.api_key` 只覆盖主 `config_field`，其余字段仍读取 flat config。"
+    )
+    lines.append(
+        "- 自建实例源优先读取 `sources.<name>.base_url`，并兼容旧的 "
+        "`sources.<name>.api_key` 与 flat `<name>_url`。当前内置自建源为 "
+        "`searxng`、`whoogle`、`websurfx`。"
+    )
+    lines.append(
+        "- `Risk` 只描述默认调度风险，不等同于接入方式；`Distribution` 描述推荐安装/"
+        "治理边界；`Extra` 是推荐安装的 optional dependency 组。"
+    )
+    lines.append("")
+    lines.append("## 运行时可见性")
+    lines.append("")
+    lines.append(
+        "`/api/v1/sources` 会从 live registry 派生，并过滤已禁用、缺必需凭据或缺自建实例"
+        "地址的源；doctor 和管理端 `/api/v1/admin/sources/config` 会展示所有注册源及其"
+        "状态、凭据字段、频道配置和 catalog 元数据。"
     )
     lines.append("")
     lines.append("<!-- BEGIN AUTO -->")
@@ -137,11 +205,13 @@ def render(*, include_plugins: bool = False) -> str:
     lines.append("- Risk 描述默认调度风险，不等同于 Integration。")
     lines.append("- Distribution 描述推荐治理/安装范围：核心内置 / 可选依赖 / 外部插件。")
     lines.append("- Extra 表示建议安装的 optional dependency 组。")
+    lines.append("- Stability 描述接入成熟度：稳定 / Beta / 实验性 / 已弃用。")
     lines.append("")
-    lines.append("## 重新生成")
+    lines.append("## 重新生成与校验")
     lines.append("")
     lines.append("```bash")
-    lines.append("python tools/gen_docs.py -o docs/data-sources.md")
+    lines.append("PYTHONPATH=src python3 tools/gen_docs.py -o docs/data-sources.md")
+    lines.append("PYTHONPATH=src python3 tools/gen_docs.py --check")
     lines.append("```")
     lines.append("")
     lines.append("如需在本机 catalog 中展示已安装的外部插件，可追加 `--include-plugins`。")
@@ -168,8 +238,14 @@ def render_cli_content(*, include_plugins: bool = False) -> str:
 
 
 def main() -> int:
+    _configure_cli_stdio()
     parser = argparse.ArgumentParser()
     parser.add_argument("-o", "--output", type=Path, help="写入文件；缺省则打印到 stdout")
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="校验目标文件是否与 registry 生成结果一致；默认检查 docs/data-sources.md",
+    )
     parser.add_argument(
         "--include-plugins",
         action="store_true",
@@ -183,9 +259,35 @@ def main() -> int:
         if args._render_only
         else render_cli_content(include_plugins=args.include_plugins)
     )
+    if args.check:
+        target = args.output or Path("docs/data-sources.md")
+        if not target.exists():
+            print(
+                f"ERROR: {target} does not exist; run: "
+                f"PYTHONPATH=src python3 tools/gen_docs.py -o {target}",
+                file=sys.stderr,
+            )
+            return 1
+        current = target.read_text(encoding="utf-8")
+        if current == content:
+            print(f"OK: {target} is up to date")
+            return 0
+        print(
+            f"ERROR: {target} is out of date; regenerate it with:",
+            file=sys.stderr,
+        )
+        print(f"  PYTHONPATH=src python3 tools/gen_docs.py -o {target}", file=sys.stderr)
+        diff = difflib.unified_diff(
+            current.splitlines(keepends=True),
+            content.splitlines(keepends=True),
+            fromfile=str(target),
+            tofile="generated",
+        )
+        sys.stderr.writelines(diff)
+        return 1
     if args.output:
         args.output.write_text(content, encoding="utf-8")
-        print(f"✓ 写入 {args.output}")
+        print(f"OK: wrote {args.output}")
     else:
         sys.stdout.write(content)
     return 0

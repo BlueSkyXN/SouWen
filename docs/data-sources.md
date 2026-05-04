@@ -1,6 +1,29 @@
-# SouWen 数据源清单
+# SouWen 数据源指南与清单
 
 **总计**：**93** 个数据源（从 registry 自动生成；其中外部插件 **0** 个）。
+
+## 事实来源
+
+本页不是手工维护的静态表，而是由 `src/souwen/registry/sources.py` 中的 `SourceAdapter` 声明经 `tools/gen_docs.py` 生成。`SourceAdapter` 同时驱动 CLI、REST API、doctor、Panel 和插件视图。
+
+默认生成只包含内置源，并显式关闭外部插件自动加载；这样即使本机安装了 `souwen.plugins` entry point，checked-in 文档也能稳定复现。需要把本机插件一并展示时再使用 `--include-plugins`。
+
+## 如何阅读
+
+- 本页主表按 registry domain 展示：`paper` / `patent` / `web` / `social` / `video` / `knowledge` / `developer` / `cn_tech` / `office` / `archive` / `fetch`。
+- `/api/v1/sources` 和 Panel 使用兼容分类：`general` / `professional` 会拆分 `web` 源，`knowledge` 显示为 `wiki`，`archive` 与跨域抓取能力归入 `fetch`。
+- `Capabilities` 是门面层可派发能力；`fetch` 既可以是主 domain，也可以是 `tavily` / `firecrawl` / `exa` / `xcrawl` / `wayback` 等源的跨域能力。
+
+## 配置口径
+
+- Auth 的取值是 `none` / `optional` / `required` / `self_hosted`。`optional` 表示缺凭据仍可用，但配置后可提升限流、配额、质量或登录态能力；`required` 与 `self_hosted` 缺少声明字段时不会出现在 `/api/v1/sources`。
+- `Credentials` 列出完整字段；多字段源必须全部满足。频道级 `sources.<name>.api_key` 只覆盖主 `config_field`，其余字段仍读取 flat config。
+- 自建实例源优先读取 `sources.<name>.base_url`，并兼容旧的 `sources.<name>.api_key` 与 flat `<name>_url`。当前内置自建源为 `searxng`、`whoogle`、`websurfx`。
+- `Risk` 只描述默认调度风险，不等同于接入方式；`Distribution` 描述推荐安装/治理边界；`Extra` 是推荐安装的 optional dependency 组。
+
+## 运行时可见性
+
+`/api/v1/sources` 会从 live registry 派生，并过滤已禁用、缺必需凭据或缺自建实例地址的源；doctor 和管理端 `/api/v1/admin/sources/config` 会展示所有注册源及其状态、凭据字段、频道配置和 catalog 元数据。
 
 <!-- BEGIN AUTO -->
 
@@ -35,9 +58,9 @@
 | `cnipa` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `cnipa_client_id`, `cnipa_client_secret` |
 | `epo_ops` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `epo_consumer_key`, `epo_consumer_secret` |
 | `google_patents` | scraper | 免配置 | 中风险 | 可选依赖 | 实验性 | `scraper` | search | — |
-| `patentsview` | open_api | 免配置 | 低风险 | 核心内置 | 实验性 | — | search | — |
+| `patentsview` | open_api | 免配置 | 低风险 | 核心内置 | 已弃用 | — | search | — |
 | `patsnap` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `patsnap_api_key` |
-| `pqai` | open_api | 免配置 | 低风险 | 核心内置 | 实验性 | — | search | — |
+| `pqai` | open_api | 免配置 | 低风险 | 核心内置 | 已弃用 | — | search | — |
 | `the_lens` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `lens_api_token` |
 | `uspto_odp` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `uspto_api_key` |
 
@@ -169,11 +192,13 @@
 - Risk 描述默认调度风险，不等同于 Integration。
 - Distribution 描述推荐治理/安装范围：核心内置 / 可选依赖 / 外部插件。
 - Extra 表示建议安装的 optional dependency 组。
+- Stability 描述接入成熟度：稳定 / Beta / 实验性 / 已弃用。
 
-## 重新生成
+## 重新生成与校验
 
 ```bash
-python tools/gen_docs.py -o docs/data-sources.md
+PYTHONPATH=src python3 tools/gen_docs.py -o docs/data-sources.md
+PYTHONPATH=src python3 tools/gen_docs.py --check
 ```
 
 如需在本机 catalog 中展示已安装的外部插件，可追加 `--include-plugins`。
