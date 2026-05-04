@@ -511,6 +511,8 @@ Cache-Control: public, max-age=3600
 自建实例源（`auth_requirement="self_hosted"`）优先使用 `sources.<name>.base_url`；
 旧版 `sources.<name>.api_key` 与 flat `<name>_url` 仍保留兼容。
 
+数据源 catalog 字段和运行时可见性的总览见 [data-sources.md](./data-sources.md)；用户手册会在 GitHub Wiki 中提供场景化说明。
+
 ---
 
 ### 管理端点 (`/api/v1/admin/...`)
@@ -544,6 +546,8 @@ Cache-Control: public, max-age=3600
 #### `GET /api/v1/admin/doctor`
 
 数据源健康检查，返回配置状态和已知限制提示；当前不执行实时连通性探测。`available` 统计 `ok` / `limited` / `warning` / `degraded`，`degraded_total` 统计 `limited` / `warning` / `degraded`；`degraded` 为兼容旧客户端的同值别名，精确状态计数请读取 `status_counts.degraded`。
+
+状态语义与 Panel 展示规则应以本节和管理端 schema 为准；面向用户的排障路径会在 GitHub Wiki 中提供。
 
 **响应示例：**
 ```json

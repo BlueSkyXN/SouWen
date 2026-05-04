@@ -6,7 +6,7 @@
 
 [![Python](https://img.shields.io/badge/python-≥3.10-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-GPLv3-blue)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.0.0-orange)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-1.1.1-orange)](CHANGELOG.md)
 
 **Author**: [@BlueSkyXN](https://github.com/BlueSkyXN) · **Repository**: [github.com/BlueSkyXN/SouWen](https://github.com/BlueSkyXN/SouWen) · **License**: [GPLv3](LICENSE)
 
@@ -36,8 +36,8 @@ The registry architecture reduces the cost of adding a new source to **1–2 cod
 
 ### Features
 
-- **91 heterogeneous data sources** (derived from a unified `registry`):
-  - `paper` 17 · `patent` 8 · `web` 29 (engines/api/self_hosted)
+- **93 built-in heterogeneous data sources** (derived from a unified `registry`, with external plugins appended at runtime):
+  - `paper` 19 · `patent` 8 · `web` 29 (engines/api/self_hosted)
   - `social` 5 · `video` 2 · `knowledge` 1
   - `developer` 2 · `cn_tech` 9 · `office` 1 · `archive` 1
   - `fetch` cross-cutting: 16 fetch providers + 5 cross-domain providers
@@ -45,7 +45,7 @@ The registry architecture reduces the cost of adding a new source to **1–2 cod
 - **Async-first**: httpx + asyncio, per-loop Semaphore concurrency control
 - **Smart rate limiting**: Token Bucket + sliding window, per-source isolation
 - **curl_cffi TLS fingerprinting**: 15+ scraper sources use browser fingerprints to bypass anti-bot
-- **WARP dual-mode proxy**: kernel mode (wireguard-go + microsocks) / wireproxy mode (pure userspace)
+- **WARP five-mode proxy**: wireproxy / kernel / usque / warp-cli / external, with runtime install and management support
 - **MCP protocol**: callable by Claude Code / Cursor / Windsurf and other AI assistants
 - **Multi-skin Web UI**: souwen-google (default) / souwen-nebula / carbon / apple / ios (SCSS Modules + Zustand)
 
@@ -152,7 +152,7 @@ src/souwen/
 ├── core/              Platform: http_client / scraper / rate_limiter / retry / …
 ├── registry/          Single source of truth: adapter / sources / loader / views
 ├── facade/            Facade: search / fetch / archive / aggregate
-├── paper/             17 paper clients
+├── paper/             19 paper clients
 ├── patent/            8 patent clients
 ├── web/               30 web-related (engines / api / self_hosted)
 ├── social/ video/ knowledge/ developer/ cn_tech/ office/ archive/ fetch/
@@ -198,8 +198,9 @@ docker run -p 8000:8000 \
 
 ## 📚 Documentation
 
+- [docs/README.md](docs/README.md) — Technical documentation index and reading guide
 - [docs/architecture.md](docs/architecture.md) — Architecture overview
-- [docs/data-sources.md](docs/data-sources.md) — Full data source list (auto-generated from registry)
+- [docs/data-sources.md](docs/data-sources.md) — Full data source guide and list (auto-generated from registry)
 - [docs/configuration.md](docs/configuration.md) — Configuration hierarchy / WARP / HTTP backend
 - [docs/api-reference.md](docs/api-reference.md) — REST API reference
 - [docs/hf-space-cd.md](docs/hf-space-cd.md) — Hugging Face Space CD / local gates / post-deploy validation
@@ -209,6 +210,7 @@ docker run -p 8000:8000 \
 - [docs/plugin-integration-spec.md](docs/plugin-integration-spec.md) — External plugin integration spec
 - [docs/plugin-management.md](docs/plugin-management.md) — Plugin management (Web Panel / CLI / API)
 - [docs/contributing.md](docs/contributing.md) — Developer guide
+- [GitHub Wiki](https://github.com/BlueSkyXN/SouWen/wiki) — User manual and task-oriented navigation
 - [CHANGELOG.md](CHANGELOG.md) — Changelog
 
 ## 🤝 Contributing

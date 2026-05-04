@@ -114,7 +114,7 @@ _reg(SourceAdapter(
 
 ### 懒加载
 
-注册表模块导入时**不**加载 91+ 个 Client：
+注册表模块导入时**不**加载 93 个内置源对应的 Client：
 
 ```python
 client_loader=lazy("souwen.paper.openalex:OpenAlexClient")
@@ -190,7 +190,7 @@ client_cls = adapter.client_loader()  # 此刻才 importlib.import_module
 
 - **TLS 指纹**：`curl_cffi` 为 15+ 爬虫类源伪装 Chrome/Safari TLS ClientHello
 - **Token Bucket + 滑窗双层限流**：每源独立
-- **WARP 双方案**：kernel（wireguard-go + microsocks）/ wireproxy（用户态）
+- **WARP 五模式**：wireproxy / kernel / usque / warp-cli / external
 - **SSRF 防护**：fetch 入口的重定向跟踪 + 私网/回环/链路本地 IP 黑名单
 
 ## 6. 配置
