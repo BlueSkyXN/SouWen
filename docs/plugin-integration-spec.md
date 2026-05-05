@@ -578,8 +578,8 @@ def test_appears_in_registry(registered_plugin):
 
 ```python
 @pytest.mark.asyncio
-async def test_search_via_facade(registered_plugin, httpx_mock):
-    from souwen.facade.search import search
+async def test_search_via_registry(registered_plugin, httpx_mock):
+    from souwen.search import search
     httpx_mock.add_response(url="https://api.example.com/search", json={...})
     resp = await search("hello", domain="web", sources=[plugin.name], limit=3)
     assert len(resp[0].results) > 0
