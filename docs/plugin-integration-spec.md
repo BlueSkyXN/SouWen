@@ -350,7 +350,7 @@ register_fetch_handler("my-source", my_handler, override=False)
 
 | 参数 | 含义 |
 |---|---|
-| `provider: str` | provider 名（CLI `--provider` 与 `fetch_content(provider=)` 用） |
+| `provider: str` | provider 名（CLI `--provider` 与 `fetch_content(providers=[...])` 用） |
 | `handler: FetchHandler` | 满足 §6 签名的异步函数 |
 | `override: bool = False` | 是否允许覆盖同名 handler；默认拒绝并记 warning |
 
@@ -374,7 +374,7 @@ entry point `ep.load()` 会执行该模块顶层代码，handler 即被注册。
 ### 何时只用 SourceAdapter（不需要 handler）
 
 - 插件只做**搜索**类 capability，不在 `fetch` 域、不实现 `fetch` capability
-- 不希望插件出现在 `fetch_content(provider=...)` 列表里
+- 不希望插件出现在 `fetch_content(providers=[...])` 列表里
 
 简言之：`SourceAdapter` 让源出现在 registry，`register_fetch_handler` 让源能被
 `souwen.web.fetch.fetch_content` 派发，二者互不依赖；fetch provider 通常需要两个都做。
