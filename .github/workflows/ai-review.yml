@@ -9,6 +9,10 @@ name: AI PR Review
 # 当 PR 被打开/同步/重新打开时，或仓库 OWNER 手动触发时，自动对 PR 代码变更
 # 进行 AI 驱动的代码评审。评审结果以 sticky comment 发布到 PR 上（更新而非重复发布）。
 #
+# 【当前状态】
+# v2 完全迁移期间关闭自动 PR 评审，避免拖慢 v2-dev staged PR 开发。
+# workflow_dispatch 手动入口保留；恢复自动评审时重新启用下方注释的 pull_request 触发面。
+#
 # 【触发条件】
 # 1. pull_request (open/synchronize/reopened/ready_for_review) — 自动触发
 #    - 忽略 docs/、local/、README 和 CHANGELOG 变更；.github/prompts/** 会触发评审
@@ -54,15 +58,16 @@ name: AI PR Review
 # ═══════════════════════════════════════════════════════════════════════════
 
 on:
-  pull_request:
-    branches: [main]
-    paths-ignore:
-      - 'docs/**'
-      - 'local/**'
-      - 'README.md'
-      - 'README.en.md'
-      - 'CHANGELOG.md'
-    types: [opened, synchronize, reopened, ready_for_review]
+  # v2 migration: automatic PR review is disabled.
+  # pull_request:
+  #   branches: [main]
+  #   paths-ignore:
+  #     - 'docs/**'
+  #     - 'local/**'
+  #     - 'README.md'
+  #     - 'README.en.md'
+  #     - 'CHANGELOG.md'
+  #   types: [opened, synchronize, reopened, ready_for_review]
   workflow_dispatch:
     inputs:
       target_branch:

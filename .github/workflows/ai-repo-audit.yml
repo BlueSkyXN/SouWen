@@ -11,6 +11,10 @@ name: AI Repo Audit
 # 隐藏债共 7 类问题，按 severity_threshold 自动修复（dry_run=false 时），
 # 最后输出一份中文 PR / Issue 报告。
 #
+# 【当前状态】
+# v2 完全迁移期间不配置自动触发，仅保留 workflow_dispatch 手动审计入口。
+# 手动运行前需要确认目标分支、扫描范围和 CI/CD 契约已适配 v2-dev。
+#
 # 【触发条件】
 # 仅 workflow_dispatch — 非 OWNER 静默忽略。
 # inputs:
