@@ -131,7 +131,7 @@ ruff format src/
 
 注册表是单一事实源，但提供多条等价的入口路径：
 
-- ✅ **顶层便捷入口**：`souwen.search.search_papers / search_patents / web_search`、`souwen.web.fetch.fetch_content`、`souwen.web.wayback.WaybackClient` 等；内部转发到 `souwen.facade.*`。
+- ✅ **顶层便捷入口**：`souwen.search.search / search_all / search_papers / search_patents / web_search`、`souwen.web.fetch.fetch_content`、`souwen.web.wayback.WaybackClient` 等；内部通过 `souwen.registry` 派发。
 - ✅ **`souwen.models.SourceType` 与 `ALL_SOURCES`**：由 `registry.views.enum_values()` / `as_all_sources_dict()` 派生。
 - ✅ **配置字段**：`SouWenConfig` 的 flat key（如 `tavily_api_key`）与频道覆盖 `sources.<name>.api_key` 都支持；新增源若选用 flat key 需同时支持频道覆盖。
 - ✅ **平台层 re-export**：`souwen.scraper.base` / `souwen.http_client` / `souwen.fingerprint` 是 `souwen.core.*` 的便捷入口；新代码任选其一即可。
