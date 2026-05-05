@@ -2,7 +2,7 @@
 
 > SouWen 配置系统：从零配置到完全自定义
 
-> **V1 架构提示**：所有配置项均集中在 `src/souwen/config/models.py` 的 `SouWenConfig`（Pydantic 模型）。新增数据源时若需要凭据，需要在 `SouWenConfig` 加字段，并在 `registry/sources.py` 的 `SourceAdapter` 里通过 `config_field` / `credential_fields` 引用。详见 [adding-a-source.md](./adding-a-source.md)。
+> **V1 架构提示**：所有配置项均集中在 `src/souwen/config/models.py` 的 `SouWenConfig`（Pydantic 模型）。新增数据源时若需要凭据，需要在 `SouWenConfig` 加字段，并在 `registry/sources/` 的 `SourceAdapter` 里通过 `config_field` / `credential_fields` 引用。详见 [adding-a-source.md](./adding-a-source.md)。
 
 ## 配置优先级
 

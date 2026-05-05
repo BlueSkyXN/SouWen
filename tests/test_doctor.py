@@ -18,7 +18,7 @@ from souwen.exceptions import ConfigError
 from souwen.registry.adapter import MethodSpec, SourceAdapter
 from souwen.registry.loader import lazy
 from souwen.registry.views import _reg_external
-from souwen.source_registry import get_all_sources
+from souwen.registry.meta import get_all_sources
 
 
 def register_runtime_web_doctor_probe() -> str:

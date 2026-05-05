@@ -120,7 +120,7 @@ ruff format src/
 新增源只需 **1-2 处**改动：
 
 1. 实现 `Client` 类（继承 `SouWenHttpClient` / `OAuthClient` / `BaseScraper`）。
-2. 在 `src/souwen/registry/sources.py` 添加一个 `_reg(SourceAdapter(...))`。
+2. 在 `src/souwen/registry/sources/` 添加一个 `_reg(SourceAdapter(...))`。
 3. 若需要 API Key，在 `src/souwen/config/models.py` 的 `SouWenConfig` 加字段并在 adapter 里通过 `config_field="..."` 引用。
 
 完整步骤、模板与一致性测试要求请看 **[adding-a-source.md](./adding-a-source.md)**。

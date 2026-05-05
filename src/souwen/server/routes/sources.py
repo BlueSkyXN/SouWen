@@ -19,7 +19,7 @@ async def list_sources():
     """
     from souwen.config import get_config
     from souwen.registry import as_all_sources_dict
-    from souwen.source_registry import get_source, has_required_credentials
+    from souwen.registry.meta import get_source, has_required_credentials
 
     cfg = get_config()
     all_sources = as_all_sources_dict()

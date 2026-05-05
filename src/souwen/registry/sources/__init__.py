@@ -1,4 +1,4 @@
-"""registry/sources.py — 声明式数据源注册
+"""registry/sources/ — 声明式数据源注册
 
 **这是单一事实源**。新增一个数据源 = 在这个文件里加一个 `_reg(SourceAdapter(...))`。
 

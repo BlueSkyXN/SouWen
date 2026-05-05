@@ -215,7 +215,7 @@ docker run -p 8000:8000 \
 
 ## 🤝 Contributing
 
-- Add a data source: see [docs/adding-a-source.md](docs/adding-a-source.md) (just add one `_reg(...)` call in `registry/sources.py`)
+- Add a data source: see [docs/adding-a-source.md](docs/adding-a-source.md) (just add one `_reg(...)` call in `registry/sources/`)
 - Build an external plugin: see [docs/plugin-integration-spec.md](docs/plugin-integration-spec.md)
 - Code style: `ruff format && ruff check`
 - Tests: `pytest tests/`

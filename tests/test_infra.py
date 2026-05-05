@@ -43,7 +43,7 @@ from souwen.exceptions import (
 )
 from souwen.config import SouWenConfig
 from souwen.rate_limiter import TokenBucketLimiter, SlidingWindowLimiter
-from souwen.source_registry import (
+from souwen.registry.meta import (
     AUTH_REQUIREMENT_TYPES,
     DISTRIBUTION_TYPES,
     INTEGRATION_TYPES,
@@ -531,9 +531,9 @@ class TestCLI:
     def test_cli_all_sources_data(self):
         """数据源清单完整性（v1 从 registry 派生）
 
-        注意：v0 的 `ALL_SOURCES` 与 `source_registry` 之间存在漂移
+        注意：v0 的 `ALL_SOURCES` 与 `source_meta` 之间存在漂移
         （bing_cn / ddg_news / ddg_images / ddg_videos / metaso / twitter / facebook
-        在 source_registry 登记但 ALL_SOURCES 漏列）。
+        在 source_meta 登记但 ALL_SOURCES 漏列）。
         v1 统一由 registry 派生，修复漂移；因此 general/social 数字比 v0 更高。
         """
         from souwen.models import ALL_SOURCES

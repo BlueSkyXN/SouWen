@@ -11,7 +11,7 @@ from souwen.cli._common import console
 @app.command("sources")
 def list_sources() -> None:
     """列出所有可用数据源"""
-    from souwen.source_registry import (
+    from souwen.registry.meta import (
         AUTH_REQUIREMENT_LABELS,
         DISTRIBUTION_LABELS,
         RISK_LEVEL_LABELS,
