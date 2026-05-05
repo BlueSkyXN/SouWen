@@ -2,7 +2,7 @@
 
 Scrapling 是本地运行的抓取框架，提供普通 HTTP、动态浏览器和 stealth 浏览器三类
 fetcher。这里把它封装成 SouWen 的 fetch provider，使用户可以通过
-``souwen fetch --provider scrapling`` 或 ``fetch_content(..., provider="scrapling")``
+``souwen fetch --provider scrapling`` 或 ``fetch_content(..., providers=["scrapling"])``
 使用，而不会影响现有 ``httpx`` / ``curl_cffi`` 后端。
 """
 
