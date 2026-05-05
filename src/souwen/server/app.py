@@ -409,7 +409,7 @@ async def readiness():
     """
     try:
         get_config()
-        from souwen.source_registry import get_all_sources
+        from souwen.registry.meta import get_all_sources
 
         sources = get_all_sources()
         if not sources:

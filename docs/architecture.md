@@ -204,7 +204,7 @@ client_cls = adapter.client_loader()  # 此刻才 importlib.import_module
 **最少只改 2 处**：
 
 1. `src/souwen/<domain>/<name>.py` 写 Client（继承 `SouWenHttpClient` / `BaseScraper`）
-2. `src/souwen/registry/sources.py` 加一个 `_reg(SourceAdapter(...))`
+2. `src/souwen/registry/sources/` 加一个 `_reg(SourceAdapter(...))`
 
 如需 API Key，加第 3 处：`SouWenConfig` 加字段。完整流程见 [adding-a-source.md](adding-a-source.md)。
 
@@ -254,7 +254,7 @@ SouWen 启动时统一通过 `importlib.metadata` 扫描发现。
 
 | 维度 | 内置 `_reg()` | 外部 `_reg_external()` |
 |---|---|---|
-| 声明位置 | `registry/sources.py` | 第三方包的 entry point |
+| 声明位置 | `registry/sources/` | 第三方包的 entry point |
 | 重名 | 抛 `ValueError`（启动失败） | 记 warning 跳过 |
 | 一致性测试 | 必跑 `tests/registry/test_consistency.py` | 不强制 |
 | 暴露视图 | 同上 | 额外出现在 `external_plugins()` |

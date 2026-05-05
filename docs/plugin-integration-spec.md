@@ -9,7 +9,7 @@
 ## 1. 概述与目标
 
 SouWen 的所有数据源都通过 [`SourceAdapter`](../src/souwen/registry/adapter.py) 在
-`registry/sources.py` 集中声明（"单一事实源"）。**插件机制**允许第三方在 SouWen 主仓
+`registry/sources/` 集中声明（"单一事实源"）。**插件机制**允许第三方在 SouWen 主仓
 之外贡献新的 `SourceAdapter` 与 fetch handler，常见场景：
 
 - 接入私有 / 内部 / 商业搜索 API

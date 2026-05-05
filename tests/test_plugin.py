@@ -195,16 +195,16 @@ class TestRegExternal:
         assert "ext_visible" in all_adapters()
         assert all_adapters()["ext_visible"] is a
 
-    def test_external_registration_invalidates_source_registry_cache(self, clean_registry):
-        import souwen.source_registry as source_registry
+    def test_external_registration_invalidates_source_meta_cache(self, clean_registry):
+        from souwen.registry import meta as source_meta
 
-        source_registry.get_all_sources()  # warm cache before runtime plugin registration
+        source_meta.get_all_sources()  # warm cache before runtime plugin registration
         _reg_external(make_test_adapter("ext_meta_cache"))
 
-        meta = source_registry.get_source("ext_meta_cache")
+        meta = source_meta.get_source("ext_meta_cache")
         assert meta is not None
         assert meta.distribution == "plugin"
-        assert "ext_meta_cache" in source_registry.ALL_SOURCE_NAMES
+        assert "ext_meta_cache" in source_meta.ALL_SOURCE_NAMES
 
 
 # ── discover_entrypoint_plugins ────────────────────────────
@@ -376,6 +376,8 @@ class TestLoadPlugins:
 
     def test_entry_point_discovery_total_failure(self, clean_registry, monkeypatch):
         # discover_entrypoint_plugins 抛异常时被 load_plugins 兜底
+        monkeypatch.delenv("SOUWEN_PLUGIN_AUTOLOAD", raising=False)
+
         def boom(*_a: Any, **_kw: Any):
             raise RuntimeError("ep system down")
 
@@ -425,6 +427,7 @@ class TestLoadPlugins:
         assert result["errors"] == []
 
     def test_env_denylist_is_merged_into_skip_names(self, clean_registry, monkeypatch):
+        monkeypatch.delenv("SOUWEN_PLUGIN_AUTOLOAD", raising=False)
         captured: list[set[str]] = []
 
         def discover(*, skip_names: set[str] | None = None, config: Any = None):
