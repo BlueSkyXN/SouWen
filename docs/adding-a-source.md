@@ -1,7 +1,7 @@
 # 添加一个新数据源（V1 指南）
 
-> 在 V1 架构下，新增一个数据源 = **改 1-2 处文件**：实现 Client + 在 `registry/sources.py` 注册。
-> 不再需要去改 `search.py` / `web/search.py` / `models.py` / `source_registry.py` 的多份分发表。
+> 在 V1 架构下，新增一个数据源 = **改 1-2 处文件**：实现 Client + 在 `registry/sources/` 注册。
+> 不再需要去改 `search.py` / `web/search.py` / `models.py` / `registry/meta.py` 的多份分发表。
 
 ## 全景
 
@@ -9,7 +9,7 @@
 1. 实现 Client 类（按需选基类：BaseClient / OAuthClient / BaseScraper）
         │
         ▼
-2. 在 src/souwen/registry/sources.py 添加 _reg(SourceAdapter(...))
+2. 在 src/souwen/registry/sources/ 添加 _reg(SourceAdapter(...))
         │
         ▼
 3. 若需要 API Key/凭证：在 src/souwen/config/models.py 的 SouWenConfig 加字段
@@ -88,7 +88,7 @@ class MySourceClient(SouWenHttpClient):
 
 ## 2. 在 registry 注册
 
-打开 `src/souwen/registry/sources.py`，按域插入新条目：
+打开 `src/souwen/registry/sources/`，按域插入新条目：
 
 ```python
 # === paper（19 源） 区段末尾追加 ===

@@ -56,7 +56,7 @@ def render(*, include_plugins: bool = False) -> str:
 
     try:
         from souwen.registry import all_adapters, all_domains, external_plugins
-        from souwen.source_registry import (
+        from souwen.registry.meta import (
             AUTH_REQUIREMENT_LABELS,
             DISTRIBUTION_LABELS,
             OPTIONAL_CREDENTIAL_EFFECT_LABELS,
@@ -90,7 +90,7 @@ def render(*, include_plugins: bool = False) -> str:
     lines.append("## 事实来源")
     lines.append("")
     lines.append(
-        "本页不是手工维护的静态表，而是由 `src/souwen/registry/sources.py` 中的 "
+        "本页不是手工维护的静态表，而是由 `src/souwen/registry/sources/` 中的 "
         "`SourceAdapter` 声明经 `tools/gen_docs.py` 生成。`SourceAdapter` 同时驱动 "
         "CLI、REST API、doctor、Panel 和插件视图。"
     )

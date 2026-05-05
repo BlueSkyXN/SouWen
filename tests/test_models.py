@@ -38,7 +38,7 @@ class TestAllSources:
     def test_web_count(self):
         """web-derived categories have correct source counts（v1 从 registry 派生）
 
-        v0 的 ALL_SOURCES 漏列了 source_registry 已登记的 bing_cn / ddg_news /
+        v0 的 ALL_SOURCES 漏列了 source_meta 已登记的 bing_cn / ddg_news /
         ddg_images / ddg_videos / metaso / twitter / facebook。v1 统一从 registry
         派生，修复漂移；因此 general/social 数字比 v0 更高。
         """

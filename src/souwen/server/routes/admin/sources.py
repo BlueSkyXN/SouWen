@@ -8,7 +8,7 @@ from urllib.parse import urlparse
 from fastapi import APIRouter, HTTPException
 
 from souwen.server.schemas import UpdateSourceConfigRequest
-from souwen.source_registry import SourceMeta
+from souwen.registry.meta import SourceMeta
 
 router = APIRouter()
 
@@ -33,7 +33,7 @@ def _catalog_fields(meta: SourceMeta) -> dict[str, Any]:
 async def get_sources_config():
     """查看所有数据源的频道配置 — 包含启用状态、API Key（仅指示）、代理等。"""
     from souwen.config import get_config
-    from souwen.source_registry import (
+    from souwen.registry.meta import (
         get_all_sources,
         has_configured_credentials,
         has_required_credentials,
@@ -66,7 +66,7 @@ async def get_sources_config():
 async def get_source_config(source_name: str):
     """查看单个数据源的频道配置。"""
     from souwen.config import get_config
-    from souwen.source_registry import (
+    from souwen.registry.meta import (
         get_source,
         has_configured_credentials,
         has_required_credentials,
@@ -102,7 +102,7 @@ async def update_source_config(
 ):
     """更新单个数据源的频道配置（运行时生效）。"""
     from souwen.config import SourceChannelConfig, _validate_proxy_url, get_config
-    from souwen.source_registry import is_known_source
+    from souwen.registry.meta import is_known_source
 
     if not is_known_source(source_name):
         raise HTTPException(404, f"未知数据源: {source_name}")

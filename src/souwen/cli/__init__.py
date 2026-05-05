@@ -14,7 +14,7 @@
     cli/bilibili.py      - bilibili search/video/...
     cli/wayback.py       - wayback cdx/check/save
     cli/config_cmds.py   - config show/init/backend/source/proxy
-    cli/sources.py       - sources
+    cli/sources package       - sources
     cli/serve.py         - serve
     cli/doctor.py        - doctor
     cli/mcp.py           - mcp

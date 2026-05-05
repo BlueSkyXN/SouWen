@@ -1,4 +1,4 @@
-"""tests/test_paper/test_new_sources.py — 新增论文源解析测试
+"""tests/test_paper/test_new_sources package — 新增论文源解析测试
 
 覆盖 7 个新增论文搜索客户端的静态解析方法（不发起真实 HTTP）：
 EuropePMC / PMC / DOAJ / Zenodo / HAL / OpenAIRE / IACR。

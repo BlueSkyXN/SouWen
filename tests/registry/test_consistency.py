@@ -1,6 +1,6 @@
 """registry 结构一致性测试（D11 的 8 项硬断言 + 补充）
 
-防止未来漂移：只要 `registry/sources.py` 声明了某个东西，
+防止未来漂移：只要 `registry/sources/` 声明了某个东西，
 以下测试就保证它真的能用。
 
 断言（D11）：
@@ -62,7 +62,7 @@ class TestRegistryInvariants:
     """注册表自身的基础不变量。"""
 
     def test_registry_non_empty(self):
-        """至少注册了一些源（防止 sources.py 导入失败被吃掉）。"""
+        """至少注册了一些源（防止 sources package 导入失败被吃掉）。"""
         assert len(all_adapters()) >= 70, "注册表应有 70+ 个源"
 
     def test_all_source_names_unique(self):
@@ -197,7 +197,7 @@ class TestSourceAdapterCatalogValidation:
     def test_has_required_credentials_rejects_required_meta_without_fields(self):
         from types import SimpleNamespace
 
-        from souwen.source_registry import has_required_credentials
+        from souwen.registry.meta import has_required_credentials
 
         meta = SimpleNamespace(
             auth_requirement="required",
@@ -550,11 +550,11 @@ class TestExternalPlugins:
 
     def test_reg_external_refreshes_source_meta_cache(self, clean_registry):
         """运行时注册/注销插件源后，SourceMeta 视图必须同步刷新。"""
-        from souwen import source_registry
+        from souwen.registry import meta as source_meta
 
         # 先构建一次缓存，复现旧问题：之后注册插件若不失效会读不到新源。
-        assert "ext_cache_probe" not in source_registry.get_all_sources()
-        assert source_registry.get_source("ext_cache_probe") is None
+        assert "ext_cache_probe" not in source_meta.get_all_sources()
+        assert source_meta.get_source("ext_cache_probe") is None
 
         adapter = SourceAdapter(
             name="ext_cache_probe",
@@ -567,18 +567,18 @@ class TestExternalPlugins:
             needs_config=False,
         )
         assert _reg_external(adapter) is True
-        assert source_registry.get_source("ext_cache_probe") is not None
-        assert source_registry.is_known_source("ext_cache_probe") is True
-        assert "ext_cache_probe" in source_registry.ALL_SOURCE_NAMES
+        assert source_meta.get_source("ext_cache_probe") is not None
+        assert source_meta.is_known_source("ext_cache_probe") is True
+        assert "ext_cache_probe" in source_meta.ALL_SOURCE_NAMES
 
         assert _unreg_external("ext_cache_probe") is True
-        assert source_registry.get_source("ext_cache_probe") is None
-        assert source_registry.is_known_source("ext_cache_probe") is False
-        assert "ext_cache_probe" not in source_registry.ALL_SOURCE_NAMES
+        assert source_meta.get_source("ext_cache_probe") is None
+        assert source_meta.is_known_source("ext_cache_probe") is False
+        assert "ext_cache_probe" not in source_meta.ALL_SOURCE_NAMES
 
     def test_external_web_plugin_without_internal_v0_tag_is_visible(self, clean_registry):
         """外部 web 插件不应依赖内部 v0_category:* tag 才进入兼容视图。"""
-        from souwen import source_registry
+        from souwen.registry import meta as source_meta
 
         adapter = SourceAdapter(
             name="ext_web_probe",
@@ -592,16 +592,16 @@ class TestExternalPlugins:
         )
 
         assert _reg_external(adapter) is True
-        meta = source_registry.get_source("ext_web_probe")
+        meta = source_meta.get_source("ext_web_probe")
         assert meta is not None
         assert meta.category == "general"
         assert meta.distribution == "plugin"
-        assert source_registry.is_known_source("ext_web_probe") is True
-        assert "ext_web_probe" in source_registry.ALL_SOURCE_NAMES
+        assert source_meta.is_known_source("ext_web_probe") is True
+        assert "ext_web_probe" in source_meta.ALL_SOURCE_NAMES
 
     def test_external_web_plugin_can_use_public_professional_category_tag(self, clean_registry):
         """外部 web 插件可用公开 category:* tag 选择 professional 分类。"""
-        from souwen import source_registry
+        from souwen.registry import meta as source_meta
 
         adapter = SourceAdapter(
             name="ext_professional_web_probe",
@@ -617,6 +617,6 @@ class TestExternalPlugins:
         )
 
         assert _reg_external(adapter) is True
-        meta = source_registry.get_source("ext_professional_web_probe")
+        meta = source_meta.get_source("ext_professional_web_probe")
         assert meta is not None
         assert meta.category == "professional"
