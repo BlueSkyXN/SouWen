@@ -2,7 +2,7 @@
 
 > SouWen 配置系统：从零配置到完全自定义
 
-> **V1 架构提示**：所有配置项均集中在 `src/souwen/config/models.py` 的 `SouWenConfig`（Pydantic 模型）。新增数据源时若需要凭据，需要在 `SouWenConfig` 加字段，并在 `registry/sources/` 的 `SourceAdapter` 里通过 `config_field` / `credential_fields` 引用。详见 [adding-a-source.md](./adding-a-source.md)。
+> **V2 架构提示**：所有配置项均集中在 `src/souwen/config/models.py` 的 `SouWenConfig`（Pydantic 模型）。新增数据源时若需要凭据，需要在 `SouWenConfig` 加字段，并在 `registry/sources/` 的 `SourceAdapter` 里通过 `config_field` / `credential_fields` 引用。详见 [adding-a-source.md](./adding-a-source.md)。
 
 ## 配置优先级
 
@@ -340,7 +340,7 @@ server:
 
 环境变量：`SOUWEN_SOURCES='{"duckduckgo":{"proxy":"warp"}}'`（JSON 格式）
 
-自建实例源（如 `searxng` / `whoogle` / `websurfx`）优先使用 `sources.<name>.base_url`；旧版 `sources.<name>.api_key` 与 flat `<name>_url` 仍作为兼容入口。数据源字段和运行时可见性规则见 [data-sources.md](./data-sources.md) 与 [api-reference.md](./api-reference.md#数据源频道配置v1-admin)。
+自建实例源（如 `searxng` / `whoogle` / `websurfx`）优先使用 `sources.<name>.base_url`；旧版 `sources.<name>.api_key` 与 flat `<name>_url` 仍作为兼容入口。数据源字段和运行时可见性规则见 [data-sources.md](./data-sources.md) 与 [api-reference.md](./api-reference.md#数据源频道配置admin)。
 
 示例：
 

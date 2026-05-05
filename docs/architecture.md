@@ -22,14 +22,14 @@
 ├────────────────────────────────────────────────────────────────┤
 │ 注册表层 Registry —— 单一事实源                                │
 │   souwen.registry.adapter    SourceAdapter / MethodSpec        │
+│   souwen.registry.meta       SourceMeta 与 catalog 查询        │
 │   souwen.registry.sources    94 个内置 _reg(...) 声明（权威） │
 │   souwen.registry.loader     字符串懒加载（避免启动 import）  │
 │   souwen.registry.views      by_domain / by_capability / ...   │
 ├────────────────────────────────────────────────────────────────┤
-│ 业务层 Domain —— 按 domain 组织的 Client                        │
-│   paper/  patent/  web/{engines,api,self_hosted}/              │
-│   social/  video/  knowledge/  developer/                       │
-│   cn_tech/  office/  archive/  fetch/providers/                 │
+│ 真实 Client 模块 Concrete Clients                              │
+│   paper/  patent/  web/*                                      │
+│   社交、视频、知识、办公、抓取和归档实现均使用真实模块路径       │
 ├────────────────────────────────────────────────────────────────┤
 │ 平台层 Platform —— 所有域共用的基础设施                         │
 │   souwen.core.http_client       SouWenHttpClient / OAuthClient │
@@ -45,7 +45,7 @@
 └────────────────────────────────────────────────────────────────┘
 ```
 
-**依赖方向**：展示层 → 门面层 → 注册表层 ↔ 业务层；平台层被任何层引用。业务层内部 domain 之间不互相依赖。
+**依赖方向**：展示层 → 应用入口 → 注册表层 ↔ 真实 Client 模块；平台层被任何层引用。Client 模块之间不互相依赖。
 
 ---
 
@@ -61,7 +61,7 @@ class SourceAdapter:
     config_field: str | None                     # SouWenConfig 对应字段（None=零配置）
     client_loader: Callable[[], type]            # lazy("souwen.paper.openalex:OpenAlexClient")
     methods: Mapping[str, MethodSpec]            # capability → MethodSpec
-    extra_domains: frozenset[str] = frozenset()  # 跨域（v1 初期仅允许 "fetch"）
+    extra_domains: frozenset[str] = frozenset()  # 跨域（当前仅允许 "fetch"）
     default_enabled: bool = True                 # 高风险源设 False
     default_for: frozenset[str] = frozenset()    # {"paper:search"} 声明默认源
     tags: frozenset[str] = frozenset()           # {"high_risk"} / ...
@@ -203,8 +203,8 @@ client_cls = adapter.client_loader()  # 此刻才 importlib.import_module
 
 **最少只改 2 处**：
 
-1. `src/souwen/<domain>/<name>.py` 写 Client（继承 `SouWenHttpClient` / `BaseScraper`）
-2. `src/souwen/registry/sources/` 加一个 `_reg(SourceAdapter(...))`
+1. 在真实实现模块写 Client（论文/专利使用 `souwen.paper.*` / `souwen.patent.*`；网页、社交、视频、知识、办公、抓取和归档相关实现使用 `souwen.web.*`；继承 `SouWenHttpClient` / `BaseScraper`）
+2. 在 `src/souwen/registry/sources/` 加一个 `_reg(SourceAdapter(...))`
 
 如需 API Key，加第 3 处：`SouWenConfig` 加字段。完整流程见 [adding-a-source.md](adding-a-source.md)。
 
@@ -310,7 +310,7 @@ _FETCH_HANDLERS["jina_reader"]  = _handle_jina_reader
 
 注册表是单一事实源，但提供多条便捷入口：
 
-- `from souwen.paper import OpenAlexClient` 等按 domain 的直接 import 路径
+- `from souwen.paper import OpenAlexClient`、`from souwen.web.tavily import TavilyClient` 等真实模块 import 路径
 - 顶层 CLI 动词：`souwen search paper`、`souwen fetch`、`souwen wayback cdx` 等
 - REST 路径：`/api/v1/search/paper`、`/api/v1/fetch` 等
 - `SouWenConfig` 字段名稳定（只增不改）

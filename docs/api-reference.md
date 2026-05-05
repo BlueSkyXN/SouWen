@@ -373,7 +373,7 @@ SouWen 支持三级角色认证（Guest/User/Admin），并向后兼容旧版密
 
 **响应示例：**
 ```json
-{ "status": "ok", "version": "1.2.0" }
+{ "status": "ok", "version": "2.0.0rc1" }
 ```
 
 > `version` 字段动态返回当前 `souwen.__version__`，示例值仅作参考。
@@ -384,12 +384,12 @@ K8s readiness 探针（v0.6.1 引入）。仅做本地检查（配置可加载 +
 
 **响应示例（就绪）：**
 ```json
-{ "ready": true, "version": "1.2.0", "error": null }
+{ "ready": true, "version": "2.0.0rc1", "error": null }
 ```
 
 **响应示例（503 未就绪）：**
 ```json
-{ "ready": false, "version": "1.2.0", "error": "source registry is empty" }
+{ "ready": false, "version": "2.0.0rc1", "error": "source registry is empty" }
 ```
 
 #### `GET /` 与 `GET /panel`
@@ -984,9 +984,9 @@ python -m souwen.integrations.mcp_server
 
 ---
 
-## 多媒体与扩展端点（V1 新增）
+## 多媒体与扩展端点
 
-下列端点在 V1 中陆续随领域子包接入，统一受 `check_search_auth` + `rate_limit_search` 保护。
+下列端点由真实 route 模块接入，统一受 `check_search_auth` + `rate_limit_search` 保护。
 
 ### 图片 / 视频（DuckDuckGo）
 
@@ -1042,7 +1042,7 @@ python -m souwen.integrations.mcp_server
 | `GET /api/v1/bilibili/search/users` | `keyword`, `page`, `max_results` | 用户搜索 |
 | `GET /api/v1/bilibili/search/articles` | `keyword`, `page`, `max_results` | 专栏文章搜索 |
 
-### 数据源频道配置（V1 admin）
+### 数据源频道配置（admin）
 
 | 端点 | 说明 |
 |------|------|
