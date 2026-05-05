@@ -439,7 +439,7 @@ _reg(
         description="Google Patents 爬虫",
         config_field=None,
         # v1 统一：由 GooglePatentsScraper 承担（P1 阶段会合并到 patent/google_patents.py）
-        client_loader=lazy("souwen.scraper.google_patents_scraper:GooglePatentsScraper"),
+        client_loader=lazy("souwen.patent.google_patents_scraper:GooglePatentsScraper"),
         methods={"search": MethodSpec("search", _P_NUM_RESULTS)},
         default_for=frozenset({"patent:search"}),
         risk_level="medium",

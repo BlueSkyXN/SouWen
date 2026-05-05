@@ -35,8 +35,8 @@
     - logging: 日志记录
     - typing: 类型注解
     - souwen.config: 获取 API Token 和全局配置
-    - souwen.exceptions: ConfigError 异常
-    - souwen.http_client: SouWenHttpClient HTTP 客户端基类
+    - souwen.core.exceptions: ConfigError 异常
+    - souwen.core.http_client: SouWenHttpClient HTTP 客户端基类
     - souwen.models: FetchResult, FetchResponse 数据模型
 
 技术要点：
@@ -55,8 +55,8 @@ from __future__ import annotations
 import logging
 
 from souwen.config import get_config
-from souwen.exceptions import ConfigError
-from souwen.http_client import SouWenHttpClient
+from souwen.core.exceptions import ConfigError
+from souwen.core.http_client import SouWenHttpClient
 from souwen.models import FetchResponse, FetchResult
 
 logger = logging.getLogger("souwen.web.diffbot")

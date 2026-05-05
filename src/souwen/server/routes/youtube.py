@@ -30,7 +30,7 @@ async def api_youtube_trending(
     timeout: float | None = Query(None, ge=1, le=60, description="端点硬超时（秒），超时返回 504"),
 ):
     """获取 YouTube 热门视频 — 按地区/分类。"""
-    from souwen.exceptions import ConfigError, RateLimitError
+    from souwen.core.exceptions import ConfigError, RateLimitError
     from souwen.web.youtube import YouTubeClient
 
     try:
@@ -74,7 +74,7 @@ async def api_youtube_video_detail(
     """获取 YouTube 视频详情 — 含统计信息（播放量/点赞/评论）。"""
     from dataclasses import asdict
 
-    from souwen.exceptions import ConfigError, RateLimitError
+    from souwen.core.exceptions import ConfigError, RateLimitError
     from souwen.web.youtube import YouTubeClient
 
     try:
@@ -116,7 +116,7 @@ async def api_youtube_transcript(
     timeout: float | None = Query(None, ge=1, le=60, description="端点硬超时（秒），超时返回 504"),
 ):
     """提取 YouTube 视频字幕 — 零配额消耗（页面抓取方式）。"""
-    from souwen.exceptions import ConfigError
+    from souwen.core.exceptions import ConfigError
     from souwen.web.youtube import YouTubeClient
 
     try:

@@ -103,7 +103,7 @@ async def api_fetch_summarize(body: FetchSummarizeRequest):
     """抓取 URL 页面内容并用 LLM 逐页生成摘要"""
 
     from souwen.config import get_config
-    from souwen.exceptions import ConfigError, SouWenError
+    from souwen.core.exceptions import ConfigError, SouWenError
     from souwen.llm.client import LLMError
     from souwen.llm.fetch_summarize import summarize_pages
 

@@ -32,10 +32,10 @@ import logging
 from typing import Any
 
 from souwen.config import get_config
-from souwen.exceptions import ConfigError, NotFoundError, ParseError
-from souwen.http_client import SouWenHttpClient
+from souwen.core.exceptions import ConfigError, NotFoundError, ParseError
+from souwen.core.http_client import SouWenHttpClient
 from souwen.models import PaperResult, SourceType
-from souwen.rate_limiter import TokenBucketLimiter
+from souwen.core.rate_limiter import TokenBucketLimiter
 
 logger = logging.getLogger(__name__)
 

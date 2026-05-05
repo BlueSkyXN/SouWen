@@ -69,8 +69,8 @@ from urllib.parse import urlparse
 
 import httpx
 
-from souwen.exceptions import ConfigError, NotFoundError
-from souwen.http_client import SouWenHttpClient
+from souwen.core.exceptions import ConfigError, NotFoundError
+from souwen.core.http_client import SouWenHttpClient
 from souwen.models import PaperResult
 
 logger = logging.getLogger(__name__)

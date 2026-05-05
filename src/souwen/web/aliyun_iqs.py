@@ -31,8 +31,8 @@
     - logging: 日志记录
     - typing: 类型注解
     - souwen.config: 获取 API Key 和全局配置
-    - souwen.exceptions: ConfigError, ParseError 异常
-    - souwen.http_client: SouWenHttpClient HTTP 客户端基类
+    - souwen.core.exceptions: ConfigError, ParseError 异常
+    - souwen.core.http_client: SouWenHttpClient HTTP 客户端基类
     - souwen.models: SourceType, WebSearchResult, WebSearchResponse 数据模型
 
 技术要点：
@@ -49,8 +49,8 @@ import logging
 from typing import Any
 
 from souwen.config import get_config
-from souwen.exceptions import ConfigError
-from souwen.http_client import SouWenHttpClient
+from souwen.core.exceptions import ConfigError
+from souwen.core.http_client import SouWenHttpClient
 from souwen.models import SourceType, WebSearchResponse, WebSearchResult
 
 logger = logging.getLogger("souwen.web.aliyun_iqs")
@@ -108,7 +108,7 @@ class AliyunIQSClient(SouWenHttpClient):
         try:
             data = resp.json()
         except Exception as e:
-            from souwen.exceptions import ParseError
+            from souwen.core.exceptions import ParseError
 
             raise ParseError(f"阿里云 IQS 响应解析失败: {e}") from e
 

@@ -198,7 +198,7 @@ async def test_get_patent(httpx_mock: HTTPXMock):
 
 async def test_get_patent_not_found(httpx_mock: HTTPXMock):
     """不存在的专利抛出 NotFoundError"""
-    from souwen.exceptions import NotFoundError
+    from souwen.core.exceptions import NotFoundError
 
     httpx_mock.add_response(
         url=re.compile(r"https://search\.patentsview\.org/api/v1/patent/"),
@@ -351,7 +351,7 @@ async def test_search_by_inventor(httpx_mock: HTTPXMock):
 
 async def test_429_raises_rate_limit(httpx_mock: HTTPXMock):
     """429 响应被 http_client 层识别为 RateLimitError 并携带 retry_after"""
-    from souwen.exceptions import RateLimitError
+    from souwen.core.exceptions import RateLimitError
 
     httpx_mock.add_response(
         url=re.compile(r"https://search\.patentsview\.org/api/v1/patent/"),
@@ -368,7 +368,7 @@ async def test_429_raises_rate_limit(httpx_mock: HTTPXMock):
 
 async def test_401_raises_auth_error(httpx_mock: HTTPXMock):
     """401 响应被识别为 AuthError"""
-    from souwen.exceptions import AuthError
+    from souwen.core.exceptions import AuthError
 
     httpx_mock.add_response(
         url=re.compile(r"https://search\.patentsview\.org/api/v1/patent/"),
@@ -383,7 +383,7 @@ async def test_401_raises_auth_error(httpx_mock: HTTPXMock):
 
 async def test_503_raises_source_unavailable(httpx_mock: HTTPXMock):
     """5xx 响应被识别为 SourceUnavailableError"""
-    from souwen.exceptions import SourceUnavailableError
+    from souwen.core.exceptions import SourceUnavailableError
 
     httpx_mock.add_response(
         url=re.compile(r"https://search\.patentsview\.org/api/v1/patent/"),

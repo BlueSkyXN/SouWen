@@ -46,9 +46,9 @@ from urllib.parse import quote
 
 from bs4 import BeautifulSoup
 
-from souwen.http_client import SouWenHttpClient
+from souwen.core.http_client import SouWenHttpClient
 from souwen.models import Author, PaperResult, SearchResponse, SourceType
-from souwen.rate_limiter import TokenBucketLimiter
+from souwen.core.rate_limiter import TokenBucketLimiter
 
 logger = logging.getLogger(__name__)
 

@@ -43,8 +43,8 @@
     - time：Token 过期判断
     - typing：类型注解
     - souwen.config：获取 app_id / app_secret
-    - souwen.exceptions：ConfigError
-    - souwen.http_client：SouWenHttpClient
+    - souwen.core.exceptions：ConfigError
+    - souwen.core.http_client：SouWenHttpClient
     - souwen.models：SourceType / WebSearchResult / WebSearchResponse
 
 技术要点：
@@ -69,7 +69,7 @@ import time
 from typing import Any
 
 from souwen.config import get_config
-from souwen.http_client import SouWenHttpClient
+from souwen.core.http_client import SouWenHttpClient
 from souwen.models import SourceType, WebSearchResponse, WebSearchResult
 
 logger = logging.getLogger("souwen.web.feishu_drive")
@@ -122,7 +122,7 @@ class FeishuDriveClient(SouWenHttpClient):
         self.app_secret = app_secret or config.feishu_app_secret
 
         if not self.app_id or not self.app_secret:
-            from souwen.exceptions import ConfigError
+            from souwen.core.exceptions import ConfigError
 
             raise ConfigError(
                 key="feishu_app_id / feishu_app_secret",
@@ -175,26 +175,26 @@ class FeishuDriveClient(SouWenHttpClient):
             )
 
             if resp.status_code != 200:
-                from souwen.exceptions import AuthError
+                from souwen.core.exceptions import AuthError
 
                 raise AuthError(f"飞书 Token 获取失败: HTTP {resp.status_code} {resp.text[:200]}")
 
             try:
                 data = resp.json()
             except Exception as e:
-                from souwen.exceptions import AuthError
+                from souwen.core.exceptions import AuthError
 
                 raise AuthError(f"飞书 Token 响应解析失败: {e}") from e
 
             code = data.get("code")
             if code != 0:
-                from souwen.exceptions import AuthError
+                from souwen.core.exceptions import AuthError
 
                 raise AuthError(f"飞书 Token 接口返回错误 code={code}: {data.get('msg', '')}")
 
             token = data.get("tenant_access_token")
             if not token:
-                from souwen.exceptions import AuthError
+                from souwen.core.exceptions import AuthError
 
                 raise AuthError("飞书 Token 响应缺少 tenant_access_token 字段")
 

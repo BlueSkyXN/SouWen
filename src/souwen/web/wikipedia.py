@@ -58,8 +58,8 @@
     - logging: 日志记录
     - urllib.parse.quote: 维基条目名 URL 编码
     - typing: 类型注解
-    - souwen.exceptions: ParseError 异常
-    - souwen.http_client: SouWenHttpClient HTTP 客户端基类
+    - souwen.core.exceptions: ParseError 异常
+    - souwen.core.http_client: SouWenHttpClient HTTP 客户端基类
     - souwen.models: SourceType, WebSearchResult, WebSearchResponse 数据模型
 
 技术要点：
@@ -83,8 +83,8 @@ import re
 from typing import Any
 from urllib.parse import quote
 
-from souwen.exceptions import ParseError
-from souwen.http_client import SouWenHttpClient
+from souwen.core.exceptions import ParseError
+from souwen.core.http_client import SouWenHttpClient
 from souwen.models import SourceType, WebSearchResponse, WebSearchResult
 
 logger = logging.getLogger("souwen.web.wikipedia")

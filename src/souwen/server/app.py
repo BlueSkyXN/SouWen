@@ -55,7 +55,7 @@
     - souwen.config：配置管理
     - souwen.server.middleware：请求 ID 和日志中间件
     - souwen.server.routes：API 路由
-    - souwen.session_cache：会话缓存
+    - souwen.core.session_cache：会话缓存
     - souwen.logging_config：日志配置
 """
 
@@ -223,7 +223,7 @@ async def lifespan(app: FastAPI):
 
     # 关闭会话缓存的 aiosqlite 连接
     try:
-        from souwen.session_cache import get_session_cache
+        from souwen.core.session_cache import get_session_cache
 
         await get_session_cache().aclose()
     except Exception:
