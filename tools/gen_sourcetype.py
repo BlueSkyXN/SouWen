@@ -73,7 +73,7 @@ def main() -> int:
             for name, val in bad:
                 print(f"  - SourceType.{name} = {val!r}")
             print()
-            print("修复方法：(1) 把这些源登记到 registry/sources.py；或 (2) 从 SourceType 里删除")
+            print("修复方法：(1) 把这些源登记到 registry/sources/；或 (2) 从 SourceType 里删除")
             return 1
         print(f"✓ SourceType ({len(list(SourceType))}) 与 registry ({len(registry_names)}) 一致")
         return 0

@@ -4,7 +4,7 @@
 
 ## 事实来源
 
-本页不是手工维护的静态表，而是由 `src/souwen/registry/sources.py` 中的 `SourceAdapter` 声明经 `tools/gen_docs.py` 生成。`SourceAdapter` 同时驱动 CLI、REST API、doctor、Panel 和插件视图。
+本页不是手工维护的静态表，而是由 `src/souwen/registry/sources/` 中的 `SourceAdapter` 声明经 `tools/gen_docs.py` 生成。`SourceAdapter` 同时驱动 CLI、REST API、doctor、Panel 和插件视图。
 
 默认生成只包含内置源，并显式关闭外部插件自动加载；这样即使本机安装了 `souwen.plugins` entry point，checked-in 文档也能稳定复现。需要把本机插件一并展示时再使用 `--include-plugins`。
 

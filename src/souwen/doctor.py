@@ -32,7 +32,7 @@
 
 模块依赖：
     - souwen.config: 配置管理、源启用状态检查
-    - souwen.source_registry: 获取所有注册源、元数据、集成类型标签
+    - souwen.registry.meta: 获取所有注册源、元数据、集成类型标签
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ from __future__ import annotations
 from typing import Any
 
 from souwen.config import get_config
-from souwen.source_registry import (
+from souwen.registry.meta import (
     AUTH_REQUIREMENT_LABELS,
     INTEGRATION_TYPE_LABELS,
     OPTIONAL_CREDENTIAL_EFFECT_LABELS,

@@ -1,11 +1,11 @@
 """registry/views.py — 面向消费者的查询视图
 
-所有对外查询都走这个模块。内部表 _REGISTRY 由 sources.py 填充。
+所有对外查询都走这个模块。内部表 _REGISTRY 由 sources package 填充。
 
 使用者：
   - souwen.search（门面）
   - souwen.web.search（门面）
-  - souwen.source_registry（SourceMeta 视图）
+  - souwen.registry.meta（SourceMeta 视图）
   - souwen.models.ALL_SOURCES（派生）
   - server/routes 的 /sources 端点
   - CLI 的 sources 子命令
@@ -22,7 +22,7 @@ from souwen.registry.adapter import FETCH_DOMAIN, SourceAdapter
 
 logger = logging.getLogger("souwen.registry")
 
-# ── 内部注册表（由 sources.py 填充）─────────────────────────
+# ── 内部注册表（由 sources package 填充）─────────────────────────
 _REGISTRY: dict[str, SourceAdapter] = {}
 
 #: 通过外部插件加载的源名集合（用于审计/查询）
@@ -32,14 +32,14 @@ _EXTERNAL_PLUGINS: set[str] = set()
 def _invalidate_source_meta_cache() -> None:
     """外部插件改动 registry 后，同步刷新 SourceMeta 兼容视图。"""
     try:
-        from souwen.source_registry import invalidate_source_meta_cache
+        from souwen.registry.meta import invalidate_source_meta_cache
     except ImportError:  # pragma: no cover - 仅防御极早期 import 环
         return
     invalidate_source_meta_cache()
 
 
 def _reg(adapter: SourceAdapter) -> None:
-    """注册一个 adapter。同名重复注册抛异常（避免 sources.py 里的漂移）。"""
+    """注册一个 adapter。同名重复注册抛异常（避免 sources package 里的漂移）。"""
     if adapter.name in _REGISTRY:
         raise ValueError(f"重复注册数据源: {adapter.name!r}（已存在 {_REGISTRY[adapter.name]!r}）")
     _REGISTRY[adapter.name] = adapter
@@ -275,10 +275,10 @@ def _reset_registry() -> None:
 
 
 def _load_default_sources() -> None:
-    """显式触发 sources.py 的 import（保证注册表已填充）。
+    """显式触发 sources package 的 import（保证注册表已填充）。
 
     一般不需要手动调用：任何视图函数第一次被调用时，模块链已经
-    把 sources.py 拉进来（因为 sources.py 自身 import 了 views._reg）。
+    把 sources package 拉进来（因为 sources package 自身 import 了 views._reg）。
     但单元测试里把注册表清空后要手动重新加载。
     """
     from souwen.registry import sources  # noqa: F401
@@ -310,5 +310,5 @@ __all__ = [
     "external_plugins",
 ]
 
-# 注：保留下列符号供 sources.py 内部使用，但不公开
+# 注：保留下列符号供 sources package 内部使用，但不公开
 _public_internal: tuple[Callable[..., Any], ...] = (_reg, _reg_external, _unreg_external)  # type: ignore[assignment]

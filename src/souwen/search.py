@@ -139,7 +139,7 @@ def _select_adapters(
         names = defaults_for(domain, capability)
         if not names:
             logger.warning(
-                "defaults_for(%s, %s) 为空；请在 registry/sources.py 声明 default_for",
+                "defaults_for(%s, %s) 为空；请在 registry/sources/ 声明 default_for",
                 domain,
                 capability,
             )

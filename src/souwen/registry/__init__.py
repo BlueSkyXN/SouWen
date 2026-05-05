@@ -4,7 +4,7 @@
 
 新增一个源只需 1-2 处改动：
   1. 实现 Client 类
-  2. 在 sources.py 里 _reg(SourceAdapter(...))
+  2. 在 sources package 里 _reg(SourceAdapter(...))
   3. （若需 API Key）在 config.py 的 SouWenConfig 加字段
 
 所有其他消费者（门面 / CLI / 服务端 / 前端 / 文档）都从注册表派生。
@@ -54,8 +54,8 @@ from souwen.registry.views import (
     high_risk_sources,
 )
 
-# 触发 sources.py 的 import，填充 _REGISTRY。
-# 这一步**必须**在所有视图符号 import 之后，因为 sources.py 里会调用 views._reg。
+# 触发 sources package 的 import，填充 _REGISTRY。
+# 这一步**必须**在所有视图符号 import 之后，因为 sources package 里会调用 views._reg。
 from souwen.registry import sources as _sources  # noqa: F401,E402
 
 # 内置源注册完毕后加载外部插件（entry points + 配置文件指定）。

@@ -215,7 +215,7 @@ docker run -p 8000:8000 \
 
 ## 🤝 贡献
 
-- 新增数据源：参考 [docs/adding-a-source.md](docs/adding-a-source.md)（`registry/sources.py` 加一条 `_reg(...)` 即可）
+- 新增数据源：参考 [docs/adding-a-source.md](docs/adding-a-source.md)（`registry/sources/` 加一条 `_reg(...)` 即可）
 - 开发外部插件：参考 [docs/plugin-integration-spec.md](docs/plugin-integration-spec.md)
 - 代码风格：`ruff format && ruff check`
 - 测试：`pytest tests/`
