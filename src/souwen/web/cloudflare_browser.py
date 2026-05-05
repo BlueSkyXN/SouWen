@@ -42,8 +42,8 @@
     - asyncio: 异步并发控制
     - logging: 日志记录
     - souwen.config: 读取 API Token / Account ID 与全局配置
-    - souwen.exceptions: ConfigError
-    - souwen.http_client: SouWenHttpClient 基类
+    - souwen.core.exceptions: ConfigError
+    - souwen.core.http_client: SouWenHttpClient 基类
     - souwen.models: FetchResponse, FetchResult
     - souwen.web._html_extract: HTML → Markdown/文本 回退提取
 
@@ -66,8 +66,8 @@ import asyncio
 import logging
 
 from souwen.config import get_config
-from souwen.exceptions import ConfigError
-from souwen.http_client import SouWenHttpClient
+from souwen.core.exceptions import ConfigError
+from souwen.core.http_client import SouWenHttpClient
 from souwen.models import FetchResponse, FetchResult
 
 logger = logging.getLogger("souwen.web.cloudflare_browser")

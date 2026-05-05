@@ -28,7 +28,7 @@
 模块依赖：
     - asyncio: 并发控制
     - logging: 日志记录
-    - souwen.scraper.base: BaseScraper 基类
+    - souwen.core.scraper.base: BaseScraper 基类
     - souwen.models: FetchResult, FetchResponse 数据模型
     - trafilatura（可选）: HTML 正文提取 + Markdown 转换
     - html2text（可选）: HTML→Markdown 回退方案
@@ -44,7 +44,7 @@ from typing import Any
 from urllib.parse import urljoin, urlparse
 
 from souwen.models import FetchResponse, FetchResult
-from souwen.scraper.base import BaseScraper
+from souwen.core.scraper.base import BaseScraper
 
 logger = logging.getLogger("souwen.web.builtin")
 

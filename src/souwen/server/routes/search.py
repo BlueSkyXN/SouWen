@@ -38,7 +38,7 @@ async def api_search_paper(
     timeout: float | None = Query(None, ge=1, le=300, description="端点硬超时（秒），超时返回 504"),
 ):
     """搜索学术论文 — 支持多数据源并联查询。"""
-    from souwen.exceptions import SouWenError
+    from souwen.core.exceptions import SouWenError
     from souwen.search import search_papers
 
     requested_sources = None
@@ -88,7 +88,7 @@ async def api_search_patent(
     timeout: float | None = Query(None, ge=1, le=300, description="端点硬超时（秒），超时返回 504"),
 ):
     """搜索专利 — 支持多数据源并联查询。"""
-    from souwen.exceptions import SouWenError
+    from souwen.core.exceptions import SouWenError
     from souwen.search import search_patents
 
     source_list = [s.strip() for s in sources.split(",") if s.strip()]
@@ -136,7 +136,7 @@ async def api_search_web(
     timeout: float | None = Query(None, ge=1, le=300, description="端点硬超时（秒），超时返回 504"),
 ):
     """搜索网页 — 支持 21+ 搜索引擎。"""
-    from souwen.exceptions import SouWenError
+    from souwen.core.exceptions import SouWenError
     from souwen.web.search import web_search
 
     engine_list = [e.strip() for e in engines.split(",") if e.strip()]

@@ -35,8 +35,8 @@
     - asyncio: 异步并发控制（Semaphore + gather）
     - logging: 日志记录
     - souwen.config: 获取 API Key 和全局配置
-    - souwen.exceptions: ConfigError 异常
-    - souwen.http_client: SouWenHttpClient HTTP 客户端基类
+    - souwen.core.exceptions: ConfigError 异常
+    - souwen.core.http_client: SouWenHttpClient HTTP 客户端基类
     - souwen.models: FetchResponse, FetchResult 数据模型
 
 技术要点：
@@ -57,8 +57,8 @@ import asyncio
 import logging
 
 from souwen.config import get_config
-from souwen.exceptions import ConfigError
-from souwen.http_client import SouWenHttpClient
+from souwen.core.exceptions import ConfigError
+from souwen.core.http_client import SouWenHttpClient
 from souwen.models import FetchResponse, FetchResult
 
 logger = logging.getLogger("souwen.web.scrapfly")

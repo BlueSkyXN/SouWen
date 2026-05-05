@@ -14,8 +14,8 @@
   - concurrency    —— per-loop Semaphore（D12）
   - models         —— 数据模型（位于 souwen.models）
 
-`souwen` 根目录下的同名模块（如 `souwen.http_client`）作为公开入口 re-export 自本包，
-两条路径等价；新代码推荐 `from souwen.core.xxx import ...`。
+平台能力统一通过 `from souwen.core.xxx import ...` 引用；v2 不再保留
+`souwen` 根目录下的同名 re-export shim。
 """
 
 from __future__ import annotations

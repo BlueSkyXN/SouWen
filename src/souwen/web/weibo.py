@@ -38,7 +38,7 @@
     - re：HTML 标签清理
     - urllib.parse.quote_plus：关键词 URL 编码
     - souwen.models：SourceType / WebSearchResult / WebSearchResponse
-    - souwen.scraper.base：BaseScraper
+    - souwen.core.scraper.base：BaseScraper
 
 技术要点：
     - containerid 形如 100103type=1&q={query} 经 URL 编码后传入
@@ -58,7 +58,7 @@ from typing import Any
 from urllib.parse import quote_plus
 
 from souwen.models import SourceType, WebSearchResponse, WebSearchResult
-from souwen.scraper.base import BaseScraper
+from souwen.core.scraper.base import BaseScraper
 
 logger = logging.getLogger("souwen.web.weibo")
 

@@ -42,9 +42,9 @@ Google Patents 无官方 API，本模块通过爬虫方式获取数据。
 
 模块依赖：
     - bs4 (BeautifulSoup): HTML 解析
-    - souwen.scraper.base.BaseScraper: 爬虫基类（提供 TLS 指纹、限流、重试）
+    - souwen.core.scraper.base.BaseScraper: 爬虫基类（提供 TLS 指纹、限流、重试）
     - souwen.models: 统一数据模型
-    - souwen.exceptions: NotFoundError
+    - souwen.core.exceptions: NotFoundError
 """
 
 from __future__ import annotations
@@ -58,10 +58,10 @@ from urllib.parse import quote_plus
 from bs4 import BeautifulSoup
 
 from souwen.models import PatentResult, Applicant, SearchResponse, SourceType
-from souwen.exceptions import NotFoundError
-from souwen.scraper.base import BaseScraper
+from souwen.core.exceptions import NotFoundError
+from souwen.core.scraper.base import BaseScraper
 
-logger = logging.getLogger("souwen.scraper.google_patents")
+logger = logging.getLogger("souwen.patent.google_patents_scraper")
 
 GOOGLE_PATENTS_BASE = "https://patents.google.com"
 

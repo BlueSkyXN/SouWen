@@ -51,7 +51,7 @@ async with AsyncSession(impersonate="chrome124") as session:
 ### 指纹轮换策略
 
 ```python
-from souwen.fingerprint import get_random_fingerprint
+from souwen.core.fingerprint import get_random_fingerprint
 
 # 每个 BaseScraper 实例创建时随机选取一个指纹
 fingerprint = get_random_fingerprint()

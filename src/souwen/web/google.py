@@ -32,7 +32,7 @@
     - urllib.parse: URL 编码/解码、查询参数解析
     - bs4: HTML 解析
     - souwen.models: SourceType, WebSearchResult, WebSearchResponse 数据模型
-    - souwen.scraper.base: BaseScraper 基础爬虫类
+    - souwen.core.scraper.base: BaseScraper 基础爬虫类
 
 技术要点：
     - Google 反爬能力极强，建议配合 curl_cffi TLS 指纹模拟、代理池使用
@@ -50,7 +50,7 @@ from urllib.parse import quote_plus, unquote, urlparse, parse_qs
 from bs4 import BeautifulSoup
 
 from souwen.models import SourceType, WebSearchResult, WebSearchResponse
-from souwen.scraper.base import BaseScraper
+from souwen.core.scraper.base import BaseScraper
 
 logger = logging.getLogger("souwen.web.google")
 

@@ -57,9 +57,9 @@
 
 模块依赖：
     - defusedxml: 安全的 XML 解析（防止 XXE 攻击）
-    - souwen.http_client: OAuth 连接管理
+    - souwen.core.http_client: OAuth 连接管理
     - souwen.models: 统一数据模型
-    - souwen.rate_limiter: 限流控制
+    - souwen.core.rate_limiter: 限流控制
 """
 
 from __future__ import annotations
@@ -70,10 +70,10 @@ from typing import Any
 import defusedxml.ElementTree as ET
 
 from souwen.config import get_config
-from souwen.exceptions import ConfigError, NotFoundError, ParseError
-from souwen.http_client import OAuthClient
+from souwen.core.exceptions import ConfigError, NotFoundError, ParseError
+from souwen.core.http_client import OAuthClient
 from souwen.models import Applicant, PatentResult, SearchResponse, SourceType
-from souwen.rate_limiter import TokenBucketLimiter
+from souwen.core.rate_limiter import TokenBucketLimiter
 
 logger = logging.getLogger(__name__)
 

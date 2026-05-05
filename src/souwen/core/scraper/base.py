@@ -45,8 +45,8 @@
     - httpx: HTTP 客户端回退方案
     - curl_cffi: TLS 指纹模拟（可选，缺失时自动回退 httpx）
     - souwen.config: 全局配置（HTTP 后端、代理、超时、频道头）
-    - souwen.fingerprint: 浏览器指纹生成
-    - souwen.exceptions: RateLimitError / SourceUnavailableError
+    - souwen.core.fingerprint: 浏览器指纹生成
+    - souwen.core.exceptions: RateLimitError / SourceUnavailableError
 """
 
 from __future__ import annotations
@@ -59,10 +59,10 @@ from typing import Any
 import httpx
 
 from souwen.config import get_config
-from souwen.exceptions import RateLimitError, SourceUnavailableError
-from souwen.fingerprint import get_random_fingerprint
+from souwen.core.exceptions import RateLimitError, SourceUnavailableError
+from souwen.core.fingerprint import get_random_fingerprint
 
-logger = logging.getLogger("souwen.scraper")
+logger = logging.getLogger("souwen.core.scraper")
 
 # 尝试导入 curl_cffi（TLS 指纹模拟）— 可选依赖，缺失时自动回退 httpx
 _HAS_CURL_CFFI = False

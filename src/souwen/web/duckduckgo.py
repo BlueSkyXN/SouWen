@@ -19,7 +19,7 @@ from html import unescape
 from lxml import html as lxml_html
 
 from souwen.models import SourceType, WebSearchResult, WebSearchResponse
-from souwen.scraper.base import BaseScraper
+from souwen.core.scraper.base import BaseScraper
 from souwen.web.ddg_utils import normalize_url, normalize_text, parse_next_form_data
 
 logger = logging.getLogger("souwen.web.duckduckgo")

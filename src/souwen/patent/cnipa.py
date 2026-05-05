@@ -43,11 +43,11 @@
 
 模块依赖：
     - httpx: HTTP 异步客户端
-    - souwen.http_client: OAuth 连接管理
+    - souwen.core.http_client: OAuth 连接管理
     - souwen.models: 统一数据模型（PatentResult, SearchResponse 等）
-    - souwen.rate_limiter: 限流控制（令牌桶算法）
+    - souwen.core.rate_limiter: 限流控制（令牌桶算法）
     - souwen.config: 配置管理（读取 API 凭证）
-    - souwen.exceptions: 异常类
+    - souwen.core.exceptions: 异常类
 """
 
 from __future__ import annotations
@@ -58,10 +58,10 @@ from typing import Any
 
 import httpx
 from souwen.config import get_config
-from souwen.exceptions import ConfigError, NotFoundError, ParseError
-from souwen.http_client import OAuthClient
+from souwen.core.exceptions import ConfigError, NotFoundError, ParseError
+from souwen.core.http_client import OAuthClient
 from souwen.models import Applicant, PatentResult, SearchResponse, SourceType
-from souwen.rate_limiter import TokenBucketLimiter
+from souwen.core.rate_limiter import TokenBucketLimiter
 
 logger = logging.getLogger(__name__)
 

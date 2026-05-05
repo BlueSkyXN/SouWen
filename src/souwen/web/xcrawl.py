@@ -8,8 +8,8 @@ import logging
 from typing import Any, Literal
 
 from souwen.config import get_config
-from souwen.exceptions import ConfigError, ParseError
-from souwen.http_client import SouWenHttpClient
+from souwen.core.exceptions import ConfigError, ParseError
+from souwen.core.http_client import SouWenHttpClient
 from souwen.models import FetchResponse, FetchResult, SourceType, WebSearchResponse, WebSearchResult
 
 logger = logging.getLogger("souwen.web.xcrawl")

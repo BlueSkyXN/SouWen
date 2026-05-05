@@ -24,7 +24,7 @@
     - base64: 解码 Bing 重定向 URL
     - bs4: HTML 解析
     - souwen.models: SourceType, WebSearchResult, WebSearchResponse 数据模型
-    - souwen.scraper.base: BaseScraper 基础爬虫类
+    - souwen.core.scraper.base: BaseScraper 基础爬虫类
 
 技术要点：
     - 使用 CSS 选择器 li.b_algo 定位搜索结果容器
@@ -44,7 +44,7 @@ from urllib.parse import parse_qs, quote_plus, urlparse
 from bs4 import BeautifulSoup
 
 from souwen.models import SourceType, WebSearchResult, WebSearchResponse
-from souwen.scraper.base import BaseScraper
+from souwen.core.scraper.base import BaseScraper
 
 logger = logging.getLogger("souwen.web.bing_cn")
 

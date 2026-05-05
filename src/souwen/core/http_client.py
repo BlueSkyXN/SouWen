@@ -42,7 +42,7 @@
     - httpx: 异步 HTTP 库
     - tenacity: 重试装饰器
     - souwen.config: 获取全局配置 + 频道级覆盖
-    - souwen.exceptions: AuthError / RateLimitError / SourceUnavailableError / SouWenError
+    - souwen.core.exceptions: AuthError / RateLimitError / SourceUnavailableError / SouWenError
 """
 
 from __future__ import annotations
@@ -62,7 +62,7 @@ from tenacity import (
 
 from souwen import __version__
 from souwen.config import get_config
-from souwen.exceptions import (
+from souwen.core.exceptions import (
     AuthError,
     RateLimitError,
     SourceUnavailableError,

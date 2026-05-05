@@ -31,7 +31,7 @@
 | OAuth2 client_credentials | `OAuthClient` | `souwen.core.http_client` | EPO OPS、CNIPA 等需要 token 流的 API |
 | HTML/SERP 爬取 | `BaseScraper` | `souwen.core.scraper.base` | DuckDuckGo / Bing / Google Patents 等 |
 
-> 老路径 `souwen.http_client` / `souwen.scraper.base` 仍可用（V0 兼容 shim），新代码请用 `souwen.core.*`。
+> v2 仅保留 `souwen.core.*` 平台层入口，不再提供顶层兼容 shim。
 
 ### 示例：official_api 论文源
 
