@@ -1,0 +1,62 @@
+name: V2 CI
+
+on:
+  push:
+    branches: [v2-dev]
+  pull_request:
+    branches: [v2-dev]
+  workflow_dispatch:
+
+concurrency:
+  group: v2-ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  bootstrap:
+    name: v2 bootstrap checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: src
+      SOUWEN_PLUGIN_AUTOLOAD: "0"
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Ruff check
+        run: ruff check src tests scripts
+
+      - name: Ruff format check
+        run: ruff format --check src tests scripts
+
+      - name: Registry and docs tests
+        run: |
+          pytest tests/registry/test_consistency.py tests/test_gen_docs.py -q
+          python tools/gen_docs.py --check
+
+      - name: Registry baseline
+        run: |
+          python - <<'PY'
+          from collections import Counter
+
+          from souwen.registry import all_adapters, fetch_providers
+
+          adapters_by_name = all_adapters()
+          adapters = list(adapters_by_name.values())
+          print("runtime_adapters", len(adapters))
+          print("fetch_providers", len(fetch_providers()))
+          for domain, count in sorted(Counter(adapter.domain for adapter in adapters).items()):
+              print(f"{domain} {count}")
+          PY
