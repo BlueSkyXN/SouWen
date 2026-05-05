@@ -22,7 +22,7 @@
     - logging: 日志记录
     - re: HTML 标签清理
     - souwen.models: SourceType, WebSearchResult, WebSearchResponse
-    - souwen.scraper.base: BaseScraper
+    - souwen.core.scraper.base: BaseScraper
 """
 
 from __future__ import annotations
@@ -31,7 +31,7 @@ import logging
 import re
 
 from souwen.models import SourceType, WebSearchResult, WebSearchResponse
-from souwen.scraper.base import BaseScraper
+from souwen.core.scraper.base import BaseScraper
 
 logger = logging.getLogger("souwen.web.csdn")
 

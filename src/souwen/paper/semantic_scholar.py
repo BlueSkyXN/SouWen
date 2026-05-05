@@ -51,12 +51,12 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from souwen._parsing import safe_parse_date
+from souwen.core.parsing import safe_parse_date
 from souwen.config import get_config
-from souwen.exceptions import NotFoundError, ParseError, RateLimitError
-from souwen.http_client import SouWenHttpClient
+from souwen.core.exceptions import NotFoundError, ParseError, RateLimitError
+from souwen.core.http_client import SouWenHttpClient
 from souwen.models import Author, PaperResult, SearchResponse, SourceType
-from souwen.rate_limiter import SlidingWindowLimiter
+from souwen.core.rate_limiter import SlidingWindowLimiter
 
 logger = logging.getLogger(__name__)
 

@@ -14,7 +14,7 @@ import pytest
 from typing import cast
 
 from souwen.doctor import check_all, format_report, summarize_statuses
-from souwen.exceptions import ConfigError
+from souwen.core.exceptions import ConfigError
 from souwen.registry.adapter import MethodSpec, SourceAdapter
 from souwen.registry.loader import lazy
 from souwen.registry.views import _reg_external

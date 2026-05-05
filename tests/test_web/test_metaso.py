@@ -32,7 +32,7 @@ if "web_metaso" not in SourceType._value2member_map_:  # type: ignore[attr-defin
     )
 
 
-from souwen.exceptions import ConfigError, ParseError  # noqa: E402
+from souwen.core.exceptions import ConfigError, ParseError  # noqa: E402
 from souwen.web.metaso import MetasoClient  # noqa: E402
 
 

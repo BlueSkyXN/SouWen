@@ -24,7 +24,7 @@
 模块依赖：
     - urllib.parse：URL 编码
     - souwen.models：SourceType / WebSearchResponse / WebSearchResult
-    - souwen.scraper.base：BaseScraper
+    - souwen.core.scraper.base：BaseScraper
     - souwen.config：可选 SESSDATA / bili_jct 读取
     - souwen.web.bilibili.wbi：WBI 签名器
     - souwen.web.bilibili.models：B 站详情数据模型
@@ -45,7 +45,7 @@ from urllib.parse import urlencode
 
 from souwen.config import get_config
 from souwen.models import SourceType, WebSearchResponse, WebSearchResult
-from souwen.scraper.base import BaseScraper
+from souwen.core.scraper.base import BaseScraper
 from souwen.web.bilibili._errors import raise_for_code
 from souwen.web.bilibili.models import (
     BilibiliArticleResult,

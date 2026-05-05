@@ -51,7 +51,7 @@ class Crawl4AIFetcherClient:
         try:
             from crawl4ai import AsyncWebCrawler
         except ImportError:
-            from souwen.exceptions import ConfigError
+            from souwen.core.exceptions import ConfigError
 
             raise ConfigError(
                 "crawl4ai",

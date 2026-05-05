@@ -220,7 +220,7 @@ async def test_no_doi(httpx_mock: HTTPXMock):
 
 async def test_malformed_xml(httpx_mock: HTTPXMock):
     """无效 XML 抛出 ParseError"""
-    from souwen.exceptions import ParseError
+    from souwen.core.exceptions import ParseError
 
     httpx_mock.add_response(
         url=re.compile(r"http://export\.arxiv\.org/api/query.*"),

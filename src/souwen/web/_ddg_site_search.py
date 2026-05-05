@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 
-from souwen.http_client import SouWenHttpClient
+from souwen.core.http_client import SouWenHttpClient
 from souwen.models import SourceType, WebSearchResponse, WebSearchResult
 
 

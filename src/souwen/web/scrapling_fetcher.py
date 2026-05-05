@@ -15,7 +15,7 @@ from typing import Any, Literal
 from urllib.parse import urlparse
 
 from souwen.config import get_config
-from souwen.exceptions import ConfigError
+from souwen.core.exceptions import ConfigError
 from souwen.models import FetchResponse, FetchResult
 
 logger = logging.getLogger("souwen.web.scrapling_fetcher")

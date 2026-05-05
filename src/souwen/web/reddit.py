@@ -64,8 +64,8 @@
     - time: token 过期计算
     - typing: 类型注解
     - souwen.config: get_config 读取配置
-    - souwen.exceptions: ParseError 异常
-    - souwen.http_client: SouWenHttpClient HTTP 客户端基类
+    - souwen.core.exceptions: ParseError 异常
+    - souwen.core.http_client: SouWenHttpClient HTTP 客户端基类
     - souwen.models: SourceType, WebSearchResult, WebSearchResponse 数据模型
 
 技术要点：
@@ -91,8 +91,8 @@ import time
 from typing import Any
 
 from souwen.config import get_config
-from souwen.exceptions import AuthError, ParseError
-from souwen.http_client import SouWenHttpClient
+from souwen.core.exceptions import AuthError, ParseError
+from souwen.core.http_client import SouWenHttpClient
 from souwen.models import SourceType, WebSearchResponse, WebSearchResult
 
 logger = logging.getLogger("souwen.web.reddit")
