@@ -11,6 +11,10 @@ name: AI Agent
 # - fix-pr：在 ai-agent/* 分支上修改并自动开 PR（安全，可 review）
 # - direct：直推目标分支（适合紧急小修复，有 force-with-lease 保护）
 #
+# 【当前状态】
+# v2 完全迁移期间关闭 ChatOps 自动入口，避免拖慢 v2-dev staged PR 开发。
+# workflow_dispatch 手动入口保留；恢复 ChatOps 时重新启用下方注释的 issue_comment 触发面。
+#
 # 【触发条件】
 # 1. issue_comment — 在 PR 或 Issue 上评论 `/ai-do [flags] <指令>`
 #    - PR 评论：target = 该 PR，可 fix-pr 或 direct
@@ -65,8 +69,9 @@ name: AI Agent
 # ═══════════════════════════════════════════════════════════════════════════
 
 on:
-  issue_comment:
-    types: [created]
+  # v2 migration: automatic ChatOps execution is disabled.
+  # issue_comment:
+  #   types: [created]
   workflow_dispatch:
     inputs:
       target_type:
