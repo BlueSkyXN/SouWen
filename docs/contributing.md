@@ -150,7 +150,7 @@ ruff format src/
 [optional footer(s)]
 ```
 
-常用 `type`：`feat` / `fix` / `docs` / `refactor` / `test` / `chore` / `perf`。`scope` 推荐使用 domain 名（`paper` / `patent` / `web` / `social` / `video` / `registry` / `facade` / `panel` / `docker` 等）。
+常用 `type`：`feat` / `fix` / `docs` / `refactor` / `test` / `chore` / `perf`。`scope` 推荐使用 domain 名或模块名（`paper` / `patent` / `web` / `social` / `video` / `registry` / `core` / `panel` / `docker` 等）。
 
 示例：
 
@@ -165,7 +165,7 @@ refactor(core): move BaseScraper into core/scraper
 
 - `main` — 受保护的发布分支，CI 必须全绿才能合并。
 - `feat/*` `fix/*` `docs/*` — 特性 / 缺陷 / 文档分支，从 `main` 切出，PR 合并后删除。
-- 重大重构（如 V1）使用专门的长寿命分支，期间通过 RFC 文档（`local/`）跟踪决策。
+- 重大重构（如 v2）使用专门的长寿命分支，期间通过 RFC 文档（`local/`）跟踪决策。
 
 ## PR 流程
 

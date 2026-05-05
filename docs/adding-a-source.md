@@ -1,6 +1,6 @@
-# 添加一个新数据源（V1 指南）
+# 添加一个新数据源（V2 指南）
 
-> 在 V1 架构下，新增一个数据源 = **改 1-2 处文件**：实现 Client + 在 `registry/sources/` 注册。
+> 在 V2 架构下，新增一个数据源 = **改 1-2 处文件**：实现 Client + 在 `registry/sources/` 注册。
 > 不再需要去改 `search.py` / `web/search.py` / `models.py` / `registry/meta.py` 的多份分发表。
 
 ## 全景
@@ -251,8 +251,8 @@ curl 'http://localhost:8000/api/v1/search/paper?q=transformer&sources=my_source&
 - **忘了 `lazy()`**：直接 `client_loader=lambda: MySourceClient` 会让 registry 在导入期就 import 你的 Client，破坏启动延迟优化。
 - **`needs_config` 与 `config_field` 不一致**：可选 Key 的源（如 `openalex` / `github` / `doaj`）需显式 `needs_config=False` 或 `auth_requirement="optional"`，否则会被推断为"必须配置"。
 - **`scraper` 类源忘了走 BaseScraper**：直接用 `httpx.AsyncClient` 会缺失 TLS 指纹与礼貌爬取，被风控的几率显著上升。详见 [anti-scraping.md](./anti-scraping.md)。
-- **`extra_domains` 滥用**：V1 初期仅允许 `{"fetch"}`。需要跨更多域请先在 `local/` 写 RFC 讨论。
-- **没在 `souwen.example.yaml` 加注释**：用户找不到字段是 V1 之后最高频的工单来源，请补上。
+- **`extra_domains` 滥用**：V2 当前仅允许 `{"fetch"}`。需要跨更多域请先在 `local/` 写 RFC 讨论。
+- **没在 `souwen.example.yaml` 加注释**：用户找不到字段是配置类工单的高频来源，请补上。
 
 ## 7. 替代方案：作为外部插件发布
 

@@ -121,7 +121,11 @@ PROFILE_COMMANDS: Mapping[str, tuple[CommandSpec, ...]] = {
                 "--tb=short",
             ),
         ),
-        CommandSpec("example_plugin_discovery", (PYTHON, "-c", PLUGIN_DISCOVERY_CODE)),
+        CommandSpec(
+            "example_plugin_discovery",
+            (PYTHON, "-c", PLUGIN_DISCOVERY_CODE),
+            env=(("SOUWEN_PLUGIN_AUTOLOAD", "1"),),
+        ),
     ),
 }
 

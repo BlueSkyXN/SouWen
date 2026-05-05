@@ -6,7 +6,7 @@
 
 [![Python](https://img.shields.io/badge/python-≥3.10-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-GPLv3-blue)](LICENSE)
-[![Version](https://img.shields.io/badge/version-1.2.0-orange)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.0.0rc1-orange)](CHANGELOG.md)
 
 **Author**: [@BlueSkyXN](https://github.com/BlueSkyXN) · **Repository**: [github.com/BlueSkyXN/SouWen](https://github.com/BlueSkyXN/SouWen) · **License**: [GPLv3](LICENSE)
 
@@ -36,11 +36,11 @@ The registry architecture reduces the cost of adding a new source to **1–2 cod
 
 ### Features
 
-- **93 built-in heterogeneous data sources** (derived from a unified `registry`, with external plugins appended at runtime):
-  - `paper` 19 · `patent` 8 · `web` 29 (engines/api/self_hosted)
+- **94 built-in heterogeneous data sources** (derived from a unified `registry`, with external plugins appended at runtime):
+  - `paper` 19 · `patent` 8 · `web` 29
   - `social` 5 · `video` 2 · `knowledge` 1
   - `developer` 2 · `cn_tech` 9 · `office` 1 · `archive` 1
-  - `fetch` cross-cutting: 16 fetch providers + 5 cross-domain providers
+  - `fetch` cross-cutting: 22 fetch providers (17 primary fetch-domain providers + 5 cross-domain capabilities)
 - **Unified Pydantic v2 models**: `PaperResult` / `PatentResult` / `WebSearchResult` / `FetchResult` / `WaybackCDXResponse` / …
 - **Async-first**: httpx + asyncio, per-loop Semaphore concurrency control
 - **Smart rate limiting**: Token Bucket + sliding window, per-source isolation
@@ -146,7 +146,7 @@ Run `souwen config init` to generate a template at `~/.config/souwen/config.yaml
 
 ## 🏗 Architecture
 
-Three-layer separation: **Presentation (CLI / Server / Panel / Integrations) → Facade (facade/) → Registry (registry/) + Domain (paper/patent/…) + Platform (core/)**.
+Three-layer separation: **Presentation (CLI / Server / Panel / Integrations) → Application API (`souwen.search` / `souwen.web.fetch` / `souwen.web.wayback`) → Registry + concrete client modules + Platform (`core`)**.
 
 See [docs/architecture.md](docs/architecture.md) for details.
 
@@ -154,11 +154,9 @@ See [docs/architecture.md](docs/architecture.md) for details.
 src/souwen/
 ├── core/              Platform: http_client / scraper / rate_limiter / retry / …
 ├── registry/          Single source of truth: adapter / sources / loader / views
-├── facade/            Facade: search / fetch / archive / aggregate
 ├── paper/             19 paper clients
 ├── patent/            8 patent clients
-├── web/               30 web-related (engines / api / self_hosted)
-├── social/ video/ knowledge/ developer/ cn_tech/ office/ archive/ fetch/
+├── web/               Search, social, video, knowledge, office, fetch, and archive clients
 ├── cli/ (subpackage)  CLI commands (organized by domain)
 └── server/            FastAPI application
 ```
