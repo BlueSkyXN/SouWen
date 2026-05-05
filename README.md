@@ -98,8 +98,10 @@ async def main():
     for r in resp[0].results:
         print(r.title, "—", r.doi)
 
-    # facade API（推荐）
-    from souwen.facade import search, search_all, fetch_content, archive_lookup
+    # v2 API
+    from souwen.search import search, search_all
+    from souwen.web.fetch import fetch_content
+    from souwen.web.wayback import WaybackClient
 
     # 按 domain + capability 派发
     papers = await search("transformer", domain="paper", limit=5)
@@ -107,10 +109,11 @@ async def main():
     results = await search_all("quantum", domains=["paper", "web", "knowledge"])
 
     # 抓取
-    resp = await fetch_content(["https://example.com"], provider="builtin")
+    resp = await fetch_content(["https://example.com"], providers=["builtin"])
 
     # Wayback 归档
-    snapshots = await archive_lookup("https://example.com")
+    async with WaybackClient() as wayback:
+        snapshots = await wayback.query_snapshots("https://example.com")
 
 asyncio.run(main())
 ```

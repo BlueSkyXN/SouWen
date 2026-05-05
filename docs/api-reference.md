@@ -2,7 +2,7 @@
 
 > SouWen 公开 API、数据模型、CLI 命令与 MCP 工具
 
-> **V1 架构提示**：所有路由都派发到 `souwen.facade.*`（统一门面层），门面再通过 `souwen.registry`（单一事实源）挑选 Client。新增数据源不需要改路由，参见 [adding-a-source.md](./adding-a-source.md)。
+> **V2 架构提示**：搜索路由派发到 `souwen.search`，内容抓取使用 `souwen.web.fetch`，数据源选择统一来自 `souwen.registry`（单一事实源）。新增数据源不需要改路由，参见 [adding-a-source.md](./adding-a-source.md)。
 
 > **⚠️ 声明：本项目仅供 Python 学习与技术研究使用。**
 > 涵盖的学习方向包括：API 对接与聚合、全栈开发（FastAPI + React）、爬虫技术（TLS 指纹 / 浏览器池化 / 反爬绕过）、CLI 开发（Rich / Click）、异步编程（asyncio / httpx）等。

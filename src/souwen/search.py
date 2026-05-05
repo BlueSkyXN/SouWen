@@ -33,7 +33,13 @@ from typing import Any
 from souwen.config import get_config
 from souwen.core.concurrency import get_semaphore
 from souwen.models import SearchResponse
-from souwen.registry import all_adapters, defaults_for, get as _registry_get
+from souwen.registry import (
+    all_adapters,
+    all_domains,
+    by_capability,
+    defaults_for,
+    get as _registry_get,
+)
 from souwen.registry.adapter import SourceAdapter
 
 # ── Web 搜索 ───────────────────────────────────────────────
@@ -177,7 +183,8 @@ async def _execute_search(
     domain: str,
     query: str,
     adapters: list[SourceAdapter],
-    per_page: int,
+    limit: int,
+    capability: str = "search",
     **kwargs: Any,
 ) -> list[SearchResponse]:
     """统一的并发搜索执行：跑 `_search_source_limited` on each adapter。"""
@@ -187,7 +194,7 @@ async def _execute_search(
         if not cfg.is_source_enabled(adapter.name):
             logger.info("数据源 %s 已禁用，跳过", adapter.name)
             continue
-        coro = _run_via_adapter(adapter, "search", query=query, limit=per_page, **kwargs)
+        coro = _run_via_adapter(adapter, capability, query=query, limit=limit, **kwargs)
         tasks.append((adapter.name, coro))
 
     results = await asyncio.gather(
@@ -195,8 +202,9 @@ async def _execute_search(
     )
     responses = [r for r in results if isinstance(r, SearchResponse)]
     logger.info(
-        "%s 搜索完成: %d/%d 源成功 (query=%s)",
+        "%s/%s 搜索完成: %d/%d 源成功 (query=%s)",
         domain,
+        capability,
         len(responses),
         len(tasks),
         query,
@@ -225,8 +233,14 @@ async def search_papers(
     Returns:
         每个数据源一个 SearchResponse 的列表
     """
-    adapters = _select_adapters("paper", "search", sources)
-    return await _execute_search("论文", query, adapters, per_page, **kwargs)
+    return await search(
+        query,
+        domain="paper",
+        capability="search",
+        sources=sources,
+        limit=per_page,
+        **kwargs,
+    )
 
 
 async def search_patents(
@@ -246,30 +260,118 @@ async def search_patents(
     Returns:
         每个数据源一个 SearchResponse 的列表
     """
-    adapters = _select_adapters("patent", "search", sources)
-    return await _execute_search("专利", query, adapters, per_page, **kwargs)
+    return await search(
+        query,
+        domain="patent",
+        capability="search",
+        sources=sources,
+        limit=per_page,
+        **kwargs,
+    )
 
 
 async def search(
     query: str,
     domain: str = "paper",
+    capability: str = "search",
+    sources: list[str] | None = None,
+    limit: int = 10,
     **kwargs: Any,
 ) -> list[SearchResponse]:
-    """统一搜索入口 — 根据 domain 分发。
+    """统一搜索入口 — 根据 (domain, capability) 从 registry 派发。
 
     Args:
         query: 搜索关键词
-        domain: 搜索领域 "paper" | "patent" | "web"
-        **kwargs: 传递给对应搜索函数的参数
+        domain: 搜索领域，如 "paper" | "patent" | "web" | "social"
+        capability: 能力名，如 "search" | "search_news" | "search_images"
+        sources: 指定源列表；None 表示使用 registry 声明的默认源
+        limit: 每个源返回的结果数量
+        **kwargs: 透传到各 Client
     """
-    if domain == "paper":
-        return await search_papers(query, **kwargs)
-    if domain == "patent":
-        return await search_patents(query, **kwargs)
-    if domain == "web":
-        resp = await web_search(query, **kwargs)
-        return [resp]
-    raise ValueError(f"未知搜索领域: {domain!r}，支持 'paper' | 'patent' | 'web'")
+    if domain not in all_domains():
+        supported = " | ".join(all_domains())
+        raise ValueError(f"未知搜索领域: {domain!r}，支持 {supported}")
+    adapters = _select_adapters(domain, capability, sources)
+    return await _execute_search(domain, query, adapters, limit, capability, **kwargs)
+
+
+async def search_domain(
+    query: str,
+    domain: str,
+    capability: str = "search",
+    sources: list[str] | None = None,
+    limit: int = 10,
+    **kwargs: Any,
+) -> list[SearchResponse]:
+    """`search()` 的语义化别名，显式要求传 domain。"""
+    return await search(query, domain, capability, sources, limit, **kwargs)
+
+
+async def search_by_capability(
+    query: str,
+    capability: str,
+    sources: list[str] | None = None,
+    limit: int = 10,
+    **kwargs: Any,
+) -> list[SearchResponse]:
+    """忽略 domain，对所有支持某 capability 的源派发。"""
+    if sources is None:
+        adapters = by_capability(capability)
+    else:
+        adapters = []
+        for name in sources:
+            adapter = _registry_get(name)
+            if adapter is None:
+                logger.warning("未知数据源: %s，跳过", name)
+                continue
+            if capability not in adapter.capabilities:
+                logger.warning(
+                    "%s 不支持 capability=%s（有: %s），跳过",
+                    name,
+                    capability,
+                    sorted(adapter.capabilities),
+                )
+                continue
+            adapters.append(adapter)
+    return await _execute_search("*", query, adapters, limit, capability, **kwargs)
+
+
+DEFAULT_AGGREGATE_DOMAINS: tuple[str, ...] = ("paper", "web", "knowledge", "developer")
+
+
+async def search_all(
+    query: str,
+    domains: list[str] | None = None,
+    per_domain_limit: int = 5,
+    timeout: float | None = None,
+    **kwargs: Any,
+) -> dict[str, list[SearchResponse]]:
+    """跨多个 domain 并行搜索，按 domain 分组返回。"""
+    selected = list(domains) if domains else list(DEFAULT_AGGREGATE_DOMAINS)
+    results: dict[str, list[SearchResponse]] = {}
+
+    async def _run_one(domain: str) -> tuple[str, list[SearchResponse]]:
+        try:
+            coro = search(query, domain=domain, limit=per_domain_limit, **kwargs)
+            if timeout is not None:
+                return domain, await asyncio.wait_for(coro, timeout=timeout)
+            return domain, await coro
+        except asyncio.TimeoutError:
+            logger.warning("search_all: domain=%s 超时（%.1fs）", domain, timeout or 0)
+            return domain, []
+        except Exception as exc:
+            logger.warning(
+                "search_all: domain=%s 失败 [%s]: %s",
+                domain,
+                type(exc).__name__,
+                exc,
+            )
+            return domain, []
+
+    pairs = await asyncio.gather(*[_run_one(domain) for domain in selected])
+    for domain, response in pairs:
+        results[domain] = response
+    return results
 
 
 # ── 内部辅助：默认源派生（保留私有名字便于测试 mock/patch）─────
@@ -303,6 +405,9 @@ def _get_semaphore() -> asyncio.Semaphore:
 # 公开给外部用户的符号
 __all__ = [
     "search",
+    "search_domain",
+    "search_by_capability",
+    "search_all",
     "search_papers",
     "search_patents",
     "web_search",

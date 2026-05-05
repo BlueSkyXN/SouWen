@@ -96,7 +96,7 @@ async def api_summarize(body: SummarizeRequest):
 
     from souwen.config import get_config
     from souwen.exceptions import ConfigError, SouWenError
-    from souwen.facade.search import search
+    from souwen.search import search
     from souwen.llm.client import LLMError
     from souwen.llm.summarize import summarize
 

@@ -14,11 +14,11 @@
 │   souwen.integrations/mcp/*  MCP 协议集成                      │
 │   panel/              Web UI（4 皮肤 + 共享 core）             │
 ├────────────────────────────────────────────────────────────────┤
-│ 门面层 Facade                                                   │
-│   souwen.facade.search     search(domain=, capability=) 派发   │
-│   souwen.facade.fetch      fetch_content(urls, provider=)      │
-│   souwen.facade.archive    archive_{lookup,save,fetch}         │
-│   souwen.facade.aggregate  search_all(domains=)                │
+│ 应用入口 Application API                                        │
+│   souwen.search            search(domain=, capability=) 派发   │
+│   souwen.search            search_all(domains=)                │
+│   souwen.web.fetch         fetch_content(urls, providers=)     │
+│   souwen.web.wayback       WaybackClient                       │
 ├────────────────────────────────────────────────────────────────┤
 │ 注册表层 Registry —— 单一事实源                                │
 │   souwen.registry.adapter    SourceAdapter / MethodSpec        │
@@ -273,12 +273,12 @@ _FETCH_HANDLERS["jina_reader"]  = _handle_jina_reader
 ```
 
 外部插件通过 `register_fetch_handler(provider, handler)` 加入这张表，让
-`facade.fetch_content(providers=["my_source"])` 能派发到自己的实现。
+`souwen.web.fetch.fetch_content(providers=["my_source"])` 能派发到自己的实现。
 
 > 设计原因：fetch 调用的入参形态（`urls`/`timeout`/各种 provider 私有 kwarg）
 > 与 `MethodSpec` 的统一入参不完全对齐，单独一张 handler 表更直接。
 > SourceAdapter 负责"出现在 registry / `souwen sources`"，handler 负责"能被
-> facade 真正派发"，二者互补。
+> fetch 真正派发"，二者互补。
 
 ### 对接规范
 
