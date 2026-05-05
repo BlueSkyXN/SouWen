@@ -200,7 +200,7 @@ async def test_similar_patents(httpx_mock: HTTPXMock):
 
 async def test_similar_patents_not_found(httpx_mock: HTTPXMock):
     """不存在的专利 ID 抛出 NotFoundError"""
-    from souwen.exceptions import NotFoundError
+    from souwen.core.exceptions import NotFoundError
 
     httpx_mock.add_response(
         url=re.compile(r"https://api\.projectpq\.ai/similar/.*"),

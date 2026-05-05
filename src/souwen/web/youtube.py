@@ -34,8 +34,8 @@ from typing import Any
 from xml.etree import ElementTree
 
 from souwen.config import get_config
-from souwen.exceptions import ConfigError, ParseError, RateLimitError
-from souwen.http_client import SouWenHttpClient
+from souwen.core.exceptions import ConfigError, ParseError, RateLimitError
+from souwen.core.http_client import SouWenHttpClient
 from souwen.models import SourceType, WebSearchResponse, WebSearchResult
 
 logger = logging.getLogger("souwen.web.youtube")

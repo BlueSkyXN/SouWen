@@ -21,7 +21,7 @@ import re
 import pytest
 from pytest_httpx import HTTPXMock
 
-from souwen.exceptions import ParseError
+from souwen.core.exceptions import ParseError
 from souwen.models import SourceType
 from souwen.web.wikipedia import WikipediaClient, _clean_html
 

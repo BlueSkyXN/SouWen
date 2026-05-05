@@ -15,10 +15,10 @@ from datetime import datetime, timedelta, timezone
 import logging
 from typing import Any
 
-from souwen.exceptions import ParseError
-from souwen.http_client import SouWenHttpClient
+from souwen.core.exceptions import ParseError
+from souwen.core.http_client import SouWenHttpClient
 from souwen.models import Author, PaperResult, SearchResponse, SourceType
-from souwen.rate_limiter import TokenBucketLimiter
+from souwen.core.rate_limiter import TokenBucketLimiter
 
 logger = logging.getLogger(__name__)
 

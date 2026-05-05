@@ -35,7 +35,7 @@ if "web_github" not in SourceType._value2member_map_:  # type: ignore[attr-defin
     )
 
 
-from souwen.exceptions import ParseError  # noqa: E402
+from souwen.core.exceptions import ParseError  # noqa: E402
 from souwen.web.github import GitHubClient  # noqa: E402
 
 

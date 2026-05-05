@@ -31,7 +31,7 @@
     - asyncio: 并发执行多平台搜索
     - logging: 日志记录
     - souwen.models: SourceType, WebSearchResult, WebSearchResponse
-    - souwen.http_client: SouWenHttpClient
+    - souwen.core.http_client: SouWenHttpClient
     - souwen.web.duckduckgo: DuckDuckGoClient（搜索后端）
 """
 
@@ -40,7 +40,7 @@ from __future__ import annotations
 import asyncio
 import logging
 
-from souwen.http_client import SouWenHttpClient
+from souwen.core.http_client import SouWenHttpClient
 from souwen.models import SourceType, WebSearchResult, WebSearchResponse
 
 logger = logging.getLogger("souwen.web.community_cn")

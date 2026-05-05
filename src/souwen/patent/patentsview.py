@@ -45,8 +45,8 @@ USPTO 专利数据，免费无需 API Key。
 模块依赖：
     - httpx: HTTP 异步客户端
     - souwen.models: 统一数据模型
-    - souwen.rate_limiter: 限流控制
-    - souwen._parsing: 安全日期解析
+    - souwen.core.rate_limiter: 限流控制
+    - souwen.core.parsing: 安全日期解析
 """
 
 from __future__ import annotations
@@ -55,11 +55,11 @@ import logging
 from typing import Any
 
 import httpx
-from souwen._parsing import safe_parse_date
-from souwen.exceptions import NotFoundError, ParseError
-from souwen.http_client import SouWenHttpClient
+from souwen.core.parsing import safe_parse_date
+from souwen.core.exceptions import NotFoundError, ParseError
+from souwen.core.http_client import SouWenHttpClient
 from souwen.models import Applicant, PatentResult, SearchResponse, SourceType
-from souwen.rate_limiter import TokenBucketLimiter
+from souwen.core.rate_limiter import TokenBucketLimiter
 
 logger = logging.getLogger(__name__)
 

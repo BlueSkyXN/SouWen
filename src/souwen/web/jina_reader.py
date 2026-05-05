@@ -26,7 +26,7 @@ import asyncio
 import logging
 from typing import TYPE_CHECKING
 
-from souwen.http_client import SouWenHttpClient
+from souwen.core.http_client import SouWenHttpClient
 from souwen.models import FetchResponse, FetchResult
 
 if TYPE_CHECKING:

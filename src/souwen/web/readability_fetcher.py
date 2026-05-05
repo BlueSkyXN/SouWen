@@ -28,8 +28,8 @@
 模块依赖：
     - asyncio: 异步并发与 to_thread 转同步
     - logging: 日志记录
-    - souwen.exceptions: ConfigError（依赖缺失时抛出）
-    - souwen.scraper.base: BaseScraper 基类
+    - souwen.core.exceptions: ConfigError（依赖缺失时抛出）
+    - souwen.core.scraper.base: BaseScraper 基类
     - souwen.models: FetchResult, FetchResponse 数据模型
     - readability-lxml（必需）: Mozilla Readability HTML 正文提取
     - markdownify（可选）: HTML→Markdown 首选方案
@@ -52,9 +52,9 @@ import re
 from typing import Any
 from urllib.parse import urljoin
 
-from souwen.exceptions import ConfigError
+from souwen.core.exceptions import ConfigError
 from souwen.models import FetchResponse, FetchResult
-from souwen.scraper.base import BaseScraper
+from souwen.core.scraper.base import BaseScraper
 
 logger = logging.getLogger("souwen.web.readability")
 

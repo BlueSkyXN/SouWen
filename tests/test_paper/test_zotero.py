@@ -30,7 +30,7 @@ import re
 import pytest
 from pytest_httpx import HTTPXMock
 
-from souwen.exceptions import ConfigError, NotFoundError
+from souwen.core.exceptions import ConfigError, NotFoundError
 from souwen.models import SourceType
 from souwen.paper.zotero import ZoteroClient
 

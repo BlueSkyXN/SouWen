@@ -239,7 +239,7 @@ async def test_get_by_doi(httpx_mock: HTTPXMock):
 
 async def test_get_by_doi_not_found(httpx_mock: HTTPXMock):
     """不存在的 DOI 抛出 NotFoundError"""
-    from souwen.exceptions import NotFoundError
+    from souwen.core.exceptions import NotFoundError
 
     httpx_mock.add_response(
         url=re.compile(r"https://api\.crossref\.org/works/.*"),

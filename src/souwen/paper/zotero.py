@@ -41,12 +41,12 @@ import asyncio
 import logging
 from typing import Any
 
-from souwen._parsing import safe_parse_date
+from souwen.core.parsing import safe_parse_date
 from souwen.config import get_config
-from souwen.exceptions import ConfigError, NotFoundError, ParseError
-from souwen.http_client import SouWenHttpClient
+from souwen.core.exceptions import ConfigError, NotFoundError, ParseError
+from souwen.core.http_client import SouWenHttpClient
 from souwen.models import Author, PaperResult, SearchResponse, SourceType
-from souwen.rate_limiter import TokenBucketLimiter
+from souwen.core.rate_limiter import TokenBucketLimiter
 
 logger = logging.getLogger(__name__)
 

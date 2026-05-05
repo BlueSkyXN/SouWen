@@ -1,7 +1,7 @@
 """SouWen 基础设施层测试。
 
-覆盖 ``souwen.models``（数据模型）、``souwen.exceptions``（异常体系）、
-``souwen.config``（配置管理）、``souwen.rate_limiter``（限流）、
+覆盖 ``souwen.models``（数据模型）、``souwen.core.exceptions``（异常体系）、
+``souwen.config``（配置管理）、``souwen.core.rate_limiter``（限流）、
 ``souwen.web``（网页搜索）、``souwen.search``（统一搜索）、
 ``souwen.server``（FastAPI 服务）等核心基础设施。
 
@@ -32,7 +32,7 @@ from souwen.models import (
     WebSearchResult,
     WebSearchResponse,
 )
-from souwen.exceptions import (
+from souwen.core.exceptions import (
     SouWenError,
     ConfigError,
     AuthError,
@@ -42,7 +42,7 @@ from souwen.exceptions import (
     NotFoundError,
 )
 from souwen.config import SouWenConfig
-from souwen.rate_limiter import TokenBucketLimiter, SlidingWindowLimiter
+from souwen.core.rate_limiter import TokenBucketLimiter, SlidingWindowLimiter
 from souwen.registry.meta import (
     AUTH_REQUIREMENT_TYPES,
     DISTRIBUTION_TYPES,
@@ -410,7 +410,7 @@ class TestWebSearch:
 
     def test_api_engines_require_config(self):
         """API 引擎缺少 Key 时报 ConfigError"""
-        from souwen.exceptions import ConfigError
+        from souwen.core.exceptions import ConfigError
         from souwen.web.tavily import TavilyClient
         from souwen.web.exa import ExaClient
         from souwen.web.serper import SerperClient
@@ -664,7 +664,7 @@ class TestOAuthTokenConcurrency:
         import asyncio
         from unittest.mock import AsyncMock, MagicMock
 
-        from souwen.http_client import OAuthClient
+        from souwen.core.http_client import OAuthClient
 
         client = OAuthClient(
             base_url="https://example.com",

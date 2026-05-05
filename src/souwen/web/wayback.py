@@ -67,7 +67,7 @@
     - logging: 日志记录
     - re: 正则表达式（向快照 URL 插入 id_ 修饰符）
     - httpx: 直接调用 archive.org 可用性 API（非网页抓取，不需要指纹）
-    - souwen.scraper.base: BaseScraper 基类（TLS 指纹 / WARP / 自适应退避）
+    - souwen.core.scraper.base: BaseScraper 基类（TLS 指纹 / WARP / 自适应退避）
     - souwen.models: FetchResponse, FetchResult 数据模型
     - souwen.web._html_extract: 共享 HTML → Markdown/Text 提取工具
 
@@ -113,7 +113,7 @@ from souwen.models import (
     WaybackSaveResult,
     WaybackSnapshot,
 )
-from souwen.scraper.base import BaseScraper
+from souwen.core.scraper.base import BaseScraper
 from souwen.web._html_extract import extract_from_html
 
 logger = logging.getLogger("souwen.web.wayback")

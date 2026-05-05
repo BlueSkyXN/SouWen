@@ -97,7 +97,7 @@ async def _search_source(name: str, coro: Any) -> SearchResponse | None:
     try:
         return await coro
     except Exception as e:
-        from souwen.exceptions import ConfigError, RateLimitError
+        from souwen.core.exceptions import ConfigError, RateLimitError
 
         if isinstance(e, ConfigError):
             logger.info("%s 跳过: 缺少配置 (%s)", name, e)

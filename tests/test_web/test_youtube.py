@@ -10,7 +10,7 @@ import re
 
 import pytest
 
-from souwen.exceptions import ConfigError, ParseError, RateLimitError
+from souwen.core.exceptions import ConfigError, ParseError, RateLimitError
 from souwen.web.youtube import (
     VideoDetail,
     YouTubeClient,

@@ -20,7 +20,7 @@
     - logging: 日志记录
     - re: HTML 标签清理
     - souwen.models: SourceType, WebSearchResult, WebSearchResponse
-    - souwen.http_client: SouWenHttpClient
+    - souwen.core.http_client: SouWenHttpClient
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ from __future__ import annotations
 import logging
 import re
 
-from souwen.http_client import SouWenHttpClient
+from souwen.core.http_client import SouWenHttpClient
 from souwen.models import SourceType, WebSearchResult, WebSearchResponse
 
 logger = logging.getLogger("souwen.web.linuxdo")

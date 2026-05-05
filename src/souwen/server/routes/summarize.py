@@ -95,7 +95,7 @@ async def api_summarize(body: SummarizeRequest):
     """搜索 + LLM 摘要 — 一站式智能搜索总结"""
 
     from souwen.config import get_config
-    from souwen.exceptions import ConfigError, SouWenError
+    from souwen.core.exceptions import ConfigError, SouWenError
     from souwen.search import search
     from souwen.llm.client import LLMError
     from souwen.llm.summarize import summarize
