@@ -6,7 +6,7 @@
 ``souwen.server``（FastAPI 服务）等核心基础设施。
 
 验证数据模型的字段完整性、异常继承关系、配置默认值、限流器行为、
-网页搜索去重、统一搜索门面、OAuth 并发安全等不变量。
+网页搜索去重、统一搜索入口、OAuth 并发安全等不变量。
 
 测试清单：
 - ``TestModels``：数据模型创建与字段验证
@@ -14,7 +14,7 @@
 - ``TestConfig``：配置值与路径展开
 - ``TestRateLimiter``：限流器异步操作
 - ``TestWebSearch``：网页搜索引擎、URL 解码、去重、API Key 必需性
-- ``TestUnifiedSearch``：统一搜索门面与数据源映射
+- ``TestUnifiedSearch``：统一搜索入口与数据源映射
 - ``TestYAMLConfig``：YAML 配置加载与示例文件
 - ``TestCLI``：CLI 工具与脱敏
 - ``TestServer``：FastAPI 服务导入与路由
@@ -423,9 +423,9 @@ class TestWebSearch:
 
 
 class TestUnifiedSearch:
-    """统一搜索门面测试"""
+    """统一搜索入口测试"""
 
-    def test_search_facade_imports(self):
+    def test_search_module_imports(self):
         """统一搜索模块导入"""
         from souwen.search import search, search_papers, search_patents, web_search
 

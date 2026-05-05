@@ -1,5 +1,16 @@
 # Changelog
 
+## v2.0.0rc1 — v2 完全迁移候选版（2026-05-05）
+
+### Breaking Changes
+- 删除 `souwen.facade`、`souwen.source_registry`、顶层 core shim、`souwen.scraper`、域级 re-export 包，以及 `souwen.web.engines` / `souwen.web.api` / `souwen.web.self_hosted` 分组 re-export。
+- 搜索入口收敛到 `souwen.search`，内容抓取入口收敛到 `souwen.web.fetch`，Wayback 入口使用 `souwen.web.wayback`。
+- Registry 元数据入口迁移到 `souwen.registry.meta`，内置源声明迁移为 `souwen.registry.sources` package。
+
+### Validation
+- 新增 import surface 测试，明确新 public imports 可用、旧兼容路径不可 import。
+- 发布候选版要求 wheel surface 检查，确认构建产物不包含已删除旧模块。
+
 ## [Unreleased] — Source Catalog Governance（2026-05-02）
 
 ### Features

@@ -316,7 +316,7 @@ base_url = config.resolve_base_url("my_source", "https://api.example.com")
 ## 6. Fetch Provider 合约
 
 如果插件要作为 fetch provider（`souwen fetch --provider=my-source`），仅声明
-`SourceAdapter` 不足以让门面派发——还需要把异步抓取函数注册到
+`SourceAdapter` 不足以让 `souwen.web.fetch.fetch_content` 派发——还需要把异步抓取函数注册到
 `souwen.web.fetch._FETCH_HANDLERS`。
 
 ### Handler 签名
@@ -377,7 +377,7 @@ entry point `ep.load()` 会执行该模块顶层代码，handler 即被注册。
 - 不希望插件出现在 `fetch_content(provider=...)` 列表里
 
 简言之：`SourceAdapter` 让源出现在 registry，`register_fetch_handler` 让源能被
-facade fetch 派发，二者互不依赖；fetch provider 通常需要两个都做。
+`souwen.web.fetch.fetch_content` 派发，二者互不依赖；fetch provider 通常需要两个都做。
 
 ### 错误处理约定
 
@@ -667,7 +667,7 @@ def test_fetch_handler_registered():
   发布前用 `souwen sources` 检查冲突。
 - **fetch provider 忘了注册 handler**：能在 `souwen sources` 看到，但
   `souwen fetch --provider=...` 报"未知提供者"。
-- **Client `__aexit__` 不实现**：facade 用 `async with` 调度，缺失会 AttributeError。
+- **Client `__aexit__` 不实现**：registry/search 调度会使用 `async with`，缺失会 AttributeError。
 - **抓取类异常外抛**：违反 §6 / §8 约定，会触发上层异常隔离但用户看不到具体原因。
 - **修改可变默认参**：`SourceAdapter` 是 `frozen=True`，所有 `frozenset()` /
   `Mapping` 都不可变。
