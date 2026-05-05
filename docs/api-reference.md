@@ -373,7 +373,7 @@ SouWen 支持三级角色认证（Guest/User/Admin），并向后兼容旧版密
 
 **响应示例：**
 ```json
-{ "status": "ok", "version": "1.1.1" }
+{ "status": "ok", "version": "1.2.0" }
 ```
 
 > `version` 字段动态返回当前 `souwen.__version__`，示例值仅作参考。
@@ -384,12 +384,12 @@ K8s readiness 探针（v0.6.1 引入）。仅做本地检查（配置可加载 +
 
 **响应示例（就绪）：**
 ```json
-{ "ready": true, "version": "1.1.1", "error": null }
+{ "ready": true, "version": "1.2.0", "error": null }
 ```
 
 **响应示例（503 未就绪）：**
 ```json
-{ "ready": false, "version": "1.1.1", "error": "source registry is empty" }
+{ "ready": false, "version": "1.2.0", "error": "source registry is empty" }
 ```
 
 #### `GET /` 与 `GET /panel`
