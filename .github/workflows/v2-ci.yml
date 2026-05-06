@@ -209,6 +209,44 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+  full_profile:
+    name: v2 full runtime profile
+    needs: bootstrap
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PYTHONPATH: src
+      SOUWEN_PLUGIN_AUTOLOAD: "0"
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,server,tls,web,scraper,newspaper,readability,pdf,mcp]"
+
+      - name: Run full runtime profile
+        run: |
+          mkdir -p artifacts
+          python scripts/ci/run_profile.py \
+            --profile full \
+            --json-report artifacts/v2-full-profile.json \
+            --markdown-report artifacts/v2-full-profile.md
+
+      - name: Upload full profile report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: v2-full-profile-report
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 7
+
   plugin_profile:
     name: v2 plugin profile
     needs: bootstrap
@@ -292,7 +330,7 @@ jobs:
 
   release_readiness_summary:
     name: v2 release readiness summary
-    needs: [bootstrap, matrix_tests, server_profile, plugin_profile, panel_build]
+    needs: [bootstrap, matrix_tests, server_profile, full_profile, plugin_profile, panel_build]
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -302,6 +340,7 @@ jobs:
           BOOTSTRAP_RESULT: ${{ needs.bootstrap.result }}
           MATRIX_RESULT: ${{ needs.matrix_tests.result }}
           SERVER_RESULT: ${{ needs.server_profile.result }}
+          FULL_RESULT: ${{ needs.full_profile.result }}
           PLUGIN_RESULT: ${{ needs.plugin_profile.result }}
           PANEL_RESULT: ${{ needs.panel_build.result }}
         run: |
@@ -313,6 +352,7 @@ jobs:
           | Bootstrap / import / wheel surface | $BOOTSTRAP_RESULT | v2 import surface, docs, registry baseline |
           | Full pytest matrix | $MATRIX_RESULT | Python 3.10-3.13 on Ubuntu, plus macOS/Windows 3.11 |
           | Server + minimal profile | $SERVER_RESULT | local API surface and CLI smoke |
+          | Full runtime profile | $FULL_RESULT | all source, doctor, plugin, and fetch handler import surface |
           | Plugin profile | $PLUGIN_RESULT | example plugin install, contract tests, entry point discovery |
           | Panel build | $PANEL_RESULT | TypeScript, Vitest, single-file panel artifact |
 
@@ -321,7 +361,7 @@ jobs:
           before promoting v2 back to main.
           EOF
 
-          for result in "$BOOTSTRAP_RESULT" "$MATRIX_RESULT" "$SERVER_RESULT" "$PLUGIN_RESULT" "$PANEL_RESULT"; do
+          for result in "$BOOTSTRAP_RESULT" "$MATRIX_RESULT" "$SERVER_RESULT" "$FULL_RESULT" "$PLUGIN_RESULT" "$PANEL_RESULT"; do
             if [ "$result" != "success" ]; then
               echo "V2 release readiness gate failed: $result" >&2
               exit 1

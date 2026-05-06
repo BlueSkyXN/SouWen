@@ -64,6 +64,8 @@ v2 back to `main`.
   3.11 on macOS and Windows.
 - server + minimal profile: local API surface tests and CLI smoke through
   `scripts/ci/run_profile.py`.
+- full runtime profile: all source, doctor, plugin, and fetch handler import
+  surface through `scripts/ci/run_profile.py`.
 - plugin profile: example plugin install, plugin contract tests, and entry point
   discovery through `scripts/ci/run_profile.py`.
 - panel build: TypeScript check, Vitest, single-file panel build, and
@@ -83,9 +85,10 @@ Before merging v2 back to `main`, run this release checklist:
    PR/local gates must pass on the mergeback PR; real sync, factory rebuild, and
    post-deploy smoke stay `main` only.
 4. `Build with PyInstaller` and `Build with Nuitka` are run manually for the
-   selected release tier/platform matrix, or by the release tag after mergeback.
-5. `发布到 PyPI` remains release/manual only; publish only after tag/version
-   consistency and package artifact checks pass.
+   selected release tier/platform matrix, or by the `v*` release tag after
+   mergeback.
+5. `发布到 PyPI` remains release/manual only; publish only from a `v*` tag after
+   tag/version consistency and package artifact checks pass.
 6. Workflow comments, branch filters, path filters, and version references are
    reviewed so the restored `main` automation points at the v2 public surface.
 
