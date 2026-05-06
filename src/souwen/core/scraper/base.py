@@ -74,7 +74,7 @@ try:
 except ImportError:
     logger.info(
         "curl_cffi 未安装，TLS 指纹模拟已禁用，将使用 httpx 回退"
-        "（如需启用，请安装 `souwen[tls]` 或 `souwen[scraper]`）"
+        '（如需启用，请在源码目录安装 `pip install -e ".[tls]"` 或 `pip install -e ".[scraper]"`）'
     )
 
 

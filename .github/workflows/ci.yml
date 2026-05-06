@@ -155,7 +155,7 @@ jobs:
           pip install -e examples/minimal-plugin
 
       - name: 安装可选 web2pdf 插件
-        run: pip install "superweb2pdf[capture]>=0.2.0" || echo "superweb2pdf not available on PyPI, recording WARN in report"
+        run: pip install "superweb2pdf[capture]>=0.2.0" || echo "superweb2pdf package not available, recording WARN in report"
         continue-on-error: true
 
       - name: 运行插件专用功能测试

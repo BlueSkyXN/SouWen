@@ -189,7 +189,7 @@ class ReadabilityFetcherClient(BaseScraper):
             raise ConfigError(
                 "readability-lxml",
                 "Readability Fetcher",
-                "https://pypi.org/project/readability-lxml/",
+                'pip install -e ".[readability]"',
             )
         super().__init__(
             min_delay=0,
