@@ -46,6 +46,67 @@ jobs:
           pytest tests/registry/test_consistency.py tests/test_gen_docs.py -q
           python tools/gen_docs.py --check
 
+      - name: Import and wheel surface tests
+        run: |
+          pytest tests/test_import_surface.py -q
+          wheelhouse="$(mktemp -d)"
+          python -m pip wheel . --no-deps --wheel-dir "$wheelhouse"
+          WHEELHOUSE="$wheelhouse" python - <<'PY'
+          import os
+          import zipfile
+          from pathlib import Path
+
+          wheel = next(Path(os.environ["WHEELHOUSE"]).glob("souwen-*.whl"))
+          with zipfile.ZipFile(wheel) as zf:
+              names = set(zf.namelist())
+
+          removed_prefixes = (
+              "souwen/facade/",
+              "souwen/fetch/",
+              "souwen/scraper/",
+              "souwen/archive/",
+              "souwen/cn_tech/",
+              "souwen/developer/",
+              "souwen/knowledge/",
+              "souwen/office/",
+              "souwen/social/",
+              "souwen/video/",
+              "souwen/web/api/",
+              "souwen/web/engines/",
+              "souwen/web/self_hosted/",
+          )
+          removed_files = {
+              "souwen/_parsing.py",
+              "souwen/exceptions.py",
+              "souwen/fingerprint.py",
+              "souwen/http_client.py",
+              "souwen/rate_limiter.py",
+              "souwen/retry.py",
+              "souwen/session_cache.py",
+              "souwen/source_registry.py",
+          }
+          unexpected = sorted(
+              name
+              for name in names
+              if name in removed_files or any(name.startswith(prefix) for prefix in removed_prefixes)
+          )
+          if unexpected:
+              raise SystemExit("removed v1 import surface leaked into wheel: " + ", ".join(unexpected))
+
+          required = {
+              "souwen/search.py",
+              "souwen/registry/meta.py",
+              "souwen/registry/sources/__init__.py",
+              "souwen/web/fetch.py",
+              "souwen/web/wayback.py",
+          }
+          missing = sorted(required - names)
+          if missing:
+              raise SystemExit("required v2 import surface missing from wheel: " + ", ".join(missing))
+
+          print(f"{wheel.name} import surface OK")
+          PY
+
       - name: Registry baseline
         run: |
           python - <<'PY'

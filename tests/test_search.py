@@ -259,6 +259,29 @@ async def test_search_by_capability_uses_capability_view(monkeypatch):
     )
 
 
+async def test_search_news_uses_registry_default(monkeypatch):
+    """README 示例里的 web/search_news 无 sources 调用应有默认源。"""
+    search_mod = importlib.import_module("souwen.search")
+    captured = {}
+
+    async def fake_execute(domain, query, adapters, limit, capability, **kwargs):
+        captured["execute"] = (domain, query, [a.name for a in adapters], limit, capability, kwargs)
+        return []
+
+    monkeypatch.setattr(search_mod, "_execute_search", fake_execute)
+
+    await search_mod.search("AI news", domain="web", capability="search_news", limit=4)
+
+    assert captured["execute"] == (
+        "web",
+        "AI news",
+        ["duckduckgo_news"],
+        4,
+        "search_news",
+        {},
+    )
+
+
 async def test_search_all_groups_domain_results(monkeypatch):
     """``search_all()`` 应并发调用顶层 ``search`` 并按 domain 分组。"""
     search_mod = importlib.import_module("souwen.search")
