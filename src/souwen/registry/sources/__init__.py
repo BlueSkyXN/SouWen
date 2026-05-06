@@ -477,6 +477,7 @@ _reg(
         config_field=None,
         client_loader=lazy("souwen.web.ddg_news:DuckDuckGoNewsClient"),
         methods={"search_news": MethodSpec("search", _P_MAX_RESULTS)},
+        default_for=frozenset({"web:search_news"}),
         tags=_T_GENERAL,
     )
 )
