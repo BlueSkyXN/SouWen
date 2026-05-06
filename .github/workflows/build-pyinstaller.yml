@@ -2,7 +2,7 @@
 # PyInstaller 构建工作流 — 将 SouWen 打包为单文件可执行程序
 #
 # 触发条件:
-#   - 推送版本标签时（0.x.x 格式，自动创建 Release）
+#   - 推送版本标签时（v*；兼容旧 numeric tag，自动创建 Release）
 #   - 手动触发（可选择构建层级和平台）
 #
 # 构建产物（三种层级）:
@@ -17,6 +17,7 @@ name: Build with PyInstaller
 on:
   push:
     tags:
+      - 'v*'
       - '[0-9]*'
   workflow_dispatch:
     inputs:
