@@ -111,7 +111,7 @@ class ArxivFulltextClient:
             import pymupdf4llm  # type: ignore
             import pymupdf  # type: ignore
         except ImportError:
-            logger.warning("pymupdf4llm 未安装，无法转换 PDF；可执行 `pip install souwen[pdf]`")
+            logger.warning('pymupdf4llm 未安装，无法转换 PDF；可执行 `pip install -e ".[pdf]"`')
             return None
 
         try:
@@ -190,7 +190,7 @@ class ArxivFulltextClient:
                 url=abs_url,
                 final_url=str(pdf_resp.url),
                 source="arxiv_fulltext",
-                error="pymupdf4llm 不可用或转换失败；请安装 souwen[pdf]",
+                error='pymupdf4llm 不可用或转换失败；请执行 `pip install -e ".[pdf]"`',
                 raw={"variant": "pdf", "paper_id": paper_id, "pdf_size": len(pdf_resp.content)},
             )
 

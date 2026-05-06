@@ -72,9 +72,9 @@ v2 back to `main`.
   `src/souwen/server/panel.html` artifact validation.
 
 `v2-dev` must not automatically deploy or publish production artifacts. HF Space
-deploy, PyPI publish, PyInstaller/Nuitka release artifacts, and secret-backed
-external smoke remain on their existing `main`, tag, release, or manual
-entrypoints until v2 is promoted.
+deploy, PyInstaller/Nuitka release artifacts, and secret-backed external smoke
+remain on their existing `main`, tag, release, or manual entrypoints until v2 is
+promoted.
 
 Before merging v2 back to `main`, run this release checklist:
 
@@ -87,9 +87,7 @@ Before merging v2 back to `main`, run this release checklist:
 4. `Build with PyInstaller` and `Build with Nuitka` are run manually for the
    selected release tier/platform matrix, or by the `v*` release tag after
    mergeback.
-5. `发布到 PyPI` remains release/manual only; publish only from a `v*` tag after
-   tag/version consistency and package artifact checks pass.
-6. Workflow comments, branch filters, path filters, and version references are
+5. Workflow comments, branch filters, path filters, and version references are
    reviewed so the restored `main` automation points at the v2 public surface.
 
 ## AI Workflow Policy

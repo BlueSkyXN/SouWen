@@ -52,14 +52,16 @@ The registry architecture reduces the cost of adding a new source to **1–2 cod
 ## 📦 Installation
 
 ```bash
-# Core: Python library + CLI
-pip install souwen
+# Install the core library + CLI from source
+git clone https://github.com/BlueSkyXN/SouWen.git
+cd SouWen
+pip install -e .
 
 # API server (FastAPI) + TLS fingerprinting + web search
-pip install "souwen[server,tls,web,scraper]"
+pip install -e ".[server,tls,web,scraper]"
 
 # Full install (includes PDF / Crawl4AI / newspaper, etc.)
-pip install "souwen[server,tls,web,scraper,pdf,crawl4ai,newspaper,readability,robots,mcp]"
+pip install -e ".[server,tls,web,scraper,pdf,crawl4ai,newspaper,readability,robots,mcp]"
 ```
 
 ## 🚀 Quick Start

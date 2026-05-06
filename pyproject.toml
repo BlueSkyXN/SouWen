@@ -75,7 +75,7 @@ scraper = ["curl-cffi>=0.14.0"]
 server = ["fastapi>=0.111", "uvicorn[standard]>=0.29"]
 # MCP 服务器协议支持
 mcp = ["mcp>=1.0"]
-# SuperWeb2PDF 网页截图转 PDF（可选外挂插件，pip install souwen[web2pdf]）
+# SuperWeb2PDF 网页截图转 PDF（可选外挂插件，源码目录执行 pip install -e ".[web2pdf]"）
 web2pdf = ["superweb2pdf[capture]>=0.2.0"]
 # 开发工具：单元测试、覆盖率、代码检查
 dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "pytest-httpx>=0.30", "pytest-cov>=4", "ruff>=0.4"]
