@@ -37,22 +37,33 @@ jobs:
       - name: 安装构建工具
         run: pip install build twine
 
-      - name: 构建包
-        run: python -m build
-
-      - name: twine check dist/*
-        run: twine check dist/*
-
-      - name: 校验 tag 与 pyproject.toml 版本一致
-        if: github.event_name == 'release'
+      - name: 校验发布 ref 与 pyproject.toml 版本一致
         run: |
-          TAG="${GITHUB_REF#refs/tags/v}"
-          VER=$(grep '^version = ' pyproject.toml | cut -d'"' -f2)
+          case "$GITHUB_REF" in
+            refs/tags/v*) ;;
+            *)
+              echo "❌ PyPI 发布必须从 v* tag 或该 tag 的 GitHub Release 触发；当前 ref=$GITHUB_REF" >&2
+              exit 1
+              ;;
+          esac
+          TAG="${GITHUB_REF_NAME#v}"
+          VER="$(python3 - <<'PY'
+          import tomllib
+          with open("pyproject.toml", "rb") as file:
+              print(tomllib.load(file)["project"]["version"])
+          PY
+          )"
           echo "tag=$TAG pyproject=$VER"
           if [ "$TAG" != "$VER" ]; then
             echo "❌ tag ($TAG) 与 pyproject.toml version ($VER) 不一致" >&2
             exit 1
           fi
+
+      - name: 构建包
+        run: python -m build
+
+      - name: twine check dist/*
+        run: twine check dist/*
 
       - name: 发布到 PyPI
         uses: pypa/gh-action-pypi-publish@release/v1
