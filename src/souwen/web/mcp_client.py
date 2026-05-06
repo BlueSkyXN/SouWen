@@ -94,7 +94,8 @@ class MCPClient:
             from mcp import ClientSession  # noqa: F401
         except ImportError as e:
             raise ImportError(
-                "MCP SDK 未安装。请执行: pip install mcp\n或安装完整依赖: pip install souwen[mcp]"
+                "MCP SDK 未安装。请执行: pip install mcp\n"
+                '或在源码目录安装完整依赖: pip install -e ".[mcp]"'
             ) from e
 
         from mcp import ClientSession

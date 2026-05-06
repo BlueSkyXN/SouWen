@@ -18,7 +18,7 @@ def serve(
     try:
         import uvicorn
     except ImportError:
-        console.print("[red]❌ 需要安装 server 依赖: pip install souwen\\[server][/red]")
+        console.print('[red]❌ 需要安装 server 依赖: pip install -e ".[server]"[/red]')
         raise typer.Exit(1)
 
     from souwen.logging_config import setup_logging

@@ -131,7 +131,7 @@ class ScraplingFetcherClient:
             raise ConfigError(
                 "scrapling[fetchers]",
                 "Scrapling",
-                'pip install -e ".[scrapling]" 或 pip install "souwen[scrapling]"，然后执行 scrapling install',
+                'pip install -e ".[scrapling]"，然后执行 scrapling install',
             ) from None
 
         self._async_fetcher = AsyncFetcher
