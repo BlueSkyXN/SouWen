@@ -100,7 +100,7 @@ def verify_real_crawl4ai_import(*, require_runtime: bool) -> tuple[str, dict[str
     except ImportError as exc:
         if not require_runtime:
             raise CheckSkipped(
-                "crawl4ai package is not installed; install souwen[crawl4ai] in CI runtime",
+                'crawl4ai package is not installed; run pip install -e ".[crawl4ai]" in CI runtime',
                 details={"exception_type": exc.__class__.__name__, "message": str(exc)},
             ) from exc
         raise

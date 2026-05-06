@@ -356,7 +356,7 @@ jobs:
           | Plugin profile | $PLUGIN_RESULT | example plugin install, contract tests, entry point discovery |
           | Panel build | $PANEL_RESULT | TypeScript, Vitest, single-file panel artifact |
 
-          External smoke, HF Space deploy, binary build, and PyPI publish remain outside
+          External smoke, HF Space deploy, and binary build remain outside
           automatic v2-dev CI. Run them manually or through main/tag/release workflows
           before promoting v2 back to main.
           EOF

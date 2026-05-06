@@ -3,7 +3,7 @@
 文件用途：
     通过 Crawl4AI 开源库（基于 Playwright 无头浏览器）抓取网页内容。
     适合 JS 渲染重度页面，输出干净 Markdown。免费、零 API Key、本地运行。
-    Crawl4AI 为可选依赖（pip install souwen[crawl4ai]）。
+    Crawl4AI 为可选依赖（源码目录执行 pip install -e ".[crawl4ai]"）。
 
 函数/类清单：
     Crawl4AIFetcherClient（类）
@@ -39,7 +39,7 @@ class Crawl4AIFetcherClient:
     """Crawl4AI 无头浏览器内容抓取客户端
 
     基于 Playwright，适合 JS 渲染重度页面。零 API Key，本地运行。
-    需要安装可选依赖：pip install souwen[crawl4ai]
+    需要安装可选依赖：pip install -e ".[crawl4ai]"
     """
 
     PROVIDER_NAME = "crawl4ai"
@@ -56,7 +56,7 @@ class Crawl4AIFetcherClient:
             raise ConfigError(
                 "crawl4ai",
                 "Crawl4AI",
-                "pip install souwen[crawl4ai]",
+                'pip install -e ".[crawl4ai]"',
             )
         self._crawler = AsyncWebCrawler(verbose=False)
         await self._crawler.__aenter__()
