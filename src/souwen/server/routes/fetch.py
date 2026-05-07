@@ -19,11 +19,20 @@ def _valid_fetch_provider_names() -> frozenset[str]:
     return frozenset(adapter.name for adapter in fetch_providers())
 
 
-def _fetch_route_timeout(provider: str, url_count: int, timeout: float) -> float:
+def _fetch_route_timeout(
+    providers: str | list[str],
+    url_count: int,
+    timeout: float,
+    strategy: str = "fallback",
+) -> float:
     """HTTP route 外层超时应跟随 fetch 层 provider 级预算。"""
     from souwen.web.fetch import _get_provider_global_timeout
 
-    return _get_provider_global_timeout(provider, url_count, timeout) + 5
+    selected = [providers] if isinstance(providers, str) else providers
+    budgets = [_get_provider_global_timeout(provider, url_count, timeout) for provider in selected]
+    if strategy == "fanout":
+        return max(budgets, default=timeout + 10) + 5
+    return sum(budgets) + 5
 
 
 @router.post(
@@ -35,18 +44,31 @@ async def fetch_content_endpoint(body: FetchRequest):
     from souwen.web.fetch import fetch_content
 
     valid_fetch_providers = _valid_fetch_provider_names()
-    if body.provider not in valid_fetch_providers:
+    selected_providers = body.providers or [body.provider]
+    invalid_providers = [
+        provider for provider in selected_providers if provider not in valid_fetch_providers
+    ]
+    if invalid_providers:
         raise HTTPException(
             status_code=400,
-            detail=f"无效提供者: {body.provider}，可选: {', '.join(sorted(valid_fetch_providers))}",
+            detail=(
+                f"无效提供者: {', '.join(invalid_providers)}，"
+                f"可选: {', '.join(sorted(valid_fetch_providers))}"
+            ),
         )
 
-    route_timeout = _fetch_route_timeout(body.provider, len(body.urls), body.timeout)
+    route_timeout = _fetch_route_timeout(
+        selected_providers,
+        len(body.urls),
+        body.timeout,
+        body.strategy,
+    )
     try:
         resp = await asyncio.wait_for(
             fetch_content(
                 urls=body.urls,
-                providers=[body.provider],
+                providers=selected_providers,
+                strategy=body.strategy,
                 timeout=body.timeout,
                 selector=body.selector,
                 start_index=body.start_index,
@@ -62,13 +84,25 @@ async def fetch_content_endpoint(body: FetchRequest):
             "total_ok": resp.total_ok,
             "total_failed": resp.total_failed,
             "provider": resp.provider,
+            "providers": resp.providers,
+            "strategy": resp.strategy,
             "meta": resp.meta,
         }
     except asyncio.TimeoutError:
-        logger.warning("内容抓取超时: provider=%s urls=%d", body.provider, len(body.urls))
+        logger.warning(
+            "内容抓取超时: providers=%s strategy=%s urls=%d",
+            selected_providers,
+            body.strategy,
+            len(body.urls),
+        )
         raise HTTPException(status_code=504, detail=f"抓取超时（总预算 {route_timeout:g}s）")
     except Exception:
-        logger.warning("内容抓取内部错误: provider=%s", body.provider, exc_info=True)
+        logger.warning(
+            "内容抓取内部错误: providers=%s strategy=%s",
+            selected_providers,
+            body.strategy,
+            exc_info=True,
+        )
         raise
 
 

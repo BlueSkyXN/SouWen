@@ -282,7 +282,9 @@ class FetchResponse(BaseModel):
     total: int = 0
     total_ok: int = 0
     total_failed: int = 0
-    provider: str = ""
+    providers: list[str] = Field(default_factory=list)
+    strategy: str = "fallback"
+    provider: str | None = None
     meta: dict = Field(default_factory=dict)
 
 

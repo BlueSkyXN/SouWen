@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Literal
+
 from pydantic import BaseModel, Field
 
 from souwen.registry import fetch_providers
@@ -14,14 +16,26 @@ class FetchRequest(BaseModel):
 
     Attributes:
         urls: 目标 URL 列表（1-20 条）
-        provider: 提供者名称（默认 builtin）
+        provider: 兼容旧版单 provider 字段（默认 builtin）
+        providers: 多 provider 列表；提供时优先于 provider
+        strategy: 多 provider 策略，fallback 或 fanout
         timeout: 每个 URL 超时秒数
     """
 
     urls: list[str] = Field(..., min_length=1, max_length=20)
     provider: str = Field(
         default="builtin",
-        description=f"抓取提供者，可选: {', '.join(_FETCH_PROVIDER_NAMES)}",
+        description=f"兼容单抓取提供者，可选: {', '.join(_FETCH_PROVIDER_NAMES)}",
+    )
+    providers: list[str] | None = Field(
+        default=None,
+        min_length=1,
+        max_length=20,
+        description=f"抓取提供者列表；提供时优先于 provider，可选: {', '.join(_FETCH_PROVIDER_NAMES)}",
+    )
+    strategy: Literal["fallback", "fanout"] = Field(
+        default="fallback",
+        description="多提供者策略：fallback 按 URL 补失败项，fanout 并发返回全部 provider 结果",
     )
     timeout: float = Field(default=30.0, ge=1.0, le=120.0)
     selector: str | None = Field(
