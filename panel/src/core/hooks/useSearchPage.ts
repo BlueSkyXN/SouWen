@@ -60,23 +60,10 @@ const DOMAIN_CAPABILITIES: Record<string, Capability[]> = {
   office: ['search'],
   archive: ['archive_lookup'],
 }
-
-/** Domain ↔ /sources category 映射（前端过滤响应时用） */
-const DOMAIN_TO_CATEGORY: Record<string, string> = {
-  paper: 'paper',
-  patent: 'patent',
-  web: 'general',
-  social: 'social',
-  video: 'video',
-  knowledge: 'wiki',
-  developer: 'developer',
-  cn_tech: 'cn_tech',
-  office: 'office',
-  archive: 'fetch',
-}
+const DEFAULT_CAPABILITIES: Capability[] = ['search']
 
 export function useSearchPage(domain: string): SearchPageState {
-  const supportedCapabilities = DOMAIN_CAPABILITIES[domain] ?? ['search']
+  const supportedCapabilities = DOMAIN_CAPABILITIES[domain] ?? DEFAULT_CAPABILITIES
 
   const [query, setQuery] = useState('')
   const [capability, setCapability] = useState<Capability>(supportedCapabilities[0])
@@ -90,19 +77,28 @@ export function useSearchPage(domain: string): SearchPageState {
   const abortRef = useRef<AbortController | null>(null)
   const requestIdRef = useRef(0)
 
-  // 拉取当前 domain 可用源
+  // 拉取当前 domain / capability 可用源
   useEffect(() => {
     let mounted = true
     ;(async () => {
       try {
         const data = await api.getSources()
         if (!mounted) return
-        const key = DOMAIN_TO_CATEGORY[domain] ?? domain
-        const sources = ((data as unknown) as Record<string, SourceInfo[]>)[key] || []
+        const activeCapability = supportedCapabilities.includes(capability) ? capability : supportedCapabilities[0]
+        const defaultKey = `${domain}:${activeCapability}`
+        const defaults = new Set(data.defaults?.[defaultKey] ?? [])
+        const sources = data.sources
+          .filter((source) =>
+            source.domain === domain
+            && source.available
+            && source.capabilities.includes(activeCapability),
+          )
+        const defaultNames = sources
+          .filter((source) => defaults.has(source.name) || source.default_for.includes(defaultKey))
+          .map((source) => source.name)
         setAvailableSources(sources)
-        // domain 切换时总是重置为新 domain 的全部源，避免残留上一个 domain 的源名
-        const names = sources.map((s: SourceInfo) => s.name)
-        setSelectedSources(names)
+        // domain / capability 切换时重置选择，避免残留上一个筛选范围的源名
+        setSelectedSources(defaultNames.length > 0 ? defaultNames : sources.map((source: SourceInfo) => source.name))
       } catch {
         // silently fail; UI can fall back
       }
@@ -110,7 +106,7 @@ export function useSearchPage(domain: string): SearchPageState {
     return () => {
       mounted = false
     }
-  }, [domain])
+  }, [domain, capability, supportedCapabilities])
 
   useEffect(() => {
     const caps = DOMAIN_CAPABILITIES[domain] ?? ['search']

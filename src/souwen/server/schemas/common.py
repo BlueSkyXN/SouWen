@@ -10,14 +10,15 @@ from pydantic import BaseModel, Field
 SOURCE_CATEGORY_ORDER = (
     "paper",
     "patent",
-    "general",
-    "professional",
+    "web_general",
+    "web_professional",
     "social",
     "office",
     "developer",
-    "wiki",
+    "knowledge",
     "cn_tech",
     "video",
+    "archive",
     "fetch",
 )
 
@@ -29,51 +30,41 @@ class HealthResponse(BaseModel):
     version: str = Field(examples=["0.4.0"])
 
 
-class SourceInfo(BaseModel):
-    """数据源信息卡片
+class SourceCategoryInfo(BaseModel):
+    """正式 Source Catalog 分类信息。"""
 
-    Attributes:
-        name: 数据源名称（如 "openalex"）
-        needs_key: 是否需要 API Key 才能使用
-        key_requirement/auth_requirement: none / optional / required / self_hosted
-        description: 对数据源的描述
-    """
+    key: str
+    label: str
+    order: int
+    domain: str | None = None
+    description: str = ""
+
+
+class SourceCatalogItem(BaseModel):
+    """正式 Source Catalog 单条数据源。"""
 
     name: str
-    needs_key: bool
+    domain: str
+    category: str
+    capabilities: list[str] = Field(default_factory=list)
     description: str
-    key_requirement: Literal["none", "optional", "required", "self_hosted"] = "none"
-    auth_requirement: Literal["none", "optional", "required", "self_hosted"] = "none"
+    auth_requirement: Literal["none", "optional", "required", "self_hosted"]
     credential_fields: list[str] = Field(default_factory=list)
-    optional_credential_effect: str | None = None
-    integration_type: str | None = None
-    risk_level: Literal["low", "medium", "high"] = "low"
-    risk_reasons: list[str] = Field(default_factory=list)
-    distribution: Literal["core", "extra", "plugin"] = "core"
-    package_extra: str | None = None
-    stability: Literal["stable", "beta", "experimental", "deprecated"] = "stable"
-    usage_note: str | None = None
-    default_enabled: bool = True
+    credentials_satisfied: bool
+    configured_credentials: bool
+    risk_level: Literal["low", "medium", "high"]
+    stability: Literal["stable", "beta", "experimental", "deprecated"]
+    distribution: Literal["core", "extra", "plugin"]
+    default_for: list[str] = Field(default_factory=list)
+    available: bool
 
 
-class SourcesResponse(BaseModel):
-    """数据源列表响应 — 按类别分组
+class SourceCatalogResponse(BaseModel):
+    """正式 Source Catalog 响应。"""
 
-    与当前 /sources 兼容响应的 11 个分类一一对应，/sources 端点
-    会按类别返回当前可用（凭据满足）的数据源列表。
-    """
-
-    paper: list[SourceInfo] = Field(default_factory=list)
-    patent: list[SourceInfo] = Field(default_factory=list)
-    general: list[SourceInfo] = Field(default_factory=list)
-    professional: list[SourceInfo] = Field(default_factory=list)
-    social: list[SourceInfo] = Field(default_factory=list)
-    office: list[SourceInfo] = Field(default_factory=list)
-    developer: list[SourceInfo] = Field(default_factory=list)
-    wiki: list[SourceInfo] = Field(default_factory=list)
-    cn_tech: list[SourceInfo] = Field(default_factory=list)
-    video: list[SourceInfo] = Field(default_factory=list)
-    fetch: list[SourceInfo] = Field(default_factory=list)
+    sources: list[SourceCatalogItem] = Field(default_factory=list)
+    categories: list[SourceCategoryInfo] = Field(default_factory=list)
+    defaults: dict[str, list[str]] = Field(default_factory=dict)
 
 
 class SearchMeta(BaseModel):

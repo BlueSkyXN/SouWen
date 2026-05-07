@@ -60,6 +60,10 @@ def dual_key_client(monkeypatch):
     return TestClient(app, raise_server_exceptions=False)
 
 
+def _sources_by_name(payload: dict) -> dict[str, dict]:
+    return {item["name"]: item for item in payload["sources"]}
+
+
 # ---------------------------------------------------------------------------
 # Health
 # ---------------------------------------------------------------------------
@@ -330,7 +334,7 @@ class TestSearchAuth:
         assert resp.status_code == 401
 
     def test_sources_with_valid_token(self, authed_client):
-        """带正确 Token 访问 ``/sources`` 应 200，并返回固定 source catalog 分类。"""
+        """带正确 Token 访问 ``/sources`` 应返回正式 Source Catalog payload。"""
         from souwen.server.schemas import SOURCE_CATEGORY_ORDER
 
         resp = authed_client.get(
@@ -339,17 +343,25 @@ class TestSearchAuth:
         )
         assert resp.status_code == 200
         data = resp.json()
-        assert list(data) == list(SOURCE_CATEGORY_ORDER)
-        assert all(isinstance(entries, list) for entries in data.values())
-        openalex = next(item for item in data["paper"] if item["name"] == "openalex")
-        assert openalex["key_requirement"] == "optional"
+        assert set(data) == {"sources", "categories", "defaults"}
+        assert [item["key"] for item in data["categories"]] == list(SOURCE_CATEGORY_ORDER)
+        assert {"arxiv", "crossref", "openalex"} <= set(data["defaults"]["paper:search"])
+        openalex = _sources_by_name(data)["openalex"]
+        assert openalex["domain"] == "paper"
+        assert openalex["category"] == "paper"
+        assert openalex["capabilities"] == ["search"]
         assert openalex["auth_requirement"] == "optional"
         assert openalex["credential_fields"] == ["openalex_email"]
+        assert openalex["credentials_satisfied"] is True
+        assert openalex["configured_credentials"] is False
         assert openalex["risk_level"] == "low"
+        assert openalex["stability"] == "stable"
         assert openalex["distribution"] == "core"
+        assert openalex["default_for"] == ["paper:search"]
+        assert openalex["available"] is True
 
     def test_sources_omits_disabled_entries(self, client, monkeypatch):
-        """sources.<name>.enabled=false 后，/sources 不应再展示该源。"""
+        """sources.<name>.enabled=false 后，/sources 保留 catalog 条目但标为不可用。"""
         monkeypatch.setenv("SOUWEN_SOURCES", '{"duckduckgo": {"enabled": false}}')
         from souwen.config import get_config
 
@@ -357,8 +369,9 @@ class TestSearchAuth:
         resp = client.get("/api/v1/sources")
         assert resp.status_code == 200
         data = resp.json()
-        names = {item["name"] for entries in data.values() for item in entries}
-        assert "duckduckgo" not in names
+        duckduckgo = _sources_by_name(data)["duckduckgo"]
+        assert duckduckgo["available"] is False
+        assert duckduckgo["credentials_satisfied"] is True
 
     def test_sources_require_multifield_secondary_credentials(self, client, monkeypatch):
         """/sources 与 admin 配置不能把仅有 primary override 的多字段源标成可用。"""
@@ -371,8 +384,11 @@ class TestSearchAuth:
         get_config.cache_clear()
         sources_resp = client.get("/api/v1/sources")
         assert sources_resp.status_code == 200
-        patent_names = {item["name"] for item in sources_resp.json().get("patent", [])}
-        assert "epo_ops" not in patent_names
+        epo_ops = _sources_by_name(sources_resp.json())["epo_ops"]
+        assert epo_ops["category"] == "patent"
+        assert epo_ops["configured_credentials"] is False
+        assert epo_ops["credentials_satisfied"] is False
+        assert epo_ops["available"] is False
 
         admin_resp = client.get("/api/v1/admin/sources/config/epo_ops")
         assert admin_resp.status_code == 200
@@ -406,8 +422,9 @@ class TestSearchAuth:
 
         get_config.cache_clear()
         data = client.get("/api/v1/sources").json()
-        names = {item["name"] for item in data.get("general", [])}
-        assert source_name in names
+        source = _sources_by_name(data)[source_name]
+        assert source["category"] == "web_general"
+        assert source["available"] is True
 
         module_name, class_name = client_path.split(":")
         client_cls = getattr(importlib.import_module(module_name), class_name)
@@ -442,8 +459,9 @@ class TestSearchAuth:
 
         get_config.cache_clear()
         data = client.get("/api/v1/sources").json()
-        names = {item["name"] for item in data.get("general", [])}
-        assert source_name in names
+        source = _sources_by_name(data)[source_name]
+        assert source["category"] == "web_general"
+        assert source["available"] is True
 
         module_name, class_name = client_path.split(":")
         client_cls = getattr(importlib.import_module(module_name), class_name)
@@ -499,13 +517,13 @@ class TestSearchAuth:
 
         assert _reg_external(adapter) is True
         data = client.get("/api/v1/sources").json()
-        assert "runtime_sources_probe" in {item["name"] for item in data.get("fetch", [])}
+        source = _sources_by_name(data)["runtime_sources_probe"]
+        assert source["category"] == "fetch"
+        assert source["distribution"] == "plugin"
 
         assert _unreg_external("runtime_sources_probe") is True
         data = client.get("/api/v1/sources").json()
-        assert "runtime_sources_probe" not in {
-            item["name"] for entries in data.values() for item in entries
-        }
+        assert "runtime_sources_probe" not in _sources_by_name(data)
 
     def test_sources_keeps_runtime_web_plugin_without_explicit_category(
         self, client, clean_registry
@@ -528,8 +546,9 @@ class TestSearchAuth:
 
         assert _reg_external(adapter) is True
         data = client.get("/api/v1/sources").json()
-        names = {item["name"] for item in data.get("general", [])}
-        assert "runtime_web_sources_probe" in names
+        source = _sources_by_name(data)["runtime_web_sources_probe"]
+        assert source["domain"] == "web"
+        assert source["category"] == "web_general"
 
     # --- 双密钥：visitor 和 admin 密码均可访问搜索端点 ---
     def test_dual_key_visitor_password_accepted(self, dual_key_client):
@@ -860,14 +879,14 @@ class TestSchemas:
     def test_response_models_importable(self):
         """所有响应模型（Health/Search*/ConfigReload/Doctor/Sources/Error/SearchMeta）可导入并实例化。"""
         from souwen.server.schemas import (
+            ConfigReloadResponse,
+            DoctorResponse,
             ErrorResponse,
             HealthResponse,
             SearchMeta,
             SearchPaperResponse,
             SearchPatentResponse,
-            ConfigReloadResponse,
-            DoctorResponse,
-            SourcesResponse,
+            SourceCatalogResponse,
         )
 
         h = HealthResponse(status="ok", version="0.1.0")
@@ -877,7 +896,7 @@ class TestSchemas:
         assert SearchPatentResponse(query="q", sources=[], results=[], total=0)
         assert ConfigReloadResponse(status="ok", password_set=True)
         assert DoctorResponse(total=0, ok=0, sources=[])
-        assert SourcesResponse()
+        assert SourceCatalogResponse()
         assert ErrorResponse(error="test", detail="msg", request_id="abc")
         assert SearchMeta(requested=["a"], succeeded=["a"], failed=[])
 

@@ -45,28 +45,30 @@ const CATEGORY_LABELS = SOURCE_CATEGORY_LABEL_KEYS
 const CATEGORY_ICONS: Record<SourceCategory, typeof FileText> = {
   paper: FileText,
   patent: Shield,
-  general: Globe,
-  professional: Globe,
+  web_general: Globe,
+  web_professional: Globe,
   social: Globe,
   office: Globe,
   developer: Globe,
-  wiki: Globe,
+  knowledge: Globe,
   cn_tech: Globe,
   video: Globe,
+  archive: Globe,
   fetch: Globe,
 }
 
 const CATEGORY_BORDER: Record<SourceCategory, string> = {
   paper: styles.borderPaper,
   patent: styles.borderPatent,
-  general: styles.borderWeb,
-  professional: styles.borderWeb,
+  web_general: styles.borderWeb,
+  web_professional: styles.borderWeb,
   social: styles.borderWeb,
   office: styles.borderWeb,
   developer: styles.borderWeb,
-  wiki: styles.borderWeb,
+  knowledge: styles.borderWeb,
   cn_tech: styles.borderWeb,
   video: styles.borderWeb,
+  archive: styles.borderWeb,
   fetch: styles.borderWeb,
 }
 

@@ -277,6 +277,49 @@ def available_source_catalog(config: Any) -> dict[str, SourceCatalogEntry]:
     return result
 
 
+def public_source_catalog_payload(config: Any) -> dict[str, Any]:
+    """返回 API/CLI 共用的公开 Source Catalog payload。"""
+
+    from souwen.registry.meta import has_configured_credentials, has_required_credentials
+
+    sources: list[dict[str, Any]] = []
+    for name, entry in public_source_catalog().items():
+        credentials_satisfied = has_required_credentials(config, name, entry)
+        sources.append(
+            {
+                "name": name,
+                "domain": entry.domain,
+                "category": entry.category,
+                "capabilities": list(entry.capabilities),
+                "description": entry.description,
+                "auth_requirement": entry.auth_requirement,
+                "credential_fields": list(entry.credential_fields),
+                "credentials_satisfied": credentials_satisfied,
+                "configured_credentials": has_configured_credentials(config, name, entry),
+                "risk_level": entry.risk_level,
+                "stability": entry.stability,
+                "distribution": entry.distribution,
+                "default_for": list(entry.default_for),
+                "available": config.is_source_enabled(name) and credentials_satisfied,
+            }
+        )
+
+    return {
+        "sources": sources,
+        "categories": [
+            {
+                "key": category.key,
+                "label": category.label,
+                "order": category.order,
+                "domain": category.domain,
+                "description": category.description,
+            }
+            for category in source_categories()
+        ],
+        "defaults": {key: list(names) for key, names in default_source_map().items()},
+    }
+
+
 __all__ = [
     "SourceCategory",
     "SourceCatalogEntry",
@@ -286,4 +329,5 @@ __all__ = [
     "sources_by_category",
     "default_source_map",
     "available_source_catalog",
+    "public_source_catalog_payload",
 ]

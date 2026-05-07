@@ -256,7 +256,11 @@ souwen config init    # 生成 souwen.yaml 模板
 ### 数据源
 
 ```bash
-souwen sources        # 列出所有数据源及其状态
+souwen sources                         # 列出公开 Source Catalog
+souwen sources --json                  # 输出与 /api/v1/sources 一致的 JSON
+souwen sources --available-only        # 仅列出当前配置下可执行源
+souwen sources --category web_general  # 按正式 catalog category 过滤
+souwen sources --capability search     # 按能力过滤
 ```
 
 ### 健康检查
@@ -473,34 +477,41 @@ Cache-Control: public, max-age=3600
 
 #### `GET /api/v1/sources`
 
-列出所有可用数据源及其状态（受访客认证保护）。返回结果按展示分类分组，并且从运行时 live registry 派生：必须凭据或自建实例缺失的源会被隐藏，插件注册/注销后的源会随请求即时反映；可选凭据源仍会返回，但会带上 `auth_requirement="optional"` 与 `credential_fields` 供前端提示。
+列出公开 Source Catalog（受访客认证保护）。返回值从运行时 live registry 派生，内置源和运行时插件都以 `sources[]` 列表返回；源被禁用、必须凭据缺失或自建实例未配置时仍保留 catalog 条目，但 `available=false`。
 
 **响应示例：**
 ```json
 {
-  "paper": [
+  "sources": [
     {
       "name": "openalex",
-      "needs_key": false,
-      "key_requirement": "optional",
+      "domain": "paper",
+      "category": "paper",
+      "capabilities": ["search"],
+      "description": "OpenAlex 开放学术数据",
       "auth_requirement": "optional",
       "credential_fields": ["openalex_email"],
-      "optional_credential_effect": "politeness",
-      "integration_type": "open_api",
+      "credentials_satisfied": true,
+      "configured_credentials": false,
       "risk_level": "low",
-      "risk_reasons": [],
-      "distribution": "core",
-      "package_extra": null,
       "stability": "stable",
-      "usage_note": null,
-      "default_enabled": true,
-      "description": "OpenAlex 开放学术数据"
+      "distribution": "core",
+      "default_for": ["paper:search"],
+      "available": true
     }
   ],
-  "patent": [ ... ],
-  "general": [ ... ],
-  "professional": [ ... ],
-  "fetch": [ ... ]
+  "categories": [
+    {
+      "key": "paper",
+      "label": "学术论文",
+      "order": 10,
+      "domain": "paper",
+      "description": "论文、预印本、开放学术索引和文献库。"
+    }
+  ],
+  "defaults": {
+    "paper:search": ["arxiv", "biorxiv", "crossref", "dblp", "openalex", "pubmed"]
+  }
 }
 ```
 
@@ -508,19 +519,22 @@ Cache-Control: public, max-age=3600
 
 | 字段 | 说明 |
 |---|---|
-| `integration_type` | 接入方式：`open_api` / `scraper` / `official_api` / `self_hosted` |
-| `auth_requirement` / `key_requirement` | 鉴权要求：`none` / `optional` / `required` / `self_hosted` |
+| `sources[]` | 公开 Source Catalog 条目列表，前端和 CLI 应按 `domain`/`category`/`capabilities` 过滤 |
+| `categories[]` | 正式展示分类，包含 `key`、`label`、`order`、`domain` 与说明 |
+| `defaults` | `domain:capability` 到默认源名列表的映射 |
+| `domain` | 能力归属域，如 `paper` / `patent` / `web` / `fetch` |
+| `category` | 正式 catalog 分类，如 `web_general` / `web_professional` / `knowledge` |
+| `capabilities` | 源声明的能力，如 `search` / `fetch` / `details` |
+| `auth_requirement` | 鉴权要求：`none` / `optional` / `required` / `self_hosted` |
 | `credential_fields` | 完整凭据字段，多字段凭据会列出全部字段 |
-| `optional_credential_effect` | 可选凭据收益，如 `rate_limit`、`quota`、`politeness` |
-| `risk_level` / `risk_reasons` | 默认调度风险与原因，不等同于接入方式 |
-| `distribution` / `package_extra` | 推荐分发范围与 optional dependency 组 |
+| `credentials_satisfied` | 当前配置是否满足运行时凭据要求；免配置和可选凭据源为 `true` |
+| `configured_credentials` | 用户是否实际配置了该源声明的凭据 |
+| `available` | 当前配置下是否可投入调度，等于未禁用且 `credentials_satisfied=true` |
+| `risk_level` | 默认调度风险：`low` / `medium` / `high` |
+| `distribution` | 分发范围：`core` / `extra` / `plugin` |
 | `stability` | 成熟度：`stable` / `beta` / `experimental` / `deprecated` |
-| `usage_note` | 用户级提示文案(如 `"仅支持 DOI OA 查找"`),前端可作为 tooltip 或副标题展示;不参与可用性判定 |
 
-自建实例源（`auth_requirement="self_hosted"`）优先使用 `sources.<name>.base_url`；
-旧版 `sources.<name>.api_key` 与 flat `<name>_url` 仍保留兼容。
-
-数据源 catalog 字段和运行时可见性的总览见 [data-sources.md](./data-sources.md)；用户手册会在 GitHub Wiki 中提供场景化说明。
+数据源 catalog 字段和运行时可见性的总览见 [data-sources.md](./data-sources.md)。
 
 ---
 

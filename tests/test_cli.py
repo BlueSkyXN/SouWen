@@ -18,6 +18,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from pathlib import Path
 
 from typer.testing import CliRunner
@@ -90,6 +91,55 @@ def test_sources_list():
     """``sources`` 子命令可以正常打印数据源列表（仅校验 exit 0）。"""
     result = runner.invoke(app, ["sources"])
     assert result.exit_code == 0
+
+
+def test_sources_json_outputs_formal_catalog_contract():
+    """``sources --json`` 输出与 ``/api/v1/sources`` 一致的正式 catalog shape。"""
+    result = runner.invoke(app, ["sources", "--json"])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert set(data) == {"sources", "categories", "defaults"}
+    openalex = next(item for item in data["sources"] if item["name"] == "openalex")
+    assert openalex["domain"] == "paper"
+    assert openalex["category"] == "paper"
+    assert openalex["capabilities"] == ["search"]
+    assert openalex["credentials_satisfied"] is True
+    assert openalex["configured_credentials"] is False
+    assert openalex["available"] is True
+
+
+def test_sources_json_supports_filters(monkeypatch):
+    """``sources`` 支持 available/category/capability 三类过滤。"""
+    monkeypatch.setenv("SOUWEN_SOURCES", '{"duckduckgo": {"enabled": false}}')
+    from souwen.config import get_config
+
+    get_config.cache_clear()
+    result = runner.invoke(
+        app,
+        [
+            "sources",
+            "--json",
+            "--available-only",
+            "--category",
+            "web_general",
+            "--capability",
+            "search",
+        ],
+    )
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert data["sources"]
+    assert all(item["available"] for item in data["sources"])
+    assert all(item["category"] == "web_general" for item in data["sources"])
+    assert all("search" in item["capabilities"] for item in data["sources"])
+    assert "duckduckgo" not in {item["name"] for item in data["sources"]}
+
+
+def test_sources_rejects_unknown_category():
+    """未知正式 category 需要明确失败，避免误以为空结果。"""
+    result = runner.invoke(app, ["sources", "--category", "general"])
+    assert result.exit_code == 1
+    assert "未知 category" in result.output
 
 
 def test_config_source_self_hosted_legacy_channel_api_key(monkeypatch):
