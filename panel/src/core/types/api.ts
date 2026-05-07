@@ -28,7 +28,7 @@ export interface HealthResponse {
 }
 
 /**
- * 后端 source catalog 的固定分类，与 souwen.models.ALL_SOURCES 保持一致。
+ * 后端 /sources 当前响应的固定分类。
  */
 export type SourceCategory =
   | 'paper'

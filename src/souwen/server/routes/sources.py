@@ -18,17 +18,33 @@ async def list_sources():
     确保前端搜索页只展示真正可用的通道。
     """
     from souwen.config import get_config
-    from souwen.registry import as_all_sources_dict
-    from souwen.registry.meta import get_source, has_required_credentials
+    from souwen.registry import all_adapters, public_source_catalog
+    from souwen.registry.adapter import FETCH_DOMAIN
+    from souwen.registry.meta import has_required_credentials
 
     cfg = get_config()
-    all_sources = as_all_sources_dict()
+
+    # TODO(PR6): /sources 公开 contract 切到正式 catalog key 后删除这层临时适配。
+    category_map = {
+        "paper": "paper",
+        "patent": "patent",
+        "web_general": "general",
+        "web_professional": "professional",
+        "social": "social",
+        "office": "office",
+        "developer": "developer",
+        "knowledge": "wiki",
+        "cn_tech": "cn_tech",
+        "video": "video",
+        "archive": "fetch",
+        "fetch": "fetch",
+    }
 
     def _source_item(name: str, meta) -> dict:
         return {
             "name": name,
             "needs_key": meta.needs_config,
-            "key_requirement": meta.key_requirement,
+            "key_requirement": meta.auth_requirement,
             "auth_requirement": meta.auth_requirement,
             "credential_fields": list(meta.credential_fields),
             "optional_credential_effect": meta.optional_credential_effect,
@@ -43,17 +59,23 @@ async def list_sources():
             "description": meta.description,
         }
 
+    def _append_visible_source(
+        result: dict[str, list[dict]], category: str, name: str, meta
+    ) -> None:
+        item = _source_item(name, meta)
+        if not any(existing["name"] == name for existing in result[category]):
+            result[category].append(item)
+
     result: dict[str, list[dict]] = {category: [] for category in SOURCE_CATEGORY_ORDER}
-    for category, entries in all_sources.items():
-        result.setdefault(category, [])
-        for name, _needs_key, _desc in entries:
-            # 单次查询 meta，避免 _is_usable 与 _source_item 的重复 dict 查找
-            meta = get_source(name)
-            if meta is None:
-                continue
-            if not cfg.is_source_enabled(name):
-                continue
-            if not has_required_credentials(cfg, name, meta):
-                continue
-            result[category].append(_source_item(name, meta))
+    adapters = all_adapters()
+    for name, meta in public_source_catalog().items():
+        if not cfg.is_source_enabled(name):
+            continue
+        if not has_required_credentials(cfg, name, meta):
+            continue
+        category = category_map[meta.category]
+        _append_visible_source(result, category, name, meta)
+        adapter = adapters.get(name)
+        if adapter is not None and FETCH_DOMAIN in adapter.extra_domains:
+            _append_visible_source(result, "fetch", name, meta)
     return result

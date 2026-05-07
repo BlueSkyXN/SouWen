@@ -15,8 +15,8 @@ def list_sources() -> None:
         AUTH_REQUIREMENT_LABELS,
         DISTRIBUTION_LABELS,
         RISK_LEVEL_LABELS,
-        get_all_sources,
     )
+    from souwen.registry.catalog import source_catalog
 
     _INTEGRATION_SHORT = {
         "open_api": "公开",
@@ -34,8 +34,8 @@ def list_sources() -> None:
     table.add_column("Dist", justify="center")
     table.add_column("Description", style="dim")
 
-    for name, meta in get_all_sources().items():
-        key_indicator = AUTH_REQUIREMENT_LABELS.get(meta.key_requirement, meta.key_requirement)
+    for name, meta in source_catalog().items():
+        key_indicator = AUTH_REQUIREMENT_LABELS.get(meta.auth_requirement, meta.auth_requirement)
         integration = _INTEGRATION_SHORT.get(meta.integration_type, meta.integration_type)
         risk = RISK_LEVEL_LABELS.get(meta.risk_level, meta.risk_level)
         dist = DISTRIBUTION_LABELS.get(meta.distribution, meta.distribution)

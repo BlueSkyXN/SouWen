@@ -167,14 +167,14 @@ plugin = SourceAdapter(
 |---|---|
 | `"external_plugin"` | **强烈建议所有外部插件加上**，便于审计与故障排查 |
 | `"high_risk"` | 高风控源，会被 `high_risk_sources()` 视图收录 |
-| `"category:professional"` | 仅适用于 `domain="web"` 的插件；进入专业搜索分类 |
-| `"category:general"` | 仅适用于 `domain="web"` 的插件；显式进入通用搜索分类（默认也是 general） |
+| `"category:professional"` | 仅适用于 `domain="web"` 的插件；进入 `web_professional` 专业网页搜索分类 |
+| `"category:general"` | 仅适用于 `domain="web"` 的插件；显式进入 `web_general` 通用网页搜索分类（默认也是 `web_general`） |
 
-`domain="web"` 的外部插件如果不声明 `category:*`，会按公开 domain 语义归入 `general`。
-只有 AI/聚合搜索、商业 SERP API 等更接近内置 `professional` 分类的插件，才建议声明 `category:professional`。
+`domain="web"` 的外部插件如果不声明 `category:*`，会按公开 domain 语义归入 `web_general`。
+只有 AI/聚合搜索、商业 SERP API 等更接近内置 `web_professional` 分类的插件，才建议声明 `category:professional`。
 
-> ⚠️ 不要使用 `v0_category:*` / `v0_all_sources:exclude` 等内置兼容标签——这些仅用于
-> 内置源对旧版 `ALL_SOURCES` 的向下兼容。
+> ⚠️ 外部插件不要使用内部迁移期标签；需要控制 catalog 分类时，优先使用
+> `SourceAdapter.category` 或公开 `category:general/professional` 标签。
 
 ### 校验时机
 

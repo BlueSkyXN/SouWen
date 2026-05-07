@@ -1,7 +1,7 @@
 """SouWen 数据源元数据视图
 
 `souwen.registry` 是单一事实源（含执行适配 MethodSpec）。本模块对外提供基于
-分类（category）的便捷视图与查询函数，从 `souwen.registry.views` 派生。
+分类（category）的便捷视图与查询函数，从正式 source catalog 派生。
 
 公开 API：
     SourceMeta              —— 数据类（只读字段，视图）
@@ -17,14 +17,9 @@
     get_sources_by_distribution(distribution)     —— list[SourceMeta]
     ALL_SOURCE_NAMES        —— frozenset[str]
 
-domain → category 映射：
-    10 个 domain 中有 8 个直接对应 category：paper / patent / social / video /
-    knowledge / developer / cn_tech / office。另外：
-      - `web` 下的 scraper / self_hosted + 部分 SERP API → `general`
-      - `web` 下的 AI/语义 API → `professional`
-      - `knowledge` → `wiki`
-      - `archive` → `fetch`（Wayback 在 fetch 列表）
-    映射规则实现在 `souwen.registry.views._v0_category_for`。
+category 使用正式 catalog key：
+    paper / patent / web_general / web_professional / social / office /
+    developer / knowledge / cn_tech / video / archive / fetch。
 """
 
 from __future__ import annotations
@@ -33,8 +28,8 @@ from dataclasses import dataclass
 from threading import RLock
 from typing import Any
 
-from souwen.registry import views as _views
 from souwen.registry.adapter import AUTH_REQUIREMENTS, DISTRIBUTIONS, INTEGRATIONS
+from souwen.registry.catalog import source_catalog
 
 INTEGRATION_TYPES: frozenset[str] = INTEGRATIONS
 AUTH_REQUIREMENT_TYPES: frozenset[str] = AUTH_REQUIREMENTS
@@ -94,18 +89,13 @@ class SourceMeta:
         auth/risk/distribution/stability 等 source catalog 元数据。
 
     category 取值：
-        paper | patent | general | professional | social | office |
-        cn_tech | developer | wiki | video | fetch
-    （由 `_v0_category_for()` 把 adapter 的 domain 映射到对应 category）
+        paper | patent | web_general | web_professional | social | office |
+        developer | knowledge | cn_tech | video | archive | fetch
 
     字段语义注解：
         - ``credential_fields`` / ``risk_level`` / ``risk_reasons`` /
-          ``distribution`` / ``package_extra`` / ``stability`` 均存储
-          ``SourceAdapter`` 上的 ``resolved_*`` 投影（即已根据兼容字段如
-          ``high_risk`` tag、``v0_all_sources:exclude`` tag、scraper 默认 extra
-          推断出的最终值），消费者无需再访问 adapter 本体。
-        - ``distribution`` 在外部插件场景会被 ``_build_source_meta_view`` 强制改写
-          为 ``"plugin"``，与 adapter 上的声明可能不同。
+          ``distribution`` / ``package_extra`` / ``stability`` 均存储正式 catalog
+          投影中的最终值，消费者无需再访问 adapter 本体。
         - ``key_requirement`` 是 ``auth_requirement`` 的别名 property，保持
           doctor / API / Panel 的历史字段名兼容。
 
@@ -155,31 +145,25 @@ def _build_source_meta_view() -> dict[str, SourceMeta]:
     （如 Tavily domain=web + extra_domains={fetch}）只在主 category 下出现。
     """
     result: dict[str, SourceMeta] = {}
-    external_names = set(_views.external_plugins())
-    for adapter in _views.all_adapters().values():
-        # ALL_SOURCES 排除集合外的源（experimental/待修复）也会保留到本视图。
-        category = _views._v0_category_for(adapter)
-        if category is None:
-            continue
-        distribution = "plugin" if adapter.name in external_names else adapter.resolved_distribution
-        result[adapter.name] = SourceMeta(
-            name=adapter.name,
-            category=category,
-            integration_type=adapter.integration,
-            config_field=adapter.config_field,
-            description=adapter.description,
-            needs_config=adapter.resolved_needs_config,
-            auth_requirement=adapter.resolved_auth_requirement,
-            credential_fields=adapter.resolved_credential_fields,
-            optional_credential_effect=adapter.optional_credential_effect,
-            risk_level=adapter.resolved_risk_level,
-            risk_reasons=adapter.resolved_risk_reasons,
-            distribution=distribution,
-            package_extra=adapter.resolved_package_extra,
-            stability=adapter.resolved_stability,
-            usage_note=adapter.usage_note,
-            default_enabled=adapter.default_enabled,
-            default_for=adapter.default_for,
+    for entry in source_catalog().values():
+        result[entry.name] = SourceMeta(
+            name=entry.name,
+            category=entry.category,
+            integration_type=entry.integration_type,
+            config_field=entry.config_field,
+            description=entry.description,
+            needs_config=entry.needs_config,
+            auth_requirement=entry.auth_requirement,
+            credential_fields=entry.credential_fields,
+            optional_credential_effect=entry.optional_credential_effect,
+            risk_level=entry.risk_level,
+            risk_reasons=frozenset(entry.risk_reasons),
+            distribution=entry.distribution,
+            package_extra=entry.package_extra,
+            stability=entry.stability,
+            usage_note=entry.usage_note,
+            default_enabled=entry.default_enabled,
+            default_for=frozenset(entry.default_for),
         )
     return result
 
@@ -264,8 +248,9 @@ def get_sources_by_category(category: str) -> list[SourceMeta]:
     """按内容分类筛选数据源
 
     Args:
-        category: 分类标签（paper / patent / general / professional / social /
-            office / cn_tech / developer / wiki / video / fetch）
+        category: 正式 catalog 分类标签（paper / patent / web_general /
+            web_professional / social / office / developer / knowledge /
+            cn_tech / video / archive / fetch）
 
     Returns:
         该分类下的 SourceMeta 对象列表
