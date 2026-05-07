@@ -49,7 +49,7 @@
             ValueError — sort / time_filter 不在允许集合中
             ParseError — Reddit 响应非 JSON 或结构异常
         - 字段映射：
-            * source       = SourceType.WEB_REDDIT
+            * source       = 'reddit'
             * title        = data["title"]
             * url          = "https://www.reddit.com" + data["permalink"]
             * snippet      = data["selftext"][:300]（自我帖子摘要）
@@ -66,7 +66,7 @@
     - souwen.config: get_config 读取配置
     - souwen.core.exceptions: ParseError 异常
     - souwen.core.http_client: SouWenHttpClient HTTP 客户端基类
-    - souwen.models: SourceType, WebSearchResult, WebSearchResponse 数据模型
+    - souwen.models: str, WebSearchResult, WebSearchResponse 数据模型
 
 技术要点：
     - OAuth2 token 端点：POST https://www.reddit.com/api/v1/access_token
@@ -93,7 +93,7 @@ from typing import Any
 from souwen.config import get_config
 from souwen.core.exceptions import AuthError, ParseError
 from souwen.core.http_client import SouWenHttpClient
-from souwen.models import SourceType, WebSearchResponse, WebSearchResult
+from souwen.models import WebSearchResponse, WebSearchResult
 
 logger = logging.getLogger("souwen.web.reddit")
 
@@ -337,7 +337,7 @@ class RedditClient(SouWenHttpClient):
 
             results.append(
                 WebSearchResult(
-                    source=SourceType.WEB_REDDIT,
+                    source="reddit",
                     title=title,
                     url=url,
                     snippet=snippet,
@@ -361,7 +361,7 @@ class RedditClient(SouWenHttpClient):
 
         return WebSearchResponse(
             query=query,
-            source=SourceType.WEB_REDDIT,
+            source="reddit",
             results=results,
             total_results=len(results),
         )

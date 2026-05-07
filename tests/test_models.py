@@ -1,12 +1,12 @@
 """SouWen 数据模型边界测试。
 
-覆盖 ``souwen.models`` 中数据模型的完整性、字段约束、枚举值。
-验证 source catalog 元数据、SourceType 枚举完整性、extra='forbid' 验证、
+覆盖 ``souwen.models`` 中数据模型的完整性、字段约束和 source id 边界。
+验证 source catalog 元数据、结果 source 使用 registry adapter name、extra='forbid' 验证、
 WebSearchResult 必要字段等不变量。
 
 测试清单：
 - ``TestSourceCatalog``：catalog 字典结构、计数、论文/专利/Web 源统计
-- ``TestSourceTypeEnum``：SourceType 枚举值完整性、各源名称
+- ``TestResultSourceIds``：结果 source 字段使用 adapter name，且允许插件运行时 source
 - ``TestExtraForbid``：拒绝未知字段
 - ``TestWebSearchResult``：必要字段校验、snippet 默认值
 """
@@ -18,10 +18,9 @@ from souwen.models import (
     PaperResult,
     PatentResult,
     SearchResponse,
-    SourceType,
     WebSearchResult,
 )
-from souwen.registry.catalog import public_source_catalog
+from souwen.registry.catalog import public_source_catalog, source_catalog
 
 
 class TestSourceCatalog:
@@ -90,35 +89,41 @@ class TestSourceCatalog:
         assert needs_key["websurfx"] is True
 
 
-class TestSourceTypeEnum:
-    """SourceType 枚举测试"""
+class TestResultSourceIds:
+    """结果模型 source 字段使用 registry adapter name。"""
 
-    def test_has_59_values(self):
-        """枚举有 78 个值"""
-        assert len(SourceType) == 78
+    def test_result_source_uses_registry_adapter_name(self):
+        """内置结果模型样例的 source 都应直接等于 adapter.name。"""
+        registry_names = set(source_catalog())
+        samples = [
+            PaperResult(source="openalex", title="T", source_url="https://example.com/paper"),
+            PatentResult(
+                source="google_patents",
+                title="P",
+                patent_id="US123",
+                source_url="https://example.com/patent",
+            ),
+            WebSearchResult(
+                source="duckduckgo",
+                title="W",
+                url="https://example.com",
+                engine="duckduckgo",
+            ),
+            SearchResponse(query="q", source="duckduckgo", results=[]),
+        ]
 
-    def test_paper_sources_exist(self):
-        """论文数据源枚举存在"""
-        assert SourceType.OPENALEX.value == "openalex"
-        assert SourceType.ARXIV.value == "arxiv"
-        assert SourceType.CROSSREF.value == "crossref"
-        assert SourceType.BIORXIV.value == "biorxiv"
-        assert SourceType.IEEE_XPLORE.value == "ieee_xplore"
+        for sample in samples:
+            assert sample.source in registry_names
+            assert not sample.source.startswith(("web_", "fetch_"))
 
-    def test_patent_sources_exist(self):
-        """专利数据源枚举存在"""
-        assert SourceType.PATENTSVIEW.value == "patentsview"
-        assert SourceType.EPO_OPS.value == "epo_ops"
-
-    def test_web_sources_exist(self):
-        """Web 数据源枚举存在"""
-        assert SourceType.WEB_DUCKDUCKGO.value == "web_duckduckgo"
-        assert SourceType.WEB_TAVILY.value == "web_tavily"
-
-    def test_is_string_enum(self):
-        """SourceType 是 str 枚举"""
-        assert isinstance(SourceType.OPENALEX, str)
-        assert SourceType.OPENALEX == "openalex"
+    def test_result_source_allows_runtime_plugin_name(self):
+        """模型层只承载字符串，不把插件 source 限死在内置 registry 中。"""
+        paper = PaperResult(
+            source="external_plugin_source",
+            title="Plugin Paper",
+            source_url="https://example.com/plugin",
+        )
+        assert paper.source == "external_plugin_source"
 
 
 class TestExtraForbid:
@@ -128,7 +133,7 @@ class TestExtraForbid:
         """PaperResult 拒绝未知字段"""
         with pytest.raises(ValidationError):
             PaperResult(
-                source=SourceType.OPENALEX,
+                source="openalex",
                 title="T",
                 source_url="https://x.com",
                 unknown_field="bad",
@@ -138,7 +143,7 @@ class TestExtraForbid:
         """PatentResult 拒绝未知字段"""
         with pytest.raises(ValidationError):
             PatentResult(
-                source=SourceType.PATENTSVIEW,
+                source="patentsview",
                 title="P",
                 patent_id="US123",
                 source_url="https://x.com",
@@ -150,7 +155,7 @@ class TestExtraForbid:
         with pytest.raises(ValidationError):
             SearchResponse(
                 query="q",
-                source=SourceType.OPENALEX,
+                source="openalex",
                 results=[],
                 unknown_field="bad",
             )
@@ -167,22 +172,22 @@ class TestWebSearchResult:
     def test_requires_title(self):
         """title 是必需字段"""
         with pytest.raises(ValidationError):
-            WebSearchResult(source=SourceType.WEB_DUCKDUCKGO, url="https://x.com", engine="ddg")
+            WebSearchResult(source="duckduckgo", url="https://x.com", engine="ddg")
 
     def test_requires_url(self):
         """url 是必需字段"""
         with pytest.raises(ValidationError):
-            WebSearchResult(source=SourceType.WEB_DUCKDUCKGO, title="T", engine="ddg")
+            WebSearchResult(source="duckduckgo", title="T", engine="ddg")
 
     def test_requires_engine(self):
         """engine 是必需字段"""
         with pytest.raises(ValidationError):
-            WebSearchResult(source=SourceType.WEB_DUCKDUCKGO, title="T", url="https://x.com")
+            WebSearchResult(source="duckduckgo", title="T", url="https://x.com")
 
     def test_valid_creation(self):
         """完整字段创建成功"""
         r = WebSearchResult(
-            source=SourceType.WEB_DUCKDUCKGO,
+            source="duckduckgo",
             title="Example",
             url="https://example.com",
             engine="duckduckgo",
@@ -194,7 +199,7 @@ class TestWebSearchResult:
     def test_snippet_defaults_empty(self):
         """snippet 默认空字符串"""
         r = WebSearchResult(
-            source=SourceType.WEB_DUCKDUCKGO,
+            source="duckduckgo",
             title="T",
             url="https://x.com",
             engine="ddg",

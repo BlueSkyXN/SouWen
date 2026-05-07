@@ -117,7 +117,7 @@ from souwen.paper import fetch_pdf
 
 ```python
 class PaperResult(BaseModel):
-    source: SourceType              # 数据来源
+    source: str                     # 数据来源
     title: str                      # 标题
     authors: list[Author]           # 作者列表
     abstract: str | None            # 摘要
@@ -138,7 +138,7 @@ class PaperResult(BaseModel):
 
 ```python
 class PatentResult(BaseModel):
-    source: SourceType              # 数据来源
+    source: str                     # 数据来源
     title: str                      # 标题
     patent_id: str                  # 公开号/申请号
     application_number: str | None  # 申请号
@@ -161,7 +161,7 @@ class PatentResult(BaseModel):
 
 ```python
 class WebSearchResult(BaseModel):
-    source: SourceType              # 数据来源
+    source: str                     # 数据来源
     title: str                      # 标题
     url: str                        # 链接
     snippet: str                    # 摘要片段
@@ -204,7 +204,7 @@ class FetchResponse(BaseModel):
 ```python
 class SearchResponse(BaseModel):
     query: str                      # 搜索词
-    source: SourceType              # 数据来源
+    source: str                     # 数据来源
     total_results: int | None       # 总结果数
     results: list[PaperResult] | list[PatentResult] | list[WebSearchResult]
     page: int = 1                   # 当前页

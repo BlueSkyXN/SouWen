@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from unittest.mock import AsyncMock
 
-from souwen.models import SourceType, WebSearchResponse, WebSearchResult
+from souwen.models import WebSearchResponse, WebSearchResult
 from souwen.web.community_cn import (
     CommunityCnClient,
     PLATFORM_DOMAINS,
@@ -69,7 +69,7 @@ def _make_ddg_response(items: list[dict], query: str = "test") -> WebSearchRespo
     """构造模拟的 DuckDuckGo 搜索响应"""
     results = [
         WebSearchResult(
-            source=SourceType.WEB_DUCKDUCKGO,
+            source="duckduckgo",
             title=item["title"],
             url=item["url"],
             snippet=item.get("snippet", ""),
@@ -80,7 +80,7 @@ def _make_ddg_response(items: list[dict], query: str = "test") -> WebSearchRespo
     ]
     return WebSearchResponse(
         query=query,
-        source=SourceType.WEB_DUCKDUCKGO,
+        source="duckduckgo",
         total_results=len(results),
         results=results,
     )
@@ -123,13 +123,13 @@ class TestCommunityCnClient:
         resp = await client.search("Python", max_results=20)
 
         assert isinstance(resp, WebSearchResponse)
-        assert resp.source == SourceType.WEB_COMMUNITY_CN
+        assert resp.source == "community_cn"
         assert resp.query == "Python"
         assert len(resp.results) == len(PLATFORM_DOMAINS)
 
         # 每条结果都有平台标签
         for r in resp.results:
-            assert r.source == SourceType.WEB_COMMUNITY_CN
+            assert r.source == "community_cn"
             assert r.engine.startswith("community_cn:")
             assert r.snippet.startswith("[")
 
@@ -232,7 +232,7 @@ class TestCommunityCnClient:
 
         assert isinstance(resp, WebSearchResponse)
         assert len(resp.results) == 0
-        assert resp.source == SourceType.WEB_COMMUNITY_CN
+        assert resp.source == "community_cn"
 
     @pytest.mark.asyncio
     async def test_search_empty_results(self, client):

@@ -67,7 +67,7 @@ async def test_search_maps_results_and_headers(httpx_mock: HTTPXMock):
             language="en",
         )
 
-    assert resp.source == "web_xcrawl"
+    assert resp.source == "xcrawl"
     assert resp.total_results == 1
     assert resp.results[0].title == "https://docs.xcrawl.com/"
     assert resp.results[0].snippet == "XCrawl docs"

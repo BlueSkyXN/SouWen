@@ -45,7 +45,7 @@ from souwen.core.parsing import safe_parse_date
 from souwen.config import get_config
 from souwen.core.exceptions import ConfigError, NotFoundError, ParseError
 from souwen.core.http_client import SouWenHttpClient
-from souwen.models import Author, PaperResult, SearchResponse, SourceType
+from souwen.models import Author, PaperResult, SearchResponse
 from souwen.core.rate_limiter import TokenBucketLimiter
 
 logger = logging.getLogger(__name__)
@@ -194,7 +194,7 @@ class ZoteroClient:
             tags = [t.get("tag", "") for t in data.get("tags", []) if t.get("tag")]
 
             return PaperResult(
-                source=SourceType.ZOTERO,
+                source="zotero",
                 title=data.get("title", ""),
                 authors=authors,
                 abstract=data.get("abstractNote", "") or None,
@@ -296,7 +296,7 @@ class ZoteroClient:
 
         return SearchResponse(
             query=query,
-            source=SourceType.ZOTERO,
+            source="zotero",
             total_results=total,
             results=results,
             page=(start // max(limit, 1)) + 1,

@@ -41,7 +41,7 @@ from __future__ import annotations
 
 from souwen.config import get_config
 from souwen.core.http_client import SouWenHttpClient
-from souwen.models import Author, PaperResult, SearchResponse, SourceType
+from souwen.models import Author, PaperResult, SearchResponse
 
 
 class MySourceClient(SouWenHttpClient):
@@ -62,7 +62,7 @@ class MySourceClient(SouWenHttpClient):
         results = [self._parse(item) for item in data.get("items", [])]
         return SearchResponse(
             query=query,
-            source=SourceType.my_source,
+            source="my_source",
             total_results=data.get("total"),
             results=results,
             per_page=per_page,
@@ -70,7 +70,7 @@ class MySourceClient(SouWenHttpClient):
 
     def _parse(self, item: dict) -> PaperResult:
         return PaperResult(
-            source=SourceType.my_source,
+            source="my_source",
             title=item["title"],
             authors=[Author(name=a["name"]) for a in item.get("authors", [])],
             doi=item.get("doi"),

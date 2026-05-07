@@ -23,7 +23,7 @@
     - urllib.parse: URL 编码/解码
     - base64: 解码 Bing 重定向 URL
     - bs4: HTML 解析
-    - souwen.models: SourceType, WebSearchResult, WebSearchResponse 数据模型
+    - souwen.models: str, WebSearchResult, WebSearchResponse 数据模型
     - souwen.core.scraper.base: BaseScraper 基础爬虫类
 
 技术要点：
@@ -43,7 +43,7 @@ from urllib.parse import parse_qs, quote_plus, urlparse
 
 from bs4 import BeautifulSoup
 
-from souwen.models import SourceType, WebSearchResult, WebSearchResponse
+from souwen.models import WebSearchResult, WebSearchResponse
 from souwen.core.scraper.base import BaseScraper
 
 logger = logging.getLogger("souwen.web.bing_cn")
@@ -127,7 +127,7 @@ class BingCnClient(BaseScraper):
                 logger.warning("必应中文 检测到验证码/阻断页面 (query=%s)", query)
                 return WebSearchResponse(
                     query=query,
-                    source=SourceType.WEB_BING_CN,
+                    source="bing_cn",
                     results=[],
                     total_results=0,
                 )
@@ -160,7 +160,7 @@ class BingCnClient(BaseScraper):
 
                 results.append(
                     WebSearchResult(
-                        source=SourceType.WEB_BING_CN,
+                        source="bing_cn",
                         title=title,
                         url=resolved_url,
                         snippet=snippet,
@@ -177,7 +177,7 @@ class BingCnClient(BaseScraper):
 
         return WebSearchResponse(
             query=query,
-            source=SourceType.WEB_BING_CN,
+            source="bing_cn",
             results=results,
             total_results=len(results),
         )

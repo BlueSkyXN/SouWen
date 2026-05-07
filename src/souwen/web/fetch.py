@@ -600,7 +600,7 @@ async def fetch_content(
                     FetchResult(
                         url=url,
                         final_url=url,
-                        source="ssrf_check",
+                        source=selected[0],
                         error=f"SSRF 校验失败: {reason}",
                     )
                 )

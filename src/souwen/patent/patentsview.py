@@ -58,7 +58,7 @@ import httpx
 from souwen.core.parsing import safe_parse_date
 from souwen.core.exceptions import NotFoundError, ParseError
 from souwen.core.http_client import SouWenHttpClient
-from souwen.models import Applicant, PatentResult, SearchResponse, SourceType
+from souwen.models import Applicant, PatentResult, SearchResponse
 from souwen.core.rate_limiter import TokenBucketLimiter
 
 logger = logging.getLogger(__name__)
@@ -157,7 +157,7 @@ class PatentsViewClient:
         patents = [self._to_patent_result(p) for p in data.get("patents", [])]
         return SearchResponse(
             query=str(query),
-            source=SourceType.PATENTSVIEW,
+            source="patentsview",
             total_results=data.get("total_patent_count"),
             results=patents,
             page=page,
@@ -283,7 +283,7 @@ class PatentsViewClient:
 
         patent_id = raw.get("patent_id", "")
         return PatentResult(
-            source=SourceType.PATENTSVIEW,
+            source="patentsview",
             title=raw.get("patent_title", ""),
             patent_id=patent_id,
             application_number=raw.get("application_number"),

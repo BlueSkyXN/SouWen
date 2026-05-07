@@ -6,21 +6,13 @@
     所有模型采用 ConfigDict(extra="allow") 兼容上游字段扩展。
 
 类清单（[已修正] 与实际定义对齐）：
-    SourceType（str, Enum）
-        - 功能：所有数据源的字符串枚举（论文 / 专利 / Web）
-        - 论文：openalex / semantic_scholar / crossref / arxiv / dblp / core / pubmed / unpaywall / huggingface
-        - 专利：patents_view / pqai / epo_ops / uspto_odp / the_lens / cnipa / patsnap / google_patents
-        - Web：google / bing / duckduckgo / yahoo / brave / startpage / baidu / mojeek / yandex /
-              searxng / whoogle / websurfx / tavily / exa / serper / brave_api / serpapi /
-              firecrawl / perplexity / linkup / scrapingdog
-
     Author（BaseModel）
         - 功能：论文作者
         - 字段：name (必填), affiliation, orcid
 
     PaperResult（BaseModel）
         - 功能：单篇论文的统一模型
-        - 关键字段：source (SourceType), title, authors (list[Author]), abstract,
+        - 关键字段：source (registry adapter name), title, authors (list[Author]), abstract,
                   doi, year, publication_date (date), venue, citation_count,
                   url, pdf_url, raw (原始响应)
         - 校验器：_normalize_publication_date 通过 _coerce_date 容错解析
@@ -38,12 +30,12 @@
 
     WebSearchResult（BaseModel）
         - 功能：单条网页搜索结果
-        - 字段：title (必填), url (必填), snippet, source (SourceType), engine,
+        - 字段：title (必填), url (必填), snippet, source (registry adapter name), engine,
                 rank (排序位次), published_date, raw
 
     SearchResponse（BaseModel）
         - 功能：单一数据源的搜索响应容器
-        - 字段：source (SourceType), query, total_count, results (list[Any]),
+        - 字段：source (registry adapter name), query, total_count, results (list[Any]),
                 fetched_at (datetime, 默认 utcnow), error
         - 用途：search_papers / search_patents / web_search 的统一返回单元
 
@@ -59,13 +51,11 @@ Pydantic 配置策略：
 模块依赖：
     - pydantic v2: 数据验证和序列化
     - datetime: 日期时间处理
-    - enum: 枚举类型
 """
 
 from __future__ import annotations
 
 from datetime import date, datetime
-from enum import Enum
 from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -111,104 +101,6 @@ def _coerce_date(value):
     return None
 
 
-class SourceType(str, Enum):
-    """数据源类型枚举
-
-    分为三大类：
-    - 论文源：OpenAlex, Semantic Scholar, CrossRef, arXiv, DBLP, CORE, PubMed, Unpaywall, HuggingFace Papers
-    - 专利源：PatentsView, USPTO ODP, EPO OPS, CNIPA, Lens, PatSnap
-    - Web 源：Google, DuckDuckGo, Tavily, Serper, Brave Search, Exa 等
-    """
-
-    # 论文数据源
-    OPENALEX = "openalex"
-    SEMANTIC_SCHOLAR = "semantic_scholar"
-    CROSSREF = "crossref"
-    ARXIV = "arxiv"
-    DBLP = "dblp"
-    CORE = "core"
-    PUBMED = "pubmed"
-    UNPAYWALL = "unpaywall"
-    ZOTERO = "zotero"
-    HUGGINGFACE = "huggingface"
-    EUROPEPMC = "europepmc"
-    PMC = "pmc"
-    DOAJ = "doaj"
-    ZENODO = "zenodo"
-    HAL = "hal"
-    OPENAIRE = "openaire"
-    IACR = "iacr"
-    BIORXIV = "biorxiv"
-    IEEE_XPLORE = "ieee_xplore"
-    # 专利数据源
-    PATENTSVIEW = "patentsview"
-    USPTO_ODP = "uspto_odp"
-    EPO_OPS = "epo_ops"
-    CNIPA = "cnipa"
-    THE_LENS = "the_lens"
-    PQAI = "pqai"
-    PATSNAP = "patsnap"
-    GOOGLE_PATENTS = "google_patents"
-    # 常规搜索引擎
-    WEB_DUCKDUCKGO = "web_duckduckgo"
-    WEB_DDG_NEWS = "web_ddg_news"
-    WEB_DDG_IMAGES = "web_ddg_images"
-    WEB_DDG_VIDEOS = "web_ddg_videos"
-    WEB_YAHOO = "web_yahoo"
-    WEB_BRAVE = "web_brave"
-    WEB_GOOGLE = "web_google"
-    WEB_BING = "web_bing"
-    WEB_SEARXNG = "web_searxng"
-    WEB_TAVILY = "web_tavily"
-    WEB_EXA = "web_exa"
-    WEB_SERPER = "web_serper"
-    WEB_BRAVE_API = "web_brave_api"
-    # 新增搜索引擎
-    WEB_SERPAPI = "web_serpapi"
-    WEB_FIRECRAWL = "web_firecrawl"
-    WEB_PERPLEXITY = "web_perplexity"
-    WEB_LINKUP = "web_linkup"
-    WEB_XCRAWL = "web_xcrawl"
-    WEB_SCRAPINGDOG = "web_scrapingdog"
-    WEB_STARTPAGE = "web_startpage"
-    WEB_BAIDU = "web_baidu"
-    WEB_MOJEEK = "web_mojeek"
-    WEB_YANDEX = "web_yandex"
-    WEB_WHOOGLE = "web_whoogle"
-    WEB_WEBSURFX = "web_websurfx"
-    WEB_METASO = "web_metaso"
-    # 社交/平台搜索
-    WEB_GITHUB = "web_github"
-    WEB_STACKOVERFLOW = "web_stackoverflow"
-    WEB_REDDIT = "web_reddit"
-    WEB_BILIBILI = "web_bilibili"
-    WEB_WIKIPEDIA = "web_wikipedia"
-    WEB_YOUTUBE = "web_youtube"
-    WEB_ZHIHU = "web_zhihu"
-    WEB_WEIBO = "web_weibo"
-    WEB_CSDN = "web_csdn"
-    WEB_JUEJIN = "web_juejin"
-    WEB_LINUXDO = "web_linuxdo"
-    WEB_NODESEEK = "web_nodeseek"
-    WEB_HOSTLOC = "web_hostloc"
-    WEB_V2EX = "web_v2ex"
-    WEB_COOLAPK = "web_coolapk"
-    WEB_XIAOHONGSHU = "web_xiaohongshu"
-    WEB_COMMUNITY_CN = "web_community_cn"
-    WEB_BING_CN = "web_bing_cn"
-    # 国际社交媒体（官方 API）
-    WEB_TWITTER = "web_twitter"
-    WEB_FACEBOOK = "web_facebook"
-    # 办公/企业平台搜索
-    WEB_FEISHU_DRIVE = "web_feishu_drive"
-    # AI 搜索引擎（含摘要）
-    WEB_ZHIPUAI = "web_zhipuai"
-    WEB_ALIYUN_IQS = "web_aliyun_iqs"
-    # ── 内容抓取 (fetch) ──
-    FETCH_BUILTIN = "fetch_builtin"
-    FETCH_JINA_READER = "fetch_jina_reader"
-
-
 class Author(BaseModel):
     """作者信息
 
@@ -229,7 +121,7 @@ class PaperResult(BaseModel):
     所有论文数据源的结果都应归一化为此格式。支持部分字段缺失（None）。
 
     Attributes:
-        source: 数据源类型（SourceType 枚举）
+        source: registry adapter name
         title: 论文标题
         authors: 作者列表（Author 对象）
         abstract: 摘要文本（可选）
@@ -247,7 +139,7 @@ class PaperResult(BaseModel):
     """
 
     model_config = ConfigDict(extra="forbid")
-    source: SourceType
+    source: str
     title: str
     authors: list[Author] = Field(default_factory=list)
     abstract: str | None = None
@@ -288,7 +180,7 @@ class PatentResult(BaseModel):
     所有专利数据源的结果都应归一化为此格式。支持部分字段缺失。
 
     Attributes:
-        source: 数据源类型（SourceType 枚举）
+        source: registry adapter name
         title: 专利名称/标题
         patent_id: 公开号或申请号
         application_number: 申请号（若与 patent_id 不同）
@@ -305,7 +197,7 @@ class PatentResult(BaseModel):
     """
 
     model_config = ConfigDict(extra="forbid")
-    source: SourceType
+    source: str
     title: str
     patent_id: str  # 公开号 / 申请号
     application_number: str | None = None
@@ -337,7 +229,7 @@ class WebSearchResult(BaseModel):
     都归一化为此统一模型。
     """
 
-    source: SourceType
+    source: str
     title: str
     url: str
     snippet: str = ""
@@ -350,7 +242,7 @@ class SearchResponse(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
     query: str
-    source: SourceType
+    source: str
     total_results: int | None = None
     results: list[PaperResult] | list[PatentResult] | list[WebSearchResult]
     page: int = 1

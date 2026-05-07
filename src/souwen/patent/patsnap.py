@@ -51,7 +51,7 @@ import httpx
 from souwen.config import get_config
 from souwen.core.exceptions import ConfigError, NotFoundError, ParseError
 from souwen.core.http_client import SouWenHttpClient
-from souwen.models import Applicant, PatentResult, SearchResponse, SourceType
+from souwen.models import Applicant, PatentResult, SearchResponse
 from souwen.core.rate_limiter import TokenBucketLimiter
 
 logger = logging.getLogger(__name__)
@@ -142,7 +142,7 @@ class PatSnapClient:
 
         return SearchResponse(
             query=query,
-            source=SourceType.PATSNAP,
+            source="patsnap",
             total_results=data.get("total", data.get("totalCount")),
             results=patents,
             page=(offset // limit) + 1 if limit else 1,
@@ -228,7 +228,7 @@ class PatSnapClient:
         ]
 
         return PatentResult(
-            source=SourceType.PATSNAP,
+            source="patsnap",
             title=raw.get("title", raw.get("invention_title", "")),
             patent_id=patent_id,
             application_number=raw.get("application_number"),

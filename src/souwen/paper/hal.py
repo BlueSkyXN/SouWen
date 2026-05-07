@@ -30,7 +30,7 @@
 模块依赖：
     - SouWenHttpClient: 统一 HTTP 客户端
     - TokenBucketLimiter: 令牌桶限流器
-    - PaperResult, SourceType: 统一论文数据模型
+    - PaperResult: 统一论文数据模型
 """
 
 from __future__ import annotations
@@ -40,7 +40,7 @@ from typing import Any
 
 from souwen.core.exceptions import ParseError
 from souwen.core.http_client import SouWenHttpClient
-from souwen.models import Author, PaperResult, SearchResponse, SourceType
+from souwen.models import Author, PaperResult, SearchResponse
 from souwen.core.rate_limiter import TokenBucketLimiter
 
 logger = logging.getLogger(__name__)
@@ -199,7 +199,7 @@ class HalClient:
                 doi=doi,
                 year=year,
                 publication_date=pub_date,
-                source=SourceType.HAL,
+                source="hal",
                 source_url=source_url,
                 pdf_url=pdf_url,
                 citation_count=None,  # HAL 不提供引用数
@@ -262,5 +262,5 @@ class HalClient:
             page=1,
             per_page=rows,
             results=results,
-            source=SourceType.HAL,
+            source="hal",
         )

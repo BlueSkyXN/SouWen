@@ -988,16 +988,16 @@ class TestSearchWebResponseShape:
 
     def test_web_response_has_meta(self, client, monkeypatch):
         """``/search/web`` 响应必须含 ``meta.requested/succeeded/failed``，并反映每个 engine 的真实命中/失败情况。"""
-        from souwen.models import SourceType, WebSearchResult
+        from souwen.models import WebSearchResult
         from souwen.web import search as web_search_mod
 
         async def fake_web_search(q, engines=None, max_results_per_engine=10, **kw):
             return web_search_mod.WebSearchResponse(
                 query=q,
-                source=SourceType.WEB_DUCKDUCKGO,
+                source="duckduckgo",
                 results=[
                     WebSearchResult(
-                        source=SourceType.WEB_DUCKDUCKGO,
+                        source="duckduckgo",
                         title="t",
                         url="https://example.com",
                         engine="duckduckgo",
@@ -1049,14 +1049,11 @@ class TestPerPageAlias:
 
     def _patch(self, monkeypatch):
         captured: dict = {}
-        from souwen.models import SourceType
         from souwen.web import search as web_search_mod
 
         async def fake_web_search(q, engines=None, max_results_per_engine=10, **kw):
             captured["max"] = max_results_per_engine
-            return web_search_mod.WebSearchResponse(
-                query=q, source=SourceType.WEB_DUCKDUCKGO, results=[]
-            )
+            return web_search_mod.WebSearchResponse(query=q, source="duckduckgo", results=[])
 
         monkeypatch.setattr(web_search_mod, "web_search", fake_web_search)
         return captured

@@ -37,7 +37,7 @@
     - logging：日志
     - re：HTML 标签清理
     - urllib.parse.quote_plus：关键词 URL 编码
-    - souwen.models：SourceType / WebSearchResult / WebSearchResponse
+    - souwen.models：WebSearchResult / WebSearchResponse
     - souwen.core.scraper.base：BaseScraper
 
 技术要点：
@@ -47,7 +47,7 @@
     - 仅处理 card_type == 9 的卡片（普通微博），跳过话题/用户等卡片
     - 微博无独立标题，取正文清洗后前 100 字符作为 title
     - snippet 截断到 300 字符，控制载荷大小
-    - source 字段使用 SourceType.WEB_WEIBO 枚举值
+    - source 字段使用 'weibo' 枚举值
 """
 
 from __future__ import annotations
@@ -57,7 +57,7 @@ import re
 from typing import Any
 from urllib.parse import quote_plus
 
-from souwen.models import SourceType, WebSearchResponse, WebSearchResult
+from souwen.models import WebSearchResponse, WebSearchResult
 from souwen.core.scraper.base import BaseScraper
 
 logger = logging.getLogger("souwen.web.weibo")
@@ -150,7 +150,7 @@ class WeiboClient(BaseScraper):
             logger.warning("微博请求失败 (query=%s): %s", query, e)
             return WebSearchResponse(
                 query=query,
-                source=SourceType.WEB_WEIBO,
+                source="weibo",
                 results=results,
                 total_results=0,
             )
@@ -161,7 +161,7 @@ class WeiboClient(BaseScraper):
             logger.warning("微博 JSON 解析失败 (query=%s): %s", query, e)
             return WebSearchResponse(
                 query=query,
-                source=SourceType.WEB_WEIBO,
+                source="weibo",
                 results=results,
                 total_results=0,
             )
@@ -176,7 +176,7 @@ class WeiboClient(BaseScraper):
             )
             return WebSearchResponse(
                 query=query,
-                source=SourceType.WEB_WEIBO,
+                source="weibo",
                 results=results,
                 total_results=0,
             )
@@ -215,7 +215,7 @@ class WeiboClient(BaseScraper):
 
                 results.append(
                     WebSearchResult(
-                        source=SourceType.WEB_WEIBO,
+                        source="weibo",
                         title=title,
                         url=detail_url,
                         snippet=snippet,
@@ -242,7 +242,7 @@ class WeiboClient(BaseScraper):
 
         return WebSearchResponse(
             query=query,
-            source=SourceType.WEB_WEIBO,
+            source="weibo",
             results=results,
             total_results=len(results),
         )

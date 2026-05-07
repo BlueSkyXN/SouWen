@@ -159,7 +159,7 @@ async def test_basic_search(httpx_mock):
         resp = await client.search("python", max_results=10)
 
     assert resp.query == "python"
-    assert resp.source.value == "web_youtube"
+    assert resp.source == "youtube"
     assert len(resp.results) == 2
     first = resp.results[0]
     assert first.title == "Python Tutorial"

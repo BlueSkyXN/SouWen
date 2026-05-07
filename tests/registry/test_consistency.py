@@ -351,7 +351,7 @@ class TestD11HardAsserts:
 
 
 class TestExtraConsistency:
-    """门面 / SourceType / 默认源等补充检查。"""
+    """门面 / 默认源等补充检查。"""
 
     def test_defaults_reference_valid_sources(self):
         """补充-9：default_for 的每个默认名都指向注册表里存在的源。"""
@@ -387,45 +387,25 @@ class TestExtraConsistency:
                     )
 
 
-# ── SourceType 枚举与 registry 对齐 ────────────────────────
+# ── Source id 与 registry 对齐 ──────────────────────────────
 
 
-class TestSourceTypeDerivation:
-    """SourceType 枚举值与 registry 关系（D4）。
+class TestSourceIdDerivation:
+    """source id 直接从 registry adapter name 派生。"""
 
-    v1：保留 SourceType 为手写（v0 兼容），但 registry 必须是它的**超集**
-    （SourceType 不能有 registry 没的源；registry 可以有 SourceType 没的实验性源）。
-    """
+    def test_enum_values_are_adapter_names(self):
+        """registry enum_values 只返回 adapter.name，不再经过旧前缀枚举层。"""
+        registry_names = set(all_adapters())
+        ids = set(enum_values())
+        assert ids == registry_names
+        assert "web_" + "duckduckgo" not in ids
+        assert "web_" + "bing" not in ids
+        assert "fetch_" + "builtin" not in ids
+        assert {"duckduckgo", "bing", "builtin", "jina_reader"} <= ids
 
-    def test_source_type_is_subset_of_registry(self):
-        """SourceType 枚举的每个值都应该能在 registry 找到对应的源。
-
-        v0 的 SourceType 用 DDG 简写（WEB_DDG_NEWS），registry 用全名（duckduckgo_news），
-        二者通过 `souwen.web.search._source_type_for` 双向映射。本测试走反向：
-        每个 SourceType 都要能定位到一个 adapter。
-        """
-        from souwen.models import SourceType
-
-        registry_names = set(enum_values())
-        # v0 的 SourceType 简写 → adapter.name 别名映射
-        aliases = {
-            "ddg_news": "duckduckgo_news",
-            "ddg_images": "duckduckgo_images",
-            "ddg_videos": "duckduckgo_videos",
-        }
-        for member in SourceType:
-            v = member.value
-            # 去掉 web_ / fetch_ 前缀
-            for prefix in ("web_", "fetch_"):
-                if v.startswith(prefix):
-                    v = v[len(prefix) :]
-                    break
-            # 应用别名
-            v = aliases.get(v, v)
-            assert v in registry_names, (
-                f"SourceType.{member.name}={member.value!r} (规范化为 {v!r}) "
-                f"在 registry 里找不到对应源"
-            )
+    def test_catalog_keys_are_adapter_names(self):
+        """正式 catalog 的 key 与 registry adapter.name 保持一致。"""
+        assert set(source_catalog()) == set(enum_values())
 
 
 # ── Fetch 提供者覆盖 ───────────────────────────────────────

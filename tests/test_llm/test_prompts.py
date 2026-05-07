@@ -14,7 +14,6 @@ from souwen.models import (
     PaperResult,
     PatentResult,
     SearchResponse,
-    SourceType,
     WebSearchResult,
 )
 
@@ -27,7 +26,7 @@ def _paper(
     abstract: str = "This is a test abstract",
 ) -> PaperResult:
     return PaperResult(
-        source=SourceType.OPENALEX,
+        source="openalex",
         title=title,
         authors=[Author(name="John Doe")],
         abstract=abstract,
@@ -40,7 +39,7 @@ def _paper(
 
 def _patent(title: str = "Test Patent", patent_id: str = "US123") -> PatentResult:
     return PatentResult(
-        source=SourceType.PATENTSVIEW,
+        source="patentsview",
         title=title,
         patent_id=patent_id,
         applicants=[Applicant(name="Acme Corp")],
@@ -53,7 +52,7 @@ def _patent(title: str = "Test Patent", patent_id: str = "US123") -> PatentResul
 
 def _web(title: str = "Test Web", url: str = "https://example.com/web") -> WebSearchResult:
     return WebSearchResult(
-        source=SourceType.WEB_DUCKDUCKGO,
+        source="duckduckgo",
         title=title,
         url=url,
         snippet="A web snippet",
@@ -61,7 +60,7 @@ def _web(title: str = "Test Web", url: str = "https://example.com/web") -> WebSe
     )
 
 
-def _response(source: SourceType, results: list) -> SearchResponse:
+def _response(source: str, results: list) -> SearchResponse:
     return SearchResponse(source=source, query="test", total_results=len(results), results=results)
 
 
@@ -89,7 +88,7 @@ def test_get_system_prompt_override():
 
 
 def test_format_results_for_llm_papers():
-    text, citations = format_results_for_llm([_response(SourceType.OPENALEX, [_paper()])])
+    text, citations = format_results_for_llm([_response("openalex", [_paper()])])
 
     assert "[1] | Title: Test Paper" in text
     assert "Authors: John Doe" in text
@@ -107,7 +106,7 @@ def test_format_results_for_llm_papers():
 
 
 def test_format_results_for_llm_patents():
-    text, citations = format_results_for_llm([_response(SourceType.PATENTSVIEW, [_patent()])])
+    text, citations = format_results_for_llm([_response("patentsview", [_patent()])])
 
     assert "[1] | Title: Test Patent" in text
     assert "ID: US123" in text
@@ -119,14 +118,14 @@ def test_format_results_for_llm_patents():
 
 
 def test_format_results_for_llm_web():
-    text, citations = format_results_for_llm([_response(SourceType.WEB_DUCKDUCKGO, [_web()])])
+    text, citations = format_results_for_llm([_response("duckduckgo", [_web()])])
 
     assert "[1] | Title: Test Web" in text
     assert "Snippet: A web snippet" in text
     assert "URL: https://example.com/web" in text
     assert citations[0].title == "Test Web"
     assert citations[0].url == "https://example.com/web"
-    assert citations[0].source == "web_duckduckgo"
+    assert citations[0].source == "duckduckgo"
 
 
 def test_format_results_for_llm_dedup():
@@ -134,9 +133,7 @@ def test_format_results_for_llm_dedup():
         "Duplicate Paper", doi="10.1234/TEST", source_url="https://example.com/paper2"
     )
 
-    text, citations = format_results_for_llm(
-        [_response(SourceType.OPENALEX, [_paper(), duplicate])]
-    )
+    text, citations = format_results_for_llm([_response("openalex", [_paper(), duplicate])])
 
     assert "Test Paper" in text
     assert "Duplicate Paper" not in text
@@ -149,9 +146,7 @@ def test_format_results_for_llm_max_results():
         for idx in range(5)
     ]
 
-    text, citations = format_results_for_llm(
-        [_response(SourceType.OPENALEX, papers)], max_results=3
-    )
+    text, citations = format_results_for_llm([_response("openalex", papers)], max_results=3)
 
     assert len(citations) == 3
     assert "Paper 0" in text
@@ -160,7 +155,7 @@ def test_format_results_for_llm_max_results():
 
 
 def test_format_results_for_llm_empty():
-    text, citations = format_results_for_llm([_response(SourceType.OPENALEX, [])])
+    text, citations = format_results_for_llm([_response("openalex", [])])
 
     assert text == ""
     assert citations == []
@@ -168,9 +163,9 @@ def test_format_results_for_llm_empty():
 
 def test_format_results_for_llm_mixed():
     responses = [
-        _response(SourceType.OPENALEX, [_paper()]),
-        _response(SourceType.PATENTSVIEW, [_patent()]),
-        _response(SourceType.WEB_DUCKDUCKGO, [_web()]),
+        _response("openalex", [_paper()]),
+        _response("patentsview", [_patent()]),
+        _response("duckduckgo", [_web()]),
     ]
 
     text, citations = format_results_for_llm(responses)
@@ -182,5 +177,5 @@ def test_format_results_for_llm_mixed():
     assert [citation.source for citation in citations] == [
         "openalex",
         "patentsview",
-        "web_duckduckgo",
+        "duckduckgo",
     ]

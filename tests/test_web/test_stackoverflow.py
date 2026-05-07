@@ -17,7 +17,6 @@ import re
 
 from pytest_httpx import HTTPXMock
 
-from souwen.models import SourceType
 from souwen.web.stackoverflow import StackOverflowClient
 
 
@@ -79,13 +78,13 @@ async def test_search_basic(httpx_mock: HTTPXMock):
     async with StackOverflowClient(api_key=None) as c:
         resp = await c.search("python async", max_results=10)
 
-    assert resp.source == SourceType.WEB_STACKOVERFLOW
+    assert resp.source == "stackoverflow"
     assert resp.query == "python async"
     assert resp.total_results == 2
     assert len(resp.results) == 2
 
     first = resp.results[0]
-    assert first.source == SourceType.WEB_STACKOVERFLOW
+    assert first.source == "stackoverflow"
     assert first.engine == "stackoverflow"
     assert first.url == "https://stackoverflow.com/questions/12345/how-to-use-async-await"
     # raw 字段保留原始元数据
@@ -138,7 +137,7 @@ async def test_search_empty_results(httpx_mock: HTTPXMock):
 
     assert resp.results == []
     assert resp.total_results == 0
-    assert resp.source == SourceType.WEB_STACKOVERFLOW
+    assert resp.source == "stackoverflow"
 
 
 async def test_search_includes_api_key_when_present(httpx_mock: HTTPXMock):

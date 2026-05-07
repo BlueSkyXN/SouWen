@@ -31,7 +31,7 @@
     - logging: 日志记录
     - urllib.parse: URL 编码/解码、查询参数解析
     - bs4: HTML 解析
-    - souwen.models: SourceType, WebSearchResult, WebSearchResponse 数据模型
+    - souwen.models: str, WebSearchResult, WebSearchResponse 数据模型
     - souwen.core.scraper.base: BaseScraper 基础爬虫类
 
 技术要点：
@@ -49,7 +49,7 @@ from urllib.parse import quote_plus, unquote, urlparse, parse_qs
 
 from bs4 import BeautifulSoup
 
-from souwen.models import SourceType, WebSearchResult, WebSearchResponse
+from souwen.models import WebSearchResult, WebSearchResponse
 from souwen.core.scraper.base import BaseScraper
 
 logger = logging.getLogger("souwen.web.google")
@@ -134,7 +134,7 @@ class GoogleClient(BaseScraper):
                 if title and real_url:
                     results.append(
                         WebSearchResult(
-                            source=SourceType.WEB_GOOGLE,
+                            source="google",
                             title=title,
                             url=real_url,
                             snippet=snippet,
@@ -151,7 +151,7 @@ class GoogleClient(BaseScraper):
 
         return WebSearchResponse(
             query=query,
-            source=SourceType.WEB_GOOGLE,
+            source="google",
             results=results,
             total_results=len(results),
         )

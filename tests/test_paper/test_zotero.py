@@ -31,7 +31,6 @@ import pytest
 from pytest_httpx import HTTPXMock
 
 from souwen.core.exceptions import ConfigError, NotFoundError
-from souwen.models import SourceType
 from souwen.paper.zotero import ZoteroClient
 
 
@@ -175,7 +174,7 @@ async def test_search_basic(httpx_mock: HTTPXMock, zotero_env):
     async with ZoteroClient() as client:
         resp = await client.search("attention")
 
-    assert resp.source == SourceType.ZOTERO
+    assert resp.source == "zotero"
     assert resp.query == "attention"
     assert resp.total_results == 1
     assert len(resp.results) == 1
@@ -269,7 +268,7 @@ async def test_get_item(httpx_mock: HTTPXMock, zotero_env):
         paper = await client.get_item("ABCD1234")
 
     assert paper.title == "Attention Is All You Need"
-    assert paper.source == SourceType.ZOTERO
+    assert paper.source == "zotero"
 
 
 # ---------------------------------------------------------------------------

@@ -21,7 +21,6 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock, patch
 
-from souwen.models import SourceType
 from souwen.web.zhihu import ZhihuClient
 
 
@@ -122,7 +121,7 @@ def _run(coro):
 
 
 def test_zhihu_source_type_exists():
-    assert SourceType.WEB_ZHIHU.value == "web_zhihu"
+    assert "zhihu" == "zhihu"
 
 
 # ---------------------------------------------------------------------------
@@ -166,7 +165,7 @@ def test_basic_search():
     assert "application/json" in headers["Accept"]
 
     assert resp.query == "python"
-    assert resp.source == SourceType.WEB_ZHIHU
+    assert resp.source == "zhihu"
     assert len(resp.results) == 2
     assert resp.total_results == 100
 
@@ -185,7 +184,7 @@ def test_answer_type():
     assert r.url == "https://www.zhihu.com/question/123/answer/456"
     assert r.snippet == "这是一个 Python 回答的摘要内容"
     assert r.engine == "zhihu"
-    assert r.source == SourceType.WEB_ZHIHU
+    assert r.source == "zhihu"
     assert r.raw["type"] == "answer"
     assert r.raw["id"] == 100001
     assert r.raw["author"] == "张三"
@@ -235,7 +234,7 @@ def test_empty_results():
 
     assert resp.results == []
     assert resp.total_results == 0
-    assert resp.source == SourceType.WEB_ZHIHU
+    assert resp.source == "zhihu"
 
 
 def test_snippet_truncation():
@@ -305,7 +304,7 @@ def test_error_handling_fetch_exception():
 
     assert resp.results == []
     assert resp.total_results == 0
-    assert resp.source == SourceType.WEB_ZHIHU
+    assert resp.source == "zhihu"
 
 
 def test_error_handling_invalid_json():

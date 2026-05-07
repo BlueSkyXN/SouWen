@@ -22,7 +22,6 @@ import pytest
 from pytest_httpx import HTTPXMock
 
 from souwen.core.exceptions import ParseError
-from souwen.models import SourceType
 from souwen.web.wikipedia import WikipediaClient, _clean_html
 
 
@@ -99,7 +98,7 @@ async def test_basic_search(httpx_mock: HTTPXMock):
     async with WikipediaClient(lang="zh") as c:
         resp = await c.search("python", max_results=10)
 
-    assert resp.source == SourceType.WEB_WIKIPEDIA
+    assert resp.source == "wikipedia"
     assert resp.query == "python"
     assert resp.total_results == 2
     assert len(resp.results) == 2
@@ -109,7 +108,7 @@ async def test_basic_search(httpx_mock: HTTPXMock):
     assert first.url == "https://zh.wikipedia.org/wiki/Asyncio"
     assert first.snippet == "Asyncio is a Python library."
     assert first.engine == "wikipedia"
-    assert first.source == SourceType.WEB_WIKIPEDIA
+    assert first.source == "wikipedia"
     assert first.raw["pageid"] == 111
     assert first.raw["wordcount"] == 500
     assert first.raw["timestamp"] == "2024-02-01T00:00:00Z"
@@ -125,7 +124,7 @@ async def test_empty_results(httpx_mock: HTTPXMock):
 
     assert resp.results == []
     assert resp.total_results == 0
-    assert resp.source == SourceType.WEB_WIKIPEDIA
+    assert resp.source == "wikipedia"
 
 
 async def test_html_cleanup(httpx_mock: HTTPXMock):

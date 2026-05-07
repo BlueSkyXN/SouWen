@@ -57,7 +57,7 @@ from urllib.parse import quote_plus
 
 from bs4 import BeautifulSoup
 
-from souwen.models import PatentResult, Applicant, SearchResponse, SourceType
+from souwen.models import PatentResult, Applicant, SearchResponse
 from souwen.core.exceptions import NotFoundError
 from souwen.core.scraper.base import BaseScraper
 
@@ -146,7 +146,7 @@ class GooglePatentsScraper(BaseScraper):
         if resp.status_code != 200:
             return SearchResponse(
                 query=query,
-                source=SourceType.GOOGLE_PATENTS,
+                source="google_patents",
                 total_results=0,
                 results=[],
             )
@@ -166,7 +166,7 @@ class GooglePatentsScraper(BaseScraper):
 
         return SearchResponse(
             query=query,
-            source=SourceType.GOOGLE_PATENTS,
+            source="google_patents",
             total_results=len(results),
             results=results,
         )
@@ -202,7 +202,7 @@ class GooglePatentsScraper(BaseScraper):
 
         return SearchResponse(
             query=query,
-            source=SourceType.GOOGLE_PATENTS,
+            source="google_patents",
             total_results=len(results),
             results=results,
         )
@@ -244,7 +244,7 @@ class GooglePatentsScraper(BaseScraper):
         abstract = abstract_el.get_text(strip=True) if abstract_el else None
 
         return PatentResult(
-            source=SourceType.GOOGLE_PATENTS,
+            source="google_patents",
             title=title,
             patent_id=patent_id,
             abstract=abstract,
@@ -289,7 +289,7 @@ class GooglePatentsScraper(BaseScraper):
                 pass
 
         return PatentResult(
-            source=SourceType.GOOGLE_PATENTS,
+            source="google_patents",
             title=title if isinstance(title, str) else str(title),
             patent_id=publication_number,
             publication_date=pub_date,
@@ -368,7 +368,7 @@ class GooglePatentsScraper(BaseScraper):
         ]
 
         return PatentResult(
-            source=SourceType.GOOGLE_PATENTS,
+            source="google_patents",
             title=title,
             patent_id=patent_id,
             inventors=inventors,

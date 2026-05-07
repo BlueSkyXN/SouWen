@@ -174,7 +174,7 @@ def format_results_for_llm(
                 continue
             if key:
                 seen_keys.add(key)
-            items.append((response.source.value, result))
+            items.append((response.source, result))
 
     items = items[:max_results]
 
