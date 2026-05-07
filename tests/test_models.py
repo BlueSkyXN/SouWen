@@ -1,11 +1,11 @@
 """SouWen 数据模型边界测试。
 
 覆盖 ``souwen.models`` 中数据模型的完整性、字段约束、枚举值。
-验证 ALL_SOURCES 元数据、SourceType 枚举完整性、extra='forbid' 验证、
+验证 source catalog 元数据、SourceType 枚举完整性、extra='forbid' 验证、
 WebSearchResult 必要字段等不变量。
 
 测试清单：
-- ``TestAllSources``：ALL_SOURCES 字典结构、计数、论文/专利/Web 源统计
+- ``TestSourceCatalog``：catalog 字典结构、计数、论文/专利/Web 源统计
 - ``TestSourceTypeEnum``：SourceType 枚举值完整性、各源名称
 - ``TestExtraForbid``：拒绝未知字段
 - ``TestWebSearchResult``：必要字段校验、snippet 默认值
@@ -15,70 +15,76 @@ import pytest
 from pydantic import ValidationError
 
 from souwen.models import (
-    ALL_SOURCES,
     PaperResult,
     PatentResult,
     SearchResponse,
     SourceType,
     WebSearchResult,
 )
+from souwen.registry.catalog import public_source_catalog
 
 
-class TestAllSources:
-    """ALL_SOURCES 元信息测试"""
+class TestSourceCatalog:
+    """source catalog 元信息测试"""
 
     def test_paper_count(self):
         """paper 暴露 18 个搜索数据源"""
-        assert len(ALL_SOURCES["paper"]) == 18
+        catalog = public_source_catalog()
+        assert sum(1 for entry in catalog.values() if entry.category == "paper") == 18
 
     def test_patent_count(self):
         """patent 暴露 6 个搜索数据源"""
-        assert len(ALL_SOURCES["patent"]) == 6
+        catalog = public_source_catalog()
+        assert sum(1 for entry in catalog.values() if entry.category == "patent") == 6
 
     def test_web_count(self):
-        """web-derived categories have correct source counts（v1 从 registry 派生）
-
-        v0 的 ALL_SOURCES 漏列了 source_meta 已登记的 bing_cn / ddg_news /
-        ddg_images / ddg_videos / metaso / twitter / facebook。v1 统一从 registry
-        派生，修复漂移；因此 general/social 数字比 v0 更高。
-        """
-        assert len(ALL_SOURCES["general"]) == 21  # v0: 16
-        assert len(ALL_SOURCES["professional"]) == 8
-        assert len(ALL_SOURCES["social"]) == 5  # v0: 3
-        assert len(ALL_SOURCES["developer"]) == 2
-        assert len(ALL_SOURCES["wiki"]) == 1
-        assert len(ALL_SOURCES["video"]) == 2
+        """web-derived categories have correct source counts."""
+        catalog = public_source_catalog()
+        counts: dict[str, int] = {}
+        for entry in catalog.values():
+            counts[entry.category] = counts.get(entry.category, 0) + 1
+        assert counts["web_general"] == 21
+        assert counts["web_professional"] == 8
+        assert counts["social"] == 5
+        assert counts["developer"] == 2
+        assert counts["knowledge"] == 1
+        assert counts["video"] == 2
         # cn_tech 拆分后独立源
-        assert len(ALL_SOURCES["cn_tech"]) == 9
+        assert counts["cn_tech"] == 9
 
     def test_total_count(self):
         """总计暴露的数据源数量（含可能的外部插件）。"""
-        total = sum(len(v) for v in ALL_SOURCES.values())
-        assert total >= 91  # v0: 73, v1 内置: 91, 外部插件可增加
+        assert len(public_source_catalog()) >= 91
 
-    def test_each_entry_is_tuple_of_three(self):
-        """每条目是 (name, requires_key, desc) 三元组"""
-        for category, sources in ALL_SOURCES.items():
-            for entry in sources:
-                assert len(entry) == 3, f"{category}: {entry}"
-                assert isinstance(entry[0], str)
-                assert isinstance(entry[1], bool)
-                assert isinstance(entry[2], str)
+    def test_each_entry_has_display_fields(self):
+        """每条目包含展示所需字段。"""
+        for name, entry in public_source_catalog().items():
+            assert entry.name == name
+            assert isinstance(entry.needs_config, bool)
+            assert entry.description
 
     def test_search_only_exposes_supported_paper_sources(self):
         """paper 搜索列表不再暴露 unpaywall。"""
-        names = {name for name, _, _ in ALL_SOURCES["paper"]}
+        names = {
+            name for name, entry in public_source_catalog().items() if entry.category == "paper"
+        }
         assert "unpaywall" not in names
 
     def test_patent_search_hides_known_broken_free_defaults(self):
         """patent 搜索列表不再默认暴露已失效免费源。"""
-        names = {name for name, _, _ in ALL_SOURCES["patent"]}
+        names = {
+            name for name, entry in public_source_catalog().items() if entry.category == "patent"
+        }
         assert "patentsview" not in names
         assert "pqai" not in names
 
     def test_self_hosted_web_sources_require_setup(self):
         """自建 Web 引擎在清单中标记为需要配置。"""
-        needs_key = {name: required for name, required, _ in ALL_SOURCES["general"]}
+        needs_key = {
+            name: entry.needs_config
+            for name, entry in public_source_catalog().items()
+            if entry.category == "web_general"
+        }
         assert needs_key["searxng"] is True
         assert needs_key["whoogle"] is True
         assert needs_key["websurfx"] is True

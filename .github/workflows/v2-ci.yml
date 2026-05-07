@@ -41,6 +41,9 @@ jobs:
       - name: Ruff format check
         run: ruff format --check src tests scripts
 
+      - name: Source catalog legacy term gate
+        run: python scripts/ci/check_no_legacy_terms.py
+
       - name: Registry and docs tests
         run: |
           pytest tests/registry/test_consistency.py tests/test_gen_docs.py -q

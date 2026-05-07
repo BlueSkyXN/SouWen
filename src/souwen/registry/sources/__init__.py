@@ -22,8 +22,7 @@
     **不会**把 80+ 个 Client 全部 import 进来。
   - `param_map` 把统一入参（limit/query）翻译为源原生参数名（per_page/rows/retmax/size/...）。
   - `default_for` 声明 (domain, capability) 下的默认源。
-  - `tags={"v0_category:general"}` / `{"v0_category:professional"}` 用于 ALL_SOURCES 分类映射
-    （让 `as_all_sources_dict()` 能正确派生 general / professional 划分）。
+  - `category` 声明正式 source catalog 分类；web 源用 `web_general` / `web_professional`。
 
 本文件的变更会被 `tests/registry/test_consistency.py` 验证：
   - 所有 client_loader 的目标类真实存在
@@ -39,11 +38,8 @@ from souwen.registry.adapter import MethodSpec, SourceAdapter
 from souwen.registry.loader import lazy
 from souwen.registry.views import _reg  # 模块内使用的注册函数
 
-# ALL_SOURCES 分类标签速记
-_T_GENERAL: frozenset[str] = frozenset({"v0_category:general"})
-_T_PROFESSIONAL: frozenset[str] = frozenset({"v0_category:professional"})
-_T_HIGH_RISK_GENERAL: frozenset[str] = frozenset({"v0_category:general", "high_risk"})
-_T_HIGH_RISK_SOCIAL: frozenset[str] = frozenset({"high_risk"})
+# 标签速记
+_T_HIGH_RISK: frozenset[str] = frozenset({"high_risk"})
 
 # 通用 param_map 速记
 _P_PER_PAGE: dict[str, str] = {"limit": "per_page"}
@@ -310,8 +306,8 @@ _reg(
         client_loader=lazy("souwen.paper.unpaywall:UnpaywallClient"),
         # unpaywall 没有 search 方法，只有 find_oa(doi)；用命名空间声明（D8）
         methods={"unpaywall:find_oa": MethodSpec("find_oa")},
-        # 不参与 search 调度，ALL_SOURCES["paper"] 也不收录
-        tags=frozenset({"v0_all_sources:exclude"}),
+        # 不参与 search 调度，默认 public catalog 不展示
+        catalog_visibility="hidden",
         usage_note="仅支持 DOI OA 查找",
     )
 )
@@ -345,8 +341,8 @@ _reg(
                 pre_call=_patentsview_pre_call,
             ),
         },
-        # "待修复"状态，ALL_SOURCES["patent"] 也不收录
-        tags=frozenset({"v0_all_sources:exclude"}),
+        # "待修复"状态，默认 public catalog 不展示
+        catalog_visibility="hidden",
         stability="deprecated",
         usage_note="公开搜索端点已变更，当前接入待修复",
     )
@@ -361,7 +357,7 @@ _reg(
         config_field=None,
         client_loader=lazy("souwen.patent.pqai:PqaiClient"),
         methods={"search": MethodSpec("search", _P_N_RESULTS)},
-        tags=frozenset({"v0_all_sources:exclude"}),
+        catalog_visibility="hidden",
         stability="deprecated",
         usage_note="匿名 API 当前返回 401，暂不建议默认使用",
     )
@@ -464,7 +460,7 @@ _reg(
         client_loader=lazy("souwen.web.duckduckgo:DuckDuckGoClient"),
         methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
         default_for=frozenset({"web:search"}),
-        tags=_T_GENERAL,
+        category="web_general",
     )
 )
 
@@ -478,7 +474,7 @@ _reg(
         client_loader=lazy("souwen.web.ddg_news:DuckDuckGoNewsClient"),
         methods={"search_news": MethodSpec("search", _P_MAX_RESULTS)},
         default_for=frozenset({"web:search_news"}),
-        tags=_T_GENERAL,
+        category="web_general",
     )
 )
 
@@ -491,7 +487,7 @@ _reg(
         config_field=None,
         client_loader=lazy("souwen.web.ddg_images:DuckDuckGoImagesClient"),
         methods={"search_images": MethodSpec("search", _P_MAX_RESULTS)},
-        tags=_T_GENERAL,
+        category="web_general",
     )
 )
 
@@ -504,7 +500,7 @@ _reg(
         config_field=None,
         client_loader=lazy("souwen.web.ddg_videos:DuckDuckGoVideosClient"),
         methods={"search_videos": MethodSpec("search", _P_MAX_RESULTS)},
-        tags=_T_GENERAL,
+        category="web_general",
     )
 )
 
@@ -517,7 +513,7 @@ _reg(
         config_field=None,
         client_loader=lazy("souwen.web.yahoo:YahooClient"),
         methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
-        tags=_T_GENERAL,
+        category="web_general",
     )
 )
 
@@ -530,7 +526,7 @@ _reg(
         config_field=None,
         client_loader=lazy("souwen.web.brave:BraveClient"),
         methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
-        tags=_T_GENERAL,
+        category="web_general",
     )
 )
 
@@ -544,7 +540,8 @@ _reg(
         client_loader=lazy("souwen.web.google:GoogleClient"),
         methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
         default_enabled=False,  # D10：高风险
-        tags=_T_HIGH_RISK_GENERAL,
+        tags=_T_HIGH_RISK,
+        category="web_general",
         risk_reasons=frozenset({"anti_scraping", "captcha", "ip_block"}),
     )
 )
@@ -559,7 +556,7 @@ _reg(
         client_loader=lazy("souwen.web.bing:BingClient"),
         methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
         default_for=frozenset({"web:search"}),
-        tags=_T_GENERAL,
+        category="web_general",
     )
 )
 
@@ -572,7 +569,7 @@ _reg(
         config_field=None,
         client_loader=lazy("souwen.web.bing_cn:BingCnClient"),
         methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
-        tags=_T_GENERAL,
+        category="web_general",
     )
 )
 
@@ -585,7 +582,7 @@ _reg(
         config_field=None,
         client_loader=lazy("souwen.web.startpage:StartpageClient"),
         methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
-        tags=_T_GENERAL,
+        category="web_general",
     )
 )
 
@@ -599,7 +596,8 @@ _reg(
         client_loader=lazy("souwen.web.baidu:BaiduClient"),
         methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
         default_enabled=False,
-        tags=_T_HIGH_RISK_GENERAL,
+        tags=_T_HIGH_RISK,
+        category="web_general",
         risk_reasons=frozenset({"anti_scraping", "captcha", "ip_block"}),
     )
 )
@@ -613,7 +611,7 @@ _reg(
         config_field=None,
         client_loader=lazy("souwen.web.mojeek:MojeekClient"),
         methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
-        tags=_T_GENERAL,
+        category="web_general",
     )
 )
 
@@ -626,7 +624,7 @@ _reg(
         config_field=None,
         client_loader=lazy("souwen.web.yandex:YandexClient"),
         methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
-        tags=_T_GENERAL,
+        category="web_general",
     )
 )
 
@@ -634,8 +632,8 @@ _reg(
 # ═════════════════════════════════════════════════════════════
 #  4. web.api（授权 API）
 # ═════════════════════════════════════════════════════════════
-# 按 ALL_SOURCES 的划分：SERP 类（serpapi/brave_api/serper/scrapingdog/metaso）进 general，
-# AI/语义类（tavily/exa/perplexity/firecrawl/linkup/xcrawl/zhipuai/aliyun_iqs）进 professional。
+# 按正式 catalog 划分：SERP 类（serpapi/brave_api/serper/scrapingdog/metaso）进 web_general，
+# AI/语义类（tavily/exa/perplexity/firecrawl/linkup/xcrawl/zhipuai/aliyun_iqs）进 web_professional。
 
 _reg(
     SourceAdapter(
@@ -646,7 +644,7 @@ _reg(
         config_field="serpapi_api_key",
         client_loader=lazy("souwen.web.serpapi:SerpApiClient"),
         methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
-        tags=_T_GENERAL,
+        category="web_general",
     )
 )
 
@@ -659,7 +657,7 @@ _reg(
         config_field="brave_api_key",
         client_loader=lazy("souwen.web.brave_api:BraveApiClient"),
         methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
-        tags=_T_GENERAL,
+        category="web_general",
     )
 )
 
@@ -672,7 +670,7 @@ _reg(
         config_field="serper_api_key",
         client_loader=lazy("souwen.web.serper:SerperClient"),
         methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
-        tags=_T_GENERAL,
+        category="web_general",
     )
 )
 
@@ -685,7 +683,7 @@ _reg(
         config_field="scrapingdog_api_key",
         client_loader=lazy("souwen.web.scrapingdog:ScrapingDogClient"),
         methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
-        tags=_T_GENERAL,
+        category="web_general",
     )
 )
 
@@ -698,7 +696,7 @@ _reg(
         config_field="metaso_api_key",
         client_loader=lazy("souwen.web.metaso:MetasoClient"),
         methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
-        tags=_T_GENERAL,
+        category="web_general",
     )
 )
 
@@ -715,7 +713,7 @@ _reg(
             "search": MethodSpec("search", _P_MAX_RESULTS),
             "fetch": MethodSpec("extract"),
         },
-        tags=_T_PROFESSIONAL,
+        category="web_professional",
     )
 )
 
@@ -733,7 +731,7 @@ _reg(
             "fetch": MethodSpec("contents"),
             "exa:find_similar": MethodSpec("find_similar", _P_MAX_RESULTS),  # D8 命名空间
         },
-        tags=_T_PROFESSIONAL,
+        category="web_professional",
     )
 )
 
@@ -746,7 +744,7 @@ _reg(
         config_field="perplexity_api_key",
         client_loader=lazy("souwen.web.perplexity:PerplexityClient"),
         methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
-        tags=_T_PROFESSIONAL,
+        category="web_professional",
     )
 )
 
@@ -763,7 +761,7 @@ _reg(
             "search": MethodSpec("search", _P_MAX_RESULTS),
             "fetch": MethodSpec("scrape"),
         },
-        tags=_T_PROFESSIONAL,
+        category="web_professional",
     )
 )
 
@@ -776,7 +774,7 @@ _reg(
         config_field="linkup_api_key",
         client_loader=lazy("souwen.web.linkup:LinkupClient"),
         methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
-        tags=_T_PROFESSIONAL,
+        category="web_professional",
     )
 )
 
@@ -793,7 +791,7 @@ _reg(
             "search": MethodSpec("search", _P_MAX_RESULTS),
             "fetch": MethodSpec("scrape"),
         },
-        tags=_T_PROFESSIONAL,
+        category="web_professional",
     )
 )
 
@@ -806,7 +804,7 @@ _reg(
         config_field="zhipuai_api_key",
         client_loader=lazy("souwen.web.zhipuai_search:ZhipuAISearchClient"),
         methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
-        tags=_T_PROFESSIONAL,
+        category="web_professional",
     )
 )
 
@@ -819,7 +817,7 @@ _reg(
         config_field="aliyun_iqs_api_key",
         client_loader=lazy("souwen.web.aliyun_iqs:AliyunIQSClient"),
         methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
-        tags=_T_PROFESSIONAL,
+        category="web_professional",
     )
 )
 
@@ -837,7 +835,7 @@ _reg(
         config_field="searxng_url",
         client_loader=lazy("souwen.web.searxng:SearXNGClient"),
         methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
-        tags=_T_GENERAL,
+        category="web_general",
     )
 )
 
@@ -850,7 +848,7 @@ _reg(
         config_field="whoogle_url",
         client_loader=lazy("souwen.web.whoogle:WhoogleClient"),
         methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
-        tags=_T_GENERAL,
+        category="web_general",
     )
 )
 
@@ -863,7 +861,7 @@ _reg(
         config_field="websurfx_url",
         client_loader=lazy("souwen.web.websurfx:WebsurfxClient"),
         methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
-        tags=_T_GENERAL,
+        category="web_general",
     )
 )
 
@@ -894,7 +892,7 @@ _reg(
         client_loader=lazy("souwen.web.twitter:TwitterClient"),
         methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
         default_enabled=False,
-        tags=_T_HIGH_RISK_SOCIAL,
+        tags=_T_HIGH_RISK,
         risk_reasons=frozenset({"account_ban", "quota_cost", "geo_sensitive"}),
     )
 )

@@ -59,7 +59,7 @@ def test_every_adapter_projects_to_catalog_entry() -> None:
         assert entry.default_for == tuple(sorted(entry.default_for))
 
 
-def test_legacy_tags_project_to_formal_catalog_categories_and_visibility() -> None:
+def test_formal_fields_project_to_catalog_categories_and_visibility() -> None:
     catalog = source_catalog()
     assert catalog["duckduckgo"].category == "web_general"
     assert catalog["tavily"].category == "web_professional"

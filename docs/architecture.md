@@ -138,7 +138,7 @@ client_cls = adapter.client_loader()  # 此刻才 importlib.import_module
 | 成熟度 | `stability` | 区分 stable / beta / experimental / deprecated |
 | 用户提示 | `usage_note` | 描述源运行时的限制或注意事项(如 unpaywall "仅支持 DOI OA 查找"、`stability="deprecated"` 源的修复进度);doctor / API / Panel 会作为消息后缀展示,**不参与可用性判定** |
 
-兼容字段仍保留：`needs_config`、`config_field`、`tags={"high_risk"}` 与 `v0_all_sources:exclude` 会派生到新的 catalog 视图中。
+兼容字段仍保留：`needs_config`、`config_field` 与 `tags={"high_risk"}` 会派生到新的 catalog 视图中；展示范围和成熟度使用 `catalog_visibility` / `stability` 显式声明。
 
 ---
 
@@ -298,7 +298,7 @@ _FETCH_HANDLERS["jina_reader"]  = _handle_jina_reader
 - config_field / credential_fields 在 `SouWenConfig.model_fields` 里存在
 - default_for 的 key 能解析为 (domain, capability) 且都合法
 - 注册表无重名
-- `ALL_SOURCES` 与 `registry.as_all_sources_dict()` 派生一致
+- `SourceMeta` 与 `registry.catalog.source_catalog()` 派生一致
 - high_risk 源不在任何默认源集
 - `resolve_params` 对所有 adapter/method 不抛异常
 - SourceType 枚举 ⊆ registry.enum_values（通过规范化映射）

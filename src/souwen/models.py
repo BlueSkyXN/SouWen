@@ -444,26 +444,3 @@ class WaybackSaveResult(BaseModel):
     snapshot_url: str | None = None  # 存档后的快照 URL
     timestamp: str | None = None  # 快照时间戳（YYYYMMDDHHMMSS）
     error: str | None = None
-
-
-ALL_SOURCES: dict[str, list[tuple[str, bool, str]]]
-
-
-# ALL_SOURCES 从注册表派生：
-#   - 字典 shape：`{category: [(name, needs_config, description), ...]}`
-#   - category 取值：paper / patent / general / professional / social / office /
-#     developer / wiki / cn_tech / video / fetch
-#   - "general" 下的源（SERP 爬虫 + self_hosted + 部分 SERP API）通过 adapter
-#     `tags={"v0_category:general"}` 显式标记
-#   - "professional" 同理（`v0_category:professional`）
-#   - 实验性/"待修复" 源（unpaywall / patentsview / pqai）通过
-#     `tags={"v0_all_sources:exclude"}` 排除（保持 `len(ALL_SOURCES["paper"]) == 16`
-#     与 `len(ALL_SOURCES["patent"]) == 6`）
-# 详见 `souwen.registry.views.as_all_sources_dict()`。
-def _load_all_sources() -> dict[str, list[tuple[str, bool, str]]]:
-    from souwen.registry import as_all_sources_dict
-
-    return as_all_sources_dict()
-
-
-ALL_SOURCES = _load_all_sources()

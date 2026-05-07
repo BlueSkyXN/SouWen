@@ -111,7 +111,7 @@ _reg(SourceAdapter(
         ),
     },
     default_for=frozenset(),                # 不进默认源；想进默认就写 {"paper:search"}
-    tags=frozenset({"v0_category:professional"}),
+    category="paper",                       # web 源可显式声明 web_general / web_professional
 ))
 ```
 
@@ -129,7 +129,9 @@ _reg(SourceAdapter(
 | `extra_domains` | — | 跨域能力，**目前仅允许 `frozenset({"fetch"})`**（如 Tavily 同时是 web 搜索引擎和 fetch provider） |
 | `default_enabled` | — | UI 默认是否勾选；高风险源（google/baidu/twitter）建议 `False` |
 | `default_for` | — | 形如 `{"paper:search"}`，声明此源是否进入 `(domain, capability)` 默认集 |
-| `tags` | — | `{"high_risk"}`；内置 web 源可用 `v0_category:*`，外部 web 插件用公开 `category:general/professional` |
+| `tags` | — | `{"high_risk"}`；外部 web 插件可用公开 `category:general/professional` 标签 |
+| `category` | 推荐 | 正式 source catalog 分类；web 源用 `web_general` / `web_professional` |
+| `catalog_visibility` | — | `public` / `internal` / `hidden`，控制 catalog 展示范围 |
 | `needs_config` | 推荐 | 显式声明是否"必须配置才能工作"（None 时按 integration 推断） |
 | `auth_requirement` | 推荐 | `none` / `optional` / `required` / `self_hosted`；新代码优先使用它 |
 | `credential_fields` | 推荐 | 完整凭据字段；多字段 OAuth 源列全，如 `("client_id", "client_secret")` |
@@ -208,7 +210,7 @@ pytest tests/registry/test_consistency.py -v
 7. capability 在标准集 `CAPABILITIES` 里或为 `xxx:yyy` 命名空间形式；
 8. `extra_domains` 仅允许 `{"fetch"}`；
 9. 注册表无重名；
-10. `ALL_SOURCES` 派生与 registry 对齐；
+10. `SourceMeta` 与正式 catalog 投影对齐；
 11. 高风险源未进入默认集；
 12. source catalog 的 auth/risk/distribution/stability 字段均在枚举范围内；
 13. `resolve_params` 能完整覆盖每个 adapter（不抛异常）。
