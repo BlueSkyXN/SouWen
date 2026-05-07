@@ -46,16 +46,24 @@ export interface Toast {
 /**
  * 搜索分类
  */
-export type SearchCategory = 'paper' | 'patent' | 'general' | 'professional' | 'social' | 'developer' | 'wiki' | 'video'
+export type SearchCategory =
+  | 'paper'
+  | 'patent'
+  | 'web_general'
+  | 'web_professional'
+  | 'social'
+  | 'developer'
+  | 'knowledge'
+  | 'video'
 
 /** Web-derived categories that use /api/v1/search/web endpoint */
 export const WEB_CATEGORIES: ReadonlySet<SearchCategory> = new Set([
-  'general', 'professional', 'social', 'developer', 'wiki', 'video',
+  'web_general', 'web_professional', 'social', 'developer', 'knowledge', 'video',
 ])
 
 /** All search categories in display order */
 export const ALL_CATEGORIES: readonly SearchCategory[] = [
-  'paper', 'patent', 'general', 'professional', 'social', 'developer', 'wiki', 'video',
+  'paper', 'patent', 'web_general', 'web_professional', 'social', 'developer', 'knowledge', 'video',
 ]
 
 /* ===== Skin System Types ===== */
