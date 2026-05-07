@@ -198,7 +198,26 @@ describe('SearchPage', () => {
   beforeEach(() => {
     vi.clearAllMocks()
     useNotificationStore.setState({ toasts: [] })
-    mockedApi.getSources.mockResolvedValue({ paper: [{ name: 'openalex', description: 'OpenAlex', needs_key: false }], patent: [], general: [], professional: [], social: [], office: [], developer: [], wiki: [], cn_tech: [], video: [], fetch: [] })
+    mockedApi.getSources.mockResolvedValue({
+      sources: [{
+        name: 'openalex',
+        domain: 'paper',
+        category: 'paper',
+        capabilities: ['search'],
+        description: 'OpenAlex',
+        auth_requirement: 'none',
+        credential_fields: [],
+        credentials_satisfied: true,
+        configured_credentials: false,
+        risk_level: 'low',
+        stability: 'stable',
+        distribution: 'core',
+        default_for: ['paper:search'],
+        available: true,
+      }],
+      categories: [],
+      defaults: { 'paper:search': ['openalex'] },
+    })
   })
 
   // 测试用例 1：搜索失败时显示内联错误状态

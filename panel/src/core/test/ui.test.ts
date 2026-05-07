@@ -54,10 +54,10 @@ describe('categoryBadgeColor', () => {
   })
 
   /**
-   * 测试：通用类型返回绿色
+   * 测试：通用 Web 类型返回绿色
    */
-  it('returns green for general', () => {
-    expect(categoryBadgeColor('general')).toBe('green')
+  it('returns green for web_general', () => {
+    expect(categoryBadgeColor('web_general')).toBe('green')
   })
 
   /**

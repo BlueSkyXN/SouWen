@@ -161,8 +161,8 @@ function matrixIntegrationClass(integration_type: string): string {
 function SourceMatrix({ sources }: { sources: SourceLike[] }) {
   const { t } = useTranslation()
   const order: Array<string> = [
-    'paper', 'patent', 'general', 'professional', 'social', 'office',
-    'developer', 'wiki', 'cn_tech', 'video', 'fetch',
+    'paper', 'patent', 'web_general', 'web_professional', 'social', 'office',
+    'developer', 'knowledge', 'cn_tech', 'video', 'archive', 'fetch',
   ]
   const grouped = order
     .map((cat) => ({ cat, items: sources.filter((s) => s.category === cat) }))

@@ -26,6 +26,7 @@ def _catalog_fields(meta: SourceMeta) -> dict[str, Any]:
         "stability": meta.stability,
         "usage_note": meta.usage_note,
         "default_enabled": meta.default_enabled,
+        "default_for": sorted(meta.default_for),
     }
 
 
@@ -33,6 +34,7 @@ def _catalog_fields(meta: SourceMeta) -> dict[str, Any]:
 async def get_sources_config():
     """查看所有数据源的频道配置 — 包含启用状态、API Key（仅指示）、代理等。"""
     from souwen.config import get_config
+    from souwen.registry.catalog import source_catalog
     from souwen.registry.meta import (
         get_all_sources,
         has_configured_credentials,
@@ -41,19 +43,27 @@ async def get_sources_config():
 
     cfg = get_config()
     all_sources = get_all_sources()
+    catalog = source_catalog()
     result: dict = {}
     for name, meta in all_sources.items():
+        catalog_entry = catalog[name]
         sc = cfg.get_source_config(name)
+        configured_credentials = has_configured_credentials(cfg, name, meta)
+        credentials_satisfied = has_required_credentials(cfg, name, meta)
         entry: dict = {
             "enabled": sc.enabled,
             "proxy": sc.proxy,
             "http_backend": sc.http_backend,
             "base_url": sc.base_url,
-            "has_api_key": has_configured_credentials(cfg, name, meta),
-            "credentials_satisfied": has_required_credentials(cfg, name, meta),
+            "has_api_key": configured_credentials,
+            "configured_credentials": configured_credentials,
+            "credentials_satisfied": credentials_satisfied,
+            "available": cfg.is_source_enabled(name) and credentials_satisfied,
             "headers": sc.headers,
             "params": sc.params,
             "category": meta.category,
+            "domain": catalog_entry.domain,
+            "capabilities": list(catalog_entry.capabilities),
             "integration_type": meta.integration_type,
             "description": meta.description,
             **_catalog_fields(meta),
@@ -66,6 +76,7 @@ async def get_sources_config():
 async def get_source_config(source_name: str):
     """查看单个数据源的频道配置。"""
     from souwen.config import get_config
+    from souwen.registry.catalog import source_catalog
     from souwen.registry.meta import (
         get_source,
         has_configured_credentials,
@@ -78,17 +89,24 @@ async def get_source_config(source_name: str):
 
     cfg = get_config()
     sc = cfg.get_source_config(source_name)
+    catalog_entry = source_catalog()[source_name]
+    configured_credentials = has_configured_credentials(cfg, source_name, meta)
+    credentials_satisfied = has_required_credentials(cfg, source_name, meta)
     return {
         "name": source_name,
         "enabled": sc.enabled,
         "proxy": sc.proxy,
         "http_backend": sc.http_backend,
         "base_url": sc.base_url,
-        "has_api_key": has_configured_credentials(cfg, source_name, meta),
-        "credentials_satisfied": has_required_credentials(cfg, source_name, meta),
+        "has_api_key": configured_credentials,
+        "configured_credentials": configured_credentials,
+        "credentials_satisfied": credentials_satisfied,
+        "available": cfg.is_source_enabled(source_name) and credentials_satisfied,
         "headers": sc.headers,
         "params": sc.params,
         "category": meta.category,
+        "domain": catalog_entry.domain,
+        "capabilities": list(catalog_entry.capabilities),
         "integration_type": meta.integration_type,
         "description": meta.description,
         **_catalog_fields(meta),

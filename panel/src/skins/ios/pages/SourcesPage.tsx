@@ -45,28 +45,30 @@ const CATEGORY_LABELS = SOURCE_CATEGORY_LABEL_KEYS
 const CATEGORY_ICONS: Record<SourceCategory, typeof FileText> = {
   paper: FileText,
   patent: Shield,
-  general: Globe,
-  professional: Globe,
+  web_general: Globe,
+  web_professional: Globe,
   social: Globe,
   office: Globe,
   developer: Globe,
-  wiki: Globe,
+  knowledge: Globe,
   cn_tech: Globe,
   video: Globe,
+  archive: Globe,
   fetch: Globe,
 }
 
 const CATEGORY_COLORS: Record<SourceCategory, string> = {
   paper: '#007aff',
   patent: '#ff9500',
-  general: '#34c759',
-  professional: '#5856d6',
+  web_general: '#34c759',
+  web_professional: '#5856d6',
   social: '#ff2d55',
   office: '#30b0c7',
   developer: '#af52de',
-  wiki: '#007aff',
+  knowledge: '#007aff',
   cn_tech: '#32ade6',
   video: '#ff3b30',
+  archive: '#ff9f0a',
   fetch: '#ff9f0a',
 }
 

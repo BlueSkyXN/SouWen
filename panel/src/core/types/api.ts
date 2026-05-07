@@ -28,85 +28,90 @@ export interface HealthResponse {
 }
 
 /**
- * 后端 /sources 当前响应的固定分类。
+ * 后端 Source Catalog 当前响应的正式分类。
  */
 export type SourceCategory =
   | 'paper'
   | 'patent'
-  | 'general'
-  | 'professional'
+  | 'web_general'
+  | 'web_professional'
   | 'social'
   | 'office'
   | 'developer'
-  | 'wiki'
+  | 'knowledge'
   | 'cn_tech'
   | 'video'
+  | 'archive'
   | 'fetch'
 
 export const SOURCE_CATEGORY_ORDER: readonly SourceCategory[] = [
   'paper',
   'patent',
-  'general',
-  'professional',
+  'web_general',
+  'web_professional',
   'social',
   'office',
   'developer',
-  'wiki',
+  'knowledge',
   'cn_tech',
   'video',
+  'archive',
   'fetch',
 ]
 
 export const SOURCE_CATEGORY_LABEL_KEYS: Record<SourceCategory, string> = {
   paper: 'sources.categoryPaper',
   patent: 'sources.categoryPatent',
-  general: 'sources.categoryGeneral',
-  professional: 'sources.categoryProfessional',
+  web_general: 'sources.categoryWebGeneral',
+  web_professional: 'sources.categoryWebProfessional',
   social: 'sources.categorySocial',
   office: 'sources.categoryOffice',
   developer: 'sources.categoryDeveloper',
-  wiki: 'sources.categoryWiki',
+  knowledge: 'sources.categoryKnowledge',
   cn_tech: 'sources.categoryCnTech',
   video: 'sources.categoryVideo',
+  archive: 'sources.categoryArchive',
   fetch: 'sources.categoryFetch',
 }
 
 /**
- * 数据源信息（可用性、需要的密钥）
+ * 公开 Source Catalog 条目。
  */
 export interface SourceInfo {
   name: string
-  needs_key: boolean
+  domain: string
+  category: SourceCategory
+  capabilities: string[]
   description: string
-  key_requirement?: 'none' | 'optional' | 'required' | 'self_hosted'
-  auth_requirement?: 'none' | 'optional' | 'required' | 'self_hosted'
-  credential_fields?: string[]
-  optional_credential_effect?: string | null
-  integration_type?: string
-  risk_level?: 'low' | 'medium' | 'high'
-  risk_reasons?: string[]
-  distribution?: 'core' | 'extra' | 'plugin'
-  package_extra?: string | null
-  stability?: 'stable' | 'beta' | 'experimental' | 'deprecated'
-  usage_note?: string | null
-  default_enabled?: boolean
+  auth_requirement: 'none' | 'optional' | 'required' | 'self_hosted'
+  credential_fields: string[]
+  credentials_satisfied: boolean
+  configured_credentials: boolean
+  risk_level: 'low' | 'medium' | 'high'
+  stability: 'stable' | 'beta' | 'experimental' | 'deprecated'
+  distribution: 'core' | 'extra' | 'plugin'
+  default_for: string[]
+  available: boolean
 }
 
 /**
- * 按分类返回可用数据源列表
+ * Source Catalog 分类元信息。
+ */
+export interface SourceCategoryInfo {
+  key: SourceCategory
+  label: string
+  order: number
+  domain: string | null
+  description: string
+}
+
+/**
+ * Source Catalog 响应。
  */
 export interface SourcesResponse {
-  paper: SourceInfo[]
-  patent: SourceInfo[]
-  general: SourceInfo[]
-  professional: SourceInfo[]
-  social: SourceInfo[]
-  office: SourceInfo[]
-  developer: SourceInfo[]
-  wiki: SourceInfo[]
-  cn_tech: SourceInfo[]
-  video: SourceInfo[]
-  fetch: SourceInfo[]
+  sources: SourceInfo[]
+  categories: SourceCategoryInfo[]
+  defaults: Record<string, string[]>
 }
 
 /**
