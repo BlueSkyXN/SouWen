@@ -12,7 +12,7 @@
 │   souwen.cli/*        CLI（按 domain 拆分）                    │
 │   souwen.server/*     FastAPI（按 domain 拆分）                │
 │   souwen.integrations/mcp/*  MCP 协议集成                      │
-│   panel/              Web UI（4 皮肤 + 共享 core）             │
+│   panel/              Web UI（5 皮肤 + 共享 core）             │
 ├────────────────────────────────────────────────────────────────┤
 │ 应用入口 Application API                                        │
 │   souwen.search            search(domain=, capability=) 派发   │
@@ -40,7 +40,7 @@
 │   souwen.core.fingerprint       curl_cffi 指纹                 │
 │   souwen.core.exceptions        全部异常类型                   │
 │   souwen.core.parsing           HTML/JSON 辅助                 │
-│   souwen.core.concurrency       per-loop Semaphore（D12）      │
+│   souwen.core.concurrency       per-loop Semaphore             │
 │   souwen.models                 Pydantic 模型（统一结果模型等） │
 └────────────────────────────────────────────────────────────────┘
 ```
@@ -138,7 +138,7 @@ client_cls = adapter.client_loader()  # 此刻才 importlib.import_module
 | 成熟度 | `stability` | 区分 stable / beta / experimental / deprecated |
 | 用户提示 | `usage_note` | 描述源运行时的限制或注意事项(如 unpaywall "仅支持 DOI OA 查找"、`stability="deprecated"` 源的修复进度);doctor / API / Panel 会作为消息后缀展示,**不参与可用性判定** |
 
-兼容字段仍保留：`needs_config`、`config_field` 与 `tags={"high_risk"}` 会派生到新的 catalog 视图中；展示范围和成熟度使用 `catalog_visibility` / `stability` 显式声明。
+`needs_config`、`config_field` 与 `tags={"high_risk"}` 会派生到正式 catalog 视图中；展示范围和成熟度使用 `catalog_visibility` / `stability` 显式声明。
 
 ---
 
@@ -162,7 +162,7 @@ client_cls = adapter.client_loader()  # 此刻才 importlib.import_module
 
 **12 个标准 capability**：`search` / `search_news` / `search_images` / `search_videos` / `search_articles` / `search_users` / `get_detail` / `get_trending` / `get_transcript` / `fetch` / `archive_lookup` / `archive_save`。
 
-非标准能力使用命名空间前缀（D8），如 `exa:find_similar` / `unpaywall:find_oa`——注册表接受任意字符串 capability，但只有标准 12 个参与门面自动派发。
+非标准能力使用命名空间前缀，如 `exa:find_similar` / `unpaywall:find_oa`；注册表接受任意字符串 capability，但只有标准 capability 参与门面自动派发。
 
 ### 跨域能力
 
@@ -179,7 +179,7 @@ client_cls = adapter.client_loader()  # 此刻才 importlib.import_module
 
 ## 4. 并发与超时
 
-- **per-event-loop Semaphore**（D12）：`core.concurrency.get_semaphore(channel)` 按当前 running loop 存 `WeakKeyDictionary[loop, Semaphore]`。同 loop 多次调用返回同一个；跨 `asyncio.new_event_loop()` 自动隔离；loop 被 GC 后自动清理。
+- **per-event-loop Semaphore**：`core.concurrency.get_semaphore(channel)` 按当前 running loop 存 `WeakKeyDictionary[loop, Semaphore]`。同 loop 多次调用返回同一个；跨 `asyncio.new_event_loop()` 自动隔离；loop 被 GC 后自动清理。
 - **两个独立 channel**：`search` 与 `web`，互不阻塞。
 - **单源超时上限 15s**，受 `SouWenConfig.timeout` 约束；超时源丢弃，不影响其他源。
 - **异常隔离**：单源抛异常（ConfigError / RateLimitError / 其他）时只记 log，不阻塞其他源。

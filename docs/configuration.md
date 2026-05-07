@@ -2,7 +2,7 @@
 
 > SouWen 配置系统：从零配置到完全自定义
 
-> **V2 架构提示**：所有配置项均集中在 `src/souwen/config/models.py` 的 `SouWenConfig`（Pydantic 模型）。新增数据源时若需要凭据，需要在 `SouWenConfig` 加字段，并在 `registry/sources/` 的 `SourceAdapter` 里通过 `config_field` / `credential_fields` 引用。详见 [adding-a-source.md](./adding-a-source.md)。
+> **架构提示**：所有配置项均集中在 `src/souwen/config/models.py` 的 `SouWenConfig`（Pydantic 模型）。新增数据源时若需要凭据，需要在 `SouWenConfig` 加字段，并在 `registry/sources/` 的 `SourceAdapter` 里通过 `config_field` / `credential_fields` 引用。详见 [adding-a-source.md](./adding-a-source.md)。
 
 ## 配置优先级
 
@@ -69,10 +69,10 @@ web:
   apify_api_token: your_token        # Apify（平台化 Actor 爬虫）
   cloudflare_api_token: your_token  # Cloudflare Browser Rendering
   cloudflare_account_id: your_id    # Cloudflare 账户 ID
-  feishu_app_id: your_app_id        # 飞书云文档搜索（PR #7）
+  feishu_app_id: your_app_id        # 飞书云文档搜索
   feishu_app_secret: your_app_secret
-  zhipuai_api_key: your_key         # 智谱 AI Web Search Pro（PR #12）
-  aliyun_iqs_api_key: your_key      # 阿里云 IQS 通义晓搜（PR #13）
+  zhipuai_api_key: your_key         # 智谱 AI Web Search Pro
+  aliyun_iqs_api_key: your_key      # 阿里云 IQS 通义晓搜
   metaso_api_key: your_key          # Metaso（秘塔）搜索
   perplexity_api_key: your_key
   linkup_api_key: your_key
@@ -97,9 +97,9 @@ general:
   http_backend: {}
 
 server:
-  api_password: ~              # 旧版统一密码（向后兼容）
-  visitor_password: ~          # 访客密码（仅保护搜索端点，优先于 api_password）
-  admin_password: ~            # 管理密码（仅保护管理端点，优先于 api_password）
+  user_password: ~             # 用户密码（保护搜索和 /sources）
+  admin_password: ~            # 管理密码（保护全部管理端点）
+  guest_enabled: false         # 是否允许无 Token 搜索
   cors_origins: []
   trusted_proxies:             # 反向代理 IP/CIDR 名单
     - 10.0.0.0/8
@@ -171,10 +171,10 @@ sources: {}
 | `apify_api_token` | `SOUWEN_APIFY_API_TOKEN` | Apify 必需 | 平台化 Actor 爬虫 |
 | `cloudflare_api_token` | `SOUWEN_CLOUDFLARE_API_TOKEN` | Cloudflare 必需 | Browser Rendering API Token |
 | `cloudflare_account_id` | `SOUWEN_CLOUDFLARE_ACCOUNT_ID` | Cloudflare 必需 | Cloudflare 账户 ID |
-| `feishu_app_id` | `SOUWEN_FEISHU_APP_ID` | 飞书云文档必需 | 飞书 / Lark 自建应用 App ID（PR #7） |
+| `feishu_app_id` | `SOUWEN_FEISHU_APP_ID` | 飞书云文档必需 | 飞书 / Lark 自建应用 App ID |
 | `feishu_app_secret` | `SOUWEN_FEISHU_APP_SECRET` | 飞书云文档必需 | 飞书 / Lark 自建应用 App Secret |
-| `zhipuai_api_key` | `SOUWEN_ZHIPUAI_API_KEY` | 智谱 AI 必需 | Web Search Pro API Key（含 AI 摘要，PR #12） |
-| `aliyun_iqs_api_key` | `SOUWEN_ALIYUN_IQS_API_KEY` | 阿里云 IQS 必需 | 通义晓搜 API Key（含 AI 摘要，PR #13） |
+| `zhipuai_api_key` | `SOUWEN_ZHIPUAI_API_KEY` | 智谱 AI 必需 | Web Search Pro API Key（含 AI 摘要） |
+| `aliyun_iqs_api_key` | `SOUWEN_ALIYUN_IQS_API_KEY` | 阿里云 IQS 必需 | 通义晓搜 API Key（含 AI 摘要） |
 | `metaso_api_key` | `SOUWEN_METASO_API_KEY` | Metaso 必需 | 秘塔搜索 API Key（文档/网页/学术） |
 
 ### 社交 / 视频 / 办公 / 个人库
@@ -210,13 +210,12 @@ sources: {}
 | `data_dir` | `SOUWEN_DATA_DIR` | `~/.local/share/souwen` | 数据存储目录 |
 | `default_http_backend` | `SOUWEN_DEFAULT_HTTP_BACKEND` | `"auto"` | 全局 HTTP 后端：auto &#124; curl_cffi &#124; httpx |
 | `http_backend` | `SOUWEN_HTTP_BACKEND` | `{}` | 按源覆盖 HTTP 后端（JSON 对象） |
-| — | `SOUWEN_MAX_CONCURRENCY` | `10` | 聚合搜索并发上限（v0.6.0，仅环境变量） |
+| — | `SOUWEN_MAX_CONCURRENCY` | `10` | 聚合搜索并发上限（仅环境变量） |
 
 ### 服务端
 
 | 字段 | 环境变量 | 默认值 | 说明 |
 |------|---------|--------|------|
-| `api_password` | `SOUWEN_API_PASSWORD` | None | 旧版统一密码（向后兼容，同时作用于用户 + 管理） |
 | `user_password` | `SOUWEN_USER_PASSWORD` | None | 用户密码，保护搜索和 `/sources` |
 | `admin_password` | `SOUWEN_ADMIN_PASSWORD` | None | 管理密码，保护全部 `/api/v1/admin/*` |
 | `guest_enabled` | `SOUWEN_GUEST_ENABLED` | `false` | 是否启用游客访问（无 Token 也可搜索，受限源） |
@@ -224,23 +223,21 @@ sources: {}
 | `trusted_proxies` | `SOUWEN_TRUSTED_PROXIES` | `[]` | 受信反向代理 IP/CIDR 列表，逗号分隔 |
 | `expose_docs` | `SOUWEN_EXPOSE_DOCS` | `true` | 是否暴露 `/docs`、`/redoc`、`/openapi.json` |
 
-> 旧版 `visitor_password`（`SOUWEN_VISITOR_PASSWORD`）仍可使用，会自动映射为 `user_password`。
-
 **三角色认证模型**：
 
 | 角色 | 获取方式 | 可用端点 |
 |------|----------|----------|
 | Guest 游客 | 无 Token（需 `guest_enabled=true`） | 搜索（受限源、限速） |
-| User 用户 | `user_password` / `visitor_password` / `api_password` | 搜索 + `/sources` |
-| Admin 管理员 | `admin_password` / `api_password` | 全部权限 |
+| User 用户 | `user_password` | 搜索 + `/sources` |
+| Admin 管理员 | `admin_password` | 全部权限 |
 
 **密码优先级**：
 
-- 用户端点：`user_password` > `visitor_password` > `api_password` > 无（开放）
-- 管理端点：`admin_password` > `api_password` > 无（默认锁定，需 `SOUWEN_ADMIN_OPEN=1` 显式放行）
+- 用户端点：`user_password` > Guest 开关 > 拒绝访问
+- 管理端点：`admin_password` > 本地显式开放开关 > 拒绝访问
 - Admin Token 自动满足 User/Guest 端点（角色层级：Admin ⊃ User ⊃ Guest）
 
-显式将 `user_password` 设为空字符串可开放用户端点；显式将 `admin_password` 设为空字符串只表示忽略 `api_password` 回退，管理端仍需 `SOUWEN_ADMIN_OPEN=1` 才开放。
+显式将 `user_password` 设为空字符串可开放用户端点；生产部署应设置 `admin_password`。
 
 ## 代理池配置
 
@@ -274,7 +271,7 @@ config = reload_config()
 
 ### Admin API 默认锁定 (P0-7)
 
-当 `admin_password`（或回退的 `api_password`）**未设置**时，所有 `/api/v1/admin/*` 端点默认返回 `401 Unauthorized`，响应体包含提示信息。推荐的使用方式：
+当 `admin_password` **未设置**时，所有 `/api/v1/admin/*` 端点默认返回 `401 Unauthorized`，响应体包含提示信息。推荐的使用方式：
 
 | 场景 | 做法 |
 | --- | --- |
@@ -322,7 +319,7 @@ server:
 | `warp_usque_config` | `SOUWEN_WARP_USQUE_CONFIG` / `WARP_USQUE_CONFIG` | None | `usque` 模式的 config.json 路径 |
 | `warp_external_proxy` | `SOUWEN_WARP_EXTERNAL_PROXY` / `WARP_EXTERNAL_PROXY` | None | `external` 模式使用的外部代理地址 |
 
-> WARP 字段支持不带 `SOUWEN_` 前缀的环境变量（Docker entrypoint 兼容）。
+> WARP 字段支持不带 `SOUWEN_` 前缀的环境变量（供 Docker entrypoint 使用）。
 
 ### 数据源频道配置（sources）
 
@@ -340,7 +337,7 @@ server:
 
 环境变量：`SOUWEN_SOURCES='{"duckduckgo":{"proxy":"warp"}}'`（JSON 格式）
 
-自建实例源（如 `searxng` / `whoogle` / `websurfx`）优先使用 `sources.<name>.base_url`；旧版 `sources.<name>.api_key` 与 flat `<name>_url` 仍作为兼容入口。数据源字段和运行时可见性规则见 [data-sources.md](./data-sources.md) 与 [api-reference.md](./api-reference.md#数据源频道配置admin)。
+自建实例源（如 `searxng` / `whoogle` / `websurfx`）使用 `sources.<name>.base_url` 配置实例地址。数据源字段和运行时可见性规则见 [data-sources.md](./data-sources.md) 与 [api-reference.md](./api-reference.md#数据源频道配置admin)。
 
 示例：
 
