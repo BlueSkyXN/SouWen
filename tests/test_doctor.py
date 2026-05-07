@@ -16,13 +16,13 @@ from typing import cast
 from souwen.doctor import check_all, format_report, summarize_statuses
 from souwen.core.exceptions import ConfigError
 from souwen.registry.adapter import MethodSpec, SourceAdapter
+from souwen.registry.catalog import source_catalog
 from souwen.registry.loader import lazy
 from souwen.registry.views import _reg_external
-from souwen.registry.meta import get_all_sources
 
 
 def register_runtime_web_doctor_probe() -> str:
-    """注册一个不带内部 v0_category:* tag 的外部 web 插件。"""
+    """注册一个不声明 category 的外部 web 插件。"""
     name = "doctor_web_probe"
     adapter = SourceAdapter(
         name=name,
@@ -74,20 +74,21 @@ class TestCheckAll:
         assert crossref["status"] == "ok"
 
     def test_categories_are_valid(self):
-        """所有 category 值在 8 类中"""
+        """所有 category 值在正式 catalog 分类中"""
         results = check_all()
         valid_cats = {
             "paper",
             "patent",
-            "general",
-            "professional",
+            "web_general",
+            "web_professional",
             "social",
+            "office",
             "developer",
-            "wiki",
+            "knowledge",
             "video",
+            "archive",
             "fetch",
             "cn_tech",
-            "office",
         }
         for r in results:
             assert r["category"] in valid_cats
@@ -129,7 +130,7 @@ class TestCheckAll:
 
     def test_source_config_matches_37(self):
         """source registry 有 92+ 个数据源（内置 + 外部插件）"""
-        assert len(get_all_sources()) >= 92
+        assert len(source_catalog()) >= 94
 
     def test_semantic_scholar_without_key_is_limited(self, monkeypatch):
         """Semantic Scholar 无 Key 时标记为 limited。"""
@@ -298,13 +299,13 @@ class TestCheckAll:
         assert status_counts["degraded"] == 1
         assert counts["failed"] == 2
 
-    def test_runtime_web_plugin_without_internal_v0_tag_is_visible(self, clean_registry):
-        """外部 web 插件应出现在 doctor 路径，不依赖内部 v0_category:* tag。"""
+    def test_runtime_web_plugin_without_explicit_category_is_visible(self, clean_registry):
+        """外部 web 插件应出现在 doctor 路径。"""
         name = register_runtime_web_doctor_probe()
 
         results = check_all()
         source = next(r for r in results if r["name"] == name)
-        assert source["category"] == "general"
+        assert source["category"] == "web_general"
         assert source["distribution"] == "plugin"
         assert source["status"] in {"ok", "warning"}
 

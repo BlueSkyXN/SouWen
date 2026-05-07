@@ -195,12 +195,12 @@ class TestAdminAuth:
         assert data["failed"] == 2
         assert data["status_counts"]["limited"] == 1
 
-    def test_admin_doctor_keeps_runtime_web_plugin_without_internal_v0_tag(
+    def test_admin_doctor_keeps_runtime_web_plugin_without_explicit_category(
         self,
         authed_client,
         clean_registry,
     ):
-        """admin doctor 应返回不带内部 v0_category:* tag 的外部 web 插件。"""
+        """admin doctor 应返回不声明 category 的外部 web 插件。"""
         from tests.test_doctor import register_runtime_web_doctor_probe
 
         name = register_runtime_web_doctor_probe()
@@ -210,7 +210,7 @@ class TestAdminAuth:
         )
         assert resp.status_code == 200
         sources = {item["name"]: item for item in resp.json()["sources"]}
-        assert sources[name]["category"] == "general"
+        assert sources[name]["category"] == "web_general"
         assert sources[name]["distribution"] == "plugin"
 
     def test_admin_sources_config_includes_catalog_fields(self, authed_client):
@@ -507,8 +507,10 @@ class TestSearchAuth:
             item["name"] for entries in data.values() for item in entries
         }
 
-    def test_sources_keeps_runtime_web_plugin_without_internal_v0_tag(self, client, clean_registry):
-        """外部 web 插件不应因缺少内部 v0_category:* tag 从 /sources 消失。"""
+    def test_sources_keeps_runtime_web_plugin_without_explicit_category(
+        self, client, clean_registry
+    ):
+        """外部 web 插件不应因缺少 category 声明从 /sources 消失。"""
         from souwen.registry.adapter import MethodSpec, SourceAdapter
         from souwen.registry.loader import lazy
         from souwen.registry.views import _reg_external

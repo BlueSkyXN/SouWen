@@ -11,7 +11,7 @@
   5. adapter.config_field 在 SouWenConfig.model_fields 里存在
   6. default_for 的每个 key 能解析为 (domain, capability) 且都合法
   7. 注册表没有重名
-  8. ALL_SOURCES 与 registry 的 v0 投影对齐（派生一致性）
+  8. SourceMeta 与正式 catalog 投影对齐
 
 补充断言（门面与数据流健壮性）：
   9. 默认源名在 registry 的同 domain 下可查
@@ -35,6 +35,7 @@ from souwen.registry import (
     enum_values,
     fetch_providers,
     high_risk_sources,
+    source_catalog,
 )
 from souwen.registry import external_plugins
 from souwen.registry.adapter import (
@@ -329,19 +330,21 @@ class TestD11HardAsserts:
                     f"adapter.domains={adapter.domains}"
                 )
 
-    def test_all_sources_matches_registry(self):
-        """D11-8：models.ALL_SOURCES 与 registry 视图派生一致。"""
-        from souwen.models import ALL_SOURCES
-        from souwen.registry import as_all_sources_dict
+    def test_source_meta_matches_catalog_projection(self):
+        """D11-8：SourceMeta 与正式 catalog 投影一致。"""
+        from souwen.registry import meta as source_meta
 
-        derived = as_all_sources_dict()
-        assert set(ALL_SOURCES.keys()) == set(derived.keys()), (
-            f"ALL_SOURCES 键集 {set(ALL_SOURCES.keys())} != 派生 {set(derived.keys())}"
-        )
-        for cat in derived:
-            got = sorted(ALL_SOURCES[cat])
-            expected = sorted(derived[cat])
-            assert got == expected, f"category={cat!r} 条目不一致"
+        catalog = source_catalog()
+        metadata = source_meta.get_all_sources()
+        assert set(metadata.keys()) == set(catalog.keys())
+        for name, entry in catalog.items():
+            meta = metadata[name]
+            assert meta.category == entry.category
+            assert meta.auth_requirement == entry.auth_requirement
+            assert meta.credential_fields == entry.credential_fields
+            assert meta.risk_level == entry.risk_level
+            assert meta.distribution == entry.distribution
+            assert meta.stability == entry.stability
 
 
 # ── 补充一致性检查 ─────────────────────────────────────────
@@ -593,8 +596,8 @@ class TestExternalPlugins:
         assert source_meta.is_known_source("ext_cache_probe") is False
         assert "ext_cache_probe" not in source_meta.ALL_SOURCE_NAMES
 
-    def test_external_web_plugin_without_internal_v0_tag_is_visible(self, clean_registry):
-        """外部 web 插件不应依赖内部 v0_category:* tag 才进入兼容视图。"""
+    def test_external_web_plugin_without_explicit_category_is_visible(self, clean_registry):
+        """外部 web 插件不声明 category 时仍进入 catalog。"""
         from souwen.registry import meta as source_meta
 
         adapter = SourceAdapter(
@@ -611,13 +614,13 @@ class TestExternalPlugins:
         assert _reg_external(adapter) is True
         meta = source_meta.get_source("ext_web_probe")
         assert meta is not None
-        assert meta.category == "general"
+        assert meta.category == "web_general"
         assert meta.distribution == "plugin"
         assert source_meta.is_known_source("ext_web_probe") is True
         assert "ext_web_probe" in source_meta.ALL_SOURCE_NAMES
 
     def test_external_web_plugin_can_use_public_professional_category_tag(self, clean_registry):
-        """外部 web 插件可用公开 category:* tag 选择 professional 分类。"""
+        """外部 web 插件可用公开 category:* tag 选择专业网页分类。"""
         from souwen.registry import meta as source_meta
 
         adapter = SourceAdapter(
@@ -636,4 +639,4 @@ class TestExternalPlugins:
         assert _reg_external(adapter) is True
         meta = source_meta.get_source("ext_professional_web_probe")
         assert meta is not None
-        assert meta.category == "professional"
+        assert meta.category == "web_professional"

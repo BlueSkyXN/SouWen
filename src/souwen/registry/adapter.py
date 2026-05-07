@@ -195,13 +195,12 @@ class SourceAdapter:
         optional_credential_effect: 可选凭据的收益，如提高 rate limit 或解锁个性化能力。
         risk_level / risk_reasons: 风险等级与原因，兼容旧 tag high_risk。
         distribution / package_extra: 推荐分发范围与 optional dependency 组。
-        stability: 源的成熟度。v0_all_sources:exclude 会被视为 experimental。
+        stability: 源的成熟度。
         usage_note: 用户级提示，给 doctor / API / Panel 展示该源的运行时限制
             或注意事项（如 unpaywall 的 "仅支持 DOI OA 查找"）。**不参与可用性
             判定**——状态推断走 stability/auth_requirement 维度。
         category: 正式 source catalog 分类；None 表示由 catalog 兼容层从 domain/tags 派生。
-        catalog_visibility: 正式 source catalog 可见性；旧 `v0_all_sources:exclude`
-            tag 会在 catalog 兼容层投影为 hidden。
+        catalog_visibility: 正式 source catalog 可见性。
     """
 
     name: str
@@ -331,9 +330,7 @@ class SourceAdapter:
 
     @property
     def resolved_stability(self) -> str:
-        """兼容 v0 排除标签的成熟度。"""
-        if "v0_all_sources:exclude" in self.tags and self.stability == "stable":
-            return "experimental"
+        """返回最终成熟度。"""
         return self.stability
 
     def resolve_params(
