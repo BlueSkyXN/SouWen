@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import pytest
+
+pytest.importorskip("fastapi")
+
 
 def _component_name(ref: str) -> str:
     return ref.rsplit("/", 1)[-1]
