@@ -52,7 +52,7 @@ The registry architecture reduces the cost of adding a new source to **1–2 cod
 ## 📦 Installation
 
 ```bash
-# Install the current v2-dev candidate from source
+# Install the current source line
 git clone --branch v2-dev https://github.com/BlueSkyXN/SouWen.git
 cd SouWen
 pip install -e .
@@ -99,7 +99,7 @@ async def main():
     for r in resp[0].results:
         print(r.title, "—", r.doi)
 
-    # v2 API
+    # Application API
     from souwen.search import search, search_all
     from souwen.web.fetch import fetch_content
     from souwen.web.wayback import WaybackClient
@@ -213,6 +213,7 @@ docker run -p 8000:8000 \
 - [docs/plugin-integration-spec.md](docs/plugin-integration-spec.md) — External plugin integration spec
 - [docs/plugin-management.md](docs/plugin-management.md) — Plugin management (Web Panel / CLI / API)
 - [docs/contributing.md](docs/contributing.md) — Developer guide
+- [docs/internal/](docs/internal/) — Maintainer ADRs, branching policy, and pre-release baselines
 - [GitHub Wiki](https://github.com/BlueSkyXN/SouWen/wiki) — User manual and task-oriented navigation
 - [CHANGELOG.md](CHANGELOG.md) — Changelog
 
