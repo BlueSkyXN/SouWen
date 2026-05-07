@@ -684,21 +684,28 @@ class TestInstallUninstall:
 
 
 class TestReloadPlugins:
-    def test_reload_plugins_calls_discover_entrypoint_plugins(
+    def test_reload_plugins_calls_explicit_loader(
         self,
         monkeypatch: pytest.MonkeyPatch,
         state_dir: Path,
     ) -> None:
+        from souwen.plugin import PluginLoadError, PluginLoadResult
+
         called = False
 
-        def fake_discover(
-            *, skip_names: set[str] | None = None
-        ) -> tuple[list[str], list[dict[str, str]]]:
+        def fake_ensure_plugins_loaded() -> PluginLoadResult:
             nonlocal called
             called = True
-            return ["alpha"], [{"source": "entry_points", "name": "broken", "error": "boom"}]
+            return PluginLoadResult(
+                loaded_plugins=("alpha_plugin",),
+                loaded_adapters=("alpha",),
+                skipped=(),
+                errors=(PluginLoadError("entry_points", "broken", "boom"),),
+            )
 
-        monkeypatch.setattr("souwen.plugin_manager.discover_entrypoint_plugins", fake_discover)
+        monkeypatch.setattr(
+            "souwen.plugin_manager.ensure_plugins_loaded", fake_ensure_plugins_loaded
+        )
 
         result = reload_plugins()
 
@@ -713,21 +720,26 @@ class TestReloadPlugins:
         monkeypatch: pytest.MonkeyPatch,
         state_dir: Path,
     ) -> None:
+        from souwen.plugin import PluginLoadResult
+
         _save_state({"disabled_plugins": ["beta"], "installed_via_api": []})
-        captured_skip: set[str] | None = None
 
-        def fake_discover(
-            *, skip_names: set[str] | None = None
-        ) -> tuple[list[str], list[dict[str, str]]]:
-            nonlocal captured_skip
-            captured_skip = skip_names
-            return [], []
+        def fake_ensure_plugins_loaded() -> PluginLoadResult:
+            return PluginLoadResult(
+                loaded_plugins=(),
+                loaded_adapters=(),
+                skipped=("beta",),
+                errors=(),
+            )
 
-        monkeypatch.setattr("souwen.plugin_manager.discover_entrypoint_plugins", fake_discover)
+        monkeypatch.setattr(
+            "souwen.plugin_manager.ensure_plugins_loaded", fake_ensure_plugins_loaded
+        )
 
-        reload_plugins()
+        result = reload_plugins()
 
-        assert captured_skip == {"beta"}
+        assert "已跳过禁用插件: beta" in result["message"]
+        assert "本次跳过: beta" in result["message"]
 
 
 class TestRuntimeDisable:
@@ -1230,9 +1242,16 @@ class TestAPIEndpoints:
         state_dir: Path,
         monkeypatch: pytest.MonkeyPatch,
     ) -> None:
+        from souwen.plugin import PluginLoadResult
+
         monkeypatch.setattr(
-            "souwen.plugin_manager.discover_entrypoint_plugins",
-            lambda *, skip_names=None: (["alpha"], []),
+            "souwen.plugin_manager.ensure_plugins_loaded",
+            lambda: PluginLoadResult(
+                loaded_plugins=("alpha_plugin",),
+                loaded_adapters=("alpha",),
+                skipped=(),
+                errors=(),
+            ),
         )
 
         response = client.post("/plugins/reload")

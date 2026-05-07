@@ -259,7 +259,8 @@ curl 'http://localhost:8000/api/v1/search/paper?q=transformer&sources=my_source&
 ## 7. 替代方案：作为外部插件发布
 
 如果数据源不打算合入主仓（私有、实验性或商业插件），可以作为独立 Python 包发布。
-SouWen 通过 setuptools entry_points 或配置文件自动发现外部插件。
+SouWen CLI / server 启动时通过 `ensure_plugins_loaded(get_config())` 显式加载
+setuptools entry_points 或配置文件声明的外部插件。
 
 完整对接规范见 [plugin-integration-spec.md](./plugin-integration-spec.md)。
 
