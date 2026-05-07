@@ -116,12 +116,12 @@ general:
 
 # ===== 服务 =====
 server:
-  # 旧版统一密码（同时作用于访客和管理端点，向后兼容）
-  api_password: ~
-  # 访客密码（仅保护搜索端点，优先于 api_password）
-  visitor_password: ~
-  # 管理密码（仅保护管理端点，优先于 api_password）
+  # 用户密码（保护搜索和 /sources）
+  user_password: ~
+  # 管理密码（保护管理端点）
   admin_password: ~
+  # 是否启用游客访问（无 Token 也可访问搜索端点）
+  guest_enabled: false
 """
 
     dest = Path("souwen.yaml")

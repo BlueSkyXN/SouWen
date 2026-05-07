@@ -110,7 +110,6 @@ export const YAML_SECTIONS: SectionDef[] = [
     key: 'server',
     titleI18nKey: 'config.visualSectionServer',
     fields: [
-      { key: 'api_password', type: 'password', label: 'API 密码（旧版）' },
       { key: 'user_password', type: 'password', label: '用户密码' },
       { key: 'admin_password', type: 'password', label: '管理密码' },
       { key: 'guest_enabled', type: 'boolean', label: '允许游客访问' },

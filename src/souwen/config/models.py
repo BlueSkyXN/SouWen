@@ -11,7 +11,7 @@ import random
 from pathlib import Path
 from typing import Any, Literal
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 from .validators import _validate_proxy_url
 
@@ -101,8 +101,8 @@ class SouWenConfig(BaseModel):
 
         HTTP 后端: default_http_backend (全局默认), http_backend (按源覆盖字典)
 
-        服务配置: api_password (旧版统一密码), visitor_password (访客密码),
-                 admin_password (管理密码), cors_origins, trusted_proxies,
+        服务配置: user_password (用户密码), admin_password (管理密码),
+                 guest_enabled, cors_origins, trusted_proxies,
                  expose_docs (是否暴露 Swagger 文档)
 
         WARP 代理: warp_enabled,
@@ -123,6 +123,21 @@ class SouWenConfig(BaseModel):
         get_http_backend(source_name) → str — 获取指定源的 HTTP 后端
         resolve_proxy/api_key/base_url/headers/params(source_name) — 解析源级覆盖配置
     """
+
+    @model_validator(mode="before")
+    @classmethod
+    def _reject_retired_auth_fields(cls, data: Any) -> Any:
+        """旧认证字段已经移除，直接构造配置时也要显式报错。"""
+        if isinstance(data, dict):
+            retired = set(data) & {"api_password", "visitor_password"}
+            if retired:
+                replacements = {
+                    "api_password": "user_password / admin_password",
+                    "visitor_password": "user_password",
+                }
+                detail = ", ".join(f"{key} -> {replacements[key]}" for key in sorted(retired))
+                raise ValueError(f"认证配置字段已移除: {detail}")
+        return data
 
     # ===== 论文数据源 =====
     openalex_email: str | None = None
@@ -222,35 +237,26 @@ class SouWenConfig(BaseModel):
     http_backend: dict[str, str] = Field(default_factory=dict)
 
     # ===== 服务（认证） =====
-    api_password: str | None = None  # 旧版统一密码(向后兼容,同时作用于访客和管理)
-    visitor_password: str | None = None  # 旧版访客密码(映射为 user_password)
     user_password: str | None = None  # 用户密码(保护搜索和 /sources)
     admin_password: str | None = None  # 管理密码(保护管理端点)
     guest_enabled: bool = False  # 是否启用游客访问(无Token可访问搜索)
 
     @property
     def effective_user_password(self) -> str | None:
-        """解析生效的用户密码: user_password > visitor_password > api_password > None(开放)。
-        显式设为空字符串表示"强制开放,忽略回退"。"""
+        """解析生效的用户密码；空字符串表示显式开放用户端点。"""
         if self.user_password is not None:
             return self.user_password or None
-        if self.visitor_password is not None:
-            return self.visitor_password or None
-        return self.api_password
-
-    @property
-    def effective_visitor_password(self) -> str | None:
-        """向后兼容属性,映射到 effective_user_password。"""
-        return self.effective_user_password
+        return None
 
     @property
     def effective_admin_password(self) -> str | None:
-        """解析生效的管理密码: admin_password > api_password > None。
-        显式设为空字符串表示"不使用密码,忽略 api_password 回退";
-        无密码 admin 访问仍需 SOUWEN_ADMIN_OPEN=1 显式放行。"""
+        """解析生效的管理密码；空字符串表示未设置管理密码。
+
+        无密码 admin 访问仍需 SOUWEN_ADMIN_OPEN=1 显式放行。
+        """
         if self.admin_password is not None:
             return self.admin_password or None
-        return self.api_password
+        return None
 
     cors_origins: list[str] = Field(
         default_factory=list,

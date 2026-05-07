@@ -23,6 +23,45 @@ try:
 except ImportError:  # pragma: no cover
     yaml = None  # type: ignore[assignment]
 
+_RETIRED_AUTH_FIELDS = {
+    "api_password": "server.user_password / server.admin_password",
+    "visitor_password": "server.user_password",
+}
+_RETIRED_AUTH_ENV_KEYS = {
+    "SOUWEN_API_PASSWORD": "SOUWEN_USER_PASSWORD / SOUWEN_ADMIN_PASSWORD",
+    "SOUWEN_VISITOR_PASSWORD": "SOUWEN_USER_PASSWORD",
+}
+
+
+def _retired_auth_yaml_keys(raw: dict) -> list[str]:
+    """返回 YAML 中已经移除的旧认证字段。"""
+
+    findings: list[str] = []
+    for key in _RETIRED_AUTH_FIELDS:
+        if key in raw:
+            findings.append(key)
+    server = raw.get("server")
+    if isinstance(server, dict):
+        for key in _RETIRED_AUTH_FIELDS:
+            if key in server:
+                findings.append(f"server.{key}")
+    return findings
+
+
+def _retired_auth_config_error(keys: list[str]) -> ValueError:
+    replacements = ", ".join(f"{key} -> {_RETIRED_AUTH_FIELDS[key.split('.')[-1]]}" for key in keys)
+    return ValueError(f"认证配置字段已移除: {replacements}")
+
+
+def _reject_retired_auth_env(values: dict[str, str | None]) -> None:
+    findings = [
+        f"{key} -> {_RETIRED_AUTH_ENV_KEYS[key]}"
+        for key in _RETIRED_AUTH_ENV_KEYS
+        if values.get(key) is not None
+    ]
+    if findings:
+        raise ValueError(f"认证环境变量已移除: {', '.join(findings)}")
+
 
 def _load_yaml_config() -> dict:
     """尝试加载 YAML 配置文件,返回扁平化的配置字典
@@ -58,6 +97,9 @@ def _load_yaml_config() -> dict:
 
     if not raw or not isinstance(raw, dict):
         return {}
+    retired_keys = _retired_auth_yaml_keys(raw)
+    if retired_keys:
+        raise _retired_auth_config_error(retired_keys)
 
     valid_fields = set(SouWenConfig.model_fields)
     flat: dict = {}
@@ -140,6 +182,7 @@ def _coerce_env_value(field_name: str, raw_val: str, env_key: str):
 
 def _load_env_mapping(values: dict[str, str | None]) -> dict:
     """将 .env 或 os.environ 的键值映射为 SouWenConfig kwargs。"""
+    _reject_retired_auth_env(values)
     kwargs: dict = {}
     env_prefix = "SOUWEN_"
     for field_name in SouWenConfig.model_fields:

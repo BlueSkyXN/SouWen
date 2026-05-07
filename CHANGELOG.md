@@ -6,6 +6,7 @@
 - 删除 `souwen.facade`、`souwen.source_registry`、顶层 core shim、`souwen.scraper`、域级 re-export 包，以及 `souwen.web.engines` / `souwen.web.api` / `souwen.web.self_hosted` 分组 re-export。
 - 搜索入口收敛到 `souwen.search`，内容抓取入口收敛到 `souwen.web.fetch`，Wayback 入口使用 `souwen.web.wayback`。
 - Registry 元数据入口迁移到 `souwen.registry.meta`，内置源声明迁移为 `souwen.registry.sources` package。
+- 服务端认证配置移除旧统一/访客密码字段，使用 `user_password`、`admin_password` 和 `guest_enabled` 表达 User/Admin/Guest 访问语义。
 
 ### Validation
 - 新增 import surface 测试，明确新 public imports 可用、旧兼容路径不可 import。
