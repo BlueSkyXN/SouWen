@@ -117,8 +117,9 @@ def render(*, include_plugins: bool = False) -> str:
         + "。"
     )
     lines.append(
-        "- `/api/v1/sources` 和 Panel 在过渡期仍使用兼容分类：`general` / `professional` "
-        "会拆分 `web` 源，`knowledge` 显示为 `wiki`，`archive` 与跨域抓取能力归入 `fetch`。"
+        "- `/api/v1/sources`、CLI 和 Panel 使用同一份公开 Source Catalog："
+        "`sources[]` 保留全部公开条目，并用 `category`、`domain`、`capabilities`、"
+        "`available` 描述展示和运行时可用性。"
     )
     lines.append(
         "- `Capabilities` 是门面层可派发能力；`fetch` 既可以是主 domain，也可以是 "
@@ -130,15 +131,15 @@ def render(*, include_plugins: bool = False) -> str:
     lines.append(
         "- Auth 的取值是 `none` / `optional` / `required` / `self_hosted`。"
         "`optional` 表示缺凭据仍可用，但配置后可提升限流、配额、质量或登录态能力；"
-        "`required` 与 `self_hosted` 缺少声明字段时不会出现在 `/api/v1/sources`。"
+        "`required` 与 `self_hosted` 缺少声明字段时仍保留 catalog 条目，并以 "
+        "`available=false` 标记。"
     )
     lines.append(
         "- `Credentials` 列出完整字段；多字段源必须全部满足。频道级 "
         "`sources.<name>.api_key` 只覆盖主 `config_field`，其余字段仍读取 flat config。"
     )
     lines.append(
-        "- 自建实例源优先读取 `sources.<name>.base_url`，并兼容旧的 "
-        "`sources.<name>.api_key` 与 flat `<name>_url`。当前内置自建源为 "
+        "- 自建实例源读取 `sources.<name>.base_url`；当前内置自建源为 "
         "`searxng`、`whoogle`、`websurfx`。"
     )
     lines.append(
@@ -149,9 +150,10 @@ def render(*, include_plugins: bool = False) -> str:
     lines.append("## 运行时可见性")
     lines.append("")
     lines.append(
-        "`/api/v1/sources` 会从 live registry 派生，并过滤已禁用、缺必需凭据或缺自建实例"
-        "地址的源；doctor 和管理端 `/api/v1/admin/sources/config` 会展示所有注册源及其"
-        "状态、凭据字段、频道配置和 catalog 元数据。"
+        "`/api/v1/sources` 会从 live registry 派生公开 catalog，禁用源、缺必需凭据源"
+        "和缺自建实例地址的源仍会保留条目，但 `available=false`；doctor 和管理端 "
+        "`/api/v1/admin/sources/config` 会展示所有注册源及其状态、凭据字段、频道配置"
+        "和 catalog 元数据。"
     )
     lines.append("")
     lines.append("<!-- BEGIN AUTO -->")
@@ -206,7 +208,7 @@ def render(*, include_plugins: bool = False) -> str:
     lines.append("")
     lines.append("## 图例")
     lines.append("")
-    lines.append("- ⚠️ high_risk：兼容旧标签，等价于 `risk_level=high`。")
+    lines.append("- ⚠️ high_risk：高风险源，等价于 `risk_level=high`。")
     lines.append(
         "- Integration 描述接入方式：`open_api` / `scraper` / `official_api` / `self_hosted`。"
     )

@@ -107,7 +107,7 @@ general:
 
 ## SSRF 防护（fetch / links / sitemap）
 
-V1 的 `/api/v1/fetch`、`/links`、`/sitemap` 端点在抓取前对每个 URL 调用 `souwen.web.fetch.validate_fetch_url(url)`：
+`/api/v1/fetch`、`/links`、`/sitemap` 端点在抓取前对每个 URL 调用 `souwen.web.fetch.validate_fetch_url(url)`：
 
 1. 仅允许 `http` / `https` scheme；
 2. DNS 解析所有 A/AAAA 记录；
