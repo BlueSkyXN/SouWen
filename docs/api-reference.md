@@ -62,14 +62,15 @@ from souwen import search, search_papers, search_patents, web_search
 from souwen.web.fetch import fetch_content, validate_fetch_url
 ```
 
-#### `fetch_content(urls, providers=None, timeout=30.0, skip_ssrf_check=False, selector=None, start_index=0, max_length=None, respect_robots_txt=False)` → `FetchResponse`
+#### `fetch_content(urls, providers=None, strategy="fallback", timeout=30.0, skip_ssrf_check=False, selector=None, start_index=0, max_length=None, respect_robots_txt=False)` → `FetchResponse`
 
-并发内容抓取，支持 22 个提供者。
+多提供者内容抓取，支持 22 个提供者。默认 `fallback` 按 URL 补抓失败项；`fanout` 会并发执行所有 provider，并返回全部 provider 结果，适合质量对比和调试。
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `urls` | `list[str]` | — | 目标 URL 列表 |
 | `providers` | `list[str] \| None` | `["builtin"]` | 提供者: builtin / jina_reader / arxiv_fulltext / tavily / firecrawl / xcrawl / exa / crawl4ai / scrapling / scrapfly / diffbot / scrapingbee / zenrows / scraperapi / apify / cloudflare / wayback / newspaper / readability / mcp / site_crawler / deepwiki |
+| `strategy` | `"fallback" \| "fanout"` | `"fallback"` | 多 provider 策略：`fallback` 按 URL 顺序补失败项；`fanout` 返回所有 provider 结果 |
 | `timeout` | `float` | `30.0` | 每个 URL 超时秒数 |
 | `skip_ssrf_check` | `bool` | `False` | 跳过 SSRF 校验（仅内部使用） |
 | `selector` | `str \| None` | `None` | CSS 选择器，仅提取匹配元素（builtin / scrapling 支持） |
@@ -195,7 +196,9 @@ class FetchResponse(BaseModel):
     total: int = 0                              # 总数
     total_ok: int = 0                           # 成功数
     total_failed: int = 0                       # 失败数
-    provider: str = ""                          # 使用的提供者
+    providers: list[str] = []                   # 请求的提供者列表
+    strategy: str = "fallback"                  # 使用的抓取策略
+    provider: str | None = None                 # 兼容旧版单 provider 字段
     meta: dict = {}                             # 元数据
 ```
 
@@ -266,11 +269,13 @@ souwen doctor         # 检查所有数据源可用性
 
 ```bash
 # 抓取网页内容（默认 builtin，零配置）
-souwen fetch <urls...> [--provider/-p builtin] [--timeout/-t 30] [--json/-j]
+souwen fetch <urls...> [--provider/-p builtin] [--strategy fallback] [--timeout/-t 30] [--json/-j]
 
 # 示例
 souwen fetch https://example.com                      # 内置抓取
 souwen fetch https://a.com https://b.com -p jina_reader  # Jina Reader
+souwen fetch https://example.com -p builtin -p jina_reader --strategy fallback  # 逐 URL 补抓
+souwen fetch https://example.com -p builtin -p jina_reader --strategy fanout    # 多 provider 对比
 souwen fetch https://example.com --json               # JSON 输出
 ```
 
@@ -865,14 +870,16 @@ Cache-Control: public, max-age=3600
 
 #### `POST /api/v1/fetch`
 
-抓取网页内容，支持 22 个提供者。
+抓取网页内容，支持 22 个提供者。默认 `fallback` 按 URL 补抓失败项；`fanout` 会并发返回所有 provider 结果。
 
 **请求体 (JSON)：**
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `urls` | `list[str]` (1-20) | *(必填)* | 目标 URL 列表 |
-| `provider` | `string` | `"builtin"` | 提供者: `builtin` / `jina_reader` / `arxiv_fulltext` / `tavily` / `firecrawl` / `xcrawl` / `exa` / `crawl4ai` / `scrapling` / `scrapfly` / `diffbot` / `scrapingbee` / `zenrows` / `scraperapi` / `apify` / `cloudflare` / `wayback` / `newspaper` / `readability` / `mcp` / `site_crawler` / `deepwiki` |
+| `provider` | `string` | `"builtin"` | 兼容旧版单 provider 字段 |
+| `providers` | `list[str] \| null` | `null` | 多 provider 列表；提供时优先于 `provider`。可选：`builtin` / `jina_reader` / `arxiv_fulltext` / `tavily` / `firecrawl` / `xcrawl` / `exa` / `crawl4ai` / `scrapling` / `scrapfly` / `diffbot` / `scrapingbee` / `zenrows` / `scraperapi` / `apify` / `cloudflare` / `wayback` / `newspaper` / `readability` / `mcp` / `site_crawler` / `deepwiki` |
+| `strategy` | `"fallback" \| "fanout"` | `"fallback"` | 多 provider 策略：`fallback` 按 URL 顺序补失败项；`fanout` 返回所有 provider 结果 |
 | `timeout` | `float` (1-120) | `30` | 每 URL 超时秒数 |
 | `selector` | `string \| null` | `null` | CSS 选择器，仅提取匹配元素（builtin / scrapling 支持） |
 | `start_index` | `integer` (≥0) | `0` | 内容起始切片位置 |
@@ -883,7 +890,8 @@ Cache-Control: public, max-age=3600
 ```json
 {
   "urls": ["https://example.com/article"],
-  "provider": "builtin",
+  "providers": ["builtin", "jina_reader"],
+  "strategy": "fallback",
   "timeout": 30
 }
 ```
@@ -910,8 +918,20 @@ Cache-Control: public, max-age=3600
   "total": 1,
   "total_ok": 1,
   "total_failed": 0,
-  "provider": "builtin",
-  "meta": {}
+  "provider": null,
+  "providers": ["builtin", "jina_reader"],
+  "strategy": "fallback",
+  "meta": {
+    "strategy": "fallback",
+    "requested_providers": ["builtin", "jina_reader"],
+    "attempted": {
+      "https://example.com/article": ["builtin"]
+    },
+    "selected_provider": {
+      "https://example.com/article": "builtin"
+    },
+    "ssrf_blocked": 0
+  }
 }
 ```
 

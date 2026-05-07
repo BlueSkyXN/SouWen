@@ -19,7 +19,9 @@ from souwen.registry.catalog import (
     sources_by_category,
 )
 from souwen.registry.loader import lazy
+from souwen.registry import external_plugins, fetch_providers
 from souwen.registry.views import _reg_external
+from souwen.web.fetch import get_fetch_handlers
 
 
 def test_source_categories_have_stable_metadata() -> None:
@@ -130,6 +132,16 @@ def test_available_source_catalog_matches_runtime_credentials_and_enabled_state(
         SouWenConfig(sources={"searxng": {"base_url": "https://search.example"}})
     )
     assert "searxng" in configured
+
+
+def test_catalog_fetch_providers_have_runtime_handlers() -> None:
+    """Source catalog 中的 fetch provider 必须能派发到 fetch handler。"""
+    external_plugin_names = set(external_plugins())
+    registry_fetch_provider_names = {
+        adapter.name for adapter in fetch_providers() if adapter.name not in external_plugin_names
+    }
+    handler_names = set(get_fetch_handlers())
+    assert registry_fetch_provider_names <= handler_names
 
 
 def test_runtime_plugin_uses_public_category_tag_and_plugin_distribution(
