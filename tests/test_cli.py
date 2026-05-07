@@ -21,11 +21,33 @@ import asyncio
 import json
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from souwen.cli import app
 
 runner = CliRunner()
+
+
+@pytest.fixture(autouse=True)
+def _isolate_config_files(monkeypatch, tmp_path):
+    """CLI 用例固定在空配置环境运行，不读取用户目录里的真实配置。"""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    monkeypatch.setenv("SOUWEN_PLUGIN_AUTOLOAD", "0")
+    for key in (
+        "SOUWEN_API_PASSWORD",
+        "SOUWEN_VISITOR_PASSWORD",
+        "SOUWEN_USER_PASSWORD",
+        "SOUWEN_ADMIN_PASSWORD",
+    ):
+        monkeypatch.delenv(key, raising=False)
+    from souwen.config import get_config
+
+    get_config.cache_clear()
+    yield
+    get_config.cache_clear()
 
 
 def test_version_flag():
@@ -63,10 +85,13 @@ def test_config_show_indicates_unconfigured(monkeypatch, tmp_path):
     """无密码、无配置文件环境下，``config show`` 必须明确提示"未配置"。
 
     通过 ``chdir(tmp_path)`` 隔离仓库里的 ``souwen.yaml``，并 delenv
-    清掉可能存在的 ``SOUWEN_API_PASSWORD``，以覆盖全新用户首次运行场景。
+    清掉可能存在的认证环境变量，以覆盖全新用户首次运行场景。
     """
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("SOUWEN_API_PASSWORD", raising=False)
+    monkeypatch.delenv("SOUWEN_VISITOR_PASSWORD", raising=False)
+    monkeypatch.delenv("SOUWEN_USER_PASSWORD", raising=False)
+    monkeypatch.delenv("SOUWEN_ADMIN_PASSWORD", raising=False)
     from souwen.config import reload_config
 
     reload_config()

@@ -93,6 +93,22 @@ class TestYamlLoading:
         cfg = reload_config()
         assert cfg.timeout == 12
 
+    def test_retired_auth_yaml_keys_raise_clear_error(self, tmp_path):
+        """旧认证字段不再被兼容读取，配置文件中出现时应明确报错。"""
+        (tmp_path / "souwen.yaml").write_text(
+            textwrap.dedent(
+                """
+                server:
+                  api_password: legacy
+                  visitor_password: legacy-user
+                """
+            ).strip(),
+            encoding="utf-8",
+        )
+
+        with pytest.raises(ValueError, match="认证配置字段已移除"):
+            reload_config()
+
     def test_loads_top_level_plugin_config(self, tmp_path):
         """顶层 plugin_config 应作为插件配置字典保留。"""
         (tmp_path / "souwen.yaml").write_text(
@@ -120,6 +136,20 @@ class TestEnvOverride:
         monkeypatch.setenv("SOUWEN_OPENALEX_EMAIL", "envuser@example.com")
         cfg = reload_config()
         assert cfg.openalex_email == "envuser@example.com"
+
+    @pytest.mark.parametrize(
+        "env_key",
+        [
+            "SOUWEN_API_PASSWORD",
+            "SOUWEN_VISITOR_PASSWORD",
+        ],
+    )
+    def test_retired_auth_env_keys_raise_clear_error(self, monkeypatch, env_key):
+        """旧认证环境变量不再被兼容读取，出现时应明确报错。"""
+        monkeypatch.setenv(env_key, "legacy")
+
+        with pytest.raises(ValueError, match="认证环境变量已移除"):
+            reload_config()
 
     def test_env_int_conversion(self, monkeypatch):
         """整数字段从字符串自动转换。"""
