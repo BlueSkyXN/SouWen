@@ -23,13 +23,15 @@
                     crawl4ai / scrapfly / diffbot / scrapingbee / zenrows /
                     scraperapi / apify / cloudflare / wayback / newspaper / readability
 
-    fetch_content(urls, providers=None, timeout=30.0, skip_ssrf_check=False) -> FetchResponse
-        - 功能：并发多提供者聚合抓取入口（用户显式选择提供者，不自动级联）
+    fetch_content(
+        urls, providers=None, strategy="fallback", timeout=30.0, skip_ssrf_check=False
+    ) -> FetchResponse
+        - 功能：多提供者抓取入口，支持 per-URL fallback 与 fanout 质量对比
         - 输入：urls 目标 URL 列表, providers 提供者列表(默认 ["builtin"]),
-                timeout 每 URL 超时, skip_ssrf_check 是否跳过 SSRF 校验
+                strategy 抓取策略, timeout 每 URL 超时, skip_ssrf_check 是否跳过 SSRF 校验
         - 输出：FetchResponse 聚合结果（含 SSRF 拦截记录）
         - 关键变量：selected 选用的提供者列表, valid_urls SSRF 通过的 URL,
-                ssrf_failures SSRF 拦截的失败结果
+                ssrf_failures SSRF 拦截的失败结果, attempted 每 URL 尝试 provider
 
 模块依赖：
     - asyncio: 异步并发与超时控制
@@ -47,6 +49,7 @@
     - SSRF 防护：解析 DNS 后逐个 IP 校验，拒绝私有/回环/链路本地/保留段
     - 提供者懒加载：在分支内 import，避免循环依赖与不必要的依赖加载
     - 用户显式选择提供者：默认 builtin（内置，零配置），可选 jina_reader 等付费提供者
+    - fallback 策略按 URL 逐项补失败项，fanout 策略并发返回全部 provider 结果
     - 全局超时 = per-URL timeout + 10 秒宽限期
 """
 
@@ -57,9 +60,10 @@ import contextvars
 import ipaddress
 import logging
 import socket
+from collections import defaultdict, deque
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import urlparse
 
 from souwen.config import get_config
@@ -70,6 +74,7 @@ logger = logging.getLogger("souwen.web.fetch")
 
 FetchHandler = Callable[..., Awaitable[FetchResponse]]
 """Fetch handler signature: ``async (urls: list[str], timeout: float, **kwargs) -> FetchResponse``."""
+FetchStrategy = Literal["fallback", "fanout"]
 
 # ── 插件上下文：由 plugin.py 加载器在 ep.load() 周围设置 ──
 _current_plugin_owner: contextvars.ContextVar[str | None] = contextvars.ContextVar(
@@ -558,75 +563,63 @@ async def _fetch_with_provider(
         total_ok=0,
         total_failed=len(urls),
         provider=provider,
+        providers=[provider],
     )
 
 
-async def fetch_content(
+def _provider_compat_value(providers: list[str]) -> str | None:
+    """兼容旧版单 provider 字段；多 provider 响应不再伪装成单一 provider。"""
+    return providers[0] if len(providers) == 1 else None
+
+
+def _align_results_to_urls(
+    *,
+    provider: str,
     urls: list[str],
-    providers: list[str] | None = None,
-    timeout: float = 30.0,
-    skip_ssrf_check: bool = False,
+    results: list[FetchResult],
+) -> list[FetchResult]:
+    """按请求 URL 顺序取回 provider 结果，缺失项补 provider 级失败。"""
+    by_url: dict[str, deque[FetchResult]] = defaultdict(deque)
+    for result in results:
+        by_url[result.url].append(result)
+
+    aligned: list[FetchResult] = []
+    requested_urls = set(urls)
+    for index, url in enumerate(urls):
+        if by_url[url]:
+            aligned.append(by_url[url].popleft())
+            continue
+        if index < len(results) and results[index].url not in requested_urls:
+            aligned.append(results[index])
+            continue
+        aligned.append(
+            FetchResult(
+                url=url,
+                final_url=url,
+                source=provider,
+                error=f"{provider} 未返回该 URL 的抓取结果",
+            )
+        )
+    return aligned
+
+
+async def _run_provider_fetch(
+    provider: str,
+    urls: list[str],
+    timeout: float,
+    *,
     selector: str | None = None,
     start_index: int = 0,
     max_length: int | None = None,
     respect_robots_txt: bool = False,
 ) -> FetchResponse:
-    """并发多提供者聚合内容抓取
-
-    用户显式选择提供者（不自动级联），默认使用 builtin（内置，零配置）。
-    每个提供者独立抓取全部 URL 列表中有效的 URL。
-
-    Args:
-        urls: 目标 URL 列表
-        providers: 提供者列表，默认 ["builtin"]
-        timeout: 每个 URL 超时秒数
-        skip_ssrf_check: 跳过 SSRF 校验（仅内部使用）
-
-    Returns:
-        FetchResponse 聚合结果
-    """
-    selected = providers or ["builtin"]
-
-    # SSRF 校验
-    valid_urls: list[str] = []
-    ssrf_failures: list[FetchResult] = []
-    if not skip_ssrf_check:
-        for url in urls:
-            ok, reason = validate_fetch_url(url)
-            if ok:
-                valid_urls.append(url)
-            else:
-                ssrf_failures.append(
-                    FetchResult(
-                        url=url,
-                        final_url=url,
-                        source=selected[0],
-                        error=f"SSRF 校验失败: {reason}",
-                    )
-                )
-    else:
-        valid_urls = list(urls)
-
-    if not valid_urls:
-        return FetchResponse(
-            urls=urls,
-            results=ssrf_failures,
-            total=len(ssrf_failures),
-            total_ok=0,
-            total_failed=len(ssrf_failures),
-            provider=",".join(selected),
-            meta={"requested_providers": selected, "ssrf_blocked": len(ssrf_failures)},
-        )
-
-    # 用户显式选择单提供者（不做多提供者扇出）
-    provider = selected[0]
-    global_timeout = _get_provider_global_timeout(provider, len(valid_urls), timeout)
-
+    """执行单个 provider，并把超时/异常折算成 FetchResponse。"""
+    global_timeout = _get_provider_global_timeout(provider, len(urls), timeout)
     try:
         resp = await asyncio.wait_for(
             _fetch_with_provider(
                 provider,
-                valid_urls,
+                urls,
                 timeout=timeout,
                 selector=selector,
                 start_index=start_index,
@@ -635,35 +628,199 @@ async def fetch_content(
             ),
             timeout=global_timeout,
         )
+        return resp.model_copy(
+            update={
+                "provider": resp.provider or provider,
+                "providers": resp.providers or [provider],
+            }
+        )
     except asyncio.TimeoutError:
-        logger.warning("Fetch 全局超时: provider=%s urls=%d", provider, len(valid_urls))
-        resp = FetchResponse(
-            urls=valid_urls,
+        logger.warning("Fetch 全局超时: provider=%s urls=%d", provider, len(urls))
+        return FetchResponse(
+            urls=urls,
             results=[
-                FetchResult(url=u, final_url=u, source=provider, error="全局超时")
-                for u in valid_urls
+                FetchResult(url=u, final_url=u, source=provider, error="全局超时") for u in urls
             ],
-            total=len(valid_urls),
+            total=len(urls),
             total_ok=0,
-            total_failed=len(valid_urls),
+            total_failed=len(urls),
             provider=provider,
+            providers=[provider],
         )
     except Exception as exc:
         logger.warning("Fetch 提供者异常: provider=%s err=%s", provider, exc)
-        resp = FetchResponse(
-            urls=valid_urls,
+        return FetchResponse(
+            urls=urls,
             results=[
-                FetchResult(url=u, final_url=u, source=provider, error=str(exc)) for u in valid_urls
+                FetchResult(url=u, final_url=u, source=provider, error=str(exc)) for u in urls
             ],
-            total=len(valid_urls),
+            total=len(urls),
             total_ok=0,
-            total_failed=len(valid_urls),
+            total_failed=len(urls),
             provider=provider,
+            providers=[provider],
         )
 
-    # 合并 SSRF 拦截结果
-    all_results = ssrf_failures + list(resp.results)
-    ok_count = sum(1 for r in all_results if r.error is None)
+
+async def fetch_content(
+    urls: list[str],
+    providers: list[str] | None = None,
+    strategy: FetchStrategy = "fallback",
+    timeout: float = 30.0,
+    skip_ssrf_check: bool = False,
+    selector: str | None = None,
+    start_index: int = 0,
+    max_length: int | None = None,
+    respect_robots_txt: bool = False,
+) -> FetchResponse:
+    """多提供者内容抓取
+
+    默认使用 ``fallback``：按 provider 顺序逐 URL 补抓失败项。
+    ``fanout`` 会并发执行所有 provider，并返回全部 provider 结果。
+
+    Args:
+        urls: 目标 URL 列表
+        providers: 提供者列表，默认 ["builtin"]
+        strategy: 抓取策略，``fallback`` 或 ``fanout``
+        timeout: 每个 URL 超时秒数
+        skip_ssrf_check: 跳过 SSRF 校验（仅内部使用）
+
+    Returns:
+        FetchResponse 聚合结果
+    """
+    if strategy not in ("fallback", "fanout"):
+        raise ValueError(f"无效 fetch strategy: {strategy}")
+
+    selected = providers or ["builtin"]
+    provider_compat = _provider_compat_value(selected)
+    attempted: dict[str, list[str]] = {url: [] for url in urls}
+    selected_provider: dict[str, str] = {}
+
+    # SSRF 校验
+    valid_entries: list[tuple[int, str]] = []
+    final_by_index: dict[int, FetchResult] = {}
+    if not skip_ssrf_check:
+        for index, url in enumerate(urls):
+            ok, reason = validate_fetch_url(url)
+            if ok:
+                valid_entries.append((index, url))
+            else:
+                final_by_index[index] = FetchResult(
+                    url=url,
+                    final_url=url,
+                    source="ssrf",
+                    error=f"SSRF 校验失败: {reason}",
+                )
+    else:
+        valid_entries = list(enumerate(urls))
+
+    ssrf_blocked = len(final_by_index)
+    meta = {
+        "strategy": strategy,
+        "requested_providers": selected,
+        "attempted": attempted,
+        "selected_provider": selected_provider,
+        "ssrf_blocked": ssrf_blocked,
+    }
+
+    if not valid_entries:
+        all_results = [final_by_index[index] for index in sorted(final_by_index)]
+        return FetchResponse(
+            urls=urls,
+            results=all_results,
+            total=len(all_results),
+            total_ok=0,
+            total_failed=len(all_results),
+            provider=provider_compat,
+            providers=selected,
+            strategy=strategy,
+            meta=meta,
+        )
+
+    if strategy == "fanout":
+        valid_urls = [url for _, url in valid_entries]
+        for _, url in valid_entries:
+            attempted[url].extend(selected)
+
+        responses = await asyncio.gather(
+            *[
+                _run_provider_fetch(
+                    provider,
+                    valid_urls,
+                    timeout=timeout,
+                    selector=selector,
+                    start_index=start_index,
+                    max_length=max_length,
+                    respect_robots_txt=respect_robots_txt,
+                )
+                for provider in selected
+            ]
+        )
+        provider_results = [result for response in responses for result in response.results]
+        all_results = [final_by_index[index] for index in sorted(final_by_index)] + provider_results
+        ok_count = sum(1 for result in all_results if result.error is None)
+        return FetchResponse(
+            urls=urls,
+            results=all_results,
+            total=len(all_results),
+            total_ok=ok_count,
+            total_failed=len(all_results) - ok_count,
+            provider=provider_compat,
+            providers=selected,
+            strategy=strategy,
+            meta=meta,
+        )
+
+    pending_entries = list(valid_entries)
+    last_failure_by_index: dict[int, FetchResult] = {}
+
+    for provider in selected:
+        if not pending_entries:
+            break
+
+        batch_indices = [index for index, _ in pending_entries]
+        batch_urls = [url for _, url in pending_entries]
+        for url in batch_urls:
+            attempted[url].append(provider)
+
+        response = await _run_provider_fetch(
+            provider,
+            batch_urls,
+            timeout=timeout,
+            selector=selector,
+            start_index=start_index,
+            max_length=max_length,
+            respect_robots_txt=respect_robots_txt,
+        )
+        aligned_results = _align_results_to_urls(
+            provider=provider,
+            urls=batch_urls,
+            results=list(response.results),
+        )
+
+        next_pending: list[tuple[int, str]] = []
+        for index, url, result in zip(batch_indices, batch_urls, aligned_results, strict=False):
+            if result.error is None:
+                final_by_index[index] = result
+                selected_provider[url] = provider
+            else:
+                last_failure_by_index[index] = result
+                next_pending.append((index, url))
+        pending_entries = next_pending
+
+    for index, url in pending_entries:
+        final_by_index[index] = last_failure_by_index.get(
+            index,
+            FetchResult(
+                url=url,
+                final_url=url,
+                source=selected[-1],
+                error="所有提供者均未返回该 URL 的抓取结果",
+            ),
+        )
+
+    all_results = [final_by_index[index] for index in range(len(urls)) if index in final_by_index]
+    ok_count = sum(1 for result in all_results if result.error is None)
 
     return FetchResponse(
         urls=urls,
@@ -671,6 +828,8 @@ async def fetch_content(
         total=len(all_results),
         total_ok=ok_count,
         total_failed=len(all_results) - ok_count,
-        provider=provider,
-        meta={"requested_providers": selected, "ssrf_blocked": len(ssrf_failures)},
+        provider=provider_compat,
+        providers=selected,
+        strategy=strategy,
+        meta=meta,
     )
