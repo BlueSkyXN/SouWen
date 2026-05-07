@@ -54,6 +54,28 @@ def clean_fetch_handlers():
 
 
 @pytest.fixture(autouse=True)
+def _isolate_real_config_environment(monkeypatch, tmp_path):
+    """所有测试默认不读取开发机真实 SouWen 配置文件或认证环境变量。
+
+    旧认证字段现在会显式报错；测试套件不能因为用户目录中残留旧
+    ``~/.config/souwen/config.yaml`` 而改变结果。这里仅隔离 HOME 和认证
+    相关环境变量，不切换 cwd，避免影响依赖仓库相对路径的测试。
+    """
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    for key in (
+        "SOUWEN_API_PASSWORD",
+        "SOUWEN_VISITOR_PASSWORD",
+        "SOUWEN_USER_PASSWORD",
+        "SOUWEN_ADMIN_PASSWORD",
+        "SOUWEN_ADMIN_OPEN",
+        "SOUWEN_GUEST_ENABLED",
+    ):
+        monkeypatch.delenv(key, raising=False)
+    yield
+
+
+@pytest.fixture(autouse=True)
 def _auto_clear_config_cache():
     from souwen.config import get_config
 

@@ -2,17 +2,17 @@
 
 文件用途：
     提供 Bearer Token 认证和三级角色（Guest/User/Admin）授权检查。
-    支持独立的用户密码（user_password）和管理密码（admin_password），
-    并向后兼容旧版统一密码（api_password）和访客密码（visitor_password）。
+    支持独立的用户密码（user_password）和管理密码（admin_password）。
 
 角色层级（Admin ⊃ User ⊃ Guest）：
     - Guest 游客：无 Token 即可访问搜索端点（受限源、限速）
     - User 用户：提供 user_password，可访问搜索 + /sources
     - Admin 管理员：提供 admin_password，拥有全部权限
 
-密码解析优先级：
-    - 用户端点：user_password > visitor_password > api_password > 无密码（开放）
-    - 管理端点：admin_password > api_password > 无密码（需 SOUWEN_ADMIN_OPEN=1 显式开放）
+密码解析规则：
+    - Search 端点：未设置 user_password 时开放；设置后要求 User+，guest_enabled 可放行 Guest 搜索
+    - User 端点：未设置 user_password 且未启用 guest_enabled 时开放；否则要求 User+
+    - Admin 端点：admin_password > 无密码（需 SOUWEN_ADMIN_OPEN=1 显式开放）
     - Admin Token 自动满足 User/Guest 端点
 
 主要接口：
@@ -26,8 +26,8 @@
         - 工厂函数，生成 FastAPI 依赖
         - 低于 min_role 抛 401/403
 
-    require_auth / check_search_auth
-        - 向后兼容 thin wrapper
+    require_auth / check_user_auth / check_search_auth
+        - 路由级认证依赖
 """
 
 from __future__ import annotations
@@ -136,15 +136,13 @@ def require_role(min_role: Role):
     return Depends(_check)
 
 
-# ===== 向后兼容 thin wrappers =====
-# 现有路由代码中的 Depends(require_auth) 和 Depends(check_search_auth)
-# 无需任何改动即可继续工作
+# ===== 路由级认证依赖 =====
 
 
 def require_auth(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
 ) -> None:
-    """向后兼容：管理端点认证
+    """管理端点认证
 
     行为：
     - 若管理密码未配置，必须设置 SOUWEN_ADMIN_OPEN=1 才显式放行
@@ -185,20 +183,43 @@ def require_auth(
     )
 
 
+def check_user_auth(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+) -> None:
+    """用户端点认证
+
+    行为：
+    - 若用户密码未配置且未启用 guest 模式 → 放行（本地默认开放）
+    - 若启用 guest 模式 → 无 Token 只得到 Guest，不能访问 User 端点
+    - 否则要求 USER+ 角色
+    """
+    cfg = get_config()
+    if not cfg.effective_user_password and not cfg.guest_enabled:
+        return
+    role = resolve_role(credentials)
+    if role < Role.USER:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="认证失败：此端点需要用户或管理员权限",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
 def check_search_auth(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
 ) -> None:
-    """向后兼容：搜索端点认证
+    """搜索端点认证
 
-    行为与旧版一致：
+    行为：
     - 若搜索密码未配置（effective_user_password 为 None）→ 放行
+    - 若启用 guest 模式 → 无 Token 可以按 Guest 搜索
     - 否则要求 USER+ 角色
     """
     cfg = get_config()
     if not cfg.effective_user_password:
         return  # 搜索密码未配置 → 搜索端点开放
     role = resolve_role(credentials)
-    if role < Role.USER:
+    if role < Role.USER and not cfg.guest_enabled:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="认证失败：需要有效的 Bearer Token",

@@ -26,9 +26,9 @@
 | 变量 | 说明 |
 |------|------|
 | `SOUWEN_CONFIG_B64` | Base64 编码的 souwen.yaml 完整配置 |
-| `SOUWEN_API_PASSWORD` | 旧版统一密码（向后兼容） |
-| `SOUWEN_VISITOR_PASSWORD` | v0.6.3：访客密码，仅保护搜索端点（优先于 `api_password`） |
-| `SOUWEN_ADMIN_PASSWORD` | v0.6.3：管理密码，仅保护 `/api/v1/admin/*`（优先于 `api_password`） |
+| `SOUWEN_USER_PASSWORD` | 用户密码，保护搜索和 `/api/v1/sources` |
+| `SOUWEN_ADMIN_PASSWORD` | 管理密码，保护 `/api/v1/admin/*` |
+| `SOUWEN_GUEST_ENABLED` | 设为 `true` 时允许无 Token 访问搜索端点 |
 | `SOUWEN_ADMIN_OPEN` | 设为 `1` 时显式放行未配置密码的 admin 端点（仅本地/CI 调试用） |
 | `SOUWEN_TRUSTED_PROXIES` | 受信反向代理 IP/CIDR 列表，逗号分隔 |
 | `SOUWEN_EXPOSE_DOCS` | 是否暴露 `/docs`、`/redoc`、`/openapi.json`，生产建议 `false` |

@@ -17,6 +17,24 @@ import pytest
 from souwen.config import SouWenConfig, get_config, reload_config
 
 
+@pytest.fixture(autouse=True)
+def _isolate_config_files(monkeypatch, tmp_path):
+    """隔离真实 cwd/HOME 配置文件，避免读到开发机上的 souwen.yaml。"""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    for key in (
+        "SOUWEN_API_PASSWORD",
+        "SOUWEN_VISITOR_PASSWORD",
+        "SOUWEN_USER_PASSWORD",
+        "SOUWEN_ADMIN_PASSWORD",
+    ):
+        monkeypatch.delenv(key, raising=False)
+    get_config.cache_clear()
+    yield
+    get_config.cache_clear()
+
+
 class TestGetProxy:
     """get_proxy() 测试"""
 
@@ -87,12 +105,25 @@ class TestDefaults:
         cfg = SouWenConfig(plugin_config={"demo": {"api_key": "k", "limit": 3}})
         assert cfg.plugin_config["demo"] == {"api_key": "k", "limit": 3}
 
+    def test_retired_auth_fields_removed(self):
+        """旧认证字段已从配置模型移除。"""
+        cfg = SouWenConfig()
+        assert "api_password" not in SouWenConfig.model_fields
+        assert "visitor_password" not in SouWenConfig.model_fields
+        assert not hasattr(cfg, "effective_visitor_password")
+
     def test_all_api_keys_default_none(self):
         """所有 API Key 字段默认 None"""
         cfg = SouWenConfig()
         key_fields = [f for f in SouWenConfig.model_fields if "key" in f or "token" in f]
         for field in key_fields:
             assert getattr(cfg, field) is None, f"{field} 应默认为 None"
+
+    @pytest.mark.parametrize("field_name", ["api_password", "visitor_password"])
+    def test_retired_auth_model_fields_are_rejected(self, field_name):
+        """直接构造配置时，旧认证字段也不能被静默接受。"""
+        with pytest.raises(ValueError, match=field_name):
+            SouWenConfig(**{field_name: "legacy"})
 
 
 class TestEnvOverride:
@@ -124,6 +155,38 @@ class TestEnvOverride:
             assert cfg.proxy_pool == ["http://a:1", "http://b:2"]
         finally:
             get_config.cache_clear()
+
+    @pytest.mark.parametrize(
+        ("env_name", "replacement"),
+        [
+            ("SOUWEN_API_PASSWORD", "SOUWEN_USER_PASSWORD / SOUWEN_ADMIN_PASSWORD"),
+            ("SOUWEN_VISITOR_PASSWORD", "SOUWEN_USER_PASSWORD"),
+        ],
+    )
+    def test_retired_auth_env_vars_are_rejected(self, monkeypatch, env_name, replacement):
+        """旧认证环境变量应显式报错，不再映射到新字段。"""
+        monkeypatch.setenv(env_name, "legacy")
+        with pytest.raises(ValueError, match=replacement):
+            reload_config()
+        get_config.cache_clear()
+
+    @pytest.mark.parametrize(
+        ("yaml_text", "expected"),
+        [
+            ("server:\n  api_password: legacy\n", "server.api_password"),
+            ("server:\n  visitor_password: legacy\n", "server.visitor_password"),
+            ("api_password: legacy\n", "api_password"),
+        ],
+    )
+    def test_retired_auth_yaml_fields_are_rejected(
+        self, monkeypatch, tmp_path, yaml_text, expected
+    ):
+        """旧认证 YAML 字段应显式报错，不再被静默忽略或兼容映射。"""
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "souwen.yaml").write_text(yaml_text, encoding="utf-8")
+        with pytest.raises(ValueError, match=expected):
+            reload_config()
+        get_config.cache_clear()
 
 
 class TestSourceChannelConfig:

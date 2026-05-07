@@ -113,8 +113,13 @@ async def save_config_yaml(body: YamlConfigSaveRequest):
         unknown_keys: list[str] = []
         try:
             from souwen.config import SouWenConfig
+            from souwen.config.loader import _retired_auth_config_error, _retired_auth_yaml_keys
 
             valid_fields = set(SouWenConfig.model_fields)
+            retired_keys = _retired_auth_yaml_keys(parsed_dict)
+            if retired_keys:
+                raise _retired_auth_config_error(retired_keys)
+
             flat_dict: dict = {}
             for key, values in parsed_dict.items():
                 if key == "sources" and isinstance(values, dict):
