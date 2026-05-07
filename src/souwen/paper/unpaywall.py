@@ -34,7 +34,7 @@ from typing import Any
 from souwen.config import get_config
 from souwen.core.exceptions import ConfigError, NotFoundError, ParseError
 from souwen.core.http_client import SouWenHttpClient
-from souwen.models import PaperResult, SourceType
+from souwen.models import PaperResult
 from souwen.core.rate_limiter import TokenBucketLimiter
 
 logger = logging.getLogger(__name__)
@@ -148,7 +148,7 @@ class UnpaywallClient:
             doi=doi,
             year=data.get("year"),
             publication_date=data.get("published_date"),
-            source=SourceType.UNPAYWALL,
+            source="unpaywall",
             source_url=data.get("doi_url", ""),
             pdf_url=pdf_url,
             citation_count=None,

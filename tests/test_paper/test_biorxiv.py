@@ -7,7 +7,6 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from souwen.models import SourceType
 from souwen.paper.biorxiv import BioRxivClient
 
 
@@ -42,7 +41,7 @@ class TestBioRxiv:
         assert paper.doi == "10.1101/2024.01.01.123456"
         assert paper.year == 2024
         assert paper.publication_date == date(2024, 1, 15)
-        assert paper.source == SourceType.BIORXIV
+        assert paper.source == "biorxiv"
         assert paper.source_url == "https://doi.org/10.1101/2024.01.01.123456"
         assert paper.journal == "bioRxiv"
         assert paper.venue == "neuroscience"
@@ -62,7 +61,7 @@ class TestBioRxiv:
         }
         paper = BioRxivClient._parse_result(sample)
 
-        assert paper.source == SourceType.BIORXIV
+        assert paper.source == "biorxiv"
         assert paper.journal == "medRxiv"
         assert paper.venue == "epidemiology"
         assert paper.source_url == "https://doi.org/10.1101/2024.02.03.987654"
@@ -78,7 +77,7 @@ class TestBioRxiv:
         assert paper.doi is None
         assert paper.year is None
         assert paper.publication_date is None
-        assert paper.source == SourceType.BIORXIV
+        assert paper.source == "biorxiv"
         assert paper.source_url == "https://www.biorxiv.org/"
         assert paper.journal == "bioRxiv"
         assert paper.venue is None

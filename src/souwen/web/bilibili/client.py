@@ -23,7 +23,7 @@
 
 模块依赖：
     - urllib.parse：URL 编码
-    - souwen.models：SourceType / WebSearchResponse / WebSearchResult
+    - souwen.models：WebSearchResponse / WebSearchResult
     - souwen.core.scraper.base：BaseScraper
     - souwen.config：可选 SESSDATA / bili_jct 读取
     - souwen.web.bilibili.wbi：WBI 签名器
@@ -44,7 +44,7 @@ from typing import Any
 from urllib.parse import urlencode
 
 from souwen.config import get_config
-from souwen.models import SourceType, WebSearchResponse, WebSearchResult
+from souwen.models import WebSearchResponse, WebSearchResult
 from souwen.core.scraper.base import BaseScraper
 from souwen.web.bilibili._errors import raise_for_code
 from souwen.web.bilibili.models import (
@@ -270,7 +270,7 @@ class BilibiliClient(BaseScraper):
                             arcurl = "https:" + arcurl
                         results.append(
                             WebSearchResult(
-                                source=SourceType.WEB_BILIBILI,
+                                source="bilibili",
                                 title=title,
                                 url=str(arcurl),
                                 snippet=snippet,
@@ -306,7 +306,7 @@ class BilibiliClient(BaseScraper):
         logger.info("Bilibili 搜索返回 %d 条 (query=%s)", len(results), query)
         return WebSearchResponse(
             query=query,
-            source=SourceType.WEB_BILIBILI,
+            source="bilibili",
             results=results,
             total_results=total_int or len(results),
         )

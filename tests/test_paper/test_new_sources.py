@@ -15,7 +15,6 @@ import defusedxml.ElementTree as ET
 import pytest
 from bs4 import BeautifulSoup
 
-from souwen.models import SourceType
 from souwen.paper.doaj import DoajClient
 from souwen.paper.europepmc import EuropePmcClient
 from souwen.paper.hal import HalClient
@@ -66,7 +65,7 @@ class TestEuropePmc:
         assert paper.journal == "Nature Medicine"
         assert paper.citation_count == 42
         assert paper.pdf_url == "https://europepmc.org/pdf/12345678"
-        assert paper.source == SourceType.EUROPEPMC
+        assert paper.source == "europepmc"
         # PMID 优先级用于 source_url
         assert "12345678" in paper.source_url
         assert paper.raw["is_open_access"] is True
@@ -139,7 +138,7 @@ class TestPmc:
         assert len(paper.authors) == 2
         assert paper.authors[0].name == "John Smith"
         assert paper.authors[1].name == "Jane Doe"
-        assert paper.source == SourceType.PMC
+        assert paper.source == "pmc"
         assert "PMC1234567" in paper.source_url
         assert paper.pdf_url and "PMC1234567" in paper.pdf_url
         assert paper.raw["pmcid"] == "PMC1234567"
@@ -306,7 +305,7 @@ class TestHal:
         assert paper.pdf_url == "https://hal.archives-ouvertes.fr/hal-03123456/file/paper.pdf"
         assert paper.source_url == "https://hal.archives-ouvertes.fr/hal-03123456"
         assert paper.journal == "Archives Journal"
-        assert paper.source == SourceType.HAL
+        assert paper.source == "hal"
         assert paper.raw["hal_id"] == "hal-03123456"
         assert paper.raw["doc_type"] == "ART"
 
@@ -378,7 +377,7 @@ class TestOpenAire:
         assert paper.journal == "EU Science Journal"
         assert paper.pdf_url == "https://example.com/paper.pdf"
         assert paper.source_url == "https://example.com/paper.pdf"
-        assert paper.source == SourceType.OPENAIRE
+        assert paper.source == "openaire"
 
 
 # =============================================================================
@@ -410,7 +409,7 @@ class TestIacr:
         assert paper is not None
         assert paper.title == "A New Cryptographic Protocol"
         assert paper.year == 2025
-        assert paper.source == SourceType.IACR
+        assert paper.source == "iacr"
         assert paper.source_url == "https://eprint.iacr.org/2025/1014"
         assert paper.pdf_url == "https://eprint.iacr.org/2025/1014.pdf"
         assert paper.abstract == "We present a novel approach to..."

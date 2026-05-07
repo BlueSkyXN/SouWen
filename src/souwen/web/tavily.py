@@ -39,7 +39,7 @@
     - souwen.config: 获取 API Key 和全局配置
     - souwen.core.exceptions: ConfigError, ParseError 异常
     - souwen.core.http_client: SouWenHttpClient HTTP 客户端基类
-    - souwen.models: SourceType, WebSearchResult, WebSearchResponse,
+    - souwen.models: str, WebSearchResult, WebSearchResponse,
                     FetchResult, FetchResponse 数据模型
 
 技术要点：
@@ -58,7 +58,7 @@ from typing import Any
 from souwen.config import get_config
 from souwen.core.exceptions import ConfigError
 from souwen.core.http_client import SouWenHttpClient
-from souwen.models import FetchResponse, FetchResult, SourceType, WebSearchResponse, WebSearchResult
+from souwen.models import FetchResponse, FetchResult, WebSearchResponse, WebSearchResult
 
 logger = logging.getLogger("souwen.web.tavily")
 
@@ -150,7 +150,7 @@ class TavilyClient(SouWenHttpClient):
                 raw["raw_content"] = item["raw_content"]  # 页面原始内容
             results.append(
                 WebSearchResult(
-                    source=SourceType.WEB_TAVILY,
+                    source="tavily",
                     title=title,
                     url=url,
                     snippet=snippet,
@@ -169,7 +169,7 @@ class TavilyClient(SouWenHttpClient):
 
         return WebSearchResponse(
             query=query,
-            source=SourceType.WEB_TAVILY,
+            source="tavily",
             results=results,
             total_results=len(results),
         )

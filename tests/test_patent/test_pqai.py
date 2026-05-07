@@ -24,7 +24,6 @@ from datetime import date
 from pytest_httpx import HTTPXMock
 
 from souwen.patent.pqai import PqaiClient
-from souwen.models import SourceType
 
 
 # ---------------------------------------------------------------------------
@@ -74,7 +73,7 @@ async def test_search_basic(httpx_mock: HTTPXMock):
     async with PqaiClient() as c:
         resp = await c.search("cancer detection machine learning")
 
-    assert resp.source == SourceType.PQAI
+    assert resp.source == "pqai"
     assert resp.total_results == 2
     assert resp.page == 1
     assert len(resp.results) == 2
@@ -83,7 +82,7 @@ async def test_search_basic(httpx_mock: HTTPXMock):
     assert patent.title == "Machine Learning Method for Cancer Detection"
     assert patent.patent_id == "US11234567B2"
     assert patent.publication_date == date(2023, 3, 14)
-    assert patent.source == SourceType.PQAI
+    assert patent.source == "pqai"
     assert patent.source_url == "https://patents.google.com/patent/US11234567B2"
     assert "machine learning" in patent.abstract.lower()
 

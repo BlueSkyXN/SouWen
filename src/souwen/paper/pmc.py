@@ -50,7 +50,7 @@ import defusedxml.ElementTree as ET
 from souwen.config import get_config
 from souwen.core.exceptions import ParseError
 from souwen.core.http_client import SouWenHttpClient
-from souwen.models import Author, PaperResult, SearchResponse, SourceType
+from souwen.models import Author, PaperResult, SearchResponse
 from souwen.core.rate_limiter import TokenBucketLimiter
 
 logger = logging.getLogger(__name__)
@@ -61,8 +61,8 @@ _BASE_URL = "https://eutils.ncbi.nlm.nih.gov/entrez/eutils"
 _NO_KEY_RPS = 3.0
 _KEYED_RPS = 10.0
 
-# PMC 数据源类型，待补充至 SourceType 枚举后即可替换为 SourceType.PMC
-# SourceType.PMC 已在 models.py 中注册
+# PMC 数据源类型，待补充至 registry adapter name后即可替换为 'pmc'
+# 'pmc' 已在 models.py 中注册
 
 
 class PmcClient:
@@ -275,7 +275,7 @@ class PmcClient:
                 doi=doi,
                 year=year,
                 publication_date=pub_date,
-                source=SourceType.PMC,
+                source="pmc",
                 source_url=source_url,
                 pdf_url=pdf_url,
                 citation_count=None,  # PMC efetch 不直接提供引用数
@@ -356,7 +356,7 @@ class PmcClient:
                 page=page,
                 per_page=retmax,
                 results=[],
-                source=SourceType.PMC,
+                source="pmc",
             )
 
         # ---- Step 2: efetch 获取 JATS XML 详情 ----
@@ -368,7 +368,7 @@ class PmcClient:
             page=page,
             per_page=retmax,
             results=results,
-            source=SourceType.PMC,
+            source="pmc",
         )
 
     async def fetch(self, pmcids: list[str]) -> list[PaperResult]:

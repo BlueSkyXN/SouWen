@@ -175,7 +175,7 @@ def high_risk_sources() -> list[str]:
 
 
 def enum_values() -> list[str]:
-    """所有 adapter 名的排序列表，供 SourceType 枚举派生（D4）。"""
+    """所有 adapter 名的排序列表，供 source id 派生（D4）。"""
     return sorted(_REGISTRY.keys())
 
 

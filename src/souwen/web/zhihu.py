@@ -40,7 +40,7 @@
     - logging：日志
     - re：HTML 标签清理
     - urllib.parse.quote_plus：关键词 URL 编码
-    - souwen.models：SourceType / WebSearchResult / WebSearchResponse
+    - souwen.models：WebSearchResult / WebSearchResponse
     - souwen.core.scraper.base：BaseScraper
 
 技术要点：
@@ -49,7 +49,7 @@
     - 结果按 object.type 分别处理：answer / question / article
     - excerpt 字段含 <em> 高亮标签，需要清理
     - snippet 截断到 300 字符以控制载荷大小
-    - source 字段使用 SourceType.WEB_ZHIHU 枚举值
+    - source 字段使用 'zhihu' 枚举值
 """
 
 from __future__ import annotations
@@ -59,7 +59,7 @@ import re
 from typing import Any
 from urllib.parse import quote_plus
 
-from souwen.models import SourceType, WebSearchResponse, WebSearchResult
+from souwen.models import WebSearchResponse, WebSearchResult
 from souwen.core.scraper.base import BaseScraper
 
 logger = logging.getLogger("souwen.web.zhihu")
@@ -145,7 +145,7 @@ class ZhihuClient(BaseScraper):
             logger.warning("Zhihu 请求失败 (query=%s): %s", query, e)
             return WebSearchResponse(
                 query=query,
-                source=SourceType.WEB_ZHIHU,
+                source="zhihu",
                 results=results,
                 total_results=0,
             )
@@ -156,7 +156,7 @@ class ZhihuClient(BaseScraper):
             logger.warning("Zhihu JSON 解析失败 (query=%s): %s", query, e)
             return WebSearchResponse(
                 query=query,
-                source=SourceType.WEB_ZHIHU,
+                source="zhihu",
                 results=results,
                 total_results=0,
             )
@@ -211,7 +211,7 @@ class ZhihuClient(BaseScraper):
 
                 results.append(
                     WebSearchResult(
-                        source=SourceType.WEB_ZHIHU,
+                        source="zhihu",
                         title=title,
                         url=str(url_value),
                         snippet=snippet,
@@ -242,7 +242,7 @@ class ZhihuClient(BaseScraper):
 
         return WebSearchResponse(
             query=query,
-            source=SourceType.WEB_ZHIHU,
+            source="zhihu",
             results=results,
             total_results=total_int,
         )

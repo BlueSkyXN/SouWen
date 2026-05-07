@@ -48,7 +48,7 @@ from typing import Any
 from souwen.config import get_config
 from souwen.core.exceptions import ParseError
 from souwen.core.http_client import SouWenHttpClient
-from souwen.models import Author, PaperResult, SearchResponse, SourceType
+from souwen.models import Author, PaperResult, SearchResponse
 from souwen.core.rate_limiter import TokenBucketLimiter
 
 logger = logging.getLogger(__name__)
@@ -244,7 +244,7 @@ class PubMedClient:
                 doi=doi,
                 year=year,
                 publication_date=pub_date,
-                source=SourceType.PUBMED,
+                source="pubmed",
                 source_url=f"https://pubmed.ncbi.nlm.nih.gov/{pmid}/" if pmid else "",
                 pdf_url=None,  # PubMed 不直接提供 PDF 链接
                 citation_count=None,
@@ -324,7 +324,7 @@ class PubMedClient:
                 page=page,
                 per_page=retmax,
                 results=[],
-                source=SourceType.PUBMED,
+                source="pubmed",
             )
 
         # ---- Step 2: efetch 获取详情 ----
@@ -336,7 +336,7 @@ class PubMedClient:
             page=page,
             per_page=retmax,
             results=results,
-            source=SourceType.PUBMED,
+            source="pubmed",
         )
 
     async def fetch(self, pmids: list[str]) -> list[PaperResult]:

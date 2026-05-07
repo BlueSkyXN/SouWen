@@ -34,7 +34,7 @@
     - souwen.config: 获取 API Key 和全局配置
     - souwen.core.exceptions: ParseError 异常
     - souwen.core.http_client: SouWenHttpClient HTTP 客户端基类
-    - souwen.models: SourceType, WebSearchResult, WebSearchResponse 数据模型
+    - souwen.models: str, WebSearchResult, WebSearchResponse 数据模型
 
 技术要点：
     - API 端点：GET /search/advanced，参数 q/site/pagesize/sort/order/filter
@@ -53,7 +53,7 @@ from typing import Any
 
 from souwen.config import get_config
 from souwen.core.http_client import SouWenHttpClient
-from souwen.models import SourceType, WebSearchResult, WebSearchResponse
+from souwen.models import WebSearchResult, WebSearchResponse
 
 logger = logging.getLogger("souwen.web.stackoverflow")
 
@@ -151,7 +151,7 @@ class StackOverflowClient(SouWenHttpClient):
             raw = {k: v for k, v in raw.items() if v is not None}
             results.append(
                 WebSearchResult(
-                    source=SourceType.WEB_STACKOVERFLOW,
+                    source="stackoverflow",
                     title=title,
                     url=url,
                     snippet=snippet,
@@ -174,7 +174,7 @@ class StackOverflowClient(SouWenHttpClient):
 
         return WebSearchResponse(
             query=query,
-            source=SourceType.WEB_STACKOVERFLOW,
+            source="stackoverflow",
             results=results,
             total_results=len(results),
         )

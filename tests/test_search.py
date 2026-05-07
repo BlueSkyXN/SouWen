@@ -13,7 +13,7 @@ import asyncio
 import importlib
 from contextlib import AsyncExitStack, asynccontextmanager
 
-from souwen.models import SearchResponse, SourceType
+from souwen.models import SearchResponse
 from souwen.registry.adapter import MethodSpec, SourceAdapter
 
 
@@ -61,12 +61,8 @@ async def test_search_papers_skips_timed_out_source(monkeypatch):
     """慢论文源超时时不应阻塞整体结果。"""
     search_mod = importlib.import_module("souwen.search")
 
-    fast_resp = SearchResponse(
-        query="test", source=SourceType.OPENALEX, results=[], total_results=0
-    )
-    slow_resp = SearchResponse(
-        query="test", source=SourceType.CROSSREF, results=[], total_results=0
-    )
+    fast_resp = SearchResponse(query="test", source="openalex", results=[], total_results=0)
+    slow_resp = SearchResponse(query="test", source="crossref", results=[], total_results=0)
     FastClient = _make_fake_client(fast_resp, delay=0.0)
     SlowClient = _make_fake_client(slow_resp, delay=0.05)
 
@@ -100,17 +96,15 @@ async def test_search_papers_skips_timed_out_source(monkeypatch):
         )
 
     assert len(resp) == 1
-    assert resp[0].source == SourceType.OPENALEX
+    assert resp[0].source == "openalex"
 
 
 async def test_search_patents_skips_timed_out_source(monkeypatch):
     """慢专利源超时时不应阻塞整体结果。"""
     search_mod = importlib.import_module("souwen.search")
 
-    fast_resp = SearchResponse(
-        query="test", source=SourceType.PATENTSVIEW, results=[], total_results=0
-    )
-    slow_resp = SearchResponse(query="test", source=SourceType.PQAI, results=[], total_results=0)
+    fast_resp = SearchResponse(query="test", source="patentsview", results=[], total_results=0)
+    slow_resp = SearchResponse(query="test", source="pqai", results=[], total_results=0)
     FastClient = _make_fake_client(fast_resp, delay=0.0)
     SlowClient = _make_fake_client(slow_resp, delay=0.05)
 
@@ -144,7 +138,7 @@ async def test_search_patents_skips_timed_out_source(monkeypatch):
         )
 
     assert len(resp) == 1
-    assert resp[0].source == SourceType.PATENTSVIEW
+    assert resp[0].source == "patentsview"
 
 
 async def test_search_dispatches_with_resolved_adapters(monkeypatch):
@@ -166,7 +160,7 @@ async def test_search_dispatches_with_resolved_adapters(monkeypatch):
             "capability": capability,
             "kwargs": kwargs,
         }
-        return [SearchResponse(query=query, source=SourceType.OPENALEX, results=[])]
+        return [SearchResponse(query=query, source="openalex", results=[])]
 
     monkeypatch.setattr(search_mod, "_select_adapters", fake_select)
     monkeypatch.setattr(search_mod, "_execute_search", fake_execute)
@@ -289,7 +283,7 @@ async def test_search_all_groups_domain_results(monkeypatch):
 
     async def fake_search(query, domain="paper", **kwargs):
         calls.append((query, domain, kwargs))
-        return [SearchResponse(query=query, source=SourceType.OPENALEX, results=[])]
+        return [SearchResponse(query=query, source="openalex", results=[])]
 
     monkeypatch.setattr(search_mod, "search", fake_search)
 

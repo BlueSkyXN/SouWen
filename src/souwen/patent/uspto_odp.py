@@ -75,7 +75,7 @@ import httpx
 from souwen.config import get_config
 from souwen.core.exceptions import ConfigError, NotFoundError, ParseError
 from souwen.core.http_client import SouWenHttpClient
-from souwen.models import Applicant, PatentResult, SearchResponse, SourceType
+from souwen.models import Applicant, PatentResult, SearchResponse
 from souwen.core.rate_limiter import TokenBucketLimiter
 
 logger = logging.getLogger(__name__)
@@ -170,7 +170,7 @@ class UsptoOdpClient:
 
         return SearchResponse(
             query=query,
-            source=SourceType.USPTO_ODP,
+            source="uspto_odp",
             total_results=data.get("recordTotalQuantity", data.get("totalCount")),
             results=patents,
             page=(offset // per_page) + 1 if per_page else 1,
@@ -336,7 +336,7 @@ class UsptoOdpClient:
         cpc_codes: list[str] = [c for c in (raw.get("cpcCodes", []) or []) if isinstance(c, str)]
 
         return PatentResult(
-            source=SourceType.USPTO_ODP,
+            source="uspto_odp",
             title=raw.get("inventionTitle", raw.get("title", "")),
             patent_id=patent_id,
             application_number=app_number,

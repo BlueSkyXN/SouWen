@@ -115,8 +115,8 @@ async def api_summarize(body: SummarizeRequest):
         if not responses or not any(response.results for response in responses):
             raise HTTPException(status_code=404, detail="No search results found")
 
-        succeeded = [response.source.value for response in responses]
-        requested = body.sources or [response.source.value for response in responses]
+        succeeded = [response.source for response in responses]
+        requested = body.sources or [response.source for response in responses]
         meta = SearchMeta(
             requested=requested,
             succeeded=succeeded,

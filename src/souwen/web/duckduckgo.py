@@ -18,7 +18,7 @@ from html import unescape
 
 from lxml import html as lxml_html
 
-from souwen.models import SourceType, WebSearchResult, WebSearchResponse
+from souwen.models import WebSearchResult, WebSearchResponse
 from souwen.core.scraper.base import BaseScraper
 from souwen.web.ddg_utils import normalize_url, normalize_text, parse_next_form_data
 
@@ -135,7 +135,7 @@ class DuckDuckGoClient(BaseScraper):
         logger.info("DuckDuckGo 返回 %d 条结果 (query=%s)", len(results), query)
         return WebSearchResponse(
             query=query,
-            source=SourceType.WEB_DUCKDUCKGO,
+            source="duckduckgo",
             results=results,
             total_results=len(results),
         )
@@ -187,7 +187,7 @@ class DuckDuckGoClient(BaseScraper):
                 if title:
                     results.append(
                         WebSearchResult(
-                            source=SourceType.WEB_DUCKDUCKGO,
+                            source="duckduckgo",
                             title=title,
                             url=real_url,
                             snippet=snippet,

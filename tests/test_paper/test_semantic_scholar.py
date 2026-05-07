@@ -21,7 +21,6 @@ import re
 import pytest
 from pytest_httpx import HTTPXMock
 
-from souwen.models import SourceType
 from souwen.paper.semantic_scholar import SemanticScholarClient
 
 
@@ -66,7 +65,7 @@ async def test_search_basic(httpx_mock: HTTPXMock):
     async with SemanticScholarClient(api_key=None) as c:
         resp = await c.search("transformer")
 
-    assert resp.source == SourceType.SEMANTIC_SCHOLAR
+    assert resp.source == "semantic_scholar"
     assert resp.total_results == 1
     paper = resp.results[0]
     assert paper.title == "Attention Is All You Need"

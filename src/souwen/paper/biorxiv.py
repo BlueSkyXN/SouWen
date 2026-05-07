@@ -17,7 +17,7 @@ from typing import Any
 
 from souwen.core.exceptions import ParseError
 from souwen.core.http_client import SouWenHttpClient
-from souwen.models import Author, PaperResult, SearchResponse, SourceType
+from souwen.models import Author, PaperResult, SearchResponse
 from souwen.core.rate_limiter import TokenBucketLimiter
 
 logger = logging.getLogger(__name__)
@@ -118,7 +118,7 @@ class BioRxivClient:
                 doi=doi,
                 year=year,
                 publication_date=pub_date,
-                source=SourceType.BIORXIV,
+                source="biorxiv",
                 source_url=source_url,
                 journal=journal,
                 venue=category,
@@ -244,5 +244,5 @@ class BioRxivClient:
             page=1,
             per_page=per_page,
             results=results,
-            source=SourceType.BIORXIV,
+            source="biorxiv",
         )
