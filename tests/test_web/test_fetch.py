@@ -17,8 +17,8 @@ import asyncio
 
 import pytest
 
-from souwen.models import FetchResult
-from souwen.web.fetch import validate_fetch_url, fetch_content
+from souwen.models import FetchResponse, FetchResult
+from souwen.web.fetch import fetch_content, register_fetch_handler, validate_fetch_url
 
 
 class TestSSRFValidation:
@@ -66,6 +66,31 @@ class TestSSRFValidation:
 class TestFetchContent:
     """fetch_content 聚合测试"""
 
+    @staticmethod
+    def _response(provider: str, urls: list[str], failed: set[str] | None = None) -> FetchResponse:
+        failed = failed or set()
+        results = [
+            FetchResult(
+                url=url,
+                final_url=url,
+                source=provider,
+                title=f"{provider} title",
+                content=f"{provider} content",
+                error="boom" if url in failed else None,
+            )
+            for url in urls
+        ]
+        ok_count = sum(1 for result in results if result.error is None)
+        return FetchResponse(
+            urls=list(urls),
+            results=results,
+            total=len(results),
+            total_ok=ok_count,
+            total_failed=len(results) - ok_count,
+            provider=provider,
+            providers=[provider],
+        )
+
     @pytest.mark.asyncio
     async def test_unknown_provider(self):
         """未知提供者返回全部失败"""
@@ -76,7 +101,124 @@ class TestFetchContent:
         )
         assert resp.total_failed == 1
         assert resp.total_ok == 0
+        assert resp.providers == ["nonexistent"]
+        assert resp.strategy == "fallback"
         assert "未知提供者" in resp.results[0].error
+
+    @pytest.mark.asyncio
+    async def test_fallback_retries_only_failed_urls(self, clean_fetch_handlers):
+        """fallback 应只把失败 URL 交给后续 provider 补抓。"""
+        calls: list[tuple[str, list[str]]] = []
+        urls = [
+            "https://example.com/a",
+            "https://example.com/b",
+            "https://example.com/c",
+        ]
+
+        async def primary(urls, timeout, **_kwargs):
+            calls.append(("primary", list(urls)))
+            return self._response("primary", list(urls), failed={"https://example.com/c"})
+
+        async def backup(urls, timeout, **_kwargs):
+            calls.append(("backup", list(urls)))
+            return self._response("backup", list(urls))
+
+        register_fetch_handler("primary", primary)
+        register_fetch_handler("backup", backup)
+
+        resp = await fetch_content(
+            urls=urls,
+            providers=["primary", "backup"],
+            strategy="fallback",
+            skip_ssrf_check=True,
+        )
+
+        assert calls == [
+            ("primary", urls),
+            ("backup", ["https://example.com/c"]),
+        ]
+        assert resp.total == 3
+        assert resp.total_ok == 3
+        assert resp.provider is None
+        assert resp.providers == ["primary", "backup"]
+        assert resp.strategy == "fallback"
+        assert [result.source for result in resp.results] == ["primary", "primary", "backup"]
+        assert resp.meta["attempted"] == {
+            "https://example.com/a": ["primary"],
+            "https://example.com/b": ["primary"],
+            "https://example.com/c": ["primary", "backup"],
+        }
+        assert resp.meta["selected_provider"] == {
+            "https://example.com/a": "primary",
+            "https://example.com/b": "primary",
+            "https://example.com/c": "backup",
+        }
+
+    @pytest.mark.asyncio
+    async def test_fanout_returns_all_provider_results(self, clean_fetch_handlers):
+        """fanout 应并发执行所有 provider，并返回所有 provider 结果。"""
+        calls: list[tuple[str, list[str]]] = []
+        urls = ["https://example.com/a", "https://example.com/b"]
+
+        async def left(urls, timeout, **_kwargs):
+            calls.append(("left", list(urls)))
+            return self._response("left", list(urls))
+
+        async def right(urls, timeout, **_kwargs):
+            calls.append(("right", list(urls)))
+            return self._response("right", list(urls))
+
+        register_fetch_handler("left", left)
+        register_fetch_handler("right", right)
+
+        resp = await fetch_content(
+            urls=urls,
+            providers=["left", "right"],
+            strategy="fanout",
+            skip_ssrf_check=True,
+        )
+
+        assert sorted(calls) == [("left", urls), ("right", urls)]
+        assert resp.total == 4
+        assert resp.total_ok == 4
+        assert resp.provider is None
+        assert resp.providers == ["left", "right"]
+        assert resp.strategy == "fanout"
+        assert [result.source for result in resp.results] == ["left", "left", "right", "right"]
+        assert resp.meta["attempted"] == {
+            "https://example.com/a": ["left", "right"],
+            "https://example.com/b": ["left", "right"],
+        }
+
+    @pytest.mark.asyncio
+    async def test_fanout_does_not_duplicate_ssrf_failures(self, clean_fetch_handlers):
+        """fanout 不应按 provider 数量放大 SSRF 拦截失败。"""
+        calls: list[tuple[str, list[str]]] = []
+
+        async def first(urls, timeout, **_kwargs):
+            calls.append(("first", list(urls)))
+            return self._response("first", list(urls))
+
+        async def second(urls, timeout, **_kwargs):
+            calls.append(("second", list(urls)))
+            return self._response("second", list(urls))
+
+        register_fetch_handler("first", first)
+        register_fetch_handler("second", second)
+
+        resp = await fetch_content(
+            urls=["http://127.0.0.1/admin", "https://1.1.1.1/"],
+            providers=["first", "second"],
+            strategy="fanout",
+        )
+
+        ssrf_failures = [result for result in resp.results if "SSRF" in (result.error or "")]
+        assert len(ssrf_failures) == 1
+        assert resp.meta["ssrf_blocked"] == 1
+        assert sorted(calls) == [
+            ("first", ["https://1.1.1.1/"]),
+            ("second", ["https://1.1.1.1/"]),
+        ]
 
     @pytest.mark.asyncio
     async def test_ssrf_block_mixed(self):
@@ -107,6 +249,8 @@ class TestFetchContent:
         )
         # 全部被 SSRF 拦截，但 provider 应为 builtin
         assert resp.provider == "builtin"
+        assert resp.providers == ["builtin"]
+        assert resp.strategy == "fallback"
 
     @pytest.mark.asyncio
     async def test_arxiv_fulltext_provider_dispatches(self, monkeypatch):
