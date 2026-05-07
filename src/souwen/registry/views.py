@@ -198,6 +198,21 @@ _DOMAIN_TO_CATEGORY: dict[str, str] = {
     FETCH_DOMAIN: "fetch",
 }
 
+_CATALOG_TO_V0_CATEGORY: dict[str, str] = {
+    "paper": "paper",
+    "patent": "patent",
+    "web_general": "general",
+    "web_professional": "professional",
+    "social": "social",
+    "office": "office",
+    "developer": "developer",
+    "knowledge": "wiki",
+    "cn_tech": "cn_tech",
+    "video": "video",
+    "archive": "fetch",
+    FETCH_DOMAIN: "fetch",
+}
+
 
 def _v0_category_for(adapter: SourceAdapter) -> str | None:
     """把 adapter 映射到 ALL_SOURCES key。web 分两类：general / professional。
@@ -209,6 +224,8 @@ def _v0_category_for(adapter: SourceAdapter) -> str | None:
     判定优先走 tags（"category:*" / "v0_category:*"）显式标记；
     未显式标记的 web 插件按公开 domain 语义保底归入 general。
     """
+    if adapter.category is not None:
+        return _CATALOG_TO_V0_CATEGORY.get(adapter.category)
     if "category:general" in adapter.tags or "v0_category:general" in adapter.tags:
         return "general"
     if "category:professional" in adapter.tags or "v0_category:professional" in adapter.tags:
@@ -233,7 +250,7 @@ def as_all_sources_dict() -> dict[str, list[tuple[str, bool, str]]]:
     """
     result: dict[str, list[tuple[str, bool, str]]] = {}
     for adapter in _REGISTRY.values():
-        if "v0_all_sources:exclude" in adapter.tags:
+        if "v0_all_sources:exclude" in adapter.tags or adapter.catalog_visibility == "hidden":
             continue
         category = _v0_category_for(adapter)
         if category is not None:
