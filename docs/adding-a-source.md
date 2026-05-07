@@ -88,10 +88,17 @@ class MySourceClient(SouWenHttpClient):
 
 ## 2. 在 registry 注册
 
-打开 `src/souwen/registry/sources/`，按域插入新条目：
+打开 `src/souwen/registry/sources/` 下对应的 segment 模块，按域插入新条目：
+
+- `paper.py` / `patent.py`：论文、专利源；
+- `web_general.py` / `web_professional.py`：通用网页搜索、专业/AI 网页搜索；
+- `social.py` / `video.py` / `knowledge.py` / `developer.py` / `cn_tech.py` / `office.py` / `archive.py`：垂直域源；
+- `fetch.py`：横切内容抓取 provider。
+
+公共 `param_map` 速记和 `_reg` / `SourceAdapter` / `MethodSpec` import 均来自 `src/souwen/registry/sources/_helpers.py`。
 
 ```python
-# === paper（19 源） 区段末尾追加 ===
+# src/souwen/registry/sources/paper.py 末尾追加
 _reg(SourceAdapter(
     name="my_source",
     domain="paper",

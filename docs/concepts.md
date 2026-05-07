@@ -51,7 +51,7 @@ catalog 分类。
 新增内置源时，通常只需要：
 
 1. 实现真实 Client；
-2. 在 `src/souwen/registry/sources/` 添加 `_reg(SourceAdapter(...))`；
+2. 在 `src/souwen/registry/sources/` 的对应 segment 模块添加 `_reg(SourceAdapter(...))`；
 3. 若需要凭据，在 `SouWenConfig` 增加字段并在 adapter 中引用。
 
 ## Channel Config
