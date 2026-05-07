@@ -69,18 +69,6 @@ from souwen.registry.views import (
 # 这一步**必须**在所有视图符号 import 之后，因为 sources package 里会调用 views._reg。
 from souwen.registry import sources as _sources  # noqa: F401,E402
 
-# 内置源注册完毕后加载外部插件（entry points + 配置文件指定）。
-# 注意：此处不传 config，避免在 registry 初始化期间触发 config 模块导入循环；
-# 配置文件里 plugins: 字段由 souwen.config 在加载完成后通过 load_plugins(config) 触发。
-try:
-    from souwen.plugin import load_plugins as _load_plugins  # noqa: E402
-
-    _load_plugins()
-except Exception as _exc:  # noqa: BLE001
-    import logging as _logging
-
-    _logging.getLogger("souwen.plugin").warning("插件系统初始化失败,已跳过: %s", _exc)
-
 __all__ = [
     # 常量与数据类
     "SourceAdapter",

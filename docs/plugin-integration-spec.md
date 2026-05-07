@@ -59,8 +59,11 @@ my-source = "my_plugin:plugin"
 web2pdf = ["superweb2pdf[capture]>=0.2.0"]
 ```
 
-无论哪种模式，启动时 SouWen 都通过 `importlib.metadata.entry_points(group="souwen.plugins")`
-扫描发现。**插件作者通常只需声明 entry_points**，是否打包嵌入由宿主决定。
+无论哪种模式，SouWen 的 CLI / server bootstrap 都会调用
+`ensure_plugins_loaded(get_config())`，再通过
+`importlib.metadata.entry_points(group="souwen.plugins")` 扫描发现。
+**插件作者通常只需声明 entry_points**，是否打包嵌入由宿主决定。
+单纯 `import souwen.registry` 只注册内置源，不会执行第三方 entry point。
 
 ### Entry Point 目标可以是四种形态
 
@@ -74,11 +77,11 @@ web2pdf = ["superweb2pdf[capture]>=0.2.0"]
 ### 加载流程
 
 ```
-registry/__init__.py 导入
+CLI / server bootstrap
     ↓
-1. import sources       —— 触发内置 _reg()，填满 _REGISTRY
+1. import souwen.registry —— 触发内置 _reg()，填满 _REGISTRY
     ↓
-2. plugin.load_plugins(config)
+2. plugin.ensure_plugins_loaded(get_config())
     ├─ discover_entrypoint_plugins()
     │     扫描 importlib.metadata entry_points(group="souwen.plugins")
     └─ load_config_plugins(config.plugins + SOUWEN_PLUGINS)
@@ -448,10 +451,15 @@ export SOUWEN_PLUGINS='["my_plugin:plugin","other_pkg.mod:make_adapter"]'
 | `_reg_external` 字段类型不合法 | 抛 `TypeError`，被外层 catch 后记 warning |
 | Fetch handler 重名注册（`override=False`） | 记 warning，保留旧 handler |
 
-`load_plugins()` 返回值：
+`ensure_plugins_loaded()` 返回值：
 
 ```python
-{"loaded": ["my-source", "..."], "errors": [{"source": "...", "name": "...", "error": "..."}]}
+PluginLoadResult(
+    loaded_plugins=("my-plugin",),
+    loaded_adapters=("my-source",),
+    skipped=(),
+    errors=(PluginLoadError(source="...", name="...", error="..."),),
+)
 ```
 
 可在启动日志或 `/api/v1/plugins` 端点（如有）中暴露给运维。
@@ -641,7 +649,8 @@ def test_fetch_handler_registered():
 | `ENTRY_POINT_GROUP` | `"souwen.plugins"` | entry point 分组名 |
 | `discover_entrypoint_plugins(group=ENTRY_POINT_GROUP)` | `() -> (loaded, errors)` | 扫描 entry points 并注册 |
 | `load_config_plugins(plugin_paths)` | `(list[str]) -> (loaded, errors)` | 加载 `"module:attr"` 字符串列表 |
-| `load_plugins(config=None)` | `(SouWenConfig\|None) -> {"loaded": [...], "errors": [...]}` | 总入口（registry 启动时自动调用） |
+| `ensure_plugins_loaded(config=None)` | `(SouWenConfig\|None) -> PluginLoadResult` | CLI / server / library 显式插件 bootstrap，幂等 |
+| `load_plugins(config=None)` | `(SouWenConfig\|None) -> {"loaded": [...], "errors": [...]}` | 低层兼容入口，新代码优先用 `ensure_plugins_loaded()` |
 
 ### `souwen.config`
 

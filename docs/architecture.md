@@ -224,21 +224,22 @@ client_cls = adapter.client_loader()  # 此刻才 importlib.import_module
 
 Docker 镜像示例：`pip install ".[server,tls,web2pdf]"`。
 两种模式都依赖同一个 `[project.entry-points."souwen.plugins"]` 声明，
-SouWen 启动时统一通过 `importlib.metadata` 扫描发现。
+CLI / server 启动时通过 `ensure_plugins_loaded(get_config())` 显式扫描发现。
+单纯 `import souwen.registry` 只注册内置源，不执行第三方 entry point。
 
 ### 加载流程
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  registry/__init__.py 导入                                       │
+│  CLI / server bootstrap                                          │
 │      ↓                                                           │
-│  1. import sources       —— 触发 94 个内置 _reg()，填满 _REGISTRY │
+│  1. import souwen.registry —— 触发 94 个内置 _reg()，填满 _REGISTRY │
 │      ↓                                                           │
-│  2. plugin.load_plugins()                                        │
+│  2. plugin.ensure_plugins_loaded(get_config())                    │
 │       ├─ discover_entrypoint_plugins()                           │
 │       │     扫描 importlib.metadata entry_points(group=          │
-│       │     "souwen.plugins")，逐个 ep.load() → _coerce_to_     │
-│       │     adapters() → _reg_external()                         │
+│       │     "souwen.plugins")，逐个 ep.load() → _coerce_to_       │
+│       │     plugin() → _reg_external()                            │
 │       └─ load_config_plugins(config.plugins)                     │
 │             解析 "module:attr" 字符串列表，同上                  │
 │      ↓                                                           │

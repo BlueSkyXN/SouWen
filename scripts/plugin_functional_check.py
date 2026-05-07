@@ -65,9 +65,10 @@ def verify_example_distribution(*, require_installed: bool) -> tuple[str, dict[s
 
 
 def verify_example_contract() -> tuple[str, dict[str, object]]:
-    from souwen.plugin import get_loaded_plugins
+    from souwen.plugin import ensure_plugins_loaded, get_loaded_plugins
     from souwen.testing import assert_valid_plugin, validate_client_contract
 
+    ensure_plugins_loaded()
     plugin = get_loaded_plugins().get(EXAMPLE_PLUGIN)
     require(plugin is not None, f"{EXAMPLE_PLUGIN} plugin object not loaded")
 
@@ -89,11 +90,12 @@ def verify_example_contract() -> tuple[str, dict[str, object]]:
 
 
 def verify_entry_point_registry() -> tuple[str, dict[str, object]]:
-    from souwen.plugin import get_loaded_plugins
+    from souwen.plugin import ensure_plugins_loaded, get_loaded_plugins
     from souwen.plugin_manager import list_plugins
     from souwen.registry import all_adapters, external_plugins
     from souwen.web.fetch import get_fetch_handler_owners, get_fetch_handlers
 
+    ensure_plugins_loaded()
     external = set(external_plugins())
     adapters = all_adapters()
     handlers = get_fetch_handlers()
@@ -165,9 +167,10 @@ def verify_optional_web2pdf(*, require_installed: bool) -> tuple[str, dict[str, 
             details={"distribution": OPTIONAL_WEB2PDF_DISTRIBUTION},
         )
 
-    from souwen.plugin import get_loaded_plugins
+    from souwen.plugin import ensure_plugins_loaded, get_loaded_plugins
     from souwen.registry import external_plugins
 
+    ensure_plugins_loaded()
     external = set(external_plugins())
     loaded_plugins = get_loaded_plugins()
     require(

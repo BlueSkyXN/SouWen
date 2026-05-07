@@ -45,7 +45,7 @@ FULL_IMPORT_CODE = "\n".join(
         "    JinaReaderClient, web_search, fetch_content,",
         ")",
         "from souwen.doctor import check_all",
-        "from souwen.plugin import discover_entrypoint_plugins, load_plugins",
+        "from souwen.plugin import discover_entrypoint_plugins, ensure_plugins_loaded",
         "from souwen.web.fetch import register_fetch_handler, get_fetch_handlers",
         "from souwen.registry.views import external_plugins",
         "print('all source, doctor, plugin and fetch handler imports OK')",
@@ -55,9 +55,9 @@ FULL_IMPORT_CODE = "\n".join(
 
 PLUGIN_DISCOVERY_CODE = "\n".join(
     [
-        "from souwen.plugin import load_plugins",
+        "from souwen.plugin import ensure_plugins_loaded",
         "from souwen.registry.views import external_plugins",
-        "load_plugins()",
+        "ensure_plugins_loaded()",
         "plugins = external_plugins()",
         "assert 'example_echo' in plugins, plugins",
         "print('example_echo plugin discovered')",
