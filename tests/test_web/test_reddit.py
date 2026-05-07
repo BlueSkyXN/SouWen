@@ -23,7 +23,6 @@ import re
 import pytest
 from pytest_httpx import HTTPXMock
 
-from souwen.models import SourceType
 from souwen.web.reddit import RedditClient
 
 
@@ -115,7 +114,7 @@ async def test_search_basic_returns_results(httpx_mock: HTTPXMock):
     async with RedditClient() as c:
         resp = await c.search("python", max_results=10)
 
-    assert resp.source == SourceType.WEB_REDDIT
+    assert resp.source == "reddit"
     assert resp.query == "python"
     assert resp.total_results == 2
     assert len(resp.results) == 2
@@ -125,7 +124,7 @@ async def test_search_basic_returns_results(httpx_mock: HTTPXMock):
     assert first.url == ("https://www.reddit.com/r/Python/comments/aaa/asyncio_is_great/")
     assert first.snippet == "Some body text"
     assert first.engine == "reddit"
-    assert first.source == SourceType.WEB_REDDIT
+    assert first.source == "reddit"
 
 
 async def test_search_empty_results(httpx_mock: HTTPXMock):
@@ -137,7 +136,7 @@ async def test_search_empty_results(httpx_mock: HTTPXMock):
 
     assert resp.results == []
     assert resp.total_results == 0
-    assert resp.source == SourceType.WEB_REDDIT
+    assert resp.source == "reddit"
 
 
 async def test_search_truncates_long_selftext(httpx_mock: HTTPXMock):

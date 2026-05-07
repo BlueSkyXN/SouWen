@@ -33,7 +33,7 @@
     - souwen.config: 获取 API Key 和全局配置
     - souwen.core.exceptions: ConfigError, ParseError 异常
     - souwen.core.http_client: SouWenHttpClient HTTP 客户端基类
-    - souwen.models: SourceType, WebSearchResult, WebSearchResponse 数据模型
+    - souwen.models: str, WebSearchResult, WebSearchResponse 数据模型
 
 技术要点：
     - API 端点：POST /search/llm，api_key 通过 X-API-Key 请求头传递
@@ -51,7 +51,7 @@ from typing import Any
 from souwen.config import get_config
 from souwen.core.exceptions import ConfigError
 from souwen.core.http_client import SouWenHttpClient
-from souwen.models import SourceType, WebSearchResponse, WebSearchResult
+from souwen.models import WebSearchResponse, WebSearchResult
 
 logger = logging.getLogger("souwen.web.aliyun_iqs")
 
@@ -144,7 +144,7 @@ class AliyunIQSClient(SouWenHttpClient):
 
             results.append(
                 WebSearchResult(
-                    source=SourceType.WEB_ALIYUN_IQS,
+                    source="aliyun_iqs",
                     title=title,
                     url=url,
                     snippet=snippet,
@@ -157,7 +157,7 @@ class AliyunIQSClient(SouWenHttpClient):
 
         return WebSearchResponse(
             query=query,
-            source=SourceType.WEB_ALIYUN_IQS,
+            source="aliyun_iqs",
             results=results,
             total_results=len(results),
         )

@@ -33,7 +33,7 @@
 模块依赖：
     - SouWenHttpClient: 统一 HTTP 客户端
     - TokenBucketLimiter: 令牌桶限流器
-    - PaperResult, SourceType: 统一的论文数据模型
+    - PaperResult: 统一的论文数据模型
 """
 
 from __future__ import annotations
@@ -44,7 +44,7 @@ from typing import Any
 from souwen.config import get_config
 from souwen.core.exceptions import ConfigError, NotFoundError, ParseError
 from souwen.core.http_client import SouWenHttpClient
-from souwen.models import Author, PaperResult, SearchResponse, SourceType
+from souwen.models import Author, PaperResult, SearchResponse
 from souwen.core.rate_limiter import TokenBucketLimiter
 
 logger = logging.getLogger(__name__)
@@ -170,7 +170,7 @@ class CoreClient:
                 doi=doi,
                 year=year,
                 publication_date=work.get("publishedDate"),
-                source=SourceType.CORE,
+                source="core",
                 source_url=(work.get("sourceFulltextUrls") or [""])[0]
                 or f"https://core.ac.uk/works/{work.get('id', '')}"
                 if work.get("sourceFulltextUrls")
@@ -231,7 +231,7 @@ class CoreClient:
             page=(offset // limit) + 1 if limit else 1,
             per_page=limit,
             results=results,
-            source=SourceType.CORE,
+            source="core",
         )
 
     async def get_work(self, core_id: str) -> PaperResult:

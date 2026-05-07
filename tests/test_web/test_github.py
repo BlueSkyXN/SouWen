@@ -3,9 +3,6 @@
 覆盖 ``souwen.web.github.GitHubClient`` 仓库搜索路径。使用 ``pytest-httpx``
 直接 mock HTTP 层（GitHub API 是纯 JSON，不像 scraper 引擎需要解析 HTML）。
 
-注意：``SourceType.WEB_GITHUB`` 由后续集成步骤添加到枚举；在该值缺失时整个
-模块的用例会被自动 skip，避免阻塞 CI。
-
 测试清单：
 - ``test_init_without_token``：无 Token 也能正常初始化（降级模式）
 - ``test_init_with_token_sets_auth_header``：传入 Token 后设置 Authorization 头
@@ -23,17 +20,6 @@
 from __future__ import annotations
 
 import pytest
-
-from souwen.models import SourceType
-
-
-# 集成步骤未完成前 (枚举里没有 web_github)，整个模块跳过避免阻塞 CI
-if "web_github" not in SourceType._value2member_map_:  # type: ignore[attr-defined]
-    pytest.skip(
-        "SourceType.WEB_GITHUB 尚未注册，跳过 GitHub 客户端测试（待集成步骤完成）",
-        allow_module_level=True,
-    )
-
 
 from souwen.core.exceptions import ParseError  # noqa: E402
 from souwen.web.github import GitHubClient  # noqa: E402
@@ -118,7 +104,7 @@ async def test_search_returns_results(httpx_mock):
         resp = await client.search("fastapi", max_results=10)
 
     assert resp.query == "fastapi"
-    assert resp.source.value == "web_github"
+    assert resp.source == "github"
     assert len(resp.results) == 2
 
     first = resp.results[0]
@@ -126,7 +112,7 @@ async def test_search_returns_results(httpx_mock):
     assert first.url == "https://github.com/tiangolo/fastapi"
     assert first.snippet == "FastAPI framework"
     assert first.engine == "github"
-    assert first.source.value == "web_github"
+    assert first.source == "github"
     assert first.raw["stars"] == 70000
     assert first.raw["language"] == "Python"
     assert first.raw["license"] == "MIT"

@@ -10,7 +10,6 @@ import logging
 
 from pydantic import BaseModel
 
-from souwen.models import SourceType
 from souwen.web.ddg_json import DDGJsonClient
 from souwen.web.ddg_utils import build_filter_string, normalize_url
 
@@ -23,7 +22,7 @@ _SAFESEARCH_MAP = {"on": "1", "moderate": "1", "off": "-1"}
 class ImageSearchResult(BaseModel):
     """图片搜索结果"""
 
-    source: SourceType = SourceType.WEB_DDG_IMAGES
+    source: str = "duckduckgo_images"
     title: str
     url: str  # 来源页面 URL
     image_url: str  # 原图直链
@@ -38,7 +37,7 @@ class ImageSearchResponse(BaseModel):
     """图片搜索响应"""
 
     query: str
-    source: SourceType = SourceType.WEB_DDG_IMAGES
+    source: str = "duckduckgo_images"
     results: list[ImageSearchResult] = []
     total_results: int = 0
 

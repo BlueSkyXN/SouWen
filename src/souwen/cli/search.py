@@ -60,7 +60,7 @@ def search_paper(
         return
 
     # 显示失败源的警告
-    returned_sources = {r.source.value for r in results}
+    returned_sources = {r.source for r in results}
     failed = [s for s in source_list if s not in returned_sources]
     if failed:
         console.print(f"[yellow]⚠ 以下数据源未返回结果: {', '.join(failed)}[/yellow]")
@@ -71,7 +71,7 @@ def search_paper(
 
     for resp in results:
         table = Table(
-            title=f"📄 {resp.source.value} ({len(resp.results)} 条)",
+            title=f"📄 {resp.source} ({len(resp.results)} 条)",
             show_lines=True,
         )
         table.add_column("Title", style="cyan", max_width=60)
@@ -85,7 +85,7 @@ def search_paper(
                 str(paper.year or ""),
                 str(paper.citation_count or ""),
                 paper.doi or "",
-                paper.source.value,
+                paper.source,
             )
         console.print(table)
 
@@ -123,7 +123,7 @@ def search_patent(
         print_json(json.dumps(data, ensure_ascii=False))
         return
 
-    returned_sources = {r.source.value for r in results}
+    returned_sources = {r.source for r in results}
     failed = [s for s in source_list if s not in returned_sources]
     if failed:
         console.print(f"[yellow]⚠ 以下数据源未返回结果: {', '.join(failed)}[/yellow]")
@@ -134,7 +134,7 @@ def search_patent(
 
     for resp in results:
         table = Table(
-            title=f"📋 {resp.source.value} ({len(resp.results)} 条)",
+            title=f"📋 {resp.source} ({len(resp.results)} 条)",
             show_lines=True,
         )
         table.add_column("Title", style="cyan", max_width=50)
@@ -151,7 +151,7 @@ def search_patent(
                 patent.patent_id,
                 str(patent.filing_date or ""),
                 applicant_names,
-                patent.source.value,
+                patent.source,
             )
         console.print(table)
 

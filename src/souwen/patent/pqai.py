@@ -54,7 +54,7 @@ import httpx
 from souwen.core.parsing import safe_parse_date
 from souwen.core.exceptions import NotFoundError, ParseError
 from souwen.core.http_client import SouWenHttpClient
-from souwen.models import Applicant, PatentResult, SearchResponse, SourceType
+from souwen.models import Applicant, PatentResult, SearchResponse
 from souwen.core.rate_limiter import TokenBucketLimiter
 
 logger = logging.getLogger(__name__)
@@ -125,7 +125,7 @@ class PqaiClient:
         results = [self._to_patent_result(item) for item in data.get("results", [])]
         return SearchResponse(
             query=query,
-            source=SourceType.PQAI,
+            source="pqai",
             total_results=len(results),
             results=results,
             page=1,
@@ -163,7 +163,7 @@ class PqaiClient:
         results = [self._to_patent_result(item) for item in data.get("results", [])]
         return SearchResponse(
             query=f"similar:{patent_id}",
-            source=SourceType.PQAI,
+            source="pqai",
             total_results=len(results),
             results=results,
             page=1,
@@ -241,7 +241,7 @@ class PqaiClient:
         pub_date = safe_parse_date(raw.get("publication_date"))
 
         return PatentResult(
-            source=SourceType.PQAI,
+            source="pqai",
             title=raw.get("title", ""),
             patent_id=patent_id,
             publication_date=pub_date,

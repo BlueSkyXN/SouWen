@@ -41,7 +41,7 @@
 │   souwen.core.exceptions        全部异常类型                   │
 │   souwen.core.parsing           HTML/JSON 辅助                 │
 │   souwen.core.concurrency       per-loop Semaphore（D12）      │
-│   souwen.models                 Pydantic 模型（SourceType 等） │
+│   souwen.models                 Pydantic 模型（统一结果模型等） │
 └────────────────────────────────────────────────────────────────┘
 ```
 
@@ -301,7 +301,7 @@ _FETCH_HANDLERS["jina_reader"]  = _handle_jina_reader
 - `SourceMeta` 与 `registry.catalog.source_catalog()` 派生一致
 - high_risk 源不在任何默认源集
 - `resolve_params` 对所有 adapter/method 不抛异常
-- SourceType 枚举 ⊆ registry.enum_values（通过规范化映射）
+- 结果模型 `source` 使用 registry adapter name
 - 所有标准 capability 都有源实现
 - 每个 domain 至少有一个源支持 search / archive_lookup
 - fetch 提供者 ≥ 10 个

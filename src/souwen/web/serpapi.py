@@ -30,7 +30,7 @@
     - souwen.config: 获取 API Key 和全局配置
     - souwen.core.exceptions: ConfigError, ParseError 异常
     - souwen.core.http_client: SouWenHttpClient HTTP 客户端基类
-    - souwen.models: SourceType, WebSearchResult, WebSearchResponse 数据模型
+    - souwen.models: str, WebSearchResult, WebSearchResponse 数据模型
 
 技术要点：
     - API 端点：GET /search，api_key 作为查询参数传递
@@ -47,7 +47,7 @@ from typing import Any
 from souwen.config import get_config
 from souwen.core.exceptions import ConfigError
 from souwen.core.http_client import SouWenHttpClient
-from souwen.models import SourceType, WebSearchResult, WebSearchResponse
+from souwen.models import WebSearchResult, WebSearchResponse
 
 logger = logging.getLogger("souwen.web.serpapi")
 
@@ -124,7 +124,7 @@ class SerpApiClient(SouWenHttpClient):
                 raw["source"] = item["source"]
             results.append(
                 WebSearchResult(
-                    source=SourceType.WEB_SERPAPI,
+                    source="serpapi",
                     title=title,
                     url=url,
                     snippet=item.get("snippet", "").strip(),
@@ -146,7 +146,7 @@ class SerpApiClient(SouWenHttpClient):
 
         return WebSearchResponse(
             query=query,
-            source=SourceType.WEB_SERPAPI,
+            source="serpapi",
             results=results,
             total_results=len(results),
         )

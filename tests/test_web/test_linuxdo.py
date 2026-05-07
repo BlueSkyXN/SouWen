@@ -6,7 +6,7 @@ import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 import httpx
 
-from souwen.models import SourceType, WebSearchResponse
+from souwen.models import WebSearchResponse
 from souwen.web.linuxdo import LinuxDoClient, _clean_html
 
 
@@ -89,7 +89,7 @@ class TestLinuxDoClient:
             resp = await client.search("plugin", max_results=10)
 
         assert isinstance(resp, WebSearchResponse)
-        assert resp.source == SourceType.WEB_LINUXDO
+        assert resp.source == "linuxdo"
         assert resp.query == "plugin"
         assert len(resp.results) == 2
 

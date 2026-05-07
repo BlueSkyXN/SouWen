@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 
-from souwen.models import SourceType, WebSearchResponse
+from souwen.models import WebSearchResponse
 from souwen.web.ddg_news import DuckDuckGoNewsClient
 from souwen.web.ddg_images import DuckDuckGoImagesClient, ImageSearchResponse
 from souwen.web.ddg_videos import DuckDuckGoVideosClient, VideoSearchResponse
@@ -104,7 +104,7 @@ class TestDuckDuckGoNewsClient:
         ):
             resp = await client.search("news test")
 
-        assert resp.source == SourceType.WEB_DDG_NEWS
+        assert resp.source == "duckduckgo_news"
         assert len(resp.results) == 2
         assert resp.results[0].title == "Breaking News"
         assert "ExampleNews" in resp.results[0].snippet

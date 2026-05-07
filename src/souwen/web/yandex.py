@@ -25,7 +25,7 @@
     - logging: 日志记录
     - urllib.parse: URL 编码
     - bs4: HTML 解析
-    - souwen.models: SourceType, WebSearchResult, WebSearchResponse 数据模型
+    - souwen.models: str, WebSearchResult, WebSearchResponse 数据模型
     - souwen.core.scraper.base: BaseScraper 基础爬虫类
 
 技术要点：
@@ -42,7 +42,7 @@ from urllib.parse import quote_plus
 
 from bs4 import BeautifulSoup
 
-from souwen.models import SourceType, WebSearchResult, WebSearchResponse
+from souwen.models import WebSearchResult, WebSearchResponse
 from souwen.core.scraper.base import BaseScraper
 
 logger = logging.getLogger("souwen.web.yandex")
@@ -108,7 +108,7 @@ class YandexClient(BaseScraper):
                 if title:
                     results.append(
                         WebSearchResult(
-                            source=SourceType.WEB_YANDEX,
+                            source="yandex",
                             title=title,
                             url=str(raw_url),
                             snippet=snippet,
@@ -125,7 +125,7 @@ class YandexClient(BaseScraper):
 
         return WebSearchResponse(
             query=query,
-            source=SourceType.WEB_YANDEX,
+            source="yandex",
             results=results,
             total_results=len(results),
         )

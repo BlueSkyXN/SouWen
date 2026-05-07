@@ -19,7 +19,7 @@
 模块依赖：
     - logging: 日志记录
     - re: HTML 标签清理
-    - souwen.models: SourceType, WebSearchResult, WebSearchResponse
+    - souwen.models: str, WebSearchResult, WebSearchResponse
     - souwen.core.scraper.base: BaseScraper
 """
 
@@ -28,7 +28,7 @@ from __future__ import annotations
 import logging
 import re
 
-from souwen.models import SourceType, WebSearchResult, WebSearchResponse
+from souwen.models import WebSearchResult, WebSearchResponse
 from souwen.core.scraper.base import BaseScraper
 
 logger = logging.getLogger("souwen.web.juejin")
@@ -152,7 +152,7 @@ class JuejinClient(BaseScraper):
 
                     results.append(
                         WebSearchResult(
-                            source=SourceType.WEB_JUEJIN,
+                            source="juejin",
                             title=title,
                             url=url,
                             snippet=snippet,
@@ -177,7 +177,7 @@ class JuejinClient(BaseScraper):
 
         return WebSearchResponse(
             query=query,
-            source=SourceType.WEB_JUEJIN,
+            source="juejin",
             results=results,
             total_results=len(results),
         )

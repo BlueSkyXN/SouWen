@@ -28,7 +28,7 @@
     - secrets: 生成随机 MUID
     - urllib.parse: URL 编码与解析
     - bs4: HTML 解析
-    - souwen.models: SourceType, WebSearchResult, WebSearchResponse 数据模型
+    - souwen.models: str, WebSearchResult, WebSearchResponse 数据模型
     - souwen.core.scraper.base: BaseScraper 基础爬虫类
 
 技术要点：
@@ -49,7 +49,7 @@ from urllib.parse import quote_plus, urlparse
 
 from bs4 import BeautifulSoup
 
-from souwen.models import SourceType, WebSearchResult, WebSearchResponse
+from souwen.models import WebSearchResult, WebSearchResponse
 from souwen.core.scraper.base import BaseScraper
 
 logger = logging.getLogger("souwen.web.bing")
@@ -166,7 +166,7 @@ class BingClient(BaseScraper):
                 if title and raw_url:
                     results.append(
                         WebSearchResult(
-                            source=SourceType.WEB_BING,
+                            source="bing",
                             title=title,
                             url=str(raw_url),
                             snippet=snippet,
@@ -183,7 +183,7 @@ class BingClient(BaseScraper):
 
         return WebSearchResponse(
             query=query,
-            source=SourceType.WEB_BING,
+            source="bing",
             results=results,
             total_results=len(results),
         )

@@ -28,7 +28,6 @@ from souwen.models import (
     SearchResponse,
     Author,
     Applicant,
-    SourceType,
     WebSearchResult,
     WebSearchResponse,
 )
@@ -52,6 +51,7 @@ from souwen.registry.meta import (
     get_sources_by_distribution,
     get_sources_by_integration_type,
 )
+from souwen.registry.views import enum_values
 
 
 class TestModels:
@@ -60,19 +60,19 @@ class TestModels:
     def test_paper_result_minimal(self):
         """最小字段创建论文结果"""
         paper = PaperResult(
-            source=SourceType.OPENALEX,
+            source="openalex",
             title="Test Paper",
             source_url="https://example.com",
         )
         assert paper.title == "Test Paper"
-        assert paper.source == SourceType.OPENALEX
+        assert paper.source == "openalex"
         assert paper.authors == []
         assert paper.doi is None
 
     def test_paper_result_full(self):
         """完整字段创建论文结果"""
         paper = PaperResult(
-            source=SourceType.SEMANTIC_SCHOLAR,
+            source="semantic_scholar",
             title="Deep Learning for NLP",
             authors=[Author(name="Alice", affiliation="MIT", orcid="0000-0001-0000-0001")],
             abstract="This paper presents...",
@@ -89,7 +89,7 @@ class TestModels:
     def test_patent_result(self):
         """专利结果模型"""
         patent = PatentResult(
-            source=SourceType.PATENTSVIEW,
+            source="patentsview",
             title="Network Authentication Method",
             patent_id="US10123456B2",
             applicants=[Applicant(name="TechCorp", country="US")],
@@ -105,11 +105,11 @@ class TestModels:
         """搜索响应（论文）"""
         resp = SearchResponse(
             query="test",
-            source=SourceType.OPENALEX,
+            source="openalex",
             total_results=100,
             results=[
                 PaperResult(
-                    source=SourceType.OPENALEX,
+                    source="openalex",
                     title="Paper 1",
                     source_url="https://example.com/1",
                 ),
@@ -123,7 +123,7 @@ class TestModels:
     def test_web_search_result(self):
         """网页搜索结果模型"""
         result = WebSearchResult(
-            source=SourceType.WEB_DUCKDUCKGO,
+            source="duckduckgo",
             title="Python Tutorial",
             url="https://docs.python.org/3/tutorial/",
             snippet="The Python Tutorial — Python 3 documentation",
@@ -131,17 +131,17 @@ class TestModels:
         )
         assert result.title == "Python Tutorial"
         assert result.engine == "duckduckgo"
-        assert result.source == SourceType.WEB_DUCKDUCKGO
+        assert result.source == "duckduckgo"
 
     def test_web_search_response(self):
         """网页搜索响应"""
         resp = WebSearchResponse(
             query="python",
-            source=SourceType.WEB_DUCKDUCKGO,
+            source="duckduckgo",
             total_results=1,
             results=[
                 WebSearchResult(
-                    source=SourceType.WEB_DUCKDUCKGO,
+                    source="duckduckgo",
                     title="Python.org",
                     url="https://www.python.org",
                     snippet="The official home of Python",
@@ -152,81 +152,74 @@ class TestModels:
         assert resp.total_results == 1
         assert len(resp.results) == 1
 
-    def test_source_type_enum(self):
-        """数据源枚举完整性"""
-        assert SourceType.OPENALEX.value == "openalex"
-        assert SourceType.GOOGLE_PATENTS.value == "google_patents"
-        assert SourceType.WEB_DUCKDUCKGO.value == "web_duckduckgo"
-        assert SourceType.WEB_YAHOO.value == "web_yahoo"
-        assert SourceType.WEB_BRAVE.value == "web_brave"
-        assert SourceType.WEB_GOOGLE.value == "web_google"
-        assert SourceType.WEB_BING.value == "web_bing"
-        assert SourceType.WEB_SEARXNG.value == "web_searxng"
-        assert SourceType.WEB_TAVILY.value == "web_tavily"
-        assert SourceType.WEB_EXA.value == "web_exa"
-        assert SourceType.WEB_SERPER.value == "web_serper"
-        assert SourceType.WEB_BRAVE_API.value == "web_brave_api"
-        # 确保论文、专利、搜索源都存在
-        paper_sources = [
-            SourceType.OPENALEX,
-            SourceType.SEMANTIC_SCHOLAR,
-            SourceType.CROSSREF,
-            SourceType.ARXIV,
-            SourceType.DBLP,
-            SourceType.CORE,
-            SourceType.PUBMED,
-            SourceType.UNPAYWALL,
-            SourceType.HUGGINGFACE,
-            SourceType.EUROPEPMC,
-            SourceType.PMC,
-            SourceType.DOAJ,
-            SourceType.ZENODO,
-            SourceType.HAL,
-            SourceType.OPENAIRE,
-            SourceType.IACR,
-            SourceType.BIORXIV,
-            SourceType.ZOTERO,
-            SourceType.IEEE_XPLORE,
-        ]
-        patent_sources = [
-            SourceType.PATENTSVIEW,
-            SourceType.USPTO_ODP,
-            SourceType.EPO_OPS,
-            SourceType.CNIPA,
-            SourceType.THE_LENS,
-            SourceType.PQAI,
-            SourceType.PATSNAP,
-            SourceType.GOOGLE_PATENTS,
-        ]
-        web_sources = [
-            SourceType.WEB_DUCKDUCKGO,
-            SourceType.WEB_YAHOO,
-            SourceType.WEB_BRAVE,
-            SourceType.WEB_GOOGLE,
-            SourceType.WEB_BING,
-            SourceType.WEB_SEARXNG,
-            SourceType.WEB_TAVILY,
-            SourceType.WEB_EXA,
-            SourceType.WEB_SERPER,
-            SourceType.WEB_BRAVE_API,
-            SourceType.WEB_GITHUB,
-            SourceType.WEB_STACKOVERFLOW,
-            SourceType.WEB_REDDIT,
-            SourceType.WEB_BILIBILI,
-            SourceType.WEB_WIKIPEDIA,
-            SourceType.WEB_YOUTUBE,
-            SourceType.WEB_ZHIHU,
-            SourceType.WEB_WEIBO,
-            SourceType.WEB_NODESEEK,
-            SourceType.WEB_HOSTLOC,
-            SourceType.WEB_V2EX,
-            SourceType.WEB_COOLAPK,
-            SourceType.WEB_XIAOHONGSHU,
-            SourceType.WEB_FEISHU_DRIVE,
-            SourceType.WEB_ZHIPUAI,
-            SourceType.WEB_ALIYUN_IQS,
-            SourceType.WEB_XCRAWL,
-        ]
+    def test_builtin_source_ids_are_adapter_names(self):
+        """内置 source id 直接来自 registry adapter name。"""
+        registry_names = set(enum_values())
+        paper_sources = {
+            "openalex",
+            "semantic_scholar",
+            "crossref",
+            "arxiv",
+            "dblp",
+            "core",
+            "pubmed",
+            "unpaywall",
+            "huggingface",
+            "europepmc",
+            "pmc",
+            "doaj",
+            "zenodo",
+            "hal",
+            "openaire",
+            "iacr",
+            "biorxiv",
+            "zotero",
+            "ieee_xplore",
+        }
+        patent_sources = {
+            "patentsview",
+            "uspto_odp",
+            "epo_ops",
+            "cnipa",
+            "the_lens",
+            "pqai",
+            "patsnap",
+            "google_patents",
+        }
+        web_sources = {
+            "duckduckgo",
+            "yahoo",
+            "brave",
+            "google",
+            "bing",
+            "searxng",
+            "tavily",
+            "exa",
+            "serper",
+            "brave_api",
+            "github",
+            "stackoverflow",
+            "reddit",
+            "bilibili",
+            "wikipedia",
+            "youtube",
+            "zhihu",
+            "weibo",
+            "nodeseek",
+            "hostloc",
+            "v2ex",
+            "coolapk",
+            "xiaohongshu",
+            "feishu_drive",
+            "zhipuai",
+            "aliyun_iqs",
+            "xcrawl",
+        }
+        required_sources = paper_sources | patent_sources | web_sources
+        assert required_sources <= registry_names
+        assert "web_" + "duckduckgo" not in registry_names
+        assert "web_" + "bing" not in registry_names
+        assert "fetch_" + "builtin" not in registry_names
         assert len(paper_sources) == 19
         assert len(patent_sources) == 8
         assert len(web_sources) == 27
@@ -370,21 +363,21 @@ class TestWebSearch:
 
         results = [
             WebSearchResult(
-                source=SourceType.WEB_DUCKDUCKGO,
+                source="duckduckgo",
                 title="A",
                 url="https://example.com/",
                 snippet="",
                 engine="ddg",
             ),
             WebSearchResult(
-                source=SourceType.WEB_YAHOO,
+                source="yahoo",
                 title="B",
                 url="https://example.com",
                 snippet="",
                 engine="yahoo",
             ),
             WebSearchResult(
-                source=SourceType.WEB_BRAVE,
+                source="brave",
                 title="C",
                 url="https://other.com",
                 snippet="",

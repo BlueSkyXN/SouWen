@@ -41,7 +41,7 @@ from typing import Any
 
 from souwen.core.exceptions import ParseError
 from souwen.core.http_client import SouWenHttpClient
-from souwen.models import Author, PaperResult, SearchResponse, SourceType
+from souwen.models import Author, PaperResult, SearchResponse
 from souwen.core.rate_limiter import TokenBucketLimiter
 
 logger = logging.getLogger(__name__)
@@ -51,8 +51,8 @@ _BASE_URL = "https://www.ebi.ac.uk/europepmc/webservices/rest"
 # 保守限流：5 req/s
 _DEFAULT_RPS = 5.0
 
-# Europe PMC 数据源类型，待补充至 SourceType 枚举后即可替换为 SourceType.EUROPEPMC
-# SourceType.EUROPEPMC 已在 models.py 中注册
+# Europe PMC 数据源类型，待补充至 registry adapter name后即可替换为 'europepmc'
+# 'europepmc' 已在 models.py 中注册
 
 
 class EuropePmcClient:
@@ -214,7 +214,7 @@ class EuropePmcClient:
                 doi=doi,
                 year=year,
                 publication_date=pub_date,
-                source=SourceType.EUROPEPMC,
+                source="europepmc",
                 source_url=source_url,
                 pdf_url=pdf_url,
                 citation_count=citation_count,
@@ -293,5 +293,5 @@ class EuropePmcClient:
             page=1,
             per_page=page_size,
             results=results,
-            source=SourceType.EUROPEPMC,
+            source="europepmc",
         )

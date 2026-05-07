@@ -56,7 +56,7 @@ from souwen.core.parsing import safe_parse_date
 from souwen.config import get_config
 from souwen.core.exceptions import NotFoundError, ParseError
 from souwen.core.http_client import SouWenHttpClient
-from souwen.models import Author, PaperResult, SearchResponse, SourceType
+from souwen.models import Author, PaperResult, SearchResponse
 from souwen.core.rate_limiter import TokenBucketLimiter
 
 logger = logging.getLogger(__name__)
@@ -200,7 +200,7 @@ class OpenAlexClient:
                 doi=doi,
                 year=pub_year,
                 publication_date=pub_date,
-                source=SourceType.OPENALEX,
+                source="openalex",
                 source_url=work.get("id", ""),
                 pdf_url=pdf_url,
                 citation_count=work.get("cited_by_count"),
@@ -264,7 +264,7 @@ class OpenAlexClient:
             page=page,
             per_page=per_page,
             results=results,
-            source=SourceType.OPENALEX,
+            source="openalex",
         )
 
     async def get_by_doi(self, doi: str) -> PaperResult:

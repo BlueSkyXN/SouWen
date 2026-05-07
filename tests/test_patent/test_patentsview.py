@@ -24,7 +24,6 @@ from datetime import date
 from pytest_httpx import HTTPXMock
 
 from souwen.patent.patentsview import PatentsViewClient
-from souwen.models import SourceType
 
 
 # ---------------------------------------------------------------------------
@@ -88,7 +87,7 @@ async def test_search_basic(httpx_mock: HTTPXMock):
     async with PatentsViewClient() as c:
         resp = await c.search({"_contains": {"patent_title": "neural network"}})
 
-    assert resp.source == SourceType.PATENTSVIEW
+    assert resp.source == "patentsview"
     assert resp.total_results == 150
     assert resp.page == 1
     assert len(resp.results) == 1
@@ -99,7 +98,7 @@ async def test_search_basic(httpx_mock: HTTPXMock):
     assert patent.application_number == "US17/123456"
     assert patent.publication_date == date(2023, 1, 31)
     assert patent.filing_date == date(2021, 6, 15)
-    assert patent.source == SourceType.PATENTSVIEW
+    assert patent.source == "patentsview"
     assert patent.source_url == "https://search.patentsview.org/patent/11234567"
 
 

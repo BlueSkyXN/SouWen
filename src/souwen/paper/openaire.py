@@ -41,7 +41,7 @@
 模块依赖：
     - SouWenHttpClient: 统一 HTTP 客户端
     - TokenBucketLimiter: 令牌桶限流器
-    - PaperResult, SourceType: 统一论文数据模型
+    - PaperResult: 统一论文数据模型
 """
 
 from __future__ import annotations
@@ -52,7 +52,7 @@ from typing import Any
 from souwen.config import get_config
 from souwen.core.exceptions import ParseError
 from souwen.core.http_client import SouWenHttpClient
-from souwen.models import Author, PaperResult, SearchResponse, SourceType
+from souwen.models import Author, PaperResult, SearchResponse
 from souwen.core.rate_limiter import TokenBucketLimiter
 
 logger = logging.getLogger(__name__)
@@ -271,7 +271,7 @@ class OpenAireClient:
                 doi=doi,
                 year=year,
                 publication_date=pub_date,
-                source=SourceType.OPENAIRE,
+                source="openaire",
                 source_url=source_url,
                 pdf_url=pdf_url,
                 citation_count=None,  # OpenAIRE 搜索接口不直接给出引用数
@@ -350,5 +350,5 @@ class OpenAireClient:
             page=1,
             per_page=size,
             results=results,
-            source=SourceType.OPENAIRE,
+            source="openaire",
         )

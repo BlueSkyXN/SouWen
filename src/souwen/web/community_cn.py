@@ -30,7 +30,7 @@
 模块依赖：
     - asyncio: 并发执行多平台搜索
     - logging: 日志记录
-    - souwen.models: SourceType, WebSearchResult, WebSearchResponse
+    - souwen.models: str, WebSearchResult, WebSearchResponse
     - souwen.core.http_client: SouWenHttpClient
     - souwen.web.duckduckgo: DuckDuckGoClient（搜索后端）
 """
@@ -41,7 +41,7 @@ import asyncio
 import logging
 
 from souwen.core.http_client import SouWenHttpClient
-from souwen.models import SourceType, WebSearchResult, WebSearchResponse
+from souwen.models import WebSearchResult, WebSearchResponse
 
 logger = logging.getLogger("souwen.web.community_cn")
 
@@ -148,7 +148,7 @@ class CommunityCnClient(SouWenHttpClient):
             for item in resp.results:
                 results.append(
                     WebSearchResult(
-                        source=SourceType.WEB_COMMUNITY_CN,
+                        source="community_cn",
                         title=item.title,
                         url=item.url,
                         snippet=_label_snippet(item.snippet, label),
@@ -204,7 +204,7 @@ class CommunityCnClient(SouWenHttpClient):
 
         return WebSearchResponse(
             query=query,
-            source=SourceType.WEB_COMMUNITY_CN,
+            source="community_cn",
             total_results=len(merged),
             results=merged,
         )

@@ -15,7 +15,7 @@ from __future__ import annotations
 import asyncio
 from contextlib import asynccontextmanager
 
-from souwen.models import SearchResponse, SourceType, WebSearchResult
+from souwen.models import SearchResponse, WebSearchResult
 from souwen.registry.adapter import MethodSpec, SourceAdapter
 from souwen.web.search import _deduplicate, web_search
 
@@ -27,11 +27,11 @@ from souwen.web.search import _deduplicate, web_search
 
 def _make_result(engine: str, title: str, url: str) -> WebSearchResult:
     source_map = {
-        "duckduckgo": SourceType.WEB_DUCKDUCKGO,
-        "bing": SourceType.WEB_BING,
+        "duckduckgo": "duckduckgo",
+        "bing": "bing",
     }
     return WebSearchResult(
-        source=source_map.get(engine, SourceType.WEB_DUCKDUCKGO),
+        source=source_map.get(engine, "duckduckgo"),
         title=title,
         url=url,
         snippet=f"Snippet for {title}",
@@ -41,12 +41,12 @@ def _make_result(engine: str, title: str, url: str) -> WebSearchResult:
 
 def _make_engine_response(engine: str, results: list[WebSearchResult]) -> SearchResponse:
     source_map = {
-        "duckduckgo": SourceType.WEB_DUCKDUCKGO,
-        "bing": SourceType.WEB_BING,
+        "duckduckgo": "duckduckgo",
+        "bing": "bing",
     }
     return SearchResponse(
         query="test",
-        source=source_map.get(engine, SourceType.WEB_DUCKDUCKGO),
+        source=source_map.get(engine, "duckduckgo"),
         results=results,
         total_results=len(results),
     )
@@ -247,10 +247,10 @@ def test_web_search_response_model():
 
     resp = WebSearchResponse(
         query="hello",
-        source=SourceType.WEB_DUCKDUCKGO,
+        source="duckduckgo",
         results=[
             WebSearchResult(
-                source=SourceType.WEB_DUCKDUCKGO,
+                source="duckduckgo",
                 title="Hello",
                 url="https://hello.com",
                 snippet="world",

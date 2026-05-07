@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 
 from souwen.core.http_client import SouWenHttpClient
-from souwen.models import SourceType, WebSearchResponse, WebSearchResult
+from souwen.models import WebSearchResponse, WebSearchResult
 
 
 class DdgSiteSearchClient(SouWenHttpClient):
@@ -11,7 +11,7 @@ class DdgSiteSearchClient(SouWenHttpClient):
 
     ENGINE_NAME: str = "ddg_site"
     SITE_DOMAIN: str = ""
-    SOURCE_TYPE: SourceType = SourceType.WEB_DUCKDUCKGO
+    SOURCE_TYPE: str = "duckduckgo"
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)

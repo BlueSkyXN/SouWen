@@ -28,7 +28,7 @@
     - souwen.config: 获取实例 URL 配置
     - souwen.core.exceptions: ConfigError, ParseError 异常
     - souwen.core.http_client: SouWenHttpClient HTTP 客户端基类
-    - souwen.models: SourceType, WebSearchResult, WebSearchResponse 数据模型
+    - souwen.models: str, WebSearchResult, WebSearchResponse 数据模型
 
 技术要点：
     - API 端点：GET /search?format=json，通过 format=json 获取 JSON 响应
@@ -45,7 +45,7 @@ from typing import Any
 from souwen.config import get_config
 from souwen.core.exceptions import ConfigError
 from souwen.core.http_client import SouWenHttpClient
-from souwen.models import SourceType, WebSearchResult, WebSearchResponse
+from souwen.models import WebSearchResult, WebSearchResponse
 
 logger = logging.getLogger("souwen.web.websurfx")
 
@@ -119,7 +119,7 @@ class WebsurfxClient(SouWenHttpClient):
             snippet = (item.get("description") or item.get("content") or "").strip()
             results.append(
                 WebSearchResult(
-                    source=SourceType.WEB_WEBSURFX,
+                    source="websurfx",
                     title=title,
                     url=url,
                     snippet=snippet,
@@ -131,7 +131,7 @@ class WebsurfxClient(SouWenHttpClient):
 
         return WebSearchResponse(
             query=query,
-            source=SourceType.WEB_WEBSURFX,
+            source="websurfx",
             results=results,
             total_results=len(results),
         )
