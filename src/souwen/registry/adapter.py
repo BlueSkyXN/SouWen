@@ -117,6 +117,28 @@ DISTRIBUTIONS: frozenset[str] = frozenset({"core", "extra", "plugin"})
 #: 接入成熟度。
 STABILITIES: frozenset[str] = frozenset({"stable", "beta", "experimental", "deprecated"})
 
+#: 正式 source catalog 展示/治理分类。它不同于 domain：domain 描述业务能力，
+#: category 描述面向用户和治理面的目录归类。
+SOURCE_CATEGORIES: frozenset[str] = frozenset(
+    {
+        "paper",
+        "patent",
+        "web_general",
+        "web_professional",
+        "social",
+        "office",
+        "developer",
+        "knowledge",
+        "cn_tech",
+        "video",
+        "archive",
+        "fetch",
+    }
+)
+
+#: catalog 可见性。hidden 源仍可保留在 registry 中，但不进入 public catalog。
+CATALOG_VISIBILITIES: frozenset[str] = frozenset({"public", "internal", "hidden"})
+
 
 # ── 数据类 ──────────────────────────────────────────────────
 
@@ -177,6 +199,9 @@ class SourceAdapter:
         usage_note: 用户级提示，给 doctor / API / Panel 展示该源的运行时限制
             或注意事项（如 unpaywall 的 "仅支持 DOI OA 查找"）。**不参与可用性
             判定**——状态推断走 stability/auth_requirement 维度。
+        category: 正式 source catalog 分类；None 表示由 catalog 兼容层从 domain/tags 派生。
+        catalog_visibility: 正式 source catalog 可见性；旧 `v0_all_sources:exclude`
+            tag 会在 catalog 兼容层投影为 hidden。
     """
 
     name: str
@@ -201,6 +226,8 @@ class SourceAdapter:
     package_extra: str | None = None
     stability: str = "stable"
     usage_note: str | None = None
+    category: str | None = None
+    catalog_visibility: str = "public"
 
     @property
     def capabilities(self) -> frozenset[str]:
@@ -375,6 +402,15 @@ class SourceAdapter:
         if self.stability not in STABILITIES:
             raise ValueError(
                 f"SourceAdapter({self.name!r}) stability={self.stability!r} 不在 STABILITIES 中"
+            )
+        if self.category is not None and self.category not in SOURCE_CATEGORIES:
+            raise ValueError(
+                f"SourceAdapter({self.name!r}) category={self.category!r} 不在 SOURCE_CATEGORIES 中"
+            )
+        if self.catalog_visibility not in CATALOG_VISIBILITIES:
+            raise ValueError(
+                f"SourceAdapter({self.name!r}) catalog_visibility={self.catalog_visibility!r} "
+                "不在 CATALOG_VISIBILITIES 中"
             )
         effective_auth = self.resolved_auth_requirement
         resolved_fields = self.resolved_credential_fields
