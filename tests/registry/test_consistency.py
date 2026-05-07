@@ -39,6 +39,7 @@ from souwen.registry import (
 from souwen.registry import external_plugins
 from souwen.registry.adapter import (
     AUTH_REQUIREMENTS,
+    CATALOG_VISIBILITIES,
     CAPABILITIES,
     DISTRIBUTIONS,
     DOMAINS,
@@ -48,6 +49,7 @@ from souwen.registry.adapter import (
     OPTIONAL_CREDENTIAL_EFFECTS,
     RISK_LEVELS,
     RISK_REASONS,
+    SOURCE_CATEGORIES,
     SourceAdapter,
     STABILITIES,
 )
@@ -108,6 +110,13 @@ class TestRegistryInvariants:
             )
             assert adapter.resolved_stability in STABILITIES, (
                 f"{adapter.name}: stability={adapter.resolved_stability!r} 非法"
+            )
+            if adapter.category is not None:
+                assert adapter.category in SOURCE_CATEGORIES, (
+                    f"{adapter.name}: category={adapter.category!r} 非法"
+                )
+            assert adapter.catalog_visibility in CATALOG_VISIBILITIES, (
+                f"{adapter.name}: catalog_visibility={adapter.catalog_visibility!r} 非法"
             )
 
 
@@ -206,6 +215,14 @@ class TestSourceAdapterCatalogValidation:
         )
 
         assert has_required_credentials(SouWenConfig(), "catalog_validation_probe", meta) is False
+
+    def test_invalid_catalog_category_is_rejected(self):
+        with pytest.raises(ValueError, match="category=.*SOURCE_CATEGORIES"):
+            self._adapter(category="wiki")
+
+    def test_invalid_catalog_visibility_is_rejected(self):
+        with pytest.raises(ValueError, match="catalog_visibility=.*CATALOG_VISIBILITIES"):
+            self._adapter(catalog_visibility="private")
 
 
 # ── D11 硬断言 ──────────────────────────────────────────────
