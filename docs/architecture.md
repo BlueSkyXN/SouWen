@@ -204,7 +204,7 @@ client_cls = adapter.client_loader()  # 此刻才 importlib.import_module
 **最少只改 2 处**：
 
 1. 在真实实现模块写 Client（论文/专利使用 `souwen.paper.*` / `souwen.patent.*`；网页、社交、视频、知识、办公、抓取和归档相关实现使用 `souwen.web.*`；继承 `SouWenHttpClient` / `BaseScraper`）
-2. 在 `src/souwen/registry/sources/` 加一个 `_reg(SourceAdapter(...))`
+2. 在 `src/souwen/registry/sources/` 的对应 segment 模块（如 `paper.py`、`web_general.py`、`fetch.py`）加一个 `_reg(SourceAdapter(...))`
 
 如需 API Key，加第 3 处：`SouWenConfig` 加字段。完整流程见 [adding-a-source.md](adding-a-source.md)。
 
