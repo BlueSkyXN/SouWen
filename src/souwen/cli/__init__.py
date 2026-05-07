@@ -41,6 +41,22 @@ app = typer.Typer(
 )
 
 
+def _bootstrap_plugins() -> None:
+    """Load runtime plugins for CLI command execution."""
+    try:
+        from souwen.config import get_config
+        from souwen.plugin import ensure_plugins_loaded
+
+        result = ensure_plugins_loaded(get_config())
+        if result.errors:
+            logging.getLogger("souwen.plugin").warning(
+                "CLI 插件加载完成，错误 %d 个",
+                len(result.errors),
+            )
+    except Exception as exc:  # noqa: BLE001
+        logging.getLogger("souwen.plugin").warning("CLI 插件 bootstrap 失败，已跳过: %s", exc)
+
+
 @app.callback()
 def main(
     version: bool = typer.Option(
@@ -79,6 +95,8 @@ def main(
     except Exception:
         logging.getLogger("souwen").setLevel(level)
 
+    _bootstrap_plugins()
+
 
 # ---------------------------------------------------------------------------
 # 子命令注册：导入各子模块（它们通过 `from souwen.cli import app` 使用主 app）
@@ -111,7 +129,15 @@ app.add_typer(plugins.plugins_app, name="plugins")
 # 兼容性导出：tests/test_infra.py 直接 `from souwen.cli import _mask_value`
 from souwen.cli.config_cmds import _mask_value  # noqa: E402, F401
 
-__all__ = ["app", "main", "console", "_run_async", "_version_callback", "_mask_value"]
+__all__ = [
+    "app",
+    "main",
+    "console",
+    "_run_async",
+    "_version_callback",
+    "_bootstrap_plugins",
+    "_mask_value",
+]
 
 
 if __name__ == "__main__":

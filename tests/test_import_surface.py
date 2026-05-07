@@ -1,6 +1,10 @@
 """v2 public import surface tests."""
 
 import importlib
+import os
+import subprocess
+import sys
+from pathlib import Path
 
 import pytest
 
@@ -23,6 +27,82 @@ def test_new_public_import_surface():
     assert SouWenHttpClient.__name__ == "SouWenHttpClient"
     assert BaseScraper.__name__ == "BaseScraper"
     assert WaybackClient.__name__ == "WaybackClient"
+
+
+def test_import_registry_does_not_scan_plugin_entry_points():
+    """`import souwen.registry` must not execute third-party plugin discovery."""
+    repo_root = Path(__file__).resolve().parents[1]
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(repo_root / "src")
+    env["SOUWEN_PLUGIN_AUTOLOAD"] = "1"
+    code = """
+import importlib.metadata as metadata
+
+calls = 0
+
+def fake_entry_points():
+    global calls
+    calls += 1
+    raise AssertionError("entry_points should not be called")
+
+metadata.entry_points = fake_entry_points
+import souwen.registry
+assert calls == 0, calls
+print("registry import ok")
+"""
+
+    completed = subprocess.run(
+        [sys.executable, "-c", code],
+        check=False,
+        capture_output=True,
+        env=env,
+        text=True,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+
+
+def test_cli_bootstrap_calls_explicit_plugin_loader(monkeypatch):
+    from souwen.plugin import PluginLoadResult
+
+    import souwen.cli as cli_mod
+
+    cfg = object()
+    calls = []
+    monkeypatch.setattr("souwen.config.get_config", lambda: cfg)
+    monkeypatch.setattr(
+        "souwen.plugin.ensure_plugins_loaded",
+        lambda config: (
+            calls.append(config)
+            or PluginLoadResult(loaded_plugins=(), loaded_adapters=(), skipped=(), errors=())
+        ),
+    )
+
+    cli_mod._bootstrap_plugins()
+
+    assert calls == [cfg]
+
+
+def test_server_bootstrap_calls_explicit_plugin_loader(monkeypatch):
+    pytest.importorskip("fastapi")
+    from souwen.plugin import PluginLoadResult
+
+    from souwen.server import app as app_mod
+
+    cfg = object()
+    calls = []
+    monkeypatch.setattr(
+        app_mod,
+        "ensure_plugins_loaded",
+        lambda config: (
+            calls.append(config)
+            or PluginLoadResult(loaded_plugins=(), loaded_adapters=(), skipped=(), errors=())
+        ),
+    )
+
+    app_mod._bootstrap_plugins(cfg)
+
+    assert calls == [cfg]
 
 
 @pytest.mark.parametrize(

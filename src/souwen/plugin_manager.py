@@ -27,7 +27,7 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 from souwen.plugin import (
-    discover_entrypoint_plugins,
+    ensure_plugins_loaded,
     get_loaded_plugins,
     unload_plugin,
     unload_plugin_async,
@@ -875,10 +875,17 @@ def reload_plugins() -> dict[str, Any]:
         importlib.invalidate_caches()
         state = _load_state()
         skip_names = set(state.get("disabled_plugins", []))
-        loaded, errors = discover_entrypoint_plugins(skip_names=skip_names)
+        result = ensure_plugins_loaded()
+        loaded = list(result.loaded_adapters)
+        errors = [
+            {"source": error.source, "name": error.name, "error": error.error}
+            for error in result.errors
+        ]
         message = f"插件重新扫描完成，新增加载 {len(loaded)} 个，错误 {len(errors)} 个。"
         if skip_names:
             message += f" 已跳过禁用插件: {', '.join(sorted(skip_names))}。"
+        if result.skipped:
+            message += f" 本次跳过: {', '.join(result.skipped)}。"
         return {"loaded": loaded, "errors": errors, "message": message}
     except Exception as exc:  # noqa: BLE001
         logger.warning("重新扫描插件失败: %s", exc)
