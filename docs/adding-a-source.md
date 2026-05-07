@@ -1,6 +1,6 @@
-# 添加一个新数据源（V2 指南）
+# 添加一个新数据源
 
-> 在 V2 架构下，新增一个数据源 = **改 1-2 处文件**：实现 Client + 在 `registry/sources/` 注册。
+> 在当前架构下，新增一个数据源 = **改 1-2 处文件**：实现 Client + 在 `registry/sources/` 注册。
 > 不再需要去改 `search.py` / `web/search.py` / `models.py` / `registry/meta.py` 的多份分发表。
 
 ## 全景
@@ -31,7 +31,7 @@
 | OAuth2 client_credentials | `OAuthClient` | `souwen.core.http_client` | EPO OPS、CNIPA 等需要 token 流的 API |
 | HTML/SERP 爬取 | `BaseScraper` | `souwen.core.scraper.base` | DuckDuckGo / Bing / Google Patents 等 |
 
-> v2 仅保留 `souwen.core.*` 平台层入口，不再提供顶层兼容 shim。
+> 当前平台层入口使用 `souwen.core.*`，新增源不要再添加顶层快捷入口。
 
 ### 示例：official_api 论文源
 
@@ -83,7 +83,7 @@ class MySourceClient(SouWenHttpClient):
 要点：
 
 - **以 `source_name=` 调用基类构造器**，这样频道配置（`sources.my_source.proxy / base_url / headers`）会自动生效。
-- 用 `cfg.resolve_api_key(name, legacy_field)` 让"频道 `api_key`"优先于全局 flat key。
+- 用 `cfg.resolve_api_key(name, "<source>_api_key")` 让"频道 `api_key`"优先于全局 flat key。
 - 异常由基类负责：`401/403→AuthError`、`429→RateLimitError`、`5xx→SourceUnavailableError`。Client 内部抛业务异常即可。
 
 ## 2. 在 registry 注册
@@ -98,7 +98,7 @@ _reg(SourceAdapter(
     integration="official_api",
     description="My Source 论文检索（含全文链接）",
     config_field="my_source_api_key",
-    needs_config=True,                      # 旧兼容字段：必须配 Key 才能工作
+    needs_config=True,                      # 配置要求字段：必须配 Key 才能工作
     auth_requirement="required",            # none / optional / required / self_hosted
     credential_fields=("my_source_api_key",),
     risk_level="low",
@@ -129,7 +129,7 @@ _reg(SourceAdapter(
 | `extra_domains` | — | 跨域能力，**目前仅允许 `frozenset({"fetch"})`**（如 Tavily 同时是 web 搜索引擎和 fetch provider） |
 | `default_enabled` | — | UI 默认是否勾选；高风险源（google/baidu/twitter）建议 `False` |
 | `default_for` | — | 形如 `{"paper:search"}`，声明此源是否进入 `(domain, capability)` 默认集 |
-| `tags` | — | `{"high_risk"}`；外部 web 插件可用公开 `category:general/professional` 标签 |
+| `tags` | — | `{"high_risk"}` 等治理标签；web 分类优先使用 `category` 字段 |
 | `category` | 推荐 | 正式 source catalog 分类；web 源用 `web_general` / `web_professional` |
 | `catalog_visibility` | — | `public` / `internal` / `hidden`，控制 catalog 展示范围 |
 | `needs_config` | 推荐 | 显式声明是否"必须配置才能工作"（None 时按 integration 推断） |
@@ -244,7 +244,7 @@ souwen search paper "transformer" -s my_source -n 3
 
 # REST
 souwen serve &
-curl 'http://localhost:8000/api/v1/sources' | jq '.paper[] | select(.name=="my_source")'
+curl 'http://localhost:8000/api/v1/sources' | jq '.sources[] | select(.name=="my_source")'
 curl 'http://localhost:8000/api/v1/search/paper?q=transformer&sources=my_source&per_page=3'
 ```
 
@@ -253,7 +253,7 @@ curl 'http://localhost:8000/api/v1/search/paper?q=transformer&sources=my_source&
 - **忘了 `lazy()`**：直接 `client_loader=lambda: MySourceClient` 会让 registry 在导入期就 import 你的 Client，破坏启动延迟优化。
 - **`needs_config` 与 `config_field` 不一致**：可选 Key 的源（如 `openalex` / `github` / `doaj`）需显式 `needs_config=False` 或 `auth_requirement="optional"`，否则会被推断为"必须配置"。
 - **`scraper` 类源忘了走 BaseScraper**：直接用 `httpx.AsyncClient` 会缺失 TLS 指纹与礼貌爬取，被风控的几率显著上升。详见 [anti-scraping.md](./anti-scraping.md)。
-- **`extra_domains` 滥用**：V2 当前仅允许 `{"fetch"}`。需要跨更多域请先在 `local/` 写 RFC 讨论。
+- **`extra_domains` 滥用**：当前仅允许 `{"fetch"}`。需要跨更多域请先在 `local/` 写 RFC 讨论。
 - **没在 `souwen.example.yaml` 加注释**：用户找不到字段是配置类工单的高频来源，请补上。
 
 ## 7. 替代方案：作为外部插件发布
@@ -269,5 +269,5 @@ setuptools entry_points 或配置文件声明的外部插件。
 - 配置字段总览：[configuration.md](./configuration.md)
 - 反爬 / 代理 / WARP：[anti-scraping.md](./anti-scraping.md)
 - 后端 API 契约（`/api/v1/sources` 自动列出新源）：[api-reference.md](./api-reference.md)
-- 通用贡献流程 / V0 兼容规则：[contributing.md](./contributing.md)
+- 通用贡献流程：[contributing.md](./contributing.md)
 - 外部插件对接规范：[plugin-integration-spec.md](./plugin-integration-spec.md)

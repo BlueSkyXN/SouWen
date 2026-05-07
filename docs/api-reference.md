@@ -2,7 +2,7 @@
 
 > SouWen 公开 API、数据模型、CLI 命令与 MCP 工具
 
-> **V2 架构提示**：搜索路由派发到 `souwen.search`，内容抓取使用 `souwen.web.fetch`，数据源选择统一来自 `souwen.registry`（单一事实源）。新增数据源不需要改路由，参见 [adding-a-source.md](./adding-a-source.md)。
+> **架构提示**：搜索路由派发到 `souwen.search`，内容抓取使用 `souwen.web.fetch`，数据源选择统一来自 `souwen.registry`（单一事实源）。新增数据源不需要改路由，参见 [adding-a-source.md](./adding-a-source.md)。
 
 > **⚠️ 声明：本项目仅供 Python 学习与技术研究使用。**
 > 涵盖的学习方向包括：API 对接与聚合、全栈开发（FastAPI + React）、爬虫技术（TLS 指纹 / 浏览器池化 / 反爬绕过）、CLI 开发（Rich / Click）、异步编程（asyncio / httpx）等。
@@ -198,7 +198,7 @@ class FetchResponse(BaseModel):
     total_failed: int = 0                       # 失败数
     providers: list[str] = []                   # 请求的提供者列表
     strategy: str = "fallback"                  # 使用的抓取策略
-    provider: str | None = None                 # 兼容旧版单 provider 字段
+    provider: str | None = None                 # 单 provider 摘要字段
     meta: dict = {}                             # 元数据
 ```
 
@@ -311,20 +311,20 @@ souwen plugins new <name>                 # 生成插件项目骨架
 
 ### 认证：三角色系统
 
-SouWen 支持三级角色认证（Guest/User/Admin），并向后兼容旧版密码配置：
+SouWen 支持三级角色认证（Guest/User/Admin）：
 
 | 角色 | Token 来源 | 可访问端点 |
 |------|------------|-----------|
 | Guest 游客 | 无 Token（需 `guest_enabled=true`） | 搜索（受限源、限速） |
-| User 用户 | `user_password` / `visitor_password` / `api_password` | 搜索 + `/sources` |
-| Admin 管理员 | `admin_password` / `api_password` | 全部端点 |
+| User 用户 | `user_password` | 搜索 + `/sources` |
+| Admin 管理员 | `admin_password` | 全部端点 |
 
 **密码优先级：**
 
-- 用户端点：`user_password` > `visitor_password` > `api_password` > 无（开放）
-- 管理端点：`admin_password` > `api_password` > 无（默认锁定，需 `SOUWEN_ADMIN_OPEN=1` 显式开放）
+- 用户端点：`user_password` > Guest 开关 > 拒绝访问
+- 管理端点：`admin_password` > 本地显式开放开关 > 拒绝访问
 - Admin Token 自动满足所有低级别端点（Admin ⊃ User ⊃ Guest）
-- 显式将 `user_password` 设为空字符串 `""` 表示开放用户端点；显式将 `admin_password` 设为空字符串 `""` 表示不回退 `api_password`，但管理端仍需 `SOUWEN_ADMIN_OPEN=1` 才开放。
+- 显式将 `user_password` 设为空字符串 `""` 表示开放用户端点；生产部署应设置 `admin_password`。
 
 **请求格式：** `Authorization: Bearer <password>`
 
@@ -389,7 +389,7 @@ SouWen 支持三级角色认证（Guest/User/Admin），并向后兼容旧版密
 
 #### `GET /readiness`
 
-K8s readiness 探针（v0.6.1 引入）。仅做本地检查（配置可加载 + 数据源注册表非空），不触发任何网络调用，避免探针超时。
+K8s readiness 探针。仅做本地检查（配置可加载 + 数据源注册表非空），不触发任何网络调用，避免探针超时。
 
 **响应示例（就绪）：**
 ```json
@@ -470,10 +470,10 @@ Cache-Control: public, max-age=3600
 | `q` | string (1-500) | *(必填)* | 搜索关键词 |
 | `engines` | string | `"duckduckgo,bing"` | 搜索引擎，逗号分隔 |
 | `per_page` | int (1-50) | `10` | 每引擎最大结果数（**主名称**） |
-| `max_results` | int (1-50) \| null | `null` | 兼容旧版的别名；显式提供时**优先级高于 `per_page`** |
+| `max_results` | int (1-50) \| null | `null` | `per_page` 的别名；显式提供时**优先级高于 `per_page`** |
 | `timeout` | float (1-300) \| null | `null` | 端点硬超时（秒），超时返回 504 |
 
-> 兼容性提示：旧客户端可继续使用 `max_results`；新客户端推荐 `per_page`。
+> 新调用建议使用 `per_page`，以便和论文、专利搜索端点保持一致。
 
 #### `GET /api/v1/sources`
 
@@ -540,8 +540,8 @@ Cache-Control: public, max-age=3600
 
 ### 管理端点 (`/api/v1/admin/...`)
 
-> 管理端点由 `require_auth` 强制保护，验证 `effective_admin_password`（`admin_password` > `api_password`）。
-> 未设置任一管理密码时，管理端点默认返回 `401 Unauthorized`；只有设置 `SOUWEN_ADMIN_OPEN=1` 才会显式开放。
+> 管理端点由 `require_auth` 强制保护，验证 `admin_password`。
+> 未设置管理密码时，管理端点默认返回 `401 Unauthorized`；只有设置 `SOUWEN_ADMIN_OPEN=1` 才会显式开放。
 
 #### `GET /api/v1/admin/config`
 
@@ -550,7 +550,7 @@ Cache-Control: public, max-age=3600
 **响应示例：**
 ```json
 {
-  "api_password": "***",
+  "admin_password": "***",
   "semantic_scholar_key": "***",
   "rate_limit_per_minute": 30,
   ...
@@ -568,7 +568,7 @@ Cache-Control: public, max-age=3600
 
 #### `GET /api/v1/admin/doctor`
 
-数据源健康检查，返回配置状态和已知限制提示；当前不执行实时连通性探测。`available` 统计 `ok` / `limited` / `warning` / `degraded`，`degraded_total` 统计 `limited` / `warning` / `degraded`；`degraded` 为兼容旧客户端的同值别名，精确状态计数请读取 `status_counts.degraded`。
+数据源健康检查，返回配置状态和已知限制提示；当前不执行实时连通性探测。`available` 统计 `ok` / `limited` / `warning` / `degraded`，`degraded_total` 统计 `limited` / `warning` / `degraded`；`degraded` 是 `degraded_total` 的同义字段，精确状态计数请读取 `status_counts.degraded`。
 
 状态语义与 Panel 展示规则应以本节和管理端 schema 为准；面向用户的排障路径会在 GitHub Wiki 中提供。
 
@@ -891,7 +891,7 @@ Cache-Control: public, max-age=3600
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `urls` | `list[str]` (1-20) | *(必填)* | 目标 URL 列表 |
-| `provider` | `string` | `"builtin"` | 兼容旧版单 provider 字段 |
+| `provider` | `string` | `"builtin"` | 单 provider 请求字段 |
 | `providers` | `list[str] \| null` | `null` | 多 provider 列表；提供时优先于 `provider`。可选：`builtin` / `jina_reader` / `arxiv_fulltext` / `tavily` / `firecrawl` / `xcrawl` / `exa` / `crawl4ai` / `scrapling` / `scrapfly` / `diffbot` / `scrapingbee` / `zenrows` / `scraperapi` / `apify` / `cloudflare` / `wayback` / `newspaper` / `readability` / `mcp` / `site_crawler` / `deepwiki` |
 | `strategy` | `"fallback" \| "fanout"` | `"fallback"` | 多 provider 策略：`fallback` 按 URL 顺序补失败项；`fanout` 返回所有 provider 结果 |
 | `timeout` | `float` (1-120) | `30` | 每 URL 超时秒数 |
@@ -955,7 +955,7 @@ Cache-Control: public, max-age=3600
 - SSRF 防护：DNS 解析 + 私有/保留 IP 拦截
 - 重定向安全：每一跳校验目标 IP，防止多跳 SSRF 攻击
 - Scrapling 浏览器模式：`dynamic` / `stealthy` 会对 navigation、子资源、XHR/fetch 等浏览器请求安装同一套 SSRF 拦截
-- 管理密码认证：需要 `admin_password`（或回退 `api_password`）
+- 管理密码认证：需要 `admin_password`
 
 ## MCP 工具
 
@@ -1014,7 +1014,7 @@ python -m souwen.integrations.mcp_server
 
 返回：JSON `FetchResponse` 对象（含 `results`、`total`、`total_ok`、`total_failed`）。
 
-> 共 5 个 MCP 工具：`search_papers`、`search_patents`、`web_search`、`get_status`、`fetch_content`（PR #23）。
+> 共 5 个 MCP 工具：`search_papers`、`search_patents`、`web_search`、`get_status`、`fetch_content`。
 
 ---
 

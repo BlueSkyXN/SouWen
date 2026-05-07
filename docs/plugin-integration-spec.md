@@ -120,7 +120,7 @@ CLI / server bootstrap
 | `default_for` | `frozenset()` | 形如 `{"web:search"}`；外部插件**不建议**抢占默认位 |
 | `tags` | `frozenset()` | 见下表；web 插件可用 `category:professional` 进入专业搜索分类 |
 | `needs_config` | `None` | 是否"必须配置才能工作"；建议显式声明（`True` / `False`） |
-| `auth_requirement` | `None` | `none` / `optional` / `required` / `self_hosted`；None 时从旧字段派生 |
+| `auth_requirement` | `None` | `none` / `optional` / `required` / `self_hosted`；None 时从基础配置字段派生 |
 | `credential_fields` | `()` | 完整凭据字段；多字段凭据应列全 |
 | `optional_credential_effect` | `None` | 可选凭据收益：`rate_limit` / `quota` / `quality` / `personalization` / `private_access` / `write_access` / `politeness` / `unknown` |
 | `risk_level` | `"low"` | `low` / `medium` / `high` |
@@ -176,7 +176,7 @@ plugin = SourceAdapter(
 `domain="web"` 的外部插件如果不声明 `category:*`，会按公开 domain 语义归入 `web_general`。
 只有 AI/聚合搜索、商业 SERP API 等更接近内置 `web_professional` 分类的插件，才建议声明 `category:professional`。
 
-> ⚠️ 外部插件不要使用内部迁移期标签；需要控制 catalog 分类时，优先使用
+> ⚠️ 外部插件不要使用非公开内部标签；需要控制 catalog 分类时，优先使用
 > `SourceAdapter.category` 或公开 `category:general/professional` 标签。
 
 ### 校验时机
@@ -449,7 +449,7 @@ export SOUWEN_PLUGINS='["my_plugin:plugin","other_pkg.mod:make_adapter"]'
 | Entry point `ep.load()` 抛异常 | 同上 |
 | `name` 与已注册源冲突 | 记 warning，跳过；不覆盖已有源 |
 | `_reg_external` 字段类型不合法 | 抛 `TypeError`，被外层 catch 后记 warning |
-| Fetch handler 重名注册（`override=False`） | 记 warning，保留旧 handler |
+| Fetch handler 重名注册（`override=False`） | 记 warning，保留已有 handler |
 
 `ensure_plugins_loaded()` 返回值：
 
@@ -650,7 +650,7 @@ def test_fetch_handler_registered():
 | `discover_entrypoint_plugins(group=ENTRY_POINT_GROUP)` | `() -> (loaded, errors)` | 扫描 entry points 并注册 |
 | `load_config_plugins(plugin_paths)` | `(list[str]) -> (loaded, errors)` | 加载 `"module:attr"` 字符串列表 |
 | `ensure_plugins_loaded(config=None)` | `(SouWenConfig\|None) -> PluginLoadResult` | CLI / server / library 显式插件 bootstrap，幂等 |
-| `load_plugins(config=None)` | `(SouWenConfig\|None) -> {"loaded": [...], "errors": [...]}` | 低层兼容入口，新代码优先用 `ensure_plugins_loaded()` |
+| `load_plugins(config=None)` | `(SouWenConfig\|None) -> {"loaded": [...], "errors": [...]}` | 低层入口，新代码优先用 `ensure_plugins_loaded()` |
 
 ### `souwen.config`
 

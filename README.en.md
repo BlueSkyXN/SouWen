@@ -2,7 +2,7 @@
 
 中文 | **English**
 
-> A **unified search library** for AI Agents: academic papers + patents + web + social + video + knowledge + developer communities + Chinese tech + enterprise + archives + content fetching
+> A unified search, fetching, and archive toolkit for AI Agents and automation scripts.
 
 [![Python](https://img.shields.io/badge/python-≥3.10-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-GPLv3-blue)](LICENSE)
@@ -30,9 +30,9 @@
 
 ## 🎯 Introduction
 
-SouWen provides AI Agents with a unified multi-source search interface. **All data sources are declared through a single `SourceAdapter` registry**, normalized into Pydantic v2 data models.
+SouWen provides AI Agents, CLI scripts, and server applications with a unified multi-source search interface. **All data sources are declared through a single `SourceAdapter` registry**, normalized into Pydantic v2 data models.
 
-The registry architecture reduces the cost of adding a new source to **1–2 code changes**; CLI / API / frontend are all organized by 10 domains.
+The registry architecture reduces the cost of adding a new source to **1-2 code changes**; CLI / API / Panel are organized by domain, capability, and Source Catalog.
 
 ### Features
 
@@ -81,7 +81,8 @@ souwen bilibili search "programming"
 souwen wayback cdx https://example.com
 
 # Management
-souwen sources                          # List all data sources
+souwen sources --available-only          # List sources available with current config
+souwen sources --json                    # Output the same Source Catalog shape as /api/v1/sources
 souwen serve                             # Start API server (default :8000)
 souwen doctor                            # Health check
 souwen mcp                               # MCP server info
@@ -128,14 +129,11 @@ souwen serve --host 0.0.0.0 --port 8000
 Main endpoints:
 
 ```bash
-# Top-level verb form
 curl "http://localhost:8000/api/v1/search/paper?q=transformer&per_page=5"
 curl "http://localhost:8000/api/v1/search/web?q=python"
 curl "http://localhost:8000/api/v1/fetch" -X POST -d '{"urls":["https://example.com"]}'
-
-# Domain form (planned, available after backend route split)
-curl "http://localhost:8000/api/v1/paper/search?q=transformer"
-curl "http://localhost:8000/api/v1/archive/cdx?url=https://example.com"
+curl "http://localhost:8000/api/v1/wayback/cdx?url=https://example.com"
+curl "http://localhost:8000/api/v1/sources"
 ```
 
 Visit `/docs` for the full OpenAPI documentation; visit `/panel#/` to enter the Web UI (default: souwen-google skin). `/` redirects to `/docs` with the default configuration.
@@ -189,7 +187,8 @@ Docs:
 ```bash
 docker build -t souwen .
 docker run -p 8000:8000 \
-  -e SOUWEN_API_PASSWORD=your-password \
+  -e SOUWEN_ADMIN_PASSWORD=your-admin-password \
+  -e SOUWEN_USER_PASSWORD=your-user-password \
   -v ~/.config/souwen:/app/data \
   souwen
 ```
@@ -202,11 +201,16 @@ docker run -p 8000:8000 \
 ## 📚 Documentation
 
 - [docs/README.md](docs/README.md) — Technical documentation index and reading guide
+- [docs/getting-started.md](docs/getting-started.md) — Getting started
+- [docs/concepts.md](docs/concepts.md) — Core concepts
+- [docs/python-api.md](docs/python-api.md) — Python API
+- [docs/source-catalog.md](docs/source-catalog.md) — Source Catalog contract
 - [docs/architecture.md](docs/architecture.md) — Architecture overview
 - [docs/data-sources.md](docs/data-sources.md) — Full data source guide and list (auto-generated from registry)
 - [docs/configuration.md](docs/configuration.md) — Configuration hierarchy / WARP / HTTP backend
 - [docs/api-reference.md](docs/api-reference.md) — REST API reference
 - [docs/hf-space-cd.md](docs/hf-space-cd.md) — Hugging Face Space CD / local gates / post-deploy validation
+- [docs/deployment.md](docs/deployment.md) — Deployment
 - [docs/anti-scraping.md](docs/anti-scraping.md) — TLS fingerprinting / WARP / rate limiting
 - [docs/appearance.md](docs/appearance.md) — Multi-skin frontend
 - [docs/adding-a-source.md](docs/adding-a-source.md) — Adding a new source guide
@@ -214,7 +218,6 @@ docker run -p 8000:8000 \
 - [docs/plugin-management.md](docs/plugin-management.md) — Plugin management (Web Panel / CLI / API)
 - [docs/contributing.md](docs/contributing.md) — Developer guide
 - [docs/internal/](docs/internal/) — Maintainer ADRs, branching policy, and pre-release baselines
-- [GitHub Wiki](https://github.com/BlueSkyXN/SouWen/wiki) — User manual and task-oriented navigation
 - [CHANGELOG.md](CHANGELOG.md) — Changelog
 
 ## 🤝 Contributing
