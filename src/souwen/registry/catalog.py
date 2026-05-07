@@ -1,8 +1,7 @@
 """正式 source catalog 投影层。
 
 本模块从底层 ``SourceAdapter`` registry 派生面向展示、治理和后续 API
-contract 的 catalog 视图。旧 ``ALL_SOURCES`` / ``SourceMeta`` 兼容视图暂时保留；
-新代码需要目录语义时应优先从这里读取。
+contract 的 catalog 视图。新代码需要目录语义时应从这里读取。
 """
 
 from __future__ import annotations
@@ -38,6 +37,9 @@ class SourceCatalogEntry:
     category: str
     capabilities: tuple[str, ...]
     description: str
+    integration_type: str
+    config_field: str | None
+    needs_config: bool
     auth_requirement: str
     credential_fields: tuple[str, ...]
     optional_credential_effect: str | None
@@ -162,21 +164,13 @@ def _catalog_category_for(adapter: SourceAdapter) -> str:
 
     if adapter.category is not None:
         return adapter.category
-    if "category:general" in adapter.tags or "v0_category:general" in adapter.tags:
+    if "category:general" in adapter.tags:
         return "web_general"
-    if "category:professional" in adapter.tags or "v0_category:professional" in adapter.tags:
+    if "category:professional" in adapter.tags:
         return "web_professional"
     if adapter.domain == "web":
         return "web_general"
     return _DOMAIN_TO_CATALOG_CATEGORY[adapter.domain]
-
-
-def _catalog_visibility_for(adapter: SourceAdapter) -> str:
-    """兼容旧 ``v0_all_sources:exclude`` tag 的 catalog visibility。"""
-
-    if "v0_all_sources:exclude" in adapter.tags:
-        return "hidden"
-    return adapter.catalog_visibility
 
 
 def _is_available_by_default(adapter: SourceAdapter, visibility: str) -> bool:
@@ -195,7 +189,7 @@ def _is_available_by_default(adapter: SourceAdapter, visibility: str) -> bool:
 
 def _entry_from_adapter(adapter: SourceAdapter, *, external: bool = False) -> SourceCatalogEntry:
     category = _catalog_category_for(adapter)
-    visibility = _catalog_visibility_for(adapter)
+    visibility = adapter.catalog_visibility
     distribution = "plugin" if external else adapter.resolved_distribution
     return SourceCatalogEntry(
         name=adapter.name,
@@ -203,6 +197,9 @@ def _entry_from_adapter(adapter: SourceAdapter, *, external: bool = False) -> So
         category=category,
         capabilities=tuple(sorted(adapter.capabilities)),
         description=adapter.description,
+        integration_type=adapter.integration,
+        config_field=adapter.config_field,
+        needs_config=adapter.resolved_needs_config,
         auth_requirement=adapter.resolved_auth_requirement,
         credential_fields=adapter.resolved_credential_fields,
         optional_credential_effect=adapter.optional_credential_effect,
@@ -268,16 +265,13 @@ def available_source_catalog(config: Any) -> dict[str, SourceCatalogEntry]:
     self_hosted 凭据已满足。
     """
 
-    from souwen.registry.meta import get_source, has_required_credentials
+    from souwen.registry.meta import has_required_credentials
 
     result: dict[str, SourceCatalogEntry] = {}
     for name, entry in public_source_catalog().items():
-        meta = get_source(name)
-        if meta is None:
-            continue
         if not config.is_source_enabled(name):
             continue
-        if not has_required_credentials(config, name, meta):
+        if not has_required_credentials(config, name, entry):
             continue
         result[name] = entry
     return result

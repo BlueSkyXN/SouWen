@@ -61,7 +61,7 @@ const DOMAIN_CAPABILITIES: Record<string, Capability[]> = {
   archive: ['archive_lookup'],
 }
 
-/** Domain ↔ ALL_SOURCES category 映射（前端过滤 /sources 响应时用） */
+/** Domain ↔ /sources category 映射（前端过滤响应时用） */
 const DOMAIN_TO_CATEGORY: Record<string, string> = {
   paper: 'paper',
   patent: 'patent',

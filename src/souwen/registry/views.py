@@ -6,7 +6,6 @@
   - souwen.search（门面）
   - souwen.web.search（门面）
   - souwen.registry.meta（SourceMeta 视图）
-  - souwen.models.ALL_SOURCES（派生）
   - server/routes 的 /sources 端点
   - CLI 的 sources 子命令
   - docs 自动生成脚本
@@ -180,107 +179,6 @@ def enum_values() -> list[str]:
     return sorted(_REGISTRY.keys())
 
 
-# ── ALL_SOURCES 兼容视图 ────────────────────────────────────
-
-#: domain → ALL_SOURCES 分类的映射（ALL_SOURCES 包含的 9 个分类）。
-#: 注意：`general` 混了 engines + self_hosted + 部分 SERP API，
-#:      `professional` 是另一批 SERP/AI 类 API。
-_DOMAIN_TO_CATEGORY: dict[str, str] = {
-    "paper": "paper",
-    "patent": "patent",
-    "social": "social",
-    "video": "video",
-    "knowledge": "wiki",  # 历史命名 "wiki"
-    "developer": "developer",
-    "cn_tech": "cn_tech",
-    "office": "office",
-    "archive": "fetch",  # wayback 归在 fetch
-    FETCH_DOMAIN: "fetch",
-}
-
-_CATALOG_TO_V0_CATEGORY: dict[str, str] = {
-    "paper": "paper",
-    "patent": "patent",
-    "web_general": "general",
-    "web_professional": "professional",
-    "social": "social",
-    "office": "office",
-    "developer": "developer",
-    "knowledge": "wiki",
-    "cn_tech": "cn_tech",
-    "video": "video",
-    "archive": "fetch",
-    FETCH_DOMAIN: "fetch",
-}
-
-
-def _v0_category_for(adapter: SourceAdapter) -> str | None:
-    """把 adapter 映射到 ALL_SOURCES key。web 分两类：general / professional。
-
-    对 domain=web 的源：
-      - integration ∈ {scraper, self_hosted, 部分 official_api 型 SERP 引擎} → general
-      - integration=official_api 且以 AI/搜索聚合为主 → professional
-
-    判定优先走 tags（"category:*" / "v0_category:*"）显式标记；
-    未显式标记的 web 插件按公开 domain 语义保底归入 general。
-    """
-    if adapter.category is not None:
-        return _CATALOG_TO_V0_CATEGORY.get(adapter.category)
-    if "category:general" in adapter.tags or "v0_category:general" in adapter.tags:
-        return "general"
-    if "category:professional" in adapter.tags or "v0_category:professional" in adapter.tags:
-        return "professional"
-    if adapter.domain == "web":
-        return "general"
-    return _DOMAIN_TO_CATEGORY.get(adapter.domain)
-
-
-def as_all_sources_dict() -> dict[str, list[tuple[str, bool, str]]]:
-    """派生 `ALL_SOURCES` 字典结构（用于 `models.ALL_SOURCES`）。
-
-    返回格式：`{category: [(name, needs_config, description), ...]}`
-    category 仅包含 adapter 实际覆盖到的（空分类不会出现）。
-
-    fetch 特殊处理：主 domain=fetch 以及 extra_domains 含 fetch 的 adapter
-    都会出现在 fetch 列表里。
-
-    排除规则：adapter.tags 含 `v0_all_sources:exclude` 的源**不出现**在返回值中。
-    用于历史上未列入 ALL_SOURCES 的实验性/"待修复"源（unpaywall / patentsview / pqai），
-    这些源仍然保留在注册表里供未来启用。
-    """
-    result: dict[str, list[tuple[str, bool, str]]] = {}
-    for adapter in _REGISTRY.values():
-        if "v0_all_sources:exclude" in adapter.tags or adapter.catalog_visibility == "hidden":
-            continue
-        category = _v0_category_for(adapter)
-        if category is not None:
-            result.setdefault(category, []).append(
-                (adapter.name, adapter.resolved_needs_config, adapter.description)
-            )
-        # 跨域 fetch
-        if FETCH_DOMAIN in adapter.extra_domains and adapter.domain != FETCH_DOMAIN:
-            fetch_list = result.setdefault("fetch", [])
-            if not any(t[0] == adapter.name for t in fetch_list):
-                fetch_list.append(
-                    (adapter.name, adapter.resolved_needs_config, adapter.description)
-                )
-    # 稳定的 category 顺序
-    order = [
-        "paper",
-        "patent",
-        "general",
-        "professional",
-        "social",
-        "office",
-        "developer",
-        "wiki",
-        "cn_tech",
-        "video",
-        "fetch",
-    ]
-    return {k: result[k] for k in order if k in result}
-
-
 # ── 便于测试 / 脚本使用 ────────────────────────────────────
 
 
@@ -323,7 +221,6 @@ __all__ = [
     "fetch_providers",
     "high_risk_sources",
     "enum_values",
-    "as_all_sources_dict",
     "external_plugins",
 ]
 

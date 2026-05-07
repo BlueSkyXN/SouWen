@@ -40,12 +40,12 @@ from __future__ import annotations
 from typing import Any
 
 from souwen.config import get_config
+from souwen.registry.catalog import source_catalog
 from souwen.registry.meta import (
     AUTH_REQUIREMENT_LABELS,
     INTEGRATION_TYPE_LABELS,
     OPTIONAL_CREDENTIAL_EFFECT_LABELS,
     credential_fields_label,
-    get_all_sources,
     missing_credential_fields,
 )
 
@@ -146,7 +146,7 @@ def _stability_status(meta: Any) -> tuple[str, str] | None:
     note = getattr(meta, "usage_note", None)
     if stability == "deprecated":
         return "unavailable", note or f"{meta.name} 当前接入待修复"
-    if stability == "experimental" and meta.is_scraper:
+    if stability == "experimental" and getattr(meta, "integration_type", "") == "scraper":
         return "warning", note or "实验性爬虫，可能受反爬或 HTML 变更影响"
     return None
 
@@ -159,7 +159,7 @@ def check_all() -> list[dict]:
     Returns:
         每个数据源一条字典，包含：
         - name: 源名称
-        - category: 分类（paper|patent|general|professional|social|developer|wiki|video|fetch）
+        - category: 正式 catalog 分类
         - status: 状态（ok|warning|limited|unavailable|missing_key|disabled）
         - integration_type: 集成类型（open_api|scraper|official_api|self_hosted）
         - required_key: 必需的配置字段名（或 None）
@@ -171,7 +171,7 @@ def check_all() -> list[dict]:
     """
     cfg = get_config()
     results: list[dict] = []
-    all_sources = get_all_sources()
+    catalog = source_catalog()
 
     # 检测 curl_cffi（TLS 指纹伪装）可用性，影响所有爬虫引擎
     # 爬虫类源需要 curl_cffi 来实现 JA3 TLS 指纹伪装，避免被反爬拦截
@@ -182,7 +182,7 @@ def check_all() -> list[dict]:
     except ImportError:
         _has_tls_impersonation = False
 
-    for name, meta in all_sources.items():
+    for name, meta in catalog.items():
         enabled = cfg.is_source_enabled(name)
         field = meta.config_field
         missing_fields = missing_credential_fields(cfg, name, meta)
@@ -229,7 +229,7 @@ def check_all() -> list[dict]:
         if (
             enabled
             and status in {"ok", "limited"}
-            and meta.is_scraper
+            and meta.integration_type == "scraper"
             and not _has_tls_impersonation
         ):
             if status == "ok":
@@ -255,7 +255,7 @@ def check_all() -> list[dict]:
                 "status": status,
                 "integration_type": meta.integration_type,
                 "required_key": field,
-                "key_requirement": meta.key_requirement,
+                "key_requirement": meta.auth_requirement,
                 "auth_requirement": meta.auth_requirement,
                 "credential_fields": list(meta.credential_fields),
                 "optional_credential_effect": meta.optional_credential_effect,

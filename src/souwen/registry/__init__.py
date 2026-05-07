@@ -15,7 +15,7 @@
     - lazy —— 客户端类的字符串懒加载（loader.py）
     - get / all_adapters / by_domain / by_capability / by_domain_and_capability /
       defaults_for / all_domains / all_capabilities / fetch_providers / high_risk_sources /
-      enum_values / as_all_sources_dict
+      enum_values
       —— 查询视图（views.py）
 
 设计参见 `local/v1-初步定义.md §5` 与 `local/重构计划.md §1.3`。
@@ -54,7 +54,6 @@ from souwen.registry.views import (
     all_adapters,
     all_capabilities,
     all_domains,
-    as_all_sources_dict,
     by_capability,
     by_domain,
     by_domain_and_capability,
@@ -112,7 +111,6 @@ __all__ = [
     "fetch_providers",
     "high_risk_sources",
     "enum_values",
-    "as_all_sources_dict",
     "external_plugins",
     # catalog
     "SourceCatalogEntry",

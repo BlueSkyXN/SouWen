@@ -528,27 +528,32 @@ class TestCLI:
         assert "已配置" in short_masked
         assert "ab" not in short_masked
 
-    def test_cli_all_sources_data(self):
-        """数据源清单完整性（v1 从 registry 派生）
+    def test_cli_source_catalog_data(self):
+        """数据源清单完整性。"""
+        from souwen.registry.catalog import public_source_catalog
 
-        注意：v0 的 `ALL_SOURCES` 与 `source_meta` 之间存在漂移
-        （bing_cn / ddg_news / ddg_images / ddg_videos / metaso / twitter / facebook
-        在 source_meta 登记但 ALL_SOURCES 漏列）。
-        v1 统一由 registry 派生，修复漂移；因此 general/social 数字比 v0 更高。
-        """
-        from souwen.models import ALL_SOURCES
+        catalog = public_source_catalog()
+        counts: dict[str, int] = {}
+        for entry in catalog.values():
+            counts[entry.category] = counts.get(entry.category, 0) + 1
 
-        assert len(ALL_SOURCES["paper"]) == 18
-        assert len(ALL_SOURCES["patent"]) == 6
+        assert counts["paper"] == 18
+        assert counts["patent"] == 6
         total_web = sum(
-            len(ALL_SOURCES[c])
-            for c in ("general", "professional", "social", "developer", "wiki", "video")
+            counts[c]
+            for c in (
+                "web_general",
+                "web_professional",
+                "social",
+                "developer",
+                "knowledge",
+                "video",
+            )
         )
-        # v0 期望 31；v1 修复漂移后为 39
         assert total_web == 39
-        assert len(ALL_SOURCES["fetch"]) >= 21  # 21 内置 + 可能有外部插件
-        # cn_tech 拆分后独立源
-        assert len(ALL_SOURCES["cn_tech"]) == 9
+        assert counts["fetch"] == 17
+        assert counts["archive"] == 1
+        assert counts["cn_tech"] == 9
 
 
 class TestServer:
