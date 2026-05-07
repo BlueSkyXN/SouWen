@@ -36,7 +36,7 @@ from xml.etree import ElementTree
 from souwen.config import get_config
 from souwen.core.exceptions import ConfigError, ParseError, RateLimitError
 from souwen.core.http_client import SouWenHttpClient
-from souwen.models import SourceType, WebSearchResponse, WebSearchResult
+from souwen.models import WebSearchResponse, WebSearchResult
 
 logger = logging.getLogger("souwen.web.youtube")
 
@@ -342,7 +342,7 @@ class YouTubeClient(SouWenHttpClient):
 
         return WebSearchResponse(
             query=query,
-            source=SourceType.WEB_YOUTUBE,
+            source="youtube",
             results=results,
             total_results=len(results),
         )
@@ -409,7 +409,7 @@ class YouTubeClient(SouWenHttpClient):
 
             results.append(
                 WebSearchResult(
-                    source=SourceType.WEB_YOUTUBE,
+                    source="youtube",
                     title=title,
                     url=f"https://www.youtube.com/watch?v={video_id}",
                     snippet=description[: self.SNIPPET_MAX_LEN],
@@ -424,7 +424,7 @@ class YouTubeClient(SouWenHttpClient):
 
         return WebSearchResponse(
             query=query_label,
-            source=SourceType.WEB_YOUTUBE,
+            source="youtube",
             results=results,
             total_results=len(results),
         )
@@ -548,7 +548,7 @@ class YouTubeClient(SouWenHttpClient):
 
             results.append(
                 WebSearchResult(
-                    source=SourceType.WEB_YOUTUBE,
+                    source="youtube",
                     title=title,
                     url=f"https://www.youtube.com/watch?v={video_id}",
                     snippet=description[: self.SNIPPET_MAX_LEN],

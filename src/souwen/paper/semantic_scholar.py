@@ -55,7 +55,7 @@ from souwen.core.parsing import safe_parse_date
 from souwen.config import get_config
 from souwen.core.exceptions import NotFoundError, ParseError, RateLimitError
 from souwen.core.http_client import SouWenHttpClient
-from souwen.models import Author, PaperResult, SearchResponse, SourceType
+from souwen.models import Author, PaperResult, SearchResponse
 from souwen.core.rate_limiter import SlidingWindowLimiter
 
 logger = logging.getLogger(__name__)
@@ -175,7 +175,7 @@ class SemanticScholarClient:
                 doi=doi,
                 year=data.get("year"),
                 publication_date=safe_parse_date(data.get("publicationDate")),
-                source=SourceType.SEMANTIC_SCHOLAR,
+                source="semantic_scholar",
                 source_url=f"https://www.semanticscholar.org/paper/{data.get('paperId', '')}",
                 pdf_url=pdf_url,
                 citation_count=data.get("citationCount"),
@@ -240,7 +240,7 @@ class SemanticScholarClient:
             page=(offset // limit) + 1 if limit else 1,
             per_page=limit,
             results=results,
-            source=SourceType.SEMANTIC_SCHOLAR,
+            source="semantic_scholar",
         )
 
     async def get_paper(self, paper_id: str) -> PaperResult:

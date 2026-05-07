@@ -10,7 +10,6 @@ import logging
 
 from pydantic import BaseModel
 
-from souwen.models import SourceType
 from souwen.web.ddg_json import DDGJsonClient
 from souwen.web.ddg_utils import build_filter_string
 
@@ -22,7 +21,7 @@ _SAFESEARCH_MAP = {"on": "1", "moderate": "-1", "off": "-2"}
 class VideoSearchResult(BaseModel):
     """视频搜索结果"""
 
-    source: SourceType = SourceType.WEB_DDG_VIDEOS
+    source: str = "duckduckgo_videos"
     title: str
     url: str  # 视频页面 URL
     duration: str = ""
@@ -39,7 +38,7 @@ class VideoSearchResponse(BaseModel):
     """视频搜索响应"""
 
     query: str
-    source: SourceType = SourceType.WEB_DDG_VIDEOS
+    source: str = "duckduckgo_videos"
     results: list[VideoSearchResult] = []
     total_results: int = 0
 

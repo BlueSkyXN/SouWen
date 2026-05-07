@@ -6,7 +6,6 @@ from datetime import date
 import pytest
 
 from souwen.core.exceptions import ConfigError
-from souwen.models import SourceType
 from souwen.paper.ieee_xplore import IeeeXploreClient
 
 
@@ -55,7 +54,7 @@ class TestIeeeXplore:
         assert paper.pdf_url == "https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=1234567"
         assert paper.source_url == "https://doi.org/10.1109/TPAMI.2024.1234567"
         assert paper.open_access_url == "https://ieeexplore.ieee.org/document/1234567"
-        assert paper.source == SourceType.IEEE_XPLORE
+        assert paper.source == "ieee_xplore"
         assert paper.raw["article_number"] == "1234567"
         assert paper.raw["is_open_access"] is True
         assert paper.raw["start_page"] == 1

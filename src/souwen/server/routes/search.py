@@ -53,7 +53,7 @@ async def api_search_paper(
             results = await asyncio.wait_for(coro, timeout=timeout)
         else:
             results = await coro
-        succeeded = [r.source.value for r in results]
+        succeeded = [r.source for r in results]
         return {
             "query": q,
             "sources": source_list,
@@ -98,7 +98,7 @@ async def api_search_patent(
             results = await asyncio.wait_for(coro, timeout=timeout)
         else:
             results = await coro
-        succeeded = [r.source.value for r in results]
+        succeeded = [r.source for r in results]
         return {
             "query": q,
             "sources": source_list,

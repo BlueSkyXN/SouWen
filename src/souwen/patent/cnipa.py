@@ -60,7 +60,7 @@ import httpx
 from souwen.config import get_config
 from souwen.core.exceptions import ConfigError, NotFoundError, ParseError
 from souwen.core.http_client import OAuthClient
-from souwen.models import Applicant, PatentResult, SearchResponse, SourceType
+from souwen.models import Applicant, PatentResult, SearchResponse
 from souwen.core.rate_limiter import TokenBucketLimiter
 
 logger = logging.getLogger(__name__)
@@ -157,7 +157,7 @@ class CnipaClient:
 
         return SearchResponse(
             query=query,
-            source=SourceType.CNIPA,
+            source="cnipa",
             total_results=data.get("total", data.get("totalCount")),
             results=patents,
             page=(offset // per_page) + 1 if per_page else 1,
@@ -281,7 +281,7 @@ class CnipaClient:
         )
 
         return PatentResult(
-            source=SourceType.CNIPA,
+            source="cnipa",
             title=raw.get("title", raw.get("发明名称", "")),
             patent_id=patent_id,
             application_number=app_number,

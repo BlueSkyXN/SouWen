@@ -60,7 +60,7 @@ import httpx
 from souwen.config import get_config
 from souwen.core.exceptions import ConfigError, NotFoundError, ParseError, RateLimitError
 from souwen.core.http_client import SouWenHttpClient
-from souwen.models import Applicant, PatentResult, SearchResponse, SourceType
+from souwen.models import Applicant, PatentResult, SearchResponse
 from souwen.core.rate_limiter import SlidingWindowLimiter
 
 logger = logging.getLogger(__name__)
@@ -150,7 +150,7 @@ class TheLensClient:
         patents = [self._to_patent_result(item) for item in data.get("data", [])]
         return SearchResponse(
             query=str(query),
-            source=SourceType.THE_LENS,
+            source="the_lens",
             total_results=data.get("total"),
             results=patents,
             page=(offset // size) + 1 if size else 1,
@@ -337,7 +337,7 @@ class TheLensClient:
                 cpc_codes.append(code)
 
         return PatentResult(
-            source=SourceType.THE_LENS,
+            source="the_lens",
             title=raw.get("title", ""),
             patent_id=patent_id,
             application_number=raw.get("application_number"),

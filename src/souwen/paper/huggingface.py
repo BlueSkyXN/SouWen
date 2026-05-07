@@ -40,7 +40,7 @@ from urllib.parse import quote
 
 from souwen.core.exceptions import ParseError
 from souwen.core.http_client import SouWenHttpClient
-from souwen.models import Author, PaperResult, SearchResponse, SourceType
+from souwen.models import Author, PaperResult, SearchResponse
 from souwen.core.rate_limiter import TokenBucketLimiter
 
 logger = logging.getLogger(__name__)
@@ -154,7 +154,7 @@ class HuggingFaceClient:
                 doi=None,
                 year=year,
                 publication_date=pub_date,
-                source=SourceType.HUGGINGFACE,
+                source="huggingface",
                 source_url=source_url,
                 pdf_url=pdf_url,
                 citation_count=None,  # HF 不提供引用数
@@ -212,5 +212,5 @@ class HuggingFaceClient:
             page=1,
             per_page=top_n,
             results=results,
-            source=SourceType.HUGGINGFACE,
+            source="huggingface",
         )

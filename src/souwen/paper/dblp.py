@@ -40,7 +40,7 @@ from typing import Any
 
 from souwen.core.exceptions import ParseError
 from souwen.core.http_client import SouWenHttpClient
-from souwen.models import Author, PaperResult, SearchResponse, SourceType
+from souwen.models import Author, PaperResult, SearchResponse
 from souwen.core.rate_limiter import TokenBucketLimiter
 
 logger = logging.getLogger(__name__)
@@ -142,7 +142,7 @@ class DblpClient:
                 doi=doi,
                 year=year,
                 publication_date=None,
-                source=SourceType.DBLP,
+                source="dblp",
                 source_url=url,
                 pdf_url=None,  # DBLP 不直接提供 PDF 链接
                 citation_count=None,
@@ -208,7 +208,7 @@ class DblpClient:
             page=(first // hits) + 1 if hits else 1,
             per_page=hits,
             results=results,
-            source=SourceType.DBLP,
+            source="dblp",
         )
 
     async def get_author(self, name: str) -> list[dict[str, Any]]:

@@ -20,7 +20,6 @@ import pytest
 from pytest_httpx import HTTPXMock
 
 from souwen.paper.crossref import CrossrefClient
-from souwen.models import SourceType
 
 
 # ---------------------------------------------------------------------------
@@ -85,7 +84,7 @@ async def test_search_basic(httpx_mock: HTTPXMock):
     async with CrossrefClient(mailto="test@test.com") as c:
         resp = await c.search("alphafold protein")
 
-    assert resp.source == SourceType.CROSSREF
+    assert resp.source == "crossref"
     assert resp.total_results == 42
     assert resp.page == 1
     assert len(resp.results) == 1
@@ -99,7 +98,7 @@ async def test_search_basic(httpx_mock: HTTPXMock):
     assert paper.journal == "Nature"
     assert paper.source_url == "https://doi.org/10.1038/s41586-021-03819-2"
     assert paper.pdf_url == "https://example.com/paper.pdf"
-    assert paper.source == SourceType.CROSSREF
+    assert paper.source == "crossref"
 
 
 async def test_search_authors(httpx_mock: HTTPXMock):

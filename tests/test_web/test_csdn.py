@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 
-from souwen.models import SourceType, WebSearchResponse
+from souwen.models import WebSearchResponse
 from souwen.web.csdn import CSDNClient, _clean_html
 
 
@@ -66,7 +66,7 @@ class TestCSDNClient:
             resp = await client.search("Python", max_results=10)
 
         assert isinstance(resp, WebSearchResponse)
-        assert resp.source == SourceType.WEB_CSDN
+        assert resp.source == "csdn"
         assert resp.query == "Python"
         assert len(resp.results) == 2
         assert resp.results[0].title == "Python 异步编程"

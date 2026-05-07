@@ -22,16 +22,6 @@ from __future__ import annotations
 
 import pytest
 
-from souwen.models import SourceType
-
-# 检查 WEB_METASO 是否已注册
-if "web_metaso" not in SourceType._value2member_map_:  # type: ignore[attr-defined]
-    pytest.skip(
-        "SourceType.WEB_METASO 尚未注册，跳过 Metaso 客户端测试（待集成步骤完成）",
-        allow_module_level=True,
-    )
-
-
 from souwen.core.exceptions import ConfigError, ParseError  # noqa: E402
 from souwen.web.metaso import MetasoClient  # noqa: E402
 
@@ -120,7 +110,7 @@ async def test_search_document_scope(httpx_mock):
         resp = await client.search("AI", scope="document", max_results=10)
 
     assert resp.query == "AI"
-    assert resp.source.value == "web_metaso"
+    assert resp.source == "metaso"
     assert len(resp.results) == 1
 
     first = resp.results[0]
@@ -128,7 +118,7 @@ async def test_search_document_scope(httpx_mock):
     assert first.url == "https://example.com/doc1"
     assert first.snippet == "关于 AI 的深度研究文档"
     assert first.engine == "metaso"
-    assert first.source.value == "web_metaso"
+    assert first.source == "metaso"
     assert first.raw["source_name"] == "学术期刊"
 
     # 验证请求参数

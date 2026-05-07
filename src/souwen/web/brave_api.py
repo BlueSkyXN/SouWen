@@ -31,7 +31,7 @@
     - souwen.config: 获取 API Key 和全局配置
     - souwen.core.exceptions: ConfigError, ParseError 异常
     - souwen.core.http_client: SouWenHttpClient HTTP 客户端基类
-    - souwen.models: SourceType, WebSearchResult, WebSearchResponse 数据模型
+    - souwen.models: str, WebSearchResult, WebSearchResponse 数据模型
 
 技术要点：
     - API 端点：/res/v1/web/search
@@ -49,7 +49,7 @@ from typing import Any
 from souwen.config import get_config
 from souwen.core.exceptions import ConfigError
 from souwen.core.http_client import SouWenHttpClient
-from souwen.models import SourceType, WebSearchResult, WebSearchResponse
+from souwen.models import WebSearchResult, WebSearchResponse
 
 logger = logging.getLogger("souwen.web.brave_api")
 
@@ -146,7 +146,7 @@ class BraveApiClient(SouWenHttpClient):
                 raw["family_friendly"] = item["family_friendly"]
             results.append(
                 WebSearchResult(
-                    source=SourceType.WEB_BRAVE_API,
+                    source="brave_api",
                     title=title,
                     url=url,
                     snippet=item.get("description", "").strip(),
@@ -159,7 +159,7 @@ class BraveApiClient(SouWenHttpClient):
 
         return WebSearchResponse(
             query=query,
-            source=SourceType.WEB_BRAVE_API,
+            source="brave_api",
             results=results,
             total_results=len(results),
         )

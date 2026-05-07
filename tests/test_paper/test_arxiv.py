@@ -23,7 +23,6 @@ import pytest
 from pytest_httpx import HTTPXMock
 
 from souwen.paper.arxiv import ArxivClient
-from souwen.models import SourceType
 
 
 # ---------------------------------------------------------------------------
@@ -115,7 +114,7 @@ async def test_search_basic(httpx_mock: HTTPXMock):
     async with ArxivClient() as c:
         resp = await c.search("attention transformer")
 
-    assert resp.source == SourceType.ARXIV
+    assert resp.source == "arxiv"
     assert resp.total_results == 1
     assert resp.page == 1
     assert len(resp.results) == 1
@@ -126,7 +125,7 @@ async def test_search_basic(httpx_mock: HTTPXMock):
     assert paper.year == 2017
     assert paper.publication_date == date(2017, 6, 12)
     assert paper.citation_count is None  # arXiv 不提供引用数
-    assert paper.source == SourceType.ARXIV
+    assert paper.source == "arxiv"
     assert paper.source_url == "http://arxiv.org/abs/1706.03762v7"
     assert "1706.03762" in paper.pdf_url
 

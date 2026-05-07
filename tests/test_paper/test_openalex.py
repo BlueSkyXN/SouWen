@@ -19,7 +19,6 @@ import pytest
 from pytest_httpx import HTTPXMock
 
 from souwen.paper.openalex import OpenAlexClient
-from souwen.models import SourceType
 
 
 # ---------------------------------------------------------------------------
@@ -89,7 +88,7 @@ async def test_search_basic(httpx_mock: HTTPXMock, monkeypatch):
     async with OpenAlexClient(mailto="test@test.com") as c:
         resp = await c.search("attention transformer")
 
-    assert resp.source == SourceType.OPENALEX
+    assert resp.source == "openalex"
     assert resp.total_results == 1
     assert resp.page == 1
     assert len(resp.results) == 1
@@ -101,7 +100,7 @@ async def test_search_basic(httpx_mock: HTTPXMock, monkeypatch):
     assert paper.citation_count == 90000
     assert paper.journal == "Nature"
     assert paper.pdf_url == "https://arxiv.org/pdf/1706.03762"
-    assert paper.source == SourceType.OPENALEX
+    assert paper.source == "openalex"
     assert paper.source_url == "https://openalex.org/W2741809807"
 
 

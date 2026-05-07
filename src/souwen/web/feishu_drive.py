@@ -45,7 +45,7 @@
     - souwen.config：获取 app_id / app_secret
     - souwen.core.exceptions：ConfigError
     - souwen.core.http_client：SouWenHttpClient
-    - souwen.models：SourceType / WebSearchResult / WebSearchResponse
+    - souwen.models：WebSearchResult / WebSearchResponse
 
 技术要点：
     - Token 端点：POST /open-apis/auth/v3/tenant_access_token/internal
@@ -70,7 +70,7 @@ from typing import Any
 
 from souwen.config import get_config
 from souwen.core.http_client import SouWenHttpClient
-from souwen.models import SourceType, WebSearchResponse, WebSearchResult
+from souwen.models import WebSearchResponse, WebSearchResult
 
 logger = logging.getLogger("souwen.web.feishu_drive")
 
@@ -275,7 +275,7 @@ class FeishuDriveClient(SouWenHttpClient):
             logger.warning("飞书云文档搜索请求失败 (query=%s): %s", query, e)
             return WebSearchResponse(
                 query=query,
-                source=SourceType.WEB_FEISHU_DRIVE,
+                source="feishu_drive",
                 results=results,
                 total_results=0,
             )
@@ -286,7 +286,7 @@ class FeishuDriveClient(SouWenHttpClient):
             logger.warning("飞书云文档搜索响应解析失败 (query=%s): %s", query, e)
             return WebSearchResponse(
                 query=query,
-                source=SourceType.WEB_FEISHU_DRIVE,
+                source="feishu_drive",
                 results=results,
                 total_results=0,
             )
@@ -301,7 +301,7 @@ class FeishuDriveClient(SouWenHttpClient):
             )
             return WebSearchResponse(
                 query=query,
-                source=SourceType.WEB_FEISHU_DRIVE,
+                source="feishu_drive",
                 results=results,
                 total_results=0,
             )
@@ -325,7 +325,7 @@ class FeishuDriveClient(SouWenHttpClient):
 
                 results.append(
                     WebSearchResult(
-                        source=SourceType.WEB_FEISHU_DRIVE,
+                        source="feishu_drive",
                         title=title,
                         url=url,
                         snippet="",
@@ -358,7 +358,7 @@ class FeishuDriveClient(SouWenHttpClient):
 
         return WebSearchResponse(
             query=query,
-            source=SourceType.WEB_FEISHU_DRIVE,
+            source="feishu_drive",
             results=results,
             total_results=total_int,
         )
