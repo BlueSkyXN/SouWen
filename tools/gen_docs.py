@@ -56,6 +56,7 @@ def render(*, include_plugins: bool = False) -> str:
 
     try:
         from souwen.registry import all_adapters, all_domains, external_plugins
+        from souwen.registry.catalog import public_source_catalog, source_categories
         from souwen.registry.meta import (
             AUTH_REQUIREMENT_LABELS,
             DISTRIBUTION_LABELS,
@@ -72,27 +73,30 @@ def render(*, include_plugins: bool = False) -> str:
 
     loaded_adapters = all_adapters()
     external_names = set(external_plugins())
+    public_catalog = public_source_catalog()
     adapters = {
         name: adapter
         for name, adapter in loaded_adapters.items()
-        if include_plugins or name not in external_names
+        if name in public_catalog and (include_plugins or name not in external_names)
     }
     visible_external_count = len(external_names) if include_plugins else 0
+    hidden_or_internal_count = len(loaded_adapters) - len(public_catalog)
+    category_labels = {category.key: category.label for category in source_categories()}
 
     lines: list[str] = []
     lines.append("# SouWen 数据源指南与清单")
     lines.append("")
     lines.append(
-        f"**总计**：**{len(adapters)}** 个数据源（从 registry 自动生成；"
-        f"其中外部插件 **{visible_external_count}** 个）。"
+        f"**总计**：**{len(adapters)}** 个公开数据源（从正式 Source Catalog 自动生成；"
+        f"其中外部插件 **{visible_external_count}** 个，隐藏/内部源 **{hidden_or_internal_count}** 个）。"
     )
     lines.append("")
     lines.append("## 事实来源")
     lines.append("")
     lines.append(
         "本页不是手工维护的静态表，而是由 `src/souwen/registry/sources/` 中的 "
-        "`SourceAdapter` 声明经 `tools/gen_docs.py` 生成。`SourceAdapter` 同时驱动 "
-        "CLI、REST API、doctor、Panel 和插件视图。"
+        "`SourceAdapter` 声明投影为正式 Source Catalog 后，经 `tools/gen_docs.py` 生成。"
+        "`SourceAdapter` 同时驱动 CLI、REST API、doctor、Panel 和插件视图。"
     )
     lines.append("")
     lines.append(
@@ -108,8 +112,13 @@ def render(*, include_plugins: bool = False) -> str:
         "`video` / `knowledge` / `developer` / `cn_tech` / `office` / `archive` / `fetch`。"
     )
     lines.append(
-        "- `/api/v1/sources` 和 Panel 使用兼容分类：`general` / `professional` 会拆分 "
-        "`web` 源，`knowledge` 显示为 `wiki`，`archive` 与跨域抓取能力归入 `fetch`。"
+        "- 正式 Source Catalog 使用展示分类："
+        + " / ".join(f"`{key}`（{label}）" for key, label in category_labels.items())
+        + "。"
+    )
+    lines.append(
+        "- `/api/v1/sources` 和 Panel 在过渡期仍使用兼容分类：`general` / `professional` "
+        "会拆分 `web` 源，`knowledge` 显示为 `wiki`，`archive` 与跨域抓取能力归入 `fetch`。"
     )
     lines.append(
         "- `Capabilities` 是门面层可派发能力；`fetch` 既可以是主 domain，也可以是 "

@@ -25,6 +25,7 @@ from __future__ import annotations
 
 from souwen.registry.adapter import (
     AUTH_REQUIREMENTS,
+    CATALOG_VISIBILITIES,
     CAPABILITIES,
     DISTRIBUTIONS,
     DOMAINS,
@@ -34,8 +35,19 @@ from souwen.registry.adapter import (
     OPTIONAL_CREDENTIAL_EFFECTS,
     RISK_LEVELS,
     RISK_REASONS,
+    SOURCE_CATEGORIES,
     SourceAdapter,
     STABILITIES,
+)
+from souwen.registry.catalog import (
+    SourceCatalogEntry,
+    SourceCategory,
+    available_source_catalog,
+    default_source_map,
+    public_source_catalog,
+    source_catalog,
+    source_categories,
+    sources_by_category,
 )
 from souwen.registry.loader import lazy
 from souwen.registry.views import (
@@ -79,6 +91,8 @@ __all__ = [
     "CAPABILITIES",
     "INTEGRATIONS",
     "AUTH_REQUIREMENTS",
+    "SOURCE_CATEGORIES",
+    "CATALOG_VISIBILITIES",
     "OPTIONAL_CREDENTIAL_EFFECTS",
     "RISK_LEVELS",
     "RISK_REASONS",
@@ -100,4 +114,13 @@ __all__ = [
     "enum_values",
     "as_all_sources_dict",
     "external_plugins",
+    # catalog
+    "SourceCatalogEntry",
+    "SourceCategory",
+    "source_catalog",
+    "public_source_catalog",
+    "sources_by_category",
+    "source_categories",
+    "default_source_map",
+    "available_source_catalog",
 ]
