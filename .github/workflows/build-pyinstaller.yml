@@ -214,6 +214,7 @@ jobs:
             --hidden-import=souwen.server.routes \
             --hidden-import=souwen.integrations \
             --hidden-import=souwen.integrations.mcp_server \
+            --collect-submodules=souwen.registry.sources \
             --collect-submodules=rich._unicode_data \
             cli.py
 
@@ -228,6 +229,7 @@ jobs:
             --hidden-import=souwen.server.routes \
             --exclude-module=souwen.integrations \
             --exclude-module=mcp \
+            --collect-submodules=souwen.registry.sources \
             --collect-submodules=rich._unicode_data \
             cli.py
 
@@ -243,23 +245,24 @@ jobs:
             --exclude-module=mcp \
             --exclude-module=pkg_resources \
             --exclude-module=setuptools \
+            --collect-submodules=souwen.registry.sources \
             --collect-submodules=rich._unicode_data \
             cli.py
 
       - name: Build with PyInstaller (Windows - Full)
         if: runner.os == 'Windows' && matrix.build_type == 'full'
         run: |
-          pyinstaller --onefile --clean --name ${{ env.APP_NAME }} --paths src --add-data "src/souwen/server/panel.html;souwen/server" --hidden-import=souwen.server --hidden-import=souwen.server.app --hidden-import=souwen.server.routes --hidden-import=souwen.integrations --hidden-import=souwen.integrations.mcp_server --collect-submodules=rich._unicode_data cli.py
+          pyinstaller --onefile --clean --name ${{ env.APP_NAME }} --paths src --add-data "src/souwen/server/panel.html;souwen/server" --hidden-import=souwen.server --hidden-import=souwen.server.app --hidden-import=souwen.server.routes --hidden-import=souwen.integrations --hidden-import=souwen.integrations.mcp_server --collect-submodules=souwen.registry.sources --collect-submodules=rich._unicode_data cli.py
 
       - name: Build with PyInstaller (Windows - Server)
         if: runner.os == 'Windows' && matrix.build_type == 'server'
         run: |
-          pyinstaller --onefile --clean --name ${{ env.APP_NAME }} --paths src --add-data "src/souwen/server/panel.html;souwen/server" --hidden-import=souwen.server --hidden-import=souwen.server.app --hidden-import=souwen.server.routes --exclude-module=souwen.integrations --exclude-module=mcp --collect-submodules=rich._unicode_data cli.py
+          pyinstaller --onefile --clean --name ${{ env.APP_NAME }} --paths src --add-data "src/souwen/server/panel.html;souwen/server" --hidden-import=souwen.server --hidden-import=souwen.server.app --hidden-import=souwen.server.routes --exclude-module=souwen.integrations --exclude-module=mcp --collect-submodules=souwen.registry.sources --collect-submodules=rich._unicode_data cli.py
 
       - name: Build with PyInstaller (Windows - CLI)
         if: runner.os == 'Windows' && matrix.build_type == 'cli'
         run: |
-          pyinstaller --onefile --clean --name ${{ env.APP_NAME }} --paths src --exclude-module=souwen.server --exclude-module=souwen.integrations --exclude-module=fastapi --exclude-module=uvicorn --exclude-module=mcp --exclude-module=pkg_resources --exclude-module=setuptools --collect-submodules=rich._unicode_data cli.py
+          pyinstaller --onefile --clean --name ${{ env.APP_NAME }} --paths src --exclude-module=souwen.server --exclude-module=souwen.integrations --exclude-module=fastapi --exclude-module=uvicorn --exclude-module=mcp --exclude-module=pkg_resources --exclude-module=setuptools --collect-submodules=souwen.registry.sources --collect-submodules=rich._unicode_data cli.py
 
       - name: Verify bundled CLI (Unix)
         if: runner.os != 'Windows'

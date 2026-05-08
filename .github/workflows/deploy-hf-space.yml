@@ -190,6 +190,7 @@ jobs:
             --exclude-module=mcp \
             --exclude-module=pkg_resources \
             --exclude-module=setuptools \
+            --collect-submodules=souwen.registry.sources \
             --collect-submodules=rich._unicode_data \
             cli.py
 
