@@ -143,7 +143,7 @@ curl "http://localhost:8000/api/v1/sources"
 
 配置优先级：env > `./souwen.yaml` > `~/.config/souwen/config.yaml` > `.env` > 默认值。
 
-首次运行 `souwen config init` 会在 `~/.config/souwen/config.yaml` 生成模板。
+运行 `souwen config init` 会在当前目录生成 `./souwen.yaml` 模板；需要全局配置时，可将模板复制到 `~/.config/souwen/config.yaml`。
 
 ## 🏗 架构
 
