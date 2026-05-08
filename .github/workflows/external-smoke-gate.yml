@@ -147,6 +147,7 @@ jobs:
       - name: Create or update nightly failure issue
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           MARKER: "<!-- external-smoke-nightly-failure -->"
         run: |
           set -euo pipefail
@@ -220,6 +221,7 @@ jobs:
       - name: Close recovered nightly failure issue
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           MARKER: "<!-- external-smoke-nightly-failure -->"
         run: |
           set -euo pipefail
