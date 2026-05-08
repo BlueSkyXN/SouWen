@@ -58,7 +58,7 @@ asyncio.run(main())
 ## API Server
 
 ```bash
-souwen serve --host 0.0.0.0 --port 8000
+SOUWEN_ADMIN_PASSWORD=adminpass souwen serve --host 0.0.0.0 --port 8000
 ```
 
 常用端点：
@@ -68,9 +68,12 @@ curl "http://localhost:8000/api/v1/search/paper?q=transformer&per_page=5"
 curl "http://localhost:8000/api/v1/search/web?q=python&per_page=5"
 curl "http://localhost:8000/api/v1/sources"
 curl "http://localhost:8000/api/v1/fetch" \
+  -H "Authorization: Bearer adminpass" \
   -H "Content-Type: application/json" \
   -d '{"urls":["https://example.com"],"providers":["builtin"]}'
 ```
+
+`/api/v1/fetch`、`/api/v1/links` 和 `/api/v1/sitemap` 属于管理端抓取能力，需要 Admin Bearer Token。需要同时保护搜索和 `/api/v1/sources` 时，再设置 `SOUWEN_USER_PASSWORD`。
 
 启动后访问 `/docs` 查看 OpenAPI，访问 `/panel#/` 使用 Web Panel。
 

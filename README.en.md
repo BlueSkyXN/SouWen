@@ -123,7 +123,7 @@ asyncio.run(main())
 ### API Server
 
 ```bash
-souwen serve --host 0.0.0.0 --port 8000
+SOUWEN_ADMIN_PASSWORD=adminpass souwen serve --host 0.0.0.0 --port 8000
 ```
 
 Main endpoints:
@@ -131,10 +131,15 @@ Main endpoints:
 ```bash
 curl "http://localhost:8000/api/v1/search/paper?q=transformer&per_page=5"
 curl "http://localhost:8000/api/v1/search/web?q=python"
-curl "http://localhost:8000/api/v1/fetch" -X POST -d '{"urls":["https://example.com"]}'
+curl "http://localhost:8000/api/v1/fetch" \
+  -H "Authorization: Bearer adminpass" \
+  -H "Content-Type: application/json" \
+  -d '{"urls":["https://example.com"]}'
 curl "http://localhost:8000/api/v1/wayback/cdx?url=https://example.com"
 curl "http://localhost:8000/api/v1/sources"
 ```
+
+`/api/v1/fetch`, `/api/v1/links`, and `/api/v1/sitemap` are admin-protected fetch capabilities and require an Admin Bearer token. Search endpoints and `/api/v1/sources` can be protected separately with `SOUWEN_USER_PASSWORD`.
 
 Visit `/docs` for the full OpenAPI documentation; visit `/panel#/` to enter the Web UI (default: souwen-google skin). `/` redirects to `/docs` with the default configuration.
 
