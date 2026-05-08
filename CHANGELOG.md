@@ -1,6 +1,11 @@
 # Changelog
 
-## v2.0.0rc1 — v2 完全迁移候选版（2026-05-05）
+## v2.0.0rc1 — v2 Release Candidate（2026-05-08）
+
+### Release Status
+- `v2-dev` 已进入 release candidate smoke 阶段；当前候选线用于验证真实用户路径和目标发布路径，不再继续围绕 PR6-PR9 做开放式重构。
+- 公开版本号固定为 `2.0.0rc1`（Python / runtime / README / API 示例）和 `2.0.0-rc1`（Panel package）。
+- PyPI 发布不在本轮范围；正式 Go / No-Go 以 RC readiness report、External Smoke Gate、clean install、server/auth、Panel、docs walk-through 和目标发布路径验证为准。
 
 ### Breaking Changes
 - 删除 `souwen.facade`、`souwen.source_registry`、顶层 core shim、`souwen.scraper`、域级 re-export 包，以及 `souwen.web.engines` / `souwen.web.api` / `souwen.web.self_hosted` 分组 re-export。
@@ -8,18 +13,32 @@
 - Registry 元数据入口迁移到 `souwen.registry.meta`，内置源声明迁移为 `souwen.registry.sources` package。
 - 服务端认证配置移除旧统一/访客密码字段，使用 `user_password`、`admin_password` 和 `guest_enabled` 表达 User/Admin/Guest 访问语义。
 
+### Architecture
+- Source Catalog 成为 Source metadata、capability、credential、risk、distribution、docs、API、CLI 和 Panel 的正式派生中心。
+- result `source` 字段标准化为 adapter name，避免历史 category/name 双轨。
+- 插件加载显式化，避免 registry import 阶段自动执行第三方 entry point。
+- Fetch API 支持 `fallback` / `fanout` 策略，多 provider 行为与签名一致。
+- 内置 source registry 拆分为 `registry/sources/` package，降低单文件事实源维护压力。
+
+### Public Surface
+- 保留的 public API surface 聚焦在 `souwen.search`、`souwen.web.fetch`、`souwen.web.wayback`、`souwen.registry`、CLI `souwen` 和 `/api/v1`。
+- 旧 facade、domain re-export、top-level shim 和旧 web grouping package 不再作为 public contract。
+- README、API reference、source catalog docs 和 plugin spec 按当前 v2 架构重写，不再以迁移说明作为公开叙事。
+
 ### Validation
 - 新增 import surface 测试，明确新 public imports 可用、旧兼容路径不可 import。
 - 发布候选版要求 wheel surface 检查，确认构建产物不包含已删除旧模块。
+- `V2 CI` 覆盖 bootstrap/import/wheel、pytest matrix、server/minimal/full/plugin profiles、Panel typecheck/test/build 和 release readiness summary。
+- `scripts/ci/check_no_legacy_terms.py` 防止旧 import surface 和迁移期术语回流到 public surface。
 
-## [Unreleased] — Source Catalog Governance（2026-05-02）
+### Source Catalog Governance（2026-05-02）
 
-### Features
+#### Features
 - **feat(registry)**：扩展 `SourceAdapter` / `SourceMeta`，新增 `auth_requirement`、`credential_fields`、`optional_credential_effect`、`risk_level`、`risk_reasons`、`distribution`、`package_extra`、`stability` 等 source catalog 元数据。
 - **feat(doctor/server/cli)**：统一 doctor、`/sources`、admin source config、`souwen sources` 与 `souwen config source` 的鉴权/风险/分发展示口径，并支持多字段凭据。
 - **feat(panel)**：更新 source 相关 API 类型，并在 souwen-google / souwen-nebula 数据源页展示风险与分发标签。
 
-### Behavior
+#### Behavior
 - 可选凭据源不再被粗略显示为"必须 Key"；缺少可选 Key 时按 `optional_credential_effect` 显示 `ok` 或 `limited`。
 - doctor 与 admin doctor 汇总现在区分严格 `ok`、可用 `available`、降级总数 `degraded_total` 与失败 `failed`；`degraded` 保留为兼容别名。
 - `/api/v1/sources` 从运行时 live registry 派生，插件注册/注销后的数据源不会被静态兼容视图缓存误报。
@@ -30,24 +49,24 @@
 - `unpaywall` 按实际客户端要求改为必须 `unpaywall_email`，继续保留在实验/排除旧 `ALL_SOURCES` 视图中。
 - `tools/gen_docs.py` 默认只生成内置源清单，避免本机已安装外部插件造成文档漂移；可用 `--include-plugins` 查看运行时插件 catalog。
 
-### Docs
+#### Docs
 - 更新 README、架构文档、新增数据源指南、插件对接规范、API 文档和自动生成的数据源清单。
 
-### Tests
+#### Tests
 - 增加 registry catalog 元数据合法性、多字段凭据、source catalog 维度查询、server/API 返回字段等测试覆盖。
 
-## [Unreleased] — 全面评审修复（2026-04-29）
+### Panel and API Review Fixes（2026-04-29）
 
-### Bug Fixes
+#### Bug Fixes
 - **fix(panel)**：修正 Wayback Save 前端调用路径（`/api/v1/wayback/save` → `/api/v1/admin/wayback/save`）。原路径与后端 admin 路由前缀不一致，导致所有 5 个皮肤的 ToolsPage 中"存档"按钮固定 404。
 - **fix(panel)**：补齐 `souwen-google` 皮肤 `PAGE_TITLE_KEYS` 缺失的 `/warp` 路径标题映射，避免落到默认 `nav.dashboard`。
 - **fix(panel/skins)**：carbon / apple / ios 三个皮肤补齐 `/video` 与 `/tools` 导航入口，与 souwen-google / souwen-nebula 保持一致；之前路由已注册但侧栏不可达。
 - **fix(panel/skins)**：更新 souwen-google / souwen-nebula 的 `MainLayout.tsx` 顶部注释，反映当前 9 个 NAV_ITEMS（dashboard / search / fetch / video / tools / sources / network / warp / config）。
 
-### Refactor
+#### Refactor
 - **refactor(server/routes)**：把 `/admin/wayback/save` 端点从 `routes/admin/warp.py` 拆出到独立的 `routes/admin/wayback.py`，保持 SRP；`admin_router` 在 `routes/admin/__init__.py` 中合并新模块。
 
-### Docs
+#### Docs
 - **docs(README)**：更正 fetch 横切能力计数（15+4 → 16+4 = 20 源），与 `docs/data-sources.md` 自动生成结果对齐。
 - **docs(api-reference)**：更新示例 JSON 中过期的 `version` 字段（0.6.3 → 1.1.1），并补充"动态返回，示例值仅作参考"的说明。
 - **docs(api-reference)**：补齐 fetch provider 列表中遗漏的 `arxiv_fulltext`，并把"19 个提供者"修正为"20 个"，与 registry 实际注册一致。
@@ -113,7 +132,7 @@
 ### Docs
 - 新增 WARP 方案对比文档：`docs/warp-solutions.md`
 
-## [Unreleased] — Plugin System
+## Pre-RC note — Plugin System
 
 ### Architecture
 - 新增插件系统：通过 setuptools entry_points 或配置文件发现外部数据源
