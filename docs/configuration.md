@@ -17,12 +17,14 @@
 ## 快速开始
 
 ```bash
-# 生成配置模板
+# 在当前目录生成 ./souwen.yaml 配置模板
 souwen config init
 
 # 查看当前配置（API Key 脱敏显示）
 souwen config show
 ```
+
+需要用户级配置时，可将生成的 `./souwen.yaml` 复制到 `~/.config/souwen/config.yaml`。
 
 也可以复制 `.env.example` 为 `.env` 后按需填写：
 
