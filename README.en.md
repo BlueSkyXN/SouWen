@@ -142,7 +142,7 @@ Visit `/docs` for the full OpenAPI documentation; visit `/panel#/` to enter the 
 
 Config priority: env > `./souwen.yaml` > `~/.config/souwen/config.yaml` > `.env` > defaults.
 
-Run `souwen config init` to generate a template at `~/.config/souwen/config.yaml`.
+Run `souwen config init` to generate a `./souwen.yaml` template in the current directory. Copy it to `~/.config/souwen/config.yaml` if you want a user-level config.
 
 ## 🏗 Architecture
 
