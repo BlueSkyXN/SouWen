@@ -124,7 +124,7 @@ asyncio.run(main())
 ### API Server
 
 ```bash
-souwen serve --host 0.0.0.0 --port 8000
+SOUWEN_ADMIN_PASSWORD=adminpass souwen serve --host 0.0.0.0 --port 8000
 ```
 
 主要端点：
@@ -132,10 +132,15 @@ souwen serve --host 0.0.0.0 --port 8000
 ```bash
 curl "http://localhost:8000/api/v1/search/paper?q=transformer&per_page=5"
 curl "http://localhost:8000/api/v1/search/web?q=python"
-curl "http://localhost:8000/api/v1/fetch" -X POST -d '{"urls":["https://example.com"]}'
+curl "http://localhost:8000/api/v1/fetch" \
+  -H "Authorization: Bearer adminpass" \
+  -H "Content-Type: application/json" \
+  -d '{"urls":["https://example.com"]}'
 curl "http://localhost:8000/api/v1/wayback/cdx?url=https://example.com"
 curl "http://localhost:8000/api/v1/sources"
 ```
+
+`/api/v1/fetch`、`/api/v1/links` 和 `/api/v1/sitemap` 属于管理端抓取能力，需要 Admin Bearer Token；搜索和 `/api/v1/sources` 可再通过 `SOUWEN_USER_PASSWORD` 单独保护。
 
 访问 `/docs` 查看完整 OpenAPI 文档；访问 `/panel#/` 进入 Web UI（默认 souwen-google 皮肤）。`/` 在默认配置下重定向到 `/docs`。
 

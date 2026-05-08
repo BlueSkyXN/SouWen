@@ -114,7 +114,7 @@ _reg(SourceAdapter(
 
 ### 懒加载
 
-注册表模块导入时**不**加载 93 个内置源对应的 Client：
+注册表模块导入时**不**加载 94 个内置源对应的 Client：
 
 ```python
 client_loader=lazy("souwen.paper.openalex:OpenAlexClient")
