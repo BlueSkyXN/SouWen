@@ -86,6 +86,78 @@ async def test_search_papers_tool_uses_registry_defaults(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_search_patents_tool_uses_registry_defaults(monkeypatch):
+    """MCP 专利搜索省略 ``sources`` 时，也应透传 ``None`` 给 registry 默认源。"""
+    created: dict[str, _FakeServer] = {}
+
+    def fake_server_factory(name: str):
+        server = _FakeServer(name)
+        created["server"] = server
+        return server
+
+    monkeypatch.setattr(mcp_server, "Server", fake_server_factory, raising=False)
+    monkeypatch.setattr(mcp_server, "Tool", _FakeTool, raising=False)
+    monkeypatch.setattr(mcp_server, "TextContent", _FakeTextContent, raising=False)
+    monkeypatch.setattr(mcp_server, "get_bilibili_tools", lambda: [])
+    monkeypatch.setattr(mcp_server, "is_bilibili_tool", lambda name: False)
+
+    async def fake_dispatch(*args, **kwargs):
+        raise AssertionError("unexpected bilibili dispatch")
+
+    monkeypatch.setattr(mcp_server, "dispatch_bilibili_tool", fake_dispatch)
+
+    search_mod = importlib.import_module("souwen.search")
+    captured: dict = {}
+
+    async def fake_search_patents(query, sources=None, per_page=10, **kwargs):
+        captured["query"] = query
+        captured["sources"] = sources
+        captured["per_page"] = per_page
+        return []
+
+    monkeypatch.setattr(search_mod, "search_patents", fake_search_patents)
+
+    mcp_server.create_server()
+    server = created["server"]
+
+    tools = await server._list_tools()
+    patent_tool = next(tool for tool in tools if tool.name == "search_patents")
+    assert patent_tool.inputSchema["properties"]["sources"]["description"].endswith(
+        mcp_server._DEFAULT_PATENT_SOURCES_LABEL
+    )
+
+    result = await server._call_tool("search_patents", {"query": "foo"})
+    assert captured == {"query": "foo", "sources": None, "per_page": 5}
+    assert len(result) == 1
+    assert result[0].text == "[]"
+
+
+@pytest.mark.asyncio
+async def test_web_search_tool_mentions_registry_defaults(monkeypatch):
+    """MCP web_search 工具说明应同步 registry 的 web 默认源。"""
+    created: dict[str, _FakeServer] = {}
+
+    def fake_server_factory(name: str):
+        server = _FakeServer(name)
+        created["server"] = server
+        return server
+
+    monkeypatch.setattr(mcp_server, "Server", fake_server_factory, raising=False)
+    monkeypatch.setattr(mcp_server, "Tool", _FakeTool, raising=False)
+    monkeypatch.setattr(mcp_server, "TextContent", _FakeTextContent, raising=False)
+    monkeypatch.setattr(mcp_server, "get_bilibili_tools", lambda: [])
+
+    mcp_server.create_server()
+    tools = await created["server"]._list_tools()
+    web_tool = next(tool for tool in tools if tool.name == "web_search")
+
+    assert mcp_server._DEFAULT_WEB_ENGINES_LABEL in web_tool.description
+    assert web_tool.inputSchema["properties"]["engines"]["description"].endswith(
+        mcp_server._DEFAULT_WEB_ENGINES_LABEL
+    )
+
+
+@pytest.mark.asyncio
 async def test_fetch_content_tool_schema_mentions_scrapling(monkeypatch):
     """MCP fetch_content 工具说明应同步 fetch provider 能力。"""
     created: dict[str, _FakeServer] = {}

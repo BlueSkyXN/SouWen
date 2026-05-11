@@ -253,7 +253,7 @@ async def search_patents(
 
     Args:
         query: 搜索关键词
-        sources: 数据源列表；None 表示使用 registry 的默认源（默认 ["google_patents"]）
+        sources: 数据源列表；None 表示使用 registry 的默认专利源
         per_page: 每个源返回的结果数
         **kwargs: 额外参数
 

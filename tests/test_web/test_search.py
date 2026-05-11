@@ -166,6 +166,29 @@ async def test_web_search_aggregates_engines():
     assert engines == {"duckduckgo", "bing"}
 
 
+async def test_web_search_uses_registry_defaults(monkeypatch):
+    """省略 ``engines`` 时，应从 registry default_for 派生默认 Web 源。"""
+    from souwen.web import search as web_search_mod
+
+    ddg_resp = _make_engine_response(
+        "duckduckgo", [_make_result("duckduckgo", "DDG 1", "https://ddg1.com")]
+    )
+    monkeypatch.setattr(web_search_mod, "_default_web_engines", lambda: ["duckduckgo"])
+
+    async with _override_adapters(
+        {
+            "duckduckgo": _make_fake_client_class(search_resp=ddg_resp),
+            "bing": _make_fake_client_class(
+                search_exc=AssertionError("bing should not be selected")
+            ),
+        }
+    ):
+        result = await web_search_mod.web_search("test query")
+
+    assert len(result.results) == 1
+    assert result.results[0].engine == "duckduckgo"
+
+
 async def test_web_search_deduplication():
     r1 = _make_result("duckduckgo", "Page", "https://example.com")
     r2 = _make_result("bing", "Page", "https://example.com/")

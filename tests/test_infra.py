@@ -21,7 +21,10 @@
 - ``TestOAuthTokenConcurrency``：OAuth Token 并发刷新安全性
 """
 
+from pathlib import Path
+
 import pytest
+
 from souwen.models import (
     PaperResult,
     PatentResult,
@@ -52,6 +55,13 @@ from souwen.registry.meta import (
     get_sources_by_integration_type,
 )
 from souwen.registry.views import enum_values
+
+
+def test_project_urls_point_to_v2_dev_until_mergeback():
+    """v2-dev 的 wheel 元数据不能把文档和 changelog 指向尚未 mergeback 的 main。"""
+    pyproject = Path("pyproject.toml").read_text(encoding="utf-8")
+    assert 'Documentation = "https://github.com/BlueSkyXN/SouWen/tree/v2-dev/docs"' in pyproject
+    assert 'Changelog = "https://github.com/BlueSkyXN/SouWen/blob/v2-dev/CHANGELOG.md"' in pyproject
 
 
 class TestModels:

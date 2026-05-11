@@ -43,7 +43,7 @@ from souwen import search, search_papers, search_patents, web_search
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `query` | `str` | — | 搜索关键词 |
-| `sources` | `list[str] \| None` | `["google_patents"]` | 数据源列表 |
+| `sources` | `list[str] \| None` | `null`（registry `patent:search` 当前为 `["google_patents"]`） | 数据源列表 |
 | `per_page` | `int` | `10` | 每个源返回结果数 |
 
 #### `web_search(query, engines=None, max_results_per_engine=10)` → `WebSearchResponse`
@@ -53,7 +53,7 @@ from souwen import search, search_papers, search_patents, web_search
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `query` | `str` | — | 搜索关键词 |
-| `engines` | `list[str] \| None` | `["duckduckgo", "bing"]` | 引擎列表 |
+| `engines` | `list[str] \| None` | `null`（registry `web:search` 当前为 `["duckduckgo", "bing"]`） | 引擎列表 |
 | `max_results_per_engine` | `int` | `10` | 每个引擎最大结果数 |
 
 ### 网页内容抓取
@@ -457,7 +457,7 @@ Cache-Control: public, max-age=3600
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `q` | string (1-500) | *(必填)* | 搜索关键词 |
-| `sources` | string | `"google_patents"` | 数据源列表，逗号分隔 |
+| `sources` | string \| null | `null`（registry `patent:search` 当前为 `google_patents`） | 数据源列表，逗号分隔 |
 | `per_page` | int (1-100) | `10` | 每个数据源返回结果数 |
 | `timeout` | float (1-300) \| null | `null` | 端点硬超时（秒），超时返回 504 |
 
@@ -468,7 +468,7 @@ Cache-Control: public, max-age=3600
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `q` | string (1-500) | *(必填)* | 搜索关键词 |
-| `engines` | string | `"duckduckgo,bing"` | 搜索引擎，逗号分隔 |
+| `engines` | string \| null | `null`（registry `web:search` 当前为 `duckduckgo,bing`） | 搜索引擎，逗号分隔 |
 | `per_page` | int (1-50) | `10` | 每引擎最大结果数（**主名称**） |
 | `max_results` | int (1-50) \| null | `null` | `per_page` 的别名；显式提供时**优先级高于 `per_page`** |
 | `timeout` | float (1-300) \| null | `null` | 端点硬超时（秒），超时返回 504 |
@@ -986,7 +986,7 @@ python -m souwen.integrations.mcp_server
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `query` | string | — | 搜索关键词 |
-| `sources` | array | `["google_patents"]` | 数据源 |
+| `sources` | array | `null`（registry `patent:search` 当前为 `["google_patents"]`） | 数据源 |
 | `limit` | int | `5` | 结果数 |
 
 返回：JSON `SearchResponse` 数组
@@ -996,7 +996,7 @@ python -m souwen.integrations.mcp_server
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `query` | string | — | 搜索关键词 |
-| `engines` | array | `null`（由后端默认 `["duckduckgo", "bing"]` 决定） | 引擎列表 |
+| `engines` | array | `null`（registry `web:search` 当前为 `["duckduckgo", "bing"]`） | 引擎列表 |
 | `limit` | int | `10` | 每引擎最大结果数 |
 
 返回：JSON `SearchResponse` 对象
