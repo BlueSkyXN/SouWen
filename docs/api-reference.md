@@ -33,7 +33,7 @@ from souwen import search, search_papers, search_patents, web_search
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `query` | `str` | — | 搜索关键词 |
-| `sources` | `list[str] \| None` | `["openalex", "crossref", "arxiv", "dblp", "pubmed"]` | 数据源列表 |
+| `sources` | `list[str] \| None` | `null`（registry `paper:search` 当前为 `["openalex", "crossref", "arxiv", "dblp", "pubmed", "biorxiv"]`） | 数据源列表 |
 | `per_page` | `int` | `10` | 每个源返回结果数 |
 
 #### `search_patents(query, sources=None, per_page=10, **kwargs)` → `list[SearchResponse]`
@@ -429,7 +429,7 @@ Cache-Control: public, max-age=3600
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `q` | string (1-500) | *(必填)* | 搜索关键词 |
-| `sources` | string | `"openalex,arxiv"` | 数据源列表，逗号分隔 |
+| `sources` | string \| null | `null`（registry `paper:search` 当前为 `openalex,crossref,arxiv,dblp,pubmed,biorxiv`） | 数据源列表，逗号分隔 |
 | `per_page` | int (1-100) | `10` | 每个数据源返回结果数 |
 | `timeout` | float (1-300) \| null | `null` | 端点硬超时（秒），超时返回 504；`null` 表示无超时 |
 
@@ -510,7 +510,7 @@ Cache-Control: public, max-age=3600
     }
   ],
   "defaults": {
-    "paper:search": ["arxiv", "biorxiv", "crossref", "dblp", "openalex", "pubmed"]
+    "paper:search": ["openalex", "crossref", "arxiv", "dblp", "pubmed", "biorxiv"]
   }
 }
 ```
@@ -976,7 +976,7 @@ python -m souwen.integrations.mcp_server
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `query` | string | — | 搜索关键词 |
-| `sources` | array | `["openalex", "arxiv", "crossref"]` | 数据源 |
+| `sources` | array | `null`（registry `paper:search` 当前为 `["openalex", "crossref", "arxiv", "dblp", "pubmed", "biorxiv"]`） | 数据源 |
 | `limit` | int | `5` | 每源返回数量 |
 
 返回：JSON `SearchResponse` 数组

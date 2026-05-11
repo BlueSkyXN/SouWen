@@ -60,8 +60,9 @@ pip install -e .
 # API server (FastAPI) + TLS fingerprinting + web search
 pip install -e ".[server,tls,web,scraper]"
 
-# Full install (includes PDF / Crawl4AI / newspaper, etc.)
+# Heavy fetch providers are installed on demand: crawl4ai and scrapling are currently mutually exclusive.
 pip install -e ".[server,tls,web,scraper,pdf,crawl4ai,newspaper,readability,robots,mcp]"
+pip install -e ".[server,tls,web,scraper,pdf,scrapling,newspaper,readability,robots,mcp]"
 ```
 
 ## 🚀 Quick Start

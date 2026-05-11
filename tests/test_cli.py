@@ -254,6 +254,24 @@ def test_search_web_uses_registry_defaults_when_engines_omitted(monkeypatch):
     assert captured == {"query": "test", "engines": None, "max_results_per_engine": 10}
 
 
+def test_search_web_preserves_explicit_empty_engines(monkeypatch):
+    """网页搜索显式传空 ``--engines`` 时，应透传空列表而不是回退默认源。"""
+    from souwen.web import search as web_search_mod
+
+    captured = {}
+
+    async def fake_web_search(query, engines=None, max_results_per_engine=10, **kwargs):
+        captured["query"] = query
+        captured["engines"] = engines
+        captured["max_results_per_engine"] = max_results_per_engine
+        return web_search_mod.WebSearchResponse(query=query, source="duckduckgo", results=[])
+
+    monkeypatch.setattr(web_search_mod, "web_search", fake_web_search)
+    result = runner.invoke(app, ["search", "web", "test", "--engines", "", "--json"])
+    assert result.exit_code == 0
+    assert captured == {"query": "test", "engines": [], "max_results_per_engine": 10}
+
+
 def test_plugins_new_scaffolds_project(monkeypatch, tmp_path: Path):
     """``plugins new`` creates a complete plugin project skeleton."""
     monkeypatch.chdir(tmp_path)

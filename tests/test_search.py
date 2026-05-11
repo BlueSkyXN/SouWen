@@ -296,6 +296,35 @@ async def test_search_all_groups_domain_results(monkeypatch):
     ]
 
 
+async def test_search_all_accepts_limit_alias(monkeypatch):
+    """兼容公开示例中使用的 ``limit`` 别名，避免被 **kwargs 重复传参吞空。"""
+    search_mod = importlib.import_module("souwen.search")
+    calls = []
+
+    async def fake_search(query, domain="paper", **kwargs):
+        calls.append((query, domain, kwargs))
+        return [SearchResponse(query=query, source="openalex", results=[])]
+
+    monkeypatch.setattr(search_mod, "search", fake_search)
+
+    out = await search_mod.search_all("agent", domains=["paper"], limit=3)
+
+    assert sorted(out) == ["paper"]
+    assert calls == [("agent", "paper", {"limit": 3})]
+
+
+async def test_search_all_rejects_conflicting_limit_alias():
+    """两个限制参数同时传且值不同应显式失败。"""
+    search_mod = importlib.import_module("souwen.search")
+
+    try:
+        await search_mod.search_all("agent", domains=["paper"], per_domain_limit=2, limit=3)
+    except ValueError as exc:
+        assert "per_domain_limit 和 limit" in str(exc)
+    else:  # pragma: no cover - 失败路径
+        raise AssertionError("search_all() should reject conflicting limits")
+
+
 def test_semaphore_is_per_event_loop():
     """_get_semaphore 在不同 event loop 中返回不同实例，避免跨 loop 错误。
 
