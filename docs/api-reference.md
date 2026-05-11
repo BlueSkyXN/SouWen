@@ -566,6 +566,37 @@ Cache-Control: public, max-age=3600
 { "status": "ok", "password_set": true }
 ```
 
+#### `GET /api/v1/admin/config/yaml`
+
+读取当前 YAML 配置文件内容。若当前目录和用户配置目录都没有配置文件，则返回内置默认模板，`path=null`。
+
+**响应示例：**
+```json
+{
+  "content": "server:\n  host: 0.0.0.0\n  port: 49265\n",
+  "path": "/home/user/.config/souwen/config.yaml"
+}
+```
+
+#### `PUT /api/v1/admin/config/yaml`
+
+保存 YAML 配置文件并重新加载。服务端会先做 YAML 语法校验、废弃鉴权字段检查和 `SouWenConfig` dry-run 校验，再原子写入配置文件；当前无配置文件时写入用户配置目录。
+
+**请求体：**
+```json
+{
+  "content": "server:\n  host: 0.0.0.0\n  port: 49265\n"
+}
+```
+
+**响应示例：**
+```json
+{
+  "content": "server:\n  host: 0.0.0.0\n  port: 49265\n",
+  "path": "/home/user/.config/souwen/config.yaml"
+}
+```
+
 #### `GET /api/v1/admin/doctor`
 
 数据源健康检查，返回配置状态和已知限制提示；当前不执行实时连通性探测。`available` 统计 `ok` / `limited` / `warning` / `degraded`，`degraded_total` 统计 `limited` / `warning` / `degraded`；`degraded` 是 `degraded_total` 的同义字段，精确状态计数请读取 `status_counts.degraded`。
@@ -625,6 +656,15 @@ Cache-Control: public, max-age=3600
     }
   ]
 }
+```
+
+#### `GET /api/v1/admin/ping`
+
+轻量管理端存活探测。该端点仍受 Admin Bearer Token 保护，用于确认认证链路和管理路由可用。
+
+**响应示例：**
+```json
+{ "status": "ok" }
 ```
 
 #### `GET /api/v1/admin/warp`
@@ -754,6 +794,41 @@ Cache-Control: public, max-age=3600
 | `warp_usque_transport` | string | `usque` 传输模式：`auto` / `quic` / `http2` |
 | `has_proxy_auth` | bool | 是否已配置 `warp_proxy_username` / `warp_proxy_password` |
 
+#### `GET /api/v1/admin/warp/components`
+
+列出运行时可管理的 WARP 组件安装状态，覆盖 `usque`、`wireproxy`、`wgcf` 等二进制。
+
+**响应示例：**
+```json
+{
+  "components": [
+    {
+      "name": "usque",
+      "installed": true,
+      "version": "3.0.0",
+      "path": "/app/data/bin/usque"
+    }
+  ]
+}
+```
+
+#### `POST /api/v1/admin/warp/components/install`
+
+从 GitHub Releases 下载并安装指定 WARP 组件。
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `component` | string | *(必填)* | 组件名：`usque` / `wireproxy` / `wgcf` |
+| `version` | string \| null | `null` | 版本号；留空使用内置默认版本 |
+
+#### `POST /api/v1/admin/warp/components/uninstall`
+
+卸载运行时安装的 WARP 组件，不影响系统或镜像预装组件。
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `component` | string | *(必填)* | 组件名 |
+
 #### `POST /api/v1/admin/warp/disable`
 
 禁用 WARP 代理。
@@ -762,6 +837,21 @@ Cache-Control: public, max-age=3600
 ```json
 { "ok": true }
 ```
+
+#### `POST /api/v1/admin/warp/switch`
+
+一步切换 WARP 模式：先禁用当前模式，再以目标模式启动。失败时不会返回底层敏感错误，详细信息保留在服务端日志。
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `mode` | string | *(必填)* | 目标模式：`wireproxy` / `kernel` / `usque` / `warp-cli` / `external` 等 |
+| `socks_port` | int (1-65535) | `1080` | SOCKS5 端口 |
+| `http_port` | int (0-65535) | `0` | HTTP 代理端口（`0` 表示不启用） |
+| `endpoint` | string \| null | `null` | 自定义 WARP Endpoint |
+
+#### `GET /api/v1/admin/warp/events`
+
+WARP 状态变更 SSE 流。客户端使用 `EventSource` 连接，服务端约每 2 秒检查一次状态，状态变化或心跳周期到达时推送当前状态 JSON。
 
 ---
 
@@ -956,6 +1046,41 @@ Cache-Control: public, max-age=3600
 - 重定向安全：每一跳校验目标 IP，防止多跳 SSRF 攻击
 - Scrapling 浏览器模式：`dynamic` / `stealthy` 会对 navigation、子资源、XHR/fetch 等浏览器请求安装同一套 SSRF 拦截
 - 管理密码认证：需要 `admin_password`
+
+### LLM 摘要端点
+
+下列端点需要启用 LLM 配置；未配置时返回 `503`。`/api/v1/summarize` 受搜索鉴权保护，`/api/v1/fetch/summarize` 同时会触发 fetch 能力并受对应速率限制。
+
+#### `POST /api/v1/summarize`
+
+搜索并生成摘要。
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `query` | string (1-500) | *(必填)* | 搜索查询 |
+| `domain` | string | `"paper"` | 搜索域：`paper` / `patent` / `web` |
+| `sources` | `list[str] \| null` | `null` | 指定数据源 |
+| `per_page` | int (1-50) | `10` | 每源结果数 |
+| `mode` | `"brief" \| "detailed" \| "academic" \| null` | `null` | 摘要模式；默认使用 `llm.default_mode` |
+| `model` | string \| null | `null` | 可选模型覆盖 |
+| `max_tokens` | int \| null | `null` | 可选最大 token 数 |
+| `temperature` | float \| null | `null` | 可选温度覆盖 |
+| `system_prompt` | string \| null | `null` | 自定义系统 prompt |
+
+#### `POST /api/v1/fetch/summarize`
+
+抓取 URL 页面内容并逐页生成摘要。
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `urls` | `list[str]` (1-10) | *(必填)* | 待抓取并摘要的 URL 列表 |
+| `provider` | string | `"builtin"` | Fetch 提供者 |
+| `timeout` | float (5-120) | `30.0` | 每 URL 超时秒数 |
+| `mode` | `"brief" \| "detailed" \| "academic" \| null` | `null` | 摘要模式；默认使用 `llm.default_mode` |
+| `model` | string \| null | `null` | 可选模型覆盖 |
+| `max_tokens` | int \| null | `null` | 可选最大 token 数 |
+| `temperature` | float \| null | `null` | 可选温度覆盖 |
+| `system_prompt` | string \| null | `null` | 自定义系统 prompt |
 
 ## MCP 工具
 
