@@ -347,6 +347,12 @@ async def search_all(
     **kwargs: Any,
 ) -> dict[str, list[SearchResponse]]:
     """跨多个 domain 并行搜索，按 domain 分组返回。"""
+    if "limit" in kwargs:
+        alias_limit = kwargs.pop("limit")
+        if per_domain_limit != 5 and alias_limit != per_domain_limit:
+            raise ValueError("search_all() 不应同时传入不同的 per_domain_limit 和 limit")
+        per_domain_limit = int(alias_limit)
+
     selected = list(domains) if domains else list(DEFAULT_AGGREGATE_DOMAINS)
     results: dict[str, list[SearchResponse]] = {}
 

@@ -415,9 +415,7 @@ class SourceAdapter:
             raise ValueError(
                 f"SourceAdapter({self.name!r}) auth_requirement='none' 不能声明 credential_fields"
             )
-        if (
-            self.integration == "self_hosted" or effective_auth == "self_hosted"
-        ) and not resolved_fields:
+        if effective_auth == "self_hosted" and not resolved_fields:
             raise ValueError(
                 f"SourceAdapter({self.name!r}) self_hosted 源必须声明 config_field 或 credential_fields"
             )
@@ -448,4 +446,25 @@ class SourceAdapter:
             if ":" not in key:
                 raise ValueError(
                     f"SourceAdapter({self.name!r}) default_for 条目 {key!r} 必须是 'domain:capability' 形式"
+                )
+            default_domain, default_capability = key.split(":", 1)
+            if default_domain != FETCH_DOMAIN and default_domain not in DOMAINS:
+                raise ValueError(
+                    f"SourceAdapter({self.name!r}) default_for domain={default_domain!r} "
+                    "不在 DOMAINS ∪ {fetch} 中"
+                )
+            if default_capability not in CAPABILITIES:
+                raise ValueError(
+                    f"SourceAdapter({self.name!r}) default_for capability={default_capability!r} "
+                    "不在 CAPABILITIES 中"
+                )
+            if default_capability not in self.capabilities:
+                raise ValueError(
+                    f"SourceAdapter({self.name!r}) default_for={key!r} "
+                    f"但 methods 里没有 {default_capability!r}"
+                )
+            if default_domain not in self.domains:
+                raise ValueError(
+                    f"SourceAdapter({self.name!r}) default_for={key!r} "
+                    f"但 domain 不在 adapter.domains={self.domains}"
                 )

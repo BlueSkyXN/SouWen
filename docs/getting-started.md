@@ -18,10 +18,12 @@ pip install -e ".[server,tls,web,scraper]"
 pip install -e .
 ```
 
-需要 Crawl4AI、Scrapling、PDF、MCP 等能力时，再按需追加 extras：
+需要 Crawl4AI、Scrapling、PDF、MCP 等能力时，再按需追加 extras。`crawl4ai`
+与 `scrapling` 当前依赖树互斥，请按目标 provider 二选一：
 
 ```bash
-pip install -e ".[server,tls,web,scraper,pdf,crawl4ai,scrapling,newspaper,readability,robots,mcp]"
+pip install -e ".[server,tls,web,scraper,pdf,crawl4ai,newspaper,readability,robots,mcp]"
+pip install -e ".[server,tls,web,scraper,pdf,scrapling,newspaper,readability,robots,mcp]"
 ```
 
 ## CLI 搜索
@@ -47,7 +49,7 @@ from souwen.web.fetch import fetch_content
 
 async def main() -> None:
     papers = await search("transformer", domain="paper", limit=5)
-    mixed = await search_all("quantum", domains=["paper", "web", "knowledge"], limit=5)
+    mixed = await search_all("quantum", domains=["paper", "web", "knowledge"], per_domain_limit=5)
     pages = await fetch_content(["https://example.com"], providers=["builtin"])
     print(papers[0].source, len(mixed), pages.total_ok)
 
