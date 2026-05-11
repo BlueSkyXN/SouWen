@@ -1,7 +1,7 @@
 # ADR 0001: Public API Surface
 
-**Status**: Accepted  
-**Date**: 2026-05-07  
+**Status**: Accepted
+**Date**: 2026-05-07
 **Scope**: SouWen `v2-dev`
 
 ## Context
@@ -20,6 +20,9 @@ SouWen will keep a small public API surface:
 - `souwen.registry`
 - `souwen.registry.meta`
 - `souwen.core.http_client`
+- top-level convenience exports from `souwen`: `search`, `search_papers`,
+  `search_patents`, `web_search`, `get_config`, `reload_config`, and
+  `__version__`
 - CLI entry point `souwen`
 - REST API under `/api/v1`
 
