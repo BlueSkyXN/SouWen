@@ -189,6 +189,21 @@ async def test_web_search_uses_registry_defaults(monkeypatch):
     assert result.results[0].engine == "duckduckgo"
 
 
+async def test_web_search_empty_engines_is_explicit_noop(monkeypatch):
+    """显式传空 ``engines`` 不应回退到 registry 默认源。"""
+    from souwen.web import search as web_search_mod
+
+    def fail_if_defaulted():
+        raise AssertionError("empty engines must not use registry defaults")
+
+    monkeypatch.setattr(web_search_mod, "_default_web_engines", fail_if_defaulted)
+
+    result = await web_search_mod.web_search("test query", engines=[])
+
+    assert result.results == []
+    assert result.total_results == 0
+
+
 async def test_web_search_deduplication():
     r1 = _make_result("duckduckgo", "Page", "https://example.com")
     r2 = _make_result("bing", "Page", "https://example.com/")

@@ -29,7 +29,7 @@ Source Catalog 是 SouWen 的公开数据源契约。它不是手写清单，而
     }
   ],
   "defaults": {
-    "paper:search": ["arxiv", "biorxiv", "crossref", "dblp", "openalex", "pubmed"]
+    "paper:search": ["openalex", "crossref", "arxiv", "dblp", "pubmed", "biorxiv"]
   }
 }
 ```

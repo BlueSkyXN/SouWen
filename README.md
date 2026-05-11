@@ -61,8 +61,9 @@ pip install -e .
 # API 服务（FastAPI）+ TLS 指纹 + 网页搜索
 pip install -e ".[server,tls,web,scraper]"
 
-# 全量（含 PDF / Crawl4AI / Scrapling / newspaper 等）
-pip install -e ".[server,tls,web,scraper,pdf,crawl4ai,scrapling,newspaper,readability,robots,mcp]"
+# 重型抓取能力按需选择：crawl4ai 与 scrapling 当前依赖树互斥，二选一安装
+pip install -e ".[server,tls,web,scraper,pdf,crawl4ai,newspaper,readability,robots,mcp]"
+pip install -e ".[server,tls,web,scraper,pdf,scrapling,newspaper,readability,robots,mcp]"
 ```
 
 ## 🚀 快速开始

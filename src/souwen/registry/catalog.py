@@ -251,11 +251,14 @@ def sources_by_category(category: str) -> list[SourceCatalogEntry]:
 def default_source_map() -> dict[str, tuple[str, ...]]:
     """返回 ``domain:capability`` 到默认源名的声明式映射。"""
 
-    result: dict[str, list[str]] = {}
-    for entry in source_catalog().values():
-        for key in entry.default_for:
-            result.setdefault(key, []).append(entry.name)
-    return {key: tuple(names) for key, names in sorted(result.items())}
+    keys = sorted(
+        {key for adapter in _views.all_adapters().values() for key in adapter.default_for}
+    )
+    result: dict[str, tuple[str, ...]] = {}
+    for key in keys:
+        domain, capability = key.split(":", 1)
+        result[key] = tuple(_views.defaults_for(domain, capability))
+    return result
 
 
 def available_source_catalog(config: Any) -> dict[str, SourceCatalogEntry]:
