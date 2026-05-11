@@ -17,8 +17,9 @@ ARG WGCF_VERSION=2.2.30
 ARG WIREPROXY_VERSION=1.1.2
 ARG USQUE_VERSION=3.0.0
 ARG GH_PROXY=""
-# 默认安装 web2pdf/SuperWeb2PDF 插件及其浏览器运行时
+# SuperWeb2PDF 是外部插件；设置 WITH_WEB2PDF=1 时按 WEB2PDF_PACKAGE 预装
 ARG WITH_WEB2PDF=0
+ARG WEB2PDF_PACKAGE=superweb2pdf
 # 可选：指定 Playwright 浏览器下载镜像（国内环境可用）
 ARG PLAYWRIGHT_DOWNLOAD_HOST=""
 
@@ -27,8 +28,8 @@ ENV PORT=7860 \
     PIP_NO_CACHE_DIR=1 \
     TZ=Asia/Shanghai
 
-# 安装基础工具和 Playwright Chromium 运行库（web2pdf/SuperWeb2PDF 插件需要）
-# 以下为 Playwright Chromium 运行所需系统库（web2pdf/SuperWeb2PDF 插件需要）
+# 安装基础工具和 Playwright Chromium 运行库（SuperWeb2PDF 外部插件需要）
+# 以下为 Playwright Chromium 运行所需系统库（SuperWeb2PDF 外部插件需要）
 RUN apt-get update && apt-get install -y --no-install-recommends \
         git ca-certificates curl tzdata \
         libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
@@ -62,13 +63,14 @@ RUN git clone --depth 1 --branch "${SOUWEN_REF}" "${SOUWEN_REPO}" .
 COPY --from=panel-builder /build/panel/dist/index.html ./src/souwen/server/panel.html
 
 RUN if [ "${WITH_WEB2PDF}" = "1" ]; then \
-        pip install ".[server,tls,web2pdf]"; \
+        pip install ".[server,tls]" \
+        && pip install "${WEB2PDF_PACKAGE}"; \
     else \
         pip install ".[server,tls]"; \
     fi \
     && python -c "import curl_cffi; print('curl_cffi OK')"
 
-# 安装 Playwright Chromium（仅 web2pdf 插件需要，国内环境可配置下载镜像）
+# 安装 Playwright Chromium（仅 SuperWeb2PDF 外部插件需要，国内环境可配置下载镜像）
 RUN if [ "${WITH_WEB2PDF}" = "1" ]; then \
         if [ -n "${PLAYWRIGHT_DOWNLOAD_HOST}" ]; then \
             PLAYWRIGHT_DOWNLOAD_HOST="${PLAYWRIGHT_DOWNLOAD_HOST}" playwright install chromium; \

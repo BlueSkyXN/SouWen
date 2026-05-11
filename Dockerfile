@@ -23,8 +23,9 @@ ARG WGCF_VERSION=2.2.30
 ARG WIREPROXY_VERSION=1.1.2
 # usque: MASQUE/QUIC 协议 WARP 客户端
 ARG USQUE_VERSION=3.0.0
-# 默认安装 web2pdf/SuperWeb2PDF 插件及其浏览器运行时
+# SuperWeb2PDF 是外部插件；设置 WITH_WEB2PDF=1 时按 WEB2PDF_PACKAGE 预装
 ARG WITH_WEB2PDF=0
+ARG WEB2PDF_PACKAGE=superweb2pdf
 
 # 环境变量配置
 # WARP 代理环境变量
@@ -41,7 +42,7 @@ ENV PYTHONUNBUFFERED=1 \
 # ===== 系统依赖安装 =====
 # 安装 WARP 相关工具：curl、wireguard-tools
 # 安装时区数据、网络工具和 Playwright Chromium 运行库
-# 以下为 Playwright Chromium 运行所需系统库（web2pdf/SuperWeb2PDF 插件需要）
+# 以下为 Playwright Chromium 运行所需系统库（SuperWeb2PDF 外部插件需要）
 RUN apt-get update && apt-get install -y --no-install-recommends \
         curl tzdata wireguard-tools iptables iproute2 \
         libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
@@ -81,27 +82,22 @@ WORKDIR /app
 
 # 步骤 1：复制项目配置和版本信息，安装核心依赖
 # 注：curl_cffi 位于 [tls] extras，用于专利爬虫/反爬指纹，必须同时安装
-# 默认安装 web2pdf/SuperWeb2PDF 插件；可通过 --build-arg WITH_WEB2PDF=0 关闭
+# 默认只安装 SouWen server/tls；SuperWeb2PDF 需通过外部插件包显式预装
 COPY pyproject.toml README.md LICENSE ./
 COPY src/souwen/__init__.py ./src/souwen/__init__.py
-RUN if [ "${WITH_WEB2PDF}" = "1" ]; then \
-        pip install ".[server,tls,web2pdf]"; \
-    else \
-        pip install ".[server,tls]"; \
+RUN pip install ".[server,tls]" \
+    && if [ "${WITH_WEB2PDF}" = "1" ]; then \
+        pip install "${WEB2PDF_PACKAGE}"; \
     fi
 
 # 步骤 2：复制全部源码并重新安装（确保最新版本）
 COPY src/ ./src/
 # 复制前端面板的构建产物
 COPY --from=panel-builder /panel/dist/index.html ./src/souwen/server/panel.html
-RUN if [ "${WITH_WEB2PDF}" = "1" ]; then \
-        pip install --no-deps ".[server,tls,web2pdf]"; \
-    else \
-        pip install --no-deps ".[server,tls]"; \
-    fi \
+RUN pip install --no-deps ".[server,tls]" \
     && python -c "import curl_cffi; print('curl_cffi OK')"
 
-# 步骤 2.5：安装 Playwright Chromium（仅 web2pdf 插件需要）
+# 步骤 2.5：安装 Playwright Chromium（仅 SuperWeb2PDF 外部插件需要）
 RUN if [ "${WITH_WEB2PDF}" = "1" ]; then \
         playwright install chromium \
         && echo "✅ Playwright Chromium installed"; \
