@@ -40,29 +40,21 @@ SouWen 的所有数据源都通过 [`SourceAdapter`](../src/souwen/registry/adap
 my-source = "my_plugin:plugin"
 ```
 
-### 双模式加载（运行时发现 vs 打包嵌入）
+### 运行时发现与打包边界
 
-同一份 entry_points 声明支持两种部署形态，二者使用**完全相同**的发现机制：
+同一份 entry_points 声明支持运行时发现；如需在私有镜像中预装插件，也应通过
+镜像自己的 dependency set 或私有索引安装，而不是把第三方插件固定进 SouWen
+主仓的公开 extras：
 
 | 模式 | 安装方式 | 适用场景 |
 |---|---|---|
 | **运行时发现** | `pip install superweb2pdf` 单独安装第三方包 | 第三方包单独分发；插件随宿主升级解耦；社区分发 |
-| **打包嵌入（optional dependency）** | `pip install -e ".[web2pdf]"` | Docker 镜像 / 一键部署；插件依赖随 SouWen extras 自动安装 |
+| **镜像预装** | 在镜像或部署脚本中单独安装插件包 | 私有索引、内部插件或固定部署镜像 |
 
-**Docker / 多 extras**：`pip install ".[server,tls,web2pdf]"`。
-
-要把插件挂到 SouWen 的 optional dependencies 上，宿主项目在 `pyproject.toml`
-中追加（仅 SouWen 主仓维护者关心）：
-
-```toml
-[project.optional-dependencies]
-web2pdf = ["superweb2pdf[capture]>=0.2.0"]
-```
-
-无论哪种模式，SouWen 的 CLI / server bootstrap 都会调用
+无论哪种部署形态，SouWen 的 CLI / server bootstrap 都会调用
 `ensure_plugins_loaded(get_config())`，再通过
 `importlib.metadata.entry_points(group="souwen.plugins")` 扫描发现。
-**插件作者通常只需声明 entry_points**，是否打包嵌入由宿主决定。
+**插件作者通常只需声明 entry_points**，是否随镜像预装由部署方决定。
 单纯 `import souwen.registry` 只注册内置源，不会执行第三方 entry point。
 
 ### Entry Point 目标可以是四种形态
