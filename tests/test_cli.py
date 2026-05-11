@@ -217,6 +217,43 @@ def test_search_paper_uses_registry_defaults_when_sources_omitted(monkeypatch):
     assert captured == {"query": "test", "sources": None, "per_page": 5}
 
 
+def test_search_patent_uses_registry_defaults_when_sources_omitted(monkeypatch):
+    """专利搜索省略 ``--sources`` 时，也应透传 ``None`` 给 registry 默认源。"""
+    import sys
+
+    search_module = sys.modules["souwen.search"]
+    captured = {}
+
+    async def fake_search(query, sources=None, per_page=10, **kwargs):
+        captured["query"] = query
+        captured["sources"] = sources
+        captured["per_page"] = per_page
+        return []
+
+    monkeypatch.setattr(search_module, "search_patents", fake_search)
+    result = runner.invoke(app, ["search", "patent", "test", "--json"])
+    assert result.exit_code == 0
+    assert captured == {"query": "test", "sources": None, "per_page": 5}
+
+
+def test_search_web_uses_registry_defaults_when_engines_omitted(monkeypatch):
+    """网页搜索省略 ``--engines`` 时，应透传 ``None`` 给 registry 默认源。"""
+    from souwen.web import search as web_search_mod
+
+    captured = {}
+
+    async def fake_web_search(query, engines=None, max_results_per_engine=10, **kwargs):
+        captured["query"] = query
+        captured["engines"] = engines
+        captured["max_results_per_engine"] = max_results_per_engine
+        return web_search_mod.WebSearchResponse(query=query, source="duckduckgo", results=[])
+
+    monkeypatch.setattr(web_search_mod, "web_search", fake_web_search)
+    result = runner.invoke(app, ["search", "web", "test", "--json"])
+    assert result.exit_code == 0
+    assert captured == {"query": "test", "engines": None, "max_results_per_engine": 10}
+
+
 def test_plugins_new_scaffolds_project(monkeypatch, tmp_path: Path):
     """``plugins new`` creates a complete plugin project skeleton."""
     monkeypatch.chdir(tmp_path)

@@ -1091,8 +1091,8 @@ class TestSearchWebResponseShape:
         assert data["total"] == 1
 
 
-class TestSearchPaperDefaults:
-    """API-PAPER-DEFAULTS: /search/paper 默认源与 registry 保持一致"""
+class TestSearchDefaults:
+    """API-SEARCH-DEFAULTS: /search/* 默认源与 registry 保持一致"""
 
     def test_paper_defaults_come_from_registry(self, client, monkeypatch):
         """未传 ``sources`` 时，应由 ``souwen.search`` 自行应用 registry 默认源。"""
@@ -1115,6 +1115,48 @@ class TestSearchPaperDefaults:
         assert data["sources"] == routes_search._DEFAULT_PAPER_SOURCES
         assert data["meta"]["requested"] == routes_search._DEFAULT_PAPER_SOURCES
         assert data["meta"]["failed"] == routes_search._DEFAULT_PAPER_SOURCES
+
+    def test_patent_defaults_come_from_registry(self, client, monkeypatch):
+        """未传 ``sources`` 时，专利搜索也应透传 ``None`` 让 registry 默认源生效。"""
+        import importlib
+
+        from souwen.server.routes import search as routes_search
+
+        search_mod = importlib.import_module("souwen.search")
+        captured: dict = {}
+
+        async def fake_search(q, sources=None, per_page=10, **kw):
+            captured["sources"] = sources
+            return []
+
+        monkeypatch.setattr(search_mod, "search_patents", fake_search)
+        resp = client.get("/api/v1/search/patent?q=foo")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert captured["sources"] is None
+        assert data["sources"] == routes_search._DEFAULT_PATENT_SOURCES
+        assert data["meta"]["requested"] == routes_search._DEFAULT_PATENT_SOURCES
+        assert data["meta"]["failed"] == routes_search._DEFAULT_PATENT_SOURCES
+
+    def test_web_defaults_come_from_registry(self, client, monkeypatch):
+        """未传 ``engines`` 时，web 搜索应透传 ``None`` 让 registry 默认源生效。"""
+        from souwen.server.routes import search as routes_search
+        from souwen.web import search as web_search_mod
+
+        captured: dict = {}
+
+        async def fake_web_search(q, engines=None, max_results_per_engine=10, **kw):
+            captured["engines"] = engines
+            return web_search_mod.WebSearchResponse(query=q, source="duckduckgo", results=[])
+
+        monkeypatch.setattr(web_search_mod, "web_search", fake_web_search)
+        resp = client.get("/api/v1/search/web?q=foo")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert captured["engines"] is None
+        assert data["engines"] == routes_search._DEFAULT_WEB_ENGINES
+        assert data["meta"]["requested"] == routes_search._DEFAULT_WEB_ENGINES
+        assert data["meta"]["failed"] == routes_search._DEFAULT_WEB_ENGINES
 
 
 class TestPerPageAlias:

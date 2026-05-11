@@ -22,7 +22,7 @@ from typing import Sequence
 from souwen.config import get_config
 from souwen.core.concurrency import get_semaphore
 from souwen.models import WebSearchResponse, WebSearchResult
-from souwen.registry import get as _registry_get
+from souwen.registry import defaults_for, get as _registry_get
 
 logger = logging.getLogger("souwen.web.search")
 _WEB_ENGINE_TIMEOUT_CAP_SECONDS = 15.0
@@ -89,6 +89,11 @@ def _deduplicate(results: Sequence[WebSearchResult]) -> list[WebSearchResult]:
     return deduped
 
 
+def _default_web_engines() -> list[str]:
+    """默认 Web 搜索引擎列表（从 registry 派生）。"""
+    return defaults_for("web", "search")
+
+
 async def web_search(
     query: str,
     engines: list[str] | None = None,
@@ -98,7 +103,7 @@ async def web_search(
 ) -> WebSearchResponse:
     """并发多引擎聚合搜索
 
-    同时查询多个搜索引擎（默认 ["duckduckgo", "bing"]），聚合结果并可选去重。
+    同时查询多个搜索引擎（默认来自 registry 的 ``web:search``），聚合结果并可选去重。
     Engine 通过 `souwen.registry` 懒加载，因此该函数调用时才会 import 对应客户端。
 
     备注：
@@ -108,7 +113,7 @@ async def web_search(
 
     Args:
         query: 搜索关键词
-        engines: 引擎名列表，默认 ["duckduckgo", "bing"]
+        engines: 引擎名列表；None 表示使用 registry 声明的默认 web 搜索源
         max_results_per_engine: 每个引擎最大返回数
         deduplicate: 是否按 URL 去重
         **kwargs: 传递给各引擎构造函数的参数（如 use_curl_cffi）
@@ -121,7 +126,7 @@ async def web_search(
         >>> for r in resp.results:
         ...     print(f"[{r.engine}] {r.title} → {r.url}")
     """
-    selected = engines or ["duckduckgo", "bing"]
+    selected = engines or _default_web_engines()
 
     tasks = []
     active_engines: list[str] = []
