@@ -213,16 +213,16 @@ client_cls = adapter.client_loader()  # 此刻才 importlib.import_module
 注册表除了承载内置的 94 个 `_reg()`，还能在运行时**通过外部插件**追加新的
 `SourceAdapter`，让第三方 / 私有源在不改主仓代码的前提下被 SouWen 发现。
 
-### 双模式加载
+### 运行时发现与打包边界
 
-插件可以通过两种方式部署，二者使用同一套 entry_points 机制：
+插件通过 entry_points 发现。第三方插件不固定进 SouWen 的公开 extras；需要随
+镜像预装时，由镜像或部署脚本单独安装对应插件包：
 
 | 模式 | 安装命令 | 适用场景 |
 |---|---|---|
 | **运行时发现** | `pip install superweb2pdf` | 第三方包单独分发；与 SouWen 解耦升级 |
-| **打包嵌入** | `pip install -e ".[web2pdf]"` | Docker / 一键部署；插件依赖随 SouWen extras 自动拉取 |
+| **镜像预装** | 在镜像或部署脚本中单独安装插件包 | 私有索引、内部插件或固定部署镜像 |
 
-Docker 镜像示例：`pip install ".[server,tls,web2pdf]"`。
 两种模式都依赖同一个 `[project.entry-points."souwen.plugins"]` 声明，
 CLI / server 启动时通过 `ensure_plugins_loaded(get_config())` 显式扫描发现。
 单纯 `import souwen.registry` 只注册内置源，不执行第三方 entry point。

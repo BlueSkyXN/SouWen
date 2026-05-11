@@ -17,6 +17,7 @@
 - Source Catalog 成为 Source metadata、capability、credential、risk、distribution、docs、API、CLI 和 Panel 的正式派生中心。
 - result `source` 字段标准化为 adapter name，避免历史 category/name 双轨。
 - 插件加载显式化，避免 registry import 阶段自动执行第三方 entry point。
+- SuperWeb2PDF 保持外部插件形态，不再作为 SouWen 的 optional dependency 随公开 extras 分发；Docker / 镜像场景改由插件包预装。
 - Fetch API 支持 `fallback` / `fanout` 策略，多 provider 行为与签名一致。
 - 内置 source registry 拆分为 `registry/sources/` package，降低单文件事实源维护压力。
 
@@ -137,14 +138,14 @@
 ### Architecture
 - 新增插件系统：通过 setuptools entry_points 或配置文件发现外部数据源
 - Fetch dispatch 重构：20 个 if/elif 分支 → handler 注册表模式
-- 支持双模式加载：运行时发现 (`pip install superweb2pdf`) 和打包嵌入 (`pip install -e ".[web2pdf]"`)
+- 支持运行时发现；早期打包嵌入方案已在 RC 收口时改为外部插件 / 镜像预装。
 
 ### Features
 - `src/souwen/plugin.py`：插件发现与加载模块
 - `register_fetch_handler()`：外部 fetch provider 注册 API
 - `_reg_external()`：外部适配器注册（重名自动跳过）
 - `SOUWEN_PLUGINS` 环境变量 / `plugins` 配置字段支持手动指定插件
-- `web2pdf` optional dependency：`pip install -e ".[web2pdf]"`
+- `superweb2pdf` 保持外部插件包，由运行时安装或镜像预装接入。
 
 ### Docs
 - 新增 `docs/plugin-integration-spec.md`：插件对接规范
@@ -157,7 +158,7 @@
 - 更新 `tests/registry/test_consistency.py`：外部插件一致性检查
 
 ### CI
-- 新增 `plugin-test` job：安装 web2pdf extra，验证 entry_point 发现
+- 新增 `plugin-test` job：验证 entry_point 发现，并将可选 `superweb2pdf` 缺失记录为非阻断 WARN。
 - import-check 步骤扩展：插件模块导入验证
 
 ## v0.9.0 — v1 过渡版（2026-04-22）
