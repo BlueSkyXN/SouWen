@@ -14,6 +14,10 @@ from souwen.registry import defaults_for
 search_app = typer.Typer(help="搜索论文/专利/网页")
 _DEFAULT_PAPER_SOURCES = defaults_for("paper", "search")
 _DEFAULT_PAPER_SOURCES_LABEL = ",".join(_DEFAULT_PAPER_SOURCES)
+_DEFAULT_PATENT_SOURCES = defaults_for("patent", "search")
+_DEFAULT_PATENT_SOURCES_LABEL = ",".join(_DEFAULT_PATENT_SOURCES)
+_DEFAULT_WEB_ENGINES = defaults_for("web", "search")
+_DEFAULT_WEB_ENGINES_LABEL = ",".join(_DEFAULT_WEB_ENGINES)
 
 
 @search_app.command("paper")
@@ -93,7 +97,12 @@ def search_paper(
 @search_app.command("patent")
 def search_patent(
     query: str = typer.Argument(..., help="搜索关键词"),
-    sources: str = typer.Option("google_patents", "--sources", "-s", help="数据源，逗号分隔"),
+    sources: str | None = typer.Option(
+        None,
+        "--sources",
+        "-s",
+        help=f"数据源，逗号分隔；默认 {_DEFAULT_PATENT_SOURCES_LABEL}",
+    ),
     limit: int = typer.Option(5, "--limit", "-n", help="每个源返回数量"),
     json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),
     timeout: int | None = typer.Option(None, "--timeout", "-t", help="总超时（秒），默认不限制"),
@@ -101,10 +110,15 @@ def search_patent(
     """搜索专利"""
     from souwen.search import search_patents
 
-    source_list = [s.strip() for s in sources.split(",") if s.strip()]
+    requested_sources = None
+    if sources is None:
+        source_list = list(_DEFAULT_PATENT_SOURCES)
+    else:
+        source_list = [s.strip() for s in sources.split(",") if s.strip()]
+        requested_sources = source_list
 
     async def _do():
-        coro = search_patents(query, sources=source_list, per_page=limit)
+        coro = search_patents(query, sources=requested_sources, per_page=limit)
         if timeout is not None:
             return await asyncio.wait_for(coro, timeout=timeout)
         return await coro
@@ -159,7 +173,12 @@ def search_patent(
 @search_app.command("web")
 def search_web_cmd(
     query: str = typer.Argument(..., help="搜索关键词"),
-    engines: str = typer.Option("duckduckgo,bing", "--engines", "-e", help="搜索引擎，逗号分隔"),
+    engines: str | None = typer.Option(
+        None,
+        "--engines",
+        "-e",
+        help=f"搜索引擎，逗号分隔；默认 {_DEFAULT_WEB_ENGINES_LABEL}",
+    ),
     limit: int = typer.Option(10, "--limit", "-n", help="每引擎最大结果数"),
     json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),
     timeout: int | None = typer.Option(None, "--timeout", "-t", help="总超时（秒），默认不限制"),
@@ -167,10 +186,15 @@ def search_web_cmd(
     """搜索网页"""
     from souwen.web.search import web_search
 
-    engine_list = [e.strip() for e in engines.split(",") if e.strip()]
+    requested_engines = None
+    if engines is None:
+        engine_list = list(_DEFAULT_WEB_ENGINES)
+    else:
+        engine_list = [e.strip() for e in engines.split(",") if e.strip()]
+        requested_engines = engine_list
 
     async def _do():
-        coro = web_search(query, engines=engine_list, max_results_per_engine=limit)
+        coro = web_search(query, engines=requested_engines, max_results_per_engine=limit)
         if timeout is not None:
             return await asyncio.wait_for(coro, timeout=timeout)
         return await coro

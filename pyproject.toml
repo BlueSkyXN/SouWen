@@ -44,9 +44,9 @@ dependencies = [
 [project.urls]
 Homepage = "https://github.com/BlueSkyXN/SouWen"
 Repository = "https://github.com/BlueSkyXN/SouWen"
-Documentation = "https://github.com/BlueSkyXN/SouWen/tree/main/docs"
+Documentation = "https://github.com/BlueSkyXN/SouWen/tree/v2-dev/docs"
 Issues = "https://github.com/BlueSkyXN/SouWen/issues"
-Changelog = "https://github.com/BlueSkyXN/SouWen/blob/main/CHANGELOG.md"
+Changelog = "https://github.com/BlueSkyXN/SouWen/blob/v2-dev/CHANGELOG.md"
 
 [project.scripts]
 souwen = "souwen.cli:app"
