@@ -126,7 +126,7 @@ async def web_search(
         >>> for r in resp.results:
         ...     print(f"[{r.engine}] {r.title} → {r.url}")
     """
-    selected = engines or _default_web_engines()
+    selected = _default_web_engines() if engines is None else list(engines)
 
     tasks = []
     active_engines: list[str] = []

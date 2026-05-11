@@ -198,11 +198,27 @@ class TestSourceAdapterCatalogValidation:
         ):
             self._adapter(auth_requirement="self_hosted")
 
-    def test_self_hosted_integration_without_declared_fields_is_rejected(self):
-        with pytest.raises(
-            ValueError, match="self_hosted 源必须声明 config_field 或 credential_fields"
-        ):
-            self._adapter(integration="self_hosted", needs_config=False)
+    def test_self_hosted_integration_can_explicitly_be_zero_config(self):
+        adapter = self._adapter(integration="self_hosted", needs_config=False)
+        assert adapter.resolved_auth_requirement == "none"
+        assert adapter.resolved_credential_fields == ()
+        assert adapter.resolved_needs_config is False
+
+    def test_default_for_invalid_domain_is_rejected(self):
+        with pytest.raises(ValueError, match="default_for domain=.*DOMAINS"):
+            self._adapter(default_for=frozenset({"wiki:fetch"}))
+
+    def test_default_for_invalid_capability_is_rejected(self):
+        with pytest.raises(ValueError, match="default_for capability=.*CAPABILITIES"):
+            self._adapter(default_for=frozenset({"fetch:render"}))
+
+    def test_default_for_missing_method_is_rejected(self):
+        with pytest.raises(ValueError, match="methods 里没有"):
+            self._adapter(default_for=frozenset({"fetch:archive_lookup"}))
+
+    def test_default_for_domain_mismatch_is_rejected(self):
+        with pytest.raises(ValueError, match="adapter\\.domains"):
+            self._adapter(default_for=frozenset({"web:fetch"}))
 
     def test_has_required_credentials_rejects_required_meta_without_fields(self):
         from types import SimpleNamespace

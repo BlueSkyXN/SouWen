@@ -198,17 +198,7 @@ def test_adapter_registration_order_snapshot() -> None:
 
 
 def test_default_source_order_snapshot() -> None:
-    assert {
-        "paper:search": defaults_for("paper", "search"),
-        "patent:search": defaults_for("patent", "search"),
-        "web:search": defaults_for("web", "search"),
-        "web:search_news": defaults_for("web", "search_news"),
-        "video:search": defaults_for("video", "search"),
-        "knowledge:search": defaults_for("knowledge", "search"),
-        "developer:search": defaults_for("developer", "search"),
-        "archive:archive_lookup": defaults_for("archive", "archive_lookup"),
-        "fetch:fetch": defaults_for("fetch", "fetch"),
-    } == {
+    expected = {
         "paper:search": ["openalex", "crossref", "arxiv", "dblp", "pubmed", "biorxiv"],
         "patent:search": ["google_patents"],
         "web:search": ["duckduckgo", "bing"],
@@ -219,6 +209,18 @@ def test_default_source_order_snapshot() -> None:
         "archive:archive_lookup": ["wayback"],
         "fetch:fetch": ["builtin"],
     }
+    assert {
+        "paper:search": defaults_for("paper", "search"),
+        "patent:search": defaults_for("patent", "search"),
+        "web:search": defaults_for("web", "search"),
+        "web:search_news": defaults_for("web", "search_news"),
+        "video:search": defaults_for("video", "search"),
+        "knowledge:search": defaults_for("knowledge", "search"),
+        "developer:search": defaults_for("developer", "search"),
+        "archive:archive_lookup": defaults_for("archive", "archive_lookup"),
+        "fetch:fetch": defaults_for("fetch", "fetch"),
+    } == expected
+    assert {key: list(names) for key, names in default_source_map().items()} == expected
 
 
 def test_non_public_high_risk_and_deprecated_sources_are_not_default_available() -> None:

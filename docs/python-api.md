@@ -11,7 +11,7 @@ from souwen.search import search, search_all, search_by_capability
 papers = await search("transformer", domain="paper", limit=5)
 web = await search("python asyncio", domain="web", capability="search", limit=5)
 news = await search_by_capability("AI news", capability="search_news", limit=5)
-mixed = await search_all("quantum computing", domains=["paper", "web"], limit=5)
+mixed = await search_all("quantum computing", domains=["paper", "web"], per_domain_limit=5)
 ```
 
 `search()` 返回按源聚合的 `SearchResponse` 列表。单个源失败不会阻断其他源。
