@@ -284,7 +284,17 @@ class FetchResponse(BaseModel):
     total_failed: int = 0
     providers: list[str] = Field(default_factory=list)
     strategy: str = "fallback"
-    provider: str | None = None
+    provider: str | None = Field(
+        default=None,
+        description=(
+            "Deprecated single-provider summary field. Use providers plus "
+            "meta.selected_provider for per-URL attribution."
+        ),
+        json_schema_extra={
+            "deprecated": True,
+            "x-souwen-sunset": "2.1.0 GA",
+        },
+    )
     meta: dict = Field(default_factory=dict)
 
 

@@ -1,0 +1,191 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/BlueSkyXN/SouWen/blob/v2-dev/docs/plugin-manifest.schema.json",
+  "title": "SouWen Plugin Manifest",
+  "description": "Optional author-side manifest for linting SouWen plugin metadata. Runtime discovery still uses pyproject entry points.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema_version", "name", "entry_point", "version", "adapters"],
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "schema_version": {
+      "const": 1
+    },
+    "name": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9_]*$"
+    },
+    "entry_point": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_.]*:[A-Za-z_][A-Za-z0-9_]*$"
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "api_version": {
+      "type": "string",
+      "default": "1"
+    },
+    "min_souwen_version": {
+      "type": ["string", "null"]
+    },
+    "max_souwen_version": {
+      "type": ["string", "null"]
+    },
+    "description": {
+      "type": "string"
+    },
+    "adapters": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/adapter"
+      }
+    }
+  },
+  "$defs": {
+    "stringList": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "uniqueItems": true
+    },
+    "adapter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["name", "domain", "integration", "description", "methods"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "pattern": "^[a-z][a-z0-9_]*$"
+        },
+        "domain": {
+          "enum": [
+            "archive",
+            "cn_tech",
+            "developer",
+            "fetch",
+            "knowledge",
+            "office",
+            "paper",
+            "patent",
+            "social",
+            "video",
+            "web"
+          ]
+        },
+        "integration": {
+          "enum": ["open_api", "official_api", "scraper", "self_hosted"]
+        },
+        "description": {
+          "type": "string",
+          "minLength": 1
+        },
+        "config_field": {
+          "type": ["string", "null"]
+        },
+        "methods": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*(?::[a-z][a-z0-9_]*)?$"
+          },
+          "uniqueItems": true
+        },
+        "extra_domains": {
+          "$ref": "#/$defs/stringList",
+          "default": []
+        },
+        "default_enabled": {
+          "type": "boolean",
+          "default": true
+        },
+        "default_for": {
+          "$ref": "#/$defs/stringList",
+          "default": []
+        },
+        "tags": {
+          "$ref": "#/$defs/stringList",
+          "default": []
+        },
+        "needs_config": {
+          "type": ["boolean", "null"],
+          "default": null
+        },
+        "auth_requirement": {
+          "enum": ["none", "optional", "required", "self_hosted", null],
+          "default": null
+        },
+        "credential_fields": {
+          "$ref": "#/$defs/stringList",
+          "default": []
+        },
+        "optional_credential_effect": {
+          "enum": [
+            "politeness",
+            "personalization",
+            "private_access",
+            "quality",
+            "quota",
+            "rate_limit",
+            "unknown",
+            "write_access",
+            null
+          ],
+          "default": null
+        },
+        "risk_level": {
+          "enum": ["low", "medium", "high"],
+          "default": "low"
+        },
+        "risk_reasons": {
+          "$ref": "#/$defs/stringList",
+          "default": []
+        },
+        "distribution": {
+          "enum": ["core", "extra", "plugin"],
+          "default": "plugin"
+        },
+        "package_extra": {
+          "type": ["string", "null"],
+          "default": null
+        },
+        "stability": {
+          "enum": ["stable", "beta", "experimental", "deprecated"],
+          "default": "stable"
+        },
+        "usage_note": {
+          "type": ["string", "null"],
+          "default": null
+        },
+        "category": {
+          "enum": [
+            "archive",
+            "cn_tech",
+            "developer",
+            "fetch",
+            "knowledge",
+            "office",
+            "paper",
+            "patent",
+            "social",
+            "video",
+            "web_general",
+            "web_professional",
+            null
+          ],
+          "default": null
+        },
+        "catalog_visibility": {
+          "enum": ["public", "internal", "hidden"],
+          "default": "public"
+        }
+      }
+    }
+  }
+}
