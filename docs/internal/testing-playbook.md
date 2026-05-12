@@ -64,6 +64,21 @@
 - [ ] 远端 PR checks 回读确认对应 job 通过。
 - [ ] 对 nightly / release gate，确认 schedule / tag / manual 入口不会静默遗忘。
 
+## 6. v2 mergeback 前 release gate 证据
+
+`v2-dev` 合回 `main` 或进入最终 tag 前，必须手动触发一次
+`External Smoke Gate`：
+
+- `workflow_dispatch` 选择 `suite=release`。
+- 触发 ref 必须是候选 head 或最终 mergeback PR 的 head。
+- `Scrapling release/nightly gate` 与 `Crawl4AI release/nightly gate` 均为
+  `success`。
+- 下载并保留 JSON + Markdown artifact；PR 或 release checklist 中记录 run URL、
+  head SHA、suite、结论和 artifact 名称。
+
+这项证据不替代 `V2 CI`，也不要求每个普通 `v2-dev` PR 自动跑 release suite。
+它只用于证明发布候选头在真实外部 runtime gate 上可用。
+
 ## 迁移示例：Scrapling
 
 Scrapling 属于 PR required functional check：

@@ -15,6 +15,7 @@ import pytest
 from pydantic import ValidationError
 
 from souwen.models import (
+    FetchResponse,
     PaperResult,
     PatentResult,
     SearchResponse,
@@ -159,6 +160,17 @@ class TestExtraForbid:
                 results=[],
                 unknown_field="bad",
             )
+
+
+class TestFetchResponse:
+    """FetchResponse schema contract tests."""
+
+    def test_provider_field_is_marked_deprecated(self):
+        schema = FetchResponse.model_json_schema()
+        provider_schema = schema["properties"]["provider"]
+
+        assert provider_schema["deprecated"] is True
+        assert provider_schema["x-souwen-sunset"] == "2.1.0 GA"
 
 
 class TestWebSearchResult:

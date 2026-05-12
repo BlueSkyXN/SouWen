@@ -45,6 +45,18 @@ The registry is the single source of truth for source metadata, capabilities, de
 - Public docs should describe the current architecture instead of migration history.
 - If a removed path appears in the wheel surface, CI should fail.
 
+## Future Removals
+
+`FetchResponse.provider` is a v2.0 RC transition field for clients that still
+read a single provider summary. It is marked deprecated in the Pydantic model
+schema and must be removed no earlier than the `2.1.0` GA line. New clients
+should read:
+
+- `providers` for the requested provider set.
+- `meta.selected_provider` for per-URL provider attribution under `fallback`.
+- each `FetchResult.source` for the provider that produced an individual
+  result.
+
 ## Verification
 
 Current verification should include:

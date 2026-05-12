@@ -57,6 +57,44 @@ my-source = "my_plugin:plugin"
 **插件作者通常只需声明 entry_points**，是否随镜像预装由部署方决定。
 单纯 `import souwen.registry` 只注册内置源，不会执行第三方 entry point。
 
+### 可选 manifest lint
+
+插件运行时发现仍以 `pyproject.toml` 的 `souwen.plugins` entry point 为准；
+`souwen-plugin.json` 只是给插件作者和 IDE 使用的**可选元数据清单**，不参与运行时加载。
+
+SouWen 提供 JSON Schema：
+
+```json
+{
+  "$schema": "https://github.com/BlueSkyXN/SouWen/blob/v2-dev/docs/plugin-manifest.schema.json",
+  "schema_version": 1,
+  "name": "my_source",
+  "entry_point": "my_plugin:plugin",
+  "version": "0.1.0",
+  "adapters": [
+    {
+      "name": "my_source",
+      "domain": "fetch",
+      "integration": "scraper",
+      "description": "My fetch provider",
+      "methods": ["fetch"],
+      "auth_requirement": "none",
+      "tags": ["external_plugin"],
+      "distribution": "plugin"
+    }
+  ]
+}
+```
+
+本仓源码 checkout 中可运行：
+
+```bash
+python tools/validate_plugin_manifest.py examples/minimal-plugin/souwen-plugin.json
+```
+
+该工具会按 `SourceAdapter` 当前枚举与组合规则做快速校验；深度 Client 合约仍使用
+`souwen.testing.assert_valid_plugin()` / `validate_client_contract()`。
+
 ### Entry Point 目标可以是四种形态
 
 | 形态 | 示例 | 用途 |

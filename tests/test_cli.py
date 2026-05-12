@@ -282,6 +282,7 @@ def test_plugins_new_scaffolds_project(monkeypatch, tmp_path: Path):
     root = tmp_path / "demo_plugin"
     expected_files = [
         "pyproject.toml",
+        "souwen-plugin.json",
         "demo_plugin/__init__.py",
         "demo_plugin/client.py",
         "demo_plugin/handler.py",
@@ -292,9 +293,12 @@ def test_plugins_new_scaffolds_project(monkeypatch, tmp_path: Path):
         assert (root / rel_path).is_file()
 
     pyproject = (root / "pyproject.toml").read_text(encoding="utf-8")
+    manifest = (root / "souwen-plugin.json").read_text(encoding="utf-8")
     init_py = (root / "demo_plugin/__init__.py").read_text(encoding="utf-8")
     assert '[project.entry-points."souwen.plugins"]' in pyproject
     assert 'demo_plugin = "demo_plugin:plugin"' in pyproject
+    assert '"entry_point": "demo_plugin:plugin"' in manifest
+    assert '"methods": ["fetch"]' in manifest
     assert "Plugin(" in init_py
     assert "SourceAdapter(" in init_py
 
