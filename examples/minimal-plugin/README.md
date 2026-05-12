@@ -15,6 +15,12 @@ pip install -e .
 python -c "from souwen.registry import all_adapters; print([n for n in all_adapters() if 'example' in n])"
 ```
 
+可选 manifest 校验（从 SouWen 仓库根目录运行）：
+
+```bash
+python tools/validate_plugin_manifest.py examples/minimal-plugin/souwen-plugin.json
+```
+
 ## 结构
 
 ```
