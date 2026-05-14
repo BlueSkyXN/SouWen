@@ -17,8 +17,10 @@ ARG WGCF_VERSION=2.2.30
 ARG WIREPROXY_VERSION=1.1.2
 ARG USQUE_VERSION=3.0.0
 ARG GH_PROXY=""
-# 默认安装 web2pdf/SuperWeb2PDF 插件及其浏览器运行时
+# 可选安装 web2pdf/SuperWeb2PDF 插件及其浏览器运行时
 ARG WITH_WEB2PDF=0
+# PyPI 暂无 superweb2pdf 发行，默认使用可解析的 GitHub archive；可用 build-arg 覆盖
+ARG WEB2PDF_PACKAGE=https://github.com/BlueSkyXN/SuperWeb2PDF/archive/d1e1da59d739ad46222b5e726bd6f28b0d0453fa.zip
 # 可选：指定 Playwright 浏览器下载镜像（国内环境可用）
 ARG PLAYWRIGHT_DOWNLOAD_HOST=""
 
@@ -62,7 +64,7 @@ RUN git clone --depth 1 --branch "${SOUWEN_REF}" "${SOUWEN_REPO}" .
 COPY --from=panel-builder /build/panel/dist/index.html ./src/souwen/server/panel.html
 
 RUN if [ "${WITH_WEB2PDF}" = "1" ]; then \
-        pip install ".[server,tls,web2pdf]"; \
+        pip install ".[server,tls]" "playwright>=1.40" "${WEB2PDF_PACKAGE}"; \
     else \
         pip install ".[server,tls]"; \
     fi \
