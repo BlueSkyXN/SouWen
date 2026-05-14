@@ -81,6 +81,60 @@ def test_fetch_rejects_unknown_provider():
     assert "无效提供者" in result.output
 
 
+def test_fetch_accepts_runtime_plugin_provider(monkeypatch, clean_registry):
+    """CLI import 后注册的 fetch provider 也应能通过参数校验。"""
+    from souwen.cli import fetch as cli_fetch
+    from souwen.models import FetchResponse
+    from souwen.registry import fetch_providers
+    from souwen.registry.adapter import MethodSpec, SourceAdapter
+    from souwen.registry.views import _reg_external
+    from souwen.web import fetch as web_fetch
+
+    provider = "runtime_fetch_probe"
+    assert provider not in cli_fetch._FETCH_PROVIDER_NAMES
+
+    assert _reg_external(
+        SourceAdapter(
+            name=provider,
+            domain="fetch",
+            integration="scraper",
+            description="runtime fetch provider probe",
+            config_field=None,
+            client_loader=lambda: object,
+            methods={"fetch": MethodSpec("fetch")},
+            category="fetch",
+        )
+    )
+    assert provider in {adapter.name for adapter in fetch_providers()}
+
+    captured: dict[str, list[str] | None] = {}
+
+    async def fake_fetch_content(
+        urls,
+        providers=None,
+        strategy="fallback",
+        timeout=30.0,
+        **_kwargs,
+    ):
+        captured["providers"] = providers
+        return FetchResponse(
+            urls=urls,
+            results=[],
+            total=len(urls),
+            total_ok=0,
+            total_failed=0,
+            providers=providers or [],
+            strategy=strategy,
+        )
+
+    monkeypatch.setattr(web_fetch, "fetch_content", fake_fetch_content)
+
+    result = runner.invoke(app, ["fetch", "https://example.com", "-p", provider])
+
+    assert result.exit_code == 0, result.output
+    assert captured["providers"] == [provider]
+
+
 def test_config_show_indicates_unconfigured(monkeypatch, tmp_path):
     """无密码、无配置文件环境下，``config show`` 必须明确提示"未配置"。
 
