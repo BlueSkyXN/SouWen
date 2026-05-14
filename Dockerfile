@@ -23,8 +23,10 @@ ARG WGCF_VERSION=2.2.30
 ARG WIREPROXY_VERSION=1.1.2
 # usque: MASQUE/QUIC 协议 WARP 客户端
 ARG USQUE_VERSION=3.0.0
-# 默认安装 web2pdf/SuperWeb2PDF 插件及其浏览器运行时
+# 可选安装 web2pdf/SuperWeb2PDF 插件及其浏览器运行时
 ARG WITH_WEB2PDF=0
+# PyPI 暂无 superweb2pdf 发行，默认使用可解析的 GitHub archive；可用 build-arg 覆盖
+ARG WEB2PDF_PACKAGE=https://github.com/BlueSkyXN/SuperWeb2PDF/archive/d1e1da59d739ad46222b5e726bd6f28b0d0453fa.zip
 
 # 环境变量配置
 # WARP 代理环境变量
@@ -81,11 +83,11 @@ WORKDIR /app
 
 # 步骤 1：复制项目配置和版本信息，安装核心依赖
 # 注：curl_cffi 位于 [tls] extras，用于专利爬虫/反爬指纹，必须同时安装
-# 默认安装 web2pdf/SuperWeb2PDF 插件；可通过 --build-arg WITH_WEB2PDF=0 关闭
+# 可通过 --build-arg WITH_WEB2PDF=1 启用 web2pdf/SuperWeb2PDF 插件
 COPY pyproject.toml README.md LICENSE ./
 COPY src/souwen/__init__.py ./src/souwen/__init__.py
 RUN if [ "${WITH_WEB2PDF}" = "1" ]; then \
-        pip install ".[server,tls,web2pdf]"; \
+        pip install ".[server,tls]" "playwright>=1.40" "${WEB2PDF_PACKAGE}"; \
     else \
         pip install ".[server,tls]"; \
     fi
@@ -94,11 +96,7 @@ RUN if [ "${WITH_WEB2PDF}" = "1" ]; then \
 COPY src/ ./src/
 # 复制前端面板的构建产物
 COPY --from=panel-builder /panel/dist/index.html ./src/souwen/server/panel.html
-RUN if [ "${WITH_WEB2PDF}" = "1" ]; then \
-        pip install --no-deps ".[server,tls,web2pdf]"; \
-    else \
-        pip install --no-deps ".[server,tls]"; \
-    fi \
+RUN pip install --no-deps ".[server,tls]" \
     && python -c "import curl_cffi; print('curl_cffi OK')"
 
 # 步骤 2.5：安装 Playwright Chromium（仅 web2pdf 插件需要）

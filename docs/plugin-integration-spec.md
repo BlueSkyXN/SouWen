@@ -46,17 +46,22 @@ my-source = "my_plugin:plugin"
 
 | 模式 | 安装方式 | 适用场景 |
 |---|---|---|
-| **运行时发现** | `pip install superweb2pdf` 单独安装第三方包 | 已发布到 PyPI；插件随宿主升级解耦；社区分发 |
+| **运行时发现** | 安装第三方插件包（例如 GitHub archive 或未来 PyPI 包） | 插件随宿主升级解耦；社区/私有分发 |
 | **打包嵌入（optional dependency）** | `pip install "souwen[web2pdf]"` | Docker 镜像 / 一键部署；插件依赖随 SouWen extras 自动安装 |
 
-**Docker / 多 extras**：`pip install ".[server,tls,web2pdf]"`。
+**Docker / 多 extras**：Dockerfile 先安装 `.[server,tls]`，再按 `WEB2PDF_PACKAGE`
+安装 SuperWeb2PDF 插件包；默认值使用可解析的 GitHub archive，避免依赖尚未发布的
+PyPI distribution。
 
 要把插件挂到 SouWen 的 optional dependencies 上，宿主项目在 `pyproject.toml`
 中追加（仅 SouWen 主仓维护者关心）：
 
 ```toml
 [project.optional-dependencies]
-web2pdf = ["superweb2pdf[capture]>=0.2.0"]
+web2pdf = [
+    "playwright>=1.40",
+    "superweb2pdf @ https://github.com/BlueSkyXN/SuperWeb2PDF/archive/<commit>.zip",
+]
 ```
 
 无论哪种模式，启动时 SouWen 都通过 `importlib.metadata.entry_points(group="souwen.plugins")`

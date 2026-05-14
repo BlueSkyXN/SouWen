@@ -67,6 +67,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 
 try:
     from mcp.server import Server
@@ -84,8 +85,32 @@ from souwen.integrations.mcp.tools.bilibili import (
     is_bilibili_tool,
 )
 
-_DEFAULT_PAPER_SOURCES = defaults_for("paper", "search")
-_DEFAULT_PAPER_SOURCES_LABEL = ",".join(_DEFAULT_PAPER_SOURCES)
+logger = logging.getLogger("souwen.mcp.server")
+
+_MCP_PLUGINS_BOOTSTRAPPED = False
+
+
+def _bootstrap_plugins() -> None:
+    """加载配置可见的外部插件，确保 MCP stdio 独立启动时也能看到插件源。"""
+    global _MCP_PLUGINS_BOOTSTRAPPED
+    if _MCP_PLUGINS_BOOTSTRAPPED:
+        return
+
+    try:
+        from souwen.config import get_config
+        from souwen.plugin import load_plugins
+
+        cfg = get_config()
+        load_plugins(cfg)
+    except Exception:  # noqa: BLE001 - MCP 不应因第三方插件失败而无法启动
+        logger.warning("MCP 插件初始化失败，继续使用已注册源。", exc_info=True)
+    finally:
+        _MCP_PLUGINS_BOOTSTRAPPED = True
+
+
+def _default_paper_sources_label() -> str:
+    _bootstrap_plugins()
+    return ",".join(defaults_for("paper", "search"))
 
 
 def create_server() -> "Server":
@@ -104,6 +129,7 @@ def create_server() -> "Server":
         SystemExit：MCP SDK 未安装时退出
     """
 
+    _bootstrap_plugins()
     server = Server("souwen")
 
     @server.list_tools()
@@ -124,7 +150,7 @@ def create_server() -> "Server":
                         "sources": {
                             "type": "array",
                             "items": {"type": "string"},
-                            "description": f"数据源列表，默认 {_DEFAULT_PAPER_SOURCES_LABEL}",
+                            "description": f"数据源列表，默认 {_default_paper_sources_label()}",
                         },
                         "limit": {
                             "type": "integer",

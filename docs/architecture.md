@@ -219,10 +219,11 @@ client_cls = adapter.client_loader()  # 此刻才 importlib.import_module
 
 | 模式 | 安装命令 | 适用场景 |
 |---|---|---|
-| **运行时发现** | `pip install superweb2pdf` | 已发布 PyPI 包；与 SouWen 解耦升级 |
+| **运行时发现** | 安装第三方插件包（GitHub archive 或未来 PyPI 包） | 与 SouWen 解耦升级 |
 | **打包嵌入** | `pip install "souwen[web2pdf]"` | Docker / 一键部署；插件依赖随 SouWen extras 自动拉取 |
 
-Docker 镜像示例：`pip install ".[server,tls,web2pdf]"`。
+Docker 镜像通过 `WITH_WEB2PDF=1` 启用，并使用 `WEB2PDF_PACKAGE` 指定 SuperWeb2PDF
+插件包；默认值为可解析的 GitHub archive，避免依赖尚未发布的 PyPI distribution。
 两种模式都依赖同一个 `[project.entry-points."souwen.plugins"]` 声明，
 SouWen 启动时统一通过 `importlib.metadata` 扫描发现。
 
