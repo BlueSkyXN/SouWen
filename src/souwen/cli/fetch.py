@@ -11,14 +11,21 @@ from souwen.cli import app
 from souwen.cli._common import _run_async, console
 from souwen.registry import fetch_providers
 
-_FETCH_PROVIDER_NAMES = tuple(adapter.name for adapter in fetch_providers())
+
+def _current_fetch_provider_names() -> tuple[str, ...]:
+    """返回当前 registry 中可用的 fetch provider。"""
+    return tuple(adapter.name for adapter in fetch_providers())
+
+
+_FETCH_PROVIDER_NAMES = _current_fetch_provider_names()
 _FETCH_PROVIDER_HELP = "内容提供者: " + "/".join(_FETCH_PROVIDER_NAMES)
 
 
 def _validate_fetch_provider(value: str) -> str:
     """校验 CLI fetch provider 选项。"""
-    if value not in _FETCH_PROVIDER_NAMES:
-        raise typer.BadParameter(f"无效提供者: {value}，可选: {', '.join(_FETCH_PROVIDER_NAMES)}")
+    provider_names = _current_fetch_provider_names()
+    if value not in provider_names:
+        raise typer.BadParameter(f"无效提供者: {value}，可选: {', '.join(provider_names)}")
     return value
 
 
