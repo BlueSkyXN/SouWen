@@ -13,7 +13,7 @@ import asyncio
 import importlib
 from contextlib import AsyncExitStack, asynccontextmanager
 
-from souwen.models import SearchResponse
+from souwen.models import SearchResponse, WaybackCDXResponse
 from souwen.registry.adapter import MethodSpec, SourceAdapter
 
 
@@ -274,6 +274,134 @@ async def test_search_news_uses_registry_default(monkeypatch):
         "search_news",
         {},
     )
+
+
+async def test_archive_lookup_maps_query_to_url_and_keeps_non_search_response():
+    """``archive:archive_lookup`` 不能收到 search 专用的 ``query`` 参数。"""
+    search_mod = importlib.import_module("souwen.search")
+    calls = []
+
+    class FakeArchiveClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def query_snapshots(self, url: str, limit: int | None = None, from_date=None):
+            calls.append({"url": url, "limit": limit, "from_date": from_date})
+            return WaybackCDXResponse(url=url, total=0, from_date=from_date)
+
+    adapter = SourceAdapter(
+        name="fake_archive_lookup",
+        domain="archive",
+        integration="open_api",
+        description="",
+        config_field=None,
+        client_loader=lambda: FakeArchiveClient,
+        methods={"archive_lookup": MethodSpec("query_snapshots")},
+    )
+
+    async with _temp_adapter(adapter):
+        resp = await search_mod.search(
+            "https://example.com",
+            domain="archive",
+            capability="archive_lookup",
+            sources=["fake_archive_lookup"],
+            limit=3,
+            from_date="20240101",
+        )
+
+    assert calls == [
+        {
+            "url": "https://example.com",
+            "limit": 3,
+            "from_date": "20240101",
+        }
+    ]
+    assert len(resp) == 1
+    assert isinstance(resp[0], WaybackCDXResponse)
+    assert resp[0].url == "https://example.com"
+
+
+async def test_get_trending_does_not_receive_query_argument():
+    """``video:get_trending`` 是无 query 能力，只应收到 limit 映射后的参数。"""
+    search_mod = importlib.import_module("souwen.search")
+    calls = []
+
+    class FakeTrendingClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def get_trending(self, region_code: str = "US", max_results: int = 10):
+            calls.append({"region_code": region_code, "max_results": max_results})
+            return SearchResponse(query=f"trending:{region_code}", source="youtube", results=[])
+
+    adapter = SourceAdapter(
+        name="fake_video_trending",
+        domain="video",
+        integration="open_api",
+        description="",
+        config_field=None,
+        client_loader=lambda: FakeTrendingClient,
+        methods={"get_trending": MethodSpec("get_trending", {"limit": "max_results"})},
+    )
+
+    async with _temp_adapter(adapter):
+        resp = await search_mod.search(
+            "ignored",
+            domain="video",
+            capability="get_trending",
+            sources=["fake_video_trending"],
+            limit=5,
+            region_code="JP",
+        )
+
+    assert calls == [{"region_code": "JP", "max_results": 5}]
+    assert len(resp) == 1
+    assert resp[0].source == "youtube"
+
+
+async def test_fetch_capability_uses_target_signature_for_query_and_limit():
+    """``fetch`` provider 需要 ``urls`` 时，应把 query 包成列表且不硬塞 limit。"""
+    search_mod = importlib.import_module("souwen.search")
+    calls = []
+
+    class FakeBatchFetchClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def fetch_batch(self, urls: list[str]):
+            calls.append({"urls": urls})
+            return {"provider": "fake_batch_fetch", "urls": urls}
+
+    adapter = SourceAdapter(
+        name="fake_batch_fetch",
+        domain="fetch",
+        integration="open_api",
+        description="",
+        config_field=None,
+        client_loader=lambda: FakeBatchFetchClient,
+        methods={"fetch": MethodSpec("fetch_batch")},
+    )
+
+    async with _temp_adapter(adapter):
+        resp = await search_mod.search(
+            "https://example.com",
+            domain="fetch",
+            capability="fetch",
+            sources=["fake_batch_fetch"],
+            limit=99,
+        )
+
+    assert calls == [{"urls": ["https://example.com"]}]
+    assert resp == [{"provider": "fake_batch_fetch", "urls": ["https://example.com"]}]
 
 
 async def test_search_all_groups_domain_results(monkeypatch):

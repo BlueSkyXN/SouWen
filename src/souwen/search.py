@@ -2,7 +2,7 @@
 
 源调度由 `souwen.registry` 派生。对外函数签名：
 
-    search(query, domain="paper", **kwargs) → list[SearchResponse]
+    search(query, domain="paper", **kwargs) → list[Any]
     search_papers(query, sources=None, per_page=10, **kwargs) → list[SearchResponse]
     search_patents(query, sources=None, per_page=10, **kwargs) → list[SearchResponse]
     web_search                              —— 从 souwen.web.search re-export
@@ -27,6 +27,7 @@
 from __future__ import annotations
 
 import asyncio
+import inspect
 import logging
 from typing import Any
 
@@ -40,13 +41,42 @@ from souwen.registry import (
     defaults_for,
     get as _registry_get,
 )
-from souwen.registry.adapter import SourceAdapter
+from souwen.registry.adapter import MethodSpec, SourceAdapter
 
 # ── Web 搜索 ───────────────────────────────────────────────
 from souwen.web.search import web_search  # re-export
 
 logger = logging.getLogger("souwen.search")
 _SEARCH_SOURCE_TIMEOUT_CAP_SECONDS = 15.0
+_QUERYLESS_CAPABILITIES = frozenset({"get_trending"})
+_QUERY_PARAMETER_CANDIDATES: dict[str, tuple[str, ...]] = {
+    "search": ("query", "keyword"),
+    "search_news": ("query", "keyword"),
+    "search_images": ("query", "keyword"),
+    "search_videos": ("query", "keyword"),
+    "search_articles": ("query", "keyword"),
+    "search_users": ("query", "keyword"),
+    "archive_lookup": ("url",),
+    "archive_save": ("url",),
+    "fetch": ("url", "urls", "paper_id", "url_or_shorthand"),
+    "get_detail": ("video_id", "video_ids", "bvid", "id"),
+    "get_transcript": ("video_id",),
+    "exa:find_similar": ("url",),
+    "unpaywall:find_oa": ("doi",),
+}
+_DEFAULT_QUERY_PARAMETER_CANDIDATES = (
+    "query",
+    "keyword",
+    "url",
+    "urls",
+    "doi",
+    "paper_id",
+    "url_or_shorthand",
+    "video_id",
+    "video_ids",
+    "bvid",
+)
+_LIST_QUERY_PARAMETERS = frozenset({"urls", "video_ids"})
 
 
 # ── 通用客户端执行器 ───────────────────────────────────────
@@ -57,7 +87,7 @@ async def _run_via_adapter(
     capability: str,
     /,
     **unified_kwargs: Any,
-) -> SearchResponse:
+) -> Any:
     """按 adapter 声明调用 Client。
 
     执行顺序：
@@ -79,7 +109,7 @@ async def _run_via_adapter(
         return await getattr(client, method)(**native_kwargs)
 
 
-async def _search_source(name: str, coro: Any) -> SearchResponse | None:
+async def _search_source(name: str, coro: Any) -> Any | None:
     """执行单个数据源搜索（异常安全）
 
     捕获和处理异常，区分类型：
@@ -89,10 +119,10 @@ async def _search_source(name: str, coro: Any) -> SearchResponse | None:
 
     Args:
         name: 数据源名称（用于日志）
-        coro: 异步协程（通常是 `_run_via_adapter(adapter, "search", query=..., limit=...)`）
+        coro: 异步协程（通常是 `_run_via_adapter(...)`）
 
     Returns:
-        SearchResponse 对象或 None（失败时）
+        Client 方法返回值或 None（失败时）
     """
     try:
         return await coro
@@ -114,7 +144,7 @@ def _get_source_timeout_seconds() -> float:
     return max(1.0, min(timeout, _SEARCH_SOURCE_TIMEOUT_CAP_SECONDS))
 
 
-async def _search_source_limited(name: str, coro: Any) -> SearchResponse | None:
+async def _search_source_limited(name: str, coro: Any) -> Any | None:
     """带并发度限制 + 超时保护的搜索执行。"""
     async with get_semaphore("search"):
         timeout = _get_source_timeout_seconds()
@@ -123,6 +153,98 @@ async def _search_source_limited(name: str, coro: Any) -> SearchResponse | None:
         except asyncio.TimeoutError:
             logger.warning("%s 搜索超时，已跳过 (%.1fs)", name, timeout)
             return None
+
+
+def _build_capability_kwargs(
+    adapter: SourceAdapter,
+    capability: str,
+    query: str,
+    limit: int,
+    extra_kwargs: dict[str, Any],
+) -> dict[str, Any]:
+    """按 capability 组装统一参数，避免把搜索参数硬塞给非搜索方法。"""
+    unified: dict[str, Any] = dict(extra_kwargs)
+    method_spec = adapter.methods.get(capability)
+    if method_spec is None:
+        unified.setdefault("query", query)
+        unified.setdefault("limit", limit)
+        return unified
+
+    parameter_names, accepts_var_keyword = _get_method_parameters(adapter, method_spec)
+    limit_param = method_spec.param_map.get("limit", "limit")
+    if "limit" not in unified and limit_param not in unified:
+        if accepts_var_keyword or limit_param in parameter_names:
+            unified["limit"] = limit
+
+    if capability in _QUERYLESS_CAPABILITIES:
+        return unified
+
+    candidates = _QUERY_PARAMETER_CANDIDATES.get(capability, _DEFAULT_QUERY_PARAMETER_CANDIDATES)
+    if _has_explicit_query_argument(unified, method_spec, candidates):
+        return unified
+
+    query_param = _select_query_parameter(
+        method_spec, parameter_names, accepts_var_keyword, candidates
+    )
+    if query_param is not None:
+        unified[query_param] = _coerce_query_value(query_param, query)
+        return unified
+
+    unified.setdefault("query", query)
+    return unified
+
+
+def _get_method_parameters(
+    adapter: SourceAdapter,
+    method_spec: MethodSpec,
+) -> tuple[set[str], bool]:
+    """返回目标方法参数名；无法检查时退回到宽松透传。"""
+    try:
+        client_cls = adapter.client_loader()
+        method = getattr(client_cls, method_spec.method_name)
+        signature = inspect.signature(method)
+    except (AttributeError, TypeError, ValueError):
+        return set(), True
+
+    parameters = signature.parameters.values()
+    names = {param.name for param in parameters}
+    accepts_var_keyword = any(param.kind is inspect.Parameter.VAR_KEYWORD for param in parameters)
+    return names, accepts_var_keyword
+
+
+def _has_explicit_query_argument(
+    unified: dict[str, Any],
+    method_spec: MethodSpec,
+    candidates: tuple[str, ...],
+) -> bool:
+    names = set(candidates) | {"query"}
+    names.update(method_spec.param_map.get(name, name) for name in candidates)
+    return any(name in unified for name in names)
+
+
+def _select_query_parameter(
+    method_spec: MethodSpec,
+    parameter_names: set[str],
+    accepts_var_keyword: bool,
+    candidates: tuple[str, ...],
+) -> str | None:
+    if "query" in method_spec.param_map:
+        return "query"
+    for candidate in candidates:
+        native_name = method_spec.param_map.get(candidate, candidate)
+        if accepts_var_keyword or native_name in parameter_names:
+            return candidate
+    return None
+
+
+def _coerce_query_value(parameter_name: str, query: str) -> Any:
+    if parameter_name not in _LIST_QUERY_PARAMETERS:
+        return query
+    if isinstance(query, list):
+        return query
+    if isinstance(query, tuple):
+        return list(query)
+    return [query]
 
 
 # ── 域派发（paper / patent）────────────────────────────────
@@ -186,21 +308,22 @@ async def _execute_search(
     limit: int,
     capability: str = "search",
     **kwargs: Any,
-) -> list[SearchResponse]:
-    """统一的并发搜索执行：跑 `_search_source_limited` on each adapter。"""
+) -> list[Any]:
+    """统一的并发 capability 执行：跑 `_search_source_limited` on each adapter。"""
     cfg = get_config()
     tasks: list[tuple[str, Any]] = []
     for adapter in adapters:
         if not cfg.is_source_enabled(adapter.name):
             logger.info("数据源 %s 已禁用，跳过", adapter.name)
             continue
-        coro = _run_via_adapter(adapter, capability, query=query, limit=limit, **kwargs)
+        unified_kwargs = _build_capability_kwargs(adapter, capability, query, limit, kwargs)
+        coro = _run_via_adapter(adapter, capability, **unified_kwargs)
         tasks.append((adapter.name, coro))
 
     results = await asyncio.gather(
         *[_search_source_limited(n, coro) for n, coro in tasks],
     )
-    responses = [r for r in results if isinstance(r, SearchResponse)]
+    responses = [r for r in results if r is not None]
     logger.info(
         "%s/%s 搜索完成: %d/%d 源成功 (query=%s)",
         domain,
@@ -277,8 +400,8 @@ async def search(
     sources: list[str] | None = None,
     limit: int = 10,
     **kwargs: Any,
-) -> list[SearchResponse]:
-    """统一搜索入口 — 根据 (domain, capability) 从 registry 派发。
+) -> list[Any]:
+    """统一搜索/能力入口 — 根据 (domain, capability) 从 registry 派发。
 
     Args:
         query: 搜索关键词
@@ -302,7 +425,7 @@ async def search_domain(
     sources: list[str] | None = None,
     limit: int = 10,
     **kwargs: Any,
-) -> list[SearchResponse]:
+) -> list[Any]:
     """`search()` 的语义化别名，显式要求传 domain。"""
     return await search(query, domain, capability, sources, limit, **kwargs)
 
@@ -313,7 +436,7 @@ async def search_by_capability(
     sources: list[str] | None = None,
     limit: int = 10,
     **kwargs: Any,
-) -> list[SearchResponse]:
+) -> list[Any]:
     """忽略 domain，对所有支持某 capability 的源派发。"""
     if sources is None:
         adapters = by_capability(capability)
