@@ -19,12 +19,21 @@ from souwen.server.schemas import (
 )
 
 router = APIRouter()
-_DEFAULT_PAPER_SOURCES = defaults_for("paper", "search")
-_DEFAULT_PAPER_SOURCES_LABEL = ",".join(_DEFAULT_PAPER_SOURCES)
-_DEFAULT_PATENT_SOURCES = defaults_for("patent", "search")
-_DEFAULT_PATENT_SOURCES_LABEL = ",".join(_DEFAULT_PATENT_SOURCES)
-_DEFAULT_WEB_ENGINES = defaults_for("web", "search")
-_DEFAULT_WEB_ENGINES_LABEL = ",".join(_DEFAULT_WEB_ENGINES)
+
+
+def _default_paper_sources() -> list[str]:
+    """返回当前 registry 的论文默认源。"""
+    return defaults_for("paper", "search")
+
+
+def _default_patent_sources() -> list[str]:
+    """返回当前 registry 的专利默认源。"""
+    return defaults_for("patent", "search")
+
+
+def _default_web_engines() -> list[str]:
+    """返回当前 registry 的网页搜索默认引擎。"""
+    return defaults_for("web", "search")
 
 
 @router.get(
@@ -36,7 +45,7 @@ async def api_search_paper(
     q: str = Query(..., description="搜索关键词", min_length=1, max_length=500),
     sources: str | None = Query(
         None,
-        description=f"数据源，逗号分隔；默认 {_DEFAULT_PAPER_SOURCES_LABEL}",
+        description="数据源，逗号分隔；默认来自当前 registry 的 paper:search",
     ),
     per_page: int = Query(10, ge=1, le=100, description="每页结果数"),
     timeout: float | None = Query(None, ge=1, le=300, description="端点硬超时（秒），超时返回 504"),
@@ -47,7 +56,7 @@ async def api_search_paper(
 
     requested_sources = None
     if sources is None:
-        source_list = list(_DEFAULT_PAPER_SOURCES)
+        source_list = _default_paper_sources()
     else:
         source_list = [s.strip() for s in sources.split(",") if s.strip()]
         requested_sources = source_list
@@ -89,7 +98,7 @@ async def api_search_patent(
     q: str = Query(..., description="搜索关键词", min_length=1, max_length=500),
     sources: str | None = Query(
         None,
-        description=f"数据源，逗号分隔；默认 {_DEFAULT_PATENT_SOURCES_LABEL}",
+        description="数据源，逗号分隔；默认来自当前 registry 的 patent:search",
     ),
     per_page: int = Query(10, ge=1, le=100, description="每页结果数"),
     timeout: float | None = Query(None, ge=1, le=300, description="端点硬超时（秒），超时返回 504"),
@@ -100,7 +109,7 @@ async def api_search_patent(
 
     requested_sources = None
     if sources is None:
-        source_list = list(_DEFAULT_PATENT_SOURCES)
+        source_list = _default_patent_sources()
     else:
         source_list = [s.strip() for s in sources.split(",") if s.strip()]
         requested_sources = source_list
@@ -142,7 +151,7 @@ async def api_search_web(
     q: str = Query(..., description="搜索关键词", min_length=1, max_length=500),
     engines: str | None = Query(
         None,
-        description=f"搜索引擎，逗号分隔；默认 {_DEFAULT_WEB_ENGINES_LABEL}",
+        description="搜索引擎，逗号分隔；默认来自当前 registry 的 web:search",
     ),
     per_page: int = Query(
         10, ge=1, le=50, alias="per_page", description="每引擎最大结果数（别名: max_results）"
@@ -156,7 +165,7 @@ async def api_search_web(
 
     requested_engines = None
     if engines is None:
-        engine_list = list(_DEFAULT_WEB_ENGINES)
+        engine_list = _default_web_engines()
     else:
         engine_list = [e.strip() for e in engines.split(",") if e.strip()]
         requested_engines = engine_list
