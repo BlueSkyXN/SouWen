@@ -23,9 +23,9 @@ ARG WGCF_VERSION=2.2.30
 ARG WIREPROXY_VERSION=1.1.2
 # usque: MASQUE/QUIC 协议 WARP 客户端
 ARG USQUE_VERSION=3.0.0
-# SuperWeb2PDF 是外部插件；设置 WITH_WEB2PDF=1 时按 WEB2PDF_PACKAGE 预装
+# SuperWeb2PDF 是外部插件；设置 WITH_WEB2PDF=1 时必须显式提供可安装的 WEB2PDF_PACKAGE
 ARG WITH_WEB2PDF=0
-ARG WEB2PDF_PACKAGE=superweb2pdf
+ARG WEB2PDF_PACKAGE=
 
 # 环境变量配置
 # WARP 代理环境变量
@@ -87,6 +87,10 @@ COPY pyproject.toml README.md LICENSE ./
 COPY src/souwen/__init__.py ./src/souwen/__init__.py
 RUN pip install ".[server,tls]" \
     && if [ "${WITH_WEB2PDF}" = "1" ]; then \
+        if [ -z "${WEB2PDF_PACKAGE}" ]; then \
+            echo "WITH_WEB2PDF=1 requires --build-arg WEB2PDF_PACKAGE=<installable package/url/path>" >&2; \
+            exit 1; \
+        fi; \
         pip install "${WEB2PDF_PACKAGE}"; \
     fi
 
