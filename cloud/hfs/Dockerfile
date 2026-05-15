@@ -18,9 +18,10 @@ ARG SOUWEN_REPO=https://github.com/BlueSkyXN/SouWen.git
 ARG SOUWEN_REF=main
 ARG WGCF_VERSION=2.2.30
 ARG WIREPROXY_VERSION=1.1.2
-# SuperWeb2PDF 是外部插件；设置 WITH_WEB2PDF=1 时必须显式提供可安装的 WEB2PDF_PACKAGE
+# 可选安装 web2pdf/SuperWeb2PDF 插件及其浏览器运行时
 ARG WITH_WEB2PDF=0
-ARG WEB2PDF_PACKAGE=
+# PyPI 暂无 superweb2pdf 发行，默认使用可解析的 GitHub archive；可用 build-arg 覆盖
+ARG WEB2PDF_PACKAGE=https://github.com/BlueSkyXN/SuperWeb2PDF/archive/d1e1da59d739ad46222b5e726bd6f28b0d0453fa.zip
 
 ENV PORT=49265 \
     PYTHONUNBUFFERED=1 \
@@ -59,12 +60,7 @@ RUN git init . \
 COPY --from=panel-builder /build/panel/dist/index.html ./src/souwen/server/panel.html
 
 RUN if [ "${WITH_WEB2PDF}" = "1" ]; then \
-        if [ -z "${WEB2PDF_PACKAGE}" ]; then \
-            echo "WITH_WEB2PDF=1 requires --build-arg WEB2PDF_PACKAGE=<installable package/url/path>" >&2; \
-            exit 1; \
-        fi; \
-        pip install ".[server,tls]" \
-        && pip install "${WEB2PDF_PACKAGE}"; \
+        pip install ".[server,tls]" "playwright>=1.40" "${WEB2PDF_PACKAGE}"; \
     else \
         pip install ".[server,tls]"; \
     fi \
