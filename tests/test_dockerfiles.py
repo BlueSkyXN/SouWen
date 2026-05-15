@@ -19,7 +19,6 @@ def test_web2pdf_package_build_arg_requires_explicit_install_source(dockerfile: 
     assert "ARG WEB2PDF_PACKAGE=" in text
     assert "ARG WEB2PDF_PACKAGE=superweb2pdf" not in text
     assert (
-        "WITH_WEB2PDF=1 requires --build-arg WEB2PDF_PACKAGE=<installable package/url/path>"
-        in text
+        "WITH_WEB2PDF=1 requires --build-arg WEB2PDF_PACKAGE=<installable package/url/path>" in text
     )
     assert 'pip install "${WEB2PDF_PACKAGE}"' in text
