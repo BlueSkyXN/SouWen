@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import importlib
+import json
 
 import pytest
 
@@ -36,6 +37,91 @@ class _FakeServer:
             return fn
 
         return decorator
+
+
+@pytest.mark.asyncio
+async def test_create_server_bootstraps_plugins_before_fetch_tool(
+    monkeypatch, clean_registry, clean_fetch_handlers
+):
+    """Standalone MCP stdio must load runtime plugins before tools dispatch."""
+
+    from souwen.models import FetchResponse, FetchResult
+    from souwen.plugin import PluginLoadResult
+    from souwen.registry.adapter import MethodSpec, SourceAdapter
+    from souwen.registry.loader import lazy
+    from souwen.registry.views import _reg_external
+    from souwen.web.fetch import register_fetch_handler
+
+    created: dict[str, _FakeServer] = {}
+    cfg = object()
+    calls = []
+    provider = "mcp_runtime_fetch_probe"
+
+    def fake_server_factory(name: str):
+        server = _FakeServer(name)
+        created["server"] = server
+        return server
+
+    async def fake_handler(urls, timeout, **_kwargs):
+        return FetchResponse(
+            urls=urls,
+            results=[
+                FetchResult(
+                    url=url,
+                    final_url=url,
+                    source=provider,
+                    content="plugin ok",
+                )
+                for url in urls
+            ],
+            total=len(urls),
+            total_ok=len(urls),
+            total_failed=0,
+            provider=provider,
+            providers=[provider],
+        )
+
+    def fake_ensure_plugins_loaded(config):
+        calls.append(config)
+        assert _reg_external(
+            SourceAdapter(
+                name=provider,
+                domain="fetch",
+                integration="scraper",
+                description="MCP runtime fetch provider probe",
+                config_field=None,
+                client_loader=lazy("souwen.web.builtin:BuiltinFetcherClient"),
+                methods={"fetch": MethodSpec("fetch")},
+                category="fetch",
+            )
+        )
+        register_fetch_handler(provider, fake_handler, owner=provider)
+        return PluginLoadResult(
+            loaded_plugins=(provider,),
+            loaded_adapters=(provider,),
+            skipped=(),
+            errors=(),
+        )
+
+    monkeypatch.setattr(mcp_server, "Server", fake_server_factory, raising=False)
+    monkeypatch.setattr(mcp_server, "Tool", _FakeTool, raising=False)
+    monkeypatch.setattr(mcp_server, "TextContent", _FakeTextContent, raising=False)
+    monkeypatch.setattr(mcp_server, "get_bilibili_tools", lambda: [])
+    monkeypatch.setattr(mcp_server, "is_bilibili_tool", lambda name: False)
+    monkeypatch.setattr("souwen.config.get_config", lambda: cfg)
+    monkeypatch.setattr("souwen.plugin.ensure_plugins_loaded", fake_ensure_plugins_loaded)
+
+    mcp_server.create_server()
+    result = await created["server"]._call_tool(
+        "fetch_content",
+        {"urls": ["https://1.1.1.1"], "provider": provider},
+    )
+
+    payload = json.loads(result[0].text)
+    assert calls == [cfg]
+    assert payload["total_ok"] == 1
+    assert payload["results"][0]["source"] == provider
+    assert payload["results"][0]["content"] == "plugin ok"
 
 
 @pytest.mark.asyncio

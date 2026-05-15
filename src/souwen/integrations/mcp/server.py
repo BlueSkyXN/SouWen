@@ -67,6 +67,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import logging
 
 try:
     from mcp.server import Server
@@ -90,6 +91,21 @@ _DEFAULT_PATENT_SOURCES = defaults_for("patent", "search")
 _DEFAULT_PATENT_SOURCES_LABEL = ",".join(_DEFAULT_PATENT_SOURCES)
 _DEFAULT_WEB_ENGINES = defaults_for("web", "search")
 _DEFAULT_WEB_ENGINES_LABEL = ",".join(_DEFAULT_WEB_ENGINES)
+logger = logging.getLogger("souwen.integrations.mcp.server")
+
+
+def _bootstrap_plugins() -> None:
+    """Load runtime plugins for standalone MCP server entry points."""
+
+    try:
+        from souwen.config import get_config
+        from souwen.plugin import ensure_plugins_loaded
+
+        result = ensure_plugins_loaded(get_config())
+        if result.errors:
+            logger.warning("MCP 插件加载完成，错误 %d 个", len(result.errors))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("MCP 插件 bootstrap 失败，已跳过: %s", exc)
 
 
 def create_server() -> "Server":
@@ -107,6 +123,8 @@ def create_server() -> "Server":
     Raises:
         SystemExit：MCP SDK 未安装时退出
     """
+
+    _bootstrap_plugins()
 
     server = Server("souwen")
 
