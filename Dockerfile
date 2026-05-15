@@ -23,9 +23,10 @@ ARG WGCF_VERSION=2.2.30
 ARG WIREPROXY_VERSION=1.1.2
 # usque: MASQUE/QUIC 协议 WARP 客户端
 ARG USQUE_VERSION=3.0.0
-# SuperWeb2PDF 是外部插件；设置 WITH_WEB2PDF=1 时必须显式提供可安装的 WEB2PDF_PACKAGE
+# 可选安装 web2pdf/SuperWeb2PDF 插件及其浏览器运行时
 ARG WITH_WEB2PDF=0
-ARG WEB2PDF_PACKAGE=
+# PyPI 暂无 superweb2pdf 发行，默认使用可解析的 GitHub archive；可用 build-arg 覆盖
+ARG WEB2PDF_PACKAGE=https://github.com/BlueSkyXN/SuperWeb2PDF/archive/d1e1da59d739ad46222b5e726bd6f28b0d0453fa.zip
 
 # 环境变量配置
 # WARP 代理环境变量
@@ -82,16 +83,13 @@ WORKDIR /app
 
 # 步骤 1：复制项目配置和版本信息，安装核心依赖
 # 注：curl_cffi 位于 [tls] extras，用于专利爬虫/反爬指纹，必须同时安装
-# 默认只安装 SouWen server/tls；SuperWeb2PDF 需通过外部插件包显式预装
+# 可通过 --build-arg WITH_WEB2PDF=1 启用 web2pdf/SuperWeb2PDF 插件
 COPY pyproject.toml README.md LICENSE ./
 COPY src/souwen/__init__.py ./src/souwen/__init__.py
-RUN pip install ".[server,tls]" \
-    && if [ "${WITH_WEB2PDF}" = "1" ]; then \
-        if [ -z "${WEB2PDF_PACKAGE}" ]; then \
-            echo "WITH_WEB2PDF=1 requires --build-arg WEB2PDF_PACKAGE=<installable package/url/path>" >&2; \
-            exit 1; \
-        fi; \
-        pip install "${WEB2PDF_PACKAGE}"; \
+RUN if [ "${WITH_WEB2PDF}" = "1" ]; then \
+        pip install ".[server,tls]" "playwright>=1.40" "${WEB2PDF_PACKAGE}"; \
+    else \
+        pip install ".[server,tls]"; \
     fi
 
 # 步骤 2：复制全部源码并重新安装（确保最新版本）
