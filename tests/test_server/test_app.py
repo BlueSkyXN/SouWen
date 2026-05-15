@@ -353,6 +353,16 @@ class TestSearchAuth:
         resp = client.get("/api/v1/sources")
         assert resp.status_code == 200
 
+    def test_sources_guest_only_without_passwords_passthrough(self, client, monkeypatch):
+        """guest-only/open-search 部署下，面板登录探针使用的 ``/sources`` 必须可达。"""
+        monkeypatch.setenv("SOUWEN_GUEST_ENABLED", "true")
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        resp = client.get("/api/v1/sources")
+        assert resp.status_code == 200
+        assert set(resp.json()) == {"sources", "categories", "defaults"}
+
     def test_sources_with_password_requires_token(self, authed_client):
         """设了 user_password 后，``/sources`` 无 Token 直接访问必须 401。"""
         resp = authed_client.get("/api/v1/sources")
@@ -1094,6 +1104,31 @@ class TestSearchWebResponseShape:
 class TestSearchDefaults:
     """API-SEARCH-DEFAULTS: /search/* 默认源与 registry 保持一致"""
 
+    @staticmethod
+    def _register_runtime_default_source(name: str, domain: str) -> None:
+        from souwen.registry.adapter import MethodSpec, SourceAdapter
+        from souwen.registry.loader import lazy
+        from souwen.registry.views import _reg_external
+
+        integration = "scraper" if domain == "web" else "open_api"
+        loader_path = {
+            "paper": "souwen.paper.arxiv:ArxivClient",
+            "patent": "souwen.patent.google_patents:GooglePatentsClient",
+            "web": "souwen.web.duckduckgo:DuckDuckGoClient",
+        }[domain]
+        adapter = SourceAdapter(
+            name=name,
+            domain=domain,
+            integration=integration,
+            description=f"runtime {domain} default probe",
+            config_field=None,
+            client_loader=lazy(loader_path),
+            methods={"search": MethodSpec("search")},
+            needs_config=False,
+            default_for=frozenset({f"{domain}:search"}),
+        )
+        assert _reg_external(adapter) is True
+
     def test_paper_defaults_come_from_registry(self, client, monkeypatch):
         """未传 ``sources`` 时，应由 ``souwen.search`` 自行应用 registry 默认源。"""
         import importlib
@@ -1112,9 +1147,34 @@ class TestSearchDefaults:
         assert resp.status_code == 200
         data = resp.json()
         assert captured["sources"] is None
-        assert data["sources"] == routes_search._DEFAULT_PAPER_SOURCES
-        assert data["meta"]["requested"] == routes_search._DEFAULT_PAPER_SOURCES
-        assert data["meta"]["failed"] == routes_search._DEFAULT_PAPER_SOURCES
+        assert data["sources"] == routes_search._default_paper_sources()
+        assert data["meta"]["requested"] == routes_search._default_paper_sources()
+        assert data["meta"]["failed"] == routes_search._default_paper_sources()
+
+    def test_paper_default_metadata_uses_live_registry(self, client, monkeypatch, clean_registry):
+        """运行时插件声明 ``paper:search`` 默认源后，响应 metadata 必须同步包含它。"""
+        import importlib
+
+        from souwen.registry import defaults_for
+
+        self._register_runtime_default_source("runtime_paper_default", "paper")
+        search_mod = importlib.import_module("souwen.search")
+        captured: dict = {}
+
+        async def fake_search(q, sources=None, per_page=10, **kw):
+            captured["sources"] = sources
+            return []
+
+        monkeypatch.setattr(search_mod, "search_papers", fake_search)
+        resp = client.get("/api/v1/search/paper?q=foo")
+        assert resp.status_code == 200
+        data = resp.json()
+        expected = defaults_for("paper", "search")
+        assert captured["sources"] is None
+        assert "runtime_paper_default" in expected
+        assert data["sources"] == expected
+        assert data["meta"]["requested"] == expected
+        assert data["meta"]["failed"] == expected
 
     def test_patent_defaults_come_from_registry(self, client, monkeypatch):
         """未传 ``sources`` 时，专利搜索也应透传 ``None`` 让 registry 默认源生效。"""
@@ -1134,9 +1194,34 @@ class TestSearchDefaults:
         assert resp.status_code == 200
         data = resp.json()
         assert captured["sources"] is None
-        assert data["sources"] == routes_search._DEFAULT_PATENT_SOURCES
-        assert data["meta"]["requested"] == routes_search._DEFAULT_PATENT_SOURCES
-        assert data["meta"]["failed"] == routes_search._DEFAULT_PATENT_SOURCES
+        assert data["sources"] == routes_search._default_patent_sources()
+        assert data["meta"]["requested"] == routes_search._default_patent_sources()
+        assert data["meta"]["failed"] == routes_search._default_patent_sources()
+
+    def test_patent_default_metadata_uses_live_registry(self, client, monkeypatch, clean_registry):
+        """运行时插件声明 ``patent:search`` 默认源后，响应 metadata 必须同步包含它。"""
+        import importlib
+
+        from souwen.registry import defaults_for
+
+        self._register_runtime_default_source("runtime_patent_default", "patent")
+        search_mod = importlib.import_module("souwen.search")
+        captured: dict = {}
+
+        async def fake_search(q, sources=None, per_page=10, **kw):
+            captured["sources"] = sources
+            return []
+
+        monkeypatch.setattr(search_mod, "search_patents", fake_search)
+        resp = client.get("/api/v1/search/patent?q=foo")
+        assert resp.status_code == 200
+        data = resp.json()
+        expected = defaults_for("patent", "search")
+        assert captured["sources"] is None
+        assert "runtime_patent_default" in expected
+        assert data["sources"] == expected
+        assert data["meta"]["requested"] == expected
+        assert data["meta"]["failed"] == expected
 
     def test_web_defaults_come_from_registry(self, client, monkeypatch):
         """未传 ``engines`` 时，web 搜索应透传 ``None`` 让 registry 默认源生效。"""
@@ -1154,9 +1239,32 @@ class TestSearchDefaults:
         assert resp.status_code == 200
         data = resp.json()
         assert captured["engines"] is None
-        assert data["engines"] == routes_search._DEFAULT_WEB_ENGINES
-        assert data["meta"]["requested"] == routes_search._DEFAULT_WEB_ENGINES
-        assert data["meta"]["failed"] == routes_search._DEFAULT_WEB_ENGINES
+        assert data["engines"] == routes_search._default_web_engines()
+        assert data["meta"]["requested"] == routes_search._default_web_engines()
+        assert data["meta"]["failed"] == routes_search._default_web_engines()
+
+    def test_web_default_metadata_uses_live_registry(self, client, monkeypatch, clean_registry):
+        """运行时插件声明 ``web:search`` 默认源后，响应 metadata 必须同步包含它。"""
+        from souwen.registry import defaults_for
+        from souwen.web import search as web_search_mod
+
+        self._register_runtime_default_source("runtime_web_default", "web")
+        captured: dict = {}
+
+        async def fake_web_search(q, engines=None, max_results_per_engine=10, **kw):
+            captured["engines"] = engines
+            return web_search_mod.WebSearchResponse(query=q, source="duckduckgo", results=[])
+
+        monkeypatch.setattr(web_search_mod, "web_search", fake_web_search)
+        resp = client.get("/api/v1/search/web?q=foo")
+        assert resp.status_code == 200
+        data = resp.json()
+        expected = defaults_for("web", "search")
+        assert captured["engines"] is None
+        assert "runtime_web_default" in expected
+        assert data["engines"] == expected
+        assert data["meta"]["requested"] == expected
+        assert data["meta"]["failed"] == expected
 
 
 class TestPerPageAlias:

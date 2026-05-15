@@ -205,6 +205,27 @@ def check_user_auth(
         )
 
 
+def check_sources_auth(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+) -> None:
+    """Source Catalog 端点认证
+
+    行为：
+    - 若用户密码未配置 → 放行，供 open-search / guest-only 面板探针访问
+    - 若用户密码已配置 → 要求 USER+，即使启用 guest 模式也不降级开放
+    """
+    cfg = get_config()
+    if not cfg.effective_user_password:
+        return
+    role = resolve_role(credentials)
+    if role < Role.USER:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="认证失败：此端点需要用户或管理员权限",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+
 def check_search_auth(
     credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
 ) -> None:
