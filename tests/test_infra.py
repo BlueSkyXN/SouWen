@@ -64,15 +64,16 @@ def test_project_urls_point_to_main_for_mergeback():
     assert 'Changelog = "https://github.com/BlueSkyXN/SouWen/blob/main/CHANGELOG.md"' in pyproject
 
 
-def test_wheel_build_requires_panel_asset_hook():
-    """wheel 构建必须经过 panel.html 产物校验，避免静默发布无面板包。"""
+def test_wheel_build_uses_panel_asset_hook():
+    """wheel 构建通过 hook 复用已生成的 panel.html 产物。"""
     pyproject = Path("pyproject.toml").read_text(encoding="utf-8")
     hook = Path("hatch_build.py").read_text(encoding="utf-8")
     assert "[tool.hatch.build.hooks.custom]" in pyproject
     assert 'path = "hatch_build.py"' in pyproject
-    assert "src/souwen/server/panel.html" in hook
-    assert "npm run build:local" in hook
+    assert '"src" / "souwen" / "server" / "panel.html"' in hook
     assert 'version == "editable"' in hook
+    assert "copyfile(panel_dist, panel_html)" in hook
+    assert "raise RuntimeError" not in hook
 
 
 class TestModels:
