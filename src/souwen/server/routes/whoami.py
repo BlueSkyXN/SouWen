@@ -39,4 +39,7 @@ async def whoami(role: Role = Depends(resolve_role)):
         "role": role.name.lower(),
         "features": features,
         "guest_enabled": cfg.guest_enabled,
+        "user_password_set": cfg.effective_user_password is not None,
+        "admin_password_set": cfg.effective_admin_password is not None,
+        "admin_open": role >= Role.ADMIN and cfg.effective_admin_password is None,
     }

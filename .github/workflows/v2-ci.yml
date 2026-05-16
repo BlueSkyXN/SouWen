@@ -30,6 +30,12 @@ jobs:
           python-version: "3.11"
           cache: "pip"
 
+      - uses: actions/setup-node@v6
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: panel/package-lock.json
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
@@ -52,6 +58,7 @@ jobs:
       - name: Import and wheel surface tests
         run: |
           pytest tests/test_import_surface.py -q
+          ( cd panel && npm ci && npm run build:local )
           wheelhouse="$(mktemp -d)"
           python -m pip wheel . --no-deps --wheel-dir "$wheelhouse"
           WHEELHOUSE="$wheelhouse" python - <<'PY'
@@ -102,6 +109,7 @@ jobs:
               "souwen/registry/sources/__init__.py",
               "souwen/web/fetch.py",
               "souwen/web/wayback.py",
+              "souwen/server/panel.html",
           }
           missing = sorted(required - names)
           if missing:

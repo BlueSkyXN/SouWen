@@ -14,9 +14,12 @@
 from __future__ import annotations
 
 import asyncio
+from types import SimpleNamespace
 
 import pytest
 
+from souwen.core.exceptions import SourceUnavailableError
+from souwen.core.scraper.base import BaseScraper
 from souwen.models import FetchResponse, FetchResult
 from souwen.web.fetch import fetch_content, register_fetch_handler, validate_fetch_url
 
@@ -61,6 +64,26 @@ class TestSSRFValidation:
         # 直接用知名公网 IP 绕过本地 DNS 解析差异
         ok, reason = validate_fetch_url("https://1.1.1.1/")
         assert ok, f"公网 URL 被拒绝: {reason}"
+
+
+class TestSafeRedirects:
+    """通用抓取层逐跳 SSRF 防护测试"""
+
+    @pytest.mark.asyncio
+    async def test_base_scraper_blocks_private_redirect_target(self):
+        scraper = BaseScraper.__new__(BaseScraper)
+
+        async def fake_fetch(url, **_kwargs):
+            return SimpleNamespace(
+                status_code=302,
+                headers={"location": "http://127.0.0.1/admin"},
+                url=url,
+            )
+
+        scraper._fetch = fake_fetch
+
+        with pytest.raises(SourceUnavailableError, match="SSRF"):
+            await scraper._fetch_with_safe_redirects("https://example.com/start")
 
 
 class TestFetchContent:

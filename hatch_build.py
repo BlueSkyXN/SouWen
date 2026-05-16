@@ -1,0 +1,29 @@
+"""Hatch build hooks for packaging generated assets."""
+
+from __future__ import annotations
+
+from pathlib import Path
+from shutil import copyfile
+
+from hatchling.builders.hooks.plugin.interface import BuildHookInterface
+
+
+class CustomBuildHook(BuildHookInterface):
+    """Copy the generated single-file Web Panel into wheels when available."""
+
+    def initialize(self, version: str, build_data: dict) -> None:
+        if self.target_name != "wheel":
+            return
+        if version == "editable":
+            return
+
+        root = Path(self.root)
+        panel_html = root / "src" / "souwen" / "server" / "panel.html"
+        panel_dist = root / "panel" / "dist" / "index.html"
+
+        if panel_html.is_file():
+            return
+        if panel_dist.is_file():
+            panel_html.parent.mkdir(parents=True, exist_ok=True)
+            copyfile(panel_dist, panel_html)
+            return

@@ -706,6 +706,8 @@ class TestThreeRoleAuth:
         data = resp.json()
         assert data["role"] == "admin"
         assert data["features"]["fetch"] is True
+        assert data["admin_password_set"] is True
+        assert data["user_password_set"] is True
 
     def test_whoami_user_token(self, dual_key_client):
         """user token 返回 user 角色。"""
@@ -719,6 +721,20 @@ class TestThreeRoleAuth:
         assert data["features"]["search"] is True
         assert data["features"]["fetch"] is False
         assert data["features"]["config_write"] is False
+
+    def test_whoami_rejects_invalid_bearer_in_open_user_mode(self, client):
+        """开放用户端点不应把错误 Bearer token 降级成 user。"""
+        resp = client.get("/api/v1/whoami", headers={"Authorization": "Bearer wrong"})
+        assert resp.status_code == 401
+
+    def test_whoami_admin_only_invalid_token_rejected(self, client, monkeypatch):
+        """仅配置 admin_password 时，错误 token 不能被当作开放 user 登录。"""
+        monkeypatch.setenv("SOUWEN_ADMIN_PASSWORD", "admin-pw")
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        resp = client.get("/api/v1/whoami", headers={"Authorization": "Bearer wrong"})
+        assert resp.status_code == 401
 
     def test_whoami_guest_enabled(self, client, monkeypatch):
         """guest_enabled=True 时无 token 返回 guest 角色。"""

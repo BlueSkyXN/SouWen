@@ -138,6 +138,8 @@ _USER_AGENT = "SouWen-SiteCrawler/1.0 (+https://github.com/BlueSkyXN/SouWen)"
 # 重试参数（对齐 deepwiki-mcp RETRY_LIMIT / BACKOFF_BASE_MS）
 _RETRY_LIMIT = 3
 _BACKOFF_BASE_S = 0.25  # 250ms
+_MAX_REDIRECTS = 5
+_REDIRECT_CODES = frozenset({301, 302, 303, 307, 308})
 
 # 可选依赖探测
 _HAS_TRAFILATURA = False
@@ -365,6 +367,26 @@ class SiteCrawlerClient:
             或单个聚合 FetchResult（aggregate 模式）
         """
         t0 = time.perf_counter()
+        from souwen.web.fetch import validate_fetch_url
+
+        ok, reason = validate_fetch_url(root_url)
+        if not ok:
+            return FetchResponse(
+                urls=[root_url],
+                results=[
+                    FetchResult(
+                        url=root_url,
+                        final_url=root_url,
+                        source=self.PROVIDER_NAME,
+                        error=f"SSRF 校验失败: {reason}",
+                    )
+                ],
+                total=1,
+                total_ok=0,
+                total_failed=1,
+                provider=self.PROVIDER_NAME,
+            )
+
         parsed_root = urlparse(root_url)
         root_hostname = parsed_root.hostname or ""
         origin = f"{parsed_root.scheme}://{parsed_root.netloc}"
@@ -390,7 +412,7 @@ class SiteCrawlerClient:
         }
 
         async with httpx.AsyncClient(
-            follow_redirects=True,
+            follow_redirects=False,
             timeout=timeout,
             headers=headers,
         ) as client:
@@ -403,11 +425,35 @@ class SiteCrawlerClient:
                 async with sem:
                     for attempt in range(_RETRY_LIMIT):
                         try:
-                            resp = await client.get(url, timeout=timeout)
+                            current_url = url
+                            resp = None
+                            for _hop in range(_MAX_REDIRECTS + 1):
+                                ok, reason = validate_fetch_url(current_url)
+                                if not ok:
+                                    errors.append((current_url, f"SSRF: {reason}"))
+                                    return
+                                resp = await client.get(current_url, timeout=timeout)
+                                if resp.status_code not in _REDIRECT_CODES:
+                                    break
+                                location = resp.headers.get("location")
+                                if not location:
+                                    break
+                                redirect_url = urljoin(current_url, location)
+                                ok, reason = validate_fetch_url(redirect_url)
+                                if not ok:
+                                    errors.append((redirect_url, f"SSRF: {reason}"))
+                                    return
+                                current_url = redirect_url
+                            else:
+                                errors.append((url, f"重定向次数超过上限 ({_MAX_REDIRECTS})"))
+                                return
+                            if resp is None:
+                                return
                             ct = resp.headers.get("content-type", "")
                             if "text/html" not in ct:
                                 return
                             html = resp.text
+                            url = str(resp.url)
                             break
                         except Exception as exc:
                             if attempt < _RETRY_LIMIT - 1:

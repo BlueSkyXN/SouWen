@@ -71,7 +71,7 @@ class NewspaperFetcherClient(BaseScraper):
             min_delay=0.0,
             max_delay=0.0,
             max_retries=2,
-            follow_redirects=True,
+            follow_redirects=False,
         )
         self._newspaper: Any = None
 
@@ -117,8 +117,8 @@ class NewspaperFetcherClient(BaseScraper):
             )
         try:
             # 1) BaseScraper 抓 HTML（curl_cffi/httpx + WARP + 退避）
-            resp = await asyncio.wait_for(self._fetch(url), timeout=timeout)
-            final_url = url
+            resp = await asyncio.wait_for(self._fetch_with_safe_redirects(url), timeout=timeout)
+            final_url = str(resp.url) if hasattr(resp, "url") else url
             html = resp.text or ""
             status_code = resp.status_code
 
