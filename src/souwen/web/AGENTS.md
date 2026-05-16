@@ -1,20 +1,22 @@
 # src/souwen/web navigation card
 
-This directory implements web/search/fetch/archive/social/video provider clients.
-Read `fetch.py`, `search.py`, `core/scraper/base.py`, `docs/anti-scraping.md`, and `tests/test_web/` first.
-Read this card for web providers, fetch providers, SSRF checks, scraping behavior or provider routing.
+Type: Domain card.
+This directory implements web search, fetch, archive, social, developer, video and aggregation clients.
+Read `fetch.py`, `search.py`, the target provider module, `src/souwen/core/scraper/base.py`, `docs/anti-scraping.md`, and matching `tests/test_web/` files first.
+Read this card for web providers, fetch providers, SSRF checks, scraping behavior, optional dependency handling or provider routing.
 
 ## Local invariants
 
 - Fetch must preserve SSRF checks for private, loopback, link-local and reserved targets.
-- Missing optional dependencies or credentials should degrade with clear errors, not crash aggregation.
-- API providers should use `SouWenHttpClient`; scraper providers should use `BaseScraper`.
+- Missing optional dependencies or credentials should produce clear errors or aggregation skips, not import-time crashes.
+- API providers should use `SouWenHttpClient`; scraper/browser-like providers should use `BaseScraper` or the established fetcher abstraction.
 - New fetch providers must align handler registration, registry metadata, route validation and tests.
 
 ## Do not
 
-- Do not let ordinary pytest hit live search engines or social platforms.
+- Do not let ordinary pytest hit live search engines, social platforms or browser runtimes.
 - Do not bypass URL safety checks except in explicit tests/internal paths.
+- Do not scatter provider selection lists outside registry metadata.
 
 ## Validation
 

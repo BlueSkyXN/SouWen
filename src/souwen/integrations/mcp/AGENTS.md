@@ -1,19 +1,27 @@
 # src/souwen/integrations/mcp navigation card
 
+Type: Guardrail card.
 This directory implements MCP stdio/server and Streamable HTTP/SSE support.
-Read `server.py`, `http_server.py`, `tools/`, and MCP integration tests first.
-Read this card for MCP lifecycle, transport behavior or tool changes.
+Read `server.py`, `http_server.py`, tool registrations and MCP integration tests first.
+Read this card for MCP lifecycle, HTTP/SSE transport behavior, tool schemas or tool implementation changes.
 
-## Local invariants
+## Why this is high-risk
 
-- Network MCP should only be enabled by config.
-- HTTP/SSE lifespan must start and stop safely under FastAPI lifecycle.
-- Tools should call application APIs, not private route handlers.
+- MCP tools expose SouWen capabilities to external agents and clients.
+- HTTP/SSE transports can accidentally open network endpoints.
+- Tool schema changes affect downstream MCP clients.
+
+## Required before changes
+
+- Confirm whether the change targets stdio, HTTP/SSE or shared tool registration.
+- Keep tool implementations calling application APIs, not private route handlers.
+- Preserve optional dependency behavior when MCP extras are not installed.
 
 ## Do not
 
 - Do not default-open remote MCP HTTP endpoints.
-- Do not make the core package require MCP SDK at import time.
+- Do not make base package import require the MCP SDK.
+- Do not expose admin/server-only state mutation through public MCP tools without explicit auth design.
 
 ## Validation
 
