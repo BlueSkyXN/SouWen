@@ -2,13 +2,13 @@
 
 ## 导航
 
-- [v2 release candidate](#v200rc1--v2-release-candidate2026-05-08)
+- [v2 release candidate](#v200rc1--v2-release-candidate2026-05-16)
 - [v1.x history](#v112--ai-workflow-安全加固与功能深化2026-05-04)
 - [v0.x history](#v090--v1-过渡版2026-04-22)
 
 > v2 段落记录当前 release candidate 的公开变更和验证边界；v1/v0 段落保留历史审计脉络。
 
-## v2.0.0rc1 — v2 Release Candidate（2026-05-08）
+## v2.0.0rc1 — v2 Release Candidate（2026-05-16）
 
 ### Release Status
 - `v2-dev` 已进入 release candidate smoke 阶段；当前候选线用于验证真实用户路径和目标发布路径，不再继续围绕 PR6-PR9 做开放式重构。
