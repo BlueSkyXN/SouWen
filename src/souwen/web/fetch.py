@@ -1,11 +1,11 @@
 """并发多提供者聚合内容抓取
 
 文件用途：
-    核心网页内容抓取聚合模块。支持 22 个提供者（内置抓取、Jina Reader、arXiv Fulltext、
+    核心网页内容抓取聚合模块。支持 23 个提供者（内置抓取、Jina Reader、arXiv Fulltext、
     Tavily、Firecrawl、Exa、XCrawl、Crawl4AI、Scrapfly、Diffbot、ScrapingBee、ZenRows、
     ScraperAPI、Apify、Cloudflare Browser Rendering、Wayback Machine、
     newspaper4k、readability、MCP、site_crawler（多页 BFS 爬虫）、
-    deepwiki（DeepWiki 文档抓取）、Scrapling），
+    deepwiki（DeepWiki 文档抓取）、Scrapling、Kimi Code），
     通过 asyncio 并发抓取、聚合结果，为用户提供统一内容提取接口。
 
 函数/类清单：
@@ -41,7 +41,7 @@
     - souwen.config: 配置读取（API Key）
     - souwen.models: FetchResult, FetchResponse 数据模型
     - souwen.web.jina_reader / tavily / firecrawl / exa / crawl4ai_fetcher /
-      scrapling_fetcher / scrapfly / diffbot / scrapingbee / zenrows / scraperapi /
+      kimi_code / scrapling_fetcher / scrapfly / diffbot / scrapingbee / zenrows / scraperapi /
       apify / cloudflare_browser / wayback / newspaper_fetcher / readability_fetcher:
       各提供者客户端（懒加载）
 
@@ -375,6 +375,25 @@ async def _handle_xcrawl(urls: list[str], timeout: float, **_kwargs: Any) -> Fet
         return await client.scrape_batch(urls, timeout=timeout)
 
 
+async def _handle_kimi_code(
+    urls: list[str],
+    timeout: float,
+    *,
+    start_index: int = 0,
+    max_length: int | None = None,
+    **_kwargs: Any,
+) -> FetchResponse:
+    from souwen.web.kimi_code import KimiCodeClient
+
+    async with KimiCodeClient() as client:
+        return await client.fetch_batch(
+            urls,
+            timeout=timeout,
+            start_index=start_index,
+            max_length=max_length,
+        )
+
+
 async def _handle_exa(urls: list[str], timeout: float, **_kwargs: Any) -> FetchResponse:
     from souwen.web.exa import ExaClient
 
@@ -511,6 +530,7 @@ register_fetch_handler("arxiv_fulltext", _handle_arxiv_fulltext)
 register_fetch_handler("tavily", _handle_tavily)
 register_fetch_handler("firecrawl", _handle_firecrawl)
 register_fetch_handler("xcrawl", _handle_xcrawl)
+register_fetch_handler("kimi_code", _handle_kimi_code)
 register_fetch_handler("exa", _handle_exa)
 register_fetch_handler("crawl4ai", _handle_crawl4ai)
 register_fetch_handler("scrapling", _handle_scrapling)

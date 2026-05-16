@@ -153,6 +153,7 @@ def test_adapter_registration_order_snapshot() -> None:
         "xcrawl",
         "zhipuai",
         "aliyun_iqs",
+        "kimi_code",
         "searxng",
         "whoogle",
         "websurfx",

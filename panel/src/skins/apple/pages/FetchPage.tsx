@@ -22,6 +22,7 @@ const PROVIDERS: { value: Provider; label: string }[] = [
   { value: 'tavily', label: 'Tavily' },
   { value: 'firecrawl', label: 'Firecrawl' },
   { value: 'exa', label: 'Exa' },
+  { value: 'kimi_code', label: 'Kimi Code' },
   { value: 'crawl4ai', label: 'Crawl4AI' },
   { value: 'scrapfly', label: 'Scrapfly' },
   { value: 'diffbot', label: 'Diffbot' },

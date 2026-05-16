@@ -75,6 +75,7 @@ web:
   feishu_app_secret: your_app_secret
   zhipuai_api_key: your_key         # 智谱 AI Web Search Pro
   aliyun_iqs_api_key: your_key      # 阿里云 IQS 通义晓搜
+  kimi_code_api_key: your_key       # Kimi Code 搜索/网页获取（不是 Kimi 开放平台 Key）
   metaso_api_key: your_key          # Metaso（秘塔）搜索
   perplexity_api_key: your_key
   linkup_api_key: your_key
@@ -177,6 +178,7 @@ sources: {}
 | `feishu_app_secret` | `SOUWEN_FEISHU_APP_SECRET` | 飞书云文档必需 | 飞书 / Lark 自建应用 App Secret |
 | `zhipuai_api_key` | `SOUWEN_ZHIPUAI_API_KEY` | 智谱 AI 必需 | Web Search Pro API Key（含 AI 摘要） |
 | `aliyun_iqs_api_key` | `SOUWEN_ALIYUN_IQS_API_KEY` | 阿里云 IQS 必需 | 通义晓搜 API Key（含 AI 摘要） |
+| `kimi_code_api_key` | `SOUWEN_KIMI_CODE_API_KEY` | Kimi Code 必需 | Kimi Code 搜索/网页获取 API Key（不是 Kimi 开放平台 Key） |
 | `metaso_api_key` | `SOUWEN_METASO_API_KEY` | Metaso 必需 | 秘塔搜索 API Key（文档/网页/学术） |
 
 ### 社交 / 视频 / 办公 / 个人库

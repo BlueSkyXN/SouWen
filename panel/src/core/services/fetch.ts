@@ -21,9 +21,7 @@ export interface FetchApi {
 export const fetchMethods = {
   /**
    * 抓取网页内容
-   * 支持 16 个提供者：builtin / jina_reader / tavily / firecrawl / exa /
-   * crawl4ai / scrapfly / diffbot / scrapingbee / zenrows /
-   * scraperapi / apify / cloudflare / wayback / newspaper / readability
+   * provider 名称与后端 fetch registry 对齐；默认 builtin。
    */
   async fetch(
     this: ApiServiceBase,

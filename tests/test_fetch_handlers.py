@@ -1,7 +1,7 @@
 """souwen.web.fetch handler registry 测试。
 
 覆盖：
-  - _FETCH_HANDLERS 包含全部 22 个内置 provider
+  - _FETCH_HANDLERS 包含全部 23 个内置 provider
   - register_fetch_handler 新增 / 重名跳过 / override
   - get_fetch_handlers 视图
   - _fetch_with_provider 派发到注册的 handler
@@ -28,6 +28,7 @@ EXPECTED_BUILTIN_PROVIDERS = {
     "tavily",
     "firecrawl",
     "xcrawl",
+    "kimi_code",
     "exa",
     "crawl4ai",
     "scrapling",
@@ -73,14 +74,14 @@ def _make_response(provider: str, urls: list[str], ok: bool = True) -> FetchResp
 
 
 class TestBuiltinHandlers:
-    def test_all_22_providers_registered(self):
+    def test_all_23_providers_registered(self):
         names = set(_FETCH_HANDLERS.keys())
         missing = EXPECTED_BUILTIN_PROVIDERS - names
         assert not missing, f"缺失内置 provider: {missing}"
 
     def test_handler_count_at_least_21(self):
-        # 允许其它插件追加，但内置 22 个必须就位
-        assert len(_FETCH_HANDLERS) >= 22
+        # 允许其它插件追加，但内置 23 个必须就位
+        assert len(_FETCH_HANDLERS) >= 23
 
     def test_get_fetch_handlers_returns_copy(self):
         snap = get_fetch_handlers()

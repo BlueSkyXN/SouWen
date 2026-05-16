@@ -1,6 +1,6 @@
 # SouWen 数据源指南与清单
 
-**总计**：**91** 个公开数据源（从正式 Source Catalog 自动生成；其中外部插件 **0** 个，隐藏/内部源 **3** 个）。
+**总计**：**92** 个公开数据源（从正式 Source Catalog 自动生成；其中外部插件 **0** 个，隐藏/内部源 **3** 个）。
 
 ## 事实来源
 
@@ -13,7 +13,7 @@
 - 本页主表按 registry domain 展示：`paper` / `patent` / `web` / `social` / `video` / `knowledge` / `developer` / `cn_tech` / `office` / `archive` / `fetch`。
 - 正式 Source Catalog 使用展示分类：`paper`（学术论文） / `patent`（专利） / `web_general`（通用网页搜索） / `web_professional`（专业网页搜索） / `social`（社交平台） / `office`（企业/办公） / `developer`（开发者社区） / `knowledge`（百科/知识库） / `cn_tech`（中文技术社区） / `video`（视频平台） / `archive`（档案/历史） / `fetch`（内容抓取）。
 - `/api/v1/sources`、CLI 和 Panel 使用同一份公开 Source Catalog：`sources[]` 保留全部公开条目，并用 `category`、`domain`、`capabilities`、`available` 描述展示和运行时可用性。
-- `Capabilities` 是门面层可派发能力；`fetch` 既可以是主 domain，也可以是 `tavily` / `firecrawl` / `exa` / `xcrawl` / `wayback` 等源的跨域能力。
+- `Capabilities` 是门面层可派发能力；`fetch` 既可以是主 domain，也可以是 `tavily` / `firecrawl` / `exa` / `xcrawl` / `kimi_code` / `wayback` 等源的跨域能力。
 
 ## 配置口径
 
@@ -62,7 +62,7 @@
 | `the_lens` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `lens_api_token` |
 | `uspto_odp` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `uspto_api_key` |
 
-## 通用网页搜索 · `web`（29 源）
+## 通用网页搜索 · `web`（30 源）
 
 | Name | Integration | Auth | Risk | Distribution | Stability | Extra | Capabilities | Credentials |
 |---|---|---|---|---|---|---|---|---|
@@ -79,6 +79,7 @@
 | `exa` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | exa:find_similar, fetch, search | `exa_api_key` |
 | `firecrawl` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch, search | `firecrawl_api_key` |
 | `google` ⚠️ | scraper | 免配置 | 高风险 | 可选依赖 | 稳定 | `scraper` | search | — |
+| `kimi_code` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch, search | `kimi_code_api_key` |
 | `linkup` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `linkup_api_key` |
 | `metaso` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `metaso_api_key` |
 | `mojeek` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `scraper` | search | — |
@@ -152,7 +153,7 @@
 |---|---|---|---|---|---|---|---|---|
 | `wayback` | open_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | archive_lookup, archive_save, fetch | — |
 
-## 内容抓取 · `fetch`（22 源）
+## 内容抓取 · `fetch`（23 源）
 
 | Name | Integration | Auth | Risk | Distribution | Stability | Extra | Capabilities | Credentials |
 |---|---|---|---|---|---|---|---|---|
@@ -166,6 +167,7 @@
 | `exa` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | exa:find_similar, fetch, search | `exa_api_key` |
 | `firecrawl` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch, search | `firecrawl_api_key` |
 | `jina_reader` | open_api | 可选凭据 (提升限流) | 低风险 | 核心内置 | 稳定 | — | fetch | `jina_api_key` |
+| `kimi_code` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch, search | `kimi_code_api_key` |
 | `mcp` | open_api | 免配置 | 低风险 | 可选依赖 | 稳定 | `mcp` | fetch | — |
 | `newspaper` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `newspaper` | fetch | — |
 | `readability` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `readability` | fetch | — |
