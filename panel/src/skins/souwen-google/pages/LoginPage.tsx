@@ -76,11 +76,10 @@ export function LoginPage() {
       const url = baseUrl.replace(/\/+$/, '')
       try {
         const health = await api.health(url)
-        await api.verifyAuth(url, '')
+        const whoami = await api.verifyAuth(url, '')
         if (cancelled) return
         setAuth(url, '', health.version, remember)
-        // Fetch role info after auth
-        try { const whoami = await api.whoami(); setRole(whoami) } catch { /* non-critical */ }
+        setRole(whoami)
         navigate('/', { replace: true })
       } catch {
         // Server requires a password — show the login form
@@ -107,10 +106,9 @@ export function LoginPage() {
       try {
         const url = baseUrl.replace(/\/+$/, '')
         const health = await api.health(url)
-        await api.verifyAuth(url, password)
+        const whoami = await api.verifyAuth(url, password)
         setAuth(url, password, health.version, remember)
-        // Fetch role info after auth
-        try { const whoami = await api.whoami(); setRole(whoami) } catch { /* non-critical */ }
+        setRole(whoami)
         setSuccess(true)
         addToast('success', t('login.success', { version: health.version }))
         await new Promise((r) => setTimeout(r, 400))

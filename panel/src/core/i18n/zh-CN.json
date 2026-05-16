@@ -128,7 +128,8 @@
     "hidePassword": "隐藏密码",
     "darkMode": "深色模式",
     "lightMode": "浅色模式",
-    "autoConnecting": "正在尝试自动连接..."
+    "autoConnecting": "正在尝试自动连接...",
+    "adminPasswordRequired": "已配置管理密码，请输入管理密码"
   },
   "dashboard": {
     "title": "仪表盘",

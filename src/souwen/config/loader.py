@@ -38,12 +38,12 @@ def _retired_auth_yaml_keys(raw: dict) -> list[str]:
 
     findings: list[str] = []
     for key in _RETIRED_AUTH_FIELDS:
-        if key in raw:
+        if key in raw and raw[key] not in (None, ""):
             findings.append(key)
     server = raw.get("server")
     if isinstance(server, dict):
         for key in _RETIRED_AUTH_FIELDS:
-            if key in server:
+            if key in server and server[key] not in (None, ""):
                 findings.append(f"server.{key}")
     return findings
 
@@ -57,7 +57,7 @@ def _reject_retired_auth_env(values: dict[str, str | None]) -> None:
     findings = [
         f"{key} -> {_RETIRED_AUTH_ENV_KEYS[key]}"
         for key in _RETIRED_AUTH_ENV_KEYS
-        if values.get(key) is not None
+        if values.get(key) not in (None, "")
     ]
     if findings:
         raise ValueError(f"认证环境变量已移除: {', '.join(findings)}")
