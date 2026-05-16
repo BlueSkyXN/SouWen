@@ -7,7 +7,7 @@
 ## 安装
 
 ```bash
-git clone --branch v2-dev https://github.com/BlueSkyXN/SouWen.git
+git clone https://github.com/BlueSkyXN/SouWen.git
 cd SouWen
 pip install -e ".[server,tls,web,scraper]"
 ```

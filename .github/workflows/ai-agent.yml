@@ -12,8 +12,8 @@ name: AI Agent
 # - direct：直推目标分支（适合紧急小修复，有 force-with-lease 保护）
 #
 # 【当前状态】
-# v2 完全迁移期间关闭 ChatOps 自动入口，避免拖慢 v2-dev staged PR 开发。
-# workflow_dispatch 手动入口保留；恢复 ChatOps 时重新启用下方注释的 issue_comment 触发面。
+# ChatOps 自动入口默认关闭，避免自动化写权限在常规开发中误触发。
+# workflow_dispatch 手动入口保留；需要恢复 ChatOps 时再启用下方注释的 issue_comment 触发面。
 #
 # 【触发条件】
 # 1. issue_comment — 在 PR 或 Issue 上评论 `/ai-do [flags] <指令>`
@@ -69,7 +69,7 @@ name: AI Agent
 # ═══════════════════════════════════════════════════════════════════════════
 
 on:
-  # v2 migration: automatic ChatOps execution is disabled.
+  # Automatic ChatOps execution is disabled by default.
   # issue_comment:
   #   types: [created]
   workflow_dispatch:

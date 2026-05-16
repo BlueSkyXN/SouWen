@@ -52,8 +52,8 @@ The registry architecture reduces the cost of adding a new source to **1-2 code 
 ## 📦 Installation
 
 ```bash
-# Install the current source line
-git clone --branch v2-dev https://github.com/BlueSkyXN/SouWen.git
+# Install the current main source line
+git clone https://github.com/BlueSkyXN/SouWen.git
 cd SouWen
 pip install -e .
 

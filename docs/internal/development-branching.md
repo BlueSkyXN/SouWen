@@ -1,44 +1,38 @@
-# SouWen v2 Development Branching
+# SouWen v2 Branching and Release Gates
 
-SouWen v2 is a breaking migration. Development must happen on `v2-dev` first,
-then merge back to `main` only after the v2 release surface is complete.
+SouWen v2 is now merged back to `main` as the current release candidate line.
+Future fixes for the v2 public surface should target `main`.
 
 ## Branch Roles
 
 ```text
 main
-  Stable v1 line. Do not use it for direct v2 refactor commits.
-
-v2-dev
-  Long-lived v2 integration line. All staged v2 pull requests target this branch.
+  Active v2 release-candidate line and default development target.
 
 v2/*
-  Short-lived implementation branches. Each branch should live in its own worktree.
+  Short-lived implementation branches. Each branch should live in its own
+  worktree and target the active base selected for that task.
 ```
-
-`v2-dev` must not be rebased after publication. If `main` receives important
-changes during the v2 migration, merge `origin/main` into `v2-dev` and resolve
-conflicts there.
 
 ## Worktree Flow
 
-Create each implementation branch from the latest `origin/v2-dev`:
+Create implementation branches from the latest `origin/main` by default:
 
 ```bash
 git fetch origin
-git worktree add ../SouWen-v2-01-registry -b v2/01-registry-meta origin/v2-dev
+git worktree add ../SouWen-fix-release-docs -b fix/release-docs origin/main
 ```
 
-Open pull requests to `v2-dev`, not `main`:
+Open pull requests to `main` unless the maintainer explicitly asks for another
+base:
 
 ```bash
-gh pr create --base v2-dev --head v2/01-registry-meta
+gh pr create --base main --head fix/release-docs
 ```
 
-After a PR merges into `v2-dev`, create the next implementation branch from the
-updated `origin/v2-dev`.
+## Completed v2 Migration Order
 
-## PR Order
+The v2 mergeback was staged through these historical implementation slices:
 
 1. `v2/00-bootstrap`: v2 branch policy, v2 CI entry, AI workflow quarantine.
 2. `v2/01-registry-meta`: registry package split and `registry/meta.py`.
@@ -52,11 +46,10 @@ updated `origin/v2-dev`.
 
 ## CI/CD Policy
 
-The existing v1 workflows remain focused on `main`. v2 uses `V2 CI` for staged
-pull requests to `v2-dev` and for release-readiness validation before promoting
-v2 back to `main`.
+`CI` remains the broad default gate for `main`. `V2 CI` is retained as the
+dedicated v2 public-surface gate and runs on `main`.
 
-`V2 CI` is the required pre-release gate for `v2-dev`:
+`V2 CI` must cover:
 
 - bootstrap/import/wheel surface gate: registry/docs tests, generated docs
   freshness, removed v1 import-surface leak check, and required v2 module check.
@@ -71,33 +64,31 @@ v2 back to `main`.
 - panel build: TypeScript check, Vitest, single-file panel build, and
   `src/souwen/server/panel.html` artifact validation.
 
-`v2-dev` must not automatically deploy or publish production artifacts. HF Space
-deploy, PyInstaller/Nuitka release artifacts, and secret-backed external smoke
-remain on their existing `main`, tag, release, or manual entrypoints until v2 is
-promoted.
+External smoke, HF Space deploy, PyInstaller/Nuitka release artifacts, and
+secret-backed checks stay on their dedicated manual, tag, schedule, or release
+entrypoints. They should not be folded into every ordinary PR.
 
-Before merging v2 back to `main`, run this release checklist:
+Before cutting a release candidate tag, run this release checklist:
 
-1. `V2 CI` is green on the v2 candidate head.
-2. `External Smoke Gate` is run manually with `suite=release` on the v2
-   candidate, or on the mergeback PR if the workflow has already been retargeted.
-3. `HF Space CD` is validated without enabling `v2-dev` production deployment:
-   PR/local gates must pass on the mergeback PR; real sync, factory rebuild, and
-   post-deploy smoke stay `main` only.
+1. `CI` and `V2 CI` are green on the candidate head.
+2. `External Smoke Gate` is run manually with `suite=release` on the candidate
+   head, release branch, or tag candidate.
+3. `HF Space CD` is validated through its PR/local gates; real sync, factory
+   rebuild, and post-deploy smoke stay on their deployment workflow entrypoints.
 4. `Build with PyInstaller` and `Build with Nuitka` are run manually for the
-   selected release tier/platform matrix, or by the `v*` release tag after
-   mergeback.
+   selected release tier/platform matrix, or by the `v*` release tag.
 5. Workflow comments, branch filters, path filters, and version references are
-   reviewed so the restored `main` automation points at the v2 public surface.
+   reviewed so `main` automation points at the v2 public surface.
 
 ## AI Workflow Policy
 
-During v2 migration, AI workflows keep manual `workflow_dispatch` entrypoints
-but automatic triggers stay disabled:
+AI workflows keep manual `workflow_dispatch` entrypoints. Automatic triggers are
+disabled by default and should only be re-enabled after confirming the target
+branch, token permissions, and cost/latency expectations:
 
 - `ai-review.yml`: automatic `pull_request` review is commented out.
 - `ai-agent.yml`: automatic `issue_comment` ChatOps is commented out.
 - `ai-repo-audit.yml`: manual audit only.
 
 Manual AI runs are optional side checks. They are not completion gates for v2
-implementation PRs.
+implementation or release-candidate work.

@@ -70,7 +70,7 @@ SouWen 提供 JSON Schema：
 
 ```json
 {
-  "$schema": "https://github.com/BlueSkyXN/SouWen/blob/v2-dev/docs/plugin-manifest.schema.json",
+  "$schema": "https://github.com/BlueSkyXN/SouWen/blob/main/docs/plugin-manifest.schema.json",
   "schema_version": 1,
   "name": "my_source",
   "entry_point": "my_plugin:plugin",

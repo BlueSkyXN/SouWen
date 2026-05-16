@@ -2,11 +2,13 @@
 
 **Status**: Accepted
 **Date**: 2026-05-07
-**Scope**: SouWen `v2-dev`
+**Scope**: SouWen v2 release candidate on `main`
 
 ## Context
 
-`v2-dev` is the long-lived integration line for the current SouWen architecture. The branch has already removed the old facade package, domain re-export packages, and top-level compatibility modules from the wheel surface.
+SouWen v2 is now the current release candidate line on `main`. The branch has
+removed the old facade package, domain re-export packages, and top-level
+compatibility modules from the wheel surface.
 
 The next refactor phases should not reintroduce compatibility shims for paths that were never promoted as stable public contracts.
 
