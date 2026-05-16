@@ -14,6 +14,8 @@ class CustomBuildHook(BuildHookInterface):
     def initialize(self, version: str, build_data: dict) -> None:
         if self.target_name != "wheel":
             return
+        if version == "editable":
+            return
 
         root = Path(self.root)
         panel_html = root / "src" / "souwen" / "server" / "panel.html"

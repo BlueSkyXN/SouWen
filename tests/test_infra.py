@@ -72,6 +72,7 @@ def test_wheel_build_requires_panel_asset_hook():
     assert 'path = "hatch_build.py"' in pyproject
     assert "src/souwen/server/panel.html" in hook
     assert "npm run build:local" in hook
+    assert 'version == "editable"' in hook
 
 
 class TestModels:
