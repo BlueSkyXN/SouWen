@@ -5,15 +5,14 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SUPERWEB2PDF_ARCHIVE = (
-    "https://github.com/BlueSkyXN/SuperWeb2PDF/archive/"
-    "d1e1da59d739ad46222b5e726bd6f28b0d0453fa.zip"
+    "https://github.com/BlueSkyXN/SuperWeb2PDF/archive/d1e1da59d739ad46222b5e726bd6f28b0d0453fa.zip"
 )
 
 
 def test_web2pdf_extra_uses_resolvable_direct_reference() -> None:
     text = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
 
-    assert 'web2pdf = [' in text
+    assert "web2pdf = [" in text
     assert "allow-direct-references = true" in text
     assert '"playwright>=1.40"' in text
     assert SUPERWEB2PDF_ARCHIVE in text

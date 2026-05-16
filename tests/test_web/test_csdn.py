@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
-import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
+from urllib.parse import urlparse
 
-from souwen.models import SourceType, WebSearchResponse
+import pytest
+
+from souwen.models import WebSearchResponse
 from souwen.web.csdn import CSDNClient, _clean_html
 
 
@@ -39,7 +41,7 @@ class TestCSDNClient:
         assert client.ENGINE_NAME == "csdn"
 
     def test_base_url(self, client):
-        assert "so.csdn.net" in client.BASE_URL
+        assert urlparse(client.BASE_URL).netloc == "so.csdn.net"
 
     @pytest.mark.asyncio
     async def test_search_success(self, client):
@@ -66,7 +68,7 @@ class TestCSDNClient:
             resp = await client.search("Python", max_results=10)
 
         assert isinstance(resp, WebSearchResponse)
-        assert resp.source == SourceType.WEB_CSDN
+        assert resp.source == "csdn"
         assert resp.query == "Python"
         assert len(resp.results) == 2
         assert resp.results[0].title == "Python 异步编程"

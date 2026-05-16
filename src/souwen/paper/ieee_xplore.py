@@ -13,10 +13,10 @@ from datetime import datetime
 from typing import Any
 
 from souwen.config import get_config
-from souwen.exceptions import ConfigError, ParseError
-from souwen.http_client import SouWenHttpClient
-from souwen.models import Author, PaperResult, SearchResponse, SourceType
-from souwen.rate_limiter import TokenBucketLimiter
+from souwen.core.exceptions import ConfigError, ParseError
+from souwen.core.http_client import SouWenHttpClient
+from souwen.models import Author, PaperResult, SearchResponse
+from souwen.core.rate_limiter import TokenBucketLimiter
 
 logger = logging.getLogger(__name__)
 
@@ -163,7 +163,7 @@ class IeeeXploreClient:
                 doi=doi,
                 year=year,
                 publication_date=publication_date,
-                source=SourceType.IEEE_XPLORE,
+                source="ieee_xplore",
                 source_url=source_url,
                 pdf_url=article.get("pdf_url") or None,
                 citation_count=citation_count,
@@ -225,5 +225,5 @@ class IeeeXploreClient:
             page=((start - 1) // limit) + 1,
             per_page=limit,
             results=results,
-            source=SourceType.IEEE_XPLORE,
+            source="ieee_xplore",
         )

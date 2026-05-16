@@ -14,7 +14,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from souwen.models import SourceType, WebSearchResponse
+from souwen.models import WebSearchResponse
 from souwen.web.bilibili import BilibiliClient
 from souwen.web.bilibili._errors import BilibiliNotFound
 from souwen.web.bilibili.models import (
@@ -101,7 +101,7 @@ async def test_search_returns_web_search_response():
 
     assert isinstance(resp, WebSearchResponse)
     assert resp.query == "python"
-    assert resp.source == SourceType.WEB_BILIBILI
+    assert resp.source == "bilibili"
     assert len(resp.results) == 1
     assert resp.results[0].title == "Python 入门"
     assert resp.results[0].engine == "bilibili"
@@ -114,7 +114,7 @@ async def test_search_empty_on_error():
     with patch.object(BilibiliClient, "_fetch", new=AsyncMock(return_value=_resp(payload))):
         resp = await client.search("x")
     assert resp.results == []
-    assert resp.source == SourceType.WEB_BILIBILI
+    assert resp.source == "bilibili"
 
 
 async def test_search_cleans_html_titles():

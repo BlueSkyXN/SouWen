@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import typer
 
-from souwen.cli import app
+from souwen.cli import _bootstrap_plugins, app
 from souwen.cli._common import console
 
 
@@ -18,7 +18,7 @@ def serve(
     try:
         import uvicorn
     except ImportError:
-        console.print("[red]❌ 需要安装 server 依赖: pip install souwen\\[server][/red]")
+        console.print('[red]❌ 需要安装 server 依赖: pip install -e ".[server]"[/red]')
         raise typer.Exit(1)
 
     from souwen.logging_config import setup_logging
@@ -29,12 +29,13 @@ def serve(
     from souwen.server.auth import is_admin_open_enabled
 
     cfg = get_config()
+    _bootstrap_plugins()
     console.print("[bold]━━━ SouWen 启动配置 ━━━[/bold]")
-    # 访客密码状态
-    v_pw = cfg.effective_visitor_password
-    v_color = "green" if v_pw else "red"
-    v_text = "已启用" if v_pw else "未启用（开放访问）"
-    console.print(f"  访客密码:        [{v_color}]{v_text}[/]")
+    # 用户密码状态
+    u_pw = cfg.effective_user_password
+    u_color = "green" if u_pw else "red"
+    u_text = "已启用" if u_pw else "未启用（开放访问）"
+    console.print(f"  用户密码:        [{u_color}]{u_text}[/]")
     # 管理密码状态
     a_pw = cfg.effective_admin_password
     admin_open = is_admin_open_enabled()

@@ -56,7 +56,8 @@ def render(*, include_plugins: bool = False) -> str:
 
     try:
         from souwen.registry import all_adapters, all_domains, external_plugins
-        from souwen.source_registry import (
+        from souwen.registry.catalog import public_source_catalog, source_categories
+        from souwen.registry.meta import (
             AUTH_REQUIREMENT_LABELS,
             DISTRIBUTION_LABELS,
             OPTIONAL_CREDENTIAL_EFFECT_LABELS,
@@ -72,27 +73,30 @@ def render(*, include_plugins: bool = False) -> str:
 
     loaded_adapters = all_adapters()
     external_names = set(external_plugins())
+    public_catalog = public_source_catalog()
     adapters = {
         name: adapter
         for name, adapter in loaded_adapters.items()
-        if include_plugins or name not in external_names
+        if name in public_catalog and (include_plugins or name not in external_names)
     }
     visible_external_count = len(external_names) if include_plugins else 0
+    hidden_or_internal_count = len(loaded_adapters) - len(public_catalog)
+    category_labels = {category.key: category.label for category in source_categories()}
 
     lines: list[str] = []
     lines.append("# SouWen 数据源指南与清单")
     lines.append("")
     lines.append(
-        f"**总计**：**{len(adapters)}** 个数据源（从 registry 自动生成；"
-        f"其中外部插件 **{visible_external_count}** 个）。"
+        f"**总计**：**{len(adapters)}** 个公开数据源（从正式 Source Catalog 自动生成；"
+        f"其中外部插件 **{visible_external_count}** 个，隐藏/内部源 **{hidden_or_internal_count}** 个）。"
     )
     lines.append("")
     lines.append("## 事实来源")
     lines.append("")
     lines.append(
-        "本页不是手工维护的静态表，而是由 `src/souwen/registry/sources.py` 中的 "
-        "`SourceAdapter` 声明经 `tools/gen_docs.py` 生成。`SourceAdapter` 同时驱动 "
-        "CLI、REST API、doctor、Panel 和插件视图。"
+        "本页不是手工维护的静态表，而是由 `src/souwen/registry/sources/` 中的 "
+        "`SourceAdapter` 声明投影为正式 Source Catalog 后，经 `tools/gen_docs.py` 生成。"
+        "`SourceAdapter` 同时驱动 CLI、REST API、doctor、Panel 和插件视图。"
     )
     lines.append("")
     lines.append(
@@ -108,8 +112,14 @@ def render(*, include_plugins: bool = False) -> str:
         "`video` / `knowledge` / `developer` / `cn_tech` / `office` / `archive` / `fetch`。"
     )
     lines.append(
-        "- `/api/v1/sources` 和 Panel 使用兼容分类：`general` / `professional` 会拆分 "
-        "`web` 源，`knowledge` 显示为 `wiki`，`archive` 与跨域抓取能力归入 `fetch`。"
+        "- 正式 Source Catalog 使用展示分类："
+        + " / ".join(f"`{key}`（{label}）" for key, label in category_labels.items())
+        + "。"
+    )
+    lines.append(
+        "- `/api/v1/sources`、CLI 和 Panel 使用同一份公开 Source Catalog："
+        "`sources[]` 保留全部公开条目，并用 `category`、`domain`、`capabilities`、"
+        "`available` 描述展示和运行时可用性。"
     )
     lines.append(
         "- `Capabilities` 是门面层可派发能力；`fetch` 既可以是主 domain，也可以是 "
@@ -121,15 +131,15 @@ def render(*, include_plugins: bool = False) -> str:
     lines.append(
         "- Auth 的取值是 `none` / `optional` / `required` / `self_hosted`。"
         "`optional` 表示缺凭据仍可用，但配置后可提升限流、配额、质量或登录态能力；"
-        "`required` 与 `self_hosted` 缺少声明字段时不会出现在 `/api/v1/sources`。"
+        "`required` 与 `self_hosted` 缺少声明字段时仍保留 catalog 条目，并以 "
+        "`available=false` 标记。"
     )
     lines.append(
         "- `Credentials` 列出完整字段；多字段源必须全部满足。频道级 "
         "`sources.<name>.api_key` 只覆盖主 `config_field`，其余字段仍读取 flat config。"
     )
     lines.append(
-        "- 自建实例源优先读取 `sources.<name>.base_url`，并兼容旧的 "
-        "`sources.<name>.api_key` 与 flat `<name>_url`。当前内置自建源为 "
+        "- 自建实例源读取 `sources.<name>.base_url`；当前内置自建源为 "
         "`searxng`、`whoogle`、`websurfx`。"
     )
     lines.append(
@@ -140,9 +150,10 @@ def render(*, include_plugins: bool = False) -> str:
     lines.append("## 运行时可见性")
     lines.append("")
     lines.append(
-        "`/api/v1/sources` 会从 live registry 派生，并过滤已禁用、缺必需凭据或缺自建实例"
-        "地址的源；doctor 和管理端 `/api/v1/admin/sources/config` 会展示所有注册源及其"
-        "状态、凭据字段、频道配置和 catalog 元数据。"
+        "`/api/v1/sources` 会从 live registry 派生公开 catalog，禁用源、缺必需凭据源"
+        "和缺自建实例地址的源仍会保留条目，但 `available=false`；doctor 和管理端 "
+        "`/api/v1/admin/sources/config` 会展示所有注册源及其状态、凭据字段、频道配置"
+        "和 catalog 元数据。"
     )
     lines.append("")
     lines.append("<!-- BEGIN AUTO -->")
@@ -197,7 +208,7 @@ def render(*, include_plugins: bool = False) -> str:
     lines.append("")
     lines.append("## 图例")
     lines.append("")
-    lines.append("- ⚠️ high_risk：兼容旧标签，等价于 `risk_level=high`。")
+    lines.append("- ⚠️ high_risk：高风险源，等价于 `risk_level=high`。")
     lines.append(
         "- Integration 描述接入方式：`open_api` / `scraper` / `official_api` / `self_hosted`。"
     )

@@ -79,7 +79,7 @@ async def extract_links(
         )
 
     try:
-        from souwen.scraper.base import BaseScraper
+        from souwen.core.scraper.base import BaseScraper
 
         scraper = BaseScraper(min_delay=0, max_delay=0.1, max_retries=1)
         async with scraper:

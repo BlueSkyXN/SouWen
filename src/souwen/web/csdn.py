@@ -21,8 +21,8 @@
 模块依赖：
     - logging: 日志记录
     - re: HTML 标签清理
-    - souwen.models: SourceType, WebSearchResult, WebSearchResponse
-    - souwen.scraper.base: BaseScraper
+    - souwen.models: str, WebSearchResult, WebSearchResponse
+    - souwen.core.scraper.base: BaseScraper
 """
 
 from __future__ import annotations
@@ -30,8 +30,8 @@ from __future__ import annotations
 import logging
 import re
 
-from souwen.models import SourceType, WebSearchResult, WebSearchResponse
-from souwen.scraper.base import BaseScraper
+from souwen.models import WebSearchResult, WebSearchResponse
+from souwen.core.scraper.base import BaseScraper
 
 logger = logging.getLogger("souwen.web.csdn")
 
@@ -110,7 +110,7 @@ class CSDNClient(BaseScraper):
 
                     results.append(
                         WebSearchResult(
-                            source=SourceType.WEB_CSDN,
+                            source="csdn",
                             title=title,
                             url=url,
                             snippet=snippet,
@@ -131,7 +131,7 @@ class CSDNClient(BaseScraper):
 
         return WebSearchResponse(
             query=query,
-            source=SourceType.WEB_CSDN,
+            source="csdn",
             results=results,
             total_results=len(results),
         )

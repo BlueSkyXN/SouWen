@@ -18,13 +18,36 @@
 from __future__ import annotations
 
 import asyncio
+import json
 from pathlib import Path
 
+import pytest
 from typer.testing import CliRunner
 
 from souwen.cli import app
 
 runner = CliRunner()
+
+
+@pytest.fixture(autouse=True)
+def _isolate_config_files(monkeypatch, tmp_path):
+    """CLI 用例固定在空配置环境运行，不读取用户目录里的真实配置。"""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    monkeypatch.setenv("SOUWEN_PLUGIN_AUTOLOAD", "0")
+    for key in (
+        "SOUWEN_API_PASSWORD",
+        "SOUWEN_VISITOR_PASSWORD",
+        "SOUWEN_USER_PASSWORD",
+        "SOUWEN_ADMIN_PASSWORD",
+    ):
+        monkeypatch.delenv(key, raising=False)
+    from souwen.config import get_config
+
+    get_config.cache_clear()
+    yield
+    get_config.cache_clear()
 
 
 def test_version_flag():
@@ -58,14 +81,71 @@ def test_fetch_rejects_unknown_provider():
     assert "无效提供者" in result.output
 
 
+def test_fetch_accepts_runtime_plugin_provider(monkeypatch, clean_registry):
+    """CLI import 后注册的 fetch provider 也应能通过参数校验。"""
+    from souwen.cli import fetch as cli_fetch
+    from souwen.models import FetchResponse
+    from souwen.registry import fetch_providers
+    from souwen.registry.adapter import MethodSpec, SourceAdapter
+    from souwen.registry.views import _reg_external
+    from souwen.web import fetch as web_fetch
+
+    provider = "runtime_fetch_probe"
+    assert provider not in cli_fetch._FETCH_PROVIDER_NAMES
+
+    assert _reg_external(
+        SourceAdapter(
+            name=provider,
+            domain="fetch",
+            integration="scraper",
+            description="runtime fetch provider probe",
+            config_field=None,
+            client_loader=lambda: object,
+            methods={"fetch": MethodSpec("fetch")},
+            category="fetch",
+        )
+    )
+    assert provider in {adapter.name for adapter in fetch_providers()}
+
+    captured: dict[str, list[str] | None] = {}
+
+    async def fake_fetch_content(
+        urls,
+        providers=None,
+        strategy="fallback",
+        timeout=30.0,
+        **_kwargs,
+    ):
+        captured["providers"] = providers
+        return FetchResponse(
+            urls=urls,
+            results=[],
+            total=len(urls),
+            total_ok=0,
+            total_failed=0,
+            providers=providers or [],
+            strategy=strategy,
+        )
+
+    monkeypatch.setattr(web_fetch, "fetch_content", fake_fetch_content)
+
+    result = runner.invoke(app, ["fetch", "https://example.com", "-p", provider])
+
+    assert result.exit_code == 0, result.output
+    assert captured["providers"] == [provider]
+
+
 def test_config_show_indicates_unconfigured(monkeypatch, tmp_path):
     """无密码、无配置文件环境下，``config show`` 必须明确提示"未配置"。
 
     通过 ``chdir(tmp_path)`` 隔离仓库里的 ``souwen.yaml``，并 delenv
-    清掉可能存在的 ``SOUWEN_API_PASSWORD``，以覆盖全新用户首次运行场景。
+    清掉可能存在的认证环境变量，以覆盖全新用户首次运行场景。
     """
     monkeypatch.chdir(tmp_path)
     monkeypatch.delenv("SOUWEN_API_PASSWORD", raising=False)
+    monkeypatch.delenv("SOUWEN_VISITOR_PASSWORD", raising=False)
+    monkeypatch.delenv("SOUWEN_USER_PASSWORD", raising=False)
+    monkeypatch.delenv("SOUWEN_ADMIN_PASSWORD", raising=False)
     from souwen.config import reload_config
 
     reload_config()
@@ -90,6 +170,55 @@ def test_sources_list():
     """``sources`` 子命令可以正常打印数据源列表（仅校验 exit 0）。"""
     result = runner.invoke(app, ["sources"])
     assert result.exit_code == 0
+
+
+def test_sources_json_outputs_formal_catalog_contract():
+    """``sources --json`` 输出与 ``/api/v1/sources`` 一致的正式 catalog shape。"""
+    result = runner.invoke(app, ["sources", "--json"])
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert set(data) == {"sources", "categories", "defaults"}
+    openalex = next(item for item in data["sources"] if item["name"] == "openalex")
+    assert openalex["domain"] == "paper"
+    assert openalex["category"] == "paper"
+    assert openalex["capabilities"] == ["search"]
+    assert openalex["credentials_satisfied"] is True
+    assert openalex["configured_credentials"] is False
+    assert openalex["available"] is True
+
+
+def test_sources_json_supports_filters(monkeypatch):
+    """``sources`` 支持 available/category/capability 三类过滤。"""
+    monkeypatch.setenv("SOUWEN_SOURCES", '{"duckduckgo": {"enabled": false}}')
+    from souwen.config import get_config
+
+    get_config.cache_clear()
+    result = runner.invoke(
+        app,
+        [
+            "sources",
+            "--json",
+            "--available-only",
+            "--category",
+            "web_general",
+            "--capability",
+            "search",
+        ],
+    )
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert data["sources"]
+    assert all(item["available"] for item in data["sources"])
+    assert all(item["category"] == "web_general" for item in data["sources"])
+    assert all("search" in item["capabilities"] for item in data["sources"])
+    assert "duckduckgo" not in {item["name"] for item in data["sources"]}
+
+
+def test_sources_rejects_unknown_category():
+    """未知正式 category 需要明确失败，避免误以为空结果。"""
+    result = runner.invoke(app, ["sources", "--category", "general"])
+    assert result.exit_code == 1
+    assert "未知 category" in result.output
 
 
 def test_config_source_self_hosted_legacy_channel_api_key(monkeypatch):
@@ -142,6 +271,61 @@ def test_search_paper_uses_registry_defaults_when_sources_omitted(monkeypatch):
     assert captured == {"query": "test", "sources": None, "per_page": 5}
 
 
+def test_search_patent_uses_registry_defaults_when_sources_omitted(monkeypatch):
+    """专利搜索省略 ``--sources`` 时，也应透传 ``None`` 给 registry 默认源。"""
+    import sys
+
+    search_module = sys.modules["souwen.search"]
+    captured = {}
+
+    async def fake_search(query, sources=None, per_page=10, **kwargs):
+        captured["query"] = query
+        captured["sources"] = sources
+        captured["per_page"] = per_page
+        return []
+
+    monkeypatch.setattr(search_module, "search_patents", fake_search)
+    result = runner.invoke(app, ["search", "patent", "test", "--json"])
+    assert result.exit_code == 0
+    assert captured == {"query": "test", "sources": None, "per_page": 5}
+
+
+def test_search_web_uses_registry_defaults_when_engines_omitted(monkeypatch):
+    """网页搜索省略 ``--engines`` 时，应透传 ``None`` 给 registry 默认源。"""
+    from souwen.web import search as web_search_mod
+
+    captured = {}
+
+    async def fake_web_search(query, engines=None, max_results_per_engine=10, **kwargs):
+        captured["query"] = query
+        captured["engines"] = engines
+        captured["max_results_per_engine"] = max_results_per_engine
+        return web_search_mod.WebSearchResponse(query=query, source="duckduckgo", results=[])
+
+    monkeypatch.setattr(web_search_mod, "web_search", fake_web_search)
+    result = runner.invoke(app, ["search", "web", "test", "--json"])
+    assert result.exit_code == 0
+    assert captured == {"query": "test", "engines": None, "max_results_per_engine": 10}
+
+
+def test_search_web_preserves_explicit_empty_engines(monkeypatch):
+    """网页搜索显式传空 ``--engines`` 时，应透传空列表而不是回退默认源。"""
+    from souwen.web import search as web_search_mod
+
+    captured = {}
+
+    async def fake_web_search(query, engines=None, max_results_per_engine=10, **kwargs):
+        captured["query"] = query
+        captured["engines"] = engines
+        captured["max_results_per_engine"] = max_results_per_engine
+        return web_search_mod.WebSearchResponse(query=query, source="duckduckgo", results=[])
+
+    monkeypatch.setattr(web_search_mod, "web_search", fake_web_search)
+    result = runner.invoke(app, ["search", "web", "test", "--engines", "", "--json"])
+    assert result.exit_code == 0
+    assert captured == {"query": "test", "engines": [], "max_results_per_engine": 10}
+
+
 def test_plugins_new_scaffolds_project(monkeypatch, tmp_path: Path):
     """``plugins new`` creates a complete plugin project skeleton."""
     monkeypatch.chdir(tmp_path)
@@ -152,6 +336,7 @@ def test_plugins_new_scaffolds_project(monkeypatch, tmp_path: Path):
     root = tmp_path / "demo_plugin"
     expected_files = [
         "pyproject.toml",
+        "souwen-plugin.json",
         "demo_plugin/__init__.py",
         "demo_plugin/client.py",
         "demo_plugin/handler.py",
@@ -162,9 +347,12 @@ def test_plugins_new_scaffolds_project(monkeypatch, tmp_path: Path):
         assert (root / rel_path).is_file()
 
     pyproject = (root / "pyproject.toml").read_text(encoding="utf-8")
+    manifest = (root / "souwen-plugin.json").read_text(encoding="utf-8")
     init_py = (root / "demo_plugin/__init__.py").read_text(encoding="utf-8")
     assert '[project.entry-points."souwen.plugins"]' in pyproject
     assert 'demo_plugin = "demo_plugin:plugin"' in pyproject
+    assert '"entry_point": "demo_plugin:plugin"' in manifest
+    assert '"methods": ["fetch"]' in manifest
     assert "Plugin(" in init_py
     assert "SourceAdapter(" in init_py
 

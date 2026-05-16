@@ -19,8 +19,8 @@
 模块依赖：
     - logging: 日志记录
     - re: HTML 标签清理
-    - souwen.models: SourceType, WebSearchResult, WebSearchResponse
-    - souwen.http_client: SouWenHttpClient
+    - souwen.models: str, WebSearchResult, WebSearchResponse
+    - souwen.core.http_client: SouWenHttpClient
 """
 
 from __future__ import annotations
@@ -28,8 +28,8 @@ from __future__ import annotations
 import logging
 import re
 
-from souwen.http_client import SouWenHttpClient
-from souwen.models import SourceType, WebSearchResult, WebSearchResponse
+from souwen.core.http_client import SouWenHttpClient
+from souwen.models import WebSearchResult, WebSearchResponse
 
 logger = logging.getLogger("souwen.web.linuxdo")
 
@@ -92,7 +92,7 @@ class LinuxDoClient(SouWenHttpClient):
             logger.warning("LinuxDo 搜索请求失败: %s", e)
             return WebSearchResponse(
                 query=query,
-                source=SourceType.WEB_LINUXDO,
+                source="linuxdo",
                 results=[],
                 total_results=0,
             )
@@ -146,7 +146,7 @@ class LinuxDoClient(SouWenHttpClient):
 
             results.append(
                 WebSearchResult(
-                    source=SourceType.WEB_LINUXDO,
+                    source="linuxdo",
                     title=_clean_html(title),
                     url=url,
                     snippet=snippet,
@@ -189,7 +189,7 @@ class LinuxDoClient(SouWenHttpClient):
 
                 results.append(
                     WebSearchResult(
-                        source=SourceType.WEB_LINUXDO,
+                        source="linuxdo",
                         title=_clean_html(title),
                         url=url,
                         snippet=snippet,
@@ -201,7 +201,7 @@ class LinuxDoClient(SouWenHttpClient):
 
         return WebSearchResponse(
             query=query,
-            source=SourceType.WEB_LINUXDO,
+            source="linuxdo",
             results=results,
             total_results=len(results),
         )

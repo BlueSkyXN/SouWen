@@ -11,26 +11,55 @@ from souwen.cli import app
 from souwen.cli._common import _run_async, console
 from souwen.registry import fetch_providers
 
-_FETCH_PROVIDER_NAMES = tuple(adapter.name for adapter in fetch_providers())
+
+def _current_fetch_provider_names() -> tuple[str, ...]:
+    """返回当前 registry 中可用的 fetch provider。"""
+    return tuple(adapter.name for adapter in fetch_providers())
+
+
+_FETCH_PROVIDER_NAMES = _current_fetch_provider_names()
 _FETCH_PROVIDER_HELP = "内容提供者: " + "/".join(_FETCH_PROVIDER_NAMES)
 
 
 def _validate_fetch_provider(value: str) -> str:
     """校验 CLI fetch provider 选项。"""
-    if value not in _FETCH_PROVIDER_NAMES:
-        raise typer.BadParameter(f"无效提供者: {value}，可选: {', '.join(_FETCH_PROVIDER_NAMES)}")
+    provider_names = _current_fetch_provider_names()
+    if value not in provider_names:
+        raise typer.BadParameter(f"无效提供者: {value}，可选: {', '.join(provider_names)}")
+    return value
+
+
+def _validate_fetch_providers(value: list[str] | None) -> list[str] | None:
+    """校验 CLI fetch provider 列表。"""
+    if value is None:
+        return None
+    for provider in value:
+        _validate_fetch_provider(provider)
+    return value
+
+
+def _validate_fetch_strategy(value: str) -> str:
+    """校验 CLI fetch strategy 选项。"""
+    if value not in {"fallback", "fanout"}:
+        raise typer.BadParameter(f"无效策略: {value}，可选: fallback, fanout")
     return value
 
 
 @app.command("fetch")
 def fetch_cmd(
     urls: list[str] = typer.Argument(..., help="目标 URL（支持多个）"),
-    provider: str = typer.Option(
-        "builtin",
+    providers: list[str] | None = typer.Option(
+        None,
         "--provider",
         "-p",
-        callback=_validate_fetch_provider,
-        help=_FETCH_PROVIDER_HELP,
+        callback=_validate_fetch_providers,
+        help=_FETCH_PROVIDER_HELP + "；可重复传入，默认 builtin",
+    ),
+    strategy: str = typer.Option(
+        "fallback",
+        "--strategy",
+        callback=_validate_fetch_strategy,
+        help="多 provider 策略: fallback / fanout",
     ),
     selector: str = typer.Option(
         None, "--selector", "-s", help="CSS 选择器（builtin / scrapling 支持）"
@@ -47,7 +76,8 @@ def fetch_cmd(
     async def _do():
         return await fetch_content(
             urls=urls,
-            providers=[provider],
+            providers=providers or ["builtin"],
+            strategy=strategy,
             timeout=float(timeout),
             selector=selector,
             start_index=start_index,

@@ -205,14 +205,15 @@ export function typeLabel(type: string): string {
   switch (type) {
     case 'paper': return i18n.t('common.paper')
     case 'patent': return i18n.t('common.patent')
-    case 'general': return i18n.t('common.general')
-    case 'professional': return i18n.t('common.professional')
+    case 'web_general': return i18n.t('common.web_general')
+    case 'web_professional': return i18n.t('common.web_professional')
     case 'social': return i18n.t('common.social')
     case 'office': return i18n.t('common.office')
     case 'developer': return i18n.t('common.developer')
-    case 'wiki': return i18n.t('common.wiki')
+    case 'knowledge': return i18n.t('common.knowledge')
     case 'cn_tech': return i18n.t('common.cn_tech')
     case 'video': return i18n.t('common.video')
+    case 'archive': return i18n.t('common.archive')
     case 'fetch': return i18n.t('common.fetch')
     default: return type
   }

@@ -57,10 +57,10 @@ import re
 import defusedxml.ElementTree as ET
 from typing import Any
 
-from souwen.exceptions import ParseError
-from souwen.http_client import SouWenHttpClient
-from souwen.models import Author, PaperResult, SearchResponse, SourceType
-from souwen.rate_limiter import TokenBucketLimiter
+from souwen.core.exceptions import ParseError
+from souwen.core.http_client import SouWenHttpClient
+from souwen.models import Author, PaperResult, SearchResponse
+from souwen.core.rate_limiter import TokenBucketLimiter
 
 logger = logging.getLogger(__name__)
 
@@ -216,7 +216,7 @@ class ArxivClient:
                 doi=doi,
                 year=year,
                 publication_date=pub_date,
-                source=SourceType.ARXIV,
+                source="arxiv",
                 source_url=html_url or f"https://arxiv.org/abs/{arxiv_id}",
                 pdf_url=pdf_url,
                 citation_count=None,  # arXiv 不提供引用数统计
@@ -358,5 +358,5 @@ class ArxivClient:
             page=(start // max_results) + 1 if max_results else 1,
             per_page=max_results,
             results=results,
-            source=SourceType.ARXIV,
+            source="arxiv",
         )

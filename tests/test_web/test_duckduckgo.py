@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 
-from souwen.models import SourceType, WebSearchResponse
+from souwen.models import WebSearchResponse
 from souwen.web.duckduckgo import DuckDuckGoClient
 
 
@@ -81,7 +81,7 @@ class TestDuckDuckGoClient:
             resp = await client.search("test query")
 
         assert isinstance(resp, WebSearchResponse)
-        assert resp.source == SourceType.WEB_DUCKDUCKGO
+        assert resp.source == "duckduckgo"
         assert resp.query == "test query"
         assert len(resp.results) == 2
         assert resp.results[0].title == "First Result Title"

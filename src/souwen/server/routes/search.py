@@ -19,8 +19,21 @@ from souwen.server.schemas import (
 )
 
 router = APIRouter()
-_DEFAULT_PAPER_SOURCES = defaults_for("paper", "search")
-_DEFAULT_PAPER_SOURCES_LABEL = ",".join(_DEFAULT_PAPER_SOURCES)
+
+
+def _default_paper_sources() -> list[str]:
+    """返回当前 registry 的论文默认源。"""
+    return defaults_for("paper", "search")
+
+
+def _default_patent_sources() -> list[str]:
+    """返回当前 registry 的专利默认源。"""
+    return defaults_for("patent", "search")
+
+
+def _default_web_engines() -> list[str]:
+    """返回当前 registry 的网页搜索默认引擎。"""
+    return defaults_for("web", "search")
 
 
 @router.get(
@@ -32,18 +45,18 @@ async def api_search_paper(
     q: str = Query(..., description="搜索关键词", min_length=1, max_length=500),
     sources: str | None = Query(
         None,
-        description=f"数据源，逗号分隔；默认 {_DEFAULT_PAPER_SOURCES_LABEL}",
+        description="数据源，逗号分隔；默认来自当前 registry 的 paper:search",
     ),
     per_page: int = Query(10, ge=1, le=100, description="每页结果数"),
     timeout: float | None = Query(None, ge=1, le=300, description="端点硬超时（秒），超时返回 504"),
 ):
     """搜索学术论文 — 支持多数据源并联查询。"""
-    from souwen.exceptions import SouWenError
+    from souwen.core.exceptions import SouWenError
     from souwen.search import search_papers
 
     requested_sources = None
     if sources is None:
-        source_list = list(_DEFAULT_PAPER_SOURCES)
+        source_list = _default_paper_sources()
     else:
         source_list = [s.strip() for s in sources.split(",") if s.strip()]
         requested_sources = source_list
@@ -53,7 +66,7 @@ async def api_search_paper(
             results = await asyncio.wait_for(coro, timeout=timeout)
         else:
             results = await coro
-        succeeded = [r.source.value for r in results]
+        succeeded = [r.source for r in results]
         return {
             "query": q,
             "sources": source_list,
@@ -83,22 +96,30 @@ async def api_search_paper(
 )
 async def api_search_patent(
     q: str = Query(..., description="搜索关键词", min_length=1, max_length=500),
-    sources: str = Query("google_patents", description="数据源，逗号分隔"),
+    sources: str | None = Query(
+        None,
+        description="数据源，逗号分隔；默认来自当前 registry 的 patent:search",
+    ),
     per_page: int = Query(10, ge=1, le=100, description="每页结果数"),
     timeout: float | None = Query(None, ge=1, le=300, description="端点硬超时（秒），超时返回 504"),
 ):
     """搜索专利 — 支持多数据源并联查询。"""
-    from souwen.exceptions import SouWenError
+    from souwen.core.exceptions import SouWenError
     from souwen.search import search_patents
 
-    source_list = [s.strip() for s in sources.split(",") if s.strip()]
+    requested_sources = None
+    if sources is None:
+        source_list = _default_patent_sources()
+    else:
+        source_list = [s.strip() for s in sources.split(",") if s.strip()]
+        requested_sources = source_list
     try:
-        coro = search_patents(q, sources=source_list, per_page=per_page)
+        coro = search_patents(q, sources=requested_sources, per_page=per_page)
         if timeout is not None:
             results = await asyncio.wait_for(coro, timeout=timeout)
         else:
             results = await coro
-        succeeded = [r.source.value for r in results]
+        succeeded = [r.source for r in results]
         return {
             "query": q,
             "sources": source_list,
@@ -128,7 +149,10 @@ async def api_search_patent(
 )
 async def api_search_web(
     q: str = Query(..., description="搜索关键词", min_length=1, max_length=500),
-    engines: str = Query("duckduckgo,bing", description="搜索引擎，逗号分隔"),
+    engines: str | None = Query(
+        None,
+        description="搜索引擎，逗号分隔；默认来自当前 registry 的 web:search",
+    ),
     per_page: int = Query(
         10, ge=1, le=50, alias="per_page", description="每引擎最大结果数（别名: max_results）"
     ),
@@ -136,13 +160,18 @@ async def api_search_web(
     timeout: float | None = Query(None, ge=1, le=300, description="端点硬超时（秒），超时返回 504"),
 ):
     """搜索网页 — 支持 21+ 搜索引擎。"""
-    from souwen.exceptions import SouWenError
+    from souwen.core.exceptions import SouWenError
     from souwen.web.search import web_search
 
-    engine_list = [e.strip() for e in engines.split(",") if e.strip()]
+    requested_engines = None
+    if engines is None:
+        engine_list = _default_web_engines()
+    else:
+        engine_list = [e.strip() for e in engines.split(",") if e.strip()]
+        requested_engines = engine_list
     effective = max_results if max_results is not None else per_page
     try:
-        coro = web_search(q, engines=engine_list, max_results_per_engine=effective)
+        coro = web_search(q, engines=requested_engines, max_results_per_engine=effective)
         if timeout is not None:
             resp = await asyncio.wait_for(coro, timeout=timeout)
         else:

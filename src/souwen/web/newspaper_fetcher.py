@@ -25,8 +25,8 @@
     - newspaper4k: 新闻文章解析库（可选依赖，懒加载）
     - asyncio: 异步并发与 to_thread 调度
     - logging: 日志记录
-    - souwen.exceptions: ConfigError 异常
-    - souwen.scraper.base: BaseScraper 基类
+    - souwen.core.exceptions: ConfigError 异常
+    - souwen.core.scraper.base: BaseScraper 基类
     - souwen.models: FetchResponse, FetchResult 数据模型
 
 技术要点：
@@ -45,9 +45,9 @@ import asyncio
 import logging
 from typing import Any
 
-from souwen.exceptions import ConfigError
+from souwen.core.exceptions import ConfigError
 from souwen.models import FetchResponse, FetchResult
-from souwen.scraper.base import BaseScraper
+from souwen.core.scraper.base import BaseScraper
 
 logger = logging.getLogger("souwen.web.newspaper_fetcher")
 

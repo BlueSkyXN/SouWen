@@ -55,14 +55,14 @@
             ValueError — search_type 不在允许集合中
             ParseError — API 响应非 JSON 或结构异常
         - 字段映射（page 类型）：
-            * source   = SourceType.WEB_FACEBOOK
+            * source   = 'facebook'
             * title    = item["name"]（页面名称）
             * url      = "https://www.facebook.com/{id}"（页面链接）
             * snippet  = category + "：" + description（分类 + 简介）
             * engine   = "facebook"
             * raw      = { page_id, category, fan_count, website, about }
         - 字段映射（place 类型）：
-            * source   = SourceType.WEB_FACEBOOK
+            * source   = 'facebook'
             * title    = item["name"]（地点名称）
             * url      = "https://www.facebook.com/{id}"
             * snippet  = 地址字段拼接
@@ -73,9 +73,9 @@
     - logging: 日志记录
     - typing: 类型注解
     - souwen.config: get_config 读取配置
-    - souwen.exceptions: ConfigError, ParseError 异常
-    - souwen.http_client: SouWenHttpClient HTTP 客户端基类
-    - souwen.models: SourceType, WebSearchResult, WebSearchResponse 数据模型
+    - souwen.core.exceptions: ConfigError, ParseError 异常
+    - souwen.core.http_client: SouWenHttpClient HTTP 客户端基类
+    - souwen.models: str, WebSearchResult, WebSearchResponse 数据模型
 
 技术要点：
     - API 端点：GET https://graph.facebook.com/v19.0/search
@@ -92,9 +92,9 @@ import logging
 from typing import Any
 
 from souwen.config import get_config
-from souwen.exceptions import ConfigError, ParseError
-from souwen.http_client import SouWenHttpClient
-from souwen.models import SourceType, WebSearchResponse, WebSearchResult
+from souwen.core.exceptions import ConfigError, ParseError
+from souwen.core.http_client import SouWenHttpClient
+from souwen.models import WebSearchResponse, WebSearchResult
 
 logger = logging.getLogger("souwen.web.facebook")
 
@@ -259,7 +259,7 @@ class FacebookClient(SouWenHttpClient):
 
             results.append(
                 WebSearchResult(
-                    source=SourceType.WEB_FACEBOOK,
+                    source="facebook",
                     title=name,
                     url=url,
                     snippet=snippet,
@@ -277,7 +277,7 @@ class FacebookClient(SouWenHttpClient):
 
         return WebSearchResponse(
             query=query,
-            source=SourceType.WEB_FACEBOOK,
+            source="facebook",
             results=results,
             total_results=len(results),
         )

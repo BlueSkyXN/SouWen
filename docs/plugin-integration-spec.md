@@ -9,7 +9,7 @@
 ## 1. 概述与目标
 
 SouWen 的所有数据源都通过 [`SourceAdapter`](../src/souwen/registry/adapter.py) 在
-`registry/sources.py` 集中声明（"单一事实源"）。**插件机制**允许第三方在 SouWen 主仓
+`registry/sources/` 集中声明（"单一事实源"）。**插件机制**允许第三方在 SouWen 主仓
 之外贡献新的 `SourceAdapter` 与 fetch handler，常见场景：
 
 - 接入私有 / 内部 / 商业搜索 API
@@ -27,7 +27,7 @@ SouWen 的所有数据源都通过 [`SourceAdapter`](../src/souwen/registry/adap
 
 | 路径 | 触发方式 | 适用场景 |
 |---|---|---|
-| **Entry Points 自动发现** | `pip install` 后即生效 | 公开发布到 PyPI / Git；零配置体验 |
+| **Entry Points 自动发现** | `pip install` 后即生效 | 公开或私有包分发；零配置体验 |
 | **配置 / 环境变量手动指定** | `souwen.yaml` 的 `plugins` 字段或 `SOUWEN_PLUGINS` 环境变量 | 私有脚本、单文件实验、临时调试 |
 
 ### Entry Point 分组
@@ -40,9 +40,11 @@ SouWen 的所有数据源都通过 [`SourceAdapter`](../src/souwen/registry/adap
 my-source = "my_plugin:plugin"
 ```
 
-### 双模式加载（运行时发现 vs 打包嵌入）
+### 运行时发现与打包边界
 
-同一份 entry_points 声明支持两种部署形态，二者使用**完全相同**的发现机制：
+同一份 entry_points 声明支持运行时发现；如需在私有镜像中预装插件，也应通过
+镜像自己的 dependency set 或私有索引安装，而不是把第三方插件固定进 SouWen
+主仓的公开 extras：
 
 | 模式 | 安装方式 | 适用场景 |
 |---|---|---|
@@ -53,8 +55,43 @@ my-source = "my_plugin:plugin"
 安装 SuperWeb2PDF 插件包；默认值使用可解析的 GitHub archive，避免依赖尚未发布的
 PyPI distribution。
 
-要把插件挂到 SouWen 的 optional dependencies 上，宿主项目在 `pyproject.toml`
-中追加（仅 SouWen 主仓维护者关心）：
+无论哪种部署形态，SouWen 的 CLI / server bootstrap 都会调用
+`ensure_plugins_loaded(get_config())`，再通过
+`importlib.metadata.entry_points(group="souwen.plugins")` 扫描发现。
+**插件作者通常只需声明 entry_points**，是否随镜像预装由部署方决定。
+单纯 `import souwen.registry` 只注册内置源，不会执行第三方 entry point。
+
+### 可选 manifest lint
+
+插件运行时发现仍以 `pyproject.toml` 的 `souwen.plugins` entry point 为准；
+`souwen-plugin.json` 只是给插件作者和 IDE 使用的**可选元数据清单**，不参与运行时加载。
+
+SouWen 提供 JSON Schema：
+
+```json
+{
+  "$schema": "https://github.com/BlueSkyXN/SouWen/blob/v2-dev/docs/plugin-manifest.schema.json",
+  "schema_version": 1,
+  "name": "my_source",
+  "entry_point": "my_plugin:plugin",
+  "version": "0.1.0",
+  "adapters": [
+    {
+      "name": "my_source",
+      "domain": "fetch",
+      "integration": "scraper",
+      "description": "My fetch provider",
+      "methods": ["fetch"],
+      "auth_requirement": "none",
+      "tags": ["external_plugin"],
+      "distribution": "plugin"
+    }
+  ]
+}
+```
+
+如需把插件挂到 SouWen 的 optional dependencies 上，宿主项目在
+`pyproject.toml` 中追加（仅 SouWen 主仓维护者关心）：
 
 ```toml
 [project.optional-dependencies]
@@ -64,8 +101,14 @@ web2pdf = [
 ]
 ```
 
-无论哪种模式，启动时 SouWen 都通过 `importlib.metadata.entry_points(group="souwen.plugins")`
-扫描发现。**插件作者通常只需声明 entry_points**，是否打包嵌入由宿主决定。
+本仓源码 checkout 中可运行：
+
+```bash
+python tools/validate_plugin_manifest.py examples/minimal-plugin/souwen-plugin.json
+```
+
+该工具会按 `SourceAdapter` 当前枚举与组合规则做快速校验；深度 Client 合约仍使用
+`souwen.testing.assert_valid_plugin()` / `validate_client_contract()`。
 
 ### Entry Point 目标可以是四种形态
 
@@ -79,11 +122,11 @@ web2pdf = [
 ### 加载流程
 
 ```
-registry/__init__.py 导入
+CLI / server bootstrap
     ↓
-1. import sources       —— 触发内置 _reg()，填满 _REGISTRY
+1. import souwen.registry —— 触发内置 _reg()，填满 _REGISTRY
     ↓
-2. plugin.load_plugins(config)
+2. plugin.ensure_plugins_loaded(get_config())
     ├─ discover_entrypoint_plugins()
     │     扫描 importlib.metadata entry_points(group="souwen.plugins")
     └─ load_config_plugins(config.plugins + SOUWEN_PLUGINS)
@@ -122,7 +165,7 @@ registry/__init__.py 导入
 | `default_for` | `frozenset()` | 形如 `{"web:search"}`；外部插件**不建议**抢占默认位 |
 | `tags` | `frozenset()` | 见下表；web 插件可用 `category:professional` 进入专业搜索分类 |
 | `needs_config` | `None` | 是否"必须配置才能工作"；建议显式声明（`True` / `False`） |
-| `auth_requirement` | `None` | `none` / `optional` / `required` / `self_hosted`；None 时从旧字段派生 |
+| `auth_requirement` | `None` | `none` / `optional` / `required` / `self_hosted`；None 时从基础配置字段派生 |
 | `credential_fields` | `()` | 完整凭据字段；多字段凭据应列全 |
 | `optional_credential_effect` | `None` | 可选凭据收益：`rate_limit` / `quota` / `quality` / `personalization` / `private_access` / `write_access` / `politeness` / `unknown` |
 | `risk_level` | `"low"` | `low` / `medium` / `high` |
@@ -172,14 +215,14 @@ plugin = SourceAdapter(
 |---|---|
 | `"external_plugin"` | **强烈建议所有外部插件加上**，便于审计与故障排查 |
 | `"high_risk"` | 高风控源，会被 `high_risk_sources()` 视图收录 |
-| `"category:professional"` | 仅适用于 `domain="web"` 的插件；进入专业搜索分类 |
-| `"category:general"` | 仅适用于 `domain="web"` 的插件；显式进入通用搜索分类（默认也是 general） |
+| `"category:professional"` | 仅适用于 `domain="web"` 的插件；进入 `web_professional` 专业网页搜索分类 |
+| `"category:general"` | 仅适用于 `domain="web"` 的插件；显式进入 `web_general` 通用网页搜索分类（默认也是 `web_general`） |
 
-`domain="web"` 的外部插件如果不声明 `category:*`，会按公开 domain 语义归入 `general`。
-只有 AI/聚合搜索、商业 SERP API 等更接近内置 `professional` 分类的插件，才建议声明 `category:professional`。
+`domain="web"` 的外部插件如果不声明 `category:*`，会按公开 domain 语义归入 `web_general`。
+只有 AI/聚合搜索、商业 SERP API 等更接近内置 `web_professional` 分类的插件，才建议声明 `category:professional`。
 
-> ⚠️ 不要使用 `v0_category:*` / `v0_all_sources:exclude` 等内置兼容标签——这些仅用于
-> 内置源对旧版 `ALL_SOURCES` 的向下兼容。
+> ⚠️ 外部插件不要使用非公开内部标签；需要控制 catalog 分类时，优先使用
+> `SourceAdapter.category` 或公开 `category:general/professional` 标签。
 
 ### 校验时机
 
@@ -321,7 +364,7 @@ base_url = config.resolve_base_url("my_source", "https://api.example.com")
 ## 6. Fetch Provider 合约
 
 如果插件要作为 fetch provider（`souwen fetch --provider=my-source`），仅声明
-`SourceAdapter` 不足以让门面派发——还需要把异步抓取函数注册到
+`SourceAdapter` 不足以让 `souwen.web.fetch.fetch_content` 派发——还需要把异步抓取函数注册到
 `souwen.web.fetch._FETCH_HANDLERS`。
 
 ### Handler 签名
@@ -355,7 +398,7 @@ register_fetch_handler("my-source", my_handler, override=False)
 
 | 参数 | 含义 |
 |---|---|
-| `provider: str` | provider 名（CLI `--provider` 与 `fetch_content(provider=)` 用） |
+| `provider: str` | provider 名（CLI `--provider` 与 `fetch_content(providers=[...])` 用） |
 | `handler: FetchHandler` | 满足 §6 签名的异步函数 |
 | `override: bool = False` | 是否允许覆盖同名 handler；默认拒绝并记 warning |
 
@@ -379,10 +422,10 @@ entry point `ep.load()` 会执行该模块顶层代码，handler 即被注册。
 ### 何时只用 SourceAdapter（不需要 handler）
 
 - 插件只做**搜索**类 capability，不在 `fetch` 域、不实现 `fetch` capability
-- 不希望插件出现在 `fetch_content(provider=...)` 列表里
+- 不希望插件出现在 `fetch_content(providers=[...])` 列表里
 
 简言之：`SourceAdapter` 让源出现在 registry，`register_fetch_handler` 让源能被
-facade fetch 派发，二者互不依赖；fetch provider 通常需要两个都做。
+`souwen.web.fetch.fetch_content` 派发，二者互不依赖；fetch provider 通常需要两个都做。
 
 ### 错误处理约定
 
@@ -451,12 +494,17 @@ export SOUWEN_PLUGINS='["my_plugin:plugin","other_pkg.mod:make_adapter"]'
 | Entry point `ep.load()` 抛异常 | 同上 |
 | `name` 与已注册源冲突 | 记 warning，跳过；不覆盖已有源 |
 | `_reg_external` 字段类型不合法 | 抛 `TypeError`，被外层 catch 后记 warning |
-| Fetch handler 重名注册（`override=False`） | 记 warning，保留旧 handler |
+| Fetch handler 重名注册（`override=False`） | 记 warning，保留已有 handler |
 
-`load_plugins()` 返回值：
+`ensure_plugins_loaded()` 返回值：
 
 ```python
-{"loaded": ["my-source", "..."], "errors": [{"source": "...", "name": "...", "error": "..."}]}
+PluginLoadResult(
+    loaded_plugins=("my-plugin",),
+    loaded_adapters=("my-source",),
+    skipped=(),
+    errors=(PluginLoadError(source="...", name="...", error="..."),),
+)
 ```
 
 可在启动日志或 `/api/v1/plugins` 端点（如有）中暴露给运维。
@@ -583,8 +631,8 @@ def test_appears_in_registry(registered_plugin):
 
 ```python
 @pytest.mark.asyncio
-async def test_search_via_facade(registered_plugin, httpx_mock):
-    from souwen.facade.search import search
+async def test_search_via_registry(registered_plugin, httpx_mock):
+    from souwen.search import search
     httpx_mock.add_response(url="https://api.example.com/search", json={...})
     resp = await search("hello", domain="web", sources=[plugin.name], limit=3)
     assert len(resp[0].results) > 0
@@ -646,7 +694,8 @@ def test_fetch_handler_registered():
 | `ENTRY_POINT_GROUP` | `"souwen.plugins"` | entry point 分组名 |
 | `discover_entrypoint_plugins(group=ENTRY_POINT_GROUP)` | `() -> (loaded, errors)` | 扫描 entry points 并注册 |
 | `load_config_plugins(plugin_paths)` | `(list[str]) -> (loaded, errors)` | 加载 `"module:attr"` 字符串列表 |
-| `load_plugins(config=None)` | `(SouWenConfig\|None) -> {"loaded": [...], "errors": [...]}` | 总入口（registry 启动时自动调用） |
+| `ensure_plugins_loaded(config=None)` | `(SouWenConfig\|None) -> PluginLoadResult` | CLI / server / library 显式插件 bootstrap，幂等 |
+| `load_plugins(config=None)` | `(SouWenConfig\|None) -> {"loaded": [...], "errors": [...]}` | 低层入口，新代码优先用 `ensure_plugins_loaded()` |
 
 ### `souwen.config`
 
@@ -672,7 +721,7 @@ def test_fetch_handler_registered():
   发布前用 `souwen sources` 检查冲突。
 - **fetch provider 忘了注册 handler**：能在 `souwen sources` 看到，但
   `souwen fetch --provider=...` 报"未知提供者"。
-- **Client `__aexit__` 不实现**：facade 用 `async with` 调度，缺失会 AttributeError。
+- **Client `__aexit__` 不实现**：registry/search 调度会使用 `async with`，缺失会 AttributeError。
 - **抓取类异常外抛**：违反 §6 / §8 约定，会触发上层异常隔离但用户看不到具体原因。
 - **修改可变默认参**：`SourceAdapter` 是 `frozen=True`，所有 `frozenset()` /
   `Mapping` 都不可变。

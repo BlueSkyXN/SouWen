@@ -120,7 +120,7 @@ ruff format src/
 新增源只需 **1-2 处**改动：
 
 1. 实现 `Client` 类（继承 `SouWenHttpClient` / `OAuthClient` / `BaseScraper`）。
-2. 在 `src/souwen/registry/sources.py` 添加一个 `_reg(SourceAdapter(...))`。
+2. 在 `src/souwen/registry/sources/` 的对应 segment 模块添加一个 `_reg(SourceAdapter(...))`。
 3. 若需要 API Key，在 `src/souwen/config/models.py` 的 `SouWenConfig` 加字段并在 adapter 里通过 `config_field="..."` 引用。
 
 完整步骤、模板与一致性测试要求请看 **[adding-a-source.md](./adding-a-source.md)**。
@@ -131,10 +131,10 @@ ruff format src/
 
 注册表是单一事实源，但提供多条等价的入口路径：
 
-- ✅ **顶层便捷入口**：`souwen.search.search_papers / search_patents / web_search`、`souwen.web.fetch.fetch_content`、`souwen.web.wayback.WaybackClient` 等；内部转发到 `souwen.facade.*`。
-- ✅ **`souwen.models.SourceType` 与 `ALL_SOURCES`**：由 `registry.views.enum_values()` / `as_all_sources_dict()` 派生。
+- ✅ **顶层便捷入口**：`souwen.search.search / search_all / search_papers / search_patents / web_search`、`souwen.web.fetch.fetch_content`、`souwen.web.wayback.WaybackClient` 等；内部通过 `souwen.registry` 派发。
+- ✅ **结果模型 `source` 与 source catalog**：结果模型使用普通字符串，内置值由 `registry.views.enum_values()` / `registry.catalog.source_catalog()` 派生。
 - ✅ **配置字段**：`SouWenConfig` 的 flat key（如 `tavily_api_key`）与频道覆盖 `sources.<name>.api_key` 都支持；新增源若选用 flat key 需同时支持频道覆盖。
-- ✅ **平台层 re-export**：`souwen.scraper.base` / `souwen.http_client` / `souwen.fingerprint` 是 `souwen.core.*` 的便捷入口；新代码任选其一即可。
+- ✅ **平台层入口**：`souwen.core.scraper.base` / `souwen.core.http_client` / `souwen.core.fingerprint` 是唯一推荐路径，不再新增顶层代理模块。
 - ❌ **不要新增 dispatcher dict**：搜索路由、`source_map`、`engine_map` 等都已下沉到 registry 派发，新源不要再去改 `search.py` / `web/search.py`。
 - ❌ **不要绕过 registry**：CLI / 服务端 / MCP / 文档生成都应通过 `souwen.registry` 查询，避免出现"信息散落多处"的回退。
 
@@ -150,7 +150,7 @@ ruff format src/
 [optional footer(s)]
 ```
 
-常用 `type`：`feat` / `fix` / `docs` / `refactor` / `test` / `chore` / `perf`。`scope` 推荐使用 domain 名（`paper` / `patent` / `web` / `social` / `video` / `registry` / `facade` / `panel` / `docker` 等）。
+常用 `type`：`feat` / `fix` / `docs` / `refactor` / `test` / `chore` / `perf`。`scope` 推荐使用 domain 名或模块名（`paper` / `patent` / `web` / `social` / `video` / `registry` / `core` / `panel` / `docker` 等）。
 
 示例：
 
@@ -165,7 +165,7 @@ refactor(core): move BaseScraper into core/scraper
 
 - `main` — 受保护的发布分支，CI 必须全绿才能合并。
 - `feat/*` `fix/*` `docs/*` — 特性 / 缺陷 / 文档分支，从 `main` 切出，PR 合并后删除。
-- 重大重构（如 V1）使用专门的长寿命分支，期间通过 RFC 文档（`local/`）跟踪决策。
+- 重大重构（如 v2）使用专门的长寿命分支，期间通过 RFC 文档（`local/`）跟踪决策。
 
 ## PR 流程
 

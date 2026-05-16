@@ -8,7 +8,7 @@ from __future__ import annotations
 import logging
 from datetime import datetime, timezone
 
-from souwen.models import SourceType, WebSearchResult, WebSearchResponse
+from souwen.models import WebSearchResult, WebSearchResponse
 from souwen.web.ddg_json import DDGJsonClient
 from souwen.web.ddg_utils import normalize_text
 
@@ -55,7 +55,7 @@ class DuckDuckGoNewsClient(DDGJsonClient):
             logger.warning("无法获取 VQD token，返回空结果")
             return WebSearchResponse(
                 query=query,
-                source=SourceType.WEB_DDG_NEWS,
+                source="duckduckgo_news",
                 results=[],
                 total_results=0,
             )
@@ -108,7 +108,7 @@ class DuckDuckGoNewsClient(DDGJsonClient):
             if title:
                 results.append(
                     WebSearchResult(
-                        source=SourceType.WEB_DDG_NEWS,
+                        source="duckduckgo_news",
                         title=title,
                         url=url,
                         snippet=snippet,
@@ -119,7 +119,7 @@ class DuckDuckGoNewsClient(DDGJsonClient):
         logger.info("DDG News 返回 %d 条结果 (query=%s)", len(results), query)
         return WebSearchResponse(
             query=query,
-            source=SourceType.WEB_DDG_NEWS,
+            source="duckduckgo_news",
             results=results,
             total_results=len(results),
         )

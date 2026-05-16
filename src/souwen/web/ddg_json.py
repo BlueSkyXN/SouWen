@@ -12,7 +12,7 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from souwen.scraper.base import BaseScraper
+from souwen.core.scraper.base import BaseScraper
 from souwen.web.ddg_utils import extract_vqd, parse_next_offset
 
 logger = logging.getLogger("souwen.web.ddg_json")

@@ -91,7 +91,7 @@ def _patch_scraper(html: str, url: str = "https://example.com/"):
     """Helper: patch BaseScraper symbol used inside extract_links."""
     resp = _FakeResp(html, url)
     return patch(
-        "souwen.scraper.base.BaseScraper",
+        "souwen.core.scraper.base.BaseScraper",
         lambda *a, **kw: _FakeScraper(resp),
     )
 

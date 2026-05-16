@@ -25,9 +25,9 @@
     - logging: 日志记录
     - typing: 类型注解
     - souwen.config: 获取实例 URL 配置
-    - souwen.exceptions: ConfigError, ParseError 异常
-    - souwen.http_client: SouWenHttpClient HTTP 客户端基类
-    - souwen.models: SourceType, WebSearchResult, WebSearchResponse 数据模型
+    - souwen.core.exceptions: ConfigError, ParseError 异常
+    - souwen.core.http_client: SouWenHttpClient HTTP 客户端基类
+    - souwen.models: str, WebSearchResult, WebSearchResponse 数据模型
 
 技术要点：
     - Whoogle 是 Google 搜索的隐私代理，返回 Google SERP 页面
@@ -42,9 +42,9 @@ import logging
 from typing import Any
 
 from souwen.config import get_config
-from souwen.exceptions import ConfigError
-from souwen.http_client import SouWenHttpClient
-from souwen.models import SourceType, WebSearchResult, WebSearchResponse
+from souwen.core.exceptions import ConfigError
+from souwen.core.http_client import SouWenHttpClient
+from souwen.models import WebSearchResult, WebSearchResponse
 
 logger = logging.getLogger("souwen.web.whoogle")
 
@@ -99,7 +99,7 @@ class WhoogleClient(SouWenHttpClient):
             # 使用 BeautifulSoup 解析返回的 HTML 页面
             soup = BeautifulSoup(resp.text, "html.parser")
         except Exception as e:
-            from souwen.exceptions import ParseError
+            from souwen.core.exceptions import ParseError
 
             raise ParseError(f"Whoogle HTML 解析失败: {e}") from e
 
@@ -145,7 +145,7 @@ class WhoogleClient(SouWenHttpClient):
 
                 results.append(
                     WebSearchResult(
-                        source=SourceType.WEB_WHOOGLE,
+                        source="whoogle",
                         title=title,
                         url=url,
                         snippet=snippet,
@@ -153,7 +153,7 @@ class WhoogleClient(SouWenHttpClient):
                     )
                 )
         except Exception as e:
-            from souwen.exceptions import ParseError
+            from souwen.core.exceptions import ParseError
 
             raise ParseError(f"Whoogle 结果提取失败: {e}") from e
 
@@ -161,7 +161,7 @@ class WhoogleClient(SouWenHttpClient):
 
         return WebSearchResponse(
             query=query,
-            source=SourceType.WEB_WHOOGLE,
+            source="whoogle",
             results=results,
             total_results=len(results),
         )

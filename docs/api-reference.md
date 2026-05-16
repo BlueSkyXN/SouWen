@@ -2,7 +2,7 @@
 
 > SouWen 公开 API、数据模型、CLI 命令与 MCP 工具
 
-> **V1 架构提示**：所有路由都派发到 `souwen.facade.*`（统一门面层），门面再通过 `souwen.registry`（单一事实源）挑选 Client。新增数据源不需要改路由，参见 [adding-a-source.md](./adding-a-source.md)。
+> **架构提示**：搜索路由派发到 `souwen.search`，内容抓取使用 `souwen.web.fetch`，数据源选择统一来自 `souwen.registry`（单一事实源）。新增数据源不需要改路由，参见 [adding-a-source.md](./adding-a-source.md)。
 
 > **⚠️ 声明：本项目仅供 Python 学习与技术研究使用。**
 > 涵盖的学习方向包括：API 对接与聚合、全栈开发（FastAPI + React）、爬虫技术（TLS 指纹 / 浏览器池化 / 反爬绕过）、CLI 开发（Rich / Click）、异步编程（asyncio / httpx）等。
@@ -33,7 +33,7 @@ from souwen import search, search_papers, search_patents, web_search
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `query` | `str` | — | 搜索关键词 |
-| `sources` | `list[str] \| None` | `["openalex", "crossref", "arxiv", "dblp", "pubmed"]` | 数据源列表 |
+| `sources` | `list[str] \| None` | `null`（registry `paper:search` 当前为 `["openalex", "crossref", "arxiv", "dblp", "pubmed", "biorxiv"]`） | 数据源列表 |
 | `per_page` | `int` | `10` | 每个源返回结果数 |
 
 #### `search_patents(query, sources=None, per_page=10, **kwargs)` → `list[SearchResponse]`
@@ -43,7 +43,7 @@ from souwen import search, search_papers, search_patents, web_search
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `query` | `str` | — | 搜索关键词 |
-| `sources` | `list[str] \| None` | `["google_patents"]` | 数据源列表 |
+| `sources` | `list[str] \| None` | `null`（registry `patent:search` 当前为 `["google_patents"]`） | 数据源列表 |
 | `per_page` | `int` | `10` | 每个源返回结果数 |
 
 #### `web_search(query, engines=None, max_results_per_engine=10)` → `WebSearchResponse`
@@ -53,7 +53,7 @@ from souwen import search, search_papers, search_patents, web_search
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `query` | `str` | — | 搜索关键词 |
-| `engines` | `list[str] \| None` | `["duckduckgo", "bing"]` | 引擎列表 |
+| `engines` | `list[str] \| None` | `null`（registry `web:search` 当前为 `["duckduckgo", "bing"]`） | 引擎列表 |
 | `max_results_per_engine` | `int` | `10` | 每个引擎最大结果数 |
 
 ### 网页内容抓取
@@ -62,14 +62,15 @@ from souwen import search, search_papers, search_patents, web_search
 from souwen.web.fetch import fetch_content, validate_fetch_url
 ```
 
-#### `fetch_content(urls, providers=None, timeout=30.0, skip_ssrf_check=False, selector=None, start_index=0, max_length=None, respect_robots_txt=False)` → `FetchResponse`
+#### `fetch_content(urls, providers=None, strategy="fallback", timeout=30.0, skip_ssrf_check=False, selector=None, start_index=0, max_length=None, respect_robots_txt=False)` → `FetchResponse`
 
-并发内容抓取，支持 22 个提供者。
+多提供者内容抓取，支持 22 个提供者。默认 `fallback` 按 URL 补抓失败项；`fanout` 会并发执行所有 provider，并返回全部 provider 结果，适合质量对比和调试。
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `urls` | `list[str]` | — | 目标 URL 列表 |
 | `providers` | `list[str] \| None` | `["builtin"]` | 提供者: builtin / jina_reader / arxiv_fulltext / tavily / firecrawl / xcrawl / exa / crawl4ai / scrapling / scrapfly / diffbot / scrapingbee / zenrows / scraperapi / apify / cloudflare / wayback / newspaper / readability / mcp / site_crawler / deepwiki |
+| `strategy` | `"fallback" \| "fanout"` | `"fallback"` | 多 provider 策略：`fallback` 按 URL 顺序补失败项；`fanout` 返回所有 provider 结果 |
 | `timeout` | `float` | `30.0` | 每个 URL 超时秒数 |
 | `skip_ssrf_check` | `bool` | `False` | 跳过 SSRF 校验（仅内部使用） |
 | `selector` | `str \| None` | `None` | CSS 选择器，仅提取匹配元素（builtin / scrapling 支持） |
@@ -117,7 +118,7 @@ from souwen.paper import fetch_pdf
 
 ```python
 class PaperResult(BaseModel):
-    source: SourceType              # 数据来源
+    source: str                     # 数据来源
     title: str                      # 标题
     authors: list[Author]           # 作者列表
     abstract: str | None            # 摘要
@@ -138,7 +139,7 @@ class PaperResult(BaseModel):
 
 ```python
 class PatentResult(BaseModel):
-    source: SourceType              # 数据来源
+    source: str                     # 数据来源
     title: str                      # 标题
     patent_id: str                  # 公开号/申请号
     application_number: str | None  # 申请号
@@ -161,7 +162,7 @@ class PatentResult(BaseModel):
 
 ```python
 class WebSearchResult(BaseModel):
-    source: SourceType              # 数据来源
+    source: str                     # 数据来源
     title: str                      # 标题
     url: str                        # 链接
     snippet: str                    # 摘要片段
@@ -195,16 +196,21 @@ class FetchResponse(BaseModel):
     total: int = 0                              # 总数
     total_ok: int = 0                           # 成功数
     total_failed: int = 0                       # 失败数
-    provider: str = ""                          # 使用的提供者
+    providers: list[str] = []                   # 请求的提供者列表
+    strategy: str = "fallback"                  # 使用的抓取策略
+    provider: str | None = None                 # Deprecated: 单 provider 摘要字段；2.1.0 GA 后移除
     meta: dict = {}                             # 元数据
 ```
+
+> `FetchResponse.provider` 仅为 v2.0 RC 过渡字段。新代码应读取
+> `providers`、`meta.selected_provider` 和每条 `FetchResult.source`。
 
 ### SearchResponse
 
 ```python
 class SearchResponse(BaseModel):
     query: str                      # 搜索词
-    source: SourceType              # 数据来源
+    source: str                     # 数据来源
     total_results: int | None       # 总结果数
     results: list[PaperResult] | list[PatentResult] | list[WebSearchResult]
     page: int = 1                   # 当前页
@@ -253,7 +259,11 @@ souwen config init    # 生成 souwen.yaml 模板
 ### 数据源
 
 ```bash
-souwen sources        # 列出所有数据源及其状态
+souwen sources                         # 列出公开 Source Catalog
+souwen sources --json                  # 输出与 /api/v1/sources 一致的 JSON
+souwen sources --available-only        # 仅列出当前配置下可执行源
+souwen sources --category web_general  # 按正式 catalog category 过滤
+souwen sources --capability search     # 按能力过滤
 ```
 
 ### 健康检查
@@ -266,11 +276,13 @@ souwen doctor         # 检查所有数据源可用性
 
 ```bash
 # 抓取网页内容（默认 builtin，零配置）
-souwen fetch <urls...> [--provider/-p builtin] [--timeout/-t 30] [--json/-j]
+souwen fetch <urls...> [--provider/-p builtin] [--strategy fallback] [--timeout/-t 30] [--json/-j]
 
 # 示例
 souwen fetch https://example.com                      # 内置抓取
 souwen fetch https://a.com https://b.com -p jina_reader  # Jina Reader
+souwen fetch https://example.com -p builtin -p jina_reader --strategy fallback  # 逐 URL 补抓
+souwen fetch https://example.com -p builtin -p jina_reader --strategy fanout    # 多 provider 对比
 souwen fetch https://example.com --json               # JSON 输出
 ```
 
@@ -302,20 +314,20 @@ souwen plugins new <name>                 # 生成插件项目骨架
 
 ### 认证：三角色系统
 
-SouWen 支持三级角色认证（Guest/User/Admin），并向后兼容旧版密码配置：
+SouWen 支持三级角色认证（Guest/User/Admin）：
 
 | 角色 | Token 来源 | 可访问端点 |
 |------|------------|-----------|
 | Guest 游客 | 无 Token（需 `guest_enabled=true`） | 搜索（受限源、限速） |
-| User 用户 | `user_password` / `visitor_password` / `api_password` | 搜索 + `/sources` |
-| Admin 管理员 | `admin_password` / `api_password` | 全部端点 |
+| User 用户 | `user_password` | 搜索 + `/sources` |
+| Admin 管理员 | `admin_password` | 全部端点 |
 
 **密码优先级：**
 
-- 用户端点：`user_password` > `visitor_password` > `api_password` > 无（开放）
-- 管理端点：`admin_password` > `api_password` > 无（默认锁定，需 `SOUWEN_ADMIN_OPEN=1` 显式开放）
+- 用户端点：`user_password` > Guest 开关 > 拒绝访问
+- 管理端点：`admin_password` > 本地显式开放开关 > 拒绝访问
 - Admin Token 自动满足所有低级别端点（Admin ⊃ User ⊃ Guest）
-- 显式将 `user_password` 设为空字符串 `""` 表示开放用户端点；显式将 `admin_password` 设为空字符串 `""` 表示不回退 `api_password`，但管理端仍需 `SOUWEN_ADMIN_OPEN=1` 才开放。
+- 显式将 `user_password` 设为空字符串 `""` 表示开放用户端点；生产部署应设置 `admin_password`。
 
 **请求格式：** `Authorization: Bearer <password>`
 
@@ -373,23 +385,23 @@ SouWen 支持三级角色认证（Guest/User/Admin），并向后兼容旧版密
 
 **响应示例：**
 ```json
-{ "status": "ok", "version": "1.2.0" }
+{ "status": "ok", "version": "2.0.0rc1" }
 ```
 
 > `version` 字段动态返回当前 `souwen.__version__`，示例值仅作参考。
 
 #### `GET /readiness`
 
-K8s readiness 探针（v0.6.1 引入）。仅做本地检查（配置可加载 + 数据源注册表非空），不触发任何网络调用，避免探针超时。
+K8s readiness 探针。仅做本地检查（配置可加载 + 数据源注册表非空），不触发任何网络调用，避免探针超时。
 
 **响应示例（就绪）：**
 ```json
-{ "ready": true, "version": "1.2.0", "error": null }
+{ "ready": true, "version": "2.0.0rc1", "error": null }
 ```
 
 **响应示例（503 未就绪）：**
 ```json
-{ "ready": false, "version": "1.2.0", "error": "source registry is empty" }
+{ "ready": false, "version": "2.0.0rc1", "error": "source registry is empty" }
 ```
 
 #### `GET /` 与 `GET /panel`
@@ -420,7 +432,7 @@ Cache-Control: public, max-age=3600
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `q` | string (1-500) | *(必填)* | 搜索关键词 |
-| `sources` | string | `"openalex,arxiv"` | 数据源列表，逗号分隔 |
+| `sources` | string \| null | `null`（registry `paper:search` 当前为 `openalex,crossref,arxiv,dblp,pubmed,biorxiv`） | 数据源列表，逗号分隔 |
 | `per_page` | int (1-100) | `10` | 每个数据源返回结果数 |
 | `timeout` | float (1-300) \| null | `null` | 端点硬超时（秒），超时返回 504；`null` 表示无超时 |
 
@@ -448,7 +460,7 @@ Cache-Control: public, max-age=3600
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `q` | string (1-500) | *(必填)* | 搜索关键词 |
-| `sources` | string | `"google_patents"` | 数据源列表，逗号分隔 |
+| `sources` | string \| null | `null`（registry `patent:search` 当前为 `google_patents`） | 数据源列表，逗号分隔 |
 | `per_page` | int (1-100) | `10` | 每个数据源返回结果数 |
 | `timeout` | float (1-300) \| null | `null` | 端点硬超时（秒），超时返回 504 |
 
@@ -459,43 +471,50 @@ Cache-Control: public, max-age=3600
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `q` | string (1-500) | *(必填)* | 搜索关键词 |
-| `engines` | string | `"duckduckgo,bing"` | 搜索引擎，逗号分隔 |
+| `engines` | string \| null | `null`（registry `web:search` 当前为 `duckduckgo,bing`） | 搜索引擎，逗号分隔 |
 | `per_page` | int (1-50) | `10` | 每引擎最大结果数（**主名称**） |
-| `max_results` | int (1-50) \| null | `null` | 兼容旧版的别名；显式提供时**优先级高于 `per_page`** |
+| `max_results` | int (1-50) \| null | `null` | `per_page` 的别名；显式提供时**优先级高于 `per_page`** |
 | `timeout` | float (1-300) \| null | `null` | 端点硬超时（秒），超时返回 504 |
 
-> 兼容性提示：旧客户端可继续使用 `max_results`；新客户端推荐 `per_page`。
+> 新调用建议使用 `per_page`，以便和论文、专利搜索端点保持一致。
 
 #### `GET /api/v1/sources`
 
-列出所有可用数据源及其状态（受访客认证保护）。返回结果按展示分类分组，并且从运行时 live registry 派生：必须凭据或自建实例缺失的源会被隐藏，插件注册/注销后的源会随请求即时反映；可选凭据源仍会返回，但会带上 `auth_requirement="optional"` 与 `credential_fields` 供前端提示。
+列出公开 Source Catalog（受访客认证保护）。返回值从运行时 live registry 派生，内置源和运行时插件都以 `sources[]` 列表返回；源被禁用、必须凭据缺失或自建实例未配置时仍保留 catalog 条目，但 `available=false`。
 
 **响应示例：**
 ```json
 {
-  "paper": [
+  "sources": [
     {
       "name": "openalex",
-      "needs_key": false,
-      "key_requirement": "optional",
+      "domain": "paper",
+      "category": "paper",
+      "capabilities": ["search"],
+      "description": "OpenAlex 开放学术数据",
       "auth_requirement": "optional",
       "credential_fields": ["openalex_email"],
-      "optional_credential_effect": "politeness",
-      "integration_type": "open_api",
+      "credentials_satisfied": true,
+      "configured_credentials": false,
       "risk_level": "low",
-      "risk_reasons": [],
-      "distribution": "core",
-      "package_extra": null,
       "stability": "stable",
-      "usage_note": null,
-      "default_enabled": true,
-      "description": "OpenAlex 开放学术数据"
+      "distribution": "core",
+      "default_for": ["paper:search"],
+      "available": true
     }
   ],
-  "patent": [ ... ],
-  "general": [ ... ],
-  "professional": [ ... ],
-  "fetch": [ ... ]
+  "categories": [
+    {
+      "key": "paper",
+      "label": "学术论文",
+      "order": 10,
+      "domain": "paper",
+      "description": "论文、预印本、开放学术索引和文献库。"
+    }
+  ],
+  "defaults": {
+    "paper:search": ["openalex", "crossref", "arxiv", "dblp", "pubmed", "biorxiv"]
+  }
 }
 ```
 
@@ -503,26 +522,29 @@ Cache-Control: public, max-age=3600
 
 | 字段 | 说明 |
 |---|---|
-| `integration_type` | 接入方式：`open_api` / `scraper` / `official_api` / `self_hosted` |
-| `auth_requirement` / `key_requirement` | 鉴权要求：`none` / `optional` / `required` / `self_hosted` |
+| `sources[]` | 公开 Source Catalog 条目列表，前端和 CLI 应按 `domain`/`category`/`capabilities` 过滤 |
+| `categories[]` | 正式展示分类，包含 `key`、`label`、`order`、`domain` 与说明 |
+| `defaults` | `domain:capability` 到默认源名列表的映射 |
+| `domain` | 能力归属域，如 `paper` / `patent` / `web` / `fetch` |
+| `category` | 正式 catalog 分类，如 `web_general` / `web_professional` / `knowledge` |
+| `capabilities` | 源声明的能力，如 `search` / `fetch` / `details` |
+| `auth_requirement` | 鉴权要求：`none` / `optional` / `required` / `self_hosted` |
 | `credential_fields` | 完整凭据字段，多字段凭据会列出全部字段 |
-| `optional_credential_effect` | 可选凭据收益，如 `rate_limit`、`quota`、`politeness` |
-| `risk_level` / `risk_reasons` | 默认调度风险与原因，不等同于接入方式 |
-| `distribution` / `package_extra` | 推荐分发范围与 optional dependency 组 |
+| `credentials_satisfied` | 当前配置是否满足运行时凭据要求；免配置和可选凭据源为 `true` |
+| `configured_credentials` | 用户是否实际配置了该源声明的凭据 |
+| `available` | 当前配置下是否可投入调度，等于未禁用且 `credentials_satisfied=true` |
+| `risk_level` | 默认调度风险：`low` / `medium` / `high` |
+| `distribution` | 分发范围：`core` / `extra` / `plugin` |
 | `stability` | 成熟度：`stable` / `beta` / `experimental` / `deprecated` |
-| `usage_note` | 用户级提示文案(如 `"仅支持 DOI OA 查找"`),前端可作为 tooltip 或副标题展示;不参与可用性判定 |
 
-自建实例源（`auth_requirement="self_hosted"`）优先使用 `sources.<name>.base_url`；
-旧版 `sources.<name>.api_key` 与 flat `<name>_url` 仍保留兼容。
-
-数据源 catalog 字段和运行时可见性的总览见 [data-sources.md](./data-sources.md)；用户手册会在 GitHub Wiki 中提供场景化说明。
+数据源 catalog 字段和运行时可见性的总览见 [data-sources.md](./data-sources.md)。
 
 ---
 
 ### 管理端点 (`/api/v1/admin/...`)
 
-> 管理端点由 `require_auth` 强制保护，验证 `effective_admin_password`（`admin_password` > `api_password`）。
-> 未设置任一管理密码时，管理端点默认返回 `401 Unauthorized`；只有设置 `SOUWEN_ADMIN_OPEN=1` 才会显式开放。
+> 管理端点由 `require_auth` 强制保护，验证 `admin_password`。
+> 未设置管理密码时，管理端点默认返回 `401 Unauthorized`；只有设置 `SOUWEN_ADMIN_OPEN=1` 才会显式开放。
 
 #### `GET /api/v1/admin/config`
 
@@ -531,7 +553,7 @@ Cache-Control: public, max-age=3600
 **响应示例：**
 ```json
 {
-  "api_password": "***",
+  "admin_password": "***",
   "semantic_scholar_key": "***",
   "rate_limit_per_minute": 30,
   ...
@@ -547,9 +569,40 @@ Cache-Control: public, max-age=3600
 { "status": "ok", "password_set": true }
 ```
 
+#### `GET /api/v1/admin/config/yaml`
+
+读取当前 YAML 配置文件内容。若当前目录和用户配置目录都没有配置文件，则返回内置默认模板，`path=null`。
+
+**响应示例：**
+```json
+{
+  "content": "server:\n  host: 0.0.0.0\n  port: 49265\n",
+  "path": "/home/user/.config/souwen/config.yaml"
+}
+```
+
+#### `PUT /api/v1/admin/config/yaml`
+
+保存 YAML 配置文件并重新加载。服务端会先做 YAML 语法校验、废弃鉴权字段检查和 `SouWenConfig` dry-run 校验，再原子写入配置文件；当前无配置文件时写入用户配置目录。
+
+**请求体：**
+```json
+{
+  "content": "server:\n  host: 0.0.0.0\n  port: 49265\n"
+}
+```
+
+**响应示例：**
+```json
+{
+  "content": "server:\n  host: 0.0.0.0\n  port: 49265\n",
+  "path": "/home/user/.config/souwen/config.yaml"
+}
+```
+
 #### `GET /api/v1/admin/doctor`
 
-数据源健康检查，返回配置状态和已知限制提示；当前不执行实时连通性探测。`available` 统计 `ok` / `limited` / `warning` / `degraded`，`degraded_total` 统计 `limited` / `warning` / `degraded`；`degraded` 为兼容旧客户端的同值别名，精确状态计数请读取 `status_counts.degraded`。
+数据源健康检查，返回配置状态和已知限制提示；当前不执行实时连通性探测。`available` 统计 `ok` / `limited` / `warning` / `degraded`，`degraded_total` 统计 `limited` / `warning` / `degraded`；`degraded` 是 `degraded_total` 的同义字段，精确状态计数请读取 `status_counts.degraded`。
 
 状态语义与 Panel 展示规则应以本节和管理端 schema 为准；面向用户的排障路径会在 GitHub Wiki 中提供。
 
@@ -606,6 +659,15 @@ Cache-Control: public, max-age=3600
     }
   ]
 }
+```
+
+#### `GET /api/v1/admin/ping`
+
+轻量管理端存活探测。该端点仍受 Admin Bearer Token 保护，用于确认认证链路和管理路由可用。
+
+**响应示例：**
+```json
+{ "status": "ok" }
 ```
 
 #### `GET /api/v1/admin/warp`
@@ -735,6 +797,41 @@ Cache-Control: public, max-age=3600
 | `warp_usque_transport` | string | `usque` 传输模式：`auto` / `quic` / `http2` |
 | `has_proxy_auth` | bool | 是否已配置 `warp_proxy_username` / `warp_proxy_password` |
 
+#### `GET /api/v1/admin/warp/components`
+
+列出运行时可管理的 WARP 组件安装状态，覆盖 `usque`、`wireproxy`、`wgcf` 等二进制。
+
+**响应示例：**
+```json
+{
+  "components": [
+    {
+      "name": "usque",
+      "installed": true,
+      "version": "3.0.0",
+      "path": "/app/data/bin/usque"
+    }
+  ]
+}
+```
+
+#### `POST /api/v1/admin/warp/components/install`
+
+从 GitHub Releases 下载并安装指定 WARP 组件。
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `component` | string | *(必填)* | 组件名：`usque` / `wireproxy` / `wgcf` |
+| `version` | string \| null | `null` | 版本号；留空使用内置默认版本 |
+
+#### `POST /api/v1/admin/warp/components/uninstall`
+
+卸载运行时安装的 WARP 组件，不影响系统或镜像预装组件。
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `component` | string | *(必填)* | 组件名 |
+
 #### `POST /api/v1/admin/warp/disable`
 
 禁用 WARP 代理。
@@ -743,6 +840,21 @@ Cache-Control: public, max-age=3600
 ```json
 { "ok": true }
 ```
+
+#### `POST /api/v1/admin/warp/switch`
+
+一步切换 WARP 模式：先禁用当前模式，再以目标模式启动。失败时不会返回底层敏感错误，详细信息保留在服务端日志。
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `mode` | string | *(必填)* | 目标模式：`wireproxy` / `kernel` / `usque` / `warp-cli` / `external` 等 |
+| `socks_port` | int (1-65535) | `1080` | SOCKS5 端口 |
+| `http_port` | int (0-65535) | `0` | HTTP 代理端口（`0` 表示不启用） |
+| `endpoint` | string \| null | `null` | 自定义 WARP Endpoint |
+
+#### `GET /api/v1/admin/warp/events`
+
+WARP 状态变更 SSE 流。客户端使用 `EventSource` 连接，服务端约每 2 秒检查一次状态，状态变化或心跳周期到达时推送当前状态 JSON。
 
 ---
 
@@ -865,14 +977,16 @@ Cache-Control: public, max-age=3600
 
 #### `POST /api/v1/fetch`
 
-抓取网页内容，支持 22 个提供者。
+抓取网页内容，支持 22 个提供者。默认 `fallback` 按 URL 补抓失败项；`fanout` 会并发返回所有 provider 结果。
 
 **请求体 (JSON)：**
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `urls` | `list[str]` (1-20) | *(必填)* | 目标 URL 列表 |
-| `provider` | `string` | `"builtin"` | 提供者: `builtin` / `jina_reader` / `arxiv_fulltext` / `tavily` / `firecrawl` / `xcrawl` / `exa` / `crawl4ai` / `scrapling` / `scrapfly` / `diffbot` / `scrapingbee` / `zenrows` / `scraperapi` / `apify` / `cloudflare` / `wayback` / `newspaper` / `readability` / `mcp` / `site_crawler` / `deepwiki` |
+| `provider` | `string` | `"builtin"` | 单 provider 请求字段；新代码优先使用 `providers` |
+| `providers` | `list[str] \| null` | `null` | 多 provider 列表；提供时优先于 `provider`。可选：`builtin` / `jina_reader` / `arxiv_fulltext` / `tavily` / `firecrawl` / `xcrawl` / `exa` / `crawl4ai` / `scrapling` / `scrapfly` / `diffbot` / `scrapingbee` / `zenrows` / `scraperapi` / `apify` / `cloudflare` / `wayback` / `newspaper` / `readability` / `mcp` / `site_crawler` / `deepwiki` |
+| `strategy` | `"fallback" \| "fanout"` | `"fallback"` | 多 provider 策略：`fallback` 按 URL 顺序补失败项；`fanout` 返回所有 provider 结果 |
 | `timeout` | `float` (1-120) | `30` | 每 URL 超时秒数 |
 | `selector` | `string \| null` | `null` | CSS 选择器，仅提取匹配元素（builtin / scrapling 支持） |
 | `start_index` | `integer` (≥0) | `0` | 内容起始切片位置 |
@@ -883,7 +997,8 @@ Cache-Control: public, max-age=3600
 ```json
 {
   "urls": ["https://example.com/article"],
-  "provider": "builtin",
+  "providers": ["builtin", "jina_reader"],
+  "strategy": "fallback",
   "timeout": 30
 }
 ```
@@ -910,10 +1025,25 @@ Cache-Control: public, max-age=3600
   "total": 1,
   "total_ok": 1,
   "total_failed": 0,
-  "provider": "builtin",
-  "meta": {}
+  "provider": null,
+  "providers": ["builtin", "jina_reader"],
+  "strategy": "fallback",
+  "meta": {
+    "strategy": "fallback",
+    "requested_providers": ["builtin", "jina_reader"],
+    "attempted": {
+      "https://example.com/article": ["builtin"]
+    },
+    "selected_provider": {
+      "https://example.com/article": "builtin"
+    },
+    "ssrf_blocked": 0
+  }
 }
 ```
+
+`provider` 是响应里的 deprecated 过渡字段；当一次请求涉及多个 provider 时，
+请以 `providers`、`meta.selected_provider` 和 `results[].source` 为准。
 
 **错误状态码：** `400`（无效提供者）、`504`（超时）
 
@@ -921,7 +1051,42 @@ Cache-Control: public, max-age=3600
 - SSRF 防护：DNS 解析 + 私有/保留 IP 拦截
 - 重定向安全：每一跳校验目标 IP，防止多跳 SSRF 攻击
 - Scrapling 浏览器模式：`dynamic` / `stealthy` 会对 navigation、子资源、XHR/fetch 等浏览器请求安装同一套 SSRF 拦截
-- 管理密码认证：需要 `admin_password`（或回退 `api_password`）
+- 管理密码认证：需要 `admin_password`
+
+### LLM 摘要端点
+
+下列端点需要启用 LLM 配置；未配置时返回 `503`。`/api/v1/summarize` 受搜索鉴权保护，`/api/v1/fetch/summarize` 同时会触发 fetch 能力并受对应速率限制。
+
+#### `POST /api/v1/summarize`
+
+搜索并生成摘要。
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `query` | string (1-500) | *(必填)* | 搜索查询 |
+| `domain` | string | `"paper"` | 搜索域：`paper` / `patent` / `web` |
+| `sources` | `list[str] \| null` | `null` | 指定数据源 |
+| `per_page` | int (1-50) | `10` | 每源结果数 |
+| `mode` | `"brief" \| "detailed" \| "academic" \| null` | `null` | 摘要模式；默认使用 `llm.default_mode` |
+| `model` | string \| null | `null` | 可选模型覆盖 |
+| `max_tokens` | int \| null | `null` | 可选最大 token 数 |
+| `temperature` | float \| null | `null` | 可选温度覆盖 |
+| `system_prompt` | string \| null | `null` | 自定义系统 prompt |
+
+#### `POST /api/v1/fetch/summarize`
+
+抓取 URL 页面内容并逐页生成摘要。
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `urls` | `list[str]` (1-10) | *(必填)* | 待抓取并摘要的 URL 列表 |
+| `provider` | string | `"builtin"` | Fetch 提供者 |
+| `timeout` | float (5-120) | `30.0` | 每 URL 超时秒数 |
+| `mode` | `"brief" \| "detailed" \| "academic" \| null` | `null` | 摘要模式；默认使用 `llm.default_mode` |
+| `model` | string \| null | `null` | 可选模型覆盖 |
+| `max_tokens` | int \| null | `null` | 可选最大 token 数 |
+| `temperature` | float \| null | `null` | 可选温度覆盖 |
+| `system_prompt` | string \| null | `null` | 自定义系统 prompt |
 
 ## MCP 工具
 
@@ -942,7 +1107,7 @@ python -m souwen.integrations.mcp_server
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `query` | string | — | 搜索关键词 |
-| `sources` | array | `["openalex", "arxiv", "crossref"]` | 数据源 |
+| `sources` | array | `null`（registry `paper:search` 当前为 `["openalex", "crossref", "arxiv", "dblp", "pubmed", "biorxiv"]`） | 数据源 |
 | `limit` | int | `5` | 每源返回数量 |
 
 返回：JSON `SearchResponse` 数组
@@ -952,7 +1117,7 @@ python -m souwen.integrations.mcp_server
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `query` | string | — | 搜索关键词 |
-| `sources` | array | `["google_patents"]` | 数据源 |
+| `sources` | array | `null`（registry `patent:search` 当前为 `["google_patents"]`） | 数据源 |
 | `limit` | int | `5` | 结果数 |
 
 返回：JSON `SearchResponse` 数组
@@ -962,7 +1127,7 @@ python -m souwen.integrations.mcp_server
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `query` | string | — | 搜索关键词 |
-| `engines` | array | `null`（由后端默认 `["duckduckgo", "bing"]` 决定） | 引擎列表 |
+| `engines` | array | `null`（registry `web:search` 当前为 `["duckduckgo", "bing"]`） | 引擎列表 |
 | `limit` | int | `10` | 每引擎最大结果数 |
 
 返回：JSON `SearchResponse` 对象
@@ -980,13 +1145,13 @@ python -m souwen.integrations.mcp_server
 
 返回：JSON `FetchResponse` 对象（含 `results`、`total`、`total_ok`、`total_failed`）。
 
-> 共 5 个 MCP 工具：`search_papers`、`search_patents`、`web_search`、`get_status`、`fetch_content`（PR #23）。
+> 共 5 个 MCP 工具：`search_papers`、`search_patents`、`web_search`、`get_status`、`fetch_content`。
 
 ---
 
-## 多媒体与扩展端点（V1 新增）
+## 多媒体与扩展端点
 
-下列端点在 V1 中陆续随领域子包接入，统一受 `check_search_auth` + `rate_limit_search` 保护。
+下列端点由真实 route 模块接入，统一受 `check_search_auth` + `rate_limit_search` 保护。
 
 ### 图片 / 视频（DuckDuckGo）
 
@@ -1042,7 +1207,7 @@ python -m souwen.integrations.mcp_server
 | `GET /api/v1/bilibili/search/users` | `keyword`, `page`, `max_results` | 用户搜索 |
 | `GET /api/v1/bilibili/search/articles` | `keyword`, `page`, `max_results` | 专栏文章搜索 |
 
-### 数据源频道配置（V1 admin）
+### 数据源频道配置（admin）
 
 | 端点 | 说明 |
 |------|------|

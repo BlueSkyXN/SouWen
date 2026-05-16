@@ -40,7 +40,7 @@
         - 异常：
             ParseError — MediaWiki 响应非 JSON 或缺少 query.search 结构
         - 字段映射：
-            * source  = SourceType.WEB_WIKIPEDIA
+            * source  = 'wikipedia'
             * title   = item["title"]
             * url     = "https://{lang}.wikipedia.org/wiki/" +
                         quote(title.replace(" ", "_"))
@@ -58,9 +58,9 @@
     - logging: 日志记录
     - urllib.parse.quote: 维基条目名 URL 编码
     - typing: 类型注解
-    - souwen.exceptions: ParseError 异常
-    - souwen.http_client: SouWenHttpClient HTTP 客户端基类
-    - souwen.models: SourceType, WebSearchResult, WebSearchResponse 数据模型
+    - souwen.core.exceptions: ParseError 异常
+    - souwen.core.http_client: SouWenHttpClient HTTP 客户端基类
+    - souwen.models: str, WebSearchResult, WebSearchResponse 数据模型
 
 技术要点：
     - MediaWiki 默认返回 srprop=snippet|titlesnippet|timestamp|wordcount，
@@ -83,9 +83,9 @@ import re
 from typing import Any
 from urllib.parse import quote
 
-from souwen.exceptions import ParseError
-from souwen.http_client import SouWenHttpClient
-from souwen.models import SourceType, WebSearchResponse, WebSearchResult
+from souwen.core.exceptions import ParseError
+from souwen.core.http_client import SouWenHttpClient
+from souwen.models import WebSearchResponse, WebSearchResult
 
 logger = logging.getLogger("souwen.web.wikipedia")
 
@@ -241,7 +241,7 @@ class WikipediaClient(SouWenHttpClient):
 
             results.append(
                 WebSearchResult(
-                    source=SourceType.WEB_WIKIPEDIA,
+                    source="wikipedia",
                     title=title,
                     url=url,
                     snippet=snippet,
@@ -262,7 +262,7 @@ class WikipediaClient(SouWenHttpClient):
 
         return WebSearchResponse(
             query=query,
-            source=SourceType.WEB_WIKIPEDIA,
+            source="wikipedia",
             results=results,
             total_results=len(results),
         )

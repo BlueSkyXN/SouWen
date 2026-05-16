@@ -85,7 +85,11 @@ from souwen.integrations.mcp.tools.bilibili import (
     is_bilibili_tool,
 )
 
-logger = logging.getLogger("souwen.mcp.server")
+_DEFAULT_PATENT_SOURCES = defaults_for("patent", "search")
+_DEFAULT_PATENT_SOURCES_LABEL = ",".join(_DEFAULT_PATENT_SOURCES)
+_DEFAULT_WEB_ENGINES = defaults_for("web", "search")
+_DEFAULT_WEB_ENGINES_LABEL = ",".join(_DEFAULT_WEB_ENGINES)
+logger = logging.getLogger("souwen.integrations.mcp.server")
 
 _MCP_PLUGINS_BOOTSTRAPPED = False
 
@@ -98,10 +102,11 @@ def _bootstrap_plugins() -> None:
 
     try:
         from souwen.config import get_config
-        from souwen.plugin import load_plugins
+        from souwen.plugin import ensure_plugins_loaded
 
-        cfg = get_config()
-        load_plugins(cfg)
+        result = ensure_plugins_loaded(get_config())
+        if result.errors:
+            logger.warning("MCP 插件加载完成，错误 %d 个", len(result.errors))
     except Exception:  # noqa: BLE001 - MCP 不应因第三方插件失败而无法启动
         logger.warning("MCP 插件初始化失败，继续使用已注册源。", exc_info=True)
     finally:
@@ -174,7 +179,7 @@ def create_server() -> "Server":
                         "sources": {
                             "type": "array",
                             "items": {"type": "string"},
-                            "description": "数据源列表，默认 google_patents",
+                            "description": f"数据源列表，默认 {_DEFAULT_PATENT_SOURCES_LABEL}",
                         },
                         "limit": {
                             "type": "integer",
@@ -187,7 +192,7 @@ def create_server() -> "Server":
             ),
             Tool(
                 name="web_search",
-                description="网页搜索。支持 21 个引擎，默认 DuckDuckGo + Bing。",
+                description=f"网页搜索。默认 {_DEFAULT_WEB_ENGINES_LABEL}。",
                 inputSchema={
                     "type": "object",
                     "properties": {
@@ -195,7 +200,7 @@ def create_server() -> "Server":
                         "engines": {
                             "type": "array",
                             "items": {"type": "string"},
-                            "description": "引擎列表",
+                            "description": f"引擎列表，默认 {_DEFAULT_WEB_ENGINES_LABEL}",
                         },
                         "limit": {
                             "type": "integer",
@@ -326,7 +331,7 @@ def create_server() -> "Server":
             elif name == "search_patents":
                 from souwen.search import search_patents
 
-                sources = arguments.get("sources", ["google_patents"])
+                sources = arguments.get("sources")
                 limit = arguments.get("limit", 5)
                 responses = await search_patents(
                     arguments["query"], sources=sources, per_page=limit

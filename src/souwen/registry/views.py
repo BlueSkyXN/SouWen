@@ -1,12 +1,11 @@
 """registry/views.py — 面向消费者的查询视图
 
-所有对外查询都走这个模块。内部表 _REGISTRY 由 sources.py 填充。
+所有对外查询都走这个模块。内部表 _REGISTRY 由 sources package 填充。
 
 使用者：
   - souwen.search（门面）
   - souwen.web.search（门面）
-  - souwen.source_registry（SourceMeta 视图）
-  - souwen.models.ALL_SOURCES（派生）
+  - souwen.registry.meta（SourceMeta 视图）
   - server/routes 的 /sources 端点
   - CLI 的 sources 子命令
   - docs 自动生成脚本
@@ -22,7 +21,7 @@ from souwen.registry.adapter import FETCH_DOMAIN, SourceAdapter
 
 logger = logging.getLogger("souwen.registry")
 
-# ── 内部注册表（由 sources.py 填充）─────────────────────────
+# ── 内部注册表（由 sources package 填充）─────────────────────────
 _REGISTRY: dict[str, SourceAdapter] = {}
 
 #: 通过外部插件加载的源名集合（用于审计/查询）
@@ -32,14 +31,14 @@ _EXTERNAL_PLUGINS: set[str] = set()
 def _invalidate_source_meta_cache() -> None:
     """外部插件改动 registry 后，同步刷新 SourceMeta 兼容视图。"""
     try:
-        from souwen.source_registry import invalidate_source_meta_cache
+        from souwen.registry.meta import invalidate_source_meta_cache
     except ImportError:  # pragma: no cover - 仅防御极早期 import 环
         return
     invalidate_source_meta_cache()
 
 
 def _reg(adapter: SourceAdapter) -> None:
-    """注册一个 adapter。同名重复注册抛异常（避免 sources.py 里的漂移）。"""
+    """注册一个 adapter。同名重复注册抛异常（避免 sources package 里的漂移）。"""
     if adapter.name in _REGISTRY:
         raise ValueError(f"重复注册数据源: {adapter.name!r}（已存在 {_REGISTRY[adapter.name]!r}）")
     _REGISTRY[adapter.name] = adapter
@@ -176,92 +175,8 @@ def high_risk_sources() -> list[str]:
 
 
 def enum_values() -> list[str]:
-    """所有 adapter 名的排序列表，供 SourceType 枚举派生（D4）。"""
+    """所有 adapter 名的排序列表，供 source id 派生（D4）。"""
     return sorted(_REGISTRY.keys())
-
-
-# ── ALL_SOURCES 兼容视图 ────────────────────────────────────
-
-#: domain → ALL_SOURCES 分类的映射（ALL_SOURCES 包含的 9 个分类）。
-#: 注意：`general` 混了 engines + self_hosted + 部分 SERP API，
-#:      `professional` 是另一批 SERP/AI 类 API。
-_DOMAIN_TO_CATEGORY: dict[str, str] = {
-    "paper": "paper",
-    "patent": "patent",
-    "social": "social",
-    "video": "video",
-    "knowledge": "wiki",  # 历史命名 "wiki"
-    "developer": "developer",
-    "cn_tech": "cn_tech",
-    "office": "office",
-    "archive": "fetch",  # wayback 归在 fetch
-    FETCH_DOMAIN: "fetch",
-}
-
-
-def _v0_category_for(adapter: SourceAdapter) -> str | None:
-    """把 adapter 映射到 ALL_SOURCES key。web 分两类：general / professional。
-
-    对 domain=web 的源：
-      - integration ∈ {scraper, self_hosted, 部分 official_api 型 SERP 引擎} → general
-      - integration=official_api 且以 AI/搜索聚合为主 → professional
-
-    判定优先走 tags（"category:*" / "v0_category:*"）显式标记；
-    未显式标记的 web 插件按公开 domain 语义保底归入 general。
-    """
-    if "category:general" in adapter.tags or "v0_category:general" in adapter.tags:
-        return "general"
-    if "category:professional" in adapter.tags or "v0_category:professional" in adapter.tags:
-        return "professional"
-    if adapter.domain == "web":
-        return "general"
-    return _DOMAIN_TO_CATEGORY.get(adapter.domain)
-
-
-def as_all_sources_dict() -> dict[str, list[tuple[str, bool, str]]]:
-    """派生 `ALL_SOURCES` 字典结构（用于 `models.ALL_SOURCES`）。
-
-    返回格式：`{category: [(name, needs_config, description), ...]}`
-    category 仅包含 adapter 实际覆盖到的（空分类不会出现）。
-
-    fetch 特殊处理：主 domain=fetch 以及 extra_domains 含 fetch 的 adapter
-    都会出现在 fetch 列表里。
-
-    排除规则：adapter.tags 含 `v0_all_sources:exclude` 的源**不出现**在返回值中。
-    用于历史上未列入 ALL_SOURCES 的实验性/"待修复"源（unpaywall / patentsview / pqai），
-    这些源仍然保留在注册表里供未来启用。
-    """
-    result: dict[str, list[tuple[str, bool, str]]] = {}
-    for adapter in _REGISTRY.values():
-        if "v0_all_sources:exclude" in adapter.tags:
-            continue
-        category = _v0_category_for(adapter)
-        if category is not None:
-            result.setdefault(category, []).append(
-                (adapter.name, adapter.resolved_needs_config, adapter.description)
-            )
-        # 跨域 fetch
-        if FETCH_DOMAIN in adapter.extra_domains and adapter.domain != FETCH_DOMAIN:
-            fetch_list = result.setdefault("fetch", [])
-            if not any(t[0] == adapter.name for t in fetch_list):
-                fetch_list.append(
-                    (adapter.name, adapter.resolved_needs_config, adapter.description)
-                )
-    # 稳定的 category 顺序
-    order = [
-        "paper",
-        "patent",
-        "general",
-        "professional",
-        "social",
-        "office",
-        "developer",
-        "wiki",
-        "cn_tech",
-        "video",
-        "fetch",
-    ]
-    return {k: result[k] for k in order if k in result}
 
 
 # ── 便于测试 / 脚本使用 ────────────────────────────────────
@@ -275,10 +190,10 @@ def _reset_registry() -> None:
 
 
 def _load_default_sources() -> None:
-    """显式触发 sources.py 的 import（保证注册表已填充）。
+    """显式触发 sources package 的 import（保证注册表已填充）。
 
     一般不需要手动调用：任何视图函数第一次被调用时，模块链已经
-    把 sources.py 拉进来（因为 sources.py 自身 import 了 views._reg）。
+    把 sources package 拉进来（因为 sources package 自身 import 了 views._reg）。
     但单元测试里把注册表清空后要手动重新加载。
     """
     from souwen.registry import sources  # noqa: F401
@@ -306,9 +221,8 @@ __all__ = [
     "fetch_providers",
     "high_risk_sources",
     "enum_values",
-    "as_all_sources_dict",
     "external_plugins",
 ]
 
-# 注：保留下列符号供 sources.py 内部使用，但不公开
+# 注：保留下列符号供 sources package 内部使用，但不公开
 _public_internal: tuple[Callable[..., Any], ...] = (_reg, _reg_external, _unreg_external)  # type: ignore[assignment]

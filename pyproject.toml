@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 # 项目配置：包名、版本、描述、许可证等基本信息
 [project]
 name = "souwen"
-version = "1.2.0"
+version = "2.0.0rc1"
 description = "面向 AI Agent 的学术论文 + 专利 + 网页信息统一获取工具库"
 readme = "README.md"
 license = {text = "GPL-3.0-or-later"}
@@ -82,6 +82,14 @@ web2pdf = [
 ]
 # 开发工具：单元测试、覆盖率、代码检查
 dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "pytest-httpx>=0.30", "pytest-cov>=4", "ruff>=0.4"]
+
+[tool.uv]
+conflicts = [
+    [
+        { extra = "crawl4ai" },
+        { extra = "scrapling" },
+    ],
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/souwen"]

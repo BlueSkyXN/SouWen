@@ -37,6 +37,7 @@ def stub_fetch(monkeypatch):
     async def _fake_fetch(
         urls,
         providers=None,
+        strategy="fallback",
         timeout=30.0,
         selector=None,
         start_index=0,
@@ -47,6 +48,7 @@ def stub_fetch(monkeypatch):
             {
                 "urls": list(urls),
                 "providers": list(providers) if providers else providers,
+                "strategy": strategy,
                 "timeout": timeout,
                 "selector": selector,
                 "start_index": start_index,
@@ -70,7 +72,15 @@ def stub_fetch(monkeypatch):
             total=len(results),
             total_ok=len(results),
             total_failed=0,
-            provider=(providers[0] if providers else "builtin"),
+            provider=(
+                providers[0]
+                if providers and len(providers) == 1
+                else None
+                if providers
+                else "builtin"
+            ),
+            providers=list(providers) if providers else ["builtin"],
+            strategy=strategy,
         )
 
     import souwen.web.fetch as web_fetch_mod
@@ -97,6 +107,8 @@ class TestFetchEndpoint:
         assert body["total"] == 1
         assert body["total_ok"] == 1
         assert body["provider"] == "builtin"
+        assert body["providers"] == ["builtin"]
+        assert body["strategy"] == "fallback"
         assert body["results"][0]["url"] == "https://example.com/a"
         assert stub_fetch and stub_fetch[0]["timeout"] == 10
 
@@ -112,6 +124,25 @@ class TestFetchEndpoint:
         assert resp.status_code == 200, resp.text
         assert resp.json()["provider"] == "arxiv_fulltext"
         assert stub_fetch and stub_fetch[0]["providers"] == ["arxiv_fulltext"]
+
+    def test_multiple_providers_fanout_are_accepted(self, client, stub_fetch):
+        """providers + fanout 应优先于旧版 provider 字段透传到底层 fetch。"""
+        resp = client.post(
+            "/api/v1/fetch",
+            json={
+                "urls": ["https://example.com/a"],
+                "provider": "builtin",
+                "providers": ["builtin", "jina_reader"],
+                "strategy": "fanout",
+            },
+        )
+
+        assert resp.status_code == 200, resp.text
+        body = resp.json()
+        assert body["providers"] == ["builtin", "jina_reader"]
+        assert body["strategy"] == "fanout"
+        assert stub_fetch and stub_fetch[0]["providers"] == ["builtin", "jina_reader"]
+        assert stub_fetch[0]["strategy"] == "fanout"
 
     def test_missing_urls_returns_422(self, client, stub_fetch):
         """缺少必填字段 ``urls`` 应被 Pydantic 拒绝（422）。"""
@@ -141,6 +172,30 @@ class TestFetchEndpoint:
         assert resp.status_code == 400
         assert "无效提供者" in resp.json().get("detail", "")
 
+    def test_invalid_provider_in_providers_returns_400(self, client, stub_fetch):
+        """providers 中任一非法 provider 都应返回 400。"""
+        resp = client.post(
+            "/api/v1/fetch",
+            json={
+                "urls": ["https://example.com"],
+                "providers": ["builtin", "totally-not-a-provider"],
+            },
+        )
+        assert resp.status_code == 400
+        assert "totally-not-a-provider" in resp.json().get("detail", "")
+
+    def test_invalid_strategy_returns_422(self, client, stub_fetch):
+        """strategy 只允许 fallback / fanout。"""
+        resp = client.post(
+            "/api/v1/fetch",
+            json={
+                "urls": ["https://example.com"],
+                "providers": ["builtin", "jina_reader"],
+                "strategy": "race",
+            },
+        )
+        assert resp.status_code == 422
+
     def test_late_registered_provider_is_accepted(self, client, stub_fetch, monkeypatch):
         """路由应在请求时动态读取 provider，支持 reload 后新增插件。"""
         import souwen.server.routes.fetch as fetch_route
@@ -168,6 +223,8 @@ class TestFetchEndpoint:
 
         assert _fetch_route_timeout("builtin", 5, 10) == 25
         assert _fetch_route_timeout("scrapling", 5, 10) == 65
+        assert _fetch_route_timeout(["builtin", "scrapling"], 5, 10, "fallback") == 85
+        assert _fetch_route_timeout(["builtin", "scrapling"], 5, 10, "fanout") == 65
 
     def test_timeout_below_min_returns_422(self, client, stub_fetch):
         """timeout < 1 应被 Pydantic 校验拒绝（422）。"""

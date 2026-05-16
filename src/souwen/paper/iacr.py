@@ -46,9 +46,9 @@ from urllib.parse import quote
 
 from bs4 import BeautifulSoup
 
-from souwen.http_client import SouWenHttpClient
-from souwen.models import Author, PaperResult, SearchResponse, SourceType
-from souwen.rate_limiter import TokenBucketLimiter
+from souwen.core.http_client import SouWenHttpClient
+from souwen.models import Author, PaperResult, SearchResponse
+from souwen.core.rate_limiter import TokenBucketLimiter
 
 logger = logging.getLogger(__name__)
 
@@ -189,7 +189,7 @@ class IacrClient:
             pdf_url = f"{_BASE_URL}/{paper_id}.pdf"
 
             return PaperResult(
-                source=SourceType.IACR,
+                source="iacr",
                 title=title,
                 authors=authors,
                 abstract=abstract,
@@ -265,5 +265,5 @@ class IacrClient:
             page=1,
             per_page=max_results,
             results=results,
-            source=SourceType.IACR,
+            source="iacr",
         )

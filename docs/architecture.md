@@ -12,24 +12,24 @@
 │   souwen.cli/*        CLI（按 domain 拆分）                    │
 │   souwen.server/*     FastAPI（按 domain 拆分）                │
 │   souwen.integrations/mcp/*  MCP 协议集成                      │
-│   panel/              Web UI（4 皮肤 + 共享 core）             │
+│   panel/              Web UI（5 皮肤 + 共享 core）             │
 ├────────────────────────────────────────────────────────────────┤
-│ 门面层 Facade                                                   │
-│   souwen.facade.search     search(domain=, capability=) 派发   │
-│   souwen.facade.fetch      fetch_content(urls, provider=)      │
-│   souwen.facade.archive    archive_{lookup,save,fetch}         │
-│   souwen.facade.aggregate  search_all(domains=)                │
+│ 应用入口 Application API                                        │
+│   souwen.search            search(domain=, capability=) 派发   │
+│   souwen.search            search_all(domains=)                │
+│   souwen.web.fetch         fetch_content(urls, providers=)     │
+│   souwen.web.wayback       WaybackClient                       │
 ├────────────────────────────────────────────────────────────────┤
 │ 注册表层 Registry —— 单一事实源                                │
 │   souwen.registry.adapter    SourceAdapter / MethodSpec        │
+│   souwen.registry.meta       SourceMeta 与 catalog 查询        │
 │   souwen.registry.sources    94 个内置 _reg(...) 声明（权威） │
 │   souwen.registry.loader     字符串懒加载（避免启动 import）  │
 │   souwen.registry.views      by_domain / by_capability / ...   │
 ├────────────────────────────────────────────────────────────────┤
-│ 业务层 Domain —— 按 domain 组织的 Client                        │
-│   paper/  patent/  web/{engines,api,self_hosted}/              │
-│   social/  video/  knowledge/  developer/                       │
-│   cn_tech/  office/  archive/  fetch/providers/                 │
+│ 真实 Client 模块 Concrete Clients                              │
+│   paper/  patent/  web/*                                      │
+│   社交、视频、知识、办公、抓取和归档实现均使用真实模块路径       │
 ├────────────────────────────────────────────────────────────────┤
 │ 平台层 Platform —— 所有域共用的基础设施                         │
 │   souwen.core.http_client       SouWenHttpClient / OAuthClient │
@@ -40,12 +40,12 @@
 │   souwen.core.fingerprint       curl_cffi 指纹                 │
 │   souwen.core.exceptions        全部异常类型                   │
 │   souwen.core.parsing           HTML/JSON 辅助                 │
-│   souwen.core.concurrency       per-loop Semaphore（D12）      │
-│   souwen.models                 Pydantic 模型（SourceType 等） │
+│   souwen.core.concurrency       per-loop Semaphore             │
+│   souwen.models                 Pydantic 模型（统一结果模型等） │
 └────────────────────────────────────────────────────────────────┘
 ```
 
-**依赖方向**：展示层 → 门面层 → 注册表层 ↔ 业务层；平台层被任何层引用。业务层内部 domain 之间不互相依赖。
+**依赖方向**：展示层 → 应用入口 → 注册表层 ↔ 真实 Client 模块；平台层被任何层引用。Client 模块之间不互相依赖。
 
 ---
 
@@ -61,7 +61,7 @@ class SourceAdapter:
     config_field: str | None                     # SouWenConfig 对应字段（None=零配置）
     client_loader: Callable[[], type]            # lazy("souwen.paper.openalex:OpenAlexClient")
     methods: Mapping[str, MethodSpec]            # capability → MethodSpec
-    extra_domains: frozenset[str] = frozenset()  # 跨域（v1 初期仅允许 "fetch"）
+    extra_domains: frozenset[str] = frozenset()  # 跨域（当前仅允许 "fetch"）
     default_enabled: bool = True                 # 高风险源设 False
     default_for: frozenset[str] = frozenset()    # {"paper:search"} 声明默认源
     tags: frozenset[str] = frozenset()           # {"high_risk"} / ...
@@ -114,7 +114,7 @@ _reg(SourceAdapter(
 
 ### 懒加载
 
-注册表模块导入时**不**加载 93 个内置源对应的 Client：
+注册表模块导入时**不**加载 94 个内置源对应的 Client：
 
 ```python
 client_loader=lazy("souwen.paper.openalex:OpenAlexClient")
@@ -138,7 +138,7 @@ client_cls = adapter.client_loader()  # 此刻才 importlib.import_module
 | 成熟度 | `stability` | 区分 stable / beta / experimental / deprecated |
 | 用户提示 | `usage_note` | 描述源运行时的限制或注意事项(如 unpaywall "仅支持 DOI OA 查找"、`stability="deprecated"` 源的修复进度);doctor / API / Panel 会作为消息后缀展示,**不参与可用性判定** |
 
-兼容字段仍保留：`needs_config`、`config_field`、`tags={"high_risk"}` 与 `v0_all_sources:exclude` 会派生到新的 catalog 视图中。
+`needs_config`、`config_field` 与 `tags={"high_risk"}` 会派生到正式 catalog 视图中；展示范围和成熟度使用 `catalog_visibility` / `stability` 显式声明。
 
 ---
 
@@ -162,7 +162,7 @@ client_cls = adapter.client_loader()  # 此刻才 importlib.import_module
 
 **12 个标准 capability**：`search` / `search_news` / `search_images` / `search_videos` / `search_articles` / `search_users` / `get_detail` / `get_trending` / `get_transcript` / `fetch` / `archive_lookup` / `archive_save`。
 
-非标准能力使用命名空间前缀（D8），如 `exa:find_similar` / `unpaywall:find_oa`——注册表接受任意字符串 capability，但只有标准 12 个参与门面自动派发。
+非标准能力使用命名空间前缀，如 `exa:find_similar` / `unpaywall:find_oa`；注册表接受任意字符串 capability，但只有标准 capability 参与门面自动派发。
 
 ### 跨域能力
 
@@ -179,7 +179,7 @@ client_cls = adapter.client_loader()  # 此刻才 importlib.import_module
 
 ## 4. 并发与超时
 
-- **per-event-loop Semaphore**（D12）：`core.concurrency.get_semaphore(channel)` 按当前 running loop 存 `WeakKeyDictionary[loop, Semaphore]`。同 loop 多次调用返回同一个；跨 `asyncio.new_event_loop()` 自动隔离；loop 被 GC 后自动清理。
+- **per-event-loop Semaphore**：`core.concurrency.get_semaphore(channel)` 按当前 running loop 存 `WeakKeyDictionary[loop, Semaphore]`。同 loop 多次调用返回同一个；跨 `asyncio.new_event_loop()` 自动隔离；loop 被 GC 后自动清理。
 - **两个独立 channel**：`search` 与 `web`，互不阻塞。
 - **单源超时上限 15s**，受 `SouWenConfig.timeout` 约束；超时源丢弃，不影响其他源。
 - **异常隔离**：单源抛异常（ConfigError / RateLimitError / 其他）时只记 log，不阻塞其他源。
@@ -203,8 +203,8 @@ client_cls = adapter.client_loader()  # 此刻才 importlib.import_module
 
 **最少只改 2 处**：
 
-1. `src/souwen/<domain>/<name>.py` 写 Client（继承 `SouWenHttpClient` / `BaseScraper`）
-2. `src/souwen/registry/sources.py` 加一个 `_reg(SourceAdapter(...))`
+1. 在真实实现模块写 Client（论文/专利使用 `souwen.paper.*` / `souwen.patent.*`；网页、社交、视频、知识、办公、抓取和归档相关实现使用 `souwen.web.*`；继承 `SouWenHttpClient` / `BaseScraper`）
+2. 在 `src/souwen/registry/sources/` 的对应 segment 模块（如 `paper.py`、`web_general.py`、`fetch.py`）加一个 `_reg(SourceAdapter(...))`
 
 如需 API Key，加第 3 处：`SouWenConfig` 加字段。完整流程见 [adding-a-source.md](adding-a-source.md)。
 
@@ -213,9 +213,10 @@ client_cls = adapter.client_loader()  # 此刻才 importlib.import_module
 注册表除了承载内置的 94 个 `_reg()`，还能在运行时**通过外部插件**追加新的
 `SourceAdapter`，让第三方 / 私有源在不改主仓代码的前提下被 SouWen 发现。
 
-### 双模式加载
+### 运行时发现与打包边界
 
-插件可以通过两种方式部署，二者使用同一套 entry_points 机制：
+插件通过 entry_points 发现。第三方插件不固定进 SouWen 的公开 extras；需要随
+镜像预装时，由镜像或部署脚本单独安装对应插件包：
 
 | 模式 | 安装命令 | 适用场景 |
 |---|---|---|
@@ -225,21 +226,22 @@ client_cls = adapter.client_loader()  # 此刻才 importlib.import_module
 Docker 镜像通过 `WITH_WEB2PDF=1` 启用，并使用 `WEB2PDF_PACKAGE` 指定 SuperWeb2PDF
 插件包；默认值为可解析的 GitHub archive，避免依赖尚未发布的 PyPI distribution。
 两种模式都依赖同一个 `[project.entry-points."souwen.plugins"]` 声明，
-SouWen 启动时统一通过 `importlib.metadata` 扫描发现。
+CLI / server 启动时通过 `ensure_plugins_loaded(get_config())` 显式扫描发现。
+单纯 `import souwen.registry` 只注册内置源，不执行第三方 entry point。
 
 ### 加载流程
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  registry/__init__.py 导入                                       │
+│  CLI / server bootstrap                                          │
 │      ↓                                                           │
-│  1. import sources       —— 触发 94 个内置 _reg()，填满 _REGISTRY │
+│  1. import souwen.registry —— 触发 94 个内置 _reg()，填满 _REGISTRY │
 │      ↓                                                           │
-│  2. plugin.load_plugins()                                        │
+│  2. plugin.ensure_plugins_loaded(get_config())                    │
 │       ├─ discover_entrypoint_plugins()                           │
 │       │     扫描 importlib.metadata entry_points(group=          │
-│       │     "souwen.plugins")，逐个 ep.load() → _coerce_to_     │
-│       │     adapters() → _reg_external()                         │
+│       │     "souwen.plugins")，逐个 ep.load() → _coerce_to_       │
+│       │     plugin() → _reg_external()                            │
 │       └─ load_config_plugins(config.plugins)                     │
 │             解析 "module:attr" 字符串列表，同上                  │
 │      ↓                                                           │
@@ -255,7 +257,7 @@ SouWen 启动时统一通过 `importlib.metadata` 扫描发现。
 
 | 维度 | 内置 `_reg()` | 外部 `_reg_external()` |
 |---|---|---|
-| 声明位置 | `registry/sources.py` | 第三方包的 entry point |
+| 声明位置 | `registry/sources/` | 第三方包的 entry point |
 | 重名 | 抛 `ValueError`（启动失败） | 记 warning 跳过 |
 | 一致性测试 | 必跑 `tests/registry/test_consistency.py` | 不强制 |
 | 暴露视图 | 同上 | 额外出现在 `external_plugins()` |
@@ -274,12 +276,12 @@ _FETCH_HANDLERS["jina_reader"]  = _handle_jina_reader
 ```
 
 外部插件通过 `register_fetch_handler(provider, handler)` 加入这张表，让
-`facade.fetch_content(providers=["my_source"])` 能派发到自己的实现。
+`souwen.web.fetch.fetch_content(providers=["my_source"])` 能派发到自己的实现。
 
 > 设计原因：fetch 调用的入参形态（`urls`/`timeout`/各种 provider 私有 kwarg）
 > 与 `MethodSpec` 的统一入参不完全对齐，单独一张 handler 表更直接。
 > SourceAdapter 负责"出现在 registry / `souwen sources`"，handler 负责"能被
-> facade 真正派发"，二者互补。
+> fetch 真正派发"，二者互补。
 
 ### 对接规范
 
@@ -299,10 +301,10 @@ _FETCH_HANDLERS["jina_reader"]  = _handle_jina_reader
 - config_field / credential_fields 在 `SouWenConfig.model_fields` 里存在
 - default_for 的 key 能解析为 (domain, capability) 且都合法
 - 注册表无重名
-- `ALL_SOURCES` 与 `registry.as_all_sources_dict()` 派生一致
+- `SourceMeta` 与 `registry.catalog.source_catalog()` 派生一致
 - high_risk 源不在任何默认源集
 - `resolve_params` 对所有 adapter/method 不抛异常
-- SourceType 枚举 ⊆ registry.enum_values（通过规范化映射）
+- 结果模型 `source` 使用 registry adapter name
 - 所有标准 capability 都有源实现
 - 每个 domain 至少有一个源支持 search / archive_lookup
 - fetch 提供者 ≥ 10 个
@@ -311,7 +313,7 @@ _FETCH_HANDLERS["jina_reader"]  = _handle_jina_reader
 
 注册表是单一事实源，但提供多条便捷入口：
 
-- `from souwen.paper import OpenAlexClient` 等按 domain 的直接 import 路径
+- `from souwen.paper import OpenAlexClient`、`from souwen.web.tavily import TavilyClient` 等真实模块 import 路径
 - 顶层 CLI 动词：`souwen search paper`、`souwen fetch`、`souwen wayback cdx` 等
 - REST 路径：`/api/v1/search/paper`、`/api/v1/fetch` 等
 - `SouWenConfig` 字段名稳定（只增不改）

@@ -26,8 +26,8 @@
     - logging: 日志记录
     - urllib.parse: URL 编码
     - bs4: HTML 解析
-    - souwen.models: SourceType, WebSearchResult, WebSearchResponse 数据模型
-    - souwen.scraper.base: BaseScraper 基础爬虫类
+    - souwen.models: str, WebSearchResult, WebSearchResponse 数据模型
+    - souwen.core.scraper.base: BaseScraper 基础爬虫类
 
 技术要点：
     - 使用 CSS 选择器 ul.results-standard > li 定位结果容器
@@ -43,8 +43,8 @@ from urllib.parse import quote_plus
 
 from bs4 import BeautifulSoup
 
-from souwen.models import SourceType, WebSearchResult, WebSearchResponse
-from souwen.scraper.base import BaseScraper
+from souwen.models import WebSearchResult, WebSearchResponse
+from souwen.core.scraper.base import BaseScraper
 
 logger = logging.getLogger("souwen.web.mojeek")
 
@@ -103,7 +103,7 @@ class MojeekClient(BaseScraper):
                 if title:
                     results.append(
                         WebSearchResult(
-                            source=SourceType.WEB_MOJEEK,
+                            source="mojeek",
                             title=title,
                             url=str(raw_url),
                             snippet=snippet,
@@ -120,7 +120,7 @@ class MojeekClient(BaseScraper):
 
         return WebSearchResponse(
             query=query,
-            source=SourceType.WEB_MOJEEK,
+            source="mojeek",
             results=results,
             total_results=len(results),
         )

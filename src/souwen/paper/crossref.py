@@ -49,10 +49,10 @@ import logging
 from typing import Any
 
 from souwen.config import get_config
-from souwen.exceptions import NotFoundError, ParseError
-from souwen.http_client import SouWenHttpClient
-from souwen.models import Author, PaperResult, SearchResponse, SourceType
-from souwen.rate_limiter import TokenBucketLimiter
+from souwen.core.exceptions import NotFoundError, ParseError
+from souwen.core.http_client import SouWenHttpClient
+from souwen.models import Author, PaperResult, SearchResponse
+from souwen.core.rate_limiter import TokenBucketLimiter
 
 logger = logging.getLogger(__name__)
 
@@ -219,7 +219,7 @@ class CrossrefClient:
                 doi=doi,
                 year=year,
                 publication_date=pub_date,
-                source=SourceType.CROSSREF,
+                source="crossref",
                 source_url=f"https://doi.org/{doi}" if doi else "",
                 pdf_url=pdf_url,
                 citation_count=item.get("is-referenced-by-count"),
@@ -298,7 +298,7 @@ class CrossrefClient:
             page=(offset // rows) + 1 if rows else 1,
             per_page=rows,
             results=results,
-            source=SourceType.CROSSREF,
+            source="crossref",
         )
 
     async def get_by_doi(self, doi: str) -> PaperResult:

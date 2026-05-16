@@ -54,8 +54,8 @@ USPTO 开放数据门户，API Key 鉴权。
     - httpx: HTTP 异步客户端
     - souwen.config: 配置管理（读取 API 密钥）
     - souwen.models: 统一数据模型（PatentResult）
-    - souwen.rate_limiter: 限流控制（TokenBucketLimiter）
-    - souwen.exceptions: 异常类
+    - souwen.core.rate_limiter: 限流控制（TokenBucketLimiter）
+    - souwen.core.exceptions: 异常类
 
 API 端点对应数据类型：
     - /patent/applications: 专利申请（转换为 PatentResult）
@@ -73,10 +73,10 @@ from typing import Any
 
 import httpx
 from souwen.config import get_config
-from souwen.exceptions import ConfigError, NotFoundError, ParseError
-from souwen.http_client import SouWenHttpClient
-from souwen.models import Applicant, PatentResult, SearchResponse, SourceType
-from souwen.rate_limiter import TokenBucketLimiter
+from souwen.core.exceptions import ConfigError, NotFoundError, ParseError
+from souwen.core.http_client import SouWenHttpClient
+from souwen.models import Applicant, PatentResult, SearchResponse
+from souwen.core.rate_limiter import TokenBucketLimiter
 
 logger = logging.getLogger(__name__)
 
@@ -170,7 +170,7 @@ class UsptoOdpClient:
 
         return SearchResponse(
             query=query,
-            source=SourceType.USPTO_ODP,
+            source="uspto_odp",
             total_results=data.get("recordTotalQuantity", data.get("totalCount")),
             results=patents,
             page=(offset // per_page) + 1 if per_page else 1,
@@ -336,7 +336,7 @@ class UsptoOdpClient:
         cpc_codes: list[str] = [c for c in (raw.get("cpcCodes", []) or []) if isinstance(c, str)]
 
         return PatentResult(
-            source=SourceType.USPTO_ODP,
+            source="uspto_odp",
             title=raw.get("inventionTitle", raw.get("title", "")),
             patent_id=patent_id,
             application_number=app_number,

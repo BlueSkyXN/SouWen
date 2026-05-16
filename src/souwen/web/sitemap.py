@@ -114,7 +114,7 @@ def _parse_sitemap_xml(xml_bytes: bytes) -> tuple[list[SitemapEntry], list[str]]
 async def _fetch_url_bytes(url: str) -> bytes | None:
     """Fetch URL 并返回原始字节内容"""
     try:
-        from souwen.scraper.base import BaseScraper
+        from souwen.core.scraper.base import BaseScraper
 
         scraper = BaseScraper(min_delay=0, max_delay=0.1, max_retries=1, follow_redirects=True)
         async with scraper:
