@@ -553,7 +553,7 @@ class TestCLI:
                 "video",
             )
         )
-        assert total_web == 39
+        assert total_web == 40
         assert counts["fetch"] == 17
         assert counts["archive"] == 1
         assert counts["cn_tech"] == 9

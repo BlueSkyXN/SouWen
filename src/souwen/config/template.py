@@ -49,6 +49,7 @@ web:
   websurfx_url: ~
   zhipuai_api_key: ~
   aliyun_iqs_api_key: ~
+  kimi_code_api_key: ~
   github_token: ~
   stackoverflow_api_key: ~
   youtube_api_key: ~

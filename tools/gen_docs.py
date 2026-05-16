@@ -123,7 +123,7 @@ def render(*, include_plugins: bool = False) -> str:
     )
     lines.append(
         "- `Capabilities` 是门面层可派发能力；`fetch` 既可以是主 domain，也可以是 "
-        "`tavily` / `firecrawl` / `exa` / `xcrawl` / `wayback` 等源的跨域能力。"
+        "`tavily` / `firecrawl` / `exa` / `xcrawl` / `kimi_code` / `wayback` 等源的跨域能力。"
     )
     lines.append("")
     lines.append("## 配置口径")
