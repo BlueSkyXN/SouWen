@@ -1,33 +1,34 @@
 # SouWen 数据源指南与清单
 
-**总计**：**94** 个数据源（从 registry 自动生成；其中外部插件 **0** 个）。
+**总计**：**91** 个公开数据源（从正式 Source Catalog 自动生成；其中外部插件 **0** 个，隐藏/内部源 **3** 个）。
 
 ## 事实来源
 
-本页不是手工维护的静态表，而是由 `src/souwen/registry/sources.py` 中的 `SourceAdapter` 声明经 `tools/gen_docs.py` 生成。`SourceAdapter` 同时驱动 CLI、REST API、doctor、Panel 和插件视图。
+本页不是手工维护的静态表，而是由 `src/souwen/registry/sources/` 中的 `SourceAdapter` 声明投影为正式 Source Catalog 后，经 `tools/gen_docs.py` 生成。`SourceAdapter` 同时驱动 CLI、REST API、doctor、Panel 和插件视图。
 
 默认生成只包含内置源，并显式关闭外部插件自动加载；这样即使本机安装了 `souwen.plugins` entry point，checked-in 文档也能稳定复现。需要把本机插件一并展示时再使用 `--include-plugins`。
 
 ## 如何阅读
 
 - 本页主表按 registry domain 展示：`paper` / `patent` / `web` / `social` / `video` / `knowledge` / `developer` / `cn_tech` / `office` / `archive` / `fetch`。
-- `/api/v1/sources` 和 Panel 使用兼容分类：`general` / `professional` 会拆分 `web` 源，`knowledge` 显示为 `wiki`，`archive` 与跨域抓取能力归入 `fetch`。
+- 正式 Source Catalog 使用展示分类：`paper`（学术论文） / `patent`（专利） / `web_general`（通用网页搜索） / `web_professional`（专业网页搜索） / `social`（社交平台） / `office`（企业/办公） / `developer`（开发者社区） / `knowledge`（百科/知识库） / `cn_tech`（中文技术社区） / `video`（视频平台） / `archive`（档案/历史） / `fetch`（内容抓取）。
+- `/api/v1/sources`、CLI 和 Panel 使用同一份公开 Source Catalog：`sources[]` 保留全部公开条目，并用 `category`、`domain`、`capabilities`、`available` 描述展示和运行时可用性。
 - `Capabilities` 是门面层可派发能力；`fetch` 既可以是主 domain，也可以是 `tavily` / `firecrawl` / `exa` / `xcrawl` / `wayback` 等源的跨域能力。
 
 ## 配置口径
 
-- Auth 的取值是 `none` / `optional` / `required` / `self_hosted`。`optional` 表示缺凭据仍可用，但配置后可提升限流、配额、质量或登录态能力；`required` 与 `self_hosted` 缺少声明字段时不会出现在 `/api/v1/sources`。
+- Auth 的取值是 `none` / `optional` / `required` / `self_hosted`。`optional` 表示缺凭据仍可用，但配置后可提升限流、配额、质量或登录态能力；`required` 与 `self_hosted` 缺少声明字段时仍保留 catalog 条目，并以 `available=false` 标记。
 - `Credentials` 列出完整字段；多字段源必须全部满足。频道级 `sources.<name>.api_key` 只覆盖主 `config_field`，其余字段仍读取 flat config。
-- 自建实例源优先读取 `sources.<name>.base_url`，并兼容旧的 `sources.<name>.api_key` 与 flat `<name>_url`。当前内置自建源为 `searxng`、`whoogle`、`websurfx`。
+- 自建实例源读取 `sources.<name>.base_url`；当前内置自建源为 `searxng`、`whoogle`、`websurfx`。
 - `Risk` 只描述默认调度风险，不等同于接入方式；`Distribution` 描述推荐安装/治理边界；`Extra` 是推荐安装的 optional dependency 组。
 
 ## 运行时可见性
 
-`/api/v1/sources` 会从 live registry 派生，并过滤已禁用、缺必需凭据或缺自建实例地址的源；doctor 和管理端 `/api/v1/admin/sources/config` 会展示所有注册源及其状态、凭据字段、频道配置和 catalog 元数据。
+`/api/v1/sources` 会从 live registry 派生公开 catalog，禁用源、缺必需凭据源和缺自建实例地址的源仍会保留条目，但 `available=false`；doctor 和管理端 `/api/v1/admin/sources/config` 会展示所有注册源及其状态、凭据字段、频道配置和 catalog 元数据。
 
 <!-- BEGIN AUTO -->
 
-## 学术论文 · `paper`（19 源）
+## 学术论文 · `paper`（18 源）
 
 | Name | Integration | Auth | Risk | Distribution | Stability | Extra | Capabilities | Credentials |
 |---|---|---|---|---|---|---|---|---|
@@ -47,20 +48,17 @@
 | `pmc` | open_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | search | — |
 | `pubmed` | open_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | search | — |
 | `semantic_scholar` | official_api | 可选凭据 (提升限流) | 低风险 | 核心内置 | 稳定 | — | search | `semantic_scholar_api_key` |
-| `unpaywall` | official_api | 必须凭据 | 低风险 | 核心内置 | 实验性 | — | unpaywall:find_oa | `unpaywall_email` |
 | `zenodo` | official_api | 可选凭据 (提升配额) | 低风险 | 核心内置 | 稳定 | — | search | `zenodo_access_token` |
 | `zotero` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `zotero_api_key`, `zotero_library_id` |
 
-## 专利 · `patent`（8 源）
+## 专利 · `patent`（6 源）
 
 | Name | Integration | Auth | Risk | Distribution | Stability | Extra | Capabilities | Credentials |
 |---|---|---|---|---|---|---|---|---|
 | `cnipa` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `cnipa_client_id`, `cnipa_client_secret` |
 | `epo_ops` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `epo_consumer_key`, `epo_consumer_secret` |
 | `google_patents` | scraper | 免配置 | 中风险 | 可选依赖 | 实验性 | `scraper` | search | — |
-| `patentsview` | open_api | 免配置 | 低风险 | 核心内置 | 已弃用 | — | search | — |
 | `patsnap` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `patsnap_api_key` |
-| `pqai` | open_api | 免配置 | 低风险 | 核心内置 | 已弃用 | — | search | — |
 | `the_lens` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `lens_api_token` |
 | `uspto_odp` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `uspto_api_key` |
 
@@ -187,7 +185,7 @@
 
 ## 图例
 
-- ⚠️ high_risk：兼容旧标签，等价于 `risk_level=high`。
+- ⚠️ high_risk：高风险源，等价于 `risk_level=high`。
 - Integration 描述接入方式：`open_api` / `scraper` / `official_api` / `self_hosted`。
 - Auth 描述运行前配置要求：免配置 / 可选凭据 / 必须凭据 / 自建实例。
 - Risk 描述默认调度风险，不等同于 Integration。

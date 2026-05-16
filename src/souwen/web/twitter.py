@@ -39,7 +39,7 @@
             ValueError — sort_order 不在允许集合中，或 max_results 超出范围
             ParseError — API 响应非 JSON 或结构异常
         - 字段映射：
-            * source       = SourceType.WEB_TWITTER
+            * source       = 'twitter'
             * title        = tweet["text"][:100] + "…"（截断前 100 字符作标题）
             * url          = "https://x.com/{username}/status/{tweet_id}"
             * snippet      = tweet["text"]（完整推文内容）
@@ -54,9 +54,9 @@
     - logging: 日志记录
     - typing: 类型注解
     - souwen.config: get_config 读取配置
-    - souwen.exceptions: ConfigError, ParseError 异常
-    - souwen.http_client: SouWenHttpClient HTTP 客户端基类
-    - souwen.models: SourceType, WebSearchResult, WebSearchResponse 数据模型
+    - souwen.core.exceptions: ConfigError, ParseError 异常
+    - souwen.core.http_client: SouWenHttpClient HTTP 客户端基类
+    - souwen.models: str, WebSearchResult, WebSearchResponse 数据模型
 
 技术要点：
     - API 端点：GET https://api.twitter.com/2/tweets/search/recent
@@ -75,9 +75,9 @@ import logging
 from typing import Any
 
 from souwen.config import get_config
-from souwen.exceptions import ConfigError, ParseError
-from souwen.http_client import SouWenHttpClient
-from souwen.models import SourceType, WebSearchResponse, WebSearchResult
+from souwen.core.exceptions import ConfigError, ParseError
+from souwen.core.http_client import SouWenHttpClient
+from souwen.models import WebSearchResponse, WebSearchResult
 
 logger = logging.getLogger("souwen.web.twitter")
 
@@ -241,7 +241,7 @@ class TwitterClient(SouWenHttpClient):
 
             results.append(
                 WebSearchResult(
-                    source=SourceType.WEB_TWITTER,
+                    source="twitter",
                     title=title,
                     url=url,
                     snippet=text[: self.SNIPPET_MAX_LEN],
@@ -262,7 +262,7 @@ class TwitterClient(SouWenHttpClient):
 
         return WebSearchResponse(
             query=query,
-            source=SourceType.WEB_TWITTER,
+            source="twitter",
             results=results,
             total_results=total,
         )

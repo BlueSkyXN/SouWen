@@ -20,12 +20,15 @@ from pydantic import BaseModel
 
 from souwen.plugin import (
     Plugin,
+    PluginLoadError,
+    PluginLoadResult,
     _PLUGINS,
     _coerce_to_adapters,
     _coerce_to_plugin,
     _register_plugin,
     _resolve_dotted_path,
     discover_entrypoint_plugins,
+    ensure_plugins_loaded,
     get_loaded_plugins,
     load_config_plugins,
     load_plugins,
@@ -195,16 +198,16 @@ class TestRegExternal:
         assert "ext_visible" in all_adapters()
         assert all_adapters()["ext_visible"] is a
 
-    def test_external_registration_invalidates_source_registry_cache(self, clean_registry):
-        import souwen.source_registry as source_registry
+    def test_external_registration_invalidates_source_meta_cache(self, clean_registry):
+        from souwen.registry import meta as source_meta
 
-        source_registry.get_all_sources()  # warm cache before runtime plugin registration
+        source_meta.get_all_sources()  # warm cache before runtime plugin registration
         _reg_external(make_test_adapter("ext_meta_cache"))
 
-        meta = source_registry.get_source("ext_meta_cache")
+        meta = source_meta.get_source("ext_meta_cache")
         assert meta is not None
         assert meta.distribution == "plugin"
-        assert "ext_meta_cache" in source_registry.ALL_SOURCE_NAMES
+        assert "ext_meta_cache" in source_meta.ALL_SOURCE_NAMES
 
 
 # ── discover_entrypoint_plugins ────────────────────────────
@@ -376,6 +379,8 @@ class TestLoadPlugins:
 
     def test_entry_point_discovery_total_failure(self, clean_registry, monkeypatch):
         # discover_entrypoint_plugins 抛异常时被 load_plugins 兜底
+        monkeypatch.delenv("SOUWEN_PLUGIN_AUTOLOAD", raising=False)
+
         def boom(*_a: Any, **_kw: Any):
             raise RuntimeError("ep system down")
 
@@ -425,6 +430,7 @@ class TestLoadPlugins:
         assert result["errors"] == []
 
     def test_env_denylist_is_merged_into_skip_names(self, clean_registry, monkeypatch):
+        monkeypatch.delenv("SOUWEN_PLUGIN_AUTOLOAD", raising=False)
         captured: list[set[str]] = []
 
         def discover(*, skip_names: set[str] | None = None, config: Any = None):
@@ -442,6 +448,114 @@ class TestLoadPlugins:
 
         assert result == {"loaded": [], "errors": []}
         assert captured == [{"ops_blocked", "adapter_blocked", "state_blocked"}]
+
+
+class TestEnsurePluginsLoaded:
+    def test_entry_point_returns_structured_result(
+        self, clean_registry, clean_plugins, monkeypatch
+    ):
+        monkeypatch.delenv("SOUWEN_PLUGIN_AUTOLOAD", raising=False)
+        monkeypatch.setattr(
+            "souwen.plugin_manager._load_state",
+            lambda: {"disabled_plugins": [], "installed_via_api": []},
+        )
+        eps = _FakeEntryPoints(
+            [_FakeEntryPoint("structured_ep", lambda: make_test_adapter("structured_adapter"))]
+        )
+        monkeypatch.setattr("souwen.plugin.metadata.entry_points", lambda: eps)
+
+        result = ensure_plugins_loaded()
+
+        assert isinstance(result, PluginLoadResult)
+        assert result.loaded_plugins == ("structured_ep",)
+        assert result.loaded_adapters == ("structured_adapter",)
+        assert result.skipped == ()
+        assert result.errors == ()
+
+    def test_idempotent_call_skips_loaded_entry_point_before_load(
+        self, clean_registry, clean_plugins, clean_fetch_handlers, monkeypatch
+    ):
+        monkeypatch.delenv("SOUWEN_PLUGIN_AUTOLOAD", raising=False)
+        monkeypatch.setattr(
+            "souwen.plugin_manager._load_state",
+            lambda: {"disabled_plugins": [], "installed_via_api": []},
+        )
+        load_count: list[str] = []
+
+        async def fake_handler(*_args, **_kwargs):
+            return None
+
+        def loader():
+            load_count.append("called")
+            register_fetch_handler("idempotent_adapter", fake_handler)
+            return make_test_adapter("idempotent_adapter")
+
+        monkeypatch.setattr(
+            "souwen.plugin.metadata.entry_points",
+            lambda: _FakeEntryPoints([_FakeEntryPoint("idempotent_ep", loader)]),
+        )
+
+        first = ensure_plugins_loaded()
+        second = ensure_plugins_loaded()
+
+        assert first.loaded_plugins == ("idempotent_ep",)
+        assert first.loaded_adapters == ("idempotent_adapter",)
+        assert second.loaded_plugins == ()
+        assert second.loaded_adapters == ()
+        assert "idempotent_ep" in second.skipped
+        assert load_count == ["called"]
+        assert get_fetch_handler_owners()["idempotent_adapter"] == "idempotent_ep"
+
+    def test_autoload_zero_never_scans_entry_points_but_allows_config_plugins(
+        self, clean_registry, clean_plugins, monkeypatch
+    ):
+        monkeypatch.setenv("SOUWEN_PLUGIN_AUTOLOAD", "0")
+        monkeypatch.setattr(
+            "souwen.plugin.metadata.entry_points",
+            lambda: pytest.fail("entry point scan should stay disabled"),
+        )
+        monkeypatch.setattr(
+            "souwen.plugin_manager._load_state",
+            lambda: {"disabled_plugins": [], "installed_via_api": []},
+        )
+        adapter = make_test_adapter("explicit_cfg_adapter")
+        import souwen.plugin as plugin_mod
+
+        monkeypatch.setattr(
+            plugin_mod, "_test_explicit_cfg_factory", lambda: adapter, raising=False
+        )
+
+        class FakeConfig:
+            plugins = ["souwen.plugin:_test_explicit_cfg_factory"]
+
+        result = ensure_plugins_loaded(FakeConfig())
+
+        assert result.loaded_plugins == ("souwen.plugin:_test_explicit_cfg_factory",)
+        assert result.loaded_adapters == ("explicit_cfg_adapter",)
+        assert result.errors == ()
+
+    def test_errors_are_returned_as_dataclasses(self, clean_registry, clean_plugins, monkeypatch):
+        monkeypatch.delenv("SOUWEN_PLUGIN_AUTOLOAD", raising=False)
+        monkeypatch.setattr(
+            "souwen.plugin_manager._load_state",
+            lambda: {"disabled_plugins": [], "installed_via_api": []},
+        )
+
+        def boom():
+            raise RuntimeError("broken plugin")
+
+        monkeypatch.setattr(
+            "souwen.plugin.metadata.entry_points",
+            lambda: _FakeEntryPoints([_FakeEntryPoint("broken_ep", boom)]),
+        )
+
+        result = ensure_plugins_loaded()
+
+        assert result.loaded_plugins == ()
+        assert len(result.errors) == 1
+        assert isinstance(result.errors[0], PluginLoadError)
+        assert result.errors[0].name == "broken_ep"
+        assert "broken plugin" in result.errors[0].error
 
 
 # ── 集成 / 状态清理 ────────────────────────────────────────

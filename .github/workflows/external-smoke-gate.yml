@@ -39,6 +39,8 @@ jobs:
     name: Scrapling release/nightly gate
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      GATE_SUITE: ${{ inputs.suite || (github.event_name == 'pull_request' && 'pr-required') || 'release' }}
     concurrency:
       group: external-smoke-gate-scrapling-${{ github.ref }}
       cancel-in-progress: true
@@ -61,16 +63,26 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev,server,scrapling]"
-          scrapling install
+          if [ "$GATE_SUITE" = "release" ]; then
+            scrapling install
+          else
+            echo "Skipping Scrapling browser runtime install for suite=$GATE_SUITE"
+          fi
 
       - name: 运行 Scrapling release/nightly gate
         run: |
           mkdir -p artifacts
+          MODE="fixture"
+          BROWSER_ARGS=()
+          if [ "$GATE_SUITE" = "release" ]; then
+            MODE="live"
+            BROWSER_ARGS=(--browser)
+          fi
           python scripts/scrapling_functional_check.py \
-            --mode live \
-            --browser \
-            --json-report artifacts/scrapling-gate.json \
-            --markdown-report artifacts/scrapling-gate.md
+            --mode "$MODE" \
+            "${BROWSER_ARGS[@]}" \
+            --json-report "artifacts/scrapling-${GATE_SUITE}-gate.json" \
+            --markdown-report "artifacts/scrapling-${GATE_SUITE}-gate.md"
 
       - name: 上传 Scrapling gate 报告
         if: always()
@@ -87,6 +99,8 @@ jobs:
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    env:
+      GATE_SUITE: ${{ inputs.suite || (github.event_name == 'pull_request' && 'pr-required') || 'release' }}
     concurrency:
       group: external-smoke-gate-crawl4ai-${{ github.ref }}
       cancel-in-progress: true
@@ -106,20 +120,28 @@ jobs:
             ~/.crawl4ai
           key: release-gate-crawl4ai-${{ runner.os }}-py311-${{ hashFiles('pyproject.toml') }}
 
-      - name: 安装当前源码与 Crawl4AI 浏览器运行时
+      - name: 安装当前源码与 Crawl4AI 可选浏览器运行时
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev,server,crawl4ai]"
-          python -m playwright install --with-deps chromium
+          if [ "$GATE_SUITE" = "release" ]; then
+            python -m playwright install --with-deps chromium
+          else
+            echo "Skipping Crawl4AI browser runtime install for suite=$GATE_SUITE"
+          fi
 
       - name: 运行 Crawl4AI release/nightly gate
         run: |
           mkdir -p artifacts
+          RUNTIME_ARGS=()
+          if [ "$GATE_SUITE" = "release" ]; then
+            RUNTIME_ARGS=(--require-runtime)
+          fi
           python scripts/crawl4ai_functional_check.py \
             --mode fixture \
-            --require-runtime \
-            --json-report artifacts/crawl4ai-gate.json \
-            --markdown-report artifacts/crawl4ai-gate.md
+            "${RUNTIME_ARGS[@]}" \
+            --json-report "artifacts/crawl4ai-${GATE_SUITE}-gate.json" \
+            --markdown-report "artifacts/crawl4ai-${GATE_SUITE}-gate.md"
 
       - name: 上传 Crawl4AI gate 报告
         if: always()
@@ -147,6 +169,7 @@ jobs:
       - name: Create or update nightly failure issue
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           MARKER: "<!-- external-smoke-nightly-failure -->"
         run: |
           set -euo pipefail
@@ -220,6 +243,7 @@ jobs:
       - name: Close recovered nightly failure issue
         env:
           GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
           MARKER: "<!-- external-smoke-nightly-failure -->"
         run: |
           set -euo pipefail

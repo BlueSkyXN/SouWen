@@ -4,7 +4,7 @@
     网页搜索聚合模块。引擎调度由 `souwen.registry` 派生：
 
     - 引擎类通过 registry 字符串懒加载（不再有手写 engine_map / source_map）
-    - `SourceType` 标签由 adapter 名 → `SourceType` 的派生映射（见 `_source_type_for`）
+    - 响应和结果里的 `source` 字段直接使用 registry adapter name
 
 公开函数签名：
     web_search(query, engines=None, max_results_per_engine=10, deduplicate=True, **kw)
@@ -21,59 +21,11 @@ from typing import Sequence
 
 from souwen.config import get_config
 from souwen.core.concurrency import get_semaphore
-from souwen.models import SourceType, WebSearchResponse, WebSearchResult
-from souwen.registry import get as _registry_get
+from souwen.models import WebSearchResponse, WebSearchResult
+from souwen.registry import defaults_for, get as _registry_get
 
 logger = logging.getLogger("souwen.web.search")
 _WEB_ENGINE_TIMEOUT_CAP_SECONDS = 15.0
-
-# ── Registry 名字 → SourceType 枚举值的映射 ─────────────────
-# 为 `WebSearchResponse.source` 字段提供 SourceType 标签。
-# 允许跨 domain 的源（youtube / bilibili / reddit / github / stackoverflow /
-# wikipedia / twitter / facebook / feishu_drive / zhihu / weibo / csdn / juejin / linuxdo），
-# 以维持 web_search "可以点名任意已注册源" 的契约。
-# 如果 `SourceType` 里找不到匹配项（如 archive / fetch-only 源），回退到 WEB_DUCKDUCKGO。
-
-
-def _source_type_for(name: str) -> SourceType:
-    """把 registry 里的 adapter.name 映射为 SourceType 枚举值。
-
-    命名规则：
-      - 爬虫/API 类网页引擎 → `WEB_{NAME_UPPER}`
-      - DDG 变种 → `WEB_DDG_{VARIANT}`（ddg_news/images/videos）
-      - paper/patent → 自身枚举（`OPENALEX` / `ARXIV` / ...）
-      - fetch-only（builtin / jina_reader / ...）→ `FETCH_{NAME_UPPER}`
-      - 未知源 → `WEB_DUCKDUCKGO` 作兜底
-
-    该映射用于 `WebSearchResponse.source`——它只在 web 聚合入口返回时填充。
-    """
-    # 特殊重命名
-    specials = {
-        "duckduckgo_news": SourceType.WEB_DDG_NEWS,
-        "duckduckgo_images": SourceType.WEB_DDG_IMAGES,
-        "duckduckgo_videos": SourceType.WEB_DDG_VIDEOS,
-        "zhipuai": SourceType.WEB_ZHIPUAI,
-    }
-    if name in specials:
-        return specials[name]
-
-    upper = name.upper()
-    # 尝试 WEB_XXX
-    try:
-        return SourceType[f"WEB_{upper}"]
-    except KeyError:
-        pass
-    # 尝试 FETCH_XXX
-    try:
-        return SourceType[f"FETCH_{upper}"]
-    except KeyError:
-        pass
-    # 尝试直接枚举（论文/专利名）
-    try:
-        return SourceType[upper]
-    except KeyError:
-        pass
-    return SourceType.WEB_DUCKDUCKGO
 
 
 def _get_web_semaphore() -> asyncio.Semaphore:
@@ -137,6 +89,11 @@ def _deduplicate(results: Sequence[WebSearchResult]) -> list[WebSearchResult]:
     return deduped
 
 
+def _default_web_engines() -> list[str]:
+    """默认 Web 搜索引擎列表（从 registry 派生）。"""
+    return defaults_for("web", "search")
+
+
 async def web_search(
     query: str,
     engines: list[str] | None = None,
@@ -146,7 +103,7 @@ async def web_search(
 ) -> WebSearchResponse:
     """并发多引擎聚合搜索
 
-    同时查询多个搜索引擎（默认 ["duckduckgo", "bing"]），聚合结果并可选去重。
+    同时查询多个搜索引擎（默认来自 registry 的 ``web:search``），聚合结果并可选去重。
     Engine 通过 `souwen.registry` 懒加载，因此该函数调用时才会 import 对应客户端。
 
     备注：
@@ -156,7 +113,7 @@ async def web_search(
 
     Args:
         query: 搜索关键词
-        engines: 引擎名列表，默认 ["duckduckgo", "bing"]
+        engines: 引擎名列表；None 表示使用 registry 声明的默认 web 搜索源
         max_results_per_engine: 每个引擎最大返回数
         deduplicate: 是否按 URL 去重
         **kwargs: 传递给各引擎构造函数的参数（如 use_curl_cffi）
@@ -169,9 +126,10 @@ async def web_search(
         >>> for r in resp.results:
         ...     print(f"[{r.engine}] {r.title} → {r.url}")
     """
-    selected = engines or ["duckduckgo", "bing"]
+    selected = _default_web_engines() if engines is None else list(engines)
 
     tasks = []
+    active_engines: list[str] = []
     cfg = get_config()
     for name in selected:
         if not cfg.is_source_enabled(name):
@@ -195,6 +153,7 @@ async def web_search(
             logger.warning("引擎 %s Client 加载失败: %s", name, e)
             continue
         tasks.append(_search_engine(cls, query, max_results_per_engine, **kwargs))
+        active_engines.append(name)
 
     engine_results = await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -215,9 +174,8 @@ async def web_search(
         selected,
     )
 
-    # source 字段使用"第一个引擎"的 SourceType
-    first = selected[0] if selected else None
-    source_tag = _source_type_for(first) if first else SourceType.WEB_DUCKDUCKGO
+    # 聚合响应沿用第一个实际参与搜索的 adapter name；没有可用引擎时给出稳定 fallback。
+    source_tag = active_engines[0] if active_engines else "duckduckgo"
 
     return WebSearchResponse(
         query=query,

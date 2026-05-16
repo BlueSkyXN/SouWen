@@ -1,12 +1,12 @@
 """SouWen 基础设施层测试。
 
-覆盖 ``souwen.models``（数据模型）、``souwen.exceptions``（异常体系）、
-``souwen.config``（配置管理）、``souwen.rate_limiter``（限流）、
+覆盖 ``souwen.models``（数据模型）、``souwen.core.exceptions``（异常体系）、
+``souwen.config``（配置管理）、``souwen.core.rate_limiter``（限流）、
 ``souwen.web``（网页搜索）、``souwen.search``（统一搜索）、
 ``souwen.server``（FastAPI 服务）等核心基础设施。
 
 验证数据模型的字段完整性、异常继承关系、配置默认值、限流器行为、
-网页搜索去重、统一搜索门面、OAuth 并发安全等不变量。
+网页搜索去重、统一搜索入口、OAuth 并发安全等不变量。
 
 测试清单：
 - ``TestModels``：数据模型创建与字段验证
@@ -14,25 +14,27 @@
 - ``TestConfig``：配置值与路径展开
 - ``TestRateLimiter``：限流器异步操作
 - ``TestWebSearch``：网页搜索引擎、URL 解码、去重、API Key 必需性
-- ``TestUnifiedSearch``：统一搜索门面与数据源映射
+- ``TestUnifiedSearch``：统一搜索入口与数据源映射
 - ``TestYAMLConfig``：YAML 配置加载与示例文件
 - ``TestCLI``：CLI 工具与脱敏
 - ``TestServer``：FastAPI 服务导入与路由
 - ``TestOAuthTokenConcurrency``：OAuth Token 并发刷新安全性
 """
 
+from pathlib import Path
+
 import pytest
+
 from souwen.models import (
     PaperResult,
     PatentResult,
     SearchResponse,
     Author,
     Applicant,
-    SourceType,
     WebSearchResult,
     WebSearchResponse,
 )
-from souwen.exceptions import (
+from souwen.core.exceptions import (
     SouWenError,
     ConfigError,
     AuthError,
@@ -42,8 +44,8 @@ from souwen.exceptions import (
     NotFoundError,
 )
 from souwen.config import SouWenConfig
-from souwen.rate_limiter import TokenBucketLimiter, SlidingWindowLimiter
-from souwen.source_registry import (
+from souwen.core.rate_limiter import TokenBucketLimiter, SlidingWindowLimiter
+from souwen.registry.meta import (
     AUTH_REQUIREMENT_TYPES,
     DISTRIBUTION_TYPES,
     INTEGRATION_TYPES,
@@ -52,6 +54,14 @@ from souwen.source_registry import (
     get_sources_by_distribution,
     get_sources_by_integration_type,
 )
+from souwen.registry.views import enum_values
+
+
+def test_project_urls_point_to_main_for_mergeback():
+    """v2 mergeback 前，wheel 元数据应指向最终 main 文档入口。"""
+    pyproject = Path("pyproject.toml").read_text(encoding="utf-8")
+    assert 'Documentation = "https://github.com/BlueSkyXN/SouWen/tree/main/docs"' in pyproject
+    assert 'Changelog = "https://github.com/BlueSkyXN/SouWen/blob/main/CHANGELOG.md"' in pyproject
 
 
 class TestModels:
@@ -60,19 +70,19 @@ class TestModels:
     def test_paper_result_minimal(self):
         """最小字段创建论文结果"""
         paper = PaperResult(
-            source=SourceType.OPENALEX,
+            source="openalex",
             title="Test Paper",
             source_url="https://example.com",
         )
         assert paper.title == "Test Paper"
-        assert paper.source == SourceType.OPENALEX
+        assert paper.source == "openalex"
         assert paper.authors == []
         assert paper.doi is None
 
     def test_paper_result_full(self):
         """完整字段创建论文结果"""
         paper = PaperResult(
-            source=SourceType.SEMANTIC_SCHOLAR,
+            source="semantic_scholar",
             title="Deep Learning for NLP",
             authors=[Author(name="Alice", affiliation="MIT", orcid="0000-0001-0000-0001")],
             abstract="This paper presents...",
@@ -89,7 +99,7 @@ class TestModels:
     def test_patent_result(self):
         """专利结果模型"""
         patent = PatentResult(
-            source=SourceType.PATENTSVIEW,
+            source="patentsview",
             title="Network Authentication Method",
             patent_id="US10123456B2",
             applicants=[Applicant(name="TechCorp", country="US")],
@@ -105,11 +115,11 @@ class TestModels:
         """搜索响应（论文）"""
         resp = SearchResponse(
             query="test",
-            source=SourceType.OPENALEX,
+            source="openalex",
             total_results=100,
             results=[
                 PaperResult(
-                    source=SourceType.OPENALEX,
+                    source="openalex",
                     title="Paper 1",
                     source_url="https://example.com/1",
                 ),
@@ -123,7 +133,7 @@ class TestModels:
     def test_web_search_result(self):
         """网页搜索结果模型"""
         result = WebSearchResult(
-            source=SourceType.WEB_DUCKDUCKGO,
+            source="duckduckgo",
             title="Python Tutorial",
             url="https://docs.python.org/3/tutorial/",
             snippet="The Python Tutorial — Python 3 documentation",
@@ -131,17 +141,17 @@ class TestModels:
         )
         assert result.title == "Python Tutorial"
         assert result.engine == "duckduckgo"
-        assert result.source == SourceType.WEB_DUCKDUCKGO
+        assert result.source == "duckduckgo"
 
     def test_web_search_response(self):
         """网页搜索响应"""
         resp = WebSearchResponse(
             query="python",
-            source=SourceType.WEB_DUCKDUCKGO,
+            source="duckduckgo",
             total_results=1,
             results=[
                 WebSearchResult(
-                    source=SourceType.WEB_DUCKDUCKGO,
+                    source="duckduckgo",
                     title="Python.org",
                     url="https://www.python.org",
                     snippet="The official home of Python",
@@ -152,81 +162,74 @@ class TestModels:
         assert resp.total_results == 1
         assert len(resp.results) == 1
 
-    def test_source_type_enum(self):
-        """数据源枚举完整性"""
-        assert SourceType.OPENALEX.value == "openalex"
-        assert SourceType.GOOGLE_PATENTS.value == "google_patents"
-        assert SourceType.WEB_DUCKDUCKGO.value == "web_duckduckgo"
-        assert SourceType.WEB_YAHOO.value == "web_yahoo"
-        assert SourceType.WEB_BRAVE.value == "web_brave"
-        assert SourceType.WEB_GOOGLE.value == "web_google"
-        assert SourceType.WEB_BING.value == "web_bing"
-        assert SourceType.WEB_SEARXNG.value == "web_searxng"
-        assert SourceType.WEB_TAVILY.value == "web_tavily"
-        assert SourceType.WEB_EXA.value == "web_exa"
-        assert SourceType.WEB_SERPER.value == "web_serper"
-        assert SourceType.WEB_BRAVE_API.value == "web_brave_api"
-        # 确保论文、专利、搜索源都存在
-        paper_sources = [
-            SourceType.OPENALEX,
-            SourceType.SEMANTIC_SCHOLAR,
-            SourceType.CROSSREF,
-            SourceType.ARXIV,
-            SourceType.DBLP,
-            SourceType.CORE,
-            SourceType.PUBMED,
-            SourceType.UNPAYWALL,
-            SourceType.HUGGINGFACE,
-            SourceType.EUROPEPMC,
-            SourceType.PMC,
-            SourceType.DOAJ,
-            SourceType.ZENODO,
-            SourceType.HAL,
-            SourceType.OPENAIRE,
-            SourceType.IACR,
-            SourceType.BIORXIV,
-            SourceType.ZOTERO,
-            SourceType.IEEE_XPLORE,
-        ]
-        patent_sources = [
-            SourceType.PATENTSVIEW,
-            SourceType.USPTO_ODP,
-            SourceType.EPO_OPS,
-            SourceType.CNIPA,
-            SourceType.THE_LENS,
-            SourceType.PQAI,
-            SourceType.PATSNAP,
-            SourceType.GOOGLE_PATENTS,
-        ]
-        web_sources = [
-            SourceType.WEB_DUCKDUCKGO,
-            SourceType.WEB_YAHOO,
-            SourceType.WEB_BRAVE,
-            SourceType.WEB_GOOGLE,
-            SourceType.WEB_BING,
-            SourceType.WEB_SEARXNG,
-            SourceType.WEB_TAVILY,
-            SourceType.WEB_EXA,
-            SourceType.WEB_SERPER,
-            SourceType.WEB_BRAVE_API,
-            SourceType.WEB_GITHUB,
-            SourceType.WEB_STACKOVERFLOW,
-            SourceType.WEB_REDDIT,
-            SourceType.WEB_BILIBILI,
-            SourceType.WEB_WIKIPEDIA,
-            SourceType.WEB_YOUTUBE,
-            SourceType.WEB_ZHIHU,
-            SourceType.WEB_WEIBO,
-            SourceType.WEB_NODESEEK,
-            SourceType.WEB_HOSTLOC,
-            SourceType.WEB_V2EX,
-            SourceType.WEB_COOLAPK,
-            SourceType.WEB_XIAOHONGSHU,
-            SourceType.WEB_FEISHU_DRIVE,
-            SourceType.WEB_ZHIPUAI,
-            SourceType.WEB_ALIYUN_IQS,
-            SourceType.WEB_XCRAWL,
-        ]
+    def test_builtin_source_ids_are_adapter_names(self):
+        """内置 source id 直接来自 registry adapter name。"""
+        registry_names = set(enum_values())
+        paper_sources = {
+            "openalex",
+            "semantic_scholar",
+            "crossref",
+            "arxiv",
+            "dblp",
+            "core",
+            "pubmed",
+            "unpaywall",
+            "huggingface",
+            "europepmc",
+            "pmc",
+            "doaj",
+            "zenodo",
+            "hal",
+            "openaire",
+            "iacr",
+            "biorxiv",
+            "zotero",
+            "ieee_xplore",
+        }
+        patent_sources = {
+            "patentsview",
+            "uspto_odp",
+            "epo_ops",
+            "cnipa",
+            "the_lens",
+            "pqai",
+            "patsnap",
+            "google_patents",
+        }
+        web_sources = {
+            "duckduckgo",
+            "yahoo",
+            "brave",
+            "google",
+            "bing",
+            "searxng",
+            "tavily",
+            "exa",
+            "serper",
+            "brave_api",
+            "github",
+            "stackoverflow",
+            "reddit",
+            "bilibili",
+            "wikipedia",
+            "youtube",
+            "zhihu",
+            "weibo",
+            "nodeseek",
+            "hostloc",
+            "v2ex",
+            "coolapk",
+            "xiaohongshu",
+            "feishu_drive",
+            "zhipuai",
+            "aliyun_iqs",
+            "xcrawl",
+        }
+        required_sources = paper_sources | patent_sources | web_sources
+        assert required_sources <= registry_names
+        assert "web_" + "duckduckgo" not in registry_names
+        assert "web_" + "bing" not in registry_names
+        assert "fetch_" + "builtin" not in registry_names
         assert len(paper_sources) == 19
         assert len(patent_sources) == 8
         assert len(web_sources) == 27
@@ -370,21 +373,21 @@ class TestWebSearch:
 
         results = [
             WebSearchResult(
-                source=SourceType.WEB_DUCKDUCKGO,
+                source="duckduckgo",
                 title="A",
                 url="https://example.com/",
                 snippet="",
                 engine="ddg",
             ),
             WebSearchResult(
-                source=SourceType.WEB_YAHOO,
+                source="yahoo",
                 title="B",
                 url="https://example.com",
                 snippet="",
                 engine="yahoo",
             ),
             WebSearchResult(
-                source=SourceType.WEB_BRAVE,
+                source="brave",
                 title="C",
                 url="https://other.com",
                 snippet="",
@@ -410,7 +413,7 @@ class TestWebSearch:
 
     def test_api_engines_require_config(self):
         """API 引擎缺少 Key 时报 ConfigError"""
-        from souwen.exceptions import ConfigError
+        from souwen.core.exceptions import ConfigError
         from souwen.web.tavily import TavilyClient
         from souwen.web.exa import ExaClient
         from souwen.web.serper import SerperClient
@@ -423,9 +426,9 @@ class TestWebSearch:
 
 
 class TestUnifiedSearch:
-    """统一搜索门面测试"""
+    """统一搜索入口测试"""
 
-    def test_search_facade_imports(self):
+    def test_search_module_imports(self):
         """统一搜索模块导入"""
         from souwen.search import search, search_papers, search_patents, web_search
 
@@ -528,27 +531,32 @@ class TestCLI:
         assert "已配置" in short_masked
         assert "ab" not in short_masked
 
-    def test_cli_all_sources_data(self):
-        """数据源清单完整性（v1 从 registry 派生）
+    def test_cli_source_catalog_data(self):
+        """数据源清单完整性。"""
+        from souwen.registry.catalog import public_source_catalog
 
-        注意：v0 的 `ALL_SOURCES` 与 `source_registry` 之间存在漂移
-        （bing_cn / ddg_news / ddg_images / ddg_videos / metaso / twitter / facebook
-        在 source_registry 登记但 ALL_SOURCES 漏列）。
-        v1 统一由 registry 派生，修复漂移；因此 general/social 数字比 v0 更高。
-        """
-        from souwen.models import ALL_SOURCES
+        catalog = public_source_catalog()
+        counts: dict[str, int] = {}
+        for entry in catalog.values():
+            counts[entry.category] = counts.get(entry.category, 0) + 1
 
-        assert len(ALL_SOURCES["paper"]) == 18
-        assert len(ALL_SOURCES["patent"]) == 6
+        assert counts["paper"] == 18
+        assert counts["patent"] == 6
         total_web = sum(
-            len(ALL_SOURCES[c])
-            for c in ("general", "professional", "social", "developer", "wiki", "video")
+            counts[c]
+            for c in (
+                "web_general",
+                "web_professional",
+                "social",
+                "developer",
+                "knowledge",
+                "video",
+            )
         )
-        # v0 期望 31；v1 修复漂移后为 39
         assert total_web == 39
-        assert len(ALL_SOURCES["fetch"]) >= 21  # 21 内置 + 可能有外部插件
-        # cn_tech 拆分后独立源
-        assert len(ALL_SOURCES["cn_tech"]) == 9
+        assert counts["fetch"] == 17
+        assert counts["archive"] == 1
+        assert counts["cn_tech"] == 9
 
 
 class TestServer:
@@ -664,7 +672,7 @@ class TestOAuthTokenConcurrency:
         import asyncio
         from unittest.mock import AsyncMock, MagicMock
 
-        from souwen.http_client import OAuthClient
+        from souwen.core.http_client import OAuthClient
 
         client = OAuthClient(
             base_url="https://example.com",

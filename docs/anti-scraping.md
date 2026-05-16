@@ -51,7 +51,7 @@ async with AsyncSession(impersonate="chrome124") as session:
 ### 指纹轮换策略
 
 ```python
-from souwen.fingerprint import get_random_fingerprint
+from souwen.core.fingerprint import get_random_fingerprint
 
 # 每个 BaseScraper 实例创建时随机选取一个指纹
 fingerprint = get_random_fingerprint()
@@ -107,7 +107,7 @@ general:
 
 ## SSRF 防护（fetch / links / sitemap）
 
-V1 的 `/api/v1/fetch`、`/links`、`/sitemap` 端点在抓取前对每个 URL 调用 `souwen.web.fetch.validate_fetch_url(url)`：
+`/api/v1/fetch`、`/links`、`/sitemap` 端点在抓取前对每个 URL 调用 `souwen.web.fetch.validate_fetch_url(url)`：
 
 1. 仅允许 `http` / `https` scheme；
 2. DNS 解析所有 A/AAAA 记录；

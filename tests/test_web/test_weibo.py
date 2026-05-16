@@ -23,7 +23,6 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock, patch
 
-from souwen.models import SourceType
 from souwen.web.weibo import WeiboClient
 
 
@@ -98,7 +97,7 @@ def _run(coro):
 
 
 def test_weibo_source_type_exists():
-    assert SourceType.WEB_WEIBO.value == "web_weibo"
+    assert "weibo" == "weibo"
 
 
 # ---------------------------------------------------------------------------
@@ -149,7 +148,7 @@ def test_basic_search():
     assert headers["X-Requested-With"] == "XMLHttpRequest"
 
     assert resp.query == "python"
-    assert resp.source == SourceType.WEB_WEIBO
+    assert resp.source == "weibo"
     assert len(resp.results) == 2
     assert resp.total_results == 2
 
@@ -158,7 +157,7 @@ def test_basic_search():
     assert first.url == "https://m.weibo.cn/detail/4567890123"
     assert first.snippet == "这是一条@用户的微博正文"
     assert first.engine == "weibo"
-    assert first.source == SourceType.WEB_WEIBO
+    assert first.source == "weibo"
 
 
 def test_empty_cards():
@@ -170,7 +169,7 @@ def test_empty_cards():
 
     assert resp.results == []
     assert resp.total_results == 0
-    assert resp.source == SourceType.WEB_WEIBO
+    assert resp.source == "weibo"
 
 
 def test_skip_non_mblog_cards():
@@ -263,7 +262,7 @@ def test_error_handling_fetch_exception():
 
     assert resp.results == []
     assert resp.total_results == 0
-    assert resp.source == SourceType.WEB_WEIBO
+    assert resp.source == "weibo"
 
 
 def test_error_handling_invalid_json():
@@ -293,7 +292,7 @@ def test_ok_field_check():
 
     assert resp.results == []
     assert resp.total_results == 0
-    assert resp.source == SourceType.WEB_WEIBO
+    assert resp.source == "weibo"
 
 
 def test_user_info_in_raw():

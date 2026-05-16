@@ -27,9 +27,9 @@
     - logging: 日志记录
     - typing: 类型注解
     - souwen.config: 获取 API Key 和全局配置
-    - souwen.exceptions: ConfigError, ParseError 异常
-    - souwen.http_client: SouWenHttpClient HTTP 客户端基类
-    - souwen.models: SourceType, WebSearchResult, WebSearchResponse 数据模型
+    - souwen.core.exceptions: ConfigError, ParseError 异常
+    - souwen.core.http_client: SouWenHttpClient HTTP 客户端基类
+    - souwen.models: str, WebSearchResult, WebSearchResponse 数据模型
 
 技术要点：
     - API 端点：GET /google，api_key 作为查询参数传递
@@ -44,9 +44,9 @@ import logging
 from typing import Any
 
 from souwen.config import get_config
-from souwen.exceptions import ConfigError
-from souwen.http_client import SouWenHttpClient
-from souwen.models import SourceType, WebSearchResult, WebSearchResponse
+from souwen.core.exceptions import ConfigError
+from souwen.core.http_client import SouWenHttpClient
+from souwen.models import WebSearchResult, WebSearchResponse
 
 logger = logging.getLogger("souwen.web.scrapingdog")
 
@@ -98,7 +98,7 @@ class ScrapingDogClient(SouWenHttpClient):
             # 解析 JSON 响应
             data = resp.json()
         except Exception as e:
-            from souwen.exceptions import ParseError
+            from souwen.core.exceptions import ParseError
 
             raise ParseError(f"ScrapingDog 响应解析失败: {e}") from e
 
@@ -116,7 +116,7 @@ class ScrapingDogClient(SouWenHttpClient):
                 raw["position"] = item["position"]
             results.append(
                 WebSearchResult(
-                    source=SourceType.WEB_SCRAPINGDOG,
+                    source="scrapingdog",
                     title=title,
                     url=url,
                     snippet=item.get("snippet", "").strip(),
@@ -129,7 +129,7 @@ class ScrapingDogClient(SouWenHttpClient):
 
         return WebSearchResponse(
             query=query,
-            source=SourceType.WEB_SCRAPINGDOG,
+            source="scrapingdog",
             results=results,
             total_results=len(results),
         )

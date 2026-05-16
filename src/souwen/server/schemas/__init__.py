@@ -29,8 +29,9 @@ from souwen.server.schemas.common import (
     HealthResponse,
     ReadinessResponse,
     SearchMeta,
-    SourceInfo,
-    SourcesResponse,
+    SourceCatalogItem,
+    SourceCatalogResponse,
+    SourceCategoryInfo,
 )
 from souwen.server.schemas.fetch import FetchRequest
 from souwen.server.schemas.search import (
@@ -57,8 +58,9 @@ __all__ = [
     "SearchPatentResponse",
     "SearchVideosResponse",
     "SearchWebResponse",
-    "SourceInfo",
-    "SourcesResponse",
+    "SourceCatalogItem",
+    "SourceCatalogResponse",
+    "SourceCategoryInfo",
     "UpdateProxyConfigRequest",
     "UpdateSourceConfigRequest",
     "WaybackAvailabilityResponse",

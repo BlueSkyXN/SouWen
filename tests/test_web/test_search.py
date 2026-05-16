@@ -15,7 +15,7 @@ from __future__ import annotations
 import asyncio
 from contextlib import asynccontextmanager
 
-from souwen.models import SearchResponse, SourceType, WebSearchResult
+from souwen.models import SearchResponse, WebSearchResult
 from souwen.registry.adapter import MethodSpec, SourceAdapter
 from souwen.web.search import _deduplicate, web_search
 
@@ -27,11 +27,11 @@ from souwen.web.search import _deduplicate, web_search
 
 def _make_result(engine: str, title: str, url: str) -> WebSearchResult:
     source_map = {
-        "duckduckgo": SourceType.WEB_DUCKDUCKGO,
-        "bing": SourceType.WEB_BING,
+        "duckduckgo": "duckduckgo",
+        "bing": "bing",
     }
     return WebSearchResult(
-        source=source_map.get(engine, SourceType.WEB_DUCKDUCKGO),
+        source=source_map.get(engine, "duckduckgo"),
         title=title,
         url=url,
         snippet=f"Snippet for {title}",
@@ -41,12 +41,12 @@ def _make_result(engine: str, title: str, url: str) -> WebSearchResult:
 
 def _make_engine_response(engine: str, results: list[WebSearchResult]) -> SearchResponse:
     source_map = {
-        "duckduckgo": SourceType.WEB_DUCKDUCKGO,
-        "bing": SourceType.WEB_BING,
+        "duckduckgo": "duckduckgo",
+        "bing": "bing",
     }
     return SearchResponse(
         query="test",
-        source=source_map.get(engine, SourceType.WEB_DUCKDUCKGO),
+        source=source_map.get(engine, "duckduckgo"),
         results=results,
         total_results=len(results),
     )
@@ -166,6 +166,44 @@ async def test_web_search_aggregates_engines():
     assert engines == {"duckduckgo", "bing"}
 
 
+async def test_web_search_uses_registry_defaults(monkeypatch):
+    """省略 ``engines`` 时，应从 registry default_for 派生默认 Web 源。"""
+    from souwen.web import search as web_search_mod
+
+    ddg_resp = _make_engine_response(
+        "duckduckgo", [_make_result("duckduckgo", "DDG 1", "https://ddg1.com")]
+    )
+    monkeypatch.setattr(web_search_mod, "_default_web_engines", lambda: ["duckduckgo"])
+
+    async with _override_adapters(
+        {
+            "duckduckgo": _make_fake_client_class(search_resp=ddg_resp),
+            "bing": _make_fake_client_class(
+                search_exc=AssertionError("bing should not be selected")
+            ),
+        }
+    ):
+        result = await web_search_mod.web_search("test query")
+
+    assert len(result.results) == 1
+    assert result.results[0].engine == "duckduckgo"
+
+
+async def test_web_search_empty_engines_is_explicit_noop(monkeypatch):
+    """显式传空 ``engines`` 不应回退到 registry 默认源。"""
+    from souwen.web import search as web_search_mod
+
+    def fail_if_defaulted():
+        raise AssertionError("empty engines must not use registry defaults")
+
+    monkeypatch.setattr(web_search_mod, "_default_web_engines", fail_if_defaulted)
+
+    result = await web_search_mod.web_search("test query", engines=[])
+
+    assert result.results == []
+    assert result.total_results == 0
+
+
 async def test_web_search_deduplication():
     r1 = _make_result("duckduckgo", "Page", "https://example.com")
     r2 = _make_result("bing", "Page", "https://example.com/")
@@ -247,10 +285,10 @@ def test_web_search_response_model():
 
     resp = WebSearchResponse(
         query="hello",
-        source=SourceType.WEB_DUCKDUCKGO,
+        source="duckduckgo",
         results=[
             WebSearchResult(
-                source=SourceType.WEB_DUCKDUCKGO,
+                source="duckduckgo",
                 title="Hello",
                 url="https://hello.com",
                 snippet="world",

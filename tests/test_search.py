@@ -13,7 +13,7 @@ import asyncio
 import importlib
 from contextlib import AsyncExitStack, asynccontextmanager
 
-from souwen.models import SearchResponse, SourceType
+from souwen.models import SearchResponse, WaybackCDXResponse
 from souwen.registry.adapter import MethodSpec, SourceAdapter
 
 
@@ -61,12 +61,8 @@ async def test_search_papers_skips_timed_out_source(monkeypatch):
     """慢论文源超时时不应阻塞整体结果。"""
     search_mod = importlib.import_module("souwen.search")
 
-    fast_resp = SearchResponse(
-        query="test", source=SourceType.OPENALEX, results=[], total_results=0
-    )
-    slow_resp = SearchResponse(
-        query="test", source=SourceType.CROSSREF, results=[], total_results=0
-    )
+    fast_resp = SearchResponse(query="test", source="openalex", results=[], total_results=0)
+    slow_resp = SearchResponse(query="test", source="crossref", results=[], total_results=0)
     FastClient = _make_fake_client(fast_resp, delay=0.0)
     SlowClient = _make_fake_client(slow_resp, delay=0.05)
 
@@ -100,17 +96,15 @@ async def test_search_papers_skips_timed_out_source(monkeypatch):
         )
 
     assert len(resp) == 1
-    assert resp[0].source == SourceType.OPENALEX
+    assert resp[0].source == "openalex"
 
 
 async def test_search_patents_skips_timed_out_source(monkeypatch):
     """慢专利源超时时不应阻塞整体结果。"""
     search_mod = importlib.import_module("souwen.search")
 
-    fast_resp = SearchResponse(
-        query="test", source=SourceType.PATENTSVIEW, results=[], total_results=0
-    )
-    slow_resp = SearchResponse(query="test", source=SourceType.PQAI, results=[], total_results=0)
+    fast_resp = SearchResponse(query="test", source="patentsview", results=[], total_results=0)
+    slow_resp = SearchResponse(query="test", source="pqai", results=[], total_results=0)
     FastClient = _make_fake_client(fast_resp, delay=0.0)
     SlowClient = _make_fake_client(slow_resp, delay=0.05)
 
@@ -144,7 +138,319 @@ async def test_search_patents_skips_timed_out_source(monkeypatch):
         )
 
     assert len(resp) == 1
-    assert resp[0].source == SourceType.PATENTSVIEW
+    assert resp[0].source == "patentsview"
+
+
+async def test_search_dispatches_with_resolved_adapters(monkeypatch):
+    """顶层 ``search()`` 应按 domain/capability 选择 adapter 并执行。"""
+    search_mod = importlib.import_module("souwen.search")
+    captured = {}
+    sentinel_adapter = object()
+
+    def fake_select(domain, capability, sources):
+        captured["select"] = (domain, capability, sources)
+        return [sentinel_adapter]
+
+    async def fake_execute(domain, query, adapters, limit, capability, **kwargs):
+        captured["execute"] = {
+            "domain": domain,
+            "query": query,
+            "adapters": adapters,
+            "limit": limit,
+            "capability": capability,
+            "kwargs": kwargs,
+        }
+        return [SearchResponse(query=query, source="openalex", results=[])]
+
+    monkeypatch.setattr(search_mod, "_select_adapters", fake_select)
+    monkeypatch.setattr(search_mod, "_execute_search", fake_execute)
+
+    out = await search_mod.search(
+        "transformers",
+        domain="paper",
+        capability="search",
+        sources=["openalex"],
+        limit=7,
+        extra_flag=True,
+    )
+
+    assert len(out) == 1
+    assert captured["select"] == ("paper", "search", ["openalex"])
+    assert captured["execute"]["domain"] == "paper"
+    assert captured["execute"]["adapters"] == [sentinel_adapter]
+    assert captured["execute"]["limit"] == 7
+    assert captured["execute"]["capability"] == "search"
+    assert captured["execute"]["kwargs"] == {"extra_flag": True}
+
+
+async def test_search_papers_targets_paper_domain(monkeypatch):
+    """``search_papers()`` 只负责把参数映射到顶层 ``search()``。"""
+    search_mod = importlib.import_module("souwen.search")
+    captured = {}
+
+    async def fake_search(query, domain="paper", capability="search", sources=None, limit=10, **kw):
+        captured["args"] = (query, domain, capability, sources, limit, kw)
+        return []
+
+    monkeypatch.setattr(search_mod, "search", fake_search)
+    await search_mod.search_papers("LLM", sources=["openalex"], per_page=5, lang="zh")
+
+    assert captured["args"] == (
+        "LLM",
+        "paper",
+        "search",
+        ["openalex"],
+        5,
+        {"lang": "zh"},
+    )
+
+
+async def test_search_patents_targets_patent_domain(monkeypatch):
+    """``search_patents()`` 只负责把参数映射到顶层 ``search()``。"""
+    search_mod = importlib.import_module("souwen.search")
+    captured = {}
+
+    async def fake_search(query, domain="paper", capability="search", sources=None, limit=10, **kw):
+        captured["args"] = (query, domain, capability, sources, limit, kw)
+        return []
+
+    monkeypatch.setattr(search_mod, "search", fake_search)
+    await search_mod.search_patents("battery", sources=["google_patents"], per_page=3)
+
+    assert captured["args"] == (
+        "battery",
+        "patent",
+        "search",
+        ["google_patents"],
+        3,
+        {},
+    )
+
+
+async def test_search_by_capability_uses_capability_view(monkeypatch):
+    """``search_by_capability()`` 应直接使用 registry capability 视图。"""
+    search_mod = importlib.import_module("souwen.search")
+    captured = {}
+    sentinel_adapter = object()
+
+    monkeypatch.setattr(search_mod, "by_capability", lambda capability: [sentinel_adapter])
+
+    async def fake_execute(domain, query, adapters, limit, capability, **kwargs):
+        captured["execute"] = (domain, query, adapters, limit, capability, kwargs)
+        return []
+
+    monkeypatch.setattr(search_mod, "_execute_search", fake_execute)
+
+    await search_mod.search_by_capability("q", "search_news", limit=4, region="cn")
+
+    assert captured["execute"] == (
+        "*",
+        "q",
+        [sentinel_adapter],
+        4,
+        "search_news",
+        {"region": "cn"},
+    )
+
+
+async def test_search_news_uses_registry_default(monkeypatch):
+    """README 示例里的 web/search_news 无 sources 调用应有默认源。"""
+    search_mod = importlib.import_module("souwen.search")
+    captured = {}
+
+    async def fake_execute(domain, query, adapters, limit, capability, **kwargs):
+        captured["execute"] = (domain, query, [a.name for a in adapters], limit, capability, kwargs)
+        return []
+
+    monkeypatch.setattr(search_mod, "_execute_search", fake_execute)
+
+    await search_mod.search("AI news", domain="web", capability="search_news", limit=4)
+
+    assert captured["execute"] == (
+        "web",
+        "AI news",
+        ["duckduckgo_news"],
+        4,
+        "search_news",
+        {},
+    )
+
+
+async def test_archive_lookup_maps_query_to_url_and_keeps_non_search_response():
+    """``archive:archive_lookup`` 不能收到 search 专用的 ``query`` 参数。"""
+    search_mod = importlib.import_module("souwen.search")
+    calls = []
+
+    class FakeArchiveClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def query_snapshots(self, url: str, limit: int | None = None, from_date=None):
+            calls.append({"url": url, "limit": limit, "from_date": from_date})
+            return WaybackCDXResponse(url=url, total=0, from_date=from_date)
+
+    adapter = SourceAdapter(
+        name="fake_archive_lookup",
+        domain="archive",
+        integration="open_api",
+        description="",
+        config_field=None,
+        client_loader=lambda: FakeArchiveClient,
+        methods={"archive_lookup": MethodSpec("query_snapshots")},
+    )
+
+    async with _temp_adapter(adapter):
+        resp = await search_mod.search(
+            "https://example.com",
+            domain="archive",
+            capability="archive_lookup",
+            sources=["fake_archive_lookup"],
+            limit=3,
+            from_date="20240101",
+        )
+
+    assert calls == [
+        {
+            "url": "https://example.com",
+            "limit": 3,
+            "from_date": "20240101",
+        }
+    ]
+    assert len(resp) == 1
+    assert isinstance(resp[0], WaybackCDXResponse)
+    assert resp[0].url == "https://example.com"
+
+
+async def test_get_trending_does_not_receive_query_argument():
+    """``video:get_trending`` 是无 query 能力，只应收到 limit 映射后的参数。"""
+    search_mod = importlib.import_module("souwen.search")
+    calls = []
+
+    class FakeTrendingClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def get_trending(self, region_code: str = "US", max_results: int = 10):
+            calls.append({"region_code": region_code, "max_results": max_results})
+            return SearchResponse(query=f"trending:{region_code}", source="youtube", results=[])
+
+    adapter = SourceAdapter(
+        name="fake_video_trending",
+        domain="video",
+        integration="open_api",
+        description="",
+        config_field=None,
+        client_loader=lambda: FakeTrendingClient,
+        methods={"get_trending": MethodSpec("get_trending", {"limit": "max_results"})},
+    )
+
+    async with _temp_adapter(adapter):
+        resp = await search_mod.search(
+            "ignored",
+            domain="video",
+            capability="get_trending",
+            sources=["fake_video_trending"],
+            limit=5,
+            region_code="JP",
+        )
+
+    assert calls == [{"region_code": "JP", "max_results": 5}]
+    assert len(resp) == 1
+    assert resp[0].source == "youtube"
+
+
+async def test_fetch_capability_uses_target_signature_for_query_and_limit():
+    """``fetch`` provider 需要 ``urls`` 时，应把 query 包成列表且不硬塞 limit。"""
+    search_mod = importlib.import_module("souwen.search")
+    calls = []
+
+    class FakeBatchFetchClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def fetch_batch(self, urls: list[str]):
+            calls.append({"urls": urls})
+            return {"provider": "fake_batch_fetch", "urls": urls}
+
+    adapter = SourceAdapter(
+        name="fake_batch_fetch",
+        domain="fetch",
+        integration="open_api",
+        description="",
+        config_field=None,
+        client_loader=lambda: FakeBatchFetchClient,
+        methods={"fetch": MethodSpec("fetch_batch")},
+    )
+
+    async with _temp_adapter(adapter):
+        resp = await search_mod.search(
+            "https://example.com",
+            domain="fetch",
+            capability="fetch",
+            sources=["fake_batch_fetch"],
+            limit=99,
+        )
+
+    assert calls == [{"urls": ["https://example.com"]}]
+    assert resp == [{"provider": "fake_batch_fetch", "urls": ["https://example.com"]}]
+
+
+async def test_search_all_groups_domain_results(monkeypatch):
+    """``search_all()`` 应并发调用顶层 ``search`` 并按 domain 分组。"""
+    search_mod = importlib.import_module("souwen.search")
+    calls = []
+
+    async def fake_search(query, domain="paper", **kwargs):
+        calls.append((query, domain, kwargs))
+        return [SearchResponse(query=query, source="openalex", results=[])]
+
+    monkeypatch.setattr(search_mod, "search", fake_search)
+
+    out = await search_mod.search_all("agent", domains=["paper", "web"], per_domain_limit=2)
+
+    assert sorted(out) == ["paper", "web"]
+    assert calls == [
+        ("agent", "paper", {"limit": 2}),
+        ("agent", "web", {"limit": 2}),
+    ]
+
+
+async def test_search_all_accepts_limit_alias(monkeypatch):
+    """兼容公开示例中使用的 ``limit`` 别名，避免被 **kwargs 重复传参吞空。"""
+    search_mod = importlib.import_module("souwen.search")
+    calls = []
+
+    async def fake_search(query, domain="paper", **kwargs):
+        calls.append((query, domain, kwargs))
+        return [SearchResponse(query=query, source="openalex", results=[])]
+
+    monkeypatch.setattr(search_mod, "search", fake_search)
+
+    out = await search_mod.search_all("agent", domains=["paper"], limit=3)
+
+    assert sorted(out) == ["paper"]
+    assert calls == [("agent", "paper", {"limit": 3})]
+
+
+async def test_search_all_rejects_conflicting_limit_alias():
+    """两个限制参数同时传且值不同应显式失败。"""
+    search_mod = importlib.import_module("souwen.search")
+
+    try:
+        await search_mod.search_all("agent", domains=["paper"], per_domain_limit=2, limit=3)
+    except ValueError as exc:
+        assert "per_domain_limit 和 limit" in str(exc)
+    else:  # pragma: no cover - 失败路径
+        raise AssertionError("search_all() should reject conflicting limits")
 
 
 def test_semaphore_is_per_event_loop():

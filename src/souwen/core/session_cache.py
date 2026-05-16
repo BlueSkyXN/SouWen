@@ -66,7 +66,7 @@ import aiosqlite
 
 from souwen.config import get_config
 
-logger = logging.getLogger("souwen.session_cache")
+logger = logging.getLogger("souwen.core.session_cache")
 
 
 class SessionCache:

@@ -2,7 +2,7 @@
 
 Scrapling 是本地运行的抓取框架，提供普通 HTTP、动态浏览器和 stealth 浏览器三类
 fetcher。这里把它封装成 SouWen 的 fetch provider，使用户可以通过
-``souwen fetch --provider scrapling`` 或 ``fetch_content(..., provider="scrapling")``
+``souwen fetch --provider scrapling`` 或 ``fetch_content(..., providers=["scrapling"])``
 使用，而不会影响现有 ``httpx`` / ``curl_cffi`` 后端。
 """
 
@@ -15,7 +15,7 @@ from typing import Any, Literal
 from urllib.parse import urlparse
 
 from souwen.config import get_config
-from souwen.exceptions import ConfigError
+from souwen.core.exceptions import ConfigError
 from souwen.models import FetchResponse, FetchResult
 
 logger = logging.getLogger("souwen.web.scrapling_fetcher")
@@ -131,7 +131,7 @@ class ScraplingFetcherClient:
             raise ConfigError(
                 "scrapling[fetchers]",
                 "Scrapling",
-                'pip install -e ".[scrapling]" 或 pip install "souwen[scrapling]"，然后执行 scrapling install',
+                'pip install -e ".[scrapling]"，然后执行 scrapling install',
             ) from None
 
         self._async_fetcher = AsyncFetcher

@@ -41,9 +41,9 @@
     - logging: 日志记录
     - typing: 类型注解
     - souwen.config: 获取 API Key 和全局配置
-    - souwen.exceptions: ConfigError, ParseError 异常
-    - souwen.http_client: SouWenHttpClient HTTP 客户端基类
-    - souwen.models: SourceType, WebSearchResult, WebSearchResponse, FetchResult, FetchResponse 数据模型
+    - souwen.core.exceptions: ConfigError, ParseError 异常
+    - souwen.core.http_client: SouWenHttpClient HTTP 客户端基类
+    - souwen.models: str, WebSearchResult, WebSearchResponse, FetchResult, FetchResponse 数据模型
 
 技术要点：
     - API 端点：/v1/search
@@ -59,9 +59,9 @@ import logging
 from typing import Any
 
 from souwen.config import get_config
-from souwen.exceptions import ConfigError
-from souwen.http_client import SouWenHttpClient
-from souwen.models import FetchResponse, FetchResult, SourceType, WebSearchResult, WebSearchResponse
+from souwen.core.exceptions import ConfigError
+from souwen.core.http_client import SouWenHttpClient
+from souwen.models import FetchResponse, FetchResult, WebSearchResult, WebSearchResponse
 
 logger = logging.getLogger("souwen.web.firecrawl")
 
@@ -121,7 +121,7 @@ class FirecrawlClient(SouWenHttpClient):
             # 解析 JSON 响应
             data = resp.json()
         except Exception as e:
-            from souwen.exceptions import ParseError
+            from souwen.core.exceptions import ParseError
 
             raise ParseError(f"Firecrawl 响应解析失败: {e}") from e
 
@@ -143,7 +143,7 @@ class FirecrawlClient(SouWenHttpClient):
                 raw["markdown"] = item["markdown"]  # 清洗后的页面 Markdown
             results.append(
                 WebSearchResult(
-                    source=SourceType.WEB_FIRECRAWL,
+                    source="firecrawl",
                     title=title,
                     url=url,
                     snippet=snippet,
@@ -156,7 +156,7 @@ class FirecrawlClient(SouWenHttpClient):
 
         return WebSearchResponse(
             query=query,
-            source=SourceType.WEB_FIRECRAWL,
+            source="firecrawl",
             results=results,
             total_results=len(results),
         )
@@ -183,7 +183,7 @@ class FirecrawlClient(SouWenHttpClient):
                 # 解析 JSON 响应
                 data = resp.json()
             except Exception as e:
-                from souwen.exceptions import ParseError
+                from souwen.core.exceptions import ParseError
 
                 raise ParseError(f"Firecrawl Scrape 响应解析失败: {e}") from e
 

@@ -6,14 +6,14 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from souwen.llm.models import LLMResponse, LLMUsage
-from souwen.models import Author, PaperResult, SearchResponse, SourceType
+from souwen.models import Author, PaperResult, SearchResponse
 
 summarize_module = importlib.import_module("souwen.llm.summarize")
 
 
 def _paper(idx: int = 1, abstract: str = "This is a test abstract") -> PaperResult:
     return PaperResult(
-        source=SourceType.OPENALEX,
+        source="openalex",
         title=f"Test Paper {idx}",
         authors=[Author(name="John Doe")],
         abstract=abstract,
@@ -25,7 +25,7 @@ def _paper(idx: int = 1, abstract: str = "This is a test abstract") -> PaperResu
 
 def _response(results: list[PaperResult]) -> SearchResponse:
     return SearchResponse(
-        source=SourceType.OPENALEX,
+        source="openalex",
         query="test",
         total_results=len(results),
         results=results,

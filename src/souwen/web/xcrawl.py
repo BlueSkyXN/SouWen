@@ -8,9 +8,9 @@ import logging
 from typing import Any, Literal
 
 from souwen.config import get_config
-from souwen.exceptions import ConfigError, ParseError
-from souwen.http_client import SouWenHttpClient
-from souwen.models import FetchResponse, FetchResult, SourceType, WebSearchResponse, WebSearchResult
+from souwen.core.exceptions import ConfigError, ParseError
+from souwen.core.http_client import SouWenHttpClient
+from souwen.models import FetchResponse, FetchResult, WebSearchResponse, WebSearchResult
 
 logger = logging.getLogger("souwen.web.xcrawl")
 
@@ -87,7 +87,7 @@ class XCrawlClient(SouWenHttpClient):
             ).strip()
             results.append(
                 WebSearchResult(
-                    source=SourceType.WEB_XCRAWL,
+                    source="xcrawl",
                     title=title,
                     url=url,
                     snippet=snippet,
@@ -105,7 +105,7 @@ class XCrawlClient(SouWenHttpClient):
         logger.info("XCrawl 返回 %d 条结果 (query=%s)", len(results), query)
         return WebSearchResponse(
             query=query,
-            source=SourceType.WEB_XCRAWL,
+            source="xcrawl",
             results=results,
             total_results=len(results),
         )

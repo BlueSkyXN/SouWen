@@ -49,14 +49,15 @@ export function categoryBadgeColor(category: string): BadgeColor {
   switch (category) {
     case 'paper': return 'blue'
     case 'patent': return 'amber'
-    case 'general': return 'green'
-    case 'professional': return 'indigo'
+    case 'web_general': return 'green'
+    case 'web_professional': return 'indigo'
     case 'social': return 'amber'
     case 'office': return 'teal'
     case 'developer': return 'green'
-    case 'wiki': return 'blue'
+    case 'knowledge': return 'blue'
     case 'cn_tech': return 'teal'
     case 'video': return 'red'
+    case 'archive': return 'amber'
     case 'fetch': return 'amber'
     default: return 'blue'
   }

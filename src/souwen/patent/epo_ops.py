@@ -57,9 +57,9 @@
 
 模块依赖：
     - defusedxml: 安全的 XML 解析（防止 XXE 攻击）
-    - souwen.http_client: OAuth 连接管理
+    - souwen.core.http_client: OAuth 连接管理
     - souwen.models: 统一数据模型
-    - souwen.rate_limiter: 限流控制
+    - souwen.core.rate_limiter: 限流控制
 """
 
 from __future__ import annotations
@@ -70,10 +70,10 @@ from typing import Any
 import defusedxml.ElementTree as ET
 
 from souwen.config import get_config
-from souwen.exceptions import ConfigError, NotFoundError, ParseError
-from souwen.http_client import OAuthClient
-from souwen.models import Applicant, PatentResult, SearchResponse, SourceType
-from souwen.rate_limiter import TokenBucketLimiter
+from souwen.core.exceptions import ConfigError, NotFoundError, ParseError
+from souwen.core.http_client import OAuthClient
+from souwen.models import Applicant, PatentResult, SearchResponse
+from souwen.core.rate_limiter import TokenBucketLimiter
 
 logger = logging.getLogger(__name__)
 
@@ -172,7 +172,7 @@ class EpoOpsClient:
         per_page = max(range_end - range_begin + 1, 1)
         return SearchResponse(
             query=cql_query,
-            source=SourceType.EPO_OPS,
+            source="epo_ops",
             total_results=total,
             results=patents,
             page=(range_begin - 1) // per_page + 1,
@@ -357,7 +357,7 @@ class EpoOpsClient:
             return self._exchange_doc_to_result(doc)
         # 如果没有 exchange-document 节点，返回最小结果
         return PatentResult(
-            source=SourceType.EPO_OPS,
+            source="epo_ops",
             title="",
             patent_id=fallback_id,
             source_url=f"https://worldwide.espacenet.com/patent/search?q={fallback_id}",
@@ -453,7 +453,7 @@ class EpoOpsClient:
                 break
 
         return PatentResult(
-            source=SourceType.EPO_OPS,
+            source="epo_ops",
             title=title,
             patent_id=patent_id,
             publication_date=pub_date,

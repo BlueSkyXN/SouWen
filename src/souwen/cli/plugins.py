@@ -69,6 +69,34 @@ dev = ["pytest>=8"]
 [tool.setuptools.packages.find]
 include = ["{name}*"]
 """,
+        Path("souwen-plugin.json"): f"""{{
+  "$schema": "https://github.com/BlueSkyXN/SouWen/blob/v2-dev/docs/plugin-manifest.schema.json",
+  "schema_version": 1,
+  "name": "{name}",
+  "entry_point": "{name}:plugin",
+  "version": "0.1.0",
+  "api_version": "1",
+  "description": "SouWen plugin: {name}",
+  "adapters": [
+    {{
+      "name": "{name}",
+      "domain": "fetch",
+      "integration": "scraper",
+      "description": "TODO: describe the {name} fetch provider",
+      "config_field": null,
+      "methods": ["fetch"],
+      "needs_config": false,
+      "auth_requirement": "none",
+      "default_enabled": false,
+      "tags": ["external_plugin"],
+      "risk_level": "low",
+      "distribution": "plugin",
+      "stability": "stable",
+      "catalog_visibility": "public"
+    }}
+  ]
+}}
+""",
         Path(name) / "__init__.py": f'''"""SouWen plugin scaffold for {name}."""
 
 from __future__ import annotations
@@ -194,6 +222,12 @@ SouWen plugin scaffold for `{name}`.
 ```bash
 python -m pip install -e ".[dev]"
 pytest
+```
+
+Optional metadata manifest validation from a SouWen source checkout:
+
+```bash
+python tools/validate_plugin_manifest.py /path/to/{name}/souwen-plugin.json
 ```
 
 ## Register with SouWen

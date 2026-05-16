@@ -116,12 +116,12 @@ general:
 
 # ===== 服务 =====
 server:
-  # 旧版统一密码（同时作用于访客和管理端点，向后兼容）
-  api_password: ~
-  # 访客密码（仅保护搜索端点，优先于 api_password）
-  visitor_password: ~
-  # 管理密码（仅保护管理端点，优先于 api_password）
+  # 用户密码（保护搜索和 /sources）
+  user_password: ~
+  # 管理密码（保护管理端点）
   admin_password: ~
+  # 是否启用游客访问（无 Token 也可访问搜索端点）
+  guest_enabled: false
 """
 
     dest = Path("souwen.yaml")
@@ -230,7 +230,7 @@ def config_source(
 ) -> None:
     """查看/修改数据源频道配置"""
     from souwen.config import SourceChannelConfig, get_config
-    from souwen.source_registry import (
+    from souwen.registry.meta import (
         AUTH_REQUIREMENT_LABELS,
         DISTRIBUTION_LABELS,
         RISK_LEVEL_LABELS,
@@ -325,7 +325,7 @@ def config_source(
         console.print("[yellow]⚠ 运行时修改仅当前进程有效。如需持久化请修改 souwen.yaml[/yellow]")
 
     # 显示当前配置
-    from souwen.source_registry import get_source
+    from souwen.registry.meta import get_source
 
     meta = get_source(name)
     console.print(f"\n[bold]{name}[/bold] ({meta.description})")

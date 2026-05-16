@@ -54,14 +54,15 @@ const CATEGORY_LABELS = SOURCE_CATEGORY_LABEL_KEYS
 const CATEGORY_ICONS: Record<SourceCategory, typeof FileText> = {
   paper: FileText,
   patent: Shield,
-  general: Globe,
-  professional: Globe,
+  web_general: Globe,
+  web_professional: Globe,
   social: Globe,
   office: Globe,
   developer: Globe,
-  wiki: Globe,
+  knowledge: Globe,
   cn_tech: Globe,
   video: Globe,
+  archive: Globe,
   fetch: Globe,
 }
 

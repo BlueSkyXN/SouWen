@@ -55,7 +55,7 @@
     - souwen.config：配置管理
     - souwen.server.middleware：请求 ID 和日志中间件
     - souwen.server.routes：API 路由
-    - souwen.session_cache：会话缓存
+    - souwen.core.session_cache：会话缓存
     - souwen.logging_config：日志配置
 """
 
@@ -83,7 +83,7 @@ from starlette.middleware.gzip import GZipMiddleware
 from souwen import __version__
 from souwen.config import ensure_config_file, get_config
 from souwen.logging_config import setup_logging
-from souwen.plugin import get_loaded_plugins
+from souwen.plugin import ensure_plugins_loaded, get_loaded_plugins
 from souwen.server.auth import is_admin_open_enabled
 from souwen.server.middleware import RequestIDMiddleware, get_request_id
 from souwen.server.routes import router, admin_router
@@ -129,6 +129,13 @@ async def _call_plugin_lifecycle_hooks(hook_name: str) -> None:
             _current_plugin_owner.reset(token)
 
 
+def _bootstrap_plugins(cfg) -> None:
+    """Load runtime plugins before server lifecycle hooks run."""
+    result = ensure_plugins_loaded(cfg)
+    if result.errors:
+        logger.warning("Server 插件加载完成，错误 %d 个", len(result.errors))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """FastAPI 应用生命周期管理（启动和关闭 hooks）
@@ -150,6 +157,7 @@ async def lifespan(app: FastAPI):
     if path:
         logger.info("配置文件: %s", path)
     cfg = get_config()
+    _bootstrap_plugins(cfg)
     admin_pw = cfg.effective_admin_password
     user_pw = cfg.effective_user_password
     auth_parts = []
@@ -223,7 +231,7 @@ async def lifespan(app: FastAPI):
 
     # 关闭会话缓存的 aiosqlite 连接
     try:
-        from souwen.session_cache import get_session_cache
+        from souwen.core.session_cache import get_session_cache
 
         await get_session_cache().aclose()
     except Exception:
@@ -409,7 +417,7 @@ async def readiness():
     """
     try:
         get_config()
-        from souwen.source_registry import get_all_sources
+        from souwen.registry.meta import get_all_sources
 
         sources = get_all_sources()
         if not sources:

@@ -44,9 +44,9 @@
     - logging: 日志记录
     - typing: 类型注解
     - souwen.config: 获取 API Key 和全局配置
-    - souwen.exceptions: ConfigError, ParseError 异常
-    - souwen.http_client: SouWenHttpClient HTTP 客户端基类
-    - souwen.models: SourceType, WebSearchResult, WebSearchResponse 数据模型
+    - souwen.core.exceptions: ConfigError, ParseError 异常
+    - souwen.core.http_client: SouWenHttpClient HTTP 客户端基类
+    - souwen.models: str, WebSearchResult, WebSearchResponse 数据模型
 
 技术要点：
     - API 端点：/search（语义搜索）、/findSimilar（相似链接搜索）、/contents（内容提取）
@@ -62,9 +62,9 @@ import logging
 from typing import Any
 
 from souwen.config import get_config
-from souwen.exceptions import ConfigError
-from souwen.http_client import SouWenHttpClient
-from souwen.models import SourceType, WebSearchResult, WebSearchResponse, FetchResult, FetchResponse
+from souwen.core.exceptions import ConfigError
+from souwen.core.http_client import SouWenHttpClient
+from souwen.models import WebSearchResult, WebSearchResponse, FetchResult, FetchResponse
 
 logger = logging.getLogger("souwen.web.exa")
 
@@ -141,7 +141,7 @@ class ExaClient(SouWenHttpClient):
             # 解析 JSON 响应
             data = resp.json()
         except Exception as e:
-            from souwen.exceptions import ParseError
+            from souwen.core.exceptions import ParseError
 
             raise ParseError(f"Exa 响应解析失败: {e}") from e
 
@@ -165,7 +165,7 @@ class ExaClient(SouWenHttpClient):
                 raw["author"] = item["author"]  # 作者
             results.append(
                 WebSearchResult(
-                    source=SourceType.WEB_EXA,
+                    source="exa",
                     title=title,
                     url=url,
                     snippet=snippet,
@@ -178,7 +178,7 @@ class ExaClient(SouWenHttpClient):
 
         return WebSearchResponse(
             query=query,
-            source=SourceType.WEB_EXA,
+            source="exa",
             results=results,
             total_results=len(results),
         )
@@ -217,7 +217,7 @@ class ExaClient(SouWenHttpClient):
             # 解析 JSON 响应
             data = resp.json()
         except Exception as e:
-            from souwen.exceptions import ParseError
+            from souwen.core.exceptions import ParseError
 
             raise ParseError(f"Exa find_similar 响应解析失败: {e}") from e
 
@@ -233,7 +233,7 @@ class ExaClient(SouWenHttpClient):
             snippet = item.get("text", "").strip()[:500] if item.get("text") else ""
             results.append(
                 WebSearchResult(
-                    source=SourceType.WEB_EXA,
+                    source="exa",
                     title=title,
                     url=result_url,
                     snippet=snippet,
@@ -245,7 +245,7 @@ class ExaClient(SouWenHttpClient):
         # 返回相似页面搜索的响应
         return WebSearchResponse(
             query=f"similar:{url}",  # 标记为相似查询
-            source=SourceType.WEB_EXA,
+            source="exa",
             results=results,
             total_results=len(results),
         )
@@ -275,7 +275,7 @@ class ExaClient(SouWenHttpClient):
             try:
                 data = resp.json()
             except Exception as e:
-                from souwen.exceptions import ParseError
+                from souwen.core.exceptions import ParseError
 
                 raise ParseError(f"Exa Contents 响应解析失败: {e}") from e
 

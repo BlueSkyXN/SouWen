@@ -28,9 +28,9 @@ import importlib
 import inspect
 import logging
 import os
+import threading
 from collections.abc import Awaitable, Callable, Iterable
-from dataclasses import dataclass, field
-from dataclasses import asdict, is_dataclass
+from dataclasses import asdict, dataclass, field, is_dataclass
 from importlib import metadata
 from typing import TYPE_CHECKING, Any
 
@@ -87,6 +87,26 @@ class Plugin:
 
 #: 已加载的 Plugin 对象存储（plugin.name → Plugin）
 _PLUGINS: dict[str, Plugin] = {}
+_PLUGIN_LOAD_LOCK = threading.RLock()
+
+
+@dataclass(frozen=True, slots=True)
+class PluginLoadError:
+    """插件加载错误的稳定公共视图。"""
+
+    source: str
+    name: str
+    error: str
+
+
+@dataclass(frozen=True, slots=True)
+class PluginLoadResult:
+    """显式插件 bootstrap 的可观测结果。"""
+
+    loaded_plugins: tuple[str, ...]
+    loaded_adapters: tuple[str, ...]
+    skipped: tuple[str, ...]
+    errors: tuple[PluginLoadError, ...]
 
 
 def _coerce_to_adapters(obj: Any) -> list[SourceAdapter]:
@@ -245,8 +265,8 @@ def _inject_plugin_config(
 def _inject_config_into_loaded_plugins(config: SouWenConfig) -> list[str]:
     """Retroactively inject plugin_config into already-loaded entry-point plugins.
 
-    Called after config is available to bridge the gap between early plugin loading
-    (in ``registry/__init__``) and late config availability.
+    Called after config is available to bridge explicit plugin loading that may
+    have happened before the caller had a ``SouWenConfig`` object.
 
     Returns list of plugin names that received config.
     """
@@ -498,6 +518,56 @@ def get_loaded_plugins() -> dict[str, Plugin]:
     return dict(_PLUGINS)
 
 
+def _plugin_load_error_from_dict(raw: dict[str, str]) -> PluginLoadError:
+    return PluginLoadError(
+        source=str(raw.get("source", "")),
+        name=str(raw.get("name", "")),
+        error=str(raw.get("error", "")),
+    )
+
+
+def _collect_plugin_skip_names(*, include_loaded: bool) -> tuple[set[str], list[str]]:
+    """Collect disabled/denylisted plugin names for one load attempt.
+
+    ``include_loaded`` is used by the explicit bootstrap path so repeated calls
+    can skip already loaded entry points before ``ep.load()`` runs.
+    """
+    skip_names: set[str] = set()
+    skipped: list[str] = []
+
+    if include_loaded and _PLUGINS:
+        loaded_plugin_names = sorted(_PLUGINS)
+        skip_names.update(loaded_plugin_names)
+        skipped.extend(loaded_plugin_names)
+
+    try:
+        from souwen.plugin_manager import _load_state
+
+        disabled = {
+            name
+            for name in _load_state().get("disabled_plugins", [])
+            if isinstance(name, str) and name.strip()
+        }
+        if disabled:
+            skip_names.update(disabled)
+            skipped.extend(sorted(disabled))
+            logger.info("插件禁用列表: %s", ", ".join(sorted(disabled)))
+    except Exception as exc:  # noqa: BLE001
+        logger.warning("读取插件禁用列表失败，将加载所有未显式跳过的插件: %s", exc)
+
+    denylist = {
+        name.strip()
+        for name in os.environ.get("SOUWEN_PLUGIN_DENYLIST", "").split(",")
+        if name.strip()
+    }
+    if denylist:
+        skip_names.update(denylist)
+        skipped.extend(sorted(denylist))
+        logger.info("插件环境拒绝列表: %s", ", ".join(sorted(denylist)))
+
+    return skip_names, sorted(set(skipped))
+
+
 def _resolve_dotted_path(path: str) -> Any:
     """解析 `"module.path:attribute"` 字符串为 Python 对象。"""
     if ":" not in path:
@@ -541,6 +611,7 @@ def discover_entrypoint_plugins(
         candidates = list(eps.select(group=group))
     else:  # pragma: no cover — 兼容老接口
         candidates = list(eps.get(group, []))  # type: ignore[union-attr]
+    candidates.sort(key=lambda ep: getattr(ep, "name", ""))
 
     for ep in candidates:
         ep_name = getattr(ep, "name", "<unknown>")
@@ -704,42 +775,14 @@ def load_config_plugins(
     return loaded, errors
 
 
-def load_plugins(config: SouWenConfig | None = None) -> dict[str, Any]:
-    """加载所有插件（entry points + 配置文件指定）。
-
-    这是面向 `souwen.registry` 的统一入口，应该在内置源注册完成后调用。
-    自动读取插件禁用列表，跳过已禁用的插件。
-
-    Args:
-        config: 可选的 `SouWenConfig`。提供则会读取其 `plugins` 字段。
-            为 None 时只做 entry points 发现，避免在 registry 初始化期间
-            循环导入 config 模块。
-
-    Returns:
-        ``{"loaded": [...名称], "errors": [...]}``。即使全部失败也不抛异常。
-    """
+def _load_plugins_with_skip(
+    config: SouWenConfig | None,
+    *,
+    skip_names: set[str],
+) -> dict[str, Any]:
+    """Load plugins using caller-provided skip names."""
     all_loaded: list[str] = []
     all_errors: list[dict[str, str]] = []
-
-    # 读取插件禁用列表（函数级 import 避免循环依赖）
-    skip_names: set[str] = set()
-    try:
-        from souwen.plugin_manager import _load_state
-
-        skip_names = set(_load_state().get("disabled_plugins", []))
-        if skip_names:
-            logger.info("插件禁用列表: %s", ", ".join(sorted(skip_names)))
-    except Exception as exc:  # noqa: BLE001
-        logger.warning("读取插件禁用列表失败，将加载所有插件: %s", exc)
-
-    denylist = {
-        name.strip()
-        for name in os.environ.get("SOUWEN_PLUGIN_DENYLIST", "").split(",")
-        if name.strip()
-    }
-    if denylist:
-        skip_names.update(denylist)
-        logger.info("插件环境拒绝列表: %s", ", ".join(sorted(denylist)))
 
     autoload = os.environ.get("SOUWEN_PLUGIN_AUTOLOAD", "1").lower()
     if autoload in {"0", "false"}:
@@ -778,12 +821,57 @@ def load_plugins(config: SouWenConfig | None = None) -> dict[str, Any]:
     return {"loaded": all_loaded, "errors": all_errors}
 
 
+def load_plugins(config: SouWenConfig | None = None) -> dict[str, Any]:
+    """加载所有插件（entry points + 配置文件指定）。
+
+    这是保留的低层兼容入口。新启动路径应优先使用
+    :func:`ensure_plugins_loaded`，以获得幂等保护和结构化结果。
+
+    Args:
+        config: 可选的 `SouWenConfig`。提供则会读取其 `plugins` 字段。
+
+    Returns:
+        ``{"loaded": [...名称], "errors": [...]}``。即使全部失败也不抛异常。
+    """
+    skip_names, _skipped = _collect_plugin_skip_names(include_loaded=False)
+    return _load_plugins_with_skip(config, skip_names=skip_names)
+
+
+def ensure_plugins_loaded(config: SouWenConfig | None = None) -> PluginLoadResult:
+    """显式加载运行时插件，并保证重复调用不会重复执行已加载插件入口。
+
+    该函数是 CLI、server 和需要插件能力的 library 用户的公共 bootstrap
+    入口。它尊重 ``SOUWEN_PLUGIN_AUTOLOAD=0``，此时不会扫描 entry points，
+    但仍允许 ``config.plugins`` 中显式列出的配置插件加载。
+    """
+    with _PLUGIN_LOAD_LOCK:
+        before_plugins = set(_PLUGINS)
+        skip_names, skipped = _collect_plugin_skip_names(include_loaded=True)
+        raw_result = _load_plugins_with_skip(config, skip_names=skip_names)
+        loaded_plugins = tuple(name for name in sorted(_PLUGINS) if name not in before_plugins)
+        loaded_adapters = tuple(str(name) for name in raw_result.get("loaded", []))
+        errors = tuple(
+            _plugin_load_error_from_dict(error)
+            for error in raw_result.get("errors", [])
+            if isinstance(error, dict)
+        )
+        return PluginLoadResult(
+            loaded_plugins=loaded_plugins,
+            loaded_adapters=loaded_adapters,
+            skipped=tuple(skipped),
+            errors=errors,
+        )
+
+
 __all__ = [
     "ENTRY_POINT_GROUP",
     "HealthCheck",
     "LifecycleHook",
     "Plugin",
+    "PluginLoadError",
+    "PluginLoadResult",
     "discover_entrypoint_plugins",
+    "ensure_plugins_loaded",
     "get_loaded_plugins",
     "load_config_plugins",
     "load_plugins",

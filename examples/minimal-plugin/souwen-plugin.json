@@ -1,0 +1,27 @@
+{
+  "$schema": "../../docs/plugin-manifest.schema.json",
+  "schema_version": 1,
+  "name": "example_echo",
+  "entry_point": "souwen_example_plugin:plugin",
+  "version": "0.1.0",
+  "api_version": "1",
+  "description": "SouWen minimal echo plugin example.",
+  "adapters": [
+    {
+      "name": "example_echo",
+      "domain": "fetch",
+      "integration": "scraper",
+      "description": "示例插件：echo 返回原始 URL（仅用于演示插件对接规范）",
+      "config_field": null,
+      "methods": ["fetch"],
+      "needs_config": false,
+      "auth_requirement": "none",
+      "default_enabled": false,
+      "tags": ["external_plugin", "example"],
+      "risk_level": "low",
+      "distribution": "plugin",
+      "stability": "stable",
+      "catalog_visibility": "public"
+    }
+  ]
+}

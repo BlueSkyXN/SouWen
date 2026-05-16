@@ -29,8 +29,8 @@ ENV PORT=7860 \
     PIP_NO_CACHE_DIR=1 \
     TZ=Asia/Shanghai
 
-# 安装基础工具和 Playwright Chromium 运行库（web2pdf/SuperWeb2PDF 插件需要）
-# 以下为 Playwright Chromium 运行所需系统库（web2pdf/SuperWeb2PDF 插件需要）
+# 安装基础工具和 Playwright Chromium 运行库（SuperWeb2PDF 外部插件需要）
+# 以下为 Playwright Chromium 运行所需系统库（SuperWeb2PDF 外部插件需要）
 RUN apt-get update && apt-get install -y --no-install-recommends \
         git ca-certificates curl tzdata \
         libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
@@ -70,7 +70,7 @@ RUN if [ "${WITH_WEB2PDF}" = "1" ]; then \
     fi \
     && python -c "import curl_cffi; print('curl_cffi OK')"
 
-# 安装 Playwright Chromium（仅 web2pdf 插件需要，国内环境可配置下载镜像）
+# 安装 Playwright Chromium（仅 SuperWeb2PDF 外部插件需要，国内环境可配置下载镜像）
 RUN if [ "${WITH_WEB2PDF}" = "1" ]; then \
         if [ -n "${PLAYWRIGHT_DOWNLOAD_HOST}" ]; then \
             PLAYWRIGHT_DOWNLOAD_HOST="${PLAYWRIGHT_DOWNLOAD_HOST}" playwright install chromium; \

@@ -38,9 +38,9 @@
     - logging: 日志记录
     - typing: 类型注解
     - souwen.config: 获取 API Key 和全局配置
-    - souwen.exceptions: ConfigError, ParseError 异常
-    - souwen.http_client: SouWenHttpClient HTTP 客户端基类
-    - souwen.models: SourceType, WebSearchResult, WebSearchResponse,
+    - souwen.core.exceptions: ConfigError, ParseError 异常
+    - souwen.core.http_client: SouWenHttpClient HTTP 客户端基类
+    - souwen.models: str, WebSearchResult, WebSearchResponse,
                     FetchResult, FetchResponse 数据模型
 
 技术要点：
@@ -58,9 +58,9 @@ from typing import Any, Literal
 import httpx
 
 from souwen.config import get_config
-from souwen.exceptions import ConfigError, ParseError, SouWenError
-from souwen.http_client import SouWenHttpClient
-from souwen.models import FetchResponse, FetchResult, SourceType, WebSearchResponse, WebSearchResult
+from souwen.core.exceptions import ConfigError, ParseError, SouWenError
+from souwen.core.http_client import SouWenHttpClient
+from souwen.models import FetchResponse, FetchResult, WebSearchResponse, WebSearchResult
 
 logger = logging.getLogger("souwen.web.metaso")
 
@@ -163,7 +163,7 @@ class MetasoClient(SouWenHttpClient):
 
             results.append(
                 WebSearchResult(
-                    source=SourceType.WEB_METASO,
+                    source="metaso",
                     title=title,
                     url=url,
                     snippet=snippet,
@@ -176,7 +176,7 @@ class MetasoClient(SouWenHttpClient):
 
         return WebSearchResponse(
             query=query,
-            source=SourceType.WEB_METASO,
+            source="metaso",
             results=results,
             total_results=len(results),
         )

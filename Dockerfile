@@ -43,7 +43,7 @@ ENV PYTHONUNBUFFERED=1 \
 # ===== 系统依赖安装 =====
 # 安装 WARP 相关工具：curl、wireguard-tools
 # 安装时区数据、网络工具和 Playwright Chromium 运行库
-# 以下为 Playwright Chromium 运行所需系统库（web2pdf/SuperWeb2PDF 插件需要）
+# 以下为 Playwright Chromium 运行所需系统库（SuperWeb2PDF 外部插件需要）
 RUN apt-get update && apt-get install -y --no-install-recommends \
         curl tzdata wireguard-tools iptables iproute2 \
         libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
@@ -99,7 +99,7 @@ COPY --from=panel-builder /panel/dist/index.html ./src/souwen/server/panel.html
 RUN pip install --no-deps ".[server,tls]" \
     && python -c "import curl_cffi; print('curl_cffi OK')"
 
-# 步骤 2.5：安装 Playwright Chromium（仅 web2pdf 插件需要）
+# 步骤 2.5：安装 Playwright Chromium（仅 SuperWeb2PDF 外部插件需要）
 RUN if [ "${WITH_WEB2PDF}" = "1" ]; then \
         playwright install chromium \
         && echo "✅ Playwright Chromium installed"; \

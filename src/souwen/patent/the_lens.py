@@ -46,8 +46,8 @@
     - httpx: HTTP 异步客户端
     - souwen.config: 配置管理（读取 API 令牌）
     - souwen.models: 统一数据模型
-    - souwen.rate_limiter: 限流控制（支持动态更新）
-    - souwen.exceptions: 异常类（RateLimitError）
+    - souwen.core.rate_limiter: 限流控制（支持动态更新）
+    - souwen.core.exceptions: 异常类（RateLimitError）
 """
 
 from __future__ import annotations
@@ -58,10 +58,10 @@ from typing import Any
 
 import httpx
 from souwen.config import get_config
-from souwen.exceptions import ConfigError, NotFoundError, ParseError, RateLimitError
-from souwen.http_client import SouWenHttpClient
-from souwen.models import Applicant, PatentResult, SearchResponse, SourceType
-from souwen.rate_limiter import SlidingWindowLimiter
+from souwen.core.exceptions import ConfigError, NotFoundError, ParseError, RateLimitError
+from souwen.core.http_client import SouWenHttpClient
+from souwen.models import Applicant, PatentResult, SearchResponse
+from souwen.core.rate_limiter import SlidingWindowLimiter
 
 logger = logging.getLogger(__name__)
 
@@ -150,7 +150,7 @@ class TheLensClient:
         patents = [self._to_patent_result(item) for item in data.get("data", [])]
         return SearchResponse(
             query=str(query),
-            source=SourceType.THE_LENS,
+            source="the_lens",
             total_results=data.get("total"),
             results=patents,
             page=(offset // size) + 1 if size else 1,
@@ -337,7 +337,7 @@ class TheLensClient:
                 cpc_codes.append(code)
 
         return PatentResult(
-            source=SourceType.THE_LENS,
+            source="the_lens",
             title=raw.get("title", ""),
             patent_id=patent_id,
             application_number=raw.get("application_number"),

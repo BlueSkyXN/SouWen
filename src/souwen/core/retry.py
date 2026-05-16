@@ -57,7 +57,7 @@
 
 自定义重试例子：
 
-    from souwen.retry import make_retry
+    from souwen.core.retry import make_retry
     my_retry = make_retry(attempts=4, retry_on=(MyError, httpx.ReadError))
 
     @my_retry
@@ -81,9 +81,9 @@ from tenacity import (
     wait_exponential,
 )
 
-from souwen.exceptions import RateLimitError, SourceUnavailableError
+from souwen.core.exceptions import RateLimitError, SourceUnavailableError
 
-logger = logging.getLogger("souwen.retry")
+logger = logging.getLogger("souwen.core.retry")
 
 F = TypeVar("F", bound=Callable[..., Any])
 

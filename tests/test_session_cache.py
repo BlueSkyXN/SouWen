@@ -1,6 +1,6 @@
 """SouWen 会话缓存测试。
 
-覆盖 ``souwen.session_cache`` 中异步会话与 OAuth Token 缓存。
+覆盖 ``souwen.core.session_cache`` 中异步会话与 OAuth Token 缓存。
 验证存取、过期清理、并发初始化、幂等关闭等不变量。
 
 测试清单：
@@ -15,7 +15,7 @@ import asyncio
 
 import pytest
 
-from souwen.session_cache import SessionCache
+from souwen.core.session_cache import SessionCache
 
 
 @pytest.fixture
@@ -140,7 +140,7 @@ class TestConcurrentInit:
         """10 个并发 _get_db 只会建立一个 aiosqlite 连接"""
         import aiosqlite
 
-        from souwen import session_cache as sc_mod
+        import souwen.core.session_cache as sc_mod
 
         real_connect = aiosqlite.connect
         call_count = 0
@@ -163,7 +163,7 @@ class TestConcurrentInit:
 
     async def test_aclose_is_idempotent(self, tmp_path):
         """aclose 可重复调用"""
-        from souwen.session_cache import SessionCache
+        from souwen.core.session_cache import SessionCache
 
         cache = SessionCache(db_path=tmp_path / "aclose.db")
         await cache.save_session("s", {"k": 1})

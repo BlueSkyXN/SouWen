@@ -117,6 +117,28 @@ DISTRIBUTIONS: frozenset[str] = frozenset({"core", "extra", "plugin"})
 #: 接入成熟度。
 STABILITIES: frozenset[str] = frozenset({"stable", "beta", "experimental", "deprecated"})
 
+#: 正式 source catalog 展示/治理分类。它不同于 domain：domain 描述业务能力，
+#: category 描述面向用户和治理面的目录归类。
+SOURCE_CATEGORIES: frozenset[str] = frozenset(
+    {
+        "paper",
+        "patent",
+        "web_general",
+        "web_professional",
+        "social",
+        "office",
+        "developer",
+        "knowledge",
+        "cn_tech",
+        "video",
+        "archive",
+        "fetch",
+    }
+)
+
+#: catalog 可见性。hidden 源仍可保留在 registry 中，但不进入 public catalog。
+CATALOG_VISIBILITIES: frozenset[str] = frozenset({"public", "internal", "hidden"})
+
 
 # ── 数据类 ──────────────────────────────────────────────────
 
@@ -173,10 +195,12 @@ class SourceAdapter:
         optional_credential_effect: 可选凭据的收益，如提高 rate limit 或解锁个性化能力。
         risk_level / risk_reasons: 风险等级与原因，兼容旧 tag high_risk。
         distribution / package_extra: 推荐分发范围与 optional dependency 组。
-        stability: 源的成熟度。v0_all_sources:exclude 会被视为 experimental。
+        stability: 源的成熟度。
         usage_note: 用户级提示，给 doctor / API / Panel 展示该源的运行时限制
             或注意事项（如 unpaywall 的 "仅支持 DOI OA 查找"）。**不参与可用性
             判定**——状态推断走 stability/auth_requirement 维度。
+        category: 正式 source catalog 分类；None 表示由 catalog 兼容层从 domain/tags 派生。
+        catalog_visibility: 正式 source catalog 可见性。
     """
 
     name: str
@@ -201,6 +225,8 @@ class SourceAdapter:
     package_extra: str | None = None
     stability: str = "stable"
     usage_note: str | None = None
+    category: str | None = None
+    catalog_visibility: str = "public"
 
     @property
     def capabilities(self) -> frozenset[str]:
@@ -304,9 +330,7 @@ class SourceAdapter:
 
     @property
     def resolved_stability(self) -> str:
-        """兼容 v0 排除标签的成熟度。"""
-        if "v0_all_sources:exclude" in self.tags and self.stability == "stable":
-            return "experimental"
+        """返回最终成熟度。"""
         return self.stability
 
     def resolve_params(
@@ -376,15 +400,22 @@ class SourceAdapter:
             raise ValueError(
                 f"SourceAdapter({self.name!r}) stability={self.stability!r} 不在 STABILITIES 中"
             )
+        if self.category is not None and self.category not in SOURCE_CATEGORIES:
+            raise ValueError(
+                f"SourceAdapter({self.name!r}) category={self.category!r} 不在 SOURCE_CATEGORIES 中"
+            )
+        if self.catalog_visibility not in CATALOG_VISIBILITIES:
+            raise ValueError(
+                f"SourceAdapter({self.name!r}) catalog_visibility={self.catalog_visibility!r} "
+                "不在 CATALOG_VISIBILITIES 中"
+            )
         effective_auth = self.resolved_auth_requirement
         resolved_fields = self.resolved_credential_fields
         if effective_auth == "none" and resolved_fields:
             raise ValueError(
                 f"SourceAdapter({self.name!r}) auth_requirement='none' 不能声明 credential_fields"
             )
-        if (
-            self.integration == "self_hosted" or effective_auth == "self_hosted"
-        ) and not resolved_fields:
+        if effective_auth == "self_hosted" and not resolved_fields:
             raise ValueError(
                 f"SourceAdapter({self.name!r}) self_hosted 源必须声明 config_field 或 credential_fields"
             )
@@ -415,4 +446,25 @@ class SourceAdapter:
             if ":" not in key:
                 raise ValueError(
                     f"SourceAdapter({self.name!r}) default_for 条目 {key!r} 必须是 'domain:capability' 形式"
+                )
+            default_domain, default_capability = key.split(":", 1)
+            if default_domain != FETCH_DOMAIN and default_domain not in DOMAINS:
+                raise ValueError(
+                    f"SourceAdapter({self.name!r}) default_for domain={default_domain!r} "
+                    "不在 DOMAINS ∪ {fetch} 中"
+                )
+            if default_capability not in CAPABILITIES:
+                raise ValueError(
+                    f"SourceAdapter({self.name!r}) default_for capability={default_capability!r} "
+                    "不在 CAPABILITIES 中"
+                )
+            if default_capability not in self.capabilities:
+                raise ValueError(
+                    f"SourceAdapter({self.name!r}) default_for={key!r} "
+                    f"但 methods 里没有 {default_capability!r}"
+                )
+            if default_domain not in self.domains:
+                raise ValueError(
+                    f"SourceAdapter({self.name!r}) default_for={key!r} "
+                    f"但 domain 不在 adapter.domains={self.domains}"
                 )
