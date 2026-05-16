@@ -80,10 +80,10 @@ export function LoginPage() {
       try {
         const health = await api.health(url)
         // 尝试用空密码验证（无密码配置的服务器会通过）
-        await api.verifyAuth(url, '')
+        const whoami = await api.verifyAuth(url, '')
         if (cancelled) return
         setAuth(url, '', health.version, remember)
-        try { const whoami = await api.whoami(); setRole(whoami) } catch { /* non-critical */ }
+        setRole(whoami)
         navigate('/', { replace: true })
       } catch {
         // 服务器需要密码 — 显示登录表单
@@ -106,9 +106,9 @@ export function LoginPage() {
       try {
         const url = baseUrl.replace(/\/+$/, '')
         const health = await api.health(url)
-        await api.verifyAuth(url, password)
+        const whoami = await api.verifyAuth(url, password)
         setAuth(url, password, health.version, remember)
-        try { const whoami = await api.whoami(); setRole(whoami) } catch { /* non-critical */ }
+        setRole(whoami)
         setSuccess(true) // 显示成功动画
         addToast('success', t('login.success', { version: health.version }))
         // 延迟 400ms 让动画完成后再导航

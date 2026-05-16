@@ -743,6 +743,9 @@ export interface WhoamiResponse {
   role: UserRole
   features: Record<string, boolean | string>
   guest_enabled: boolean
+  user_password_set: boolean
+  admin_password_set: boolean
+  admin_open: boolean
 }
 
 /* ===== Plugin Management ===== */

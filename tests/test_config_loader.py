@@ -109,6 +109,23 @@ class TestYamlLoading:
         with pytest.raises(ValueError, match="认证配置字段已移除"):
             reload_config()
 
+    def test_empty_retired_auth_yaml_keys_are_ignored(self, tmp_path):
+        """旧默认模板里的空认证占位字段不应阻断配置加载。"""
+        (tmp_path / "souwen.yaml").write_text(
+            textwrap.dedent(
+                """
+                server:
+                  api_password: ~
+                  visitor_password: ~
+                  admin_password: admin-pw
+                """
+            ).strip(),
+            encoding="utf-8",
+        )
+
+        cfg = reload_config()
+        assert cfg.admin_password == "admin-pw"
+
     def test_loads_top_level_plugin_config(self, tmp_path):
         """顶层 plugin_config 应作为插件配置字典保留。"""
         (tmp_path / "souwen.yaml").write_text(
