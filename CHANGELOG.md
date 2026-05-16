@@ -11,7 +11,7 @@
 ## v2.0.0rc1 — v2 Release Candidate（2026-05-16）
 
 ### Release Status
-- `v2-dev` 已进入 release candidate smoke 阶段；当前候选线用于验证真实用户路径和目标发布路径，不再继续围绕 PR6-PR9 做开放式重构。
+- v2 release candidate 已合回 `main`；当前主线用于验证真实用户路径和目标发布路径，不再继续围绕 PR6-PR9 做开放式重构。
 - 公开版本号固定为 `2.0.0rc1`（Python / runtime / README / API 示例）和 `2.0.0-rc1`（Panel package）。
 - PyPI 发布不在本轮范围；正式 Go / No-Go 以 RC readiness report、External Smoke Gate、clean install、server/auth、Panel、docs walk-through 和目标发布路径验证为准。
 

@@ -2,9 +2,9 @@ name: V2 CI
 
 on:
   push:
-    branches: [v2-dev]
+    branches: [main]
   pull_request:
-    branches: [v2-dev]
+    branches: [main]
   workflow_dispatch:
 
 concurrency:
@@ -360,8 +360,8 @@ jobs:
           | Panel build | $PANEL_RESULT | TypeScript, Vitest, single-file panel artifact |
 
           External smoke, HF Space deploy, and binary build remain outside
-          automatic v2-dev CI. Run them manually or through main/tag/release workflows
-          before promoting v2 back to main.
+          automatic V2 CI. Run them manually or through tag/release workflows
+          before cutting a release candidate tag.
           EOF
 
           for result in "$BOOTSTRAP_RESULT" "$MATRIX_RESULT" "$SERVER_RESULT" "$FULL_RESULT" "$PLUGIN_RESULT" "$PANEL_RESULT"; do

@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://github.com/BlueSkyXN/SouWen/blob/v2-dev/docs/plugin-manifest.schema.json",
+  "$id": "https://github.com/BlueSkyXN/SouWen/blob/main/docs/plugin-manifest.schema.json",
   "title": "SouWen Plugin Manifest",
   "description": "Optional author-side manifest for linting SouWen plugin metadata. Runtime discovery still uses pyproject entry points.",
   "type": "object",

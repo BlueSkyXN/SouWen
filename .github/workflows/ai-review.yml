@@ -10,8 +10,8 @@ name: AI PR Review
 # 进行 AI 驱动的代码评审。评审结果以 sticky comment 发布到 PR 上（更新而非重复发布）。
 #
 # 【当前状态】
-# v2 完全迁移期间关闭自动 PR 评审，避免拖慢 v2-dev staged PR 开发。
-# workflow_dispatch 手动入口保留；恢复自动评审时重新启用下方注释的 pull_request 触发面。
+# 自动 PR 评审默认关闭，避免常规 PR 被 AI 评审成本拖慢。
+# workflow_dispatch 手动入口保留；需要恢复自动评审时再启用下方注释的 pull_request 触发面。
 #
 # 【触发条件】
 # 1. pull_request (open/synchronize/reopened/ready_for_review) — 自动触发
@@ -58,7 +58,7 @@ name: AI PR Review
 # ═══════════════════════════════════════════════════════════════════════════
 
 on:
-  # v2 migration: automatic PR review is disabled.
+  # Automatic PR review is disabled by default.
   # pull_request:
   #   branches: [main]
   #   paths-ignore:

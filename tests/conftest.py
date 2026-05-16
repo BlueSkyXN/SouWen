@@ -11,7 +11,29 @@ Fixtures:
 
 from __future__ import annotations
 
+import os
+import site
+from pathlib import Path
+
 import pytest
+
+
+def _subprocess_pythonpath() -> str:
+    """Build a PYTHONPATH that keeps subprocess tests on the source tree."""
+
+    repo_src = str(Path(__file__).resolve().parents[1] / "src")
+    candidates = [repo_src]
+    existing = os.environ.get("PYTHONPATH")
+    if existing:
+        candidates.extend(existing.split(os.pathsep))
+
+    seen: set[str] = set()
+    parts: list[str] = []
+    for path in candidates:
+        if path and path not in seen:
+            seen.add(path)
+            parts.append(path)
+    return os.pathsep.join(parts)
 
 
 @pytest.fixture
@@ -63,6 +85,10 @@ def _isolate_real_config_environment(monkeypatch, tmp_path):
     """
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    monkeypatch.setenv("PYTHONPATH", _subprocess_pythonpath())
+    # Preserve the original Python user base for child interpreters. Otherwise,
+    # changing HOME makes subprocesses look for --user dependencies under tmp.
+    monkeypatch.setenv("PYTHONUSERBASE", site.getuserbase())
     for key in (
         "SOUWEN_API_PASSWORD",
         "SOUWEN_VISITOR_PASSWORD",
