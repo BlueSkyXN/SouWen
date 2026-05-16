@@ -88,7 +88,7 @@ class SouWenConfig(BaseModel):
         搜索源 API Key: searxng_url, tavily_api_key, exa_api_key, serper_api_key,
                         brave_api_key, serpapi_api_key, firecrawl_api_key,
                         perplexity_api_key, linkup_api_key, xcrawl_api_key,
-                        scrapingdog_api_key,
+                        scrapingdog_api_key, kimi_code_api_key,
                         whoogle_url, websurfx_url, github_token,
                         stackoverflow_api_key, youtube_api_key, jina_api_key,
                         scrapfly_api_key, diffbot_api_token,
@@ -183,6 +183,7 @@ class SouWenConfig(BaseModel):
     websurfx_url: str | None = None  # Websurfx 自建实例 URL
     zhipuai_api_key: str | None = None  # 智谱 AI Web Search Pro
     aliyun_iqs_api_key: str | None = None  # 阿里云 IQS 通义晓搜
+    kimi_code_api_key: str | None = None  # Kimi Code 搜索/网页获取 API Key
     # 社区 / 视频平台
     github_token: str | None = None  # GitHub PAT（可选，提升速率限制）
     stackoverflow_api_key: str | None = None  # StackOverflow API Key（可选，提升配额）

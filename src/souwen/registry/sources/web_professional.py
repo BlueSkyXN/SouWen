@@ -134,3 +134,20 @@ _reg(
         category="web_professional",
     )
 )
+
+_reg(
+    SourceAdapter(
+        name="kimi_code",
+        domain="web",
+        integration="official_api",
+        description="Kimi Code 搜索+网页获取",
+        config_field="kimi_code_api_key",
+        client_loader=lazy("souwen.web.kimi_code:KimiCodeClient"),
+        extra_domains=frozenset({"fetch"}),
+        methods={
+            "search": MethodSpec("search", _P_MAX_RESULTS),
+            "fetch": MethodSpec("fetch"),
+        },
+        category="web_professional",
+    )
+)

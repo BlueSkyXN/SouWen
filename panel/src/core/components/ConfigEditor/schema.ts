@@ -65,6 +65,7 @@ export const YAML_SECTIONS: SectionDef[] = [
       { key: 'metaso_api_key', type: 'password', label: 'Metaso (秘塔) API Key' },
       { key: 'zhipuai_api_key', type: 'password', label: '智谱 AI API Key' },
       { key: 'aliyun_iqs_api_key', type: 'password', label: '阿里云 IQS API Key' },
+      { key: 'kimi_code_api_key', type: 'password', label: 'Kimi Code API Key' },
       { key: 'whoogle_url', type: 'url', label: 'Whoogle URL', placeholder: 'http://localhost:5000' },
       { key: 'websurfx_url', type: 'url', label: 'Websurfx URL', placeholder: 'http://localhost:8080' },
       { key: 'github_token', type: 'password', label: 'GitHub Token' },

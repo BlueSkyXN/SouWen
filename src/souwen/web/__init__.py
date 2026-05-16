@@ -27,6 +27,7 @@ API 类（需 Key / 自建实例）：
 - XCrawlClient: XCrawl 搜索+抓取
 - ZhipuAISearchClient: 智谱 AI Web Search Pro（含 AI 摘要，中英文友好）
 - AliyunIQSClient: 阿里云 IQS 通义晓搜（含 AI 摘要，中英文友好）
+- KimiCodeClient: Kimi Code 搜索+网页获取
 
 内容抓取（fetch 提供者）：
 - SiteCrawlerClient: 多页 BFS 站点爬虫（参照 deepwiki-mcp httpCrawler.ts，零配置）
@@ -89,6 +90,7 @@ from souwen.web.feishu_drive import FeishuDriveClient
 from souwen.web.metaso import MetasoClient
 from souwen.web.zhipuai_search import ZhipuAISearchClient
 from souwen.web.aliyun_iqs import AliyunIQSClient
+from souwen.web.kimi_code import KimiCodeClient
 from souwen.web.jina_reader import JinaReaderClient
 from souwen.web.builtin import BuiltinFetcherClient
 from souwen.web.wayback import WaybackClient
@@ -162,6 +164,7 @@ __all__ = [
     "MetasoClient",
     "ZhipuAISearchClient",
     "AliyunIQSClient",
+    "KimiCodeClient",
     # 内容抓取类 (fetch)
     "BuiltinFetcherClient",
     "JinaReaderClient",

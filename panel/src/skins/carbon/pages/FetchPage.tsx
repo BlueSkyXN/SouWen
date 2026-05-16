@@ -22,6 +22,7 @@ const PROVIDERS: { value: Provider; label: string; description: string }[] = [
   { value: 'tavily', label: 'TAVILY', description: 'Tavily Extract API' },
   { value: 'firecrawl', label: 'FIRECRAWL', description: 'Firecrawl service' },
   { value: 'exa', label: 'EXA', description: 'Exa.ai API' },
+  { value: 'kimi_code', label: 'KIMI_CODE', description: 'Kimi Code fetch API' },
   { value: 'crawl4ai', label: 'CRAWL4AI', description: 'Headless browser' },
   { value: 'scrapfly', label: 'SCRAPFLY', description: 'JS + AI extraction' },
   { value: 'diffbot', label: 'DIFFBOT', description: 'Article extraction' },
