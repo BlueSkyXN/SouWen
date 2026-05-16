@@ -21,7 +21,7 @@
 import { useAuthStore } from '../stores/authStore'
 import { AppError } from '../lib/errors'
 import i18n from '../i18n'
-import type { HealthResponse } from '../types'
+import type { HealthResponse, WhoamiResponse } from '../types'
 
 export const REQUEST_TIMEOUT_MS = 30_000
 
@@ -185,16 +185,21 @@ export class ApiServiceBase {
    * 验证认证凭证
    * 用于登录流程中的凭证有效性检查
    */
-  async verifyAuth(baseUrl: string, token: string): Promise<void> {
+  async verifyAuth(baseUrl: string, token: string): Promise<WhoamiResponse> {
     assertBaseUrlAllowed(baseUrl)
     const headers: Record<string, string> = {}
     if (token) headers['Authorization'] = `Bearer ${token}`
     try {
-      const res = await fetch(`${baseUrl}/api/v1/sources`, {
+      const res = await fetch(`${baseUrl}/api/v1/whoami`, {
         headers,
         signal: AbortSignal.timeout(10_000),
       })
       if (!res.ok) throw AppError.fromResponse(res.status, await res.text().catch(() => ''))
+      const data = (await res.json()) as WhoamiResponse
+      if (!token && data.admin_password_set && data.role !== 'admin') {
+        throw AppError.fromResponse(401, i18n.t('login.adminPasswordRequired', 'Admin password required'))
+      }
+      return data
     } catch (err) {
       if (err instanceof AppError) throw err
       throw AppError.network(err)

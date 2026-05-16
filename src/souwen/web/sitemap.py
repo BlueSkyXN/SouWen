@@ -116,9 +116,9 @@ async def _fetch_url_bytes(url: str) -> bytes | None:
     try:
         from souwen.core.scraper.base import BaseScraper
 
-        scraper = BaseScraper(min_delay=0, max_delay=0.1, max_retries=1, follow_redirects=True)
+        scraper = BaseScraper(min_delay=0, max_delay=0.1, max_retries=1, follow_redirects=False)
         async with scraper:
-            resp = await scraper._fetch(url)
+            resp = await scraper._fetch_with_safe_redirects(url)
             if resp.status_code >= 400:
                 return None
             if hasattr(resp, "content") and resp.content:

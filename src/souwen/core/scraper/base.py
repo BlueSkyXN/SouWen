@@ -55,6 +55,7 @@ import asyncio
 import logging
 import random
 from typing import Any
+from urllib.parse import urljoin
 
 import httpx
 
@@ -63,6 +64,7 @@ from souwen.core.exceptions import RateLimitError, SourceUnavailableError
 from souwen.core.fingerprint import get_random_fingerprint
 
 logger = logging.getLogger("souwen.core.scraper")
+_REDIRECT_CODES = frozenset({301, 302, 303, 307, 308})
 
 # 尝试导入 curl_cffi（TLS 指纹模拟）— 可选依赖，缺失时自动回退 httpx
 _HAS_CURL_CFFI = False
@@ -281,6 +283,45 @@ class BaseScraper:
                 f"重试 {self.max_retries} 次后仍失败: {url}"
             ) from last_error
         raise RateLimitError(f"重试 {self.max_retries} 次后仍被限流: {url}")
+
+    async def _fetch_with_safe_redirects(
+        self,
+        url: str,
+        method: str = "GET",
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        data: dict[str, Any] | None = None,
+        max_redirects: int = 5,
+    ) -> httpx.Response:
+        """手动跟踪重定向，并在每一跳执行 SSRF 校验。"""
+        from souwen.web.fetch import validate_fetch_url
+
+        current_url = url
+        for _hop in range(max_redirects + 1):
+            ok, reason = validate_fetch_url(current_url)
+            if not ok:
+                raise SourceUnavailableError(f"SSRF: 目标地址被拦截 ({reason})")
+            resp = await self._fetch(
+                current_url,
+                method=method,
+                params=params,
+                headers=headers,
+                data=data,
+            )
+            if resp.status_code not in _REDIRECT_CODES:
+                return resp
+
+            location = resp.headers.get("location")
+            if not location:
+                return resp
+
+            redirect_url = urljoin(current_url, location)
+            ok, reason = validate_fetch_url(redirect_url)
+            if not ok:
+                raise SourceUnavailableError(f"SSRF: 重定向目标被拦截 ({reason})")
+            current_url = redirect_url
+
+        raise SourceUnavailableError(f"重定向次数超过上限 ({max_redirects})")
 
     async def _do_request(
         self,

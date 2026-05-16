@@ -188,6 +188,30 @@ class TestEnvOverride:
             reload_config()
         get_config.cache_clear()
 
+    def test_empty_retired_auth_yaml_placeholders_are_ignored(self, monkeypatch, tmp_path):
+        """旧模板中空的认证占位字段不应阻断启动。"""
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / "souwen.yaml").write_text(
+            "server:\n  api_password: ~\n  visitor_password: ''\n  admin_password: admin\n",
+            encoding="utf-8",
+        )
+        cfg = reload_config()
+        try:
+            assert cfg.admin_password == "admin"
+        finally:
+            get_config.cache_clear()
+
+    @pytest.mark.parametrize("env_name", ["SOUWEN_API_PASSWORD", "SOUWEN_VISITOR_PASSWORD"])
+    def test_empty_retired_auth_env_vars_are_ignored(self, monkeypatch, env_name):
+        """空旧环境变量按未配置处理，非空旧值仍由上面的测试覆盖为错误。"""
+        monkeypatch.setenv(env_name, "")
+        cfg = reload_config()
+        try:
+            assert cfg.user_password is None
+            assert cfg.admin_password is None
+        finally:
+            get_config.cache_clear()
+
 
 class TestSourceChannelConfig:
     """SourceChannelConfig + 解析器测试"""

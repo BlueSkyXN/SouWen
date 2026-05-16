@@ -78,6 +78,7 @@ def resolve_role(
     admin_pw = cfg.effective_admin_password or ""
     user_pw = cfg.effective_user_password or ""
     token = credentials.credentials if credentials else ""
+    has_token = bool(credentials and token)
 
     # 恒定时间比较 — 始终执行三次，消除时序旁路
     is_admin = bool(admin_pw) and secrets.compare_digest(token, admin_pw)
@@ -89,6 +90,12 @@ def resolve_role(
         return Role.ADMIN
     if is_user:
         return Role.USER
+    if has_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="认证失败：无效的 Bearer Token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
 
     if not admin_pw and is_admin_open_enabled():
         return Role.ADMIN
