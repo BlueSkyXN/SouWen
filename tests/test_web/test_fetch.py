@@ -85,6 +85,48 @@ class TestSafeRedirects:
         with pytest.raises(SourceUnavailableError, match="SSRF"):
             await scraper._fetch_with_safe_redirects("https://example.com/start")
 
+    @pytest.mark.asyncio
+    async def test_base_scraper_safe_redirects_disable_auto_follow(self):
+        scraper = BaseScraper.__new__(BaseScraper)
+        follow_redirects_values = []
+
+        async def fake_fetch(_url, **kwargs):
+            follow_redirects_values.append(kwargs.get("follow_redirects"))
+            return SimpleNamespace(
+                status_code=200,
+                headers={},
+                url="https://example.com/start",
+            )
+
+        scraper._fetch = fake_fetch
+
+        await scraper._fetch_with_safe_redirects("https://example.com/start")
+
+        assert follow_redirects_values == [False]
+
+    @pytest.mark.asyncio
+    async def test_base_scraper_fetch_passes_redirect_override_to_backend(self):
+        scraper = BaseScraper.__new__(BaseScraper)
+        scraper._fingerprint = SimpleNamespace(headers={})
+        scraper._channel_headers = {}
+        scraper.max_retries = 1
+        scraper._backoff_multiplier = 1.0
+        captured_follow_redirects = []
+
+        async def fake_polite_delay():
+            return None
+
+        async def fake_do_request(_method, _url, _params, _headers, **kwargs):
+            captured_follow_redirects.append(kwargs.get("follow_redirects"))
+            return SimpleNamespace(status_code=200, headers={}, url=_url)
+
+        scraper._polite_delay = fake_polite_delay
+        scraper._do_request = fake_do_request
+
+        await scraper._fetch("https://example.com/start", follow_redirects=False)
+
+        assert captured_follow_redirects == [False]
+
 
 class TestFetchContent:
     """fetch_content 聚合测试"""
