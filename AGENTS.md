@@ -53,6 +53,9 @@ integration, plugin loading, and an embedded React/Vite management panel.
 | `examples/minimal-plugin/` | Minimal external plugin package and contract tests | yes | Changing plugin entry point, adapter, handler or plugin tests |
 | `cloud/` | Hugging Face Space and ModelScope deployment wrappers | yes | Changing cloud Dockerfiles, entrypoints, platform README or deployment assumptions |
 | `.github/` | GitHub Actions, prompts, labeler and dependency automation | yes | Changing workflow jobs, permissions, CI gates, deploy/release triggers or prompts |
+| `cli.py`, `pyproject.toml`, `hatch_build.py` | Root CLI shim, package metadata and wheel artifact hook | no | Changing source-run CLI behavior, packaging metadata, optional extras or wheel artifact behavior |
+| `Dockerfile`, `docker-compose.yml`, `entrypoint.sh` | Root container runtime, WARP startup and compose wiring | no | Changing Docker build/runtime, exposed ports, WARP startup, healthcheck or root image behavior |
+| `souwen.example.yaml`, `.env.example` | Tracked example config and environment surface | no | Adding/removing config fields, auth defaults, WARP settings or source credential examples |
 | `local/` | Gitignored local planning/review notes | no | Usually do not edit unless the user explicitly asks |
 | `.codex/`, `.claude/` | Local tool/worktree metadata, not tracked project source | no | Do not edit as part of repository changes unless explicitly requested |
 | `dist/`, `panel/dist/`, `src/souwen/server/panel.html` | Generated build artifacts | no | Do not hand edit; regenerate from source commands only |
@@ -89,6 +92,8 @@ Install commands may need network access unless dependencies are already cached.
 | `python scripts/ci/run_profile.py --list-profiles` | List CI profiles | repo | Deterministic |
 | `python scripts/ci/run_profile.py --profile minimal` | Minimal CLI/profile smoke | repo | Deterministic after deps installed |
 | `python scripts/ci/run_profile.py --profile server --profile minimal` | Server plus minimal profile | repo | Requires server extras installed |
+| `python scripts/ci/run_profile.py --profile full` | Full import-surface runtime profile | repo | Requires broad runtime extras installed |
+| `python scripts/ci/run_profile.py --profile plugin` | Plugin contract/profile smoke | repo | Requires example plugin installed |
 | `cd panel && npm test` | Vitest suite | `panel/` | Deterministic after `npm ci` |
 | `cd panel && npm run build` | TypeScript build plus Vite build | `panel/` | Deterministic after `npm ci` |
 | `cd panel && npm run build:local && npm run check:artifact` | Rebuild embedded panel artifact | `panel/` | Writes `src/souwen/server/panel.html` |
@@ -118,6 +123,9 @@ There is no standalone frontend typecheck script; `npm run build` runs
   production secret, private account or local HOME config dependency.
 - Put real package/browser/external smoke in functional scripts or GitHub
   Actions jobs, not ordinary pytest.
+- Treat root packaging and runtime files (`pyproject.toml`, `cli.py`,
+  `hatch_build.py`, `Dockerfile`, `entrypoint.sh`, `souwen.example.yaml`) as
+  cross-surface changes; check affected docs, workflows and tests before edits.
 - For generated output, modify the source/generator and rerun the documented
   generation command.
 
@@ -148,10 +156,12 @@ Choose the narrowest validation that covers the changed surface.
    `python scripts/ci/check_no_legacy_terms.py`.
 4. For server/API changes, run affected `tests/test_server` tests and consider
    `python scripts/ci/run_profile.py --profile server --profile minimal`.
-5. For panel changes, run `cd panel && npm test` and/or `cd panel && npm run build`.
-6. For embedded panel artifact changes, regenerate through
+5. For package or wheel surface changes, run `pytest tests/test_import_surface.py -q`
+   and consider the relevant `scripts/ci/run_profile.py` profile.
+6. For panel changes, run `cd panel && npm test` and/or `cd panel && npm run build`.
+7. For embedded panel artifact changes, regenerate through
    `cd panel && npm run build:local`, never by hand.
-7. If validation cannot run because dependencies, network, Docker, browser
+8. If validation cannot run because dependencies, network, Docker, browser
    runtime or secrets are unavailable, state that clearly in the final response.
 
 ## Done means
