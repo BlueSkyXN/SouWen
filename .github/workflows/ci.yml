@@ -83,7 +83,7 @@ jobs:
 
       - name: 上传覆盖率到 Codecov
         if: matrix.os == 'ubuntu-latest' && matrix.python == '3.12'
-        uses: codecov/codecov-action@v6
+        uses: codecov/codecov-action@v7
         with:
           files: ./coverage.xml
           token: ${{ secrets.CODECOV_TOKEN }}
