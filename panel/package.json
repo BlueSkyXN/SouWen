@@ -40,11 +40,11 @@
     "@types/js-yaml": "^4.0.9",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.1",
-    "@vitejs/plugin-react": "^4.4.1",
+    "@vitejs/plugin-react": "^6.0.2",
     "jsdom": "^29.1.0",
     "sass-embedded": "^1.86.0",
     "typescript": "~5.7.2",
-    "vite": "^6.3.1",
+    "vite": "^8.0.16",
     "vite-plugin-singlefile": "^2.3.3",
     "vitest": "^4.1.6"
   }
