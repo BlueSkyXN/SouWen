@@ -74,7 +74,8 @@ runs:
             expected_version = tomllib.load(file)["project"]["version"]
 
         def record(name: str, status: str, detail: str) -> None:
-            checks.append({"name": name, "status": status, "detail": detail[:500]})
+            limit = 4000 if name == "cli/help" else 500
+            checks.append({"name": name, "status": status, "detail": detail[:limit]})
 
         def run_command(name: str, *arguments: str, timeout: float = 60) -> str:
             result = subprocess.run(

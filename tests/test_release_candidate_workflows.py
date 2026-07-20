@@ -108,6 +108,9 @@ def test_release_candidate_aggregates_all_release_gates() -> None:
     external = text.split("  external:", maxsplit=1)[1].split("  pyinstaller:", maxsplit=1)[0]
     assert "permissions:\n      contents: read\n      issues: write" in external
 
+    container = text.split("  container:", maxsplit=1)[1].split("  hfs:", maxsplit=1)[0]
+    assert "ref: ${{ needs.validate.outputs.candidate_sha }}\n          fetch-depth: 0" in container
+
 
 def test_release_bundle_has_24_binaries_supply_chain_assets_and_attestation() -> None:
     text = _workflow("release-candidate.yml")
@@ -141,6 +144,12 @@ def test_release_bundle_has_24_binaries_supply_chain_assets_and_attestation() ->
         "'promotion_changed'",
     ):
         assert hfs_evidence_field in text
+
+
+def test_binary_smoke_preserves_help_tracebacks_for_cross_platform_diagnostics() -> None:
+    text = (REPO_ROOT / ".github/actions/binary-smoke/action.yml").read_text(encoding="utf-8")
+    assert 'limit = 4000 if name == "cli/help" else 500' in text
+    assert '"detail": detail[:limit]' in text
 
 
 def test_ci_has_stable_aggregate_and_required_readiness_gates() -> None:
