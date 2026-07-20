@@ -36,6 +36,12 @@ import {
 import { api } from '@core/services/api'
 import { formatError } from '@core/lib/errors'
 import { staggerContainer, staggerItem } from '@core/lib/animations'
+import {
+  WARP_MODE_OPTIONS,
+  getDisplayWarpModes,
+  getWarpModeLabel,
+  isWarpModeInfoAvailable,
+} from '@core/lib/warpModes'
 import { useNotificationStore } from '@core/stores/notificationStore'
 import type { WarpComponentInfo, WarpConfigResponse, WarpModeInfo, WarpStatus, WarpTestResult } from '@core/types'
 import { Badge } from '../components/common/Badge'
@@ -47,17 +53,11 @@ import styles from './WarpPage.module.scss'
 
 type BadgeColor = 'green' | 'blue' | 'amber' | 'red' | 'gray' | 'indigo' | 'teal'
 
-const DEFAULT_MODES = ['auto', 'wireproxy', 'kernel', 'usque', 'warp-cli', 'external']
-
 function statusColor(status?: WarpStatus['status']): BadgeColor {
   if (status === 'enabled') return 'green'
   if (status === 'error') return 'red'
   if (status === 'starting' || status === 'stopping') return 'amber'
   return 'gray'
-}
-
-function modeAvailable(mode: WarpModeInfo) {
-  return mode.installed && (mode.id !== 'external' || Boolean(mode.configured))
 }
 
 function normalizePort(value: string, fallback: number, min = 0) {
@@ -88,6 +88,9 @@ function WarpStatusCard({ warp, loading, refreshing, onRefresh }: {
   const addToast = useNotificationStore((s) => s.addToast)
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<WarpTestResult | null>(null)
+  const displayMode = useCallback((mode?: string) => {
+    return getWarpModeLabel(mode, (key) => t(key)) || '—'
+  }, [t])
 
   const handleTest = useCallback(async () => {
     setTesting(true)
@@ -96,7 +99,7 @@ function WarpStatusCard({ warp, loading, refreshing, onRefresh }: {
       setTestResult(result)
       addToast(result.ok ? 'success' : 'info', result.ok
         ? t('warp.testSuccess', { ip: result.ip })
-        : t('warp.testFailed', { message: result.ip || 'unknown' }))
+        : t('warp.testFailed', { message: result.ip || t('warp.unknown') }))
     } catch (err) {
       addToast('error', t('warp.testFailed', { message: formatError(err) }))
     } finally {
@@ -138,7 +141,7 @@ function WarpStatusCard({ warp, loading, refreshing, onRefresh }: {
       </div>
 
       <div className={styles.statusPanel}>
-        <StatusField icon={<CircleDot size={13} />} label={t('warp.mode')} value={warp.mode || '—'} />
+        <StatusField icon={<CircleDot size={13} />} label={t('warp.mode')} value={displayMode(warp.mode)} />
         <StatusField icon={<Network size={13} />} label={t('warp.protocol')} value={warp.protocol || '—'} />
         <StatusField icon={<Route size={13} />} label={t('warp.proxyType')} value={warp.proxy_type || '—'} />
         <StatusField icon={<Globe size={13} />} label={t('warp.ip')} value={warp.ip || '—'} />
@@ -151,7 +154,7 @@ function WarpStatusCard({ warp, loading, refreshing, onRefresh }: {
       {testResult && (
         <div className={styles.testResult}>
           {testResult.ok ? <CheckCircle2 size={14} /> : <XCircle size={14} />}
-          <span>{t('warp.testResult', { ip: testResult.ip, mode: testResult.mode, protocol: testResult.protocol })}</span>
+          <span>{t('warp.testResult', { ip: testResult.ip, mode: displayMode(testResult.mode), protocol: testResult.protocol })}</span>
         </div>
       )}
 
@@ -189,10 +192,10 @@ function WarpModesCard({ modes, activeMode }: { modes: WarpModeInfo[]; activeMod
         <Badge color="blue">{t('warp.modeCount', { count: modes.length })}</Badge>
       </div>
       <div className={styles.modesGrid}>
-        {DEFAULT_MODES.filter((id) => id !== 'auto').map((id) => {
-          const mode = modeMap.get(id)
+        {WARP_MODE_OPTIONS.filter((option) => option.value !== 'auto').map((option) => {
+          const mode = modeMap.get(option.value)
           if (!mode) return null
-          const available = modeAvailable(mode)
+          const available = isWarpModeInfoAvailable(mode)
           const active = activeMode === mode.id
           return (
             <div
@@ -205,7 +208,7 @@ function WarpModesCard({ modes, activeMode }: { modes: WarpModeInfo[]; activeMod
               </div>
               <div className={styles.modeMeta}>
                 <Badge color={available ? 'green' : 'gray'}>{available ? t('warp.available') : t('warp.unavailable')}</Badge>
-                {mode.id === 'usque' && <Badge color="green">推荐</Badge>}
+                {mode.id === 'usque' && <Badge color="green">{t('warp.recommended')}</Badge>}
                 <span>{mode.protocol}</span>
               </div>
               <p className={styles.modeDesc}>{mode.description}</p>
@@ -252,7 +255,8 @@ function WarpControlPanel({ warp, modes, config, acting, onEnable, onDisable }: 
   }, [config])
 
   const active = warp?.status === 'enabled' || warp?.status === 'starting'
-  const availableModes = modes.filter(modeAvailable).map((item) => item.id)
+  const translateWarpMode = useCallback((key: string) => t(key), [t])
+  const availableModes = modes.filter(isWarpModeInfoAvailable).map((item) => item.id)
 
   const handleSubmit = useCallback(async () => {
     await onEnable({
@@ -272,9 +276,9 @@ function WarpControlPanel({ warp, modes, config, acting, onEnable, onDisable }: 
 
       <div className={styles.controlForm}>
         <div className={styles.formField}>
-          <label className={styles.formLabel}>{t('warp.mode')}</label>
-          <select className={styles.formSelect} value={mode} onChange={(e) => setMode(e.target.value)} disabled={active || acting}>
-            <option value="auto">{t('warp.auto')}</option>
+          <label className={styles.formLabel} htmlFor="warp-mode">{t('warp.mode')}</label>
+          <select id="warp-mode" className={styles.formSelect} value={mode} onChange={(e) => setMode(e.target.value)} disabled={active || acting}>
+            <option value="auto">{getWarpModeLabel('auto', translateWarpMode)}</option>
             {modes.map((item) => (
               <option key={item.id} value={item.id} disabled={!availableModes.includes(item.id)}>
                 {item.name}{!item.installed ? ` (${t('warp.notInstalled')})` : item.id === 'external' && !item.configured ? ` (${t('warp.notConfigured')})` : ''}
@@ -285,7 +289,7 @@ function WarpControlPanel({ warp, modes, config, acting, onEnable, onDisable }: 
         <Input label={t('warp.socksPort')} description={t('warp.portDesc')} type="number" min={1} max={65535} value={socksPort} onChange={(e) => setSocksPort(e.target.value)} disabled={active || acting} />
         <Input label={t('warp.httpPort')} description={t('warp.httpPortDesc')} type="number" min={0} max={65535} value={httpPort} onChange={(e) => setHttpPort(e.target.value)} disabled={active || acting} />
         <Input label={t('warp.endpoint')} description={t('warp.endpointDesc')} value={endpoint} onChange={(e) => setEndpoint(e.target.value)} placeholder={t('warp.endpointPlaceholder')} disabled={active || acting} />
-        <Input label={t('warp.externalProxy')} description={t('warp.externalProxyDesc')} value={externalProxy} onChange={(e) => setExternalProxy(e.target.value)} placeholder="socks5://warp:1080" disabled />
+        <Input label={t('warp.externalProxy')} description={t('warp.externalProxyDesc')} value={externalProxy} onChange={(e) => setExternalProxy(e.target.value)} placeholder={t('warp.externalProxyPlaceholder')} disabled />
       </div>
 
       <div className={styles.infoNote}>
@@ -335,7 +339,13 @@ function WarpAdvancedCard({ config, registering, onRegister }: {
         <StatusField icon={<Settings size={13} />} label={t('warp.usqueConfig')} value={config?.warp_usque_config || '—'} />
       </div>
       <div className={styles.registerRow}>
-        <select className={styles.formSelect} value={backend} onChange={(e) => setBackend(e.target.value)} disabled={registering}>
+        <select
+          aria-label={`${t('warp.advancedCard')} ${t('warp.register')}`}
+          className={styles.formSelect}
+          value={backend}
+          onChange={(e) => setBackend(e.target.value)}
+          disabled={registering}
+        >
           <option value="wgcf">wgcf</option>
           <option value="usque">usque</option>
         </select>
@@ -353,14 +363,15 @@ function WarpComponentsCard({ components, installingComponent, onInstall }: {
   installingComponent: string | null
   onInstall: (name: string) => Promise<void>
 }) {
+  const { t } = useTranslation()
   return (
     <Card className={styles.sectionCard}>
       <div className={styles.sectionHeader}>
-        <div className={styles.sectionTitle}><Package size={18} />WARP 组件</div>
-        <Badge color="teal">{components.filter((comp) => comp.installed).length}/{components.length || 3} 已安装</Badge>
+        <div className={styles.sectionTitle}><Package size={18} />{t('warp.componentsCard')}</div>
+        <Badge color="teal">{t('warp.componentsInstalledCount', { installed: components.filter((comp) => comp.installed).length, total: components.length || 3 })}</Badge>
       </div>
       {components.length === 0 ? (
-        <div className={styles.infoNote}><AlertCircle size={14} />组件状态暂不可用。</div>
+        <div className={styles.infoNote}><AlertCircle size={14} />{t('warp.componentsUnavailable')}</div>
       ) : (
         <div className={styles.componentsGrid}>
           {components.map((comp) => (
@@ -368,9 +379,9 @@ function WarpComponentsCard({ components, installingComponent, onInstall }: {
               <div className={styles.componentInfo}>
                 <span className={styles.componentName}>{comp.name}</span>
                 <span className={styles.componentStatus}>
-                  {comp.source === 'system' && '系统预装'}
-                  {comp.source === 'runtime' && (comp.version ? `v${comp.version}` : '已安装')}
-                  {comp.source === 'not_installed' && '未安装'}
+                  {comp.source === 'system' && t('warp.systemPreinstalled')}
+                  {comp.source === 'runtime' && (comp.version ? `v${comp.version}` : t('warp.installed'))}
+                  {comp.source === 'not_installed' && t('warp.notInstalled')}
                 </span>
               </div>
               <div className={styles.componentActions}>
@@ -383,11 +394,11 @@ function WarpComponentsCard({ components, installingComponent, onInstall }: {
                     disabled={installingComponent !== null}
                     onClick={() => void onInstall(comp.name)}
                   >
-                    安装
+                    {t('warp.install')}
                   </Button>
                 )}
-                {comp.source === 'runtime' && <Badge color="green">✓ 已安装</Badge>}
-                {comp.source === 'system' && <Badge color="blue">✓ 预装</Badge>}
+                {comp.source === 'runtime' && <Badge color="green">✓ {t('warp.installed')}</Badge>}
+                {comp.source === 'system' && <Badge color="blue">✓ {t('warp.preinstalled')}</Badge>}
               </div>
             </div>
           ))}
@@ -432,6 +443,7 @@ export function WarpPage() {
   const [registering, setRegistering] = useState(false)
   const [components, setComponents] = useState<WarpComponentInfo[]>([])
   const [installingComponent, setInstallingComponent] = useState<string | null>(null)
+  const translateWarpMode = useCallback((key: string) => t(key), [t])
 
   const fetchComponents = useCallback(async () => {
     try {
@@ -464,18 +476,25 @@ export function WarpPage() {
 
   useEffect(() => { void loadAll(); void fetchComponents() }, [fetchComponents, loadAll])
 
+  const displayModes = useMemo(() => {
+    return getDisplayWarpModes(modes, warp, translateWarpMode)
+  }, [modes, translateWarpMode, warp])
+
   const handleEnable = useCallback(async (params: { mode: string; socksPort: number; httpPort: number; endpoint?: string }) => {
     setActing(true)
     try {
       const res = await api.enableWarp(params.mode, params.socksPort, params.endpoint, params.httpPort)
-      addToast('success', t('warp.enableSuccess', { mode: res.mode || params.mode, ip: res.ip || '—' }))
+      addToast('success', t('warp.enableSuccess', {
+        mode: getWarpModeLabel(res.mode || params.mode, translateWarpMode),
+        ip: res.ip || '—',
+      }))
       await loadAll(true)
     } catch (err) {
       addToast('error', t('warp.enableFailed', { message: formatError(err) }))
     } finally {
       setActing(false)
     }
-  }, [addToast, loadAll, t])
+  }, [addToast, loadAll, t, translateWarpMode])
 
   const handleDisable = useCallback(async () => {
     setActing(true)
@@ -494,14 +513,14 @@ export function WarpPage() {
     setInstallingComponent(name)
     try {
       await api.installWarpComponent(name)
-      addToast('success', `${name} 安装成功`)
+      addToast('success', t('warp.componentInstallSuccess', { name }))
       await Promise.all([fetchComponents(), loadAll(true)])
     } catch (err) {
-      addToast('error', `${name} 安装失败：${formatError(err)}`)
+      addToast('error', t('warp.componentInstallFailed', { name, message: formatError(err) }))
     } finally {
       setInstallingComponent(null)
     }
-  }, [addToast, fetchComponents, loadAll])
+  }, [addToast, fetchComponents, loadAll, t])
 
   const handleRegister = useCallback(async (backend: string) => {
     setRegistering(true)
@@ -534,16 +553,16 @@ export function WarpPage() {
         <WarpStatusCard warp={warp} loading={loading} refreshing={refreshing} onRefresh={() => void loadAll(true)} />
       </m.div>
       <m.div variants={staggerItem}>
-        <WarpModesCard modes={modes} activeMode={warp?.mode} />
+        <WarpModesCard modes={displayModes} activeMode={warp?.mode} />
       </m.div>
       <m.div variants={staggerItem}>
-        <WarpControlPanel warp={warp} modes={modes} config={config} acting={acting} onEnable={handleEnable} onDisable={handleDisable} />
+        <WarpControlPanel warp={warp} modes={displayModes} config={config} acting={acting} onEnable={handleEnable} onDisable={handleDisable} />
       </m.div>
       <m.div variants={staggerItem}>
         <WarpAdvancedCard config={config} registering={registering} onRegister={handleRegister} />
       </m.div>
       <m.div variants={staggerItem}>
-        <WarpEnvironmentCard warp={warp} modes={modes} />
+        <WarpEnvironmentCard warp={warp} modes={displayModes} />
       </m.div>
       <m.div variants={staggerItem}>
         <WarpComponentsCard components={components} installingComponent={installingComponent} onInstall={handleInstallComponent} />

@@ -21,7 +21,6 @@
  */
 
 import { useEffect, useState, useCallback, useRef } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { m } from 'framer-motion'
 import { FileText, Shield, Globe, Layers, RefreshCw, ArrowRight } from 'lucide-react'
@@ -229,7 +228,6 @@ function AvailabilityBar({ ok, total }: { ok: number; total: number }) {
  */
 export function DashboardPage() {
   const { t } = useTranslation()
-  const navigate = useNavigate()
   const [doctor, setDoctor] = useState<DoctorResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState(false)
@@ -259,7 +257,7 @@ export function DashboardPage() {
   /* ── Loading ── */
   if (loading) return (
     <div className={styles.page} role="status" aria-live="polite" aria-busy="true">
-      <span className="srOnly">{t('common.loading', 'Loading dashboard data')}</span>
+      <span className="srOnly">{t('common.loading')}</span>
       <Card className={styles.headerCard}>
         <div className={styles.headerSkeleton}>
           <div className={styles.skeletonLine} style={{ width: '30%' }} />
@@ -330,7 +328,7 @@ export function DashboardPage() {
       {/* ── Stats + Health ring ── */}
       <m.div className={styles.statsSection} variants={staggerContainer} initial="initial" animate="animate">
         <div className={styles.statsGrid}>
-          <m.div variants={staggerItem} className={`${styles.statCard} ${styles.statBlue} ${styles.clickable}`} onClick={() => navigate('/search/paper')} role="link" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/search/paper')}>
+          <m.a href="#/search/paper" variants={staggerItem} className={`${styles.statCard} ${styles.statBlue} ${styles.clickable}`}>
             <div className={styles.statBlob} />
             <div className={styles.statHeader}>
               <div className={`${styles.statIcon} ${styles.iconBlue}`}><FileText size={18} /></div>
@@ -338,9 +336,9 @@ export function DashboardPage() {
             </div>
             <div className={`${styles.statValue} ${styles.valueBlue}`}>{paperCount}</div>
             <span className={styles.statTitle}>{t('dashboard.paperSources')}</span>
-          </m.div>
+          </m.a>
 
-          <m.div variants={staggerItem} className={`${styles.statCard} ${styles.statAmber} ${styles.clickable}`} onClick={() => navigate('/search/patent')} role="link" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/search/patent')}>
+          <m.a href="#/search/patent" variants={staggerItem} className={`${styles.statCard} ${styles.statAmber} ${styles.clickable}`}>
             <div className={styles.statBlob} />
             <div className={styles.statHeader}>
               <div className={`${styles.statIcon} ${styles.iconAmber}`}><Shield size={18} /></div>
@@ -348,9 +346,9 @@ export function DashboardPage() {
             </div>
             <div className={`${styles.statValue} ${styles.valueAmber}`}>{patentCount}</div>
             <span className={styles.statTitle}>{t('dashboard.patentSources')}</span>
-          </m.div>
+          </m.a>
 
-          <m.div variants={staggerItem} className={`${styles.statCard} ${styles.statGreen} ${styles.clickable}`} onClick={() => navigate('/search/web')} role="link" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/search/web')}>
+          <m.a href="#/search/web" variants={staggerItem} className={`${styles.statCard} ${styles.statGreen} ${styles.clickable}`}>
             <div className={styles.statBlob} />
             <div className={styles.statHeader}>
               <div className={`${styles.statIcon} ${styles.iconGreen}`}><Globe size={18} /></div>
@@ -358,9 +356,9 @@ export function DashboardPage() {
             </div>
             <div className={`${styles.statValue} ${styles.valueGreen}`}>{webCount}</div>
             <span className={styles.statTitle}>{t('dashboard.webEngines')}</span>
-          </m.div>
+          </m.a>
 
-          <m.div variants={staggerItem} className={`${styles.statCard} ${styles.statIndigo} ${styles.clickable}`} onClick={() => navigate('/sources')} role="link" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/sources')}>
+          <m.a href="#/sources" variants={staggerItem} className={`${styles.statCard} ${styles.statIndigo} ${styles.clickable}`}>
             <div className={styles.statBlob} />
             <div className={styles.statHeader}>
               <div className={`${styles.statIcon} ${styles.iconIndigo}`}><Layers size={18} /></div>
@@ -368,13 +366,13 @@ export function DashboardPage() {
             </div>
             <div className={`${styles.statValue} ${styles.valueIndigo}`}>{okCount}<span className={styles.statFraction}>/{totalCount}</span></div>
             <span className={styles.statTitle}>{t('dashboard.availableSources')}</span>
-          </m.div>
+          </m.a>
         </div>
 
         {/* Health ring card */}
-        <m.div variants={staggerItem} className={`${styles.healthCard} ${styles.clickable}`} onClick={() => navigate('/sources')} role="link" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/sources')}>
+        <m.a href="#/sources" variants={staggerItem} className={`${styles.healthCard} ${styles.clickable}`}>
           <HealthRing pct={healthPct} />
-        </m.div>
+        </m.a>
       </m.div>
 
       {/* ── Last-updated meta bar ── */}

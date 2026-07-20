@@ -22,6 +22,7 @@
  */
 
 import { useEffect, useState, useCallback } from 'react'
+import { Link } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { m } from 'framer-motion'
 import {
@@ -36,6 +37,8 @@ import { Button } from '../components/common/Button'
 import { Badge } from '../components/common/Badge'
 import { formatError } from '@core/lib/errors'
 import { staggerContainer, staggerItem } from '@core/lib/animations'
+import { shouldSubmitConfigValue } from '@core/lib/redactedConfig'
+import { getWarpModeLabel } from '@core/lib/warpModes'
 import type { WarpStatus, HttpBackendResponse } from '@core/types'
 import styles from './NetworkPage.module.scss'
 
@@ -47,6 +50,10 @@ const SCRAPER_ENGINES = [
 
 /** HTTP 后端可选项：auto 自动选择 / curl_cffi 浏览器指纹 / httpx 标准客户端 */
 const BACKEND_OPTIONS = ['auto', 'curl_cffi', 'httpx'] as const
+
+function formatWarpMode(mode: string | undefined, translate: (key: string) => string) {
+  return getWarpModeLabel(mode, translate) || '—'
+}
 
 /**
  * HttpBackendCard 组件：HTTP 后端配置卡片
@@ -123,6 +130,7 @@ function HttpBackendCard() {
             </Tooltip>
           </div>
           <select
+            aria-label={t('httpBackend.globalDefault')}
             className={styles.engineSelect}
             value={data.default}
             onChange={(e) => void handleUpdate({ default: e.target.value })}
@@ -141,6 +149,7 @@ function HttpBackendCard() {
             <div key={engine} className={styles.engineRow}>
               <div className={styles.engineName}>{engineLabel}</div>
               <select
+                aria-label={engineLabel}
                 className={styles.engineSelect}
                 value={override || 'auto'}
                 onChange={(e) => void handleUpdate({ source: engine, backend: e.target.value })}
@@ -192,7 +201,7 @@ function WarpSummaryCard() {
         <div className={styles.warpGrid}>
           <div className={styles.warpField}>
             <div className={styles.fieldLabel}>{t('warp.mode')}</div>
-            <div className={styles.fieldValue}>{warp.mode}</div>
+            <div className={styles.fieldValue}>{formatWarpMode(warp.mode, (key) => t(key))}</div>
           </div>
           <div className={styles.warpField}>
             <div className={styles.fieldLabel}>{t('warp.ip')}</div>
@@ -201,9 +210,9 @@ function WarpSummaryCard() {
         </div>
       )}
       <div style={{ marginTop: '12px' }}>
-        <a href="/warp" style={{ color: 'var(--primary)', textDecoration: 'none', fontSize: '14px' }}>
+        <Link to="/warp" style={{ color: 'var(--primary)', textDecoration: 'none', fontSize: '14px' }}>
           → {t('warp.pageTitle')}
-        </a>
+        </Link>
       </div>
     </Card>
   )
@@ -218,6 +227,8 @@ function ProxyConfigCard() {
   const addToast = useNotificationStore((s) => s.addToast)
   const [proxy, setProxy] = useState('')
   const [poolText, setPoolText] = useState('')
+  const [initialProxy, setInitialProxy] = useState('')
+  const [initialPoolText, setInitialPoolText] = useState('')
   const [socksSupported, setSocksSupported] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -226,8 +237,12 @@ function ProxyConfigCard() {
     try {
       setLoading(true)
       const data = await api.getProxyConfig()
-      setProxy(data.proxy || '')
-      setPoolText((data.proxy_pool || []).join('\n'))
+      const proxyValue = data.proxy || ''
+      const poolValue = (data.proxy_pool || []).join('\n')
+      setProxy(proxyValue)
+      setPoolText(poolValue)
+      setInitialProxy(proxyValue)
+      setInitialPoolText(poolValue)
       setSocksSupported(data.socks_supported)
     } catch {
       addToast('error', t('proxy.fetchFailed'))
@@ -242,14 +257,23 @@ function ProxyConfigCard() {
     setSaving(true)
     try {
       const pool = poolText.split('\n').map((s) => s.trim()).filter(Boolean)
-      await api.updateProxyConfig({ proxy: proxy.trim() || '', proxy_pool: pool })
+      const params: { proxy?: string | null; proxy_pool?: string[] } = {}
+      if (shouldSubmitConfigValue(proxy, initialProxy)) params.proxy = proxy.trim() || ''
+      if (shouldSubmitConfigValue(poolText, initialPoolText)) params.proxy_pool = pool
+      const data = await api.updateProxyConfig(params)
+      const proxyValue = data.proxy || ''
+      const poolValue = (data.proxy_pool || []).join('\n')
+      setProxy(proxyValue)
+      setPoolText(poolValue)
+      setInitialProxy(proxyValue)
+      setInitialPoolText(poolValue)
       addToast('success', t('proxy.saved'))
     } catch (err) {
       addToast('error', t('proxy.saveFailed', { message: formatError(err) }))
     } finally {
       setSaving(false)
     }
-  }, [proxy, poolText, addToast, t])
+  }, [proxy, poolText, initialProxy, initialPoolText, addToast, t])
 
   const handleClear = useCallback(async () => {
     setSaving(true)
@@ -257,6 +281,8 @@ function ProxyConfigCard() {
       await api.updateProxyConfig({ proxy: '', proxy_pool: [] })
       setProxy('')
       setPoolText('')
+      setInitialProxy('')
+      setInitialPoolText('')
       addToast('success', t('proxy.saved'))
     } catch (err) {
       addToast('error', t('proxy.saveFailed', { message: formatError(err) }))
@@ -285,8 +311,9 @@ function ProxyConfigCard() {
       </div>
 
       <div className={styles.proxyField}>
-        <label className={styles.proxyLabel}>{t('proxy.globalProxy')}</label>
+        <label className={styles.proxyLabel} htmlFor="network-proxy-global">{t('proxy.globalProxy')}</label>
         <Input
+          id="network-proxy-global"
           value={proxy}
           onChange={(e) => setProxy(e.target.value)}
           placeholder={t('proxy.globalProxyPlaceholder')}
@@ -294,9 +321,10 @@ function ProxyConfigCard() {
       </div>
 
       <div className={styles.proxyField}>
-        <label className={styles.proxyLabel}>{t('proxy.proxyPool')}</label>
+        <label className={styles.proxyLabel} htmlFor="network-proxy-pool">{t('proxy.proxyPool')}</label>
         <p className={styles.proxyHint}>{t('proxy.poolDescription')}</p>
         <textarea
+          id="network-proxy-pool"
           className={styles.proxyTextarea}
           value={poolText}
           onChange={(e) => setPoolText(e.target.value)}

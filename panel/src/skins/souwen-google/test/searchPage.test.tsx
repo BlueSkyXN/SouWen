@@ -25,7 +25,13 @@ import type { HTMLAttributes } from 'react'
 import { SearchPage } from '../pages/SearchPage'
 import { api } from '@core/services/api'
 import { useNotificationStore } from '@core/stores/notificationStore'
-import type { SearchResponse } from '@core/types'
+import type {
+  ImageSearchResponse,
+  SearchResponse,
+  SourceInfo,
+  SourcesResponse,
+  VideoSearchResponse,
+} from '@core/types'
 
 // Mock API 模块
 vi.mock('@core/services/api', () => ({
@@ -34,6 +40,9 @@ vi.mock('@core/services/api', () => ({
     searchPaper: vi.fn(),
     searchPatent: vi.fn(),
     searchWeb: vi.fn(),
+    searchImages: vi.fn(),
+    searchNews: vi.fn(),
+    searchVideos: vi.fn(),
   },
 }))
 
@@ -175,6 +184,90 @@ function createPaperResponse(query: string, title: string): SearchResponse {
   }
 }
 
+function source(name: string, domain: string, capabilities: string[], defaultFor: string[] = []): SourceInfo {
+  return {
+    name,
+    domain,
+    category: domain === 'paper' ? 'paper' : 'web_general',
+    capabilities,
+    description: name,
+    auth_requirement: 'none',
+    credential_fields: [],
+    credentials_satisfied: true,
+    configured_credentials: false,
+    risk_level: 'low',
+    stability: 'stable',
+    distribution: 'core',
+    default_for: defaultFor,
+    min_edition: 'basic',
+    edition_available: true,
+    edition_reason: '',
+    available: true,
+  }
+}
+
+function createMediaSourcesResponse(): SourcesResponse {
+  return {
+    sources: [
+      source('openalex', 'paper', ['search'], ['paper:search']),
+      source('duckduckgo', 'web', ['search'], ['web:search']),
+      source('duckduckgo_images', 'web', ['search_images'], ['web:search_images']),
+      source('duckduckgo_videos', 'web', ['search_videos'], ['web:search_videos']),
+    ],
+    categories: [],
+    defaults: {
+      'paper:search': ['openalex'],
+      'web:search': ['duckduckgo'],
+      'web:search_images': ['duckduckgo_images'],
+      'web:search_videos': ['duckduckgo_videos'],
+    },
+  }
+}
+
+function createImageResponse(query: string): ImageSearchResponse {
+  return {
+    query,
+    total: 1,
+    meta: {},
+    results: [
+      {
+        source: 'duckduckgo_images',
+        title: 'Architecture diagram',
+        url: 'https://example.com/diagram',
+        image_url: 'https://img.example/full.jpg',
+        thumbnail_url: 'https://img.example/thumb.jpg',
+        width: 1200,
+        height: 800,
+        image_source: 'example.com',
+        engine: 'duckduckgo_images',
+      },
+    ],
+  }
+}
+
+function createVideoResponse(query: string): VideoSearchResponse {
+  return {
+    query,
+    total: 1,
+    meta: {},
+    results: [
+      {
+        source: 'duckduckgo_videos',
+        title: 'System demo',
+        url: 'https://video.example/watch',
+        duration: '03:21',
+        publisher: 'Demo Channel',
+        published: '2026-06-28',
+        description: 'Short demo',
+        thumbnail: 'https://img.example/video.jpg',
+        embed_url: '',
+        view_count: 42,
+        engine: 'duckduckgo_videos',
+      },
+    ],
+  }
+}
+
 /**
  * 创建可控延迟 Promise
  * @returns { promise, resolve, reject } - 返回 Promise 及其控制方法
@@ -213,6 +306,9 @@ describe('SearchPage', () => {
         stability: 'stable',
         distribution: 'core',
         default_for: ['paper:search'],
+        min_edition: 'basic',
+        edition_available: true,
+        edition_reason: '',
         available: true,
       }],
       categories: [],
@@ -267,5 +363,68 @@ describe('SearchPage', () => {
     await waitFor(() => {
       expect(screen.queryByText('First result')).not.toBeInTheDocument()
     })
+  })
+
+  it('renders image search results with their thumbnail', async () => {
+    mockedApi.getSources.mockResolvedValue(createMediaSourcesResponse())
+    mockedApi.searchImages.mockResolvedValue(createImageResponse('diagram'))
+
+    render(<SearchPage />)
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: 'domains.web' }))
+    await user.click(await screen.findByRole('button', { name: 'capabilities.search_images' }))
+    expect((await screen.findAllByText('duckduckgo_images')).length).toBeGreaterThan(0)
+
+    await user.type(screen.getByRole('textbox'), 'diagram')
+    await user.click(screen.getByRole('button', { name: '搜索' }))
+
+    expect(await screen.findByAltText('Architecture diagram')).toHaveAttribute(
+      'src',
+      'https://img.example/thumb.jpg',
+    )
+    expect(screen.getByText('1200 x 800')).toBeInTheDocument()
+    expect(mockedApi.searchImages).toHaveBeenCalledWith(
+      'diagram',
+      10,
+      'wt-wt',
+      'moderate',
+      expect.any(AbortSignal),
+      undefined,
+      'duckduckgo_images',
+    )
+    expect(mockedApi.searchWeb).not.toHaveBeenCalled()
+  })
+
+  it('renders video search results with thumbnail and duration', async () => {
+    mockedApi.getSources.mockResolvedValue(createMediaSourcesResponse())
+    mockedApi.searchVideos.mockResolvedValue(createVideoResponse('demo'))
+
+    render(<SearchPage />)
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: 'domains.web' }))
+    await user.click(await screen.findByRole('button', { name: 'capabilities.search_videos' }))
+    expect((await screen.findAllByText('duckduckgo_videos')).length).toBeGreaterThan(0)
+
+    await user.type(screen.getByRole('textbox'), 'demo')
+    await user.click(screen.getByRole('button', { name: '搜索' }))
+
+    expect(await screen.findByAltText('System demo')).toHaveAttribute(
+      'src',
+      'https://img.example/video.jpg',
+    )
+    expect(screen.getByText('03:21')).toBeInTheDocument()
+    expect(screen.getByText('Demo Channel')).toBeInTheDocument()
+    expect(mockedApi.searchVideos).toHaveBeenCalledWith(
+      'demo',
+      10,
+      'wt-wt',
+      'moderate',
+      expect.any(AbortSignal),
+      undefined,
+      'duckduckgo_videos',
+    )
+    expect(mockedApi.searchWeb).not.toHaveBeenCalled()
   })
 })

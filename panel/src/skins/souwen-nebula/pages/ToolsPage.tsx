@@ -50,7 +50,7 @@ export function ToolsPage() {
         <p className={styles.heroSubtitle}>{t('tools.subtitle')}</p>
       </m.div>
 
-      <div className={styles.tabs} role="tablist">
+      <div className={styles.tabs} role="tablist" aria-label={t('tools.title')}>
         <button
           role="tab"
           aria-selected={tab === 'cdx'}

@@ -183,7 +183,8 @@
   padding: $space-5 $space-6;
   padding-left: calc(#{$space-6} + 3px);
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: stretch;
   gap: $space-4;
   box-shadow: var(--shadow-card);
   border-left: 3px solid transparent;
@@ -555,6 +556,32 @@
   gap: $space-4;
   cursor: pointer;
   user-select: none;
+  flex: 1;
+  width: 100%;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+
+  &:focus-visible {
+    outline: 2px solid var(--primary);
+    outline-offset: 4px;
+    border-radius: var(--radius-sm);
+  }
+
+  &:hover .expandIcon {
+    color: var(--primary);
+  }
+}
+
+.sourceCardHeader {
+  display: flex;
+  align-items: flex-start;
+  gap: $space-3;
+  width: 100%;
 }
 
 .cardActions {

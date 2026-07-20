@@ -23,7 +23,6 @@
  */
 
 import { useEffect, useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { RefreshCw } from 'lucide-react'
 import { api } from '@core/services/api'
@@ -40,7 +39,6 @@ import styles from './DashboardPage.module.scss'
  */
 export function DashboardPage() {
   const { t } = useTranslation()
-  const navigate = useNavigate()
   const [doctor, setDoctor] = useState<DoctorResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState(false)
@@ -70,7 +68,7 @@ export function DashboardPage() {
 
   // 加载中状态：显示加载旋转圈
   if (loading) {
-    return <Spinner label={t('common.loading', 'Loading...')} />
+    return <Spinner label={t('common.loading')} />
   }
 
   // 加载失败状态：显示错误消息和重试按钮
@@ -103,58 +101,46 @@ export function DashboardPage() {
     <div className={styles.page}>
       {/* ── Hero Section 英雄区：标题、描述和核心指标 ── */}
       <div className={styles.heroSection}>
-        <div className={styles.heroSubtitle}>SouWen {t('dashboard.title', 'Dashboard')}</div>
+        <div className={styles.heroSubtitle}>SouWen {t('dashboard.title')}</div>
         <h1 className={styles.heroTitle}>
           {/* 根据系统健康状态显示不同的标题 */}
           {healthPct > 50
-            ? t('dashboard.heroHealthy', '掌控全局，就是这么简单。')
-            : t('dashboard.heroDegraded', '部分服务降级，请检查配置。')}
+            ? t('dashboard.heroHealthy')
+            : t('dashboard.heroDegraded')}
         </h1>
         <p className={styles.heroDesc}>
-          {t('dashboard.heroDesc', '核心指标一目了然。无论是论文数据库的实时状态，还是专利接口的探测情况，尽在掌握。')}
+          {t('dashboard.heroDesc')}
         </p>
 
         {/* ── Giant Metric Numbers 巨大的核心指标卡 ── */}
         <div className={styles.metricsRow}>
-          <div
+          <a
+            href="#/search/paper"
             className={`${styles.metricItem} ${styles.clickable}`}
-            onClick={() => navigate('/search/paper')}
-            role="link"
-            tabIndex={0}
-            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/search/paper')}
           >
             <div className={styles.metricLabel}>{t('dashboard.paperSources')}</div>
             <div className={styles.metricValue}>{paperCount}</div>
-            <div className={styles.metricDesc}>{t('dashboard.ready', '就绪')}</div>
-          </div>
-          <div
+            <div className={styles.metricDesc}>{t('dashboard.ready')}</div>
+          </a>
+          <a
+            href="#/search/patent"
             className={`${styles.metricItem} ${styles.clickable}`}
-            onClick={() => navigate('/search/patent')}
-            role="link"
-            tabIndex={0}
-            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/search/patent')}
           >
             <div className={styles.metricLabel}>{t('dashboard.patentSources')}</div>
             <div className={styles.metricValue}>{patentCount}</div>
-            <div className={styles.metricDesc}>{t('dashboard.ready', '就绪')}</div>
-          </div>
-          <div
+            <div className={styles.metricDesc}>{t('dashboard.ready')}</div>
+          </a>
+          <a
+            href="#/search/web"
             className={`${styles.metricItem} ${styles.clickable}`}
-            onClick={() => navigate('/search/web')}
-            role="link"
-            tabIndex={0}
-            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/search/web')}
           >
             <div className={styles.metricLabel}>{t('dashboard.webEngines')}</div>
             <div className={styles.metricValue}>{webCount}</div>
-            <div className={styles.metricDesc}>{t('dashboard.ready', '就绪')}</div>
-          </div>
-          <div
+            <div className={styles.metricDesc}>{t('dashboard.ready')}</div>
+          </a>
+          <a
+            href="#/sources"
             className={`${styles.metricItem} ${styles.clickable}`}
-            onClick={() => navigate('/sources')}
-            role="link"
-            tabIndex={0}
-            onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/sources')}
           >
             <div className={styles.metricLabel}>{t('dashboard.availableSources')}</div>
             <div className={styles.metricValue}>
@@ -163,10 +149,10 @@ export function DashboardPage() {
             {/* 健康状态徽章，健康情况 <= 50% 时显示警告样式 */}
             <div className={`${styles.metricDesc} ${healthPct <= 50 ? styles.metricDescAlert : ''}`}>
               {healthPct > 50
-                ? t('dashboard.statusOk', 'Healthy')
-                : t('dashboard.statusDegraded', 'Degraded')}
+                ? t('dashboard.statusOk')
+                : t('dashboard.statusDegraded')}
             </div>
-          </div>
+          </a>
         </div>
       </div>
 
@@ -178,11 +164,11 @@ export function DashboardPage() {
             <thead>
               <tr>
                 <th>{t('dashboard.status')}</th>
-                <th>{t('dashboard.name', 'Name')}</th>
+                <th>{t('dashboard.name')}</th>
                 <th>{t('dashboard.type')}</th>
                 <th>{t('dashboard.tier')}</th>
                 <th>{t('dashboard.requiredKey')}</th>
-                <th>{t('dashboard.diagnostics', 'Details')}</th>
+                <th>{t('dashboard.diagnostics')}</th>
               </tr>
             </thead>
             <tbody>

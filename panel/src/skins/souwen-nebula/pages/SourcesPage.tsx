@@ -33,6 +33,7 @@ import {
 } from 'lucide-react'
 import { api } from '@core/services/api'
 import { useNotificationStore } from '@core/stores/notificationStore'
+import { useAuthStore } from '@core/stores/authStore'
 import { Modal } from '../components/common/Modal'
 import { EmptyState } from '../components/common/EmptyState'
 import { Skeleton } from '../components/common/Skeleton'
@@ -41,10 +42,25 @@ import { Button } from '../components/common/Button'
 import { Input } from '../components/common/Input'
 import { formatError } from '@core/lib/errors'
 import { staggerContainerFast, staggerItemSmall } from '@core/lib/animations'
-import { doctorStatusOrder, isDoctorStatusAvailable } from '@core/lib/sourceStatus'
+import { hasFeatureAccess } from '@core/lib/access'
+import {
+  doctorStatusOrder,
+  isDoctorStatusAvailable,
+  sourceAvailabilityBadgeColor,
+  sourceAvailabilitySummary,
+} from '@core/lib/sourceStatus'
+import { shouldSubmitConfigValue } from '@core/lib/redactedConfig'
+import {
+  SOURCE_CUSTOM_PROXY_EXAMPLE,
+  SOURCE_PROXY_MODES,
+  getSourceCustomProxyValue,
+  getSourceProxyMode,
+  getSourceProxyValue,
+  type SourceProxyMode,
+} from '@core/lib/sourceProxyConfig'
 
 import { SOURCE_CATEGORY_LABEL_KEYS, SOURCE_CATEGORY_ORDER } from '@core/types'
-import type { DoctorResponse, DoctorSource, SourceCategory, SourceChannelConfig } from '@core/types'
+import type { DoctorResponse, DoctorSource, SourceCategory, SourceChannelConfig, SourceInfo } from '@core/types'
 import styles from './SourcesPage.module.scss'
 
 const CATEGORY_ORDER = SOURCE_CATEGORY_ORDER
@@ -204,18 +220,12 @@ function SourceConfigPanel({
   const { t } = useTranslation()
   const addToast = useNotificationStore((s) => s.addToast)
 
-  // Determine initial proxy mode
-  const getProxyMode = (val: string) => {
-    if (val === 'inherit' || val === '') return 'inherit'
-    if (val === 'none') return 'none'
-    if (val === 'warp') return 'warp'
-    return 'custom'
-  }
-
-  const [proxyMode, setProxyMode] = useState<string>(getProxyMode(config.proxy))
-  const [customProxy, setCustomProxy] = useState(getProxyMode(config.proxy) === 'custom' ? config.proxy : '')
+  const [initialProxy, setInitialProxy] = useState(config.proxy || 'inherit')
+  const [proxyMode, setProxyMode] = useState<SourceProxyMode>(getSourceProxyMode(initialProxy))
+  const [customProxy, setCustomProxy] = useState(getSourceCustomProxyValue(initialProxy))
   const [httpBackend, setHttpBackend] = useState(config.http_backend || 'auto')
   const [baseUrl, setBaseUrl] = useState(config.base_url || '')
+  const [initialBaseUrl, setInitialBaseUrl] = useState(config.base_url || '')
   const [hasApiKey, setHasApiKey] = useState(config.has_api_key)
   const [apiKeyMode, setApiKeyMode] = useState<'view' | 'replace'>('view')
   const [newApiKey, setNewApiKey] = useState('')
@@ -241,16 +251,29 @@ function SourceConfigPanel({
     }
   }, [proxyMode, checkWarpStatus])
 
+  useEffect(() => {
+    const nextProxy = config.proxy || 'inherit'
+    const nextBaseUrl = config.base_url || ''
+    setInitialProxy(nextProxy)
+    setProxyMode(getSourceProxyMode(nextProxy))
+    setCustomProxy(getSourceCustomProxyValue(nextProxy))
+    setHttpBackend(config.http_backend || 'auto')
+    setBaseUrl(nextBaseUrl)
+    setInitialBaseUrl(nextBaseUrl)
+    setHasApiKey(config.has_api_key)
+    setApiKeyMode('view')
+    setNewApiKey('')
+    setClearApiKey(false)
+  }, [sourceName, config.proxy, config.http_backend, config.base_url, config.has_api_key])
+
   const handleSave = useCallback(async () => {
     setSaving(true)
     try {
       const params: Record<string, string | undefined> = {}
 
       // Proxy
-      if (proxyMode === 'inherit') params.proxy = 'inherit'
-      else if (proxyMode === 'none') params.proxy = 'none'
-      else if (proxyMode === 'warp') params.proxy = 'warp'
-      else if (proxyMode === 'custom') params.proxy = customProxy
+      const nextProxy = getSourceProxyValue(proxyMode, customProxy)
+      if (shouldSubmitConfigValue(nextProxy, initialProxy)) params.proxy = nextProxy
 
       // HTTP backend (only for scrapers)
       if (config.integration_type === 'scraper') {
@@ -258,7 +281,7 @@ function SourceConfigPanel({
       }
 
       // Base URL
-      params.base_url = baseUrl || ''
+      if (shouldSubmitConfigValue(baseUrl, initialBaseUrl)) params.base_url = baseUrl || ''
 
       // API key — only include if user explicitly changed it
       if (clearApiKey) {
@@ -268,7 +291,7 @@ function SourceConfigPanel({
       }
 
       await api.updateSourceConfig(sourceName, params)
-      addToast('success', t('sourceConfig.saveSuccess'))
+      addToast('success', t('sourceConfig.saveSuccess', { name: sourceName }))
 
       // Update local state for api key display
       if (clearApiKey) {
@@ -285,7 +308,7 @@ function SourceConfigPanel({
     } finally {
       setSaving(false)
     }
-  }, [proxyMode, customProxy, httpBackend, baseUrl, clearApiKey, apiKeyMode, newApiKey, sourceName, config.integration_type, addToast, t, onSaved])
+  }, [proxyMode, customProxy, initialProxy, httpBackend, baseUrl, initialBaseUrl, clearApiKey, apiKeyMode, newApiKey, sourceName, config.integration_type, addToast, t, onSaved])
 
   const handleClearApiKey = useCallback(() => {
     if (window.confirm(t('sourceConfig.apiKeyConfirmClear'))) {
@@ -305,26 +328,30 @@ function SourceConfigPanel({
       <div className={styles.configForm}>
         {/* Proxy */}
         <div className={styles.configField}>
-          <label className={styles.configLabel}>{t('sourceConfig.proxy')}</label>
+          <label className={styles.configLabel} htmlFor={`source-${sourceName}-proxy-mode`}>{t('sourceConfig.proxy')}</label>
           <select
+            id={`source-${sourceName}-proxy-mode`}
             className={styles.configSelect}
             value={proxyMode}
             onChange={(e) => {
-              setProxyMode(e.target.value)
-              if (e.target.value !== 'custom') setCustomProxy('')
+              const mode = e.target.value as SourceProxyMode
+              setProxyMode(mode)
+              if (mode !== 'custom') setCustomProxy('')
             }}
           >
-            <option value="inherit">{t('sourceConfig.proxyInherit')}</option>
-            <option value="none">{t('sourceConfig.proxyNone')}</option>
-            <option value="warp">{t('sourceConfig.proxyWarp')}</option>
-            <option value="custom">{t('sourceConfig.proxyCustom')}</option>
+            {SOURCE_PROXY_MODES.map((mode) => (
+              <option key={mode} value={mode}>
+                {t(`sourceConfig.proxy${mode.charAt(0).toUpperCase() + mode.slice(1)}`)}
+              </option>
+            ))}
           </select>
           {proxyMode === 'custom' && (
             <Input
+              aria-label={t('sourceConfig.proxyCustom')}
               type="text"
               value={customProxy}
               onChange={(e) => setCustomProxy(e.target.value)}
-              placeholder="socks5://127.0.0.1:1080"
+              placeholder={t('sourceConfig.proxyCustomPlaceholder', { example: SOURCE_CUSTOM_PROXY_EXAMPLE })}
             />
           )}
           {warpWarning && (
@@ -338,9 +365,10 @@ function SourceConfigPanel({
         {/* HTTP Backend — only for scrapers */}
         {config.integration_type === 'scraper' && (
           <div className={styles.configField}>
-            <label className={styles.configLabel}>{t('sourceConfig.httpBackend')}</label>
+            <label className={styles.configLabel} htmlFor={`source-${sourceName}-http-backend`}>{t('sourceConfig.httpBackend')}</label>
             <p className={styles.configFieldDesc}>{t('sourceConfig.httpBackendDesc')}</p>
             <select
+              id={`source-${sourceName}-http-backend`}
               className={styles.configSelect}
               value={httpBackend}
               onChange={(e) => setHttpBackend(e.target.value)}
@@ -354,8 +382,9 @@ function SourceConfigPanel({
 
         {/* Base URL */}
         <div className={styles.configField}>
-          <label className={styles.configLabel}>{t('sourceConfig.baseUrl')}</label>
+          <label className={styles.configLabel} htmlFor={`source-${sourceName}-base-url`}>{t('sourceConfig.baseUrl')}</label>
           <Input
+            id={`source-${sourceName}-base-url`}
             type="text"
             value={baseUrl}
             onChange={(e) => setBaseUrl(e.target.value)}
@@ -394,6 +423,7 @@ function SourceConfigPanel({
             ) : (
               <div className={styles.apiKeyInputRow}>
                 <Input
+                  aria-label={t('sourceConfig.apiKey')}
                   type="password"
                   value={newApiKey}
                   onChange={(e) => setNewApiKey(e.target.value)}
@@ -402,7 +432,7 @@ function SourceConfigPanel({
                 <button
                   className={styles.apiKeyCancelBtn}
                   onClick={() => { setApiKeyMode('view'); setNewApiKey('') }}
-                  aria-label="Cancel"
+                  aria-label={t('common.cancel')}
                 >
                   <X size={14} />
                 </button>
@@ -420,7 +450,7 @@ function SourceConfigPanel({
           icon={<Save size={14} />}
           onClick={handleSave}
         >
-          {t('common.save', 'Save')}
+          {t('common.save')}
         </Button>
       </div>
     </div>
@@ -436,24 +466,38 @@ export function SourcesPage() {
   const [confirmSource, setConfirmSource] = useState<DoctorSource | null>(null)
   const [expandedSource, setExpandedSource] = useState<string | null>(null)
   const [sourcesConfig, setSourcesConfig] = useState<Record<string, SourceChannelConfig>>({})
+  const [sourceCatalog, setSourceCatalog] = useState<Record<string, SourceInfo>>({})
   const [selectedCategory, setSelectedCategory] = useState<'all' | SourceCategory>('all')
   const addToast = useNotificationStore((s) => s.addToast)
+  const features = useAuthStore((s) => s.features)
+  const role = useAuthStore((s) => s.role)
+  const canWriteSources = hasFeatureAccess(features, role, 'sources_config_write')
 
   const fetchSourcesConfig = useCallback(async () => {
+    if (!canWriteSources) {
+      setSourcesConfig({})
+      return
+    }
     try {
       const cfg = await api.getSourcesConfig()
       setSourcesConfig(cfg)
     } catch {
       // non-critical, config panel will just show defaults
     }
-  }, [])
+  }, [canWriteSources])
 
   const fetchData = useCallback(async () => {
     setLoading(true)
     setFetchError(false)
     try {
-      const d = await api.getDoctor()
+      const [d, catalog] = await Promise.all([
+        api.getDoctor(),
+        api.getSources().catch(() => null),
+      ])
       setDoctor(d)
+      setSourceCatalog(Object.fromEntries(
+        (catalog?.sources ?? []).map((source) => [source.name, source]),
+      ))
     } catch (err) {
       setFetchError(true)
       addToast('error', t('sources.fetchFailed', { message: formatError(err) }))
@@ -468,6 +512,7 @@ export function SourcesPage() {
   }, [fetchData, fetchSourcesConfig])
 
   const executeToggle = useCallback(async (name: string, currentEnabled: boolean) => {
+    if (!canWriteSources) return
     setToggling(name)
     try {
       await api.updateSourceConfig(name, { enabled: !currentEnabled })
@@ -481,15 +526,16 @@ export function SourcesPage() {
     } finally {
       setToggling(null)
     }
-  }, [fetchData, addToast, t])
+  }, [canWriteSources, fetchData, addToast, t])
 
   const handleToggle = useCallback((src: DoctorSource) => {
+    if (!canWriteSources) return
     if (src.enabled && isDoctorStatusAvailable(src.status)) {
       setConfirmSource(src)
     } else {
       void executeToggle(src.name, src.enabled)
     }
-  }, [executeToggle])
+  }, [canWriteSources, executeToggle])
 
   const handleCardClick = useCallback((sourceName: string) => {
     setExpandedSource((prev) => prev === sourceName ? null : sourceName)
@@ -500,6 +546,10 @@ export function SourcesPage() {
     void executeToggle(confirmSource.name, confirmSource.enabled)
     setConfirmSource(null)
   }, [confirmSource, executeToggle])
+
+  const getAvailability = useCallback((src: DoctorSource) => (
+    sourceAvailabilitySummary({ ...src, ...(sourceCatalog[src.name] ?? {}) }, t)
+  ), [sourceCatalog, t])
 
   if (loading) return <LoadingSkeleton />
 
@@ -613,39 +663,60 @@ export function SourcesPage() {
             initial="initial"
             animate="animate"
           >
-            {list.map((src) => (
-              <m.div
-                key={src.name}
-                variants={staggerItemSmall}
-                className={`${styles.sourceCard} ${!src.enabled ? styles.sourceCardDisabled : ''} ${integrationBorderClass(src)} ${expandedSource === src.name ? styles.sourceCardExpanded : ''}`}
-              >
-                <div className={styles.sourceCardTop} onClick={() => handleCardClick(src.name)}>
-                  <StatusDot status={src.enabled ? src.status : 'disabled'} />
+            {list.map((src) => {
+              const availability = getAvailability(src)
+              const expanded = expandedSource === src.name
+              return (
+                <m.div
+                  key={src.name}
+                  variants={staggerItemSmall}
+                  className={`${styles.sourceCard} ${!src.enabled ? styles.sourceCardDisabled : ''} ${integrationBorderClass(src)} ${expanded ? styles.sourceCardExpanded : ''}`}
+                >
+                <div className={styles.sourceCardHeader}>
+                  <button
+                    type="button"
+                    className={styles.sourceCardTop}
+                    onClick={() => handleCardClick(src.name)}
+                    aria-expanded={expanded}
+                    aria-label={t(expanded ? 'sources.collapseSource' : 'sources.expandSource', { name: src.name })}
+                  >
+                    <StatusDot status={src.enabled ? src.status : 'disabled'} />
 
-                  <div className={styles.cardBody}>
-                    <div className={styles.sourceName}>{src.name}</div>
-                    <div className={styles.badges}>
-                      <IntegrationBadge integration_type={src.integration_type} t={t} />
-                      <KeyRequirementBadge value={src.key_requirement} t={t} />
-                      <RiskBadge value={src.risk_level} t={t} />
-                      <DistributionBadge value={src.distribution} t={t} />
-                    </div>
-                    <div className={styles.cardDescription}>
-                      {src.message}
-                      {src.channel && Object.keys(src.channel).length > 0 && (
-                        <span className={styles.channelInfo}>
-                          [{Object.entries(src.channel).map(([k, v]) => `${k}=${v}`).join(', ')}]
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className={styles.cardActions}>
-                    <span className={`${styles.expandIcon} ${expandedSource === src.name ? styles.expandIconOpen : ''}`}>
-                      <ChevronDown size={16} />
+                    <span className={styles.cardBody}>
+                      <span className={styles.sourceName}>{src.name}</span>
+                      <span className={styles.badges}>
+                        <Badge color={sourceAvailabilityBadgeColor(availability.tone)}>
+                          {availability.label}
+                        </Badge>
+                        <IntegrationBadge integration_type={src.integration_type} t={t} />
+                        <KeyRequirementBadge value={src.key_requirement} t={t} />
+                        <RiskBadge value={src.risk_level} t={t} />
+                        <DistributionBadge value={src.distribution} t={t} />
+                      </span>
+                      <span className={styles.cardDescription}>
+                        {availability.message}
+                        {src.channel && Object.keys(src.channel).length > 0 && (
+                          <span className={styles.channelInfo}>
+                            [{Object.entries(src.channel).map(([k, v]) => `${k}=${v}`).join(', ')}]
+                          </span>
+                        )}
+                      </span>
                     </span>
-                    <div className={styles.toggleArea} onClick={(e) => e.stopPropagation()}>
+
+                    <span className={styles.cardActions}>
+                      <span
+                        className={`${styles.expandIcon} ${expanded ? styles.expandIconOpen : ''}`}
+                        aria-hidden="true"
+                      >
+                        <ChevronDown size={16} />
+                      </span>
+                    </span>
+                  </button>
+
+                  <div className={styles.toggleArea}>
+                    {canWriteSources ? (
                       <button
+                        type="button"
                         className={`${styles.toggleBtn} ${src.enabled ? styles.toggleBtnEnabled : ''}`}
                         onClick={() => handleToggle(src)}
                         disabled={toggling === src.name}
@@ -658,12 +729,16 @@ export function SourcesPage() {
                           {src.enabled && <Check size={12} strokeWidth={3} />}
                         </span>
                       </button>
-                    </div>
+                    ) : (
+                      <Badge color={src.enabled ? 'green' : 'gray'}>
+                        {src.enabled ? t('sources.enabled') : t('sources.disabled')}
+                      </Badge>
+                    )}
                   </div>
                 </div>
 
                 <AnimatePresence initial={false}>
-                  {expandedSource === src.name && sourcesConfig[src.name] && (
+                  {canWriteSources && expanded && sourcesConfig[src.name] && (
                     <m.div
                       variants={expandVariants}
                       initial="collapsed"
@@ -680,8 +755,9 @@ export function SourcesPage() {
                     </m.div>
                   )}
                 </AnimatePresence>
-              </m.div>
-            ))}
+                </m.div>
+              )
+            })}
           </m.div>
         )
       })()}

@@ -1,7 +1,7 @@
 /**
  * 视频中心页面 - Carbon 皮肤版本
  *
- * 文件用途：YouTube 热门视频、视频搜索和字幕提取的统一入口（Carbon 工业风格）
+ * 文件用途：YouTube 热门视频、视频搜索、Bilibili 搜索和字幕提取的统一入口（Carbon 工业风格）
  *
  * 业务逻辑统一抽取至 `@core/hooks/useVideoPage`，本文件仅保留 Carbon 皮肤特有的 UI 渲染。
  */
@@ -9,12 +9,13 @@
 import { m } from 'framer-motion'
 import {
   Play, Search as SearchIcon, FileText, Copy, ExternalLink,
-  Clock, Eye, ThumbsUp, MessageCircle, Tv, Terminal,
+  Clock, Eye, ThumbsUp, MessageCircle, Tv, Terminal, MessageSquare, Tv2,
 } from 'lucide-react'
 import {
   useVideoPage,
-  REGIONS, CATEGORIES, LANGUAGES,
+  REGIONS, CATEGORIES, LANGUAGES, BILIBILI_ORDERS,
   sanitizeVideoId, formatDuration, formatTimestamp, formatDate,
+  normalizeBiliUrl, stripHtml, sanitizeBvid, formatPlayCount,
 } from '@core/hooks/useVideoPage'
 import { fadeInUp } from '@core/lib/animations'
 import styles from './VideoPage.module.scss'
@@ -28,10 +29,14 @@ export function VideoPage() {
     trendingLoading, trendingResults,
     query, setQuery,
     searchLoading, searchResults,
+    availableVideoSources, selectedVideoSources, setSelectedVideoSources,
     videoId, setVideoId,
     lang, setLang,
     transcriptLoading, transcriptSegments, transcriptAvailable,
-    handleLoadTrending, handleSearch, handleGetTranscript, copyTranscript,
+    biliQuery, setBiliQuery,
+    biliOrder, setBiliOrder,
+    biliLoading, biliResults,
+    handleLoadTrending, handleSearch, handleGetTranscript, handleBiliSearch, copyTranscript,
   } = useVideoPage()
 
   const renderVideoCard = (v: {
@@ -97,7 +102,7 @@ export function VideoPage() {
         </div>
       </m.div>
 
-      <div className={styles.tabs} role="tablist">
+      <div className={styles.tabs} role="tablist" aria-label={t('video.title')}>
         <button
           role="tab"
           aria-selected={tab === 'trending'}
@@ -113,6 +118,14 @@ export function VideoPage() {
           onClick={() => setTab('search')}
         >
           <SearchIcon size={14} /> {t('video.search')}
+        </button>
+        <button
+          role="tab"
+          aria-selected={tab === 'bilibili'}
+          className={`${styles.tab} ${tab === 'bilibili' ? styles.tabActive : ''}`}
+          onClick={() => setTab('bilibili')}
+        >
+          <Tv2 size={14} /> {t('video.bilibili')}
         </button>
         <button
           role="tab"
@@ -217,10 +230,28 @@ export function VideoPage() {
                 type="text"
                 className={styles.searchInput}
                 placeholder={t('video.searchPlaceholder')}
+                aria-label={t('video.searchPlaceholder')}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
             </div>
+            {availableVideoSources.length > 0 && (
+              <div className={styles.field}>
+                <label className={styles.label} htmlFor="vid-search-source">
+                  {t('video.searchSource')}
+                </label>
+                <select
+                  id="vid-search-source"
+                  className={styles.select}
+                  value={selectedVideoSources[0] ?? ''}
+                  onChange={(e) => setSelectedVideoSources(e.target.value ? [e.target.value] : [])}
+                >
+                  {availableVideoSources.map((source) => (
+                    <option key={source.name} value={source.name}>{source.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <button
               type="submit"
               className={styles.primaryBtn}
@@ -249,6 +280,108 @@ export function VideoPage() {
                 url: v.url,
               })
             )}
+          </div>
+        </section>
+      )}
+
+      {tab === 'bilibili' && (
+        <section className={styles.panel}>
+          <div className={styles.panelHeader}>
+            <Tv2 size={14} />
+            <span>BILIBILI_SEARCH</span>
+          </div>
+          <form className={styles.searchForm} onSubmit={handleBiliSearch}>
+            <div className={styles.searchInputWrap}>
+              <SearchIcon size={16} className={styles.searchIcon} />
+              <input
+                type="text"
+                className={styles.searchInput}
+                placeholder={t('video.bilibiliPlaceholder')}
+                aria-label={t('video.bilibiliPlaceholder')}
+                value={biliQuery}
+                onChange={(e) => setBiliQuery(e.target.value)}
+              />
+            </div>
+            <div className={styles.field}>
+              <label className={styles.label} htmlFor="bili-order">{t('video.bilibiliOrder')}</label>
+              <select
+                id="bili-order"
+                className={styles.select}
+                value={biliOrder}
+                onChange={(e) => setBiliOrder(e.target.value)}
+              >
+                {BILIBILI_ORDERS.map((o) => (
+                  <option key={o.value} value={o.value}>{t(o.labelKey)}</option>
+                ))}
+              </select>
+            </div>
+            <button
+              type="submit"
+              className={styles.primaryBtn}
+              disabled={biliLoading || !biliQuery.trim()}
+            >
+              {biliLoading ? t('video.loading') : t('search.button')}
+            </button>
+          </form>
+
+          <div className={styles.grid}>
+            {biliLoading && biliResults.length === 0 && (
+              <div className={styles.empty}>{t('video.loading')}</div>
+            )}
+            {!biliLoading && biliResults.length === 0 && (
+              <div className={styles.empty}>{t('video.noResults')}</div>
+            )}
+            {biliResults.map((v) => {
+              const bvid = sanitizeBvid(v.bvid)
+              const title = stripHtml(v.title)
+              return (
+                <a
+                  key={bvid || v.bvid}
+                  className={styles.videoCard}
+                  href={`https://www.bilibili.com/video/${bvid}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                >
+                  <div className={styles.thumbWrap}>
+                    {v.pic ? (
+                      <img
+                        className={styles.thumb}
+                        src={normalizeBiliUrl(v.pic)}
+                        alt={title}
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                      />
+                    ) : (
+                      <div className={styles.thumbPlaceholder}>
+                        <Play size={32} />
+                      </div>
+                    )}
+                    {v.duration && (
+                      <span className={styles.durationBadge}>{v.duration}</span>
+                    )}
+                  </div>
+                  <div className={styles.videoMeta}>
+                    <h3 className={styles.videoTitle}>{title}</h3>
+                    <div className={styles.videoSub}>
+                      <span className={styles.channel}>
+                        <Tv size={12} /> {v.author || '—'}
+                      </span>
+                      {typeof v.play === 'number' && v.play > 0 && (
+                        <span className={styles.metaItem}>
+                          <Eye size={12} /> {formatPlayCount(v.play)}
+                        </span>
+                      )}
+                      {typeof v.danmaku === 'number' && v.danmaku > 0 && (
+                        <span className={styles.metaItem}>
+                          <MessageSquare size={12} /> {formatPlayCount(v.danmaku)}
+                        </span>
+                      )}
+                      <span className={styles.biliBadge}>{bvid}</span>
+                    </div>
+                  </div>
+                </a>
+              )
+            })}
           </div>
         </section>
       )}

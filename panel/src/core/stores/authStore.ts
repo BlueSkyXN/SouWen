@@ -62,6 +62,30 @@
 import { create } from 'zustand'
 import type { UserRole, WhoamiResponse } from '../types'
 
+type FeatureMap = Record<string, boolean | string>
+
+function parseStoredFeatures(raw: string | null): FeatureMap {
+  if (!raw) return {}
+  try {
+    const parsed = JSON.parse(raw)
+    if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) return {}
+    return Object.fromEntries(
+      Object.entries(parsed).filter((entry): entry is [string, boolean | string] => {
+        const value = entry[1]
+        return typeof value === 'boolean' || typeof value === 'string'
+      }),
+    )
+  } catch {
+    return {}
+  }
+}
+
+function getStoredAuthStorage(): Storage | null {
+  if (sessionStorage.getItem('souwen_baseUrl')) return sessionStorage
+  if (localStorage.getItem('souwen_baseUrl')) return localStorage
+  return null
+}
+
 /**
  * 认证状态树接口
  */
@@ -72,7 +96,7 @@ interface AuthState {
   version: string
   issuedAt: number // token 发放时间戳 (ms since epoch)；0 表示未登录
   role: UserRole // 当前角色（从 /whoami 获取）
-  features: Record<string, boolean | string> // 可用功能映射
+  features: FeatureMap // 可用功能映射
   setAuth: (baseUrl: string, token: string, version: string, remember?: boolean) => void
   setRole: (data: WhoamiResponse) => void // 更新角色信息
   logout: () => void
@@ -114,16 +138,28 @@ export const useAuthStore = create<AuthState>((set, get) => ({
    */
   setAuth: (baseUrl, token, version, remember = false) => {
     const issuedAt = Date.now()
-    set({ baseUrl, token, isAuthenticated: true, version, issuedAt })
+    set({
+      baseUrl,
+      token,
+      isAuthenticated: true,
+      version,
+      issuedAt,
+      role: 'guest' as UserRole,
+      features: {},
+    })
     // 清除两端旧数据，防止残留
     localStorage.removeItem('souwen_baseUrl')
     localStorage.removeItem('souwen_token')
     localStorage.removeItem('souwen_version')
     localStorage.removeItem('souwen_issuedAt')
+    localStorage.removeItem('souwen_role')
+    localStorage.removeItem('souwen_features')
     sessionStorage.removeItem('souwen_baseUrl')
     sessionStorage.removeItem('souwen_token')
     sessionStorage.removeItem('souwen_version')
     sessionStorage.removeItem('souwen_issuedAt')
+    sessionStorage.removeItem('souwen_role')
+    sessionStorage.removeItem('souwen_features')
     // 默认存 sessionStorage（标签页关闭即清除）；仅"记住我"时用 localStorage
     const storage = remember ? localStorage : sessionStorage
     storage.setItem('souwen_baseUrl', baseUrl)
@@ -145,6 +181,7 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     // 持久化角色到当前存储
     const storage = localStorage.getItem('souwen_remember') ? localStorage : sessionStorage
     storage.setItem('souwen_role', data.role)
+    storage.setItem('souwen_features', JSON.stringify(data.features))
   },
 
   /**
@@ -158,11 +195,13 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     localStorage.removeItem('souwen_issuedAt')
     localStorage.removeItem('souwen_remember')
     localStorage.removeItem('souwen_role')
+    localStorage.removeItem('souwen_features')
     sessionStorage.removeItem('souwen_baseUrl')
     sessionStorage.removeItem('souwen_token')
     sessionStorage.removeItem('souwen_version')
     sessionStorage.removeItem('souwen_issuedAt')
     sessionStorage.removeItem('souwen_role')
+    sessionStorage.removeItem('souwen_features')
   },
 
   /**
@@ -175,14 +214,17 @@ export const useAuthStore = create<AuthState>((set, get) => ({
    *   3. 若 baseUrl 非空，表示有有效登录，更新状态为已认证
    */
   loadFromStorage: () => {
-    const baseUrl = sessionStorage.getItem('souwen_baseUrl') ?? localStorage.getItem('souwen_baseUrl') ?? ''
-    const token = sessionStorage.getItem('souwen_token') ?? localStorage.getItem('souwen_token') ?? ''
-    const version = sessionStorage.getItem('souwen_version') ?? localStorage.getItem('souwen_version') ?? ''
-    const issuedAtRaw = sessionStorage.getItem('souwen_issuedAt') ?? localStorage.getItem('souwen_issuedAt') ?? '0'
+    const storage = getStoredAuthStorage()
+    if (!storage) return
+    const baseUrl = storage.getItem('souwen_baseUrl') ?? ''
+    const token = storage.getItem('souwen_token') ?? ''
+    const version = storage.getItem('souwen_version') ?? ''
+    const issuedAtRaw = storage.getItem('souwen_issuedAt') ?? '0'
     const issuedAt = Number(issuedAtRaw) || 0
-    const role = (sessionStorage.getItem('souwen_role') ?? localStorage.getItem('souwen_role') ?? 'guest') as UserRole
+    const role = (storage.getItem('souwen_role') ?? 'guest') as UserRole
+    const features = parseStoredFeatures(storage.getItem('souwen_features'))
     if (baseUrl) {
-      set({ baseUrl, token, isAuthenticated: true, version, issuedAt, role })
+      set({ baseUrl, token, isAuthenticated: true, version, issuedAt, role, features })
     }
   },
 

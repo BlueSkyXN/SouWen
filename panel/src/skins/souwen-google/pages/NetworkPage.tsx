@@ -38,6 +38,13 @@ import { Button } from '../components/common/Button'
 import { Badge } from '../components/common/Badge'
 import { formatError } from '@core/lib/errors'
 import { staggerContainer, staggerItem } from '@core/lib/animations'
+import { shouldSubmitConfigValue } from '@core/lib/redactedConfig'
+import {
+  getAvailableWarpModeOptions,
+  getWarpModeLabel,
+  isWarpModeAvailable,
+  WARP_MODE_OPTIONS,
+} from '@core/lib/warpModes'
 import type { WarpStatus, HttpBackendResponse } from '@core/types'
 import styles from './NetworkPage.module.scss'
 
@@ -50,28 +57,13 @@ const SCRAPER_ENGINES = [
 /** HTTP 后端可选项：auto 自动选择 / curl_cffi 浏览器指纹 / httpx 标准客户端 */
 const BACKEND_OPTIONS = ['auto', 'curl_cffi', 'httpx'] as const
 
-const WARP_MODE_OPTIONS = [
-  { value: 'auto', label: '自动选择', description: '自动选择最佳可用模式' },
-  { value: 'wireproxy', label: 'WireProxy (用户态)', description: '用户态 SOCKS5 代理，兼容性较好' },
-  { value: 'kernel', label: '内核 WireGuard', description: '内核 WireGuard 接口，性能较高' },
-  { value: 'usque', label: 'MASQUE/QUIC (usque)', description: '基于 MASQUE/QUIC 的新协议模式' },
-  { value: 'warp-cli', label: '官方客户端 (warp-cli)', description: '使用 Cloudflare 官方客户端接管连接' },
-  { value: 'external', label: '外部代理', description: '使用已配置的外部 WARP 代理' },
-] as const
-
-type WarpModeValue = typeof WARP_MODE_OPTIONS[number]['value']
-type ConcreteWarpModeValue = Exclude<WarpModeValue, 'auto'>
-
-function isWarpModeAvailable(warp: WarpStatus, mode: WarpModeValue) {
-  if (mode === 'auto') return true
-  return Boolean(warp.available_modes?.[mode as ConcreteWarpModeValue])
+function formatAvailableWarpModes(warp: WarpStatus, translate: (key: string) => string) {
+  const modes = getAvailableWarpModeOptions(warp).map((option) => translate(option.labelKey))
+  return modes.length > 0 ? modes.join('、') : '—'
 }
 
-function formatAvailableWarpModes(warp: WarpStatus) {
-  const modes = WARP_MODE_OPTIONS
-    .filter((option) => option.value !== 'auto' && isWarpModeAvailable(warp, option.value))
-    .map((option) => option.label)
-  return modes.length > 0 ? modes.join('、') : '—'
+function formatWarpMode(mode: string | undefined, translate: (key: string) => string) {
+  return getWarpModeLabel(mode, translate) || '—'
 }
 
 /**
@@ -149,6 +141,7 @@ function HttpBackendCard() {
             </Tooltip>
           </div>
           <select
+            aria-label={t('httpBackend.globalDefault')}
             className={styles.engineSelect}
             value={data.default}
             onChange={(e) => void handleUpdate({ default: e.target.value })}
@@ -167,6 +160,7 @@ function HttpBackendCard() {
             <div key={engine} className={styles.engineRow}>
               <div className={styles.engineName}>{engineLabel}</div>
               <select
+                aria-label={engineLabel}
                 className={styles.engineSelect}
                 value={override || 'auto'}
                 onChange={(e) => void handleUpdate({ source: engine, backend: e.target.value })}
@@ -221,7 +215,7 @@ function WarpCard() {
     try {
       const portNum = Math.min(Math.max(parseInt(port) || 1080, 1), 65535)
       const res = await api.enableWarp(mode, portNum, endpoint || undefined)
-      addToast('success', t('warp.enableSuccess', { mode: res.mode, ip: res.ip }))
+      addToast('success', t('warp.enableSuccess', { mode: formatWarpMode(res.mode || mode, (key) => t(key)), ip: res.ip || '—' }))
       void fetchWarp()
     } catch (err) {
       addToast('error', t('warp.enableFailed', { message: formatError(err) }))
@@ -291,7 +285,7 @@ function WarpCard() {
               <CircleDot size={12} />
               {t('warp.mode')}
             </div>
-            <div className={styles.fieldValue}>{warp.mode}</div>
+            <div className={styles.fieldValue}>{formatWarpMode(warp.mode, (key) => t(key))}</div>
           </div>
           <div className={styles.warpField}>
             <div className={styles.fieldLabel}>
@@ -309,19 +303,19 @@ function WarpCard() {
           </div>
           {warp.protocol && (
             <div className={styles.warpField}>
-              <div className={styles.fieldLabel}>协议</div>
+              <div className={styles.fieldLabel}>{t('warp.protocol')}</div>
               <div className={styles.fieldValue}>{warp.protocol}</div>
             </div>
           )}
           {warp.proxy_type && (
             <div className={styles.warpField}>
-              <div className={styles.fieldLabel}>代理类型</div>
+              <div className={styles.fieldLabel}>{t('warp.proxyType')}</div>
               <div className={styles.fieldValue}>{warp.proxy_type}</div>
             </div>
           )}
           {warp.http_port > 0 && (
             <div className={styles.warpField}>
-              <div className={styles.fieldLabel}>HTTP 端口</div>
+              <div className={styles.fieldLabel}>{t('warp.httpPort')}</div>
               <div className={styles.fieldValue}>{warp.http_port}</div>
             </div>
           )}
@@ -356,7 +350,7 @@ function WarpCard() {
       <div className={styles.warpModes}>
         <span className={styles.fieldLabelSmall}>{t('warp.availableModes')}</span>
         <span className={styles.fieldValueInline}>
-          {formatAvailableWarpModes(warp)}
+          {formatAvailableWarpModes(warp, (key) => t(key))}
         </span>
       </div>
 
@@ -365,16 +359,17 @@ function WarpCard() {
           <>
             <div className={styles.warpForm}>
               <div className={styles.formField}>
-                <label className={styles.formLabel}>{t('warp.mode')}</label>
+                <label className={styles.formLabel} htmlFor="network-warp-mode">{t('warp.mode')}</label>
                 <Tooltip content={t('warp.modeDesc')} position="top">
                   <HelpCircle size={13} className={styles.helpIcon} />
                 </Tooltip>
-                <select className={styles.formSelect} value={mode} onChange={(e) => setMode(e.target.value)}>
+                <select id="network-warp-mode" className={styles.formSelect} value={mode} onChange={(e) => setMode(e.target.value)}>
                   {WARP_MODE_OPTIONS.map((option) => {
                     const available = isWarpModeAvailable(warp, option.value)
                     return (
                       <option key={option.value} value={option.value} disabled={!available}>
-                        {option.label} — {option.description}{available ? '' : '（不可用）'}
+                        {t(option.labelKey)} - {t(option.descriptionKey)}
+                        {available ? '' : ` (${t('warp.unavailable')})`}
                       </option>
                     )
                   })}
@@ -433,6 +428,8 @@ function ProxyConfigCard() {
   const addToast = useNotificationStore((s) => s.addToast)
   const [proxy, setProxy] = useState('')
   const [poolText, setPoolText] = useState('')
+  const [initialProxy, setInitialProxy] = useState('')
+  const [initialPoolText, setInitialPoolText] = useState('')
   const [socksSupported, setSocksSupported] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -441,8 +438,12 @@ function ProxyConfigCard() {
     try {
       setLoading(true)
       const data = await api.getProxyConfig()
-      setProxy(data.proxy || '')
-      setPoolText((data.proxy_pool || []).join('\n'))
+      const proxyValue = data.proxy || ''
+      const poolValue = (data.proxy_pool || []).join('\n')
+      setProxy(proxyValue)
+      setPoolText(poolValue)
+      setInitialProxy(proxyValue)
+      setInitialPoolText(poolValue)
       setSocksSupported(data.socks_supported)
     } catch {
       addToast('error', t('proxy.fetchFailed'))
@@ -457,14 +458,23 @@ function ProxyConfigCard() {
     setSaving(true)
     try {
       const pool = poolText.split('\n').map((s) => s.trim()).filter(Boolean)
-      await api.updateProxyConfig({ proxy: proxy.trim() || '', proxy_pool: pool })
+      const params: { proxy?: string | null; proxy_pool?: string[] } = {}
+      if (shouldSubmitConfigValue(proxy, initialProxy)) params.proxy = proxy.trim() || ''
+      if (shouldSubmitConfigValue(poolText, initialPoolText)) params.proxy_pool = pool
+      const data = await api.updateProxyConfig(params)
+      const proxyValue = data.proxy || ''
+      const poolValue = (data.proxy_pool || []).join('\n')
+      setProxy(proxyValue)
+      setPoolText(poolValue)
+      setInitialProxy(proxyValue)
+      setInitialPoolText(poolValue)
       addToast('success', t('proxy.saved'))
     } catch (err) {
       addToast('error', t('proxy.saveFailed', { message: formatError(err) }))
     } finally {
       setSaving(false)
     }
-  }, [proxy, poolText, addToast, t])
+  }, [proxy, poolText, initialProxy, initialPoolText, addToast, t])
 
   const handleClear = useCallback(async () => {
     setSaving(true)
@@ -472,6 +482,8 @@ function ProxyConfigCard() {
       await api.updateProxyConfig({ proxy: '', proxy_pool: [] })
       setProxy('')
       setPoolText('')
+      setInitialProxy('')
+      setInitialPoolText('')
       addToast('success', t('proxy.saved'))
     } catch (err) {
       addToast('error', t('proxy.saveFailed', { message: formatError(err) }))
@@ -500,8 +512,9 @@ function ProxyConfigCard() {
       </div>
 
       <div className={styles.proxyField}>
-        <label className={styles.proxyLabel}>{t('proxy.globalProxy')}</label>
+        <label className={styles.proxyLabel} htmlFor="network-proxy-global">{t('proxy.globalProxy')}</label>
         <Input
+          id="network-proxy-global"
           value={proxy}
           onChange={(e) => setProxy(e.target.value)}
           placeholder={t('proxy.globalProxyPlaceholder')}
@@ -509,9 +522,10 @@ function ProxyConfigCard() {
       </div>
 
       <div className={styles.proxyField}>
-        <label className={styles.proxyLabel}>{t('proxy.proxyPool')}</label>
+        <label className={styles.proxyLabel} htmlFor="network-proxy-pool">{t('proxy.proxyPool')}</label>
         <p className={styles.proxyHint}>{t('proxy.poolDescription')}</p>
         <textarea
+          id="network-proxy-pool"
           className={styles.proxyTextarea}
           value={poolText}
           onChange={(e) => setPoolText(e.target.value)}

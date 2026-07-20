@@ -6,13 +6,24 @@
 import type { ApiServiceBase } from './_base'
 import type { FetchResponse, LinkExtractionResult, SitemapResult } from '../types'
 
+export type FetchStrategy = 'fallback' | 'fanout'
+
+export interface FetchOptions {
+  providers?: string[]
+  strategy?: FetchStrategy
+  selector?: string
+  startIndex?: number
+  maxLength?: number
+  respectRobotsTxt?: boolean
+}
+
 export interface FetchApi {
   fetch(
     urls: string[],
     provider?: string,
     timeout?: number,
     signal?: AbortSignal,
-    options?: { selector?: string; startIndex?: number; maxLength?: number; respectRobotsTxt?: boolean },
+    options?: FetchOptions,
   ): Promise<FetchResponse>
   extractLinks(url: string, baseUrl?: string, limit?: number, signal?: AbortSignal): Promise<LinkExtractionResult>
   parseSitemap(url: string, discover?: boolean, limit?: number, signal?: AbortSignal): Promise<SitemapResult>
@@ -29,14 +40,18 @@ export const fetchMethods = {
     provider = 'builtin',
     timeout = 30,
     signal?: AbortSignal,
-    options?: { selector?: string; startIndex?: number; maxLength?: number; respectRobotsTxt?: boolean },
+    options?: FetchOptions,
   ): Promise<FetchResponse> {
     // 客户端超时 = 后端 timeout + 20s 缓冲（覆盖后端 +15s 缓冲及网络开销）
-    const clientTimeoutMs = timeout * 1000 + 20_000
+    const providerCount = Math.max(1, options?.providers?.length ?? 1)
+    const providerMultiplier = options?.strategy === 'fanout' ? 1 : providerCount
+    const clientTimeoutMs = timeout * 1000 * Math.max(1, urls.length) * providerMultiplier + 20_000
     const body: Record<string, unknown> = { urls, provider, timeout }
+    if (options?.providers?.length) body.providers = options.providers
+    if (options?.strategy) body.strategy = options.strategy
     if (options?.selector) body.selector = options.selector
-    if (options?.startIndex) body.start_index = options.startIndex
-    if (options?.maxLength) body.max_length = options.maxLength
+    if (options?.startIndex !== undefined) body.start_index = options.startIndex
+    if (options?.maxLength !== undefined) body.max_length = options.maxLength
     if (options?.respectRobotsTxt) body.respect_robots_txt = options.respectRobotsTxt
     return this.request<FetchResponse>('/api/v1/fetch', {
       method: 'POST',

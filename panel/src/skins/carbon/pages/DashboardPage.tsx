@@ -23,7 +23,6 @@
  */
 
 import { useEffect, useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { m } from 'framer-motion'
 import { Activity, RefreshCw } from 'lucide-react'
@@ -39,7 +38,6 @@ import styles from './DashboardPage.module.scss'
 
 export function DashboardPage() {
   const { t } = useTranslation()
-  const navigate = useNavigate()
   const [doctor, setDoctor] = useState<DoctorResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState(false)
@@ -68,7 +66,7 @@ export function DashboardPage() {
 
   // 加载中状态：显示加载旋转圈
   if (loading) {
-    return <Spinner label={t('common.loading', 'Loading...')} />
+    return <Spinner label={t('common.loading')} />
   }
 
   // 加载失败状态：显示错误消息和重试按钮
@@ -125,31 +123,31 @@ export function DashboardPage() {
         initial="initial"
         animate="animate"
       >
-        <m.div variants={staggerItem} className={`${styles.statCard} ${styles.clickable}`} onClick={() => navigate('/search/paper')} role="link" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/search/paper')}>
+        <m.a href="#/search/paper" variants={staggerItem} className={`${styles.statCard} ${styles.clickable}`}>
           <div className={styles.statLabel}>{t('dashboard.paperSources')}</div>
           <div className={styles.statValue}>{paperCount}</div>
           <div className={styles.statDesc}>{t('dashboard.paperSources')}</div>
-        </m.div>
+        </m.a>
 
-        <m.div variants={staggerItem} className={`${styles.statCard} ${styles.clickable}`} onClick={() => navigate('/search/patent')} role="link" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/search/patent')}>
+        <m.a href="#/search/patent" variants={staggerItem} className={`${styles.statCard} ${styles.clickable}`}>
           <div className={styles.statLabel}>{t('dashboard.patentSources')}</div>
           <div className={styles.statValue}>{patentCount}</div>
           <div className={styles.statDesc}>{t('dashboard.patentSources')}</div>
-        </m.div>
+        </m.a>
 
-        <m.div variants={staggerItem} className={`${styles.statCard} ${styles.clickable}`} onClick={() => navigate('/search/web')} role="link" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/search/web')}>
+        <m.a href="#/search/web" variants={staggerItem} className={`${styles.statCard} ${styles.clickable}`}>
           <div className={styles.statLabel}>{t('dashboard.webEngines')}</div>
           <div className={styles.statValue}>{webCount}</div>
           <div className={styles.statDesc}>{t('dashboard.webEngines')}</div>
-        </m.div>
+        </m.a>
 
-        <m.div variants={staggerItem} className={`${styles.statCard} ${styles.statCardHighlight} ${styles.clickable}`} onClick={() => navigate('/sources')} role="link" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/sources')}>
+        <m.a href="#/sources" variants={staggerItem} className={`${styles.statCard} ${styles.statCardHighlight} ${styles.clickable}`}>
           <div className={styles.statLabel}>{t('dashboard.availableSources')}</div>
           <div className={styles.statValue}>
             {okCount}<span className={styles.statFraction}>/{totalCount}</span>
           </div>
           <div className={styles.statDesc}>{t('dashboard.availableSources')}</div>
-        </m.div>
+        </m.a>
       </m.div>
 
       {/* ── Health Table 数据源健康详情表 ── */}

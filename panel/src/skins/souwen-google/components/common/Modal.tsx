@@ -19,8 +19,9 @@
  *     - 动画：背景 fade（0.18s）+ 卡片 spring scale（400/28 刚度/阻尼）
  */
 
-import { useEffect, useCallback, type ReactNode } from 'react'
+import { useEffect, useCallback, useId, useRef, type ReactNode } from 'react'
 import { AnimatePresence, m } from 'framer-motion'
+import { useTranslation } from 'react-i18next'
 import { X } from 'lucide-react'
 import styles from './Modal.module.scss'
 
@@ -33,6 +34,9 @@ interface ModalProps {
 }
 
 export function Modal({ open, onClose, title, children, actions }: ModalProps) {
+  const { t } = useTranslation()
+  const titleId = useId()
+  const dialogRef = useRef<HTMLDivElement>(null)
   // ESC 键处理
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -48,6 +52,10 @@ export function Modal({ open, onClose, title, children, actions }: ModalProps) {
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [open, handleKeyDown])
 
+  useEffect(() => {
+    if (open) dialogRef.current?.focus()
+  }, [open])
+
   return (
     <AnimatePresence>
       {open && (
@@ -62,9 +70,12 @@ export function Modal({ open, onClose, title, children, actions }: ModalProps) {
         >
           {/* 对话框卡片 - 点击时阻止事件冒泡，不触发关闭 */}
           <m.div
+            ref={dialogRef}
             className={styles.card}
             role="dialog"
             aria-modal="true"
+            aria-labelledby={titleId}
+            tabIndex={-1}
             initial={{ opacity: 0, scale: 0.92 }}
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0, scale: 0.92 }}
@@ -72,9 +83,9 @@ export function Modal({ open, onClose, title, children, actions }: ModalProps) {
             onClick={(e) => e.stopPropagation()}
           >
             <div className={styles.header}>
-              <h2 className={styles.title}>{title}</h2>
+              <h2 id={titleId} className={styles.title}>{title}</h2>
               {/* 关闭按钮 */}
-              <button type="button" className={styles.close} onClick={onClose} aria-label="Close">
+              <button type="button" className={styles.close} onClick={onClose} aria-label={t('common.close')}>
                 <X size={18} />
               </button>
             </div>

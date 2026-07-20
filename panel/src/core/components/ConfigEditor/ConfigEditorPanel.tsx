@@ -77,11 +77,12 @@ function flatToYaml(sections: Record<string, Record<string, unknown>>, originalY
 
 interface VisualFieldProps {
   field: FieldDef
+  inputId: string
   value: unknown
   onChange: (key: string, value: unknown) => void
 }
 
-function VisualField({ field, value, onChange }: VisualFieldProps) {
+function VisualField({ field, inputId, value, onChange }: VisualFieldProps) {
   const [showPassword, setShowPassword] = useState(false)
   const { t } = useTranslation()
 
@@ -89,10 +90,13 @@ function VisualField({ field, value, onChange }: VisualFieldProps) {
     const checked = value === true || value === 'true'
     return (
       <div className={styles.fieldRow}>
-        <label className={styles.fieldLabel}>{field.label}</label>
+        <label className={styles.fieldLabel} htmlFor={inputId}>
+          {field.label}
+        </label>
         <div className={styles.fieldInputWrapper}>
-          <label className={styles.fieldToggle}>
+          <label className={styles.fieldToggle} htmlFor={inputId}>
             <input
+              id={inputId}
               type="checkbox"
               checked={checked}
               onChange={(e) => onChange(field.key, e.target.checked)}
@@ -108,9 +112,12 @@ function VisualField({ field, value, onChange }: VisualFieldProps) {
     const num = value !== null && value !== undefined && value !== '' ? Number(value) : ''
     return (
       <div className={styles.fieldRow}>
-        <label className={styles.fieldLabel}>{field.label}</label>
+        <label className={styles.fieldLabel} htmlFor={inputId}>
+          {field.label}
+        </label>
         <div className={styles.fieldInputWrapper}>
           <input
+            id={inputId}
             type="number"
             className={styles.fieldInput}
             value={num}
@@ -128,9 +135,12 @@ function VisualField({ field, value, onChange }: VisualFieldProps) {
     const strVal = value !== null && value !== undefined ? String(value) : ''
     return (
       <div className={styles.fieldRow}>
-        <label className={styles.fieldLabel}>{field.label}</label>
+        <label className={styles.fieldLabel} htmlFor={inputId}>
+          {field.label}
+        </label>
         <div className={styles.fieldInputWrapper}>
           <input
+            id={inputId}
             type={showPassword ? 'text' : 'password'}
             className={styles.fieldInput}
             value={strVal}
@@ -142,7 +152,8 @@ function VisualField({ field, value, onChange }: VisualFieldProps) {
             type="button"
             className={styles.eyeBtn}
             onClick={() => setShowPassword((p) => !p)}
-            title={showPassword ? '隐藏' : '显示'}
+            title={showPassword ? t('config.hidePassword') : t('config.showPassword')}
+            aria-label={showPassword ? t('config.hidePassword') : t('config.showPassword')}
           >
             {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
           </button>
@@ -155,9 +166,12 @@ function VisualField({ field, value, onChange }: VisualFieldProps) {
   const strVal = value !== null && value !== undefined ? String(value) : ''
   return (
     <div className={styles.fieldRow}>
-      <label className={styles.fieldLabel}>{field.label}</label>
+      <label className={styles.fieldLabel} htmlFor={inputId}>
+        {field.label}
+      </label>
       <div className={styles.fieldInputWrapper}>
         <input
+          id={inputId}
           type={field.type === 'email' ? 'email' : field.type === 'url' ? 'url' : 'text'}
           className={styles.fieldInput}
           value={strVal}
@@ -193,19 +207,25 @@ function VisualSection({
 
   return (
     <div className={styles.visualSection}>
-      <div className={styles.sectionHeader} onClick={() => setOpen((o) => !o)}>
+      <button
+        type="button"
+        className={styles.sectionHeader}
+        onClick={() => setOpen((o) => !o)}
+        aria-expanded={open}
+      >
         <span className={styles.sectionTitle}>{t(titleI18nKey)}</span>
         <ChevronDown
           size={16}
           className={`${styles.sectionChevron} ${open ? styles.open : ''}`}
         />
-      </div>
+      </button>
       {open && (
         <div className={styles.sectionBody}>
           {fields.map((field) => (
             <VisualField
               key={field.key}
               field={field}
+              inputId={`config-${sectionKey}-${field.key}`}
               value={values[field.key] ?? null}
               onChange={(key, val) => onFieldChange(sectionKey, key, val)}
             />
@@ -385,8 +405,13 @@ export function ConfigEditorPanel({ className }: Props) {
   return (
     <div className={`${styles.panel} ${className ?? ''}`}>
       {/* ── Tab Bar ── */}
-      <div className={styles.tabBar}>
+      <div className={styles.tabBar} role="tablist" aria-label={t('config.title')}>
         <button
+          type="button"
+          id="config-source-tab"
+          role="tab"
+          aria-selected={activeTab === 'source'}
+          aria-controls="config-source-panel"
           className={`${styles.tab} ${activeTab === 'source' ? styles.active : ''}`}
           onClick={() => handleTabChange('source')}
         >
@@ -395,6 +420,11 @@ export function ConfigEditorPanel({ className }: Props) {
           {sourceDirty && activeTab !== 'source' && <AlertTriangle size={12} />}
         </button>
         <button
+          type="button"
+          id="config-visual-tab"
+          role="tab"
+          aria-selected={activeTab === 'visual'}
+          aria-controls="config-visual-panel"
           className={`${styles.tab} ${activeTab === 'visual' ? styles.active : ''}`}
           onClick={() => handleTabChange('visual')}
         >
@@ -406,7 +436,12 @@ export function ConfigEditorPanel({ className }: Props) {
 
       {/* ── Source Editor Tab ── */}
       {activeTab === 'source' && (
-        <div className={styles.tabContent}>
+        <div
+          id="config-source-panel"
+          role="tabpanel"
+          aria-labelledby="config-source-tab"
+          className={styles.tabContent}
+        >
           <div className={styles.yamlEditorWrapper}>
             <div className={styles.editorContainer}>
               <CodeMirror
@@ -449,7 +484,12 @@ export function ConfigEditorPanel({ className }: Props) {
 
       {/* ── Visual Editor Tab ── */}
       {activeTab === 'visual' && (
-        <div className={styles.tabContent}>
+        <div
+          id="config-visual-panel"
+          role="tabpanel"
+          aria-labelledby="config-visual-tab"
+          className={styles.tabContent}
+        >
           <div className={styles.visualEditor}>
             {YAML_SECTIONS.map((section) => (
               <VisualSection

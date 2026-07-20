@@ -35,14 +35,11 @@ function createMemoryStorage(): Storage {
   }
 }
 
-function ensureStorage(name: StorageName) {
-  const current = globalThis[name]
-  if (typeof current?.clear === 'function' && typeof current?.getItem === 'function') return
-
+function installStorage(name: StorageName) {
   const storage = createMemoryStorage()
   Object.defineProperty(globalThis, name, { value: storage, configurable: true })
   Object.defineProperty(window, name, { value: storage, configurable: true })
 }
 
-ensureStorage('localStorage')
-ensureStorage('sessionStorage')
+installStorage('localStorage')
+installStorage('sessionStorage')

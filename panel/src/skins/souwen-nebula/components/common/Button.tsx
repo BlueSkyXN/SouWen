@@ -38,6 +38,7 @@ export function Button({
   disabled,
   children,
   className,
+  type = 'button',
   ...rest
 }: ButtonProps) {
   // 动态构建类名：基础样式 + 变体 + 尺寸 + block 模式 + 自定义类
@@ -52,7 +53,7 @@ export function Button({
     .join(' ')
 
   return (
-    <button className={cls} disabled={disabled || loading} {...rest}>
+    <button className={cls} disabled={disabled || loading} type={type} {...rest}>
       {/* loading 时显示旋转加载图标；否则显示自定义图标（如果提供）或无图标 */}
       {loading ? (
         <Loader2 size={size === 'sm' ? 14 : 16} className={styles.spinner} />

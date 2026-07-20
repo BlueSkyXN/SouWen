@@ -23,7 +23,6 @@
  */
 
 import { useEffect, useState, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { m } from 'framer-motion'
 import { Activity, FileText, Shield, Globe, RefreshCw, ChevronRight } from 'lucide-react'
@@ -40,7 +39,6 @@ import styles from './DashboardPage.module.scss'
 // DashboardPage 组件 - 系统仪表板
 export function DashboardPage() {
   const { t } = useTranslation()
-  const navigate = useNavigate()
   const [doctor, setDoctor] = useState<DoctorResponse | null>(null)
   const [loading, setLoading] = useState(true)
   const [fetchError, setFetchError] = useState(false)
@@ -67,7 +65,7 @@ export function DashboardPage() {
   }, [fetchData])
 
   if (loading) {
-    return <Spinner label={t('common.loading', 'Loading...')} />
+    return <Spinner label={t('common.loading')} />
   }
 
   if (fetchError || !doctor) {
@@ -96,7 +94,7 @@ export function DashboardPage() {
 
   return (
     <div className={styles.page}>
-      <h1 className={styles.pageTitle}>{t('dashboard.title', '仪表盘')}</h1>
+      <h1 className={styles.pageTitle}>{t('dashboard.title')}</h1>
 
       {/* ── Stat Cards ── */}
       <m.div
@@ -105,7 +103,7 @@ export function DashboardPage() {
         initial="initial"
         animate="animate"
       >
-        <m.div variants={staggerItem} className={`${styles.statCard} ${styles.clickable}`} onClick={() => navigate('/search/paper')} role="link" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/search/paper')}>
+        <m.a href="#/search/paper" variants={staggerItem} className={`${styles.statCard} ${styles.clickable}`}>
           <span className={styles.statIcon} style={{ background: '#007aff' }}>
             <FileText size={18} color="#fff" />
           </span>
@@ -114,9 +112,9 @@ export function DashboardPage() {
             <div className={styles.statLabel}>{t('dashboard.paperSources')}</div>
           </div>
           <ChevronRight size={18} className={styles.statChevron} />
-        </m.div>
+        </m.a>
 
-        <m.div variants={staggerItem} className={`${styles.statCard} ${styles.clickable}`} onClick={() => navigate('/search/patent')} role="link" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/search/patent')}>
+        <m.a href="#/search/patent" variants={staggerItem} className={`${styles.statCard} ${styles.clickable}`}>
           <span className={styles.statIcon} style={{ background: '#ff9500' }}>
             <Shield size={18} color="#fff" />
           </span>
@@ -125,9 +123,9 @@ export function DashboardPage() {
             <div className={styles.statLabel}>{t('dashboard.patentSources')}</div>
           </div>
           <ChevronRight size={18} className={styles.statChevron} />
-        </m.div>
+        </m.a>
 
-        <m.div variants={staggerItem} className={`${styles.statCard} ${styles.clickable}`} onClick={() => navigate('/search/web')} role="link" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/search/web')}>
+        <m.a href="#/search/web" variants={staggerItem} className={`${styles.statCard} ${styles.clickable}`}>
           <span className={styles.statIcon} style={{ background: '#34c759' }}>
             <Globe size={18} color="#fff" />
           </span>
@@ -136,9 +134,9 @@ export function DashboardPage() {
             <div className={styles.statLabel}>{t('dashboard.webEngines')}</div>
           </div>
           <ChevronRight size={18} className={styles.statChevron} />
-        </m.div>
+        </m.a>
 
-        <m.div variants={staggerItem} className={`${styles.statCard} ${styles.clickable}`} onClick={() => navigate('/sources')} role="link" tabIndex={0} onKeyDown={(e) => (e.key === 'Enter' || e.key === ' ') && navigate('/sources')}>
+        <m.a href="#/sources" variants={staggerItem} className={`${styles.statCard} ${styles.clickable}`}>
           <span className={styles.statIcon} style={{ background: '#5856d6' }}>
             <Activity size={18} color="#fff" />
           </span>
@@ -149,7 +147,7 @@ export function DashboardPage() {
             <div className={styles.statLabel}>{t('dashboard.availableSources')}</div>
           </div>
           <ChevronRight size={18} className={styles.statChevron} />
-        </m.div>
+        </m.a>
       </m.div>
 
       {/* ── Health Status ── */}
@@ -158,15 +156,15 @@ export function DashboardPage() {
         <div className={styles.groupCard}>
           {/* Summary row */}
           <div className={styles.formRow}>
-            <span className={styles.rowLabel}>{t('dashboard.health', 'Health')}</span>
+            <span className={styles.rowLabel}>{t('dashboard.health')}</span>
             <span className={styles.rowValue}>
               <span className={`${styles.statusDot} ${healthPct > 50 ? styles.statusOk : styles.statusErr}`} />
-              {healthPct}% — {healthPct > 50 ? t('dashboard.statusOk', 'Healthy') : t('dashboard.statusDegraded', 'Degraded')}
+              {healthPct}% — {healthPct > 50 ? t('dashboard.statusOk') : t('dashboard.statusDegraded')}
             </span>
           </div>
           {version && (
             <div className={styles.formRow}>
-              <span className={styles.rowLabel}>{t('dashboard.version', 'Version')}</span>
+              <span className={styles.rowLabel}>{t('dashboard.version')}</span>
               <span className={styles.rowValueMuted}>v{version}</span>
             </div>
           )}
@@ -175,7 +173,7 @@ export function DashboardPage() {
 
       {/* ── Source List ── */}
       <div className={styles.formGroup}>
-        <div className={styles.groupTitle}>{t('dashboard.name', 'Sources')}</div>
+        <div className={styles.groupTitle}>{t('dashboard.name')}</div>
         <div className={styles.groupCard}>
           {sortedSources.map((src, i) => {
             const statusTone = doctorStatusTone(src.status)

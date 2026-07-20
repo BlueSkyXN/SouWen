@@ -57,4 +57,23 @@ describe('ApiServiceBase.verifyAuth', () => {
       isAuth: true,
     } satisfies Partial<AppError>)
   })
+
+  it('does not send bearer tokens to unallowlisted third-party base URLs', async () => {
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
+      jsonResponse({
+        role: 'admin',
+        features: {},
+        guest_enabled: false,
+        user_password_set: true,
+        admin_password_set: true,
+        admin_open: false,
+      }),
+    )
+    const api = new ApiServiceBase()
+
+    await expect(api.verifyAuth('https://example.com', 'admin-pw')).rejects.toThrow(
+      /VITE_ALLOWED_API_HOSTS/,
+    )
+    expect(fetchMock).not.toHaveBeenCalled()
+  })
 })

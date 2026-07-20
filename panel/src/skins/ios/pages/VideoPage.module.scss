@@ -50,6 +50,7 @@
 
 .tab {
   flex: 1;
+  min-width: 0;
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -66,9 +67,14 @@
   letter-spacing: -0.022em;
   transition: all $transition-fast;
   min-height: 32px;
+  white-space: nowrap;
 
   &:active {
     transform: scale(0.97);
+  }
+
+  svg {
+    flex-shrink: 0;
   }
 }
 
@@ -361,6 +367,18 @@
   color: var(--text-secondary);
 }
 
+.biliBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 6px;
+  background: rgba(90, 200, 250, 0.14);
+  border-radius: $radius-sm;
+  font-family: $font-mono;
+  font-size: 11px;
+  font-weight: 600;
+  color: $ios-teal;
+}
+
 .transcriptToolbar {
   display: flex;
   flex-wrap: wrap;
@@ -408,4 +426,12 @@
 .transcriptText {
   color: var(--text);
   word-break: break-word;
+}
+
+@media (max-width: 420px) {
+  .tab {
+    gap: 3px;
+    padding: 8px 6px;
+    font-size: 12px;
+  }
 }

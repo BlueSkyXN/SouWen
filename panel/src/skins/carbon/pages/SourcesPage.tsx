@@ -31,12 +31,28 @@ import { m, AnimatePresence } from 'framer-motion'
 import { Database, RefreshCw, FileText, Shield, Globe, Key, AlertTriangle, Info, ChevronDown } from 'lucide-react'
 import { api } from '@core/services/api'
 import { useNotificationStore } from '@core/stores/notificationStore'
+import { useAuthStore } from '@core/stores/authStore'
 import { formatError } from '@core/lib/errors'
 import { staggerContainer, staggerItem } from '@core/lib/animations'
-import { doctorStatusOrder, isDoctorStatusAvailable, sourceCredentialLabel } from '@core/lib/sourceStatus'
+import { hasFeatureAccess } from '@core/lib/access'
+import {
+  doctorStatusOrder,
+  isDoctorStatusAvailable,
+  sourceAvailabilitySummary,
+  sourceCredentialLabel,
+} from '@core/lib/sourceStatus'
+import { shouldSubmitConfigValue } from '@core/lib/redactedConfig'
+import {
+  SOURCE_CUSTOM_PROXY_EXAMPLE,
+  SOURCE_PROXY_MODES,
+  getSourceCustomProxyValue,
+  getSourceProxyMode,
+  getSourceProxyValue,
+  type SourceProxyMode,
+} from '@core/lib/sourceProxyConfig'
 import { Spinner } from '../components/common/Spinner'
 import { SOURCE_CATEGORY_LABEL_KEYS, SOURCE_CATEGORY_ORDER } from '@core/types'
-import type { DoctorResponse, DoctorSource, SourceCategory, SourceChannelConfig, WarpStatus } from '@core/types'
+import type { DoctorResponse, DoctorSource, SourceCategory, SourceChannelConfig, SourceInfo, WarpStatus } from '@core/types'
 import styles from './SourcesPage.module.scss'
 
 const CATEGORY_ORDER = SOURCE_CATEGORY_ORDER
@@ -72,7 +88,6 @@ const CATEGORY_BORDER: Record<SourceCategory, string> = {
   fetch: styles.borderWeb,
 }
 
-const PROXY_OPTIONS = ['inherit', 'none', 'warp', 'custom'] as const
 const BACKEND_OPTIONS = ['auto', 'curl_cffi', 'httpx'] as const
 
 const expandVariants = {
@@ -101,25 +116,42 @@ function SourceConfigPanel({
 }) {
   const { t } = useTranslation()
   const addToast = useNotificationStore((s) => s.addToast)
-  const [proxy, setProxy] = useState(config.proxy || 'inherit')
+  const [initialProxy, setInitialProxy] = useState(config.proxy || 'inherit')
+  const [proxyMode, setProxyMode] = useState<SourceProxyMode>(getSourceProxyMode(initialProxy))
+  const [customProxy, setCustomProxy] = useState(getSourceCustomProxyValue(initialProxy))
   const [httpBackend, setHttpBackend] = useState(config.http_backend || 'auto')
   const [baseUrl, setBaseUrl] = useState(config.base_url || '')
+  const [initialBaseUrl, setInitialBaseUrl] = useState(config.base_url || '')
   const [apiKeyAction, setApiKeyAction] = useState<'keep' | 'replace' | 'clear'>('keep')
   const [apiKeyValue, setApiKeyValue] = useState('')
   const [saving, setSaving] = useState(false)
 
   const warpActive = warpStatus?.status === 'enabled'
-  const showWarpWarning = proxy === 'warp' && !warpActive
+  const showWarpWarning = proxyMode === 'warp' && !warpActive
+
+  useEffect(() => {
+    const nextProxy = config.proxy || 'inherit'
+    const nextBaseUrl = config.base_url || ''
+    setInitialProxy(nextProxy)
+    setProxyMode(getSourceProxyMode(nextProxy))
+    setCustomProxy(getSourceCustomProxyValue(nextProxy))
+    setHttpBackend(config.http_backend || 'auto')
+    setBaseUrl(nextBaseUrl)
+    setInitialBaseUrl(nextBaseUrl)
+    setApiKeyAction('keep')
+    setApiKeyValue('')
+  }, [sourceName, config.proxy, config.http_backend, config.base_url, config.has_api_key])
 
   // 保存配置到服务器
   const handleSave = useCallback(async () => {
     setSaving(true)
     try {
       const params: Record<string, string> = {
-        proxy,
         http_backend: httpBackend,
-        base_url: baseUrl || '',
       }
+      const nextProxy = getSourceProxyValue(proxyMode, customProxy)
+      if (shouldSubmitConfigValue(nextProxy, initialProxy)) params.proxy = nextProxy
+      if (shouldSubmitConfigValue(baseUrl, initialBaseUrl)) params.base_url = baseUrl || ''
       // 处理 API 密钥操作：替换、清除或保留
       if (apiKeyAction === 'replace' && apiKeyValue) {
         params.api_key = apiKeyValue
@@ -134,7 +166,7 @@ function SourceConfigPanel({
     } finally {
       setSaving(false)
     }
-  }, [sourceName, proxy, httpBackend, baseUrl, apiKeyAction, apiKeyValue, addToast, t, onSaved])
+  }, [sourceName, proxyMode, customProxy, initialProxy, httpBackend, baseUrl, initialBaseUrl, apiKeyAction, apiKeyValue, addToast, t, onSaved])
 
   return (
     <m.div
@@ -151,18 +183,37 @@ function SourceConfigPanel({
 
         {/* Proxy 代理设置 */}
         <div className={styles.configRow}>
-          <label className={styles.configLabel}>proxy</label>
+          <label className={styles.configLabel} htmlFor={`source-${sourceName}-proxy-mode`}>proxy</label>
           <span className={styles.configSep}>──────</span>
           <select
+            id={`source-${sourceName}-proxy-mode`}
             className={styles.configSelect}
-            value={proxy}
-            onChange={(e) => setProxy(e.target.value)}
+            value={proxyMode}
+            onChange={(e) => {
+              const mode = e.target.value as SourceProxyMode
+              setProxyMode(mode)
+              if (mode !== 'custom') setCustomProxy('')
+            }}
           >
-            {PROXY_OPTIONS.map((opt) => (
+            {SOURCE_PROXY_MODES.map((opt) => (
               <option key={opt} value={opt}>{t(`sourceConfig.proxy${opt.charAt(0).toUpperCase() + opt.slice(1)}`)}</option>
             ))}
           </select>
         </div>
+        {proxyMode === 'custom' && (
+          <div className={styles.configRow}>
+            <label className={styles.configLabel} htmlFor={`source-${sourceName}-custom-proxy`}>proxy_url</label>
+            <span className={styles.configSep}>───</span>
+            <input
+              id={`source-${sourceName}-custom-proxy`}
+              className={styles.configInput}
+              type="text"
+              value={customProxy}
+              onChange={(e) => setCustomProxy(e.target.value)}
+              placeholder={t('sourceConfig.proxyCustomPlaceholder', { example: SOURCE_CUSTOM_PROXY_EXAMPLE })}
+            />
+          </div>
+        )}
         {showWarpWarning && (
           <div className={styles.warpWarning}>
             <AlertTriangle size={11} />
@@ -172,9 +223,10 @@ function SourceConfigPanel({
 
         {/* HTTP Backend 后端选择 */}
         <div className={styles.configRow}>
-          <label className={styles.configLabel}>http_backend</label>
+          <label className={styles.configLabel} htmlFor={`source-${sourceName}-http-backend`}>http_backend</label>
           <span className={styles.configSep}>─</span>
           <select
+            id={`source-${sourceName}-http-backend`}
             className={styles.configSelect}
             value={httpBackend}
             onChange={(e) => setHttpBackend(e.target.value)}
@@ -187,9 +239,10 @@ function SourceConfigPanel({
 
         {/* Base URL 基础 URL */}
         <div className={styles.configRow}>
-          <label className={styles.configLabel}>base_url</label>
+          <label className={styles.configLabel} htmlFor={`source-${sourceName}-base-url`}>base_url</label>
           <span className={styles.configSep}>─────</span>
           <input
+            id={`source-${sourceName}-base-url`}
             className={styles.configInput}
             type="text"
             value={baseUrl}
@@ -228,6 +281,7 @@ function SourceConfigPanel({
             {apiKeyAction === 'replace' && (
               <>
                 <input
+                  aria-label="api_key"
                   className={styles.configInput}
                   type="password"
                   value={apiKeyValue}
@@ -242,9 +296,9 @@ function SourceConfigPanel({
             )}
             {apiKeyAction === 'clear' && (
               <>
-                <span className={styles.apiKeyClearLabel}>{t('sourceConfig.willClear', '将清除')}</span>
+                <span className={styles.apiKeyClearLabel}>{t('sourceConfig.willClear')}</span>
                 <button className={styles.apiKeyBtn} onClick={() => setApiKeyAction('keep')}>
-                  {t('sourceConfig.undo', '撤销')}
+                  {t('sourceConfig.undo')}
                 </button>
               </>
             )}
@@ -264,7 +318,7 @@ function SourceConfigPanel({
             onClick={handleSave}
             disabled={saving}
           >
-            {saving ? '...' : t('sourceConfig.commit', '提交')}
+            {saving ? '...' : t('sourceConfig.commit')}
           </button>
         </div>
       </div>
@@ -281,32 +335,47 @@ export function SourcesPage() {
   const [confirmSource, setConfirmSource] = useState<DoctorSource | null>(null)
   const [expandedSource, setExpandedSource] = useState<string | null>(null)
   const [sourcesConfig, setSourcesConfig] = useState<Record<string, SourceChannelConfig>>({})
+  const [sourceCatalog, setSourceCatalog] = useState<Record<string, SourceInfo>>({})
   const [warpStatus, setWarpStatus] = useState<WarpStatus | null>(null)
   const addToast = useNotificationStore((s) => s.addToast)
+  const features = useAuthStore((s) => s.features)
+  const role = useAuthStore((s) => s.role)
+  const canWriteSources = hasFeatureAccess(features, role, 'sources_config_write')
 
   // 异步获取数据源诊断数据和配置
   const fetchData = useCallback(async () => {
     setLoading(true)
     setFetchError(false)
     try {
-      const [d, sc] = await Promise.all([
+      const [d, catalog] = await Promise.all([
         api.getDoctor(),
-        api.getSourcesConfig(),
+        api.getSources().catch(() => null),
       ])
       setDoctor(d)
-      setSourcesConfig(sc)
+      setSourceCatalog(Object.fromEntries(
+        (catalog?.sources ?? []).map((source) => [source.name, source]),
+      ))
+      if (canWriteSources) {
+        setSourcesConfig(await api.getSourcesConfig())
+      } else {
+        setSourcesConfig({})
+      }
     } catch (err) {
       setFetchError(true)
       addToast('error', t('sources.fetchFailed', { message: formatError(err) }))
     } finally {
       setLoading(false)
     }
-  }, [addToast, t])
+  }, [addToast, canWriteSources, t])
 
   // 单独获取 WARP 状态（可能不可用）
   useEffect(() => {
+    if (!canWriteSources) {
+      setWarpStatus(null)
+      return
+    }
     api.getWarpStatus().then(setWarpStatus).catch(() => setWarpStatus(null))
-  }, [])
+  }, [canWriteSources])
 
   useEffect(() => {
     void fetchData()
@@ -314,6 +383,7 @@ export function SourcesPage() {
 
   // 执行启用/禁用数据源操作
   const executeToggle = useCallback(async (name: string, currentEnabled: boolean) => {
+    if (!canWriteSources) return
     setToggling(name)
     try {
       await api.updateSourceConfig(name, { enabled: !currentEnabled })
@@ -327,16 +397,17 @@ export function SourcesPage() {
     } finally {
       setToggling(null)
     }
-  }, [fetchData, addToast, t])
+  }, [canWriteSources, fetchData, addToast, t])
 
   // 处理数据源状态切换：已启用的数据源需要确认后才能禁用
   const handleToggle = useCallback((src: DoctorSource) => {
+    if (!canWriteSources) return
     if (src.enabled && isDoctorStatusAvailable(src.status)) {
       setConfirmSource(src)
     } else {
       void executeToggle(src.name, src.enabled)
     }
-  }, [executeToggle])
+  }, [canWriteSources, executeToggle])
 
   // 确认禁用数据源
   const handleConfirmDisable = useCallback(() => {
@@ -345,8 +416,12 @@ export function SourcesPage() {
     setConfirmSource(null)
   }, [confirmSource, executeToggle])
 
+  const getAvailability = useCallback((src: DoctorSource) => (
+    sourceAvailabilitySummary({ ...src, ...(sourceCatalog[src.name] ?? {}) }, t)
+  ), [sourceCatalog, t])
+
   if (loading) {
-    return <Spinner label={t('common.loading', 'Loading...')} />
+    return <Spinner label={t('common.loading')} />
   }
 
   if (fetchError || !doctor) {
@@ -355,7 +430,7 @@ export function SourcesPage() {
         <p>{t('sources.errorDescription')}</p>
         <button className={styles.retryBtn} onClick={fetchData}>
           <RefreshCw size={14} style={{ marginRight: 6 }} />
-          {t('common.retry', 'Retry')}
+          {t('common.retry')}
         </button>
       </div>
     )
@@ -379,11 +454,11 @@ export function SourcesPage() {
       <div className={styles.pageHeader}>
         <h1 className={styles.pageTitle}>
           <Database size={20} />
-          {t('sources.pageTitle', '数据源管理')}
+          {t('sources.pageTitle')}
         </h1>
         <button className={styles.syncBtn} onClick={fetchData}>
           <RefreshCw size={14} />
-          {t('sources.refresh', '刷新')}
+          {t('sources.refresh')}
         </button>
       </div>
 
@@ -408,48 +483,65 @@ export function SourcesPage() {
               initial="initial"
               animate="animate"
             >
-              {list.map((src: DoctorSource) => (
-                <m.div
-                  key={src.name}
-                  variants={staggerItem}
-                  className={`${styles.sourceCard} ${!src.enabled ? styles.sourceCardDisabled : ''} ${expandedSource === src.name ? styles.sourceCardExpanded : ''}`}
-                >
-                  <div
-                    className={styles.cardTop}
-                    onClick={() => setExpandedSource(expandedSource === src.name ? null : src.name)}
-                    style={{ cursor: 'pointer' }}
+              {list.map((src: DoctorSource) => {
+                const availability = getAvailability(src)
+                const expanded = expandedSource === src.name
+                return (
+                  <m.div
+                    key={src.name}
+                    variants={staggerItem}
+                    className={`${styles.sourceCard} ${!src.enabled ? styles.sourceCardDisabled : ''} ${expanded ? styles.sourceCardExpanded : ''}`}
                   >
-                    <div className={styles.sourceNameRow}>
-                      <ChevronDown
-                        size={12}
-                        className={`${styles.expandIcon} ${expandedSource === src.name ? styles.expandIconOpen : ''}`}
-                      />
-                      <div className={styles.sourceName}>{src.name}</div>
-                    </div>
+                  <div className={styles.cardTop}>
+                    <button
+                      type="button"
+                      className={styles.cardExpandBtn}
+                      onClick={() => setExpandedSource(expanded ? null : src.name)}
+                      aria-expanded={expanded}
+                      aria-label={t(expanded ? 'sources.collapseSource' : 'sources.expandSource', { name: src.name })}
+                    >
+                      <div className={styles.sourceNameRow}>
+                        <ChevronDown
+                          size={12}
+                          className={`${styles.expandIcon} ${expanded ? styles.expandIconOpen : ''}`}
+                          aria-hidden="true"
+                        />
+                        <div className={styles.sourceName}>{src.name}</div>
+                      </div>
+                    </button>
                     <div className={styles.cardBadges}>
-                      <button
-                        className={`${styles.toggleBadge} ${src.enabled ? styles.on : styles.off}`}
-                        onClick={(e) => { e.stopPropagation(); handleToggle(src) }}
-                        disabled={toggling === src.name}
-                        title={src.enabled ? t('sources.clickToDisable') : t('sources.clickToEnable')}
-                      >
-                        {src.enabled ? t('sources.on', '开') : t('sources.off', '关')}
-                      </button>
+                      {canWriteSources ? (
+                        <button
+                          type="button"
+                          className={`${styles.toggleBadge} ${src.enabled ? styles.on : styles.off}`}
+                          onClick={() => handleToggle(src)}
+                          disabled={toggling === src.name}
+                          title={src.enabled ? t('sources.clickToDisable') : t('sources.clickToEnable')}
+                          aria-label={src.enabled ? t('sources.clickToDisable') : t('sources.clickToEnable')}
+                        >
+                          {src.enabled ? t('sources.on') : t('sources.off')}
+                        </button>
+                      ) : (
+                        <span className={`${styles.toggleBadge} ${src.enabled ? styles.on : styles.off}`}>
+                          {src.enabled ? t('sources.on') : t('sources.off')}
+                        </span>
+                      )}
+                      <span className={styles.tierBadge}>{availability.label}</span>
                       <span className={styles.tierBadge}>{src.integration_type === 'open_api' ? '开放' : src.integration_type === 'scraper' ? '爬虫' : src.integration_type === 'official_api' ? '授权' : '自建'}</span>
                     </div>
                   </div>
 
-                  <div className={styles.cardDesc}>{src.message}</div>
+                  <div className={styles.cardDesc}>{availability.message}</div>
 
                   {sourceCredentialLabel(src) && (
                     <div className={styles.authInfo}>
                       <Key size={10} />
-                      {t('sources.auth', '认证')}: <code className={styles.authKey}>{sourceCredentialLabel(src)}</code>
+                      {t('sources.auth')}: <code className={styles.authKey}>{sourceCredentialLabel(src)}</code>
                     </div>
                   )}
 
                   <AnimatePresence>
-                    {expandedSource === src.name && sourcesConfig[src.name] && (
+                    {canWriteSources && expanded && sourcesConfig[src.name] && (
                       <SourceConfigPanel
                         sourceName={src.name}
                         config={sourcesConfig[src.name]}
@@ -458,8 +550,9 @@ export function SourcesPage() {
                       />
                     )}
                   </AnimatePresence>
-                </m.div>
-              ))}
+                  </m.div>
+                )
+              })}
             </m.div>
           </div>
         )
@@ -487,10 +580,11 @@ export function SourcesPage() {
                 {t('sources.confirmDisableMessage', { name: confirmSource.name })}
               </p>
               <div className={styles.modalActions}>
-                <button className={styles.modalBtn} onClick={() => setConfirmSource(null)}>
-                  {t('common.cancel', 'Cancel')}
+                <button type="button" className={styles.modalBtn} onClick={() => setConfirmSource(null)}>
+                  {t('common.cancel')}
                 </button>
                 <button
+                  type="button"
                   className={`${styles.modalBtn} ${styles.modalBtnDanger}`}
                   onClick={handleConfirmDisable}
                 >

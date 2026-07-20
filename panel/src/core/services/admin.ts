@@ -28,9 +28,9 @@ export const adminMethods = {
     })
   },
 
-  /** 获取系统诊断信息（源可达性、配置状态等） */
+  /** 获取用户可读的系统诊断信息（源可达性、配置状态等） */
   async getDoctor(this: ApiServiceBase): Promise<DoctorResponse> {
-    return this.request<DoctorResponse>('/api/v1/admin/doctor', { headers: this.headers() })
+    return this.request<DoctorResponse>('/api/v1/doctor', { headers: this.headers() })
   },
 
   /** 获取原始 YAML 配置文件内容 */

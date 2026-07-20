@@ -3,7 +3,7 @@
  * 使用终端风格设计，支持明暗模式和皮肤切换
  */
 
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, useId } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { m, AnimatePresence } from 'framer-motion'
@@ -73,6 +73,9 @@ export function MainLayout() {
   const [schemePaletteOpen, setSchemePaletteOpen] = useState(false)
   const skinPaletteRef = useRef<HTMLDivElement>(null)
   const schemePaletteRef = useRef<HTMLDivElement>(null)
+  const baseId = useId()
+  const schemeListboxId = `${baseId}-scheme-listbox`
+  const skinListboxId = `${baseId}-skin-listbox`
 
   const handleLogout = useCallback(() => {
     logout()
@@ -130,7 +133,7 @@ export function MainLayout() {
           <button
             className={styles.hamburger}
             onClick={() => setMobileOpen((o) => !o)}
-            aria-label={t('nav.menu', 'Menu')}
+            aria-label={t('nav.menu')}
           >
             <Menu size={18} />
           </button>
@@ -171,8 +174,8 @@ export function MainLayout() {
           <button
             className={styles.toolBtn}
             onClick={toggleMode}
-            aria-label={mode === 'dark' ? t('common.lightMode', 'Light Mode') : t('common.darkMode', 'Dark Mode')}
-            title={mode === 'dark' ? t('common.lightMode', 'Light Mode') : t('common.darkMode', 'Dark Mode')}
+            aria-label={mode === 'dark' ? t('common.lightMode') : t('common.darkMode')}
+            title={mode === 'dark' ? t('common.lightMode') : t('common.darkMode')}
           >
             {mode === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
           </button>
@@ -185,6 +188,7 @@ export function MainLayout() {
               aria-label={t('theme.label')}
               aria-expanded={schemePaletteOpen}
               aria-haspopup="listbox"
+              aria-controls={schemePaletteOpen ? schemeListboxId : undefined}
             >
               <span className={styles.schemeDot} style={{ background: skinConfig.schemes.find((s) => s.id === scheme)?.dotColor }} />
             </button>
@@ -192,7 +196,9 @@ export function MainLayout() {
               {schemePaletteOpen && (
                 <m.div
                   className={styles.palette}
+                  id={schemeListboxId}
                   role="listbox"
+                  aria-label={t('theme.label')}
                   initial={{ opacity: 0, y: -4, scale: 0.95 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: -4, scale: 0.95 }}
@@ -226,6 +232,7 @@ export function MainLayout() {
                 aria-label={t('skin.switchSkin')}
                 aria-expanded={skinPaletteOpen}
                 aria-haspopup="listbox"
+                aria-controls={skinPaletteOpen ? skinListboxId : undefined}
               >
                 <Layers size={14} />
                 <span>{t('skin.switchSkin')}</span>
@@ -234,7 +241,9 @@ export function MainLayout() {
                 {skinPaletteOpen && (
                   <m.div
                     className={styles.palette}
+                    id={skinListboxId}
                     role="listbox"
+                    aria-label={t('skin.switchSkin')}
                     initial={{ opacity: 0, y: -4, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -4, scale: 0.95 }}

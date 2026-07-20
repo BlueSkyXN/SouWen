@@ -37,12 +37,15 @@
 /* ── Tabs ── */
 .tabs {
   display: inline-flex;
+  flex-wrap: wrap;
+  justify-content: center;
   align-self: center;
   gap: 4px;
   padding: 4px;
   background: var(--bg-hover);
   border-radius: $radius-pill;
   margin-bottom: 24px;
+  max-width: 100%;
 }
 
 .tab {
@@ -60,6 +63,7 @@
   cursor: pointer;
   letter-spacing: -0.022em;
   transition: all $transition-fast;
+  white-space: nowrap;
 
   &:hover {
     color: var(--text);
@@ -348,6 +352,18 @@
   font-size: 13px;
   font-weight: 500;
   color: var(--text-secondary);
+}
+
+.biliBadge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 7px;
+  background: rgba(0, 113, 227, 0.10);
+  border-radius: $radius-sm;
+  font-family: $font-mono;
+  font-size: 11px;
+  font-weight: 500;
+  color: var(--accent);
 }
 
 .transcriptToolbar {

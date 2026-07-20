@@ -283,6 +283,52 @@
   font-weight: $font-medium;
 }
 
+.providerChecklist {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: $space-2;
+  max-height: 220px;
+  overflow: auto;
+  padding: $space-2;
+  border: 1px solid var(--border-input);
+  border-radius: 8px;
+  background: var(--bg-subtle);
+}
+
+.providerCheck {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  min-height: 36px;
+  padding: $space-2 $space-3;
+  border-radius: 8px;
+  color: var(--text);
+  font-size: $text-sm;
+  cursor: pointer;
+  user-select: none;
+  transition: background var(--transition-fast);
+
+  &:hover {
+    background: var(--bg-hover);
+  }
+
+  input {
+    flex: 0 0 auto;
+    accent-color: var(--primary);
+  }
+
+  input:disabled {
+    cursor: not-allowed;
+  }
+
+  span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
 /* Material Design 3 range slider */
 .slider {
   width: 100%;
@@ -668,6 +714,9 @@
 }
 
 .metadata {
+  display: flex;
+  flex-direction: column;
+  gap: $space-1;
   font-size: $text-sm;
   color: var(--text-muted);
   margin-top: $space-2;

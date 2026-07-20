@@ -28,7 +28,7 @@
  *     - 无障碍：combobox + listbox role、aria-expanded、aria-selected
  */
 
-import { useState, useRef, useEffect, useCallback, type KeyboardEvent } from 'react'
+import { useState, useRef, useEffect, useCallback, useId, type KeyboardEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ChevronDown, X, KeyRound } from 'lucide-react'
 import styles from './MultiSelect.module.scss'
@@ -45,12 +45,15 @@ interface MultiSelectProps {
   selected: string[]
   onChange: (selected: string[]) => void
   placeholder?: string
+  ariaLabel?: string
 }
 
-export function MultiSelect({ options, selected, onChange, placeholder }: MultiSelectProps) {
+export function MultiSelect({ options, selected, onChange, placeholder, ariaLabel }: MultiSelectProps) {
   const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [filter, setFilter] = useState('')
+  const baseId = useId()
+  const listboxId = `${baseId}-listbox`
   const containerRef = useRef<HTMLDivElement>(null)
   const filterRef = useRef<HTMLInputElement>(null)
 
@@ -124,6 +127,7 @@ export function MultiSelect({ options, selected, onChange, placeholder }: MultiS
 
   // 构建 value -> label 映射，用于显示已选项标签
   const selectedLabels = new Map(options.map((o) => [o.value, o.label]))
+  const accessibleLabel = ariaLabel ?? placeholder ?? options.map((o) => o.label).join(' / ')
 
   return (
     <div className={styles.container} ref={containerRef} onKeyDown={handleKeyDown}>
@@ -132,8 +136,10 @@ export function MultiSelect({ options, selected, onChange, placeholder }: MultiS
         className={`${styles.trigger} ${open ? styles.triggerOpen : ''}`}
         onClick={() => setOpen(!open)}
         role="combobox"
+        aria-label={accessibleLabel}
         aria-expanded={open}
         aria-haspopup="listbox"
+        aria-controls={open ? listboxId : undefined}
         tabIndex={0}
         onKeyDown={(e) => {
           if (e.key === 'Enter' || e.key === ' ') {
@@ -158,7 +164,7 @@ export function MultiSelect({ options, selected, onChange, placeholder }: MultiS
                   e.stopPropagation()
                   remove(val)
                 }}
-                aria-label={`${t('common.cancel')} ${val}`}
+                aria-label={`${t('common.cancel')} ${selectedLabels.get(val) ?? val}`}
               >
                 <X size={12} />
               </button>
@@ -171,7 +177,13 @@ export function MultiSelect({ options, selected, onChange, placeholder }: MultiS
 
       {/* 下拉菜单 */}
       {open && (
-        <div className={styles.dropdown} role="listbox">
+        <div
+          id={listboxId}
+          className={styles.dropdown}
+          role="listbox"
+          aria-label={accessibleLabel}
+          aria-multiselectable="true"
+        >
           {/* 头部：搜索框 + 全选/清空按钮 */}
           <div className={styles.dropdownHeader}>
             <input
@@ -179,6 +191,9 @@ export function MultiSelect({ options, selected, onChange, placeholder }: MultiS
               type="text"
               className={styles.filterInput}
               placeholder={t('multiselect.filter')}
+              aria-label={t('multiselect.filter')}
+              aria-controls={listboxId}
+              autoComplete="off"
               value={filter}
               onChange={(e) => setFilter(e.target.value)}
               onClick={(e) => e.stopPropagation()}
@@ -194,11 +209,12 @@ export function MultiSelect({ options, selected, onChange, placeholder }: MultiS
           </div>
           {/* 选项列表 */}
           <div className={styles.optionsList}>
-            {filtered.map((opt) => {
+            {filtered.map((opt, index) => {
               const isSelected = selected.includes(opt.value)
               return (
                 <label
                   key={opt.value}
+                  id={`${listboxId}-option-${index}`}
                   className={`${styles.option} ${isSelected ? styles.optionSelected : ''}`}
                   role="option"
                   aria-selected={isSelected}

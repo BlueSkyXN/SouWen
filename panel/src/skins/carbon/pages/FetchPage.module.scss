@@ -247,6 +247,57 @@
   border-top: 2px solid var(--border);
 }
 
+.providerChecklist {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 8px;
+  max-height: 220px;
+  overflow: auto;
+  padding: 8px;
+  border: 2px solid var(--border);
+  border-radius: 2px;
+  background: var(--bg);
+}
+
+.providerCheck {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 34px;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 2px;
+  font-family: $font-mono;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  color: var(--text);
+  cursor: pointer;
+  user-select: none;
+  transition: border-color $transition-fast, color $transition-fast;
+
+  &:hover {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  input {
+    flex: 0 0 auto;
+    accent-color: var(--accent);
+  }
+
+  input:disabled {
+    cursor: not-allowed;
+  }
+
+  span {
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+}
+
 .slider {
   width: 100%;
   height: 4px;

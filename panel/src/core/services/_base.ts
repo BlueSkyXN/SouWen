@@ -32,7 +32,8 @@ export const REQUEST_TIMEOUT_MS = 30_000
  * 规则：
  *   - 协议必须为 http 或 https
  *   - 默认允许同源请求（window.location.origin）
- *   - 非同源需匹配 VITE_ALLOWED_API_HOSTS 环境变量（逗号分隔主机列表）
+ *   - 默认允许 loopback 开发地址（localhost / 127.0.0.0/8 / ::1）
+ *   - 其他非同源地址需匹配 VITE_ALLOWED_API_HOSTS 环境变量（逗号分隔主机列表）
  */
 export const ALLOWED_API_HOSTS: string[] = (
   (import.meta as ImportMeta & { env?: Record<string, string> }).env?.VITE_ALLOWED_API_HOSTS ?? ''
@@ -40,6 +41,20 @@ export const ALLOWED_API_HOSTS: string[] = (
   .split(',')
   .map((s: string) => s.trim())
   .filter(Boolean)
+
+function isLoopbackHostname(hostname: string): boolean {
+  const normalized = hostname.toLowerCase()
+  if (normalized === 'localhost' || normalized.endsWith('.localhost')) return true
+  if (normalized === '::1' || normalized === '[::1]') return true
+
+  const parts = normalized.split('.')
+  if (parts.length !== 4) return false
+  const octets = parts.map((part) => Number(part))
+  if (octets.some((octet) => !Number.isInteger(octet) || octet < 0 || octet > 255)) {
+    return false
+  }
+  return octets[0] === 127
+}
 
 /**
  * 校验 baseUrl 是否可信
@@ -60,7 +75,7 @@ export function assertBaseUrlAllowed(baseUrl: string): void {
   if (typeof window !== 'undefined' && window.location) {
     if (parsed.origin === window.location.origin) return
   }
-  if (ALLOWED_API_HOSTS.length === 0) return // 未配置白名单，保留默认行为
+  if (isLoopbackHostname(parsed.hostname)) return
   const hostMatches = ALLOWED_API_HOSTS.some((h) => h === parsed.host || h === parsed.hostname)
   if (!hostMatches) {
     throw new Error(
@@ -197,7 +212,7 @@ export class ApiServiceBase {
       if (!res.ok) throw AppError.fromResponse(res.status, await res.text().catch(() => ''))
       const data = (await res.json()) as WhoamiResponse
       if (!token && data.admin_password_set && data.role !== 'admin') {
-        throw AppError.fromResponse(401, i18n.t('login.adminPasswordRequired', 'Admin password required'))
+        throw AppError.fromResponse(401, i18n.t('login.adminPasswordRequired'))
       }
       return data
     } catch (err) {

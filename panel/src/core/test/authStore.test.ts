@@ -50,6 +50,9 @@ describe('authStore', () => {
       token: '',
       isAuthenticated: false,
       version: '',
+      issuedAt: 0,
+      role: 'guest',
+      features: {},
     })
   })
 
@@ -81,6 +84,35 @@ describe('authStore', () => {
     expect(sessionStorage.getItem('souwen_baseUrl')).toBeNull()
   })
 
+  it('setRole stores role and features beside the active session auth state', () => {
+    useAuthStore.getState().setAuth('http://localhost:8000', 'pw', '0.3.0')
+    useAuthStore.getState().setRole({
+      role: 'user',
+      features: { search: true, config_read: 'minimal', config_write: false },
+      edition: 'pro',
+      edition_capabilities: {
+        llm: true,
+        warp_modes: ['auto', 'wireproxy', 'kernel', 'usque', 'warp-cli', 'external'],
+        fetch_providers: ['builtin'],
+        plugin_preinstalled: false,
+      },
+      guest_enabled: false,
+      user_password_set: true,
+      admin_password_set: true,
+      admin_open: false,
+    })
+    const state = useAuthStore.getState()
+    expect(state.role).toBe('user')
+    expect(state.features).toEqual({
+      search: true,
+      config_read: 'minimal',
+      config_write: false,
+    })
+    expect(sessionStorage.getItem('souwen_role')).toBe('user')
+    expect(JSON.parse(sessionStorage.getItem('souwen_features') ?? '{}')).toEqual(state.features)
+    expect(localStorage.getItem('souwen_features')).toBeNull()
+  })
+
   /**
    * 测试：登出清空状态和存储
    */
@@ -90,10 +122,13 @@ describe('authStore', () => {
     const state = useAuthStore.getState()
     expect(state.isAuthenticated).toBe(false)
     expect(state.version).toBe('')
+    expect(state.features).toEqual({})
     expect(localStorage.getItem('souwen_baseUrl')).toBeNull()
     expect(localStorage.getItem('souwen_version')).toBeNull()
+    expect(localStorage.getItem('souwen_features')).toBeNull()
     expect(sessionStorage.getItem('souwen_baseUrl')).toBeNull()
     expect(sessionStorage.getItem('souwen_version')).toBeNull()
+    expect(sessionStorage.getItem('souwen_features')).toBeNull()
   })
 
   /**
@@ -103,10 +138,14 @@ describe('authStore', () => {
     sessionStorage.setItem('souwen_baseUrl', 'http://x')
     sessionStorage.setItem('souwen_token', 'tok')
     sessionStorage.setItem('souwen_version', '1.2.3')
+    sessionStorage.setItem('souwen_role', 'user')
+    sessionStorage.setItem('souwen_features', JSON.stringify({ search: true, config_read: 'minimal' }))
     useAuthStore.getState().loadFromStorage()
     const state = useAuthStore.getState()
     expect(state.isAuthenticated).toBe(true)
     expect(state.version).toBe('1.2.3')
+    expect(state.role).toBe('user')
+    expect(state.features).toEqual({ search: true, config_read: 'minimal' })
   })
 
   /**
@@ -116,10 +155,14 @@ describe('authStore', () => {
     localStorage.setItem('souwen_baseUrl', 'http://y')
     localStorage.setItem('souwen_token', 'tok2')
     localStorage.setItem('souwen_version', '2.0.0')
+    localStorage.setItem('souwen_role', 'admin')
+    localStorage.setItem('souwen_features', JSON.stringify({ fetch: true, doctor_full: true }))
     useAuthStore.getState().loadFromStorage()
     const state = useAuthStore.getState()
     expect(state.isAuthenticated).toBe(true)
     expect(state.version).toBe('2.0.0')
+    expect(state.role).toBe('admin')
+    expect(state.features).toEqual({ fetch: true, doctor_full: true })
   })
 
   /**

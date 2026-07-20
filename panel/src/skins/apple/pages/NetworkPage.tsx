@@ -34,6 +34,13 @@ import { api } from '@core/services/api'
 import { useNotificationStore } from '@core/stores/notificationStore'
 import { formatError } from '@core/lib/errors'
 import { staggerContainer, staggerItem } from '@core/lib/animations'
+import { shouldSubmitConfigValue } from '@core/lib/redactedConfig'
+import {
+  getAvailableWarpModeOptions,
+  getWarpModeLabel,
+  isWarpModeAvailable,
+  WARP_MODE_OPTIONS,
+} from '@core/lib/warpModes'
 import { Spinner } from '../components/common/Spinner'
 import type { WarpStatus, HttpBackendResponse } from '@core/types'
 import styles from './NetworkPage.module.scss'
@@ -45,28 +52,13 @@ const SCRAPER_ENGINES = [
 
 const BACKEND_OPTIONS = ['auto', 'curl_cffi', 'httpx'] as const
 
-const WARP_MODE_OPTIONS = [
-  { value: 'auto', label: '自动选择', description: '自动选择最佳可用模式' },
-  { value: 'wireproxy', label: 'WireProxy (用户态)', description: '用户态 SOCKS5 代理，兼容性较好' },
-  { value: 'kernel', label: '内核 WireGuard', description: '内核 WireGuard 接口，性能较高' },
-  { value: 'usque', label: 'MASQUE/QUIC (usque)', description: '基于 MASQUE/QUIC 的新协议模式' },
-  { value: 'warp-cli', label: '官方客户端 (warp-cli)', description: '使用 Cloudflare 官方客户端接管连接' },
-  { value: 'external', label: '外部代理', description: '使用已配置的外部 WARP 代理' },
-] as const
-
-type WarpModeValue = typeof WARP_MODE_OPTIONS[number]['value']
-type ConcreteWarpModeValue = Exclude<WarpModeValue, 'auto'>
-
-function isWarpModeAvailable(warp: WarpStatus, mode: WarpModeValue) {
-  if (mode === 'auto') return true
-  return Boolean(warp.available_modes?.[mode as ConcreteWarpModeValue])
+function formatAvailableWarpModes(warp: WarpStatus, translate: (key: string) => string) {
+  const modes = getAvailableWarpModeOptions(warp).map((option) => translate(option.labelKey))
+  return modes.length > 0 ? modes.join('、') : '—'
 }
 
-function formatAvailableWarpModes(warp: WarpStatus) {
-  const modes = WARP_MODE_OPTIONS
-    .filter((option) => option.value !== 'auto' && isWarpModeAvailable(warp, option.value))
-    .map((option) => option.label)
-  return modes.length > 0 ? modes.join('、') : '—'
+function formatWarpMode(mode: string | undefined, translate: (key: string) => string) {
+  return getWarpModeLabel(mode, translate) || '—'
 }
 
 // ── WARP Section ──
@@ -109,7 +101,7 @@ function WarpSection() {
     try {
       const portNum = Math.min(Math.max(parseInt(port) || 1080, 1), 65535)
       const res = await api.enableWarp(mode, portNum, endpoint || undefined)
-      addToast('success', t('warp.enableSuccess', { mode: res.mode, ip: res.ip }))
+      addToast('success', t('warp.enableSuccess', { mode: formatWarpMode(res.mode || mode, (key) => t(key)), ip: res.ip || '—' }))
       void fetchWarp()
     } catch (err) {
       addToast('error', t('warp.enableFailed', { message: formatError(err) }))
@@ -134,14 +126,14 @@ function WarpSection() {
     }
   }, [addToast, fetchWarp, t])
 
-  if (loading) return <Spinner label={t('common.loading', 'Loading...')} />
+  if (loading) return <Spinner label={t('common.loading')} />
 
   if (!warp) {
     return (
       <div className={styles.section}>
         <div className={styles.sectionHeader}>
           <Shield size={14} />
-          {t('network.warpProxy', 'WARP Proxy')}
+          {t('network.warpProxy')}
         </div>
         <div className={styles.sectionBody}>
           <div className={styles.infoNote}>
@@ -163,13 +155,13 @@ function WarpSection() {
     <div className={styles.section}>
       <div className={styles.sectionHeader}>
         <Shield size={14} />
-        {t('network.warpProxy', 'WARP Proxy')}
+        {t('network.warpProxy')}
       </div>
       <div className={styles.sectionBody}>
         {/* Status display */}
         <div className={styles.statusGrid}>
           <div className={styles.statusRow}>
-            <span className={styles.statusLabel}>{t('network.status', 'Status')}</span>
+            <span className={styles.statusLabel}>{t('network.status')}</span>
             <span className={`${styles.statusValue} ${statusClass}`}>
               <span className={styles.statusDot} />
               {t(`warp.${warp.status}`)}
@@ -178,54 +170,54 @@ function WarpSection() {
           {warp.status !== 'disabled' && (
             <>
               <div className={styles.statusRow}>
-                <span className={styles.statusLabel}>{t('network.mode', 'Mode')}</span>
-                <span className={styles.statusValue}>{warp.mode}</span>
+                <span className={styles.statusLabel}>{t('network.mode')}</span>
+                <span className={styles.statusValue}>{formatWarpMode(warp.mode, (key) => t(key))}</span>
               </div>
               <div className={styles.statusRow}>
-                <span className={styles.statusLabel}>{t('network.port', 'Port')}</span>
+                <span className={styles.statusLabel}>{t('network.port')}</span>
                 <span className={styles.statusValue}>{warp.socks_port}</span>
               </div>
               {warp.protocol && (
                 <div className={styles.statusRow}>
-                  <span className={styles.statusLabel}>协议</span>
+                  <span className={styles.statusLabel}>{t('warp.protocol')}</span>
                   <span className={styles.statusValue}>{warp.protocol}</span>
                 </div>
               )}
               {warp.proxy_type && (
                 <div className={styles.statusRow}>
-                  <span className={styles.statusLabel}>代理类型</span>
+                  <span className={styles.statusLabel}>{t('warp.proxyType')}</span>
                   <span className={styles.statusValue}>{warp.proxy_type}</span>
                 </div>
               )}
               {warp.http_port > 0 && (
                 <div className={styles.statusRow}>
-                  <span className={styles.statusLabel}>HTTP 端口</span>
+                  <span className={styles.statusLabel}>{t('warp.httpPort')}</span>
                   <span className={styles.statusValue}>{warp.http_port}</span>
                 </div>
               )}
               {warp.ip && (
                 <div className={styles.statusRow}>
-                  <span className={styles.statusLabel}>{t('network.ip', 'IP')}</span>
+                  <span className={styles.statusLabel}>{t('network.ip')}</span>
                   <span className={styles.statusValue}>{warp.ip}</span>
                 </div>
               )}
               {warp.pid > 0 && (
                 <div className={styles.statusRow}>
-                  <span className={styles.statusLabel}>{t('network.pid', 'PID')}</span>
+                  <span className={styles.statusLabel}>{t('network.pid')}</span>
                   <span className={styles.statusValue}>{warp.pid}</span>
                 </div>
               )}
               {warp.interface && (
                 <div className={styles.statusRow}>
-                  <span className={styles.statusLabel}>{t('network.interface', 'Interface')}</span>
+                  <span className={styles.statusLabel}>{t('network.interface')}</span>
                   <span className={styles.statusValue}>{warp.interface}</span>
                 </div>
               )}
             </>
           )}
           <div className={styles.statusRow}>
-            <span className={styles.statusLabel}>可用模式</span>
-            <span className={styles.statusValue}>{formatAvailableWarpModes(warp)}</span>
+            <span className={styles.statusLabel}>{t('warp.availableModes')}</span>
+            <span className={styles.statusValue}>{formatAvailableWarpModes(warp, (key) => t(key))}</span>
           </div>
         </div>
 
@@ -243,8 +235,9 @@ function WarpSection() {
           <>
             <div className={styles.formGrid}>
               <div className={styles.formRow}>
-                <label className={styles.formLabel}>{t('network.mode', 'Mode')}</label>
+                <label className={styles.formLabel} htmlFor="network-warp-mode">{t('network.mode')}</label>
                 <select
+                  id="network-warp-mode"
                   className={styles.formSelect}
                   value={mode}
                   onChange={(e) => setMode(e.target.value)}
@@ -253,15 +246,17 @@ function WarpSection() {
                     const available = isWarpModeAvailable(warp, option.value)
                     return (
                       <option key={option.value} value={option.value} disabled={!available}>
-                        {option.label} — {option.description}{available ? '' : '（不可用）'}
+                        {t(option.labelKey)} - {t(option.descriptionKey)}
+                        {available ? '' : ` (${t('warp.unavailable')})`}
                       </option>
                     )
                   })}
                 </select>
               </div>
               <div className={styles.formRow}>
-                <label className={styles.formLabel}>{t('network.port', 'Port')}</label>
+                <label className={styles.formLabel} htmlFor="network-warp-port">{t('network.port')}</label>
                 <input
+                  id="network-warp-port"
                   className={styles.formInput}
                   type="number"
                   value={port}
@@ -271,8 +266,9 @@ function WarpSection() {
                 />
               </div>
               <div className={styles.formRow}>
-                <label className={styles.formLabel}>{t('network.endpoint', 'Endpoint')}</label>
+                <label className={styles.formLabel} htmlFor="network-warp-endpoint">{t('network.endpoint')}</label>
                 <input
+                  id="network-warp-endpoint"
                   className={styles.formInput}
                   type="text"
                   value={endpoint}
@@ -289,7 +285,7 @@ function WarpSection() {
                 disabled={acting}
               >
                 <Shield size={14} />
-                {acting ? t('warp.enabling') : t('warp.enable', 'Enable')}
+                {acting ? t('warp.enabling') : t('warp.enable')}
               </button>
             </div>
           </>
@@ -301,7 +297,7 @@ function WarpSection() {
               disabled={acting}
             >
               <ShieldOff size={14} />
-              {acting ? t('warp.disabling') : t('warp.disable', 'Disable')}
+              {acting ? t('warp.disabling') : t('warp.disable')}
             </button>
           </div>
         )}
@@ -353,25 +349,26 @@ function HttpBackendSection() {
     }
   }, [addToast, t])
 
-  if (loading) return <Spinner label={t('common.loading', 'Loading...')} />
+  if (loading) return <Spinner label={t('common.loading')} />
   if (!data) return null
 
   return (
     <div className={styles.section}>
       <div className={styles.sectionHeader}>
         <Plug size={14} />
-        {t('network.httpBackend', 'HTTP Backend')}
+        {t('network.httpBackend')}
         <span className={`${styles.curlBadge} ${data.curl_cffi_available ? styles.curlAvail : styles.curlMissing}`}>
           {data.curl_cffi_available
-            ? t('network.curlAvailable', 'curl_cffi available')
-            : t('network.curlUnavailable', 'curl_cffi unavailable')}
+            ? t('network.curlAvailable')
+            : t('network.curlUnavailable')}
         </span>
       </div>
       <div className={styles.sectionBody}>
         {/* Global default */}
         <div className={`${styles.engineRow} ${styles.engineRowDefault}`}>
-          <span className={styles.engineName}>{t('network.globalDefault', 'Default')}</span>
+          <span className={styles.engineName}>{t('network.globalDefault')}</span>
           <select
+            aria-label={t('network.globalDefault')}
             className={styles.engineSelect}
             value={data.default}
             onChange={(e) => void handleUpdate({ default: e.target.value })}
@@ -392,6 +389,7 @@ function HttpBackendSection() {
             <div key={engine} className={styles.engineRow}>
               <span className={styles.engineName}>{engine}</span>
               <select
+                aria-label={engine}
                 className={styles.engineSelect}
                 value={override || 'auto'}
                 onChange={(e) => void handleUpdate({ source: engine, backend: e.target.value })}
@@ -422,6 +420,8 @@ function ProxyConfigSection() {
   const addToast = useNotificationStore((s) => s.addToast)
   const [proxy, setProxy] = useState('')
   const [poolText, setPoolText] = useState('')
+  const [initialProxy, setInitialProxy] = useState('')
+  const [initialPoolText, setInitialPoolText] = useState('')
   const [socksSupported, setSocksSupported] = useState(false)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -430,8 +430,12 @@ function ProxyConfigSection() {
     try {
       setLoading(true)
       const data = await api.getProxyConfig()
-      setProxy(data.proxy || '')
-      setPoolText((data.proxy_pool || []).join('\n'))
+      const proxyValue = data.proxy || ''
+      const poolValue = (data.proxy_pool || []).join('\n')
+      setProxy(proxyValue)
+      setPoolText(poolValue)
+      setInitialProxy(proxyValue)
+      setInitialPoolText(poolValue)
       setSocksSupported(data.socks_supported)
     } catch {
       addToast('error', t('proxy.fetchFailed'))
@@ -446,14 +450,23 @@ function ProxyConfigSection() {
     setSaving(true)
     try {
       const pool = poolText.split('\n').map((s) => s.trim()).filter(Boolean)
-      await api.updateProxyConfig({ proxy: proxy.trim() || '', proxy_pool: pool })
+      const params: { proxy?: string | null; proxy_pool?: string[] } = {}
+      if (shouldSubmitConfigValue(proxy, initialProxy)) params.proxy = proxy.trim() || ''
+      if (shouldSubmitConfigValue(poolText, initialPoolText)) params.proxy_pool = pool
+      const data = await api.updateProxyConfig(params)
+      const proxyValue = data.proxy || ''
+      const poolValue = (data.proxy_pool || []).join('\n')
+      setProxy(proxyValue)
+      setPoolText(poolValue)
+      setInitialProxy(proxyValue)
+      setInitialPoolText(poolValue)
       addToast('success', t('proxy.saved'))
     } catch (err) {
       addToast('error', t('proxy.saveFailed', { message: formatError(err) }))
     } finally {
       setSaving(false)
     }
-  }, [proxy, poolText, addToast, t])
+  }, [proxy, poolText, initialProxy, initialPoolText, addToast, t])
 
   const handleClear = useCallback(async () => {
     setSaving(true)
@@ -461,6 +474,8 @@ function ProxyConfigSection() {
       await api.updateProxyConfig({ proxy: '', proxy_pool: [] })
       setProxy('')
       setPoolText('')
+      setInitialProxy('')
+      setInitialPoolText('')
       addToast('success', t('proxy.saved'))
     } catch (err) {
       addToast('error', t('proxy.saveFailed', { message: formatError(err) }))
@@ -469,7 +484,7 @@ function ProxyConfigSection() {
     }
   }, [addToast, t])
 
-  if (loading) return <Spinner label={t('common.loading', 'Loading...')} />
+  if (loading) return <Spinner label={t('common.loading')} />
 
   return (
     <div className={styles.section}>
@@ -488,8 +503,9 @@ function ProxyConfigSection() {
 
         <div className={styles.formGrid}>
           <div className={styles.formRow}>
-            <label className={styles.formLabel}>{t('proxy.globalProxy')}</label>
+            <label className={styles.formLabel} htmlFor="network-proxy-global">{t('proxy.globalProxy')}</label>
             <input
+              id="network-proxy-global"
               className={styles.formInput}
               type="text"
               value={proxy}
@@ -498,8 +514,9 @@ function ProxyConfigSection() {
             />
           </div>
           <div className={styles.formRow} style={{ alignItems: 'flex-start' }}>
-            <label className={styles.formLabel}>{t('proxy.proxyPool')}</label>
+            <label className={styles.formLabel} htmlFor="network-proxy-pool">{t('proxy.proxyPool')}</label>
             <textarea
+              id="network-proxy-pool"
               className={styles.formInput}
               value={poolText}
               onChange={(e) => setPoolText(e.target.value)}
@@ -553,15 +570,15 @@ export function NetworkPage() {
         <div>
           <h1 className={styles.pageTitle}>
             <Wifi size={20} />
-            {t('network.title', 'Network')}
+            {t('network.title')}
           </h1>
           <p className={styles.pageDesc}>
-            {t('network.pageSubtitle', 'WARP proxy and HTTP backend configuration')}
+            {t('network.pageSubtitle')}
           </p>
         </div>
         <div className={styles.headerBadge}>
           <Activity size={14} />
-          {t('network.active', 'Active')}
+          {t('network.active')}
         </div>
       </m.div>
 

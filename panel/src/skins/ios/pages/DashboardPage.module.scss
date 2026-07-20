@@ -37,7 +37,9 @@
   box-shadow: var(--shadow-card);
 
   &.clickable {
+    color: inherit;
     cursor: pointer;
+    text-decoration: none;
     user-select: none;
     transition: transform 0.15s ease, box-shadow 0.15s ease;
 
