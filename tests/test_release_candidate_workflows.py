@@ -105,6 +105,9 @@ def test_release_candidate_aggregates_all_release_gates() -> None:
     assert "name: Broad CI, coverage, performance, audit, and container gates" in text
     assert "suite: release" in text
 
+    external = text.split("  external:", maxsplit=1)[1].split("  pyinstaller:", maxsplit=1)[0]
+    assert "permissions:\n      contents: read\n      issues: write" in external
+
 
 def test_release_bundle_has_24_binaries_supply_chain_assets_and_attestation() -> None:
     text = _workflow("release-candidate.yml")

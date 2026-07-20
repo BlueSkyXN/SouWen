@@ -208,6 +208,9 @@ jobs:
   external:
     name: External release smoke
     needs: validate
+    permissions:
+      contents: read
+      issues: write
     uses: ./.github/workflows/external-smoke-gate.yml
     with:
       candidate_sha: ${{ needs.validate.outputs.candidate_sha }}
