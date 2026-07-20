@@ -47,7 +47,8 @@ pinned: false
 | `SOUWEN_TRUSTED_PROXIES` | 受信反向代理 IP/CIDR 列表，逗号分隔（如 `10.0.0.0/8,127.0.0.1`） |
 | `SOUWEN_EXPOSE_DOCS` | 是否暴露 `/docs`、`/redoc`、`/openapi.json`，生产建议 `false` |
 | `SOUWEN_MAX_CONCURRENCY` | 聚合搜索并发上限，默认 `10`（v0.6.0） |
-| `SOUWEN_OPENALEX_EMAIL` | OpenAlex 邮箱（免费，提升速率） |
+| `SOUWEN_OPENALEX_API_KEY` | OpenAlex Freemium API Key（可选；额度/预付余额以账户为准） |
+| `SOUWEN_OPENALEX_EMAIL` | 已弃用兼容字段（当前不发送给 OpenAlex） |
 | `SOUWEN_SEMANTIC_SCHOLAR_API_KEY` | Semantic Scholar API Key |
 | `SOUWEN_CORE_API_KEY` | CORE API Key |
 | `SOUWEN_TAVILY_API_KEY` | Tavily AI 搜索 Key |

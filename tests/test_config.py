@@ -348,6 +348,18 @@ class TestSourceChannelConfig:
         )
         assert cfg.resolve_api_key("tavily", "tavily_api_key") == "channel-key"
 
+    def test_openalex_channel_key_does_not_replace_contact_email(self):
+        """OpenAlex channel api_key 与兼容联系邮箱使用独立配置语义。"""
+        from souwen.config import SourceChannelConfig
+
+        cfg = SouWenConfig(
+            openalex_api_key="flat-key",
+            openalex_email="contact@example.com",
+            sources={"openalex": SourceChannelConfig(api_key="channel-key")},
+        )
+        assert cfg.resolve_api_key("openalex", "openalex_api_key") == "channel-key"
+        assert cfg.openalex_email == "contact@example.com"
+
     def test_resolve_api_key_fallback_to_flat(self):
         """无频道 api_key 回退到 flat key"""
         cfg = SouWenConfig(tavily_api_key="flat-key")

@@ -33,7 +33,8 @@
 | `SOUWEN_TRUSTED_PROXIES` | 受信反向代理 IP/CIDR 列表，逗号分隔 |
 | `SOUWEN_EXPOSE_DOCS` | 是否暴露 `/docs`、`/redoc`、`/openapi.json`，生产建议 `false` |
 | `SOUWEN_MAX_CONCURRENCY` | 聚合搜索并发上限，默认 `10`（v0.6.0） |
-| `SOUWEN_OPENALEX_EMAIL` | OpenAlex 邮箱（免费，提升速率） |
+| `SOUWEN_OPENALEX_API_KEY` | OpenAlex Freemium API Key（可选；额度/预付余额以账户为准） |
+| `SOUWEN_OPENALEX_EMAIL` | 已弃用兼容字段（当前不发送给 OpenAlex） |
 | `SOUWEN_TAVILY_API_KEY` | Tavily AI 搜索 Key |
 | `WARP_ENABLED` | 设为 `1` 启用内嵌 Cloudflare WARP 代理 |
 | ... | 其他 SOUWEN_* 环境变量均可直接设置 |

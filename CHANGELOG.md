@@ -52,6 +52,9 @@
   脱敏原因；edition-gated adapter 不再被 doctor 探测，本地 CLI 对允许项继续保留详细诊断。
 - Patent catalog 新增/恢复 PatentsView 与 PQAI；Google Patents 的真实页面/API 回退、解析和
   experimental scraper 口径得到加强。
+- OpenAlex 配置契约对齐当前官方 API：新增可选 `openalex_api_key` 与 channel API Key
+  override，匿名模式继续可用；`openalex_email` 仅保留配置/构造器兼容且不再发送，
+  doctor/docs 明确 Freemium 每日额度、429 和不匿名重放语义。
 - Tavily、Firecrawl、Exa、XCrawl、Kimi Code、Metaso 与 Wayback 通过 registry
   `extra_domains={"fetch"}` 同时进入 fetch provider 视图；Metaso reader、Wayback fetch 与
   provider pagination/truncation 契约完成对齐。

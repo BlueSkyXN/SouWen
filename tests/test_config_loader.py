@@ -60,6 +60,7 @@ class TestYamlLoading:
             textwrap.dedent(
                 """
                 paper:
+                  openalex_api_key: yaml-key
                   openalex_email: user@example.com
                 http:
                   timeout: 42
@@ -70,6 +71,7 @@ class TestYamlLoading:
             encoding="utf-8",
         )
         cfg = reload_config()
+        assert cfg.openalex_api_key == "yaml-key"
         assert cfg.openalex_email == "user@example.com"
         assert cfg.timeout == 42
         assert cfg.edition == "full"
@@ -153,8 +155,10 @@ class TestEnvOverride:
 
     def test_env_overrides_string_field(self, monkeypatch):
         """``SOUWEN_<FIELD>`` 直接覆盖字符串字段。"""
+        monkeypatch.setenv("SOUWEN_OPENALEX_API_KEY", "env-openalex-key")
         monkeypatch.setenv("SOUWEN_OPENALEX_EMAIL", "envuser@example.com")
         cfg = reload_config()
+        assert cfg.openalex_api_key == "env-openalex-key"
         assert cfg.openalex_email == "envuser@example.com"
 
     def test_env_overrides_edition(self, monkeypatch):
@@ -337,6 +341,8 @@ class TestEnsureConfigFile:
         text = target.read_text(encoding="utf-8")
         assert text.strip() != ""
         assert "edition: pro" in text
+        assert "openalex_api_key: ~" in text
+        assert "openalex_email: ~" in text
 
     def test_returns_existing_file_without_overwrite(self, tmp_path):
         """已存在 ``./souwen.yaml`` 时直接返回，不覆盖内容。"""

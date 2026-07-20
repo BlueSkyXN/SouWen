@@ -122,6 +122,7 @@ describe('ConfigEditorPanel accessibility', () => {
         'true',
       )
     })
-    expect(await screen.findByLabelText('OpenAlex Email')).toBeInTheDocument()
+    expect(await screen.findByLabelText('OpenAlex API Key')).toBeInTheDocument()
+    expect(await screen.findByLabelText('OpenAlex Email (legacy, not sent)')).toBeInTheDocument()
   })
 })

@@ -288,15 +288,18 @@ class TestConfig:
         config = SouWenConfig()
         assert config.timeout == 30
         assert config.max_retries == 3
+        assert config.openalex_api_key is None
         assert config.openalex_email is None
         assert config.proxy is None
 
     def test_custom_config(self):
         """自定义配置值"""
         config = SouWenConfig(
+            openalex_api_key="openalex-test-key",
             openalex_email="test@example.com",
             timeout=60,
         )
+        assert config.openalex_api_key == "openalex-test-key"
         assert config.openalex_email == "test@example.com"
         assert config.timeout == 60
 
@@ -665,8 +668,8 @@ class TestSourceRegistryCatalogViews:
         openalex = sources["openalex"]
         assert openalex.auth_requirement == "optional"
         assert openalex.needs_config is False
-        assert openalex.optional_credential_effect == "politeness"
-        assert openalex.credential_fields == ("openalex_email",)
+        assert openalex.optional_credential_effect == "quota"
+        assert openalex.credential_fields == ("openalex_api_key",)
 
         epo_ops = sources["epo_ops"]
         assert epo_ops.auth_requirement == "required"

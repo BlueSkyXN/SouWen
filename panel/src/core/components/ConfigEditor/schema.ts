@@ -24,7 +24,8 @@ export const YAML_SECTIONS: SectionDef[] = [
     key: 'paper',
     titleI18nKey: 'config.visualSectionPaper',
     fields: [
-      { key: 'openalex_email', type: 'email', label: 'OpenAlex Email' },
+      { key: 'openalex_api_key', type: 'password', label: 'OpenAlex API Key' },
+      { key: 'openalex_email', type: 'email', label: 'OpenAlex Email (legacy, not sent)' },
       { key: 'semantic_scholar_api_key', type: 'password', label: 'Semantic Scholar API Key' },
       { key: 'core_api_key', type: 'password', label: 'CORE API Key' },
       { key: 'openaire_api_key', type: 'password', label: 'OpenAIRE API Key' },

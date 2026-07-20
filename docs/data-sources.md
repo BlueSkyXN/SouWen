@@ -55,7 +55,7 @@
 | `iacr` | scraper | 免配置 | 中风险 | 可选依赖 | 实验性 | `scraper` | search | — |
 | `ieee_xplore` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `ieee_api_key` |
 | `openaire` | official_api | 可选凭据 (提升配额) | 低风险 | 核心内置 | 稳定 | — | search | `openaire_api_key` |
-| `openalex` | open_api | 可选凭据 (礼貌访问) | 低风险 | 核心内置 | 稳定 | — | search | `openalex_email` |
+| `openalex` | open_api | 可选凭据 (提升配额) | 低风险 | 核心内置 | 稳定 | — | search | `openalex_api_key` |
 | `pmc` | open_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | search | — |
 | `pubmed` | open_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | search | — |
 | `semantic_scholar` | official_api | 可选凭据 (提升限流) | 低风险 | 核心内置 | 稳定 | — | search | `semantic_scholar_api_key` |

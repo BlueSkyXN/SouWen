@@ -103,6 +103,9 @@ def config_init() -> None:
 
 # ===== 论文数据源 =====
 paper:
+  # OpenAlex Freemium API；超出免费额度是否使用预付余额取决于账户设置
+  openalex_api_key: ~
+  # 已弃用兼容字段；当前不发送给 OpenAlex
   openalex_email: ~
   semantic_scholar_api_key: ~
   core_api_key: ~

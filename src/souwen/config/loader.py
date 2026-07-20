@@ -108,12 +108,12 @@ def _load_yaml_config() -> dict:
             # sources / llm / plugin_config 是嵌套结构,直接传递给 Pydantic 解析
             flat[key] = values
         elif isinstance(values, dict):
-            # 嵌套分组结构: paper: {openalex_email: ...}
+            # 嵌套分组结构: paper: {openalex_api_key: ...}
             for k, v in values.items():
                 if k in valid_fields:
                     flat[k] = v
         elif key in valid_fields:
-            # 扁平结构: openalex_email: ...
+            # 扁平结构: openalex_api_key: ...
             flat[key] = values
     return flat
 

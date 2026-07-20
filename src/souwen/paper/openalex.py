@@ -1,19 +1,20 @@
 """OpenAlex API 客户端
 
-官方文档: https://docs.openalex.org/
-鉴权: 无需 Key，请求头加 mailto 进入 polite pool
-限流: polite pool 内无硬限制，建议 ~10 req/s
+官方文档: https://developers.openalex.org/guides/authentication
+鉴权: 无 Key 可匿名使用；配置 api_key 可获得更高每日预算
+限流: 上游按每日预算计费，并限制每秒最多 100 个请求
 
 文件用途：OpenAlex 论文搜索客户端，提供完整的开放获取论文元数据和 OA 状态。
 
 函数/类清单：
     OpenAlexClient（类）
         - 功能：OpenAlex 论文搜索和查询客户端，支持关键词/DOI/ID 多种检索方式
-        - 关键属性：mailto (str|None) 联系邮箱, _client (SouWenHttpClient) HTTP 客户端,
-                   _limiter (TokenBucketLimiter) 限流器（~10 req/s）
+        - 关键属性：api_key (str|None) API Key, mailto (str|None) 已弃用兼容字段,
+                   _client (SouWenHttpClient) HTTP 客户端,
+                   _limiter (TokenBucketLimiter) 客户端保守限流器（~10 req/s）
 
     _common_params() -> dict
-        - 功能：构建所有 API 请求的公共参数（如 mailto）
+        - 功能：构建所有 API 请求的公共参数（当前仅 api_key）
         - 输出：请求参数字典
 
     _reconstruct_abstract(inverted_index: dict|None) -> str
@@ -63,7 +64,7 @@ logger = logging.getLogger(__name__)
 
 _BASE_URL = "https://api.openalex.org"
 
-# polite pool 推荐速率
+# 保守的客户端限速，低于 OpenAlex 当前公布的 100 req/s 上限。
 _DEFAULT_RPS = 10.0
 
 
@@ -71,17 +72,20 @@ class OpenAlexClient:
     """OpenAlex 论文搜索客户端。
 
     Attributes:
-        mailto: 用于进入 polite pool 的邮箱地址，可选。
+        api_key: OpenAlex API Key，可选；配置后获得更高每日预算。
+        mailto: 已弃用兼容字段；继续接受但不再发送给 OpenAlex。
     """
 
-    def __init__(self, mailto: str | None = None) -> None:
+    def __init__(self, mailto: str | None = None, *, api_key: str | None = None) -> None:
         """初始化 OpenAlex 客户端。
 
         Args:
-            mailto: 联系邮箱。未提供时从全局配置读取。
+            mailto: 已弃用兼容字段。未提供时仍从全局配置读取，但不会发送给上游。
+            api_key: OpenAlex API Key。未提供时按 source channel、flat config 顺序读取。
         """
         cfg = get_config()
-        self.mailto: str | None = mailto or cfg.resolve_api_key("openalex", "openalex_email")
+        self.api_key: str | None = api_key or cfg.resolve_api_key("openalex", "openalex_api_key")
+        self.mailto: str | None = mailto or cfg.openalex_email
         self._client = SouWenHttpClient(base_url=_BASE_URL, source_name="openalex")
         self._limiter = TokenBucketLimiter(rate=_DEFAULT_RPS, burst=_DEFAULT_RPS)
 
@@ -108,11 +112,12 @@ class OpenAlexClient:
     def _common_params(self) -> dict[str, str]:
         """构建公共请求参数。
 
-        如果配置了 mailto，将其加入参数以进入 polite pool（提升限流阈值）。
+        ``api_key`` 是当前 OpenAlex 的认证/预算参数。已弃用的 ``mailto`` 继续
+        作为构造器和配置属性保留，但当前官方契约未列出该参数，因此不再发送。
         """
         params: dict[str, str] = {}
-        if self.mailto:
-            params["mailto"] = self.mailto
+        if self.api_key:
+            params["api_key"] = self.api_key
         return params
 
     @staticmethod

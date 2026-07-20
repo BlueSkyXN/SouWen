@@ -7,7 +7,10 @@
 # ===== 论文数据源配置 =====
 # 学术论文搜索相关的 API 密钥和邮箱配置
 paper:
-  # OpenAlex —— 免费，填写邮箱可获得更高速率
+  # OpenAlex Freemium API —— 无 Key 预算较低；免费 Key 提供更高每日额度
+  # 超出免费额度是否使用预付余额取决于 OpenAlex 账户设置
+  openalex_api_key: ~
+  # 已弃用兼容字段；当前不发送给 OpenAlex
   openalex_email: ~
   # Semantic Scholar API Key（申请地址：https://www.semanticscholar.org/product/api）
   semantic_scholar_api_key: ~

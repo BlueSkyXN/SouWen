@@ -437,6 +437,18 @@ def test_config_show_redacts_nested_source_secrets(monkeypatch):
     assert "***" in result.output
 
 
+def test_config_init_includes_openalex_key_and_legacy_email(monkeypatch, tmp_path):
+    """CLI 生成模板应同时提供当前 API Key 和兼容联系邮箱字段。"""
+    monkeypatch.chdir(tmp_path)
+
+    result = runner.invoke(app, ["config", "init"])
+
+    assert result.exit_code == 0
+    content = (tmp_path / "souwen.yaml").read_text(encoding="utf-8")
+    assert "openalex_api_key: ~" in content
+    assert "openalex_email: ~" in content
+
+
 def test_config_backend_lists_current_backends(monkeypatch, tmp_path):
     """``config backend`` 应能读取 HTTP backend 快照，不依赖 re-export 私有变量。"""
     monkeypatch.chdir(tmp_path)
@@ -520,6 +532,8 @@ def test_sources_json_outputs_formal_catalog_contract():
     assert openalex["domain"] == "paper"
     assert openalex["category"] == "paper"
     assert openalex["capabilities"] == ["search"]
+    assert openalex["auth_requirement"] == "optional"
+    assert openalex["credential_fields"] == ["openalex_api_key"]
     assert openalex["credentials_satisfied"] is True
     assert openalex["configured_credentials"] is False
     assert openalex["min_edition"] == "pro"

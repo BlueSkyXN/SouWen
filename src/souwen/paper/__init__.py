@@ -1,7 +1,7 @@
 """论文数据源模块
 
 包含以下数据源客户端：
-- OpenAlexClient: OpenAlex (无需Key)
+- OpenAlexClient: OpenAlex (可匿名使用；可选 API Key 提高每日预算)
 - SemanticScholarClient: Semantic Scholar (可选Key)
 - CrossrefClient: Crossref (无需Key)
 - ArxivClient: arXiv (无需Key)

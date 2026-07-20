@@ -86,13 +86,28 @@ class TestCheckAll:
         for r in results:
             assert required.issubset(r.keys()), f"{r['name']} 缺少字段"
 
-    def test_no_config_sources_are_ok(self):
-        """稳定的零配置数据源默认显示 ok"""
+    def test_no_config_sources_report_optional_quota_limits(self):
+        """零配置源保持可用；缺少可选配额 Key 时明确显示 limited。"""
         results = check_all()
         openalex = next(r for r in results if r["name"] == "openalex")
         crossref = next(r for r in results if r["name"] == "crossref")
-        assert openalex["status"] == "ok"
+        assert openalex["status"] == "limited"
+        assert "openalex_api_key" in openalex["message"]
+        assert openalex["available"] is True
         assert crossref["status"] == "ok"
+
+    def test_openalex_api_key_clears_optional_quota_warning(self, monkeypatch):
+        """配置 OpenAlex Key 后 doctor 应回到 ok，且不泄漏 Key。"""
+        monkeypatch.setenv("SOUWEN_OPENALEX_API_KEY", "openalex-doctor-secret")
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        openalex = next(r for r in check_all() if r["name"] == "openalex")
+
+        assert openalex["status"] == "ok"
+        assert openalex["available"] is True
+        assert "openalex_api_key 已配置" in openalex["message"]
+        assert "openalex-doctor-secret" not in str(openalex)
 
     def test_categories_are_valid(self):
         """所有 category 值在正式 catalog 分类中"""

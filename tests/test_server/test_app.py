@@ -883,13 +883,15 @@ class TestAdminAuth:
         data = resp.json()
         assert data["auth_requirement"] == "optional"
         assert data["key_requirement"] == "optional"
-        assert data["credential_fields"] == ["openalex_email"]
-        assert data["optional_credential_effect"] == "politeness"
+        assert data["credential_fields"] == ["openalex_api_key"]
+        assert data["optional_credential_effect"] == "quota"
         assert data["risk_level"] == "low"
         assert data["distribution"] == "core"
         assert data["min_edition"] == "pro"
         assert data["edition_available"] is True
         assert data["edition_reason"] == ""
+        assert data["has_api_key"] is False
+        assert data["configured_credentials"] is False
         assert data["credentials_satisfied"] is True
         assert data["available"] is True
 
@@ -1274,7 +1276,7 @@ class TestSearchAuth:
         assert openalex["category"] == "paper"
         assert openalex["capabilities"] == ["search"]
         assert openalex["auth_requirement"] == "optional"
-        assert openalex["credential_fields"] == ["openalex_email"]
+        assert openalex["credential_fields"] == ["openalex_api_key"]
         assert openalex["credentials_satisfied"] is True
         assert openalex["configured_credentials"] is False
         assert openalex["risk_level"] == "low"
@@ -1287,6 +1289,37 @@ class TestSearchAuth:
         assert isinstance(openalex["runtime_available"], bool)
         assert isinstance(openalex["runtime_reason"], str)
         assert openalex["available"] is True
+
+    def test_sources_reports_openalex_api_key_without_exposing_value(
+        self,
+        authed_client,
+        monkeypatch,
+    ):
+        """Public catalog 只报告 OpenAlex Key 已配置，不返回实际值。"""
+        monkeypatch.setenv("SOUWEN_OPENALEX_API_KEY", "openalex-server-secret")
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        resp = authed_client.get(
+            "/api/v1/sources",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+
+        assert resp.status_code == 200
+        openalex = _sources_by_name(resp.json())["openalex"]
+        assert openalex["configured_credentials"] is True
+        assert openalex["credentials_satisfied"] is True
+        assert "openalex-server-secret" not in resp.text
+
+        admin_resp = authed_client.get(
+            "/api/v1/admin/sources/config/openalex",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+        assert admin_resp.status_code == 200
+        admin_data = admin_resp.json()
+        assert admin_data["has_api_key"] is True
+        assert admin_data["configured_credentials"] is True
+        assert "openalex-server-secret" not in admin_resp.text
 
     def test_sources_exposes_runtime_axis_without_changing_available(
         self,

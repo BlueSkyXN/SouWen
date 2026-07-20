@@ -8,7 +8,7 @@
 
 从高到低：
 
-1. **环境变量** — `SOUWEN_<FIELD_NAME>`（如 `SOUWEN_OPENALEX_EMAIL`）
+1. **环境变量** — `SOUWEN_<FIELD_NAME>`（如 `SOUWEN_OPENALEX_API_KEY`）
 2. **项目 YAML** — `./souwen.yaml`（当前目录）
 3. **用户 YAML** — `~/.config/souwen/config.yaml`
 4. **.env 文件** — `./`（通过 python-dotenv 加载）
@@ -59,6 +59,8 @@ cp .env.example .env
 
 ```yaml
 paper:
+  openalex_api_key: your_key
+  # 已弃用兼容字段；当前不发送给 OpenAlex
   openalex_email: your@email.com
   semantic_scholar_api_key: your_key
   core_api_key: your_key
@@ -150,12 +152,21 @@ sources: {}
 
 | 字段 | 环境变量 | 必需 | 说明 |
 |------|---------|------|------|
-| `openalex_email` | `SOUWEN_OPENALEX_EMAIL` | 推荐 | 进入 polite pool，获得更快响应 |
+| `openalex_api_key` | `SOUWEN_OPENALEX_API_KEY` | 可选 | OpenAlex Freemium API Key；当前匿名免费额度为 $0.10/day、免费 Key 为 $1/day，超额是否扣预付余额取决于账户设置 |
+| `openalex_email` | `SOUWEN_OPENALEX_EMAIL` | 已弃用 | 仅保留配置/构造器兼容；当前不发送给 OpenAlex |
 | `semantic_scholar_api_key` | `SOUWEN_SEMANTIC_SCHOLAR_API_KEY` | 可选 | 提高速率限制 |
 | `core_api_key` | `SOUWEN_CORE_API_KEY` | CORE 必需 | 申请：https://core.ac.uk/services/api |
 | `pubmed_api_key` | `SOUWEN_PUBMED_API_KEY` | 可选 | 提高速率限制 |
 | `unpaywall_email` | `SOUWEN_UNPAYWALL_EMAIL` | Unpaywall 必需 | 作为请求标识 |
 | `ieee_api_key` | `SOUWEN_IEEE_API_KEY` | IEEE Xplore 必需 | IEEE Xplore API Key |
+
+> OpenAlex 配置迁移：`sources.openalex.api_key` 现在只表示真正的 OpenAlex API Key。
+> 旧配置若曾把邮箱写入该 channel 字段，应将邮箱移到 `paper.openalex_email` 或
+> `SOUWEN_OPENALEX_EMAIL`；API Key 放在 `paper.openalex_api_key`、
+> `SOUWEN_OPENALEX_API_KEY` 或 `sources.openalex.api_key`。兼容 email 字段仍可加载，
+> 但当前官方契约未列出 `mailto` 参数，因此 SouWen 不再将其发送给上游。额度耗尽或
+> 超过 100 req/s 时上游会返回 429；客户端不会移除 Key 后匿名重放。详见
+> [OpenAlex Authentication & Pricing](https://developers.openalex.org/guides/authentication)。
 
 ### 专利 API
 
