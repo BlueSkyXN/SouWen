@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pytest
+
 from souwen.editions import (
     EDITIONS,
     WARP_MODE_MIN_EDITIONS,
@@ -32,6 +34,8 @@ def test_basic_warp_modes_are_low_privilege_subset() -> None:
 
 def test_admin_warp_modes_route_lists_physical_modes_with_edition_metadata(monkeypatch) -> None:
     """The admin modes endpoint omits auto but should cover all physical modes."""
+
+    pytest.importorskip("fastapi", reason="server extras not installed")
 
     from souwen.config import get_config
     from souwen.server.routes.admin import warp as warp_routes

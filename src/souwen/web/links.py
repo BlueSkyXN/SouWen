@@ -91,7 +91,13 @@ async def extract_links(
             resp = await scraper._fetch_with_safe_redirects(url)
 
         html = resp.text
-        final_url = str(resp.url) if hasattr(resp, "url") else url
+        response_extensions = getattr(resp, "extensions", None)
+        safe_final_url = (
+            response_extensions.get("souwen_final_url")
+            if isinstance(response_extensions, dict)
+            else None
+        )
+        final_url = str(safe_final_url or getattr(resp, "url", url))
 
         if not html:
             return LinkExtractionResult(

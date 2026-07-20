@@ -25,6 +25,7 @@ from souwen.doctor import (
     summarize_statuses,
 )
 from souwen.core.exceptions import ConfigError
+from souwen.feature_matrix import RuntimeProbe
 from souwen.registry.adapter import MethodSpec, SourceAdapter
 from souwen.registry.catalog import source_catalog
 from souwen.registry.loader import lazy
@@ -366,8 +367,12 @@ class TestCheckAll:
         assert pqai["status"] == "missing_key"
         assert "pqai_api_token" in pqai["message"]
 
-    def test_google_patents_is_warning(self):
+    def test_google_patents_is_warning(self, monkeypatch):
         """Google Patents 作为实验性爬虫显示 warning。"""
+        monkeypatch.setattr(
+            "souwen.doctor.probe_adapter_runtime",
+            lambda _adapter: RuntimeProbe(True, ""),
+        )
         results = check_all()
         source = next(r for r in results if r["name"] == "google_patents")
         assert source["status"] == "warning"

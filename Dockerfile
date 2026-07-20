@@ -112,7 +112,7 @@ RUN if [ -n "${SOUWEN_SOURCE_SHA}" ]; then \
 # 步骤 1：复制项目配置和版本信息，安装 pro/API 运行面依赖
 # edition-pro 聚合 API server、MCP、TLS 指纹和 scraper 基础能力
 # 可通过 --build-arg WITH_WEB2PDF=1 启用 web2pdf/SuperWeb2PDF 插件
-COPY pyproject.toml README.md LICENSE ./
+COPY pyproject.toml README.md LICENSE hatch_build.py ./
 COPY src/souwen/__init__.py ./src/souwen/__init__.py
 RUN if [ "${WITH_WEB2PDF}" = "1" ]; then \
         pip install ".[edition-pro]" "playwright>=1.40" "${WEB2PDF_PACKAGE}"; \

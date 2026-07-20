@@ -252,9 +252,12 @@ class TestExceptions:
 
     def test_config_error_with_url(self):
         """配置错误带注册链接"""
-        err = ConfigError("core_api_key", "CORE", "https://core.ac.uk/services/api")
-        assert "core_api_key" in str(err)
-        assert "https://core.ac.uk" in str(err)
+        register_url = "https://core.ac.uk/services/api"
+        err = ConfigError("core_api_key", "CORE", register_url)
+        assert err.register_url == register_url
+        assert str(err) == (
+            "缺少配置项 'core_api_key'（CORE 必需）\n注册获取: https://core.ac.uk/services/api"
+        )
 
     def test_config_error_without_url(self):
         """配置错误不带注册链接"""
@@ -589,7 +592,7 @@ class TestServer:
         try:
             from souwen.server.app import app
 
-            routes = [r.path for r in app.routes]
+            routes = set(app.openapi()["paths"])
             assert "/health" in routes
         except ImportError:
             pytest.skip("fastapi not installed")

@@ -651,8 +651,13 @@ def test_sources_json_supports_filters(monkeypatch):
     """``sources`` 支持 effective available/category/capability 三类过滤。"""
     monkeypatch.setenv("SOUWEN_SOURCES", '{"duckduckgo": {"enabled": false}}')
     from souwen.config import get_config
+    from souwen.feature_matrix import RuntimeProbe
 
     get_config.cache_clear()
+    monkeypatch.setattr(
+        "souwen.feature_matrix.public_adapter_runtime_probe",
+        lambda _adapter: RuntimeProbe(True, ""),
+    )
     result = runner.invoke(
         app,
         [

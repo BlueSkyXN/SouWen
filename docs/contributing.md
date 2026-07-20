@@ -9,11 +9,8 @@
 git clone https://github.com/BlueSkyXN/SouWen.git
 cd SouWen
 
-# 安装开发依赖
-pip install -e ".[dev]"
-
-# 安装爬虫可选依赖（TLS 指纹模拟）
-pip install -e ".[scraper]"
+# 安装完整 deterministic test runtime（开发工具 + pro edition）
+pip install -e ".[dev,edition-pro]"
 ```
 
 ## 运行测试

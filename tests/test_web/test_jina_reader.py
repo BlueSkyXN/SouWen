@@ -23,6 +23,7 @@ from souwen.web.jina_reader import JinaReaderClient
 
 
 JINA_URL_RE = re.compile(r"https://r\.jina\.ai/.*")
+pytestmark = pytest.mark.usefixtures("mock_public_dns")
 
 
 def _make_jina_response(

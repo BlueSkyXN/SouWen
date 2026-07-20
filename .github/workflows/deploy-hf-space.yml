@@ -81,7 +81,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.candidate_sha || github.sha }}
+          ref: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
           persist-credentials: false
 
@@ -157,7 +157,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.candidate_sha || github.sha }}
+          ref: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
 
       - uses: actions/setup-python@v6
         with:
@@ -196,7 +196,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.candidate_sha || github.sha }}
+          ref: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
 
       - uses: actions/setup-python@v6
         with:
@@ -210,7 +210,10 @@ jobs:
           pip install "setuptools<82" pyinstaller
 
       - name: Materialize immutable source provenance
-        run: printf '%s\n' '${{ inputs.candidate_sha || github.sha }}' > runtime.source.sha
+        run: >-
+          printf '%s\n'
+          '${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}'
+          > runtime.source.sha
 
       - name: Build basic executable with MCP retained
         run: |
@@ -243,7 +246,7 @@ jobs:
           profile: basic-cli
           edition: basic
           builder: pyinstaller
-          candidate-sha: ${{ inputs.candidate_sha || github.sha }}
+          candidate-sha: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
           report-json: artifacts/hf-space-local-pyinstaller.json
           report-markdown: artifacts/hf-space-local-pyinstaller.md
 
@@ -271,11 +274,11 @@ jobs:
       PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.clone_url }}
       PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       DEFAULT_REPO: https://github.com/${{ github.repository }}.git
-      DEFAULT_REF: ${{ inputs.candidate_sha || github.sha }}
+      DEFAULT_REF: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.candidate_sha || github.sha }}
+          ref: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
 
       - name: Resolve source ref for HFS Dockerfile clone
         id: source
@@ -327,7 +330,7 @@ jobs:
         env:
           SOUWEN_SMOKE_REPORT_FILE: hf-space-local-surface-report.md
           SOUWEN_SMOKE_JSON_FILE: hf-space-local-surface-report.json
-          EXPECTED_SOUWEN_SOURCE_SHA: ${{ inputs.candidate_sha || github.sha }}
+          EXPECTED_SOUWEN_SOURCE_SHA: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
         run: |
           VERSION="$(python3 - <<'PY'
           import tomllib
@@ -391,7 +394,7 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.candidate_sha || github.sha }}
+          ref: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
 
       - name: Check HF token
@@ -523,7 +526,7 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_SPACE_ID: BlueSkyXN/SouWen
-          CANDIDATE_SHA: ${{ inputs.candidate_sha || github.sha }}
+          CANDIDATE_SHA: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
           PRIOR_SPACE_SHA: ${{ steps.prior.outputs.prior_space_commit_sha }}
         run: |
           python -I - <<'PY'
@@ -752,7 +755,7 @@ jobs:
       - name: Run ${{ matrix.mode }} post-deploy smoke
         env:
           EXPECTED_SOUWEN_VERSION: ${{ needs.sync-hfs-wrapper.outputs.version }}
-          EXPECTED_SOUWEN_SOURCE_SHA: ${{ inputs.candidate_sha || github.sha }}
+          EXPECTED_SOUWEN_SOURCE_SHA: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
           SOUWEN_HF_SPACE_URL: https://blueskyxn-souwen.hf.space
           SOUWEN_HF_SPACE_TOKEN: ${{ secrets.HF_SPACE_READ_TOKEN }}
           SOUWEN_SMOKE_REQUEST_TIMEOUT: "20"

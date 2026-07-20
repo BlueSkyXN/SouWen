@@ -15,11 +15,9 @@ def test_api_reference_mentions_all_public_routes() -> None:
 
     docs = Path("docs/api-reference.md").read_text(encoding="utf-8")
     route_paths = sorted(
-        {
-            route.path
-            for route in app.routes
-            if route.path in {"/health", "/readiness"} or route.path.startswith("/api/v1")
-        }
+        path
+        for path in app.openapi()["paths"]
+        if path in {"/health", "/readiness"} or path.startswith("/api/v1")
     )
 
     missing = [path for path in route_paths if path not in docs]

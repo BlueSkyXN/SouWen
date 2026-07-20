@@ -30,7 +30,7 @@ def _module_route_paths_with_dependency(module_name: str, dependency) -> set[str
 def test_declared_surface_routes_exist_in_fastapi_app() -> None:
     """Route declarations in feature_matrix should point at real app routes."""
 
-    app_routes = {route.path for route in app.routes if isinstance(route, APIRoute)}
+    app_routes = set(app.openapi()["paths"])
 
     assert set(SURFACE_ROUTE_MIN_EDITIONS) <= app_routes
     assert route_min_edition("/api/v1/summarize") == "pro"

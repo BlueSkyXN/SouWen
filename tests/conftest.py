@@ -82,6 +82,25 @@ def clean_fetch_handlers():
         _FETCH_HANDLERS.update(saved)
 
 
+@pytest.fixture
+def mock_public_dns(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Resolve provider-test hostnames to a deterministic public address."""
+    import socket
+
+    def fake_getaddrinfo(_host, port, *_args, **_kwargs):
+        return [
+            (
+                socket.AF_INET,
+                socket.SOCK_STREAM,
+                socket.IPPROTO_TCP,
+                "",
+                ("1.1.1.1", port or 443),
+            )
+        ]
+
+    monkeypatch.setattr(socket, "getaddrinfo", fake_getaddrinfo)
+
+
 @pytest.fixture(autouse=True)
 def _isolate_real_config_environment(monkeypatch, tmp_path):
     """所有测试默认不读取开发机真实 SouWen 配置文件或认证环境变量。
@@ -103,6 +122,10 @@ def _isolate_real_config_environment(monkeypatch, tmp_path):
         "SOUWEN_ADMIN_PASSWORD",
         "SOUWEN_ADMIN_OPEN",
         "SOUWEN_GUEST_ENABLED",
+        "SOUWEN_PROXY",
+        "SOUWEN_PROXY_POOL",
+        "SOUWEN_WARP_PROXY_USERNAME",
+        "SOUWEN_WARP_PROXY_PASSWORD",
     ):
         monkeypatch.delenv(key, raising=False)
     yield

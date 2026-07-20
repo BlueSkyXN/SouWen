@@ -65,7 +65,7 @@ from collections import defaultdict, deque
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
 from typing import Any, Literal
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
 
 from souwen.config import get_config
 from souwen.models import FetchResponse, FetchResult
@@ -138,6 +138,16 @@ _IPV4_EMBEDDING_NETS = tuple(
 
 _IPAddress = ipaddress.IPv4Address | ipaddress.IPv6Address
 _IPNetwork = ipaddress.IPv4Network | ipaddress.IPv6Network
+
+
+@dataclass(frozen=True, slots=True)
+class ResolvedFetchTarget:
+    """A validated URL pinned to one already-checked public IP address."""
+
+    original_url: str
+    connect_url: str
+    host_header: str
+    sni_hostname: str | None
 
 
 def _embedded_ipv4_address(addr: _IPAddress) -> ipaddress.IPv4Address | None:
@@ -373,66 +383,126 @@ def _get_provider_global_timeout(provider: str, url_count: int, timeout: float) 
     return timeout + 10
 
 
-def validate_fetch_url(url: str) -> tuple[bool, str]:
-    """SSRF 防护 URL 校验
+def _format_connect_host(addr: _IPAddress) -> str:
+    text = str(addr)
+    return f"[{text}]" if addr.version == 6 else text
+
+
+def _format_original_host(hostname: str, port: int | None) -> str:
+    host = f"[{hostname}]" if ":" in hostname and not hostname.startswith("[") else hostname
+    return f"{host}:{port}" if port is not None else host
+
+
+def resolve_fetch_target(url: str) -> tuple[ResolvedFetchTarget | None, str]:
+    """Validate a URL and bind it to a checked public IP to prevent DNS rebinding.
 
     仅允许 http/https 协议，拒绝直连私有/内部 IP；域名解析后仍拒绝危险网段，
-    但允许常见 fake-IP DNS 代理返回的 198.18.0.0/15 地址。
+    但允许常见 fake-IP DNS 代理返回的 198.18.0.0/15 地址。返回的 ``connect_url``
+    使用已校验的 IP literal；调用方必须同时传递 ``Host`` 和 HTTPS SNI。
 
     Args:
         url: 待校验的 URL
 
     Returns:
-        (is_valid, reason) 元组
+        (resolved target, reason) 元组
     """
     try:
         parsed = urlparse(url)
     except Exception:
-        return False, "URL 解析失败"
+        return None, "URL 解析失败"
 
     if parsed.scheme not in ("http", "https"):
-        return False, f"不允许的协议: {parsed.scheme}"
+        return None, f"不允许的协议: {parsed.scheme}"
+    if parsed.username or parsed.password:
+        return None, "URL 不允许包含用户信息"
 
     hostname = parsed.hostname
     if not hostname:
-        return False, "缺少主机名"
-    hostname_key = hostname.rstrip(".").lower()
-    if hostname_key in _BLOCKED_HOSTNAMES:
-        return False, f"目标主机名为本地主机: {hostname}"
+        return None, "缺少主机名"
+
+    try:
+        port = parsed.port
+    except ValueError:
+        return None, "端口号无效"
 
     hostname_for_ip = hostname.split("%", 1)[0]
     try:
         literal_addr = ipaddress.ip_address(hostname_for_ip)
     except ValueError:
         literal_addr = None
+    if literal_addr is None:
+        try:
+            transport_hostname = hostname.encode("idna").decode("ascii").lower()
+        except UnicodeError:
+            return None, f"主机名无效: {hostname}"
+    else:
+        transport_hostname = hostname
+
+    hostname_key = transport_hostname.rstrip(".").lower()
+    if hostname_key in _BLOCKED_HOSTNAMES:
+        return None, f"目标主机名为本地主机: {hostname}"
+
     if literal_addr is not None:
         if _is_ssrf_blocked_address(literal_addr, _DIRECT_SSRF_BLOCKED_NETS):
-            return False, f"目标地址为内部/私有 IP: {hostname}"
-        return True, ""
+            return None, f"目标地址为内部/私有 IP: {hostname}"
+        connect_addr = literal_addr
+    else:
+        if _is_legacy_ipv4_numeric_hostname(hostname_key):
+            legacy_ipv4_addr = _parse_legacy_ipv4_literal(hostname_key)
+            resolved_suffix = (
+                f" (解析为 {legacy_ipv4_addr})" if legacy_ipv4_addr is not None else ""
+            )
+            return None, f"非规范 IPv4 数字写法: {hostname}{resolved_suffix}"
 
-    if _is_legacy_ipv4_numeric_hostname(hostname_key):
-        legacy_ipv4_addr = _parse_legacy_ipv4_literal(hostname_key)
-        resolved_suffix = f" (解析为 {legacy_ipv4_addr})" if legacy_ipv4_addr is not None else ""
-        return False, f"非规范 IPv4 数字写法: {hostname}{resolved_suffix}"
-
-    try:
-        infos = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
-    except socket.gaierror:
-        return False, f"DNS 解析失败: {hostname}"
-
-    for info in infos:
-        addr_str = info[4][0]
-        # IPv6 scope 后缀（如 fe80::1%eth0）需剥离
-        if "%" in addr_str:
-            addr_str = addr_str.split("%", 1)[0]
         try:
-            addr = ipaddress.ip_address(addr_str)
-        except ValueError:
-            continue
-        if _is_ssrf_blocked_address(addr, _DNS_SSRF_BLOCKED_NETS):
-            return False, f"目标地址为内部/私有 IP: {addr_str}"
+            infos = socket.getaddrinfo(
+                transport_hostname,
+                None,
+                socket.AF_UNSPEC,
+                socket.SOCK_STREAM,
+            )
+        except (socket.gaierror, OSError):
+            return None, f"DNS 解析失败: {hostname}"
 
-    return True, ""
+        resolved: list[_IPAddress] = []
+        for info in infos:
+            try:
+                addr_str = info[4][0].split("%", 1)[0]
+            except (AttributeError, IndexError, TypeError):
+                return None, "DNS 返回无效地址"
+            try:
+                addr = ipaddress.ip_address(addr_str)
+            except ValueError:
+                return None, f"DNS 返回无效地址: {addr_str}"
+            if _is_ssrf_blocked_address(addr, _DNS_SSRF_BLOCKED_NETS):
+                return None, f"目标地址为内部/私有 IP: {addr_str}"
+            if addr not in resolved:
+                resolved.append(addr)
+
+        if not resolved:
+            return None, f"DNS 未返回可用地址: {hostname}"
+        connect_addr = next((addr for addr in resolved if addr.version == 4), resolved[0])
+
+    connect_host = _format_connect_host(connect_addr)
+    connect_netloc = f"{connect_host}:{port}" if port is not None else connect_host
+    connect_url = urlunparse(parsed._replace(netloc=connect_netloc))
+    return (
+        ResolvedFetchTarget(
+            original_url=url,
+            connect_url=connect_url,
+            host_header=_format_original_host(transport_hostname, port),
+            sni_hostname=(
+                transport_hostname if parsed.scheme == "https" and literal_addr is None else None
+            ),
+        ),
+        "",
+    )
+
+
+def validate_fetch_url(url: str) -> tuple[bool, str]:
+    """Return whether a URL resolves only to allowed public targets."""
+    target, reason = resolve_fetch_target(url)
+    return target is not None, reason
 
 
 def ssrf_blocked_fetch_result(

@@ -118,7 +118,13 @@ class NewspaperFetcherClient(BaseScraper):
         try:
             # 1) BaseScraper 抓 HTML（curl_cffi/httpx + WARP + 退避）
             resp = await asyncio.wait_for(self._fetch_with_safe_redirects(url), timeout=timeout)
-            final_url = str(resp.url) if hasattr(resp, "url") else url
+            response_extensions = getattr(resp, "extensions", None)
+            safe_final_url = (
+                response_extensions.get("souwen_final_url")
+                if isinstance(response_extensions, dict)
+                else None
+            )
+            final_url = str(safe_final_url or url)
             html = resp.text or ""
             status_code = resp.status_code
 

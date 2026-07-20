@@ -50,7 +50,6 @@ import asyncio
 import logging
 import re
 from typing import Any
-from urllib.parse import urljoin
 
 from souwen.core.exceptions import ConfigError
 from souwen.models import FetchResponse, FetchResult
@@ -182,7 +181,6 @@ class ReadabilityFetcherClient(BaseScraper):
     ENGINE_NAME = "readability"
     PROVIDER_NAME = "readability"
     MAX_REDIRECTS = 5
-    _REDIRECT_CODES = frozenset({301, 302, 303, 307, 308})
 
     def __init__(self) -> None:
         if not _HAS_READABILITY:
@@ -219,53 +217,14 @@ class ReadabilityFetcherClient(BaseScraper):
             FetchResult 包含提取的正文内容
         """
         try:
-            from souwen.web.fetch import validate_fetch_url
-
-            current_url = url
-            resp = None
-            for _hop in range(self.MAX_REDIRECTS + 1):
-                resp = await self._fetch(current_url)
-
-                if resp.status_code not in self._REDIRECT_CODES:
-                    break
-
-                location = resp.headers.get("location")
-                if not location:
-                    break
-
-                redirect_url = urljoin(current_url, location)
-                ok, reason = validate_fetch_url(redirect_url)
-                if not ok:
-                    logger.warning(
-                        "SSRF redirect blocked: %s → %s (%s)",
-                        url,
-                        redirect_url,
-                        reason,
-                    )
-                    return FetchResult(
-                        url=url,
-                        final_url=redirect_url,
-                        source=self.PROVIDER_NAME,
-                        error=f"SSRF: 重定向目标被拦截 ({reason})",
-                    )
-                current_url = redirect_url
-            else:
-                return FetchResult(
-                    url=url,
-                    final_url=current_url,
-                    source=self.PROVIDER_NAME,
-                    error=f"重定向次数超过上限 ({self.MAX_REDIRECTS})",
-                )
-
-            if resp is None:
-                return FetchResult(
-                    url=url,
-                    final_url=url,
-                    source=self.PROVIDER_NAME,
-                    error="请求失败",
-                )
-
-            final_url = current_url
+            resp = await self._fetch_with_safe_redirects(url, max_redirects=self.MAX_REDIRECTS)
+            response_extensions = getattr(resp, "extensions", None)
+            safe_final_url = (
+                response_extensions.get("souwen_final_url")
+                if isinstance(response_extensions, dict)
+                else None
+            )
+            final_url = str(safe_final_url or url)
             html = resp.text
 
             if not html or len(html.strip()) < 100:

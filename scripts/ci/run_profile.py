@@ -32,6 +32,12 @@ FULL_FETCH_PROVIDER_MODULES: Mapping[str, str] = {
     "scrapling": "souwen.web.scrapling_fetcher",
 }
 FULL_FETCH_PROVIDER_MODULES_LITERAL = repr(dict(FULL_FETCH_PROVIDER_MODULES))
+FULL_CORE_FETCH_PROVIDERS = frozenset({"arxiv_fulltext", "newspaper", "readability"})
+FULL_BROWSER_VARIANT_FETCH_PROVIDERS = frozenset({"crawl4ai", "scrapling"})
+FULL_CORE_FETCH_PROVIDERS_LITERAL = repr(tuple(sorted(FULL_CORE_FETCH_PROVIDERS)))
+FULL_BROWSER_VARIANT_FETCH_PROVIDERS_LITERAL = repr(
+    tuple(sorted(FULL_BROWSER_VARIANT_FETCH_PROVIDERS))
+)
 
 BASIC_RUNTIME_CODE = "\n".join(
     [
@@ -81,18 +87,21 @@ FULL_IMPORT_CODE = "\n".join(
         "from souwen.web.fetch import register_fetch_handler, get_fetch_handlers",
         "from souwen.registry.views import external_plugins",
         f"full_fetch_provider_modules = {FULL_FETCH_PROVIDER_MODULES_LITERAL}",
+        f"full_core_fetch_providers = set({FULL_CORE_FETCH_PROVIDERS_LITERAL})",
+        f"browser_variant_fetch_providers = set({FULL_BROWSER_VARIANT_FETCH_PROVIDERS_LITERAL})",
         "for _provider, _module_name in full_fetch_provider_modules.items():",
         "    importlib.import_module(_module_name)",
         "declared_fetch = set(declared_fetch_provider_names('full'))",
         "missing_declared = set(full_fetch_provider_modules) - declared_fetch",
         "assert not missing_declared, sorted(missing_declared)",
         "probe = probe_capabilities('full')",
-        "missing_importable = set(full_fetch_provider_modules) - set(",
-        "    probe['fetch_providers'].available",
-        ")",
-        "assert not missing_importable, sorted(missing_importable)",
+        "available_fetch = set(probe['fetch_providers'].available)",
+        "missing_core_importable = full_core_fetch_providers - available_fetch",
+        "assert not missing_core_importable, sorted(missing_core_importable)",
+        "available_browser_variants = browser_variant_fetch_providers & available_fetch",
+        "assert len(available_browser_variants) <= 1, sorted(available_browser_variants)",
         "assert probe['mcp'].declared is True, probe['mcp']",
-        "print('full edition import surface and feature matrix declarations OK')",
+        "print('full core import surface and browser variant declarations OK')",
     ]
 )
 
@@ -173,7 +182,7 @@ PROFILE_COMMANDS: Mapping[str, tuple[CommandSpec, ...]] = {
     ),
     "full-cli": (
         CommandSpec(
-            "all_optional_imports",
+            "core_runtime_and_browser_declarations",
             (PYTHON, "-c", FULL_IMPORT_CODE),
             env=(("SOUWEN_EDITION", "full"),),
         ),

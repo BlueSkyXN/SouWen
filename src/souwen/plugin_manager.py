@@ -226,7 +226,7 @@ async def run_plugin_health(
         return {"status": "error", "message": f"health_check 超时（>{timeout_seconds:g}s）"}
     except Exception as exc:  # noqa: BLE001 — health 错误返回，避免拖垮调用方
         safe_exc = _safe_error_text(exc)
-        logger.warning("插件 %r 健康检查失败: %s", name, safe_exc)
+        logger.warning("插件健康检查失败 (exception_type=%s)", type(exc).__name__)
         if include_error_detail:
             message = f"health_check 抛出异常: {safe_exc}"
         else:
@@ -290,7 +290,10 @@ def _get_state_path() -> Path:
             data_dir = getattr(get_config(), "data_dir", "~/.local/share/souwen")
             base_dir = Path(data_dir).expanduser()
     except Exception as exc:  # noqa: BLE001
-        logger.warning("读取配置目录失败，使用默认插件状态目录: %s", _safe_error_text(exc))
+        logger.warning(
+            "读取配置目录失败，使用默认插件状态目录 (exception_type=%s)",
+            type(exc).__name__,
+        )
         base_dir = Path("~/.local/share/souwen").expanduser()
     return base_dir / "plugins.state.json"
 
@@ -323,7 +326,7 @@ def _load_state() -> dict[str, list[str]]:
         with path.open("r", encoding="utf-8") as f:
             return _normalize_state(json.load(f))
     except Exception as exc:  # noqa: BLE001
-        logger.warning("读取插件状态文件失败: %s", _safe_error_text(exc))
+        logger.warning("读取插件状态文件失败 (exception_type=%s)", type(exc).__name__)
         return _default_state()
 
 
@@ -339,7 +342,7 @@ def _save_state(state: dict[str, Any]) -> None:
             f.write("\n")
         tmp_path.replace(path)
     except Exception as exc:  # noqa: BLE001
-        logger.warning("保存插件状态文件失败: %s", _safe_error_text(exc))
+        logger.warning("保存插件状态文件失败 (exception_type=%s)", type(exc).__name__)
         try:
             if "tmp_path" in locals() and tmp_path.exists():
                 tmp_path.unlink()
@@ -356,7 +359,10 @@ def _discover_catalog_entries() -> list[dict[str, str]]:
         else:  # pragma: no cover — 兼容老接口
             candidates = list(eps.get(CATALOG_ENTRY_POINT_GROUP, []))  # type: ignore[union-attr]
     except Exception as exc:  # noqa: BLE001
-        logger.warning("读取插件目录 entry points 失败: %s", _safe_error_text(exc))
+        logger.warning(
+            "读取插件目录 entry points 失败 (exception_type=%s)",
+            type(exc).__name__,
+        )
         return []
 
     required_keys = {"name", "package", "description", "entry_point"}
@@ -366,7 +372,10 @@ def _discover_catalog_entries() -> list[dict[str, str]]:
         try:
             item = ep.load()
         except Exception as exc:  # noqa: BLE001
-            logger.warning("加载插件目录 entry point %r 失败: %s", ep_name, _safe_error_text(exc))
+            logger.warning(
+                "加载插件目录 entry point 失败 (exception_type=%s)",
+                type(exc).__name__,
+            )
             continue
 
         if not isinstance(item, dict):
@@ -452,7 +461,7 @@ def _is_package_importable(item: dict[str, str]) -> bool:
     try:
         return importlib.util.find_spec(import_name) is not None
     except Exception as exc:  # noqa: BLE001
-        logger.warning("检测插件 %r 可导入性失败: %s", import_name, _safe_error_text(exc))
+        logger.warning("检测插件可导入性失败 (exception_type=%s)", type(exc).__name__)
         return False
 
 
@@ -568,7 +577,7 @@ def list_plugins() -> list[PluginInfo]:
 
         return sorted(result.values(), key=lambda p: (p.name.lower(), p.name))
     except Exception as exc:  # noqa: BLE001
-        logger.warning("列出插件失败: %s", _safe_error_text(exc))
+        logger.warning("列出插件失败 (exception_type=%s)", type(exc).__name__)
         return []
 
 
@@ -579,7 +588,7 @@ def get_plugin_info(name: str) -> PluginInfo | None:
             if plugin.name == name:
                 return plugin
     except Exception as exc:  # noqa: BLE001
-        logger.warning("查询插件 %r 失败: %s", name, _safe_error_text(exc))
+        logger.warning("查询插件失败 (exception_type=%s)", type(exc).__name__)
     return None
 
 
@@ -636,7 +645,7 @@ def enable_plugin(name: str) -> dict[str, Any]:
             "message": f"插件 {name!r} 已启用，重启后完全生效。",
         }
     except Exception as exc:  # noqa: BLE001
-        logger.warning("启用插件 %r 失败: %s", name, _safe_error_text(exc))
+        logger.warning("启用插件失败 (exception_type=%s)", type(exc).__name__)
         return {
             "success": False,
             "restart_required": False,
@@ -739,7 +748,7 @@ def disable_plugin(name: str) -> dict[str, Any]:
             unload_result = {"name": state_name, "status": "not_loaded"}
         return _disable_result(name, state_name, unload_result)
     except Exception as exc:  # noqa: BLE001
-        logger.warning("禁用插件 %r 失败: %s", name, _safe_error_text(exc))
+        logger.warning("禁用插件失败 (exception_type=%s)", type(exc).__name__)
         return {
             "success": False,
             "restart_required": False,
@@ -762,7 +771,7 @@ async def disable_plugin_async(name: str) -> dict[str, Any]:
             unload_result = {"name": state_name, "status": "not_loaded"}
         return _disable_result(name, state_name, unload_result)
     except Exception as exc:  # noqa: BLE001
-        logger.warning("禁用插件 %r 失败: %s", name, _safe_error_text(exc))
+        logger.warning("禁用插件失败 (exception_type=%s)", type(exc).__name__)
         return {
             "success": False,
             "restart_required": False,
@@ -840,7 +849,7 @@ async def install_plugin(package: str) -> dict[str, Any]:
                 )
         return {"success": success, "output": output, "restart_required": success}
     except Exception as exc:  # noqa: BLE001
-        logger.warning("安装插件包 %r 失败: %s", package, _safe_error_text(exc))
+        logger.warning("安装插件包失败 (exception_type=%s)", type(exc).__name__)
         return {
             "success": False,
             "output": "安装插件失败，请查看服务端日志。",
@@ -877,7 +886,7 @@ async def uninstall_plugin(package: str) -> dict[str, Any]:
                 )
         return {"success": success, "output": output, "restart_required": success}
     except Exception as exc:  # noqa: BLE001
-        logger.warning("卸载插件包 %r 失败: %s", package, _safe_error_text(exc))
+        logger.warning("卸载插件包失败 (exception_type=%s)", type(exc).__name__)
         return {
             "success": False,
             "output": "卸载插件失败，请查看服务端日志。",
@@ -904,7 +913,7 @@ def reload_plugins() -> dict[str, Any]:
             message += f" 本次跳过: {', '.join(result.skipped)}。"
         return {"loaded": loaded, "errors": errors, "message": message}
     except Exception as exc:  # noqa: BLE001
-        logger.warning("重新扫描插件失败: %s", _safe_error_text(exc))
+        logger.warning("重新扫描插件失败 (exception_type=%s)", type(exc).__name__)
         return {
             "loaded": [],
             "errors": [

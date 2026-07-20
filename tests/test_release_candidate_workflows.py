@@ -182,6 +182,9 @@ def test_ci_has_stable_aggregate_and_required_readiness_gates() -> None:
 
 def test_hfs_reusable_promotion_is_candidate_pinned_and_live_verified() -> None:
     text = _workflow("deploy-hf-space.yml")
+    candidate_expression = (
+        "${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}"
+    )
     contract_step = text.split("- name: Validate reusable candidate contract", maxsplit=1)[1].split(
         "- name: Detect deploy-related path changes", maxsplit=1
     )[0]
@@ -190,6 +193,8 @@ def test_hfs_reusable_promotion_is_candidate_pinned_and_live_verified() -> None:
     assert "workflow_call:" in text
     assert "candidate_sha:" in text
     assert "verifier_sha:" in text
+    assert text.count(candidate_expression) >= 10
+    assert "${{ inputs.candidate_sha || github.sha }}" not in text
     assert 'expected_pin = f"ARG SOUWEN_REF={candidate_sha}"' in text
     assert 'last_runtime_sha = str(runtime.raw.get("sha") or "unknown")' in text
     assert "last_runtime_sha == expected_sha" in text

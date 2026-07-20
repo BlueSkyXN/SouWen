@@ -66,6 +66,17 @@ def test_root_image_accepts_explicit_source_sha():
     assert "'^[0-9a-fA-F]{40}$'" in text
 
 
+def test_root_image_copies_custom_build_hook_before_dependency_install():
+    """Hatchling must be able to load the custom hook during the first PEP 517 build."""
+    dockerfile = Path("Dockerfile").read_text(encoding="utf-8")
+    pyproject = Path("pyproject.toml").read_text(encoding="utf-8")
+
+    assert '[tool.hatch.build.hooks.custom]\npath = "hatch_build.py"' in pyproject
+    copy_index = dockerfile.index("COPY pyproject.toml README.md LICENSE hatch_build.py ./")
+    install_index = dockerfile.index('pip install ".[edition-pro]"')
+    assert copy_index < install_index
+
+
 def test_warp_release_assets_are_verified_against_maintained_table():
     checksums = Path("scripts/warp-checksums.txt").read_text(encoding="utf-8")
     rows = [line for line in checksums.splitlines() if line and not line.startswith("#")]

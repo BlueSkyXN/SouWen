@@ -125,7 +125,7 @@ jobs:
       - name: 安装依赖
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install -e ".[dev,edition-pro]"
 
       - name: 运行测试
         if: '!(matrix.os == ''ubuntu-latest'' && matrix.python == ''3.12'')'
@@ -645,7 +645,7 @@ jobs:
           cache: pip
 
       - name: Install test dependencies
-        run: pip install -e ".[dev]"
+        run: pip install -e ".[dev,edition-pro]"
 
       - name: Enforce targeted module coverage
         run: |

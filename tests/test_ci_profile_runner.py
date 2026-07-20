@@ -7,6 +7,7 @@ import subprocess
 from pathlib import Path
 
 import pytest
+import yaml
 
 from scripts.ci import run_profile
 from scripts._functional_common import Outcome
@@ -14,6 +15,7 @@ from scripts._functional_common import Outcome
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 FULL_PROFILE_EXTRAS = ".[dev,edition-full]"
+TEST_RUNTIME_EXTRAS = ".[dev,edition-pro]"
 EXTERNAL_RUNTIME_WORKFLOWS = (
     ".github/workflows/ci.yml",
     ".github/workflows/external-smoke-gate.yml",
@@ -161,9 +163,21 @@ def test_full_import_code_covers_full_fetch_provider_modules() -> None:
         "readability": "souwen.web.readability_fetcher",
         "scrapling": "souwen.web.scrapling_fetcher",
     }
+    assert run_profile.FULL_CORE_FETCH_PROVIDERS == {
+        "arxiv_fulltext",
+        "newspaper",
+        "readability",
+    }
+    assert run_profile.FULL_BROWSER_VARIANT_FETCH_PROVIDERS == {"crawl4ai", "scrapling"}
+    assert (
+        run_profile.FULL_CORE_FETCH_PROVIDERS | run_profile.FULL_BROWSER_VARIANT_FETCH_PROVIDERS
+        == set(run_profile.FULL_FETCH_PROVIDER_MODULES)
+    )
 
     assert "declared_fetch_provider_names" in run_profile.FULL_IMPORT_CODE
     assert "probe_capabilities" in run_profile.FULL_IMPORT_CODE
+    assert "missing_core_importable" in run_profile.FULL_IMPORT_CODE
+    assert "len(available_browser_variants) <= 1" in run_profile.FULL_IMPORT_CODE
     for provider, module in run_profile.FULL_FETCH_PROVIDER_MODULES.items():
         assert provider in run_profile.FULL_IMPORT_CODE
         assert module in run_profile.FULL_IMPORT_CODE
@@ -174,6 +188,22 @@ def test_workflows_install_full_profile_runtime_extras() -> None:
         text = (REPO_ROOT / relative).read_text(encoding="utf-8")
 
         assert f'pip install -e "{FULL_PROFILE_EXTRAS}"' in text
+
+
+@pytest.mark.parametrize(
+    ("relative", "job_name"),
+    [
+        (".github/workflows/ci.yml", "test"),
+        (".github/workflows/ci.yml", "targeted-coverage"),
+        (".github/workflows/v2-ci.yml", "matrix_tests"),
+    ],
+)
+def test_full_pytest_jobs_install_pro_runtime(relative: str, job_name: str) -> None:
+    """Full and targeted pytest jobs should not silently run without server/runtime extras."""
+    workflow = yaml.safe_load((REPO_ROOT / relative).read_text(encoding="utf-8"))
+    commands = "\n".join(str(step.get("run", "")) for step in workflow["jobs"][job_name]["steps"])
+
+    assert f'pip install -e "{TEST_RUNTIME_EXTRAS}"' in commands
 
 
 def test_external_runtime_workflows_install_edition_extras() -> None:

@@ -33,6 +33,7 @@ except ImportError:
     pass
 
 requires_trafilatura = pytest.mark.skipif(not _has_trafilatura, reason="trafilatura not installed")
+pytestmark = pytest.mark.usefixtures("mock_public_dns")
 
 
 class TestExtractFallback:
@@ -268,12 +269,8 @@ class TestSSRFRedirectProtection:
         redirect_resp.headers = {"location": "http://169.254.169.254/latest/meta-data/"}
         redirect_resp.url = "https://evil.com/redir"
 
-        with (
-            patch.object(BuiltinFetcherClient, "_fetch", new_callable=AsyncMock) as mock_fetch,
-            patch("souwen.web.fetch.validate_fetch_url") as mock_validate,
-        ):
+        with patch.object(BuiltinFetcherClient, "_fetch", new_callable=AsyncMock) as mock_fetch:
             mock_fetch.return_value = redirect_resp
-            mock_validate.return_value = (False, "目标地址为内部/私有 IP: 169.254.169.254")
             async with BuiltinFetcherClient() as client:
                 result = await client.fetch("https://evil.com/redir")
 
@@ -289,12 +286,8 @@ class TestSSRFRedirectProtection:
         redirect_resp.headers = {"location": "http://127.0.0.1:6379/"}
         redirect_resp.url = "https://evil.com/redir"
 
-        with (
-            patch.object(BuiltinFetcherClient, "_fetch", new_callable=AsyncMock) as mock_fetch,
-            patch("souwen.web.fetch.validate_fetch_url") as mock_validate,
-        ):
+        with patch.object(BuiltinFetcherClient, "_fetch", new_callable=AsyncMock) as mock_fetch:
             mock_fetch.return_value = redirect_resp
-            mock_validate.return_value = (False, "目标地址为内部/私有 IP: 127.0.0.1")
             async with BuiltinFetcherClient() as client:
                 result = await client.fetch("https://evil.com/redir")
 
@@ -318,12 +311,8 @@ class TestSSRFRedirectProtection:
         final_resp.text = html
         final_resp.url = "https://example.com/final"
 
-        with (
-            patch.object(BuiltinFetcherClient, "_fetch", new_callable=AsyncMock) as mock_fetch,
-            patch("souwen.web.fetch.validate_fetch_url") as mock_validate,
-        ):
+        with patch.object(BuiltinFetcherClient, "_fetch", new_callable=AsyncMock) as mock_fetch:
             mock_fetch.side_effect = [redirect_resp, final_resp]
-            mock_validate.return_value = (True, "")
             async with BuiltinFetcherClient() as client:
                 result = await client.fetch("https://example.com/start")
 
@@ -338,12 +327,8 @@ class TestSSRFRedirectProtection:
         redirect_resp.headers = {"location": "https://example.com/loop"}
         redirect_resp.url = "https://example.com/loop"
 
-        with (
-            patch.object(BuiltinFetcherClient, "_fetch", new_callable=AsyncMock) as mock_fetch,
-            patch("souwen.web.fetch.validate_fetch_url") as mock_validate,
-        ):
+        with patch.object(BuiltinFetcherClient, "_fetch", new_callable=AsyncMock) as mock_fetch:
             mock_fetch.return_value = redirect_resp
-            mock_validate.return_value = (True, "")
             async with BuiltinFetcherClient() as client:
                 result = await client.fetch("https://example.com/loop")
 
@@ -363,23 +348,16 @@ class TestSSRFRedirectProtection:
         hop2.headers = {"location": "http://10.0.0.1/internal"}
         hop2.url = "https://middle.example.com/step2"
 
-        def validate_side_effect(url: str):
-            if "10.0.0.1" in url:
-                return (False, "目标地址为内部/私有 IP: 10.0.0.1")
-            return (True, "")
-
-        with (
-            patch.object(BuiltinFetcherClient, "_fetch", new_callable=AsyncMock) as mock_fetch,
-            patch("souwen.web.fetch.validate_fetch_url") as mock_validate,
-        ):
+        with patch.object(BuiltinFetcherClient, "_fetch", new_callable=AsyncMock) as mock_fetch:
             mock_fetch.side_effect = [hop1, hop2]
-            mock_validate.side_effect = validate_side_effect
             async with BuiltinFetcherClient() as client:
                 result = await client.fetch("https://start.example.com/")
 
         assert result.error is not None
         assert "SSRF" in result.error
         assert "10.0.0.1" in result.final_url
+        assert mock_fetch.await_args_list[0].kwargs["_include_configured_headers"] is True
+        assert mock_fetch.await_args_list[1].kwargs["_include_configured_headers"] is False
 
 
 _has_protego = False

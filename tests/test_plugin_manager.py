@@ -187,7 +187,10 @@ class TestCatalogDiscovery:
         caplog: pytest.LogCaptureFixture,
     ) -> None:
         def boom() -> dict[str, str]:
-            raise RuntimeError("broken catalog")
+            raise RuntimeError(
+                "broken catalog at /Users/private/catalog.py "
+                "postgresql://user:password@db.internal/catalog token=catalog-secret"
+            )
 
         monkeypatch.setattr(
             "souwen.plugin_manager.metadata.entry_points",
@@ -216,7 +219,10 @@ class TestCatalogDiscovery:
         assert "bad_type" in messages
         assert "missing" in messages
         assert "bad_value" in messages
-        assert "boom" in messages
+        assert "entry point 失败 (exception_type=RuntimeError)" in messages
+        assert "/Users/private" not in messages
+        assert "postgresql://" not in messages
+        assert "catalog-secret" not in messages
 
 
 class TestExamplePluginLogging:
@@ -345,6 +351,20 @@ class TestStateFile:
         state_dir.write_text("{broken json", encoding="utf-8")
 
         assert _load_state() == {"disabled_plugins": [], "installed_via_api": []}
+
+    def test_load_state_log_contains_only_exception_type(
+        self,
+        state_dir: Path,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        state_dir.mkdir()
+
+        with caplog.at_level(logging.WARNING, logger="souwen.plugin_manager"):
+            assert _load_state() == {"disabled_plugins": [], "installed_via_api": []}
+
+        assert "读取插件状态文件失败" in caplog.text
+        assert "IsADirectoryError" in caplog.text
+        assert str(state_dir) not in caplog.text
 
     def test_atomic_write_does_not_corrupt_existing_file(
         self,
@@ -639,6 +659,39 @@ class TestInstallUninstall:
         assert result["success"] is False
         assert result["restart_required"] is False
         assert "未启用" in result["output"]
+
+    @pytest.mark.asyncio
+    async def test_install_exception_log_contains_type_without_sensitive_message(
+        self,
+        state_dir: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        raw_error = (
+            "pip failed at /Users/private/pip.conf "
+            "postgresql://user:password@db.internal/plugins token=pip-secret"
+        )
+
+        async def failing_run_pip(args: list[str], timeout: float) -> tuple[bool, str]:
+            raise OSError(raw_error)
+
+        monkeypatch.setenv("SOUWEN_ENABLE_PLUGIN_INSTALL", "1")
+        monkeypatch.setattr("souwen.plugin_manager._run_pip", failing_run_pip)
+
+        with caplog.at_level(logging.WARNING, logger="souwen.plugin_manager"):
+            result = await install_plugin("superweb2pdf")
+
+        assert result == {
+            "success": False,
+            "output": "安装插件失败，请查看服务端日志。",
+            "restart_required": False,
+        }
+        assert "安装插件包失败" in caplog.text
+        assert "OSError" in caplog.text
+        assert raw_error not in caplog.text
+        assert "/Users/private" not in caplog.text
+        assert "postgresql://" not in caplog.text
+        assert "pip-secret" not in caplog.text
 
     @pytest.mark.asyncio
     async def test_install_plugin_success_updates_state_and_restart_required(
@@ -1152,7 +1205,9 @@ class TestAPIEndpoints:
 
         async def health_check() -> dict[str, Any]:
             raise RuntimeError(
-                "failed token=health-exc-secret Cookie: sid=session-secret "
+                "failed at /Users/private/health.py "
+                "postgresql://user:password@db.internal/health "
+                "token=health-exc-secret Cookie: sid=session-secret "
                 "callback https://health.example/cb?apiKey=url-secret&safe=1"
             )
 
@@ -1172,6 +1227,10 @@ class TestAPIEndpoints:
         assert "Cookie:***" in result["message"]
         assert "apiKey=***" in result["message"]
         assert "safe=1" in result["message"]
+        assert "postgresql://***@db.internal/health" in result["message"]
+        assert "RuntimeError" in caplog.text
+        assert "/Users/private" not in caplog.text
+        assert "postgresql://" not in caplog.text
         assert "health-exc-secret" not in caplog.text
         assert "session-secret" not in caplog.text
         assert "url-secret" not in caplog.text

@@ -1484,7 +1484,8 @@ class WarpManager:
         from souwen.config import get_config
 
         cfg = get_config()
-        if cfg.warp_proxy_username and cfg.warp_proxy_password:
+        auth_configured = bool(cfg.warp_proxy_username and cfg.warp_proxy_password)
+        if auth_configured:
             from urllib.parse import quote
 
             username = quote(cfg.warp_proxy_username, safe="")
@@ -1496,7 +1497,11 @@ class WarpManager:
         from souwen.config import reload_config
 
         reload_config()
-        logger.info("SOUWEN_PROXY=%s (已重载配置)", proxy_url)
+        logger.info(
+            "SOUWEN_PROXY 已配置: proxy_type=socks5 port=%d auth_configured=%s",
+            socks_port,
+            auth_configured,
+        )
 
     @staticmethod
     def _apply_external_proxy(proxy_url: str) -> None:
@@ -1505,7 +1510,7 @@ class WarpManager:
         from souwen.config import reload_config
 
         reload_config()
-        logger.info("SOUWEN_PROXY=%s (外部代理，已重载配置)", proxy_url)
+        logger.info("SOUWEN_PROXY 外部代理已配置并重载")
 
     @staticmethod
     def _clear_proxy() -> None:

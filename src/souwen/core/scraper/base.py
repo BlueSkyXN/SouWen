@@ -54,14 +54,17 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
-from typing import Any
-from urllib.parse import urljoin
+from typing import TYPE_CHECKING, Any
+from urllib.parse import urljoin, urlparse
 
 import httpx
 
 from souwen.config import get_config
 from souwen.core.exceptions import RateLimitError, SourceUnavailableError
 from souwen.core.fingerprint import get_random_fingerprint
+
+if TYPE_CHECKING:
+    from souwen.web.fetch import ResolvedFetchTarget
 
 logger = logging.getLogger("souwen.core.scraper")
 _REDIRECT_CODES = frozenset({301, 302, 303, 307, 308})
@@ -162,8 +165,11 @@ class BaseScraper:
 
         self._use_curl_cffi = use_curl_cffi
         self._follow_redirects = follow_redirects
+        self._proxy = proxy
+        self._request_timeout = config.timeout
         self._curl_session: Any = None
         self._httpx_client: httpx.AsyncClient | None = None
+        self._safe_httpx_clients: dict[tuple[str, str, str | None], httpx.AsyncClient] = {}
 
         if self._use_curl_cffi and _HAS_CURL_CFFI:
             logger.info("使用 curl_cffi (impersonate=%s)", self._fingerprint.impersonate)
@@ -190,10 +196,16 @@ class BaseScraper:
 
         应在爬虫使用完毕后调用，或使用 async with 自动调用。
         """
-        if self._curl_session is not None:
-            await self._curl_session.close()
-        if self._httpx_client is not None:
-            await self._httpx_client.aclose()
+        curl_session = getattr(self, "_curl_session", None)
+        httpx_client = getattr(self, "_httpx_client", None)
+        safe_httpx_clients = getattr(self, "_safe_httpx_clients", {})
+        if curl_session is not None:
+            await curl_session.close()
+        if httpx_client is not None:
+            await httpx_client.aclose()
+        for safe_httpx_client in safe_httpx_clients.values():
+            await safe_httpx_client.aclose()
+        safe_httpx_clients.clear()
 
     async def _polite_delay(self) -> None:
         """礼貌等待 — 随机间隔 + 自适应退避
@@ -216,6 +228,9 @@ class BaseScraper:
         params: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
         data: dict[str, Any] | None = None,
+        *,
+        _resolved_target: ResolvedFetchTarget | None = None,
+        _include_configured_headers: bool = True,
     ) -> httpx.Response:
         """带重试和礼貌延迟的请求方法
 
@@ -238,18 +253,33 @@ class BaseScraper:
         """
         # 使用浏览器指纹头 + 频道自定义头
         request_headers = dict(self._fingerprint.headers)
-        if self._channel_headers:
+        if _include_configured_headers and self._channel_headers:
             request_headers.update(self._channel_headers)
-        if headers:
+        if _include_configured_headers and headers:
             request_headers.update(headers)
+        if _resolved_target is not None:
+            for header_name in tuple(request_headers):
+                if header_name.lower() == "host":
+                    request_headers.pop(header_name)
+            request_headers["Host"] = _resolved_target.host_header
 
         last_error: Exception | None = None
+        display_url = _resolved_target.original_url if _resolved_target is not None else url
 
         for attempt in range(1, self.max_retries + 1):
             await self._polite_delay()
 
             try:
-                resp = await self._do_request(method, url, params, request_headers, data=data)
+                if _resolved_target is not None:
+                    resp = await self._do_resolved_request(
+                        method,
+                        _resolved_target,
+                        params,
+                        request_headers,
+                        data=data,
+                    )
+                else:
+                    resp = await self._do_request(method, url, params, request_headers, data=data)
 
                 if resp.status_code == 429:
                     # 被限流：退避系数翻倍（上限 16x），大幅增加后续请求间隔
@@ -280,9 +310,9 @@ class BaseScraper:
 
         if last_error:
             raise SourceUnavailableError(
-                f"重试 {self.max_retries} 次后仍失败: {url}"
+                f"重试 {self.max_retries} 次后仍失败: {display_url}"
             ) from last_error
-        raise RateLimitError(f"重试 {self.max_retries} 次后仍被限流: {url}")
+        raise RateLimitError(f"重试 {self.max_retries} 次后仍被限流: {display_url}")
 
     async def _fetch_with_safe_redirects(
         self,
@@ -294,31 +324,50 @@ class BaseScraper:
         max_redirects: int = 5,
     ) -> httpx.Response:
         """手动跟踪重定向，并在每一跳执行 SSRF 校验。"""
-        from souwen.web.fetch import validate_fetch_url
+        from souwen.web.fetch import resolve_fetch_target
 
         current_url = url
-        for _hop in range(max_redirects + 1):
-            ok, reason = validate_fetch_url(current_url)
-            if not ok:
-                raise SourceUnavailableError(f"SSRF: 目标地址被拦截 ({reason})")
+        current_method = method
+        current_params = params
+        current_data = data
+        include_configured_headers = True
+        for hop in range(max_redirects + 1):
+            target, reason = resolve_fetch_target(current_url)
+            if target is None:
+                target_label = "重定向目标" if hop else "目标地址"
+                raise SourceUnavailableError(f"SSRF: {target_label}被拦截 ({reason})")
             resp = await self._fetch(
-                current_url,
-                method=method,
-                params=params,
-                headers=headers,
-                data=data,
+                target.original_url,
+                method=current_method,
+                params=current_params,
+                headers=headers if include_configured_headers else None,
+                data=current_data if include_configured_headers else None,
+                _resolved_target=target,
+                _include_configured_headers=include_configured_headers,
             )
             if resp.status_code not in _REDIRECT_CODES:
+                response_extensions = getattr(resp, "extensions", None)
+                if isinstance(response_extensions, dict):
+                    response_extensions["souwen_final_url"] = current_url
                 return resp
 
             location = resp.headers.get("location")
             if not location:
+                response_extensions = getattr(resp, "extensions", None)
+                if isinstance(response_extensions, dict):
+                    response_extensions["souwen_final_url"] = current_url
                 return resp
 
             redirect_url = urljoin(current_url, location)
-            ok, reason = validate_fetch_url(redirect_url)
-            if not ok:
-                raise SourceUnavailableError(f"SSRF: 重定向目标被拦截 ({reason})")
+            if not self._same_origin(current_url, redirect_url):
+                include_configured_headers = False
+                current_data = None
+            if resp.status_code == 303 or (
+                resp.status_code in {301, 302} and current_method.upper() == "POST"
+            ):
+                current_method = "GET"
+                current_data = None
+            current_params = None
             current_url = redirect_url
 
         raise SourceUnavailableError(f"重定向次数超过上限 ({max_redirects})")
@@ -366,3 +415,62 @@ class BaseScraper:
             )
         else:
             raise RuntimeError("无可用 HTTP 客户端")
+
+    @staticmethod
+    def _origin(url: str) -> tuple[str, str, int | None]:
+        parsed = urlparse(url)
+        try:
+            port = parsed.port
+        except ValueError:
+            port = None
+        if port is None:
+            port = 443 if parsed.scheme.lower() == "https" else 80
+        return parsed.scheme.lower(), (parsed.hostname or "").lower(), port
+
+    @classmethod
+    def _same_origin(cls, first_url: str, second_url: str) -> bool:
+        """Return whether two URLs share scheme, hostname, and effective port."""
+        return cls._origin(first_url) == cls._origin(second_url)
+
+    @staticmethod
+    def _safe_client_key(target: ResolvedFetchTarget) -> tuple[str, str, str | None]:
+        """Isolate connection pools and cookie jars by the original URL authority."""
+        parsed = urlparse(target.original_url)
+        return parsed.scheme.lower(), target.host_header.lower(), target.sni_hostname
+
+    async def _do_resolved_request(
+        self,
+        method: str,
+        target: ResolvedFetchTarget,
+        params: dict[str, Any] | None,
+        headers: dict[str, str],
+        data: dict[str, Any] | None = None,
+    ) -> httpx.Response:
+        """Request an IP-pinned target while preserving the original Host and HTTPS SNI.
+
+        Untrusted direct URLs intentionally use HTTPX even when the configured scraper backend is
+        curl_cffi. A shared curl session cannot safely install per-request DNS bindings without
+        cross-request races. HTTPX receives an IP-literal URL, and clients are isolated by original
+        authority so different hostnames on one IP cannot share TLS connections or cookies.
+        """
+        client_key = self._safe_client_key(target)
+        safe_httpx_client = self._safe_httpx_clients.get(client_key)
+        if safe_httpx_client is None:
+            safe_httpx_client = httpx.AsyncClient(
+                timeout=httpx.Timeout(self._request_timeout),
+                proxy=self._proxy,
+                follow_redirects=False,
+            )
+            self._safe_httpx_clients[client_key] = safe_httpx_client
+        extensions = (
+            {"sni_hostname": target.sni_hostname} if target.sni_hostname is not None else None
+        )
+        return await safe_httpx_client.request(
+            method,
+            target.connect_url,
+            params=params,
+            headers=headers,
+            data=data,
+            follow_redirects=False,
+            extensions=extensions,
+        )
