@@ -74,7 +74,11 @@ runs:
             expected_version = tomllib.load(file)["project"]["version"]
 
         def record(name: str, status: str, detail: str) -> None:
-            checks.append({"name": name, "status": status, "detail": detail[:500]})
+            if name == "cli/help" and len(detail) > 4000:
+                detail = f"{detail[:750]}\n... traceback middle omitted ...\n{detail[-3200:]}"
+            else:
+                detail = detail[:500]
+            checks.append({"name": name, "status": status, "detail": detail})
 
         def run_command(name: str, *arguments: str, timeout: float = 60) -> str:
             result = subprocess.run(
@@ -167,21 +171,39 @@ runs:
                         raise RuntimeError(f"basic binary leaked higher-edition providers: {forbidden}")
                     record("basic/physical-boundary", "PASS", "MCP/basic providers available; pro/full gated")
 
+                    with socket.socket() as listener:
+                        listener.bind(("127.0.0.1", 0))
+                        port = listener.getsockname()[1]
                     process = subprocess.Popen(
-                        [str(binary), "serve", "--host", "127.0.0.1", "--port", "49651"],
+                        [str(binary), "serve", "--host", "127.0.0.1", "--port", str(port)],
                         stdout=subprocess.DEVNULL,
                         stderr=subprocess.DEVNULL,
                         env=runtime_env,
                     )
                     try:
-                        returncode = process.wait(timeout=5)
-                    except subprocess.TimeoutExpired as exc:
-                        process.terminate()
-                        process.wait(timeout=10)
-                        raise RuntimeError("basic binary unexpectedly started the API server") from exc
-                    if returncode == 0:
-                        raise RuntimeError("basic serve command unexpectedly succeeded")
-                    record("basic/server-negative", "PASS", f"serve exit={returncode}")
+                        deadline = time.monotonic() + 60
+                        while time.monotonic() < deadline:
+                            returncode = process.poll()
+                            if returncode is not None:
+                                break
+                            try:
+                                with socket.create_connection(("127.0.0.1", port), timeout=0.25):
+                                    raise RuntimeError("basic binary unexpectedly started the API server")
+                            except OSError:
+                                time.sleep(0.5)
+                        else:
+                            raise RuntimeError("basic serve command did not exit and never opened its port")
+                        if returncode == 0:
+                            raise RuntimeError("basic serve command unexpectedly succeeded")
+                        record("basic/server-negative", "PASS", f"serve exit={returncode}, port closed")
+                    finally:
+                        if process.poll() is None:
+                            process.terminate()
+                            try:
+                                process.wait(timeout=15)
+                            except subprocess.TimeoutExpired:
+                                process.kill()
+                                process.wait(timeout=10)
                 else:
                     runtime_env["SOUWEN_MCP_HTTP_ENABLED"] = "true"
                     runtime_env["SOUWEN_EXPOSE_DOCS"] = "1"

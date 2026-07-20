@@ -84,6 +84,13 @@ def test_binary_build_workflows_are_reusable_artifact_builders_only() -> None:
         assert "contents: write" not in text
 
 
+def test_pyinstaller_windows_binaries_force_embedded_utf8_mode() -> None:
+    text = _workflow_text(".github/workflows/build-pyinstaller.yml")
+    windows = text.split("- name: Build with PyInstaller (Windows - Full CLI)", maxsplit=1)[1]
+    windows = windows.split("- name: Run target-native tier-aware binary smoke", maxsplit=1)[0]
+    assert windows.count('--python-option "X utf8=1"') == 3
+
+
 def test_binary_builders_use_distinct_panel_artifacts_when_called_together() -> None:
     pyinstaller = _workflow_text(".github/workflows/build-pyinstaller.yml")
     nuitka = _workflow_text(".github/workflows/build-nuitka.yml")
@@ -163,3 +170,8 @@ def test_binary_smoke_covers_tier_aware_target_runner_contracts() -> None:
         "full/article-pdf-plugin-imports",
     ):
         assert check in text
+
+    assert 'socket.create_connection(("127.0.0.1", port), timeout=0.25)' in text
+    assert "deadline = time.monotonic() + 60" in text
+    assert 'f"serve exit={returncode}, port closed"' in text
+    assert '"49651"' not in text
