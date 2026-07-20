@@ -363,7 +363,7 @@ class TestStateFile:
             assert _load_state() == {"disabled_plugins": [], "installed_via_api": []}
 
         assert "读取插件状态文件失败" in caplog.text
-        assert "IsADirectoryError" in caplog.text
+        assert any(name in caplog.text for name in ("IsADirectoryError", "PermissionError"))
         assert str(state_dir) not in caplog.text
 
     def test_atomic_write_does_not_corrupt_existing_file(

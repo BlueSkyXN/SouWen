@@ -27,6 +27,15 @@ from typing import Any
 _HAS_TRAFILATURA = False
 _HAS_HTML2TEXT = False
 
+_SCRIPT_BLOCK_RE = re.compile(
+    r"<script\b[^>]*>.*?</script\s*>",
+    flags=re.DOTALL | re.IGNORECASE,
+)
+_STYLE_BLOCK_RE = re.compile(
+    r"<style\b[^>]*>.*?</style\s*>",
+    flags=re.DOTALL | re.IGNORECASE,
+)
+
 try:
     import trafilatura  # noqa: F401
 
@@ -44,8 +53,8 @@ except ImportError:
 
 def _strip_html(html: str) -> str:
     """正则剥离 HTML 标签（零依赖回退）"""
-    text = re.sub(r"<script[^>]*>.*?</script>", "", html, flags=re.DOTALL | re.IGNORECASE)
-    text = re.sub(r"<style[^>]*>.*?</style>", "", text, flags=re.DOTALL | re.IGNORECASE)
+    text = _SCRIPT_BLOCK_RE.sub("", html)
+    text = _STYLE_BLOCK_RE.sub("", text)
     text = re.sub(r"<[^>]+>", " ", text)
     text = re.sub(r"\s+", " ", text).strip()
     return text

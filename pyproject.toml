@@ -107,6 +107,7 @@ allow-direct-references = true
 # panel.html 是构建产物（gitignored），需显式声明以便打入 wheel
 [tool.hatch.build]
 artifacts = ["src/souwen/server/panel.html"]
+exclude = ["/.codex", "/.claude"]
 
 [tool.hatch.build.hooks.custom]
 path = "hatch_build.py"

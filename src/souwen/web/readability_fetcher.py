@@ -120,11 +120,9 @@ def _html_to_markdown(article_html: str) -> tuple[str, str]:
             return md.strip(), "markdown"
 
     # 最终回退：正则剥离 HTML 标签
-    text = re.sub(r"<script[^>]*>.*?</script>", "", article_html, flags=re.DOTALL | re.IGNORECASE)
-    text = re.sub(r"<style[^>]*>.*?</style>", "", text, flags=re.DOTALL | re.IGNORECASE)
-    text = re.sub(r"<[^>]+>", " ", text)
-    text = re.sub(r"\s+", " ", text).strip()
-    return text, "text"
+    from souwen.web._html_extract import _strip_html
+
+    return _strip_html(article_html), "text"
 
 
 def _extract_with_readability_sync(html: str, url: str) -> dict[str, Any]:

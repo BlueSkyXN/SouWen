@@ -94,28 +94,38 @@ def local_fixture_server() -> Iterator[str]:
 
 @contextmanager
 def allow_local_fixture_url(url: str) -> Iterator[None]:
-    """Temporarily allow this script's local fixture origin through URL safety checks."""
+    """Bind this script's exact local fixture origin without weakening production SSRF rules."""
     from souwen.web import fetch as fetch_module
 
     fixture = urlparse(url)
-    original_validate = fetch_module.validate_fetch_url
+    original_resolve = fetch_module.resolve_fetch_target
 
-    def _validate(candidate: str) -> tuple[bool, str]:
+    def _resolve(candidate: str):
         parsed = urlparse(candidate)
         same_fixture_origin = (
             parsed.scheme == fixture.scheme
             and parsed.hostname == fixture.hostname
             and parsed.port == fixture.port
+            and parsed.username is None
+            and parsed.password is None
         )
         if same_fixture_origin:
-            return True, ""
-        return original_validate(candidate)
+            return (
+                fetch_module.ResolvedFetchTarget(
+                    original_url=candidate,
+                    connect_url=candidate,
+                    host_header=fixture.netloc,
+                    sni_hostname=None,
+                ),
+                "",
+            )
+        return original_resolve(candidate)
 
-    fetch_module.validate_fetch_url = _validate
+    fetch_module.resolve_fetch_target = _resolve
     try:
         yield
     finally:
-        fetch_module.validate_fetch_url = original_validate
+        fetch_module.resolve_fetch_target = original_resolve
 
 
 def configure_fixture_runtime() -> None:

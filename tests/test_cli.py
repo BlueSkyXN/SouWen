@@ -95,7 +95,11 @@ def test_fetch_rejects_basic_disallowed_provider(monkeypatch):
     from souwen.config import get_config
 
     get_config.cache_clear()
-    result = runner.invoke(app, ["fetch", "https://example.com", "-p", "jina_reader"])
+    result = runner.invoke(
+        app,
+        ["fetch", "https://example.com", "-p", "jina_reader"],
+        env={"COLUMNS": "200"},
+    )
     assert result.exit_code != 0
     assert "fetch provider 'jina_reader' requires" in result.output
     assert "edition=pro, current edition=basic" in result.output

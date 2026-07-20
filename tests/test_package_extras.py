@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+import tomllib
 from pathlib import Path
 
 
@@ -28,6 +29,15 @@ def _extra_dependencies(name: str) -> list[str]:
     )
     assert match is not None, f"missing optional dependency extra: {name}"
     return re.findall(r'"([^"]+)"', match.group("body"))
+
+
+def test_distributions_exclude_local_agent_metadata() -> None:
+    """sdist must not package local Codex/Claude metadata or absolute symlinks."""
+
+    config = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
+    excluded = set(config["tool"]["hatch"]["build"]["exclude"])
+
+    assert {"/.codex", "/.claude"} <= excluded
 
 
 def test_edition_extras_define_layered_install_profiles() -> None:

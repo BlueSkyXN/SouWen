@@ -23,6 +23,7 @@ from souwen.web.builtin import (
     _extract_fallback,
     _extract_with_trafilatura,
 )
+from souwen.web._html_extract import _strip_html
 
 _has_trafilatura = False
 try:
@@ -51,6 +52,28 @@ class TestExtractFallback:
         text = _extract_fallback(html)
         assert "alert" not in text
         assert "Content" in text
+
+    @pytest.mark.parametrize("extractor", (_extract_fallback, _strip_html))
+    def test_strips_script_and_style_with_html5_closing_tag_whitespace(self, extractor):
+        html = "<script>script-secret</script ><style>style-secret</style\t ><p>Visible content</p>"
+
+        text = extractor(html)
+
+        assert "script-secret" not in text
+        assert "style-secret" not in text
+        assert text == "Visible content"
+
+    def test_readability_text_fallback_uses_shared_safe_stripper(self, monkeypatch):
+        from souwen.web import readability_fetcher
+
+        monkeypatch.setattr(readability_fetcher, "_HAS_MARKDOWNIFY", False)
+        monkeypatch.setattr(readability_fetcher, "_HAS_HTML2TEXT", False)
+        html = "<script>secret</script ><style>hidden</style ><p>Visible</p>"
+
+        text, content_format = readability_fetcher._html_to_markdown(html)
+
+        assert text == "Visible"
+        assert content_format == "text"
 
 
 class TestExtractWithTrafilatura:

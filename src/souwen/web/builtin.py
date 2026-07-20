@@ -95,11 +95,9 @@ def _extract_fallback(html: str) -> str:
 
     去除 HTML 标签，保留纯文本。用于 trafilatura 和 html2text 都不可用时。
     """
-    text = re.sub(r"<script[^>]*>.*?</script>", "", html, flags=re.DOTALL | re.IGNORECASE)
-    text = re.sub(r"<style[^>]*>.*?</style>", "", text, flags=re.DOTALL | re.IGNORECASE)
-    text = re.sub(r"<[^>]+>", " ", text)
-    text = re.sub(r"\s+", " ", text).strip()
-    return text
+    from souwen.web._html_extract import _strip_html
+
+    return _strip_html(html)
 
 
 def _extract_with_trafilatura(html: str, url: str) -> dict[str, Any]:
