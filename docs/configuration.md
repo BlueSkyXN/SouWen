@@ -20,11 +20,32 @@
 # 在当前目录生成 ./souwen.yaml 配置模板
 souwen config init
 
-# 查看当前配置（API Key 脱敏显示）
+# 查看当前配置（敏感字段脱敏显示）
 souwen config show
+
+# 查看/临时修改 HTTP 后端（运行时生效，不持久化）
+souwen config backend --default httpx
+souwen config backend --set duckduckgo=curl_cffi
+
+# 查看/临时修改全局代理与代理池（运行时生效，不持久化）
+souwen config proxy --proxy http://proxy.example:7890
+souwen config proxy --add-pool http://proxy-a.example:7890
+souwen config proxy --remove-pool http://proxy-a.example:7890
+
+# 查看/临时修改单个数据源频道配置（运行时生效，不持久化）
+souwen config source openalex --proxy warp --backend httpx
+souwen config source searxng --base-url https://searxng.example.com
 ```
 
 需要用户级配置时，可将生成的 `./souwen.yaml` 复制到 `~/.config/souwen/config.yaml`。
+
+`config backend` 会清理 `--default` 以及 `--set source=backend` 中 `source` / `backend`
+的首尾空白，再校验 `auto` / `curl_cffi` / `httpx`。
+`config proxy` 会清理 `--proxy`、`--add-pool`、`--remove-pool` 的 URL 首尾空白；
+`--proxy` 为空会清除当前全局代理，`--add-pool` / `--remove-pool` 清理后不能为空。
+`config source` 会清理 `<name>`、`--proxy`、`--backend`、`--base-url` 的首尾空白；
+`--proxy` 接受 `inherit` / `none` / `warp` 或合法代理 URL，`--base-url` 仅接受
+`http` / `https` URL。
 
 也可以复制 `.env.example` 为 `.env` 后按需填写：
 
@@ -51,6 +72,8 @@ patent:
   cnipa_client_id: your_id
   cnipa_client_secret: your_secret
   uspto_api_key: your_key
+  patentsview_api_key: your_key
+  pqai_api_token: your_token
   lens_api_token: your_token
   patsnap_api_key: your_key
 
@@ -88,6 +111,7 @@ web:
   youtube_api_key: your_key
 
 general:
+  edition: pro
   proxy: http://proxy:7890
   proxy_pool:
     - http://proxy1:7890
@@ -142,6 +166,8 @@ sources: {}
 | `cnipa_client_id` | `SOUWEN_CNIPA_CLIENT_ID` | CNIPA 必需 | CNIPA OAuth Client ID |
 | `cnipa_client_secret` | `SOUWEN_CNIPA_CLIENT_SECRET` | CNIPA 必需 | CNIPA OAuth Secret |
 | `uspto_api_key` | `SOUWEN_USPTO_API_KEY` | USPTO ODP 必需 | USPTO 官方数据门户 |
+| `patentsview_api_key` | `SOUWEN_PATENTSVIEW_API_KEY` | PatentsView 必需 | Search API 使用 `X-Api-Key` |
+| `pqai_api_token` | `SOUWEN_PQAI_API_TOKEN` | PQAI 必需 | API 请求使用 `token` 参数 |
 | `lens_api_token` | `SOUWEN_LENS_API_TOKEN` | The Lens 必需 | Bearer Token |
 | `patsnap_api_key` | `SOUWEN_PATSNAP_API_KEY` | PatSnap 必需 | 智慧芽 API Key |
 
@@ -203,10 +229,11 @@ sources: {}
 | `mcp_fetch_tool_name` | `SOUWEN_MCP_FETCH_TOOL_NAME` | `fetch` | 远端 MCP fetch 工具名 |
 | `mcp_extra_headers` | `SOUWEN_MCP_EXTRA_HEADERS` | `{}` | JSON 对象，附加给 MCP 请求 |
 
-### 网络设置
+### 通用 / 网络设置
 
 | 字段 | 环境变量 | 默认值 | 说明 |
 |------|---------|--------|------|
+| `edition` | `SOUWEN_EDITION` | `"pro"` | 功能完整度档位：basic &#124; pro &#124; full。当前用于 source/search allowlist、edition-aware policy/metadata、LLM 能力与 fetch provider gate；显式请求当前 edition 不允许的 source/provider 或 LLM 能力会被拒绝，重运行时 provider 需要 `full` |
 | `proxy` | `SOUWEN_PROXY` | None | 单个代理 URL |
 | `proxy_pool` | `SOUWEN_PROXY_POOL` | `[]` | 多代理 URL 列表，随机选取（逗号分隔） |
 | `timeout` | `SOUWEN_TIMEOUT` | `30` | 请求超时秒数 |
@@ -273,6 +300,24 @@ config = reload_config()
 
 ## 服务端安全
 
+### Panel API Host 白名单
+
+内嵌 Web Panel 默认连接同源 API。使用 Vite 开发服务器时，`localhost` / `127.0.0.0/8`
+/ `::1` 等 loopback API 地址也会默认放行，便于 `npm run dev` 连接本机后端。
+
+如果要从一个 Panel origin 连接外部 SouWen API（例如本地构建的 Panel 连接远端部署），
+需要在构建 Panel 时显式设置 `VITE_ALLOWED_API_HOSTS`。该变量是 Vite 构建期变量，
+不是 `SouWenConfig` 或 `SOUWEN_*` 服务端运行时配置。
+
+```bash
+cd panel
+VITE_ALLOWED_API_HOSTS=api.example.com,api.example.com:8443 npm run build:local
+```
+
+`VITE_ALLOWED_API_HOSTS` 接受逗号分隔的 hostname 或 host:port。未在同源、loopback
+或白名单内的 `baseUrl` 会在浏览器发起请求前被拒绝，避免把 Bearer Token 发送到
+未检查的第三方地址。
+
 ### Admin API 默认锁定 (P0-7)
 
 当 `admin_password` **未设置**时，所有 `/api/v1/admin/*` 端点默认返回 `401 Unauthorized`，响应体包含提示信息。推荐的使用方式：
@@ -316,7 +361,7 @@ server:
 | 字段 | 环境变量 | 默认值 | 说明 |
 |------|---------|--------|------|
 | `warp_enabled` | `SOUWEN_WARP_ENABLED` / `WARP_ENABLED` | `false` | 是否启用内嵌 WARP 代理 |
-| `warp_mode` | `SOUWEN_WARP_MODE` / `WARP_MODE` | `"auto"` | 模式：auto &#124; wireproxy &#124; kernel &#124; usque &#124; warp-cli &#124; external |
+| `warp_mode` | `SOUWEN_WARP_MODE` / `WARP_MODE` | `"auto"` | 模式：auto &#124; wireproxy &#124; kernel &#124; usque &#124; warp-cli &#124; external；`basic` 只允许 auto / wireproxy / external，`pro` / `full` 可使用全部模式 |
 | `warp_socks_port` | `SOUWEN_WARP_SOCKS_PORT` / `WARP_SOCKS_PORT` | `1080` | SOCKS5 代理监听端口 |
 | `warp_http_port` | `SOUWEN_WARP_HTTP_PORT` / `WARP_HTTP_PORT` | `0` | HTTP 代理监听端口；`0` 表示不启用，适用于 `usque` / `warp-cli` |
 | `warp_endpoint` | `SOUWEN_WARP_ENDPOINT` / `WARP_ENDPOINT` | None | 自定义 Endpoint（如 `162.159.192.1:4500`） |
@@ -372,7 +417,7 @@ sources:
 | 环境变量 | 等价 YAML 字段 | 说明 |
 |----------|---------------|------|
 | `WARP_ENABLED` | `warp.warp_enabled` | `1`/`true` 启用 WARP |
-| `WARP_MODE` | `warp.warp_mode` | `auto` / `wireproxy` / `kernel` / `usque` / `warp-cli` / `external` |
+| `WARP_MODE` | `warp.warp_mode` | `auto` / `wireproxy` / `kernel` / `usque` / `warp-cli` / `external`；受 `SOUWEN_EDITION` 约束，`basic` 只允许 auto / wireproxy / external |
 | `WARP_SOCKS_PORT` | `warp.warp_socks_port` | SOCKS5 监听端口（默认 1080） |
 | `WARP_HTTP_PORT` | `warp.warp_http_port` | HTTP 代理监听端口（`usque` / `warp-cli` 模式可用，默认 0 表示关闭） |
 | `WARP_ENDPOINT` | `warp.warp_endpoint` | 自定义 WARP Endpoint（如 `162.159.192.1:4500`） |
@@ -382,7 +427,7 @@ sources:
 | `GH_PROXY` | — | GitHub 下载加速前缀（用于 wgcf / wireproxy 二进制下载） |
 | `SOUWEN_ADMIN_OPEN` | — | 管理端"显式开放"开关，未设管理密码时避免启动告警 |
 
-> 详细 WARP 部署与五模式选择见 [warp-solutions.md](./warp-solutions.md)，反爬和代理使用建议见 [anti-scraping.md](./anti-scraping.md#warp-cloudflare-代理)。
+> 详细 WARP 部署与五模式选择见 [warp-solutions.md](./warp-solutions.md)，反爬和代理使用建议见 [anti-scraping.md](./anti-scraping.md#warpcloudflare-代理)。
 
 ## 配置相关交叉引用
 

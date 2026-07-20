@@ -43,7 +43,7 @@ pinned: false
 | `SOUWEN_USER_PASSWORD` | 用户密码，保护搜索和 `/api/v1/sources` |
 | `SOUWEN_ADMIN_PASSWORD` | 管理密码，保护 `/api/v1/admin/*` |
 | `SOUWEN_GUEST_ENABLED` | 设为 `true` 时允许无 Token 访问搜索端点 |
-| `SOUWEN_ADMIN_OPEN` | 设为 `1` 时显式放行未配置密码的 admin 端点（仅本地/CI 调试用） |
+| `SOUWEN_ADMIN_OPEN` | 不要在 Space 中配置；private Space 仍必须使用 `SOUWEN_ADMIN_PASSWORD` 保护管理端点 |
 | `SOUWEN_TRUSTED_PROXIES` | 受信反向代理 IP/CIDR 列表，逗号分隔（如 `10.0.0.0/8,127.0.0.1`） |
 | `SOUWEN_EXPOSE_DOCS` | 是否暴露 `/docs`、`/redoc`、`/openapi.json`，生产建议 `false` |
 | `SOUWEN_MAX_CONCURRENCY` | 聚合搜索并发上限，默认 `10`（v0.6.0） |
@@ -61,6 +61,11 @@ pinned: false
 ## 部署与验收
 
 GitHub 上的 `HF Space CD` workflow 会在 PR 阶段先运行本地预检：源码 CLI、PyInstaller CLI、HF Space Docker 容器启动和 API surface smoke。合入 `main` 后，同一个 workflow 会同步本目录 wrapper 文件、触发 Space factory rebuild，并在远端分 `surface` / `capability` 两个 smoke job 执行部署后验收。
+
+`Dockerfile` 是 fail-closed 模板：仓库中的全零 `SOUWEN_REF` 不能直接构建。
+部署 workflow 会在临时 staging 目录把它替换为经验证的 40 位 candidate SHA，
+同步后再回读远端 Dockerfile。容器内 `/health` 与 `/readiness` 的
+`source_sha` 必须与该 SHA 完全一致；禁止回退到 floating `main`。
 
 部署后人工验收至少访问：
 

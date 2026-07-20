@@ -1,11 +1,12 @@
-"""tools/gen_docs.py — 从 registry 派生数据源清单文档
+"""tools/gen_docs.py — 从 registry 派生数据源文档
 
-输出 `docs/data-sources.md` 的 Markdown 表格。未来在 CI 里做 diff 校验。
+生成 `docs/data-sources.md`，并维护 README / architecture 中受控的 registry 摘要。
 
 用法：
     python tools/gen_docs.py                   # 打印
-    python tools/gen_docs.py -o docs/data-sources.md  # 写入文件
-    python tools/gen_docs.py --check           # 校验 docs/data-sources.md 是否最新
+    python tools/gen_docs.py -o docs/data-sources.md  # 只写数据源清单
+    python tools/gen_docs.py --write           # 重建全部受控文档
+    python tools/gen_docs.py --check           # 校验全部受控文档
 """
 
 from __future__ import annotations
@@ -15,8 +16,14 @@ import difflib
 import os
 import subprocess
 import sys
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SRC_ROOT = REPO_ROOT / "src"
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
 
 DOMAIN_TITLES = {
     "paper": "学术论文",
@@ -32,6 +39,45 @@ DOMAIN_TITLES = {
     "fetch": "内容抓取",
 }
 
+README_METRICS_MARKER = "SOURCE METRICS"
+ARCHITECTURE_METRICS_MARKER = "REGISTRY SUMMARY"
+ARCHITECTURE_CROSS_DOMAIN_MARKER = "CROSS-DOMAIN FETCH SOURCES"
+
+DEFAULT_DATA_SOURCES_PATH = Path("docs/data-sources.md")
+
+
+@dataclass(frozen=True, slots=True)
+class RegistrySnapshot:
+    """Registry-derived counts and adapter views used by all generated surfaces."""
+
+    adapters: dict[str, Any]
+    public_names: frozenset[str]
+    external_names: frozenset[str]
+    domains: tuple[str, ...]
+    primary_counts: dict[str, int]
+    fetch_primary: tuple[Any, ...]
+    fetch_cross_domain: tuple[Any, ...]
+
+    @property
+    def registered_count(self) -> int:
+        return len(self.adapters)
+
+    @property
+    def public_count(self) -> int:
+        return len(self.public_names)
+
+    @property
+    def hidden_or_internal_count(self) -> int:
+        return self.registered_count - self.public_count
+
+    @property
+    def visible_external_count(self) -> int:
+        return len(self.external_names & self.public_names)
+
+    @property
+    def fetch_provider_count(self) -> int:
+        return len(self.fetch_primary) + len(self.fetch_cross_domain)
+
 
 def _configure_cli_stdio() -> None:
     """Use UTF-8 for CLI output so generated Chinese docs work on Windows."""
@@ -41,13 +87,9 @@ def _configure_cli_stdio() -> None:
             reconfigure(encoding="utf-8")
 
 
-def render(*, include_plugins: bool = False) -> str:
-    """渲染 docs/data-sources.md 的 Markdown 内容。
+def _load_snapshot(*, include_plugins: bool = False) -> tuple[RegistrySnapshot, Any, Any]:
+    """Load one deterministic registry snapshot and the catalog presentation metadata."""
 
-    ``include_plugins=False`` 只会阻止本次首次导入 registry 时自动加载外部插件；
-    若调用前 registry 已在当前进程被插件污染，请使用 CLI 默认路径或
-    ``render_cli_content()``，它会在需要时开新子进程隔离 runtime 状态。
-    """
     old_autoload = os.environ.get("SOUWEN_PLUGIN_AUTOLOAD")
     if not include_plugins:
         # Checked-in docs should be reproducible even when local development
@@ -57,13 +99,6 @@ def render(*, include_plugins: bool = False) -> str:
     try:
         from souwen.registry import all_adapters, all_domains, external_plugins
         from souwen.registry.catalog import public_source_catalog, source_categories
-        from souwen.registry.meta import (
-            AUTH_REQUIREMENT_LABELS,
-            DISTRIBUTION_LABELS,
-            OPTIONAL_CREDENTIAL_EFFECT_LABELS,
-            RISK_LEVEL_LABELS,
-            STABILITY_LABELS,
-        )
     finally:
         if not include_plugins:
             if old_autoload is None:
@@ -72,24 +107,114 @@ def render(*, include_plugins: bool = False) -> str:
                 os.environ["SOUWEN_PLUGIN_AUTOLOAD"] = old_autoload
 
     loaded_adapters = all_adapters()
-    external_names = set(external_plugins())
+    external_names = frozenset(external_plugins())
     public_catalog = public_source_catalog()
+    public_names = frozenset(
+        name for name in public_catalog if include_plugins or name not in external_names
+    )
     adapters = {
         name: adapter
         for name, adapter in loaded_adapters.items()
-        if name in public_catalog and (include_plugins or name not in external_names)
+        if include_plugins or name not in external_names
     }
-    visible_external_count = len(external_names) if include_plugins else 0
-    hidden_or_internal_count = len(loaded_adapters) - len(public_catalog)
+    domains = tuple(all_domains())
+    primary_counts = {
+        domain: sum(
+            adapter.domain == domain and name in public_names for name, adapter in adapters.items()
+        )
+        for domain in domains
+    }
+    fetch_primary = tuple(
+        sorted(
+            (
+                adapter
+                for name, adapter in adapters.items()
+                if name in public_names and adapter.domain == "fetch"
+            ),
+            key=lambda adapter: adapter.name,
+        )
+    )
+    fetch_cross_domain = tuple(
+        sorted(
+            (
+                adapter
+                for name, adapter in adapters.items()
+                if name in public_names and "fetch" in adapter.extra_domains
+            ),
+            key=lambda adapter: adapter.name,
+        )
+    )
+    snapshot = RegistrySnapshot(
+        adapters=adapters,
+        public_names=public_names,
+        external_names=external_names if include_plugins else frozenset(),
+        domains=domains,
+        primary_counts=primary_counts,
+        fetch_primary=fetch_primary,
+        fetch_cross_domain=fetch_cross_domain,
+    )
+    return snapshot, public_catalog, source_categories
+
+
+def render(*, include_plugins: bool = False) -> str:
+    """渲染 docs/data-sources.md 的 Markdown 内容。
+
+    ``include_plugins=False`` 只会阻止本次首次导入 registry 时自动加载外部插件；
+    若调用前 registry 已在当前进程被插件污染，请使用 CLI 默认路径或
+    ``render_cli_content()``，它会在需要时开新子进程隔离 runtime 状态。
+    """
+    snapshot, public_catalog, source_categories = _load_snapshot(include_plugins=include_plugins)
+
+    from souwen.registry.meta import (
+        AUTH_REQUIREMENT_LABELS,
+        DISTRIBUTION_LABELS,
+        OPTIONAL_CREDENTIAL_EFFECT_LABELS,
+        RISK_LEVEL_LABELS,
+        STABILITY_LABELS,
+    )
+
+    loaded_adapters = snapshot.adapters
+    external_names = snapshot.external_names
+    adapters = {
+        name: adapter for name, adapter in loaded_adapters.items() if name in snapshot.public_names
+    }
     category_labels = {category.key: category.label for category in source_categories()}
 
     lines: list[str] = []
     lines.append("# SouWen 数据源指南与清单")
     lines.append("")
+    lines.append("## Registry 指标")
+    lines.append("")
+    lines.append("| 指标 | 数量 | 定义 |")
+    lines.append("|---|---:|---|")
     lines.append(
-        f"**总计**：**{len(adapters)}** 个公开数据源（从正式 Source Catalog 自动生成；"
-        f"其中外部插件 **{visible_external_count}** 个，隐藏/内部源 **{hidden_or_internal_count}** 个）。"
+        f"| Registered | **{snapshot.registered_count}** | 当前生成进程注册的 "
+        "`SourceAdapter`；默认只含内置源 |"
     )
+    lines.append(
+        f"| Public | **{snapshot.public_count}** | `catalog_visibility=public`，进入公开 "
+        "Source Catalog |"
+    )
+    lines.append(
+        f"| Hidden / internal | **{snapshot.hidden_or_internal_count}** | 已注册但不进入公开 "
+        "Source Catalog |"
+    )
+    lines.append(
+        f"| Fetch primary-domain | **{len(snapshot.fetch_primary)}** | 主 `domain=fetch` 的公开源 |"
+    )
+    lines.append(
+        f"| Fetch cross-domain | **{len(snapshot.fetch_cross_domain)}** | 其他主 domain 通过 "
+        "`extra_domains` 暴露 `fetch` |"
+    )
+    lines.append(
+        f"| Fetch providers | **{snapshot.fetch_provider_count}** | primary-domain 与 "
+        "cross-domain 的公开源并集 |"
+    )
+    if include_plugins:
+        lines.append(
+            f"| Visible external plugins | **{snapshot.visible_external_count}** | 本次通过 "
+            "`--include-plugins` 纳入的公开插件源 |"
+        )
     lines.append("")
     lines.append("## 事实来源")
     lines.append("")
@@ -122,8 +247,9 @@ def render(*, include_plugins: bool = False) -> str:
         "`available` 描述展示和运行时可用性。"
     )
     lines.append(
-        "- `Capabilities` 是门面层可派发能力；`fetch` 既可以是主 domain，也可以是 "
-        "`tavily` / `firecrawl` / `exa` / `xcrawl` / `kimi_code` / `wayback` 等源的跨域能力。"
+        "- `Capabilities` 是门面层可派发能力；`fetch` 既可以属于主 domain，也可以由"
+        "其他主 domain 源通过 `extra_domains` 声明为跨域能力。具体名单和计数均从 "
+        "registry 派生。"
     )
     lines.append("")
     lines.append("## 配置口径")
@@ -156,11 +282,20 @@ def render(*, include_plugins: bool = False) -> str:
         "和 catalog 元数据。"
     )
     lines.append("")
+    lines.append(
+        "`stability` 是 registry 声明的接入成熟度，不是实时连通性承诺；"
+        "`/api/v1/sources[].available` 只表示当前 edition、启用状态和凭据条件满足，"
+        "也不证明上游此刻可达。doctor 默认 `live=false`，只有显式 live probe 的"
+        "结果才描述当次联网观测。"
+    )
+    lines.append("")
     lines.append("<!-- BEGIN AUTO -->")
     lines.append("")
 
     visible_domains = [
-        dom for dom in all_domains() if any(dom in adapter.domains for adapter in adapters.values())
+        dom
+        for dom in snapshot.domains
+        if any(dom in adapter.domains for adapter in adapters.values())
     ]
     for dom in visible_domains:
         dom_adapters = sorted(
@@ -216,12 +351,15 @@ def render(*, include_plugins: bool = False) -> str:
     lines.append("- Risk 描述默认调度风险，不等同于 Integration。")
     lines.append("- Distribution 描述推荐治理/安装范围：核心内置 / 可选依赖 / 外部插件。")
     lines.append("- Extra 表示建议安装的 optional dependency 组。")
-    lines.append("- Stability 描述接入成熟度：稳定 / Beta / 实验性 / 已弃用。")
+    lines.append(
+        "- Stability 描述声明式接入成熟度：稳定 / Beta / 实验性 / 已弃用；"
+        "不等于实时可用性或可达性。"
+    )
     lines.append("")
     lines.append("## 重新生成与校验")
     lines.append("")
     lines.append("```bash")
-    lines.append("PYTHONPATH=src python3 tools/gen_docs.py -o docs/data-sources.md")
+    lines.append("PYTHONPATH=src python3 tools/gen_docs.py --write")
     lines.append("PYTHONPATH=src python3 tools/gen_docs.py --check")
     lines.append("```")
     lines.append("")
@@ -248,14 +386,174 @@ def render_cli_content(*, include_plugins: bool = False) -> str:
     return proc.stdout
 
 
+def _primary_domain_metrics(snapshot: RegistrySnapshot, *, english: bool) -> str:
+    domain_counts = [
+        f"`{domain}` {snapshot.primary_counts[domain]}"
+        for domain in snapshot.domains
+        if domain != "fetch"
+    ]
+    separator = " · "
+    prefix = "Public sources by primary domain: " if english else "公开源主 domain："
+    return prefix + separator.join(domain_counts)
+
+
+def _readme_metrics(snapshot: RegistrySnapshot, *, english: bool) -> str:
+    if english:
+        lines = [
+            (
+                f"- **{snapshot.registered_count} registered built-in sources**: "
+                f"**{snapshot.public_count} public** Source Catalog entries and "
+                f"**{snapshot.hidden_or_internal_count} hidden/internal** entry. Runtime "
+                "plugins may append additional entries."
+            ),
+            f"  - {_primary_domain_metrics(snapshot, english=True)}",
+            (
+                f"  - `fetch` cross-cutting view: **{snapshot.fetch_provider_count} providers** "
+                f"= **{len(snapshot.fetch_primary)} primary fetch-domain** + "
+                f"**{len(snapshot.fetch_cross_domain)} cross-domain** sources."
+            ),
+        ]
+    else:
+        lines = [
+            (
+                f"- **{snapshot.registered_count} 个内置 registered source**：正式 Source "
+                f"Catalog 含 **{snapshot.public_count} 个 public** 条目，另有 "
+                f"**{snapshot.hidden_or_internal_count} 个 hidden/internal** 条目；外部插件可在"
+                "运行时追加。"
+            ),
+            f"  - {_primary_domain_metrics(snapshot, english=False)}",
+            (
+                f"  - `fetch` 横切视图：**{snapshot.fetch_provider_count} 个 provider** = "
+                f"**{len(snapshot.fetch_primary)} 个 fetch 主 domain** + "
+                f"**{len(snapshot.fetch_cross_domain)} 个跨域源**。"
+            ),
+        ]
+    return "\n".join(lines)
+
+
+def _architecture_metrics(snapshot: RegistrySnapshot) -> str:
+    return "\n".join(
+        [
+            (
+                f"**Registry 摘要**：当前内置 registry 共 **{snapshot.registered_count}** 个 "
+                f"registered `SourceAdapter`，其中 **{snapshot.public_count}** 个进入 public "
+                f"Source Catalog，**{snapshot.hidden_or_internal_count}** 个为 hidden/internal。"
+            ),
+            "",
+            f"- {_primary_domain_metrics(snapshot, english=False)}",
+            (
+                f"- `fetch` 横切视图共 **{snapshot.fetch_provider_count}** 个 provider："
+                f"**{len(snapshot.fetch_primary)}** 个主 `domain=fetch`，"
+                f"**{len(snapshot.fetch_cross_domain)}** 个由其他主 domain 跨域提供。"
+            ),
+        ]
+    )
+
+
+def _architecture_cross_domain_table(snapshot: RegistrySnapshot) -> str:
+    lines = [
+        '有些源同时可做主 domain 能力和抓取（`extra_domains={"fetch"}`）：',
+        "",
+        "| Registry name | Registry description | 主 domain | Fetch client method | 全部 capabilities |",
+        "|---|---|---|---|---|",
+    ]
+    for adapter in snapshot.fetch_cross_domain:
+        method_name = adapter.methods["fetch"].method_name
+        description = adapter.description.replace("|", "\\|")
+        capabilities = ", ".join(f"`{item}`" for item in sorted(adapter.capabilities))
+        lines.append(
+            f"| `{adapter.name}` | {description} | `{adapter.domain}` | `{method_name}` | "
+            f"{capabilities} |"
+        )
+    return "\n".join(lines)
+
+
+def _marker(marker: str, *, begin: bool) -> str:
+    edge = "BEGIN" if begin else "END"
+    return f"<!-- {edge} AUTO: {marker} -->"
+
+
+def _replace_managed_region(text: str, marker: str, generated: str, *, path: Path) -> str:
+    start = _marker(marker, begin=True)
+    end = _marker(marker, begin=False)
+    if text.count(start) != 1 or text.count(end) != 1:
+        raise ValueError(f"{path}: expected exactly one {start!r} and one {end!r}")
+    before, remainder = text.split(start, 1)
+    _old, after = remainder.split(end, 1)
+    return f"{before}{start}\n{generated.rstrip()}\n{end}{after}"
+
+
+def render_managed_files() -> dict[Path, str]:
+    """Return complete README/architecture files with generated regions replaced."""
+
+    snapshot, _public_catalog, _source_categories = _load_snapshot(include_plugins=False)
+    replacements: dict[Path, tuple[tuple[str, str], ...]] = {
+        Path("README.md"): ((README_METRICS_MARKER, _readme_metrics(snapshot, english=False)),),
+        Path("README.en.md"): ((README_METRICS_MARKER, _readme_metrics(snapshot, english=True)),),
+        Path("docs/architecture.md"): (
+            (ARCHITECTURE_METRICS_MARKER, _architecture_metrics(snapshot)),
+            (
+                ARCHITECTURE_CROSS_DOMAIN_MARKER,
+                _architecture_cross_domain_table(snapshot),
+            ),
+        ),
+    }
+    rendered: dict[Path, str] = {}
+    for relative_path, regions in replacements.items():
+        absolute_path = REPO_ROOT / relative_path
+        content = absolute_path.read_text(encoding="utf-8")
+        for marker, generated in regions:
+            content = _replace_managed_region(
+                content,
+                marker,
+                generated,
+                path=relative_path,
+            )
+        rendered[relative_path] = content
+    return rendered
+
+
+def _display_path(path: Path) -> str:
+    try:
+        return str(path.resolve().relative_to(REPO_ROOT))
+    except ValueError:
+        return str(path)
+
+
+def _check_content(path: Path, expected: str) -> bool:
+    display = _display_path(path)
+    if not path.exists():
+        print(f"ERROR: {display} does not exist", file=sys.stderr)
+        return False
+    current = path.read_text(encoding="utf-8")
+    if current == expected:
+        print(f"OK: {display} is up to date")
+        return True
+    print(f"ERROR: {display} is out of date", file=sys.stderr)
+    diff = difflib.unified_diff(
+        current.splitlines(keepends=True),
+        expected.splitlines(keepends=True),
+        fromfile=display,
+        tofile=f"generated/{display}",
+    )
+    sys.stderr.writelines(diff)
+    return False
+
+
 def main() -> int:
     _configure_cli_stdio()
     parser = argparse.ArgumentParser()
     parser.add_argument("-o", "--output", type=Path, help="写入文件；缺省则打印到 stdout")
-    parser.add_argument(
+    mode = parser.add_mutually_exclusive_group()
+    mode.add_argument(
         "--check",
         action="store_true",
-        help="校验目标文件是否与 registry 生成结果一致；默认检查 docs/data-sources.md",
+        help="校验数据源清单、双 README 和 architecture 受控区是否与 registry 一致",
+    )
+    mode.add_argument(
+        "--write",
+        action="store_true",
+        help="重建数据源清单、双 README 和 architecture 受控区",
     )
     parser.add_argument(
         "--include-plugins",
@@ -265,37 +563,48 @@ def main() -> int:
     parser.add_argument("--_render-only", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
 
-    content = (
-        render(include_plugins=args.include_plugins)
-        if args._render_only
-        else render_cli_content(include_plugins=args.include_plugins)
-    )
+    if args.write and args.output:
+        parser.error("--write manages fixed repository paths and cannot be combined with --output")
+    if (args.check or args.write) and args.include_plugins:
+        parser.error("checked-in managed docs cannot be generated with --include-plugins")
+
+    if args._render_only:
+        sys.stdout.write(render(include_plugins=args.include_plugins))
+        return 0
+
+    content = render_cli_content(include_plugins=args.include_plugins)
     if args.check:
-        target = args.output or Path("docs/data-sources.md")
-        if not target.exists():
-            print(
-                f"ERROR: {target} does not exist; run: "
-                f"PYTHONPATH=src python3 tools/gen_docs.py -o {target}",
-                file=sys.stderr,
-            )
-            return 1
-        current = target.read_text(encoding="utf-8")
-        if current == content:
-            print(f"OK: {target} is up to date")
+        data_target = args.output or REPO_ROOT / DEFAULT_DATA_SOURCES_PATH
+        checks = [_check_content(data_target, content)]
+        if args.output is None:
+            try:
+                managed_files = render_managed_files()
+            except ValueError as exc:
+                print(f"ERROR: {exc}", file=sys.stderr)
+                return 1
+            for relative_path, expected in managed_files.items():
+                checks.append(_check_content(REPO_ROOT / relative_path, expected))
+        if all(checks):
             return 0
         print(
-            f"ERROR: {target} is out of date; regenerate it with:",
+            "Regenerate checked-in docs with: PYTHONPATH=src python3 tools/gen_docs.py --write",
             file=sys.stderr,
         )
-        print(f"  PYTHONPATH=src python3 tools/gen_docs.py -o {target}", file=sys.stderr)
-        diff = difflib.unified_diff(
-            current.splitlines(keepends=True),
-            content.splitlines(keepends=True),
-            fromfile=str(target),
-            tofile="generated",
-        )
-        sys.stderr.writelines(diff)
         return 1
+    if args.write:
+        data_target = REPO_ROOT / DEFAULT_DATA_SOURCES_PATH
+        try:
+            managed_files = render_managed_files()
+        except ValueError as exc:
+            print(f"ERROR: {exc}", file=sys.stderr)
+            return 1
+        data_target.write_text(content, encoding="utf-8")
+        print(f"OK: wrote {_display_path(data_target)}")
+        for relative_path, expected in managed_files.items():
+            absolute_path = REPO_ROOT / relative_path
+            absolute_path.write_text(expected, encoding="utf-8")
+            print(f"OK: updated {relative_path}")
+        return 0
     if args.output:
         args.output.write_text(content, encoding="utf-8")
         print(f"OK: wrote {args.output}")

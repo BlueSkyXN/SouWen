@@ -553,7 +553,7 @@ class TestCLI:
             counts[entry.category] = counts.get(entry.category, 0) + 1
 
         assert counts["paper"] == 18
-        assert counts["patent"] == 6
+        assert counts["patent"] == 8
         total_web = sum(
             counts[c]
             for c in (

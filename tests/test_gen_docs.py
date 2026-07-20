@@ -38,6 +38,37 @@ def test_checked_in_data_sources_matches_generator():
     )
 
 
+def test_registry_snapshot_drives_release_candidate_metrics():
+    snapshot, _catalog, _categories = gen_docs._load_snapshot(include_plugins=False)
+
+    assert snapshot.registered_count == 95
+    assert snapshot.public_count == 94
+    assert snapshot.hidden_or_internal_count == 1
+    assert len(snapshot.fetch_primary) == 17
+    assert [adapter.name for adapter in snapshot.fetch_cross_domain] == [
+        "exa",
+        "firecrawl",
+        "kimi_code",
+        "metaso",
+        "tavily",
+        "wayback",
+        "xcrawl",
+    ]
+    assert snapshot.fetch_provider_count == 24
+
+
+def test_checked_in_managed_regions_match_registry():
+    managed = gen_docs.render_managed_files()
+
+    assert set(managed) == {
+        Path("README.md"),
+        Path("README.en.md"),
+        Path("docs/architecture.md"),
+    }
+    for relative_path, expected in managed.items():
+        assert relative_path.read_text(encoding="utf-8") == expected
+
+
 def test_check_flag_accepts_checked_in_data_sources():
     result = subprocess.run(
         [

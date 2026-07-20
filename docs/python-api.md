@@ -14,7 +14,9 @@ news = await search_by_capability("AI news", capability="search_news", limit=5)
 mixed = await search_all("quantum computing", domains=["paper", "web"], per_domain_limit=5)
 ```
 
-`search()` 返回按源聚合的 `SearchResponse` 列表。单个源失败不会阻断其他源。
+`search()` 返回按源聚合的 `SearchResponse` 列表。`query` 会先 `strip()`，
+strip 后为空会抛出 `ValueError`。`sources`、`engines` 和 `domains`
+可传单个字符串或字符串列表；单个源失败不会阻断其他源。
 
 ## 抓取
 
