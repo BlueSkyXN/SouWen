@@ -74,8 +74,11 @@ runs:
             expected_version = tomllib.load(file)["project"]["version"]
 
         def record(name: str, status: str, detail: str) -> None:
-            limit = 4000 if name == "cli/help" else 500
-            checks.append({"name": name, "status": status, "detail": detail[:limit]})
+            if name == "cli/help" and len(detail) > 4000:
+                detail = f"{detail[:750]}\n... traceback middle omitted ...\n{detail[-3200:]}"
+            else:
+                detail = detail[:500]
+            checks.append({"name": name, "status": status, "detail": detail})
 
         def run_command(name: str, *arguments: str, timeout: float = 60) -> str:
             result = subprocess.run(
