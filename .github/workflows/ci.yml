@@ -722,7 +722,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
-      SOURCE_SHA: ${{ inputs.candidate_sha || github.sha }}
+      SOURCE_SHA: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
     strategy:
       fail-fast: false
       matrix:
@@ -733,7 +733,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.candidate_sha || github.sha }}
+          ref: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
 
       - name: Materialize exact candidate as a local Git endpoint
         if: matrix.kind != 'root'

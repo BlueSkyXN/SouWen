@@ -168,6 +168,17 @@ def test_ci_has_stable_aggregate_and_required_readiness_gates() -> None:
     for dockerfile in ("Dockerfile", "cloud/hfs/Dockerfile", "cloud/modelscope/Dockerfile"):
         assert f"dockerfile: {dockerfile}" in text
 
+    container = text.split("  container-surface:", maxsplit=1)[1].split("  aggregate:", maxsplit=1)[
+        0
+    ]
+    candidate_expression = (
+        "${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}"
+    )
+    assert f"SOURCE_SHA: {candidate_expression}" in container
+    assert f"ref: {candidate_expression}" in container
+    assert "fetch-depth: 0" in container
+    assert 'git push "$bare" HEAD:refs/heads/ci-candidate' in container
+
 
 def test_hfs_reusable_promotion_is_candidate_pinned_and_live_verified() -> None:
     text = _workflow("deploy-hf-space.yml")
