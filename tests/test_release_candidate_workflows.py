@@ -46,6 +46,11 @@ def test_release_candidate_is_the_only_release_publisher() -> None:
     assert 'git push origin "refs/tags/$TAG"' in candidate
     assert "--draft" in candidate
     assert 'gh release edit "$TAG" --draft=false' in candidate
+    assert "report_partial_release" in candidate
+    assert "Do not move or overwrite this tag" in candidate
+    assert "remote_tag_state=unknown" in candidate
+    assert "release_state=unknown" in candidate
+    assert 'git ls-remote --tags origin "refs/tags/$TAG" || true' not in candidate
 
     for path in WORKFLOW_DIR.glob("*.yml"):
         if path.name == "release-candidate.yml":
@@ -57,6 +62,12 @@ def test_release_candidate_is_the_only_release_publisher() -> None:
 
 def test_release_candidate_strictly_validates_promotion_inputs() -> None:
     text = _workflow("release-candidate.yml")
+    trust_step = text.split(
+        "- name: Validate candidate trust, SHA, version, and promotion controls",
+        maxsplit=1,
+    )[1].split("- uses: actions/setup-python@v6", maxsplit=1)[0]
+    assert "python3 -I - <<'PY'" in trust_step
+    assert "python3 - <<'PY'" not in trust_step
     assert "re.fullmatch(r'[0-9a-f]{40}', candidate)" in text
     assert "project_version != version" in text
     assert "publish == 'true' and deploy_hfs != 'true'" in text
@@ -74,6 +85,7 @@ def test_release_candidate_strictly_validates_promotion_inputs() -> None:
     assert "release-candidate must run from the current origin/main control plane" in text
     assert "candidate_sha to equal the current origin/main" in text
     assert "verifier_sha" in text
+    assert "secrets: inherit" not in text
 
 
 def test_release_candidate_aggregates_all_release_gates() -> None:
@@ -118,6 +130,14 @@ def test_release_bundle_has_24_binaries_supply_chain_assets_and_attestation() ->
         "'exceptions'",
     ):
         assert manifest_field in text
+    for hfs_evidence_field in (
+        "'prior_repo_sha'",
+        "'prior_runtime_sha'",
+        "'prior_source_sha'",
+        "'prior_runtime_stage'",
+        "'promotion_changed'",
+    ):
+        assert hfs_evidence_field in text
 
 
 def test_ci_has_stable_aggregate_and_required_readiness_gates() -> None:
@@ -151,6 +171,11 @@ def test_ci_has_stable_aggregate_and_required_readiness_gates() -> None:
 
 def test_hfs_reusable_promotion_is_candidate_pinned_and_live_verified() -> None:
     text = _workflow("deploy-hf-space.yml")
+    contract_step = text.split("- name: Validate reusable candidate contract", maxsplit=1)[1].split(
+        "- name: Detect deploy-related path changes", maxsplit=1
+    )[0]
+    assert "python3 -I - <<'PY'" in contract_step
+    assert "python3 - <<'PY'" not in contract_step
     assert "workflow_call:" in text
     assert "candidate_sha:" in text
     assert "verifier_sha:" in text
@@ -172,6 +197,7 @@ def test_hfs_reusable_promotion_is_candidate_pinned_and_live_verified() -> None:
     assert "prior_space_commit_sha" in text
     assert "prior_runtime_commit_sha" in text
     assert "prior_souwen_ref" in text
+    assert "prior_runtime_stage" in text
     assert "parent_commit=prior_space_sha" in text
     assert "revision=prior_space_sha" in text
     assert "  rollback-space:" in text
@@ -180,8 +206,21 @@ def test_hfs_reusable_promotion_is_candidate_pinned_and_live_verified() -> None:
     assert "rollback_space_commit_sha" in text
     assert "  pause-space:" in text
     assert "api.pause_space" in text
+    assert "needs.rollback-space.result == 'cancelled'" in text
     assert "HF_SPACE_READ_TOKEN" in text
     assert '"X-SouWen-Token: $SOUWEN_SMOKE_BEARER_TOKEN"' in text
+
+    prior = text.split("- name: Capture immutable rollback point", maxsplit=1)[1].split(
+        "- name: Sync changed HFS wrapper files", maxsplit=1
+    )[0]
+    assert 'stage_upper.endswith("SLEEPING")' in prior
+    assert '"PAUSED"' in prior
+    assert "api.restart_space" not in prior
+
+    rollback = text.split("  rollback-space:", maxsplit=1)[1].split("  pause-space:", maxsplit=1)[0]
+    assert "rollback_sha = prior_sha" in rollback
+    assert "Space head still matches the rollback point" in rollback
+    assert "no distinct forward rollback commit" not in rollback
 
     post_deploy = text.split("  post-deploy-smoke:", maxsplit=1)[1].split(
         "  rollback-space:", maxsplit=1
@@ -197,6 +236,7 @@ def test_external_release_gate_requires_superweb2pdf_runtime_fixture() -> None:
     assert 'pip install -e ".[dev,edition-full]"' in text
     assert "python -m playwright install --with-deps chromium" in text
     assert "--require-web2pdf-runtime" in text
+    assert "--timeout 45" in text
     assert "external-gate-plugin-report" in text
 
 

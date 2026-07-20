@@ -419,15 +419,41 @@ async def test_fetch_content_tool_schema_uses_registry_fetch_providers(monkeypat
     expected_names = mcp_server._fetch_provider_names()
     expected_label = " / ".join(expected_names)
     cfg = get_config()
-    expected_available_names = set(declared_fetch_provider_names(cfg.edition))
+    expected_declared_names = set(declared_fetch_provider_names(cfg.edition))
+    projection = props["provider"]["x-souwen-provider-projection"]
 
     assert expected_names[0] == "builtin"
-    assert set(expected_names) == expected_available_names
+    assert set(expected_names) == expected_declared_names
     assert "metaso" in expected_names
     assert "arxiv_fulltext" not in expected_names
     assert expected_label in fetch_tool.description
     assert expected_label in props["provider"]["description"]
     assert expected_label in props["providers"]["description"]
+    assert projection is props["providers"]["x-souwen-provider-projection"]
+    assert set(projection) == {
+        "declared",
+        "available",
+        "unavailable",
+        "upgrade_required",
+        "providers",
+    }
+    assert set(projection["declared"]) == expected_declared_names
+    assert all(
+        {
+            "name",
+            "min_edition",
+            "edition_available",
+            "edition_reason",
+            "runtime_available",
+            "runtime_reason",
+            "available",
+        }
+        == set(item)
+        for item in projection["providers"]
+    )
+    assert "当前 edition 声明" in fetch_tool.description
+    assert "当前 runtime 可导入" in fetch_tool.description
+    assert "当前可选" not in fetch_tool.description
     _assert_string_or_array_schema(props["urls"])
     _assert_string_or_array_schema(props["providers"])
     assert props["strategy"]["enum"] == ["fallback", "fanout"]
@@ -457,7 +483,7 @@ def test_fetch_provider_names_follow_feature_matrix(monkeypatch, edition):
 
 @pytest.mark.asyncio
 async def test_fetch_content_tool_schema_filters_fetch_providers_by_basic_edition(monkeypatch):
-    """MCP 工具完整保留，但 fetch provider 选项只展示当前 edition 可用项。"""
+    """MCP 工具完整保留，并明确把 basic edition 声明与 runtime 分开。"""
     created: dict[str, _FakeServer] = {}
 
     def fake_server_factory(name: str):
@@ -479,8 +505,120 @@ async def test_fetch_content_tool_schema_filters_fetch_providers_by_basic_editio
     assert mcp_server._fetch_provider_names() == ["builtin", "mcp", "site_crawler"]
     assert "builtin / mcp / site_crawler" in fetch_tool.description
     assert "builtin / mcp / site_crawler" in props["provider"]["description"]
+    projection = props["provider"]["x-souwen-provider-projection"]
+    assert projection["declared"] == ["builtin", "mcp", "site_crawler"]
+    assert any(item["name"] == "jina_reader" for item in projection["upgrade_required"])
     assert "jina_reader" not in fetch_tool.description
     assert "crawl4ai" not in fetch_tool.description
+
+
+@pytest.mark.asyncio
+async def test_fetch_content_tool_schema_reports_missing_runtime_without_hiding_provider_id(
+    monkeypatch,
+):
+    """A declared provider with a missing SDK remains addressable but is not called available."""
+    from souwen.feature_matrix import FetchProviderRuntimeStatus
+
+    created: dict[str, _FakeServer] = {}
+
+    def fake_server_factory(name: str):
+        server = _FakeServer(name)
+        created["server"] = server
+        return server
+
+    statuses = (
+        FetchProviderRuntimeStatus("builtin", "basic", True, runtime_available=True),
+        FetchProviderRuntimeStatus(
+            "mcp",
+            "basic",
+            True,
+            runtime_available=False,
+            runtime_reason="mcp: missing modules: mcp",
+        ),
+        FetchProviderRuntimeStatus("site_crawler", "basic", True, runtime_available=True),
+        FetchProviderRuntimeStatus(
+            "jina_reader",
+            "pro",
+            False,
+            edition_reason=(
+                "fetch provider 'jina_reader' requires edition=pro, current edition=basic"
+            ),
+            runtime_reason=(
+                "runtime not probed because fetch provider 'jina_reader' requires "
+                "edition=pro, current edition=basic"
+            ),
+        ),
+    )
+
+    monkeypatch.setattr(mcp_server, "Server", fake_server_factory, raising=False)
+    monkeypatch.setattr(mcp_server, "Tool", _FakeTool, raising=False)
+    monkeypatch.setattr(mcp_server, "TextContent", _FakeTextContent, raising=False)
+    monkeypatch.setattr(mcp_server, "get_bilibili_tools", lambda: [])
+    monkeypatch.setattr(
+        "souwen.feature_matrix.fetch_provider_runtime_projection",
+        lambda _edition: statuses,
+    )
+
+    mcp_server.create_server()
+    tools = await created["server"]._list_tools()
+    fetch_tool = next(tool for tool in tools if tool.name == "fetch_content")
+    projection = fetch_tool.inputSchema["properties"]["provider"]["x-souwen-provider-projection"]
+
+    assert projection["declared"] == ["builtin", "mcp", "site_crawler"]
+    assert projection["available"] == ["builtin", "site_crawler"]
+    assert [item["name"] for item in projection["unavailable"]] == ["mcp"]
+    assert [item["name"] for item in projection["upgrade_required"]] == ["jina_reader"]
+    assert "当前 edition 声明：builtin / mcp / site_crawler" in fetch_tool.description
+    assert "当前 runtime 可导入：builtin / site_crawler" in fetch_tool.description
+    assert "mcp: missing modules: mcp" in fetch_tool.description
+    assert "当前可选" not in fetch_tool.description
+
+
+@pytest.mark.asyncio
+async def test_fetch_content_tool_schema_redacts_provider_loader_exception(monkeypatch):
+    """MCP discovery must not expose arbitrary plugin loader exception text."""
+    from souwen.registry.adapter import FETCH_DOMAIN, MethodSpec, SourceAdapter
+
+    created: dict[str, _FakeServer] = {}
+    secret = "postgresql://user:password@private.internal/db token=mcp-secret"
+
+    def fake_server_factory(name: str):
+        server = _FakeServer(name)
+        created["server"] = server
+        return server
+
+    def failing_loader() -> type:
+        raise RuntimeError(secret)
+
+    broken = SourceAdapter(
+        name="broken_fetch",
+        domain=FETCH_DOMAIN,
+        integration="open_api",
+        description="broken fetch provider",
+        config_field=None,
+        client_loader=failing_loader,
+        methods={"fetch": MethodSpec("fetch")},
+        auth_requirement="none",
+    )
+
+    monkeypatch.setattr(mcp_server, "Server", fake_server_factory, raising=False)
+    monkeypatch.setattr(mcp_server, "Tool", _FakeTool, raising=False)
+    monkeypatch.setattr(mcp_server, "TextContent", _FakeTextContent, raising=False)
+    monkeypatch.setattr(mcp_server, "get_bilibili_tools", lambda: [])
+    monkeypatch.setattr("souwen.registry.fetch_providers", lambda: [broken])
+
+    mcp_server.create_server()
+    tools = await created["server"]._list_tools()
+    fetch_tool = next(tool for tool in tools if tool.name == "fetch_content")
+    projection = fetch_tool.inputSchema["properties"]["provider"]["x-souwen-provider-projection"]
+
+    assert projection["providers"][0]["runtime_reason"] == (
+        "broken_fetch: client loader unavailable"
+    )
+    serialized = json.dumps(projection)
+    assert secret not in serialized
+    assert "postgresql://" not in serialized
+    assert "mcp-secret" not in fetch_tool.description
 
 
 @pytest.mark.asyncio

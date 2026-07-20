@@ -26,6 +26,21 @@ on:
       version:
         description: "Promoted SouWen version"
         value: ${{ jobs.sync-hfs-wrapper.outputs.version }}
+      promotion_changed:
+        description: "Whether this run created a new Space wrapper commit"
+        value: ${{ jobs.sync-hfs-wrapper.outputs.promotion_changed }}
+      prior_space_commit_sha:
+        description: "Immutable Space wrapper commit captured before promotion"
+        value: ${{ jobs.sync-hfs-wrapper.outputs.prior_space_commit_sha }}
+      prior_runtime_commit_sha:
+        description: "Space runtime commit captured before promotion"
+        value: ${{ jobs.sync-hfs-wrapper.outputs.prior_runtime_commit_sha }}
+      prior_souwen_ref:
+        description: "Immutable SouWen source pin captured before promotion"
+        value: ${{ jobs.sync-hfs-wrapper.outputs.prior_souwen_ref }}
+      prior_runtime_stage:
+        description: "Stable Space runtime stage captured before promotion"
+        value: ${{ jobs.sync-hfs-wrapper.outputs.prior_runtime_stage }}
   pull_request:
     branches: [main]
     paths:
@@ -80,7 +95,7 @@ jobs:
           WORKFLOW_REF: ${{ github.ref }}
           WORKFLOW_SHA: ${{ github.workflow_sha }}
         run: |
-          python3 - <<'PY'
+          python3 -I - <<'PY'
           import os
           import re
           import subprocess
@@ -372,6 +387,7 @@ jobs:
       prior_space_commit_sha: ${{ steps.prior.outputs.prior_space_commit_sha }}
       prior_runtime_commit_sha: ${{ steps.prior.outputs.prior_runtime_commit_sha }}
       prior_souwen_ref: ${{ steps.prior.outputs.prior_souwen_ref }}
+      prior_runtime_stage: ${{ steps.prior.outputs.prior_runtime_stage }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -432,21 +448,7 @@ jobs:
               raise SystemExit("target Space does not expose an immutable 40-character commit")
 
           deadline = time.monotonic() + 900
-          runtime = api.get_space_runtime(repo_id=space_id)
-          stage = str(getattr(runtime.stage, "value", runtime.stage))
-          runtime_sha = str(runtime.raw.get("sha") or "")
-          if not stage.upper().endswith("RUNNING"):
-              api.restart_space(repo_id=space_id, factory_reboot=False)
-          while not (
-              stage.upper().endswith("RUNNING")
-              and runtime_sha == prior_space_sha
-          ):
-              if time.monotonic() >= deadline:
-                  raise SystemExit(
-                      "cannot establish rollback point before promotion: "
-                      f"stage={stage}, repo_sha={prior_space_sha}, runtime_sha={runtime_sha}"
-                  )
-              time.sleep(20)
+          while True:
               runtime = api.get_space_runtime(repo_id=space_id)
               stage = str(getattr(runtime.stage, "value", runtime.stage))
               runtime_sha = str(runtime.raw.get("sha") or "")
@@ -458,10 +460,36 @@ jobs:
                       "Space repository changed while capturing the rollback point: "
                       f"expected={prior_space_sha}, current={current_repo_sha}"
                   )
+
+              stage_upper = stage.upper()
+              stable = stage_upper.endswith("RUNNING") or stage_upper.endswith("SLEEPING")
+              if stable and runtime_sha == prior_space_sha:
+                  break
+              if any(
+                  marker in stage_upper
+                  for marker in (
+                      "PAUSED",
+                      "BUILD_ERROR",
+                      "RUNTIME_ERROR",
+                      "CONFIG_ERROR",
+                      "NO_APP_FILE",
+                      "STOPPED",
+                  )
+              ):
+                  raise SystemExit(
+                      "refusing to mutate a Space without a stable rollback runtime: "
+                      f"stage={stage}, repo_sha={prior_space_sha}, runtime_sha={runtime_sha}"
+                  )
+              if time.monotonic() >= deadline:
+                  raise SystemExit(
+                      "cannot establish rollback point before promotion: "
+                      f"stage={stage}, repo_sha={prior_space_sha}, runtime_sha={runtime_sha}"
+                  )
               print(
                   f"rollback-point stage={stage}, repo_sha={prior_space_sha}, "
                   f"runtime_sha={runtime_sha}"
               )
+              time.sleep(20)
 
           dockerfile = Path(
               hf_hub_download(
@@ -483,9 +511,10 @@ jobs:
               output.write(f"prior_space_commit_sha={prior_space_sha}\n")
               output.write(f"prior_runtime_commit_sha={runtime_sha}\n")
               output.write(f"prior_souwen_ref={matches[0]}\n")
+              output.write(f"prior_runtime_stage={stage}\n")
           print(
               f"captured rollback point space={prior_space_sha}, "
-              f"runtime={runtime_sha}, source={matches[0]}"
+              f"runtime={runtime_sha}, stage={stage}, source={matches[0]}"
           )
           PY
 
@@ -871,11 +900,6 @@ jobs:
                   "refusing to overwrite an unexpected Space writer during rollback: "
                   f"current={current_sha}, expected one of {sorted(allowed_heads)}"
               )
-          if current_sha == prior_sha:
-              raise SystemExit(
-                  "failed promotion has no distinct forward rollback commit; pause is required"
-              )
-
           operations = []
           with tempfile.TemporaryDirectory() as tmpdir:
               tmp = Path(tmpdir)
@@ -920,15 +944,22 @@ jobs:
                       )
 
           if not operations:
-              raise SystemExit("rollback found no managed wrapper difference to restore")
-          rollback = api.create_commit(
-              repo_id=space_id,
-              repo_type="space",
-              operations=operations,
-              commit_message=f"Rollback failed SouWen promotion to {prior_source[:12]}",
-              parent_commit=current_sha,
-          )
-          rollback_sha = str(rollback.oid)
+              if current_sha != prior_sha:
+                  raise SystemExit("rollback found no managed wrapper difference to restore")
+              rollback_sha = prior_sha
+              print(
+                  "Space head still matches the rollback point; rebuilding and validating "
+                  "the prior runtime without creating a no-op commit"
+              )
+          else:
+              rollback = api.create_commit(
+                  repo_id=space_id,
+                  repo_type="space",
+                  operations=operations,
+                  commit_message=f"Rollback failed SouWen promotion to {prior_source[:12]}",
+                  parent_commit=current_sha,
+              )
+              rollback_sha = str(rollback.oid)
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
               output.write(f"rollback_space_commit_sha={rollback_sha}\n")
 
@@ -1000,7 +1031,10 @@ jobs:
       ${{
         always() &&
         inputs.deploy_hfs &&
-        needs.rollback-space.result == 'failure'
+        (
+          needs.rollback-space.result == 'failure' ||
+          needs.rollback-space.result == 'cancelled'
+        )
       }}
     environment:
       name: hf

@@ -58,7 +58,7 @@ jobs:
           WORKFLOW_REF: ${{ github.ref }}
           WORKFLOW_SHA: ${{ github.workflow_sha }}
         run: |
-          python3 - <<'PY'
+          python3 -I - <<'PY'
           import os
           import json
           import re
@@ -485,7 +485,6 @@ jobs:
       version: ${{ needs.validate.outputs.version }}
       verifier_sha: ${{ needs.validate.outputs.verifier_sha }}
       deploy_hfs: true
-    secrets: inherit
 
   assemble:
     name: Verify and attest release bundle
@@ -627,6 +626,11 @@ jobs:
           VERIFIER_SHA: ${{ needs.validate.outputs.verifier_sha }}
           RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
           HFS_SPACE_COMMIT_SHA: ${{ needs.hfs.outputs.space_commit_sha }}
+          HFS_PROMOTION_CHANGED: ${{ needs.hfs.outputs.promotion_changed }}
+          HFS_PRIOR_SPACE_COMMIT_SHA: ${{ needs.hfs.outputs.prior_space_commit_sha }}
+          HFS_PRIOR_RUNTIME_COMMIT_SHA: ${{ needs.hfs.outputs.prior_runtime_commit_sha }}
+          HFS_PRIOR_SOUWEN_REF: ${{ needs.hfs.outputs.prior_souwen_ref }}
+          HFS_PRIOR_RUNTIME_STAGE: ${{ needs.hfs.outputs.prior_runtime_stage }}
         run: |
           tar -czf release-assets/release-evidence.tar.gz release-evidence
           python3 - <<'PY'
@@ -634,6 +638,7 @@ jobs:
           import hashlib
           import json
           import os
+          import re
           from pathlib import Path
 
           root = Path('release-assets')
@@ -780,6 +785,38 @@ jobs:
           hfs_space_sha = os.environ.get('HFS_SPACE_COMMIT_SHA') or None
           if hfs_promoted and not hfs_space_sha:
               raise SystemExit('HFS promotion succeeded without a Space commit output')
+          hfs_prior_space_sha = os.environ.get('HFS_PRIOR_SPACE_COMMIT_SHA') or None
+          hfs_prior_runtime_sha = os.environ.get('HFS_PRIOR_RUNTIME_COMMIT_SHA') or None
+          hfs_prior_source_sha = os.environ.get('HFS_PRIOR_SOUWEN_REF') or None
+          hfs_prior_runtime_stage = os.environ.get('HFS_PRIOR_RUNTIME_STAGE') or None
+          hfs_promotion_changed_raw = os.environ.get('HFS_PROMOTION_CHANGED') or None
+          if hfs_promoted:
+              immutable_hfs_shas = {
+                  'repo_sha': hfs_space_sha,
+                  'prior_repo_sha': hfs_prior_space_sha,
+                  'prior_runtime_sha': hfs_prior_runtime_sha,
+                  'prior_source_sha': hfs_prior_source_sha,
+              }
+              invalid_hfs_shas = {
+                  name: value
+                  for name, value in immutable_hfs_shas.items()
+                  if not isinstance(value, str) or re.fullmatch(r'[0-9a-f]{40}', value) is None
+              }
+              if invalid_hfs_shas:
+                  raise SystemExit(f'HFS promotion evidence has invalid SHA fields: {invalid_hfs_shas}')
+              if hfs_prior_space_sha != hfs_prior_runtime_sha:
+                  raise SystemExit(
+                      'HFS rollback evidence mismatch: prior repo and runtime SHA differ'
+                  )
+              if not hfs_prior_runtime_stage:
+                  raise SystemExit('HFS rollback evidence is missing the prior runtime stage')
+              if not hfs_prior_runtime_stage.upper().endswith(('RUNNING', 'SLEEPING')):
+                  raise SystemExit(
+                      'HFS rollback evidence has an unstable prior runtime stage: '
+                      f'{hfs_prior_runtime_stage}'
+                  )
+              if hfs_promotion_changed_raw not in {'true', 'false'}:
+                  raise SystemExit('HFS promotion evidence is missing promotion_changed')
           manifest = {
               'schema_version': 1,
               'version': os.environ['VERSION'],
@@ -809,6 +846,15 @@ jobs:
                   'repo_sha': hfs_space_sha,
                   'runtime_sha': hfs_space_sha,
                   'source_sha': os.environ['CANDIDATE_SHA'] if hfs_promoted else None,
+                  'promotion_changed': (
+                      hfs_promotion_changed_raw == 'true'
+                      if hfs_promoted
+                      else None
+                  ),
+                  'prior_repo_sha': hfs_prior_space_sha,
+                  'prior_runtime_sha': hfs_prior_runtime_sha,
+                  'prior_source_sha': hfs_prior_source_sha,
+                  'prior_runtime_stage': hfs_prior_runtime_stage,
                   'surface_report': 'hf-space-cd-surface-report.json' if hfs_promoted else None,
                   'capability_report': 'hf-space-cd-capability-report.json' if hfs_promoted else None,
               },
@@ -900,6 +946,41 @@ jobs:
           CANDIDATE_SHA: ${{ needs.validate.outputs.candidate_sha }}
           VERSION: ${{ needs.validate.outputs.version }}
         run: |
+          set -Eeuo pipefail
+
+          report_partial_release() {
+            status=$?
+            trap - ERR
+            remote_tag_state=unknown
+            if remote_tag="$(git ls-remote --tags origin "refs/tags/$TAG")"; then
+              remote_tag_state="${remote_tag:-absent}"
+            fi
+            release_state=unknown
+            if release_readback="$(
+              gh release view "$TAG" --json isDraft,isPrerelease,url 2>/dev/null
+            )"; then
+              release_state="$release_readback"
+            fi
+            heading="Publish stopped; remote release state requires review"
+            if {
+              [ "$remote_tag_state" != absent ] && [ "$remote_tag_state" != unknown ]
+            } || [ "$release_state" != unknown ]; then
+              heading="Publish stopped after a partial remote write"
+            fi
+            {
+              echo "## $heading"
+              echo
+              echo "- tag: \`$TAG\`"
+              echo "- candidate: \`$CANDIDATE_SHA\`"
+              echo "- remote tag ref: \`$remote_tag_state\`"
+              echo "- release state: \`$release_state\`"
+              echo
+              echo "Do not move or overwrite this tag. Inspect the draft/partial state and use the next RC version."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit "$status"
+          }
+          trap report_partial_release ERR
+
           prerelease_args=()
           if [[ "$VERSION" =~ (a|b|rc)[0-9]+ ]]; then
             prerelease_args=(--prerelease)
@@ -960,3 +1041,4 @@ jobs:
 
           gh release edit "$TAG" --draft=false
           gh release view "$TAG" --json isDraft --jq '.isDraft == false' | grep -qx true
+          trap - ERR

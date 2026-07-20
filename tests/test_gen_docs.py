@@ -33,9 +33,11 @@ def test_cli_render_excludes_runtime_plugin_after_registry_import(clean_registry
 
 def test_checked_in_data_sources_matches_generator():
     docs_path = Path("docs/data-sources.md")
-    assert docs_path.read_text(encoding="utf-8") == gen_docs.render_cli_content(
-        include_plugins=False
-    )
+    rendered = gen_docs.render_cli_content(include_plugins=False)
+    assert docs_path.read_text(encoding="utf-8") == rendered
+    assert "静态 policy/config readiness" in rendered
+    assert "Catalog 和 doctor 的 `runtime_available` / `runtime_reason`" in rendered
+    assert "`available` 描述展示和运行时可用性" not in rendered
 
 
 def test_registry_snapshot_drives_release_candidate_metrics():

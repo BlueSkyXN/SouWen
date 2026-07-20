@@ -85,7 +85,7 @@ souwen bilibili search "programming"
 souwen wayback cdx https://example.com
 
 # Management
-souwen sources --available-only          # List sources available with current config
+souwen sources --available-only          # Require both the static gate and current runtime
 souwen sources --json                    # Output the same Source Catalog shape as /api/v1/sources
 souwen serve                             # Start API server (default :8000)
 souwen doctor                            # Static check (live=false by default; no network)

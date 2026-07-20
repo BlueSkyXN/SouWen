@@ -66,6 +66,30 @@ class RuntimeProbe:
     reason: str = ""
 
 
+@dataclass(frozen=True, slots=True)
+class FetchProviderRuntimeStatus:
+    """Edition and local-runtime status for one registered fetch provider.
+
+    ``edition_available`` is the declaration/policy axis.  ``runtime_available``
+    is an importability probe and is only evaluated when the current edition
+    allows the provider.  Neither axis checks credentials or contacts an
+    upstream service.
+    """
+
+    name: str
+    min_edition: Edition
+    edition_available: bool
+    edition_reason: str = ""
+    runtime_available: bool = False
+    runtime_reason: str = ""
+
+    @property
+    def available(self) -> bool:
+        """Return the effective edition-and-runtime result."""
+
+        return self.edition_available and self.runtime_available
+
+
 def _resolve_edition(edition: Edition | str | None) -> Edition:
     if edition is None:
         from souwen.config import get_config
@@ -120,6 +144,33 @@ def probe_adapter_runtime(adapter: SourceAdapter) -> RuntimeProbe:
             f"{adapter.name}: missing modules: {', '.join(missing)}",
         )
     return RuntimeProbe(True)
+
+
+def sanitize_public_runtime_probe(adapter_name: str, runtime: RuntimeProbe) -> RuntimeProbe:
+    """Remove arbitrary loader exception text from a runtime probe.
+
+    Missing-module and edition-gate reasons are derived from maintained metadata
+    and are safe to retain.  Every other failure may contain arbitrary plugin
+    exception text and is replaced with a stable public message.
+    """
+
+    if runtime.available:
+        return RuntimeProbe(True)
+    if runtime.reason.startswith(f"{adapter_name}: missing modules: ") or runtime.reason.startswith(
+        "runtime not probed because "
+    ):
+        return runtime
+    return RuntimeProbe(False, f"{adapter_name}: client loader unavailable")
+
+
+def public_adapter_runtime_probe(adapter: SourceAdapter) -> RuntimeProbe:
+    """Return a runtime probe that is safe to expose on public discovery surfaces.
+
+    Loader exceptions remain available to local doctor diagnostics through
+    :func:`probe_adapter_runtime`, while REST and MCP discovery use this wrapper.
+    """
+
+    return sanitize_public_runtime_probe(adapter.name, probe_adapter_runtime(adapter))
 
 
 def _probe_adapters(adapters: list[SourceAdapter]) -> tuple[tuple[str, ...], tuple[str, ...]]:
@@ -204,6 +255,43 @@ def declared_fetch_provider_names(edition: Edition | str | None = None) -> tuple
             if fetch_provider_policy(adapter, current).available
         )
     )
+
+
+def fetch_provider_runtime_projection(
+    edition: Edition | str | None = None,
+) -> tuple[FetchProviderRuntimeStatus, ...]:
+    """Project fetch providers onto independent edition and runtime axes.
+
+    Providers blocked by the current edition remain in the projection so MCP
+    and other discovery surfaces can explain the upgrade gate.  Their runtime
+    is not probed: importing implementation modules that the edition cannot use
+    would make lightweight discovery depend on excluded optional packages.
+    """
+
+    current = _resolve_edition(edition)
+    from souwen.registry import fetch_providers
+
+    statuses: list[FetchProviderRuntimeStatus] = []
+    for adapter in sorted(fetch_providers(), key=lambda item: item.name):
+        policy = fetch_provider_policy(adapter, current)
+        if policy.available:
+            runtime = public_adapter_runtime_probe(adapter)
+        else:
+            runtime = RuntimeProbe(
+                False,
+                f"runtime not probed because {policy.reason}",
+            )
+        statuses.append(
+            FetchProviderRuntimeStatus(
+                name=adapter.name,
+                min_edition=policy.min_edition,
+                edition_available=policy.available,
+                edition_reason=policy.reason,
+                runtime_available=runtime.available,
+                runtime_reason=runtime.reason,
+            )
+        )
+    return tuple(statuses)
 
 
 def declared_llm_protocols(edition: Edition | str | None = None) -> tuple[str, ...]:
@@ -331,6 +419,7 @@ __all__ = [
     "OPTIONAL_EXTRA_MODULES",
     "SURFACE_ROUTE_MIN_EDITIONS",
     "Edition",
+    "FetchProviderRuntimeStatus",
     "ProbeResult",
     "RuntimeProbe",
     "allowed_warp_modes",
@@ -339,10 +428,13 @@ __all__ = [
     "declared_source_names",
     "edition_capabilities",
     "fetch_provider_min_edition",
+    "fetch_provider_runtime_projection",
     "probe_capabilities",
     "probe_adapter_runtime",
     "probe_modules",
     "probe_results_to_dict",
+    "public_adapter_runtime_probe",
     "route_min_edition",
+    "sanitize_public_runtime_probe",
     "source_min_edition",
 ]

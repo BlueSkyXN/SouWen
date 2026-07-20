@@ -24,7 +24,7 @@ pinned: false
 | GET | `/api/v1/search/paper?q=...` | 搜索学术论文 |
 | GET | `/api/v1/search/patent?q=...` | 搜索专利 |
 | GET | `/api/v1/search/web?q=...` | 搜索网页（默认 `engines=duckduckgo,bing`） |
-| GET | `/api/v1/sources` | 列出所有可用数据源 |
+| GET | `/api/v1/sources` | 列出公开 Source Catalog、静态配置状态与 runtime importability |
 | GET | `/api/v1/admin/config` | 查看配置（需认证） |
 | GET / PUT | `/api/v1/admin/http-backend` | 查看或临时切换 HTTP backend（需认证） |
 | POST | `/api/v1/admin/config/reload` | 重载配置（需认证） |
@@ -60,7 +60,11 @@ pinned: false
 
 ## 部署与验收
 
-GitHub 上的 `HF Space CD` workflow 会在 PR 阶段先运行本地预检：源码 CLI、PyInstaller CLI、HF Space Docker 容器启动和 API surface smoke。合入 `main` 后，同一个 workflow 会同步本目录 wrapper 文件、触发 Space factory rebuild，并在远端分 `surface` / `capability` 两个 smoke job 执行部署后验收。
+GitHub 上的 `HF Space CD` workflow 在 PR 和直接手动触发时只运行本地预检：源码 CLI、
+PyInstaller CLI、HF Space Docker 容器启动和 API surface smoke。合入或 push `main` 不会
+自动部署。只有当前 `main` 上的 central `release-candidate.yml` 在人工批准并显式设置
+`deploy_hfs=true` 后，才会同步本目录 wrapper、触发 Space factory rebuild，并在远端分
+`surface` / `capability` 两个 smoke job 执行部署后验收。
 
 `Dockerfile` 是 fail-closed 模板：仓库中的全零 `SOUWEN_REF` 不能直接构建。
 部署 workflow 会在临时 staging 目录把它替换为经验证的 40 位 candidate SHA，

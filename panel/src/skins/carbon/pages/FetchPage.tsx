@@ -21,7 +21,7 @@ export function FetchPage() {
     t,
     urls, setUrls,
     provider, setProvider,
-    providerOptions,
+    providerOptions, providerState,
     selectedProviders, toggleProvider,
     strategy, setStrategy,
     timeout, setTimeout_,
@@ -270,13 +270,19 @@ export function FetchPage() {
                 className={styles.select}
                 value={provider}
                 onChange={(e) => setProvider(e.target.value as Provider)}
+                disabled={isLoading || !providerOptions.some((item) => item.available)}
+                aria-describedby="fetch-provider-status"
               >
+                {!provider && <option value="">{providerState.message}</option>}
                 {providerOptions.map((p) => (
-                  <option key={p.value} value={p.value}>
-                    {p.label.toUpperCase()}
+                  <option key={p.value} value={p.value} disabled={!p.available}>
+                    {p.label.toUpperCase()} — {p.statusLabel}
                   </option>
                 ))}
               </select>
+              <div id="fetch-provider-status" className={styles.hint} role="status">
+                {providerState.message}
+              </div>
             </div>
 
             <button
@@ -336,14 +342,18 @@ export function FetchPage() {
               <span className={styles.fieldLabel}>{t('fetch.providers')}</span>
               <div className={styles.providerChecklist}>
                 {providerOptions.map((item) => (
-                  <label key={item.value} className={styles.providerCheck}>
+                  <label key={item.value} className={styles.providerCheck} title={item.statusMessage}>
                     <input
                       type="checkbox"
                       checked={selectedProviders.includes(item.value)}
                       onChange={() => toggleProvider(item.value)}
-                      disabled={isLoading || (selectedProviders.length === 1 && selectedProviders.includes(item.value))}
+                      disabled={
+                        isLoading
+                        || !item.available
+                        || (selectedProviders.length === 1 && selectedProviders.includes(item.value))
+                      }
                     />
-                    <span>{item.label.toUpperCase()}</span>
+                    <span>{item.label.toUpperCase()} · {item.statusLabel}</span>
                   </label>
                 ))}
               </div>

@@ -306,7 +306,7 @@ jobs:
           python scripts/zero_key_functional_check.py \
             --mode live \
             "${REQUIRED_ARGS[@]}" \
-            --timeout 20 \
+            --timeout 45 \
             --json-report "artifacts/zero-key-${GATE_SUITE}-gate.json" \
             --markdown-report "artifacts/zero-key-${GATE_SUITE}-gate.md"
 

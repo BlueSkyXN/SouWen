@@ -39,6 +39,7 @@ SOFT_WARN_PATTERNS = (
 
 ALLOWED_PATHS = {
     "CHANGELOG.md",
+    ".github/actions/clean-wheel-smoke/action.yml",
     ".github/workflows/v2-ci.yml",
     "scripts/ci/check_no_legacy_terms.py",
     "tests/test_import_surface.py",

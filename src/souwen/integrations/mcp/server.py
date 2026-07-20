@@ -68,6 +68,7 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from typing import cast
 
 try:
     from mcp.server import Server
@@ -146,19 +147,67 @@ def _edition_allowed_source_names(names: list[str]) -> list[str]:
 
 
 def _fetch_provider_names() -> list[str]:
-    """返回 MCP 当前可见的 fetch provider 名称，默认源优先显示。"""
+    """返回当前 edition 声明的 fetch provider 名称，默认源优先显示。"""
     from souwen.config import get_config
-    from souwen.feature_matrix import declared_fetch_provider_names
+    from souwen.feature_matrix import fetch_provider_runtime_projection
 
     _bootstrap_plugins()
-    names = list(declared_fetch_provider_names(get_config().edition))
+    names = [
+        item.name
+        for item in fetch_provider_runtime_projection(get_config().edition)
+        if item.edition_available
+    ]
     if "builtin" not in names:
         return names
     return ["builtin", *(name for name in names if name != "builtin")]
 
 
-def _fetch_provider_names_label() -> str:
-    return " / ".join(_fetch_provider_names())
+def _fetch_provider_projection() -> dict[str, object]:
+    """Return the MCP schema projection without confusing policy with runtime."""
+    from souwen.config import get_config
+    from souwen.feature_matrix import fetch_provider_runtime_projection
+
+    _bootstrap_plugins()
+    statuses = list(fetch_provider_runtime_projection(get_config().edition))
+    statuses.sort(key=lambda item: (item.name != "builtin", item.name))
+    providers = [
+        {
+            "name": item.name,
+            "min_edition": item.min_edition,
+            "edition_available": item.edition_available,
+            "edition_reason": item.edition_reason,
+            "runtime_available": item.runtime_available,
+            "runtime_reason": item.runtime_reason,
+            "available": item.available,
+        }
+        for item in statuses
+    ]
+    return {
+        "declared": [item["name"] for item in providers if item["edition_available"]],
+        "available": [item["name"] for item in providers if item["available"]],
+        "unavailable": [
+            item
+            for item in providers
+            if item["edition_available"] and not item["runtime_available"]
+        ],
+        "upgrade_required": [item for item in providers if not item["edition_available"]],
+        "providers": providers,
+    }
+
+
+def _fetch_provider_projection_label(projection: dict[str, object]) -> str:
+    """Render the truthful subset of the provider projection for tool descriptions."""
+
+    declared = " / ".join(cast(list[str], projection["declared"])) or "无"
+    available = " / ".join(cast(list[str], projection["available"])) or "无"
+    unavailable_items = cast(list[dict[str, object]], projection["unavailable"])
+    unavailable = ""
+    if unavailable_items:
+        details = "; ".join(
+            f"{item['name']}（{item['runtime_reason']}）" for item in unavailable_items
+        )
+        unavailable = f"；当前缺运行时依赖：{details}"
+    return f"当前 edition 声明：{declared}；当前 runtime 可导入：{available}{unavailable}"
 
 
 def _string_list_arg(value: object, *, name: str) -> list[str]:
@@ -226,7 +275,10 @@ def create_server() -> "Server":
     @server.list_tools()
     async def list_tools() -> list[Tool]:
         """返回 MCP 工具清单 — 由 MCP SDK 在客户端连接时调用"""
-        fetch_provider_names_label = _fetch_provider_names_label()
+        fetch_provider_projection = _fetch_provider_projection()
+        fetch_provider_projection_label = _fetch_provider_projection_label(
+            fetch_provider_projection
+        )
         patent_sources_label = _default_patent_sources_label()
         web_engines_label = _default_web_engines_label()
         return [
@@ -304,7 +356,8 @@ def create_server() -> "Server":
                 name="fetch_content",
                 description=(
                     "获取网页内容。支持 URL 直接抓取，可通过 provider/providers 选择已注册 "
-                    f"fetch provider（默认 builtin；当前可选：{fetch_provider_names_label}）。"
+                    "fetch provider（默认 builtin）。"
+                    f"{fetch_provider_projection_label}。"
                     "strategy 支持 fallback 或 fanout。"
                     "支持 CSS 选择器提取指定元素、分页续读。"
                 ),
@@ -317,13 +370,17 @@ def create_server() -> "Server":
                             "default": "builtin",
                             "description": (
                                 "兼容单内容提取提供者，默认 builtin（零配置）；"
-                                f"可选：{fetch_provider_names_label}"
+                                f"{fetch_provider_projection_label}"
                             ),
+                            "x-souwen-provider-projection": fetch_provider_projection,
                         },
-                        "providers": _string_or_string_array_schema(
-                            "内容提取提供者或提供者列表；提供时优先于 provider。"
-                            f"可选：{fetch_provider_names_label}"
-                        ),
+                        "providers": {
+                            **_string_or_string_array_schema(
+                                "内容提取提供者或提供者列表；提供时优先于 provider。"
+                                f"{fetch_provider_projection_label}"
+                            ),
+                            "x-souwen-provider-projection": fetch_provider_projection,
+                        },
                         "strategy": {
                             "type": "string",
                             "enum": ["fallback", "fanout"],

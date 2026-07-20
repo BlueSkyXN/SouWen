@@ -300,8 +300,32 @@ def _source_edition_fields(name: str, config: Any) -> dict[str, Any]:
     }
 
 
+def _source_runtime_fields(name: str, edition_fields: dict[str, Any]) -> dict[str, Any]:
+    if not edition_fields["edition_available"]:
+        return {
+            "runtime_available": False,
+            "runtime_reason": (f"runtime not probed because {edition_fields['edition_reason']}"),
+        }
+
+    from souwen.feature_matrix import public_adapter_runtime_probe
+
+    adapter = _views.get(name)
+    if adapter is None:  # pragma: no cover - catalog 与 registry 同源，防御漂移
+        raise KeyError(f"missing registry adapter for source {name!r}")
+    runtime = public_adapter_runtime_probe(adapter)
+    return {
+        "runtime_available": runtime.available,
+        "runtime_reason": runtime.reason,
+    }
+
+
 def public_source_catalog_payload(config: Any) -> dict[str, Any]:
-    """返回 API/CLI 共用的公开 Source Catalog payload。"""
+    """返回 API/CLI 共用的公开 Source Catalog payload。
+
+    ``available`` 保留既有 edition / enabled / credentials 合取语义；调用方
+    如需判断当前进程的有效可用性，应再合取 additive ``runtime_available``。
+    runtime probe 只检查本地 importability，不联网、不检查凭据。
+    """
 
     from souwen.registry.meta import has_configured_credentials, has_required_credentials
 
@@ -309,6 +333,7 @@ def public_source_catalog_payload(config: Any) -> dict[str, Any]:
     for name, entry in public_source_catalog().items():
         credentials_satisfied = has_required_credentials(config, name, entry)
         edition_fields = _source_edition_fields(name, config)
+        runtime_fields = _source_runtime_fields(name, edition_fields)
         sources.append(
             {
                 "name": name,
@@ -325,6 +350,7 @@ def public_source_catalog_payload(config: Any) -> dict[str, Any]:
                 "distribution": entry.distribution,
                 "default_for": list(entry.default_for),
                 **edition_fields,
+                **runtime_fields,
                 "available": (
                     config.is_source_enabled(name)
                     and credentials_satisfied

@@ -10,18 +10,33 @@ import { useTranslation } from 'react-i18next'
 import { api } from '../services/api'
 import { useNotificationStore } from '../stores/notificationStore'
 import { formatError } from '../lib/errors'
+import { sourceAvailabilitySummary, type SourceAvailabilityKind } from '../lib/sourceStatus'
 import type { FetchResponse, FetchResult, SourceInfo } from '../types'
 
 export type Provider = string
 export type FetchStrategy = 'fallback' | 'fanout'
 
-export interface FetchProviderOption {
+export interface FetchProviderDefinition {
   value: Provider
   label: string
   description: string
 }
 
-export const DEFAULT_FETCH_PROVIDER_OPTIONS: FetchProviderOption[] = [
+export type FetchProviderAvailability = SourceAvailabilityKind | 'unknown'
+
+export interface FetchProviderOption extends FetchProviderDefinition {
+  availability: FetchProviderAvailability
+  available: boolean
+  statusLabel: string
+  statusMessage: string
+}
+
+export type FetchProviderState =
+  | { status: 'loading'; message: string }
+  | { status: 'ready'; message: string }
+  | { status: 'error'; message: string }
+
+export const DEFAULT_FETCH_PROVIDER_OPTIONS: FetchProviderDefinition[] = [
   { value: 'builtin', label: 'Builtin', description: 'Built-in fetcher (default)' },
   { value: 'jina_reader', label: 'Jina Reader', description: 'Jina.ai Reader API' },
   { value: 'arxiv_fulltext', label: 'arXiv Fulltext', description: 'arXiv paper fulltext fetcher' },
@@ -77,32 +92,45 @@ function humanizeProviderName(name: string): string {
     .join(' ')
 }
 
-function mergeFetchProviderOptions(sources: SourceInfo[]): FetchProviderOption[] {
+function mergeFetchProviderOptions(
+  sources: SourceInfo[],
+  t: ReturnType<typeof useTranslation>['t'],
+): FetchProviderOption[] {
   const fallbackByName = new Map(DEFAULT_FETCH_PROVIDER_OPTIONS.map((option) => [option.value, option]))
   const apiFetchSources = sources.filter((source) => source.capabilities.includes('fetch'))
-  const apiFetchByName = new Map(apiFetchSources.map((source) => [source.name, source]))
-  const apiFetchOptions = apiFetchSources
-    .filter((source) => source.available)
-    .map((source) => ({
-      value: source.name,
-      label: fallbackByName.get(source.name)?.label ?? humanizeProviderName(source.name),
-      description: source.description || fallbackByName.get(source.name)?.description || source.name,
-    }))
-  const apiByName = new Map(apiFetchOptions.map((option) => [option.value, option]))
-  const ordered = DEFAULT_FETCH_PROVIDER_OPTIONS.flatMap((option) => {
-    const apiSource = apiFetchByName.get(option.value)
-    if (apiSource && !apiSource.available) return []
-    return [apiByName.get(option.value) ?? option]
-  })
-  const known = new Set(ordered.map((option) => option.value))
-  return [
-    ...ordered,
-    ...apiFetchOptions.filter((option) => !known.has(option.value)),
-  ]
+  const fallbackOrder = new Map(
+    DEFAULT_FETCH_PROVIDER_OPTIONS.map((option, index) => [option.value, index]),
+  )
+
+  return apiFetchSources
+    .map((source, sourceIndex) => {
+      const status = source.runtime_available === undefined
+        ? null
+        : sourceAvailabilitySummary(source, t)
+      const availability: FetchProviderAvailability = status?.kind ?? 'unknown'
+      return {
+        value: source.name,
+        label: fallbackByName.get(source.name)?.label ?? humanizeProviderName(source.name),
+        description: source.description
+          || fallbackByName.get(source.name)?.description
+          || source.name,
+        availability,
+        available: availability === 'available',
+        statusLabel: status?.label ?? t('fetch.providerStatusUnknown'),
+        statusMessage: status?.message ?? t('fetch.providerStatusUnknownHint'),
+        sourceIndex,
+      }
+    })
+    .sort((left, right) => {
+      const leftOrder = fallbackOrder.get(left.value) ?? Number.MAX_SAFE_INTEGER
+      const rightOrder = fallbackOrder.get(right.value) ?? Number.MAX_SAFE_INTEGER
+      return leftOrder - rightOrder || left.sourceIndex - right.sourceIndex
+    })
+    .map(({ sourceIndex: _sourceIndex, ...option }) => option)
 }
 
 function providerOptionValues(options: FetchProviderOption[]): Set<Provider> {
-  return new Set(options.map((option) => option.value))
+  return new Set(options.filter((option) => option.available).map((option) => option.value))
 }
 
 function normalizeSelectedProviders(
@@ -113,7 +141,8 @@ function normalizeSelectedProviders(
   const normalized = selectedProviders.filter((provider) => validProviders.has(provider))
   if (normalized.length > 0) return normalized
   if (validProviders.has(FALLBACK_FETCH_PROVIDER)) return [FALLBACK_FETCH_PROVIDER]
-  return options[0]?.value ? [options[0].value] : [FALLBACK_FETCH_PROVIDER]
+  const firstAvailable = options.find((option) => option.available)
+  return firstAvailable ? [firstAvailable.value] : []
 }
 
 function stringList(value: unknown): string[] {
@@ -140,7 +169,7 @@ export function formatFetchProviderSummary(response: FetchResponse): string {
 export function useFetchPage() {
   const { t } = useTranslation()
   const [urls, setUrls] = useState('')
-  const [selectedProviders, setSelectedProviders] = useState<Provider[]>(['builtin'])
+  const [selectedProviders, setSelectedProviders] = useState<Provider[]>([])
   const [strategy, setStrategy] = useState<FetchStrategy>('fallback')
   const [timeout, setTimeout_] = useState(30)
   const [showAdvanced, setShowAdvanced] = useState(false)
@@ -148,9 +177,11 @@ export function useFetchPage() {
   const [startIndex, setStartIndex] = useState(0)
   const [maxLength, setMaxLength] = useState<number | undefined>(undefined)
   const [respectRobots, setRespectRobots] = useState(false)
-  const [providerOptions, setProviderOptions] = useState<FetchProviderOption[]>(
-    DEFAULT_FETCH_PROVIDER_OPTIONS,
-  )
+  const [providerOptions, setProviderOptions] = useState<FetchProviderOption[]>([])
+  const [providerState, setProviderState] = useState<FetchProviderState>({
+    status: 'loading',
+    message: t('fetch.providersVerifying'),
+  })
   const [fetchState, setFetchState] = useState<FetchState>({ status: 'idle', message: null })
   const [results, setResults] = useState<FetchResponse | null>(null)
   const [expandedItems, setExpandedItems] = useState<Set<number>>(new Set())
@@ -166,21 +197,31 @@ export function useFetchPage() {
 
   useEffect(() => {
     let cancelled = false
-    api.getSources()
-      .then((res) => {
-        const nextOptions = mergeFetchProviderOptions(res.sources)
-        if (!cancelled) {
-          setProviderOptions(nextOptions)
-          setSelectedProviders((prev) => normalizeSelectedProviders(prev, nextOptions))
+    void api.getSources()
+      .then((catalog) => {
+        if (cancelled) return
+        const nextOptions = mergeFetchProviderOptions(catalog.sources, t)
+        setProviderOptions(nextOptions)
+        setSelectedProviders((prev) => normalizeSelectedProviders(prev, nextOptions))
+
+        if (nextOptions.some((option) => option.availability === 'unknown')) {
+          setProviderState({ status: 'error', message: t('fetch.providersRuntimeUnavailable') })
+          return
         }
+
+        const available = nextOptions.filter((option) => option.available).length
+        setProviderState({
+          status: 'ready',
+          message: available > 0
+            ? t('fetch.providersVerified', { available, total: nextOptions.length })
+            : t('fetch.noAvailableProviders'),
+        })
       })
       .catch(() => {
-        if (!cancelled) {
-          setProviderOptions(DEFAULT_FETCH_PROVIDER_OPTIONS)
-          setSelectedProviders((prev) =>
-            normalizeSelectedProviders(prev, DEFAULT_FETCH_PROVIDER_OPTIONS),
-          )
-        }
+        if (cancelled) return
+        setProviderOptions([])
+        setSelectedProviders([])
+        setProviderState({ status: 'error', message: t('fetch.providersCatalogUnavailable') })
       })
     return () => {
       cancelled = true
@@ -188,10 +229,10 @@ export function useFetchPage() {
   }, [])
 
   const validUrls = parseUrls(urls)
-  const canFetch = validUrls.length > 0
+  const canFetch = validUrls.length > 0 && selectedProviders.length > 0
   const isLoading = fetchState.status === 'loading'
   const hasResults = results !== null
-  const provider = selectedProviders[0] ?? 'builtin'
+  const provider = selectedProviders[0] ?? ''
   const providerSummary = results ? formatFetchProviderSummary(results) : '—'
   const supportsExtractOptions = selectedProviders.some((item) =>
     FETCH_EXTRACT_OPTION_PROVIDERS.has(item),
@@ -361,6 +402,7 @@ export function useFetchPage() {
     strategy,
     setStrategy,
     providerOptions,
+    providerState,
     timeout,
     setTimeout_,
     showAdvanced,

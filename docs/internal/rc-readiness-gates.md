@@ -188,7 +188,9 @@ RC-ready run 可以验证从 current main 派生的 candidate；任何 secret-be
   `HF_SPACE_READ_TOKEN` 通过 private edge、`SOUWEN_SMOKE_BEARER_TOKEN` 作为 SouWen admin
   password。远端必须 `admin_open=false`；只通过 edge、不提供应用 token 时不得获得 admin。
 - Promotion 前记录可信 rollback point：旧 Space repo SHA 等于旧 runtime SHA，旧 Dockerfile
-  唯一 pin 40 位 `prior_souwen_ref`。不存在 immutable rollback point 时必须在 mutation 前停止。
+  唯一 pin 40 位 `prior_souwen_ref`，并记录 `prior_runtime_stage`；只接受 `RUNNING` / `SLEEPING`
+  稳定状态，不通过 preflight restart 改变 prior runtime。不存在 immutable rollback point 时必须
+  在 mutation 前停止。
 - Promotion 后的三段 provenance 分别是：Space repo SHA（wrapper commit）、
   `runtime.raw.sha`（必须等于 wrapper commit）、health/readiness `source_sha`（必须等于
   `candidate_sha`）。Wrapper SHA 通常不等于 SouWen source SHA。
@@ -280,6 +282,11 @@ Manifest 是候选证据索引，不承载 secret。schema 至少固定以下字
     "repo_sha": null,
     "runtime_sha": null,
     "source_sha": null,
+    "promotion_changed": null,
+    "prior_repo_sha": null,
+    "prior_runtime_sha": null,
+    "prior_source_sha": null,
+    "prior_runtime_stage": null,
     "surface_report": null,
     "capability_report": null
   },

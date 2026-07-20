@@ -68,6 +68,8 @@ function source(overrides: Partial<SourceInfo> = {}): SourceInfo {
     min_edition: 'basic',
     edition_available: true,
     edition_reason: '',
+    runtime_available: true,
+    runtime_reason: '',
     available: true,
     ...overrides,
   }

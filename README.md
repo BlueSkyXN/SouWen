@@ -86,7 +86,7 @@ souwen bilibili search "编程"
 souwen wayback cdx https://example.com
 
 # 管理
-souwen sources --available-only          # 列出当前配置下可用的数据源
+souwen sources --available-only          # 仅列出静态 gate 与当前 runtime 均可用的数据源
 souwen sources --json                    # 输出与 /api/v1/sources 一致的 Source Catalog
 souwen serve                             # 启动 API 服务 (默认 :8000)
 souwen doctor                            # 静态检查（默认 live=false，不联网）

@@ -60,7 +60,7 @@
  */
 
 import { create } from 'zustand'
-import type { UserRole, WhoamiResponse } from '../types'
+import type { Edition, EditionCapabilities, UserRole, WhoamiResponse } from '../types'
 
 type FeatureMap = Record<string, boolean | string>
 
@@ -80,6 +80,50 @@ function parseStoredFeatures(raw: string | null): FeatureMap {
   }
 }
 
+function parseStoredEdition(raw: unknown): Edition | null {
+  return raw === 'basic' || raw === 'pro' || raw === 'full' ? raw : null
+}
+
+function parseStoredEditionCapabilities(raw: unknown): EditionCapabilities | null {
+  if (!raw) return null
+  try {
+    const parsed = (
+      typeof raw === 'string' ? JSON.parse(raw) : raw
+    ) as Partial<EditionCapabilities> | null
+    if (
+      !parsed
+      || typeof parsed !== 'object'
+      || typeof parsed.llm !== 'boolean'
+      || !Array.isArray(parsed.warp_modes)
+      || !parsed.warp_modes.every((value) => typeof value === 'string')
+      || !Array.isArray(parsed.fetch_providers)
+      || !parsed.fetch_providers.every((value) => typeof value === 'string')
+      || typeof parsed.plugin_preinstalled !== 'boolean'
+    ) {
+      return null
+    }
+    return {
+      llm: parsed.llm,
+      warp_modes: parsed.warp_modes,
+      fetch_providers: parsed.fetch_providers,
+      plugin_preinstalled: parsed.plugin_preinstalled,
+    }
+  } catch {
+    return null
+  }
+}
+
+const IDENTITY_STORAGE_KEYS = [
+  'souwen_role',
+  'souwen_features',
+  'souwen_edition',
+  'souwen_editionCapabilities',
+] as const
+
+function clearIdentityStorage(storage: Storage): void {
+  for (const key of IDENTITY_STORAGE_KEYS) storage.removeItem(key)
+}
+
 function getStoredAuthStorage(): Storage | null {
   if (sessionStorage.getItem('souwen_baseUrl')) return sessionStorage
   if (localStorage.getItem('souwen_baseUrl')) return localStorage
@@ -97,6 +141,8 @@ interface AuthState {
   issuedAt: number // token 发放时间戳 (ms since epoch)；0 表示未登录
   role: UserRole // 当前角色（从 /whoami 获取）
   features: FeatureMap // 可用功能映射
+  edition: Edition | null // /whoami 声明的当前 edition；null 表示尚未验证
+  editionCapabilities: EditionCapabilities | null // edition 声明能力，不代表 runtime readiness
   setAuth: (baseUrl: string, token: string, version: string, remember?: boolean) => void
   setRole: (data: WhoamiResponse) => void // 更新角色信息
   logout: () => void
@@ -123,6 +169,8 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   issuedAt: 0,
   role: 'guest' as UserRole,
   features: {},
+  edition: null,
+  editionCapabilities: null,
 
   /**
    * 设置认证状态（登录）
@@ -146,20 +194,20 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       issuedAt,
       role: 'guest' as UserRole,
       features: {},
+      edition: null,
+      editionCapabilities: null,
     })
     // 清除两端旧数据，防止残留
     localStorage.removeItem('souwen_baseUrl')
     localStorage.removeItem('souwen_token')
     localStorage.removeItem('souwen_version')
     localStorage.removeItem('souwen_issuedAt')
-    localStorage.removeItem('souwen_role')
-    localStorage.removeItem('souwen_features')
+    clearIdentityStorage(localStorage)
     sessionStorage.removeItem('souwen_baseUrl')
     sessionStorage.removeItem('souwen_token')
     sessionStorage.removeItem('souwen_version')
     sessionStorage.removeItem('souwen_issuedAt')
-    sessionStorage.removeItem('souwen_role')
-    sessionStorage.removeItem('souwen_features')
+    clearIdentityStorage(sessionStorage)
     // 默认存 sessionStorage（标签页关闭即清除）；仅"记住我"时用 localStorage
     const storage = remember ? localStorage : sessionStorage
     storage.setItem('souwen_baseUrl', baseUrl)
@@ -177,31 +225,53 @@ export const useAuthStore = create<AuthState>((set, get) => ({
    * 更新角色信息（从 /whoami 响应）
    */
   setRole: (data: WhoamiResponse) => {
-    set({ role: data.role, features: data.features })
+    const edition = parseStoredEdition(data.edition)
+    const editionCapabilities = parseStoredEditionCapabilities(data.edition_capabilities)
+    set({
+      role: data.role,
+      features: data.features,
+      edition,
+      editionCapabilities,
+    })
     // 持久化角色到当前存储
     const storage = localStorage.getItem('souwen_remember') ? localStorage : sessionStorage
     storage.setItem('souwen_role', data.role)
     storage.setItem('souwen_features', JSON.stringify(data.features))
+    if (edition) storage.setItem('souwen_edition', edition)
+    else storage.removeItem('souwen_edition')
+    if (editionCapabilities) {
+      storage.setItem('souwen_editionCapabilities', JSON.stringify(editionCapabilities))
+    } else {
+      storage.removeItem('souwen_editionCapabilities')
+    }
   },
 
   /**
    * 清空所有认证状态和本地存储
    */
   logout: () => {
-    set({ baseUrl: '', token: '', isAuthenticated: false, version: '', issuedAt: 0, role: 'guest' as UserRole, features: {} })
+    set({
+      baseUrl: '',
+      token: '',
+      isAuthenticated: false,
+      version: '',
+      issuedAt: 0,
+      role: 'guest' as UserRole,
+      features: {},
+      edition: null,
+      editionCapabilities: null,
+    })
     localStorage.removeItem('souwen_baseUrl')
     localStorage.removeItem('souwen_token')
     localStorage.removeItem('souwen_version')
     localStorage.removeItem('souwen_issuedAt')
     localStorage.removeItem('souwen_remember')
-    localStorage.removeItem('souwen_role')
-    localStorage.removeItem('souwen_features')
+    clearIdentityStorage(localStorage)
     sessionStorage.removeItem('souwen_baseUrl')
     sessionStorage.removeItem('souwen_token')
     sessionStorage.removeItem('souwen_version')
     sessionStorage.removeItem('souwen_issuedAt')
-    sessionStorage.removeItem('souwen_role')
-    sessionStorage.removeItem('souwen_features')
+    clearIdentityStorage(sessionStorage)
   },
 
   /**
@@ -223,8 +293,22 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const issuedAt = Number(issuedAtRaw) || 0
     const role = (storage.getItem('souwen_role') ?? 'guest') as UserRole
     const features = parseStoredFeatures(storage.getItem('souwen_features'))
+    const edition = parseStoredEdition(storage.getItem('souwen_edition'))
+    const editionCapabilities = parseStoredEditionCapabilities(
+      storage.getItem('souwen_editionCapabilities'),
+    )
     if (baseUrl) {
-      set({ baseUrl, token, isAuthenticated: true, version, issuedAt, role, features })
+      set({
+        baseUrl,
+        token,
+        isAuthenticated: true,
+        version,
+        issuedAt,
+        role,
+        features,
+        edition,
+        editionCapabilities,
+      })
     }
   },
 

@@ -759,6 +759,120 @@ class TestAdminAuth:
 
         assert resp.status_code == 401
 
+    def test_user_doctor_sanitizes_runtime_loader_exception(self, client, monkeypatch):
+        """匿名可读 doctor 不能回显 plugin loader 的路径、DSN 或 token。"""
+        import souwen.doctor as doctor_mod
+
+        raw_error = (
+            "arxiv: RuntimeError: /Users/private/plugin.py "
+            "postgresql://user:password@db.internal/source token=doctor-secret"
+        )
+        monkeypatch.setattr(
+            doctor_mod,
+            "check_all",
+            lambda: [
+                _doctor_source(
+                    "arxiv",
+                    "unavailable",
+                    runtime_available=False,
+                    runtime_reason=raw_error,
+                    message=raw_error,
+                    available=False,
+                )
+            ],
+        )
+
+        resp = client.get("/api/v1/doctor")
+
+        assert resp.status_code == 200
+        source = resp.json()["sources"][0]
+        assert source["runtime_reason"] == "arxiv: client loader unavailable"
+        assert source["message"] == "arxiv: client loader unavailable"
+        assert raw_error not in resp.text
+        assert "/Users/private" not in resp.text
+        assert "postgresql://" not in resp.text
+        assert "doctor-secret" not in resp.text
+
+    def test_admin_doctor_also_sanitizes_runtime_loader_exception(
+        self,
+        authed_client,
+        monkeypatch,
+    ):
+        """Admin REST diagnostics remain protected but still must not echo arbitrary secrets."""
+        import souwen.doctor as doctor_mod
+
+        raw_error = "arxiv: RuntimeError: token=admin-doctor-secret"
+        monkeypatch.setattr(
+            doctor_mod,
+            "check_all",
+            lambda: [
+                _doctor_source(
+                    "arxiv",
+                    "unavailable",
+                    runtime_available=False,
+                    runtime_reason=raw_error,
+                    message=raw_error,
+                    available=False,
+                )
+            ],
+        )
+
+        resp = authed_client.get(
+            "/api/v1/admin/doctor",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+
+        assert resp.status_code == 200
+        source = resp.json()["sources"][0]
+        assert source["runtime_reason"] == "arxiv: client loader unavailable"
+        assert source["message"] == "arxiv: client loader unavailable"
+        assert "admin-doctor-secret" not in resp.text
+
+    def test_user_doctor_sanitizes_live_probe_exception(self, client, monkeypatch):
+        """Explicit REST live probes expose outcome classes, not provider exception secrets."""
+        import souwen.doctor as doctor_mod
+
+        async def fake_check_all_live(sources=None, timeout=5.0):
+            del sources, timeout
+            return [
+                _doctor_source(
+                    "arxiv",
+                    "ok",
+                    live_probe={
+                        "status": "failed",
+                        "message": "timed out after token=live-doctor-secret",
+                        "elapsed_ms": 1,
+                    },
+                ),
+                _doctor_source(
+                    "crossref",
+                    "ok",
+                    live_probe={
+                        "status": "failed",
+                        "message": "timed out after 5s",
+                        "elapsed_ms": 5000,
+                    },
+                ),
+            ]
+
+        monkeypatch.setattr(doctor_mod, "check_all_live", fake_check_all_live)
+
+        resp = client.get("/api/v1/doctor?live=true&source=arxiv")
+
+        assert resp.status_code == 200
+        sources = _sources_by_name(resp.json())
+        assert sources["arxiv"]["live_probe"] == {
+            "status": "failed",
+            "message": "live probe failed",
+            "elapsed_ms": 1,
+        }
+        assert sources["crossref"]["live_probe"] == {
+            "status": "failed",
+            "message": "timed out after 5s",
+            "elapsed_ms": 5000,
+        }
+        assert "live-doctor-secret" not in resp.text
+
     def test_admin_sources_config_includes_catalog_fields(self, authed_client):
         """数据源频道配置应返回 source catalog 字段，供前端展示和运维判断。"""
         resp = authed_client.get(
@@ -1170,7 +1284,68 @@ class TestSearchAuth:
         assert openalex["min_edition"] == "pro"
         assert openalex["edition_available"] is True
         assert openalex["edition_reason"] == ""
+        assert isinstance(openalex["runtime_available"], bool)
+        assert isinstance(openalex["runtime_reason"], str)
         assert openalex["available"] is True
+
+    def test_sources_exposes_runtime_axis_without_changing_available(
+        self,
+        authed_client,
+        monkeypatch,
+    ):
+        """Public catalog reports missing imports separately from its compatibility field."""
+        from souwen.feature_matrix import RuntimeProbe
+
+        def fake_probe(adapter):
+            if adapter.name == "openalex":
+                return RuntimeProbe(False, "openalex: missing modules: optional_sdk")
+            return RuntimeProbe(True)
+
+        monkeypatch.setattr("souwen.feature_matrix.probe_adapter_runtime", fake_probe)
+
+        resp = authed_client.get(
+            "/api/v1/sources",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+        assert resp.status_code == 200
+        openalex = _sources_by_name(resp.json())["openalex"]
+        assert openalex["edition_available"] is True
+        assert openalex["runtime_available"] is False
+        assert openalex["runtime_reason"] == "openalex: missing modules: optional_sdk"
+        assert openalex["available"] is True
+
+    def test_sources_sanitizes_runtime_loader_exception(
+        self,
+        authed_client,
+        monkeypatch,
+    ):
+        """Public REST payload must not expose loader paths, DSNs, or tokens."""
+        from souwen.feature_matrix import RuntimeProbe
+
+        raw_error = (
+            "RuntimeError: /Users/private/plugin.py "
+            "postgresql://user:password@db.internal/source token=rest-secret"
+        )
+
+        def fake_probe(adapter):
+            if adapter.name == "openalex":
+                return RuntimeProbe(False, f"openalex: {raw_error}")
+            return RuntimeProbe(True)
+
+        monkeypatch.setattr("souwen.feature_matrix.probe_adapter_runtime", fake_probe)
+
+        resp = authed_client.get(
+            "/api/v1/sources",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+        assert resp.status_code == 200
+        openalex = _sources_by_name(resp.json())["openalex"]
+        assert openalex["runtime_available"] is False
+        assert openalex["runtime_reason"] == "openalex: client loader unavailable"
+        assert raw_error not in resp.text
+        assert "/Users/private" not in resp.text
+        assert "postgresql://" not in resp.text
+        assert "rest-secret" not in resp.text
 
     def test_sources_marks_edition_unavailable_without_hiding_source(self, client, monkeypatch):
         """/sources 保留当前 edition 不可用的源，但标注版本原因且不可调度。"""

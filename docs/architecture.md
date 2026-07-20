@@ -148,10 +148,12 @@ client_cls = adapter.client_loader()  # 此刻才 importlib.import_module
 `needs_config`、`config_field` 与 `tags={"high_risk"}` 会派生到正式 catalog 视图中；展示范围和成熟度使用 `catalog_visibility` / `stability` 显式声明。
 
 这些字段不能互相替代：`stability` 是声明式接入成熟度，不是当次连通性；公开
-`/api/v1/sources[].available` 只组合 edition、频道启用和凭据满足情况。doctor 的
-静态状态会额外把 deprecated 源标为不可用、把 experimental scraper 标为 warning，
-但仍不会联网；只有显式 `live=true` 返回的 `live_probe` 才是当次外部观测，而且不会
-回写 registry 的 `stability` 或静态 `available`。
+`/api/v1/sources[].available` 只组合 edition、频道启用和凭据满足情况；同一条目的
+`runtime_available` / `runtime_reason` 独立报告本地 loader 与 optional dependency
+importability。需要本地有效可执行性时合取两轴。doctor 的静态状态会额外把 deprecated 源
+标为不可用、把 experimental scraper 标为 warning，但仍不会联网；只有显式 `live=true`
+返回的 `live_probe` 才是当次外部观测，而且不会回写 registry 的 `stability` 或静态
+`available`。
 
 ---
 

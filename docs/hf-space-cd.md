@@ -31,7 +31,9 @@ private Space 的 edge 访问仍需 Hugging Face READ token；进入应用后，
 
 Central workflow 的默认输入是 `publish=false`、`deploy_hfs=false`。默认运行只生成 RC-ready
 证据和 release bundle，不创建 tag/Release，也不写 HFS。`deploy_hfs=true` 时，candidate 必须
-等于当前 `origin/main`；不能从未合入分支向持有 secrets 的部署 job 注入 verifier。
+等于当前 `origin/main`；不能从未合入分支向持有 secrets 的部署 job 注入 verifier。Central
+caller 不使用 `secrets: inherit`；所有 HF 凭据只在 reusable workflow 内绑定 `hf` environment
+的 job 中解析。
 
 ### Local preflight
 
@@ -87,10 +89,12 @@ SHA。
 
 远端 promotion 依次执行：
 
-1. 在任何 wrapper mutation 前唤醒旧 runtime（若处于 sleeping），要求旧 Space repo SHA 与
-   runtime SHA 相等，并从旧 Dockerfile 解析唯一的 40 位 `SOUWEN_REF`。
+1. 在任何 wrapper mutation 前只读旧 runtime；仅接受 `RUNNING` 或 `SLEEPING` 且旧 Space
+   repo SHA 与 runtime SHA 相等的稳定状态。`PAUSED`、error state 或 SHA 漂移必须在写入前
+   fail closed，不通过提前 restart 改变旧 runtime 状态。
 2. 记录 `prior_space_commit_sha`、`prior_runtime_commit_sha`、`prior_souwen_ref`。旧部署没有
-   immutable source pin 时，在写入前停止，不能回退到 floating `main`。
+   immutable source pin 时，在写入前停止，不能回退到 floating `main`；同时记录
+   `prior_runtime_stage` 供 manifest 和恢复审计。
 3. 只同步受管的四个 wrapper 文件；diff 固定读取 prior revision，`create_commit` 使用
    `parent_commit=<prior_space_commit_sha>` 防止外部 writer 造成 TOCTOU。
 4. Factory rebuild，等待 Space repo SHA 与 runtime SHA 等于新的 wrapper commit。
@@ -98,11 +102,15 @@ SHA。
 
 若 sync 已取得 rollback point，而 sync/rebuild/post-smoke 任一阶段失败：
 
-- workflow 以 forward commit 恢复 prior revision 的四个受管文件，并再次 factory rebuild；
-- 恢复后的 repo/runtime SHA 等于新的 rollback commit，health/readiness `source_sha` 等于
-  `prior_souwen_ref`；不会 force-rewrite 历史；
-- 如果发现未知外部 writer、恢复/rebuild/readback 失败，或没有可区分的 rollback commit，
-  workflow 调用 `pause_space` 并验证 `PAUSED`；
+- wrapper 已改变时，workflow 以 forward commit 恢复 prior revision 的四个受管文件，并再次
+  factory rebuild；
+- 若失败发生在 wrapper 真正改变前、当前 head 仍等于 prior SHA，则不创建 no-op commit，直接
+  factory rebuild 并验证 prior repo/runtime/source 三段状态；验证失败才进入 pause；
+- 创建 forward rollback 时，恢复后的 repo/runtime SHA 等于新的 rollback commit；no-op 恢复
+  则仍等于 prior SHA。两条路径的 health/readiness `source_sha` 都必须等于
+  `prior_souwen_ref`，且都不会 force-rewrite 历史；
+- 如果发现未知外部 writer，或恢复/rebuild/readback 失败，workflow 调用 `pause_space` 并验证
+  `PAUSED`；
 - 原 promotion 仍保持失败，rollback 成功不能把失败验收伪装为 PASS。
 
 GitHub Actions 的 cancel、runner 丢失或平台故障不能保证 rollback job 一定启动，因此失败通知

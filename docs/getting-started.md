@@ -44,7 +44,8 @@ souwen sources --available-only
 ```
 
 `souwen sources --json` 返回与 `/api/v1/sources` 一致的 Source Catalog
-结构，适合前端、脚本和部署检查复用。
+结构，适合前端、脚本和部署检查复用。`--available-only` 只保留静态
+edition/config/credentials gate 与当前 runtime importability 同时通过的条目；它不执行联网探测。
 
 ## Python 调用
 

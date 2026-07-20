@@ -135,8 +135,18 @@ class TestCheckAll:
             get_config.cache_clear()
 
     def test_basic_edition_marks_pro_sources_upgrade_required(self, monkeypatch):
-        """basic edition 下 pro 源应报告需升级，并且不计为可用。"""
+        """basic edition 下 pro 源应报告需升级，不 probe loader，也不计为可用。"""
+        import souwen.doctor as doctor_module
+
+        probed: list[str] = []
+        original_probe = doctor_module.probe_adapter_runtime
+
+        def recording_probe(adapter):
+            probed.append(adapter.name)
+            return original_probe(adapter)
+
         monkeypatch.setenv("SOUWEN_EDITION", "basic")
+        monkeypatch.setattr(doctor_module, "probe_adapter_runtime", recording_probe)
         from souwen.config import get_config
 
         get_config.cache_clear()
@@ -150,13 +160,19 @@ class TestCheckAll:
             assert openalex["edition"] == "basic"
             assert openalex["edition_available"] is False
             assert "source 'openalex' requires edition=pro" in openalex["edition_reason"]
+            assert openalex["runtime_available"] is False
+            assert openalex["runtime_reason"] == (
+                "runtime not probed because " + openalex["edition_reason"]
+            )
             assert openalex["message"] == openalex["edition_reason"]
             assert openalex["available"] is False
+            assert "openalex" not in probed
 
             assert crossref["min_edition"] == "basic"
             assert crossref["edition_available"] is True
             assert crossref["edition_reason"] == ""
             assert crossref["available"] is True
+            assert "crossref" in probed
         finally:
             get_config.cache_clear()
 

@@ -45,7 +45,11 @@
   24 providers（17 个主 `domain=fetch` + 7 个跨域源）。这些数字由 `gen_docs.py` 从
   registry 派生，不再在 README/architecture 手工维护。
 - Catalog 支持完整多字段凭据、optional credential effect、self-hosted `base_url`、
-  `available_by_default`、category/visibility 和 edition metadata。
+  `available_by_default`、category/visibility、edition metadata，以及独立的
+  `runtime_available` / `runtime_reason` importability 轴；兼容字段 `available` 仍保持
+  edition/config/credentials 静态语义；`souwen sources --available-only` 明确合取两轴，
+  公开 Catalog、MCP discovery 与 REST doctor 对任意 client loader/provider 异常使用稳定
+  脱敏原因；edition-gated adapter 不再被 doctor 探测，本地 CLI 对允许项继续保留详细诊断。
 - Patent catalog 新增/恢复 PatentsView 与 PQAI；Google Patents 的真实页面/API 回退、解析和
   experimental scraper 口径得到加强。
 - Tavily、Firecrawl、Exa、XCrawl、Kimi Code、Metaso 与 Wayback 通过 registry
@@ -62,7 +66,8 @@
   browser pool、robots 和 provider error mapping 进入统一边界。
 - LLM summarize / fetch-summarize 支持 OpenAI-compatible chat、Responses 与 Anthropic
   Messages 协议，统一 timeout、usage metadata、edition gate 和错误响应。
-- MCP tool schema 从 registry/feature matrix 派生；支持 edition-aware fetch provider、
+- MCP tool schema 从 registry/feature matrix 派生；fetch provider projection 分离 edition 声明、
+  runtime 可导入项、缺依赖项与升级项，不再把声明能力称为“当前可选”；同时支持
   multi-provider strategy、links/sitemap 和 Bilibili 工具，并在 stdio 启动时加载配置插件。
 
 ### Doctor, API and security
@@ -89,6 +94,9 @@
   multi-provider、source availability、responsive 与 keyboard/accessibility 状态。
 - Panel API base、token persistence、login/logout、source status、config editor 和插件页面与
   新 server contract 对齐；单文件 artifact 仍由 `build:local` 生成，不手改 `panel.html`。
+- Panel 持久化 `/whoami` 的 `edition` / `edition_capabilities` 声明；Fetch selector 只消费 live
+  Source Catalog，并按需升级、缺依赖、缺凭据、静态不可用和 runtime 未知分别 fail closed，
+  不再以硬编码 provider 清单作为离线可执行 fallback。
 
 ### Packaging and deployment
 

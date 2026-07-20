@@ -3,13 +3,17 @@ from __future__ import annotations
 import json
 
 from souwen.feature_matrix import (
+    FetchProviderRuntimeStatus,
     LLM_PROVIDER_MODULES,
     ProbeResult,
     RuntimeProbe,
+    fetch_provider_runtime_projection,
     probe_adapter_runtime,
     probe_capabilities,
     probe_modules,
     probe_results_to_dict,
+    public_adapter_runtime_probe,
+    sanitize_public_runtime_probe,
 )
 from souwen.registry.adapter import FETCH_DOMAIN, MethodSpec, SourceAdapter
 
@@ -85,6 +89,92 @@ def test_probe_adapter_runtime_combines_loader_and_optional_modules(monkeypatch)
         False,
         "missing modules: mcp, another_module",
     )
+
+
+def test_public_adapter_runtime_probe_redacts_loader_exception(monkeypatch) -> None:
+    secret = "postgresql://user:password@private.internal/db token=runtime-secret"
+    broken = _adapter("broken", domain=FETCH_DOMAIN, loader_error=RuntimeError(secret))
+    mcp = _adapter("mcp", domain=FETCH_DOMAIN, package_extra="mcp")
+    monkeypatch.setattr("souwen.feature_matrix.importlib.util.find_spec", lambda _module: None)
+
+    assert public_adapter_runtime_probe(broken) == RuntimeProbe(
+        False,
+        "broken: client loader unavailable",
+    )
+    assert secret not in public_adapter_runtime_probe(broken).reason
+    assert public_adapter_runtime_probe(mcp) == RuntimeProbe(
+        False,
+        "mcp: missing modules: mcp",
+    )
+    assert sanitize_public_runtime_probe(
+        "gated",
+        RuntimeProbe(False, "runtime not probed because edition requires pro"),
+    ) == RuntimeProbe(False, "runtime not probed because edition requires pro")
+
+
+def test_fetch_provider_runtime_projection_separates_edition_and_missing_runtime(
+    monkeypatch,
+) -> None:
+    """Basic declarations must not turn missing SDKs or pro providers into available IDs."""
+
+    builtin = _adapter("builtin", domain=FETCH_DOMAIN)
+    mcp = _adapter("mcp", domain=FETCH_DOMAIN, package_extra="mcp")
+    jina = _adapter("jina_reader", domain=FETCH_DOMAIN)
+
+    import souwen.registry as registry
+
+    monkeypatch.setattr(registry, "fetch_providers", lambda: [jina, mcp, builtin])
+    monkeypatch.setattr("souwen.feature_matrix.importlib.util.find_spec", lambda _module: None)
+
+    statuses = {item.name: item for item in fetch_provider_runtime_projection("basic")}
+
+    assert statuses["builtin"] == FetchProviderRuntimeStatus(
+        name="builtin",
+        min_edition="basic",
+        edition_available=True,
+        runtime_available=True,
+    )
+    assert statuses["mcp"] == FetchProviderRuntimeStatus(
+        name="mcp",
+        min_edition="basic",
+        edition_available=True,
+        runtime_available=False,
+        runtime_reason="mcp: missing modules: mcp",
+    )
+    assert statuses["jina_reader"].min_edition == "pro"
+    assert statuses["jina_reader"].edition_available is False
+    assert "requires edition=pro" in statuses["jina_reader"].edition_reason
+    assert statuses["jina_reader"].runtime_available is False
+    assert statuses["jina_reader"].runtime_reason.startswith("runtime not probed because ")
+
+
+def test_fetch_provider_runtime_projection_reflects_full_browser_variant(
+    monkeypatch,
+) -> None:
+    """A full Crawl4AI build must not claim the mutually exclusive Scrapling runtime."""
+
+    crawl4ai = _adapter("crawl4ai", domain=FETCH_DOMAIN, package_extra="crawl4ai")
+    scrapling = _adapter("scrapling", domain=FETCH_DOMAIN, package_extra="scrapling")
+
+    import souwen.registry as registry
+
+    monkeypatch.setattr(registry, "fetch_providers", lambda: [scrapling, crawl4ai])
+    monkeypatch.setattr(
+        "souwen.feature_matrix.importlib.util.find_spec",
+        lambda module: object() if module == "crawl4ai" else None,
+    )
+
+    statuses = {item.name: item for item in fetch_provider_runtime_projection("full")}
+
+    assert statuses["crawl4ai"].edition_available is True
+    assert statuses["crawl4ai"].runtime_available is True
+    assert statuses["crawl4ai"].available is True
+    assert statuses["scrapling"].edition_available is True
+    assert statuses["scrapling"].runtime_available is False
+    assert statuses["scrapling"].runtime_reason == (
+        "scrapling: missing modules: scrapling.fetchers"
+    )
+    assert statuses["scrapling"].available is False
 
 
 def test_probe_capabilities_reports_optional_package_extra_importability(monkeypatch) -> None:

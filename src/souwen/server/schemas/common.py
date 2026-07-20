@@ -60,6 +60,8 @@ class SourceCatalogItem(BaseModel):
     min_edition: Literal["basic", "pro", "full"]
     edition_available: bool
     edition_reason: str = ""
+    runtime_available: bool
+    runtime_reason: str = ""
     available: bool
 
 

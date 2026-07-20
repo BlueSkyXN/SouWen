@@ -47,6 +47,8 @@ def test_sources_endpoint_exposes_source_catalog_contract() -> None:
         "min_edition",
         "edition_available",
         "edition_reason",
+        "runtime_available",
+        "runtime_reason",
         "available",
     } <= set(source_props)
 

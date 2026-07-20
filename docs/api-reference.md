@@ -279,7 +279,7 @@ souwen config source <name> [--backend auto|curl_cffi|httpx] [--base-url URL]
 ```bash
 souwen sources                         # 列出公开 Source Catalog
 souwen sources --json                  # 输出与 /api/v1/sources 一致的 JSON
-souwen sources --available-only        # 仅列出当前配置下可执行源
+souwen sources --available-only        # 仅列出静态 gate 与当前 runtime 均可用的源
 souwen sources --category web_general  # 按正式 catalog category 过滤
 souwen sources --capability search     # 按能力过滤
 ```
@@ -554,7 +554,7 @@ Cache-Control: public, max-age=3600
 
 #### `GET /api/v1/sources`
 
-列出公开 Source Catalog。未设置 `user_password` 时开放；设置 `user_password` 后要求 User+，即使启用 guest 模式也不降级开放。返回值从运行时 live registry 派生，内置源和运行时插件都以 `sources[]` 列表返回；源被禁用、必须凭据缺失、自建实例未配置或当前 `SOUWEN_EDITION` 不允许时仍保留 catalog 条目，但 `available=false`。
+列出公开 Source Catalog。未设置 `user_password` 时开放；设置 `user_password` 后要求 User+，即使启用 guest 模式也不降级开放。返回值从运行时 live registry 派生，内置源和运行时插件都以 `sources[]` 列表返回；源被禁用、必须凭据缺失、自建实例未配置或当前 `SOUWEN_EDITION` 不允许时仍保留 catalog 条目，但 `available=false`。Optional runtime importability 通过独立的 `runtime_available` / `runtime_reason` 返回，不改变既有字段 `available`；本地有效可执行性要求合取两轴。
 
 **响应示例：**
 ```json
@@ -577,6 +577,8 @@ Cache-Control: public, max-age=3600
       "min_edition": "pro",
       "edition_available": true,
       "edition_reason": "",
+      "runtime_available": true,
+      "runtime_reason": "",
       "available": true
     }
   ],
@@ -612,6 +614,8 @@ Cache-Control: public, max-age=3600
 | `min_edition` | 使用该源所需的最低功能档位：`basic` / `pro` / `full` |
 | `edition_available` | 当前 `SOUWEN_EDITION` 是否允许该源 |
 | `edition_reason` | `edition_available=false` 时的不可用原因；允许时为空字符串 |
+| `runtime_available` | 当前进程能否加载 client implementation 与声明的 optional dependency；不联网、不检查凭据 |
+| `runtime_reason` | `runtime_available=false` 时的缺依赖、稳定脱敏 loader 原因或 edition 未探测原因；公开响应不回显任意 loader exception 文本 |
 | `available` | 静态 catalog gate：等于未禁用、`credentials_satisfied=true` 且 `edition_available=true`；不代表上游实时可达，也不等于 `stability` |
 | `risk_level` | 默认调度风险：`low` / `medium` / `high` |
 | `distribution` | 分发范围：`core` / `extra` / `plugin` |
@@ -637,14 +641,17 @@ Cache-Control: public, max-age=3600
 `search` capability 的目标源执行最小真实搜索；顶层 `live_probe` 汇总本次
 `ok` / `failed` / `skipped`，对应 `sources[].live_probe` 记录当次观测。未被选择或
 不满足探测条件的源不会被伪装成 live success，live probe 也不会改写静态
-`status`、`available` 或 registry `stability`。
+`status`、`available` 或 registry `stability`。REST 响应保留超时、限流和失败等
+观测类别，但不会回显 provider/loader 的任意 exception 文本；本地 CLI 仍可用于详细诊断。
 
 顶层 `edition` 是当前 `SOUWEN_EDITION`，每个 `sources[]` 条目包含
 `min_edition` / `edition_available` / `edition_reason`、`runtime_available` /
 `runtime_reason`、`credentials_satisfied`、`config_available` / `config_reason` 和
 `available`，用于把“需升级”“运行依赖缺失”“缺凭据”“手动禁用”和成熟度状态分开。
 其中 `runtime_available` 只检查当前进程能否加载实现与声明的 optional dependency，
-不会实例化 browser 或联网；`config_available` 是 enabled 与 required credentials 的合取；
+不会实例化 browser 或联网；当前 edition 明确禁止的源不会加载其 client/module，而是返回
+`runtime_available=false` 与稳定的 `runtime not probed because ...` 原因。`config_available` 是
+enabled 与 required credentials 的合取；
 最终静态 `available` 是 edition、runtime、config 与可用 status 的合取。`available` 汇总
 `ok` / `limited` / `warning` / `degraded`，`degraded_total` 统计
 `limited` / `warning` / `degraded`；`degraded` 是 `degraded_total` 的同义字段，

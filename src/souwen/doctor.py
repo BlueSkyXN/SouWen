@@ -55,7 +55,7 @@ from souwen.editions import (
     source_policy,
     warp_mode_policy,
 )
-from souwen.feature_matrix import probe_adapter_runtime
+from souwen.feature_matrix import RuntimeProbe, probe_adapter_runtime
 from souwen.provenance import get_source_sha
 from souwen.registry.catalog import source_catalog
 from souwen.registry.meta import (
@@ -578,7 +578,11 @@ def check_all() -> list[dict]:
         if adapter is None:  # pragma: no cover - catalog 与 registry 同源，防御漂移
             raise KeyError(f"missing registry adapter for source {name!r}")
         edition = source_policy(adapter, cfg.edition)
-        runtime = probe_adapter_runtime(adapter)
+        runtime = (
+            probe_adapter_runtime(adapter)
+            if edition.available
+            else RuntimeProbe(False, f"runtime not probed because {edition.reason}")
+        )
         field = meta.config_field
         missing_fields = missing_credential_fields(cfg, name, meta)
         has_all_credentials = not missing_fields

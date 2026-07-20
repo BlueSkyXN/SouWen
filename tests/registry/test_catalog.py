@@ -287,12 +287,98 @@ def test_public_source_catalog_payload_includes_edition_metadata() -> None:
     assert arxiv["min_edition"] == "basic"
     assert arxiv["edition_available"] is True
     assert arxiv["edition_reason"] == ""
+    assert isinstance(arxiv["runtime_available"], bool)
+    assert isinstance(arxiv["runtime_reason"], str)
     assert arxiv["available"] is True
 
     openalex = sources["openalex"]
     assert openalex["min_edition"] == "pro"
     assert openalex["edition_available"] is False
     assert "source 'openalex' requires edition=pro" in openalex["edition_reason"]
+    assert openalex["available"] is False
+
+
+def test_public_source_catalog_payload_exposes_runtime_without_redefining_available(
+    monkeypatch,
+) -> None:
+    """The additive runtime axis must not silently change the compatibility field."""
+    from souwen.feature_matrix import RuntimeProbe
+
+    def fake_probe(adapter: SourceAdapter) -> RuntimeProbe:
+        if adapter.name == "openalex":
+            return RuntimeProbe(False, "openalex: missing modules: optional_sdk")
+        return RuntimeProbe(True)
+
+    monkeypatch.setattr("souwen.feature_matrix.probe_adapter_runtime", fake_probe)
+
+    payload = public_source_catalog_payload(SouWenConfig(edition="pro"))
+    openalex = next(item for item in payload["sources"] if item["name"] == "openalex")
+
+    assert openalex["edition_available"] is True
+    assert openalex["runtime_available"] is False
+    assert openalex["runtime_reason"] == "openalex: missing modules: optional_sdk"
+    assert openalex["available"] is True
+
+
+def test_public_source_catalog_payload_sanitizes_client_loader_exception(
+    clean_registry,
+) -> None:
+    """Public catalog must not expose paths, DSNs, or tokens from a failing plugin loader."""
+    secret_text = (
+        "failed at /Users/private/customer/plugin.py "
+        "postgresql://user:password@db.internal/source token=runtime-secret"
+    )
+
+    def failing_loader() -> type:
+        raise RuntimeError(secret_text)
+
+    adapter = SourceAdapter(
+        name="catalog_sensitive_loader_probe",
+        domain="web",
+        integration="official_api",
+        description="sensitive loader probe",
+        config_field=None,
+        client_loader=failing_loader,
+        methods={"search": MethodSpec("search")},
+        auth_requirement="none",
+    )
+    assert _reg_external(adapter) is True
+
+    payload = public_source_catalog_payload(SouWenConfig(edition="full"))
+    source = next(item for item in payload["sources"] if item["name"] == adapter.name)
+    serialized = str(payload)
+
+    assert source["runtime_available"] is False
+    assert source["runtime_reason"] == ("catalog_sensitive_loader_probe: client loader unavailable")
+    assert secret_text not in serialized
+    assert "/Users/private" not in serialized
+    assert "postgresql://" not in serialized
+    assert "runtime-secret" not in serialized
+
+
+def test_public_source_catalog_payload_does_not_probe_edition_gated_sources(
+    monkeypatch,
+) -> None:
+    """Basic catalog discovery must not import implementations excluded by its edition."""
+    from souwen.feature_matrix import RuntimeProbe
+
+    probed: list[str] = []
+
+    def fake_probe(adapter: SourceAdapter) -> RuntimeProbe:
+        probed.append(adapter.name)
+        return RuntimeProbe(True)
+
+    monkeypatch.setattr("souwen.feature_matrix.probe_adapter_runtime", fake_probe)
+
+    payload = public_source_catalog_payload(SouWenConfig(edition="basic"))
+    openalex = next(item for item in payload["sources"] if item["name"] == "openalex")
+
+    assert "openalex" not in probed
+    assert openalex["edition_available"] is False
+    assert openalex["runtime_available"] is False
+    assert openalex["runtime_reason"] == (
+        "runtime not probed because source 'openalex' requires edition=pro, current edition=basic"
+    )
     assert openalex["available"] is False
 
 

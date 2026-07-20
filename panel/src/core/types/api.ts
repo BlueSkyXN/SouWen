@@ -97,6 +97,9 @@ export interface SourceInfo {
   min_edition: Edition
   edition_available: boolean
   edition_reason: string
+  /** Additive runtime probe fields; absent on older servers and therefore not proof of availability. */
+  runtime_available?: boolean
+  runtime_reason?: string
   available: boolean
 }
 
@@ -787,8 +790,10 @@ export interface EditionCapabilities {
 export interface WhoamiResponse {
   role: UserRole
   features: Record<string, boolean | string>
-  edition: Edition
-  edition_capabilities: EditionCapabilities
+  /** Added in v2; absent on older servers and normalized to null by authStore. */
+  edition?: Edition
+  /** Edition declaration only; absence does not imply runtime capability. */
+  edition_capabilities?: EditionCapabilities
   guest_enabled: boolean
   user_password_set: boolean
   admin_password_set: boolean

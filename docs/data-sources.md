@@ -21,7 +21,7 @@
 
 - 本页主表按 registry domain 展示：`paper` / `patent` / `web` / `social` / `video` / `knowledge` / `developer` / `cn_tech` / `office` / `archive` / `fetch`。
 - 正式 Source Catalog 使用展示分类：`paper`（学术论文） / `patent`（专利） / `web_general`（通用网页搜索） / `web_professional`（专业网页搜索） / `social`（社交平台） / `office`（企业/办公） / `developer`（开发者社区） / `knowledge`（百科/知识库） / `cn_tech`（中文技术社区） / `video`（视频平台） / `archive`（档案/历史） / `fetch`（内容抓取）。
-- `/api/v1/sources`、CLI 和 Panel 使用同一份公开 Source Catalog：`sources[]` 保留全部公开条目，并用 `category`、`domain`、`capabilities`、`available` 描述展示和运行时可用性。
+- `/api/v1/sources`、CLI 和 Panel 使用同一份公开 Source Catalog：`sources[]` 保留全部公开条目，并用 `category`、`domain`、`capabilities`、`available` 描述 edition、启用状态和凭据形成的静态 policy/config readiness；`runtime_available` / `runtime_reason` 独立描述本地依赖 importability。
 - `Capabilities` 是门面层可派发能力；`fetch` 既可以属于主 domain，也可以由其他主 domain 源通过 `extra_domains` 声明为跨域能力。具体名单和计数均从 registry 派生。
 
 ## 配置口径
@@ -35,7 +35,7 @@
 
 `/api/v1/sources` 会从 live registry 派生公开 catalog，禁用源、缺必需凭据源和缺自建实例地址的源仍会保留条目，但 `available=false`；doctor 和管理端 `/api/v1/admin/sources/config` 会展示所有注册源及其状态、凭据字段、频道配置和 catalog 元数据。
 
-`stability` 是 registry 声明的接入成熟度，不是实时连通性承诺；`/api/v1/sources[].available` 只表示当前 edition、启用状态和凭据条件满足，也不证明上游此刻可达。doctor 默认 `live=false`，只有显式 live probe 的结果才描述当次联网观测。
+`stability` 是 registry 声明的接入成熟度，不是实时连通性承诺；`/api/v1/sources[].available` 只表示当前 edition、启用状态和凭据条件满足，不证明 optional runtime dependency 可导入，也不证明上游此刻可达。Catalog 和 doctor 的 `runtime_available` / `runtime_reason` 独立报告依赖/importability；默认 `live=false`，只有显式 live probe 的结果才描述当次联网观测。
 
 <!-- BEGIN AUTO -->
 

@@ -492,9 +492,18 @@ def test_config_backend_set_rejects_blank_parts(monkeypatch, tmp_path, set_value
 
 
 def test_sources_list():
-    """``sources`` 子命令可以正常打印数据源列表（仅校验 exit 0）。"""
-    result = runner.invoke(app, ["sources"])
+    """``sources`` Rich 表应把静态 gate 和 runtime 分列展示。"""
+    result = runner.invoke(app, ["sources"], env={"COLUMNS": "240"})
     assert result.exit_code == 0
+    assert "Static Gate" in result.output
+    assert "Runtime" in result.output
+
+
+def test_sources_available_only_help_describes_static_and_runtime_axes():
+    result = runner.invoke(app, ["sources", "--help"], env={"COLUMNS": "240"})
+
+    assert result.exit_code == 0
+    assert "仅列出静态 gate 与当前 runtime 均可用的源" in result.output
 
 
 def test_sources_json_outputs_formal_catalog_contract():
@@ -639,7 +648,7 @@ def test_doctor_edition_outputs_report_and_json(monkeypatch):
 
 
 def test_sources_json_supports_filters(monkeypatch):
-    """``sources`` 支持 available/category/capability 三类过滤。"""
+    """``sources`` 支持 effective available/category/capability 三类过滤。"""
     monkeypatch.setenv("SOUWEN_SOURCES", '{"duckduckgo": {"enabled": false}}')
     from souwen.config import get_config
 
@@ -659,10 +668,46 @@ def test_sources_json_supports_filters(monkeypatch):
     assert result.exit_code == 0
     data = json.loads(result.output)
     assert data["sources"]
-    assert all(item["available"] for item in data["sources"])
+    assert all(item["available"] and item["runtime_available"] for item in data["sources"])
     assert all(item["category"] == "web_general" for item in data["sources"])
     assert all("search" in item["capabilities"] for item in data["sources"])
     assert "duckduckgo" not in {item["name"] for item in data["sources"]}
+
+
+def test_sources_json_available_only_excludes_runtime_unavailable(monkeypatch):
+    """Static availability alone must not pass ``--available-only``."""
+    payload = {
+        "sources": [
+            {
+                "name": "static_only",
+                "available": True,
+                "runtime_available": False,
+            },
+            {
+                "name": "effective",
+                "available": True,
+                "runtime_available": True,
+            },
+            {
+                "name": "runtime_only",
+                "available": False,
+                "runtime_available": True,
+            },
+        ],
+        "categories": [],
+        "defaults": {},
+    }
+    monkeypatch.setattr(
+        "souwen.registry.catalog.public_source_catalog_payload",
+        lambda _config: payload,
+    )
+
+    result = runner.invoke(app, ["sources", "--json", "--available-only"])
+
+    assert result.exit_code == 0
+    data = json.loads(result.output)
+    assert set(data) == {"sources", "categories", "defaults"}
+    assert [item["name"] for item in data["sources"]] == ["effective"]
 
 
 def test_sources_rejects_unknown_category():
