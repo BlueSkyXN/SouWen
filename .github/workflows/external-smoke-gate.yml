@@ -3,6 +3,17 @@ name: External Smoke Gate
 run-name: External Smoke Gate (${{ inputs.suite || github.event_name }})
 
 on:
+  workflow_call:
+    inputs:
+      candidate_sha:
+        description: "要验证的 40 位候选提交 SHA"
+        required: true
+        type: string
+      suite:
+        description: "外部能力 gate 范围"
+        required: false
+        default: release
+        type: string
   workflow_dispatch:
     inputs:
       suite:
@@ -24,11 +35,13 @@ on:
       - "scripts/_functional_common.py"
       - "scripts/scrapling_functional_check.py"
       - "scripts/crawl4ai_functional_check.py"
+      - "scripts/article_extract_functional_check.py"
+      - "scripts/zero_key_functional_check.py"
       - "pyproject.toml"
       - ".github/workflows/external-smoke-gate.yml"
 
 concurrency:
-  group: external-smoke-gate-${{ github.event_name }}-${{ github.ref }}
+  group: external-smoke-gate-${{ inputs.candidate_sha || github.event_name }}-${{ github.ref }}
   cancel-in-progress: true
 
 permissions:
@@ -46,6 +59,8 @@ jobs:
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha || github.sha }}
 
       - uses: actions/setup-python@v6
         with:
@@ -62,7 +77,7 @@ jobs:
       - name: 安装当前源码与 Scrapling 运行时
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev,server,scrapling]"
+          pip install -e ".[dev,edition-full-scrapling]"
           if [ "$GATE_SUITE" = "release" ]; then
             scrapling install
           else
@@ -106,6 +121,8 @@ jobs:
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha || github.sha }}
 
       - uses: actions/setup-python@v6
         with:
@@ -123,7 +140,7 @@ jobs:
       - name: 安装当前源码与 Crawl4AI 可选浏览器运行时
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev,server,crawl4ai]"
+          pip install -e ".[dev,edition-full-crawl4ai]"
           if [ "$GATE_SUITE" = "release" ]; then
             python -m playwright install --with-deps chromium
           else
@@ -152,14 +169,170 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
+  article-extract-gate:
+    name: Article extraction release/nightly gate
+    needs: crawl4ai-gate
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GATE_SUITE: ${{ inputs.suite || (github.event_name == 'pull_request' && 'pr-required') || 'release' }}
+    concurrency:
+      group: external-smoke-gate-article-extract-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha || github.sha }}
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: 安装当前源码与文章抽取运行时
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,edition-full]"
+
+      - name: 运行 Article extraction release/nightly gate
+        run: |
+          mkdir -p artifacts
+          RUNTIME_ARGS=()
+          if [ "$GATE_SUITE" = "release" ]; then
+            RUNTIME_ARGS=(--require-runtime)
+          fi
+          python scripts/article_extract_functional_check.py \
+            --mode fixture \
+            "${RUNTIME_ARGS[@]}" \
+            --json-report "artifacts/article-extract-${GATE_SUITE}-gate.json" \
+            --markdown-report "artifacts/article-extract-${GATE_SUITE}-gate.md"
+
+      - name: 上传 Article extraction gate 报告
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: external-gate-article-extract-report
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 14
+
+  plugin-gate:
+    name: Plugin and SuperWeb2PDF release/nightly gate
+    needs: article-extract-gate
+    if: ${{ always() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    env:
+      GATE_SUITE: ${{ inputs.suite || (github.event_name == 'pull_request' && 'pr-required') || 'release' }}
+    concurrency:
+      group: external-smoke-gate-plugin-${{ inputs.candidate_sha || github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha || github.sha }}
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install source, example plugin, and fixed SuperWeb2PDF runtime
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,edition-full]"
+          pip install -e examples/minimal-plugin
+          if [ "$GATE_SUITE" = "release" ]; then
+            python -m playwright install --with-deps chromium
+          fi
+
+      - name: Run plugin and SuperWeb2PDF fixture gate
+        run: |
+          mkdir -p artifacts
+          WEB2PDF_ARGS=(--require-web2pdf)
+          if [ "$GATE_SUITE" = "release" ]; then
+            WEB2PDF_ARGS=(--require-web2pdf-runtime)
+          fi
+          python scripts/plugin_functional_check.py \
+            --mode fixture \
+            --require-installed \
+            "${WEB2PDF_ARGS[@]}" \
+            --json-report "artifacts/plugin-${GATE_SUITE}-gate.json" \
+            --markdown-report "artifacts/plugin-${GATE_SUITE}-gate.md"
+
+      - name: Upload plugin gate report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: external-gate-plugin-report
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 14
+
+  zero-key-live-gate:
+    name: Zero-key live source gate
+    needs: plugin-gate
+    if: ${{ always() && github.event_name != 'pull_request' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      GATE_SUITE: ${{ inputs.suite || (github.event_name == 'pull_request' && 'pr-required') || 'release' }}
+    concurrency:
+      group: external-smoke-gate-zero-key-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha || github.sha }}
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: 安装当前源码
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,edition-full]"
+
+      - name: 运行 zero-key live source gate
+        run: |
+          mkdir -p artifacts
+          REQUIRED_ARGS=()
+          if [ "$GATE_SUITE" = "release" ]; then
+            REQUIRED_ARGS=(--required)
+          fi
+          python scripts/zero_key_functional_check.py \
+            --mode live \
+            "${REQUIRED_ARGS[@]}" \
+            --timeout 20 \
+            --json-report "artifacts/zero-key-${GATE_SUITE}-gate.json" \
+            --markdown-report "artifacts/zero-key-${GATE_SUITE}-gate.md"
+
+      - name: 上传 zero-key live source gate 报告
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: external-gate-zero-key-report
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 14
+
   open-nightly-failure-issue:
     name: Nightly failure issue
-    needs: [scrapling-gate, crawl4ai-gate]
+    needs: [scrapling-gate, crawl4ai-gate, article-extract-gate, plugin-gate, zero-key-live-gate]
     if: >-
       ${{
         always() &&
         github.event_name == 'schedule' &&
-        (needs.scrapling-gate.result == 'failure' || needs.crawl4ai-gate.result == 'failure')
+        (
+          needs.scrapling-gate.result == 'failure' ||
+          needs.crawl4ai-gate.result == 'failure' ||
+          needs.article-extract-gate.result == 'failure' ||
+          needs.plugin-gate.result == 'failure' ||
+          needs.zero-key-live-gate.result == 'failure'
+        )
       }}
     runs-on: ubuntu-latest
     permissions:
@@ -227,13 +400,16 @@ jobs:
 
   close-nightly-failure-issue:
     name: Close recovered nightly issue
-    needs: [scrapling-gate, crawl4ai-gate]
+    needs: [scrapling-gate, crawl4ai-gate, article-extract-gate, plugin-gate, zero-key-live-gate]
     if: >-
       ${{
         always() &&
         github.event_name == 'schedule' &&
         needs.scrapling-gate.result == 'success' &&
-        needs.crawl4ai-gate.result == 'success'
+        needs.crawl4ai-gate.result == 'success' &&
+        needs.article-extract-gate.result == 'success' &&
+        needs.plugin-gate.result == 'success' &&
+        needs.zero-key-live-gate.result == 'success'
       }}
     runs-on: ubuntu-latest
     permissions:

@@ -1,17 +1,29 @@
 name: CI
 
 on:
+  workflow_call:
+    inputs:
+      candidate_sha:
+        description: '要验证的 40 位候选提交 SHA'
+        required: true
+        type: string
   push:
     branches: [main]
     paths:
       - 'src/**'
       - 'tests/**'
       - 'panel/**'
+      - 'Dockerfile'
+      - 'entrypoint.sh'
+      - 'cloud/hfs/**'
+      - 'cloud/modelscope/**'
       - 'scripts/_functional_common.py'
       - 'scripts/ci/**'
       - 'scripts/scrapling_functional_check.py'
       - 'scripts/crawl4ai_functional_check.py'
+      - 'scripts/article_extract_functional_check.py'
       - 'scripts/plugin_functional_check.py'
+      - 'scripts/zero_key_functional_check.py'
       - 'examples/minimal-plugin/**'
       - 'pyproject.toml'
       - '.github/workflows/ci.yml'
@@ -20,8 +32,11 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ inputs.candidate_sha || github.ref }}
   cancel-in-progress: true
+
+permissions:
+  contents: read
 
 jobs:
   lint:
@@ -30,6 +45,8 @@ jobs:
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha || github.sha }}
 
       - uses: actions/setup-python@v6
         with:
@@ -40,10 +57,45 @@ jobs:
         run: pip install ruff
 
       - name: Ruff 语法检查
-        run: ruff check src/ tests/ scripts/_functional_common.py scripts/ci/run_profile.py scripts/scrapling_functional_check.py scripts/crawl4ai_functional_check.py scripts/plugin_functional_check.py
+        run: ruff check src tests scripts tools
 
       - name: Ruff 格式检查
-        run: ruff format --check src/ tests/ scripts/_functional_common.py scripts/ci/run_profile.py scripts/scrapling_functional_check.py scripts/crawl4ai_functional_check.py scripts/plugin_functional_check.py
+        run: ruff format --check src tests scripts tools
+
+  docs-check:
+    name: Generated docs and Markdown links
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha || github.sha }}
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install docs validation dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Validate generated docs, links, and legacy terminology
+        run: |
+          mkdir -p artifacts
+          python tools/gen_docs.py --check
+          python tools/check_markdown_links.py \
+            --json-report artifacts/markdown-links.json
+          python scripts/ci/check_no_legacy_terms.py
+
+      - name: Upload docs validation evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-docs-report
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 14
 
   test:
     name: 测试 (Python ${{ matrix.python }}, ${{ matrix.os }})
@@ -62,6 +114,8 @@ jobs:
           - { os: windows-latest, python: '3.11' }
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha || github.sha }}
 
       - uses: actions/setup-python@v6
         with:
@@ -79,7 +133,7 @@ jobs:
 
       - name: 运行测试（含覆盖率）
         if: matrix.os == 'ubuntu-latest' && matrix.python == '3.12'
-        run: pytest tests/ --cov=souwen --cov-report=xml --cov-report=term
+        run: pytest tests/ --cov=souwen --cov-report=xml --cov-report=term --cov-fail-under=67
 
       - name: 上传覆盖率到 Codecov
         if: matrix.os == 'ubuntu-latest' && matrix.python == '3.12'
@@ -89,16 +143,16 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
 
-      - name: 安装可选依赖（爬虫层）
+      - name: 安装 full runtime profile 依赖
         if: matrix.os == 'ubuntu-latest' && matrix.python == '3.11'
-        run: pip install "curl-cffi>=0.14.0"
+        run: pip install -e ".[dev,edition-full]"
 
       - name: 运行 full runtime profile
         if: matrix.os == 'ubuntu-latest' && matrix.python == '3.11'
         run: |
           mkdir -p artifacts
           python scripts/ci/run_profile.py \
-            --profile full \
+            --profile full-cli \
             --json-report artifacts/runtime-profile-full.json \
             --markdown-report artifacts/runtime-profile-full.md
 
@@ -118,6 +172,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha || github.sha }}
 
       - uses: actions/setup-python@v6
         with:
@@ -142,6 +198,8 @@ jobs:
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha || github.sha }}
 
       - uses: actions/setup-python@v6
         with:
@@ -155,7 +213,7 @@ jobs:
           pip install -e examples/minimal-plugin
 
       - name: 安装可选 web2pdf 插件
-        run: pip install "superweb2pdf[capture]>=0.2.0" || echo "superweb2pdf package not available, recording WARN in report"
+        run: pip install "playwright>=1.40" "superweb2pdf @ https://github.com/BlueSkyXN/SuperWeb2PDF/archive/d1e1da59d739ad46222b5e726bd6f28b0d0453fa.zip#sha256=f56a380aa3f06d169d3fcc723d5525779519afaff159b37e8a789e50b797c76b" || echo "superweb2pdf package not available, recording WARN in report"
         continue-on-error: true
 
       - name: 运行插件专用功能测试
@@ -183,16 +241,18 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha || github.sha }}
 
       - uses: actions/setup-python@v6
         with:
           python-version: '3.11'
           cache: 'pip'
 
-      - name: 安装依赖（含 server）
+      - name: 安装依赖（edition-pro）
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev,server]"
+          pip install -e ".[dev,edition-pro]"
 
       - name: 运行服务端测试
         run: pytest tests/test_server -v --tb=short
@@ -207,6 +267,8 @@ jobs:
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha || github.sha }}
 
       - uses: actions/setup-python@v6
         with:
@@ -223,14 +285,14 @@ jobs:
       - name: 安装当前源码与 Scrapling 运行时
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev,server,scrapling]"
+          pip install -e ".[dev,edition-full-scrapling]"
           scrapling install
 
       - name: 运行 Scrapling 专用功能测试
         run: |
           mkdir -p artifacts
           python scripts/scrapling_functional_check.py \
-            --mode live \
+            --mode fixture \
             --browser \
             --json-report artifacts/scrapling-functional.json \
             --markdown-report artifacts/scrapling-functional.md
@@ -254,6 +316,8 @@ jobs:
       cancel-in-progress: true
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha || github.sha }}
 
       - uses: actions/setup-python@v6
         with:
@@ -271,7 +335,7 @@ jobs:
       - name: 安装当前源码与 Crawl4AI 浏览器运行时
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev,server,crawl4ai]"
+          pip install -e ".[dev,edition-full-crawl4ai]"
           python -m playwright install --with-deps chromium
 
       - name: 运行 Crawl4AI 专用功能测试
@@ -292,6 +356,47 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+  article-extract-functional:
+    name: Article extraction 云端功能测试
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: article-extract-functional-${{ github.ref }}
+      cancel-in-progress: true
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha || github.sha }}
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: 安装当前源码与文章抽取运行时
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,edition-full]"
+
+      - name: 运行文章抽取专用功能测试
+        run: |
+          mkdir -p artifacts
+          python scripts/article_extract_functional_check.py \
+            --mode fixture \
+            --require-runtime \
+            --json-report artifacts/article-extract-functional.json \
+            --markdown-report artifacts/article-extract-functional.md
+
+      - name: 上传文章抽取专项测试报告
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: article-extract-functional-report
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 7
+
   panel-build:
     name: Panel 构建检查
     needs: lint
@@ -299,6 +404,8 @@ jobs:
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha || github.sha }}
 
       - uses: actions/setup-node@v6
         with:
@@ -310,13 +417,9 @@ jobs:
         working-directory: panel
         run: npm ci
 
-      - name: TypeScript 类型检查
-        working-directory: panel
-        run: npx tsc --noEmit
-
       - name: 前端单元测试
         working-directory: panel
-        run: npx vitest run
+        run: npm test
 
       - name: 构建 panel 并验证产物
         working-directory: panel
@@ -327,3 +430,409 @@ jobs:
       - name: 显示 panel.html 信息
         run: |
           echo "✅ panel.html 大小: $(wc -c < src/souwen/server/panel.html) 字节"
+
+  package-build:
+    name: Build wheel and sdist
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha || github.sha }}
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: panel/package-lock.json
+
+      - name: Build embedded panel
+        working-directory: panel
+        run: |
+          npm ci
+          npm run build:local
+          npm run check:artifact
+
+      - name: Build Python distributions
+        run: |
+          python -m pip install --upgrade pip build
+          python -m build
+          test "$(find dist -maxdepth 1 -name 'souwen-*.whl' | wc -l)" -eq 1
+          test "$(find dist -maxdepth 1 -name 'souwen-*.tar.gz' | wc -l)" -eq 1
+
+      - name: Upload Python distributions
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-python-distributions
+          path: dist/
+          if-no-files-found: error
+          retention-days: 7
+
+  clean-wheel:
+    name: Clean wheel (${{ matrix.extra }})
+    needs: package-build
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { extra: edition-basic, edition: basic }
+          - { extra: edition-pro, edition: pro }
+          - { extra: edition-full, edition: full }
+          - { extra: edition-full-crawl4ai, edition: full }
+          - { extra: edition-full-scrapling, edition: full }
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha || github.sha }}
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: ci-python-distributions
+          path: dist
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install wheel into an isolated environment
+        env:
+          SOUWEN_EDITION: ${{ matrix.edition }}
+        run: |
+          wheel="$(find "$GITHUB_WORKSPACE/dist" -maxdepth 1 -name 'souwen-*.whl' -print -quit)"
+          test -n "$wheel"
+          python -m venv "$RUNNER_TEMP/clean-wheel"
+          "$RUNNER_TEMP/clean-wheel/bin/python" -m pip install --upgrade pip
+          "$RUNNER_TEMP/clean-wheel/bin/python" -m pip install "${wheel}[${{ matrix.extra }}]"
+          "$RUNNER_TEMP/clean-wheel/bin/python" -m pip check
+          HOME="$RUNNER_TEMP/clean-home" "$RUNNER_TEMP/clean-wheel/bin/souwen" --version
+
+      - name: Probe isolated edition and package contract
+        uses: ./.github/actions/clean-wheel-smoke
+        env:
+          HOME: ${{ runner.temp }}/clean-home
+          SOUWEN_EDITION: ${{ matrix.edition }}
+        with:
+          python: ${{ runner.temp }}/clean-wheel/bin/python
+          extra: ${{ matrix.extra }}
+          edition: ${{ matrix.edition }}
+          candidate-sha: ${{ inputs.candidate_sha || github.sha }}
+          report-json: artifacts/clean-wheel-${{ matrix.extra }}.json
+          freeze-report: artifacts/clean-wheel-${{ matrix.extra }}-freeze.txt
+
+      - name: Upload clean-wheel evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-clean-wheel-${{ matrix.extra }}
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 14
+
+  performance:
+    name: Deterministic cold-start performance
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha || github.sha }}
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install basic runtime
+        run: pip install -e ".[dev,edition-pro]"
+
+      - name: Measure seven cold processes and enforce medians
+        env:
+          PYTHONPATH: src
+          SOUWEN_PLUGIN_AUTOLOAD: '0'
+        run: |
+          mkdir -p artifacts
+          python3 - <<'PY'
+          import json
+          import os
+          import statistics
+          import subprocess
+          import sys
+          import time
+          from pathlib import Path
+
+          checks = {
+              "package_import": ([sys.executable, "-c", "import souwen"], 1.50),
+              "registry_catalog": (
+                  [
+                      sys.executable,
+                      "-c",
+                      "from souwen.registry import all_adapters; all_adapters()",
+                  ],
+                  1.50,
+              ),
+              "cli_help": ([sys.executable, "cli.py", "--help"], 2.00),
+              "server_import": (
+                  [sys.executable, "-c", "from souwen.server.app import app"],
+                  2.50,
+              ),
+          }
+          report = {
+              "samples": 7,
+              "python": sys.version,
+              "platform": sys.platform,
+              "checks": {},
+          }
+          env = os.environ.copy()
+          for name, (command, threshold) in checks.items():
+              samples = []
+              for _ in range(7):
+                  started = time.perf_counter()
+                  subprocess.run(
+                      command,
+                      check=True,
+                      env=env,
+                      stdout=subprocess.DEVNULL,
+                      stderr=subprocess.DEVNULL,
+                  )
+                  samples.append(time.perf_counter() - started)
+              median = statistics.median(samples)
+              report["checks"][name] = {
+                  "median_seconds": round(median, 6),
+                  "threshold_seconds": threshold,
+                  "samples_seconds": [round(value, 6) for value in samples],
+              }
+              if median > threshold:
+                  raise SystemExit(
+                      f"{name} median {median:.3f}s exceeds {threshold:.3f}s threshold"
+                  )
+          Path("artifacts/performance.json").write_text(
+              json.dumps(report, indent=2) + "\n", encoding="utf-8"
+          )
+          print(json.dumps(report, indent=2))
+          PY
+
+      - name: Upload performance report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-performance-report
+          path: artifacts/performance.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  targeted-coverage:
+    name: Edition feature doctor coverage (90%)
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha || github.sha }}
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install test dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Enforce targeted module coverage
+        run: |
+          pytest \
+            tests/test_editions.py \
+            tests/test_feature_matrix \
+            tests/test_doctor.py \
+            --cov=souwen.editions \
+            --cov=souwen.feature_matrix \
+            --cov=souwen.doctor \
+            --cov-report=term \
+            --cov-report=xml:targeted-coverage.xml \
+            --cov-report=json:targeted-coverage.json \
+            --cov-fail-under=90
+
+      - name: Upload targeted coverage evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-targeted-coverage
+          path: |
+            targeted-coverage.xml
+            targeted-coverage.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  dependency-audit:
+    name: Dependency audit
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha || github.sha }}
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: panel/package-lock.json
+
+      - name: Python dependency audit
+        run: |
+          mkdir -p artifacts
+          python -m pip install --upgrade pip "setuptools>=83" pip-audit
+          pip install -e ".[edition-full]"
+          pip-audit --local --progress-spinner=off \
+            --format=json --output=artifacts/pip-audit.json
+
+      - name: Panel dependency audit
+        working-directory: panel
+        run: |
+          npm ci
+          npm audit --omit=dev --audit-level=high --json > ../artifacts/npm-audit.json
+
+      - name: Upload dependency audit evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: ci-dependency-audit-report
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 14
+
+  container-surface:
+    name: Container build and smoke (${{ matrix.kind }})
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      SOURCE_SHA: ${{ inputs.candidate_sha || github.sha }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { kind: root, dockerfile: Dockerfile, context: '.', port: 49265 }
+          - { kind: hfs, dockerfile: cloud/hfs/Dockerfile, context: cloud/hfs, port: 49265 }
+          - { kind: modelscope, dockerfile: cloud/modelscope/Dockerfile, context: cloud/modelscope, port: 7860 }
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha || github.sha }}
+
+      - name: Materialize exact candidate as a local Git endpoint
+        if: matrix.kind != 'root'
+        run: |
+          bare="$RUNNER_TEMP/souwen.git"
+          git init --bare "$bare"
+          git push "$bare" HEAD:refs/heads/ci-candidate
+          git --git-dir="$bare" update-server-info
+          nohup git daemon --reuseaddr --export-all \
+            --base-path="$RUNNER_TEMP" --listen=0.0.0.0 --port=9418 \
+            >"$RUNNER_TEMP/git-daemon.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/git-daemon.pid"
+          for _ in $(seq 1 20); do
+            git ls-remote git://127.0.0.1:9418/souwen.git ci-candidate >/dev/null && exit 0
+            sleep 1
+          done
+          exit 1
+
+      - name: Build root image
+        if: matrix.kind == 'root'
+        run: |
+          docker build \
+            -f "${{ matrix.dockerfile }}" \
+            --build-arg SOUWEN_SOURCE_SHA="$SOURCE_SHA" \
+            -t "souwen-ci:${{ matrix.kind }}" \
+            "${{ matrix.context }}"
+
+      - name: Build cloud wrapper image from exact candidate
+        if: matrix.kind != 'root'
+        run: |
+          docker build --network host \
+            -f "${{ matrix.dockerfile }}" \
+            --build-arg SOUWEN_REPO=git://127.0.0.1:9418/souwen.git \
+            --build-arg SOUWEN_REF="$SOURCE_SHA" \
+            --build-arg WITH_WEB2PDF=0 \
+            -t "souwen-ci:${{ matrix.kind }}" \
+            "${{ matrix.context }}"
+
+      - name: Start container and verify health
+        run: |
+          docker run -d --name "souwen-ci-${{ matrix.kind }}" \
+            -p "127.0.0.1:${{ matrix.port }}:${{ matrix.port }}" \
+            -e SOUWEN_EXPOSE_DOCS=1 \
+            -e WARP_ENABLED=0 \
+            "souwen-ci:${{ matrix.kind }}"
+          for _ in $(seq 1 90); do
+            if curl -fsS "http://127.0.0.1:${{ matrix.port }}/health" >/dev/null; then
+              curl -fsS "http://127.0.0.1:${{ matrix.port }}/readiness" | \
+                jq -e --arg source_sha "$SOURCE_SHA" \
+                  '.ready == true and .source_sha == $source_sha' >/dev/null
+              curl -fsS "http://127.0.0.1:${{ matrix.port }}/panel" | grep -Eiq 'id="root"|SouWen|souwen'
+              curl -fsS "http://127.0.0.1:${{ matrix.port }}/openapi.json" | jq -e '.info.title == "SouWen API"' >/dev/null
+              status="$(curl -sS -o /dev/null -w '%{http_code}' \
+                "http://127.0.0.1:${{ matrix.port }}/api/v1/admin/ping")"
+              test "$status" = 401
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
+
+      - name: Show container logs
+        if: always()
+        run: docker logs "souwen-ci-${{ matrix.kind }}" || true
+
+      - name: Cleanup container and local Git endpoint
+        if: always()
+        run: |
+          docker rm -f "souwen-ci-${{ matrix.kind }}" || true
+          if [ -f "$RUNNER_TEMP/git-daemon.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/git-daemon.pid")" || true
+          fi
+
+  aggregate:
+    name: CI / aggregate
+    needs:
+      - lint
+      - docs-check
+      - test
+      - plugin-test
+      - plugin-functional
+      - server-test
+      - scrapling-functional
+      - crawl4ai-functional
+      - article-extract-functional
+      - panel-build
+      - package-build
+      - clean-wheel
+      - performance
+      - targeted-coverage
+      - dependency-audit
+      - container-surface
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require every CI gate
+        env:
+          NEEDS_JSON: ${{ toJson(needs) }}
+        run: |
+          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<<"$NEEDS_JSON" | tee "$GITHUB_STEP_SUMMARY"
+          jq -e 'all(.[]; .result == "success")' <<<"$NEEDS_JSON" >/dev/null

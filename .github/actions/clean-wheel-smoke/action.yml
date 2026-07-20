@@ -1,0 +1,175 @@
+name: SouWen clean wheel smoke
+description: Probe one wheel edition in an isolated virtual environment
+
+inputs:
+  python:
+    description: Python executable from the isolated virtual environment
+    required: true
+  extra:
+    description: Installed edition extra
+    required: true
+  edition:
+    description: Expected runtime edition
+    required: true
+  candidate-sha:
+    description: Candidate source SHA that produced the wheel
+    required: true
+  report-json:
+    description: Machine-readable evidence output path
+    required: true
+  freeze-report:
+    description: pip freeze output path
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Probe isolated wheel runtime
+      shell: bash
+      env:
+        CLEAN_WHEEL_PYTHON: ${{ inputs.python }}
+        CLEAN_WHEEL_EXTRA: ${{ inputs.extra }}
+        CLEAN_WHEEL_EDITION: ${{ inputs.edition }}
+        CLEAN_WHEEL_CANDIDATE_SHA: ${{ inputs.candidate-sha }}
+        CLEAN_WHEEL_REPORT_JSON: ${{ inputs.report-json }}
+        CLEAN_WHEEL_FREEZE_REPORT: ${{ inputs.freeze-report }}
+      run: |
+        "$CLEAN_WHEEL_PYTHON" - <<'PY'
+        import importlib
+        import importlib.resources
+        import importlib.util
+        import json
+        import os
+        import subprocess
+        import sys
+        from pathlib import Path
+
+        extra = os.environ["CLEAN_WHEEL_EXTRA"]
+        edition = os.environ["CLEAN_WHEEL_EDITION"]
+        candidate_sha = os.environ["CLEAN_WHEEL_CANDIDATE_SHA"]
+        report_path = Path(os.environ["CLEAN_WHEEL_REPORT_JSON"])
+        freeze_path = Path(os.environ["CLEAN_WHEEL_FREEZE_REPORT"])
+        checks: list[dict[str, str]] = []
+
+        def require(condition: bool, name: str, detail: str) -> None:
+            checks.append(
+                {"name": name, "status": "PASS" if condition else "FAIL", "detail": detail}
+            )
+            if not condition:
+                raise RuntimeError(f"{name}: {detail}")
+
+        def find_spec(name: str) -> bool:
+            try:
+                return importlib.util.find_spec(name) is not None
+            except (ImportError, ModuleNotFoundError, ValueError):
+                return False
+
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        freeze_path.parent.mkdir(parents=True, exist_ok=True)
+        freeze = subprocess.check_output([sys.executable, "-m", "pip", "freeze"], text=True)
+        freeze_path.write_text(freeze, encoding="utf-8")
+
+        import souwen
+        from souwen.feature_matrix import probe_capabilities
+        from souwen.integrations.mcp.server import create_server
+
+        require(bool(souwen.__version__), "package/version", souwen.__version__)
+        require(find_spec("souwen.editions"), "package/editions", "module importable")
+        require(find_spec("souwen.feature_matrix"), "package/feature-matrix", "module importable")
+        require(find_spec("souwen.provenance"), "package/provenance", "module importable")
+
+        panel = importlib.resources.files("souwen.server").joinpath("panel.html")
+        require(panel.is_file(), "package/panel", str(panel))
+        require(panel.read_text(encoding="utf-8").strip() != "", "package/panel-nonempty", "nonempty")
+
+        retired = (
+            "souwen.facade",
+            "souwen.fetch",
+            "souwen.scraper",
+            "souwen.source_registry",
+            "souwen.http_client",
+        )
+        leaked = [name for name in retired if find_spec(name)]
+        require(not leaked, "package/no-retired-imports", f"leaked={leaked}")
+
+        capabilities = probe_capabilities(edition)
+        require(
+            capabilities["mcp"].available is True,
+            "runtime/mcp-import",
+            capabilities["mcp"].reason or "available",
+        )
+        server = create_server()
+        require(server is not None, "runtime/mcp-stdio-server", type(server).__name__)
+        expected_missing_fetch_providers: set[str] = set()
+        if extra == "edition-full":
+            expected_missing_fetch_providers = {"crawl4ai", "scrapling"}
+        elif extra == "edition-full-crawl4ai":
+            expected_missing_fetch_providers = {"scrapling"}
+        elif extra == "edition-full-scrapling":
+            expected_missing_fetch_providers = {"crawl4ai"}
+        expected_available_fetch_providers = tuple(
+            provider
+            for provider in capabilities["fetch_providers"].declared
+            if provider not in expected_missing_fetch_providers
+        )
+        require(
+            tuple(capabilities["fetch_providers"].available)
+            == expected_available_fetch_providers,
+            "runtime/fetch-provider-imports",
+            repr(capabilities["fetch_providers"]),
+        )
+
+        if edition == "basic":
+            require(not find_spec("fastapi"), "basic/no-fastapi", "fastapi absent")
+            require(
+                tuple(capabilities["fetch_providers"].available)
+                == ("builtin", "mcp", "site_crawler"),
+                "basic/three-fetch-providers",
+                repr(capabilities["fetch_providers"].available),
+            )
+            require(
+                tuple(capabilities["llm_protocols"].available) == (),
+                "basic/llm-gated",
+                repr(capabilities["llm_protocols"].available),
+            )
+        else:
+            from souwen.server.app import app
+
+            require(app is not None, "pro/server-import", type(app).__name__)
+
+        if edition == "full":
+            full_imports = (
+                ("newspaper", "full/import-newspaper"),
+                ("readability", "full/import-readability"),
+                ("pymupdf4llm", "full/import-pymupdf4llm"),
+                ("superweb2pdf", "full/import-superweb2pdf"),
+            )
+            for module, check_name in full_imports:
+                require(find_spec(module), check_name, "module importable")
+            require(
+                capabilities["plugin_preinstalled"].available is True,
+                "full/plugin-preinstalled",
+                repr(capabilities["plugin_preinstalled"]),
+            )
+
+        crawl4ai = find_spec("crawl4ai")
+        scrapling = find_spec("scrapling")
+        if extra == "edition-full-crawl4ai":
+            require(crawl4ai and not scrapling, "variant/crawl4ai-only", f"{crawl4ai=}, {scrapling=}")
+        elif extra == "edition-full-scrapling":
+            require(scrapling and not crawl4ai, "variant/scrapling-only", f"{crawl4ai=}, {scrapling=}")
+        elif extra == "edition-full":
+            require(not crawl4ai and not scrapling, "variant/browser-stacks-absent", "external gates")
+
+        payload = {
+            "schema_version": 1,
+            "script": "github-composite/clean-wheel-smoke",
+            "overall": "PASS",
+            "candidate_sha": candidate_sha,
+            "extra": extra,
+            "edition": edition,
+            "python": sys.version,
+            "checks": checks,
+        }
+        report_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+        PY

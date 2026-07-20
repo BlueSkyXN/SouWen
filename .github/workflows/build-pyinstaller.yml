@@ -2,23 +2,39 @@
 # PyInstaller 构建工作流 — 将 SouWen 打包为单文件可执行程序
 #
 # 触发条件:
-#   - 推送版本标签时（v*；兼容旧 numeric tag，自动创建 Release）
+#   - release-candidate reusable workflow 调用
+#   - 推送标准 v* 版本标签时构建 artifact（不创建 Release）
 #   - 手动触发（可选择构建层级和平台）
 #
-# 构建产物（三种层级）:
-#   - CLI 版: 纯命令行搜索工具，体积最小
-#   - Server 版: CLI + FastAPI 服务 + 内嵌前端面板
-#   - Full 版: Server + MCP 集成 + 全部可选依赖
+# 构建产物（三档 CLI edition）:
+#   - basic-cli: 零 Key / 最小依赖 CLI，保留 MCP client/stdio，裁剪 API server、LLM 和重型抓取模块
+#   - pro-cli: 默认产品 CLI，包含 server/API/MCP 入口但不自启动服务
+#   - full-cli: 完整核心 CLI，包含 edition-full 核心重型能力；浏览器互斥栈走专项 gate
 #
 # 支持平台: Linux (amd64/arm64)、macOS (arm64)、Windows (amd64)
 # =============================================================================
 name: Build with PyInstaller
 
 on:
+  workflow_call:
+    inputs:
+      candidate_sha:
+        description: '要构建的 40 位候选提交 SHA'
+        required: true
+        type: string
+      build_tier:
+        description: '构建层级'
+        required: false
+        default: all
+        type: string
+      platforms:
+        description: '目标平台'
+        required: false
+        default: all
+        type: string
   push:
     tags:
       - 'v*'
-      - '[0-9]*'
   workflow_dispatch:
     inputs:
       build_tier:
@@ -28,9 +44,12 @@ on:
         type: choice
         options:
           - all
-          - cli
-          - server
-          - full
+          - basic-cli
+          - pro-cli
+          - full-cli
+          - cli      # legacy alias for basic-cli
+          - server   # legacy alias for pro-cli
+          - full     # legacy alias for full-cli
       platforms:
         description: '目标平台'
         required: true
@@ -46,6 +65,9 @@ env:
   APP_NAME: souwen
   PYTHON_VERSION: '3.11'
 
+permissions:
+  contents: read
+
 jobs:
   # ---------------------------------------------------------------------------
   # 动态生成构建矩阵
@@ -60,9 +82,13 @@ jobs:
       - name: 生成矩阵
         id: set-matrix
         run: |
-          # 确定构建层级
           TIER="${{ inputs.build_tier || 'all' }}"
           PLATFORM="${{ inputs.platforms || 'all' }}"
+          case "$TIER" in
+            cli) TIER="basic-cli" ;;
+            server) TIER="pro-cli" ;;
+            full) TIER="full-cli" ;;
+          esac
 
           # 基础平台定义
           LINUX_AMD='{"os":"ubuntu-24.04","arch":"linux-amd64"}'
@@ -86,29 +112,29 @@ jobs:
             EXT=""
             if echo "$ARCH" | grep -q "windows"; then EXT=".exe"; fi
 
-            if [ "$TIER" = "all" ] || [ "$TIER" = "cli" ]; then
-              INCLUDES=$(echo "$INCLUDES" | jq -c ". + [{\"os\":\"$OS\",\"build_type\":\"cli\",\"artifact_name\":\"souwen-${ARCH}-cli${EXT}\"}]")
+            if [ "$TIER" = "all" ] || [ "$TIER" = "basic-cli" ]; then
+              INCLUDES=$(echo "$INCLUDES" | jq -c ". + [{\"os\":\"$OS\",\"build_type\":\"basic-cli\",\"edition\":\"basic\",\"install_extra\":\"edition-basic\",\"artifact_name\":\"souwen-${ARCH}-basic-cli${EXT}\"}]")
             fi
-            if [ "$TIER" = "all" ] || [ "$TIER" = "server" ]; then
-              INCLUDES=$(echo "$INCLUDES" | jq -c ". + [{\"os\":\"$OS\",\"build_type\":\"server\",\"artifact_name\":\"souwen-${ARCH}-server${EXT}\"}]")
+            if [ "$TIER" = "all" ] || [ "$TIER" = "pro-cli" ]; then
+              INCLUDES=$(echo "$INCLUDES" | jq -c ". + [{\"os\":\"$OS\",\"build_type\":\"pro-cli\",\"edition\":\"pro\",\"install_extra\":\"edition-pro\",\"artifact_name\":\"souwen-${ARCH}-pro-cli${EXT}\"}]")
             fi
-            if [ "$TIER" = "all" ] || [ "$TIER" = "full" ]; then
-              INCLUDES=$(echo "$INCLUDES" | jq -c ". + [{\"os\":\"$OS\",\"build_type\":\"full\",\"artifact_name\":\"souwen-${ARCH}-full${EXT}\"}]")
+            if [ "$TIER" = "all" ] || [ "$TIER" = "full-cli" ]; then
+              INCLUDES=$(echo "$INCLUDES" | jq -c ". + [{\"os\":\"$OS\",\"build_type\":\"full-cli\",\"edition\":\"full\",\"install_extra\":\"edition-full\",\"artifact_name\":\"souwen-${ARCH}-full-cli${EXT}\"}]")
             fi
           done
 
           MATRIX="{\"include\":$INCLUDES}"
           echo "matrix=$MATRIX" >> "$GITHUB_OUTPUT"
 
-          # 如果包含 server 或 full 层级，需要 panel 检查
-          if [ "$TIER" = "all" ] || [ "$TIER" = "server" ] || [ "$TIER" = "full" ]; then
+          # pro/full CLI binary includes the API server entry point and embedded panel.
+          if [ "$TIER" = "all" ] || [ "$TIER" = "pro-cli" ] || [ "$TIER" = "full-cli" ]; then
             echo "need_panel=true" >> "$GITHUB_OUTPUT"
           else
             echo "need_panel=false" >> "$GITHUB_OUTPUT"
           fi
 
   # ---------------------------------------------------------------------------
-  # Panel 产物检查（仅 server/full 层级需要）
+  # Panel 产物检查（仅 pro/full CLI 需要）
   # ---------------------------------------------------------------------------
   panel-check:
     name: Panel 产物检查
@@ -118,7 +144,9 @@ jobs:
     timeout-minutes: 10
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha || github.sha }}
 
       - name: Set up Node.js
         uses: actions/setup-node@v6
@@ -141,7 +169,7 @@ jobs:
       - name: Upload panel.html artifact
         uses: actions/upload-artifact@v7
         with:
-          name: panel-html
+          name: pyinstaller-panel-html
           path: src/souwen/server/panel.html
           retention-days: 1
 
@@ -159,13 +187,15 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha || github.sha }}
 
       - name: Download panel.html
         if: needs.prepare.outputs.need_panel == 'true'
         uses: actions/download-artifact@v8
         with:
-          name: panel-html
+          name: pyinstaller-panel-html
           path: src/souwen/server/
 
       - name: Set up Python ${{ env.PYTHON_VERSION }}
@@ -174,118 +204,132 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
 
-      - name: Install dependencies (CLI)
-        if: matrix.build_type == 'cli'
+      - name: Install dependencies (${{ matrix.build_type }})
         run: |
           python -m pip install --upgrade pip
-          pip install .
+          pip install -e ".[${{ matrix.install_extra }}]"
           pip install "setuptools<82" pyinstaller
 
-      - name: Install dependencies (Server)
-        if: matrix.build_type == 'server'
-        run: |
-          python -m pip install --upgrade pip
-          pip install ".[server,tls,web]"
-          pip install "setuptools<82" pyinstaller
-
-      - name: Install dependencies (Full)
-        if: matrix.build_type == 'full'
-        run: |
-          python -m pip install --upgrade pip
-          pip install ".[server,tls,web,scraper,newspaper,readability,pdf,mcp]"
-          pip install "setuptools<82" pyinstaller
+      - name: Install MCP runtime required by basic CLI
+        if: matrix.build_type == 'basic-cli'
+        run: pip install -e ".[mcp]"
 
       - name: Verify CLI
         env:
           PYTHONIOENCODING: utf-8
+          SOUWEN_EDITION: ${{ matrix.edition }}
         run: |
           python cli.py --help
           python cli.py sources
+          python cli.py doctor edition --json
+
+      - name: Materialize immutable source provenance
+        shell: bash
+        run: printf '%s\n' '${{ inputs.candidate_sha || github.sha }}' > runtime.source.sha
 
       # --- PyInstaller 打包 ---
-      - name: Build with PyInstaller (Unix - Full)
-        if: runner.os != 'Windows' && matrix.build_type == 'full'
+      - name: Build with PyInstaller (Unix - Full CLI)
+        if: runner.os != 'Windows' && matrix.build_type == 'full-cli'
         run: |
           pyinstaller --onefile --clean --name ${{ env.APP_NAME }} \
             --paths src \
+            --add-data "runtime.source.sha:." \
             --add-data "src/souwen/server/panel.html:souwen/server" \
             --hidden-import=souwen.server \
             --hidden-import=souwen.server.app \
             --hidden-import=souwen.server.routes \
             --hidden-import=souwen.integrations \
             --hidden-import=souwen.integrations.mcp_server \
+            --hidden-import=superweb2pdf \
+            --collect-submodules=superweb2pdf \
+            --collect-data=superweb2pdf \
+            --copy-metadata=superweb2pdf \
             --collect-submodules=souwen.registry.sources \
             --collect-submodules=rich._unicode_data \
             cli.py
 
-      - name: Build with PyInstaller (Unix - Server)
-        if: runner.os != 'Windows' && matrix.build_type == 'server'
+      - name: Build with PyInstaller (Unix - Pro CLI)
+        if: runner.os != 'Windows' && matrix.build_type == 'pro-cli'
         run: |
           pyinstaller --onefile --clean --name ${{ env.APP_NAME }} \
             --paths src \
+            --add-data "runtime.source.sha:." \
             --add-data "src/souwen/server/panel.html:souwen/server" \
             --hidden-import=souwen.server \
             --hidden-import=souwen.server.app \
             --hidden-import=souwen.server.routes \
-            --exclude-module=souwen.integrations \
-            --exclude-module=mcp \
+            --hidden-import=souwen.integrations \
+            --hidden-import=souwen.integrations.mcp_server \
+            --exclude-module=souwen.web.crawl4ai_fetcher \
+            --exclude-module=souwen.web.scrapling_fetcher \
+            --exclude-module=souwen.web.newspaper_fetcher \
+            --exclude-module=souwen.web.readability_fetcher \
+            --exclude-module=souwen.paper.arxiv_fulltext \
+            --exclude-module=pymupdf4llm \
+            --exclude-module=superweb2pdf \
             --collect-submodules=souwen.registry.sources \
             --collect-submodules=rich._unicode_data \
             cli.py
 
-      - name: Build with PyInstaller (Unix - CLI)
-        if: runner.os != 'Windows' && matrix.build_type == 'cli'
+      - name: Build with PyInstaller (Unix - Basic CLI)
+        if: runner.os != 'Windows' && matrix.build_type == 'basic-cli'
         run: |
           pyinstaller --onefile --clean --name ${{ env.APP_NAME }} \
             --paths src \
+            --add-data "runtime.source.sha:." \
             --exclude-module=souwen.server \
-            --exclude-module=souwen.integrations \
+            --exclude-module=souwen.llm \
             --exclude-module=fastapi \
-            --exclude-module=uvicorn \
-            --exclude-module=mcp \
+            --exclude-module=souwen.web.crawl4ai_fetcher \
+            --exclude-module=souwen.web.scrapling_fetcher \
+            --exclude-module=souwen.web.newspaper_fetcher \
+            --exclude-module=souwen.web.readability_fetcher \
+            --exclude-module=souwen.paper.arxiv_fulltext \
+            --exclude-module=pymupdf4llm \
+            --exclude-module=superweb2pdf \
             --exclude-module=pkg_resources \
             --exclude-module=setuptools \
+            --hidden-import=souwen.integrations.mcp_server \
+            --collect-submodules=souwen.integrations.mcp \
+            --collect-submodules=mcp \
             --collect-submodules=souwen.registry.sources \
             --collect-submodules=rich._unicode_data \
             cli.py
 
-      - name: Build with PyInstaller (Windows - Full)
-        if: runner.os == 'Windows' && matrix.build_type == 'full'
+      - name: Build with PyInstaller (Windows - Full CLI)
+        if: runner.os == 'Windows' && matrix.build_type == 'full-cli'
         run: |
-          pyinstaller --onefile --clean --name ${{ env.APP_NAME }} --paths src --add-data "src/souwen/server/panel.html;souwen/server" --hidden-import=souwen.server --hidden-import=souwen.server.app --hidden-import=souwen.server.routes --hidden-import=souwen.integrations --hidden-import=souwen.integrations.mcp_server --collect-submodules=souwen.registry.sources --collect-submodules=rich._unicode_data cli.py
+          pyinstaller --onefile --clean --name ${{ env.APP_NAME }} --paths src --add-data "runtime.source.sha;." --add-data "src/souwen/server/panel.html;souwen/server" --hidden-import=souwen.server --hidden-import=souwen.server.app --hidden-import=souwen.server.routes --hidden-import=souwen.integrations --hidden-import=souwen.integrations.mcp_server --hidden-import=superweb2pdf --collect-submodules=superweb2pdf --collect-data=superweb2pdf --copy-metadata=superweb2pdf --collect-submodules=souwen.registry.sources --collect-submodules=rich._unicode_data cli.py
 
-      - name: Build with PyInstaller (Windows - Server)
-        if: runner.os == 'Windows' && matrix.build_type == 'server'
+      - name: Build with PyInstaller (Windows - Pro CLI)
+        if: runner.os == 'Windows' && matrix.build_type == 'pro-cli'
         run: |
-          pyinstaller --onefile --clean --name ${{ env.APP_NAME }} --paths src --add-data "src/souwen/server/panel.html;souwen/server" --hidden-import=souwen.server --hidden-import=souwen.server.app --hidden-import=souwen.server.routes --exclude-module=souwen.integrations --exclude-module=mcp --collect-submodules=souwen.registry.sources --collect-submodules=rich._unicode_data cli.py
+          pyinstaller --onefile --clean --name ${{ env.APP_NAME }} --paths src --add-data "runtime.source.sha;." --add-data "src/souwen/server/panel.html;souwen/server" --hidden-import=souwen.server --hidden-import=souwen.server.app --hidden-import=souwen.server.routes --hidden-import=souwen.integrations --hidden-import=souwen.integrations.mcp_server --exclude-module=souwen.web.crawl4ai_fetcher --exclude-module=souwen.web.scrapling_fetcher --exclude-module=souwen.web.newspaper_fetcher --exclude-module=souwen.web.readability_fetcher --exclude-module=souwen.paper.arxiv_fulltext --exclude-module=pymupdf4llm --exclude-module=superweb2pdf --collect-submodules=souwen.registry.sources --collect-submodules=rich._unicode_data cli.py
 
-      - name: Build with PyInstaller (Windows - CLI)
-        if: runner.os == 'Windows' && matrix.build_type == 'cli'
+      - name: Build with PyInstaller (Windows - Basic CLI)
+        if: runner.os == 'Windows' && matrix.build_type == 'basic-cli'
         run: |
-          pyinstaller --onefile --clean --name ${{ env.APP_NAME }} --paths src --exclude-module=souwen.server --exclude-module=souwen.integrations --exclude-module=fastapi --exclude-module=uvicorn --exclude-module=mcp --exclude-module=pkg_resources --exclude-module=setuptools --collect-submodules=souwen.registry.sources --collect-submodules=rich._unicode_data cli.py
+          pyinstaller --onefile --clean --name ${{ env.APP_NAME }} --paths src --add-data "runtime.source.sha;." --exclude-module=souwen.server --exclude-module=souwen.llm --exclude-module=fastapi --exclude-module=souwen.web.crawl4ai_fetcher --exclude-module=souwen.web.scrapling_fetcher --exclude-module=souwen.web.newspaper_fetcher --exclude-module=souwen.web.readability_fetcher --exclude-module=souwen.paper.arxiv_fulltext --exclude-module=pymupdf4llm --exclude-module=superweb2pdf --exclude-module=pkg_resources --exclude-module=setuptools --hidden-import=souwen.integrations.mcp_server --collect-submodules=souwen.integrations.mcp --collect-submodules=mcp --collect-submodules=souwen.registry.sources --collect-submodules=rich._unicode_data cli.py # gitleaks:allow -- false positive on module names
 
-      - name: Verify bundled CLI (Unix)
-        if: runner.os != 'Windows'
-        env:
-          PYTHONIOENCODING: utf-8
-        run: |
-          dist/${{ env.APP_NAME }} --help
-          dist/${{ env.APP_NAME }} --version
-          dist/${{ env.APP_NAME }} sources
-          dist/${{ env.APP_NAME }} config show
-          dist/${{ env.APP_NAME }} config backend
+      - name: Run target-native tier-aware binary smoke
+        uses: ./.github/actions/binary-smoke
+        with:
+          binary: ${{ runner.os == 'Windows' && './dist/souwen.exe' || './dist/souwen' }}
+          profile: ${{ matrix.build_type }}
+          edition: ${{ matrix.edition }}
+          builder: pyinstaller
+          candidate-sha: ${{ inputs.candidate_sha || github.sha }}
+          report-json: artifacts/pyinstaller-${{ matrix.artifact_name }}.json
+          report-markdown: artifacts/pyinstaller-${{ matrix.artifact_name }}.md
 
-      - name: Verify bundled CLI (Windows)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        env:
-          PYTHONIOENCODING: utf-8
-        run: |
-          ./dist/${{ env.APP_NAME }}.exe --help
-          ./dist/${{ env.APP_NAME }}.exe --version
-          ./dist/${{ env.APP_NAME }}.exe sources
-          ./dist/${{ env.APP_NAME }}.exe config show
-          ./dist/${{ env.APP_NAME }}.exe config backend
+      - name: Upload binary smoke report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: binary-smoke-pyinstaller-${{ matrix.artifact_name }}
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 30
 
       # --- 重命名并上传构建产物 ---
       - name: Rename artifact (Unix)
@@ -303,70 +347,3 @@ jobs:
           name: ${{ matrix.artifact_name }}
           path: dist/${{ matrix.artifact_name }}
           retention-days: 30
-
-  # ---------------------------------------------------------------------------
-  # Release（仅 tag 触发时）
-  # ---------------------------------------------------------------------------
-  release:
-    name: Create Release
-    needs: build
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-    permissions:
-      contents: write
-
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v8
-        with:
-          path: artifacts/
-
-      - name: Display artifacts
-        run: find artifacts/ -type f
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          name: ${{ env.APP_NAME }} ${{ github.ref_name }}
-          body: |
-            ## SouWen ${{ github.ref_name }}
-
-            ### Downloads
-
-            **完整版（Full — CLI + API Server + MCP 集成）：**
-            - **Linux (x64)**: `souwen-linux-amd64-full`
-            - **Linux (ARM64)**: `souwen-linux-arm64-full`
-            - **macOS (Apple Silicon)**: `souwen-macos-arm64-full`
-            - **Windows (x64)**: `souwen-windows-amd64-full.exe`
-
-            **服务版（Server — CLI + API Server + 前端面板）：**
-            - **Linux (x64)**: `souwen-linux-amd64-server`
-            - **Linux (ARM64)**: `souwen-linux-arm64-server`
-            - **macOS (Apple Silicon)**: `souwen-macos-arm64-server`
-            - **Windows (x64)**: `souwen-windows-amd64-server.exe`
-
-            **命令行版（CLI — 纯搜索工具，体积最小）：**
-            - **Linux (x64)**: `souwen-linux-amd64-cli`
-            - **Linux (ARM64)**: `souwen-linux-arm64-cli`
-            - **macOS (Apple Silicon)**: `souwen-macos-arm64-cli`
-            - **Windows (x64)**: `souwen-windows-amd64-cli.exe`
-
-            ### 使用
-            ```bash
-            chmod +x souwen-*           # Unix
-            ./souwen-linux-amd64-full search paper "transformer"
-            ./souwen-linux-amd64-server serve --port 8000
-            ./souwen-linux-amd64-cli doctor
-            ```
-
-            ### 版本说明
-            - **Full 版**：包含 FastAPI REST API 服务 + MCP Server 集成 + 全部可选依赖
-            - **Server 版**：包含 CLI + FastAPI API 服务 + 内嵌前端面板
-            - **CLI 版**：仅包含搜索命令行工具（search/fetch/sources/doctor），体积更小
-          files: |
-            artifacts/**/*
-          generate_release_notes: true
-          draft: false
-          prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
