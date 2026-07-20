@@ -8,6 +8,7 @@
   - retry          —— 指数退避重试装饰器
   - session_cache  —— OAuth 令牌缓存
   - fingerprint    —— curl_cffi TLS 指纹
+  - browser_pool   —— lazy Playwright browser pool（可选运行时）
   - scraper        —— BaseScraper（给爬虫类客户端）
   - exceptions     —— 全部异常类型
   - parsing        —— 轻量 HTML/JSON 辅助解析

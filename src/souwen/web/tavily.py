@@ -184,8 +184,25 @@ class TavilyClient(SouWenHttpClient):
         Returns:
             FetchResponse 包含提取结果
         """
+        from souwen.web.fetch import split_fetch_urls_by_ssrf
+
+        safe_urls, blocked_results = split_fetch_urls_by_ssrf(
+            urls,
+            "tavily",
+            raw_provider="tavily_extract",
+        )
+        if not safe_urls:
+            return FetchResponse(
+                urls=urls,
+                results=blocked_results,
+                total=len(blocked_results),
+                total_ok=0,
+                total_failed=len(blocked_results),
+                provider="tavily",
+            )
+
         # 构建请求载荷，api_key 放在请求体中
-        payload = {"api_key": self.api_key, "urls": urls}
+        payload = {"api_key": self.api_key, "urls": safe_urls}
         resp = await self.post("/extract", json=payload)
         try:
             # 解析 JSON 响应
@@ -227,8 +244,9 @@ class TavilyClient(SouWenHttpClient):
                 )
             )
 
+        results.extend(blocked_results)
         ok = sum(1 for r in results if r.error is None)
-        logger.info("Tavily Extract 提取 %d 个 URL，成功 %d 个", len(urls), ok)
+        logger.info("Tavily Extract 提取 %d 个 URL，成功 %d 个", len(safe_urls), ok)
 
         return FetchResponse(
             urls=urls,

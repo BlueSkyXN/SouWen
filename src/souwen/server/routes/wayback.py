@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from souwen.server.auth import check_search_auth
 from souwen.server.limiter import rate_limit_search
-from souwen.server.routes._common import logger
+from souwen.server.routes._common import logger, normalize_required_query_arg
 from souwen.server.schemas import (
     WaybackAvailabilityResponse,
     WaybackCDXApiResponse,
@@ -34,6 +34,7 @@ async def api_wayback_cdx(
     """查询 Wayback Machine CDX — URL 历史快照列表。"""
     from souwen.web.wayback import WaybackClient
 
+    url = normalize_required_query_arg(url, "url")
     inner_timeout = timeout or 60.0
     try:
         client = WaybackClient()
@@ -76,6 +77,7 @@ async def api_wayback_check(
     """检查 URL 在 Wayback Machine 中的可用性。"""
     from souwen.web.wayback import WaybackClient
 
+    url = normalize_required_query_arg(url, "url")
     inner_timeout = timeout or 30.0
     try:
         client = WaybackClient()

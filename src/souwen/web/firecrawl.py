@@ -87,9 +87,11 @@ class FirecrawlClient(SouWenHttpClient):
                 "Firecrawl",
                 "https://www.firecrawl.dev/",
             )
-        super().__init__(base_url=self.BASE_URL, source_name="firecrawl")
-        # 设置 Authorization 头（Bearer token）
-        self.headers["Authorization"] = f"Bearer {self.api_key}"
+        super().__init__(
+            base_url=self.BASE_URL,
+            source_name="firecrawl",
+            headers={"Authorization": f"Bearer {self.api_key}"},
+        )
 
     async def search(
         self,
@@ -171,6 +173,12 @@ class FirecrawlClient(SouWenHttpClient):
         Returns:
             FetchResult 包含提取的 Markdown 内容
         """
+        from souwen.web.fetch import ssrf_blocked_fetch_result
+
+        blocked = ssrf_blocked_fetch_result(url, "firecrawl", raw_provider="firecrawl_scrape")
+        if blocked is not None:
+            return blocked
+
         # 构建请求载荷（仅请求 Markdown 格式）
         payload: dict[str, Any] = {
             "url": url,

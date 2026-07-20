@@ -23,6 +23,10 @@ paper:
 # ===== 专利数据源配置 =====
 # 专利搜索相关的 API 密钥配置
 patent:
+  # PatentsView Search API Key（必需；https://search.patentsview.org/docs/docs/Search%20API/SearchAPIReference/）
+  patentsview_api_key: ~
+  # PQAI API Token（必需；https://api.projectpq.ai/docs）
+  pqai_api_token: ~
   # USPTO（美国专利商标局）API Key
   uspto_api_key: ~
   # EPO Open Patent Services 消费者密钥
@@ -126,6 +130,9 @@ mcp:
 # ===== 通用设置 =====
 # 全局代理、超时、重试、HTTP 后端等配置
 general:
+  # 功能完整度档位：basic | pro | full
+  # 当前默认 pro；重运行时 fetch provider（crawl4ai/scrapling/newspaper/readability/pdf）需要 full。
+  edition: pro
   # HTTP 代理地址（例如 http://127.0.0.1:7890）
   proxy: ~
   # 代理池：多个代理地址，每次请求随机选取（优先于 proxy）

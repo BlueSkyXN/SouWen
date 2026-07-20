@@ -100,6 +100,12 @@ class ScrapingBeeClient(SouWenHttpClient):
         Returns:
             FetchResult 包含提取的内容与元数据
         """
+        from souwen.web.fetch import ssrf_blocked_fetch_result
+
+        blocked = ssrf_blocked_fetch_result(url, self.PROVIDER_NAME)
+        if blocked is not None:
+            return blocked
+
         # API Key 通过 query 参数传递；启用 JS 渲染以处理动态页面
         params = {
             "api_key": self.api_key,

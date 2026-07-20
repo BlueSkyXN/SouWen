@@ -8,7 +8,12 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 
 from souwen.server.auth import check_search_auth
 from souwen.server.limiter import rate_limit_search
-from souwen.server.routes._common import logger
+from souwen.server.routes._common import (
+    logger,
+    normalize_optional_query_arg,
+    normalize_required_query_arg,
+    redact_secret_text,
+)
 from souwen.server.schemas import (
     YouTubeTranscriptResponse,
     YouTubeTrendingResponse,
@@ -16,6 +21,11 @@ from souwen.server.schemas import (
 )
 
 router = APIRouter()
+
+
+def _youtube_config_error_detail(exc: Exception) -> str:
+    detail = redact_secret_text(str(exc)) or "配置无效"
+    return f"YouTube API 未配置: {detail}"
 
 
 @router.get(
@@ -33,6 +43,8 @@ async def api_youtube_trending(
     from souwen.core.exceptions import ConfigError, RateLimitError
     from souwen.web.youtube import YouTubeClient
 
+    region = normalize_required_query_arg(region, "region").upper()
+    category = normalize_optional_query_arg(category) or ""
     try:
         client = YouTubeClient()
         coro = client.get_trending(
@@ -41,17 +53,17 @@ async def api_youtube_trending(
             max_results=max_results,
         )
         if timeout is not None:
-            results = await asyncio.wait_for(coro, timeout=timeout)
+            resp = await asyncio.wait_for(coro, timeout=timeout)
         else:
-            results = await coro
+            resp = await coro
         return {
             "region": region,
             "category": category,
-            "results": [r.model_dump(mode="json") for r in results],
-            "total": len(results),
+            "results": [r.model_dump(mode="json") for r in resp.results],
+            "total": resp.total_results,
         }
     except ConfigError as e:
-        raise HTTPException(status_code=503, detail=f"YouTube API 未配置: {e}")
+        raise HTTPException(status_code=503, detail=_youtube_config_error_detail(e))
     except RateLimitError:
         raise HTTPException(status_code=429, detail="YouTube API 配额已用尽")
     except asyncio.TimeoutError:
@@ -77,6 +89,7 @@ async def api_youtube_video_detail(
     from souwen.core.exceptions import ConfigError, RateLimitError
     from souwen.web.youtube import YouTubeClient
 
+    video_id = normalize_required_query_arg(video_id, "video_id")
     try:
         client = YouTubeClient()
         coro = client.get_video_details([video_id])
@@ -94,7 +107,7 @@ async def api_youtube_video_detail(
     except HTTPException:
         raise
     except ConfigError as e:
-        raise HTTPException(status_code=503, detail=f"YouTube API 未配置: {e}")
+        raise HTTPException(status_code=503, detail=_youtube_config_error_detail(e))
     except RateLimitError:
         raise HTTPException(status_code=429, detail="YouTube API 配额已用尽")
     except asyncio.TimeoutError:
@@ -119,6 +132,8 @@ async def api_youtube_transcript(
     from souwen.core.exceptions import ConfigError
     from souwen.web.youtube import YouTubeClient
 
+    video_id = normalize_required_query_arg(video_id, "video_id")
+    lang = normalize_required_query_arg(lang, "lang")
     try:
         client = YouTubeClient()
         coro = client.get_transcript(video_id, lang=lang)
@@ -142,7 +157,7 @@ async def api_youtube_transcript(
             "available": True,
         }
     except ConfigError as e:
-        raise HTTPException(status_code=503, detail=f"YouTube API 未配置: {e}")
+        raise HTTPException(status_code=503, detail=_youtube_config_error_detail(e))
     except asyncio.TimeoutError:
         logger.warning("YouTube transcript 超时: video_id=%s", video_id)
         raise HTTPException(status_code=504, detail=f"请求超时（{timeout}s）")

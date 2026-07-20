@@ -441,6 +441,7 @@ class TestFetchProviders:
         assert "tavily" in names
         assert "firecrawl" in names
         assert "exa" in names
+        assert "metaso" in names
         assert "wayback" in names
 
     def test_fetch_default(self):

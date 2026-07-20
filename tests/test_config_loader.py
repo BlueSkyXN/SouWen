@@ -63,6 +63,8 @@ class TestYamlLoading:
                   openalex_email: user@example.com
                 http:
                   timeout: 42
+                general:
+                  edition: full
                 """
             ).strip(),
             encoding="utf-8",
@@ -70,6 +72,7 @@ class TestYamlLoading:
         cfg = reload_config()
         assert cfg.openalex_email == "user@example.com"
         assert cfg.timeout == 42
+        assert cfg.edition == "full"
 
     def test_missing_file_uses_defaults(self):
         """无任何 YAML 时，配置应回落到 SouWenConfig 默认值。"""
@@ -153,6 +156,12 @@ class TestEnvOverride:
         monkeypatch.setenv("SOUWEN_OPENALEX_EMAIL", "envuser@example.com")
         cfg = reload_config()
         assert cfg.openalex_email == "envuser@example.com"
+
+    def test_env_overrides_edition(self, monkeypatch):
+        """``SOUWEN_EDITION`` 应按普通字符串字段进入 Pydantic 校验。"""
+        monkeypatch.setenv("SOUWEN_EDITION", "basic")
+        cfg = reload_config()
+        assert cfg.edition == "basic"
 
     @pytest.mark.parametrize(
         "env_key",
@@ -325,7 +334,9 @@ class TestEnsureConfigFile:
         result = ensure_config_file()
         assert result == target
         assert target.is_file()
-        assert target.read_text(encoding="utf-8").strip() != ""
+        text = target.read_text(encoding="utf-8")
+        assert text.strip() != ""
+        assert "edition: pro" in text
 
     def test_returns_existing_file_without_overwrite(self, tmp_path):
         """已存在 ``./souwen.yaml`` 时直接返回，不覆盖内容。"""

@@ -111,6 +111,12 @@ class MCPFetchClient:
         Returns:
             FetchResult，成功时包含 Markdown 内容
         """
+        from souwen.web.fetch import ssrf_blocked_fetch_result
+
+        blocked = ssrf_blocked_fetch_result(url, self.PROVIDER_NAME)
+        if blocked is not None:
+            return blocked
+
         if not self._client:
             raise RuntimeError("MCPFetchClient 未连接，请在 async with 块中使用")
 

@@ -1,10 +1,10 @@
 """PatentsView API 客户端
 
-USPTO 专利数据，免费无需 API Key。
+USPTO 专利数据，需要 PatentsView Search API Key。
 官方文档: https://search.patentsview.org/docs/docs/Search%20API/SearchAPIReference
 
 文件用途：
-    PatentsView API 客户端，提供免费的 USPTO 专利数据访问。
+    PatentsView API 客户端，提供 USPTO 专利数据访问。
     支持灵活的 JSON 查询过滤语法（Elasticsearch-like DSL）。
     包含按受让人、发明人等多维度搜索的便利方法。
 
@@ -55,8 +55,9 @@ import logging
 from typing import Any
 
 import httpx
+from souwen.config import get_config
 from souwen.core.parsing import safe_parse_date
-from souwen.core.exceptions import NotFoundError, ParseError
+from souwen.core.exceptions import ConfigError, NotFoundError, ParseError
 from souwen.core.http_client import SouWenHttpClient
 from souwen.models import Applicant, PatentResult, SearchResponse
 from souwen.core.rate_limiter import TokenBucketLimiter
@@ -83,7 +84,7 @@ _DEFAULT_PATENT_FIELDS = [
 class PatentsViewClient:
     """PatentsView API 客户端
 
-    免费访问 USPTO 专利数据，无需 API Key，零门槛。
+    访问 PatentsView Search API。当前 API 要求通过 ``X-Api-Key`` 提供凭据。
 
     Attributes:
         BASE_URL: PatentsView API 基础地址
@@ -93,12 +94,27 @@ class PatentsViewClient:
     BASE_URL = "https://search.patentsview.org/api/v1"
     RATE_LIMIT = 0.75  # 45 req/min
 
-    def __init__(self) -> None:
+    def __init__(self, api_key: str | None = None) -> None:
         """初始化 PatentsView 客户端
 
-        PatentsView 无需 API Key，直接初始化 HTTP 客户端和限流器。
+        从参数或配置读取 API Key，初始化 HTTP 客户端和限流器。
         """
-        self._http = SouWenHttpClient(base_url=self.BASE_URL, source_name="patentsview")
+        cfg = get_config()
+        resolved_key = api_key or cfg.resolve_api_key("patentsview", "patentsview_api_key")
+        if not resolved_key:
+            raise ConfigError(
+                key="patentsview_api_key",
+                service="PatentsView Search API",
+                register_url=(
+                    "https://search.patentsview.org/docs/docs/Search%20API/SearchAPIReference/"
+                ),
+            )
+        self._api_key = resolved_key
+        self._http = SouWenHttpClient(
+            base_url=self.BASE_URL,
+            headers={"X-Api-Key": self._api_key},
+            source_name="patentsview",
+        )
         # 45 req/min 限制，约 0.75 req/s
         self._limiter = TokenBucketLimiter(rate=self.RATE_LIMIT, burst=3)
 
@@ -142,8 +158,8 @@ class PatentsViewClient:
             "q": query,
             "f": fields or _DEFAULT_PATENT_FIELDS,
             "o": {
-                "per_page": per_page,
-                "page": page,
+                "size": per_page,
+                "from": max(page - 1, 0) * per_page,
             },
         }
         if sort:
@@ -155,10 +171,13 @@ class PatentsViewClient:
 
         # 逐项转换为标准 PatentResult
         patents = [self._to_patent_result(p) for p in data.get("patents", [])]
+        total_results = data.get("total_patent_count")
+        if total_results is None:
+            total_results = data.get("total_hits")
         return SearchResponse(
             query=str(query),
             source="patentsview",
-            total_results=data.get("total_patent_count"),
+            total_results=total_results,
             results=patents,
             page=page,
             per_page=per_page,
@@ -181,7 +200,7 @@ class PatentsViewClient:
         payload = {
             "q": query,
             "f": _DEFAULT_PATENT_FIELDS,
-            "o": {"per_page": 1, "page": 1},
+            "o": {"size": 1, "from": 0},
         }
 
         await self._limiter.acquire()

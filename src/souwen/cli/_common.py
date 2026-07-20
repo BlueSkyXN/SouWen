@@ -12,6 +12,23 @@ from souwen import __version__
 console = Console()
 
 
+def redact_cli_text(value: object, fallback: str = "") -> str:
+    """Return CLI-safe text with secrets redacted."""
+    from souwen.core.redaction import redact_secret_payload, redact_secret_text
+
+    if value is None:
+        return fallback
+    text = redact_secret_text(str(redact_secret_payload(value)))
+    return text or fallback
+
+
+def redact_cli_value(value: object) -> object:
+    """Return a JSON/table-safe value with secret fields redacted."""
+    from souwen.core.redaction import redact_secret_payload
+
+    return redact_secret_payload(value)
+
+
 def _version_callback(value: bool) -> None:
     """版本回调函数
 

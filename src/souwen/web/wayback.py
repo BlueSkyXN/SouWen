@@ -247,6 +247,16 @@ class WaybackClient(BaseScraper):
         Returns:
             WaybackSaveResult 包含存档结果；任何异常都会被封装到 error 字段
         """
+        from souwen.web.fetch import validate_fetch_url
+
+        valid, reason = validate_fetch_url(url)
+        if not valid:
+            return WaybackSaveResult(
+                url=url,
+                success=False,
+                error=f"SSRF 校验失败: {reason}",
+            )
+
         try:
             save_endpoint = f"https://web.archive.org/save/{url}"
             async with httpx.AsyncClient(timeout=timeout, follow_redirects=False) as client:
@@ -317,6 +327,18 @@ class WaybackClient(BaseScraper):
         Returns:
             FetchResult 包含提取的内容与快照元数据
         """
+        from souwen.web.fetch import validate_fetch_url
+
+        valid, reason = validate_fetch_url(url)
+        if not valid:
+            return FetchResult(
+                url=url,
+                final_url=url,
+                source=self.PROVIDER_NAME,
+                error=f"SSRF 校验失败: {reason}",
+                raw={"provider": "wayback", "blocked_by_ssrf": True},
+            )
+
         try:
             # Step 1: 查询最新可用快照（archive.org 域名下的 JSON API）
             avail_data = await self._check_availability(url, timeout=timeout)

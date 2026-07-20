@@ -200,6 +200,10 @@ class ExaClient(SouWenHttpClient):
         Returns:
             WebSearchResponse 相似页面结果
         """
+        from souwen.web.fetch import raise_if_fetch_url_blocked
+
+        raise_if_fetch_url_blocked(url)
+
         # 构建请求载荷
         payload: dict[str, Any] = {
             "url": url,
@@ -262,8 +266,25 @@ class ExaClient(SouWenHttpClient):
         Returns:
             FetchResponse 包含提取结果
         """
+        from souwen.web.fetch import split_fetch_urls_by_ssrf
+
+        safe_urls, blocked_results = split_fetch_urls_by_ssrf(
+            urls,
+            "exa",
+            raw_provider="exa_contents",
+        )
+        if not safe_urls:
+            return FetchResponse(
+                urls=urls,
+                results=blocked_results,
+                total=len(blocked_results),
+                total_ok=0,
+                total_failed=len(blocked_results),
+                provider="exa",
+            )
+
         payload: dict[str, Any] = {
-            "urls": urls,
+            "urls": safe_urls,
             "text": True,
         }
         try:
@@ -280,7 +301,7 @@ class ExaClient(SouWenHttpClient):
                 raise ParseError(f"Exa Contents 响应解析失败: {e}") from e
 
             results: list[FetchResult] = []
-            url_set = set(urls)
+            url_set = set(safe_urls)
             seen_urls: set[str] = set()
             for item in data.get("results", []):
                 result_url = item.get("url", "")
@@ -312,6 +333,7 @@ class ExaClient(SouWenHttpClient):
                     )
                 )
 
+            results.extend(blocked_results)
             ok = sum(1 for r in results if r.error is None)
             return FetchResponse(
                 urls=urls,
@@ -331,8 +353,9 @@ class ExaClient(SouWenHttpClient):
                     error=str(exc),
                     raw={"provider": "exa_contents"},
                 )
-                for u in urls
+                for u in safe_urls
             ]
+            results.extend(blocked_results)
             return FetchResponse(
                 urls=urls,
                 results=results,

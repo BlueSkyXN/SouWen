@@ -9,8 +9,13 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import os
 import sys
+import threading
+from contextlib import contextmanager
+from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from importlib import metadata
+from typing import Iterator
 
 try:
     from scripts._functional_common import (
@@ -36,6 +41,45 @@ EXAMPLE_DISTRIBUTION = "souwen-example-plugin"
 EXAMPLE_PLUGIN = "example_echo"
 OPTIONAL_WEB2PDF_DISTRIBUTION = "superweb2pdf"
 OPTIONAL_WEB2PDF_PLUGIN = "superweb2pdf"
+WEB2PDF_FIXTURE_TITLE = "SuperWeb2PDF Functional Fixture"
+WEB2PDF_HTML = f"""<!doctype html>
+<html>
+  <head><title>{WEB2PDF_FIXTURE_TITLE}</title></head>
+  <body>
+    <main>
+      <h1>{WEB2PDF_FIXTURE_TITLE}</h1>
+      <p>SouWen SuperWeb2PDF provider reached the local fixture.</p>
+    </main>
+  </body>
+</html>
+"""
+
+
+class Web2PdfFixtureHandler(BaseHTTPRequestHandler):
+    def do_GET(self) -> None:  # noqa: N802 - stdlib callback name
+        body = WEB2PDF_HTML.encode("utf-8")
+        self.send_response(200)
+        self.send_header("content-type", "text/html; charset=utf-8")
+        self.send_header("content-length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def log_message(self, _format: str, *_args: object) -> None:
+        return
+
+
+@contextmanager
+def local_web2pdf_fixture_server() -> Iterator[str]:
+    server = ThreadingHTTPServer(("127.0.0.1", 0), Web2PdfFixtureHandler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    try:
+        host, port = server.server_address
+        yield f"http://{host}:{port}/fixture"
+    finally:
+        server.shutdown()
+        server.server_close()
+        thread.join(timeout=5)
 
 
 def distribution_version(distribution: str) -> str | None:
@@ -130,8 +174,11 @@ def verify_entry_point_registry() -> tuple[str, dict[str, object]]:
 
 
 async def verify_example_fetch() -> tuple[str, dict[str, object]]:
+    os.environ["SOUWEN_EDITION"] = "full"
+    from souwen.config import reload_config
     from souwen.web.fetch import fetch_content
 
+    reload_config()
     url = "https://example.com/plugin-functional"
     response = await fetch_content(
         urls=[url],
@@ -168,23 +215,100 @@ def verify_optional_web2pdf(*, require_installed: bool) -> tuple[str, dict[str, 
         )
 
     from souwen.plugin import ensure_plugins_loaded, get_loaded_plugins
+    from souwen.plugin_manager import list_plugins
     from souwen.registry import external_plugins
+    from souwen.web.fetch import get_fetch_handler_owners, get_fetch_handlers
 
     ensure_plugins_loaded()
     external = set(external_plugins())
+    handlers = get_fetch_handlers()
+    handler_owners = get_fetch_handler_owners()
     loaded_plugins = get_loaded_plugins()
+    plugin_infos = {item.name: item for item in list_plugins()}
+
+    require(
+        OPTIONAL_WEB2PDF_PLUGIN in external,
+        f"{OPTIONAL_WEB2PDF_PLUGIN} source adapter not registered",
+    )
     require(
         OPTIONAL_WEB2PDF_PLUGIN in external or OPTIONAL_WEB2PDF_PLUGIN in loaded_plugins,
         f"{OPTIONAL_WEB2PDF_PLUGIN} installed but not loaded",
     )
+    require(
+        OPTIONAL_WEB2PDF_PLUGIN in handlers,
+        f"{OPTIONAL_WEB2PDF_PLUGIN} fetch handler not registered",
+    )
+    owner = handler_owners.get(OPTIONAL_WEB2PDF_PLUGIN)
+    require(
+        owner in {None, OPTIONAL_WEB2PDF_PLUGIN},
+        f"{OPTIONAL_WEB2PDF_PLUGIN} handler owner mismatch: {owner!r}",
+    )
+    info = plugin_infos.get(OPTIONAL_WEB2PDF_PLUGIN)
+    require(info is not None, f"{OPTIONAL_WEB2PDF_PLUGIN} missing from plugin manager list")
+    require(info.status == "loaded", f"unexpected plugin status: {info.status}")
+    require(
+        OPTIONAL_WEB2PDF_PLUGIN in info.source_adapters,
+        f"adapter missing from PluginInfo: {info}",
+    )
+    require(
+        OPTIONAL_WEB2PDF_PLUGIN in info.fetch_handlers,
+        f"fetch handler missing from PluginInfo: {info}",
+    )
     return (
-        "optional superweb2pdf plugin is installed and visible",
+        "optional superweb2pdf plugin is installed and registered",
         {
             "distribution": OPTIONAL_WEB2PDF_DISTRIBUTION,
             "version": version,
             "plugin": OPTIONAL_WEB2PDF_PLUGIN,
             "loaded": OPTIONAL_WEB2PDF_PLUGIN in loaded_plugins,
             "external": OPTIONAL_WEB2PDF_PLUGIN in external,
+            "fetch_handler": OPTIONAL_WEB2PDF_PLUGIN in handlers,
+            "handler_owner": owner,
+            "plugin_status": info.status,
+        },
+    )
+
+
+async def verify_optional_web2pdf_runtime(
+    url: str,
+    *,
+    timeout: float,
+) -> tuple[str, dict[str, object]]:
+    os.environ["SOUWEN_EDITION"] = "full"
+    from souwen.config import reload_config
+    from souwen.web.fetch import fetch_content
+
+    reload_config()
+    response = await fetch_content(
+        urls=[url],
+        providers=[OPTIONAL_WEB2PDF_PLUGIN],
+        timeout=timeout,
+        skip_ssrf_check=True,
+    )
+    require(
+        response.provider == OPTIONAL_WEB2PDF_PLUGIN, f"unexpected provider: {response.provider}"
+    )
+    require(response.total == 1, f"unexpected total: {response.total}")
+    require(response.total_ok == 1, f"unexpected total_ok: {response.total_ok}")
+    result = response.results[0]
+    require(result.error is None, f"unexpected error: {result.error}")
+    require(result.source == OPTIONAL_WEB2PDF_PLUGIN, f"unexpected source: {result.source}")
+    raw = result.raw if isinstance(result.raw, dict) else {}
+    file_size = raw.get("file_size_bytes")
+    page_count = raw.get("page_count")
+    require(isinstance(file_size, int) and file_size > 0, f"unexpected PDF size: {file_size!r}")
+    require(
+        isinstance(page_count, int) and page_count >= 1, f"unexpected page count: {page_count!r}"
+    )
+    return (
+        f"optional superweb2pdf runtime fixture passed: {result.final_url}",
+        {
+            "url": url,
+            "final_url": result.final_url,
+            "provider": result.source,
+            "page_count": page_count,
+            "file_size_bytes": file_size,
+            "backend": raw.get("backend"),
         },
     )
 
@@ -201,6 +325,11 @@ async def main() -> None:
         "--require-web2pdf",
         action="store_true",
         help="Treat missing or unloaded optional superweb2pdf plugin as FAIL.",
+    )
+    parser.add_argument(
+        "--require-web2pdf-runtime",
+        action="store_true",
+        help="Run a real local fixture conversion and treat superweb2pdf runtime failures as FAIL.",
     )
     args = parser.parse_args()
     recorder = ResultRecorder(script="plugin_functional_check", mode=args.mode)
@@ -251,13 +380,31 @@ async def main() -> None:
                     timeout=args.timeout,
                 )
 
-            await run_check(
+            web2pdf_required = args.require_web2pdf or args.require_web2pdf_runtime
+            web2pdf_result = await run_check(
                 recorder,
                 "optional_web2pdf",
-                lambda: verify_optional_web2pdf(require_installed=args.require_web2pdf),
-                required=args.require_web2pdf,
+                lambda: verify_optional_web2pdf(require_installed=web2pdf_required),
+                required=web2pdf_required,
                 timeout=args.timeout,
             )
+            if args.require_web2pdf_runtime:
+                if web2pdf_result.outcome != Outcome.PASS:
+                    recorder.record(
+                        "optional_web2pdf_runtime",
+                        outcome=Outcome.SKIP,
+                        required=False,
+                        message="superweb2pdf registration did not pass; runtime check skipped",
+                    )
+                else:
+                    with local_web2pdf_fixture_server() as url:
+                        await run_check(
+                            recorder,
+                            "optional_web2pdf_runtime",
+                            lambda: verify_optional_web2pdf_runtime(url, timeout=args.timeout),
+                            required=True,
+                            timeout=args.timeout,
+                        )
     finally:
         try:
             recorder.write_reports(

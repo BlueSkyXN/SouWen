@@ -96,7 +96,7 @@ class SouWenConfig(BaseModel):
                         scraperapi_api_key, apify_api_token,
                         cloudflare_api_token, cloudflare_account_id
 
-        通用设置: proxy, proxy_pool (代理池), timeout (超时秒数),
+        通用设置: edition (basic|pro|full), proxy, proxy_pool (代理池), timeout (超时秒数),
                  max_retries (重试次数), data_dir (数据存储目录)
 
         HTTP 后端: default_http_backend (全局默认), http_backend (按源覆盖字典)
@@ -155,6 +155,8 @@ class SouWenConfig(BaseModel):
     zotero_library_type: str | None = None  # "user" (默认) 或 "group"
 
     # ===== 专利数据源 =====
+    patentsview_api_key: str | None = None
+    pqai_api_token: str | None = None
     uspto_api_key: str | None = None
     epo_consumer_key: str | None = None
     epo_consumer_secret: str | None = None
@@ -224,6 +226,7 @@ class SouWenConfig(BaseModel):
     mcp_http_json_response: bool = True  # SHTTP 是否使用 JSON 响应（而非 SSE 流）
 
     # ===== 通用 =====
+    edition: Literal["basic", "pro", "full"] = "pro"
     proxy: str | None = None
     proxy_pool: list[str] = []
     timeout: int = 30

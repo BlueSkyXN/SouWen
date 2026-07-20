@@ -64,8 +64,10 @@ from __future__ import annotations
 import ipaddress
 import asyncio
 import logging
+import socket
+from dataclasses import dataclass
 from pathlib import Path
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urlunparse
 
 import httpx
 
@@ -104,6 +106,132 @@ _SSRF_BLOCKED_NETS = tuple(
 )
 
 
+_IPV4_EMBEDDING_NETS = tuple(
+    ipaddress.ip_network(n)
+    for n in (
+        "::/96",
+        "::ffff:0:0/96",
+        "64:ff9b::/96",
+    )
+)
+
+
+@dataclass(frozen=True)
+class _ResolvedPdfUrl:
+    original_url: str
+    connect_url: str
+    host_header: str
+    sni_hostname: str | None
+
+
+def _embedded_ipv4_address(
+    addr: ipaddress.IPv4Address | ipaddress.IPv6Address,
+) -> ipaddress.IPv4Address | None:
+    """提取 IPv6 地址中嵌入的 IPv4 地址。"""
+    if not isinstance(addr, ipaddress.IPv6Address):
+        return None
+    if addr.ipv4_mapped is not None:
+        return addr.ipv4_mapped
+    if addr.sixtofour is not None:
+        return addr.sixtofour
+    if addr.teredo is not None:
+        return addr.teredo[1]
+    if any(addr in net for net in _IPV4_EMBEDDING_NETS):
+        return ipaddress.IPv4Address(int(addr) & 0xFFFFFFFF)
+    return None
+
+
+def _is_blocked_address(addr: ipaddress.IPv4Address | ipaddress.IPv6Address) -> bool:
+    candidates: list[ipaddress.IPv4Address | ipaddress.IPv6Address] = [addr]
+    embedded = _embedded_ipv4_address(addr)
+    if embedded is not None:
+        candidates.append(embedded)
+    return any(
+        candidate.version == net.version and candidate in net
+        for candidate in candidates
+        for net in _SSRF_BLOCKED_NETS
+    )
+
+
+def _format_host_for_url(addr: ipaddress.IPv4Address | ipaddress.IPv6Address) -> str:
+    text = str(addr)
+    return f"[{text}]" if addr.version == 6 else text
+
+
+def _host_header(hostname: str, port: int | None) -> str:
+    host = f"[{hostname}]" if ":" in hostname and not hostname.startswith("[") else hostname
+    return f"{host}:{port}" if port is not None else host
+
+
+def _connect_netloc(addr: ipaddress.IPv4Address | ipaddress.IPv6Address, port: int | None) -> str:
+    host = _format_host_for_url(addr)
+    return f"{host}:{port}" if port is not None else host
+
+
+def _resolve_pdf_url(url: str) -> _ResolvedPdfUrl | None:
+    """解析并绑定 PDF URL 到已校验的连接 IP，避免 DNS rebinding。"""
+    try:
+        parsed = urlparse(url)
+    except Exception:
+        return None
+
+    if parsed.scheme not in ("http", "https"):
+        return None
+    if parsed.username or parsed.password:
+        return None
+
+    hostname = parsed.hostname
+    if not hostname:
+        return None
+    hostname_key = hostname.rstrip(".").lower()
+    if hostname_key in _BLOCKED_HOSTNAMES:
+        return None
+
+    try:
+        port = parsed.port
+    except ValueError:
+        return None
+
+    host_for_ip = hostname.split("%", 1)[0]
+    try:
+        literal_addr = ipaddress.ip_address(host_for_ip)
+    except ValueError:
+        literal_addr = None
+
+    if literal_addr is not None:
+        if _is_blocked_address(literal_addr):
+            return None
+        connect_addr = literal_addr
+    else:
+        try:
+            addrinfos = socket.getaddrinfo(hostname, None, socket.AF_UNSPEC, socket.SOCK_STREAM)
+        except (socket.gaierror, OSError):
+            return None
+
+        resolved: list[ipaddress.IPv4Address | ipaddress.IPv6Address] = []
+        for _family, _type, _proto, _canon, sockaddr in addrinfos:
+            addr_text = sockaddr[0].split("%", 1)[0]
+            try:
+                addr = ipaddress.ip_address(addr_text)
+            except ValueError:
+                return None
+            if _is_blocked_address(addr):
+                return None
+            resolved.append(addr)
+
+        if not resolved:
+            return None
+        connect_addr = resolved[0]
+
+    connect_url = urlunparse(parsed._replace(netloc=_connect_netloc(connect_addr, port)))
+    return _ResolvedPdfUrl(
+        original_url=url,
+        connect_url=connect_url,
+        host_header=_host_header(hostname, port),
+        sni_hostname=hostname if parsed.scheme == "https" and literal_addr is None else None,
+    )
+
+
 def _is_safe_url(url: str) -> bool:
     """检查 URL 是否安全（防止 SSRF）
 
@@ -112,28 +240,7 @@ def _is_safe_url(url: str) -> bool:
     2. 拒绝 localhost 等已知本地主机名
     3. DNS 解析主机名，检查所有解析结果是否命中 SSRF 危险网段
     """
-    try:
-        parsed = urlparse(url)
-    except Exception:
-        return False
-    if parsed.scheme not in ("http", "https"):
-        return False
-    hostname = parsed.hostname
-    if not hostname:
-        return False
-    if hostname.lower() in _BLOCKED_HOSTNAMES:
-        return False
-    try:
-        import socket
-
-        addrinfos = socket.getaddrinfo(hostname, None, proto=socket.IPPROTO_TCP)
-        for _family, _type, _proto, _canon, sockaddr in addrinfos:
-            ip = ipaddress.ip_address(sockaddr[0])
-            if any(ip in net for net in _SSRF_BLOCKED_NETS):
-                return False
-    except (socket.gaierror, OSError, ValueError):
-        return False  # 无法解析的主机名拒绝访问
-    return True
+    return _resolve_pdf_url(url) is not None
 
 
 # PDF 最大下载大小 (100 MB)
@@ -177,42 +284,51 @@ async def _download_pdf(
     Returns:
         成功返回文件路径，失败返回 None。
     """
-    if not _is_safe_url(url):
+    target = _resolve_pdf_url(url)
+    if target is None:
         logger.warning("PDF URL 不安全，已拒绝: %s", url)
         return None
 
     # 注意：SouWenHttpClient 默认 follow_redirects=True，会让攻击者通过白名单主机
     # 302 跳转到 127.0.0.1 / 169.254.169.254 等内网目标绕过 SSRF 校验。
     # 因此这里直接使用底层 httpx 客户端禁用自动重定向，并对每一跳手动
-    # 重新执行 _is_safe_url 校验。
-    #
-    # 残留风险（DNS rebinding / TOCTOU）：_is_safe_url 自行调用 getaddrinfo，
-    # 而 httpx 在真正建立连接时会再次独立解析同一域名，两次解析结果可能不同
-    # （例如恶意权威 DNS 在两次查询之间返回不同 IP）。彻底防御需要在 httpx
-    # 的 transport / resolver 层做绑定，目前未实现，仅在此记录。
+    # 重新执行 _resolve_pdf_url 校验，并用解析出的 IP literal URL 建连，
+    # 同时保留原始 Host header 和 HTTPS SNI，避免 DNS rebinding / TOCTOU。
     try:
         from urllib.parse import urljoin
 
-        current_url = url
+        current_target = target
         max_redirects = 5
         resp: httpx.Response | None = None
         for _ in range(max_redirects + 1):
-            resp = await client._client.get(current_url, follow_redirects=False)
+            headers = {"Host": current_target.host_header}
+            extensions = (
+                {"sni_hostname": current_target.sni_hostname}
+                if current_target.sni_hostname is not None
+                else None
+            )
+            resp = await client._client.get(
+                current_target.connect_url,
+                headers=headers,
+                follow_redirects=False,
+                extensions=extensions,
+            )
             if resp.is_redirect:
                 location = resp.headers.get("location")
                 if not location:
-                    logger.warning("PDF 重定向缺少 Location 头: %s", current_url)
+                    logger.warning("PDF 重定向缺少 Location 头: %s", current_target.original_url)
                     return None
                 # 处理相对 URL
-                next_url = urljoin(current_url, location)
-                if not _is_safe_url(next_url):
+                next_url = urljoin(current_target.original_url, location)
+                next_target = _resolve_pdf_url(next_url)
+                if next_target is None:
                     logger.warning(
                         "PDF 重定向目标不安全，已拒绝: %s -> %s",
-                        current_url,
+                        current_target.original_url,
                         next_url,
                     )
                     return None
-                current_url = next_url
+                current_target = next_target
                 continue
             break
         else:

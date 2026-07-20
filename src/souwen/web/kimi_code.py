@@ -166,17 +166,15 @@ class KimiCodeClient(SouWenHttpClient):
     ) -> FetchResult:
         """通过 Kimi Code fetch API 提取单个 URL 的 Markdown 内容。"""
 
-        from souwen.web.fetch import validate_fetch_url
+        from souwen.web.fetch import ssrf_blocked_fetch_result
 
-        valid, reason = validate_fetch_url(url)
-        if not valid:
-            return FetchResult(
-                url=url,
-                final_url=url,
-                source=self.PROVIDER_NAME,
-                error=reason,
-                raw={"provider": "kimi_code_fetch", "blocked_by_ssrf": True},
-            )
+        blocked = ssrf_blocked_fetch_result(
+            url,
+            self.PROVIDER_NAME,
+            raw_provider="kimi_code_fetch",
+        )
+        if blocked is not None:
+            return blocked
 
         try:
             resp = await asyncio.wait_for(

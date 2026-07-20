@@ -9,6 +9,7 @@ import typer
 from rich.table import Table
 
 from souwen.cli._common import _run_async, console
+from souwen.editions import EditionError
 from souwen.registry import defaults_for
 
 search_app = typer.Typer(help="搜索论文/专利/网页")
@@ -18,6 +19,11 @@ _DEFAULT_PATENT_SOURCES = defaults_for("patent", "search")
 _DEFAULT_PATENT_SOURCES_LABEL = ",".join(_DEFAULT_PATENT_SOURCES)
 _DEFAULT_WEB_ENGINES = defaults_for("web", "search")
 _DEFAULT_WEB_ENGINES_LABEL = ",".join(_DEFAULT_WEB_ENGINES)
+
+
+def _exit_for_edition_error(exc: EditionError) -> None:
+    console.print(f"[red]✗ {exc}[/red]")
+    raise typer.Exit(1)
 
 
 @search_app.command("paper")
@@ -55,6 +61,8 @@ def search_paper(
         except asyncio.TimeoutError:
             console.print(f"[red]⏱ 搜索超时 (>{timeout}s)[/red]")
             raise typer.Exit(124)
+        except EditionError as exc:
+            _exit_for_edition_error(exc)
 
     if json_output:
         from rich import print_json
@@ -129,6 +137,8 @@ def search_patent(
         except asyncio.TimeoutError:
             console.print(f"[red]⏱ 搜索超时 (>{timeout}s)[/red]")
             raise typer.Exit(124)
+        except EditionError as exc:
+            _exit_for_edition_error(exc)
 
     if json_output:
         from rich import print_json
@@ -205,6 +215,8 @@ def search_web_cmd(
         except asyncio.TimeoutError:
             console.print(f"[red]⏱ 搜索超时 (>{timeout}s)[/red]")
             raise typer.Exit(124)
+        except EditionError as exc:
+            _exit_for_edition_error(exc)
 
     if json_output:
         from rich import print_json

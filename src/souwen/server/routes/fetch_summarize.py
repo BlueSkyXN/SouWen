@@ -6,18 +6,39 @@ import threading
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
+from souwen.editions import EditionError
+from souwen.registry import fetch_providers
 from souwen.server.auth import check_search_auth
 from souwen.server.limiter import InMemoryRateLimiter, get_client_ip
-from souwen.server.routes._common import logger, require_llm_enabled
+from souwen.server.routes._common import logger, redact_secret_text, require_llm_enabled
+
+
+def _strip_non_empty_string(value: object, *, field_name: str) -> object:
+    if not isinstance(value, str):
+        return value
+    stripped = value.strip()
+    if not stripped:
+        raise ValueError(f"{field_name} 不能是空字符串")
+    return stripped
 
 
 class FetchSummarizeRequest(BaseModel):
     """POST /api/v1/fetch/summarize 请求体"""
 
     urls: list[str] = Field(..., min_length=1, max_length=10, description="待抓取并摘要的 URL 列表")
-    provider: str = Field("builtin", description="Fetch 提供者")
+    provider: str = Field("builtin", description="兼容单 Fetch 提供者")
+    providers: list[str] | None = Field(
+        None,
+        min_length=1,
+        max_length=10,
+        description="Fetch 提供者列表；提供时优先于 provider",
+    )
+    strategy: Literal["fallback", "fanout"] = Field(
+        "fallback",
+        description="多提供者策略：fallback 按 URL 补失败项，fanout 返回全部 provider 结果",
+    )
     timeout: float = Field(30.0, ge=5.0, le=120.0, description="每 URL 超时秒数")
     mode: Literal["brief", "detailed", "academic"] | None = Field(
         None, description="摘要模式（默认使用配置 llm.default_mode）"
@@ -26,6 +47,27 @@ class FetchSummarizeRequest(BaseModel):
     max_tokens: int | None = Field(None, ge=100, le=8192, description="可选最大 token 数")
     temperature: float | None = Field(None, ge=0.0, le=2.0, description="可选温度覆盖")
     system_prompt: str | None = Field(None, max_length=2000, description="自定义系统 prompt")
+
+    @field_validator("urls", mode="before")
+    @classmethod
+    def _normalize_urls(cls, value: object) -> object:
+        if isinstance(value, list | tuple):
+            return [_strip_non_empty_string(item, field_name="urls") for item in value]
+        return value
+
+    @field_validator("provider", mode="before")
+    @classmethod
+    def _normalize_provider(cls, value: object) -> object:
+        return _strip_non_empty_string(value, field_name="provider")
+
+    @field_validator("providers", mode="before")
+    @classmethod
+    def _normalize_providers(cls, value: object) -> object:
+        if value is None:
+            return None
+        if isinstance(value, list | tuple):
+            return [_strip_non_empty_string(item, field_name="providers") for item in value]
+        return value
 
 
 class FetchSummarizeItemResponse(BaseModel):
@@ -54,6 +96,11 @@ class FetchSummarizeResponse(BaseModel):
 
 
 router = APIRouter()
+
+
+def _valid_fetch_provider_names() -> frozenset[str]:
+    return frozenset(adapter.name for adapter in fetch_providers())
+
 
 _fetch_summarize_limiter: InMemoryRateLimiter | None = None
 _fetch_summarize_lock = threading.Lock()
@@ -110,11 +157,32 @@ async def api_fetch_summarize(body: FetchSummarizeRequest):
     cfg = get_config()
     effective_mode = body.mode or cfg.llm.default_mode
     effective_system_prompt = body.system_prompt or cfg.llm.system_prompt
+    selected_providers = body.providers or [body.provider]
+    valid_fetch_providers = _valid_fetch_provider_names()
+    invalid_providers = [
+        provider for provider in selected_providers if provider not in valid_fetch_providers
+    ]
+    if invalid_providers:
+        raise HTTPException(
+            status_code=400,
+            detail=(
+                f"无效提供者: {', '.join(invalid_providers)}，"
+                f"可选: {', '.join(sorted(valid_fetch_providers))}"
+            ),
+        )
+    try:
+        from souwen.web.fetch import ensure_fetch_providers_allowed
+
+        ensure_fetch_providers_allowed(selected_providers)
+    except EditionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
 
     try:
         result = await summarize_pages(
             urls=body.urls,
             provider=body.provider,
+            providers=selected_providers,
+            strategy=body.strategy,
             timeout=body.timeout,
             mode=effective_mode,
             model=body.model,
@@ -149,13 +217,16 @@ async def api_fetch_summarize(body: FetchSummarizeRequest):
         raise HTTPException(status_code=503, detail="LLM service not configured") from exc
     except LLMError as exc:
         logger.exception("Fetch+Summarize LLM 错误")
-        raise HTTPException(status_code=502, detail=f"LLM service error: {exc}") from exc
+        detail = redact_secret_text(str(exc)) or "unknown error"
+        raise HTTPException(status_code=502, detail=f"LLM service error: {detail}") from exc
     except ValueError as exc:
         logger.warning("Fetch+Summarize 请求无效: %s", exc)
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        detail = redact_secret_text(str(exc)) or "invalid request"
+        raise HTTPException(status_code=422, detail=detail) from exc
     except SouWenError as exc:
         logger.exception("Fetch+Summarize 上游失败")
-        raise HTTPException(status_code=502, detail=f"Upstream error: {exc}") from exc
+        detail = redact_secret_text(str(exc)) or "unknown error"
+        raise HTTPException(status_code=502, detail=f"Upstream error: {detail}") from exc
     except Exception:
         logger.warning("Fetch+Summarize 内部错误", exc_info=True)
         raise

@@ -114,6 +114,9 @@ async def test_fetch_blocks_invalid_url_without_calling_api(httpx_mock: HTTPXMoc
         result = await client.fetch("http://127.0.0.1/admin")
 
     assert result.error is not None
+    assert "SSRF" in result.error
+    assert result.source == "kimi_code"
+    assert result.raw["provider"] == "kimi_code_fetch"
     assert result.raw["blocked_by_ssrf"] is True
     assert not httpx_mock.get_requests()
 
@@ -140,4 +143,4 @@ async def test_fetch_batch_counts_partial_failures(httpx_mock: HTTPXMock, monkey
     assert resp.total_ok == 1
     assert resp.total_failed == 1
     assert resp.results[0].content == "ok content"
-    assert resp.results[1].error == "blocked"
+    assert resp.results[1].error == "SSRF 校验失败: blocked"

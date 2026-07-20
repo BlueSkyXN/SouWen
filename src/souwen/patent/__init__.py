@@ -1,8 +1,8 @@
 """专利数据源模块
 
 包含以下数据源客户端：
-- PatentsViewClient: PatentsView/USPTO (无需Key)
-- PqaiClient: PQAI 语义检索 (无需Key)
+- PatentsViewClient: PatentsView/USPTO (API Key)
+- PqaiClient: PQAI 语义检索 (API Token)
 - EpoOpsClient: EPO OPS (OAuth 2.0)
 - UsptoOdpClient: USPTO ODP (API Key)
 - TheLensClient: The Lens (Bearer Token)

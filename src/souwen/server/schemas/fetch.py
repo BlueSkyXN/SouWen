@@ -1,14 +1,24 @@
-"""内容抓取请求模型"""
+"""内容抓取请求 / 响应模型"""
 
 from __future__ import annotations
 
 from typing import Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
+from souwen.models import FetchResponse as FetchResponse
 from souwen.registry import fetch_providers
 
 _FETCH_PROVIDER_NAMES = tuple(adapter.name for adapter in fetch_providers())
+
+
+def _strip_non_empty_string(value: object, *, field_name: str) -> object:
+    if not isinstance(value, str):
+        return value
+    stripped = value.strip()
+    if not stripped:
+        raise ValueError(f"{field_name} 不能是空字符串")
+    return stripped
 
 
 class FetchRequest(BaseModel):
@@ -45,3 +55,61 @@ class FetchRequest(BaseModel):
     start_index: int = Field(default=0, ge=0, description="内容起始切片位置（用于分页续读）")
     max_length: int | None = Field(default=None, ge=0, description="内容最大长度，超出则截断")
     respect_robots_txt: bool = Field(default=False, description="是否遵守 robots.txt")
+
+    @field_validator("urls", mode="before")
+    @classmethod
+    def _normalize_urls(cls, value: object) -> object:
+        if isinstance(value, list | tuple):
+            return [_strip_non_empty_string(item, field_name="urls") for item in value]
+        return value
+
+    @field_validator("provider", mode="before")
+    @classmethod
+    def _normalize_provider(cls, value: object) -> object:
+        return _strip_non_empty_string(value, field_name="provider")
+
+    @field_validator("providers", mode="before")
+    @classmethod
+    def _normalize_providers(cls, value: object) -> object:
+        if value is None:
+            return None
+        if isinstance(value, list | tuple):
+            return [_strip_non_empty_string(item, field_name="providers") for item in value]
+        return value
+
+
+class LinkItemResponse(BaseModel):
+    """链接提取返回的单个链接项。"""
+
+    url: str
+    text: str
+
+
+class LinkExtractionResponse(BaseModel):
+    """``GET /links`` 链接提取响应。"""
+
+    source_url: str
+    final_url: str
+    links: list[LinkItemResponse]
+    total: int
+    filtered_count: int
+    error: str | None
+
+
+class SitemapEntryResponse(BaseModel):
+    """Sitemap 中的单条 URL 记录。"""
+
+    loc: str
+    lastmod: str | None
+    changefreq: str | None
+    priority: float | None
+
+
+class SitemapResponse(BaseModel):
+    """``GET /sitemap`` sitemap 解析响应。"""
+
+    root_url: str
+    entries: list[SitemapEntryResponse]
+    total: int
+    sitemaps_parsed: int
+    errors: list[str]

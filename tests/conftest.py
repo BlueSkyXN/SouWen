@@ -13,15 +13,22 @@ from __future__ import annotations
 
 import os
 import site
+import sys
 from pathlib import Path
 
 import pytest
 
 
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+_REPO_SRC = _REPO_ROOT / "src"
+if _REPO_SRC.is_dir() and str(_REPO_SRC) not in sys.path:
+    sys.path.insert(0, str(_REPO_SRC))
+
+
 def _subprocess_pythonpath() -> str:
     """Build a PYTHONPATH that keeps subprocess tests on the source tree."""
 
-    repo_src = str(Path(__file__).resolve().parents[1] / "src")
+    repo_src = str(_REPO_SRC)
     candidates = [repo_src]
     existing = os.environ.get("PYTHONPATH")
     if existing:

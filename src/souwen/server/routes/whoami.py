@@ -6,11 +6,18 @@ from fastapi import APIRouter, Depends
 
 from souwen.config import get_config
 from souwen.server.auth import Role, resolve_role
+from souwen.server.schemas import WhoamiResponse
 
 router = APIRouter()
 
 
-@router.get("/whoami")
+def _edition_capabilities(edition: str) -> dict[str, object]:
+    from souwen.feature_matrix import edition_capabilities
+
+    return edition_capabilities(edition)
+
+
+@router.get("/whoami", response_model=WhoamiResponse)
 async def whoami(role: Role = Depends(resolve_role)):
     """返回当前请求的角色和可用功能
 
@@ -38,6 +45,8 @@ async def whoami(role: Role = Depends(resolve_role)):
     return {
         "role": role.name.lower(),
         "features": features,
+        "edition": cfg.edition,
+        "edition_capabilities": _edition_capabilities(cfg.edition),
         "guest_enabled": cfg.guest_enabled,
         "user_password_set": cfg.effective_user_password is not None,
         "admin_password_set": cfg.effective_admin_password is not None,

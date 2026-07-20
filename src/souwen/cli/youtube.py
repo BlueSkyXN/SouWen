@@ -8,7 +8,7 @@ import json
 import typer
 from rich.table import Table
 
-from souwen.cli._common import _run_async, console
+from souwen.cli._common import _run_async, console, redact_cli_text
 
 youtube_app = typer.Typer(help="YouTube 视频工具")
 
@@ -37,11 +37,11 @@ def youtube_trending(
         try:
             coro = _do()
             if timeout is not None:
-                results = _run_async(asyncio.wait_for(coro, timeout=timeout))
+                response = _run_async(asyncio.wait_for(coro, timeout=timeout))
             else:
-                results = _run_async(coro)
+                response = _run_async(coro)
         except ConfigError as e:
-            console.print(f"[red]❌ YouTube API 未配置: {e}[/red]")
+            console.print(f"[red]❌ YouTube API 未配置: {redact_cli_text(e)}[/red]")
             raise typer.Exit(1)
         except RateLimitError:
             console.print("[red]❌ YouTube API 配额已用尽[/red]")
@@ -50,13 +50,22 @@ def youtube_trending(
             console.print(f"[red]⏱ 请求超时 (>{timeout}s)[/red]")
             raise typer.Exit(124)
 
+    if hasattr(response, "results"):
+        results = response.results
+        total = response.total_results or len(results)
+        json_data = response.model_dump(mode="json")
+    else:
+        results = response
+        total = len(results)
+        json_data = [r.model_dump(mode="json") for r in results]
+
     if json_output:
         from rich import print_json
 
-        print_json(json.dumps([r.model_dump(mode="json") for r in results], ensure_ascii=False))
+        print_json(json.dumps(json_data, ensure_ascii=False))
         return
 
-    table = Table(title=f"🔥 YouTube 热门 ({region}, {len(results)} 条)", show_lines=True)
+    table = Table(title=f"🔥 YouTube 热门 ({region}, {total} 条)", show_lines=True)
     table.add_column("Title", style="cyan", max_width=45)
     table.add_column("Channel", style="yellow", max_width=20)
     table.add_column("URL", style="blue", max_width=40)
@@ -89,7 +98,7 @@ def youtube_video(
             else:
                 results = _run_async(coro)
         except ConfigError as e:
-            console.print(f"[red]❌ YouTube API 未配置: {e}[/red]")
+            console.print(f"[red]❌ YouTube API 未配置: {redact_cli_text(e)}[/red]")
             raise typer.Exit(1)
         except RateLimitError:
             console.print("[red]❌ YouTube API 配额已用尽[/red]")
@@ -145,7 +154,7 @@ def youtube_transcript(
             else:
                 segments = _run_async(coro)
         except ConfigError as e:
-            console.print(f"[red]❌ YouTube API 未配置: {e}[/red]")
+            console.print(f"[red]❌ YouTube API 未配置: {redact_cli_text(e)}[/red]")
             raise typer.Exit(1)
         except asyncio.TimeoutError:
             console.print(f"[red]⏱ 请求超时 (>{timeout}s)[/red]")

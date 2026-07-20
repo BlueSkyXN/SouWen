@@ -19,7 +19,7 @@
         - 用法：必须作为 async context manager 使用
 
 模块依赖：
-    - mcp（可选）: 官方 MCP Python SDK（pip install mcp）
+    - mcp（edition-basic 聚合依赖）: 官方 MCP Python SDK
     - contextlib: AsyncExitStack 管理嵌套上下文
     - logging: 日志记录
 
@@ -94,8 +94,8 @@ class MCPClient:
             from mcp import ClientSession  # noqa: F401
         except ImportError as e:
             raise ImportError(
-                "MCP SDK 未安装。请执行: pip install mcp\n"
-                '或在源码目录安装完整依赖: pip install -e ".[mcp]"'
+                'MCP SDK 未安装。请执行: pip install "souwen[edition-basic]"\n'
+                '或在源码目录执行: pip install -e ".[edition-basic]"'
             ) from e
 
         from mcp import ClientSession

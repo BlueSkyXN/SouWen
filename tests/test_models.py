@@ -33,9 +33,9 @@ class TestSourceCatalog:
         assert sum(1 for entry in catalog.values() if entry.category == "paper") == 18
 
     def test_patent_count(self):
-        """patent 暴露 6 个搜索数据源"""
+        """patent 暴露 8 个搜索数据源。"""
         catalog = public_source_catalog()
-        assert sum(1 for entry in catalog.values() if entry.category == "patent") == 6
+        assert sum(1 for entry in catalog.values() if entry.category == "patent") == 8
 
     def test_web_count(self):
         """web-derived categories have correct source counts."""
@@ -70,13 +70,21 @@ class TestSourceCatalog:
         }
         assert "unpaywall" not in names
 
-    def test_patent_search_hides_known_broken_free_defaults(self):
-        """patent 搜索列表不再默认暴露已失效免费源。"""
+    def test_patent_search_exposes_repaired_credential_sources_without_defaults(self):
+        """PatentsView/PQAI 可见但需要凭据，且不进入默认专利源。"""
+        from souwen.registry import defaults_for
+
         names = {
-            name for name, entry in public_source_catalog().items() if entry.category == "patent"
+            name: entry
+            for name, entry in public_source_catalog().items()
+            if entry.category == "patent"
         }
-        assert "patentsview" not in names
-        assert "pqai" not in names
+        assert names["patentsview"].auth_requirement == "required"
+        assert names["patentsview"].available_by_default is False
+        assert names["pqai"].auth_requirement == "required"
+        assert names["pqai"].available_by_default is False
+        assert "patentsview" not in defaults_for("patent", "search")
+        assert "pqai" not in defaults_for("patent", "search")
 
     def test_self_hosted_web_sources_require_setup(self):
         """自建 Web 引擎在清单中标记为需要配置。"""
@@ -171,6 +179,27 @@ class TestFetchResponse:
 
         assert provider_schema["deprecated"] is True
         assert provider_schema["x-souwen-sunset"] == "2.1.0 GA"
+
+    def test_provider_populates_providers_for_legacy_responses(self):
+        """旧 provider 字段仍应补齐 canonical providers 列表。"""
+        response = FetchResponse(urls=[], results=[], provider="builtin")
+
+        assert response.provider == "builtin"
+        assert response.providers == ["builtin"]
+
+    def test_single_provider_list_populates_compat_provider(self):
+        """单 provider 列表应补齐 deprecated provider 兼容字段。"""
+        response = FetchResponse(urls=[], results=[], providers=["jina_reader"])
+
+        assert response.provider == "jina_reader"
+        assert response.providers == ["jina_reader"]
+
+    def test_multi_provider_list_keeps_compat_provider_null(self):
+        """多 provider 响应不应伪装成单一 provider。"""
+        response = FetchResponse(urls=[], results=[], providers=["builtin", "jina_reader"])
+
+        assert response.provider is None
+        assert response.providers == ["builtin", "jina_reader"]
 
 
 class TestWebSearchResult:

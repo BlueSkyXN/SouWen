@@ -24,9 +24,10 @@ _reg(
     SourceAdapter(
         name="patentsview",
         domain="patent",
-        integration="open_api",
-        description="PatentsView 美国专利 (待修复)",
-        config_field=None,
+        integration="official_api",
+        description="PatentsView 美国专利",
+        config_field="patentsview_api_key",
+        credential_fields=("patentsview_api_key",),
         client_loader=lazy("souwen.patent.patentsview:PatentsViewClient"),
         methods={
             "search": MethodSpec(
@@ -35,10 +36,8 @@ _reg(
                 pre_call=_patentsview_pre_call,
             ),
         },
-        # "待修复"状态，默认 public catalog 不展示
-        catalog_visibility="hidden",
-        stability="deprecated",
-        usage_note="公开搜索端点已变更，当前接入待修复",
+        auth_requirement="required",
+        usage_note="PatentsView Search API 当前要求 X-Api-Key",
     )
 )
 
@@ -47,13 +46,13 @@ _reg(
         name="pqai",
         domain="patent",
         integration="open_api",
-        description="PQAI 专利语义搜索 (待修复)",
-        config_field=None,
+        description="PQAI 专利语义搜索",
+        config_field="pqai_api_token",
+        credential_fields=("pqai_api_token",),
         client_loader=lazy("souwen.patent.pqai:PqaiClient"),
         methods={"search": MethodSpec("search", _P_N_RESULTS)},
-        catalog_visibility="hidden",
-        stability="deprecated",
-        usage_note="匿名 API 当前返回 401，暂不建议默认使用",
+        auth_requirement="required",
+        usage_note="PQAI API 当前要求 token 参数",
     )
 )
 

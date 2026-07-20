@@ -265,19 +265,39 @@ def available_source_catalog(config: Any) -> dict[str, SourceCatalogEntry]:
     """按运行时配置过滤 public catalog。
 
     过滤口径与当前 ``/api/v1/sources`` 保持一致：源未禁用，且 required /
-    self_hosted 凭据已满足。
+    self_hosted 凭据已满足，并且当前 edition 允许。
     """
 
+    from souwen.editions import source_policy
     from souwen.registry.meta import has_required_credentials
 
     result: dict[str, SourceCatalogEntry] = {}
     for name, entry in public_source_catalog().items():
+        adapter = _views.get(name)
+        if adapter is None:  # pragma: no cover - catalog 与 registry 同源，防御漂移
+            raise KeyError(f"missing registry adapter for source {name!r}")
+        if not source_policy(adapter, config.edition).available:
+            continue
         if not config.is_source_enabled(name):
             continue
         if not has_required_credentials(config, name, entry):
             continue
         result[name] = entry
     return result
+
+
+def _source_edition_fields(name: str, config: Any) -> dict[str, Any]:
+    from souwen.editions import source_policy
+
+    adapter = _views.get(name)
+    if adapter is None:  # pragma: no cover - catalog 与 registry 同源，防御漂移
+        raise KeyError(f"missing registry adapter for source {name!r}")
+    policy = source_policy(adapter, config.edition)
+    return {
+        "min_edition": policy.min_edition,
+        "edition_available": policy.available,
+        "edition_reason": policy.reason,
+    }
 
 
 def public_source_catalog_payload(config: Any) -> dict[str, Any]:
@@ -288,6 +308,7 @@ def public_source_catalog_payload(config: Any) -> dict[str, Any]:
     sources: list[dict[str, Any]] = []
     for name, entry in public_source_catalog().items():
         credentials_satisfied = has_required_credentials(config, name, entry)
+        edition_fields = _source_edition_fields(name, config)
         sources.append(
             {
                 "name": name,
@@ -303,7 +324,12 @@ def public_source_catalog_payload(config: Any) -> dict[str, Any]:
                 "stability": entry.stability,
                 "distribution": entry.distribution,
                 "default_for": list(entry.default_for),
-                "available": config.is_source_enabled(name) and credentials_satisfied,
+                **edition_fields,
+                "available": (
+                    config.is_source_enabled(name)
+                    and credentials_satisfied
+                    and edition_fields["edition_available"]
+                ),
             }
         )
 

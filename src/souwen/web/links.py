@@ -81,9 +81,14 @@ async def extract_links(
     try:
         from souwen.core.scraper.base import BaseScraper
 
-        scraper = BaseScraper(min_delay=0, max_delay=0.1, max_retries=1)
+        scraper = BaseScraper(
+            min_delay=0,
+            max_delay=0.1,
+            max_retries=1,
+            follow_redirects=False,
+        )
         async with scraper:
-            resp = await scraper._fetch(url)
+            resp = await scraper._fetch_with_safe_redirects(url)
 
         html = resp.text
         final_url = str(resp.url) if hasattr(resp, "url") else url

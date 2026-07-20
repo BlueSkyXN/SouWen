@@ -26,8 +26,10 @@ from typing import Any
 logger = logging.getLogger("souwen.warp")
 
 STATE_FILE = Path("/run/souwen-warp.json")
-WARP_DATA_DIR = Path("/app/data")
-RUNTIME_BIN_DIR = Path("/app/data/bin")
+WARP_DATA_DIR = Path(os.environ.get("WARP_DATA_DIR", "/app/data")).expanduser()
+RUNTIME_BIN_DIR = Path(
+    os.environ.get("WARP_RUNTIME_BIN_DIR", str(WARP_DATA_DIR / "bin"))
+).expanduser()
 
 # ---------- input sanitisation helpers ----------
 
@@ -239,13 +241,16 @@ class WarpManager:
         from souwen.config import get_config
 
         cfg = get_config()
-        if cfg.warp_external_proxy:
+        from souwen.editions import allowed_warp_modes
+
+        allowed = set(allowed_warp_modes(cfg.edition))
+        if cfg.warp_external_proxy and "external" in allowed:
             return "external"
-        if self._has_usque():
+        if self._has_usque() and "usque" in allowed:
             return "usque"
-        if self._has_wireproxy():
+        if self._has_wireproxy() and "wireproxy" in allowed:
             return "wireproxy"
-        if self._has_kernel_wg():
+        if self._has_kernel_wg() and "kernel" in allowed:
             return "kernel"
         return "none"
 
@@ -472,16 +477,18 @@ class WarpManager:
     def _auto_mode_candidates(self) -> list[str]:
         """按无特权优先顺序返回 auto 模式可尝试的候选链。"""
         from souwen.config import get_config
+        from souwen.editions import allowed_warp_modes
 
         cfg = get_config()
+        allowed = set(allowed_warp_modes(cfg.edition))
         candidates: list[str] = []
-        if cfg.warp_external_proxy:
+        if cfg.warp_external_proxy and "external" in allowed:
             candidates.append("external")
-        if self._has_usque():
+        if self._has_usque() and "usque" in allowed:
             candidates.append("usque")
-        if self._has_wireproxy():
+        if self._has_wireproxy() and "wireproxy" in allowed:
             candidates.append("wireproxy")
-        if self._has_kernel_wg():
+        if self._has_kernel_wg() and "kernel" in allowed:
             candidates.append("kernel")
         return candidates
 
@@ -573,22 +580,32 @@ class WarpManager:
             if self._state.status in ("enabled", "starting"):
                 return {"ok": False, "error": f"WARP 当前状态: {self._state.status}，请先禁用"}
 
+            from souwen.config import get_config
+            from souwen.editions import EditionError, ensure_warp_mode_allowed
+
+            cfg = get_config()
+            try:
+                ensure_warp_mode_allowed(mode, cfg.edition)
+            except EditionError as exc:
+                return {
+                    "ok": False,
+                    "error": str(exc),
+                    "error_code": "edition_not_allowed",
+                }
+
             self._state.status = "starting"
             self._state.last_error = ""
             self._state.socks_port = socks_port
             self._state.http_port = 0
 
             try:
-                from souwen.config import get_config
-
-                cfg = get_config()
                 effective_http_port = cfg.warp_http_port if http_port is None else http_port
 
                 if mode == "auto":
                     candidate_modes = self._auto_mode_candidates()
                     if not candidate_modes:
                         self._state.status = "error"
-                        self._state.last_error = "未检测到可用的 WARP 组件"
+                        self._state.last_error = "未检测到当前 edition 允许的可用 WARP 组件"
                         self._save_state()
                         return {"ok": False, "error": self._state.last_error}
                     logger.info("WARP auto 候选链: %s", " > ".join(candidate_modes))
@@ -763,11 +780,14 @@ class WarpManager:
             last_error 和 available_modes 的字典
         """
         from souwen.config import get_config
+        from souwen.editions import allowed_warp_modes
 
         try:
             cfg = get_config()
+            allowed = set(allowed_warp_modes(cfg.edition))
         except Exception:
             cfg = None
+            allowed = {"wireproxy", "kernel", "usque", "warp-cli", "external"}
         s = self._state
 
         # 实时验证: 如果状态是 enabled, 检查进程是否还活着
@@ -799,11 +819,13 @@ class WarpManager:
             "protocol": s.protocol,
             "proxy_type": s.proxy_type,
             "available_modes": {
-                "wireproxy": self._has_wireproxy(),
-                "kernel": self._has_kernel_wg(),
-                "usque": self._has_usque(),
-                "warp-cli": self._has_warp_cli(),
-                "external": bool(cfg.warp_external_proxy) if cfg else False,
+                "wireproxy": self._has_wireproxy() and "wireproxy" in allowed,
+                "kernel": self._has_kernel_wg() and "kernel" in allowed,
+                "usque": self._has_usque() and "usque" in allowed,
+                "warp-cli": self._has_warp_cli() and "warp-cli" in allowed,
+                "external": bool(cfg.warp_external_proxy) and "external" in allowed
+                if cfg
+                else False,
             },
         }
 

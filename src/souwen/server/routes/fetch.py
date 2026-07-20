@@ -6,11 +6,21 @@ import asyncio
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
+from souwen.editions import EditionError
 from souwen.registry import fetch_providers
 from souwen.server.auth import require_auth
 from souwen.server.limiter import rate_limit_search
-from souwen.server.routes._common import logger
-from souwen.server.schemas import FetchRequest
+from souwen.server.routes._common import (
+    logger,
+    normalize_optional_query_arg,
+    normalize_required_query_arg,
+)
+from souwen.server.schemas import (
+    FetchRequest,
+    FetchResponse,
+    LinkExtractionResponse,
+    SitemapResponse,
+)
 
 router = APIRouter()
 
@@ -37,11 +47,12 @@ def _fetch_route_timeout(
 
 @router.post(
     "/fetch",
+    response_model=FetchResponse,
     dependencies=[Depends(rate_limit_search), Depends(require_auth)],
 )
 async def fetch_content_endpoint(body: FetchRequest):
     """抓取网页内容。"""
-    from souwen.web.fetch import fetch_content
+    from souwen.web.fetch import ensure_fetch_providers_allowed, fetch_content
 
     valid_fetch_providers = _valid_fetch_provider_names()
     selected_providers = body.providers or [body.provider]
@@ -56,6 +67,10 @@ async def fetch_content_endpoint(body: FetchRequest):
                 f"可选: {', '.join(sorted(valid_fetch_providers))}"
             ),
         )
+    try:
+        ensure_fetch_providers_allowed(selected_providers)
+    except EditionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
 
     route_timeout = _fetch_route_timeout(
         selected_providers,
@@ -88,6 +103,8 @@ async def fetch_content_endpoint(body: FetchRequest):
             "strategy": resp.strategy,
             "meta": resp.meta,
         }
+    except EditionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
     except asyncio.TimeoutError:
         logger.warning(
             "内容抓取超时: providers=%s strategy=%s urls=%d",
@@ -108,6 +125,7 @@ async def fetch_content_endpoint(body: FetchRequest):
 
 @router.get(
     "/links",
+    response_model=LinkExtractionResponse,
     dependencies=[Depends(rate_limit_search), Depends(require_auth)],
 )
 async def extract_links_endpoint(
@@ -117,6 +135,9 @@ async def extract_links_endpoint(
 ):
     """提取页面链接 — 返回去重、SSRF 过滤后的链接列表。"""
     from souwen.web.links import extract_links
+
+    url = normalize_required_query_arg(url, "url")
+    base_url_filter = normalize_optional_query_arg(base_url_filter)
 
     try:
         result = await asyncio.wait_for(
@@ -130,6 +151,7 @@ async def extract_links_endpoint(
 
 @router.get(
     "/sitemap",
+    response_model=SitemapResponse,
     dependencies=[Depends(rate_limit_search), Depends(require_auth)],
 )
 async def parse_sitemap_endpoint(
@@ -139,6 +161,8 @@ async def parse_sitemap_endpoint(
 ):
     """解析 sitemap.xml — 提取站点 URL 列表。"""
     from souwen.web.sitemap import discover_sitemap, parse_sitemap
+
+    url = normalize_required_query_arg(url, "url")
 
     try:
         if discover:

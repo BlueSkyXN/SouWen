@@ -26,6 +26,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from souwen.core.redaction import redact_secret_payload, redact_secret_text
 from souwen.plugin import (
     ensure_plugins_loaded,
     get_loaded_plugins,
@@ -77,6 +78,12 @@ _PluginHealthJob = tuple[
     contextvars.Context,
     Callable[[], Any],
 ]
+
+
+def _safe_error_text(value: object, fallback: str = "未知错误") -> str:
+    """Return log/API-safe error text without embedded credentials."""
+    text = redact_secret_text(str(value))
+    return text or fallback
 
 
 class _InvalidPluginHealthCheck(TypeError):
@@ -218,17 +225,21 @@ async def run_plugin_health(
         logger.warning("插件 %r 健康检查超时: >%gs", name, timeout_seconds)
         return {"status": "error", "message": f"health_check 超时（>{timeout_seconds:g}s）"}
     except Exception as exc:  # noqa: BLE001 — health 错误返回，避免拖垮调用方
-        logger.warning("插件 %r 健康检查失败: %s", name, exc, exc_info=True)
+        safe_exc = _safe_error_text(exc)
+        logger.warning("插件 %r 健康检查失败: %s", name, safe_exc)
         if include_error_detail:
-            message = f"health_check 抛出异常: {exc}"
+            message = f"health_check 抛出异常: {safe_exc}"
         else:
             message = f"插件 {name!r} 健康检查异常"
         return {"status": "error", "message": message}
 
     if isinstance(result, dict):
         result.setdefault("status", "ok")
-        return result
-    return {"status": "ok", "details": str(result)}
+        safe_result = redact_secret_payload(result)
+        if isinstance(safe_result, dict):
+            return safe_result
+        return {"status": "ok", "details": _safe_error_text(safe_result, "")}
+    return {"status": "ok", "details": _safe_error_text(result, "")}
 
 
 async def collect_plugin_health(
@@ -279,7 +290,7 @@ def _get_state_path() -> Path:
             data_dir = getattr(get_config(), "data_dir", "~/.local/share/souwen")
             base_dir = Path(data_dir).expanduser()
     except Exception as exc:  # noqa: BLE001
-        logger.warning("读取配置目录失败，使用默认插件状态目录: %s", exc)
+        logger.warning("读取配置目录失败，使用默认插件状态目录: %s", _safe_error_text(exc))
         base_dir = Path("~/.local/share/souwen").expanduser()
     return base_dir / "plugins.state.json"
 
@@ -292,7 +303,12 @@ def _normalize_state(raw: Any) -> dict[str, list[str]]:
     for key in state:
         values = raw.get(key, [])
         if isinstance(values, list):
-            state[key] = sorted({str(item) for item in values if str(item).strip()})
+            normalized_values = set()
+            for item in values:
+                value = str(item).strip()
+                if value:
+                    normalized_values.add(value)
+            state[key] = sorted(normalized_values)
     return state
 
 
@@ -307,7 +323,7 @@ def _load_state() -> dict[str, list[str]]:
         with path.open("r", encoding="utf-8") as f:
             return _normalize_state(json.load(f))
     except Exception as exc:  # noqa: BLE001
-        logger.warning("读取插件状态文件失败: %s", exc)
+        logger.warning("读取插件状态文件失败: %s", _safe_error_text(exc))
         return _default_state()
 
 
@@ -323,7 +339,7 @@ def _save_state(state: dict[str, Any]) -> None:
             f.write("\n")
         tmp_path.replace(path)
     except Exception as exc:  # noqa: BLE001
-        logger.warning("保存插件状态文件失败: %s", exc)
+        logger.warning("保存插件状态文件失败: %s", _safe_error_text(exc))
         try:
             if "tmp_path" in locals() and tmp_path.exists():
                 tmp_path.unlink()
@@ -340,7 +356,7 @@ def _discover_catalog_entries() -> list[dict[str, str]]:
         else:  # pragma: no cover — 兼容老接口
             candidates = list(eps.get(CATALOG_ENTRY_POINT_GROUP, []))  # type: ignore[union-attr]
     except Exception as exc:  # noqa: BLE001
-        logger.warning("读取插件目录 entry points 失败: %s", exc)
+        logger.warning("读取插件目录 entry points 失败: %s", _safe_error_text(exc))
         return []
 
     required_keys = {"name", "package", "description", "entry_point"}
@@ -350,7 +366,7 @@ def _discover_catalog_entries() -> list[dict[str, str]]:
         try:
             item = ep.load()
         except Exception as exc:  # noqa: BLE001
-            logger.warning("加载插件目录 entry point %r 失败: %s", ep_name, exc)
+            logger.warning("加载插件目录 entry point %r 失败: %s", ep_name, _safe_error_text(exc))
             continue
 
         if not isinstance(item, dict):
@@ -436,7 +452,7 @@ def _is_package_importable(item: dict[str, str]) -> bool:
     try:
         return importlib.util.find_spec(import_name) is not None
     except Exception as exc:  # noqa: BLE001
-        logger.warning("检测插件 %r 可导入性失败: %s", import_name, exc)
+        logger.warning("检测插件 %r 可导入性失败: %s", import_name, _safe_error_text(exc))
         return False
 
 
@@ -552,7 +568,7 @@ def list_plugins() -> list[PluginInfo]:
 
         return sorted(result.values(), key=lambda p: (p.name.lower(), p.name))
     except Exception as exc:  # noqa: BLE001
-        logger.warning("列出插件失败: %s", exc)
+        logger.warning("列出插件失败: %s", _safe_error_text(exc))
         return []
 
 
@@ -563,7 +579,7 @@ def get_plugin_info(name: str) -> PluginInfo | None:
             if plugin.name == name:
                 return plugin
     except Exception as exc:  # noqa: BLE001
-        logger.warning("查询插件 %r 失败: %s", name, exc)
+        logger.warning("查询插件 %r 失败: %s", name, _safe_error_text(exc))
     return None
 
 
@@ -620,7 +636,7 @@ def enable_plugin(name: str) -> dict[str, Any]:
             "message": f"插件 {name!r} 已启用，重启后完全生效。",
         }
     except Exception as exc:  # noqa: BLE001
-        logger.warning("启用插件 %r 失败: %s", name, exc)
+        logger.warning("启用插件 %r 失败: %s", name, _safe_error_text(exc))
         return {
             "success": False,
             "restart_required": False,
@@ -723,7 +739,7 @@ def disable_plugin(name: str) -> dict[str, Any]:
             unload_result = {"name": state_name, "status": "not_loaded"}
         return _disable_result(name, state_name, unload_result)
     except Exception as exc:  # noqa: BLE001
-        logger.warning("禁用插件 %r 失败: %s", name, exc)
+        logger.warning("禁用插件 %r 失败: %s", name, _safe_error_text(exc))
         return {
             "success": False,
             "restart_required": False,
@@ -746,7 +762,7 @@ async def disable_plugin_async(name: str) -> dict[str, Any]:
             unload_result = {"name": state_name, "status": "not_loaded"}
         return _disable_result(name, state_name, unload_result)
     except Exception as exc:  # noqa: BLE001
-        logger.warning("禁用插件 %r 失败: %s", name, exc)
+        logger.warning("禁用插件 %r 失败: %s", name, _safe_error_text(exc))
         return {
             "success": False,
             "restart_required": False,
@@ -824,7 +840,7 @@ async def install_plugin(package: str) -> dict[str, Any]:
                 )
         return {"success": success, "output": output, "restart_required": success}
     except Exception as exc:  # noqa: BLE001
-        logger.warning("安装插件包 %r 失败: %s", package, exc)
+        logger.warning("安装插件包 %r 失败: %s", package, _safe_error_text(exc))
         return {
             "success": False,
             "output": "安装插件失败，请查看服务端日志。",
@@ -861,7 +877,7 @@ async def uninstall_plugin(package: str) -> dict[str, Any]:
                 )
         return {"success": success, "output": output, "restart_required": success}
     except Exception as exc:  # noqa: BLE001
-        logger.warning("卸载插件包 %r 失败: %s", package, exc)
+        logger.warning("卸载插件包 %r 失败: %s", package, _safe_error_text(exc))
         return {
             "success": False,
             "output": "卸载插件失败，请查看服务端日志。",
@@ -888,7 +904,7 @@ def reload_plugins() -> dict[str, Any]:
             message += f" 本次跳过: {', '.join(result.skipped)}。"
         return {"loaded": loaded, "errors": errors, "message": message}
     except Exception as exc:  # noqa: BLE001
-        logger.warning("重新扫描插件失败: %s", exc)
+        logger.warning("重新扫描插件失败: %s", _safe_error_text(exc))
         return {
             "loaded": [],
             "errors": [

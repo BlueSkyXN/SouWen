@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Post-CD report for the public Hugging Face Space.
+"""Post-CD report for the Hugging Face Space deployment.
 
 The script intentionally uses only the Python standard library plus the local
 functional report helper so it can run in GitHub Actions immediately after the
@@ -11,12 +11,13 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import time
 from dataclasses import dataclass, field
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode, urljoin
+from urllib.parse import urlencode, urljoin, urlparse
 from urllib.request import Request, urlopen
 
 try:
@@ -27,6 +28,13 @@ except ModuleNotFoundError:  # pragma: no cover - direct `python scripts/...` ex
 
 DEFAULT_BASE_URL = "https://blueskyxn-souwen.hf.space"
 USER_AGENT = "SouWen HF Space CD report/1.0"
+DEFAULT_SMOKE_EDITION = "pro"
+EDITION_RANK = {
+    "basic": 0,
+    "pro": 1,
+    "full": 2,
+}
+TRUTHY_VALUES = {"1", "true", "yes", "on"}
 
 DEFAULT_PAPER_SOURCES = [
     "openalex",
@@ -49,8 +57,6 @@ EXTRA_ZERO_KEY_PAPER_SOURCES = [
 ]
 ZERO_KEY_PATENT_SOURCES = [
     "google_patents",
-    "patentsview",
-    "pqai",
 ]
 ZERO_KEY_WEB_SCRAPERS = [
     "duckduckgo",
@@ -87,6 +93,7 @@ ZERO_KEY_OPEN_SEARCH_SOURCES = [
 ZERO_KEY_FETCH_PROVIDER_TESTS = [
     {
         "provider": "builtin",
+        "min_edition": "basic",
         "urls": ["https://example.com/"],
         "timeout": 15,
         "backend_matrix": True,
@@ -94,6 +101,7 @@ ZERO_KEY_FETCH_PROVIDER_TESTS = [
     },
     {
         "provider": "jina_reader",
+        "min_edition": "pro",
         "urls": ["https://example.com/"],
         "timeout": 20,
         "backend_matrix": False,
@@ -101,6 +109,7 @@ ZERO_KEY_FETCH_PROVIDER_TESTS = [
     },
     {
         "provider": "arxiv_fulltext",
+        "min_edition": "full",
         "urls": ["https://arxiv.org/abs/1706.03762"],
         "timeout": 35,
         "backend_matrix": False,
@@ -108,6 +117,7 @@ ZERO_KEY_FETCH_PROVIDER_TESTS = [
     },
     {
         "provider": "crawl4ai",
+        "min_edition": "full",
         "urls": ["https://example.com/"],
         "timeout": 30,
         "backend_matrix": False,
@@ -115,6 +125,7 @@ ZERO_KEY_FETCH_PROVIDER_TESTS = [
     },
     {
         "provider": "newspaper",
+        "min_edition": "full",
         "urls": ["https://example.com/"],
         "timeout": 20,
         "backend_matrix": True,
@@ -122,6 +133,7 @@ ZERO_KEY_FETCH_PROVIDER_TESTS = [
     },
     {
         "provider": "readability",
+        "min_edition": "full",
         "urls": ["https://example.com/"],
         "timeout": 20,
         "backend_matrix": True,
@@ -129,6 +141,7 @@ ZERO_KEY_FETCH_PROVIDER_TESTS = [
     },
     {
         "provider": "site_crawler",
+        "min_edition": "basic",
         "urls": ["https://example.com/"],
         "timeout": 20,
         "backend_matrix": True,
@@ -136,6 +149,7 @@ ZERO_KEY_FETCH_PROVIDER_TESTS = [
     },
     {
         "provider": "deepwiki",
+        "min_edition": "pro",
         "urls": ["https://deepwiki.com/BlueSkyXN/SouWen"],
         "timeout": 45,
         "backend_matrix": True,
@@ -143,6 +157,7 @@ ZERO_KEY_FETCH_PROVIDER_TESTS = [
     },
     {
         "provider": "wayback",
+        "min_edition": "pro",
         "urls": ["https://example.com/"],
         "timeout": 30,
         "backend_matrix": True,
@@ -163,6 +178,8 @@ EXCLUDED_REQUIRED_KEY_SEARCH_SOURCES = [
     "core",
     "zotero",
     "ieee_xplore",
+    "patentsview",
+    "pqai",
     "epo_ops",
     "uspto_odp",
     "the_lens",
@@ -190,6 +207,7 @@ EXCLUDED_REQUIRED_KEY_SEARCH_SOURCES = [
 EXCLUDED_SELF_HOSTED_SEARCH_SOURCES = ["searxng", "whoogle", "websurfx"]
 EXCLUDED_NO_PUBLIC_ENDPOINT_SOURCES = ["unpaywall", "duckduckgo_news"]
 EXCLUDED_REQUIRED_KEY_FETCH_PROVIDERS = [
+    "metaso",
     "tavily",
     "firecrawl",
     "xcrawl",
@@ -223,8 +241,12 @@ class SmokeConfig:
     base_url: str
     expected_version: str | None
     request_timeout: float
+    expected_source_sha: str | None = None
     mode: str = "capability"
+    edition: str = DEFAULT_SMOKE_EDITION
     bearer_token: str | None = None
+    hf_space_token: str | None = None
+    fail_admin_open: bool = False
     warp_modes: list[str] = field(default_factory=lambda: list(DEFAULT_WARP_MODES))
     require_admin: bool = True
     require_openapi: bool = True
@@ -270,6 +292,10 @@ class ProbeResult:
 class RunState:
     original_backend: str | None = None
     original_warp_status: dict[str, Any] | None = None
+    edition: str | None = None
+    admin_open: bool | None = None
+    admin_password_set: bool | None = None
+    admin_access_mode: str = "unknown"
     available_warp_modes: dict[str, bool] = field(default_factory=dict)
     observed_warp_status: dict[str, dict[str, Any]] = field(default_factory=dict)
     admin_available: bool = False
@@ -285,6 +311,154 @@ def normalize_base_url(raw: str) -> str:
     if not value.startswith(("http://", "https://")):
         value = f"https://{value}"
     return value.rstrip("/")
+
+
+def normalize_expected_source_sha(raw: str | None) -> str | None:
+    value = (raw or "").strip()
+    if not value:
+        return None
+    if re.fullmatch(r"[0-9a-fA-F]{40}", value) is None:
+        raise ValueError("expected source SHA must be exactly 40 hexadecimal characters")
+    return value.lower()
+
+
+def bool_or_none(value: Any) -> bool | None:
+    return value if isinstance(value, bool) else None
+
+
+def env_flag(name: str) -> bool:
+    return os.environ.get(name, "").strip().lower() in TRUTHY_VALUES
+
+
+def is_local_base_url(base_url: str) -> bool:
+    host = (urlparse(base_url).hostname or "").lower()
+    return host in {"localhost", "127.0.0.1", "::1"} or host.endswith(".localhost")
+
+
+def env_admin_open_gate() -> bool | None:
+    if env_flag("SOUWEN_SMOKE_FAIL_ADMIN_OPEN"):
+        return True
+    if env_flag("SOUWEN_SMOKE_WARN_ADMIN_OPEN"):
+        return False
+    return None
+
+
+def resolve_fail_admin_open(base_url: str, requested: bool | None) -> bool:
+    if requested is not None:
+        return requested
+    return not is_local_base_url(base_url)
+
+
+def normalize_edition(raw: str | None) -> str:
+    value = (raw or "").strip().lower()
+    if value in EDITION_RANK:
+        return value
+    return DEFAULT_SMOKE_EDITION
+
+
+def edition_allows(current: str, required: str) -> bool:
+    current_edition = normalize_edition(current)
+    required_edition = normalize_edition(required)
+    return EDITION_RANK[current_edition] >= EDITION_RANK[required_edition]
+
+
+def active_edition(config: SmokeConfig, state: RunState) -> str:
+    return normalize_edition(state.edition or config.edition)
+
+
+def fetch_provider_min_edition(provider_test: dict[str, Any]) -> str:
+    value = str(provider_test.get("min_edition") or DEFAULT_SMOKE_EDITION).strip().lower()
+    if value not in EDITION_RANK:
+        raise ValueError(
+            f"fetch provider {provider_test.get('provider')!r} has invalid min_edition={value!r}"
+        )
+    return value
+
+
+def eligible_fetch_provider_tests(
+    edition: str,
+    *,
+    backend_matrix: bool | None = None,
+) -> list[dict[str, Any]]:
+    tests: list[dict[str, Any]] = []
+    for provider_test in ZERO_KEY_FETCH_PROVIDER_TESTS:
+        if (
+            backend_matrix is not None
+            and bool(provider_test.get("backend_matrix")) != backend_matrix
+        ):
+            continue
+        if edition_allows(edition, fetch_provider_min_edition(provider_test)):
+            tests.append(provider_test)
+    return tests
+
+
+def edition_gated_fetch_provider_tests(edition: str) -> list[dict[str, Any]]:
+    return [
+        provider_test
+        for provider_test in ZERO_KEY_FETCH_PROVIDER_TESTS
+        if not edition_allows(edition, fetch_provider_min_edition(provider_test))
+    ]
+
+
+def classify_admin_access(data: dict[str, Any], config: SmokeConfig) -> str:
+    role = data.get("role")
+    if role != "admin":
+        return str(role or "unknown")
+
+    admin_open = bool_or_none(data.get("admin_open"))
+    if admin_open is True:
+        return "open"
+    if config.bearer_token:
+        return "bearer-token"
+    if bool_or_none(data.get("admin_password_set")) is True:
+        return "protected"
+    if admin_open is False:
+        return "closed"
+    return "admin-unknown"
+
+
+def admin_access_meta(config: SmokeConfig, state: RunState) -> dict[str, Any]:
+    return {
+        "admin_access_mode": state.admin_access_mode,
+        "admin_open": state.admin_open,
+        "admin_password_set": state.admin_password_set,
+        "bearer_token_provided": bool(config.bearer_token),
+        "hf_space_token_provided": bool(config.hf_space_token),
+        "local_base_url": is_local_base_url(config.base_url),
+    }
+
+
+def admin_open_probe(config: SmokeConfig, state: RunState) -> ProbeResult | None:
+    if state.admin_open is not True:
+        return None
+
+    meta = admin_access_meta(config, state)
+    detail = (
+        f"admin_open=True, access_mode={state.admin_access_mode!r}, "
+        f"admin_password_set={state.admin_password_set!r}, "
+        f"bearer_token_provided={bool(config.bearer_token)!r}"
+    )
+    if is_local_base_url(config.base_url):
+        return pass_result(
+            "security",
+            "admin-open",
+            f"{detail}; local/CI base URL",
+            meta=meta,
+        )
+    if config.fail_admin_open:
+        return fail_result(
+            "security",
+            "admin-open",
+            f"{detail}; remote admin endpoints must not be open without an admin password",
+            required=True,
+            meta=meta,
+        )
+    return warn_result(
+        "security",
+        "admin-open",
+        f"{detail}; remote admin endpoints are open without an admin password",
+        meta=meta,
+    )
 
 
 class ApiClient:
@@ -316,7 +490,11 @@ class ApiClient:
         if body is not None:
             payload = json.dumps(body).encode("utf-8")
             headers["Content-Type"] = "application/json"
-        if auth and self.config.bearer_token:
+        if self.config.hf_space_token:
+            headers["Authorization"] = f"Bearer {self.config.hf_space_token}"
+        if auth and self.config.bearer_token and self.config.hf_space_token:
+            headers["X-SouWen-Token"] = self.config.bearer_token
+        elif auth and self.config.bearer_token:
             headers["Authorization"] = f"Bearer {self.config.bearer_token}"
 
         started = time.monotonic()
@@ -453,6 +631,15 @@ def check_version(data: dict[str, Any], expected_version: str | None) -> tuple[b
     return False, f"version={actual!r}, expected={expected_version!r}"
 
 
+def check_source_sha(data: dict[str, Any], expected_source_sha: str | None) -> tuple[bool, str]:
+    actual = data.get("source_sha")
+    if expected_source_sha is None:
+        return True, f"source_sha={actual!r}"
+    if actual == expected_source_sha:
+        return True, f"source_sha={actual!r}"
+    return False, f"source_sha={actual!r}, expected={expected_source_sha!r}"
+
+
 def safe_call(
     section: str,
     name: str,
@@ -483,8 +670,12 @@ def run_basic_checks(client: ApiClient, config: SmokeConfig, state: RunState) ->
     def _health() -> ProbeResult:
         resp = client.get("/health")
         version_ok, version_detail = check_version(resp.data, config.expected_version)
-        ok = resp.status == 200 and resp.data.get("status") == "ok" and version_ok
-        detail = f"status={resp.status}, health={resp.data.get('status')!r}, {version_detail}"
+        source_ok, source_detail = check_source_sha(resp.data, config.expected_source_sha)
+        ok = resp.status == 200 and resp.data.get("status") == "ok" and version_ok and source_ok
+        detail = (
+            f"status={resp.status}, health={resp.data.get('status')!r}, "
+            f"{version_detail}, {source_detail}"
+        )
         return (
             pass_result("basic", "health", detail, required=True, elapsed=resp.elapsed)
             if ok
@@ -494,10 +685,11 @@ def run_basic_checks(client: ApiClient, config: SmokeConfig, state: RunState) ->
     def _readiness() -> ProbeResult:
         resp = client.get("/readiness")
         version_ok, version_detail = check_version(resp.data, config.expected_version)
-        ok = resp.status == 200 and resp.data.get("ready") is True and version_ok
+        source_ok, source_detail = check_source_sha(resp.data, config.expected_source_sha)
+        ok = resp.status == 200 and resp.data.get("ready") is True and version_ok and source_ok
         detail = (
             f"status={resp.status}, ready={resp.data.get('ready')!r}, "
-            f"error={resp.data.get('error')!r}, {version_detail}"
+            f"error={resp.data.get('error')!r}, {version_detail}, {source_detail}"
         )
         return (
             pass_result("basic", "readiness", detail, required=True, elapsed=resp.elapsed)
@@ -558,28 +750,60 @@ def run_basic_checks(client: ApiClient, config: SmokeConfig, state: RunState) ->
     def _whoami() -> ProbeResult:
         resp = client.get("/api/v1/whoami", auth=True)
         role = resp.data.get("role")
+        state.admin_open = bool_or_none(resp.data.get("admin_open"))
+        state.admin_password_set = bool_or_none(resp.data.get("admin_password_set"))
+        state.admin_access_mode = (
+            classify_admin_access(resp.data, config)
+            if resp.status == 200
+            else "locked"
+            if resp.status == 401
+            else "unavailable"
+        )
         state.admin_available = resp.status == 200 and role == "admin"
+        meta = admin_access_meta(config, state)
         if config.require_admin:
             ok = state.admin_available
-            detail = f"status={resp.status}, role={role!r}, expected='admin'"
+            detail = (
+                f"status={resp.status}, role={role!r}, "
+                f"admin_access={state.admin_access_mode!r}, "
+                f"admin_open={state.admin_open!r}, expected='admin'"
+            )
             return (
-                pass_result("basic", "whoami", detail, required=True, elapsed=resp.elapsed)
+                pass_result(
+                    "basic",
+                    "whoami",
+                    detail,
+                    required=True,
+                    elapsed=resp.elapsed,
+                    meta=meta,
+                )
                 if ok
-                else fail_result("basic", "whoami", detail, required=True, elapsed=resp.elapsed)
+                else fail_result(
+                    "basic",
+                    "whoami",
+                    detail,
+                    required=True,
+                    elapsed=resp.elapsed,
+                    meta=meta,
+                )
             )
         if resp.status == 401:
             return pass_result(
                 "basic",
                 "whoami",
-                "status=401, endpoint is protected",
+                "status=401, admin_access='locked', endpoint is protected",
                 elapsed=resp.elapsed,
+                meta=meta,
             )
         ok = resp.status == 200 and role in {"admin", "user", "guest"}
-        detail = f"status={resp.status}, role={role!r}"
+        detail = (
+            f"status={resp.status}, role={role!r}, "
+            f"admin_access={state.admin_access_mode!r}, admin_open={state.admin_open!r}"
+        )
         return (
-            pass_result("basic", "whoami", detail, elapsed=resp.elapsed)
+            pass_result("basic", "whoami", detail, elapsed=resp.elapsed, meta=meta)
             if ok
-            else fail_result("basic", "whoami", detail, elapsed=resp.elapsed)
+            else fail_result("basic", "whoami", detail, elapsed=resp.elapsed, meta=meta)
         )
 
     for name, func in [
@@ -591,6 +815,9 @@ def run_basic_checks(client: ApiClient, config: SmokeConfig, state: RunState) ->
         ("whoami", _whoami),
     ]:
         results.append(safe_call("basic", name, func, required=name != "whoami"))
+    admin_open_result = admin_open_probe(config, state)
+    if admin_open_result is not None:
+        results.append(admin_open_result)
     return results
 
 
@@ -613,15 +840,34 @@ def run_admin_checks(client: ApiClient, config: SmokeConfig, state: RunState) ->
 
     def _config() -> ProbeResult:
         resp = client.get("/api/v1/admin/config", auth=True)
+        edition = resp.data.get("edition") if isinstance(resp.data, dict) else None
+        if isinstance(edition, str):
+            state.edition = normalize_edition(edition)
         ok = resp.status == 200 and "default_http_backend" in resp.data
         detail = (
             f"status={resp.status}, default_http_backend={resp.data.get('default_http_backend')!r}, "
-            f"warp_enabled={resp.data.get('warp_enabled')!r}"
+            f"warp_enabled={resp.data.get('warp_enabled')!r}, "
+            f"edition={state.edition or config.edition!r}"
         )
+        meta = {"edition": state.edition or normalize_edition(config.edition)}
         return (
-            pass_result("admin", "config", detail, required=True, elapsed=resp.elapsed)
+            pass_result(
+                "admin",
+                "config",
+                detail,
+                required=True,
+                elapsed=resp.elapsed,
+                meta=meta,
+            )
             if ok
-            else fail_result("admin", "config", detail, required=True, elapsed=resp.elapsed)
+            else fail_result(
+                "admin",
+                "config",
+                detail,
+                required=True,
+                elapsed=resp.elapsed,
+                meta=meta,
+            )
         )
 
     def _http_backend_get() -> ProbeResult:
@@ -1609,6 +1855,33 @@ def fetch_provider_probe(
 
 
 def skipped_fetch_provider(provider: str, reason: str) -> ProbeResult:
+    return skipped_fetch_provider_with_meta(provider, reason)
+
+
+def skipped_fetch_provider_with_meta(
+    provider: str,
+    reason: str,
+    *,
+    skip_reason: str = "runtime",
+    required_edition: str | None = None,
+    current_edition: str | None = None,
+) -> ProbeResult:
+    meta: dict[str, Any] = {
+        "matrix_kind": "fetch-source",
+        "provider": provider,
+        "backend": "-",
+        "warp": "-",
+        "urls": [],
+        "total": 0,
+        "total_ok": 0,
+        "total_failed": 0,
+        "note": reason,
+        "skip_reason": skip_reason,
+    }
+    if required_edition is not None:
+        meta["required_edition"] = required_edition
+    if current_edition is not None:
+        meta["current_edition"] = current_edition
     return ProbeResult(
         "zero-key-fetch-source",
         provider,
@@ -1616,17 +1889,19 @@ def skipped_fetch_provider(provider: str, reason: str) -> ProbeResult:
         reason,
         False,
         None,
-        {
-            "matrix_kind": "fetch-source",
-            "provider": provider,
-            "backend": "-",
-            "warp": "-",
-            "urls": [],
-            "total": 0,
-            "total_ok": 0,
-            "total_failed": 0,
-            "note": reason,
-        },
+        meta,
+    )
+
+
+def edition_skipped_fetch_provider(provider_test: dict[str, Any], edition: str) -> ProbeResult:
+    provider = str(provider_test["provider"])
+    required = fetch_provider_min_edition(provider_test)
+    return skipped_fetch_provider_with_meta(
+        provider,
+        f"requires edition={required}; current edition={normalize_edition(edition)}",
+        skip_reason="edition",
+        required_edition=required,
+        current_edition=normalize_edition(edition),
     )
 
 
@@ -1756,6 +2031,7 @@ def run_zero_key_case(
     config: SmokeConfig,
     *,
     warp: str,
+    edition: str,
 ) -> list[ProbeResult]:
     results: list[ProbeResult] = []
 
@@ -1867,9 +2143,7 @@ def run_zero_key_case(
                         ),
                     )
                 )
-            for provider_test in ZERO_KEY_FETCH_PROVIDER_TESTS:
-                if not provider_test.get("backend_matrix"):
-                    continue
+            for provider_test in eligible_fetch_provider_tests(edition, backend_matrix=True):
                 provider = str(provider_test["provider"])
                 results.append(
                     safe_call(
@@ -1888,9 +2162,7 @@ def run_zero_key_case(
         results.append(
             safe_call("matrix", "http-backend=auto", lambda: set_http_backend(client, "auto"))
         )
-        for provider_test in ZERO_KEY_FETCH_PROVIDER_TESTS:
-            if provider_test.get("backend_matrix"):
-                continue
+        for provider_test in eligible_fetch_provider_tests(edition, backend_matrix=False):
             provider = str(provider_test["provider"])
             results.append(
                 safe_call(
@@ -1932,6 +2204,7 @@ def run_zero_key_checks(
         ]
 
     results: list[ProbeResult] = []
+    edition = active_edition(config, state)
 
     disable = safe_call(
         "matrix", "warp-disable", lambda: set_warp(client, False, config), required=True
@@ -1940,7 +2213,7 @@ def run_zero_key_checks(
     if disable.outcome == "fail":
         return results
 
-    results.extend(run_zero_key_case(client, config, warp="off"))
+    results.extend(run_zero_key_case(client, config, warp="off", edition=edition))
 
     for index, mode in enumerate(config.warp_modes):
         if not warp_mode_available(mode, state):
@@ -1982,7 +2255,7 @@ def run_zero_key_checks(
             continue
 
         state.observed_warp_status[mode] = dict(verify.meta)
-        results.extend(run_zero_key_case(client, config, warp=mode))
+        results.extend(run_zero_key_case(client, config, warp=mode, edition=edition))
 
     results.append(
         safe_call("matrix", "http-backend=auto", lambda: set_http_backend(client, "auto"))
@@ -2037,9 +2310,18 @@ def run_zero_key_checks(
     results.append(
         safe_call("zero-key-fetch", "builtin-fetch", lambda: fetch_builtin(client), required=True)
     )
-    results.append(
-        safe_call("zero-key-fetch", "jina-reader-fetch", lambda: fetch_jina_reader(client))
-    )
+    if edition_allows(edition, "pro"):
+        results.append(
+            safe_call("zero-key-fetch", "jina-reader-fetch", lambda: fetch_jina_reader(client))
+        )
+    else:
+        results.append(
+            skip_result(
+                "zero-key-fetch",
+                "jina-reader-fetch",
+                f"requires edition=pro; current edition={edition}",
+            )
+        )
     results.append(safe_call("zero-key-fetch", "links", lambda: links_extract(client)))
     results.append(safe_call("zero-key-fetch", "sitemap", lambda: sitemap_parse(client)))
     results.append(safe_call("zero-key-archive", "wayback-cdx", lambda: wayback_cdx(client)))
@@ -2048,6 +2330,8 @@ def run_zero_key_checks(
     if config.full_matrix:
         for item in ZERO_KEY_FETCH_SKIPPED:
             results.append(skipped_fetch_provider(item["provider"], item["reason"]))
+        for item in edition_gated_fetch_provider_tests(edition):
+            results.append(edition_skipped_fetch_provider(item, edition))
 
     return results
 
@@ -2198,6 +2482,9 @@ def make_result_recorder(config: SmokeConfig) -> ResultRecorder:
         environment={
             "base_url": config.base_url,
             "expected_version": config.expected_version or "",
+            "expected_source_sha": config.expected_source_sha or "",
+            "edition": normalize_edition(config.edition),
+            "fail_admin_open": config.fail_admin_open,
             "surface_only": config.surface_only,
             "full_matrix": config.full_matrix,
             "warp_modes": list(config.warp_modes),
@@ -2258,6 +2545,47 @@ def _meta_count(result: ProbeResult) -> int:
         return int(result.meta.get("count") or 0)
     except (TypeError, ValueError):
         return 0
+
+
+def fetch_provider_matrix_summary(config: SmokeConfig, results: list[ProbeResult]) -> str:
+    if not config.full_matrix:
+        return "- Fetch provider matrix: `quick aggregate only`"
+
+    fetch_sources = [
+        result for result in results if result.meta.get("matrix_kind") == "fetch-source"
+    ]
+    tested = {
+        str(result.meta.get("provider") or result.name)
+        for result in fetch_sources
+        if result.outcome != "skip"
+    }
+    edition_skipped = {
+        str(result.meta.get("provider") or result.name)
+        for result in fetch_sources
+        if result.meta.get("skip_reason") == "edition"
+    }
+    return (
+        f"- Fetch provider matrix: `{len(tested)} tested, "
+        f"{len(edition_skipped)} skipped by edition, "
+        f"{len(ZERO_KEY_FETCH_SKIPPED)} skipped external-runtime`"
+    )
+
+
+def observed_edition(config: SmokeConfig, results: list[ProbeResult]) -> str:
+    for result in results:
+        edition = result.meta.get("edition")
+        if isinstance(edition, str) and edition in EDITION_RANK:
+            return edition
+    return normalize_edition(config.edition)
+
+
+def observed_admin_access(results: list[ProbeResult]) -> str:
+    for result in results:
+        if result.section == "basic" and result.name == "whoami":
+            access_mode = result.meta.get("admin_access_mode")
+            if isinstance(access_mode, str) and access_mode:
+                return access_mode
+    return "unknown"
 
 
 def append_zero_key_matrix(lines: list[str], results: list[ProbeResult]) -> None:
@@ -2466,8 +2794,7 @@ def build_markdown_report(config: SmokeConfig, results: list[ProbeResult]) -> st
             f"- WARP modes: `off,{','.join(config.warp_modes)}`",
             f"- HTTP backend matrix: `{','.join(MATRIX_HTTP_BACKENDS)}`",
             f"- Per-source matrix: `{'enabled' if config.full_matrix else 'quick aggregate only'}`",
-            f"- Fetch provider matrix: `{len(ZERO_KEY_FETCH_PROVIDER_TESTS)} tested, "
-            f"{len(ZERO_KEY_FETCH_SKIPPED)} skipped external-runtime`",
+            fetch_provider_matrix_summary(config, results),
             "- Direct zero-key routes: `/api/v1/sources`, `/api/v1/bilibili/*`, "
             "`/api/v1/wayback/*`, `/api/v1/links`, `/api/v1/sitemap`",
         ]
@@ -2478,7 +2805,11 @@ def build_markdown_report(config: SmokeConfig, results: list[ProbeResult]) -> st
         f"- Overall outcome: **{overall}**",
         f"- Base URL: `{config.base_url}`",
         f"- Expected version: `{config.expected_version or 'not pinned'}`",
+        f"- Expected source SHA: `{config.expected_source_sha or 'not pinned'}`",
         f"- Mode: `{config.mode}`",
+        f"- Edition: `{observed_edition(config, results)}`",
+        f"- Admin access: `{observed_admin_access(results)}`",
+        f"- Public admin-open gate: `{'fail' if config.fail_admin_open else 'warn'}`",
         *capability_lines,
         f"- Required failures: `{len(failures)}`",
         "",
@@ -2571,12 +2902,17 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument(
         "--base-url",
         default=os.environ.get("SOUWEN_HF_SPACE_URL", DEFAULT_BASE_URL),
-        help=f"Public Space URL. Defaults to {DEFAULT_BASE_URL}.",
+        help=f"Space application URL. Defaults to {DEFAULT_BASE_URL}.",
     )
     parser.add_argument(
         "--expected-version",
         default=os.environ.get("EXPECTED_SOUWEN_VERSION"),
         help="Expected SouWen version reported by /health, /readiness and /openapi.json.",
+    )
+    parser.add_argument(
+        "--expected-source-sha",
+        default=os.environ.get("EXPECTED_SOUWEN_SOURCE_SHA"),
+        help="Expected immutable Git SHA reported by /health and /readiness.",
     )
     parser.add_argument(
         "--request-timeout",
@@ -2593,20 +2929,52 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "--report-file",
         "--markdown-report",
         dest="report_file",
-        default=os.environ.get("SOUWEN_SMOKE_REPORT_FILE", "hf-space-cd-report.md"),
-        help="Markdown report output path.",
+        default=os.environ.get("SOUWEN_SMOKE_REPORT_FILE"),
+        help=(
+            "Markdown report output path. If omitted, the report is only printed to the "
+            "console and optional GITHUB_STEP_SUMMARY."
+        ),
     )
     parser.add_argument(
         "--json-file",
         "--json-report",
         dest="json_file",
-        default=os.environ.get("SOUWEN_SMOKE_JSON_FILE", "hf-space-cd-report.json"),
-        help="JSON result output path.",
+        default=os.environ.get("SOUWEN_SMOKE_JSON_FILE"),
+        help="JSON result output path. If omitted, no JSON file is written.",
     )
     parser.add_argument(
         "--bearer-token",
         default=os.environ.get("SOUWEN_SMOKE_BEARER_TOKEN"),
         help="Optional admin Bearer token. If omitted, the script relies on SOUWEN_ADMIN_OPEN=1.",
+    )
+    parser.add_argument(
+        "--hf-space-token",
+        default=os.environ.get("SOUWEN_HF_SPACE_TOKEN"),
+        help=(
+            "Optional Hugging Face READ token for the outer private-Space boundary. "
+            "When set, the SouWen app token is sent separately in X-SouWen-Token."
+        ),
+    )
+    parser.add_argument(
+        "--fail-admin-open",
+        dest="fail_admin_open",
+        action="store_true",
+        default=env_admin_open_gate(),
+        help=(
+            "Force FAIL when a non-local Space reports admin_open=True. "
+            "Non-local base URLs fail by default unless --warn-admin-open or "
+            "SOUWEN_SMOKE_WARN_ADMIN_OPEN=1 is set. Can also be enabled with "
+            "SOUWEN_SMOKE_FAIL_ADMIN_OPEN=1."
+        ),
+    )
+    parser.add_argument(
+        "--warn-admin-open",
+        dest="fail_admin_open",
+        action="store_false",
+        help=(
+            "Downgrade non-local admin_open=True to WARN for diagnostics. "
+            "Can also be enabled with SOUWEN_SMOKE_WARN_ADMIN_OPEN=1."
+        ),
     )
     parser.add_argument(
         "--warp-modes",
@@ -2623,6 +2991,14 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         help=(
             "Smoke mode. `surface` is equivalent to --surface-only; "
             "`offline` writes SKIP reports without touching the network."
+        ),
+    )
+    parser.add_argument(
+        "--edition",
+        default=os.environ.get("SOUWEN_SMOKE_EDITION", DEFAULT_SMOKE_EDITION),
+        help=(
+            "Assumed deployed SouWen edition when /api/v1/admin/config cannot be read. "
+            "Use basic, pro or full. Defaults to pro."
         ),
     )
     parser.add_argument(
@@ -2681,12 +3057,17 @@ def parse_csv(value: str | None, default: list[str]) -> list[str]:
 def main(argv: list[str] | None = None) -> int:
     args = parse_args(sys.argv[1:] if argv is None else argv)
     mode = args.mode or ("surface" if args.surface_only else "capability")
+    base_url = normalize_base_url(args.base_url)
     config = SmokeConfig(
-        base_url=normalize_base_url(args.base_url),
+        base_url=base_url,
         expected_version=args.expected_version,
         request_timeout=args.request_timeout,
+        expected_source_sha=normalize_expected_source_sha(args.expected_source_sha),
         mode=mode,
+        edition=normalize_edition(args.edition),
         bearer_token=args.bearer_token,
+        hf_space_token=args.hf_space_token,
+        fail_admin_open=resolve_fail_admin_open(base_url, args.fail_admin_open),
         warp_modes=parse_csv(args.warp_modes, DEFAULT_WARP_MODES),
         require_admin=not args.allow_locked_admin,
         require_openapi=not args.no_require_openapi,
@@ -2706,9 +3087,13 @@ def main(argv: list[str] | None = None) -> int:
     print_console_report(results)
 
     report = build_markdown_report(config, results)
-    write_text(args.report_file, report)
-    write_text(args.summary_file, report, append=True)
-    write_json(args.json_file, config, results, recorder)
+    try:
+        write_text(args.report_file, report)
+        write_text(args.summary_file, report, append=True)
+        write_json(args.json_file, config, results, recorder)
+    except Exception as exc:  # noqa: BLE001 - report write failures have a fixed exit code.
+        print(f"failed to write HF Space smoke reports: {exc}", file=sys.stderr)
+        return 2
 
     failures = required_failures(results)
     if failures:

@@ -349,6 +349,12 @@ class ScraplingFetcherClient:
         respect_robots_txt: bool = False,
     ) -> FetchResult:
         """抓取单个 URL 并归一化为 SouWen ``FetchResult``。"""
+        from souwen.web.fetch import ssrf_blocked_fetch_result
+
+        blocked = ssrf_blocked_fetch_result(url, self.PROVIDER_NAME)
+        if blocked is not None:
+            return blocked
+
         try:
             if respect_robots_txt:
                 allowed, reason = await self._check_robots(url, timeout)

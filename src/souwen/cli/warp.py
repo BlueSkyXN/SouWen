@@ -8,9 +8,23 @@ import typer
 from rich.panel import Panel
 from rich.table import Table
 
-from souwen.cli._common import _run_async, console
+from souwen.cli._common import _run_async, console, redact_cli_text
 
 warp_app = typer.Typer(help="WARP 代理管理")
+
+
+def _check_cli_warp_mode_edition(mode: str) -> bool:
+    """Return whether a known WARP mode is available in the current edition."""
+    from souwen.config import get_config
+    from souwen.editions import EditionError, ensure_warp_mode_allowed
+
+    cfg = get_config()
+    try:
+        ensure_warp_mode_allowed(mode, cfg.edition)
+    except EditionError as exc:
+        console.print(f"[red]❌ {exc}[/red]")
+        return False
+    return True
 
 
 def _get_warp_manager():
@@ -55,7 +69,7 @@ def warp_status() -> None:
     if s.get("interface"):
         table.add_row("网卡", s["interface"])
     if s.get("last_error"):
-        table.add_row("错误", f"[red]{s['last_error']}[/red]")
+        table.add_row("错误", f"[red]{redact_cli_text(s['last_error'])}[/red]")
 
     console.print(table)
 
@@ -75,6 +89,9 @@ def warp_enable(
     endpoint: str = typer.Option("", help="自定义 WARP Endpoint"),
 ) -> None:
     """启用 WARP 代理"""
+    if not _check_cli_warp_mode_edition(mode):
+        raise typer.Exit(1)
+
     mgr = _get_warp_manager()
     ep = endpoint if endpoint else None
 
@@ -92,7 +109,7 @@ def warp_enable(
             )
         )
     else:
-        console.print(f"[red]❌ 启动失败: {result.get('error', '未知错误')}[/red]")
+        console.print(f"[red]❌ 启动失败: {redact_cli_text(result.get('error'), '未知错误')}[/red]")
         raise typer.Exit(1)
 
 
@@ -107,7 +124,7 @@ def warp_disable() -> None:
     if result.get("ok"):
         console.print("[green]✅ WARP 已关闭[/green]")
     else:
-        console.print(f"[red]❌ 关闭失败: {result.get('error', '未知错误')}[/red]")
+        console.print(f"[red]❌ 关闭失败: {redact_cli_text(result.get('error'), '未知错误')}[/red]")
         raise typer.Exit(1)
 
 
@@ -115,13 +132,16 @@ def warp_disable() -> None:
 def warp_modes() -> None:
     """列出所有 WARP 模式及其可用性"""
     from souwen.config import get_config
+    from souwen.editions import warp_mode_policy
 
     mgr = _get_warp_manager()
     cfg = get_config()
 
-    table = Table(title="🛡️  WARP 可用模式", show_lines=True)
+    table = Table(title=f"🛡️  WARP 可用模式（edition={cfg.edition}）", show_lines=True)
     table.add_column("模式", style="cyan", width=12)
     table.add_column("状态", width=8)
+    table.add_column("版本", width=12)
+    table.add_column("最低档位", width=8)
     table.add_column("协议", width=12)
     table.add_column("权限", width=8)
     table.add_column("代理类型", width=14)
@@ -150,9 +170,23 @@ def warp_modes() -> None:
     ]
 
     for name, available, protocol, needs_priv, proxy_type, desc in modes_info:
-        status = "[green]✓ 可用[/green]" if available else "[dim]✗ 不可用[/dim]"
+        policy = warp_mode_policy(name, cfg.edition)
+        edition_status = "[green]✓ 可用[/green]" if policy.available else "[red]需升级[/red]"
+        if not policy.available:
+            status = "[dim]✗ 版本[/dim]"
+        else:
+            status = "[green]✓ 可用[/green]" if available else "[dim]✗ 不可用[/dim]"
         priv = "[yellow]需要[/yellow]" if needs_priv else "[green]无需[/green]"
-        table.add_row(name, status, protocol, priv, proxy_type, desc)
+        table.add_row(
+            name,
+            status,
+            edition_status,
+            policy.min_edition,
+            protocol,
+            priv,
+            proxy_type,
+            policy.reason or desc,
+        )
 
     console.print(table)
 

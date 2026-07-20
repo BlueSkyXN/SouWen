@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException, Query
 
-from souwen.server.schemas import HttpBackendResponse
+from souwen.server.routes._common import normalize_required_query_arg
+from souwen.server.schemas import HttpBackendResponse, HttpBackendUpdateResponse
 
 router = APIRouter()
 
@@ -23,6 +24,12 @@ _SCRAPER_ENGINES = [
 ]
 
 
+def _normalize_optional_query_arg(value: str | None, name: str) -> str | None:
+    if value is None:
+        return None
+    return normalize_required_query_arg(value, name)
+
+
 @router.get("/http-backend", response_model=HttpBackendResponse)
 async def get_http_backend():
     """查看 HTTP 后端配置。"""
@@ -37,7 +44,7 @@ async def get_http_backend():
     }
 
 
-@router.put("/http-backend")
+@router.put("/http-backend", response_model=HttpBackendUpdateResponse)
 async def update_http_backend(
     default: str | None = Query(None, description="全局默认: auto | curl_cffi | httpx"),
     source: str | None = Query(None, description="要覆盖的源名称"),
@@ -48,6 +55,13 @@ async def update_http_backend(
 
     _VALID = {"auto", "curl_cffi", "httpx"}
     cfg = get_config()
+
+    default = _normalize_optional_query_arg(default, "default")
+    source = _normalize_optional_query_arg(source, "source")
+    backend = _normalize_optional_query_arg(backend, "backend")
+
+    if (source is None) != (backend is None):
+        raise HTTPException(400, "source 和 backend 必须同时提供")
 
     if default is not None:
         if default not in _VALID:

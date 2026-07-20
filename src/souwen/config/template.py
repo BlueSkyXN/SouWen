@@ -23,6 +23,8 @@ paper:
 
 # ===== 专利数据源 =====
 patent:
+  patentsview_api_key: ~
+  pqai_api_token: ~
   uspto_api_key: ~
   epo_consumer_key: ~
   epo_consumer_secret: ~
@@ -68,6 +70,7 @@ web:
 
 # ===== 通用设置 =====
 general:
+  edition: pro  # basic | pro | full
   proxy: ~
   proxy_pool: []
   timeout: 30

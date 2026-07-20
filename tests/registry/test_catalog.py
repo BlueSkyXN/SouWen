@@ -13,6 +13,7 @@ from souwen.registry.catalog import (
     SourceCatalogEntry,
     available_source_catalog,
     default_source_map,
+    public_source_catalog_payload,
     public_source_catalog,
     source_catalog,
     source_categories,
@@ -69,11 +70,21 @@ def test_formal_fields_project_to_catalog_categories_and_visibility() -> None:
     assert catalog["wayback"].category == "archive"
 
     assert catalog["unpaywall"].visibility == "hidden"
-    assert catalog["patentsview"].visibility == "hidden"
-    assert catalog["pqai"].visibility == "hidden"
     assert "unpaywall" not in public_source_catalog()
-    assert "patentsview" not in public_source_catalog()
-    assert "pqai" not in public_source_catalog()
+
+    assert catalog["patentsview"].visibility == "public"
+    assert catalog["patentsview"].auth_requirement == "required"
+    assert catalog["patentsview"].config_field == "patentsview_api_key"
+    assert catalog["patentsview"].credential_fields == ("patentsview_api_key",)
+    assert catalog["patentsview"].available_by_default is False
+    assert "patentsview" in public_source_catalog()
+
+    assert catalog["pqai"].visibility == "public"
+    assert catalog["pqai"].auth_requirement == "required"
+    assert catalog["pqai"].config_field == "pqai_api_token"
+    assert catalog["pqai"].credential_fields == ("pqai_api_token",)
+    assert catalog["pqai"].available_by_default is False
+    assert "pqai" in public_source_catalog()
 
 
 def test_sources_by_category_uses_formal_category_keys() -> None:
@@ -204,6 +215,8 @@ def test_default_source_order_snapshot() -> None:
         "patent:search": ["google_patents"],
         "web:search": ["duckduckgo", "bing"],
         "web:search_news": ["duckduckgo_news"],
+        "web:search_images": ["duckduckgo_images"],
+        "web:search_videos": ["duckduckgo_videos"],
         "video:search": ["youtube", "bilibili"],
         "knowledge:search": ["wikipedia"],
         "developer:search": ["github", "stackoverflow"],
@@ -215,6 +228,8 @@ def test_default_source_order_snapshot() -> None:
         "patent:search": defaults_for("patent", "search"),
         "web:search": defaults_for("web", "search"),
         "web:search_news": defaults_for("web", "search_news"),
+        "web:search_images": defaults_for("web", "search_images"),
+        "web:search_videos": defaults_for("web", "search_videos"),
         "video:search": defaults_for("video", "search"),
         "knowledge:search": defaults_for("knowledge", "search"),
         "developer:search": defaults_for("developer", "search"),
@@ -258,6 +273,27 @@ def test_available_source_catalog_matches_runtime_credentials_and_enabled_state(
         SouWenConfig(sources={"searxng": {"base_url": "https://search.example"}})
     )
     assert "searxng" in configured
+
+    basic_available = available_source_catalog(SouWenConfig(edition="basic"))
+    assert "arxiv" in basic_available
+    assert "openalex" not in basic_available
+
+
+def test_public_source_catalog_payload_includes_edition_metadata() -> None:
+    payload = public_source_catalog_payload(SouWenConfig(edition="basic"))
+    sources = {item["name"]: item for item in payload["sources"]}
+
+    arxiv = sources["arxiv"]
+    assert arxiv["min_edition"] == "basic"
+    assert arxiv["edition_available"] is True
+    assert arxiv["edition_reason"] == ""
+    assert arxiv["available"] is True
+
+    openalex = sources["openalex"]
+    assert openalex["min_edition"] == "pro"
+    assert openalex["edition_available"] is False
+    assert "source 'openalex' requires edition=pro" in openalex["edition_reason"]
+    assert openalex["available"] is False
 
 
 def test_catalog_fetch_providers_have_runtime_handlers() -> None:

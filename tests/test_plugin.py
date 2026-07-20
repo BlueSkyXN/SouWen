@@ -1399,7 +1399,7 @@ class TestFailedPluginHandlerCleanup:
         assert "leaked_provider" not in _FETCH_HANDLERS
 
     def test_rejected_duplicate_preserves_existing_handlers(
-        self, clean_plugins, clean_fetch_handlers
+        self, clean_registry, clean_plugins, clean_fetch_handlers
     ):
         """When _register_plugin rejects a duplicate, existing handlers are preserved."""
         adapter = make_test_adapter("dup_src")

@@ -41,7 +41,7 @@ Model Context Protocol (MCP) 集成，使 Claude Code、Cursor、Windsurf 等 AI
 
     fetch_content
         - 抓取网页内容
-        - 参数：urls (list), provider (可选，默认 builtin)
+        - 参数：urls (list), provider/providers (可选，默认 builtin), strategy (可选，默认 fallback)
         - 返回：抓取结果 (JSON)
 
 主要函数：
@@ -78,17 +78,14 @@ try:
 except ImportError:
     HAS_MCP = False
 
-from souwen.registry import defaults_for
+from souwen.core.redaction import redact_secret_text
 from souwen.integrations.mcp.tools.bilibili import (
     dispatch_bilibili_tool,
     get_bilibili_tools,
     is_bilibili_tool,
 )
+from souwen.registry import defaults_for, get as _registry_get
 
-_DEFAULT_PATENT_SOURCES = defaults_for("patent", "search")
-_DEFAULT_PATENT_SOURCES_LABEL = ",".join(_DEFAULT_PATENT_SOURCES)
-_DEFAULT_WEB_ENGINES = defaults_for("web", "search")
-_DEFAULT_WEB_ENGINES_LABEL = ",".join(_DEFAULT_WEB_ENGINES)
 logger = logging.getLogger("souwen.integrations.mcp.server")
 
 _MCP_PLUGINS_BOOTSTRAPPED = False
@@ -114,8 +111,97 @@ def _bootstrap_plugins() -> None:
 
 
 def _default_paper_sources_label() -> str:
+    return _default_source_names_label("paper", "search")
+
+
+def _default_patent_sources_label() -> str:
+    return _default_source_names_label("patent", "search")
+
+
+def _default_web_engines_label() -> str:
+    return _default_source_names_label("web", "search")
+
+
+def _default_source_names_label(domain: str, capability: str) -> str:
     _bootstrap_plugins()
-    return ",".join(defaults_for("paper", "search"))
+    names = defaults_for(domain, capability)
+    return ",".join(_edition_allowed_source_names(names))
+
+
+def _edition_allowed_source_names(names: list[str]) -> list[str]:
+    """Filter source/default labels to what the current edition can actually run."""
+
+    from souwen.config import get_config
+    from souwen.editions import source_policy
+
+    edition = get_config().edition
+    allowed: list[str] = []
+    for name in names:
+        adapter = _registry_get(name)
+        if adapter is None:
+            continue
+        if source_policy(adapter, edition).available:
+            allowed.append(name)
+    return allowed
+
+
+def _fetch_provider_names() -> list[str]:
+    """返回 MCP 当前可见的 fetch provider 名称，默认源优先显示。"""
+    from souwen.config import get_config
+    from souwen.feature_matrix import declared_fetch_provider_names
+
+    _bootstrap_plugins()
+    names = list(declared_fetch_provider_names(get_config().edition))
+    if "builtin" not in names:
+        return names
+    return ["builtin", *(name for name in names if name != "builtin")]
+
+
+def _fetch_provider_names_label() -> str:
+    return " / ".join(_fetch_provider_names())
+
+
+def _string_list_arg(value: object, *, name: str) -> list[str]:
+    """Normalize MCP string-or-list arguments into a string list."""
+    if value is None:
+        return []
+    if isinstance(value, str):
+        items = [value]
+    elif isinstance(value, list | tuple):
+        items = list(value)
+    else:
+        raise ValueError(f"{name} 必须是字符串或字符串列表")
+
+    if not all(isinstance(item, str) and item.strip() for item in items):
+        raise ValueError(f"{name} 必须是非空字符串或非空字符串列表")
+    return items
+
+
+def _normalize_fetch_tool_urls(value: object) -> list[str]:
+    urls = _string_list_arg(value, name="urls")
+    if not urls:
+        raise ValueError("urls 至少需要一个 URL")
+    return urls
+
+
+def _normalize_fetch_tool_providers(provider: object, providers: object) -> list[str]:
+    selected = _string_list_arg(providers, name="providers")
+    if selected:
+        return selected
+    fallback_provider = "builtin" if provider is None else provider
+    selected = _string_list_arg(fallback_provider, name="provider")
+    return selected or ["builtin"]
+
+
+def _string_or_string_array_schema(description: str) -> dict[str, object]:
+    """Return JSON Schema for MCP arguments accepting one string or string list."""
+    return {
+        "oneOf": [
+            {"type": "string"},
+            {"type": "array", "items": {"type": "string"}},
+        ],
+        "description": description,
+    }
 
 
 def create_server() -> "Server":
@@ -140,6 +226,9 @@ def create_server() -> "Server":
     @server.list_tools()
     async def list_tools() -> list[Tool]:
         """返回 MCP 工具清单 — 由 MCP SDK 在客户端连接时调用"""
+        fetch_provider_names_label = _fetch_provider_names_label()
+        patent_sources_label = _default_patent_sources_label()
+        web_engines_label = _default_web_engines_label()
         return [
             Tool(
                 name="search_papers",
@@ -152,11 +241,9 @@ def create_server() -> "Server":
                     "type": "object",
                     "properties": {
                         "query": {"type": "string", "description": "搜索关键词"},
-                        "sources": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": f"数据源列表，默认 {_default_paper_sources_label()}",
-                        },
+                        "sources": _string_or_string_array_schema(
+                            f"数据源或数据源列表，默认 {_default_paper_sources_label()}"
+                        ),
                         "limit": {
                             "type": "integer",
                             "default": 5,
@@ -176,11 +263,9 @@ def create_server() -> "Server":
                     "type": "object",
                     "properties": {
                         "query": {"type": "string", "description": "搜索关键词"},
-                        "sources": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": f"数据源列表，默认 {_DEFAULT_PATENT_SOURCES_LABEL}",
-                        },
+                        "sources": _string_or_string_array_schema(
+                            f"数据源或数据源列表，默认 {patent_sources_label}"
+                        ),
                         "limit": {
                             "type": "integer",
                             "default": 5,
@@ -192,16 +277,14 @@ def create_server() -> "Server":
             ),
             Tool(
                 name="web_search",
-                description=f"网页搜索。默认 {_DEFAULT_WEB_ENGINES_LABEL}。",
+                description=f"网页搜索。默认 {web_engines_label}。",
                 inputSchema={
                     "type": "object",
                     "properties": {
                         "query": {"type": "string", "description": "搜索关键词"},
-                        "engines": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": f"引擎列表，默认 {_DEFAULT_WEB_ENGINES_LABEL}",
-                        },
+                        "engines": _string_or_string_array_schema(
+                            f"引擎或引擎列表，默认 {web_engines_label}"
+                        ),
                         "limit": {
                             "type": "integer",
                             "default": 10,
@@ -219,19 +302,33 @@ def create_server() -> "Server":
             *get_bilibili_tools(),
             Tool(
                 name="fetch_content",
-                description="获取网页内容。支持 URL 直接抓取，可通过 provider 选择 builtin / scrapling 等 fetch provider。支持 CSS 选择器提取指定元素、分页续读。",
+                description=(
+                    "获取网页内容。支持 URL 直接抓取，可通过 provider/providers 选择已注册 "
+                    f"fetch provider（默认 builtin；当前可选：{fetch_provider_names_label}）。"
+                    "strategy 支持 fallback 或 fanout。"
+                    "支持 CSS 选择器提取指定元素、分页续读。"
+                ),
                 inputSchema={
                     "type": "object",
                     "properties": {
-                        "urls": {
-                            "type": "array",
-                            "items": {"type": "string"},
-                            "description": "要抓取的 URL 列表",
-                        },
+                        "urls": _string_or_string_array_schema("要抓取的 URL 或 URL 列表"),
                         "provider": {
                             "type": "string",
                             "default": "builtin",
-                            "description": "内容提取提供者，默认 builtin（零配置）；可选 scrapling 等已注册 fetch provider",
+                            "description": (
+                                "兼容单内容提取提供者，默认 builtin（零配置）；"
+                                f"可选：{fetch_provider_names_label}"
+                            ),
+                        },
+                        "providers": _string_or_string_array_schema(
+                            "内容提取提供者或提供者列表；提供时优先于 provider。"
+                            f"可选：{fetch_provider_names_label}"
+                        ),
+                        "strategy": {
+                            "type": "string",
+                            "enum": ["fallback", "fanout"],
+                            "default": "fallback",
+                            "description": "多 provider 策略：fallback 按 URL 补失败项，fanout 返回全部 provider 结果",
                         },
                         "selector": {
                             "type": "string",
@@ -323,7 +420,7 @@ def create_server() -> "Server":
             if name == "search_papers":
                 from souwen.search import search_papers
 
-                sources = arguments.get("sources")
+                sources = _string_list_arg(arguments.get("sources"), name="sources") or None
                 limit = arguments.get("limit", 5)
                 responses = await search_papers(arguments["query"], sources=sources, per_page=limit)
                 result = [r.model_dump(mode="json") for r in responses]
@@ -331,7 +428,7 @@ def create_server() -> "Server":
             elif name == "search_patents":
                 from souwen.search import search_patents
 
-                sources = arguments.get("sources")
+                sources = _string_list_arg(arguments.get("sources"), name="sources") or None
                 limit = arguments.get("limit", 5)
                 responses = await search_patents(
                     arguments["query"], sources=sources, per_page=limit
@@ -341,7 +438,7 @@ def create_server() -> "Server":
             elif name == "web_search":
                 from souwen.web.search import web_search
 
-                engines = arguments.get("engines")
+                engines = _string_list_arg(arguments.get("engines"), name="engines") or None
                 limit = arguments.get("limit", 10)
                 response = await web_search(
                     arguments["query"], engines=engines, max_results_per_engine=limit
@@ -360,15 +457,18 @@ def create_server() -> "Server":
             elif name == "fetch_content":
                 from souwen.web.fetch import fetch_content
 
-                urls = arguments["urls"]
+                urls = _normalize_fetch_tool_urls(arguments.get("urls"))
                 provider = arguments.get("provider", "builtin")
+                providers = _normalize_fetch_tool_providers(provider, arguments.get("providers"))
+                strategy = arguments.get("strategy", "fallback")
                 selector = arguments.get("selector")
                 start_index = arguments.get("start_index", 0)
                 max_length = arguments.get("max_length")
                 respect_robots_txt = arguments.get("respect_robots_txt", False)
                 response = await fetch_content(
                     urls=urls,
-                    providers=[provider],
+                    providers=providers,
+                    strategy=strategy,
                     selector=selector,
                     start_index=start_index,
                     max_length=max_length,
@@ -408,7 +508,8 @@ def create_server() -> "Server":
             )
             return [TextContent(type="text", text=text)]
         except Exception as e:
-            return [TextContent(type="text", text=f"Error: {type(e).__name__}: {e}")]
+            detail = redact_secret_text(str(e)) or "unknown error"
+            return [TextContent(type="text", text=f"Error: {type(e).__name__}: {detail}")]
 
     return server
 

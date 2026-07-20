@@ -98,6 +98,12 @@ class ScrapflyClient(SouWenHttpClient):
         Returns:
             FetchResult 包含提取的内容与元数据
         """
+        from souwen.web.fetch import ssrf_blocked_fetch_result
+
+        blocked = ssrf_blocked_fetch_result(url, self.PROVIDER_NAME)
+        if blocked is not None:
+            return blocked
+
         # API Key 通过 query 参数传递；启用 JS 渲染与反爬绕过以提高成功率
         params = {
             "key": self.api_key,

@@ -70,6 +70,12 @@ class JinaReaderClient(SouWenHttpClient):
         Returns:
             FetchResult 包含提取的 Markdown 内容
         """
+        from souwen.web.fetch import ssrf_blocked_fetch_result
+
+        blocked = ssrf_blocked_fetch_result(url, self.PROVIDER_NAME)
+        if blocked is not None:
+            return blocked
+
         try:
             resp = await self.get(f"/{url}")
             # Jina Reader JSON 响应格式:

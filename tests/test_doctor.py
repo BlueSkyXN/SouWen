@@ -9,11 +9,21 @@
 - ``TestFormatReport``：format_report() 字符串输出、标题/Tier 分组、状态符号
 """
 
+import importlib
+
 import pytest
 
 from typing import cast
 
-from souwen.doctor import check_all, format_report, summarize_statuses
+from souwen.doctor import (
+    check_all,
+    check_all_live,
+    check_edition,
+    format_edition_report,
+    format_report,
+    summarize_live_probes,
+    summarize_statuses,
+)
 from souwen.core.exceptions import ConfigError
 from souwen.registry.adapter import MethodSpec, SourceAdapter
 from souwen.registry.catalog import source_catalog
@@ -61,6 +71,16 @@ class TestCheckAll:
             "required_key",
             "message",
             "enabled",
+            "min_edition",
+            "edition",
+            "edition_available",
+            "edition_reason",
+            "runtime_available",
+            "runtime_reason",
+            "credentials_satisfied",
+            "config_available",
+            "config_reason",
+            "available",
         }
         for r in results:
             assert required.issubset(r.keys()), f"{r['name']} 缺少字段"
@@ -114,6 +134,32 @@ class TestCheckAll:
         finally:
             get_config.cache_clear()
 
+    def test_basic_edition_marks_pro_sources_upgrade_required(self, monkeypatch):
+        """basic edition 下 pro 源应报告需升级，并且不计为可用。"""
+        monkeypatch.setenv("SOUWEN_EDITION", "basic")
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        try:
+            results = check_all()
+            openalex = next(r for r in results if r["name"] == "openalex")
+            crossref = next(r for r in results if r["name"] == "crossref")
+
+            assert openalex["status"] == "unavailable"
+            assert openalex["min_edition"] == "pro"
+            assert openalex["edition"] == "basic"
+            assert openalex["edition_available"] is False
+            assert "source 'openalex' requires edition=pro" in openalex["edition_reason"]
+            assert openalex["message"] == openalex["edition_reason"]
+            assert openalex["available"] is False
+
+            assert crossref["min_edition"] == "basic"
+            assert crossref["edition_available"] is True
+            assert crossref["edition_reason"] == ""
+            assert crossref["available"] is True
+        finally:
+            get_config.cache_clear()
+
     def test_missing_key_shows_missing(self, monkeypatch):
         """未配置的 Tier 2 Key 显示 missing_key"""
         monkeypatch.delenv("SOUWEN_TAVILY_API_KEY", raising=False)
@@ -125,6 +171,37 @@ class TestCheckAll:
             tavily = next(r for r in results if r["name"] == "tavily")
             assert tavily["status"] == "missing_key"
             assert "需要设置" in tavily["message"]
+        finally:
+            get_config.cache_clear()
+
+    def test_runtime_failure_is_distinct_from_edition_and_configuration(self, monkeypatch):
+        """doctor 应分别报告 edition、runtime 与配置状态。"""
+
+        import souwen.doctor as doctor_module
+        from souwen.config import get_config
+        from souwen.feature_matrix import RuntimeProbe
+
+        original_probe = doctor_module.probe_adapter_runtime
+
+        def fake_probe(adapter):
+            if adapter.name == "mcp":
+                return RuntimeProbe(False, "mcp: missing modules: mcp")
+            return original_probe(adapter)
+
+        monkeypatch.setenv("SOUWEN_EDITION", "basic")
+        monkeypatch.delenv("SOUWEN_MCP_SERVER_URL", raising=False)
+        monkeypatch.setattr(doctor_module, "probe_adapter_runtime", fake_probe)
+        get_config.cache_clear()
+        try:
+            mcp = next(item for item in check_all() if item["name"] == "mcp")
+            assert mcp["edition_available"] is True
+            assert mcp["runtime_available"] is False
+            assert mcp["runtime_reason"] == "mcp: missing modules: mcp"
+            assert mcp["credentials_satisfied"] is False
+            assert mcp["config_available"] is False
+            assert mcp["available"] is False
+            assert mcp["status"] == "unavailable"
+            assert mcp["message"] == mcp["runtime_reason"]
         finally:
             get_config.cache_clear()
 
@@ -263,13 +340,15 @@ class TestCheckAll:
         finally:
             get_config.cache_clear()
 
-    def test_known_broken_patent_sources_are_not_ok(self):
-        """已知不可用的免费专利源应直接暴露 unavailable。"""
+    def test_credentialed_patent_sources_require_keys(self):
+        """PatentsView/PQAI 是凭据源，未配置时应提示 missing_key。"""
         results = check_all()
         patentsview = next(r for r in results if r["name"] == "patentsview")
         pqai = next(r for r in results if r["name"] == "pqai")
-        assert patentsview["status"] == "unavailable"
-        assert pqai["status"] == "unavailable"
+        assert patentsview["status"] == "missing_key"
+        assert "patentsview_api_key" in patentsview["message"]
+        assert pqai["status"] == "missing_key"
+        assert "pqai_api_token" in pqai["message"]
 
     def test_google_patents_is_warning(self):
         """Google Patents 作为实验性爬虫显示 warning。"""
@@ -307,7 +386,72 @@ class TestCheckAll:
         source = next(r for r in results if r["name"] == name)
         assert source["category"] == "web_general"
         assert source["distribution"] == "plugin"
-        assert source["status"] in {"ok", "warning"}
+        assert source["min_edition"] == "full"
+        assert source["edition_available"] is False
+        assert source["status"] == "unavailable"
+        assert "source 'doctor_web_probe' requires edition=full" in source["edition_reason"]
+
+    @pytest.mark.asyncio
+    async def test_check_all_live_attaches_success_probe(self, monkeypatch):
+        """live doctor 应只在显式入口执行真实探测并附加 live_probe。"""
+
+        async def fake_run_via_adapter(adapter, capability, **kwargs):
+            assert adapter.name == "openalex"
+            assert capability == "search"
+            assert kwargs["query"] == "probe"
+            assert kwargs["limit"] == 1
+
+            class Response:
+                results = [object()]
+
+            return Response()
+
+        search_mod = importlib.import_module("souwen.search")
+        monkeypatch.setattr(search_mod, "_run_via_adapter", fake_run_via_adapter)
+
+        results = await check_all_live(sources=["openalex"], query="probe", timeout=1.0)
+        openalex = next(r for r in results if r["name"] == "openalex")
+        crossref = next(r for r in results if r["name"] == "crossref")
+
+        assert openalex["live_probe"]["status"] == "ok"
+        assert "1 result" in openalex["live_probe"]["message"]
+        assert "live_probe" not in crossref
+        assert summarize_live_probes(results)["ok"] == 1
+
+    @pytest.mark.asyncio
+    async def test_check_all_live_reports_failures_without_raising(self, monkeypatch):
+        """live 探测异常应写入 failed probe，不应拖垮 doctor。"""
+
+        async def fake_run_via_adapter(adapter, capability, **kwargs):
+            del adapter, capability, kwargs
+            raise RuntimeError("network down")
+
+        search_mod = importlib.import_module("souwen.search")
+        monkeypatch.setattr(search_mod, "_run_via_adapter", fake_run_via_adapter)
+
+        results = await check_all_live(sources=["openalex"], query="probe", timeout=1.0)
+        openalex = next(r for r in results if r["name"] == "openalex")
+
+        assert openalex["live_probe"]["status"] == "failed"
+        assert "network down" in openalex["live_probe"]["message"]
+        assert summarize_live_probes(results)["failed"] == 1
+
+    @pytest.mark.asyncio
+    async def test_check_all_live_skips_static_unavailable_source(self, monkeypatch):
+        """静态已不可用的源不应触发联网调用。"""
+
+        async def fake_run_via_adapter(adapter, capability, **kwargs):
+            del adapter, capability, kwargs
+            raise AssertionError("static unavailable source should not be probed")
+
+        search_mod = importlib.import_module("souwen.search")
+        monkeypatch.setattr(search_mod, "_run_via_adapter", fake_run_via_adapter)
+
+        results = await check_all_live(sources=["patentsview"], query="probe", timeout=1.0)
+        patentsview = next(r for r in results if r["name"] == "patentsview")
+
+        assert patentsview["live_probe"]["status"] == "skipped"
+        assert "static status" in patentsview["live_probe"]["message"]
 
 
 class TestFormatReport:
@@ -323,6 +467,7 @@ class TestFormatReport:
         """包含标题"""
         report = format_report(check_all())
         assert "SouWen Doctor" in report
+        assert "edition=pro" in report
 
     def test_contains_integration_type_sections(self):
         """包含集成类型分组"""
@@ -354,3 +499,116 @@ class TestFormatReport:
         ok_count = summarize_statuses(results)["available"]
         report = format_report(results)
         assert f"{ok_count}/{len(results)}" in report
+
+    def test_basic_report_mentions_upgrade_required(self, monkeypatch):
+        """basic edition report 应显式显示当前 edition 与需升级原因。"""
+        monkeypatch.setenv("SOUWEN_EDITION", "basic")
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        try:
+            report = format_report(check_all())
+            assert "edition=basic" in report
+            assert "source 'openalex' requires edition=pro" in report
+        finally:
+            get_config.cache_clear()
+
+
+class TestEditionReport:
+    """edition 自检报告测试"""
+
+    def test_check_edition_marks_basic_upgrade_paths(self, monkeypatch):
+        """basic edition 自检应汇总 source/provider/WARP/LLM 的升级项。"""
+        monkeypatch.setenv("SOUWEN_EDITION", "basic")
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        try:
+            report = check_edition()
+            assert report["edition"] == "basic"
+            assert "source_sha" in report
+
+            source_upgrade_names = {item["name"] for item in report["sources"]["upgrade_required"]}
+            assert "openalex" in source_upgrade_names
+            assert report["sources"]["by_min_edition"]["pro"]["edition_available"] == 0
+
+            provider_upgrade_names = {
+                item["name"] for item in report["fetch_providers"]["upgrade_required"]
+            }
+            assert "jina_reader" in provider_upgrade_names
+            assert report["fetch_providers"]["by_min_edition"]["basic"]["edition_available"] > 0
+            mcp = next(item for item in report["fetch_providers"]["items"] if item["name"] == "mcp")
+            assert mcp["edition_available"] is True
+            assert isinstance(mcp["runtime_available"], bool)
+            assert isinstance(mcp["runtime_reason"], str)
+            assert mcp["config_available"] is False
+            assert mcp["available"] is False
+
+            assert report["warp"]["available_modes"] == ["auto", "wireproxy", "external"]
+            assert {item["name"] for item in report["warp"]["upgrade_required"]} == {
+                "kernel",
+                "usque",
+                "warp-cli",
+            }
+            assert report["llm"]["edition_available"] is False
+            assert isinstance(report["llm"]["runtime_available"], bool)
+            assert isinstance(report["llm"]["runtime_reason"], str)
+            assert "LLM requires edition=pro" in report["llm"]["edition_reason"]
+            assert report["probe"]["sources"]["declared"]
+            assert set(report["probe"]["mcp"]) == {"declared", "available", "reason"}
+            package_extras = report["probe"]["package_extras"]
+            assert set(package_extras) == {"declared", "available", "reason"}
+            assert package_extras["declared"]["mcp"] == ("mcp",)
+            assert package_extras["declared"]["scraper"] == ("curl_cffi",)
+            assert package_extras["declared"]["web"] == ("trafilatura",)
+            assert isinstance(package_extras["available"], tuple)
+            assert isinstance(package_extras["reason"], str)
+        finally:
+            get_config.cache_clear()
+
+    def test_format_edition_report_mentions_key_sections(self, monkeypatch):
+        """edition 自检文本应包含当前档位、需升级项和跨域能力。"""
+        monkeypatch.setenv("SOUWEN_EDITION", "basic")
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        try:
+            report = format_edition_report(check_edition())
+            assert "Edition 自检 (edition=basic)" in report
+            assert "── Sources ──" in report
+            assert "需升级 source" in report
+            assert "openalex" in report
+            assert "── Fetch Providers ──" in report
+            assert "jina_reader" in report
+            assert "WARP 可用模式: auto, wireproxy, external" in report
+            assert "LLM requires edition=pro" in report
+            assert "Package extras:" in report
+        finally:
+            get_config.cache_clear()
+
+    def test_format_edition_report_mentions_package_extra_probe_reason(self, monkeypatch):
+        """edition 自检文本应暴露 package extra importability probe 的缺失原因。"""
+        monkeypatch.setenv("SOUWEN_EDITION", "full")
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        try:
+            data = check_edition()
+            data["probe"]["package_extras"] = {
+                "declared": {
+                    "scraper": ("curl_cffi",),
+                    "custom_extra": (),
+                },
+                "available": ("scraper",),
+                "reason": "custom_extra: no optional module probe is declared",
+            }
+
+            report = format_edition_report(data)
+
+            assert "Package extras: 1/2 可导入" in report
+            assert "已声明: custom_extra, scraper" in report
+            assert (
+                "Package extra 缺失: custom_extra: no optional module probe is declared" in report
+            )
+        finally:
+            get_config.cache_clear()

@@ -10,7 +10,7 @@ from souwen.registry.sources._helpers import (
 )
 
 # ═════════════════════════════════════════════════════════════
-# 13. fetch providers（17 个横切，仅 fetch capability）
+# 13. fetch providers（横切内容抓取能力）
 # ═════════════════════════════════════════════════════════════
 
 _reg(
@@ -206,7 +206,8 @@ _reg(
         domain="fetch",
         integration="open_api",
         description="MCP 协议内容抓取 (外部工具)",
-        config_field=None,
+        config_field="mcp_server_url",
+        auth_requirement="self_hosted",
         client_loader=lazy("souwen.web.mcp_fetch:MCPFetchClient"),
         methods={"fetch": MethodSpec("fetch")},
         package_extra="mcp",

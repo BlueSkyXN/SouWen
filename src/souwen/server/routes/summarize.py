@@ -6,12 +6,21 @@ import threading
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Request
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from souwen.server.auth import check_search_auth
 from souwen.server.limiter import InMemoryRateLimiter, get_client_ip
-from souwen.server.routes._common import logger, require_llm_enabled
+from souwen.server.routes._common import logger, redact_secret_text, require_llm_enabled
 from souwen.server.schemas.common import SearchMeta
+
+
+def _strip_non_empty_string(value: object, *, field_name: str) -> object:
+    if not isinstance(value, str):
+        return value
+    stripped = value.strip()
+    if not stripped:
+        raise ValueError(f"{field_name} 不能是空字符串")
+    return stripped
 
 
 class SummarizeRequest(BaseModel):
@@ -28,6 +37,25 @@ class SummarizeRequest(BaseModel):
     max_tokens: int | None = Field(None, ge=100, le=8192, description="可选最大 token 数")
     temperature: float | None = Field(None, ge=0.0, le=2.0, description="可选温度覆盖")
     system_prompt: str | None = Field(None, max_length=2000, description="自定义系统 prompt")
+
+    @field_validator("query", mode="before")
+    @classmethod
+    def _normalize_query(cls, value: object) -> object:
+        return _strip_non_empty_string(value, field_name="query")
+
+    @field_validator("domain", mode="before")
+    @classmethod
+    def _normalize_domain(cls, value: object) -> object:
+        return _strip_non_empty_string(value, field_name="domain")
+
+    @field_validator("sources", mode="before")
+    @classmethod
+    def _normalize_sources(cls, value: object) -> object:
+        if value is None:
+            return None
+        if isinstance(value, list | tuple):
+            return [_strip_non_empty_string(item, field_name="sources") for item in value]
+        return value
 
 
 class SummarizeResponse(BaseModel):
@@ -151,13 +179,16 @@ async def api_summarize(body: SummarizeRequest):
         raise HTTPException(status_code=503, detail="LLM service not configured") from exc
     except LLMError as exc:
         logger.exception("LLM 摘要服务错误: query=%s", body.query)
-        raise HTTPException(status_code=502, detail=f"LLM service error: {exc}") from exc
+        detail = redact_secret_text(str(exc)) or "unknown error"
+        raise HTTPException(status_code=502, detail=f"LLM service error: {detail}") from exc
     except ValueError as exc:
         logger.warning("LLM 摘要请求无效: query=%s error=%s", body.query, exc)
-        raise HTTPException(status_code=422, detail=str(exc)) from exc
+        detail = redact_secret_text(str(exc)) or "invalid request"
+        raise HTTPException(status_code=422, detail=detail) from exc
     except SouWenError as exc:
         logger.exception("摘要上游失败: query=%s", body.query)
-        raise HTTPException(status_code=502, detail=f"LLM service error: {exc}") from exc
+        detail = redact_secret_text(str(exc)) or "unknown error"
+        raise HTTPException(status_code=502, detail=f"LLM service error: {detail}") from exc
     except Exception:
         logger.warning("摘要内部错误: query=%s", body.query, exc_info=True)
         raise

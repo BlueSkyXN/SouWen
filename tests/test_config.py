@@ -85,6 +85,22 @@ class TestDefaults:
         cfg = SouWenConfig()
         assert cfg.timeout == 30
 
+    def test_edition_default(self):
+        """edition 默认 pro，保持现有内置功能行为。"""
+        cfg = SouWenConfig()
+        assert cfg.edition == "pro"
+
+    @pytest.mark.parametrize("edition", ["basic", "pro", "full"])
+    def test_edition_accepts_known_values(self, edition):
+        """edition 只接受已定义的功能完整度档位。"""
+        cfg = SouWenConfig(edition=edition)
+        assert cfg.edition == edition
+
+    def test_edition_rejects_unknown_value(self):
+        """未知 edition 应由 Pydantic 明确拒绝。"""
+        with pytest.raises(ValueError, match="edition"):
+            SouWenConfig(edition="enterprise")
+
     def test_max_retries_default(self):
         """max_retries 默认 3 次。"""
         cfg = SouWenConfig()
@@ -144,6 +160,15 @@ class TestEnvOverride:
         cfg = reload_config()
         try:
             assert cfg.timeout == 60
+        finally:
+            get_config.cache_clear()
+
+    def test_env_sets_edition(self, monkeypatch):
+        """环境变量设置 edition。"""
+        monkeypatch.setenv("SOUWEN_EDITION", "basic")
+        cfg = reload_config()
+        try:
+            assert cfg.edition == "basic"
         finally:
             get_config.cache_clear()
 

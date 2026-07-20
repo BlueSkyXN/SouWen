@@ -33,6 +33,7 @@ from typing import Any
 
 from souwen.config import get_config
 from souwen.core.concurrency import get_semaphore
+from souwen.editions import EditionError, ensure_source_allowed
 from souwen.models import SearchResponse
 from souwen.registry import (
     all_adapters,
@@ -77,6 +78,35 @@ _DEFAULT_QUERY_PARAMETER_CANDIDATES = (
     "bvid",
 )
 _LIST_QUERY_PARAMETERS = frozenset({"urls", "video_ids"})
+
+
+def _normalize_source_names(value: object, *, name: str) -> list[str] | None:
+    """Normalize optional string-or-sequence name arguments."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        items = [value]
+    elif isinstance(value, list | tuple):
+        items = list(value)
+    else:
+        raise ValueError(f"{name} 必须是字符串、字符串列表或 None")
+
+    normalized: list[str] = []
+    for item in items:
+        if not isinstance(item, str) or not item.strip():
+            raise ValueError(f"{name} 必须是非空字符串、非空字符串列表或 None")
+        normalized.append(item.strip())
+    return normalized
+
+
+def _normalize_query_text(value: object, *, name: str = "query") -> str:
+    """Normalize public search query text before provider dispatch."""
+    if not isinstance(value, str):
+        raise ValueError(f"{name} 必须是非空字符串")
+    query = value.strip()
+    if not query:
+        raise ValueError(f"{name} 必须是非空字符串")
+    return query
 
 
 # ── 通用客户端执行器 ───────────────────────────────────────
@@ -247,13 +277,30 @@ def _coerce_query_value(parameter_name: str, query: str) -> Any:
     return [query]
 
 
+def _is_adapter_allowed_by_edition(
+    adapter: SourceAdapter,
+    *,
+    edition: str,
+    explicit: bool,
+) -> bool:
+    """Return whether an adapter may run in the current edition."""
+    try:
+        ensure_source_allowed(adapter, edition)
+    except EditionError as exc:
+        if explicit:
+            raise
+        logger.info("数据源 %s 不在 edition=%s 中，跳过: %s", adapter.name, edition, exc)
+        return False
+    return True
+
+
 # ── 域派发（paper / patent）────────────────────────────────
 
 
 def _select_adapters(
     domain: str,
     capability: str,
-    sources: list[str] | None,
+    sources: list[str] | str | None,
 ) -> list[SourceAdapter]:
     """根据用户给定的 sources（可为 None）选出实际要调度的 adapter。
 
@@ -263,7 +310,9 @@ def _select_adapters(
       3. adapter.domain 必须匹配（或 domain 在 extra_domains 里）
       4. adapter.capabilities 必须含 capability
     """
-    if sources is None:
+    selected_sources = _normalize_source_names(sources, name="sources")
+    explicit_sources = selected_sources is not None
+    if selected_sources is None:
         names = defaults_for(domain, capability)
         if not names:
             logger.warning(
@@ -273,8 +322,9 @@ def _select_adapters(
             )
             return []
     else:
-        names = list(sources)
+        names = selected_sources
 
+    cfg = get_config()
     selected: list[SourceAdapter] = []
     for name in names:
         adapter = _registry_get(name)
@@ -296,6 +346,12 @@ def _select_adapters(
                 capability,
                 sorted(adapter.capabilities),
             )
+            continue
+        if not _is_adapter_allowed_by_edition(
+            adapter,
+            edition=cfg.edition,
+            explicit=explicit_sources,
+        ):
             continue
         selected.append(adapter)
     return selected
@@ -340,7 +396,7 @@ async def _execute_search(
 
 async def search_papers(
     query: str,
-    sources: list[str] | None = None,
+    sources: list[str] | str | None = None,
     per_page: int = 10,
     **kwargs: Any,
 ) -> list[SearchResponse]:
@@ -348,7 +404,8 @@ async def search_papers(
 
     Args:
         query: 搜索关键词
-        sources: 数据源列表；None 表示使用 registry 的默认源（由 adapter.default_for 声明）
+        sources: 数据源或数据源列表；字符串会归一化为单元素列表；None 表示使用
+            registry 的默认源（由 adapter.default_for 声明）
         per_page: 每个源返回的结果数
         **kwargs: 额外参数透传到各 Client 的 search 方法（注意：走 adapter.param_map
             翻译，源原生参数名可以用 extra_domains 时的 param_map）
@@ -356,6 +413,7 @@ async def search_papers(
     Returns:
         每个数据源一个 SearchResponse 的列表
     """
+    query = _normalize_query_text(query)
     return await search(
         query,
         domain="paper",
@@ -368,7 +426,7 @@ async def search_papers(
 
 async def search_patents(
     query: str,
-    sources: list[str] | None = None,
+    sources: list[str] | str | None = None,
     per_page: int = 10,
     **kwargs: Any,
 ) -> list[SearchResponse]:
@@ -376,13 +434,15 @@ async def search_patents(
 
     Args:
         query: 搜索关键词
-        sources: 数据源列表；None 表示使用 registry 的默认专利源
+        sources: 数据源或数据源列表；字符串会归一化为单元素列表；None 表示使用
+            registry 的默认专利源
         per_page: 每个源返回的结果数
         **kwargs: 额外参数
 
     Returns:
         每个数据源一个 SearchResponse 的列表
     """
+    query = _normalize_query_text(query)
     return await search(
         query,
         domain="patent",
@@ -397,7 +457,7 @@ async def search(
     query: str,
     domain: str = "paper",
     capability: str = "search",
-    sources: list[str] | None = None,
+    sources: list[str] | str | None = None,
     limit: int = 10,
     **kwargs: Any,
 ) -> list[Any]:
@@ -407,10 +467,12 @@ async def search(
         query: 搜索关键词
         domain: 搜索领域，如 "paper" | "patent" | "web" | "social"
         capability: 能力名，如 "search" | "search_news" | "search_images"
-        sources: 指定源列表；None 表示使用 registry 声明的默认源
+        sources: 指定源或源列表；字符串会归一化为单元素列表；None 表示使用
+            registry 声明的默认源
         limit: 每个源返回的结果数量
         **kwargs: 透传到各 Client
     """
+    query = _normalize_query_text(query)
     if domain not in all_domains():
         supported = " | ".join(all_domains())
         raise ValueError(f"未知搜索领域: {domain!r}，支持 {supported}")
@@ -422,27 +484,40 @@ async def search_domain(
     query: str,
     domain: str,
     capability: str = "search",
-    sources: list[str] | None = None,
+    sources: list[str] | str | None = None,
     limit: int = 10,
     **kwargs: Any,
 ) -> list[Any]:
     """`search()` 的语义化别名，显式要求传 domain。"""
+    query = _normalize_query_text(query)
     return await search(query, domain, capability, sources, limit, **kwargs)
 
 
 async def search_by_capability(
     query: str,
     capability: str,
-    sources: list[str] | None = None,
+    sources: list[str] | str | None = None,
     limit: int = 10,
     **kwargs: Any,
 ) -> list[Any]:
     """忽略 domain，对所有支持某 capability 的源派发。"""
-    if sources is None:
-        adapters = by_capability(capability)
+    query = _normalize_query_text(query)
+    selected_sources = _normalize_source_names(sources, name="sources")
+    if selected_sources is None:
+        cfg = get_config()
+        adapters = [
+            adapter
+            for adapter in by_capability(capability)
+            if _is_adapter_allowed_by_edition(
+                adapter,
+                edition=cfg.edition,
+                explicit=False,
+            )
+        ]
     else:
+        cfg = get_config()
         adapters = []
-        for name in sources:
+        for name in selected_sources:
             adapter = _registry_get(name)
             if adapter is None:
                 logger.warning("未知数据源: %s，跳过", name)
@@ -455,6 +530,12 @@ async def search_by_capability(
                     sorted(adapter.capabilities),
                 )
                 continue
+            if not _is_adapter_allowed_by_edition(
+                adapter,
+                edition=cfg.edition,
+                explicit=True,
+            ):
+                continue
             adapters.append(adapter)
     return await _execute_search("*", query, adapters, limit, capability, **kwargs)
 
@@ -464,19 +545,24 @@ DEFAULT_AGGREGATE_DOMAINS: tuple[str, ...] = ("paper", "web", "knowledge", "deve
 
 async def search_all(
     query: str,
-    domains: list[str] | None = None,
+    domains: list[str] | str | None = None,
     per_domain_limit: int = 5,
     timeout: float | None = None,
     **kwargs: Any,
 ) -> dict[str, list[SearchResponse]]:
-    """跨多个 domain 并行搜索，按 domain 分组返回。"""
+    """跨多个 domain 并行搜索，按 domain 分组返回。
+
+    ``domains`` 可传单个 domain 字符串或字符串列表；None 和空列表沿用默认聚合域。
+    """
+    query = _normalize_query_text(query)
     if "limit" in kwargs:
         alias_limit = kwargs.pop("limit")
         if per_domain_limit != 5 and alias_limit != per_domain_limit:
             raise ValueError("search_all() 不应同时传入不同的 per_domain_limit 和 limit")
         per_domain_limit = int(alias_limit)
 
-    selected = list(domains) if domains else list(DEFAULT_AGGREGATE_DOMAINS)
+    selected_domains = _normalize_source_names(domains, name="domains")
+    selected = selected_domains if selected_domains else list(DEFAULT_AGGREGATE_DOMAINS)
     results: dict[str, list[SearchResponse]] = {}
 
     async def _run_one(domain: str) -> tuple[str, list[SearchResponse]]:

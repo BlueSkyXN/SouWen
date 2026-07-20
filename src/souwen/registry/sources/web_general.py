@@ -52,6 +52,7 @@ _reg(
         config_field=None,
         client_loader=lazy("souwen.web.ddg_images:DuckDuckGoImagesClient"),
         methods={"search_images": MethodSpec("search", _P_MAX_RESULTS)},
+        default_for=frozenset({"web:search_images"}),
         category="web_general",
     )
 )
@@ -65,6 +66,7 @@ _reg(
         config_field=None,
         client_loader=lazy("souwen.web.ddg_videos:DuckDuckGoVideosClient"),
         methods={"search_videos": MethodSpec("search", _P_MAX_RESULTS)},
+        default_for=frozenset({"web:search_videos"}),
         category="web_general",
     )
 )
@@ -259,7 +261,11 @@ _reg(
         description="Metaso 秘塔搜索 (文档/网页/学术)",
         config_field="metaso_api_key",
         client_loader=lazy("souwen.web.metaso:MetasoClient"),
-        methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
+        extra_domains=frozenset({"fetch"}),
+        methods={
+            "search": MethodSpec("search", _P_MAX_RESULTS),
+            "fetch": MethodSpec("reader"),
+        },
         category="web_general",
     )
 )
