@@ -149,7 +149,7 @@ def test_release_bundle_has_24_binaries_supply_chain_assets_and_attestation() ->
 def test_binary_smoke_preserves_help_tracebacks_for_cross_platform_diagnostics() -> None:
     text = (REPO_ROOT / ".github/actions/binary-smoke/action.yml").read_text(encoding="utf-8")
     assert 'if name == "cli/help" and len(detail) > 4000:' in text
-    assert '... traceback middle omitted ...' in text
+    assert "... traceback middle omitted ..." in text
     assert 'detail = f"{detail[:750]}\\n' in text
     assert '{detail[-3200:]}"' in text
 
