@@ -170,3 +170,8 @@ def test_binary_smoke_covers_tier_aware_target_runner_contracts() -> None:
         "full/article-pdf-plugin-imports",
     ):
         assert check in text
+
+    assert 'socket.create_connection(("127.0.0.1", port), timeout=0.25)' in text
+    assert "deadline = time.monotonic() + 60" in text
+    assert 'f"serve exit={returncode}, port closed"' in text
+    assert '"49651"' not in text
