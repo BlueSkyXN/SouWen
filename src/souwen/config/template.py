@@ -11,6 +11,9 @@ _DEFAULT_CONFIG_TEMPLATE = """\
 
 # ===== 论文数据源 =====
 paper:
+  # OpenAlex Freemium API；超出免费额度是否使用预付余额取决于账户设置
+  openalex_api_key: ~
+  # 已弃用兼容字段；当前不发送给 OpenAlex
   openalex_email: ~
   semantic_scholar_api_key: ~
   core_api_key: ~
@@ -23,6 +26,8 @@ paper:
 
 # ===== 专利数据源 =====
 patent:
+  patentsview_api_key: ~
+  pqai_api_token: ~
   uspto_api_key: ~
   epo_consumer_key: ~
   epo_consumer_secret: ~
@@ -68,6 +73,7 @@ web:
 
 # ===== 通用设置 =====
 general:
+  edition: pro  # basic | pro | full
   proxy: ~
   proxy_pool: []
   timeout: 30

@@ -207,7 +207,9 @@
   }
 
   &.clickable {
+    color: inherit;
     cursor: pointer;
+    text-decoration: none;
     user-select: none;
 
     &:focus-visible {
@@ -389,7 +391,9 @@
   }
 
   &.clickable {
+    color: inherit;
     cursor: pointer;
+    text-decoration: none;
     user-select: none;
 
     &:focus-visible {

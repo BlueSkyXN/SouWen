@@ -33,7 +33,8 @@
 | `SOUWEN_TRUSTED_PROXIES` | 受信反向代理 IP/CIDR 列表，逗号分隔 |
 | `SOUWEN_EXPOSE_DOCS` | 是否暴露 `/docs`、`/redoc`、`/openapi.json`，生产建议 `false` |
 | `SOUWEN_MAX_CONCURRENCY` | 聚合搜索并发上限，默认 `10`（v0.6.0） |
-| `SOUWEN_OPENALEX_EMAIL` | OpenAlex 邮箱（免费，提升速率） |
+| `SOUWEN_OPENALEX_API_KEY` | OpenAlex Freemium API Key（可选；额度/预付余额以账户为准） |
+| `SOUWEN_OPENALEX_EMAIL` | 已弃用兼容字段（当前不发送给 OpenAlex） |
 | `SOUWEN_TAVILY_API_KEY` | Tavily AI 搜索 Key |
 | `WARP_ENABLED` | 设为 `1` 启用内嵌 Cloudflare WARP 代理 |
 | ... | 其他 SOUWEN_* 环境变量均可直接设置 |
@@ -43,6 +44,9 @@
 ## ModelScope 部署说明
 
 - **端口固定 7860**：ModelScope 创空间要求容器监听 `7860`，镜像内已通过 `ENV PORT=7860` 固定，请勿覆盖。
+- **源码必须固定**：构建时必须传入完整 commit，例如 `--build-arg SOUWEN_REF=<40位SHA>`；模板中的全零占位符会 fail closed，不会拉取 floating `main`。
+- **运行时来源**：镜像写入 `/home/user/app/runtime.source.sha`，`/health` 与 `/readiness` 会返回同一 `source_sha`。
+- **WARP runtime 目录**：默认 `/home/user/app/data/bin`，可用 `WARP_RUNTIME_BIN_DIR` 覆盖。
 - **GitHub 加速**：构建镜像时可通过 `--build-arg GH_PROXY=https://ghproxy.com` 为 `wgcf` / `wireproxy` 等 GitHub Releases 下载注入代理前缀，规避 ModelScope 构建机访问 GitHub 的网络限制。详见 `cloud/modelscope/Dockerfile`。
 
 ## 源码

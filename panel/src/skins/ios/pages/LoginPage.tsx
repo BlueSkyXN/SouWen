@@ -35,6 +35,7 @@ import { useAuthStore } from '@core/stores/authStore'
 import { useNotificationStore } from '@core/stores/notificationStore'
 import { api } from '@core/services/api'
 import { formatError } from '@core/lib/errors'
+import { LOGIN_SERVER_URL_EXAMPLE } from '@core/lib/serverConnection'
 import styles from './LoginPage.module.scss'
 
 // LoginPage 组件 - 登录界面
@@ -148,29 +149,37 @@ export function LoginPage() {
 
           <form onSubmit={handleSubmit}>
             <div className={styles.formGroup}>
-              <div className={styles.groupTitle}>{t('login.serverUrl')}</div>
+              <label className={styles.groupTitle} htmlFor="login-server-url">
+                {t('login.serverUrl')}
+              </label>
               <div className={styles.groupCard}>
                 <input
+                  id="login-server-url"
                   className={styles.input}
                   type="url"
                   value={baseUrl}
                   onChange={(e) => setBaseUrl(e.target.value)}
-                  placeholder="http://localhost:8000"
+                  placeholder={t('login.serverUrlPlaceholder', { example: LOGIN_SERVER_URL_EXAMPLE })}
+                  autoComplete="url"
                   required
                 />
               </div>
             </div>
 
             <div className={styles.formGroup}>
-              <div className={styles.groupTitle}>{t('login.password')}</div>
+              <label className={styles.groupTitle} htmlFor="login-password">
+                {t('login.password')}
+              </label>
               <div className={styles.groupCard}>
                 <div className={styles.inputGroup}>
                   <input
+                    id="login-password"
                     className={styles.input}
                     type={showPw ? 'text' : 'password'}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder={t('login.passwordPlaceholder')}
+                    autoComplete="current-password"
                   />
                   <button
                     type="button"
@@ -216,7 +225,7 @@ export function LoginPage() {
                   {t('login.connecting')}
                 </>
               ) : (
-                t('login.signIn', 'Sign In')
+                t('login.signIn')
               )}
             </button>
           </form>

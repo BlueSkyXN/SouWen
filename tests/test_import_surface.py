@@ -62,6 +62,39 @@ print("registry import ok")
     assert completed.returncode == 0, completed.stderr
 
 
+def test_import_registry_keeps_concrete_web_providers_lazy():
+    """Registry catalog initialization must not import concrete provider runtimes."""
+    repo_root = Path(__file__).resolve().parents[1]
+    env = os.environ.copy()
+    env["PYTHONPATH"] = str(repo_root / "src")
+    env["SOUWEN_PLUGIN_AUTOLOAD"] = "0"
+    code = """
+import sys
+
+from souwen.registry import all_adapters
+
+assert all_adapters()
+for name in (
+    "souwen.web.builtin",
+    "souwen.web.duckduckgo",
+    "souwen.web.tavily",
+    "trafilatura",
+):
+    assert name not in sys.modules, name
+print("registry providers remain lazy")
+"""
+
+    completed = subprocess.run(
+        [sys.executable, "-c", code],
+        check=False,
+        capture_output=True,
+        env=env,
+        text=True,
+    )
+
+    assert completed.returncode == 0, completed.stderr
+
+
 def test_cli_bootstrap_calls_explicit_plugin_loader(monkeypatch):
     from souwen.plugin import PluginLoadResult
 

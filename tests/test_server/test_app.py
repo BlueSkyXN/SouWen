@@ -43,6 +43,7 @@ def _isolate_config_files(monkeypatch, tmp_path):
         "SOUWEN_GUEST_ENABLED",
         "SOUWEN_SOURCES",
         "SOUWEN_TRUSTED_PROXIES",
+        "SOUWEN_EDITION",
     ):
         monkeypatch.delenv(key, raising=False)
     from souwen.config import get_config
@@ -90,6 +91,43 @@ def _sources_by_name(payload: dict) -> dict[str, dict]:
     return {item["name"]: item for item in payload["sources"]}
 
 
+def _doctor_source(name: str, status: str, **overrides) -> dict:
+    """Build a doctor source payload matching the public response contract."""
+
+    return {
+        "name": name,
+        "category": "paper",
+        "status": status,
+        "integration_type": "open_api",
+        "required_key": None,
+        "key_requirement": "none",
+        "auth_requirement": "none",
+        "credential_fields": [],
+        "optional_credential_effect": None,
+        "risk_level": "low",
+        "risk_reasons": [],
+        "distribution": "core",
+        "package_extra": None,
+        "stability": "stable",
+        "usage_note": None,
+        "min_edition": "basic",
+        "edition": "pro",
+        "edition_available": True,
+        "edition_reason": "",
+        "runtime_available": True,
+        "runtime_reason": "",
+        "credentials_satisfied": True,
+        "config_available": True,
+        "config_reason": "",
+        "available": status in {"ok", "limited", "warning", "degraded"},
+        "message": status,
+        "enabled": True,
+        "description": f"{name} test source",
+        "channel": None,
+        **overrides,
+    }
+
+
 # ---------------------------------------------------------------------------
 # Health
 # ---------------------------------------------------------------------------
@@ -103,6 +141,14 @@ class TestHealth:
         data = resp.json()
         assert data["status"] == "ok"
         assert "version" in data
+        assert "source_sha" in data
+
+    def test_health_reports_validated_source_sha(self, client, monkeypatch):
+        monkeypatch.setenv("SOUWEN_SOURCE_SHA", "d" * 40)
+
+        data = client.get("/health").json()
+
+        assert data["source_sha"] == "d" * 40
 
     def test_health_no_auth_required(self, authed_client):
         """即便设置了认证密码，``/health`` 仍应免鉴权（K8s liveness 探针）。"""
@@ -158,6 +204,128 @@ class TestAdminAuth:
         assert data.get("user_password") == "***"
         assert data.get("admin_password") == "***"
 
+    def test_proxy_and_application_auth_headers_remain_independent(self, dual_key_client):
+        """上游占用 Authorization 时，应用层 token 仍能独立完成 admin 鉴权。"""
+        resp = dual_key_client.get(
+            "/api/v1/whoami",
+            headers={
+                "Authorization": "Bearer hf-private-space-read-token",
+                "X-SouWen-Token": "admin-pw",
+            },
+        )
+
+        assert resp.status_code == 200
+        assert resp.json()["role"] == "admin"
+
+    def test_invalid_explicit_application_token_does_not_fall_back(self, dual_key_client):
+        """显式 X-SouWen-Token 无效时，不得回退到另一个 header。"""
+        resp = dual_key_client.get(
+            "/api/v1/whoami",
+            headers={
+                "Authorization": "Bearer admin-pw",
+                "X-SouWen-Token": "wrong-app-token",
+            },
+        )
+
+        assert resp.status_code == 401
+
+    def test_admin_config_redacts_nested_secret_fields(self, authed_client, monkeypatch):
+        """``/admin/config`` 的嵌套配置同样不能泄漏 channel 或 LLM 凭据。"""
+        monkeypatch.setenv(
+            "SOUWEN_SOURCES",
+            (
+                '{"openalex": {'
+                '"api_key": "source-secret", '
+                '"proxy": "http://user:source-proxy-pass@proxy.example:8080?token=source-proxy-token", '
+                '"base_url": "https://source.example/search?apiKey=source-base-key&safe=1", '
+                '"headers": {'
+                '"Authorization": "Bearer header-secret", '
+                '"X-ApiKey": "header-api-key-secret", '
+                '"X-Session-Id": "header-session-secret", '
+                '"X-JWT": "header-jwt-secret", '
+                '"X-Trace-Id": "trace-1"'
+                "}, "
+                '"params": {'
+                '"api_key": "param-secret", '
+                '"apiKey": "camel-api-key-secret", '
+                '"accessToken": "camel-access-value", '
+                '"clientSecret": "camel-client-secret", '
+                '"apikey": "compact-api-key-secret", '
+                '"session_id": "param-session-secret", '
+                '"sid": "param-sid-secret", '
+                '"jwt": "param-jwt-secret", '
+                '"csrftoken": "param-csrf-secret", '
+                '"page": 1'
+                "}"
+                "}}"
+            ),
+        )
+        monkeypatch.setenv(
+            "SOUWEN_LLM",
+            (
+                '{"enabled": true, '
+                '"api_key": "llm-secret", '
+                '"api_keys": ["llm-secret-1", "llm-secret-2"], '
+                '"base_url": "https://llm.example"}'
+            ),
+        )
+        monkeypatch.setenv(
+            "SOUWEN_PROXY",
+            "socks5://user:global-proxy-pass@proxy.example:1080?token=global-proxy-token&safe=1",
+        )
+        monkeypatch.setenv(
+            "SOUWEN_PROXY_POOL",
+            ",".join(
+                [
+                    "http://user:pool-pass@pool.example:8080?apiKey=pool-api-key&safe=1",
+                    "http://plain.example:8080",
+                ]
+            ),
+        )
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        resp = authed_client.get(
+            "/api/v1/admin/config",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+
+        openalex = data["sources"]["openalex"]
+        assert openalex["api_key"] == "***"
+        assert "source-proxy-pass" not in resp.text
+        assert "source-proxy-token" not in resp.text
+        assert "source-base-key" not in resp.text
+        assert openalex["proxy"] == "http://***@proxy.example:8080?token=***"
+        assert openalex["base_url"] == "https://source.example/search?apiKey=***&safe=1"
+        assert openalex["headers"]["Authorization"] == "***"
+        assert openalex["headers"]["X-ApiKey"] == "***"
+        assert openalex["headers"]["X-Session-Id"] == "***"
+        assert openalex["headers"]["X-JWT"] == "***"
+        assert openalex["headers"]["X-Trace-Id"] == "trace-1"
+        assert openalex["params"]["api_key"] == "***"
+        assert openalex["params"]["apiKey"] == "***"
+        assert openalex["params"]["accessToken"] == "***"
+        assert openalex["params"]["clientSecret"] == "***"
+        assert openalex["params"]["apikey"] == "***"
+        assert openalex["params"]["session_id"] == "***"
+        assert openalex["params"]["sid"] == "***"
+        assert openalex["params"]["jwt"] == "***"
+        assert openalex["params"]["csrftoken"] == "***"
+        assert openalex["params"]["page"] == 1
+
+        assert data["llm"]["api_key"] == "***"
+        assert data["llm"]["api_keys"] == "***"
+        assert data["llm"]["base_url"] == "https://llm.example"
+        assert "global-proxy-pass" not in resp.text
+        assert "global-proxy-token" not in resp.text
+        assert "pool-pass" not in resp.text
+        assert "pool-api-key" not in resp.text
+        assert data["proxy"] == "socks5://***@proxy.example:1080?token=***&safe=1"
+        assert data["proxy_pool"][0] == "http://***@pool.example:8080?apiKey=***&safe=1"
+        assert data["proxy_pool"][1] == "http://plain.example:8080"
+
     def test_admin_http_backend_get_valid_token(self, authed_client):
         """``GET /admin/http-backend`` 应返回当前后端快照，供 CD smoke 安全恢复状态。"""
         resp = authed_client.get(
@@ -170,6 +338,159 @@ class TestAdminAuth:
         assert isinstance(data["overrides"], dict)
         assert isinstance(data["curl_cffi_available"], bool)
 
+    def test_admin_http_backend_update_trims_default(self, authed_client):
+        """默认 HTTP backend 更新应先 trim，再做允许值校验。"""
+        resp = authed_client.put(
+            "/api/v1/admin/http-backend",
+            headers={"Authorization": "Bearer test-secret-123"},
+            params={"default": " httpx "},
+        )
+
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["default"] == "httpx"
+
+    def test_admin_http_backend_update_trims_source_override(self, authed_client):
+        """按源覆盖应先 trim source/backend，再校验源名和后端值。"""
+        resp = authed_client.put(
+            "/api/v1/admin/http-backend",
+            headers={"Authorization": "Bearer test-secret-123"},
+            params={"source": " duckduckgo ", "backend": " httpx "},
+        )
+
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["overrides"]["duckduckgo"] == "httpx"
+
+    def test_admin_http_backend_source_backend_must_be_paired(self, authed_client):
+        """只传 source 或只传 backend 不应返回成功 no-op。"""
+        for params in ({"source": "duckduckgo"}, {"backend": "httpx"}):
+            resp = authed_client.put(
+                "/api/v1/admin/http-backend",
+                headers={"Authorization": "Bearer test-secret-123"},
+                params=params,
+            )
+
+            assert resp.status_code == 400
+            assert "source 和 backend 必须同时提供" in resp.json()["detail"]
+
+    def test_admin_proxy_update_trims_proxy_url(self, authed_client):
+        """全局 proxy 应保存校验后的规范 URL，而不是请求体原始字符串。"""
+        resp = authed_client.put(
+            "/api/v1/admin/proxy",
+            headers={"Authorization": "Bearer test-secret-123"},
+            json={"proxy": " http://proxy.example:8080 "},
+        )
+
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["proxy"] == "http://proxy.example:8080"
+
+    def test_admin_proxy_response_redacts_url_secrets_but_keeps_runtime_value(
+        self,
+        authed_client,
+        monkeypatch,
+    ):
+        """全局代理读写响应不应泄漏凭据，但运行时配置仍应保留真实 URL。"""
+        proxy = "socks5://user:proxy-pass@proxy.example:1080?token=proxy-token&safe=1"
+        pool = "http://user:pool-pass@pool.example:8080?apiKey=pool-key&safe=1"
+        monkeypatch.setenv("SOUWEN_PROXY", proxy)
+        monkeypatch.setenv("SOUWEN_PROXY_POOL", pool)
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        get_resp = authed_client.get(
+            "/api/v1/admin/proxy",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+        assert get_resp.status_code == 200, get_resp.text
+        assert "proxy-pass" not in get_resp.text
+        assert "proxy-token" not in get_resp.text
+        assert "pool-pass" not in get_resp.text
+        assert "pool-key" not in get_resp.text
+        assert get_resp.json()["proxy"] == "socks5://***@proxy.example:1080?token=***&safe=1"
+        assert get_resp.json()["proxy_pool"] == ["http://***@pool.example:8080?apiKey=***&safe=1"]
+
+        put_resp = authed_client.put(
+            "/api/v1/admin/proxy",
+            headers={"Authorization": "Bearer test-secret-123"},
+            json={"proxy": proxy, "proxy_pool": [pool]},
+        )
+        assert put_resp.status_code == 200, put_resp.text
+        assert "proxy-pass" not in put_resp.text
+        assert "pool-pass" not in put_resp.text
+        assert put_resp.json()["proxy"] == "socks5://***@proxy.example:1080?token=***&safe=1"
+        assert get_config().proxy == proxy
+        assert get_config().proxy_pool == [pool]
+
+    def test_admin_proxy_rejects_redacted_placeholder(self, authed_client):
+        """脱敏后的代理占位符不能被提交保存，避免覆盖真实配置。"""
+        resp = authed_client.put(
+            "/api/v1/admin/proxy",
+            headers={"Authorization": "Bearer test-secret-123"},
+            json={"proxy": "socks5://***@proxy.example:1080?token=***"},
+        )
+
+        assert resp.status_code == 422
+        assert "脱敏显示值" in resp.json()["detail"]
+
+    def test_admin_proxy_update_blank_proxy_clears_config(self, authed_client):
+        """空白 proxy 应视为清空配置，不能把空白字符串写入运行时配置。"""
+        resp = authed_client.put(
+            "/api/v1/admin/proxy",
+            headers={"Authorization": "Bearer test-secret-123"},
+            json={"proxy": "   "},
+        )
+
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["proxy"] is None
+
+    def test_admin_proxy_pool_rejects_blank_entry(self, authed_client):
+        """proxy_pool 中的空白条目应失败，避免无效输入被静默丢弃。"""
+        resp = authed_client.put(
+            "/api/v1/admin/proxy",
+            headers={"Authorization": "Bearer test-secret-123"},
+            json={"proxy_pool": [" http://proxy.example:8080 ", "   "]},
+        )
+
+        assert resp.status_code == 422
+        assert "proxy_pool[1] 不能是空字符串" in resp.json()["detail"]
+        from souwen.config import get_config
+
+        assert get_config().proxy_pool == []
+
+    def test_admin_proxy_error_redacts_url_secrets(self, authed_client):
+        """全局 proxy 校验错误不应回显 URL userinfo 或敏感 query。"""
+        resp = authed_client.put(
+            "/api/v1/admin/proxy",
+            headers={"Authorization": "Bearer test-secret-123"},
+            json={
+                "proxy": "ftp://user:pass@proxy.example:21?token=proxy-secret&safe=1",
+            },
+        )
+
+        assert resp.status_code == 422
+        detail = resp.json()["detail"]
+        assert "user:pass" not in detail
+        assert "proxy-secret" not in detail
+        assert "ftp://***@proxy.example:21?token=***&safe=1" in detail
+
+    def test_admin_proxy_pool_error_redacts_url_secrets(self, authed_client):
+        """proxy_pool 校验错误不应回显 URL userinfo 或敏感 query。"""
+        resp = authed_client.put(
+            "/api/v1/admin/proxy",
+            headers={"Authorization": "Bearer test-secret-123"},
+            json={
+                "proxy_pool": [
+                    "http://ok.example:8080",
+                    "ftp://user:pass@proxy.example:21?token=pool-secret&safe=1",
+                ],
+            },
+        )
+
+        assert resp.status_code == 422
+        detail = resp.json()["detail"]
+        assert "user:pass" not in detail
+        assert "pool-secret" not in detail
+        assert "ftp://***@proxy.example:21?token=***&safe=1" in detail
+
     def test_admin_reload_valid_token(self, authed_client):
         """``POST /admin/config/reload`` 鉴权通过后返回 ``status=ok`` 与 ``password_set=True``。"""
         resp = authed_client.post(
@@ -179,6 +500,96 @@ class TestAdminAuth:
         assert resp.status_code == 200
         assert resp.json()["status"] == "ok"
         assert resp.json()["password_set"] is True
+
+    def test_admin_config_yaml_validation_error_does_not_echo_input_secret(self, authed_client):
+        """YAML dry-run 校验失败不应把 Pydantic input_value 中的 secret 回显给客户端。"""
+        resp = authed_client.put(
+            "/api/v1/admin/config/yaml",
+            headers={"Authorization": "Bearer test-secret-123"},
+            json={"content": "sources:\n  openalex: token-secret\n"},
+        )
+
+        assert resp.status_code == 422
+        detail = resp.json()["detail"]
+        assert "token-secret" not in detail
+        assert "input_value" not in detail
+        assert "sources.openalex" in detail
+
+    def test_admin_config_yaml_uses_current_home_at_request_time(
+        self,
+        authed_client,
+        monkeypatch,
+        tmp_path,
+    ):
+        """YAML 配置路径应按请求时的 HOME 解析，不能绑定模块导入时的 HOME。"""
+        import importlib
+
+        import souwen.server.routes.admin.config as config_route
+
+        stale_home = tmp_path / "stale-home"
+        current_home = tmp_path / "current-home"
+        stale_config = stale_home / ".config" / "souwen" / "config.yaml"
+        current_config = current_home / ".config" / "souwen" / "config.yaml"
+        stale_config.parent.mkdir(parents=True)
+        current_config.parent.mkdir(parents=True)
+        stale_config.write_text("server:\n  host: stale-home\n", encoding="utf-8")
+        current_config.write_text("server:\n  host: current-home\n", encoding="utf-8")
+
+        monkeypatch.setenv("HOME", str(stale_home))
+        monkeypatch.setenv("USERPROFILE", str(stale_home))
+        importlib.reload(config_route)
+
+        monkeypatch.setenv("HOME", str(current_home))
+        monkeypatch.setenv("USERPROFILE", str(current_home))
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        resp = authed_client.get(
+            "/api/v1/admin/config/yaml",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert data["path"] == str(current_config)
+        assert "current-home" in data["content"]
+        assert "stale-home" not in data["content"]
+
+    def test_admin_config_yaml_reload_error_redacts_secret_detail(
+        self,
+        authed_client,
+        monkeypatch,
+        tmp_path,
+    ):
+        """YAML 保存后的 reload 失败响应不应泄漏底层异常中的 secret。"""
+        import souwen.config as config_mod
+
+        secret_error = (
+            "reload failed token=reload-secret "
+            "Cookie: sid=session-secret "
+            "callback https://auth.example/cb?apiKey=url-api-key-secret&safe=1"
+        )
+
+        def fake_reload_config():
+            raise RuntimeError(secret_error)
+
+        monkeypatch.setattr(config_mod, "reload_config", fake_reload_config)
+        resp = authed_client.put(
+            "/api/v1/admin/config/yaml",
+            headers={"Authorization": "Bearer test-secret-123"},
+            json={"content": "server:\n  expose_docs: true\n"},
+        )
+
+        assert resp.status_code == 422
+        detail = resp.json()["detail"]
+        assert "reload-secret" not in detail
+        assert "session-secret" not in detail
+        assert "url-api-key-secret" not in detail
+        assert "token:***" in detail
+        assert "Cookie:***" in detail
+        assert "apiKey=***" in detail
+        assert "safe=1" in detail
+        assert not (tmp_path / ".config" / "souwen" / "config.yaml").exists()
 
     def test_admin_doctor_valid_token(self, authed_client):
         """``GET /admin/doctor`` 鉴权通过后返回包含 ``total``/``ok``/``sources`` 字段的连通性摘要。"""
@@ -190,12 +601,38 @@ class TestAdminAuth:
         data = resp.json()
         assert "total" in data
         assert "ok" in data
+        assert data["edition"] == "pro"
         assert "sources" in data
         first_source = data["sources"][0]
         assert "auth_requirement" in first_source
         assert "credential_fields" in first_source
         assert "risk_level" in first_source
         assert "distribution" in first_source
+        assert "min_edition" in first_source
+        assert "edition_available" in first_source
+        assert "edition_reason" in first_source
+        assert "available" in first_source
+
+    def test_admin_doctor_marks_edition_unavailable(self, authed_client, monkeypatch):
+        """doctor 应暴露当前 edition，并让 basic 下的 pro 源显示需升级。"""
+        monkeypatch.setenv("SOUWEN_EDITION", "basic")
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        resp = authed_client.get(
+            "/api/v1/admin/doctor",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["edition"] == "basic"
+        openalex = _sources_by_name(data)["openalex"]
+        assert openalex["status"] == "unavailable"
+        assert openalex["min_edition"] == "pro"
+        assert openalex["edition"] == "basic"
+        assert openalex["edition_available"] is False
+        assert "source 'openalex' requires edition=pro" in openalex["edition_reason"]
+        assert openalex["available"] is False
 
     def test_admin_doctor_counts_limited_and_warning_as_available(self, authed_client, monkeypatch):
         """doctor 汇总应区分严格 ok、可用、降级和失败。"""
@@ -205,12 +642,12 @@ class TestAdminAuth:
             doctor_mod,
             "check_all",
             lambda: [
-                {"name": "ok", "status": "ok"},
-                {"name": "limited", "status": "limited"},
-                {"name": "warning", "status": "warning"},
-                {"name": "degraded", "status": "degraded"},
-                {"name": "missing", "status": "missing_key"},
-                {"name": "unavailable", "status": "unavailable"},
+                _doctor_source("ok", "ok"),
+                _doctor_source("limited", "limited"),
+                _doctor_source("warning", "warning"),
+                _doctor_source("degraded", "degraded"),
+                _doctor_source("missing", "missing_key", available=False),
+                _doctor_source("unavailable", "unavailable", available=False),
             ],
         )
         resp = authed_client.get(
@@ -227,6 +664,42 @@ class TestAdminAuth:
         assert data["status_counts"]["degraded"] == 1
         assert data["failed"] == 2
         assert data["status_counts"]["limited"] == 1
+
+    def test_admin_doctor_live_probe_is_explicit(self, authed_client, monkeypatch):
+        """live=true 时才应调用联网 probe，并在响应中暴露 probe 汇总。"""
+        import souwen.doctor as doctor_mod
+
+        captured: dict[str, object] = {}
+
+        async def fake_check_all_live(sources=None, timeout=5.0):
+            captured["sources"] = sources
+            captured["timeout"] = timeout
+            return [
+                _doctor_source(
+                    "openalex",
+                    "ok",
+                    live_probe={
+                        "status": "ok",
+                        "message": "live search returned 1 result(s)",
+                        "elapsed_ms": 1,
+                    },
+                )
+            ]
+
+        monkeypatch.setattr(doctor_mod, "check_all_live", fake_check_all_live)
+
+        resp = authed_client.get(
+            "/api/v1/admin/doctor?live=true&source=openalex&timeout=1",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+
+        assert resp.status_code == 200
+        data = resp.json()
+        assert captured["sources"] == ["openalex"]
+        assert captured["timeout"] == 1.0
+        assert data["probe_mode"] == "live"
+        assert data["live_probe"]["ok"] == 1
+        assert data["sources"][0]["live_probe"]["status"] == "ok"
 
     def test_admin_doctor_keeps_runtime_web_plugin_without_explicit_category(
         self,
@@ -246,6 +719,160 @@ class TestAdminAuth:
         assert sources[name]["category"] == "web_general"
         assert sources[name]["distribution"] == "plugin"
 
+    def test_user_doctor_allows_user_token_without_admin_access(
+        self,
+        dual_key_client,
+        monkeypatch,
+    ):
+        """``GET /doctor`` 是 User+ 读端点，不能顺带开放 admin doctor。"""
+        import souwen.doctor as doctor_mod
+
+        monkeypatch.setattr(
+            doctor_mod,
+            "check_all",
+            lambda: [
+                _doctor_source("openalex", "ok"),
+                _doctor_source("semantic_scholar", "limited"),
+            ],
+        )
+
+        resp = dual_key_client.get(
+            "/api/v1/doctor",
+            headers={"Authorization": "Bearer user-pw"},
+        )
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["total"] == 2
+        assert data["ok"] == 1
+        assert data["available"] == 2
+        assert data["sources"][0]["name"] == "openalex"
+
+        admin_resp = dual_key_client.get(
+            "/api/v1/admin/doctor",
+            headers={"Authorization": "Bearer user-pw"},
+        )
+        assert admin_resp.status_code == 403
+
+    def test_user_doctor_requires_user_when_user_password_is_configured(self, dual_key_client):
+        """配置 user_password 后，guest/无 token 不能读取 doctor 摘要。"""
+        resp = dual_key_client.get("/api/v1/doctor")
+
+        assert resp.status_code == 401
+
+    def test_user_doctor_sanitizes_runtime_loader_exception(self, client, monkeypatch):
+        """匿名可读 doctor 不能回显 plugin loader 的路径、DSN 或 token。"""
+        import souwen.doctor as doctor_mod
+
+        raw_error = (
+            "arxiv: RuntimeError: /Users/private/plugin.py "
+            "postgresql://user:password@db.internal/source token=doctor-secret"
+        )
+        monkeypatch.setattr(
+            doctor_mod,
+            "check_all",
+            lambda: [
+                _doctor_source(
+                    "arxiv",
+                    "unavailable",
+                    runtime_available=False,
+                    runtime_reason=raw_error,
+                    message=raw_error,
+                    available=False,
+                )
+            ],
+        )
+
+        resp = client.get("/api/v1/doctor")
+
+        assert resp.status_code == 200
+        source = resp.json()["sources"][0]
+        assert source["runtime_reason"] == "arxiv: client loader unavailable"
+        assert source["message"] == "arxiv: client loader unavailable"
+        assert raw_error not in resp.text
+        assert "/Users/private" not in resp.text
+        assert "postgresql://" not in resp.text
+        assert "doctor-secret" not in resp.text
+
+    def test_admin_doctor_also_sanitizes_runtime_loader_exception(
+        self,
+        authed_client,
+        monkeypatch,
+    ):
+        """Admin REST diagnostics remain protected but still must not echo arbitrary secrets."""
+        import souwen.doctor as doctor_mod
+
+        raw_error = "arxiv: RuntimeError: token=admin-doctor-secret"
+        monkeypatch.setattr(
+            doctor_mod,
+            "check_all",
+            lambda: [
+                _doctor_source(
+                    "arxiv",
+                    "unavailable",
+                    runtime_available=False,
+                    runtime_reason=raw_error,
+                    message=raw_error,
+                    available=False,
+                )
+            ],
+        )
+
+        resp = authed_client.get(
+            "/api/v1/admin/doctor",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+
+        assert resp.status_code == 200
+        source = resp.json()["sources"][0]
+        assert source["runtime_reason"] == "arxiv: client loader unavailable"
+        assert source["message"] == "arxiv: client loader unavailable"
+        assert "admin-doctor-secret" not in resp.text
+
+    def test_user_doctor_sanitizes_live_probe_exception(self, client, monkeypatch):
+        """Explicit REST live probes expose outcome classes, not provider exception secrets."""
+        import souwen.doctor as doctor_mod
+
+        async def fake_check_all_live(sources=None, timeout=5.0):
+            del sources, timeout
+            return [
+                _doctor_source(
+                    "arxiv",
+                    "ok",
+                    live_probe={
+                        "status": "failed",
+                        "message": "timed out after token=live-doctor-secret",
+                        "elapsed_ms": 1,
+                    },
+                ),
+                _doctor_source(
+                    "crossref",
+                    "ok",
+                    live_probe={
+                        "status": "failed",
+                        "message": "timed out after 5s",
+                        "elapsed_ms": 5000,
+                    },
+                ),
+            ]
+
+        monkeypatch.setattr(doctor_mod, "check_all_live", fake_check_all_live)
+
+        resp = client.get("/api/v1/doctor?live=true&source=arxiv")
+
+        assert resp.status_code == 200
+        sources = _sources_by_name(resp.json())
+        assert sources["arxiv"]["live_probe"] == {
+            "status": "failed",
+            "message": "live probe failed",
+            "elapsed_ms": 1,
+        }
+        assert sources["crossref"]["live_probe"] == {
+            "status": "failed",
+            "message": "timed out after 5s",
+            "elapsed_ms": 5000,
+        }
+        assert "live-doctor-secret" not in resp.text
+
     def test_admin_sources_config_includes_catalog_fields(self, authed_client):
         """数据源频道配置应返回 source catalog 字段，供前端展示和运维判断。"""
         resp = authed_client.get(
@@ -256,11 +883,42 @@ class TestAdminAuth:
         data = resp.json()
         assert data["auth_requirement"] == "optional"
         assert data["key_requirement"] == "optional"
-        assert data["credential_fields"] == ["openalex_email"]
-        assert data["optional_credential_effect"] == "politeness"
+        assert data["credential_fields"] == ["openalex_api_key"]
+        assert data["optional_credential_effect"] == "quota"
         assert data["risk_level"] == "low"
         assert data["distribution"] == "core"
+        assert data["min_edition"] == "pro"
+        assert data["edition_available"] is True
+        assert data["edition_reason"] == ""
+        assert data["has_api_key"] is False
+        assert data["configured_credentials"] is False
         assert data["credentials_satisfied"] is True
+        assert data["available"] is True
+
+    def test_admin_sources_config_marks_edition_unavailable(self, authed_client, monkeypatch):
+        """管理端返回全部源配置，但标注当前 edition 是否允许调度。"""
+        monkeypatch.setenv("SOUWEN_EDITION", "basic")
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        single = authed_client.get(
+            "/api/v1/admin/sources/config/openalex",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+        assert single.status_code == 200, single.text
+        data = single.json()
+        assert data["min_edition"] == "pro"
+        assert data["edition_available"] is False
+        assert "source 'openalex' requires edition=pro" in data["edition_reason"]
+        assert data["credentials_satisfied"] is True
+        assert data["available"] is False
+
+        listing = authed_client.get(
+            "/api/v1/admin/sources/config",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+        assert listing.status_code == 200, listing.text
+        assert listing.json()["openalex"]["edition_available"] is False
 
     def test_admin_sources_config_marks_no_auth_credentials_satisfied(self, authed_client):
         """免配置源不应显示有 API Key，但应明确标记凭据要求已满足。"""
@@ -273,6 +931,238 @@ class TestAdminAuth:
         assert data["auth_requirement"] == "none"
         assert data["has_api_key"] is False
         assert data["credentials_satisfied"] is True
+
+    def test_admin_sources_config_redacts_secret_channel_overrides(
+        self,
+        authed_client,
+        monkeypatch,
+    ):
+        """频道级 headers/params 中的敏感字段不应从 admin 配置响应泄漏。"""
+        monkeypatch.setenv(
+            "SOUWEN_SOURCES",
+            (
+                '{"openalex": {'
+                '"headers": {'
+                '"Authorization": "Bearer source-secret", '
+                '"Cookie": "sid=source-secret", '
+                '"X-Trace-Id": "trace-1"'
+                "}, "
+                '"params": {'
+                '"api_key": "param-secret", '
+                '"page": 1, '
+                '"safe": true'
+                "}"
+                "}}"
+            ),
+        )
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        resp = authed_client.get(
+            "/api/v1/admin/sources/config/openalex",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert data["headers"] == {
+            "Authorization": "***",
+            "Cookie": "***",
+            "X-Trace-Id": "trace-1",
+        }
+        assert data["params"] == {"api_key": "***", "page": 1, "safe": True}
+
+        list_resp = authed_client.get(
+            "/api/v1/admin/sources/config",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+        assert list_resp.status_code == 200, list_resp.text
+        list_data = list_resp.json()["openalex"]
+        assert list_data["headers"]["Authorization"] == "***"
+        assert list_data["headers"]["Cookie"] == "***"
+        assert list_data["headers"]["X-Trace-Id"] == "trace-1"
+        assert list_data["params"]["api_key"] == "***"
+        assert list_data["params"]["page"] == 1
+
+    def test_admin_source_config_path_strips_source_name(self, authed_client):
+        """单源配置 path 参数应先 trim，避免编码空白导致误判未知源。"""
+        resp = authed_client.get(
+            "/api/v1/admin/sources/config/%20openalex%20",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["name"] == "openalex"
+
+    def test_admin_source_config_update_path_strips_source_name(self, authed_client):
+        """单源配置更新 path 参数应先 trim，并写入规范 source 名。"""
+        resp = authed_client.put(
+            "/api/v1/admin/sources/config/%20openalex%20",
+            headers={"Authorization": "Bearer test-secret-123"},
+            json={"enabled": False},
+        )
+
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["source"] == "openalex"
+        readback = authed_client.get(
+            "/api/v1/admin/sources/config/openalex",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+        assert readback.status_code == 200, readback.text
+        assert readback.json()["enabled"] is False
+
+    @pytest.mark.parametrize("method", ["get", "put"])
+    def test_admin_source_config_path_rejects_blank_source_name(self, authed_client, method):
+        """单源配置 path 参数 strip 后为空应返回 422，而不是 404 或空写入。"""
+        request = getattr(authed_client, method)
+        kwargs = {"headers": {"Authorization": "Bearer test-secret-123"}}
+        if method == "put":
+            kwargs["json"] = {"enabled": False}
+
+        resp = request("/api/v1/admin/sources/config/%20%20%20", **kwargs)
+
+        assert resp.status_code == 422, resp.text
+        assert resp.json()["detail"] == "source_name 不能是空字符串"
+
+    def test_admin_source_config_update_trims_proxy(self, authed_client):
+        """单源 proxy 应保存校验后的规范值，避免把首尾空白写入运行时配置。"""
+        resp = authed_client.put(
+            "/api/v1/admin/sources/config/openalex",
+            headers={"Authorization": "Bearer test-secret-123"},
+            json={"proxy": " http://proxy.example:8080 "},
+        )
+
+        assert resp.status_code == 200, resp.text
+        readback = authed_client.get(
+            "/api/v1/admin/sources/config/openalex",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+        assert readback.status_code == 200, readback.text
+        assert readback.json()["proxy"] == "http://proxy.example:8080"
+
+    def test_admin_source_config_redacts_proxy_and_base_url_but_keeps_runtime_value(
+        self,
+        authed_client,
+        monkeypatch,
+    ):
+        """source config 响应不泄漏 URL secret，运行时配置仍保留真实值。"""
+        proxy = "http://user:source-pass@proxy.example:8080?token=source-token&safe=1"
+        base_url = "https://source.example/search?apiKey=base-key&safe=1"
+        monkeypatch.setenv(
+            "SOUWEN_SOURCES",
+            f'{{"openalex":{{"proxy":"{proxy}","base_url":"{base_url}"}}}}',
+        )
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        single = authed_client.get(
+            "/api/v1/admin/sources/config/openalex",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+        assert single.status_code == 200, single.text
+        assert "source-pass" not in single.text
+        assert "source-token" not in single.text
+        assert "base-key" not in single.text
+        assert single.json()["proxy"] == "http://***@proxy.example:8080?token=***&safe=1"
+        assert single.json()["base_url"] == "https://source.example/search?apiKey=***&safe=1"
+
+        listing = authed_client.get(
+            "/api/v1/admin/sources/config",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+        assert listing.status_code == 200, listing.text
+        assert "source-pass" not in listing.text
+        assert "base-key" not in listing.text
+        assert listing.json()["openalex"]["proxy"] == (
+            "http://***@proxy.example:8080?token=***&safe=1"
+        )
+        assert (
+            listing.json()["openalex"]["base_url"]
+            == "https://source.example/search?apiKey=***&safe=1"
+        )
+        assert get_config().sources["openalex"].proxy == proxy
+        assert get_config().sources["openalex"].base_url == base_url
+
+    def test_admin_source_config_rejects_redacted_placeholders(self, authed_client):
+        """source proxy/base_url 的脱敏占位符不能被提交保存。"""
+        proxy_resp = authed_client.put(
+            "/api/v1/admin/sources/config/openalex",
+            headers={"Authorization": "Bearer test-secret-123"},
+            json={"proxy": "http://***@proxy.example:8080?token=***"},
+        )
+        assert proxy_resp.status_code == 422
+        assert "脱敏显示值" in proxy_resp.json()["detail"]
+
+        base_resp = authed_client.put(
+            "/api/v1/admin/sources/config/openalex",
+            headers={"Authorization": "Bearer test-secret-123"},
+            json={"base_url": "https://source.example/search?apiKey=***"},
+        )
+        assert base_resp.status_code == 422
+        assert "脱敏显示值" in base_resp.json()["detail"]
+
+    def test_admin_source_config_update_trims_http_backend(self, authed_client):
+        """单源 http_backend 应先 trim，再做允许值校验和保存。"""
+        resp = authed_client.put(
+            "/api/v1/admin/sources/config/openalex",
+            headers={"Authorization": "Bearer test-secret-123"},
+            json={"http_backend": " httpx "},
+        )
+
+        assert resp.status_code == 200, resp.text
+        readback = authed_client.get(
+            "/api/v1/admin/sources/config/openalex",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+        assert readback.status_code == 200, readback.text
+        assert readback.json()["http_backend"] == "httpx"
+
+    def test_admin_source_config_update_trims_base_url(self, authed_client):
+        """单源 base_url 应先 trim，再做 http/https URL 校验和保存。"""
+        resp = authed_client.put(
+            "/api/v1/admin/sources/config/openalex",
+            headers={"Authorization": "Bearer test-secret-123"},
+            json={"base_url": " https://api.example.com/v1 "},
+        )
+
+        assert resp.status_code == 200, resp.text
+        readback = authed_client.get(
+            "/api/v1/admin/sources/config/openalex",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+        assert readback.status_code == 200, readback.text
+        assert readback.json()["base_url"] == "https://api.example.com/v1"
+
+    def test_admin_source_config_proxy_error_redacts_url_secrets(self, authed_client):
+        """单源 proxy 校验错误不应回显 URL userinfo 或敏感 query。"""
+        resp = authed_client.put(
+            "/api/v1/admin/sources/config/openalex",
+            headers={"Authorization": "Bearer test-secret-123"},
+            json={
+                "proxy": "ftp://user:pass@proxy.example:21?token=source-proxy-secret&safe=1",
+            },
+        )
+
+        assert resp.status_code == 422
+        detail = resp.json()["detail"]
+        assert "user:pass" not in detail
+        assert "source-proxy-secret" not in detail
+        assert "ftp://***@proxy.example:21?token=***&safe=1" in detail
+
+    def test_admin_source_config_base_url_error_redacts_url_secrets(self, authed_client):
+        """单源 base_url 校验错误不应回显 URL userinfo 或敏感 query。"""
+        resp = authed_client.put(
+            "/api/v1/admin/sources/config/openalex",
+            headers={"Authorization": "Bearer test-secret-123"},
+            json={
+                "base_url": "ftp://user:pass@source.example/path?token=base-secret&safe=1",
+            },
+        )
+
+        assert resp.status_code == 422
+        detail = resp.json()["detail"]
+        assert "user:pass" not in detail
+        assert "base-secret" not in detail
+        assert "ftp://***@source.example/path?token=***&safe=1" in detail
 
     def test_admin_ping_requires_auth(self, authed_client):
         """/admin/ping 未授权拒绝。"""
@@ -386,14 +1276,131 @@ class TestSearchAuth:
         assert openalex["category"] == "paper"
         assert openalex["capabilities"] == ["search"]
         assert openalex["auth_requirement"] == "optional"
-        assert openalex["credential_fields"] == ["openalex_email"]
+        assert openalex["credential_fields"] == ["openalex_api_key"]
         assert openalex["credentials_satisfied"] is True
         assert openalex["configured_credentials"] is False
         assert openalex["risk_level"] == "low"
         assert openalex["stability"] == "stable"
         assert openalex["distribution"] == "core"
         assert openalex["default_for"] == ["paper:search"]
+        assert openalex["min_edition"] == "pro"
+        assert openalex["edition_available"] is True
+        assert openalex["edition_reason"] == ""
+        assert isinstance(openalex["runtime_available"], bool)
+        assert isinstance(openalex["runtime_reason"], str)
         assert openalex["available"] is True
+
+    def test_sources_reports_openalex_api_key_without_exposing_value(
+        self,
+        authed_client,
+        monkeypatch,
+    ):
+        """Public catalog 只报告 OpenAlex Key 已配置，不返回实际值。"""
+        monkeypatch.setenv("SOUWEN_OPENALEX_API_KEY", "openalex-server-secret")
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        resp = authed_client.get(
+            "/api/v1/sources",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+
+        assert resp.status_code == 200
+        openalex = _sources_by_name(resp.json())["openalex"]
+        assert openalex["configured_credentials"] is True
+        assert openalex["credentials_satisfied"] is True
+        assert "openalex-server-secret" not in resp.text
+
+        admin_resp = authed_client.get(
+            "/api/v1/admin/sources/config/openalex",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+        assert admin_resp.status_code == 200
+        admin_data = admin_resp.json()
+        assert admin_data["has_api_key"] is True
+        assert admin_data["configured_credentials"] is True
+        assert "openalex-server-secret" not in admin_resp.text
+
+    def test_sources_exposes_runtime_axis_without_changing_available(
+        self,
+        authed_client,
+        monkeypatch,
+    ):
+        """Public catalog reports missing imports separately from its compatibility field."""
+        from souwen.feature_matrix import RuntimeProbe
+
+        def fake_probe(adapter):
+            if adapter.name == "openalex":
+                return RuntimeProbe(False, "openalex: missing modules: optional_sdk")
+            return RuntimeProbe(True)
+
+        monkeypatch.setattr("souwen.feature_matrix.probe_adapter_runtime", fake_probe)
+
+        resp = authed_client.get(
+            "/api/v1/sources",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+        assert resp.status_code == 200
+        openalex = _sources_by_name(resp.json())["openalex"]
+        assert openalex["edition_available"] is True
+        assert openalex["runtime_available"] is False
+        assert openalex["runtime_reason"] == "openalex: missing modules: optional_sdk"
+        assert openalex["available"] is True
+
+    def test_sources_sanitizes_runtime_loader_exception(
+        self,
+        authed_client,
+        monkeypatch,
+    ):
+        """Public REST payload must not expose loader paths, DSNs, or tokens."""
+        from souwen.feature_matrix import RuntimeProbe
+
+        raw_error = (
+            "RuntimeError: /Users/private/plugin.py "
+            "postgresql://user:password@db.internal/source token=rest-secret"
+        )
+
+        def fake_probe(adapter):
+            if adapter.name == "openalex":
+                return RuntimeProbe(False, f"openalex: {raw_error}")
+            return RuntimeProbe(True)
+
+        monkeypatch.setattr("souwen.feature_matrix.probe_adapter_runtime", fake_probe)
+
+        resp = authed_client.get(
+            "/api/v1/sources",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+        assert resp.status_code == 200
+        openalex = _sources_by_name(resp.json())["openalex"]
+        assert openalex["runtime_available"] is False
+        assert openalex["runtime_reason"] == "openalex: client loader unavailable"
+        assert raw_error not in resp.text
+        assert "/Users/private" not in resp.text
+        assert "postgresql://" not in resp.text
+        assert "rest-secret" not in resp.text
+
+    def test_sources_marks_edition_unavailable_without_hiding_source(self, client, monkeypatch):
+        """/sources 保留当前 edition 不可用的源，但标注版本原因且不可调度。"""
+        monkeypatch.setenv("SOUWEN_EDITION", "basic")
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        resp = client.get("/api/v1/sources")
+        assert resp.status_code == 200
+        sources = _sources_by_name(resp.json())
+
+        openalex = sources["openalex"]
+        assert openalex["min_edition"] == "pro"
+        assert openalex["edition_available"] is False
+        assert "source 'openalex' requires edition=pro" in openalex["edition_reason"]
+        assert openalex["available"] is False
+
+        arxiv = sources["arxiv"]
+        assert arxiv["min_edition"] == "basic"
+        assert arxiv["edition_available"] is True
+        assert arxiv["edition_reason"] == ""
+        assert arxiv["available"] is True
 
     def test_sources_omits_disabled_entries(self, client, monkeypatch):
         """sources.<name>.enabled=false 后，/sources 保留 catalog 条目但标为不可用。"""
@@ -681,7 +1688,53 @@ class TestThreeRoleAuth:
         data = resp.json()
         assert data["role"] == "user"
         assert data["features"]["fetch"] is False
+        assert data["features"]["doctor"] is True
+        assert data["features"]["doctor_full"] is False
+        assert data["features"]["sources_config_read"] is True
+        assert data["features"]["sources_config_write"] is False
         assert data["features"]["config_write"] is False
+        assert data["edition"] == "pro"
+        assert data["edition_capabilities"]["llm"] is True
+        assert "kernel" in data["edition_capabilities"]["warp_modes"]
+        assert "firecrawl" in data["edition_capabilities"]["fetch_providers"]
+        assert "crawl4ai" not in data["edition_capabilities"]["fetch_providers"]
+        assert data["edition_capabilities"]["plugin_preinstalled"] is False
+        assert data["admin_password_set"] is False
+        assert data["user_password_set"] is False
+        assert data["admin_open"] is False
+
+    def test_whoami_basic_edition_capabilities(self, client, monkeypatch):
+        """whoami 应单独暴露 edition 能力，不改变角色权限字段语义。"""
+        monkeypatch.setenv("SOUWEN_EDITION", "basic")
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        resp = client.get("/api/v1/whoami")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["role"] == "user"
+        assert data["features"]["search"] is True
+        assert data["features"]["fetch"] is False
+        assert data["edition"] == "basic"
+        assert data["edition_capabilities"] == {
+            "llm": False,
+            "warp_modes": ["auto", "wireproxy", "external"],
+            "fetch_providers": ["builtin", "mcp", "site_crawler"],
+            "plugin_preinstalled": False,
+        }
+
+    def test_whoami_full_reports_detected_preinstalled_plugins(self, client, monkeypatch):
+        """full 版只在当前环境检测到候选插件包时报告预装插件能力。"""
+        monkeypatch.setenv("SOUWEN_EDITION", "full")
+        monkeypatch.setattr("souwen.editions._plugin_package_importable", lambda name: True)
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        resp = client.get("/api/v1/whoami")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["edition"] == "full"
+        assert data["edition_capabilities"]["plugin_preinstalled"] is True
 
     def test_whoami_no_password_admin_open_returns_admin(self, client, monkeypatch):
         """SOUWEN_ADMIN_OPEN=1 时，无密码 /whoami 才返回 admin 权限。"""
@@ -695,6 +1748,22 @@ class TestThreeRoleAuth:
         assert data["role"] == "admin"
         assert data["features"]["fetch"] is True
         assert data["features"]["config_write"] is True
+        assert data["admin_password_set"] is False
+        assert data["admin_open"] is True
+
+    def test_whoami_admin_open_env_does_not_override_admin_password(self, client, monkeypatch):
+        """配置 admin_password 后，即便 SOUWEN_ADMIN_OPEN=1，也不报告无密码 admin-open。"""
+        monkeypatch.setenv("SOUWEN_ADMIN_PASSWORD", "admin-pw")
+        monkeypatch.setenv("SOUWEN_ADMIN_OPEN", "1")
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        resp = client.get("/api/v1/whoami")
+        assert resp.status_code == 200
+        data = resp.json()
+        assert data["role"] == "user"
+        assert data["admin_password_set"] is True
+        assert data["admin_open"] is False
 
     def test_whoami_admin_token(self, dual_key_client):
         """admin token 返回 admin 角色。"""
@@ -708,6 +1777,7 @@ class TestThreeRoleAuth:
         assert data["features"]["fetch"] is True
         assert data["admin_password_set"] is True
         assert data["user_password_set"] is True
+        assert data["admin_open"] is False
 
     def test_whoami_user_token(self, dual_key_client):
         """user token 返回 user 角色。"""
@@ -720,7 +1790,13 @@ class TestThreeRoleAuth:
         assert data["role"] == "user"
         assert data["features"]["search"] is True
         assert data["features"]["fetch"] is False
+        assert data["features"]["doctor"] is True
+        assert data["features"]["doctor_full"] is False
+        assert data["features"]["sources_config_read"] is True
+        assert data["features"]["sources_config_write"] is False
         assert data["features"]["config_write"] is False
+        assert data["admin_password_set"] is True
+        assert data["admin_open"] is False
 
     def test_whoami_rejects_invalid_bearer_in_open_user_mode(self, client):
         """开放用户端点不应把错误 Bearer token 降级成 user。"""
@@ -750,6 +1826,8 @@ class TestThreeRoleAuth:
         assert data["features"]["search"] is True
         assert data["features"]["fetch"] is False
         assert data["features"]["doctor"] is False
+        assert data["admin_password_set"] is True
+        assert data["admin_open"] is False
 
     def test_whoami_guest_disabled_no_token_401(self, dual_key_client):
         """guest_enabled=False（默认）时无 token 返回 401。"""
@@ -763,6 +1841,288 @@ class TestThreeRoleAuth:
             headers={"Authorization": "Bearer admin-pw"},
         )
         assert resp.status_code == 200
+
+
+# ---------------------------------------------------------------------------
+# WARP admin route redaction
+# ---------------------------------------------------------------------------
+
+
+class TestWarpAdminRedaction:
+    @pytest.mark.parametrize("endpoint", ["/api/v1/admin/warp/config", "/api/v1/admin/warp/modes"])
+    def test_warp_external_proxy_redacts_url_secrets(self, authed_client, monkeypatch, endpoint):
+        """WARP 外部代理展示值不应泄漏 URL userinfo、query 或 fragment 凭据。"""
+
+        class FakeWarpManager:
+            def _has_wireproxy(self):
+                return False
+
+            def _has_kernel_wg(self):
+                return False
+
+            def _has_usque(self):
+                return False
+
+            def _has_warp_cli(self):
+                return False
+
+        monkeypatch.setenv(
+            "SOUWEN_WARP_EXTERNAL_PROXY",
+            (
+                "socks5://user:pass@proxy.example:1080"
+                "?token=token-secret&region=hk&password=password-secret"
+                "&apiKey=camel-api-key-secret&accessToken=camel-access-value"
+                "&clientSecret=camel-client-secret&apikey=compact-api-key-secret"
+                "&mode=diag;apiKey=semicolon-query-secret"
+                "#accessToken=fragment-access-value&tab=status&token=fragment-token"
+                ";clientSecret=semicolon-fragment-secret"
+            ),
+        )
+        from souwen.config import get_config
+        from souwen.server import warp as warp_mod
+
+        get_config.cache_clear()
+        monkeypatch.setattr(
+            warp_mod.WarpManager,
+            "get_instance",
+            classmethod(lambda cls: FakeWarpManager()),
+        )
+
+        resp = authed_client.get(
+            endpoint,
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        if endpoint.endswith("/config"):
+            proxy = data["warp_external_proxy"]
+        else:
+            proxy = next(mode for mode in data["modes"] if mode["id"] == "external")[
+                "external_proxy"
+            ]
+        assert "user:pass" not in proxy
+        assert "token-secret" not in proxy
+        assert "password-secret" not in proxy
+        assert "camel-api-key-secret" not in proxy
+        assert "camel-access-value" not in proxy
+        assert "camel-client-secret" not in proxy
+        assert "compact-api-key-secret" not in proxy
+        assert "semicolon-query-secret" not in proxy
+        assert "fragment-access-value" not in proxy
+        assert "fragment-token" not in proxy
+        assert "semicolon-fragment-secret" not in proxy
+        assert "socks5://***@proxy.example:1080" in proxy
+        assert "token=***" in proxy
+        assert "password=***" in proxy
+        assert "apiKey=***" in proxy
+        assert "accessToken=***" in proxy
+        assert "clientSecret=***" in proxy
+        assert "apikey=***" in proxy
+        assert "region=hk" in proxy
+        assert "mode=diag" in proxy
+        assert ";apiKey=***" in proxy
+        assert "tab=status" in proxy
+        assert ";clientSecret=***" in proxy
+
+    def test_warp_status_redacts_secret_last_error(self, authed_client, monkeypatch):
+        """WARP 状态中的 last_error 不应泄漏代理凭据或 Bearer token。"""
+
+        class FakeWarpManager:
+            def get_status(self):
+                return {
+                    "status": "error",
+                    "mode": "external",
+                    "owner": "python",
+                    "socks_port": 1080,
+                    "http_port": 0,
+                    "ip": "",
+                    "pid": 0,
+                    "interface": None,
+                    "last_error": (
+                        "proxy socks5://user:pass@proxy.example:1080 failed "
+                        "Authorization: Bearer warpsecret123 token=teamsecret "
+                        "Cookie: SESSDATA=sess-secret; sid=session-secret "
+                        "jwt=jwt-secret session_id=session-id-secret "
+                        "callback (https://auth.example/cb?apiKey=url-api-key-secret"
+                        "&region=hk#accessToken=url-fragment-access&tab=status). "
+                        "retry https://auth.example/retry?token=url-retry-token"
+                        "&mode=diag;apiKey=semicolon-text-secret, soon"
+                    ),
+                    "protocol": "wireguard",
+                    "proxy_type": "socks5",
+                    "available_modes": {},
+                }
+
+        fake = FakeWarpManager()
+        from souwen.server import warp as warp_mod
+
+        monkeypatch.setattr(warp_mod.WarpManager, "get_instance", classmethod(lambda cls: fake))
+        resp = authed_client.get(
+            "/api/v1/admin/warp",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+
+        assert resp.status_code == 200, resp.text
+        data = resp.json()
+        assert "user:pass" not in data["last_error"]
+        assert "warpsecret123" not in data["last_error"]
+        assert "teamsecret" not in data["last_error"]
+        assert "sess-secret" not in data["last_error"]
+        assert "session-secret" not in data["last_error"]
+        assert "jwt-secret" not in data["last_error"]
+        assert "session-id-secret" not in data["last_error"]
+        assert "url-api-key-secret" not in data["last_error"]
+        assert "url-fragment-access" not in data["last_error"]
+        assert "url-retry-token" not in data["last_error"]
+        assert "semicolon-text-secret" not in data["last_error"]
+        assert "socks5://***@proxy.example:1080" in data["last_error"]
+        assert "apiKey=***" in data["last_error"]
+        assert "accessToken=***" in data["last_error"]
+        assert "token=***" in data["last_error"]
+        assert ";apiKey=***" in data["last_error"]
+        assert "region=hk#accessToken=***&tab=status)." in data["last_error"]
+        assert "mode=diag;apiKey=***, soon" in data["last_error"]
+        assert "region=hk%29" not in data["last_error"]
+        assert "mode=diag%2C" not in data["last_error"]
+        assert "***" in data["last_error"]
+
+    @pytest.mark.parametrize(
+        "endpoint", ["/api/v1/admin/warp/enable", "/api/v1/admin/warp/disable"]
+    )
+    def test_warp_failure_detail_redacts_secret_error(self, authed_client, monkeypatch, endpoint):
+        """WARP 启停失败响应不应把底层错误中的 secret 原样返回。"""
+
+        secret_error = (
+            "proxy socks5://user:pass@proxy.example:1080 failed "
+            "Authorization: Bearer warpsecret123 token=teamsecret "
+            "Cookie: SESSDATA=sess-secret; sid=session-secret "
+            "jwt=jwt-secret session_id=session-id-secret "
+            "callback (https://auth.example/cb?apiKey=url-api-key-secret"
+            "&region=hk#accessToken=url-fragment-access&tab=status). "
+            "retry https://auth.example/retry?token=url-retry-token"
+            "&mode=diag;apiKey=semicolon-text-secret, soon"
+        )
+
+        class FakeWarpManager:
+            async def enable(self, **kwargs):
+                return {"ok": False, "error": secret_error}
+
+            async def disable(self):
+                return {"ok": False, "error": secret_error}
+
+        fake = FakeWarpManager()
+        from souwen.server import warp as warp_mod
+
+        monkeypatch.setattr(warp_mod.WarpManager, "get_instance", classmethod(lambda cls: fake))
+        resp = authed_client.post(
+            endpoint,
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+
+        assert resp.status_code == 400, resp.text
+        detail = resp.json()["detail"]
+        assert "user:pass" not in detail
+        assert "warpsecret123" not in detail
+        assert "teamsecret" not in detail
+        assert "sess-secret" not in detail
+        assert "session-secret" not in detail
+        assert "jwt-secret" not in detail
+        assert "session-id-secret" not in detail
+        assert "url-api-key-secret" not in detail
+        assert "url-fragment-access" not in detail
+        assert "url-retry-token" not in detail
+        assert "semicolon-text-secret" not in detail
+        assert "socks5://***@proxy.example:1080" in detail
+        assert "apiKey=***" in detail
+        assert "accessToken=***" in detail
+        assert "token=***" in detail
+        assert ";apiKey=***" in detail
+        assert "region=hk#accessToken=***&tab=status)." in detail
+        assert "mode=diag;apiKey=***, soon" in detail
+        assert "region=hk%29" not in detail
+        assert "mode=diag%2C" not in detail
+        assert "***" in detail
+
+
+class TestWarpEditionPolicy:
+    def test_warp_modes_include_edition_metadata_for_basic(self, authed_client, monkeypatch):
+        """管理端 modes 仍返回全部模式，但标出当前 edition 是否允许。"""
+
+        class FakeWarpManager:
+            def _has_wireproxy(self):
+                return True
+
+            def _has_kernel_wg(self):
+                return True
+
+            def _has_usque(self):
+                return True
+
+            def _has_warp_cli(self):
+                return True
+
+        monkeypatch.setenv("SOUWEN_EDITION", "basic")
+        from souwen.config import get_config
+        from souwen.server import warp as warp_mod
+
+        get_config.cache_clear()
+        monkeypatch.setattr(
+            warp_mod.WarpManager,
+            "get_instance",
+            classmethod(lambda cls: FakeWarpManager()),
+        )
+
+        resp = authed_client.get(
+            "/api/v1/admin/warp/modes",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+
+        assert resp.status_code == 200, resp.text
+        modes = {item["id"]: item for item in resp.json()["modes"]}
+        assert modes["wireproxy"]["min_edition"] == "basic"
+        assert modes["wireproxy"]["edition_available"] is True
+        assert modes["wireproxy"]["edition_reason"] == ""
+        assert modes["usque"]["min_edition"] == "pro"
+        assert modes["usque"]["edition_available"] is False
+        assert modes["usque"]["edition_reason"] == (
+            "WARP mode 'usque' requires edition=pro, current edition=basic"
+        )
+        assert modes["warp-cli"]["edition_available"] is False
+
+    @pytest.mark.parametrize(
+        ("endpoint", "mode"),
+        [
+            ("/api/v1/admin/warp/enable", "usque"),
+            ("/api/v1/admin/warp/switch", "kernel"),
+        ],
+    )
+    def test_warp_start_routes_reject_basic_disallowed_modes_before_manager(
+        self, authed_client, monkeypatch, endpoint, mode
+    ):
+        """basic 下显式启动 pro WARP 模式应返回 403，且不触发启停动作。"""
+
+        monkeypatch.setenv("SOUWEN_EDITION", "basic")
+        from souwen.config import get_config
+        from souwen.server import warp as warp_mod
+
+        get_config.cache_clear()
+        monkeypatch.setattr(
+            warp_mod.WarpManager,
+            "get_instance",
+            classmethod(lambda cls: pytest.fail("WarpManager should not be called")),
+        )
+
+        resp = authed_client.post(
+            endpoint,
+            params={"mode": mode},
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+
+        assert resp.status_code == 403, resp.text
+        assert resp.json()["detail"] == (
+            f"WARP mode '{mode}' requires edition=pro, current edition=basic"
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -800,6 +2160,50 @@ class TestWaybackAdminSave:
         )
         assert resp.status_code == 200
         assert resp.json()["success"] is True
+
+    def test_admin_wayback_save_blank_url_returns_422(self, authed_client, monkeypatch):
+        """空白 URL 应在请求 schema 层拒绝，避免触发外部存档写入。"""
+        calls = []
+
+        class FakeWaybackClient:
+            async def save_page(self, url, timeout):
+                calls.append({"url": url, "timeout": timeout})
+                return SimpleNamespace(success=True, snapshot_url=None, timestamp=None, error=None)
+
+        monkeypatch.setattr("souwen.web.wayback.WaybackClient", FakeWaybackClient)
+        resp = authed_client.post(
+            "/api/v1/admin/wayback/save",
+            headers={"Authorization": "Bearer test-secret-123"},
+            json={"url": "   ", "timeout": 10},
+        )
+
+        assert resp.status_code == 422
+        assert calls == []
+
+    def test_admin_wayback_save_url_is_normalized(self, authed_client, monkeypatch):
+        """带首尾空格的 URL 应在调用 WaybackClient 前完成 strip。"""
+        calls = []
+
+        class FakeWaybackClient:
+            async def save_page(self, url, timeout):
+                calls.append({"url": url, "timeout": timeout})
+                return SimpleNamespace(
+                    success=True,
+                    snapshot_url="https://web.archive.org/web/20240101000000/https://example.com",
+                    timestamp="20240101000000",
+                    error=None,
+                )
+
+        monkeypatch.setattr("souwen.web.wayback.WaybackClient", FakeWaybackClient)
+        resp = authed_client.post(
+            "/api/v1/admin/wayback/save",
+            headers={"Authorization": "Bearer test-secret-123"},
+            json={"url": " https://example.com ", "timeout": 10},
+        )
+
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["url"] == "https://example.com"
+        assert calls == [{"url": "https://example.com", "timeout": 10.0}]
 
 
 # ---------------------------------------------------------------------------
@@ -1031,6 +2435,42 @@ class TestMiddleware:
         assert data["error"] == "validation_error"
         assert "request_id" in data
 
+    def test_http_exception_detail_redacts_secrets(self, client):
+        """全局 HTTPException 出口不应把结构化 detail 中的 secret 原样返回。"""
+        from fastapi import HTTPException
+
+        from souwen.server.app import app
+
+        path = "/__test/http-exception-redaction"
+
+        async def boom():
+            raise HTTPException(
+                status_code=400,
+                detail={
+                    "token": "route-secret",
+                    "message": "upstream failed Cookie: sid=session-secret",
+                    "callback": "https://auth.example/cb?apiKey=url-secret&safe=1",
+                },
+            )
+
+        app.add_api_route(path, boom, methods=["GET"])
+        try:
+            resp = client.get(path)
+        finally:
+            app.router.routes = [
+                route for route in app.router.routes if getattr(route, "path", None) != path
+            ]
+
+        assert resp.status_code == 400
+        detail = resp.json()["detail"]
+        assert "route-secret" not in detail
+        assert "session-secret" not in detail
+        assert "url-secret" not in detail
+        assert "'token': '***'" in detail
+        assert "Cookie:***" in detail
+        assert "apiKey=***" in detail
+        assert "safe=1" in detail
+
 
 # ---------------------------------------------------------------------------
 # v0.6.1 第二轮评审修复
@@ -1054,6 +2494,286 @@ class TestQueryLengthValidation:
         """web 搜索：空 ``q`` 必须被 422 拒绝。"""
         resp = client.get("/api/v1/search/web?q=")
         assert resp.status_code == 422
+
+    def test_whitespace_q_rejected_all_get_search_routes(self, client):
+        """所有 GET 搜索端点都必须拒绝 strip 后为空的 ``q``。"""
+        for endpoint in (
+            "/api/v1/search/paper",
+            "/api/v1/search/patent",
+            "/api/v1/search/web",
+            "/api/v1/search/news",
+            "/api/v1/search/images",
+            "/api/v1/search/videos",
+        ):
+            resp = client.get(endpoint, params={"q": "   "})
+            assert resp.status_code == 422
+
+    def test_paper_q_is_trimmed_before_search(self, client, monkeypatch):
+        """paper 搜索应把首尾空白裁掉后再调用底层搜索。"""
+        import importlib
+
+        search_mod = importlib.import_module("souwen.search")
+        captured: dict[str, str] = {}
+
+        async def fake_search(q, sources=None, per_page=10, **kw):
+            captured["q"] = q
+            return []
+
+        monkeypatch.setattr(search_mod, "search_papers", fake_search)
+        resp = client.get("/api/v1/search/paper", params={"q": "  graph rag  "})
+        assert resp.status_code == 200
+        assert captured["q"] == "graph rag"
+        assert resp.json()["query"] == "graph rag"
+
+    def test_patent_q_is_trimmed_before_search(self, client, monkeypatch):
+        """patent 搜索应把首尾空白裁掉后再调用底层搜索。"""
+        import importlib
+
+        search_mod = importlib.import_module("souwen.search")
+        captured: dict[str, str] = {}
+
+        async def fake_search(q, sources=None, per_page=10, **kw):
+            captured["q"] = q
+            return []
+
+        monkeypatch.setattr(search_mod, "search_patents", fake_search)
+        resp = client.get("/api/v1/search/patent", params={"q": "  graph rag  "})
+        assert resp.status_code == 200
+        assert captured["q"] == "graph rag"
+        assert resp.json()["query"] == "graph rag"
+
+    def test_web_q_is_trimmed_before_search(self, client, monkeypatch):
+        """web 搜索应把首尾空白裁掉后再调用底层搜索。"""
+        from souwen.web import search as web_search_mod
+
+        captured: dict[str, str] = {}
+
+        async def fake_search(q, engines=None, max_results_per_engine=10, **kw):
+            captured["q"] = q
+            return web_search_mod.WebSearchResponse(
+                query=f"provider:{q}",
+                source="duckduckgo",
+                results=[],
+            )
+
+        monkeypatch.setattr(web_search_mod, "web_search", fake_search)
+        resp = client.get("/api/v1/search/web", params={"q": "  graph rag  "})
+        assert resp.status_code == 200
+        assert captured["q"] == "graph rag"
+        assert resp.json()["query"] == "graph rag"
+
+    def test_images_q_is_trimmed_before_search(self, client, monkeypatch):
+        """image 搜索应把首尾空白裁掉后再调用底层搜索。"""
+        import importlib
+
+        from souwen.web import ddg_images as ddg_images_mod
+
+        search_mod = importlib.import_module("souwen.search")
+        captured: dict[str, object] = {}
+
+        async def fake_search(
+            q,
+            domain="paper",
+            capability="search",
+            sources=None,
+            limit=10,
+            **kw,
+        ):
+            captured.update(
+                q=q,
+                domain=domain,
+                capability=capability,
+                sources=sources,
+                limit=limit,
+                region=kw.get("region"),
+                safesearch=kw.get("safesearch"),
+            )
+            return [ddg_images_mod.ImageSearchResponse(query=f"provider:{q}", results=[])]
+
+        monkeypatch.setattr(search_mod, "search", fake_search)
+        resp = client.get("/api/v1/search/images", params={"q": "  graph rag  "})
+        assert resp.status_code == 200
+        assert captured["q"] == "graph rag"
+        assert captured["domain"] == "web"
+        assert captured["capability"] == "search_images"
+        assert captured["sources"] is None
+        assert captured["limit"] == 20
+        assert captured["region"] == "wt-wt"
+        assert captured["safesearch"] == "moderate"
+        assert resp.json()["query"] == "graph rag"
+        assert resp.json()["meta"]["requested"] == ["duckduckgo_images"]
+
+    def test_images_sources_are_passed_to_registry_search(self, client, monkeypatch):
+        """image 搜索的 sources 参数应透传给 registry-backed search。"""
+        import importlib
+
+        from souwen.web import ddg_images as ddg_images_mod
+
+        search_mod = importlib.import_module("souwen.search")
+        captured: dict[str, object] = {}
+
+        async def fake_search(q, domain="paper", capability="search", sources=None, limit=10, **kw):
+            captured["sources"] = sources
+            return [ddg_images_mod.ImageSearchResponse(query=q, source="custom_images", results=[])]
+
+        monkeypatch.setattr(search_mod, "search", fake_search)
+        resp = client.get(
+            "/api/v1/search/images",
+            params={"q": "graph", "sources": " custom_images "},
+        )
+        assert resp.status_code == 200
+        assert captured["sources"] == ["custom_images"]
+        assert resp.json()["meta"] == {
+            "requested": ["custom_images"],
+            "succeeded": ["custom_images"],
+            "failed": [],
+        }
+
+    def test_news_q_is_trimmed_before_search(self, client, monkeypatch):
+        """news 搜索应把首尾空白裁掉后再调用 registry-backed search。"""
+        import importlib
+
+        from souwen.web import ddg_news as ddg_news_mod
+
+        search_mod = importlib.import_module("souwen.search")
+        captured: dict[str, object] = {}
+
+        async def fake_search(
+            q,
+            domain="paper",
+            capability="search",
+            sources=None,
+            limit=10,
+            **kw,
+        ):
+            captured.update(
+                q=q,
+                domain=domain,
+                capability=capability,
+                sources=sources,
+                limit=limit,
+                region=kw.get("region"),
+                safesearch=kw.get("safesearch"),
+                time_range=kw.get("time_range"),
+            )
+            return [
+                ddg_news_mod.WebSearchResponse(
+                    query=f"provider:{q}",
+                    source="duckduckgo_news",
+                    results=[],
+                )
+            ]
+
+        monkeypatch.setattr(search_mod, "search", fake_search)
+        resp = client.get("/api/v1/search/news", params={"q": "  graph rag  "})
+        assert resp.status_code == 200
+        assert captured["q"] == "graph rag"
+        assert captured["domain"] == "web"
+        assert captured["capability"] == "search_news"
+        assert captured["sources"] is None
+        assert captured["limit"] == 20
+        assert captured["region"] == "wt-wt"
+        assert captured["safesearch"] == "moderate"
+        assert captured["time_range"] is None
+        assert resp.json()["query"] == "graph rag"
+        assert resp.json()["engines"] == ["duckduckgo_news"]
+        assert resp.json()["meta"]["requested"] == ["duckduckgo_news"]
+
+    def test_news_sources_are_passed_to_registry_search(self, client, monkeypatch):
+        """news 搜索的 sources 参数应透传给 registry-backed search。"""
+        import importlib
+
+        from souwen.web import ddg_news as ddg_news_mod
+
+        search_mod = importlib.import_module("souwen.search")
+        captured: dict[str, object] = {}
+
+        async def fake_search(q, domain="paper", capability="search", sources=None, limit=10, **kw):
+            captured["sources"] = sources
+            captured["time_range"] = kw.get("time_range")
+            return [ddg_news_mod.WebSearchResponse(query=q, source="custom_news", results=[])]
+
+        monkeypatch.setattr(search_mod, "search", fake_search)
+        resp = client.get(
+            "/api/v1/search/news",
+            params={"q": "graph", "sources": " custom_news ", "time_range": "d"},
+        )
+        assert resp.status_code == 200
+        assert captured["sources"] == ["custom_news"]
+        assert captured["time_range"] == "d"
+        assert resp.json()["engines"] == ["custom_news"]
+        assert resp.json()["meta"] == {
+            "requested": ["custom_news"],
+            "succeeded": ["custom_news"],
+            "failed": [],
+        }
+
+    def test_videos_q_is_trimmed_before_search(self, client, monkeypatch):
+        """video 搜索应把首尾空白裁掉后再调用底层搜索。"""
+        import importlib
+
+        from souwen.web import ddg_videos as ddg_videos_mod
+
+        search_mod = importlib.import_module("souwen.search")
+        captured: dict[str, object] = {}
+
+        async def fake_search(
+            q,
+            domain="paper",
+            capability="search",
+            sources=None,
+            limit=10,
+            **kw,
+        ):
+            captured.update(
+                q=q,
+                domain=domain,
+                capability=capability,
+                sources=sources,
+                limit=limit,
+                region=kw.get("region"),
+                safesearch=kw.get("safesearch"),
+            )
+            return [ddg_videos_mod.VideoSearchResponse(query=f"provider:{q}", results=[])]
+
+        monkeypatch.setattr(search_mod, "search", fake_search)
+        resp = client.get("/api/v1/search/videos", params={"q": "  graph rag  "})
+        assert resp.status_code == 200
+        assert captured["q"] == "graph rag"
+        assert captured["domain"] == "web"
+        assert captured["capability"] == "search_videos"
+        assert captured["sources"] is None
+        assert captured["limit"] == 20
+        assert captured["region"] == "wt-wt"
+        assert captured["safesearch"] == "moderate"
+        assert resp.json()["query"] == "graph rag"
+        assert resp.json()["meta"]["requested"] == ["duckduckgo_videos"]
+
+    def test_videos_sources_are_passed_to_registry_search(self, client, monkeypatch):
+        """video 搜索的 sources 参数应透传给 registry-backed search。"""
+        import importlib
+
+        from souwen.web import ddg_videos as ddg_videos_mod
+
+        search_mod = importlib.import_module("souwen.search")
+        captured: dict[str, object] = {}
+
+        async def fake_search(q, domain="paper", capability="search", sources=None, limit=10, **kw):
+            captured["sources"] = sources
+            return [ddg_videos_mod.VideoSearchResponse(query=q, source="custom_videos", results=[])]
+
+        monkeypatch.setattr(search_mod, "search", fake_search)
+        resp = client.get(
+            "/api/v1/search/videos",
+            params={"q": "graph", "sources": " custom_videos "},
+        )
+        assert resp.status_code == 200
+        assert captured["sources"] == ["custom_videos"]
+        assert resp.json()["meta"] == {
+            "requested": ["custom_videos"],
+            "succeeded": ["custom_videos"],
+            "failed": [],
+        }
 
     def test_overlong_q_rejected(self, client):
         """超长 ``q``（>500 字符）必须被 422 拒绝，防 DoS。"""
@@ -1084,6 +2804,28 @@ class TestStatusToCodeMap:
 
 class TestSearchWebResponseShape:
     """API-WEB-RESP: /search/web 含 meta.requested/succeeded/failed"""
+
+    def test_search_paper_explicit_disallowed_source_returns_403(self, client, monkeypatch):
+        """显式请求当前 edition 不可用的 paper source 时应返回 403。"""
+        monkeypatch.setenv("SOUWEN_EDITION", "basic")
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        resp = client.get("/api/v1/search/paper?q=foo&sources=openalex")
+
+        assert resp.status_code == 403
+        assert "source 'openalex' requires edition=pro" in resp.json()["detail"]
+
+    def test_search_web_explicit_disallowed_engine_returns_403(self, client, monkeypatch):
+        """显式请求当前 edition 不可用的 web engine 时应返回 403。"""
+        monkeypatch.setenv("SOUWEN_EDITION", "basic")
+        from souwen.config import get_config
+
+        get_config.cache_clear()
+        resp = client.get("/api/v1/search/web?q=foo&engines=tavily")
+
+        assert resp.status_code == 403
+        assert "source 'tavily' requires edition=pro" in resp.json()["detail"]
 
     def test_web_response_has_meta(self, client, monkeypatch):
         """``/search/web`` 响应必须含 ``meta.requested/succeeded/failed``，并反映每个 engine 的真实命中/失败情况。"""
@@ -1353,6 +3095,7 @@ class TestReadiness:
         data = resp.json()
         assert data["ready"] is True
         assert data["version"]
+        assert "source_sha" in data
 
     def test_readiness_no_auth_required(self, authed_client):
         """``/readiness`` 即使配置了密码也免鉴权（K8s readiness probe 无法携带 Token）。"""

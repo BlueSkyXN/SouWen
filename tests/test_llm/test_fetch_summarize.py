@@ -18,6 +18,7 @@ def _make_fetch_result(
     content: str = "Some page content here with enough words",
     error: str | None = None,
     title: str = "Test Page",
+    source: str = "builtin",
 ) -> FetchResult:
     return FetchResult(
         url=url,
@@ -25,7 +26,7 @@ def _make_fetch_result(
         title=title,
         content=content,
         error=error,
-        source="builtin",
+        source=source,
     )
 
 
@@ -38,6 +39,8 @@ def _make_fetch_response(results: list[FetchResult]) -> FetchResponse:
         total_ok=ok,
         total_failed=len(results) - ok,
         provider="builtin",
+        providers=["builtin"],
+        strategy="fallback",
     )
 
 
@@ -103,13 +106,105 @@ class TestSummarizePages:
         result = await summarize_pages(["https://example.com"])
 
         self.mock_fetch.assert_awaited_once_with(
-            ["https://example.com"], providers=["builtin"], timeout=30.0
+            ["https://example.com"],
+            providers=["builtin"],
+            strategy="fallback",
+            timeout=30.0,
         )
         assert result.total_urls == 1
         assert result.total_ok == 1
         assert result.total_failed == 0
         assert result.items[0].summary == "Page summary"
         assert result.items[0].error is None
+
+    async def test_multi_provider_strategy_passthrough(self):
+        from souwen.llm.fetch_summarize import summarize_pages
+
+        fr = _make_fetch_result(
+            "https://example.com",
+            content="This is fetched by the fallback provider",
+            source="jina_reader",
+        )
+        self.mock_fetch.return_value = _make_fetch_response([fr]).model_copy(
+            update={
+                "provider": None,
+                "providers": ["builtin", "jina_reader"],
+                "strategy": "fallback",
+            }
+        )
+        self.mock_llm.return_value = _make_llm_response("Provider fallback summary")
+
+        result = await summarize_pages(
+            ["https://example.com"],
+            provider="builtin",
+            providers=["builtin", "jina_reader"],
+            strategy="fallback",
+        )
+
+        self.mock_fetch.assert_awaited_once_with(
+            ["https://example.com"],
+            providers=["builtin", "jina_reader"],
+            strategy="fallback",
+            timeout=30.0,
+        )
+        assert result.items[0].provider == "jina_reader"
+        assert result.items[0].summary == "Provider fallback summary"
+
+    async def test_string_url_and_provider_are_normalized(self):
+        from souwen.llm.fetch_summarize import summarize_pages
+
+        fr = _make_fetch_result(
+            "https://example.com",
+            content="This is fetched by the selected provider",
+            source="jina_reader",
+        )
+        self.mock_fetch.return_value = _make_fetch_response([fr]).model_copy(
+            update={
+                "provider": "jina_reader",
+                "providers": ["jina_reader"],
+                "strategy": "fallback",
+            }
+        )
+        self.mock_llm.return_value = _make_llm_response("String provider summary")
+
+        result = await summarize_pages(" https://example.com ", providers=" jina_reader ")
+
+        self.mock_fetch.assert_awaited_once_with(
+            ["https://example.com"],
+            providers=["jina_reader"],
+            strategy="fallback",
+            timeout=30.0,
+        )
+        assert result.total_urls == 1
+        assert result.items[0].provider == "jina_reader"
+
+    @pytest.mark.parametrize(
+        ("kwargs", "message"),
+        [
+            ({"urls": {"url": "https://example.com"}}, "urls 必须是字符串或字符串列表"),
+            ({"urls": [" "]}, "urls 必须是非空字符串或非空字符串列表"),
+            (
+                {"urls": ["https://example.com"], "providers": {"name": "builtin"}},
+                "providers 必须是字符串或字符串列表",
+            ),
+            (
+                {"urls": ["https://example.com"], "providers": [" "]},
+                "providers 必须是非空字符串或非空字符串列表",
+            ),
+            (
+                {"urls": ["https://example.com"], "provider": ""},
+                "provider 必须是非空字符串或非空字符串列表",
+            ),
+        ],
+    )
+    async def test_invalid_url_or_provider_arguments_raise_clear_error(self, kwargs, message):
+        from souwen.llm.fetch_summarize import summarize_pages
+
+        with pytest.raises(ValueError, match=message):
+            await summarize_pages(**kwargs)
+
+        self.mock_fetch.assert_not_awaited()
+        self.mock_llm.assert_not_awaited()
 
     async def test_fetch_failure(self):
         from souwen.llm.fetch_summarize import summarize_pages
@@ -137,6 +232,30 @@ class TestSummarizePages:
 
         assert result.total_failed == 1
         assert "LLM error: LLM timeout" == result.items[0].error
+
+    async def test_llm_failure_redacts_secret_error_detail(self):
+        from souwen.llm.fetch_summarize import summarize_pages
+
+        fr = _make_fetch_result(
+            "https://example.com", content="Some content with enough words for processing"
+        )
+        self.mock_fetch.return_value = _make_fetch_response([fr])
+        self.mock_llm.side_effect = RuntimeError(
+            "provider failed token=llm-secret Cookie: sid=session-secret "
+            "callback https://llm.example/cb?apiKey=url-secret&safe=1"
+        )
+
+        result = await summarize_pages(["https://example.com"])
+
+        assert result.total_failed == 1
+        error = result.items[0].error or ""
+        assert "llm-secret" not in error
+        assert "session-secret" not in error
+        assert "url-secret" not in error
+        assert "token:***" in error
+        assert "Cookie:***" in error
+        assert "apiKey=***" in error
+        assert "safe=1" in error
 
     async def test_content_truncation(self):
         from souwen.llm.fetch_summarize import summarize_pages

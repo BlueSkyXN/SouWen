@@ -35,6 +35,7 @@ import { useAuthStore } from '@core/stores/authStore'
 import { useNotificationStore } from '@core/stores/notificationStore'
 import { api } from '@core/services/api'
 import { formatError } from '@core/lib/errors'
+import { LOGIN_SERVER_URL_EXAMPLE } from '@core/lib/serverConnection'
 import styles from './LoginPage.module.scss'
 
 /**
@@ -160,27 +161,31 @@ export function LoginPage() {
           <form onSubmit={handleSubmit}>
             {/* 服务器 URL 输入字段 */}
             <div className={styles.formGroup}>
-              <label>{t('login.serverUrl')}</label>
+              <label htmlFor="login-server-url">{t('login.serverUrl')}</label>
               <input
+                id="login-server-url"
                 className={styles.input}
                 type="url"
                 value={baseUrl}
                 onChange={(e) => setBaseUrl(e.target.value)}
-                placeholder="http://localhost:8000"
+                placeholder={t('login.serverUrlPlaceholder', { example: LOGIN_SERVER_URL_EXAMPLE })}
+                autoComplete="url"
                 required
               />
             </div>
 
             {/* 密码输入字段，支持明文/隐文切换 */}
             <div className={styles.formGroup}>
-              <label>{t('login.password')}</label>
+              <label htmlFor="login-password">{t('login.password')}</label>
               <div className={styles.inputGroup}>
                 <input
+                  id="login-password"
                   className={styles.input}
                   type={showPw ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder={t('login.passwordPlaceholder')}
+                  autoComplete="current-password"
                 />
                 {/* 眼睛图标按钮，切换密码可见性，带动画过渡 */}
                 <button
@@ -228,7 +233,7 @@ export function LoginPage() {
                   {t('login.connecting')}
                 </>
               ) : (
-                t('login.signIn', 'Sign In')
+                t('login.signIn')
               )}
             </button>
           </form>

@@ -11,6 +11,9 @@
         - 字典字段：name (源名称), category (分类), status (状态),
                    integration_type (集成类型), required_key (配置字段),
                    message (状态说明), enabled (启用状态),
+                   min_edition / edition_available / edition_reason,
+                   runtime_available / runtime_reason,
+                   config_available / config_reason / available,
                    description (源描述), channel (频道配置摘要)
         - 检测逻辑：
           * 首先检查频道配置是否禁用
@@ -37,17 +40,34 @@
 
 from __future__ import annotations
 
+import asyncio
+import time
 from typing import Any
 
 from souwen.config import get_config
+from souwen.core.exceptions import ConfigError, RateLimitError
+from souwen.editions import (
+    EDITIONS,
+    FULL_WARP_MODES,
+    PREINSTALLED_PLUGIN_MODULES,
+    edition_policy,
+    fetch_provider_policy,
+    source_policy,
+    warp_mode_policy,
+)
+from souwen.feature_matrix import RuntimeProbe, probe_adapter_runtime
+from souwen.provenance import get_source_sha
 from souwen.registry.catalog import source_catalog
 from souwen.registry.meta import (
     AUTH_REQUIREMENT_LABELS,
     INTEGRATION_TYPE_LABELS,
     OPTIONAL_CREDENTIAL_EFFECT_LABELS,
     credential_fields_label,
+    get_source,
+    has_required_credentials,
     missing_credential_fields,
 )
+from souwen.registry.views import get as get_adapter
 
 # 集成类型分组的展示顺序
 _INTEGRATION_TYPE_ORDER = ("open_api", "scraper", "official_api", "self_hosted")
@@ -71,6 +91,8 @@ _LIMITED_OPTIONAL_EFFECTS = {
 
 AVAILABLE_STATUSES = frozenset({"ok", "limited", "warning", "degraded"})
 DEGRADED_STATUSES = frozenset({"limited", "warning", "degraded"})
+LIVE_PROBE_QUERY = "machine learning"
+LIVE_PROBE_TIMEOUT_SECONDS = 5.0
 
 
 def is_available_status(status: str | None) -> bool:
@@ -103,6 +125,367 @@ def summarize_statuses(results: list[dict]) -> dict[str, int | dict[str, int]]:
         "disabled": status_counts.get("disabled", 0),
         "status_counts": status_counts,
     }
+
+
+def summarize_live_probes(results: list[dict]) -> dict[str, int | dict[str, int]]:
+    """Summarize optional live connectivity probe results."""
+
+    status_counts: dict[str, int] = {}
+    total = 0
+    for result in results:
+        probe = result.get("live_probe")
+        if not isinstance(probe, dict):
+            continue
+        total += 1
+        status = str(probe.get("status") or "unknown")
+        status_counts[status] = status_counts.get(status, 0) + 1
+    return {
+        "total": total,
+        "ok": status_counts.get("ok", 0),
+        "failed": status_counts.get("failed", 0),
+        "skipped": status_counts.get("skipped", 0),
+        "status_counts": status_counts,
+    }
+
+
+def _empty_edition_buckets() -> dict[str, dict[str, int]]:
+    return {
+        edition: {
+            "total": 0,
+            "edition_available": 0,
+            "edition_unavailable": 0,
+            "runtime_available": 0,
+            "config_available": 0,
+            "available": 0,
+        }
+        for edition in EDITIONS
+    }
+
+
+def _summarize_edition_items(items: list[dict[str, Any]]) -> dict[str, Any]:
+    """汇总一组带 min_edition / edition_available / available 的能力项。"""
+
+    buckets = _empty_edition_buckets()
+    upgrade_required: list[dict[str, str]] = []
+    missing_runtime: list[dict[str, str]] = []
+    missing_config: list[dict[str, str]] = []
+    edition_available_count = 0
+    runtime_available_count = 0
+    config_available_count = 0
+    available_count = 0
+
+    for item in items:
+        min_edition = str(item["min_edition"])
+        bucket = buckets[min_edition]
+        bucket["total"] += 1
+
+        if bool(item.get("edition_available")):
+            bucket["edition_available"] += 1
+            edition_available_count += 1
+        else:
+            bucket["edition_unavailable"] += 1
+            upgrade_required.append(
+                {
+                    "name": str(item["name"]),
+                    "min_edition": min_edition,
+                    "reason": str(item.get("edition_reason") or item.get("reason") or ""),
+                }
+            )
+
+        if bool(item.get("runtime_available")):
+            bucket["runtime_available"] += 1
+            runtime_available_count += 1
+        else:
+            missing_runtime.append(
+                {
+                    "name": str(item["name"]),
+                    "min_edition": min_edition,
+                    "reason": str(item.get("runtime_reason") or "runtime unavailable"),
+                }
+            )
+
+        if bool(item.get("config_available", True)):
+            bucket["config_available"] += 1
+            config_available_count += 1
+        else:
+            missing_config.append(
+                {
+                    "name": str(item["name"]),
+                    "min_edition": min_edition,
+                    "reason": str(item.get("config_reason") or "configuration unavailable"),
+                }
+            )
+
+        if bool(item.get("available")):
+            bucket["available"] += 1
+            available_count += 1
+
+    total = len(items)
+    return {
+        "total": total,
+        "edition_available": edition_available_count,
+        "edition_unavailable": total - edition_available_count,
+        "runtime_available": runtime_available_count,
+        "runtime_unavailable": total - runtime_available_count,
+        "config_available": config_available_count,
+        "config_unavailable": total - config_available_count,
+        "available": available_count,
+        "by_min_edition": buckets,
+        "upgrade_required": upgrade_required,
+        "missing_runtime": missing_runtime,
+        "missing_config": missing_config,
+    }
+
+
+def _format_name_list(items: list[dict[str, Any]] | list[str], *, limit: int = 12) -> str:
+    if not items:
+        return "-"
+    names = [str(item["name"] if isinstance(item, dict) else item) for item in items]
+    if len(names) <= limit:
+        return ", ".join(names)
+    return f"{', '.join(names[:limit])}, ... (+{len(names) - limit})"
+
+
+def check_edition() -> dict[str, Any]:
+    """返回当前 edition 的能力自检报告。
+
+    该报告不做真实联网探测；它汇总当前 registry、source doctor 状态、
+    fetch provider policy、WARP mode policy、LLM policy 和预装插件探测结果。
+    """
+
+    cfg = get_config()
+    source_results = check_all()
+    source_items = [
+        {
+            "name": str(item["name"]),
+            "min_edition": str(item["min_edition"]),
+            "edition_available": bool(item["edition_available"]),
+            "edition_reason": str(item.get("edition_reason") or ""),
+            "runtime_available": bool(item["runtime_available"]),
+            "runtime_reason": str(item.get("runtime_reason") or ""),
+            "config_available": bool(item["config_available"]),
+            "config_reason": str(item.get("config_reason") or ""),
+            "available": bool(item["available"]),
+        }
+        for item in source_results
+    ]
+    source_summary = _summarize_edition_items(source_items)
+    source_summary["items"] = source_items
+    source_summary["status_counts"] = summarize_statuses(source_results)
+
+    from souwen.feature_matrix import (
+        LLM_PROVIDER_MODULES,
+        probe_adapter_runtime,
+        probe_capabilities,
+        probe_modules,
+        probe_results_to_dict,
+    )
+    from souwen.registry import fetch_providers
+
+    fetch_items: list[dict[str, Any]] = []
+    for adapter in sorted(fetch_providers(), key=lambda item: item.name):
+        policy = fetch_provider_policy(adapter, cfg.edition)
+        runtime = probe_adapter_runtime(adapter)
+        meta = get_source(adapter.name)
+        enabled = cfg.is_source_enabled(adapter.name)
+        credentials_satisfied = (
+            has_required_credentials(cfg, adapter.name, meta) if meta is not None else True
+        )
+        config_available = enabled and credentials_satisfied
+        if not enabled:
+            config_reason = "disabled by source configuration"
+        elif not credentials_satisfied:
+            missing = missing_credential_fields(cfg, adapter.name, meta)
+            config_reason = (
+                f"missing configuration: {credential_fields_label(tuple(missing))}"
+                if missing
+                else "required configuration is missing"
+            )
+        else:
+            config_reason = ""
+        fetch_items.append(
+            {
+                "name": adapter.name,
+                "min_edition": policy.min_edition,
+                "edition_available": policy.available,
+                "edition_reason": policy.reason,
+                "runtime_available": runtime.available,
+                "runtime_reason": runtime.reason,
+                "config_available": config_available,
+                "config_reason": config_reason,
+                "credentials_satisfied": credentials_satisfied,
+                "enabled": enabled,
+                "available": policy.available and runtime.available and config_available,
+            }
+        )
+    fetch_summary = _summarize_edition_items(fetch_items)
+    fetch_summary["items"] = fetch_items
+
+    warp_modes: list[dict[str, Any]] = []
+    for mode in FULL_WARP_MODES:
+        policy = warp_mode_policy(mode, cfg.edition)
+        warp_modes.append(
+            {
+                "name": mode,
+                "min_edition": policy.min_edition,
+                "edition_available": policy.available,
+                "edition_reason": policy.reason,
+                "runtime_available": True,
+                "runtime_reason": "",
+                "config_available": True,
+                "config_reason": "",
+                "available": policy.available,
+            }
+        )
+
+    llm_policy = edition_policy("LLM", current=cfg.edition, required="pro")
+    plugin_policy = edition_policy(
+        "preinstalled plugin packages",
+        current=cfg.edition,
+        required="full",
+    )
+    llm_runtime = probe_modules(LLM_PROVIDER_MODULES.values())
+    plugin_runtime = probe_modules(PREINSTALLED_PLUGIN_MODULES)
+    plugin_importable = plugin_runtime.available
+    probe = probe_results_to_dict(probe_capabilities(cfg.edition))
+
+    return {
+        "edition": cfg.edition,
+        "source_sha": get_source_sha(),
+        "sources": source_summary,
+        "fetch_providers": fetch_summary,
+        "warp": {
+            "modes": warp_modes,
+            "available_modes": [mode["name"] for mode in warp_modes if mode["available"]],
+            "upgrade_required": [mode for mode in warp_modes if not mode["edition_available"]],
+        },
+        "llm": {
+            "min_edition": llm_policy.min_edition,
+            "edition_available": llm_policy.available,
+            "edition_reason": llm_policy.reason,
+            "runtime_available": llm_runtime.available,
+            "runtime_reason": llm_runtime.reason,
+            "available": llm_policy.available and llm_runtime.available,
+        },
+        "plugins": {
+            "min_edition": plugin_policy.min_edition,
+            "edition_available": plugin_policy.available,
+            "edition_reason": plugin_policy.reason,
+            "preinstalled": plugin_importable,
+            "runtime_available": plugin_runtime.available,
+            "runtime_reason": plugin_runtime.reason,
+            "available": plugin_policy.available and plugin_runtime.available,
+            "candidate_modules": list(PREINSTALLED_PLUGIN_MODULES),
+        },
+        "probe": probe,
+    }
+
+
+def format_edition_report(report: dict[str, Any] | None = None) -> str:
+    """格式化 ``check_edition()`` 的自检报告。"""
+
+    data = report or check_edition()
+    edition = str(data["edition"])
+    sources = data["sources"]
+    fetch = data["fetch_providers"]
+    warp = data["warp"]
+    llm = data["llm"]
+    plugins = data["plugins"]
+    probe = data.get("probe") if isinstance(data.get("probe"), dict) else {}
+    package_extras = (
+        probe.get("package_extras")
+        if isinstance(probe, dict) and isinstance(probe.get("package_extras"), dict)
+        else {}
+    )
+    extra_declared = package_extras.get("declared") if isinstance(package_extras, dict) else {}
+    extra_available = package_extras.get("available") if isinstance(package_extras, dict) else ()
+    extra_reason = (
+        str(package_extras.get("reason") or "") if isinstance(package_extras, dict) else ""
+    )
+    extra_names = sorted(extra_declared) if isinstance(extra_declared, dict) else []
+    available_extras = list(extra_available) if isinstance(extra_available, (list, tuple)) else []
+
+    lines: list[str] = [
+        f"🧭 SouWen Doctor — Edition 自检 (edition={edition})",
+        f"  source_sha={data.get('source_sha') or 'unavailable'}",
+        "",
+        "── Sources ──",
+        (
+            f"  {sources['edition_available']}/{sources['total']} 个 source 当前 edition 允许；"
+            f"{sources['runtime_available']} 个 runtime 可加载；"
+            f"{sources['config_available']} 个配置满足；{sources['available']} 个最终可用"
+        ),
+    ]
+    for bucket, counts in sources["by_min_edition"].items():
+        lines.append(
+            f"  min={bucket}: {counts['edition_available']}/{counts['total']} edition 允许；"
+            f"{counts['runtime_available']} runtime 可加载；{counts['available']} 最终可用"
+        )
+    if sources["upgrade_required"]:
+        lines.append(f"  需升级 source: {_format_name_list(sources['upgrade_required'])}")
+    if sources["missing_runtime"]:
+        lines.append(f"  缺 runtime source: {_format_name_list(sources['missing_runtime'])}")
+    if sources["missing_config"]:
+        lines.append(f"  缺配置 source: {_format_name_list(sources['missing_config'])}")
+
+    lines.extend(
+        [
+            "",
+            "── Fetch Providers ──",
+            (
+                f"  {fetch['edition_available']}/{fetch['total']} 个 provider 当前 edition 允许；"
+                f"{fetch['runtime_available']} 个 runtime 可加载；"
+                f"{fetch['config_available']} 个配置满足；{fetch['available']} 个最终可用"
+            ),
+        ]
+    )
+    for bucket, counts in fetch["by_min_edition"].items():
+        lines.append(
+            f"  min={bucket}: {counts['edition_available']}/{counts['total']} edition 允许"
+            f"；{counts['runtime_available']} runtime 可加载；{counts['available']} 最终可用"
+        )
+    if fetch["upgrade_required"]:
+        lines.append(f"  需升级 provider: {_format_name_list(fetch['upgrade_required'])}")
+    if fetch["missing_runtime"]:
+        lines.append(f"  缺 runtime provider: {_format_name_list(fetch['missing_runtime'])}")
+    if fetch["missing_config"]:
+        lines.append(f"  缺配置 provider: {_format_name_list(fetch['missing_config'])}")
+
+    if not llm["edition_available"]:
+        llm_status = f"需升级（{llm['edition_reason']}）"
+    elif not llm["runtime_available"]:
+        llm_status = f"缺依赖（{llm['runtime_reason']}）"
+    else:
+        llm_status = "可用"
+
+    if not plugins["edition_available"]:
+        plugin_status = f"需升级（{plugins['edition_reason']}）"
+    elif not plugins["runtime_available"]:
+        plugin_status = f"缺依赖（{plugins['runtime_reason']}）"
+    else:
+        plugin_status = "已预装"
+    lines.extend(
+        [
+            "",
+            "── Cross-cutting ──",
+            f"  WARP 可用模式: {_format_name_list(warp['available_modes'])}",
+            f"  WARP 需升级模式: {_format_name_list(warp['upgrade_required'])}",
+            f"  LLM: {llm_status}",
+            (
+                "  Package extras: "
+                f"{len(available_extras)}/{len(extra_names)} 可导入；"
+                f"已声明: {_format_name_list(extra_names)}"
+            ),
+            (
+                "  Preinstalled plugins: "
+                f"{plugin_status}；候选模块: {_format_name_list(plugins['candidate_modules'])}"
+            ),
+        ]
+    )
+    if extra_reason:
+        lines.append(f"  Package extra 缺失: {extra_reason}")
+
+    return "\n".join(lines)
 
 
 def _optional_credential_message(meta: Any, configured: bool) -> tuple[str, str]:
@@ -166,6 +549,13 @@ def check_all() -> list[dict]:
         - key_requirement: 配置 Key 需求级别（self_hosted|none|required|optional）
         - message: 状态说明文本
         - enabled: 是否启用
+        - min_edition: 使用该源所需的最低功能档位
+        - edition: 当前功能档位
+        - edition_available: 当前 edition 是否允许该源
+        - edition_reason: edition 不允许时的原因
+        - runtime_available / runtime_reason: 当前进程能否加载实现及其可选依赖
+        - config_available / config_reason: 当前启用状态与必需凭据是否满足
+        - available: edition、runtime、config 与静态状态的有效合取
         - description: 源描述
         - channel: 频道配置摘要（如 proxy、http_backend、base_url）
     """
@@ -184,20 +574,49 @@ def check_all() -> list[dict]:
 
     for name, meta in catalog.items():
         enabled = cfg.is_source_enabled(name)
+        adapter = get_adapter(name)
+        if adapter is None:  # pragma: no cover - catalog 与 registry 同源，防御漂移
+            raise KeyError(f"missing registry adapter for source {name!r}")
+        edition = source_policy(adapter, cfg.edition)
+        runtime = (
+            probe_adapter_runtime(adapter)
+            if edition.available
+            else RuntimeProbe(False, f"runtime not probed because {edition.reason}")
+        )
         field = meta.config_field
         missing_fields = missing_credential_fields(cfg, name, meta)
         has_all_credentials = not missing_fields
+        credentials_satisfied = has_required_credentials(cfg, name, meta)
+        config_available = enabled and credentials_satisfied
+        if not enabled:
+            config_reason = "disabled by source configuration"
+        elif not credentials_satisfied:
+            config_reason = (
+                f"missing configuration: {credential_fields_label(tuple(missing_fields))}"
+                if missing_fields
+                else "required configuration is missing"
+            )
+        else:
+            config_reason = ""
 
         # 状态判定优先级：
         #   1. 频道禁用 → disabled
-        #   2. stability == "deprecated" → unavailable（接入待修复 / 已下线）
-        #   3. stability == "experimental" + scraper → warning（默认调度需谨慎）
-        #   4. auth_requirement 标准路径（none / optional / self_hosted / required）
-        #   5. scraper 缺 curl_cffi 时把可用状态升级为 warning
+        #   2. 当前 edition 不允许 → unavailable（需要升级）
+        #   3. 当前 runtime/optional dependency 不可导入 → unavailable
+        #   4. stability == "deprecated" → unavailable（接入待修复 / 已下线）
+        #   5. stability == "experimental" + scraper → warning（默认调度需谨慎）
+        #   6. auth_requirement 标准路径（none / optional / self_hosted / required）
+        #   7. scraper 缺 curl_cffi 时把可用状态升级为 warning
         # ``usage_note`` 始终作为消息后缀附加（如 unpaywall 的"仅支持 DOI OA 查找"）。
         if not enabled:
             status = "disabled"
             message = "已通过频道配置禁用"
+        elif not edition.available:
+            status = "unavailable"
+            message = edition.reason
+        elif not runtime.available:
+            status = "unavailable"
+            message = runtime.reason
         else:
             stability_override = _stability_status(meta)
             if stability_override is not None:
@@ -267,11 +686,144 @@ def check_all() -> list[dict]:
                 "usage_note": meta.usage_note,
                 "message": message,
                 "enabled": enabled,
+                "min_edition": edition.min_edition,
+                "edition": cfg.edition,
+                "edition_available": edition.available,
+                "edition_reason": edition.reason,
+                "runtime_available": runtime.available,
+                "runtime_reason": runtime.reason,
+                "credentials_satisfied": credentials_satisfied,
+                "config_available": config_available,
+                "config_reason": config_reason,
+                "available": (
+                    edition.available
+                    and runtime.available
+                    and config_available
+                    and is_available_status(status)
+                ),
                 "description": meta.description,
                 "channel": channel_info if channel_info else None,
             }
         )
 
+    return results
+
+
+def _source_names_filter(sources: list[str] | str | None) -> set[str] | None:
+    if sources is None:
+        return None
+    if isinstance(sources, str):
+        items = [sources]
+    else:
+        items = list(sources)
+    return {item.strip() for item in items if item.strip()}
+
+
+def _live_probe_skipped(message: str) -> dict[str, Any]:
+    return {"status": "skipped", "message": message, "elapsed_ms": 0}
+
+
+async def _live_probe_source(
+    item: dict,
+    *,
+    query: str,
+    timeout: float,
+) -> dict[str, Any]:
+    """Run a bounded live search probe for one statically available source."""
+
+    name = str(item["name"])
+    if not item.get("enabled"):
+        return _live_probe_skipped("source is disabled")
+    if not item.get("edition_available"):
+        return _live_probe_skipped(str(item.get("edition_reason") or "edition unavailable"))
+    if not item.get("available"):
+        return _live_probe_skipped(f"static status is {item.get('status')}")
+
+    adapter = get_adapter(name)
+    if adapter is None:
+        return _live_probe_skipped("registry adapter is missing")
+    if "search" not in adapter.capabilities:
+        return _live_probe_skipped("source does not expose search capability")
+
+    from souwen.search import _run_via_adapter
+
+    started = time.monotonic()
+    try:
+        response = await asyncio.wait_for(
+            _run_via_adapter(adapter, "search", query=query, limit=1),
+            timeout=timeout,
+        )
+    except ConfigError as exc:
+        return {
+            "status": "skipped",
+            "message": f"missing config: {exc}",
+            "elapsed_ms": int((time.monotonic() - started) * 1000),
+        }
+    except RateLimitError as exc:
+        return {
+            "status": "failed",
+            "message": f"rate limited: {exc}",
+            "elapsed_ms": int((time.monotonic() - started) * 1000),
+        }
+    except asyncio.TimeoutError:
+        return {
+            "status": "failed",
+            "message": f"timed out after {timeout:g}s",
+            "elapsed_ms": int((time.monotonic() - started) * 1000),
+        }
+    except Exception as exc:  # noqa: BLE001 - live doctor reports failures, not exceptions.
+        return {
+            "status": "failed",
+            "message": f"{type(exc).__name__}: {exc}",
+            "elapsed_ms": int((time.monotonic() - started) * 1000),
+        }
+
+    error = getattr(response, "error", None)
+    if error:
+        return {
+            "status": "failed",
+            "message": str(error),
+            "elapsed_ms": int((time.monotonic() - started) * 1000),
+        }
+
+    results = getattr(response, "results", None)
+    result_count = len(results) if isinstance(results, list) else None
+    detail = f"live search returned {result_count} result(s)" if result_count is not None else "ok"
+    return {
+        "status": "ok",
+        "message": detail,
+        "elapsed_ms": int((time.monotonic() - started) * 1000),
+    }
+
+
+async def check_all_live(
+    *,
+    sources: list[str] | str | None = None,
+    query: str = LIVE_PROBE_QUERY,
+    timeout: float = LIVE_PROBE_TIMEOUT_SECONDS,
+) -> list[dict]:
+    """Run explicit live probes and attach ``live_probe`` to the matching sources.
+
+    This is intentionally opt-in. ``check_all()`` remains static and deterministic;
+    this function may touch external services and should be used only for CLI/API
+    paths where the user explicitly asks for live checks.
+    """
+
+    results = check_all()
+    selected = _source_names_filter(sources)
+    targets = [
+        item for item in results if selected is None or str(item.get("name") or "") in selected
+    ]
+    if not targets:
+        return results
+
+    timeout = max(0.5, float(timeout))
+    probes = await asyncio.gather(
+        *[_live_probe_source(item, query=query, timeout=timeout) for item in targets]
+    )
+    by_name = {str(item["name"]): item for item in results}
+    for item, probe in zip(targets, probes, strict=True):
+        by_name[str(item["name"])]["live_probe"] = probe
     return results
 
 
@@ -291,16 +843,26 @@ def format_report(results: list[dict]) -> str:
            OK/总数 个数据源可用
 
         ── 公开接口 — 免配置 / 官方开放 API  (OK数/总数) ──
-          ✅ openalex           [paper]    可免配置使用；设置 openalex_email...
+          ⚠️ openalex           [paper]    免配置可用；设置 openalex_api_key 可提升配额...
           ...
     """
     counts = summarize_statuses(results)
     total = int(counts["total"])
     available_count = int(counts["available"])
+    edition = (
+        str(results[0].get("edition") or get_config().edition) if results else get_config().edition
+    )
     lines: list[str] = [
-        "🩺 SouWen Doctor — 数据源健康检查",
+        f"🩺 SouWen Doctor — 数据源健康检查 (edition={edition})",
         f"   {available_count}/{total} 个数据源可用\n",
     ]
+    live_summary = summarize_live_probes(results)
+    if live_summary["total"]:
+        lines.append(
+            "   live probe: "
+            f"{live_summary['ok']}/{live_summary['total']} ok, "
+            f"{live_summary['failed']} failed, {live_summary['skipped']} skipped\n"
+        )
 
     # 按集成类型分组
     by_type: dict[str, list[dict]] = {t: [] for t in _INTEGRATION_TYPE_ORDER}
@@ -319,7 +881,15 @@ def format_report(results: list[dict]) -> str:
             cat_tag = f"[{r['category']}]"
             kr = r.get("key_requirement", "")
             kr_tag = AUTH_REQUIREMENT_LABELS.get(kr, "")
-            lines.append(f"  {icon} {r['name']:20s} {cat_tag:10s} {kr_tag:6s}  {r['message']}")
+            live_probe = r.get("live_probe")
+            live_text = ""
+            if isinstance(live_probe, dict):
+                live_status = str(live_probe.get("status") or "unknown")
+                live_message = str(live_probe.get("message") or "")
+                live_text = f"；live={live_status}: {live_message}"
+            lines.append(
+                f"  {icon} {r['name']:20s} {cat_tag:10s} {kr_tag:6s}  {r['message']}{live_text}"
+            )
         lines.append("")
 
     return "\n".join(lines)

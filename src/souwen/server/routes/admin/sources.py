@@ -7,8 +7,19 @@ from urllib.parse import urlparse
 
 from fastapi import APIRouter, HTTPException
 
-from souwen.server.schemas import UpdateSourceConfigRequest
 from souwen.registry.meta import SourceMeta
+from souwen.server.routes._common import (
+    normalize_required_query_arg,
+    redact_secret_mapping,
+    redact_secret_text,
+    redact_secret_url,
+    reject_redacted_placeholder,
+)
+from souwen.server.schemas import (
+    SourceChannelConfigResponse,
+    UpdateSourceConfigRequest,
+    UpdateSourceConfigResponse,
+)
 
 router = APIRouter()
 
@@ -30,7 +41,68 @@ def _catalog_fields(meta: SourceMeta) -> dict[str, Any]:
     }
 
 
-@router.get("/sources/config")
+def _strip_optional(value: str | None) -> str | None:
+    if value is None:
+        return None
+    return value.strip()
+
+
+def _safe_source_url(value: str | None) -> str | None:
+    return redact_secret_url(value) if value else value
+
+
+def _source_edition_fields(source_name: str, edition: str) -> dict[str, Any]:
+    from souwen.editions import source_policy
+    from souwen.registry import get as get_adapter
+
+    adapter = get_adapter(source_name)
+    if adapter is None:  # pragma: no cover - SourceMeta/catalog 与 registry 同源，防御漂移
+        raise KeyError(f"missing registry adapter for source {source_name!r}")
+    policy = source_policy(adapter, edition)
+    return {
+        "min_edition": policy.min_edition,
+        "edition_available": policy.available,
+        "edition_reason": policy.reason,
+    }
+
+
+def _source_config_payload(
+    *,
+    source_name: str,
+    include_name: bool = False,
+    sc: Any,
+    meta: SourceMeta,
+    catalog_entry: Any,
+    configured_credentials: bool,
+    credentials_satisfied: bool,
+    available: bool,
+    edition_fields: dict[str, Any],
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "enabled": sc.enabled,
+        "proxy": _safe_source_url(sc.proxy),
+        "http_backend": sc.http_backend,
+        "base_url": _safe_source_url(sc.base_url),
+        "has_api_key": configured_credentials,
+        "configured_credentials": configured_credentials,
+        "credentials_satisfied": credentials_satisfied,
+        "available": available,
+        "headers": redact_secret_mapping(sc.headers),
+        "params": redact_secret_mapping(sc.params),
+        "category": meta.category,
+        "domain": catalog_entry.domain,
+        "capabilities": list(catalog_entry.capabilities),
+        "integration_type": meta.integration_type,
+        "description": meta.description,
+        **edition_fields,
+        **_catalog_fields(meta),
+    }
+    if include_name:
+        payload["name"] = source_name
+    return payload
+
+
+@router.get("/sources/config", response_model=dict[str, SourceChannelConfigResponse])
 async def get_sources_config():
     """查看所有数据源的频道配置 — 包含启用状态、API Key（仅指示）、代理等。"""
     from souwen.config import get_config
@@ -50,29 +122,25 @@ async def get_sources_config():
         sc = cfg.get_source_config(name)
         configured_credentials = has_configured_credentials(cfg, name, meta)
         credentials_satisfied = has_required_credentials(cfg, name, meta)
-        entry: dict = {
-            "enabled": sc.enabled,
-            "proxy": sc.proxy,
-            "http_backend": sc.http_backend,
-            "base_url": sc.base_url,
-            "has_api_key": configured_credentials,
-            "configured_credentials": configured_credentials,
-            "credentials_satisfied": credentials_satisfied,
-            "available": cfg.is_source_enabled(name) and credentials_satisfied,
-            "headers": sc.headers,
-            "params": sc.params,
-            "category": meta.category,
-            "domain": catalog_entry.domain,
-            "capabilities": list(catalog_entry.capabilities),
-            "integration_type": meta.integration_type,
-            "description": meta.description,
-            **_catalog_fields(meta),
-        }
-        result[name] = entry
+        edition_fields = _source_edition_fields(name, cfg.edition)
+        result[name] = _source_config_payload(
+            source_name=name,
+            sc=sc,
+            meta=meta,
+            catalog_entry=catalog_entry,
+            configured_credentials=configured_credentials,
+            credentials_satisfied=credentials_satisfied,
+            available=(
+                cfg.is_source_enabled(name)
+                and credentials_satisfied
+                and edition_fields["edition_available"]
+            ),
+            edition_fields=edition_fields,
+        )
     return result
 
 
-@router.get("/sources/config/{source_name}")
+@router.get("/sources/config/{source_name}", response_model=SourceChannelConfigResponse)
 async def get_source_config(source_name: str):
     """查看单个数据源的频道配置。"""
     from souwen.config import get_config
@@ -83,6 +151,7 @@ async def get_source_config(source_name: str):
         has_required_credentials,
     )
 
+    source_name = normalize_required_query_arg(source_name, "source_name")
     meta = get_source(source_name)
     if meta is None:
         raise HTTPException(404, f"未知数据源: {source_name}")
@@ -92,28 +161,25 @@ async def get_source_config(source_name: str):
     catalog_entry = source_catalog()[source_name]
     configured_credentials = has_configured_credentials(cfg, source_name, meta)
     credentials_satisfied = has_required_credentials(cfg, source_name, meta)
-    return {
-        "name": source_name,
-        "enabled": sc.enabled,
-        "proxy": sc.proxy,
-        "http_backend": sc.http_backend,
-        "base_url": sc.base_url,
-        "has_api_key": configured_credentials,
-        "configured_credentials": configured_credentials,
-        "credentials_satisfied": credentials_satisfied,
-        "available": cfg.is_source_enabled(source_name) and credentials_satisfied,
-        "headers": sc.headers,
-        "params": sc.params,
-        "category": meta.category,
-        "domain": catalog_entry.domain,
-        "capabilities": list(catalog_entry.capabilities),
-        "integration_type": meta.integration_type,
-        "description": meta.description,
-        **_catalog_fields(meta),
-    }
+    edition_fields = _source_edition_fields(source_name, cfg.edition)
+    return _source_config_payload(
+        source_name=source_name,
+        include_name=True,
+        sc=sc,
+        meta=meta,
+        catalog_entry=catalog_entry,
+        configured_credentials=configured_credentials,
+        credentials_satisfied=credentials_satisfied,
+        available=(
+            cfg.is_source_enabled(source_name)
+            and credentials_satisfied
+            and edition_fields["edition_available"]
+        ),
+        edition_fields=edition_fields,
+    )
 
 
-@router.put("/sources/config/{source_name}")
+@router.put("/sources/config/{source_name}", response_model=UpdateSourceConfigResponse)
 async def update_source_config(
     source_name: str,
     req: UpdateSourceConfigRequest,
@@ -122,12 +188,11 @@ async def update_source_config(
     from souwen.config import SourceChannelConfig, _validate_proxy_url, get_config
     from souwen.registry.meta import is_known_source
 
+    source_name = normalize_required_query_arg(source_name, "source_name")
     if not is_known_source(source_name):
         raise HTTPException(404, f"未知数据源: {source_name}")
 
     _VALID_BACKENDS = {"auto", "curl_cffi", "httpx"}
-    if req.http_backend is not None and req.http_backend not in _VALID_BACKENDS:
-        raise HTTPException(400, f"无效的 http_backend: {req.http_backend}")
 
     cfg = get_config()
     sc = cfg.sources.get(source_name, SourceChannelConfig())
@@ -135,23 +200,40 @@ async def update_source_config(
     if req.enabled is not None:
         sc.enabled = req.enabled
     if req.proxy is not None:
+        proxy_value = req.proxy.strip()
+        reject_redacted_placeholder(proxy_value, "proxy")
         _PROXY_KEYWORDS = {"inherit", "none", "warp"}
-        if req.proxy.strip().lower() not in _PROXY_KEYWORDS and req.proxy.strip():
+        proxy_keyword = proxy_value.lower()
+        if proxy_keyword not in _PROXY_KEYWORDS and proxy_value:
             try:
-                _validate_proxy_url(req.proxy)
+                validated_proxy = _validate_proxy_url(proxy_value)
             except ValueError as e:
-                raise HTTPException(422, f"代理 URL 无效: {e}")
-        sc.proxy = req.proxy
+                detail = redact_secret_text(str(e)) or "代理 URL 无效"
+                raise HTTPException(422, f"代理 URL 无效: {detail}")
+            sc.proxy = validated_proxy or "inherit"
+        elif proxy_keyword in _PROXY_KEYWORDS:
+            sc.proxy = proxy_keyword
+        else:
+            sc.proxy = "inherit"
     if req.http_backend is not None:
-        sc.http_backend = req.http_backend
+        http_backend = req.http_backend.strip()
+        if not http_backend:
+            raise HTTPException(422, "http_backend 不能是空字符串")
+        if http_backend not in _VALID_BACKENDS:
+            raise HTTPException(400, f"无效的 http_backend: {http_backend}")
+        sc.http_backend = http_backend
     if req.base_url is not None:
-        if req.base_url:
-            _parsed = urlparse(req.base_url)
+        base_url = _strip_optional(req.base_url)
+        reject_redacted_placeholder(base_url, "base_url")
+        if base_url:
+            _parsed = urlparse(base_url)
             if _parsed.scheme not in ("http", "https") or not _parsed.hostname:
+                safe_base_url = redact_secret_url(base_url)
                 raise HTTPException(
-                    status_code=422, detail=f"base_url 必须为 http/https URL: {req.base_url}"
+                    status_code=422,
+                    detail=f"base_url 必须为 http/https URL: {safe_base_url}",
                 )
-        sc.base_url = req.base_url if req.base_url else None
+        sc.base_url = base_url or None
     if req.api_key is not None:
         sc.api_key = req.api_key if req.api_key else None
 

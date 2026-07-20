@@ -85,6 +85,22 @@ class TestDefaults:
         cfg = SouWenConfig()
         assert cfg.timeout == 30
 
+    def test_edition_default(self):
+        """edition 默认 pro，保持现有内置功能行为。"""
+        cfg = SouWenConfig()
+        assert cfg.edition == "pro"
+
+    @pytest.mark.parametrize("edition", ["basic", "pro", "full"])
+    def test_edition_accepts_known_values(self, edition):
+        """edition 只接受已定义的功能完整度档位。"""
+        cfg = SouWenConfig(edition=edition)
+        assert cfg.edition == edition
+
+    def test_edition_rejects_unknown_value(self):
+        """未知 edition 应由 Pydantic 明确拒绝。"""
+        with pytest.raises(ValueError, match="edition"):
+            SouWenConfig(edition="enterprise")
+
     def test_max_retries_default(self):
         """max_retries 默认 3 次。"""
         cfg = SouWenConfig()
@@ -144,6 +160,15 @@ class TestEnvOverride:
         cfg = reload_config()
         try:
             assert cfg.timeout == 60
+        finally:
+            get_config.cache_clear()
+
+    def test_env_sets_edition(self, monkeypatch):
+        """环境变量设置 edition。"""
+        monkeypatch.setenv("SOUWEN_EDITION", "basic")
+        cfg = reload_config()
+        try:
+            assert cfg.edition == "basic"
         finally:
             get_config.cache_clear()
 
@@ -322,6 +347,18 @@ class TestSourceChannelConfig:
             sources={"tavily": SourceChannelConfig(api_key="channel-key")},
         )
         assert cfg.resolve_api_key("tavily", "tavily_api_key") == "channel-key"
+
+    def test_openalex_channel_key_does_not_replace_contact_email(self):
+        """OpenAlex channel api_key 与兼容联系邮箱使用独立配置语义。"""
+        from souwen.config import SourceChannelConfig
+
+        cfg = SouWenConfig(
+            openalex_api_key="flat-key",
+            openalex_email="contact@example.com",
+            sources={"openalex": SourceChannelConfig(api_key="channel-key")},
+        )
+        assert cfg.resolve_api_key("openalex", "openalex_api_key") == "channel-key"
+        assert cfg.openalex_email == "contact@example.com"
 
     def test_resolve_api_key_fallback_to_flat(self):
         """无频道 api_key 回退到 flat key"""

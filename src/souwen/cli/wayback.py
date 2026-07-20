@@ -8,7 +8,7 @@ import json
 import typer
 from rich.table import Table
 
-from souwen.cli._common import _run_async, console
+from souwen.cli._common import _run_async, console, redact_cli_text
 
 wayback_app = typer.Typer(help="Wayback Machine 归档工具")
 
@@ -38,7 +38,7 @@ def wayback_cdx(
             console.print(f"[red]⏱ 查询超时 (>{timeout}s)[/red]")
             raise typer.Exit(124)
         except Exception as e:
-            console.print(f"[red]❌ 查询失败: {e}[/red]")
+            console.print(f"[red]❌ 查询失败: {redact_cli_text(e)}[/red]")
             raise typer.Exit(1)
 
     if json_output:
@@ -58,7 +58,7 @@ def wayback_cdx(
     table.add_column("MIME", style="yellow")
     table.add_column("URL", style="blue", max_width=50)
     for s in resp.snapshots[:limit]:
-        table.add_row(s.timestamp, str(s.status_code), s.mime_type, s.url[:50])
+        table.add_row(s.timestamp, str(s.status_code), s.mime_type, redact_cli_text(s.url)[:50])
     console.print(table)
 
 
@@ -83,7 +83,7 @@ def wayback_check(
             console.print(f"[red]⏱ 检查超时 (>{timeout}s)[/red]")
             raise typer.Exit(124)
         except Exception as e:
-            console.print(f"[red]❌ 检查失败: {e}[/red]")
+            console.print(f"[red]❌ 检查失败: {redact_cli_text(e)}[/red]")
             raise typer.Exit(1)
 
     if json_output:
@@ -94,13 +94,13 @@ def wayback_check(
 
     if resp.available:
         console.print("[green]✓ 有存档[/green]")
-        console.print(f"  快照 URL: [blue]{resp.snapshot_url}[/blue]")
+        console.print(f"  快照 URL: [blue]{redact_cli_text(resp.snapshot_url)}[/blue]")
         console.print(f"  时间戳:   {resp.timestamp}")
         console.print(f"  状态码:   {resp.status}")
     else:
         console.print("[yellow]✗ 暂无存档[/yellow]")
         if resp.error:
-            console.print(f"  [dim]{resp.error}[/dim]")
+            console.print(f"  [dim]{redact_cli_text(resp.error)}[/dim]")
 
 
 @wayback_app.command("save")
@@ -123,7 +123,7 @@ def wayback_save(
             console.print(f"[red]⏱ 存档超时 (>{timeout}s)[/red]")
             raise typer.Exit(124)
         except Exception as e:
-            console.print(f"[red]❌ 存档失败: {e}[/red]")
+            console.print(f"[red]❌ 存档失败: {redact_cli_text(e)}[/red]")
             raise typer.Exit(1)
 
     if json_output:
@@ -134,9 +134,9 @@ def wayback_save(
 
     if resp.success:
         console.print("[green]✓ 存档成功[/green]")
-        console.print(f"  快照 URL: [blue]{resp.snapshot_url}[/blue]")
+        console.print(f"  快照 URL: [blue]{redact_cli_text(resp.snapshot_url)}[/blue]")
         console.print(f"  时间戳:   {resp.timestamp}")
     else:
         console.print("[red]✗ 存档失败[/red]")
         if resp.error:
-            console.print(f"  [dim]{resp.error}[/dim]")
+            console.print(f"  [dim]{redact_cli_text(resp.error)}[/dim]")

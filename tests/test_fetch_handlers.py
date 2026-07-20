@@ -1,7 +1,7 @@
 """souwen.web.fetch handler registry 测试。
 
 覆盖：
-  - _FETCH_HANDLERS 包含全部 23 个内置 provider
+  - _FETCH_HANDLERS 包含全部 24 个内置 provider
   - register_fetch_handler 新增 / 重名跳过 / override
   - get_fetch_handlers 视图
   - _fetch_with_provider 派发到注册的 handler
@@ -10,6 +10,8 @@
 """
 
 from __future__ import annotations
+
+import json
 
 import pytest
 
@@ -30,6 +32,7 @@ EXPECTED_BUILTIN_PROVIDERS = {
     "xcrawl",
     "kimi_code",
     "exa",
+    "metaso",
     "crawl4ai",
     "scrapling",
     "scrapfly",
@@ -74,14 +77,14 @@ def _make_response(provider: str, urls: list[str], ok: bool = True) -> FetchResp
 
 
 class TestBuiltinHandlers:
-    def test_all_23_providers_registered(self):
+    def test_all_24_providers_registered(self):
         names = set(_FETCH_HANDLERS.keys())
         missing = EXPECTED_BUILTIN_PROVIDERS - names
         assert not missing, f"缺失内置 provider: {missing}"
 
-    def test_handler_count_at_least_21(self):
-        # 允许其它插件追加，但内置 23 个必须就位
-        assert len(_FETCH_HANDLERS) >= 23
+    def test_handler_count_at_least_24(self):
+        # 允许其它插件追加，但内置 24 个必须就位
+        assert len(_FETCH_HANDLERS) >= 24
 
     def test_get_fetch_handlers_returns_copy(self):
         snap = get_fetch_handlers()
@@ -149,6 +152,53 @@ class TestFetchWithProvider:
         assert called["kwargs"] == {"foo": "bar"}
 
     @pytest.mark.asyncio
+    async def test_dispatch_filters_unknown_kwargs_for_legacy_handler(self, clean_fetch_handlers):
+        called = {}
+
+        async def legacy_handler(urls, timeout):
+            called["urls"] = urls
+            called["timeout"] = timeout
+            return _make_response("legacy_handler", urls)
+
+        register_fetch_handler("legacy_handler", legacy_handler)
+        resp = await _fetch_with_provider(
+            "legacy_handler",
+            ["http://example.com"],
+            5.0,
+            selector="article",
+            start_index=20,
+        )
+
+        assert resp.provider == "legacy_handler"
+        assert called == {"urls": ["http://example.com"], "timeout": 5.0}
+
+    @pytest.mark.asyncio
+    async def test_dispatch_passes_named_supported_kwargs(self, clean_fetch_handlers):
+        called = {}
+
+        async def selective_handler(urls, timeout, selector=None):
+            called["urls"] = urls
+            called["timeout"] = timeout
+            called["selector"] = selector
+            return _make_response("selective_handler", urls)
+
+        register_fetch_handler("selective_handler", selective_handler)
+        resp = await _fetch_with_provider(
+            "selective_handler",
+            ["http://example.com"],
+            5.0,
+            selector="article",
+            start_index=20,
+        )
+
+        assert resp.provider == "selective_handler"
+        assert called == {
+            "urls": ["http://example.com"],
+            "timeout": 5.0,
+            "selector": "article",
+        }
+
+    @pytest.mark.asyncio
     async def test_unknown_provider_returns_error_response(self):
         urls = ["http://a.example", "http://b.example"]
         resp = await _fetch_with_provider("does_not_exist_xyz", urls, 1.0)
@@ -170,3 +220,25 @@ class TestFetchWithProvider:
         resp = await _fetch_with_provider("ext_via_plugin", ["http://x.example"], 2.0)
         assert resp.provider == "ext_via_plugin"
         assert resp.total_ok == 1
+
+    @pytest.mark.asyncio
+    async def test_metaso_handler_dispatches_reader(self, httpx_mock, monkeypatch):
+        monkeypatch.setenv("SOUWEN_METASO_API_KEY", "mk-test")
+        target_url = "https://93.184.216.34/article"
+        httpx_mock.add_response(
+            url="https://metaso.cn/api/v1/reader",
+            content=b"metaso reader content",
+            headers={"Content-Type": "text/plain"},
+        )
+
+        resp = await _fetch_with_provider("metaso", [target_url], 5.0)
+
+        assert resp.provider == "metaso"
+        assert resp.total == 1
+        assert resp.total_ok == 1
+        assert resp.results[0].source == "metaso"
+        assert resp.results[0].content == "metaso reader content"
+
+        req = httpx_mock.get_requests()[0]
+        assert req.headers.get("authorization") == "Bearer mk-test"
+        assert json.loads(req.content)["url"] == target_url

@@ -79,8 +79,8 @@ Install commands may need network access unless dependencies are already cached.
 | Command | Purpose | Scope | Sandbox notes |
 |---|---|---|---|
 | `pip install -e ".[dev]"` | Python dev install | repo | May need network |
-| `pip install -e ".[dev,server]"` | Python server dev install | repo | May need network |
-| `pip install -e ".[dev,server,tls,web,scraper,newspaper,readability,pdf,mcp]"` | Broad CI-like runtime install | repo | May need network and optional native deps |
+| `pip install -e ".[dev,edition-pro]"` | Python API/pro dev install | repo | May need network |
+| `pip install -e ".[dev,edition-full]"` | Full core runtime install without mutually exclusive browser stacks | repo | May need network and optional native deps |
 | `cd panel && npm ci` | Frontend dependency install | `panel/` | May need network; use npm only |
 | `ruff check src tests scripts` | Python lint | repo | Deterministic after deps installed |
 | `ruff format --check src tests scripts` | Python format check | repo | Deterministic after deps installed |
@@ -90,9 +90,9 @@ Install commands may need network access unless dependencies are already cached.
 | `python tools/gen_docs.py -o docs/data-sources.md` | Regenerate source catalog docs | repo | Writes generated docs |
 | `python scripts/ci/check_no_legacy_terms.py` | Source catalog legacy term gate | repo | Deterministic |
 | `python scripts/ci/run_profile.py --list-profiles` | List CI profiles | repo | Deterministic |
-| `python scripts/ci/run_profile.py --profile minimal` | Minimal CLI/profile smoke | repo | Deterministic after deps installed |
-| `python scripts/ci/run_profile.py --profile server --profile minimal` | Server plus minimal profile | repo | Requires server extras installed |
-| `python scripts/ci/run_profile.py --profile full` | Full import-surface runtime profile | repo | Requires broad runtime extras installed |
+| `python scripts/ci/run_profile.py --profile basic-cli` | Basic CLI/source profile smoke | repo | Deterministic after deps installed |
+| `python scripts/ci/run_profile.py --profile pro-cli --profile basic-cli` | API plus source CLI profile smoke | repo | Requires pro extras installed |
+| `python scripts/ci/run_profile.py --profile full-cli` | Full import-surface runtime profile | repo | Requires full core runtime extras installed |
 | `python scripts/ci/run_profile.py --profile plugin` | Plugin contract/profile smoke | repo | Requires example plugin installed |
 | `cd panel && npm test` | Vitest suite | `panel/` | Deterministic after `npm ci` |
 | `cd panel && npm run build` | TypeScript build plus Vite build | `panel/` | Deterministic after `npm ci` |
@@ -155,7 +155,7 @@ Choose the narrowest validation that covers the changed surface.
    `python tools/gen_docs.py --check`, and
    `python scripts/ci/check_no_legacy_terms.py`.
 4. For server/API changes, run affected `tests/test_server` tests and consider
-   `python scripts/ci/run_profile.py --profile server --profile minimal`.
+   `python scripts/ci/run_profile.py --profile pro-cli --profile basic-cli`.
 5. For package or wheel surface changes, run `pytest tests/test_import_surface.py -q`
    and consider the relevant `scripts/ci/run_profile.py` profile.
 6. For panel changes, run `cd panel && npm test` and/or `cd panel && npm run build`.

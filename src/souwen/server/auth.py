@@ -3,6 +3,7 @@
 文件用途：
     提供 Bearer Token 认证和三级角色（Guest/User/Admin）授权检查。
     支持独立的用户密码（user_password）和管理密码（admin_password）。
+    上游代理占用 Authorization 头时，也接受 X-SouWen-Token 作为应用层凭据。
 
 角色层级（Admin ⊃ User ⊃ Guest）：
     - Guest 游客：无 Token 即可访问搜索端点（受限源、限速）
@@ -37,7 +38,7 @@ import logging
 import os
 import secrets
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from souwen.config import get_config
@@ -46,6 +47,24 @@ logger = logging.getLogger("souwen.server")
 
 _bearer_scheme = HTTPBearer(auto_error=False)
 _ADMIN_OPEN_VALUES = {"1", "true", "yes", "on"}
+
+
+def _resolve_auth_credentials(
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+    souwen_token: str | None = Header(default=None, alias="X-SouWen-Token"),
+) -> HTTPAuthorizationCredentials | None:
+    """Resolve the application credential independently from an upstream proxy token.
+
+    Private Hugging Face Spaces consume ``Authorization`` for the outer access
+    boundary. ``X-SouWen-Token`` keeps SouWen's user/admin credential separate.
+    The custom header takes precedence when both headers are present; an invalid
+    explicit application token must not fall back to another credential.
+    """
+
+    token = (souwen_token or "").strip()
+    if token:
+        return HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+    return credentials
 
 
 def is_admin_open_enabled() -> bool:
@@ -62,7 +81,7 @@ class Role(enum.IntEnum):
 
 
 def resolve_role(
-    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+    credentials: HTTPAuthorizationCredentials | None = Depends(_resolve_auth_credentials),
 ) -> Role:
     """根据 Bearer Token 判定角色
 
@@ -147,7 +166,7 @@ def require_role(min_role: Role):
 
 
 def require_auth(
-    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+    credentials: HTTPAuthorizationCredentials | None = Depends(_resolve_auth_credentials),
 ) -> None:
     """管理端点认证
 
@@ -191,7 +210,7 @@ def require_auth(
 
 
 def check_user_auth(
-    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+    credentials: HTTPAuthorizationCredentials | None = Depends(_resolve_auth_credentials),
 ) -> None:
     """用户端点认证
 
@@ -213,7 +232,7 @@ def check_user_auth(
 
 
 def check_sources_auth(
-    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+    credentials: HTTPAuthorizationCredentials | None = Depends(_resolve_auth_credentials),
 ) -> None:
     """Source Catalog 端点认证
 
@@ -234,7 +253,7 @@ def check_sources_auth(
 
 
 def check_search_auth(
-    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+    credentials: HTTPAuthorizationCredentials | None = Depends(_resolve_auth_credentials),
 ) -> None:
     """搜索端点认证
 

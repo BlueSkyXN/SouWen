@@ -27,9 +27,10 @@ _reg(
         domain="paper",
         integration="open_api",
         description="OpenAlex 开放学术数据",
-        config_field="openalex_email",  # 可选 email（提升速率限制）
+        config_field="openalex_api_key",
         needs_config=False,  # 零配置可用
-        optional_credential_effect="politeness",
+        optional_credential_effect="quota",
+        usage_note="Freemium API；无 Key 预算较低，耗尽返回 429；openalex_email 不再发送",
         client_loader=lazy("souwen.paper.openalex:OpenAlexClient"),
         methods={"search": MethodSpec("search", _P_PER_PAGE)},
         default_for=frozenset({"paper:search"}),

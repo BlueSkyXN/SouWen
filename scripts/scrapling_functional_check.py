@@ -16,6 +16,7 @@ import threading
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Iterator
+from urllib.parse import urlparse
 
 try:
     from scripts._functional_common import Outcome, ResultRecorder, add_common_args, run_check
@@ -71,7 +72,34 @@ def local_fixture_server() -> Iterator[str]:
         thread.join(timeout=5)
 
 
+@contextmanager
+def allow_local_fixture_url(url: str) -> Iterator[None]:
+    """Temporarily allow this script's local fixture origin through URL safety checks."""
+    from souwen.web import fetch as fetch_module
+
+    fixture = urlparse(url)
+    original_validate = fetch_module.validate_fetch_url
+
+    def _validate(candidate: str) -> tuple[bool, str]:
+        parsed = urlparse(candidate)
+        same_fixture_origin = (
+            parsed.scheme == fixture.scheme
+            and parsed.hostname == fixture.hostname
+            and parsed.port == fixture.port
+        )
+        if same_fixture_origin:
+            return True, ""
+        return original_validate(candidate)
+
+    fetch_module.validate_fetch_url = _validate
+    try:
+        yield
+    finally:
+        fetch_module.validate_fetch_url = original_validate
+
+
 def configure_scrapling(mode: str) -> None:
+    os.environ["SOUWEN_EDITION"] = "full"
     os.environ["SOUWEN_SOURCES"] = json.dumps(
         {
             "scrapling": {
@@ -179,7 +207,7 @@ async def main() -> None:
                 required=True,
                 timeout=args.timeout,
             )
-            with local_fixture_server() as url:
+            with local_fixture_server() as url, allow_local_fixture_url(url):
                 await run_check(
                     recorder,
                     "fetcher_fixture",

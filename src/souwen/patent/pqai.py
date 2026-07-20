@@ -1,11 +1,11 @@
 """PQAI 语义专利检索客户端
 
-基于自然语言的专利语义搜索，免费无需 API Key。
+基于自然语言的专利语义搜索，需要 PQAI API Token。
 官方文档: https://projectpq.ai
 
 文件用途：
     PQAI 纯语义搜索客户端，支持自然语言查询和相似专利查询。
-    无需注册即可使用，提供 CPC 分类预测功能。
+    需要订阅 token，提供 CPC 分类预测功能。
     适合发现相关专利、进行技术领域分析。
 
 函数/类清单：
@@ -51,8 +51,9 @@ import logging
 from typing import Any
 
 import httpx
+from souwen.config import get_config
 from souwen.core.parsing import safe_parse_date
-from souwen.core.exceptions import NotFoundError, ParseError
+from souwen.core.exceptions import ConfigError, NotFoundError, ParseError
 from souwen.core.http_client import SouWenHttpClient
 from souwen.models import Applicant, PatentResult, SearchResponse
 from souwen.core.rate_limiter import TokenBucketLimiter
@@ -63,7 +64,7 @@ logger = logging.getLogger(__name__)
 class PqaiClient:
     """PQAI 语义专利检索客户端
 
-    纯语义搜索引擎，支持自然语言查询，免费无需注册。
+    纯语义搜索引擎，支持自然语言查询。当前 API 要求 ``token`` 参数鉴权。
 
     Attributes:
         BASE_URL: PQAI API 基础地址
@@ -73,11 +74,20 @@ class PqaiClient:
     BASE_URL = "https://api.projectpq.ai"
     RATE_LIMIT = 0.27  # ~1000 req/hour
 
-    def __init__(self) -> None:
+    def __init__(self, api_token: str | None = None) -> None:
         """初始化 PQAI 客户端
 
-        无需 API Key，直接初始化 HTTP 客户端和限流器。
+        从参数或配置读取 API Token，初始化 HTTP 客户端和限流器。
         """
+        cfg = get_config()
+        resolved_token = api_token or cfg.resolve_api_key("pqai", "pqai_api_token")
+        if not resolved_token:
+            raise ConfigError(
+                key="pqai_api_token",
+                service="PQAI API",
+                register_url="https://api.projectpq.ai/docs",
+            )
+        self._api_token = resolved_token
         self._http = SouWenHttpClient(base_url=self.BASE_URL, source_name="pqai")
         # 1000 req/hour 限制，约 0.27 req/s
         self._limiter = TokenBucketLimiter(rate=self.RATE_LIMIT, burst=5)
@@ -117,7 +127,7 @@ class PqaiClient:
         await self._limiter.acquire()
         resp = await self._http.get(
             "/search/102",
-            params={"q": query, "n": n_results, "type": "patent"},
+            params={"q": query, "n": n_results, "type": "patent", "token": self._api_token},
         )
         data = self._parse_json(resp)
 
@@ -151,8 +161,8 @@ class PqaiClient:
         """
         await self._limiter.acquire()
         resp = await self._http.get(
-            f"/similar/{patent_id}",
-            params={"n": n_results, "type": "patent"},
+            "/similar/",
+            params={"pn": patent_id, "n": n_results, "type": "patent", "token": self._api_token},
         )
         # 404 表示专利不存在
         if resp.status_code == 404:
@@ -183,8 +193,8 @@ class PqaiClient:
         """
         await self._limiter.acquire()
         resp = await self._http.get(
-            "/classify/cpc",
-            params={"q": text},
+            "/suggest/cpcs",
+            params={"text": text, "token": self._api_token},
         )
         data = self._parse_json(resp)
         return data.get("predictions", [])

@@ -148,6 +148,12 @@ class ApifyClient(SouWenHttpClient):
         Returns:
             FetchResult 包含提取的内容与元数据
         """
+        from souwen.web.fetch import ssrf_blocked_fetch_result
+
+        blocked = ssrf_blocked_fetch_result(url, self.PROVIDER_NAME)
+        if blocked is not None:
+            return blocked
+
         timeout_s = max(1, int(timeout))
         # actor 输入：仅抓取传入的单个 URL，不跟随链接，使用快速 cheerio 爬虫
         body = {
@@ -211,11 +217,24 @@ class ApifyClient(SouWenHttpClient):
                 provider=self.PROVIDER_NAME,
             )
 
+        from souwen.web.fetch import split_fetch_urls_by_ssrf
+
+        safe_urls, blocked_results = split_fetch_urls_by_ssrf(urls, self.PROVIDER_NAME)
+        if not safe_urls:
+            return FetchResponse(
+                urls=urls,
+                results=blocked_results,
+                total=len(blocked_results),
+                total_ok=0,
+                total_failed=len(blocked_results),
+                provider=self.PROVIDER_NAME,
+            )
+
         # 批量整体超时：按 URL 数量线性放大，但封顶 300 秒以防挂死
-        batch_timeout_s = min(300, max(1, int(timeout * len(urls))))
+        batch_timeout_s = min(300, max(1, int(timeout * len(safe_urls))))
         body = {
-            "startUrls": [{"url": u} for u in urls],
-            "maxCrawlPages": len(urls),
+            "startUrls": [{"url": u} for u in safe_urls],
+            "maxCrawlPages": len(safe_urls),
             "maxCrawlDepth": 0,
             "crawlerType": "cheerio",
         }
@@ -236,7 +255,7 @@ class ApifyClient(SouWenHttpClient):
                     by_url[u] = it
 
             results: list[FetchResult] = []
-            for original in urls:
+            for original in safe_urls:
                 item = by_url.get(original)
                 if item is None:
                     # 某些 URL 在 actor run 中失败或被跳过，构造错误结果占位
@@ -252,6 +271,7 @@ class ApifyClient(SouWenHttpClient):
                 else:
                     results.append(self._item_to_result(item, original, self.PROVIDER_NAME))
 
+            results.extend(blocked_results)
             ok = sum(1 for r in results if r.error is None)
             return FetchResponse(
                 urls=urls,
@@ -271,7 +291,8 @@ class ApifyClient(SouWenHttpClient):
                 async with sem:
                     return await self.fetch(u, timeout=timeout)
 
-            results = list(await asyncio.gather(*[_fetch_one(u) for u in urls]))
+            results = list(await asyncio.gather(*[_fetch_one(u) for u in safe_urls]))
+            results.extend(blocked_results)
             ok = sum(1 for r in results if r.error is None)
             return FetchResponse(
                 urls=urls,

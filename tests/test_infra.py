@@ -252,9 +252,12 @@ class TestExceptions:
 
     def test_config_error_with_url(self):
         """配置错误带注册链接"""
-        err = ConfigError("core_api_key", "CORE", "https://core.ac.uk/services/api")
-        assert "core_api_key" in str(err)
-        assert "https://core.ac.uk" in str(err)
+        register_url = "https://core.ac.uk/services/api"
+        err = ConfigError("core_api_key", "CORE", register_url)
+        assert err.register_url == register_url
+        assert str(err) == (
+            "缺少配置项 'core_api_key'（CORE 必需）\n注册获取: https://core.ac.uk/services/api"
+        )
 
     def test_config_error_without_url(self):
         """配置错误不带注册链接"""
@@ -285,15 +288,18 @@ class TestConfig:
         config = SouWenConfig()
         assert config.timeout == 30
         assert config.max_retries == 3
+        assert config.openalex_api_key is None
         assert config.openalex_email is None
         assert config.proxy is None
 
     def test_custom_config(self):
         """自定义配置值"""
         config = SouWenConfig(
+            openalex_api_key="openalex-test-key",
             openalex_email="test@example.com",
             timeout=60,
         )
+        assert config.openalex_api_key == "openalex-test-key"
         assert config.openalex_email == "test@example.com"
         assert config.timeout == 60
 
@@ -553,7 +559,7 @@ class TestCLI:
             counts[entry.category] = counts.get(entry.category, 0) + 1
 
         assert counts["paper"] == 18
-        assert counts["patent"] == 6
+        assert counts["patent"] == 8
         total_web = sum(
             counts[c]
             for c in (
@@ -589,7 +595,7 @@ class TestServer:
         try:
             from souwen.server.app import app
 
-            routes = [r.path for r in app.routes]
+            routes = set(app.openapi()["paths"])
             assert "/health" in routes
         except ImportError:
             pytest.skip("fastapi not installed")
@@ -662,8 +668,8 @@ class TestSourceRegistryCatalogViews:
         openalex = sources["openalex"]
         assert openalex.auth_requirement == "optional"
         assert openalex.needs_config is False
-        assert openalex.optional_credential_effect == "politeness"
-        assert openalex.credential_fields == ("openalex_email",)
+        assert openalex.optional_credential_effect == "quota"
+        assert openalex.credential_fields == ("openalex_api_key",)
 
         epo_ops = sources["epo_ops"]
         assert epo_ops.auth_requirement == "required"

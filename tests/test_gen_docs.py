@@ -33,9 +33,42 @@ def test_cli_render_excludes_runtime_plugin_after_registry_import(clean_registry
 
 def test_checked_in_data_sources_matches_generator():
     docs_path = Path("docs/data-sources.md")
-    assert docs_path.read_text(encoding="utf-8") == gen_docs.render_cli_content(
-        include_plugins=False
-    )
+    rendered = gen_docs.render_cli_content(include_plugins=False)
+    assert docs_path.read_text(encoding="utf-8") == rendered
+    assert "静态 policy/config readiness" in rendered
+    assert "Catalog 和 doctor 的 `runtime_available` / `runtime_reason`" in rendered
+    assert "`available` 描述展示和运行时可用性" not in rendered
+
+
+def test_registry_snapshot_drives_release_candidate_metrics():
+    snapshot, _catalog, _categories = gen_docs._load_snapshot(include_plugins=False)
+
+    assert snapshot.registered_count == 95
+    assert snapshot.public_count == 94
+    assert snapshot.hidden_or_internal_count == 1
+    assert len(snapshot.fetch_primary) == 17
+    assert [adapter.name for adapter in snapshot.fetch_cross_domain] == [
+        "exa",
+        "firecrawl",
+        "kimi_code",
+        "metaso",
+        "tavily",
+        "wayback",
+        "xcrawl",
+    ]
+    assert snapshot.fetch_provider_count == 24
+
+
+def test_checked_in_managed_regions_match_registry():
+    managed = gen_docs.render_managed_files()
+
+    assert set(managed) == {
+        Path("README.md"),
+        Path("README.en.md"),
+        Path("docs/architecture.md"),
+    }
+    for relative_path, expected in managed.items():
+        assert relative_path.read_text(encoding="utf-8") == expected
 
 
 def test_check_flag_accepts_checked_in_data_sources():

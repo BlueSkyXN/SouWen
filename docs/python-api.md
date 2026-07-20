@@ -14,7 +14,9 @@ news = await search_by_capability("AI news", capability="search_news", limit=5)
 mixed = await search_all("quantum computing", domains=["paper", "web"], per_domain_limit=5)
 ```
 
-`search()` 返回按源聚合的 `SearchResponse` 列表。单个源失败不会阻断其他源。
+`search()` 返回按源聚合的 `SearchResponse` 列表。`query` 会先 `strip()`，
+strip 后为空会抛出 `ValueError`。`sources`、`engines` 和 `domains`
+可传单个字符串或字符串列表；单个源失败不会阻断其他源。
 
 ## 抓取
 
@@ -61,8 +63,14 @@ from souwen.registry.catalog import public_source_catalog_payload
 
 payload = public_source_catalog_payload(get_config())
 for source in payload["sources"]:
-    if source["available"] and "search" in source["capabilities"]:
+    if (
+        source["available"]
+        and source["runtime_available"]
+        and "search" in source["capabilities"]
+    ):
         print(source["name"], source["category"])
 ```
 
-该 payload 与 `/api/v1/sources` 和 `souwen sources --json` 保持一致。
+该 payload 与 `/api/v1/sources` 和 `souwen sources --json` 保持一致。`available` 是
+edition/config/credentials 静态 gate，`runtime_available` 是本地 importability；合取两者后
+再用 `domain + capability` 选择可执行的源。两者都不是 live 上游观测。

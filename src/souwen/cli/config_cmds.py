@@ -3,13 +3,55 @@
 from __future__ import annotations
 
 import json
+from urllib.parse import urlparse
 
 import typer
 from rich.table import Table
 
-from souwen.cli._common import console
+from souwen.cli._common import console, redact_cli_text, redact_cli_value
 
 config_app = typer.Typer(help="配置管理")
+
+
+def _redacted_json(value: object) -> str:
+    return json.dumps(redact_cli_value(value), ensure_ascii=False)
+
+
+def _normalize_required_arg(value: str, name: str) -> str:
+    """Strip a required CLI argument and reject blank values."""
+    normalized = value.strip()
+    if not normalized:
+        console.print(f"[red]{name} 不能是空字符串[/red]")
+        raise typer.Exit(1)
+    return normalized
+
+
+def _normalize_source_proxy(proxy: str) -> str:
+    """Normalize a source-level proxy value."""
+    from souwen.config import _validate_proxy_url
+
+    value = _normalize_required_arg(proxy, "proxy")
+    keyword = value.lower()
+    if keyword in {"inherit", "none", "warp"}:
+        return keyword
+    try:
+        validated = _validate_proxy_url(value)
+    except ValueError as e:
+        console.print(f"[red]代理 URL 无效: {redact_cli_text(e)}[/red]")
+        raise typer.Exit(1) from e
+    return validated or "inherit"
+
+
+def _normalize_base_url(base_url: str) -> str | None:
+    """Normalize and validate a source-level base URL."""
+    value = base_url.strip()
+    if not value:
+        return None
+    parsed = urlparse(value)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        console.print(f"[red]base_url 必须为 http/https URL: {redact_cli_text(value)}[/red]")
+        raise typer.Exit(1)
+    return value
 
 
 def _mask_value(value: str | None) -> str:
@@ -41,7 +83,7 @@ def config_show() -> None:
         if is_secret:
             display = _mask_value(str(raw_val) if raw_val is not None else None)
         else:
-            display = str(raw_val) if raw_val is not None else "[dim]未配置[/dim]"
+            display = redact_cli_text(raw_val) if raw_val is not None else "[dim]未配置[/dim]"
         table.add_row(field_name, display)
 
     console.print(table)
@@ -61,6 +103,9 @@ def config_init() -> None:
 
 # ===== 论文数据源 =====
 paper:
+  # OpenAlex Freemium API；超出免费额度是否使用预付余额取决于账户设置
+  openalex_api_key: ~
+  # 已弃用兼容字段；当前不发送给 OpenAlex
   openalex_email: ~
   semantic_scholar_api_key: ~
   core_api_key: ~
@@ -168,6 +213,7 @@ def config_backend(
     modified = False
 
     if default is not None:
+        default = _normalize_required_arg(default, "default")
         if default not in _VALID:
             console.print(f"[red]无效的后端: {default}，可选: {', '.join(_VALID)}[/red]")
             raise typer.Exit(1)
@@ -180,7 +226,8 @@ def config_backend(
         if len(parts) != 2:
             console.print("[red]格式错误，应为: source=backend (如 duckduckgo=httpx)[/red]")
             raise typer.Exit(1)
-        source, backend = parts[0].strip(), parts[1].strip()
+        source = _normalize_required_arg(parts[0], "source")
+        backend = _normalize_required_arg(parts[1], "backend")
         if source not in _SCRAPER_ENGINES:
             console.print(f"[red]未知的爬虫源: {source}，可选: {', '.join(_SCRAPER_ENGINES)}[/red]")
             raise typer.Exit(1)
@@ -284,7 +331,7 @@ def config_source(
                 RISK_LEVEL_LABELS.get(meta.risk_level, meta.risk_level),
                 DISTRIBUTION_LABELS.get(meta.distribution, meta.distribution),
                 enabled_icon,
-                sc.proxy,
+                redact_cli_text(sc.proxy),
                 sc.http_backend,
                 ", ".join(customs) if customs else "-",
             )
@@ -292,6 +339,7 @@ def config_source(
         console.print(table)
         return
 
+    name = _normalize_required_arg(name, "name")
     if not is_known_source(name):
         console.print(f"[red]未知数据源: {name}[/red]")
         raise typer.Exit(1)
@@ -303,17 +351,18 @@ def config_source(
         sc.enabled = enable
         modified = True
     if proxy is not None:
-        sc.proxy = proxy
+        sc.proxy = _normalize_source_proxy(proxy)
         modified = True
     if backend is not None:
         _VALID = {"auto", "curl_cffi", "httpx"}
+        backend = _normalize_required_arg(backend, "backend")
         if backend not in _VALID:
             console.print(f"[red]无效的后端: {backend}，可选: {', '.join(_VALID)}[/red]")
             raise typer.Exit(1)
         sc.http_backend = backend
         modified = True
     if base_url is not None:
-        sc.base_url = base_url if base_url else None
+        sc.base_url = _normalize_base_url(base_url)
         modified = True
     if api_key is not None:
         sc.api_key = api_key if api_key else None
@@ -341,16 +390,16 @@ def config_source(
     if meta.package_extra:
         console.print(f"  Extra: {meta.package_extra}")
     console.print(f"  启用: {'✅' if sc.enabled else '🚫'}")
-    console.print(f"  代理: {sc.proxy}")
+    console.print(f"  代理: {redact_cli_text(sc.proxy)}")
     console.print(f"  后端: {sc.http_backend}")
     if sc.base_url:
-        console.print(f"  Base URL: {sc.base_url}")
+        console.print(f"  Base URL: {redact_cli_text(sc.base_url)}")
     has_key = has_configured_credentials(cfg, name, meta)
     console.print(f"  API Key: {'✅ 已配置' if has_key else '⬜ 未配置'}")
     if sc.headers:
-        console.print(f"  Headers: {json.dumps(sc.headers)}")
+        console.print(f"  Headers: {_redacted_json(sc.headers)}")
     if sc.params:
-        console.print(f"  Params: {json.dumps(sc.params)}")
+        console.print(f"  Params: {_redacted_json(sc.params)}")
 
 
 @config_app.command("proxy")
@@ -375,7 +424,7 @@ def config_proxy(
             cfg.proxy = validated
             modified = True
         except ValueError as e:
-            console.print(f"[red]代理 URL 无效: {e}[/red]")
+            console.print(f"[red]代理 URL 无效: {redact_cli_text(e)}[/red]")
             raise typer.Exit(1)
 
     if clear_proxy:
@@ -383,21 +432,23 @@ def config_proxy(
         modified = True
 
     if add_pool is not None:
+        add_pool = _normalize_required_arg(add_pool, "add_pool")
         try:
             validated = _validate_proxy_url(add_pool)
             if validated and validated not in cfg.proxy_pool:
                 cfg.proxy_pool.append(validated)
                 modified = True
         except ValueError as e:
-            console.print(f"[red]代理池 URL 无效: {e}[/red]")
+            console.print(f"[red]代理池 URL 无效: {redact_cli_text(e)}[/red]")
             raise typer.Exit(1)
 
     if remove_pool is not None:
+        remove_pool = _normalize_required_arg(remove_pool, "remove_pool")
         if remove_pool in cfg.proxy_pool:
             cfg.proxy_pool.remove(remove_pool)
             modified = True
         else:
-            console.print(f"[yellow]代理池中未找到: {remove_pool}[/yellow]")
+            console.print(f"[yellow]代理池中未找到: {redact_cli_text(remove_pool)}[/yellow]")
 
     if clear_pool:
         cfg.proxy_pool = []
@@ -408,11 +459,11 @@ def config_proxy(
         console.print("[yellow]⚠ 运行时修改仅当前进程有效。如需持久化请修改 souwen.yaml[/yellow]")
 
     console.print("\n[bold]📡 全局代理配置[/bold]")
-    console.print(f"  代理: {cfg.proxy or '[dim]未设置[/dim]'}")
+    console.print(f"  代理: {redact_cli_text(cfg.proxy) if cfg.proxy else '[dim]未设置[/dim]'}")
     if cfg.proxy_pool:
         console.print(f"  代理池 ({len(cfg.proxy_pool)} 个):")
         for i, p in enumerate(cfg.proxy_pool, 1):
-            console.print(f"    {i}. {p}")
+            console.print(f"    {i}. {redact_cli_text(p)}")
     else:
         console.print("  代理池: [dim]空[/dim]")
 

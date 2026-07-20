@@ -1,0 +1,1044 @@
+name: Release candidate
+
+run-name: Release candidate ${{ inputs.version }} @ ${{ inputs.candidate_sha }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: 'Exactly 40 lowercase hexadecimal characters; no branch or tag names'
+        required: true
+        type: string
+      version:
+        description: 'PEP 440 project version, for example 2.0.0rc1'
+        required: true
+        type: string
+      publish:
+        description: 'Create the v<version> tag and GitHub Release after every gate passes'
+        required: true
+        default: false
+        type: boolean
+      deploy_hfs:
+        description: 'Promote the exact candidate to HF Space and require live readback'
+        required: true
+        default: false
+        type: boolean
+
+concurrency:
+  group: release-candidate-${{ inputs.candidate_sha }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    name: Validate immutable candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      candidate_sha: ${{ steps.contract.outputs.candidate_sha }}
+      version: ${{ steps.contract.outputs.version }}
+      tag: ${{ steps.contract.outputs.tag }}
+      verifier_sha: ${{ steps.contract.outputs.verifier_sha }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate candidate trust, SHA, version, and promotion controls
+        id: contract
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          VERSION: ${{ inputs.version }}
+          PUBLISH: ${{ inputs.publish }}
+          DEPLOY_HFS: ${{ inputs.deploy_hfs }}
+          WORKFLOW_REF: ${{ github.ref }}
+          WORKFLOW_SHA: ${{ github.workflow_sha }}
+        run: |
+          python3 -I - <<'PY'
+          import os
+          import json
+          import re
+          import subprocess
+          import tomllib
+
+          candidate = os.environ['CANDIDATE_SHA']
+          version = os.environ['VERSION']
+          publish = os.environ['PUBLISH']
+          deploy_hfs = os.environ['DEPLOY_HFS']
+          workflow_ref = os.environ['WORKFLOW_REF']
+          workflow_sha = os.environ['WORKFLOW_SHA']
+
+          if re.fullmatch(r'[0-9a-f]{40}', candidate) is None:
+              raise SystemExit('candidate_sha must be exactly 40 lowercase hexadecimal characters')
+          if re.fullmatch(
+              r'(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)'
+              r'(?:a|b|rc)[0-9]+',
+              version,
+          ) is None:
+              raise SystemExit(f'version is not an accepted prerelease candidate: {version!r}')
+          if publish not in {'true', 'false'} or deploy_hfs not in {'true', 'false'}:
+              raise SystemExit('publish and deploy_hfs must be typed booleans')
+          if publish == 'true' and deploy_hfs != 'true':
+              raise SystemExit('publish=true requires deploy_hfs=true and a successful live promotion')
+
+          head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          object_type = subprocess.check_output(
+              ['git', 'cat-file', '-t', candidate], text=True
+          ).strip()
+          if head != candidate or object_type != 'commit':
+              raise SystemExit(
+                  f'immutable checkout failed: head={head}, type={object_type}, expected={candidate}'
+              )
+
+          subprocess.run(['git', 'fetch', '--no-tags', 'origin', 'main'], check=True)
+          origin_main = subprocess.check_output(
+              ['git', 'rev-parse', 'refs/remotes/origin/main'], text=True
+          ).strip()
+          if workflow_ref != 'refs/heads/main' or workflow_sha != origin_main:
+              raise SystemExit(
+                  'release-candidate must run from the current origin/main control plane'
+              )
+          if subprocess.run(
+              ['git', 'merge-base', '--is-ancestor', origin_main, candidate],
+              check=False,
+          ).returncode != 0:
+              raise SystemExit(
+                  'candidate must descend from the current origin/main; rebase or merge main first'
+              )
+          if publish == 'true' or deploy_hfs == 'true':
+              if candidate != origin_main:
+                  raise SystemExit(
+                      'publish/deploy requires candidate_sha to equal the current origin/main'
+                  )
+
+          with open('pyproject.toml', 'rb') as file:
+              project_version = tomllib.load(file)['project']['version']
+          if project_version != version:
+              raise SystemExit(
+                  f'version mismatch: input={version!r}, pyproject={project_version!r}'
+              )
+
+          panel = json.loads(open('panel/package.json', encoding='utf-8').read())
+          panel_lock = json.loads(open('panel/package-lock.json', encoding='utf-8').read())
+          normalized_panel = re.sub(r'-(a|b|rc)', r'\1', panel['version'])
+          if normalized_panel != version:
+              raise SystemExit(
+                  f'version mismatch: input={version!r}, panel={panel["version"]!r}'
+              )
+          if panel_lock['version'] != panel['version']:
+              raise SystemExit('panel package.json and package-lock.json versions differ')
+          if panel_lock['packages']['']['version'] != panel['version']:
+              raise SystemExit('panel lock root package version differs')
+
+          for readme_name in ('README.md', 'README.en.md'):
+              readme = open(readme_name, encoding='utf-8').read()
+              if f'version-{version}' not in readme:
+                  raise SystemExit(f'{readme_name} does not declare version {version}')
+
+          tag = f'v{version}'
+          if publish == 'true':
+              exists = subprocess.run(
+                  ['git', 'ls-remote', '--exit-code', '--tags', 'origin', f'refs/tags/{tag}'],
+                  stdout=subprocess.DEVNULL,
+                  stderr=subprocess.DEVNULL,
+              ).returncode == 0
+              if exists:
+                  raise SystemExit(f'refusing to overwrite existing tag {tag}')
+
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
+              output.write(f'candidate_sha={candidate}\n')
+              output.write(f'version={version}\n')
+              output.write(f'tag={tag}\n')
+              output.write(f'verifier_sha={workflow_sha}\n')
+          print(
+              f'validated candidate={candidate}, version={version}, '
+              f'origin_main={origin_main}, workflow_sha={workflow_sha}, '
+              f'publish={publish}, deploy_hfs={deploy_hfs}'
+          )
+          PY
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install API validation surface after trust checks
+        run: pip install -e ".[edition-pro]"
+
+      - name: Validate installed runtime and OpenAPI versions
+        env:
+          VERSION: ${{ steps.contract.outputs.version }}
+        run: |
+          python3 - <<'PY'
+          import os
+
+          from souwen import __version__ as runtime_version
+          from souwen.server.app import app
+
+          version = os.environ['VERSION']
+          if runtime_version != version:
+              raise SystemExit(
+                  f'version mismatch: input={version!r}, runtime={runtime_version!r}'
+              )
+          openapi_version = app.openapi().get('info', {}).get('version')
+          if openapi_version != version:
+              raise SystemExit(
+                  f'version mismatch: input={version!r}, OpenAPI={openapi_version!r}'
+              )
+          print(f'validated installed runtime and OpenAPI version {version}')
+          PY
+
+  ci:
+    name: Broad CI, coverage, performance, audit, and container gates
+    needs: validate
+    uses: ./.github/workflows/ci.yml
+    with:
+      candidate_sha: ${{ needs.validate.outputs.candidate_sha }}
+
+  source:
+    name: V2 source and Panel gates
+    needs: validate
+    uses: ./.github/workflows/v2-ci.yml
+    with:
+      candidate_sha: ${{ needs.validate.outputs.candidate_sha }}
+
+  external:
+    name: External release smoke
+    needs: validate
+    uses: ./.github/workflows/external-smoke-gate.yml
+    with:
+      candidate_sha: ${{ needs.validate.outputs.candidate_sha }}
+      suite: release
+
+  pyinstaller:
+    name: PyInstaller 12-binary matrix
+    needs: validate
+    uses: ./.github/workflows/build-pyinstaller.yml
+    with:
+      candidate_sha: ${{ needs.validate.outputs.candidate_sha }}
+      build_tier: all
+      platforms: all
+
+  nuitka:
+    name: Nuitka 12-binary matrix
+    needs: validate
+    uses: ./.github/workflows/build-nuitka.yml
+    with:
+      candidate_sha: ${{ needs.validate.outputs.candidate_sha }}
+      build_tier: all
+      platforms: all
+
+  package:
+    name: Python distributions and SBOMs
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.validate.outputs.candidate_sha }}
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: panel/package-lock.json
+
+      - name: Build and validate Panel
+        working-directory: panel
+        run: |
+          npm ci
+          npm run build:local
+          npm run check:artifact
+
+      - name: Generate Panel CycloneDX SBOM
+        working-directory: panel
+        run: npm sbom --package-lock-only --sbom-format cyclonedx > ../panel-sbom.cdx.json
+
+      - name: Build wheel and sdist
+        run: |
+          python -m pip install --upgrade pip build cyclonedx-bom
+          python -m build
+          test "$(find dist -maxdepth 1 -name 'souwen-*.whl' | wc -l)" -eq 1
+          test "$(find dist -maxdepth 1 -name 'souwen-*.tar.gz' | wc -l)" -eq 1
+
+      - name: Generate Python environment CycloneDX SBOM
+        run: |
+          wheel="$(find "$GITHUB_WORKSPACE/dist" -maxdepth 1 -name 'souwen-*.whl' -print -quit)"
+          python -m venv "$RUNNER_TEMP/python-sbom"
+          "$RUNNER_TEMP/python-sbom/bin/python" -m pip install --upgrade pip cyclonedx-bom
+          "$RUNNER_TEMP/python-sbom/bin/python" -m pip install "${wheel}[edition-full]"
+          "$RUNNER_TEMP/python-sbom/bin/cyclonedx-py" environment \
+            --output-format JSON \
+            --output-file python-sbom.cdx.json
+
+      - name: Upload Python distributions
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-python-distributions
+          path: dist/
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload release SBOMs
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-sboms
+          path: |
+            python-sbom.cdx.json
+            panel-sbom.cdx.json
+          if-no-files-found: error
+          retention-days: 30
+
+  clean-install:
+    name: Clean install (${{ matrix.extra }})
+    needs: [validate, package]
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { extra: edition-basic, edition: basic }
+          - { extra: edition-pro, edition: pro }
+          - { extra: edition-full, edition: full }
+          - { extra: edition-full-crawl4ai, edition: full }
+          - { extra: edition-full-scrapling, edition: full }
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.validate.outputs.candidate_sha }}
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-python-distributions
+          path: dist
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install and exercise the immutable wheel
+        env:
+          SOUWEN_EDITION: ${{ matrix.edition }}
+        run: |
+          wheel="$(find "$GITHUB_WORKSPACE/dist" -maxdepth 1 -name 'souwen-*.whl' -print -quit)"
+          test -n "$wheel"
+          python -m venv "$RUNNER_TEMP/clean-install"
+          "$RUNNER_TEMP/clean-install/bin/python" -m pip install --upgrade pip
+          "$RUNNER_TEMP/clean-install/bin/python" -m pip install "${wheel}[${{ matrix.extra }}]"
+          "$RUNNER_TEMP/clean-install/bin/python" -m pip check
+          HOME="$RUNNER_TEMP/clean-home" "$RUNNER_TEMP/clean-install/bin/souwen" --version
+          HOME="$RUNNER_TEMP/clean-home" "$RUNNER_TEMP/clean-install/bin/souwen" sources
+
+      - name: Probe isolated edition and package contract
+        uses: ./.github/actions/clean-wheel-smoke
+        env:
+          HOME: ${{ runner.temp }}/clean-home
+          SOUWEN_EDITION: ${{ matrix.edition }}
+        with:
+          python: ${{ runner.temp }}/clean-install/bin/python
+          extra: ${{ matrix.extra }}
+          edition: ${{ matrix.edition }}
+          candidate-sha: ${{ needs.validate.outputs.candidate_sha }}
+          report-json: artifacts/clean-install-${{ matrix.extra }}.json
+          freeze-report: artifacts/clean-install-${{ matrix.extra }}-freeze.txt
+
+      - name: Upload clean-install evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-clean-install-${{ matrix.extra }}
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 30
+
+  container:
+    name: Candidate container (${{ matrix.kind }})
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { kind: root, dockerfile: Dockerfile, context: '.', port: 49265 }
+          - { kind: hfs, dockerfile: cloud/hfs/Dockerfile, context: cloud/hfs, port: 49265 }
+          - { kind: modelscope, dockerfile: cloud/modelscope/Dockerfile, context: cloud/modelscope, port: 7860 }
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.validate.outputs.candidate_sha }}
+
+      - name: Materialize exact candidate as a local Git endpoint
+        if: matrix.kind != 'root'
+        run: |
+          bare="$RUNNER_TEMP/souwen.git"
+          git init --bare "$bare"
+          git push "$bare" HEAD:refs/heads/release-candidate
+          git --git-dir="$bare" update-server-info
+          nohup git daemon --reuseaddr --export-all \
+            --base-path="$RUNNER_TEMP" --listen=0.0.0.0 --port=9418 \
+            >"$RUNNER_TEMP/git-daemon.log" 2>&1 &
+          echo "$!" > "$RUNNER_TEMP/git-daemon.pid"
+          for _ in $(seq 1 20); do
+            git ls-remote git://127.0.0.1:9418/souwen.git release-candidate >/dev/null && exit 0
+            sleep 1
+          done
+          exit 1
+
+      - name: Build root image
+        if: matrix.kind == 'root'
+        run: |
+          docker build \
+            -f "${{ matrix.dockerfile }}" \
+            --build-arg SOUWEN_SOURCE_SHA="${{ needs.validate.outputs.candidate_sha }}" \
+            -t "souwen-rc:${{ matrix.kind }}" \
+            "${{ matrix.context }}"
+
+      - name: Build cloud wrapper from exact candidate
+        if: matrix.kind != 'root'
+        run: |
+          docker build --network host \
+            -f "${{ matrix.dockerfile }}" \
+            --build-arg SOUWEN_REPO=git://127.0.0.1:9418/souwen.git \
+            --build-arg SOUWEN_REF="${{ needs.validate.outputs.candidate_sha }}" \
+            --build-arg WITH_WEB2PDF=0 \
+            -t "souwen-rc:${{ matrix.kind }}" \
+            "${{ matrix.context }}"
+
+      - name: Smoke candidate image
+        run: |
+          docker run -d --name "souwen-rc-${{ matrix.kind }}" \
+            -p "127.0.0.1:${{ matrix.port }}:${{ matrix.port }}" \
+            -e SOUWEN_EXPOSE_DOCS=1 \
+            -e WARP_ENABLED=0 \
+            "souwen-rc:${{ matrix.kind }}"
+          for _ in $(seq 1 90); do
+            if curl -fsS "http://127.0.0.1:${{ matrix.port }}/health" > health.json; then
+              jq -e \
+                --arg version "${{ needs.validate.outputs.version }}" \
+                --arg source_sha "${{ needs.validate.outputs.candidate_sha }}" \
+                '.status == "ok" and .version == $version and .source_sha == $source_sha' \
+                health.json >/dev/null
+              curl -fsS "http://127.0.0.1:${{ matrix.port }}/readiness" | \
+                jq -e \
+                  --arg version "${{ needs.validate.outputs.version }}" \
+                  --arg source_sha "${{ needs.validate.outputs.candidate_sha }}" \
+                  '.ready == true and .version == $version and .source_sha == $source_sha' \
+                  >/dev/null
+              curl -fsS "http://127.0.0.1:${{ matrix.port }}/panel" | grep -Eiq 'id="root"|SouWen|souwen'
+              curl -fsS "http://127.0.0.1:${{ matrix.port }}/openapi.json" | jq -e '.info.title == "SouWen API"' >/dev/null
+              admin_status="$(curl -sS -o /dev/null -w '%{http_code}' \
+                "http://127.0.0.1:${{ matrix.port }}/api/v1/admin/ping")"
+              test "$admin_status" = 401
+              image_digest="$(docker image inspect \
+                "souwen-rc:${{ matrix.kind }}" --format '{{.Id}}')"
+              printf '{"kind":"%s","candidate_sha":"%s","version":"%s","image_digest":"%s","admin_locked":true,"status":"PASS"}\n' \
+                "${{ matrix.kind }}" \
+                "${{ needs.validate.outputs.candidate_sha }}" \
+                "${{ needs.validate.outputs.version }}" \
+                "$image_digest" \
+                > "container-${{ matrix.kind }}.json"
+              exit 0
+            fi
+            sleep 2
+          done
+          exit 1
+
+      - name: Show container logs
+        if: always()
+        run: docker logs "souwen-rc-${{ matrix.kind }}" || true
+
+      - name: Cleanup container and local Git endpoint
+        if: always()
+        run: |
+          docker rm -f "souwen-rc-${{ matrix.kind }}" || true
+          if [ -f "$RUNNER_TEMP/git-daemon.pid" ]; then
+            kill "$(cat "$RUNNER_TEMP/git-daemon.pid")" || true
+          fi
+
+      - name: Upload container smoke report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-container-smoke-${{ matrix.kind }}
+          path: container-${{ matrix.kind }}.json
+          if-no-files-found: warn
+          retention-days: 30
+
+  hfs:
+    name: Candidate-only HF Space promotion
+    needs: [validate, ci, source, external, pyinstaller, nuitka, package, clean-install, container]
+    if: ${{ inputs.deploy_hfs }}
+    uses: ./.github/workflows/deploy-hf-space.yml
+    with:
+      candidate_sha: ${{ needs.validate.outputs.candidate_sha }}
+      version: ${{ needs.validate.outputs.version }}
+      verifier_sha: ${{ needs.validate.outputs.verifier_sha }}
+      deploy_hfs: true
+
+  assemble:
+    name: Verify and attest release bundle
+    needs: [validate, ci, source, external, pyinstaller, nuitka, package, clean-install, container, hfs]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Require every requested gate
+        env:
+          NEEDS_JSON: ${{ toJson(needs) }}
+          DEPLOY_HFS: ${{ inputs.deploy_hfs }}
+        run: |
+          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<<"$NEEDS_JSON" | tee "$GITHUB_STEP_SUMMARY"
+          jq -e --arg deploy "$DEPLOY_HFS" '
+            all(
+              to_entries[];
+              if .key == "hfs" and $deploy == "false"
+              then .value.result == "skipped"
+              else .value.result == "success"
+              end
+            )
+          ' <<<"$NEEDS_JSON" >/dev/null
+
+      - name: Download PyInstaller Linux binaries
+        uses: actions/download-artifact@v8
+        with:
+          pattern: souwen-linux-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Download PyInstaller macOS binaries
+        uses: actions/download-artifact@v8
+        with:
+          pattern: souwen-macos-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Download PyInstaller Windows binaries
+        uses: actions/download-artifact@v8
+        with:
+          pattern: souwen-windows-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Download Nuitka binaries
+        uses: actions/download-artifact@v8
+        with:
+          pattern: souwen-nuitka-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Download Python distributions
+        uses: actions/download-artifact@v8
+        with:
+          name: release-python-distributions
+          path: release-assets
+
+      - name: Download SBOMs
+        uses: actions/download-artifact@v8
+        with:
+          name: release-sboms
+          path: release-assets
+
+      - name: Download binary smoke evidence
+        uses: actions/download-artifact@v8
+        with:
+          pattern: binary-smoke-*
+          path: release-evidence
+          merge-multiple: true
+
+      - name: Download container smoke evidence
+        uses: actions/download-artifact@v8
+        with:
+          pattern: release-container-smoke-*
+          path: release-evidence
+          merge-multiple: true
+
+      - name: Download clean-install evidence
+        uses: actions/download-artifact@v8
+        with:
+          pattern: release-clean-install-*
+          path: release-evidence
+          merge-multiple: true
+
+      - name: Download external smoke evidence
+        uses: actions/download-artifact@v8
+        with:
+          pattern: external-gate-*-report
+          path: release-evidence
+          merge-multiple: true
+
+      - name: Download V2 and CI evidence
+        uses: actions/download-artifact@v8
+        with:
+          pattern: v2-*-report
+          path: release-evidence
+          merge-multiple: true
+
+      - name: Download CI machine-readable evidence
+        uses: actions/download-artifact@v8
+        with:
+          pattern: ci-*-report
+          path: release-evidence
+          merge-multiple: true
+
+      - name: Download targeted coverage evidence
+        uses: actions/download-artifact@v8
+        with:
+          name: ci-targeted-coverage
+          path: release-evidence
+
+      - name: Download full runtime profile evidence
+        uses: actions/download-artifact@v8
+        with:
+          name: runtime-profile-full-report
+          path: release-evidence
+
+      - name: Download optional HFS live evidence
+        if: ${{ inputs.deploy_hfs }}
+        uses: actions/download-artifact@v8
+        with:
+          pattern: hf-space-cd-*-report
+          path: release-evidence
+          merge-multiple: true
+
+      - name: Verify 24 binaries and write release manifest
+        env:
+          CANDIDATE_SHA: ${{ needs.validate.outputs.candidate_sha }}
+          VERSION: ${{ needs.validate.outputs.version }}
+          TAG: ${{ needs.validate.outputs.tag }}
+          PUBLISH: ${{ inputs.publish }}
+          DEPLOY_HFS: ${{ inputs.deploy_hfs }}
+          NEEDS_JSON: ${{ toJson(needs) }}
+          VERIFIER_SHA: ${{ needs.validate.outputs.verifier_sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          HFS_SPACE_COMMIT_SHA: ${{ needs.hfs.outputs.space_commit_sha }}
+          HFS_PROMOTION_CHANGED: ${{ needs.hfs.outputs.promotion_changed }}
+          HFS_PRIOR_SPACE_COMMIT_SHA: ${{ needs.hfs.outputs.prior_space_commit_sha }}
+          HFS_PRIOR_RUNTIME_COMMIT_SHA: ${{ needs.hfs.outputs.prior_runtime_commit_sha }}
+          HFS_PRIOR_SOUWEN_REF: ${{ needs.hfs.outputs.prior_souwen_ref }}
+          HFS_PRIOR_RUNTIME_STAGE: ${{ needs.hfs.outputs.prior_runtime_stage }}
+        run: |
+          tar -czf release-assets/release-evidence.tar.gz release-evidence
+          python3 - <<'PY'
+          from datetime import datetime, timezone
+          import hashlib
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          root = Path('release-assets')
+          evidence_root = Path('release-evidence')
+          profiles = ('basic-cli', 'pro-cli', 'full-cli')
+          platforms = (
+              ('linux-amd64', ''),
+              ('linux-arm64', ''),
+              ('macos-arm64', ''),
+              ('windows-amd64', '.exe'),
+          )
+          expected = {
+              f'{prefix}{platform}-{profile}{suffix}'
+              for prefix in ('souwen-', 'souwen-nuitka-')
+              for platform, suffix in platforms
+              for profile in profiles
+          }
+          actual = {
+              path.name
+              for path in root.iterdir()
+              if path.is_file()
+              and (path.name.startswith('souwen-nuitka-') or path.name.startswith('souwen-'))
+              and not path.name.endswith(('.whl', '.tar.gz'))
+          }
+          if actual != expected:
+              raise SystemExit(
+                  'binary inventory mismatch: '
+                  f'missing={sorted(expected - actual)}, unexpected={sorted(actual - expected)}'
+              )
+          if len(actual) != 24:
+              raise SystemExit(f'expected exactly 24 binaries, got {len(actual)}')
+
+          run_url = os.environ['RUN_URL']
+          needs = json.loads(os.environ['NEEDS_JSON'])
+
+          def gate_status(*job_ids: str) -> str:
+              results = [needs[job_id]['result'] for job_id in job_ids]
+              if all(result == 'success' for result in results):
+                  return 'PASS'
+              if any(result in {'failure', 'cancelled'} for result in results):
+                  return 'FAIL'
+              return 'NOT_RUN'
+
+          gate_specs = [
+              ('worktree', ('validate',), ['immutable candidate checkout']),
+              ('python', ('ci', 'source'), ['release-evidence.tar.gz']),
+              ('coverage', ('ci', 'source'), ['release-evidence.tar.gz']),
+              ('panel', ('source',), ['release-evidence.tar.gz']),
+              ('docs', ('source',), ['release-evidence.tar.gz']),
+              ('clean_install', ('clean-install',), ['release-evidence.tar.gz']),
+              ('mcp_edition', ('clean-install', 'pyinstaller', 'nuitka'), ['release-evidence.tar.gz']),
+              ('package_contract', ('package',), ['wheel', 'sdist', 'SBOMs']),
+              ('functional_fixtures', ('external',), ['release-evidence.tar.gz']),
+              ('live_zero_key', ('external',), ['release-evidence.tar.gz']),
+              ('containers', ('container', 'ci'), ['release-evidence.tar.gz']),
+              ('binary_matrix', ('pyinstaller', 'nuitka'), ['release-evidence.tar.gz']),
+              ('security', ('ci',), ['pip-audit', 'npm audit', 'security tests']),
+              ('remote_ci', ('ci', 'source', 'external', 'pyinstaller', 'nuitka'), ['reusable workflow jobs']),
+              ('hfs_promotion', ('hfs',), ['HF Space live evidence']),
+              ('rc_assets', ('package', 'pyinstaller', 'nuitka'), ['release bundle inventory']),
+          ]
+          gates = []
+          for gate_id, job_ids, evidence in gate_specs:
+              requested = gate_id != 'hfs_promotion' or os.environ['DEPLOY_HFS'] == 'true'
+              gates.append(
+                  {
+                      'id': gate_id,
+                      'status': gate_status(*job_ids) if requested else 'NOT_RUN',
+                      'required': requested,
+                      'run_urls': [run_url],
+                      'evidence': evidence,
+                      'notes': [] if requested else ['deploy_hfs=false; promotion not requested'],
+                  }
+              )
+
+          artifacts = []
+          for path in sorted(item for item in root.iterdir() if item.is_file()):
+              digest = hashlib.sha256(path.read_bytes()).hexdigest()
+              if path.name.endswith('.whl'):
+                  kind = 'wheel'
+              elif path.name.startswith('souwen-') and path.name.endswith('.tar.gz'):
+                  kind = 'sdist'
+              elif path.name.endswith('.cdx.json'):
+                  kind = 'sbom'
+              elif path.name in actual:
+                  kind = 'binary'
+              else:
+                  kind = 'report'
+              python_subject = kind in {'wheel', 'sdist', 'binary'}
+              artifacts.append(
+                  {
+                      'name': path.name,
+                      'kind': kind,
+                      'size': path.stat().st_size,
+                      'sha256': digest,
+                      'producer_run_url': run_url,
+                      'sbom': 'python-sbom.cdx.json' if python_subject else None,
+                      'provenance': f'{run_url}#attestations',
+                      'source_sha': os.environ['CANDIDATE_SHA'],
+                      'embedded_provenance': kind == 'binary',
+                  }
+              )
+
+          containers = []
+          for path in sorted(evidence_root.glob('container-*.json')):
+              payload = json.loads(path.read_text(encoding='utf-8'))
+              if payload.get('candidate_sha') != os.environ['CANDIDATE_SHA']:
+                  raise SystemExit(f'container evidence SHA mismatch: {path}')
+              digest = payload.get('image_digest', '')
+              if not isinstance(digest, str) or not digest.startswith('sha256:'):
+                  raise SystemExit(f'container digest missing: {path}')
+              containers.append(
+                  {
+                      'surface': payload['kind'],
+                      'image_digest': digest,
+                      'source_sha': payload['candidate_sha'],
+                      'report': path.name,
+                  }
+              )
+          if {item['surface'] for item in containers} != {'root', 'hfs', 'modelscope'}:
+              raise SystemExit(f'container inventory incomplete: {containers}')
+
+          remote_workflows = {
+              'ci': 'CI',
+              'source': 'V2 CI',
+              'external': 'External Smoke Gate',
+              'pyinstaller': 'Build with PyInstaller',
+              'nuitka': 'Build with Nuitka',
+          }
+          if os.environ['DEPLOY_HFS'] == 'true':
+              remote_workflows['hfs'] = 'HF Space CD'
+          remote_runs = [
+              {
+                  'workflow': workflow,
+                  'run_url': run_url,
+                  'head_sha': os.environ['VERIFIER_SHA'],
+                  'candidate_sha': os.environ['CANDIDATE_SHA'],
+                  'conclusion': needs[job_id]['result'],
+              }
+              for job_id, workflow in remote_workflows.items()
+          ]
+
+          hfs_promoted = os.environ['DEPLOY_HFS'] == 'true'
+          hfs_space_sha = os.environ.get('HFS_SPACE_COMMIT_SHA') or None
+          if hfs_promoted and not hfs_space_sha:
+              raise SystemExit('HFS promotion succeeded without a Space commit output')
+          hfs_prior_space_sha = os.environ.get('HFS_PRIOR_SPACE_COMMIT_SHA') or None
+          hfs_prior_runtime_sha = os.environ.get('HFS_PRIOR_RUNTIME_COMMIT_SHA') or None
+          hfs_prior_source_sha = os.environ.get('HFS_PRIOR_SOUWEN_REF') or None
+          hfs_prior_runtime_stage = os.environ.get('HFS_PRIOR_RUNTIME_STAGE') or None
+          hfs_promotion_changed_raw = os.environ.get('HFS_PROMOTION_CHANGED') or None
+          if hfs_promoted:
+              immutable_hfs_shas = {
+                  'repo_sha': hfs_space_sha,
+                  'prior_repo_sha': hfs_prior_space_sha,
+                  'prior_runtime_sha': hfs_prior_runtime_sha,
+                  'prior_source_sha': hfs_prior_source_sha,
+              }
+              invalid_hfs_shas = {
+                  name: value
+                  for name, value in immutable_hfs_shas.items()
+                  if not isinstance(value, str) or re.fullmatch(r'[0-9a-f]{40}', value) is None
+              }
+              if invalid_hfs_shas:
+                  raise SystemExit(f'HFS promotion evidence has invalid SHA fields: {invalid_hfs_shas}')
+              if hfs_prior_space_sha != hfs_prior_runtime_sha:
+                  raise SystemExit(
+                      'HFS rollback evidence mismatch: prior repo and runtime SHA differ'
+                  )
+              if not hfs_prior_runtime_stage:
+                  raise SystemExit('HFS rollback evidence is missing the prior runtime stage')
+              if not hfs_prior_runtime_stage.upper().endswith(('RUNNING', 'SLEEPING')):
+                  raise SystemExit(
+                      'HFS rollback evidence has an unstable prior runtime stage: '
+                      f'{hfs_prior_runtime_stage}'
+                  )
+              if hfs_promotion_changed_raw not in {'true', 'false'}:
+                  raise SystemExit('HFS promotion evidence is missing promotion_changed')
+          manifest = {
+              'schema_version': 1,
+              'version': os.environ['VERSION'],
+              'candidate_sha': os.environ['CANDIDATE_SHA'],
+              'candidate_ref': f"sha:{os.environ['CANDIDATE_SHA']}",
+              'verifier_sha': os.environ['VERIFIER_SHA'],
+              'created_at': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
+              'tag': os.environ['TAG'],
+              'publish': os.environ['PUBLISH'] == 'true',
+              'deploy_hfs': os.environ['DEPLOY_HFS'] == 'true',
+              'binary_count': len(actual),
+              'bundle_envelope': {
+                  'manifest': 'release-manifest.json',
+                  'checksums': 'SHA256SUMS',
+                  'checksums_cover': 'all release assets except SHA256SUMS itself',
+                  'artifacts_scope': 'payload assets; envelope files are excluded to avoid self-hash recursion',
+              },
+              'gates': gates,
+              'remote_runs': remote_runs,
+              'artifacts': artifacts,
+              'containers': containers,
+              'hfs': {
+                  'promoted': hfs_promoted,
+                  'approval_reference': None,
+                  'environment': 'hf' if hfs_promoted else None,
+                  'environment_run_url': run_url if hfs_promoted else None,
+                  'repo_sha': hfs_space_sha,
+                  'runtime_sha': hfs_space_sha,
+                  'source_sha': os.environ['CANDIDATE_SHA'] if hfs_promoted else None,
+                  'promotion_changed': (
+                      hfs_promotion_changed_raw == 'true'
+                      if hfs_promoted
+                      else None
+                  ),
+                  'prior_repo_sha': hfs_prior_space_sha,
+                  'prior_runtime_sha': hfs_prior_runtime_sha,
+                  'prior_source_sha': hfs_prior_source_sha,
+                  'prior_runtime_stage': hfs_prior_runtime_stage,
+                  'surface_report': 'hf-space-cd-surface-report.json' if hfs_promoted else None,
+                  'capability_report': 'hf-space-cd-capability-report.json' if hfs_promoted else None,
+              },
+              'exceptions': [],
+          }
+          (root / 'release-manifest.json').write_text(
+              json.dumps(manifest, indent=2, sort_keys=True) + '\n', encoding='utf-8'
+          )
+          PY
+          python3 - <<'PY'
+          import hashlib
+          import json
+          from pathlib import Path
+
+          root = Path('release-assets')
+          manifest_path = root / 'release-manifest.json'
+          manifest = json.loads(manifest_path.read_text(encoding='utf-8'))
+          payload_names = {item['name'] for item in manifest['artifacts']}
+          envelope_names = {'release-manifest.json', 'SHA256SUMS'}
+
+          before_checksums = {path.name for path in root.iterdir() if path.is_file()}
+          expected_before_checksums = payload_names | {'release-manifest.json'}
+          if before_checksums != expected_before_checksums:
+              raise SystemExit(
+                  'pre-checksum asset inventory mismatch: '
+                  f'missing={sorted(expected_before_checksums - before_checksums)}, '
+                  f'unexpected={sorted(before_checksums - expected_before_checksums)}'
+              )
+
+          checksum_lines = []
+          for path in sorted(item for item in root.iterdir() if item.is_file()):
+              digest = hashlib.sha256(path.read_bytes()).hexdigest()
+              checksum_lines.append(f'{digest}  {path.name}')
+          (root / 'SHA256SUMS').write_text(
+              '\n'.join(checksum_lines) + '\n', encoding='utf-8'
+          )
+
+          final_names = {path.name for path in root.iterdir() if path.is_file()}
+          expected_final = payload_names | envelope_names
+          if final_names != expected_final:
+              raise SystemExit(
+                  'final release asset inventory mismatch: '
+                  f'missing={sorted(expected_final - final_names)}, '
+                  f'unexpected={sorted(final_names - expected_final)}'
+              )
+          if len(checksum_lines) != len(final_names) - 1:
+              raise SystemExit('SHA256SUMS must cover every asset except itself')
+          PY
+          ( cd release-assets && sha256sum -c SHA256SUMS )
+
+      - name: Attest release assets
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: release-assets/*
+
+      - name: Upload immutable release candidate bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: release-candidate-${{ needs.validate.outputs.version }}-${{ needs.validate.outputs.candidate_sha }}
+          path: release-assets/
+          if-no-files-found: error
+          retention-days: 90
+
+  publish:
+    name: Publish GitHub Release
+    needs: [validate, assemble]
+    if: ${{ inputs.publish }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment:
+      name: release
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.validate.outputs.candidate_sha }}
+          fetch-depth: 0
+
+      - uses: actions/download-artifact@v8
+        with:
+          name: release-candidate-${{ needs.validate.outputs.version }}-${{ needs.validate.outputs.candidate_sha }}
+          path: release-assets
+
+      - name: Create tag and GitHub Release from the exact candidate
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.validate.outputs.tag }}
+          CANDIDATE_SHA: ${{ needs.validate.outputs.candidate_sha }}
+          VERSION: ${{ needs.validate.outputs.version }}
+        run: |
+          set -Eeuo pipefail
+
+          report_partial_release() {
+            status=$?
+            trap - ERR
+            remote_tag_state=unknown
+            if remote_tag="$(git ls-remote --tags origin "refs/tags/$TAG")"; then
+              remote_tag_state="${remote_tag:-absent}"
+            fi
+            release_state=unknown
+            if release_readback="$(
+              gh release view "$TAG" --json isDraft,isPrerelease,url 2>/dev/null
+            )"; then
+              release_state="$release_readback"
+            fi
+            heading="Publish stopped; remote release state requires review"
+            if {
+              [ "$remote_tag_state" != absent ] && [ "$remote_tag_state" != unknown ]
+            } || [ "$release_state" != unknown ]; then
+              heading="Publish stopped after a partial remote write"
+            fi
+            {
+              echo "## $heading"
+              echo
+              echo "- tag: \`$TAG\`"
+              echo "- candidate: \`$CANDIDATE_SHA\`"
+              echo "- remote tag ref: \`$remote_tag_state\`"
+              echo "- release state: \`$release_state\`"
+              echo
+              echo "Do not move or overwrite this tag. Inspect the draft/partial state and use the next RC version."
+            } >> "$GITHUB_STEP_SUMMARY"
+            exit "$status"
+          }
+          trap report_partial_release ERR
+
+          prerelease_args=()
+          if [[ "$VERSION" =~ (a|b|rc)[0-9]+ ]]; then
+            prerelease_args=(--prerelease)
+          fi
+
+          test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
+          git config user.name github-actions[bot]
+          git config user.email 41898282+github-actions[bot]@users.noreply.github.com
+          git tag -a "$TAG" "$CANDIDATE_SHA" -m "SouWen $TAG"
+          git push origin "refs/tags/$TAG"
+
+          cat > release-notes.md <<EOF
+          ## SouWen $TAG
+
+          Release candidate built from immutable source SHA \`$CANDIDATE_SHA\`.
+
+          The attached bundle contains the wheel, sdist, 24 target-native binaries,
+          checksums, Python and Panel SBOMs, and the release evidence manifest.
+          Release assets are covered by native GitHub build attestations. Browser-backed providers remain governed by
+          the attached External Smoke Gate reports. SuperWeb2PDF is installed from
+          the fixed commit and SHA-256-pinned direct reference recorded in package metadata.
+          EOF
+
+          gh release create "$TAG" release-assets/* \
+            --verify-tag \
+            --draft \
+            --title "SouWen $TAG" \
+            --notes-file release-notes.md \
+            "${prerelease_args[@]}"
+
+          peeled="$(git ls-remote --tags origin "refs/tags/$TAG^{}" | awk '{print $1}')"
+          test "$peeled" = "$CANDIDATE_SHA"
+
+          gh release view "$TAG" --json tagName,isDraft,isPrerelease,assets > release-readback.json
+          EXPECT_PRERELEASE=false
+          if [[ "$VERSION" =~ (a|b|rc)[0-9]+ ]]; then
+            EXPECT_PRERELEASE=true
+          fi
+          EXPECT_PRERELEASE="$EXPECT_PRERELEASE" python3 - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          payload = json.loads(Path('release-readback.json').read_text(encoding='utf-8'))
+          expected = sorted(path.name for path in Path('release-assets').iterdir() if path.is_file())
+          actual = sorted(asset['name'] for asset in payload['assets'])
+          if actual != expected:
+              raise SystemExit(
+                  f'release asset readback mismatch: missing={sorted(set(expected) - set(actual))}, '
+                  f'unexpected={sorted(set(actual) - set(expected))}'
+              )
+          if payload['tagName'] != os.environ['TAG'] or payload['isDraft'] is not True:
+              raise SystemExit(f'draft release readback mismatch: {payload}')
+          expected_prerelease = os.environ['EXPECT_PRERELEASE'] == 'true'
+          if payload['isPrerelease'] is not expected_prerelease:
+              raise SystemExit(f'prerelease readback mismatch: {payload}')
+          PY
+
+          gh release edit "$TAG" --draft=false
+          gh release view "$TAG" --json isDraft --jq '.isDraft == false' | grep -qx true
+          trap - ERR

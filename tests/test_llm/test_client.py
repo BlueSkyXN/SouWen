@@ -5,6 +5,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from souwen.core.exceptions import ConfigError, RateLimitError
+from souwen.editions import EditionError
 from souwen.llm import client as llm_client
 from souwen.llm.client import LLMError, _LLMRetriableError, llm_complete
 from souwen.llm.models import LLMMessage
@@ -13,6 +14,7 @@ from souwen.llm.models import LLMMessage
 @pytest.fixture
 def mock_llm_config():
     mock_cfg = MagicMock()
+    mock_cfg.edition = "pro"
     mock_cfg.llm.enabled = True
     mock_cfg.llm.protocol = "openai_chat"
     mock_cfg.llm.get_api_key.return_value = "test-key-123"
@@ -82,6 +84,15 @@ async def test_llm_complete_not_enabled(mock_llm_config):
     mock_llm_config.llm.enabled = False
 
     with pytest.raises(ConfigError):
+        await _call_without_retry([LLMMessage(role="user", content="test")])
+
+
+async def test_llm_complete_basic_edition_rejected_before_enabled_or_key(mock_llm_config):
+    mock_llm_config.edition = "basic"
+    mock_llm_config.llm.enabled = False
+    mock_llm_config.llm.get_api_key.return_value = None
+
+    with pytest.raises(EditionError, match="LLM requires edition=pro"):
         await _call_without_retry([LLMMessage(role="user", content="test")])
 
 

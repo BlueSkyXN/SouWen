@@ -18,6 +18,7 @@ describe('access helpers', () => {
       proxy_admin: false,
       warp_admin: false,
       doctor_full: false,
+      sources_config_read: true,
     }
     expect(canAccessNavItem('/fetch', features, 'user')).toBe(false)
     expect(canAccessNavItem('/config', features, 'user')).toBe(false)
@@ -25,7 +26,8 @@ describe('access helpers', () => {
     expect(canAccessNavItem('/', features, 'user')).toBe(false)
     expect(canAccessPath('/', features, 'user')).toBe(false)
     expect(canAccessPath('/network', features, 'user')).toBe(false)
-    expect(canAccessPath('/sources', features, 'user')).toBe(false)
+    expect(canAccessNavItem('/sources', features, 'user')).toBe(true)
+    expect(canAccessPath('/sources', features, 'user')).toBe(true)
     expect(canAccessPath('/plugins', features, 'user')).toBe(false)
   })
 

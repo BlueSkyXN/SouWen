@@ -48,7 +48,7 @@ export function ConfigPage() {
         <div>
           <h1 className={styles.pageTitle}>
             <Settings size={20} />
-            {t('config.title', 'Configuration')}
+            {t('config.title')}
           </h1>
           <p className={styles.pageDesc}>{t('config.note')}</p>
         </div>
@@ -59,7 +59,7 @@ export function ConfigPage() {
           loading={reloading}
           onClick={() => void handleReload()}
         >
-          {reloading ? t('config.reloading') : t('config.reload', 'Reload Configuration')}
+          {reloading ? t('config.reloading') : t('config.reload')}
         </Button>
       </m.div>
 

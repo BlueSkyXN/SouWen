@@ -85,8 +85,9 @@ export interface ApiService {
   searchPaper(q: string, sources: string, perPage: number, signal?: AbortSignal, timeout?: number): Promise<SearchResponse>
   searchPatent(q: string, sources: string, perPage: number, signal?: AbortSignal, timeout?: number): Promise<SearchResponse>
   searchWeb(q: string, engines: string, maxResults: number, signal?: AbortSignal, timeout?: number): Promise<WebSearchResponse>
-  searchImages(q: string, maxResults?: number, region?: string, safesearch?: string, signal?: AbortSignal, timeout?: number): Promise<ImageSearchResponse>
-  searchVideos(q: string, maxResults?: number, region?: string, safesearch?: string, signal?: AbortSignal, timeout?: number): Promise<VideoSearchResponse>
+  searchNews(q: string, maxResults?: number, region?: string, safesearch?: string, timeRange?: string, signal?: AbortSignal, timeout?: number, sources?: string): Promise<WebSearchResponse>
+  searchImages(q: string, maxResults?: number, region?: string, safesearch?: string, signal?: AbortSignal, timeout?: number, sources?: string): Promise<ImageSearchResponse>
+  searchVideos(q: string, maxResults?: number, region?: string, safesearch?: string, signal?: AbortSignal, timeout?: number, sources?: string): Promise<VideoSearchResponse>
 
   // === fetch / links / sitemap ===
   fetch(
@@ -94,7 +95,14 @@ export interface ApiService {
     provider?: string,
     timeout?: number,
     signal?: AbortSignal,
-    options?: { selector?: string; startIndex?: number; maxLength?: number; respectRobotsTxt?: boolean },
+    options?: {
+      providers?: string[]
+      strategy?: 'fallback' | 'fanout'
+      selector?: string
+      startIndex?: number
+      maxLength?: number
+      respectRobotsTxt?: boolean
+    },
   ): Promise<FetchResponse>
   extractLinks(url: string, baseUrl?: string, limit?: number, signal?: AbortSignal): Promise<LinkExtractionResult>
   parseSitemap(url: string, discover?: boolean, limit?: number, signal?: AbortSignal): Promise<SitemapResult>

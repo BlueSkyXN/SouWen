@@ -1,6 +1,10 @@
 import json
+from types import SimpleNamespace
+
+import pytest
 
 from scripts import hf_space_smoke as smoke
+from souwen.editions import fetch_provider_min_edition as registry_fetch_provider_min_edition
 from souwen.registry import all_adapters, fetch_providers
 
 
@@ -50,6 +54,54 @@ def test_normalize_base_url_adds_scheme_and_trims_slash():
     assert smoke.normalize_base_url("blueskyxn-souwen.hf.space/") == (
         "https://blueskyxn-souwen.hf.space"
     )
+
+
+def test_normalize_expected_source_sha_requires_full_hex_sha():
+    assert smoke.normalize_expected_source_sha("A" * 40) == "a" * 40
+    assert smoke.normalize_expected_source_sha(None) is None
+
+    with pytest.raises(ValueError, match="40 hexadecimal"):
+        smoke.normalize_expected_source_sha("main")
+
+
+def test_private_space_uses_separate_outer_and_application_auth_headers(monkeypatch):
+    captured = {}
+
+    class FakeResponse:
+        status = 200
+        headers = SimpleNamespace(items=lambda: [])
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self):
+            return b"{}"
+
+    def fake_urlopen(request, *, timeout):
+        captured["headers"] = {key.lower(): value for key, value in request.header_items()}
+        captured["timeout"] = timeout
+        return FakeResponse()
+
+    monkeypatch.setattr(smoke, "urlopen", fake_urlopen)
+    client = smoke.ApiClient(
+        smoke.SmokeConfig(
+            base_url="https://private-space.example",
+            expected_version="2.0.0rc1",
+            request_timeout=3,
+            bearer_token="souwen-admin-token",
+            hf_space_token="hf-read-token",
+        )
+    )
+
+    status, _raw, _headers, _elapsed = client._request_raw("GET", "/api/v1/whoami", auth=True)
+
+    assert status == 200
+    assert captured["headers"]["authorization"] == "Bearer hf-read-token"
+    assert captured["headers"]["x-souwen-token"] == "souwen-admin-token"
+    assert captured["timeout"] == 3
 
 
 def test_required_failures_only_counts_required_failed_rows():
@@ -145,6 +197,102 @@ def test_offline_mode_writes_skip_reports_without_live_calls(monkeypatch, tmp_pa
     assert "Overall outcome: **SKIP**" in markdown_report.read_text(encoding="utf-8")
 
 
+def test_offline_mode_default_does_not_write_repo_root_reports(monkeypatch, tmp_path):
+    """本地直接运行 smoke 不应默认在当前目录生成 report 文件。"""
+
+    def fail_if_called(_config):
+        raise AssertionError("offline mode must not run live probes")
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
+    monkeypatch.delenv("SOUWEN_SMOKE_REPORT_FILE", raising=False)
+    monkeypatch.delenv("SOUWEN_SMOKE_JSON_FILE", raising=False)
+    monkeypatch.setattr(smoke, "run_report", fail_if_called)
+
+    code = smoke.main(["--mode", "offline", "--base-url", "https://example.test"])
+
+    assert code == 0
+    assert not (tmp_path / "hf-space-cd-report.md").exists()
+    assert not (tmp_path / "hf-space-cd-report.json").exists()
+
+
+def test_report_write_failure_returns_argument_error_code(monkeypatch, tmp_path, capsys):
+    def fail_if_called(_config):
+        raise AssertionError("offline mode must not run live probes")
+
+    def fail_write_text(*_args, **_kwargs):
+        raise OSError("disk full")
+
+    monkeypatch.setattr(smoke, "run_report", fail_if_called)
+    monkeypatch.setattr(smoke, "write_text", fail_write_text)
+
+    code = smoke.main(
+        [
+            "--mode",
+            "offline",
+            "--base-url",
+            "https://example.test",
+            "--json-report",
+            str(tmp_path / "hf-space.json"),
+            "--markdown-report",
+            str(tmp_path / "hf-space.md"),
+            "--summary-file",
+            "",
+        ]
+    )
+
+    assert code == 2
+    assert "failed to write HF Space smoke reports: disk full" in capsys.readouterr().err
+
+
+def test_fail_admin_open_can_be_enabled_by_env(monkeypatch):
+    monkeypatch.setenv("SOUWEN_SMOKE_FAIL_ADMIN_OPEN", "1")
+    monkeypatch.delenv("SOUWEN_SMOKE_WARN_ADMIN_OPEN", raising=False)
+
+    args = smoke.parse_args([])
+
+    assert args.fail_admin_open is True
+
+
+def test_public_base_url_defaults_admin_open_gate_to_fail(monkeypatch):
+    monkeypatch.delenv("SOUWEN_SMOKE_FAIL_ADMIN_OPEN", raising=False)
+    monkeypatch.delenv("SOUWEN_SMOKE_WARN_ADMIN_OPEN", raising=False)
+
+    args = smoke.parse_args(["--base-url", "https://example.test"])
+    base_url = smoke.normalize_base_url(args.base_url)
+
+    assert args.fail_admin_open is None
+    assert smoke.resolve_fail_admin_open(base_url, args.fail_admin_open) is True
+
+
+def test_local_base_url_defaults_admin_open_gate_to_warn(monkeypatch):
+    monkeypatch.delenv("SOUWEN_SMOKE_FAIL_ADMIN_OPEN", raising=False)
+    monkeypatch.delenv("SOUWEN_SMOKE_WARN_ADMIN_OPEN", raising=False)
+
+    args = smoke.parse_args(["--base-url", "http://127.0.0.1:8000"])
+    base_url = smoke.normalize_base_url(args.base_url)
+
+    assert args.fail_admin_open is None
+    assert smoke.resolve_fail_admin_open(base_url, args.fail_admin_open) is False
+
+
+def test_warn_admin_open_can_be_enabled_by_env(monkeypatch):
+    monkeypatch.delenv("SOUWEN_SMOKE_FAIL_ADMIN_OPEN", raising=False)
+    monkeypatch.setenv("SOUWEN_SMOKE_WARN_ADMIN_OPEN", "1")
+
+    args = smoke.parse_args([])
+
+    assert args.fail_admin_open is False
+
+
+def test_warn_admin_open_cli_overrides_fail_env(monkeypatch):
+    monkeypatch.setenv("SOUWEN_SMOKE_FAIL_ADMIN_OPEN", "1")
+
+    args = smoke.parse_args(["--warn-admin-open"])
+
+    assert args.fail_admin_open is False
+
+
 def test_basic_checks_cover_docs_and_panel_routes():
     config = smoke.SmokeConfig(
         base_url="https://example.test",
@@ -161,6 +309,120 @@ def test_basic_checks_cover_docs_and_panel_routes():
     assert by_name["panel"].outcome == "pass"
     assert by_name["whoami"].outcome == "pass"
     assert state.admin_available is True
+
+
+def test_basic_checks_require_exact_source_sha_when_pinned():
+    client = FakeSmokeClient()
+    client.json_routes["/health"] = smoke.ResponseData(
+        200,
+        {"status": "ok", "version": "1.2.3", "source_sha": "a" * 40},
+        0.1,
+    )
+    client.json_routes["/readiness"] = smoke.ResponseData(
+        200,
+        {"ready": True, "version": "1.2.3", "source_sha": "b" * 40, "error": None},
+        0.1,
+    )
+    config = smoke.SmokeConfig(
+        base_url="https://example.test",
+        expected_version="1.2.3",
+        expected_source_sha="a" * 40,
+        request_timeout=1,
+    )
+
+    results = smoke.run_basic_checks(client, config, smoke.RunState())  # type: ignore[arg-type]
+    by_name = {item.name: item for item in results}
+
+    assert by_name["health"].outcome == "pass"
+    assert by_name["readiness"].outcome == "fail"
+    assert "expected=" in by_name["readiness"].detail
+
+
+def test_basic_checks_warn_when_public_admin_open_without_password():
+    client = FakeSmokeClient()
+    client.json_routes["/api/v1/whoami"] = smoke.ResponseData(
+        200,
+        {"role": "admin", "admin_open": True, "admin_password_set": False},
+        0.1,
+    )
+    config = smoke.SmokeConfig(
+        base_url="https://example.test",
+        expected_version="1.2.3",
+        request_timeout=1,
+    )
+    state = smoke.RunState()
+
+    results = smoke.run_basic_checks(client, config, state)  # type: ignore[arg-type]
+    by_check = {(item.section, item.name): item for item in results}
+    payload = smoke.build_json_payload(config, results)
+    report = smoke.build_markdown_report(config, results)
+
+    whoami = by_check[("basic", "whoami")]
+    security = by_check[("security", "admin-open")]
+    assert whoami.meta["admin_access_mode"] == "open"
+    assert security.outcome == "warn"
+    assert security.required is False
+    assert "remote admin endpoints are open" in security.detail
+    assert payload["overall"] == "WARN"
+    assert payload["checks"][-1]["name"] == "security/admin-open"
+    assert payload["checks"][-1]["details"]["meta"]["admin_open"] is True
+    assert "- Admin access: `open`" in report
+    assert "## security" in report
+    assert "`admin-open`" in report
+    assert state.admin_open is True
+    assert state.admin_password_set is False
+
+
+def test_basic_checks_fail_when_public_admin_open_gate_is_required():
+    client = FakeSmokeClient()
+    client.json_routes["/api/v1/whoami"] = smoke.ResponseData(
+        200,
+        {"role": "admin", "admin_open": True, "admin_password_set": False},
+        0.1,
+    )
+    config = smoke.SmokeConfig(
+        base_url="https://example.test",
+        expected_version="1.2.3",
+        request_timeout=1,
+        fail_admin_open=True,
+    )
+    state = smoke.RunState()
+
+    results = smoke.run_basic_checks(client, config, state)  # type: ignore[arg-type]
+    by_check = {(item.section, item.name): item for item in results}
+    payload = smoke.build_json_payload(config, results)
+    report = smoke.build_markdown_report(config, results)
+
+    security = by_check[("security", "admin-open")]
+    assert security.outcome == "fail"
+    assert security.required is True
+    assert smoke.required_failures(results) == [security]
+    assert payload["overall"] == "FAIL"
+    assert payload["checks"][-1]["outcome"] == "FAIL"
+    assert payload["environment"]["fail_admin_open"] is True
+    assert "- Public admin-open gate: `fail`" in report
+
+
+def test_basic_checks_allow_local_admin_open_without_warning():
+    client = FakeSmokeClient()
+    client.json_routes["/api/v1/whoami"] = smoke.ResponseData(
+        200,
+        {"role": "admin", "admin_open": True, "admin_password_set": False},
+        0.1,
+    )
+    config = smoke.SmokeConfig(
+        base_url="http://127.0.0.1:49265",
+        expected_version="1.2.3",
+        request_timeout=1,
+    )
+    state = smoke.RunState()
+
+    results = smoke.run_basic_checks(client, config, state)  # type: ignore[arg-type]
+    by_check = {(item.section, item.name): item for item in results}
+
+    assert by_check[("security", "admin-open")].outcome == "pass"
+    assert "local/CI base URL" in by_check[("security", "admin-open")].detail
+    assert smoke.overall_outcome(results) == smoke.Outcome.PASS
 
 
 def test_surface_only_report_skips_mutating_matrix_and_restore(monkeypatch):
@@ -252,6 +514,81 @@ def test_build_markdown_report_includes_fetch_matrix_and_exclusions():
     assert "Required-key fetch" in report
 
 
+def test_fetch_provider_smoke_min_editions_match_registry():
+    providers = {provider.name: provider for provider in fetch_providers()}
+
+    for item in smoke.ZERO_KEY_FETCH_PROVIDER_TESTS:
+        provider = providers[item["provider"]]
+        assert smoke.fetch_provider_min_edition(item) == registry_fetch_provider_min_edition(
+            provider
+        )
+
+
+def test_eligible_fetch_provider_tests_respects_edition():
+    pro_providers = {item["provider"] for item in smoke.eligible_fetch_provider_tests("pro")}
+    full_providers = {item["provider"] for item in smoke.eligible_fetch_provider_tests("full")}
+    gated_providers = {item["provider"] for item in smoke.edition_gated_fetch_provider_tests("pro")}
+
+    assert "builtin" in pro_providers
+    assert "jina_reader" in pro_providers
+    assert "arxiv_fulltext" not in pro_providers
+    assert "crawl4ai" not in pro_providers
+    assert "arxiv_fulltext" in full_providers
+    assert "crawl4ai" in full_providers
+    assert gated_providers == {
+        "arxiv_fulltext",
+        "crawl4ai",
+        "newspaper",
+        "readability",
+    }
+
+
+def test_build_markdown_report_counts_edition_gated_fetch_skips():
+    config = smoke.SmokeConfig(
+        base_url="https://example.test",
+        expected_version="1.2.3",
+        request_timeout=1,
+        edition="pro",
+    )
+    results = [
+        smoke.ProbeResult(
+            "admin",
+            "config",
+            "pass",
+            "status=200, edition='pro'",
+            meta={"edition": "pro"},
+        ),
+        smoke.ProbeResult(
+            "zero-key-fetch-source",
+            "builtin+curl_cffi+warp-off",
+            "pass",
+            "status=200, total_ok=1, total_failed=0",
+            meta={
+                "matrix_kind": "fetch-source",
+                "provider": "builtin",
+                "backend": "curl_cffi",
+                "warp": "off",
+                "total": 1,
+                "total_ok": 1,
+                "total_failed": 0,
+            },
+        ),
+        smoke.edition_skipped_fetch_provider(
+            {
+                "provider": "crawl4ai",
+                "min_edition": "full",
+            },
+            "pro",
+        ),
+    ]
+
+    report = smoke.build_markdown_report(config, results)
+
+    assert "- Edition: `pro`" in report
+    assert "1 tested, 1 skipped by edition" in report
+    assert "requires edition=full; current edition=pro" in report
+
+
 def test_build_markdown_report_expands_open_sources_and_direct_routes():
     config = smoke.SmokeConfig(
         base_url="https://example.test",
@@ -339,7 +676,8 @@ def test_zero_key_fetch_providers_are_covered_or_explicitly_excluded():
     required_fetch = {provider.name for provider in providers if provider.resolved_needs_config}
 
     assert zero_key_fetch <= tested | skipped
-    assert required_fetch == required_key
+    assert required_fetch == required_key | {"mcp"}
+    assert "mcp" in skipped
 
 
 def test_non_search_zero_key_capabilities_are_tested_or_explicitly_excluded():

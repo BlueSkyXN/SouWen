@@ -14,7 +14,11 @@ from souwen.cli._common import console
 @app.command("sources")
 def list_sources(
     json_output: bool = typer.Option(False, "--json", "-j", help="以 Source Catalog JSON 输出"),
-    available_only: bool = typer.Option(False, "--available-only", help="仅列出当前配置下可用源"),
+    available_only: bool = typer.Option(
+        False,
+        "--available-only",
+        help="仅列出静态 gate 与当前 runtime 均可用的源",
+    ),
     category: str | None = typer.Option(None, "--category", help="按正式 catalog category 过滤"),
     capability: str | None = typer.Option(None, "--capability", help="按能力过滤，如 search/fetch"),
 ) -> None:
@@ -35,7 +39,7 @@ def list_sources(
 
     sources = list(payload["sources"])
     if available_only:
-        sources = [item for item in sources if item["available"]]
+        sources = [item for item in sources if item["available"] and item["runtime_available"]]
     if category is not None:
         sources = [item for item in sources if item["category"] == category]
     if capability is not None:
@@ -53,7 +57,8 @@ def list_sources(
     table.add_column("Capabilities", style="magenta")
     table.add_column("Auth", justify="center")
     table.add_column("Creds", justify="center")
-    table.add_column("Available", justify="center")
+    table.add_column("Static Gate", justify="center")
+    table.add_column("Runtime", justify="center")
     table.add_column("Risk", justify="center")
     table.add_column("Dist", justify="center")
     table.add_column("Description", style="dim")
@@ -70,6 +75,7 @@ def list_sources(
             auth,
             "✅" if item["configured_credentials"] else "⬜",
             "✅" if item["available"] else "🚫",
+            "✅" if item["runtime_available"] else "🚫",
             risk,
             dist,
             item["description"],

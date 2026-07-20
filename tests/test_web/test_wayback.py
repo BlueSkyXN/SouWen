@@ -355,6 +355,17 @@ async def test_query_snapshots_http_error_into_error_field(httpx_mock: HTTPXMock
 AVAILABILITY_URL_PATTERN = re.compile(r"https://archive\.org/wayback/available")
 
 
+async def test_fetch_rejects_private_url_without_archive_request(httpx_mock: HTTPXMock):
+    """Wayback fetch 直接 API 也必须拒绝内部地址，不依赖上层 fetch_content。"""
+    async with WaybackClient() as client:
+        resp = await client.fetch("http://127.0.0.1/admin")
+
+    assert resp.error is not None
+    assert "SSRF" in resp.error
+    assert resp.raw and resp.raw["blocked_by_ssrf"] is True
+    assert httpx_mock.get_requests() == []
+
+
 async def test_check_availability_found(httpx_mock: HTTPXMock):
     """有快照时返回结构化 WaybackAvailability"""
     httpx_mock.add_response(
@@ -452,6 +463,17 @@ async def test_check_availability_error(httpx_mock: HTTPXMock):
 # ---------------------------------------------------------------------------
 
 SAVE_URL_PATTERN = re.compile(r"https://web\.archive\.org/save/")
+
+
+async def test_save_page_rejects_private_url_without_archive_request(httpx_mock: HTTPXMock):
+    """Save Page Now 会触发外部抓取，内部地址必须在本地先拒绝。"""
+    async with WaybackClient() as client:
+        resp = await client.save_page("http://127.0.0.1/admin")
+
+    assert resp.success is False
+    assert resp.error is not None
+    assert "SSRF" in resp.error
+    assert httpx_mock.get_requests() == []
 
 
 async def test_save_page_success(httpx_mock: HTTPXMock):

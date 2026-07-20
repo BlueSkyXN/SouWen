@@ -20,7 +20,7 @@
  *   - MainLayout.module.scss: 布局样式
  */
 
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, useId } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { m, AnimatePresence } from 'framer-motion'
@@ -103,6 +103,8 @@ export function MainLayout() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [skinPaletteOpen, setSkinPaletteOpen] = useState(false)
   const skinPaletteRef = useRef<HTMLDivElement>(null)
+  const baseId = useId()
+  const skinListboxId = `${baseId}-skin-listbox`
 
   // 从 HTML 根元素的 data-skin 属性获取当前皮肤 ID，默认为 'apple'
   const currentSkinId = document.documentElement.getAttribute('data-skin') || 'apple'
@@ -161,7 +163,7 @@ export function MainLayout() {
             <button
               className={styles.hamburger}
               onClick={() => setMobileOpen((o) => !o)}
-              aria-label="Menu"
+              aria-label={t('nav.menu')}
             >
               <Menu size={20} />
             </button>
@@ -202,8 +204,10 @@ export function MainLayout() {
                   className={styles.iconBtn}
                   onClick={() => setSkinPaletteOpen((o) => !o)}
                   title={t('skin.switchSkin')}
+                  aria-label={t('skin.switchSkin')}
                   aria-expanded={skinPaletteOpen}
                   aria-haspopup="listbox"
+                  aria-controls={skinPaletteOpen ? skinListboxId : undefined}
                 >
                   <Layers size={16} />
                 </button>
@@ -212,7 +216,9 @@ export function MainLayout() {
                   {skinPaletteOpen && (
                     <m.div
                       className={styles.palette}
+                      id={skinListboxId}
                       role="listbox"
+                      aria-label={t('skin.switchSkin')}
                       initial={{ opacity: 0, y: -4, scale: 0.96 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: -4, scale: 0.96 }}
@@ -243,7 +249,12 @@ export function MainLayout() {
               </div>
             )}
             {/* 登出按钮 */}
-            <button className={styles.iconBtn} onClick={handleLogout} title={t('nav.logout')}>
+            <button
+              className={styles.iconBtn}
+              onClick={handleLogout}
+              title={t('nav.logout')}
+              aria-label={t('nav.logout')}
+            >
               <LogOut size={16} />
             </button>
           </div>
@@ -276,7 +287,11 @@ export function MainLayout() {
           >
             <div className={styles.drawerHeader}>
               <span className={styles.drawerBrand}>SouWen</span>
-              <button className={styles.iconBtn} onClick={() => setMobileOpen(false)}>
+              <button
+                className={styles.iconBtn}
+                onClick={() => setMobileOpen(false)}
+                aria-label={t('common.close')}
+              >
                 <X size={20} />
               </button>
             </div>

@@ -114,6 +114,9 @@ function makeDoctor(overrides: Partial<DoctorSource> = {}): DoctorSource {
     credential_fields: [], optional_credential_effect: null,
     risk_level: 'low', risk_reasons: [], distribution: 'core',
     package_extra: null, stability: 'stable', usage_note: null,
+    min_edition: 'basic', edition: 'basic', edition_available: true,
+    edition_reason: '', runtime_available: true, runtime_reason: '',
+    credentials_satisfied: true, config_available: true, config_reason: '', available: true,
     message: '', enabled: true,
     ...overrides,
   }

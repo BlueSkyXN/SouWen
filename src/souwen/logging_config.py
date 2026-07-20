@@ -41,7 +41,8 @@
 脱敏规则：
     - Bearer token 模式：Authorization: Bearer xxx → Authorization: Bearer ***
     - Key-value 模式：api_key=xxx / password: xxx → api_key=*** / password:***
-    - 匹配的关键字：authorization、token、api_key、secret、password 等
+    - 匹配的关键字：authorization、token、api_key、secret、password、cookie、
+      sessdata、session、jwt 等
 
 模块依赖：
     - logging: 标准日志框架
@@ -56,50 +57,16 @@ from __future__ import annotations
 import json as _json
 import logging
 import os
-import re
 import sys
 from datetime import datetime, timezone
 
+from souwen.core.redaction import redact_secret_text
 from souwen.server.middleware import RequestIDFilter
 
 _CONFIGURED = False
 
 
-# ==============================================================================
-# 敏感数据脱敏
-# ==============================================================================
-# 避免将 token / Authorization / API key 等敏感信息写入日志文件
-
-_SENSITIVE_KEY = re.compile(
-    r"(authorization|auth[_-]?token|api[_-]?key|access[_-]?token|"
-    r"refresh[_-]?token|secret|password|passwd|pwd|x[_-]?api[_-]?key|"
-    r"souwen[_-]?token|token|bearer|private[_-]?key|credential[s]?|"
-    r"client[_-]?secret|signing[_-]?key)",
-    re.IGNORECASE,
-)
-
-# 1. Authorization 头 / "Bearer xxx" 模式
-_RE_BEARER = re.compile(r"(?i)\bbearer\s+([A-Za-z0-9\-_.=+/]{6,})")
-
-# 2. key=value / key: value / "key": "value" 中敏感键对应的值
-_RE_KV = re.compile(r"(?i)(" + _SENSITIVE_KEY.pattern + r")\s*[:=]\s*[\"']?([^\s,\"'}\]]+)")
-
-
-def _mask_token(value: str) -> str:
-    """将 token 字符串替换为固定占位符
-
-    Args:
-        value: 要脱敏的 token 值
-
-    Returns:
-        空值返回原值，非空返回 '***'
-    """
-    if not value:
-        return value
-    return "***"
-
-
-def _scrub(text: str) -> str:
+def _scrub(text: str | None) -> str | None:
     """脱敏日志文本：Authorization/Bearer、常见敏感键的值替换为 ***
 
     处理两种常见敏感数据格式：
@@ -112,11 +79,7 @@ def _scrub(text: str) -> str:
     Returns:
         脱敏后的文本
     """
-    if not text or not isinstance(text, str):
-        return text
-    text = _RE_BEARER.sub(lambda m: m.group(0).replace(m.group(1), _mask_token(m.group(1))), text)
-    text = _RE_KV.sub(lambda m: f"{m.group(1)}:***", text)
-    return text
+    return redact_secret_text(text)
 
 
 class SensitiveDataFilter(logging.Filter):

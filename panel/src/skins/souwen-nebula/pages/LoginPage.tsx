@@ -30,6 +30,7 @@ import { useSkinStore } from '../stores/skinStore'
 import { useNotificationStore } from '@core/stores/notificationStore'
 import { api } from '@core/services/api'
 import { formatError } from '@core/lib/errors'
+import { LOGIN_SERVER_URL_EXAMPLE } from '@core/lib/serverConnection'
 import styles from './LoginPage.module.scss'
 
 /**
@@ -183,32 +184,36 @@ export function LoginPage() {
 
           <form onSubmit={handleSubmit}>
             <div className={styles.formGroup}>
-              <label>{t('login.serverUrl')}</label>
+              <label htmlFor="login-server-url">{t('login.serverUrl')}</label>
               <input
+                id="login-server-url"
                 className={styles.input}
                 type="url"
                 value={baseUrl}
                 onChange={(e) => setBaseUrl(e.target.value)}
-                placeholder="http://localhost:8000"
+                placeholder={t('login.serverUrlPlaceholder', { example: LOGIN_SERVER_URL_EXAMPLE })}
+                autoComplete="url"
                 required
               />
             </div>
 
             <div className={styles.formGroup}>
-              <label>{t('login.password')}</label>
+              <label htmlFor="login-password">{t('login.password')}</label>
               <div className={styles.inputGroup}>
                 <input
+                  id="login-password"
                   className={styles.input}
                   type={showPw ? 'text' : 'password'}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder={t('login.passwordPlaceholder')}
+                  autoComplete="current-password"
                 />
                 <button
                   type="button"
                   className={styles.togglePw}
                   onClick={() => setShowPw((v) => !v)}
-                  aria-label={showPw ? t('login.hidePassword', 'Hide password') : t('login.showPassword', 'Show password')}
+                  aria-label={showPw ? t('login.hidePassword') : t('login.showPassword')}
                 >
                   <AnimatePresence mode="wait" initial={false}>
                     <m.span

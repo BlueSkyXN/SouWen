@@ -12,6 +12,8 @@ import pytest
 
 from souwen.web.mcp_client import MCPClient, MCPToolError
 
+pytestmark = pytest.mark.usefixtures("mock_public_dns")
+
 # 检测 mcp 包是否可用
 try:
     import mcp  # noqa: F401

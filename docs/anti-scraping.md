@@ -13,6 +13,7 @@
 | **异步会话缓存** | aiosqlite 异步 SQLite 持久化 OAuth Token / Cookie | `session_cache.py` |
 | **代理池轮换** | 多代理 URL 随机选取 | `config/models.py` |
 | **礼貌爬取** | 随机间隔 + 自适应退避 + 429 处理 | `scraper/base.py` |
+| **Playwright 池化** | 按 event loop / browser / proxy 复用浏览器进程 | `browser_pool.py` |
 
 > curl_cffi 为可选依赖，未安装时自动回退到 httpx。
 
@@ -64,7 +65,23 @@ new_fingerprint = fingerprint.rotate()
 
 ## Playwright 浏览器池化
 
-> **状态：规划中，尚未实现。** 仓库中目前没有 `scraper/browser_pool.py`，也没有内置的 Playwright 单例池。需要 JavaScript 渲染的源（如 `google_patents`）当前依赖 `curl_cffi` 模拟浏览器或 `crawl4ai` 等可选 fetch provider。后续如引入统一浏览器池，将在此处补充配置说明。
+`src/souwen/core/browser_pool.py` 提供内置 Playwright browser pool。它按当前
+event loop、browser 名称、headless 设置和解析后的 proxy 建立池 key；同一个 key
+复用一个浏览器进程，每次调用创建独立 browser context / page，避免跨任务共享
+cookie、localStorage 或页面状态。
+
+关键行为：
+
+- lazy import：只有实际请求浏览器 page 时才导入 `playwright.async_api`；
+- 可选运行时：未安装 Playwright 或浏览器 runtime 时抛出配置/运行时错误，调用方应把它当作 fallback 能力；
+- 并发上限：默认同一池最多 2 个并发 page，可用 `SOUWEN_BROWSER_POOL_MAX_PAGES` 覆盖；
+- 代理隔离：`sources.<name>.proxy` / 全局 `proxy` 会进入 pool key，不同代理不会共用同一浏览器进程；
+- 关闭入口：长期进程可调用 `close_browser_pools()` 关闭当前 event loop 上的所有浏览器池。
+
+当前内置使用方是 `google_patents`：XHR 与静态 HTML 都没有结果或失败时，会机会性使用
+Playwright 动态渲染搜索页；如果 Playwright 缺失、浏览器启动失败或动态渲染仍被反爬拦截，
+会降级返回静态路径结果。动态渲染页会安装请求拦截，对 navigation、子资源、XHR/fetch 等
+浏览器请求复用 `validate_fetch_url()`，命中内网、回环、link-local 或保留地址时 abort。
 
 ## 自适应退避
 
@@ -105,15 +122,26 @@ general:
 
 每次请求随机选取一个代理，分散请求来源。对于高风险目标（如 Google），强烈建议配置代理。
 
-## SSRF 防护（fetch / links / sitemap）
+## SSRF 防护（fetch / provider direct URL calls / links / sitemap / wayback）
 
-`/api/v1/fetch`、`/links`、`/sitemap` 端点在抓取前对每个 URL 调用 `souwen.web.fetch.validate_fetch_url(url)`：
+`/api/v1/fetch`、provider 的 direct URL 调用（如 `fetch` / `scrape` / `extract` /
+`contents` / `reader` / `find_similar` / `map` / `crawl`）、`/links`、`/sitemap`、
+Wayback fetch 和 Wayback Save Page Now 在实际抓取、调用第三方提取/爬取服务或触发
+存档前调用 `souwen.web.fetch.validate_fetch_url(url)`：
 
 1. 仅允许 `http` / `https` scheme；
 2. DNS 解析所有 A/AAAA 记录；
-3. 拒绝**任一**解析结果落在私有段（10/8、172.16/12、192.168/16）、回环（127/8、::1）、链路本地（169.254/16、fe80::/10）、保留段、组播段；
-4. 重定向跟随过程中**逐跳**重新校验，防止多跳 SSRF；
-5. `scrapling` 的 `dynamic` / `stealthy` 浏览器模式会在 Playwright `page_setup` 中安装请求拦截，对 navigation、子资源、XHR/fetch 等浏览器请求复用同一 URL 校验，命中内网/回环/link-local/保留地址时 abort。
+3. 拒绝**任一**解析结果落在私有段（10/8、172.16/12、192.168/16）、回环（127/8、::1）、链路本地（169.254/16、fe80::/10）、文档/保留段或组播段；
+4. 直连 host 会拒绝非规范 IPv4 数字写法（如 `0177.0.0.1`、`008.0.0.1`、`1.1.1`、`2130706433`、`0x7f000001`），避免不同系统 resolver 对 octal、hex、短写 IPv4 的解释差异造成绕过；
+5. IPv4-mapped IPv6、NAT64 well-known prefix、6to4、Teredo 等嵌入 IPv4 的地址会同时按外层 IPv6 和内层 IPv4 判定，避免 `::ffff:127.0.0.1` 这类包装地址绕过；
+6. 直连 URL 仍拒绝 `198.18.0.0/15`，但域名 DNS 解析到该 fake-IP/benchmark 网段时允许通过，以兼容 Clash 等本机 fake-IP DNS 代理；
+7. 重定向跟随过程中**逐跳**重新校验，防止多跳 SSRF；
+8. `jina_reader`、`firecrawl`、`exa`、`tavily`、`xcrawl`、`crawl4ai`、`scrapling`、`scrapfly`、`diffbot`、`scrapingbee`、`zenrows`、`scraperapi`、`apify`、`cloudflare_browser`、`metaso`、`mcp` 和 `kimi_code` 等 provider direct URL calls 在把目标 URL 交给第三方 API、本地浏览器或远程 MCP tool 前会先拦截；能承载 `FetchResult` / `FetchResponse` 的路径返回 blocked result，原始 dict 或 search-style direct 方法则抛出明确 `SSRF 校验失败` 错误；
+9. `scrapling` 的 `dynamic` / `stealthy` 浏览器模式会在 Playwright `page_setup` 中安装请求拦截，对 navigation、子资源、XHR/fetch 等浏览器请求复用同一 URL 校验，命中内网/回环/link-local/保留地址时 abort。
+
+Wayback CDX 历史快照查询是 archive.org 元数据查询，仍保留 `example.com` 和
+通配符等 CDX 查询形式；会触发内容抓取或外部存档的 Wayback fetch/save 路径会先拒绝
+内部、回环、链路本地和保留地址。
 
 被 SSRF 拦截的 URL 仍会出现在响应的 `results` 中，但 `error` 字段会标注 `ssrf_blocked` 类的原因，方便客户端区分。
 
@@ -145,7 +173,7 @@ docker run -d \
   -e WARP_SOCKS_PORT=1080 \
   --cap-add NET_ADMIN \
   --device /dev/net/tun \
-  -p 8000:8000 \
+  -p 8000:49265 \
   ghcr.io/blueskyxn/souwen
 ```
 
@@ -186,7 +214,7 @@ sources:
 | 源 | 网络/反爬要求 | 建议配置 |
 |----|--------------|----------|
 | `google`, `bing`, `baidu`, `yandex`, `mojeek` | 高风险 SERP，IP 容易被 Captcha | `http_backend: curl_cffi` + `proxy: warp` 或代理池 |
-| `google_patents` | JS 渲染 + Captcha 风控 | `http_backend: curl_cffi`；JS 渲染场景可改用 `crawl4ai` provider |
+| `google_patents` | JS 渲染 + Captcha 风控 | `http_backend: curl_cffi`；安装 Playwright runtime 后可自动启用内置动态渲染 fallback；仍建议配 `proxy: warp` 或代理池 |
 | `twitter / x` | 必须官方 Bearer Token，地区限制 | 配 `twitter_bearer_token` + WARP |
 | `bilibili` | 部分接口要求授权 + 风控（403 RiskControl） | 设置 `bilibili_sessdata`，控制频率 |
 | `duckduckgo` | 偶发风控弹窗，对 TLS 指纹敏感 | `http_backend: curl_cffi` |

@@ -2,83 +2,131 @@
 
 ## 导航
 
-- [v2 release candidate](#v200rc1--v2-release-candidate2026-05-16)
+- [v2 release candidate](#v200rc1--release-candidateunreleased)
 - [v1.x history](#v112--ai-workflow-安全加固与功能深化2026-05-04)
 - [v0.x history](#v090--v1-过渡版2026-04-22)
 
 > v2 段落记录当前 release candidate 的公开变更和验证边界；v1/v0 段落保留历史审计脉络。
 
-## v2.0.0rc1 — v2 Release Candidate（2026-05-16）
+## v2.0.0rc1 — Release Candidate（Unreleased）
 
-### Release Status
-- v2 release candidate 已合回 `main`；当前主线用于验证真实用户路径和目标发布路径，不再继续围绕 PR6-PR9 做开放式重构。
-- 公开版本号固定为 `2.0.0rc1`（Python / runtime / README / API 示例）和 `2.0.0-rc1`（Panel package）。
-- PyPI 发布不在本轮范围；正式 Go / No-Go 以 RC readiness report、External Smoke Gate、clean install、server/auth、Panel、docs walk-through 和目标发布路径验证为准。
+### Release status
 
-### Breaking Changes
-- 删除 `souwen.facade`、`souwen.source_registry`、顶层 core shim、`souwen.scraper`、域级 re-export 包，以及 `souwen.web.engines` / `souwen.web.api` / `souwen.web.self_hosted` 分组 re-export。
-- 搜索入口收敛到 `souwen.search`，内容抓取入口收敛到 `souwen.web.fetch`，Wayback 入口使用 `souwen.web.wayback`。
-- Registry 元数据入口迁移到 `souwen.registry.meta`，内置源声明迁移为 `souwen.registry.sources` package。
-- 服务端认证配置移除旧统一/访客密码字段，使用 `user_password`、`admin_password` 和 `guest_enabled` 表达 User/Admin/Guest 访问语义。
+- v2 public surface 已合回 `main`，版本固定为 Python/runtime `2.0.0rc1` 和 Panel
+  `2.0.0-rc1`。本节描述候选源码，不表示 tag、GitHub Release、24 个 binary、远端
+  deployment 或 HFS promotion 已完成。
+- Go / No-Go 规则固定在
+  [`docs/internal/rc-readiness-gates.md`](docs/internal/rc-readiness-gates.md)。所有 required
+  gate 必须绑定同一个 candidate SHA；run URL、checksum、SBOM/provenance 与结论由
+  `release-manifest.json` artifact 承载，不把一次性运行结果提交到仓库。
+- PyPI 发布仍不在本候选范围。HFS promotion 是需明确批准的远端写操作。
+- 新增唯一 central `.github/workflows/release-candidate.yml`：默认
+  `publish=false, deploy_hfs=false` 只生成 RC-ready evidence bundle；tag、prerelease 与 HFS
+  promotion 只在受保护 environment 明确批准后执行。
 
-### Architecture
-- Source Catalog 成为 Source metadata、capability、credential、risk、distribution、docs、API、CLI 和 Panel 的正式派生中心。
-- result `source` 字段标准化为 adapter name，避免历史 category/name 双轨。
-- 插件加载显式化，避免 registry import 阶段自动执行第三方 entry point。
-- SuperWeb2PDF 保持外部插件形态，不再作为 SouWen 的 optional dependency 随公开 extras 分发；Docker / 镜像场景改由插件包预装。
-- Fetch API 支持 `fallback` / `fanout` 策略，多 provider 行为与签名一致。
-- 内置 source registry 拆分为 `registry/sources/` package，降低单文件事实源维护压力。
+### Breaking changes
 
-### Public Surface
-- 保留的 public API surface 聚焦在 `souwen.search`、`souwen.web.fetch`、`souwen.web.wayback`、`souwen.registry`、CLI `souwen` 和 `/api/v1`。
-- 旧 facade、domain re-export、top-level shim 和旧 web grouping package 不再作为 public contract。
-- README、API reference、source catalog docs 和 plugin spec 按当前 v2 架构重写，不再以迁移说明作为公开叙事。
+- Python 要求 `>=3.10`；旧 `souwen.facade`、`souwen.source_registry`、顶层 core shim、
+  `souwen.scraper`、域级 re-export 和旧 `souwen.web.*` grouping package 不再是 public API。
+- 搜索、抓取、归档和 registry 入口分别收敛到 `souwen.search`、`souwen.web.fetch`、
+  `souwen.web.wayback` 与 `souwen.registry`；result `source` 统一为 adapter name。
+- 旧 `api_password` / `visitor_password` 认证字段被拒绝；服务端使用 `user_password`、
+  `admin_password`、`guest_enabled`，无密码 admin 只在显式 `SOUWEN_ADMIN_OPEN=1` 时开放。
+- `SOUWEN_EDITION=basic|pro|full` 现在约束 source、fetch provider、LLM、WARP、MCP schema
+  和预装 plugin 能力；显式请求当前 edition 不允许的能力返回明确的 edition error。
+- Fetch 多 provider 响应以 `providers`、`meta.selected_provider` 和每条 result 的 `source`
+  为准；单数 `provider` 仅保留为 RC 过渡字段。
+
+### Registry, search and providers
+
+- `SourceAdapter` / Source Catalog 成为 metadata、capability、credential、risk、distribution、
+  stability、edition policy、CLI、API、doctor、Panel 和 docs 的单一事实源。
+- 当前内置 registry 为 95 registered / 94 public / 1 hidden-internal；`fetch` 横切视图为
+  24 providers（17 个主 `domain=fetch` + 7 个跨域源）。这些数字由 `gen_docs.py` 从
+  registry 派生，不再在 README/architecture 手工维护。
+- Catalog 支持完整多字段凭据、optional credential effect、self-hosted `base_url`、
+  `available_by_default`、category/visibility、edition metadata，以及独立的
+  `runtime_available` / `runtime_reason` importability 轴；兼容字段 `available` 仍保持
+  edition/config/credentials 静态语义；`souwen sources --available-only` 明确合取两轴，
+  公开 Catalog、MCP discovery 与 REST doctor 对任意 client loader/provider 异常使用稳定
+  脱敏原因；edition-gated adapter 不再被 doctor 探测，本地 CLI 对允许项继续保留详细诊断。
+- Patent catalog 新增/恢复 PatentsView 与 PQAI；Google Patents 的真实页面/API 回退、解析和
+  experimental scraper 口径得到加强。
+- OpenAlex 配置契约对齐当前官方 API：新增可选 `openalex_api_key` 与 channel API Key
+  override，匿名模式继续可用；`openalex_email` 仅保留配置/构造器兼容且不再发送，
+  doctor/docs 明确 Freemium 每日额度、429 和不匿名重放语义。
+- Tavily、Firecrawl、Exa、XCrawl、Kimi Code、Metaso 与 Wayback 通过 registry
+  `extra_domains={"fetch"}` 同时进入 fetch provider 视图；Metaso reader、Wayback fetch 与
+  provider pagination/truncation 契约完成对齐。
+- Python API、CLI、REST 与 MCP 对 query/source/engine/provider 的字符串或列表输入统一做
+  trim、空值拒绝、registry 存在性和 edition 校验。
+
+### Fetch, LLM and MCP
+
+- `fetch_content` 支持 `fallback` / `fanout`、单字符串归一化、多 provider 结果聚合、
+  `start_index` / `max_length` 分页以及 `content_truncated` / `next_start_index`。
+- SSRF 防护覆盖非规范数字 IPv4、DNS 解析、重定向和 provider-specific outbound path；
+  browser pool、robots 和 provider error mapping 进入统一边界。
+- LLM summarize / fetch-summarize 支持 OpenAI-compatible chat、Responses 与 Anthropic
+  Messages 协议，统一 timeout、usage metadata、edition gate 和错误响应。
+- MCP tool schema 从 registry/feature matrix 派生；fetch provider projection 分离 edition 声明、
+  runtime 可导入项、缺依赖项与升级项，不再把声明能力称为“当前可选”；同时支持
+  multi-provider strategy、links/sitemap 和 Bilibili 工具，并在 stdio 启动时加载配置插件。
+
+### Doctor, API and security
+
+- `souwen doctor`、`GET /api/v1/doctor` 与 admin doctor 默认 `live=false`，只做静态
+  registry/config/edition/dependency 判定；显式 live probe 才发起最小真实搜索，并通过
+  `probe_mode`、顶层 `live_probe` 和 `sources[].live_probe` 单独报告当次观测。
+- `stability` 是声明式成熟度；catalog `available` 是 edition/config/credential gate；
+  doctor static `available` 是静态状态汇总。三者都不能冒充 live 成功证据。
+- `/health` 与 `/readiness` 可回读版本和可选 40 位 `source_sha`；`/whoami` 分离角色
+  `features`、`edition_capabilities` 与 admin-open/password 状态。
+- 上游代理占用 `Authorization` 时，应用层可使用 `X-SouWen-Token`；private HFS smoke 将
+  HF edge READ token 与 SouWen admin token 分离，显式无效应用 token 不回退。
+- Admin config/proxy/source/WARP/plugin API 增加 trim/validation、URL 与嵌套 secret redaction、
+  脱敏占位符写回拒绝、原子配置写入和标准化错误，避免 raw pip/provider exception 泄露。
+- Public/admin 路由补齐稳定 OpenAPI schema、统一 error envelope、硬 timeout、rate limit 和
+  User/Admin auth dependency；Wayback save 保持 admin-only。
+
+### Panel
+
+- 五个 skin 共用 edition/auth/source status、server connection、redacted config、export、
+  search media/memory 和 proxy/WARP 配置逻辑，避免各 skin 复制协议判断。
+- Search/Fetch/Video/Sources/Network/WARP/Config 页面补齐 loading、empty、error、pagination、
+  multi-provider、source availability、responsive 与 keyboard/accessibility 状态。
+- Panel API base、token persistence、login/logout、source status、config editor 和插件页面与
+  新 server contract 对齐；单文件 artifact 仍由 `build:local` 生成，不手改 `panel.html`。
+- Panel 持久化 `/whoami` 的 `edition` / `edition_capabilities` 声明；Fetch selector 只消费 live
+  Source Catalog，并按需升级、缺依赖、缺凭据、静态不可用和 runtime 未知分别 fail closed，
+  不再以硬编码 provider 清单作为离线可执行 fallback。
+
+### Packaging and deployment
+
+- Edition extras 提供 `edition-basic`、`edition-pro`、`edition-full` 以及互斥的
+  `edition-full-crawl4ai` / `edition-full-scrapling` clean-install surface。
+- SuperWeb2PDF 保持外部 entry-point plugin，但 `web2pdf` / `edition-full` 使用固定 commit
+  archive + `#sha256=` 的 PEP 508 direct reference，并显式启用 Hatch
+  `allow-direct-references`；Root、HFS、ModelScope Dockerfile 和 CI 使用同一安装源与
+  Playwright runtime。
+- Root/HFS/ModelScope container、PyInstaller/Nuitka 三 edition × 四 target matrix、Panel
+  artifact、wheel/sdist、SBOM/provenance 和 SHA256 inventory 纳入固定 RC gate。
+- HFS smoke 区分 local surface、remote surface 与 capability；远端发现 admin-open 时
+  required FAIL，且 `RUNNING` 不替代 source SHA、health/readiness 与真实 smoke。
+- HFS promotion 在 mutation 前记录旧 wrapper/runtime/source rollback point，使用
+  `parent_commit` 防并发写漂移；失败后 forward-restore 并 rebuild，无法证明恢复时 pause Space。
 
 ### Validation
-- 新增 import surface 测试，明确新 public imports 可用、旧兼容路径不可 import。
-- 发布候选版要求 wheel surface 检查，确认构建产物不包含已删除旧模块。
-- `V2 CI` 覆盖 bootstrap/import/wheel、pytest matrix、server/minimal/full/plugin profiles、Panel typecheck/test/build 和 release readiness summary。
-- `scripts/ci/check_no_legacy_terms.py` 防止旧 import surface 和迁移期术语回流到 public surface。
 
-### Source Catalog Governance（2026-05-02）
-
-#### Features
-- **feat(registry)**：扩展 `SourceAdapter` / `SourceMeta`，新增 `auth_requirement`、`credential_fields`、`optional_credential_effect`、`risk_level`、`risk_reasons`、`distribution`、`package_extra`、`stability` 等 source catalog 元数据。
-- **feat(doctor/server/cli)**：统一 doctor、`/sources`、admin source config、`souwen sources` 与 `souwen config source` 的鉴权/风险/分发展示口径，并支持多字段凭据。
-- **feat(panel)**：更新 source 相关 API 类型，并在 souwen-google / souwen-nebula 数据源页展示风险与分发标签。
-
-#### Behavior
-- 可选凭据源不再被粗略显示为"必须 Key"；缺少可选 Key 时按 `optional_credential_effect` 显示 `ok` 或 `limited`。
-- doctor 与 admin doctor 汇总现在区分严格 `ok`、可用 `available`、降级总数 `degraded_total` 与失败 `failed`；`degraded` 保留为兼容别名。
-- `/api/v1/sources` 从运行时 live registry 派生，插件注册/注销后的数据源不会被静态兼容视图缓存误报。
-- `self_hosted` 源统一支持 channel `base_url`、旧 channel `api_key` 与 flat `<name>_url`，避免 doctor/API 与客户端初始化口径分叉。
-- `SourceAdapter` 现在要求 `self_hosted` 源必须声明 `config_field` 或 `credential_fields`，避免外部自托管插件注册成看似可用但无法解析实例地址的状态。
-- admin source config 新增 `credentials_satisfied`，用于区分"是否配置了 Key"与"当前凭据要求是否已满足"。
-- 外部 `domain="web"` 插件不再依赖内部 `v0_category:*` tag；默认归入 `general`，可用公开 `category:professional` tag 进入专业搜索分类。
-- `unpaywall` 按实际客户端要求改为必须 `unpaywall_email`，继续保留在实验/排除旧 `ALL_SOURCES` 视图中。
-- `tools/gen_docs.py` 默认只生成内置源清单，避免本机已安装外部插件造成文档漂移；可用 `--include-plugins` 查看运行时插件 catalog。
-
-#### Docs
-- 更新 README、架构文档、新增数据源指南、插件对接规范、API 文档和自动生成的数据源清单。
-
-#### Tests
-- 增加 registry catalog 元数据合法性、多字段凭据、source catalog 维度查询、server/API 返回字段等测试覆盖。
-
-### Panel and API Review Fixes（2026-04-29）
-
-#### Bug Fixes
-- **fix(panel)**：修正 Wayback Save 前端调用路径（`/api/v1/wayback/save` → `/api/v1/admin/wayback/save`）。原路径与后端 admin 路由前缀不一致，导致所有 5 个皮肤的 ToolsPage 中"存档"按钮固定 404。
-- **fix(panel)**：补齐 `souwen-google` 皮肤 `PAGE_TITLE_KEYS` 缺失的 `/warp` 路径标题映射，避免落到默认 `nav.dashboard`。
-- **fix(panel/skins)**：carbon / apple / ios 三个皮肤补齐 `/video` 与 `/tools` 导航入口，与 souwen-google / souwen-nebula 保持一致；之前路由已注册但侧栏不可达。
-- **fix(panel/skins)**：更新 souwen-google / souwen-nebula 的 `MainLayout.tsx` 顶部注释，反映当前 9 个 NAV_ITEMS（dashboard / search / fetch / video / tools / sources / network / warp / config）。
-
-#### Refactor
-- **refactor(server/routes)**：把 `/admin/wayback/save` 端点从 `routes/admin/warp.py` 拆出到独立的 `routes/admin/wayback.py`，保持 SRP；`admin_router` 在 `routes/admin/__init__.py` 中合并新模块。
-
-#### Docs
-- **docs(README)**：更正 fetch 横切能力计数（15+4 → 16+4 = 20 源），与 `docs/data-sources.md` 自动生成结果对齐。
-- **docs(api-reference)**：更新示例 JSON 中过期的 `version` 字段（0.6.3 → 1.1.1），并补充"动态返回，示例值仅作参考"的说明。
-- **docs(api-reference)**：补齐 fetch provider 列表中遗漏的 `arxiv_fulltext`，并把"19 个提供者"修正为"20 个"，与 registry 实际注册一致。
+- Deterministic suite 覆盖 registry/catalog、edition/feature matrix、doctor、API/OpenAPI、
+  CLI、MCP、LLM、fetch、redaction、plugin、Panel 和 package/import surface。
+- `gen_docs.py --check` 同时验证 data source catalog、双 README、architecture metrics 和
+  自动跨域表；legacy-term gate 与 Markdown link check 保护公开文档。
+- Functional gates 覆盖 Scrapling、Crawl4AI、article extraction、SuperWeb2PDF fixture、
+  plugin entry point、zero-key Google Patents/Wayback 与 HFS post-deploy smoke。
+- `CI` / `V2 CI`、coverage、clean wheel installs、24 binaries、three-container smoke、security
+  scans 和 immutable `release-manifest.json` 共同构成 RC evidence；没有单项历史通过可替代
+  candidate-SHA 上的完整 gate。
 
 ## v1.1.2 — AI Workflow 安全加固与功能深化（2026-05-04）
 

@@ -12,44 +12,29 @@ import {
   AlertCircle, ChevronDown, ChevronUp, Search,
   Settings,
 } from 'lucide-react'
-import { useFetchPage, isSafeUrl, type Provider } from '@core/hooks/useFetchPage'
+import { useFetchPage, isSafeUrl, type FetchStrategy, type Provider } from '@core/hooks/useFetchPage'
 import { staggerContainer, staggerItem, fadeInUp } from '@core/lib/animations'
 import styles from './FetchPage.module.scss'
-
-const PROVIDERS: { value: Provider; label: string }[] = [
-  { value: 'builtin', label: 'Builtin' },
-  { value: 'jina_reader', label: 'Jina Reader' },
-  { value: 'tavily', label: 'Tavily' },
-  { value: 'firecrawl', label: 'Firecrawl' },
-  { value: 'exa', label: 'Exa' },
-  { value: 'kimi_code', label: 'Kimi Code' },
-  { value: 'crawl4ai', label: 'Crawl4AI' },
-  { value: 'scrapfly', label: 'Scrapfly' },
-  { value: 'diffbot', label: 'Diffbot' },
-  { value: 'scrapingbee', label: 'ScrapingBee' },
-  { value: 'zenrows', label: 'ZenRows' },
-  { value: 'scraperapi', label: 'ScraperAPI' },
-  { value: 'apify', label: 'Apify' },
-  { value: 'cloudflare', label: 'Cloudflare' },
-  { value: 'wayback', label: 'Wayback Machine' },
-  { value: 'newspaper', label: 'Newspaper' },
-  { value: 'readability', label: 'Readability' },
-  { value: 'mcp', label: 'MCP' },
-  { value: 'site_crawler', label: 'SiteCrawler' },
-  { value: 'deepwiki', label: 'DeepWiki' },
-]
 
 export function FetchPage() {
   const {
     t,
     urls, setUrls,
     provider, setProvider,
+    providerOptions, providerState,
+    selectedProviders, toggleProvider,
+    strategy, setStrategy,
     timeout, setTimeout_,
     showAdvanced, setShowAdvanced,
     selector, setSelector,
+    startIndex, setStartIndex,
+    maxLength, setMaxLength,
     respectRobots, setRespectRobots,
+    supportsExtractOptions,
+    resetAdvancedOptions,
     fetchState,
     results,
+    providerSummary,
     expandedItems,
     inputRef,
     validUrls,
@@ -69,7 +54,7 @@ export function FetchPage() {
       return (
         <div className={styles.loadingState}>
           <div className={styles.spinner} />
-          <div className={styles.loadingText}>{t('fetch.fetchingHint', 'Fetching content...')}</div>
+          <div className={styles.loadingText}>{t('fetch.fetchingHint')}</div>
         </div>
       )
     }
@@ -78,10 +63,10 @@ export function FetchPage() {
       return (
         <div className={styles.errorState}>
           <AlertCircle size={48} />
-          <div className={styles.errorTitle}>{t('fetch.errorStateTitle', 'Fetch Failed')}</div>
+          <div className={styles.errorTitle}>{t('fetch.errorStateTitle')}</div>
           <div className={styles.errorMessage}>{fetchState.message}</div>
           <button type="button" className={styles.retryBtn} onClick={handleRetry}>
-            {t('fetch.retryFetch', 'Try Again')}
+            {t('fetch.retryFetch')}
           </button>
         </div>
       )
@@ -93,7 +78,7 @@ export function FetchPage() {
       return (
         <div className={styles.emptyState}>
           <Globe size={48} />
-          <div className={styles.emptyText}>{t('fetch.noResults', 'No results')}</div>
+          <div className={styles.emptyText}>{t('fetch.noResults')}</div>
         </div>
       )
     }
@@ -104,7 +89,7 @@ export function FetchPage() {
           <div className={styles.stats}>
             <span className={styles.statBadge}>{t('fetch.successfulCount', { count: results.total_ok })}</span>
             <span className={styles.statBadge}>{t('fetch.failedCount', { count: results.total_failed })}</span>
-            <span className={styles.statBadge}>{results.provider}</span>
+            <span className={styles.statBadge}>{providerSummary}</span>
           </div>
           <button
             type="button"
@@ -112,7 +97,7 @@ export function FetchPage() {
             onClick={exportAllAsMarkdown}
           >
             <Download size={14} />
-            {t('fetch.exportAll', 'Export All')}
+            {t('fetch.exportAll')}
           </button>
         </div>
 
@@ -134,7 +119,7 @@ export function FetchPage() {
                     <h3 className={styles.cardTitle}>{item.title || item.url}</h3>
                   </div>
                   <span className={hasError ? styles.badgeError : styles.badgeSuccess}>
-                    {hasError ? t('fetch.statusFailed', 'Failed') : t('fetch.statusSuccess', 'Success')}
+                    {hasError ? t('fetch.statusFailed') : t('fetch.statusSuccess')}
                   </span>
                 </div>
 
@@ -170,14 +155,14 @@ export function FetchPage() {
                             onClick={() => toggleExpanded(i)}
                           >
                             {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                            {isExpanded ? t('fetch.hideContent', 'Hide Content') : t('fetch.showContent', 'Show Content')}
+                            {isExpanded ? t('fetch.hideContent') : t('fetch.showContent')}
                           </button>
                           <div className={styles.actions}>
                             <button
                               type="button"
                               className={styles.iconBtn}
                               onClick={() => copyToClipboard(item.content || '')}
-                              title={t('fetch.copy', 'Copy')}
+                              title={t('fetch.copy')}
                             >
                               <Copy size={13} />
                             </button>
@@ -185,7 +170,7 @@ export function FetchPage() {
                               type="button"
                               className={styles.iconBtn}
                               onClick={() => downloadAsMarkdown(item)}
-                              title={t('fetch.download', 'Download')}
+                              title={t('fetch.download')}
                             >
                               <Download size={13} />
                             </button>
@@ -200,10 +185,20 @@ export function FetchPage() {
                       </>
                     )}
 
-                    {(item.author || item.published_date) && (
+                    {(item.author || item.published_date || (
+                      item.content_truncated && item.next_start_index !== null && item.next_start_index !== undefined
+                    )) && (
                       <div className={styles.metadata}>
-                        {item.author && <span>{t('fetch.author', 'Author')}: {item.author}</span>}
-                        {item.published_date && <span>{t('fetch.published', 'Published')}: {item.published_date}</span>}
+                        {item.author && <span>{t('fetch.author')}: {item.author}</span>}
+                        {item.published_date && <span>{t('fetch.published')}: {item.published_date}</span>}
+                        {item.content_truncated && item.next_start_index !== null && item.next_start_index !== undefined && (
+                          <span>
+                            {t('fetch.truncatedAt', {
+                              index: item.next_start_index,
+                              defaultValue: 'Truncated, next segment starts at {{index}}',
+                            })}
+                          </span>
+                        )}
                       </div>
                     )}
                   </>
@@ -220,10 +215,10 @@ export function FetchPage() {
     <div className={styles.page}>
       {!hasResults && (
         <m.div className={styles.hero} {...fadeInUp}>
-          <h1 className={styles.heroTitle}>{t('fetch.heroTitle', 'Web Content Fetcher')}</h1>
+          <h1 className={styles.heroTitle}>{t('fetch.heroTitle')}</h1>
           <div className={styles.heroSubtitle}>
             <Search size={18} />
-            {t('fetch.heroSubtitle', 'Extract clean content from any webpage')}
+            {t('fetch.heroSubtitle')}
           </div>
         </m.div>
       )}
@@ -232,7 +227,7 @@ export function FetchPage() {
         <form className={styles.form} onSubmit={handleFetch}>
           <div className={styles.field}>
             <label className={styles.label} htmlFor="fetch-urls">
-              {t('fetch.urlsLabel', 'URLs')} <span className={styles.hint}>(one per line)</span>
+              {t('fetch.urlsLabel')}
             </label>
             <textarea
               id="fetch-urls"
@@ -240,7 +235,7 @@ export function FetchPage() {
               className={styles.textarea}
               value={urls}
               onChange={(e) => setUrls(e.target.value)}
-              placeholder="https://example.com&#10;https://another.com"
+              placeholder={t('fetch.urlsPlaceholder')}
               rows={6}
               required
             />
@@ -251,19 +246,25 @@ export function FetchPage() {
 
           <div className={styles.controlRow}>
             <div className={styles.providerField}>
-              <label className={styles.label} htmlFor="fetch-provider">{t('fetch.provider', 'Provider')}</label>
+              <label className={styles.label} htmlFor="fetch-provider">{t('fetch.provider')}</label>
               <select
                 id="fetch-provider"
                 className={styles.select}
                 value={provider}
                 onChange={(e) => setProvider(e.target.value as Provider)}
+                disabled={isLoading || !providerOptions.some((item) => item.available)}
+                aria-describedby="fetch-provider-status"
               >
-                {PROVIDERS.map((p) => (
-                  <option key={p.value} value={p.value}>
-                    {p.label}
+                {!provider && <option value="">{providerState.message}</option>}
+                {providerOptions.map((p) => (
+                  <option key={p.value} value={p.value} disabled={!p.available}>
+                    {p.label} — {p.statusLabel}
                   </option>
                 ))}
               </select>
+              <div id="fetch-provider-status" className={styles.hint} role="status">
+                {providerState.message}
+              </div>
             </div>
 
             <button
@@ -271,7 +272,7 @@ export function FetchPage() {
               className={styles.submitBtn}
               disabled={!canFetch || isLoading}
             >
-              {isLoading ? t('fetch.fetching', 'Fetching...') : t('fetch.button', 'Fetch')}
+              {isLoading ? t('fetch.fetching') : t('fetch.button')}
             </button>
           </div>
 
@@ -281,14 +282,14 @@ export function FetchPage() {
             onClick={() => setShowAdvanced((v) => !v)}
           >
             <Settings size={14} />
-            {t('advancedSearch.title', 'Advanced')}
+            {t('advancedSearch.title')}
           </button>
 
           {showAdvanced && (
             <div className={styles.advancedPanel}>
               <div className={styles.field}>
                 <label className={styles.label} htmlFor="fetch-timeout">
-                  {t('fetch.timeout', 'Timeout')}: <strong>{timeout}s</strong>
+                  {t('fetch.timeout')}: <strong>{timeout}s</strong>
                 </label>
                 <input
                   id="fetch-timeout"
@@ -299,24 +300,90 @@ export function FetchPage() {
                   onChange={(e) => setTimeout_(Number(e.target.value))}
                   className={styles.slider}
                 />
-                <div className={styles.hint}>{t('fetch.timeoutHint', '5-120 seconds')}</div>
+                <div className={styles.hint}>{t('fetch.timeoutHint')}</div>
               </div>
-              {provider === 'builtin' && (
+              <div className={styles.field}>
+                <label className={styles.label} htmlFor="fetch-strategy">
+                  {t('fetch.strategy')}
+                </label>
+                <select
+                  id="fetch-strategy"
+                  className={styles.select}
+                  value={strategy}
+                  onChange={(e) => setStrategy(e.target.value as FetchStrategy)}
+                  disabled={isLoading}
+                >
+                  <option value="fallback">{t('fetch.strategyFallback')}</option>
+                  <option value="fanout">{t('fetch.strategyFanout')}</option>
+                </select>
+              </div>
+              <div className={styles.field}>
+                <span className={styles.label}>{t('fetch.providers')}</span>
+                <div className={styles.providerChecklist}>
+                  {providerOptions.map((item) => (
+                    <label key={item.value} className={styles.providerCheck} title={item.statusMessage}>
+                      <input
+                        type="checkbox"
+                        checked={selectedProviders.includes(item.value)}
+                        onChange={() => toggleProvider(item.value)}
+                        disabled={
+                          isLoading
+                          || !item.available
+                          || (selectedProviders.length === 1 && selectedProviders.includes(item.value))
+                        }
+                      />
+                      <span>{item.label} · {item.statusLabel}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+              <div className={styles.field}>
+                <label className={styles.label} htmlFor="fetch-start-index">
+                  {t('fetch.startIndex')}
+                </label>
+                <input
+                  id="fetch-start-index"
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={startIndex}
+                  onChange={(e) => setStartIndex(Math.max(0, Number(e.target.value) || 0))}
+                  disabled={isLoading}
+                />
+              </div>
+              <div className={styles.field}>
+                <label className={styles.label} htmlFor="fetch-max-length">
+                  {t('fetch.maxLength')}
+                </label>
+                <input
+                  id="fetch-max-length"
+                  type="number"
+                  min={0}
+                  step={1}
+                  value={maxLength ?? ''}
+                  onChange={(e) => {
+                    const value = e.target.value
+                    setMaxLength(value === '' ? undefined : Math.max(0, Number(value) || 0))
+                  }}
+                  disabled={isLoading}
+                />
+              </div>
+              {supportsExtractOptions && (
                 <div className={styles.field}>
                   <label className={styles.label} htmlFor="fetch-selector">
-                    {t('fetch.selector', 'CSS Selector')}
+                    {t('fetch.selector')}
                   </label>
                   <input
                     id="fetch-selector"
                     type="text"
                     value={selector}
                     onChange={(e) => setSelector(e.target.value)}
-                    placeholder={t('fetch.selectorPlaceholder', 'e.g. article, .content, #main')}
+                    placeholder={t('fetch.selectorPlaceholder')}
                     disabled={isLoading}
                   />
                 </div>
               )}
-              {provider === 'builtin' && (
+              {supportsExtractOptions && (
                 <div className={styles.field}>
                   <label className={styles.label}>
                     <input
@@ -325,16 +392,16 @@ export function FetchPage() {
                       onChange={(e) => setRespectRobots(e.target.checked)}
                       disabled={isLoading}
                     />
-                    {' '}{t('fetch.respectRobots', 'Respect robots.txt')}
+                    {' '}{t('fetch.respectRobots')}
                   </label>
                 </div>
               )}
               <button
                 type="button"
                 className={styles.resetBtn}
-                onClick={() => setTimeout_(30)}
+                onClick={resetAdvancedOptions}
               >
-                {t('advancedSearch.reset', 'Reset to Default')}
+                {t('advancedSearch.reset')}
               </button>
             </div>
           )}

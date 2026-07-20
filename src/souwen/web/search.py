@@ -21,6 +21,7 @@ from typing import Sequence
 
 from souwen.config import get_config
 from souwen.core.concurrency import get_semaphore
+from souwen.editions import EditionError, ensure_source_allowed
 from souwen.models import WebSearchResponse, WebSearchResult
 from souwen.registry import defaults_for, get as _registry_get
 
@@ -94,9 +95,38 @@ def _default_web_engines() -> list[str]:
     return defaults_for("web", "search")
 
 
+def _normalize_engine_names(value: object, *, name: str) -> list[str] | None:
+    """Normalize optional string-or-sequence engine arguments."""
+    if value is None:
+        return None
+    if isinstance(value, str):
+        items = [value]
+    elif isinstance(value, list | tuple):
+        items = list(value)
+    else:
+        raise ValueError(f"{name} 必须是字符串、字符串列表或 None")
+
+    normalized: list[str] = []
+    for item in items:
+        if not isinstance(item, str) or not item.strip():
+            raise ValueError(f"{name} 必须是非空字符串、非空字符串列表或 None")
+        normalized.append(item.strip())
+    return normalized
+
+
+def _normalize_query_text(value: object, *, name: str = "query") -> str:
+    """Normalize public web search query text before engine dispatch."""
+    if not isinstance(value, str):
+        raise ValueError(f"{name} 必须是非空字符串")
+    query = value.strip()
+    if not query:
+        raise ValueError(f"{name} 必须是非空字符串")
+    return query
+
+
 async def web_search(
     query: str,
-    engines: list[str] | None = None,
+    engines: list[str] | str | None = None,
     max_results_per_engine: int = 10,
     deduplicate: bool = True,
     **kwargs,
@@ -113,7 +143,8 @@ async def web_search(
 
     Args:
         query: 搜索关键词
-        engines: 引擎名列表；None 表示使用 registry 声明的默认 web 搜索源
+        engines: 引擎或引擎名列表；字符串会归一化为单元素列表；None 表示使用
+            registry 声明的默认 web 搜索源
         max_results_per_engine: 每个引擎最大返回数
         deduplicate: 是否按 URL 去重
         **kwargs: 传递给各引擎构造函数的参数（如 use_curl_cffi）
@@ -126,7 +157,10 @@ async def web_search(
         >>> for r in resp.results:
         ...     print(f"[{r.engine}] {r.title} → {r.url}")
     """
-    selected = _default_web_engines() if engines is None else list(engines)
+    query = _normalize_query_text(query)
+    selected_engines = _normalize_engine_names(engines, name="engines")
+    explicit_engines = selected_engines is not None
+    selected = _default_web_engines() if selected_engines is None else selected_engines
 
     tasks = []
     active_engines: list[str] = []
@@ -138,6 +172,13 @@ async def web_search(
         adapter = _registry_get(name)
         if adapter is None:
             logger.warning("未知引擎: %s，跳过", name)
+            continue
+        try:
+            ensure_source_allowed(adapter, cfg.edition)
+        except EditionError as exc:
+            if explicit_engines:
+                raise
+            logger.info("引擎 %s 不在 edition=%s 中，跳过: %s", name, cfg.edition, exc)
             continue
         # 必须支持 'search' capability 才能走 web_search
         if "search" not in adapter.capabilities:

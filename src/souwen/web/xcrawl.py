@@ -127,6 +127,16 @@ class XCrawlClient(SouWenHttpClient):
         SouWen fetch provider 默认使用 ``mode="sync"``，直接返回页面内容。
         per-URL timeout 通过 asyncio.wait_for 强制执行。
         """
+        from souwen.web.fetch import ssrf_blocked_fetch_result
+
+        blocked = ssrf_blocked_fetch_result(
+            url,
+            self.PROVIDER_NAME,
+            raw_provider="xcrawl_scrape",
+        )
+        if blocked is not None:
+            return blocked
+
         payload = self._build_scrape_payload(
             url=url,
             formats=formats,
@@ -205,6 +215,10 @@ class XCrawlClient(SouWenHttpClient):
         ignore_query_parameters: bool = True,
     ) -> dict[str, Any]:
         """通过 XCrawl Map API 获取站点 URL 列表。"""
+        from souwen.web.fetch import raise_if_fetch_url_blocked
+
+        raise_if_fetch_url_blocked(url)
+
         payload: dict[str, Any] = {
             "url": url,
             "limit": max(1, min(int(limit), 100000)),
@@ -238,6 +252,10 @@ class XCrawlClient(SouWenHttpClient):
         webhook: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         """创建 XCrawl Crawl 异步爬取任务。"""
+        from souwen.web.fetch import raise_if_fetch_url_blocked
+
+        raise_if_fetch_url_blocked(url)
+
         crawler: dict[str, Any] = {
             "limit": max(1, int(limit)),
             "max_depth": max(0, int(max_depth)),

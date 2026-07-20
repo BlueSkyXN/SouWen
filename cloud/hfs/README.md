@@ -24,7 +24,7 @@ pinned: false
 | GET | `/api/v1/search/paper?q=...` | 搜索学术论文 |
 | GET | `/api/v1/search/patent?q=...` | 搜索专利 |
 | GET | `/api/v1/search/web?q=...` | 搜索网页（默认 `engines=duckduckgo,bing`） |
-| GET | `/api/v1/sources` | 列出所有可用数据源 |
+| GET | `/api/v1/sources` | 列出公开 Source Catalog、静态配置状态与 runtime importability |
 | GET | `/api/v1/admin/config` | 查看配置（需认证） |
 | GET / PUT | `/api/v1/admin/http-backend` | 查看或临时切换 HTTP backend（需认证） |
 | POST | `/api/v1/admin/config/reload` | 重载配置（需认证） |
@@ -43,11 +43,12 @@ pinned: false
 | `SOUWEN_USER_PASSWORD` | 用户密码，保护搜索和 `/api/v1/sources` |
 | `SOUWEN_ADMIN_PASSWORD` | 管理密码，保护 `/api/v1/admin/*` |
 | `SOUWEN_GUEST_ENABLED` | 设为 `true` 时允许无 Token 访问搜索端点 |
-| `SOUWEN_ADMIN_OPEN` | 设为 `1` 时显式放行未配置密码的 admin 端点（仅本地/CI 调试用） |
+| `SOUWEN_ADMIN_OPEN` | 不要在 Space 中配置；private Space 仍必须使用 `SOUWEN_ADMIN_PASSWORD` 保护管理端点 |
 | `SOUWEN_TRUSTED_PROXIES` | 受信反向代理 IP/CIDR 列表，逗号分隔（如 `10.0.0.0/8,127.0.0.1`） |
 | `SOUWEN_EXPOSE_DOCS` | 是否暴露 `/docs`、`/redoc`、`/openapi.json`，生产建议 `false` |
 | `SOUWEN_MAX_CONCURRENCY` | 聚合搜索并发上限，默认 `10`（v0.6.0） |
-| `SOUWEN_OPENALEX_EMAIL` | OpenAlex 邮箱（免费，提升速率） |
+| `SOUWEN_OPENALEX_API_KEY` | OpenAlex Freemium API Key（可选；额度/预付余额以账户为准） |
+| `SOUWEN_OPENALEX_EMAIL` | 已弃用兼容字段（当前不发送给 OpenAlex） |
 | `SOUWEN_SEMANTIC_SCHOLAR_API_KEY` | Semantic Scholar API Key |
 | `SOUWEN_CORE_API_KEY` | CORE API Key |
 | `SOUWEN_TAVILY_API_KEY` | Tavily AI 搜索 Key |
@@ -60,7 +61,16 @@ pinned: false
 
 ## 部署与验收
 
-GitHub 上的 `HF Space CD` workflow 会在 PR 阶段先运行本地预检：源码 CLI、PyInstaller CLI、HF Space Docker 容器启动和 API surface smoke。合入 `main` 后，同一个 workflow 会同步本目录 wrapper 文件、触发 Space factory rebuild，并在远端分 `surface` / `capability` 两个 smoke job 执行部署后验收。
+GitHub 上的 `HF Space CD` workflow 在 PR 和直接手动触发时只运行本地预检：源码 CLI、
+PyInstaller CLI、HF Space Docker 容器启动和 API surface smoke。合入或 push `main` 不会
+自动部署。只有当前 `main` 上的 central `release-candidate.yml` 在人工批准并显式设置
+`deploy_hfs=true` 后，才会同步本目录 wrapper、触发 Space factory rebuild，并在远端分
+`surface` / `capability` 两个 smoke job 执行部署后验收。
+
+`Dockerfile` 是 fail-closed 模板：仓库中的全零 `SOUWEN_REF` 不能直接构建。
+部署 workflow 会在临时 staging 目录把它替换为经验证的 40 位 candidate SHA，
+同步后再回读远端 Dockerfile。容器内 `/health` 与 `/readiness` 的
+`source_sha` 必须与该 SHA 完全一致；禁止回退到 floating `main`。
 
 部署后人工验收至少访问：
 

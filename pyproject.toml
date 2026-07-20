@@ -78,10 +78,17 @@ mcp = ["mcp>=1.0"]
 # SuperWeb2PDF 网页截图转 PDF（可选外挂插件；PyPI 暂无 superweb2pdf 发行）
 web2pdf = [
     "playwright>=1.40",
-    "superweb2pdf @ https://github.com/BlueSkyXN/SuperWeb2PDF/archive/d1e1da59d739ad46222b5e726bd6f28b0d0453fa.zip",
+    "superweb2pdf @ https://github.com/BlueSkyXN/SuperWeb2PDF/archive/d1e1da59d739ad46222b5e726bd6f28b0d0453fa.zip#sha256=f56a380aa3f06d169d3fcc723d5525779519afaff159b37e8a789e50b797c76b",
 ]
+# Edition 聚合依赖：对应 SOUWEN_EDITION 的常用安装面。
+edition-basic = ["souwen[tls,web,robots,mcp]"]
+edition-pro = ["souwen[edition-basic,server,scraper]"]
+edition-full = ["souwen[edition-pro,newspaper,readability,pdf,web2pdf]"]
+# crawl4ai 与 scrapling 当前依赖树互斥；full 浏览器抓取按目标 provider 二选一。
+edition-full-crawl4ai = ["souwen[edition-full,crawl4ai]"]
+edition-full-scrapling = ["souwen[edition-full,scrapling]"]
 # 开发工具：单元测试、覆盖率、代码检查
-dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "pytest-httpx>=0.30", "pytest-cov>=4", "ruff>=0.4"]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "pytest-httpx>=0.30", "pytest-cov>=4", "ruff>=0.4", "markdown-it-py>=2.2"]
 
 [tool.uv]
 conflicts = [
@@ -100,6 +107,7 @@ allow-direct-references = true
 # panel.html 是构建产物（gitignored），需显式声明以便打入 wheel
 [tool.hatch.build]
 artifacts = ["src/souwen/server/panel.html"]
+exclude = ["/.codex", "/.claude"]
 
 [tool.hatch.build.hooks.custom]
 path = "hatch_build.py"

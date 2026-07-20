@@ -69,7 +69,9 @@
   align-items: center;
 
   &.clickable {
+    color: inherit;
     cursor: pointer;
+    text-decoration: none;
     user-select: none;
     transition: transform 0.2s ease, opacity 0.2s ease;
     border-radius: 12px;

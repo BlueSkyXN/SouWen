@@ -3,6 +3,7 @@
  */
 
 import { render, screen } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { PluginsPanel } from '@core/components/Plugins/PluginsPanel'
 import {
@@ -36,7 +37,10 @@ const plugin = (overrides: Partial<PluginInfo> = {}): PluginInfo => ({
   ...overrides,
 })
 
-function renderPanel(plugins: PluginInfo[]): UsePluginsPageState {
+function renderPanel(
+  plugins: PluginInfo[],
+  overrides: Partial<UsePluginsPageState> = {},
+): UsePluginsPageState {
   const state: UsePluginsPageState = {
     plugins,
     loading: false,
@@ -52,6 +56,7 @@ function renderPanel(plugins: PluginInfo[]): UsePluginsPageState {
     installPackage: vi.fn(async () => true),
     uninstallPackage: vi.fn(async () => true),
     reloadPlugins: vi.fn(async () => undefined),
+    ...overrides,
   }
   vi.mocked(usePluginsPage).mockReturnValue(state)
   render(<PluginsPanel />)
@@ -76,5 +81,80 @@ describe('PluginsPanel', () => {
       screen.queryByRole('button', { name: 'plugins.actions.install' }),
     ).not.toBeInTheDocument()
     expect(screen.getAllByRole('button', { name: 'plugins.reloadCatalog' })).toHaveLength(2)
+  })
+
+  it('shows restart-required status from plugin mutations', () => {
+    renderPanel([plugin({ status: 'loaded', version: '1.2.3' })], { restartRequired: true })
+
+    expect(screen.getByRole('status')).toHaveTextContent('plugins.restartBanner')
+  })
+
+  it('disables install and uninstall controls when server install is disabled', () => {
+    renderPanel([plugin()], { installEnabled: false })
+
+    expect(screen.getByText('plugins.install.disabledHint')).toBeInTheDocument()
+    expect(screen.getByLabelText('plugins.install.packageLabel')).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'plugins.actions.install' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'plugins.install.submitInstall' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'plugins.install.submitUninstall' })).toBeDisabled()
+  })
+
+  it('wires row actions to the plugin page state handlers', async () => {
+    const user = userEvent.setup()
+
+    const loaded = plugin({
+      name: 'loaded-plugin',
+      package: 'loaded-plugin',
+      version: '1.0.0',
+      status: 'loaded',
+      description: 'Loaded plugin',
+    })
+    const disabled = plugin({
+      name: 'disabled-plugin',
+      package: 'disabled-plugin',
+      version: '1.0.0',
+      status: 'disabled',
+      description: 'Disabled plugin',
+    })
+    const available = plugin({
+      name: 'available-plugin',
+      package: 'available-plugin',
+      status: 'available',
+      description: 'Available plugin',
+    })
+    const state = renderPanel([loaded, disabled, available])
+
+    await user.click(screen.getByRole('button', { name: 'plugins.actions.disable' }))
+    await user.click(screen.getByRole('button', { name: 'plugins.actions.enable' }))
+    await user.click(screen.getByRole('button', { name: 'plugins.actions.checkHealth' }))
+    await user.click(screen.getByRole('button', { name: 'plugins.actions.install' }))
+
+    expect(state.disablePlugin).toHaveBeenCalledWith('loaded-plugin')
+    expect(state.enablePlugin).toHaveBeenCalledWith('disabled-plugin')
+    expect(state.checkHealth).toHaveBeenCalledWith('loaded-plugin')
+    expect(state.installPackage).toHaveBeenCalledWith('available-plugin')
+  })
+
+  it('opens the detail dialog, traps close focus, and closes with Escape', async () => {
+    const user = userEvent.setup()
+    renderPanel([
+      plugin({
+        status: 'loaded',
+        version: '1.2.3',
+        source_adapters: ['demo_adapter'],
+        fetch_handlers: ['demo_fetch'],
+      }),
+    ])
+
+    const detailButton = screen.getByRole('button', { name: 'plugins.actions.viewDetail' })
+    await user.click(detailButton)
+
+    expect(screen.getByRole('dialog', { name: 'plugins.detail.title' })).toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: 'plugins.detail.close' })[0]).toHaveFocus()
+
+    await user.keyboard('{Escape}')
+
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument()
+    expect(detailButton).toHaveFocus()
   })
 })

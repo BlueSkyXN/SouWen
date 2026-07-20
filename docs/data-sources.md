@@ -1,6 +1,15 @@
 # SouWen 数据源指南与清单
 
-**总计**：**92** 个公开数据源（从正式 Source Catalog 自动生成；其中外部插件 **0** 个，隐藏/内部源 **3** 个）。
+## Registry 指标
+
+| 指标 | 数量 | 定义 |
+|---|---:|---|
+| Registered | **95** | 当前生成进程注册的 `SourceAdapter`；默认只含内置源 |
+| Public | **94** | `catalog_visibility=public`，进入公开 Source Catalog |
+| Hidden / internal | **1** | 已注册但不进入公开 Source Catalog |
+| Fetch primary-domain | **17** | 主 `domain=fetch` 的公开源 |
+| Fetch cross-domain | **7** | 其他主 domain 通过 `extra_domains` 暴露 `fetch` |
+| Fetch providers | **24** | primary-domain 与 cross-domain 的公开源并集 |
 
 ## 事实来源
 
@@ -12,8 +21,8 @@
 
 - 本页主表按 registry domain 展示：`paper` / `patent` / `web` / `social` / `video` / `knowledge` / `developer` / `cn_tech` / `office` / `archive` / `fetch`。
 - 正式 Source Catalog 使用展示分类：`paper`（学术论文） / `patent`（专利） / `web_general`（通用网页搜索） / `web_professional`（专业网页搜索） / `social`（社交平台） / `office`（企业/办公） / `developer`（开发者社区） / `knowledge`（百科/知识库） / `cn_tech`（中文技术社区） / `video`（视频平台） / `archive`（档案/历史） / `fetch`（内容抓取）。
-- `/api/v1/sources`、CLI 和 Panel 使用同一份公开 Source Catalog：`sources[]` 保留全部公开条目，并用 `category`、`domain`、`capabilities`、`available` 描述展示和运行时可用性。
-- `Capabilities` 是门面层可派发能力；`fetch` 既可以是主 domain，也可以是 `tavily` / `firecrawl` / `exa` / `xcrawl` / `kimi_code` / `wayback` 等源的跨域能力。
+- `/api/v1/sources`、CLI 和 Panel 使用同一份公开 Source Catalog：`sources[]` 保留全部公开条目，并用 `category`、`domain`、`capabilities`、`available` 描述 edition、启用状态和凭据形成的静态 policy/config readiness；`runtime_available` / `runtime_reason` 独立描述本地依赖 importability。
+- `Capabilities` 是门面层可派发能力；`fetch` 既可以属于主 domain，也可以由其他主 domain 源通过 `extra_domains` 声明为跨域能力。具体名单和计数均从 registry 派生。
 
 ## 配置口径
 
@@ -25,6 +34,8 @@
 ## 运行时可见性
 
 `/api/v1/sources` 会从 live registry 派生公开 catalog，禁用源、缺必需凭据源和缺自建实例地址的源仍会保留条目，但 `available=false`；doctor 和管理端 `/api/v1/admin/sources/config` 会展示所有注册源及其状态、凭据字段、频道配置和 catalog 元数据。
+
+`stability` 是 registry 声明的接入成熟度，不是实时连通性承诺；`/api/v1/sources[].available` 只表示当前 edition、启用状态和凭据条件满足，不证明 optional runtime dependency 可导入，也不证明上游此刻可达。Catalog 和 doctor 的 `runtime_available` / `runtime_reason` 独立报告依赖/importability；默认 `live=false`，只有显式 live probe 的结果才描述当次联网观测。
 
 <!-- BEGIN AUTO -->
 
@@ -44,21 +55,23 @@
 | `iacr` | scraper | 免配置 | 中风险 | 可选依赖 | 实验性 | `scraper` | search | — |
 | `ieee_xplore` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `ieee_api_key` |
 | `openaire` | official_api | 可选凭据 (提升配额) | 低风险 | 核心内置 | 稳定 | — | search | `openaire_api_key` |
-| `openalex` | open_api | 可选凭据 (礼貌访问) | 低风险 | 核心内置 | 稳定 | — | search | `openalex_email` |
+| `openalex` | open_api | 可选凭据 (提升配额) | 低风险 | 核心内置 | 稳定 | — | search | `openalex_api_key` |
 | `pmc` | open_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | search | — |
 | `pubmed` | open_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | search | — |
 | `semantic_scholar` | official_api | 可选凭据 (提升限流) | 低风险 | 核心内置 | 稳定 | — | search | `semantic_scholar_api_key` |
 | `zenodo` | official_api | 可选凭据 (提升配额) | 低风险 | 核心内置 | 稳定 | — | search | `zenodo_access_token` |
 | `zotero` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `zotero_api_key`, `zotero_library_id` |
 
-## 专利 · `patent`（6 源）
+## 专利 · `patent`（8 源）
 
 | Name | Integration | Auth | Risk | Distribution | Stability | Extra | Capabilities | Credentials |
 |---|---|---|---|---|---|---|---|---|
 | `cnipa` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `cnipa_client_id`, `cnipa_client_secret` |
 | `epo_ops` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `epo_consumer_key`, `epo_consumer_secret` |
 | `google_patents` | scraper | 免配置 | 中风险 | 可选依赖 | 实验性 | `scraper` | search | — |
+| `patentsview` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `patentsview_api_key` |
 | `patsnap` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `patsnap_api_key` |
+| `pqai` | open_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `pqai_api_token` |
 | `the_lens` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `lens_api_token` |
 | `uspto_odp` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `uspto_api_key` |
 
@@ -81,7 +94,7 @@
 | `google` ⚠️ | scraper | 免配置 | 高风险 | 可选依赖 | 稳定 | `scraper` | search | — |
 | `kimi_code` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch, search | `kimi_code_api_key` |
 | `linkup` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `linkup_api_key` |
-| `metaso` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `metaso_api_key` |
+| `metaso` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch, search | `metaso_api_key` |
 | `mojeek` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `scraper` | search | — |
 | `perplexity` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `perplexity_api_key` |
 | `scrapingdog` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `scrapingdog_api_key` |
@@ -153,7 +166,7 @@
 |---|---|---|---|---|---|---|---|---|
 | `wayback` | open_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | archive_lookup, archive_save, fetch | — |
 
-## 内容抓取 · `fetch`（23 源）
+## 内容抓取 · `fetch`（24 源）
 
 | Name | Integration | Auth | Risk | Distribution | Stability | Extra | Capabilities | Credentials |
 |---|---|---|---|---|---|---|---|---|
@@ -168,7 +181,8 @@
 | `firecrawl` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch, search | `firecrawl_api_key` |
 | `jina_reader` | open_api | 可选凭据 (提升限流) | 低风险 | 核心内置 | 稳定 | — | fetch | `jina_api_key` |
 | `kimi_code` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch, search | `kimi_code_api_key` |
-| `mcp` | open_api | 免配置 | 低风险 | 可选依赖 | 稳定 | `mcp` | fetch | — |
+| `mcp` | open_api | 自建实例 | 低风险 | 可选依赖 | 稳定 | `mcp` | fetch | `mcp_server_url` |
+| `metaso` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch, search | `metaso_api_key` |
 | `newspaper` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `newspaper` | fetch | — |
 | `readability` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `readability` | fetch | — |
 | `scraperapi` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch | `scraperapi_api_key` |
@@ -193,12 +207,12 @@
 - Risk 描述默认调度风险，不等同于 Integration。
 - Distribution 描述推荐治理/安装范围：核心内置 / 可选依赖 / 外部插件。
 - Extra 表示建议安装的 optional dependency 组。
-- Stability 描述接入成熟度：稳定 / Beta / 实验性 / 已弃用。
+- Stability 描述声明式接入成熟度：稳定 / Beta / 实验性 / 已弃用；不等于实时可用性或可达性。
 
 ## 重新生成与校验
 
 ```bash
-PYTHONPATH=src python3 tools/gen_docs.py -o docs/data-sources.md
+PYTHONPATH=src python3 tools/gen_docs.py --write
 PYTHONPATH=src python3 tools/gen_docs.py --check
 ```
 

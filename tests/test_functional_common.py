@@ -1,7 +1,10 @@
 import argparse
 import asyncio
 import json
+import sys
+from pathlib import Path
 
+from scripts import _functional_common as common
 from scripts._functional_common import (
     CheckSkipped,
     CheckWarning,
@@ -13,13 +16,20 @@ from scripts._functional_common import (
 )
 
 
-def test_recorder_overall_fails_only_on_required_failures():
+def test_functional_common_adds_source_tree_to_pythonpath():
+    assert str(Path("src").resolve()) in sys.path
+    assert common.SRC_ROOT == Path("src").resolve()
+
+
+def test_recorder_normalizes_optional_fail_to_warn():
     recorder = ResultRecorder(script="demo", mode="fixture")
 
     recorder.record("required", Outcome.PASS, required=True)
-    recorder.record("optional", Outcome.FAIL, required=False)
+    optional = recorder.record("optional", Outcome.FAIL, required=False)
 
-    assert recorder.overall == Outcome.PASS
+    assert optional.outcome == Outcome.WARN
+    assert optional.details == {"normalized_from": "FAIL"}
+    assert recorder.overall == Outcome.WARN
     assert recorder.exit_code() == 0
 
     recorder.record("required_failure", Outcome.FAIL, required=True)

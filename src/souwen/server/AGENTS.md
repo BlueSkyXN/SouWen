@@ -27,4 +27,4 @@ Read this card for API lifecycle, auth, middleware, route registration, server s
 ## Validation
 
 - `pytest tests/test_server -v --tb=short`
-- Broader server profile: `python scripts/ci/run_profile.py --profile server --profile minimal`
+- Broader server profile: `python scripts/ci/run_profile.py --profile pro-cli --profile basic-cli`

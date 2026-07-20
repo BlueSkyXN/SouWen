@@ -23,6 +23,7 @@ from fastapi import APIRouter
 
 from souwen.server.routes.admin import admin_router
 from souwen.server.routes.bilibili import router as bilibili_router
+from souwen.server.routes.doctor import router as doctor_router
 from souwen.server.routes.fetch import router as fetch_router
 from souwen.server.routes.fetch_summarize import router as fetch_summarize_router
 from souwen.server.routes.search import router as search_router
@@ -39,6 +40,7 @@ router.include_router(fetch_router)
 router.include_router(youtube_router)
 router.include_router(wayback_router)
 router.include_router(sources_router)
+router.include_router(doctor_router)
 router.include_router(bilibili_router)
 router.include_router(whoami_router)
 

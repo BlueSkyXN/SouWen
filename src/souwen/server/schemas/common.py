@@ -28,6 +28,7 @@ class HealthResponse(BaseModel):
 
     status: str = Field(examples=["ok"])
     version: str = Field(examples=["0.4.0"])
+    source_sha: str | None = Field(default=None, min_length=40, max_length=40)
 
 
 class SourceCategoryInfo(BaseModel):
@@ -56,6 +57,11 @@ class SourceCatalogItem(BaseModel):
     stability: Literal["stable", "beta", "experimental", "deprecated"]
     distribution: Literal["core", "extra", "plugin"]
     default_for: list[str] = Field(default_factory=list)
+    min_edition: Literal["basic", "pro", "full"]
+    edition_available: bool
+    edition_reason: str = ""
+    runtime_available: bool
+    runtime_reason: str = ""
     available: bool
 
 
@@ -65,6 +71,28 @@ class SourceCatalogResponse(BaseModel):
     sources: list[SourceCatalogItem] = Field(default_factory=list)
     categories: list[SourceCategoryInfo] = Field(default_factory=list)
     defaults: dict[str, list[str]] = Field(default_factory=dict)
+
+
+class EditionCapabilitiesResponse(BaseModel):
+    """当前 edition 对跨域能力的声明。"""
+
+    llm: bool
+    warp_modes: list[str] = Field(default_factory=list)
+    fetch_providers: list[str] = Field(default_factory=list)
+    plugin_preinstalled: bool
+
+
+class WhoamiResponse(BaseModel):
+    """当前请求角色、功能权限和 edition 能力。"""
+
+    role: Literal["guest", "user", "admin"]
+    features: dict[str, bool | str] = Field(default_factory=dict)
+    edition: Literal["basic", "pro", "full"]
+    edition_capabilities: EditionCapabilitiesResponse
+    guest_enabled: bool
+    user_password_set: bool
+    admin_password_set: bool
+    admin_open: bool
 
 
 class SearchMeta(BaseModel):
@@ -91,6 +119,7 @@ class ReadinessResponse(BaseModel):
 
     ready: bool
     version: str | None = None
+    source_sha: str | None = Field(default=None, min_length=40, max_length=40)
     error: str | None = None
 
 

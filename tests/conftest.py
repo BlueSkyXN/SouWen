@@ -13,15 +13,22 @@ from __future__ import annotations
 
 import os
 import site
+import sys
 from pathlib import Path
 
 import pytest
 
 
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+_REPO_SRC = _REPO_ROOT / "src"
+if _REPO_SRC.is_dir() and str(_REPO_SRC) not in sys.path:
+    sys.path.insert(0, str(_REPO_SRC))
+
+
 def _subprocess_pythonpath() -> str:
     """Build a PYTHONPATH that keeps subprocess tests on the source tree."""
 
-    repo_src = str(Path(__file__).resolve().parents[1] / "src")
+    repo_src = str(_REPO_SRC)
     candidates = [repo_src]
     existing = os.environ.get("PYTHONPATH")
     if existing:
@@ -75,6 +82,25 @@ def clean_fetch_handlers():
         _FETCH_HANDLERS.update(saved)
 
 
+@pytest.fixture
+def mock_public_dns(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Resolve provider-test hostnames to a deterministic public address."""
+    import socket
+
+    def fake_getaddrinfo(_host, port, *_args, **_kwargs):
+        return [
+            (
+                socket.AF_INET,
+                socket.SOCK_STREAM,
+                socket.IPPROTO_TCP,
+                "",
+                ("1.1.1.1", port or 443),
+            )
+        ]
+
+    monkeypatch.setattr(socket, "getaddrinfo", fake_getaddrinfo)
+
+
 @pytest.fixture(autouse=True)
 def _isolate_real_config_environment(monkeypatch, tmp_path):
     """所有测试默认不读取开发机真实 SouWen 配置文件或认证环境变量。
@@ -96,6 +122,10 @@ def _isolate_real_config_environment(monkeypatch, tmp_path):
         "SOUWEN_ADMIN_PASSWORD",
         "SOUWEN_ADMIN_OPEN",
         "SOUWEN_GUEST_ENABLED",
+        "SOUWEN_PROXY",
+        "SOUWEN_PROXY_POOL",
+        "SOUWEN_WARP_PROXY_USERNAME",
+        "SOUWEN_WARP_PROXY_PASSWORD",
     ):
         monkeypatch.delenv(key, raising=False)
     yield

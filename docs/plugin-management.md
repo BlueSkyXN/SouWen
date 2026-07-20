@@ -14,6 +14,10 @@ SouWen 提供三种等价入口管理插件：
 三者背后**共用同一份状态文件**与同一组管理函数，行为完全一致；详见
 [api-reference.md#插件管理端点](./api-reference.md#插件管理端点-apiv1adminplugins)。
 
+插件框架本身不按 `edition` 裁剪，`basic` / `pro` / `full` 都可以发现、加载、启用、
+禁用和管理插件。外部插件注册出的具体 source 或 fetch provider 仍遵守中心 edition
+policy：可以被管理并显示在插件列表里，但实际调度时可能要求 `full`。
+
 ---
 
 ## 1. 状态机与生命周期
@@ -83,12 +87,20 @@ souwen plugins new <name>                 # 生成插件项目骨架
 CLI 命令直接 import 主进程的 `souwen.plugin_manager`，因此：
 - **可在没有运行 server 时使用**（适合 CI / Docker entrypoint 调度）
 - **不会触碰其他进程的运行时状态**：禁用/启用写入状态文件后，其他进程下次启动才会看到
+- 会清理 `<name>` / `<package>` 参数的首尾空白；清理后为空会直接失败
+- `new <name>` 还要求 `<name>` 是小写字母开头、字母或数字结尾，
+  仅含小写字母/数字/下划线，且不能是 Python 关键字
+- `install` / `uninstall` 失败时只打印标准化错误，不把 raw pip 输出写到终端
+- `reload` 失败项只显示插件名和标准化错误，不打印插件加载异常原文；
+  存在失败项时 CLI 以非零退出码结束
 
 ---
 
 ## 4. 通过 HTTP API 管理
 
 详见 [api-reference.md#插件管理端点](./api-reference.md#插件管理端点-apiv1adminplugins)。
+HTTP API 会清理插件 `name` 路径参数和 `package` 请求体字段的首尾空白；
+清理后为空会返回 `422`，不会执行实际状态变更或 pip 操作。
 
 最常用的快速测试：
 
@@ -144,7 +156,8 @@ ALLOWED_PACKAGES = frozenset({"superweb2pdf", "souwen-example-plugin"})
 - **`installed_via_api`**：仅做记账用途，便于运维审计哪些包是通过 API 安装的
 
 文件路径取自 `config.data_path`（默认 `~/.local/share/souwen/`），原子写入，
-由 `souwen.plugin_manager._save_state` 写出，反复读写不会丢数据。
+由 `souwen.plugin_manager._save_state` 写出，反复读写不会丢数据。状态项读写时会
+清理首尾空白，并丢弃清理后为空的条目。
 
 ---
 

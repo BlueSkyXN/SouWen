@@ -20,7 +20,7 @@
  *   - MainLayout.module.scss: 布局样式
  */
 
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, useId } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { m, AnimatePresence } from 'framer-motion'
@@ -90,6 +90,7 @@ export function MainLayout() {
   const [mobileOpen, setMobileOpen] = useState(false)
   const [skinPaletteOpen, setSkinPaletteOpen] = useState(false)
   const skinPaletteRef = useRef<HTMLDivElement>(null)
+  const baseId = useId()
 
   // 获取当前应用皮肤（默认为 'ios'）
   const currentSkinId = document.documentElement.getAttribute('data-skin') || 'ios'
@@ -130,7 +131,7 @@ export function MainLayout() {
     window.location.reload()
   }
 
-  const sidebarContent = (
+  const renderSidebarContent = (skinListboxId: string) => (
     <>
       {/* Search bar (macOS style) */}
       <div className={styles.sidebarSearch}>
@@ -169,8 +170,10 @@ export function MainLayout() {
             <button
               className={styles.sidebarAction}
               onClick={() => setSkinPaletteOpen((o) => !o)}
+              aria-label={t('skin.switchSkin')}
               aria-expanded={skinPaletteOpen}
               aria-haspopup="listbox"
+              aria-controls={skinPaletteOpen ? skinListboxId : undefined}
             >
               <Layers size={16} />
               <span>{t('skin.switchSkin')}</span>
@@ -179,7 +182,9 @@ export function MainLayout() {
               {skinPaletteOpen && (
                 <m.div
                   className={styles.palette}
+                  id={skinListboxId}
                   role="listbox"
+                  aria-label={t('skin.switchSkin')}
                   initial={{ opacity: 0, y: 4, scale: 0.96 }}
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 4, scale: 0.96 }}
@@ -229,7 +234,7 @@ export function MainLayout() {
     <div className={styles.layout}>
       {/* ── Desktop Sidebar ── */}
       <aside className={styles.sidebar}>
-        {sidebarContent}
+        {renderSidebarContent(`${baseId}-desktop-skin-listbox`)}
       </aside>
 
       {/* ── Mobile Top Bar ── */}
@@ -237,7 +242,7 @@ export function MainLayout() {
         <button
           className={styles.hamburger}
           onClick={() => setMobileOpen((o) => !o)}
-          aria-label="Menu"
+          aria-label={t('nav.menu')}
         >
           <Menu size={22} />
         </button>
@@ -271,11 +276,15 @@ export function MainLayout() {
           >
             <div className={styles.drawerHeader}>
               <span className={styles.drawerBrand}>SouWen</span>
-              <button className={styles.drawerClose} onClick={() => setMobileOpen(false)}>
+              <button
+                className={styles.drawerClose}
+                onClick={() => setMobileOpen(false)}
+                aria-label={t('common.close')}
+              >
                 <X size={20} />
               </button>
             </div>
-            {sidebarContent}
+            {renderSidebarContent(`${baseId}-mobile-skin-listbox`)}
           </m.aside>
         )}
       </AnimatePresence>

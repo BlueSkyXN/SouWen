@@ -11,6 +11,7 @@ from souwen.web.xcrawl import XCrawlClient
 
 
 XCRAWL_URL_RE = re.compile(r"https://run\.xcrawl\.com/.*")
+pytestmark = pytest.mark.usefixtures("mock_public_dns")
 
 
 def _scrape_response(url: str = "https://example.com") -> dict:

@@ -187,7 +187,10 @@ class TestCatalogDiscovery:
         caplog: pytest.LogCaptureFixture,
     ) -> None:
         def boom() -> dict[str, str]:
-            raise RuntimeError("broken catalog")
+            raise RuntimeError(
+                "broken catalog at /Users/private/catalog.py "
+                "postgresql://user:password@db.internal/catalog token=catalog-secret"
+            )
 
         monkeypatch.setattr(
             "souwen.plugin_manager.metadata.entry_points",
@@ -216,7 +219,10 @@ class TestCatalogDiscovery:
         assert "bad_type" in messages
         assert "missing" in messages
         assert "bad_value" in messages
-        assert "boom" in messages
+        assert "entry point 失败 (exception_type=RuntimeError)" in messages
+        assert "/Users/private" not in messages
+        assert "postgresql://" not in messages
+        assert "catalog-secret" not in messages
 
 
 class TestExamplePluginLogging:
@@ -323,11 +329,42 @@ class TestStateFile:
             "installed_via_api": [],
         }
 
+    def test_state_normalization_strips_names(self, state_dir: Path) -> None:
+        state_dir.parent.mkdir(parents=True, exist_ok=True)
+        state_dir.write_text(
+            json.dumps(
+                {
+                    "disabled_plugins": [" beta ", "alpha", "\talpha\n", "  "],
+                    "installed_via_api": [" superweb2pdf ", "\n"],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        assert _load_state() == {
+            "disabled_plugins": ["alpha", "beta"],
+            "installed_via_api": ["superweb2pdf"],
+        }
+
     def test_load_state_with_invalid_json_returns_default(self, state_dir: Path) -> None:
         state_dir.parent.mkdir(parents=True, exist_ok=True)
         state_dir.write_text("{broken json", encoding="utf-8")
 
         assert _load_state() == {"disabled_plugins": [], "installed_via_api": []}
+
+    def test_load_state_log_contains_only_exception_type(
+        self,
+        state_dir: Path,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        state_dir.mkdir()
+
+        with caplog.at_level(logging.WARNING, logger="souwen.plugin_manager"):
+            assert _load_state() == {"disabled_plugins": [], "installed_via_api": []}
+
+        assert "读取插件状态文件失败" in caplog.text
+        assert any(name in caplog.text for name in ("IsADirectoryError", "PermissionError"))
+        assert str(state_dir) not in caplog.text
 
     def test_atomic_write_does_not_corrupt_existing_file(
         self,
@@ -622,6 +659,39 @@ class TestInstallUninstall:
         assert result["success"] is False
         assert result["restart_required"] is False
         assert "未启用" in result["output"]
+
+    @pytest.mark.asyncio
+    async def test_install_exception_log_contains_type_without_sensitive_message(
+        self,
+        state_dir: Path,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        raw_error = (
+            "pip failed at /Users/private/pip.conf "
+            "postgresql://user:password@db.internal/plugins token=pip-secret"
+        )
+
+        async def failing_run_pip(args: list[str], timeout: float) -> tuple[bool, str]:
+            raise OSError(raw_error)
+
+        monkeypatch.setenv("SOUWEN_ENABLE_PLUGIN_INSTALL", "1")
+        monkeypatch.setattr("souwen.plugin_manager._run_pip", failing_run_pip)
+
+        with caplog.at_level(logging.WARNING, logger="souwen.plugin_manager"):
+            result = await install_plugin("superweb2pdf")
+
+        assert result == {
+            "success": False,
+            "output": "安装插件失败，请查看服务端日志。",
+            "restart_required": False,
+        }
+        assert "安装插件包失败" in caplog.text
+        assert "OSError" in caplog.text
+        assert raw_error not in caplog.text
+        assert "/Users/private" not in caplog.text
+        assert "postgresql://" not in caplog.text
+        assert "pip-secret" not in caplog.text
 
     @pytest.mark.asyncio
     async def test_install_plugin_success_updates_state_and_restart_required(
@@ -1030,6 +1100,43 @@ class TestAPIEndpoints:
 
         assert response.status_code == 404
 
+    def test_get_plugin_trims_name_before_lookup(
+        self,
+        client: Any,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        seen: dict[str, str] = {}
+
+        def fake_get_plugin_info(name: str) -> PluginInfo:
+            seen["name"] = name
+            return PluginInfo(name=name, status="loaded", source="entry_point")
+
+        monkeypatch.setattr("souwen.plugin_manager.get_plugin_info", fake_get_plugin_info)
+
+        response = client.get("/plugins/%20alpha%20")
+
+        assert response.status_code == 200
+        assert seen["name"] == "alpha"
+        assert response.json()["name"] == "alpha"
+
+    def test_get_plugin_rejects_blank_name(
+        self,
+        client: Any,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        called = False
+
+        def fake_get_plugin_info(name: str) -> None:
+            nonlocal called
+            called = True
+
+        monkeypatch.setattr("souwen.plugin_manager.get_plugin_info", fake_get_plugin_info)
+
+        response = client.get("/plugins/%20%20")
+
+        assert response.status_code == 422
+        assert called is False
+
     def test_plugin_health_with_callable(
         self,
         client: Any,
@@ -1049,6 +1156,107 @@ class TestAPIEndpoints:
 
         assert response.status_code == 200
         assert response.json() == {"status": "ok", "latency_ms": 1}
+
+    def test_plugin_health_redacts_secret_payload(
+        self,
+        client: Any,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        from souwen.plugin import Plugin
+
+        async def health_check() -> dict[str, Any]:
+            return {
+                "status": "error",
+                "api_key": "health-secret",
+                "message": (
+                    "failed token=message-secret Cookie: sid=session-secret "
+                    "callback https://health.example/cb?apiKey=url-secret&safe=1"
+                ),
+            }
+
+        monkeypatch.setattr(
+            "souwen.plugin.get_loaded_plugins",
+            lambda: {"healthy": Plugin(name="healthy", health_check=health_check)},
+        )
+
+        response = client.get("/plugins/healthy/health")
+
+        assert response.status_code == 200
+        payload = response.json()
+        assert payload["api_key"] == "***"
+        assert "health-secret" not in response.text
+        assert "message-secret" not in response.text
+        assert "session-secret" not in response.text
+        assert "url-secret" not in response.text
+        assert "token:***" in payload["message"]
+        assert "Cookie:***" in payload["message"]
+        assert "apiKey=***" in payload["message"]
+        assert "safe=1" in payload["message"]
+
+    @pytest.mark.asyncio
+    async def test_run_plugin_health_exception_redacts_message_and_log(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        caplog: pytest.LogCaptureFixture,
+    ) -> None:
+        """manager 层也不能把 health_check 异常中的 secret 返回或写入日志。"""
+        from souwen.plugin import Plugin
+        from souwen.plugin_manager import run_plugin_health
+
+        async def health_check() -> dict[str, Any]:
+            raise RuntimeError(
+                "failed at /Users/private/health.py "
+                "postgresql://user:password@db.internal/health "
+                "token=health-exc-secret Cookie: sid=session-secret "
+                "callback https://health.example/cb?apiKey=url-secret&safe=1"
+            )
+
+        monkeypatch.setattr(
+            "souwen.plugin.get_loaded_plugins",
+            lambda: {"broken": Plugin(name="broken", health_check=health_check)},
+        )
+
+        caplog.set_level(logging.WARNING, logger="souwen.plugin_manager")
+        result = await run_plugin_health("broken")
+
+        assert result["status"] == "error"
+        assert "health-exc-secret" not in result["message"]
+        assert "session-secret" not in result["message"]
+        assert "url-secret" not in result["message"]
+        assert "token:***" in result["message"]
+        assert "Cookie:***" in result["message"]
+        assert "apiKey=***" in result["message"]
+        assert "safe=1" in result["message"]
+        assert "postgresql://***@db.internal/health" in result["message"]
+        assert "RuntimeError" in caplog.text
+        assert "/Users/private" not in caplog.text
+        assert "postgresql://" not in caplog.text
+        assert "health-exc-secret" not in caplog.text
+        assert "session-secret" not in caplog.text
+        assert "url-secret" not in caplog.text
+
+    def test_plugin_health_trims_name_before_lookup(
+        self,
+        client: Any,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        seen: dict[str, str] = {}
+
+        async def fake_run_plugin_health(
+            name: str,
+            *,
+            include_error_detail: bool,
+        ) -> dict[str, str | bool]:
+            seen["name"] = name
+            return {"status": "ok", "include_error_detail": include_error_detail}
+
+        monkeypatch.setattr("souwen.plugin_manager.run_plugin_health", fake_run_plugin_health)
+
+        response = client.get("/plugins/%20alpha%20/health")
+
+        assert response.status_code == 200
+        assert seen["name"] == "alpha"
+        assert response.json() == {"status": "ok", "include_error_detail": False}
 
     def test_plugin_health_without_callable(
         self,
@@ -1169,6 +1377,25 @@ class TestAPIEndpoints:
         assert response.json()["success"] is True
         assert _load_state()["disabled_plugins"] == []
 
+    def test_post_enable_trims_name_before_manager(
+        self,
+        client: Any,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        seen: dict[str, str] = {}
+
+        def fake_enable_plugin(name: str) -> dict[str, Any]:
+            seen["name"] = name
+            return {"success": True, "restart_required": False, "message": "ok"}
+
+        monkeypatch.setattr("souwen.plugin_manager.enable_plugin", fake_enable_plugin)
+
+        response = client.post("/plugins/%20alpha%20/enable")
+
+        assert response.status_code == 200
+        assert seen["name"] == "alpha"
+        assert response.json()["success"] is True
+
     def test_post_disable_plugin(
         self,
         client: Any,
@@ -1186,6 +1413,25 @@ class TestAPIEndpoints:
         assert response.json()["success"] is True
         assert _load_state()["disabled_plugins"] == ["alpha"]
 
+    def test_post_disable_trims_name_before_manager(
+        self,
+        client: Any,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        seen: dict[str, str] = {}
+
+        async def fake_disable_plugin_async(name: str) -> dict[str, Any]:
+            seen["name"] = name
+            return {"success": True, "restart_required": False, "message": "ok"}
+
+        monkeypatch.setattr("souwen.plugin_manager.disable_plugin_async", fake_disable_plugin_async)
+
+        response = client.post("/plugins/%20alpha%20/disable")
+
+        assert response.status_code == 200
+        assert seen["name"] == "alpha"
+        assert response.json()["success"] is True
+
     def test_post_install_without_env_var(
         self,
         client: Any,
@@ -1199,6 +1445,44 @@ class TestAPIEndpoints:
         assert response.status_code == 200
         assert response.json()["success"] is False
         assert "未启用" in response.json()["message"]
+
+    def test_post_install_trims_package_before_manager(
+        self,
+        client: Any,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        seen: dict[str, str] = {}
+
+        async def fake_install_plugin(package: str) -> dict[str, Any]:
+            seen["package"] = package
+            return {"success": True, "package": package, "restart_required": True}
+
+        monkeypatch.setattr("souwen.plugin_manager.install_plugin", fake_install_plugin)
+
+        response = client.post("/plugins/install", json={"package": " superweb2pdf "})
+
+        assert response.status_code == 200
+        assert seen["package"] == "superweb2pdf"
+        assert response.json()["package"] == "superweb2pdf"
+
+    def test_post_install_rejects_blank_package_before_manager(
+        self,
+        client: Any,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        called = False
+
+        async def fake_install_plugin(package: str) -> dict[str, Any]:
+            nonlocal called
+            called = True
+            return {"success": True, "package": package, "restart_required": True}
+
+        monkeypatch.setattr("souwen.plugin_manager.install_plugin", fake_install_plugin)
+
+        response = client.post("/plugins/install", json={"package": "   "})
+
+        assert response.status_code == 422
+        assert called is False
 
     def test_post_install_with_invalid_package_returns_actionable_message(
         self,
@@ -1235,6 +1519,44 @@ class TestAPIEndpoints:
         assert response.json()["message"] == "操作失败，详见服务端日志"
         assert "private index token leaked" not in caplog.text
         assert "Collecting superweb2pdf" not in caplog.text
+
+    def test_post_uninstall_trims_package_before_manager(
+        self,
+        client: Any,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        seen: dict[str, str] = {}
+
+        async def fake_uninstall_plugin(package: str) -> dict[str, Any]:
+            seen["package"] = package
+            return {"success": True, "package": package, "restart_required": True}
+
+        monkeypatch.setattr("souwen.plugin_manager.uninstall_plugin", fake_uninstall_plugin)
+
+        response = client.post("/plugins/uninstall", json={"package": " superweb2pdf "})
+
+        assert response.status_code == 200
+        assert seen["package"] == "superweb2pdf"
+        assert response.json()["package"] == "superweb2pdf"
+
+    def test_post_uninstall_rejects_blank_package_before_manager(
+        self,
+        client: Any,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        called = False
+
+        async def fake_uninstall_plugin(package: str) -> dict[str, Any]:
+            nonlocal called
+            called = True
+            return {"success": True, "package": package, "restart_required": True}
+
+        monkeypatch.setattr("souwen.plugin_manager.uninstall_plugin", fake_uninstall_plugin)
+
+        response = client.post("/plugins/uninstall", json={"package": "   "})
+
+        assert response.status_code == 422
+        assert called is False
 
     def test_post_reload(
         self,

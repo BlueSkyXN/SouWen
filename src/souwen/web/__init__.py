@@ -41,65 +41,97 @@ API 类（需 Key / 自建实例）：
 - web_search(): 并发多引擎聚合 + URL 去重
 """
 
-from souwen.web.duckduckgo import DuckDuckGoClient
-from souwen.web.ddg_news import DuckDuckGoNewsClient
-from souwen.web.ddg_images import DuckDuckGoImagesClient, ImageSearchResult, ImageSearchResponse
-from souwen.web.ddg_videos import DuckDuckGoVideosClient, VideoSearchResult, VideoSearchResponse
-from souwen.web.yahoo import YahooClient
-from souwen.web.brave import BraveClient
-from souwen.web.google import GoogleClient
-from souwen.web.bing import BingClient
-from souwen.web.bing_cn import BingCnClient
-from souwen.web.startpage import StartpageClient
-from souwen.web.baidu import BaiduClient
-from souwen.web.mojeek import MojeekClient
-from souwen.web.yandex import YandexClient
-from souwen.web.searxng import SearXNGClient
-from souwen.web.tavily import TavilyClient
-from souwen.web.exa import ExaClient
-from souwen.web.serper import SerperClient
-from souwen.web.brave_api import BraveApiClient
-from souwen.web.serpapi import SerpApiClient
-from souwen.web.firecrawl import FirecrawlClient
-from souwen.web.xcrawl import XCrawlClient
-from souwen.web.perplexity import PerplexityClient
-from souwen.web.linkup import LinkupClient
-from souwen.web.scrapingdog import ScrapingDogClient
-from souwen.web.whoogle import WhoogleClient
-from souwen.web.websurfx import WebsurfxClient
-from souwen.web.github import GitHubClient
-from souwen.web.stackoverflow import StackOverflowClient
-from souwen.web.reddit import RedditClient
-from souwen.web.bilibili import BilibiliClient
-from souwen.web.wikipedia import WikipediaClient
-from souwen.web.youtube import VideoDetail, YouTubeClient
-from souwen.web.zhihu import ZhihuClient
-from souwen.web.weibo import WeiboClient
-from souwen.web.csdn import CSDNClient
-from souwen.web.juejin import JuejinClient
-from souwen.web.linuxdo import LinuxDoClient
-from souwen.web.nodeseek import NodeSeekClient
-from souwen.web.hostloc import HostLocClient
-from souwen.web.v2ex import V2EXClient
-from souwen.web.coolapk import CoolapkClient
-from souwen.web.xiaohongshu import XiaohongshuClient
-from souwen.web.community_cn import CommunityCnClient
-from souwen.web.twitter import TwitterClient
-from souwen.web.facebook import FacebookClient
-from souwen.web.feishu_drive import FeishuDriveClient
-from souwen.web.metaso import MetasoClient
-from souwen.web.zhipuai_search import ZhipuAISearchClient
-from souwen.web.aliyun_iqs import AliyunIQSClient
-from souwen.web.kimi_code import KimiCodeClient
-from souwen.web.jina_reader import JinaReaderClient
-from souwen.web.builtin import BuiltinFetcherClient
-from souwen.web.wayback import WaybackClient
-from souwen.web.mcp_client import MCPClient
-from souwen.web.mcp_fetch import MCPFetchClient
-from souwen.web.site_crawler import SiteCrawlerClient, crawl_site
-from souwen.web.deepwiki import DeepWikiClient, resolve_github_repo
-from souwen.web.search import web_search
-from souwen.web.fetch import fetch_content
+from __future__ import annotations
+
+from importlib import import_module
+from typing import Any
+
+
+_LAZY_EXPORTS: dict[str, tuple[str, str]] = {
+    "DuckDuckGoClient": ("souwen.web.duckduckgo", "DuckDuckGoClient"),
+    "DuckDuckGoNewsClient": ("souwen.web.ddg_news", "DuckDuckGoNewsClient"),
+    "DuckDuckGoImagesClient": ("souwen.web.ddg_images", "DuckDuckGoImagesClient"),
+    "ImageSearchResult": ("souwen.web.ddg_images", "ImageSearchResult"),
+    "ImageSearchResponse": ("souwen.web.ddg_images", "ImageSearchResponse"),
+    "DuckDuckGoVideosClient": ("souwen.web.ddg_videos", "DuckDuckGoVideosClient"),
+    "VideoSearchResult": ("souwen.web.ddg_videos", "VideoSearchResult"),
+    "VideoSearchResponse": ("souwen.web.ddg_videos", "VideoSearchResponse"),
+    "YahooClient": ("souwen.web.yahoo", "YahooClient"),
+    "BraveClient": ("souwen.web.brave", "BraveClient"),
+    "GoogleClient": ("souwen.web.google", "GoogleClient"),
+    "BingClient": ("souwen.web.bing", "BingClient"),
+    "BingCnClient": ("souwen.web.bing_cn", "BingCnClient"),
+    "StartpageClient": ("souwen.web.startpage", "StartpageClient"),
+    "BaiduClient": ("souwen.web.baidu", "BaiduClient"),
+    "MojeekClient": ("souwen.web.mojeek", "MojeekClient"),
+    "YandexClient": ("souwen.web.yandex", "YandexClient"),
+    "SearXNGClient": ("souwen.web.searxng", "SearXNGClient"),
+    "TavilyClient": ("souwen.web.tavily", "TavilyClient"),
+    "ExaClient": ("souwen.web.exa", "ExaClient"),
+    "SerperClient": ("souwen.web.serper", "SerperClient"),
+    "BraveApiClient": ("souwen.web.brave_api", "BraveApiClient"),
+    "SerpApiClient": ("souwen.web.serpapi", "SerpApiClient"),
+    "FirecrawlClient": ("souwen.web.firecrawl", "FirecrawlClient"),
+    "XCrawlClient": ("souwen.web.xcrawl", "XCrawlClient"),
+    "PerplexityClient": ("souwen.web.perplexity", "PerplexityClient"),
+    "LinkupClient": ("souwen.web.linkup", "LinkupClient"),
+    "ScrapingDogClient": ("souwen.web.scrapingdog", "ScrapingDogClient"),
+    "WhoogleClient": ("souwen.web.whoogle", "WhoogleClient"),
+    "WebsurfxClient": ("souwen.web.websurfx", "WebsurfxClient"),
+    "GitHubClient": ("souwen.web.github", "GitHubClient"),
+    "StackOverflowClient": ("souwen.web.stackoverflow", "StackOverflowClient"),
+    "RedditClient": ("souwen.web.reddit", "RedditClient"),
+    "BilibiliClient": ("souwen.web.bilibili", "BilibiliClient"),
+    "WikipediaClient": ("souwen.web.wikipedia", "WikipediaClient"),
+    "YouTubeClient": ("souwen.web.youtube", "YouTubeClient"),
+    "VideoDetail": ("souwen.web.youtube", "VideoDetail"),
+    "ZhihuClient": ("souwen.web.zhihu", "ZhihuClient"),
+    "WeiboClient": ("souwen.web.weibo", "WeiboClient"),
+    "CSDNClient": ("souwen.web.csdn", "CSDNClient"),
+    "JuejinClient": ("souwen.web.juejin", "JuejinClient"),
+    "LinuxDoClient": ("souwen.web.linuxdo", "LinuxDoClient"),
+    "NodeSeekClient": ("souwen.web.nodeseek", "NodeSeekClient"),
+    "HostLocClient": ("souwen.web.hostloc", "HostLocClient"),
+    "V2EXClient": ("souwen.web.v2ex", "V2EXClient"),
+    "CoolapkClient": ("souwen.web.coolapk", "CoolapkClient"),
+    "XiaohongshuClient": ("souwen.web.xiaohongshu", "XiaohongshuClient"),
+    "CommunityCnClient": ("souwen.web.community_cn", "CommunityCnClient"),
+    "TwitterClient": ("souwen.web.twitter", "TwitterClient"),
+    "FacebookClient": ("souwen.web.facebook", "FacebookClient"),
+    "FeishuDriveClient": ("souwen.web.feishu_drive", "FeishuDriveClient"),
+    "MetasoClient": ("souwen.web.metaso", "MetasoClient"),
+    "ZhipuAISearchClient": ("souwen.web.zhipuai_search", "ZhipuAISearchClient"),
+    "AliyunIQSClient": ("souwen.web.aliyun_iqs", "AliyunIQSClient"),
+    "KimiCodeClient": ("souwen.web.kimi_code", "KimiCodeClient"),
+    "JinaReaderClient": ("souwen.web.jina_reader", "JinaReaderClient"),
+    "BuiltinFetcherClient": ("souwen.web.builtin", "BuiltinFetcherClient"),
+    "WaybackClient": ("souwen.web.wayback", "WaybackClient"),
+    "MCPClient": ("souwen.web.mcp_client", "MCPClient"),
+    "MCPFetchClient": ("souwen.web.mcp_fetch", "MCPFetchClient"),
+    "SiteCrawlerClient": ("souwen.web.site_crawler", "SiteCrawlerClient"),
+    "crawl_site": ("souwen.web.site_crawler", "crawl_site"),
+    "DeepWikiClient": ("souwen.web.deepwiki", "DeepWikiClient"),
+    "resolve_github_repo": ("souwen.web.deepwiki", "resolve_github_repo"),
+    "web_search": ("souwen.web.search", "web_search"),
+    "fetch_content": ("souwen.web.fetch", "fetch_content"),
+}
+
+
+def __getattr__(name: str) -> Any:
+    """按需加载兼容的 ``souwen.web`` convenience exports。"""
+
+    try:
+        module_name, attribute_name = _LAZY_EXPORTS[name]
+    except KeyError as exc:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}") from exc
+    value = getattr(import_module(module_name), attribute_name)
+    globals()[name] = value
+    return value
+
+
+def __dir__() -> list[str]:
+    return sorted(set(globals()) | set(__all__))
+
 
 __all__ = [
     # 爬虫类（无需 Key）

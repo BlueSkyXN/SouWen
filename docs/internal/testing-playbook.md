@@ -104,7 +104,7 @@ Crawl4AI 属于 PR required functional check：
 - pytest 保留插件契约、loader、manager、handler 注册和错误隔离的 mock/monkeypatch 单测。
 - `scripts/plugin_functional_check.py` 验证真实 `pip install -e examples/minimal-plugin` 后的 entry point discovery、registry 视图、plugin manager 视图和 fetch handler 派发。
 - 示例插件未安装时本地默认 `SKIP`；CI 使用 `--require-installed` 把缺失安装提升为 `FAIL`。
-- 可选外部插件 `superweb2pdf` 缺失或加载失败记录为 `WARN`，不阻断 PR；需要收紧时再使用 `--require-web2pdf`。
+- 可选外部插件 `superweb2pdf` 缺失、加载失败或未注册 fetch handler 时记录为 `WARN`，不阻断 PR；需要收紧安装/注册时使用 `--require-web2pdf`，需要验证 Playwright/PDF 运行时输出时使用 `--require-web2pdf-runtime`。
 - CI 上传 `plugin-functional.json` 和 `plugin-functional.md`。
 
 ## 迁移示例：HF Space smoke
@@ -116,6 +116,16 @@ HF Space smoke 属于 deploy smoke / release gate：
 - `--json-report` / `--markdown-report` 作为统一 CLI alias，兼容原有 `--json-file` / `--report-file`。
 - 本地可用 `--mode offline` 验证 report 写入，不触碰真实 HF Space endpoint。
 - `HF Space CD` 上传 surface / capability 两类 JSON + Markdown artifact；JSON 是 source of truth，Markdown 只用于排障阅读。
+
+## 迁移示例：Zero-key live sources
+
+Zero-key live sources 属于 nightly / release gate：
+
+- pytest 保留 Google Patents / Wayback 的 parser、SSRF guard、registry 和 mock HTTP 契约。
+- `scripts/zero_key_functional_check.py` 在 `--mode live` 下真实探测 Google Patents search、Wayback Availability API 和 CDX API；当 Availability API 没有 closest 但同 URL 的 CDX 200 快照可证明有存档时，availability check 以 `cdx_fallback` 通过。
+- 本地默认 `--mode offline`，只验证 report 写入，不触碰真实外部服务。
+- live 模式默认把外部波动记录为 `WARN`；release / tag gate 使用 `--required` 把失败提升为 `FAIL`。
+- `External Smoke Gate` 在非 PR 事件运行该 job，避免高波动 live 源阻断普通 PR。
 
 ## 迁移示例：External Smoke Gate
 

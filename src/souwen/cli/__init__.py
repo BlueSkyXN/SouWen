@@ -125,6 +125,7 @@ app.add_typer(wayback.wayback_app, name="wayback")
 app.add_typer(config_cmds.config_app, name="config")
 app.add_typer(warp.warp_app, name="warp")
 app.add_typer(plugins.plugins_app, name="plugins")
+app.add_typer(doctor.doctor_app, name="doctor")
 
 # 兼容性导出：tests/test_infra.py 直接 `from souwen.cli import _mask_value`
 from souwen.cli.config_cmds import _mask_value  # noqa: E402, F401

@@ -49,11 +49,11 @@ my-source = "my_plugin:plugin"
 | 模式 | 安装方式 | 适用场景 |
 |---|---|---|
 | **运行时发现** | 安装第三方插件包（例如 GitHub archive 或未来 PyPI 包） | 插件随宿主升级解耦；社区/私有分发 |
-| **打包嵌入（optional dependency）** | `pip install "souwen[web2pdf]"` | Docker 镜像 / 一键部署；插件依赖随 SouWen extras 自动安装 |
+| **打包嵌入（optional dependency）** | `pip install "souwen[edition-pro,web2pdf]"` 或 Docker build arg | Docker 镜像 / 一键部署；插件依赖随 SouWen extras 或镜像 build arg 安装 |
 
-**Docker / 多 extras**：Dockerfile 先安装 `.[server,tls]`，再按 `WEB2PDF_PACKAGE`
-安装 SuperWeb2PDF 插件包；默认值使用可解析的 GitHub archive，避免依赖尚未发布的
-PyPI distribution。
+**Docker / 多 extras**：Dockerfile 先安装 `.[edition-pro]`，再按 `WEB2PDF_PACKAGE`
+安装 SuperWeb2PDF 插件包和 Playwright；默认值使用可解析的 GitHub archive，避免依赖
+尚未发布的 PyPI distribution。
 
 无论哪种部署形态，SouWen 的 CLI / server bootstrap 都会调用
 `ensure_plugins_loaded(get_config())`，再通过

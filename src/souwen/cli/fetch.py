@@ -8,8 +8,8 @@ import json
 import typer
 
 from souwen.cli import app
-from souwen.cli._common import _run_async, console
-from souwen.registry import fetch_providers
+from souwen.cli._common import _run_async, console, redact_cli_text
+from souwen.registry import fetch_providers, get
 
 
 def _current_fetch_provider_names() -> tuple[str, ...]:
@@ -26,6 +26,15 @@ def _validate_fetch_provider(value: str) -> str:
     provider_names = _current_fetch_provider_names()
     if value not in provider_names:
         raise typer.BadParameter(f"无效提供者: {value}，可选: {', '.join(provider_names)}")
+    adapter = get(value)
+    if adapter is not None:
+        from souwen.config import get_config
+        from souwen.editions import EditionError, ensure_fetch_provider_allowed
+
+        try:
+            ensure_fetch_provider_allowed(adapter, get_config().edition)
+        except EditionError as exc:
+            raise typer.BadParameter(str(exc)) from exc
     return value
 
 
@@ -101,9 +110,9 @@ def fetch_cmd(
     console.print(f"[bold]📄 抓取完成: {resp.total_ok}/{resp.total} 成功[/bold]")
     for r in resp.results:
         if r.error:
-            console.print(f"  [red]✗ {r.url}: {r.error}[/red]")
+            console.print(f"  [red]✗ {redact_cli_text(r.url)}: {redact_cli_text(r.error)}[/red]")
         else:
-            console.print(f"  [green]✓ {r.url}[/green] — {r.title}")
+            console.print(f"  [green]✓ {redact_cli_text(r.url)}[/green] — {r.title}")
             if r.snippet:
                 console.print(
                     f"    [dim]{r.snippet[:200]}{'...' if len(r.snippet) > 200 else ''}[/dim]"
@@ -127,7 +136,7 @@ def links_cmd(
         result = _run_async(_do())
 
     if result.error:
-        console.print(f"[red]✗ {result.error}[/red]")
+        console.print(f"[red]✗ {redact_cli_text(result.error)}[/red]")
         raise typer.Exit(1)
 
     if json_output:
@@ -141,7 +150,7 @@ def links_cmd(
     )
     for link in result.links:
         text_part = f" — {link.text}" if link.text else ""
-        console.print(f"  [cyan]{link.url}[/cyan]{text_part}")
+        console.print(f"  [cyan]{redact_cli_text(link.url)}[/cyan]{text_part}")
 
 
 @app.command("sitemap")
@@ -170,14 +179,14 @@ def sitemap_cmd(
 
     if result.errors:
         for err in result.errors:
-            console.print(f"  [yellow]⚠ {err}[/yellow]")
+            console.print(f"  [yellow]⚠ {redact_cli_text(err)}[/yellow]")
 
     console.print(
         f"[bold]🗺️ Sitemap 解析完成: {result.total} 个 URL "
         f"({result.sitemaps_parsed} 个 sitemap 文件)[/bold]"
     )
     for entry in result.entries[:50]:
-        parts = [f"  [cyan]{entry.loc}[/cyan]"]
+        parts = [f"  [cyan]{redact_cli_text(entry.loc)}[/cyan]"]
         if entry.lastmod:
             parts.append(f"[dim]{entry.lastmod}[/dim]")
         if entry.priority is not None:

@@ -1,25 +1,46 @@
 name: HF Space CD
 
 on:
-  push:
-    branches: [main]
-    paths:
-      - "src/**"
-      - "tests/**"
-      - "panel/**"
-      - "pyproject.toml"
-      - "README.md"
-      - "README.en.md"
-      - "docs/**"
-      - "souwen.example.yaml"
-      - "entrypoint.sh"
-      - "scripts/ci/**"
-      - "cli.py"
-      - "scripts/hf_space_smoke.py"
-      - "scripts/warp-init.sh"
-      - "cloud/hfs/**"
-      - ".github/workflows/deploy-hf-space.yml"
-      - ".github/workflows/build-pyinstaller.yml"
+  workflow_call:
+    inputs:
+      candidate_sha:
+        description: "要部署的 40 位候选提交 SHA"
+        required: true
+        type: string
+      version:
+        description: "必须与候选 pyproject.toml 一致的 PEP 440 版本"
+        required: true
+        type: string
+      verifier_sha:
+        description: "来自受信 main control plane 的 40 位 smoke harness SHA"
+        required: true
+        type: string
+      deploy_hfs:
+        description: "显式执行 HFS promotion 与验收"
+        required: true
+        type: boolean
+    outputs:
+      space_commit_sha:
+        description: "Space repository commit verified by runtime.raw.sha"
+        value: ${{ jobs.sync-hfs-wrapper.outputs.space_commit_sha }}
+      version:
+        description: "Promoted SouWen version"
+        value: ${{ jobs.sync-hfs-wrapper.outputs.version }}
+      promotion_changed:
+        description: "Whether this run created a new Space wrapper commit"
+        value: ${{ jobs.sync-hfs-wrapper.outputs.promotion_changed }}
+      prior_space_commit_sha:
+        description: "Immutable Space wrapper commit captured before promotion"
+        value: ${{ jobs.sync-hfs-wrapper.outputs.prior_space_commit_sha }}
+      prior_runtime_commit_sha:
+        description: "Space runtime commit captured before promotion"
+        value: ${{ jobs.sync-hfs-wrapper.outputs.prior_runtime_commit_sha }}
+      prior_souwen_ref:
+        description: "Immutable SouWen source pin captured before promotion"
+        value: ${{ jobs.sync-hfs-wrapper.outputs.prior_souwen_ref }}
+      prior_runtime_stage:
+        description: "Stable Space runtime stage captured before promotion"
+        value: ${{ jobs.sync-hfs-wrapper.outputs.prior_runtime_stage }}
   pull_request:
     branches: [main]
     paths:
@@ -42,8 +63,9 @@ on:
   workflow_dispatch:
 
 concurrency:
-  group: hf-space-cd-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # One mutable Space is promoted at a time; local preflights remain cancellable.
+  group: hf-space-cd-${{ inputs.deploy_hfs && 'promotion' || github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ !inputs.deploy_hfs }}
 
 permissions:
   contents: read
@@ -59,31 +81,58 @@ jobs:
     steps:
       - uses: actions/checkout@v6
         with:
+          ref: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate reusable candidate contract
+        if: ${{ inputs.deploy_hfs }}
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          EXPECTED_VERSION: ${{ inputs.version }}
+          VERIFIER_SHA: ${{ inputs.verifier_sha }}
+          DEPLOY_HFS: ${{ inputs.deploy_hfs }}
+          WORKFLOW_REF: ${{ github.ref }}
+          WORKFLOW_SHA: ${{ github.workflow_sha }}
+        run: |
+          python3 -I - <<'PY'
+          import os
+          import re
+          import subprocess
+          import tomllib
+
+          candidate = os.environ["CANDIDATE_SHA"]
+          version = os.environ["EXPECTED_VERSION"]
+          verifier = os.environ["VERIFIER_SHA"]
+          if re.fullmatch(r"[0-9a-f]{40}", candidate) is None:
+              raise SystemExit("candidate_sha must be exactly 40 lowercase hexadecimal characters")
+          if re.fullmatch(r"[0-9a-f]{40}", verifier) is None:
+              raise SystemExit("verifier_sha must be exactly 40 lowercase hexadecimal characters")
+          if os.environ["DEPLOY_HFS"] != "true":
+              raise SystemExit("reusable HF Space CD requires deploy_hfs=true")
+          if os.environ["WORKFLOW_REF"] != "refs/heads/main":
+              raise SystemExit("HF promotion requires a control-plane workflow from main")
+          if verifier != os.environ["WORKFLOW_SHA"]:
+              raise SystemExit("verifier_sha must equal the caller workflow SHA")
+          head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+          if head != candidate:
+              raise SystemExit(f"checkout mismatch: expected {candidate}, got {head}")
+          with open("pyproject.toml", "rb") as file:
+              actual_version = tomllib.load(file)["project"]["version"]
+          if actual_version != version:
+              raise SystemExit(
+                  f"version mismatch: input={version!r}, pyproject={actual_version!r}"
+              )
+          print(f"validated immutable HFS candidate {candidate} version {version}")
+          PY
 
       - name: Detect deploy-related path changes
         id: deploy-paths
         env:
-          BEFORE_SHA: ${{ github.event.before }}
-          AFTER_SHA: ${{ github.sha }}
+          REQUESTED_DEPLOY_HFS: ${{ inputs.deploy_hfs }}
         run: |
           python - <<'PY'
-          import fnmatch
           import os
-          import subprocess
-
-          deploy_patterns = [
-              "src/**",
-              "panel/**",
-              "pyproject.toml",
-              "README.md",
-              "souwen.example.yaml",
-              "entrypoint.sh",
-              "scripts/hf_space_smoke.py",
-              "scripts/warp-init.sh",
-              "cloud/hfs/**",
-              ".github/workflows/deploy-hf-space.yml",
-          ]
 
           event = os.environ["GITHUB_EVENT_NAME"]
           ref = os.environ["GITHUB_REF"]
@@ -95,33 +144,10 @@ jobs:
                   output.write(f"reason={reason}\n")
               print(f"deploy_changed={deploy_changed}, reason={reason}")
 
-          if event == "workflow_dispatch":
-              write_output(ref == "refs/heads/main", "manual-main" if ref == "refs/heads/main" else "manual-non-main")
+          if os.environ.get("REQUESTED_DEPLOY_HFS") == "true":
+              write_output(True, "release-candidate")
               raise SystemExit
-
-          if event != "push" or ref != "refs/heads/main":
-              write_output(False, f"{event}:{ref}")
-              raise SystemExit
-
-          before = os.environ.get("BEFORE_SHA") or ""
-          after = os.environ["AFTER_SHA"]
-          if before and set(before) != {"0"}:
-              command = ["git", "diff", "--name-only", before, after]
-          else:
-              command = ["git", "diff-tree", "--no-commit-id", "--name-only", "-r", after]
-          changed_paths = subprocess.check_output(command, text=True).splitlines()
-
-          def matches_deploy_path(path: str) -> bool:
-              return any(fnmatch.fnmatch(path, pattern) for pattern in deploy_patterns)
-
-          matched = [path for path in changed_paths if matches_deploy_path(path)]
-          print("Changed paths:")
-          for path in changed_paths:
-              print(f"  {path}")
-          print("Deploy-matched paths:")
-          for path in matched:
-              print(f"  {path}")
-          write_output(bool(matched), "deploy-path-changed" if matched else "no-deploy-path-changed")
+          write_output(False, f"{event}:{ref}:local-preflight-only")
           PY
 
   api-source-cli:
@@ -130,6 +156,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
 
       - uses: actions/setup-python@v6
         with:
@@ -139,7 +167,7 @@ jobs:
       - name: Install source package
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev,server,tls]"
+          pip install -e ".[dev,edition-pro]"
 
       - name: Run API and source CLI profiles
         env:
@@ -147,8 +175,8 @@ jobs:
         run: |
           mkdir -p artifacts
           python scripts/ci/run_profile.py \
-            --profile server \
-            --profile minimal \
+            --profile pro-cli \
+            --profile basic-cli \
             --json-report artifacts/api-source-cli-profile.json \
             --markdown-report artifacts/api-source-cli-profile.md
 
@@ -164,9 +192,11 @@ jobs:
   pyinstaller-cli:
     name: PyInstaller CLI smoke
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
 
       - uses: actions/setup-python@v6
         with:
@@ -176,33 +206,58 @@ jobs:
       - name: Install package and PyInstaller
         run: |
           python -m pip install --upgrade pip
-          pip install .
+          pip install -e ".[edition-basic]"
           pip install "setuptools<82" pyinstaller
 
-      - name: Build CLI-only executable
+      - name: Materialize immutable source provenance
+        run: >-
+          printf '%s\n'
+          '${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}'
+          > runtime.source.sha
+
+      - name: Build basic executable with MCP retained
         run: |
           pyinstaller --onefile --clean --name souwen-local \
             --paths src \
+            --add-data "runtime.source.sha:." \
             --exclude-module=souwen.server \
-            --exclude-module=souwen.integrations \
+            --exclude-module=souwen.llm \
             --exclude-module=fastapi \
-            --exclude-module=uvicorn \
-            --exclude-module=mcp \
+            --exclude-module=souwen.web.crawl4ai_fetcher \
+            --exclude-module=souwen.web.scrapling_fetcher \
+            --exclude-module=souwen.web.newspaper_fetcher \
+            --exclude-module=souwen.web.readability_fetcher \
+            --exclude-module=souwen.paper.arxiv_fulltext \
+            --exclude-module=pymupdf4llm \
+            --exclude-module=superweb2pdf \
             --exclude-module=pkg_resources \
             --exclude-module=setuptools \
+            --hidden-import=souwen.integrations.mcp_server \
+            --collect-submodules=souwen.integrations.mcp \
+            --collect-submodules=mcp \
             --collect-submodules=souwen.registry.sources \
             --collect-submodules=rich._unicode_data \
             cli.py
 
-      - name: Run bundled CLI smoke commands
-        env:
-          PYTHONIOENCODING: utf-8
-        run: |
-          ./dist/souwen-local --help
-          ./dist/souwen-local --version
-          ./dist/souwen-local sources
-          ./dist/souwen-local config show
-          ./dist/souwen-local config backend
+      - name: Run tier-aware basic binary smoke
+        uses: ./.github/actions/binary-smoke
+        with:
+          binary: ./dist/souwen-local
+          profile: basic-cli
+          edition: basic
+          builder: pyinstaller
+          candidate-sha: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
+          report-json: artifacts/hf-space-local-pyinstaller.json
+          report-markdown: artifacts/hf-space-local-pyinstaller.md
+
+      - name: Upload PyInstaller smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: hf-space-local-pyinstaller-report
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 7
 
       - name: Upload PyInstaller CLI artifact
         uses: actions/upload-artifact@v7
@@ -219,9 +274,11 @@ jobs:
       PR_HEAD_REPO: ${{ github.event.pull_request.head.repo.clone_url }}
       PR_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
       DEFAULT_REPO: https://github.com/${{ github.repository }}.git
-      DEFAULT_REF: ${{ github.sha }}
+      DEFAULT_REF: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
 
       - name: Resolve source ref for HFS Dockerfile clone
         id: source
@@ -273,6 +330,7 @@ jobs:
         env:
           SOUWEN_SMOKE_REPORT_FILE: hf-space-local-surface-report.md
           SOUWEN_SMOKE_JSON_FILE: hf-space-local-surface-report.json
+          EXPECTED_SOUWEN_SOURCE_SHA: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
         run: |
           VERSION="$(python3 - <<'PY'
           import tomllib
@@ -314,7 +372,11 @@ jobs:
 
   sync-hfs-wrapper:
     name: Sync HFS wrapper files
-    if: needs.detect-changes.outputs.deploy_changed == 'true' && github.ref == 'refs/heads/main'
+    if: >-
+      ${{
+        needs.detect-changes.outputs.deploy_changed == 'true' &&
+        inputs.deploy_hfs
+      }}
     needs: [detect-changes, api-source-cli, pyinstaller-cli, docker-hfs]
     environment:
       name: hf
@@ -323,8 +385,17 @@ jobs:
     timeout-minutes: 20
     outputs:
       version: ${{ steps.project.outputs.version }}
+      space_commit_sha: ${{ steps.sync.outputs.space_commit_sha }}
+      promotion_changed: ${{ steps.sync.outputs.promotion_changed }}
+      prior_space_commit_sha: ${{ steps.prior.outputs.prior_space_commit_sha }}
+      prior_runtime_commit_sha: ${{ steps.prior.outputs.prior_runtime_commit_sha }}
+      prior_souwen_ref: ${{ steps.prior.outputs.prior_souwen_ref }}
+      prior_runtime_stage: ${{ steps.prior.outputs.prior_runtime_stage }}
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
 
       - name: Check HF token
         env:
@@ -346,7 +417,7 @@ jobs:
       - name: Read expected SouWen version
         id: project
         run: |
-          python - <<'PY' >> "$GITHUB_OUTPUT"
+          python -I - <<'PY' >> "$GITHUB_OUTPUT"
           import tomllib
 
           with open("pyproject.toml", "rb") as file:
@@ -354,13 +425,113 @@ jobs:
           print(f"version={project['version']}")
           PY
 
-      - name: Sync changed HFS wrapper files
+      - name: Capture immutable rollback point
+        id: prior
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_SPACE_ID: BlueSkyXN/SouWen
         run: |
-          python - <<'PY'
+          python -I - <<'PY'
           import os
+          import re
+          import time
+          from pathlib import Path
+
+          from huggingface_hub import HfApi, hf_hub_download
+
+          api = HfApi(token=os.environ["HF_TOKEN"])
+          space_id = os.environ["HF_SPACE_ID"]
+          target_info = api.repo_info(repo_id=space_id, repo_type="space")
+          if target_info.private is not True:
+              raise SystemExit(
+                  f"refusing promotion: target Space {space_id} must already be private"
+              )
+          prior_space_sha = str(target_info.sha)
+          if re.fullmatch(r"[0-9a-f]{40}", prior_space_sha) is None:
+              raise SystemExit("target Space does not expose an immutable 40-character commit")
+
+          deadline = time.monotonic() + 900
+          while True:
+              runtime = api.get_space_runtime(repo_id=space_id)
+              stage = str(getattr(runtime.stage, "value", runtime.stage))
+              runtime_sha = str(runtime.raw.get("sha") or "")
+              current_repo_sha = str(
+                  api.repo_info(repo_id=space_id, repo_type="space").sha
+              )
+              if current_repo_sha != prior_space_sha:
+                  raise SystemExit(
+                      "Space repository changed while capturing the rollback point: "
+                      f"expected={prior_space_sha}, current={current_repo_sha}"
+                  )
+
+              stage_upper = stage.upper()
+              stable = stage_upper.endswith("RUNNING") or stage_upper.endswith("SLEEPING")
+              if stable and runtime_sha == prior_space_sha:
+                  break
+              if any(
+                  marker in stage_upper
+                  for marker in (
+                      "PAUSED",
+                      "BUILD_ERROR",
+                      "RUNTIME_ERROR",
+                      "CONFIG_ERROR",
+                      "NO_APP_FILE",
+                      "STOPPED",
+                  )
+              ):
+                  raise SystemExit(
+                      "refusing to mutate a Space without a stable rollback runtime: "
+                      f"stage={stage}, repo_sha={prior_space_sha}, runtime_sha={runtime_sha}"
+                  )
+              if time.monotonic() >= deadline:
+                  raise SystemExit(
+                      "cannot establish rollback point before promotion: "
+                      f"stage={stage}, repo_sha={prior_space_sha}, runtime_sha={runtime_sha}"
+                  )
+              print(
+                  f"rollback-point stage={stage}, repo_sha={prior_space_sha}, "
+                  f"runtime_sha={runtime_sha}"
+              )
+              time.sleep(20)
+
+          dockerfile = Path(
+              hf_hub_download(
+                  repo_id=space_id,
+                  repo_type="space",
+                  filename="Dockerfile",
+                  revision=prior_space_sha,
+                  token=os.environ["HF_TOKEN"],
+                  force_download=True,
+              )
+          ).read_text(encoding="utf-8")
+          matches = re.findall(r"^ARG SOUWEN_REF=([0-9a-f]{40})$", dockerfile, re.MULTILINE)
+          if len(matches) != 1:
+              raise SystemExit(
+                  "target Space Dockerfile must contain exactly one immutable SOUWEN_REF "
+                  "before automatic promotion/rollback is allowed"
+              )
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"prior_space_commit_sha={prior_space_sha}\n")
+              output.write(f"prior_runtime_commit_sha={runtime_sha}\n")
+              output.write(f"prior_souwen_ref={matches[0]}\n")
+              output.write(f"prior_runtime_stage={stage}\n")
+          print(
+              f"captured rollback point space={prior_space_sha}, "
+              f"runtime={runtime_sha}, stage={stage}, source={matches[0]}"
+          )
+          PY
+
+      - name: Sync changed HFS wrapper files
+        id: sync
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE_ID: BlueSkyXN/SouWen
+          CANDIDATE_SHA: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
+          PRIOR_SPACE_SHA: ${{ steps.prior.outputs.prior_space_commit_sha }}
+        run: |
+          python -I - <<'PY'
+          import os
+          import re
           import tempfile
           from pathlib import Path
 
@@ -376,21 +547,34 @@ jobs:
 
           api = HfApi(token=os.environ["HF_TOKEN"])
           space_id = os.environ["HF_SPACE_ID"]
-          sha = os.environ["GITHUB_SHA"][:7]
+          prior_space_sha = os.environ["PRIOR_SPACE_SHA"]
+          candidate_sha = os.environ["CANDIDATE_SHA"]
+          if re.fullmatch(r"[0-9a-f]{40}", candidate_sha) is None:
+              raise SystemExit("refusing to deploy a non-immutable candidate SHA")
           operations = []
 
           with tempfile.TemporaryDirectory() as tmpdir:
+              tmp = Path(tmpdir)
               for local_name, remote_name in FILES.items():
                   local_path = Path(local_name)
                   local_bytes = local_path.read_bytes()
+                  if remote_name == "Dockerfile":
+                      marker = b"ARG SOUWEN_REF=0000000000000000000000000000000000000000"
+                      if local_bytes.count(marker) != 1:
+                          raise SystemExit("cloud/hfs/Dockerfile SOUWEN_REF marker changed")
+                      local_bytes = local_bytes.replace(
+                          marker,
+                          f"ARG SOUWEN_REF={candidate_sha}".encode(),
+                      )
 
                   try:
                       remote_path = hf_hub_download(
                           repo_id=space_id,
                           repo_type="space",
                           filename=remote_name,
+                          revision=prior_space_sha,
                           token=os.environ["HF_TOKEN"],
-                          local_dir=tmpdir,
+                          local_dir=tmp / "download",
                           force_download=True,
                       )
                       remote_bytes = Path(remote_path).read_bytes()
@@ -401,26 +585,62 @@ jobs:
                       operations.append(
                           CommitOperationAdd(
                               path_in_repo=remote_name,
-                              path_or_fileobj=str(local_path),
+                              path_or_fileobj=local_bytes,
                           )
                       )
 
           if operations:
               changed = ", ".join(op.path_in_repo for op in operations)
               print(f"Sync changed HFS wrapper files: {changed}")
-              api.create_commit(
+              commit = api.create_commit(
                   repo_id=space_id,
                   repo_type="space",
                   operations=operations,
-                  commit_message=f"Sync HFS wrapper from GitHub {sha}",
+                  commit_message=f"Promote SouWen candidate {candidate_sha[:12]}",
+                  parent_commit=prior_space_sha,
               )
+              space_commit_sha = commit.oid
+              promotion_changed = "true"
           else:
               print("No HFS wrapper file changes to sync.")
+              current_sha = str(api.repo_info(repo_id=space_id, repo_type="space").sha)
+              if current_sha != prior_space_sha:
+                  raise SystemExit(
+                      "Space repository changed after rollback snapshot: "
+                      f"expected={prior_space_sha}, current={current_sha}"
+                  )
+              space_commit_sha = current_sha
+              promotion_changed = "false"
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"space_commit_sha={space_commit_sha}\n")
+              output.write(f"promotion_changed={promotion_changed}\n")
+
+          pinned_dockerfile = Path(
+              hf_hub_download(
+                  repo_id=space_id,
+                  repo_type="space",
+                  filename="Dockerfile",
+                  revision=space_commit_sha,
+                  token=os.environ["HF_TOKEN"],
+                  force_download=True,
+              )
+          ).read_text(encoding="utf-8")
+          expected_pin = f"ARG SOUWEN_REF={candidate_sha}"
+          if pinned_dockerfile.splitlines().count(expected_pin) != 1:
+              raise SystemExit(
+                  f"Space commit {space_commit_sha} does not pin candidate source provenance"
+              )
+          print(f"Space commit {space_commit_sha} pins candidate {candidate_sha}")
           PY
 
   rebuild-space:
     name: Factory rebuild Space
-    if: needs.detect-changes.outputs.deploy_changed == 'true' && github.ref == 'refs/heads/main'
+    if: >-
+      ${{
+        needs.detect-changes.outputs.deploy_changed == 'true' &&
+        inputs.deploy_hfs
+      }}
     needs: [detect-changes, sync-hfs-wrapper]
     environment:
       name: hf
@@ -428,8 +648,6 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 25
     steps:
-      - uses: actions/checkout@v6
-
       - uses: actions/setup-python@v6
         with:
           python-version: "3.11"
@@ -443,7 +661,7 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_SPACE_ID: BlueSkyXN/SouWen
         run: |
-          python - <<'PY'
+          python -I - <<'PY'
           import os
           from huggingface_hub import HfApi
 
@@ -460,8 +678,9 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_SPACE_ID: BlueSkyXN/SouWen
+          EXPECTED_SPACE_SHA: ${{ needs.sync-hfs-wrapper.outputs.space_commit_sha }}
         run: |
-          python - <<'PY'
+          python -I - <<'PY'
           import os
           import time
 
@@ -469,25 +688,43 @@ jobs:
 
           api = HfApi(token=os.environ["HF_TOKEN"])
           space_id = os.environ["HF_SPACE_ID"]
+          expected_sha = os.environ["EXPECTED_SPACE_SHA"]
           deadline = time.monotonic() + 900
           last_stage = "unknown"
+          last_runtime_sha = "unknown"
 
           while time.monotonic() < deadline:
               runtime = api.get_space_runtime(repo_id=space_id)
               stage = getattr(runtime.stage, "value", runtime.stage)
               last_stage = str(stage)
-              print(f"Space runtime stage={last_stage}")
-              if last_stage.upper().endswith("RUNNING"):
-                  print("Space runtime is RUNNING.")
+              last_runtime_sha = str(runtime.raw.get("sha") or "unknown")
+              repo_sha = str(api.repo_info(repo_id=space_id, repo_type="space").sha)
+              print(
+                  f"Space stage={last_stage}, repo_sha={repo_sha}, "
+                  f"runtime_sha={last_runtime_sha}, expected={expected_sha}"
+              )
+              if (
+                  last_stage.upper().endswith("RUNNING")
+                  and repo_sha == expected_sha
+                  and last_runtime_sha == expected_sha
+              ):
+                  print("Space repo and live runtime both match the promoted commit.")
                   break
               time.sleep(20)
           else:
-              raise SystemExit(f"Space runtime did not reach RUNNING; last_stage={last_stage}")
+              raise SystemExit(
+                  "Space did not take over the promoted commit: "
+                  f"stage={last_stage}, runtime_sha={last_runtime_sha}, expected={expected_sha}"
+              )
           PY
 
   post-deploy-smoke:
     name: Post-deploy smoke matrix
-    if: needs.detect-changes.outputs.deploy_changed == 'true' && github.ref == 'refs/heads/main'
+    if: >-
+      ${{
+        needs.detect-changes.outputs.deploy_changed == 'true' &&
+        inputs.deploy_hfs
+      }}
     needs: [detect-changes, sync-hfs-wrapper, rebuild-space]
     environment:
       name: hf
@@ -510,23 +747,67 @@ jobs:
             artifact: hf-space-cd-capability-report
     steps:
       - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.verifier_sha }}
+          persist-credentials: false
+          path: trusted-verifier
 
       - name: Run ${{ matrix.mode }} post-deploy smoke
         env:
           EXPECTED_SOUWEN_VERSION: ${{ needs.sync-hfs-wrapper.outputs.version }}
+          EXPECTED_SOUWEN_SOURCE_SHA: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
           SOUWEN_HF_SPACE_URL: https://blueskyxn-souwen.hf.space
+          SOUWEN_HF_SPACE_TOKEN: ${{ secrets.HF_SPACE_READ_TOKEN }}
           SOUWEN_SMOKE_REQUEST_TIMEOUT: "20"
           SOUWEN_SMOKE_WARP_MODES: auto
-          SOUWEN_SMOKE_REPORT_FILE: ${{ matrix.report }}
-          SOUWEN_SMOKE_JSON_FILE: ${{ matrix.json }}
+          SOUWEN_SMOKE_FAIL_ADMIN_OPEN: "1"
+          SOUWEN_SMOKE_REPORT_FILE: ${{ github.workspace }}/${{ matrix.report }}
+          SOUWEN_SMOKE_JSON_FILE: ${{ github.workspace }}/${{ matrix.json }}
           SOUWEN_SMOKE_BEARER_TOKEN: ${{ secrets.SOUWEN_SMOKE_BEARER_TOKEN }}
           SMOKE_ARGS: ${{ matrix.args }}
         run: |
+          if [ -z "$SOUWEN_SMOKE_BEARER_TOKEN" ]; then
+            echo "::error::SOUWEN_SMOKE_BEARER_TOKEN is required for candidate promotion"
+            exit 1
+          fi
+          if [ -z "$SOUWEN_HF_SPACE_TOKEN" ]; then
+            echo "::error::HF_SPACE_READ_TOKEN is required for private Space smoke"
+            exit 1
+          fi
           args=()
           if [ -n "$SMOKE_ARGS" ]; then
             args+=("$SMOKE_ARGS")
           fi
-          python scripts/hf_space_smoke.py "${args[@]}"
+          (
+            cd trusted-verifier
+            python scripts/hf_space_smoke.py "${args[@]}"
+          )
+
+      - name: Verify token admin and fail-closed admin access
+        env:
+          SOUWEN_HF_SPACE_URL: https://blueskyxn-souwen.hf.space
+          HF_SPACE_READ_TOKEN: ${{ secrets.HF_SPACE_READ_TOKEN }}
+          SOUWEN_SMOKE_BEARER_TOKEN: ${{ secrets.SOUWEN_SMOKE_BEARER_TOKEN }}
+        run: |
+          if [ -z "$HF_SPACE_READ_TOKEN" ] || [ -z "$SOUWEN_SMOKE_BEARER_TOKEN" ]; then
+            echo "::error::Both HF_SPACE_READ_TOKEN and SOUWEN_SMOKE_BEARER_TOKEN are required"
+            exit 1
+          fi
+          response="$(curl -fsS \
+            -H "Authorization: Bearer $HF_SPACE_READ_TOKEN" \
+            -H "X-SouWen-Token: $SOUWEN_SMOKE_BEARER_TOKEN" \
+            "$SOUWEN_HF_SPACE_URL/api/v1/whoami")"
+          jq -e '.role == "admin" and .admin_open == false' <<<"$response" >/dev/null
+
+          unauth_body="$(mktemp)"
+          unauth_status="$(curl -sS -o "$unauth_body" -w '%{http_code}' \
+            -H "Authorization: Bearer $HF_SPACE_READ_TOKEN" \
+            "$SOUWEN_HF_SPACE_URL/api/v1/whoami")"
+          if [ "$unauth_status" = 401 ]; then
+            exit 0
+          fi
+          test "$unauth_status" = 200
+          jq -e '.role != "admin" and .admin_open != true' "$unauth_body" >/dev/null
 
       - name: Upload post-deploy test report
         if: always()
@@ -537,3 +818,267 @@ jobs:
             ${{ matrix.report }}
             ${{ matrix.json }}
           if-no-files-found: warn
+
+  rollback-space:
+    name: Restore previous Space revision after failed promotion
+    needs: [sync-hfs-wrapper, rebuild-space, post-deploy-smoke]
+    if: >-
+      ${{
+        always() &&
+        inputs.deploy_hfs &&
+        needs.sync-hfs-wrapper.outputs.prior_space_commit_sha != '' &&
+        (
+          needs.sync-hfs-wrapper.result != 'success' ||
+          needs.rebuild-space.result != 'success' ||
+          needs.post-deploy-smoke.result != 'success'
+        )
+      }}
+    environment:
+      name: hf
+      deployment: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    outputs:
+      rollback_space_commit_sha: ${{ steps.restore.outputs.rollback_space_commit_sha }}
+    steps:
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install Hugging Face Hub client
+        run: python -m pip install "huggingface_hub>=1.8,<2"
+
+      - name: Restore managed wrapper files and verify live source
+        id: restore
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE_READ_TOKEN: ${{ secrets.HF_SPACE_READ_TOKEN }}
+          HF_SPACE_ID: BlueSkyXN/SouWen
+          HF_SPACE_URL: https://blueskyxn-souwen.hf.space
+          PRIOR_SPACE_SHA: ${{ needs.sync-hfs-wrapper.outputs.prior_space_commit_sha }}
+          PRIOR_SOUWEN_REF: ${{ needs.sync-hfs-wrapper.outputs.prior_souwen_ref }}
+          PROMOTED_SPACE_SHA: ${{ needs.sync-hfs-wrapper.outputs.space_commit_sha }}
+        run: |
+          python -I - <<'PY'
+          import json
+          import os
+          import re
+          import tempfile
+          import time
+          from pathlib import Path
+          from urllib.request import Request, urlopen
+
+          from huggingface_hub import (
+              CommitOperationAdd,
+              CommitOperationDelete,
+              HfApi,
+              hf_hub_download,
+          )
+          from huggingface_hub.errors import EntryNotFoundError
+
+          MANAGED_FILES = ("Dockerfile", "README.md", ".dockerignore", "entrypoint.sh")
+
+          hf_token = os.environ.get("HF_TOKEN", "")
+          read_token = os.environ.get("HF_SPACE_READ_TOKEN", "")
+          if not hf_token or not read_token:
+              raise SystemExit(
+                  "HF_TOKEN and HF_SPACE_READ_TOKEN are required for verified rollback"
+              )
+          prior_sha = os.environ["PRIOR_SPACE_SHA"]
+          prior_source = os.environ["PRIOR_SOUWEN_REF"]
+          promoted_sha = os.environ.get("PROMOTED_SPACE_SHA", "")
+          if re.fullmatch(r"[0-9a-f]{40}", prior_sha) is None:
+              raise SystemExit("rollback point is not an immutable Space commit")
+          if re.fullmatch(r"[0-9a-f]{40}", prior_source) is None:
+              raise SystemExit("rollback point does not contain an immutable SouWen source SHA")
+
+          api = HfApi(token=hf_token)
+          space_id = os.environ["HF_SPACE_ID"]
+          current_sha = str(api.repo_info(repo_id=space_id, repo_type="space").sha)
+          allowed_heads = {prior_sha}
+          if re.fullmatch(r"[0-9a-f]{40}", promoted_sha):
+              allowed_heads.add(promoted_sha)
+          if current_sha not in allowed_heads:
+              raise SystemExit(
+                  "refusing to overwrite an unexpected Space writer during rollback: "
+                  f"current={current_sha}, expected one of {sorted(allowed_heads)}"
+              )
+          operations = []
+          with tempfile.TemporaryDirectory() as tmpdir:
+              tmp = Path(tmpdir)
+              for filename in MANAGED_FILES:
+                  try:
+                      prior_path = hf_hub_download(
+                          repo_id=space_id,
+                          repo_type="space",
+                          filename=filename,
+                          revision=prior_sha,
+                          token=hf_token,
+                          local_dir=tmp / "prior",
+                          force_download=True,
+                      )
+                      prior_bytes = Path(prior_path).read_bytes()
+                  except EntryNotFoundError:
+                      prior_bytes = None
+                  try:
+                      current_path = hf_hub_download(
+                          repo_id=space_id,
+                          repo_type="space",
+                          filename=filename,
+                          revision=current_sha,
+                          token=hf_token,
+                          local_dir=tmp / "current",
+                          force_download=True,
+                      )
+                      current_bytes = Path(current_path).read_bytes()
+                  except EntryNotFoundError:
+                      current_bytes = None
+
+                  if prior_bytes == current_bytes:
+                      continue
+                  if prior_bytes is None:
+                      operations.append(CommitOperationDelete(path_in_repo=filename))
+                  else:
+                      operations.append(
+                          CommitOperationAdd(
+                              path_in_repo=filename,
+                              path_or_fileobj=prior_bytes,
+                          )
+                      )
+
+          if not operations:
+              if current_sha != prior_sha:
+                  raise SystemExit("rollback found no managed wrapper difference to restore")
+              rollback_sha = prior_sha
+              print(
+                  "Space head still matches the rollback point; rebuilding and validating "
+                  "the prior runtime without creating a no-op commit"
+              )
+          else:
+              rollback = api.create_commit(
+                  repo_id=space_id,
+                  repo_type="space",
+                  operations=operations,
+                  commit_message=f"Rollback failed SouWen promotion to {prior_source[:12]}",
+                  parent_commit=current_sha,
+              )
+              rollback_sha = str(rollback.oid)
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"rollback_space_commit_sha={rollback_sha}\n")
+
+          restored_dockerfile = Path(
+              hf_hub_download(
+                  repo_id=space_id,
+                  repo_type="space",
+                  filename="Dockerfile",
+                  revision=rollback_sha,
+                  token=hf_token,
+                  force_download=True,
+              )
+          ).read_text(encoding="utf-8")
+          if restored_dockerfile.splitlines().count(
+              f"ARG SOUWEN_REF={prior_source}"
+          ) != 1:
+              raise SystemExit("rollback commit does not restore the prior SouWen source pin")
+
+          api.restart_space(repo_id=space_id, factory_reboot=True)
+          deadline = time.monotonic() + 900
+          last_stage = "unknown"
+          last_runtime_sha = "unknown"
+          while time.monotonic() < deadline:
+              runtime = api.get_space_runtime(repo_id=space_id)
+              last_stage = str(getattr(runtime.stage, "value", runtime.stage))
+              last_runtime_sha = str(runtime.raw.get("sha") or "")
+              repo_sha = str(api.repo_info(repo_id=space_id, repo_type="space").sha)
+              print(
+                  f"rollback stage={last_stage}, repo_sha={repo_sha}, "
+                  f"runtime_sha={last_runtime_sha}, expected={rollback_sha}"
+              )
+              if (
+                  last_stage.upper().endswith("RUNNING")
+                  and repo_sha == rollback_sha
+                  and last_runtime_sha == rollback_sha
+              ):
+                  break
+              time.sleep(20)
+          else:
+              raise SystemExit(
+                  "rollback runtime did not take over the forward rollback commit: "
+                  f"stage={last_stage}, runtime_sha={last_runtime_sha}, expected={rollback_sha}"
+              )
+
+          for endpoint in ("/health", "/readiness"):
+              request = Request(
+                  f"{os.environ['HF_SPACE_URL']}{endpoint}",
+                  headers={
+                      "Accept": "application/json",
+                      "Authorization": f"Bearer {read_token}",
+                  },
+              )
+              with urlopen(request, timeout=30) as response:  # noqa: S310 - fixed Space URL
+                  payload = json.loads(response.read().decode("utf-8"))
+              if payload.get("source_sha") != prior_source:
+                  raise SystemExit(
+                      f"rollback {endpoint} source mismatch: "
+                      f"expected={prior_source}, actual={payload.get('source_sha')}"
+                  )
+          print(
+              f"rollback verified: wrapper/runtime={rollback_sha}, source={prior_source}"
+          )
+          PY
+
+  pause-space:
+    name: Pause Space when automatic rollback cannot be proven
+    needs: rollback-space
+    if: >-
+      ${{
+        always() &&
+        inputs.deploy_hfs &&
+        (
+          needs.rollback-space.result == 'failure' ||
+          needs.rollback-space.result == 'cancelled'
+        )
+      }}
+    environment:
+      name: hf
+      deployment: false
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install Hugging Face Hub client
+        run: python -m pip install "huggingface_hub>=1.8,<2"
+
+      - name: Pause and verify Space runtime
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE_ID: BlueSkyXN/SouWen
+        run: |
+          python -I - <<'PY'
+          import os
+          import time
+
+          from huggingface_hub import HfApi
+
+          token = os.environ.get("HF_TOKEN", "")
+          if not token:
+              raise SystemExit("HF_TOKEN is required to pause a failed promotion")
+          api = HfApi(token=token)
+          space_id = os.environ["HF_SPACE_ID"]
+          api.pause_space(repo_id=space_id)
+          deadline = time.monotonic() + 300
+          last_stage = "unknown"
+          while time.monotonic() < deadline:
+              runtime = api.get_space_runtime(repo_id=space_id)
+              last_stage = str(getattr(runtime.stage, "value", runtime.stage))
+              print(f"pause stage={last_stage}")
+              if "PAUSED" in last_stage.upper():
+                  print(f"Space {space_id} is paused after rollback failure")
+                  break
+              time.sleep(10)
+          else:
+              raise SystemExit(f"Space pause could not be verified; last stage={last_stage}")
+          PY

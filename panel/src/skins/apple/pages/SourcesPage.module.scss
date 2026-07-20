@@ -112,6 +112,26 @@
   gap: 12px;
 }
 
+.cardExpandBtn {
+  display: flex;
+  align-items: center;
+  flex: 1;
+  min-width: 0;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  border-radius: $radius-sm;
+
+  &:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+  }
+}
+
 .sourceName {
   font-family: $font-body;
   font-size: 15px;

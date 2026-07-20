@@ -12,7 +12,7 @@ echo "  SOUWEN:   $(python -c 'import souwen; print(souwen.__version__)' 2>/dev/
 echo "=========================================="
 
 # ----- Runtime bin 目录 (WARP 组件动态安装目录) -----
-RUNTIME_BIN="${WARP_RUNTIME_BIN_DIR:-/app/data/bin}"
+RUNTIME_BIN="${WARP_RUNTIME_BIN_DIR:-/home/user/app/data/bin}"
 if [ -d "$RUNTIME_BIN" ]; then
     export PATH="${RUNTIME_BIN}:${PATH}"
 fi

@@ -34,12 +34,14 @@ interface SegmentedControlProps<T extends string> {
   options: SegmentOption<T>[]
   value: T
   onChange: (value: T) => void
+  ariaLabel?: string
 }
 
 export function SegmentedControl<T extends string>({
   options,
   value,
   onChange,
+  ariaLabel,
 }: SegmentedControlProps<T>) {
   const containerRef = useRef<HTMLDivElement>(null)
   // 指示条位置和尺寸：{ left, width, height }
@@ -65,7 +67,12 @@ export function SegmentedControl<T extends string>({
   }, [measure])
 
   return (
-    <div className={styles.container} ref={containerRef} role="tablist">
+    <div
+      className={styles.container}
+      ref={containerRef}
+      role="tablist"
+      aria-label={ariaLabel ?? options.map((opt) => opt.label).join(' / ')}
+    >
       {/* 动画指示条背景 */}
       <AnimatePresence initial={false}>
         <m.div

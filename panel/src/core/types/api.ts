@@ -25,6 +25,7 @@
 export interface HealthResponse {
   status: string
   version: string
+  source_sha?: string | null
 }
 
 /**
@@ -74,6 +75,8 @@ export const SOURCE_CATEGORY_LABEL_KEYS: Record<SourceCategory, string> = {
   fetch: 'sources.categoryFetch',
 }
 
+export type Edition = 'basic' | 'pro' | 'full'
+
 /**
  * 公开 Source Catalog 条目。
  */
@@ -91,6 +94,12 @@ export interface SourceInfo {
   stability: 'stable' | 'beta' | 'experimental' | 'deprecated'
   distribution: 'core' | 'extra' | 'plugin'
   default_for: string[]
+  min_edition: Edition
+  edition_available: boolean
+  edition_reason: string
+  /** Additive runtime probe fields; absent on older servers and therefore not proof of availability. */
+  runtime_available?: boolean
+  runtime_reason?: string
   available: boolean
 }
 
@@ -133,6 +142,16 @@ export interface DoctorSource {
   package_extra: string | null
   stability: 'stable' | 'beta' | 'experimental' | 'deprecated'
   usage_note: string | null
+  min_edition: Edition
+  edition: Edition
+  edition_available: boolean
+  edition_reason: string
+  runtime_available: boolean
+  runtime_reason: string
+  credentials_satisfied: boolean
+  config_available: boolean
+  config_reason: string
+  available: boolean
   message: string
   enabled: boolean
   description?: string
@@ -148,22 +167,30 @@ export interface SourceChannelConfig {
   http_backend: string
   base_url: string | null
   has_api_key: boolean
-  credentials_satisfied?: boolean
+  configured_credentials: boolean
+  credentials_satisfied: boolean
+  available: boolean
   headers: Record<string, string>
   params: Record<string, string | number | boolean>
   category: SourceCategory
+  domain: string
+  capabilities: string[]
   integration_type: string
-  key_requirement?: 'none' | 'optional' | 'required' | 'self_hosted'
-  auth_requirement?: 'none' | 'optional' | 'required' | 'self_hosted'
-  credential_fields?: string[]
-  optional_credential_effect?: string | null
-  risk_level?: 'low' | 'medium' | 'high'
-  risk_reasons?: string[]
-  distribution?: 'core' | 'extra' | 'plugin'
-  package_extra?: string | null
-  stability?: 'stable' | 'beta' | 'experimental' | 'deprecated'
-  usage_note?: string | null
-  default_enabled?: boolean
+  min_edition: Edition
+  edition_available: boolean
+  edition_reason: string
+  key_requirement: 'none' | 'optional' | 'required' | 'self_hosted'
+  auth_requirement: 'none' | 'optional' | 'required' | 'self_hosted'
+  credential_fields: string[]
+  optional_credential_effect: string | null
+  risk_level: 'low' | 'medium' | 'high'
+  risk_reasons: string[]
+  distribution: 'core' | 'extra' | 'plugin'
+  package_extra: string | null
+  stability: 'stable' | 'beta' | 'experimental' | 'deprecated'
+  usage_note: string | null
+  default_enabled: boolean
+  default_for: string[]
   description: string
 }
 
@@ -195,6 +222,7 @@ export interface DoctorResponse {
   unavailable: number
   disabled: number
   status_counts: Record<string, number>
+  edition: Edition
   sources: DoctorSource[]
 }
 
@@ -224,8 +252,12 @@ export interface YamlConfigResponse {
 /**
  * Cloudflare Warp 代理状态
  */
+export const WARP_STATUSES = ['disabled', 'starting', 'enabled', 'stopping', 'error'] as const
+
+export type WarpRuntimeStatus = typeof WARP_STATUSES[number]
+
 export interface WarpStatus {
-  status: 'disabled' | 'starting' | 'enabled' | 'stopping' | 'error'
+  status: WarpRuntimeStatus
   mode: string
   owner: string
   socks_port: number
@@ -255,6 +287,9 @@ export interface WarpModeInfo {
   docker_only: boolean
   proxy_types: string[]
   description: string
+  min_edition?: Edition
+  edition_available?: boolean
+  edition_reason?: string
   reason?: string
   external_proxy?: string
 }
@@ -667,6 +702,8 @@ export interface FetchResult {
   title?: string
   content?: string
   content_format?: string
+  content_truncated: boolean
+  next_start_index?: number | null
   snippet?: string
   source: string
   published_date?: string
@@ -678,13 +715,17 @@ export interface FetchResult {
 /**
  * 网页内容抓取响应（批量）
  */
+export type FetchStrategy = 'fallback' | 'fanout'
+
 export interface FetchResponse {
   urls: string[]
   results: FetchResult[]
   total: number
   total_ok: number
   total_failed: number
-  provider: string
+  providers: string[]
+  strategy: FetchStrategy
+  provider: string | null
   meta?: Record<string, unknown>
 }
 
@@ -739,9 +780,20 @@ export type UserRole = 'guest' | 'user' | 'admin'
 /**
  * /api/v1/whoami 响应
  */
+export interface EditionCapabilities {
+  llm: boolean
+  warp_modes: string[]
+  fetch_providers: string[]
+  plugin_preinstalled: boolean
+}
+
 export interface WhoamiResponse {
   role: UserRole
   features: Record<string, boolean | string>
+  /** Added in v2; absent on older servers and normalized to null by authStore. */
+  edition?: Edition
+  /** Edition declaration only; absence does not imply runtime capability. */
+  edition_capabilities?: EditionCapabilities
   guest_enabled: boolean
   user_password_set: boolean
   admin_password_set: boolean
@@ -757,7 +809,9 @@ export interface WhoamiResponse {
  *   - disabled：已通过 disable 写入禁用列表，重启后跳过
  *   - error：加载失败
  */
-export type PluginStatus = 'loaded' | 'available' | 'disabled' | 'error'
+export const PLUGIN_STATUSES = ['loaded', 'available', 'disabled', 'error'] as const
+
+export type PluginStatus = typeof PLUGIN_STATUSES[number]
 
 /**
  * 插件来源（对齐后端 PluginInfo.source）：
@@ -765,7 +819,9 @@ export type PluginStatus = 'loaded' | 'available' | 'disabled' | 'error'
  *   - catalog：动态目录条目
  *   - config_path：通过 souwen.yaml 的 plugins 字段或 SOUWEN_PLUGINS 环境变量加载
  */
-export type PluginSource = 'entry_point' | 'catalog' | 'config_path'
+export const PLUGIN_SOURCES = ['entry_point', 'catalog', 'config_path'] as const
+
+export type PluginSource = typeof PLUGIN_SOURCES[number]
 
 /**
  * 单个插件的状态视图（对齐 src/souwen/plugin_manager.py::PluginInfo）

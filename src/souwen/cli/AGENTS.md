@@ -21,4 +21,4 @@ Read this card for CLI commands, flags, JSON output, help text, exit codes or co
 ## Validation
 
 - `pytest tests/test_cli.py -v --tb=short`
-- `python scripts/ci/run_profile.py --profile minimal`
+- `python scripts/ci/run_profile.py --profile basic-cli`

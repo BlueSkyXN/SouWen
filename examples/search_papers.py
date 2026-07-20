@@ -7,7 +7,7 @@
 核心函数清单：
 
     demo_openalex() → None
-        - 功能：OpenAlex 搜索演示（无需 API Key，推荐填写邮箱）
+        - 功能：OpenAlex 搜索演示（无 Key 可匿名试用，配置 Key 可提高每日预算）
         - 搜索示例：网络安全与深度学习相关论文
         - 输出：论文标题、发表年份、被引用数、DOI
 
@@ -37,8 +37,8 @@
                   再运行可选 Key 的数据源（Semantic Scholar）
         - 输出提示：包括 API Key 配置建议
 
-配置环境变量（可选提速）：
-    - SOUWEN_OPENALEX_EMAIL: OpenAlex 注册邮箱，进入 polite pool 获得更高速率
+配置环境变量（可选）：
+    - SOUWEN_OPENALEX_API_KEY: OpenAlex Freemium API Key，提高每日额度；留意账户用量
     - SOUWEN_SEMANTIC_SCHOLAR_API_KEY: Semantic Scholar API Key，提升请求速率
 
 执行方式：
@@ -55,11 +55,11 @@ from souwen.paper.dblp import DblpClient
 
 
 async def demo_openalex():
-    """OpenAlex 搜索示例（无需 Key）
+    """OpenAlex 搜索示例（无 Key 可匿名试用）
 
     特点：
-        - 免费、无需认证
-        - 设置邮箱环境变量可进入 polite pool 获得更高速率
+        - 无 Key 可匿名使用，但每日额度较低
+        - 设置 API Key 可获得更高每日额度；额度外使用取决于账户预付余额
         - 包含完整的论文元数据（包括开放获取 URL）
     """
     print("=" * 60)
@@ -164,10 +164,10 @@ async def main():
 
     执行顺序：
         1. 无需 Key 的数据源（推荐优先使用）：OpenAlex、arXiv、Crossref、DBLP
-        2. 可选 Key 的数据源（可提升速率）：Semantic Scholar
+        2. 可选 Key 的数据源（可提升预算或速率）：OpenAlex、Semantic Scholar
 
     输出建议：
-        - SOUWEN_OPENALEX_EMAIL：注册邮箱以进入 polite pool
+        - SOUWEN_OPENALEX_API_KEY：提高 OpenAlex 每日预算
         - SOUWEN_SEMANTIC_SCHOLAR_API_KEY：官方 API 密钥
     """
     print("\n🔍 SouWen 论文搜索示例\n")
@@ -182,7 +182,7 @@ async def main():
     await demo_semantic_scholar()
 
     print("\n✅ 示例完成！")
-    print("提示: 设置 SOUWEN_OPENALEX_EMAIL 可进入 OpenAlex polite pool（更快响应）")
+    print("提示: OpenAlex 是 Freemium API；设置 Key 前请确认账户额度和预付余额")
     print("提示: 设置 SOUWEN_SEMANTIC_SCHOLAR_API_KEY 可提升 Semantic Scholar 速率")
 
 

@@ -15,9 +15,12 @@
 from __future__ import annotations
 import re
 
+import httpx
 import pytest
 from pytest_httpx import HTTPXMock
 
+from souwen.config import get_config
+from souwen.core.exceptions import RateLimitError
 from souwen.paper.openalex import OpenAlexClient
 
 
@@ -74,6 +77,120 @@ OPENALEX_SINGLE_WORK = OPENALEX_SEARCH_RESPONSE["results"][0]
 # ---------------------------------------------------------------------------
 # Search tests
 # ---------------------------------------------------------------------------
+
+
+async def test_request_params_support_api_key_and_legacy_mailto(
+    httpx_mock: HTTPXMock,
+):
+    """API Key 控制预算；legacy mailto 可继续传入但不再发送。"""
+    httpx_mock.add_response(
+        url=re.compile(r"https://api\.openalex\.org/works.*"),
+        json={"meta": {"count": 0}, "results": []},
+    )
+
+    async with OpenAlexClient(mailto="contact@example.com", api_key="openalex-test-key") as c:
+        assert c.mailto == "contact@example.com"
+        await c.search("test")
+
+    request = httpx_mock.get_request()
+    assert request is not None
+    assert request.url.params["api_key"] == "openalex-test-key"
+    assert "mailto" not in request.url.params
+
+
+async def test_channel_api_key_overrides_flat_key_without_overriding_email(
+    httpx_mock: HTTPXMock,
+    monkeypatch,
+    tmp_path,
+):
+    """sources.openalex.api_key 只覆盖 API Key，不再被错误解释为 mailto。"""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("SOUWEN_OPENALEX_API_KEY", "flat-key")
+    monkeypatch.setenv("SOUWEN_OPENALEX_EMAIL", "contact@example.com")
+    monkeypatch.setenv("SOUWEN_SOURCES", '{"openalex":{"api_key":"channel-key"}}')
+    get_config.cache_clear()
+    httpx_mock.add_response(
+        url=re.compile(r"https://api\.openalex\.org/works.*"),
+        json={"meta": {"count": 0}, "results": []},
+    )
+
+    async with OpenAlexClient() as c:
+        await c.search("test")
+
+    request = httpx_mock.get_request()
+    assert request is not None
+    assert request.url.params["api_key"] == "channel-key"
+    assert "mailto" not in request.url.params
+
+
+async def test_flat_api_key_is_used_when_channel_key_is_absent(
+    httpx_mock: HTTPXMock,
+    monkeypatch,
+    tmp_path,
+):
+    """flat OpenAlex API Key 应进入实际请求，不依赖 channel override。"""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("SOUWEN_OPENALEX_API_KEY", "flat-key")
+    monkeypatch.delenv("SOUWEN_OPENALEX_EMAIL", raising=False)
+    monkeypatch.delenv("SOUWEN_SOURCES", raising=False)
+    get_config.cache_clear()
+    httpx_mock.add_response(
+        url=re.compile(r"https://api\.openalex\.org/works.*"),
+        json={"meta": {"count": 0}, "results": []},
+    )
+
+    async with OpenAlexClient() as c:
+        await c.search("test")
+
+    request = httpx_mock.get_request()
+    assert request is not None
+    assert request.url.params["api_key"] == "flat-key"
+    assert "mailto" not in request.url.params
+
+
+async def test_anonymous_request_omits_api_key_and_mailto(
+    httpx_mock: HTTPXMock,
+    monkeypatch,
+    tmp_path,
+):
+    """未配置 Key 或邮箱时保持匿名可用，不发送空参数。"""
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("SOUWEN_OPENALEX_API_KEY", raising=False)
+    monkeypatch.delenv("SOUWEN_OPENALEX_EMAIL", raising=False)
+    monkeypatch.delenv("SOUWEN_SOURCES", raising=False)
+    get_config.cache_clear()
+    httpx_mock.add_response(
+        url=re.compile(r"https://api\.openalex\.org/works.*"),
+        json={"meta": {"count": 0}, "results": []},
+    )
+
+    async with OpenAlexClient() as c:
+        await c.search("test")
+
+    request = httpx_mock.get_request()
+    assert request is not None
+    assert "api_key" not in request.url.params
+    assert "mailto" not in request.url.params
+
+
+async def test_rate_limit_does_not_fallback_to_anonymous(httpx_mock: HTTPXMock):
+    """带 Key 请求遇到 429 时直接失败，不能移除 Key 后重放请求。"""
+
+    def rate_limited(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(429, headers={"Retry-After": "30"})
+
+    httpx_mock.add_callback(
+        rate_limited,
+        url=re.compile(r"https://api\.openalex\.org/works.*"),
+    )
+
+    async with OpenAlexClient(api_key="openalex-test-key") as c:
+        with pytest.raises(RateLimitError):
+            await c.search("test")
+
+    requests = httpx_mock.get_requests()
+    assert len(requests) == 1
+    assert requests[0].url.params["api_key"] == "openalex-test-key"
 
 
 async def test_search_basic(httpx_mock: HTTPXMock, monkeypatch):

@@ -82,8 +82,10 @@ from starlette.middleware.gzip import GZipMiddleware
 
 from souwen import __version__
 from souwen.config import ensure_config_file, get_config
+from souwen.core.redaction import redact_secret_text, redact_secret_value
 from souwen.logging_config import setup_logging
 from souwen.plugin import ensure_plugins_loaded, get_loaded_plugins
+from souwen.provenance import get_source_sha
 from souwen.server.auth import is_admin_open_enabled
 from souwen.server.middleware import RequestIDMiddleware, get_request_id
 from souwen.server.routes import router, admin_router
@@ -300,6 +302,13 @@ if _mcp_cfg.mcp_http_enabled:
 # --- 全局异常处理器（统一 ErrorResponse 格式）---
 
 
+def _safe_error_detail(detail: object) -> str:
+    """Redact secrets from API-facing error details before serialization."""
+    safe_detail = redact_secret_value(detail)
+    text = redact_secret_text(str(safe_detail))
+    return text or ""
+
+
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     """HTTP 异常处理器 — 将 Starlette HTTPException 转换为统一的 ErrorResponse 格式
@@ -315,7 +324,7 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
         status_code=exc.status_code,
         content=ErrorResponse(
             error=_status_to_code(exc.status_code),
-            detail=str(exc.detail),
+            detail=_safe_error_detail(exc.detail),
             request_id=get_request_id(),
         ).model_dump(),
         headers=getattr(exc, "headers", None) or None,
@@ -343,7 +352,7 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         status_code=422,
         content=ErrorResponse(
             error="validation_error",
-            detail="; ".join(fields) if fields else str(exc),
+            detail=_safe_error_detail("; ".join(fields) if fields else exc),
             request_id=get_request_id(),
         ).model_dump(),
     )
@@ -406,7 +415,7 @@ async def health():
     Returns:
         HealthResponse: {"status": "ok", "version": "<version>"}
     """
-    return {"status": "ok", "version": __version__}
+    return {"status": "ok", "version": __version__, "source_sha": get_source_sha()}
 
 
 @app.get("/readiness", response_model=ReadinessResponse)
@@ -416,6 +425,7 @@ async def readiness():
     不做任何网络调用，避免探针超时。
     """
     try:
+        source_sha = get_source_sha()
         get_config()
         from souwen.registry.meta import get_all_sources
 
@@ -426,17 +436,24 @@ async def readiness():
                 content=ReadinessResponse(
                     ready=False,
                     version=__version__,
+                    source_sha=source_sha,
                     error="source registry is empty",
                 ).model_dump(),
             )
-        return {"ready": True, "version": __version__, "error": None}
+        return {
+            "ready": True,
+            "version": __version__,
+            "source_sha": source_sha,
+            "error": None,
+        }
     except Exception as exc:  # pragma: no cover - 防御性
         return JSONResponse(
             status_code=503,
             content=ReadinessResponse(
                 ready=False,
                 version=__version__,
-                error=f"{type(exc).__name__}: {exc}",
+                source_sha=get_source_sha(),
+                error=_safe_error_detail(f"{type(exc).__name__}: {exc}"),
             ).model_dump(),
         )
 

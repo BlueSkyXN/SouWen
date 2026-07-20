@@ -9,32 +9,53 @@ import tempfile
 from pathlib import Path
 
 from fastapi import APIRouter, HTTPException
+from pydantic import ValidationError
 
-from souwen.server.routes._common import _is_secret_field
-from souwen.server.schemas import ConfigReloadResponse, YamlConfigResponse, YamlConfigSaveRequest
+from souwen.server.routes._common import redact_secret_payload, redact_secret_text
+from souwen.server.schemas import (
+    AdminConfigResponse,
+    ConfigReloadResponse,
+    YamlConfigResponse,
+    YamlConfigSaveRequest,
+)
 
 log = logging.getLogger(__name__)
 
 router = APIRouter()
 
-_YAML_CANDIDATES = [
-    Path("souwen.yaml"),
-    Path("~/.config/souwen/config.yaml").expanduser(),
-]
-
 # 配置写入锁 — 防止并发写入冲突
 _CONFIG_WRITE_LOCK = asyncio.Lock()
 
 
+def _default_user_config_path() -> Path:
+    return Path.home() / ".config" / "souwen" / "config.yaml"
+
+
+def _yaml_candidates() -> tuple[Path, Path]:
+    return (Path("souwen.yaml"), _default_user_config_path())
+
+
+def _safe_validation_error_detail(exc: Exception) -> str:
+    """Return a client-safe config validation error without raw input values."""
+    if isinstance(exc, ValidationError):
+        fields = []
+        for item in exc.errors(include_input=False, include_url=False):
+            loc = ".".join(str(part) for part in item.get("loc", ())) or "<root>"
+            msg = str(item.get("msg") or "配置无效")
+            fields.append(f"{loc}: {msg}")
+        return "; ".join(fields) if fields else "配置无效"
+    return redact_secret_text(str(exc)) or "配置无效"
+
+
 def _find_config_path() -> Path | None:
     """返回当前存在的配置文件路径，不存在返回 None。"""
-    for p in _YAML_CANDIDATES:
+    for p in _yaml_candidates():
         if p.is_file():
             return p
     return None
 
 
-@router.get("/config")
+@router.get("/config", response_model=AdminConfigResponse)
 async def get_config_view():
     """查看当前配置（敏感字段脱敏）— 管理端点。"""
     from souwen.config import SouWenConfig, get_config
@@ -43,10 +64,7 @@ async def get_config_view():
     result = {}
     for field_name in SouWenConfig.model_fields:
         val = getattr(cfg, field_name)
-        if _is_secret_field(field_name) and val is not None:
-            result[field_name] = "***"
-        else:
-            result[field_name] = val
+        result[field_name] = redact_secret_payload(val, field_name)
     return result
 
 
@@ -137,12 +155,13 @@ async def save_config_yaml(body: YamlConfigSaveRequest):
 
             SouWenConfig(**flat_dict)
         except Exception as exc:
-            raise HTTPException(status_code=422, detail=f"配置校验失败: {exc}")
+            detail = _safe_validation_error_detail(exc)
+            raise HTTPException(status_code=422, detail=f"配置校验失败: {detail}")
 
         # 确定写入路径
         target = _find_config_path()
         if target is None:
-            target = Path("~/.config/souwen/config.yaml").expanduser()
+            target = _default_user_config_path()
             target.parent.mkdir(parents=True, exist_ok=True)
 
         # 备份旧内容用于回滚
@@ -179,6 +198,7 @@ async def save_config_yaml(body: YamlConfigSaveRequest):
         try:
             reload_config()
         except Exception as exc:
+            reload_detail = redact_secret_text(str(exc)) or "未知错误"
             # 回滚到旧内容并重新加载
             rollback_note = ""
             try:
@@ -193,10 +213,11 @@ async def save_config_yaml(body: YamlConfigSaveRequest):
                 reload_config()
                 rollback_note = "，已回滚到上一版本"
             except Exception as rollback_exc:
-                rollback_note = f"，回滚失败: {rollback_exc}"
+                rollback_detail = redact_secret_text(str(rollback_exc)) or "未知错误"
+                rollback_note = f"，回滚失败: {rollback_detail}"
             raise HTTPException(
                 status_code=422,
-                detail=f"配置重载失败: {exc}{rollback_note}",
+                detail=f"配置重载失败: {reload_detail}{rollback_note}",
             )
 
         return YamlConfigResponse(

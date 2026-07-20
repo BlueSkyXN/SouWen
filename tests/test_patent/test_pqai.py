@@ -23,7 +23,10 @@ import pytest
 from datetime import date
 from pytest_httpx import HTTPXMock
 
+from souwen.core.exceptions import ConfigError
 from souwen.patent.pqai import PqaiClient
+
+TEST_API_TOKEN = "test-pqai-token"
 
 
 # ---------------------------------------------------------------------------
@@ -70,7 +73,7 @@ async def test_search_basic(httpx_mock: HTTPXMock):
         json=PQAI_SEARCH_RESPONSE,
     )
 
-    async with PqaiClient() as c:
+    async with PqaiClient(api_token=TEST_API_TOKEN) as c:
         resp = await c.search("cancer detection machine learning")
 
     assert resp.source == "pqai"
@@ -86,6 +89,17 @@ async def test_search_basic(httpx_mock: HTTPXMock):
     assert patent.source_url == "https://patents.google.com/patent/US11234567B2"
     assert "machine learning" in patent.abstract.lower()
 
+    request = httpx_mock.get_request()
+    assert request is not None
+    assert request.url.params["token"] == TEST_API_TOKEN
+    assert request.url.params["type"] == "patent"
+
+
+def test_missing_api_token_raises_config_error():
+    """缺少 PQAI token 时明确报 ConfigError。"""
+    with pytest.raises(ConfigError, match="pqai_api_token"):
+        PqaiClient()
+
 
 async def test_search_string_assignees(httpx_mock: HTTPXMock):
     """字符串格式的 assignees 正确解析"""
@@ -94,7 +108,7 @@ async def test_search_string_assignees(httpx_mock: HTTPXMock):
         json=PQAI_SEARCH_RESPONSE,
     )
 
-    async with PqaiClient() as c:
+    async with PqaiClient(api_token=TEST_API_TOKEN) as c:
         resp = await c.search("test")
 
     patent = resp.results[0]
@@ -111,7 +125,7 @@ async def test_search_dict_assignees(httpx_mock: HTTPXMock):
         json=PQAI_SEARCH_RESPONSE,
     )
 
-    async with PqaiClient() as c:
+    async with PqaiClient(api_token=TEST_API_TOKEN) as c:
         resp = await c.search("test")
 
     patent = resp.results[1]
@@ -127,7 +141,7 @@ async def test_search_string_inventors(httpx_mock: HTTPXMock):
         json=PQAI_SEARCH_RESPONSE,
     )
 
-    async with PqaiClient() as c:
+    async with PqaiClient(api_token=TEST_API_TOKEN) as c:
         resp = await c.search("test")
 
     patent = resp.results[0]
@@ -141,7 +155,7 @@ async def test_search_dict_inventors(httpx_mock: HTTPXMock):
         json=PQAI_SEARCH_RESPONSE,
     )
 
-    async with PqaiClient() as c:
+    async with PqaiClient(api_token=TEST_API_TOKEN) as c:
         resp = await c.search("test")
 
     patent = resp.results[1]
@@ -155,7 +169,7 @@ async def test_search_cpc_codes_both_keys(httpx_mock: HTTPXMock):
         json=PQAI_SEARCH_RESPONSE,
     )
 
-    async with PqaiClient() as c:
+    async with PqaiClient(api_token=TEST_API_TOKEN) as c:
         resp = await c.search("test")
 
     # First result uses "cpcs" key
@@ -171,7 +185,7 @@ async def test_search_empty_results(httpx_mock: HTTPXMock):
         json={"results": []},
     )
 
-    async with PqaiClient() as c:
+    async with PqaiClient(api_token=TEST_API_TOKEN) as c:
         resp = await c.search("nonexistent_xyz_query")
 
     assert resp.total_results == 0
@@ -186,15 +200,19 @@ async def test_search_empty_results(httpx_mock: HTTPXMock):
 async def test_similar_patents(httpx_mock: HTTPXMock):
     """similar_patents 正确请求并解析"""
     httpx_mock.add_response(
-        url=re.compile(r"https://api\.projectpq\.ai/similar/US11234567B2.*"),
+        url=re.compile(r"https://api\.projectpq\.ai/similar/.*"),
         json=PQAI_SEARCH_RESPONSE,
     )
 
-    async with PqaiClient() as c:
+    async with PqaiClient(api_token=TEST_API_TOKEN) as c:
         resp = await c.similar_patents("US11234567B2")
 
     assert len(resp.results) == 2
     assert resp.query == "similar:US11234567B2"
+    request = httpx_mock.get_request()
+    assert request is not None
+    assert request.url.params["pn"] == "US11234567B2"
+    assert request.url.params["token"] == TEST_API_TOKEN
 
 
 async def test_similar_patents_not_found(httpx_mock: HTTPXMock):
@@ -206,7 +224,7 @@ async def test_similar_patents_not_found(httpx_mock: HTTPXMock):
         status_code=404,
     )
 
-    async with PqaiClient() as c:
+    async with PqaiClient(api_token=TEST_API_TOKEN) as c:
         with pytest.raises(NotFoundError):
             await c.similar_patents("NONEXISTENT")
 
@@ -219,7 +237,7 @@ async def test_similar_patents_not_found(httpx_mock: HTTPXMock):
 async def test_predict_cpc(httpx_mock: HTTPXMock):
     """predict_cpc 正确请求并返回预测列表"""
     httpx_mock.add_response(
-        url=re.compile(r"https://api\.projectpq\.ai/classify/cpc.*"),
+        url=re.compile(r"https://api\.projectpq\.ai/suggest/cpcs.*"),
         json={
             "predictions": [
                 {"code": "G06N3/08", "score": 0.95},
@@ -228,11 +246,15 @@ async def test_predict_cpc(httpx_mock: HTTPXMock):
         },
     )
 
-    async with PqaiClient() as c:
+    async with PqaiClient(api_token=TEST_API_TOKEN) as c:
         predictions = await c.predict_cpc("neural network for image recognition")
 
     assert len(predictions) == 2
     assert predictions[0]["code"] == "G06N3/08"
+    request = httpx_mock.get_request()
+    assert request is not None
+    assert request.url.params["text"] == "neural network for image recognition"
+    assert request.url.params["token"] == TEST_API_TOKEN
 
 
 # ---------------------------------------------------------------------------
@@ -259,7 +281,7 @@ async def test_publication_number_fallback(httpx_mock: HTTPXMock):
         json=data,
     )
 
-    async with PqaiClient() as c:
+    async with PqaiClient(api_token=TEST_API_TOKEN) as c:
         resp = await c.search("test")
 
     assert resp.results[0].patent_id == "EP1234567A1"
@@ -284,7 +306,7 @@ async def test_invalid_publication_date(httpx_mock: HTTPXMock):
         json=data,
     )
 
-    async with PqaiClient() as c:
+    async with PqaiClient(api_token=TEST_API_TOKEN) as c:
         resp = await c.search("test")
 
     assert resp.results[0].publication_date is None
@@ -305,7 +327,7 @@ async def test_missing_all_optional_fields(httpx_mock: HTTPXMock):
         json=data,
     )
 
-    async with PqaiClient() as c:
+    async with PqaiClient(api_token=TEST_API_TOKEN) as c:
         resp = await c.search("test")
 
     patent = resp.results[0]
@@ -336,7 +358,7 @@ async def test_cpc_dict_format(httpx_mock: HTTPXMock):
         json=data,
     )
 
-    async with PqaiClient() as c:
+    async with PqaiClient(api_token=TEST_API_TOKEN) as c:
         resp = await c.search("test")
 
     assert resp.results[0].cpc_codes == ["H04L9/32", "G06F21/00"]

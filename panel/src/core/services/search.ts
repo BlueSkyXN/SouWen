@@ -15,8 +15,9 @@ export interface SearchApi {
   searchPaper(q: string, sources: string, perPage: number, signal?: AbortSignal, timeout?: number): Promise<SearchResponse>
   searchPatent(q: string, sources: string, perPage: number, signal?: AbortSignal, timeout?: number): Promise<SearchResponse>
   searchWeb(q: string, engines: string, maxResults: number, signal?: AbortSignal, timeout?: number): Promise<WebSearchResponse>
-  searchImages(q: string, maxResults?: number, region?: string, safesearch?: string, signal?: AbortSignal, timeout?: number): Promise<ImageSearchResponse>
-  searchVideos(q: string, maxResults?: number, region?: string, safesearch?: string, signal?: AbortSignal, timeout?: number): Promise<VideoSearchResponse>
+  searchNews(q: string, maxResults?: number, region?: string, safesearch?: string, timeRange?: string, signal?: AbortSignal, timeout?: number, sources?: string): Promise<WebSearchResponse>
+  searchImages(q: string, maxResults?: number, region?: string, safesearch?: string, signal?: AbortSignal, timeout?: number, sources?: string): Promise<ImageSearchResponse>
+  searchVideos(q: string, maxResults?: number, region?: string, safesearch?: string, signal?: AbortSignal, timeout?: number, sources?: string): Promise<VideoSearchResponse>
 }
 
 export const searchMethods = {
@@ -41,6 +42,33 @@ export const searchMethods = {
     return this.request<WebSearchResponse>(url, { headers: this.headers(), signal })
   },
 
+  /** 新闻搜索 */
+  async searchNews(
+    this: ApiServiceBase,
+    q: string,
+    maxResults = 20,
+    region = 'wt-wt',
+    safesearch = 'moderate',
+    timeRange?: string,
+    signal?: AbortSignal,
+    timeout?: number,
+    sources?: string,
+  ): Promise<WebSearchResponse> {
+    const params = new URLSearchParams({
+      q,
+      max_results: String(maxResults),
+      region,
+      safesearch,
+    })
+    if (timeRange) params.set('time_range', timeRange)
+    if (timeout) params.set('timeout', String(timeout))
+    if (sources) params.set('sources', sources)
+    return this.request<WebSearchResponse>(`/api/v1/search/news?${params}`, {
+      headers: this.headers(),
+      signal,
+    })
+  },
+
   /** 图片搜索 */
   async searchImages(
     this: ApiServiceBase,
@@ -50,6 +78,7 @@ export const searchMethods = {
     safesearch = 'moderate',
     signal?: AbortSignal,
     timeout?: number,
+    sources?: string,
   ): Promise<ImageSearchResponse> {
     const params = new URLSearchParams({
       q,
@@ -58,6 +87,7 @@ export const searchMethods = {
       safesearch,
     })
     if (timeout) params.set('timeout', String(timeout))
+    if (sources) params.set('sources', sources)
     return this.request<ImageSearchResponse>(`/api/v1/search/images?${params}`, {
       headers: this.headers(),
       signal,
@@ -73,6 +103,7 @@ export const searchMethods = {
     safesearch = 'moderate',
     signal?: AbortSignal,
     timeout?: number,
+    sources?: string,
   ): Promise<VideoSearchResponse> {
     const params = new URLSearchParams({
       q,
@@ -81,6 +112,7 @@ export const searchMethods = {
       safesearch,
     })
     if (timeout) params.set('timeout', String(timeout))
+    if (sources) params.set('sources', sources)
     return this.request<VideoSearchResponse>(`/api/v1/search/videos?${params}`, {
       headers: this.headers(),
       signal,

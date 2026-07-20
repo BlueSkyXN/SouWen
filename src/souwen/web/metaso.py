@@ -191,6 +191,19 @@ class MetasoClient(SouWenHttpClient):
         Returns:
             FetchResponse 包含提取结果
         """
+        from souwen.web.fetch import ssrf_blocked_fetch_result
+
+        blocked = ssrf_blocked_fetch_result(url, "metaso", raw_provider="metaso_reader")
+        if blocked is not None:
+            return FetchResponse(
+                urls=[url],
+                results=[blocked],
+                total=1,
+                total_ok=0,
+                total_failed=1,
+                provider="metaso",
+            )
+
         # 构建请求载荷
         payload = {"url": url}
 

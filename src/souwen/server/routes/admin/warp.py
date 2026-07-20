@@ -4,40 +4,70 @@ from __future__ import annotations
 
 import asyncio
 from pathlib import Path
-from urllib.parse import urlsplit, urlunsplit
 
 from fastapi import APIRouter, HTTPException, Query
 from starlette.responses import StreamingResponse
 
-from souwen.server.routes._common import logger
+from souwen.server.routes._common import logger, redact_secret_text, redact_secret_url
+from souwen.server.schemas import (
+    WarpActionResponse,
+    WarpComponentInstallResponse,
+    WarpComponentsResponse,
+    WarpConfigResponse,
+    WarpModesResponse,
+    WarpStatusResponse,
+    WarpTestResponse,
+)
 
 router = APIRouter()
 
 
 def _mask_proxy_url(proxy_url: str | None) -> str:
-    """返回可展示的代理地址，避免泄露 URL 中的用户名和密码。"""
-    if not proxy_url:
-        return ""
-    parsed = urlsplit(proxy_url)
-    if "@" not in parsed.netloc:
-        return proxy_url
-    host = parsed.hostname or ""
-    if parsed.port is not None:
-        host = f"{host}:{parsed.port}"
-    masked_netloc = f"***@{host}"
-    return urlunsplit((parsed.scheme, masked_netloc, parsed.path, parsed.query, parsed.fragment))
+    """返回可展示的代理地址，避免泄露 URL 凭据和敏感参数。"""
+    return redact_secret_url(proxy_url)
 
 
-@router.get("/warp")
+def _safe_warp_status(status: dict) -> dict:
+    """Return an API-safe WARP status snapshot."""
+    safe = dict(status)
+    safe["last_error"] = redact_secret_text(safe.get("last_error"))
+    return safe
+
+
+def _warp_edition_fields(mode: str, edition: str) -> dict[str, object]:
+    """Return edition metadata for a WARP mode."""
+    from souwen.editions import warp_mode_policy
+
+    policy = warp_mode_policy(mode, edition)
+    return {
+        "min_edition": policy.min_edition,
+        "edition_available": policy.available,
+        "edition_reason": policy.reason,
+    }
+
+
+def _raise_for_warp_edition(mode: str) -> None:
+    """Raise HTTP 403 when a known WARP mode is unavailable in this edition."""
+    from souwen.config import get_config
+    from souwen.editions import EditionError, ensure_warp_mode_allowed
+
+    cfg = get_config()
+    try:
+        ensure_warp_mode_allowed(mode, cfg.edition)
+    except EditionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+
+
+@router.get("/warp", response_model=WarpStatusResponse)
 async def warp_status():
     """获取 WARP 代理状态 — 包括模式、IP、PID 等。"""
     from souwen.server.warp import WarpManager
 
     mgr = WarpManager.get_instance()
-    return mgr.get_status()
+    return _safe_warp_status(mgr.get_status())
 
 
-@router.get("/warp/modes")
+@router.get("/warp/modes", response_model=WarpModesResponse)
 async def warp_modes():
     """列出所有 WARP 模式的可用性和详细信息。"""
     from souwen.config import get_config
@@ -112,10 +142,11 @@ async def warp_modes():
             "reason": "" if has_external_proxy else "未配置 warp_external_proxy 地址",
         },
     ]
+    modes = [mode | _warp_edition_fields(str(mode["id"]), cfg.edition) for mode in modes]
     return {"modes": modes}
 
 
-@router.post("/warp/enable")
+@router.post("/warp/enable", response_model=WarpActionResponse)
 async def warp_enable(
     mode: str = Query(
         "auto",
@@ -128,6 +159,7 @@ async def warp_enable(
     """启用 WARP 代理 — 支持 auto、wireproxy、kernel、usque、warp-cli、external 模式。"""
     from souwen.server.warp import WarpManager
 
+    _raise_for_warp_edition(mode)
     mgr = WarpManager.get_instance()
     result = await mgr.enable(
         mode=mode,
@@ -136,11 +168,12 @@ async def warp_enable(
         endpoint=endpoint,
     )
     if not result["ok"]:
-        raise HTTPException(status_code=400, detail=result["error"])
+        status_code = 403 if result.get("error_code") == "edition_not_allowed" else 400
+        raise HTTPException(status_code=status_code, detail=redact_secret_text(result["error"]))
     return result
 
 
-@router.post("/warp/register")
+@router.post("/warp/register", response_model=WarpActionResponse)
 async def warp_register(
     backend: str = Query("wgcf", description="注册后端: wgcf | usque"),
 ):
@@ -174,7 +207,7 @@ async def warp_register(
     raise HTTPException(status_code=400, detail=f"未知注册后端: {backend}")
 
 
-@router.post("/warp/test")
+@router.post("/warp/test", response_model=WarpTestResponse)
 async def warp_test():
     """测试当前 WARP 代理连接 — 返回出口 IP 和 WARP 状态。"""
     from souwen.server.warp import WarpManager
@@ -207,7 +240,7 @@ async def warp_test():
     }
 
 
-@router.get("/warp/config")
+@router.get("/warp/config", response_model=WarpConfigResponse)
 async def warp_config():
     """获取当前 WARP 相关配置项。"""
     from souwen.config import get_config
@@ -236,7 +269,7 @@ async def warp_config():
     }
 
 
-@router.post("/warp/disable")
+@router.post("/warp/disable", response_model=WarpActionResponse)
 async def warp_disable():
     """禁用 WARP 代理 — 清理进程和网络配置。"""
     from souwen.server.warp import WarpManager
@@ -244,11 +277,11 @@ async def warp_disable():
     mgr = WarpManager.get_instance()
     result = await mgr.disable()
     if not result["ok"]:
-        raise HTTPException(status_code=400, detail=result["error"])
+        raise HTTPException(status_code=400, detail=redact_secret_text(result["error"]))
     return result
 
 
-@router.get("/warp/components")
+@router.get("/warp/components", response_model=WarpComponentsResponse)
 async def warp_components():
     """获取 WARP 组件安装状态列表。"""
     from souwen.server.warp_installer import WarpInstaller
@@ -257,7 +290,7 @@ async def warp_components():
     return {"components": installer.get_components_status()}
 
 
-@router.post("/warp/components/install")
+@router.post("/warp/components/install", response_model=WarpComponentInstallResponse)
 async def warp_component_install(
     component: str = Query(..., description="组件名: usque | wireproxy | wgcf"),
     version: str | None = Query(None, description="版本号 (如 3.0.0)，留空使用默认版本"),
@@ -279,7 +312,7 @@ async def warp_component_install(
         ) from e
 
 
-@router.post("/warp/components/uninstall")
+@router.post("/warp/components/uninstall", response_model=WarpActionResponse)
 async def warp_component_uninstall(
     component: str = Query(..., description="组件名"),
 ):
@@ -300,7 +333,7 @@ async def warp_component_uninstall(
         ) from e
 
 
-@router.post("/warp/switch")
+@router.post("/warp/switch", response_model=WarpActionResponse)
 async def warp_switch(
     mode: str = Query(..., description="目标模式"),
     socks_port: int = Query(1080, ge=1, le=65535),
@@ -310,6 +343,7 @@ async def warp_switch(
     """一步切换 WARP 模式 — 先禁用当前模式，再以目标模式启用。"""
     from souwen.server.warp import WarpManager
 
+    _raise_for_warp_edition(mode)
     mgr = WarpManager.get_instance()
 
     status = mgr.get_status()
@@ -332,7 +366,11 @@ async def warp_switch(
     return safe_result
 
 
-@router.get("/warp/events")
+@router.get(
+    "/warp/events",
+    response_class=StreamingResponse,
+    responses={200: {"content": {"text/event-stream": {}}}},
+)
 async def warp_events():
     """SSE 实时推送 WARP 状态变化。
 
@@ -346,7 +384,7 @@ async def warp_events():
         heartbeat = 0
         while True:
             try:
-                current = mgr.get_status()
+                current = _safe_warp_status(mgr.get_status())
                 status_key = (current["status"], current["mode"], current["ip"])
                 heartbeat += 1
                 if status_key != last_status or heartbeat >= 10:

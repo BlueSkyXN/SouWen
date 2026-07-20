@@ -7,6 +7,14 @@
 > **测试查询**: 主要使用 `machine learning`；Google Patents 另以 `artificial intelligence`、`semiconductor` 复核
 > **测试前后状态**: 测试前 `default_http_backend=auto`、WARP 关闭；测试结束后已恢复为 `default_http_backend=auto`、WARP 关闭
 
+> **2026-06-30 本地回归更新**: 当前 worktree 已新增
+> `scripts/zero_key_functional_check.py`，并修复 Google Patents XHR 标量字段解析。
+> 最新本机公网出口复测中，Wayback Availability / CDX 通过；Google Patents
+> 被上游 “Sorry...” 反自动化页以 HTTP 503 阻断。当前代码已把该场景报告为
+> 明确的 `Google Patents blocked automated search requests` 失败，而不是
+> 静默计为 0 条成功结果。下面 2026-05-02 HF Space 远程矩阵仍作为历史快照保留；
+> 重新部署并远程复测前，不把该历史矩阵等同于当前代码能力。
+
 ## 概述
 
 本文档记录远程 HF Spaces 部署在无搜索 API Key 场景下的真实表现。与 2026-04-18 的旧结论相比，当前远程部署的 0key 能力发生了明显变化：
@@ -93,6 +101,32 @@
 Google Patents 在部分请求中会被端点计入 `succeeded`，但 `total=0` 且结果集为空；WARP 开启后还出现 `failed=["google_patents"]`。因此当前远程 0key 场景下，**不应把 Google Patents 计入可用专利源**。
 
 需要可重复的专利检索时，仍应优先配置官方或代理型专利数据源，例如 EPO、USPTO、Lens、CNIPA、PatSnap，或修复 Google Patents 爬虫解析。
+
+### 2026-06-30 本地修复复测
+
+当前 worktree 对 Google Patents XHR 响应中的 `inventor`、`assignee`、`cpc`、
+`snippet` 和日期字段做了标量/列表兼容归一化，并在 Google 返回 “Sorry...”
+反自动化阻断页时将源标记为不可用，避免把 0 条结果误记为成功。复测命令：
+
+```bash
+python3 scripts/zero_key_functional_check.py --mode live --timeout 20 --required
+```
+
+当前最新本机公网出口结果：
+
+- Google Patents registry check：PASS。
+- Google Patents live search：FAIL，上游返回 HTTP 503 “Sorry...” 阻断页。
+- Wayback registry / Availability / CDX：PASS。
+
+该结果证明当前代码不再把 Google Patents 的反爬阻断伪装成成功空结果；但
+Google Patents 仍是 `experimental` scraper，稳定性需要 nightly / release gate
+持续观察，不能升级为稳定承诺。
+
+同一轮代码更新也重新分类了 PatentsView 与 PQAI：二者不再作为“坏掉的
+zero-key 免费源”处理，而是公开展示为需要凭据的专利源。PatentsView
+Search API 需要 `patentsview_api_key` / `X-Api-Key`，PQAI API 需要
+`pqai_api_token` / `token` 参数；无 Key 场景下 doctor 应返回 `missing_key`，
+不把它们计入 zero-key 专利可用性矩阵。
 
 ---
 
@@ -214,7 +248,7 @@ curl -X POST "https://blueskyxn-souwen.hf.space/api/v1/admin/warp/enable?mode=au
 
 | 源 | 当前表现 | 可能原因 | 建议 |
 |----|----------|----------|------|
-| Google Patents | 多查询均 0 条或失败 | Google Patents 页面/XHR 结构或反爬策略变化 | 修复爬虫解析，或接入官方专利 API |
+| Google Patents | 2026-05-02 远程多查询均 0 条或失败；2026-06-30 当前本机公网出口被 HTTP 503 “Sorry...” 阻断 | XHR 字段形态会漂移；同时上游反自动化策略会按出口 IP 波动 | 保留 experimental；使用 `zero_key_functional_check.py` 做 nightly / release 观察，长期仍优先官方专利 API |
 | Bing / Bing CN | 当前波动或失败 | 页面结构/反爬变化；聚合与单引擎复核不一致 | 不计入可重复可用源，后续单独排查 |
 | Mojeek / Yandex | WARP 开启后仍失败 | 出口 IP 或解析策略不再适配 | 后续针对页面结构和返回状态排查 |
 | Brave / Google / Startpage | 持续失败 | 高强度反爬、验证码或 JS Challenge | 使用 Brave API、Serper、SerpAPI 等替代 |

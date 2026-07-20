@@ -1,8 +1,8 @@
 /**
  * 视频中心页面共享逻辑 Hook
  *
- * 抽取自 souwen-google 的 VideoPage 组件，包含 Trending / Search / Transcript
- * 三个 Tab 的状态管理、API 调用与中止控制器逻辑，以及若干工具函数与常量。
+ * 抽取自 souwen-google 的 VideoPage 组件，包含 Trending / Search / Bilibili / Transcript
+ * 四个 Tab 的状态管理、API 调用与中止控制器逻辑，以及若干工具函数与常量。
  * 所有皮肤的 VideoPage 仅负责 UI 渲染，业务逻辑统一在此处维护。
  */
 
@@ -15,9 +15,12 @@ import type {
   TranscriptSegment,
   VideoResult,
   BilibiliSearchItem,
+  SourceInfo,
 } from '../types'
 
 export type Tab = 'trending' | 'search' | 'bilibili' | 'transcript'
+
+const VIDEO_SEARCH_DEFAULT_KEY = 'web:search_videos'
 
 export const BILIBILI_ORDERS = [
   { value: 'totalrank', labelKey: 'video.bilibiliOrderDefault' },
@@ -131,6 +134,8 @@ export function useVideoPage() {
   const [query, setQuery] = useState('')
   const [searchLoading, setSearchLoading] = useState(false)
   const [searchResults, setSearchResults] = useState<VideoResult[]>([])
+  const [availableVideoSources, setAvailableVideoSources] = useState<SourceInfo[]>([])
+  const [selectedVideoSources, setSelectedVideoSources] = useState<string[]>([])
 
   // Transcript state
   const [videoId, setVideoId] = useState('')
@@ -147,6 +152,38 @@ export function useVideoPage() {
 
   useEffect(() => {
     return () => abortRef.current?.abort()
+  }, [])
+
+  useEffect(() => {
+    let mounted = true
+    ;(async () => {
+      try {
+        const data = await api.getSources()
+        if (!mounted) return
+        const defaults = new Set(data.defaults?.[VIDEO_SEARCH_DEFAULT_KEY] ?? [])
+        const sources = data.sources.filter((source) =>
+          source.domain === 'web'
+          && source.available
+          && source.capabilities.includes('search_videos'),
+        )
+        const defaultNames = sources
+          .filter((source) =>
+            defaults.has(source.name) || source.default_for.includes(VIDEO_SEARCH_DEFAULT_KEY),
+          )
+          .map((source) => source.name)
+        setAvailableVideoSources(sources)
+        setSelectedVideoSources(
+          defaultNames.length > 0 ? defaultNames.slice(0, 1) : sources.slice(0, 1).map((s) => s.name),
+        )
+      } catch {
+        if (!mounted) return
+        setAvailableVideoSources([])
+        setSelectedVideoSources([])
+      }
+    })()
+    return () => {
+      mounted = false
+    }
   }, [])
 
   const cancelInflight = () => {
@@ -176,7 +213,16 @@ export function useVideoPage() {
     const signal = cancelInflight()
     setSearchLoading(true)
     try {
-      const res = await api.searchVideos(query.trim(), 20, 'wt-wt', 'moderate', signal)
+      const sourcesCSV = selectedVideoSources.length > 0 ? selectedVideoSources.join(',') : undefined
+      const res = await api.searchVideos(
+        query.trim(),
+        20,
+        'wt-wt',
+        'moderate',
+        signal,
+        undefined,
+        sourcesCSV,
+      )
       setSearchResults(res.results ?? [])
     } catch (err) {
       if (err instanceof Error && err.name !== 'AbortError') {
@@ -232,7 +278,7 @@ export function useVideoPage() {
       await navigator.clipboard.writeText(text)
       addToast('success', t('video.copied'))
     } catch {
-      addToast('error', t('fetch.copyFailed', '复制失败'))
+      addToast('error', t('fetch.copyFailed'))
     }
   }
 
@@ -246,6 +292,9 @@ export function useVideoPage() {
     query, setQuery,
     searchLoading,
     searchResults,
+    availableVideoSources,
+    selectedVideoSources,
+    setSelectedVideoSources,
     videoId, setVideoId,
     lang, setLang,
     transcriptLoading,

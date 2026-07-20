@@ -9,6 +9,7 @@ type Features = Record<string, boolean | string>
 const ADMIN_FEATURES = new Set([
   'fetch',
   'wayback_save',
+  'sources_config_read',
   'config_write',
   'sources_config_write',
   'proxy_admin',
@@ -19,7 +20,7 @@ const ADMIN_FEATURES = new Set([
 const NAV_FEATURES: Record<string, string | undefined> = {
   '/': 'doctor_full',
   '/fetch': 'fetch',
-  '/sources': 'doctor_full',
+  '/sources': 'sources_config_read',
   '/network': 'proxy_admin',
   '/warp': 'warp_admin',
   '/config': 'config_write',
@@ -29,7 +30,7 @@ const NAV_FEATURES: Record<string, string | undefined> = {
 const ROUTE_FEATURES: Array<{ prefix: string; feature: string }> = [
   { prefix: '/', feature: 'doctor_full' },
   { prefix: '/fetch', feature: 'fetch' },
-  { prefix: '/sources', feature: 'doctor_full' },
+  { prefix: '/sources', feature: 'sources_config_read' },
   { prefix: '/network', feature: 'proxy_admin' },
   { prefix: '/warp', feature: 'warp_admin' },
   { prefix: '/config', feature: 'config_write' },

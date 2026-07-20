@@ -163,13 +163,13 @@ class TestSourceAdapterCatalogValidation:
 
     def test_implicit_optional_credentials_remain_supported(self):
         adapter = self._adapter(
-            config_field="openalex_email",
+            config_field="openalex_api_key",
             integration="official_api",
             needs_config=False,
-            optional_credential_effect="politeness",
+            optional_credential_effect="quota",
         )
         assert adapter.resolved_auth_requirement == "optional"
-        assert adapter.resolved_credential_fields == ("openalex_email",)
+        assert adapter.resolved_credential_fields == ("openalex_api_key",)
         assert adapter.resolved_needs_config is False
 
     def test_self_hosted_can_explicitly_skip_config_requirement(self):
@@ -441,6 +441,7 @@ class TestFetchProviders:
         assert "tavily" in names
         assert "firecrawl" in names
         assert "exa" in names
+        assert "metaso" in names
         assert "wayback" in names
 
     def test_fetch_default(self):

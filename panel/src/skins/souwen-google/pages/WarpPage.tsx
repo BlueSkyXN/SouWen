@@ -5,6 +5,7 @@
  */
 
 import { useCallback, useEffect, useMemo, useState, type CSSProperties, type ReactNode } from 'react'
+import { useTranslation } from 'react-i18next'
 import { m } from 'framer-motion'
 import {
   AlertTriangle,
@@ -33,73 +34,14 @@ import {
 import { api } from '@core/services/api'
 import { formatError } from '@core/lib/errors'
 import { staggerContainer, staggerItem } from '@core/lib/animations'
+import {
+  WARP_MODE_OPTIONS,
+  getDisplayWarpModes,
+  getWarpModeLabel,
+  isWarpModeInfoAvailable,
+} from '@core/lib/warpModes'
 import { useNotificationStore } from '@core/stores/notificationStore'
 import type { WarpComponentInfo, WarpConfigResponse, WarpModeInfo, WarpStatus, WarpTestResult } from '@core/types'
-
-const MODE_OPTIONS = [
-  { id: 'auto', label: '自动选择' },
-  { id: 'wireproxy', label: 'WireProxy (用户态 WireGuard)' },
-  { id: 'kernel', label: '内核 WireGuard' },
-  { id: 'usque', label: 'MASQUE/QUIC 隧道' },
-  { id: 'warp-cli', label: '官方客户端 + GOST' },
-  { id: 'external', label: '外部代理容器' },
-] as const
-
-const MODE_FALLBACK: Record<string, Omit<WarpModeInfo, 'installed'>> = {
-  wireproxy: {
-    id: 'wireproxy',
-    name: 'WireProxy (用户态 WireGuard)',
-    protocol: 'wireguard',
-    requires_privilege: false,
-    docker_only: false,
-    proxy_types: ['socks5', 'http'],
-    description: '用户态 WireGuard，部署简单，适合大多数本地和容器环境。',
-  },
-  kernel: {
-    id: 'kernel',
-    name: '内核 WireGuard',
-    protocol: 'wireguard',
-    requires_privilege: true,
-    docker_only: false,
-    proxy_types: ['socks5', 'http'],
-    description: '使用系统内核 WireGuard 接口，性能较高，需要网络权限。',
-  },
-  usque: {
-    id: 'usque',
-    name: 'MASQUE/QUIC 隧道',
-    protocol: 'masque',
-    requires_privilege: false,
-    docker_only: false,
-    proxy_types: ['socks5', 'http'],
-    description: '基于 MASQUE/QUIC 的 WARP 隧道，适合受限网络环境。',
-  },
-  'warp-cli': {
-    id: 'warp-cli',
-    name: '官方客户端 + GOST',
-    protocol: 'warp-cli',
-    requires_privilege: true,
-    docker_only: false,
-    proxy_types: ['socks5', 'http'],
-    description: '调用 Cloudflare 官方客户端，再通过 GOST 暴露代理端口。',
-  },
-  external: {
-    id: 'external',
-    name: '外部代理容器',
-    protocol: 'external',
-    requires_privilege: false,
-    docker_only: true,
-    proxy_types: ['socks5', 'http'],
-    description: '连接外部已配置好的代理容器，由外部服务负责 WARP 隧道。',
-  },
-}
-
-const STATUS_LABEL: Record<WarpStatus['status'], string> = {
-  disabled: '已禁用',
-  starting: '启动中',
-  enabled: '已启用',
-  stopping: '停止中',
-  error: '错误',
-}
 
 const theme = {
   pagePadding: '40px 24px',
@@ -155,24 +97,6 @@ function normalizePort(value: string, fallback: number, min = 0) {
   return Math.min(Math.max(n, min), 65535)
 }
 
-function fallbackMode(id: string, warp: WarpStatus | null): WarpModeInfo {
-  const statusModes = warp?.available_modes as Record<string, boolean> | undefined
-  return {
-    ...MODE_FALLBACK[id],
-    installed: Boolean(statusModes?.[id]),
-    configured: id === 'external' ? Boolean(statusModes?.[id]) : undefined,
-  }
-}
-
-function modeAvailable(mode: WarpModeInfo) {
-  return mode.installed && (mode.id !== 'external' || Boolean(mode.configured))
-}
-
-function displayMode(id?: string) {
-  if (!id) return '—'
-  return MODE_OPTIONS.find((mode) => mode.id === id)?.label || id
-}
-
 function statusColor(status?: WarpStatus['status']) {
   if (status === 'enabled') return theme.success
   if (status === 'error') return theme.danger
@@ -180,12 +104,8 @@ function statusColor(status?: WarpStatus['status']) {
   return theme.muted
 }
 
-function resultMessage(result: WarpTestResult) {
-  if (!result.ok) return '测试未通过，请检查当前 WARP 状态。'
-  return `测试通过：出口 IP ${result.ip || '未知'}，模式 ${displayMode(result.mode)}，协议 ${result.protocol || '未知'}`
-}
-
 export function WarpPage() {
+  const { t } = useTranslation()
   const addToast = useNotificationStore((s) => s.addToast)
   const [warp, setWarp] = useState<WarpStatus | null>(null)
   const [modes, setModes] = useState<WarpModeInfo[]>([])
@@ -201,6 +121,19 @@ export function WarpPage() {
   const [endpoint, setEndpoint] = useState('')
   const [components, setComponents] = useState<WarpComponentInfo[]>([])
   const [installingComponent, setInstallingComponent] = useState<string | null>(null)
+  const translateWarpMode = useCallback((key: string) => t(key), [t])
+  const displayMode = useCallback((id?: string) => {
+    if (!id) return '—'
+    return getWarpModeLabel(id, translateWarpMode) || id
+  }, [translateWarpMode])
+  const resultMessage = useCallback((result: WarpTestResult) => {
+    if (!result.ok) return t('warp.testNotPassed')
+    return t('warp.testPassedDetailed', {
+      ip: result.ip || t('warp.unknown'),
+      mode: displayMode(result.mode),
+      protocol: result.protocol || t('warp.unknown'),
+    })
+  }, [displayMode, t])
 
   const fetchComponents = useCallback(async () => {
     try {
@@ -242,33 +175,32 @@ export function WarpPage() {
       }
 
       if (statusResult.status === 'rejected' && !silent) {
-        addToast('error', `读取 WARP 状态失败：${formatError(statusResult.reason)}`)
+        addToast('error', t('warp.fetchFailedWithMessage', { message: formatError(statusResult.reason) }))
       }
     } finally {
       setLoading(false)
       setRefreshing(false)
     }
-  }, [addToast])
+  }, [addToast, t])
 
   useEffect(() => { void loadData(); void fetchComponents() }, [fetchComponents, loadData])
 
   const visibleModes = useMemo(() => {
-    const modeMap = new Map(modes.map((item) => [item.id, item]))
-    return MODE_OPTIONS.filter((item) => item.id !== 'auto').map((item) => modeMap.get(item.id) || fallbackMode(item.id, warp))
-  }, [modes, warp])
+    return getDisplayWarpModes(modes, warp, translateWarpMode)
+  }, [modes, translateWarpMode, warp])
 
   const handleInstallComponent = useCallback(async (name: string) => {
     setInstallingComponent(name)
     try {
       await api.installWarpComponent(name)
-      addToast('success', `${name} 安装成功`)
+      addToast('success', t('warp.componentInstallSuccess', { name }))
       await Promise.all([fetchComponents(), loadData(true)])
     } catch (err) {
-      addToast('error', `${name} 安装失败：${formatError(err)}`)
+      addToast('error', t('warp.componentInstallFailed', { name, message: formatError(err) }))
     } finally {
       setInstallingComponent(null)
     }
-  }, [addToast, fetchComponents, loadData])
+  }, [addToast, fetchComponents, loadData, t])
 
   const handleEnable = useCallback(async () => {
     setActing(true)
@@ -279,31 +211,31 @@ export function WarpPage() {
         endpoint.trim() || undefined,
         normalizePort(httpPort, 0, 0),
       )
-      if (res.ok === false) throw new Error(res.error || res.message || '启用失败')
-      addToast('success', `WARP 已启用：${displayMode(res.mode || mode)}${res.ip ? `，IP ${res.ip}` : ''}`)
+      if (res.ok === false) throw new Error(res.error || res.message || t('warp.unknown'))
+      addToast('success', t('warp.enableSuccess', { mode: displayMode(res.mode || mode), ip: res.ip || '—' }))
       setTestResult(null)
       await loadData(true)
     } catch (err) {
-      addToast('error', `启用 WARP 失败：${formatError(err)}`)
+      addToast('error', t('warp.enableFailed', { message: formatError(err) }))
     } finally {
       setActing(false)
     }
-  }, [addToast, endpoint, httpPort, loadData, mode, socksPort])
+  }, [addToast, displayMode, endpoint, httpPort, loadData, mode, socksPort, t])
 
   const handleDisable = useCallback(async () => {
     setActing(true)
     try {
       const res = await api.disableWarp()
-      if (res.ok === false) throw new Error(res.error || res.message || '禁用失败')
-      addToast('success', 'WARP 已禁用')
+      if (res.ok === false) throw new Error(res.error || res.message || t('warp.unknown'))
+      addToast('success', t('warp.disableSuccess'))
       setTestResult(null)
       await loadData(true)
     } catch (err) {
-      addToast('error', `禁用 WARP 失败：${formatError(err)}`)
+      addToast('error', t('warp.disableFailed', { message: formatError(err) }))
     } finally {
       setActing(false)
     }
-  }, [addToast, loadData])
+  }, [addToast, loadData, t])
 
   const handleTest = useCallback(async () => {
     setTesting(true)
@@ -312,11 +244,11 @@ export function WarpPage() {
       setTestResult(result)
       addToast(result.ok ? 'success' : 'info', resultMessage(result))
     } catch (err) {
-      addToast('error', `WARP 测试失败：${formatError(err)}`)
+      addToast('error', t('warp.testFailed', { message: formatError(err) }))
     } finally {
       setTesting(false)
     }
-  }, [addToast])
+  }, [addToast, resultMessage, t])
 
   const enabled = warp?.status === 'enabled'
   const pending = warp?.status === 'starting' || warp?.status === 'stopping'
@@ -324,7 +256,7 @@ export function WarpPage() {
   if (loading) {
     return (
       <div style={styles.page}>
-        <div style={styles.loading}><Loader2 size={18} /> 正在加载 WARP 管理信息…</div>
+        <div style={styles.loading}><Loader2 size={18} /> {t('warp.loading')}</div>
       </div>
     )
   }
@@ -334,29 +266,29 @@ export function WarpPage() {
       <m.header style={styles.header} variants={staggerItem}>
         <div>
           <div style={styles.eyebrow}>Cloudflare WARP</div>
-          <h1 style={styles.title}>WARP 管理</h1>
-          <p style={styles.subtitle}>为搜索、抓取和数据源请求配置 WARP 代理模式，查看当前出口与运行状态。</p>
+          <h1 style={styles.title}>{t('warp.pageTitle')}</h1>
+          <p style={styles.subtitle}>{t('warp.pageSubtitle')}</p>
         </div>
         <button style={styles.secondaryButton} onClick={() => void loadData(true)} disabled={refreshing}>
-          <RefreshCw size={16} /> {refreshing ? '刷新中…' : '刷新'}
+          <RefreshCw size={16} /> {refreshing ? t('warp.refreshing') : t('dashboard.refresh')}
         </button>
       </m.header>
 
       <m.section style={styles.card} variants={staggerItem}>
-        <CardHeader icon={<ShieldCheck size={19} />} title="当前状态" badge={STATUS_LABEL[warp?.status || 'disabled']} badgeColor={statusColor(warp?.status)} />
+        <CardHeader icon={<ShieldCheck size={19} />} title={t('warp.statusCard')} badge={t(`warp.${warp?.status || 'disabled'}`)} badgeColor={statusColor(warp?.status)} />
         {!warp ? (
-          <Notice icon={<AlertTriangle size={15} />} tone="warning">WARP 状态暂不可用，请确认后端服务是否已启动。</Notice>
+          <Notice icon={<AlertTriangle size={15} />} tone="warning">{t('warp.statusUnavailable')}</Notice>
         ) : (
           <>
             <div style={styles.statusGrid}>
-              <StatusField icon={<CircleDot size={14} />} label="运行状态" value={STATUS_LABEL[warp.status]} strong color={statusColor(warp.status)} />
-              <StatusField icon={<Network size={14} />} label="当前模式" value={displayMode(warp.mode)} />
-              <StatusField icon={<Globe size={14} />} label="WARP IP" value={warp.ip || '—'} />
-              <StatusField icon={<Wifi size={14} />} label="SOCKS 端口" value={String(warp.socks_port || '—')} />
-              <StatusField icon={<Cloud size={14} />} label="HTTP 端口" value={warp.http_port ? String(warp.http_port) : '关闭'} />
-              <StatusField icon={<Route size={14} />} label="协议" value={warp.protocol || '—'} />
-              <StatusField icon={<Server size={14} />} label="代理类型" value={warp.proxy_type || '—'} />
-              <StatusField icon={<TerminalSquare size={14} />} label="进程 PID" value={warp.pid > 0 ? String(warp.pid) : '—'} />
+              <StatusField icon={<CircleDot size={14} />} label={t('warp.status')} value={t(`warp.${warp.status}`)} strong color={statusColor(warp.status)} />
+              <StatusField icon={<Network size={14} />} label={t('warp.mode')} value={displayMode(warp.mode)} />
+              <StatusField icon={<Globe size={14} />} label={t('warp.ip')} value={warp.ip || '—'} />
+              <StatusField icon={<Wifi size={14} />} label={t('warp.socksPort')} value={String(warp.socks_port || '—')} />
+              <StatusField icon={<Cloud size={14} />} label={t('warp.httpPort')} value={warp.http_port ? String(warp.http_port) : t('warp.disabledShort')} />
+              <StatusField icon={<Route size={14} />} label={t('warp.protocol')} value={warp.protocol || '—'} />
+              <StatusField icon={<Server size={14} />} label={t('warp.proxyType')} value={warp.proxy_type || '—'} />
+              <StatusField icon={<TerminalSquare size={14} />} label={t('warp.pid')} value={warp.pid > 0 ? String(warp.pid) : '—'} />
             </div>
             {warp.last_error && <Notice icon={<AlertTriangle size={15} />} tone="danger">{warp.last_error}</Notice>}
             {testResult && (
@@ -366,10 +298,10 @@ export function WarpPage() {
             )}
             <div style={styles.actions}>
               <button style={styles.primaryButton} disabled={!enabled || testing} onClick={() => void handleTest()}>
-                {testing ? <Loader2 size={16} /> : <Play size={16} />} {testing ? '测试中…' : '快速测试'}
+                {testing ? <Loader2 size={16} /> : <Play size={16} />} {testing ? t('warp.testing') : t('warp.testConnection')}
               </button>
               <button style={styles.dangerButton} disabled={!enabled || pending || acting} onClick={() => void handleDisable()}>
-                {acting ? <Loader2 size={16} /> : <ShieldOff size={16} />} 禁用 WARP
+                {acting ? <Loader2 size={16} /> : <ShieldOff size={16} />} {t('warp.disable')}
               </button>
             </div>
           </>
@@ -377,62 +309,67 @@ export function WarpPage() {
       </m.section>
 
       <m.section style={styles.card} variants={staggerItem}>
-        <CardHeader icon={<Power size={19} />} title="启用配置" badge="6 种模式" badgeColor={theme.primary} />
+        <CardHeader icon={<Power size={19} />} title={t('warp.controlPanel')} badge={t('warp.modeCount', { count: WARP_MODE_OPTIONS.length })} badgeColor={theme.primary} />
         <div style={styles.formGrid}>
           <label style={styles.formField}>
-            <span style={styles.label}>模式选择</span>
+            <span style={styles.label}>{t('warp.mode')}</span>
             <select style={styles.input} value={mode} onChange={(event) => setMode(event.target.value)}>
-              {MODE_OPTIONS.map((item) => { const info = modes.find((m) => m.id === item.id); const notInstalled = info && !info.installed; return <option key={item.id} value={item.id} disabled={notInstalled || false}>{item.label}{notInstalled ? " (未安装)" : ""}</option> })}
+              {WARP_MODE_OPTIONS.map((item) => {
+                const info = modes.find((m) => m.id === item.value)
+                const unavailable = info ? !isWarpModeInfoAvailable(info) : false
+                const notInstalled = info && !info.installed
+                return <option key={item.value} value={item.value} disabled={unavailable}>{t(item.labelKey)}{notInstalled ? ` (${t('warp.notInstalled')})` : ''}</option>
+              })}
             </select>
           </label>
           <label style={styles.formField}>
-            <span style={styles.label}>SOCKS 端口</span>
+            <span style={styles.label}>{t('warp.socksPort')}</span>
             <input style={styles.input} type="number" min={1} max={65535} value={socksPort} onChange={(event) => setSocksPort(event.target.value)} />
           </label>
           <label style={styles.formField}>
-            <span style={styles.label}>HTTP 端口</span>
+            <span style={styles.label}>{t('warp.httpPort')}</span>
             <input style={styles.input} type="number" min={0} max={65535} value={httpPort} onChange={(event) => setHttpPort(event.target.value)} />
           </label>
           <label style={styles.formFieldWide}>
-            <span style={styles.label}>自定义端点</span>
-            <input style={styles.input} type="text" value={endpoint} onChange={(event) => setEndpoint(event.target.value)} placeholder="留空使用默认 WARP 端点" />
+            <span style={styles.label}>{t('warp.endpoint')}</span>
+            <input style={styles.input} type="text" value={endpoint} onChange={(event) => setEndpoint(event.target.value)} placeholder={t('warp.endpointPlaceholder')} />
           </label>
         </div>
         <div style={styles.actions}>
           <button style={styles.primaryButton} disabled={acting || pending} onClick={() => void handleEnable()}>
-            {acting ? <Loader2 size={16} /> : <Shield size={16} />} {acting ? '处理中…' : '启用 / 切换 WARP'}
+            {acting ? <Loader2 size={16} /> : <Shield size={16} />} {acting ? t('warp.processing') : t('warp.enableSwitch')}
           </button>
           <button style={styles.secondaryButton} disabled={refreshing} onClick={() => void loadData(true)}>
-            <RefreshCw size={16} /> 重新读取配置
+            <RefreshCw size={16} /> {t('dashboard.refresh')}
           </button>
         </div>
       </m.section>
 
       <m.section style={styles.card} variants={staggerItem}>
-        <CardHeader icon={<Network size={19} />} title="可用模式" badge={`${visibleModes.filter(modeAvailable).length}/${visibleModes.length} 可用`} badgeColor={theme.info} />
+        <CardHeader icon={<Network size={19} />} title={t('warp.modesCard')} badge={t('warp.availableModeCount', { available: visibleModes.filter(isWarpModeInfoAvailable).length, total: visibleModes.length })} badgeColor={theme.info} />
         <div style={styles.modeGrid}>
           {visibleModes.map((item) => {
-            const available = modeAvailable(item)
+            const available = isWarpModeInfoAvailable(item)
             const active = warp?.mode === item.id
             return (
               <div key={item.id} style={{ ...styles.modeCard, ...(active ? styles.modeCardActive : {}), ...(!available ? styles.modeCardDisabled : {}) }}>
                 <div style={styles.modeHeader}>
                   <strong>{displayMode(item.id)}</strong>
                   <span style={{ ...styles.smallBadge, background: available ? theme.successSoft : theme.surfaceMuted, color: available ? theme.success : theme.muted }}>
-                    {available ? '可用' : '不可用'}
+                    {available ? t('warp.available') : t('warp.unavailable')}
                   </span>
                 </div>
                 <p style={styles.modeDesc}>{item.description}</p>
                 {!item.installed && item.reason && (
                   <p style={styles.modeReason}>💡 {item.reason}</p>
                 )}
-                {item.id === 'usque' && <span style={styles.recommendedBadge}>推荐</span>}
+                {item.id === 'usque' && <span style={styles.recommendedBadge}>{t('warp.recommended')}</span>}
                 <div style={styles.tags}>
-                  <span style={styles.tag}>{item.protocol || 'unknown'}</span>
+                  <span style={styles.tag}>{item.protocol || t('warp.unknown')}</span>
                   {item.proxy_types.map((proxy) => <span key={proxy} style={styles.tag}>{proxy}</span>)}
-                  {item.requires_privilege && <span style={styles.tag}>需要权限</span>}
-                  {item.docker_only && <span style={styles.tag}>容器模式</span>}
-                  {item.id === 'external' && <span style={styles.tag}>{item.configured ? '已配置' : '未配置'}</span>}
+                  {item.requires_privilege && <span style={styles.tag}>{t('warp.requiresPrivilege')}</span>}
+                  {item.docker_only && <span style={styles.tag}>{t('warp.dockerOnly')}</span>}
+                  {item.id === 'external' && <span style={styles.tag}>{item.configured ? t('warp.configured') : t('warp.notConfigured')}</span>}
                 </div>
                 {item.external_proxy && <div style={styles.externalProxy}>{item.external_proxy}</div>}
               </div>
@@ -443,36 +380,36 @@ export function WarpPage() {
 
       <m.section style={styles.split} variants={staggerItem}>
         <div style={styles.card}>
-          <CardHeader icon={<Settings size={19} />} title="高级配置" />
+          <CardHeader icon={<Settings size={19} />} title={t('warp.advancedCard')} />
           {config ? (
             <div style={styles.compactList}>
-              <StatusField label="绑定地址" value={config.warp_bind_address || '—'} />
-              <StatusField label="启动超时" value={`${config.warp_startup_timeout || 0} 秒`} />
-              <StatusField label="设备名称" value={config.warp_device_name || '—'} />
-              <StatusField label="USQUE 传输" value={config.warp_usque_transport || '—'} />
-              <StatusField label="许可证" value={config.has_license_key ? '已配置' : '未配置'} />
-              <StatusField label="团队令牌" value={config.has_team_token ? '已配置' : '未配置'} />
-              <StatusField label="代理认证" value={config.has_proxy_auth ? '已配置' : '未配置'} />
-              <StatusField label="外部代理" value={config.warp_external_proxy || '—'} />
+              <StatusField label={t('warp.bindAddress')} value={config.warp_bind_address || '—'} />
+              <StatusField label={t('warp.startupTimeout')} value={t('warp.seconds', { count: config.warp_startup_timeout || 0 })} />
+              <StatusField label={t('warp.deviceName')} value={config.warp_device_name || '—'} />
+              <StatusField label={t('warp.usqueTransport')} value={config.warp_usque_transport || '—'} />
+              <StatusField label={t('warp.licenseKey')} value={config.has_license_key ? t('warp.configured') : t('warp.notConfigured')} />
+              <StatusField label={t('warp.teamToken')} value={config.has_team_token ? t('warp.configured') : t('warp.notConfigured')} />
+              <StatusField label={t('warp.proxyAuth')} value={config.has_proxy_auth ? t('warp.configured') : t('warp.notConfigured')} />
+              <StatusField label={t('warp.externalProxy')} value={config.warp_external_proxy || '—'} />
             </div>
-          ) : <Notice icon={<AlertTriangle size={15} />} tone="warning">高级配置暂不可用。</Notice>}
+          ) : <Notice icon={<AlertTriangle size={15} />} tone="warning">{t('warp.advancedUnavailable')}</Notice>}
         </div>
         <div style={styles.card}>
-          <CardHeader icon={<Container size={19} />} title="运行环境" />
+          <CardHeader icon={<Container size={19} />} title={t('warp.environmentCard')} />
           <div style={styles.compactList}>
-            <StatusField label="控制方" value={warp?.owner || '—'} />
-            <StatusField label="网络接口" value={warp?.interface || '—'} />
-            <StatusField label="进程 PID" value={warp && warp.pid > 0 ? String(warp.pid) : '—'} />
-            <StatusField label="已安装模式" value={`${visibleModes.filter((item) => item.installed).length} 个`} />
-            <StatusField label="当前代理类型" value={warp?.proxy_type || '—'} />
+            <StatusField label={t('warp.owner')} value={warp?.owner || '—'} />
+            <StatusField label={t('warp.interface')} value={warp?.interface || '—'} />
+            <StatusField label={t('warp.pid')} value={warp && warp.pid > 0 ? String(warp.pid) : '—'} />
+            <StatusField label={t('warp.installedModes')} value={t('warp.itemCount', { count: visibleModes.filter((item) => item.installed).length })} />
+            <StatusField label={t('warp.currentProxyType')} value={warp?.proxy_type || '—'} />
           </div>
         </div>
       </m.section>
 
       <m.section style={styles.card} variants={staggerItem}>
-        <CardHeader icon={<Package size={19} />} title="WARP 组件" badge={`${components.filter((comp) => comp.installed).length}/${components.length || 3} 已安装`} badgeColor={theme.success} />
+        <CardHeader icon={<Package size={19} />} title={t('warp.componentsCard')} badge={t('warp.componentsInstalledCount', { installed: components.filter((comp) => comp.installed).length, total: components.length || 3 })} badgeColor={theme.success} />
         {components.length === 0 ? (
-          <Notice icon={<AlertTriangle size={15} />} tone="warning">组件状态暂不可用。</Notice>
+          <Notice icon={<AlertTriangle size={15} />} tone="warning">{t('warp.componentsUnavailable')}</Notice>
         ) : (
           <div style={styles.componentList}>
             {components.map((comp) => (
@@ -480,9 +417,9 @@ export function WarpPage() {
                 <div style={styles.componentInfo}>
                   <span style={styles.componentName}>{comp.name}</span>
                   <span style={styles.componentStatus}>
-                    {comp.source === 'system' && '系统预装'}
-                    {comp.source === 'runtime' && (comp.version ? `v${comp.version}` : '已安装')}
-                    {comp.source === 'not_installed' && '未安装'}
+                    {comp.source === 'system' && t('warp.systemPreinstalled')}
+                    {comp.source === 'runtime' && (comp.version ? `v${comp.version}` : t('warp.installed'))}
+                    {comp.source === 'not_installed' && t('warp.notInstalled')}
                   </span>
                 </div>
                 <div style={styles.componentActions}>
@@ -493,11 +430,11 @@ export function WarpPage() {
                       disabled={installingComponent !== null}
                     >
                       {installingComponent === comp.name ? <Loader2 size={15} /> : <Download size={15} />}
-                      安装
+                      {t('warp.install')}
                     </button>
                   )}
-                  {comp.source === 'runtime' && <span style={styles.installedMark}>✓ 已安装</span>}
-                  {comp.source === 'system' && <span style={styles.preinstalledMark}>✓ 预装</span>}
+                  {comp.source === 'runtime' && <span style={styles.installedMark}>✓ {t('warp.installed')}</span>}
+                  {comp.source === 'system' && <span style={styles.preinstalledMark}>✓ {t('warp.preinstalled')}</span>}
                 </div>
               </div>
             ))}

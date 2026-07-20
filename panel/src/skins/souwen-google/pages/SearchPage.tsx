@@ -23,10 +23,12 @@ import { EmptyState } from '../components/common/EmptyState'
 import { Badge } from '../components/common/Badge'
 import { normalizePaper, normalizePatent, normalizeWeb } from '@core/lib/normalize'
 import { extractDomain } from '@core/lib/url'
-import { exportPapers, exportPatents, exportWebResults, type ExportFormat } from '@core/lib/export'
-import { useSearchPage, type Domain } from '@core/hooks/useSearchPage'
+import { exportMediaResults, exportPapers, exportPatents, exportWebResults, type ExportFormat } from '@core/lib/export'
+import { mediaItemFromSearchResult, mediaItemsFromSearchResults } from '@core/lib/searchMedia'
+import { SearchMemoryPanel } from '@core/components/SearchMemoryPanel'
+import { useSearchPage, type Domain, type SearchPageResponse } from '@core/hooks/useSearchPage'
 import type {
-  SearchResponse, WebSearchResponse,
+  SearchResponse,
   WebResult, PaperResult, PatentResult,
 } from '@core/types'
 import { staggerContainer, staggerItem, fadeInUp } from '@core/lib/animations'
@@ -75,18 +77,15 @@ function getSourceIcon(name: string): React.ComponentType<{ size?: number }> {
   return SOURCE_ICONS[name] ?? Globe
 }
 
-function flattenItems(domain: Domain, responses: Array<SearchResponse | WebSearchResponse>): unknown[] {
+function flattenItems(domain: Domain, responses: SearchPageResponse[]): unknown[] {
   if (domain === 'paper' || domain === 'patent') {
     return (responses as SearchResponse[]).flatMap((r) => r.results.flatMap((s) => s.results))
   }
-  return (responses as WebSearchResponse[]).flatMap((r) => r.results)
+  return responses.flatMap((r): unknown[] => r.results ?? [])
 }
 
-function totalCountOf(domain: Domain, responses: Array<SearchResponse | WebSearchResponse>): number {
-  if (domain === 'paper' || domain === 'patent') {
-    return (responses as SearchResponse[]).reduce((sum, r) => sum + (r.total ?? 0), 0)
-  }
-  return (responses as WebSearchResponse[]).reduce((sum, r) => sum + (r.total ?? 0), 0)
+function totalCountOf(_domain: Domain, responses: SearchPageResponse[]): number {
+  return responses.reduce((sum, r) => sum + (r.total ?? 0), 0)
 }
 
 export function SearchPage() {
@@ -99,19 +98,22 @@ export function SearchPage() {
 
   const {
     query, setQuery,
+    capability, setCapability, supportedCapabilities,
     responses, loading, error,
     availableSources, selectedSources, toggleSource, setSelectedSources,
     handleSearch,
+    searchHistory, favoriteSearches, canFavoriteCurrentSearch, isCurrentFavorite,
+    applySearchMemory, toggleCurrentFavorite, removeFavoriteSearch, clearCurrentSearchHistory,
   } = useSearchPage(domain)
 
   const addToast = useNotificationStore((s) => s.addToast)
   const SEARCH_SUGGESTIONS = [
-    t('search.suggestion1', '大语言模型'),
-    t('search.suggestion2', '量子计算'),
-    t('search.suggestion3', 'CRISPR 基因编辑'),
-    t('search.suggestion4', 'Transformer 架构'),
-    t('search.suggestion5', '气候变化'),
-    t('search.suggestion6', '神经辐射场'),
+    t('search.suggestion1'),
+    t('search.suggestion2'),
+    t('search.suggestion3'),
+    t('search.suggestion4'),
+    t('search.suggestion5'),
+    t('search.suggestion6'),
   ]
 
   // Sync URL → domain
@@ -148,9 +150,46 @@ export function SearchPage() {
   const canSearch = query.trim().length > 0 && selectedSources.length > 0
   const items = flattenItems(domain, responses)
   const hasResults = responses.length > 0
+  const memoryClasses = {
+    root: styles.memorySection,
+    header: styles.memoryHeader,
+    title: styles.memoryTitle,
+    actions: styles.memoryActions,
+    actionButton: styles.memoryActionBtn,
+    groups: styles.memoryGroups,
+    group: styles.memoryGroup,
+    groupTitle: styles.memoryGroupTitle,
+    chips: styles.memoryChips,
+    chip: styles.memoryChip,
+    chipText: styles.memoryChipText,
+    chipMeta: styles.memoryChipMeta,
+    removeButton: styles.memoryRemoveBtn,
+    empty: styles.memoryEmpty,
+  }
 
   const selectAllSources = () => setSelectedSources(availableSources.map((s) => s.name))
   const clearAllSources = () => setSelectedSources([])
+
+  const renderCapabilityTabs = () => {
+    if (supportedCapabilities.length <= 1) return null
+    return (
+      <div className={styles.commandHeader}>
+        <div className={styles.tabGroup} role="group" aria-label={t('search.capabilityMode')}>
+          {supportedCapabilities.map((key) => (
+            <button
+              key={key}
+              type="button"
+              className={`${styles.tabBtn} ${capability === key ? styles.tabActive : ''}`}
+              onClick={() => setCapability(key)}
+              aria-pressed={capability === key}
+            >
+              {key === 'search' && domain === 'web' ? t('domains.web') : t(`capabilities.${key}`)}
+            </button>
+          ))}
+        </div>
+      </div>
+    )
+  }
 
   const renderPaperCard = (raw: PaperResult, i: number) => {
     const p = normalizePaper(raw)
@@ -212,9 +251,56 @@ export function SearchPage() {
     )
   }
 
+  const renderMediaCard = (raw: unknown, i: number) => {
+    const media = mediaItemFromSearchResult(raw, capability)
+    if (!media) return null
+    const key = media.url || `${media.kind}-${i}`
+    const dom = media.url ? extractDomain(media.url) : ''
+    return (
+      <m.article key={key} className={`${styles.resultCard} ${styles.mediaResultCard}`} variants={staggerItem}>
+        <a
+          className={styles.mediaThumbLink}
+          href={media.url || media.thumbnailUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          aria-label={media.title}
+        >
+          {media.thumbnailUrl ? (
+            <img className={styles.mediaThumb} src={media.thumbnailUrl} alt={media.title} loading="lazy" />
+          ) : (
+            <div className={styles.mediaPlaceholder}>
+              {media.kind === 'video' ? <Play size={30} /> : <Globe size={30} />}
+            </div>
+          )}
+          {media.duration && <span className={styles.mediaDuration}>{media.duration}</span>}
+        </a>
+        <div className={styles.mediaBody}>
+          <div className={styles.cardHeader}>
+            <h3 className={styles.resultTitle}>
+              {media.url ? (
+                <a href={media.url} target="_blank" rel="noopener noreferrer">
+                  {media.title || t('search.untitled')}
+                  <ExternalLink size={14} className={styles.externalIcon} />
+                </a>
+              ) : (media.title || t('search.untitled'))}
+            </h3>
+            {media.source && <Badge color="teal">{media.source}</Badge>}
+          </div>
+          <div className={styles.resultMeta}>
+            {dom && <span><Globe size={14} /> {dom}</span>}
+            {media.meta && <span>{media.meta}</span>}
+          </div>
+          {media.description && <p className={styles.resultAbstract}>{media.description}</p>}
+        </div>
+      </m.article>
+    )
+  }
+
   const renderItemCard = (item: unknown, i: number) => {
     if (domain === 'paper') return renderPaperCard(item as PaperResult, i)
     if (domain === 'patent') return renderPatentCard(item as PatentResult, i)
+    const mediaCard = renderMediaCard(item, i)
+    if (mediaCard) return mediaCard
     return renderWebCard(item as WebResult, i)
   }
 
@@ -253,6 +339,22 @@ export function SearchPage() {
         </div>
       )
     }
+    const media = mediaItemFromSearchResult(item, capability)
+    if (media) {
+      const key = media.url || `media-list-${i}`
+      const dom = media.url ? extractDomain(media.url) : ''
+      return (
+        <div key={key} className={styles.resultListItem}>
+          {media.source && <Badge color="teal">{media.source}</Badge>}
+          <span className={styles.listTitle}>
+            {media.url ? <a href={media.url} target="_blank" rel="noopener noreferrer">{media.title || t('search.untitled')}<ExternalLink size={12} className={styles.externalIcon} /></a> : (media.title || t('search.untitled'))}
+          </span>
+          {dom && <span className={styles.listDomain} title={media.url}>— {dom}</span>}
+          {media.duration && <span className={styles.listMeta}>— {media.duration}</span>}
+          {media.meta && <span className={styles.listMeta}>— {media.meta}</span>}
+        </div>
+      )
+    }
     const w = item as WebResult
     const wn = normalizeWeb(w)
     const key = wn.url || `web-list-${wn.source}-${i}`
@@ -271,6 +373,33 @@ export function SearchPage() {
   }
 
   const renderItemGridCard = (item: unknown, i: number) => {
+    const media = mediaItemFromSearchResult(item, capability)
+    if (media) {
+      const key = media.url || `${media.kind}-grid-${i}`
+      const dom = media.url ? extractDomain(media.url) : ''
+      return (
+        <m.article key={key} className={`${styles.resultGridCard} ${styles.mediaGridCard}`} variants={staggerItem}>
+          <a className={styles.gridMediaThumbLink} href={media.url || media.thumbnailUrl} target="_blank" rel="noopener noreferrer">
+            {media.thumbnailUrl ? (
+              <img className={styles.gridMediaThumb} src={media.thumbnailUrl} alt={media.title} loading="lazy" />
+            ) : (
+              <div className={styles.mediaPlaceholder}>
+                {media.kind === 'video' ? <Play size={28} /> : <Globe size={28} />}
+              </div>
+            )}
+            {media.duration && <span className={styles.mediaDuration}>{media.duration}</span>}
+          </a>
+          <div className={styles.gridCardHeader}>
+            {media.source && <Badge color="teal">{media.source}</Badge>}
+            {dom && <span className={styles.gridDomain} title={media.url}><Globe size={11} /> {dom}</span>}
+          </div>
+          <h3 className={styles.gridCardTitle}>
+            {media.url ? <a href={media.url} target="_blank" rel="noopener noreferrer">{media.title || t('search.untitled')}<ExternalLink size={12} className={styles.externalIcon} /></a> : (media.title || t('search.untitled'))}
+          </h3>
+          {media.meta && <p className={styles.gridCardAbstract}>{media.meta}</p>}
+        </m.article>
+      )
+    }
     let title = '', url = '', source = '', abstract = ''
     let badgeColor: 'blue' | 'indigo' | 'teal' = 'teal'
     if (domain === 'paper') {
@@ -306,6 +435,7 @@ export function SearchPage() {
     let exportedCount = 0
     if (domain === 'paper') { const list = (items as PaperResult[]).map(normalizePaper); exportedCount = list.length; exportPapers(list, format) }
     else if (domain === 'patent') { const list = (items as PatentResult[]).map(normalizePatent); exportedCount = list.length; exportPatents(list, format) }
+    else if (capability === 'search_images' || capability === 'search_videos') { const list = mediaItemsFromSearchResults(items, capability); exportedCount = list.length; exportMediaResults(list, format) }
     else { const list = (items as WebResult[]).map(normalizeWeb); exportedCount = list.length; exportWebResults(list, format) }
     if (exportedCount > 0) addToast('success', t('search.exported', { count: exportedCount }))
   }
@@ -322,6 +452,7 @@ export function SearchPage() {
         <div className={styles.exportGroup} role="group" aria-label={t('search.exportTitle')}>
           <button type="button" className={styles.exportBtn} onClick={() => handleExport('csv')}><Download size={13} /> {t('search.exportCSV')}</button>
           <button type="button" className={styles.exportBtn} onClick={() => handleExport('xls')}><Download size={13} /> {t('search.exportXLS')}</button>
+          <button type="button" className={styles.exportBtn} onClick={() => handleExport('markdown')}><Download size={13} /> {t('search.exportMarkdown')}</button>
         </div>
       </div>
     </div>
@@ -392,6 +523,8 @@ export function SearchPage() {
           </div>
         </div>
 
+        {renderCapabilityTabs()}
+
         {/* Search form */}
         <m.form
           className={styles.searchForm}
@@ -407,6 +540,7 @@ export function SearchPage() {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder={t('search.placeholder')}
+              aria-label={t('search.placeholder')}
               required
             />
             <button
@@ -457,6 +591,17 @@ export function SearchPage() {
             </div>
           </div>
         )}
+        <SearchMemoryPanel
+          history={searchHistory}
+          favorites={favoriteSearches}
+          isCurrentFavorite={isCurrentFavorite}
+          canFavorite={canFavoriteCurrentSearch}
+          onApply={applySearchMemory}
+          onToggleCurrentFavorite={toggleCurrentFavorite}
+          onRemoveFavorite={removeFavoriteSearch}
+          onClearHistory={clearCurrentSearchHistory}
+          classes={memoryClasses}
+        />
       </m.div>
 
       {!hasResults && !loading && !error && (

@@ -7,6 +7,7 @@ import asyncio
 import inspect
 import json
 import platform
+import sys
 import time
 import traceback
 from dataclasses import dataclass, field
@@ -14,6 +15,12 @@ from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
 from typing import Any, Awaitable, Callable, Mapping, Sequence
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SRC_ROOT = REPO_ROOT / "src"
+if str(SRC_ROOT) not in sys.path:
+    sys.path.insert(0, str(SRC_ROOT))
 
 
 SCHEMA_VERSION = 1
@@ -118,13 +125,17 @@ class ResultRecorder:
         message: str = "",
         details: Mapping[str, Any] | None = None,
     ) -> CheckResult:
+        normalized_details = dict(details or {})
+        if not required and outcome == Outcome.FAIL:
+            outcome = Outcome.WARN
+            normalized_details.setdefault("normalized_from", Outcome.FAIL.value)
         result = CheckResult(
             name=name,
             outcome=outcome,
             required=required,
             duration_seconds=duration_seconds,
             message=message,
-            details=dict(details or {}),
+            details=normalized_details,
         )
         self.checks.append(result)
         return result

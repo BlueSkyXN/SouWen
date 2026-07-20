@@ -24,7 +24,8 @@ export const YAML_SECTIONS: SectionDef[] = [
     key: 'paper',
     titleI18nKey: 'config.visualSectionPaper',
     fields: [
-      { key: 'openalex_email', type: 'email', label: 'OpenAlex Email' },
+      { key: 'openalex_api_key', type: 'password', label: 'OpenAlex API Key' },
+      { key: 'openalex_email', type: 'email', label: 'OpenAlex Email (legacy, not sent)' },
       { key: 'semantic_scholar_api_key', type: 'password', label: 'Semantic Scholar API Key' },
       { key: 'core_api_key', type: 'password', label: 'CORE API Key' },
       { key: 'openaire_api_key', type: 'password', label: 'OpenAIRE API Key' },
@@ -46,6 +47,8 @@ export const YAML_SECTIONS: SectionDef[] = [
       { key: 'cnipa_client_secret', type: 'password', label: 'CNIPA Client Secret' },
       { key: 'lens_api_token', type: 'password', label: 'The Lens API Token' },
       { key: 'patsnap_api_key', type: 'password', label: 'PatSnap API Key' },
+      { key: 'patentsview_api_key', type: 'password', label: 'PatentsView API Key' },
+      { key: 'pqai_api_token', type: 'password', label: 'PQAI API Token' },
     ],
   },
   {

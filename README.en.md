@@ -36,11 +36,11 @@ The registry architecture reduces the cost of adding a new source to **1-2 code 
 
 ### Features
 
-- **94 built-in heterogeneous data sources** (derived from a unified `registry`, with external plugins appended at runtime):
-  - `paper` 19 · `patent` 8 · `web` 29
-  - `social` 5 · `video` 2 · `knowledge` 1
-  - `developer` 2 · `cn_tech` 9 · `office` 1 · `archive` 1
-  - `fetch` cross-cutting: 22 fetch providers (17 primary fetch-domain providers + 5 cross-domain capabilities)
+<!-- BEGIN AUTO: SOURCE METRICS -->
+- **95 registered built-in sources**: **94 public** Source Catalog entries and **1 hidden/internal** entry. Runtime plugins may append additional entries.
+  - Public sources by primary domain: `paper` 18 · `patent` 8 · `web` 30 · `social` 5 · `video` 2 · `knowledge` 1 · `developer` 2 · `cn_tech` 9 · `office` 1 · `archive` 1
+  - `fetch` cross-cutting view: **24 providers** = **17 primary fetch-domain** + **7 cross-domain** sources.
+<!-- END AUTO: SOURCE METRICS -->
 - **Unified Pydantic v2 models**: `PaperResult` / `PatentResult` / `WebSearchResult` / `FetchResult` / `WaybackCDXResponse` / …
 - **Async-first**: httpx + asyncio, per-loop Semaphore concurrency control
 - **Smart rate limiting**: Token Bucket + sliding window, per-source isolation
@@ -57,12 +57,15 @@ git clone https://github.com/BlueSkyXN/SouWen.git
 cd SouWen
 pip install -e .
 
-# API server (FastAPI) + TLS fingerprinting + web search
-pip install -e ".[server,tls,web,scraper]"
+# Zero-key / minimal dependency experience (includes MCP client and stdio server)
+pip install -e ".[edition-basic]"
 
-# Heavy fetch providers are installed on demand: crawl4ai and scrapling are currently mutually exclusive.
-pip install -e ".[server,tls,web,scraper,pdf,crawl4ai,newspaper,readability,robots,mcp]"
-pip install -e ".[server,tls,web,scraper,pdf,scrapling,newspaper,readability,robots,mcp]"
+# Default API server + MCP + TLS fingerprinting + web search
+pip install -e ".[edition-pro]"
+
+# Full public heavy runtime; crawl4ai and scrapling are currently mutually exclusive.
+pip install -e ".[edition-full-crawl4ai]"
+pip install -e ".[edition-full-scrapling]"
 ```
 
 ## 🚀 Quick Start
@@ -82,10 +85,10 @@ souwen bilibili search "programming"
 souwen wayback cdx https://example.com
 
 # Management
-souwen sources --available-only          # List sources available with current config
+souwen sources --available-only          # Require both the static gate and current runtime
 souwen sources --json                    # Output the same Source Catalog shape as /api/v1/sources
 souwen serve                             # Start API server (default :8000)
-souwen doctor                            # Health check
+souwen doctor                            # Static check (live=false by default; no network)
 souwen mcp                               # MCP server info
 ```
 
@@ -160,7 +163,7 @@ See [docs/architecture.md](docs/architecture.md) for details.
 src/souwen/
 ├── core/              Platform: http_client / scraper / rate_limiter / retry / …
 ├── registry/          Single source of truth: adapter / sources / loader / views
-├── paper/             19 paper clients
+├── paper/             Paper clients
 ├── patent/            8 patent clients
 ├── web/               Search, social, video, knowledge, office, fetch, and archive clients
 ├── cli/ (subpackage)  CLI commands (organized by domain)
@@ -192,7 +195,7 @@ Docs:
 
 ```bash
 docker build -t souwen .
-docker run -p 8000:8000 \
+docker run -p 8000:49265 \
   -e SOUWEN_ADMIN_PASSWORD=your-admin-password \
   -e SOUWEN_USER_PASSWORD=your-user-password \
   -v ~/.config/souwen:/app/data \
@@ -223,6 +226,7 @@ docker run -p 8000:8000 \
 - [docs/plugin-integration-spec.md](docs/plugin-integration-spec.md) — External plugin integration spec
 - [docs/plugin-management.md](docs/plugin-management.md) — Plugin management (Web Panel / CLI / API)
 - [docs/contributing.md](docs/contributing.md) — Developer guide
+- [docs/internal/rc-readiness-gates.md](docs/internal/rc-readiness-gates.md) — Fixed v2.0.0rc1 gates and evidence manifest contract
 - [docs/internal/](docs/internal/) — Maintainer ADRs, branching policy, and pre-release baselines
 - [CHANGELOG.md](CHANGELOG.md) — Changelog
 

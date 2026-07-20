@@ -77,6 +77,12 @@ class Crawl4AIFetcherClient:
         Returns:
             FetchResult 包含提取的 Markdown 内容
         """
+        from souwen.web.fetch import ssrf_blocked_fetch_result
+
+        blocked = ssrf_blocked_fetch_result(url, self.PROVIDER_NAME)
+        if blocked is not None:
+            return blocked
+
         if self._crawler is None:
             return FetchResult(
                 url=url,

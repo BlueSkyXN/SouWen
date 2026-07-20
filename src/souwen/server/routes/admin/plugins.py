@@ -3,17 +3,49 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, field_validator
+
+from souwen.server.routes._common import normalize_required_query_arg, redact_secret_payload
+from souwen.server.schemas import (
+    PluginActionResponse,
+    PluginHealthResponse,
+    PluginInfoResponse,
+    PluginListResponse,
+    PluginPackageActionResponse,
+    PluginReloadResponse,
+)
 
 router = APIRouter()
 
 
-class InstallRequest(BaseModel):
-    package: str
+def _strip_required_body_string(value: object, *, field_name: str) -> object:
+    if not isinstance(value, str):
+        return value
+    stripped = value.strip()
+    if not stripped:
+        raise ValueError(f"{field_name} 不能是空字符串")
+    return stripped
 
 
-class UninstallRequest(BaseModel):
+def _normalize_plugin_name(name: str) -> str:
+    return normalize_required_query_arg(name, "name")
+
+
+class _PackageRequest(BaseModel):
     package: str
+
+    @field_validator("package", mode="before")
+    @classmethod
+    def _normalize_package(cls, value: object) -> object:
+        return _strip_required_body_string(value, field_name="package")
+
+
+class InstallRequest(_PackageRequest):
+    pass
+
+
+class UninstallRequest(_PackageRequest):
+    pass
 
 
 _SAFE_PIP_FAILURE_MESSAGES = {
@@ -26,7 +58,7 @@ _SAFE_PIP_FAILURE_MESSAGES = {
 }
 
 
-@router.get("/plugins")
+@router.get("/plugins", response_model=PluginListResponse)
 async def list_all_plugins():
     """列出所有插件（已加载 + 目录 + 禁用）。
 
@@ -47,41 +79,49 @@ async def list_all_plugins():
     }
 
 
-@router.get("/plugins/{name}")
+@router.get("/plugins/{name}", response_model=PluginInfoResponse)
 async def get_plugin(name: str):
     """查询单个插件详情"""
     from souwen.plugin_manager import get_plugin_info
 
+    name = _normalize_plugin_name(name)
     info = get_plugin_info(name)
     if info is None:
         raise HTTPException(status_code=404, detail=f"插件 {name!r} 未找到")
     return info.model_dump()
 
 
-@router.get("/plugins/{name}/health")
+@router.get(
+    "/plugins/{name}/health",
+    response_model=PluginHealthResponse,
+    response_model_exclude_none=True,
+)
 async def plugin_health(name: str):
     """运行单个已加载插件的健康检查。"""
     from souwen.plugin_manager import run_plugin_health
 
+    name = _normalize_plugin_name(name)
     result = await run_plugin_health(name, include_error_detail=False)
     if result.get("status") == "not_loaded":
         raise HTTPException(status_code=404, detail=f"插件 {name!r} 未加载")
-    return result
+    return redact_secret_payload(result)
 
 
-@router.post("/plugins/{name}/enable")
+@router.post("/plugins/{name}/enable", response_model=PluginActionResponse)
 async def enable(name: str):
     """启用插件（重启后生效）"""
     from souwen.plugin_manager import enable_plugin
 
+    name = _normalize_plugin_name(name)
     return enable_plugin(name)
 
 
-@router.post("/plugins/{name}/disable")
+@router.post("/plugins/{name}/disable", response_model=PluginActionResponse)
 async def disable(name: str):
     """禁用插件（重启后生效）"""
     from souwen.plugin_manager import disable_plugin_async
 
+    name = _normalize_plugin_name(name)
     result = await disable_plugin_async(name)
     return {
         "success": result.get("success", False),
@@ -90,7 +130,7 @@ async def disable(name: str):
     }
 
 
-@router.post("/plugins/install")
+@router.post("/plugins/install", response_model=PluginPackageActionResponse)
 async def install(req: InstallRequest):
     """安装插件包（需 SOUWEN_ENABLE_PLUGIN_INSTALL=1）"""
     from souwen.plugin_manager import install_plugin
@@ -99,7 +139,7 @@ async def install(req: InstallRequest):
     return _sanitize_pip_result(result, package=req.package)
 
 
-@router.post("/plugins/uninstall")
+@router.post("/plugins/uninstall", response_model=PluginPackageActionResponse)
 async def uninstall(req: UninstallRequest):
     """卸载插件包（需 SOUWEN_ENABLE_PLUGIN_INSTALL=1）"""
     from souwen.plugin_manager import uninstall_plugin
@@ -123,7 +163,7 @@ def _sanitize_pip_result(result: dict, package: str = "") -> dict:
         )
     return {
         "success": success,
-        "package": result.get("package", package),
+        "package": result.get("package") or package,
         "restart_required": result.get("restart_required", False),
         "message": "操作成功" if success else failure_message,
     }
@@ -134,7 +174,7 @@ def _sanitize_errors(errors: list[dict]) -> list[dict]:
     return [{"source": e.get("source", ""), "name": e.get("name", "")} for e in errors]
 
 
-@router.post("/plugins/reload")
+@router.post("/plugins/reload", response_model=PluginReloadResponse)
 async def reload():
     """重新扫描 entry point 插件（追加模式）"""
     from souwen.plugin_manager import reload_plugins

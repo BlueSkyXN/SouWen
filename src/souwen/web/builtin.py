@@ -95,11 +95,9 @@ def _extract_fallback(html: str) -> str:
 
     去除 HTML 标签，保留纯文本。用于 trafilatura 和 html2text 都不可用时。
     """
-    text = re.sub(r"<script[^>]*>.*?</script>", "", html, flags=re.DOTALL | re.IGNORECASE)
-    text = re.sub(r"<style[^>]*>.*?</style>", "", text, flags=re.DOTALL | re.IGNORECASE)
-    text = re.sub(r"<[^>]+>", " ", text)
-    text = re.sub(r"\s+", " ", text).strip()
-    return text
+    from souwen.web._html_extract import _strip_html
+
+    return _strip_html(html)
 
 
 def _extract_with_trafilatura(html: str, url: str) -> dict[str, Any]:
@@ -257,7 +255,11 @@ class BuiltinFetcherClient(BaseScraper):
         if origin not in self._robots_cache:
             robots_url = f"{origin}/robots.txt"
             try:
-                resp = await self._fetch(robots_url, headers={"User-Agent": _ROBOTS_USER_AGENT})
+                resp = await self._fetch_with_safe_redirects(
+                    robots_url,
+                    headers={"User-Agent": _ROBOTS_USER_AGENT},
+                    max_redirects=self.MAX_REDIRECTS,
+                )
                 if 200 <= resp.status_code < 300 and resp.text:
                     from protego import Protego
 
@@ -329,7 +331,7 @@ class BuiltinFetcherClient(BaseScraper):
         selector: str | None = None,
     ) -> FetchResult:
         try:
-            from souwen.web.fetch import validate_fetch_url
+            from souwen.web.fetch import resolve_fetch_target
 
             # robots.txt 合规检查（在任何重定向 / 抓取之前）
             allowed, reason = await self._check_robots(url)
@@ -343,11 +345,27 @@ class BuiltinFetcherClient(BaseScraper):
                     raw={"provider": "builtin", "blocked_by_robots": True},
                 )
 
-            # 手动重定向循环 — 每一跳做 SSRF 校验
+            # 手动重定向循环 — 每一跳解析并绑定到已校验 IP，防 DNS rebinding。
             current_url = url
             resp = None
+            include_configured_headers = True
             for hop in range(self.MAX_REDIRECTS + 1):
-                resp = await self._fetch(current_url)
+                target, reason = resolve_fetch_target(current_url)
+                if target is None:
+                    target_label = "重定向目标" if hop else "目标地址"
+                    logger.warning("SSRF target blocked: hop=%d reason=%s", hop, reason)
+                    return FetchResult(
+                        url=url,
+                        final_url=current_url,
+                        source=self.PROVIDER_NAME,
+                        error=f"SSRF: {target_label}被拦截 ({reason})",
+                    )
+
+                resp = await self._fetch(
+                    current_url,
+                    _resolved_target=target,
+                    _include_configured_headers=include_configured_headers,
+                )
 
                 if resp.status_code not in self._REDIRECT_CODES:
                     break
@@ -357,20 +375,8 @@ class BuiltinFetcherClient(BaseScraper):
                     break
 
                 redirect_url = urljoin(current_url, location)
-                ok, reason = validate_fetch_url(redirect_url)
-                if not ok:
-                    logger.warning(
-                        "SSRF redirect blocked: %s → %s (%s)",
-                        url,
-                        redirect_url,
-                        reason,
-                    )
-                    return FetchResult(
-                        url=url,
-                        final_url=redirect_url,
-                        source=self.PROVIDER_NAME,
-                        error=f"SSRF: 重定向目标被拦截 ({reason})",
-                    )
+                if not self._same_origin(current_url, redirect_url):
+                    include_configured_headers = False
                 current_url = redirect_url
             else:
                 # 超过 MAX_REDIRECTS 仍在跳转

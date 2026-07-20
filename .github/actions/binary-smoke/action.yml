@@ -1,0 +1,307 @@
+name: SouWen binary smoke
+description: Tier-aware, target-runner smoke and evidence for one frozen SouWen binary
+
+inputs:
+  binary:
+    description: Path to the built executable on the target runner
+    required: true
+  profile:
+    description: basic-cli, pro-cli, or full-cli
+    required: true
+  edition:
+    description: Expected basic, pro, or full edition
+    required: true
+  builder:
+    description: pyinstaller or nuitka
+    required: true
+  candidate-sha:
+    description: Exact 40-character source SHA
+    required: true
+  report-json:
+    description: JSON evidence output path
+    required: true
+  report-markdown:
+    description: Markdown evidence output path
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Run tier-aware binary smoke
+      shell: bash
+      env:
+        SOUWEN_BINARY: ${{ inputs.binary }}
+        SOUWEN_BINARY_PROFILE: ${{ inputs.profile }}
+        SOUWEN_BINARY_EDITION: ${{ inputs.edition }}
+        SOUWEN_BINARY_BUILDER: ${{ inputs.builder }}
+        SOUWEN_BINARY_CANDIDATE_SHA: ${{ inputs.candidate-sha }}
+        SOUWEN_BINARY_REPORT_JSON: ${{ inputs.report-json }}
+        SOUWEN_BINARY_REPORT_MARKDOWN: ${{ inputs.report-markdown }}
+      run: |
+        python - <<'PY'
+        import json
+        import os
+        import re
+        import socket
+        import subprocess
+        import tempfile
+        import time
+        import tomllib
+        import urllib.error
+        import urllib.request
+        from pathlib import Path
+
+        binary = Path(os.environ["SOUWEN_BINARY"]).resolve()
+        profile = os.environ["SOUWEN_BINARY_PROFILE"]
+        edition = os.environ["SOUWEN_BINARY_EDITION"]
+        builder = os.environ["SOUWEN_BINARY_BUILDER"]
+        candidate_sha = os.environ["SOUWEN_BINARY_CANDIDATE_SHA"]
+        json_path = Path(os.environ["SOUWEN_BINARY_REPORT_JSON"])
+        markdown_path = Path(os.environ["SOUWEN_BINARY_REPORT_MARKDOWN"])
+        checks: list[dict[str, object]] = []
+        failure: Exception | None = None
+
+        if profile not in {"basic-cli", "pro-cli", "full-cli"}:
+            raise SystemExit(f"unsupported binary profile: {profile}")
+        if edition != profile.removesuffix("-cli").replace("pro", "pro"):
+            raise SystemExit(f"profile/edition mismatch: {profile}/{edition}")
+        if re.fullmatch(r"[0-9a-f]{40}", candidate_sha) is None:
+            raise SystemExit("candidate-sha must be exactly 40 lowercase hexadecimal characters")
+        if not binary.is_file():
+            raise SystemExit(f"binary does not exist: {binary}")
+
+        with open("pyproject.toml", "rb") as file:
+            expected_version = tomllib.load(file)["project"]["version"]
+
+        def record(name: str, status: str, detail: str) -> None:
+            checks.append({"name": name, "status": status, "detail": detail[:500]})
+
+        def run_command(name: str, *arguments: str, timeout: float = 60) -> str:
+            result = subprocess.run(
+                [str(binary), *arguments],
+                check=False,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                errors="replace",
+                timeout=timeout,
+                env=runtime_env,
+            )
+            output = (result.stdout + "\n" + result.stderr).strip()
+            if result.returncode != 0:
+                record(name, "FAIL", f"exit={result.returncode}: {output}")
+                raise RuntimeError(f"{name} failed with exit code {result.returncode}")
+            record(name, "PASS", f"exit=0, output_chars={len(output)}")
+            return output
+
+        def request(path: str, *, expected: set[int] = {200}) -> tuple[int, bytes]:
+            try:
+                with urllib.request.urlopen(f"{base_url}{path}", timeout=10) as response:
+                    code = response.status
+                    body = response.read()
+            except urllib.error.HTTPError as exc:
+                code = exc.code
+                body = exc.read()
+            if code not in expected:
+                raise RuntimeError(f"{path} returned HTTP {code}; expected {sorted(expected)}")
+            return code, body
+
+        json_path.parent.mkdir(parents=True, exist_ok=True)
+        markdown_path.parent.mkdir(parents=True, exist_ok=True)
+
+        try:
+            with tempfile.TemporaryDirectory(prefix="souwen-binary-smoke-") as tempdir:
+                runtime_env = os.environ.copy()
+                runtime_env.update(
+                    {
+                        "HOME": tempdir,
+                        "PYTHONIOENCODING": "utf-8",
+                        "SOUWEN_EDITION": edition,
+                        "SOUWEN_PLUGIN_AUTOLOAD": "0",
+                    }
+                )
+
+                help_output = run_command("cli/help", "--help")
+                if "SouWen" not in help_output:
+                    raise RuntimeError("CLI help does not identify SouWen")
+                version_output = run_command("cli/version", "--version")
+                if expected_version not in version_output:
+                    raise RuntimeError(
+                        f"version output does not contain {expected_version!r}: {version_output!r}"
+                    )
+                run_command("cli/sources", "sources")
+                run_command("cli/config-show", "config", "show")
+                run_command("cli/config-backend", "config", "backend")
+                doctor_output = run_command("cli/doctor-edition", "doctor", "edition", "--json")
+                doctor = json.loads(doctor_output)
+                if doctor.get("edition") != edition:
+                    raise RuntimeError(
+                        f"doctor edition={doctor.get('edition')!r}, expected={edition!r}"
+                    )
+                if doctor.get("source_sha") != candidate_sha:
+                    raise RuntimeError(
+                        f"doctor embedded source_sha={doctor.get('source_sha')!r}, "
+                        f"expected={candidate_sha!r}"
+                    )
+                record("edition/declared", "PASS", f"edition={edition}")
+                record("provenance/embedded-source-sha", "PASS", candidate_sha)
+
+                provider_items = {
+                    item["name"]: item for item in doctor["fetch_providers"]["items"]
+                }
+                if profile == "basic-cli":
+                    mcp_output = run_command("basic/mcp-stdio-config", "mcp")
+                    if "Stdio" not in mcp_output or "souwen.integrations" not in mcp_output:
+                        raise RuntimeError("basic MCP command did not expose stdio integration config")
+                    for provider in ("builtin", "mcp", "site_crawler"):
+                        item = provider_items.get(provider)
+                        if not item or not item.get("edition_available") or not item.get("runtime_available"):
+                            raise RuntimeError(f"basic provider unavailable: {provider}: {item}")
+                    forbidden = [
+                        item["name"]
+                        for item in provider_items.values()
+                        if item["min_edition"] in {"pro", "full"}
+                        and item["edition_available"]
+                    ]
+                    if forbidden:
+                        raise RuntimeError(f"basic binary leaked higher-edition providers: {forbidden}")
+                    record("basic/physical-boundary", "PASS", "MCP/basic providers available; pro/full gated")
+
+                    process = subprocess.Popen(
+                        [str(binary), "serve", "--host", "127.0.0.1", "--port", "49651"],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        env=runtime_env,
+                    )
+                    try:
+                        returncode = process.wait(timeout=5)
+                    except subprocess.TimeoutExpired as exc:
+                        process.terminate()
+                        process.wait(timeout=10)
+                        raise RuntimeError("basic binary unexpectedly started the API server") from exc
+                    if returncode == 0:
+                        raise RuntimeError("basic serve command unexpectedly succeeded")
+                    record("basic/server-negative", "PASS", f"serve exit={returncode}")
+                else:
+                    runtime_env["SOUWEN_MCP_HTTP_ENABLED"] = "true"
+                    runtime_env["SOUWEN_EXPOSE_DOCS"] = "1"
+                    with socket.socket() as listener:
+                        listener.bind(("127.0.0.1", 0))
+                        port = listener.getsockname()[1]
+                    base_url = f"http://127.0.0.1:{port}"
+                    process = subprocess.Popen(
+                        [str(binary), "serve", "--host", "127.0.0.1", "--port", str(port)],
+                        stdout=subprocess.DEVNULL,
+                        stderr=subprocess.DEVNULL,
+                        env=runtime_env,
+                    )
+                    try:
+                        deadline = time.monotonic() + 60
+                        while time.monotonic() < deadline:
+                            try:
+                                _, body = request("/health")
+                                break
+                            except Exception:
+                                if process.poll() is not None:
+                                    raise RuntimeError(
+                                        f"loopback server exited early: {process.returncode}"
+                                    )
+                                time.sleep(1)
+                        else:
+                            raise RuntimeError("loopback server did not become healthy")
+
+                        health = json.loads(body)
+                        if health.get("version") != expected_version or health.get("source_sha") != candidate_sha:
+                            raise RuntimeError(f"health provenance mismatch: {health}")
+                        record("server/health", "PASS", "version and source SHA match")
+
+                        _, readiness_body = request("/readiness")
+                        readiness = json.loads(readiness_body)
+                        if readiness.get("ready") is not True or readiness.get("source_sha") != candidate_sha:
+                            raise RuntimeError(f"readiness mismatch: {readiness}")
+                        record("server/readiness", "PASS", "ready with exact source SHA")
+
+                        _, panel = request("/panel")
+                        if b'id="root"' not in panel and b"SouWen" not in panel:
+                            raise RuntimeError("embedded Panel marker missing")
+                        record("server/panel", "PASS", f"bytes={len(panel)}")
+
+                        _, openapi_body = request("/openapi.json")
+                        openapi = json.loads(openapi_body)
+                        if openapi.get("info", {}).get("title") != "SouWen API":
+                            raise RuntimeError("OpenAPI title mismatch")
+                        record("server/openapi", "PASS", f"paths={len(openapi.get('paths', {}))}")
+
+                        request("/api/v1/admin/ping", expected={401})
+                        record("server/admin-locked", "PASS", "unauthenticated admin returned 401")
+
+                        mcp_status, _ = request("/mcp", expected={200, 400, 401, 405, 406})
+                        record("server/mcp-loopback", "PASS", f"HTTP {mcp_status}, route mounted")
+                    finally:
+                        if process.poll() is None:
+                            process.terminate()
+                            try:
+                                process.wait(timeout=15)
+                            except subprocess.TimeoutExpired:
+                                process.kill()
+                                process.wait(timeout=10)
+
+                    if profile == "full-cli":
+                        for provider in (
+                            "arxiv_fulltext",
+                            "newspaper",
+                            "readability",
+                        ):
+                            item = provider_items.get(provider)
+                            if not item or not item.get("edition_available") or not item.get("runtime_available"):
+                                raise RuntimeError(f"full import probe failed: {provider}: {item}")
+                        plugin = doctor.get("plugins", {})
+                        if not plugin.get("preinstalled") or not plugin.get("runtime_available"):
+                            raise RuntimeError(f"full plugin import probe failed: {plugin}")
+                        run_command("full/plugins-list", "plugins", "list")
+                        record(
+                            "full/article-pdf-plugin-imports",
+                            "PASS",
+                            "article, PDF, readability, and SuperWeb2PDF imports available",
+                        )
+                        record(
+                            "full/browser-runtime-boundary",
+                            "PASS",
+                            "browser execution remains required in External Smoke Gate",
+                        )
+        except Exception as exc:
+            failure = exc
+            record("binary-smoke", "FAIL", f"{type(exc).__name__}: {exc}")
+        finally:
+            overall = "FAIL" if failure else "PASS"
+            payload = {
+                "schema_version": 1,
+                "script": "github-composite/binary-smoke",
+                "overall": overall,
+                "builder": builder,
+                "profile": profile,
+                "edition": edition,
+                "candidate_sha": candidate_sha,
+                "binary": binary.name,
+                "checks": checks,
+            }
+            json_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+            lines = [
+                f"# Binary smoke: {binary.name}",
+                "",
+                f"- Overall: **{overall}**",
+                f"- Builder: `{builder}`",
+                f"- Profile: `{profile}`",
+                f"- Candidate SHA: `{candidate_sha}`",
+                "",
+                "| Check | Status | Detail |",
+                "|---|---:|---|",
+            ]
+            for check in checks:
+                detail = str(check["detail"]).replace("|", "\\|").replace("\n", " ")
+                lines.append(f"| `{check['name']}` | {check['status']} | {detail} |")
+            markdown_path.write_text("\n".join(lines) + "\n", encoding="utf-8")
+
+        if failure:
+            raise SystemExit(f"binary smoke failed: {failure}")
+        PY

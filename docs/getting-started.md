@@ -9,7 +9,7 @@
 ```bash
 git clone https://github.com/BlueSkyXN/SouWen.git
 cd SouWen
-pip install -e ".[server,tls,web,scraper]"
+pip install -e ".[edition-pro]"
 ```
 
 只使用 Python library 和 CLI 时可以先安装核心包：
@@ -18,12 +18,20 @@ pip install -e ".[server,tls,web,scraper]"
 pip install -e .
 ```
 
-需要 Crawl4AI、Scrapling、PDF、MCP 等能力时，再按需追加 extras。`crawl4ai`
-与 `scrapling` 当前依赖树互斥，请按目标 provider 二选一：
+也可以按功能档位安装常用依赖组合：
 
 ```bash
-pip install -e ".[server,tls,web,scraper,pdf,crawl4ai,newspaper,readability,robots,mcp]"
-pip install -e ".[server,tls,web,scraper,pdf,scrapling,newspaper,readability,robots,mcp]"
+pip install -e ".[edition-basic]"          # 零 Key / 最小依赖体验
+pip install -e ".[edition-pro]"            # API 服务 + MCP + TLS 指纹 + scraper 基础能力
+```
+
+需要 Crawl4AI、Scrapling、PDF、文章抽取、web2pdf 等 full 能力时，再按目标
+browser provider 选择 full 变体。`crawl4ai` 与 `scrapling` 当前依赖树互斥，
+不要在同一个环境里同时安装：
+
+```bash
+pip install -e ".[edition-full-crawl4ai]"
+pip install -e ".[edition-full-scrapling]"
 ```
 
 ## CLI 搜索
@@ -36,7 +44,8 @@ souwen sources --available-only
 ```
 
 `souwen sources --json` 返回与 `/api/v1/sources` 一致的 Source Catalog
-结构，适合前端、脚本和部署检查复用。
+结构，适合前端、脚本和部署检查复用。`--available-only` 只保留静态
+edition/config/credentials gate 与当前 runtime importability 同时通过的条目；它不执行联网探测。
 
 ## Python 调用
 

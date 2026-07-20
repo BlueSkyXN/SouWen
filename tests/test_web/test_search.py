@@ -15,6 +15,9 @@ from __future__ import annotations
 import asyncio
 from contextlib import asynccontextmanager
 
+import pytest
+
+from souwen.editions import EditionError
 from souwen.models import SearchResponse, WebSearchResult
 from souwen.registry.adapter import MethodSpec, SourceAdapter
 from souwen.web.search import _deduplicate, web_search
@@ -189,6 +192,38 @@ async def test_web_search_uses_registry_defaults(monkeypatch):
     assert result.results[0].engine == "duckduckgo"
 
 
+async def test_web_search_filters_default_engines_by_edition(monkeypatch):
+    """默认 web engine 列表应按 edition 静默过滤。"""
+    from souwen.web import search as web_search_mod
+
+    ddg_resp = _make_engine_response(
+        "duckduckgo", [_make_result("duckduckgo", "DDG 1", "https://ddg1.com")]
+    )
+    monkeypatch.setenv("SOUWEN_EDITION", "basic")
+    monkeypatch.setattr(web_search_mod, "_default_web_engines", lambda: ["duckduckgo", "tavily"])
+
+    async with _override_adapters(
+        {
+            "duckduckgo": _make_fake_client_class(search_resp=ddg_resp),
+            "tavily": _make_fake_client_class(
+                search_exc=AssertionError("tavily should not be selected")
+            ),
+        }
+    ):
+        result = await web_search_mod.web_search("test query")
+
+    assert len(result.results) == 1
+    assert result.results[0].engine == "duckduckgo"
+
+
+async def test_web_search_explicit_disallowed_engine_raises(monkeypatch):
+    """显式点名当前 edition 不包含的 web engine 应返回 EditionError。"""
+    monkeypatch.setenv("SOUWEN_EDITION", "basic")
+
+    with pytest.raises(EditionError, match="source 'tavily' requires edition=pro"):
+        await web_search("test query", engines="tavily")
+
+
 async def test_web_search_empty_engines_is_explicit_noop(monkeypatch):
     """显式传空 ``engines`` 不应回退到 registry 默认源。"""
     from souwen.web import search as web_search_mod
@@ -271,6 +306,60 @@ async def test_web_search_custom_engines():
 
     assert len(result.results) == 1
     assert result.results[0].engine == "duckduckgo"
+
+
+async def test_web_search_string_engine_is_normalized():
+    """单个 engines 字符串不应被拆成字符。"""
+    ddg_resp = _make_engine_response(
+        "duckduckgo", [_make_result("duckduckgo", "DDG 1", "https://ddg1.com")]
+    )
+
+    async with _override_adapters(
+        {
+            "duckduckgo": _make_fake_client_class(search_resp=ddg_resp),
+        }
+    ):
+        result = await web_search("test", engines=" duckduckgo ")
+
+    assert len(result.results) == 1
+    assert result.results[0].engine == "duckduckgo"
+
+
+async def test_web_search_query_is_trimmed_before_engine_dispatch():
+    """``web_search()`` 应裁剪 query 后再调用具体搜索引擎。"""
+    captured = {}
+
+    async def fake_search(query, max_results=10, **kwargs):
+        captured["query"] = query
+        return _make_engine_response(
+            "duckduckgo", [_make_result("duckduckgo", "DDG 1", "https://ddg1.com")]
+        )
+
+    async with _override_adapters(
+        {
+            "duckduckgo": _make_fake_client_class(search_side_effect=fake_search),
+        }
+    ):
+        result = await web_search("  test query  ", engines=" duckduckgo ")
+
+    assert captured["query"] == "test query"
+    assert result.query == "test query"
+
+
+@pytest.mark.parametrize("query", ["", "   ", 123])
+async def test_web_search_invalid_query_arguments_raise_clear_error(query):
+    """``web_search()`` 应拒绝非字符串或 strip 后为空的 query。"""
+    with pytest.raises(ValueError, match="query"):
+        await web_search(query, engines=[])
+
+
+@pytest.mark.parametrize(
+    "engines",
+    ["", ["duckduckgo", ""], ["duckduckgo", 123], object()],
+)
+async def test_web_search_invalid_engine_arguments_raise_clear_error(engines):
+    with pytest.raises(ValueError, match="engines"):
+        await web_search("test", engines=engines)
 
 
 async def test_web_search_unknown_engine():

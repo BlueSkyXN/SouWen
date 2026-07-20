@@ -14,12 +14,14 @@
 from __future__ import annotations
 
 import asyncio
+import socket
 from types import SimpleNamespace
 
 import pytest
 
 from souwen.core.exceptions import SourceUnavailableError
 from souwen.core.scraper.base import BaseScraper
+from souwen.editions import EditionError
 from souwen.models import FetchResponse, FetchResult
 from souwen.web.fetch import fetch_content, register_fetch_handler, validate_fetch_url
 
@@ -43,6 +45,55 @@ class TestSSRFValidation:
         ok, reason = validate_fetch_url("http://127.0.0.1:8080/admin")
         assert not ok
 
+    def test_rejects_localhost_trailing_dot(self):
+        """拒绝带 DNS 尾点的 localhost 主机名。"""
+        ok, reason = validate_fetch_url("http://localhost./admin")
+        assert not ok
+        assert "本地主机" in reason
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "http://[::ffff:127.0.0.1]/",
+            "http://[::ffff:10.0.0.1]/",
+            "http://[64:ff9b::7f00:1]/",
+            "http://[2002:7f00:1::]/",
+        ],
+    )
+    def test_rejects_ipv6_embedded_private_addresses(self, url):
+        """拒绝 IPv4-mapped/NAT64/6to4 形式包装的内部 IPv4 地址。"""
+        ok, reason = validate_fetch_url(url)
+        assert not ok
+        assert "内部/私有" in reason
+
+    @pytest.mark.parametrize(
+        "url",
+        [
+            "http://0177.0.0.1/",
+            "http://00000177.0.0.1/",
+            "http://008.0.0.1/",
+            "http://01.1.1.1/",
+            "http://0177.1/",
+            "http://1.1.1/",
+            "http://1/",
+            "http://2130706433/",
+            "http://0x7f000001/",
+            "http://0x08000001/",
+            "http://0300.0250.0001.0001/",
+        ],
+    )
+    def test_rejects_legacy_ipv4_numeric_hosts_before_dns(self, monkeypatch, url):
+        """拒绝 resolver 可能接受的旧式 IPv4 数字写法。"""
+
+        def fail_getaddrinfo(*_args, **_kwargs):
+            raise AssertionError("legacy IPv4 literal should be blocked before DNS")
+
+        monkeypatch.setattr(socket, "getaddrinfo", fail_getaddrinfo)
+
+        ok, reason = validate_fetch_url(url)
+        assert not ok
+        assert "非规范 IPv4 数字写法" in reason
+
     def test_rejects_non_http(self):
         """拒绝非 http/https 协议"""
         ok, reason = validate_fetch_url("ftp://example.com/file")
@@ -64,6 +115,35 @@ class TestSSRFValidation:
         # 直接用知名公网 IP 绕过本地 DNS 解析差异
         ok, reason = validate_fetch_url("https://1.1.1.1/")
         assert ok, f"公网 URL 被拒绝: {reason}"
+
+    def test_rejects_direct_fake_ip_range(self):
+        """直连 fake-IP/benchmark 保留网段仍应拒绝。"""
+        ok, reason = validate_fetch_url("https://198.18.1.47/")
+        assert not ok
+        assert "内部/私有" in reason
+
+    def test_allows_domain_resolved_to_fake_ip_range(self, monkeypatch):
+        """允许 Clash/fake-IP DNS 将公网域名解析到 198.18.0.0/15。"""
+
+        def fake_getaddrinfo(*_args, **_kwargs):
+            return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("198.18.1.47", 443))]
+
+        monkeypatch.setattr(socket, "getaddrinfo", fake_getaddrinfo)
+
+        ok, reason = validate_fetch_url("https://example.com/")
+        assert ok, f"fake-IP DNS 域名被拒绝: {reason}"
+
+    def test_rejects_domain_resolved_to_ipv4_mapped_loopback(self, monkeypatch):
+        """DNS 返回 IPv4-mapped IPv6 loopback 时也必须拒绝。"""
+
+        def fake_getaddrinfo(*_args, **_kwargs):
+            return [(socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("::ffff:127.0.0.1", 443))]
+
+        monkeypatch.setattr(socket, "getaddrinfo", fake_getaddrinfo)
+
+        ok, reason = validate_fetch_url("https://example.com/")
+        assert not ok
+        assert "内部/私有" in reason
 
 
 class TestSafeRedirects:
@@ -127,6 +207,62 @@ class TestFetchContent:
         assert resp.providers == ["nonexistent"]
         assert resp.strategy == "fallback"
         assert "未知提供者" in resp.results[0].error
+
+    @pytest.mark.asyncio
+    async def test_full_fetch_provider_requires_full_edition(self, monkeypatch):
+        """已知 full provider 在默认 pro edition 下应被执行层拦截。"""
+        monkeypatch.setenv("SOUWEN_EDITION", "pro")
+
+        with pytest.raises(EditionError, match="arxiv_fulltext.*requires edition=full"):
+            await fetch_content(
+                urls=["https://arxiv.org/abs/2301.00001"],
+                providers=["arxiv_fulltext"],
+                skip_ssrf_check=True,
+            )
+
+    @pytest.mark.asyncio
+    async def test_string_url_and_provider_are_normalized(self, clean_fetch_handlers):
+        """Python API 误传单个字符串时应归一化为单元素列表。"""
+        calls: list[tuple[list[str], float]] = []
+
+        async def primary(urls, timeout, **_kwargs):
+            calls.append((list(urls), timeout))
+            return self._response("primary", list(urls))
+
+        register_fetch_handler("primary", primary)
+
+        resp = await fetch_content(
+            urls=" https://example.com/a ",
+            providers=" primary ",
+            skip_ssrf_check=True,
+        )
+
+        assert calls == [(["https://example.com/a"], 30.0)]
+        assert resp.urls == ["https://example.com/a"]
+        assert resp.provider == "primary"
+        assert resp.providers == ["primary"]
+        assert resp.total_ok == 1
+
+    @pytest.mark.parametrize(
+        "kwargs, message",
+        [
+            ({"urls": {"url": "https://example.com"}}, "urls 必须是字符串或字符串列表"),
+            ({"urls": [" "]}, "urls 必须是非空字符串或非空字符串列表"),
+            (
+                {"urls": ["https://example.com"], "providers": {"name": "builtin"}},
+                "providers 必须是字符串或字符串列表",
+            ),
+            (
+                {"urls": ["https://example.com"], "providers": [" "]},
+                "providers 必须是非空字符串或非空字符串列表",
+            ),
+        ],
+    )
+    @pytest.mark.asyncio
+    async def test_invalid_url_or_provider_arguments_raise_clear_error(self, kwargs, message):
+        """公开 Python API 对非法 urls/providers 入参应给出清晰错误。"""
+        with pytest.raises(ValueError, match=message):
+            await fetch_content(**kwargs)
 
     @pytest.mark.asyncio
     async def test_fallback_retries_only_failed_urls(self, clean_fetch_handlers):
@@ -214,6 +350,36 @@ class TestFetchContent:
         }
 
     @pytest.mark.asyncio
+    async def test_fanout_reports_missing_provider_results(self, clean_fetch_handlers):
+        """fanout 中 provider 漏返回某个 URL 时应补失败项，避免 report 少行。"""
+        urls = ["https://example.com/a", "https://example.com/b"]
+
+        async def partial(urls, timeout, **_kwargs):
+            return self._response("partial", [list(urls)[0]])
+
+        async def complete(urls, timeout, **_kwargs):
+            return self._response("complete", list(urls))
+
+        register_fetch_handler("partial", partial)
+        register_fetch_handler("complete", complete)
+
+        resp = await fetch_content(
+            urls=urls,
+            providers=["partial", "complete"],
+            strategy="fanout",
+            skip_ssrf_check=True,
+        )
+
+        assert resp.total == 4
+        missing = [
+            result
+            for result in resp.results
+            if result.source == "partial" and result.url == "https://example.com/b"
+        ]
+        assert len(missing) == 1
+        assert missing[0].error == "partial 未返回该 URL 的抓取结果"
+
+    @pytest.mark.asyncio
     async def test_fanout_does_not_duplicate_ssrf_failures(self, clean_fetch_handlers):
         """fanout 不应按 provider 数量放大 SSRF 拦截失败。"""
         calls: list[tuple[str, list[str]]] = []
@@ -278,6 +444,7 @@ class TestFetchContent:
     @pytest.mark.asyncio
     async def test_arxiv_fulltext_provider_dispatches(self, monkeypatch):
         """arxiv_fulltext provider 应从 arxiv URL 提取 paper_id 并复用现有 client。"""
+        monkeypatch.setenv("SOUWEN_EDITION", "full")
         calls: list[str] = []
 
         class FakeArxivFulltextClient:
@@ -319,8 +486,9 @@ class TestFetchContent:
         assert resp.results[0].final_url == "https://arxiv.org/html/2301.00001v2"
 
     @pytest.mark.asyncio
-    async def test_arxiv_fulltext_rejects_non_arxiv_urls(self):
+    async def test_arxiv_fulltext_rejects_non_arxiv_urls(self, monkeypatch):
         """arxiv_fulltext provider 对非 arxiv URL 返回 provider 级错误。"""
+        monkeypatch.setenv("SOUWEN_EDITION", "full")
         resp = await fetch_content(
             urls=["https://example.com/paper"],
             providers=["arxiv_fulltext"],
@@ -336,6 +504,7 @@ class TestFetchContent:
     @pytest.mark.asyncio
     async def test_arxiv_fulltext_enforces_per_url_timeout(self, monkeypatch):
         """arxiv_fulltext 应对每个 URL 单独应用用户请求的 timeout。"""
+        monkeypatch.setenv("SOUWEN_EDITION", "full")
 
         class SlowArxivFulltextClient:
             async def __aenter__(self):
@@ -377,6 +546,7 @@ class TestFetchContent:
     @pytest.mark.asyncio
     async def test_arxiv_fulltext_scales_global_timeout_with_batch_size(self, monkeypatch):
         """arxiv_fulltext 的 provider 级总超时应按 URL 数量伸缩。"""
+        monkeypatch.setenv("SOUWEN_EDITION", "full")
         captured_timeouts: list[float] = []
         original_wait_for = asyncio.wait_for
 
@@ -426,3 +596,40 @@ class TestFetchContent:
         assert resp.total_ok == 3
         assert captured_timeouts[0] == pytest.approx(16.0)
         assert captured_timeouts[1:] == pytest.approx([2.0, 2.0, 2.0])
+
+    @pytest.mark.asyncio
+    async def test_metaso_scales_global_timeout_with_batch_size(
+        self,
+        monkeypatch,
+        clean_fetch_handlers,
+    ):
+        """metaso Reader 逐 URL 抓取，provider 级总超时应按 URL 数量伸缩。"""
+        captured_timeouts: list[float] = []
+        original_wait_for = asyncio.wait_for
+
+        async def recording_wait_for(awaitable, timeout):
+            captured_timeouts.append(timeout)
+            return await original_wait_for(awaitable, timeout)
+
+        async def metaso_handler(urls, timeout, **_kwargs):
+            return self._response("metaso", list(urls))
+
+        import souwen.web.fetch as fetch_mod
+
+        register_fetch_handler("metaso", metaso_handler, override=True)
+        monkeypatch.setattr(fetch_mod.asyncio, "wait_for", recording_wait_for)
+
+        urls = [
+            "https://example.com/a",
+            "https://example.com/b",
+            "https://example.com/c",
+        ]
+        resp = await fetch_content(
+            urls=urls,
+            providers=["metaso"],
+            timeout=2.0,
+            skip_ssrf_check=True,
+        )
+
+        assert resp.total_ok == 3
+        assert captured_timeouts == pytest.approx([16.0])

@@ -518,6 +518,172 @@
 
 [data-mode='dark'] .layoutBtnActive { color: #8ab4f8; }
 
+/* ─── Search history / favorites ─── */
+.memorySection {
+  width: auto;
+  margin: 0 $space-6 $space-6;
+  padding: $space-4;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--bg-card);
+}
+
+.memoryHeader {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: $space-3;
+  margin-bottom: $space-3;
+}
+
+.memoryTitle {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: var(--text);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.memoryActions {
+  display: flex;
+  align-items: center;
+  gap: $space-2;
+  flex-wrap: wrap;
+}
+
+.memoryActionBtn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: $radius-full;
+  background: var(--bg-card);
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 6px 10px;
+  cursor: pointer;
+  transition: color 0.18s ease, border-color 0.18s ease, background 0.18s ease;
+
+  &:hover:not(:disabled) {
+    color: #1a73e8;
+    border-color: #1a73e8;
+    background: #f8fbff;
+  }
+
+  &:disabled {
+    cursor: not-allowed;
+    opacity: 0.45;
+  }
+}
+
+[data-mode='dark'] .memoryActionBtn:hover:not(:disabled) {
+  color: #8ab4f8;
+  border-color: #8ab4f8;
+  background: rgba(138, 180, 248, 0.08);
+}
+
+.memoryGroups {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: $space-4;
+}
+
+.memoryGroup {
+  min-width: 0;
+}
+
+.memoryGroupTitle {
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 700;
+  margin-bottom: $space-2;
+}
+
+.memoryChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: $space-2;
+}
+
+.memoryChip {
+  display: inline-flex;
+  align-items: stretch;
+  max-width: 100%;
+  border: 1px solid var(--border);
+  border-radius: $radius-full;
+  background: var(--bg-subtle);
+  overflow: hidden;
+}
+
+.memoryChipText {
+  display: inline-flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 0;
+  max-width: 220px;
+  border: none;
+  background: transparent;
+  color: var(--text);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.25;
+  padding: 7px 10px;
+  cursor: pointer;
+  text-align: left;
+
+  &:hover {
+    color: #1a73e8;
+  }
+}
+
+[data-mode='dark'] .memoryChipText:hover { color: #8ab4f8; }
+
+.memoryChipMeta {
+  max-width: 100%;
+  color: var(--text-muted);
+  font-size: 11px;
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.memoryRemoveBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  border: none;
+  border-left: 1px solid var(--border);
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+
+  &:hover {
+    color: var(--error);
+    background: var(--error-light);
+  }
+}
+
+.memoryEmpty {
+  color: var(--text-muted);
+  font-size: 12px;
+  padding: 7px 0;
+}
+
+@media (max-width: 720px) {
+  .memoryHeader {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .memoryGroups {
+    grid-template-columns: 1fr;
+  }
+}
+
 .exportGroup {
   display: inline-flex;
   gap: $space-2;
@@ -637,6 +803,27 @@
   }
 }
 
+.mediaGridCard {
+  padding: $space-3;
+}
+
+.gridMediaThumbLink {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 10;
+  border-radius: $radius-lg;
+  overflow: hidden;
+  background: var(--bg-subtle);
+  margin-bottom: $space-2;
+}
+
+.gridMediaThumb {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
 .gridCardHeader {
   display: flex;
   align-items: center;
@@ -704,6 +891,59 @@
     border-color: var(--border-strong);
     transform: translateY(-2px);
   }
+}
+
+.mediaResultCard {
+  display: grid;
+  grid-template-columns: minmax(180px, 240px) minmax(0, 1fr);
+  gap: $space-5;
+  padding: $space-4;
+}
+
+.mediaThumbLink {
+  position: relative;
+  display: block;
+  align-self: stretch;
+  min-height: 150px;
+  border-radius: $radius-lg;
+  overflow: hidden;
+  background: var(--bg-subtle);
+}
+
+.mediaThumb {
+  width: 100%;
+  height: 100%;
+  min-height: 150px;
+  object-fit: cover;
+  display: block;
+}
+
+.mediaPlaceholder {
+  width: 100%;
+  height: 100%;
+  min-height: 150px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-muted);
+  background: var(--bg-subtle);
+}
+
+.mediaDuration {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  padding: 3px 7px;
+  border-radius: $radius-sm;
+  background: rgba(0, 0, 0, 0.72);
+  color: #fff;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.mediaBody {
+  min-width: 0;
 }
 
 .cardHeader {
@@ -818,6 +1058,17 @@
   .shortcutHint { display: none; }
 
   .searchForm { padding: 0 $space-3 $space-4; }
+
+  .mediaResultCard {
+    grid-template-columns: 1fr;
+    gap: $space-3;
+  }
+
+  .mediaThumbLink,
+  .mediaThumb,
+  .mediaPlaceholder {
+    min-height: 190px;
+  }
   .sourceSection { padding: 0 $space-3 $space-4; }
 
   .searchBar { padding: 6px 6px 6px $space-4; }

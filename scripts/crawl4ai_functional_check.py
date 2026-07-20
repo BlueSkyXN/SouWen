@@ -9,11 +9,13 @@ from __future__ import annotations
 
 import argparse
 import asyncio
+import os
 import sys
 import threading
 from contextlib import contextmanager
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from typing import Iterator
+from urllib.parse import urlparse
 
 try:
     from scripts._functional_common import (
@@ -83,6 +85,32 @@ def local_fixture_server() -> Iterator[str]:
         thread.join(timeout=5)
 
 
+@contextmanager
+def allow_local_fixture_url(url: str) -> Iterator[None]:
+    """Temporarily allow this script's local fixture origin through URL safety checks."""
+    from souwen.web import fetch as fetch_module
+
+    fixture = urlparse(url)
+    original_validate = fetch_module.validate_fetch_url
+
+    def _validate(candidate: str) -> tuple[bool, str]:
+        parsed = urlparse(candidate)
+        same_fixture_origin = (
+            parsed.scheme == fixture.scheme
+            and parsed.hostname == fixture.hostname
+            and parsed.port == fixture.port
+        )
+        if same_fixture_origin:
+            return True, ""
+        return original_validate(candidate)
+
+    fetch_module.validate_fetch_url = _validate
+    try:
+        yield
+    finally:
+        fetch_module.validate_fetch_url = original_validate
+
+
 def require(condition: bool, message: str) -> None:
     if not condition:
         raise AssertionError(message)
@@ -120,6 +148,10 @@ async def run_provider_check(
     timeout: float,
     require_runtime: bool,
 ) -> tuple[str, dict[str, object]]:
+    os.environ["SOUWEN_EDITION"] = "full"
+    from souwen.config import reload_config
+
+    reload_config()
     from souwen.web.fetch import fetch_content
 
     response = await fetch_content(
@@ -188,7 +220,7 @@ async def main() -> None:
                     message="crawl4ai import did not pass; browser fixture check skipped",
                 )
             else:
-                with local_fixture_server() as url:
+                with local_fixture_server() as url, allow_local_fixture_url(url):
                     await run_check(
                         recorder,
                         "browser_fixture",

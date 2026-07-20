@@ -96,6 +96,12 @@ class DiffbotClient(SouWenHttpClient):
         Returns:
             FetchResult 包含提取的纯文本内容与元数据
         """
+        from souwen.web.fetch import ssrf_blocked_fetch_result
+
+        blocked = ssrf_blocked_fetch_result(url, self.PROVIDER_NAME)
+        if blocked is not None:
+            return blocked
+
         # API Token 通过 query 参数传递（Diffbot 约定）
         params = {
             "token": self.api_token,

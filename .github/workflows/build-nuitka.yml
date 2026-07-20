@@ -2,13 +2,14 @@
 # Nuitka 构建工作流 — 将 SouWen 编译为原生机器码
 #
 # 触发条件:
-#   - 推送版本标签时（v*；兼容旧 numeric tag，自动创建 Release）
+#   - release-candidate reusable workflow 调用
+#   - 推送标准 v* 版本标签时构建 artifact（不创建 Release）
 #   - 手动触发（可选择构建层级和平台）
 #
-# 构建产物（三种层级）:
-#   - CLI 版: 纯命令行搜索工具，体积最小
-#   - Server 版: CLI + FastAPI 服务 + 内嵌前端面板
-#   - Full 版: Server + MCP 集成 + 全部可选依赖
+# 构建产物（三档 CLI edition）:
+#   - basic-cli: 零 Key / 最小依赖 CLI，保留 MCP client/stdio，裁剪 API server、LLM 和重型抓取模块
+#   - pro-cli: 默认产品 CLI，包含 server/API/MCP 入口但不自启动服务
+#   - full-cli: 完整核心 CLI，包含 edition-full 核心重型能力；浏览器互斥栈走专项 gate
 #
 # Nuitka 编译为原生机器码，启动更快、运行性能更好
 # 支持平台: Linux (amd64/arm64)、macOS (arm64)、Windows (amd64)
@@ -16,10 +17,25 @@
 name: Build with Nuitka
 
 on:
+  workflow_call:
+    inputs:
+      candidate_sha:
+        description: '要构建的 40 位候选提交 SHA'
+        required: true
+        type: string
+      build_tier:
+        description: '构建层级'
+        required: false
+        default: all
+        type: string
+      platforms:
+        description: '目标平台'
+        required: false
+        default: all
+        type: string
   push:
     tags:
       - 'v*'
-      - '[0-9]*'
   workflow_dispatch:
     inputs:
       build_tier:
@@ -29,9 +45,12 @@ on:
         type: choice
         options:
           - all
-          - cli
-          - server
-          - full
+          - basic-cli
+          - pro-cli
+          - full-cli
+          - cli      # legacy alias for basic-cli
+          - server   # legacy alias for pro-cli
+          - full     # legacy alias for full-cli
       platforms:
         description: '目标平台'
         required: true
@@ -47,6 +66,9 @@ env:
   APP_NAME: souwen
   PYTHON_VERSION: '3.11'
 
+permissions:
+  contents: read
+
 jobs:
   # ---------------------------------------------------------------------------
   # 动态生成构建矩阵
@@ -56,12 +78,18 @@ jobs:
     runs-on: ubuntu-latest
     outputs:
       matrix: ${{ steps.set-matrix.outputs.matrix }}
+      need_panel: ${{ steps.set-matrix.outputs.need_panel }}
     steps:
       - name: 生成矩阵
         id: set-matrix
         run: |
           TIER="${{ inputs.build_tier || 'all' }}"
           PLATFORM="${{ inputs.platforms || 'all' }}"
+          case "$TIER" in
+            cli) TIER="basic-cli" ;;
+            server) TIER="pro-cli" ;;
+            full) TIER="full-cli" ;;
+          esac
 
           LINUX_AMD='{"os":"ubuntu-24.04","arch":"linux-amd64"}'
           LINUX_ARM='{"os":"ubuntu-24.04-arm","arch":"linux-arm64"}'
@@ -82,25 +110,67 @@ jobs:
             EXT=""
             if echo "$ARCH" | grep -q "windows"; then EXT=".exe"; fi
 
-            if [ "$TIER" = "all" ] || [ "$TIER" = "cli" ]; then
-              INCLUDES=$(echo "$INCLUDES" | jq -c ". + [{\"os\":\"$OS\",\"build_type\":\"cli\",\"artifact_name\":\"souwen-nuitka-${ARCH}-cli${EXT}\"}]")
+            if [ "$TIER" = "all" ] || [ "$TIER" = "basic-cli" ]; then
+              INCLUDES=$(echo "$INCLUDES" | jq -c ". + [{\"os\":\"$OS\",\"build_type\":\"basic-cli\",\"edition\":\"basic\",\"install_extra\":\"edition-basic\",\"artifact_name\":\"souwen-nuitka-${ARCH}-basic-cli${EXT}\"}]")
             fi
-            if [ "$TIER" = "all" ] || [ "$TIER" = "server" ]; then
-              INCLUDES=$(echo "$INCLUDES" | jq -c ". + [{\"os\":\"$OS\",\"build_type\":\"server\",\"artifact_name\":\"souwen-nuitka-${ARCH}-server${EXT}\"}]")
+            if [ "$TIER" = "all" ] || [ "$TIER" = "pro-cli" ]; then
+              INCLUDES=$(echo "$INCLUDES" | jq -c ". + [{\"os\":\"$OS\",\"build_type\":\"pro-cli\",\"edition\":\"pro\",\"install_extra\":\"edition-pro\",\"artifact_name\":\"souwen-nuitka-${ARCH}-pro-cli${EXT}\"}]")
             fi
-            if [ "$TIER" = "all" ] || [ "$TIER" = "full" ]; then
-              INCLUDES=$(echo "$INCLUDES" | jq -c ". + [{\"os\":\"$OS\",\"build_type\":\"full\",\"artifact_name\":\"souwen-nuitka-${ARCH}-full${EXT}\"}]")
+            if [ "$TIER" = "all" ] || [ "$TIER" = "full-cli" ]; then
+              INCLUDES=$(echo "$INCLUDES" | jq -c ". + [{\"os\":\"$OS\",\"build_type\":\"full-cli\",\"edition\":\"full\",\"install_extra\":\"edition-full\",\"artifact_name\":\"souwen-nuitka-${ARCH}-full-cli${EXT}\"}]")
             fi
           done
 
           echo "matrix={\"include\":$INCLUDES}" >> "$GITHUB_OUTPUT"
+          if [ "$TIER" = "all" ] || [ "$TIER" = "pro-cli" ] || [ "$TIER" = "full-cli" ]; then
+            echo "need_panel=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "need_panel=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ---------------------------------------------------------------------------
+  # Panel 产物检查（仅 pro/full CLI 需要）
+  # ---------------------------------------------------------------------------
+  panel-check:
+    name: Panel 产物检查
+    needs: prepare
+    if: needs.prepare.outputs.need_panel == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha || github.sha }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: panel/package-lock.json
+
+      - name: 构建 panel 并验证产物
+        working-directory: panel
+        run: |
+          npm ci
+          npm run build:local
+          npm run check:artifact
+
+      - name: Upload panel.html artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: nuitka-panel-html
+          path: src/souwen/server/panel.html
+          retention-days: 1
 
   # ---------------------------------------------------------------------------
   # 构建
   # ---------------------------------------------------------------------------
   build:
     name: Build ${{ matrix.build_type }} on ${{ matrix.os }}
-    needs: prepare
+    needs: [prepare, panel-check]
+    if: always() && needs.prepare.result == 'success' && (needs.panel-check.result == 'success' || needs.panel-check.result == 'skipped')
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
@@ -108,7 +178,16 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha || github.sha }}
+
+      - name: Download panel.html
+        if: needs.prepare.outputs.need_panel == 'true'
+        uses: actions/download-artifact@v8
+        with:
+          name: nuitka-panel-html
+          path: src/souwen/server/
 
       - name: Set up Python ${{ env.PYTHON_VERSION }}
         uses: actions/setup-python@v6
@@ -116,26 +195,15 @@ jobs:
           python-version: ${{ env.PYTHON_VERSION }}
           cache: 'pip'
 
-      - name: Install dependencies (CLI)
-        if: matrix.build_type == 'cli'
+      - name: Install dependencies (${{ matrix.build_type }})
         run: |
           python -m pip install --upgrade pip
-          pip install -e .
+          pip install -e ".[${{ matrix.install_extra }}]"
           pip install nuitka ordered-set zstandard
 
-      - name: Install dependencies (Server)
-        if: matrix.build_type == 'server'
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[server,tls,web]"
-          pip install nuitka ordered-set zstandard
-
-      - name: Install dependencies (Full)
-        if: matrix.build_type == 'full'
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[server,tls,web,scraper,newspaper,readability,pdf,mcp]"
-          pip install nuitka ordered-set zstandard
+      - name: Install MCP runtime required by basic CLI
+        if: matrix.build_type == 'basic-cli'
+        run: pip install -e ".[mcp]"
 
       - name: Install C compiler (Ubuntu)
         if: runner.os == 'Linux'
@@ -151,13 +219,19 @@ jobs:
       - name: Verify CLI
         env:
           PYTHONIOENCODING: utf-8
+          SOUWEN_EDITION: ${{ matrix.edition }}
         run: |
           python cli.py --help
           python cli.py sources
+          python cli.py doctor edition --json
+
+      - name: Materialize immutable source provenance
+        shell: bash
+        run: printf '%s\n' '${{ inputs.candidate_sha || github.sha }}' > runtime.source.sha
 
       # --- Nuitka 编译 ---
-      - name: Build with Nuitka (Unix - Full)
-        if: runner.os != 'Windows' && matrix.build_type == 'full'
+      - name: Build with Nuitka (Unix - Full CLI)
+        if: runner.os != 'Windows' && matrix.build_type == 'full-cli'
         run: |
           python -m nuitka \
             --onefile \
@@ -165,12 +239,16 @@ jobs:
             --assume-yes-for-downloads \
             --include-package=souwen \
             --include-package-data=souwen \
+            --include-data-files=runtime.source.sha=runtime.source.sha \
+            --include-package=superweb2pdf \
+            --include-package-data=superweb2pdf \
+            --include-distribution-metadata=superweb2pdf \
             --output-filename=${{ env.APP_NAME }} \
             --output-dir=dist \
             cli.py
 
-      - name: Build with Nuitka (Unix - Server)
-        if: runner.os != 'Windows' && matrix.build_type == 'server'
+      - name: Build with Nuitka (Unix - Pro CLI)
+        if: runner.os != 'Windows' && matrix.build_type == 'pro-cli'
         run: |
           python -m nuitka \
             --onefile \
@@ -178,14 +256,20 @@ jobs:
             --assume-yes-for-downloads \
             --include-package=souwen \
             --include-package-data=souwen \
-            --nofollow-import-to=souwen.integrations \
-            --nofollow-import-to=mcp \
+            --include-data-files=runtime.source.sha=runtime.source.sha \
+            --nofollow-import-to=souwen.web.crawl4ai_fetcher \
+            --nofollow-import-to=souwen.web.scrapling_fetcher \
+            --nofollow-import-to=souwen.web.newspaper_fetcher \
+            --nofollow-import-to=souwen.web.readability_fetcher \
+            --nofollow-import-to=souwen.paper.arxiv_fulltext \
+            --nofollow-import-to=pymupdf4llm \
+            --nofollow-import-to=superweb2pdf \
             --output-filename=${{ env.APP_NAME }} \
             --output-dir=dist \
             cli.py
 
-      - name: Build with Nuitka (Unix - CLI)
-        if: runner.os != 'Windows' && matrix.build_type == 'cli'
+      - name: Build with Nuitka (Unix - Basic CLI)
+        if: runner.os != 'Windows' && matrix.build_type == 'basic-cli'
         run: |
           python -m nuitka \
             --onefile \
@@ -193,29 +277,56 @@ jobs:
             --assume-yes-for-downloads \
             --include-package=souwen \
             --include-package-data=souwen \
+            --include-data-files=runtime.source.sha=runtime.source.sha \
+            --include-package=mcp \
             --nofollow-import-to=souwen.server \
-            --nofollow-import-to=souwen.integrations \
+            --nofollow-import-to=souwen.llm \
             --nofollow-import-to=fastapi \
-            --nofollow-import-to=uvicorn \
-            --nofollow-import-to=mcp \
+            --nofollow-import-to=souwen.web.crawl4ai_fetcher \
+            --nofollow-import-to=souwen.web.scrapling_fetcher \
+            --nofollow-import-to=souwen.web.newspaper_fetcher \
+            --nofollow-import-to=souwen.web.readability_fetcher \
+            --nofollow-import-to=souwen.paper.arxiv_fulltext \
+            --nofollow-import-to=pymupdf4llm \
+            --nofollow-import-to=superweb2pdf \
             --output-filename=${{ env.APP_NAME }} \
             --output-dir=dist \
             cli.py
 
-      - name: Build with Nuitka (Windows - Full)
-        if: runner.os == 'Windows' && matrix.build_type == 'full'
+      - name: Build with Nuitka (Windows - Full CLI)
+        if: runner.os == 'Windows' && matrix.build_type == 'full-cli'
         run: |
-          python -m nuitka --onefile --standalone --assume-yes-for-downloads --include-package=souwen --include-package-data=souwen --output-filename=${{ env.APP_NAME }}.exe --output-dir=dist cli.py
+          python -m nuitka --onefile --standalone --assume-yes-for-downloads --include-package=souwen --include-package-data=souwen --include-data-files=runtime.source.sha=runtime.source.sha --include-package=superweb2pdf --include-package-data=superweb2pdf --include-distribution-metadata=superweb2pdf --output-filename=${{ env.APP_NAME }}.exe --output-dir=dist cli.py
 
-      - name: Build with Nuitka (Windows - Server)
-        if: runner.os == 'Windows' && matrix.build_type == 'server'
+      - name: Build with Nuitka (Windows - Pro CLI)
+        if: runner.os == 'Windows' && matrix.build_type == 'pro-cli'
         run: |
-          python -m nuitka --onefile --standalone --assume-yes-for-downloads --include-package=souwen --include-package-data=souwen --nofollow-import-to=souwen.integrations --nofollow-import-to=mcp --output-filename=${{ env.APP_NAME }}.exe --output-dir=dist cli.py
+          python -m nuitka --onefile --standalone --assume-yes-for-downloads --include-package=souwen --include-package-data=souwen --include-data-files=runtime.source.sha=runtime.source.sha --nofollow-import-to=souwen.web.crawl4ai_fetcher --nofollow-import-to=souwen.web.scrapling_fetcher --nofollow-import-to=souwen.web.newspaper_fetcher --nofollow-import-to=souwen.web.readability_fetcher --nofollow-import-to=souwen.paper.arxiv_fulltext --nofollow-import-to=pymupdf4llm --nofollow-import-to=superweb2pdf --output-filename=${{ env.APP_NAME }}.exe --output-dir=dist cli.py
 
-      - name: Build with Nuitka (Windows - CLI)
-        if: runner.os == 'Windows' && matrix.build_type == 'cli'
+      - name: Build with Nuitka (Windows - Basic CLI)
+        if: runner.os == 'Windows' && matrix.build_type == 'basic-cli'
         run: |
-          python -m nuitka --onefile --standalone --assume-yes-for-downloads --include-package=souwen --include-package-data=souwen --nofollow-import-to=souwen.server --nofollow-import-to=souwen.integrations --nofollow-import-to=fastapi --nofollow-import-to=uvicorn --nofollow-import-to=mcp --output-filename=${{ env.APP_NAME }}.exe --output-dir=dist cli.py
+          python -m nuitka --onefile --standalone --assume-yes-for-downloads --include-package=souwen --include-package-data=souwen --include-data-files=runtime.source.sha=runtime.source.sha --include-package=mcp --nofollow-import-to=souwen.server --nofollow-import-to=souwen.llm --nofollow-import-to=fastapi --nofollow-import-to=souwen.web.crawl4ai_fetcher --nofollow-import-to=souwen.web.scrapling_fetcher --nofollow-import-to=souwen.web.newspaper_fetcher --nofollow-import-to=souwen.web.readability_fetcher --nofollow-import-to=souwen.paper.arxiv_fulltext --nofollow-import-to=pymupdf4llm --nofollow-import-to=superweb2pdf --output-filename=${{ env.APP_NAME }}.exe --output-dir=dist cli.py
+
+      - name: Run target-native tier-aware binary smoke
+        uses: ./.github/actions/binary-smoke
+        with:
+          binary: ${{ runner.os == 'Windows' && './dist/souwen.exe' || './dist/souwen' }}
+          profile: ${{ matrix.build_type }}
+          edition: ${{ matrix.edition }}
+          builder: nuitka
+          candidate-sha: ${{ inputs.candidate_sha || github.sha }}
+          report-json: artifacts/nuitka-${{ matrix.artifact_name }}.json
+          report-markdown: artifacts/nuitka-${{ matrix.artifact_name }}.md
+
+      - name: Upload binary smoke report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: binary-smoke-nuitka-${{ matrix.artifact_name }}
+          path: artifacts/
+          if-no-files-found: warn
+          retention-days: 30
 
       # --- 重命名并上传 ---
       - name: Rename artifact (Unix)
@@ -233,72 +344,3 @@ jobs:
           name: ${{ matrix.artifact_name }}
           path: dist/${{ matrix.artifact_name }}
           retention-days: 30
-
-  # ---------------------------------------------------------------------------
-  # Release（仅 tag 触发时）
-  # ---------------------------------------------------------------------------
-  release:
-    name: Create Release (Nuitka)
-    needs: build
-    runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
-    permissions:
-      contents: write
-
-    steps:
-      - name: Download all artifacts
-        uses: actions/download-artifact@v8
-        with:
-          path: artifacts/
-
-      - name: Display artifacts
-        run: find artifacts/ -type f
-
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          name: ${{ env.APP_NAME }} ${{ github.ref_name }} (Nuitka)
-          body: |
-            ## SouWen ${{ github.ref_name }} (Nuitka Build)
-
-            Nuitka 编译为原生机器码，启动更快、运行性能更好。
-
-            ### Downloads
-
-            **完整版（Full — CLI + API Server + MCP 集成）：**
-            - **Linux (x64)**: `souwen-nuitka-linux-amd64-full`
-            - **Linux (ARM64)**: `souwen-nuitka-linux-arm64-full`
-            - **macOS (Apple Silicon)**: `souwen-nuitka-macos-arm64-full`
-            - **Windows (x64)**: `souwen-nuitka-windows-amd64-full.exe`
-
-            **服务版（Server — CLI + API Server + 前端面板）：**
-            - **Linux (x64)**: `souwen-nuitka-linux-amd64-server`
-            - **Linux (ARM64)**: `souwen-nuitka-linux-arm64-server`
-            - **macOS (Apple Silicon)**: `souwen-nuitka-macos-arm64-server`
-            - **Windows (x64)**: `souwen-nuitka-windows-amd64-server.exe`
-
-            **命令行版（CLI — 纯搜索工具，体积最小）：**
-            - **Linux (x64)**: `souwen-nuitka-linux-amd64-cli`
-            - **Linux (ARM64)**: `souwen-nuitka-linux-arm64-cli`
-            - **macOS (Apple Silicon)**: `souwen-nuitka-macos-arm64-cli`
-            - **Windows (x64)**: `souwen-nuitka-windows-amd64-cli.exe`
-
-            ### 使用
-            ```bash
-            chmod +x souwen-nuitka-*    # Unix
-            ./souwen-nuitka-linux-amd64-full search paper "transformer"
-            ./souwen-nuitka-linux-amd64-server serve --port 8000
-            ./souwen-nuitka-linux-amd64-cli doctor
-            ```
-
-            ### 版本说明
-            - **Full 版**：包含 FastAPI REST API 服务 + MCP Server 集成 + 全部可选依赖
-            - **Server 版**：包含 CLI + FastAPI API 服务 + 内嵌前端面板
-            - **CLI 版**：仅包含搜索命令行工具（search/fetch/sources/doctor），体积更小
-          files: |
-            artifacts/**/*
-          generate_release_notes: true
-          draft: false
-          prerelease: ${{ contains(github.ref_name, 'alpha') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'rc') }}
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

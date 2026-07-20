@@ -52,7 +52,7 @@ export function ToolsPage() {
         </p>
       </m.div>
 
-      <div className={styles.tabs} role="tablist">
+      <div className={styles.tabs} role="tablist" aria-label={t('tools.title')}>
         <button
           role="tab"
           aria-selected={tab === 'cdx'}

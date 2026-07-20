@@ -7,27 +7,57 @@
  *   const { query, setQuery, loading, error, handleSearch } = useSearchPage('paper')
  */
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { api } from '../services/api'
-import type { SearchResponse, SourceInfo, WebSearchResponse } from '../types'
+import {
+  clearSearchHistory,
+  isFavoriteSearch,
+  listFavoriteSearches,
+  listSearchHistory,
+  recordSearchHistory,
+  removeFavoriteSearch,
+  toggleFavoriteSearch,
+  type SearchMemoryItem,
+} from '../lib/searchMemory'
+import type {
+  ImageSearchResponse,
+  SearchResponse,
+  SourceInfo,
+  VideoSearchResponse,
+  WebSearchResponse,
+} from '../types'
 
-export type Capability =
-  | 'search'
-  | 'search_news'
-  | 'search_images'
-  | 'search_videos'
-  | 'search_articles'
-  | 'search_users'
-  | 'get_detail'
-  | 'get_trending'
-  | 'get_transcript'
-  | 'fetch'
-  | 'archive_lookup'
-  | 'archive_save'
+export const SEARCH_CAPABILITIES = [
+  'search',
+  'search_news',
+  'search_images',
+  'search_videos',
+  'search_articles',
+  'search_users',
+  'get_detail',
+  'get_trending',
+  'get_transcript',
+  'fetch',
+  'archive_lookup',
+  'archive_save',
+] as const
 
-export type Domain =
-  | 'paper' | 'patent' | 'web' | 'social' | 'video'
-  | 'knowledge' | 'developer' | 'cn_tech' | 'office' | 'archive'
+export type Capability = typeof SEARCH_CAPABILITIES[number]
+
+export const SEARCH_DOMAINS = [
+  'paper',
+  'patent',
+  'web',
+  'social',
+  'video',
+  'knowledge',
+  'developer',
+  'cn_tech',
+  'office',
+  'archive',
+] as const
+
+export type Domain = typeof SEARCH_DOMAINS[number]
 
 export interface SearchPageState {
   domain: string
@@ -40,20 +70,34 @@ export interface SearchPageState {
   toggleSource: (name: string) => void
   setSelectedSources: (names: string[]) => void
   results: unknown[]
-  responses: Array<SearchResponse | WebSearchResponse>
+  responses: SearchPageResponse[]
   loading: boolean
   error: { message: string } | null
   handleSearch: () => Promise<void>
   supportedCapabilities: Capability[]
+  searchHistory: SearchMemoryItem[]
+  favoriteSearches: SearchMemoryItem[]
+  canFavoriteCurrentSearch: boolean
+  isCurrentFavorite: boolean
+  applySearchMemory: (item: SearchMemoryItem) => void
+  toggleCurrentFavorite: () => void
+  removeFavoriteSearch: (id: string) => void
+  clearCurrentSearchHistory: () => void
 }
 
+export type SearchPageResponse =
+  | SearchResponse
+  | WebSearchResponse
+  | ImageSearchResponse
+  | VideoSearchResponse
+
 /** Domain → 支持的 capabilities 列表 */
-const DOMAIN_CAPABILITIES: Record<string, Capability[]> = {
+const DOMAIN_CAPABILITIES: Record<Domain, Capability[]> = {
   paper: ['search'],
   patent: ['search'],
   web: ['search', 'search_news', 'search_images', 'search_videos'],
   social: ['search'],
-  video: ['search', 'get_trending'],
+  video: ['search'],
   knowledge: ['search'],
   developer: ['search'],
   cn_tech: ['search'],
@@ -62,20 +106,46 @@ const DOMAIN_CAPABILITIES: Record<string, Capability[]> = {
 }
 const DEFAULT_CAPABILITIES: Capability[] = ['search']
 
+function capabilitiesForDomain(domain: string): Capability[] {
+  return DOMAIN_CAPABILITIES[domain as Domain] ?? DEFAULT_CAPABILITIES
+}
+
 export function useSearchPage(domain: string): SearchPageState {
-  const supportedCapabilities = DOMAIN_CAPABILITIES[domain] ?? DEFAULT_CAPABILITIES
+  const supportedCapabilities = capabilitiesForDomain(domain)
 
   const [query, setQuery] = useState('')
   const [capability, setCapability] = useState<Capability>(supportedCapabilities[0])
   const [availableSources, setAvailableSources] = useState<SourceInfo[]>([])
   const [selectedSources, setSelectedSources] = useState<string[]>([])
   const [results, setResults] = useState<unknown[]>([])
-  const [responses, setResponses] = useState<Array<SearchResponse | WebSearchResponse>>([])
+  const [responses, setResponses] = useState<SearchPageResponse[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<{ message: string } | null>(null)
+  const [searchHistory, setSearchHistory] = useState<SearchMemoryItem[]>([])
+  const [favoriteSearches, setFavoriteSearches] = useState<SearchMemoryItem[]>([])
 
   const abortRef = useRef<AbortController | null>(null)
   const requestIdRef = useRef(0)
+
+  const refreshSearchMemory = useCallback(() => {
+    const filter = { domain, capability }
+    setSearchHistory(listSearchHistory(filter))
+    setFavoriteSearches(listFavoriteSearches(filter))
+  }, [domain, capability])
+
+  useEffect(() => {
+    refreshSearchMemory()
+  }, [refreshSearchMemory])
+
+  const currentSearchInput = useMemo(() => ({
+    domain,
+    capability,
+    query,
+    sources: selectedSources,
+  }), [domain, capability, query, selectedSources])
+
+  const canFavoriteCurrentSearch = query.trim().length > 0 && selectedSources.length > 0
+  const isCurrentFavorite = canFavoriteCurrentSearch && isFavoriteSearch(currentSearchInput)
 
   // 拉取当前 domain / capability 可用源
   useEffect(() => {
@@ -109,7 +179,7 @@ export function useSearchPage(domain: string): SearchPageState {
   }, [domain, capability, supportedCapabilities])
 
   useEffect(() => {
-    const caps = DOMAIN_CAPABILITIES[domain] ?? ['search']
+    const caps = capabilitiesForDomain(domain)
     if (!caps.includes(capability)) {
       setCapability(caps[0])
     }
@@ -135,20 +205,59 @@ export function useSearchPage(domain: string): SearchPageState {
     setError(null)
 
     try {
-      let resp: SearchResponse | WebSearchResponse | SearchResponse[]
+      let resp: SearchPageResponse | SearchPageResponse[]
       if (domain === 'paper') {
         resp = (await api.searchPaper(trimmed, sourcesCSV, 10, controller.signal)) as SearchResponse
       } else if (domain === 'patent') {
         resp = (await api.searchPatent(trimmed, sourcesCSV, 10, controller.signal)) as SearchResponse
+      } else if (domain === 'web' && capability === 'search_news') {
+        resp = (await api.searchNews(
+          trimmed,
+          10,
+          'wt-wt',
+          'moderate',
+          undefined,
+          controller.signal,
+          undefined,
+          sourcesCSV,
+        )) as WebSearchResponse
+      } else if (domain === 'web' && capability === 'search_images') {
+        resp = (await api.searchImages(
+          trimmed,
+          10,
+          'wt-wt',
+          'moderate',
+          controller.signal,
+          undefined,
+          sourcesCSV,
+        )) as ImageSearchResponse
+      } else if (domain === 'web' && capability === 'search_videos') {
+        resp = (await api.searchVideos(
+          trimmed,
+          10,
+          'wt-wt',
+          'moderate',
+          controller.signal,
+          undefined,
+          sourcesCSV,
+        )) as VideoSearchResponse
       } else {
         resp = (await api.searchWeb(trimmed, sourcesCSV, 10, controller.signal)) as WebSearchResponse
       }
       if (reqId !== requestIdRef.current) return
 
       const respList = Array.isArray(resp) ? resp : [resp]
-      setResponses(respList as Array<SearchResponse | WebSearchResponse>)
+      setResponses(respList)
       const allResults: unknown[] = respList.flatMap((r) => (r?.results ?? []) as unknown[])
       setResults(allResults)
+      recordSearchHistory({
+        domain,
+        capability,
+        query: trimmed,
+        sources: selectedSources,
+        resultCount: respList.reduce((sum, r) => sum + (typeof r.total === 'number' ? r.total : 0), 0),
+      })
+      refreshSearchMemory()
     } catch (e: unknown) {
       if (reqId !== requestIdRef.current) return
       if ((e as { name?: string })?.name === 'AbortError') return
@@ -156,7 +265,32 @@ export function useSearchPage(domain: string): SearchPageState {
     } finally {
       if (reqId === requestIdRef.current) setLoading(false)
     }
-  }, [query, selectedSources, domain])
+  }, [query, selectedSources, domain, capability, refreshSearchMemory])
+
+  const applySearchMemory = useCallback((item: SearchMemoryItem) => {
+    if (item.domain !== domain) return
+    if (supportedCapabilities.includes(item.capability as Capability)) {
+      setCapability(item.capability as Capability)
+    }
+    setQuery(item.query)
+    const availableSourceNames = new Set(availableSources.map((source) => source.name))
+    setSelectedSources(item.sources.filter((source) => availableSourceNames.has(source)))
+  }, [domain, supportedCapabilities, availableSources])
+
+  const toggleCurrentFavorite = useCallback(() => {
+    toggleFavoriteSearch(currentSearchInput)
+    refreshSearchMemory()
+  }, [currentSearchInput, refreshSearchMemory])
+
+  const removeFavoriteById = useCallback((id: string) => {
+    removeFavoriteSearch(id)
+    refreshSearchMemory()
+  }, [refreshSearchMemory])
+
+  const clearCurrentSearchHistory = useCallback(() => {
+    clearSearchHistory({ domain, capability })
+    refreshSearchMemory()
+  }, [domain, capability, refreshSearchMemory])
 
   return {
     domain,
@@ -174,5 +308,13 @@ export function useSearchPage(domain: string): SearchPageState {
     error,
     handleSearch,
     supportedCapabilities,
+    searchHistory,
+    favoriteSearches,
+    canFavoriteCurrentSearch,
+    isCurrentFavorite,
+    applySearchMemory,
+    toggleCurrentFavorite,
+    removeFavoriteSearch: removeFavoriteById,
+    clearCurrentSearchHistory,
   }
 }

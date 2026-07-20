@@ -49,21 +49,30 @@ Google Patents 无官方 API，本模块通过爬虫方式获取数据。
 
 from __future__ import annotations
 
+import inspect
 import logging
 import re
 from datetime import date
 from typing import Any
-from urllib.parse import quote_plus
+from urllib.parse import quote_plus, urlencode
 
 from bs4 import BeautifulSoup
 
-from souwen.models import PatentResult, Applicant, SearchResponse
-from souwen.core.exceptions import NotFoundError
+from souwen.config import get_config
+from souwen.core.browser_pool import get_browser_pool
+from souwen.core.exceptions import ConfigError, NotFoundError, SourceUnavailableError
 from souwen.core.scraper.base import BaseScraper
+from souwen.models import Applicant, PatentResult, SearchResponse
 
 logger = logging.getLogger("souwen.patent.google_patents_scraper")
 
 GOOGLE_PATENTS_BASE = "https://patents.google.com"
+_SEARCH_RESULT_SELECTOR = "search-result-item, article, .result-item"
+_PLAYWRIGHT_HEADER_EXCLUDE = frozenset({"user-agent", "accept-encoding", "connection"})
+_GOOGLE_BLOCK_TEXT_MARKERS = (
+    "but your computer or network may be sending automated queries",
+    "to protect our users, we can't process your request right now",
+)
 
 
 class GooglePatentsScraper(BaseScraper):
@@ -76,7 +85,7 @@ class GooglePatentsScraper(BaseScraper):
     策略优先级：
     1. XHR 接口 (xhr/query) - 优先，返回 JSON 格式
     2. HTML 页面解析 - 回退方案，使用 BeautifulSoup 静态解析
-    3. Playwright 动态渲染 - 可选（需安装可选依赖，本文件未实现）
+    3. Playwright 动态渲染 - 可选 fallback（需安装可选依赖和浏览器 runtime）
 
     Args:
         min_delay: 请求最小间隔（秒），默认 3.0（较长的延迟以礼貌对待 Google）
@@ -113,19 +122,28 @@ class GooglePatentsScraper(BaseScraper):
 
         try:
             resp = await self._fetch(url, params=params)
-        except Exception:
-            # 静态方式失败，尝试从搜索页面解析
-            logger.info("XHR 接口失败，尝试从 HTML 页面解析")
-            return await self._search_html(query, num_results)
-
-        if resp.status_code == 200:
-            try:
-                return self._parse_search_response(resp.json(), query)
-            except Exception as e:
-                logger.warning("XHR 响应解析失败: %s，回退 HTML 解析", e)
-                return await self._search_html(query, num_results)
+        except Exception as exc:
+            logger.info("XHR 接口失败，尝试从 HTML 页面解析: %s", exc)
+        else:
+            if resp.status_code == 200:
+                try:
+                    parsed = self._parse_search_response(resp.json(), query)
+                    if parsed.results:
+                        return parsed
+                    logger.info("XHR 接口返回空结果，尝试 HTML/Playwright fallback")
+                except Exception as e:
+                    logger.warning("XHR 响应解析失败: %s，回退 HTML 解析", e)
 
         return await self._search_html(query, num_results)
+
+    @staticmethod
+    def _empty_response(query: str) -> SearchResponse:
+        return SearchResponse(
+            query=query,
+            source="google_patents",
+            total_results=0,
+            results=[],
+        )
 
     async def _search_html(self, query: str, num_results: int) -> SearchResponse:
         """从 HTML 页面解析搜索结果 — 回退方案
@@ -142,20 +160,36 @@ class GooglePatentsScraper(BaseScraper):
         url = f"{self._resolved_base_url}/"
         params = {"q": query, "num": str(num_results)}
 
-        resp = await self._fetch(url, params=params)
-        if resp.status_code != 200:
-            return SearchResponse(
-                query=query,
-                source="google_patents",
-                total_results=0,
-                results=[],
-            )
+        static_response = self._empty_response(query)
+        static_failed = False
+        try:
+            resp = await self._fetch(url, params=params)
+        except Exception as exc:
+            static_failed = True
+            logger.info("HTML 静态解析请求失败，尝试 Playwright fallback: %s", exc)
+        else:
+            if resp.status_code == 200:
+                static_response = self._parse_search_html(resp.text, query)
+                if static_response.results:
+                    return static_response
 
-        soup = BeautifulSoup(resp.text, "lxml")
+        browser_response = await self._search_html_with_browser(query, num_results)
+        if browser_response is not None:
+            return browser_response
+        if static_failed:
+            raise SourceUnavailableError(
+                "Google Patents search unavailable after XHR and HTML fallback failures"
+            )
+        return static_response
+
+    def _parse_search_html(self, html: str, query: str) -> SearchResponse:
+        """Parse Google Patents search HTML into normalized patent results."""
+
+        soup = BeautifulSoup(html, "lxml")
         results: list[PatentResult] = []
 
         # 尝试解析搜索结果条目
-        for item in soup.select("search-result-item, article, .result-item"):
+        for item in soup.select(_SEARCH_RESULT_SELECTOR):
             try:
                 patent = self._parse_search_item(item)
                 if patent:
@@ -170,6 +204,126 @@ class GooglePatentsScraper(BaseScraper):
             total_results=len(results),
             results=results,
         )
+
+    def _browser_headers(self) -> dict[str, str]:
+        """Return browser context headers that Playwright can safely override."""
+
+        headers = {
+            key: value
+            for key, value in self._fingerprint.headers.items()
+            if key.lower() not in _PLAYWRIGHT_HEADER_EXCLUDE
+        }
+        if self._channel_headers:
+            headers.update(self._channel_headers)
+        return headers
+
+    async def _search_html_with_browser(
+        self,
+        query: str,
+        num_results: int,
+    ) -> SearchResponse | None:
+        """Render the search page with the shared Playwright pool when available."""
+
+        params = urlencode({"q": query, "num": str(num_results)})
+        url = f"{self._resolved_base_url}/?{params}"
+        timeout_ms = max(5000, int(get_config().timeout * 1000))
+
+        try:
+            pool = get_browser_pool(source_name=self.ENGINE_NAME)
+            async with pool.page(
+                user_agent=self._fingerprint.user_agent,
+                extra_http_headers=self._browser_headers(),
+            ) as page:
+                await self._install_page_ssrf_guard(page)
+                page_response = await page.goto(
+                    url,
+                    wait_until="domcontentloaded",
+                    timeout=timeout_ms,
+                )
+                await self._wait_for_search_results(page, timeout_ms=min(timeout_ms, 5000))
+                html = await page.content()
+                status_code = getattr(page_response, "status", None)
+        except ConfigError as exc:
+            logger.info("Playwright 未安装，跳过 Google Patents 动态渲染 fallback: %s", exc)
+            return None
+        except SourceUnavailableError:
+            raise
+        except Exception as exc:
+            logger.warning("Google Patents Playwright fallback 失败: %s", exc)
+            return None
+
+        block_message = self._google_block_message(status_code, html)
+        if block_message:
+            raise SourceUnavailableError(block_message)
+
+        response = self._parse_search_html(html, query)
+        if response.results:
+            logger.info("Google Patents Playwright fallback 返回 %d 条结果", len(response.results))
+        return response
+
+    @staticmethod
+    def _google_block_message(status_code: Any, html: str) -> str | None:
+        """Return a diagnostic message for Google's anti-automation block page."""
+
+        text = GooglePatentsScraper._clean_text(html).lower()
+        has_block_text = any(marker in text for marker in _GOOGLE_BLOCK_TEXT_MARKERS)
+        if status_code in {429, 503} and has_block_text:
+            return (
+                f"Google Patents blocked automated search requests (HTTP {status_code} Sorry page)"
+            )
+        if has_block_text:
+            return "Google Patents blocked automated search requests (Sorry page)"
+        return None
+
+    async def _wait_for_search_results(self, page: Any, *, timeout_ms: int) -> None:
+        """Wait briefly for result nodes, but keep empty pages non-fatal."""
+
+        wait_for_selector = getattr(page, "wait_for_selector", None)
+        if wait_for_selector is None:
+            return
+        try:
+            result = wait_for_selector(_SEARCH_RESULT_SELECTOR, timeout=timeout_ms)
+            if inspect.isawaitable(result):
+                await result
+        except Exception:
+            logger.debug("Google Patents Playwright fallback 未等到搜索结果节点")
+
+    @staticmethod
+    async def _call_route_method(route: Any, method_name: str) -> None:
+        method = getattr(route, method_name, None)
+        if method is None:
+            return
+        result = method()
+        if inspect.isawaitable(result):
+            await result
+
+    async def _install_page_ssrf_guard(self, page: Any) -> None:
+        """Install request interception so dynamic rendering cannot fetch private URLs."""
+
+        from souwen.web.fetch import validate_fetch_url
+
+        async def _guard_route(route: Any) -> None:
+            request = getattr(route, "request", None)
+            target_url = str(getattr(request, "url", "") or "")
+            ok, reason = validate_fetch_url(target_url)
+            if ok:
+                proceed = "fallback" if hasattr(route, "fallback") else "continue_"
+                await self._call_route_method(route, proceed)
+                return
+
+            logger.warning(
+                "Google Patents browser SSRF blocked: url=%s reason=%s",
+                target_url,
+                reason,
+            )
+            await self._call_route_method(route, "abort")
+
+        route = getattr(page, "route", None)
+        if route is None:
+            return
+        result = route("**/*", _guard_route)
+        if inspect.isawaitable(result):
+            await result
 
     def _parse_search_response(self, data: Any, query: str) -> SearchResponse:
         """解析 XHR 搜索响应 — 防御性解析
@@ -207,6 +361,57 @@ class GooglePatentsScraper(BaseScraper):
             results=results,
         )
 
+    @staticmethod
+    def _clean_text(value: Any) -> str:
+        """Normalize Google Patents text fields that may contain HTML fragments."""
+
+        if value is None:
+            return ""
+        text = BeautifulSoup(str(value), "lxml").get_text(" ", strip=True)
+        return " ".join(text.split())
+
+    @classmethod
+    def _as_text_list(cls, value: Any) -> list[str]:
+        """Normalize upstream scalar/list/dict people and classification fields."""
+
+        if value is None:
+            return []
+        if isinstance(value, (list, tuple, set)):
+            values = list(value)
+        else:
+            values = [value]
+
+        result: list[str] = []
+        for item in values:
+            if isinstance(item, dict):
+                item = item.get("name") or item.get("text") or item.get("value") or ""
+            text = cls._clean_text(item)
+            if text:
+                result.append(text)
+        return result
+
+    @classmethod
+    def _abstract_text(cls, data: dict[str, Any]) -> str | None:
+        abstract = data.get("abstract")
+        if isinstance(abstract, dict):
+            abstract = abstract.get("text") or abstract.get("html") or ""
+        text = cls._clean_text(abstract)
+        if not text:
+            text = cls._clean_text(data.get("snippet"))
+        return text or None
+
+    @classmethod
+    def _google_date(cls, value: Any) -> date | None:
+        text = cls._clean_text(value)
+        if not text:
+            return None
+        if len(text) == 8 and text.isdigit():
+            text = f"{text[0:4]}-{text[4:6]}-{text[6:8]}"
+        try:
+            return date.fromisoformat(text)
+        except ValueError:
+            return None
+
     def _parse_search_item(self, item: Any) -> PatentResult | None:
         """从 HTML 元素解析单个搜索结果
 
@@ -220,8 +425,12 @@ class GooglePatentsScraper(BaseScraper):
             PatentResult 或 None（若关键字段缺失）
         """
         # 尝试多种选择器，适配页面变化
-        title_el = item.select_one("h3, .title, [data-title]")
-        title = title_el.get_text(strip=True) if title_el else None
+        title_el = item.select_one("h3, .title, [data-title], a[href*='/patent/']")
+        title = None
+        if title_el:
+            title = (
+                title_el.get("data-title") or title_el.get("title") or title_el.get_text(strip=True)
+            )
         if not title:
             return None
 
@@ -268,38 +477,25 @@ class GooglePatentsScraper(BaseScraper):
         Returns:
             PatentResult：完整的专利记录对象
         """
-        publication_number = data.get("publication_number", "")
-        title = data.get("title", "未知标题")
+        publication_number = self._clean_text(data.get("publication_number", ""))
+        title = self._clean_text(data.get("title")) or "未知标题"
 
-        # 解析申请人
-        applicants = []
-        for assignee in data.get("assignee", []):
-            if isinstance(assignee, str):
-                applicants.append(Applicant(name=assignee))
-            elif isinstance(assignee, dict):
-                applicants.append(Applicant(name=assignee.get("name", "")))
-
-        # 解析日期
-        pub_date = None
-        date_str = data.get("publication_date", "")
-        if date_str and len(date_str) == 8:
-            try:
-                pub_date = date(int(date_str[:4]), int(date_str[4:6]), int(date_str[6:8]))
-            except ValueError:
-                pass
+        applicants = [Applicant(name=name) for name in self._as_text_list(data.get("assignee"))]
+        inventors = self._as_text_list(data.get("inventor"))
+        ipc_codes = self._as_text_list(data.get("ipc"))
+        cpc_codes = self._as_text_list(data.get("cpc"))
 
         return PatentResult(
             source="google_patents",
-            title=title if isinstance(title, str) else str(title),
+            title=title,
             patent_id=publication_number,
-            publication_date=pub_date,
+            publication_date=self._google_date(data.get("publication_date")),
+            filing_date=self._google_date(data.get("filing_date")),
             applicants=applicants,
-            inventors=data.get("inventor", []),
-            abstract=data.get("abstract", {}).get("text", None)
-            if isinstance(data.get("abstract"), dict)
-            else data.get("abstract"),
-            ipc_codes=data.get("ipc", []),
-            cpc_codes=data.get("cpc", []),
+            inventors=inventors,
+            abstract=self._abstract_text(data),
+            ipc_codes=ipc_codes,
+            cpc_codes=cpc_codes,
             source_url=f"{self._resolved_base_url}/patent/{publication_number}",
             raw=data,
         )

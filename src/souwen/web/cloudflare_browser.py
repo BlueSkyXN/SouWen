@@ -151,6 +151,16 @@ class CloudflareBrowserClient(SouWenHttpClient):
         Returns:
             FetchResult 包含 Markdown / 文本内容与元数据
         """
+        from souwen.web.fetch import ssrf_blocked_fetch_result
+
+        blocked = ssrf_blocked_fetch_result(
+            url,
+            self.PROVIDER_NAME,
+            raw_provider="cloudflare_browser",
+        )
+        if blocked is not None:
+            return blocked
+
         markdown_path = f"/client/v4/accounts/{self.account_id}/browser-rendering/markdown"
         content_path = f"/client/v4/accounts/{self.account_id}/browser-rendering/content"
         body = {"url": url}

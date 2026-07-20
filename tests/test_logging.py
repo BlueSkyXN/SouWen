@@ -65,6 +65,23 @@ class TestScrub:
         assert "MYLONGSECRETVALUE" not in out
         assert "***" in out
 
+    def test_cookie_session_and_jwt_fields_masked(self):
+        """Cookie、session、SESSDATA、JWT 等会话凭据也必须脱敏。"""
+        out = _scrub(
+            "Cookie: SESSDATA=sess-secret; sid=session-secret "
+            "session_id=session-id-secret jwt=jwt-secret csrf_token=csrf-secret"
+        )
+        assert "sess-secret" not in out
+        assert "session-secret" not in out
+        assert "session-id-secret" not in out
+        assert "jwt-secret" not in out
+        assert "csrf-secret" not in out
+        assert "***" in out
+
+    def test_already_redacted_kv_is_stable(self):
+        """已脱敏的 key-value 不应被再次改写，便于 URL 局部脱敏后保留结构。"""
+        assert _scrub("apiKey=*** token=*** region=hk") == "apiKey=*** token=*** region=hk"
+
     def test_none_or_empty(self):
         """空字符串照原样返回；非字符串（None）不应崩溃而是原样返回。"""
         assert _scrub("") == ""

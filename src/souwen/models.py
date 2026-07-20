@@ -58,7 +58,7 @@ from __future__ import annotations
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 
 def _coerce_date(value):
@@ -296,6 +296,15 @@ class FetchResponse(BaseModel):
         },
     )
     meta: dict = Field(default_factory=dict)
+
+    @model_validator(mode="after")
+    def _normalize_provider_fields(self) -> "FetchResponse":
+        """Keep deprecated ``provider`` and canonical ``providers`` compatible."""
+        if not self.providers and self.provider:
+            self.providers = [self.provider]
+        elif self.provider is None and len(self.providers) == 1:
+            self.provider = self.providers[0]
+        return self
 
 
 class WaybackSnapshot(BaseModel):

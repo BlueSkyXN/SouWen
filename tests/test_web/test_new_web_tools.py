@@ -71,8 +71,11 @@ class _FakeResp:
 class _FakeScraper:
     """Async-context-manager scraper returning a preset response."""
 
-    def __init__(self, resp: _FakeResp):
+    def __init__(self, resp: _FakeResp, safe_error: Exception | None = None):
         self._resp = resp
+        self._safe_error = safe_error
+        self.fetch_called = False
+        self.safe_fetch_called = False
 
     def __init_args__(self, *a, **kw):  # pragma: no cover
         pass
@@ -84,6 +87,13 @@ class _FakeScraper:
         return False
 
     async def _fetch(self, url: str):
+        self.fetch_called = True
+        return self._resp
+
+    async def _fetch_with_safe_redirects(self, url: str):
+        self.safe_fetch_called = True
+        if self._safe_error is not None:
+            raise self._safe_error
         return self._resp
 
 
@@ -111,6 +121,33 @@ class TestExtractLinks:
         assert result.error is not None
         assert "SSRF" in result.error
         assert result.total == 0
+
+    async def test_extract_links_uses_safe_redirect_fetch(self):
+        """入口 URL 抓取必须逐跳执行 SSRF 校验。"""
+        from souwen.core.exceptions import SourceUnavailableError
+        from souwen.web.links import extract_links
+
+        init_kwargs: dict[str, object] = {}
+        scraper = _FakeScraper(
+            _FakeResp("<html><body><a href='/ok'>ok</a></body></html>"),
+            safe_error=SourceUnavailableError("SSRF: 重定向目标被拦截"),
+        )
+
+        def fake_scraper_factory(*_args, **kwargs):
+            init_kwargs.update(kwargs)
+            return scraper
+
+        with (
+            patch("souwen.web.fetch.validate_fetch_url", return_value=(True, "ok")),
+            patch("souwen.core.scraper.base.BaseScraper", fake_scraper_factory),
+        ):
+            result = await extract_links("https://example.com/")
+
+        assert result.error is not None
+        assert "SSRF" in result.error
+        assert scraper.safe_fetch_called is True
+        assert scraper.fetch_called is False
+        assert init_kwargs["follow_redirects"] is False
 
     async def test_extract_links_basic_and_skip_schemes(self):
         """常规链接、相对链接保留；fragment / mailto / javascript / tel 跳过"""

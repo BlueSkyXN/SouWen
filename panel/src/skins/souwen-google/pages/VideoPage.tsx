@@ -1,11 +1,12 @@
 /**
  * 视频中心页面 - Classic 皮肤版本
  *
- * 文件用途：YouTube 热门视频、视频搜索和字幕提取的统一入口
+ * 文件用途：YouTube 热门视频、视频搜索、Bilibili 搜索和字幕提取的统一入口
  *
- * 三个 Tab：
+ * 四个 Tab：
  *   - trending: YouTube 热门视频（可选地区与分类）
  *   - search: 视频搜索（基于 /api/v1/search/videos）
+ *   - bilibili: Bilibili 视频搜索（基于 /api/v1/bilibili/search）
  *   - transcript: 字幕提取（输入 video_id + 语言）
  */
 
@@ -32,6 +33,7 @@ export function VideoPage() {
     trendingLoading, trendingResults,
     query, setQuery,
     searchLoading, searchResults,
+    availableVideoSources, selectedVideoSources, setSelectedVideoSources,
     videoId, setVideoId,
     lang, setLang,
     transcriptLoading, transcriptSegments, transcriptAvailable,
@@ -99,7 +101,7 @@ export function VideoPage() {
         <p className={styles.heroSubtitle}>{t('video.subtitle')}</p>
       </m.div>
 
-      <div className={styles.tabs} role="tablist">
+      <div className={styles.tabs} role="tablist" aria-label={t('video.title')}>
         <button
           role="tab"
           aria-selected={tab === 'trending'}
@@ -223,10 +225,28 @@ export function VideoPage() {
                 type="text"
                 className={styles.searchInput}
                 placeholder={t('video.searchPlaceholder')}
+                aria-label={t('video.searchPlaceholder')}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
             </div>
+            {availableVideoSources.length > 0 && (
+              <div className={styles.field}>
+                <label className={styles.label} htmlFor="vid-search-source">
+                  {t('video.searchSource')}
+                </label>
+                <select
+                  id="vid-search-source"
+                  className={styles.select}
+                  value={selectedVideoSources[0] ?? ''}
+                  onChange={(e) => setSelectedVideoSources(e.target.value ? [e.target.value] : [])}
+                >
+                  {availableVideoSources.map((source) => (
+                    <option key={source.name} value={source.name}>{source.name}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             <button
               type="submit"
               className={styles.primaryBtn}
@@ -268,6 +288,7 @@ export function VideoPage() {
                 type="text"
                 className={styles.searchInput}
                 placeholder={t('video.bilibiliPlaceholder')}
+                aria-label={t('video.bilibiliPlaceholder')}
                 value={biliQuery}
                 onChange={(e) => setBiliQuery(e.target.value)}
               />

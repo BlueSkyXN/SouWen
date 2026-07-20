@@ -8,7 +8,7 @@ import json
 import typer
 from rich.table import Table
 
-from souwen.cli._common import _run_async, console
+from souwen.cli._common import _run_async, console, redact_cli_text
 
 bilibili_app = typer.Typer(help="Bilibili 视频工具")
 
@@ -28,19 +28,19 @@ def _bilibili_run(coro, timeout: int | None):
             return _run_async(asyncio.wait_for(coro, timeout=timeout))
         return _run_async(coro)
     except BilibiliNotFound as e:
-        console.print(f"[yellow]⚠ 未找到: {e}[/yellow]")
+        console.print(f"[yellow]⚠ 未找到: {redact_cli_text(e)}[/yellow]")
         raise typer.Exit(1)
     except BilibiliAuthRequired as e:
-        console.print(f"[red]❌ 需要登录: {e}[/red]")
+        console.print(f"[red]❌ 需要登录: {redact_cli_text(e)}[/red]")
         raise typer.Exit(1)
     except BilibiliRateLimited:
         console.print("[red]❌ 请求被限流[/red]")
         raise typer.Exit(1)
     except BilibiliRiskControl as e:
-        console.print(f"[red]❌ 触发风控: {e}[/red]")
+        console.print(f"[red]❌ 触发风控: {redact_cli_text(e)}[/red]")
         raise typer.Exit(1)
     except BilibiliError as e:
-        console.print(f"[red]❌ Bilibili 错误: {e}[/red]")
+        console.print(f"[red]❌ Bilibili 错误: {redact_cli_text(e)}[/red]")
         raise typer.Exit(1)
     except asyncio.TimeoutError:
         console.print(f"[red]⏱ 请求超时 (>{timeout}s)[/red]")
@@ -156,7 +156,8 @@ def bilibili_video(
 
     console.print(f"[bold cyan]📹 {detail.title}[/bold cyan]")
     console.print(f"  BV号: [dim]{detail.bvid}[/dim]")
-    console.print(f"  UP主: [yellow]{detail.owner.name}[/yellow]  ({detail.space_url})")
+    owner_url = f"https://space.bilibili.com/{detail.owner.mid}" if detail.owner.mid else ""
+    console.print(f"  UP主: [yellow]{detail.owner.name}[/yellow]  ({owner_url})")
     console.print(f"  时长: {detail.duration_str}")
     console.print(
         f"  播放: {detail.stat.view:,}  弹幕: {detail.stat.danmaku:,}"
@@ -165,8 +166,8 @@ def bilibili_video(
     )
     if detail.tags:
         console.print(f"  标签: {', '.join(detail.tags[:10])}")
-    if detail.desc:
-        console.print(f"\n[dim]{detail.desc[:300]}[/dim]")
+    if detail.description:
+        console.print(f"\n[dim]{detail.description[:300]}[/dim]")
     console.print(f"\n  🔗 {detail.url}")
 
 

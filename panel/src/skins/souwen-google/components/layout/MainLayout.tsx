@@ -25,7 +25,7 @@
  *   - ESC 键或外部点击关闭各类弹出菜单
  */
 
-import { useState, useCallback, useEffect, useRef } from 'react'
+import { useState, useCallback, useEffect, useRef, useId } from 'react'
 import { NavLink, Outlet, useLocation } from 'react-router-dom'
 import { useTranslation } from 'react-i18next'
 import { m, AnimatePresence } from 'framer-motion'
@@ -140,12 +140,17 @@ export function MainLayout() {
   const version = useAuthStore((s) => s.version)
   const features = useAuthStore((s) => s.features)
   const role = useAuthStore((s) => s.role)
+  const roleLabel = role === 'admin' ? 'Admin' : role === 'user' ? 'User' : 'Guest'
+  const roleInitial = role === 'admin' ? 'A' : role === 'user' ? 'U' : 'G'
   const { mode, toggleMode, scheme, setScheme } = useSkinStore()
   // 主题调色板和 skin 选择器的显示状态
   const [themePaletteOpen, setThemePaletteOpen] = useState(false)
   const [skinPaletteOpen, setSkinPaletteOpen] = useState(false)
   const paletteRef = useRef<HTMLDivElement>(null)
   const skinPaletteRef = useRef<HTMLDivElement>(null)
+  const baseId = useId()
+  const themeListboxId = `${baseId}-theme-listbox`
+  const skinListboxId = `${baseId}-skin-listbox`
 
   // 根据当前路径获取页面标题 i18n 键
   const pageTitleKey = PAGE_TITLE_KEYS[location.pathname] ?? 'nav.dashboard'
@@ -309,7 +314,7 @@ export function MainLayout() {
             <button
               className={styles.hamburger}
               onClick={() => setMobileOpen((o) => !o)}
-              aria-label={t('nav.menu', 'Menu')}
+              aria-label={t('nav.menu')}
             >
               <Menu size={20} />
             </button>
@@ -334,6 +339,7 @@ export function MainLayout() {
                 aria-label={t('theme.label')}
                 aria-expanded={themePaletteOpen}
                 aria-haspopup="listbox"
+                aria-controls={themePaletteOpen ? themeListboxId : undefined}
               >
                 <Palette size={18} />
               </button>
@@ -341,7 +347,9 @@ export function MainLayout() {
                 {themePaletteOpen && (
                   <m.div
                     className={styles.themePalette}
+                    id={themeListboxId}
                     role="listbox"
+                    aria-label={t('theme.label')}
                     initial={{ opacity: 0, y: -4, scale: 0.95 }}
                     animate={{ opacity: 1, y: 0, scale: 1 }}
                     exit={{ opacity: 0, y: -4, scale: 0.95 }}
@@ -374,8 +382,10 @@ export function MainLayout() {
                   className={styles.skinSwitcherBtn}
                   onClick={() => { setSkinPaletteOpen((o) => !o); setThemePaletteOpen(false) }}
                   title={t('skin.switchSkin')}
+                  aria-label={t('skin.switchSkin')}
                   aria-expanded={skinPaletteOpen}
                   aria-haspopup="listbox"
+                  aria-controls={skinPaletteOpen ? skinListboxId : undefined}
                 >
                   <Layers size={15} />
                   <span>{t('skin.switchSkin')}</span>
@@ -384,7 +394,9 @@ export function MainLayout() {
                   {skinPaletteOpen && (
                     <m.div
                       className={styles.themePalette}
+                      id={skinListboxId}
                       role="listbox"
+                      aria-label={t('skin.switchSkin')}
                       initial={{ opacity: 0, y: -4, scale: 0.95 }}
                       animate={{ opacity: 1, y: 0, scale: 1 }}
                       exit={{ opacity: 0, y: -4, scale: 0.95 }}
@@ -423,12 +435,10 @@ export function MainLayout() {
             </button>
             <div
               className={styles.userAvatar}
-              role="button"
-              tabIndex={0}
-              aria-label="User"
-              title="User"
+              title={roleLabel}
             >
-              U
+              <span aria-hidden="true">{roleInitial}</span>
+              <span className="srOnly">{roleLabel}</span>
             </div>
           </div>
         </header>

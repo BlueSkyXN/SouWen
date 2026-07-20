@@ -17,13 +17,17 @@
 """
 
 from __future__ import annotations
+import json
 import re
 
 import pytest
 from datetime import date
 from pytest_httpx import HTTPXMock
 
+from souwen.core.exceptions import ConfigError
 from souwen.patent.patentsview import PatentsViewClient
+
+TEST_API_KEY = "test-patentsview-key"
 
 
 # ---------------------------------------------------------------------------
@@ -84,7 +88,7 @@ async def test_search_basic(httpx_mock: HTTPXMock):
         json=PATENTSVIEW_SEARCH_RESPONSE,
     )
 
-    async with PatentsViewClient() as c:
+    async with PatentsViewClient(api_key=TEST_API_KEY) as c:
         resp = await c.search({"_contains": {"patent_title": "neural network"}})
 
     assert resp.source == "patentsview"
@@ -102,6 +106,29 @@ async def test_search_basic(httpx_mock: HTTPXMock):
     assert patent.source_url == "https://search.patentsview.org/patent/11234567"
 
 
+def test_missing_api_key_raises_config_error():
+    """缺少 PatentsView API Key 时明确报 ConfigError。"""
+    with pytest.raises(ConfigError, match="patentsview_api_key"):
+        PatentsViewClient()
+
+
+async def test_search_sends_api_key_and_new_pagination(httpx_mock: HTTPXMock):
+    """search() 通过 X-Api-Key 鉴权，并使用新版 size/from 分页。"""
+    httpx_mock.add_response(
+        url=re.compile(r"https://search\.patentsview\.org/api/v1/patent/"),
+        json=PATENTSVIEW_SEARCH_RESPONSE,
+    )
+
+    async with PatentsViewClient(api_key=TEST_API_KEY) as c:
+        await c.search({"_contains": {"patent_title": "test"}}, per_page=7, page=3)
+
+    request = httpx_mock.get_request()
+    assert request is not None
+    assert request.headers["X-Api-Key"] == TEST_API_KEY
+    payload = json.loads(request.content)
+    assert payload["o"] == {"size": 7, "from": 14}
+
+
 async def test_search_applicants(httpx_mock: HTTPXMock):
     """受让人（applicants）正确解析"""
     httpx_mock.add_response(
@@ -109,7 +136,7 @@ async def test_search_applicants(httpx_mock: HTTPXMock):
         json=PATENTSVIEW_SEARCH_RESPONSE,
     )
 
-    async with PatentsViewClient() as c:
+    async with PatentsViewClient(api_key=TEST_API_KEY) as c:
         resp = await c.search({"_contains": {"patent_title": "test"}})
 
     patent = resp.results[0]
@@ -125,7 +152,7 @@ async def test_search_inventors(httpx_mock: HTTPXMock):
         json=PATENTSVIEW_SEARCH_RESPONSE,
     )
 
-    async with PatentsViewClient() as c:
+    async with PatentsViewClient(api_key=TEST_API_KEY) as c:
         resp = await c.search({"_contains": {"patent_title": "test"}})
 
     patent = resp.results[0]
@@ -141,7 +168,7 @@ async def test_search_classification_codes(httpx_mock: HTTPXMock):
         json=PATENTSVIEW_SEARCH_RESPONSE,
     )
 
-    async with PatentsViewClient() as c:
+    async with PatentsViewClient(api_key=TEST_API_KEY) as c:
         resp = await c.search({"_contains": {"patent_title": "test"}})
 
     patent = resp.results[0]
@@ -156,7 +183,7 @@ async def test_search_abstract(httpx_mock: HTTPXMock):
         json=PATENTSVIEW_SEARCH_RESPONSE,
     )
 
-    async with PatentsViewClient() as c:
+    async with PatentsViewClient(api_key=TEST_API_KEY) as c:
         resp = await c.search({"_contains": {"patent_title": "test"}})
 
     assert "attention mechanisms" in resp.results[0].abstract
@@ -169,7 +196,7 @@ async def test_search_empty_results(httpx_mock: HTTPXMock):
         json={"patents": [], "total_patent_count": 0},
     )
 
-    async with PatentsViewClient() as c:
+    async with PatentsViewClient(api_key=TEST_API_KEY) as c:
         resp = await c.search({"_contains": {"patent_title": "xyz_nonexistent"}})
 
     assert resp.total_results == 0
@@ -188,7 +215,7 @@ async def test_get_patent(httpx_mock: HTTPXMock):
         json=PATENTSVIEW_SEARCH_RESPONSE,
     )
 
-    async with PatentsViewClient() as c:
+    async with PatentsViewClient(api_key=TEST_API_KEY) as c:
         patent = await c.get_patent("11234567")
 
     assert patent.title == "Neural Network Architecture for Image Recognition"
@@ -204,7 +231,7 @@ async def test_get_patent_not_found(httpx_mock: HTTPXMock):
         json={"patents": [], "total_patent_count": 0},
     )
 
-    async with PatentsViewClient() as c:
+    async with PatentsViewClient(api_key=TEST_API_KEY) as c:
         with pytest.raises(NotFoundError):
             await c.get_patent("99999999")
 
@@ -245,7 +272,7 @@ async def test_assignee_fallback_to_person_name(httpx_mock: HTTPXMock):
         json=data,
     )
 
-    async with PatentsViewClient() as c:
+    async with PatentsViewClient(api_key=TEST_API_KEY) as c:
         resp = await c.search({"_contains": {"patent_title": "test"}})
 
     assert resp.results[0].applicants[0].name == "Alice Wonder"
@@ -275,7 +302,7 @@ async def test_invalid_date(httpx_mock: HTTPXMock):
         json=data,
     )
 
-    async with PatentsViewClient() as c:
+    async with PatentsViewClient(api_key=TEST_API_KEY) as c:
         resp = await c.search({"_contains": {"patent_title": "test"}})
 
     patent = resp.results[0]
@@ -307,7 +334,7 @@ async def test_null_lists(httpx_mock: HTTPXMock):
         json=data,
     )
 
-    async with PatentsViewClient() as c:
+    async with PatentsViewClient(api_key=TEST_API_KEY) as c:
         resp = await c.search({"_contains": {"patent_title": "test"}})
 
     patent = resp.results[0]
@@ -324,7 +351,7 @@ async def test_search_by_assignee(httpx_mock: HTTPXMock):
         json=PATENTSVIEW_SEARCH_RESPONSE,
     )
 
-    async with PatentsViewClient() as c:
+    async with PatentsViewClient(api_key=TEST_API_KEY) as c:
         resp = await c.search_by_assignee("DeepMind")
 
     assert len(resp.results) == 1
@@ -337,7 +364,7 @@ async def test_search_by_inventor(httpx_mock: HTTPXMock):
         json=PATENTSVIEW_SEARCH_RESPONSE,
     )
 
-    async with PatentsViewClient() as c:
+    async with PatentsViewClient(api_key=TEST_API_KEY) as c:
         resp = await c.search_by_inventor("Smith")
 
     assert len(resp.results) == 1
@@ -360,7 +387,7 @@ async def test_429_raises_rate_limit(httpx_mock: HTTPXMock):
     )
 
     with pytest.raises(RateLimitError) as exc_info:
-        async with PatentsViewClient() as c:
+        async with PatentsViewClient(api_key=TEST_API_KEY) as c:
             await c.search({"_contains": {"patent_title": "x"}})
     assert exc_info.value.retry_after == 30.0
 
@@ -376,7 +403,7 @@ async def test_401_raises_auth_error(httpx_mock: HTTPXMock):
     )
 
     with pytest.raises(AuthError):
-        async with PatentsViewClient() as c:
+        async with PatentsViewClient(api_key=TEST_API_KEY) as c:
             await c.search({"_contains": {"patent_title": "x"}})
 
 
@@ -391,5 +418,5 @@ async def test_503_raises_source_unavailable(httpx_mock: HTTPXMock):
     )
 
     with pytest.raises(SourceUnavailableError):
-        async with PatentsViewClient() as c:
+        async with PatentsViewClient(api_key=TEST_API_KEY) as c:
             await c.search({"_contains": {"patent_title": "x"}})
