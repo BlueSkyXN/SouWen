@@ -54,8 +54,12 @@ class TestExtractFallback:
         assert "Content" in text
 
     @pytest.mark.parametrize("extractor", (_extract_fallback, _strip_html))
-    def test_strips_script_and_style_with_html5_closing_tag_whitespace(self, extractor):
-        html = "<script>script-secret</script ><style>style-secret</style\t ><p>Visible content</p>"
+    def test_strips_script_and_style_with_browser_tolerated_closing_tags(self, extractor):
+        html = (
+            '<script>script-secret</script\t\n data-test="x">'
+            "<style>style-secret</style invalid=closing-tag>"
+            "<p>Visible content</p>"
+        )
 
         text = extractor(html)
 

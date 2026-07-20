@@ -28,11 +28,11 @@ _HAS_TRAFILATURA = False
 _HAS_HTML2TEXT = False
 
 _SCRIPT_BLOCK_RE = re.compile(
-    r"<script\b[^>]*>.*?</script\s*>",
+    r"<script\b[^>]*>.*?</script\b[^>]*>",
     flags=re.DOTALL | re.IGNORECASE,
 )
 _STYLE_BLOCK_RE = re.compile(
-    r"<style\b[^>]*>.*?</style\s*>",
+    r"<style\b[^>]*>.*?</style\b[^>]*>",
     flags=re.DOTALL | re.IGNORECASE,
 )
 

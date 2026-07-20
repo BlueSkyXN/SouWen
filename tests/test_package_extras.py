@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-import tomllib
 from pathlib import Path
 
 
@@ -34,8 +33,18 @@ def _extra_dependencies(name: str) -> list[str]:
 def test_distributions_exclude_local_agent_metadata() -> None:
     """sdist must not package local Codex/Claude metadata or absolute symlinks."""
 
-    config = tomllib.loads(PYPROJECT.read_text(encoding="utf-8"))
-    excluded = set(config["tool"]["hatch"]["build"]["exclude"])
+    text = PYPROJECT.read_text(encoding="utf-8")
+    build_section = re.search(
+        r"^\[tool\.hatch\.build\]\n(?P<body>.*?)(?=^\[)",
+        text,
+        flags=re.MULTILINE | re.DOTALL,
+    )
+    assert build_section is not None, "missing [tool.hatch.build]"
+    exclude_line = re.search(
+        r"^exclude = \[(?P<body>[^\]]*)\]$", build_section["body"], re.MULTILINE
+    )
+    assert exclude_line is not None, "missing Hatch build excludes"
+    excluded = set(re.findall(r'"([^"]+)"', exclude_line["body"]))
 
     assert {"/.codex", "/.claude"} <= excluded
 
