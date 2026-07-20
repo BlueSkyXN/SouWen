@@ -27,6 +27,7 @@ def _sanitize_rest_runtime_details(results: list[dict[str, Any]]) -> list[dict[s
     """Copy REST doctor rows while redacting arbitrary loader exception text."""
 
     from souwen.feature_matrix import RuntimeProbe, sanitize_public_runtime_probe
+    from souwen.registry.meta import is_llm_search_gateway_requirement
 
     sanitized_results: list[dict[str, Any]] = []
     for item in results:
@@ -44,6 +45,16 @@ def _sanitize_rest_runtime_details(results: list[dict[str, Any]]) -> list[dict[s
         live_probe = sanitized.get("live_probe")
         if isinstance(live_probe, dict):
             sanitized["live_probe"] = _sanitize_rest_live_probe(live_probe)
+        credential_fields = item.get("credential_fields")
+        if isinstance(credential_fields, (list, tuple)) and any(
+            isinstance(field, str) and is_llm_search_gateway_requirement(field)
+            for field in credential_fields
+        ):
+            channel = sanitized.get("channel")
+            if isinstance(channel, dict) and "base_url" in channel:
+                sanitized_channel = dict(channel)
+                sanitized_channel.pop("base_url", None)
+                sanitized["channel"] = sanitized_channel or None
         sanitized_results.append(sanitized)
     return sanitized_results
 

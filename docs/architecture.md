@@ -70,6 +70,7 @@ class SourceAdapter:
     methods: Mapping[str, MethodSpec]            # capability → MethodSpec
     extra_domains: frozenset[str] = frozenset()  # 跨域（当前仅允许 "fetch"）
     default_enabled: bool = True                 # 高风险源设 False
+    runtime_default_enabled: bool = True         # 缺 enabled 配置时的 runtime fallback
     default_for: frozenset[str] = frozenset()    # {"paper:search"} 声明默认源
     tags: frozenset[str] = frozenset()           # {"high_risk"} / ...
     auth_requirement: str | None = None          # none|optional|required|self_hosted

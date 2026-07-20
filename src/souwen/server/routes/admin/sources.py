@@ -7,7 +7,12 @@ from urllib.parse import urlparse
 
 from fastapi import APIRouter, HTTPException
 
-from souwen.registry.meta import SourceMeta
+from souwen.config.models import LLM_SEARCH_IDENTITY_PARAMS
+from souwen.registry.meta import (
+    SourceMeta,
+    is_llm_search_gateway_requirement,
+    source_config_validation_reason,
+)
 from souwen.server.routes._common import (
     normalize_required_query_arg,
     redact_secret_mapping,
@@ -75,20 +80,34 @@ def _source_config_payload(
     catalog_entry: Any,
     configured_credentials: bool,
     credentials_satisfied: bool,
+    missing_fields: list[str],
+    config_reason: str,
+    enabled: bool,
     available: bool,
     edition_fields: dict[str, Any],
 ) -> dict[str, Any]:
+    hides_gateway_values = any(
+        is_llm_search_gateway_requirement(item) for item in meta.credential_fields
+    )
+    safe_params = redact_secret_mapping(sc.params)
+    if hides_gateway_values:
+        for field in LLM_SEARCH_IDENTITY_PARAMS.intersection(safe_params):
+            safe_params[field] = "***"
     payload: dict[str, Any] = {
-        "enabled": sc.enabled,
+        "enabled": enabled,
         "proxy": _safe_source_url(sc.proxy),
         "http_backend": sc.http_backend,
-        "base_url": _safe_source_url(sc.base_url),
+        "base_url": None if hides_gateway_values else _safe_source_url(sc.base_url),
+        "timeout": sc.timeout,
         "has_api_key": configured_credentials,
         "configured_credentials": configured_credentials,
         "credentials_satisfied": credentials_satisfied,
+        "missing_credential_fields": missing_fields,
+        "config_valid": not config_reason,
+        "config_reason": config_reason,
         "available": available,
         "headers": redact_secret_mapping(sc.headers),
-        "params": redact_secret_mapping(sc.params),
+        "params": safe_params,
         "category": meta.category,
         "domain": catalog_entry.domain,
         "capabilities": list(catalog_entry.capabilities),
@@ -111,6 +130,7 @@ async def get_sources_config():
         get_all_sources,
         has_configured_credentials,
         has_required_credentials,
+        missing_credential_fields,
     )
 
     cfg = get_config()
@@ -122,7 +142,10 @@ async def get_sources_config():
         sc = cfg.get_source_config(name)
         configured_credentials = has_configured_credentials(cfg, name, meta)
         credentials_satisfied = has_required_credentials(cfg, name, meta)
+        missing_fields = missing_credential_fields(cfg, name, meta)
+        config_reason = source_config_validation_reason(cfg, name, meta)
         edition_fields = _source_edition_fields(name, cfg.edition)
+        enabled = cfg.is_source_enabled(name, default=meta.runtime_default_enabled)
         result[name] = _source_config_payload(
             source_name=name,
             sc=sc,
@@ -130,8 +153,12 @@ async def get_sources_config():
             catalog_entry=catalog_entry,
             configured_credentials=configured_credentials,
             credentials_satisfied=credentials_satisfied,
+            missing_fields=missing_fields,
+            config_reason=config_reason,
+            enabled=enabled,
             available=(
-                cfg.is_source_enabled(name)
+                enabled
+                and not config_reason
                 and credentials_satisfied
                 and edition_fields["edition_available"]
             ),
@@ -149,6 +176,7 @@ async def get_source_config(source_name: str):
         get_source,
         has_configured_credentials,
         has_required_credentials,
+        missing_credential_fields,
     )
 
     source_name = normalize_required_query_arg(source_name, "source_name")
@@ -161,7 +189,10 @@ async def get_source_config(source_name: str):
     catalog_entry = source_catalog()[source_name]
     configured_credentials = has_configured_credentials(cfg, source_name, meta)
     credentials_satisfied = has_required_credentials(cfg, source_name, meta)
+    missing_fields = missing_credential_fields(cfg, source_name, meta)
+    config_reason = source_config_validation_reason(cfg, source_name, meta)
     edition_fields = _source_edition_fields(source_name, cfg.edition)
+    enabled = cfg.is_source_enabled(source_name, default=meta.runtime_default_enabled)
     return _source_config_payload(
         source_name=source_name,
         include_name=True,
@@ -170,8 +201,12 @@ async def get_source_config(source_name: str):
         catalog_entry=catalog_entry,
         configured_credentials=configured_credentials,
         credentials_satisfied=credentials_satisfied,
+        missing_fields=missing_fields,
+        config_reason=config_reason,
+        enabled=enabled,
         available=(
-            cfg.is_source_enabled(source_name)
+            enabled
+            and not config_reason
             and credentials_satisfied
             and edition_fields["edition_available"]
         ),
@@ -234,6 +269,8 @@ async def update_source_config(
                     detail=f"base_url 必须为 http/https URL: {safe_base_url}",
                 )
         sc.base_url = base_url or None
+    if "timeout" in req.model_fields_set:
+        sc.timeout = req.timeout
     if req.api_key is not None:
         sc.api_key = req.api_key if req.api_key else None
 

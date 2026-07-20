@@ -568,8 +568,11 @@ Cache-Control: public, max-age=3600
       "description": "OpenAlex 开放学术数据",
       "auth_requirement": "optional",
       "credential_fields": ["openalex_api_key"],
+      "missing_credential_fields": ["openalex_api_key"],
       "credentials_satisfied": true,
       "configured_credentials": false,
+      "config_valid": true,
+      "config_reason": "",
       "risk_level": "low",
       "stability": "stable",
       "distribution": "core",
@@ -609,8 +612,10 @@ Cache-Control: public, max-age=3600
 | `capabilities` | 源声明的能力，如 `search` / `fetch` / `get_detail` |
 | `auth_requirement` | 鉴权要求：`none` / `optional` / `required` / `self_hosted` |
 | `credential_fields` | 完整凭据字段，多字段凭据会列出全部字段 |
+| `missing_credential_fields` | 当前未配置或无效的字段路径；共享 gateway 使用 value-free dotted path，不返回配置值 |
 | `credentials_satisfied` | 当前配置是否满足运行时凭据要求；免配置和可选凭据源为 `true` |
 | `configured_credentials` | 用户是否实际配置了该源声明的凭据 |
+| `config_valid` / `config_reason` | source 配置是否满足静态约束；无效 identity override 只返回 value-free 字段路径 |
 | `min_edition` | 使用该源所需的最低功能档位：`basic` / `pro` / `full` |
 | `edition_available` | 当前 `SOUWEN_EDITION` 是否允许该源 |
 | `edition_reason` | `edition_available=false` 时的不可用原因；允许时为空字符串 |
@@ -1464,9 +1469,9 @@ MCP server 的 `list_tools` 会返回当前完整工具 schema；插件加载后
 
 | 端点 | 说明 |
 |------|------|
-| `GET /api/v1/admin/sources/config` | 列出所有源的频道配置（`enabled / proxy / http_backend / base_url / has_api_key / credentials_satisfied / min_edition / edition_available / edition_reason / headers / params / category / integration_type`，以及 source catalog 字段）；`proxy` / `base_url` 会隐藏 URL userinfo、secret query 和 secret fragment |
+| `GET /api/v1/admin/sources/config` | 列出所有源的频道配置（`enabled / proxy / http_backend / base_url / timeout / has_api_key / credentials_satisfied / missing_credential_fields / config_valid / config_reason / min_edition / edition_available / edition_reason / headers / params / category / integration_type`，以及 source catalog 字段）；`proxy` / `base_url` 会隐藏 URL userinfo、secret query 和 secret fragment；LLM-search gateway source 不回显 private base URL |
 | `GET /api/v1/admin/sources/config/{source_name}` | 单源频道配置；`source_name` 会先 `strip()`，strip 后为空返回 `422`，未知源返回 `404`；`proxy` / `base_url` 同样以脱敏视图返回 |
-| `PUT /api/v1/admin/sources/config/{source_name}` | JSON 体更新单源运行时配置（避免 Key 入日志），重启不持久化；`source_name/proxy/http_backend/base_url` 会先 `strip()`，`source_name` strip 后为空返回 `422`；`proxy` / `base_url` 不接受脱敏占位符 `***`，避免把只读展示值写回真实配置 |
+| `PUT /api/v1/admin/sources/config/{source_name}` | JSON 体更新单源运行时配置（避免 Key 入日志），重启不持久化；`source_name/proxy/http_backend/base_url` 会先 `strip()`，`source_name` strip 后为空返回 `422`；`timeout` 为 `null` 时清除 override，否则必须在 1..300 秒；`proxy` / `base_url` 不接受脱敏占位符 `***`，避免把只读展示值写回真实配置 |
 | `GET /api/v1/admin/proxy` / `PUT` | 全局 `proxy` 与 `proxy_pool` 读写（含 SOCKS 依赖检查）；读响应和 `PUT` 成功响应会隐藏 URL userinfo、secret query 和 secret fragment；`proxy` 和 `proxy_pool[]` 会先 `strip()`，`proxy` strip 后为空则清空配置，`proxy_pool[]` strip 后为空返回 `422`，脱敏占位符 `***` 返回 `422` |
 | `GET /api/v1/admin/http-backend` / `PUT` | HTTP 后端总览与按源覆盖（`auto`/`curl_cffi`/`httpx`）；`PUT` 的 `default/source/backend` 会先 `strip()`，`source` 和 `backend` 必须同时提供 |
 
@@ -1476,7 +1481,8 @@ MCP server 的 `list_tools` 会返回当前完整工具 schema；插件加载后
 {
   "enabled": true,
   "proxy": "warp",
-  "http_backend": "curl_cffi"
+  "http_backend": "curl_cffi",
+  "timeout": 15
 }
 ```
 
@@ -1486,8 +1492,11 @@ MCP server 的 `list_tools` 会返回当前完整工具 schema；插件加载后
 |---|---|
 | `has_api_key` | 是否显式配置了该源声明的凭据字段；免配置源为 `false`，表示没有 Key，而不是不可用 |
 | `credentials_satisfied` | 该源运行所需凭据是否满足；`auth_requirement="none"` / `optional` 源通常为 `true` |
+| `missing_credential_fields` | 当前缺失或无效的配置字段路径；不包含配置值 |
+| `config_valid` / `config_reason` | 静态 source 配置是否合法；原因只包含字段路径，不包含提交值 |
 | `min_edition` / `edition_available` / `edition_reason` | 当前 `SOUWEN_EDITION` 是否允许该源；管理端仍返回全部源，不按 edition 隐藏 |
 | `proxy` / `base_url` | 配置视图会隐藏 URL userinfo、secret query 和 secret fragment；这些脱敏显示值只用于读取，不能原样提交回 `PUT` |
+| `timeout` | 可选 provider-attempt timeout override；`null` 表示未覆盖，普通 web source 仍受 15 秒 cap |
 | `headers` / `params` | 频道级附加配置视图；字段名包含 key/token/secret/password/auth/authorization/cookie/sessdata/session/sid/jwt/csrf/xsrf 等敏感含义时值会显示为 `***`，覆盖 snake_case、hyphen-case、camelCase 和常见 compact 写法 |
 | `auth_requirement` / `key_requirement` | `none` / `optional` / `required` / `self_hosted` |
 | `credential_fields` | 完整凭据字段列表 |

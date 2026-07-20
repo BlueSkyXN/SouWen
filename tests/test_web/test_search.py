@@ -17,10 +17,11 @@ from contextlib import asynccontextmanager
 
 import pytest
 
+from souwen.config import SouWenConfig, SourceChannelConfig
 from souwen.editions import EditionError
 from souwen.models import SearchResponse, WebSearchResult
 from souwen.registry.adapter import MethodSpec, SourceAdapter
-from souwen.web.search import _deduplicate, web_search
+from souwen.web.search import _deduplicate, _get_engine_timeout_seconds, web_search
 
 
 # ---------------------------------------------------------------------------
@@ -278,7 +279,7 @@ async def test_web_search_engine_timeout_graceful(monkeypatch):
         await asyncio.sleep(0.05)
         return _make_engine_response("duckduckgo", [])
 
-    monkeypatch.setattr("souwen.web.search._get_engine_timeout_seconds", lambda: 0.01)
+    monkeypatch.setattr("souwen.web.search._get_engine_timeout_seconds", lambda *_args: 0.01)
 
     async with _override_adapters(
         {
@@ -290,6 +291,45 @@ async def test_web_search_engine_timeout_graceful(monkeypatch):
 
     assert len(result.results) == 1
     assert result.results[0].engine == "bing"
+
+
+def test_ordinary_source_timeout_keeps_existing_15_second_cap(monkeypatch):
+    config = SouWenConfig(
+        timeout=60,
+        sources={"ordinary": SourceChannelConfig(timeout=100)},
+    )
+    monkeypatch.setattr("souwen.web.search.get_config", lambda: config)
+
+    assert _get_engine_timeout_seconds("ordinary", MethodSpec("search")) == 15
+
+
+def test_declared_method_timeout_allows_bounded_source_override(monkeypatch):
+    config = SouWenConfig(
+        timeout=30,
+        sources={"llm_source": SourceChannelConfig(timeout=70)},
+    )
+    monkeypatch.setattr("souwen.web.search.get_config", lambda: config)
+
+    assert (
+        _get_engine_timeout_seconds(
+            "llm_source",
+            MethodSpec("search", timeout_seconds=45),
+        )
+        == 70
+    )
+
+
+def test_declared_method_timeout_uses_scheme_default_without_override(monkeypatch):
+    config = SouWenConfig(timeout=30)
+    monkeypatch.setattr("souwen.web.search.get_config", lambda: config)
+
+    assert (
+        _get_engine_timeout_seconds(
+            "llm_source",
+            MethodSpec("search", timeout_seconds=45),
+        )
+        == 45
+    )
 
 
 async def test_web_search_custom_engines():

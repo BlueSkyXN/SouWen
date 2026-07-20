@@ -24,6 +24,7 @@ from souwen.core.concurrency import get_semaphore
 from souwen.editions import EditionError, ensure_source_allowed
 from souwen.models import WebSearchResponse, WebSearchResult
 from souwen.registry import defaults_for, get as _registry_get
+from souwen.registry.adapter import MethodSpec
 
 logger = logging.getLogger("souwen.web.search")
 _WEB_ENGINE_TIMEOUT_CAP_SECONDS = 15.0
@@ -35,6 +36,8 @@ def _get_web_semaphore() -> asyncio.Semaphore:
 
 
 async def _search_engine(
+    source_name: str,
+    method_spec: MethodSpec,
     engine_cls: type,
     query: str,
     max_results: int,
@@ -43,6 +46,8 @@ async def _search_engine(
     """搜索单个引擎（异常安全 + 并发度限制）
 
     Args:
+        source_name: registry source ID
+        method_spec: registry search method contract
         engine_cls: 引擎客户端类（懒加载后的真实类型）
         query: 搜索关键词
         max_results: 最大返回结果数
@@ -51,7 +56,7 @@ async def _search_engine(
     Returns:
         list[WebSearchResult]: 搜索结果列表；异常时返回 []
     """
-    timeout = _get_engine_timeout_seconds()
+    timeout = _get_engine_timeout_seconds(source_name, method_spec)
 
     async def _run() -> list[WebSearchResult]:
         async with engine_cls(**kwargs) as client:
@@ -69,10 +74,23 @@ async def _search_engine(
             return []
 
 
-def _get_engine_timeout_seconds() -> float:
-    """单个 Web 引擎搜索超时（秒数），受 [1.0, 15.0] 约束。"""
-    timeout = float(get_config().timeout)
-    return max(1.0, min(timeout, _WEB_ENGINE_TIMEOUT_CAP_SECONDS))
+def _get_engine_timeout_seconds(
+    source_name: str | None = None,
+    method_spec: MethodSpec | None = None,
+) -> float:
+    """Resolve source timeout without source-name special cases.
+
+    Ordinary methods retain the historic 15-second cap. A method with an explicit
+    timeout declaration may use the validated 1..300-second source override range.
+    """
+    config = get_config()
+    configured_timeout = None
+    if source_name is not None:
+        configured_timeout = config.get_source_config(source_name).timeout
+    declared_timeout = method_spec.timeout_seconds if method_spec is not None else None
+    timeout = configured_timeout or declared_timeout or float(config.timeout)
+    cap = 300.0 if declared_timeout is not None else _WEB_ENGINE_TIMEOUT_CAP_SECONDS
+    return max(1.0, min(float(timeout), cap))
 
 
 def _deduplicate(results: Sequence[WebSearchResult]) -> list[WebSearchResult]:
@@ -166,12 +184,12 @@ async def web_search(
     active_engines: list[str] = []
     cfg = get_config()
     for name in selected:
-        if not cfg.is_source_enabled(name):
-            logger.info("引擎 %s 已禁用，跳过", name)
-            continue
         adapter = _registry_get(name)
         if adapter is None:
             logger.warning("未知引擎: %s，跳过", name)
+            continue
+        if not cfg.is_source_enabled(name, default=adapter.runtime_default_enabled):
+            logger.info("引擎 %s 已禁用，跳过", name)
             continue
         try:
             ensure_source_allowed(adapter, cfg.edition)
@@ -193,7 +211,16 @@ async def web_search(
         except ImportError as e:
             logger.warning("引擎 %s Client 加载失败: %s", name, e)
             continue
-        tasks.append(_search_engine(cls, query, max_results_per_engine, **kwargs))
+        tasks.append(
+            _search_engine(
+                name,
+                adapter.methods["search"],
+                cls,
+                query,
+                max_results_per_engine,
+                **kwargs,
+            )
+        )
         active_engines.append(name)
 
     engine_results = await asyncio.gather(*tasks, return_exceptions=True)

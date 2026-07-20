@@ -46,6 +46,8 @@ class DoctorSourceResponse(BaseModel):
     runtime_available: bool
     runtime_reason: str = ""
     credentials_satisfied: bool
+    missing_credential_fields: list[str] = Field(default_factory=list)
+    config_valid: bool = True
     config_available: bool
     config_reason: str = ""
     available: bool
@@ -109,9 +111,13 @@ class SourceChannelConfigResponse(BaseModel):
     proxy: str
     http_backend: str
     base_url: str | None = None
+    timeout: float | None = Field(default=None, ge=1.0, le=300.0)
     has_api_key: bool
     configured_credentials: bool
     credentials_satisfied: bool
+    missing_credential_fields: list[str] = Field(default_factory=list)
+    config_valid: bool = True
+    config_reason: str = ""
     available: bool
     headers: dict[str, str] = Field(default_factory=dict)
     params: dict[str, str | int | float | bool] = Field(default_factory=dict)
@@ -145,6 +151,7 @@ class UpdateSourceConfigRequest(BaseModel):
     proxy: str | None = None
     http_backend: str | None = None
     base_url: str | None = None
+    timeout: float | None = Field(default=None, ge=1.0, le=300.0)
     api_key: str | None = None
 
 

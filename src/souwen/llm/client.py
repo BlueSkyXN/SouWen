@@ -107,6 +107,28 @@ async def llm_complete(
 ) -> LLMResponse:
     """调用 LLM 生成完成 — 自动按 protocol 配置分发到对应 provider。
 
+    此公开入口保留默认三次重试。需要避免重复执行的内部编排应使用
+    ``_llm_complete_single_attempt``。
+
+    参数从 config.llm 读取默认值，可通过参数覆盖。
+    """
+    return await _llm_complete_single_attempt(
+        messages,
+        model=model,
+        max_tokens=max_tokens,
+        temperature=temperature,
+    )
+
+
+async def _llm_complete_single_attempt(
+    messages: list[LLMMessage],
+    *,
+    model: str | None = None,
+    max_tokens: int | None = None,
+    temperature: float | None = None,
+) -> LLMResponse:
+    """执行一次 LLM provider dispatch，不应用 ``llm_complete`` 的重试策略。
+
     参数从 config.llm 读取默认值，可通过参数覆盖。
 
     Raises:

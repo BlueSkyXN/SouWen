@@ -51,8 +51,11 @@ class SourceCatalogItem(BaseModel):
     description: str
     auth_requirement: Literal["none", "optional", "required", "self_hosted"]
     credential_fields: list[str] = Field(default_factory=list)
+    missing_credential_fields: list[str] = Field(default_factory=list)
     credentials_satisfied: bool
     configured_credentials: bool
+    config_valid: bool = True
+    config_reason: str = ""
     risk_level: Literal["low", "medium", "high"]
     stability: Literal["stable", "beta", "experimental", "deprecated"]
     distribution: Literal["core", "extra", "plugin"]

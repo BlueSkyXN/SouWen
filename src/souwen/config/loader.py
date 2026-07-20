@@ -32,6 +32,8 @@ _RETIRED_AUTH_ENV_KEYS = {
     "SOUWEN_VISITOR_PASSWORD": "SOUWEN_USER_PASSWORD",
 }
 
+_NESTED_CONFIG_FIELDS = frozenset({"sources", "llm", "llm_search_gateways", "plugin_config"})
+
 
 def _retired_auth_yaml_keys(raw: dict) -> list[str]:
     """返回 YAML 中已经移除的旧认证字段。"""
@@ -104,8 +106,8 @@ def _load_yaml_config() -> dict:
     valid_fields = set(SouWenConfig.model_fields)
     flat: dict = {}
     for key, values in raw.items():
-        if key in ("sources", "llm", "plugin_config") and isinstance(values, dict):
-            # sources / llm / plugin_config 是嵌套结构,直接传递给 Pydantic 解析
+        if key in _NESTED_CONFIG_FIELDS and isinstance(values, dict):
+            # 这些字段是嵌套结构，直接传递给 Pydantic 解析。
             flat[key] = values
         elif isinstance(values, dict):
             # 嵌套分组结构: paper: {openalex_api_key: ...}
@@ -167,7 +169,7 @@ def _coerce_env_value(field_name: str, raw_val: str, env_key: str):
                 return None
             return [str(p).strip() for p in parsed if str(p).strip()]
         return [p.strip() for p in val.split(",") if p.strip()]
-    if field_name in ("http_backend", "sources", "llm", "plugin_config"):
+    if field_name == "http_backend" or field_name in _NESTED_CONFIG_FIELDS:
         try:
             parsed = json.loads(val)
         except json.JSONDecodeError:

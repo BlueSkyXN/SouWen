@@ -542,6 +542,24 @@ def test_sources_json_outputs_formal_catalog_contract():
     assert openalex["available"] is True
 
 
+def test_invalid_llm_search_gateway_does_not_leak_private_url(monkeypatch):
+    private_url = "file:///private/internal/gateway?token=url-secret"
+    monkeypatch.setenv(
+        "SOUWEN_LLM_SEARCH_GATEWAYS",
+        json.dumps({"uniapi": {"api_key": "secret", "base_url": private_url}}),
+    )
+    from souwen.config import get_config
+
+    get_config.cache_clear()
+    result = runner.invoke(app, ["sources", "--json"])
+
+    rendered = f"{result.output}\n{result.exception}"
+    assert result.exit_code != 0
+    assert private_url not in rendered
+    assert "url-secret" not in rendered
+    assert "input_value" not in rendered
+
+
 def test_sources_json_marks_edition_unavailable(monkeypatch):
     """``sources --json`` 应返回 edition metadata，并让 unavailable 源不可调度。"""
     monkeypatch.setenv("SOUWEN_EDITION", "basic")
@@ -754,7 +772,7 @@ def test_config_source_self_hosted_legacy_channel_api_key(monkeypatch):
 
 
 def test_config_source_update_trims_runtime_fields(monkeypatch):
-    """``config source`` 应在写入前规范化 source/proxy/backend/base_url。"""
+    """``config source`` 应规范化 source/proxy/backend/base_url/timeout。"""
     from souwen.config import get_config
 
     get_config.cache_clear()
@@ -770,6 +788,8 @@ def test_config_source_update_trims_runtime_fields(monkeypatch):
             " httpx ",
             "--base-url",
             " https://api.example.com/v1 ",
+            "--timeout",
+            "45",
         ],
     )
 
@@ -779,6 +799,8 @@ def test_config_source_update_trims_runtime_fields(monkeypatch):
     assert sc.proxy == "warp"
     assert sc.http_backend == "httpx"
     assert sc.base_url == "https://api.example.com/v1"
+    assert sc.timeout == 45
+    assert "Timeout: 45s" in result.output
 
 
 def test_config_source_rejects_invalid_proxy_before_save(monkeypatch):

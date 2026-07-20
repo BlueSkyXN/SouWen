@@ -149,6 +149,24 @@ class TestYamlLoading:
 
         assert cfg.plugin_config == {"demo_plugin": {"api_key": "secret", "limit": 3}}
 
+    def test_loads_llm_search_gateways_as_nested_config(self, tmp_path):
+        (tmp_path / "souwen.yaml").write_text(
+            textwrap.dedent(
+                """
+                llm_search_gateways:
+                  uniapi:
+                    api_key: yaml-secret
+                    base_url: https://gateway.example.com/v1/
+                """
+            ).strip(),
+            encoding="utf-8",
+        )
+
+        cfg = reload_config()
+
+        assert cfg.llm_search_gateways["uniapi"].api_key == "yaml-secret"
+        assert cfg.llm_search_gateways["uniapi"].base_url == "https://gateway.example.com/v1"
+
 
 class TestEnvOverride:
     """环境变量解析与类型转换。"""
@@ -229,6 +247,17 @@ class TestEnvOverride:
         cfg = reload_config()
 
         assert cfg.plugin_config == {}
+
+    def test_env_llm_search_gateways_json_object(self, monkeypatch):
+        monkeypatch.setenv(
+            "SOUWEN_LLM_SEARCH_GATEWAYS",
+            '{"uniapi":{"api_key":"env-secret","base_url":"https://gateway.example.com/v1"}}',
+        )
+
+        cfg = reload_config()
+
+        assert cfg.llm_search_gateways["uniapi"].api_key == "env-secret"
+        assert cfg.llm_search_gateways["uniapi"].base_url == "https://gateway.example.com/v1"
 
     def test_warp_alias_without_prefix(self, monkeypatch):
         """``WARP_ENABLED`` 不带 SOUWEN_ 前缀也应生效（Docker entrypoint 兼容）。"""

@@ -369,7 +369,7 @@ async def _execute_search(
     cfg = get_config()
     tasks: list[tuple[str, Any]] = []
     for adapter in adapters:
-        if not cfg.is_source_enabled(adapter.name):
+        if not cfg.is_source_enabled(adapter.name, default=adapter.runtime_default_enabled):
             logger.info("数据源 %s 已禁用，跳过", adapter.name)
             continue
         unified_kwargs = _build_capability_kwargs(adapter, capability, query, limit, kwargs)

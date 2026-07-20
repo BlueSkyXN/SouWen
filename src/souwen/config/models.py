@@ -1,7 +1,7 @@
 """SouWen 配置数据模型
 
-包含 SourceChannelConfig (单源频道配置) 与 SouWenConfig (全局配置)
-两个 Pydantic 模型.
+包含 SourceChannelConfig（单源频道配置）、LLMSearchGatewayConfig（共享搜索网关）
+与 SouWenConfig（全局配置）。
 """
 
 from __future__ import annotations
@@ -10,12 +10,28 @@ import logging
 import random
 from pathlib import Path
 from typing import Any, Literal
+from urllib.parse import urlsplit
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .validators import _validate_proxy_url
 
 logger = logging.getLogger("souwen.config")
+LLM_SEARCH_IDENTITY_PARAMS = frozenset(
+    {"api_key", "base_url", "gateway_id", "model", "model_id", "scheme_id", "source_id"}
+)
+
+
+def _normalize_llm_search_base_url(value: str | None) -> str | None:
+    if value is None:
+        return None
+    value = value.strip()
+    if not value:
+        return None
+    parsed = urlsplit(value)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        raise ValueError("base_url 必须是带 hostname 的 http/https URL")
+    return value.rstrip("/")
 
 
 class SourceChannelConfig(BaseModel):
@@ -29,6 +45,7 @@ class SourceChannelConfig(BaseModel):
         proxy: 代理策略 — inherit(继承全局) | none(不用代理) | warp(走WARP) | 显式URL
         http_backend: HTTP 后端 — auto | curl_cffi | httpx
         base_url: 覆盖数据源的基础 URL
+        timeout: 覆盖该 source 的 provider-attempt timeout（秒）
         api_key: 覆盖 API Key(优先于全局 flat key)
         headers: 附加请求头(合并到默认头之上)
         params: 附加参数(传递给源的搜索方法)
@@ -37,10 +54,32 @@ class SourceChannelConfig(BaseModel):
     enabled: bool = True
     proxy: str = "inherit"
     http_backend: str = "auto"
-    base_url: str | None = None
-    api_key: str | None = None
-    headers: dict[str, str] = Field(default_factory=dict)
-    params: dict[str, str | int | float | bool] = Field(default_factory=dict)
+    base_url: str | None = Field(default=None, repr=False)
+    timeout: float | None = Field(default=None, ge=1.0, le=300.0)
+    api_key: str | None = Field(default=None, repr=False)
+    headers: dict[str, str] = Field(default_factory=dict, repr=False)
+    params: dict[str, str | int | float | bool] = Field(default_factory=dict, repr=False)
+
+
+class LLMSearchGatewayConfig(BaseModel):
+    """多个 concrete LLM-search sources 共享的 gateway 配置。"""
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+    api_key: str | None = Field(default=None, repr=False)
+    base_url: str | None = Field(default=None, repr=False)
+
+    @field_validator("api_key", "base_url", mode="before")
+    @classmethod
+    def _strip_optional_string(cls, value: Any) -> Any:
+        if isinstance(value, str):
+            return value.strip() or None
+        return value
+
+    @field_validator("base_url")
+    @classmethod
+    def _validate_base_url(cls, value: str | None) -> str | None:
+        return _normalize_llm_search_base_url(value)
 
 
 class LLMConfig(BaseModel):
@@ -118,12 +157,15 @@ class SouWenConfig(BaseModel):
                   warp_external_proxy
 
         频道配置: sources (dict[源名, SourceChannelConfig])
+        LLM Search gateways: llm_search_gateways (dict[gateway ID, LLMSearchGatewayConfig])
 
     方法:
         get_proxy() → str|None — 从 proxy_pool 随机取(优先),否则用单一 proxy
         get_http_backend(source_name) → str — 获取指定源的 HTTP 后端
         resolve_proxy/api_key/base_url/headers/params(source_name) — 解析源级覆盖配置
     """
+
+    model_config = ConfigDict(hide_input_in_errors=True)
 
     @model_validator(mode="before")
     @classmethod
@@ -309,6 +351,9 @@ class SouWenConfig(BaseModel):
     # ===== 数据源频道配置 =====
     sources: dict[str, SourceChannelConfig] = Field(default_factory=dict)
 
+    # ===== LLM Search 共享 gateway 配置 =====
+    llm_search_gateways: dict[str, LLMSearchGatewayConfig] = Field(default_factory=dict)
+
     # ===== 插件系统 =====
     plugins: list[str] = Field(
         default_factory=list,
@@ -373,9 +418,12 @@ class SouWenConfig(BaseModel):
         """获取指定源的频道配置,不存在则返回默认值"""
         return self.sources.get(name, SourceChannelConfig())
 
-    def is_source_enabled(self, name: str) -> bool:
-        """检查数据源是否启用"""
-        return self.get_source_config(name).enabled
+    def is_source_enabled(self, name: str, *, default: bool = True) -> bool:
+        """解析 source 启用状态；未显式配置时使用 registry 提供的默认值。"""
+        source_config = self.sources.get(name)
+        if source_config is None or "enabled" not in source_config.model_fields_set:
+            return default
+        return source_config.enabled
 
     def resolve_proxy(self, source: str) -> str | None:
         """解析数据源的代理地址
@@ -438,6 +486,27 @@ class SouWenConfig(BaseModel):
         """解析基础 URL:频道覆盖 > 默认值"""
         sc = self.get_source_config(source)
         return sc.base_url or default
+
+    def get_llm_search_gateway(self, gateway_id: str) -> LLMSearchGatewayConfig:
+        """获取共享 LLM-search gateway；不存在时返回空配置。"""
+        return self.llm_search_gateways.get(gateway_id, LLMSearchGatewayConfig())
+
+    def resolve_llm_search_gateway_field(
+        self,
+        source: str,
+        gateway_id: str,
+        field: Literal["api_key", "base_url"],
+    ) -> str | None:
+        """按 source override → shared gateway 解析一个配置字段。"""
+        source_config = self.get_source_config(source)
+        source_value = getattr(source_config, field)
+        if isinstance(source_value, str):
+            source_value = source_value.strip() or None
+        if field == "base_url":
+            source_value = _normalize_llm_search_base_url(source_value)
+        if source_value:
+            return source_value
+        return getattr(self.get_llm_search_gateway(gateway_id), field)
 
     def resolve_headers(self, source: str) -> dict[str, str]:
         """获取频道自定义请求头"""

@@ -53,6 +53,7 @@ class SourceCatalogEntry:
     visibility: str
     available_by_default: bool
     usage_note: str | None
+    runtime_default_enabled: bool = True
 
 
 _SOURCE_CATEGORIES: tuple[SourceCategory, ...] = (
@@ -209,6 +210,7 @@ def _entry_from_adapter(adapter: SourceAdapter, *, external: bool = False) -> So
         distribution=distribution,
         package_extra=adapter.resolved_package_extra,
         default_enabled=adapter.default_enabled,
+        runtime_default_enabled=adapter.runtime_default_enabled,
         default_for=tuple(sorted(adapter.default_for)),
         visibility=visibility,
         available_by_default=_is_available_by_default(adapter, visibility),
@@ -269,7 +271,7 @@ def available_source_catalog(config: Any) -> dict[str, SourceCatalogEntry]:
     """
 
     from souwen.editions import source_policy
-    from souwen.registry.meta import has_required_credentials
+    from souwen.registry.meta import has_required_credentials, source_config_validation_reason
 
     result: dict[str, SourceCatalogEntry] = {}
     for name, entry in public_source_catalog().items():
@@ -278,7 +280,9 @@ def available_source_catalog(config: Any) -> dict[str, SourceCatalogEntry]:
             raise KeyError(f"missing registry adapter for source {name!r}")
         if not source_policy(adapter, config.edition).available:
             continue
-        if not config.is_source_enabled(name):
+        if not config.is_source_enabled(name, default=entry.runtime_default_enabled):
+            continue
+        if source_config_validation_reason(config, name, entry):
             continue
         if not has_required_credentials(config, name, entry):
             continue
@@ -327,13 +331,21 @@ def public_source_catalog_payload(config: Any) -> dict[str, Any]:
     runtime probe 只检查本地 importability，不联网、不检查凭据。
     """
 
-    from souwen.registry.meta import has_configured_credentials, has_required_credentials
+    from souwen.registry.meta import (
+        has_configured_credentials,
+        has_required_credentials,
+        missing_credential_fields,
+        source_config_validation_reason,
+    )
 
     sources: list[dict[str, Any]] = []
     for name, entry in public_source_catalog().items():
+        missing_fields = missing_credential_fields(config, name, entry)
         credentials_satisfied = has_required_credentials(config, name, entry)
+        config_reason = source_config_validation_reason(config, name, entry)
         edition_fields = _source_edition_fields(name, config)
         runtime_fields = _source_runtime_fields(name, edition_fields)
+        enabled = config.is_source_enabled(name, default=entry.runtime_default_enabled)
         sources.append(
             {
                 "name": name,
@@ -343,8 +355,11 @@ def public_source_catalog_payload(config: Any) -> dict[str, Any]:
                 "description": entry.description,
                 "auth_requirement": entry.auth_requirement,
                 "credential_fields": list(entry.credential_fields),
+                "missing_credential_fields": missing_fields,
                 "credentials_satisfied": credentials_satisfied,
                 "configured_credentials": has_configured_credentials(config, name, entry),
+                "config_valid": not config_reason,
+                "config_reason": config_reason,
                 "risk_level": entry.risk_level,
                 "stability": entry.stability,
                 "distribution": entry.distribution,
@@ -352,7 +367,8 @@ def public_source_catalog_payload(config: Any) -> dict[str, Any]:
                 **edition_fields,
                 **runtime_fields,
                 "available": (
-                    config.is_source_enabled(name)
+                    enabled
+                    and not config_reason
                     and credentials_satisfied
                     and edition_fields["edition_available"]
                 ),
