@@ -5,6 +5,7 @@ import sqlite3
 import pytest
 
 from souwen.core.exceptions import LocalCatalogUnavailableError
+from souwen.local_catalog import store as store_module
 from souwen.local_catalog.store import CatalogRecord, LocalCatalog
 from souwen.models import BookResult
 
@@ -83,3 +84,32 @@ def test_fts_unavailable_is_not_silently_accepted(tmp_path, monkeypatch) -> None
     monkeypatch.setattr(LocalCatalog, "_fts5_available", staticmethod(lambda _conn: False))
     with pytest.raises(LocalCatalogUnavailableError, match="FTS5"):
         LocalCatalog(tmp_path / "catalog.sqlite3").initialize()
+
+
+def test_catalog_operations_close_sqlite_connections(tmp_path, monkeypatch) -> None:
+    class TrackingConnection(sqlite3.Connection):
+        closed = False
+
+        def close(self) -> None:
+            self.closed = True
+            super().close()
+
+    original_connect = sqlite3.connect
+    connections: list[TrackingConnection] = []
+
+    def tracking_connect(*args, **kwargs) -> TrackingConnection:
+        kwargs.setdefault("factory", TrackingConnection)
+        connection = original_connect(*args, **kwargs)
+        connections.append(connection)
+        return connection
+
+    monkeypatch.setattr(store_module.sqlite3, "connect", tracking_connect)
+    catalog = LocalCatalog(tmp_path / "catalog.sqlite3")
+
+    catalog.import_records("gutenberg", "r1", "a" * 64, [_record("11")])
+    catalog.status()
+    catalog.search_books("gutenberg", "Alice", limit=1)
+    catalog.get_book("gutenberg", "11")
+
+    assert connections
+    assert all(connection.closed for connection in connections)

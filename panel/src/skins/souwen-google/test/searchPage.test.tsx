@@ -486,7 +486,7 @@ describe('SearchPage', () => {
     const user = userEvent.setup()
 
     await user.click(screen.getByRole('button', { name: 'domains.research_output' }))
-    expect(await screen.findByText('datacite')).toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: /datacite/ })).toBeInTheDocument()
     await user.type(screen.getByRole('textbox'), 'dataset')
     await user.click(screen.getByRole('button', { name: '搜索' }))
 
