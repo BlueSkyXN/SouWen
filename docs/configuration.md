@@ -426,7 +426,8 @@ sources:
 ### LLM Search 共享 Gateway
 
 `llm_search_gateways` 为多个 model-bound concrete sources 提供共享 `api_key + base_url`。
-本配置本身不会注册或启用 source；source inventory 仍只来自 Registry。
+当前 Registry 中的 Ark DeepSeek 和 Doubao sources 都是 `experimental` 且默认关闭；配置 gateway
+不会自动启用它们，source inventory 仍只来自 Registry。
 
 ```yaml
 llm_search_gateways:
@@ -434,10 +435,14 @@ llm_search_gateways:
     api_key: your-secret
     base_url: https://gateway.example.com/v1
 sources:
-  some_concrete_source:
-    enabled: false
+  uniapi_ark_annotations_deepseek_v3_2_251201:
+    enabled: true
     timeout: 45
 ```
+
+可改为启用 `uniapi_ark_annotations_doubao_seed_2_0_lite_260428`，但不要把两个 source
+加入默认搜索或通过 `params` 覆盖 `model`、`model_id`、`scheme_id`、`source_id` 或 `gateway_id`。
+这两个 identity 字段集是 immutable；每个 source 只会请求其 Registry 绑定的 exact model。
 
 具体 source 的 `api_key`、`base_url` override 优先于 shared gateway。环境变量使用 JSON：
 

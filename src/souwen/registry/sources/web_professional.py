@@ -9,10 +9,40 @@ from souwen.registry.sources._helpers import (
     _reg,
     _P_MAX_RESULTS,
 )
+from souwen.web.llm_search.registry import _SEARCH_SCHEMES
+from souwen.web.llm_search.schemes.ark_annotations import (
+    ARK_ANNOTATIONS_DEEPSEEK,
+    ARK_ANNOTATIONS_DOUBAO,
+    ARK_ANNOTATIONS_SCHEME,
+)
 
 # ═════════════════════════════════════════════════════════════
 #  4b. web.api professional（AI/语义类授权 API）
 # ═════════════════════════════════════════════════════════════
+
+_SEARCH_SCHEMES.register_scheme(ARK_ANNOTATIONS_SCHEME)
+for _ark_source, _ark_client_path, _ark_description in (
+    (
+        ARK_ANNOTATIONS_DEEPSEEK,
+        "souwen.web.llm_search.schemes.ark_annotations:UniApiArkAnnotationsDeepSeekClient",
+        "UniAPI Ark DeepSeek V3.2 网页搜索（结构化 citation，实验性）",
+    ),
+    (
+        ARK_ANNOTATIONS_DOUBAO,
+        "souwen.web.llm_search.schemes.ark_annotations:UniApiArkAnnotationsDoubaoClient",
+        "UniAPI Ark Doubao Seed 2.0 Lite 网页搜索（结构化 citation，实验性）",
+    ),
+):
+    _SEARCH_SCHEMES.register_source(_ark_source)
+    _reg(
+        _SEARCH_SCHEMES.project_source_adapter(
+            _ark_source.source_id,
+            description=_ark_description,
+            client_loader=lazy(_ark_client_path),
+            methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
+            usage_note="实验性、默认关闭；仅在显式启用并配置 UniAPI Ark gateway 后调用。",
+        )
+    )
 
 _reg(
     SourceAdapter(

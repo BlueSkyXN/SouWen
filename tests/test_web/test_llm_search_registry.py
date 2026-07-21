@@ -33,7 +33,7 @@ def _parse_response(payload, **_kwargs):
 
 def _scheme(**overrides) -> SearchSchemeSpec:
     values = {
-        "scheme_id": "uniapi_ark_annotations_v1",
+        "scheme_id": "fixture_ark_annotations_v1",
         "gateway_id": "uniapi",
         "upstream_channel": "volcengine_ark",
         "protocol": "responses",
@@ -52,7 +52,7 @@ def _scheme(**overrides) -> SearchSchemeSpec:
 def _source(source_id: str = "uniapi_ark_deepseek", **overrides) -> ConcreteSearchSourceSpec:
     values = {
         "source_id": source_id,
-        "scheme_id": "uniapi_ark_annotations_v1",
+        "scheme_id": "fixture_ark_annotations_v1",
         "model_id": "deepseek-v3-2-251201",
         "last_verified_at": datetime(2026, 7, 20, tzinfo=timezone.utc),
     }
@@ -95,7 +95,7 @@ def test_registry_rejects_duplicate_source_ids_and_identity_aliases() -> None:
         registry.register_source(_source("uniapi_ark_deepseek_alias"))
 
     assert (
-        registry.source_id_for("uniapi_ark_annotations_v1", "deepseek-v3-2-251201")
+        registry.source_id_for("fixture_ark_annotations_v1", "deepseek-v3-2-251201")
         == "uniapi_ark_deepseek"
     )
 
@@ -142,7 +142,7 @@ def test_projection_uses_canonical_source_adapter_and_gateway_requirements() -> 
     assert adapter.stability == "experimental"
     assert adapter.methods["search"].timeout_seconds == 60
     assert adapter.llm_search_identity == (
-        "uniapi_ark_annotations_v1",
+        "fixture_ark_annotations_v1",
         "deepseek-v3-2-251201",
     )
 

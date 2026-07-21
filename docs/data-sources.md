@@ -4,8 +4,8 @@
 
 | 指标 | 数量 | 定义 |
 |---|---:|---|
-| Registered | **95** | 当前生成进程注册的 `SourceAdapter`；默认只含内置源 |
-| Public | **94** | `catalog_visibility=public`，进入公开 Source Catalog |
+| Registered | **97** | 当前生成进程注册的 `SourceAdapter`；默认只含内置源 |
+| Public | **96** | `catalog_visibility=public`，进入公开 Source Catalog |
 | Hidden / internal | **1** | 已注册但不进入公开 Source Catalog |
 | Fetch primary-domain | **17** | 主 `domain=fetch` 的公开源 |
 | Fetch cross-domain | **7** | 其他主 domain 通过 `extra_domains` 暴露 `fetch` |
@@ -75,7 +75,7 @@
 | `the_lens` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `lens_api_token` |
 | `uspto_odp` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `uspto_api_key` |
 
-## 通用网页搜索 · `web`（30 源）
+## 通用网页搜索 · `web`（32 源）
 
 | Name | Integration | Auth | Risk | Distribution | Stability | Extra | Capabilities | Credentials |
 |---|---|---|---|---|---|---|---|---|
@@ -103,6 +103,8 @@
 | `serper` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `serper_api_key` |
 | `startpage` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `scraper` | search | — |
 | `tavily` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch, search | `tavily_api_key` |
+| `uniapi_ark_annotations_deepseek_v3_2_251201` | official_api | 必须凭据 | 中风险 | 核心内置 | 实验性 | — | search | `llm_search_gateways.uniapi.api_key`, `llm_search_gateways.uniapi.base_url` |
+| `uniapi_ark_annotations_doubao_seed_2_0_lite_260428` | official_api | 必须凭据 | 中风险 | 核心内置 | 实验性 | — | search | `llm_search_gateways.uniapi.api_key`, `llm_search_gateways.uniapi.base_url` |
 | `websurfx` | self_hosted | 自建实例 | 低风险 | 核心内置 | 稳定 | — | search | `websurfx_url` |
 | `whoogle` | self_hosted | 自建实例 | 低风险 | 核心内置 | 稳定 | — | search | `whoogle_url` |
 | `xcrawl` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch, search | `xcrawl_api_key` |

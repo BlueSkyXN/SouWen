@@ -284,6 +284,7 @@ class SearchSourceProvenance(BaseModel):
     search_call_status: str | None = None
     response_status: str | None = None
     partial: bool = False
+    incomplete_reason: str | None = None
     attempt_index: int = Field(default=1, ge=1)
     source_strategy: Literal["single", "fanout", "first_success"] = "single"
     retrieved_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

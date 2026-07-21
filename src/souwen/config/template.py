@@ -147,6 +147,6 @@ warp:
 sources: {}
 
 # ===== LLM Search 共享 Gateway =====
-# 多个 concrete source 共用一份 api_key/base_url；实际 source 默认不在本阶段注册。
+# 两个实验性 Ark concrete source 共用一份 api_key/base_url；它们默认关闭，需显式启用。
 llm_search_gateways: {}
 """
