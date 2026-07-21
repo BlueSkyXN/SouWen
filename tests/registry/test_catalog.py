@@ -137,6 +137,7 @@ def test_adapter_registration_order_snapshot() -> None:
         "open_library",
         "internet_archive",
         "wikisource",
+        "library_of_congress",
         "patentsview",
         "pqai",
         "epo_ops",

@@ -60,12 +60,18 @@ EXTRA_ZERO_KEY_PAPER_SOURCES = [
 ZERO_KEY_PATENT_SOURCES = [
     "google_patents",
 ]
-ZERO_KEY_BOOK_ROUTE_SOURCES = ("open_library", "internet_archive", "wikisource")
+ZERO_KEY_BOOK_ROUTE_SOURCES = (
+    "open_library",
+    "internet_archive",
+    "wikisource",
+    "library_of_congress",
+)
 ZERO_KEY_BOOK_ROUTE_QUERIES = {
     "open_library": "the lord of the rings",
     "internet_archive": "the lord of the rings",
     # Keep this source-specific: Wikisource's default API site is Chinese.
     "wikisource": "論語",
+    "library_of_congress": "alice",
 }
 ZERO_KEY_WEB_SCRAPERS = [
     "duckduckgo",
@@ -1688,6 +1694,11 @@ def wikisource_search_route(client: ApiClient) -> ProbeResult:
     return book_search_route(client, "wikisource")
 
 
+def library_of_congress_search_route(client: ApiClient) -> ProbeResult:
+    """Probe LOC catalog metadata only; never request a digital resource."""
+    return book_search_route(client, "library_of_congress")
+
+
 def opencitations_count_route(client: ApiClient) -> ProbeResult:
     """Verify the public OpenCitations count route without pretending graph pagination exists."""
     route = "/api/v1/citations/count?identifier=doi%3A10.1038%2Fnphys1170"
@@ -2136,6 +2147,13 @@ def run_zero_key_case(
             "opencitations-count",
             lambda: opencitations_count_route(client),
             required=True,
+        )
+    )
+    results.append(
+        safe_call(
+            "zero-key-route",
+            "library-of-congress-search",
+            lambda: library_of_congress_search_route(client),
         )
     )
     default_min = (
