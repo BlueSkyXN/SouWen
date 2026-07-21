@@ -224,7 +224,17 @@ EXCLUDED_REQUIRED_KEY_SEARCH_SOURCES = [
     "feishu_drive",
 ]
 EXCLUDED_SELF_HOSTED_SEARCH_SOURCES = ["searxng", "whoogle", "websurfx"]
-EXCLUDED_NO_PUBLIC_ENDPOINT_SOURCES = ["unpaywall", "duckduckgo_news", "doab", "oapen", "gutenberg"]
+# The HFS runtime intentionally carries no maintainer-local SQLite catalog data.
+# These explicit local sources expose a search route but cannot produce truthful
+# zero-key remote results until a user imports their own catalog.
+EXCLUDED_NO_PUBLIC_ENDPOINT_SOURCES = [
+    "unpaywall",
+    "duckduckgo_news",
+    "doab",
+    "oapen",
+    "gutenberg",
+    "taiwan_new_books",
+]
 EXCLUDED_HFS_EXTERNAL_LIVE_SEARCH_SOURCES = ["datacite", "figshare"]
 EXCLUDED_REQUIRED_KEY_FETCH_PROVIDERS = [
     "metaso",
@@ -2914,7 +2924,7 @@ def append_zero_key_matrix(lines: list[str], results: list[ProbeResult]) -> None
             f"| Self-hosted search | `{', '.join(EXCLUDED_SELF_HOSTED_SEARCH_SOURCES)}` | "
             "Requires user-managed service URL. |",
             f"| No public CD endpoint | `{', '.join(EXCLUDED_NO_PUBLIC_ENDPOINT_SOURCES)}` | "
-            "Registered capability exists, but the current HFS API has no matching route. |",
+            "Registered capability is not eligible for the current HFS zero-key probe, including local catalogs without preloaded data. |",
             f"| Manual external live gate | `{', '.join(EXCLUDED_HFS_EXTERNAL_LIVE_SEARCH_SOURCES)}` | "
             "Public route exists, but upstream availability is covered by its dedicated maintainer smoke. |",
             f"| Required-key fetch | `{', '.join(EXCLUDED_REQUIRED_KEY_FETCH_PROVIDERS)}` | "
