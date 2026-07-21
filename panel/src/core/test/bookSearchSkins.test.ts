@@ -11,6 +11,11 @@ import carbonSearchPage from '../../skins/carbon/pages/SearchPage.tsx?raw'
 import iosSearchPage from '../../skins/ios/pages/SearchPage.tsx?raw'
 import googleSearchPage from '../../skins/souwen-google/pages/SearchPage.tsx?raw'
 import nebulaSearchPage from '../../skins/souwen-nebula/pages/SearchPage.tsx?raw'
+import appleSourcesPage from '../../skins/apple/pages/SourcesPage.tsx?raw'
+import carbonSourcesPage from '../../skins/carbon/pages/SourcesPage.tsx?raw'
+import iosSourcesPage from '../../skins/ios/pages/SourcesPage.tsx?raw'
+import googleSourcesPage from '../../skins/souwen-google/pages/SourcesPage.tsx?raw'
+import nebulaSourcesPage from '../../skins/souwen-nebula/pages/SourcesPage.tsx?raw'
 
 const SKINS = {
   apple: appleSearchPage,
@@ -18,6 +23,13 @@ const SKINS = {
   ios: iosSearchPage,
   'souwen-google': googleSearchPage,
   'souwen-nebula': nebulaSearchPage,
+} as const
+const SOURCE_PAGES = {
+  apple: appleSourcesPage,
+  carbon: carbonSourcesPage,
+  ios: iosSourcesPage,
+  'souwen-google': googleSourcesPage,
+  'souwen-nebula': nebulaSourcesPage,
 } as const
 const RENDERERS = [
   ['renderItemCard', 'renderItemListItem'],
@@ -48,6 +60,13 @@ describe('book search skin renderers', () => {
         expect(section).toContain('book.first_publish_year')
         expect(section).toContain('book.subjects')
       }
+    })
+  }
+
+  for (const [skin, source] of Object.entries(SOURCE_PAGES)) {
+    it(`${skin} exposes the book source category with a dedicated icon`, () => {
+      expect(source).toContain('BookOpen')
+      expect(source).toMatch(/CATEGORY_ICONS:[\s\S]*?\bbook:\s*BookOpen/)
     })
   }
 })
