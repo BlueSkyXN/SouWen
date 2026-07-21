@@ -28,7 +28,7 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { m, AnimatePresence } from 'framer-motion'
-import { RefreshCw, FileText, Shield, Globe, Key, AlertTriangle, Info, ChevronDown } from 'lucide-react'
+import { RefreshCw, BookOpen, FileText, Shield, Globe, Key, AlertTriangle, Info, ChevronDown } from 'lucide-react'
 import { api } from '@core/services/api'
 import { useNotificationStore } from '@core/stores/notificationStore'
 import { useAuthStore } from '@core/stores/authStore'
@@ -59,6 +59,7 @@ const CATEGORY_ORDER = SOURCE_CATEGORY_ORDER
 const CATEGORY_LABELS = SOURCE_CATEGORY_LABEL_KEYS
 
 const CATEGORY_ICONS: Record<SourceCategory, typeof FileText> = {
+  book: BookOpen,
   paper: FileText,
   patent: Shield,
   web_general: Globe,
@@ -74,6 +75,7 @@ const CATEGORY_ICONS: Record<SourceCategory, typeof FileText> = {
 }
 
 const CATEGORY_COLORS: Record<SourceCategory, string> = {
+  book: '#007aff',
   paper: '#007aff',
   patent: '#ff9500',
   web_general: '#34c759',

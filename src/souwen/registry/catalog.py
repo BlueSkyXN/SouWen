@@ -58,6 +58,13 @@ class SourceCatalogEntry:
 
 _SOURCE_CATEGORIES: tuple[SourceCategory, ...] = (
     SourceCategory(
+        key="book",
+        label="图书/馆藏",
+        domain="book",
+        order=5,
+        description="图书 work、edition、馆藏与阅读资源元数据。",
+    ),
+    SourceCategory(
         key="paper",
         label="学术论文",
         domain="paper",
@@ -147,6 +154,7 @@ _SOURCE_CATEGORY_ORDER: dict[str, int] = {
     category.key: category.order for category in _SOURCE_CATEGORIES
 }
 _DOMAIN_TO_CATALOG_CATEGORY: dict[str, str] = {
+    "book": "book",
     "paper": "paper",
     "patent": "patent",
     "social": "social",

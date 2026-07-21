@@ -32,6 +32,7 @@ export interface HealthResponse {
  * 后端 Source Catalog 当前响应的正式分类。
  */
 export type SourceCategory =
+  | 'book'
   | 'paper'
   | 'patent'
   | 'web_general'
@@ -46,6 +47,7 @@ export type SourceCategory =
   | 'fetch'
 
 export const SOURCE_CATEGORY_ORDER: readonly SourceCategory[] = [
+  'book',
   'paper',
   'patent',
   'web_general',
@@ -61,6 +63,7 @@ export const SOURCE_CATEGORY_ORDER: readonly SourceCategory[] = [
 ]
 
 export const SOURCE_CATEGORY_LABEL_KEYS: Record<SourceCategory, string> = {
+  book: 'sources.categoryBook',
   paper: 'sources.categoryPaper',
   patent: 'sources.categoryPatent',
   web_general: 'sources.categoryWebGeneral',
@@ -406,6 +409,39 @@ export interface PaperResult {
   source_url: string
   tldr?: string | null
   raw?: Record<string, unknown>
+}
+
+export interface BookIdentifier {
+  scheme: 'isbn10' | 'isbn13' | 'lccn' | 'oclc' | 'olid' | 'doi' | 'source_record_id'
+  value: string
+}
+
+export interface BookResourceAccess {
+  status: 'metadata_only' | 'preview' | 'borrow' | 'open_access' | 'public_domain' | 'restricted' | 'unknown'
+  rights?: string | null
+  license_url?: string | null
+  machine_download?: boolean | null
+}
+
+export interface BookResourceLink {
+  url: string
+  relation: string
+  label?: string | null
+  source: string
+  access: BookResourceAccess
+}
+
+export interface BookResult {
+  source: string
+  source_record_id: string
+  title: string
+  authors: Author[]
+  subjects: string[]
+  first_publish_year?: number | null
+  identifiers: BookIdentifier[]
+  resources: BookResourceLink[]
+  access: BookResourceAccess
+  source_url: string
 }
 
 /**

@@ -1,4 +1,4 @@
-"""search 子命令组：paper / patent / web / images / videos"""
+"""search 子命令组：book / paper / patent / web / images / videos"""
 
 from __future__ import annotations
 
@@ -13,6 +13,8 @@ from souwen.editions import EditionError
 from souwen.registry import defaults_for
 
 search_app = typer.Typer(help="搜索论文/专利/网页")
+_DEFAULT_BOOK_SOURCES = defaults_for("book", "search")
+_DEFAULT_BOOK_SOURCES_LABEL = ",".join(_DEFAULT_BOOK_SOURCES)
 _DEFAULT_PAPER_SOURCES = defaults_for("paper", "search")
 _DEFAULT_PAPER_SOURCES_LABEL = ",".join(_DEFAULT_PAPER_SOURCES)
 _DEFAULT_PATENT_SOURCES = defaults_for("patent", "search")
@@ -24,6 +26,73 @@ _DEFAULT_WEB_ENGINES_LABEL = ",".join(_DEFAULT_WEB_ENGINES)
 def _exit_for_edition_error(exc: EditionError) -> None:
     console.print(f"[red]✗ {exc}[/red]")
     raise typer.Exit(1)
+
+
+@search_app.command("book")
+def search_book(
+    query: str = typer.Argument(..., help="搜索图书/馆藏"),
+    sources: str | None = typer.Option(
+        None,
+        "--sources",
+        "-s",
+        help=f"数据源，逗号分隔；默认 {_DEFAULT_BOOK_SOURCES_LABEL}",
+    ),
+    limit: int = typer.Option(5, "--limit", "-n", help="每个源返回数量"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),
+    timeout: int | None = typer.Option(None, "--timeout", "-t", help="总超时（秒），默认不限制"),
+) -> None:
+    """搜索 work 级图书书目。"""
+    from souwen.search import search_books
+
+    requested_sources = None
+    if sources is None:
+        source_list = list(_DEFAULT_BOOK_SOURCES)
+    else:
+        source_list = [source.strip() for source in sources.split(",") if source.strip()]
+        requested_sources = source_list
+
+    async def _do():
+        coro = search_books(query, sources=requested_sources, per_page=limit)
+        return await asyncio.wait_for(coro, timeout=timeout) if timeout is not None else await coro
+
+    with console.status(f"[bold green]搜索图书: {query} ..."):
+        try:
+            results = _run_async(_do())
+        except asyncio.TimeoutError:
+            console.print(f"[red]⏱ 搜索超时 (>{timeout}s)[/red]")
+            raise typer.Exit(124)
+        except EditionError as exc:
+            _exit_for_edition_error(exc)
+
+    if json_output:
+        from rich import print_json
+
+        print_json(
+            json.dumps([result.model_dump(mode="json") for result in results], ensure_ascii=False)
+        )
+        return
+
+    returned_sources = {result.source for result in results}
+    failed = [source for source in source_list if source not in returned_sources]
+    if failed:
+        console.print(f"[yellow]⚠ 以下数据源未返回结果: {', '.join(failed)}[/yellow]")
+    if not results:
+        console.print("[dim]未找到任何结果。[/dim]")
+        return
+    for response in results:
+        table = Table(title=f"📚 {response.source} ({len(response.results)} 条)", show_lines=True)
+        table.add_column("Title", style="cyan", max_width=55)
+        table.add_column("Authors", max_width=30)
+        table.add_column("First published", justify="center")
+        table.add_column("Source", style="green")
+        for book in response.results:
+            table.add_row(
+                book.title,
+                ", ".join(author.name for author in book.authors),
+                str(book.first_publish_year or ""),
+                book.source,
+            )
+        console.print(table)
 
 
 @search_app.command("paper")

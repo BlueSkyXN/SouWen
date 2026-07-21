@@ -28,7 +28,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useTranslation } from 'react-i18next'
 import { m, AnimatePresence } from 'framer-motion'
 import {
-  RefreshCw, FileText, Shield, Globe, Key, Star, Check, Sparkles, Zap, Server,
+  RefreshCw, BookOpen, FileText, Shield, Globe, Key, Star, Check, Sparkles, Zap, Server,
   ChevronDown, AlertTriangle, Save, Info, X, Activity, LayoutGrid, List,
 } from 'lucide-react'
 import { api } from '@core/services/api'
@@ -69,6 +69,7 @@ const CATEGORY_ORDER = SOURCE_CATEGORY_ORDER
 const CATEGORY_LABELS = SOURCE_CATEGORY_LABEL_KEYS
 
 const CATEGORY_ICONS: Record<SourceCategory, typeof FileText> = {
+  book: BookOpen,
   paper: FileText,
   patent: Shield,
   web_general: Globe,

@@ -45,6 +45,7 @@ export const SEARCH_CAPABILITIES = [
 export type Capability = typeof SEARCH_CAPABILITIES[number]
 
 export const SEARCH_DOMAINS = [
+  'book',
   'paper',
   'patent',
   'web',
@@ -93,6 +94,7 @@ export type SearchPageResponse =
 
 /** Domain → 支持的 capabilities 列表 */
 const DOMAIN_CAPABILITIES: Record<Domain, Capability[]> = {
+  book: ['search'],
   paper: ['search'],
   patent: ['search'],
   web: ['search', 'search_news', 'search_images', 'search_videos'],
@@ -206,7 +208,9 @@ export function useSearchPage(domain: string): SearchPageState {
 
     try {
       let resp: SearchPageResponse | SearchPageResponse[]
-      if (domain === 'paper') {
+      if (domain === 'book') {
+        resp = (await api.searchBook(trimmed, sourcesCSV, 10, controller.signal)) as SearchResponse
+      } else if (domain === 'paper') {
         resp = (await api.searchPaper(trimmed, sourcesCSV, 10, controller.signal)) as SearchResponse
       } else if (domain === 'patent') {
         resp = (await api.searchPatent(trimmed, sourcesCSV, 10, controller.signal)) as SearchResponse

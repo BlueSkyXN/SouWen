@@ -22,6 +22,18 @@ class SearchPaperResponse(BaseModel):
     )
 
 
+class SearchBookResponse(BaseModel):
+    """Book search response with work-level records from registry-backed sources."""
+
+    query: str
+    sources: list[str]
+    results: list[dict]
+    total: int
+    meta: SearchMeta = Field(
+        default_factory=lambda: SearchMeta(requested=[], succeeded=[], failed=[])
+    )
+
+
 class SearchPatentResponse(BaseModel):
     """专利搜索响应
 

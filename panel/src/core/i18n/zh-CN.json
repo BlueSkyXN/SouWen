@@ -350,6 +350,7 @@
     "auth": "认证",
     "enableHeader": "启用",
     "categoryAll": "全部",
+    "categoryBook": "图书/馆藏",
     "categoryPaper": "学术论文",
     "categoryPatent": "专利",
     "categoryWebGeneral": "通用搜索",

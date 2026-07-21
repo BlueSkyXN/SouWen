@@ -428,6 +428,24 @@ async def search_papers(
     )
 
 
+async def search_books(
+    query: str,
+    sources: list[str] | str | None = None,
+    per_page: int = 10,
+    **kwargs: Any,
+) -> list[SearchResponse]:
+    """Search work-level book catalog records through the registry."""
+    query = _normalize_query_text(query)
+    return await search(
+        query,
+        domain="book",
+        capability="search",
+        sources=sources,
+        limit=per_page,
+        **kwargs,
+    )
+
+
 async def search_patents(
     query: str,
     sources: list[str] | str | None = None,
@@ -601,6 +619,11 @@ def _default_paper_sources() -> list[str]:
     return defaults_for("paper", "search")
 
 
+def _default_book_sources() -> list[str]:
+    """默认图书源列表（从 registry 派生）。"""
+    return defaults_for("book", "search")
+
+
 def _default_patent_sources() -> list[str]:
     """默认专利源列表（从 registry 派生）。"""
     return defaults_for("patent", "search")
@@ -628,6 +651,7 @@ __all__ = [
     "search_by_capability",
     "search_all",
     "search_papers",
+    "search_books",
     "search_patents",
     "web_search",
 ]

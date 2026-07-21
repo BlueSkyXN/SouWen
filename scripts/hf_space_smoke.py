@@ -60,6 +60,8 @@ EXTRA_ZERO_KEY_PAPER_SOURCES = [
 ZERO_KEY_PATENT_SOURCES = [
     "google_patents",
 ]
+ZERO_KEY_BOOK_ROUTE_SOURCE = "open_library"
+ZERO_KEY_BOOK_ROUTE_QUERY = "the lord of the rings"
 ZERO_KEY_WEB_SCRAPERS = [
     "duckduckgo",
     "bing",
@@ -1622,6 +1624,49 @@ def list_sources_inventory(client: ApiClient) -> ProbeResult:
     )
 
 
+def open_library_search_route(client: ApiClient) -> ProbeResult:
+    """Probe the public book search route without borrowing, reading, or downloading content."""
+    resp = client.get(
+        "/api/v1/search/book",
+        params={
+            "q": ZERO_KEY_BOOK_ROUTE_QUERY,
+            "sources": ZERO_KEY_BOOK_ROUTE_SOURCE,
+            "per_page": 1,
+            "timeout": 45,
+        },
+        auth=True,
+        timeout=75,
+    )
+    total, succeeded, failed = summarize_search_response(resp.data)
+    counts = grouped_result_counts(resp.data)
+    count = counts.get(ZERO_KEY_BOOK_ROUTE_SOURCE, 0)
+    ok = resp.status == 200 and count > 0 and ZERO_KEY_BOOK_ROUTE_SOURCE in succeeded
+    detail = (
+        f"status={resp.status}, source={ZERO_KEY_BOOK_ROUTE_SOURCE}, total={total}, "
+        f"count={count}, succeeded={','.join(succeeded) or '-'}, "
+        f"failed={','.join(failed) or '-'}, operation=catalog-metadata-search"
+    )
+    return ProbeResult(
+        "zero-key-route",
+        "open-library-search",
+        "pass" if ok else "warn",
+        detail,
+        False,
+        resp.elapsed,
+        {
+            "matrix_kind": "direct-route",
+            "route": "/api/v1/search/book",
+            "source": ZERO_KEY_BOOK_ROUTE_SOURCE,
+            "query": ZERO_KEY_BOOK_ROUTE_QUERY,
+            "count": count,
+            "total": total,
+            "succeeded": succeeded,
+            "failed": failed,
+            "operation": "catalog-metadata-search",
+        },
+    )
+
+
 def opencitations_count_route(client: ApiClient) -> ProbeResult:
     """Verify the public OpenCitations count route without pretending graph pagination exists."""
     route = "/api/v1/citations/count?identifier=doi%3A10.1038%2Fnphys1170"
@@ -2323,6 +2368,13 @@ def run_zero_key_checks(
             "sources",
             lambda: list_sources_inventory(client),
             required=True,
+        )
+    )
+    results.append(
+        safe_call(
+            "zero-key-route",
+            "open-library-search",
+            lambda: open_library_search_route(client),
         )
     )
     results.append(

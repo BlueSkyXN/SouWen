@@ -992,6 +992,25 @@ def test_search_paper_uses_registry_defaults_when_sources_omitted(monkeypatch):
     assert captured == {"query": "test", "sources": None, "per_page": 5}
 
 
+def test_search_book_uses_registry_defaults_when_sources_omitted(monkeypatch):
+    """图书搜索省略 ``--sources`` 时，也应透传 ``None`` 给 registry 默认源。"""
+    import sys
+
+    search_module = sys.modules["souwen.search"]
+    captured = {}
+
+    async def fake_search(query, sources=None, per_page=10, **kwargs):
+        captured["query"] = query
+        captured["sources"] = sources
+        captured["per_page"] = per_page
+        return []
+
+    monkeypatch.setattr(search_module, "search_books", fake_search)
+    result = runner.invoke(app, ["search", "book", "test", "--json"])
+    assert result.exit_code == 0
+    assert captured == {"query": "test", "sources": None, "per_page": 5}
+
+
 def test_search_patent_uses_registry_defaults_when_sources_omitted(monkeypatch):
     """专利搜索省略 ``--sources`` 时，也应透传 ``None`` 给 registry 默认源。"""
     import sys

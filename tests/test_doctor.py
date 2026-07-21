@@ -113,6 +113,7 @@ class TestCheckAll:
         """所有 category 值在正式 catalog 分类中"""
         results = check_all()
         valid_cats = {
+            "book",
             "paper",
             "patent",
             "web_general",

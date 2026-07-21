@@ -618,6 +618,19 @@ def test_build_markdown_report_expands_open_sources_and_direct_routes():
                 "count": 20,
             },
         ),
+        smoke.ProbeResult(
+            "zero-key-route",
+            "open-library-search",
+            "pass",
+            "status=200, source=open_library, count=1, operation=catalog-metadata-search",
+            meta={
+                "matrix_kind": "direct-route",
+                "route": "/api/v1/search/book",
+                "source": "open_library",
+                "count": 1,
+                "operation": "catalog-metadata-search",
+            },
+        ),
     ]
 
     report = smoke.build_markdown_report(config, results)
@@ -627,6 +640,64 @@ def test_build_markdown_report_expands_open_sources_and_direct_routes():
     assert "`stackoverflow`" in report
     assert "### Direct API Routes" in report
     assert "`/api/v1/sources`" in report
+    assert "`/api/v1/search/book`" in report
+
+
+def test_open_library_search_route_uses_one_catalog_metadata_request():
+    class FakeClient:
+        calls: list[tuple[str, dict, bool, int]] = []
+
+        def get(self, path, *, params, auth, timeout):
+            FakeClient.calls.append((path, params, auth, timeout))
+            return smoke.ResponseData(
+                200,
+                {
+                    "total": 1,
+                    "results": [
+                        {
+                            "source": "open_library",
+                            "results": [
+                                {
+                                    "source": "open_library",
+                                    "source_record_id": "OL27448W",
+                                    "title": "The Lord of the Rings",
+                                }
+                            ],
+                        }
+                    ],
+                    "meta": {"succeeded": ["open_library"], "failed": []},
+                },
+                0.1,
+            )
+
+    result = smoke.open_library_search_route(FakeClient())
+
+    assert result.outcome == "pass"
+    assert result.required is False
+    assert result.meta == {
+        "matrix_kind": "direct-route",
+        "route": "/api/v1/search/book",
+        "source": "open_library",
+        "query": "the lord of the rings",
+        "count": 1,
+        "total": 1,
+        "succeeded": ["open_library"],
+        "failed": [],
+        "operation": "catalog-metadata-search",
+    }
+    assert FakeClient.calls == [
+        (
+            "/api/v1/search/book",
+            {
+                "q": "the lord of the rings",
+                "sources": "open_library",
+                "per_page": 1,
+                "timeout": 45,
+            },
+            True,
+            75,
+        )
+    ]
 
 
 def test_zero_key_search_sources_are_covered_or_explicitly_excluded():
@@ -637,6 +708,7 @@ def test_zero_key_search_sources_are_covered_or_explicitly_excluded():
         *smoke.ZERO_KEY_WEB_SCRAPERS,
         *smoke.ZERO_KEY_OPEN_SEARCH_SOURCES,
     }
+    direct_route_sources = {smoke.ZERO_KEY_BOOK_ROUTE_SOURCE}
     no_public_endpoint = set(smoke.EXCLUDED_NO_PUBLIC_ENDPOINT_SOURCES)
     required_key = set(smoke.EXCLUDED_REQUIRED_KEY_SEARCH_SOURCES)
     self_hosted = set(smoke.EXCLUDED_SELF_HOSTED_SEARCH_SOURCES)
@@ -659,7 +731,7 @@ def test_zero_key_search_sources_are_covered_or_explicitly_excluded():
         if adapter.resolved_needs_config and adapter.integration == "self_hosted"
     }
 
-    assert zero_key_search <= covered | no_public_endpoint
+    assert zero_key_search <= covered | direct_route_sources | no_public_endpoint
     assert required_search <= required_key
     assert self_hosted_search == self_hosted
 

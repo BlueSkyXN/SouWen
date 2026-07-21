@@ -16,9 +16,10 @@ from typing import Any
 
 # ── 常量 ────────────────────────────────────────────────────
 
-#: 业务领域（10 个）
+#: 业务领域（11 个）
 DOMAINS: frozenset[str] = frozenset(
     {
+        "book",
         "paper",
         "patent",
         "web",
@@ -121,6 +122,7 @@ STABILITIES: frozenset[str] = frozenset({"stable", "beta", "experimental", "depr
 #: category 描述面向用户和治理面的目录归类。
 SOURCE_CATEGORIES: frozenset[str] = frozenset(
     {
+        "book",
         "paper",
         "patent",
         "web_general",

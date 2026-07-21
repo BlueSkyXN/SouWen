@@ -6,6 +6,30 @@ import { describe, expect, it, vi } from 'vitest'
 import { searchMethods } from '../services/search'
 
 describe('search service', () => {
+  it('serializes book search to /search/book with source selection', async () => {
+    const request = vi.fn().mockResolvedValue({ query: 'The Hobbit', sources: [], results: [], total: 0 })
+    const signal = new AbortController().signal
+    const ctx = {
+      request,
+      headers: vi.fn().mockReturnValue({ 'Content-Type': 'application/json' }),
+    }
+
+    await searchMethods.searchBook.call(ctx as never, 'The Hobbit', 'open_library', 10, signal, 15)
+
+    expect(request).toHaveBeenCalledOnce()
+    const [path, options] = request.mock.calls[0]
+    const url = new URL(`http://souwen.local${path}`)
+    expect(url.pathname).toBe('/api/v1/search/book')
+    expect(url.searchParams.get('q')).toBe('The Hobbit')
+    expect(url.searchParams.get('sources')).toBe('open_library')
+    expect(url.searchParams.get('per_page')).toBe('10')
+    expect(url.searchParams.get('timeout')).toBe('15')
+    expect(options).toMatchObject({
+      headers: { 'Content-Type': 'application/json' },
+      signal,
+    })
+  })
+
   it('serializes news search options to /search/news', async () => {
     const request = vi.fn().mockResolvedValue({ query: 'ai news', engines: [], results: [], total: 0 })
     const signal = new AbortController().signal

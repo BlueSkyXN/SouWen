@@ -222,6 +222,7 @@ required `FAIL` 视为发布阻断。
 | OpenAlex anonymous contract | Manual | OpenAlex 请求参数、anonymous/key 行为和 registry metadata | `scripts/openalex_functional_check.py --mode live --execute --required` 只发送一次匿名 search，主动清除本地配置 key；写入 JSON/Markdown evidence，不进入普通 pytest 或自动 PR gate | Maintainer manual evidence |
 | ERIC anonymous search | Manual | ERIC pagination、normalizer 与 registry metadata | `scripts/eric_functional_check.py --mode live --execute --required` 只发送一次官方匿名 metadata search，写入 JSON/Markdown evidence，不进入普通 pytest 或自动 PR gate | Maintainer manual evidence |
 | OSTI.GOV anonymous search/detail | Manual | OSTI `q` 参数、分页、search/detail normalizer 与 registry capability metadata | `scripts/osti_functional_check.py --mode live --execute --required` 发送一次官方匿名 search 和同一记录的一次 detail 请求；写入 JSON/Markdown evidence，不进入普通 pytest 或自动 PR gate | Maintainer manual evidence |
+| Open Library anonymous work search/detail | Manual | Open Library search 参数、work/edition normalizer 与 registry metadata | `scripts/open_library_functional_check.py --mode live --execute --required` 只发送一次匿名 work search，随后对同一 work 请求一次有界 edition detail；只验证公开书目/资源元数据，不推断借阅、阅读或下载权利；写入 JSON/Markdown evidence，不进入普通 pytest 或自动 PR gate | Maintainer manual evidence |
 | HF Space smoke | deploy smoke / release gate | `hf_space_smoke` 参数、矩阵覆盖、admin-open gate 和 report 渲染的确定性单测 | private edge + 应用 admin 双层鉴权、surface/capability、admin-open required gate、统一 JSON Outcome report | `HF Space CD` |
 
 ## Secrets 边界
