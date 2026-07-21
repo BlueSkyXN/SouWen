@@ -9,6 +9,7 @@ import { listFavoriteSearches, listSearchHistory } from '../lib/searchMemory'
 import { api } from '../services/api'
 import type {
   ImageSearchResponse,
+  SearchResponse,
   SourceInfo,
   SourcesResponse,
   VideoSearchResponse,
@@ -200,5 +201,59 @@ describe('useSearchPage web capabilities', () => {
         sources: ['duckduckgo'],
       }),
     ])
+  })
+})
+
+describe('useSearchPage book domain', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    vi.spyOn(api, 'getSources').mockResolvedValue({
+      sources: [
+        {
+          ...source('open_library', ['search'], ['book:search']),
+          domain: 'book',
+          category: 'book',
+        },
+      ],
+      categories: [],
+      defaults: { 'book:search': ['open_library'] },
+    })
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('selects the book default and dispatches to searchBook', async () => {
+    const response: SearchResponse = {
+      query: 'The Hobbit',
+      sources: ['open_library'],
+      total: 0,
+      results: [],
+    }
+    const bookSpy = vi.spyOn(api, 'searchBook').mockResolvedValue(response)
+    const webSpy = vi.spyOn(api, 'searchWeb').mockRejectedValue(new Error('wrong endpoint'))
+    const { result } = renderHook(() => useSearchPage('book'))
+
+    await waitFor(() => {
+      expect(result.current.selectedSources).toEqual(['open_library'])
+    })
+    expect(result.current.supportedCapabilities).toEqual(['search'])
+
+    act(() => {
+      result.current.setQuery('  The Hobbit  ')
+    })
+    await act(async () => {
+      await result.current.handleSearch()
+    })
+
+    expect(bookSpy).toHaveBeenCalledWith(
+      'The Hobbit',
+      'open_library',
+      10,
+      expect.any(AbortSignal),
+    )
+    expect(webSpy).not.toHaveBeenCalled()
+    expect(result.current.responses).toEqual([response])
   })
 })

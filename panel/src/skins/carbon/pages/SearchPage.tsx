@@ -23,7 +23,7 @@ import { staggerContainer, staggerItem, fadeInUp } from '@core/lib/animations'
 import { useSearchPage, type Domain, type SearchPageResponse } from '@core/hooks/useSearchPage'
 import type {
   SearchResponse,
-  WebResult, PaperResult, PatentResult,
+  WebResult, PaperResult, PatentResult, BookResult,
 } from '@core/types'
 import styles from './SearchPage.module.scss'
 
@@ -226,8 +226,25 @@ export function SearchPage() {
 
   const renderItemCard = (item: unknown, i: number) => {
     if (domain === 'book') {
-      const book = item as { source: string; source_record_id: string; title: string; source_url: string; authors?: Array<{ name: string }>; first_publish_year?: number | null; subjects?: string[] }
-      return <m.article key={book.source_record_id || `book-${i}`} className={styles.resultCard} variants={staggerItem}><div className={styles.cardHeader}><h3 className={styles.resultTitle}><a href={book.source_url} target="_blank" rel="noopener noreferrer">{book.title}<ExternalLink size={12} className={styles.externalIcon} /></a></h3><span className={styles.sourceBadge}>{book.source}</span></div><div className={styles.resultMeta}>{book.authors?.length ? <span>{book.authors.map((author) => author.name).join(', ')}</span> : null}{book.first_publish_year ? <span>{book.first_publish_year}</span> : null}</div>{book.subjects?.length ? <p className={styles.resultAbstract}>{book.subjects.slice(0, 3).join(' · ')}</p> : null}</m.article>
+      const book = item as BookResult
+      return (
+        <m.article key={book.source_record_id || `book-${i}`} className={styles.resultCard} variants={staggerItem}>
+          <div className={styles.cardHeader}>
+            <h3 className={styles.resultTitle}>
+              <a href={book.source_url} target="_blank" rel="noopener noreferrer">
+                {book.title}
+                <ExternalLink size={12} className={styles.externalIcon} />
+              </a>
+            </h3>
+            <span className={styles.sourceBadge}>{book.source}</span>
+          </div>
+          <div className={styles.resultMeta}>
+            {book.authors.length > 0 && <span>{book.authors.map((author) => author.name).join(', ')}</span>}
+            {book.first_publish_year && <span>{book.first_publish_year}</span>}
+          </div>
+          {book.subjects.length > 0 && <p className={styles.resultAbstract}>{book.subjects.slice(0, 3).join(' · ')}</p>}
+        </m.article>
+      )
     }
     if (domain === 'paper') return renderPaperCard(item as PaperResult, i)
     if (domain === 'patent') return renderPatentCard(item as PatentResult, i)
@@ -237,6 +254,28 @@ export function SearchPage() {
   }
 
   const renderItemListItem = (item: unknown, i: number) => {
+    if (domain === 'book') {
+      const book = item as BookResult
+      const key = book.source_record_id || `book-list-${book.source}-${i}`
+      const authorStr = book.authors.slice(0, 3).map((author) => author.name).join(', ')
+      const subjects = book.subjects.slice(0, 3).join(' · ')
+      const dom = extractDomain(book.source_url)
+      return (
+        <div key={key} className={styles.resultListItem}>
+          {book.source && <span className={styles.badge}>{book.source}</span>}
+          <span className={styles.listTitle}>
+            <a href={book.source_url} target="_blank" rel="noopener noreferrer">
+              {book.title || t('search.untitled')}
+              <ExternalLink size={12} className={styles.externalIcon} />
+            </a>
+          </span>
+          {authorStr && <span className={styles.listMeta}>— {authorStr}</span>}
+          {book.first_publish_year && <span className={styles.listMeta}>— {book.first_publish_year}</span>}
+          {subjects && <span className={styles.listMeta}>— {subjects}</span>}
+          {dom && <span className={styles.listDomain} title={book.source_url}>— {dom}</span>}
+        </div>
+      )
+    }
     if (domain === 'paper') {
       const p = normalizePaper(item as PaperResult)
       const key = p.doi || `paper-list-${p.source}-${i}`
@@ -305,6 +344,28 @@ export function SearchPage() {
   }
 
   const renderItemGridCard = (item: unknown, i: number) => {
+    if (domain === 'book') {
+      const book = item as BookResult
+      const authors = book.authors.slice(0, 3).map((author) => author.name).join(', ')
+      const subjects = book.subjects.slice(0, 3).join(' · ')
+      const summary = [authors, book.first_publish_year?.toString(), subjects].filter(Boolean).join(' · ')
+      const dom = extractDomain(book.source_url)
+      return (
+        <m.article key={book.source_record_id || `book-grid-${i}`} className={styles.resultGridCard} variants={staggerItem}>
+          <div className={styles.gridCardHeader}>
+            {book.source && <span className={styles.badge}>{book.source}</span>}
+            {dom && <span className={styles.gridDomain} title={book.source_url}><Globe size={11} /> {dom}</span>}
+          </div>
+          <h3 className={styles.gridCardTitle}>
+            <a href={book.source_url} target="_blank" rel="noopener noreferrer">
+              {book.title || t('search.untitled')}
+              <ExternalLink size={12} className={styles.externalIcon} />
+            </a>
+          </h3>
+          {summary && <p className={styles.gridCardAbstract}>{summary}</p>}
+        </m.article>
+      )
+    }
     const media = mediaItemFromSearchResult(item, capability)
     if (media) {
       const key = media.url || `${media.kind}-grid-${i}`

@@ -58,6 +58,22 @@ def test_sources_endpoint_exposes_source_catalog_contract() -> None:
     assert "SourcesResponse" not in components
 
 
+def test_book_search_endpoint_exposes_typed_public_contract() -> None:
+    """``/api/v1/search/book`` must publish the work-level response schema."""
+    from souwen.server.app import app
+
+    schema = app.openapi()
+    operation = schema["paths"]["/api/v1/search/book"]["get"]
+    response_schema = operation["responses"]["200"]["content"]["application/json"]["schema"]
+
+    assert response_schema["$ref"].endswith("/SearchBookResponse")
+    components = schema["components"]["schemas"]
+    response_component = components[_component_name(response_schema["$ref"])]
+    assert {"query", "sources", "results", "total", "meta"} <= set(response_component["properties"])
+    parameters = {parameter["name"] for parameter in operation["parameters"]}
+    assert {"q", "sources", "per_page", "timeout"} <= parameters
+
+
 def test_doctor_endpoint_exposes_edition_contract() -> None:
     """``/api/v1/doctor`` response must include the current edition."""
     from souwen.server.app import app
