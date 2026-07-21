@@ -80,3 +80,24 @@ _reg(
         },
     )
 )
+
+_reg(
+    SourceAdapter(
+        name="library_of_congress",
+        domain="book",
+        category="book",
+        integration="official_api",
+        description="Library of Congress 书目与数字馆藏元数据（官方匿名 JSON API）",
+        config_field=None,
+        auth_requirement="none",
+        risk_level="low",
+        distribution="core",
+        stability="stable",
+        usage_note="数字资源、rights 与 access 逐条保留；不下载资源或推断再分发权利。",
+        client_loader=lazy("souwen.book.library_of_congress:LibraryOfCongressClient"),
+        methods={
+            "search": MethodSpec("search", _P_PER_PAGE),
+            "get_detail": MethodSpec("get_by_id", {"id": "record_id"}),
+        },
+    )
+)
