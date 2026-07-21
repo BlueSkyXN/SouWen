@@ -199,6 +199,8 @@ EXCLUDED_REQUIRED_KEY_SEARCH_SOURCES = [
     "zhipuai",
     "aliyun_iqs",
     "kimi_code",
+    "uniapi_ark_annotations_deepseek_v3_2_251201",
+    "uniapi_ark_annotations_doubao_seed_2_0_lite_260428",
     "twitter",
     "facebook",
     "youtube",
