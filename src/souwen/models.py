@@ -235,6 +235,19 @@ class BookEdition(BaseModel):
     resources: list[ResourceLink] = Field(default_factory=list)
 
 
+class BookAudioSection(BaseModel):
+    """One bounded audiobook section with its upstream reader and audio-link metadata."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source_section_id: str
+    section_number: int | None = None
+    title: str | None = None
+    readers: list[Author] = Field(default_factory=list)
+    duration_seconds: int | None = Field(default=None, ge=0)
+    resource: ResourceLink | None = None
+
+
 class BookResult(BaseModel):
     """A work-level normalized book catalog record with explicit provenance and access state."""
 
@@ -245,14 +258,17 @@ class BookResult(BaseModel):
     title: str
     authors: list[Author] = Field(default_factory=list)
     contributors: list[Author] = Field(default_factory=list)
+    readers: list[Author] = Field(default_factory=list)
     languages: list[str] = Field(default_factory=list)
     subjects: list[str] = Field(default_factory=list)
     collections: list[str] = Field(default_factory=list)
     publishers: list[str] = Field(default_factory=list)
     first_publish_year: int | None = None
+    copyright_year: int | None = None
     description: str | None = None
     identifiers: list[BookIdentifier] = Field(default_factory=list)
     editions: list[BookEdition] = Field(default_factory=list)
+    audio_sections: list[BookAudioSection] = Field(default_factory=list)
     resources: list[ResourceLink] = Field(default_factory=list)
     access: ResourceAccess = Field(default_factory=lambda: ResourceAccess(status="metadata_only"))
     source_url: str

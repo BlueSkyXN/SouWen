@@ -678,6 +678,7 @@ def test_build_markdown_report_expands_open_sources_and_direct_routes():
         ("internet_archive", "the lord of the rings", smoke.internet_archive_search_route),
         ("wikisource", "論語", smoke.wikisource_search_route),
         ("library_of_congress", "alice", smoke.library_of_congress_search_route),
+        ("librivox", "pride and prejudice", smoke.librivox_search_route),
     ],
 )
 def test_book_search_routes_use_one_catalog_metadata_request(source, query, probe):
