@@ -39,6 +39,19 @@ _reg(
 
 _reg(
     SourceAdapter(
+        name="eric",
+        domain="paper",
+        integration="official_api",
+        description="ERIC 教育研究文献（官方匿名 API）",
+        config_field=None,
+        auth_requirement="none",
+        client_loader=lazy("souwen.paper.eric:EricClient"),
+        methods={"search": MethodSpec("search", _P_ROWS)},
+    )
+)
+
+_reg(
+    SourceAdapter(
         name="semantic_scholar",
         domain="paper",
         integration="official_api",

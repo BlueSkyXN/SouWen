@@ -179,6 +179,7 @@ class TestModels:
         registry_names = set(enum_values())
         paper_sources = {
             "openalex",
+            "eric",
             "semantic_scholar",
             "crossref",
             "arxiv",
@@ -242,7 +243,7 @@ class TestModels:
         assert "web_" + "duckduckgo" not in registry_names
         assert "web_" + "bing" not in registry_names
         assert "fetch_" + "builtin" not in registry_names
-        assert len(paper_sources) == 19
+        assert len(paper_sources) == 20
         assert len(patent_sources) == 8
         assert len(web_sources) == 27
 
@@ -466,7 +467,7 @@ class TestUnifiedSearch:
         from souwen.search import _default_paper_sources
 
         paper_adapters = by_domain_and_capability("paper", "search")
-        assert len(paper_adapters) == 18  # 19 paper 源中 unpaywall 只有 find_oa，不含 search
+        assert len(paper_adapters) == 19  # 20 paper 源中 unpaywall 只有 find_oa，不含 search
         defaults = _default_paper_sources()
         assert defaults  # 必须非空
         names = {a.name for a in paper_adapters}
@@ -558,7 +559,7 @@ class TestCLI:
         for entry in catalog.values():
             counts[entry.category] = counts.get(entry.category, 0) + 1
 
-        assert counts["paper"] == 18
+        assert counts["paper"] == 19
         assert counts["patent"] == 8
         total_web = sum(
             counts[c]

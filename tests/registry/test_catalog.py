@@ -112,6 +112,7 @@ def test_default_source_map_references_existing_safe_entries() -> None:
 def test_adapter_registration_order_snapshot() -> None:
     assert tuple(all_adapters()) == (
         "openalex",
+        "eric",
         "semantic_scholar",
         "crossref",
         "arxiv",
