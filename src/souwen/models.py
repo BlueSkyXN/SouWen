@@ -205,7 +205,11 @@ class ResourceAccess(BaseModel):
 
 
 class ResourceLink(BaseModel):
-    """A source-provided resource link, such as a cover or external catalog record."""
+    """A source-provided resource link, such as a cover or external catalog record.
+
+    ``is_link_only`` records a source's file-link classification.  It is metadata,
+    not a statement that SouWen has verified download access.
+    """
 
     model_config = ConfigDict(extra="forbid")
 
@@ -216,6 +220,7 @@ class ResourceLink(BaseModel):
     size_bytes: int | None = Field(default=None, ge=0)
     media_type: str | None = None
     format: str | None = None
+    is_link_only: bool | None = None
     source: str
     access: ResourceAccess = Field(default_factory=ResourceAccess)
 

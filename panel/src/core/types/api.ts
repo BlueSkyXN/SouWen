@@ -478,6 +478,7 @@ export interface ResourceLink {
   size_bytes?: number | null
   media_type?: string | null
   format?: string | null
+  is_link_only?: boolean | null
   source: string
   access: ResourceAccess
 }
