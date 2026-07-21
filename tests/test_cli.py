@@ -393,6 +393,28 @@ def test_wayback_cli_exception_redacts_secret_detail(monkeypatch):
     assert "apiKey=***" in result.output
 
 
+def test_citation_cli_commands_are_registered_and_json_uses_public_facade(monkeypatch):
+    from souwen.models import CitationCountResponse
+
+    async def fake_count(identifier):
+        assert identifier == "doi:10.1/x"
+        return CitationCountResponse(
+            identifier={"scheme": "doi", "value": "10.1/x"},
+            count=3,
+            source_url="https://example.test",
+        )
+
+    monkeypatch.setattr("souwen.citations.get_citation_count", fake_count)
+    help_result = runner.invoke(app, ["citation", "--help"])
+    result = runner.invoke(app, ["citation", "count", "doi:10.1/x", "--json"])
+    assert help_result.exit_code == 0, help_result.output
+    for command in ("count", "incoming", "references"):
+        command_help = runner.invoke(app, ["citation", command, "--help"])
+        assert command_help.exit_code == 0, command_help.output
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output)["count"] == 3
+
+
 def test_config_show_indicates_unconfigured(monkeypatch, tmp_path):
     """无密码、无配置文件环境下，``config show`` 必须明确提示"未配置"。
 

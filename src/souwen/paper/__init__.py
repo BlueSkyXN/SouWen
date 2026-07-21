@@ -4,6 +4,7 @@
 - OpenAlexClient: OpenAlex (可匿名使用；可选 API Key 提高每日预算)
 - EricClient: ERIC 教育研究元数据（官方匿名 API）
 - OstiClient: OSTI.GOV 能源科研记录（官方匿名 API）
+- OpenCitationsClient: OpenCitations citation enrichment（官方匿名 API）
 - SemanticScholarClient: Semantic Scholar (可选Key)
 - CrossrefClient: Crossref (无需Key)
 - ArxivClient: arXiv (无需Key)
@@ -28,6 +29,7 @@
 from souwen.paper.openalex import OpenAlexClient
 from souwen.paper.eric import EricClient
 from souwen.paper.osti import OstiClient
+from souwen.paper.opencitations import OpenCitationsClient
 from souwen.paper.semantic_scholar import SemanticScholarClient
 from souwen.paper.crossref import CrossrefClient
 from souwen.paper.arxiv import ArxivClient
@@ -53,6 +55,7 @@ __all__ = [
     "OpenAlexClient",
     "EricClient",
     "OstiClient",
+    "OpenCitationsClient",
     "SemanticScholarClient",
     "CrossrefClient",
     "ArxivClient",

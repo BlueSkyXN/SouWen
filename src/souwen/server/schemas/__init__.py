@@ -70,6 +70,7 @@ from souwen.server.schemas.common import (
     SourceCategoryInfo,
     WhoamiResponse,
 )
+from souwen.server.schemas.citations import CitationCountResponse, CitationGraphResponse
 from souwen.server.schemas.fetch import (
     FetchRequest,
     FetchResponse,
@@ -108,6 +109,8 @@ __all__ = [
     "BilibiliVideoOwnerResponse",
     "BilibiliVideoStatResponse",
     "ConfigReloadResponse",
+    "CitationCountResponse",
+    "CitationGraphResponse",
     "DoctorResponse",
     "DoctorSourceResponse",
     "EditionCapabilitiesResponse",

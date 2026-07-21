@@ -23,6 +23,7 @@ from fastapi import APIRouter
 
 from souwen.server.routes.admin import admin_router
 from souwen.server.routes.bilibili import router as bilibili_router
+from souwen.server.routes.citations import router as citations_router
 from souwen.server.routes.doctor import router as doctor_router
 from souwen.server.routes.fetch import router as fetch_router
 from souwen.server.routes.fetch_summarize import router as fetch_summarize_router
@@ -42,6 +43,7 @@ router.include_router(wayback_router)
 router.include_router(sources_router)
 router.include_router(doctor_router)
 router.include_router(bilibili_router)
+router.include_router(citations_router)
 router.include_router(whoami_router)
 
 # LLM 端点 — 始终注册，运行时检查 llm.enabled

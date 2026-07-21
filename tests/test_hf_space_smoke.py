@@ -681,7 +681,7 @@ def test_zero_key_fetch_providers_are_covered_or_explicitly_excluded():
 
 
 def test_non_search_zero_key_capabilities_are_tested_or_explicitly_excluded():
-    covered_routes = {"duckduckgo_images", "duckduckgo_videos", "wayback"}
+    covered_routes = {"duckduckgo_images", "duckduckgo_videos", "wayback", "opencitations"}
     covered_fetch = {item["provider"] for item in smoke.ZERO_KEY_FETCH_PROVIDER_TESTS}
     skipped_fetch = {item["provider"] for item in smoke.ZERO_KEY_FETCH_SKIPPED}
     no_public_endpoint = set(smoke.EXCLUDED_NO_PUBLIC_ENDPOINT_SOURCES)

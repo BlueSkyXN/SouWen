@@ -347,6 +347,51 @@ def create_server() -> "Server":
                 },
             ),
             Tool(
+                name="citation_count",
+                description="查询 DOI、PMID 或 OMID 的 OpenCitations 被引计数。",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "identifier": {"type": "string", "description": "DOI、PMID 或 OMID"}
+                    },
+                    "required": ["identifier"],
+                },
+            ),
+            Tool(
+                name="citation_incoming",
+                description="查询 OpenCitations 被引边；max_edges 是本地输出上限，不是 upstream pagination。",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "identifier": {"type": "string", "description": "DOI、PMID 或 OMID"},
+                        "max_edges": {
+                            "type": "integer",
+                            "default": 100,
+                            "minimum": 1,
+                            "maximum": 1000,
+                        },
+                    },
+                    "required": ["identifier"],
+                },
+            ),
+            Tool(
+                name="citation_references",
+                description="查询 OpenCitations 参考文献边；max_edges 是本地输出上限，不是 upstream pagination。",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "identifier": {"type": "string", "description": "DOI、PMID 或 OMID"},
+                        "max_edges": {
+                            "type": "integer",
+                            "default": 100,
+                            "minimum": 1,
+                            "maximum": 1000,
+                        },
+                    },
+                    "required": ["identifier"],
+                },
+            ),
+            Tool(
                 name="get_status",
                 description="检查 SouWen 数据源可用性状态",
                 inputSchema={"type": "object", "properties": {}},
@@ -501,6 +546,29 @@ def create_server() -> "Server":
                     arguments["query"], engines=engines, max_results_per_engine=limit
                 )
                 result = response.model_dump(mode="json")
+
+            elif name == "citation_count":
+                from souwen.citations import get_citation_count
+
+                result = (await get_citation_count(arguments["identifier"])).model_dump(mode="json")
+
+            elif name == "citation_incoming":
+                from souwen.citations import get_incoming_citations
+
+                result = (
+                    await get_incoming_citations(
+                        arguments["identifier"], max_edges=arguments.get("max_edges", 100)
+                    )
+                ).model_dump(mode="json")
+
+            elif name == "citation_references":
+                from souwen.citations import get_references
+
+                result = (
+                    await get_references(
+                        arguments["identifier"], max_edges=arguments.get("max_edges", 100)
+                    )
+                ).model_dump(mode="json")
 
             elif name == "get_status":
                 from souwen.doctor import check_all, format_report

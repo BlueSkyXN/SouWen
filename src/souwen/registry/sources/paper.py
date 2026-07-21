@@ -18,7 +18,7 @@ from souwen.registry.sources._helpers import (
 )
 
 # ═════════════════════════════════════════════════════════════
-#  1. paper（21 源）
+#  1. paper（22 源）
 # ═════════════════════════════════════════════════════════════
 
 _reg(
@@ -34,6 +34,23 @@ _reg(
         client_loader=lazy("souwen.paper.openalex:OpenAlexClient"),
         methods={"search": MethodSpec("search", _P_PER_PAGE)},
         default_for=frozenset({"paper:search"}),
+    )
+)
+
+_reg(
+    SourceAdapter(
+        name="opencitations",
+        domain="paper",
+        integration="official_api",
+        description="OpenCitations 引用计数、被引与参考文献 enrichment（官方匿名 API）",
+        config_field=None,
+        auth_requirement="none",
+        client_loader=lazy("souwen.paper.opencitations:OpenCitationsClient"),
+        methods={
+            "opencitations:citation_count": MethodSpec("citation_count"),
+            "opencitations:citations": MethodSpec("citations"),
+            "opencitations:references": MethodSpec("references"),
+        },
     )
 )
 
