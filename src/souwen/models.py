@@ -55,8 +55,9 @@ Pydantic 配置策略：
 
 from __future__ import annotations
 
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Literal
+from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
@@ -235,6 +236,139 @@ class WebSearchResult(BaseModel):
     snippet: str = ""
     engine: str  # 引擎标识: duckduckgo / yahoo / brave
     raw: dict = Field(default_factory=dict)
+
+
+# ── Enriched web search contracts ───────────────────────────
+
+
+def _require_http_url(value: str, *, field_name: str) -> str:
+    value = value.strip()
+    parsed = urlsplit(value)
+    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+        raise ValueError(f"{field_name} 必须是带 hostname 的 http/https URL")
+    return value
+
+
+class SearchSnippet(BaseModel):
+    """A result text fragment with an explicit origin instead of an ambiguous summary."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    text: str
+    type: Literal["provider_snippet", "provider_summary", "extractive", "generated"]
+    provider: str | None = None
+    model: str | None = None
+
+    @field_validator("text")
+    @classmethod
+    def _require_text(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("text 不能为空")
+        return value
+
+
+class SearchSourceProvenance(BaseModel):
+    """Auditable identity for one source attempt that discovered a candidate."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source_id: str
+    scheme_id: str
+    gateway_id: str | None = None
+    upstream_channel: str | None = None
+    requested_model_id: str
+    served_model_id: str | None = None
+    protocol: str | None = None
+    tool_schema: str | None = None
+    search_call_status: str | None = None
+    response_status: str | None = None
+    partial: bool = False
+    attempt_index: int = Field(default=1, ge=1)
+    source_strategy: Literal["single", "fanout", "first_success"] = "single"
+    retrieved_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+    @field_validator("source_id", "scheme_id", "requested_model_id")
+    @classmethod
+    def _require_identity(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("source/scheme/model identity 不能为空")
+        return value
+
+
+class SearchCandidate(BaseModel):
+    """Internal discovery state; title may be absent until the fetch title gate succeeds."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: str | None = None
+    url: str
+    provider_snippet: SearchSnippet | None = None
+    published_at: str | None = None
+    site_name: str | None = None
+    favicon_url: str | None = None
+    provenance: SearchSourceProvenance
+
+    @field_validator("url", "favicon_url")
+    @classmethod
+    def _validate_urls(cls, value: str | None, info) -> str | None:
+        if value is None:
+            return None
+        return _require_http_url(value, field_name=info.field_name)
+
+    @field_validator("title")
+    @classmethod
+    def _normalize_optional_title(cls, value: str | None) -> str | None:
+        return value.strip() if value and value.strip() else None
+
+
+class EnrichedWebSearchResult(BaseModel):
+    """Final enriched result; title, URL and discovery provenance are mandatory."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    result_id: str
+    rank: int = Field(ge=1)
+    title: str
+    url: str
+    canonical_url: str
+    provider_snippet: SearchSnippet | None = None
+    content_excerpt: SearchSnippet | None = None
+    content: str | None = None
+    summary: SearchSnippet | None = None
+    published_at: str | None = None
+    site_name: str | None = None
+    site_domain: str
+    favicon_url: str | None = None
+    discoveries: list[SearchSourceProvenance] = Field(min_length=1)
+    fetch_status: Literal["not_requested", "success", "failed"]
+    fetch_provider: str | None = None
+    fetch_error: str | None = None
+    content_hash: str | None = None
+
+    @field_validator("result_id", "title", "site_domain")
+    @classmethod
+    def _require_nonempty_text(cls, value: str) -> str:
+        value = value.strip()
+        if not value:
+            raise ValueError("required result field 不能为空")
+        return value
+
+    @field_validator("url", "canonical_url", "favicon_url")
+    @classmethod
+    def _validate_result_urls(cls, value: str | None, info) -> str | None:
+        if value is None:
+            return None
+        return _require_http_url(value, field_name=info.field_name)
+
+    @model_validator(mode="after")
+    def _validate_snippet_origins(self) -> "EnrichedWebSearchResult":
+        if self.content_excerpt is not None and self.content_excerpt.type != "extractive":
+            raise ValueError("content_excerpt 必须是 extractive snippet")
+        if self.summary is not None and self.summary.type != "generated":
+            raise ValueError("summary 必须是 generated snippet")
+        return self
 
 
 class SearchResponse(BaseModel):
