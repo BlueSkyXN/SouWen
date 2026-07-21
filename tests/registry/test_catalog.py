@@ -135,6 +135,7 @@ def test_adapter_registration_order_snapshot() -> None:
         "ieee_xplore",
         "unpaywall",
         "open_library",
+        "internet_archive",
         "patentsview",
         "pqai",
         "epo_ops",

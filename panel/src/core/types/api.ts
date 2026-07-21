@@ -427,6 +427,10 @@ export interface BookResourceLink {
   url: string
   relation: string
   label?: string | null
+  file_name?: string | null
+  size_bytes?: number | null
+  media_type?: string | null
+  format?: string | null
   source: string
   access: BookResourceAccess
 }
@@ -437,6 +441,7 @@ export interface BookResult {
   title: string
   authors: Author[]
   subjects: string[]
+  collections: string[]
   first_publish_year?: number | null
   identifiers: BookIdentifier[]
   resources: BookResourceLink[]

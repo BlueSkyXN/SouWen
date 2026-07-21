@@ -4,8 +4,8 @@
 
 | 指标 | 数量 | 定义 |
 |---|---:|---|
-| Registered | **101** | 当前生成进程注册的 `SourceAdapter`；默认只含内置源 |
-| Public | **100** | `catalog_visibility=public`，进入公开 Source Catalog |
+| Registered | **102** | 当前生成进程注册的 `SourceAdapter`；默认只含内置源 |
+| Public | **101** | `catalog_visibility=public`，进入公开 Source Catalog |
 | Hidden / internal | **1** | 已注册但不进入公开 Source Catalog |
 | Fetch primary-domain | **17** | 主 `domain=fetch` 的公开源 |
 | Fetch cross-domain | **7** | 其他主 domain 通过 `extra_domains` 暴露 `fetch` |
@@ -200,10 +200,11 @@
 | `xcrawl` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch, search | `xcrawl_api_key` |
 | `zenrows` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch | `zenrows_api_key` |
 
-## book · `book`（1 源）
+## book · `book`（2 源）
 
 | Name | Integration | Auth | Risk | Distribution | Stability | Extra | Capabilities | Credentials |
 |---|---|---|---|---|---|---|---|---|
+| `internet_archive` | official_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | get_detail, search | — |
 | `open_library` | official_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | get_detail, search | — |
 
 <!-- END AUTO -->

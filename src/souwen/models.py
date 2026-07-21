@@ -212,6 +212,8 @@ class ResourceLink(BaseModel):
     url: str
     relation: str
     label: str | None = None
+    file_name: str | None = None
+    size_bytes: int | None = Field(default=None, ge=0)
     media_type: str | None = None
     format: str | None = None
     source: str
@@ -245,6 +247,7 @@ class BookResult(BaseModel):
     contributors: list[Author] = Field(default_factory=list)
     languages: list[str] = Field(default_factory=list)
     subjects: list[str] = Field(default_factory=list)
+    collections: list[str] = Field(default_factory=list)
     publishers: list[str] = Field(default_factory=list)
     first_publish_year: int | None = None
     description: str | None = None
