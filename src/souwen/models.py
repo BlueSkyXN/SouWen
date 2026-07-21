@@ -277,7 +277,7 @@ class SearchSourceProvenance(BaseModel):
     scheme_id: str
     gateway_id: str | None = None
     upstream_channel: str | None = None
-    requested_model_id: str
+    requested_model_id: str | None = None
     served_model_id: str | None = None
     protocol: str | None = None
     tool_schema: str | None = None
@@ -288,7 +288,7 @@ class SearchSourceProvenance(BaseModel):
     source_strategy: Literal["single", "fanout", "first_success"] = "single"
     retrieved_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-    @field_validator("source_id", "scheme_id", "requested_model_id")
+    @field_validator("source_id", "scheme_id")
     @classmethod
     def _require_identity(cls, value: str) -> str:
         value = value.strip()
