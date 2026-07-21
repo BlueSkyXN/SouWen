@@ -34,6 +34,7 @@ export interface HealthResponse {
 export type SourceCategory =
   | 'book'
   | 'paper'
+  | 'research_output'
   | 'patent'
   | 'web_general'
   | 'web_professional'
@@ -49,6 +50,7 @@ export type SourceCategory =
 export const SOURCE_CATEGORY_ORDER: readonly SourceCategory[] = [
   'book',
   'paper',
+  'research_output',
   'patent',
   'web_general',
   'web_professional',
@@ -65,6 +67,7 @@ export const SOURCE_CATEGORY_ORDER: readonly SourceCategory[] = [
 export const SOURCE_CATEGORY_LABEL_KEYS: Record<SourceCategory, string> = {
   book: 'sources.categoryBook',
   paper: 'sources.categoryPaper',
+  research_output: 'sources.categoryResearchOutput',
   patent: 'sources.categoryPatent',
   web_general: 'sources.categoryWebGeneral',
   web_professional: 'sources.categoryWebProfessional',
@@ -382,6 +385,138 @@ export interface Author {
   orcid?: string | null
 }
 
+/** DataCite creator or contributor, retaining its upstream name semantics. */
+export interface ResearchOutputPerson {
+  name: string
+  given_name?: string | null
+  family_name?: string | null
+  name_type?: string | null
+  contributor_type?: string | null
+  affiliations: string[]
+  identifiers: ResearchOutputIdentifier[]
+}
+
+export interface ResearchOutputIdentifier {
+  scheme: string
+  value: string
+  url?: string | null
+}
+
+export interface ResearchOutputDate {
+  value: string
+  date_type?: string | null
+  information?: string | null
+}
+
+export interface ResearchOutputSubject {
+  subject: string
+  scheme?: string | null
+  scheme_uri?: string | null
+  value_uri?: string | null
+  language?: string | null
+  classification_code?: string | null
+}
+
+export interface ResearchOutputDescription {
+  value: string
+  description_type?: string | null
+  language?: string | null
+}
+
+export interface ResearchOutputFundingReference {
+  funder_name?: string | null
+  funder_identifier?: string | null
+  funder_identifier_type?: string | null
+  award_number?: string | null
+  award_uri?: string | null
+  award_title?: string | null
+}
+
+export interface ResearchOutputRight {
+  rights?: string | null
+  rights_uri?: string | null
+  rights_identifier?: string | null
+  rights_identifier_scheme?: string | null
+  scheme_uri?: string | null
+  language?: string | null
+}
+
+export interface ResearchOutputRelatedIdentifier {
+  value: string
+  identifier_type?: string | null
+  relation_type?: string | null
+  resource_type_general?: string | null
+  related_metadata_scheme?: string | null
+  scheme_uri?: string | null
+  scheme_type?: string | null
+  relation_type_information?: string | null
+}
+
+export type ResourceAccessStatus =
+  | 'metadata_only'
+  | 'preview'
+  | 'borrow'
+  | 'open_access'
+  | 'public_domain'
+  | 'restricted'
+  | 'unknown'
+
+export interface ResourceAccess {
+  status: ResourceAccessStatus
+  rights?: string | null
+  license_url?: string | null
+  region?: string | null
+  notes?: string | null
+  machine_download?: boolean | null
+}
+
+export interface ResourceLink {
+  url: string
+  relation: string
+  label?: string | null
+  file_name?: string | null
+  size_bytes?: number | null
+  media_type?: string | null
+  format?: string | null
+  source: string
+  access: ResourceAccess
+}
+
+/**
+ * Non-paper scholarly output returned by the research-output API.
+ *
+ * Resource type, rights and links intentionally remain explicit: a content URL
+ * is source metadata, not a claim that the client may download it.
+ */
+export interface ResearchOutputResult {
+  source: string
+  source_record_id: string
+  title: string
+  titles: string[]
+  creators: ResearchOutputPerson[]
+  contributors: ResearchOutputPerson[]
+  publisher?: string | null
+  publication_year?: number | null
+  dates: ResearchOutputDate[]
+  subjects: ResearchOutputSubject[]
+  descriptions: ResearchOutputDescription[]
+  funding_references: ResearchOutputFundingReference[]
+  resource_type_general?: string | null
+  resource_type?: string | null
+  rights_list: ResearchOutputRight[]
+  related_identifiers: ResearchOutputRelatedIdentifier[]
+  geo_locations: Record<string, unknown>[]
+  identifiers: ResearchOutputIdentifier[]
+  language?: string | null
+  version?: string | null
+  landing_url?: string | null
+  content_urls: string[]
+  resources: ResourceLink[]
+  access: ResourceAccess
+  source_url: string
+  retrieved_at?: string | null
+}
+
 /**
  * 专利申请人对象
  */
@@ -416,24 +551,9 @@ export interface BookIdentifier {
   value: string
 }
 
-export interface BookResourceAccess {
-  status: 'metadata_only' | 'preview' | 'borrow' | 'open_access' | 'public_domain' | 'restricted' | 'unknown'
-  rights?: string | null
-  license_url?: string | null
-  machine_download?: boolean | null
-}
+export type BookResourceAccess = ResourceAccess
 
-export interface BookResourceLink {
-  url: string
-  relation: string
-  label?: string | null
-  file_name?: string | null
-  size_bytes?: number | null
-  media_type?: string | null
-  format?: string | null
-  source: string
-  access: BookResourceAccess
-}
+export type BookResourceLink = ResourceLink
 
 export interface BookAudioSection {
   source_section_id: string
@@ -504,7 +624,17 @@ export interface SearchSourceResult {
   query: string
   source: string
   total_results?: number | null
-  results: (PaperResult | PatentResult | WebResult)[]
+  results: (PaperResult | PatentResult | ResearchOutputResult | WebResult)[]
+  page?: number
+  per_page?: number
+}
+
+/** Source-scoped research-output records retain the non-paper result contract. */
+export interface ResearchOutputSearchSourceResult {
+  query: string
+  source: string
+  total_results?: number | null
+  results: ResearchOutputResult[]
   page?: number
   per_page?: number
 }
@@ -516,6 +646,14 @@ export interface SearchResponse {
   query: string
   sources: string[]
   results: SearchSourceResult[]
+  total: number
+}
+
+/** Aggregated response from `/api/v1/search/research-output`. */
+export interface ResearchOutputSearchResponse {
+  query: string
+  sources: string[]
+  results: ResearchOutputSearchSourceResult[]
   total: number
 }
 

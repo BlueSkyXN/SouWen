@@ -61,6 +61,7 @@ const CATEGORY_LABELS = SOURCE_CATEGORY_LABEL_KEYS
 const CATEGORY_ICONS: Record<SourceCategory, typeof FileText> = {
   book: BookOpen,
   paper: FileText,
+  research_output: FileText,
   patent: Shield,
   web_general: Globe,
   web_professional: Globe,
@@ -77,6 +78,7 @@ const CATEGORY_ICONS: Record<SourceCategory, typeof FileText> = {
 const CATEGORY_BORDER: Record<SourceCategory, string> = {
   book: styles.borderPaper,
   paper: styles.borderPaper,
+  research_output: styles.borderPaper,
   patent: styles.borderPatent,
   web_general: styles.borderWeb,
   web_professional: styles.borderWeb,

@@ -10,6 +10,7 @@ from pydantic import BaseModel, Field
 SOURCE_CATEGORY_ORDER = (
     "book",
     "paper",
+    "research_output",
     "patent",
     "web_general",
     "web_professional",

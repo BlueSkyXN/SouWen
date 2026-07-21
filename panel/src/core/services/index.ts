@@ -30,6 +30,7 @@ import { whoamiMethods } from './whoami'
 import { pluginsMethods } from './plugins'
 import type {
   SearchResponse,
+  ResearchOutputSearchResponse,
   WebSearchResponse,
   ImageSearchResponse,
   VideoSearchResponse,
@@ -84,6 +85,7 @@ export interface ApiService {
   // === search ===
   searchBook(q: string, sources: string, perPage: number, signal?: AbortSignal, timeout?: number): Promise<SearchResponse>
   searchPaper(q: string, sources: string, perPage: number, signal?: AbortSignal, timeout?: number): Promise<SearchResponse>
+  searchResearchOutputs(q: string, sources: string, perPage: number, signal?: AbortSignal, timeout?: number): Promise<ResearchOutputSearchResponse>
   searchPatent(q: string, sources: string, perPage: number, signal?: AbortSignal, timeout?: number): Promise<SearchResponse>
   searchWeb(q: string, engines: string, maxResults: number, signal?: AbortSignal, timeout?: number): Promise<WebSearchResponse>
   searchNews(q: string, maxResults?: number, region?: string, safesearch?: string, timeRange?: string, signal?: AbortSignal, timeout?: number, sources?: string): Promise<WebSearchResponse>

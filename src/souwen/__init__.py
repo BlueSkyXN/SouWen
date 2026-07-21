@@ -2,7 +2,13 @@
 
 __version__ = "2.0.0rc1"
 
-from souwen.search import search, search_books, search_papers, search_patents
+from souwen.search import (
+    search,
+    search_books,
+    search_papers,
+    search_patents,
+    search_research_outputs,
+)
 from souwen.citations import get_citation_count, get_incoming_citations, get_references
 from souwen.wikisource import get_wikisource_page_detail
 from souwen.web.search import web_search
@@ -12,6 +18,7 @@ __all__ = [
     "search",
     "search_papers",
     "search_books",
+    "search_research_outputs",
     "search_patents",
     "get_citation_count",
     "get_incoming_citations",

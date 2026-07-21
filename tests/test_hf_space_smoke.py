@@ -748,6 +748,7 @@ def test_zero_key_search_sources_are_covered_or_explicitly_excluded():
     }
     direct_route_sources = set(smoke.ZERO_KEY_BOOK_ROUTE_SOURCES)
     no_public_endpoint = set(smoke.EXCLUDED_NO_PUBLIC_ENDPOINT_SOURCES)
+    manual_external_live = set(smoke.EXCLUDED_HFS_EXTERNAL_LIVE_SEARCH_SOURCES)
     required_key = set(smoke.EXCLUDED_REQUIRED_KEY_SEARCH_SOURCES)
     self_hosted = set(smoke.EXCLUDED_SELF_HOSTED_SEARCH_SOURCES)
 
@@ -769,7 +770,10 @@ def test_zero_key_search_sources_are_covered_or_explicitly_excluded():
         if adapter.resolved_needs_config and adapter.integration == "self_hosted"
     }
 
-    assert zero_key_search <= covered | direct_route_sources | no_public_endpoint
+    assert (
+        zero_key_search
+        <= covered | direct_route_sources | no_public_endpoint | manual_external_live
+    )
     assert required_search <= required_key
     assert self_hosted_search == self_hosted
 

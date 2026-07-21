@@ -225,6 +225,7 @@ EXCLUDED_REQUIRED_KEY_SEARCH_SOURCES = [
 ]
 EXCLUDED_SELF_HOSTED_SEARCH_SOURCES = ["searxng", "whoogle", "websurfx"]
 EXCLUDED_NO_PUBLIC_ENDPOINT_SOURCES = ["unpaywall", "duckduckgo_news", "doab", "oapen"]
+EXCLUDED_HFS_EXTERNAL_LIVE_SEARCH_SOURCES = ["datacite"]
 EXCLUDED_REQUIRED_KEY_FETCH_PROVIDERS = [
     "metaso",
     "tavily",
@@ -2914,6 +2915,8 @@ def append_zero_key_matrix(lines: list[str], results: list[ProbeResult]) -> None
             "Requires user-managed service URL. |",
             f"| No public CD endpoint | `{', '.join(EXCLUDED_NO_PUBLIC_ENDPOINT_SOURCES)}` | "
             "Registered capability exists, but the current HFS API has no matching route. |",
+            f"| Manual external live gate | `{', '.join(EXCLUDED_HFS_EXTERNAL_LIVE_SEARCH_SOURCES)}` | "
+            "Public route exists, but upstream availability is covered by its dedicated maintainer smoke. |",
             f"| Required-key fetch | `{', '.join(EXCLUDED_REQUIRED_KEY_FETCH_PROVIDERS)}` | "
             "Requires API key or paid/browser-rendering account. |",
             f"| External-runtime fetch | `{', '.join(item['provider'] for item in ZERO_KEY_FETCH_SKIPPED)}` | "

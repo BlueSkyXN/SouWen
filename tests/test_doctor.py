@@ -114,6 +114,7 @@ class TestCheckAll:
         results = check_all()
         valid_cats = {
             "book",
+            "research_output",
             "paper",
             "patent",
             "web_general",

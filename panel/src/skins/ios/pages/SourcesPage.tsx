@@ -61,6 +61,7 @@ const CATEGORY_LABELS = SOURCE_CATEGORY_LABEL_KEYS
 const CATEGORY_ICONS: Record<SourceCategory, typeof FileText> = {
   book: BookOpen,
   paper: FileText,
+  research_output: FileText,
   patent: Shield,
   web_general: Globe,
   web_professional: Globe,
@@ -77,6 +78,7 @@ const CATEGORY_ICONS: Record<SourceCategory, typeof FileText> = {
 const CATEGORY_COLORS: Record<SourceCategory, string> = {
   book: '#007aff',
   paper: '#007aff',
+  research_output: '#5856d6',
   patent: '#ff9500',
   web_general: '#34c759',
   web_professional: '#5856d6',

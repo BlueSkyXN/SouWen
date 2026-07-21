@@ -8,6 +8,7 @@
 
 import type { NormalizedPaper, NormalizedPatent, NormalizedWeb } from './normalize'
 import type { SearchMediaItem } from './searchMedia'
+import type { ResearchOutputResult } from '../types'
 
 /** 导出列定义 */
 interface Column<T> {
@@ -54,6 +55,20 @@ const MEDIA_COLUMNS: Column<SearchMediaItem>[] = [
   { header: '摘要', accessor: (m) => m.description },
   { header: '时长', accessor: (m) => m.duration },
   { header: '元数据', accessor: (m) => m.meta },
+]
+
+const RESEARCH_OUTPUT_COLUMNS: Column<ResearchOutputResult>[] = [
+  { header: '标题', accessor: (item) => item.title },
+  { header: '资源类型', accessor: (item) => [item.resource_type_general, item.resource_type].filter(Boolean).join(' · ') },
+  { header: '创建者', accessor: (item) => item.creators.map((person) => person.name).filter(Boolean).join('; ') },
+  { header: '发布者', accessor: (item) => item.publisher ?? '' },
+  { header: '年份', accessor: (item) => item.publication_year?.toString() ?? '' },
+  { header: '权利与许可', accessor: (item) => item.rights_list.map((right) => right.rights || right.rights_uri || '').filter(Boolean).join('; ') },
+  { header: '访问状态', accessor: (item) => item.access.status },
+  { header: '落地页', accessor: (item) => item.landing_url || item.source_url },
+  { header: '内容链接', accessor: (item) => item.content_urls.join('; ') },
+  { header: '资源链接', accessor: (item) => item.resources.map((resource) => resource.url).join('; ') },
+  { header: '来源', accessor: (item) => item.source },
 ]
 
 interface MarkdownField {
@@ -200,6 +215,27 @@ function mediaMarkdownEntries(items: SearchMediaItem[]): MarkdownEntry[] {
   }))
 }
 
+function researchOutputMarkdownEntries(items: ResearchOutputResult[]): MarkdownEntry[] {
+  return items.map((item) => ({
+    title: item.title,
+    url: item.landing_url || item.source_url,
+    summary: item.descriptions.map((description) => description.value).find(Boolean),
+    tag: 'research-output',
+    fields: [
+      { label: 'source', value: item.source },
+      { label: 'source_record_id', value: item.source_record_id },
+      { label: 'resource_type', value: [item.resource_type_general, item.resource_type].filter(Boolean).join(' · ') },
+      { label: 'creators', value: item.creators.map((person) => person.name).filter(Boolean).join('; ') },
+      { label: 'publisher', value: item.publisher ?? '' },
+      { label: 'publication_year', value: item.publication_year?.toString() ?? '' },
+      { label: 'rights', value: item.rights_list.map((right) => right.rights || right.rights_uri || '').filter(Boolean).join('; ') },
+      { label: 'access', value: item.access.status },
+      { label: 'content_urls', value: item.content_urls.join('; ') },
+      { label: 'resource_links', value: item.resources.map((resource) => resource.url).join('; ') },
+    ],
+  }))
+}
+
 /** 生成 CSV 字符串 */
 function toCSV<T>(items: T[], columns: Column<T>[]): string {
   const header = columns.map((c) => csvEscape(c.header)).join(',')
@@ -301,5 +337,21 @@ export function exportMediaResults(items: SearchMediaItem[], format: ExportForma
     downloadBlob(toXLSHtml(items, MEDIA_COLUMNS), `souwen_media_${ts}.xls`, 'application/vnd.ms-excel')
   } else {
     downloadBlob(toKnowledgeMarkdown('media', mediaMarkdownEntries(items)), `souwen_media_${ts}.md`, 'text/markdown')
+  }
+}
+
+/** Export research-output metadata without implying that a linked file may be downloaded. */
+export function exportResearchOutputs(items: ResearchOutputResult[], format: ExportFormat = 'csv') {
+  const ts = timestamp()
+  if (format === 'csv') {
+    downloadBlob(toCSV(items, RESEARCH_OUTPUT_COLUMNS), `souwen_research_outputs_${ts}.csv`, 'text/csv')
+  } else if (format === 'xls') {
+    downloadBlob(toXLSHtml(items, RESEARCH_OUTPUT_COLUMNS), `souwen_research_outputs_${ts}.xls`, 'application/vnd.ms-excel')
+  } else {
+    downloadBlob(
+      toKnowledgeMarkdown('research output', researchOutputMarkdownEntries(items)),
+      `souwen_research_outputs_${ts}.md`,
+      'text/markdown',
+    )
   }
 }

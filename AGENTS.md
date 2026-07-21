@@ -29,6 +29,7 @@ integration, plugin loading, and an embedded React/Vite management panel.
 | `src/souwen/registry/` | SourceAdapter, Source Catalog, registry loader, views and capability metadata | yes | Changing catalog shape, source defaults, capabilities, adapter validation or registry views |
 | `src/souwen/registry/sources/` | Built-in source declarations and `MethodSpec` mappings | yes | Adding/removing/classifying sources or changing credentials/risk/default metadata |
 | `src/souwen/paper/` | Paper provider clients and paper result normalization | yes | Changing paper providers, paper parsing, credentials or paper tests |
+| `src/souwen/research_output/` | Dataset, software and other non-paper research-output providers and normalization | yes | Changing research-output providers, type/rights/resource mapping or research-output tests |
 | `src/souwen/patent/` | Patent provider clients, OAuth credentials and patent result normalization | yes | Changing patent providers, credential handling, scraping behavior or patent tests |
 | `src/souwen/web/` | Web/search/fetch/archive/social/video clients and fetch aggregation | yes | Changing web providers, fetch providers, SSRF checks, scraping behavior or routing |
 | `src/souwen/web/bilibili/` | Bilibili-specific client, WBI signing, models and errors | yes | Changing Bilibili request signing, cookie behavior, upstream error mapping or models |

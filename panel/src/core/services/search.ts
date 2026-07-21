@@ -5,6 +5,7 @@
 
 import type { ApiServiceBase } from './_base'
 import type {
+  ResearchOutputSearchResponse,
   SearchResponse,
   WebSearchResponse,
   ImageSearchResponse,
@@ -14,6 +15,7 @@ import type {
 export interface SearchApi {
   searchBook(q: string, sources: string, perPage: number, signal?: AbortSignal, timeout?: number): Promise<SearchResponse>
   searchPaper(q: string, sources: string, perPage: number, signal?: AbortSignal, timeout?: number): Promise<SearchResponse>
+  searchResearchOutputs(q: string, sources: string, perPage: number, signal?: AbortSignal, timeout?: number): Promise<ResearchOutputSearchResponse>
   searchPatent(q: string, sources: string, perPage: number, signal?: AbortSignal, timeout?: number): Promise<SearchResponse>
   searchWeb(q: string, engines: string, maxResults: number, signal?: AbortSignal, timeout?: number): Promise<WebSearchResponse>
   searchNews(q: string, maxResults?: number, region?: string, safesearch?: string, timeRange?: string, signal?: AbortSignal, timeout?: number, sources?: string): Promise<WebSearchResponse>
@@ -33,6 +35,13 @@ export const searchMethods = {
     let url = `/api/v1/search/paper?q=${encodeURIComponent(q)}&sources=${encodeURIComponent(sources)}&per_page=${perPage}`
     if (timeout) url += `&timeout=${timeout}`
     return this.request<SearchResponse>(url, { headers: this.headers(), signal })
+  },
+
+  /** Search datasets, software, text and other non-paper research outputs. */
+  async searchResearchOutputs(this: ApiServiceBase, q: string, sources: string, perPage: number, signal?: AbortSignal, timeout?: number): Promise<ResearchOutputSearchResponse> {
+    let url = `/api/v1/search/research-output?q=${encodeURIComponent(q)}&sources=${encodeURIComponent(sources)}&per_page=${perPage}`
+    if (timeout) url += `&timeout=${timeout}`
+    return this.request<ResearchOutputSearchResponse>(url, { headers: this.headers(), signal })
   },
 
   /** 搜索专利 */

@@ -31,6 +31,7 @@ def test_source_categories_have_stable_metadata() -> None:
     assert [item.key for item in categories] == [
         "book",
         "paper",
+        "research_output",
         "patent",
         "web_general",
         "web_professional",
@@ -134,6 +135,7 @@ def test_adapter_registration_order_snapshot() -> None:
         "iacr",
         "ieee_xplore",
         "unpaywall",
+        "datacite",
         "open_library",
         "doab",
         "oapen",
@@ -225,6 +227,7 @@ def test_adapter_registration_order_snapshot() -> None:
 def test_default_source_order_snapshot() -> None:
     expected = {
         "book:search": ["open_library"],
+        "research_output:search": ["datacite"],
         "paper:search": ["openalex", "crossref", "arxiv", "dblp", "pubmed", "biorxiv"],
         "patent:search": ["google_patents"],
         "web:search": ["duckduckgo", "bing"],
@@ -239,6 +242,7 @@ def test_default_source_order_snapshot() -> None:
     }
     assert {
         "book:search": defaults_for("book", "search"),
+        "research_output:search": defaults_for("research_output", "search"),
         "paper:search": defaults_for("paper", "search"),
         "patent:search": defaults_for("patent", "search"),
         "web:search": defaults_for("web", "search"),

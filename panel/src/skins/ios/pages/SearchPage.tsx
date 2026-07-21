@@ -20,26 +20,28 @@ import {
 import { useNotificationStore } from '@core/stores/notificationStore'
 import { normalizePaper, normalizePatent, normalizeWeb } from '@core/lib/normalize'
 import { extractDomain } from '@core/lib/url'
-import { exportMediaResults, exportPapers, exportPatents, exportWebResults, type ExportFormat } from '@core/lib/export'
+import { exportMediaResults, exportPapers, exportPatents, exportResearchOutputs, exportWebResults, type ExportFormat } from '@core/lib/export'
 import { mediaItemFromSearchResult, mediaItemsFromSearchResults } from '@core/lib/searchMedia'
 import { SearchMemoryPanel } from '@core/components/SearchMemoryPanel'
+import { ResearchOutputResultView } from '@core/components/ResearchOutputResultView'
 import { staggerContainer, staggerItem, fadeInUp } from '@core/lib/animations'
 import { useSearchPage, type Domain, type SearchPageResponse } from '@core/hooks/useSearchPage'
 import type {
   SearchResponse,
-  WebResult, PaperResult, PatentResult, BookResult,
+  WebResult, PaperResult, PatentResult, BookResult, ResearchOutputResult,
 } from '@core/types'
 import styles from './SearchPage.module.scss'
 
 type LayoutMode = 'list' | 'card' | 'grid'
 
 const DISPLAY_DOMAINS: Domain[] = [
-  'book', 'paper', 'patent', 'web', 'cn_tech', 'social', 'developer', 'knowledge', 'video',
+  'book', 'paper', 'research_output', 'patent', 'web', 'cn_tech', 'social', 'developer', 'knowledge', 'video',
 ]
 
 const DOMAIN_ICONS: Record<Domain, typeof FileText> = {
   book: BookOpen,
   paper: FileText,
+  research_output: FileText,
   patent: Shield,
   web: Globe,
   cn_tech: Zap,
@@ -52,7 +54,7 @@ const DOMAIN_ICONS: Record<Domain, typeof FileText> = {
 }
 
 function flattenItems(domain: Domain, responses: SearchPageResponse[]): unknown[] {
-  if (domain === 'book' || domain === 'paper' || domain === 'patent') {
+  if (domain === 'book' || domain === 'paper' || domain === 'research_output' || domain === 'patent') {
     return (responses as SearchResponse[]).flatMap((r) => r.results.flatMap((s) => s.results))
   }
   return responses.flatMap((r): unknown[] => r.results ?? [])
@@ -130,6 +132,17 @@ export function SearchPage() {
     chipMeta: styles.memoryChipMeta,
     removeButton: styles.memoryRemoveBtn,
     empty: styles.memoryEmpty,
+  }
+  const researchOutputClasses = {
+    card: styles.resultCard, list: styles.resultListItem, grid: styles.resultGridCard,
+    cardHeader: styles.cardHeader, title: styles.resultTitle, sourceBadge: styles.sourceBadge,
+    meta: styles.resultMeta, abstract: styles.resultAbstract, listTitle: styles.listTitle,
+    listMeta: styles.listMeta, gridHeader: styles.gridCardHeader, gridTitle: styles.gridCardTitle,
+    gridAbstract: styles.gridCardAbstract, externalIcon: styles.externalIcon,
+  }
+  const researchOutputLabels = {
+    resourceType: t('search.resourceType'), rights: t('search.rights'), access: t('search.access'),
+    contentUrls: t('search.contentUrls'), resources: t('search.resources'), untitled: t('search.untitled'),
   }
 
   const renderPaperCard = (raw: PaperResult, i: number) => {
@@ -267,6 +280,7 @@ export function SearchPage() {
   }
 
   const renderItemCard = (item: unknown, i: number) => {
+    if (domain === 'research_output') return <ResearchOutputResultView result={item as ResearchOutputResult} index={i} mode="card" classes={researchOutputClasses} labels={researchOutputLabels} />
     if (domain === 'book') {
       const book = item as BookResult
       return (
@@ -296,6 +310,7 @@ export function SearchPage() {
   }
 
   const renderItemListItem = (item: unknown, i: number) => {
+    if (domain === 'research_output') return <ResearchOutputResultView result={item as ResearchOutputResult} index={i} mode="list" classes={researchOutputClasses} labels={researchOutputLabels} />
     // Compact list rendering — adapt minimal info for each domain
     if (domain === 'book') {
       const book = item as BookResult
@@ -387,6 +402,7 @@ export function SearchPage() {
   }
 
   const renderItemGridCard = (item: unknown, i: number) => {
+    if (domain === 'research_output') return <ResearchOutputResultView result={item as ResearchOutputResult} index={i} mode="grid" classes={researchOutputClasses} labels={researchOutputLabels} />
     if (domain === 'book') {
       const book = item as BookResult
       const authors = book.authors.slice(0, 3).map((author) => author.name).join(', ')
@@ -477,6 +493,10 @@ export function SearchPage() {
       const list = (items as PatentResult[]).map(normalizePatent)
       exportedCount = list.length
       exportPatents(list, format)
+    } else if (domain === 'research_output') {
+      const list = items as ResearchOutputResult[]
+      exportedCount = list.length
+      exportResearchOutputs(list, format)
     } else if (capability === 'search_images' || capability === 'search_videos') {
       const list = mediaItemsFromSearchResults(items, capability)
       exportedCount = list.length
