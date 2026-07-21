@@ -2,6 +2,7 @@
 
 包含以下数据源客户端：
 - OpenAlexClient: OpenAlex (可匿名使用；可选 API Key 提高每日预算)
+- EricClient: ERIC 教育研究元数据（官方匿名 API）
 - SemanticScholarClient: Semantic Scholar (可选Key)
 - CrossrefClient: Crossref (无需Key)
 - ArxivClient: arXiv (无需Key)
@@ -24,6 +25,7 @@
 """
 
 from souwen.paper.openalex import OpenAlexClient
+from souwen.paper.eric import EricClient
 from souwen.paper.semantic_scholar import SemanticScholarClient
 from souwen.paper.crossref import CrossrefClient
 from souwen.paper.arxiv import ArxivClient
@@ -47,6 +49,7 @@ from souwen.paper.ieee_xplore import IeeeXploreClient
 
 __all__ = [
     "OpenAlexClient",
+    "EricClient",
     "SemanticScholarClient",
     "CrossrefClient",
     "ArxivClient",

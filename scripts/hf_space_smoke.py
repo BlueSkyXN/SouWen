@@ -45,6 +45,7 @@ DEFAULT_PAPER_SOURCES = [
     "biorxiv",
 ]
 EXTRA_ZERO_KEY_PAPER_SOURCES = [
+    "eric",
     "semantic_scholar",
     "huggingface",
     "europepmc",

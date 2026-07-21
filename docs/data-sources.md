@@ -4,8 +4,8 @@
 
 | 指标 | 数量 | 定义 |
 |---|---:|---|
-| Registered | **97** | 当前生成进程注册的 `SourceAdapter`；默认只含内置源 |
-| Public | **96** | `catalog_visibility=public`，进入公开 Source Catalog |
+| Registered | **98** | 当前生成进程注册的 `SourceAdapter`；默认只含内置源 |
+| Public | **97** | `catalog_visibility=public`，进入公开 Source Catalog |
 | Hidden / internal | **1** | 已注册但不进入公开 Source Catalog |
 | Fetch primary-domain | **17** | 主 `domain=fetch` 的公开源 |
 | Fetch cross-domain | **7** | 其他主 domain 通过 `extra_domains` 暴露 `fetch` |
@@ -39,7 +39,7 @@
 
 <!-- BEGIN AUTO -->
 
-## 学术论文 · `paper`（18 源）
+## 学术论文 · `paper`（19 源）
 
 | Name | Integration | Auth | Risk | Distribution | Stability | Extra | Capabilities | Credentials |
 |---|---|---|---|---|---|---|---|---|
@@ -49,6 +49,7 @@
 | `crossref` | open_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | search | — |
 | `dblp` | open_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | search | — |
 | `doaj` | official_api | 可选凭据 (提升限流) | 低风险 | 核心内置 | 稳定 | — | search | `doaj_api_key` |
+| `eric` | official_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | search | — |
 | `europepmc` | open_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | search | — |
 | `hal` | open_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | search | — |
 | `huggingface` | open_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | search | — |
