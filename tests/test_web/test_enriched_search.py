@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
+from unittest.mock import AsyncMock
 
 import pytest
 
@@ -8,6 +9,7 @@ from souwen.models import (
     FetchResponse,
     FetchResult,
     SearchCandidate,
+    SearchSnippet,
     SearchSourceProvenance,
     WebSearchResponse,
     WebSearchResult,
@@ -19,6 +21,196 @@ from souwen.web.enriched_search import (
     _validate_concrete_sources,
     enriched_web_search,
 )
+
+
+@pytest.mark.asyncio
+async def test_enriched_search_applies_successful_synthesis_without_discarding_fetch_evidence(
+    monkeypatch,
+):
+    from souwen.config.models import LLMSynthesisProfile
+    from souwen.llm.enriched_synthesis import EnrichedSynthesisResult
+    from souwen.llm.models import EnrichedSynthesisAnswer, LLMUsage
+
+    async def fake_search(*_args, **_kwargs):
+        return WebSearchResponse(
+            query="q",
+            source="one",
+            results=[
+                WebSearchResult(
+                    source="one", engine="one", title="Title", url="https://example.com/article"
+                )
+            ],
+        )
+
+    async def fake_fetch(urls, **_kwargs):
+        return FetchResponse(
+            urls=list(urls),
+            results=[
+                FetchResult(
+                    url=urls[0],
+                    final_url=urls[0],
+                    title="Fetched title",
+                    content="Fetched evidence",
+                    source="builtin",
+                )
+            ],
+        )
+
+    profile = LLMSynthesisProfile(
+        protocol="openai_chat",
+        model="configured-model",
+        max_tokens=100,
+        max_input_chars=1000,
+        max_pages=1,
+        timeout=10,
+    )
+
+    async def fake_synthesize(results, **kwargs):
+        assert kwargs["profile_id"] == "safe"
+        assert [result.result_id for result in results] == ["R1"]
+        return EnrichedSynthesisResult(
+            summaries={
+                "R1": SearchSnippet(
+                    text="Generated summary", type="generated", model="served-model"
+                )
+            },
+            answer=EnrichedSynthesisAnswer(
+                text="Generated answer [R1]",
+                citations=["R1"],
+                profile="safe",
+                model="served-model",
+                protocol="openai_chat",
+            ),
+            usage=LLMUsage(prompt_tokens=4, completion_tokens=3, total_tokens=7),
+        )
+
+    monkeypatch.setattr("souwen.web.enriched_search.web_search", fake_search)
+    monkeypatch.setattr("souwen.web.enriched_search.fetch_content", fake_fetch)
+    monkeypatch.setattr(
+        "souwen.web.enriched_search.resolve_enriched_synthesis_profile", lambda _: profile
+    )
+    monkeypatch.setattr("souwen.web.enriched_search.synthesize_enriched_results", fake_synthesize)
+
+    execution = await enriched_web_search("q", engines="one", synthesis_profile="safe")
+
+    assert execution.synthesis_status == "success"
+    assert execution.results[0].summary is not None
+    assert execution.results[0].summary.text == "Generated summary"
+    assert execution.answer is not None
+    assert execution.answer.citations == ["R1"]
+    assert execution.summary_usage is not None
+    assert execution.summary_usage.completion_tokens == 3
+
+
+@pytest.mark.asyncio
+async def test_enriched_search_preserves_results_when_optional_synthesis_fails(monkeypatch, caplog):
+    from souwen.config.models import LLMSynthesisProfile
+
+    async def fake_search(*_args, **_kwargs):
+        return WebSearchResponse(
+            query="q",
+            source="one",
+            results=[
+                WebSearchResult(
+                    source="one", engine="one", title="Title", url="https://example.com/article"
+                )
+            ],
+        )
+
+    async def fake_fetch(urls, **_kwargs):
+        return FetchResponse(
+            urls=list(urls),
+            results=[
+                FetchResult(
+                    url=urls[0], final_url=urls[0], title="Fetched title", content="Evidence"
+                )
+            ],
+        )
+
+    profile = LLMSynthesisProfile(
+        protocol="openai_chat",
+        model="configured-model",
+        max_tokens=100,
+        max_input_chars=1000,
+        max_pages=1,
+        timeout=10,
+    )
+
+    async def failed_synthesis(*_args, **_kwargs):
+        raise RuntimeError("api_key=secret-value provider failure")
+
+    monkeypatch.setattr("souwen.web.enriched_search.web_search", fake_search)
+    monkeypatch.setattr("souwen.web.enriched_search.fetch_content", fake_fetch)
+    monkeypatch.setattr(
+        "souwen.web.enriched_search.resolve_enriched_synthesis_profile", lambda _: profile
+    )
+    monkeypatch.setattr("souwen.web.enriched_search.synthesize_enriched_results", failed_synthesis)
+
+    execution = await enriched_web_search("q", engines="one", synthesis_profile="safe")
+
+    assert execution.synthesis_status == "failed"
+    assert [result.title for result in execution.results] == ["Title"]
+    assert execution.answer is None
+    assert "secret-value" not in caplog.text
+
+
+@pytest.mark.asyncio
+async def test_enriched_search_skips_synthesis_before_model_call_after_shared_deadline(monkeypatch):
+    from souwen.config.models import LLMSynthesisProfile
+
+    class DeadlineAfterFetch:
+        def __init__(self, *_args, **_kwargs):
+            self.calls = 0
+
+        def timeout_for(self, requested_seconds):
+            self.calls += 1
+            if self.calls == 1:
+                return requested_seconds
+            raise TimeoutError("deadline exhausted")
+
+    async def fake_search(*_args, **_kwargs):
+        return WebSearchResponse(
+            query="q",
+            source="one",
+            results=[
+                WebSearchResult(
+                    source="one", engine="one", title="Title", url="https://example.com/article"
+                )
+            ],
+        )
+
+    async def fake_fetch(urls, **_kwargs):
+        return FetchResponse(
+            urls=list(urls),
+            results=[
+                FetchResult(
+                    url=urls[0], final_url=urls[0], title="Fetched title", content="Evidence"
+                )
+            ],
+        )
+
+    profile = LLMSynthesisProfile(
+        protocol="openai_chat",
+        model="configured-model",
+        max_tokens=100,
+        max_input_chars=1000,
+        max_pages=1,
+        timeout=10,
+    )
+    model_call = AsyncMock()
+    monkeypatch.setattr("souwen.web.enriched_search.SearchDeadlineBudget", DeadlineAfterFetch)
+    monkeypatch.setattr("souwen.web.enriched_search.web_search", fake_search)
+    monkeypatch.setattr("souwen.web.enriched_search.fetch_content", fake_fetch)
+    monkeypatch.setattr(
+        "souwen.web.enriched_search.resolve_enriched_synthesis_profile", lambda _: profile
+    )
+    monkeypatch.setattr("souwen.web.enriched_search.synthesize_enriched_results", model_call)
+
+    execution = await enriched_web_search("q", engines="one", synthesis_profile="safe")
+
+    assert execution.synthesis_status == "skipped"
+    assert execution.results
+    model_call.assert_not_awaited()
 
 
 @pytest.mark.asyncio

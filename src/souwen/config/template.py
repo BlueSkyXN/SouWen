@@ -150,4 +150,10 @@ sources: {}
 # ===== LLM Search 共享 Gateway =====
 # 两个实验性 Ark concrete source 共用一份 api_key/base_url；它们默认关闭，需显式启用。
 llm_search_gateways: {}
+
+# ===== LLM 摘要与 enriched synthesis =====
+# credentials/base_url stay on llm; requests can name only an allowlisted profile.
+llm:
+  enabled: false
+  synthesis_profiles: {}
 """

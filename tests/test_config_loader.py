@@ -267,6 +267,23 @@ class TestEnvOverride:
         assert cfg.llm_search_gateways["uniapi"].api_key == "env-secret"
         assert cfg.llm_search_gateways["uniapi"].base_url == "https://gateway.example.com/v1"
 
+    def test_env_llm_synthesis_profile_json_object(self, monkeypatch):
+        monkeypatch.setenv(
+            "SOUWEN_LLM",
+            (
+                '{"enabled":true,"synthesis_profiles":{"safe":{"protocol":"openai_chat",'
+                '"model":"configured-model","max_tokens":400,"max_input_chars":6000,'
+                '"max_pages":3,"timeout":30}}}'
+            ),
+        )
+
+        cfg = reload_config()
+
+        profile = cfg.llm.synthesis_profiles["safe"]
+        assert cfg.llm.enabled is True
+        assert profile.model == "configured-model"
+        assert profile.max_pages == 3
+
     def test_warp_alias_without_prefix(self, monkeypatch):
         """``WARP_ENABLED`` 不带 SOUWEN_ 前缀也应生效（Docker entrypoint 兼容）。"""
         monkeypatch.delenv("SOUWEN_WARP_ENABLED", raising=False)

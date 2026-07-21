@@ -12,7 +12,7 @@ try:
 except ImportError:
     pytest.skip("fastapi not installed", allow_module_level=True)
 
-from souwen.models import EnrichedWebSearchResult, SearchSourceProvenance
+from souwen.models import EnrichedWebSearchResult, SearchSnippet, SearchSourceProvenance
 from souwen.web.enriched_search import (
     EnrichedSearchDeadlineExceeded,
     EnrichedSearchExecution,
@@ -168,6 +168,64 @@ def test_enriched_route_rejects_dynamic_model_and_single_source_violations(clien
 
     assert invalid_model.status_code == 422
     assert invalid_strategy.status_code == 422
+
+
+def test_enriched_route_projects_synthesis_and_never_accepts_request_model(client, monkeypatch):
+    from souwen.llm.models import EnrichedSynthesisAnswer, LLMUsage
+
+    async def fake_enriched(*_args, **kwargs):
+        assert kwargs["synthesis_profile"] == "safe"
+        execution = _execution()
+        result = execution.results[0].model_copy(
+            update={
+                "summary": SearchSnippet(
+                    text="Generated summary", type="generated", model="served-model"
+                )
+            }
+        )
+        return EnrichedSearchExecution(
+            query=execution.query,
+            results=[result],
+            source_outcomes=execution.source_outcomes,
+            discarded_candidates=execution.discarded_candidates,
+            source_attempts=execution.source_attempts,
+            visible_search_calls=execution.visible_search_calls,
+            synthesis_status="success",
+            answer=EnrichedSynthesisAnswer(
+                text="Generated answer [R1]",
+                citations=["R1"],
+                profile="safe",
+                model="served-model",
+                protocol="openai_chat",
+            ),
+            summary_usage=LLMUsage(prompt_tokens=12, completion_tokens=8, total_tokens=20),
+        )
+
+    monkeypatch.setattr("souwen.web.enriched_search.enriched_web_search", fake_enriched)
+    response = client.post(
+        "/api/v1/search/web/enriched", json=_request_payload(synthesis={"profile": "safe"})
+    )
+
+    assert response.status_code == 200
+    data = response.json()
+    assert data["results"][0]["summary"]["type"] == "generated"
+    assert data["answer"] == {
+        "text": "Generated answer [R1]",
+        "citations": ["R1"],
+        "profile": "safe",
+        "model": "served-model",
+        "protocol": "openai_chat",
+    }
+    assert data["meta"]["synthesis_status"] == "success"
+    assert data["meta"]["summarized_pages"] == 1
+    assert data["usage"]["summary_input_tokens"] == 12
+    assert data["usage"]["summary_output_tokens"] == 8
+
+    rejected = client.post(
+        "/api/v1/search/web/enriched",
+        json=_request_payload(synthesis={"profile": "safe", "model": "arbitrary"}),
+    )
+    assert rejected.status_code == 422
 
 
 def test_enriched_route_uses_existing_search_auth_dependency(monkeypatch, tmp_path):

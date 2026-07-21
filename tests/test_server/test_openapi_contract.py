@@ -312,12 +312,20 @@ def test_enriched_web_search_exposes_typed_additive_contract() -> None:
         "max_results_per_source",
         "fetch",
         "budget",
+        "synthesis",
     } <= set(request["properties"])
     assert {"model", "model_id", "scheme_id", "api_key", "base_url"}.isdisjoint(
         request["properties"]
     )
     assert request["additionalProperties"] is False
     assert {"query", "results", "answer", "meta", "usage"} <= set(response["properties"])
+    synthesis_ref = request["properties"]["synthesis"]["anyOf"][0]["$ref"]
+    synthesis = components[_component_name(synthesis_ref)]
+    assert set(synthesis["properties"]) == {"profile"}
+    assert synthesis["additionalProperties"] is False
+    meta_ref = response["properties"]["meta"]["$ref"]
+    meta = components[_component_name(meta_ref)]
+    assert {"synthesis_status", "summarized_pages"} <= set(meta["properties"])
 
 
 def test_bilibili_endpoints_expose_response_contracts() -> None:

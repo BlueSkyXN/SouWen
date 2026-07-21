@@ -9,7 +9,7 @@ from souwen.core.exceptions import ConfigError, RateLimitError
 from souwen.editions import EditionError
 from souwen.llm import client as llm_client
 from souwen.llm.client import LLMError, _LLMRetriableError, llm_complete
-from souwen.llm.models import LLMMessage
+from souwen.llm.models import LLMMessage, LLMResponse
 
 
 @pytest.fixture
@@ -89,6 +89,24 @@ async def test_single_attempt_dispatch_does_not_retry_provider_errors(mock_llm_c
             await llm_client._llm_complete_single_attempt([LLMMessage(role="user", content="test")])
 
     provider.assert_awaited_once()
+
+
+async def test_single_attempt_honors_profile_protocol_and_timeout_overrides(mock_llm_config):
+    provider = AsyncMock(return_value=LLMResponse(content="ok", model="served-model"))
+
+    with patch("souwen.llm.client._get_provider", return_value=provider) as get_provider:
+        result = await llm_client._llm_complete_single_attempt(
+            [LLMMessage(role="user", content="test")],
+            model="profile-model",
+            protocol="anthropic_messages",
+            timeout=12.5,
+        )
+
+    assert result.model == "served-model"
+    get_provider.assert_called_once_with("anthropic_messages")
+    assert provider.await_args.kwargs["model"] == "profile-model"
+    assert provider.await_args.kwargs["timeout"] == 12.5
+    assert provider.await_args.kwargs["extra_headers"] == {"anthropic-version": "2023-06-01"}
 
 
 async def test_llm_complete_default_retries_provider_errors(mock_llm_config):

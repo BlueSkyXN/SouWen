@@ -15,6 +15,7 @@
 import pytest
 
 from souwen.config import (
+    LLMSynthesisProfile,
     LLMSearchGatewayConfig,
     SouWenConfig,
     SourceChannelConfig,
@@ -39,6 +40,29 @@ def _isolate_config_files(monkeypatch, tmp_path):
     get_config.cache_clear()
     yield
     get_config.cache_clear()
+
+
+def test_synthesis_profiles_require_explicit_protocol_model_and_budget() -> None:
+    profile = LLMSynthesisProfile(
+        protocol="openai_responses",
+        model="configured-model",
+        max_tokens=400,
+        max_input_chars=6_000,
+        max_pages=3,
+        timeout=30,
+    )
+    cfg = SouWenConfig(llm={"synthesis_profiles": {"safe": profile}})
+
+    assert cfg.llm.synthesis_profiles["safe"].protocol == "openai_responses"
+    with pytest.raises(ValueError, match="max_pages"):
+        LLMSynthesisProfile(
+            protocol="openai_chat",
+            model="configured-model",
+            max_tokens=400,
+            max_input_chars=6_000,
+            max_pages=0,
+            timeout=30,
+        )
 
 
 class TestGetProxy:

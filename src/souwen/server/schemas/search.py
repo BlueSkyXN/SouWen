@@ -145,6 +145,24 @@ class EnrichedSearchBudgetRequest(BaseModel):
     )
 
 
+class EnrichedSearchSynthesisRequest(BaseModel):
+    """A request may select only a deployment-owned synthesis profile."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    profile: str = Field(
+        ...,
+        min_length=1,
+        max_length=100,
+        description="部署配置 allowlist 中的 synthesis profile ID",
+    )
+
+    @field_validator("profile", mode="before")
+    @classmethod
+    def _normalize_profile(cls, value: object) -> object:
+        return value.strip() if isinstance(value, str) else value
+
+
 class EnrichedWebSearchRequest(BaseModel):
     """Additive, model-bound request contract for enriched web search."""
 
@@ -164,6 +182,10 @@ class EnrichedWebSearchRequest(BaseModel):
     deduplicate: bool = Field(True, description="是否按 canonical URL 合并发现记录")
     fetch: EnrichedSearchFetchRequest = Field(default_factory=EnrichedSearchFetchRequest)
     budget: EnrichedSearchBudgetRequest = Field(default_factory=EnrichedSearchBudgetRequest)
+    synthesis: EnrichedSearchSynthesisRequest | None = Field(
+        None,
+        description="可选的服务端 synthesis；只能选择配置 allowlist profile，不能指定 model",
+    )
 
     @field_validator("query", mode="before")
     @classmethod
@@ -216,7 +238,10 @@ class EnrichedSearchMetaResponse(BaseModel):
     visible_search_calls: int = Field(ge=0)
     provider_metered_search_calls: int | None = Field(None, ge=0)
     fetched_pages: int = Field(ge=0)
-    summarized_pages: int = Field(0, ge=0, description="本阶段未启用 synthesis，固定为 0")
+    synthesis_status: Literal["not_requested", "success", "failed", "skipped"] = Field(
+        "not_requested", description="optional synthesis stage outcome；失败不会丢弃搜索结果"
+    )
+    summarized_pages: int = Field(0, ge=0, description="成功生成的 result-level summary 数量")
 
 
 class EnrichedSearchUsageResponse(BaseModel):
@@ -230,11 +255,21 @@ class EnrichedSearchUsageResponse(BaseModel):
     currency: str | None = None
 
 
+class EnrichedSearchAnswerResponse(BaseModel):
+    """Generated answer whose citations are validated result IDs, never URLs."""
+
+    text: str
+    citations: list[str]
+    profile: str
+    model: str
+    protocol: Literal["openai_chat", "openai_responses", "anthropic_messages"]
+
+
 class EnrichedWebSearchResponse(BaseModel):
     """Typed response for the additive enriched search route."""
 
     query: str
     results: list[EnrichedWebSearchResult]
-    answer: None = None
+    answer: EnrichedSearchAnswerResponse | None = None
     meta: EnrichedSearchMetaResponse
     usage: EnrichedSearchUsageResponse
