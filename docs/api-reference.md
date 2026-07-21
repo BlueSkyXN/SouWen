@@ -735,6 +735,15 @@ scheme 与 model，因此接口不接受 `model`、`model_id`、`scheme_id`、`a
 
 - `results[]` 只包含通过非空 title + HTTP(S) URL 硬门槛的资料。`discoveries[]` 保留每条
   source provenance；不会返回 provider raw response、gateway URL 或凭据。
+- 结果中的文本字段有明确来源，不能统一解释成“网页摘要”：
+
+  | 字段 | `type` | 语义 |
+  |---|---|---|
+  | `provider_snippet` | `provider_snippet` 或 `provider_summary` | upstream search receipt 中可见的文本；它不是 SouWen 对页面内容的验证，也不能替代 title/URL 或 fetch 证据 |
+  | `content_excerpt` | `extractive` | 由 `fetch_status="success"` 的受限页面正文截取；长度受 `fetch.max_excerpt_chars` 限制 |
+  | `content` | — | 仅 `fetch.include_content=true` 时返回的受限真实正文；长度受 `fetch.max_content_chars` 限制 |
+  | `summary` | `generated` | 仅 optional synthesis 由成功 fetch 的受限材料生成；带 model provenance，不能冒充 extractive 页面原文 |
+
 - `meta.source_outcomes` 区分 `success_with_results`、`success_empty`、`timeout` 与
   `failed`。至少一个 source 成功时返回 `200`，其余失败以 `meta.partial=true` 表示。
 - `meta.visible_search_calls` 只统计响应中可见的 search call；它不是费用推断。provider
