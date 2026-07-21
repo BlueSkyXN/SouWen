@@ -12,6 +12,8 @@ from souwen.server.auth import check_search_auth
 from souwen.server.limiter import rate_limit_search
 from souwen.server.routes._common import logger
 from souwen.server.schemas import (
+    EnrichedWebSearchRequest,
+    EnrichedWebSearchResponse,
     SearchImagesResponse,
     SearchPaperResponse,
     SearchPatentResponse,
@@ -305,6 +307,96 @@ async def api_search_web(
     except Exception:
         logger.warning("网页搜索内部错误: q=%s", query, exc_info=True)
         raise
+
+
+@router.post(
+    "/search/web/enriched",
+    response_model=EnrichedWebSearchResponse,
+    dependencies=[Depends(rate_limit_search), Depends(check_search_auth)],
+)
+async def api_search_web_enriched(body: EnrichedWebSearchRequest):
+    """Search explicit model-bound sources, then optionally enrich with safe fetches."""
+    from souwen.web.enriched_search import (
+        EnrichedSearchDeadlineExceeded,
+        EnrichedSearchSourceDisabledError,
+        EnrichedSearchSourceValidationError,
+        EnrichedSearchUnavailableError,
+        EnrichedSearchUnknownSourceError,
+        enriched_web_search,
+    )
+
+    try:
+        execution = await asyncio.wait_for(
+            enriched_web_search(
+                body.query,
+                sources=body.sources,
+                source_strategy=body.source_strategy,
+                max_results_per_source=body.max_results_per_source,
+                max_source_attempts=body.budget.max_source_attempts,
+                deadline_seconds=body.budget.max_total_seconds,
+                deduplicate=body.deduplicate,
+                fetch=body.fetch.enabled,
+                fetch_providers=body.fetch.providers,
+                fetch_strategy=body.fetch.strategy,
+                max_pages=body.fetch.max_pages,
+                fetch_timeout=body.budget.max_total_seconds,
+                include_content=body.fetch.include_content,
+                max_content_chars=body.fetch.max_content_chars,
+                excerpt_chars=body.fetch.max_excerpt_chars,
+            ),
+            timeout=body.budget.max_total_seconds,
+        )
+    except EnrichedSearchUnknownSourceError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except EnrichedSearchSourceValidationError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
+    except EnrichedSearchSourceDisabledError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except EditionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc)) from exc
+    except (EnrichedSearchDeadlineExceeded, asyncio.TimeoutError) as exc:
+        logger.warning("enriched 网页搜索超时: sources=%s", body.sources)
+        raise HTTPException(status_code=504, detail="enriched 网页搜索超时") from exc
+    except EnrichedSearchUnavailableError as exc:
+        raise HTTPException(status_code=502, detail="所有 enriched search source 均不可用") from exc
+    except Exception:
+        logger.warning("enriched 网页搜索内部错误: sources=%s", body.sources, exc_info=True)
+        raise HTTPException(status_code=502, detail="enriched 网页搜索不可用") from None
+
+    return {
+        "query": execution.query,
+        "results": [result.model_dump(mode="json") for result in execution.results],
+        "answer": None,
+        "meta": {
+            "requested_sources": body.sources,
+            "source_strategy": body.source_strategy,
+            "source_outcomes": execution.source_outcomes,
+            "partial": execution.partial,
+            "discarded_candidates": execution.discarded_candidates,
+            "source_attempts": [
+                {
+                    "source_id": attempt.source_id,
+                    "attempt_index": attempt.attempt_index,
+                    "outcome": attempt.outcome,
+                    "visible_search_calls": attempt.visible_search_calls,
+                    "provider_metered_search_calls": attempt.provider_metered_search_calls,
+                }
+                for attempt in execution.source_attempts
+            ],
+            "visible_search_calls": execution.visible_search_calls,
+            "provider_metered_search_calls": execution.provider_metered_search_calls,
+            "fetched_pages": execution.fetched_pages,
+            "summarized_pages": 0,
+        },
+        "usage": {
+            "search_input_tokens": None,
+            "search_output_tokens": None,
+            "summary_input_tokens": None,
+            "summary_output_tokens": None,
+            "search_tool_cost": None,
+            "currency": None,
+        },
+    }
 
 
 @router.get(

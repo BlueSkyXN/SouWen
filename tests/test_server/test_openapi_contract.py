@@ -259,6 +259,35 @@ def test_fetch_utility_endpoints_expose_response_contracts() -> None:
     assert {"loc", "lastmod", "changefreq", "priority"} <= set(sitemap_entry_props)
 
 
+def test_enriched_web_search_exposes_typed_additive_contract() -> None:
+    """The enriched endpoint must stay model-bound and never accept provider credentials."""
+    from souwen.server.app import app
+
+    schema = app.openapi()
+    components = schema["components"]["schemas"]
+    operation = schema["paths"]["/api/v1/search/web/enriched"]["post"]
+    request_ref = operation["requestBody"]["content"]["application/json"]["schema"]["$ref"]
+    response_ref = operation["responses"]["200"]["content"]["application/json"]["schema"]["$ref"]
+
+    request = components[_component_name(request_ref)]
+    response = components[_component_name(response_ref)]
+    assert request_ref.endswith("/EnrichedWebSearchRequest")
+    assert response_ref.endswith("/EnrichedWebSearchResponse")
+    assert {
+        "query",
+        "sources",
+        "source_strategy",
+        "max_results_per_source",
+        "fetch",
+        "budget",
+    } <= set(request["properties"])
+    assert {"model", "model_id", "scheme_id", "api_key", "base_url"}.isdisjoint(
+        request["properties"]
+    )
+    assert request["additionalProperties"] is False
+    assert {"query", "results", "answer", "meta", "usage"} <= set(response["properties"])
+
+
 def test_bilibili_endpoints_expose_response_contracts() -> None:
     """Bilibili direct routes must expose Panel-compatible response schemas."""
     from souwen.server.app import app

@@ -552,6 +552,51 @@ Cache-Control: public, max-age=3600
 
 **错误状态码：** `403 forbidden`（engine 存在但当前 edition 不允许）、`502 bad_gateway`（所有搜索引擎均失败）、`504 gateway_timeout`（超过 `timeout`）。
 
+#### `POST /api/v1/search/web/enriched`
+
+以显式、已注册的 concrete LLM-search source 搜索资料，再可选地通过既有 SSRF-safe
+`fetch_content()` 管线补充正文摘录。该接口是对 `GET /api/v1/search/web` 的**新增**能力；旧
+GET endpoint 的请求和响应契约不变。
+
+请求中的 `sources` 只接受 Registry 注册的 concrete source ID。每个 source 已固定绑定
+scheme 与 model，因此接口不接受 `model`、`model_id`、`scheme_id`、`api_key` 或
+`base_url`。默认 `source_strategy="single"` 时必须只提供一个 source；`fanout` 和
+`first_success` 必须显式指定。
+
+**请求字段：**
+
+| 字段 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `query` | string (1-500) | *(必填)* | 搜索关键词；首尾空白会移除 |
+| `sources` | string[] (1-10) | *(必填)* | concrete source IDs；不能重复 |
+| `source_strategy` | `single` \| `fanout` \| `first_success` | `single` | `single` 必须恰好一个 source |
+| `max_results_per_source` | int (1-50) | `10` | 每次 source attempt 的结果上限 |
+| `deduplicate` | boolean | `true` | 按 canonical URL 合并 discovery provenance |
+| `fetch.enabled` | boolean | `true` | 是否调用安全 fetch 管线 |
+| `fetch.providers` | string[] \| null | `null` | 可选 fetch provider allowlist，不传则沿用 fetch 默认策略 |
+| `fetch.strategy` | `fallback` \| `fanout` | `fallback` | fetch provider 调度策略 |
+| `fetch.max_pages` | int (1-20) | `5` | 最多抓取的去重页面数 |
+| `fetch.max_excerpt_chars` | int (1-4000) | `500` | 每条 extractive excerpt 字符上限 |
+| `fetch.include_content` | boolean | `false` | 是否返回有界的真实正文 |
+| `fetch.max_content_chars` | int (1-20000) | `4000` | 每条正文字符上限 |
+| `budget.max_total_seconds` | float (1-300) | `120` | 搜索与 fetch 的共享端点硬超时 |
+| `budget.max_source_attempts` | int (1-10) | `1` | 最多执行的 concrete source attempt 数 |
+
+**响应语义：**
+
+- `results[]` 只包含通过非空 title + HTTP(S) URL 硬门槛的资料。`discoveries[]` 保留每条
+  source provenance；不会返回 provider raw response、gateway URL 或凭据。
+- `meta.source_outcomes` 区分 `success_with_results`、`success_empty`、`timeout` 与
+  `failed`。至少一个 source 成功时返回 `200`，其余失败以 `meta.partial=true` 表示。
+- `meta.visible_search_calls` 只统计响应中可见的 search call；它不是费用推断。provider
+  未明确给出 metered calls 或 cost 时，相应字段为 `null`，不会伪造 `0`。
+- `usage` 为本阶段的保守 usage 视图；synthesis 尚未启用，token/cost 字段可为 `null`。
+
+**错误状态码：** `422 unprocessable_entity`（未知 source、非 concrete source、非法
+identity override 或请求字段不合规）、`403 forbidden`（当前 edition 不允许）、`409 conflict`
+（source 默认关闭或被显式禁用）、`502 bad_gateway`（所有 source 都不可用）、`504
+gateway_timeout`（共享 budget 耗尽；未完成任务会被取消）。
+
 #### `GET /api/v1/sources`
 
 列出公开 Source Catalog。未设置 `user_password` 时开放；设置 `user_password` 后要求 User+，即使启用 guest 模式也不降级开放。返回值从运行时 live registry 派生，内置源和运行时插件都以 `sources[]` 列表返回；源被禁用、必须凭据缺失、自建实例未配置或当前 `SOUWEN_EDITION` 不允许时仍保留 catalog 条目，但 `available=false`。Optional runtime importability 通过独立的 `runtime_available` / `runtime_reason` 返回，不改变既有字段 `available`；本地有效可执行性要求合取两轴。
