@@ -46,6 +46,7 @@ DEFAULT_PAPER_SOURCES = [
 ]
 EXTRA_ZERO_KEY_PAPER_SOURCES = [
     "eric",
+    "osti",
     "semantic_scholar",
     "huggingface",
     "europepmc",
