@@ -407,8 +407,10 @@ def test_citation_cli_commands_are_registered_and_json_uses_public_facade(monkey
     monkeypatch.setattr("souwen.citations.get_citation_count", fake_count)
     help_result = runner.invoke(app, ["citation", "--help"])
     result = runner.invoke(app, ["citation", "count", "doi:10.1/x", "--json"])
-    assert help_result.exit_code == 0
-    assert {"count", "incoming", "references"} <= set(help_result.output.split())
+    assert help_result.exit_code == 0, help_result.output
+    for command in ("count", "incoming", "references"):
+        command_help = runner.invoke(app, ["citation", command, "--help"])
+        assert command_help.exit_code == 0, command_help.output
     assert result.exit_code == 0, result.output
     assert json.loads(result.output)["count"] == 3
 
