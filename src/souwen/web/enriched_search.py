@@ -29,7 +29,7 @@ from souwen.models import (
 )
 from souwen.registry import get as get_source_adapter
 from souwen.registry.adapter import SourceAdapter
-from souwen.registry.meta import source_config_validation_reason
+from souwen.registry.meta import missing_credential_fields, source_config_validation_reason
 from souwen.web.fetch import fetch_content
 from souwen.web.llm_search import SearchDeadlineBudget
 from souwen.web.search import web_search
@@ -201,8 +201,19 @@ def _validate_concrete_sources(sources: Iterable[str]) -> list[tuple[str, Source
         reason = source_config_validation_reason(cfg, source_id, adapter)
         if reason:
             raise EnrichedSearchSourceValidationError(reason)
+        missing_fields = missing_credential_fields(cfg, source_id, adapter)
+        if missing_fields:
+            raise EnrichedSearchSourceValidationError(
+                f"source {source_id!r} 缺少必需配置: {', '.join(missing_fields)}"
+            )
         selected.append((source_id, adapter))
     return selected
+
+
+def _effective_source_timeout_seconds(source_id: str, adapter: SourceAdapter) -> float:
+    """Resolve the configured source override before applying the shared deadline."""
+    configured_timeout = get_config().get_source_config(source_id).timeout
+    return float(configured_timeout or adapter.methods["search"].timeout_seconds or 15.0)
 
 
 async def _execute_concrete_source(
@@ -217,7 +228,9 @@ async def _execute_concrete_source(
 ) -> _SourceExecution:
     """Run one Registry adapter once and map every provider failure to a safe outcome."""
     try:
-        timeout_seconds = deadline.timeout_for(adapter.methods["search"].timeout_seconds or 15.0)
+        timeout_seconds = deadline.timeout_for(
+            _effective_source_timeout_seconds(source_id, adapter)
+        )
     except TimeoutError:
         return _SourceExecution(
             candidates=(),
@@ -418,10 +431,10 @@ async def enriched_web_search(
         key = _canonical_url(candidate.url) if deduplicate else f"{index}:{candidate.url}"
         grouped.setdefault(key, []).append(candidate)
 
-    fetch_by_key: dict[str, FetchResult] = {}
+    fetch_by_discovery_url: dict[str, list[FetchResult]] = {}
     if fetch and grouped:
-        fetch_keys = list(grouped)[:max_pages]
-        urls = [grouped[key][0].url for key in fetch_keys]
+        discovery_keys = list(grouped)[:max_pages]
+        urls = [grouped[key][0].url for key in discovery_keys]
         fetched = await fetch_content(
             urls,
             providers=fetch_providers,
@@ -429,12 +442,20 @@ async def enriched_web_search(
             timeout=fetch_timeout,
             max_length=max_content_chars,
         )
-        for key, item in zip(fetch_keys, fetched.results, strict=False):
-            fetch_by_key[key] = item
+        requested_urls = {_canonical_url(url) for url in urls}
+        for item in fetched.results:
+            discovery_url = _canonical_url(item.url)
+            if discovery_url in requested_urls:
+                fetch_by_discovery_url.setdefault(discovery_url, []).append(item)
 
-    final_groups: dict[str, list[tuple[list[SearchCandidate], FetchResult | None]]] = {}
+    final_groups: dict[
+        str, list[tuple[list[SearchCandidate], FetchResult | None, FetchResult | None]]
+    ] = {}
+    final_urls: dict[str, str] = {}
     for key, discoveries in grouped.items():
-        fetched = fetch_by_key.get(key)
+        fetch_results = fetch_by_discovery_url.get(_canonical_url(discoveries[0].url), [])
+        fetched = next((item for item in fetch_results if item.error is None), None)
+        failed_fetch = next((item for item in fetch_results if item.error), None)
         fetch_ok = fetched is not None and fetched.error is None
         final_url = (
             _canonical_url(fetched.final_url)
@@ -442,21 +463,23 @@ async def enriched_web_search(
             else _canonical_url(discoveries[0].url)
         )
         final_key = final_url if deduplicate else key
-        final_groups.setdefault(final_key, []).append((discoveries, fetched))
+        final_groups.setdefault(final_key, []).append((discoveries, fetched, failed_fetch))
+        final_urls.setdefault(final_key, final_url)
 
     results: list[EnrichedWebSearchResult] = []
     discarded = 0
     fetched_pages = 0
-    for final_url, grouped_discoveries in final_groups.items():
+    for final_key, grouped_discoveries in final_groups.items():
+        final_url = final_urls[final_key]
         discoveries = [
             candidate
-            for candidates_for_url, _fetched in grouped_discoveries
+            for candidates_for_url, _fetched, _failed_fetch in grouped_discoveries
             for candidate in candidates_for_url
         ]
         fetched = next(
             (
                 item
-                for _candidates_for_url, item in grouped_discoveries
+                for _candidates_for_url, item, _failed_fetch in grouped_discoveries
                 if item is not None and item.error is None
             ),
             None,
@@ -464,7 +487,7 @@ async def enriched_web_search(
         failed_fetch = next(
             (
                 item
-                for _candidates_for_url, item in grouped_discoveries
+                for _candidates_for_url, _fetched, item in grouped_discoveries
                 if item is not None and item.error
             ),
             None,
@@ -512,11 +535,6 @@ async def enriched_web_search(
             )
         )
 
-    known_metered = [
-        attempt.provider_metered_search_calls
-        for attempt in source_attempts
-        if attempt.provider_metered_search_calls is not None
-    ]
     return EnrichedSearchExecution(
         query=query,
         results=results,
@@ -524,6 +542,13 @@ async def enriched_web_search(
         discarded_candidates=discarded,
         source_attempts=source_attempts,
         visible_search_calls=sum(attempt.visible_search_calls or 0 for attempt in source_attempts),
-        provider_metered_search_calls=sum(known_metered) if known_metered else None,
+        provider_metered_search_calls=(
+            sum(attempt.provider_metered_search_calls for attempt in source_attempts)
+            if source_attempts
+            and all(
+                attempt.provider_metered_search_calls is not None for attempt in source_attempts
+            )
+            else None
+        ),
         fetched_pages=fetched_pages,
     )
