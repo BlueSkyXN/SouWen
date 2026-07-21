@@ -260,6 +260,9 @@ class Applicant(BaseModel):
 ### 搜索
 
 ```bash
+# 图书搜索（work 级书目）
+souwen search book <query> [--sources/-s SRC1,SRC2] [--limit/-n 5] [--json/-j]
+
 # 论文搜索
 souwen search paper <query> [--sources/-s SRC1,SRC2] [--limit/-n 5] [--json/-j]
 
@@ -515,6 +518,21 @@ Cache-Control: public, max-age=3600
 
 受 `check_search_auth` 与 `rate_limit_search` 双重保护。
 搜索 source / engine 必须存在于 registry 且被当前 `SOUWEN_EDITION` 允许。默认源会按 edition 过滤；显式请求当前 edition 不允许的 source / engine 返回 `403`。
+
+#### `GET /api/v1/search/book`
+
+搜索 work 级图书书目。默认 source 由 registry `book:search` 派生，当前为 `open_library`。
+搜索结果包含 typed identifiers、受限 edition metadata 与 resource access state；Internet Archive
+链接只作为外部资源，不会触发借阅、阅读或下载。
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `q` | string (1-500) | *(必填)* | 搜索关键词；会先 `strip()`，strip 后不能为空 |
+| `sources` | string \| null | `null`（registry `book:search`） | 数据源列表，逗号分隔 |
+| `per_page` | int (1-100) | `10` | 每个数据源返回结果数 |
+| `timeout` | float (1-300) \| null | `null` | 端点硬超时（秒），超时返回 504 |
+
+**错误状态码：** `403 forbidden`（source 存在但当前 edition 不允许）、`502 bad_gateway`（所有数据源均失败）、`504 gateway_timeout`（超过 `timeout`）。
 
 #### `GET /api/v1/search/paper`
 
