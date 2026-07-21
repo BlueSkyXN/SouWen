@@ -263,6 +263,7 @@ class BookResult(BaseModel):
     subjects: list[str] = Field(default_factory=list)
     collections: list[str] = Field(default_factory=list)
     publishers: list[str] = Field(default_factory=list)
+    funding: list[str] = Field(default_factory=list)
     first_publish_year: int | None = None
     copyright_year: int | None = None
     description: str | None = None

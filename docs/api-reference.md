@@ -522,10 +522,12 @@ Cache-Control: public, max-age=3600
 #### `GET /api/v1/search/book`
 
 搜索 work 级图书书目。默认 source 由 registry `book:search` 派生，当前仍只有
-`open_library`；DOAB、Internet Archive、Library of Congress、LibriVox 和 Wikisource 都必须显式传入
+`open_library`；DOAB、OAPEN、Internet Archive、Library of Congress、LibriVox 和 Wikisource 都必须显式传入
 对应的 `sources=<source>`，不加入默认 fan-out。DOAB 目前是 `experimental`：其公开可验证合同为
 官方 OAI-PMH，search 只筛选 Books set 的一个有界 harvest 页，不能表述为全库关键词检索；detail
-只读取同一记录的 `oai_dc` / `mets` metadata，不请求其 bitstream。LibriVox search 只返回书目与声明的
+只读取同一记录的 `oai_dc` / `mets` metadata，不请求其 bitstream。OAPEN 同样通过独立的官方
+OAI-PMH Books set 运行有界 metadata harvest，保留 funding、逐本 license 和声明 file links；不与
+DOAB record 或 rights 混用。LibriVox search 只返回书目与声明的
 RSS/外部链接；要读取有界 section、reader 和 audio-link metadata，请通过 registry 的
 `get_detail` 调用 `librivox`，它不会请求、下载或转码音频或 RSS 内容。Wikisource search 只允许
 `zh` / `en` 站点，默认 `zh`；REST search 只返回目录 metadata，不读取页面正文、revision 或子页。

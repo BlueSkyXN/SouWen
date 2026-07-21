@@ -6,6 +6,7 @@ from souwen.book.wikisource import WikisourceClient
 from souwen.book.library_of_congress import LibraryOfCongressClient
 from souwen.book.librivox import LibriVoxClient
 from souwen.book.doab import DOABClient
+from souwen.book.oapen import OAPENClient
 
 __all__ = [
     "InternetArchiveClient",
@@ -13,5 +14,6 @@ __all__ = [
     "LibraryOfCongressClient",
     "LibriVoxClient",
     "OpenLibraryClient",
+    "OAPENClient",
     "WikisourceClient",
 ]

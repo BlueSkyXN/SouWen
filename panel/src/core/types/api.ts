@@ -452,6 +452,7 @@ export interface BookResult {
   readers?: Author[]
   subjects: string[]
   collections: string[]
+  funding?: string[]
   first_publish_year?: number | null
   copyright_year?: number | null
   identifiers: BookIdentifier[]

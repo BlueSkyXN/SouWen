@@ -59,6 +59,30 @@ _reg(
 
 _reg(
     SourceAdapter(
+        name="oapen",
+        domain="book",
+        category="book",
+        integration="official_api",
+        description="OAPEN 同行评议开放获取专著 metadata（官方 OAI-PMH，受控 harvest）",
+        config_field=None,
+        auth_requirement="none",
+        risk_level="low",
+        distribution="core",
+        stability="experimental",
+        usage_note=(
+            "search 仅筛选 OAPEN Books set 的一个有界 OAI-PMH harvest 页，不表示全库关键词检索；"
+            "detail 返回书目、funding、license 与 bitstream/publisher 链接 metadata，不下载文件。"
+        ),
+        client_loader=lazy("souwen.book.oapen:OAPENClient"),
+        methods={
+            "search": MethodSpec("search", _P_PER_PAGE),
+            "get_detail": MethodSpec("get_by_id", {"id": "record_id"}),
+        },
+    )
+)
+
+_reg(
+    SourceAdapter(
         name="librivox",
         domain="book",
         category="book",

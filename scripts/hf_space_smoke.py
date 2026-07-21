@@ -224,7 +224,7 @@ EXCLUDED_REQUIRED_KEY_SEARCH_SOURCES = [
     "feishu_drive",
 ]
 EXCLUDED_SELF_HOSTED_SEARCH_SOURCES = ["searxng", "whoogle", "websurfx"]
-EXCLUDED_NO_PUBLIC_ENDPOINT_SOURCES = ["unpaywall", "duckduckgo_news", "doab"]
+EXCLUDED_NO_PUBLIC_ENDPOINT_SOURCES = ["unpaywall", "duckduckgo_news", "doab", "oapen"]
 EXCLUDED_REQUIRED_KEY_FETCH_PROVIDERS = [
     "metaso",
     "tavily",
