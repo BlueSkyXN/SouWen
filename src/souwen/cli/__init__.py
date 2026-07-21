@@ -104,6 +104,7 @@ def main(
 # ---------------------------------------------------------------------------
 from souwen.cli import (  # noqa: E402, F401
     bilibili,
+    citation,
     config_cmds,
     doctor,
     fetch,
@@ -121,6 +122,7 @@ from souwen.cli import (  # noqa: E402, F401
 app.add_typer(search.search_app, name="search")
 app.add_typer(youtube.youtube_app, name="youtube")
 app.add_typer(bilibili.bilibili_app, name="bilibili")
+app.add_typer(citation.citation_app, name="citation")
 app.add_typer(wayback.wayback_app, name="wayback")
 app.add_typer(config_cmds.config_app, name="config")
 app.add_typer(warp.warp_app, name="warp")

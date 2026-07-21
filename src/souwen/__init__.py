@@ -3,6 +3,7 @@
 __version__ = "2.0.0rc1"
 
 from souwen.search import search, search_papers, search_patents
+from souwen.citations import get_citation_count, get_incoming_citations, get_references
 from souwen.web.search import web_search
 from souwen.config import get_config, reload_config
 
@@ -10,6 +11,9 @@ __all__ = [
     "search",
     "search_papers",
     "search_patents",
+    "get_citation_count",
+    "get_incoming_citations",
+    "get_references",
     "web_search",
     "get_config",
     "reload_config",

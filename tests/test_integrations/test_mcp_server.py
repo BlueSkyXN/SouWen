@@ -64,6 +64,57 @@ def _assert_string_or_array_schema(schema: dict) -> None:
 
 
 @pytest.mark.asyncio
+async def test_citation_tools_are_registered_and_dispatch_public_facades(monkeypatch):
+    from souwen.models import CitationCountResponse, CitationGraphResponse
+
+    created: dict[str, _FakeServer] = {}
+
+    def fake_server_factory(name: str):
+        server = _FakeServer(name)
+        created["server"] = server
+        return server
+
+    async def count(identifier: str):
+        assert identifier == "doi:10.1/x"
+        return CitationCountResponse(
+            identifier={"scheme": "doi", "value": "10.1/x"},
+            count=4,
+            source_url="https://example.test/count",
+        )
+
+    async def incoming(identifier: str, *, max_edges: int):
+        assert (identifier, max_edges) == ("doi:10.1/x", 2)
+        return CitationGraphResponse(
+            identifier={"scheme": "doi", "value": "10.1/x"},
+            relation="citations",
+            total_edges=0,
+            returned_edges=0,
+            source_url="https://example.test/incoming",
+        )
+
+    monkeypatch.setattr(mcp_server, "Server", fake_server_factory, raising=False)
+    monkeypatch.setattr(mcp_server, "Tool", _FakeTool, raising=False)
+    monkeypatch.setattr(mcp_server, "TextContent", _FakeTextContent, raising=False)
+    monkeypatch.setattr(mcp_server, "get_bilibili_tools", lambda: [])
+    monkeypatch.setattr(mcp_server, "is_bilibili_tool", lambda _name: False)
+    monkeypatch.setattr("souwen.citations.get_citation_count", count)
+    monkeypatch.setattr("souwen.citations.get_incoming_citations", incoming)
+
+    mcp_server.create_server()
+    tools = await created["server"]._list_tools()
+    names = {tool.name for tool in tools}
+    assert {"citation_count", "citation_incoming", "citation_references"} <= names
+    count_result = await created["server"]._call_tool(
+        "citation_count", {"identifier": "doi:10.1/x"}
+    )
+    incoming_result = await created["server"]._call_tool(
+        "citation_incoming", {"identifier": "doi:10.1/x", "max_edges": 2}
+    )
+    assert json.loads(count_result[0].text)["count"] == 4
+    assert json.loads(incoming_result[0].text)["relation"] == "citations"
+
+
+@pytest.mark.asyncio
 async def test_create_server_bootstraps_plugins_before_fetch_tool(
     monkeypatch, clean_registry, clean_fetch_handlers
 ):

@@ -84,6 +84,25 @@ from souwen.web.fetch import fetch_content, validate_fetch_url
 
 SSRF 防护 URL 校验（DNS 解析 + 非规范 IPv4 数字写法拒绝 + 私有/保留 IP 拦截）。
 
+### Citation enrichment
+
+```python
+from souwen import get_citation_count, get_incoming_citations, get_references
+```
+
+OpenCitations 是 citation enrichment，不是关键词 paper search，也不会加入
+`search_papers()` 默认 fan-out。`identifier` 支持 DOI、PMID 或 OMID；裸 DOI 与
+`https://doi.org/...` 会规范化为 `doi:...`。`max_edges` 是 SouWen 的本地输出上限，
+不是 OpenCitations upstream pagination；响应的 `truncated=true` 表示只返回了本地上限内的边。
+
+| Python API | 返回值 | 说明 |
+|---|---|---|
+| `get_citation_count(identifier)` | `CitationCountResponse` | 被引计数 |
+| `get_incoming_citations(identifier, max_edges=100)` | `CitationGraphResponse` | incoming citation edges |
+| `get_references(identifier, max_edges=100)` | `CitationGraphResponse` | outgoing reference edges |
+
+Citation data 带 OpenCitations source URL、OCI、retrieval time 及 `CC0-1.0` rights；它们不表示被引作品的全文访问、开放获取或再分发许可。
+
 ### 配置管理
 
 ```python
@@ -498,6 +517,18 @@ Cache-Control: public, max-age=3600
 搜索 source / engine 必须存在于 registry 且被当前 `SOUWEN_EDITION` 允许。默认源会按 edition 过滤；显式请求当前 edition 不允许的 source / engine 返回 `403`。
 
 #### `GET /api/v1/search/paper`
+
+#### `GET /api/v1/citations/count`
+
+Query parameter `identifier` is a DOI, PMID or OMID. Returns typed citation count metadata.
+
+#### `GET /api/v1/citations/incoming`
+
+Query parameter `identifier`; optional `max_edges` (1..1000) is a local output cap, not upstream pagination.
+
+#### `GET /api/v1/citations/references`
+
+Query parameter `identifier`; optional `max_edges` uses the same local-cap semantics as incoming edges.
 
 搜索学术论文（多源并联）。
 

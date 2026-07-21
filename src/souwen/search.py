@@ -64,6 +64,9 @@ _QUERY_PARAMETER_CANDIDATES: dict[str, tuple[str, ...]] = {
     "get_transcript": ("video_id",),
     "exa:find_similar": ("url",),
     "unpaywall:find_oa": ("doi",),
+    "opencitations:citation_count": ("identifier",),
+    "opencitations:citations": ("identifier",),
+    "opencitations:references": ("identifier",),
 }
 _DEFAULT_QUERY_PARAMETER_CANDIDATES = (
     "query",
@@ -76,6 +79,7 @@ _DEFAULT_QUERY_PARAMETER_CANDIDATES = (
     "video_id",
     "video_ids",
     "bvid",
+    "identifier",
 )
 _LIST_QUERY_PARAMETERS = frozenset({"urls", "video_ids"})
 

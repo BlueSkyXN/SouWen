@@ -163,6 +163,92 @@ class PaperResult(BaseModel):
         return _coerce_date(value)
 
 
+class CitationIdentifier(BaseModel):
+    """A typed persistent identifier carried by an OpenCitations relation.
+
+    The model deliberately permits identifier schemes beyond the three request
+    schemes accepted by the OpenCitations client.  Citation-edge payloads can
+    legitimately carry related ``openalex`` or other upstream identifiers and
+    must not lose that provenance while normalizing a requested DOI/PMID/OMID.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    scheme: str
+    value: str
+
+    @field_validator("scheme")
+    @classmethod
+    def _normalize_scheme(cls, value: str) -> str:
+        value = value.strip().lower()
+        if not value or not value.replace("_", "").replace("-", "").isalnum():
+            raise ValueError("citation identifier scheme 非法")
+        return value
+
+    @field_validator("value")
+    @classmethod
+    def _normalize_value(cls, value: str) -> str:
+        value = value.strip()
+        if not value or any(char.isspace() for char in value):
+            raise ValueError("citation identifier value 非法")
+        return value
+
+    @property
+    def canonical(self) -> str:
+        """Canonical upstream ``scheme:value`` rendering."""
+        return f"{self.scheme}:{self.value}"
+
+
+class CitationEdge(BaseModel):
+    """One directed OpenCitations edge with source identifiers and provenance."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    oci: str
+    citing: list[CitationIdentifier] = Field(default_factory=list)
+    cited: list[CitationIdentifier] = Field(default_factory=list)
+    citing_raw: str
+    cited_raw: str
+    creation: str | None = None
+    timespan: str | None = None
+    journal_self_citation: bool | None = None
+    author_self_citation: bool | None = None
+    source: str = "opencitations"
+    raw: dict = Field(default_factory=dict)
+
+
+class CitationCountResponse(BaseModel):
+    """Citation-count enrichment result for one identifier."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    identifier: CitationIdentifier
+    source: str = "opencitations"
+    count: int = Field(ge=0)
+    source_url: str
+    rights: str = "CC0-1.0"
+    license_url: str = "https://creativecommons.org/public-domain/cc0/"
+    retrieved_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
+class CitationGraphResponse(BaseModel):
+    """Incoming-citation or reference enrichment result for one identifier."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    identifier: CitationIdentifier
+    relation: Literal["citations", "references"]
+    source: str = "opencitations"
+    total_edges: int = Field(ge=0)
+    returned_edges: int = Field(ge=0)
+    truncated: bool = False
+    edges: list[CitationEdge] = Field(default_factory=list)
+    source_url: str
+    rights: str = "CC0-1.0"
+    license_url: str = "https://creativecommons.org/public-domain/cc0/"
+    retrieved_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 class Applicant(BaseModel):
     """专利申请人/权利人
 

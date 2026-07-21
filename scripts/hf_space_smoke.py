@@ -1622,6 +1622,28 @@ def list_sources_inventory(client: ApiClient) -> ProbeResult:
     )
 
 
+def opencitations_count_route(client: ApiClient) -> ProbeResult:
+    """Verify the public OpenCitations count route without pretending graph pagination exists."""
+    route = "/api/v1/citations/count?identifier=doi%3A10.1038%2Fnphys1170"
+    resp = client.get(route, auth=True)
+    count = resp.data.get("count") if isinstance(resp.data, dict) else None
+    ok = resp.status == 200 and isinstance(count, int) and count >= 0
+    detail = f"status={resp.status}, count={count!r}"
+    result = pass_result if ok else fail_result
+    return result(
+        "zero-key-route",
+        "opencitations-count",
+        detail,
+        required=True,
+        elapsed=resp.elapsed,
+        meta={
+            "matrix_kind": "direct-route",
+            "route": "/api/v1/citations/count",
+            "count": 1 if ok else 0,
+        },
+    )
+
+
 def _result_list_count(data: Any, key: str = "results") -> int:
     if isinstance(data, list):
         return len(data)
@@ -2041,6 +2063,14 @@ def run_zero_key_case(
 
     results.append(
         safe_call("matrix", "http-backend=auto", lambda: set_http_backend(client, "auto"))
+    )
+    results.append(
+        safe_call(
+            "zero-key-route",
+            "opencitations-count",
+            lambda: opencitations_count_route(client),
+            required=True,
+        )
     )
     default_min = (
         config.min_default_paper_no_warp if warp == "off" else config.min_default_paper_warp
@@ -2799,7 +2829,7 @@ def build_markdown_report(config: SmokeConfig, results: list[ProbeResult]) -> st
             f"- HTTP backend matrix: `{','.join(MATRIX_HTTP_BACKENDS)}`",
             f"- Per-source matrix: `{'enabled' if config.full_matrix else 'quick aggregate only'}`",
             fetch_provider_matrix_summary(config, results),
-            "- Direct zero-key routes: `/api/v1/sources`, `/api/v1/bilibili/*`, "
+            "- Direct zero-key routes: `/api/v1/sources`, `/api/v1/citations/count`, `/api/v1/bilibili/*`, "
             "`/api/v1/wayback/*`, `/api/v1/links`, `/api/v1/sitemap`",
         ]
     lines = [
