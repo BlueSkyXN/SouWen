@@ -21,6 +21,7 @@ import {
 } from '../lib/searchMemory'
 import type {
   ImageSearchResponse,
+  ResearchOutputSearchResponse,
   SearchResponse,
   SourceInfo,
   VideoSearchResponse,
@@ -47,6 +48,7 @@ export type Capability = typeof SEARCH_CAPABILITIES[number]
 export const SEARCH_DOMAINS = [
   'book',
   'paper',
+  'research_output',
   'patent',
   'web',
   'social',
@@ -88,6 +90,7 @@ export interface SearchPageState {
 
 export type SearchPageResponse =
   | SearchResponse
+  | ResearchOutputSearchResponse
   | WebSearchResponse
   | ImageSearchResponse
   | VideoSearchResponse
@@ -96,6 +99,7 @@ export type SearchPageResponse =
 const DOMAIN_CAPABILITIES: Record<Domain, Capability[]> = {
   book: ['search'],
   paper: ['search'],
+  research_output: ['search'],
   patent: ['search'],
   web: ['search', 'search_news', 'search_images', 'search_videos'],
   social: ['search'],
@@ -212,6 +216,13 @@ export function useSearchPage(domain: string): SearchPageState {
         resp = (await api.searchBook(trimmed, sourcesCSV, 10, controller.signal)) as SearchResponse
       } else if (domain === 'paper') {
         resp = (await api.searchPaper(trimmed, sourcesCSV, 10, controller.signal)) as SearchResponse
+      } else if (domain === 'research_output') {
+        resp = (await api.searchResearchOutputs(
+          trimmed,
+          sourcesCSV,
+          10,
+          controller.signal,
+        )) as ResearchOutputSearchResponse
       } else if (domain === 'patent') {
         resp = (await api.searchPatent(trimmed, sourcesCSV, 10, controller.signal)) as SearchResponse
       } else if (domain === 'web' && capability === 'search_news') {

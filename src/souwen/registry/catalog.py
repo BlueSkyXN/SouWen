@@ -72,6 +72,13 @@ _SOURCE_CATEGORIES: tuple[SourceCategory, ...] = (
         description="论文、预印本、开放学术索引和文献库。",
     ),
     SourceCategory(
+        key="research_output",
+        label="科研产出",
+        domain="research_output",
+        order=15,
+        description="数据集、软件、报告、活动等非论文科研产出及其仓储元数据。",
+    ),
+    SourceCategory(
         key="patent",
         label="专利",
         domain="patent",
@@ -156,6 +163,7 @@ _SOURCE_CATEGORY_ORDER: dict[str, int] = {
 _DOMAIN_TO_CATALOG_CATEGORY: dict[str, str] = {
     "book": "book",
     "paper": "paper",
+    "research_output": "research_output",
     "patent": "patent",
     "social": "social",
     "office": "office",

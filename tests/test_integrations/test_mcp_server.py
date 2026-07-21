@@ -301,6 +301,50 @@ async def test_search_books_tool_uses_registry_defaults(monkeypatch):
 
 
 @pytest.mark.asyncio
+async def test_search_research_outputs_tool_uses_registry_defaults(monkeypatch):
+    """MCP research-output tool should expose and dispatch the registry default."""
+    created: dict[str, _FakeServer] = {}
+
+    def fake_server_factory(name: str):
+        server = _FakeServer(name)
+        created["server"] = server
+        return server
+
+    monkeypatch.setattr(mcp_server, "Server", fake_server_factory, raising=False)
+    monkeypatch.setattr(mcp_server, "Tool", _FakeTool, raising=False)
+    monkeypatch.setattr(mcp_server, "TextContent", _FakeTextContent, raising=False)
+    monkeypatch.setattr(mcp_server, "get_bilibili_tools", lambda: [])
+    monkeypatch.setattr(mcp_server, "is_bilibili_tool", lambda name: False)
+
+    async def fake_dispatch(*args, **kwargs):
+        raise AssertionError("unexpected bilibili dispatch")
+
+    monkeypatch.setattr(mcp_server, "dispatch_bilibili_tool", fake_dispatch)
+    search_mod = importlib.import_module("souwen.search")
+    captured: dict = {}
+
+    async def fake_search(query, sources=None, per_page=10, **kwargs):
+        captured.update(query=query, sources=sources, per_page=per_page)
+        return []
+
+    monkeypatch.setattr(search_mod, "search_research_outputs", fake_search)
+    mcp_server.create_server()
+    server = created["server"]
+
+    tools = await server._list_tools()
+    tool = next(item for item in tools if item.name == "search_research_outputs")
+    _assert_string_or_array_schema(tool.inputSchema["properties"]["sources"])
+    assert tool.inputSchema["properties"]["sources"]["description"].endswith(
+        mcp_server._default_research_output_sources_label()
+    )
+
+    result = await server._call_tool("search_research_outputs", {"query": "climate"})
+    assert captured == {"query": "climate", "sources": None, "per_page": 5}
+    assert len(result) == 1
+    assert result[0].text == "[]"
+
+
+@pytest.mark.asyncio
 async def test_search_patents_tool_uses_registry_defaults(monkeypatch):
     """MCP 专利搜索省略 ``sources`` 时，也应透传 ``None`` 给 registry 默认源。"""
     created: dict[str, _FakeServer] = {}

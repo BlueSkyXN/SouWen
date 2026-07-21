@@ -6,7 +6,7 @@ from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from souwen.models import EnrichedWebSearchResult
+from souwen.models import EnrichedWebSearchResult, SearchResponse
 from souwen.server.schemas.common import SearchMeta
 
 
@@ -28,6 +28,18 @@ class SearchBookResponse(BaseModel):
     query: str
     sources: list[str]
     results: list[dict]
+    total: int
+    meta: SearchMeta = Field(
+        default_factory=lambda: SearchMeta(requested=[], succeeded=[], failed=[])
+    )
+
+
+class SearchResearchOutputResponse(BaseModel):
+    """Research-output search response preserving typed per-source result envelopes."""
+
+    query: str
+    sources: list[str]
+    results: list[SearchResponse]
     total: int
     meta: SearchMeta = Field(
         default_factory=lambda: SearchMeta(requested=[], succeeded=[], failed=[])

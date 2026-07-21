@@ -9,6 +9,7 @@ import { listFavoriteSearches, listSearchHistory } from '../lib/searchMemory'
 import { api } from '../services/api'
 import type {
   ImageSearchResponse,
+  ResearchOutputSearchResponse,
   SearchResponse,
   SourceInfo,
   SourcesResponse,
@@ -250,6 +251,58 @@ describe('useSearchPage book domain', () => {
     expect(bookSpy).toHaveBeenCalledWith(
       'The Hobbit',
       'open_library',
+      10,
+      expect.any(AbortSignal),
+    )
+    expect(webSpy).not.toHaveBeenCalled()
+    expect(result.current.responses).toEqual([response])
+  })
+})
+
+describe('useSearchPage research-output domain', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    vi.spyOn(api, 'getSources').mockResolvedValue({
+      sources: [{
+        ...source('datacite', ['search'], ['research_output:search']),
+        domain: 'research_output',
+        category: 'research_output',
+      }],
+      categories: [],
+      defaults: { 'research_output:search': ['datacite'] },
+    })
+  })
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  it('selects the DataCite default and dispatches to searchResearchOutputs', async () => {
+    const response: ResearchOutputSearchResponse = {
+      query: 'dataset',
+      sources: ['datacite'],
+      total: 0,
+      results: [],
+    }
+    const researchOutputSpy = vi.spyOn(api, 'searchResearchOutputs').mockResolvedValue(response)
+    const webSpy = vi.spyOn(api, 'searchWeb').mockRejectedValue(new Error('wrong endpoint'))
+    const { result } = renderHook(() => useSearchPage('research_output'))
+
+    await waitFor(() => {
+      expect(result.current.selectedSources).toEqual(['datacite'])
+    })
+    expect(result.current.supportedCapabilities).toEqual(['search'])
+
+    act(() => {
+      result.current.setQuery('  dataset  ')
+    })
+    await act(async () => {
+      await result.current.handleSearch()
+    })
+
+    expect(researchOutputSpy).toHaveBeenCalledWith(
+      'dataset',
+      'datacite',
       10,
       expect.any(AbortSignal),
     )

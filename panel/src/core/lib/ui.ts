@@ -48,6 +48,7 @@ type BadgeColor = 'blue' | 'amber' | 'green' | 'red' | 'indigo' | 'teal'
 export function categoryBadgeColor(category: string): BadgeColor {
   switch (category) {
     case 'paper': return 'blue'
+    case 'research_output': return 'indigo'
     case 'patent': return 'amber'
     case 'web_general': return 'green'
     case 'web_professional': return 'indigo'

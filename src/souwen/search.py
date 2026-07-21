@@ -446,6 +446,24 @@ async def search_books(
     )
 
 
+async def search_research_outputs(
+    query: str,
+    sources: list[str] | str | None = None,
+    per_page: int = 10,
+    **kwargs: Any,
+) -> list[SearchResponse]:
+    """Search datasets, software and other non-paper research outputs through the registry."""
+    query = _normalize_query_text(query)
+    return await search(
+        query,
+        domain="research_output",
+        capability="search",
+        sources=sources,
+        limit=per_page,
+        **kwargs,
+    )
+
+
 async def search_patents(
     query: str,
     sources: list[str] | str | None = None,
@@ -652,6 +670,7 @@ __all__ = [
     "search_all",
     "search_papers",
     "search_books",
+    "search_research_outputs",
     "search_patents",
     "web_search",
 ]

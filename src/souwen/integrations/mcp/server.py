@@ -119,6 +119,10 @@ def _default_book_sources_label() -> str:
     return _default_source_names_label("book", "search")
 
 
+def _default_research_output_sources_label() -> str:
+    return _default_source_names_label("research_output", "search")
+
+
 def _default_patent_sources_label() -> str:
     return _default_source_names_label("patent", "search")
 
@@ -284,6 +288,7 @@ def create_server() -> "Server":
             fetch_provider_projection
         )
         book_sources_label = _default_book_sources_label()
+        research_output_sources_label = _default_research_output_sources_label()
         patent_sources_label = _default_patent_sources_label()
         web_engines_label = _default_web_engines_label()
         return [
@@ -296,6 +301,28 @@ def create_server() -> "Server":
                         "query": {"type": "string", "description": "搜索关键词"},
                         "sources": _string_or_string_array_schema(
                             f"数据源或数据源列表，默认 {book_sources_label}"
+                        ),
+                        "limit": {
+                            "type": "integer",
+                            "default": 5,
+                            "description": "每源返回数量",
+                        },
+                    },
+                    "required": ["query"],
+                },
+            ),
+            Tool(
+                name="search_research_outputs",
+                description=(
+                    "搜索数据集、软件、文本、活动等科研产出；保留 source resource type、"
+                    "rights 与声明资源链接，不下载内容。"
+                ),
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "搜索关键词"},
+                        "sources": _string_or_string_array_schema(
+                            f"数据源或数据源列表，默认 {research_output_sources_label}"
                         ),
                         "limit": {
                             "type": "integer",
@@ -549,6 +576,16 @@ def create_server() -> "Server":
                 sources = _string_list_arg(arguments.get("sources"), name="sources") or None
                 limit = arguments.get("limit", 5)
                 responses = await search_books(arguments["query"], sources=sources, per_page=limit)
+                result = [response.model_dump(mode="json") for response in responses]
+
+            elif name == "search_research_outputs":
+                from souwen.search import search_research_outputs
+
+                sources = _string_list_arg(arguments.get("sources"), name="sources") or None
+                limit = arguments.get("limit", 5)
+                responses = await search_research_outputs(
+                    arguments["query"], sources=sources, per_page=limit
+                )
                 result = [response.model_dump(mode="json") for response in responses]
 
             elif name == "search_papers":

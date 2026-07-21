@@ -74,6 +74,22 @@ def test_book_search_endpoint_exposes_typed_public_contract() -> None:
     assert {"q", "sources", "per_page", "timeout"} <= parameters
 
 
+def test_research_output_search_endpoint_exposes_typed_public_contract() -> None:
+    """The research-output route must publish the same typed model used by Python APIs."""
+    from souwen.server.app import app
+
+    schema = app.openapi()
+    operation = schema["paths"]["/api/v1/search/research-output"]["get"]
+    response_schema = operation["responses"]["200"]["content"]["application/json"]["schema"]
+
+    assert response_schema["$ref"].endswith("/SearchResearchOutputResponse")
+    components = schema["components"]["schemas"]
+    response_component = components[_component_name(response_schema["$ref"])]
+    results_schema = response_component["properties"]["results"]
+    assert results_schema["items"]["$ref"].endswith("/SearchResponse")
+    assert "ResearchOutputResult" in components
+
+
 def test_doctor_endpoint_exposes_edition_contract() -> None:
     """``/api/v1/doctor`` response must include the current edition."""
     from souwen.server.app import app

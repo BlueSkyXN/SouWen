@@ -19,6 +19,8 @@ _DEFAULT_PAPER_SOURCES = defaults_for("paper", "search")
 _DEFAULT_PAPER_SOURCES_LABEL = ",".join(_DEFAULT_PAPER_SOURCES)
 _DEFAULT_PATENT_SOURCES = defaults_for("patent", "search")
 _DEFAULT_PATENT_SOURCES_LABEL = ",".join(_DEFAULT_PATENT_SOURCES)
+_DEFAULT_RESEARCH_OUTPUT_SOURCES = defaults_for("research_output", "search")
+_DEFAULT_RESEARCH_OUTPUT_SOURCES_LABEL = ",".join(_DEFAULT_RESEARCH_OUTPUT_SOURCES)
 _DEFAULT_WEB_ENGINES = defaults_for("web", "search")
 _DEFAULT_WEB_ENGINES_LABEL = ",".join(_DEFAULT_WEB_ENGINES)
 
@@ -91,6 +93,74 @@ def search_book(
                 ", ".join(author.name for author in book.authors),
                 str(book.first_publish_year or ""),
                 book.source,
+            )
+        console.print(table)
+
+
+@search_app.command("research-output")
+def search_research_output(
+    query: str = typer.Argument(..., help="搜索数据集、软件、报告等科研产出"),
+    sources: str | None = typer.Option(
+        None,
+        "--sources",
+        "-s",
+        help=f"数据源，逗号分隔；默认 {_DEFAULT_RESEARCH_OUTPUT_SOURCES_LABEL}",
+    ),
+    limit: int = typer.Option(5, "--limit", "-n", help="每个源返回数量"),
+    json_output: bool = typer.Option(False, "--json", "-j", help="JSON 格式输出"),
+    timeout: int | None = typer.Option(None, "--timeout", "-t", help="总超时（秒），默认不限制"),
+) -> None:
+    """搜索非论文科研产出，保留 DataCite 的类型、rights 与资源链接元数据。"""
+    from souwen.search import search_research_outputs
+
+    requested_sources = None
+    if sources is None:
+        source_list = list(_DEFAULT_RESEARCH_OUTPUT_SOURCES)
+    else:
+        source_list = [source.strip() for source in sources.split(",") if source.strip()]
+        requested_sources = source_list
+
+    async def _do():
+        coro = search_research_outputs(query, sources=requested_sources, per_page=limit)
+        return await asyncio.wait_for(coro, timeout=timeout) if timeout is not None else await coro
+
+    with console.status(f"[bold green]搜索科研产出: {query} ..."):
+        try:
+            results = _run_async(_do())
+        except asyncio.TimeoutError:
+            console.print(f"[red]⏱ 搜索超时 (>{timeout}s)[/red]")
+            raise typer.Exit(124)
+        except EditionError as exc:
+            _exit_for_edition_error(exc)
+
+    if json_output:
+        from rich import print_json
+
+        print_json(
+            json.dumps([result.model_dump(mode="json") for result in results], ensure_ascii=False)
+        )
+        return
+    returned_sources = {result.source for result in results}
+    failed = [source for source in source_list if source not in returned_sources]
+    if failed:
+        console.print(f"[yellow]⚠ 以下数据源未返回结果: {', '.join(failed)}[/yellow]")
+    if not results:
+        console.print("[dim]未找到任何结果。[/dim]")
+        return
+    for response in results:
+        table = Table(title=f"🧪 {response.source} ({len(response.results)} 条)", show_lines=True)
+        table.add_column("Title", style="cyan", max_width=50)
+        table.add_column("Type", style="magenta", max_width=24)
+        table.add_column("Year", justify="center")
+        table.add_column("Rights", style="dim", max_width=28)
+        table.add_column("Source", style="green")
+        for output in response.results:
+            table.add_row(
+                output.title,
+                output.resource_type or output.resource_type_general or "",
+                str(output.publication_year or ""),
+                next((item.rights or "" for item in output.rights_list), ""),
+                output.source,
             )
         console.print(table)
 

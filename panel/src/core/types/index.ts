@@ -47,7 +47,7 @@ export interface Toast {
  * 搜索分类
  */
 export type SearchCategory =
-  | 'book' | 'paper'
+  | 'book' | 'paper' | 'research_output'
   | 'patent'
   | 'web_general'
   | 'web_professional'
@@ -63,7 +63,7 @@ export const WEB_CATEGORIES: ReadonlySet<SearchCategory> = new Set([
 
 /** All search categories in display order */
 export const ALL_CATEGORIES: readonly SearchCategory[] = [
-  'book', 'paper', 'patent', 'web_general', 'web_professional', 'social', 'developer', 'knowledge', 'video',
+  'book', 'paper', 'research_output', 'patent', 'web_general', 'web_professional', 'social', 'developer', 'knowledge', 'video',
 ]
 
 /* ===== Skin System Types ===== */

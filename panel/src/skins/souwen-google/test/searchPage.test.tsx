@@ -27,6 +27,7 @@ import { api } from '@core/services/api'
 import { useNotificationStore } from '@core/stores/notificationStore'
 import type {
   ImageSearchResponse,
+  ResearchOutputSearchResponse,
   SearchResponse,
   SourceInfo,
   SourcesResponse,
@@ -39,6 +40,7 @@ vi.mock('@core/services/api', () => ({
     getSources: vi.fn(),
     searchPaper: vi.fn(),
     searchPatent: vi.fn(),
+    searchResearchOutputs: vi.fn(),
     searchWeb: vi.fn(),
     searchImages: vi.fn(),
     searchNews: vi.fn(),
@@ -184,11 +186,55 @@ function createPaperResponse(query: string, title: string): SearchResponse {
   }
 }
 
+function createResearchOutputResponse(query: string): ResearchOutputSearchResponse {
+  return {
+    query,
+    sources: ['datacite'],
+    total: 1,
+    results: [{
+      query,
+      source: 'datacite',
+      total_results: 1,
+      results: [{
+        source: 'datacite',
+        source_record_id: '10.5072/example.dataset',
+        title: 'A FAIR research dataset',
+        titles: ['A FAIR research dataset'],
+        creators: [{ name: 'Ada Lovelace', affiliations: [], identifiers: [] }],
+        contributors: [],
+        publisher: 'Example Repository',
+        publication_year: 2026,
+        dates: [],
+        subjects: [],
+        descriptions: [{ value: 'A dataset fixture with explicit rights and resource metadata.' }],
+        funding_references: [],
+        resource_type_general: 'Dataset',
+        resource_type: 'Research data',
+        rights_list: [{ rights: 'CC BY 4.0', rights_uri: 'https://creativecommons.org/licenses/by/4.0/' }],
+        related_identifiers: [],
+        geo_locations: [],
+        identifiers: [{ scheme: 'doi', value: '10.5072/example.dataset' }],
+        landing_url: 'https://doi.org/10.5072/example.dataset',
+        content_urls: ['https://example.test/content-metadata'],
+        resources: [{
+          url: 'https://example.test/resource-metadata',
+          relation: 'hasPart',
+          label: 'Repository resource metadata',
+          source: 'datacite',
+          access: { status: 'metadata_only' },
+        }],
+        access: { status: 'metadata_only' },
+        source_url: 'https://api.datacite.org/dois/10.5072/example.dataset',
+      }],
+    }],
+  }
+}
+
 function source(name: string, domain: string, capabilities: string[], defaultFor: string[] = []): SourceInfo {
   return {
     name,
     domain,
-    category: domain === 'paper' ? 'paper' : 'web_general',
+    category: domain === 'paper' ? 'paper' : domain === 'research_output' ? 'research_output' : 'web_general',
     capabilities,
     description: name,
     auth_requirement: 'none',
@@ -426,5 +472,40 @@ describe('SearchPage', () => {
       'duckduckgo_videos',
     )
     expect(mockedApi.searchWeb).not.toHaveBeenCalled()
+  })
+
+  it('renders a research output with its real type, rights, access and metadata links', async () => {
+    mockedApi.getSources.mockResolvedValue({
+      sources: [source('datacite', 'research_output', ['search'], ['research_output:search'])],
+      categories: [],
+      defaults: { 'research_output:search': ['datacite'] },
+    })
+    mockedApi.searchResearchOutputs.mockResolvedValue(createResearchOutputResponse('dataset'))
+
+    render(<SearchPage />)
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: 'domains.research_output' }))
+    expect(await screen.findByText('datacite')).toBeInTheDocument()
+    await user.type(screen.getByRole('textbox'), 'dataset')
+    await user.click(screen.getByRole('button', { name: '搜索' }))
+
+    const result = await screen.findByTestId('research-output-result')
+    expect(result).toHaveTextContent('A FAIR research dataset')
+    expect(result).toHaveTextContent('Dataset')
+    expect(result).toHaveTextContent('Research data')
+    expect(result).toHaveTextContent('CC BY 4.0')
+    expect(result).toHaveTextContent('metadata_only')
+    expect(screen.getByRole('link', { name: /Repository resource metadata/ })).toHaveAttribute(
+      'href',
+      'https://example.test/resource-metadata',
+    )
+    expect(mockedApi.searchResearchOutputs).toHaveBeenCalledWith(
+      'dataset',
+      'datacite',
+      10,
+      expect.any(AbortSignal),
+    )
+    expect(mockedApi.searchPaper).not.toHaveBeenCalled()
   })
 })

@@ -56,7 +56,7 @@ Pydantic 配置策略：
 from __future__ import annotations
 
 from datetime import date, datetime, timezone
-from typing import Literal
+from typing import Any, Literal
 from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -218,6 +218,137 @@ class ResourceLink(BaseModel):
     format: str | None = None
     source: str
     access: ResourceAccess = Field(default_factory=ResourceAccess)
+
+
+class ResearchOutputIdentifier(BaseModel):
+    """A source-declared identifier without collapsing its scheme or relation."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    scheme: str
+    value: str
+    url: str | None = None
+
+
+class ResearchContributor(BaseModel):
+    """A creator or contributor with the role and affiliation supplied by a repository."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    name: str
+    given_name: str | None = None
+    family_name: str | None = None
+    name_type: str | None = None
+    contributor_type: str | None = None
+    affiliations: list[str] = Field(default_factory=list)
+    identifiers: list[ResearchOutputIdentifier] = Field(default_factory=list)
+
+
+class ResearchOutputDate(BaseModel):
+    """A repository date retained as text because DataCite dates need not be ISO dates."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    value: str
+    date_type: str | None = None
+    information: str | None = None
+
+
+class ResearchOutputSubject(BaseModel):
+    """A subject together with its optional vocabulary provenance."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    subject: str
+    scheme: str | None = None
+    scheme_uri: str | None = None
+    value_uri: str | None = None
+    language: str | None = None
+    classification_code: str | None = None
+
+
+class ResearchOutputDescription(BaseModel):
+    """A typed description; content may remain upstream HTML and is not rendered as trusted HTML."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    value: str
+    description_type: str | None = None
+    language: str | None = None
+
+
+class FundingReference(BaseModel):
+    """Funding metadata with award provenance, independent from publication rights."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    funder_name: str | None = None
+    funder_identifier: str | None = None
+    funder_identifier_type: str | None = None
+    award_number: str | None = None
+    award_uri: str | None = None
+    award_title: str | None = None
+
+
+class RightsStatement(BaseModel):
+    """One repository-provided rights or license statement; it does not imply downloadable access."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    rights: str | None = None
+    rights_uri: str | None = None
+    rights_identifier: str | None = None
+    rights_identifier_scheme: str | None = None
+    scheme_uri: str | None = None
+    language: str | None = None
+
+
+class RelatedIdentifier(BaseModel):
+    """A typed relation to another record, retaining the source relation name."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    value: str
+    identifier_type: str | None = None
+    relation_type: str | None = None
+    resource_type_general: str | None = None
+    related_metadata_scheme: str | None = None
+    scheme_uri: str | None = None
+    scheme_type: str | None = None
+    relation_type_information: str | None = None
+
+
+class ResearchOutputResult(BaseModel):
+    """A normalized non-paper research output with type, rights and repository provenance intact."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source: str
+    source_record_id: str
+    title: str
+    titles: list[str] = Field(default_factory=list)
+    creators: list[ResearchContributor] = Field(default_factory=list)
+    contributors: list[ResearchContributor] = Field(default_factory=list)
+    publisher: str | None = None
+    publication_year: int | None = None
+    dates: list[ResearchOutputDate] = Field(default_factory=list)
+    subjects: list[ResearchOutputSubject] = Field(default_factory=list)
+    descriptions: list[ResearchOutputDescription] = Field(default_factory=list)
+    funding_references: list[FundingReference] = Field(default_factory=list)
+    resource_type_general: str | None = None
+    resource_type: str | None = None
+    rights_list: list[RightsStatement] = Field(default_factory=list)
+    related_identifiers: list[RelatedIdentifier] = Field(default_factory=list)
+    geo_locations: list[dict[str, Any]] = Field(default_factory=list)
+    identifiers: list[ResearchOutputIdentifier] = Field(default_factory=list)
+    language: str | None = None
+    version: str | None = None
+    landing_url: str | None = None
+    content_urls: list[str] = Field(default_factory=list)
+    resources: list[ResourceLink] = Field(default_factory=list)
+    access: ResourceAccess = Field(default_factory=lambda: ResourceAccess(status="metadata_only"))
+    source_url: str
+    retrieved_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
 class BookEdition(BaseModel):
@@ -640,7 +771,13 @@ class SearchResponse(BaseModel):
     query: str
     source: str
     total_results: int | None = None
-    results: list[PaperResult] | list[PatentResult] | list[BookResult] | list[WebSearchResult]
+    results: (
+        list[PaperResult]
+        | list[PatentResult]
+        | list[BookResult]
+        | list[ResearchOutputResult]
+        | list[WebSearchResult]
+    )
     page: int = 1
     per_page: int = 10
 

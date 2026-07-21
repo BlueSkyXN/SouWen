@@ -16,10 +16,11 @@ from typing import Any
 
 # ── 常量 ────────────────────────────────────────────────────
 
-#: 业务领域（11 个）
+#: 业务领域（12 个）
 DOMAINS: frozenset[str] = frozenset(
     {
         "book",
+        "research_output",
         "paper",
         "patent",
         "web",
@@ -123,6 +124,7 @@ STABILITIES: frozenset[str] = frozenset({"stable", "beta", "experimental", "depr
 SOURCE_CATEGORIES: frozenset[str] = frozenset(
     {
         "book",
+        "research_output",
         "paper",
         "patent",
         "web_general",

@@ -69,6 +69,7 @@ const CATEGORY_LABELS = SOURCE_CATEGORY_LABEL_KEYS
 const CATEGORY_ICONS: Record<SourceCategory, typeof FileText> = {
   book: BookOpen,
   paper: FileText,
+  research_output: FileText,
   patent: Shield,
   web_general: Globe,
   web_professional: Globe,

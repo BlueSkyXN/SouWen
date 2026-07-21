@@ -30,6 +30,26 @@ describe('search service', () => {
     })
   })
 
+  it('serializes research-output search to its dedicated endpoint', async () => {
+    const request = vi.fn().mockResolvedValue({ query: 'dataset', sources: [], results: [], total: 0 })
+    const signal = new AbortController().signal
+    const ctx = {
+      request,
+      headers: vi.fn().mockReturnValue({ 'Content-Type': 'application/json' }),
+    }
+
+    await searchMethods.searchResearchOutputs.call(ctx as never, 'dataset', 'datacite', 10, signal, 18)
+
+    const [path, options] = request.mock.calls[0]
+    const url = new URL(`http://souwen.local${path}`)
+    expect(url.pathname).toBe('/api/v1/search/research-output')
+    expect(url.searchParams.get('q')).toBe('dataset')
+    expect(url.searchParams.get('sources')).toBe('datacite')
+    expect(url.searchParams.get('per_page')).toBe('10')
+    expect(url.searchParams.get('timeout')).toBe('18')
+    expect(options).toMatchObject({ signal })
+  })
+
   it('serializes news search options to /search/news', async () => {
     const request = vi.fn().mockResolvedValue({ query: 'ai news', engines: [], results: [], total: 0 })
     const signal = new AbortController().signal
