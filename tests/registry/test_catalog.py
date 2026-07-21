@@ -156,6 +156,8 @@ def test_adapter_registration_order_snapshot() -> None:
         "serper",
         "scrapingdog",
         "metaso",
+        "uniapi_ark_annotations_deepseek_v3_2_251201",
+        "uniapi_ark_annotations_doubao_seed_2_0_lite_260428",
         "tavily",
         "exa",
         "perplexity",

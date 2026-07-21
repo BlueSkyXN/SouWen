@@ -245,6 +245,11 @@ llm_search_gateways: {}
 #   uniapi:
 #     api_key: your-secret
 #     base_url: https://gateway.example.com/v1
+# Ark concrete source 仍属实验性，需逐个显式启用：
+# sources:
+#   uniapi_ark_annotations_deepseek_v3_2_251201:
+#     enabled: true
+#     timeout: 45
 
 # ===== 数据源频道配置 =====
 # 按源名称配置，覆盖全局默认值。

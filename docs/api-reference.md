@@ -746,13 +746,13 @@ static status 与 live probe 轴。当源在当前 edition 不可用且未被手
 状态语义与 Panel 展示规则应以本节和管理端 schema 为准；面向用户的排障路径会在 GitHub Wiki 中提供。
 
 下例展示未加载外部插件的干净 `edition=pro` 环境 static shape；具体状态计数会随 edition、
-已安装 optional dependency、频道启用和凭据配置变化。此条件下 `total=95` 对应当前内置
+已安装 optional dependency、频道启用和凭据配置变化。此条件下 `total=97` 对应当前内置
 registered catalog；加载外部插件后 `total` 会随 live registry 增加。
 
 **响应示例：**
 ```json
 {
-  "total": 95,
+  "total": 97,
   "ok": 39,
   "available": 50,
   "degraded": 11,

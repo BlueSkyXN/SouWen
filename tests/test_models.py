@@ -48,7 +48,7 @@ class TestSourceCatalog:
         for entry in catalog.values():
             counts[entry.category] = counts.get(entry.category, 0) + 1
         assert counts["web_general"] == 21
-        assert counts["web_professional"] == 9
+        assert counts["web_professional"] == 11
         assert counts["social"] == 5
         assert counts["developer"] == 2
         assert counts["knowledge"] == 1
