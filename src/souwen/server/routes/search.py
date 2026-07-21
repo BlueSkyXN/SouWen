@@ -15,6 +15,7 @@ from souwen.server.schemas import (
     EnrichedWebSearchRequest,
     EnrichedWebSearchResponse,
     SearchImagesResponse,
+    SearchBookResponse,
     SearchPaperResponse,
     SearchPatentResponse,
     SearchVideosResponse,
@@ -27,6 +28,11 @@ router = APIRouter()
 def _default_paper_sources() -> list[str]:
     """返回当前 registry 的论文默认源。"""
     return defaults_for("paper", "search")
+
+
+def _default_book_sources() -> list[str]:
+    """返回当前 registry 的图书默认源。"""
+    return defaults_for("book", "search")
 
 
 def _default_patent_sources() -> list[str]:
@@ -133,6 +139,58 @@ async def _run_registry_web_capability_search(
     except Exception:
         logger.warning("%s搜索内部错误: q=%s", timeout_label, query, exc_info=True)
         raise HTTPException(status_code=502, detail=unavailable_detail)
+
+
+@router.get(
+    "/search/book",
+    response_model=SearchBookResponse,
+    dependencies=[Depends(rate_limit_search), Depends(check_search_auth)],
+)
+async def api_search_book(
+    q: str = Query(..., description="搜索关键词", min_length=1, max_length=500),
+    sources: str | None = Query(
+        None,
+        description="数据源，逗号分隔；默认来自当前 registry 的 book:search",
+    ),
+    per_page: int = Query(10, ge=1, le=100, description="每页结果数"),
+    timeout: float | None = Query(None, ge=1, le=300, description="端点硬超时（秒），超时返回 504"),
+):
+    """搜索 work 级图书书目。"""
+    from souwen.core.exceptions import SouWenError
+    from souwen.search import search_books
+
+    query = _normalize_query_arg(q)
+    requested_sources = None
+    if sources is None:
+        source_list = _default_book_sources()
+    else:
+        source_list = [source.strip() for source in sources.split(",") if source.strip()]
+        requested_sources = source_list
+    try:
+        coro = search_books(query, sources=requested_sources, per_page=per_page)
+        results = (
+            await asyncio.wait_for(coro, timeout=timeout) if timeout is not None else await coro
+        )
+        succeeded = [result.source for result in results]
+        return {
+            "query": query,
+            "sources": source_list,
+            "results": [result.model_dump(mode="json") for result in results],
+            "total": sum(len(result.results) for result in results),
+            "meta": {
+                "requested": source_list,
+                "succeeded": succeeded,
+                "failed": [source for source in source_list if source not in succeeded],
+            },
+        }
+    except asyncio.TimeoutError:
+        logger.warning("图书搜索超时: q=%s timeout=%ss", query, timeout)
+        raise HTTPException(status_code=504, detail=f"搜索超时（{timeout}s）")
+    except EditionError as exc:
+        raise HTTPException(status_code=403, detail=str(exc))
+    except SouWenError:
+        logger.exception("图书搜索上游失败: q=%s sources=%s", query, source_list)
+        raise HTTPException(status_code=502, detail="所有上游数据源均不可用")
 
 
 @router.get(

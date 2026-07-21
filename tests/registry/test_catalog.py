@@ -29,6 +29,7 @@ def test_source_categories_have_stable_metadata() -> None:
     categories = source_categories()
     assert {item.key for item in categories} == SOURCE_CATEGORIES
     assert [item.key for item in categories] == [
+        "book",
         "paper",
         "patent",
         "web_general",
@@ -133,6 +134,7 @@ def test_adapter_registration_order_snapshot() -> None:
         "iacr",
         "ieee_xplore",
         "unpaywall",
+        "open_library",
         "patentsview",
         "pqai",
         "epo_ops",
@@ -216,6 +218,7 @@ def test_adapter_registration_order_snapshot() -> None:
 
 def test_default_source_order_snapshot() -> None:
     expected = {
+        "book:search": ["open_library"],
         "paper:search": ["openalex", "crossref", "arxiv", "dblp", "pubmed", "biorxiv"],
         "patent:search": ["google_patents"],
         "web:search": ["duckduckgo", "bing"],
@@ -229,6 +232,7 @@ def test_default_source_order_snapshot() -> None:
         "fetch:fetch": ["builtin"],
     }
     assert {
+        "book:search": defaults_for("book", "search"),
         "paper:search": defaults_for("paper", "search"),
         "patent:search": defaults_for("patent", "search"),
         "web:search": defaults_for("web", "search"),

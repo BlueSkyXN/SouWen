@@ -163,6 +163,99 @@ class PaperResult(BaseModel):
         return _coerce_date(value)
 
 
+ResourceAccessStatus = Literal[
+    "metadata_only",
+    "preview",
+    "borrow",
+    "open_access",
+    "public_domain",
+    "restricted",
+    "unknown",
+]
+
+
+class BookIdentifier(BaseModel):
+    """A typed bibliographic identifier; schemes are never collapsed into one string."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    scheme: Literal["isbn10", "isbn13", "lccn", "oclc", "olid", "doi", "source_record_id"]
+    value: str
+
+    @field_validator("value")
+    @classmethod
+    def _validate_value(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("book identifier value 不能为空")
+        return normalized
+
+
+class ResourceAccess(BaseModel):
+    """Explicit access semantics for a catalog resource, without inferring download rights."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    status: ResourceAccessStatus = "unknown"
+    rights: str | None = None
+    license_url: str | None = None
+    region: str | None = None
+    notes: str | None = None
+    machine_download: bool | None = None
+
+
+class ResourceLink(BaseModel):
+    """A source-provided resource link, such as a cover or external catalog record."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    url: str
+    relation: str
+    label: str | None = None
+    media_type: str | None = None
+    format: str | None = None
+    source: str
+    access: ResourceAccess = Field(default_factory=ResourceAccess)
+
+
+class BookEdition(BaseModel):
+    """Bounded edition metadata attached to a work-level book record."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    olid: str | None = None
+    publishers: list[str] = Field(default_factory=list)
+    publication_date: str | None = None
+    formats: list[str] = Field(default_factory=list)
+    languages: list[str] = Field(default_factory=list)
+    page_count: int | None = None
+    identifiers: list[BookIdentifier] = Field(default_factory=list)
+    resources: list[ResourceLink] = Field(default_factory=list)
+
+
+class BookResult(BaseModel):
+    """A work-level normalized book catalog record with explicit provenance and access state."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source: str
+    source_record_id: str
+    title: str
+    authors: list[Author] = Field(default_factory=list)
+    contributors: list[Author] = Field(default_factory=list)
+    languages: list[str] = Field(default_factory=list)
+    subjects: list[str] = Field(default_factory=list)
+    publishers: list[str] = Field(default_factory=list)
+    first_publish_year: int | None = None
+    description: str | None = None
+    identifiers: list[BookIdentifier] = Field(default_factory=list)
+    editions: list[BookEdition] = Field(default_factory=list)
+    resources: list[ResourceLink] = Field(default_factory=list)
+    access: ResourceAccess = Field(default_factory=lambda: ResourceAccess(status="metadata_only"))
+    source_url: str
+    retrieved_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 class CitationIdentifier(BaseModel):
     """A typed persistent identifier carried by an OpenCitations relation.
 
@@ -465,7 +558,7 @@ class SearchResponse(BaseModel):
     query: str
     source: str
     total_results: int | None = None
-    results: list[PaperResult] | list[PatentResult] | list[WebSearchResult]
+    results: list[PaperResult] | list[PatentResult] | list[BookResult] | list[WebSearchResult]
     page: int = 1
     per_page: int = 10
 

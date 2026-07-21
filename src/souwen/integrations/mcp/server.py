@@ -115,6 +115,10 @@ def _default_paper_sources_label() -> str:
     return _default_source_names_label("paper", "search")
 
 
+def _default_book_sources_label() -> str:
+    return _default_source_names_label("book", "search")
+
+
 def _default_patent_sources_label() -> str:
     return _default_source_names_label("patent", "search")
 
@@ -279,9 +283,29 @@ def create_server() -> "Server":
         fetch_provider_projection_label = _fetch_provider_projection_label(
             fetch_provider_projection
         )
+        book_sources_label = _default_book_sources_label()
         patent_sources_label = _default_patent_sources_label()
         web_engines_label = _default_web_engines_label()
         return [
+            Tool(
+                name="search_books",
+                description="搜索 work 级图书书目；资源链接只表达上游访问状态，不执行借阅或下载。",
+                inputSchema={
+                    "type": "object",
+                    "properties": {
+                        "query": {"type": "string", "description": "搜索关键词"},
+                        "sources": _string_or_string_array_schema(
+                            f"数据源或数据源列表，默认 {book_sources_label}"
+                        ),
+                        "limit": {
+                            "type": "integer",
+                            "default": 5,
+                            "description": "每源返回数量",
+                        },
+                    },
+                    "required": ["query"],
+                },
+            ),
             Tool(
                 name="search_papers",
                 description=(
@@ -519,7 +543,15 @@ def create_server() -> "Server":
             结果格式化为 JSON 字符串，便于 LLM 解析。
         """
         try:
-            if name == "search_papers":
+            if name == "search_books":
+                from souwen.search import search_books
+
+                sources = _string_list_arg(arguments.get("sources"), name="sources") or None
+                limit = arguments.get("limit", 5)
+                responses = await search_books(arguments["query"], sources=sources, per_page=limit)
+                result = [response.model_dump(mode="json") for response in responses]
+
+            elif name == "search_papers":
                 from souwen.search import search_papers
 
                 sources = _string_list_arg(arguments.get("sources"), name="sources") or None

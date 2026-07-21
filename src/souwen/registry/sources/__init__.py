@@ -16,6 +16,7 @@ def _import_segment(name: str) -> ModuleType:
 
 
 _import_segment("paper")
+_import_segment("book")
 _import_segment("patent")
 _web_general = _import_segment("web_general")
 _import_segment("web_professional")
