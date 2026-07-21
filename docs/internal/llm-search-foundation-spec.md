@@ -1,19 +1,53 @@
 # LLM Search Foundation SPEC
 
-状态：Implementation baseline
-范围：`TASK-001`、`TASK-002`
+状态：Foundation completed；后续 LLM-search 状态见本页的 Current State
+范围：`TASK-001`、`TASK-002` 的历史 foundation 合同
 基线：`78635c7e9ae53967b6e834459b77941c58ad45ee`
+
+## 0. Current State（2026-07-21）
+
+本页保留的是第一单元的设计与验证合同，不能把其中的“本单元不做”理解为当前
+仓库没有后续功能。`TASK-001` / `TASK-002` 已合入 `main`；后续实现已经在这个
+foundation 上增加了 additive 的 `POST /api/v1/search/web/enriched`、Ark annotation
+scheme 和两个默认关闭的 concrete source。旧 `GET /api/v1/search/web` 保持不变。
+
+当前 Registry 已声明的 concrete sources 只有：
+
+| Source ID | Scheme ID | Exact model ID | Catalog state | Evidence boundary |
+|---|---|---|---|---|
+| `uniapi_ark_annotations_deepseek_v3_2_251201` | `uniapi_ark_annotations_v1` | `deepseek-v3-2-251201` | `experimental`、default disabled | deterministic fixture/dry-run 已覆盖；一次真实付费 receipt 仍须经明确授权 |
+| `uniapi_ark_annotations_doubao_seed_2_0_lite_260428` | `uniapi_ark_annotations_v1` | `doubao-seed-2-0-lite-260428` | `experimental`、default disabled | 与上行相同；不得自动切换到另一个 model |
+
+下表是截至 2026-07-20 的 research inventory，而不是可调用 source 清单。每一个
+`planned` 或 `conditional` 项在实现当天仍须重新验证 exact endpoint、requested/served
+model、tool schema 和 receipt；不得仅因本表出现而配置、启用或宣传为可用。
+
+| Scheme ID | 当前状态 | 当前仓库含义 |
+|---|---|---|
+| `uniapi_ark_annotations_v1` | implemented | 上述两个 immutable source 是唯一已声明的第一批 source；live evidence 仍需授权 |
+| `uniapi_openai_responses_search_v1` | planned | 未注册 concrete source；需要每个 model 组合的独立 gate |
+| `uniapi_qwen_responses_search_v1` | planned | 未注册 concrete source；URL-only candidates 必须先通过 fetch title gate |
+| `uniapi_anthropic_messages_search_v1` | planned | 未注册 concrete source；需重验 tool version 与 UniAPI native protocol |
+| `uniapi_gemini_grounding_v1` | conditional | 只有 receipt gate 成立后才可注册 concrete source |
+| `uniapi_kimi_builtin_search_v1` | rejected | 当前结果不透明，不能形成资料清单 |
+| `uniapi_alibaba_chat_search_v1` | rejected | 当前没有可审计 source/tool/citation 证据 |
+| `uniapi_zhipu_chat_search_v1` | rejected | 当前 UniAPI 组合没有透传可用结构 |
+
+真实 Ark evidence 只允许通过
+`scripts/uniapi_search_functional_check.py --source <concrete-source> --mode live --execute --required`
+在明确计费授权后产生。dry-run、fixture、历史 probe 或 CI success 都不能替代这一
+receipt，也不应被写成当前 upstream availability。
 
 ## 1. 目标与边界
 
-本 SPEC 只建立 LLM Search 的配置、身份、可用性、超时、单次请求和共享 deadline
-基础，不注册任何 UniAPI source，不调用外部 API，也不新增公开 REST、CLI、MCP 或 Panel
-入口。
+本 SPEC 的**原始单元**只建立 LLM Search 的配置、身份、可用性、超时、单次请求和共享
+deadline 基础。当时不注册 UniAPI source、不调用外部 API，也不新增公开 REST、CLI、MCP
+或 Panel 入口；后续实现状态以第 0 节为准。
 
-未来 Citation API 必须是 additive 的 `POST /api/v1/search/web/enriched`。当前
+后续 Citation API 已作为 additive 的 `POST /api/v1/search/web/enriched` 实现；当前
 `GET /api/v1/search/web` 的请求、响应、认证、限流和错误语义保持不变。
 
-本单元明确不做：
+原始 foundation 单元明确不做：
 
 - Ark/OpenAI/Anthropic/Qwen/Gemini wire adapter 或 fixture parser；
 - `SearchCandidate`、enrichment、fetch、summary、answer；
@@ -159,7 +193,8 @@ llm_search_gateways.<gateway_id>.base_url
   继续递归脱敏 `api_key`，并将 gateway `base_url` 显示为 `***`。
 - Python API：新 contract 放在 `souwen.web.llm_search`；`souwen` package root 不导入它，
   避免启动或 optional dependency 回归。
-- Registry：不注册任何 concrete source，因此本 PR 不改变 source catalog 数量。
+- Registry：原始 foundation PR 不注册 concrete source，因此它本身不改变 source catalog 数量；
+  当前 Registry 的后续声明以第 0 节为准。
 - Tests：全部使用 fixture/mock，不读真实 HOME，不访问网络或凭据。
 
 ## 6. Validation Plan
@@ -210,7 +245,9 @@ release-candidate workflow。
 
 ## 8. Rollback
 
-本单元无 migration、无 source registration、无 live deployment。回滚可按模块独立进行：
+原始 foundation 单元无 migration、无 source registration、无 live deployment。其回滚可按模块
+独立进行；不要把这段 rollback 直接用于移除第 0 节列出的后续 source 或 API：它们必须按各自
+的 PR/manifest 回滚。
 
 1. 移除未被 source 使用的 `llm_search_gateways` 和 `souwen.web.llm_search` contract；
 2. 移除 additive source timeout，普通 web timeout 自动回到原 15 秒实现；

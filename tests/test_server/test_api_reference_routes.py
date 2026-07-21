@@ -79,3 +79,25 @@ def test_api_reference_fetch_summarize_request_fields_match_model() -> None:
 
     missing = [name for name in FetchSummarizeRequest.model_fields if name not in section]
     assert missing == []
+
+
+def test_api_reference_explains_enriched_text_and_failure_semantics() -> None:
+    """Enriched-search docs must not blur provider, fetched, and generated text."""
+    docs = Path("docs/api-reference.md").read_text(encoding="utf-8")
+    section = docs.split("#### `POST /api/v1/search/web/enriched`", 1)[1].split(
+        "#### `GET /api/v1/sources`", 1
+    )[0]
+
+    for required in (
+        "provider_snippet",
+        "provider_summary",
+        "extractive",
+        "generated",
+        'fetch_status="success"',
+        "visible_search_calls",
+        "不是费用推断",
+        "不会伪造 `0`",
+        "synthesis_status",
+        "仍返回 `200`",
+    ):
+        assert required in section
