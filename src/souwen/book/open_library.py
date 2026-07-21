@@ -63,9 +63,26 @@ class OpenLibraryClient:
 
     @staticmethod
     def _strings(value: object, *, limit: int = 25) -> list[str]:
+        if isinstance(value, str):
+            return [value.strip()] if value.strip() else []
         if not isinstance(value, list):
             return []
         return [item.strip() for item in value if isinstance(item, str) and item.strip()][:limit]
+
+    @staticmethod
+    def _language_codes(value: object) -> list[str]:
+        values: list[object] = value if isinstance(value, list) else [value]
+        codes: list[str] = []
+        for item in values:
+            if isinstance(item, str):
+                code = item.removeprefix("/languages/").strip()
+            elif isinstance(item, dict) and isinstance(item.get("key"), str):
+                code = item["key"].removeprefix("/languages/").strip()
+            else:
+                continue
+            if code:
+                codes.append(code)
+        return codes[:25]
 
     @staticmethod
     def _work_id(value: object) -> str:
@@ -174,12 +191,9 @@ class OpenLibraryClient:
                     BookIdentifier(scheme="isbn13" if len(compact) == 13 else "isbn10", value=value)
                 )
         resources: list[ResourceLink] = []
-        cover_ids = cls._strings(record.get("covers"))
-        for value in cover_ids[:1]:
-            try:
-                cover = cls._cover_resource(int(value))
-            except ValueError:
-                cover = None
+        cover_ids = record.get("covers")
+        for value in cover_ids[:1] if isinstance(cover_ids, list) else []:
+            cover = cls._cover_resource(value)
             if cover is not None:
                 resources.append(cover)
         page_count = record.get("number_of_pages")
@@ -190,9 +204,7 @@ class OpenLibraryClient:
             if isinstance(record.get("publish_date"), str)
             else None,
             formats=cls._strings(record.get("physical_format")),
-            languages=[
-                item.removeprefix("/languages/") for item in cls._strings(record.get("languages"))
-            ],
+            languages=cls._language_codes(record.get("languages")),
             page_count=page_count if isinstance(page_count, int) and page_count >= 0 else None,
             identifiers=identifiers,
             resources=resources,
