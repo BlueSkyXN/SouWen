@@ -43,8 +43,8 @@ def test_checked_in_data_sources_matches_generator():
 def test_registry_snapshot_drives_release_candidate_metrics():
     snapshot, _catalog, _categories = gen_docs._load_snapshot(include_plugins=False)
 
-    assert snapshot.registered_count == 98
-    assert snapshot.public_count == 97
+    assert snapshot.registered_count == 99
+    assert snapshot.public_count == 98
     assert snapshot.hidden_or_internal_count == 1
     assert len(snapshot.fetch_primary) == 17
     assert [adapter.name for adapter in snapshot.fetch_cross_domain] == [

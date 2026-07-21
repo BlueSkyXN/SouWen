@@ -113,6 +113,7 @@ def test_adapter_registration_order_snapshot() -> None:
     assert tuple(all_adapters()) == (
         "openalex",
         "eric",
+        "osti",
         "semantic_scholar",
         "crossref",
         "arxiv",

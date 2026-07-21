@@ -32,9 +32,9 @@ class TestSourceCatalog:
     """source catalog 元信息测试"""
 
     def test_paper_count(self):
-        """paper 暴露 19 个搜索数据源"""
+        """paper 暴露 20 个搜索数据源"""
         catalog = public_source_catalog()
-        assert sum(1 for entry in catalog.values() if entry.category == "paper") == 19
+        assert sum(1 for entry in catalog.values() if entry.category == "paper") == 20
 
     def test_patent_count(self):
         """patent 暴露 8 个搜索数据源。"""

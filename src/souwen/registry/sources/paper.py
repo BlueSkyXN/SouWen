@@ -18,7 +18,7 @@ from souwen.registry.sources._helpers import (
 )
 
 # ═════════════════════════════════════════════════════════════
-#  1. paper（19 源）
+#  1. paper（21 源）
 # ═════════════════════════════════════════════════════════════
 
 _reg(
@@ -47,6 +47,22 @@ _reg(
         auth_requirement="none",
         client_loader=lazy("souwen.paper.eric:EricClient"),
         methods={"search": MethodSpec("search", _P_ROWS)},
+    )
+)
+
+_reg(
+    SourceAdapter(
+        name="osti",
+        domain="paper",
+        integration="official_api",
+        description="OSTI.GOV 能源科研记录（官方匿名 API）",
+        config_field=None,
+        auth_requirement="none",
+        client_loader=lazy("souwen.paper.osti:OstiClient"),
+        methods={
+            "search": MethodSpec("search", _P_ROWS),
+            "get_detail": MethodSpec("get_by_id", {"id": "osti_id"}),
+        },
     )
 )
 
