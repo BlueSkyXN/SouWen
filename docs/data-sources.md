@@ -4,8 +4,8 @@
 
 | 指标 | 数量 | 定义 |
 |---|---:|---|
-| Registered | **108** | 当前生成进程注册的 `SourceAdapter`；默认只含内置源 |
-| Public | **107** | `catalog_visibility=public`，进入公开 Source Catalog |
+| Registered | **109** | 当前生成进程注册的 `SourceAdapter`；默认只含内置源 |
+| Public | **108** | `catalog_visibility=public`，进入公开 Source Catalog |
 | Hidden / internal | **1** | 已注册但不进入公开 Source Catalog |
 | Fetch primary-domain | **17** | 主 `domain=fetch` 的公开源 |
 | Fetch cross-domain | **7** | 其他主 domain 通过 `extra_domains` 暴露 `fetch` |
@@ -212,11 +212,12 @@
 | `open_library` | official_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | get_detail, search | — |
 | `wikisource` | official_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | get_detail, search | — |
 
-## research_output · `research_output`（1 源）
+## research_output · `research_output`（2 源）
 
 | Name | Integration | Auth | Risk | Distribution | Stability | Extra | Capabilities | Credentials |
 |---|---|---|---|---|---|---|---|---|
 | `datacite` | official_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | search | — |
+| `figshare` | official_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | get_detail, search | — |
 
 <!-- END AUTO -->
 

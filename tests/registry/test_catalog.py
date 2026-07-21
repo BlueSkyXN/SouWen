@@ -71,6 +71,11 @@ def test_formal_fields_project_to_catalog_categories_and_visibility() -> None:
     assert catalog["wikipedia"].category == "knowledge"
     assert catalog["wayback"].category == "archive"
 
+    assert catalog["figshare"].category == "research_output"
+    assert catalog["figshare"].capabilities == ("get_detail", "search")
+    assert catalog["figshare"].default_for == ()
+    assert catalog["figshare"].auth_requirement == "none"
+
     assert catalog["unpaywall"].visibility == "hidden"
     assert "unpaywall" not in public_source_catalog()
 
@@ -136,6 +141,7 @@ def test_adapter_registration_order_snapshot() -> None:
         "ieee_xplore",
         "unpaywall",
         "datacite",
+        "figshare",
         "open_library",
         "doab",
         "oapen",

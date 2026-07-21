@@ -225,7 +225,7 @@ EXCLUDED_REQUIRED_KEY_SEARCH_SOURCES = [
 ]
 EXCLUDED_SELF_HOSTED_SEARCH_SOURCES = ["searxng", "whoogle", "websurfx"]
 EXCLUDED_NO_PUBLIC_ENDPOINT_SOURCES = ["unpaywall", "duckduckgo_news", "doab", "oapen"]
-EXCLUDED_HFS_EXTERNAL_LIVE_SEARCH_SOURCES = ["datacite"]
+EXCLUDED_HFS_EXTERNAL_LIVE_SEARCH_SOURCES = ["datacite", "figshare"]
 EXCLUDED_REQUIRED_KEY_FETCH_PROVIDERS = [
     "metaso",
     "tavily",
