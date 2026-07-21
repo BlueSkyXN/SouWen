@@ -12,6 +12,7 @@ import type {
 } from '../types'
 
 export interface SearchApi {
+  searchBook(q: string, sources: string, perPage: number, signal?: AbortSignal, timeout?: number): Promise<SearchResponse>
   searchPaper(q: string, sources: string, perPage: number, signal?: AbortSignal, timeout?: number): Promise<SearchResponse>
   searchPatent(q: string, sources: string, perPage: number, signal?: AbortSignal, timeout?: number): Promise<SearchResponse>
   searchWeb(q: string, engines: string, maxResults: number, signal?: AbortSignal, timeout?: number): Promise<WebSearchResponse>
@@ -21,6 +22,12 @@ export interface SearchApi {
 }
 
 export const searchMethods = {
+  async searchBook(this: ApiServiceBase, q: string, sources: string, perPage: number, signal?: AbortSignal, timeout?: number): Promise<SearchResponse> {
+    let url = `/api/v1/search/book?q=${encodeURIComponent(q)}&sources=${encodeURIComponent(sources)}&per_page=${perPage}`
+    if (timeout) url += `&timeout=${timeout}`
+    return this.request<SearchResponse>(url, { headers: this.headers(), signal })
+  },
+
   /** 搜索论文 */
   async searchPaper(this: ApiServiceBase, q: string, sources: string, perPage: number, signal?: AbortSignal, timeout?: number): Promise<SearchResponse> {
     let url = `/api/v1/search/paper?q=${encodeURIComponent(q)}&sources=${encodeURIComponent(sources)}&per_page=${perPage}`
