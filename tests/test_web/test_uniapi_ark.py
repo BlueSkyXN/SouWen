@@ -248,6 +248,12 @@ async def test_each_ark_source_makes_one_bound_single_attempt_request(
     assert [candidate.url for candidate in candidates] == ["https://example.com/first"]
     assert receipt.visible_search_calls == 1
     assert receipt.provider_metered_search_calls is None
+    assert receipt.tool_call_types == ("web_search_call",)
+    assert receipt.valid_annotation_count == 3
+    assert receipt.response_status == "completed"
+    assert receipt.input_tokens is None
+    assert receipt.output_tokens is None
+    assert receipt.total_tokens is None
     client.post.assert_awaited_once_with(
         "/v1/responses",
         json={
