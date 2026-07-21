@@ -11,6 +11,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from pydantic import ValidationError
 
+from souwen.core.redaction import redact_llm_search_gateway_config_view
 from souwen.server.routes._common import redact_secret_payload, redact_secret_text
 from souwen.server.schemas import (
     AdminConfigResponse,
@@ -64,7 +65,10 @@ async def get_config_view():
     result = {}
     for field_name in SouWenConfig.model_fields:
         val = getattr(cfg, field_name)
-        result[field_name] = redact_secret_payload(val, field_name)
+        if field_name == "llm_search_gateways":
+            result[field_name] = redact_llm_search_gateway_config_view(val)
+        else:
+            result[field_name] = redact_secret_payload(val, field_name)
     return result
 
 

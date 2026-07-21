@@ -517,10 +517,13 @@ class TestAdminAuth:
 
     def test_admin_config_yaml_accepts_and_redacts_llm_search_gateway(self, authed_client):
         content = (
+            "sources:\n"
+            "  openalex:\n"
+            "    base_url: https://source.example.com/v1\n"
             "llm_search_gateways:\n"
             "  uniapi:\n"
             "    api_key: gateway-secret\n"
-            "    base_url: https://gateway.example.com/v1\n"
+            "    base_url: https://private-gateway.example.com/v1\n"
         )
         saved = authed_client.put(
             "/api/v1/admin/config/yaml",
@@ -535,9 +538,11 @@ class TestAdminAuth:
         )
         assert view.status_code == 200, view.text
         assert "gateway-secret" not in view.text
+        assert "private-gateway.example.com" not in view.text
+        assert view.json()["sources"]["openalex"]["base_url"] == "https://source.example.com/v1"
         assert view.json()["llm_search_gateways"]["uniapi"] == {
             "api_key": "***",
-            "base_url": "https://gateway.example.com/v1",
+            "base_url": "***",
         }
 
     def test_admin_config_yaml_uses_current_home_at_request_time(

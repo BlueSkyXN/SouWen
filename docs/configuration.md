@@ -445,8 +445,9 @@ sources:
 SOUWEN_LLM_SEARCH_GATEWAYS={"uniapi":{"api_key":"...","base_url":"https://gateway.example.com/v1"}}
 ```
 
-Doctor/catalog/admin 只报告缺少的配置路径，不显示 API Key。配置对象的日志/`repr` 也不会
-包含 Key 或 private base URL。完整 foundation contract 见
+Doctor/catalog/admin source 诊断只报告缺少的配置路径，不显示 API Key。配置对象的日志/`repr`
+与 `souwen config show`、`/api/v1/admin/config` 的配置展示也不会包含 Key 或 private gateway
+base URL。完整 foundation contract 见
 [LLM Search Foundation SPEC](./internal/llm-search-foundation-spec.md)。
 
 ## Docker 专用环境变量

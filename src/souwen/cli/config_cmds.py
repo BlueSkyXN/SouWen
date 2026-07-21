@@ -10,6 +10,7 @@ from rich.table import Table
 
 from souwen.cli._common import console, redact_cli_text, redact_cli_value
 from souwen.config.models import LLM_SEARCH_IDENTITY_PARAMS
+from souwen.core.redaction import redact_llm_search_gateway_config_view
 
 config_app = typer.Typer(help="配置管理")
 
@@ -84,6 +85,8 @@ def config_show() -> None:
         if is_secret:
             display = _mask_value(str(raw_val) if raw_val is not None else None)
         else:
+            if field_name == "llm_search_gateways":
+                raw_val = redact_llm_search_gateway_config_view(raw_val)
             display = redact_cli_text(raw_val) if raw_val is not None else "[dim]未配置[/dim]"
         table.add_row(field_name, display)
 

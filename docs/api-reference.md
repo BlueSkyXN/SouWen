@@ -678,7 +678,8 @@ enabled 与 required credentials 的合取；
 和常见 compact 写法（如 `apiKey` / `apikey` / `accessToken` /
 `sessionid` / `csrftoken`）都会按敏感字段处理。非敏感字段中的 URL
 也会遮蔽 userinfo 以及敏感 query/fragment 参数，例如代理 URL 中的
-用户名、密码、`token`、`apiKey`。
+用户名、密码、`token`、`apiKey`。`llm_search_gateways` 属于额外保护的配置域：
+其中每个 gateway 的 `base_url` 也始终显示为 `"***"`，避免暴露 private gateway 地址。
 
 **响应示例：**
 ```json

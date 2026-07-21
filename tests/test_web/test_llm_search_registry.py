@@ -141,6 +141,10 @@ def test_projection_uses_canonical_source_adapter_and_gateway_requirements() -> 
     assert adapter.default_for == frozenset()
     assert adapter.stability == "experimental"
     assert adapter.methods["search"].timeout_seconds == 60
+    assert adapter.llm_search_identity == (
+        "uniapi_ark_annotations_v1",
+        "deepseek-v3-2-251201",
+    )
 
     custom = registry.project_source_adapter(
         "uniapi_ark_deepseek",
@@ -171,6 +175,37 @@ def test_projection_uses_canonical_source_adapter_and_gateway_requirements() -> 
             client_loader=lambda: _Client,
             methods={"search": MethodSpec("search", timeout_seconds=10)},
         )
+
+
+def test_canonical_registry_rejects_identity_aliases_from_separate_scheme_registries(
+    clean_registry,
+) -> None:
+    from souwen.registry.views import _reg_external
+
+    first = SearchSchemeRegistry()
+    first.register_scheme(_scheme())
+    first.register_source(_source())
+    assert _reg_external(
+        first.project_source_adapter(
+            "uniapi_ark_deepseek",
+            description="first fixture source",
+            client_loader=lambda: _Client,
+        )
+    )
+
+    second = SearchSchemeRegistry()
+    second.register_scheme(_scheme())
+    second.register_source(_source("uniapi_ark_deepseek_alias"))
+    assert (
+        _reg_external(
+            second.project_source_adapter(
+                "uniapi_ark_deepseek_alias",
+                description="aliased fixture source",
+                client_loader=lambda: _Client,
+            )
+        )
+        is False
+    )
 
 
 def test_shared_gateway_availability_uses_same_registry_meta_contract() -> None:

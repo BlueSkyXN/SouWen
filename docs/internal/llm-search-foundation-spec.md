@@ -65,8 +65,8 @@ sources.<source_id>.api_key/base_url
 - `SourceChannelConfig.timeout` 是可选 override，范围 `1..300` 秒。
 - `params` 只能承载 tool knobs；`model`、`model_id`、`scheme_id`、`source_id`、
   `gateway_id` 属于 immutable identity，出现即拒绝。
-- config model 与 resolved runtime object 的 `repr` 不得包含 API Key 或 private base URL。
-- Doctor/catalog/admin 只报告缺失路径，例如
+- config model、resolved runtime object 与配置展示视图不得包含 API Key 或 private base URL。
+- Doctor/catalog/admin source 诊断只报告缺失路径，例如
   `llm_search_gateways.uniapi.api_key`，不返回配置值。
 
 ## 3. Scheme 与 concrete source 合同
@@ -155,7 +155,8 @@ llm_search_gateways.<gateway_id>.base_url
 - Admin API：`SourceChannelConfigResponse`/update request additive 增加可选 `timeout`；
   source/catalog 状态 additive 返回 value-free `missing_credential_fields`、`config_valid` 与
   `config_reason`。
-- Config API：additive 增加 `llm_search_gateways`，`/admin/config` 继续递归脱敏 `api_key`。
+- Config API：additive 增加 `llm_search_gateways`；`/admin/config` 与 `config show`
+  继续递归脱敏 `api_key`，并将 gateway `base_url` 显示为 `***`。
 - Python API：新 contract 放在 `souwen.web.llm_search`；`souwen` package root 不导入它，
   避免启动或 optional dependency 回归。
 - Registry：不注册任何 concrete source，因此本 PR 不改变 source catalog 数量。

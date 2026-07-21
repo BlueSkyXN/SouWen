@@ -25,6 +25,7 @@ from souwen.editions import EditionError, ensure_source_allowed
 from souwen.models import WebSearchResponse, WebSearchResult
 from souwen.registry import defaults_for, get as _registry_get
 from souwen.registry.adapter import MethodSpec
+from souwen.registry.meta import source_config_validation_reason
 
 logger = logging.getLogger("souwen.web.search")
 _WEB_ENGINE_TIMEOUT_CAP_SECONDS = 15.0
@@ -205,6 +206,10 @@ async def web_search(
                 name,
                 sorted(adapter.capabilities),
             )
+            continue
+        config_validation_reason = source_config_validation_reason(cfg, name, adapter)
+        if config_validation_reason:
+            logger.warning("引擎 %s 配置无效，跳过: %s", name, config_validation_reason)
             continue
         try:
             cls = adapter.client_loader()

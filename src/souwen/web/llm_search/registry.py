@@ -112,6 +112,7 @@ class SearchSchemeRegistry:
             stability=source.stability,
             category="web_professional",
             usage_note=usage_note,
+            llm_search_identity=(source.scheme_id, source.model_id),
         )
 
 

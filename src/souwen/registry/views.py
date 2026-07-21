@@ -28,6 +28,17 @@ _REGISTRY: dict[str, SourceAdapter] = {}
 _EXTERNAL_PLUGINS: set[str] = set()
 
 
+def _llm_identity_owner(adapter: SourceAdapter) -> str | None:
+    """Return the active canonical source already owning an LLM-search identity."""
+    identity = adapter.llm_search_identity
+    if identity is None:
+        return None
+    for existing in _REGISTRY.values():
+        if getattr(existing, "llm_search_identity", None) == identity:
+            return existing.name
+    return None
+
+
 def _invalidate_source_meta_cache() -> None:
     """外部插件改动 registry 后，同步刷新 SourceMeta 兼容视图。"""
     try:
@@ -41,6 +52,11 @@ def _reg(adapter: SourceAdapter) -> None:
     """注册一个 adapter。同名重复注册抛异常（避免 sources package 里的漂移）。"""
     if adapter.name in _REGISTRY:
         raise ValueError(f"重复注册数据源: {adapter.name!r}（已存在 {_REGISTRY[adapter.name]!r}）")
+    identity_owner = _llm_identity_owner(adapter)
+    if identity_owner is not None:
+        raise ValueError(
+            f"LLM-search identity {adapter.llm_search_identity!r} 已属于数据源 {identity_owner!r}"
+        )
     _REGISTRY[adapter.name] = adapter
 
 
@@ -60,6 +76,15 @@ def _reg_external(adapter: SourceAdapter) -> bool:
         logger.warning(
             "插件源 %r 与已有数据源同名，已跳过（请重命名插件以避免冲突）",
             adapter.name,
+        )
+        return False
+    identity_owner = _llm_identity_owner(adapter)
+    if identity_owner is not None:
+        logger.warning(
+            "插件源 %r 与数据源 %r 使用相同 LLM-search identity %r，已跳过",
+            adapter.name,
+            identity_owner,
+            adapter.llm_search_identity,
         )
         return False
     _REGISTRY[adapter.name] = adapter

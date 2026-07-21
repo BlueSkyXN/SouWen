@@ -14,13 +14,16 @@ from __future__ import annotations
 
 import asyncio
 from contextlib import asynccontextmanager
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from souwen.config import SouWenConfig, SourceChannelConfig
+from souwen.config import LLMSearchGatewayConfig, SouWenConfig, SourceChannelConfig
 from souwen.editions import EditionError
 from souwen.models import SearchResponse, WebSearchResult
 from souwen.registry.adapter import MethodSpec, SourceAdapter
+from souwen.web.llm_search import ConcreteSearchSourceSpec, SearchSchemeSpec
+from souwen.web.llm_search.registry import SearchSchemeRegistry
 from souwen.web.search import _deduplicate, _get_engine_timeout_seconds, web_search
 
 
@@ -223,6 +226,89 @@ async def test_web_search_explicit_disallowed_engine_raises(monkeypatch):
 
     with pytest.raises(EditionError, match="source 'tavily' requires edition=pro"):
         await web_search("test query", engines="tavily")
+
+
+@pytest.mark.parametrize(
+    ("source_config", "reason"),
+    [
+        (
+            SourceChannelConfig(enabled=True, params={"model": "override-not-allowed"}),
+            "immutable source identity override",
+        ),
+        (
+            SourceChannelConfig(enabled=True, base_url="file:///private/gateway"),
+            "invalid source base_url",
+        ),
+    ],
+)
+async def test_web_search_skips_invalid_projected_llm_source_before_loading_or_task_creation(
+    monkeypatch,
+    caplog,
+    source_config,
+    reason,
+):
+    """Projected LLM sources with invalid identity config must fail closed before dispatch."""
+    from souwen.web import search as web_search_mod
+
+    source_name = "projected_llm_source"
+    client_loader = Mock(name="projected_client_loader")
+    registry = SearchSchemeRegistry()
+    scheme = registry.register_scheme(
+        SearchSchemeSpec(
+            scheme_id="fixture_gateway_v1",
+            gateway_id="uniapi",
+            upstream_channel="fixture",
+            protocol="responses",
+            endpoint_kind="responses",
+            tool_schema="fixture",
+            candidate_contract="structured_result_list",
+            default_timeout_seconds=45,
+            source_grade=True,
+            request_builder=lambda **_kwargs: {},
+            response_parser=lambda payload, **_kwargs: payload,
+        )
+    )
+    registry.register_source(
+        ConcreteSearchSourceSpec(
+            source_id=source_name,
+            scheme_id=scheme.scheme_id,
+            model_id="fixture-model",
+        )
+    )
+    adapter = registry.project_source_adapter(
+        source_name,
+        description="fixture projected source",
+        client_loader=client_loader,
+    )
+    search_task = AsyncMock(name="projected_search_task")
+    config = SouWenConfig(
+        edition="full",
+        llm_search_gateways={
+            "uniapi": LLMSearchGatewayConfig(
+                api_key="test-key",
+                base_url="https://gateway.example.test/v1",
+            )
+        },
+        sources={source_name: source_config},
+    )
+
+    original_get = web_search_mod._registry_get
+    monkeypatch.setattr(
+        web_search_mod,
+        "_registry_get",
+        lambda name: adapter if name == source_name else original_get(name),
+    )
+    monkeypatch.setattr(web_search_mod, "get_config", lambda: config)
+    monkeypatch.setattr(web_search_mod, "_search_engine", search_task)
+
+    result = await web_search_mod.web_search("test query", engines=[source_name])
+
+    assert result.results == []
+    assert result.total_results == 0
+    assert client_loader.call_count == 0
+    search_task.assert_not_called()
+    assert reason in caplog.text
+    assert "file:///private/gateway" not in caplog.text
 
 
 async def test_web_search_empty_engines_is_explicit_noop(monkeypatch):

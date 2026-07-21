@@ -210,6 +210,9 @@ class SourceAdapter:
             判定**——状态推断走 stability/auth_requirement 维度。
         category: 正式 source catalog 分类；None 表示由 catalog 兼容层从 domain/tags 派生。
         catalog_visibility: 正式 source catalog 可见性。
+        llm_search_identity: LLM-search concrete source 的不可变 ``(scheme_id, model_id)``
+            标识。仅供 canonical registry 在注册时实施全局唯一性；不会进入 public
+            catalog payload。
     """
 
     name: str
@@ -237,6 +240,7 @@ class SourceAdapter:
     category: str | None = None
     catalog_visibility: str = "public"
     runtime_default_enabled: bool = True
+    llm_search_identity: tuple[str, str] | None = None
 
     @property
     def capabilities(self) -> frozenset[str]:
@@ -419,6 +423,21 @@ class SourceAdapter:
                 f"SourceAdapter({self.name!r}) catalog_visibility={self.catalog_visibility!r} "
                 "不在 CATALOG_VISIBILITIES 中"
             )
+        if self.llm_search_identity is not None:
+            identity = self.llm_search_identity
+            if not isinstance(identity, tuple) or len(identity) != 2:
+                raise ValueError(
+                    f"SourceAdapter({self.name!r}) llm_search_identity 必须是非空 "
+                    "(scheme_id, model_id)"
+                )
+            scheme_id, model_id = identity
+            if not (
+                isinstance(scheme_id, str) and scheme_id and isinstance(model_id, str) and model_id
+            ):
+                raise ValueError(
+                    f"SourceAdapter({self.name!r}) llm_search_identity 必须是非空 "
+                    "(scheme_id, model_id)"
+                )
         effective_auth = self.resolved_auth_requirement
         resolved_fields = self.resolved_credential_fields
         if effective_auth == "none" and resolved_fields:
