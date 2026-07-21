@@ -66,6 +66,12 @@ class ArkSearchReceipt:
     candidates: tuple[SearchCandidate, ...]
     visible_search_calls: int
     provider_metered_search_calls: int | None
+    tool_call_types: tuple[str, ...] = ()
+    valid_annotation_count: int = 0
+    response_status: str | None = None
+    input_tokens: int | None = None
+    output_tokens: int | None = None
+    total_tokens: int | None = None
 
 
 def build_ark_request(query: str, model_id: str, *, max_keyword: int = 10) -> dict[str, Any]:
@@ -123,6 +129,31 @@ def _visible_ark_search_call_count(payload: Mapping[str, Any]) -> int:
     return sum(
         isinstance(item, Mapping) and item.get("type") == "web_search_call" for item in output
     )
+
+
+def _observed_tool_call_types(payload: Mapping[str, Any]) -> tuple[str, ...]:
+    """Return only receipt-visible tool-call type names, never tool payloads."""
+    output = payload.get("output")
+    if not isinstance(output, list):
+        return ()
+    return tuple(
+        sorted(
+            {
+                item_type
+                for item in output
+                if isinstance(item, Mapping)
+                and isinstance((item_type := item.get("type")), str)
+                and item_type.endswith("_call")
+            }
+        )
+    )
+
+
+def _observed_usage_value(payload: Mapping[str, Any], name: str) -> int | None:
+    """Read a non-negative usage counter only when the upstream receipt supplies one."""
+    usage = payload.get("usage")
+    value = usage.get(name) if isinstance(usage, Mapping) else None
+    return value if isinstance(value, int) and value >= 0 else None
 
 
 def _message_annotations(payload: Mapping[str, Any]) -> list[Mapping[str, Any]]:
@@ -290,6 +321,14 @@ class ArkAnnotationsClient(SouWenHttpClient):
             # The verified Ark receipt shape does not expose a stable metered-search field.
             # Keep it unknown instead of equating visible calls with billable usage.
             provider_metered_search_calls=None,
+            tool_call_types=_observed_tool_call_types(response_payload),
+            valid_annotation_count=len(parsed),
+            response_status=response_payload.get("status")
+            if isinstance(response_payload.get("status"), str)
+            else None,
+            input_tokens=_observed_usage_value(response_payload, "input_tokens"),
+            output_tokens=_observed_usage_value(response_payload, "output_tokens"),
+            total_tokens=_observed_usage_value(response_payload, "total_tokens"),
         )
 
     async def search_candidates(self, query: str, max_results: int = 10) -> list[SearchCandidate]:
