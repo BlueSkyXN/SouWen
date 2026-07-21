@@ -65,6 +65,7 @@ ZERO_KEY_BOOK_ROUTE_SOURCES = (
     "internet_archive",
     "wikisource",
     "library_of_congress",
+    "librivox",
 )
 ZERO_KEY_BOOK_ROUTE_QUERIES = {
     "open_library": "the lord of the rings",
@@ -72,6 +73,7 @@ ZERO_KEY_BOOK_ROUTE_QUERIES = {
     # Keep this source-specific: Wikisource's default API site is Chinese.
     "wikisource": "論語",
     "library_of_congress": "alice",
+    "librivox": "pride and prejudice",
 }
 ZERO_KEY_WEB_SCRAPERS = [
     "duckduckgo",
@@ -1699,6 +1701,11 @@ def library_of_congress_search_route(client: ApiClient) -> ProbeResult:
     return book_search_route(client, "library_of_congress")
 
 
+def librivox_search_route(client: ApiClient) -> ProbeResult:
+    """Probe audiobook catalog metadata without accessing media files."""
+    return book_search_route(client, "librivox")
+
+
 def opencitations_count_route(client: ApiClient) -> ProbeResult:
     """Verify the public OpenCitations count route without pretending graph pagination exists."""
     route = "/api/v1/citations/count?identifier=doi%3A10.1038%2Fnphys1170"
@@ -2155,6 +2162,9 @@ def run_zero_key_case(
             "library-of-congress-search",
             lambda: library_of_congress_search_route(client),
         )
+    )
+    results.append(
+        safe_call("zero-key-route", "librivox-search", lambda: librivox_search_route(client))
     )
     default_min = (
         config.min_default_paper_no_warp if warp == "off" else config.min_default_paper_warp

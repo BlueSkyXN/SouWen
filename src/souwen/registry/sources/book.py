@@ -35,6 +35,27 @@ _reg(
 
 _reg(
     SourceAdapter(
+        name="librivox",
+        domain="book",
+        category="book",
+        integration="official_api",
+        description="LibriVox 有声书 metadata 与 RSS 链接（官方匿名 API）",
+        config_field=None,
+        auth_requirement="none",
+        risk_level="low",
+        distribution="core",
+        stability="stable",
+        usage_note="仅返回 metadata/RSS/外部链接，不下载音频；权利按记录与法域保守处理。",
+        client_loader=lazy("souwen.book.librivox:LibriVoxClient"),
+        methods={
+            "search": MethodSpec("search", _P_PER_PAGE),
+            "get_detail": MethodSpec("get_by_id", {"id": "audiobook_id"}),
+        },
+    )
+)
+
+_reg(
+    SourceAdapter(
         name="internet_archive",
         domain="book",
         category="book",

@@ -135,6 +135,7 @@ def test_adapter_registration_order_snapshot() -> None:
         "ieee_xplore",
         "unpaywall",
         "open_library",
+        "librivox",
         "internet_archive",
         "wikisource",
         "library_of_congress",

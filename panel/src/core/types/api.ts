@@ -435,15 +435,27 @@ export interface BookResourceLink {
   access: BookResourceAccess
 }
 
+export interface BookAudioSection {
+  source_section_id: string
+  section_number?: number | null
+  title?: string | null
+  readers: Author[]
+  duration_seconds?: number | null
+  resource?: BookResourceLink | null
+}
+
 export interface BookResult {
   source: string
   source_record_id: string
   title: string
   authors: Author[]
+  readers?: Author[]
   subjects: string[]
   collections: string[]
   first_publish_year?: number | null
+  copyright_year?: number | null
   identifiers: BookIdentifier[]
+  audio_sections?: BookAudioSection[]
   resources: BookResourceLink[]
   access: BookResourceAccess
   source_url: string
