@@ -1,5 +1,6 @@
 {
   "domains": {
+    "book": "图书",
     "paper": "论文",
     "patent": "专利",
     "web": "网页",
