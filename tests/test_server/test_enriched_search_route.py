@@ -26,6 +26,18 @@ from souwen.web.enriched_search import (
 SOURCE = "uniapi_ark_annotations_deepseek_v3_2_251201"
 
 
+@pytest.fixture(autouse=True)
+def isolated_search_limiter(monkeypatch):
+    """Keep route-contract assertions independent of earlier server requests."""
+    from souwen.server import limiter as limiter_mod
+
+    monkeypatch.setattr(
+        limiter_mod,
+        "_search_limiter",
+        limiter_mod.InMemoryRateLimiter(max_requests=60, window_seconds=60),
+    )
+
+
 @pytest.fixture()
 def client(monkeypatch, tmp_path):
     """Keep auth/config isolation equivalent to the server integration suite."""
