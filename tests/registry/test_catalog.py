@@ -143,6 +143,7 @@ def test_adapter_registration_order_snapshot() -> None:
         "datacite",
         "figshare",
         "open_library",
+        "taiwan_new_books",
         "gutenberg",
         "doab",
         "oapen",
@@ -282,6 +283,22 @@ def test_gutenberg_catalog_payload_reports_data_unavailable_without_filesystem_p
     assert gutenberg["available"] is False
     assert "local catalog unavailable" in gutenberg["data_reason"]
     assert "/private/catalog-data" not in str(gutenberg)
+
+
+def test_taiwan_new_books_is_explicit_local_catalog_source_without_path_leak():
+    entry = source_catalog()["taiwan_new_books"]
+    assert entry.domain == "book"
+    assert entry.capabilities == ("get_detail", "search")
+    assert entry.default_for == ()
+    assert entry.default_enabled is False
+    assert "souwen catalog import taiwan_new_books" in (entry.usage_note or "")
+
+    payload = public_source_catalog_payload(SouWenConfig(data_dir="/private/catalog-data"))
+    source = next(item for item in payload["sources"] if item["name"] == "taiwan_new_books")
+    assert source["data_available"] is False
+    assert source["available"] is False
+    assert "local catalog unavailable" in source["data_reason"]
+    assert "/private/catalog-data" not in str(source)
 
 
 def test_non_public_high_risk_and_deprecated_sources_are_not_default_available() -> None:
