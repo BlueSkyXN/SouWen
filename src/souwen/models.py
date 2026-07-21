@@ -259,6 +259,68 @@ class BookResult(BaseModel):
     retrieved_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 
+class WikisourceSection(BaseModel):
+    """A heading derived from a bounded Wikisource page revision."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    title: str
+    level: int = Field(ge=1, le=6)
+    start_offset: int = Field(ge=0)
+
+
+class WikisourceRevision(BaseModel):
+    """One explicitly requested Wikisource revision and its bounded content."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    revision_id: int
+    parent_revision_id: int | None = None
+    timestamp: datetime
+    user: str | None = None
+    comment: str | None = None
+    content_model: str | None = None
+    sha1: str | None = None
+    content: str
+    content_format: Literal["wikitext", "text", "html"]
+    content_size_bytes: int | None = Field(default=None, ge=0)
+    content_truncated: bool = False
+    content_omitted_due_to_size: bool = False
+    next_start_offset: int | None = Field(default=None, ge=0)
+
+
+class WikisourcePageReference(BaseModel):
+    """A bounded page reference, used for Wikisource subpage relations."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    page_id: int
+    title: str
+    source_url: str
+
+
+class WikisourcePage(BaseModel):
+    """A language-bound Wikisource page with revision and rights provenance."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    source: str = "wikisource"
+    language: str
+    site_url: str
+    page_id: int
+    title: str
+    canonical_title: str
+    source_url: str
+    revision: WikisourceRevision
+    redirected_from: str | None = None
+    sections: list[WikisourceSection] = Field(default_factory=list)
+    parent_title: str | None = None
+    subpages: list[WikisourcePageReference] = Field(default_factory=list)
+    site_content_access: ResourceAccess
+    source_work_access: ResourceAccess
+    retrieved_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+
+
 class CitationIdentifier(BaseModel):
     """A typed persistent identifier carried by an OpenCitations relation.
 

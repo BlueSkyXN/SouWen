@@ -644,6 +644,19 @@ def test_build_markdown_report_expands_open_sources_and_direct_routes():
                 "operation": "catalog-metadata-search",
             },
         ),
+        smoke.ProbeResult(
+            "zero-key-route",
+            "wikisource-search",
+            "pass",
+            "status=200, source=wikisource, count=1, operation=catalog-metadata-search",
+            meta={
+                "matrix_kind": "direct-route",
+                "route": "/api/v1/search/book",
+                "source": "wikisource",
+                "count": 1,
+                "operation": "catalog-metadata-search",
+            },
+        ),
     ]
 
     report = smoke.build_markdown_report(config, results)
@@ -655,16 +668,18 @@ def test_build_markdown_report_expands_open_sources_and_direct_routes():
     assert "`/api/v1/sources`" in report
     assert "`/api/v1/search/book`" in report
     assert "internet_archive" in report
+    assert "wikisource" in report
 
 
 @pytest.mark.parametrize(
-    ("source", "probe"),
+    ("source", "query", "probe"),
     [
-        ("open_library", smoke.open_library_search_route),
-        ("internet_archive", smoke.internet_archive_search_route),
+        ("open_library", "the lord of the rings", smoke.open_library_search_route),
+        ("internet_archive", "the lord of the rings", smoke.internet_archive_search_route),
+        ("wikisource", "論語", smoke.wikisource_search_route),
     ],
 )
-def test_book_search_routes_use_one_catalog_metadata_request(source, probe):
+def test_book_search_routes_use_one_catalog_metadata_request(source, query, probe):
     class FakeClient:
         calls: list[tuple[str, dict, bool, int]] = []
 
@@ -681,7 +696,7 @@ def test_book_search_routes_use_one_catalog_metadata_request(source, probe):
                                 {
                                     "source": source,
                                     "source_record_id": "catalog-id",
-                                    "title": "The Lord of the Rings",
+                                    "title": query,
                                 }
                             ],
                         }
@@ -699,7 +714,7 @@ def test_book_search_routes_use_one_catalog_metadata_request(source, probe):
         "matrix_kind": "direct-route",
         "route": "/api/v1/search/book",
         "source": source,
-        "query": "the lord of the rings",
+        "query": query,
         "count": 1,
         "total": 1,
         "succeeded": [source],
@@ -710,7 +725,7 @@ def test_book_search_routes_use_one_catalog_metadata_request(source, probe):
         (
             "/api/v1/search/book",
             {
-                "q": "the lord of the rings",
+                "q": query,
                 "sources": source,
                 "per_page": 1,
                 "timeout": 45,

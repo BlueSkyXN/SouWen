@@ -60,8 +60,13 @@ EXTRA_ZERO_KEY_PAPER_SOURCES = [
 ZERO_KEY_PATENT_SOURCES = [
     "google_patents",
 ]
-ZERO_KEY_BOOK_ROUTE_SOURCES = ("open_library", "internet_archive")
-ZERO_KEY_BOOK_ROUTE_QUERY = "the lord of the rings"
+ZERO_KEY_BOOK_ROUTE_SOURCES = ("open_library", "internet_archive", "wikisource")
+ZERO_KEY_BOOK_ROUTE_QUERIES = {
+    "open_library": "the lord of the rings",
+    "internet_archive": "the lord of the rings",
+    # Keep this source-specific: Wikisource's default API site is Chinese.
+    "wikisource": "論語",
+}
 ZERO_KEY_WEB_SCRAPERS = [
     "duckduckgo",
     "bing",
@@ -1625,11 +1630,12 @@ def list_sources_inventory(client: ApiClient) -> ProbeResult:
 
 
 def book_search_route(client: ApiClient, source: str) -> ProbeResult:
-    """Probe one explicit book source without borrowing, reading, or downloading content."""
+    """Probe one explicit book catalog source without requesting detail or content."""
+    query = ZERO_KEY_BOOK_ROUTE_QUERIES[source]
     resp = client.get(
         "/api/v1/search/book",
         params={
-            "q": ZERO_KEY_BOOK_ROUTE_QUERY,
+            "q": query,
             "sources": source,
             "per_page": 1,
             "timeout": 45,
@@ -1657,7 +1663,7 @@ def book_search_route(client: ApiClient, source: str) -> ProbeResult:
             "matrix_kind": "direct-route",
             "route": "/api/v1/search/book",
             "source": source,
-            "query": ZERO_KEY_BOOK_ROUTE_QUERY,
+            "query": query,
             "count": count,
             "total": total,
             "succeeded": succeeded,
@@ -1675,6 +1681,11 @@ def open_library_search_route(client: ApiClient) -> ProbeResult:
 def internet_archive_search_route(client: ApiClient) -> ProbeResult:
     """Probe the explicit Internet Archive catalog route without file access."""
     return book_search_route(client, "internet_archive")
+
+
+def wikisource_search_route(client: ApiClient) -> ProbeResult:
+    """Probe the default-Zh Wikisource catalog route without page/revision traversal."""
+    return book_search_route(client, "wikisource")
 
 
 def opencitations_count_route(client: ApiClient) -> ProbeResult:
@@ -2392,6 +2403,13 @@ def run_zero_key_checks(
             "zero-key-route",
             "internet-archive-search",
             lambda: internet_archive_search_route(client),
+        )
+    )
+    results.append(
+        safe_call(
+            "zero-key-route",
+            "wikisource-search",
+            lambda: wikisource_search_route(client),
         )
     )
     results.append(
