@@ -237,6 +237,15 @@ warp:
   # external 模式: 外部 WARP 代理地址（如 socks5://warp:1080）
   warp_external_proxy: ~
 
+# ===== LLM Search 共享 Gateway =====
+# 多个 concrete source 共享一份 gateway 配置；API Key 与私有 URL 不应写入公开产物。
+# 环境变量可使用 SOUWEN_LLM_SEARCH_GATEWAYS JSON 对象。
+llm_search_gateways: {}
+# 示例（按需取消注释并使用真实私有配置）：
+#   uniapi:
+#     api_key: your-secret
+#     base_url: https://gateway.example.com/v1
+
 # ===== 数据源频道配置 =====
 # 按源名称配置，覆盖全局默认值。
 # 所有字段可选，只需覆盖想要自定义的部分。
@@ -250,6 +259,7 @@ warp:
 #     URL     = 显式代理地址 (http://... 或 socks5://...)
 #   http_backend: auto|curl_cffi|httpx — HTTP 后端（仅爬虫源有效）
 #   base_url: ~                 — 覆盖数据源的基础 URL
+#   timeout: ~                  — source provider-attempt timeout，范围 1..300 秒
 #   api_key: ~                  — 覆盖 API Key（优先于上方 flat key）
 #   headers: {}                 — 附加请求头
 #   params: {}                  — 附加参数（传递给搜索方法）

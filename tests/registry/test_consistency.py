@@ -142,6 +142,11 @@ class TestSourceAdapterCatalogValidation:
         with pytest.raises(ValueError, match="必须声明 config_field 或 credential_fields"):
             self._adapter(auth_requirement="required")
 
+    @pytest.mark.parametrize("timeout", [0, 301])
+    def test_method_timeout_must_be_bounded(self, timeout):
+        with pytest.raises(ValueError, match="timeout_seconds 必须在 1..300"):
+            MethodSpec("search", timeout_seconds=timeout)
+
     def test_none_auth_cannot_declare_credentials(self):
         with pytest.raises(ValueError, match="不能声明 credential_fields"):
             self._adapter(
@@ -303,26 +308,38 @@ class TestD11HardAsserts:
 
     def test_config_field_references_valid(self):
         """D11-5：每个 adapter.config_field 在 SouWenConfig 里存在。"""
-        from souwen.config import SouWenConfig
+        from souwen.registry.meta import is_valid_config_field_reference
 
-        config_fields = set(SouWenConfig.model_fields.keys())
         for adapter in all_adapters().values():
             if adapter.config_field is None:
                 continue
-            assert adapter.config_field in config_fields, (
+            assert is_valid_config_field_reference(adapter.config_field), (
                 f"{adapter.name}.config_field={adapter.config_field!r} 不在 SouWenConfig"
             )
 
     def test_credential_fields_reference_valid(self):
         """每个 credential_fields 字段也必须能被 SouWenConfig 解析。"""
-        from souwen.config import SouWenConfig
+        from souwen.registry.meta import is_valid_config_field_reference
 
-        config_fields = set(SouWenConfig.model_fields.keys())
         for adapter in all_adapters().values():
             for field in adapter.resolved_credential_fields:
-                assert field in config_fields, (
+                assert is_valid_config_field_reference(field), (
                     f"{adapter.name}.credential_fields 包含 {field!r}，但它不在 SouWenConfig"
                 )
+
+    @pytest.mark.parametrize(
+        "field",
+        [
+            "llm_search_gateways..api_key",
+            "llm_search_gateways.BadGateway.api_key",
+            "llm_search_gateways.uniapi.token",
+            "llm_search_gateways.uniapi.api_key.extra",
+        ],
+    )
+    def test_malformed_nested_config_field_references_are_rejected(self, field):
+        from souwen.registry.meta import is_valid_config_field_reference
+
+        assert is_valid_config_field_reference(field) is False
 
     def test_default_for_references_valid(self):
         """D11-6：default_for 的每个 key 能解析为 (domain, capability) 且都合法。"""

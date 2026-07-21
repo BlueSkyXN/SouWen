@@ -11,6 +11,7 @@ from pathlib import Path
 from fastapi import APIRouter, HTTPException
 from pydantic import ValidationError
 
+from souwen.core.redaction import redact_llm_search_gateway_config_view
 from souwen.server.routes._common import redact_secret_payload, redact_secret_text
 from souwen.server.schemas import (
     AdminConfigResponse,
@@ -64,7 +65,10 @@ async def get_config_view():
     result = {}
     for field_name in SouWenConfig.model_fields:
         val = getattr(cfg, field_name)
-        result[field_name] = redact_secret_payload(val, field_name)
+        if field_name == "llm_search_gateways":
+            result[field_name] = redact_llm_search_gateway_config_view(val)
+        else:
+            result[field_name] = redact_secret_payload(val, field_name)
     return result
 
 
@@ -139,9 +143,10 @@ async def save_config_yaml(body: YamlConfigSaveRequest):
                 raise _retired_auth_config_error(retired_keys)
 
             flat_dict: dict = {}
+            nested_fields = {"sources", "llm", "llm_search_gateways", "plugin_config"}
             for key, values in parsed_dict.items():
-                if key == "sources" and isinstance(values, dict):
-                    flat_dict["sources"] = values
+                if key in nested_fields and isinstance(values, dict):
+                    flat_dict[key] = values
                 elif isinstance(values, dict):
                     for k, v in values.items():
                         if k in valid_fields:

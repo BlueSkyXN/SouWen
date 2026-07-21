@@ -136,6 +136,30 @@ def redact_secret_payload(value: object, field_name: str | None = None) -> objec
     return redacted
 
 
+def redact_llm_search_gateway_config_view(value: object) -> object:
+    """Redact private LLM-search gateway endpoints in a configuration view.
+
+    Gateway endpoints can expose private network topology even when they contain
+    no credential-shaped URL component. This deliberately applies only to the
+    ``llm_search_gateways`` config section; ordinary source ``base_url`` values
+    retain their existing display contract.
+    """
+    redacted = redact_secret_payload(value)
+    if not isinstance(redacted, Mapping):
+        return redacted
+
+    result: dict[str, object] = {}
+    for gateway_id, gateway in redacted.items():
+        if not isinstance(gateway, Mapping):
+            result[str(gateway_id)] = gateway
+            continue
+        result[str(gateway_id)] = {
+            str(field_name): "***" if field_name == "base_url" and field_value else field_value
+            for field_name, field_value in gateway.items()
+        }
+    return result
+
+
 def redact_secret_mapping(values: Mapping[str, object]) -> dict[str, object]:
     """Redact values whose field names look secret while preserving safe fields."""
     return {str(key): redact_secret_value(value, str(key)) for key, value in values.items()}

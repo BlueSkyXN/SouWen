@@ -144,6 +144,7 @@ warp:
   warp_external_proxy: ~
 
 sources: {}
+llm_search_gateways: {}
 ```
 
 ## 全部配置字段
@@ -391,6 +392,7 @@ server:
 | `proxy` | string | `"inherit"` | 代理策略：inherit &#124; none &#124; warp &#124; 显式 URL |
 | `http_backend` | string | `"auto"` | HTTP 后端：auto &#124; curl_cffi &#124; httpx |
 | `base_url` | string | None | 覆盖数据源的基础 URL |
+| `timeout` | number | None | 覆盖 provider-attempt timeout，范围 1..300 秒；普通 web source 仍受 15 秒 cap |
 | `api_key` | string | None | 覆盖主 API Key（优先于全局 flat key；多字段凭据的其他字段仍读取全局 flat 配置） |
 | `headers` | object | `{}` | 附加请求头 |
 | `params` | object | `{}` | 附加参数（传递给搜索方法；值仅支持字符串/数字/布尔值） |
@@ -420,6 +422,33 @@ sources:
 ```
 
 `sources.scrapling.params` 只暴露可由 YAML 表达的 primitive 选项。`cookies`、`blocked_domains`、`page_setup` / `page_action` 等结构化或函数参数不作为配置入口；浏览器模式的 SSRF 请求拦截由 SouWen 内部注入。
+
+### LLM Search 共享 Gateway
+
+`llm_search_gateways` 为多个 model-bound concrete sources 提供共享 `api_key + base_url`。
+本配置本身不会注册或启用 source；source inventory 仍只来自 Registry。
+
+```yaml
+llm_search_gateways:
+  uniapi:
+    api_key: your-secret
+    base_url: https://gateway.example.com/v1
+sources:
+  some_concrete_source:
+    enabled: false
+    timeout: 45
+```
+
+具体 source 的 `api_key`、`base_url` override 优先于 shared gateway。环境变量使用 JSON：
+
+```text
+SOUWEN_LLM_SEARCH_GATEWAYS={"uniapi":{"api_key":"...","base_url":"https://gateway.example.com/v1"}}
+```
+
+Doctor/catalog/admin source 诊断只报告缺少的配置路径，不显示 API Key。配置对象的日志/`repr`
+与 `souwen config show`、`/api/v1/admin/config` 的配置展示也不会包含 Key 或 private gateway
+base URL。完整 foundation contract 见
+[LLM Search Foundation SPEC](./internal/llm-search-foundation-spec.md)。
 
 ## Docker 专用环境变量
 

@@ -12,12 +12,12 @@
             * source_name 提供时，会通过 SouWenConfig 解析频道级 base_url/proxy/headers
             * 默认通过 httpx.AsyncClient 创建，连接池保守默认（max=100, keepalive=20）
         - 方法：
-          * get(url, params, headers) → httpx.Response
-          * post(url, json, data, headers) → httpx.Response
+          * get(url, params, headers, retry_policy) → httpx.Response
+          * post(url, json, data, headers, retry_policy) → httpx.Response
           * close() / __aenter__ / __aexit__ — 资源管理
           * _request(method, url, **kwargs) — 统一异常映射（超时/连接错误 → SourceUnavailableError）
           * _request_with_retry(...) — tenacity 装饰，仅对网络层错误重试
-          * _check_response(resp, url) — 状态码 → 异常映射（401/403→AuthError，
+          * _check_response(resp, url=None) — 状态码 → 异常映射（401/403→AuthError，
             429→RateLimitError，5xx→SourceUnavailableError，其他 4xx→SouWenError）
           * _parse_retry_after(value) — 解析 Retry-After 头（秒数 / HTTP-date 两种格式）
 
@@ -50,7 +50,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import time
-from typing import Any
+from typing import Any, Literal
 
 import httpx
 from tenacity import (
@@ -74,6 +74,8 @@ logger = logging.getLogger("souwen.http")
 DEFAULT_USER_AGENT = (
     f"SouWen/{__version__} (Academic & Patent Search Tool; https://github.com/BlueSkyXN/SouWen)"
 )
+
+RequestRetryPolicy = Literal["default", "single_attempt"]
 
 
 class SouWenHttpClient:
@@ -157,9 +159,12 @@ class SouWenHttpClient:
         url: str,
         params: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
+        retry_policy: RequestRetryPolicy = "default",
     ) -> httpx.Response:
-        """发送 GET 请求（自带重试）"""
-        return await self._request("GET", url, params=params, headers=headers)
+        """发送 GET 请求；默认重试，``single_attempt`` 只尝试一次。"""
+        return await self._request(
+            "GET", url, params=params, headers=headers, retry_policy=retry_policy
+        )
 
     async def post(
         self,
@@ -167,33 +172,57 @@ class SouWenHttpClient:
         json: dict[str, Any] | None = None,
         data: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
+        retry_policy: RequestRetryPolicy = "default",
     ) -> httpx.Response:
-        """发送 POST 请求（自带重试）"""
-        return await self._request("POST", url, json=json, data=data, headers=headers)
+        """发送 POST 请求；默认重试，``single_attempt`` 只尝试一次。"""
+        return await self._request(
+            "POST", url, json=json, data=data, headers=headers, retry_policy=retry_policy
+        )
 
     async def _request(
         self,
         method: str,
         url: str,
+        retry_policy: RequestRetryPolicy = "default",
         **kwargs: Any,
     ) -> httpx.Response:
-        """执行请求并统一处理错误"""
+        """执行请求并统一处理错误。"""
+        self._validate_retry_policy(retry_policy)
+
         start = time.monotonic()
         try:
-            resp = await self._request_with_retry(method, url, **kwargs)
+            if retry_policy == "single_attempt":
+                resp = await self._request_once(method, url, **kwargs)
+            else:
+                resp = await self._request_with_retry(method, url, **kwargs)
             elapsed = time.monotonic() - start
             logger.debug(
-                "%s %s → %d (%.2fs)",
+                "%s request completed: status=%d (%.2fs)",
                 method,
-                url,
                 resp.status_code,
                 elapsed,
             )
             return resp
         except httpx.TimeoutException as e:
-            raise SourceUnavailableError(f"请求超时: {url}") from e
+            raise SourceUnavailableError("请求超时") from e
         except httpx.ConnectError as e:
-            raise SourceUnavailableError(f"连接失败: {url}") from e
+            raise SourceUnavailableError("连接失败") from e
+
+    @staticmethod
+    def _validate_retry_policy(retry_policy: RequestRetryPolicy) -> None:
+        if retry_policy not in ("default", "single_attempt"):
+            raise ValueError(f"不支持的 retry_policy: {retry_policy!r}")
+
+    async def _request_once(
+        self,
+        method: str,
+        url: str,
+        **kwargs: Any,
+    ) -> httpx.Response:
+        """只执行一次请求，保留默认路径相同的 HTTP 状态映射。"""
+        resp = await self._client.request(method, url, **kwargs)
+        self._check_response(resp, url)
+        return resp
 
     @retry(
         # 仅对网络层错误重试（超时、连接失败），业务错误（401/429/5xx）在 _check_response 中单独处理
@@ -210,9 +239,7 @@ class SouWenHttpClient:
         **kwargs: Any,
     ) -> httpx.Response:
         """带重试的请求"""
-        resp = await self._client.request(method, url, **kwargs)
-        self._check_response(resp, url)
-        return resp
+        return await self._request_once(method, url, **kwargs)
 
     @staticmethod
     def _parse_retry_after(value: str) -> float | None:
@@ -234,22 +261,23 @@ class SouWenHttpClient:
             return None
 
     @staticmethod
-    def _check_response(resp: httpx.Response, url: str) -> None:
-        """检查响应状态码，抛出相应异常"""
+    def _check_response(resp: httpx.Response, url: str | None = None) -> None:
+        """检查响应状态码；兼容旧 ``url`` 参数但不把它写入异常。"""
+        del url
         if resp.status_code == 401:
-            raise AuthError(f"鉴权失败: {url}")
+            raise AuthError("鉴权失败")
         if resp.status_code == 403:
-            raise AuthError(f"权限不足: {url}")
+            raise AuthError("权限不足")
         if resp.status_code == 429:
             retry_after = resp.headers.get("Retry-After")
             wait = SouWenHttpClient._parse_retry_after(retry_after) if retry_after else None
-            raise RateLimitError(f"限流触发: {url}", retry_after=wait)
+            raise RateLimitError("限流触发", retry_after=wait)
         if resp.status_code == 404:
             return
         if resp.status_code >= 500:
-            raise SourceUnavailableError(f"数据源服务器错误 ({resp.status_code}): {url}")
+            raise SourceUnavailableError(f"数据源服务器错误 ({resp.status_code})")
         if resp.status_code >= 400:
-            raise SouWenError(f"请求失败 ({resp.status_code}): {url}")
+            raise SouWenError(f"请求失败 ({resp.status_code})")
 
 
 class OAuthClient(SouWenHttpClient):
@@ -316,23 +344,23 @@ class OAuthClient(SouWenHttpClient):
             if self._access_token and time.monotonic() < self._token_expires_at - 60:
                 return self._access_token
 
-            logger.debug("正在获取 OAuth token: %s", self.token_url)
+            logger.debug("正在获取 OAuth token")
             resp = await self._client.post(
                 self.token_url,
                 data={"grant_type": "client_credentials"},
                 auth=(self.client_id, self.client_secret),
             )
             if resp.status_code != 200:
-                raise AuthError(f"OAuth token 获取失败: {resp.status_code} {resp.text}")
+                raise AuthError(f"OAuth token 获取失败: HTTP {resp.status_code}")
 
             try:
                 token_data = resp.json()
             except Exception as e:
-                raise AuthError(f"OAuth token 响应解析失败: {e}") from e
+                raise AuthError("OAuth token 响应解析失败") from e
 
             access_token = token_data.get("access_token")
             if not access_token:
-                raise AuthError(f"OAuth 响应缺少 access_token: {list(token_data.keys())}")
+                raise AuthError("OAuth 响应缺少 access_token")
 
             self._access_token = access_token
             expires_in = token_data.get("expires_in", 1200)
@@ -346,13 +374,20 @@ class OAuthClient(SouWenHttpClient):
         url: str,
         params: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
+        retry_policy: RequestRetryPolicy = "default",
     ) -> httpx.Response:
         """带 OAuth token 的 GET 请求"""
+        self._validate_retry_policy(retry_policy)
         token = await self._ensure_token()
         auth_headers = {"Authorization": f"Bearer {token}"}
         if headers:
             auth_headers.update(headers)
-        return await super().get(url, params=params, headers=auth_headers)
+        return await super().get(
+            url,
+            params=params,
+            headers=auth_headers,
+            retry_policy=retry_policy,
+        )
 
     async def post(
         self,
@@ -360,10 +395,18 @@ class OAuthClient(SouWenHttpClient):
         json: dict[str, Any] | None = None,
         data: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
+        retry_policy: RequestRetryPolicy = "default",
     ) -> httpx.Response:
         """带 OAuth token 的 POST 请求"""
+        self._validate_retry_policy(retry_policy)
         token = await self._ensure_token()
         auth_headers = {"Authorization": f"Bearer {token}"}
         if headers:
             auth_headers.update(headers)
-        return await super().post(url, json=json, data=data, headers=auth_headers)
+        return await super().post(
+            url,
+            json=json,
+            data=data,
+            headers=auth_headers,
+            retry_policy=retry_policy,
+        )

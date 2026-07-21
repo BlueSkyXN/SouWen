@@ -135,6 +135,7 @@ _reg(SourceAdapter(
 | `methods` | ✅ | `capability → MethodSpec` 映射，至少包含一项（如 `"search"`） |
 | `extra_domains` | — | 跨域能力，**目前仅允许 `frozenset({"fetch"})`**（如 Tavily 同时是 web 搜索引擎和 fetch provider） |
 | `default_enabled` | — | UI 默认是否勾选；高风险源（google/baidu/twitter）建议 `False` |
+| `runtime_default_enabled` | — | 未显式配置 `sources.<name>.enabled` 时的运行时默认值；为兼容现有 source 默认 `True`，计费或必须 opt-in 的 source 才设 `False` |
 | `default_for` | — | 形如 `{"paper:search"}`，声明此源是否进入 `(domain, capability)` 默认集 |
 | `tags` | — | `{"high_risk"}` 等治理标签；web 分类优先使用 `category` 字段 |
 | `category` | 推荐 | 正式 source catalog 分类；web 源用 `web_general` / `web_professional` |

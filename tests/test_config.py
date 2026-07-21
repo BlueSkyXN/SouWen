@@ -14,7 +14,13 @@
 
 import pytest
 
-from souwen.config import SouWenConfig, get_config, reload_config
+from souwen.config import (
+    LLMSearchGatewayConfig,
+    SouWenConfig,
+    SourceChannelConfig,
+    get_config,
+    reload_config,
+)
 
 
 @pytest.fixture(autouse=True)
@@ -286,6 +292,18 @@ class TestSourceChannelConfig:
         assert cfg.is_source_enabled("duckduckgo") is True
         assert cfg.is_source_enabled("google_patents") is False
 
+    def test_is_source_enabled_uses_registry_default_until_explicitly_overridden(self):
+        cfg = SouWenConfig(
+            sources={
+                "cost_bearing": SourceChannelConfig(timeout=45),
+                "explicit": SourceChannelConfig(enabled=True, timeout=45),
+            }
+        )
+
+        assert cfg.is_source_enabled("missing", default=False) is False
+        assert cfg.is_source_enabled("cost_bearing", default=False) is False
+        assert cfg.is_source_enabled("explicit", default=False) is True
+
     def test_resolve_proxy_inherit(self):
         """proxy=inherit 继承全局"""
         cfg = SouWenConfig(proxy="http://global:1234")
@@ -399,6 +417,113 @@ class TestSourceChannelConfig:
         assert cfg.resolve_params("duckduckgo") == {"max_results": 20}
         assert cfg.resolve_headers("bing") == {}
         assert cfg.resolve_params("bing") == {}
+
+    def test_source_timeout_is_bounded(self):
+        assert SourceChannelConfig(timeout=45).timeout == 45
+        with pytest.raises(ValueError, match="greater than or equal to 1"):
+            SourceChannelConfig(timeout=0)
+        with pytest.raises(ValueError, match="less than or equal to 300"):
+            SourceChannelConfig(timeout=301)
+
+    def test_llm_search_gateway_field_priority(self):
+        cfg = SouWenConfig(
+            llm_search_gateways={
+                "uniapi": LLMSearchGatewayConfig(
+                    api_key="shared-key",
+                    base_url="https://shared.example.com/v1/",
+                )
+            },
+            sources={
+                "source_a": SourceChannelConfig(api_key="source-key"),
+                "source_b": SourceChannelConfig(base_url="https://override.example.com/v1"),
+            },
+        )
+
+        assert cfg.resolve_llm_search_gateway_field("source_a", "uniapi", "api_key") == (
+            "source-key"
+        )
+        assert cfg.resolve_llm_search_gateway_field("source_a", "uniapi", "base_url") == (
+            "https://shared.example.com/v1"
+        )
+        assert cfg.resolve_llm_search_gateway_field("source_b", "uniapi", "api_key") == (
+            "shared-key"
+        )
+        assert cfg.resolve_llm_search_gateway_field("source_b", "uniapi", "base_url") == (
+            "https://override.example.com/v1"
+        )
+
+    def test_llm_search_gateway_rejects_invalid_url_and_hides_repr(self):
+        private_url = "file:///private/gateway?token=url-secret"
+        with pytest.raises(ValueError, match="http/https URL") as exc_info:
+            SouWenConfig(
+                llm_search_gateways={"uniapi": {"api_key": "secret", "base_url": private_url}}
+            )
+        rendered_error = str(exc_info.value)
+        assert private_url not in rendered_error
+        assert "url-secret" not in rendered_error
+        assert "input_value" not in rendered_error
+
+        gateway = LLMSearchGatewayConfig(
+            api_key="secret-value",
+            base_url="https://private.example.com/v1",
+        )
+        rendered = repr(gateway)
+        assert "secret-value" not in rendered
+        assert "private.example.com" not in rendered
+
+    def test_llm_search_source_override_is_normalized_and_validated(self):
+        shared = LLMSearchGatewayConfig(
+            api_key="shared-key",
+            base_url="https://shared.example.com/v1",
+        )
+        blank_override = SouWenConfig(
+            llm_search_gateways={"uniapi": shared},
+            sources={
+                "source_a": SourceChannelConfig(api_key=" ", base_url=" "),
+            },
+        )
+
+        assert (
+            blank_override.resolve_llm_search_gateway_field("source_a", "uniapi", "api_key")
+            == "shared-key"
+        )
+        assert (
+            blank_override.resolve_llm_search_gateway_field("source_a", "uniapi", "base_url")
+            == "https://shared.example.com/v1"
+        )
+
+        normalized_override = SouWenConfig(
+            llm_search_gateways={"uniapi": shared},
+            sources={
+                "source_a": SourceChannelConfig(base_url=" https://override.example.com/v1/ "),
+            },
+        )
+        assert (
+            normalized_override.resolve_llm_search_gateway_field("source_a", "uniapi", "base_url")
+            == "https://override.example.com/v1"
+        )
+
+        for invalid_url in ("file:///tmp/gateway", "ftp://gateway.example.com", "https://"):
+            invalid_override = SouWenConfig(
+                llm_search_gateways={"uniapi": shared},
+                sources={"source_a": SourceChannelConfig(base_url=invalid_url)},
+            )
+            with pytest.raises(ValueError, match="http/https URL"):
+                invalid_override.resolve_llm_search_gateway_field("source_a", "uniapi", "base_url")
+
+    def test_source_override_secrets_are_hidden_from_config_repr(self):
+        cfg = SouWenConfig(
+            sources={
+                "private_source": SourceChannelConfig(
+                    api_key="source-secret-value",
+                    base_url="https://private.internal.example/v1",
+                )
+            }
+        )
+
+        rendered = repr(cfg)
+        assert "source-secret-value" not in rendered
+        assert "private.internal.example" not in rendered
 
 
 # ==============================================================================

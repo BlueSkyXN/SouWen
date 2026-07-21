@@ -158,11 +158,18 @@ class MethodSpec:
                      page_size/range_end
         pre_call: 对 resolve_params 结果做最终变换的函数（如重命名 query → cql_query，或把
             query 包装为 {"_contains": {...}} 结构）。返回最终传给方法的 kwargs。
+        timeout_seconds: 该 method 声明的 provider-attempt 默认 timeout。None 表示沿用
+            现有通用 source timeout 口径；声明值允许 source channel 在安全范围内覆盖。
     """
 
     method_name: str
     param_map: Mapping[str, str] = field(default_factory=dict)
     pre_call: Callable[[dict[str, Any]], dict[str, Any]] | None = None
+    timeout_seconds: float | None = None
+
+    def __post_init__(self) -> None:
+        if self.timeout_seconds is not None and not 1.0 <= float(self.timeout_seconds) <= 300.0:
+            raise ValueError("MethodSpec.timeout_seconds 必须在 1..300 秒范围内")
 
 
 @dataclass(frozen=True, slots=True)
@@ -186,6 +193,8 @@ class SourceAdapter:
         extra_domains: 跨域能力。如 Tavily 主 domain=web，extra_domains={"fetch"}。
             v1 初期仅允许目标为 "fetch"。
         default_enabled: UI / CLI 默认是否勾选。高风险源（如 google / twitter / baidu）设 False。
+        runtime_default_enabled: 未显式配置 ``sources.<name>.enabled`` 时的运行时默认值。
+            现有 source 保持 True；需要显式 opt-in 的计费/实验性 source 可设 False。
         default_for: 形如 {"paper:search"}，声明在哪些 (domain, capability) 下作为默认源（D9）。
         tags: 预留标签集合，如 {"high_risk"}（D10）/ {"ai_summarize"} / {"chinese_friendly"}。
         needs_config: 是否"**必须**配置才能工作"（API Key 类；注意不等同于 `config_field is not None`，
@@ -201,6 +210,9 @@ class SourceAdapter:
             判定**——状态推断走 stability/auth_requirement 维度。
         category: 正式 source catalog 分类；None 表示由 catalog 兼容层从 domain/tags 派生。
         catalog_visibility: 正式 source catalog 可见性。
+        llm_search_identity: LLM-search concrete source 的不可变 ``(scheme_id, model_id)``
+            标识。仅供 canonical registry 在注册时实施全局唯一性；不会进入 public
+            catalog payload。
     """
 
     name: str
@@ -227,6 +239,8 @@ class SourceAdapter:
     usage_note: str | None = None
     category: str | None = None
     catalog_visibility: str = "public"
+    runtime_default_enabled: bool = True
+    llm_search_identity: tuple[str, str] | None = None
 
     @property
     def capabilities(self) -> frozenset[str]:
@@ -409,6 +423,21 @@ class SourceAdapter:
                 f"SourceAdapter({self.name!r}) catalog_visibility={self.catalog_visibility!r} "
                 "不在 CATALOG_VISIBILITIES 中"
             )
+        if self.llm_search_identity is not None:
+            identity = self.llm_search_identity
+            if not isinstance(identity, tuple) or len(identity) != 2:
+                raise ValueError(
+                    f"SourceAdapter({self.name!r}) llm_search_identity 必须是非空 "
+                    "(scheme_id, model_id)"
+                )
+            scheme_id, model_id = identity
+            if not (
+                isinstance(scheme_id, str) and scheme_id and isinstance(model_id, str) and model_id
+            ):
+                raise ValueError(
+                    f"SourceAdapter({self.name!r}) llm_search_identity 必须是非空 "
+                    "(scheme_id, model_id)"
+                )
         effective_auth = self.resolved_auth_requirement
         resolved_fields = self.resolved_credential_fields
         if effective_auth == "none" and resolved_fields:

@@ -437,6 +437,29 @@ def test_config_show_redacts_nested_source_secrets(monkeypatch):
     assert "***" in result.output
 
 
+def test_config_show_redacts_llm_search_gateway_base_url_but_keeps_source_base_url(monkeypatch):
+    """gateway endpoint 仅在 config view 隐藏，普通 source URL 继续显示。"""
+    private_gateway_url = "https://private-gateway.example.com/v1"
+    source_base_url = "https://source.example.com/v1"
+    monkeypatch.setenv("SOUWEN_SOURCES", json.dumps({"openalex": {"base_url": source_base_url}}))
+    monkeypatch.setenv(
+        "SOUWEN_LLM_SEARCH_GATEWAYS",
+        json.dumps({"uniapi": {"api_key": "gateway-secret", "base_url": private_gateway_url}}),
+    )
+    from souwen.config import get_config
+
+    get_config.cache_clear()
+    result = runner.invoke(app, ["config", "show"])
+
+    assert result.exit_code == 0, result.output
+    assert "gateway-secret" not in result.output
+    assert private_gateway_url not in result.output
+    assert "private-gateway.example.com" not in result.output
+    assert source_base_url in result.output
+    assert "llm_search_gateways" in result.output
+    assert "'base_url': '***'" in result.output
+
+
 def test_config_init_includes_openalex_key_and_legacy_email(monkeypatch, tmp_path):
     """CLI 生成模板应同时提供当前 API Key 和兼容联系邮箱字段。"""
     monkeypatch.chdir(tmp_path)
@@ -540,6 +563,24 @@ def test_sources_json_outputs_formal_catalog_contract():
     assert openalex["edition_available"] is True
     assert openalex["edition_reason"] == ""
     assert openalex["available"] is True
+
+
+def test_invalid_llm_search_gateway_does_not_leak_private_url(monkeypatch):
+    private_url = "file:///private/internal/gateway?token=url-secret"
+    monkeypatch.setenv(
+        "SOUWEN_LLM_SEARCH_GATEWAYS",
+        json.dumps({"uniapi": {"api_key": "secret", "base_url": private_url}}),
+    )
+    from souwen.config import get_config
+
+    get_config.cache_clear()
+    result = runner.invoke(app, ["sources", "--json"])
+
+    rendered = f"{result.output}\n{result.exception}"
+    assert result.exit_code != 0
+    assert private_url not in rendered
+    assert "url-secret" not in rendered
+    assert "input_value" not in rendered
 
 
 def test_sources_json_marks_edition_unavailable(monkeypatch):
@@ -754,7 +795,7 @@ def test_config_source_self_hosted_legacy_channel_api_key(monkeypatch):
 
 
 def test_config_source_update_trims_runtime_fields(monkeypatch):
-    """``config source`` 应在写入前规范化 source/proxy/backend/base_url。"""
+    """``config source`` 应规范化 source/proxy/backend/base_url/timeout。"""
     from souwen.config import get_config
 
     get_config.cache_clear()
@@ -770,6 +811,8 @@ def test_config_source_update_trims_runtime_fields(monkeypatch):
             " httpx ",
             "--base-url",
             " https://api.example.com/v1 ",
+            "--timeout",
+            "45",
         ],
     )
 
@@ -779,6 +822,8 @@ def test_config_source_update_trims_runtime_fields(monkeypatch):
     assert sc.proxy == "warp"
     assert sc.http_backend == "httpx"
     assert sc.base_url == "https://api.example.com/v1"
+    assert sc.timeout == 45
+    assert "Timeout: 45s" in result.output
 
 
 def test_config_source_rejects_invalid_proxy_before_save(monkeypatch):

@@ -427,6 +427,71 @@ class TestCheckAll:
         assert source["status"] == "unavailable"
         assert "source 'doctor_web_probe' requires edition=full" in source["edition_reason"]
 
+    def test_llm_search_channel_hides_private_base_url(
+        self,
+        clean_registry,
+        monkeypatch,
+    ):
+        from souwen.config import LLMSearchGatewayConfig, SouWenConfig, SourceChannelConfig
+        from souwen.web.llm_search import ConcreteSearchSourceSpec, SearchSchemeSpec
+        from souwen.web.llm_search.registry import SearchSchemeRegistry
+
+        scheme = SearchSchemeSpec(
+            scheme_id="doctor_probe_v1",
+            gateway_id="uniapi",
+            upstream_channel="fixture",
+            protocol="responses",
+            endpoint_kind="responses",
+            tool_schema="fixture",
+            candidate_contract="structured_result_list",
+            default_timeout_seconds=45,
+            source_grade=True,
+            request_builder=lambda **kwargs: kwargs,
+            response_parser=lambda payload, **_kwargs: payload,
+        )
+        source = ConcreteSearchSourceSpec(
+            source_id="llm_search_doctor_probe",
+            scheme_id=scheme.scheme_id,
+            model_id="fixture-model",
+        )
+        registry = SearchSchemeRegistry()
+        registry.register_scheme(scheme)
+        registry.register_source(source)
+        adapter = registry.project_source_adapter(
+            source.source_id,
+            description="doctor LLM-search probe",
+            client_loader=lambda: object,
+        )
+        assert _reg_external(adapter) is True
+
+        private_url = "https://private.internal.example/v1"
+        config = SouWenConfig(
+            edition="full",
+            llm_search_gateways={
+                "uniapi": LLMSearchGatewayConfig(
+                    api_key="shared-secret",
+                    base_url="https://shared.example.com/v1",
+                )
+            },
+            sources={
+                source.source_id: SourceChannelConfig(
+                    enabled=True,
+                    base_url=private_url,
+                    timeout=45,
+                )
+            },
+        )
+        monkeypatch.setattr("souwen.doctor.get_config", lambda: config)
+        monkeypatch.setattr(
+            "souwen.doctor.probe_adapter_runtime",
+            lambda _adapter: RuntimeProbe(True, ""),
+        )
+
+        result = next(item for item in check_all() if item["name"] == source.source_id)
+
+        assert result["channel"] == {"timeout": "45.0"}
+        assert private_url not in str(result)
+
     @pytest.mark.asyncio
     async def test_check_all_live_attaches_success_probe(self, monkeypatch):
         """live doctor 应只在显式入口执行真实探测并附加 live_probe。"""

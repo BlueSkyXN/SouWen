@@ -9,6 +9,8 @@ import typer
 from rich.table import Table
 
 from souwen.cli._common import console, redact_cli_text, redact_cli_value
+from souwen.config.models import LLM_SEARCH_IDENTITY_PARAMS
+from souwen.core.redaction import redact_llm_search_gateway_config_view
 
 config_app = typer.Typer(help="配置管理")
 
@@ -83,6 +85,8 @@ def config_show() -> None:
         if is_secret:
             display = _mask_value(str(raw_val) if raw_val is not None else None)
         else:
+            if field_name == "llm_search_gateways":
+                raw_val = redact_llm_search_gateway_config_view(raw_val)
             display = redact_cli_text(raw_val) if raw_val is not None else "[dim]未配置[/dim]"
         table.add_row(field_name, display)
 
@@ -273,6 +277,13 @@ def config_source(
         None, "--backend", help="HTTP 后端: auto | curl_cffi | httpx"
     ),
     base_url: str | None = typer.Option(None, "--base-url", help="覆盖基础 URL"),
+    timeout: float | None = typer.Option(
+        None,
+        "--timeout",
+        min=1.0,
+        max=300.0,
+        help="覆盖 provider-attempt timeout（秒）",
+    ),
     api_key: str | None = typer.Option(None, "--api-key", help="覆盖 API Key"),
 ) -> None:
     """查看/修改数据源频道配置"""
@@ -282,7 +293,9 @@ def config_source(
         DISTRIBUTION_LABELS,
         RISK_LEVEL_LABELS,
         get_all_sources,
+        get_source,
         has_configured_credentials,
+        is_llm_search_gateway_requirement,
         is_known_source,
     )
 
@@ -313,10 +326,13 @@ def config_source(
 
         for src_name, meta in all_sources.items():
             sc = cfg.get_source_config(src_name)
-            enabled_icon = "✅" if sc.enabled else "🚫"
+            enabled = cfg.is_source_enabled(src_name, default=meta.runtime_default_enabled)
+            enabled_icon = "✅" if enabled else "🚫"
             customs = []
             if sc.base_url:
                 customs.append("base_url")
+            if sc.timeout is not None:
+                customs.append("timeout")
             if sc.api_key:
                 customs.append("api_key")
             if sc.headers:
@@ -343,6 +359,9 @@ def config_source(
     if not is_known_source(name):
         console.print(f"[red]未知数据源: {name}[/red]")
         raise typer.Exit(1)
+    meta = get_source(name)
+    if meta is None:  # pragma: no cover - is_known_source 与 metadata view 同源
+        raise typer.Exit(1)
 
     modified = False
     sc = cfg.sources.get(name, SourceChannelConfig())
@@ -364,6 +383,9 @@ def config_source(
     if base_url is not None:
         sc.base_url = _normalize_base_url(base_url)
         modified = True
+    if timeout is not None:
+        sc.timeout = timeout
+        modified = True
     if api_key is not None:
         sc.api_key = api_key if api_key else None
         modified = True
@@ -374,9 +396,6 @@ def config_source(
         console.print("[yellow]⚠ 运行时修改仅当前进程有效。如需持久化请修改 souwen.yaml[/yellow]")
 
     # 显示当前配置
-    from souwen.registry.meta import get_source
-
-    meta = get_source(name)
     console.print(f"\n[bold]{name}[/bold] ({meta.description})")
     console.print(f"  类别: {meta.category}  集成: {meta.integration_type}")
     console.print(
@@ -389,17 +408,28 @@ def config_source(
         console.print(f"  凭据字段: {', '.join(meta.credential_fields)}")
     if meta.package_extra:
         console.print(f"  Extra: {meta.package_extra}")
-    console.print(f"  启用: {'✅' if sc.enabled else '🚫'}")
+    enabled = cfg.is_source_enabled(name, default=meta.runtime_default_enabled)
+    console.print(f"  启用: {'✅' if enabled else '🚫'}")
     console.print(f"  代理: {redact_cli_text(sc.proxy)}")
     console.print(f"  后端: {sc.http_backend}")
     if sc.base_url:
-        console.print(f"  Base URL: {redact_cli_text(sc.base_url)}")
+        hides_gateway_values = any(
+            is_llm_search_gateway_requirement(item) for item in meta.credential_fields
+        )
+        base_url_display = "✅ 已配置" if hides_gateway_values else redact_cli_text(sc.base_url)
+        console.print(f"  Base URL: {base_url_display}")
+    if sc.timeout is not None:
+        console.print(f"  Timeout: {sc.timeout:g}s")
     has_key = has_configured_credentials(cfg, name, meta)
     console.print(f"  API Key: {'✅ 已配置' if has_key else '⬜ 未配置'}")
     if sc.headers:
         console.print(f"  Headers: {_redacted_json(sc.headers)}")
     if sc.params:
-        console.print(f"  Params: {_redacted_json(sc.params)}")
+        safe_params = dict(sc.params)
+        if any(is_llm_search_gateway_requirement(item) for item in meta.credential_fields):
+            for field in LLM_SEARCH_IDENTITY_PARAMS.intersection(safe_params):
+                safe_params[field] = "***"
+        console.print(f"  Params: {_redacted_json(safe_params)}")
 
 
 @config_app.command("proxy")

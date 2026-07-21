@@ -65,7 +65,9 @@ from souwen.registry.meta import (
     credential_fields_label,
     get_source,
     has_required_credentials,
+    is_llm_search_gateway_requirement,
     missing_credential_fields,
+    source_config_validation_reason,
 )
 from souwen.registry.views import get as get_adapter
 
@@ -287,7 +289,7 @@ def check_edition() -> dict[str, Any]:
         policy = fetch_provider_policy(adapter, cfg.edition)
         runtime = probe_adapter_runtime(adapter)
         meta = get_source(adapter.name)
-        enabled = cfg.is_source_enabled(adapter.name)
+        enabled = cfg.is_source_enabled(adapter.name, default=adapter.runtime_default_enabled)
         credentials_satisfied = (
             has_required_credentials(cfg, adapter.name, meta) if meta is not None else True
         )
@@ -573,10 +575,10 @@ def check_all() -> list[dict]:
         _has_tls_impersonation = False
 
     for name, meta in catalog.items():
-        enabled = cfg.is_source_enabled(name)
         adapter = get_adapter(name)
         if adapter is None:  # pragma: no cover - catalog 与 registry 同源，防御漂移
             raise KeyError(f"missing registry adapter for source {name!r}")
+        enabled = cfg.is_source_enabled(name, default=adapter.runtime_default_enabled)
         edition = source_policy(adapter, cfg.edition)
         runtime = (
             probe_adapter_runtime(adapter)
@@ -587,9 +589,12 @@ def check_all() -> list[dict]:
         missing_fields = missing_credential_fields(cfg, name, meta)
         has_all_credentials = not missing_fields
         credentials_satisfied = has_required_credentials(cfg, name, meta)
-        config_available = enabled and credentials_satisfied
+        validation_reason = source_config_validation_reason(cfg, name, meta)
+        config_available = enabled and credentials_satisfied and not validation_reason
         if not enabled:
             config_reason = "disabled by source configuration"
+        elif validation_reason:
+            config_reason = validation_reason
         elif not credentials_satisfied:
             config_reason = (
                 f"missing configuration: {credential_fields_label(tuple(missing_fields))}"
@@ -601,16 +606,20 @@ def check_all() -> list[dict]:
 
         # 状态判定优先级：
         #   1. 频道禁用 → disabled
-        #   2. 当前 edition 不允许 → unavailable（需要升级）
-        #   3. 当前 runtime/optional dependency 不可导入 → unavailable
-        #   4. stability == "deprecated" → unavailable（接入待修复 / 已下线）
-        #   5. stability == "experimental" + scraper → warning（默认调度需谨慎）
-        #   6. auth_requirement 标准路径（none / optional / self_hosted / required）
-        #   7. scraper 缺 curl_cffi 时把可用状态升级为 warning
+        #   2. source 配置违反静态约束 → unavailable
+        #   3. 当前 edition 不允许 → unavailable（需要升级）
+        #   4. 当前 runtime/optional dependency 不可导入 → unavailable
+        #   5. stability == "deprecated" → unavailable（接入待修复 / 已下线）
+        #   6. stability == "experimental" + scraper → warning（默认调度需谨慎）
+        #   7. auth_requirement 标准路径（none / optional / self_hosted / required）
+        #   8. scraper 缺 curl_cffi 时把可用状态升级为 warning
         # ``usage_note`` 始终作为消息后缀附加（如 unpaywall 的"仅支持 DOI OA 查找"）。
         if not enabled:
             status = "disabled"
             message = "已通过频道配置禁用"
+        elif validation_reason:
+            status = "unavailable"
+            message = validation_reason
         elif not edition.available:
             status = "unavailable"
             message = edition.reason
@@ -664,8 +673,13 @@ def check_all() -> list[dict]:
             channel_info["proxy"] = sc.proxy
         if sc.http_backend != "auto":
             channel_info["http_backend"] = sc.http_backend
-        if sc.base_url:
+        hides_gateway_values = any(
+            is_llm_search_gateway_requirement(item) for item in adapter.resolved_credential_fields
+        )
+        if sc.base_url and not hides_gateway_values:
             channel_info["base_url"] = sc.base_url
+        if sc.timeout is not None:
+            channel_info["timeout"] = str(sc.timeout)
 
         results.append(
             {
@@ -693,6 +707,8 @@ def check_all() -> list[dict]:
                 "runtime_available": runtime.available,
                 "runtime_reason": runtime.reason,
                 "credentials_satisfied": credentials_satisfied,
+                "missing_credential_fields": list(missing_fields),
+                "config_valid": not validation_reason,
                 "config_available": config_available,
                 "config_reason": config_reason,
                 "available": (

@@ -3,6 +3,7 @@
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
+from tenacity import wait_none
 
 from souwen.core.exceptions import ConfigError, RateLimitError
 from souwen.editions import EditionError
@@ -78,6 +79,27 @@ async def test_llm_complete_success(mock_llm_config):
     assert result.usage.completion_tokens == 20
     assert result.usage.total_tokens == 30
     mock_client.post.assert_awaited_once()
+
+
+async def test_single_attempt_dispatch_does_not_retry_provider_errors(mock_llm_config):
+    provider = AsyncMock(side_effect=_LLMRetriableError("temporary failure"))
+
+    with patch("souwen.llm.client._get_provider", return_value=provider):
+        with pytest.raises(_LLMRetriableError):
+            await llm_client._llm_complete_single_attempt([LLMMessage(role="user", content="test")])
+
+    provider.assert_awaited_once()
+
+
+async def test_llm_complete_default_retries_provider_errors(mock_llm_config):
+    provider = AsyncMock(side_effect=_LLMRetriableError("temporary failure"))
+
+    with patch("souwen.llm.client._get_provider", return_value=provider):
+        with patch.object(llm_complete.retry, "wait", wait_none()):
+            with pytest.raises(_LLMRetriableError):
+                await llm_complete([LLMMessage(role="user", content="test")])
+
+    assert provider.await_count == 3
 
 
 async def test_llm_complete_not_enabled(mock_llm_config):

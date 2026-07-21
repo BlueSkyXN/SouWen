@@ -25,6 +25,7 @@ category 使用正式 catalog key：
 from __future__ import annotations
 
 from dataclasses import dataclass
+import re
 from threading import RLock
 from typing import Any
 
@@ -34,6 +35,7 @@ from souwen.registry.catalog import source_catalog
 INTEGRATION_TYPES: frozenset[str] = INTEGRATIONS
 AUTH_REQUIREMENT_TYPES: frozenset[str] = AUTH_REQUIREMENTS
 DISTRIBUTION_TYPES: frozenset[str] = DISTRIBUTIONS
+_CONFIG_SEGMENT_RE = re.compile(r"[a-z0-9]+(?:_[a-z0-9]+)*\Z")
 
 INTEGRATION_TYPE_LABELS: dict[str, str] = {
     "open_api": "公开接口 — 公开开放 API",
@@ -123,6 +125,7 @@ class SourceMeta:
     usage_note: str | None
     default_enabled: bool
     default_for: frozenset[str]
+    runtime_default_enabled: bool = True
 
     @property
     def is_scraper(self) -> bool:
@@ -163,6 +166,7 @@ def _build_source_meta_view() -> dict[str, SourceMeta]:
             stability=entry.stability,
             usage_note=entry.usage_note,
             default_enabled=entry.default_enabled,
+            runtime_default_enabled=entry.runtime_default_enabled,
             default_for=frozenset(entry.default_for),
         )
     return result
@@ -283,6 +287,66 @@ def get_sources_by_distribution(distribution: str) -> list[SourceMeta]:
 # ── 凭据解析工具 ──────────────────────────────────────────────
 
 
+def _llm_search_gateway_field(field: str) -> tuple[str, str] | None:
+    """Parse a value-free ``llm_search_gateways.<id>.<field>`` requirement path."""
+    parts = field.split(".")
+    if (
+        len(parts) == 3
+        and parts[0] == "llm_search_gateways"
+        and _CONFIG_SEGMENT_RE.fullmatch(parts[1]) is not None
+        and parts[2] in {"api_key", "base_url"}
+    ):
+        return parts[1], parts[2]
+    return None
+
+
+def is_llm_search_gateway_requirement(field: str) -> bool:
+    """Return whether a credential requirement uses the bounded gateway path shape."""
+    return _llm_search_gateway_field(field) is not None
+
+
+def is_valid_config_field_reference(field: str) -> bool:
+    """Validate direct config fields and the bounded LLM-search gateway path shape."""
+    from souwen.config import LLMSearchGatewayConfig, SouWenConfig
+
+    if field in SouWenConfig.model_fields:
+        return True
+    gateway_field = _llm_search_gateway_field(field)
+    return bool(
+        gateway_field
+        and "llm_search_gateways" in SouWenConfig.model_fields
+        and gateway_field[1] in LLMSearchGatewayConfig.model_fields
+    )
+
+
+def source_config_validation_reason(cfg: Any, source_name: str, meta: Any) -> str:
+    """Return a value-free config error for bounded LLM-search identity overrides."""
+    gateway_fields = [
+        parsed
+        for field in tuple(meta.credential_fields)
+        if (parsed := _llm_search_gateway_field(field)) is not None
+    ]
+    if not gateway_fields:
+        return ""
+
+    from souwen.config.models import LLM_SEARCH_IDENTITY_PARAMS
+
+    params = cfg.get_source_config(source_name).params
+    forbidden = sorted(LLM_SEARCH_IDENTITY_PARAMS.intersection(params))
+    if forbidden:
+        paths = [f"sources.{source_name}.params.{field}" for field in forbidden]
+        return f"immutable source identity override: {', '.join(paths)}"
+
+    for gateway_id, field_name in gateway_fields:
+        if field_name != "base_url":
+            continue
+        try:
+            cfg.resolve_llm_search_gateway_field(source_name, gateway_id, field_name)
+        except ValueError:
+            return f"invalid source base_url: sources.{source_name}.base_url"
+    return ""
+
+
 def credential_value(
     cfg: Any,
     source_name: str,
@@ -306,7 +370,17 @@ def credential_value(
           走 ``resolve_base_url``。如果未来出现声明多字段的 self_hosted 源
           （例如同时需要 ``*_url`` 与 ``*_token``），需重新审视此处优先级
           规则，决定 secondary 字段是否也参与 base URL 解析。
+
+    LLM-search gateway 字段使用显式 dotted path，并统一委托给 config resolver：
+    ``sources.<source>`` override 优先于 ``llm_search_gateways.<gateway>``。
     """
+    gateway_field = _llm_search_gateway_field(field)
+    if gateway_field is not None:
+        gateway_id, field_name = gateway_field
+        try:
+            return cfg.resolve_llm_search_gateway_field(source_name, gateway_id, field_name)
+        except ValueError:
+            return None
     if auth_requirement == "self_hosted" and field == primary_field:
         return cfg.resolve_base_url(source_name) or cfg.resolve_api_key(source_name, field)
     if field == primary_field:

@@ -515,6 +515,36 @@ class TestAdminAuth:
         assert "input_value" not in detail
         assert "sources.openalex" in detail
 
+    def test_admin_config_yaml_accepts_and_redacts_llm_search_gateway(self, authed_client):
+        content = (
+            "sources:\n"
+            "  openalex:\n"
+            "    base_url: https://source.example.com/v1\n"
+            "llm_search_gateways:\n"
+            "  uniapi:\n"
+            "    api_key: gateway-secret\n"
+            "    base_url: https://private-gateway.example.com/v1\n"
+        )
+        saved = authed_client.put(
+            "/api/v1/admin/config/yaml",
+            headers={"Authorization": "Bearer test-secret-123"},
+            json={"content": content},
+        )
+        assert saved.status_code == 200, saved.text
+
+        view = authed_client.get(
+            "/api/v1/admin/config",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+        assert view.status_code == 200, view.text
+        assert "gateway-secret" not in view.text
+        assert "private-gateway.example.com" not in view.text
+        assert view.json()["sources"]["openalex"]["base_url"] == "https://source.example.com/v1"
+        assert view.json()["llm_search_gateways"]["uniapi"] == {
+            "api_key": "***",
+            "base_url": "***",
+        }
+
     def test_admin_config_yaml_uses_current_home_at_request_time(
         self,
         authed_client,
@@ -792,6 +822,42 @@ class TestAdminAuth:
         assert "/Users/private" not in resp.text
         assert "postgresql://" not in resp.text
         assert "doctor-secret" not in resp.text
+
+    def test_user_doctor_hides_llm_search_private_base_url(self, client, monkeypatch):
+        import souwen.doctor as doctor_mod
+
+        private_url = "https://private.internal.example/v1"
+        monkeypatch.setattr(
+            doctor_mod,
+            "check_all",
+            lambda: [
+                _doctor_source(
+                    "llm_search_probe",
+                    "ok",
+                    credential_fields=[
+                        "llm_search_gateways.uniapi.api_key",
+                        "llm_search_gateways.uniapi.base_url",
+                    ],
+                    missing_credential_fields=["llm_search_gateways.uniapi.api_key"],
+                    config_valid=False,
+                    config_reason=(
+                        "immutable source identity override: sources.llm_search_probe.params.model"
+                    ),
+                    channel={"base_url": private_url, "timeout": "45.0"},
+                )
+            ],
+        )
+
+        resp = client.get("/api/v1/doctor")
+
+        assert resp.status_code == 200
+        source = resp.json()["sources"][0]
+        assert source["channel"] == {"timeout": "45.0"}
+        assert source["missing_credential_fields"] == ["llm_search_gateways.uniapi.api_key"]
+        assert source["config_valid"] is False
+        assert source["config_reason"].endswith("sources.llm_search_probe.params.model")
+        assert private_url not in resp.text
+        assert "private.internal.example" not in resp.text
 
     def test_admin_doctor_also_sanitizes_runtime_loader_exception(
         self,
@@ -1132,6 +1198,42 @@ class TestAdminAuth:
         assert readback.status_code == 200, readback.text
         assert readback.json()["base_url"] == "https://api.example.com/v1"
 
+    def test_admin_source_config_timeout_update_and_clear(self, authed_client):
+        updated = authed_client.put(
+            "/api/v1/admin/sources/config/openalex",
+            headers={"Authorization": "Bearer test-secret-123"},
+            json={"timeout": 45},
+        )
+        assert updated.status_code == 200, updated.text
+
+        readback = authed_client.get(
+            "/api/v1/admin/sources/config/openalex",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+        assert readback.status_code == 200, readback.text
+        assert readback.json()["timeout"] == 45
+
+        cleared = authed_client.put(
+            "/api/v1/admin/sources/config/openalex",
+            headers={"Authorization": "Bearer test-secret-123"},
+            json={"timeout": None},
+        )
+        assert cleared.status_code == 200, cleared.text
+        readback = authed_client.get(
+            "/api/v1/admin/sources/config/openalex",
+            headers={"Authorization": "Bearer test-secret-123"},
+        )
+        assert readback.json()["timeout"] is None
+
+    @pytest.mark.parametrize("timeout", [0, 301])
+    def test_admin_source_config_rejects_out_of_range_timeout(self, authed_client, timeout):
+        resp = authed_client.put(
+            "/api/v1/admin/sources/config/openalex",
+            headers={"Authorization": "Bearer test-secret-123"},
+            json={"timeout": timeout},
+        )
+        assert resp.status_code == 422
+
     def test_admin_source_config_proxy_error_redacts_url_secrets(self, authed_client):
         """单源 proxy 校验错误不应回显 URL userinfo 或敏感 query。"""
         resp = authed_client.put(
@@ -1345,6 +1447,9 @@ class TestSearchAuth:
         assert openalex["edition_available"] is True
         assert openalex["runtime_available"] is False
         assert openalex["runtime_reason"] == "openalex: missing modules: optional_sdk"
+        assert openalex["missing_credential_fields"] == ["openalex_api_key"]
+        assert openalex["config_valid"] is True
+        assert openalex["config_reason"] == ""
         assert openalex["available"] is True
 
     def test_sources_sanitizes_runtime_loader_exception(

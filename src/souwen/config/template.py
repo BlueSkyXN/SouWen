@@ -129,7 +129,7 @@ warp:
 
 # ===== 数据源频道配置 =====
 # 按源名称配置,覆盖全局默认值.
-# 可用字段: enabled, proxy, http_backend, base_url, api_key, headers, params
+# 可用字段: enabled, proxy, http_backend, base_url, timeout, api_key, headers, params
 # proxy 取值: inherit(继承全局) | none | warp | socks5://... | http://...
 # 示例:
 # sources:
@@ -139,9 +139,14 @@ warp:
 #     http_backend: curl_cffi
 #   tavily:
 #     api_key: tvly-xxxx
+#     timeout: 15
 #     params:
 #       search_depth: advanced
 #   google_patents:
 #     enabled: false
 sources: {}
+
+# ===== LLM Search 共享 Gateway =====
+# 多个 concrete source 共用一份 api_key/base_url；实际 source 默认不在本阶段注册。
+llm_search_gateways: {}
 """

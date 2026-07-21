@@ -279,6 +279,33 @@ def test_available_source_catalog_matches_runtime_credentials_and_enabled_state(
     assert "openalex" not in basic_available
 
 
+def test_runtime_default_disabled_source_requires_explicit_enable(clean_registry) -> None:
+    adapter = SourceAdapter(
+        name="runtime_default_disabled_probe",
+        domain="web",
+        integration="official_api",
+        description="runtime default probe",
+        config_field=None,
+        client_loader=lambda: object,
+        methods={"search": MethodSpec("search")},
+        auth_requirement="none",
+        runtime_default_enabled=False,
+    )
+    assert _reg_external(adapter) is True
+
+    default_config = SouWenConfig(
+        edition="full",
+        sources={adapter.name: {"timeout": 45}},
+    )
+    assert adapter.name not in available_source_catalog(default_config)
+
+    enabled_config = SouWenConfig(
+        edition="full",
+        sources={adapter.name: {"enabled": True, "timeout": 45}},
+    )
+    assert adapter.name in available_source_catalog(enabled_config)
+
+
 def test_public_source_catalog_payload_includes_edition_metadata() -> None:
     payload = public_source_catalog_payload(SouWenConfig(edition="basic"))
     sources = {item["name"]: item for item in payload["sources"]}
