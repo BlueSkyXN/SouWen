@@ -521,11 +521,18 @@ Cache-Control: public, max-age=3600
 
 #### `GET /api/v1/search/book`
 
-搜索 work 级图书书目。默认 source 由 registry `book:search` 派生，当前为 `open_library`；
-Internet Archive 仅在显式传入 `sources=internet_archive` 时查询，并不加入默认 fan-out。
+搜索 work 级图书书目。默认 source 由 registry `book:search` 派生，当前仍只有
+`open_library`；Internet Archive 和 Wikisource 都必须显式传入相应的
+`sources=internet_archive` 或 `sources=wikisource`，不加入默认 fan-out。Wikisource search
+只允许 `zh` / `en` 站点，默认 `zh`；REST search 只返回目录 metadata，不读取页面正文、revision
+或子页。要读取一个明确页面及有界 revision，请使用 Python API
+`get_wikisource_page_detail()`，而不是假定存在 REST detail endpoint。
+
 搜索结果包含 typed identifiers、受限 edition metadata、`collections` 馆藏归属和 resource
 access state。Internet Archive 的文件链接只是外部资源元数据，不会触发借阅、阅读或下载；
-`rights`、license 和 access 状态均以单条上游记录为准，不能从链接本身推断下载或再分发权利。
+Wikisource 的 `content_format`、正文 size / truncation、页面与 revision provenance，以及站点
+贡献许可和底本 rights 都是不同字段/证据层。两者都不从外部链接或站点托管本身推断下载、全球
+public domain 或再分发权利；Wikisource runtime 不导入 dumps，也不递归遍历页面或子页。
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
