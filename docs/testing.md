@@ -219,6 +219,7 @@ required `FAIL` 视为发布阻断。
 | Article extraction | PR required / release | `newspaper` / `readability` handler 注册、参数派发和错误聚合契约 | 真实 `newspaper4k` / `readability-lxml` import + 本地 HTML fixture；release 可用 `--require-runtime` 将缺 runtime 视为 FAIL | `Article extraction 云端功能测试` |
 | Plugin entry point | PR required / release | 插件契约、loader、manager、handler 注册的 mock/monkeypatch 单测 | 真实 `pip install -e examples/minimal-plugin`、entry point discovery、registry/plugin manager/fetch handler 视图、可选 `superweb2pdf` WARN；release 可用 `--require-web2pdf-runtime` 追加本地 HTML fixture → PDF 转换 | `插件云端功能测试` |
 | Zero-key live sources | Nightly / release | Google Patents / Wayback parser、SSRF guard、registry 契约和 mock HTTP 单测 | `scripts/zero_key_functional_check.py --mode live` 对 Google Patents search、Wayback Availability 与 CDX 做真实免 Key 探测；当 Availability API 无 closest 但同 URL 的 CDX 200 快照可证明可用时，availability check 记录 `cdx_fallback` 通过；默认 live 失败为 WARN，release 可加 `--required` | `Zero-key live source gate` |
+| OpenAlex anonymous contract | Manual | OpenAlex 请求参数、anonymous/key 行为和 registry metadata | `scripts/openalex_functional_check.py --mode live --execute --required` 只发送一次匿名 search，主动清除本地配置 key；写入 JSON/Markdown evidence，不进入普通 pytest 或自动 PR gate | Maintainer manual evidence |
 | HF Space smoke | deploy smoke / release gate | `hf_space_smoke` 参数、矩阵覆盖、admin-open gate 和 report 渲染的确定性单测 | private edge + 应用 admin 双层鉴权、surface/capability、admin-open required gate、统一 JSON Outcome report | `HF Space CD` |
 
 ## Secrets 边界
