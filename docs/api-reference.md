@@ -521,9 +521,11 @@ Cache-Control: public, max-age=3600
 
 #### `GET /api/v1/search/book`
 
-搜索 work 级图书书目。默认 source 由 registry `book:search` 派生，当前为 `open_library`。
-搜索结果包含 typed identifiers、受限 edition metadata 与 resource access state；Internet Archive
-链接只作为外部资源，不会触发借阅、阅读或下载。
+搜索 work 级图书书目。默认 source 由 registry `book:search` 派生，当前为 `open_library`；
+Internet Archive 仅在显式传入 `sources=internet_archive` 时查询，并不加入默认 fan-out。
+搜索结果包含 typed identifiers、受限 edition metadata、`collections` 馆藏归属和 resource
+access state。Internet Archive 的文件链接只是外部资源元数据，不会触发借阅、阅读或下载；
+`rights`、license 和 access 状态均以单条上游记录为准，不能从链接本身推断下载或再分发权利。
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|

@@ -631,6 +631,19 @@ def test_build_markdown_report_expands_open_sources_and_direct_routes():
                 "operation": "catalog-metadata-search",
             },
         ),
+        smoke.ProbeResult(
+            "zero-key-route",
+            "internet-archive-search",
+            "pass",
+            "status=200, source=internet_archive, count=1, operation=catalog-metadata-search",
+            meta={
+                "matrix_kind": "direct-route",
+                "route": "/api/v1/search/book",
+                "source": "internet_archive",
+                "count": 1,
+                "operation": "catalog-metadata-search",
+            },
+        ),
     ]
 
     report = smoke.build_markdown_report(config, results)
@@ -641,9 +654,17 @@ def test_build_markdown_report_expands_open_sources_and_direct_routes():
     assert "### Direct API Routes" in report
     assert "`/api/v1/sources`" in report
     assert "`/api/v1/search/book`" in report
+    assert "internet_archive" in report
 
 
-def test_open_library_search_route_uses_one_catalog_metadata_request():
+@pytest.mark.parametrize(
+    ("source", "probe"),
+    [
+        ("open_library", smoke.open_library_search_route),
+        ("internet_archive", smoke.internet_archive_search_route),
+    ],
+)
+def test_book_search_routes_use_one_catalog_metadata_request(source, probe):
     class FakeClient:
         calls: list[tuple[str, dict, bool, int]] = []
 
@@ -655,33 +676,33 @@ def test_open_library_search_route_uses_one_catalog_metadata_request():
                     "total": 1,
                     "results": [
                         {
-                            "source": "open_library",
+                            "source": source,
                             "results": [
                                 {
-                                    "source": "open_library",
-                                    "source_record_id": "OL27448W",
+                                    "source": source,
+                                    "source_record_id": "catalog-id",
                                     "title": "The Lord of the Rings",
                                 }
                             ],
                         }
                     ],
-                    "meta": {"succeeded": ["open_library"], "failed": []},
+                    "meta": {"succeeded": [source], "failed": []},
                 },
                 0.1,
             )
 
-    result = smoke.open_library_search_route(FakeClient())
+    result = probe(FakeClient())
 
     assert result.outcome == "pass"
     assert result.required is False
     assert result.meta == {
         "matrix_kind": "direct-route",
         "route": "/api/v1/search/book",
-        "source": "open_library",
+        "source": source,
         "query": "the lord of the rings",
         "count": 1,
         "total": 1,
-        "succeeded": ["open_library"],
+        "succeeded": [source],
         "failed": [],
         "operation": "catalog-metadata-search",
     }
@@ -690,7 +711,7 @@ def test_open_library_search_route_uses_one_catalog_metadata_request():
             "/api/v1/search/book",
             {
                 "q": "the lord of the rings",
-                "sources": "open_library",
+                "sources": source,
                 "per_page": 1,
                 "timeout": 45,
             },
@@ -708,7 +729,7 @@ def test_zero_key_search_sources_are_covered_or_explicitly_excluded():
         *smoke.ZERO_KEY_WEB_SCRAPERS,
         *smoke.ZERO_KEY_OPEN_SEARCH_SOURCES,
     }
-    direct_route_sources = {smoke.ZERO_KEY_BOOK_ROUTE_SOURCE}
+    direct_route_sources = set(smoke.ZERO_KEY_BOOK_ROUTE_SOURCES)
     no_public_endpoint = set(smoke.EXCLUDED_NO_PUBLIC_ENDPOINT_SOURCES)
     required_key = set(smoke.EXCLUDED_REQUIRED_KEY_SEARCH_SOURCES)
     self_hosted = set(smoke.EXCLUDED_SELF_HOSTED_SEARCH_SOURCES)

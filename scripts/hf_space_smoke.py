@@ -60,7 +60,7 @@ EXTRA_ZERO_KEY_PAPER_SOURCES = [
 ZERO_KEY_PATENT_SOURCES = [
     "google_patents",
 ]
-ZERO_KEY_BOOK_ROUTE_SOURCE = "open_library"
+ZERO_KEY_BOOK_ROUTE_SOURCES = ("open_library", "internet_archive")
 ZERO_KEY_BOOK_ROUTE_QUERY = "the lord of the rings"
 ZERO_KEY_WEB_SCRAPERS = [
     "duckduckgo",
@@ -1624,13 +1624,13 @@ def list_sources_inventory(client: ApiClient) -> ProbeResult:
     )
 
 
-def open_library_search_route(client: ApiClient) -> ProbeResult:
-    """Probe the public book search route without borrowing, reading, or downloading content."""
+def book_search_route(client: ApiClient, source: str) -> ProbeResult:
+    """Probe one explicit book source without borrowing, reading, or downloading content."""
     resp = client.get(
         "/api/v1/search/book",
         params={
             "q": ZERO_KEY_BOOK_ROUTE_QUERY,
-            "sources": ZERO_KEY_BOOK_ROUTE_SOURCE,
+            "sources": source,
             "per_page": 1,
             "timeout": 45,
         },
@@ -1639,16 +1639,16 @@ def open_library_search_route(client: ApiClient) -> ProbeResult:
     )
     total, succeeded, failed = summarize_search_response(resp.data)
     counts = grouped_result_counts(resp.data)
-    count = counts.get(ZERO_KEY_BOOK_ROUTE_SOURCE, 0)
-    ok = resp.status == 200 and count > 0 and ZERO_KEY_BOOK_ROUTE_SOURCE in succeeded
+    count = counts.get(source, 0)
+    ok = resp.status == 200 and count > 0 and source in succeeded
     detail = (
-        f"status={resp.status}, source={ZERO_KEY_BOOK_ROUTE_SOURCE}, total={total}, "
+        f"status={resp.status}, source={source}, total={total}, "
         f"count={count}, succeeded={','.join(succeeded) or '-'}, "
         f"failed={','.join(failed) or '-'}, operation=catalog-metadata-search"
     )
     return ProbeResult(
         "zero-key-route",
-        "open-library-search",
+        f"{source.replace('_', '-')}-search",
         "pass" if ok else "warn",
         detail,
         False,
@@ -1656,7 +1656,7 @@ def open_library_search_route(client: ApiClient) -> ProbeResult:
         {
             "matrix_kind": "direct-route",
             "route": "/api/v1/search/book",
-            "source": ZERO_KEY_BOOK_ROUTE_SOURCE,
+            "source": source,
             "query": ZERO_KEY_BOOK_ROUTE_QUERY,
             "count": count,
             "total": total,
@@ -1665,6 +1665,16 @@ def open_library_search_route(client: ApiClient) -> ProbeResult:
             "operation": "catalog-metadata-search",
         },
     )
+
+
+def open_library_search_route(client: ApiClient) -> ProbeResult:
+    """Probe the explicit Open Library catalog route."""
+    return book_search_route(client, "open_library")
+
+
+def internet_archive_search_route(client: ApiClient) -> ProbeResult:
+    """Probe the explicit Internet Archive catalog route without file access."""
+    return book_search_route(client, "internet_archive")
 
 
 def opencitations_count_route(client: ApiClient) -> ProbeResult:
@@ -2375,6 +2385,13 @@ def run_zero_key_checks(
             "zero-key-route",
             "open-library-search",
             lambda: open_library_search_route(client),
+        )
+    )
+    results.append(
+        safe_call(
+            "zero-key-route",
+            "internet-archive-search",
+            lambda: internet_archive_search_route(client),
         )
     )
     results.append(
