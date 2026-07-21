@@ -302,6 +302,8 @@ def available_source_catalog(config: Any) -> dict[str, SourceCatalogEntry]:
             continue
         if not has_required_credentials(config, name, entry):
             continue
+        if adapter.availability_check is not None and not adapter.availability_check():
+            continue
         result[name] = entry
     return result
 
@@ -356,12 +358,24 @@ def public_source_catalog_payload(config: Any) -> dict[str, Any]:
 
     sources: list[dict[str, Any]] = []
     for name, entry in public_source_catalog().items():
+        adapter = _views.get(name)
+        if adapter is None:  # pragma: no cover - catalog and registry are co-derived.
+            raise KeyError(f"missing registry adapter for source {name!r}")
         missing_fields = missing_credential_fields(config, name, entry)
         credentials_satisfied = has_required_credentials(config, name, entry)
         config_reason = source_config_validation_reason(config, name, entry)
         edition_fields = _source_edition_fields(name, config)
         runtime_fields = _source_runtime_fields(name, edition_fields)
         enabled = config.is_source_enabled(name, default=entry.runtime_default_enabled)
+        data_available = True
+        data_reason = ""
+        if adapter.availability_check is not None:
+            try:
+                data_available = adapter.availability_check()
+            except Exception:  # pragma: no cover - adapter checks must be defensive.
+                data_available = False
+            if not data_available:
+                data_reason = adapter.unavailable_reason or "source data is unavailable"
         sources.append(
             {
                 "name": name,
@@ -382,11 +396,14 @@ def public_source_catalog_payload(config: Any) -> dict[str, Any]:
                 "default_for": list(entry.default_for),
                 **edition_fields,
                 **runtime_fields,
+                "data_available": data_available,
+                "data_reason": data_reason,
                 "available": (
                     enabled
                     and not config_reason
                     and credentials_satisfied
                     and edition_fields["edition_available"]
+                    and data_available
                 ),
             }
         )

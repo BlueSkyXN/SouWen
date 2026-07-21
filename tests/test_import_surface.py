@@ -13,6 +13,7 @@ def test_new_public_import_surface():
     """V2 公开入口只暴露真实模块路径。"""
     from souwen.core.http_client import SouWenHttpClient
     from souwen.core.scraper.base import BaseScraper
+    from souwen.local_catalog import LocalCatalog
     from souwen.registry.meta import get_all_sources
     from souwen.search import search, search_all, search_by_capability, search_domain
     from souwen.web.fetch import fetch_content
@@ -27,6 +28,7 @@ def test_new_public_import_surface():
     assert SouWenHttpClient.__name__ == "SouWenHttpClient"
     assert BaseScraper.__name__ == "BaseScraper"
     assert WaybackClient.__name__ == "WaybackClient"
+    assert LocalCatalog.__name__ == "LocalCatalog"
 
 
 def test_import_registry_does_not_scan_plugin_entry_points():

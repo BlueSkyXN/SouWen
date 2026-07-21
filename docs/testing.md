@@ -63,6 +63,9 @@ python scripts/ci/run_profile.py \
 - HTTP error mapping、timeout、retry、rate limit 行为。
 - 使用 `pytest-httpx`、monkeypatch 或本地 fixture 的 mock integration。
 - FastAPI route 参数校验和响应结构。
+- local catalog 的 SQLite schema / FTS、完整性、idempotent import、失败 checkpoint、配置解析和
+  显式 source 的 unavailable 映射；fixture 只能使用仓库内 RDF/XML 样本，不能下载 catalog
+  archive 或 ebook。
 
 推荐本地命令：
 
@@ -87,6 +90,13 @@ python3 -m ruff format --check src/ tests/ scripts/
 - 外部插件真实安装和 entry point discovery。
 
 专项脚本必须独立运行，不依赖 pytest fixture。运行时安装行为应在 workflow step 中显式呈现，不应隐藏在 Python 脚本里。
+
+Project Gutenberg local-catalog 的 bounded live evidence 使用
+`scripts/local_catalog_functional_check.py --mode live --execute --required`：只获取一条官方
+RDF/XML sample（`pg11.rdf`），写入临时数据库后验证重复导入、FTS、detail 与 integrity。
+它不会下载 canonical archive、不会访问 RDF 声明的 format/resource URL，也不会下载 ebook。
+canonical archive 的完整导入仍由维护者在明确批准的环境中执行；普通 pytest、PR build 与
+HF Space smoke 不携带个人 local catalog 数据库。
 
 ## Outcome 语义
 
@@ -224,6 +234,7 @@ required `FAIL` 视为发布阻断。
 | OSTI.GOV anonymous search/detail | Manual | OSTI `q` 参数、分页、search/detail normalizer 与 registry capability metadata | `scripts/osti_functional_check.py --mode live --execute --required` 发送一次官方匿名 search 和同一记录的一次 detail 请求；写入 JSON/Markdown evidence，不进入普通 pytest 或自动 PR gate | Maintainer manual evidence |
 | DataCite anonymous research-output search/detail | Manual | DataCite JSON:API pagination、dataset/software/text/event fixture normalizer、resource type、rights、related identifiers、funding 与 content URL metadata | `scripts/datacite_functional_check.py --mode live --execute --required` 只发送一次匿名 DOI metadata search，随后对同一 DOI 请求一次 detail；保留 resource type、rights 和声明 links，不跟随 landing URL、不下载内容，也不把 metadata 解释为下载或再分发授权 | Maintainer manual evidence |
 | Figshare anonymous article search/detail | Manual | Figshare public API v2 POST search 的 `page` / `page_size` 请求体、dataset/software/figure fixture normalizer、license、multiple files、`is_link_only` 和 declared download URL metadata | `scripts/figshare_functional_check.py --mode live --execute --required` 只发送一次公开 article search，随后对同一 article 请求一次 detail；保留 article type、license、files 与 declared URLs，不跟随或下载文件，也不把 source metadata 解释为访问或再分发授权 | Maintainer manual evidence |
+| Project Gutenberg local RDF catalog | Manual | SQLite schema/FTS、官方 RDF/XML parser、metadata/resource-link mapping、idempotent import、显式 unavailable 与 CLI/REST error mapping | `scripts/local_catalog_functional_check.py --mode live --execute --required` 只获取官方 `pg11.rdf`，导入临时 SQLite 后验证 repeat import、FTS、detail 和 integrity；不下载 RDF archive 或 ebook，也不跟随 declared format URL；报告 source、sample ID、observed SHA/size、rights 和 resource count | Maintainer manual evidence |
 | Open Library anonymous work search/detail | Manual | Open Library search 参数、work/edition normalizer 与 registry metadata | `scripts/open_library_functional_check.py --mode live --execute --required` 只发送一次匿名 work search，随后对同一 work 请求一次有界 edition detail；只验证公开书目/资源元数据，不推断借阅、阅读或下载权利；写入 JSON/Markdown evidence，不进入普通 pytest 或自动 PR gate | Maintainer manual evidence |
 | Internet Archive anonymous catalog search/detail | Manual | Internet Archive Advanced Search/Metadata API 参数、texts 馆藏 normalizer、resource access 与 registry metadata | `scripts/internet_archive_functional_check.py --mode live --execute --required` 只发送一次匿名 catalog metadata search，随后对同一 identifier 请求一次有界 metadata detail；只验证馆藏和 resource metadata，绝不借阅、阅读或下载文件；license/access 按单条上游记录保守报告；写入 JSON/Markdown evidence，不进入普通 pytest 或自动 PR gate | Maintainer manual evidence |
 | Library of Congress anonymous catalog search/detail | Manual | LOC `fo=json` pagination、item envelope、resource/access normalizer 与 registry metadata | `scripts/library_of_congress_functional_check.py --mode live --execute --required` 只发送一次官方 catalog search 和同一 record 的一次 item detail；只验证 record/resources metadata，不下载数字资源；rights/access 按单条记录保守报告 | Maintainer manual evidence |

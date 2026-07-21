@@ -143,6 +143,7 @@ def test_adapter_registration_order_snapshot() -> None:
         "datacite",
         "figshare",
         "open_library",
+        "gutenberg",
         "doab",
         "oapen",
         "librivox",
@@ -262,6 +263,25 @@ def test_default_source_order_snapshot() -> None:
         "fetch:fetch": defaults_for("fetch", "fetch"),
     } == expected
     assert {key: list(names) for key, names in default_source_map().items()} == expected
+
+
+def test_gutenberg_is_explicit_local_catalog_source() -> None:
+    entry = source_catalog()["gutenberg"]
+    assert entry.domain == "book"
+    assert entry.capabilities == ("get_detail", "search")
+    assert entry.default_for == ()
+    assert entry.default_enabled is False
+    assert "souwen catalog import gutenberg" in (entry.usage_note or "")
+    assert defaults_for("book", "search") == ["open_library"]
+
+
+def test_gutenberg_catalog_payload_reports_data_unavailable_without_filesystem_path():
+    payload = public_source_catalog_payload(SouWenConfig(data_dir="/private/catalog-data"))
+    gutenberg = next(item for item in payload["sources"] if item["name"] == "gutenberg")
+    assert gutenberg["data_available"] is False
+    assert gutenberg["available"] is False
+    assert "local catalog unavailable" in gutenberg["data_reason"]
+    assert "/private/catalog-data" not in str(gutenberg)
 
 
 def test_non_public_high_risk_and_deprecated_sources_are_not_default_available() -> None:

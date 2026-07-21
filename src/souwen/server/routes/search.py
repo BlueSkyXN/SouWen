@@ -162,7 +162,7 @@ async def api_search_book(
     timeout: float | None = Query(None, ge=1, le=300, description="端点硬超时（秒），超时返回 504"),
 ):
     """搜索 work 级图书书目。"""
-    from souwen.core.exceptions import SouWenError
+    from souwen.core.exceptions import LocalCatalogUnavailableError, SouWenError
     from souwen.search import search_books
 
     query = _normalize_query_arg(q)
@@ -194,6 +194,11 @@ async def api_search_book(
         raise HTTPException(status_code=504, detail=f"搜索超时（{timeout}s）")
     except EditionError as exc:
         raise HTTPException(status_code=403, detail=str(exc))
+    except LocalCatalogUnavailableError:
+        raise HTTPException(
+            status_code=503,
+            detail="local catalog unavailable; run `souwen catalog import gutenberg <rdf-input>`",
+        )
     except SouWenError:
         logger.exception("图书搜索上游失败: q=%s sources=%s", query, source_list)
         raise HTTPException(status_code=502, detail="所有上游数据源均不可用")

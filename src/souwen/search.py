@@ -161,6 +161,10 @@ async def _search_source(name: str, coro: Any) -> Any | None:
     try:
         return await coro
     except Exception as e:
+        from souwen.core.exceptions import LocalCatalogUnavailableError
+
+        if isinstance(e, LocalCatalogUnavailableError):
+            raise
         from souwen.core.exceptions import ConfigError, RateLimitError
 
         if isinstance(e, ConfigError):
@@ -370,6 +374,8 @@ async def _execute_search(
     **kwargs: Any,
 ) -> list[Any]:
     """统一的并发 capability 执行：跑 `_search_source_limited` on each adapter。"""
+    from souwen.core.exceptions import LocalCatalogUnavailableError
+
     cfg = get_config()
     tasks: list[tuple[str, Any]] = []
     for adapter in adapters:
@@ -381,9 +387,14 @@ async def _execute_search(
         tasks.append((adapter.name, coro))
 
     results = await asyncio.gather(
-        *[_search_source_limited(n, coro) for n, coro in tasks],
+        *[_search_source_limited(n, coro) for n, coro in tasks], return_exceptions=True
     )
-    responses = [r for r in results if r is not None]
+    local_failures = [item for item in results if isinstance(item, LocalCatalogUnavailableError)]
+    if local_failures and len(tasks) == 1:
+        raise local_failures[0]
+    for failure in local_failures:
+        logger.warning("local catalog source unavailable: %s", failure)
+    responses = [r for r in results if r is not None and not isinstance(r, Exception)]
     logger.info(
         "%s/%s 搜索完成: %d/%d 源成功 (query=%s)",
         domain,

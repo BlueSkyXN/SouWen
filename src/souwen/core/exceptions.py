@@ -110,6 +110,12 @@ class SourceUnavailableError(SouWenError):
     pass
 
 
+class LocalCatalogUnavailableError(SourceUnavailableError):
+    """A local catalog is missing, empty, corrupt, or schema-incompatible."""
+
+    pass
+
+
 class ParseError(SouWenError):
     """响应解析失败
 

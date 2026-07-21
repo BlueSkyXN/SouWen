@@ -65,3 +65,19 @@ def test_book_route_has_public_auth_and_openapi_contract(client):
         "application/json"
     ]["schema"]
     assert schema["$ref"].endswith("/SearchBookResponse")
+
+
+def test_explicit_uninitialized_gutenberg_returns_safe_503(client, monkeypatch, tmp_path):
+    from souwen.core.exceptions import LocalCatalogUnavailableError
+
+    async def unavailable(*_args, **_kwargs):
+        raise LocalCatalogUnavailableError(f"local catalog is not initialized: {tmp_path}")
+
+    search_module = importlib.import_module("souwen.search")
+    monkeypatch.setattr(search_module, "search_books", unavailable)
+
+    response = client.get("/api/v1/search/book", params={"q": "Alice", "sources": "gutenberg"})
+
+    assert response.status_code == 503
+    assert "souwen catalog import gutenberg <rdf-input>" in response.json()["detail"]
+    assert str(tmp_path) not in response.text
