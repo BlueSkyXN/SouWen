@@ -15,9 +15,13 @@ import pytest
 from pydantic import ValidationError
 
 from souwen.models import (
+    EnrichedWebSearchResult,
     FetchResponse,
     PaperResult,
     PatentResult,
+    SearchCandidate,
+    SearchSnippet,
+    SearchSourceProvenance,
     SearchResponse,
     WebSearchResult,
 )
@@ -246,3 +250,68 @@ class TestWebSearchResult:
             engine="ddg",
         )
         assert r.snippet == ""
+
+
+class TestEnrichedSearchContracts:
+    @staticmethod
+    def _provenance(source_id: str = "fixture_source") -> SearchSourceProvenance:
+        return SearchSourceProvenance(
+            source_id=source_id,
+            scheme_id="fixture_scheme_v1",
+            requested_model_id="fixture-model",
+        )
+
+    def test_candidate_allows_url_only_discovery_but_validates_http_url(self):
+        candidate = SearchCandidate(
+            url="https://example.com/article",
+            provenance=self._provenance(),
+        )
+
+        assert candidate.title is None
+        with pytest.raises(ValidationError, match="http/https"):
+            SearchCandidate(url="file:///private/article", provenance=self._provenance())
+
+    def test_final_result_requires_real_title_url_and_discovery_provenance(self):
+        result = EnrichedWebSearchResult(
+            result_id="R1",
+            rank=1,
+            title="Real page title",
+            url="https://example.com/article",
+            canonical_url="https://example.com/article",
+            site_domain="example.com",
+            discoveries=[self._provenance(), self._provenance("second_source")],
+            fetch_status="success",
+            provider_snippet=SearchSnippet(text="Provider text", type="provider_summary"),
+            content_excerpt=SearchSnippet(text="Extracted text", type="extractive"),
+            summary=SearchSnippet(text="Generated text", type="generated", model="configured"),
+        )
+
+        assert [item.source_id for item in result.discoveries] == [
+            "fixture_source",
+            "second_source",
+        ]
+        with pytest.raises(ValidationError):
+            EnrichedWebSearchResult(
+                result_id="R2",
+                rank=2,
+                title=" ",
+                url="https://example.com/empty-title",
+                canonical_url="https://example.com/empty-title",
+                site_domain="example.com",
+                discoveries=[],
+                fetch_status="not_requested",
+            )
+
+    def test_final_result_rejects_ambiguous_snippet_slots(self):
+        with pytest.raises(ValidationError, match="content_excerpt"):
+            EnrichedWebSearchResult(
+                result_id="R1",
+                rank=1,
+                title="Title",
+                url="https://example.com/article",
+                canonical_url="https://example.com/article",
+                site_domain="example.com",
+                discoveries=[self._provenance()],
+                fetch_status="success",
+                content_excerpt=SearchSnippet(text="wrong", type="provider_snippet"),
+            )
