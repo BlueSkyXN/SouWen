@@ -34,6 +34,18 @@ class LLMResponse(BaseModel):
     finish_reason: str = ""  # stop / length / content_filter
 
 
+class EnrichedSynthesisAnswer(BaseModel):
+    """A citation-bounded answer generated from enriched-search material."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    text: str
+    citations: list[str] = Field(min_length=1)
+    profile: str
+    model: str
+    protocol: Literal["openai_chat", "openai_responses", "anthropic_messages"]
+
+
 class SummaryCitation(BaseModel):
     """摘要中的引用"""
 

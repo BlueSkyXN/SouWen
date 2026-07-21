@@ -482,6 +482,35 @@ Doctor/catalog/admin source 诊断只报告缺少的配置路径，不显示 API
 base URL。完整 foundation contract 见
 [LLM Search Foundation SPEC](./internal/llm-search-foundation-spec.md)。
 
+### Enriched Search Synthesis Profiles
+
+`POST /api/v1/search/web/enriched` 的可选 `synthesis` 阶段没有默认 model。部署方必须在
+`llm.synthesis_profiles` 中显式注册 profile，客户端只能传 profile ID，不能提交 protocol、model、
+budget、base URL 或凭据。profile 使用全局 `llm` 的 credentials/base URL，但必须单独固定实际
+protocol、model 和三类预算：`max_tokens`、`max_input_chars`、`max_pages`，以及单次 `timeout`。
+
+```yaml
+llm:
+  enabled: true
+  protocol: openai_responses
+  api_key: ~ # 用私有部署配置或 SOUWEN_LLM JSON 提供；不要提交真实值
+  base_url: https://api.example.com/v1
+  synthesis_profiles:
+    safe_research:
+      protocol: openai_responses
+      model: configured-model-id
+      max_tokens: 800
+      max_input_chars: 12000
+      max_pages: 5
+      timeout: 45
+      temperature: 0.0
+```
+
+未配置、未 allowlist 的 profile 会在任何 source/fetch 或模型请求前以 `422` 拒绝；不会静默回退
+到 `llm.model`。profile 的模型响应必须返回实际 served model，结果中的 generated summary 和
+answer 都会携带该 provenance。页面内容仅作为不可信 reference data；Synthesis 不可发起 web
+search、不可生成新 URL，answer 的 citations 必须是同一响应中已有的 `R1`、`R2` 等 result ID。
+
 ## Docker 专用环境变量
 
 容器入口脚本（`entrypoint.sh` + `scripts/warp-init.sh`）会在 SouWen 启动前生效，因此 WARP 系列变量同时支持**不带** `SOUWEN_` 前缀：

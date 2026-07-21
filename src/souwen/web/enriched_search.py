@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
+import logging
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from typing import Literal
@@ -20,6 +21,11 @@ from urllib.parse import urlsplit, urlunsplit
 from souwen.config import get_config
 from souwen.core.redaction import redact_secret_text
 from souwen.editions import ensure_source_allowed
+from souwen.llm.enriched_synthesis import (
+    resolve_enriched_synthesis_profile,
+    synthesize_enriched_results,
+)
+from souwen.llm.models import EnrichedSynthesisAnswer, LLMUsage
 from souwen.models import (
     EnrichedWebSearchResult,
     FetchResult,
@@ -36,6 +42,9 @@ from souwen.web.search import web_search
 
 SourceOutcome = Literal["success_with_results", "success_empty", "timeout", "failed"]
 SourceStrategy = Literal["single", "fanout", "first_success"]
+SynthesisStatus = Literal["not_requested", "success", "failed", "skipped"]
+
+logger = logging.getLogger("souwen.web.enriched_search")
 
 
 class EnrichedSearchError(RuntimeError):
@@ -91,6 +100,9 @@ class EnrichedSearchExecution:
     visible_search_calls: int = 0
     provider_metered_search_calls: int | None = None
     fetched_pages: int = 0
+    synthesis_status: SynthesisStatus = "not_requested"
+    answer: EnrichedSynthesisAnswer | None = None
+    summary_usage: LLMUsage | None = None
 
     @property
     def partial(self) -> bool:
@@ -392,6 +404,7 @@ async def enriched_web_search(
     include_content: bool = False,
     max_content_chars: int = 4_000,
     excerpt_chars: int = 500,
+    synthesis_profile: str | None = None,
 ) -> EnrichedSearchExecution:
     """Return title/URL-gated results through the existing SSRF-safe fetch pipeline.
 
@@ -408,6 +421,15 @@ async def enriched_web_search(
     if not 1.0 <= float(deadline_seconds) <= 300.0:
         raise ValueError("deadline_seconds 必须在 1..300 秒范围内")
 
+    # Resolve the request-selected profile before any upstream work.  There is
+    # intentionally no default model/profile fallback for this paid stage.
+    profile = (
+        resolve_enriched_synthesis_profile(synthesis_profile)
+        if synthesis_profile is not None
+        else None
+    )
+    endpoint_budget = SearchDeadlineBudget(deadline_seconds)
+
     if sources is None:
         response = await web_search(
             query,
@@ -423,7 +445,7 @@ async def enriched_web_search(
             source_strategy=source_strategy,
             max_results_per_source=max_results_per_source or max_results_per_engine,
             max_source_attempts=max_source_attempts,
-            deadline_seconds=deadline_seconds,
+            deadline_seconds=endpoint_budget.timeout_for(deadline_seconds),
         )
 
     grouped: dict[str, list[SearchCandidate]] = {}
@@ -435,13 +457,16 @@ async def enriched_web_search(
     if fetch and grouped:
         discovery_keys = list(grouped)[:max_pages]
         urls = [grouped[key][0].url for key in discovery_keys]
-        fetched = await fetch_content(
-            urls,
-            providers=fetch_providers,
-            strategy=fetch_strategy,
-            timeout=fetch_timeout,
-            max_length=max_content_chars,
-        )
+        try:
+            fetched = await fetch_content(
+                urls,
+                providers=fetch_providers,
+                strategy=fetch_strategy,
+                timeout=endpoint_budget.timeout_for(fetch_timeout),
+                max_length=max_content_chars,
+            )
+        except TimeoutError as exc:
+            raise EnrichedSearchDeadlineExceeded("enriched search 共享 deadline 已耗尽") from exc
         requested_urls = {_canonical_url(url) for url in urls}
         for item in fetched.results:
             discovery_url = _canonical_url(item.url)
@@ -535,6 +560,43 @@ async def enriched_web_search(
             )
         )
 
+    synthesis_status: SynthesisStatus = "not_requested"
+    answer: EnrichedSynthesisAnswer | None = None
+    summary_usage: LLMUsage | None = None
+    if profile is not None:
+        try:
+            synthesis_timeout = endpoint_budget.timeout_for(profile.timeout)
+        except TimeoutError:
+            # The search/fetch result list remains useful even when the optional
+            # stage loses its shared endpoint budget before a model call.
+            synthesis_status = "skipped"
+        else:
+            try:
+                synthesized = await synthesize_enriched_results(
+                    results,
+                    profile_id=synthesis_profile or "",
+                    timeout=synthesis_timeout,
+                )
+            except Exception:
+                # Synthesis must never discard otherwise valid retrieval evidence.
+                # Do not include provider error text or traceback because an
+                # upstream response can contain secret-bearing diagnostics.
+                logger.warning("enriched synthesis failed; retrieval results are retained")
+                synthesis_status = "failed"
+            else:
+                if synthesized is None:
+                    synthesis_status = "skipped"
+                else:
+                    results = [
+                        result.model_copy(
+                            update={"summary": synthesized.summaries.get(result.result_id)}
+                        )
+                        for result in results
+                    ]
+                    synthesis_status = "success"
+                    answer = synthesized.answer
+                    summary_usage = synthesized.usage
+
     return EnrichedSearchExecution(
         query=query,
         results=results,
@@ -551,4 +613,7 @@ async def enriched_web_search(
             else None
         ),
         fetched_pages=fetched_pages,
+        synthesis_status=synthesis_status,
+        answer=answer,
+        summary_usage=summary_usage,
     )

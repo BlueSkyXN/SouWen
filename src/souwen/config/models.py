@@ -104,12 +104,41 @@ class LLMConfig(BaseModel):
     rate_limit_summarize: int = Field(20, ge=1)
     rate_limit_fetch: int = Field(20, ge=1)
     anthropic_version: str = "2023-06-01"
+    synthesis_profiles: dict[str, "LLMSynthesisProfile"] = Field(default_factory=dict)
 
     def get_api_key(self) -> str | None:
         """获取 API Key：优先从 api_keys 轮询，否则用单一 api_key"""
         if self.api_keys:
             return random.choice(self.api_keys)
         return self.api_key
+
+
+class LLMSynthesisProfile(BaseModel):
+    """An allowlisted, deployment-owned budget for enriched-search synthesis.
+
+    The request may name a profile, but never supplies its model or provider
+    settings.  Credentials and the gateway base URL remain in ``LLMConfig`` so
+    this profile is safe to expose in configuration templates without creating
+    another secret-bearing configuration surface.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    protocol: Literal["openai_chat", "openai_responses", "anthropic_messages"]
+    model: str = Field(min_length=1, max_length=256)
+    max_tokens: int = Field(ge=1, le=16_384)
+    max_input_chars: int = Field(ge=500, le=200_000)
+    max_pages: int = Field(ge=1, le=20)
+    timeout: float = Field(gt=0, le=300)
+    temperature: float = Field(0.0, ge=0.0, le=2.0)
+
+    @field_validator("model")
+    @classmethod
+    def _normalize_model(cls, value: str) -> str:
+        normalized = value.strip()
+        if not normalized:
+            raise ValueError("model 不能为空")
+        return normalized
 
 
 class SouWenConfig(BaseModel):

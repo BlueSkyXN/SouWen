@@ -25,7 +25,7 @@ from .loader import (
     get_config,
     reload_config,
 )
-from .models import LLMSearchGatewayConfig, SourceChannelConfig, SouWenConfig
+from .models import LLMSynthesisProfile, LLMSearchGatewayConfig, SourceChannelConfig, SouWenConfig
 from .template import _DEFAULT_CONFIG_TEMPLATE
 from .validators import _ALLOWED_PROXY_SCHEMES, _validate_proxy_url
 
@@ -33,6 +33,7 @@ __all__ = [
     "SouWenConfig",
     "SourceChannelConfig",
     "LLMSearchGatewayConfig",
+    "LLMSynthesisProfile",
     "get_config",
     "reload_config",
     "ensure_config_file",

@@ -126,6 +126,8 @@ async def _llm_complete_single_attempt(
     model: str | None = None,
     max_tokens: int | None = None,
     temperature: float | None = None,
+    protocol: str | None = None,
+    timeout: float | None = None,
 ) -> LLMResponse:
     """执行一次 LLM provider dispatch，不应用 ``llm_complete`` 的重试策略。
 
@@ -148,16 +150,17 @@ async def _llm_complete_single_attempt(
         else:
             user_messages.append(msg)
 
-    provider_fn = _get_provider(llm_cfg.protocol)
+    selected_protocol = protocol or llm_cfg.protocol
+    provider_fn = _get_provider(selected_protocol)
 
     # 为 Anthropic 构建 extra_headers（使用配置的 version 而非硬编码）
     extra_headers: dict[str, str] | None = None
-    if llm_cfg.protocol == "anthropic_messages":
+    if selected_protocol == "anthropic_messages":
         extra_headers = {"anthropic-version": llm_cfg.anthropic_version}
 
     logger.info(
         "LLM dispatch: protocol=%s model=%s",
-        llm_cfg.protocol,
+        selected_protocol,
         model or llm_cfg.model,
     )
 
@@ -169,7 +172,7 @@ async def _llm_complete_single_attempt(
         model=model or llm_cfg.model,
         max_tokens=max_tokens if max_tokens is not None else llm_cfg.max_tokens,
         temperature=temperature if temperature is not None else llm_cfg.temperature,
-        timeout=llm_cfg.timeout,
+        timeout=timeout if timeout is not None else llm_cfg.timeout,
         proxy=cfg.get_proxy(),
         extra_headers=extra_headers,
     )

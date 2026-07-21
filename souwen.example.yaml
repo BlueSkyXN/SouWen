@@ -309,3 +309,13 @@ sources: {}
 #   rate_limit_fetch: 20        — POST /api/v1/fetch/summarize 限流（次/分钟）
 llm:
   enabled: false
+  # 部署方显式允许的 enriched synthesis profile；请求只能传 profile，不能传 model。
+  # synthesis_profiles:
+  #   safe_research:
+  #     protocol: openai_responses
+  #     model: configured-model-id
+  #     max_tokens: 800
+  #     max_input_chars: 12000
+  #     max_pages: 5
+  #     timeout: 45
+  #     temperature: 0.0

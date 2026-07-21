@@ -729,6 +729,7 @@ scheme 与 model，因此接口不接受 `model`、`model_id`、`scheme_id`、`a
 | `fetch.max_content_chars` | int (1-20000) | `4000` | 每条正文字符上限 |
 | `budget.max_total_seconds` | float (1-300) | `120` | 搜索与 fetch 的共享端点硬超时 |
 | `budget.max_source_attempts` | int (1-10) | `1` | 最多执行的 concrete source attempt 数 |
+| `synthesis.profile` | string (1-100) \| null | `null` | 可选、服务端 allowlisted synthesis profile；请求不能指定 model、protocol、budget 或凭据 |
 
 **响应语义：**
 
@@ -738,7 +739,14 @@ scheme 与 model，因此接口不接受 `model`、`model_id`、`scheme_id`、`a
   `failed`。至少一个 source 成功时返回 `200`，其余失败以 `meta.partial=true` 表示。
 - `meta.visible_search_calls` 只统计响应中可见的 search call；它不是费用推断。provider
   未明确给出 metered calls 或 cost 时，相应字段为 `null`，不会伪造 `0`。
-- `usage` 为本阶段的保守 usage 视图；synthesis 尚未启用，token/cost 字段可为 `null`。
+- `synthesis.profile` 只会处理 `fetch_status="success"` 且有受限正文/摘录的结果。它将逐条生成
+  `results[].summary`（`type="generated"`）及可选 `answer`；`answer.citations` 只能是当前
+  `results[].result_id` 的子集，且包含实际 served model/protocol provenance。
+- `meta.synthesis_status` 是 `not_requested`、`success`、`skipped` 或 `failed`。profile 未配置时
+  是 `422`；模型、JSON 或 citation integrity 失败时是 `failed`，但已经完成的资料 `results[]`
+  仍返回 `200`。`skipped` 表示没有成功抓取的可用材料或共享 deadline 已在模型调用前耗尽。
+- `usage.summary_input_tokens` 和 `usage.summary_output_tokens` 仅在 provider 明确返回 usage 时出现；
+  未知仍为 `null`，不会伪造 cost 或 usage。
 
 **错误状态码：** `422 unprocessable_entity`（未知 source、非 concrete source、非法
 identity override 或请求字段不合规）、`403 forbidden`（当前 edition 不允许）、`409 conflict`

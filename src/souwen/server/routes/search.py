@@ -437,6 +437,7 @@ async def api_search_web(
 )
 async def api_search_web_enriched(body: EnrichedWebSearchRequest):
     """Search explicit model-bound sources, then optionally enrich with safe fetches."""
+    from souwen.llm.enriched_synthesis import EnrichedSynthesisProfileError
     from souwen.web.enriched_search import (
         EnrichedSearchDeadlineExceeded,
         EnrichedSearchSourceDisabledError,
@@ -464,6 +465,7 @@ async def api_search_web_enriched(body: EnrichedWebSearchRequest):
                 include_content=body.fetch.include_content,
                 max_content_chars=body.fetch.max_content_chars,
                 excerpt_chars=body.fetch.max_excerpt_chars,
+                synthesis_profile=body.synthesis.profile if body.synthesis is not None else None,
             ),
             timeout=body.budget.max_total_seconds,
         )
@@ -473,6 +475,8 @@ async def api_search_web_enriched(body: EnrichedWebSearchRequest):
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     except EnrichedSearchSourceDisabledError as exc:
         raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except EnrichedSynthesisProfileError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
     except EditionError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except (EnrichedSearchDeadlineExceeded, asyncio.TimeoutError) as exc:
@@ -487,7 +491,9 @@ async def api_search_web_enriched(body: EnrichedWebSearchRequest):
     return {
         "query": execution.query,
         "results": [result.model_dump(mode="json") for result in execution.results],
-        "answer": None,
+        "answer": execution.answer.model_dump(mode="json")
+        if execution.answer is not None
+        else None,
         "meta": {
             "requested_sources": body.sources,
             "source_strategy": body.source_strategy,
@@ -507,13 +513,24 @@ async def api_search_web_enriched(body: EnrichedWebSearchRequest):
             "visible_search_calls": execution.visible_search_calls,
             "provider_metered_search_calls": execution.provider_metered_search_calls,
             "fetched_pages": execution.fetched_pages,
-            "summarized_pages": 0,
+            "synthesis_status": execution.synthesis_status,
+            "summarized_pages": sum(
+                1 for result in execution.results if result.summary is not None
+            ),
         },
         "usage": {
             "search_input_tokens": None,
             "search_output_tokens": None,
-            "summary_input_tokens": None,
-            "summary_output_tokens": None,
+            "summary_input_tokens": (
+                execution.summary_usage.prompt_tokens
+                if execution.summary_usage is not None
+                else None
+            ),
+            "summary_output_tokens": (
+                execution.summary_usage.completion_tokens
+                if execution.summary_usage is not None
+                else None
+            ),
             "search_tool_cost": None,
             "currency": None,
         },
