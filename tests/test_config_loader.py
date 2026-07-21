@@ -76,6 +76,14 @@ class TestYamlLoading:
         assert cfg.timeout == 42
         assert cfg.edition == "full"
 
+    def test_loads_local_catalog_path_from_general_yaml(self, tmp_path):
+        configured = tmp_path / "catalog" / "books.sqlite3"
+        (tmp_path / "souwen.yaml").write_text(
+            f"general:\n  local_catalog_path: {configured}\n", encoding="utf-8"
+        )
+        cfg = reload_config()
+        assert cfg.local_catalog_db_path == configured
+
     def test_missing_file_uses_defaults(self):
         """无任何 YAML 时，配置应回落到 SouWenConfig 默认值。"""
         cfg = reload_config()

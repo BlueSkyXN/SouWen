@@ -277,6 +277,7 @@ class SouWenConfig(BaseModel):
     timeout: int = 30
     max_retries: int = 3
     data_dir: str = "~/.local/share/souwen"
+    local_catalog_path: str | None = None
     respect_robots_txt: bool = False  # 是否遵守目标站点 robots.txt（builtin fetcher 使用）
 
     # ===== HTTP 后端 =====
@@ -382,6 +383,13 @@ class SouWenConfig(BaseModel):
     def data_path(self) -> Path:
         """返回展开后的数据目录路径"""
         return Path(self.data_dir).expanduser()
+
+    @property
+    def local_catalog_db_path(self) -> Path:
+        """Return the dedicated local-catalog database path, never the OAuth cache."""
+        if self.local_catalog_path:
+            return Path(self.local_catalog_path).expanduser()
+        return self.data_path / "local_catalog.sqlite3"
 
     def get_proxy(self) -> str | None:
         """返回代理地址:优先从 proxy_pool 随机选取,否则回退到 proxy

@@ -122,6 +122,8 @@ general:
   timeout: 30
   max_retries: 3
   data_dir: ~/.local/share/souwen
+  # Null selects <data_dir>/local_catalog.sqlite3. Keep it separate from session_cache.db.
+  local_catalog_path: ~
   default_http_backend: auto
   http_backend: {}
 
@@ -251,9 +253,34 @@ llm_search_gateways: {}
 | `timeout` | `SOUWEN_TIMEOUT` | `30` | 请求超时秒数 |
 | `max_retries` | `SOUWEN_MAX_RETRIES` | `3` | 最大重试次数 |
 | `data_dir` | `SOUWEN_DATA_DIR` | `~/.local/share/souwen` | 数据存储目录 |
+| `local_catalog_path` | `SOUWEN_LOCAL_CATALOG_PATH` | `null`（即 `<data_dir>/local_catalog.sqlite3`） | 本地元数据 catalog SQLite 文件；必须与 OAuth/session cache 的 `<data_dir>/session_cache.db` 分离 |
 | `default_http_backend` | `SOUWEN_DEFAULT_HTTP_BACKEND` | `"auto"` | 全局 HTTP 后端：auto &#124; curl_cffi &#124; httpx |
 | `http_backend` | `SOUWEN_HTTP_BACKEND` | `{}` | 按源覆盖 HTTP 后端（JSON 对象） |
 | — | `SOUWEN_MAX_CONCURRENCY` | `10` | 聚合搜索并发上限（仅环境变量） |
+
+### 本地 catalog 存储
+
+`local_catalog_path` 是**本地导入元数据**的 SQLite 路径，不是下载目录，也不是 OAuth
+token/session cache。省略时，SouWen 使用
+`<data_dir>/local_catalog.sqlite3`；默认 `data_dir` 因此对应
+`~/.local/share/souwen/local_catalog.sqlite3`。OAuth/session cache 继续使用独立的
+`<data_dir>/session_cache.db`，不要把两个字段配置成同一个文件。
+
+可以通过 YAML 或环境变量覆盖数据库位置：
+
+```yaml
+general:
+  data_dir: ~/.local/share/souwen
+  local_catalog_path: ~/catalogs/souwen-books.sqlite3
+```
+
+```bash
+export SOUWEN_LOCAL_CATALOG_PATH="$HOME/catalogs/souwen-books.sqlite3"
+```
+
+该路径保存的是规范化书目、导入运行记录和 FTS 索引；它不随包安装分发，也不会由
+Hugging Face Space 或普通在线服务预置。尚未完成导入、SQLite FTS5 不可用、schema 不兼容
+或完整性检查失败时，依赖它的数据源会明确报告 unavailable，而不是回退为在线抓取。
 
 ### 服务端
 

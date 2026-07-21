@@ -82,6 +82,15 @@ class TestDataPath:
         cfg = SouWenConfig()
         assert cfg.data_dir == "~/.local/share/souwen"
 
+    def test_local_catalog_path_defaults_below_data_dir_and_not_session_cache(self, tmp_path):
+        cfg = SouWenConfig(data_dir=str(tmp_path / "data"))
+        assert cfg.local_catalog_db_path == tmp_path / "data" / "local_catalog.sqlite3"
+        assert cfg.local_catalog_db_path != cfg.data_path / "session_cache.db"
+
+    def test_local_catalog_path_explicit_override(self, tmp_path):
+        configured = tmp_path / "catalogs" / "books.sqlite3"
+        assert SouWenConfig(local_catalog_path=str(configured)).local_catalog_db_path == configured
+
 
 class TestDefaults:
     """默认值测试"""
@@ -166,6 +175,15 @@ class TestEnvOverride:
         cfg = reload_config()
         try:
             assert cfg.timeout == 60
+        finally:
+            get_config.cache_clear()
+
+    def test_env_sets_local_catalog_path(self, monkeypatch, tmp_path):
+        configured = tmp_path / "catalog.sqlite3"
+        monkeypatch.setenv("SOUWEN_LOCAL_CATALOG_PATH", str(configured))
+        cfg = reload_config()
+        try:
+            assert cfg.local_catalog_db_path == configured
         finally:
             get_config.cache_clear()
 

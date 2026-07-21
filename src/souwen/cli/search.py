@@ -65,6 +65,15 @@ def search_book(
             raise typer.Exit(124)
         except EditionError as exc:
             _exit_for_edition_error(exc)
+        except Exception as exc:
+            from souwen.core.exceptions import LocalCatalogUnavailableError
+
+            if isinstance(exc, LocalCatalogUnavailableError):
+                console.print(
+                    "[red]✗ local catalog unavailable; run `souwen catalog import gutenberg <rdf-input>`[/red]"
+                )
+                raise typer.Exit(1) from exc
+            raise
 
     if json_output:
         from rich import print_json

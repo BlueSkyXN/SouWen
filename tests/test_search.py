@@ -16,6 +16,7 @@ from contextlib import AsyncExitStack, asynccontextmanager
 import pytest
 
 from souwen.editions import EditionError
+from souwen.core.exceptions import LocalCatalogUnavailableError
 from souwen.models import SearchResponse, WaybackCDXResponse
 from souwen.registry.adapter import MethodSpec, SourceAdapter
 
@@ -100,6 +101,75 @@ async def test_search_papers_skips_timed_out_source(monkeypatch):
 
     assert len(resp) == 1
     assert resp[0].source == "openalex"
+
+
+async def test_explicit_single_local_catalog_unavailable_is_not_reported_as_empty_result():
+    """Explicit local catalog requests must provide a recoverable failure, not a false empty hit."""
+    search_mod = importlib.import_module("souwen.search")
+
+    class UnavailableClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def search(self, **_kwargs):
+            raise LocalCatalogUnavailableError("local catalog is not initialized")
+
+    adapter = SourceAdapter(
+        name="local_catalog_unavailable_probe",
+        domain="book",
+        integration="official_api",
+        description="",
+        config_field=None,
+        client_loader=lambda: UnavailableClient,
+        methods={"search": MethodSpec("search")},
+    )
+    async with _temp_adapter(adapter):
+        with pytest.raises(LocalCatalogUnavailableError):
+            await search_mod.search_books("Alice", sources=[adapter.name])
+
+
+async def test_local_catalog_unavailable_does_not_block_other_explicit_sources():
+    search_mod = importlib.import_module("souwen.search")
+
+    class UnavailableClient:
+        async def __aenter__(self):
+            return self
+
+        async def __aexit__(self, *args):
+            return False
+
+        async def search(self, **_kwargs):
+            raise LocalCatalogUnavailableError("local catalog is not initialized")
+
+    available = SearchResponse(query="Alice", source="available_book_probe", results=[])
+    unavailable_adapter = SourceAdapter(
+        name="local_catalog_unavailable_mixed_probe",
+        domain="book",
+        integration="official_api",
+        description="",
+        config_field=None,
+        client_loader=lambda: UnavailableClient,
+        methods={"search": MethodSpec("search")},
+    )
+    available_adapter = SourceAdapter(
+        name="available_book_probe",
+        domain="book",
+        integration="official_api",
+        description="",
+        config_field=None,
+        client_loader=lambda: _make_fake_client(available),
+        methods={"search": MethodSpec("search")},
+    )
+    async with AsyncExitStack() as stack:
+        await stack.enter_async_context(_temp_adapter(unavailable_adapter))
+        await stack.enter_async_context(_temp_adapter(available_adapter))
+        results = await search_mod.search_books(
+            "Alice", sources=[unavailable_adapter.name, available_adapter.name]
+        )
+    assert [response.source for response in results] == [available_adapter.name]
 
 
 async def test_search_patents_skips_timed_out_source(monkeypatch):

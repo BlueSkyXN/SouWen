@@ -151,6 +151,8 @@ general:
   max_retries: 3
   # 数据存储目录
   data_dir: ~/.local/share/souwen
+  # 可选：local catalog SQLite 路径；默认 <data_dir>/local_catalog.sqlite3（与 OAuth cache 隔离）
+  local_catalog_path: null
   # 全局默认 HTTP 后端：auto（自动选择）| curl_cffi（TLS 指纹伪装）| httpx（标准 HTTP）
   # auto = 爬虫源优先 curl_cffi，API 源使用 httpx
   default_http_backend: auto

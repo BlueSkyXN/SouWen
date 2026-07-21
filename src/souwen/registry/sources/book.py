@@ -11,6 +11,13 @@ def _wikisource_detail_params(params: dict[str, object]) -> dict[str, object]:
     return params
 
 
+def _gutenberg_catalog_available() -> bool:
+    """Probe only local catalog readiness; registry import remains lazy."""
+    from souwen.local_catalog.gutenberg import gutenberg_catalog_ready
+
+    return gutenberg_catalog_ready()
+
+
 _reg(
     SourceAdapter(
         name="open_library",
@@ -30,6 +37,35 @@ _reg(
             "get_detail": MethodSpec("get_by_work_id", {"id": "work_id"}),
         },
         default_for=frozenset({"book:search"}),
+    )
+)
+
+
+_reg(
+    SourceAdapter(
+        name="gutenberg",
+        domain="book",
+        category="book",
+        integration="official_api",
+        description="Project Gutenberg 官方 RDF 导入后的本地书目与 format metadata",
+        config_field=None,
+        auth_requirement="none",
+        risk_level="low",
+        distribution="core",
+        stability="stable",
+        default_enabled=False,
+        usage_note=(
+            "本地 SQLite catalog；先运行 `souwen catalog import gutenberg <rdf-input>`。"
+            "搜索不访问 Gutenberg 网络端点，resource URL 只保留为 metadata。"
+        ),
+        client_loader=lazy("souwen.local_catalog.gutenberg:GutenbergLocalCatalogClient"),
+        methods={
+            "search": MethodSpec("search", _P_PER_PAGE),
+            "get_detail": MethodSpec("get_by_id", {"id": "gutenberg_id"}),
+        },
+        availability_check=_gutenberg_catalog_available,
+        unavailable_reason="local catalog unavailable; import Gutenberg RDF first",
+        default_for=frozenset(),
     )
 )
 

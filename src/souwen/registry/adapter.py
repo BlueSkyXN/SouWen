@@ -244,6 +244,8 @@ class SourceAdapter:
     category: str | None = None
     catalog_visibility: str = "public"
     runtime_default_enabled: bool = True
+    availability_check: Callable[[], bool] | None = None
+    unavailable_reason: str | None = None
     llm_search_identity: tuple[str, str] | None = None
 
     @property

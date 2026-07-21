@@ -79,6 +79,7 @@ general:
   timeout: 30
   max_retries: 3
   data_dir: ~/.local/share/souwen
+  local_catalog_path: ~  # default: <data_dir>/local_catalog.sqlite3
   default_http_backend: auto
   http_backend: {}
 

@@ -68,6 +68,57 @@ def test_help_lists_subcommands():
     assert "serve" in result.output
 
 
+def test_catalog_commands_are_registered_and_status_is_machine_readable(monkeypatch, tmp_path):
+    db_path = tmp_path / "catalog.sqlite3"
+    monkeypatch.setenv("SOUWEN_LOCAL_CATALOG_PATH", str(db_path))
+    from souwen.config import get_config
+
+    get_config.cache_clear()
+    result = runner.invoke(app, ["catalog", "status", "--json"])
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["initialized"] is False
+    assert payload["path"] == str(db_path)
+    assert payload["latest_imports"] == {}
+
+
+def test_catalog_import_accepts_local_rdf_and_rejects_invalid_source(monkeypatch, tmp_path):
+    db_path = tmp_path / "catalog.sqlite3"
+    rdf_path = tmp_path / "pg11.rdf"
+    rdf_path.write_text(
+        """<?xml version=\"1.0\"?>
+<rdf:RDF xmlns:rdf=\"http://www.w3.org/1999/02/22-rdf-syntax-ns#\" xmlns:dcterms=\"http://purl.org/dc/terms/\" xmlns:pgterms=\"http://www.gutenberg.org/2009/pgterms/\">
+  <pgterms:ebook rdf:about=\"ebooks/11\"><dcterms:title>Alice</dcterms:title></pgterms:ebook>
+</rdf:RDF>""",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("SOUWEN_LOCAL_CATALOG_PATH", str(db_path))
+    from souwen.config import get_config
+
+    get_config.cache_clear()
+    result = runner.invoke(app, ["catalog", "import", "gutenberg", str(rdf_path), "--json"])
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output)["inserted"] == 1
+    invalid = runner.invoke(app, ["catalog", "import", "unknown", str(rdf_path)])
+    assert invalid.exit_code != 0
+    assert "仅支持 gutenberg" in invalid.output
+
+
+def test_explicit_gutenberg_search_reports_recovery_without_path(monkeypatch, tmp_path):
+    import sys
+
+    from souwen.core.exceptions import LocalCatalogUnavailableError
+
+    async def unavailable(*_args, **_kwargs):
+        raise LocalCatalogUnavailableError(f"local catalog is not initialized: {tmp_path}")
+
+    monkeypatch.setattr(sys.modules["souwen.search"], "search_books", unavailable)
+    result = runner.invoke(app, ["search", "book", "Alice", "--sources", "gutenberg"])
+    assert result.exit_code == 1
+    assert "souwen catalog import gutenberg <rdf-input>" in result.output
+    assert str(tmp_path) not in result.output
+
+
 def test_fetch_help_lists_arxiv_fulltext_provider():
     """fetch --help 应暴露 arxiv_fulltext provider。"""
     result = runner.invoke(app, ["fetch", "--help"], env={"COLUMNS": "200"})
