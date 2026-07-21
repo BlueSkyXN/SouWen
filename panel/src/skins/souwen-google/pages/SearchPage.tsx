@@ -37,10 +37,11 @@ import styles from './SearchPage.module.scss'
 type LayoutMode = 'list' | 'card' | 'grid'
 
 const DISPLAY_DOMAINS: Domain[] = [
-  'paper', 'patent', 'web', 'cn_tech', 'social', 'developer', 'knowledge', 'video',
+  'book', 'paper', 'patent', 'web', 'cn_tech', 'social', 'developer', 'knowledge', 'video',
 ]
 
 const DOMAIN_ICONS: Record<Domain, React.ComponentType<{ size?: number }>> = {
+  book: BookOpen,
   paper: FileText,
   patent: Shield,
   web: Globe,
@@ -78,7 +79,7 @@ function getSourceIcon(name: string): React.ComponentType<{ size?: number }> {
 }
 
 function flattenItems(domain: Domain, responses: SearchPageResponse[]): unknown[] {
-  if (domain === 'paper' || domain === 'patent') {
+  if (domain === 'book' || domain === 'paper' || domain === 'patent') {
     return (responses as SearchResponse[]).flatMap((r) => r.results.flatMap((s) => s.results))
   }
   return responses.flatMap((r): unknown[] => r.results ?? [])
@@ -297,6 +298,10 @@ export function SearchPage() {
   }
 
   const renderItemCard = (item: unknown, i: number) => {
+    if (domain === 'book') {
+      const book = item as { source: string; source_record_id: string; title: string; source_url: string; authors?: Array<{ name: string }>; first_publish_year?: number | null; subjects?: string[] }
+      return <m.article key={book.source_record_id || `book-${i}`} className={styles.resultCard} variants={staggerItem}><div className={styles.cardHeader}><h3 className={styles.resultTitle}><a href={book.source_url} target="_blank" rel="noopener noreferrer">{book.title}<ExternalLink size={12} className={styles.externalIcon} /></a></h3><span className={styles.sourceBadge}>{book.source}</span></div><div className={styles.resultMeta}>{book.authors?.length ? <span>{book.authors.map((author) => author.name).join(', ')}</span> : null}{book.first_publish_year ? <span>{book.first_publish_year}</span> : null}</div>{book.subjects?.length ? <p className={styles.resultAbstract}>{book.subjects.slice(0, 3).join(' · ')}</p> : null}</m.article>
+    }
     if (domain === 'paper') return renderPaperCard(item as PaperResult, i)
     if (domain === 'patent') return renderPatentCard(item as PatentResult, i)
     const mediaCard = renderMediaCard(item, i)
