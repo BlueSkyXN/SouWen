@@ -98,6 +98,11 @@ RDF/XML sample（`pg11.rdf`），写入临时数据库后验证重复导入、FT
 canonical archive 的完整导入仍由维护者在明确批准的环境中执行；普通 pytest、PR build 与
 HF Space smoke 不携带个人 local catalog 数据库。
 
+台湾新书资讯的 bounded evidence 使用
+`scripts/taiwan_new_books_functional_check.py --mode live --execute --required`：它只下载 data.gov.tw
+当前声明的一份 NCL UTF-8 CSV 到临时目录，验证重复导入、SQLite integrity 与 FTS5；不访问书目之外的
+图书、预览或全文 URL，也不把新书 metadata 解释为访问或再分发授权。
+
 ## Outcome 语义
 
 所有专项脚本使用统一 Outcome。
@@ -235,6 +240,7 @@ required `FAIL` 视为发布阻断。
 | DataCite anonymous research-output search/detail | Manual | DataCite JSON:API pagination、dataset/software/text/event fixture normalizer、resource type、rights、related identifiers、funding 与 content URL metadata | `scripts/datacite_functional_check.py --mode live --execute --required` 只发送一次匿名 DOI metadata search，随后对同一 DOI 请求一次 detail；保留 resource type、rights 和声明 links，不跟随 landing URL、不下载内容，也不把 metadata 解释为下载或再分发授权 | Maintainer manual evidence |
 | Figshare anonymous article search/detail | Manual | Figshare public API v2 POST search 的 `page` / `page_size` 请求体、dataset/software/figure fixture normalizer、license、multiple files、`is_link_only` 和 declared download URL metadata | `scripts/figshare_functional_check.py --mode live --execute --required` 只发送一次公开 article search，随后对同一 article 请求一次 detail；保留 article type、license、files 与 declared URLs，不跟随或下载文件，也不把 source metadata 解释为访问或再分发授权 | Maintainer manual evidence |
 | Project Gutenberg local RDF catalog | Manual | SQLite schema/FTS、官方 RDF/XML parser、metadata/resource-link mapping、idempotent import、显式 unavailable 与 CLI/REST error mapping | `scripts/local_catalog_functional_check.py --mode live --execute --required` 只获取官方 `pg11.rdf`，导入临时 SQLite 后验证 repeat import、FTS、detail 和 integrity；不下载 RDF archive 或 ebook，也不跟随 declared format URL；报告 source、sample ID、observed SHA/size、rights 和 resource count | Maintainer manual evidence |
+| Taiwan new-books local CSV catalog | Manual | data.gov.tw dataset 6730 / NCL UTF-8 CSV parser、ISBN identity、metadata-only mapping、idempotent import 与 explicit unavailable | `scripts/taiwan_new_books_functional_check.py --mode live --execute --required` 只下载一份 data.gov 声明的 NCL CSV，导入临时 SQLite 后验证 repeat import、integrity 和 FTS5；不下载图书内容或跟随非 catalog URL | Maintainer manual evidence |
 | Open Library anonymous work search/detail | Manual | Open Library search 参数、work/edition normalizer 与 registry metadata | `scripts/open_library_functional_check.py --mode live --execute --required` 只发送一次匿名 work search，随后对同一 work 请求一次有界 edition detail；只验证公开书目/资源元数据，不推断借阅、阅读或下载权利；写入 JSON/Markdown evidence，不进入普通 pytest 或自动 PR gate | Maintainer manual evidence |
 | Internet Archive anonymous catalog search/detail | Manual | Internet Archive Advanced Search/Metadata API 参数、texts 馆藏 normalizer、resource access 与 registry metadata | `scripts/internet_archive_functional_check.py --mode live --execute --required` 只发送一次匿名 catalog metadata search，随后对同一 identifier 请求一次有界 metadata detail；只验证馆藏和 resource metadata，绝不借阅、阅读或下载文件；license/access 按单条上游记录保守报告；写入 JSON/Markdown evidence，不进入普通 pytest 或自动 PR gate | Maintainer manual evidence |
 | Library of Congress anonymous catalog search/detail | Manual | LOC `fo=json` pagination、item envelope、resource/access normalizer 与 registry metadata | `scripts/library_of_congress_functional_check.py --mode live --execute --required` 只发送一次官方 catalog search 和同一 record 的一次 item detail；只验证 record/resources metadata，不下载数字资源；rights/access 按单条记录保守报告 | Maintainer manual evidence |

@@ -104,6 +104,24 @@ def test_catalog_import_accepts_local_rdf_and_rejects_invalid_source(monkeypatch
     assert "仅支持 gutenberg" in invalid.output
 
 
+def test_catalog_import_accepts_taiwan_new_books_csv(monkeypatch, tmp_path):
+    db_path = tmp_path / "catalog.sqlite3"
+    csv_path = tmp_path / "new-books.csv"
+    csv_path.write_text(
+        "申請書名,作者,出版機構,ISBN\n測試新書,王小明,測試出版社,978-986-12345-6-7\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("SOUWEN_LOCAL_CATALOG_PATH", str(db_path))
+    from souwen.config import get_config
+
+    get_config.cache_clear()
+    result = runner.invoke(app, ["catalog", "import", "taiwan_new_books", str(csv_path), "--json"])
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    assert payload["source"] == "taiwan_new_books"
+    assert payload["inserted"] == 1
+
+
 def test_explicit_gutenberg_search_reports_recovery_without_path(monkeypatch, tmp_path):
     import sys
 

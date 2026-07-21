@@ -776,6 +776,7 @@ def test_zero_key_search_sources_are_covered_or_explicitly_excluded():
     )
     assert required_search <= required_key
     assert self_hosted_search == self_hosted
+    assert {"gutenberg", "taiwan_new_books"} <= no_public_endpoint
 
 
 def test_zero_key_fetch_providers_are_covered_or_explicitly_excluded():

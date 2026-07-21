@@ -18,6 +18,13 @@ def _gutenberg_catalog_available() -> bool:
     return gutenberg_catalog_ready()
 
 
+def _taiwan_new_books_catalog_available() -> bool:
+    """Probe only local catalog readiness; registry import remains lazy."""
+    from souwen.local_catalog.taiwan_new_books import taiwan_new_books_catalog_ready
+
+    return taiwan_new_books_catalog_ready()
+
+
 _reg(
     SourceAdapter(
         name="open_library",
@@ -37,6 +44,37 @@ _reg(
             "get_detail": MethodSpec("get_by_work_id", {"id": "work_id"}),
         },
         default_for=frozenset({"book:search"}),
+    )
+)
+
+
+_reg(
+    SourceAdapter(
+        name="taiwan_new_books",
+        domain="book",
+        category="book",
+        integration="official_api",
+        description="台湾国家图书馆新书 ISBN 申请 metadata 导入后的本地书目",
+        config_field=None,
+        auth_requirement="none",
+        risk_level="low",
+        distribution="core",
+        stability="stable",
+        default_enabled=False,
+        usage_note=(
+            "本地 SQLite catalog；先运行 `souwen catalog import taiwan_new_books <csv-input>`。"
+            "搜索不访问 NCL 网络端点，CSV 仅导入 metadata，不表示全文访问或再分发权。"
+        ),
+        client_loader=lazy(
+            "souwen.local_catalog.taiwan_new_books:TaiwanNewBooksLocalCatalogClient"
+        ),
+        methods={
+            "search": MethodSpec("search", _P_PER_PAGE),
+            "get_detail": MethodSpec("get_by_id", {"id": "isbn"}),
+        },
+        availability_check=_taiwan_new_books_catalog_available,
+        unavailable_reason="local catalog unavailable; import Taiwan new-books CSV first",
+        default_for=frozenset(),
     )
 )
 

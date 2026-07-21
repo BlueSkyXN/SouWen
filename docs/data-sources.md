@@ -4,8 +4,8 @@
 
 | 指标 | 数量 | 定义 |
 |---|---:|---|
-| Registered | **110** | 当前生成进程注册的 `SourceAdapter`；默认只含内置源 |
-| Public | **109** | `catalog_visibility=public`，进入公开 Source Catalog |
+| Registered | **111** | 当前生成进程注册的 `SourceAdapter`；默认只含内置源 |
+| Public | **110** | `catalog_visibility=public`，进入公开 Source Catalog |
 | Hidden / internal | **1** | 已注册但不进入公开 Source Catalog |
 | Fetch primary-domain | **17** | 主 `domain=fetch` 的公开源 |
 | Fetch cross-domain | **7** | 其他主 domain 通过 `extra_domains` 暴露 `fetch` |
@@ -200,7 +200,7 @@
 | `xcrawl` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch, search | `xcrawl_api_key` |
 | `zenrows` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch | `zenrows_api_key` |
 
-## book · `book`（8 源）
+## book · `book`（9 源）
 
 | Name | Integration | Auth | Risk | Distribution | Stability | Extra | Capabilities | Credentials |
 |---|---|---|---|---|---|---|---|---|
@@ -211,6 +211,7 @@
 | `librivox` | official_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | get_detail, search | — |
 | `oapen` | official_api | 免配置 | 低风险 | 核心内置 | 实验性 | — | get_detail, search | — |
 | `open_library` | official_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | get_detail, search | — |
+| `taiwan_new_books` | official_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | get_detail, search | — |
 | `wikisource` | official_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | get_detail, search | — |
 
 ## research_output · `research_output`（2 源）

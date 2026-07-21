@@ -46,34 +46,46 @@ def catalog_status(json_output: bool = typer.Option(False, "--json", help="输�
 
 @catalog_app.command("import")
 def catalog_import(
-    source: str = typer.Argument(..., help="当前仅支持 gutenberg"),
-    input_path: Path | None = typer.Argument(None, help="本地官方 RDF/XML 或 rdf-files.tar.bz2"),
-    url: str | None = typer.Option(None, "--url", help="显式下载官方 Gutenberg catalog URL"),
+    source: str = typer.Argument(..., help="gutenberg 或 taiwan_new_books"),
+    input_path: Path | None = typer.Argument(None, help="本地官方 catalog input"),
+    url: str | None = typer.Option(None, "--url", help="显式下载官方 catalog URL"),
     resume: bool = typer.Option(False, "--resume", help="从同一失败 import run checkpoint 恢复"),
     replace_source: bool = typer.Option(
         False, "--replace-source", help="确认输入为完整 snapshot 后删除已不存在的记录"
     ),
     json_output: bool = typer.Option(False, "--json", help="输出 JSON"),
 ) -> None:
-    """导入 Project Gutenberg 官方 RDF metadata；绝不下载 ebook 正文。"""
-    if source != "gutenberg":
-        raise typer.BadParameter("当前仅支持 gutenberg", param_hint="source")
+    """导入官方 local-catalog metadata；绝不下载图书正文。"""
+    if source not in {"gutenberg", "taiwan_new_books"}:
+        raise typer.BadParameter("当前仅支持 gutenberg 或 taiwan_new_books", param_hint="source")
     if (input_path is None) == (url is None):
         raise typer.BadParameter("必须二选一提供本地 input_path 或 --url")
     from souwen.config import get_config
     from souwen.local_catalog import LocalCatalog
-    from souwen.local_catalog.gutenberg import (
-        download_official_gutenberg_catalog,
-        import_gutenberg_input,
-    )
+
+    if source == "gutenberg":
+        from souwen.local_catalog.gutenberg import (
+            download_official_gutenberg_catalog as download_official_catalog,
+        )
+        from souwen.local_catalog.gutenberg import import_gutenberg_input as import_catalog_input
+
+        suffix = ".rdf" if url and url.endswith(".rdf") else ".tar.bz2"
+    else:
+        from souwen.local_catalog.taiwan_new_books import (
+            download_official_taiwan_new_books_csv as download_official_catalog,
+        )
+        from souwen.local_catalog.taiwan_new_books import (
+            import_taiwan_new_books_input as import_catalog_input,
+        )
+
+        suffix = ".csv"
 
     cfg = get_config()
     catalog = LocalCatalog(cfg.local_catalog_db_path)
     try:
         if url is not None:
-            suffix = ".rdf" if url.endswith(".rdf") else ".tar.bz2"
-            input_path = cfg.data_path / "catalog-inputs" / f"gutenberg{suffix}"
-            receipt = download_official_gutenberg_catalog(url, input_path)
+            input_path = cfg.data_path / "catalog-inputs" / f"{source}{suffix}"
+            receipt = download_official_catalog(url, input_path)
             acquisition = {
                 "url": receipt.url,
                 "content_length": receipt.content_length,
@@ -88,7 +100,7 @@ def catalog_import(
                     f"input does not exist: {input_path}", param_hint="input_path"
                 )
             acquisition = {"url": None}
-        counters = import_gutenberg_input(
+        counters = import_catalog_input(
             catalog,
             input_path,
             resume=resume,
