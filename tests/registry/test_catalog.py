@@ -136,6 +136,7 @@ def test_adapter_registration_order_snapshot() -> None:
         "unpaywall",
         "open_library",
         "doab",
+        "oapen",
         "librivox",
         "internet_archive",
         "wikisource",
