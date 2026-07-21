@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import json
 import sqlite3
+from collections.abc import Iterable, Iterator, Mapping
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from collections.abc import Iterable, Mapping
 
 from souwen.core.exceptions import LocalCatalogUnavailableError, NotFoundError
 from souwen.models import BookResult
@@ -54,6 +55,19 @@ class LocalCatalog:
         conn.row_factory = sqlite3.Row
         return conn
 
+    @contextmanager
+    def _connection(self, *, create: bool) -> Iterator[sqlite3.Connection]:
+        """Commit or roll back a catalog operation and always release its SQLite handle."""
+        conn = self._connect(create=create)
+        try:
+            yield conn
+            conn.commit()
+        except BaseException:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
     @staticmethod
     def _fts5_available(conn: sqlite3.Connection) -> bool:
         try:
@@ -64,7 +78,7 @@ class LocalCatalog:
             return False
 
     def initialize(self) -> CatalogStatus:
-        with self._connect(create=True) as conn:
+        with self._connection(create=True) as conn:
             row = conn.execute(
                 "SELECT name FROM sqlite_master WHERE type='table' AND name='catalog_schema_version'"
             ).fetchone()
@@ -106,7 +120,7 @@ class LocalCatalog:
         if not self.path.is_file():
             return CatalogStatus(self.path, False, None, False, None, {}, {}, {})
         try:
-            with self._connect(create=False) as conn:
+            with self._connection(create=False) as conn:
                 row = conn.execute(
                     "SELECT MAX(version) AS version FROM catalog_schema_version"
                 ).fetchone()
@@ -185,7 +199,7 @@ class LocalCatalog:
         self.ensure_source_ready(source)
         if not 1 <= limit <= 100:
             raise ValueError("limit 必须在 1..100")
-        with self._connect(create=False) as conn:
+        with self._connection(create=False) as conn:
             rows = conn.execute(
                 "SELECT r.payload_json FROM catalog_book_fts f JOIN catalog_records r "
                 "ON f.record_key = r.source || ':' || r.source_record_id "
@@ -196,7 +210,7 @@ class LocalCatalog:
 
     def get_book(self, source: str, source_record_id: str) -> BookResult:
         self.ensure_source_ready(source)
-        with self._connect(create=False) as conn:
+        with self._connection(create=False) as conn:
             row = conn.execute(
                 "SELECT payload_json FROM catalog_records WHERE source=? AND source_record_id=?",
                 (source, source_record_id),
@@ -219,7 +233,7 @@ class LocalCatalog:
         """Upsert records and preserve a checkpoint after every committed record."""
         self.initialize()
         acquisition_json = json.dumps(dict(acquisition or {}), ensure_ascii=False, sort_keys=True)
-        with self._connect(create=False) as conn:
+        with self._connection(create=False) as conn:
             previous = conn.execute(
                 "SELECT * FROM catalog_import_runs WHERE source=? AND source_revision=?",
                 (source, source_revision),
