@@ -227,8 +227,9 @@ def test_hfs_reusable_promotion_is_candidate_pinned_and_live_verified() -> None:
         "HF_SPACE_READ_TOKEN",
         "SOUWEN_SMOKE_BEARER_TOKEN",
     ):
-        assert f"      {secret_name}:" in workflow_call
-    assert workflow_call.count("required: true") == 7
+        assert f"      {secret_name}:" not in workflow_call
+    assert "    secrets:" not in workflow_call
+    assert workflow_call.count("required: true") == 4
     assert text.count(candidate_expression) >= 10
     assert "${{ inputs.candidate_sha || github.sha }}" not in text
     assert 'expected_pin = f"ARG SOUWEN_REF={candidate_sha}"' in text

@@ -19,16 +19,6 @@ on:
         description: "显式执行 HFS promotion 与验收"
         required: true
         type: boolean
-    secrets:
-      HF_TOKEN:
-        description: "具有目标 Space 管理权限的 Hugging Face token"
-        required: true
-      HF_SPACE_READ_TOKEN:
-        description: "用于访问 private Space edge 的 Hugging Face token"
-        required: true
-      SOUWEN_SMOKE_BEARER_TOKEN:
-        description: "用于 SouWen admin smoke 的应用密码"
-        required: true
     outputs:
       space_commit_sha:
         description: "Space repository commit verified by runtime.raw.sha"

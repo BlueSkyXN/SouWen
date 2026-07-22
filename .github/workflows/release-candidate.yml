@@ -491,6 +491,8 @@ jobs:
       deploy_hfs: true
     # Same-repository reusable workflows currently require explicit inheritance for
     # environment-scoped secrets to resolve in the called workflow (actions/runner#4453).
+    # Do not declare these environment secrets as required workflow_call secrets: GitHub
+    # validates that contract before the called jobs bind the hf environment.
     secrets: inherit
 
   assemble:
