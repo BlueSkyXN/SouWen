@@ -13,8 +13,11 @@
 - Space 仓库：<https://huggingface.co/spaces/BlueSkyXN/SouWen>
 
 目标 Space 必须在 promotion 前已是 `private=true`。仓库可见性与应用鉴权是两个独立结论：
-private Space 的 edge 访问仍需 Hugging Face READ token；进入应用后，SouWen admin API 还必须
-由独立的 admin password 保护。不能用“Space 是 private”推导“匿名请求不可能获得 admin”。
+private Space 的 edge 访问仍需 Hugging Face token；进入应用后，SouWen admin API 还必须由
+独立的 admin password 保护。最小 bootstrap 可以暂时把已确认的目标 Space write token 同时写入
+`HF_TOKEN` 与 `HF_SPACE_READ_TOKEN` 两个 GitHub secret 名称来打通链路；这只是过渡配置，不改变
+两个通道的职责，后续可无代码改动替换为独立 READ token。不能用“Space 是 private”推导“匿名
+请求不可能获得 admin”。
 
 `/panel#/` 中的 `#` 是前端 hash router 片段，不会发送到服务端；服务端实际校验 `/panel`。
 这些固定 URL 在 private Space 下不代表匿名公开可访问，调用方必须遵守 Hugging Face 的访问策略。
@@ -32,8 +35,11 @@ private Space 的 edge 访问仍需 Hugging Face READ token；进入应用后，
 Central workflow 的默认输入是 `publish=false`、`deploy_hfs=false`。默认运行只生成 RC-ready
 证据和 release bundle，不创建 tag/Release，也不写 HFS。`deploy_hfs=true` 时，candidate 必须
 等于当前 `origin/main`；不能从未合入分支向持有 secrets 的部署 job 注入 verifier。Central
-caller 不使用 `secrets: inherit`；所有 HF 凭据只在 reusable workflow 内绑定 `hf` environment
-的 job 中解析。
+caller 只在 HFS reusable call 上使用一次 `secrets: inherit`。这是同仓 reusable workflow 读取
+environment-scoped secrets 的已知兼容处理（`actions/runner#4453`）；其他 reusable jobs 不得继承
+secrets。`deploy-hf-space.yml` 的 `workflow_call` 显式声明 `HF_TOKEN`、
+`HF_SPACE_READ_TOKEN` 与 `SOUWEN_SMOKE_BEARER_TOKEN`，并在 checkout 和任何 HF API 调用前按
+secret 名称 fail fast，不输出值、长度或前缀。
 
 ### Local preflight
 
@@ -56,7 +62,7 @@ Hugging Face 官方 private Space HTTP 入口占用标准 `Authorization: Bearer
 | Secret | 用途 | 请求通道 |
 |---|---|---|
 | `HF_TOKEN` | 写 Space repo、restart/pause runtime | 仅 HFS 管理 API；需要 write 权限 |
-| `HF_SPACE_READ_TOKEN` | 通过 private Space edge | `Authorization: Bearer ...`；只需 READ |
+| `HF_SPACE_READ_TOKEN` | 通过 private Space edge | `Authorization: Bearer ...`；目标权限只需 READ，最小 bootstrap 可暂时复用已确认 write token |
 | `SOUWEN_SMOKE_BEARER_TOKEN` | SouWen 应用 admin password | `X-SouWen-Token: ...` |
 
 SouWen 仍以标准 `Authorization: Bearer <password>` 作为普通部署的首选应用鉴权。只有上游
