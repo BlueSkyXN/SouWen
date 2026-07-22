@@ -85,7 +85,19 @@ def test_release_candidate_strictly_validates_promotion_inputs() -> None:
     assert "release-candidate must run from the current origin/main control plane" in text
     assert "candidate_sha to equal the current origin/main" in text
     assert "verifier_sha" in text
-    assert "secrets: inherit" not in text
+    assert text.count("secrets: inherit") == 1
+    hfs_call = text.split("  hfs:", maxsplit=1)[1].split("  assemble:", maxsplit=1)[0]
+    assert "uses: ./.github/workflows/deploy-hf-space.yml" in hfs_call
+    assert "secrets: inherit" in hfs_call
+
+
+def test_only_hfs_reusable_call_inherits_secrets() -> None:
+    inherited = {
+        path.name: path.read_text(encoding="utf-8").count("secrets: inherit")
+        for path in WORKFLOW_DIR.glob("*.yml")
+        if "secrets: inherit" in path.read_text(encoding="utf-8")
+    }
+    assert inherited == {"release-candidate.yml": 1}
 
 
 def test_release_candidate_aggregates_all_release_gates() -> None:
@@ -207,6 +219,16 @@ def test_hfs_reusable_promotion_is_candidate_pinned_and_live_verified() -> None:
     assert "workflow_call:" in text
     assert "candidate_sha:" in text
     assert "verifier_sha:" in text
+    workflow_call = text.split("  workflow_call:", maxsplit=1)[1].split(
+        "  pull_request:", maxsplit=1
+    )[0]
+    for secret_name in (
+        "HF_TOKEN",
+        "HF_SPACE_READ_TOKEN",
+        "SOUWEN_SMOKE_BEARER_TOKEN",
+    ):
+        assert f"      {secret_name}:" in workflow_call
+    assert workflow_call.count("required: true") == 7
     assert text.count(candidate_expression) >= 10
     assert "${{ inputs.candidate_sha || github.sha }}" not in text
     assert 'expected_pin = f"ARG SOUWEN_REF={candidate_sha}"' in text
@@ -239,6 +261,18 @@ def test_hfs_reusable_promotion_is_candidate_pinned_and_live_verified() -> None:
     assert "needs.rollback-space.result == 'cancelled'" in text
     assert "HF_SPACE_READ_TOKEN" in text
     assert '"X-SouWen-Token: $SOUWEN_SMOKE_BEARER_TOKEN"' in text
+
+    secret_gate = text.split("- name: Require HFS deployment secrets", maxsplit=1)[1].split(
+        "- uses: actions/checkout@v6", maxsplit=1
+    )[0]
+    for secret_name in (
+        "HF_TOKEN",
+        "HF_SPACE_READ_TOKEN",
+        "SOUWEN_SMOKE_BEARER_TOKEN",
+    ):
+        assert f"{secret_name}: ${{{{ secrets.{secret_name} }}}}" in secret_gate
+    assert "Required HFS environment secret is not configured: $name" in secret_gate
+    assert "${!name}" in secret_gate
 
     prior = text.split("- name: Capture immutable rollback point", maxsplit=1)[1].split(
         "- name: Sync changed HFS wrapper files", maxsplit=1

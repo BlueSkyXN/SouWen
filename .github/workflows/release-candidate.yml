@@ -489,6 +489,9 @@ jobs:
       version: ${{ needs.validate.outputs.version }}
       verifier_sha: ${{ needs.validate.outputs.verifier_sha }}
       deploy_hfs: true
+    # Same-repository reusable workflows currently require explicit inheritance for
+    # environment-scoped secrets to resolve in the called workflow (actions/runner#4453).
+    secrets: inherit
 
   assemble:
     name: Verify and attest release bundle
