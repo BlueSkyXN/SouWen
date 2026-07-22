@@ -270,7 +270,7 @@ jobs:
 
     steps:
       - name: Checkout PR head commit
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.resolve-pr.outputs.head_sha }}
           fetch-depth: 1
@@ -535,7 +535,7 @@ jobs:
 
     steps:
       - name: Checkout PR head commit
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.resolve-pr.outputs.head_sha }}
           fetch-depth: 1

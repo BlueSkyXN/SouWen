@@ -29,7 +29,7 @@ jobs:
       PYTHONPATH: src
       SOUWEN_PLUGIN_AUTOLOAD: "0"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.candidate_sha || github.sha }}
 
@@ -161,7 +161,7 @@ jobs:
           - { os: macos-latest, python: "3.11" }
           - { os: windows-latest, python: "3.11" }
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.candidate_sha || github.sha }}
 
@@ -201,7 +201,7 @@ jobs:
       PYTHONPATH: src
       SOUWEN_PLUGIN_AUTOLOAD: "0"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.candidate_sha || github.sha }}
 
@@ -242,7 +242,7 @@ jobs:
       PYTHONPATH: src
       SOUWEN_PLUGIN_AUTOLOAD: "0"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.candidate_sha || github.sha }}
 
@@ -282,7 +282,7 @@ jobs:
       PYTHONPATH: src
       SOUWEN_PLUGIN_AUTOLOAD: "0"
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.candidate_sha || github.sha }}
 
@@ -320,7 +320,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.candidate_sha || github.sha }}
 

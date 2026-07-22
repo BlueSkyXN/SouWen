@@ -89,7 +89,7 @@ jobs:
       deploy_changed: ${{ steps.deploy-paths.outputs.deploy_changed }}
       reason: ${{ steps.deploy-paths.outputs.reason }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
           fetch-depth: 0
@@ -165,7 +165,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
 
@@ -204,7 +204,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 40
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
 
@@ -286,7 +286,7 @@ jobs:
       DEFAULT_REPO: https://github.com/${{ github.repository }}.git
       DEFAULT_REF: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
 
@@ -421,7 +421,7 @@ jobs:
             exit 1
           fi
 
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
@@ -766,7 +766,7 @@ jobs:
             json: hf-space-cd-capability-report.json
             artifact: hf-space-cd-capability-report
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.verifier_sha }}
           persist-credentials: false

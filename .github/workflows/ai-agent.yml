@@ -415,7 +415,7 @@ jobs:
 
     steps:
       - name: Checkout target ref
-        uses: actions/checkout@v6
+        uses: actions/checkout@v7
         with:
           ref: ${{ needs.gate.outputs.head_sha }}
           fetch-depth: 1
