@@ -451,7 +451,9 @@ class BaseScraper:
         Untrusted direct URLs intentionally use HTTPX even when the configured scraper backend is
         curl_cffi. A shared curl session cannot safely install per-request DNS bindings without
         cross-request races. HTTPX receives an IP-literal URL, and clients are isolated by original
-        authority so different hostnames on one IP cannot share TLS connections or cookies.
+        authority so different hostnames on one IP cannot share TLS connections or cookies. Ambient
+        system proxies are disabled because they can re-route the validated IP literal; an explicit
+        SouWen/WARP proxy remains available through ``self._proxy``.
         """
         client_key = self._safe_client_key(target)
         safe_httpx_client = self._safe_httpx_clients.get(client_key)
@@ -459,6 +461,7 @@ class BaseScraper:
             safe_httpx_client = httpx.AsyncClient(
                 timeout=httpx.Timeout(self._request_timeout),
                 proxy=self._proxy,
+                trust_env=False,
                 follow_redirects=False,
             )
             self._safe_httpx_clients[client_key] = safe_httpx_client

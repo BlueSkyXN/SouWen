@@ -288,6 +288,7 @@ async def test_proxy_client_receives_only_ip_literal_connect_target(monkeypatch)
         await scraper.close()
 
     assert captured["init"]["proxy"] == "socks5://proxy.example:1080"
+    assert captured["init"]["trust_env"] is False
     _method, connect_url, request_kwargs = captured["request"]
     assert connect_url == "https://1.1.1.1/private-proxy-test"
     assert request_kwargs["headers"]["Host"] == "example.com"
