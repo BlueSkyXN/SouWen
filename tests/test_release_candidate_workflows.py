@@ -295,6 +295,17 @@ def test_hfs_reusable_promotion_is_candidate_pinned_and_live_verified() -> None:
     assert "ref: ${{ inputs.candidate_sha || github.sha }}" not in post_deploy
 
 
+def test_hfs_rebuild_job_avoids_checkout_and_dependency_cache() -> None:
+    text = _workflow("deploy-hf-space.yml")
+    rebuild = text.split("  rebuild-space:", maxsplit=1)[1].split(
+        "  post-deploy-smoke:", maxsplit=1
+    )[0]
+
+    assert "actions/setup-python@v6" in rebuild
+    assert "actions/checkout@" not in rebuild
+    assert "cache: pip" not in rebuild
+
+
 def test_external_release_gate_requires_superweb2pdf_runtime_fixture() -> None:
     text = _workflow("external-smoke-gate.yml")
     assert "Plugin and SuperWeb2PDF release/nightly gate" in text
