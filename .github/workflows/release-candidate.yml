@@ -1,6 +1,6 @@
 name: Release candidate
 
-run-name: Release candidate ${{ inputs.version }} @ ${{ inputs.candidate_sha }}
+run-name: Release candidate ${{ inputs.version }} [evidence_profile=${{ inputs.evidence_profile }}] @ ${{ inputs.candidate_sha }}
 
 on:
   workflow_dispatch:
@@ -13,6 +13,15 @@ on:
         description: 'PEP 440 project version, for example 2.0.0rc1'
         required: true
         type: string
+      evidence_profile:
+        description: 'Explicit evidence contract; select is a fail-closed placeholder'
+        required: true
+        default: select
+        type: choice
+        options:
+          - select
+          - deployment
+          - release
       publish:
         description: 'Create the v<version> tag and GitHub Release after every gate passes'
         required: true
@@ -41,6 +50,7 @@ jobs:
       version: ${{ steps.contract.outputs.version }}
       tag: ${{ steps.contract.outputs.tag }}
       verifier_sha: ${{ steps.contract.outputs.verifier_sha }}
+      evidence_profile: ${{ steps.contract.outputs.evidence_profile }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -53,6 +63,7 @@ jobs:
         env:
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
           VERSION: ${{ inputs.version }}
+          EVIDENCE_PROFILE: ${{ inputs.evidence_profile }}
           PUBLISH: ${{ inputs.publish }}
           DEPLOY_HFS: ${{ inputs.deploy_hfs }}
           WORKFLOW_REF: ${{ github.ref }}
@@ -67,6 +78,7 @@ jobs:
 
           candidate = os.environ['CANDIDATE_SHA']
           version = os.environ['VERSION']
+          evidence_profile = os.environ['EVIDENCE_PROFILE']
           publish = os.environ['PUBLISH']
           deploy_hfs = os.environ['DEPLOY_HFS']
           workflow_ref = os.environ['WORKFLOW_REF']
@@ -82,6 +94,16 @@ jobs:
               raise SystemExit(f'version is not an accepted prerelease candidate: {version!r}')
           if publish not in {'true', 'false'} or deploy_hfs not in {'true', 'false'}:
               raise SystemExit('publish and deploy_hfs must be typed booleans')
+          if evidence_profile not in {'deployment', 'release'}:
+              raise SystemExit(
+                  'evidence_profile must be explicitly selected as deployment or release'
+              )
+          if evidence_profile == 'deployment' and deploy_hfs != 'true':
+              raise SystemExit('deployment profile requires deploy_hfs=true')
+          if evidence_profile == 'deployment' and publish != 'false':
+              raise SystemExit('deployment profile requires publish=false')
+          if publish == 'true' and evidence_profile != 'release':
+              raise SystemExit('publish=true requires evidence_profile=release')
           if publish == 'true' and deploy_hfs != 'true':
               raise SystemExit('publish=true requires deploy_hfs=true and a successful live promotion')
 
@@ -154,10 +176,12 @@ jobs:
               output.write(f'version={version}\n')
               output.write(f'tag={tag}\n')
               output.write(f'verifier_sha={workflow_sha}\n')
+              output.write(f'evidence_profile={evidence_profile}\n')
           print(
               f'validated candidate={candidate}, version={version}, '
               f'origin_main={origin_main}, workflow_sha={workflow_sha}, '
-              f'publish={publish}, deploy_hfs={deploy_hfs}'
+              f'evidence_profile={evidence_profile}, publish={publish}, '
+              f'deploy_hfs={deploy_hfs}'
           )
           PY
 
@@ -219,6 +243,7 @@ jobs:
   pyinstaller:
     name: PyInstaller 12-binary matrix
     needs: validate
+    if: ${{ inputs.evidence_profile == 'release' }}
     uses: ./.github/workflows/build-pyinstaller.yml
     with:
       candidate_sha: ${{ needs.validate.outputs.candidate_sha }}
@@ -228,6 +253,7 @@ jobs:
   nuitka:
     name: Nuitka 12-binary matrix
     needs: validate
+    if: ${{ inputs.evidence_profile == 'release' }}
     uses: ./.github/workflows/build-nuitka.yml
     with:
       candidate_sha: ${{ needs.validate.outputs.candidate_sha }}
@@ -479,10 +505,55 @@ jobs:
           if-no-files-found: warn
           retention-days: 30
 
+  promotion-gate:
+    name: Validate profile-specific HFS prerequisites
+    needs: [validate, ci, source, external, pyinstaller, nuitka, package, clean-install, container]
+    if: ${{ always() && inputs.deploy_hfs }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require the selected evidence profile gates
+        env:
+          NEEDS_JSON: ${{ toJson(needs) }}
+          PROFILE: ${{ inputs.evidence_profile }}
+        run: |
+          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<<"$NEEDS_JSON" \
+            | tee "$GITHUB_STEP_SUMMARY"
+
+          jq -e '
+            . as $needs |
+            all(
+              ["validate", "ci", "source", "external", "package", "clean-install", "container"][];
+              $needs[.].result == "success"
+            )
+          ' <<<"$NEEDS_JSON" >/dev/null || {
+            echo "::error::common deployment and release gates must all succeed"
+            exit 1
+          }
+
+          if [ "$PROFILE" = deployment ]; then
+            jq -e '
+              .pyinstaller.result == "skipped" and .nuitka.result == "skipped"
+            ' <<<"$NEEDS_JSON" >/dev/null || {
+              echo "::error::deployment requires skipped binary release matrices"
+              exit 1
+            }
+          elif [ "$PROFILE" = release ]; then
+            jq -e '
+              .pyinstaller.result == "success" and .nuitka.result == "success"
+            ' <<<"$NEEDS_JSON" >/dev/null || {
+              echo "::error::release requires successful binary release matrices"
+              exit 1
+            }
+          else
+            echo "::error::promotion gate received an invalid evidence profile: $PROFILE"
+            exit 1
+          fi
+
   hfs:
     name: Candidate-only HF Space promotion
-    needs: [validate, ci, source, external, pyinstaller, nuitka, package, clean-install, container]
-    if: ${{ inputs.deploy_hfs }}
+    needs: [validate, promotion-gate]
+    if: ${{ inputs.deploy_hfs && needs.promotion-gate.result == 'success' }}
     uses: ./.github/workflows/deploy-hf-space.yml
     with:
       candidate_sha: ${{ needs.validate.outputs.candidate_sha }}
@@ -495,10 +566,383 @@ jobs:
     # validates that contract before the called jobs bind the hf environment.
     secrets: inherit
 
+  assemble-deployment:
+    name: Verify and attest deployment evidence
+    needs: [validate, ci, source, external, pyinstaller, nuitka, package, clean-install, container, hfs]
+    if: ${{ always() && inputs.evidence_profile == 'deployment' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+      attestations: write
+    steps:
+      - name: Require every deployment gate
+        env:
+          NEEDS_JSON: ${{ toJson(needs) }}
+        run: |
+          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<<"$NEEDS_JSON" \
+            | tee "$GITHUB_STEP_SUMMARY"
+          jq -e '
+            all(
+              to_entries[];
+              if .key == "pyinstaller" or .key == "nuitka"
+              then .value.result == "skipped"
+              else .value.result == "success"
+              end
+            )
+          ' <<<"$NEEDS_JSON" >/dev/null
+
+      - name: Download Python distributions
+        uses: actions/download-artifact@v8
+        with:
+          name: release-python-distributions
+          path: deployment-evidence/package
+
+      - name: Download SBOMs
+        uses: actions/download-artifact@v8
+        with:
+          name: release-sboms
+          path: deployment-evidence/sboms
+
+      - name: Download container smoke evidence
+        uses: actions/download-artifact@v8
+        with:
+          pattern: release-container-smoke-*
+          path: deployment-evidence/container
+          merge-multiple: true
+
+      - name: Download clean-install evidence
+        uses: actions/download-artifact@v8
+        with:
+          pattern: release-clean-install-*
+          path: deployment-evidence/clean-install
+          merge-multiple: true
+
+      - name: Download external smoke evidence
+        uses: actions/download-artifact@v8
+        with:
+          pattern: external-gate-*-report
+          path: deployment-evidence/external
+          merge-multiple: true
+
+      - name: Download V2 and CI evidence
+        uses: actions/download-artifact@v8
+        with:
+          pattern: v2-*-report
+          path: deployment-evidence/v2
+          merge-multiple: true
+
+      - name: Download CI machine-readable evidence
+        uses: actions/download-artifact@v8
+        with:
+          pattern: ci-*-report
+          path: deployment-evidence/ci
+          merge-multiple: true
+
+      - name: Download targeted coverage evidence
+        uses: actions/download-artifact@v8
+        with:
+          name: ci-targeted-coverage
+          path: deployment-evidence/coverage
+
+      - name: Download full runtime profile evidence
+        uses: actions/download-artifact@v8
+        with:
+          name: runtime-profile-full-report
+          path: deployment-evidence/runtime
+
+      - name: Download HFS local preflight evidence
+        uses: actions/download-artifact@v8
+        with:
+          pattern: hf-space-local-*-report
+          path: deployment-evidence/hfs-local
+          merge-multiple: true
+
+      - name: Download HFS API and CLI profile evidence
+        uses: actions/download-artifact@v8
+        with:
+          name: api-source-cli-profile-report
+          path: deployment-evidence/hfs-local
+
+      - name: Download HFS live evidence
+        uses: actions/download-artifact@v8
+        with:
+          pattern: hf-space-cd-*-report
+          path: deployment-evidence/hfs
+          merge-multiple: true
+
+      - name: Write deployment manifest and checksums
+        env:
+          CANDIDATE_SHA: ${{ needs.validate.outputs.candidate_sha }}
+          VERSION: ${{ needs.validate.outputs.version }}
+          EVIDENCE_PROFILE: ${{ needs.validate.outputs.evidence_profile }}
+          NEEDS_JSON: ${{ toJson(needs) }}
+          VERIFIER_SHA: ${{ needs.validate.outputs.verifier_sha }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+          HFS_SPACE_COMMIT_SHA: ${{ needs.hfs.outputs.space_commit_sha }}
+          HFS_PROMOTION_CHANGED: ${{ needs.hfs.outputs.promotion_changed }}
+          HFS_PRIOR_SPACE_COMMIT_SHA: ${{ needs.hfs.outputs.prior_space_commit_sha }}
+          HFS_PRIOR_RUNTIME_COMMIT_SHA: ${{ needs.hfs.outputs.prior_runtime_commit_sha }}
+          HFS_PRIOR_SOUWEN_REF: ${{ needs.hfs.outputs.prior_souwen_ref }}
+          HFS_PRIOR_RUNTIME_STAGE: ${{ needs.hfs.outputs.prior_runtime_stage }}
+        run: |
+          mkdir -p deployment-assets
+          tar -czf deployment-assets/deployment-evidence.tar.gz deployment-evidence
+          python3 - <<'PY'
+          from datetime import datetime, timezone
+          import hashlib
+          import json
+          import os
+          import re
+          from pathlib import Path
+
+          if os.environ['EVIDENCE_PROFILE'] != 'deployment':
+              raise SystemExit('deployment assembler requires evidence_profile=deployment')
+
+          root = Path('deployment-assets')
+          evidence_root = Path('deployment-evidence')
+          needs = json.loads(os.environ['NEEDS_JSON'])
+          required_jobs = (
+              'validate',
+              'ci',
+              'source',
+              'external',
+              'package',
+              'clean-install',
+              'container',
+              'hfs',
+          )
+          failed_jobs = {
+              job_id: needs[job_id]['result']
+              for job_id in required_jobs
+              if needs[job_id]['result'] != 'success'
+          }
+          if failed_jobs:
+              raise SystemExit(f'deployment evidence has failed gates: {failed_jobs}')
+          binary_jobs = ('pyinstaller', 'nuitka')
+          unexpected_binary_jobs = {
+              job_id: needs[job_id]['result']
+              for job_id in binary_jobs
+              if needs[job_id]['result'] != 'skipped'
+          }
+          if unexpected_binary_jobs:
+              raise SystemExit(
+                  'deployment evidence requires skipped release binary matrices: '
+                  f'{unexpected_binary_jobs}'
+              )
+
+          required_reports = {
+              evidence_root / 'hfs-local' / 'api-source-cli-profile.json',
+              evidence_root / 'hfs-local' / 'hf-space-local-pyinstaller.json',
+              evidence_root / 'hfs-local' / 'hf-space-local-surface-report.json',
+              evidence_root / 'hfs' / 'hf-space-cd-surface-report.json',
+              evidence_root / 'hfs' / 'hf-space-cd-capability-report.json',
+          }
+          missing_reports = sorted(
+              path.relative_to(evidence_root).as_posix()
+              for path in required_reports
+              if not path.is_file()
+          )
+          if missing_reports:
+              raise SystemExit(
+                  f'deployment evidence is missing required reports: {missing_reports}'
+              )
+
+          evidence_files = []
+          binary_prefixes = (
+              'souwen-linux-',
+              'souwen-macos-',
+              'souwen-windows-',
+              'souwen-nuitka-',
+          )
+          for path in sorted(item for item in evidence_root.rglob('*') if item.is_file()):
+              if path.name.startswith(binary_prefixes):
+                  raise SystemExit(f'deployment evidence contains a release binary: {path}')
+              evidence_files.append(
+                  {
+                      'path': path.relative_to(evidence_root).as_posix(),
+                      'size': path.stat().st_size,
+                      'sha256': hashlib.sha256(path.read_bytes()).hexdigest(),
+                  }
+              )
+          if not evidence_files:
+              raise SystemExit('deployment evidence archive would be empty')
+
+          containers = []
+          for path in sorted((evidence_root / 'container').glob('container-*.json')):
+              payload = json.loads(path.read_text(encoding='utf-8'))
+              if payload.get('candidate_sha') != os.environ['CANDIDATE_SHA']:
+                  raise SystemExit(f'container evidence SHA mismatch: {path}')
+              digest = payload.get('image_digest', '')
+              if not isinstance(digest, str) or not digest.startswith('sha256:'):
+                  raise SystemExit(f'container digest missing: {path}')
+              containers.append(
+                  {
+                      'surface': payload['kind'],
+                      'image_digest': digest,
+                      'source_sha': payload['candidate_sha'],
+                      'report': path.relative_to(evidence_root).as_posix(),
+                  }
+              )
+          if {item['surface'] for item in containers} != {'root', 'hfs', 'modelscope'}:
+              raise SystemExit(f'container inventory incomplete: {containers}')
+
+          hfs_space_sha = os.environ.get('HFS_SPACE_COMMIT_SHA') or None
+          hfs_prior_space_sha = os.environ.get('HFS_PRIOR_SPACE_COMMIT_SHA') or None
+          hfs_prior_runtime_sha = os.environ.get('HFS_PRIOR_RUNTIME_COMMIT_SHA') or None
+          hfs_prior_source_sha = os.environ.get('HFS_PRIOR_SOUWEN_REF') or None
+          hfs_prior_runtime_stage = os.environ.get('HFS_PRIOR_RUNTIME_STAGE') or None
+          hfs_promotion_changed = os.environ.get('HFS_PROMOTION_CHANGED') or None
+          immutable_hfs_shas = {
+              'repo_sha': hfs_space_sha,
+              'prior_repo_sha': hfs_prior_space_sha,
+              'prior_runtime_sha': hfs_prior_runtime_sha,
+              'prior_source_sha': hfs_prior_source_sha,
+          }
+          invalid_hfs_shas = {
+              name: value
+              for name, value in immutable_hfs_shas.items()
+              if not isinstance(value, str) or re.fullmatch(r'[0-9a-f]{40}', value) is None
+          }
+          if invalid_hfs_shas:
+              raise SystemExit(f'deployment evidence has invalid HFS SHA fields: {invalid_hfs_shas}')
+          if hfs_prior_space_sha != hfs_prior_runtime_sha:
+              raise SystemExit('HFS rollback evidence mismatch: prior repo and runtime SHA differ')
+          if not hfs_prior_runtime_stage or not hfs_prior_runtime_stage.upper().endswith(
+              ('RUNNING', 'SLEEPING')
+          ):
+              raise SystemExit(
+                  'HFS rollback evidence has an unstable prior runtime stage: '
+                  f'{hfs_prior_runtime_stage}'
+              )
+          if hfs_promotion_changed not in {'true', 'false'}:
+              raise SystemExit('deployment evidence is missing promotion_changed')
+
+          run_url = os.environ['RUN_URL']
+          remote_workflows = {
+              'ci': 'CI',
+              'source': 'V2 CI',
+              'external': 'External Smoke Gate',
+              'hfs': 'HF Space CD',
+          }
+          archive = root / 'deployment-evidence.tar.gz'
+          manifest = {
+              'schema_version': 1,
+              'evidence_profile': 'deployment',
+              'publishable': False,
+              'version': os.environ['VERSION'],
+              'candidate_sha': os.environ['CANDIDATE_SHA'],
+              'candidate_ref': f"sha:{os.environ['CANDIDATE_SHA']}",
+              'verifier_sha': os.environ['VERIFIER_SHA'],
+              'created_at': datetime.now(timezone.utc).isoformat().replace('+00:00', 'Z'),
+              'run_url': run_url,
+              'binary_count': 0,
+              'gates': [
+                  {
+                      'id': job_id.replace('-', '_'),
+                      'status': 'PASS',
+                      'required': True,
+                      'run_urls': [run_url],
+                  }
+                  for job_id in required_jobs
+              ]
+              + [
+                  {
+                      'id': job_id,
+                      'status': 'NOT_RUN',
+                      'required': False,
+                      'run_urls': [run_url],
+                      'notes': ['evidence_profile=deployment; release binary matrix skipped'],
+                  }
+                  for job_id in binary_jobs
+              ],
+              'remote_runs': [
+                  {
+                      'workflow': workflow,
+                      'run_url': run_url,
+                      'head_sha': os.environ['VERIFIER_SHA'],
+                      'candidate_sha': os.environ['CANDIDATE_SHA'],
+                      'conclusion': needs[job_id]['result'],
+                  }
+                  for job_id, workflow in remote_workflows.items()
+              ],
+              'artifacts': [
+                  {
+                      'name': archive.name,
+                      'kind': 'deployment_evidence',
+                      'size': archive.stat().st_size,
+                      'sha256': hashlib.sha256(archive.read_bytes()).hexdigest(),
+                      'producer_run_url': run_url,
+                      'source_sha': os.environ['CANDIDATE_SHA'],
+                  }
+              ],
+              'evidence_files': evidence_files,
+              'containers': containers,
+              'hfs': {
+                  'promoted': True,
+                  'approval_reference': None,
+                  'environment': 'hf',
+                  'environment_run_url': run_url,
+                  'repo_sha': hfs_space_sha,
+                  'runtime_sha': hfs_space_sha,
+                  'source_sha': os.environ['CANDIDATE_SHA'],
+                  'promotion_changed': hfs_promotion_changed == 'true',
+                  'prior_repo_sha': hfs_prior_space_sha,
+                  'prior_runtime_sha': hfs_prior_runtime_sha,
+                  'prior_source_sha': hfs_prior_source_sha,
+                  'prior_runtime_stage': hfs_prior_runtime_stage,
+                  'surface_report': 'hf-space-cd-surface-report.json',
+                  'capability_report': 'hf-space-cd-capability-report.json',
+              },
+              'exceptions': [],
+          }
+          (root / 'deployment-manifest.json').write_text(
+              json.dumps(manifest, indent=2, sort_keys=True) + '\n', encoding='utf-8'
+          )
+          PY
+          python3 - <<'PY'
+          import hashlib
+          from pathlib import Path
+
+          root = Path('deployment-assets')
+          expected = {'deployment-manifest.json', 'deployment-evidence.tar.gz'}
+          actual = {path.name for path in root.iterdir() if path.is_file()}
+          if actual != expected:
+              raise SystemExit(
+                  f'deployment asset inventory mismatch: expected={sorted(expected)}, '
+                  f'actual={sorted(actual)}'
+              )
+          checksum_lines = [
+              f'{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}'
+              for path in sorted(root.iterdir())
+              if path.is_file()
+          ]
+          (root / 'SHA256SUMS').write_text(
+              '\n'.join(checksum_lines) + '\n', encoding='utf-8'
+          )
+          if {path.name for path in root.iterdir() if path.is_file()} != expected | {'SHA256SUMS'}:
+              raise SystemExit('final deployment asset inventory mismatch')
+          PY
+          ( cd deployment-assets && sha256sum -c SHA256SUMS )
+
+      - name: Attest deployment evidence
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: deployment-assets/*
+
+      - name: Upload immutable deployment evidence
+        uses: actions/upload-artifact@v7
+        with:
+          name: deployment-evidence-${{ needs.validate.outputs.version }}-${{ needs.validate.outputs.candidate_sha }}
+          path: deployment-assets/
+          if-no-files-found: error
+          retention-days: 90
+
   assemble:
     name: Verify and attest release bundle
     needs: [validate, ci, source, external, pyinstaller, nuitka, package, clean-install, container, hfs]
-    if: always()
+    if: ${{ always() && inputs.evidence_profile == 'release' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:

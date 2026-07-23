@@ -20,9 +20,10 @@
   gate 必须绑定同一个 candidate SHA；run URL、checksum、SBOM/provenance 与结论由
   `release-manifest.json` artifact 承载，不把一次性运行结果提交到仓库。
 - PyPI 发布仍不在本候选范围。HFS promotion 是需明确批准的远端写操作。
-- 新增唯一 central `.github/workflows/release-candidate.yml`：默认
-  `publish=false, deploy_hfs=false` 只生成 RC-ready evidence bundle；tag、prerelease 与 HFS
-  promotion 只在受保护 environment 明确批准后执行。
+- 唯一 central `.github/workflows/release-candidate.yml` 要求显式选择 `evidence_profile`：
+  `deployment` 跳过外层 24-binary release matrix，只生成不可发布的 HFS deployment evidence；
+  `release` 保持完整 binary、RC bundle、attestation 和 prerelease 契约。Tag、prerelease 与 HFS
+  promotion 仍只在受保护 environment 明确批准后执行。
 
 ### Breaking changes
 
