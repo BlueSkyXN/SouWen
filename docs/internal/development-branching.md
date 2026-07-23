@@ -82,24 +82,32 @@ aliases for transition only: `cli` maps to `basic-cli`, `server` maps to
 
 `.github/workflows/release-candidate.yml` is the only release orchestrator. Run
 it from the current `main` workflow revision with an exact 40-character
-`candidate_sha` and matching prerelease version.
+`candidate_sha`, matching prerelease version, and explicit `evidence_profile`.
 
 1. Commit and push the candidate branch, open one integration PR to `main`, and
    require `CI / aggregate` plus `V2 CI / v2 release readiness summary` remotely.
 2. After the central workflow exists on trusted `main`, run it with
-   `publish=false` and `deploy_hfs=false`. The candidate may be a descendant of
-   current `origin/main`; this run has no external release/deploy write.
+   `evidence_profile=release`, `publish=false`, and `deploy_hfs=false`. The
+   candidate may be a descendant of current `origin/main`; this run has no
+   external release/deploy write.
 3. Accept **RC-ready** only when all 15 always-required gates pass on the exact
    candidate and the evidence bundle inventory/checksums agree.
 4. Merge the approved candidate. Before any HFS write, require
    `candidate_sha == origin/main`, protected `hf`/`release` environments, private
    Space dual-layer auth, and an immutable rollback point.
-5. An approved `deploy_hfs=true, publish=false` run establishes publish-ready
-   live evidence. `publish=true` additionally creates the annotated tag and
-   prerelease only after every gate, HFS promotion, bundle and attestation pass.
+5. For a lightweight runtime-only acceptance, use `evidence_profile=deployment`,
+   `deploy_hfs=true`, and `publish=false`. This skips the two full release binary
+   matrices but retains non-binary gates, the single HFS-local PyInstaller smoke,
+   promotion, rollback and live readback. Its `deployment-evidence-*` artifact is
+   not RC-ready or publish-ready evidence.
+6. An approved `evidence_profile=release`, `deploy_hfs=true`, `publish=false` run
+   establishes publish-ready live evidence. `publish=true` additionally creates
+   the annotated tag and prerelease only after every gate, HFS promotion, bundle
+   and attestation pass.
 
 The PyInstaller and Nuitka workflows always remain builders: each produces
 3 editions × 4 targets and uploads artifacts, but neither creates a Release.
+They run from the central workflow only for `evidence_profile=release`.
 Direct `HF Space CD` dispatch also remains local-only; merge/push to `main` does
 not automatically deploy.
 

@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+import json
 import textwrap
 from pathlib import Path
+
+import pytest
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -10,6 +13,15 @@ WORKFLOW_DIR = REPO_ROOT / ".github" / "workflows"
 
 def _workflow(name: str) -> str:
     return (WORKFLOW_DIR / name).read_text(encoding="utf-8")
+
+
+def _job(text: str, name: str, next_name: str) -> str:
+    return text.split(f"  {name}:", maxsplit=1)[1].split(f"  {next_name}:", maxsplit=1)[0]
+
+
+def _python_heredoc(block: str, index: int = 0) -> str:
+    source = block.split("python3 - <<'PY'")[index + 1].split("\n          PY", maxsplit=1)[0]
+    return textwrap.dedent(source).lstrip()
 
 
 def test_workflow_embedded_python_blocks_compile() -> None:
@@ -86,9 +98,243 @@ def test_release_candidate_strictly_validates_promotion_inputs() -> None:
     assert "candidate_sha to equal the current origin/main" in text
     assert "verifier_sha" in text
     assert text.count("secrets: inherit") == 1
-    hfs_call = text.split("  hfs:", maxsplit=1)[1].split("  assemble:", maxsplit=1)[0]
+    hfs_call = _job(text, "hfs", "assemble-deployment")
     assert "uses: ./.github/workflows/deploy-hf-space.yml" in hfs_call
     assert "secrets: inherit" in hfs_call
+
+
+def test_release_candidate_requires_an_explicit_evidence_profile() -> None:
+    text = _workflow("release-candidate.yml")
+    dispatch = text.split("  workflow_dispatch:", maxsplit=1)[1].split("concurrency:", maxsplit=1)[
+        0
+    ]
+    profile = dispatch.split("      evidence_profile:", maxsplit=1)[1].split(
+        "      publish:", maxsplit=1
+    )[0]
+
+    assert "required: true" in profile
+    assert "type: choice" in profile
+    assert "default: select" in profile
+    for option in ("select", "deployment", "release"):
+        assert f"- {option}" in profile
+
+    trust_step = text.split(
+        "- name: Validate candidate trust, SHA, version, and promotion controls",
+        maxsplit=1,
+    )[1].split("- uses: actions/setup-python@v6", maxsplit=1)[0]
+    assert "EVIDENCE_PROFILE: ${{ inputs.evidence_profile }}" in trust_step
+    assert "evidence_profile not in {'deployment', 'release'}" in trust_step
+    assert "deployment profile requires deploy_hfs=true" in trust_step
+    assert "deployment profile requires publish=false" in trust_step
+    assert "publish=true requires evidence_profile=release" in trust_step
+    assert "evidence_profile=${{ inputs.evidence_profile }}" in text.splitlines()[2]
+
+
+def test_deployment_profile_skips_release_binary_matrices_and_gates_hfs() -> None:
+    text = _workflow("release-candidate.yml")
+    pyinstaller = _job(text, "pyinstaller", "nuitka")
+    nuitka = _job(text, "nuitka", "package")
+    promotion_gate = _job(text, "promotion-gate", "hfs")
+    hfs = _job(text, "hfs", "assemble-deployment")
+
+    release_only = "if: ${{ inputs.evidence_profile == 'release' }}"
+    assert release_only in pyinstaller
+    assert release_only in nuitka
+    assert "if: ${{ always() && inputs.deploy_hfs }}" in promotion_gate
+    assert "PROFILE: ${{ inputs.evidence_profile }}" in promotion_gate
+    assert "deployment requires skipped binary release matrices" in promotion_gate
+    assert "release requires successful binary release matrices" in promotion_gate
+    for gate in (
+        "validate",
+        "ci",
+        "source",
+        "external",
+        "package",
+        "clean-install",
+        "container",
+        "pyinstaller",
+        "nuitka",
+    ):
+        assert gate in promotion_gate
+    assert "needs: [validate, promotion-gate]" in hfs
+    assert "needs.promotion-gate.result == 'success'" in hfs
+    assert "secrets: inherit" in hfs
+
+
+def test_deployment_evidence_is_non_publishable_and_contains_no_release_binaries() -> None:
+    text = _workflow("release-candidate.yml")
+    deployment = _job(text, "assemble-deployment", "assemble")
+    release = _job(text, "assemble", "publish")
+    publish = text.split("\n  publish:\n", maxsplit=1)[1]
+
+    assert "inputs.evidence_profile == 'deployment'" in deployment
+    assert "deployment-manifest.json" in deployment
+    assert "deployment-evidence.tar.gz" in deployment
+    assert "deployment-evidence-${{ needs.validate.outputs.version }}" in deployment
+    assert "'evidence_profile': 'deployment'" in deployment
+    assert "'publishable': False" in deployment
+    assert "'binary_count': 0" in deployment
+    assert "'status': 'NOT_RUN'" in deployment
+    assert "release binary matrix skipped" in deployment
+    assert "deployment evidence is missing required reports" in deployment
+    assert "actions/attest-build-provenance@v4" in deployment
+    assert "pattern: hf-space-local-*-report" in deployment
+    assert "name: api-source-cli-profile-report" in deployment
+    assert "souwen-local-pyinstaller-cli" not in deployment
+    for release_binary_pattern in (
+        "pattern: souwen-linux-*",
+        "pattern: souwen-macos-*",
+        "pattern: souwen-windows-*",
+        "pattern: souwen-nuitka-*",
+        "pattern: binary-smoke-*",
+    ):
+        assert release_binary_pattern not in deployment
+
+    assert "inputs.evidence_profile == 'release'" in release
+    assert "if len(actual) != 24:" in release
+    assert "release-manifest.json" in release
+    assert "name: release-candidate-${{ needs.validate.outputs.version }}" in release
+    assert "needs: [validate, assemble]" in publish
+    assert "deployment-evidence-" not in publish
+    assert "deployment-manifest.json" not in publish
+
+
+def test_deployment_manifest_builder_emits_bounded_non_release_contract(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    text = _workflow("release-candidate.yml")
+    deployment = _job(text, "assemble-deployment", "assemble")
+    manifest_step = deployment.split("- name: Write deployment manifest and checksums", maxsplit=1)[
+        1
+    ]
+    manifest_source = _python_heredoc(manifest_step)
+    checksum_source = _python_heredoc(manifest_step, 1)
+
+    candidate = "a" * 40
+    verifier = "b" * 40
+    promoted = "c" * 40
+    prior_wrapper = "d" * 40
+    prior_source = "e" * 40
+    evidence_root = tmp_path / "deployment-evidence"
+    container_root = evidence_root / "container"
+    container_root.mkdir(parents=True)
+    for kind in ("root", "hfs", "modelscope"):
+        (container_root / f"container-{kind}.json").write_text(
+            json.dumps(
+                {
+                    "kind": kind,
+                    "candidate_sha": candidate,
+                    "image_digest": f"sha256:{kind}",
+                }
+            ),
+            encoding="utf-8",
+        )
+    hfs_local = evidence_root / "hfs-local"
+    hfs_local.mkdir()
+    for name in (
+        "api-source-cli-profile.json",
+        "hf-space-local-pyinstaller.json",
+        "hf-space-local-surface-report.json",
+    ):
+        (hfs_local / name).write_text("{}\n", encoding="utf-8")
+    hfs_live = evidence_root / "hfs"
+    hfs_live.mkdir()
+    for name in (
+        "hf-space-cd-surface-report.json",
+        "hf-space-cd-capability-report.json",
+    ):
+        (hfs_live / name).write_text("{}\n", encoding="utf-8")
+    deployment_assets = tmp_path / "deployment-assets"
+    deployment_assets.mkdir()
+    (deployment_assets / "deployment-evidence.tar.gz").write_bytes(b"fixture archive")
+
+    needs = {
+        job_id: {"result": "success"}
+        for job_id in (
+            "validate",
+            "ci",
+            "source",
+            "external",
+            "package",
+            "clean-install",
+            "container",
+            "hfs",
+        )
+    }
+    needs.update(
+        {
+            "pyinstaller": {"result": "skipped"},
+            "nuitka": {"result": "skipped"},
+        }
+    )
+    environment = {
+        "CANDIDATE_SHA": candidate,
+        "VERSION": "2.0.0rc1",
+        "EVIDENCE_PROFILE": "deployment",
+        "NEEDS_JSON": json.dumps(needs),
+        "VERIFIER_SHA": verifier,
+        "RUN_URL": "https://github.example/actions/runs/1",
+        "HFS_SPACE_COMMIT_SHA": promoted,
+        "HFS_PROMOTION_CHANGED": "true",
+        "HFS_PRIOR_SPACE_COMMIT_SHA": prior_wrapper,
+        "HFS_PRIOR_RUNTIME_COMMIT_SHA": prior_wrapper,
+        "HFS_PRIOR_SOUWEN_REF": prior_source,
+        "HFS_PRIOR_RUNTIME_STAGE": "RUNNING",
+    }
+    for name, value in environment.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.chdir(tmp_path)
+
+    exec(compile(manifest_source, "release-candidate.yml:deployment-manifest", "exec"), {})
+    exec(compile(checksum_source, "release-candidate.yml:deployment-checksums", "exec"), {})
+
+    manifest = json.loads(
+        (deployment_assets / "deployment-manifest.json").read_text(encoding="utf-8")
+    )
+    assert manifest["evidence_profile"] == "deployment"
+    assert manifest["publishable"] is False
+    assert manifest["binary_count"] == 0
+    binary_gates = {
+        item["id"]: item for item in manifest["gates"] if item["id"] in {"pyinstaller", "nuitka"}
+    }
+    assert set(binary_gates) == {"pyinstaller", "nuitka"}
+    assert all(item["status"] == "NOT_RUN" for item in binary_gates.values())
+    assert all(item["required"] is False for item in binary_gates.values())
+    assert manifest["candidate_sha"] == candidate
+    assert manifest["verifier_sha"] == verifier
+    assert manifest["hfs"]["repo_sha"] == promoted
+    assert manifest["hfs"]["runtime_sha"] == promoted
+    assert {item["surface"] for item in manifest["containers"]} == {
+        "root",
+        "hfs",
+        "modelscope",
+    }
+    assert not any(
+        item["path"].startswith(
+            ("souwen-linux-", "souwen-macos-", "souwen-windows-", "souwen-nuitka-")
+        )
+        for item in manifest["evidence_files"]
+    )
+    assert {path.name for path in deployment_assets.iterdir()} == {
+        "deployment-manifest.json",
+        "deployment-evidence.tar.gz",
+        "SHA256SUMS",
+    }
+
+    (hfs_live / "hf-space-cd-capability-report.json").unlink()
+    with pytest.raises(SystemExit, match="missing required reports"):
+        exec(compile(manifest_source, "release-candidate.yml:missing-report", "exec"), {})
+
+
+def test_hfs_deployment_keeps_one_basic_pyinstaller_smoke() -> None:
+    text = _workflow("deploy-hf-space.yml")
+    pyinstaller = _job(text, "pyinstaller-cli", "docker-hfs")
+
+    assert "name: PyInstaller CLI smoke" in pyinstaller
+    assert 'pip install -e ".[edition-basic]"' in pyinstaller
+    assert "profile: basic-cli" in pyinstaller
+    assert "builder: pyinstaller" in pyinstaller
 
 
 def test_only_hfs_reusable_call_inherits_secrets() -> None:

@@ -32,10 +32,13 @@ private Space 的 edge 访问仍需 Hugging Face token；进入应用后，SouWe
 - 远端 promotion：只能由 `.github/workflows/release-candidate.yml` 从当前 `main` control plane
   调用，并显式设置 `deploy_hfs=true`。
 
-Central workflow 的默认输入是 `publish=false`、`deploy_hfs=false`。默认运行只生成 RC-ready
-证据和 release bundle，不创建 tag/Release，也不写 HFS。`deploy_hfs=true` 时，candidate 必须
-等于当前 `origin/main`；不能从未合入分支向持有 secrets 的部署 job 注入 verifier。Central
-caller 只在 HFS reusable call 上使用一次 `secrets: inherit`。这是同仓 reusable workflow 读取
+Central workflow 要求显式选择 `evidence_profile`；哨兵值 `select` 不执行。`release` profile
+保留完整 24-binary RC-ready/release bundle 契约；`deployment` profile 必须使用
+`publish=false, deploy_hfs=true`，跳过外层 PyInstaller/Nuitka release matrix，只生成不可发布的
+deployment evidence。两种 profile 都继续运行非 binary gates；HFS reusable workflow 内的单次
+Linux `basic-cli` PyInstaller smoke 不会被跳过。`deploy_hfs=true` 时，candidate 必须等于当前
+`origin/main`；不能从未合入分支向持有 secrets 的部署 job 注入 verifier。Central caller 只在
+HFS reusable call 上使用一次 `secrets: inherit`。这是同仓 reusable workflow 读取
 environment-scoped secrets 的已知兼容处理（`actions/runner#4453`）；其他 reusable jobs 不得继承
 secrets。这三个 environment secrets 不能同时声明为 required `workflow_call` secrets：GitHub 会在
 called job 绑定 `environment: hf` 之前校验该 contract，因而把实际存在的 environment secrets 误判为

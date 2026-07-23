@@ -13,22 +13,43 @@ candidate SHA、run URL、checksum、SBOM/provenance 和执行结论写入候选
 
 `.github/workflows/release-candidate.yml` 是唯一 release orchestrator。它必须从当前
 `main` control plane 运行，输入为 40 位 `candidate_sha` 与完整 PEP 440 prerelease
-`version`：
+`version`，并显式选择 `evidence_profile`：
 
 ```bash
 gh workflow run release-candidate.yml \
   --ref main \
   -f candidate_sha="$(git rev-parse HEAD)" \
   -f version=2.0.0rc1 \
+  -f evidence_profile=release \
   -f publish=false \
   -f deploy_hfs=false
 ```
 
-默认 `publish=false`、`deploy_hfs=false` 只运行 source、clean install、Panel、container、
-external smoke、PyInstaller/Nuitka 和 bundle/attestation gate，产出 RC-ready evidence bundle；
-不创建 tag、GitHub Release，也不写 HFS。`deploy_hfs=true` 或 `publish=true` 只允许
-`candidate_sha == origin/main`，并要求受保护的 `hf` / `release` environment；
-`publish=true` 还强制 `deploy_hfs=true` 且 live promotion 已通过。
+`evidence_profile` 必须显式选择，默认哨兵值 `select` 会 fail closed：
+
+- `release` 保持 source、clean install、Panel、container、external smoke、PyInstaller/Nuitka
+  24-binary matrix 与 bundle/attestation gate；`deploy_hfs=false, publish=false` 产出完整
+  RC-ready evidence bundle。
+- `deployment` 必须同时使用 `deploy_hfs=true, publish=false`。它跳过外层 PyInstaller/Nuitka
+  release matrix，但保留全部非 binary gate、HFS reusable workflow 内的单次 Linux
+  `basic-cli` PyInstaller smoke、live promotion、rollback 和 readback，产出不可发布的
+  `deployment-evidence-*` artifact。
+
+轻量 HFS promotion 使用：
+
+```bash
+gh workflow run release-candidate.yml \
+  --ref main \
+  -f candidate_sha="$(git rev-parse HEAD)" \
+  -f version=2.0.0rc1 \
+  -f evidence_profile=deployment \
+  -f publish=false \
+  -f deploy_hfs=true
+```
+
+`deploy_hfs=true` 或 `publish=true` 只允许 `candidate_sha == origin/main`，并要求受保护的
+`hf` / `release` environment；`publish=true` 还强制 `evidence_profile=release`、
+`deploy_hfs=true` 且 live promotion 已通过。
 
 PyInstaller 与 Nuitka workflow 只是 builder。手动运行或 `v*` tag 触发时只上传 workflow
 artifacts，不创建 Release；tag 与 prerelease 只能由 central workflow 的 publish job 创建。
