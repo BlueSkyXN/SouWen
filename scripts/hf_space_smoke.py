@@ -35,6 +35,13 @@ EDITION_RANK = {
     "full": 2,
 }
 TRUTHY_VALUES = {"1", "true", "yes", "on"}
+_FETCH_ERROR_MAX_LENGTH = 240
+_FETCH_ERROR_URL_RE = re.compile(r"https?://[^\s'\"<>]+", re.IGNORECASE)
+_FETCH_ERROR_BEARER_RE = re.compile(r"\bbearer\s+[^\s,;]+", re.IGNORECASE)
+_FETCH_ERROR_SECRET_RE = re.compile(
+    r"\b(?:authorization|token|api[_-]?key|password|secret)\b\s*[:=]\s*[^\s,;]+",
+    re.IGNORECASE,
+)
 
 DEFAULT_PAPER_SOURCES = [
     "openalex",
@@ -692,6 +699,52 @@ def safe_call(
             f"{type(exc).__name__}: {exc}",
             required=required,
         )
+
+
+def _sanitize_fetch_error(value: Any) -> str | None:
+    """Return a bounded diagnostic without endpoint URLs or credentials."""
+    if not isinstance(value, str) or not value.strip():
+        return None
+    text = _FETCH_ERROR_URL_RE.sub("<url>", value.strip())
+    text = _FETCH_ERROR_BEARER_RE.sub("Bearer <redacted>", text)
+    text = _FETCH_ERROR_SECRET_RE.sub("<redacted>", text)
+    if len(text) > _FETCH_ERROR_MAX_LENGTH:
+        text = f"{text[: _FETCH_ERROR_MAX_LENGTH - 1]}…"
+    return text
+
+
+def _fetch_result_diagnostic(data: Any) -> dict[str, Any]:
+    """Extract the first failed item as safe evidence for fetch smoke reports."""
+    if not isinstance(data, dict) or not isinstance(data.get("results"), list):
+        return {}
+    for result in data["results"]:
+        if not isinstance(result, dict):
+            continue
+        error = _sanitize_fetch_error(result.get("error"))
+        if error is None:
+            continue
+        diagnostic: dict[str, Any] = {"result_error": error}
+        source = result.get("source")
+        safe_source = _sanitize_fetch_error(source)
+        if safe_source is not None:
+            diagnostic["result_source"] = safe_source[:80]
+        raw = result.get("raw")
+        status_code = raw.get("status_code") if isinstance(raw, dict) else None
+        if isinstance(status_code, int):
+            diagnostic["result_status_code"] = status_code
+        return diagnostic
+    return {}
+
+
+def _fetch_detail_with_diagnostic(detail: str, diagnostic: dict[str, Any]) -> str:
+    if not diagnostic:
+        return detail
+    fields = [
+        f"{key}={diagnostic[key]!r}"
+        for key in ("result_source", "result_status_code", "result_error")
+        if key in diagnostic
+    ]
+    return f"{detail}, {', '.join(fields)}"
 
 
 def run_basic_checks(client: ApiClient, config: SmokeConfig, state: RunState) -> list[ProbeResult]:
@@ -1886,12 +1939,28 @@ def fetch_builtin(client: ApiClient) -> ProbeResult:
     ok_count = int(resp.data.get("total_ok") or 0)
     failed_count = int(resp.data.get("total_failed") or 0)
     ok = resp.status == 200 and ok_count >= 1
-    detail = f"status={resp.status}, total_ok={ok_count}, total_failed={failed_count}"
+    diagnostic = _fetch_result_diagnostic(resp.data)
+    detail = _fetch_detail_with_diagnostic(
+        f"status={resp.status}, total_ok={ok_count}, total_failed={failed_count}",
+        diagnostic,
+    )
     return (
-        pass_result("zero-key-fetch", "builtin-fetch", detail, required=True, elapsed=resp.elapsed)
+        pass_result(
+            "zero-key-fetch",
+            "builtin-fetch",
+            detail,
+            required=True,
+            elapsed=resp.elapsed,
+            meta=diagnostic,
+        )
         if ok
         else fail_result(
-            "zero-key-fetch", "builtin-fetch", detail, required=True, elapsed=resp.elapsed
+            "zero-key-fetch",
+            "builtin-fetch",
+            detail,
+            required=True,
+            elapsed=resp.elapsed,
+            meta=diagnostic,
         )
     )
 
@@ -1912,7 +1981,11 @@ def fetch_jina_reader(client: ApiClient) -> ProbeResult:
     ok_count = int(resp.data.get("total_ok") or 0)
     failed_count = int(resp.data.get("total_failed") or 0)
     outcome = "pass" if resp.status == 200 and ok_count >= 1 else "warn"
-    detail = f"status={resp.status}, total_ok={ok_count}, total_failed={failed_count}"
+    diagnostic = _fetch_result_diagnostic(resp.data)
+    detail = _fetch_detail_with_diagnostic(
+        f"status={resp.status}, total_ok={ok_count}, total_failed={failed_count}",
+        diagnostic,
+    )
     return ProbeResult(
         "zero-key-fetch",
         "jina-reader-fetch",
@@ -1920,7 +1993,7 @@ def fetch_jina_reader(client: ApiClient) -> ProbeResult:
         detail,
         False,
         resp.elapsed,
-        {"total_ok": ok_count, "total_failed": failed_count},
+        {"total_ok": ok_count, "total_failed": failed_count, **diagnostic},
     )
 
 
@@ -1950,10 +2023,12 @@ def fetch_provider_probe(
     failed_count = int(resp.data.get("total_failed") or 0)
     total = int(resp.data.get("total") or ok_count + failed_count)
     outcome = "pass" if resp.status == 200 and ok_count >= 1 else "warn"
+    diagnostic = _fetch_result_diagnostic(resp.data)
     detail = (
         f"status={resp.status}, total_ok={ok_count}, total_failed={failed_count}, "
         f"note={provider_test.get('note', '-')}"
     )
+    detail = _fetch_detail_with_diagnostic(detail, diagnostic)
     return ProbeResult(
         "zero-key-fetch-source",
         f"{provider}+{backend}+warp-{warp}",
@@ -1971,6 +2046,7 @@ def fetch_provider_probe(
             "total_ok": ok_count,
             "total_failed": failed_count,
             "note": provider_test.get("note", ""),
+            **diagnostic,
         },
     )
 

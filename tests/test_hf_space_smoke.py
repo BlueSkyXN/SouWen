@@ -104,6 +104,42 @@ def test_private_space_uses_separate_outer_and_application_auth_headers(monkeypa
     assert captured["timeout"] == 3
 
 
+def test_builtin_fetch_failure_records_sanitized_item_diagnostic():
+    class FakeFetchClient:
+        def post(self, _path, **_kwargs):
+            return smoke.ResponseData(
+                200,
+                {
+                    "total_ok": 0,
+                    "total_failed": 1,
+                    "results": [
+                        {
+                            "source": "builtin",
+                            "error": (
+                                "upstream rejected https://example.test/page?token=raw-token; "
+                                "Authorization: Bearer raw-bearer"
+                            ),
+                            "raw": {"status_code": 403},
+                        }
+                    ],
+                },
+                0.1,
+            )
+
+    result = smoke.fetch_builtin(FakeFetchClient())
+
+    assert result.outcome == "fail"
+    assert result.required is True
+    assert result.meta["result_source"] == "builtin"
+    assert result.meta["result_status_code"] == 403
+    assert "<url>" in result.meta["result_error"]
+    assert "<redacted>" in result.meta["result_error"]
+    assert "raw-token" not in result.detail
+    assert "raw-bearer" not in result.detail
+    assert "raw-token" not in result.meta["result_error"]
+    assert "raw-bearer" not in result.meta["result_error"]
+
+
 def test_required_failures_only_counts_required_failed_rows():
     results = [
         smoke.ProbeResult("basic", "health", "pass", "ok", required=True),
