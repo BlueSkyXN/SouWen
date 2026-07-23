@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import json
+import re
 import textwrap
 from pathlib import Path
+from typing import TypedDict
 
 import pytest
 
@@ -22,6 +24,74 @@ def _job(text: str, name: str, next_name: str) -> str:
 def _python_heredoc(block: str, index: int = 0) -> str:
     source = block.split("python3 - <<'PY'")[index + 1].split("\n          PY", maxsplit=1)[0]
     return textwrap.dedent(source).lstrip()
+
+
+class WorkflowJob(TypedDict):
+    needs: list[str]
+    condition: str
+
+
+def _release_candidate_job_graph(text: str) -> dict[str, WorkflowJob]:
+    """Parse the workflow's top-level job dependencies and conditions.
+
+    The release candidate keeps ``needs`` inline today, but this intentionally
+    handles both inline and block lists so the downstream-gate contract follows
+    the graph rather than a hand-maintained job list.
+    """
+
+    jobs_text = text.split("\njobs:\n", maxsplit=1)[1]
+    jobs: dict[str, WorkflowJob] = {}
+    current: WorkflowJob | None = None
+    collecting_needs = False
+    job_pattern = re.compile(r"^  ([A-Za-z0-9_-]+):\s*$")
+    inline_needs_pattern = re.compile(r"^    needs:\s*\[([^]]*)\]\s*$")
+
+    for line in jobs_text.splitlines():
+        job_match = job_pattern.match(line)
+        if job_match:
+            current = {"needs": [], "condition": ""}
+            jobs[job_match.group(1)] = current
+            collecting_needs = False
+            continue
+        if current is None:
+            continue
+
+        inline_needs = inline_needs_pattern.match(line)
+        if inline_needs:
+            current["needs"] = [
+                job_id.strip() for job_id in inline_needs.group(1).split(",") if job_id.strip()
+            ]
+            collecting_needs = False
+            continue
+        if line == "    needs:":
+            current["needs"] = []
+            collecting_needs = True
+            continue
+        if collecting_needs and line.startswith("      - "):
+            current["needs"].append(line.removeprefix("      - ").strip())
+            continue
+        collecting_needs = False
+        if line.startswith("    if:"):
+            current["condition"] = line.split(":", maxsplit=1)[1].strip()
+
+    return jobs
+
+
+def _downstream_jobs(graph: dict[str, WorkflowJob], root: str) -> set[str]:
+    reverse: dict[str, set[str]] = {job_id: set() for job_id in graph}
+    for job_id, job in graph.items():
+        for dependency in job["needs"]:
+            reverse.setdefault(dependency, set()).add(job_id)
+
+    discovered: set[str] = set()
+    pending = list(reverse.get(root, set()))
+    while pending:
+        job_id = pending.pop()
+        if job_id in discovered:
+            continue
+        discovered.add(job_id)
+        pending.extend(reverse.get(job_id, set()))
+    return discovered
 
 
 def test_workflow_embedded_python_blocks_compile() -> None:
@@ -160,6 +230,33 @@ def test_deployment_profile_skips_release_binary_matrices_and_gates_hfs() -> Non
     assert "if: ${{ always() && inputs.deploy_hfs" in hfs
     assert "needs.promotion-gate.result == 'success'" in hfs
     assert "secrets: inherit" in hfs
+
+
+def test_promotion_gate_descendants_always_run_to_observe_skipped_parents() -> None:
+    graph = _release_candidate_job_graph(_workflow("release-candidate.yml"))
+
+    assert graph["promotion-gate"]["needs"] == [
+        "validate",
+        "ci",
+        "source",
+        "external",
+        "pyinstaller",
+        "nuitka",
+        "package",
+        "clean-install",
+        "container",
+    ]
+    # Deployment deliberately skips both release binary matrices. They must stay
+    # ordinary parents so promotion-gate can explicitly verify that contract.
+    for binary_job in ("pyinstaller", "nuitka"):
+        assert graph[binary_job]["condition"] == "${{ inputs.evidence_profile == 'release' }}"
+
+    downstream = _downstream_jobs(graph, "promotion-gate")
+    assert downstream == {"hfs", "assemble-deployment", "assemble", "publish"}
+    for job_id in downstream:
+        assert "always()" in graph[job_id]["condition"], (
+            f"{job_id} must use always() so it can observe skipped/failing promotion parents"
+        )
 
 
 def test_deployment_evidence_is_non_publishable_and_contains_no_release_binaries() -> None:
@@ -336,6 +433,13 @@ def test_hfs_deployment_keeps_one_basic_pyinstaller_smoke() -> None:
     assert 'pip install -e ".[edition-basic]"' in pyinstaller
     assert "profile: basic-cli" in pyinstaller
     assert "builder: pyinstaller" in pyinstaller
+
+
+def test_hfs_required_fetch_fixture_change_triggers_workflow() -> None:
+    text = _workflow("deploy-hf-space.yml")
+
+    assert '- "scripts/hf_space_smoke.py"' in text
+    assert '- "scripts/fixtures/hf-space-fetch-probe.html"' in text
 
 
 def test_only_hfs_reusable_call_inherits_secrets() -> None:

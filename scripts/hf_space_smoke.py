@@ -29,6 +29,10 @@ except ModuleNotFoundError:  # pragma: no cover - direct `python scripts/...` ex
 DEFAULT_BASE_URL = "https://blueskyxn-souwen.hf.space"
 USER_AGENT = "SouWen HF Space CD report/1.0"
 DEFAULT_SMOKE_EDITION = "pro"
+REQUIRED_BUILTIN_FETCH_PROBE_PATH = "scripts/fixtures/hf-space-fetch-probe.html"
+REQUIRED_BUILTIN_FETCH_PROBE_RAW_BASE_URL = "https://raw.githubusercontent.com/BlueSkyXN/SouWen"
+REQUIRED_BUILTIN_FETCH_PROBE_MARKER = "SOUWEN_IMMUTABLE_FETCH_PROBE_V1"
+REQUIRED_BUILTIN_FETCH_MIN_CONTENT_CHARS = 600
 EDITION_RANK = {
     "basic": 0,
     "pro": 1,
@@ -357,6 +361,18 @@ def normalize_expected_source_sha(raw: str | None) -> str | None:
     if re.fullmatch(r"[0-9a-fA-F]{40}", value) is None:
         raise ValueError("expected source SHA must be exactly 40 hexadecimal characters")
     return value.lower()
+
+
+def immutable_builtin_fetch_probe_url(expected_source_sha: str | None) -> str | None:
+    """Build the required builtin probe URL from an immutable candidate SHA."""
+
+    candidate_sha = normalize_expected_source_sha(expected_source_sha)
+    if candidate_sha is None:
+        return None
+    return (
+        f"{REQUIRED_BUILTIN_FETCH_PROBE_RAW_BASE_URL}/{candidate_sha}/"
+        f"{REQUIRED_BUILTIN_FETCH_PROBE_PATH}"
+    )
 
 
 def bool_or_none(value: Any) -> bool | None:
@@ -1923,11 +1939,21 @@ def bilibili_video_detail_route(client: ApiClient) -> ProbeResult:
     )
 
 
-def fetch_builtin(client: ApiClient) -> ProbeResult:
+def fetch_builtin(client: ApiClient, config: SmokeConfig) -> ProbeResult:
+    probe_url = immutable_builtin_fetch_probe_url(config.expected_source_sha)
+    if probe_url is None:
+        return fail_result(
+            "zero-key-fetch",
+            "builtin-fetch",
+            "required immutable builtin fetch probe needs an expected candidate SHA",
+            required=True,
+            meta={"probe_kind": "candidate-pinned-repository-fixture"},
+        )
+
     resp = client.post(
         "/api/v1/fetch",
         body={
-            "urls": ["https://example.com/"],
+            "urls": [probe_url],
             "provider": "builtin",
             "timeout": 15,
             "max_length": 1200,
@@ -1938,10 +1964,43 @@ def fetch_builtin(client: ApiClient) -> ProbeResult:
     )
     ok_count = int(resp.data.get("total_ok") or 0)
     failed_count = int(resp.data.get("total_failed") or 0)
-    ok = resp.status == 200 and ok_count >= 1
     diagnostic = _fetch_result_diagnostic(resp.data)
+    result = next(
+        (
+            item
+            for item in resp.data.get("results", [])
+            if isinstance(item, dict) and item.get("source") == "builtin"
+        ),
+        {},
+    )
+    content = result.get("content") if isinstance(result, dict) else None
+    content_chars = len(content) if isinstance(content, str) else 0
+    fixture_marker_found = (
+        isinstance(content, str) and REQUIRED_BUILTIN_FETCH_PROBE_MARKER in content
+    )
+    result_url = result.get("url") if isinstance(result, dict) else None
+    url_pinned = result_url == probe_url
+    ok = (
+        resp.status == 200
+        and ok_count >= 1
+        and url_pinned
+        and fixture_marker_found
+        and content_chars >= REQUIRED_BUILTIN_FETCH_MIN_CONTENT_CHARS
+    )
+    meta = {
+        "probe_kind": "candidate-pinned-repository-fixture",
+        "content_chars": content_chars,
+        "fixture_marker_found": fixture_marker_found,
+        "url_pinned": url_pinned,
+        **diagnostic,
+    }
     detail = _fetch_detail_with_diagnostic(
-        f"status={resp.status}, total_ok={ok_count}, total_failed={failed_count}",
+        (
+            f"status={resp.status}, total_ok={ok_count}, total_failed={failed_count}, "
+            f"url_pinned={url_pinned}, fixture_marker_found={fixture_marker_found}, "
+            f"content_chars={content_chars}, min_content_chars="
+            f"{REQUIRED_BUILTIN_FETCH_MIN_CONTENT_CHARS}"
+        ),
         diagnostic,
     )
     return (
@@ -1951,7 +2010,7 @@ def fetch_builtin(client: ApiClient) -> ProbeResult:
             detail,
             required=True,
             elapsed=resp.elapsed,
-            meta=diagnostic,
+            meta=meta,
         )
         if ok
         else fail_result(
@@ -1960,7 +2019,7 @@ def fetch_builtin(client: ApiClient) -> ProbeResult:
             detail,
             required=True,
             elapsed=resp.elapsed,
-            meta=diagnostic,
+            meta=meta,
         )
     )
 
@@ -2544,7 +2603,12 @@ def run_zero_key_checks(
         )
     )
     results.append(
-        safe_call("zero-key-fetch", "builtin-fetch", lambda: fetch_builtin(client), required=True)
+        safe_call(
+            "zero-key-fetch",
+            "builtin-fetch",
+            lambda: fetch_builtin(client, config),
+            required=True,
+        )
     )
     if edition_allows(edition, "pro"):
         results.append(

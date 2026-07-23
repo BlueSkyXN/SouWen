@@ -1,0 +1,73 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SouWen immutable HF Space fetch probe</title>
+    <meta name="description" content="Repository-owned fixture for the required builtin fetch smoke probe.">
+  </head>
+  <body>
+    <main>
+      <article>
+        <h1>SouWen immutable HF Space fetch probe</h1>
+        <p>
+          SOUWEN_IMMUTABLE_FETCH_PROBE_V1. This document is owned by the SouWen
+          repository and is fetched only through a raw GitHub URL pinned to the
+          release candidate commit. It is intentionally ordinary HTML with a
+          visible title, stable prose, headings, lists, and enough body text to
+          exercise the builtin HTTP fetch and extraction path without relying on
+          a mutable third-party page.
+        </p>
+        <h2>Purpose</h2>
+        <p>
+          A post-deploy smoke check must distinguish network reachability from
+          meaningful content extraction. A tiny connectivity page can return a
+          successful HTTP status while providing too little material to expose a
+          parser regression, an accidental empty-body response, or a change in
+          content normalization. This fixture keeps the probe deterministic at
+          the candidate level: the URL includes the exact forty-character Git
+          SHA that the deployment reports from its health and readiness routes.
+        </p>
+        <p>
+          The fixture does not contain credentials, customer data, external
+          links, JavaScript dependencies, tracking resources, forms, or browser
+          requirements. It is a static text document. Its wording is retained in
+          the repository so a reviewer can inspect the exact content that a
+          candidate smoke run requested and compare it with the fetch response
+          recorded in the resulting report.
+        </p>
+        <h2>Extraction expectations</h2>
+        <p>
+          The builtin provider should retain this marker and a substantial
+          portion of the article body after HTML processing. The smoke script
+          therefore requires the marker and a bounded minimum number of content
+          characters. The bound does not change production extraction logic or
+          weaken SSRF protections; it simply rejects an otherwise successful
+          response that is not evidence of useful text extraction.
+        </p>
+        <p>
+          The release workflow supplies the candidate SHA as an explicit
+          expected value. The smoke script derives this raw-content URL rather
+          than accepting a branch name, tag, redirect target, local address, or
+          mutable default. When that SHA is absent, the required builtin probe
+          fails closed instead of silently substituting a generic public page.
+        </p>
+        <h2>Audit notes</h2>
+        <ul>
+          <li>The fixture path is part of the repository source tree.</li>
+          <li>The raw URL contains an immutable candidate commit SHA.</li>
+          <li>The marker confirms that extraction reached this document.</li>
+          <li>The text length makes an empty or minimal extractor output fail.</li>
+          <li>Existing SSRF validation remains in the regular fetch route.</li>
+        </ul>
+        <p>
+          Keeping this final paragraph ensures the fixture remains comfortably
+          larger than the smoke threshold even if normal HTML cleanup removes
+          navigation or formatting elements. The content is intentionally
+          factual and self-contained so it can be safely served from the public
+          repository and inspected in release evidence without special access.
+        </p>
+      </article>
+    </main>
+  </body>
+</html>

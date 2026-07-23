@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -126,7 +127,13 @@ def test_builtin_fetch_failure_records_sanitized_item_diagnostic():
                 0.1,
             )
 
-    result = smoke.fetch_builtin(FakeFetchClient())
+    config = smoke.SmokeConfig(
+        base_url="https://example.test",
+        expected_version="1.2.3",
+        expected_source_sha="a" * 40,
+        request_timeout=1,
+    )
+    result = smoke.fetch_builtin(FakeFetchClient(), config)
 
     assert result.outcome == "fail"
     assert result.required is True
@@ -138,6 +145,87 @@ def test_builtin_fetch_failure_records_sanitized_item_diagnostic():
     assert "raw-bearer" not in result.detail
     assert "raw-token" not in result.meta["result_error"]
     assert "raw-bearer" not in result.meta["result_error"]
+
+
+def test_required_builtin_fetch_uses_candidate_pinned_repository_fixture():
+    calls: list[dict] = []
+    candidate_sha = "a" * 40
+    config = smoke.SmokeConfig(
+        base_url="https://example.test",
+        expected_version="1.2.3",
+        expected_source_sha=candidate_sha,
+        request_timeout=1,
+    )
+    expected_url = smoke.immutable_builtin_fetch_probe_url(candidate_sha)
+
+    class FakeFetchClient:
+        def post(self, _path, **kwargs):
+            calls.append(kwargs)
+            return smoke.ResponseData(
+                200,
+                {
+                    "total_ok": 1,
+                    "total_failed": 0,
+                    "results": [
+                        {
+                            "url": expected_url,
+                            "final_url": expected_url,
+                            "source": "builtin",
+                            "content": (
+                                f"{smoke.REQUIRED_BUILTIN_FETCH_PROBE_MARKER} "
+                                + ("fixture content " * 100)
+                            ),
+                        }
+                    ],
+                },
+                0.1,
+            )
+
+    result = smoke.fetch_builtin(FakeFetchClient(), config)
+
+    assert result.outcome == "pass"
+    assert result.required is True
+    assert calls[0]["body"]["urls"] == [expected_url]
+    assert candidate_sha in expected_url
+    assert "example.com" not in expected_url
+    assert calls[0]["body"]["respect_robots_txt"] is False
+    assert result.meta["content_chars"] >= smoke.REQUIRED_BUILTIN_FETCH_MIN_CONTENT_CHARS
+    assert result.meta["fixture_marker_found"] is True
+
+
+def test_required_builtin_fetch_fails_without_a_candidate_sha_before_request():
+    class FakeFetchClient:
+        def post(self, *_args, **_kwargs):
+            raise AssertionError("missing candidate SHA must not fall back to a mutable URL")
+
+    config = smoke.SmokeConfig(
+        base_url="https://example.test",
+        expected_version="1.2.3",
+        request_timeout=1,
+    )
+
+    result = smoke.fetch_builtin(FakeFetchClient(), config)
+
+    assert result.outcome == "fail"
+    assert result.required is True
+    assert "candidate SHA" in result.detail
+
+
+def test_required_builtin_fetch_fixture_is_repository_owned_and_content_sufficient():
+    fixture = Path(__file__).resolve().parents[1] / smoke.REQUIRED_BUILTIN_FETCH_PROBE_PATH
+    content = fixture.read_text(encoding="utf-8")
+
+    assert smoke.REQUIRED_BUILTIN_FETCH_PROBE_MARKER in content
+    assert len(content) >= smoke.REQUIRED_BUILTIN_FETCH_MIN_CONTENT_CHARS
+
+    from souwen.web.builtin import _extract_with_trafilatura
+
+    extracted = _extract_with_trafilatura(
+        content,
+        smoke.immutable_builtin_fetch_probe_url("a" * 40) or "",
+    )["content"]
+    assert smoke.REQUIRED_BUILTIN_FETCH_PROBE_MARKER in extracted
+    assert len(extracted) >= smoke.REQUIRED_BUILTIN_FETCH_MIN_CONTENT_CHARS
 
 
 def test_required_failures_only_counts_required_failed_rows():
