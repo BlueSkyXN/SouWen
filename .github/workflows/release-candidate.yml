@@ -553,7 +553,7 @@ jobs:
   hfs:
     name: Candidate-only HF Space promotion
     needs: [validate, promotion-gate]
-    if: ${{ inputs.deploy_hfs && needs.promotion-gate.result == 'success' }}
+    if: ${{ always() && inputs.deploy_hfs && needs.promotion-gate.result == 'success' }}
     uses: ./.github/workflows/deploy-hf-space.yml
     with:
       candidate_sha: ${{ needs.validate.outputs.candidate_sha }}

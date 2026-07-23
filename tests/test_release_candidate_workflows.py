@@ -157,6 +157,7 @@ def test_deployment_profile_skips_release_binary_matrices_and_gates_hfs() -> Non
     ):
         assert gate in promotion_gate
     assert "needs: [validate, promotion-gate]" in hfs
+    assert "if: ${{ always() && inputs.deploy_hfs" in hfs
     assert "needs.promotion-gate.result == 'success'" in hfs
     assert "secrets: inherit" in hfs
 
