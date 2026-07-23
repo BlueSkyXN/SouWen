@@ -1374,7 +1374,7 @@ jobs:
   publish:
     name: Publish GitHub Release
     needs: [validate, assemble]
-    if: ${{ inputs.publish }}
+    if: ${{ always() && inputs.publish && needs.validate.result == 'success' && needs.assemble.result == 'success' }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     environment:
