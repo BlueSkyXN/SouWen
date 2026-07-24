@@ -43,6 +43,7 @@ on:
         value: ${{ jobs.sync-hfs-wrapper.outputs.prior_runtime_stage }}
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "src/**"
       - "tests/**"
