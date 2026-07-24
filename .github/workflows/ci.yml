@@ -276,7 +276,7 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: |
             ~/.cache/ms-playwright
@@ -325,7 +325,7 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
-      - uses: actions/cache@v5
+      - uses: actions/cache@v6
         with:
           path: |
             ~/.cache/ms-playwright
