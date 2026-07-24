@@ -3,5 +3,13 @@
 from souwen.common_runtime.errors import SouWenError
 
 from .errors import AuthError, RateLimitError, SourceUnavailableError
+from .http_client import HttpTransport, RequestRetryPolicy
 
-__all__ = ["AuthError", "RateLimitError", "SourceUnavailableError", "SouWenError"]
+__all__ = [
+    "AuthError",
+    "HttpTransport",
+    "RateLimitError",
+    "RequestRetryPolicy",
+    "SourceUnavailableError",
+    "SouWenError",
+]
