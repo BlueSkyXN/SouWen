@@ -54,17 +54,15 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
-from typing import TYPE_CHECKING, Any
+from typing import Any
 from urllib.parse import urljoin, urlparse
 
 import httpx
 
+from souwen.common_runtime.security import ResolvedFetchTarget, resolve_fetch_target
 from souwen.config import get_config
 from souwen.core.exceptions import RateLimitError, SourceUnavailableError
 from souwen.core.fingerprint import get_random_fingerprint
-
-if TYPE_CHECKING:
-    from souwen.web.fetch import ResolvedFetchTarget
 
 logger = logging.getLogger("souwen.core.scraper")
 _REDIRECT_CODES = frozenset({301, 302, 303, 307, 308})
@@ -324,8 +322,6 @@ class BaseScraper:
         max_redirects: int = 5,
     ) -> httpx.Response:
         """手动跟踪重定向，并在每一跳执行 SSRF 校验。"""
-        from souwen.web.fetch import resolve_fetch_target
-
         current_url = url
         current_method = method
         current_params = params

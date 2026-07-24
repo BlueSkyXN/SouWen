@@ -43,7 +43,6 @@ SKELETON_PACKAGES = (
     "souwen.common_runtime",
     "souwen.common_runtime.transport",
     "souwen.common_runtime.resilience",
-    "souwen.common_runtime.security",
     "souwen.common_runtime.configuration",
     "souwen.common_runtime.testing",
     "souwen.providers",

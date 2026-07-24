@@ -155,10 +155,44 @@ error-response correlation parity。
 
 ### 6.2 SSRF resolver
 
-Security 可拥有 target value object、scheme/userinfo/host/port/IP/DNS validation 和 IP-bound target
-描述。构造 `FetchResult`、provider fallback、content quality 或 Browser Worker 路由仍属于 Fetch。
-同步 `socket.getaddrinfo()` 的阻塞与不可 cooperative-cancel 现状必须先写入 validation fixture；
-迁移不能顺手改为 async DNS。
+Canonical path 为 `souwen.common_runtime.security`，repository-internal interface 为：
+
+```python
+@dataclass(frozen=True, slots=True)
+class ResolvedFetchTarget:
+    original_url: str
+    connect_url: str
+    host_header: str
+    sni_hostname: str | None
+
+def resolve_fetch_target(url: str) -> tuple[ResolvedFetchTarget | None, str]: ...
+def validate_fetch_url(url: str) -> tuple[bool, str]: ...
+```
+
+Security 只拥有 scheme/userinfo/host/port/IP/DNS validation 和 IP-bound target 描述。输入是单个
+URL string；成功时输出保留原 URL、已校验 IP literal `connect_url`、原 authority `Host` 和
+HTTPS DNS hostname SNI，失败时输出 `None`/`False` 与现有中文 reason。规则保持 http/https only、
+userinfo reject、localhost/private/reserved/legacy numeric IPv4 reject、IDNA lowercase、mixed DNS
+fail-closed、去重后 IPv4 preference、fake-IP DNS `198.18.0.0/15` allow，以及 IP literal 无 SNI。
+
+DNS 继续同步调用 `socket.getaddrinfo(host, None, AF_UNSPEC, SOCK_STREAM)`。接口没有 timeout、retry
+或 cooperative cancellation 参数；阻塞期间不能由 asyncio task cancellation 中断。调用方拥有外层
+budget，但本切片不声称外层 async timeout 能终止正在执行的同步 DNS。迁移不能顺手改为 async DNS、
+thread offload、resolver cache 或多 IP retry。
+
+预期解析/验证失败以 `(None, reason)` / `(False, reason)` 返回；只将 `socket.gaierror`、`OSError`、
+端口 `ValueError`、IDNA `UnicodeError` 和现有解析分支映射为既有 reason，不新增 logging 或 exception
+surface。函数无 cache/global mutable state，不发 HTTP，不记录 URL/hostname，不读取配置或 secret。
+
+`souwen.web.fetch` 必须 object-identical re-export 三个 canonical symbols，使既有 import path 保持可用；
+Fetch helpers 继续通过 legacy module global 调用 `validate_fetch_url`，因此现有针对
+`souwen.web.fetch.validate_fetch_url` 的 deterministic monkeypatch contract 保留。`BaseScraper` 改用
+canonical import，消除 Core → Web reverse edge。local fixture functional harness 必须同时 patch/restore
+canonical resolver 与已绑定的真实 consumer，不得扩大 production allowlist。
+
+禁止迁移：构造 `FetchResult` 的 `ssrf_blocked_fetch_result()`、`raise_if_fetch_url_blocked()`、
+`split_fetch_urls_by_ssrf()`，以及 Provider fallback、content quality、Browser Worker 路由和任何
+Fetch DTO。Rollback 是恢复 legacy implementation 和 consumer import；没有数据或配置迁移。
 
 ### 6.3 Redaction
 
@@ -189,6 +223,10 @@ Transport v1 若进入实施，必须先冻结：
 | VAL-CR-004 | `doctor.py` 与 `server/app.py` 使用 canonical import；external `souwen.provenance` 保持可用 |
 | VAL-CR-005 | architecture checker、import surface、provenance、doctor/server targeted tests 通过 |
 | VAL-CR-006 | 全量 pytest、Ruff、generated docs、wheel surface 与 CI/V2 aggregate 通过 |
+| VAL-CR-007 | canonical/legacy SSRF 三个 symbols object identity 相同；`BaseScraper` 使用 canonical import |
+| VAL-CR-008 | scheme/userinfo/port/IDNA/IP/legacy numeric/fake-IP/mixed DNS/reason 与 Host/SNI fixture parity |
+| VAL-CR-009 | 同步 DNS、单一 `url` interface、无 timeout/cancellation 参数和 stdlib-only AST fixture 通过 |
+| VAL-CR-010 | Fetch helpers/DTO 未迁移；legacy validate monkeypatch 与 local fixture override regression 通过 |
 
 未来 conditional slice 必须各自增加 old/new parity、negative dependency、cancellation 和资源清理
 证据；不能仅以 import 成功作为退出门槛。
