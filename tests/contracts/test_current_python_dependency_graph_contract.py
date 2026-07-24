@@ -37,7 +37,8 @@ def _destination_unit(module: str) -> str | None:
     parts = module.split(".")
     if parts[0] != "souwen":
         return None
-    return "root" if len(parts) == 1 else parts[1]
+    destination = "root" if len(parts) == 1 else parts[1]
+    return None if destination in TARGET_BOUNDARY_UNITS else destination
 
 
 class _SouWenAbsoluteImportVisitor(ast.NodeVisitor):
