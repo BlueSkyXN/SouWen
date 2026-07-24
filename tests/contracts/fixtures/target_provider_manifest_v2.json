@@ -1,0 +1,36 @@
+{
+  "fixture_version": 1,
+  "scope": "target_provider_manifest_v2",
+  "target_only": true,
+  "implemented_by_current_runtime": false,
+  "contract_version": "provider-v2",
+  "manifest": {
+    "schema_version": 2,
+    "id": "fixture-provider-package",
+    "version": "2.0.0",
+    "contract_version": "provider-v2",
+    "capabilities": ["search"],
+    "adapters": [{"id": "fixture-search", "capability": "search", "export": "FixtureSearchProvider", "availability": "configured"}],
+    "configuration": {"schema_reference": "fixture-provider-config-v1", "unknown_key_policy": "reject", "non_secret_keys": ["enabled"]},
+    "secrets": {"references": ["FIXTURE_PROVIDER_API_KEY"]},
+    "network": {"egress_hosts": ["api.example.com"], "proxy_supported": true, "browser_required": false},
+    "risk": {"authenticated": true, "costed": false},
+    "observability": {"dimensions": ["provider", "adapter", "capability", "outcome"]},
+    "compatibility": {"contract_versions": ["provider-v2"], "config_schema_versions": ["fixture-provider-config-v1"]}
+  },
+  "negative_cases": {
+    "missing_identity": "reject",
+    "empty_capabilities": "reject",
+    "duplicate_capability_adapter": "reject",
+    "incompatible_contract_version": "reject",
+    "forbidden_extra_field": "reject",
+    "export_spi_mismatch": "quarantine_package_only",
+    "literal_secret_value": "reject"
+  },
+  "conformance": {
+    "deterministic_only": true,
+    "requires": ["static_manifest", "config_secret", "spi_behavior", "lifecycle"],
+    "forbids": ["real_network", "browser_runtime", "production_secret", "home_configuration", "cross_provider_call"],
+    "outcomes": ["success", "empty", "invalid_request_or_config", "cancelled_or_deadline", "rate_limited", "invalid_upstream_response", "policy_blocked"]
+  }
+}
