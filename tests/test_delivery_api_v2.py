@@ -591,7 +591,12 @@ def test_rollout_mode_is_strict_and_target_router_precedes_legacy_fetch(tmp_path
     with pytest.raises(ValueError):
         resolve_rollout_mode("canary")
 
+    repo_src = str(Path(__file__).resolve().parents[1] / "src")
     script = """
+import sys
+
+sys.path.insert(0, sys.argv[1])
+
 from souwen.server.app import app
 matches = [
     route for route in app.routes
@@ -607,10 +612,13 @@ print(matches[0].response_model.__name__)
         "SOUWEN_PLUGIN_AUTOLOAD": "0",
         "SOUWEN_SOURCE_SHA": "a" * 40,
         "SOUWEN_V2_ROLLOUT": "target",
+        "PYTHONPATH": os.pathsep.join(
+            path for path in (repo_src, os.environ.get("PYTHONPATH")) if path
+        ),
     }
     env.pop("SOUWEN_BROWSER_WORKER_TOKEN", None)
     completed = subprocess.run(
-        [sys.executable, "-c", script],
+        [sys.executable, "-c", script, repo_src],
         capture_output=True,
         text=True,
         env=env,
