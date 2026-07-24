@@ -48,8 +48,45 @@ def test_allowed_target_edges_pass(tmp_path: Path) -> None:
         "src/souwen/providers/information_sources/openalex/adapter.py",
         "from souwen.common_runtime.transport import Client\n",
     )
+    _write(
+        root,
+        "src/souwen/common_runtime/transport/client.py",
+        "from ..security import policy\n"
+        "from souwen import common_runtime\n"
+        "import asyncio\n"
+        "import httpx\n",
+    )
 
     assert _violations(root, exceptions) == []
+
+
+@pytest.mark.parametrize(
+    "imported",
+    [
+        "souwen",
+        "souwen.core",
+        "souwen.delivery",
+        "souwen.server",
+        "souwen.config",
+        "souwen.registry",
+        "souwen.platform",
+        "souwen.modules.search",
+        "souwen.providers.information_sources.openalex",
+        "souwen.paper.openalex",
+        "souwen.web.builtin",
+    ],
+)
+def test_common_runtime_rejects_every_other_souwen_namespace(tmp_path: Path, imported: str) -> None:
+    root, exceptions = _repository(tmp_path)
+    relative_path = "src/souwen/common_runtime/transport/client.py"
+    _write(root, relative_path, f"import {imported}\n")
+
+    violations = _violations(root, exceptions)
+
+    assert [
+        (violation.rule_id, violation.file, violation.line, violation.imported)
+        for violation in violations
+    ] == [("DEP-004", relative_path, 1, imported)]
 
 
 @pytest.mark.parametrize(
@@ -168,6 +205,24 @@ def test_import_from_gateway_aliases_cannot_bypass_rules(
     ]
 
 
+def test_common_runtime_gateway_aliases_cannot_bypass_dep_004(tmp_path: Path) -> None:
+    root, exceptions = _repository(tmp_path)
+    relative_path = "src/souwen/common_runtime/transport/client.py"
+    _write(root, relative_path, "from souwen import core, config, registry, platform, server\n")
+
+    violations = _violations(root, exceptions)
+
+    assert [
+        (violation.rule_id, violation.line, violation.imported) for violation in violations
+    ] == [
+        ("DEP-004", 1, "souwen.config"),
+        ("DEP-004", 1, "souwen.core"),
+        ("DEP-004", 1, "souwen.platform"),
+        ("DEP-004", 1, "souwen.registry"),
+        ("DEP-004", 1, "souwen.server"),
+    ]
+
+
 def test_nonliteral_dynamic_import_fails_with_stable_rule_id(tmp_path: Path) -> None:
     root, exceptions = _repository(tmp_path)
     _write(
@@ -181,6 +236,62 @@ def test_nonliteral_dynamic_import_fails_with_stable_rule_id(tmp_path: Path) -> 
     assert [
         (violation.rule_id, violation.line, violation.imported) for violation in violations
     ] == [(checker.DYNAMIC_RULE_ID, 3, "<dynamic>")]
+
+
+@pytest.mark.parametrize(
+    ("source", "rule_id", "line", "imported"),
+    [
+        ('__import__("souwen.core.http_client")\n', "DEP-004", 1, "souwen.core.http_client"),
+        (
+            "module_name = 'souwen.core.http_client'\n__import__(module_name)\n",
+            "DEP-DYNAMIC",
+            2,
+            "<dynamic>",
+        ),
+        (
+            'load = __import__\nload("souwen.core.http_client")\n',
+            "DEP-004",
+            2,
+            "souwen.core.http_client",
+        ),
+        (
+            "load = __import__\nname = 'souwen.core.http_client'\nload(name)\n",
+            "DEP-DYNAMIC",
+            3,
+            "<dynamic>",
+        ),
+        (
+            'from builtins import __import__ as load\nload("souwen.core.http_client")\n',
+            "DEP-004",
+            2,
+            "souwen.core.http_client",
+        ),
+        (
+            'import builtins as runtime\nruntime.__import__("souwen.core.http_client")\n',
+            "DEP-004",
+            2,
+            "souwen.core.http_client",
+        ),
+        (
+            'load = __import__\nindirect = load\nindirect("souwen.core.http_client")\n',
+            "DEP-004",
+            3,
+            "souwen.core.http_client",
+        ),
+    ],
+)
+def test_builtin_import_cannot_bypass_architecture_rules(
+    tmp_path: Path, source: str, rule_id: str, line: int, imported: str
+) -> None:
+    root, exceptions = _repository(tmp_path)
+    relative_path = "src/souwen/common_runtime/transport/client.py"
+    _write(root, relative_path, source)
+
+    violations = _violations(root, exceptions)
+
+    assert [
+        (violation.rule_id, violation.line, violation.imported) for violation in violations
+    ] == [(rule_id, line, imported)]
 
 
 def test_platform_is_governed_for_dynamic_imports(tmp_path: Path) -> None:
