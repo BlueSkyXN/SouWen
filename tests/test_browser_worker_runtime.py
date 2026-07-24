@@ -5,6 +5,7 @@ from __future__ import annotations
 import pytest
 
 from souwen.worker.browser_fetch.runtime import BrowserWorkerSettings
+from souwen.worker.browser_fetch.protocol import BROWSER_WORKER_PROVIDER_INVENTORY_DIGEST
 
 
 def _valid_env(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -21,7 +22,7 @@ def test_runtime_defaults_to_exact_loopback_and_fixed_port(monkeypatch) -> None:
     assert settings.host == "127.0.0.1"
     assert settings.port == 49266
     assert settings.evidence.source_sha == "a" * 40
-    assert len(settings.evidence.provider_inventory_digest) == 64
+    assert settings.evidence.provider_inventory_digest == BROWSER_WORKER_PROVIDER_INVENTORY_DIGEST
 
 
 @pytest.mark.parametrize("host", ["0.0.0.0", "::1", "localhost", "127.0.0.2"])

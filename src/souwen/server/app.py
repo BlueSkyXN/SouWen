@@ -83,13 +83,29 @@ from starlette.middleware.gzip import GZipMiddleware
 from souwen import __version__
 from souwen.config import ensure_config_file, get_config
 from souwen.core.redaction import redact_secret_text, redact_secret_value
+from souwen.delivery.api import (
+    ReadinessSnapshot,
+    RolloutMode,
+    RuntimeMetadata,
+    TargetDeliveryError,
+    create_probe_router,
+    create_target_api_router,
+    resolve_rollout_mode,
+)
+from souwen.delivery.api.errors import error_response as target_error_response
+from souwen.delivery.api.errors import from_http_status as target_error_from_http_status
+from souwen.delivery.api.middleware import TargetContractHeadersMiddleware
+from souwen.delivery.api.openapi import normalize_target_openapi
+from souwen.delivery.api.rollout import is_target_contract_path
 from souwen.logging_config import setup_logging
 from souwen.plugin import ensure_plugins_loaded, get_loaded_plugins
 from souwen.common_runtime.observability import get_request_id, get_source_sha
-from souwen.server.auth import is_admin_open_enabled
+from souwen.server.auth import check_target_user_auth, is_admin_open_enabled
+from souwen.server.limiter import rate_limit_target_data
 from souwen.server.middleware import RequestIDMiddleware
 from souwen.server.routes import router, admin_router
-from souwen.server.schemas import ErrorResponse, HealthResponse, ReadinessResponse
+from souwen.server.schemas import ErrorResponse
+from souwen.server.v2_runtime import TargetRuntime, build_target_runtime
 from souwen.web.fetch import _current_plugin_owner
 
 logger = logging.getLogger("souwen.server")
@@ -231,6 +247,12 @@ async def lifespan(app: FastAPI):
         except Exception:
             logger.warning("MCP HTTP lifespan 关闭失败", exc_info=True)
 
+    if _target_runtime is not None:
+        try:
+            await _target_runtime.close()
+        except Exception:
+            logger.warning("Target runtime 关闭失败", exc_info=True)
+
     # 关闭会话缓存的 aiosqlite 连接
     try:
         from souwen.core.session_cache import get_session_cache
@@ -248,6 +270,39 @@ async def lifespan(app: FastAPI):
 
 
 _cfg_at_boot = get_config()
+_rollout_mode = resolve_rollout_mode()
+_target_runtime: TargetRuntime | None = (
+    build_target_runtime(_cfg_at_boot) if _rollout_mode is RolloutMode.TARGET else None
+)
+
+
+def _legacy_readiness() -> ReadinessSnapshot:
+    try:
+        from souwen.registry.meta import get_all_sources
+
+        ready = bool(get_all_sources())
+    except Exception:
+        ready = False
+    return ReadinessSnapshot(
+        ready=ready,
+        components={"api": "ready", "legacy_registry": "ready" if ready else "not_ready"},
+        error=None if ready else "legacy source registry is unavailable",
+    )
+
+
+_runtime_metadata = (
+    _target_runtime.metadata
+    if _target_runtime is not None
+    else RuntimeMetadata(
+        version=__version__,
+        source_sha=get_source_sha(),
+        rollout_mode=RolloutMode.LEGACY,
+        config_revision=os.environ.get("SOUWEN_CONFIG_REVISION", "").strip() or None,
+    )
+)
+_readiness_check = (
+    _target_runtime.services.readiness if _target_runtime is not None else _legacy_readiness
+)
 _fastapi_kwargs: dict = {
     "title": "SouWen API",
     "description": "面向 AI Agent 的学术论文 + 专利 + 网页统一搜索 API",
@@ -275,11 +330,32 @@ if cfg.cors_origins:
         allow_headers=["*"],
     )
 
-# 3. Request ID + 访问日志（最外层 ASGI 中间件）
+# 3. Request ID + 访问日志
 app.add_middleware(RequestIDMiddleware)
 
+# 4. Target contract identity is outermost and replaces duplicate headers.
+app.add_middleware(TargetContractHeadersMiddleware, mode=_rollout_mode)
+
+if _target_runtime is not None:
+    app.include_router(
+        create_target_api_router(
+            _target_runtime.services,
+            require_user=check_target_user_auth,
+            rate_limit=rate_limit_target_data,
+        ),
+        prefix="/api/v1",
+    )
 app.include_router(router, prefix="/api/v1")
 app.include_router(admin_router, prefix="/api/v1/admin")
+app.include_router(create_probe_router(_readiness_check, _runtime_metadata))
+_default_openapi = app.openapi
+
+
+def _rollout_openapi():
+    return normalize_target_openapi(_default_openapi(), _rollout_mode)
+
+
+app.openapi = _rollout_openapi
 
 # --- MCP 网络端点挂载（可选） ---
 _mcp_cfg = get_config()
@@ -309,6 +385,15 @@ def _safe_error_detail(detail: object) -> str:
     return text or ""
 
 
+def _is_target_request(request: Request) -> bool:
+    return is_target_contract_path(request.url.path, _rollout_mode)
+
+
+@app.exception_handler(TargetDeliveryError)
+async def target_delivery_exception_handler(request: Request, exc: TargetDeliveryError):
+    return target_error_response(exc, get_request_id())
+
+
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     """HTTP 异常处理器 — 将 Starlette HTTPException 转换为统一的 ErrorResponse 格式
@@ -320,6 +405,12 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
     Returns:
         JSONResponse：包含 ErrorResponse 的 JSON 响应，保留原始状态码和响应头
     """
+    if _is_target_request(request):
+        return target_error_response(
+            target_error_from_http_status(exc.status_code),
+            get_request_id(),
+            extra_headers=dict(getattr(exc, "headers", None) or {}),
+        )
     return JSONResponse(
         status_code=exc.status_code,
         content=ErrorResponse(
@@ -344,6 +435,11 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
     Returns:
         JSONResponse：422 响应，包含详细的验证错误信息
     """
+    if _is_target_request(request):
+        return target_error_response(
+            TargetDeliveryError("invalid_request", 400),
+            get_request_id(),
+        )
     fields = []
     for err in exc.errors():
         loc = ".".join(str(part) for part in err.get("loc", []))
@@ -373,6 +469,8 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     """
     rid = get_request_id()
     logger.exception("未处理异常 [%s]", rid)
+    if _is_target_request(request):
+        return target_error_response(TargetDeliveryError("internal_error", 500), rid)
     return JSONResponse(
         status_code=500,
         content=ErrorResponse(
@@ -404,58 +502,6 @@ def _status_to_code(status_code: int) -> str:
         503: "service_unavailable",
         504: "gateway_timeout",
     }.get(status_code, "error")
-
-
-@app.get("/health", response_model=HealthResponse)
-async def health():
-    """健康检查端点 /health
-
-    用于容器编排系统（K8s）探针检查服务是否存活。返回当前应用版本。
-
-    Returns:
-        HealthResponse: {"status": "ok", "version": "<version>"}
-    """
-    return {"status": "ok", "version": __version__, "source_sha": get_source_sha()}
-
-
-@app.get("/readiness", response_model=ReadinessResponse)
-async def readiness():
-    """K8s readiness 探针：仅做本地检查（配置可加载 + 数据源注册表非空）。
-
-    不做任何网络调用，避免探针超时。
-    """
-    try:
-        source_sha = get_source_sha()
-        get_config()
-        from souwen.registry.meta import get_all_sources
-
-        sources = get_all_sources()
-        if not sources:
-            return JSONResponse(
-                status_code=503,
-                content=ReadinessResponse(
-                    ready=False,
-                    version=__version__,
-                    source_sha=source_sha,
-                    error="source registry is empty",
-                ).model_dump(),
-            )
-        return {
-            "ready": True,
-            "version": __version__,
-            "source_sha": source_sha,
-            "error": None,
-        }
-    except Exception as exc:  # pragma: no cover - 防御性
-        return JSONResponse(
-            status_code=503,
-            content=ReadinessResponse(
-                ready=False,
-                version=__version__,
-                source_sha=get_source_sha(),
-                error=_safe_error_detail(f"{type(exc).__name__}: {exc}"),
-            ).model_dump(),
-        )
 
 
 def _get_panel_payload() -> tuple[str, str] | None:

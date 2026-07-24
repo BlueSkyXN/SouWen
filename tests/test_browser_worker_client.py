@@ -168,6 +168,31 @@ async def test_client_fails_closed_on_worker_source_mismatch() -> None:
     assert caught.value.code is ProviderErrorCode.WORKER_PROTOCOL_MISMATCH
 
 
+@pytest.mark.asyncio
+async def test_client_readiness_fails_closed_on_worker_inventory_mismatch() -> None:
+    app = create_browser_worker_app(
+        token=TOKEN,
+        evidence=_evidence(),
+        executor=_Executor(),
+        initialize_executor=False,
+    )
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(transport=transport, base_url="http://127.0.0.1:49266") as http:
+        client = BrowserWorkerClient(
+            base_url="http://127.0.0.1:49266",
+            token=TOKEN,
+            client=http,
+            expected_inventory_digest="c" * 64,
+        )
+        with pytest.raises(ProviderError) as caught:
+            await client.readiness(
+                RequestContext(request_id="browser-readiness"),
+                ExecutionContext.with_timeout(5),
+            )
+
+    assert caught.value.code is ProviderErrorCode.WORKER_PROTOCOL_MISMATCH
+
+
 @pytest.mark.parametrize(
     "base_url",
     [

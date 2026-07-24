@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from dataclasses import dataclass
 from typing import Protocol
 
 from souwen.platform.provider_spi import (
@@ -21,6 +22,12 @@ from souwen.platform.provider_spi import (
 
 
 BUILTIN_FETCH_ADAPTER_ID = "builtin-fetch"
+
+
+@dataclass(frozen=True, slots=True)
+class _TargetOutcome:
+    result: FetchResult
+    error: ProviderError | None = None
 
 
 class FetchProviderManager(Protocol):
@@ -75,10 +82,13 @@ class FetchModuleService:
         ):
             raise ProviderError(ProviderErrorCode.INVALID_REQUEST)
 
-        items = await asyncio.gather(
+        outcomes = await asyncio.gather(
             *(self._fetch_target(target, request, context, execution) for target in request.targets)
         )
+        items = [outcome.result for outcome in outcomes]
         execution.raise_if_cancelled_or_expired()
+        if not any(item.status == "success" for item in items):
+            raise _all_failed_error(outcomes, self._adapter_id)
         partial = any(
             item.status != "success"
             or item.content_metadata is None
@@ -93,7 +103,7 @@ class FetchModuleService:
         request: FetchRequest,
         context: RequestContext,
         execution: ExecutionContext,
-    ) -> FetchResult:
+    ) -> _TargetOutcome:
         target_request = FetchTargetRequest(
             target=target,
             content=request.content,
@@ -106,49 +116,62 @@ class FetchModuleService:
                 context,
                 execution,
             )
+            builtin_error = None
         except ProviderError as exc:
+            builtin_error = exc
             builtin_result = _failed_result(target_request, context, self._adapter_id, exc)
         except Exception:
+            builtin_error = ProviderError(ProviderErrorCode.PROVIDER_UNAVAILABLE)
             builtin_result = _failed_result(
                 target_request,
                 context,
                 self._adapter_id,
-                ProviderError(ProviderErrorCode.PROVIDER_UNAVAILABLE),
+                builtin_error,
             )
 
         if not self._should_try_browser(target_request, builtin_result):
-            return builtin_result
+            return _TargetOutcome(builtin_result, builtin_error)
         try:
             browser_result = await self._browser_executor.fetch(
                 target_request,
                 context,
                 execution,
             )
+            browser_error = None
         except ProviderError as exc:
+            browser_error = exc
             browser_result = _failed_result(target_request, context, self._adapter_id, exc)
         except Exception:
+            browser_error = ProviderError(ProviderErrorCode.WORKER_UNAVAILABLE)
             browser_result = _failed_result(
                 target_request,
                 context,
                 self._adapter_id,
-                ProviderError(ProviderErrorCode.WORKER_UNAVAILABLE),
+                browser_error,
             )
         if builtin_result.status == "success":
             if browser_result.status == "success":
-                return browser_result.model_copy(
+                return _TargetOutcome(
+                    browser_result.model_copy(
+                        update={
+                            "provenance": builtin_result.provenance + browser_result.provenance,
+                        }
+                    )
+                )
+            return _TargetOutcome(
+                builtin_result.model_copy(
                     update={
                         "provenance": builtin_result.provenance + browser_result.provenance,
                     }
                 )
-            return builtin_result.model_copy(
+            )
+        return _TargetOutcome(
+            browser_result.model_copy(
                 update={
                     "provenance": builtin_result.provenance + browser_result.provenance,
                 }
-            )
-        return browser_result.model_copy(
-            update={
-                "provenance": builtin_result.provenance + browser_result.provenance,
-            }
+            ),
+            browser_error,
         )
 
     def _should_try_browser(
@@ -222,6 +245,23 @@ def _safe_error_message(code: str) -> str:
         "worker_protocol_mismatch": "Browser Worker protocol does not match",
         "provider_unavailable": "Fetch provider is unavailable",
     }[code]
+
+
+def _all_failed_error(outcomes: list[_TargetOutcome], adapter_id: str) -> ProviderError:
+    errors = [outcome.error for outcome in outcomes if outcome.error is not None]
+    codes = {error.code for error in errors}
+    provider_code = next(iter(codes)) if len(codes) == 1 else ProviderErrorCode.PROVIDER_UNAVAILABLE
+    retry_after = None
+    if provider_code is ProviderErrorCode.RATE_LIMITED:
+        retry_values = [
+            error.retry_after_seconds for error in errors if error.retry_after_seconds is not None
+        ]
+        retry_after = max(retry_values) if retry_values else None
+    return ProviderError(
+        provider_code,
+        provider_id=adapter_id,
+        retry_after_seconds=retry_after,
+    )
 
 
 __all__ = [

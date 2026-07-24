@@ -2,8 +2,16 @@
   "fixture_version": 1,
   "scope": "target_canonical_contract_v2",
   "target_only": true,
-  "implemented_by_current_runtime": false,
+  "implemented_by_current_runtime": true,
   "api_major": 2,
+  "runtime_activation": {
+    "switch": "SOUWEN_V2_ROLLOUT",
+    "allowed_values": ["legacy", "target"],
+    "default": "legacy",
+    "request_override": false,
+    "observable_header": "X-SouWen-Rollout-Mode",
+    "removal_phase": 8
+  },
   "approved_decisions": [
     "Q-004",
     "Q-005",

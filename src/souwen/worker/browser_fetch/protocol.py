@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from datetime import datetime
+import hashlib
+import json
 from typing import Literal, TypeAlias
 
 from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, model_validator
@@ -14,6 +16,10 @@ BROWSER_WORKER_MAX_DEADLINE_SECONDS = 120.0
 BROWSER_WORKER_MAX_CODE_POINTS = 1_000_000
 BROWSER_WORKER_DEFAULT_CODE_POINTS = 200_000
 BROWSER_WORKER_PAGE_SLOTS = 2
+BROWSER_WORKER_PROVIDER_INVENTORY = ("builtin-fetch:playwright",)
+BROWSER_WORKER_PROVIDER_INVENTORY_DIGEST = hashlib.sha256(
+    json.dumps(BROWSER_WORKER_PROVIDER_INVENTORY, separators=(",", ":")).encode("utf-8")
+).hexdigest()
 
 
 class WorkerModel(BaseModel):
@@ -129,6 +135,8 @@ __all__ = [
     "BROWSER_WORKER_MAX_CODE_POINTS",
     "BROWSER_WORKER_MAX_DEADLINE_SECONDS",
     "BROWSER_WORKER_PAGE_SLOTS",
+    "BROWSER_WORKER_PROVIDER_INVENTORY",
+    "BROWSER_WORKER_PROVIDER_INVENTORY_DIGEST",
     "WorkerErrorCode",
     "WorkerErrorDetail",
     "WorkerErrorResponse",

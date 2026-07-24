@@ -13,21 +13,28 @@ def _read(name: str) -> dict[str, object]:
     return json.loads((FIXTURES / name).read_text(encoding="utf-8"))
 
 
-def test_target_fixtures_are_explicitly_non_runtime_and_deterministic() -> None:
-    for name in (
-        "target_api_contract_v2.json",
-        "target_provider_manifest_v2.json",
-    ):
-        fixture = _read(name)
+def test_target_fixtures_record_runtime_state_and_remain_deterministic() -> None:
+    api = _read("target_api_contract_v2.json")
+    provider = _read("target_provider_manifest_v2.json")
+    for fixture in (api, provider):
         assert fixture["fixture_version"] == 1
         assert fixture["target_only"] is True
-        assert fixture["implemented_by_current_runtime"] is False
         assert json.loads(json.dumps(fixture, sort_keys=True)) == fixture
+    assert api["implemented_by_current_runtime"] is True
+    assert provider["implemented_by_current_runtime"] is False
 
 
 def test_target_api_closes_approved_decisions_without_claiming_current_routes() -> None:
     contract = _read("target_api_contract_v2.json")
     assert contract["api_major"] == 2
+    assert contract["runtime_activation"] == {
+        "switch": "SOUWEN_V2_ROLLOUT",
+        "allowed_values": ["legacy", "target"],
+        "default": "legacy",
+        "request_override": False,
+        "observable_header": "X-SouWen-Rollout-Mode",
+        "removal_phase": 8,
+    }
     assert contract["approved_decisions"] == [
         "Q-004",
         "Q-005",
@@ -102,7 +109,7 @@ def test_target_openapi_skeleton_matches_the_target_fixture() -> None:
     skeleton = _read("target_openapi_skeleton_v2.json")
     assert skeleton["openapi"] == "3.1.0"
     assert skeleton["x-souwen-api-major"] == contract["api_major"]
-    assert skeleton["x-souwen-contract-stage"] == "target_skeleton_not_runtime"
+    assert skeleton["x-souwen-contract-stage"] == "target_runtime_rollout_gated"
 
     paths = skeleton["paths"]
     assert isinstance(paths, dict)
@@ -118,6 +125,7 @@ def test_target_openapi_skeleton_matches_the_target_fixture() -> None:
     schemas = skeleton["components"]["schemas"]
     headers = skeleton["components"]["headers"]
     assert headers["X-SouWen-API-Major"]["schema"] == {"const": "2"}
+    assert headers["X-SouWen-Rollout-Mode"]["schema"] == {"enum": ["legacy", "target"]}
     assert {
         "Retry-After",
         "X-RateLimit-Limit",

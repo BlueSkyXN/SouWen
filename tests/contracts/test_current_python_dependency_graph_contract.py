@@ -13,6 +13,7 @@ FIXTURE_PATH = REPO_ROOT / "tests/contracts/fixtures/current_python_dependency_g
 TARGET_BOUNDARY_UNITS = frozenset(
     {"common_runtime", "delivery", "modules", "platform", "providers", "worker"}
 )
+TARGET_BOUNDARY_PATHS = frozenset({Path("server/v2_runtime.py")})
 
 
 def _is_type_checking_guard(test: ast.expr) -> bool:
@@ -77,6 +78,7 @@ def _current_graph(source_root: Path) -> tuple[list[Path], set[str], set[tuple[s
         path
         for path in source_root.rglob("*.py")
         if path.relative_to(source_root).parts[0] not in TARGET_BOUNDARY_UNITS
+        and path.relative_to(source_root) not in TARGET_BOUNDARY_PATHS
     )
     units: set[str] = set()
     edges: set[tuple[str, str]] = set()

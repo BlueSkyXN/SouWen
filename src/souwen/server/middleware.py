@@ -17,7 +17,7 @@ r"""SouWen ASGI 中间件 — 请求 ID 注入 + 响应计时 + 访问日志
     RequestIDMiddleware(app)
         - 功能：Raw ASGI 中间件，处理 HTTP 请求和响应
         - 逻辑：
-            1. 提取或生成 request_id（验证格式 [\w\-]{1,64}）
+            1. 提取或生成 request_id（验证格式 [A-Za-z0-9_-]{1,64}）
             2. 通过 contextvars 传播 ID
             3. 记录响应状态码和耗时
             4. 添加 X-Request-ID 和 X-Response-Time 响应头
@@ -52,7 +52,7 @@ from souwen.common_runtime.observability import (
 
 logger = logging.getLogger("souwen.server")
 
-_VALID_REQUEST_ID = re.compile(r"^[\w\-]{1,64}$")
+_VALID_REQUEST_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
 # 不记录访问日志的路径（健康检查 / 面板静态资源）
 _SKIP_LOG_PATHS = frozenset({"/health", "/panel"})
@@ -92,8 +92,11 @@ class RequestIDMiddleware:
 
         # --- 提取或生成 Request ID ---
         headers = dict(scope.get("headers", []))
-        raw_id = headers.get(b"x-request-id", b"").decode("ascii", errors="ignore")
-        if raw_id and _VALID_REQUEST_ID.match(raw_id):
+        try:
+            raw_id = headers.get(b"x-request-id", b"").decode("ascii")
+        except UnicodeDecodeError:
+            raw_id = ""
+        if _VALID_REQUEST_ID.fullmatch(raw_id):
             rid = raw_id
         else:
             rid = uuid4().hex[:12]
