@@ -61,7 +61,7 @@ import sys
 from datetime import datetime, timezone
 
 from souwen.common_runtime.observability import RequestIDFilter
-from souwen.core.redaction import redact_secret_text
+from souwen.common_runtime.security import redact_secret_text
 
 _CONFIGURED = False
 

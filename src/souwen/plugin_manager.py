@@ -26,7 +26,8 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
-from souwen.core.redaction import redact_secret_payload, redact_secret_text
+from souwen.common_runtime.security import redact_secret_text
+from souwen.core.redaction import redact_secret_payload
 from souwen.plugin import (
     ensure_plugins_loaded,
     get_loaded_plugins,
