@@ -308,6 +308,42 @@ CR-05b 再建立 explicit Transport core 与 legacy config adapter；OAuth token
 injection 全部留在后续单元。Rollback 必须能分别恢复 error definitions 和 HTTP implementation，不需要
 数据、配置或 persisted credential migration。
 
+### 6.5 Outbound Rate Limiter
+
+Canonical path 为 `souwen.common_runtime.resilience`，repository-internal interface 保持：
+
+```python
+class RateLimiterBase(ABC):
+    async def acquire(self) -> None: ...
+    def update_from_headers(
+        self,
+        remaining: int | None = None,
+        retry_after: float | None = None,
+    ) -> None: ...
+
+class TokenBucketLimiter(RateLimiterBase):
+    def __init__(self, rate: float, burst: int | None = None): ...
+
+class SlidingWindowLimiter(RateLimiterBase):
+    def __init__(self, max_requests: int, window_seconds: float = 60.0): ...
+```
+
+实现只依赖 stdlib `abc`、`asyncio`、`collections.deque` 和 monotonic `time`。Token bucket 的
+`burst or max(1, int(rate))`、refill/扣减顺序和持锁 sleep 保持；Sliding window 的 strict `< cutoff`、
+`+0.01s` 边界、`max_requests=0` fallback、retry pause/restore 与 synchronous
+`update_from_headers()` 状态更新保持。本切片不顺手新增参数校验、clock/sleep injection、跨 event-loop
+共享保证或 update/acquire 原子性。
+
+`acquire()` 不 shield cancellation。request task 在 token wait、retry pause 或 window wait 被取消时，
+`async with` 必须释放 lock；已存在 token/timestamp/retry state 保持在 cancellation point 的状态，后续
+调用继续按 monotonic time 恢复。接口无内部 timeout；外层 task 拥有 cancellation/budget。
+
+`update_from_headers()` 只接收调用方已解析的 `int | None` 与 `float | None`。具体 header 名称、字符串
+解析、monthly quota logging 与 `RateLimitError` 构造继续归 Provider；Common Runtime 不 import HTTP
+response、config、registry 或具体 Provider。`souwen.core.rate_limiter` object-identical re-export 三类，
+OpenAlex 与 The Lens 作为 token/sliding 两个 representative canonical consumers。Rollback 只恢复旧定义
+与 consumer imports，无数据或 persisted state migration。
+
 ## 7. 验证计划
 
 ### ACCEPT-01 required evidence
@@ -335,6 +371,12 @@ injection 全部留在后续单元。Rollback 必须能分别恢复 error defini
 | VAL-CR-019 | single/default attempt count、native request/backoff cancellation 和 subclass hook parity |
 | VAL-CR-020 | normal/exception context close delegate、无 stream v1、trusted redirect/SSRF negative boundary |
 | VAL-CR-021 | canonical/legacy wheel paths、至少两个 consumers、全量 pytest、Ruff、CI/V2 通过 |
+| VAL-CR-022 | 三类 limiter canonical/core object identity；完整 class semantic AST parity |
+| VAL-CR-023 | canonical limiter stdlib-only；无 HTTP/config/registry/Provider import 或 header-name policy |
+| VAL-CR-024 | token wait cancellation 释放 lock 并保留 pre-sleep token/refill state |
+| VAL-CR-025 | retry pause/window wait cancellation 释放 lock，保留 pause/timestamp 并可由后续 acquire 恢复 |
+| VAL-CR-026 | OpenAlex token + The Lens sliding consumers canonicalized；Provider 继续解析 headers |
+| VAL-CR-027 | legacy limiter regression、Provider tests、wheel、全量 pytest、Ruff、CI/V2 通过 |
 
 未来 conditional slice 必须各自增加 old/new parity、negative dependency、cancellation 和资源清理
 证据；不能仅以 import 成功作为退出门槛。
@@ -351,12 +393,10 @@ injection 全部留在后续单元。Rollback 必须能分别恢复 error defini
 
 需要后续关闭的技术项：
 
-1. explicit Transport options/port 与 legacy config adapter 的最终 interface；
-2. OAuth 属于 Transport 还是 Security，以及 token refresh cancellation；
-3. neutral concurrency namespace，替代 legacy `search` / `web` channel；
-4. SSRF 同步 DNS 的 timeout/cancellation 演进；
-5. rate limiter cancellation 后 lock/state conformance；
-6. stable transport port 出现后再定义 fake transport/clock/testing harness。
+1. OAuth 属于 Transport 还是 Security，以及 token refresh cancellation；
+2. neutral concurrency namespace，替代 legacy `search` / `web` channel；
+3. SSRF 同步 DNS 的 timeout/cancellation 演进；
+4. stable transport port 出现后再定义 fake transport/clock/testing harness。
 
 ## 9. 实施任务
 
@@ -368,6 +408,6 @@ injection 全部留在后续单元。Rollback 必须能分别恢复 error defini
 | CR-04 | generic redaction split | no Pydantic/LLM policy in primitive; secret fixtures parity |
 | CR-05a | shared/transport error identity prerequisite | VAL-CR-015–017；legacy identity 与 inheritance parity |
 | CR-05b | trusted Provider HTTP execution core | VAL-CR-018–021；explicit cancellation/redirect/config contract and parity |
-| CR-06 | generic outbound rate limiter | cancellation/state conformance; Provider header parsing outside runtime |
+| CR-06 | generic outbound rate limiter | VAL-CR-022–027；cancellation/state conformance；Provider header parsing outside runtime |
 
 CR-02–CR-06 不能因 CR-01 完成而自动视为批准；每个切片都重新执行 admission test。
