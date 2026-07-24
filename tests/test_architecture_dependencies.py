@@ -126,6 +126,48 @@ def test_relative_and_literal_dynamic_imports_are_resolved(tmp_path: Path) -> No
     ]
 
 
+@pytest.mark.parametrize(
+    ("relative_path", "source", "rule_id", "imported"),
+    [
+        (
+            "src/souwen/modules/search/application/service.py",
+            "from souwen import providers\n",
+            "DEP-001",
+            "souwen.providers",
+        ),
+        (
+            "src/souwen/providers/information_sources/openalex/adapter.py",
+            "from souwen import delivery\n",
+            "DEP-002",
+            "souwen.delivery",
+        ),
+        (
+            "src/souwen/common_runtime/transport/client.py",
+            "from souwen import modules\n",
+            "DEP-004",
+            "souwen.modules",
+        ),
+        (
+            "src/souwen/modules/fetch/application/service.py",
+            "from souwen.server import warp\n",
+            "DEP-005",
+            "souwen.server.warp",
+        ),
+    ],
+)
+def test_import_from_gateway_aliases_cannot_bypass_rules(
+    tmp_path: Path, relative_path: str, source: str, rule_id: str, imported: str
+) -> None:
+    root, exceptions = _repository(tmp_path)
+    _write(root, relative_path, source)
+
+    violations = _violations(root, exceptions)
+
+    assert [(violation.rule_id, violation.imported) for violation in violations] == [
+        (rule_id, imported)
+    ]
+
+
 def test_nonliteral_dynamic_import_fails_with_stable_rule_id(tmp_path: Path) -> None:
     root, exceptions = _repository(tmp_path)
     _write(
@@ -186,6 +228,18 @@ def test_top_level_package_and_exact_expiring_exception_rules(tmp_path: Path) ->
     assert _violations(root, exceptions) == []
 
 
+def test_namespace_package_outside_souwen_fails_dep_010(tmp_path: Path) -> None:
+    root, exceptions = _repository(tmp_path)
+    _write(root, "src/rogue_namespace/module.py")
+
+    violations = _violations(root, exceptions)
+
+    assert [
+        (violation.rule_id, violation.file, violation.importer, violation.imported)
+        for violation in violations
+    ] == [("DEP-010", "src/rogue_namespace/module.py", "rogue_namespace", "src/rogue_namespace")]
+
+
 @pytest.mark.parametrize(
     "payload",
     [
@@ -237,3 +291,15 @@ def test_cli_returns_one_with_stable_evidence_and_zero_when_clean(
     _write(root, relative_path, "from souwen.common_runtime.transport import Client\n")
     assert checker.main(["--root", str(root), "--exceptions", str(exceptions)]) == 0
     assert capsys.readouterr().out == "architecture dependency check passed\n"
+
+
+def test_cli_returns_two_for_invalid_exception_configuration(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root, exceptions = _repository(tmp_path)
+    exceptions.write_text("{}\n", encoding="utf-8")
+
+    assert checker.main(["--root", str(root), "--exceptions", str(exceptions)]) == 2
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert captured.err.startswith("architecture dependency checker configuration error:")

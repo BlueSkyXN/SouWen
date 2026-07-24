@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import ast
 import importlib
+import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -100,11 +103,31 @@ def test_phase2_packages_have_no_legacy_or_optional_imports(package_name: str) -
 
 def test_phase2_package_imports_add_no_runtime_modules() -> None:
     """Package imports add only the requested skeleton packages after ``souwen`` is loaded."""
-    import souwen  # noqa: F401
+    script = f"""
+import importlib
+import json
+import sys
 
-    before = set(sys.modules)
-    for package_name in SKELETON_PACKAGES:
-        importlib.import_module(package_name)
+import souwen
 
-    added_modules = set(sys.modules) - before
+before = set(sys.modules)
+for package_name in {SKELETON_PACKAGES!r}:
+    importlib.import_module(package_name)
+print(json.dumps(sorted(set(sys.modules) - before)))
+"""
+    environment = os.environ.copy()
+    source_path = str(REPOSITORY_ROOT / "src")
+    environment["PYTHONPATH"] = os.pathsep.join(
+        path for path in (source_path, environment.get("PYTHONPATH")) if path
+    )
+
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=REPOSITORY_ROOT,
+        env=environment,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+    added_modules = set(json.loads(result.stdout))
     assert added_modules <= set(SKELETON_PACKAGES)

@@ -143,6 +143,17 @@ def _parse_imports(root: Path, path: Path) -> list[ImportEdge]:
             imported = _resolve_import_from(importer, path, node)
             if imported:
                 edges.append(ImportEdge(relative_file, node.lineno, importer, imported))
+                if imported in {"souwen", "souwen.server", "souwen.deploy"}:
+                    edges.extend(
+                        ImportEdge(
+                            relative_file,
+                            node.lineno,
+                            importer,
+                            f"{imported}.{alias.name}",
+                        )
+                        for alias in node.names
+                        if alias.name != "*"
+                    )
             if node.level == 0 and node.module == "importlib":
                 for alias in node.names:
                     if alias.name == "import_module":
@@ -217,17 +228,20 @@ def _top_level_package_violations(root: Path) -> list[Violation]:
     if not source_root.is_dir():
         return []
     violations: list[Violation] = []
-    for package_init in sorted(source_root.glob("*/__init__.py")):
-        package_name = package_init.parent.name
+    for package_path in sorted(path for path in source_root.iterdir() if path.is_dir()):
+        package_name = package_path.name
         if package_name == "souwen":
+            continue
+        python_files = sorted(package_path.rglob("*.py"))
+        if not python_files:
             continue
         violations.append(
             Violation(
                 "DEP-010",
-                package_init.relative_to(root).as_posix(),
+                python_files[0].relative_to(root).as_posix(),
                 1,
                 package_name,
-                package_init.parent.relative_to(root).as_posix(),
+                package_path.relative_to(root).as_posix(),
             )
         )
     return violations
