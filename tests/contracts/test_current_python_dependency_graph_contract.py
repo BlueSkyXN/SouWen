@@ -10,6 +10,9 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FIXTURE_PATH = REPO_ROOT / "tests/contracts/fixtures/current_python_dependency_graph_v1.json"
+TARGET_BOUNDARY_UNITS = frozenset(
+    {"common_runtime", "delivery", "modules", "platform", "providers"}
+)
 
 
 def _is_type_checking_guard(test: ast.expr) -> bool:
@@ -68,7 +71,12 @@ class _SouWenAbsoluteImportVisitor(ast.NodeVisitor):
 
 
 def _current_graph(source_root: Path) -> tuple[list[Path], set[str], set[tuple[str, str]]]:
-    files = sorted(source_root.rglob("*.py"))
+    # This fixture freezes the legacy graph; Phase 2+ target packages have their own checker.
+    files = sorted(
+        path
+        for path in source_root.rglob("*.py")
+        if path.relative_to(source_root).parts[0] not in TARGET_BOUNDARY_UNITS
+    )
     units: set[str] = set()
     edges: set[tuple[str, str]] = set()
 
