@@ -1,0 +1,113 @@
+{
+  "fixture_version": 1,
+  "scope": "current_only_migration_baseline",
+  "source_root": "src/souwen",
+  "algorithm": {
+    "version": "python_ast_top_level_units_v1",
+    "source_set": "sorted recursive **/*.py",
+    "source_unit_rule": "direct child stem; direct __init__.py is root; nested file first directory component",
+    "destination_unit_rule": "absolute souwen import first component after souwen; souwen itself is root",
+    "edge_rule": "deduplicated cross-unit directed edges; exclude same-unit edges",
+    "included": [
+      "ast.Import",
+      "absolute ast.ImportFrom",
+      "imports anywhere outside direct TYPE_CHECKING bodies"
+    ],
+    "ignored": [
+      "relative imports",
+      "imports inside if TYPE_CHECKING",
+      "imports inside if typing.TYPE_CHECKING",
+      "dynamic import calls and entry points",
+      "non-souwen imports",
+      "Phase 2+ target boundary source files and destination units",
+      "same-unit edges"
+    ],
+    "cycle_rule": "sorted strongly connected components with at least two units using deterministic Tarjan traversal"
+  },
+  "snapshot": {
+    "python_file_count": 265,
+    "top_level_unit_count": 27,
+    "top_level_units": [
+      "__main__",
+      "book",
+      "citations",
+      "cli",
+      "config",
+      "core",
+      "doctor",
+      "editions",
+      "feature_matrix",
+      "integrations",
+      "llm",
+      "local_catalog",
+      "logging_config",
+      "models",
+      "paper",
+      "patent",
+      "plugin",
+      "plugin_manager",
+      "provenance",
+      "registry",
+      "research_output",
+      "root",
+      "search",
+      "server",
+      "testing",
+      "web",
+      "wikisource"
+    ],
+    "cross_unit_edge_count": 114,
+    "cross_unit_edge_sha256": "f86a2fbaa093426f2bc41eda4899762abdf59556df5e9cd6d8efff7da0dd3835",
+    "strongly_connected_components": [
+      [
+        "citations",
+        "config",
+        "core",
+        "editions",
+        "feature_matrix",
+        "llm",
+        "local_catalog",
+        "paper",
+        "plugin",
+        "plugin_manager",
+        "registry",
+        "root",
+        "search",
+        "web",
+        "wikisource"
+      ]
+    ]
+  },
+  "critical_legacy_edges": [
+    [
+      "registry",
+      "web"
+    ],
+    [
+      "server",
+      "core"
+    ],
+    [
+      "server",
+      "llm"
+    ],
+    [
+      "server",
+      "registry"
+    ],
+    [
+      "server",
+      "web"
+    ],
+    [
+      "web",
+      "paper"
+    ]
+  ],
+  "target_claims_excluded": [
+    "allowed_target_dependency_graph",
+    "phase_2_target_checker_implemented",
+    "provider_extension_v2_implemented",
+    "yaml_target_workflow_implemented"
+  ]
+}

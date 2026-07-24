@@ -1,0 +1,228 @@
+{
+  "fixture_version": 1,
+  "scope": "current_api_only",
+  "not_target_contract": true,
+  "operations": {
+    "health": {
+      "request": {
+        "method": "GET",
+        "path": "/health"
+      },
+      "openapi": {
+        "method": "get",
+        "response_schema": "HealthResponse"
+      },
+      "response": {
+        "status": "ok",
+        "version": "2.0.0rc1",
+        "source_sha": "0000000000000000000000000000000000000000"
+      }
+    },
+    "readiness": {
+      "request": {
+        "method": "GET",
+        "path": "/readiness"
+      },
+      "openapi": {
+        "method": "get",
+        "response_schema": "ReadinessResponse"
+      },
+      "response": {
+        "ready": true,
+        "version": "2.0.0rc1",
+        "source_sha": "0000000000000000000000000000000000000000",
+        "error": null
+      }
+    },
+    "search_paper": {
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/search/paper",
+        "query": {
+          "q": "fixture query",
+          "sources": "openalex",
+          "per_page": 10,
+          "timeout": 30
+        }
+      },
+      "openapi": {
+        "method": "get",
+        "response_schema": "SearchPaperResponse",
+        "required_query_parameter": "q"
+      },
+      "response": {
+        "query": "fixture query",
+        "sources": ["openalex"],
+        "results": [],
+        "total": 0,
+        "meta": {
+          "requested": ["openalex"],
+          "succeeded": ["openalex"],
+          "failed": []
+        }
+      }
+    },
+    "enriched_web_search": {
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/search/web/enriched",
+        "json": {
+          "query": "fixture query",
+          "sources": ["fixture_llm_source"],
+          "source_strategy": "single",
+          "max_results_per_source": 10,
+          "deduplicate": true,
+          "fetch": {
+            "enabled": false
+          },
+          "budget": {
+            "max_total_seconds": 30,
+            "max_source_attempts": 1
+          },
+          "synthesis": null
+        }
+      },
+      "openapi": {
+        "method": "post",
+        "request_schema": "EnrichedWebSearchRequest",
+        "response_schema": "EnrichedWebSearchResponse"
+      },
+      "response": {
+        "query": "fixture query",
+        "results": [],
+        "answer": null,
+        "meta": {
+          "requested_sources": ["fixture_llm_source"],
+          "source_strategy": "single",
+          "source_outcomes": {
+            "fixture_llm_source": "success_empty"
+          },
+          "partial": false,
+          "discarded_candidates": 0,
+          "source_attempts": [
+            {
+              "source_id": "fixture_llm_source",
+              "attempt_index": 1,
+              "outcome": "success_empty",
+              "visible_search_calls": 1,
+              "provider_metered_search_calls": null
+            }
+          ],
+          "visible_search_calls": 1,
+          "provider_metered_search_calls": null,
+          "fetched_pages": 0,
+          "synthesis_status": "not_requested",
+          "summarized_pages": 0
+        },
+        "usage": {
+          "search_input_tokens": null,
+          "search_output_tokens": null,
+          "summary_input_tokens": null,
+          "summary_output_tokens": null,
+          "search_tool_cost": null,
+          "currency": null
+        }
+      }
+    },
+    "fetch": {
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/fetch",
+        "json": {
+          "urls": ["https://example.com/article"],
+          "provider": "builtin",
+          "providers": ["builtin"],
+          "strategy": "fallback",
+          "timeout": 30,
+          "selector": null,
+          "start_index": 0,
+          "max_length": null,
+          "respect_robots_txt": false
+        }
+      },
+      "openapi": {
+        "method": "post",
+        "request_schema": "FetchRequest",
+        "response_schema": "FetchResponse"
+      },
+      "response": {
+        "urls": ["https://example.com/article"],
+        "results": [
+          {
+            "url": "https://example.com/article",
+            "final_url": "https://example.com/article",
+            "title": "Fixture article",
+            "content": "Fixture content",
+            "content_format": "markdown",
+            "content_truncated": false,
+            "next_start_index": null,
+            "source": "builtin",
+            "snippet": "",
+            "published_date": null,
+            "author": null,
+            "error": null,
+            "raw": {}
+          }
+        ],
+        "total": 1,
+        "total_ok": 1,
+        "total_failed": 0,
+        "providers": ["builtin"],
+        "strategy": "fallback",
+        "provider": "builtin",
+        "meta": {}
+      }
+    }
+  },
+  "auth": {
+    "accepted_application_headers": ["Authorization", "X-SouWen-Token"],
+    "custom_header_precedence": "X-SouWen-Token",
+    "search_auth_dependency": "check_search_auth",
+    "fetch_auth_dependency": "require_auth"
+  },
+  "errors": {
+    "shape": ["error", "detail", "request_id"],
+    "not_found": {
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/fixture-missing"
+      },
+      "response": {
+        "error": "not_found",
+        "detail": "Not Found",
+        "request_id": "fixture-request-id"
+      }
+    },
+    "validation_error": {
+      "request": {
+        "method": "POST",
+        "path": "/api/v1/fetch",
+        "json": {
+          "urls": []
+        }
+      },
+      "response": {
+        "error": "validation_error",
+        "detail": "body.urls: List should have at least 1 item after validation, not 0",
+        "request_id": "fixture-request-id"
+      }
+    },
+    "unauthorized": {
+      "request": {
+        "method": "GET",
+        "path": "/api/v1/search/paper",
+        "query": {
+          "q": "fixture query"
+        }
+      },
+      "response": {
+        "error": "unauthorized",
+        "detail": "认证失败：需要有效的 Bearer Token",
+        "request_id": "fixture-request-id"
+      },
+      "headers": {
+        "WWW-Authenticate": "Bearer"
+      }
+    }
+  }
+}
