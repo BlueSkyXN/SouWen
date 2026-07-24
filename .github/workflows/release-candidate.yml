@@ -52,7 +52,7 @@ jobs:
       verifier_sha: ${{ steps.contract.outputs.verifier_sha }}
       evidence_profile: ${{ steps.contract.outputs.evidence_profile }}
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.candidate_sha }}
           fetch-depth: 0
@@ -266,7 +266,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.validate.outputs.candidate_sha }}
 
@@ -342,7 +342,7 @@ jobs:
           - { extra: edition-full-crawl4ai, edition: full }
           - { extra: edition-full-scrapling, edition: full }
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.validate.outputs.candidate_sha }}
 
@@ -403,7 +403,7 @@ jobs:
           - { kind: hfs, dockerfile: cloud/hfs/Dockerfile, context: cloud/hfs, port: 49265 }
           - { kind: modelscope, dockerfile: cloud/modelscope/Dockerfile, context: cloud/modelscope, port: 7860 }
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.validate.outputs.candidate_sha }}
           fetch-depth: 0
@@ -1382,7 +1382,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ needs.validate.outputs.candidate_sha }}
           fetch-depth: 0

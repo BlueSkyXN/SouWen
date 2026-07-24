@@ -59,7 +59,7 @@ jobs:
       group: external-smoke-gate-scrapling-${{ github.ref }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.candidate_sha || github.sha }}
 
@@ -121,7 +121,7 @@ jobs:
       group: external-smoke-gate-crawl4ai-${{ github.ref }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.candidate_sha || github.sha }}
 
@@ -182,7 +182,7 @@ jobs:
       group: external-smoke-gate-article-extract-${{ github.ref }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.candidate_sha || github.sha }}
 
@@ -230,7 +230,7 @@ jobs:
       group: external-smoke-gate-plugin-${{ inputs.candidate_sha || github.ref }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.candidate_sha || github.sha }}
 
@@ -283,7 +283,7 @@ jobs:
       group: external-smoke-gate-zero-key-${{ github.ref }}
       cancel-in-progress: true
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
         with:
           ref: ${{ inputs.candidate_sha || github.sha }}
 
