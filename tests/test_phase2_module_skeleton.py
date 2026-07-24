@@ -55,6 +55,7 @@ SKELETON_PACKAGES = (
 IMPLEMENTED_PACKAGES = frozenset(
     {
         "souwen.modules.search.api",
+        "souwen.modules.search.application",
         "souwen.modules.llm_search.api",
         "souwen.modules.fetch.api",
         "souwen.platform.provider_spi",
