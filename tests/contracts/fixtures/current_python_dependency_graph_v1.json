@@ -19,6 +19,7 @@
       "imports inside if typing.TYPE_CHECKING",
       "dynamic import calls and entry points",
       "non-souwen imports",
+      "Phase 2+ target boundary source files and destination units",
       "same-unit edges"
     ],
     "cycle_rule": "sorted strongly connected components with at least two units using deterministic Tarjan traversal"
@@ -55,8 +56,8 @@
       "web",
       "wikisource"
     ],
-    "cross_unit_edge_count": 119,
-    "cross_unit_edge_sha256": "6ae5e8fa9fbc4f255b4221399de1c01244c2b8d6b7de1b3c7824df4bffc2633e",
+    "cross_unit_edge_count": 117,
+    "cross_unit_edge_sha256": "64883b82cc81325afa850df36fe47a055bfd96330e38ce151d31efc5bf9651e2",
     "strongly_connected_components": [
       [
         "citations",

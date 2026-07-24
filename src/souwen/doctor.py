@@ -56,7 +56,7 @@ from souwen.editions import (
     warp_mode_policy,
 )
 from souwen.feature_matrix import RuntimeProbe, probe_adapter_runtime
-from souwen.provenance import get_source_sha
+from souwen.common_runtime.observability import get_source_sha
 from souwen.registry.catalog import source_catalog
 from souwen.registry.meta import (
     AUTH_REQUIREMENT_LABELS,
