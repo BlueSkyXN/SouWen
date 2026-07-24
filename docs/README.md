@@ -69,8 +69,18 @@ Public docs 不要求读者理解历史路径；需要保留背景材料时，�
 | [internal/development-branching.md](./internal/development-branching.md) | v2 合回 main 后的分支、CI 和发布前 gate 边界 |
 | [internal/testing-playbook.md](./internal/testing-playbook.md) | 外部能力测试收口 playbook |
 | [internal/zero-key-benchmark.md](./internal/zero-key-benchmark.md) | 无 API Key 场景的时间点实测报告 |
+| [internal/spec-01-external-api-canonical-dto.md](./internal/spec-01-external-api-canonical-dto.md) | Proposed External API、Canonical DTO 与 current-to-target mapping |
+| [internal/spec-05-provider-spi-manifest-conformance.md](./internal/spec-05-provider-spi-manifest-conformance.md) | Proposed Provider SPI、Manifest 与 Conformance contract |
+| [internal/spec-08-directory-dependency.md](./internal/spec-08-directory-dependency.md) | Proposed target directory、dependency rules 与 migration gate |
+| [internal/phase1/current-api-golden-fixtures.md](./internal/phase1/current-api-golden-fixtures.md) | Phase 1B current-only API behavior 与 language-neutral fixture 说明 |
+| [internal/phase1/provider-directory-current-behavior.md](./internal/phase1/provider-directory-current-behavior.md) | Phase 1B current-only Provider、config 与 directory dependency 事实基线 |
+| [internal/phase1/current-security-behavior.md](./internal/phase1/current-security-behavior.md) | Phase 1 current-only SSRF、redirect、auth 与 redaction behavior baseline |
+| [internal/phase1/current-python-dependency-baseline.md](./internal/phase1/current-python-dependency-baseline.md) | Phase 1 current-only Python dependency graph、cycle 与 legacy edge baseline |
 | [internal/adr/0001-public-api-surface.md](./internal/adr/0001-public-api-surface.md) | public API surface 决策 |
 | [internal/adr/0002-versioning-policy.md](./internal/adr/0002-versioning-policy.md) | 公开版本号决策规则 |
+| [internal/adr/0003-browser-fetch-worker.md](./internal/adr/0003-browser-fetch-worker.md) | Accepted 单部署单元双进程 Browser Fetch Worker 边界（HLD ADR-02） |
+| [internal/adr/0004-yaml-provider-config.md](./internal/adr/0004-yaml-provider-config.md) | Accepted YAML Provider config 真源（HLD ADR-03） |
+| [internal/adr/0005-breaking-api-release-cutover.md](./internal/adr/0005-breaking-api-release-cutover.md) | Accepted `2.0.0` API/release cutover（HLD ADR-04） |
 
 ## 与 GitHub Wiki 的边界
 
