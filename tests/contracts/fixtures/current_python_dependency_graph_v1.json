@@ -56,8 +56,8 @@
       "web",
       "wikisource"
     ],
-    "cross_unit_edge_count": 115,
-    "cross_unit_edge_sha256": "1b2eeb1d4c7622cbe1aa0b1289e3edfaa78aa9fc6d66e55a503b4680ca298eec",
+    "cross_unit_edge_count": 114,
+    "cross_unit_edge_sha256": "f86a2fbaa093426f2bc41eda4899762abdf59556df5e9cd6d8efff7da0dd3835",
     "strongly_connected_components": [
       [
         "citations",
