@@ -54,7 +54,7 @@ jobs:
           cache: 'pip'
 
       - name: 安装 ruff
-        run: pip install ruff
+        run: pip install "ruff==0.15.22"
 
       - name: Ruff 语法检查
         run: ruff check src tests scripts tools

@@ -88,7 +88,7 @@ edition-full = ["souwen[edition-pro,newspaper,readability,pdf,web2pdf]"]
 edition-full-crawl4ai = ["souwen[edition-full,crawl4ai]"]
 edition-full-scrapling = ["souwen[edition-full,scrapling]"]
 # 开发工具：单元测试、覆盖率、代码检查
-dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "pytest-httpx>=0.30", "pytest-cov>=4", "ruff>=0.4", "markdown-it-py>=2.2"]
+dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "pytest-httpx>=0.30", "pytest-cov>=4", "ruff==0.15.22", "markdown-it-py>=2.2"]
 
 [tool.uv]
 conflicts = [

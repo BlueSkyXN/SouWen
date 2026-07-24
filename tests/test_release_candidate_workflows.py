@@ -557,6 +557,17 @@ def test_ci_has_stable_aggregate_and_required_readiness_gates() -> None:
     assert 'git push "$bare" HEAD:refs/heads/ci-candidate' in container
 
 
+def test_ruff_toolchain_version_is_pinned_consistently() -> None:
+    version = "0.15.22"
+    pyproject = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    assert f'"ruff=={version}"' in pyproject
+
+    for workflow_name in ("ci.yml", "auto-format.yml"):
+        workflow = _workflow(workflow_name)
+        assert f'pip install "ruff=={version}"' in workflow
+        assert "pip install ruff\n" not in workflow
+
+
 def test_hfs_reusable_promotion_is_candidate_pinned_and_live_verified() -> None:
     text = _workflow("deploy-hf-space.yml")
     candidate_expression = (
