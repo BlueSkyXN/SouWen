@@ -1,3 +1,5 @@
-"""LLM Search application layer. Owner: LLM Search Core. Allowed dependencies: own domain, ports, and common runtime."""
+"""LLM Search application layer. Owner: LLM Search Core."""
 
-__all__: list[str] = []
+from .orchestration import LLMSearchModuleService, LLMSearchProviderManager
+
+__all__ = ["LLMSearchModuleService", "LLMSearchProviderManager"]

@@ -241,17 +241,11 @@ warp:
 
 # ===== LLM Search 共享 Gateway =====
 # 多个 concrete source 共享一份 gateway 配置；API Key 与私有 URL 不应写入公开产物。
-# 环境变量可使用 SOUWEN_LLM_SEARCH_GATEWAYS JSON 对象。
-llm_search_gateways: {}
-# 示例（按需取消注释并使用真实私有配置）：
-#   uniapi:
-#     api_key: your-secret
-#     base_url: https://gateway.example.com/v1
-# Ark concrete source 仍属实验性，需逐个显式启用：
-# sources:
-#   uniapi_ark_annotations_deepseek_v3_2_251201:
-#     enabled: true
-#     timeout: 45
+# 也可使用 SOUWEN_LLM_SEARCH_GATEWAYS JSON 对象；private URL 不会进入 catalog。
+llm_search_gateways:
+  uniapi:
+    api_key: "${UNIAPI_API_KEY}"
+    base_url: "${UNIAPI_BASE_URL}"
 
 # ===== 数据源频道配置 =====
 # 按源名称配置，覆盖全局默认值。
@@ -291,7 +285,12 @@ llm_search_gateways: {}
 #     enabled: false           # 禁用 Google Patents
 #   openalex:
 #     base_url: https://my-proxy.example.com  # 使用自建代理
-sources: {}
+sources:
+  # RC2 必须由 deployment 显式启用一个；两个同时 true 会使配置加载失败。
+  uniapi_ark_annotations_deepseek_v3_2_251201:
+    enabled: false
+  uniapi_ark_annotations_doubao_seed_2_0_lite_260428:
+    enabled: false
 
 # ─── LLM 摘要配置 ──────────────────────────────────────────────
 # llm:
