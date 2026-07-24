@@ -43,8 +43,9 @@ import re
 from typing import Any
 from urllib.parse import urljoin, urlparse
 
-from souwen.models import FetchResponse, FetchResult
+from souwen.common_runtime.security import resolve_fetch_target_async
 from souwen.core.scraper.base import BaseScraper
+from souwen.models import FetchResponse, FetchResult
 
 logger = logging.getLogger("souwen.web.builtin")
 
@@ -331,8 +332,6 @@ class BuiltinFetcherClient(BaseScraper):
         selector: str | None = None,
     ) -> FetchResult:
         try:
-            from souwen.web.fetch import resolve_fetch_target
-
             # robots.txt 合规检查（在任何重定向 / 抓取之前）
             allowed, reason = await self._check_robots(url)
             if not allowed:
@@ -350,7 +349,7 @@ class BuiltinFetcherClient(BaseScraper):
             resp = None
             include_configured_headers = True
             for hop in range(self.MAX_REDIRECTS + 1):
-                target, reason = resolve_fetch_target(current_url)
+                target, reason = await resolve_fetch_target_async(current_url)
                 if target is None:
                     target_label = "重定向目标" if hop else "目标地址"
                     logger.warning("SSRF target blocked: hop=%d reason=%s", hop, reason)
