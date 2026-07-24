@@ -46,7 +46,7 @@
     - httpx: HTTP 异步客户端
     - souwen.config: 配置管理（读取 API 令牌）
     - souwen.models: 统一数据模型
-    - souwen.core.rate_limiter: 限流控制（支持动态更新）
+    - souwen.common_runtime.resilience: 限流控制（支持动态更新）
     - souwen.core.exceptions: 异常类（RateLimitError）
 """
 
@@ -57,11 +57,11 @@ from datetime import date
 from typing import Any
 
 import httpx
+from souwen.common_runtime.resilience import SlidingWindowLimiter
 from souwen.config import get_config
 from souwen.core.exceptions import ConfigError, NotFoundError, ParseError, RateLimitError
 from souwen.core.http_client import SouWenHttpClient
 from souwen.models import Applicant, PatentResult, SearchResponse
-from souwen.core.rate_limiter import SlidingWindowLimiter
 
 logger = logging.getLogger(__name__)
 
