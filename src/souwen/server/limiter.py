@@ -48,6 +48,7 @@
 from __future__ import annotations
 
 import ipaddress
+import hashlib
 import logging
 import time
 from collections import defaultdict, deque
@@ -242,6 +243,7 @@ def get_client_ip(request: Request) -> str:
 
 # 全局限流器实例
 _search_limiter = InMemoryRateLimiter(max_requests=60, window_seconds=60)
+_target_data_limiter = InMemoryRateLimiter(max_requests=60, window_seconds=60)
 
 
 def rate_limit_search(request: Request) -> None:
@@ -262,3 +264,19 @@ def rate_limit_search(request: Request) -> None:
             ...
     """
     _search_limiter.check(get_client_ip(request))
+
+
+def rate_limit_target_data(request: Request) -> None:
+    """Limit target Data API by application credential, falling back to client IP."""
+    custom_token = request.headers.get("x-souwen-token")
+    token = custom_token.strip() if custom_token is not None else ""
+    if custom_token is None:
+        scheme, separator, value = request.headers.get("authorization", "").partition(" ")
+        if separator and scheme.lower() == "bearer":
+            token = value.strip()
+    if token:
+        digest = hashlib.sha256(token.encode("utf-8")).hexdigest()
+        key = f"credential:{digest}"
+    else:
+        key = f"ip:{get_client_ip(request)}"
+    _target_data_limiter.check(key)

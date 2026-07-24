@@ -106,6 +106,25 @@ async def test_module_rejects_request_side_provider_or_fanout_override() -> None
 
 
 @pytest.mark.asyncio
+async def test_module_raises_canonical_error_when_every_target_fails() -> None:
+    service = FetchModuleService(_Manager())
+
+    with pytest.raises(ProviderError) as caught:
+        await service.fetch(
+            FetchRequest(
+                targets=(
+                    "https://example.com/blocked-one",
+                    "https://example.com/blocked-two",
+                )
+            ),
+            RequestContext(request_id="fetch-all-failed"),
+            ExecutionContext.with_timeout(5),
+        )
+
+    assert caught.value.code is ProviderErrorCode.POLICY_BLOCKED
+
+
+@pytest.mark.asyncio
 async def test_module_uses_browser_as_execution_fallback_not_another_provider() -> None:
     browser = _BrowserExecutor()
     service = FetchModuleService(_Manager(), browser_executor=browser)

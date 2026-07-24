@@ -54,6 +54,7 @@ SKELETON_PACKAGES = (
 # the remaining packages must stay inert until their owning migration slice.
 IMPLEMENTED_PACKAGES = frozenset(
     {
+        "souwen.delivery.api",
         "souwen.modules.search.api",
         "souwen.modules.search.application",
         "souwen.modules.llm_search.api",

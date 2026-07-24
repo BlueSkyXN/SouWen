@@ -38,7 +38,7 @@ import logging
 import os
 import secrets
 
-from fastapi import Depends, Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 
 from souwen.config import get_config
@@ -272,3 +272,38 @@ def check_search_auth(
             detail="认证失败：需要有效的 Bearer Token",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+
+def check_target_user_auth(
+    request: Request,
+    credentials: HTTPAuthorizationCredentials | None = Depends(_bearer_scheme),
+    souwen_token: str | None = Header(default=None, alias="X-SouWen-Token"),
+) -> None:
+    """Fail closed for target Data APIs unless open/guest is explicit."""
+    cfg = get_config()
+    custom_header_present = souwen_token is not None
+    authorization_present = "authorization" in request.headers
+    token = (
+        (souwen_token or "").strip()
+        if custom_header_present
+        else (credentials.credentials if credentials else "")
+    )
+    admin_password = cfg.effective_admin_password or ""
+    user_password = cfg.effective_user_password or ""
+    is_admin = bool(admin_password) and secrets.compare_digest(token, admin_password)
+    is_user = bool(user_password) and secrets.compare_digest(token, user_password)
+    if is_admin or is_user:
+        return
+    if custom_header_present or authorization_present:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="target Data API credential is invalid",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if cfg.guest_enabled or cfg.user_password == "":
+        return
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="target Data API requires an explicit user or admin credential",
+        headers={"WWW-Authenticate": "Bearer"},
+    )

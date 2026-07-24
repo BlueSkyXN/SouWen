@@ -10,12 +10,18 @@
       },
       "openapi": {
         "method": "get",
-        "response_schema": "HealthResponse"
+        "response_schema": "ProbeResponse"
       },
       "response": {
         "status": "ok",
+        "ready": true,
         "version": "2.0.0rc1",
-        "source_sha": "0000000000000000000000000000000000000000"
+        "source_sha": "0000000000000000000000000000000000000000",
+        "rollout_mode": "legacy",
+        "config_revision": null,
+        "components": {"api": "ready"},
+        "error": null,
+        "context": {"request_id": "fixture-health", "api_major": 2, "trace_id": null}
       }
     },
     "readiness": {
@@ -25,13 +31,18 @@
       },
       "openapi": {
         "method": "get",
-        "response_schema": "ReadinessResponse"
+        "response_schema": "ProbeResponse"
       },
       "response": {
+        "status": "ready",
         "ready": true,
         "version": "2.0.0rc1",
         "source_sha": "0000000000000000000000000000000000000000",
-        "error": null
+        "rollout_mode": "legacy",
+        "config_revision": null,
+        "components": {"api": "ready", "legacy_registry": "ready"},
+        "error": null,
+        "context": {"request_id": "fixture-readiness", "api_major": 2, "trace_id": null}
       }
     },
     "search_paper": {

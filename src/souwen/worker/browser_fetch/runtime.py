@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
-import json
 import os
 from dataclasses import dataclass
 
@@ -11,13 +9,11 @@ from souwen import __version__
 
 from .app import create_browser_worker_app
 from .executor import PlaywrightBrowserExecutor
-from .protocol import BROWSER_WORKER_DEFAULT_PORT, WorkerRuntimeEvidence
-
-
-_INVENTORY = ("builtin-fetch:playwright",)
-_INVENTORY_DIGEST = hashlib.sha256(
-    json.dumps(_INVENTORY, separators=(",", ":")).encode("utf-8")
-).hexdigest()
+from .protocol import (
+    BROWSER_WORKER_DEFAULT_PORT,
+    BROWSER_WORKER_PROVIDER_INVENTORY_DIGEST,
+    WorkerRuntimeEvidence,
+)
 
 
 @dataclass(frozen=True)
@@ -50,7 +46,7 @@ class BrowserWorkerSettings:
             source_sha=source_sha,
             runtime_version=__version__,
             config_revision=config_revision,
-            provider_inventory_digest=_INVENTORY_DIGEST,
+            provider_inventory_digest=BROWSER_WORKER_PROVIDER_INVENTORY_DIGEST,
         )
         return cls(host=host, port=port, token=token, evidence=evidence)
 
