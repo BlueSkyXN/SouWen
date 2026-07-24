@@ -95,10 +95,13 @@ def local_fixture_server() -> Iterator[str]:
 @contextmanager
 def allow_local_fixture_url(url: str) -> Iterator[None]:
     """Bind this script's exact local fixture origin without weakening production SSRF rules."""
+    from souwen.common_runtime.security import fetch_target as canonical_fetch_target
+    from souwen.core.scraper import base as scraper_base_module
     from souwen.web import fetch as fetch_module
 
     fixture = urlparse(url)
-    original_resolve = fetch_module.resolve_fetch_target
+    original_resolve = canonical_fetch_target.resolve_fetch_target
+    original_scraper_resolve = scraper_base_module.resolve_fetch_target
 
     def _resolve(candidate: str):
         parsed = urlparse(candidate)
@@ -121,10 +124,14 @@ def allow_local_fixture_url(url: str) -> Iterator[None]:
             )
         return original_resolve(candidate)
 
+    canonical_fetch_target.resolve_fetch_target = _resolve
+    scraper_base_module.resolve_fetch_target = _resolve
     fetch_module.resolve_fetch_target = _resolve
     try:
         yield
     finally:
+        canonical_fetch_target.resolve_fetch_target = original_resolve
+        scraper_base_module.resolve_fetch_target = original_scraper_resolve
         fetch_module.resolve_fetch_target = original_resolve
 
 
