@@ -16,16 +16,16 @@ from __future__ import annotations
 
 import asyncio
 import os
-import weakref
+
+from souwen.common_runtime.resilience import LoopLocalSemaphorePool
 
 # 默认全局并发度上限；通过 SOUWEN_MAX_CONCURRENCY 环境变量覆盖
 _DEFAULT_MAX_CONCURRENCY = 10
 
-#: 按 channel 分开存储的 per-loop Semaphore 映射。
-#: WeakKeyDictionary 会在 loop 被 GC 时自动清理对应 Semaphore。
-_sem_maps: dict[str, "weakref.WeakKeyDictionary[asyncio.AbstractEventLoop, asyncio.Semaphore]"] = {
-    "search": weakref.WeakKeyDictionary(),
-    "web": weakref.WeakKeyDictionary(),
+#: legacy channel policy stays here; the canonical pool has no product channel names.
+_sem_pools: dict[str, LoopLocalSemaphorePool] = {
+    "search": LoopLocalSemaphorePool(),
+    "web": LoopLocalSemaphorePool(),
 }
 
 
@@ -67,15 +67,9 @@ def get_semaphore(
     Raises:
         RuntimeError: 没有 running event loop（在协程外调用）。
     """
-    if channel not in _sem_maps:
+    if channel not in _sem_pools:
         raise ValueError(f"unknown channel {channel!r}; expected 'search' or 'web'")
-    loop = asyncio.get_running_loop()
-    sem_map = _sem_maps[channel]
-    sem = sem_map.get(loop)
-    if sem is None:
-        sem = asyncio.Semaphore(size if size is not None else get_max_concurrency())
-        sem_map[loop] = sem
-    return sem
+    return _sem_pools[channel].get(size if size is not None else get_max_concurrency())
 
 
 def clear_semaphore(channel: str | None = None) -> None:
@@ -84,7 +78,7 @@ def clear_semaphore(channel: str | None = None) -> None:
     Args:
         channel: 指定要清除的 channel；None 表示清除所有 channel。
     """
-    targets = [channel] if channel else list(_sem_maps.keys())
+    targets = [channel] if channel else list(_sem_pools.keys())
     for ch in targets:
-        if ch in _sem_maps:
-            _sem_maps[ch] = weakref.WeakKeyDictionary()
+        if ch in _sem_pools:
+            _sem_pools[ch].clear()
