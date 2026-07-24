@@ -605,15 +605,17 @@ print(matches[0].response_model.__name__)
         "HOME": str(tmp_path),
         "USERPROFILE": str(tmp_path),
         "SOUWEN_PLUGIN_AUTOLOAD": "0",
+        "SOUWEN_SOURCE_SHA": "a" * 40,
         "SOUWEN_V2_ROLLOUT": "target",
     }
+    env.pop("SOUWEN_BROWSER_WORKER_TOKEN", None)
     completed = subprocess.run(
         [sys.executable, "-c", script],
-        check=True,
         capture_output=True,
         text=True,
         env=env,
     )
+    assert completed.returncode == 0, completed.stderr
     assert completed.stdout.strip() == "FetchBatch"
 
 
