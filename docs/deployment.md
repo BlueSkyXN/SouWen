@@ -5,7 +5,7 @@
 [warp-solutions.md](./warp-solutions.md)。
 
 发布候选的容器、远端 CI、HFS promotion 和资产验收必须遵循
-[v2.0.0rc1 发布候选门禁](./internal/rc-readiness-gates.md)。该门禁文档只固定规则；
+[Souwen v2rc2 发布候选门禁](./internal/rc-readiness-gates.md)。该门禁文档只固定规则；
 candidate SHA、run URL、checksum、SBOM/provenance 和执行结论写入候选专属的
 `release-manifest.json` artifact，不提交运行结果到仓库。
 
@@ -19,7 +19,7 @@ candidate SHA、run URL、checksum、SBOM/provenance 和执行结论写入候选
 gh workflow run release-candidate.yml \
   --ref main \
   -f candidate_sha="$(git rev-parse HEAD)" \
-  -f version=2.0.0rc1 \
+  -f version=2.0.0rc2 \
   -f evidence_profile=release \
   -f publish=false \
   -f deploy_hfs=false
@@ -27,9 +27,9 @@ gh workflow run release-candidate.yml \
 
 `evidence_profile` 必须显式选择，默认哨兵值 `select` 会 fail closed：
 
-- `release` 保持 source、clean install、Panel、container、external smoke、PyInstaller/Nuitka
-  24-binary matrix 与 bundle/attestation gate；`deploy_hfs=false, publish=false` 产出完整
-  RC-ready evidence bundle。
+- `release` 在 Phase 8 前保留 source、clean install、Panel、container、external smoke 与历史
+  PyInstaller/Nuitka 24-binary regression，只能使用 `publish=false` 生成过渡 evidence。
+  它不是 RC2 publish-ready 证明；最终必须由精确四个 PyInstaller server bundle gate 替换。
 - `deployment` 必须同时使用 `deploy_hfs=true, publish=false`。它跳过外层 PyInstaller/Nuitka
   release matrix，但保留全部非 binary gate、HFS reusable workflow 内的单次 Linux
   `basic-cli` PyInstaller smoke、live promotion、rollback 和 readback，产出不可发布的
@@ -41,7 +41,7 @@ gh workflow run release-candidate.yml \
 gh workflow run release-candidate.yml \
   --ref main \
   -f candidate_sha="$(git rev-parse HEAD)" \
-  -f version=2.0.0rc1 \
+  -f version=2.0.0rc2 \
   -f evidence_profile=deployment \
   -f publish=false \
   -f deploy_hfs=true
@@ -53,6 +53,8 @@ gh workflow run release-candidate.yml \
 
 PyInstaller 与 Nuitka workflow 只是 builder。手动运行或 `v*` tag 触发时只上传 workflow
 artifacts，不创建 Release；tag 与 prerelease 只能由 central workflow 的 publish job 创建。
+当前 central workflow 还会拒绝 `publish=true`；Phase 8 完成四 server bundle、manifest 和
+target-native smoke 契约后才能解除该保护。
 
 ## Docker
 

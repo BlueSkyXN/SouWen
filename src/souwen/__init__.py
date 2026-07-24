@@ -1,6 +1,6 @@
 """SouWen - 面向 AI Agent 的学术论文 + 专利 + 网页信息统一获取工具库"""
 
-__version__ = "2.0.0rc1"
+__version__ = "2.0.0rc2"
 
 from souwen.search import (
     search,

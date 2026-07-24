@@ -10,7 +10,7 @@ on:
         required: true
         type: string
       version:
-        description: 'PEP 440 project version, for example 2.0.0rc1'
+        description: 'PEP 440 project version, for example 2.0.0rc2'
         required: true
         type: string
       evidence_profile:
@@ -48,6 +48,8 @@ jobs:
     outputs:
       candidate_sha: ${{ steps.contract.outputs.candidate_sha }}
       version: ${{ steps.contract.outputs.version }}
+      product_name: ${{ steps.contract.outputs.product_name }}
+      api_major: ${{ steps.contract.outputs.api_major }}
       tag: ${{ steps.contract.outputs.tag }}
       verifier_sha: ${{ steps.contract.outputs.verifier_sha }}
       evidence_profile: ${{ steps.contract.outputs.evidence_profile }}
@@ -92,6 +94,10 @@ jobs:
               version,
           ) is None:
               raise SystemExit(f'version is not an accepted prerelease candidate: {version!r}')
+          if version != '2.0.0rc2':
+              raise SystemExit('current release surface only accepts version 2.0.0rc2')
+          product_name = 'Souwen v2rc2'
+          api_major = 2
           if publish not in {'true', 'false'} or deploy_hfs not in {'true', 'false'}:
               raise SystemExit('publish and deploy_hfs must be typed booleans')
           if evidence_profile not in {'deployment', 'release'}:
@@ -106,6 +112,11 @@ jobs:
               raise SystemExit('publish=true requires evidence_profile=release')
           if publish == 'true' and deploy_hfs != 'true':
               raise SystemExit('publish=true requires deploy_hfs=true and a successful live promotion')
+          if publish == 'true':
+              raise SystemExit(
+                  'RC2 publication remains disabled until Phase 8 replaces the legacy '
+                  '24-binary matrix with exactly four PyInstaller server bundles'
+              )
 
           head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
           object_type = subprocess.check_output(
@@ -174,6 +185,8 @@ jobs:
           with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
               output.write(f'candidate_sha={candidate}\n')
               output.write(f'version={version}\n')
+              output.write(f'product_name={product_name}\n')
+              output.write(f'api_major={api_major}\n')
               output.write(f'tag={tag}\n')
               output.write(f'verifier_sha={workflow_sha}\n')
               output.write(f'evidence_profile={evidence_profile}\n')
@@ -676,6 +689,8 @@ jobs:
         env:
           CANDIDATE_SHA: ${{ needs.validate.outputs.candidate_sha }}
           VERSION: ${{ needs.validate.outputs.version }}
+          PRODUCT_NAME: ${{ needs.validate.outputs.product_name }}
+          API_MAJOR: ${{ needs.validate.outputs.api_major }}
           EVIDENCE_PROFILE: ${{ needs.validate.outputs.evidence_profile }}
           NEEDS_JSON: ${{ toJson(needs) }}
           VERIFIER_SHA: ${{ needs.validate.outputs.verifier_sha }}
@@ -831,7 +846,9 @@ jobs:
               'schema_version': 1,
               'evidence_profile': 'deployment',
               'publishable': False,
+              'product_name': os.environ['PRODUCT_NAME'],
               'version': os.environ['VERSION'],
+              'api_major': int(os.environ['API_MAJOR']),
               'candidate_sha': os.environ['CANDIDATE_SHA'],
               'candidate_ref': f"sha:{os.environ['CANDIDATE_SHA']}",
               'verifier_sha': os.environ['VERIFIER_SHA'],
@@ -1072,6 +1089,8 @@ jobs:
         env:
           CANDIDATE_SHA: ${{ needs.validate.outputs.candidate_sha }}
           VERSION: ${{ needs.validate.outputs.version }}
+          PRODUCT_NAME: ${{ needs.validate.outputs.product_name }}
+          API_MAJOR: ${{ needs.validate.outputs.api_major }}
           TAG: ${{ needs.validate.outputs.tag }}
           PUBLISH: ${{ inputs.publish }}
           DEPLOY_HFS: ${{ inputs.deploy_hfs }}
@@ -1272,7 +1291,9 @@ jobs:
                   raise SystemExit('HFS promotion evidence is missing promotion_changed')
           manifest = {
               'schema_version': 1,
+              'product_name': os.environ['PRODUCT_NAME'],
               'version': os.environ['VERSION'],
+              'api_major': int(os.environ['API_MAJOR']),
               'candidate_sha': os.environ['CANDIDATE_SHA'],
               'candidate_ref': f"sha:{os.environ['CANDIDATE_SHA']}",
               'verifier_sha': os.environ['VERIFIER_SHA'],
@@ -1398,6 +1419,7 @@ jobs:
           TAG: ${{ needs.validate.outputs.tag }}
           CANDIDATE_SHA: ${{ needs.validate.outputs.candidate_sha }}
           VERSION: ${{ needs.validate.outputs.version }}
+          PRODUCT_NAME: ${{ needs.validate.outputs.product_name }}
         run: |
           set -Eeuo pipefail
 
@@ -1442,11 +1464,11 @@ jobs:
           test "$(git rev-parse HEAD)" = "$CANDIDATE_SHA"
           git config user.name github-actions[bot]
           git config user.email 41898282+github-actions[bot]@users.noreply.github.com
-          git tag -a "$TAG" "$CANDIDATE_SHA" -m "SouWen $TAG"
+          git tag -a "$TAG" "$CANDIDATE_SHA" -m "$PRODUCT_NAME"
           git push origin "refs/tags/$TAG"
 
           cat > release-notes.md <<EOF
-          ## SouWen $TAG
+          ## $PRODUCT_NAME
 
           Release candidate built from immutable source SHA \`$CANDIDATE_SHA\`.
 
@@ -1460,7 +1482,7 @@ jobs:
           gh release create "$TAG" release-assets/* \
             --verify-tag \
             --draft \
-            --title "SouWen $TAG" \
+            --title "$PRODUCT_NAME" \
             --notes-file release-notes.md \
             "${prerelease_args[@]}"
 

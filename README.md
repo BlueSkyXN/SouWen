@@ -6,8 +6,11 @@
 
 [![Python](https://img.shields.io/badge/python-≥3.10-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-GPLv3-blue)](LICENSE)
-[![Version](https://img.shields.io/badge/version-2.0.0rc1-orange)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.0.0rc2-orange)](CHANGELOG.md)
 [![External Smoke Gate](https://github.com/BlueSkyXN/SouWen/actions/workflows/external-smoke-gate.yml/badge.svg)](https://github.com/BlueSkyXN/SouWen/actions/workflows/external-smoke-gate.yml)
+
+> 当前候选版本为 **Souwen v2rc2**（Python/runtime `2.0.0rc2`）；这不是 `2.0.0` GA，
+> 也不表示 tag、GitHub Release 或 HFS RC2 部署已经完成。
 
 **作者**: [@BlueSkyXN](https://github.com/BlueSkyXN) · **项目地址**: [github.com/BlueSkyXN/SouWen](https://github.com/BlueSkyXN/SouWen) · **协议**: [GPLv3](LICENSE)
 
@@ -226,7 +229,7 @@ docker run -p 8000:49265 \
 - [docs/plugin-integration-spec.md](docs/plugin-integration-spec.md) — 外部插件对接规范
 - [docs/plugin-management.md](docs/plugin-management.md) — 插件管理（Web Panel / CLI / API）
 - [docs/contributing.md](docs/contributing.md) — 开发者指南
-- [docs/internal/rc-readiness-gates.md](docs/internal/rc-readiness-gates.md) — v2.0.0rc1 固定门禁与 evidence manifest 契约
+- [docs/internal/rc-readiness-gates.md](docs/internal/rc-readiness-gates.md) — v2.0.0rc2 固定门禁与 evidence manifest 契约
 - [docs/internal/](docs/internal/) — 维护者 ADR、分支策略和发布前基线
 - [CHANGELOG.md](CHANGELOG.md) — 版本变更
 
