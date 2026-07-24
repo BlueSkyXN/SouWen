@@ -1,0 +1,47 @@
+{
+  "openapi": "3.1.0",
+  "info": {"title": "SouWen External Data API", "version": "2.0.0-target"},
+  "x-souwen-api-major": 2,
+  "x-souwen-contract-stage": "target_skeleton_not_runtime",
+  "paths": {
+    "/api/v1/search": {"post": {"operationId": "search", "security": [{"UserToken": []}], "responses": {"200": {"$ref": "#/components/responses/SearchPage"}, "400": {"$ref": "#/components/responses/ErrorResponse"}, "401": {"$ref": "#/components/responses/ErrorResponse"}, "429": {"$ref": "#/components/responses/ErrorResponse"}, "502": {"$ref": "#/components/responses/ErrorResponse"}, "504": {"$ref": "#/components/responses/ErrorResponse"}}}},
+    "/api/v1/llm-search": {"post": {"operationId": "llmSearch", "security": [{"UserToken": []}], "responses": {"200": {"$ref": "#/components/responses/LLMSearchResult"}, "400": {"$ref": "#/components/responses/ErrorResponse"}, "401": {"$ref": "#/components/responses/ErrorResponse"}, "429": {"$ref": "#/components/responses/ErrorResponse"}, "502": {"$ref": "#/components/responses/ErrorResponse"}, "504": {"$ref": "#/components/responses/ErrorResponse"}}}},
+    "/api/v1/fetch": {"post": {"operationId": "fetch", "security": [{"UserToken": []}], "responses": {"200": {"$ref": "#/components/responses/FetchBatch"}, "400": {"$ref": "#/components/responses/ErrorResponse"}, "401": {"$ref": "#/components/responses/ErrorResponse"}, "403": {"$ref": "#/components/responses/ErrorResponse"}, "413": {"$ref": "#/components/responses/ErrorResponse"}, "415": {"$ref": "#/components/responses/ErrorResponse"}, "502": {"$ref": "#/components/responses/ErrorResponse"}, "504": {"$ref": "#/components/responses/ErrorResponse"}}}},
+    "/api/v1/providers": {"get": {"operationId": "listProviders", "security": [{"UserToken": []}], "responses": {"200": {"$ref": "#/components/responses/ProviderCatalog"}, "401": {"$ref": "#/components/responses/ErrorResponse"}}}},
+    "/healthz": {"get": {"operationId": "healthz", "security": [], "responses": {"200": {"$ref": "#/components/responses/ProbeResponse"}}}},
+    "/readyz": {"get": {"operationId": "readyz", "security": [], "responses": {"200": {"$ref": "#/components/responses/ProbeResponse"}}}},
+    "/health": {"get": {"operationId": "healthLegacyAlias", "security": [], "x-souwen-alias-of": "/healthz", "responses": {"200": {"$ref": "#/components/responses/ProbeResponse"}}}},
+    "/readiness": {"get": {"operationId": "readinessLegacyAlias", "security": [], "x-souwen-alias-of": "/readyz", "responses": {"200": {"$ref": "#/components/responses/ProbeResponse"}}}}
+  },
+  "components": {
+    "securitySchemes": {"UserToken": {"type": "http", "scheme": "bearer"}},
+    "schemas": {
+      "RequestContext": {"type": "object", "required": ["request_id", "api_major"], "properties": {"request_id": {"type": "string"}, "api_major": {"const": 2}}},
+      "ErrorResponse": {"type": "object", "required": ["error", "context"], "properties": {"error": {"type": "object", "required": ["code", "message", "retryable", "request_id"]}, "context": {"$ref": "#/components/schemas/RequestContext"}}},
+      "SearchRequest": {"type": "object", "required": ["query", "domains"], "additionalProperties": false},
+      "SearchPage": {"type": "object", "required": ["items", "page", "meta", "context"]},
+      "LLMSearchRequest": {"type": "object", "required": ["query", "providers", "strategy"], "additionalProperties": false},
+      "LLMSearchResult": {"type": "object", "required": ["query", "items", "evidence", "meta", "usage", "context"]},
+      "FetchRequest": {"type": "object", "required": ["targets"], "additionalProperties": false},
+      "FetchBatch": {"type": "object", "required": ["items", "meta", "context"]},
+      "ProviderCatalog": {"type": "object", "required": ["items", "context"]},
+      "ProbeResponse": {"type": "object", "required": ["status", "context"]}
+    },
+    "headers": {
+      "X-SouWen-API-Major": {"required": true, "schema": {"const": "2"}},
+      "X-Request-ID": {"required": true, "schema": {"type": "string"}},
+      "Retry-After": {"required": true, "schema": {"type": "string"}},
+      "X-RateLimit-Limit": {"required": true, "schema": {"type": "string"}},
+      "X-RateLimit-Remaining": {"required": true, "schema": {"type": "string"}},
+      "X-RateLimit-Reset": {"required": true, "schema": {"type": "string"}}
+    },
+    "responses": {
+      "SearchPage": {"description": "Target search page", "headers": {"X-SouWen-API-Major": {"$ref": "#/components/headers/X-SouWen-API-Major"}, "X-Request-ID": {"$ref": "#/components/headers/X-Request-ID"}}},
+      "LLMSearchResult": {"description": "Target LLM search result", "headers": {"X-SouWen-API-Major": {"$ref": "#/components/headers/X-SouWen-API-Major"}, "X-Request-ID": {"$ref": "#/components/headers/X-Request-ID"}}},
+      "FetchBatch": {"description": "Target fetch batch", "headers": {"X-SouWen-API-Major": {"$ref": "#/components/headers/X-SouWen-API-Major"}, "X-Request-ID": {"$ref": "#/components/headers/X-Request-ID"}}},
+      "ProviderCatalog": {"description": "Target provider catalog", "headers": {"X-SouWen-API-Major": {"$ref": "#/components/headers/X-SouWen-API-Major"}, "X-Request-ID": {"$ref": "#/components/headers/X-Request-ID"}}},
+      "ProbeResponse": {"description": "Target health or readiness response", "headers": {"X-SouWen-API-Major": {"$ref": "#/components/headers/X-SouWen-API-Major"}, "X-Request-ID": {"$ref": "#/components/headers/X-Request-ID"}}},
+      "ErrorResponse": {"description": "Canonical target error", "headers": {"X-SouWen-API-Major": {"$ref": "#/components/headers/X-SouWen-API-Major"}, "X-Request-ID": {"$ref": "#/components/headers/X-Request-ID"}}}
+    }
+  }
+}
