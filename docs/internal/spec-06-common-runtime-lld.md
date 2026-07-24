@@ -142,8 +142,16 @@ Rollback 是让 consumers 恢复 legacy import 并恢复原实现文件；不需
 
 ### 6.1 Request context
 
-仅可抽取 `ContextVar`、`get_request_id()` 与给 `LogRecord` 注入 ID 的 filter。ASGI scope、
+Canonical path 为 `souwen.common_runtime.observability`，内部接口为
+`request_id_var: ContextVar[str]`、`get_request_id() -> str` 和 `RequestIDFilter`。默认值为
+`"-"`；调用方负责以 `ContextVar.set()` 的 token 在 `finally` 中 reset。filter 只给传入的
+`LogRecord` 设置当前 `request_id` 并返回 `True`，不验证、生成或记录 ID。
+
+`souwen.server.middleware` 保留 compatibility re-export 和 `RequestIDMiddleware`。ASGI scope、
 incoming header validation、UUID generation、response header、timing 和 access log 保留在 Delivery。
+该切片无 I/O、timeout、retry 或 cooperative cancellation；ContextVar 由 Python runtime 按 task
+隔离。退出证据必须包含旧/新 object identity、task isolation、logging filter 和 Server
+error-response correlation parity。
 
 ### 6.2 SSRF resolver
 
@@ -209,7 +217,7 @@ Transport v1 若进入实施，必须先冻结：
 | Task | Scope | Exit evidence |
 |---|---|---|
 | CR-01 | provenance canonical move + legacy re-export + two consumers | VAL-CR-001–006 |
-| CR-02 | request context primitive | no ASGI dependency; request/error/log ID parity |
+| CR-02 | request context primitive | canonical context 无 ASGI dependency；旧路径 re-export；request/error/log ID parity |
 | CR-03 | SSRF resolver primitive | DNS/IP/Host/SNI/redirect fixtures parity; no `FetchResult` import |
 | CR-04 | generic redaction split | no Pydantic/LLM policy in primitive; secret fixtures parity |
 | CR-05 | trusted Provider HTTP transport | explicit cancellation/redirect/config contract and parity |
