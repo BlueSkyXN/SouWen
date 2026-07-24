@@ -1,0 +1,239 @@
+"""Deterministic fixtures for the repository-owned architecture dependency gate."""
+
+from __future__ import annotations
+
+import sys
+from pathlib import Path
+
+import pytest
+
+
+CI_SCRIPTS = Path(__file__).resolve().parents[1] / "scripts" / "ci"
+if str(CI_SCRIPTS) not in sys.path:
+    sys.path.insert(0, str(CI_SCRIPTS))
+
+import check_architecture_dependencies as checker  # noqa: E402
+
+
+def _write(root: Path, relative_path: str, content: str = "") -> Path:
+    path = root / relative_path
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(content, encoding="utf-8")
+    return path
+
+
+def _repository(tmp_path: Path) -> tuple[Path, Path]:
+    _write(tmp_path, "src/souwen/__init__.py")
+    exceptions = _write(
+        tmp_path,
+        "exceptions.json",
+        '{"version": 1, "exceptions": []}\n',
+    )
+    return tmp_path, exceptions
+
+
+def _violations(root: Path, exceptions: Path) -> list[checker.Violation]:
+    return checker.check_repository(root, exceptions)
+
+
+def test_allowed_target_edges_pass(tmp_path: Path) -> None:
+    root, exceptions = _repository(tmp_path)
+    _write(
+        root,
+        "src/souwen/modules/search/application/service.py",
+        "from souwen.common_runtime.transport import Client\n",
+    )
+    _write(
+        root,
+        "src/souwen/providers/information_sources/openalex/adapter.py",
+        "from souwen.common_runtime.transport import Client\n",
+    )
+
+    assert _violations(root, exceptions) == []
+
+
+@pytest.mark.parametrize(
+    ("relative_path", "source", "rule_id"),
+    [
+        (
+            "src/souwen/modules/search/application/service.py",
+            "from souwen.providers.information_sources.openalex import adapter\n",
+            "DEP-001",
+        ),
+        (
+            "src/souwen/providers/information_sources/openalex/adapter.py",
+            "from souwen.delivery.api import routes\n",
+            "DEP-002",
+        ),
+        (
+            "src/souwen/providers/information_sources/openalex/adapter.py",
+            "from souwen.providers.information_sources.crossref import adapter\n",
+            "DEP-003",
+        ),
+        (
+            "src/souwen/common_runtime/transport/client.py",
+            "from souwen.modules.search import api\n",
+            "DEP-004",
+        ),
+        (
+            "src/souwen/modules/fetch/application/service.py",
+            "from fastapi import Depends\n",
+            "DEP-005",
+        ),
+        (
+            "src/souwen/delivery/api/routes.py",
+            "from souwen.providers.fetch_sources.builtin import client\n",
+            "DEP-006",
+        ),
+        (
+            "contracts/golden.py",
+            "from souwen.modules.search import api\n",
+            "DEP-009",
+        ),
+    ],
+)
+def test_statically_decidable_forbidden_edges_fail(
+    tmp_path: Path, relative_path: str, source: str, rule_id: str
+) -> None:
+    root, exceptions = _repository(tmp_path)
+    _write(root, relative_path, source)
+
+    violations = _violations(root, exceptions)
+
+    assert [violation.rule_id for violation in violations] == [rule_id]
+    assert violations[0].file == relative_path
+    assert violations[0].line == 1
+
+
+def test_relative_and_literal_dynamic_imports_are_resolved(tmp_path: Path) -> None:
+    root, exceptions = _repository(tmp_path)
+    relative_path = "src/souwen/modules/search/application/service.py"
+    _write(
+        root,
+        relative_path,
+        "from ....providers.information_sources.openalex import adapter\n"
+        "import importlib as imports\n"
+        "imports.import_module('souwen.providers.fetch_sources.builtin.client')\n",
+    )
+
+    violations = _violations(root, exceptions)
+
+    assert [
+        (violation.rule_id, violation.line, violation.imported) for violation in violations
+    ] == [
+        ("DEP-001", 1, "souwen.providers.information_sources.openalex"),
+        ("DEP-001", 3, "souwen.providers.fetch_sources.builtin.client"),
+    ]
+
+
+def test_nonliteral_dynamic_import_fails_with_stable_rule_id(tmp_path: Path) -> None:
+    root, exceptions = _repository(tmp_path)
+    _write(
+        root,
+        "src/souwen/modules/search/application/service.py",
+        "from importlib import import_module\nname = 'souwen.providers.example'\nimport_module(name)\n",
+    )
+
+    violations = _violations(root, exceptions)
+
+    assert [
+        (violation.rule_id, violation.line, violation.imported) for violation in violations
+    ] == [(checker.DYNAMIC_RULE_ID, 3, "<dynamic>")]
+
+
+def test_platform_is_governed_for_dynamic_imports(tmp_path: Path) -> None:
+    root, exceptions = _repository(tmp_path)
+    _write(
+        root,
+        "src/souwen/platform/provider_manager/loader.py",
+        "from importlib import import_module\nmodule_name = 'provider.factory'\nimport_module(module_name)\n",
+    )
+
+    violations = _violations(root, exceptions)
+
+    assert [
+        (violation.rule_id, violation.line, violation.imported) for violation in violations
+    ] == [(checker.DYNAMIC_RULE_ID, 3, "<dynamic>")]
+
+
+def test_top_level_package_and_exact_expiring_exception_rules(tmp_path: Path) -> None:
+    root, exceptions = _repository(tmp_path)
+    _write(root, "src/rogue/__init__.py")
+
+    violations = _violations(root, exceptions)
+    assert [
+        (violation.rule_id, violation.importer, violation.imported) for violation in violations
+    ] == [("DEP-010", "rogue", "src/rogue")]
+
+    exceptions.write_text(
+        """{
+  "version": 1,
+  "exceptions": [
+    {
+      "rule_id": "DEP-010",
+      "importer": "rogue",
+      "imported": "src/rogue",
+      "owner": "architecture",
+      "rationale": "bounded migration fixture",
+      "removal_phase": "Phase 2B",
+      "expiry_date": "2999-01-01"
+    }
+  ]
+}
+""",
+        encoding="utf-8",
+    )
+    assert _violations(root, exceptions) == []
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        '{"version": 1, "exceptions": [{"rule_id": "DEP-001"}]}',
+        """{
+  "version": 1,
+  "exceptions": [{
+    "rule_id": "DEP-001", "importer": "souwen.modules.*",
+    "imported": "souwen.providers.source", "owner": "architecture",
+    "rationale": "bad", "removal_phase": "Phase 2B", "expiry_date": "2999-01-01"
+  }]
+}""",
+        """{
+  "version": 1,
+  "exceptions": [{
+    "rule_id": "DEP-001", "importer": "souwen.modules.search",
+    "imported": "souwen.providers.source", "owner": "architecture",
+    "rationale": "expired", "removal_phase": "Phase 2B", "expiry_date": "2000-01-01"
+  }]
+}""",
+    ],
+)
+def test_exception_schema_rejects_incomplete_wildcard_and_expired_entries(
+    tmp_path: Path, payload: str
+) -> None:
+    root, exceptions = _repository(tmp_path)
+    exceptions.write_text(payload, encoding="utf-8")
+
+    with pytest.raises(checker.ArchitectureCheckerError):
+        checker.load_exceptions(exceptions)
+
+
+def test_cli_returns_one_with_stable_evidence_and_zero_when_clean(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    root, exceptions = _repository(tmp_path)
+    relative_path = "src/souwen/modules/search/application/service.py"
+    _write(
+        root, relative_path, "from souwen.providers.information_sources.openalex import adapter\n"
+    )
+
+    assert checker.main(["--root", str(root), "--exceptions", str(exceptions)]) == 1
+    assert capsys.readouterr().out == (
+        "DEP-001 src/souwen/modules/search/application/service.py:1 "
+        "importer=souwen.modules.search.application.service "
+        "imported=souwen.providers.information_sources.openalex\n"
+    )
+
+    _write(root, relative_path, "from souwen.common_runtime.transport import Client\n")
+    assert checker.main(["--root", str(root), "--exceptions", str(exceptions)]) == 0
+    assert capsys.readouterr().out == "architecture dependency check passed\n"
