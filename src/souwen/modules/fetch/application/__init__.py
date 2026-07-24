@@ -1,3 +1,5 @@
-"""Fetch application layer. Owner: Fetch Core. Allowed dependencies: own domain, ports, and common runtime."""
+"""Fetch application layer. Owner: Fetch Core."""
 
-__all__: list[str] = []
+from .orchestration import FetchModuleService, FetchProviderManager
+
+__all__ = ["FetchModuleService", "FetchProviderManager"]

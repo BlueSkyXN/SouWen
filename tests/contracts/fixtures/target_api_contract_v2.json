@@ -127,6 +127,8 @@
     "conflict": 409,
     "api_major_mismatch": 409,
     "rate_limited": 429,
+    "payload_too_large": 413,
+    "unsupported_media_type": 415,
     "provider_unavailable": 502,
     "provider_timeout": 504,
     "internal_error": 500

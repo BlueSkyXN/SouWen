@@ -530,6 +530,66 @@ class TestMaxResponseSize:
         assert result.raw.get("oversized") is True
 
     @pytest.mark.asyncio
+    async def test_target_contract_rejects_unsupported_media_type(self):
+        mock_resp = MagicMock()
+        mock_resp.text = "%PDF fixture"
+        mock_resp.content = b"%PDF fixture"
+        mock_resp.status_code = 200
+        mock_resp.headers = {"content-type": "application/pdf"}
+
+        with patch.object(BuiltinFetcherClient, "_fetch", new_callable=AsyncMock) as mock_fetch:
+            mock_fetch.return_value = mock_resp
+            async with BuiltinFetcherClient() as client:
+                result = await client.fetch(
+                    "https://example.com/file.pdf",
+                    enforce_target_contract=True,
+                )
+
+        assert result.raw["target_error_code"] == "unsupported_media_type"
+
+    @pytest.mark.asyncio
+    async def test_target_contract_keeps_short_text_as_low_quality_candidate(self):
+        mock_resp = MagicMock()
+        mock_resp.text = "short"
+        mock_resp.content = b"short"
+        mock_resp.status_code = 200
+        mock_resp.headers = {"content-type": "text/plain; charset=utf-8"}
+
+        with patch.object(BuiltinFetcherClient, "_fetch", new_callable=AsyncMock) as mock_fetch:
+            mock_fetch.return_value = mock_resp
+            async with BuiltinFetcherClient() as client:
+                result = await client.fetch(
+                    "https://example.com/short",
+                    enforce_target_contract=True,
+                )
+
+        assert result.error is None
+        assert result.content == "short"
+        assert result.raw["media_type"] == "text/plain"
+        assert result.raw["charset"] == "utf-8"
+        assert result.raw["content_length_bytes"] == 5
+
+    @pytest.mark.asyncio
+    async def test_target_contract_caps_decompressed_response_bytes(self):
+        body = b"x" * (BuiltinFetcherClient.MAX_RESPONSE_SIZE + 1)
+        mock_resp = MagicMock()
+        mock_resp.text = "not-read-after-byte-cap"
+        mock_resp.content = body
+        mock_resp.status_code = 200
+        mock_resp.headers = {"content-type": "text/plain"}
+
+        with patch.object(BuiltinFetcherClient, "_fetch", new_callable=AsyncMock) as mock_fetch:
+            mock_fetch.return_value = mock_resp
+            async with BuiltinFetcherClient() as client:
+                result = await client.fetch(
+                    "https://example.com/large",
+                    enforce_target_contract=True,
+                )
+
+        assert result.raw["target_error_code"] == "response_too_large"
+        assert result.raw["content_length"] == BuiltinFetcherClient.MAX_RESPONSE_SIZE + 1
+
+    @pytest.mark.asyncio
     async def test_normal_size_ok(self):
         mock_resp = MagicMock()
         mock_resp.text = _ok_html()

@@ -81,6 +81,30 @@ _ROBOTS_USER_AGENT = "SouWen/1.0 (+https://github.com/BlueSkyXN/SouWen)"
 
 
 _CJK_PATTERN = r"[\u4e00-\u9fff\u3400-\u4dbf\uf900-\ufaff\u3040-\u30ff\u31f0-\u31ff\uac00-\ud7af]"
+_TARGET_JSON_MEDIA_TYPES = frozenset({"application/json"})
+_TARGET_XML_MEDIA_TYPES = frozenset({"application/xml", "text/xml"})
+
+
+def _target_media_type(value: str | None) -> tuple[str, str | None]:
+    """Parse a bounded response content type for the canonical Fetch contract."""
+    raw_value = value if isinstance(value, str) else ""
+    parts = [part.strip() for part in raw_value.split(";")]
+    media_type = parts[0].lower()
+    charset = None
+    for part in parts[1:]:
+        if part.lower().startswith("charset="):
+            charset = part.split("=", 1)[1].strip().strip('"') or None
+    return media_type, charset
+
+
+def _target_media_type_allowed(media_type: str) -> bool:
+    return (
+        media_type.startswith("text/")
+        or media_type in _TARGET_JSON_MEDIA_TYPES
+        or media_type in _TARGET_XML_MEDIA_TYPES
+        or media_type.endswith("+json")
+        or media_type.endswith("+xml")
+    )
 
 
 def _count_words(text: str) -> int:
@@ -293,6 +317,7 @@ class BuiltinFetcherClient(BaseScraper):
         max_length: int | None = None,
         respect_robots_txt: bool | None = None,
         selector: str | None = None,
+        enforce_target_contract: bool = False,
     ) -> FetchResult:
         """抓取单个 URL 的内容
 
@@ -320,6 +345,7 @@ class BuiltinFetcherClient(BaseScraper):
                 start_index=start_index,
                 max_length=max_length,
                 selector=selector,
+                enforce_target_contract=enforce_target_contract,
             )
         finally:
             self.respect_robots_txt = prev_robots
@@ -330,6 +356,7 @@ class BuiltinFetcherClient(BaseScraper):
         start_index: int = 0,
         max_length: int | None = None,
         selector: str | None = None,
+        enforce_target_contract: bool = False,
     ) -> FetchResult:
         try:
             # robots.txt 合规检查（在任何重定向 / 抓取之前）
@@ -341,7 +368,15 @@ class BuiltinFetcherClient(BaseScraper):
                     final_url=url,
                     source=self.PROVIDER_NAME,
                     error=reason,
-                    raw={"provider": "builtin", "blocked_by_robots": True},
+                    raw={
+                        "provider": "builtin",
+                        "blocked_by_robots": True,
+                        **(
+                            {"target_error_code": "policy_blocked"}
+                            if enforce_target_contract
+                            else {}
+                        ),
+                    },
                 )
 
             # 手动重定向循环 — 每一跳解析并绑定到已校验 IP，防 DNS rebinding。
@@ -358,6 +393,15 @@ class BuiltinFetcherClient(BaseScraper):
                         final_url=current_url,
                         source=self.PROVIDER_NAME,
                         error=f"SSRF: {target_label}被拦截 ({reason})",
+                        raw={
+                            "provider": "builtin",
+                            "blocked_by_ssrf": True,
+                            **(
+                                {"target_error_code": "policy_blocked"}
+                                if enforce_target_contract
+                                else {}
+                            ),
+                        },
                     )
 
                 resp = await self._fetch(
@@ -425,8 +469,45 @@ class BuiltinFetcherClient(BaseScraper):
                             "status_code": resp.status_code,
                             "content_length": declared_size,
                             "oversized": True,
+                            **(
+                                {"target_error_code": "response_too_large"}
+                                if enforce_target_contract
+                                else {}
+                            ),
                         },
                     )
+
+            media_type, charset = _target_media_type(resp.headers.get("content-type"))
+            if enforce_target_contract and not _target_media_type_allowed(media_type):
+                return FetchResult(
+                    url=url,
+                    final_url=final_url,
+                    source=self.PROVIDER_NAME,
+                    error="响应媒体类型不受支持",
+                    raw={
+                        "provider": "builtin",
+                        "status_code": resp.status_code,
+                        "media_type": media_type or "unknown",
+                        "target_error_code": "unsupported_media_type",
+                    },
+                )
+
+            body = getattr(resp, "content", b"")
+            body_size = len(body) if isinstance(body, bytes | bytearray) else 0
+            if enforce_target_contract and body_size > self.MAX_RESPONSE_SIZE:
+                return FetchResult(
+                    url=url,
+                    final_url=final_url,
+                    source=self.PROVIDER_NAME,
+                    error="解压后响应体超过上限",
+                    raw={
+                        "provider": "builtin",
+                        "status_code": resp.status_code,
+                        "content_length": body_size,
+                        "oversized": True,
+                        "target_error_code": "response_too_large",
+                    },
+                )
 
             html = resp.text
 
@@ -448,21 +529,46 @@ class BuiltinFetcherClient(BaseScraper):
                         "status_code": resp.status_code,
                         "content_length": len(html),
                         "oversized": True,
+                        **(
+                            {"target_error_code": "response_too_large"}
+                            if enforce_target_contract
+                            else {}
+                        ),
                     },
                 )
 
-            if not html or len(html.strip()) < 100:
+            if not html or (not enforce_target_contract and len(html.strip()) < 100):
                 return FetchResult(
                     url=url,
                     final_url=final_url,
                     source=self.PROVIDER_NAME,
                     error="页面内容过短或为空",
-                    raw={"status_code": resp.status_code, "content_length": len(html)},
+                    raw={
+                        "status_code": resp.status_code,
+                        "content_length": body_size if enforce_target_contract else len(html),
+                        **(
+                            {"target_error_code": "empty_content"}
+                            if enforce_target_contract
+                            else {}
+                        ),
+                    },
                 )
 
             # 提取正文：CSS 选择器优先，否则 trafilatura 全页提取
             selector_matched = False
-            if selector:
+            if enforce_target_contract and media_type not in {
+                "text/html",
+                "application/xhtml+xml",
+            }:
+                extracted = {
+                    "content": html.strip(),
+                    "title": "",
+                    "author": None,
+                    "date": None,
+                    "description": "",
+                    "content_format": "text",
+                }
+            elif selector:
                 try:
                     from bs4 import BeautifulSoup
 
@@ -523,7 +629,10 @@ class BuiltinFetcherClient(BaseScraper):
             MIN_WORD_COUNT = 10
             word_count = _count_words(content) if content else 0
 
-            if not content or len(content) < MIN_CONTENT_LENGTH or word_count < MIN_WORD_COUNT:
+            if not content or (
+                not enforce_target_contract
+                and (len(content) < MIN_CONTENT_LENGTH or word_count < MIN_WORD_COUNT)
+            ):
                 return FetchResult(
                     url=url,
                     final_url=final_url,
@@ -534,6 +643,11 @@ class BuiltinFetcherClient(BaseScraper):
                         "content_length": len(html),
                         "extracted_length": len(content) if content else 0,
                         "word_count": word_count,
+                        **(
+                            {"target_error_code": "empty_content"}
+                            if enforce_target_contract
+                            else {}
+                        ),
                     },
                 )
 
@@ -573,6 +687,15 @@ class BuiltinFetcherClient(BaseScraper):
                     "provider": "builtin",
                     "status_code": resp.status_code,
                     "content_length": len(html),
+                    **(
+                        {
+                            "content_length_bytes": body_size,
+                            "media_type": media_type,
+                            "charset": charset,
+                        }
+                        if enforce_target_contract
+                        else {}
+                    ),
                     "extracted_length": full_length,
                     "returned_length": len(sliced),
                     "start_index": start_index,
