@@ -227,14 +227,66 @@ imports；没有数据、配置或 persisted secret migration。
 
 ### 6.4 HTTP Transport
 
-Transport v1 若进入实施，必须先冻结：
+CR-05 分成 error identity prerequisite 与 HTTP execution core 两个 stacked 单元，不能让 canonical
+Transport 临时反向 import `souwen.core.exceptions`，也不能以 error factory 改变异常 identity。
 
-- `single_attempt` 恰好一次，`default` 只对 connect/timeout 按现状重试；
-- 401/403/429/404/5xx 的现有映射；
-- cancellation 原样传播，不转成 `SourceUnavailableError`，不触发额外 retry；
-- v1 无 stream API；
-- `follow_redirects=True` 只用于 trusted Provider API，不替代 untrusted Fetch 的逐跳 SSRF gate；
-- `source_name` config resolution 先作为 compatibility adapter，不进入 Transport 核心 contract。
+#### 6.4.1 Canonical error identity
+
+Common Runtime 拥有 project-neutral base；Transport 拥有 stable outbound failure taxonomy：
+
+```python
+# souwen.common_runtime.errors
+class SouWenError(Exception): ...
+
+# souwen.common_runtime.transport
+class AuthError(SouWenError): ...
+class RateLimitError(SouWenError):
+    retry_after: float | None
+class SourceUnavailableError(SouWenError): ...
+```
+
+`souwen.core.exceptions` 必须 object-identical re-export 上述四类；`ConfigError`、`ParseError`、
+`NotFoundError` 和 `LocalCatalogUnavailableError` 保持 legacy/domain 定义。后者仍直接继承 canonical
+`SourceUnavailableError`，所有 legacy broad `except SouWenError`、Provider `pytest.raises()` 和
+`RateLimitError.retry_after` 保持。禁止创建同名第二套 class、catch 后翻译成新实例，或因本切片批量
+改写所有 legacy consumers。
+
+#### 6.4.2 Explicit options 与 compatibility adapter
+
+Canonical Transport 只接收上层已经解析的 `base_url`、merged headers、timeout、proxy、
+`follow_redirects` 和当前 retry setting，不读取 `SouWenConfig`、registry、credential、HOME、env 或
+`souwen.__version__`。legacy `souwen.core.http_client` 保留 compatibility adapter，负责：
+
+1. `get_config()` 与 `source_name` 的 base URL/proxy/header resolution；
+2. User-Agent 构造；
+3. header precedence：User-Agent < source channel headers < explicit caller headers；
+4. 保留 current `timeout or config.timeout`、`max_retries or config.max_retries` 语义。
+
+当前 `self.max_retries` 只保存值，实际 tenacity stop 固定为三次；CR-05 是同行为搬移，不能顺手让该
+字段改变 attempt count。source timeout/backend、credential 和 Provider response body policy 不进入
+Transport core。
+
+#### 6.4.3 Retry、status、cancellation 与生命周期
+
+- `single_attempt` 恰好一次；`default` 只对 `httpx.TimeoutException` / `ConnectError` 固定三次；
+- timeout/connect 分别映射 `SourceUnavailableError("请求超时")` / `("连接失败")`；
+- 401/403 → `AuthError`，429 → 带 numeric/HTTP-date `retry_after` 的 `RateLimitError`，404 返回原
+  response，5xx → `SourceUnavailableError`，其他 4xx → `SouWenError`；
+- `asyncio.CancelledError` 原样传播，不转译、不触发额外 retry；retry backoff cancellation 同样原样传播；
+- context manager 正常/异常退出都只 delegate `httpx.AsyncClient.aclose()`；v1 不新增独立 `_closed`
+  state、重复 close 保证或 cancellation recovery policy；
+- v1 无 stream API；不在本切片添加 tracing/metrics；
+- `follow_redirects=True` 只保持 trusted Provider API 现状，不替代 untrusted Fetch/PDF 的逐跳 SSRF、
+  DNS binding、Host/SNI 或跨 origin header policy；
+- Provider 可以继续 override status hook，例如 YouTube 403 quota mapping；generic Transport 不读取
+  Provider JSON body。
+
+#### 6.4.4 兼容迁移与 rollback
+
+CR-05a 先移动四类 canonical error objects，并让 legacy HTTP/retry 成为至少两个直接 consumers。
+CR-05b 再建立 explicit Transport core 与 legacy config adapter；OAuth token acquisition/cache/lock/bearer
+injection 全部留在后续单元。Rollback 必须能分别恢复 error definitions 和 HTTP implementation，不需要
+数据、配置或 persisted credential migration。
 
 ## 7. 验证计划
 
@@ -256,6 +308,13 @@ Transport v1 若进入实施，必须先冻结：
 | VAL-CR-012 | Authorization/Bearer/quoted/scalar/userinfo/query/fragment/punctuation/safe-field fixture parity |
 | VAL-CR-013 | canonical redaction stdlib-only；parser failure 原样传播且不返回未脱敏 input |
 | VAL-CR-014 | Pydantic payload/mapping 与 LLM topology policy 留在 legacy adapter；两名 consumers canonicalized |
+| VAL-CR-015 | canonical/core 四类 error object identity 与完整 legacy/domain inheritance 保持 |
+| VAL-CR-016 | Common Runtime error AST 无 legacy Core、Delivery、Provider、registry 或 config import |
+| VAL-CR-017 | RateLimit `retry_after`、HTTP status/network mapping 与 non-HTTP broad catch parity |
+| VAL-CR-018 | config adapter 的 base URL/proxy/header/timeout precedence；core 不读 source credential/backend |
+| VAL-CR-019 | single/default attempt count、native request/backoff cancellation 和 subclass hook parity |
+| VAL-CR-020 | normal/exception context close delegate、无 stream v1、trusted redirect/SSRF negative boundary |
+| VAL-CR-021 | canonical/legacy wheel paths、至少两个 consumers、全量 pytest、Ruff、CI/V2 通过 |
 
 未来 conditional slice 必须各自增加 old/new parity、negative dependency、cancellation 和资源清理
 证据；不能仅以 import 成功作为退出门槛。
@@ -272,7 +331,7 @@ Transport v1 若进入实施，必须先冻结：
 
 需要后续关闭的技术项：
 
-1. Transport owner 与显式 config options/port；
+1. explicit Transport options/port 与 legacy config adapter 的最终 interface；
 2. OAuth 属于 Transport 还是 Security，以及 token refresh cancellation；
 3. neutral concurrency namespace，替代 legacy `search` / `web` channel；
 4. SSRF 同步 DNS 的 timeout/cancellation 演进；
@@ -287,7 +346,8 @@ Transport v1 若进入实施，必须先冻结：
 | CR-02 | request context primitive | canonical context 无 ASGI dependency；旧路径 re-export；request/error/log ID parity |
 | CR-03 | SSRF resolver primitive | DNS/IP/Host/SNI/redirect fixtures parity; no `FetchResult` import |
 | CR-04 | generic redaction split | no Pydantic/LLM policy in primitive; secret fixtures parity |
-| CR-05 | trusted Provider HTTP transport | explicit cancellation/redirect/config contract and parity |
+| CR-05a | shared/transport error identity prerequisite | VAL-CR-015–017；legacy identity 与 inheritance parity |
+| CR-05b | trusted Provider HTTP execution core | VAL-CR-018–021；explicit cancellation/redirect/config contract and parity |
 | CR-06 | generic outbound rate limiter | cancellation/state conformance; Provider header parsing outside runtime |
 
 CR-02–CR-06 不能因 CR-01 完成而自动视为批准；每个切片都重新执行 admission test。
