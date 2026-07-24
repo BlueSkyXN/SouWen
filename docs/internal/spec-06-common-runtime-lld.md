@@ -83,7 +83,9 @@ common_runtime -> legacy core compatibility wrapper
 ```
 
 Legacy path 可以单向 re-export canonical implementation；canonical implementation 不得反向 import
-legacy path。Architecture dependency checker 持续执行 DEP-004 和 `DEP-DYNAMIC`。
+legacy path。Architecture dependency checker 持续执行 DEP-004 和 `DEP-DYNAMIC`：Common Runtime
+只能 import `souwen.common_runtime.*`，任何其他 `souwen.*` namespace 均按 DEP-004 拒绝；
+`importlib.import_module()` 与 builtin `__import__()`（含 alias）的 literal/non-literal 调用不得绕过门禁。
 
 ## 5. ACCEPT-01：Runtime source provenance
 
@@ -469,6 +471,10 @@ Rollback 恢复 legacy maps；无数据、配置或 persisted state migration。
 | VAL-CR-043 | BaseScraper 与 builtin 使用 async wrapper；取消后及 worker 返回后均无 stale request |
 | VAL-CR-044 | legacy sync exports/monkeypatch、fixture harness、IP-bound redirect security 保持 |
 | VAL-CR-045 | architecture、SSRF/Fetch regression、wheel、全量 pytest、Ruff 与 CI/V2 通过 |
+| VAL-CR-046 | Common Runtime 对 `core/delivery/server/config/registry/platform/modules/providers` 与具体 legacy client 的 direct import 全部报 DEP-004 |
+| VAL-CR-047 | `from souwen import ...` gateway alias 与 literal `importlib.import_module()` / `__import__()`（含 builtin alias）不能绕过 DEP-004 |
+| VAL-CR-048 | non-literal dynamic import 报 `DEP-DYNAMIC`；relative/self import、stdlib 与已准入第三方依赖继续允许 |
+| VAL-CR-049 | 当前 Common Runtime tree、checker fixtures、全量 pytest、Ruff、wheel 与 CI/V2 通过 |
 
 未来 conditional slice 必须各自增加 old/new parity、negative dependency、cancellation 和资源清理
 证据；不能仅以 import 成功作为退出门槛。
@@ -502,5 +508,6 @@ Rollback 恢复 legacy maps；无数据、配置或 persisted state migration。
 | CR-07 | OAuth client-credentials transport | VAL-CR-028–034；refresh/cache/cancellation/secret boundary parity |
 | CR-08 | neutral loop-local semaphore pool | VAL-CR-035–039；domain/env policy stays in legacy adapter |
 | CR-09 | async SSRF resolver wait | VAL-CR-040–045；sync truth preserved；no hard DNS cancellation claim |
+| CR-10 | Common Runtime architecture gate hardening | VAL-CR-046–049；all reverse edges and builtin dynamic import blocked |
 
-CR-02–CR-09 不能因前一切片完成而自动视为批准；每个切片都重新执行 admission test。
+CR-02–CR-10 不能因前一切片完成而自动视为批准；每个切片都重新执行 admission test。
