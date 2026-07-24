@@ -2,18 +2,18 @@
 
 ## 导航
 
-- [v2 release candidate](#v200rc1--release-candidateunreleased)
+- [Souwen v2rc2 release candidate](#v200rc2--release-candidateunreleased)
 - [v1.x history](#v112--ai-workflow-安全加固与功能深化2026-05-04)
 - [v0.x history](#v090--v1-过渡版2026-04-22)
 
 > v2 段落记录当前 release candidate 的公开变更和验证边界；v1/v0 段落保留历史审计脉络。
 
-## v2.0.0rc1 — Release Candidate（Unreleased）
+## v2.0.0rc2 — Release Candidate（Unreleased）
 
 ### Release status
 
-- v2 public surface 已合回 `main`，版本固定为 Python/runtime `2.0.0rc1` 和 Panel
-  `2.0.0-rc1`。本节描述候选源码，不表示 tag、GitHub Release、24 个 binary、远端
+- 当前产品/Release 展示名固定为 **Souwen v2rc2**，Python/runtime 为 `2.0.0rc2`，
+  Panel 为 `2.0.0-rc2`。本节描述候选源码，不表示 tag、GitHub Release、四个 server bundle、远端
   deployment 或 HFS promotion 已完成。
 - Go / No-Go 规则固定在
   [`docs/internal/rc-readiness-gates.md`](docs/internal/rc-readiness-gates.md)。所有 required
@@ -22,8 +22,9 @@
 - PyPI 发布仍不在本候选范围。HFS promotion 是需明确批准的远端写操作。
 - 唯一 central `.github/workflows/release-candidate.yml` 要求显式选择 `evidence_profile`：
   `deployment` 跳过外层 24-binary release matrix，只生成不可发布的 HFS deployment evidence；
-  `release` 保持完整 binary、RC bundle、attestation 和 prerelease 契约。Tag、prerelease 与 HFS
-  promotion 仍只在受保护 environment 明确批准后执行。
+  Phase 8 前的 `release` 仍是不可发布的历史 24-binary regression。当前 workflow 明确拒绝
+  `publish=true`；只有精确四个 `souwen-server-2.0.0rc2-*` bundle、attestation 与 HFS 验收
+  完成后，才允许创建 `v2.0.0rc2` 和标题为 `Souwen v2rc2` 的 GitHub Release。
 
 ### Breaking changes
 

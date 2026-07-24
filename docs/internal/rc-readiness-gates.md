@@ -1,9 +1,14 @@
-# SouWen v2.0.0rc1 发布候选门禁
+# Souwen v2rc2 发布候选门禁
 
-本文固定 `v2.0.0rc1` 的 Go / No-Go 规则、阈值和证据字段。它不是某次执行报告：
+本文固定 `v2.0.0rc2` 的 Go / No-Go 规则、阈值和证据字段。它不是某次执行报告：
 candidate SHA、run URL、checksum、测试计数和部署回读等运行结果不得写回本文件，
 而应由发布流水线写入候选专属的 `release-manifest.json` 或
 `deployment-manifest.json` artifact。
+
+> **Phase 8 前的执行边界**：RC2 的 `deployment` profile 可用于 P4-07/M1 HFS 验收；
+> 当前 `release` profile 仍保留历史 24-binary CLI/Nuitka matrix，只能生成过渡 evidence，
+> 不能满足 RC2 发布定义。`release-candidate.yml` 在四个 PyInstaller server bundle 契约落地前
+> 必须拒绝 `publish=true`。最终 RC2 Release 以 ADR 0005 的精确四 bundle inventory 为准。
 
 ## 判定原则
 
@@ -30,9 +35,9 @@ candidate SHA、run URL、checksum、测试计数和部署回读等运行结果�
 - **RC-ready**：除 HFS promotion 外的 15 个 gate 全部 `PASS`；HFS 为
   `required=false, status=NOT_RUN`。Central workflow 使用 `evidence_profile=release`、
   `publish=false, deploy_hfs=false`，只生成 evidence bundle，不创建 tag/Release、不写 Space。
-- **Publish-ready**：RC-ready 加上 HFS promotion `PASS`；private edge、SouWen admin、
+- **Publish-ready target**：RC-ready 加上 HFS promotion `PASS`；private edge、SouWen admin、
   wrapper/runtime/source provenance 和 rollback point 均有证据。只有该状态才允许
-  `evidence_profile=release, publish=true`。
+  `evidence_profile=release, publish=true`；Phase 8 四 bundle gate 落地前该状态不可达。
 
 `release-candidate.yml` 必须从当前 `origin/main` 的 control-plane workflow 运行；任何
 candidate code 执行前先做 immutable SHA、lineage 与 version static check。无 deploy/publish 的
@@ -46,7 +51,7 @@ RC-ready run 可以验证从 current main 派生的 candidate；任何 secret-be
 - 候选从预期 release ref 创建，local HEAD、remote candidate ref 和 manifest
   `candidate_sha` 完全一致。
 - `git status --short` 为空；无未跟踪产物、未合并提交、stash 依赖或 submodule 漂移。
-- 版本面均为 `2.0.0rc1`，生成物由正式命令生成，没有手改 generated artifact。
+- 版本面均为 `2.0.0rc2`，生成物由正式命令生成，没有手改 generated artifact。
 
 **Evidence**：`candidate_sha`、ref、tree hash、version readback、worktree-clean assertion。
 
@@ -158,15 +163,16 @@ RC-ready run 可以验证从 current main 派生的 candidate；任何 secret-be
 
 **Evidence**：3 个 image digest、build log、source SHA、endpoint smoke JSON、admin-lock assertion。
 
-### 12. Binary matrix
+### 12. Binary matrix transition
 
-- PyInstaller 和 Nuitka 各构建 3 editions × 4 targets：Linux amd64、Linux arm64、
-  macOS arm64、Windows amd64；每个 builder 12 个，共 **24 个 binaries**。
-- 24 个 binary 全部验证 help、version、sources、config 和 doctor。
-- Basic 追加 MCP smoke；pro/full 追加 loopback server smoke；full 追加 article extraction、
-  PDF 与预装 plugin smoke。目标平台必须执行产物，不能只完成 cross-build。
+- Phase 8 前，PyInstaller/Nuitka 的 24-binary CLI matrix 仅是历史 workflow regression，
+  不能作为 RC2 publish evidence，且不得解除 `publish=true` fail-closed guard。
+- RC2 最终 inventory 必须精确为四个 PyInstaller server bundle：Linux amd64、Linux arm64、
+  macOS arm64、Windows amd64；artifact 前缀为 `souwen-server-2.0.0rc2-*`。
+- 四个 bundle 必须在目标平台执行 server、health/readiness、API-major 与 target-native smoke；
+  不得用 cross-build 成功、旧 CLI help/version 或 Nuitka 结果替代。
 
-**Evidence**：24 项 matrix report、目标 runner、binary checksum、每项 smoke 输出。
+**Evidence**：四项 target-native matrix report、目标 runner、bundle checksum、每项 server smoke 输出。
 
 ### 13. Security
 
@@ -209,8 +215,9 @@ surface/capability report、双层 auth/admin-open assertion。`RUNNING` 单独�
 
 ### 16. RC assets
 
-- RC 资产必须包含 wheel、sdist、24 个 binaries、`SHA256SUMS`、Python SBOM、Panel/npm SBOM、
-  provenance/attestation 和 `release-manifest.json`。
+- RC 资产必须包含 wheel、sdist、精确四个 PyInstaller server bundle、`SHA256SUMS`、Python
+  SBOM、Panel/npm SBOM、provenance/attestation 和 `release-manifest.json`；不得包含 Nuitka、
+  basic/pro/full CLI tier artifact。
 - `artifacts[]` 只索引 payload assets；`release-manifest.json` 与 `SHA256SUMS` 属于
   `bundle_envelope`，避免 manifest 自哈希递归。`SHA256SUMS` 精确覆盖全部 payload 加 manifest，
   但不覆盖自身；最终目录必须等于 payload 与两个 envelope 文件的集合。
@@ -232,7 +239,9 @@ Deployment manifest 只索引轻量 HFS 验收证据，不得被 GitHub Release 
   "schema_version": 1,
   "evidence_profile": "deployment",
   "publishable": false,
-  "version": "2.0.0rc1",
+  "product_name": "Souwen v2rc2",
+  "version": "2.0.0rc2",
+  "api_major": 2,
   "candidate_sha": "<40-hex>",
   "candidate_ref": "sha:<40-hex>",
   "verifier_sha": "<trusted-control-plane-40-hex>",
@@ -274,7 +283,10 @@ Manifest 是候选证据索引，不承载 secret。schema 至少固定以下字
 ```json
 {
   "schema_version": 1,
-  "version": "2.0.0rc1",
+  "product_name": "Souwen v2rc2",
+  "version": "2.0.0rc2",
+  "api_major": 2,
+  "binary_count": 4,
   "candidate_sha": "<40-hex>",
   "candidate_ref": "<ref>",
   "verifier_sha": "<trusted-control-plane-40-hex>",

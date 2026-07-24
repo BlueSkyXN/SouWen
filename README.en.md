@@ -6,7 +6,11 @@
 
 [![Python](https://img.shields.io/badge/python-≥3.10-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-GPLv3-blue)](LICENSE)
-[![Version](https://img.shields.io/badge/version-2.0.0rc1-orange)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.0.0rc2-orange)](CHANGELOG.md)
+
+> The current candidate is **Souwen v2rc2** (Python/runtime `2.0.0rc2`). It is
+> not the `2.0.0` GA and does not imply that the tag, GitHub Release, or HFS RC2
+> deployment already exists.
 
 **Author**: [@BlueSkyXN](https://github.com/BlueSkyXN) · **Repository**: [github.com/BlueSkyXN/SouWen](https://github.com/BlueSkyXN/SouWen) · **License**: [GPLv3](LICENSE)
 
@@ -226,7 +230,7 @@ docker run -p 8000:49265 \
 - [docs/plugin-integration-spec.md](docs/plugin-integration-spec.md) — External plugin integration spec
 - [docs/plugin-management.md](docs/plugin-management.md) — Plugin management (Web Panel / CLI / API)
 - [docs/contributing.md](docs/contributing.md) — Developer guide
-- [docs/internal/rc-readiness-gates.md](docs/internal/rc-readiness-gates.md) — Fixed v2.0.0rc1 gates and evidence manifest contract
+- [docs/internal/rc-readiness-gates.md](docs/internal/rc-readiness-gates.md) — Fixed v2.0.0rc2 gates and evidence manifest contract
 - [docs/internal/](docs/internal/) — Maintainer ADRs, branching policy, and pre-release baselines
 - [CHANGELOG.md](CHANGELOG.md) — Changelog
 

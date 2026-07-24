@@ -2,7 +2,7 @@
 
 本文说明 SouWen 的 Hugging Face Space 本地预检、受控 promotion、双层认证、provenance
 与失败恢复边界。RC promotion 还必须满足
-[v2.0.0rc1 发布候选门禁](./internal/rc-readiness-gates.md)。未经明确批准，不得同步 Space
+[Souwen v2rc2 发布候选门禁](./internal/rc-readiness-gates.md)。未经明确批准，不得同步 Space
 仓库、factory rebuild、修改 secrets 或触发远端 smoke。
 
 ## 部署对象与访问边界
@@ -32,8 +32,8 @@ private Space 的 edge 访问仍需 Hugging Face token；进入应用后，SouWe
 - 远端 promotion：只能由 `.github/workflows/release-candidate.yml` 从当前 `main` control plane
   调用，并显式设置 `deploy_hfs=true`。
 
-Central workflow 要求显式选择 `evidence_profile`；哨兵值 `select` 不执行。`release` profile
-保留完整 24-binary RC-ready/release bundle 契约；`deployment` profile 必须使用
+Central workflow 要求显式选择 `evidence_profile`；哨兵值 `select` 不执行。Phase 8 前的
+`release` profile 仍是不可发布的历史 24-binary regression；`deployment` profile 必须使用
 `publish=false, deploy_hfs=true`，跳过外层 PyInstaller/Nuitka release matrix，只生成不可发布的
 deployment evidence。两种 profile 都继续运行非 binary gates；HFS reusable workflow 内的单次
 Linux `basic-cli` PyInstaller smoke 不会被跳过。`deploy_hfs=true` 时，candidate 必须等于当前

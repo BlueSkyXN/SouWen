@@ -181,6 +181,11 @@ def test_release_candidate_strictly_validates_promotion_inputs() -> None:
     assert "for readme_name in ('README.md', 'README.en.md')" in text
     assert "r'(?:a|b|rc)[0-9]+'" in text
     assert "accepted prerelease candidate" in text
+    assert "current release surface only accepts version 2.0.0rc2" in text
+    assert "product_name = 'Souwen v2rc2'" in text
+    assert "api_major = 2" in text
+    assert "RC2 publication remains disabled until Phase 8" in text
+    assert '--title "$PRODUCT_NAME"' in text
     assert text.index("git', 'merge-base', '--is-ancestor'") < text.index(
         'pip install -e ".[edition-pro]"'
     )
@@ -191,6 +196,29 @@ def test_release_candidate_strictly_validates_promotion_inputs() -> None:
     hfs_call = _job(text, "hfs", "assemble-deployment")
     assert "uses: ./.github/workflows/deploy-hf-space.yml" in hfs_call
     assert "secrets: inherit" in hfs_call
+
+
+def test_rc2_release_version_surfaces_are_consistent() -> None:
+    from souwen import __version__
+
+    version = "2.0.0rc2"
+    panel_version = "2.0.0-rc2"
+    product_name = "Souwen v2rc2"
+
+    pyproject = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
+    panel = json.loads((REPO_ROOT / "panel/package.json").read_text(encoding="utf-8"))
+    panel_lock = json.loads((REPO_ROOT / "panel/package-lock.json").read_text(encoding="utf-8"))
+    changelog = (REPO_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
+    workflow = _workflow("release-candidate.yml")
+
+    assert __version__ == version
+    assert f'version = "{version}"' in pyproject
+    assert panel["version"] == panel_version
+    assert panel_lock["version"] == panel_version
+    assert panel_lock["packages"][""]["version"] == panel_version
+    assert f"## v{version}" in changelog
+    assert f"product_name = '{product_name}'" in workflow
+    assert f"current release surface only accepts version {version}" in workflow
 
 
 def test_release_candidate_requires_an_explicit_evidence_profile() -> None:
@@ -311,8 +339,12 @@ def test_deployment_evidence_is_non_publishable_and_contains_no_release_binaries
     assert "inputs.evidence_profile == 'release'" in release
     assert "if len(actual) != 24:" in release
     assert "release-manifest.json" in release
+    assert "'product_name': os.environ['PRODUCT_NAME']" in release
+    assert "'version': os.environ['VERSION']" in release
+    assert "'api_major': int(os.environ['API_MAJOR'])" in release
     assert "name: release-candidate-${{ needs.validate.outputs.version }}" in release
     assert "needs: [validate, assemble]" in publish
+    assert "RC2 publication remains disabled until Phase 8" in text
     assert "deployment-evidence-" not in publish
     assert "deployment-manifest.json" not in publish
 
@@ -388,7 +420,9 @@ def test_deployment_manifest_builder_emits_bounded_non_release_contract(
     )
     environment = {
         "CANDIDATE_SHA": candidate,
-        "VERSION": "2.0.0rc1",
+        "VERSION": "2.0.0rc2",
+        "PRODUCT_NAME": "Souwen v2rc2",
+        "API_MAJOR": "2",
         "EVIDENCE_PROFILE": "deployment",
         "NEEDS_JSON": json.dumps(needs),
         "VERIFIER_SHA": verifier,
@@ -412,6 +446,9 @@ def test_deployment_manifest_builder_emits_bounded_non_release_contract(
     )
     assert manifest["evidence_profile"] == "deployment"
     assert manifest["publishable"] is False
+    assert manifest["product_name"] == "Souwen v2rc2"
+    assert manifest["version"] == "2.0.0rc2"
+    assert manifest["api_major"] == 2
     assert manifest["binary_count"] == 0
     binary_gates = {
         item["id"]: item for item in manifest["gates"] if item["id"] in {"pyinstaller", "nuitka"}

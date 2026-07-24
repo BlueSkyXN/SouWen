@@ -90,7 +90,7 @@ def test_private_space_uses_separate_outer_and_application_auth_headers(monkeypa
     client = smoke.ApiClient(
         smoke.SmokeConfig(
             base_url="https://private-space.example",
-            expected_version="2.0.0rc1",
+            expected_version="2.0.0rc2",
             request_timeout=3,
             bearer_token="souwen-admin-token",
             hf_space_token="hf-read-token",

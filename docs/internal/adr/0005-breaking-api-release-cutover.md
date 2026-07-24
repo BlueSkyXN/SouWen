@@ -19,7 +19,7 @@ Those current facts are not the desired product boundary:
 - `src/souwen/server/schemas/common.py` currently defines a flat error body, while HLD §11.5 calls for a
   nested canonical error contract with stable codes and retry semantics.
 - `pyproject.toml` currently exposes direct Python library/CLI dependencies and current package version
-  `2.0.0rc1`; `.github/workflows/build-pyinstaller.yml` builds 3 CLI editions across 4 targets, and the
+  `2.0.0rc2`; `.github/workflows/build-pyinstaller.yml` builds 3 CLI editions across 4 targets, and the
   release workflow currently verifies 24 PyInstaller/Nuitka binaries.
 - HLD §20 and §27 close Q-011: the target release surface is **four cross-platform PyInstaller server
   bundles**, with Nuitka and basic/full tiers retired. HLD §20 also selects the REST Client SDK as the

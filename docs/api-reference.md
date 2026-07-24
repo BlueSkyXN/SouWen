@@ -513,7 +513,7 @@ token 通过 edge），可以把 SouWen 应用层密码放在 `X-SouWen-Token: <
 ```json
 {
   "status": "ok",
-  "version": "2.0.0rc1",
+  "version": "2.0.0rc2",
   "source_sha": "0123456789abcdef0123456789abcdef01234567"
 }
 ```
@@ -531,7 +531,7 @@ K8s readiness 探针。仅做本地检查（配置可加载 + 数据源注册表
 ```json
 {
   "ready": true,
-  "version": "2.0.0rc1",
+  "version": "2.0.0rc2",
   "source_sha": "0123456789abcdef0123456789abcdef01234567",
   "error": null
 }
@@ -541,7 +541,7 @@ K8s readiness 探针。仅做本地检查（配置可加载 + 数据源注册表
 ```json
 {
   "ready": false,
-  "version": "2.0.0rc1",
+  "version": "2.0.0rc2",
   "source_sha": null,
   "error": "source registry is empty"
 }
