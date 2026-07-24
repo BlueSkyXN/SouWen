@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import ipaddress
 import socket
 from dataclasses import dataclass
@@ -267,6 +268,15 @@ def resolve_fetch_target(url: str) -> tuple[ResolvedFetchTarget | None, str]:
         ),
         "",
     )
+
+
+async def resolve_fetch_target_async(url: str) -> tuple[ResolvedFetchTarget | None, str]:
+    """Resolve a fetch target without blocking the caller's event loop.
+
+    Cancelling the awaiting task does not terminate an already-running system DNS call in the
+    executor thread. The synchronous resolver remains the single source of validation semantics.
+    """
+    return await asyncio.to_thread(resolve_fetch_target, url)
 
 
 def validate_fetch_url(url: str) -> tuple[bool, str]:
