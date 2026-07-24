@@ -59,7 +59,11 @@ from urllib.parse import urljoin, urlparse
 
 import httpx
 
-from souwen.common_runtime.security import ResolvedFetchTarget, resolve_fetch_target
+from souwen.common_runtime.security import (
+    ResolvedFetchTarget,
+    resolve_fetch_target as resolve_fetch_target,
+    resolve_fetch_target_async,
+)
 from souwen.config import get_config
 from souwen.core.exceptions import RateLimitError, SourceUnavailableError
 from souwen.core.fingerprint import get_random_fingerprint
@@ -328,7 +332,7 @@ class BaseScraper:
         current_data = data
         include_configured_headers = True
         for hop in range(max_redirects + 1):
-            target, reason = resolve_fetch_target(current_url)
+            target, reason = await resolve_fetch_target_async(current_url)
             if target is None:
                 target_label = "重定向目标" if hop else "目标地址"
                 raise SourceUnavailableError(f"SSRF: {target_label}被拦截 ({reason})")
