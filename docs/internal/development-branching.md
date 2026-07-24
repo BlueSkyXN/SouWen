@@ -30,6 +30,30 @@ base:
 gh pr create --base main --head fix/release-docs
 ```
 
+## Stacked PR Delivery
+
+Use stacked bases only for independently reviewable migration slices. Keep each
+layer Draft until every dependency below it has merged. When a layer becomes the
+bottom of the remaining stack:
+
+1. Merge its dependency with a **merge commit**. Do not squash or rebase-merge
+   unless every downstream branch will be explicitly restacked onto the new
+   `main`; otherwise Git ancestry no longer proves that the downstream PR contains
+   only its own slice.
+2. Retarget the next Draft PR to `main` and verify that its head SHA and isolated
+   diff are unchanged.
+3. After maintainer approval, mark that PR ready for review. Main-targeted CI,
+   V2 CI, HF Space local gates, and path-applicable External Smoke gates include
+   the `ready_for_review` activity so this transition creates fresh PR-context
+   evidence. Retargeting alone is not gate evidence.
+4. Require applicable checks and review on the exact head before selecting the
+   merge-commit method. Read back the resulting `main` merge commit before
+   continuing with the next layer.
+
+Workflow-dispatch evidence collected while a PR targets another stack branch is
+useful pre-review evidence, but it does not replace the fresh main-targeted PR
+checks above.
+
 ## Completed v2 Migration Order
 
 The v2 mergeback was staged through these historical implementation slices:
