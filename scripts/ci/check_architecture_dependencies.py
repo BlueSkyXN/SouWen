@@ -109,15 +109,21 @@ def _resolve_import_from(importer: str, path: Path, node: ast.ImportFrom) -> str
     return ".".join((*anchor, *([module] if module else [])))
 
 
-def _literal_import_call(node: ast.Call, importlib_names: set[str], direct_names: set[str]) -> bool:
-    function = node.func
-    if isinstance(function, ast.Name):
-        return function.id in direct_names
+def _dynamic_import_reference(
+    node: ast.expr,
+    importlib_names: set[str],
+    builtins_names: set[str],
+    direct_names: set[str],
+) -> bool:
+    if isinstance(node, ast.Name):
+        return node.id in direct_names
     return (
-        isinstance(function, ast.Attribute)
-        and function.attr == "import_module"
-        and isinstance(function.value, ast.Name)
-        and function.value.id in importlib_names
+        isinstance(node, ast.Attribute)
+        and isinstance(node.value, ast.Name)
+        and (
+            (node.attr == "import_module" and node.value.id in importlib_names)
+            or (node.attr == "__import__" and node.value.id in builtins_names)
+        )
     )
 
 
@@ -131,7 +137,9 @@ def _parse_imports(root: Path, path: Path) -> list[ImportEdge]:
     importer = _module_name(root, path)
     edges: list[ImportEdge] = []
     importlib_names: set[str] = set()
-    direct_import_names: set[str] = set()
+    builtins_names: set[str] = set()
+    direct_import_names: set[str] = {"__import__"}
+    import_alias_assignments: list[tuple[str, ast.expr]] = []
 
     for node in ast.walk(tree):
         if isinstance(node, ast.Import):
@@ -139,11 +147,16 @@ def _parse_imports(root: Path, path: Path) -> list[ImportEdge]:
                 edges.append(ImportEdge(relative_file, node.lineno, importer, alias.name))
                 if alias.name == "importlib" or alias.name.startswith("importlib."):
                     importlib_names.add(alias.asname or alias.name.split(".", maxsplit=1)[0])
+                if alias.name == "builtins":
+                    builtins_names.add(alias.asname or alias.name)
         elif isinstance(node, ast.ImportFrom):
             imported = _resolve_import_from(importer, path, node)
             if imported:
-                edges.append(ImportEdge(relative_file, node.lineno, importer, imported))
-                if imported in {"souwen", "souwen.server", "souwen.deploy"}:
+                gateway_aliases = imported in {"souwen", "souwen.server", "souwen.deploy"}
+                named_aliases = [alias for alias in node.names if alias.name != "*"]
+                if not gateway_aliases or not named_aliases:
+                    edges.append(ImportEdge(relative_file, node.lineno, importer, imported))
+                if gateway_aliases:
                     edges.extend(
                         ImportEdge(
                             relative_file,
@@ -151,17 +164,42 @@ def _parse_imports(root: Path, path: Path) -> list[ImportEdge]:
                             importer,
                             f"{imported}.{alias.name}",
                         )
-                        for alias in node.names
-                        if alias.name != "*"
+                        for alias in named_aliases
                     )
             if node.level == 0 and node.module == "importlib":
                 for alias in node.names:
                     if alias.name == "import_module":
                         direct_import_names.add(alias.asname or alias.name)
+            if node.level == 0 and node.module == "builtins":
+                for alias in node.names:
+                    if alias.name == "__import__":
+                        direct_import_names.add(alias.asname or alias.name)
+        elif isinstance(node, ast.Assign):
+            import_alias_assignments.extend(
+                (target.id, node.value) for target in node.targets if isinstance(target, ast.Name)
+            )
+        elif isinstance(node, ast.AnnAssign) and isinstance(node.target, ast.Name) and node.value:
+            import_alias_assignments.append((node.target.id, node.value))
+
+    unresolved_aliases = import_alias_assignments
+    while unresolved_aliases:
+        remaining: list[tuple[str, ast.expr]] = []
+        discovered = False
+        for target, value in unresolved_aliases:
+            if _dynamic_import_reference(
+                value, importlib_names, builtins_names, direct_import_names
+            ):
+                direct_import_names.add(target)
+                discovered = True
+            else:
+                remaining.append((target, value))
+        if not discovered:
+            break
+        unresolved_aliases = remaining
 
     for node in ast.walk(tree):
-        if not isinstance(node, ast.Call) or not _literal_import_call(
-            node, importlib_names, direct_import_names
+        if not isinstance(node, ast.Call) or not _dynamic_import_reference(
+            node.func, importlib_names, builtins_names, direct_import_names
         ):
             continue
         if (
@@ -205,8 +243,10 @@ def _rule_for(edge: ImportEdge) -> str | None:
             importer
         ) != _provider_identity(imported):
             return "DEP-003"
-    if _is_module(importer, "souwen.common_runtime") and (
-        _is_module(imported, "souwen.modules") or _is_module(imported, "souwen.providers")
+    if (
+        _is_module(importer, "souwen.common_runtime")
+        and _is_module(imported, "souwen")
+        and not _is_module(imported, "souwen.common_runtime")
     ):
         return "DEP-004"
     if _is_module(importer, "souwen.delivery.api") and _is_module(imported, "souwen.providers"):
