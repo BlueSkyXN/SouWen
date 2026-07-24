@@ -46,7 +46,7 @@ Common Runtime 只接收同时满足以下条件的组件：
 | `SouWenHttpClient` | OpenAlex、HAL 等 Provider | CONDITIONAL-05 | 先冻结 native cancellation、无 stream v1、trusted auto-redirect 与 config adapter 边界 |
 | token/sliding-window limiter | OpenAlex、The Lens 等 Provider | CONDITIONAL-06 | 先补 acquire cancellation/state fixture；Provider 负责把 headers 转成通用数值 |
 | `OAuthClient` | EPO OPS、CNIPA | **ACCEPT-07** | client-credentials acquisition/cache/bearer 属于 Transport；legacy config adapter 保持，先冻结 refresh cancellation 与 secret boundary |
-| `core.concurrency` 原 API | Search、Web aggregation | REJECT-AS-IS | `"search"` / `"web"` channel 是领域名称；不能原样成为 runtime API |
+| `core.concurrency` 原 API | Search、Web aggregation | **ACCEPT-08，neutral primitive only** | runtime 只接收 explicit-size loop-local pool；`"search"` / `"web"` 与 env policy 留在 legacy adapter |
 | retry presets / `poll_retry` | 当前只有一个 production consumer 或无 consumer | REJECT | 不满足两个消费者；scraper/CAPTCHA exception set 含领域策略且缺独立测试 |
 | `BaseScraper` / browser pool / fingerprint | scraper/browser Provider | REJECT | 混合 anti-bot、SSRF、Provider backend、browser optional runtime；不是中立 transport |
 | `SessionCache` | 当前仅 Server shutdown lifecycle | REJECT | 单一消费者、持久化 secret/state owner 未决，且 Fetch cache 归属另由 Fetch LLD 决定 |
@@ -384,6 +384,29 @@ resolution、User-Agent 和 lifecycle 不变；四个 operational methods 与 ca
 EPO OPS 与 CNIPA 继续通过 legacy adapter 使用 canonical implementation。Rollback 恢复 legacy methods
 和单继承，不需要配置、credential 或 persisted token migration。
 
+### 6.7 Loop-Local Semaphore Pool
+
+Common Runtime 只拥有中立的 per-event-loop semaphore state；不拥有 Search/Web channel、环境变量或
+产品并发默认值。Canonical repository-internal interface 为：
+
+```python
+class LoopLocalSemaphorePool:
+    def get(self, size: int) -> asyncio.Semaphore: ...
+    def clear(self) -> None: ...
+```
+
+每个 pool 用 `WeakKeyDictionary[AbstractEventLoop, Semaphore]` 保存当前 running loop 的实例。同一 pool、
+同一 loop 重复调用返回同一 object，首次 `size` 生效；不同 loop 或不同 pool 必须隔离。`size=0` 与负数
+分别保持 `asyncio.Semaphore` 的既有允许/拒绝语义，不新增校验。协程外调用继续由
+`asyncio.get_running_loop()` 抛出 `RuntimeError`。loop 无其他强引用时 weak entry 可被回收；`clear()`
+丢弃该 pool 的所有 entries，不关闭 loop、不取消 task，也不修改既有 semaphore object。
+
+`souwen.core.concurrency` 保留 `SOUWEN_MAX_CONCURRENCY`、默认值 10、非法值 fallback、`search` / `web`
+channel validation、exact error 与 `clear_semaphore()` compatibility。legacy adapter 为两个 channel 各持有
+一个 canonical pool，Search 和 Web aggregation 继续通过旧函数使用 canonical state，因此不改变公开
+或测试 patch surface。接口无 I/O、timeout、retry 或 cancellation point；不跨 process/thread 共享。
+Rollback 恢复 legacy maps；无数据、配置或 persisted state migration。
+
 ## 7. 验证计划
 
 ### ACCEPT-01 required evidence
@@ -424,6 +447,11 @@ EPO OPS 与 CNIPA 继续通过 legacy adapter 使用 canonical implementation。
 | VAL-CR-032 | Bearer injection/caller override、invalid retry policy 与 HTTP execution parity |
 | VAL-CR-033 | EPO OPS/CNIPA 使用 canonical methods；logs/wheel 不暴露 credential/token values |
 | VAL-CR-034 | OAuth/Provider regression、全量 pytest、Ruff、architecture、wheel、CI/V2 通过 |
+| VAL-CR-035 | same-loop identity、first-size-wins、different-loop 与 different-pool isolation |
+| VAL-CR-036 | explicit zero/negative size、no-running-loop、clear 与 weakref cleanup 语义保持 |
+| VAL-CR-037 | canonical concurrency stdlib-only；无 env、Search/Web、config、registry 或 Provider policy |
+| VAL-CR-038 | legacy env/default/channel/exact-error/clear contract 与 Search/Web consumers 保持 |
+| VAL-CR-039 | architecture、import、Search/Web regression、wheel、全量 pytest 与 Ruff 通过 |
 
 未来 conditional slice 必须各自增加 old/new parity、negative dependency、cancellation 和资源清理
 证据；不能仅以 import 成功作为退出门槛。
@@ -440,9 +468,8 @@ EPO OPS 与 CNIPA 继续通过 legacy adapter 使用 canonical implementation。
 
 需要后续关闭的技术项：
 
-1. neutral concurrency namespace，替代 legacy `search` / `web` channel；
-2. SSRF 同步 DNS 的 timeout/cancellation 演进；
-3. stable transport port 出现后再定义 fake transport/clock/testing harness。
+1. SSRF 同步 DNS 的 timeout/cancellation 演进；
+2. stable transport port 出现后再定义 fake transport/clock/testing harness。
 
 ## 9. 实施任务
 
@@ -456,5 +483,6 @@ EPO OPS 与 CNIPA 继续通过 legacy adapter 使用 canonical implementation。
 | CR-05b | trusted Provider HTTP execution core | VAL-CR-018–021；explicit cancellation/redirect/config contract and parity |
 | CR-06 | generic outbound rate limiter | VAL-CR-022–027；cancellation/state conformance；Provider header parsing outside runtime |
 | CR-07 | OAuth client-credentials transport | VAL-CR-028–034；refresh/cache/cancellation/secret boundary parity |
+| CR-08 | neutral loop-local semaphore pool | VAL-CR-035–039；domain/env policy stays in legacy adapter |
 
-CR-02–CR-07 不能因前一切片完成而自动视为批准；每个切片都重新执行 admission test。
+CR-02–CR-08 不能因前一切片完成而自动视为批准；每个切片都重新执行 admission test。
