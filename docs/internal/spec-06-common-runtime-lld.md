@@ -45,7 +45,7 @@ Common Runtime 只接收同时满足以下条件的组件：
 | generic secret text/URL/payload redaction | CLI、Server、MCP、plugin manager、LLM/fetch errors | CONDITIONAL-04 | 先拆 generic primitive；Pydantic adapter 与 LLM gateway topology policy 不进入 Security primitive |
 | `SouWenHttpClient` | OpenAlex、HAL 等 Provider | CONDITIONAL-05 | 先冻结 native cancellation、无 stream v1、trusted auto-redirect 与 config adapter 边界 |
 | token/sliding-window limiter | OpenAlex、The Lens 等 Provider | CONDITIONAL-06 | 先补 acquire cancellation/state fixture；Provider 负责把 headers 转成通用数值 |
-| `OAuthClient` | EPO OPS、CNIPA | DEFER | 基础 Transport 之后独立决定 Transport/Security owner、token timeout 与 refresh cancellation |
+| `OAuthClient` | EPO OPS、CNIPA | **ACCEPT-07** | client-credentials acquisition/cache/bearer 属于 Transport；legacy config adapter 保持，先冻结 refresh cancellation 与 secret boundary |
 | `core.concurrency` 原 API | Search、Web aggregation | REJECT-AS-IS | `"search"` / `"web"` channel 是领域名称；不能原样成为 runtime API |
 | retry presets / `poll_retry` | 当前只有一个 production consumer 或无 consumer | REJECT | 不满足两个消费者；scraper/CAPTCHA exception set 含领域策略且缺独立测试 |
 | `BaseScraper` / browser pool / fingerprint | scraper/browser Provider | REJECT | 混合 anti-bot、SSRF、Provider backend、browser optional runtime；不是中立 transport |
@@ -284,7 +284,8 @@ end-user export。legacy `souwen.core.http_client.SouWenHttpClient` 继承 `Http
 
 当前 `self.max_retries` 只保存值，实际 tenacity stop 固定为三次；CR-05 是同行为搬移，不能顺手让该
 字段改变 attempt count。source timeout/backend、credential 和 Provider response body policy 不进入
-Transport core。`OAuthClient` 继续继承 legacy adapter，不迁入 canonical module。
+Transport core。`OAuthClient` 继续继承 legacy adapter；token acquisition/cache/bearer methods 由后续
+CR-07 canonical OAuth Transport 提供。
 
 #### 6.4.3 Retry、status、cancellation 与生命周期
 
@@ -344,6 +345,45 @@ response、config、registry 或具体 Provider。`souwen.core.rate_limiter` obj
 OpenAlex 与 The Lens 作为 token/sliding 两个 representative canonical consumers。Rollback 只恢复旧定义
 与 consumer imports，无数据或 persisted state migration。
 
+### 6.6 OAuth Client-Credentials Transport
+
+OAuth client-credentials acquisition、in-memory token cache、refresh lock 和 Bearer injection 属于
+Transport；它不定义 Provider credential source、secret persistence、Admin permission 或 config schema。
+Canonical repository-internal interface 为：
+
+```python
+class OAuthTransport(HttpTransport):
+    def __init__(
+        self,
+        *,
+        base_url: str,
+        headers: dict[str, str],
+        timeout: int | float,
+        max_retries: int,
+        proxy: str | None,
+        follow_redirects: bool,
+        token_url: str,
+        client_id: str,
+        client_secret: str,
+    ) -> None: ...
+```
+
+token endpoint 继续直接使用同一个 `httpx.AsyncClient.post()`、相同 timeout/proxy/redirect options，
+不新增 token-specific retry。非 200、JSON parse failure、缺少 `access_token` 分别映射为现有
+`AuthError`；HTTPX network error 与 `expires_in` 类型/算术错误仍按现状原样传播。默认 `expires_in=1200`
+且在 expiry 前 60 秒刷新；恰好位于 refresh boundary 时必须刷新。
+
+每个实例 lazy 创建一个 `asyncio.Lock`，double-check 后只允许一个 refresh 请求。request cancellation
+或 lock-waiter cancellation 原样传播；`async with` 释放 lock，未完成 refresh 不写 token/expiry，其他
+waiter 或后续调用可以继续。接口不 shield cancellation、不跨 event loop 共享实例、不持久化 token，
+也不记录 `client_id`、`client_secret`、access token 或 response body。
+
+Bearer header 先由 cached token 构造，再按现有行为由 caller headers 覆盖；本切片不改变该 precedence。
+legacy `OAuthClient` 同时保持 `OAuthTransport` 与 `SouWenHttpClient` 子类关系，构造参数、source config
+resolution、User-Agent 和 lifecycle 不变；四个 operational methods 与 canonical method object 相同。
+EPO OPS 与 CNIPA 继续通过 legacy adapter 使用 canonical implementation。Rollback 恢复 legacy methods
+和单继承，不需要配置、credential 或 persisted token migration。
+
 ## 7. 验证计划
 
 ### ACCEPT-01 required evidence
@@ -377,6 +417,13 @@ OpenAlex 与 The Lens 作为 token/sliding 两个 representative canonical consu
 | VAL-CR-025 | retry pause/window wait cancellation 释放 lock，保留 pause/timestamp 并可由后续 acquire 恢复 |
 | VAL-CR-026 | OpenAlex token + The Lens sliding consumers canonicalized；Provider 继续解析 headers |
 | VAL-CR-027 | legacy limiter regression、Provider tests、wheel、全量 pytest、Ruff、CI/V2 通过 |
+| VAL-CR-028 | OAuth 四个 operational methods semantic AST parity；legacy MRO/API 与 canonical method identity |
+| VAL-CR-029 | canonical OAuth 无 config/Core/registry/Provider dependency；explicit options construction |
+| VAL-CR-030 | cache hit、60s boundary、default expiry、single refresh 与 token error mapping parity |
+| VAL-CR-031 | token-request/lock-wait cancellation 原样传播、释放 lock、不写 partial cache 且可恢复 |
+| VAL-CR-032 | Bearer injection/caller override、invalid retry policy 与 HTTP execution parity |
+| VAL-CR-033 | EPO OPS/CNIPA 使用 canonical methods；logs/wheel 不暴露 credential/token values |
+| VAL-CR-034 | OAuth/Provider regression、全量 pytest、Ruff、architecture、wheel、CI/V2 通过 |
 
 未来 conditional slice 必须各自增加 old/new parity、negative dependency、cancellation 和资源清理
 证据；不能仅以 import 成功作为退出门槛。
@@ -393,10 +440,9 @@ OpenAlex 与 The Lens 作为 token/sliding 两个 representative canonical consu
 
 需要后续关闭的技术项：
 
-1. OAuth 属于 Transport 还是 Security，以及 token refresh cancellation；
-2. neutral concurrency namespace，替代 legacy `search` / `web` channel；
-3. SSRF 同步 DNS 的 timeout/cancellation 演进；
-4. stable transport port 出现后再定义 fake transport/clock/testing harness。
+1. neutral concurrency namespace，替代 legacy `search` / `web` channel；
+2. SSRF 同步 DNS 的 timeout/cancellation 演进；
+3. stable transport port 出现后再定义 fake transport/clock/testing harness。
 
 ## 9. 实施任务
 
@@ -409,5 +455,6 @@ OpenAlex 与 The Lens 作为 token/sliding 两个 representative canonical consu
 | CR-05a | shared/transport error identity prerequisite | VAL-CR-015–017；legacy identity 与 inheritance parity |
 | CR-05b | trusted Provider HTTP execution core | VAL-CR-018–021；explicit cancellation/redirect/config contract and parity |
 | CR-06 | generic outbound rate limiter | VAL-CR-022–027；cancellation/state conformance；Provider header parsing outside runtime |
+| CR-07 | OAuth client-credentials transport | VAL-CR-028–034；refresh/cache/cancellation/secret boundary parity |
 
-CR-02–CR-06 不能因 CR-01 完成而自动视为批准；每个切片都重新执行 admission test。
+CR-02–CR-07 不能因前一切片完成而自动视为批准；每个切片都重新执行 admission test。
