@@ -593,28 +593,28 @@ def test_rollout_mode_is_strict_and_target_router_precedes_legacy_fetch(tmp_path
 
     repo_src = str(Path(__file__).resolve().parents[1] / "src")
     script = """
-import importlib
-import json
-import os
 import sys
 
 sys.path.insert(0, sys.argv[1])
 
-server_app = importlib.import_module('souwen.server.app')
-app = server_app.app
+from souwen.server.app import app
+
+def iter_routes(routes, prefix=''):
+    for route in routes:
+        original_router = getattr(route, 'original_router', None)
+        include_context = getattr(route, 'include_context', None)
+        if original_router is not None and include_context is not None:
+            yield from iter_routes(original_router.routes, prefix + include_context.prefix)
+            continue
+        path = getattr(route, 'path', None)
+        if path is not None:
+            yield prefix + path, route
+
 matches = [
-    route for route in app.routes
-    if getattr(route, 'path', None) == '/api/v1/fetch'
+    route for path, route in iter_routes(app.routes)
+    if path == '/api/v1/fetch'
     and 'POST' in getattr(route, 'methods', set())
 ]
-if not matches:
-    raise RuntimeError(json.dumps({
-        'rollout_env': os.environ.get('SOUWEN_V2_ROLLOUT'),
-        'rollout_mode': server_app._rollout_mode.value,
-        'target_runtime': server_app._target_runtime is not None,
-        'server_app_file': server_app.__file__,
-        'route_paths': [getattr(route, 'path', None) for route in app.routes],
-    }, sort_keys=True))
 print(matches[0].response_model.__name__)
 """
     env = {
