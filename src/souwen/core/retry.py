@@ -81,7 +81,7 @@ from tenacity import (
     wait_exponential,
 )
 
-from souwen.core.exceptions import RateLimitError, SourceUnavailableError
+from souwen.common_runtime.transport import RateLimitError, SourceUnavailableError
 
 logger = logging.getLogger("souwen.core.retry")
 
