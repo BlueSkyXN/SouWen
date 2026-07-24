@@ -81,6 +81,8 @@ CanonicalErrorCode: TypeAlias = Literal[
     "conflict",
     "api_major_mismatch",
     "rate_limited",
+    "payload_too_large",
+    "unsupported_media_type",
     "provider_timeout",
     "provider_unavailable",
     "policy_blocked",

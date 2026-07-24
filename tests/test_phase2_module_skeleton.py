@@ -59,6 +59,7 @@ IMPLEMENTED_PACKAGES = frozenset(
         "souwen.modules.llm_search.api",
         "souwen.modules.llm_search.application",
         "souwen.modules.fetch.api",
+        "souwen.modules.fetch.application",
         "souwen.platform.provider_spi",
         "souwen.platform.manifest_registry",
         "souwen.platform.provider_manager",

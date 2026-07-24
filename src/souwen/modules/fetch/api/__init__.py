@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from souwen.modules.fetch.application import FetchModuleService
 from souwen.platform.provider_spi import ExecutionContext, FetchBatch, FetchRequest, RequestContext
 
 
@@ -16,4 +17,4 @@ class FetchModule(Protocol):
         """Execute Fetch without exposing a concrete provider."""
 
 
-__all__ = ["FetchBatch", "FetchModule", "FetchRequest"]
+__all__ = ["FetchBatch", "FetchModule", "FetchModuleService", "FetchRequest"]

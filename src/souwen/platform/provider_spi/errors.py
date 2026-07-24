@@ -16,6 +16,8 @@ class ProviderErrorCode(str, Enum):
     PROVIDER_UNAVAILABLE = "provider_unavailable"
     INVALID_UPSTREAM_RESPONSE = "invalid_upstream_response"
     POLICY_BLOCKED = "policy_blocked"
+    PAYLOAD_TOO_LARGE = "payload_too_large"
+    UNSUPPORTED_MEDIA_TYPE = "unsupported_media_type"
 
 
 _SAFE_MESSAGES: dict[ProviderErrorCode, str] = {
@@ -27,6 +29,8 @@ _SAFE_MESSAGES: dict[ProviderErrorCode, str] = {
     ProviderErrorCode.PROVIDER_UNAVAILABLE: "Provider is unavailable",
     ProviderErrorCode.INVALID_UPSTREAM_RESPONSE: "Provider returned an invalid response",
     ProviderErrorCode.POLICY_BLOCKED: "Provider operation was blocked by policy",
+    ProviderErrorCode.PAYLOAD_TOO_LARGE: "Provider response exceeded the size limit",
+    ProviderErrorCode.UNSUPPORTED_MEDIA_TYPE: "Provider response media type is unsupported",
 }
 
 
