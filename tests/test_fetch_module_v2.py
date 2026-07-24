@@ -42,6 +42,31 @@ class _Manager:
         )
 
 
+class _BrowserExecutor:
+    def __init__(self, *, fail: bool = False) -> None:
+        self.fail = fail
+        self.targets = []
+
+    async def fetch(self, request, request_context, execution):
+        self.targets.append(request.target)
+        if self.fail:
+            raise ProviderError(ProviderErrorCode.WORKER_OVERLOADED)
+        content = "browser rendered canonical content " * 4
+        return FetchResult(
+            target=request.target,
+            final_url=request.target,
+            status="success",
+            content=content,
+            content_metadata=ContentMetadata(
+                media_type="text/html",
+                retrieved_at=datetime(2026, 7, 24, tzinfo=timezone.utc),
+                truncated=False,
+                quality="high",
+            ),
+            provenance=(Provenance(provider="builtin-fetch", attempt=2, outcome="success"),),
+        )
+
+
 @pytest.mark.asyncio
 async def test_module_keeps_order_and_marks_low_or_failed_items_partial() -> None:
     context = RequestContext(request_id="fetch-module-v2")
@@ -78,3 +103,39 @@ async def test_module_rejects_request_side_provider_or_fanout_override() -> None
         with pytest.raises(ProviderError) as caught:
             await service.fetch(request, context, ExecutionContext.with_timeout(5))
         assert caught.value.code is ProviderErrorCode.INVALID_REQUEST
+
+
+@pytest.mark.asyncio
+async def test_module_uses_browser_as_execution_fallback_not_another_provider() -> None:
+    browser = _BrowserExecutor()
+    service = FetchModuleService(_Manager(), browser_executor=browser)
+
+    batch = await service.fetch(
+        FetchRequest(targets=("https://example.com/short",)),
+        RequestContext(request_id="fetch-browser-fallback"),
+        ExecutionContext.with_timeout(5),
+    )
+
+    assert batch.items[0].content_metadata.quality == "high"
+    assert [item.provider for item in batch.items[0].provenance] == [
+        "builtin-fetch",
+        "builtin-fetch",
+    ]
+    assert batch.items[0].provenance[1].attempt == 2
+    assert browser.targets == [batch.items[0].target]
+    assert batch.meta.partial is False
+
+
+@pytest.mark.asyncio
+async def test_browser_failure_keeps_low_quality_builtin_partial() -> None:
+    browser = _BrowserExecutor(fail=True)
+    batch = await FetchModuleService(_Manager(), browser_executor=browser).fetch(
+        FetchRequest(targets=("https://example.com/short",)),
+        RequestContext(request_id="fetch-browser-fallback"),
+        ExecutionContext.with_timeout(5),
+    )
+
+    assert batch.items[0].content == "short"
+    assert batch.items[0].content_metadata.quality == "low"
+    assert [item.outcome for item in batch.items[0].provenance] == ["success", "failed"]
+    assert batch.meta.partial is True

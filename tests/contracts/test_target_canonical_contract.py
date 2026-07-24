@@ -149,3 +149,35 @@ def test_target_provider_manifest_fixture_requires_safe_static_conformance() -> 
         "production_secret",
         "cross_provider_call",
     }
+
+
+def test_browser_worker_contract_is_loopback_authenticated_and_has_no_bypass() -> None:
+    fixture = _read("target_browser_worker_contract_v1.json")
+
+    assert fixture["contract_major"] == 1
+    assert fixture["implemented_by_current_runtime"] is True
+    assert fixture["transport"] == {
+        "scheme": "http",
+        "bind_host": "127.0.0.1",
+        "default_port": 49266,
+        "external_mount": False,
+    }
+    assert {endpoint["path"] for endpoint in fixture["endpoints"].values()} == {
+        "/internal/v1/health",
+        "/internal/v1/readiness",
+        "/internal/v1/fetch",
+    }
+    assert fixture["execution"]["page_slots"] == 2
+    assert fixture["execution"]["queue_length"] == 0
+    assert fixture["execution"]["business_provider"] == "builtin-fetch"
+    assert fixture["execution"]["provider_selection"] is False
+    assert fixture["security"]["api_side_url_policy"] is True
+    assert fixture["security"]["worker_side_url_policy"] is True
+    assert "skip_ssrf_check" in fixture["security"]["forbidden_fields"]
+    assert set(fixture["readiness_evidence"]) == {
+        "contract_major",
+        "source_sha",
+        "runtime_version",
+        "config_revision",
+        "provider_inventory_digest",
+    }

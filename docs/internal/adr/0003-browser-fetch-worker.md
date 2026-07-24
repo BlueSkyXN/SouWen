@@ -4,7 +4,8 @@
 **Status**: Accepted
 **Date**: 2026-07-24
 **Owner**: SouWen project owner
-**Implementation state**: Not implemented; Phase 1 contract baseline
+**Implementation state**: Browser Worker/client runtime implemented in Phase 4 P4-05; supervisor,
+HFS deployment and target-native bundle evidence remain Phase 4 P4-07/release work
 
 ## Context
 
@@ -194,6 +195,25 @@ Costs and risks:
 
 Ordinary pytest uses fakes and local loopback only; real browser/package/HFS evidence remains in
 functional scripts and GitHub Actions, consistent with repository test policy.
+
+### Phase 4 P4-05 implementation evidence
+
+- The internal contract is frozen in
+  `tests/contracts/fixtures/target_browser_worker_contract_v1.json` and implemented by
+  `souwen.worker.browser_fetch` plus `souwen.delivery.browser_worker_client`.
+- The runtime rejects every bind host except `127.0.0.1`, requires internal bearer auth,
+  contract-major, request ID and an absolute bounded deadline before parsing the request body.
+- Browser egress crosses a transient loopback policy proxy. The proxy independently resolves every
+  HTTP origin or HTTPS `CONNECT` authority and connects only to the validated IP, preserving the
+  browser's original Host/SNI while rejecting private, rebound or malformed targets.
+- Worker capacity is fixed at two active page slots with no queue. Timeout, client disconnect and
+  task cancellation close the isolated context and transient policy proxy; Worker shutdown closes
+  the persistent `PlaywrightBrowserPool`.
+- Deterministic tests cover auth, major mismatch, loopback binding, API/Worker double URL policy,
+  redirect/subrequest revalidation, overload, cancellation cleanup, source/config provenance,
+  secret/error redaction and a real loopback Uvicorn/client exchange.
+- VAL-BFW-001 supervisor behavior, VAL-BFW-007 HFS evidence and VAL-BFW-008 target-native bundle
+  smoke are intentionally not claimed by P4-05; they remain required before RC2 completion.
 
 ## Related artifacts
 

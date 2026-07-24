@@ -11,7 +11,7 @@ import pytest
 REPO_ROOT = Path(__file__).resolve().parents[2]
 FIXTURE_PATH = REPO_ROOT / "tests/contracts/fixtures/current_python_dependency_graph_v1.json"
 TARGET_BOUNDARY_UNITS = frozenset(
-    {"common_runtime", "delivery", "modules", "platform", "providers"}
+    {"common_runtime", "delivery", "modules", "platform", "providers", "worker"}
 )
 
 

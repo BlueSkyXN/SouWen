@@ -29,6 +29,7 @@ GOVERNED_SOURCE_PATHS = (
     Path("src/souwen/platform"),
     Path("src/souwen/common_runtime"),
     Path("src/souwen/delivery"),
+    Path("src/souwen/worker"),
     Path("contracts"),
 )
 
