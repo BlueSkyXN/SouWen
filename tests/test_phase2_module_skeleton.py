@@ -41,7 +41,6 @@ SKELETON_PACKAGES = (
     "souwen.platform.provider_spi",
     "souwen.platform.manifest_registry",
     "souwen.common_runtime",
-    "souwen.common_runtime.transport",
     "souwen.common_runtime.resilience",
     "souwen.common_runtime.configuration",
     "souwen.common_runtime.testing",
