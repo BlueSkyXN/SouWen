@@ -37,7 +37,7 @@ jobs:
           cache: 'pip'
 
       - name: 安装 ruff
-        run: pip install ruff
+        run: pip install "ruff==0.15.22"
 
       - name: 运行 ruff check --fix（仅安全修复）
         run: ruff check --fix src/ tests/
