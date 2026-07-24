@@ -63,6 +63,27 @@ def test_allowed_target_edges_pass(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     "imported",
     [
+        "souwen.platform.manifest_registry",
+        "souwen.platform.provider_manager",
+    ],
+)
+def test_modules_may_depend_on_provider_spi_but_not_platform_assembly(
+    tmp_path: Path, imported: str
+) -> None:
+    root, exceptions = _repository(tmp_path)
+    relative_path = "src/souwen/modules/search/application/service.py"
+    _write(root, relative_path, f"import {imported}\n")
+
+    violations = _violations(root, exceptions)
+
+    assert [(violation.rule_id, violation.imported) for violation in violations] == [
+        ("DEP-001", imported)
+    ]
+
+
+@pytest.mark.parametrize(
+    "imported",
+    [
         "souwen",
         "souwen.core",
         "souwen.delivery",

@@ -224,7 +224,10 @@ def _rule_for(edge: ImportEdge) -> str | None:
     if imported == "<dynamic>":
         return DYNAMIC_RULE_ID
     if _is_module(importer, "souwen.modules"):
-        if _is_module(imported, "souwen.providers"):
+        if _is_module(imported, "souwen.providers") or (
+            _is_module(imported, "souwen.platform")
+            and not _is_module(imported, "souwen.platform.provider_spi")
+        ):
             return "DEP-001"
         if (
             _is_module(imported, "fastapi")

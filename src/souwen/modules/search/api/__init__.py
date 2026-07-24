@@ -1,3 +1,19 @@
-"""Search Core API. Owner: Search Core. Allowed dependencies: Search application and domain contracts."""
+"""Search public API. Owner: Search Core. Allowed dependencies: Provider SPI only."""
 
-__all__: list[str] = []
+from __future__ import annotations
+
+from typing import Protocol
+
+from souwen.platform.provider_spi import ExecutionContext, RequestContext, SearchPage, SearchRequest
+
+
+class SearchModule(Protocol):
+    """Public asynchronous entry port for the canonical Search use case."""
+
+    async def search(
+        self, request: SearchRequest, context: RequestContext, execution: ExecutionContext
+    ) -> SearchPage:
+        """Execute Search without exposing a concrete provider."""
+
+
+__all__ = ["SearchModule", "SearchPage", "SearchRequest"]
