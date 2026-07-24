@@ -1,7 +1,7 @@
 """Legacy error path and domain-specific compatibility definitions."""
 
 from souwen.common_runtime.errors import SouWenError as SouWenError
-from souwen.common_runtime.transport import (
+from souwen.common_runtime.transport.errors import (
     AuthError as AuthError,
     RateLimitError as RateLimitError,
     SourceUnavailableError as SourceUnavailableError,
