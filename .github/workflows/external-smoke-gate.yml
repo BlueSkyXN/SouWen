@@ -31,6 +31,7 @@ on:
       - "v*"
   pull_request:
     branches: [main]
+    types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "scripts/_functional_common.py"
       - "scripts/scrapling_functional_check.py"
