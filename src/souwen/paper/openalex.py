@@ -53,12 +53,12 @@ from __future__ import annotations
 import logging
 from typing import Any
 
-from souwen.core.parsing import safe_parse_date
+from souwen.common_runtime.resilience import TokenBucketLimiter
 from souwen.config import get_config
 from souwen.core.exceptions import NotFoundError, ParseError
 from souwen.core.http_client import SouWenHttpClient
+from souwen.core.parsing import safe_parse_date
 from souwen.models import Author, PaperResult, SearchResponse
-from souwen.core.rate_limiter import TokenBucketLimiter
 
 logger = logging.getLogger(__name__)
 
