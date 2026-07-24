@@ -1,8 +1,9 @@
 # SPEC-05：Provider SPI、Manifest 与 Conformance
 
-**状态**：Proposed；Phase 1 owner review required（待实现）
+**状态**：Accepted target contract；Phase 1 canonical baseline（待实现）
 **关联 HLD**：SouWen大重构设计文档 §8.3–8.5、§12–15、§20–21、§25–27
-**关联待决策**：Q-003 已由 ADR-03 关闭；Q-005、Q-006、Q-008、Q-009（迁移批次）仍开放
+**关联待决策**：Q-003 已由 ADR-03 关闭；Q-005、Q-006、Q-008 已批准并由
+SPEC-01 target fixtures 冻结；Q-009（后续迁移批次）仍开放
 **关联 ADR**：[ADR 0004 / HLD register ADR-03](./adr/0004-yaml-provider-config.md)
 **依赖**：SPEC-01 Canonical DTO；SPEC-02/03/04 模块 LLD；SPEC-06 Common Runtime；SPEC-07 Auth/Permission；SPEC-08 Directory/Dependency。
 
@@ -51,7 +52,7 @@ trust signing, and revision-store implementation.
 | HLD §8.5, §25 | VAL | Deterministic testing/observability. | P0 | Yes |
 | HLD §14 | SPEC-02/03/04 | Orchestration and canonical semantics are not Provider-owned. | P1 | Per use case |
 | HLD §13, Q-003 | ADR-03; SPEC-06/07 | Persistent config, authorization, secret resolution. | P0 | Yes |
-| HLD §16, Q-008 | NFR SPEC; SPEC-10 | Numeric targets/release evidence remain unapproved. | P1 | Before release |
+| HLD §16, Q-008 | SPEC-01/API-008; SPEC-10 | Initial non-SLA numeric budgets are approved; release evidence remains a later owner obligation. | P1 | Before release |
 
 | ID family | Source | Validation | Downstream owner |
 |---|---|---|---|
@@ -92,7 +93,9 @@ SearchProvider.search(SearchRequest, RequestContext) -> SearchPage
 Semantic request minimum: query, filters, cursor, limit, locale. Response
 minimum: canonical results, optional next cursor, provenance. Manifest MUST
 declare pagination and exposed ordering semantics; it MUST NOT invent stable
-sorting. Ranking, defaults, multi-source ordering, and merge are SPEC-02/Q-004.
+sorting. Accepted Q-004 fixes default selection and multi-source merge: absence selects one YAML
+domain/capability ordered-default primary; explicit multi-provider requests use equal-weight RRF (`k=60`), then
+YAML priority, provider-local rank and canonical ID. Core—not the Provider—owns that behavior.
 
 **Acceptance**: deterministic fixtures cover success, empty page, declared
 pagination, invalid request/config, timeout/cancel, rate limit, invalid upstream
@@ -108,8 +111,9 @@ Semantic request minimum: query, model reference, search options, budget.
 Result minimum: canonical answer, evidence, citations, usage, provenance. The
 adapter performs one search-oriented upstream LLM/API call and normalizes
 output/errors. It MUST NOT silently call ordinary Search, Fetch, Summarize,
-rerank, or an Agent workflow. Q-005 keeps final evidence/citation/usage minima
-open; harness checks preservation/shape, not an invented quality threshold.
+rerank, or an Agent workflow. Accepted Q-005 requires item evidence, factual-answer paragraph citations by
+stable evidence ID, public provenance URL/title/snippet/retrieved time, and an always-present provider-reported
+`usage` object with unknown token/cost as `null`; harness checks these contract minima.
 
 **Acceptance**: fixtures prove no hidden cross-capability call, preserve
 returned evidence/citations/usage, classify empty/unsupported safely, and map
@@ -126,7 +130,9 @@ canonical content, metadata, provenance. The adapter receives validated request
 metadata and bounded policy context; this never authorizes skipping Provider- or
 Worker-side SSRF/DNS/redirect controls. Proxy, WARP, browser runtime, and manifest
 declaration provide no exemption. Every redirect and fallback target requires
-security revalidation. Content length/type/quality are Q-006 and SPEC-04 decisions.
+security revalidation. Accepted Q-006 permits normalized `text/*`, JSON and XML only; it rejects binary/PDF
+media, applies a `10 MiB` decompressed cap, default `200,000` and maximum `1,000,000` Unicode code points, and
+retains a 1–63-character non-empty result only as `quality=low` partial content. SPEC-04 owns implementation.
 
 **Acceptance**: fake transport fixtures prove policy rejection, redirect
 revalidation handoff, timeout/cancel, invalid response classification, and
@@ -307,9 +313,9 @@ For every declared adapter the harness asserts:
 8. no cross-provider call or network-security bypass; and
 9. safe package/adapter/manifest version diagnostics.
 
-LLMSearchProvider additionally preserves evidence/citation/usage; FetchProvider
-adds policy and redirect-revalidation handoff. Q-005/Q-006/Q-008 thresholds
-remain excluded until owners close them.
+LLMSearchProvider additionally preserves the accepted Q-005 evidence/citation/usage minimum; FetchProvider
+adds accepted Q-006 content-policy/quality handoff. Q-008 initial non-SLA dispatch/concurrency budgets constrain
+the target manager/runtime; provider-specific measurements remain release/NFR evidence work.
 
 ### CONF-003: Failure diagnostics
 
@@ -344,7 +350,8 @@ that Provider migration but does not prove legacy removal or release/deployment.
 | Config revision | provider namespace/revision ID, redacted state | audit/concurrency evidence | ADR-03/SPEC-07 |
 
 No label contains unbounded query/URL/header/exception/body/secret. Alerts,
-SLOs, retention, cardinality budgets are Q-008/NFR decisions.
+SLOs, retention and alert thresholds remain NFR decisions; accepted Q-008 initial budgets are recorded by
+`SPEC-01/API-008` and the target fixture, not inferred from these events.
 
 ### Validation acceptance matrix
 
@@ -369,9 +376,9 @@ release/deployment proof.
 
 | ID | Question | Closure owner |
 |---|---|---|
-| Q-005 | Minimum LLM evidence/citation/usage. | SPEC-01 + SPEC-03 |
-| Q-006 | Fetch content length/type/quality. | SPEC-04 |
-| Q-008 | Performance/concurrency/memory/image/cold-start targets. | NFR SPEC + SPEC-10 |
+| Q-005 | **Closed**: minimum LLM evidence/citation/usage. | SPEC-01/API-005; SPEC-03 implements |
+| Q-006 | **Closed**: Fetch content length/type/quality. | SPEC-01/API-006; SPEC-04 implements |
+| Q-008 | **Closed**: initial performance/concurrency/memory/image/cold-start budgets (not SLA). | SPEC-01/API-008; NFR/SPEC-10 evidence |
 | Q-009 | Later Provider migration batches. | Phase 4/5 owner |
 | OQ-PROV-01 | Manifest resource location/Python representation. | Provider Manager + SPEC-08 |
 | OQ-PROV-02 | Canonical error/context fields. | SPEC-01 + SPEC-06 |
@@ -381,5 +388,5 @@ release/deployment proof.
 Implementers MUST not relabel legacy plugin APIs as v2, create parallel source
 lists, import-time registration, arbitrary runtime installation, secret-bearing
 manifest/YAML/history, or browser/proxy security exceptions. First vertical
-slice waits for SPEC-01 and SPEC-08. All open rows need owner confirmation and
-must not close with implementation defaults.
+slice depends on accepted SPEC-01 and SPEC-08. Only the rows still marked open need owner confirmation; no
+remaining row may close through an implementation default.

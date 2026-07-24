@@ -1,8 +1,14 @@
 # SPEC-08: Directory and Dependency Rules
 
-**Status**: Proposed; Phase 1 owner review required
+**Status**: Accepted target contract; Phase 1 canonical baseline (not implemented)
 **Date**: 2026-07-24
 **Source baseline**: HLD v0.4, Phase 1 / T007
+
+**Phase 1 decision alignment**: `Q-004`–`Q-008`, `API-Q-001`, and `REL-Q-001` are accepted target decisions.
+Their language-neutral bootstrap fixtures live only in `tests/contracts/fixtures/` until Phase 2 creates the
+target `contracts/` artifact tree. They are target-only sources, never a claim about current Python routes or
+an additional catalog/configuration truth. See [SPEC-01](spec-01-external-api-canonical-dto.md) and
+[SPEC-05](spec-05-provider-spi-manifest-conformance.md).
 **Implementation baseline**: `main@4d05d7a414c820aad50416823b92692b95dc6e17`
 
 ## 1. Purpose and authority
@@ -122,7 +128,7 @@ deploy/
 | DIR-001 | Each target module exposes a documented `api` or package-root public interface; an unlisted symbol is private even if Python can import it. |
 | DIR-002 | Core module names are exactly `search`, `llm_search`, and `fetch`; historical domains are Provider packages, not additional Core modules. |
 | DIR-003 | Concrete Provider code is grouped by provider/protocol below one of the three provider families; a package may expose multiple single-capability adapters. |
-| DIR-004 | `contracts/` contains language-neutral source artifacts and fixtures; it is not a Python package and must not import `souwen`. |
+| DIR-004 | `contracts/` contains language-neutral source artifacts and fixtures; it is not a Python package and must not import `souwen`. Until that target tree exists, the single Phase 1 target source is `tests/contracts/fixtures/target_*_v2.json`; Phase 2 moves it without duplicating it and updates all references atomically. |
 | DIR-005 | `common_runtime/` names technical responsibilities, not business domains or miscellaneous helpers. |
 | DIR-006 | Deployment process supervision belongs to `deploy/process/`; WARP remains `deploy/warp/` and cannot be imported by Core. |
 | DIR-007 | Existing `panel/` remains until Phase 7 establishes the independent `web/` build; no compatibility symlink or duplicate frontend tree is created in Phase 2. |
@@ -216,10 +222,10 @@ because an equivalent legacy violation exists.
 
 | ID | Rule |
 |---|---|
-| CON-001 | OpenAPI/JSON Schema/error/provider/security artifacts have an explicit contract version and deterministic generation or validation command. |
+| CON-001 | OpenAPI/JSON Schema/error/provider/security artifacts have an explicit contract version and deterministic generation or validation command. The Phase 1 target API, OpenAPI skeleton and Provider manifest fixtures are versioned JSON and use `tests/contracts/test_target_canonical_contract.py`; they are not generated runtime OpenAPI. |
 | CON-002 | Pydantic and TypeScript types implement or are generated from contracts; neither language binding silently becomes the only truth. |
 | CON-003 | Golden fixtures are immutable inputs/expected outputs with provenance and contain no production secret or private URL. |
-| CON-004 | A contract change must run semantic diff and generated-client synchronization checks before merge. |
+| CON-004 | A contract change must run semantic diff and generated-client synchronization checks before merge. Before target generators exist, fixture semantic invariants must run without importing `souwen`; later generated artifact checks extend rather than replace them. |
 
 ### Common Runtime admission test
 
@@ -261,7 +267,7 @@ catalog.
 | VAL-DIR-005 | A provider-to-provider private import fails with DEP-003. |
 | VAL-DIR-006 | Existing unmigrated code is either outside the governed target path or listed in a bounded, expiring exception; no wildcard exemption exists. |
 | VAL-DIR-007 | Registry/manifest parity tests prove there is one source/catalog truth during migration. |
-| VAL-DIR-008 | `contracts/` validation runs without importing or installing the SouWen Python package. |
+| VAL-DIR-008 | `contracts/` validation runs without importing or installing the SouWen Python package. Phase 1 target fixture validation in `tests/contracts/test_target_canonical_contract.py` has the same property. |
 | VAL-DIR-009 | Documentation and generated-client checks identify all declared public interfaces and contract versions. |
 
 ## 10. Traceability
