@@ -116,66 +116,68 @@ class PlaywrightBrowserExecutor:
                 return
             await route.continue_()
 
-        try:
-            async with asyncio.timeout(timeout_seconds):
-                async with self._pool.page(
-                    accept_downloads=False,
-                    service_workers="block",
-                    proxy=proxy.url,
-                ) as page:
-                    await page.route("**/*", enforce_policy)
-                    remaining_ms = max(1, int(timeout_seconds * 1000))
-                    try:
-                        response = await page.goto(
-                            target_url,
-                            wait_until="domcontentloaded",
-                            timeout=remaining_ms,
-                        )
-                    except asyncio.CancelledError:
-                        raise
-                    except Exception:
-                        if policy_blocked:
-                            raise BrowserExecutionError("policy_blocked") from None
-                        raise BrowserExecutionError("worker_unavailable", retryable=True) from None
-                    if policy_blocked:
-                        raise BrowserExecutionError("policy_blocked")
-                    if response is None or int(response.status) >= 400:
-                        raise BrowserExecutionError("worker_unavailable", retryable=True)
-
-                    final_url = str(page.url)
-                    final_target, _final_reason = await self._resolver(final_url)
-                    if final_target is None:
-                        raise BrowserExecutionError("policy_blocked")
-
-                    content = (await page.locator("body").inner_text()).strip()
-                    if not content:
-                        raise BrowserExecutionError("empty_content")
-                    truncated = len(content) > request.max_code_points
-                    normalized = content[: request.max_code_points]
-                    headers = await response.all_headers()
-                    raw_content_type = headers.get("content-type", "text/html")
-                    media_type, _, parameters = raw_content_type.partition(";")
-                    charset = None
-                    for parameter in parameters.split(";"):
-                        key, separator, value = parameter.strip().partition("=")
-                        if separator and key.lower() == "charset":
-                            charset = value.strip().strip('"') or None
-                            break
-                    retrieved_at = self._clock()
-                    if retrieved_at.tzinfo is None:
-                        raise BrowserExecutionError("worker_unavailable")
-                    return WorkerFetchItem(
-                        final_url=final_url,
-                        title=(await page.title()).strip() or None,
-                        content=normalized,
-                        media_type=media_type.strip().lower() or "text/html",
-                        charset=charset,
-                        retrieved_at=retrieved_at,
-                        truncated=truncated,
-                        content_length=len(normalized.encode("utf-8")),
-                        quality="low" if len(normalized.strip()) <= 63 else "high",
+        async def execute_page() -> WorkerFetchItem:
+            async with self._pool.page(
+                accept_downloads=False,
+                service_workers="block",
+                proxy=proxy.url,
+            ) as page:
+                await page.route("**/*", enforce_policy)
+                remaining_ms = max(1, int(timeout_seconds * 1000))
+                try:
+                    response = await page.goto(
+                        target_url,
+                        wait_until="domcontentloaded",
+                        timeout=remaining_ms,
                     )
-        except TimeoutError:
+                except asyncio.CancelledError:
+                    raise
+                except Exception:
+                    if policy_blocked:
+                        raise BrowserExecutionError("policy_blocked") from None
+                    raise BrowserExecutionError("worker_unavailable", retryable=True) from None
+                if policy_blocked:
+                    raise BrowserExecutionError("policy_blocked")
+                if response is None or int(response.status) >= 400:
+                    raise BrowserExecutionError("worker_unavailable", retryable=True)
+
+                final_url = str(page.url)
+                final_target, _final_reason = await self._resolver(final_url)
+                if final_target is None:
+                    raise BrowserExecutionError("policy_blocked")
+
+                content = (await page.locator("body").inner_text()).strip()
+                if not content:
+                    raise BrowserExecutionError("empty_content")
+                truncated = len(content) > request.max_code_points
+                normalized = content[: request.max_code_points]
+                headers = await response.all_headers()
+                raw_content_type = headers.get("content-type", "text/html")
+                media_type, _, parameters = raw_content_type.partition(";")
+                charset = None
+                for parameter in parameters.split(";"):
+                    key, separator, value = parameter.strip().partition("=")
+                    if separator and key.lower() == "charset":
+                        charset = value.strip().strip('"') or None
+                        break
+                retrieved_at = self._clock()
+                if retrieved_at.tzinfo is None:
+                    raise BrowserExecutionError("worker_unavailable")
+                return WorkerFetchItem(
+                    final_url=final_url,
+                    title=(await page.title()).strip() or None,
+                    content=normalized,
+                    media_type=media_type.strip().lower() or "text/html",
+                    charset=charset,
+                    retrieved_at=retrieved_at,
+                    truncated=truncated,
+                    content_length=len(normalized.encode("utf-8")),
+                    quality="low" if len(normalized.strip()) <= 63 else "high",
+                )
+
+        try:
+            return await asyncio.wait_for(execute_page(), timeout=timeout_seconds)
+        except asyncio.TimeoutError:
             raise BrowserExecutionError("worker_timeout", retryable=True) from None
         finally:
             await proxy.close()
