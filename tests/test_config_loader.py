@@ -175,6 +175,54 @@ class TestYamlLoading:
         assert cfg.llm_search_gateways["uniapi"].api_key == "yaml-secret"
         assert cfg.llm_search_gateways["uniapi"].base_url == "https://gateway.example.com/v1"
 
+    def test_yaml_gateway_exact_env_references_are_resolved_without_literal_fallback(
+        self, monkeypatch, tmp_path
+    ):
+        monkeypatch.setenv("UNIAPI_API_KEY", "env-secret")
+        monkeypatch.setenv("UNIAPI_BASE_URL", "https://private-gateway.example.test/v1")
+        (tmp_path / "souwen.yaml").write_text(
+            textwrap.dedent(
+                """
+                llm_search_gateways:
+                  uniapi:
+                    api_key: "${UNIAPI_API_KEY}"
+                    base_url: "${UNIAPI_BASE_URL}"
+                """
+            ).strip(),
+            encoding="utf-8",
+        )
+
+        cfg = reload_config()
+
+        assert cfg.llm_search_gateways["uniapi"].api_key == "env-secret"
+        assert (
+            cfg.llm_search_gateways["uniapi"].base_url == "https://private-gateway.example.test/v1"
+        )
+
+    def test_missing_yaml_gateway_env_reference_is_unavailable_not_a_literal(
+        self, monkeypatch, tmp_path
+    ):
+        monkeypatch.delenv("UNIAPI_API_KEY", raising=False)
+        monkeypatch.delenv("UNIAPI_BASE_URL", raising=False)
+        (tmp_path / "souwen.yaml").write_text(
+            textwrap.dedent(
+                """
+                llm_search_gateways:
+                  uniapi:
+                    api_key: "${UNIAPI_API_KEY}"
+                    base_url: "${UNIAPI_BASE_URL}"
+                """
+            ).strip(),
+            encoding="utf-8",
+        )
+
+        cfg = reload_config()
+
+        assert cfg.missing_uniapi_gateway_fields() == (
+            "llm_search_gateways.uniapi.api_key",
+            "llm_search_gateways.uniapi.base_url",
+        )
+
 
 class TestEnvOverride:
     """环境变量解析与类型转换。"""

@@ -20,6 +20,10 @@ logger = logging.getLogger("souwen.config")
 LLM_SEARCH_IDENTITY_PARAMS = frozenset(
     {"api_key", "base_url", "gateway_id", "model", "model_id", "scheme_id", "source_id"}
 )
+UNIAPI_ARK_RC2_SOURCE_IDS = (
+    "uniapi_ark_annotations_deepseek_v3_2_251201",
+    "uniapi_ark_annotations_doubao_seed_2_0_lite_260428",
+)
 
 
 def _normalize_llm_search_base_url(value: str | None) -> str | None:
@@ -210,6 +214,16 @@ class SouWenConfig(BaseModel):
                 detail = ", ".join(f"{key} -> {replacements[key]}" for key in sorted(retired))
                 raise ValueError(f"认证配置字段已移除: {detail}")
         return data
+
+    @model_validator(mode="after")
+    def _only_one_uniapi_ark_source_may_be_explicitly_enabled(self) -> "SouWenConfig":
+        """Prevent deployment config from silently selecting or switching Ark models."""
+        enabled = self.enabled_uniapi_ark_source_ids()
+        if len(enabled) > 1:
+            raise ValueError(
+                "UniAPI Ark RC2 requires exactly zero or one explicitly enabled source"
+            )
+        return self
 
     # ===== 论文数据源 =====
     openalex_api_key: str | None = None
@@ -527,6 +541,31 @@ class SouWenConfig(BaseModel):
     def get_llm_search_gateway(self, gateway_id: str) -> LLMSearchGatewayConfig:
         """获取共享 LLM-search gateway；不存在时返回空配置。"""
         return self.llm_search_gateways.get(gateway_id, LLMSearchGatewayConfig())
+
+    def enabled_uniapi_ark_source_ids(self) -> tuple[str, ...]:
+        """Return only RC2 Ark sources with an explicit YAML/config ``enabled: true``."""
+        enabled: list[str] = []
+        for source_id in UNIAPI_ARK_RC2_SOURCE_IDS:
+            source = self.sources.get(source_id)
+            if (
+                source is not None
+                and "enabled" in source.model_fields_set
+                and source.enabled is True
+            ):
+                enabled.append(source_id)
+        return tuple(enabled)
+
+    def missing_uniapi_gateway_fields(self) -> tuple[str, ...]:
+        """Return safe config paths only, never credential or private URL values."""
+        gateway = self.get_llm_search_gateway("uniapi")
+        return tuple(
+            field_name
+            for field_name, value in (
+                ("llm_search_gateways.uniapi.api_key", gateway.api_key),
+                ("llm_search_gateways.uniapi.base_url", gateway.base_url),
+            )
+            if not value
+        )
 
     def resolve_llm_search_gateway_field(
         self,

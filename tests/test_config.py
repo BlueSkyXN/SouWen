@@ -160,6 +160,39 @@ class TestDefaults:
         cfg = SouWenConfig(plugin_config={"demo": {"api_key": "k", "limit": 3}})
         assert cfg.plugin_config["demo"] == {"api_key": "k", "limit": 3}
 
+    def test_uniapi_ark_sources_are_opt_in_and_mutually_exclusive(self):
+        deepseek = "uniapi_ark_annotations_deepseek_v3_2_251201"
+        doubao = "uniapi_ark_annotations_doubao_seed_2_0_lite_260428"
+
+        assert SouWenConfig().enabled_uniapi_ark_source_ids() == ()
+        assert SouWenConfig(
+            sources={deepseek: {"enabled": True}}
+        ).enabled_uniapi_ark_source_ids() == (deepseek,)
+        # Merely configuring another field is not an implicit enable.
+        assert (
+            SouWenConfig(sources={deepseek: {"timeout": 45}}).enabled_uniapi_ark_source_ids() == ()
+        )
+        with pytest.raises(ValueError, match="zero or one explicitly enabled"):
+            SouWenConfig(
+                sources={
+                    deepseek: {"enabled": True},
+                    doubao: {"enabled": True},
+                }
+            )
+
+    def test_uniapi_missing_gateway_diagnostic_contains_paths_not_values(self):
+        cfg = SouWenConfig(
+            llm_search_gateways={
+                "uniapi": {
+                    "api_key": "fixture-secret",
+                    "base_url": None,
+                }
+            }
+        )
+
+        assert cfg.missing_uniapi_gateway_fields() == ("llm_search_gateways.uniapi.base_url",)
+        assert "fixture-secret" not in repr(cfg)
+
     def test_retired_auth_fields_removed(self):
         """旧认证字段已从配置模型移除。"""
         cfg = SouWenConfig()

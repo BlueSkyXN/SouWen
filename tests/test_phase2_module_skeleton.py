@@ -49,7 +49,7 @@ SKELETON_PACKAGES = (
     "souwen.providers.fetch_sources",
 )
 
-# P4-01 intentionally promotes these Phase-2 placeholders into real internal
+# Phase 4 intentionally promotes these Phase-2 placeholders into real internal
 # interfaces. Their strict contracts and import boundaries have dedicated tests;
 # the remaining packages must stay inert until their owning migration slice.
 IMPLEMENTED_PACKAGES = frozenset(
@@ -57,6 +57,7 @@ IMPLEMENTED_PACKAGES = frozenset(
         "souwen.modules.search.api",
         "souwen.modules.search.application",
         "souwen.modules.llm_search.api",
+        "souwen.modules.llm_search.application",
         "souwen.modules.fetch.api",
         "souwen.platform.provider_spi",
         "souwen.platform.manifest_registry",

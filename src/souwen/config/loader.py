@@ -8,6 +8,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 from functools import lru_cache
 from pathlib import Path
 
@@ -33,6 +34,22 @@ _RETIRED_AUTH_ENV_KEYS = {
 }
 
 _NESTED_CONFIG_FIELDS = frozenset({"sources", "llm", "llm_search_gateways", "plugin_config"})
+_EXACT_ENV_REFERENCE = re.compile(r"^\$\{([A-Z_][A-Z0-9_]*)\}$")
+
+
+def _resolve_gateway_env_references(raw: dict) -> None:
+    """Resolve exact ``${VAR}`` gateway scalars without interpolating arbitrary YAML."""
+    gateways = raw.get("llm_search_gateways")
+    if not isinstance(gateways, dict):
+        return
+    for gateway in gateways.values():
+        if not isinstance(gateway, dict):
+            continue
+        for field_name in ("api_key", "base_url"):
+            value = gateway.get(field_name)
+            match = _EXACT_ENV_REFERENCE.fullmatch(value) if isinstance(value, str) else None
+            if match is not None:
+                gateway[field_name] = os.environ.get(match.group(1))
 
 
 def _retired_auth_yaml_keys(raw: dict) -> list[str]:
@@ -99,6 +116,7 @@ def _load_yaml_config() -> dict:
 
     if not raw or not isinstance(raw, dict):
         return {}
+    _resolve_gateway_env_references(raw)
     retired_keys = _retired_auth_yaml_keys(raw)
     if retired_keys:
         raise _retired_auth_config_error(retired_keys)

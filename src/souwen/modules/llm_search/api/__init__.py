@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from typing import Protocol
 
+from souwen.modules.llm_search.application import LLMSearchModuleService
 from souwen.platform.provider_spi import (
     ExecutionContext,
     LLMSearchRequest,
@@ -21,4 +22,9 @@ class LLMSearchModule(Protocol):
         """Execute LLM Search without exposing a concrete provider."""
 
 
-__all__ = ["LLMSearchModule", "LLMSearchRequest", "LLMSearchResult"]
+__all__ = [
+    "LLMSearchModule",
+    "LLMSearchModuleService",
+    "LLMSearchRequest",
+    "LLMSearchResult",
+]

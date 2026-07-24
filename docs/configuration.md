@@ -459,19 +459,23 @@ sources:
 ```yaml
 llm_search_gateways:
   uniapi:
-    api_key: your-secret
-    base_url: https://gateway.example.com/v1
+    api_key: "${UNIAPI_API_KEY}"
+    base_url: "${UNIAPI_BASE_URL}"
 sources:
   uniapi_ark_annotations_deepseek_v3_2_251201:
     enabled: true
     timeout: 45
+  uniapi_ark_annotations_doubao_seed_2_0_lite_260428:
+    enabled: false
 ```
 
-可改为启用 `uniapi_ark_annotations_doubao_seed_2_0_lite_260428`，但不要把两个 source
+可改为启用 `uniapi_ark_annotations_doubao_seed_2_0_lite_260428`，但两个 source 不能同时
+设为 `enabled: true`，否则配置加载会失败。不要把两个 source
 加入默认搜索或通过 `params` 覆盖 `model`、`model_id`、`scheme_id`、`source_id` 或 `gateway_id`。
 这两个 identity 字段集是 immutable；每个 source 只会请求其 Registry 绑定的 exact model。
 
-具体 source 的 `api_key`、`base_url` override 优先于 shared gateway。环境变量使用 JSON：
+YAML 中仅对 gateway 的 `api_key`/`base_url` 支持精确 `${VAR}` 引用；缺失的环境
+变量解析为未配置，不会把字面占位符当成凭据。也可使用 JSON 环境变量：
 
 ```text
 SOUWEN_LLM_SEARCH_GATEWAYS={"uniapi":{"api_key":"...","base_url":"https://gateway.example.com/v1"}}
