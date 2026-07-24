@@ -72,6 +72,8 @@ Public docs 不要求读者理解历史路径；需要保留背景材料时，�
 | [internal/spec-01-external-api-canonical-dto.md](./internal/spec-01-external-api-canonical-dto.md) | Proposed External API、Canonical DTO 与 current-to-target mapping |
 | [internal/spec-05-provider-spi-manifest-conformance.md](./internal/spec-05-provider-spi-manifest-conformance.md) | Proposed Provider SPI、Manifest 与 Conformance contract |
 | [internal/spec-08-directory-dependency.md](./internal/spec-08-directory-dependency.md) | Proposed target directory、dependency rules 与 migration gate |
+| [internal/phase1/current-api-golden-fixtures.md](./internal/phase1/current-api-golden-fixtures.md) | Phase 1B current-only API behavior 与 language-neutral fixture 说明 |
+| [internal/phase1/provider-directory-current-behavior.md](./internal/phase1/provider-directory-current-behavior.md) | Phase 1B current-only Provider、config 与 directory dependency 事实基线 |
 | [internal/adr/0001-public-api-surface.md](./internal/adr/0001-public-api-surface.md) | public API surface 决策 |
 | [internal/adr/0002-versioning-policy.md](./internal/adr/0002-versioning-policy.md) | 公开版本号决策规则 |
 | [internal/adr/0003-browser-fetch-worker.md](./internal/adr/0003-browser-fetch-worker.md) | Accepted 单部署单元双进程 Browser Fetch Worker 边界（HLD ADR-02） |

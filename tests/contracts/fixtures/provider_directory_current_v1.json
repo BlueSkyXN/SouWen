@@ -1,0 +1,126 @@
+{
+  "fixture_version": 1,
+  "scope": "current_only",
+  "target_claims_excluded": [
+    "provider_extension_v2_implemented",
+    "yaml_revision_workflow_implemented",
+    "directory_target_dependency_rules_implemented"
+  ],
+  "registry": {
+    "adapter_type": "SourceAdapter",
+    "method_spec_type": "MethodSpec",
+    "fetch_domain": "fetch",
+    "standard_capabilities": [
+      "archive_lookup",
+      "archive_save",
+      "fetch",
+      "get_detail",
+      "get_transcript",
+      "get_trending",
+      "search",
+      "search_articles",
+      "search_images",
+      "search_news",
+      "search_users",
+      "search_videos"
+    ],
+    "domains": [
+      "archive",
+      "book",
+      "cn_tech",
+      "developer",
+      "knowledge",
+      "office",
+      "paper",
+      "patent",
+      "research_output",
+      "social",
+      "video",
+      "web"
+    ],
+    "required_adapter_fields": [
+      "name",
+      "domain",
+      "integration",
+      "description",
+      "config_field",
+      "client_loader",
+      "methods"
+    ],
+    "required_method_spec_fields": [
+      "method_name",
+      "param_map",
+      "pre_call",
+      "timeout_seconds"
+    ],
+    "representative_sources": {
+      "builtin": [
+        "fetch"
+      ],
+      "openalex": [
+        "search"
+      ]
+    }
+  },
+  "legacy_plugin": {
+    "entry_point_group": "souwen.plugins",
+    "accepted_entry_shapes": [
+      "Plugin",
+      "SourceAdapter",
+      "list_or_tuple_of_SourceAdapter",
+      "zero_argument_factory"
+    ],
+    "runtime_registry_mutation": true
+  },
+  "configuration": {
+    "required_model_fields": [
+      "sources",
+      "llm_search_gateways",
+      "plugins",
+      "plugin_config"
+    ],
+    "nested_loader_fields": [
+      "llm",
+      "llm_search_gateways",
+      "plugin_config",
+      "sources"
+    ],
+    "precedence_high_to_low": [
+      "environment",
+      "project_yaml",
+      "user_yaml",
+      "dotenv",
+      "defaults"
+    ],
+    "current_admin_markers": {
+      "yaml_atomic_write_function": "_atomic_write",
+      "source_in_memory_assignment": "cfg.sources[source_name] = sc"
+    }
+  },
+  "directory_import_edges": [
+    {
+      "from": "src/souwen/registry/views.py",
+      "to": "souwen.registry.adapter"
+    },
+    {
+      "from": "src/souwen/registry/catalog.py",
+      "to": "souwen.registry"
+    },
+    {
+      "from": "src/souwen/registry/catalog.py",
+      "to": "souwen.registry.adapter"
+    },
+    {
+      "from": "src/souwen/plugin.py",
+      "to": "souwen.registry.adapter"
+    },
+    {
+      "from": "src/souwen/plugin.py",
+      "to": "souwen.registry.views"
+    },
+    {
+      "from": "src/souwen/plugin.py",
+      "to": "souwen.web.fetch"
+    }
+  ]
+}
