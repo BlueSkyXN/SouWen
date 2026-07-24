@@ -17,6 +17,13 @@ def _workflow(name: str) -> str:
     return (WORKFLOW_DIR / name).read_text(encoding="utf-8")
 
 
+def _workflow_trigger(text: str, name: str) -> str:
+    on_block = text.split("\non:\n", maxsplit=1)[1].split("\nconcurrency:", maxsplit=1)[0]
+    trigger = on_block.split(f"  {name}:", maxsplit=1)[1]
+    next_trigger = re.search(r"\n  [a-z][a-z0-9_-]*:", trigger)
+    return trigger[: next_trigger.start()] if next_trigger else trigger
+
+
 def _job(text: str, name: str, next_name: str) -> str:
     return text.split(f"  {name}:", maxsplit=1)[1].split(f"  {next_name}:", maxsplit=1)[0]
 
@@ -116,6 +123,19 @@ def test_workflow_embedded_python_blocks_compile() -> None:
             index = end + 1
 
     assert compiled >= 19
+
+
+@pytest.mark.parametrize(
+    "workflow_name",
+    ("ci.yml", "v2-ci.yml", "deploy-hf-space.yml", "external-smoke-gate.yml"),
+)
+def test_main_pr_gates_run_when_a_retargeted_stack_layer_becomes_ready(
+    workflow_name: str,
+) -> None:
+    trigger = _workflow_trigger(_workflow(workflow_name), "pull_request")
+
+    assert "branches: [main]" in trigger
+    assert "types: [opened, synchronize, reopened, ready_for_review]" in trigger
 
 
 def test_release_candidate_is_the_only_release_publisher() -> None:
