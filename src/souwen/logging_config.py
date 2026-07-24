@@ -49,7 +49,7 @@
     - json: JSON 格式化
     - datetime/timezone: 时间戳
     - re: 正则匹配敏感数据
-    - souwen.server.middleware.RequestIDFilter: 请求 ID 追踪
+    - souwen.common_runtime.observability.RequestIDFilter: 请求 ID 追踪
 """
 
 from __future__ import annotations
@@ -60,8 +60,8 @@ import os
 import sys
 from datetime import datetime, timezone
 
+from souwen.common_runtime.observability import RequestIDFilter
 from souwen.core.redaction import redact_secret_text
-from souwen.server.middleware import RequestIDFilter
 
 _CONFIGURED = False
 

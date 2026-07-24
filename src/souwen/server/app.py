@@ -85,9 +85,9 @@ from souwen.config import ensure_config_file, get_config
 from souwen.core.redaction import redact_secret_text, redact_secret_value
 from souwen.logging_config import setup_logging
 from souwen.plugin import ensure_plugins_loaded, get_loaded_plugins
-from souwen.common_runtime.observability import get_source_sha
+from souwen.common_runtime.observability import get_request_id, get_source_sha
 from souwen.server.auth import is_admin_open_enabled
-from souwen.server.middleware import RequestIDMiddleware, get_request_id
+from souwen.server.middleware import RequestIDMiddleware
 from souwen.server.routes import router, admin_router
 from souwen.server.schemas import ErrorResponse, HealthResponse, ReadinessResponse
 from souwen.web.fetch import _current_plugin_owner

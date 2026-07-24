@@ -33,8 +33,8 @@ r"""SouWen ASGI 中间件 — 请求 ID 注入 + 响应计时 + 访问日志
     _SKIP_LOG_PATHS：无需记录访问日志的路径集合
 
 模块依赖：
-    - contextvars：上下文变量
-    - logging：日志系统
+    - logging：访问日志
+    - souwen.common_runtime.observability：请求关联上下文与日志过滤器
 """
 
 from __future__ import annotations
@@ -42,11 +42,13 @@ from __future__ import annotations
 import logging
 import re
 import time
-from contextvars import ContextVar
 from uuid import uuid4
 
-# 当前请求 ID — 任何模块均可通过 get_request_id() 读取
-request_id_var: ContextVar[str] = ContextVar("request_id", default="-")
+from souwen.common_runtime.observability import (
+    RequestIDFilter,
+    get_request_id,
+    request_id_var,
+)
 
 logger = logging.getLogger("souwen.server")
 
@@ -54,18 +56,6 @@ _VALID_REQUEST_ID = re.compile(r"^[\w\-]{1,64}$")
 
 # 不记录访问日志的路径（健康检查 / 面板静态资源）
 _SKIP_LOG_PATHS = frozenset({"/health", "/panel"})
-
-
-def get_request_id() -> str:
-    """获取当前请求的关联 ID — 支持跨协程调用
-
-    返回存储在 contextvars 中的 request_id。可在任何异步上下文（如背景任务、
-    异步依赖、日志等）中调用，无需显式传递 request_id 参数。
-
-    Returns:
-        request_id 字符串，或默认值 "-" 当 context 未设置
-    """
-    return request_id_var.get()
 
 
 class RequestIDMiddleware:
@@ -147,18 +137,4 @@ class RequestIDMiddleware:
             request_id_var.reset(token)
 
 
-class RequestIDFilter(logging.Filter):
-    """日志过滤器 — 自动将 request_id 注入所有日志记录
-
-    允许日志格式中包含 %(request_id)s 占位符，自动替换为当前请求的 ID。
-
-    使用示例：
-        handler = logging.StreamHandler()
-        handler.addFilter(RequestIDFilter())
-        formatter = logging.Formatter("%(asctime)s [%(request_id)s] %(message)s")
-        handler.setFormatter(formatter)
-    """
-
-    def filter(self, record):
-        record.request_id = request_id_var.get()
-        return True
+__all__ = ["RequestIDFilter", "RequestIDMiddleware", "get_request_id", "request_id_var"]
