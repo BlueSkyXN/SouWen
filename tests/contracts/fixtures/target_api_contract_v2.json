@@ -1,0 +1,153 @@
+{
+  "fixture_version": 1,
+  "scope": "target_canonical_contract_v2",
+  "target_only": true,
+  "implemented_by_current_runtime": false,
+  "api_major": 2,
+  "approved_decisions": [
+    "Q-004",
+    "Q-005",
+    "Q-006",
+    "Q-007",
+    "Q-008",
+    "API-Q-001",
+    "REL-Q-001"
+  ],
+  "operations": {
+    "search": {
+      "method": "POST",
+      "path": "/api/v1/search",
+      "request": "SearchRequest",
+      "response": "SearchPage",
+      "security": "user_token"
+    },
+    "llm_search": {
+      "method": "POST",
+      "path": "/api/v1/llm-search",
+      "request": "LLMSearchRequest",
+      "response": "LLMSearchResult",
+      "security": "user_token"
+    },
+    "fetch": {
+      "method": "POST",
+      "path": "/api/v1/fetch",
+      "request": "FetchRequest",
+      "response": "FetchBatch",
+      "security": "user_token"
+    },
+    "providers": {
+      "method": "GET",
+      "path": "/api/v1/providers",
+      "response": "ProviderCatalog",
+      "security": "user_token"
+    },
+    "healthz": {
+      "method": "GET",
+      "path": "/healthz",
+      "response": "ProbeResponse",
+      "security": "none"
+    },
+    "readyz": {
+      "method": "GET",
+      "path": "/readyz",
+      "response": "ProbeResponse",
+      "security": "none"
+    }
+  },
+  "validation": {
+    "client_input_status": 400,
+    "client_input_error": "invalid_request",
+    "not_canonical_statuses": [422],
+    "specialist_statuses": [409, 413, 415]
+  },
+  "authentication": {
+    "data_api_default": "fail_closed_user_token",
+    "explicit_open_or_guest_configuration_required": true,
+    "admin_surface_separate": true,
+    "accepted_headers": ["Authorization", "X-SouWen-Token"],
+    "proxy_header_precedence": "X-SouWen-Token"
+  },
+  "search_policy": {
+    "missing_providers": "one_yaml_domain_capability_ordered_primary",
+    "fanout": "explicit_multiple_providers_only",
+    "merge": "equal_weight_rrf",
+    "rrf_k": 60,
+    "tie_breakers": ["yaml_priority", "provider_local_rank", "canonical_id"],
+    "deduplication_order": ["stable_domain_id", "canonical_url", "normalized_title_year"],
+    "partial_success": "any_provider_success_returns_200_with_partial_and_failed_provider_details",
+    "all_provider_failure": "canonical_upstream_error"
+  },
+  "llm_search_policy": {
+    "item_requires_evidence": true,
+    "answer_factual_paragraph_requires_stable_evidence_id": true,
+    "evidence_required_fields": ["id", "item_id", "provider", "public_url", "title_or_snippet", "retrieved_at"],
+    "usage_always_present": true,
+    "usage_provider_reported_only": true,
+    "unknown_usage_fields": "null",
+    "unverifiable_evidence": "provider_result_failure"
+  },
+  "fetch_policy": {
+    "accepted_media_types": ["text/*", "application/json", "application/xml", "text/xml"],
+    "rejected_media_type_classes": ["pdf", "image", "audio", "video", "application/octet-stream"],
+    "target_count": {"minimum": 1, "maximum": 20},
+    "decompressed_response_hard_cap_bytes": 10485760,
+    "default_content_code_points": 200000,
+    "maximum_content_code_points": 1000000,
+    "overflow": "truncated_true",
+    "empty_content": "failure",
+    "low_quality_non_empty_character_range": {"minimum": 1, "maximum": 63},
+    "low_quality_result": "partial_item_allowed_when_no_better_fallback"
+  },
+  "initial_nfr_budgets": {
+    "not_an_sla": true,
+    "dispatch_deadlines_seconds": {"search": 30, "llm_search": 90, "fetch": 30, "hard_maximum": 120},
+    "concurrency": {"api_in_flight": 32, "provider_instance": 10, "browser_page_slots": 2},
+    "local_operation_p95_ms_excluding_upstream": {"healthz": 100, "readyz": 100, "providers": 100},
+    "rate_limit": {"per_credential_per_minute": 60, "without_credential_identity": "ip"},
+    "resource_budgets": {
+      "api_idle_rss_mib": 512,
+      "api_and_worker_peak_rss_mib": 4096,
+      "image_uncompressed_mib": 4096,
+      "registry_transfer_mib": 2560,
+      "api_readyz_cold_start_p95_seconds": 30,
+      "browser_worker_ready_cold_start_p95_seconds": 90,
+      "cold_start_controlled_samples_minimum": 5
+    },
+    "change_policy": "evidence_backed_change_control_required"
+  },
+  "probe_aliases": {
+    "/health": {"canonical": "/healthz", "same_handler": true, "same_payload": true, "redirect": false, "retained_through": "2.x", "earliest_removal": "3.0"},
+    "/readiness": {"canonical": "/readyz", "same_handler": true, "same_payload": true, "redirect": false, "retained_through": "2.x", "earliest_removal": "3.0"}
+  },
+  "error_statuses": {
+    "invalid_request": 400,
+    "unauthenticated": 401,
+    "forbidden": 403,
+    "not_found": 404,
+    "conflict": 409,
+    "api_major_mismatch": 409,
+    "rate_limited": 429,
+    "provider_unavailable": 502,
+    "provider_timeout": 504,
+    "internal_error": 500
+  },
+  "goldens": {
+    "search_partial_success": {
+      "context": {"request_id": "fixture-request-001", "api_major": 2},
+      "items": [{"id": "doi:10.1000/fixture", "title": "Fixture result", "rank": 1, "provenance": [{"provider": "openalex", "outcome": "success"}]}],
+      "meta": {"partial": true, "requested": ["openalex", "other"], "succeeded": ["openalex"], "failed": [{"provider": "other", "code": "provider_timeout"}]}
+    },
+    "llm_search_evidence": {
+      "context": {"request_id": "fixture-request-002", "api_major": 2},
+      "items": [{"id": "fixture-item-001", "title": "Fixture item", "provenance": [{"provider": "fixture-llm", "outcome": "success"}]}],
+      "evidence": [{"id": "evidence-001", "item_id": "fixture-item-001", "provider": "fixture-llm", "public_url": "https://example.com/evidence", "title_or_snippet": "Fixture evidence", "retrieved_at": "2026-07-24T00:00:00Z"}],
+      "answer": "Fixture factual answer [evidence-001]",
+      "usage": {"input_tokens": null, "output_tokens": null, "cost": null, "currency": null}
+    },
+    "fetch_low_quality_partial": {
+      "context": {"request_id": "fixture-request-003", "api_major": 2},
+      "items": [{"target": "https://example.com/short", "status": "success", "content": "short", "content_metadata": {"media_type": "text/plain", "quality": "low", "truncated": false}, "provenance": [{"provider": "builtin", "outcome": "success"}]}],
+      "meta": {"partial": true}
+    }
+  }
+}

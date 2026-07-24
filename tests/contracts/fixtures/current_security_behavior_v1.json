@@ -1,0 +1,89 @@
+{
+  "fixture_version": 1,
+  "scope": "current_security_behavior_only",
+  "not_target_contract": true,
+  "ssrf": {
+    "allowed_schemes": ["http", "https"],
+        "blocked_direct_examples": [
+            "ftp://example.com/file",
+            "http://fixture-user:fixture-password@example.com/internal",
+            "http://127.0.0.1/internal",
+            "http://10.0.0.1/internal",
+            "http://169.254.169.254/internal",
+            "http://224.0.0.1/internal",
+            "http://2130706433/internal",
+            "http://[::ffff:127.0.0.1]/internal"
+        ],
+        "internal_bypass_surface": {
+            "fetch_content_parameter": "skip_ssrf_check",
+            "rest_request_field_exposed": false
+        },
+    "dns_policy": "block_when_any_resolved_address_is_private_or_reserved",
+    "public_dns_example": {
+      "original_url": "https://public.example/path?fixture=1",
+      "resolved_ip": "1.1.1.1",
+      "connect_url": "https://1.1.1.1/path?fixture=1",
+      "host_header": "public.example",
+      "sni_hostname": "public.example"
+    },
+    "redirect_policy": "revalidate_each_hop_before_transport",
+    "proxy_bound_request": {
+      "proxy": "socks5://proxy.example:1080",
+      "trust_env": false,
+      "follow_redirects": false,
+      "connect_url": "https://1.1.1.1/path?fixture=1",
+      "host_header": "public.example",
+      "sni_hostname": "public.example"
+    },
+    "browser_policy": {
+      "route_pattern": "**/*",
+      "blocked_url": "http://127.0.0.1/internal",
+      "allowed_url": "https://93.184.216.34/static.js",
+      "blocked_action": "abort",
+      "allowed_action": "fallback"
+    }
+  },
+  "request_error": {
+    "request_id_header": "X-Request-ID",
+    "response_time_header": "X-Response-Time",
+    "error_shape": ["error", "detail", "request_id"],
+    "not_found_code": "not_found",
+    "redaction_marker": "***"
+  },
+  "auth": {
+    "application_headers": ["Authorization", "X-SouWen-Token"],
+    "precedence": "X-SouWen-Token",
+    "invalid_explicit_custom_token_fallback": false
+  },
+  "redaction": {
+    "input": {
+      "api_key": "fixture-key-value",
+      "callback": "https://example.com/callback?token=fixture-token-value&safe=1",
+      "safe": "retain",
+      "nested": {
+        "Authorization": "Bearer fixture-auth-value"
+      }
+    },
+    "expected": {
+      "api_key": "***",
+      "callback": "https://example.com/callback?token=***&safe=1",
+      "safe": "retain",
+      "nested": {
+        "Authorization": "***"
+      }
+    },
+    "gateway_input": {
+      "fixture_gateway": {
+        "api_key": "fixture-key-value",
+        "base_url": "https://gateway.example/v1"
+      }
+    },
+    "gateway_expected": {
+      "fixture_gateway": {
+        "api_key": "***",
+        "base_url": "***"
+      }
+    }
+  },
+  "open_decisions": ["Q-006", "Q-007", "API-Q-001", "Q-008", "REL-Q-001"]
+}
