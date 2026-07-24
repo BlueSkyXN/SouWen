@@ -18,6 +18,11 @@ class ProviderErrorCode(str, Enum):
     POLICY_BLOCKED = "policy_blocked"
     PAYLOAD_TOO_LARGE = "payload_too_large"
     UNSUPPORTED_MEDIA_TYPE = "unsupported_media_type"
+    WORKER_UNAVAILABLE = "worker_unavailable"
+    WORKER_NOT_READY = "worker_not_ready"
+    WORKER_OVERLOADED = "worker_overloaded"
+    WORKER_TIMEOUT = "worker_timeout"
+    WORKER_PROTOCOL_MISMATCH = "worker_protocol_mismatch"
 
 
 _SAFE_MESSAGES: dict[ProviderErrorCode, str] = {
@@ -31,6 +36,11 @@ _SAFE_MESSAGES: dict[ProviderErrorCode, str] = {
     ProviderErrorCode.POLICY_BLOCKED: "Provider operation was blocked by policy",
     ProviderErrorCode.PAYLOAD_TOO_LARGE: "Provider response exceeded the size limit",
     ProviderErrorCode.UNSUPPORTED_MEDIA_TYPE: "Provider response media type is unsupported",
+    ProviderErrorCode.WORKER_UNAVAILABLE: "Browser Worker is unavailable",
+    ProviderErrorCode.WORKER_NOT_READY: "Browser Worker is not ready",
+    ProviderErrorCode.WORKER_OVERLOADED: "Browser Worker is overloaded",
+    ProviderErrorCode.WORKER_TIMEOUT: "Browser Worker timed out",
+    ProviderErrorCode.WORKER_PROTOCOL_MISMATCH: "Browser Worker protocol does not match",
 }
 
 
@@ -53,6 +63,10 @@ class ProviderError(Exception):
             ProviderErrorCode.DEADLINE_EXCEEDED,
             ProviderErrorCode.RATE_LIMITED,
             ProviderErrorCode.PROVIDER_UNAVAILABLE,
+            ProviderErrorCode.WORKER_UNAVAILABLE,
+            ProviderErrorCode.WORKER_NOT_READY,
+            ProviderErrorCode.WORKER_OVERLOADED,
+            ProviderErrorCode.WORKER_TIMEOUT,
         }
         super().__init__(_SAFE_MESSAGES[code])
 

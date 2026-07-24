@@ -9,6 +9,7 @@ do not require the optional browser runtime.
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import os
 import weakref
 from contextlib import asynccontextmanager
@@ -30,6 +31,33 @@ class BrowserPoolKey:
     browser_name: str = "chromium"
     headless: bool = True
     proxy: str | None = None
+    host_resolver_rules: tuple[tuple[str, str], ...] = ()
+
+
+def _host_resolver_argument(rules: tuple[tuple[str, str], ...]) -> str | None:
+    """Build a Chromium host pinning argument from validated hostname/IP pairs."""
+    if not rules:
+        return None
+    mappings: list[str] = []
+    for hostname, address in rules:
+        normalized_host = hostname.strip().lower()
+        if (
+            not normalized_host
+            or any(character in normalized_host for character in " ,/=\t\r\n")
+            or normalized_host.startswith("[")
+        ):
+            raise ValueError("invalid browser host resolver hostname")
+        parsed_address = ipaddress.ip_address(address)
+        if not parsed_address.is_global:
+            raise ValueError("browser host resolver address must be public")
+        rendered_address = (
+            f"[{parsed_address.compressed}]"
+            if isinstance(parsed_address, ipaddress.IPv6Address)
+            else parsed_address.compressed
+        )
+        mappings.append(f"MAP {normalized_host} {rendered_address}")
+    mappings.append("MAP * ~NOTFOUND")
+    return ",".join(mappings)
 
 
 def _max_pages_from_env() -> int:
@@ -105,6 +133,12 @@ class PlaywrightBrowserPool:
             launch_options: dict[str, Any] = {"headless": self.key.headless}
             if self.key.proxy:
                 launch_options["proxy"] = {"server": self.key.proxy}
+                launch_options["args"] = ["--proxy-bypass-list=<-loopback>"]
+            resolver_argument = _host_resolver_argument(self.key.host_resolver_rules)
+            if resolver_argument is not None:
+                launch_options.setdefault("args", []).append(
+                    f"--host-resolver-rules={resolver_argument}"
+                )
 
             try:
                 self._browser = await browser_type.launch(**launch_options)
@@ -123,6 +157,9 @@ class PlaywrightBrowserPool:
         viewport: dict[str, int] | None = None,
         locale: str | None = None,
         timezone_id: str | None = None,
+        accept_downloads: bool | None = None,
+        service_workers: str | None = None,
+        proxy: str | None = None,
     ) -> Any:
         """Create an isolated browser context from the pooled browser."""
 
@@ -138,6 +175,12 @@ class PlaywrightBrowserPool:
             options["locale"] = locale
         if timezone_id:
             options["timezone_id"] = timezone_id
+        if accept_downloads is not None:
+            options["accept_downloads"] = accept_downloads
+        if service_workers is not None:
+            options["service_workers"] = service_workers
+        if proxy is not None:
+            options["proxy"] = {"server": proxy}
         return await browser.new_context(**options)
 
     @asynccontextmanager
@@ -149,6 +192,9 @@ class PlaywrightBrowserPool:
         viewport: dict[str, int] | None = None,
         locale: str | None = None,
         timezone_id: str | None = None,
+        accept_downloads: bool | None = None,
+        service_workers: str | None = None,
+        proxy: str | None = None,
     ) -> AsyncIterator[Any]:
         """Yield a page and always close its context afterward."""
 
@@ -159,6 +205,9 @@ class PlaywrightBrowserPool:
                 viewport=viewport,
                 locale=locale,
                 timezone_id=timezone_id,
+                accept_downloads=accept_downloads,
+                service_workers=service_workers,
+                proxy=proxy,
             )
             page = await context.new_page()
             try:

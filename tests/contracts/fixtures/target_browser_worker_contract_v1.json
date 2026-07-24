@@ -1,0 +1,77 @@
+{
+  "fixture_version": 1,
+  "contract_major": 1,
+  "implemented_by_current_runtime": true,
+  "transport": {
+    "scheme": "http",
+    "bind_host": "127.0.0.1",
+    "default_port": 49266,
+    "external_mount": false
+  },
+  "endpoints": {
+    "fetch": {
+      "method": "POST",
+      "path": "/internal/v1/fetch"
+    },
+    "health": {
+      "method": "GET",
+      "path": "/internal/v1/health"
+    },
+    "readiness": {
+      "method": "GET",
+      "path": "/internal/v1/readiness"
+    }
+  },
+  "required_headers": [
+    "Authorization: Bearer <internal-capability-token>",
+    "X-SouWen-Contract-Major: 1",
+    "X-Request-ID",
+    "X-SouWen-Deadline-Ms"
+  ],
+  "execution": {
+    "business_provider": "builtin-fetch",
+    "mode": "playwright",
+    "provider_selection": false,
+    "fallback": false,
+    "page_slots": 2,
+    "queue_length": 0,
+    "proxy_connection_slots_per_page": 32,
+    "default_code_points": 200000,
+    "maximum_code_points": 1000000,
+    "maximum_deadline_seconds": 120
+  },
+  "security": {
+    "api_side_url_policy": true,
+    "worker_side_url_policy": true,
+    "dns_binding": "transient_loopback_pinning_proxy",
+    "cross_origin_redirects": "revalidate_each_hop",
+    "cross_origin_subresources": "revalidate_each_request",
+    "forbidden_fields": [
+      "skip_ssrf_check",
+      "user_token",
+      "admin_token",
+      "cookie",
+      "headers",
+      "gateway",
+      "provider_override"
+    ]
+  },
+  "errors": {
+    "worker_unauthorized": 401,
+    "worker_invalid_request": 400,
+    "worker_protocol_mismatch": 409,
+    "worker_overloaded": 429,
+    "worker_timeout": 504,
+    "worker_unavailable": 502,
+    "worker_not_ready": 503,
+    "policy_blocked": 403,
+    "empty_content": 502
+  },
+  "readiness_evidence": [
+    "contract_major",
+    "source_sha",
+    "runtime_version",
+    "config_revision",
+    "provider_inventory_digest"
+  ]
+}

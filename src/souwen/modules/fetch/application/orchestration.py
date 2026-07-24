@@ -34,6 +34,16 @@ class FetchProviderManager(Protocol):
         """Execute one target through one selected Fetch adapter."""
 
 
+class BrowserFetchExecutor(Protocol):
+    async def fetch(
+        self,
+        request: FetchTargetRequest,
+        request_context: RequestContext,
+        execution: ExecutionContext,
+    ) -> FetchResult:
+        """Execute the browser fallback mode without selecting another business Provider."""
+
+
 class FetchModuleService:
     """Run the RC2 builtin Fetch provider for every canonical target."""
 
@@ -41,11 +51,13 @@ class FetchModuleService:
         self,
         manager: FetchProviderManager,
         configured_adapter_id: str = BUILTIN_FETCH_ADAPTER_ID,
+        browser_executor: BrowserFetchExecutor | None = None,
     ) -> None:
         if not configured_adapter_id.strip():
             raise ValueError("configured_adapter_id must not be blank")
         self._manager = manager
         self._adapter_id = configured_adapter_id
+        self._browser_executor = browser_executor
 
     async def fetch(
         self,
@@ -88,21 +100,72 @@ class FetchModuleService:
             policy=request.policy,
         )
         try:
-            return await self._manager.execute(
+            builtin_result = await self._manager.execute(
                 self._adapter_id,
                 target_request,
                 context,
                 execution,
             )
         except ProviderError as exc:
-            return _failed_result(target_request, context, self._adapter_id, exc)
+            builtin_result = _failed_result(target_request, context, self._adapter_id, exc)
         except Exception:
-            return _failed_result(
+            builtin_result = _failed_result(
                 target_request,
                 context,
                 self._adapter_id,
                 ProviderError(ProviderErrorCode.PROVIDER_UNAVAILABLE),
             )
+
+        if not self._should_try_browser(target_request, builtin_result):
+            return builtin_result
+        try:
+            browser_result = await self._browser_executor.fetch(
+                target_request,
+                context,
+                execution,
+            )
+        except ProviderError as exc:
+            browser_result = _failed_result(target_request, context, self._adapter_id, exc)
+        except Exception:
+            browser_result = _failed_result(
+                target_request,
+                context,
+                self._adapter_id,
+                ProviderError(ProviderErrorCode.WORKER_UNAVAILABLE),
+            )
+        if builtin_result.status == "success":
+            if browser_result.status == "success":
+                return browser_result.model_copy(
+                    update={
+                        "provenance": builtin_result.provenance + browser_result.provenance,
+                    }
+                )
+            return builtin_result.model_copy(
+                update={
+                    "provenance": builtin_result.provenance + browser_result.provenance,
+                }
+            )
+        return browser_result.model_copy(
+            update={
+                "provenance": builtin_result.provenance + browser_result.provenance,
+            }
+        )
+
+    def _should_try_browser(
+        self,
+        request: FetchTargetRequest,
+        result: FetchResult,
+    ) -> bool:
+        if self._browser_executor is None:
+            return False
+        if request.policy is not None and request.policy.respect_robots is True:
+            return False
+        if result.status == "success":
+            return result.content_metadata is not None and result.content_metadata.quality == "low"
+        return result.error is not None and result.error.code in {
+            "provider_timeout",
+            "provider_unavailable",
+        }
 
 
 def _failed_result(
@@ -136,6 +199,11 @@ def _canonical_error_code(code: ProviderErrorCode) -> str:
         ProviderErrorCode.POLICY_BLOCKED: "policy_blocked",
         ProviderErrorCode.PAYLOAD_TOO_LARGE: "payload_too_large",
         ProviderErrorCode.UNSUPPORTED_MEDIA_TYPE: "unsupported_media_type",
+        ProviderErrorCode.WORKER_UNAVAILABLE: "worker_unavailable",
+        ProviderErrorCode.WORKER_NOT_READY: "worker_not_ready",
+        ProviderErrorCode.WORKER_OVERLOADED: "worker_overloaded",
+        ProviderErrorCode.WORKER_TIMEOUT: "worker_timeout",
+        ProviderErrorCode.WORKER_PROTOCOL_MISMATCH: "worker_protocol_mismatch",
     }.get(code, "provider_unavailable")
 
 
@@ -147,8 +215,18 @@ def _safe_error_message(code: str) -> str:
         "policy_blocked": "Fetch target was blocked by policy",
         "payload_too_large": "Fetch response exceeded the size limit",
         "unsupported_media_type": "Fetch response media type is unsupported",
+        "worker_unavailable": "Browser Worker is unavailable",
+        "worker_not_ready": "Browser Worker is not ready",
+        "worker_overloaded": "Browser Worker is overloaded",
+        "worker_timeout": "Browser Worker timed out",
+        "worker_protocol_mismatch": "Browser Worker protocol does not match",
         "provider_unavailable": "Fetch provider is unavailable",
     }[code]
 
 
-__all__ = ["BUILTIN_FETCH_ADAPTER_ID", "FetchModuleService", "FetchProviderManager"]
+__all__ = [
+    "BUILTIN_FETCH_ADAPTER_ID",
+    "BrowserFetchExecutor",
+    "FetchModuleService",
+    "FetchProviderManager",
+]

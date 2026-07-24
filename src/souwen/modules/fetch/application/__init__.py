@@ -1,5 +1,5 @@
 """Fetch application layer. Owner: Fetch Core."""
 
-from .orchestration import FetchModuleService, FetchProviderManager
+from .orchestration import BrowserFetchExecutor, FetchModuleService, FetchProviderManager
 
-__all__ = ["FetchModuleService", "FetchProviderManager"]
+__all__ = ["BrowserFetchExecutor", "FetchModuleService", "FetchProviderManager"]

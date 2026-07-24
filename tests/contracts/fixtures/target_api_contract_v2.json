@@ -129,6 +129,11 @@
     "rate_limited": 429,
     "payload_too_large": 413,
     "unsupported_media_type": 415,
+    "worker_unavailable": 502,
+    "worker_not_ready": 503,
+    "worker_overloaded": 503,
+    "worker_timeout": 504,
+    "worker_protocol_mismatch": 409,
     "provider_unavailable": 502,
     "provider_timeout": 504,
     "internal_error": 500

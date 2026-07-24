@@ -123,6 +123,7 @@ async def test_browser_pool_lazily_reuses_browser_and_closes_context(monkeypatch
     assert state["launches"][0] == {
         "headless": True,
         "proxy": {"server": "http://proxy.example:8080"},
+        "args": ["--proxy-bypass-list=<-loopback>"],
     }
     assert len(state["contexts"]) == 2
     assert state["contexts"][0].options["user_agent"] == "SouWen Test Browser"
@@ -133,6 +134,51 @@ async def test_browser_pool_lazily_reuses_browser_and_closes_context(monkeypatch
     assert state["browsers"][0].closed is True
     assert state["stopped"] is True
     assert pool.started is False
+
+
+@pytest.mark.asyncio
+async def test_browser_pool_pins_validated_hostname_without_changing_host_or_sni(monkeypatch):
+    state = _install_fake_playwright(monkeypatch)
+    pool = PlaywrightBrowserPool(
+        BrowserPoolKey(host_resolver_rules=(("example.com", "1.1.1.1"),)),
+        max_pages=2,
+    )
+
+    async with pool.page(
+        accept_downloads=False,
+        service_workers="block",
+        proxy="http://127.0.0.1:49267",
+    ):
+        pass
+
+    assert state["launches"] == [
+        {
+            "headless": True,
+            "args": ["--host-resolver-rules=MAP example.com 1.1.1.1,MAP * ~NOTFOUND"],
+        }
+    ]
+    assert state["contexts"][0].options["accept_downloads"] is False
+    assert state["contexts"][0].options["service_workers"] == "block"
+    assert state["contexts"][0].options["proxy"] == {"server": "http://127.0.0.1:49267"}
+    await pool.close()
+
+
+@pytest.mark.parametrize(
+    "rules",
+    [
+        (("bad host", "1.1.1.1"),),
+        (("example.com", "127.0.0.1"),),
+        (("example.com", "not-an-ip"),),
+    ],
+)
+@pytest.mark.asyncio
+async def test_browser_pool_rejects_invalid_host_pinning_rules(monkeypatch, rules):
+    _install_fake_playwright(monkeypatch)
+    pool = PlaywrightBrowserPool(BrowserPoolKey(host_resolver_rules=rules), max_pages=2)
+
+    with pytest.raises(ValueError):
+        async with pool.page():
+            pass
 
 
 @pytest.mark.asyncio

@@ -330,6 +330,21 @@ def test_platform_is_governed_for_dynamic_imports(tmp_path: Path) -> None:
     ] == [(checker.DYNAMIC_RULE_ID, 3, "<dynamic>")]
 
 
+def test_worker_is_governed_for_dynamic_imports(tmp_path: Path) -> None:
+    root, exceptions = _repository(tmp_path)
+    _write(
+        root,
+        "src/souwen/worker/browser_fetch/loader.py",
+        "from importlib import import_module\nmodule_name = 'browser.runtime'\nimport_module(module_name)\n",
+    )
+
+    violations = _violations(root, exceptions)
+
+    assert [
+        (violation.rule_id, violation.line, violation.imported) for violation in violations
+    ] == [(checker.DYNAMIC_RULE_ID, 3, "<dynamic>")]
+
+
 def test_top_level_package_and_exact_expiring_exception_rules(tmp_path: Path) -> None:
     root, exceptions = _repository(tmp_path)
     _write(root, "src/rogue/__init__.py")
