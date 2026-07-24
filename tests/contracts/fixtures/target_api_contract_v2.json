@@ -135,13 +135,16 @@
     "search_partial_success": {
       "context": {"request_id": "fixture-request-001", "api_major": 2},
       "items": [{"id": "doi:10.1000/fixture", "title": "Fixture result", "rank": 1, "provenance": [{"provider": "openalex", "outcome": "success"}]}],
+      "page": {"limit": 10, "next_cursor": null, "total": null},
       "meta": {"partial": true, "requested": ["openalex", "other"], "succeeded": ["openalex"], "failed": [{"provider": "other", "code": "provider_timeout"}]}
     },
     "llm_search_evidence": {
+      "query": "fixture query",
       "context": {"request_id": "fixture-request-002", "api_major": 2},
       "items": [{"id": "fixture-item-001", "title": "Fixture item", "provenance": [{"provider": "fixture-llm", "outcome": "success"}]}],
       "evidence": [{"id": "evidence-001", "item_id": "fixture-item-001", "provider": "fixture-llm", "public_url": "https://example.com/evidence", "title_or_snippet": "Fixture evidence", "retrieved_at": "2026-07-24T00:00:00Z"}],
       "answer": "Fixture factual answer [evidence-001]",
+      "meta": {"partial": false, "requested": ["fixture-llm"], "succeeded": ["fixture-llm"], "failed": []},
       "usage": {"input_tokens": null, "output_tokens": null, "cost": null, "currency": null}
     },
     "fetch_low_quality_partial": {

@@ -49,6 +49,23 @@ SKELETON_PACKAGES = (
     "souwen.providers.fetch_sources",
 )
 
+# P4-01 intentionally promotes these Phase-2 placeholders into real internal
+# interfaces. Their strict contracts and import boundaries have dedicated tests;
+# the remaining packages must stay inert until their owning migration slice.
+IMPLEMENTED_PACKAGES = frozenset(
+    {
+        "souwen.modules.search.api",
+        "souwen.modules.llm_search.api",
+        "souwen.modules.fetch.api",
+        "souwen.platform.provider_spi",
+        "souwen.platform.manifest_registry",
+        "souwen.platform.provider_manager",
+    }
+)
+INERT_SKELETON_PACKAGES = tuple(
+    package_name for package_name in SKELETON_PACKAGES if package_name not in IMPLEMENTED_PACKAGES
+)
+
 
 def _package_path(package_name: str) -> Path:
     return SOURCE_ROOT.joinpath(*package_name.split(".")[1:], "__init__.py")
@@ -61,10 +78,9 @@ def test_phase2_packages_import_from_souwen_distribution(package_name: str) -> N
     package_file = Path(package.__file__).resolve()
 
     assert package_file.is_relative_to(SOURCE_ROOT.resolve())
-    assert package.__all__ == []
 
 
-@pytest.mark.parametrize("package_name", SKELETON_PACKAGES)
+@pytest.mark.parametrize("package_name", INERT_SKELETON_PACKAGES)
 def test_phase2_packages_declare_an_empty_internal_interface(package_name: str) -> None:
     """Skeletons state ownership/boundaries without adding an end-user API."""
     tree = ast.parse(_package_path(package_name).read_text(encoding="utf-8"))
@@ -83,7 +99,7 @@ def test_phase2_packages_declare_an_empty_internal_interface(package_name: str) 
     )
 
 
-@pytest.mark.parametrize("package_name", SKELETON_PACKAGES)
+@pytest.mark.parametrize("package_name", INERT_SKELETON_PACKAGES)
 def test_phase2_packages_have_no_legacy_or_optional_imports(package_name: str) -> None:
     """Skeletons must be inert until a later migration intentionally adds a dependency."""
     tree = ast.parse(_package_path(package_name).read_text(encoding="utf-8"))
@@ -97,8 +113,8 @@ def test_phase2_packages_have_no_legacy_or_optional_imports(package_name: str) -
     )
 
 
-def test_phase2_package_imports_add_no_runtime_modules() -> None:
-    """Package imports add only the requested skeleton packages after ``souwen`` is loaded."""
+def test_inert_phase2_package_imports_add_no_runtime_modules() -> None:
+    """Still-inert package imports add no modules outside the skeleton set."""
     script = f"""
 import importlib
 import json
@@ -107,7 +123,7 @@ import sys
 import souwen
 
 before = set(sys.modules)
-for package_name in {SKELETON_PACKAGES!r}:
+for package_name in {INERT_SKELETON_PACKAGES!r}:
     importlib.import_module(package_name)
 print(json.dumps(sorted(set(sys.modules) - before)))
 """
@@ -126,4 +142,4 @@ print(json.dumps(sorted(set(sys.modules) - before)))
         text=True,
     )
     added_modules = set(json.loads(result.stdout))
-    assert added_modules <= set(SKELETON_PACKAGES)
+    assert added_modules <= set(INERT_SKELETON_PACKAGES)

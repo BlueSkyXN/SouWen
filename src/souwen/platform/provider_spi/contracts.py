@@ -1,4 +1,8 @@
-"""Provider SPI boundary. Owner: Platform. Allowed dependencies: contracts and common runtime only."""
+"""Public canonical DTO binding for the Provider SPI.
+
+The implementation lives in :mod:`dto`; this stable import module names the
+contract boundary without coupling callers to any provider implementation.
+"""
 
 from souwen.platform.provider_spi.dto import (
     Capability,
@@ -41,9 +45,6 @@ from souwen.platform.provider_spi.dto import (
     Usage,
     UsageMetadata,
 )
-from souwen.platform.provider_spi.errors import ProviderError, ProviderErrorCode
-from souwen.platform.provider_spi.execution import ExecutionContext, MAX_EXECUTION_SECONDS
-from souwen.platform.provider_spi.protocols import FetchProvider, LLMSearchProvider, SearchProvider
 
 __all__ = [
     "Capability",
@@ -54,26 +55,20 @@ __all__ = [
     "ErrorDetail",
     "ErrorResponse",
     "EvidenceItem",
-    "ExecutionContext",
     "FetchBatch",
     "FetchContentOptions",
     "FetchMeta",
     "FetchPolicyOptions",
-    "FetchProvider",
     "FetchRequest",
     "FetchResult",
     "FetchStrategy",
     "FetchTargetRequest",
     "LLMFetchOptions",
     "LLMSearchBudget",
-    "LLMSearchProvider",
     "LLMSearchRequest",
     "LLMSearchResult",
     "LLMSearchStrategy",
-    "MAX_EXECUTION_SECONDS",
     "PageInfo",
-    "ProviderError",
-    "ProviderErrorCode",
     "ProviderFailure",
     "ProviderProbe",
     "ProviderProvenance",
@@ -88,7 +83,6 @@ __all__ = [
     "SearchMeta",
     "SearchPage",
     "SearchPageRequest",
-    "SearchProvider",
     "SearchRequest",
     "Usage",
     "UsageMetadata",
