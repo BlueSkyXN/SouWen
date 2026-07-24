@@ -557,6 +557,24 @@ def test_ci_has_stable_aggregate_and_required_readiness_gates() -> None:
     assert 'git push "$bare" HEAD:refs/heads/ci-candidate' in container
 
 
+def test_architecture_dependency_gate_is_required_in_ci_and_release_paths() -> None:
+    command = "python scripts/ci/check_architecture_dependencies.py"
+    ci = _workflow("ci.yml")
+    graph = _release_candidate_job_graph(ci)
+
+    assert "architecture" in graph
+    assert "architecture" in graph["aggregate"]["needs"]
+    assert command in _job(ci, "architecture", "lint")
+    assert "'contracts/**'" in ci.split("jobs:", maxsplit=1)[0]
+
+    v2 = _workflow("v2-ci.yml")
+    assert command in _job(v2, "bootstrap", "matrix_tests")
+
+    release_candidate = _workflow("release-candidate.yml")
+    assert "uses: ./.github/workflows/ci.yml" in release_candidate
+    assert "uses: ./.github/workflows/v2-ci.yml" in release_candidate
+
+
 def test_ruff_toolchain_version_is_pinned_consistently() -> None:
     version = "0.15.22"
     pyproject = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")

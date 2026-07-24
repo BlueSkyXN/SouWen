@@ -44,6 +44,9 @@ jobs:
           cache: "npm"
           cache-dependency-path: panel/package-lock.json
 
+      - name: Enforce target architecture dependencies
+        run: python scripts/ci/check_architecture_dependencies.py
+
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip

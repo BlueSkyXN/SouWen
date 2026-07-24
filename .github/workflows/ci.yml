@@ -11,6 +11,7 @@ on:
     branches: [main]
     paths:
       - 'src/**'
+      - 'contracts/**'
       - 'tests/**'
       - 'panel/**'
       - 'Dockerfile'
@@ -39,6 +40,22 @@ permissions:
   contents: read
 
 jobs:
+  architecture:
+    name: Architecture dependency gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha || github.sha }}
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.10'
+
+      - name: Enforce target architecture dependencies
+        run: python scripts/ci/check_architecture_dependencies.py
+
   lint:
     name: 代码检查
     runs-on: ubuntu-latest
@@ -811,6 +828,7 @@ jobs:
   aggregate:
     name: CI / aggregate
     needs:
+      - architecture
       - lint
       - docs-check
       - test
