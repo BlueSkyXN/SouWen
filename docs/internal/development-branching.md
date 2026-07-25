@@ -79,6 +79,9 @@ dedicated v2 public-surface gate and runs on `main`.
   freshness, removed v1 import-surface leak check, and required v2 module check.
 - full pytest matrix: Python 3.10, 3.11, 3.12, and 3.13 on Ubuntu, plus Python
   3.11 on macOS and Windows.
+- Provider v2 conformance: deterministic SPI, manifest registry, Provider
+  Manager, OpenAlex, builtin Fetch, UniAPI, and ERIC tests without network,
+  browser runtime, or secrets.
 - `pro-cli` + `basic-cli` profile: local API surface tests and CLI smoke through
   `scripts/ci/run_profile.py`; legacy `server` / `minimal` aliases remain
   accepted during transition.
