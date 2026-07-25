@@ -10,11 +10,11 @@
  *   /config - ConfigPage（应用配置页面）
  *
  * 模块依赖：
- *   - react-router-dom: Route 组件用于定义路由
+ *   - react-router: Route 组件用于定义路由
  *   - 各 page 组件：每个页面组件
  */
 
-import { Route, Navigate } from 'react-router-dom'
+import { Route, Navigate } from 'react-router'
 import { DashboardPage } from './pages/DashboardPage'
 import { SearchPage } from './pages/SearchPage'
 import { FetchPage } from './pages/FetchPage'

@@ -10,7 +10,7 @@
  *     - 关键常量：NAV_ITEMS 导航菜单项数组, pageVariants 页面进出动画配置, pageTransition 页面过渡动画配置
  *
  * 模块依赖：
- *   - react-router-dom: 路由导航与 Outlet 出口
+ *   - react-router: 路由导航与 Outlet 出口
  *   - react-i18next: 国际化翻译
  *   - framer-motion: 动画库（导航、菜单、页面过渡）
  *   - lucide-react: 图标库
@@ -21,7 +21,7 @@
  */
 
 import { useState, useCallback, useEffect, useRef, useId } from 'react'
-import { NavLink, Outlet, useLocation } from 'react-router-dom'
+import { NavLink, Outlet, useLocation } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { m, AnimatePresence } from 'framer-motion'
 import {

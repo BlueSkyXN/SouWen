@@ -14,7 +14,7 @@
  * 导出格式：JSX Fragment 包含 <Route> 元素，由父 Router 组件加载
  */
 
-import { Route, Navigate } from 'react-router-dom'
+import { Route, Navigate } from 'react-router'
 import { DashboardPage } from './pages/DashboardPage'
 import { SearchPage } from './pages/SearchPage'
 import { FetchPage } from './pages/FetchPage'
