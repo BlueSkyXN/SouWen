@@ -116,8 +116,12 @@ SHA。
 4. Factory rebuild，等待 Space repo SHA 与 runtime SHA 等于新的 wrapper commit。
 5. 使用 trusted verifier 完成 surface、target M1 capability、双层 auth 与 candidate/source/
    wrapper SHA smoke。Target M1 required checks 固定为 OpenAlex Search、builtin Fetch、Browser
-   Fetch；Browser fixture 的 repo-owned 短脚本经 `httpbin /base64` 以 `text/html` 返回，并把
-   candidate SHA 与 stable marker 放入 query，只有 JavaScript 执行后的正文才满足 gate。
+   Fetch；Browser fixture 的 repo-owned 短脚本依次使用 `httpbin.org /base64` 与
+   `httpbun.com /base64` 两个公开 `text/html` host。Primary 只有在返回 allowlist 内的
+   retryable transport/upstream error 时才尝试 secondary；HTTP 2xx proof mismatch、protocol、
+   policy 或其他 non-retryable error 立即失败。两个 fixture 都把 candidate SHA 与 stable
+   marker 放入 query，gate 要求 JavaScript 执行后的正文精确等于该 query，并同时具有
+   `builtin-fetch` attempt 2 success provenance；substring、URL echo 或原始脚本文本均不通过。
    普通 CI 不做付费 UniAPI live call。
 
 若 sync 已取得 rollback point，而 sync/rebuild/post-smoke 任一阶段失败：
