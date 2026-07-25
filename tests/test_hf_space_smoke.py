@@ -529,10 +529,12 @@ def test_target_m1_requires_wrapper_worker_and_three_vertical_capabilities(monke
     parsed_browser_url = urlparse(browser_url)
     browser_query = parse_qs(parsed_browser_url.query)
     browser_payload = base64.b64decode(unquote(parsed_browser_url.path.rsplit("/", 1)[-1]))
-    assert (
-        browser_payload.decode()
-        == Path(smoke.REQUIRED_BROWSER_FETCH_PROBE_PATH).read_text(encoding="utf-8").strip()
+    browser_fixture = (
+        Path(smoke.REQUIRED_BROWSER_FETCH_PROBE_PATH).read_text(encoding="utf-8").strip()
     )
+    assert browser_payload.decode() == browser_fixture
+    assert browser_fixture == "<body><script>document.body.innerText=location.search</script>"
+    assert len(browser_fixture) <= 63
     assert browser_query == {
         "candidate_sha": [source_sha],
         "marker": [smoke.REQUIRED_BROWSER_FETCH_PROBE_MARKER],
