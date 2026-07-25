@@ -243,7 +243,7 @@ class SouWenConfig(BaseModel):
     zotero_library_type: str | None = None  # "user" (默认) 或 "group"
 
     # ===== 专利数据源 =====
-    patentsview_api_key: str | None = None
+    patentsview_api_key: str | None = Field(default=None, repr=False)
     pqai_api_token: str | None = None
     uspto_api_key: str | None = None
     epo_consumer_key: str | None = None

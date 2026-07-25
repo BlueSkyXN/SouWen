@@ -18,6 +18,7 @@ from souwen.delivery.api import (
     TargetDeliveryServices,
 )
 from souwen.delivery.browser_worker_client import BrowserWorkerClient
+from souwen.editions import source_policy
 from souwen.modules.fetch.api import FetchModuleService
 from souwen.modules.llm_search.api import LLMSearchModuleService
 from souwen.modules.search.api import SearchModuleService
@@ -27,6 +28,7 @@ from souwen.modules.search.application import (
 )
 from souwen.paper.eric import EricClient
 from souwen.paper.openalex import OpenAlexClient
+from souwen.patent.patentsview import PatentsViewClient
 from souwen.platform.provider_manager import ProviderManager
 from souwen.platform.provider_spi import (
     ExecutionContext,
@@ -41,6 +43,10 @@ from souwen.providers.information_sources.openalex import (
     OPENALEX_PROVIDER_MANIFEST,
     OpenAlexSearchProvider,
 )
+from souwen.providers.information_sources.patentsview import (
+    PATENTSVIEW_PROVIDER_MANIFEST,
+    PatentsViewSearchProvider,
+)
 from souwen.providers.information_sources.eric import ERIC_PROVIDER_MANIFEST, EricSearchProvider
 from souwen.providers.llm_sources.uniapi_ark_annotations import (
     UNIAPI_ARK_MANIFESTS,
@@ -51,6 +57,7 @@ from souwen.providers.llm_sources.uniapi_ark_annotations.manifest import (
     DEEPSEEK_ADAPTER_ID,
     DOUBAO_ADAPTER_ID,
 )
+from souwen.registry import get as get_legacy_source
 from souwen.web.builtin import BuiltinFetcherClient
 from souwen.worker.browser_fetch.protocol import BROWSER_WORKER_PROVIDER_INVENTORY_DIGEST
 
@@ -115,6 +122,20 @@ def _configuration_resolver(config: SouWenConfig):
             }
             _validate_eric_configuration(configuration)
             return configuration
+        if manifest.id == "patentsview":
+            legacy = get_legacy_source("patentsview")
+            if not source_policy(legacy, config.edition).available or not config.is_source_enabled(
+                "patentsview", default=False
+            ):
+                raise ValueError("provider is disabled")
+            source = config.get_source_config("patentsview")
+            configuration = {
+                "enabled": True,
+                "max_retries": config.max_retries,
+                "timeout_seconds": source.timeout or config.timeout,
+            }
+            _validate_transport_configuration(configuration, provider_id="PatentsView")
+            return configuration
         if manifest.id == "builtin-fetch":
             if not config.is_source_enabled("builtin-fetch", default=True):
                 raise ValueError("provider is disabled")
@@ -135,6 +156,8 @@ def _configuration_resolver(config: SouWenConfig):
 
 def _secret_resolver(config: SouWenConfig):
     def resolve(manifest, _references):
+        if manifest.id == "patentsview":
+            return {"PATENTSVIEW_API_KEY": _patentsview_api_key(config)}
         if manifest.id not in {DEEPSEEK_ADAPTER_ID, DOUBAO_ADAPTER_ID}:
             return {}
         gateway = config.get_llm_search_gateway("uniapi")
@@ -144,6 +167,11 @@ def _secret_resolver(config: SouWenConfig):
         }
 
     return resolve
+
+
+def _patentsview_api_key(config: SouWenConfig) -> str:
+    value = config.resolve_api_key("patentsview", "patentsview_api_key")
+    return value.strip() if isinstance(value, str) else ""
 
 
 def _browser_client() -> BrowserWorkerClient | None:
@@ -162,8 +190,8 @@ def _browser_client() -> BrowserWorkerClient | None:
     )
 
 
-def _validate_eric_configuration(configuration) -> None:
-    """Validate ERIC transport options during Provider Manager preflight."""
+def _validate_transport_configuration(configuration, *, provider_id: str) -> None:
+    """Validate bounded transport options during Provider Manager preflight."""
     timeout = configuration.get("timeout_seconds")
     max_retries = configuration.get("max_retries")
     if (
@@ -174,7 +202,11 @@ def _validate_eric_configuration(configuration) -> None:
         or isinstance(max_retries, bool)
         or not 0 <= max_retries <= 10
     ):
-        raise ValueError("invalid ERIC transport configuration")
+        raise ValueError(f"invalid {provider_id} transport configuration")
+
+
+def _validate_eric_configuration(configuration) -> None:
+    _validate_transport_configuration(configuration, provider_id="ERIC")
 
 
 def _build_eric_provider(configuration, _secrets) -> EricSearchProvider:
@@ -194,6 +226,30 @@ def _build_eric_provider(configuration, _secrets) -> EricSearchProvider:
     )
 
 
+def _build_patentsview_provider(configuration, secrets) -> PatentsViewSearchProvider:
+    """Build PatentsView only from resolved config and secret namespaces."""
+    _validate_transport_configuration(configuration, provider_id="PatentsView")
+    api_key = secrets.get("PATENTSVIEW_API_KEY")
+    if not isinstance(api_key, str) or not api_key.strip():
+        raise ValueError("missing PatentsView credential")
+    api_key = api_key.strip()
+    transport = HttpTransport(
+        base_url="https://search.patentsview.org/api/v1",
+        headers={
+            "User-Agent": f"SouWen/{__version__}",
+            "X-Api-Key": api_key,
+        },
+        timeout=configuration["timeout_seconds"],
+        max_retries=configuration["max_retries"],
+        proxy=None,
+        follow_redirects=False,
+    )
+    return PatentsViewSearchProvider(
+        PatentsViewClient(transport=transport),
+        enabled=configuration["enabled"],
+    )
+
+
 def _catalog_items(
     config: SouWenConfig,
     manager: ProviderManager,
@@ -201,6 +257,15 @@ def _catalog_items(
     eligible = set(manager.eligible_adapter_ids)
     enabled_llm = set(config.enabled_uniapi_ark_source_ids())
     missing_gateway = config.missing_uniapi_gateway_fields()
+    patentsview_enabled = config.is_source_enabled("patentsview", default=False)
+    patentsview_policy_available = source_policy(
+        get_legacy_source("patentsview"), config.edition
+    ).available
+    missing_patentsview = (
+        ("patentsview_api_key",)
+        if patentsview_policy_available and not _patentsview_api_key(config)
+        else ()
+    )
     declarations = (
         (
             "openalex",
@@ -213,6 +278,12 @@ def _catalog_items(
             "eric-search",
             "search",
             config.is_source_enabled("eric", default=True),
+        ),
+        (
+            "patentsview",
+            "patentsview-search",
+            "search",
+            patentsview_enabled,
         ),
         (
             "builtin-fetch",
@@ -230,9 +301,12 @@ def _catalog_items(
     )
     items: list[ProviderCatalogItem] = []
     for provider_id, adapter_id, capability, enabled in declarations:
-        missing_fields = (
-            missing_gateway if enabled and capability == "llm_search" and missing_gateway else ()
-        )
+        if enabled and provider_id == "patentsview" and missing_patentsview:
+            missing_fields = missing_patentsview
+        elif enabled and capability == "llm_search" and missing_gateway:
+            missing_fields = missing_gateway
+        else:
+            missing_fields = ()
         if adapter_id in eligible:
             reason = "available"
             status = "available"
@@ -286,6 +360,12 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
         provider_type=EricSearchProvider,
     )
     manager.register_factory(
+        package_id="patentsview",
+        export="PatentsViewSearchProvider",
+        factory=_build_patentsview_provider,
+        provider_type=PatentsViewSearchProvider,
+    )
+    manager.register_factory(
         package_id="builtin-fetch",
         export="BuiltinFetchProvider",
         factory=lambda configuration, _secrets: BuiltinFetchProvider(
@@ -310,6 +390,7 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
         (
             OPENALEX_PROVIDER_MANIFEST,
             ERIC_PROVIDER_MANIFEST,
+            PATENTSVIEW_PROVIDER_MANIFEST,
             BUILTIN_FETCH_MANIFEST,
             *UNIAPI_ARK_MANIFESTS,
         )
@@ -330,8 +411,15 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
                         adapter_id="eric-search",
                         yaml_priority=2,
                     ),
-                )
-            }
+                ),
+            },
+            explicit_selections=(
+                SearchProviderSelection(
+                    provider=ProviderRef(id="patentsview", kind="search"),
+                    adapter_id="patentsview-search",
+                    yaml_priority=1,
+                ),
+            ),
         ),
     )
     enabled_llm = config.enabled_uniapi_ark_source_ids()

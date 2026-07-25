@@ -66,7 +66,10 @@ class OrderedSearchProviderSelector:
     """Immutable projection of YAML domain/capability provider priority."""
 
     def __init__(
-        self, selections_by_domain: Mapping[str, tuple[SearchProviderSelection, ...]]
+        self,
+        selections_by_domain: Mapping[str, tuple[SearchProviderSelection, ...]],
+        *,
+        explicit_selections: tuple[SearchProviderSelection, ...] = (),
     ) -> None:
         ordered: dict[str, tuple[SearchProviderSelection, ...]] = {}
         by_provider: dict[str, SearchProviderSelection] = {}
@@ -91,6 +94,14 @@ class OrderedSearchProviderSelector:
                         "a provider ID must resolve to one immutable adapter selection"
                     )
                 by_provider[selection.provider.id] = selection
+        explicit_ids = tuple(selection.provider.id for selection in explicit_selections)
+        if len(explicit_ids) != len(set(explicit_ids)):
+            raise ValueError("explicit-only provider selection IDs must be unique")
+        for selection in explicit_selections:
+            existing = by_provider.get(selection.provider.id)
+            if existing is not None and existing != selection:
+                raise ValueError("a provider ID must resolve to one immutable adapter selection")
+            by_provider[selection.provider.id] = selection
         self._by_domain = ordered
         self._by_provider = by_provider
 

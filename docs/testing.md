@@ -193,7 +193,7 @@ v2 release candidate 已合回 `main`。`V2 CI` 继续作为 v2 public surface �
   3.10/3.11/3.12/3.13，以及 macOS/Windows Python 3.11；避免把缺少 Server、MCP
   或 scraper runtime 误报成产品行为回归。
 - Provider v2 conformance：单独运行 SPI、manifest registry、Provider Manager、
-  OpenAlex、builtin Fetch、UniAPI 与 ERIC 的 deterministic tests；不访问网络、
+  OpenAlex、builtin Fetch、UniAPI、ERIC 与 PatentsView 的 deterministic tests；不访问网络、
   browser runtime 或 secret，并由 V2 readiness summary fail closed 汇总。
 - pro-cli + basic-cli profile：安装 API 测试依赖后运行 `pro-cli` 和 `basic-cli`
   profile，并上传 JSON/Markdown report；`server` / `minimal` alias 仅用于过渡兼容。

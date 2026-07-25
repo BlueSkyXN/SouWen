@@ -231,6 +231,8 @@ jobs:
             tests/test_uniapi_ark_provider_v2.py \
             tests/test_paper/test_eric.py \
             tests/test_eric_provider_v2.py \
+            tests/test_patent/test_patentsview.py \
+            tests/test_patentsview_provider_v2.py \
             -q
 
   server_profile:
@@ -426,7 +428,7 @@ jobs:
           |---|---|---|
           | Bootstrap / import / wheel surface | $BOOTSTRAP_RESULT | v2 import surface, docs, registry baseline |
           | Full pytest matrix | $MATRIX_RESULT | Python 3.10-3.13 on Ubuntu, plus macOS/Windows 3.11 |
-          | Provider v2 conformance | $PROVIDER_V2_RESULT | deterministic SPI, manifest, manager, OpenAlex, builtin Fetch, UniAPI, and ERIC contracts |
+          | Provider v2 conformance | $PROVIDER_V2_RESULT | deterministic SPI, manifest, manager, OpenAlex, builtin Fetch, UniAPI, ERIC, and PatentsView contracts |
           | pro-cli + basic-cli profile | $SERVER_RESULT | local API surface and CLI smoke |
           | full-cli runtime profile | $FULL_RESULT | edition-full source, doctor, plugin, fetch handler, and feature matrix surface |
           | Plugin profile | $PLUGIN_RESULT | example plugin install, contract tests, entry point discovery |
