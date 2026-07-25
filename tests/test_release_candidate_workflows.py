@@ -848,6 +848,51 @@ def test_ci_has_stable_aggregate_and_required_readiness_gates() -> None:
     assert 'git push "$bare" HEAD:refs/heads/ci-candidate' in container
 
 
+def test_ci_fast_lane_is_single_py313_ubuntu2404_and_full_lane_covers_release_and_tags() -> None:
+    ci = _workflow("ci.yml")
+    lane = _job(ci, "lane", "architecture")
+    assert "full: ${{ steps.lane.outputs.full }}" in lane
+    assert "test_matrix: ${{ steps.lane.outputs.test_matrix }}" in lane
+    assert '"workflow_call"' in lane
+    assert '"workflow_dispatch"' in lane
+    assert "github.ref_type" in lane
+    assert '{"include":[{"os":"ubuntu-24.04","python":"3.13"}]}' in lane
+    assert '{"os":"macos-latest","python":"3.11"}' in lane
+    assert '{"os":"windows-latest","python":"3.11"}' in lane
+
+    test_job = _job(ci, "test", "plugin-test")
+    assert "needs: [lane, lint]" in test_job
+    assert "matrix: ${{ fromJSON(needs.lane.outputs.test_matrix) }}" in test_job
+
+    gate = "if: needs.lane.outputs.full == 'true'"
+    assert ci.count(gate) == 12
+    for fast_job in ("architecture", "lint", "docs-check", "panel-build"):
+        block = ci.split(f"  {fast_job}:", maxsplit=1)[1]
+        assert gate not in block.split("\n  ", maxsplit=1)[0]
+
+    aggregate = ci.split("  aggregate:", maxsplit=1)[1]
+    assert "- lane" in aggregate.split("if: always()", maxsplit=1)[0]
+    assert "FULL_LANE" in aggregate
+    assert '. == "skipped"' in aggregate
+
+    v2 = _workflow("v2-ci.yml")
+    v2_lane = _job(v2, "lane", "bootstrap")
+    assert "full: ${{ steps.lane.outputs.full }}" in v2_lane
+    assert v2.count(gate) == 5
+    for fast_job, next_job in (
+        ("bootstrap", "matrix_tests"),
+        ("provider_v2_conformance", "server_profile"),
+    ):
+        assert gate not in _job(v2, fast_job, next_job)
+    summary = v2.split("  release_readiness_summary:", maxsplit=1)[1]
+    assert "FULL_LANE" in summary
+    assert '"skipped"' in summary
+
+    for name in ("ci.yml", "v2-ci.yml"):
+        push = _workflow_trigger(_workflow(name), "push")
+        assert "tags: ['v*']" in push
+
+
 def test_architecture_dependency_gate_is_required_in_ci_and_release_paths() -> None:
     command = "python scripts/ci/check_architecture_dependencies.py"
     ci = _workflow("ci.yml")
@@ -856,7 +901,10 @@ def test_architecture_dependency_gate_is_required_in_ci_and_release_paths() -> N
     assert "architecture" in graph
     assert "architecture" in graph["aggregate"]["needs"]
     assert command in _job(ci, "architecture", "lint")
-    assert "'contracts/**'" in ci.split("jobs:", maxsplit=1)[0]
+    ci_push = _workflow_trigger(ci, "push")
+    assert "branches: [main]" in ci_push
+    assert "tags: ['v*']" in ci_push
+    assert "paths:" not in ci_push
 
     v2 = _workflow("v2-ci.yml")
     assert command in _job(v2, "bootstrap", "matrix_tests")

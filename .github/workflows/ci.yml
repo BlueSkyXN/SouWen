@@ -9,25 +9,7 @@ on:
         type: string
   push:
     branches: [main]
-    paths:
-      - 'src/**'
-      - 'contracts/**'
-      - 'tests/**'
-      - 'panel/**'
-      - 'Dockerfile'
-      - 'entrypoint.sh'
-      - 'cloud/hfs/**'
-      - 'cloud/modelscope/**'
-      - 'scripts/_functional_common.py'
-      - 'scripts/ci/**'
-      - 'scripts/scrapling_functional_check.py'
-      - 'scripts/crawl4ai_functional_check.py'
-      - 'scripts/article_extract_functional_check.py'
-      - 'scripts/plugin_functional_check.py'
-      - 'scripts/zero_key_functional_check.py'
-      - 'examples/minimal-plugin/**'
-      - 'pyproject.toml'
-      - '.github/workflows/ci.yml'
+    tags: ['v*']
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
@@ -41,6 +23,32 @@ permissions:
   contents: read
 
 jobs:
+  lane:
+    name: CI lane selection
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      full: ${{ steps.lane.outputs.full }}
+      test_matrix: ${{ steps.lane.outputs.test_matrix }}
+    steps:
+      - id: lane
+        run: |
+          # fast lane：PR/main push 只跑 Python 3.13 + ubuntu-24.04 单组合；
+          # full lane：release 复用调用、手动 dispatch、v* tag push 跑完整矩阵。
+          full=false
+          if [ "${{ github.event_name }}" = "workflow_call" ] || \
+             [ "${{ github.event_name }}" = "workflow_dispatch" ] || \
+             [ "${{ github.ref_type }}" = "tag" ]; then
+            full=true
+          fi
+          echo "full=$full" >> "$GITHUB_OUTPUT"
+          if [ "$full" = "true" ]; then
+            matrix='{"include":[{"os":"ubuntu-latest","python":"3.10"},{"os":"ubuntu-latest","python":"3.11"},{"os":"ubuntu-latest","python":"3.12"},{"os":"ubuntu-latest","python":"3.13"},{"os":"macos-latest","python":"3.11"},{"os":"windows-latest","python":"3.11"}]}'
+          else
+            matrix='{"include":[{"os":"ubuntu-24.04","python":"3.13"}]}'
+          fi
+          echo "test_matrix=$matrix" >> "$GITHUB_OUTPUT"
+
   architecture:
     name: Architecture dependency gate
     runs-on: ubuntu-latest
@@ -117,19 +125,12 @@ jobs:
 
   test:
     name: 测试 (Python ${{ matrix.python }}, ${{ matrix.os }})
-    needs: lint
+    needs: [lane, lint]
     runs-on: ${{ matrix.os }}
     timeout-minutes: 15
     strategy:
       fail-fast: false
-      matrix:
-        include:
-          - { os: ubuntu-latest, python: '3.10' }
-          - { os: ubuntu-latest, python: '3.11' }
-          - { os: ubuntu-latest, python: '3.12' }
-          - { os: ubuntu-latest, python: '3.13' }
-          - { os: macos-latest, python: '3.11' }
-          - { os: windows-latest, python: '3.11' }
+      matrix: ${{ fromJSON(needs.lane.outputs.test_matrix) }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -185,7 +186,8 @@ jobs:
 
   plugin-test:
     name: 插件系统测试
-    needs: lint
+    needs: [lane, lint]
+    if: needs.lane.outputs.full == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -208,7 +210,8 @@ jobs:
 
   plugin-functional:
     name: 插件云端功能测试
-    needs: lint
+    needs: [lane, lint]
+    if: needs.lane.outputs.full == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     concurrency:
@@ -254,7 +257,8 @@ jobs:
 
   server-test:
     name: 服务端测试
-    needs: lint
+    needs: [lane, lint]
+    if: needs.lane.outputs.full == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -277,7 +281,8 @@ jobs:
 
   scrapling-functional:
     name: Scrapling 云端功能测试
-    needs: lint
+    needs: [lane, lint]
+    if: needs.lane.outputs.full == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     concurrency:
@@ -326,7 +331,8 @@ jobs:
 
   crawl4ai-functional:
     name: Crawl4AI 云端功能测试
-    needs: lint
+    needs: [lane, lint]
+    if: needs.lane.outputs.full == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     concurrency:
@@ -376,7 +382,8 @@ jobs:
 
   article-extract-functional:
     name: Article extraction 云端功能测试
-    needs: lint
+    needs: [lane, lint]
+    if: needs.lane.outputs.full == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     concurrency:
@@ -451,7 +458,8 @@ jobs:
 
   package-build:
     name: Build wheel and sdist
-    needs: lint
+    needs: [lane, lint]
+    if: needs.lane.outputs.full == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -494,7 +502,8 @@ jobs:
 
   clean-wheel:
     name: Clean wheel (${{ matrix.extra }})
-    needs: package-build
+    needs: [lane, package-build]
+    if: needs.lane.outputs.full == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
@@ -556,7 +565,8 @@ jobs:
 
   performance:
     name: Deterministic cold-start performance
-    needs: lint
+    needs: [lane, lint]
+    if: needs.lane.outputs.full == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -649,7 +659,8 @@ jobs:
 
   targeted-coverage:
     name: Edition feature doctor coverage (90%)
-    needs: lint
+    needs: [lane, lint]
+    if: needs.lane.outputs.full == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -692,7 +703,8 @@ jobs:
 
   dependency-audit:
     name: Dependency audit
-    needs: lint
+    needs: [lane, lint]
+    if: needs.lane.outputs.full == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -736,7 +748,8 @@ jobs:
 
   container-surface:
     name: Container build and smoke (${{ matrix.kind }})
-    needs: lint
+    needs: [lane, lint]
+    if: needs.lane.outputs.full == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
@@ -829,6 +842,7 @@ jobs:
   aggregate:
     name: CI / aggregate
     needs:
+      - lane
       - architecture
       - lint
       - docs-check
@@ -852,7 +866,17 @@ jobs:
     steps:
       - name: Require every CI gate
         env:
+          FULL_LANE: ${{ needs.lane.outputs.full }}
           NEEDS_JSON: ${{ toJson(needs) }}
         run: |
           jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<<"$NEEDS_JSON" | tee "$GITHUB_STEP_SUMMARY"
-          jq -e 'all(.[]; .result == "success")' <<<"$NEEDS_JSON" >/dev/null
+          if [ "$FULL_LANE" = "true" ]; then
+            jq -e 'del(.lane) | all(.[]; .result == "success")' <<<"$NEEDS_JSON" >/dev/null
+          else
+            jq -e '
+              ([.["architecture","lint","docs-check","test","panel-build"] | .result] | all(. == "success"))
+              and
+              ([del(.lane,.architecture,.lint,.["docs-check"],.test,.["panel-build"]) | .[] | .result]
+               | all(. == "success" or . == "skipped"))
+            ' <<<"$NEEDS_JSON" >/dev/null
+          fi

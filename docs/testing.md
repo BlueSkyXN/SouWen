@@ -203,7 +203,17 @@ RC2 publish evidence；不能把旧 `pro-cli` binary重命名为 Server bundle�
 
 v2 release candidate 已合回 `main`。`V2 CI` 继续作为 v2 public surface 的
 专用 gate，并在 `main` 与需要保留的 v2 集成分支上运行；生产 CD、二进制构建
-和外部 release gate 仍保持独立触发。当前 `V2 CI` 必须覆盖：
+和外部 release gate 仍保持独立触发。
+
+自 2026-07-26 起 `CI` 与 `V2 CI` 按 lane 分档运行（业主批准的 CI 瘦身）：
+
+- fast lane（普通 PR 与 `main` push）：`CI` 只跑 architecture、lint、docs-check、
+  单组合 pytest（Python 3.13 + ubuntu-24.04）与 panel-build；`V2 CI` 只跑
+  bootstrap 与 Provider v2 conformance。每个 PR 的检查数从 53 项收敛到约 12 项。
+- full lane（release 复用调用、手动 `workflow_dispatch`、`v*` tag push）：运行
+  下方完整矩阵与全部 gate。release evidence 与 tag 验收不受 fast lane 影响。
+
+完整 lane 下当前 `V2 CI` 必须覆盖：
 
 - bootstrap gate：registry/docs 测试、`tools/gen_docs.py --check`、import surface
   单测、wheel surface 检查和 registry baseline 输出。

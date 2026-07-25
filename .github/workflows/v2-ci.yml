@@ -9,6 +9,7 @@ on:
         type: string
   push:
     branches: [main]
+    tags: ['v*']
   pull_request:
     branches: [main]
     types: [opened, synchronize, reopened, ready_for_review]
@@ -22,6 +23,25 @@ permissions:
   contents: read
 
 jobs:
+  lane:
+    name: v2 CI lane selection
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    outputs:
+      full: ${{ steps.lane.outputs.full }}
+    steps:
+      - id: lane
+        run: |
+          # fast lane：PR/main push 只跑 bootstrap 与 Provider v2 conformance；
+          # full lane：release 复用调用、手动 dispatch、v* tag push 跑完整矩阵。
+          full=false
+          if [ "${{ github.event_name }}" = "workflow_call" ] || \
+             [ "${{ github.event_name }}" = "workflow_dispatch" ] || \
+             [ "${{ github.ref_type }}" = "tag" ]; then
+            full=true
+          fi
+          echo "full=$full" >> "$GITHUB_OUTPUT"
+
   bootstrap:
     name: v2 bootstrap checks
     runs-on: ubuntu-latest
@@ -148,7 +168,8 @@ jobs:
 
   matrix_tests:
     name: v2 pytest matrix (Python ${{ matrix.python }}, ${{ matrix.os }})
-    needs: bootstrap
+    needs: [lane, bootstrap]
+    if: needs.lane.outputs.full == 'true'
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     env:
@@ -237,7 +258,8 @@ jobs:
 
   server_profile:
     name: v2 pro-cli + basic-cli profile
-    needs: bootstrap
+    needs: [lane, bootstrap]
+    if: needs.lane.outputs.full == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -278,7 +300,8 @@ jobs:
 
   full_profile:
     name: v2 full runtime profile
-    needs: bootstrap
+    needs: [lane, bootstrap]
+    if: needs.lane.outputs.full == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -318,7 +341,8 @@ jobs:
 
   plugin_profile:
     name: v2 plugin profile
-    needs: bootstrap
+    needs: [lane, bootstrap]
+    if: needs.lane.outputs.full == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 15
     env:
@@ -359,7 +383,8 @@ jobs:
 
   panel_build:
     name: v2 panel build
-    needs: bootstrap
+    needs: [lane, bootstrap]
+    if: needs.lane.outputs.full == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
@@ -400,6 +425,7 @@ jobs:
   release_readiness_summary:
     name: V2 CI / v2 release readiness summary
     needs:
+      - lane
       - bootstrap
       - matrix_tests
       - provider_v2_conformance
@@ -413,6 +439,7 @@ jobs:
     steps:
       - name: Summarize readiness gates
         env:
+          FULL_LANE: ${{ needs.lane.outputs.full }}
           BOOTSTRAP_RESULT: ${{ needs.bootstrap.result }}
           MATRIX_RESULT: ${{ needs.matrix_tests.result }}
           PROVIDER_V2_RESULT: ${{ needs.provider_v2_conformance.result }}
@@ -423,6 +450,8 @@ jobs:
         run: |
           cat >> "$GITHUB_STEP_SUMMARY" <<EOF
           ## V2 release readiness
+
+          Lane: $FULL_LANE (true = release/dispatch/tag full matrix, false = PR/main fast)
 
           | Gate | Result | Scope |
           |---|---|---|
@@ -439,9 +468,24 @@ jobs:
           before cutting a release candidate tag.
           EOF
 
-          for result in "$BOOTSTRAP_RESULT" "$MATRIX_RESULT" "$PROVIDER_V2_RESULT" "$SERVER_RESULT" "$FULL_RESULT" "$PLUGIN_RESULT" "$PANEL_RESULT"; do
-            if [ "$result" != "success" ]; then
-              echo "V2 release readiness gate failed: $result" >&2
-              exit 1
-            fi
-          done
+          if [ "$FULL_LANE" = "true" ]; then
+            for result in "$BOOTSTRAP_RESULT" "$MATRIX_RESULT" "$PROVIDER_V2_RESULT" "$SERVER_RESULT" "$FULL_RESULT" "$PLUGIN_RESULT" "$PANEL_RESULT"; do
+              if [ "$result" != "success" ]; then
+                echo "V2 release readiness gate failed (full lane): $result" >&2
+                exit 1
+              fi
+            done
+          else
+            for result in "$BOOTSTRAP_RESULT" "$PROVIDER_V2_RESULT"; do
+              if [ "$result" != "success" ]; then
+                echo "V2 fast lane gate failed: $result" >&2
+                exit 1
+              fi
+            done
+            for result in "$MATRIX_RESULT" "$SERVER_RESULT" "$FULL_RESULT" "$PLUGIN_RESULT" "$PANEL_RESULT"; do
+              if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
+                echo "V2 fast lane unexpected full-gate result: $result" >&2
+                exit 1
+              fi
+            done
+          fi
