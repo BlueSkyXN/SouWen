@@ -5,10 +5,10 @@ candidate SHA、run URL、checksum、测试计数和部署回读等运行结果�
 而应由发布流水线写入候选专属的 `release-manifest.json` 或
 `deployment-manifest.json` artifact。
 
-> **Phase 8 前的执行边界**：RC2 的 `deployment` profile 可用于 P4-07/M1 HFS 验收；
-> 当前 `release` profile 仍保留历史 24-binary CLI/Nuitka matrix，只能生成过渡 evidence，
-> 不能满足 RC2 发布定义。`release-candidate.yml` 在四个 PyInstaller server bundle 契约落地前
-> 必须拒绝 `publish=true`。最终 RC2 Release 以 ADR 0005 的精确四 bundle inventory 为准。
+> **Phase 8 完成前的执行边界**：RC2 的 `deployment` profile 可用于 P4-07/M1 HFS 验收；
+> `release` profile 已切换为 ADR 0005 的精确四个 PyInstaller Server bundle 与 immutable OpenAPI
+> 契约。旧 24-binary CLI/Nuitka workflow 不参与 central release。旧发布面与 compatibility residue
+> audit 完成前，`release-candidate.yml` 仍必须拒绝 `publish=true`。
 
 ## 判定原则
 
@@ -28,8 +28,8 @@ candidate SHA、run URL、checksum、测试计数和部署回读等运行结果�
 本文件定义 16 个 gate，其中 15 个是 **always-required**，`HFS promotion` 是 conditional：
 
 - **Deployment-validated**：显式使用 `evidence_profile=deployment`、`publish=false`、
-  `deploy_hfs=true`。除两个外层 release binary matrix 外的 common gates 与 HFS promotion
-  全部 `PASS`；PyInstaller/Nuitka release matrix 为预期 `skipped`。该状态只证明候选的 HFS
+  `deploy_hfs=true`。除外层 `server-bundles` release job 外的 common gates 与 HFS promotion
+  全部 `PASS`；`server-bundles` 为预期 `skipped`。该状态只证明候选的 HFS
   runtime，不是 RC-ready 或 publish-ready，产物必须命名为 `deployment-evidence-*` 且标记
   `publishable=false, binary_count=0`。
 - **RC-ready**：除 HFS promotion 外的 15 个 gate 全部 `PASS`；HFS 为
@@ -37,7 +37,7 @@ candidate SHA、run URL、checksum、测试计数和部署回读等运行结果�
   `publish=false, deploy_hfs=false`，只生成 evidence bundle，不创建 tag/Release、不写 Space。
 - **Publish-ready target**：RC-ready 加上 HFS promotion `PASS`；private edge、SouWen admin、
   wrapper/runtime/source provenance 和 rollback point 均有证据。只有该状态才允许
-  `evidence_profile=release, publish=true`；Phase 8 四 bundle gate 落地前该状态不可达。
+  `evidence_profile=release, publish=true`；Phase 8 residue audit 完成前该状态不可达。
 
 `release-candidate.yml` 必须从当前 `origin/main` 的 control-plane workflow 运行；任何
 candidate code 执行前先做 immutable SHA、lineage 与 version static check。无 deploy/publish 的
@@ -163,10 +163,12 @@ RC-ready run 可以验证从 current main 派生的 candidate；任何 secret-be
 
 **Evidence**：3 个 image digest、build log、source SHA、endpoint smoke JSON、admin-lock assertion。
 
-### 12. Binary matrix transition
+### 12. Server bundle matrix
 
-- Phase 8 前，PyInstaller/Nuitka 的 24-binary CLI matrix 仅是历史 workflow regression，
-  不能作为 RC2 publish evidence，且不得解除 `publish=true` fail-closed guard。
+- Central release 的 active binary path 只允许 `build-pyinstaller-server.yml`。旧
+  PyInstaller/Nuitka 24-binary CLI workflow 在 Phase 8 清理完成前仅是暂存 rollback residue，
+  不参与 RC2 release job、manifest、checksum、attestation 或 Release assets，也不得解除
+  `publish=true` fail-closed guard。
 - RC2 最终 inventory 必须精确为四个 PyInstaller server bundle：Linux amd64、Linux arm64、
   macOS arm64、Windows amd64；artifact 前缀为 `souwen-server-2.0.0rc2-*`。
 - 四个 bundle 必须在目标平台执行 server、health/readiness、API-major 与 target-native smoke；
@@ -194,7 +196,8 @@ RC-ready run 可以验证从 current main 派生的 candidate；任何 secret-be
 
 ### 14. Remote CI
 
-- `CI`、`V2 CI`、`External Smoke Gate`、两个 binary workflow 和 container/deploy local gate
+- `CI`、`V2 CI`、`External Smoke Gate`、`Build PyInstaller Server bundles` 和
+  container/deploy local gate
   在 `candidate_sha` 上全部 green。
 - 每个 run 必须回读 head SHA、conclusion、required jobs 和 artifact inventory；分支名相同、
   rerun 成功或 merge 后别的 SHA green 都不能替代候选证据。
@@ -282,8 +285,8 @@ Deployment manifest 只索引轻量 HFS 验收证据，不得被 GitHub Release 
 
 最终 `deployment-evidence-*` artifact 只能包含 `deployment-manifest.json`、
 `deployment-evidence.tar.gz` 与 `SHA256SUMS`；archive 可封装 common gate、package/SBOM、
-container 与 HFS reports，但不得包含外层 PyInstaller/Nuitka release binary 或 binary-smoke
-artifact。三个 envelope 文件必须由 native build provenance attestation 覆盖。
+container 与 HFS reports，但不得包含外层 Server bundle、旧 PyInstaller/Nuitka release binary
+或 binary-smoke artifact。三个 envelope 文件必须由 native build provenance attestation 覆盖。
 
 ## `release-manifest.json` 最小字段
 
@@ -375,7 +378,7 @@ reviewer；无法从 workflow 机器验证的批准不得伪造到 `approval_ref
 ## Go / No-Go
 
 - **Deployment-validated Go**：`deployment` profile 的 common gates 与 HFS promotion 全部
-  `PASS`，两个外层 binary matrix 为预期 `skipped`，manifest 明确
+  `PASS`，外层 `server-bundles` job 为预期 `skipped`，manifest 明确
   `publishable=false, binary_count=0`，Space repo/runtime/source 三段回读一致。该结论不得提升为
   RC-ready 或 publish-ready。
 - **RC-ready Go**：15 个 always-required gate 全部 `PASS`，HFS 明确为未请求的 conditional

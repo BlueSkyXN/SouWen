@@ -95,15 +95,15 @@ dedicated v2 public-surface gate and runs on `main`.
 - panel build: TypeScript check, Vitest, single-file panel build, and
   `src/souwen/server/panel.html` artifact validation.
 
-External smoke, HF Space local preflight, PyInstaller/Nuitka builders, and
+External smoke, HF Space local preflight, the RC2 Server bundle builder, and
 secret-backed checks keep their dedicated reusable/manual/schedule entrypoints.
 They should not be folded into every ordinary PR. Remote HFS promotion and
 GitHub publication are coordinated only by `release-candidate.yml`.
 
-PyInstaller and Nuitka release artifacts use the three CLI edition profiles:
-`basic-cli`, `pro-cli`, and `full-cli`. The manual workflow inputs keep legacy
-aliases for transition only: `cli` maps to `basic-cli`, `server` maps to
-`pro-cli`, and `full` maps to `full-cli`.
+`build-pyinstaller-server.yml` builds the RC2 release inventory: exactly four
+target-native PyInstaller Server bundles. The old three-edition PyInstaller and
+Nuitka workflows remain temporary rollback residue until the Phase 8 audit;
+the central release does not call them or include their artifacts.
 
 ## Central release-candidate flow
 
@@ -116,15 +116,16 @@ it from the current `main` workflow revision with an exact 40-character
 2. After the central workflow exists on trusted `main`, run it with
    `evidence_profile=release`, `publish=false`, and `deploy_hfs=false`. The
    candidate may be a descendant of current `origin/main`; this run has no
-   external release/deploy write.
+   external release/deploy write. It generates the immutable OpenAPI artifact,
+   exactly four Server bundles and their target-native smoke evidence.
 3. Accept **RC-ready** only when all 15 always-required gates pass on the exact
    candidate and the evidence bundle inventory/checksums agree.
 4. Merge the approved candidate. Before any HFS write, require
    `candidate_sha == origin/main`, protected `hf`/`release` environments, private
    Space dual-layer auth, and an immutable rollback point.
 5. For a lightweight runtime-only acceptance, use `evidence_profile=deployment`,
-   `deploy_hfs=true`, and `publish=false`. This skips the two full release binary
-   matrices but retains non-binary gates, the single HFS-local PyInstaller smoke,
+   `deploy_hfs=true`, and `publish=false`. This skips the `server-bundles` release
+   job but retains non-binary gates, the single HFS-local PyInstaller smoke,
    promotion, rollback and live readback. Its `deployment-evidence-*` artifact is
    not RC-ready or publish-ready evidence.
 6. An approved `evidence_profile=release`, `deploy_hfs=true`, `publish=false` run
@@ -132,11 +133,11 @@ it from the current `main` workflow revision with an exact 40-character
    the annotated tag and prerelease only after every gate, HFS promotion, bundle
    and attestation pass.
 
-The PyInstaller and Nuitka workflows always remain builders: each produces
-3 editions × 4 targets and uploads artifacts, but neither creates a Release.
-They run from the central workflow only for `evidence_profile=release`.
-Direct `HF Space CD` dispatch also remains local-only; merge/push to `main` does
-not automatically deploy.
+The active `build-pyinstaller-server.yml` workflow only builds and uploads the
+four Server bundles; it never creates a Release. The old CLI PyInstaller/Nuitka
+workflows are not part of the RC2 central release contract. Direct `HF Space CD`
+dispatch also remains local-only; merge/push to `main` does not automatically
+deploy.
 
 If `origin/main` advances beyond an unmerged candidate, the candidate must absorb
 that change and all affected gates must rerun. If a publish attempt pushes the

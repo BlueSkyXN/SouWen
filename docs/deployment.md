@@ -27,11 +27,13 @@ gh workflow run release-candidate.yml \
 
 `evidence_profile` 必须显式选择，默认哨兵值 `select` 会 fail closed：
 
-- `release` 在 Phase 8 前保留 source、clean install、Panel、container、external smoke 与历史
-  PyInstaller/Nuitka 24-binary regression，只能使用 `publish=false` 生成过渡 evidence。
-  它不是 RC2 publish-ready 证明；最终必须由精确四个 PyInstaller server bundle gate 替换。
-- `deployment` 必须同时使用 `deploy_hfs=true, publish=false`。它跳过外层 PyInstaller/Nuitka
-  release matrix，但保留全部非 binary gate、HFS reusable workflow 内的单次 Linux
+- `release` 运行 source、clean install、Panel、container、external smoke，以及精确四个平台的
+  PyInstaller Server bundle gate；package job 同时生成 immutable
+  `souwen-openapi-2.0.0rc2.json`。Assembler 只接受四个固定名称的 archive、对应的四份
+  target-native smoke、同 candidate inventory 和一致的 OpenAPI checksum。Phase 8 residue audit
+  完成前仍只能使用 `publish=false` 生成 RC evidence。
+- `deployment` 必须同时使用 `deploy_hfs=true, publish=false`。它跳过外层 `server-bundles`
+  release job，但保留全部非 binary gate、HFS reusable workflow 内的单次 Linux
   `basic-cli` PyInstaller smoke、live promotion、rollback 和 readback，产出不可发布的
   `deployment-evidence-*` artifact。M1 起，assembler 还会解析 surface/capability JSON，要求
   target rollout、Browser Worker readiness、OpenAlex Search、builtin Fetch 与 Browser Fetch
@@ -53,10 +55,11 @@ gh workflow run release-candidate.yml \
 `hf` / `release` environment；`publish=true` 还强制 `evidence_profile=release`、
 `deploy_hfs=true` 且 live promotion 已通过。
 
-PyInstaller 与 Nuitka workflow 只是 builder。手动运行或 `v*` tag 触发时只上传 workflow
-artifacts，不创建 Release；tag 与 prerelease 只能由 central workflow 的 publish job 创建。
-当前 central workflow 还会拒绝 `publish=true`；Phase 8 完成四 server bundle、manifest 和
-target-native smoke 契约后才能解除该保护。
+`build-pyinstaller-server.yml` 是 central release 的唯一 active binary builder；它只上传
+workflow artifacts，不创建 Release。旧 `build-pyinstaller.yml` 与 `build-nuitka.yml` 暂时仅作为
+rollback residue 保留，不被 RC2 central release 调用，也不得出现在 RC2 manifest 或 Release
+assets。Tag 与 prerelease 只能由 central workflow 的 publish job 创建。当前 central workflow
+仍会拒绝 `publish=true`；Phase 8 完成旧 CLI/Nuitka/compatibility residue audit 后才能解除该保护。
 
 ## RC2 PyInstaller Server bundle
 

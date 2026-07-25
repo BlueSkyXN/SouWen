@@ -114,8 +114,8 @@ jobs:
               raise SystemExit('publish=true requires deploy_hfs=true and a successful live promotion')
           if publish == 'true':
               raise SystemExit(
-                  'RC2 publication remains disabled until Phase 8 replaces the legacy '
-                  '24-binary matrix with exactly four PyInstaller server bundles'
+                  'RC2 publication remains disabled until Phase 8 removes legacy release '
+                  'residue and verifies the exact four-server-bundle release contract'
               )
 
           head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
@@ -253,25 +253,13 @@ jobs:
       candidate_sha: ${{ needs.validate.outputs.candidate_sha }}
       suite: release
 
-  pyinstaller:
-    name: PyInstaller 12-binary matrix
+  server-bundles:
+    name: PyInstaller four-server-bundle matrix
     needs: validate
     if: ${{ inputs.evidence_profile == 'release' }}
-    uses: ./.github/workflows/build-pyinstaller.yml
+    uses: ./.github/workflows/build-pyinstaller-server.yml
     with:
       candidate_sha: ${{ needs.validate.outputs.candidate_sha }}
-      build_tier: all
-      platforms: all
-
-  nuitka:
-    name: Nuitka 12-binary matrix
-    needs: validate
-    if: ${{ inputs.evidence_profile == 'release' }}
-    uses: ./.github/workflows/build-nuitka.yml
-    with:
-      candidate_sha: ${{ needs.validate.outputs.candidate_sha }}
-      build_tier: all
-      platforms: all
 
   package:
     name: Python distributions and SBOMs
@@ -311,6 +299,37 @@ jobs:
           python -m build
           test "$(find dist -maxdepth 1 -name 'souwen-*.whl' | wc -l)" -eq 1
           test "$(find dist -maxdepth 1 -name 'souwen-*.tar.gz' | wc -l)" -eq 1
+
+      - name: Materialize immutable target OpenAPI artifact
+        env:
+          SOUWEN_V2_ROLLOUT: target
+          SOUWEN_SOURCE_SHA: ${{ needs.validate.outputs.candidate_sha }}
+          SOUWEN_CONFIG_REVISION: source-${{ needs.validate.outputs.candidate_sha }}
+        run: |
+          python - <<'PY'
+          import json
+          from pathlib import Path
+
+          from souwen.server.app import app
+
+          document = app.openapi()
+          if document.get('info', {}).get('version') != '2.0.0rc2':
+              raise SystemExit('target OpenAPI version mismatch')
+          if document.get('x-souwen-api-major') != 2:
+              raise SystemExit('target OpenAPI API major mismatch')
+          if document.get('x-souwen-rollout-mode') != 'target':
+              raise SystemExit('target OpenAPI rollout mode mismatch')
+          output = Path('dist/souwen-openapi-2.0.0rc2.json')
+          output.write_text(
+              json.dumps(
+                  document,
+                  sort_keys=True,
+                  separators=(',', ':'),
+                  ensure_ascii=False,
+              ),
+              encoding='utf-8',
+          )
+          PY
 
       - name: Generate Python environment CycloneDX SBOM
         run: |
@@ -520,7 +539,7 @@ jobs:
 
   promotion-gate:
     name: Validate profile-specific HFS prerequisites
-    needs: [validate, ci, source, external, pyinstaller, nuitka, package, clean-install, container]
+    needs: [validate, ci, source, external, server-bundles, package, clean-install, container]
     if: ${{ always() && inputs.deploy_hfs }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -546,16 +565,16 @@ jobs:
 
           if [ "$PROFILE" = deployment ]; then
             jq -e '
-              .pyinstaller.result == "skipped" and .nuitka.result == "skipped"
+              .["server-bundles"].result == "skipped"
             ' <<<"$NEEDS_JSON" >/dev/null || {
-              echo "::error::deployment requires skipped binary release matrices"
+              echo "::error::deployment requires the server-bundle release matrix to be skipped"
               exit 1
             }
           elif [ "$PROFILE" = release ]; then
             jq -e '
-              .pyinstaller.result == "success" and .nuitka.result == "success"
+              .["server-bundles"].result == "success"
             ' <<<"$NEEDS_JSON" >/dev/null || {
-              echo "::error::release requires successful binary release matrices"
+              echo "::error::release requires the four-server-bundle matrix to succeed"
               exit 1
             }
           else
@@ -581,7 +600,7 @@ jobs:
 
   assemble-deployment:
     name: Verify and attest deployment evidence
-    needs: [validate, ci, source, external, pyinstaller, nuitka, package, clean-install, container, hfs]
+    needs: [validate, ci, source, external, server-bundles, package, clean-install, container, hfs]
     if: ${{ always() && inputs.evidence_profile == 'deployment' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -599,7 +618,7 @@ jobs:
           jq -e '
             all(
               to_entries[];
-              if .key == "pyinstaller" or .key == "nuitka"
+              if .key == "server-bundles"
               then .value.result == "skipped"
               else .value.result == "success"
               end
@@ -735,7 +754,7 @@ jobs:
           }
           if failed_jobs:
               raise SystemExit(f'deployment evidence has failed gates: {failed_jobs}')
-          binary_jobs = ('pyinstaller', 'nuitka')
+          binary_jobs = ('server-bundles',)
           unexpected_binary_jobs = {
               job_id: needs[job_id]['result']
               for job_id in binary_jobs
@@ -806,6 +825,7 @@ jobs:
 
           evidence_files = []
           binary_prefixes = (
+              'souwen-server-',
               'souwen-linux-',
               'souwen-macos-',
               'souwen-windows-',
@@ -922,7 +942,7 @@ jobs:
                       'status': 'NOT_RUN',
                       'required': False,
                       'run_urls': [run_url],
-                      'notes': ['evidence_profile=deployment; release binary matrix skipped'],
+                      'notes': ['evidence_profile=deployment; server-bundle release matrix skipped'],
                   }
                   for job_id in binary_jobs
               ],
@@ -1012,7 +1032,7 @@ jobs:
 
   assemble:
     name: Verify and attest release bundle
-    needs: [validate, ci, source, external, pyinstaller, nuitka, package, clean-install, container, hfs]
+    needs: [validate, ci, source, external, server-bundles, package, clean-install, container, hfs]
     if: ${{ always() && inputs.evidence_profile == 'release' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -1037,33 +1057,25 @@ jobs:
             )
           ' <<<"$NEEDS_JSON" >/dev/null
 
-      - name: Download PyInstaller Linux binaries
+      - name: Download four PyInstaller Server bundles
         uses: actions/download-artifact@v8
         with:
-          pattern: souwen-linux-*
+          pattern: souwen-server-bundle-*
           path: release-assets
           merge-multiple: true
 
-      - name: Download PyInstaller macOS binaries
+      - name: Download target-native Server bundle smoke evidence
         uses: actions/download-artifact@v8
         with:
-          pattern: souwen-macos-*
-          path: release-assets
+          pattern: souwen-server-smoke-*
+          path: release-evidence/server-bundles
           merge-multiple: true
 
-      - name: Download PyInstaller Windows binaries
+      - name: Download exact Server bundle inventory
         uses: actions/download-artifact@v8
         with:
-          pattern: souwen-windows-*
-          path: release-assets
-          merge-multiple: true
-
-      - name: Download Nuitka binaries
-        uses: actions/download-artifact@v8
-        with:
-          pattern: souwen-nuitka-*
-          path: release-assets
-          merge-multiple: true
+          name: souwen-server-inventory-2.0.0rc2
+          path: release-evidence/server-bundles
 
       - name: Download Python distributions
         uses: actions/download-artifact@v8
@@ -1076,13 +1088,6 @@ jobs:
         with:
           name: release-sboms
           path: release-assets
-
-      - name: Download binary smoke evidence
-        uses: actions/download-artifact@v8
-        with:
-          pattern: binary-smoke-*
-          path: release-evidence
-          merge-multiple: true
 
       - name: Download container smoke evidence
         uses: actions/download-artifact@v8
@@ -1139,7 +1144,7 @@ jobs:
           path: release-evidence
           merge-multiple: true
 
-      - name: Verify 24 binaries and write release manifest
+      - name: Verify four Server bundles and write release manifest
         env:
           CANDIDATE_SHA: ${{ needs.validate.outputs.candidate_sha }}
           VERSION: ${{ needs.validate.outputs.version }}
@@ -1169,33 +1174,108 @@ jobs:
 
           root = Path('release-assets')
           evidence_root = Path('release-evidence')
-          profiles = ('basic-cli', 'pro-cli', 'full-cli')
-          platforms = (
-              ('linux-amd64', ''),
-              ('linux-arm64', ''),
-              ('macos-arm64', ''),
-              ('windows-amd64', '.exe'),
-          )
           expected = {
-              f'{prefix}{platform}-{profile}{suffix}'
-              for prefix in ('souwen-', 'souwen-nuitka-')
-              for platform, suffix in platforms
-              for profile in profiles
+              'souwen-server-2.0.0rc2-linux-amd64.tar.gz',
+              'souwen-server-2.0.0rc2-linux-arm64.tar.gz',
+              'souwen-server-2.0.0rc2-macos-arm64.tar.gz',
+              'souwen-server-2.0.0rc2-windows-amd64.zip',
           }
           actual = {
               path.name
               for path in root.iterdir()
               if path.is_file()
-              and (path.name.startswith('souwen-nuitka-') or path.name.startswith('souwen-'))
-              and not path.name.endswith(('.whl', '.tar.gz'))
+              and path.name.startswith('souwen-server-')
           }
           if actual != expected:
               raise SystemExit(
-                  'binary inventory mismatch: '
+                  'server bundle inventory mismatch: '
                   f'missing={sorted(expected - actual)}, unexpected={sorted(actual - expected)}'
               )
-          if len(actual) != 24:
-              raise SystemExit(f'expected exactly 24 binaries, got {len(actual)}')
+          if len(actual) != 4:
+              raise SystemExit(f'expected exactly four Server bundles, got {len(actual)}')
+
+          legacy_prefixes = ('souwen-linux-', 'souwen-macos-', 'souwen-windows-', 'souwen-nuitka-')
+          legacy_assets = sorted(
+              path.name
+              for path in root.iterdir()
+              if path.is_file() and path.name.startswith(legacy_prefixes)
+          )
+          if legacy_assets:
+              raise SystemExit(f'release assets contain retired binary artifacts: {legacy_assets}')
+
+          inventory_path = evidence_root / 'server-bundles' / 'server-bundle-inventory.json'
+          inventory = json.loads(inventory_path.read_text(encoding='utf-8'))
+          if (
+              inventory.get('candidate_sha') != os.environ['CANDIDATE_SHA']
+              or inventory.get('verifier_sha') != os.environ['VERIFIER_SHA']
+              or inventory.get('version') != os.environ['VERSION']
+              or inventory.get('api_major') != int(os.environ['API_MAJOR'])
+              or inventory.get('binary_count') != 4
+              or inventory.get('workflow_identity')
+              != '.github/workflows/build-pyinstaller-server.yml'
+          ):
+              raise SystemExit(f'Server bundle inventory provenance mismatch: {inventory}')
+          bundle_items = inventory.get('bundles', [])
+          if (
+              not isinstance(bundle_items, list)
+              or len(bundle_items) != len(expected)
+              or any(not isinstance(item, dict) for item in bundle_items)
+          ):
+              raise SystemExit('Server bundle inventory must contain exactly four objects')
+          bundle_metadata = {item.get('name'): item for item in bundle_items}
+          if len(bundle_metadata) != len(bundle_items) or set(bundle_metadata) != expected:
+              raise SystemExit('Server bundle inventory metadata does not match exact assets')
+          required_smoke_checks = {
+              'archive/inventory',
+              'archive/playwright-chromium',
+              'archive/source-provenance',
+              'runner/target-native',
+              'server/health',
+              'server/readiness-browser-worker',
+              'server/canonical-provider-api',
+              'server/api-major-fail-closed',
+              'server/admin-fail-closed',
+              'server/openapi-checksum',
+              'server/clean-termination',
+          }
+          for name, metadata in bundle_metadata.items():
+              path = root / name
+              digest = hashlib.sha256(path.read_bytes()).hexdigest()
+              if (
+                  metadata.get('sha256') != digest
+                  or metadata.get('candidate_sha') != os.environ['CANDIDATE_SHA']
+                  or metadata.get('api_major') != int(os.environ['API_MAJOR'])
+                  or metadata.get('openapi_sha256') != inventory.get('openapi_sha256')
+                  or metadata.get('target_native') is not True
+                  or metadata.get('smoke_overall') != 'PASS'
+              ):
+                  raise SystemExit(f'Server bundle metadata mismatch: {name}')
+              report_path = evidence_root / 'server-bundles' / str(metadata.get('smoke_report'))
+              report = json.loads(report_path.read_text(encoding='utf-8'))
+              check_items = report.get('checks', [])
+              if (
+                  not isinstance(check_items, list)
+                  or len(check_items) != len(required_smoke_checks)
+                  or any(not isinstance(item, dict) for item in check_items)
+              ):
+                  raise SystemExit(f'Server bundle smoke evidence mismatch: {report_path}')
+              checks = {item.get('name'): item.get('status') for item in check_items}
+              if (
+                  report.get('overall') != 'PASS'
+                  or report.get('target_native') is not True
+                  or report.get('archive') != name
+                  or report.get('archive_sha256') != digest
+                  or report.get('candidate_sha') != os.environ['CANDIDATE_SHA']
+                  or len(checks) != len(check_items)
+                  or set(checks) != required_smoke_checks
+                  or any(status != 'PASS' for status in checks.values())
+              ):
+                  raise SystemExit(f'Server bundle smoke evidence mismatch: {report_path}')
+
+          openapi_path = root / 'souwen-openapi-2.0.0rc2.json'
+          openapi_sha256 = hashlib.sha256(openapi_path.read_bytes()).hexdigest()
+          if openapi_sha256 != inventory.get('openapi_sha256'):
+              raise SystemExit('immutable OpenAPI checksum differs from Server bundle smoke')
 
           run_url = os.environ['RUN_URL']
           needs = json.loads(os.environ['NEEDS_JSON'])
@@ -1215,16 +1295,16 @@ jobs:
               ('panel', ('source',), ['release-evidence.tar.gz']),
               ('docs', ('source',), ['release-evidence.tar.gz']),
               ('clean_install', ('clean-install',), ['release-evidence.tar.gz']),
-              ('mcp_edition', ('clean-install', 'pyinstaller', 'nuitka'), ['release-evidence.tar.gz']),
+              ('mcp_edition', ('clean-install', 'source'), ['release-evidence.tar.gz']),
               ('package_contract', ('package',), ['wheel', 'sdist', 'SBOMs']),
               ('functional_fixtures', ('external',), ['release-evidence.tar.gz']),
               ('live_zero_key', ('external',), ['release-evidence.tar.gz']),
               ('containers', ('container', 'ci'), ['release-evidence.tar.gz']),
-              ('binary_matrix', ('pyinstaller', 'nuitka'), ['release-evidence.tar.gz']),
+              ('binary_matrix', ('server-bundles',), ['release-evidence.tar.gz']),
               ('security', ('ci',), ['pip-audit', 'npm audit', 'security tests']),
-              ('remote_ci', ('ci', 'source', 'external', 'pyinstaller', 'nuitka'), ['reusable workflow jobs']),
+              ('remote_ci', ('ci', 'source', 'external', 'server-bundles'), ['reusable workflow jobs']),
               ('hfs_promotion', ('hfs',), ['HF Space live evidence']),
-              ('rc_assets', ('package', 'pyinstaller', 'nuitka'), ['release bundle inventory']),
+              ('rc_assets', ('package', 'server-bundles'), ['release bundle inventory']),
           ]
           gates = []
           for gate_id, job_ids, evidence in gate_specs:
@@ -1245,15 +1325,18 @@ jobs:
               digest = hashlib.sha256(path.read_bytes()).hexdigest()
               if path.name.endswith('.whl'):
                   kind = 'wheel'
+              elif path.name in actual:
+                  kind = 'server_bundle'
               elif path.name.startswith('souwen-') and path.name.endswith('.tar.gz'):
                   kind = 'sdist'
+              elif path.name == 'souwen-openapi-2.0.0rc2.json':
+                  kind = 'openapi'
               elif path.name.endswith('.cdx.json'):
                   kind = 'sbom'
-              elif path.name in actual:
-                  kind = 'binary'
               else:
                   kind = 'report'
-              python_subject = kind in {'wheel', 'sdist', 'binary'}
+              python_subject = kind in {'wheel', 'sdist', 'server_bundle'}
+              bundle = bundle_metadata.get(path.name)
               artifacts.append(
                   {
                       'name': path.name,
@@ -1264,7 +1347,15 @@ jobs:
                       'sbom': 'python-sbom.cdx.json' if python_subject else None,
                       'provenance': f'{run_url}#attestations',
                       'source_sha': os.environ['CANDIDATE_SHA'],
-                      'embedded_provenance': kind == 'binary',
+                      'embedded_provenance': kind == 'server_bundle',
+                      'platform': bundle.get('platform') if bundle else None,
+                      'api_major': bundle.get('api_major') if bundle else None,
+                      'openapi_sha256': (
+                          bundle.get('openapi_sha256')
+                          if bundle
+                          else openapi_sha256 if kind == 'openapi' else None
+                      ),
+                      'target_native_smoke': bundle.get('smoke_report') if bundle else None,
                   }
               )
 
@@ -1291,8 +1382,7 @@ jobs:
               'ci': 'CI',
               'source': 'V2 CI',
               'external': 'External Smoke Gate',
-              'pyinstaller': 'Build with PyInstaller',
-              'nuitka': 'Build with Nuitka',
+              'server-bundles': 'Build RC2 PyInstaller server bundles',
           }
           if os.environ['DEPLOY_HFS'] == 'true':
               remote_workflows['hfs'] = 'HF Space CD'
@@ -1345,6 +1435,8 @@ jobs:
                   raise SystemExit('HFS promotion evidence is missing promotion_changed')
           manifest = {
               'schema_version': 1,
+              'evidence_profile': 'release',
+              'publishable': os.environ['PUBLISH'] == 'true',
               'product_name': os.environ['PRODUCT_NAME'],
               'version': os.environ['VERSION'],
               'api_major': int(os.environ['API_MAJOR']),
@@ -1526,8 +1618,9 @@ jobs:
 
           Release candidate built from immutable source SHA \`$CANDIDATE_SHA\`.
 
-          The attached bundle contains the wheel, sdist, 24 target-native binaries,
-          checksums, Python and Panel SBOMs, and the release evidence manifest.
+          The attached bundle contains the wheel, sdist, immutable OpenAPI artifact,
+          exactly four target-native PyInstaller Server bundles, checksums, Python and
+          Panel SBOMs, and the release evidence manifest.
           Release assets are covered by native GitHub build attestations. Browser-backed providers remain governed by
           the attached External Smoke Gate reports. SuperWeb2PDF is installed from
           the fixed commit and SHA-256-pinned direct reference recorded in package metadata.
