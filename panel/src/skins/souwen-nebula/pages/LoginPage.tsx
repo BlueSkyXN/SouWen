@@ -21,7 +21,7 @@
  */
 
 import { useState, useEffect, useCallback, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence, m } from 'framer-motion'
 import { Search, Moon, Sun, Eye, EyeOff, Loader2 } from 'lucide-react'
