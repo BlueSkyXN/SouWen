@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ast
+import hashlib
 import json
 import re
 import textwrap
@@ -249,20 +250,18 @@ def test_release_candidate_requires_an_explicit_evidence_profile() -> None:
     assert "evidence_profile=${{ inputs.evidence_profile }}" in text.splitlines()[2]
 
 
-def test_deployment_profile_skips_release_binary_matrices_and_gates_hfs() -> None:
+def test_deployment_profile_skips_release_server_bundles_and_gates_hfs() -> None:
     text = _workflow("release-candidate.yml")
-    pyinstaller = _job(text, "pyinstaller", "nuitka")
-    nuitka = _job(text, "nuitka", "package")
+    server_bundles = _job(text, "server-bundles", "package")
     promotion_gate = _job(text, "promotion-gate", "hfs")
     hfs = _job(text, "hfs", "assemble-deployment")
 
     release_only = "if: ${{ inputs.evidence_profile == 'release' }}"
-    assert release_only in pyinstaller
-    assert release_only in nuitka
+    assert release_only in server_bundles
     assert "if: ${{ always() && inputs.deploy_hfs }}" in promotion_gate
     assert "PROFILE: ${{ inputs.evidence_profile }}" in promotion_gate
-    assert "deployment requires skipped binary release matrices" in promotion_gate
-    assert "release requires successful binary release matrices" in promotion_gate
+    assert "deployment requires the server-bundle release matrix to be skipped" in promotion_gate
+    assert "release requires the four-server-bundle matrix to succeed" in promotion_gate
     for gate in (
         "validate",
         "ci",
@@ -271,8 +270,7 @@ def test_deployment_profile_skips_release_binary_matrices_and_gates_hfs() -> Non
         "package",
         "clean-install",
         "container",
-        "pyinstaller",
-        "nuitka",
+        "server-bundles",
     ):
         assert gate in promotion_gate
     assert "needs: [validate, promotion-gate]" in hfs
@@ -289,16 +287,14 @@ def test_promotion_gate_descendants_always_run_to_observe_skipped_parents() -> N
         "ci",
         "source",
         "external",
-        "pyinstaller",
-        "nuitka",
+        "server-bundles",
         "package",
         "clean-install",
         "container",
     ]
-    # Deployment deliberately skips both release binary matrices. They must stay
+    # Deployment deliberately skips the release Server bundle matrix. It must stay an
     # ordinary parents so promotion-gate can explicitly verify that contract.
-    for binary_job in ("pyinstaller", "nuitka"):
-        assert graph[binary_job]["condition"] == "${{ inputs.evidence_profile == 'release' }}"
+    assert graph["server-bundles"]["condition"] == "${{ inputs.evidence_profile == 'release' }}"
 
     downstream = _downstream_jobs(graph, "promotion-gate")
     assert downstream == {"hfs", "assemble-deployment", "assemble", "publish"}
@@ -322,7 +318,7 @@ def test_deployment_evidence_is_non_publishable_and_contains_no_release_binaries
     assert "'publishable': False" in deployment
     assert "'binary_count': 0" in deployment
     assert "'status': 'NOT_RUN'" in deployment
-    assert "release binary matrix skipped" in deployment
+    assert "server-bundle release matrix skipped" in deployment
     assert "deployment evidence is missing required reports" in deployment
     assert "actions/attest-build-provenance@v4" in deployment
     assert "pattern: hf-space-local-*-report" in deployment
@@ -338,7 +334,9 @@ def test_deployment_evidence_is_non_publishable_and_contains_no_release_binaries
         assert release_binary_pattern not in deployment
 
     assert "inputs.evidence_profile == 'release'" in release
-    assert "if len(actual) != 24:" in release
+    assert "if len(actual) != 4:" in release
+    assert "'evidence_profile': 'release'" in release
+    assert "'publishable': os.environ['PUBLISH'] == 'true'" in release
     assert "release-manifest.json" in release
     assert "'product_name': os.environ['PRODUCT_NAME']" in release
     assert "'version': os.environ['VERSION']" in release
@@ -436,8 +434,7 @@ def test_deployment_manifest_builder_emits_bounded_non_release_contract(
     }
     needs.update(
         {
-            "pyinstaller": {"result": "skipped"},
-            "nuitka": {"result": "skipped"},
+            "server-bundles": {"result": "skipped"},
         }
     )
     environment = {
@@ -474,9 +471,9 @@ def test_deployment_manifest_builder_emits_bounded_non_release_contract(
     assert any(gate["id"] == "hfs_target_m1" for gate in manifest["gates"])
     assert manifest["binary_count"] == 0
     binary_gates = {
-        item["id"]: item for item in manifest["gates"] if item["id"] in {"pyinstaller", "nuitka"}
+        item["id"]: item for item in manifest["gates"] if item["id"] == "server-bundles"
     }
-    assert set(binary_gates) == {"pyinstaller", "nuitka"}
+    assert set(binary_gates) == {"server-bundles"}
     assert all(item["status"] == "NOT_RUN" for item in binary_gates.values())
     assert all(item["required"] is False for item in binary_gates.values())
     assert manifest["candidate_sha"] == candidate
@@ -490,7 +487,13 @@ def test_deployment_manifest_builder_emits_bounded_non_release_contract(
     }
     assert not any(
         item["path"].startswith(
-            ("souwen-linux-", "souwen-macos-", "souwen-windows-", "souwen-nuitka-")
+            (
+                "souwen-server-",
+                "souwen-linux-",
+                "souwen-macos-",
+                "souwen-windows-",
+                "souwen-nuitka-",
+            )
         )
         for item in manifest["evidence_files"]
     )
@@ -510,6 +513,181 @@ def test_deployment_manifest_builder_emits_bounded_non_release_contract(
     capability_path.unlink()
     with pytest.raises(SystemExit, match="missing required reports"):
         exec(compile(manifest_source, "release-candidate.yml:missing-report", "exec"), {})
+
+
+def test_release_manifest_builder_accepts_only_exact_four_server_bundle_evidence(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    text = _workflow("release-candidate.yml")
+    release = _job(text, "assemble", "publish")
+    manifest_step = release.split(
+        "- name: Verify four Server bundles and write release manifest", maxsplit=1
+    )[1]
+    manifest_source = _python_heredoc(manifest_step)
+    checksum_source = _python_heredoc(manifest_step, 1)
+
+    candidate = "a" * 40
+    verifier = "b" * 40
+    assets = tmp_path / "release-assets"
+    evidence = tmp_path / "release-evidence"
+    bundle_evidence = evidence / "server-bundles"
+    bundle_evidence.mkdir(parents=True)
+    assets.mkdir()
+    expected = {
+        "linux-amd64": "souwen-server-2.0.0rc2-linux-amd64.tar.gz",
+        "linux-arm64": "souwen-server-2.0.0rc2-linux-arm64.tar.gz",
+        "macos-arm64": "souwen-server-2.0.0rc2-macos-arm64.tar.gz",
+        "windows-amd64": "souwen-server-2.0.0rc2-windows-amd64.zip",
+    }
+    required_checks = (
+        "archive/inventory",
+        "archive/playwright-chromium",
+        "archive/source-provenance",
+        "runner/target-native",
+        "server/health",
+        "server/readiness-browser-worker",
+        "server/canonical-provider-api",
+        "server/api-major-fail-closed",
+        "server/admin-fail-closed",
+        "server/openapi-checksum",
+        "server/clean-termination",
+    )
+    openapi = assets / "souwen-openapi-2.0.0rc2.json"
+    openapi.write_bytes(b'{"info":{"version":"2.0.0rc2"}}')
+    openapi_sha256 = hashlib.sha256(openapi.read_bytes()).hexdigest()
+    bundles = []
+    for platform, name in expected.items():
+        path = assets / name
+        path.write_bytes(f"bundle:{platform}".encode())
+        digest = hashlib.sha256(path.read_bytes()).hexdigest()
+        report_name = f"server-bundle-smoke-{platform}.json"
+        (bundle_evidence / report_name).write_text(
+            json.dumps(
+                {
+                    "overall": "PASS",
+                    "target_native": True,
+                    "archive": name,
+                    "archive_sha256": digest,
+                    "candidate_sha": candidate,
+                    "checks": [{"name": check, "status": "PASS"} for check in required_checks],
+                }
+            ),
+            encoding="utf-8",
+        )
+        bundles.append(
+            {
+                "name": name,
+                "platform": platform,
+                "size": path.stat().st_size,
+                "sha256": digest,
+                "candidate_sha": candidate,
+                "api_major": 2,
+                "openapi_sha256": openapi_sha256,
+                "target_native": True,
+                "smoke_overall": "PASS",
+                "smoke_report": report_name,
+            }
+        )
+    (bundle_evidence / "server-bundle-inventory.json").write_text(
+        json.dumps(
+            {
+                "version": "2.0.0rc2",
+                "candidate_sha": candidate,
+                "verifier_sha": verifier,
+                "workflow_identity": ".github/workflows/build-pyinstaller-server.yml",
+                "api_major": 2,
+                "openapi_sha256": openapi_sha256,
+                "binary_count": 4,
+                "bundles": bundles,
+            }
+        ),
+        encoding="utf-8",
+    )
+    for name, payload in (
+        ("souwen-2.0.0rc2-py3-none-any.whl", b"wheel"),
+        ("souwen-2.0.0rc2.tar.gz", b"sdist"),
+        ("python-sbom.cdx.json", b"{}"),
+        ("panel-sbom.cdx.json", b"{}"),
+        ("release-evidence.tar.gz", b"evidence"),
+    ):
+        (assets / name).write_bytes(payload)
+    for kind in ("root", "hfs", "modelscope"):
+        (evidence / f"container-{kind}.json").write_text(
+            json.dumps(
+                {
+                    "kind": kind,
+                    "candidate_sha": candidate,
+                    "image_digest": f"sha256:{kind}",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+    needs = {
+        job_id: {"result": "success"}
+        for job_id in (
+            "validate",
+            "ci",
+            "source",
+            "external",
+            "server-bundles",
+            "package",
+            "clean-install",
+            "container",
+        )
+    }
+    needs["hfs"] = {"result": "skipped"}
+    environment = {
+        "CANDIDATE_SHA": candidate,
+        "VERSION": "2.0.0rc2",
+        "PRODUCT_NAME": "Souwen v2rc2",
+        "API_MAJOR": "2",
+        "TAG": "v2.0.0rc2",
+        "PUBLISH": "false",
+        "DEPLOY_HFS": "false",
+        "NEEDS_JSON": json.dumps(needs),
+        "VERIFIER_SHA": verifier,
+        "RUN_URL": "https://github.example/actions/runs/2",
+        "HFS_SPACE_COMMIT_SHA": "",
+        "HFS_PROMOTION_CHANGED": "",
+        "HFS_PRIOR_SPACE_COMMIT_SHA": "",
+        "HFS_PRIOR_RUNTIME_COMMIT_SHA": "",
+        "HFS_PRIOR_SOUWEN_REF": "",
+        "HFS_PRIOR_RUNTIME_STAGE": "",
+    }
+    for name, value in environment.items():
+        monkeypatch.setenv(name, value)
+    monkeypatch.chdir(tmp_path)
+
+    exec(compile(manifest_source, "release-candidate.yml:release-manifest", "exec"), {})
+    exec(compile(checksum_source, "release-candidate.yml:release-checksums", "exec"), {})
+
+    manifest = json.loads((assets / "release-manifest.json").read_text(encoding="utf-8"))
+    assert manifest["evidence_profile"] == "release"
+    assert manifest["publishable"] is False
+    assert manifest["binary_count"] == 4
+    server_assets = [item for item in manifest["artifacts"] if item["kind"] == "server_bundle"]
+    assert {item["name"] for item in server_assets} == set(expected.values())
+    assert all(item["target_native_smoke"] for item in server_assets)
+    assert {path.name for path in assets.iterdir()} == {
+        *(item["name"] for item in manifest["artifacts"]),
+        "release-manifest.json",
+        "SHA256SUMS",
+    }
+
+    failed_report = bundle_evidence / "server-bundle-smoke-windows-amd64.json"
+    failed_payload = json.loads(failed_report.read_text(encoding="utf-8"))
+    failed_payload["checks"][-1]["status"] = "FAIL"
+    failed_report.write_text(json.dumps(failed_payload), encoding="utf-8")
+    with pytest.raises(SystemExit, match="smoke evidence mismatch"):
+        exec(compile(manifest_source, "release-candidate.yml:failed-smoke", "exec"), {})
+
+    failed_payload["checks"][-1]["status"] = "PASS"
+    failed_payload["checks"].append(dict(failed_payload["checks"][-1]))
+    failed_report.write_text(json.dumps(failed_payload), encoding="utf-8")
+    with pytest.raises(SystemExit, match="smoke evidence mismatch"):
+        exec(compile(manifest_source, "release-candidate.yml:duplicate-smoke", "exec"), {})
 
 
 def test_hfs_deployment_keeps_one_basic_pyinstaller_smoke() -> None:
@@ -564,28 +742,31 @@ def test_release_candidate_aggregates_all_release_gates() -> None:
     for call in (
         "uses: ./.github/workflows/v2-ci.yml",
         "uses: ./.github/workflows/external-smoke-gate.yml",
-        "uses: ./.github/workflows/build-pyinstaller.yml",
-        "uses: ./.github/workflows/build-nuitka.yml",
+        "uses: ./.github/workflows/build-pyinstaller-server.yml",
         "uses: ./.github/workflows/deploy-hf-space.yml",
     ):
         assert call in text
 
-    for gate in ("source", "external", "pyinstaller", "nuitka", "clean-install", "container"):
+    for gate in ("source", "external", "server-bundles", "clean-install", "container"):
         assert f"  {gate}:" in text
     assert "name: V2 source and Panel gates" in text
     assert "name: Broad CI, coverage, performance, audit, and container gates" in text
     assert "suite: release" in text
 
-    external = text.split("  external:", maxsplit=1)[1].split("  pyinstaller:", maxsplit=1)[0]
+    external = text.split("  external:", maxsplit=1)[1].split("  server-bundles:", maxsplit=1)[0]
     assert "permissions:\n      contents: read\n      issues: write" in external
 
     container = text.split("  container:", maxsplit=1)[1].split("  hfs:", maxsplit=1)[0]
     assert "ref: ${{ needs.validate.outputs.candidate_sha }}\n          fetch-depth: 0" in container
 
 
-def test_release_bundle_has_24_binaries_supply_chain_assets_and_attestation() -> None:
+def test_release_bundle_has_four_servers_openapi_supply_chain_assets_and_attestation() -> None:
     text = _workflow("release-candidate.yml")
-    assert "if len(actual) != 24:" in text
+    assert "if len(actual) != 4:" in text
+    assert "expected exactly four Server bundles" in text
+    assert "souwen-openapi-2.0.0rc2.json" in text
+    assert "immutable OpenAPI checksum differs from Server bundle smoke" in text
+    assert "release assets contain retired binary artifacts" in text
     assert "python-sbom.cdx.json" in text
     assert "panel-sbom.cdx.json" in text
     assert "release-manifest.json" in text
