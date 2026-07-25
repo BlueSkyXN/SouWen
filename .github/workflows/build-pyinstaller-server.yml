@@ -1,0 +1,497 @@
+# =============================================================================
+# RC2 target server bundle builder
+#
+# Builds exactly one native PyInstaller onedir archive per approved target. This
+# reusable workflow is an artifact producer only: it cannot tag, publish, or
+# deploy. workflow_dispatch exists solely for manual proof runs.
+# =============================================================================
+name: Build RC2 PyInstaller server bundles
+
+on:
+  workflow_call:
+    inputs:
+      candidate_sha:
+        description: 'Exact 40-character candidate commit SHA'
+        required: true
+        type: string
+    outputs:
+      bundle_artifact_pattern:
+        description: 'Artifact-name pattern containing the four native archives'
+        value: ${{ jobs.aggregate.outputs.bundle_artifact_pattern }}
+      smoke_artifact_pattern:
+        description: 'Artifact-name pattern containing target-native smoke JSON'
+        value: ${{ jobs.aggregate.outputs.smoke_artifact_pattern }}
+      inventory_artifact:
+        description: 'Artifact containing the bounded four-archive inventory JSON'
+        value: ${{ jobs.aggregate.outputs.inventory_artifact }}
+      binary_count:
+        description: 'Exact number of approved RC2 server bundles'
+        value: ${{ jobs.aggregate.outputs.binary_count }}
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: 'Exact 40-character candidate commit SHA for a proof run'
+        required: true
+        type: string
+
+concurrency:
+  group: rc2-server-bundles-${{ inputs.candidate_sha }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  PYTHON_VERSION: '3.11'
+  RC_VERSION: '2.0.0rc2'
+  BUNDLE_ARTIFACT_PATTERN: souwen-server-bundle-*
+  SMOKE_ARTIFACT_PATTERN: souwen-server-smoke-*
+  INVENTORY_ARTIFACT: souwen-server-inventory-2.0.0rc2
+
+jobs:
+  validate:
+    name: Validate immutable server-bundle candidate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      candidate_sha: ${{ steps.candidate.outputs.candidate_sha }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate candidate and RC2 version
+        id: candidate
+        env:
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+        run: |
+          python3 -I - <<'PY'
+          import os
+          import re
+          import subprocess
+          import tomllib
+
+          candidate = os.environ['CANDIDATE_SHA']
+          if re.fullmatch(r'[0-9a-f]{40}', candidate) is None:
+              raise SystemExit('candidate_sha must be exactly 40 lowercase hexadecimal characters')
+          head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()
+          kind = subprocess.check_output(['git', 'cat-file', '-t', candidate], text=True).strip()
+          if head != candidate or kind != 'commit':
+              raise SystemExit(
+                  f'immutable checkout failed: head={head}, type={kind}, expected={candidate}'
+              )
+          with open('pyproject.toml', 'rb') as file:
+              version = tomllib.load(file)['project']['version']
+          if version != '2.0.0rc2':
+              raise SystemExit(f'server bundle requires version 2.0.0rc2, got {version!r}')
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
+              output.write(f'candidate_sha={candidate}\n')
+          PY
+
+  panel:
+    name: Build immutable Panel artifact
+    needs: validate
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.validate.outputs.candidate_sha }}
+          persist-credentials: false
+
+      - uses: actions/setup-node@v6
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: panel/package-lock.json
+
+      - name: Build and verify embedded Panel
+        working-directory: panel
+        run: |
+          npm ci
+          npm run build:local
+          npm run check:artifact
+
+      - name: Upload immutable Panel input
+        uses: actions/upload-artifact@v7
+        with:
+          name: rc2-server-panel-html
+          path: src/souwen/server/panel.html
+          if-no-files-found: error
+          retention-days: 1
+
+  build:
+    name: Server bundle (${{ matrix.arch }})
+    needs: [validate, panel]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-24.04
+            arch: linux-amd64
+            archive: souwen-server-2.0.0rc2-linux-amd64.tar.gz
+          - os: ubuntu-24.04-arm
+            arch: linux-arm64
+            archive: souwen-server-2.0.0rc2-linux-arm64.tar.gz
+          - os: macos-15
+            arch: macos-arm64
+            archive: souwen-server-2.0.0rc2-macos-arm64.tar.gz
+          - os: windows-2025
+            arch: windows-amd64
+            archive: souwen-server-2.0.0rc2-windows-amd64.zip
+    env:
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.server-bundle-ms-playwright
+      SOUWEN_PLUGIN_AUTOLOAD: '0'
+      SOUWEN_V2_ROLLOUT: target
+      SOUWEN_ADMIN_OPEN: '0'
+      SOUWEN_EXPOSE_DOCS: '1'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ needs.validate.outputs.candidate_sha }}
+          persist-credentials: false
+
+      - name: Checkout trusted server-bundle verifier
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.workflow_sha }}
+          path: .trusted-verifier
+          sparse-checkout: .github/actions/server-bundle-smoke
+          persist-credentials: false
+
+      - name: Download immutable Panel input
+        uses: actions/download-artifact@v8
+        with:
+          name: rc2-server-panel-html
+          path: src/souwen/server
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: ${{ env.PYTHON_VERSION }}
+          cache: pip
+
+      - name: Install target server build dependencies
+        shell: bash
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[edition-pro]"
+          pip install "playwright>=1.40" "setuptools<82" pyinstaller
+
+      - name: Install native Playwright Chromium into the bundle input
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = Linux ]; then
+            python -m playwright install --with-deps chromium
+          else
+            python -m playwright install chromium
+          fi
+          python - <<'PY'
+          import os
+          from pathlib import Path
+
+          root = Path(os.environ['PLAYWRIGHT_BROWSERS_PATH'])
+          files = [path for path in root.rglob('*') if path.is_file()]
+          if not files:
+              raise SystemExit('Playwright Chromium installation produced no files')
+          print(f'Chromium bundle input: files={len(files)}')
+          PY
+
+      - name: Materialize immutable source provenance
+        shell: bash
+        env:
+          CANDIDATE_SHA: ${{ needs.validate.outputs.candidate_sha }}
+        run: |
+          printf '%s\n' "$CANDIDATE_SHA" > runtime.source.sha
+
+      - name: Compute target OpenAPI checksum
+        id: openapi
+        shell: bash
+        run: |
+          python - <<'PY'
+          import hashlib
+          import json
+          import os
+
+          from souwen.server.app import app
+
+          payload = json.dumps(
+              app.openapi(), sort_keys=True, separators=(',', ':'), ensure_ascii=False
+          ).encode('utf-8')
+          digest = hashlib.sha256(payload).hexdigest()
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
+              output.write(f'sha256={digest}\n')
+          print(f'target OpenAPI sha256={digest}')
+          PY
+
+      - name: Build target server with PyInstaller onedir
+        shell: bash
+        run: |
+          if [ "${{ runner.os }}" = Windows ]; then DATA_SEP=';'; else DATA_SEP=':'; fi
+          PYTHON_OPTIONS=()
+          if [ "${{ runner.os }}" = Windows ]; then
+            PYTHON_OPTIONS+=(--python-option "X utf8=1")
+          fi
+          pyinstaller --onedir --clean --noconfirm --name souwen-server \
+            "${PYTHON_OPTIONS[@]}" \
+            --paths src --paths deploy/process \
+            --add-data "runtime.source.sha${DATA_SEP}." \
+            --add-data "src/souwen/server/panel.html${DATA_SEP}souwen/server" \
+            --hidden-import=supervisor \
+            --hidden-import=souwen.server.app \
+            --hidden-import=souwen.worker.browser_fetch.runtime \
+            --collect-submodules=souwen.server \
+            --collect-submodules=souwen.delivery \
+            --collect-submodules=souwen.providers \
+            --collect-submodules=souwen.registry.sources \
+            --collect-submodules=souwen.worker.browser_fetch \
+            --collect-submodules=rich._unicode_data \
+            --collect-all=playwright \
+            deploy/process/server_main.py
+
+      - name: Stage Chromium and create the final archive
+        id: archive
+        shell: bash
+        env:
+          ARCHIVE_NAME: ${{ matrix.archive }}
+          ARCH: ${{ matrix.arch }}
+        run: |
+          python - <<'PY'
+          import os
+          import shutil
+          import tarfile
+          from pathlib import Path
+
+          archive_name = os.environ['ARCHIVE_NAME']
+          bundle_name = 'souwen-server'
+          source = Path('dist/souwen-server')
+          stage = Path('server-bundle-stage') / bundle_name
+          shutil.copytree(source, stage)
+          shutil.copy2('runtime.source.sha', stage / 'runtime.source.sha')
+          shutil.copytree(
+              Path(os.environ['PLAYWRIGHT_BROWSERS_PATH']),
+              stage / 'ms-playwright',
+          )
+          output = Path('server-bundle-output') / archive_name
+          output.parent.mkdir(parents=True, exist_ok=True)
+          if archive_name.endswith('.zip'):
+              produced = shutil.make_archive(
+                  str(output.with_suffix('')), 'zip', root_dir=stage.parent, base_dir=bundle_name
+              )
+              if Path(produced) != output:
+                  raise SystemExit(f'unexpected zip output: {produced}')
+          else:
+              with tarfile.open(output, 'w:gz') as archive:
+                  archive.add(stage, arcname=bundle_name)
+          if not output.is_file() or output.stat().st_size == 0:
+              raise SystemExit(f'archive was not created: {output}')
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as workflow_output:
+              workflow_output.write(f'path={output.as_posix()}\n')
+          PY
+
+      - name: Unpack final archive and run target-native server smoke
+        uses: ./.trusted-verifier/.github/actions/server-bundle-smoke
+        with:
+          archive: ${{ steps.archive.outputs.path }}
+          platform: ${{ matrix.arch }}
+          candidate-sha: ${{ needs.validate.outputs.candidate_sha }}
+          version: ${{ env.RC_VERSION }}
+          openapi-sha256: ${{ steps.openapi.outputs.sha256 }}
+          report-json: server-bundle-evidence/server-bundle-smoke-${{ matrix.arch }}.json
+
+      - name: Upload target-native smoke evidence
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: souwen-server-smoke-${{ matrix.arch }}
+          path: server-bundle-evidence/server-bundle-smoke-${{ matrix.arch }}.json
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload immutable server bundle
+        uses: actions/upload-artifact@v7
+        with:
+          name: souwen-server-bundle-${{ matrix.arch }}
+          path: ${{ steps.archive.outputs.path }}
+          if-no-files-found: error
+          retention-days: 30
+
+  aggregate:
+    name: Verify four-bundle inventory
+    needs: [validate, build]
+    if: ${{ always() && needs.validate.result == 'success' && needs.build.result == 'success' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      bundle_artifact_pattern: ${{ steps.contract.outputs.bundle_artifact_pattern }}
+      smoke_artifact_pattern: ${{ steps.contract.outputs.smoke_artifact_pattern }}
+      inventory_artifact: ${{ steps.contract.outputs.inventory_artifact }}
+      binary_count: ${{ steps.contract.outputs.binary_count }}
+    steps:
+      - name: Download four native bundle artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: souwen-server-bundle-*
+          path: aggregate/bundles
+          merge-multiple: true
+
+      - name: Download four target-native smoke artifacts
+        uses: actions/download-artifact@v8
+        with:
+          pattern: souwen-server-smoke-*
+          path: aggregate/smoke
+          merge-multiple: true
+
+      - name: Verify exact inventory and emit reusable outputs
+        id: contract
+        env:
+          CANDIDATE_SHA: ${{ needs.validate.outputs.candidate_sha }}
+          VERIFIER_SHA: ${{ github.workflow_sha }}
+        run: |
+          python3 - <<'PY'
+          import hashlib
+          import json
+          import os
+          from pathlib import Path
+
+          def sha256_file(path: Path) -> str:
+              digest = hashlib.sha256()
+              with path.open('rb') as source:
+                  for chunk in iter(lambda: source.read(1024 * 1024), b''):
+                      digest.update(chunk)
+              return digest.hexdigest()
+
+          expected = {
+              'linux-amd64': 'souwen-server-2.0.0rc2-linux-amd64.tar.gz',
+              'linux-arm64': 'souwen-server-2.0.0rc2-linux-arm64.tar.gz',
+              'macos-arm64': 'souwen-server-2.0.0rc2-macos-arm64.tar.gz',
+              'windows-amd64': 'souwen-server-2.0.0rc2-windows-amd64.zip',
+          }
+          bundle_root = Path('aggregate/bundles')
+          actual = {path.name for path in bundle_root.iterdir() if path.is_file()}
+          expected_names = set(expected.values())
+          if actual != expected_names:
+              raise SystemExit(
+                  'server bundle inventory mismatch: '
+                  f'missing={sorted(expected_names - actual)}, '
+                  f'unexpected={sorted(actual - expected_names)}'
+              )
+          smoke_root = Path('aggregate/smoke')
+          reports = sorted(smoke_root.glob('server-bundle-smoke-*.json'))
+          if len(reports) != 4:
+              raise SystemExit(f'expected exactly four smoke reports, got {len(reports)}')
+          candidate = os.environ['CANDIDATE_SHA']
+          verifier = os.environ['VERIFIER_SHA']
+          if len(verifier) != 40 or any(char not in '0123456789abcdef' for char in verifier):
+              raise SystemExit('verifier SHA must be exactly 40 lowercase hexadecimal characters')
+          bundle_digests = {
+              path.name: sha256_file(path)
+              for path in bundle_root.iterdir()
+              if path.is_file()
+          }
+          reports_by_platform = {}
+          required_checks = {
+              'archive/inventory',
+              'archive/playwright-chromium',
+              'archive/source-provenance',
+              'runner/target-native',
+              'server/health',
+              'server/readiness-browser-worker',
+              'server/canonical-provider-api',
+              'server/api-major-fail-closed',
+              'server/admin-fail-closed',
+              'server/openapi-checksum',
+              'server/clean-termination',
+          }
+          for report in reports:
+              payload = json.loads(report.read_text(encoding='utf-8'))
+              platform = payload.get('platform')
+              if platform not in expected or platform in reports_by_platform:
+                  raise SystemExit(f'duplicate or unexpected smoke platform: {report}')
+              checks = payload.get('checks')
+              if not isinstance(checks, list):
+                  raise SystemExit(f'smoke report has no checks list: {report}')
+              checks_by_name = {}
+              for check in checks:
+                  if not isinstance(check, dict):
+                      raise SystemExit(f'smoke report contains a malformed check: {report}')
+                  name = check.get('name')
+                  if not isinstance(name, str) or name in checks_by_name:
+                      raise SystemExit(f'smoke report contains a duplicate check: {report}')
+                  checks_by_name[name] = check.get('status')
+              if set(checks_by_name) != required_checks or any(
+                  status != 'PASS' for status in checks_by_name.values()
+              ):
+                  raise SystemExit(f'smoke report check inventory is not exact PASS: {report}')
+              if (
+                  payload.get('overall') != 'PASS'
+                  or payload.get('target_native') is not True
+                  or payload.get('candidate_sha') != candidate
+                  or payload.get('version') != '2.0.0rc2'
+                  or payload.get('api_major') != 2
+                  or payload.get('archive') != expected[platform]
+                  or payload.get('archive_sha256') != bundle_digests[expected[platform]]
+                  or not isinstance(payload.get('machine'), str)
+                  or not payload['machine']
+                  or not isinstance(payload.get('openapi_sha256'), str)
+                  or len(payload['openapi_sha256']) != 64
+              ):
+                  raise SystemExit(f'invalid target-native smoke report: {report}')
+              reports_by_platform[platform] = (report.name, payload)
+          if set(reports_by_platform) != set(expected):
+              raise SystemExit(
+                  f'smoke platform inventory mismatch: {sorted(reports_by_platform)}'
+              )
+          openapi_checksums = {
+              payload['openapi_sha256'] for _report, payload in reports_by_platform.values()
+          }
+          if len(openapi_checksums) != 1:
+              raise SystemExit(
+                  f'OpenAPI checksum differs across native bundles: {sorted(openapi_checksums)}'
+              )
+          inventory = {
+              'schema_version': 1,
+              'version': '2.0.0rc2',
+              'candidate_sha': candidate,
+              'verifier_sha': verifier,
+              'workflow_identity': '.github/workflows/build-pyinstaller-server.yml',
+              'api_major': 2,
+              'openapi_sha256': next(iter(openapi_checksums)),
+              'binary_count': 4,
+              'bundles': [
+                  {
+                      'name': archive_name,
+                      'platform': platform,
+                      'size': path.stat().st_size,
+                      'sha256': bundle_digests[archive_name],
+                      'candidate_sha': candidate,
+                      'api_major': 2,
+                      'openapi_sha256': reports_by_platform[platform][1]['openapi_sha256'],
+                      'target_native': True,
+                      'smoke_overall': 'PASS',
+                      'smoke_report': reports_by_platform[platform][0],
+                  }
+                  for platform, archive_name in sorted(expected.items())
+                  for path in (bundle_root / archive_name,)
+              ],
+              'smoke_reports': [report.name for report in reports],
+          }
+          output_path = Path('aggregate/server-bundle-inventory.json')
+          output_path.write_text(json.dumps(inventory, indent=2) + '\n', encoding='utf-8')
+          with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
+              output.write('bundle_artifact_pattern=souwen-server-bundle-*\n')
+              output.write('smoke_artifact_pattern=souwen-server-smoke-*\n')
+              output.write('inventory_artifact=souwen-server-inventory-2.0.0rc2\n')
+              output.write('binary_count=4\n')
+          PY
+
+      - name: Upload bounded inventory
+        uses: actions/upload-artifact@v7
+        with:
+          name: souwen-server-inventory-2.0.0rc2
+          path: aggregate/server-bundle-inventory.json
+          if-no-files-found: error
+          retention-days: 30

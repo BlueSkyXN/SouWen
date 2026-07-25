@@ -7,7 +7,8 @@ from collections import deque
 
 import pytest
 
-from deploy.process.supervisor import DeploymentSettings, DeploymentSupervisor
+from deploy.process import supervisor as supervisor_module
+from deploy.process.supervisor import INTERNAL_ROLE_ENV, DeploymentSettings, DeploymentSupervisor
 from souwen.delivery.api import RolloutMode
 
 
@@ -92,10 +93,13 @@ def test_worker_is_ready_before_api_and_children_share_private_runtime_env(monke
     for command, env in spawned:
         assert "t" * 48 not in command
         assert env["SOUWEN_BROWSER_WORKER_TOKEN"] == "t" * 48
+        assert env["HOST"] == "0.0.0.0"
+        assert env["PORT"] == "49265"
         assert env["SOUWEN_SOURCE_SHA"] == "a" * 40
         assert env["SOUWEN_WRAPPER_SHA"] == "b" * 40
         assert env["SOUWEN_CONFIG_REVISION"] == "source-" + "a" * 40
         assert env["SOUWEN_V2_ROLLOUT"] == "target"
+        assert env[INTERNAL_ROLE_ENV] == "1"
     assert worker.signals == [signal.SIGTERM]
 
 
@@ -177,6 +181,38 @@ def test_signal_is_forwarded_to_both_children_without_exposing_token() -> None:
     assert supervisor._api.signals == [signal.SIGTERM]
 
 
+def test_windows_break_signal_is_installed_when_available(monkeypatch) -> None:
+    installed: dict[int, object] = {}
+    sigbreak = getattr(signal, "SIGBREAK", 21)
+    monkeypatch.setattr(signal, "SIGBREAK", sigbreak, raising=False)
+    monkeypatch.setattr(signal, "signal", installed.__setitem__)
+
+    supervisor = DeploymentSupervisor(
+        _settings(), process_factory=lambda *_args: _Process(), token="t" * 48
+    )
+    supervisor._install_signal_handlers()
+
+    assert installed[sigbreak] == supervisor._handle_signal
+
+
+def test_windows_break_handler_maps_to_child_control_event(monkeypatch) -> None:
+    sigbreak = getattr(signal, "SIGBREAK", 21)
+    ctrl_break = getattr(signal, "CTRL_BREAK_EVENT", 1)
+    monkeypatch.setattr(supervisor_module.os, "name", "nt")
+    monkeypatch.setattr(signal, "SIGBREAK", sigbreak, raising=False)
+    monkeypatch.setattr(signal, "CTRL_BREAK_EVENT", ctrl_break, raising=False)
+    supervisor = DeploymentSupervisor(
+        _settings(), process_factory=lambda *_args: _Process(), token="t" * 48
+    )
+    supervisor._worker = _Process()
+    supervisor._api = _Process()
+
+    supervisor._handle_signal(sigbreak, None)
+
+    assert supervisor._worker.signals == [ctrl_break]
+    assert supervisor._api.signals == [ctrl_break]
+
+
 def test_target_settings_resolve_source_and_config_revision_from_deployment(monkeypatch) -> None:
     monkeypatch.setenv("SOUWEN_V2_ROLLOUT", "target")
     monkeypatch.setenv("SOUWEN_SOURCE_SHA", "A" * 40)
@@ -207,3 +243,47 @@ def test_supervisor_ignores_ambient_static_worker_token(monkeypatch) -> None:
     supervisor = DeploymentSupervisor(_settings(), process_factory=lambda *_args: _Process())
 
     assert supervisor._child_env()["SOUWEN_BROWSER_WORKER_TOKEN"] == "g" * 48
+
+
+def test_frozen_supervisor_reenters_same_executable_for_internal_roles(monkeypatch) -> None:
+    monkeypatch.setattr(supervisor_module.sys, "frozen", True, raising=False)
+    monkeypatch.setattr(supervisor_module.sys, "executable", "/bundle/souwen-server")
+    supervisor = DeploymentSupervisor(
+        _settings(api_host="127.0.0.1", api_port=49300),
+        process_factory=lambda *_args: _Process(),
+        token="t" * 48,
+    )
+
+    assert supervisor._worker_command() == (
+        "/bundle/souwen-server",
+        "--internal-role",
+        "worker",
+    )
+    assert supervisor._api_command() == (
+        "/bundle/souwen-server",
+        "--internal-role",
+        "api",
+    )
+    child_env = supervisor._child_env()
+    assert child_env["HOST"] == "127.0.0.1"
+    assert child_env["PORT"] == "49300"
+    assert child_env[INTERNAL_ROLE_ENV] == "1"
+
+
+def test_source_supervisor_keeps_python_module_child_commands(monkeypatch) -> None:
+    monkeypatch.delattr(supervisor_module.sys, "frozen", raising=False)
+    supervisor = DeploymentSupervisor(
+        _settings(), process_factory=lambda *_args: _Process(), token="t" * 48
+    )
+
+    assert supervisor._worker_command() == (
+        supervisor_module.sys.executable,
+        "-m",
+        "souwen.worker.browser_fetch.runtime",
+    )
+    assert supervisor._api_command()[:4] == (
+        supervisor_module.sys.executable,
+        "-m",
+        "uvicorn",
+        "souwen.server.app:app",
+    )

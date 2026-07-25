@@ -29,6 +29,7 @@ from souwen.worker.browser_fetch.protocol import (
 
 logger = logging.getLogger("souwen.deployment.supervisor")
 _FULL_SHA_LENGTH = 40
+INTERNAL_ROLE_ENV = "SOUWEN_SERVER_INTERNAL_ROLE"
 
 
 class ChildProcess(Protocol):
@@ -236,9 +237,12 @@ class DeploymentSupervisor:
     def _child_env(self) -> dict[str, str]:
         env = dict(os.environ)
         env["SOUWEN_V2_ROLLOUT"] = self.settings.rollout_mode.value
+        env["HOST"] = self.settings.api_host
+        env["PORT"] = str(self.settings.api_port)
         env["SOUWEN_BROWSER_WORKER_HOST"] = self.settings.worker_host
         env["SOUWEN_BROWSER_WORKER_PORT"] = str(self.settings.worker_port)
         env["SOUWEN_BROWSER_WORKER_TOKEN"] = self._token
+        env[INTERNAL_ROLE_ENV] = "1"
         if self.settings.source_sha is not None:
             env["SOUWEN_SOURCE_SHA"] = self.settings.source_sha
         if self.settings.wrapper_sha is not None:
@@ -248,9 +252,13 @@ class DeploymentSupervisor:
         return env
 
     def _worker_command(self) -> tuple[str, ...]:
+        if getattr(sys, "frozen", False):
+            return (sys.executable, "--internal-role", "worker")
         return (sys.executable, "-m", "souwen.worker.browser_fetch.runtime")
 
     def _api_command(self) -> tuple[str, ...]:
+        if getattr(sys, "frozen", False):
+            return (sys.executable, "--internal-role", "api")
         return (
             sys.executable,
             "-m",
@@ -296,12 +304,14 @@ class DeploymentSupervisor:
             if process is not None and process.poll() is None:
                 try:
                     self._send_signal(process, signum)
-                except OSError:
+                except (OSError, ValueError):
                     pass
 
     def _install_signal_handlers(self) -> None:
         signal.signal(signal.SIGTERM, self._handle_signal)
         signal.signal(signal.SIGINT, self._handle_signal)
+        if hasattr(signal, "SIGBREAK"):
+            signal.signal(signal.SIGBREAK, self._handle_signal)
         if hasattr(signal, "SIGHUP"):
             signal.signal(signal.SIGHUP, signal.SIG_IGN)
 
@@ -330,6 +340,13 @@ class DeploymentSupervisor:
         if self._use_process_groups and os.name == "posix":
             os.killpg(process.pid, signum)
         else:
+            if (
+                os.name == "nt"
+                and hasattr(signal, "SIGBREAK")
+                and hasattr(signal, "CTRL_BREAK_EVENT")
+                and signum == signal.SIGBREAK
+            ):
+                signum = signal.CTRL_BREAK_EVENT
             process.send_signal(signum)
 
     def _kill_remaining_group(self, process: ChildProcess) -> None:
@@ -406,4 +423,4 @@ if __name__ == "__main__":
     raise SystemExit(main())
 
 
-__all__ = ["DeploymentSettings", "DeploymentSupervisor", "main"]
+__all__ = ["DeploymentSettings", "DeploymentSupervisor", "INTERNAL_ROLE_ENV", "main"]

@@ -1,0 +1,426 @@
+name: Souwen RC2 server bundle smoke
+description: Unpack and verify one final target-native PyInstaller server archive
+
+inputs:
+  archive:
+    description: Path to the final .tar.gz or .zip archive
+    required: true
+  platform:
+    description: linux-amd64, linux-arm64, macos-arm64, or windows-amd64
+    required: true
+  candidate-sha:
+    description: Exact 40-character source SHA embedded in the bundle
+    required: true
+  version:
+    description: Expected RC version
+    required: true
+  openapi-sha256:
+    description: Expected canonical target OpenAPI SHA-256
+    required: true
+  report-json:
+    description: Machine-readable smoke evidence output path
+    required: true
+
+runs:
+  using: composite
+  steps:
+    - name: Verify unpacked final archive on the target runner
+      shell: bash
+      env:
+        SOUWEN_SERVER_ARCHIVE: ${{ inputs.archive }}
+        SOUWEN_SERVER_PLATFORM: ${{ inputs.platform }}
+        SOUWEN_SERVER_CANDIDATE_SHA: ${{ inputs.candidate-sha }}
+        SOUWEN_SERVER_VERSION: ${{ inputs.version }}
+        SOUWEN_SERVER_OPENAPI_SHA256: ${{ inputs.openapi-sha256 }}
+        SOUWEN_SERVER_REPORT_JSON: ${{ inputs.report-json }}
+      run: |
+        python - <<'PY'
+        from __future__ import annotations
+
+        import contextlib
+        import hashlib
+        import json
+        import os
+        import platform as platform_info
+        import re
+        import shutil
+        import signal
+        import socket
+        import subprocess
+        import tarfile
+        import tempfile
+        import time
+        import urllib.error
+        import urllib.request
+        import zipfile
+        from pathlib import Path
+
+
+        archive = Path(os.environ['SOUWEN_SERVER_ARCHIVE']).resolve()
+        platform = os.environ['SOUWEN_SERVER_PLATFORM']
+        candidate_sha = os.environ['SOUWEN_SERVER_CANDIDATE_SHA']
+        expected_version = os.environ['SOUWEN_SERVER_VERSION']
+        expected_openapi_sha256 = os.environ['SOUWEN_SERVER_OPENAPI_SHA256']
+        report_path = Path(os.environ['SOUWEN_SERVER_REPORT_JSON'])
+        report_path.parent.mkdir(parents=True, exist_ok=True)
+        checks: list[dict[str, str]] = []
+        failure: Exception | None = None
+        server: subprocess.Popen[bytes] | None = None
+        api_port: int | None = None
+        worker_port: int | None = None
+        termination_forced = False
+        temp_root: Path | None = None
+
+        expected_archives = {
+            'linux-amd64': 'souwen-server-2.0.0rc2-linux-amd64.tar.gz',
+            'linux-arm64': 'souwen-server-2.0.0rc2-linux-arm64.tar.gz',
+            'macos-arm64': 'souwen-server-2.0.0rc2-macos-arm64.tar.gz',
+            'windows-amd64': 'souwen-server-2.0.0rc2-windows-amd64.zip',
+        }
+        user_fixture = 'rc2-server-bundle-user-fixture'
+
+        def record(name: str, status: str, detail: str) -> None:
+            checks.append({'name': name, 'status': status, 'detail': detail[:500]})
+
+        def sha256_file(path: Path) -> str:
+            digest = hashlib.sha256()
+            with path.open('rb') as source:
+                for chunk in iter(lambda: source.read(1024 * 1024), b''):
+                    digest.update(chunk)
+            return digest.hexdigest()
+
+        def safe_destination(root: Path, member_name: str) -> Path:
+            destination = (root / member_name).resolve()
+            if root.resolve() not in destination.parents and destination != root.resolve():
+                raise RuntimeError(f'unsafe archive member: {member_name!r}')
+            return destination
+
+        def extract_final_archive(root: Path) -> Path:
+            if archive.name.endswith('.tar.gz'):
+                with tarfile.open(archive, 'r:gz') as payload:
+                    for member in payload.getmembers():
+                        safe_destination(root, member.name)
+                        if member.issym() or member.islnk():
+                            raise RuntimeError(f'archive contains a link: {member.name!r}')
+                    payload.extractall(root, filter='data')
+            elif archive.name.endswith('.zip'):
+                with zipfile.ZipFile(archive) as payload:
+                    for member in payload.infolist():
+                        safe_destination(root, member.filename)
+                    payload.extractall(root)
+            else:
+                raise RuntimeError('unsupported server bundle archive format')
+            bundle_root = root / 'souwen-server'
+            if not bundle_root.is_dir():
+                raise RuntimeError('archive root directory must be exactly souwen-server/')
+            top_level = {path.name for path in root.iterdir()}
+            if top_level != {'souwen-server'}:
+                raise RuntimeError(f'archive has unexpected top-level entries: {sorted(top_level)}')
+            return bundle_root
+
+        def target_native_machine() -> str:
+            machine = platform_info.machine().strip().lower()
+            if os.name == 'nt':
+                observed = 'windows-amd64' if machine in {'amd64', 'x86_64'} else ''
+            elif platform_info.system() == 'Darwin':
+                observed = 'macos-arm64' if machine in {'arm64', 'aarch64'} else ''
+            elif platform_info.system() == 'Linux' and machine in {'amd64', 'x86_64'}:
+                observed = 'linux-amd64'
+            elif platform_info.system() == 'Linux' and machine in {'arm64', 'aarch64'}:
+                observed = 'linux-arm64'
+            else:
+                observed = ''
+            if observed != platform:
+                raise RuntimeError(
+                    f'target-native runner mismatch: expected={platform}, '
+                    f'os={platform_info.system()}, machine={machine}'
+                )
+            return machine
+
+        def free_port() -> int:
+            with socket.socket() as listener:
+                listener.bind(('127.0.0.1', 0))
+                return listener.getsockname()[1]
+
+        def request(
+            base_url: str,
+            path: str,
+            *,
+            expected: tuple[int, ...] = (200,),
+            headers: dict[str, str] | None = None,
+        ) -> tuple[int, bytes, dict[str, str]]:
+            req = urllib.request.Request(f'{base_url}{path}', headers=headers or {})
+            try:
+                with urllib.request.urlopen(req, timeout=10) as response:
+                    code = response.status
+                    body = response.read(2 * 1024 * 1024)
+                    response_headers = dict(response.headers.items())
+            except urllib.error.HTTPError as exc:
+                code = exc.code
+                body = exc.read(2 * 1024 * 1024)
+                response_headers = dict(exc.headers.items())
+            if code not in expected:
+                raise RuntimeError(f'{path} returned HTTP {code}; expected {list(expected)}')
+            return code, body, {name.lower(): value for name, value in response_headers.items()}
+
+        def wait_for_health(base_url: str) -> tuple[dict[str, object], dict[str, str]]:
+            deadline = time.monotonic() + 90
+            while time.monotonic() < deadline:
+                if server is not None and server.poll() is not None:
+                    raise RuntimeError(f'server bundle exited before health: {server.returncode}')
+                try:
+                    _, body, headers = request(base_url, '/health')
+                    return json.loads(body), headers
+                except (OSError, ValueError, RuntimeError):
+                    time.sleep(0.5)
+            raise RuntimeError('server bundle did not become healthy within 90 seconds')
+
+        def port_is_closed(port: int) -> bool:
+            try:
+                with socket.create_connection(('127.0.0.1', port), timeout=0.25):
+                    return False
+            except OSError:
+                return True
+
+        def stop_server() -> None:
+            global termination_forced
+            if server is None or server.poll() is not None:
+                return
+            if os.name == 'nt' and hasattr(signal, 'CTRL_BREAK_EVENT'):
+                server.send_signal(signal.CTRL_BREAK_EVENT)
+            else:
+                server.terminate()
+            try:
+                server.wait(timeout=30)
+            except subprocess.TimeoutExpired:
+                termination_forced = True
+                server.kill()
+                server.wait(timeout=10)
+
+        try:
+            if platform not in expected_archives:
+                raise RuntimeError(f'unsupported server bundle platform: {platform!r}')
+            if archive.name != expected_archives[platform]:
+                raise RuntimeError(
+                    f'archive name mismatch: expected={expected_archives[platform]!r}, '
+                    f'actual={archive.name!r}'
+                )
+            if expected_version != '2.0.0rc2':
+                raise RuntimeError(f'unsupported server bundle version: {expected_version!r}')
+            if re.fullmatch(r'[0-9a-f]{40}', candidate_sha) is None:
+                raise RuntimeError('candidate SHA must be exactly 40 lowercase hexadecimal characters')
+            if re.fullmatch(r'[0-9a-f]{64}', expected_openapi_sha256) is None:
+                raise RuntimeError('OpenAPI checksum must be exactly 64 lowercase hexadecimal characters')
+            if not archive.is_file() or archive.stat().st_size == 0:
+                raise RuntimeError(f'server bundle archive is missing or empty: {archive}')
+            archive_sha256 = sha256_file(archive)
+            record('archive/inventory', 'PASS', f'name={archive.name}, sha256={archive_sha256}')
+            machine = target_native_machine()
+            record('runner/target-native', 'PASS', f'platform={platform}, machine={machine}')
+
+            with contextlib.nullcontext(
+                tempfile.mkdtemp(prefix='souwen-server-bundle-smoke-')
+            ) as tempdir:
+                temp_root = Path(tempdir)
+                bundle_root = extract_final_archive(temp_root / 'unpacked')
+                executable = bundle_root / ('souwen-server.exe' if os.name == 'nt' else 'souwen-server')
+                if not executable.is_file():
+                    raise RuntimeError(f'server executable is missing: {executable.name}')
+                if os.name != 'nt' and not os.access(executable, os.X_OK):
+                    raise RuntimeError('server executable is not executable')
+                source_receipt = bundle_root / 'runtime.source.sha'
+                if source_receipt.read_text(encoding='utf-8').strip() != candidate_sha:
+                    raise RuntimeError('archive-level source provenance does not match candidate SHA')
+                record('archive/source-provenance', 'PASS', candidate_sha)
+                browser_root = bundle_root / 'ms-playwright'
+                browser_files = [path for path in browser_root.rglob('*') if path.is_file()]
+                if not browser_files:
+                    raise RuntimeError('final archive does not contain Playwright Chromium')
+                browser_executables = [
+                    path
+                    for path in browser_files
+                    if path.name.lower()
+                    in {'chrome', 'chrome.exe', 'chrome-headless-shell', 'chromium', 'headless_shell'}
+                ]
+                if not browser_executables:
+                    raise RuntimeError('final archive does not contain a Chromium executable')
+                record(
+                    'archive/playwright-chromium',
+                    'PASS',
+                    f'files={len(browser_files)}, executables={len(browser_executables)}',
+                )
+
+                runtime_env = os.environ.copy()
+                for name in (
+                    'SOUWEN_SOURCE_SHA',
+                    'SOUWEN_SOURCE_SHA_FILE',
+                    'SOUWEN_ADMIN_PASSWORD',
+                    'SOUWEN_USER_PASSWORD',
+                    'SOUWEN_BROWSER_WORKER_TOKEN',
+                ):
+                    runtime_env.pop(name, None)
+                runtime_env.update(
+                    {
+                        'HOME': str(temp_root / 'home'),
+                        'PYTHONIOENCODING': 'utf-8',
+                        'SOUWEN_PLUGIN_AUTOLOAD': '0',
+                        'SOUWEN_V2_ROLLOUT': 'target',
+                        'SOUWEN_ADMIN_OPEN': '0',
+                        'SOUWEN_EXPOSE_DOCS': '1',
+                        'SOUWEN_USER_PASSWORD': user_fixture,
+                    }
+                )
+                Path(runtime_env['HOME']).mkdir()
+
+                api_port = free_port()
+                worker_port = free_port()
+                while worker_port == api_port:
+                    worker_port = free_port()
+                runtime_env['HOST'] = '127.0.0.1'
+                runtime_env['PORT'] = str(api_port)
+                runtime_env['SOUWEN_BROWSER_WORKER_PORT'] = str(worker_port)
+                creationflags = (
+                    subprocess.CREATE_NEW_PROCESS_GROUP
+                    if os.name == 'nt' and hasattr(subprocess, 'CREATE_NEW_PROCESS_GROUP')
+                    else 0
+                )
+                server = subprocess.Popen(
+                    [str(executable)],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                    env=runtime_env,
+                    creationflags=creationflags,
+                    start_new_session=os.name != 'nt',
+                )
+                base_url = f'http://127.0.0.1:{api_port}'
+                health, health_headers = wait_for_health(base_url)
+                if (
+                    health.get('version') != expected_version
+                    or health.get('source_sha') != candidate_sha
+                    or health.get('rollout_mode') != 'target'
+                ):
+                    raise RuntimeError(f'health provenance mismatch: {health}')
+                if health_headers.get('x-souwen-api-major') != '2':
+                    raise RuntimeError('health response omitted API major 2')
+                if health_headers.get('x-souwen-rollout-mode') != 'target':
+                    raise RuntimeError('health response omitted target rollout header')
+                record('server/health', 'PASS', 'version, source SHA, API major, target rollout')
+
+                _, readiness_body, _ = request(base_url, '/readiness')
+                readiness = json.loads(readiness_body)
+                if (
+                    readiness.get('ready') is not True
+                    or readiness.get('source_sha') != candidate_sha
+                    or readiness.get('worker_source_sha') != candidate_sha
+                    or readiness.get('rollout_mode') != 'target'
+                    or readiness.get('components', {}).get('browser_worker') != 'ready'
+                ):
+                    raise RuntimeError(f'target readiness/browser worker mismatch: {readiness}')
+                record('server/readiness-browser-worker', 'PASS', 'target runtime and worker ready')
+
+                api_headers = {
+                    'X-SouWen-API-Major': '2',
+                    'X-Request-ID': 'server-bundle-provider-catalog',
+                    'X-SouWen-Token': user_fixture,
+                }
+                _, providers_body, provider_headers = request(
+                    base_url, '/api/v1/providers', headers=api_headers
+                )
+                providers = json.loads(providers_body)
+                if providers.get('context', {}).get('request_id') != 'server-bundle-provider-catalog':
+                    raise RuntimeError(f'provider catalog context mismatch: {providers}')
+                if not isinstance(providers.get('items'), list) or not providers['items']:
+                    raise RuntimeError('canonical provider catalog is empty or malformed')
+                if provider_headers.get('x-souwen-api-major') != '2':
+                    raise RuntimeError('provider catalog omitted API major 2')
+                if provider_headers.get('x-souwen-rollout-mode') != 'target':
+                    raise RuntimeError('provider catalog omitted target rollout header')
+                record('server/canonical-provider-api', 'PASS', f'items={len(providers["items"])}')
+
+                _, mismatch_body, _ = request(
+                    base_url,
+                    '/api/v1/providers',
+                    expected=(409,),
+                    headers={
+                        'X-SouWen-API-Major': '1',
+                        'X-SouWen-Token': user_fixture,
+                    },
+                )
+                mismatch = json.loads(mismatch_body)
+                if mismatch.get('error', {}).get('code') != 'api_major_mismatch':
+                    raise RuntimeError(f'API-major mismatch did not fail closed: {mismatch}')
+                record('server/api-major-fail-closed', 'PASS', 'unsupported major returned 409')
+
+                request(base_url, '/api/v1/admin/ping', expected=(401,))
+                record('server/admin-fail-closed', 'PASS', 'unauthenticated admin returned 401')
+
+                _, openapi_body, _ = request(base_url, '/openapi.json')
+                openapi = json.loads(openapi_body)
+                if openapi.get('x-souwen-api-major') != 2:
+                    raise RuntimeError('target OpenAPI omitted API major 2')
+                if openapi.get('x-souwen-rollout-mode') != 'target':
+                    raise RuntimeError('target OpenAPI omitted rollout mode')
+                required_paths = {
+                    '/api/v1/search',
+                    '/api/v1/llm-search',
+                    '/api/v1/fetch',
+                    '/api/v1/providers',
+                }
+                if not required_paths.issubset(openapi.get('paths', {})):
+                    raise RuntimeError('target OpenAPI is missing canonical operations')
+                canonical_openapi = json.dumps(
+                    openapi, sort_keys=True, separators=(',', ':'), ensure_ascii=False
+                ).encode('utf-8')
+                actual_openapi_sha256 = hashlib.sha256(canonical_openapi).hexdigest()
+                if actual_openapi_sha256 != expected_openapi_sha256:
+                    raise RuntimeError(
+                        'OpenAPI checksum mismatch: '
+                        f'expected={expected_openapi_sha256}, actual={actual_openapi_sha256}'
+                    )
+                record('server/openapi-checksum', 'PASS', actual_openapi_sha256)
+
+                stop_server()
+                if termination_forced:
+                    raise RuntimeError('server bundle required a forced kill during termination')
+                deadline = time.monotonic() + 20
+                while time.monotonic() < deadline:
+                    if port_is_closed(api_port) and port_is_closed(worker_port):
+                        break
+                    time.sleep(0.25)
+                else:
+                    raise RuntimeError('server bundle left API or Browser Worker port open')
+                record(
+                    'server/clean-termination',
+                    'PASS',
+                    f'parent, API, and worker stopped; exit={server.returncode}',
+                )
+        except Exception as exc:
+            failure = exc
+            record('server-bundle-smoke', 'FAIL', f'{type(exc).__name__}: {exc}')
+        finally:
+            stop_server()
+            if temp_root is not None:
+                shutil.rmtree(temp_root, ignore_errors=True)
+            overall = 'FAIL' if failure else 'PASS'
+            payload = {
+                'schema_version': 1,
+                'script': 'github-composite/server-bundle-smoke',
+                'overall': overall,
+                'platform': platform,
+                'machine': platform_info.machine().strip().lower(),
+                'target_native': failure is None,
+                'version': expected_version,
+                'api_major': 2,
+                'candidate_sha': candidate_sha,
+                'archive': archive.name,
+                'archive_sha256': (
+                    sha256_file(archive) if archive.is_file() else None
+                ),
+                'openapi_sha256': expected_openapi_sha256,
+                'checks': checks,
+            }
+            report_path.write_text(json.dumps(payload, indent=2) + '\n', encoding='utf-8')
+
+        if failure is not None:
+            raise SystemExit(f'server bundle smoke failed: {failure}')
+        PY

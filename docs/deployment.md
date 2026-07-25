@@ -58,6 +58,47 @@ artifacts，不创建 Release；tag 与 prerelease 只能由 central workflow �
 当前 central workflow 还会拒绝 `publish=true`；Phase 8 完成四 server bundle、manifest 和
 target-native smoke 契约后才能解除该保护。
 
+## RC2 PyInstaller Server bundle
+
+`.github/workflows/build-pyinstaller-server.yml` 是 RC2 四平台 Server bundle builder。它既可由
+`workflow_dispatch` 对一个 40 位 immutable candidate做独立 proof，也可由 central release
+workflow 通过 `workflow_call` 调用。Builder 不创建 tag、Release或HFS deployment。
+Candidate checkout只提供待构建源码；target-native smoke action另从 `github.workflow_sha`
+checkout trusted verifier，aggregate要求精确required-check集合全部 `PASS`，不能信任candidate
+自行生成的summary字段。
+
+正式 archive 名称固定为：
+
+```text
+souwen-server-2.0.0rc2-linux-amd64.tar.gz
+souwen-server-2.0.0rc2-linux-arm64.tar.gz
+souwen-server-2.0.0rc2-macos-arm64.tar.gz
+souwen-server-2.0.0rc2-windows-amd64.zip
+```
+
+Archive 内部统一使用 `souwen-server/` 目录；Windows executable 为
+`souwen-server.exe`，其余平台为 `souwen-server`。同目录包含 `ms-playwright/` 和
+`runtime.source.sha`。这是 Browser Worker运行所需的 deployment unit，不是一个仅改名的旧 CLI
+binary。
+
+默认入口：
+
+```bash
+./souwen-server/souwen-server --host 127.0.0.1 --port 49265
+```
+
+默认入口只接受 target rollout；环境显式指定 `SOUWEN_V2_ROLLOUT=legacy` 时 fail closed。
+Supervisor 在 frozen runtime中用同一个 executable 的隐藏 `--internal-role worker|api` 派生两个
+子进程，并通过仅由 Supervisor设置的内部环境标记限制直接调用。源码/container路径继续使用
+现有 Python module child commands，避免改变 HFS runtime合同。
+Windows bundle同时启用 PyInstaller embedded Python UTF-8 mode；Windows Supervisor把收到的
+`SIGBREAK` 映射为 child process group可接受的 `CTRL_BREAK_EVENT`，再执行有界shutdown。
+
+每个平台必须安装并打包 Playwright Chromium，设置 bundle-local
+`PLAYWRIGHT_BROWSERS_PATH`，解压最终 archive 后运行 target-native smoke。Linux bundle的支持
+基线是构建它的 GitHub-hosted Ubuntu runner ABI；目标主机仍需具备 Chromium运行所需的系统
+libraries。RC2 不把一个不含 browser runtime的裸 executable描述为 self-contained bundle。
+
 ## Docker
 
 ```bash
