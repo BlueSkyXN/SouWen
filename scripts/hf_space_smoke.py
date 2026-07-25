@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import argparse
 import base64
+import hashlib
 import json
 import os
 import re
@@ -36,8 +37,19 @@ REQUIRED_BROWSER_FETCH_PROBE_PATH = "scripts/fixtures/hf-space-browser-probe.htm
 REQUIRED_BUILTIN_FETCH_PROBE_RAW_BASE_URL = "https://raw.githubusercontent.com/BlueSkyXN/SouWen"
 REQUIRED_BUILTIN_FETCH_PROBE_MARKER = "SOUWEN_IMMUTABLE_FETCH_PROBE_V1"
 REQUIRED_BUILTIN_FETCH_MIN_CONTENT_CHARS = 600
-REQUIRED_BROWSER_FETCH_PROBE_BASE_URL = "https://httpbin.org/base64"
+REQUIRED_BROWSER_FETCH_PROBE_BASE_URLS = (
+    "https://httpbin.org/base64",
+    "https://httpbun.com/base64",
+)
+REQUIRED_BROWSER_FETCH_PROBE_BASE_URL = REQUIRED_BROWSER_FETCH_PROBE_BASE_URLS[0]
 REQUIRED_BROWSER_FETCH_PROBE_MARKER = "SOUWEN_BROWSER_RENDERED_V1"
+RETRYABLE_BROWSER_FIXTURE_ERRORS = {
+    "provider_timeout": {504},
+    "provider_unavailable": {502, 503},
+    "rate_limited": {429},
+    "worker_timeout": {504},
+    "worker_unavailable": {502},
+}
 EDITION_RANK = {
     "basic": 0,
     "pro": 1,
@@ -382,7 +394,11 @@ def immutable_builtin_fetch_probe_url(expected_source_sha: str | None) -> str | 
     )
 
 
-def immutable_browser_fetch_probe_url(expected_source_sha: str | None) -> str | None:
+def immutable_browser_fetch_probe_url(
+    expected_source_sha: str | None,
+    *,
+    base_url: str = REQUIRED_BROWSER_FETCH_PROBE_BASE_URL,
+) -> str | None:
     """Build a candidate-bound HTML response whose marker requires JavaScript execution."""
 
     candidate_sha = normalize_expected_source_sha(expected_source_sha)
@@ -392,13 +408,36 @@ def immutable_browser_fetch_probe_url(expected_source_sha: str | None) -> str | 
     if not payload or len(payload) > 63:
         raise ValueError("browser fixture must remain a non-empty low-quality builtin response")
     encoded_payload = quote(base64.b64encode(payload.encode()).decode(), safe="=")
+    rendered_content = expected_browser_fetch_probe_content(candidate_sha)
+    if rendered_content is None:  # pragma: no cover - candidate_sha is normalized above.
+        return None
+    return f"{base_url.rstrip('/')}/{encoded_payload}{rendered_content}"
+
+
+def expected_browser_fetch_probe_content(expected_source_sha: str | None) -> str | None:
+    """Return the exact body text produced by the repo-owned JavaScript fixture."""
+
+    candidate_sha = normalize_expected_source_sha(expected_source_sha)
+    if candidate_sha is None:
+        return None
     query = urlencode(
         {
             "candidate_sha": candidate_sha,
             "marker": REQUIRED_BROWSER_FETCH_PROBE_MARKER,
         }
     )
-    return f"{REQUIRED_BROWSER_FETCH_PROBE_BASE_URL}/{encoded_payload}?{query}"
+    return f"?{query}"
+
+
+def immutable_browser_fetch_probe_urls(expected_source_sha: str | None) -> tuple[str, ...]:
+    """Build redundant candidate-bound probes without weakening rendered-marker checks."""
+
+    return tuple(
+        url
+        for base_url in REQUIRED_BROWSER_FETCH_PROBE_BASE_URLS
+        if (url := immutable_browser_fetch_probe_url(expected_source_sha, base_url=base_url))
+        is not None
+    )
 
 
 def bool_or_none(value: Any) -> bool | None:
@@ -591,7 +630,11 @@ class ApiClient:
             raw = exc.read()
             response_headers = dict(exc.headers.items())
         except (TimeoutError, URLError, OSError) as exc:
-            raise SmokeError(f"{method.upper()} {path} failed: {exc}") from exc
+            reason = getattr(exc, "reason", None)
+            reason_type = type(reason).__name__ if reason is not None else type(exc).__name__
+            raise SmokeError(
+                f"{method.upper()} {path} failed: transport_error={reason_type}"
+            ) from exc
 
         elapsed = time.monotonic() - started
         return status, raw, response_headers, elapsed
@@ -617,9 +660,10 @@ class ApiClient:
         try:
             decoded = json.loads(raw.decode("utf-8"))
         except Exception as exc:  # noqa: BLE001 - report endpoint behavior in CI
-            preview = raw[:240].decode("utf-8", errors="replace")
+            digest = hashlib.sha256(raw).hexdigest()
             raise SmokeError(
-                f"{method.upper()} {path} returned non-JSON status={status} body={preview!r}"
+                f"{method.upper()} {path} returned non-JSON status={status} "
+                f"body_bytes={len(raw)} body_sha256={digest}"
             ) from exc
         if not isinstance(decoded, (dict, list)):
             raise SmokeError(
@@ -816,6 +860,22 @@ def _fetch_detail_with_diagnostic(detail: str, diagnostic: dict[str, Any]) -> st
         if key in diagnostic
     ]
     return f"{detail}, {', '.join(fields)}"
+
+
+def _target_error_diagnostic(data: Any) -> dict[str, Any]:
+    """Extract stable target API error fields without retaining messages or request IDs."""
+
+    if not isinstance(data, dict) or not isinstance(data.get("error"), dict):
+        return {}
+    error = data["error"]
+    diagnostic: dict[str, Any] = {}
+    code = error.get("code")
+    if isinstance(code, str) and re.fullmatch(r"[a-z][a-z0-9_]{0,63}", code):
+        diagnostic["error_code"] = code
+    retryable = error.get("retryable")
+    if isinstance(retryable, bool):
+        diagnostic["retryable"] = retryable
+    return diagnostic
 
 
 def run_basic_checks(client: ApiClient, config: SmokeConfig, state: RunState) -> list[ProbeResult]:
@@ -2836,7 +2896,13 @@ def run_target_m1_checks(client: ApiClient, config: SmokeConfig) -> list[ProbeRe
             )
         )
 
-    def _fetch(name: str, target: str, *, require_browser: bool) -> ProbeResult:
+    def _fetch(
+        name: str,
+        target: str,
+        *,
+        require_browser: bool,
+        fixture_index: int | None = None,
+    ) -> ProbeResult:
         response = client.post(
             "/api/v1/fetch",
             body={"targets": [target]},
@@ -2854,11 +2920,11 @@ def run_target_m1_checks(client: ApiClient, config: SmokeConfig) -> list[ProbeRe
             for entry in provenance
         )
         content = item.get("content")
-        marker_ok = isinstance(content, str) and (
-            REQUIRED_BROWSER_FETCH_PROBE_MARKER in content and config.expected_source_sha in content
-            if require_browser and config.expected_source_sha is not None
-            else REQUIRED_BUILTIN_FETCH_PROBE_MARKER in content
-        )
+        if require_browser:
+            expected_content = expected_browser_fetch_probe_content(config.expected_source_sha)
+            marker_ok = isinstance(content, str) and content == expected_content
+        else:
+            marker_ok = isinstance(content, str) and REQUIRED_BUILTIN_FETCH_PROBE_MARKER in content
         ok = (
             response.status == 200
             and item.get("status") == "success"
@@ -2870,15 +2936,91 @@ def run_target_m1_checks(client: ApiClient, config: SmokeConfig) -> list[ProbeRe
             f"provenance_count={len(provenance)}, browser_attempt={browser_attempt}, "
             f"content_chars={len(content) if isinstance(content, str) else 0}"
         )
+        diagnostic = _target_error_diagnostic(response.data)
+        if diagnostic:
+            detail = f"{detail}, " + ", ".join(
+                f"{key}={value!r}" for key, value in diagnostic.items()
+            )
+        meta: dict[str, Any] = {"status": response.status}
+        if fixture_index is not None:
+            meta["fixture"] = fixture_index
+        meta.update(diagnostic)
         return (
-            pass_result("target-m1", name, detail, required=True, elapsed=response.elapsed)
+            pass_result(
+                "target-m1",
+                name,
+                detail,
+                required=True,
+                elapsed=response.elapsed,
+                meta=meta,
+            )
             if ok
-            else fail_result("target-m1", name, detail, required=True, elapsed=response.elapsed)
+            else fail_result(
+                "target-m1",
+                name,
+                detail,
+                required=True,
+                elapsed=response.elapsed,
+                meta=meta,
+            )
+        )
+
+    def _browser_fetch() -> ProbeResult:
+        attempts: list[dict[str, Any]] = []
+        elapsed = 0.0
+        for fixture_index, target in enumerate(browser_urls, start=1):
+            result = _fetch(
+                "browser-fetch",
+                target,
+                require_browser=True,
+                fixture_index=fixture_index,
+            )
+            elapsed += result.elapsed or 0.0
+            attempts.append(
+                {
+                    "fixture": fixture_index,
+                    "outcome": result.outcome,
+                    **result.meta,
+                }
+            )
+            if result.outcome == "pass":
+                prior_failures = sum(attempt["outcome"] != "pass" for attempt in attempts[:-1])
+                return pass_result(
+                    "target-m1",
+                    "browser-fetch",
+                    f"fixture={fixture_index}, prior_failures={prior_failures}, {result.detail}",
+                    required=True,
+                    elapsed=elapsed,
+                    meta={"fixture_attempts": attempts},
+                )
+            retryable_fixture_failure = result.meta.get("retryable") is True and result.meta.get(
+                "status"
+            ) in RETRYABLE_BROWSER_FIXTURE_ERRORS.get(
+                result.meta.get("error_code"),
+                set(),
+            )
+            if not retryable_fixture_failure:
+                break
+        summary = "; ".join(
+            "fixture={fixture}, status={status}, error_code={error_code!r}".format(
+                fixture=attempt["fixture"],
+                status=attempt.get("status"),
+                error_code=attempt.get("error_code"),
+            )
+            for attempt in attempts
+        )
+        return fail_result(
+            "target-m1",
+            "browser-fetch",
+            f"candidate-bound browser fixture validation failed: {summary}",
+            required=True,
+            elapsed=elapsed,
+            meta={"fixture_attempts": attempts},
         )
 
     builtin_url = immutable_builtin_fetch_probe_url(config.expected_source_sha)
-    browser_url = immutable_browser_fetch_probe_url(config.expected_source_sha)
-    if builtin_url is None or browser_url is None:
+    browser_urls = immutable_browser_fetch_probe_urls(config.expected_source_sha)
+    if builtin_url is None or not browser_urls:
         return [
             fail_result(
                 "target-m1",
@@ -2901,7 +3043,7 @@ def run_target_m1_checks(client: ApiClient, config: SmokeConfig) -> list[ProbeRe
         safe_call(
             "target-m1",
             "browser-fetch",
-            lambda: _fetch("browser-fetch", browser_url, require_browser=True),
+            _browser_fetch,
             required=True,
         )
     )

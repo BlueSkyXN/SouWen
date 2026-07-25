@@ -107,6 +107,62 @@ def test_private_space_uses_separate_outer_and_application_auth_headers(monkeypa
     assert captured["timeout"] == 3
 
 
+def test_api_client_non_json_error_records_only_length_and_digest(monkeypatch):
+    raw = b"Authorization: secret at https://private.invalid/request-id"
+
+    class FakeResponse:
+        status = 502
+        headers = SimpleNamespace(items=lambda: [])
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return False
+
+        def read(self):
+            return raw
+
+    monkeypatch.setattr(smoke, "urlopen", lambda *_args, **_kwargs: FakeResponse())
+    client = smoke.ApiClient(
+        smoke.SmokeConfig(
+            base_url="https://private-space.example",
+            expected_version="2.0.0rc2",
+            request_timeout=3,
+        )
+    )
+
+    with pytest.raises(smoke.SmokeError) as caught:
+        client.request("POST", "/api/v1/fetch", body={"targets": ["https://example.test"]})
+
+    message = str(caught.value)
+    assert "status=502" in message
+    assert f"body_bytes={len(raw)}" in message
+    assert "body_sha256=" in message
+    assert "Authorization" not in message
+    assert "private.invalid" not in message
+    assert "request-id" not in message
+
+
+def test_api_client_transport_error_does_not_record_raw_exception(monkeypatch):
+    def fail_urlopen(*_args, **_kwargs):
+        raise OSError("token=secret https://private.invalid/request-id")
+
+    monkeypatch.setattr(smoke, "urlopen", fail_urlopen)
+    client = smoke.ApiClient(
+        smoke.SmokeConfig(
+            base_url="https://private-space.example",
+            expected_version="2.0.0rc2",
+            request_timeout=3,
+        )
+    )
+
+    with pytest.raises(smoke.SmokeError) as caught:
+        client.request("POST", "/api/v1/fetch", body={"targets": ["https://example.test"]})
+
+    assert str(caught.value) == "POST /api/v1/fetch failed: transport_error=OSError"
+
+
 def test_builtin_fetch_failure_records_sanitized_item_diagnostic():
     class FakeFetchClient:
         def post(self, _path, **_kwargs):
@@ -481,6 +537,7 @@ def test_target_m1_requires_wrapper_worker_and_three_vertical_capabilities(monke
         "candidate_sha": [source_sha],
         "marker": [smoke.REQUIRED_BROWSER_FETCH_PROBE_MARKER],
     }
+    assert f"?{parsed_browser_url.query}" == smoke.expected_browser_fetch_probe_content(source_sha)
 
     class TargetClient(FakeSmokeClient):
         def __init__(self):
@@ -525,10 +582,7 @@ def test_target_m1_requires_wrapper_worker_and_three_vertical_capabilities(monke
                 provenance = [{"provider": "builtin-fetch", "attempt": 1}]
             else:
                 assert target == browser_url
-                content = (
-                    f"?candidate_sha={source_sha}"
-                    f"&marker={smoke.REQUIRED_BROWSER_FETCH_PROBE_MARKER}"
-                )
+                content = smoke.expected_browser_fetch_probe_content(source_sha)
                 provenance = [
                     {"provider": "builtin-fetch", "attempt": 1, "outcome": "success"},
                     {"provider": "builtin-fetch", "attempt": 2, "outcome": "success"},
@@ -569,19 +623,35 @@ def test_target_m1_requires_wrapper_worker_and_three_vertical_capabilities(monke
     assert smoke.required_failures(results) == []
 
 
-def test_target_m1_browser_attempt_without_rendered_candidate_marker_fails():
+@pytest.mark.parametrize("invalid_kind", ["fixture-script", "wrapped-query", "url-echo"])
+def test_target_m1_browser_exact_rendered_proof_failure_is_not_hidden_by_secondary(
+    invalid_kind,
+):
     source_sha = "a" * 40
+    browser_urls = smoke.immutable_browser_fetch_probe_urls(source_sha)
+    expected_content = smoke.expected_browser_fetch_probe_content(source_sha)
+    assert expected_content is not None
+    browser_calls: list[str] = []
 
     class FalsePositiveClient:
         def post(self, path, *, body=None, **_kwargs):
             if path == "/api/v1/search":
                 return smoke.ResponseData(200, {"items": [{"id": "W1"}]}, 0.1)
             target = body["targets"][0]
-            content = (
-                smoke.REQUIRED_BUILTIN_FETCH_PROBE_MARKER + " evidence" * 80
-                if target == smoke.immutable_builtin_fetch_probe_url(source_sha)
-                else Path(smoke.REQUIRED_BROWSER_FETCH_PROBE_PATH).read_text(encoding="utf-8")
-            )
+            if target == smoke.immutable_builtin_fetch_probe_url(source_sha):
+                content = smoke.REQUIRED_BUILTIN_FETCH_PROBE_MARKER + " evidence" * 80
+            else:
+                browser_calls.append(target)
+                if target == browser_urls[1]:
+                    content = expected_content
+                elif invalid_kind == "fixture-script":
+                    content = Path(smoke.REQUIRED_BROWSER_FETCH_PROBE_PATH).read_text(
+                        encoding="utf-8"
+                    )
+                elif invalid_kind == "wrapped-query":
+                    content = f"prefix{expected_content}suffix"
+                else:
+                    content = browser_urls[0]
             return smoke.ResponseData(
                 200,
                 {
@@ -613,6 +683,220 @@ def test_target_m1_browser_attempt_without_rendered_candidate_marker_fails():
     results = smoke.run_target_m1_checks(FalsePositiveClient(), config)  # type: ignore[arg-type]
 
     assert {item.name: item.outcome for item in results}["browser-fetch"] == "fail"
+    assert browser_calls == [browser_urls[0]]
+
+
+def test_target_m1_browser_probe_uses_secondary_fixture_after_safe_primary_failure():
+    source_sha = "a" * 40
+    browser_urls = smoke.immutable_browser_fetch_probe_urls(source_sha)
+    assert len(browser_urls) == 2
+    browser_calls: list[str] = []
+
+    class RedundantFixtureClient:
+        def post(self, path, *, body=None, **_kwargs):
+            if path == "/api/v1/search":
+                return smoke.ResponseData(200, {"items": [{"id": "W1"}]}, 0.1)
+            target = body["targets"][0]
+            if target == smoke.immutable_builtin_fetch_probe_url(source_sha):
+                return smoke.ResponseData(
+                    200,
+                    {
+                        "items": [
+                            {
+                                "status": "success",
+                                "content": smoke.REQUIRED_BUILTIN_FETCH_PROBE_MARKER
+                                + " evidence" * 80,
+                                "provenance": [
+                                    {
+                                        "provider": "builtin-fetch",
+                                        "attempt": 1,
+                                        "outcome": "success",
+                                    }
+                                ],
+                            }
+                        ]
+                    },
+                    0.1,
+                )
+            browser_calls.append(target)
+            if target == browser_urls[0]:
+                return smoke.ResponseData(
+                    502,
+                    {
+                        "error": {
+                            "code": "worker_unavailable",
+                            "message": "Authorization: secret at https://private.invalid",
+                            "retryable": True,
+                            "request_id": "private-request-id",
+                        }
+                    },
+                    0.1,
+                )
+            assert target == browser_urls[1]
+            return smoke.ResponseData(
+                200,
+                {
+                    "items": [
+                        {
+                            "status": "success",
+                            "content": smoke.expected_browser_fetch_probe_content(source_sha),
+                            "provenance": [
+                                {
+                                    "provider": "builtin-fetch",
+                                    "attempt": 1,
+                                    "outcome": "success",
+                                },
+                                {
+                                    "provider": "builtin-fetch",
+                                    "attempt": 2,
+                                    "outcome": "success",
+                                },
+                            ],
+                        }
+                    ]
+                },
+                0.1,
+            )
+
+    config = smoke.SmokeConfig(
+        base_url="https://example.test",
+        expected_version="2.0.0rc2",
+        expected_source_sha=source_sha,
+        require_target_runtime=True,
+        request_timeout=1,
+    )
+
+    results = smoke.run_target_m1_checks(RedundantFixtureClient(), config)  # type: ignore[arg-type]
+    browser = {item.name: item for item in results}["browser-fetch"]
+
+    assert browser.outcome == "pass"
+    assert browser_calls == list(browser_urls)
+    assert "fixture=2" in browser.detail
+    assert "prior_failures=1" in browser.detail
+    assert browser.meta == {
+        "fixture_attempts": [
+            {
+                "fixture": 1,
+                "outcome": "fail",
+                "status": 502,
+                "error_code": "worker_unavailable",
+                "retryable": True,
+            },
+            {"fixture": 2, "outcome": "pass", "status": 200},
+        ]
+    }
+    serialized = json.dumps({"detail": browser.detail, "meta": browser.meta})
+    assert "private.invalid" not in serialized
+    assert "private-request-id" not in serialized
+    assert "Authorization" not in serialized
+
+
+def test_target_m1_browser_probe_reports_all_fixture_error_codes_without_raw_detail():
+    source_sha = "a" * 40
+    browser_urls = smoke.immutable_browser_fetch_probe_urls(source_sha)
+
+    class FailedFixtureClient:
+        def post(self, path, *, body=None, **_kwargs):
+            if path == "/api/v1/search":
+                return smoke.ResponseData(200, {"items": [{"id": "W1"}]}, 0.1)
+            target = body["targets"][0]
+            if target == smoke.immutable_builtin_fetch_probe_url(source_sha):
+                content = smoke.REQUIRED_BUILTIN_FETCH_PROBE_MARKER + " evidence" * 80
+                return smoke.ResponseData(
+                    200,
+                    {"items": [{"status": "success", "content": content, "provenance": []}]},
+                    0.1,
+                )
+            assert target in browser_urls
+            code = "worker_unavailable" if target == browser_urls[0] else "provider_timeout"
+            return smoke.ResponseData(
+                502 if code == "worker_unavailable" else 504,
+                {
+                    "error": {
+                        "code": code,
+                        "message": "secret raw detail",
+                        "retryable": True,
+                    }
+                },
+                0.1,
+            )
+
+    config = smoke.SmokeConfig(
+        base_url="https://example.test",
+        expected_version="2.0.0rc2",
+        expected_source_sha=source_sha,
+        require_target_runtime=True,
+        request_timeout=1,
+    )
+
+    results = smoke.run_target_m1_checks(FailedFixtureClient(), config)  # type: ignore[arg-type]
+    browser = {item.name: item for item in results}["browser-fetch"]
+
+    assert browser.outcome == "fail"
+    assert "fixture=1, status=502, error_code='worker_unavailable'" in browser.detail
+    assert "fixture=2, status=504, error_code='provider_timeout'" in browser.detail
+    assert "secret raw detail" not in browser.detail
+
+
+@pytest.mark.parametrize(
+    ("error", "expected_code"),
+    [
+        (
+            {
+                "code": "worker_protocol_mismatch",
+                "message": "must not be copied into evidence",
+                "retryable": False,
+            },
+            "worker_protocol_mismatch",
+        ),
+        ({"code": "worker_unavailable", "message": "missing retryability"}, "worker_unavailable"),
+        ({"code": "INVALID-CODE", "message": "invalid code", "retryable": True}, None),
+    ],
+)
+def test_target_m1_browser_probe_does_not_hide_nonretryable_contract_failure(
+    error,
+    expected_code,
+):
+    source_sha = "a" * 40
+    browser_urls = smoke.immutable_browser_fetch_probe_urls(source_sha)
+    browser_calls: list[str] = []
+
+    class ContractFailureClient:
+        def post(self, path, *, body=None, **_kwargs):
+            if path == "/api/v1/search":
+                return smoke.ResponseData(200, {"items": [{"id": "W1"}]}, 0.1)
+            target = body["targets"][0]
+            if target == smoke.immutable_builtin_fetch_probe_url(source_sha):
+                content = smoke.REQUIRED_BUILTIN_FETCH_PROBE_MARKER + " evidence" * 80
+                return smoke.ResponseData(
+                    200,
+                    {"items": [{"status": "success", "content": content, "provenance": []}]},
+                    0.1,
+                )
+            browser_calls.append(target)
+            return smoke.ResponseData(
+                409,
+                {"error": error},
+                0.1,
+            )
+
+    config = smoke.SmokeConfig(
+        base_url="https://example.test",
+        expected_version="2.0.0rc2",
+        expected_source_sha=source_sha,
+        require_target_runtime=True,
+        request_timeout=1,
+    )
+
+    results = smoke.run_target_m1_checks(ContractFailureClient(), config)  # type: ignore[arg-type]
+    browser = {item.name: item for item in results}["browser-fetch"]
+
+    assert browser.outcome == "fail"
+    assert browser_calls == [browser_urls[0]]
+    assert browser.meta["fixture_attempts"][0].get("error_code") == expected_code
+    assert "must not be copied" not in browser.detail
+    assert "missing retryability" not in browser.detail
+    assert "invalid code" not in browser.detail
 
 
 def test_target_m1_readiness_fails_when_worker_or_wrapper_provenance_drifts():
