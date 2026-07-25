@@ -765,6 +765,8 @@ def test_release_bundle_has_four_servers_openapi_supply_chain_assets_and_attesta
     assert "if len(actual) != 4:" in text
     assert "expected exactly four Server bundles" in text
     assert "souwen-openapi-2.0.0rc2.json" in text
+    assert "Install built candidate for OpenAPI materialization" in text
+    assert 'python -m pip install "${wheel}[server]"' in text
     assert "immutable OpenAPI checksum differs from Server bundle smoke" in text
     assert "release assets contain retired binary artifacts" in text
     assert "python-sbom.cdx.json" in text
