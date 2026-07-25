@@ -196,6 +196,43 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
+  provider_v2_conformance:
+    name: v2 Provider v2 conformance
+    needs: bootstrap
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      PYTHONPATH: src
+      SOUWEN_PLUGIN_AUTOLOAD: "0"
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha || github.sha }}
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install deterministic test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev,edition-pro]"
+
+      - name: Run Provider v2 conformance
+        run: |
+          pytest \
+            tests/test_provider_spi.py \
+            tests/test_manifest_registry_v2.py \
+            tests/test_provider_manager_v2.py \
+            tests/test_openalex_provider_v2.py \
+            tests/test_openalex_search_vertical_v2.py \
+            tests/test_builtin_fetch_provider_v2.py \
+            tests/test_uniapi_ark_provider_v2.py \
+            tests/test_paper/test_eric.py \
+            tests/test_eric_provider_v2.py \
+            -q
+
   server_profile:
     name: v2 pro-cli + basic-cli profile
     needs: bootstrap
@@ -360,7 +397,14 @@ jobs:
 
   release_readiness_summary:
     name: V2 CI / v2 release readiness summary
-    needs: [bootstrap, matrix_tests, server_profile, full_profile, plugin_profile, panel_build]
+    needs:
+      - bootstrap
+      - matrix_tests
+      - provider_v2_conformance
+      - server_profile
+      - full_profile
+      - plugin_profile
+      - panel_build
     if: ${{ always() }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -369,6 +413,7 @@ jobs:
         env:
           BOOTSTRAP_RESULT: ${{ needs.bootstrap.result }}
           MATRIX_RESULT: ${{ needs.matrix_tests.result }}
+          PROVIDER_V2_RESULT: ${{ needs.provider_v2_conformance.result }}
           SERVER_RESULT: ${{ needs.server_profile.result }}
           FULL_RESULT: ${{ needs.full_profile.result }}
           PLUGIN_RESULT: ${{ needs.plugin_profile.result }}
@@ -381,6 +426,7 @@ jobs:
           |---|---|---|
           | Bootstrap / import / wheel surface | $BOOTSTRAP_RESULT | v2 import surface, docs, registry baseline |
           | Full pytest matrix | $MATRIX_RESULT | Python 3.10-3.13 on Ubuntu, plus macOS/Windows 3.11 |
+          | Provider v2 conformance | $PROVIDER_V2_RESULT | deterministic SPI, manifest, manager, OpenAlex, builtin Fetch, UniAPI, and ERIC contracts |
           | pro-cli + basic-cli profile | $SERVER_RESULT | local API surface and CLI smoke |
           | full-cli runtime profile | $FULL_RESULT | edition-full source, doctor, plugin, fetch handler, and feature matrix surface |
           | Plugin profile | $PLUGIN_RESULT | example plugin install, contract tests, entry point discovery |
@@ -391,7 +437,7 @@ jobs:
           before cutting a release candidate tag.
           EOF
 
-          for result in "$BOOTSTRAP_RESULT" "$MATRIX_RESULT" "$SERVER_RESULT" "$FULL_RESULT" "$PLUGIN_RESULT" "$PANEL_RESULT"; do
+          for result in "$BOOTSTRAP_RESULT" "$MATRIX_RESULT" "$PROVIDER_V2_RESULT" "$SERVER_RESULT" "$FULL_RESULT" "$PLUGIN_RESULT" "$PANEL_RESULT"; do
             if [ "$result" != "success" ]; then
               echo "V2 release readiness gate failed: $result" >&2
               exit 1

@@ -8,6 +8,7 @@ from typing import Any
 
 from souwen import __version__
 from souwen.common_runtime.observability import get_request_id, get_source_sha
+from souwen.common_runtime.transport import HttpTransport
 from souwen.config import SouWenConfig
 from souwen.delivery.api import (
     ProviderCatalogItem,
@@ -24,6 +25,7 @@ from souwen.modules.search.application import (
     OrderedSearchProviderSelector,
     SearchProviderSelection,
 )
+from souwen.paper.eric import EricClient
 from souwen.paper.openalex import OpenAlexClient
 from souwen.platform.provider_manager import ProviderManager
 from souwen.platform.provider_spi import (
@@ -39,6 +41,7 @@ from souwen.providers.information_sources.openalex import (
     OPENALEX_PROVIDER_MANIFEST,
     OpenAlexSearchProvider,
 )
+from souwen.providers.information_sources.eric import ERIC_PROVIDER_MANIFEST, EricSearchProvider
 from souwen.providers.llm_sources.uniapi_ark_annotations import (
     UNIAPI_ARK_MANIFESTS,
     UniApiArkAnnotationsDeepSeekProvider,
@@ -101,6 +104,17 @@ def _configuration_resolver(config: SouWenConfig):
             if not config.is_source_enabled("openalex", default=True):
                 raise ValueError("provider is disabled")
             return {"enabled": True}
+        if manifest.id == "eric":
+            if not config.is_source_enabled("eric", default=True):
+                raise ValueError("provider is disabled")
+            source = config.get_source_config("eric")
+            configuration = {
+                "enabled": True,
+                "max_retries": config.max_retries,
+                "timeout_seconds": source.timeout or config.timeout,
+            }
+            _validate_eric_configuration(configuration)
+            return configuration
         if manifest.id == "builtin-fetch":
             if not config.is_source_enabled("builtin-fetch", default=True):
                 raise ValueError("provider is disabled")
@@ -148,6 +162,38 @@ def _browser_client() -> BrowserWorkerClient | None:
     )
 
 
+def _validate_eric_configuration(configuration) -> None:
+    """Validate ERIC transport options during Provider Manager preflight."""
+    timeout = configuration.get("timeout_seconds")
+    max_retries = configuration.get("max_retries")
+    if (
+        not isinstance(timeout, (int, float))
+        or isinstance(timeout, bool)
+        or not 0 < timeout <= 120
+        or not isinstance(max_retries, int)
+        or isinstance(max_retries, bool)
+        or not 0 <= max_retries <= 10
+    ):
+        raise ValueError("invalid ERIC transport configuration")
+
+
+def _build_eric_provider(configuration, _secrets) -> EricSearchProvider:
+    """Build ERIC only from the Provider Manager's resolved namespace."""
+    _validate_eric_configuration(configuration)
+    transport = HttpTransport(
+        base_url="https://api.ies.ed.gov",
+        headers={"User-Agent": f"SouWen/{__version__}"},
+        timeout=configuration["timeout_seconds"],
+        max_retries=configuration["max_retries"],
+        proxy=None,
+        follow_redirects=False,
+    )
+    return EricSearchProvider(
+        EricClient(transport=transport),
+        enabled=configuration["enabled"],
+    )
+
+
 def _catalog_items(
     config: SouWenConfig,
     manager: ProviderManager,
@@ -161,6 +207,12 @@ def _catalog_items(
             "openalex-search",
             "search",
             config.is_source_enabled("openalex", default=True),
+        ),
+        (
+            "eric",
+            "eric-search",
+            "search",
+            config.is_source_enabled("eric", default=True),
         ),
         (
             "builtin-fetch",
@@ -228,6 +280,12 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
         provider_type=OpenAlexSearchProvider,
     )
     manager.register_factory(
+        package_id="eric",
+        export="EricSearchProvider",
+        factory=_build_eric_provider,
+        provider_type=EricSearchProvider,
+    )
+    manager.register_factory(
         package_id="builtin-fetch",
         export="BuiltinFetchProvider",
         factory=lambda configuration, _secrets: BuiltinFetchProvider(
@@ -251,6 +309,7 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
     manager.discover(
         (
             OPENALEX_PROVIDER_MANIFEST,
+            ERIC_PROVIDER_MANIFEST,
             BUILTIN_FETCH_MANIFEST,
             *UNIAPI_ARK_MANIFESTS,
         )
@@ -265,6 +324,11 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
                         provider=ProviderRef(id="openalex", kind="search"),
                         adapter_id="openalex-search",
                         yaml_priority=1,
+                    ),
+                    SearchProviderSelection(
+                        provider=ProviderRef(id="eric", kind="search"),
+                        adapter_id="eric-search",
+                        yaml_priority=2,
                     ),
                 )
             }

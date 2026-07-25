@@ -71,6 +71,7 @@ Public docs 不要求读者理解历史路径；需要保留背景材料时，�
 | [internal/zero-key-benchmark.md](./internal/zero-key-benchmark.md) | 无 API Key 场景的时间点实测报告 |
 | [internal/spec-01-external-api-canonical-dto.md](./internal/spec-01-external-api-canonical-dto.md) | Proposed External API、Canonical DTO 与 current-to-target mapping |
 | [internal/spec-05-provider-spi-manifest-conformance.md](./internal/spec-05-provider-spi-manifest-conformance.md) | Proposed Provider SPI、Manifest 与 Conformance contract |
+| [internal/provider-migrations/eric-current-to-target.md](./internal/provider-migrations/eric-current-to-target.md) | ERIC Provider v2 的 current-to-target 字段边界、共存与 rollback 记录 |
 | [internal/spec-08-directory-dependency.md](./internal/spec-08-directory-dependency.md) | Proposed target directory、dependency rules 与 migration gate |
 | [internal/phase1/current-api-golden-fixtures.md](./internal/phase1/current-api-golden-fixtures.md) | Phase 1B current-only API behavior 与 language-neutral fixture 说明 |
 | [internal/phase1/provider-directory-current-behavior.md](./internal/phase1/provider-directory-current-behavior.md) | Phase 1B current-only Provider、config 与 directory dependency 事实基线 |

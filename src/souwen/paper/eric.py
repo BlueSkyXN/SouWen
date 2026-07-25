@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from souwen.common_runtime.transport import HttpTransport
 from souwen.core.exceptions import ParseError
 from souwen.core.http_client import SouWenHttpClient
 from souwen.models import Author, PaperResult, SearchResponse
@@ -21,8 +22,10 @@ _FULLTEXT_URL = "https://files.eric.ed.gov/fulltext/"
 class EricClient:
     """Search the official ERIC education-research metadata API without credentials."""
 
-    def __init__(self) -> None:
-        self._client = SouWenHttpClient(base_url=_BASE_URL, source_name="eric")
+    def __init__(self, transport: HttpTransport | None = None) -> None:
+        # Legacy callers retain source-channel config resolution. Provider v2
+        # injects an explicit Common Runtime transport from its resolved namespace.
+        self._client = transport or SouWenHttpClient(base_url=_BASE_URL, source_name="eric")
 
     async def __aenter__(self) -> EricClient:
         await self._client.__aenter__()
@@ -35,6 +38,10 @@ class EricClient:
         exc_tb: Any,
     ) -> None:
         await self._client.__aexit__(exc_type, exc_val, exc_tb)
+
+    async def close(self) -> None:
+        """Close the owned transport through a public lifecycle operation."""
+        await self._client.close()
 
     @staticmethod
     def _as_strings(value: object) -> list[str]:
