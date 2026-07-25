@@ -56,10 +56,12 @@ gh workflow run release-candidate.yml \
 `deploy_hfs=true` 且 live promotion 已通过。
 
 `build-pyinstaller-server.yml` 是 central release 的唯一 active binary builder；它只上传
-workflow artifacts，不创建 Release。旧 `build-pyinstaller.yml` 与 `build-nuitka.yml` 暂时仅作为
-rollback residue 保留，不被 RC2 central release 调用，也不得出现在 RC2 manifest 或 Release
-assets。Tag 与 prerelease 只能由 central workflow 的 publish job 创建。当前 central workflow
-仍会拒绝 `publish=true`；Phase 8 完成旧 CLI/Nuitka/compatibility residue audit 后才能解除该保护。
+workflow artifacts，不创建 Release。旧 `build-pyinstaller.yml` 与 `build-nuitka.yml`（24 个
+CLI/Nuitka binary 合同）已随 CI 分档改造删除；central workflow 的 manifest 继续 fail-closed
+拒绝 `souwen-linux-*`、`souwen-macos-*`、`souwen-windows-*`、`souwen-nuitka-*` 等旧 artifact
+前缀，旧 binary 不得出现在 RC2 manifest 或 Release assets。Tag 与 prerelease 只能由 central
+workflow 的 publish job 创建。当前 central workflow 仍会拒绝 `publish=true`；Phase 8 完成旧
+CLI/Nuitka/compatibility residue audit 后才能解除该保护。
 
 ## RC2 PyInstaller Server bundle
 

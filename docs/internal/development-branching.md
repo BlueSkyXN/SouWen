@@ -73,6 +73,15 @@ The v2 mergeback was staged through these historical implementation slices:
 `CI` remains the broad default gate for `main`. `V2 CI` is retained as the
 dedicated v2 public-surface gate and runs on `main`.
 
+Since 2026-07-26 both workflows run in two lanes (owner-approved CI slimming):
+
+- fast lane (ordinary PRs and `main` pushes): `CI` runs architecture, lint,
+  docs-check, a single pytest combo (Python 3.13 on `ubuntu-24.04`), and
+  panel-build; `V2 CI` runs bootstrap plus Provider v2 conformance.
+- full lane (release `workflow_call`, manual `workflow_dispatch`, and `v*`
+  tag pushes): the complete matrix and every gate below. Release evidence and
+  tag acceptance are unaffected by the fast lane.
+
 `V2 CI` must cover:
 
 - bootstrap/import/wheel surface gate: registry/docs tests, generated docs
