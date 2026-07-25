@@ -35,6 +35,7 @@ class ReadinessSnapshot:
     ready: bool
     components: dict[str, str]
     error: str | None = None
+    worker_source_sha: str | None = None
 
 
 class ReadinessCheck(Protocol):
@@ -47,6 +48,7 @@ class RuntimeMetadata:
     source_sha: str | None
     rollout_mode: RolloutMode
     config_revision: str | None = None
+    wrapper_sha: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -173,6 +175,7 @@ def create_probe_router(
             source_sha=metadata.source_sha or get_source_sha(),
             rollout_mode=metadata.rollout_mode,
             config_revision=metadata.config_revision,
+            wrapper_sha=metadata.wrapper_sha,
             components={"api": "ready"},
             context=_context(),
         )
@@ -199,6 +202,8 @@ def create_probe_router(
             source_sha=metadata.source_sha or get_source_sha(),
             rollout_mode=metadata.rollout_mode,
             config_revision=metadata.config_revision,
+            wrapper_sha=metadata.wrapper_sha,
+            worker_source_sha=snapshot.worker_source_sha,
             components=snapshot.components,
             error=snapshot.error,
             context=_context(),

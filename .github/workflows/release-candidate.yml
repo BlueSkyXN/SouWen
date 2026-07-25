@@ -764,6 +764,46 @@ jobs:
                   f'deployment evidence is missing required reports: {missing_reports}'
               )
 
+          surface_report_path = evidence_root / 'hfs' / 'hf-space-cd-surface-report.json'
+          capability_report_path = evidence_root / 'hfs' / 'hf-space-cd-capability-report.json'
+          surface_report = json.loads(surface_report_path.read_text(encoding='utf-8'))
+          capability_report = json.loads(capability_report_path.read_text(encoding='utf-8'))
+          if surface_report.get('overall') != 'PASS':
+              raise SystemExit('deployment surface report did not pass')
+          required_m1_checks = {
+              'basic/health',
+              'basic/readiness',
+              'target-m1/openalex-search',
+              'target-m1/builtin-fetch',
+              'target-m1/browser-fetch',
+          }
+          observed_checks = {
+              str(item.get('name')): str(item.get('outcome'))
+              for item in capability_report.get('checks', [])
+              if isinstance(item, dict)
+          }
+          failed_m1_checks = {
+              name: observed_checks.get(name, 'MISSING')
+              for name in sorted(required_m1_checks)
+              if observed_checks.get(name) != 'PASS'
+          }
+          if capability_report.get('overall') != 'PASS' or failed_m1_checks:
+              raise SystemExit(
+                  'deployment evidence is missing successful target M1 checks: '
+                  f'{failed_m1_checks}'
+              )
+          for report_name, report in (
+              ('surface', surface_report),
+              ('capability', capability_report),
+          ):
+              environment = report.get('environment', {})
+              if environment.get('require_target_runtime') is not True:
+                  raise SystemExit(f'{report_name} report did not require target runtime')
+              if environment.get('expected_source_sha') != os.environ['CANDIDATE_SHA']:
+                  raise SystemExit(f'{report_name} report candidate SHA mismatch')
+              if environment.get('expected_wrapper_sha') != os.environ['HFS_SPACE_COMMIT_SHA']:
+                  raise SystemExit(f'{report_name} report wrapper SHA mismatch')
+
           evidence_files = []
           binary_prefixes = (
               'souwen-linux-',
@@ -866,6 +906,18 @@ jobs:
               ]
               + [
                   {
+                      'id': 'hfs_target_m1',
+                      'status': 'PASS',
+                      'required': True,
+                      'run_urls': [run_url],
+                      'evidence': [
+                          'hf-space-cd-surface-report.json',
+                          'hf-space-cd-capability-report.json',
+                      ],
+                  }
+              ]
+              + [
+                  {
                       'id': job_id,
                       'status': 'NOT_RUN',
                       'required': False,
@@ -904,6 +956,8 @@ jobs:
                   'repo_sha': hfs_space_sha,
                   'runtime_sha': hfs_space_sha,
                   'source_sha': os.environ['CANDIDATE_SHA'],
+                  'wrapper_sha': hfs_space_sha,
+                  'rollout_mode': 'target',
                   'promotion_changed': hfs_promotion_changed == 'true',
                   'prior_repo_sha': hfs_prior_space_sha,
                   'prior_runtime_sha': hfs_prior_runtime_sha,

@@ -285,9 +285,10 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
         providers_ready = required_adapters.issubset(eligible)
         browser_ready = browser_client is None
         browser_status = "disabled"
+        worker_source_sha = None
         if browser_client is not None:
             try:
-                await browser_client.readiness(
+                worker_receipt = await browser_client.readiness(
                     RequestContext(request_id=get_request_id()),
                     ExecutionContext.with_timeout(2),
                 )
@@ -296,6 +297,7 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
             else:
                 browser_ready = True
                 browser_status = "ready"
+                worker_source_sha = worker_receipt.evidence.source_sha
         ready = providers_ready and browser_ready
         components = {
             "api": "ready",
@@ -310,6 +312,7 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
             ready=ready,
             components=components,
             error=None if ready else "required target runtime component is not ready",
+            worker_source_sha=worker_source_sha,
         )
 
     metadata = RuntimeMetadata(
@@ -317,6 +320,7 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
         source_sha=get_source_sha(),
         rollout_mode=RolloutMode.TARGET,
         config_revision=os.environ.get("SOUWEN_CONFIG_REVISION", "").strip() or None,
+        wrapper_sha=os.environ.get("SOUWEN_WRAPPER_SHA", "").strip() or None,
     )
     services = TargetDeliveryServices(
         search=search,

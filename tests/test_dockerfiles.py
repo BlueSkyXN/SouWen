@@ -107,3 +107,16 @@ def test_modelscope_runtime_bin_defaults_to_persistent_data_path():
     assert "WARP_DATA_DIR=/home/user/app/data" in dockerfile
     assert "WARP_RUNTIME_BIN_DIR=/home/user/app/data/bin" in dockerfile
     assert 'os.environ.get("WARP_RUNTIME_BIN_DIR"' in runtime
+
+
+def test_hfs_target_image_runs_supervisor_with_internal_browser_worker():
+    dockerfile = Path("cloud/hfs/Dockerfile").read_text(encoding="utf-8")
+    entrypoint = Path("cloud/hfs/entrypoint.sh").read_text(encoding="utf-8")
+
+    assert "SOUWEN_V2_ROLLOUT=target" in dockerfile
+    assert 'pip install ".[edition-pro]" "playwright>=1.40";' in dockerfile
+    assert "RUN playwright install chromium" in dockerfile
+    assert dockerfile.count("EXPOSE 49265") == 1
+    assert "EXPOSE 49266" not in dockerfile
+    assert "exec python /app/deploy/process/supervisor.py" in entrypoint
+    assert "exec uvicorn" not in entrypoint

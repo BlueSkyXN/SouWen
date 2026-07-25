@@ -9,15 +9,17 @@ Space factory rebuild request.
 from __future__ import annotations
 
 import argparse
+import base64
 import json
 import os
 import re
 import sys
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 from urllib.error import HTTPError, URLError
-from urllib.parse import urlencode, urljoin, urlparse
+from urllib.parse import quote, urlencode, urljoin, urlparse
 from urllib.request import Request, urlopen
 
 try:
@@ -30,9 +32,12 @@ DEFAULT_BASE_URL = "https://blueskyxn-souwen.hf.space"
 USER_AGENT = "SouWen HF Space CD report/1.0"
 DEFAULT_SMOKE_EDITION = "pro"
 REQUIRED_BUILTIN_FETCH_PROBE_PATH = "scripts/fixtures/hf-space-fetch-probe.html"
+REQUIRED_BROWSER_FETCH_PROBE_PATH = "scripts/fixtures/hf-space-browser-probe.html"
 REQUIRED_BUILTIN_FETCH_PROBE_RAW_BASE_URL = "https://raw.githubusercontent.com/BlueSkyXN/SouWen"
 REQUIRED_BUILTIN_FETCH_PROBE_MARKER = "SOUWEN_IMMUTABLE_FETCH_PROBE_V1"
 REQUIRED_BUILTIN_FETCH_MIN_CONTENT_CHARS = 600
+REQUIRED_BROWSER_FETCH_PROBE_BASE_URL = "https://httpbin.org/base64"
+REQUIRED_BROWSER_FETCH_PROBE_MARKER = "SOUWEN_BROWSER_RENDERED_V1"
 EDITION_RANK = {
     "basic": 0,
     "pro": 1,
@@ -283,6 +288,8 @@ class SmokeConfig:
     expected_version: str | None
     request_timeout: float
     expected_source_sha: str | None = None
+    expected_wrapper_sha: str | None = None
+    require_target_runtime: bool = False
     mode: str = "capability"
     edition: str = DEFAULT_SMOKE_EDITION
     bearer_token: str | None = None
@@ -373,6 +380,25 @@ def immutable_builtin_fetch_probe_url(expected_source_sha: str | None) -> str | 
         f"{REQUIRED_BUILTIN_FETCH_PROBE_RAW_BASE_URL}/{candidate_sha}/"
         f"{REQUIRED_BUILTIN_FETCH_PROBE_PATH}"
     )
+
+
+def immutable_browser_fetch_probe_url(expected_source_sha: str | None) -> str | None:
+    """Build a candidate-bound HTML response whose marker requires JavaScript execution."""
+
+    candidate_sha = normalize_expected_source_sha(expected_source_sha)
+    if candidate_sha is None:
+        return None
+    payload = Path(REQUIRED_BROWSER_FETCH_PROBE_PATH).read_text(encoding="utf-8").strip()
+    if not payload or len(payload) > 63:
+        raise ValueError("browser fixture must remain a non-empty low-quality builtin response")
+    encoded_payload = quote(base64.b64encode(payload.encode()).decode(), safe="=")
+    query = urlencode(
+        {
+            "candidate_sha": candidate_sha,
+            "marker": REQUIRED_BROWSER_FETCH_PROBE_MARKER,
+        }
+    )
+    return f"{REQUIRED_BROWSER_FETCH_PROBE_BASE_URL}/{encoded_payload}?{query}"
 
 
 def bool_or_none(value: Any) -> bool | None:
@@ -693,6 +719,35 @@ def check_source_sha(data: dict[str, Any], expected_source_sha: str | None) -> t
     return False, f"source_sha={actual!r}, expected={expected_source_sha!r}"
 
 
+def check_wrapper_sha(data: dict[str, Any], expected_wrapper_sha: str | None) -> tuple[bool, str]:
+    actual = data.get("wrapper_sha")
+    if expected_wrapper_sha is None:
+        return True, f"wrapper_sha={actual!r}"
+    if actual == expected_wrapper_sha:
+        return True, f"wrapper_sha={actual!r}"
+    return False, f"wrapper_sha={actual!r}, expected={expected_wrapper_sha!r}"
+
+
+def check_target_runtime(
+    data: dict[str, Any], config: SmokeConfig, *, readiness: bool
+) -> tuple[bool, str]:
+    if not config.require_target_runtime:
+        return True, "target_runtime=not_required"
+    rollout_mode = data.get("rollout_mode")
+    config_revision = data.get("config_revision")
+    components = data.get("components") if isinstance(data.get("components"), dict) else {}
+    worker_status = components.get("browser_worker")
+    worker_source_sha = data.get("worker_source_sha")
+    ok = rollout_mode == "target" and isinstance(config_revision, str) and bool(config_revision)
+    if readiness:
+        ok = ok and worker_status == "ready" and worker_source_sha == config.expected_source_sha
+    detail = (
+        f"rollout_mode={rollout_mode!r}, config_revision_set={bool(config_revision)}, "
+        f"browser_worker={worker_status!r}, worker_source_sha={worker_source_sha!r}"
+    )
+    return ok, detail
+
+
 def safe_call(
     section: str,
     name: str,
@@ -770,10 +825,19 @@ def run_basic_checks(client: ApiClient, config: SmokeConfig, state: RunState) ->
         resp = client.get("/health")
         version_ok, version_detail = check_version(resp.data, config.expected_version)
         source_ok, source_detail = check_source_sha(resp.data, config.expected_source_sha)
-        ok = resp.status == 200 and resp.data.get("status") == "ok" and version_ok and source_ok
+        wrapper_ok, wrapper_detail = check_wrapper_sha(resp.data, config.expected_wrapper_sha)
+        target_ok, target_detail = check_target_runtime(resp.data, config, readiness=False)
+        ok = (
+            resp.status == 200
+            and resp.data.get("status") == "ok"
+            and version_ok
+            and source_ok
+            and wrapper_ok
+            and target_ok
+        )
         detail = (
             f"status={resp.status}, health={resp.data.get('status')!r}, "
-            f"{version_detail}, {source_detail}"
+            f"{version_detail}, {source_detail}, {wrapper_detail}, {target_detail}"
         )
         return (
             pass_result("basic", "health", detail, required=True, elapsed=resp.elapsed)
@@ -785,10 +849,20 @@ def run_basic_checks(client: ApiClient, config: SmokeConfig, state: RunState) ->
         resp = client.get("/readiness")
         version_ok, version_detail = check_version(resp.data, config.expected_version)
         source_ok, source_detail = check_source_sha(resp.data, config.expected_source_sha)
-        ok = resp.status == 200 and resp.data.get("ready") is True and version_ok and source_ok
+        wrapper_ok, wrapper_detail = check_wrapper_sha(resp.data, config.expected_wrapper_sha)
+        target_ok, target_detail = check_target_runtime(resp.data, config, readiness=True)
+        ok = (
+            resp.status == 200
+            and resp.data.get("ready") is True
+            and version_ok
+            and source_ok
+            and wrapper_ok
+            and target_ok
+        )
         detail = (
             f"status={resp.status}, ready={resp.data.get('ready')!r}, "
-            f"error={resp.data.get('error')!r}, {version_detail}, {source_detail}"
+            f"error={resp.data.get('error')!r}, {version_detail}, {source_detail}, "
+            f"{wrapper_detail}, {target_detail}"
         )
         return (
             pass_result("basic", "readiness", detail, required=True, elapsed=resp.elapsed)
@@ -2736,17 +2810,119 @@ def restore_state(client: ApiClient, state: RunState) -> list[ProbeResult]:
     return results
 
 
+def run_target_m1_checks(client: ApiClient, config: SmokeConfig) -> list[ProbeResult]:
+    """Verify the three required RC2 target capabilities without legacy mutations."""
+
+    results: list[ProbeResult] = []
+
+    def _openalex_search() -> ProbeResult:
+        response = client.post(
+            "/api/v1/search",
+            body={"query": "machine learning", "domains": ["paper"]},
+            auth=True,
+            timeout=45,
+        )
+        items = response.data.get("items") if isinstance(response.data, dict) else None
+        count = len(items) if isinstance(items, list) else 0
+        ok = response.status == 200 and count > 0
+        detail = f"status={response.status}, items={count}, provider='openalex'"
+        return (
+            pass_result(
+                "target-m1", "openalex-search", detail, required=True, elapsed=response.elapsed
+            )
+            if ok
+            else fail_result(
+                "target-m1", "openalex-search", detail, required=True, elapsed=response.elapsed
+            )
+        )
+
+    def _fetch(name: str, target: str, *, require_browser: bool) -> ProbeResult:
+        response = client.post(
+            "/api/v1/fetch",
+            body={"targets": [target]},
+            auth=True,
+            timeout=45,
+        )
+        items = response.data.get("items") if isinstance(response.data, dict) else None
+        item = items[0] if isinstance(items, list) and items and isinstance(items[0], dict) else {}
+        provenance = item.get("provenance") if isinstance(item.get("provenance"), list) else []
+        browser_attempt = any(
+            isinstance(entry, dict)
+            and entry.get("provider") == "builtin-fetch"
+            and entry.get("attempt") == 2
+            and entry.get("outcome") == "success"
+            for entry in provenance
+        )
+        content = item.get("content")
+        marker_ok = isinstance(content, str) and (
+            REQUIRED_BROWSER_FETCH_PROBE_MARKER in content and config.expected_source_sha in content
+            if require_browser and config.expected_source_sha is not None
+            else REQUIRED_BUILTIN_FETCH_PROBE_MARKER in content
+        )
+        ok = (
+            response.status == 200
+            and item.get("status") == "success"
+            and marker_ok
+            and (browser_attempt if require_browser else True)
+        )
+        detail = (
+            f"status={response.status}, item_status={item.get('status')!r}, "
+            f"provenance_count={len(provenance)}, browser_attempt={browser_attempt}, "
+            f"content_chars={len(content) if isinstance(content, str) else 0}"
+        )
+        return (
+            pass_result("target-m1", name, detail, required=True, elapsed=response.elapsed)
+            if ok
+            else fail_result("target-m1", name, detail, required=True, elapsed=response.elapsed)
+        )
+
+    builtin_url = immutable_builtin_fetch_probe_url(config.expected_source_sha)
+    browser_url = immutable_browser_fetch_probe_url(config.expected_source_sha)
+    if builtin_url is None or browser_url is None:
+        return [
+            fail_result(
+                "target-m1",
+                "immutable-fixtures",
+                "target M1 requires an immutable expected candidate SHA",
+                required=True,
+            )
+        ]
+
+    results.append(safe_call("target-m1", "openalex-search", _openalex_search, required=True))
+    results.append(
+        safe_call(
+            "target-m1",
+            "builtin-fetch",
+            lambda: _fetch("builtin-fetch", builtin_url, require_browser=False),
+            required=True,
+        )
+    )
+    results.append(
+        safe_call(
+            "target-m1",
+            "browser-fetch",
+            lambda: _fetch("browser-fetch", browser_url, require_browser=True),
+            required=True,
+        )
+    )
+    return results
+
+
 def run_report(config: SmokeConfig) -> list[ProbeResult]:
     client = ApiClient(config)
     state = RunState()
     results: list[ProbeResult] = []
     try:
         results.extend(run_basic_checks(client, config, state))
+        if config.require_target_runtime:
+            if not config.surface_only:
+                results.extend(run_target_m1_checks(client, config))
+            return results
         results.extend(run_admin_checks(client, config, state))
         if state.admin_available and not config.surface_only:
             results.extend(run_zero_key_checks(client, config, state))
     finally:
-        if not config.surface_only:
+        if not config.surface_only and not config.require_target_runtime:
             results.extend(restore_state(client, state))
     return results
 
@@ -2783,6 +2959,8 @@ def make_result_recorder(config: SmokeConfig) -> ResultRecorder:
             "base_url": config.base_url,
             "expected_version": config.expected_version or "",
             "expected_source_sha": config.expected_source_sha or "",
+            "expected_wrapper_sha": config.expected_wrapper_sha or "",
+            "require_target_runtime": config.require_target_runtime,
             "edition": normalize_edition(config.edition),
             "fail_admin_open": config.fail_admin_open,
             "surface_only": config.surface_only,
@@ -3108,6 +3286,8 @@ def build_markdown_report(config: SmokeConfig, results: list[ProbeResult]) -> st
         f"- Base URL: `{config.base_url}`",
         f"- Expected version: `{config.expected_version or 'not pinned'}`",
         f"- Expected source SHA: `{config.expected_source_sha or 'not pinned'}`",
+        f"- Expected wrapper SHA: `{config.expected_wrapper_sha or 'not pinned'}`",
+        f"- Target runtime required: `{'yes' if config.require_target_runtime else 'no'}`",
         f"- Mode: `{config.mode}`",
         f"- Edition: `{observed_edition(config, results)}`",
         f"- Admin access: `{observed_admin_access(results)}`",
@@ -3215,6 +3395,21 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "--expected-source-sha",
         default=os.environ.get("EXPECTED_SOUWEN_SOURCE_SHA"),
         help="Expected immutable Git SHA reported by /health and /readiness.",
+    )
+    parser.add_argument(
+        "--expected-wrapper-sha",
+        default=os.environ.get("EXPECTED_SOUWEN_WRAPPER_SHA"),
+        help="Expected immutable deployment wrapper SHA reported by /health and /readiness.",
+    )
+    parser.add_argument(
+        "--require-target-runtime",
+        action="store_true",
+        default=os.environ.get("SOUWEN_SMOKE_REQUIRE_TARGET_RUNTIME", "").strip().lower()
+        in TRUTHY_VALUES,
+        help=(
+            "Require rollout_mode=target, a non-empty config revision, and Browser Worker "
+            "readiness with matching source SHA."
+        ),
     )
     parser.add_argument(
         "--request-timeout",
@@ -3365,6 +3560,8 @@ def main(argv: list[str] | None = None) -> int:
         expected_version=args.expected_version,
         request_timeout=args.request_timeout,
         expected_source_sha=normalize_expected_source_sha(args.expected_source_sha),
+        expected_wrapper_sha=normalize_expected_source_sha(args.expected_wrapper_sha),
+        require_target_runtime=args.require_target_runtime,
         mode=mode,
         edition=normalize_edition(args.edition),
         bearer_token=args.bearer_token,

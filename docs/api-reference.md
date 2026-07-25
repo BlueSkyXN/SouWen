@@ -505,7 +505,7 @@ token 通过 edge），可以把 SouWen 应用层密码放在 `X-SouWen-Token: <
 
 ### 基础端点
 
-#### `GET /health`
+#### `GET /healthz` / `GET /health`
 
 健康检查，无需认证。用于容器编排（K8s）存活探针。
 
@@ -513,19 +513,28 @@ token 通过 edge），可以把 SouWen 应用层密码放在 `X-SouWen-Token: <
 ```json
 {
   "status": "ok",
+  "ready": true,
   "version": "2.0.0rc2",
-  "source_sha": "0123456789abcdef0123456789abcdef01234567"
+  "source_sha": "0123456789abcdef0123456789abcdef01234567",
+  "wrapper_sha": "89abcdef0123456789abcdef0123456789abcdef",
+  "worker_source_sha": null,
+  "rollout_mode": "target",
+  "config_revision": "source-0123456789abcdef0123456789abcdef01234567",
+  "components": {"api": "ready"}
 }
 ```
 
 > `version` 动态返回当前 `souwen.__version__`。`source_sha` 是可选 runtime provenance：
 > 只接受 `SOUWEN_SOURCE_SHA` 或 `runtime.source.sha` 提供的 40 位 Git SHA，并统一为
-> 小写；本地源码运行、未注入或值不合法时为 `null`。Release/container/binary 验收必须
+> 小写；本地源码运行、未注入或值不合法时为 `null`。`wrapper_sha` 是 Deployment wrapper
+> identity，HFS 必须同时通过 HF API 证明 repo/runtime SHA 与它一致，不能只信应用回显。
+> Release/container/binary 验收必须
 > 将非空 `source_sha` 与 immutable candidate SHA 比对，版本相同不能替代 SHA 证明。
 
-#### `GET /readiness`
+#### `GET /readyz` / `GET /readiness`
 
-K8s readiness 探针。仅做本地检查（配置可加载 + 数据源注册表非空），不触发任何网络调用，避免探针超时。
+K8s readiness 探针。Target rollout 聚合本地 Provider 状态和 authenticated loopback Browser
+Worker readiness；Worker 探针预算有界，不调用外部 Provider。
 
 **响应示例（就绪）：**
 ```json
@@ -533,6 +542,11 @@ K8s readiness 探针。仅做本地检查（配置可加载 + 数据源注册表
   "ready": true,
   "version": "2.0.0rc2",
   "source_sha": "0123456789abcdef0123456789abcdef01234567",
+  "wrapper_sha": "89abcdef0123456789abcdef0123456789abcdef",
+  "worker_source_sha": "0123456789abcdef0123456789abcdef01234567",
+  "rollout_mode": "target",
+  "config_revision": "source-0123456789abcdef0123456789abcdef01234567",
+  "components": {"api": "ready", "browser_worker": "ready"},
   "error": null
 }
 ```
@@ -542,13 +556,19 @@ K8s readiness 探针。仅做本地检查（配置可加载 + 数据源注册表
 {
   "ready": false,
   "version": "2.0.0rc2",
-  "source_sha": null,
-  "error": "source registry is empty"
+  "source_sha": "0123456789abcdef0123456789abcdef01234567",
+  "wrapper_sha": "89abcdef0123456789abcdef0123456789abcdef",
+  "worker_source_sha": null,
+  "rollout_mode": "target",
+  "config_revision": "source-0123456789abcdef0123456789abcdef01234567",
+  "components": {"api": "ready", "browser_worker": "not_ready"},
+  "error": "required target runtime component is not ready"
 }
 ```
 
-`source_sha` 的来源、格式和 RC 比对规则与 `/health` 相同；`ready=true` 只证明本地配置与
-registry 就绪，不证明外部 provider live 可达。
+`source_sha` 的来源、格式和 RC 比对规则与 `/healthz` 相同；Target 模式下
+`worker_source_sha` 必须与 API `source_sha` 相同，`browser_worker=ready` 才允许 HTTP 200。
+`ready=true` 不证明 OpenAlex/UniAPI 等外部 Provider live 可达，后者仍由显式 smoke 证明。
 
 #### `GET /` 与 `GET /panel`
 

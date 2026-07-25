@@ -4,8 +4,9 @@
 **Status**: Accepted
 **Date**: 2026-07-24
 **Owner**: SouWen project owner
-**Implementation state**: Browser Worker/client runtime implemented in Phase 4 P4-05; supervisor,
-HFS deployment and target-native bundle evidence remain Phase 4 P4-07/release work
+**Implementation state**: Browser Worker/client runtime implemented in Phase 4 P4-05; HFS
+supervisor and M1 evidence wiring implemented in P4-07; live HFS M1 and target-native bundle
+evidence remain execution/release work
 
 ## Context
 
@@ -214,6 +215,22 @@ functional scripts and GitHub Actions, consistent with repository test policy.
   secret/error redaction and a real loopback Uvicorn/client exchange.
 - VAL-BFW-001 supervisor behavior, VAL-BFW-007 HFS evidence and VAL-BFW-008 target-native bundle
   smoke are intentionally not claimed by P4-05; they remain required before RC2 completion.
+
+### Phase 4 P4-07 implementation evidence
+
+- `deploy/process/supervisor.py` owns the HFS child lifecycle: per-start token, Worker-first
+  authenticated readiness, API start order, TERM/INT fanout, bounded grace/kill and a finite
+  exponential Worker restart budget. After runtime Worker failure, API health stays reachable while
+  aggregate readiness fails closed; initial Worker failure prevents API startup.
+- `cloud/hfs/Dockerfile` installs native Playwright Chromium regardless of Web2PDF and exposes only
+  API port 49265. The Worker remains exact loopback 49266 and the local Docker gate verifies that no
+  host mapping exists.
+- Health/readiness now distinguish candidate source, Space wrapper, config revision, rollout mode and
+  Worker source. The HFS transaction manages `SOUWEN_WRAPPER_SHA` with immediate readback and restores
+  it to the actual rollback commit on failure.
+- Deployment evidence assembly parses required target M1 receipts rather than trusting artifact
+  presence. Live VAL-BFW-007 is not claimed until the merged exact candidate completes the protected
+  `deployment` profile and HFS readback; VAL-BFW-008 remains Phase 8 release work.
 
 ## Related artifacts
 

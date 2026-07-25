@@ -8,6 +8,7 @@ from pathlib import Path
 import subprocess
 import sys
 from dataclasses import dataclass
+from types import SimpleNamespace
 
 import pytest
 from fastapi import HTTPException
@@ -494,6 +495,7 @@ async def test_enabled_browser_worker_is_required_for_target_readiness(monkeypat
         async def readiness(self, _context, _execution):
             if self.fail:
                 raise ProviderError(ProviderErrorCode.WORKER_NOT_READY)
+            return SimpleNamespace(evidence=SimpleNamespace(source_sha="a" * 40))
 
         async def fetch(self, *_args):  # pragma: no cover - composition protocol only
             raise AssertionError("not called")
@@ -516,6 +518,7 @@ async def test_enabled_browser_worker_is_required_for_target_readiness(monkeypat
 
     assert snapshot.ready is True
     assert snapshot.components["browser_worker"] == "ready"
+    assert snapshot.worker_source_sha == "a" * 40
 
 
 def test_composition_root_requires_the_shared_browser_inventory_digest(monkeypatch) -> None:

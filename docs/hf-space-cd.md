@@ -53,11 +53,13 @@ secret 名称 fail fast，不输出值、长度或前缀。
 | `Resolve deploy eligibility` | 解析入口与 candidate contract | direct dispatch 不具备远端写资格 |
 | `API surface and source CLI` | `pro-cli`、`basic-cli` profile | 不证明外部源在线 |
 | `PyInstaller CLI smoke` | `edition-basic` 单文件 binary，保留 MCP | 不等于 24-binary release matrix |
-| `HF Space Docker surface smoke` | exact SHA 构建、启动、health/readiness/docs/panel | 本地容器，不是 live Space |
+| `HF Space Docker surface smoke` | exact SHA 双进程启动、target/Worker readiness、docs/panel、49266 未发布 | 本地容器，不是 live Space |
 
 HFS Docker build 必须传 `SOUWEN_REF=<40位 candidate SHA>`。Dockerfile 的全零模板、短 SHA、
 分支名和 moving `main` 都 fail closed；detached checkout 会把 SHA 写入
 `/app/runtime.source.sha`，由 `/health.source_sha` 与 `/readiness.source_sha` 回读。
+镜像无条件安装原生 Playwright Chromium；不启用 Crawl4AI/Scrapling，也不借用
+`WITH_WEB2PDF=1` 才能启动 Worker。Supervisor 必须先验证 Worker readiness，再启动 API。
 
 ## Private Space 双层认证
 
@@ -91,6 +93,7 @@ checkout 中的 secret-bearing 脚本。验收同时证明：
 | `candidate_sha` / `source_sha` | SouWen 源码 commit | health/readiness `source_sha == candidate_sha` |
 | `space_repo_sha` | Space wrapper 仓库 commit | 该 revision 的 Dockerfile 精确 pin `SOUWEN_REF=<candidate_sha>` |
 | `runtime.raw.sha` | HF 当前运行的 wrapper revision | `runtime.raw.sha == space_repo_sha` |
+| `health/readiness.wrapper_sha` | deployment 注入的 wrapper identity | 必须等于 `space_repo_sha`，但不能替代 HF API readback |
 
 `RUNNING`、版本相同或 Space repo SHA 单独都不能证明 candidate 已接管。Manifest 应分别保存
 `hfs.repo_sha`、`hfs.runtime_sha` 与 `hfs.source_sha`，不能要求 wrapper SHA 等于 SouWen source
@@ -107,9 +110,15 @@ SHA。
    immutable source pin 时，在写入前停止，不能回退到 floating `main`；同时记录
    `prior_runtime_stage` 供 manifest 和恢复审计。
 3. 只同步受管的四个 wrapper 文件；diff 固定读取 prior revision，`create_commit` 使用
-   `parent_commit=<prior_space_commit_sha>` 防止外部 writer 造成 TOCTOU。
+   `parent_commit=<prior_space_commit_sha>` 防止外部 writer 造成 TOCTOU。取得新 commit 后，
+   transaction 写入并立即 readback `SOUWEN_WRAPPER_SHA=<space_commit_sha>` Space variable；
+   rollback 同样改为实际 forward/no-op rollback SHA。
 4. Factory rebuild，等待 Space repo SHA 与 runtime SHA 等于新的 wrapper commit。
-5. 使用 trusted verifier 完成 surface、capability、双层 auth 与 candidate source SHA smoke。
+5. 使用 trusted verifier 完成 surface、target M1 capability、双层 auth 与 candidate/source/
+   wrapper SHA smoke。Target M1 required checks 固定为 OpenAlex Search、builtin Fetch、Browser
+   Fetch；Browser fixture 的 repo-owned 短脚本经 `httpbin /base64` 以 `text/html` 返回，并把
+   candidate SHA 与 stable marker 放入 query，只有 JavaScript 执行后的正文才满足 gate。
+   普通 CI 不做付费 UniAPI live call。
 
 若 sync 已取得 rollback point，而 sync/rebuild/post-smoke 任一阶段失败：
 
@@ -131,8 +140,8 @@ GitHub Actions 的 cancel、runner 丢失或平台故障不能保证 rollback jo
 
 | 类别 | 地址 / 路径 | 验收目的 |
 |---|---|---|
-| 存活 | `/health` | 版本一致，`source_sha == candidate_sha` |
-| 就绪 | `/readiness` | registry/config 可加载，source SHA 与 health 一致 |
+| 存活 | `/healthz`、`/health` | version/source/wrapper/rollout 一致，API process 可响应 |
+| 就绪 | `/readyz`、`/readiness` | target config/Provider 可用，`browser_worker=ready` 且 Worker source 匹配 |
 | API schema | `/openapi.json` | title/version 与暴露策略正确 |
 | API 文档 | `/docs` | Swagger UI 可按策略访问 |
 | 管理面板 | `/panel` | 单文件前端 HTML 可返回 |

@@ -44,6 +44,8 @@ class ProbeResponse(CanonicalModel):
     ready: bool
     version: str = Field(min_length=1, max_length=64)
     source_sha: str | None = Field(default=None, min_length=40, max_length=40)
+    wrapper_sha: str | None = Field(default=None, min_length=40, max_length=40)
+    worker_source_sha: str | None = Field(default=None, min_length=40, max_length=40)
     rollout_mode: RolloutMode
     config_revision: str | None = Field(default=None, min_length=1, max_length=128)
     components: dict[

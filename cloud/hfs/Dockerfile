@@ -31,12 +31,13 @@ ARG WEB2PDF_PACKAGE=https://github.com/BlueSkyXN/SuperWeb2PDF/archive/d1e1da59d7
 ENV PORT=49265 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
+    SOUWEN_V2_ROLLOUT=target \
     SOUWEN_SOURCE_SHA_FILE=/app/runtime.source.sha \
     WARP_DATA_DIR=/app/data \
     WARP_RUNTIME_BIN_DIR=/app/data/bin \
     TZ=Asia/Shanghai
 
-# 安装基础工具和 Playwright Chromium 运行库（SuperWeb2PDF 外部插件需要）
+# 安装基础工具和原生 Browser Worker 所需的 Playwright Chromium 运行库
 RUN apt-get update && apt-get install -y --no-install-recommends \
         git ca-certificates curl tzdata \
         libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
@@ -86,15 +87,13 @@ COPY --from=panel-builder /build/panel/dist/index.html ./src/souwen/server/panel
 RUN if [ "${WITH_WEB2PDF}" = "1" ]; then \
         pip install ".[edition-pro]" "playwright>=1.40" "${WEB2PDF_PACKAGE}"; \
     else \
-        pip install ".[edition-pro]"; \
+        pip install ".[edition-pro]" "playwright>=1.40"; \
     fi \
     && python -c "import curl_cffi; print('curl_cffi OK')"
 
-# 安装 Playwright Chromium（仅 SuperWeb2PDF 外部插件需要）
-RUN if [ "${WITH_WEB2PDF}" = "1" ]; then \
-        playwright install chromium \
-        && echo "✅ Playwright Chromium installed"; \
-    fi
+# Browser Worker 是 RC2 HFS 的必需进程；不依赖 Crawl4AI/Scrapling 或 Web2PDF extra。
+RUN playwright install chromium \
+    && echo "✅ Playwright Chromium installed for Browser Worker"
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN cp scripts/warp-init.sh /usr/local/bin/warp-init.sh 2>/dev/null || true
@@ -106,6 +105,6 @@ RUN mkdir -p /app/data
 EXPOSE 49265
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:${PORT}/health || exit 1
+    CMD curl -f http://localhost:${PORT}/healthz || exit 1
 
 ENTRYPOINT ["entrypoint.sh"]
