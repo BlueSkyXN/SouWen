@@ -171,6 +171,14 @@ RC-ready run 可以验证从 current main 派生的 candidate；任何 secret-be
   macOS arm64、Windows amd64；artifact 前缀为 `souwen-server-2.0.0rc2-*`。
 - 四个 bundle 必须在目标平台执行 server、health/readiness、API-major 与 target-native smoke；
   不得用 cross-build 成功、旧 CLI help/version 或 Nuitka 结果替代。
+- 精确 archive合同为 Linux amd64/arm64与macOS arm64的 `.tar.gz`，以及Windows amd64的
+  `.zip`；四个名称必须分别为
+  `souwen-server-2.0.0rc2-{linux-amd64,linux-arm64,macos-arm64,windows-amd64}` 加对应后缀。
+- Bundle必须是 PyInstaller `onedir` archive并携带 bundle-local Playwright Chromium；一个裸
+  executable、缺 browser runtime的archive或仅对 `dist/` 临时目录做smoke均为 FAIL。
+- Target-native smoke必须从最终archive解包后启动默认Server入口，证明
+  `version=2.0.0rc2`、candidate source SHA、API major 2、`rollout_mode=target`、Browser Worker
+  ready、Admin未认证401、canonical Provider API与OpenAPI checksum，并在终止后无残留 child。
 
 **Evidence**：四项 target-native matrix report、目标 runner、bundle checksum、每项 server smoke 输出。
 

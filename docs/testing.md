@@ -163,8 +163,23 @@ PR required 只覆盖关键最小 smoke。高波动外部源不应默认阻断�
 
 ## 二进制构建 Profile
 
-`Build with PyInstaller` 和 `Build with Nuitka` 发布工作流按 CLI edition 构建
-三档二进制产物：
+RC2 目标发布面由 `Build PyInstaller Server bundles` 构建，固定使用四个平台的
+target-native runner：
+
+| Platform | Runner architecture | Release archive |
+|---|---|---|
+| Linux amd64 | `x86_64` | `souwen-server-2.0.0rc2-linux-amd64.tar.gz` |
+| Linux arm64 | `aarch64` / `arm64` | `souwen-server-2.0.0rc2-linux-arm64.tar.gz` |
+| macOS arm64 | `arm64` | `souwen-server-2.0.0rc2-macos-arm64.tar.gz` |
+| Windows amd64 | `AMD64` / `x86_64` | `souwen-server-2.0.0rc2-windows-amd64.zip` |
+
+每个 archive 是 PyInstaller `onedir` Server bundle，包含 `souwen-server` executable、
+`runtime.source.sha`、Playwright Chromium runtime 和构建后的 Panel artifact。Runner 必须先
+生成最终 archive，再解压到新目录执行 `.github/actions/server-bundle-smoke`；直接运行 `dist/`
+目录不构成发布证据。Smoke 必须覆盖 health/readiness、version/source/API-major、target rollout、
+Browser Worker、Admin fail-closed、Provider API、OpenAPI checksum 和 Supervisor 干净退出。
+
+`Build with PyInstaller` 和 `Build with Nuitka` 是旧 CLI edition rollback baseline，按三档构建：
 
 | Profile | 安装面 | 产物后缀 |
 |---|---|---|
@@ -180,6 +195,9 @@ PR required 只覆盖关键最小 smoke。高波动外部源不应默认阻断�
 抓取模块。`full-cli` 使用
 `edition-full` 核心运行时，`crawl4ai` / `scrapling` 的互斥浏览器栈继续由
 专项 functional gate 验证。
+
+旧 workflow 在新的四 bundle proof 进入 `main` 且 central release 完成切换前保留，不能作为
+RC2 publish evidence；不能把旧 `pro-cli` binary重命名为 Server bundle。
 
 ## V2 / main 发布前 Gate
 
