@@ -243,6 +243,7 @@ def test_rc2_server_bundle_builds_tracked_target_onedir_with_bundled_chromium() 
     assert "--hidden-import=supervisor" in text
     assert "--collect-all=playwright" in text
     assert "bundle_name = 'souwen-server'" in text
+    assert "Path(produced).resolve() != output.resolve()" in text
     assert "shutil.copy2('runtime.source.sha', stage / 'runtime.source.sha')" in text
     assert "stage / 'ms-playwright'" in text
     assert "ref: ${{ github.workflow_sha }}" in text

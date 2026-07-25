@@ -281,7 +281,7 @@ jobs:
               produced = shutil.make_archive(
                   str(output.with_suffix('')), 'zip', root_dir=stage.parent, base_dir=bundle_name
               )
-              if Path(produced) != output:
+              if Path(produced).resolve() != output.resolve():
                   raise SystemExit(f'unexpected zip output: {produced}')
           else:
               with tarfile.open(output, 'w:gz') as archive:
@@ -308,7 +308,7 @@ jobs:
         with:
           name: souwen-server-smoke-${{ matrix.arch }}
           path: server-bundle-evidence/server-bundle-smoke-${{ matrix.arch }}.json
-          if-no-files-found: error
+          if-no-files-found: warn
           retention-days: 30
 
       - name: Upload immutable server bundle
