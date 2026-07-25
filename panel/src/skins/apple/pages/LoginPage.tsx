@@ -17,7 +17,7 @@
  *     - 关键逻辑：自动登录、手动表单提交、眼睛图标切换密码可见性、成功后延迟导航
  *
  * 模块依赖：
- *   - react-router-dom: useNavigate 路由导航
+ *   - react-router: useNavigate 路由导航
  *   - react-i18next: useTranslation 国际化
  *   - framer-motion: 动画库（表单进入、加载中、成功状态）
  *   - lucide-react: Eye/EyeOff/Loader2 图标
@@ -27,7 +27,7 @@
  */
 
 import { useState, useEffect, useCallback, type FormEvent } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router'
 import { useTranslation } from 'react-i18next'
 import { AnimatePresence, m } from 'framer-motion'
 import { Eye, EyeOff, Loader2 } from 'lucide-react'

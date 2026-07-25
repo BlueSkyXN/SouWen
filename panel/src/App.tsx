@@ -20,14 +20,14 @@
  *
  * 模块依赖：
  *     - react: 核心 React 库，用于组件与状态管理
- *     - react-router-dom: 客户端路由管理（HashRouter、Routes、Navigate）
+ *     - react-router: 客户端路由管理（HashRouter、Routes、Navigate）
  *     - framer-motion: 动画库（LazyMotion、AnimatePresence）
  *     - @core/stores/authStore: 认证全局状态存储
  *     - @core/skin-registry: 皮肤主题注册与管理系统
  */
 
 import { useEffect, useState } from 'react'
-import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
+import { HashRouter, Routes, Route, Navigate, useLocation } from 'react-router'
 import { LazyMotion, domAnimation, AnimatePresence } from 'framer-motion'
 import { useAuthStore } from '@core/stores/authStore'
 import { getActiveSkin } from '@core/skin-registry'
