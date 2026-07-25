@@ -46,6 +46,7 @@ on:
     types: [opened, synchronize, reopened, ready_for_review]
     paths:
       - "src/**"
+      - "deploy/**"
       - "tests/**"
       - "panel/**"
       - "pyproject.toml"
@@ -58,6 +59,7 @@ on:
       - "cli.py"
       - "scripts/hf_space_smoke.py"
       - "scripts/fixtures/hf-space-fetch-probe.html"
+      - "scripts/fixtures/hf-space-browser-probe.html"
       - "scripts/warp-init.sh"
       - "cloud/hfs/**"
       - ".github/workflows/deploy-hf-space.yml"
@@ -314,14 +316,16 @@ jobs:
             -p 49265:49265 \
             -e SOUWEN_ADMIN_OPEN=1 \
             -e SOUWEN_EXPOSE_DOCS=1 \
+            -e SOUWEN_WRAPPER_SHA=${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }} \
+            -e SOUWEN_CONFIG_REVISION=source-${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }} \
             -e WARP_ENABLED=0 \
             "souwen-hfs-local:${GITHUB_SHA::7}"
 
           for attempt in $(seq 1 60); do
-            if curl -fsS http://127.0.0.1:49265/health; then
+            if curl -fsS http://127.0.0.1:49265/readyz; then
               exit 0
             fi
-            echo "Waiting for health (${attempt}/60)"
+            echo "Waiting for target readiness (${attempt}/60)"
             sleep 2
           done
 
@@ -343,8 +347,14 @@ jobs:
           python3 scripts/hf_space_smoke.py \
             --base-url http://127.0.0.1:49265 \
             --expected-version "$VERSION" \
+            --expected-wrapper-sha "$EXPECTED_SOUWEN_SOURCE_SHA" \
+            --require-target-runtime \
             --request-timeout 10 \
             --surface-only
+
+      - name: Verify Browser Worker remains internal
+        run: |
+          test -z "$(docker port souwen-hfs-local 49266/tcp 2>/dev/null || true)"
 
       - name: Verify browser entry HTML explicitly
         run: |
@@ -628,6 +638,16 @@ jobs:
               output.write(f"space_commit_sha={space_commit_sha}\n")
               output.write(f"promotion_changed={promotion_changed}\n")
 
+          variables = api.add_space_variable(
+              repo_id=space_id,
+              key="SOUWEN_WRAPPER_SHA",
+              value=space_commit_sha,
+              description="Managed by the SouWen deployment transaction",
+          )
+          wrapper_variable = variables.get("SOUWEN_WRAPPER_SHA")
+          if getattr(wrapper_variable, "value", None) != space_commit_sha:
+              raise SystemExit("SOUWEN_WRAPPER_SHA variable readback mismatch")
+
           pinned_dockerfile = Path(
               hf_hub_download(
                   repo_id=space_id,
@@ -767,6 +787,7 @@ jobs:
         env:
           EXPECTED_SOUWEN_VERSION: ${{ needs.sync-hfs-wrapper.outputs.version }}
           EXPECTED_SOUWEN_SOURCE_SHA: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
+          EXPECTED_SOUWEN_WRAPPER_SHA: ${{ needs.sync-hfs-wrapper.outputs.space_commit_sha }}
           SOUWEN_HF_SPACE_URL: https://blueskyxn-souwen.hf.space
           SOUWEN_HF_SPACE_TOKEN: ${{ secrets.HF_SPACE_READ_TOKEN }}
           SOUWEN_SMOKE_REQUEST_TIMEOUT: "20"
@@ -789,6 +810,7 @@ jobs:
           if [ -n "$SMOKE_ARGS" ]; then
             args+=("$SMOKE_ARGS")
           fi
+          args+=(--expected-wrapper-sha "$EXPECTED_SOUWEN_WRAPPER_SHA" --require-target-runtime)
           (
             cd trusted-verifier
             python scripts/hf_space_smoke.py "${args[@]}"
@@ -905,6 +927,19 @@ jobs:
 
           api = HfApi(token=hf_token)
           space_id = os.environ["HF_SPACE_ID"]
+
+          def validate_rollback_probe(payload, endpoint, expected_source, expected_wrapper):
+              if payload.get("source_sha") != expected_source:
+                  raise SystemExit(
+                      f"rollback {endpoint} source mismatch: "
+                      f"expected={expected_source}, actual={payload.get('source_sha')}"
+                  )
+              if "wrapper_sha" in payload and payload["wrapper_sha"] != expected_wrapper:
+                  raise SystemExit(
+                      f"rollback {endpoint} wrapper mismatch: "
+                      f"expected={expected_wrapper}, actual={payload['wrapper_sha']}"
+                  )
+
           current_sha = str(api.repo_info(repo_id=space_id, repo_type="space").sha)
           allowed_heads = {prior_sha}
           if re.fullmatch(r"[0-9a-f]{40}", promoted_sha):
@@ -974,6 +1009,15 @@ jobs:
                   parent_commit=current_sha,
               )
               rollback_sha = str(rollback.oid)
+          variables = api.add_space_variable(
+              repo_id=space_id,
+              key="SOUWEN_WRAPPER_SHA",
+              value=rollback_sha,
+              description="Managed by the SouWen deployment transaction",
+          )
+          wrapper_variable = variables.get("SOUWEN_WRAPPER_SHA")
+          if getattr(wrapper_variable, "value", None) != rollback_sha:
+              raise SystemExit("rollback SOUWEN_WRAPPER_SHA variable readback mismatch")
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
               output.write(f"rollback_space_commit_sha={rollback_sha}\n")
 
@@ -1028,11 +1072,7 @@ jobs:
               )
               with urlopen(request, timeout=30) as response:  # noqa: S310 - fixed Space URL
                   payload = json.loads(response.read().decode("utf-8"))
-              if payload.get("source_sha") != prior_source:
-                  raise SystemExit(
-                      f"rollback {endpoint} source mismatch: "
-                      f"expected={prior_source}, actual={payload.get('source_sha')}"
-                  )
+              validate_rollback_probe(payload, endpoint, prior_source, rollback_sha)
           print(
               f"rollback verified: wrapper/runtime={rollback_sha}, source={prior_source}"
           )

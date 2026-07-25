@@ -298,6 +298,7 @@ _runtime_metadata = (
         source_sha=get_source_sha(),
         rollout_mode=RolloutMode.LEGACY,
         config_revision=os.environ.get("SOUWEN_CONFIG_REVISION", "").strip() or None,
+        wrapper_sha=os.environ.get("SOUWEN_WRAPPER_SHA", "").strip() or None,
     )
 )
 _readiness_check = (

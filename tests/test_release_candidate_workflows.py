@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import ast
 import json
 import re
 import textwrap
@@ -390,11 +391,32 @@ def test_deployment_manifest_builder_emits_bounded_non_release_contract(
         (hfs_local / name).write_text("{}\n", encoding="utf-8")
     hfs_live = evidence_root / "hfs"
     hfs_live.mkdir()
-    for name in (
-        "hf-space-cd-surface-report.json",
-        "hf-space-cd-capability-report.json",
-    ):
-        (hfs_live / name).write_text("{}\n", encoding="utf-8")
+    report_environment = {
+        "expected_source_sha": candidate,
+        "expected_wrapper_sha": promoted,
+        "require_target_runtime": True,
+    }
+    (hfs_live / "hf-space-cd-surface-report.json").write_text(
+        json.dumps({"overall": "PASS", "environment": report_environment, "checks": []}),
+        encoding="utf-8",
+    )
+    target_checks = [
+        "basic/health",
+        "basic/readiness",
+        "target-m1/openalex-search",
+        "target-m1/builtin-fetch",
+        "target-m1/browser-fetch",
+    ]
+    capability_payload = {
+        "overall": "PASS",
+        "environment": report_environment,
+        "checks": [{"name": name, "outcome": "PASS"} for name in target_checks],
+    }
+    capability_path = hfs_live / "hf-space-cd-capability-report.json"
+    capability_path.write_text(
+        json.dumps(capability_payload),
+        encoding="utf-8",
+    )
     deployment_assets = tmp_path / "deployment-assets"
     deployment_assets.mkdir()
     (deployment_assets / "deployment-evidence.tar.gz").write_bytes(b"fixture archive")
@@ -449,6 +471,7 @@ def test_deployment_manifest_builder_emits_bounded_non_release_contract(
     assert manifest["product_name"] == "Souwen v2rc2"
     assert manifest["version"] == "2.0.0rc2"
     assert manifest["api_major"] == 2
+    assert any(gate["id"] == "hfs_target_m1" for gate in manifest["gates"])
     assert manifest["binary_count"] == 0
     binary_gates = {
         item["id"]: item for item in manifest["gates"] if item["id"] in {"pyinstaller", "nuitka"}
@@ -477,7 +500,14 @@ def test_deployment_manifest_builder_emits_bounded_non_release_contract(
         "SHA256SUMS",
     }
 
-    (hfs_live / "hf-space-cd-capability-report.json").unlink()
+    capability_payload["checks"][-1]["outcome"] = "FAIL"
+    capability_path.write_text(json.dumps(capability_payload), encoding="utf-8")
+    with pytest.raises(SystemExit, match="target M1 checks"):
+        exec(compile(manifest_source, "release-candidate.yml:m1-failed", "exec"), {})
+    capability_payload["checks"][-1]["outcome"] = "PASS"
+    capability_path.write_text(json.dumps(capability_payload), encoding="utf-8")
+
+    capability_path.unlink()
     with pytest.raises(SystemExit, match="missing required reports"):
         exec(compile(manifest_source, "release-candidate.yml:missing-report", "exec"), {})
 
@@ -497,6 +527,27 @@ def test_hfs_required_fetch_fixture_change_triggers_workflow() -> None:
 
     assert '- "scripts/hf_space_smoke.py"' in text
     assert '- "scripts/fixtures/hf-space-fetch-probe.html"' in text
+    assert '- "scripts/fixtures/hf-space-browser-probe.html"' in text
+
+
+def test_hfs_m1_requires_target_supervisor_and_internal_worker_evidence() -> None:
+    text = _workflow("deploy-hf-space.yml")
+
+    assert "exec python /app/deploy/process/supervisor.py" in (
+        REPO_ROOT / "cloud/hfs/entrypoint.sh"
+    ).read_text(encoding="utf-8")
+    assert "--require-target-runtime" in text
+    assert "--expected-wrapper-sha" in text
+    assert "SOUWEN_WRAPPER_SHA" in text
+    assert 'key="SOUWEN_WRAPPER_SHA"' in text
+    assert "curl -fsS http://127.0.0.1:49265/readyz" in text
+    assert "docker port souwen-hfs-local 49266/tcp" in text
+    sync = text.split("- name: Sync changed HFS wrapper files", maxsplit=1)[1].split(
+        "  rebuild-space:", maxsplit=1
+    )[0]
+    assert sync.index('output.write(f"space_commit_sha={space_commit_sha}') < sync.index(
+        "api.add_space_variable("
+    )
 
 
 def test_only_hfs_reusable_call_inherits_secrets() -> None:
@@ -723,6 +774,7 @@ def test_hfs_reusable_promotion_is_candidate_pinned_and_live_verified() -> None:
     assert "rollback_sha = prior_sha" in rollback
     assert "Space head still matches the rollback point" in rollback
     assert "no distinct forward rollback commit" not in rollback
+    assert 'if "wrapper_sha" in payload and payload["wrapper_sha"] != expected_wrapper:' in rollback
 
     post_deploy = text.split("  post-deploy-smoke:", maxsplit=1)[1].split(
         "  rollback-space:", maxsplit=1
@@ -730,6 +782,46 @@ def test_hfs_reusable_promotion_is_candidate_pinned_and_live_verified() -> None:
     assert "ref: ${{ inputs.verifier_sha }}" in post_deploy
     assert "cd trusted-verifier" in post_deploy
     assert "ref: ${{ inputs.candidate_sha || github.sha }}" not in post_deploy
+
+
+def test_hfs_rollback_probe_distinguishes_legacy_absent_wrapper_from_rc2_null_or_drift() -> None:
+    text = _workflow("deploy-hf-space.yml")
+    rollback = _job(text, "rollback-space", "pause-space")
+    source = textwrap.dedent(
+        rollback.split("<<'PY'", maxsplit=1)[1].split("\n          PY", maxsplit=1)[0]
+    ).lstrip()
+    module = ast.parse(source)
+    function = next(
+        node
+        for node in module.body
+        if isinstance(node, ast.FunctionDef) and node.name == "validate_rollback_probe"
+    )
+    namespace: dict[str, object] = {}
+    exec(compile(ast.Module(body=[function], type_ignores=[]), "rollback-probe", "exec"), namespace)
+    validate = namespace["validate_rollback_probe"]
+    source_sha = "a" * 40
+    wrapper_sha = "b" * 40
+
+    validate({"source_sha": source_sha}, "/health", source_sha, wrapper_sha)
+    validate(
+        {"source_sha": source_sha, "wrapper_sha": wrapper_sha},
+        "/health",
+        source_sha,
+        wrapper_sha,
+    )
+    with pytest.raises(SystemExit, match="wrapper mismatch"):
+        validate(
+            {"source_sha": source_sha, "wrapper_sha": None}, "/health", source_sha, wrapper_sha
+        )
+    with pytest.raises(SystemExit, match="wrapper mismatch"):
+        validate(
+            {"source_sha": source_sha, "wrapper_sha": "c" * 40},
+            "/health",
+            source_sha,
+            wrapper_sha,
+        )
+    with pytest.raises(SystemExit, match="source mismatch"):
+        validate({"source_sha": "c" * 40}, "/health", source_sha, wrapper_sha)
 
 
 def test_hfs_rebuild_job_avoids_checkout_and_dependency_cache() -> None:

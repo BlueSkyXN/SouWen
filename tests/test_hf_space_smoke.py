@@ -1,5 +1,7 @@
 import json
+import base64
 from pathlib import Path
+from urllib.parse import parse_qs, unquote, urlparse
 from types import SimpleNamespace
 
 import pytest
@@ -460,6 +462,202 @@ def test_basic_checks_require_exact_source_sha_when_pinned():
     assert by_name["health"].outcome == "pass"
     assert by_name["readiness"].outcome == "fail"
     assert "expected=" in by_name["readiness"].detail
+
+
+def test_target_m1_requires_wrapper_worker_and_three_vertical_capabilities(monkeypatch):
+    source_sha = "a" * 40
+    wrapper_sha = "b" * 40
+    builtin_url = smoke.immutable_builtin_fetch_probe_url(source_sha)
+    browser_url = smoke.immutable_browser_fetch_probe_url(source_sha)
+    assert builtin_url is not None and browser_url is not None
+    parsed_browser_url = urlparse(browser_url)
+    browser_query = parse_qs(parsed_browser_url.query)
+    browser_payload = base64.b64decode(unquote(parsed_browser_url.path.rsplit("/", 1)[-1]))
+    assert (
+        browser_payload.decode()
+        == Path(smoke.REQUIRED_BROWSER_FETCH_PROBE_PATH).read_text(encoding="utf-8").strip()
+    )
+    assert browser_query == {
+        "candidate_sha": [source_sha],
+        "marker": [smoke.REQUIRED_BROWSER_FETCH_PROBE_MARKER],
+    }
+
+    class TargetClient(FakeSmokeClient):
+        def __init__(self):
+            super().__init__()
+            common = {
+                "version": "2.0.0rc2",
+                "source_sha": source_sha,
+                "wrapper_sha": wrapper_sha,
+                "rollout_mode": "target",
+                "config_revision": f"source-{source_sha}",
+            }
+            self.json_routes["/health"] = smoke.ResponseData(
+                200,
+                {**common, "status": "ok", "ready": True, "components": {"api": "ready"}},
+                0.1,
+            )
+            self.json_routes["/readiness"] = smoke.ResponseData(
+                200,
+                {
+                    **common,
+                    "status": "ready",
+                    "ready": True,
+                    "worker_source_sha": source_sha,
+                    "components": {"api": "ready", "browser_worker": "ready"},
+                    "error": None,
+                },
+                0.1,
+            )
+            self.json_routes["/openapi.json"] = smoke.ResponseData(
+                200,
+                {"info": {"title": "SouWen API", "version": "2.0.0rc2"}},
+                0.1,
+            )
+
+        def post(self, path, *, body=None, **_kwargs):
+            if path == "/api/v1/search":
+                return smoke.ResponseData(200, {"items": [{"id": "W1"}]}, 0.2)
+            assert path == "/api/v1/fetch"
+            target = body["targets"][0]
+            if target == builtin_url:
+                content = smoke.REQUIRED_BUILTIN_FETCH_PROBE_MARKER + (" evidence" * 80)
+                provenance = [{"provider": "builtin-fetch", "attempt": 1}]
+            else:
+                assert target == browser_url
+                content = (
+                    f"?candidate_sha={source_sha}"
+                    f"&marker={smoke.REQUIRED_BROWSER_FETCH_PROBE_MARKER}"
+                )
+                provenance = [
+                    {"provider": "builtin-fetch", "attempt": 1, "outcome": "success"},
+                    {"provider": "builtin-fetch", "attempt": 2, "outcome": "success"},
+                ]
+            return smoke.ResponseData(
+                200,
+                {
+                    "items": [
+                        {
+                            "status": "success",
+                            "content": content,
+                            "provenance": provenance,
+                        }
+                    ]
+                },
+                0.2,
+            )
+
+    config = smoke.SmokeConfig(
+        base_url="https://example.test",
+        expected_version="2.0.0rc2",
+        expected_source_sha=source_sha,
+        expected_wrapper_sha=wrapper_sha,
+        require_target_runtime=True,
+        request_timeout=1,
+        bearer_token="admin",
+    )
+    monkeypatch.setattr(smoke, "ApiClient", lambda _config: TargetClient())
+
+    results = smoke.run_report(config)
+
+    by_name = {item.name: item for item in results}
+    assert by_name["health"].outcome == "pass"
+    assert by_name["readiness"].outcome == "pass"
+    assert by_name["openalex-search"].outcome == "pass"
+    assert by_name["builtin-fetch"].outcome == "pass"
+    assert by_name["browser-fetch"].outcome == "pass"
+    assert smoke.required_failures(results) == []
+
+
+def test_target_m1_browser_attempt_without_rendered_candidate_marker_fails():
+    source_sha = "a" * 40
+
+    class FalsePositiveClient:
+        def post(self, path, *, body=None, **_kwargs):
+            if path == "/api/v1/search":
+                return smoke.ResponseData(200, {"items": [{"id": "W1"}]}, 0.1)
+            target = body["targets"][0]
+            content = (
+                smoke.REQUIRED_BUILTIN_FETCH_PROBE_MARKER + " evidence" * 80
+                if target == smoke.immutable_builtin_fetch_probe_url(source_sha)
+                else Path(smoke.REQUIRED_BROWSER_FETCH_PROBE_PATH).read_text(encoding="utf-8")
+            )
+            return smoke.ResponseData(
+                200,
+                {
+                    "items": [
+                        {
+                            "status": "success",
+                            "content": content,
+                            "provenance": [
+                                {
+                                    "provider": "builtin-fetch",
+                                    "attempt": 2,
+                                    "outcome": "success",
+                                }
+                            ],
+                        }
+                    ]
+                },
+                0.1,
+            )
+
+    config = smoke.SmokeConfig(
+        base_url="https://example.test",
+        expected_version="2.0.0rc2",
+        expected_source_sha=source_sha,
+        require_target_runtime=True,
+        request_timeout=1,
+    )
+
+    results = smoke.run_target_m1_checks(FalsePositiveClient(), config)  # type: ignore[arg-type]
+
+    assert {item.name: item.outcome for item in results}["browser-fetch"] == "fail"
+
+
+def test_target_m1_readiness_fails_when_worker_or_wrapper_provenance_drifts():
+    client = FakeSmokeClient()
+    client.json_routes["/health"] = smoke.ResponseData(
+        200,
+        {
+            "status": "ok",
+            "version": "2.0.0rc2",
+            "source_sha": "a" * 40,
+            "wrapper_sha": "c" * 40,
+            "rollout_mode": "target",
+            "config_revision": "config-r1",
+        },
+        0.1,
+    )
+    client.json_routes["/readiness"] = smoke.ResponseData(
+        200,
+        {
+            "ready": True,
+            "version": "2.0.0rc2",
+            "source_sha": "a" * 40,
+            "wrapper_sha": "c" * 40,
+            "worker_source_sha": "d" * 40,
+            "rollout_mode": "target",
+            "config_revision": "config-r1",
+            "components": {"api": "ready", "browser_worker": "not_ready"},
+            "error": None,
+        },
+        0.1,
+    )
+    config = smoke.SmokeConfig(
+        base_url="https://example.test",
+        expected_version="2.0.0rc2",
+        expected_source_sha="a" * 40,
+        expected_wrapper_sha="b" * 40,
+        require_target_runtime=True,
+        request_timeout=1,
+    )
+
+    results = smoke.run_basic_checks(client, config, smoke.RunState())
+    by_name = {item.name: item for item in results}
+
+    assert by_name["health"].outcome == "fail"
+    assert by_name["readiness"].outcome == "fail"
 
 
 def test_basic_checks_warn_when_public_admin_open_without_password():

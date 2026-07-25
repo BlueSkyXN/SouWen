@@ -258,6 +258,8 @@ Deployment manifest 只索引轻量 HFS 验收证据，不得被 GitHub Release 
     "repo_sha": "<Space wrapper 40-hex>",
     "runtime_sha": "<same Space wrapper 40-hex>",
     "source_sha": "<candidate 40-hex>",
+    "wrapper_sha": "<same Space wrapper 40-hex reported by probes>",
+    "rollout_mode": "target",
     "promotion_changed": true,
     "prior_repo_sha": "<40-hex>",
     "prior_runtime_sha": "<40-hex>",

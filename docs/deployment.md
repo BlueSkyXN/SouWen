@@ -33,7 +33,9 @@ gh workflow run release-candidate.yml \
 - `deployment` 必须同时使用 `deploy_hfs=true, publish=false`。它跳过外层 PyInstaller/Nuitka
   release matrix，但保留全部非 binary gate、HFS reusable workflow 内的单次 Linux
   `basic-cli` PyInstaller smoke、live promotion、rollback 和 readback，产出不可发布的
-  `deployment-evidence-*` artifact。
+  `deployment-evidence-*` artifact。M1 起，assembler 还会解析 surface/capability JSON，要求
+  target rollout、Browser Worker readiness、OpenAlex Search、builtin Fetch 与 Browser Fetch
+  全部为 `PASS`；报告文件仅存在不再构成通过。
 
 轻量 HFS promotion 使用：
 
@@ -106,6 +108,13 @@ docker build -f cloud/modelscope/Dockerfile \
 
 - Root 把 build arg 写入 `/app/runtime.source.sha`；HFS 从 detached checkout 写入同一路径；
   ModelScope 写入 `/home/user/app/runtime.source.sha`。
+- RC2 HFS 使用 `deploy/process/supervisor.py` 管理两个进程：Browser Worker 只绑定
+  `127.0.0.1:49266`，通过 authenticated readiness 后 API 才绑定 `0.0.0.0:49265`。HFS 只
+  `EXPOSE/app_port` 49265；不得为 Worker 添加 host port mapping。
+- Supervisor 从 `runtime.source.sha` 解析 source SHA，使用 source-owned 默认配置时生成
+  `source-<candidate_sha>` config revision，并把同一 source/config/token 传给两个 child。
+  HFS transaction 将实际 Space commit 写入受管的 `SOUWEN_WRAPPER_SHA` variable；该值只用于
+  provenance，不替代 `runtime.raw.sha` 的外部 readback。
 - Root/HFS 显式使用 `WARP_DATA_DIR=/app/data`、`WARP_RUNTIME_BIN_DIR=/app/data/bin`；
   ModelScope 使用 `/home/user/app/data` 与 `/home/user/app/data/bin`。entrypoint 的 `PATH`
   注入和 Python `WarpManager` 都从这两个环境变量派生，持久卷与动态安装目录必须挂到同一

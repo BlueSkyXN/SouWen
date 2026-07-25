@@ -40,22 +40,16 @@ fi
 
 # ----- 依赖检查 -----
 python -c "
-import fastapi, uvicorn, souwen
-from souwen.server.app import app
+import fastapi, playwright, uvicorn, souwen
+from souwen.worker.browser_fetch.runtime import BrowserWorkerSettings
 print('✅ 依赖检查通过')
 "
 
 echo "=========================================="
-echo "🚀 启动服务 → 0.0.0.0:${PORT}"
+echo "🚀 启动 Supervisor → API 0.0.0.0:${PORT} + Browser Worker loopback"
 echo "=========================================="
 
 # Ignore HUP so HFS load-balancer reconnects don't kill the server
 trap '' HUP
 
-exec uvicorn souwen.server.app:app \
-    --host 0.0.0.0 \
-    --port "${PORT}" \
-    --workers 1 \
-    --log-level info \
-    --access-log \
-    --timeout-keep-alive 120
+exec python /app/deploy/process/supervisor.py

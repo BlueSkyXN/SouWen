@@ -12,19 +12,26 @@ pinned: false
 
 面向 AI Agent 的学术论文 + 专利 + 网页统一搜索 API 服务。
 
+## RC2 进程拓扑
+
+HFS wrapper 只向外暴露 `49265`。`deploy/process/supervisor.py` 先在
+`127.0.0.1:49266` 启动 authenticated Browser Worker，并验证 contract/source/version/config/
+inventory readiness；成功后才启动 API。Worker token 每次启动生成，不写入配置、日志或探针。
+Worker 异常时 API health 可继续响应，但 `/readyz` 必须 fail closed；重启次数有上限。
+
 ## 端点
 
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| GET | `/health` | 存活探针 |
-| GET | `/readiness` | 就绪探针（v0.6.1，检查配置可加载 + 数据源注册表非空） |
+| GET | `/healthz`、`/health` | 同 handler 存活探针；回读 version/source/wrapper/rollout |
+| GET | `/readyz`、`/readiness` | 同 handler 就绪探针；聚合 API、Provider 与 Browser Worker |
 | GET | `/docs` | OpenAPI / Swagger UI 文档 |
 | GET | `/panel` | 管理面板 HTML；浏览器访问入口为 `/panel#/` |
 | GET | `/openapi.json` | OpenAPI schema |
-| GET | `/api/v1/search/paper?q=...` | 搜索学术论文 |
-| GET | `/api/v1/search/patent?q=...` | 搜索专利 |
-| GET | `/api/v1/search/web?q=...` | 搜索网页（默认 `engines=duckduckgo,bing`） |
-| GET | `/api/v1/sources` | 列出公开 Source Catalog、静态配置状态与 runtime importability |
+| POST | `/api/v1/search` | RC2 canonical Search；M1 默认 OpenAlex paper slice |
+| POST | `/api/v1/llm-search` | RC2 canonical LLM Search；UniAPI 未配置时稳定 unavailable |
+| POST | `/api/v1/fetch` | RC2 builtin Fetch + Browser Worker fallback |
+| GET | `/api/v1/providers` | RC2 Provider availability catalog |
 | GET | `/api/v1/admin/config` | 查看配置（需认证） |
 | GET / PUT | `/api/v1/admin/http-backend` | 查看或临时切换 HTTP backend（需认证） |
 | POST | `/api/v1/admin/config/reload` | 重载配置（需认证） |
@@ -70,7 +77,10 @@ PyInstaller CLI、HF Space Docker 容器启动和 API surface smoke。合入或 
 `Dockerfile` 是 fail-closed 模板：仓库中的全零 `SOUWEN_REF` 不能直接构建。
 部署 workflow 会在临时 staging 目录把它替换为经验证的 40 位 candidate SHA，
 同步后再回读远端 Dockerfile。容器内 `/health` 与 `/readiness` 的
-`source_sha` 必须与该 SHA 完全一致；禁止回退到 floating `main`。
+`source_sha` 必须与该 SHA 完全一致；workflow 同时把实际 Space wrapper commit 写入
+`SOUWEN_WRAPPER_SHA` variable，探针 `wrapper_sha` 必须与 repo/runtime SHA 一致。M1 capability
+报告还必须证明 `rollout_mode=target`、非空 `config_revision`、`browser_worker=ready`、OpenAlex
+Search、builtin Fetch 与 Browser Fetch；禁止回退到 floating `main`。
 
 部署后人工验收至少访问：
 
