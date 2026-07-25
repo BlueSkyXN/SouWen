@@ -55,12 +55,14 @@ import logging
 from typing import Any
 
 import httpx
+
+from souwen.common_runtime.transport import HttpTransport
 from souwen.config import get_config
-from souwen.core.parsing import safe_parse_date
 from souwen.core.exceptions import ConfigError, NotFoundError, ParseError
 from souwen.core.http_client import SouWenHttpClient
-from souwen.models import Applicant, PatentResult, SearchResponse
+from souwen.core.parsing import safe_parse_date
 from souwen.core.rate_limiter import TokenBucketLimiter
+from souwen.models import Applicant, PatentResult, SearchResponse
 
 logger = logging.getLogger(__name__)
 
@@ -94,27 +96,33 @@ class PatentsViewClient:
     BASE_URL = "https://search.patentsview.org/api/v1"
     RATE_LIMIT = 0.75  # 45 req/min
 
-    def __init__(self, api_key: str | None = None) -> None:
+    def __init__(
+        self,
+        api_key: str | None = None,
+        *,
+        transport: HttpTransport | None = None,
+    ) -> None:
         """初始化 PatentsView 客户端
 
         从参数或配置读取 API Key，初始化 HTTP 客户端和限流器。
         """
-        cfg = get_config()
-        resolved_key = api_key or cfg.resolve_api_key("patentsview", "patentsview_api_key")
-        if not resolved_key:
-            raise ConfigError(
-                key="patentsview_api_key",
-                service="PatentsView Search API",
-                register_url=(
-                    "https://search.patentsview.org/docs/docs/Search%20API/SearchAPIReference/"
-                ),
+        if transport is None:
+            cfg = get_config()
+            resolved_key = api_key or cfg.resolve_api_key("patentsview", "patentsview_api_key")
+            if not resolved_key:
+                raise ConfigError(
+                    key="patentsview_api_key",
+                    service="PatentsView Search API",
+                    register_url=(
+                        "https://search.patentsview.org/docs/docs/Search%20API/SearchAPIReference/"
+                    ),
+                )
+            transport = SouWenHttpClient(
+                base_url=self.BASE_URL,
+                headers={"X-Api-Key": resolved_key},
+                source_name="patentsview",
             )
-        self._api_key = resolved_key
-        self._http = SouWenHttpClient(
-            base_url=self.BASE_URL,
-            headers={"X-Api-Key": self._api_key},
-            source_name="patentsview",
-        )
+        self._http = transport
         # 45 req/min 限制，约 0.75 req/s
         self._limiter = TokenBucketLimiter(rate=self.RATE_LIMIT, burst=3)
 
