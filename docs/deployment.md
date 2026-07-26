@@ -166,8 +166,7 @@ docker build -f cloud/modelscope/Dockerfile \
   注入和 Python `WarpManager` 都从这两个环境变量派生，持久卷与动态安装目录必须挂到同一
   platform-specific data root。
 - 三个 Dockerfile 的 base image 使用 digest pin；WARP 下载必须通过
-  `scripts/warp-checksums.txt`；SuperWeb2PDF direct URL 带 `#sha256=` hash。更新版本时必须
-  同步 pin/checksum 及测试，不能临时跳过校验。
+  `scripts/warp-checksums.txt`。更新版本时必须同步 pin/checksum 及测试，不能临时跳过校验。
 
 ## 本地服务
 

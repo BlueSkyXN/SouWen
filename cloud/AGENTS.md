@@ -8,7 +8,7 @@ Read this card for cloud Dockerfiles, entrypoints, platform docs, deployment ass
 ## Why this is high-risk
 
 - Changes affect deployable images and platform startup behavior.
-- Platform wrappers need to track root Dockerfile behavior for panel build, WARP, auth env vars and optional web2pdf.
+- Platform wrappers need to track root Dockerfile behavior for panel build, WARP and auth env vars; HFS also carries the Browser Worker runtime.
 - Docker validation usually needs a Docker daemon and network.
 
 ## Required before changes
@@ -25,5 +25,5 @@ Read this card for cloud Dockerfiles, entrypoints, platform docs, deployment ass
 
 ## Validation
 
-- `pytest tests/test_dockerfiles.py tests/test_web2pdf_packaging.py -v --tb=short`
+- `pytest tests/test_dockerfiles.py -v --tb=short`
 - Docker builds may need Docker daemon and network.

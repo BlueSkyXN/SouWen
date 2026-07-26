@@ -1139,16 +1139,11 @@ def test_eligible_fetch_provider_tests_respects_edition():
 
     assert "builtin" in pro_providers
     assert "jina_reader" in pro_providers
-    assert "arxiv_fulltext" not in pro_providers
+    assert "arxiv_fulltext" in pro_providers
     assert "crawl4ai" not in pro_providers
     assert "arxiv_fulltext" in full_providers
     assert "crawl4ai" in full_providers
-    assert gated_providers == {
-        "arxiv_fulltext",
-        "crawl4ai",
-        "newspaper",
-        "readability",
-    }
+    assert gated_providers == {"crawl4ai", "newspaper", "readability"}
 
 
 def test_build_markdown_report_counts_edition_gated_fetch_skips():

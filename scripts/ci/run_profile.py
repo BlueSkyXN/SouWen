@@ -25,14 +25,13 @@ DEFAULT_TIMEOUT_SECONDS = 300.0
 OUTPUT_TAIL_CHARS = 4000
 PYTHON = sys.executable or "python"
 FULL_FETCH_PROVIDER_MODULES: Mapping[str, str] = {
-    "arxiv_fulltext": "souwen.paper.arxiv_fulltext",
     "crawl4ai": "souwen.web.crawl4ai_fetcher",
     "newspaper": "souwen.web.newspaper_fetcher",
     "readability": "souwen.web.readability_fetcher",
     "scrapling": "souwen.web.scrapling_fetcher",
 }
 FULL_FETCH_PROVIDER_MODULES_LITERAL = repr(dict(FULL_FETCH_PROVIDER_MODULES))
-FULL_CORE_FETCH_PROVIDERS = frozenset({"arxiv_fulltext", "newspaper", "readability"})
+FULL_CORE_FETCH_PROVIDERS = frozenset({"newspaper", "readability"})
 FULL_BROWSER_VARIANT_FETCH_PROVIDERS = frozenset({"crawl4ai", "scrapling"})
 FULL_CORE_FETCH_PROVIDERS_LITERAL = repr(tuple(sorted(FULL_CORE_FETCH_PROVIDERS)))
 FULL_BROWSER_VARIANT_FETCH_PROVIDERS_LITERAL = repr(

@@ -118,7 +118,7 @@ class PlaywrightBrowserPool:
                 raise ConfigError(
                     "playwright",
                     "Playwright browser runtime",
-                    'pip install -e ".[web2pdf]" && python -m playwright install chromium',
+                    'pip install "playwright>=1.40" && python -m playwright install chromium',
                 ) from None
 
             playwright = await async_playwright().start()

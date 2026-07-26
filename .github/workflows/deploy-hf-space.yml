@@ -231,9 +231,6 @@ jobs:
             --exclude-module=souwen.web.scrapling_fetcher \
             --exclude-module=souwen.web.newspaper_fetcher \
             --exclude-module=souwen.web.readability_fetcher \
-            --exclude-module=souwen.paper.arxiv_fulltext \
-            --exclude-module=pymupdf4llm \
-            --exclude-module=superweb2pdf \
             --exclude-module=pkg_resources \
             --exclude-module=setuptools \
             --hidden-import=souwen.integrations.mcp_server \
@@ -306,7 +303,6 @@ jobs:
             --build-arg SOUWEN_REPO="${{ steps.source.outputs.repo }}" \
             --build-arg SOUWEN_REF="${{ steps.source.outputs.ref }}" \
             --build-arg SKINS=souwen-google \
-            --build-arg WITH_WEB2PDF=0 \
             -t "souwen-hfs-local:${GITHUB_SHA::7}" \
             cloud/hfs
 

@@ -54,9 +54,17 @@ def test_edition_extras_define_layered_install_profiles() -> None:
 
     assert _extra_dependencies("edition-basic") == ["souwen[tls,web,robots,mcp]"]
     assert _extra_dependencies("edition-pro") == ["souwen[edition-basic,server,scraper]"]
-    assert _extra_dependencies("edition-full") == [
-        "souwen[edition-pro,newspaper,readability,pdf,web2pdf]"
-    ]
+    assert _extra_dependencies("edition-full") == ["souwen[edition-pro,newspaper,readability]"]
+
+
+def test_pdf_capture_extras_and_direct_references_are_removed() -> None:
+    extras = _optional_dependency_block()
+
+    assert not re.search(r"^pdf =", extras, flags=re.MULTILINE)
+    assert not re.search(r"^web2pdf =", extras, flags=re.MULTILINE)
+    assert "pymupdf4llm" not in extras
+    assert "superweb2pdf" not in extras
+    assert "allow-direct-references" not in PYPROJECT.read_text(encoding="utf-8")
 
 
 def test_full_browser_variants_keep_crawl4ai_and_scrapling_mutually_exclusive() -> None:

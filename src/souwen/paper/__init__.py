@@ -8,7 +8,7 @@
 - SemanticScholarClient: Semantic Scholar (可选Key)
 - CrossrefClient: Crossref (无需Key)
 - ArxivClient: arXiv (无需Key)
-- ArxivFulltextClient: arXiv 论文全文（HTML 优先 + PDF 回退，无需 Key）
+- ArxivFulltextClient: arXiv 论文 HTML 全文（无需 Key）
 - DblpClient: DBLP (无需Key)
 - CoreClient: CORE (需Key)
 - PubMedClient: PubMed (可选Key)
@@ -23,7 +23,6 @@
 - IacrClient: IACR ePrint (无需Key，实验性 HTML 爬虫)
 - BioRxivClient: bioRxiv/medRxiv 预印本 (无需Key)
 - IeeeXploreClient: IEEE Xplore (需Key)
-- fetch_pdf: PDF 回退链获取器
 """
 
 from souwen.paper.openalex import OpenAlexClient
@@ -38,7 +37,6 @@ from souwen.paper.dblp import DblpClient
 from souwen.paper.core import CoreClient
 from souwen.paper.pubmed import PubMedClient
 from souwen.paper.unpaywall import UnpaywallClient
-from souwen.paper.pdf_fetcher import fetch_pdf
 from souwen.paper.zotero import ZoteroClient
 from souwen.paper.huggingface import HuggingFaceClient
 from souwen.paper.europepmc import EuropePmcClient
@@ -64,7 +62,6 @@ __all__ = [
     "CoreClient",
     "PubMedClient",
     "UnpaywallClient",
-    "fetch_pdf",
     "ZoteroClient",
     "HuggingFaceClient",
     "EuropePmcClient",

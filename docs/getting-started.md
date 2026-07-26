@@ -25,8 +25,8 @@ pip install -e ".[edition-basic]"          # 零 Key / 最小依赖体验
 pip install -e ".[edition-pro]"            # API 服务 + MCP + TLS 指纹 + scraper 基础能力
 ```
 
-需要 Crawl4AI、Scrapling、PDF、文章抽取、web2pdf 等 full 能力时，再按目标
-browser provider 选择 full 变体。`crawl4ai` 与 `scrapling` 当前依赖树互斥，
+需要 Crawl4AI、Scrapling 或文章抽取等 full 能力时，再按目标 browser provider
+选择 full 变体。`crawl4ai` 与 `scrapling` 当前依赖树互斥，
 不要在同一个环境里同时安装：
 
 ```bash

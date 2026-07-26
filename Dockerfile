@@ -29,10 +29,6 @@ ARG WIREPROXY_VERSION=1.1.2
 # usque: MASQUE/QUIC 协议 WARP 客户端
 ARG USQUE_VERSION=3.0.0
 ARG SOUWEN_SOURCE_SHA=""
-# 可选安装 A2 待处置的 web2pdf/SuperWeb2PDF 包及其浏览器运行时
-ARG WITH_WEB2PDF=0
-# PyPI 暂无 superweb2pdf 发行，默认使用可解析的 GitHub archive；可用 build-arg 覆盖
-ARG WEB2PDF_PACKAGE=https://github.com/BlueSkyXN/SuperWeb2PDF/archive/d1e1da59d739ad46222b5e726bd6f28b0d0453fa.zip#sha256=f56a380aa3f06d169d3fcc723d5525779519afaff159b37e8a789e50b797c76b
 
 # 环境变量配置
 # WARP 代理环境变量
@@ -51,14 +47,9 @@ ENV PYTHONUNBUFFERED=1 \
 
 # ===== 系统依赖安装 =====
 # 安装 WARP 相关工具：curl、wireguard-tools
-# 安装时区数据、网络工具和 Playwright Chromium 运行库
-# 以下为 Playwright Chromium 运行所需系统库（SuperWeb2PDF 外部插件需要）
+# 安装时区数据和网络工具
 RUN apt-get update && apt-get install -y --no-install-recommends \
         curl tzdata wireguard-tools iptables iproute2 \
-        libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
-        libxkbcommon0 libatspi2.0-0 libxcomposite1 libxdamage1 libxfixes3 \
-        libxrandr2 libgbm1 libpango-1.0-0 libcairo2 libasound2 \
-        libwayland-client0 \
     && cp /usr/share/zoneinfo/${TZ} /etc/localtime \
     && echo "${TZ}" > /etc/timezone \
     && rm -rf /var/lib/apt/lists/*
@@ -111,14 +102,9 @@ RUN if [ -n "${SOUWEN_SOURCE_SHA}" ]; then \
 
 # 步骤 1：复制项目配置和版本信息，安装 pro/API 运行面依赖
 # edition-pro 聚合 API server、MCP、TLS 指纹和 scraper 基础能力
-# 可通过 --build-arg WITH_WEB2PDF=1 安装 web2pdf/SuperWeb2PDF 包
 COPY pyproject.toml README.md LICENSE hatch_build.py ./
 COPY src/souwen/__init__.py ./src/souwen/__init__.py
-RUN if [ "${WITH_WEB2PDF}" = "1" ]; then \
-        pip install ".[edition-pro]" "playwright>=1.40" "${WEB2PDF_PACKAGE}"; \
-    else \
-        pip install ".[edition-pro]"; \
-    fi
+RUN pip install ".[edition-pro]"
 
 # 步骤 2：复制全部源码并重新安装（确保最新版本）
 COPY src/ ./src/
@@ -126,12 +112,6 @@ COPY src/ ./src/
 COPY --from=panel-builder /panel/dist/index.html ./src/souwen/server/panel.html
 RUN pip install --no-deps ".[edition-pro]" \
     && python -c "import curl_cffi; print('curl_cffi OK')"
-
-# 步骤 2.5：安装 Playwright Chromium（仅 SuperWeb2PDF 外部插件需要）
-RUN if [ "${WITH_WEB2PDF}" = "1" ]; then \
-        playwright install chromium \
-        && echo "✅ Playwright Chromium installed"; \
-    fi
 
 # 步骤 3：复制运行时所需的脚本和配置文件
 COPY cli.py souwen.example.yaml ./

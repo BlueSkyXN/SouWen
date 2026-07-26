@@ -479,7 +479,6 @@ jobs:
             -f "${{ matrix.dockerfile }}" \
             --build-arg SOUWEN_REPO=git://127.0.0.1:9418/souwen.git \
             --build-arg SOUWEN_REF="${{ needs.validate.outputs.candidate_sha }}" \
-            --build-arg WITH_WEB2PDF=0 \
             -t "souwen-rc:${{ matrix.kind }}" \
             "${{ matrix.context }}"
 
@@ -1628,8 +1627,7 @@ jobs:
           exactly four target-native PyInstaller Server bundles, checksums, Python and
           Panel SBOMs, and the release evidence manifest.
           Release assets are covered by native GitHub build attestations. Browser-backed providers remain governed by
-          the attached External Smoke Gate reports. SuperWeb2PDF is installed from
-          the fixed commit and SHA-256-pinned direct reference recorded in package metadata.
+          the attached External Smoke Gate reports.
           EOF
 
           gh release create "$TAG" release-assets/* \

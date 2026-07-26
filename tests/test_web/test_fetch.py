@@ -213,10 +213,10 @@ class TestFetchContent:
         """已知 full provider 在默认 pro edition 下应被执行层拦截。"""
         monkeypatch.setenv("SOUWEN_EDITION", "pro")
 
-        with pytest.raises(EditionError, match="arxiv_fulltext.*requires edition=full"):
+        with pytest.raises(EditionError, match="newspaper.*requires edition=full"):
             await fetch_content(
-                urls=["https://arxiv.org/abs/2301.00001"],
-                providers=["arxiv_fulltext"],
+                urls=["https://example.com/article"],
+                providers=["newspaper"],
                 skip_ssrf_check=True,
             )
 
@@ -444,7 +444,7 @@ class TestFetchContent:
     @pytest.mark.asyncio
     async def test_arxiv_fulltext_provider_dispatches(self, monkeypatch):
         """arxiv_fulltext provider 应从 arxiv URL 提取 paper_id 并复用现有 client。"""
-        monkeypatch.setenv("SOUWEN_EDITION", "full")
+        monkeypatch.setenv("SOUWEN_EDITION", "pro")
         calls: list[str] = []
 
         class FakeArxivFulltextClient:
@@ -488,7 +488,7 @@ class TestFetchContent:
     @pytest.mark.asyncio
     async def test_arxiv_fulltext_rejects_non_arxiv_urls(self, monkeypatch):
         """arxiv_fulltext provider 对非 arxiv URL 返回 provider 级错误。"""
-        monkeypatch.setenv("SOUWEN_EDITION", "full")
+        monkeypatch.setenv("SOUWEN_EDITION", "pro")
         resp = await fetch_content(
             urls=["https://example.com/paper"],
             providers=["arxiv_fulltext"],
@@ -497,14 +497,12 @@ class TestFetchContent:
 
         assert resp.total_ok == 0
         assert resp.total_failed == 1
-        assert resp.results[0].error == (
-            "arxiv_fulltext 仅支持 arxiv.org 的 /abs/、/html/ 或 /pdf/ URL"
-        )
+        assert resp.results[0].error == ("arxiv_fulltext 仅支持 arxiv.org 的 /abs/ 或 /html/ URL")
 
     @pytest.mark.asyncio
     async def test_arxiv_fulltext_enforces_per_url_timeout(self, monkeypatch):
         """arxiv_fulltext 应对每个 URL 单独应用用户请求的 timeout。"""
-        monkeypatch.setenv("SOUWEN_EDITION", "full")
+        monkeypatch.setenv("SOUWEN_EDITION", "pro")
 
         class SlowArxivFulltextClient:
             async def __aenter__(self):
@@ -546,7 +544,7 @@ class TestFetchContent:
     @pytest.mark.asyncio
     async def test_arxiv_fulltext_scales_global_timeout_with_batch_size(self, monkeypatch):
         """arxiv_fulltext 的 provider 级总超时应按 URL 数量伸缩。"""
-        monkeypatch.setenv("SOUWEN_EDITION", "full")
+        monkeypatch.setenv("SOUWEN_EDITION", "pro")
         captured_timeouts: list[float] = []
         original_wait_for = asyncio.wait_for
 

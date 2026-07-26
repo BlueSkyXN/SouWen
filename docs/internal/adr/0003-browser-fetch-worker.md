@@ -222,7 +222,7 @@ functional scripts and GitHub Actions, consistent with repository test policy.
   authenticated readiness, API start order, TERM/INT fanout, bounded grace/kill and a finite
   exponential Worker restart budget. After runtime Worker failure, API health stays reachable while
   aggregate readiness fails closed; initial Worker failure prevents API startup.
-- `cloud/hfs/Dockerfile` installs native Playwright Chromium regardless of Web2PDF and exposes only
+- `cloud/hfs/Dockerfile` installs native Playwright Chromium independently of PDF capture features and exposes only
   API port 49265. The Worker remains exact loopback 49266 and the local Docker gate verifies that no
   host mapping exists.
 - Health/readiness now distinguish candidate source, Space wrapper, config revision, rollout mode and

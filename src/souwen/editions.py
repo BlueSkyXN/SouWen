@@ -31,8 +31,6 @@ FULL_FETCH_EXTRAS: Final[frozenset[str]] = frozenset(
         "scrapling",
         "newspaper",
         "readability",
-        "pdf",
-        "web2pdf",
     }
 )
 BASIC_WARP_MODES: Final[tuple[str, ...]] = ("auto", "wireproxy", "external")

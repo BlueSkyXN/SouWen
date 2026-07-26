@@ -26,7 +26,7 @@ def test_binary_smoke_covers_tier_aware_target_runner_contracts() -> None:
         "server/panel",
         "server/admin-locked",
         "server/mcp-loopback",
-        "full/article-pdf-imports",
+        "full/article-extraction-imports",
     ):
         assert check in text
 
@@ -116,7 +116,6 @@ def test_rc2_server_bundle_builds_tracked_target_onedir_with_bundled_chromium() 
         ".[edition-full]",
         "crawl4ai",
         "scrapling",
-        "superweb2pdf",
         "server_bundle_entry.py",
         '"--worker"',
         '"--api"',

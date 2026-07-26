@@ -70,7 +70,7 @@ def test_ensure_edition_allowed_raises_stable_error() -> None:
         ("scrapling", "full"),
         ("newspaper", "full"),
         ("readability", "full"),
-        ("arxiv_fulltext", "full"),
+        ("arxiv_fulltext", "pro"),
     ],
 )
 def test_source_min_edition_uses_registry_metadata(name: str, expected: str) -> None:
@@ -96,7 +96,7 @@ def test_source_min_edition_uses_registry_metadata(name: str, expected: str) -> 
         ("scrapling", "full"),
         ("newspaper", "full"),
         ("readability", "full"),
-        ("arxiv_fulltext", "full"),
+        ("arxiv_fulltext", "pro"),
     ],
 )
 def test_fetch_provider_min_edition_uses_provider_rules(name: str, expected: str) -> None:

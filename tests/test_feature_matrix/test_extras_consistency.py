@@ -67,7 +67,6 @@ def test_heavy_fetch_extras_require_full_for_sources_and_fetch_providers() -> No
     ]
 
     assert {adapter.name for adapter in heavy_sources} >= {
-        "arxiv_fulltext",
         "crawl4ai",
         "scrapling",
         "newspaper",
@@ -82,7 +81,7 @@ def test_edition_extras_keep_conflicting_browser_stacks_separate() -> None:
 
     assert extras["edition-basic"] == ["souwen[tls,web,robots,mcp]"]
     assert extras["edition-pro"] == ["souwen[edition-basic,server,scraper]"]
-    assert extras["edition-full"] == ["souwen[edition-pro,newspaper,readability,pdf,web2pdf]"]
+    assert extras["edition-full"] == ["souwen[edition-pro,newspaper,readability]"]
     assert extras["edition-full-crawl4ai"] == ["souwen[edition-full,crawl4ai]"]
     assert extras["edition-full-scrapling"] == ["souwen[edition-full,scrapling]"]
 

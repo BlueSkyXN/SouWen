@@ -58,8 +58,8 @@ secret 名称 fail fast，不输出值、长度或前缀。
 HFS Docker build 必须传 `SOUWEN_REF=<40位 candidate SHA>`。Dockerfile 的全零模板、短 SHA、
 分支名和 moving `main` 都 fail closed；detached checkout 会把 SHA 写入
 `/app/runtime.source.sha`，由 `/health.source_sha` 与 `/readiness.source_sha` 回读。
-镜像无条件安装原生 Playwright Chromium；不启用 Crawl4AI/Scrapling，也不借用
-`WITH_WEB2PDF=1` 才能启动 Worker。Supervisor 必须先验证 Worker readiness，再启动 API。
+镜像无条件安装原生 Playwright Chromium；不启用 Crawl4AI/Scrapling。Supervisor 必须先验证
+Worker readiness，再启动 API。
 
 ## Private Space 双层认证
 
