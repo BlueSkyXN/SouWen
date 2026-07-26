@@ -56,6 +56,20 @@ class LegacyTransportDeclaration(_SpecModel):
         return self
 
 
+class LocalStoreDeclaration(_SpecModel):
+    """Reviewed local-only provider transport with no network egress."""
+
+    store: Literal["local_catalog"]
+    protocol: Literal["sqlite"] = "sqlite"
+    operations: tuple[Literal["search"], ...] = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def _operations_are_unique(self) -> "LocalStoreDeclaration":
+        if len(self.operations) != len(set(self.operations)):
+            raise ValueError("duplicate local store operation")
+        return self
+
+
 CredentialPlacement = Literal["header", "query", "bearer", "oauth_body", "path"]
 
 
@@ -237,7 +251,7 @@ class _LegacyProviderSpec(_SpecModel):
     adapter_kind: Literal["legacy_bridge"] = "legacy_bridge"
     review_status: Literal["bridge_exception"] = "bridge_exception"
     bridge_reason: str = Field(min_length=1, max_length=512)
-    transport: LegacyTransportDeclaration
+    transport: LegacyTransportDeclaration | LocalStoreDeclaration
     additional_transports: tuple[LegacyTransportDeclaration, ...] = ()
     auth: AuthDeclaration = Field(default_factory=AuthDeclaration)
     configuration_keys: tuple[str, ...] = ()
@@ -258,7 +272,9 @@ class _LegacyProviderSpec(_SpecModel):
 
     @model_validator(mode="after")
     def _transport_hosts_are_unique(self) -> "_LegacyProviderSpec":
-        hosts = (self.transport.host, *(transport.host for transport in self.additional_transports))
+        if isinstance(self.transport, LocalStoreDeclaration) and self.additional_transports:
+            raise ValueError("local store providers cannot declare network transports")
+        hosts = self.hosts
         if len(hosts) != len(set(hosts)):
             raise ValueError("additional legacy transport hosts must be unique")
         return self
@@ -272,15 +288,21 @@ class _LegacyProviderSpec(_SpecModel):
         return self.auth.reference_requirements
 
     @property
-    def host(self) -> str:
+    def host(self) -> str | None:
+        if isinstance(self.transport, LocalStoreDeclaration):
+            return None
         return self.transport.host
 
     @property
     def hosts(self) -> tuple[str, ...]:
+        if isinstance(self.transport, LocalStoreDeclaration):
+            return ()
         return (self.transport.host, *(item.host for item in self.additional_transports))
 
     @property
-    def base_url(self) -> str:
+    def base_url(self) -> str | None:
+        if isinstance(self.transport, LocalStoreDeclaration):
+            return None
         return (
             f"{self.transport.scheme}://{self.transport.host}{self.transport.base_path.rstrip('/')}"
         )

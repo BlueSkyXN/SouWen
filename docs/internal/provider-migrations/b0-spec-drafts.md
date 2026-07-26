@@ -8,11 +8,11 @@ mapping in a draft remains
 
 - Schema version: `1`
 - Generator version: `b0-provider-spec-drafts-v1`
-- Draft count: `43`
-- Existing Provider v2 specs: `65`
+- Draft count: `32`
+- Existing Provider v2 specs: `76`
 - Non-Provider dispositions: `2`
-- Inventory fingerprint: `3b1c46bdc81fb1b6e9e441adbb9a202bd0d6f5a15786a2063092c1931cd08831`
-- Combined input fingerprint: `c6f54b322daa924967f6d340b8d92f3cfe9fb6d5bdc3669b508b1575af78dc89`
+- Inventory fingerprint: `a1265b1c2388e27598c88a5051b50e0887d042e8af4793ee561a7d783e7314b8`
+- Combined input fingerprint: `46ba5ce443c99155982ee71b08d7080d673ae78f00fc1d8fda65d146db6d3fa5`
 
 | Source | Batch | Status | Capabilities | Auth | Legacy loader | Existing manifest | Mapping review |
 |---|---|---|---|---|---|---|---|
@@ -25,36 +25,25 @@ mapping in a draft remains
 | `coolapk` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.coolapk:CoolapkClient]` | — | required |
 | `crawl4ai` | `batch-5` | `pending` | `fetch` | `none` | `lazy[souwen.web.crawl4ai_fetcher:Crawl4AIFetcherClient]` | — | required |
 | `csdn` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.csdn:CSDNClient]` | — | required |
-| `datacite` | `batch-4` | `pending` | `search` | `none` | `lazy[souwen.research_output.datacite:DataCiteClient]` | — | required |
-| `doab` | `batch-4` | `pending` | `get_detail`, `search` | `none` | `lazy[souwen.book.doab:DOABClient]` | — | required |
 | `duckduckgo` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.duckduckgo:DuckDuckGoClient]` | — | required |
 | `duckduckgo_images` | `batch-5` | `pending` | `search_images` | `none` | `lazy[souwen.web.ddg_images:DuckDuckGoImagesClient]` | — | required |
 | `duckduckgo_news` | `batch-5` | `pending` | `search_news` | `none` | `lazy[souwen.web.ddg_news:DuckDuckGoNewsClient]` | — | required |
 | `duckduckgo_videos` | `batch-5` | `pending` | `search_videos` | `none` | `lazy[souwen.web.ddg_videos:DuckDuckGoVideosClient]` | — | required |
-| `figshare` | `batch-4` | `pending` | `get_detail`, `search` | `none` | `lazy[souwen.research_output.figshare:FigshareClient]` | — | required |
 | `google` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.google:GoogleClient]` | — | required |
-| `gutenberg` | `batch-4` | `pending` | `get_detail`, `search` | `none` | `lazy[souwen.local_catalog.gutenberg:GutenbergLocalCatalogClient]` | — | required |
 | `hostloc` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.hostloc:HostLocClient]` | — | required |
-| `internet_archive` | `batch-4` | `pending` | `get_detail`, `search` | `none` | `lazy[souwen.book.internet_archive:InternetArchiveClient]` | — | required |
 | `juejin` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.juejin:JuejinClient]` | — | required |
-| `library_of_congress` | `batch-4` | `pending` | `get_detail`, `search` | `none` | `lazy[souwen.book.library_of_congress:LibraryOfCongressClient]` | — | required |
-| `librivox` | `batch-4` | `pending` | `get_detail`, `search` | `none` | `lazy[souwen.book.librivox:LibriVoxClient]` | — | required |
 | `mojeek` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.mojeek:MojeekClient]` | — | required |
 | `newspaper` | `batch-5` | `pending` | `fetch` | `none` | `lazy[souwen.web.newspaper_fetcher:NewspaperFetcherClient]` | — | required |
 | `nodeseek` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.nodeseek:NodeSeekClient]` | — | required |
-| `oapen` | `batch-4` | `pending` | `get_detail`, `search` | `none` | `lazy[souwen.book.oapen:OAPENClient]` | — | required |
-| `open_library` | `batch-4` | `pending` | `get_detail`, `search` | `none` | `lazy[souwen.book.open_library:OpenLibraryClient]` | — | required |
 | `readability` | `batch-5` | `pending` | `fetch` | `none` | `lazy[souwen.web.readability_fetcher:ReadabilityFetcherClient]` | — | required |
 | `scrapling` | `batch-5` | `pending` | `fetch` | `none` | `lazy[souwen.web.scrapling_fetcher:ScraplingFetcherClient]` | — | required |
 | `searxng` | `batch-6` | `pending` | `search` | `self_hosted` | `lazy[souwen.web.searxng:SearXNGClient]` | — | required |
 | `site_crawler` | `batch-5` | `pending` | `fetch` | `none` | `lazy[souwen.web.site_crawler:SiteCrawlerClient]` | — | required |
 | `startpage` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.startpage:StartpageClient]` | — | required |
-| `taiwan_new_books` | `batch-4` | `pending` | `get_detail`, `search` | `none` | `lazy[souwen.local_catalog.taiwan_new_books:TaiwanNewBooksLocalCatalogClient]` | — | required |
 | `v2ex` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.v2ex:V2EXClient]` | — | required |
 | `websurfx` | `batch-6` | `pending` | `search` | `self_hosted` | `lazy[souwen.web.websurfx:WebsurfxClient]` | — | required |
 | `weibo` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.weibo:WeiboClient]` | — | required |
 | `whoogle` | `batch-6` | `pending` | `search` | `self_hosted` | `lazy[souwen.web.whoogle:WhoogleClient]` | — | required |
-| `wikisource` | `batch-4` | `pending` | `get_detail`, `search` | `none` | `lazy[souwen.book.wikisource:WikisourceClient]` | — | required |
 | `xiaohongshu` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.xiaohongshu:XiaohongshuClient]` | — | required |
 | `yahoo` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.yahoo:YahooClient]` | — | required |
 | `yandex` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.yandex:YandexClient]` | — | required |
@@ -86,9 +75,11 @@ These migrated sources are references only, not review-required B0 drafts.
 | `cnipa` | `souwen.providers.information_sources.cnipa` | `cnipa` | `cnipa-search` | `search` | `souwen.providers.information_sources.cnipa.spec.CNIPA_BRIDGE_SPEC` | `src/souwen/providers/information_sources/cnipa/spec.py` | — | `existing_provider_manifest` |
 | `core` | `souwen.providers.information_sources.core` | `core` | `core-search` | `search` | `souwen.providers.information_sources.core.spec.CORE_PROVIDER_SPEC` | `src/souwen/providers/information_sources/core/spec.py` | — | `existing_provider_manifest` |
 | `crossref` | `souwen.providers.information_sources.crossref` | `crossref` | `crossref-search` | `search` | `souwen.providers.information_sources.crossref.spec.CROSSREF_PROVIDER_SPEC` | `src/souwen/providers/information_sources/crossref/spec.py` | — | `existing_provider_manifest` |
+| `datacite` | `souwen.providers.information_sources.datacite` | `datacite` | `datacite-search` | `search` | `souwen.providers.information_sources.datacite.spec.DATACITE_PROVIDER_SPEC` | `src/souwen/providers/information_sources/datacite/spec.py` | — | `existing_provider_manifest` |
 | `dblp` | `souwen.providers.information_sources.dblp` | `dblp` | `dblp-search` | `search` | `souwen.providers.information_sources.dblp.spec.DBLP_PROVIDER_SPEC` | `src/souwen/providers/information_sources/dblp/spec.py` | — | `existing_provider_manifest` |
 | `deepwiki` | `souwen.providers.fetch_sources.deepwiki` | `deepwiki` | `deepwiki-fetch` | `fetch` | `souwen.providers.fetch_sources.deepwiki.spec.DEEPWIKI_FETCH_PROFILE` | `src/souwen/providers/fetch_sources/deepwiki/spec.py` | — | `existing_provider_manifest` |
 | `diffbot` | `souwen.providers.fetch_sources.diffbot` | `diffbot` | `diffbot-fetch` | `fetch` | `souwen.providers.fetch_sources.diffbot.spec.DIFFBOT_FETCH_PROFILE` | `src/souwen/providers/fetch_sources/diffbot/spec.py` | — | `existing_provider_manifest` |
+| `doab` | `souwen.providers.information_sources.doab` | `doab` | `doab-search` | `search` | `souwen.providers.information_sources.doab.spec.DOAB_PROVIDER_SPEC` | `src/souwen/providers/information_sources/doab/spec.py` | — | `existing_provider_manifest` |
 | `doaj` | `souwen.providers.information_sources.doaj` | `doaj` | `doaj-search` | `search` | `souwen.providers.information_sources.doaj.spec.DOAJ_PROVIDER_SPEC` | `src/souwen/providers/information_sources/doaj/spec.py` | — | `existing_provider_manifest` |
 | `epo_ops` | `souwen.providers.information_sources.epo_ops` | `epo_ops` | `epo_ops-search` | `search` | `souwen.providers.information_sources.epo_ops.spec.EPO_OPS_BRIDGE_SPEC` | `src/souwen/providers/information_sources/epo_ops/spec.py` | — | `existing_provider_manifest` |
 | `eric` | `souwen.providers.information_sources.eric` | `eric` | `eric-search` | `search` | `souwen.providers.information_sources.eric.spec.ERIC_REST_SPEC` | `src/souwen/providers/information_sources/eric/spec.py` | — | `existing_provider_manifest` |
@@ -96,18 +87,25 @@ These migrated sources are references only, not review-required B0 drafts.
 | `exa` | `souwen.providers.information_sources.exa` | `exa` | `exa-search` | `search` | `souwen.providers.information_sources.exa.spec.EXA_SEARCH_PROVIDER_SPEC` | `src/souwen/providers/information_sources/exa/spec.py` | — | `existing_provider_manifest` |
 | `facebook` | `souwen.providers.information_sources.facebook` | `facebook` | `facebook-search` | `search` | `souwen.providers.information_sources.facebook.spec.FACEBOOK_PROVIDER_SPEC` | `src/souwen/providers/information_sources/facebook/spec.py` | — | `existing_provider_manifest` |
 | `feishu_drive` | `souwen.providers.information_sources.feishu_drive` | `feishu_drive` | `feishu-drive-search` | `search` | `souwen.providers.information_sources.feishu_drive.spec.FEISHU_DRIVE_PROVIDER_SPEC` | `src/souwen/providers/information_sources/feishu_drive/spec.py` | — | `existing_provider_manifest` |
+| `figshare` | `souwen.providers.information_sources.figshare` | `figshare` | `figshare-search` | `search` | `souwen.providers.information_sources.figshare.spec.FIGSHARE_PROVIDER_SPEC` | `src/souwen/providers/information_sources/figshare/spec.py` | — | `existing_provider_manifest` |
 | `firecrawl` | `souwen.providers.information_sources.firecrawl` | `firecrawl` | `firecrawl-search` | `search` | `souwen.providers.information_sources.firecrawl.spec.FIRECRAWL_SEARCH_PROVIDER_SPEC` | `src/souwen/providers/information_sources/firecrawl/spec.py` | — | `existing_provider_manifest` |
 | `github` | `souwen.providers.information_sources.github` | `github` | `github-search` | `search` | `souwen.providers.information_sources.github.spec.GITHUB_PROVIDER_SPEC` | `src/souwen/providers/information_sources/github/spec.py` | — | `existing_provider_manifest` |
 | `google_patents` | `souwen.providers.information_sources.google_patents` | `google_patents` | `google_patents-search` | `search` | `souwen.providers.information_sources.google_patents.spec.GOOGLE_PATENTS_BRIDGE_SPEC` | `src/souwen/providers/information_sources/google_patents/spec.py` | — | `existing_provider_manifest` |
+| `gutenberg` | `souwen.providers.information_sources.gutenberg` | `gutenberg` | `gutenberg-search` | `search` | `souwen.providers.information_sources.gutenberg.spec.GUTENBERG_PROVIDER_SPEC` | `src/souwen/providers/information_sources/gutenberg/spec.py` | — | `existing_provider_manifest` |
 | `hal` | `souwen.providers.information_sources.hal` | `hal` | `hal-search` | `search` | `souwen.providers.information_sources.hal.spec.HAL_PROVIDER_SPEC` | `src/souwen/providers/information_sources/hal/spec.py` | — | `existing_provider_manifest` |
 | `huggingface` | `souwen.providers.information_sources.huggingface` | `huggingface` | `huggingface-search` | `search` | `souwen.providers.information_sources.huggingface.spec.HUGGINGFACE_REST_SPEC` | `src/souwen/providers/information_sources/huggingface/spec.py` | — | `existing_provider_manifest` |
 | `iacr` | `souwen.providers.information_sources.iacr` | `iacr` | `iacr-search` | `search` | `souwen.providers.information_sources.iacr.spec.IACR_BRIDGE_SPEC` | `src/souwen/providers/information_sources/iacr/spec.py` | — | `existing_provider_manifest` |
 | `ieee_xplore` | `souwen.providers.information_sources.ieee_xplore` | `ieee_xplore` | `ieee-xplore-search` | `search` | `souwen.providers.information_sources.ieee_xplore.spec.IEEE_XPLORE_PROVIDER_SPEC` | `src/souwen/providers/information_sources/ieee_xplore/spec.py` | — | `existing_provider_manifest` |
+| `internet_archive` | `souwen.providers.information_sources.internet_archive` | `internet_archive` | `internet_archive-search` | `search` | `souwen.providers.information_sources.internet_archive.spec.INTERNET_ARCHIVE_PROVIDER_SPEC` | `src/souwen/providers/information_sources/internet_archive/spec.py` | — | `existing_provider_manifest` |
 | `jina_reader` | `souwen.providers.fetch_sources.jina_reader` | `jina_reader` | `jina-reader-fetch` | `fetch` | `souwen.providers.fetch_sources.jina_reader.spec.JINA_READER_FETCH_PROFILE` | `src/souwen/providers/fetch_sources/jina_reader/spec.py` | — | `existing_provider_manifest` |
 | `kimi_code` | `souwen.providers.information_sources.kimi_code` | `kimi_code` | `kimi_code-search` | `search` | `souwen.providers.information_sources.kimi_code.spec.KIMI_CODE_SEARCH_PROVIDER_SPEC` | `src/souwen/providers/information_sources/kimi_code/spec.py` | — | `existing_provider_manifest` |
+| `library_of_congress` | `souwen.providers.information_sources.library_of_congress` | `library_of_congress` | `library_of_congress-search` | `search` | `souwen.providers.information_sources.library_of_congress.spec.LIBRARY_OF_CONGRESS_PROVIDER_SPEC` | `src/souwen/providers/information_sources/library_of_congress/spec.py` | — | `existing_provider_manifest` |
+| `librivox` | `souwen.providers.information_sources.librivox` | `librivox` | `librivox-search` | `search` | `souwen.providers.information_sources.librivox.spec.LIBRIVOX_PROVIDER_SPEC` | `src/souwen/providers/information_sources/librivox/spec.py` | — | `existing_provider_manifest` |
 | `linkup` | `souwen.providers.information_sources.linkup` | `linkup` | `linkup-search` | `search` | `souwen.providers.information_sources.linkup.spec.LINKUP_PROVIDER_SPEC` | `src/souwen/providers/information_sources/linkup/spec.py` | — | `existing_provider_manifest` |
 | `linuxdo` | `souwen.providers.information_sources.linuxdo` | `linuxdo` | `linuxdo-search` | `search` | `souwen.providers.information_sources.linuxdo.spec.LINUXDO_PROVIDER_SPEC` | `src/souwen/providers/information_sources/linuxdo/spec.py` | — | `existing_provider_manifest` |
 | `metaso` | `souwen.providers.information_sources.metaso` | `metaso` | `metaso-search` | `search` | `souwen.providers.information_sources.metaso.spec.METASO_SEARCH_PROVIDER_SPEC` | `src/souwen/providers/information_sources/metaso/spec.py` | — | `existing_provider_manifest` |
+| `oapen` | `souwen.providers.information_sources.oapen` | `oapen` | `oapen-search` | `search` | `souwen.providers.information_sources.oapen.spec.OAPEN_PROVIDER_SPEC` | `src/souwen/providers/information_sources/oapen/spec.py` | — | `existing_provider_manifest` |
+| `open_library` | `souwen.providers.information_sources.open_library` | `open_library` | `open_library-search` | `search` | `souwen.providers.information_sources.open_library.spec.OPEN_LIBRARY_PROVIDER_SPEC` | `src/souwen/providers/information_sources/open_library/spec.py` | — | `existing_provider_manifest` |
 | `openaire` | `souwen.providers.information_sources.openaire` | `openaire` | `openaire-search` | `search` | `souwen.providers.information_sources.openaire.spec.OPENAIRE_PROVIDER_SPEC` | `src/souwen/providers/information_sources/openaire/spec.py` | — | `existing_provider_manifest` |
 | `openalex` | `souwen.providers.information_sources.openalex` | `openalex` | `openalex-search` | `search` | `souwen.providers.information_sources.openalex.spec.OPENALEX_REST_SPEC` | `src/souwen/providers/information_sources/openalex/spec.py` | — | `existing_provider_manifest` |
 | `osti` | `souwen.providers.information_sources.osti` | `osti` | `osti-search` | `search` | `souwen.providers.information_sources.osti.spec.OSTI_BRIDGE_SPEC` | `src/souwen/providers/information_sources/osti/spec.py` | — | `existing_provider_manifest` |
@@ -126,6 +124,7 @@ These migrated sources are references only, not review-required B0 drafts.
 | `serpapi` | `souwen.providers.information_sources.serpapi` | `serpapi` | `serpapi-search` | `search` | `souwen.providers.information_sources.serpapi.spec.SERPAPI_PROVIDER_SPEC` | `src/souwen/providers/information_sources/serpapi/spec.py` | — | `existing_provider_manifest` |
 | `serper` | `souwen.providers.information_sources.serper` | `serper` | `serper-search` | `search` | `souwen.providers.information_sources.serper.spec.SERPER_PROVIDER_SPEC` | `src/souwen/providers/information_sources/serper/spec.py` | — | `existing_provider_manifest` |
 | `stackoverflow` | `souwen.providers.information_sources.stackoverflow` | `stackoverflow` | `stackoverflow-search` | `search` | `souwen.providers.information_sources.stackoverflow.spec.STACKOVERFLOW_PROVIDER_SPEC` | `src/souwen/providers/information_sources/stackoverflow/spec.py` | — | `existing_provider_manifest` |
+| `taiwan_new_books` | `souwen.providers.information_sources.taiwan_new_books` | `taiwan_new_books` | `taiwan_new_books-search` | `search` | `souwen.providers.information_sources.taiwan_new_books.spec.TAIWAN_NEW_BOOKS_PROVIDER_SPEC` | `src/souwen/providers/information_sources/taiwan_new_books/spec.py` | — | `existing_provider_manifest` |
 | `tavily` | `souwen.providers.information_sources.tavily` | `tavily` | `tavily-search` | `search` | `souwen.providers.information_sources.tavily.spec.TAVILY_SEARCH_PROVIDER_SPEC` | `src/souwen/providers/information_sources/tavily/spec.py` | — | `existing_provider_manifest` |
 | `the_lens` | `souwen.providers.information_sources.the_lens` | `the_lens` | `the_lens-search` | `search` | `souwen.providers.information_sources.the_lens.spec.THE_LENS_BRIDGE_SPEC` | `src/souwen/providers/information_sources/the_lens/spec.py` | — | `existing_provider_manifest` |
 | `twitter` | `souwen.providers.information_sources.twitter` | `twitter` | `twitter-search` | `search` | `souwen.providers.information_sources.twitter.spec.TWITTER_PROVIDER_SPEC` | `src/souwen/providers/information_sources/twitter/spec.py` | — | `existing_provider_manifest` |
@@ -134,6 +133,7 @@ These migrated sources are references only, not review-required B0 drafts.
 | `uspto_odp` | `souwen.providers.information_sources.uspto_odp` | `uspto_odp` | `uspto_odp-search` | `search` | `souwen.providers.information_sources.uspto_odp.spec.USPTO_ODP_BRIDGE_SPEC` | `src/souwen/providers/information_sources/uspto_odp/spec.py` | — | `existing_provider_manifest` |
 | `wayback` | `souwen.providers.fetch_sources.wayback` | `wayback` | `wayback-fetch` | `fetch` | `souwen.providers.fetch_sources.wayback.spec.WAYBACK_FETCH_PROVIDER_SPEC` | `src/souwen/providers/fetch_sources/wayback/spec.py` | — | `existing_provider_manifest` |
 | `wikipedia` | `souwen.providers.information_sources.wikipedia` | `wikipedia` | `wikipedia-search` | `search` | `souwen.providers.information_sources.wikipedia.spec.WIKIPEDIA_PROVIDER_SPEC` | `src/souwen/providers/information_sources/wikipedia/spec.py` | — | `existing_provider_manifest` |
+| `wikisource` | `souwen.providers.information_sources.wikisource` | `wikisource` | `wikisource-search` | `search` | `souwen.providers.information_sources.wikisource.spec.WIKISOURCE_PROVIDER_SPEC` | `src/souwen/providers/information_sources/wikisource/spec.py` | — | `existing_provider_manifest` |
 | `xcrawl` | `souwen.providers.information_sources.xcrawl` | `xcrawl` | `xcrawl-search` | `search` | `souwen.providers.information_sources.xcrawl.spec.XCRAWL_SEARCH_PROVIDER_SPEC` | `src/souwen/providers/information_sources/xcrawl/spec.py` | — | `existing_provider_manifest` |
 | `youtube` | `souwen.providers.information_sources.youtube` | `youtube` | `youtube-search` | `search` | `souwen.providers.information_sources.youtube.spec.YOUTUBE_PROVIDER_SPEC` | `src/souwen/providers/information_sources/youtube/spec.py` | — | `existing_provider_manifest` |
 | `zenodo` | `souwen.providers.information_sources.zenodo` | `zenodo` | `zenodo-search` | `search` | `souwen.providers.information_sources.zenodo.spec.ZENODO_PROVIDER_SPEC` | `src/souwen/providers/information_sources/zenodo/spec.py` | — | `existing_provider_manifest` |

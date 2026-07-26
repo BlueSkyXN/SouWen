@@ -13,6 +13,12 @@ import pytest
 from tenacity import wait_none
 
 from souwen.book.library_of_congress import LibraryOfCongressClient
+from souwen.common_runtime.channel_overrides import (
+    reviewed_source_max_retries,
+    reviewed_source_proxy,
+    reviewed_source_timeout_seconds,
+    without_source_channel_overrides,
+)
 from souwen.common_runtime.transport import (
     AuthError,
     HttpTransport,
@@ -128,6 +134,29 @@ def test_legacy_adapter_preserves_global_defaults_and_truthy_fallback() -> None:
     assert options["timeout"].connect == 30
     assert options["proxy"] == "http://global-proxy.example:8080"
     assert client.max_retries == 3
+
+
+def test_provider_construction_scope_uses_reviewed_proxy_timeout_and_retries() -> None:
+    config = _config()
+    with (
+        patch("souwen.core.http_client.get_config", return_value=config),
+        patch("souwen.common_runtime.transport.http_client.httpx.AsyncClient") as client_factory,
+        without_source_channel_overrides(
+            proxy="http://reviewed-proxy.example:8080",
+            timeout_seconds=7,
+            max_retries=1,
+        ),
+    ):
+        client = SouWenHttpClient()
+
+    config.get_proxy.assert_not_called()
+    options = client_factory.call_args.kwargs
+    assert options["timeout"].connect == 7
+    assert options["proxy"] == "http://reviewed-proxy.example:8080"
+    assert client.max_retries == 1
+    assert reviewed_source_proxy() is None
+    assert reviewed_source_timeout_seconds() is None
+    assert reviewed_source_max_retries() is None
 
 
 @pytest.mark.asyncio

@@ -12,6 +12,7 @@ from .models import (
     LegacyFetchProviderSpec,
     LegacySearchProviderSpec,
     LegacyTransportDeclaration,
+    LocalStoreDeclaration,
     ProviderSpec,
     RestJsonProviderSpec,
 )
@@ -27,6 +28,7 @@ __all__ = [
     "LegacySearchProviderSpec",
     "LegacySearchSpec",
     "LegacyTransportDeclaration",
+    "LocalStoreDeclaration",
     "ProviderSpec",
     "RestJsonProviderSpec",
     "RestJsonSearchProvider",

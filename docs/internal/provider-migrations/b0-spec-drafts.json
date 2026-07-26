@@ -1,5 +1,5 @@
 {
-  "draft_count": 43,
+  "draft_count": 32,
   "drafts": [
     {
       "auth_requirement": "none",
@@ -287,69 +287,6 @@
     },
     {
       "auth_requirement": "none",
-      "batch": "batch-4",
-      "capabilities": [
-        "search"
-      ],
-      "credential_fields": [],
-      "error_mapping": {
-        "review_required": true
-      },
-      "legacy_loader": "lazy[souwen.research_output.datacite:DataCiteClient]",
-      "migration_status": "pending",
-      "provider_manifest_id": null,
-      "request_mapping": {
-        "review_required": true
-      },
-      "response_mapping": {
-        "review_required": true
-      },
-      "source_id": "datacite",
-      "target_adapter_id": null,
-      "target_capability": null,
-      "target_manifest_id": null,
-      "target_package": null,
-      "target_spec_identity": null,
-      "target_spec_path": null,
-      "target_spec_reason": null,
-      "transport": {
-        "review_required": true
-      }
-    },
-    {
-      "auth_requirement": "none",
-      "batch": "batch-4",
-      "capabilities": [
-        "get_detail",
-        "search"
-      ],
-      "credential_fields": [],
-      "error_mapping": {
-        "review_required": true
-      },
-      "legacy_loader": "lazy[souwen.book.doab:DOABClient]",
-      "migration_status": "pending",
-      "provider_manifest_id": null,
-      "request_mapping": {
-        "review_required": true
-      },
-      "response_mapping": {
-        "review_required": true
-      },
-      "source_id": "doab",
-      "target_adapter_id": null,
-      "target_capability": null,
-      "target_manifest_id": null,
-      "target_package": null,
-      "target_spec_identity": null,
-      "target_spec_path": null,
-      "target_spec_reason": null,
-      "transport": {
-        "review_required": true
-      }
-    },
-    {
-      "auth_requirement": "none",
       "batch": "batch-5",
       "capabilities": [
         "search"
@@ -474,38 +411,6 @@
     },
     {
       "auth_requirement": "none",
-      "batch": "batch-4",
-      "capabilities": [
-        "get_detail",
-        "search"
-      ],
-      "credential_fields": [],
-      "error_mapping": {
-        "review_required": true
-      },
-      "legacy_loader": "lazy[souwen.research_output.figshare:FigshareClient]",
-      "migration_status": "pending",
-      "provider_manifest_id": null,
-      "request_mapping": {
-        "review_required": true
-      },
-      "response_mapping": {
-        "review_required": true
-      },
-      "source_id": "figshare",
-      "target_adapter_id": null,
-      "target_capability": null,
-      "target_manifest_id": null,
-      "target_package": null,
-      "target_spec_identity": null,
-      "target_spec_path": null,
-      "target_spec_reason": null,
-      "transport": {
-        "review_required": true
-      }
-    },
-    {
-      "auth_requirement": "none",
       "batch": "batch-5",
       "capabilities": [
         "search"
@@ -524,38 +429,6 @@
         "review_required": true
       },
       "source_id": "google",
-      "target_adapter_id": null,
-      "target_capability": null,
-      "target_manifest_id": null,
-      "target_package": null,
-      "target_spec_identity": null,
-      "target_spec_path": null,
-      "target_spec_reason": null,
-      "transport": {
-        "review_required": true
-      }
-    },
-    {
-      "auth_requirement": "none",
-      "batch": "batch-4",
-      "capabilities": [
-        "get_detail",
-        "search"
-      ],
-      "credential_fields": [],
-      "error_mapping": {
-        "review_required": true
-      },
-      "legacy_loader": "lazy[souwen.local_catalog.gutenberg:GutenbergLocalCatalogClient]",
-      "migration_status": "pending",
-      "provider_manifest_id": null,
-      "request_mapping": {
-        "review_required": true
-      },
-      "response_mapping": {
-        "review_required": true
-      },
-      "source_id": "gutenberg",
       "target_adapter_id": null,
       "target_capability": null,
       "target_manifest_id": null,
@@ -600,38 +473,6 @@
     },
     {
       "auth_requirement": "none",
-      "batch": "batch-4",
-      "capabilities": [
-        "get_detail",
-        "search"
-      ],
-      "credential_fields": [],
-      "error_mapping": {
-        "review_required": true
-      },
-      "legacy_loader": "lazy[souwen.book.internet_archive:InternetArchiveClient]",
-      "migration_status": "pending",
-      "provider_manifest_id": null,
-      "request_mapping": {
-        "review_required": true
-      },
-      "response_mapping": {
-        "review_required": true
-      },
-      "source_id": "internet_archive",
-      "target_adapter_id": null,
-      "target_capability": null,
-      "target_manifest_id": null,
-      "target_package": null,
-      "target_spec_identity": null,
-      "target_spec_path": null,
-      "target_spec_reason": null,
-      "transport": {
-        "review_required": true
-      }
-    },
-    {
-      "auth_requirement": "none",
       "batch": "batch-5",
       "capabilities": [
         "search"
@@ -650,70 +491,6 @@
         "review_required": true
       },
       "source_id": "juejin",
-      "target_adapter_id": null,
-      "target_capability": null,
-      "target_manifest_id": null,
-      "target_package": null,
-      "target_spec_identity": null,
-      "target_spec_path": null,
-      "target_spec_reason": null,
-      "transport": {
-        "review_required": true
-      }
-    },
-    {
-      "auth_requirement": "none",
-      "batch": "batch-4",
-      "capabilities": [
-        "get_detail",
-        "search"
-      ],
-      "credential_fields": [],
-      "error_mapping": {
-        "review_required": true
-      },
-      "legacy_loader": "lazy[souwen.book.library_of_congress:LibraryOfCongressClient]",
-      "migration_status": "pending",
-      "provider_manifest_id": null,
-      "request_mapping": {
-        "review_required": true
-      },
-      "response_mapping": {
-        "review_required": true
-      },
-      "source_id": "library_of_congress",
-      "target_adapter_id": null,
-      "target_capability": null,
-      "target_manifest_id": null,
-      "target_package": null,
-      "target_spec_identity": null,
-      "target_spec_path": null,
-      "target_spec_reason": null,
-      "transport": {
-        "review_required": true
-      }
-    },
-    {
-      "auth_requirement": "none",
-      "batch": "batch-4",
-      "capabilities": [
-        "get_detail",
-        "search"
-      ],
-      "credential_fields": [],
-      "error_mapping": {
-        "review_required": true
-      },
-      "legacy_loader": "lazy[souwen.book.librivox:LibriVoxClient]",
-      "migration_status": "pending",
-      "provider_manifest_id": null,
-      "request_mapping": {
-        "review_required": true
-      },
-      "response_mapping": {
-        "review_required": true
-      },
-      "source_id": "librivox",
       "target_adapter_id": null,
       "target_capability": null,
       "target_manifest_id": null,
@@ -807,70 +584,6 @@
         "review_required": true
       },
       "source_id": "nodeseek",
-      "target_adapter_id": null,
-      "target_capability": null,
-      "target_manifest_id": null,
-      "target_package": null,
-      "target_spec_identity": null,
-      "target_spec_path": null,
-      "target_spec_reason": null,
-      "transport": {
-        "review_required": true
-      }
-    },
-    {
-      "auth_requirement": "none",
-      "batch": "batch-4",
-      "capabilities": [
-        "get_detail",
-        "search"
-      ],
-      "credential_fields": [],
-      "error_mapping": {
-        "review_required": true
-      },
-      "legacy_loader": "lazy[souwen.book.oapen:OAPENClient]",
-      "migration_status": "pending",
-      "provider_manifest_id": null,
-      "request_mapping": {
-        "review_required": true
-      },
-      "response_mapping": {
-        "review_required": true
-      },
-      "source_id": "oapen",
-      "target_adapter_id": null,
-      "target_capability": null,
-      "target_manifest_id": null,
-      "target_package": null,
-      "target_spec_identity": null,
-      "target_spec_path": null,
-      "target_spec_reason": null,
-      "transport": {
-        "review_required": true
-      }
-    },
-    {
-      "auth_requirement": "none",
-      "batch": "batch-4",
-      "capabilities": [
-        "get_detail",
-        "search"
-      ],
-      "credential_fields": [],
-      "error_mapping": {
-        "review_required": true
-      },
-      "legacy_loader": "lazy[souwen.book.open_library:OpenLibraryClient]",
-      "migration_status": "pending",
-      "provider_manifest_id": null,
-      "request_mapping": {
-        "review_required": true
-      },
-      "response_mapping": {
-        "review_required": true
-      },
-      "source_id": "open_library",
       "target_adapter_id": null,
       "target_capability": null,
       "target_manifest_id": null,
@@ -1041,38 +754,6 @@
     },
     {
       "auth_requirement": "none",
-      "batch": "batch-4",
-      "capabilities": [
-        "get_detail",
-        "search"
-      ],
-      "credential_fields": [],
-      "error_mapping": {
-        "review_required": true
-      },
-      "legacy_loader": "lazy[souwen.local_catalog.taiwan_new_books:TaiwanNewBooksLocalCatalogClient]",
-      "migration_status": "pending",
-      "provider_manifest_id": null,
-      "request_mapping": {
-        "review_required": true
-      },
-      "response_mapping": {
-        "review_required": true
-      },
-      "source_id": "taiwan_new_books",
-      "target_adapter_id": null,
-      "target_capability": null,
-      "target_manifest_id": null,
-      "target_package": null,
-      "target_spec_identity": null,
-      "target_spec_path": null,
-      "target_spec_reason": null,
-      "transport": {
-        "review_required": true
-      }
-    },
-    {
-      "auth_requirement": "none",
       "batch": "batch-5",
       "capabilities": [
         "search"
@@ -1188,38 +869,6 @@
         "review_required": true
       },
       "source_id": "whoogle",
-      "target_adapter_id": null,
-      "target_capability": null,
-      "target_manifest_id": null,
-      "target_package": null,
-      "target_spec_identity": null,
-      "target_spec_path": null,
-      "target_spec_reason": null,
-      "transport": {
-        "review_required": true
-      }
-    },
-    {
-      "auth_requirement": "none",
-      "batch": "batch-4",
-      "capabilities": [
-        "get_detail",
-        "search"
-      ],
-      "credential_fields": [],
-      "error_mapping": {
-        "review_required": true
-      },
-      "legacy_loader": "lazy[souwen.book.wikisource:WikisourceClient]",
-      "migration_status": "pending",
-      "provider_manifest_id": null,
-      "request_mapping": {
-        "review_required": true
-      },
-      "response_mapping": {
-        "review_required": true
-      },
-      "source_id": "wikisource",
       "target_adapter_id": null,
       "target_capability": null,
       "target_manifest_id": null,
@@ -1356,7 +1005,7 @@
       }
     }
   ],
-  "existing_provider_spec_count": 65,
+  "existing_provider_spec_count": 76,
   "existing_provider_specs": [
     {
       "provider_manifest_id": "aliyun_iqs",
@@ -1491,6 +1140,18 @@
       "target_spec_reason": null
     },
     {
+      "provider_manifest_id": "datacite",
+      "source_id": "datacite",
+      "specification_status": "existing_provider_manifest",
+      "target_adapter_id": "datacite-search",
+      "target_capability": "search",
+      "target_manifest_id": "datacite",
+      "target_package": "souwen.providers.information_sources.datacite",
+      "target_spec_identity": "souwen.providers.information_sources.datacite.spec.DATACITE_PROVIDER_SPEC",
+      "target_spec_path": "src/souwen/providers/information_sources/datacite/spec.py",
+      "target_spec_reason": null
+    },
+    {
       "provider_manifest_id": "dblp",
       "source_id": "dblp",
       "specification_status": "existing_provider_manifest",
@@ -1524,6 +1185,18 @@
       "target_package": "souwen.providers.fetch_sources.diffbot",
       "target_spec_identity": "souwen.providers.fetch_sources.diffbot.spec.DIFFBOT_FETCH_PROFILE",
       "target_spec_path": "src/souwen/providers/fetch_sources/diffbot/spec.py",
+      "target_spec_reason": null
+    },
+    {
+      "provider_manifest_id": "doab",
+      "source_id": "doab",
+      "specification_status": "existing_provider_manifest",
+      "target_adapter_id": "doab-search",
+      "target_capability": "search",
+      "target_manifest_id": "doab",
+      "target_package": "souwen.providers.information_sources.doab",
+      "target_spec_identity": "souwen.providers.information_sources.doab.spec.DOAB_PROVIDER_SPEC",
+      "target_spec_path": "src/souwen/providers/information_sources/doab/spec.py",
       "target_spec_reason": null
     },
     {
@@ -1611,6 +1284,18 @@
       "target_spec_reason": null
     },
     {
+      "provider_manifest_id": "figshare",
+      "source_id": "figshare",
+      "specification_status": "existing_provider_manifest",
+      "target_adapter_id": "figshare-search",
+      "target_capability": "search",
+      "target_manifest_id": "figshare",
+      "target_package": "souwen.providers.information_sources.figshare",
+      "target_spec_identity": "souwen.providers.information_sources.figshare.spec.FIGSHARE_PROVIDER_SPEC",
+      "target_spec_path": "src/souwen/providers/information_sources/figshare/spec.py",
+      "target_spec_reason": null
+    },
+    {
       "provider_manifest_id": "firecrawl",
       "source_id": "firecrawl",
       "specification_status": "existing_provider_manifest",
@@ -1644,6 +1329,18 @@
       "target_package": "souwen.providers.information_sources.google_patents",
       "target_spec_identity": "souwen.providers.information_sources.google_patents.spec.GOOGLE_PATENTS_BRIDGE_SPEC",
       "target_spec_path": "src/souwen/providers/information_sources/google_patents/spec.py",
+      "target_spec_reason": null
+    },
+    {
+      "provider_manifest_id": "gutenberg",
+      "source_id": "gutenberg",
+      "specification_status": "existing_provider_manifest",
+      "target_adapter_id": "gutenberg-search",
+      "target_capability": "search",
+      "target_manifest_id": "gutenberg",
+      "target_package": "souwen.providers.information_sources.gutenberg",
+      "target_spec_identity": "souwen.providers.information_sources.gutenberg.spec.GUTENBERG_PROVIDER_SPEC",
+      "target_spec_path": "src/souwen/providers/information_sources/gutenberg/spec.py",
       "target_spec_reason": null
     },
     {
@@ -1695,6 +1392,18 @@
       "target_spec_reason": null
     },
     {
+      "provider_manifest_id": "internet_archive",
+      "source_id": "internet_archive",
+      "specification_status": "existing_provider_manifest",
+      "target_adapter_id": "internet_archive-search",
+      "target_capability": "search",
+      "target_manifest_id": "internet_archive",
+      "target_package": "souwen.providers.information_sources.internet_archive",
+      "target_spec_identity": "souwen.providers.information_sources.internet_archive.spec.INTERNET_ARCHIVE_PROVIDER_SPEC",
+      "target_spec_path": "src/souwen/providers/information_sources/internet_archive/spec.py",
+      "target_spec_reason": null
+    },
+    {
       "provider_manifest_id": "jina_reader",
       "source_id": "jina_reader",
       "specification_status": "existing_provider_manifest",
@@ -1716,6 +1425,30 @@
       "target_package": "souwen.providers.information_sources.kimi_code",
       "target_spec_identity": "souwen.providers.information_sources.kimi_code.spec.KIMI_CODE_SEARCH_PROVIDER_SPEC",
       "target_spec_path": "src/souwen/providers/information_sources/kimi_code/spec.py",
+      "target_spec_reason": null
+    },
+    {
+      "provider_manifest_id": "library_of_congress",
+      "source_id": "library_of_congress",
+      "specification_status": "existing_provider_manifest",
+      "target_adapter_id": "library_of_congress-search",
+      "target_capability": "search",
+      "target_manifest_id": "library_of_congress",
+      "target_package": "souwen.providers.information_sources.library_of_congress",
+      "target_spec_identity": "souwen.providers.information_sources.library_of_congress.spec.LIBRARY_OF_CONGRESS_PROVIDER_SPEC",
+      "target_spec_path": "src/souwen/providers/information_sources/library_of_congress/spec.py",
+      "target_spec_reason": null
+    },
+    {
+      "provider_manifest_id": "librivox",
+      "source_id": "librivox",
+      "specification_status": "existing_provider_manifest",
+      "target_adapter_id": "librivox-search",
+      "target_capability": "search",
+      "target_manifest_id": "librivox",
+      "target_package": "souwen.providers.information_sources.librivox",
+      "target_spec_identity": "souwen.providers.information_sources.librivox.spec.LIBRIVOX_PROVIDER_SPEC",
+      "target_spec_path": "src/souwen/providers/information_sources/librivox/spec.py",
       "target_spec_reason": null
     },
     {
@@ -1752,6 +1485,30 @@
       "target_package": "souwen.providers.information_sources.metaso",
       "target_spec_identity": "souwen.providers.information_sources.metaso.spec.METASO_SEARCH_PROVIDER_SPEC",
       "target_spec_path": "src/souwen/providers/information_sources/metaso/spec.py",
+      "target_spec_reason": null
+    },
+    {
+      "provider_manifest_id": "oapen",
+      "source_id": "oapen",
+      "specification_status": "existing_provider_manifest",
+      "target_adapter_id": "oapen-search",
+      "target_capability": "search",
+      "target_manifest_id": "oapen",
+      "target_package": "souwen.providers.information_sources.oapen",
+      "target_spec_identity": "souwen.providers.information_sources.oapen.spec.OAPEN_PROVIDER_SPEC",
+      "target_spec_path": "src/souwen/providers/information_sources/oapen/spec.py",
+      "target_spec_reason": null
+    },
+    {
+      "provider_manifest_id": "open_library",
+      "source_id": "open_library",
+      "specification_status": "existing_provider_manifest",
+      "target_adapter_id": "open_library-search",
+      "target_capability": "search",
+      "target_manifest_id": "open_library",
+      "target_package": "souwen.providers.information_sources.open_library",
+      "target_spec_identity": "souwen.providers.information_sources.open_library.spec.OPEN_LIBRARY_PROVIDER_SPEC",
+      "target_spec_path": "src/souwen/providers/information_sources/open_library/spec.py",
       "target_spec_reason": null
     },
     {
@@ -1971,6 +1728,18 @@
       "target_spec_reason": null
     },
     {
+      "provider_manifest_id": "taiwan_new_books",
+      "source_id": "taiwan_new_books",
+      "specification_status": "existing_provider_manifest",
+      "target_adapter_id": "taiwan_new_books-search",
+      "target_capability": "search",
+      "target_manifest_id": "taiwan_new_books",
+      "target_package": "souwen.providers.information_sources.taiwan_new_books",
+      "target_spec_identity": "souwen.providers.information_sources.taiwan_new_books.spec.TAIWAN_NEW_BOOKS_PROVIDER_SPEC",
+      "target_spec_path": "src/souwen/providers/information_sources/taiwan_new_books/spec.py",
+      "target_spec_reason": null
+    },
+    {
       "provider_manifest_id": "tavily",
       "source_id": "tavily",
       "specification_status": "existing_provider_manifest",
@@ -2067,6 +1836,18 @@
       "target_spec_reason": null
     },
     {
+      "provider_manifest_id": "wikisource",
+      "source_id": "wikisource",
+      "specification_status": "existing_provider_manifest",
+      "target_adapter_id": "wikisource-search",
+      "target_capability": "search",
+      "target_manifest_id": "wikisource",
+      "target_package": "souwen.providers.information_sources.wikisource",
+      "target_spec_identity": "souwen.providers.information_sources.wikisource.spec.WIKISOURCE_PROVIDER_SPEC",
+      "target_spec_path": "src/souwen/providers/information_sources/wikisource/spec.py",
+      "target_spec_reason": null
+    },
+    {
       "provider_manifest_id": "xcrawl",
       "source_id": "xcrawl",
       "specification_status": "existing_provider_manifest",
@@ -2140,7 +1921,7 @@
     }
   ],
   "generator_version": "b0-provider-spec-drafts-v1",
-  "inventory_registry_sha256": "3b1c46bdc81fb1b6e9e441adbb9a202bd0d6f5a15786a2063092c1931cd08831",
+  "inventory_registry_sha256": "a1265b1c2388e27598c88a5051b50e0887d042e8af4793ee561a7d783e7314b8",
   "non_provider_disposition_count": 2,
   "non_provider_dispositions": [
     {
@@ -2160,8 +1941,8 @@
   ],
   "schema_version": 1,
   "source_fingerprint": {
-    "input_sha256": "c6f54b322daa924967f6d340b8d92f3cfe9fb6d5bdc3669b508b1575af78dc89",
-    "provider_manifest_ids_sha256": "d3bdb219df0a5d4f7e1a98d084a1f689abf74181bf58cbb51da6cf0c353f7306",
-    "registry_metadata_sha256": "44439600356416d2e4100b3e0eb7b25e24a22715ca61e5f2a04608c535878473"
+    "input_sha256": "46ba5ce443c99155982ee71b08d7080d673ae78f00fc1d8fda65d146db6d3fa5",
+    "provider_manifest_ids_sha256": "e16b12adf2dc7914a1da6524e66d3281ea1df6ad08d1ea020365b9d010710f82",
+    "registry_metadata_sha256": "898be900b84ecb3f23d800d5f710c8e58c520e41ef3360dae4b694a691e3b21e"
   }
 }

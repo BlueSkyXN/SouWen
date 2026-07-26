@@ -62,7 +62,9 @@ from souwen.common_runtime.transport import (
 )
 from souwen.config import get_config
 from souwen.common_runtime.channel_overrides import (
+    reviewed_source_max_retries,
     reviewed_source_proxy,
+    reviewed_source_timeout_seconds,
     source_channel_overrides_enabled,
 )
 
@@ -105,11 +107,12 @@ class SouWenHttpClient(HttpTransport):
         config = get_config()
 
         # 频道配置可覆盖 base_url
-        if source_name and source_channel_overrides_enabled():
+        overrides_enabled = source_channel_overrides_enabled()
+        if source_name and overrides_enabled:
             base_url = config.resolve_base_url(source_name, default=base_url)
             proxy = config.resolve_proxy(source_name)
             channel_headers = config.resolve_headers(source_name)
-        elif source_name:
+        elif not overrides_enabled:
             proxy = reviewed_source_proxy()
             channel_headers = {}
         else:
@@ -122,11 +125,13 @@ class SouWenHttpClient(HttpTransport):
         if headers:
             default_headers.update(headers)
 
+        reviewed_timeout = reviewed_source_timeout_seconds() if not overrides_enabled else None
+        reviewed_retries = reviewed_source_max_retries() if not overrides_enabled else None
         super().__init__(
             base_url=base_url,
             headers=default_headers,
-            timeout=timeout or config.timeout,
-            max_retries=max_retries or config.max_retries,
+            timeout=timeout or reviewed_timeout or config.timeout,
+            max_retries=max_retries or reviewed_retries or config.max_retries,
             proxy=proxy,
             follow_redirects=True,
         )

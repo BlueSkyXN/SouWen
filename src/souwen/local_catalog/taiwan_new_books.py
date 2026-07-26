@@ -186,8 +186,9 @@ def download_official_taiwan_new_books_csv(url: str, destination: Path) -> Downl
 
 
 class TaiwanNewBooksLocalCatalogClient:
-    def __init__(self) -> None:
-        self._catalog = LocalCatalog(get_config().local_catalog_db_path)
+    def __init__(self, catalog_path: str | Path | None = None) -> None:
+        path = get_config().local_catalog_db_path if catalog_path is None else catalog_path
+        self._catalog = LocalCatalog(path)
 
     async def __aenter__(self) -> "TaiwanNewBooksLocalCatalogClient":
         return self
@@ -209,9 +210,10 @@ class TaiwanNewBooksLocalCatalogClient:
         return await asyncio.to_thread(self._catalog.get_book, SOURCE, isbn)
 
 
-def taiwan_new_books_catalog_ready() -> bool:
+def taiwan_new_books_catalog_ready(catalog_path: str | Path | None = None) -> bool:
     try:
-        LocalCatalog(get_config().local_catalog_db_path).ensure_source_ready(SOURCE)
+        path = get_config().local_catalog_db_path if catalog_path is None else catalog_path
+        LocalCatalog(path).ensure_source_ready(SOURCE)
     except LocalCatalogUnavailableError:
         return False
     return True

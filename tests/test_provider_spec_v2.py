@@ -14,6 +14,7 @@ from souwen.platform.provider_spec import (
     LegacyFetchSpec,
     LegacySearchProviderSpec,
     LegacyTransportDeclaration,
+    LocalStoreDeclaration,
     LegacySearchProvider,
     LegacySearchSpec,
     RestJsonProviderSpec,
@@ -256,6 +257,46 @@ def test_legacy_spec_truthfully_declares_non_json_https_transport() -> None:
     assert spec.base_url == "https://export.example.test/api"
     assert spec.adapter_kind == "legacy_bridge"
     assert spec.transport.protocol == "atom_xml"
+
+
+def test_legacy_spec_truthfully_declares_local_sqlite_transport_without_egress() -> None:
+    spec = LegacySearchProviderSpec(
+        provider_id="fixture",
+        adapter_id="fixture-search",
+        domain="book",
+        bridge_reason="local FTS search requires the reviewed SQLite catalog bridge",
+        transport=LocalStoreDeclaration(
+            store="local_catalog",
+            operations=("search",),
+        ),
+        configuration_keys=("enabled",),
+    )
+
+    assert spec.host is None
+    assert spec.hosts == ()
+    assert spec.base_url is None
+    assert spec.transport.protocol == "sqlite"
+
+
+def test_local_store_spec_rejects_network_additional_transports() -> None:
+    with pytest.raises(ValidationError, match="cannot declare network transports"):
+        LegacySearchProviderSpec(
+            provider_id="fixture",
+            adapter_id="fixture-search",
+            domain="book",
+            bridge_reason="fixture",
+            transport=LocalStoreDeclaration(
+                store="local_catalog",
+                operations=("search",),
+            ),
+            additional_transports=(
+                LegacyTransportDeclaration(
+                    host="api.example.test",
+                    protocol="json",
+                    operations=({"method": "GET", "endpoint": "/search"},),
+                ),
+            ),
+        )
 
 
 def test_legacy_spec_rejects_unreviewed_transport_hosts() -> None:

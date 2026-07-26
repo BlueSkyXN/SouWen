@@ -9,8 +9,8 @@ def test_drafts_cover_only_pending_sources_without_inventing_mappings() -> None:
 
     assert data["schema_version"] == 1
     assert data["generator_version"] == drafts.GENERATOR_VERSION
-    assert data["draft_count"] == 43
-    assert data["existing_provider_spec_count"] == 65
+    assert data["draft_count"] == 32
+    assert data["existing_provider_spec_count"] == 76
     assert data["non_provider_disposition_count"] == 2
     assert len(data["inventory_registry_sha256"]) == 64
     assert len(data["source_fingerprint"]["input_sha256"]) == 64

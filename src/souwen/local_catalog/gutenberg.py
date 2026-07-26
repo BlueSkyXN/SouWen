@@ -326,8 +326,9 @@ def import_gutenberg_input(
 class GutenbergLocalCatalogClient:
     """Registry adapter client that queries only the initialized local SQLite catalog."""
 
-    def __init__(self) -> None:
-        self._catalog = LocalCatalog(get_config().local_catalog_db_path)
+    def __init__(self, catalog_path: str | Path | None = None) -> None:
+        path = get_config().local_catalog_db_path if catalog_path is None else catalog_path
+        self._catalog = LocalCatalog(path)
 
     async def __aenter__(self) -> "GutenbergLocalCatalogClient":
         return self
@@ -349,10 +350,11 @@ class GutenbergLocalCatalogClient:
         return await asyncio.to_thread(self._catalog.get_book, SOURCE, gutenberg_id)
 
 
-def gutenberg_catalog_ready() -> bool:
+def gutenberg_catalog_ready(catalog_path: str | Path | None = None) -> bool:
     """Return local readiness without leaking the configured filesystem path."""
     try:
-        LocalCatalog(get_config().local_catalog_db_path).ensure_source_ready(SOURCE)
+        path = get_config().local_catalog_db_path if catalog_path is None else catalog_path
+        LocalCatalog(path).ensure_source_ready(SOURCE)
     except LocalCatalogUnavailableError:
         return False
     return True

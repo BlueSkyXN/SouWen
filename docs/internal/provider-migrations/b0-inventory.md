@@ -7,10 +7,10 @@ configuration, or includes credential values.
 - Schema version: `1`
 - Generator version: `b0-provider-migration-inventory-v1`
 - Registry sources: `110`
-- Registry output fingerprint: `3b1c46bdc81fb1b6e9e441adbb9a202bd0d6f5a15786a2063092c1931cd08831`
-- Registry input fingerprint: `44439600356416d2e4100b3e0eb7b25e24a22715ca61e5f2a04608c535878473`
-- Provider manifest input fingerprint: `d3bdb219df0a5d4f7e1a98d084a1f689abf74181bf58cbb51da6cf0c353f7306`
-- Combined input fingerprint: `c6f54b322daa924967f6d340b8d92f3cfe9fb6d5bdc3669b508b1575af78dc89`
+- Registry output fingerprint: `a1265b1c2388e27598c88a5051b50e0887d042e8af4793ee561a7d783e7314b8`
+- Registry input fingerprint: `898be900b84ecb3f23d800d5f710c8e58c520e41ef3360dae4b694a691e3b21e`
+- Provider manifest input fingerprint: `e16b12adf2dc7914a1da6524e66d3281ea1df6ad08d1ea020365b9d010710f82`
+- Combined input fingerprint: `46ba5ce443c99155982ee71b08d7080d673ae78f00fc1d8fda65d146db6d3fa5`
 
 ## Batch counts
 
@@ -29,8 +29,8 @@ configuration, or includes credential values.
 
 | Status | Sources |
 |---|---:|
-| `migrated` | 65 |
-| `pending` | 43 |
+| `migrated` | 76 |
+| `pending` | 32 |
 | `retirement_pending` | 2 |
 | `incomplete` | 0 |
 
@@ -58,11 +58,11 @@ configuration, or includes credential values.
 | `crawl4ai` | `batch-5` | `pending` | `provider_v2` | — | scraper integration | `fetch` | `fetch` | `none` | `scraper` | `lazy[souwen.web.crawl4ai_fetcher:Crawl4AIFetcherClient]` | — |
 | `crossref` | `batch-1` | `migrated` | `provider_v2` | — | paper/patent grouped by auth requirement | `paper` | `search` | `none` | `open_api` | `lazy[souwen.paper.crossref:CrossrefClient]` | `crossref` |
 | `csdn` | `batch-5` | `pending` | `provider_v2` | — | scraper integration | `cn_tech` | `search` | `none` | `scraper` | `lazy[souwen.web.csdn:CSDNClient]` | — |
-| `datacite` | `batch-4` | `pending` | `provider_v2` | — | book or research-output domain | `research_output` | `search` | `none` | `official_api` | `lazy[souwen.research_output.datacite:DataCiteClient]` | — |
+| `datacite` | `batch-4` | `migrated` | `provider_v2` | — | book or research-output domain | `research_output` | `search` | `none` | `official_api` | `lazy[souwen.research_output.datacite:DataCiteClient]` | `datacite` |
 | `dblp` | `batch-1` | `migrated` | `provider_v2` | — | paper/patent grouped by auth requirement | `paper` | `search` | `none` | `open_api` | `lazy[souwen.paper.dblp:DblpClient]` | `dblp` |
 | `deepwiki` | `batch-3` | `migrated` | `provider_v2` | — | remaining web-facing integration | `fetch` | `fetch` | `none` | `open_api` | `lazy[souwen.web.deepwiki:DeepWikiClient]` | `deepwiki` |
 | `diffbot` | `batch-3` | `migrated` | `provider_v2` | — | remaining web-facing integration | `fetch` | `fetch` | `required` | `official_api` | `lazy[souwen.web.diffbot:DiffbotClient]` | `diffbot` |
-| `doab` | `batch-4` | `pending` | `provider_v2` | — | book or research-output domain | `book` | `get_detail`, `search` | `none` | `official_api` | `lazy[souwen.book.doab:DOABClient]` | — |
+| `doab` | `batch-4` | `migrated` | `provider_v2` | — | book or research-output domain | `book` | `get_detail`, `search` | `none` | `official_api` | `lazy[souwen.book.doab:DOABClient]` | `doab` |
 | `doaj` | `batch-2` | `migrated` | `provider_v2` | — | paper/patent grouped by auth requirement | `paper` | `search` | `optional` | `official_api` | `lazy[souwen.paper.doaj:DoajClient]` | `doaj` |
 | `duckduckgo` | `batch-5` | `pending` | `provider_v2` | — | scraper integration | `web` | `search` | `none` | `scraper` | `lazy[souwen.web.duckduckgo:DuckDuckGoClient]` | — |
 | `duckduckgo_images` | `batch-5` | `pending` | `provider_v2` | — | scraper integration | `web` | `search_images` | `none` | `scraper` | `lazy[souwen.web.ddg_images:DuckDuckGoImagesClient]` | — |
@@ -74,31 +74,31 @@ configuration, or includes credential values.
 | `exa` | `batch-3` | `migrated` | `provider_v2` | Provider v2 retains Search and Fetch; legacy exa:find_similar retires in C1 | remaining web-facing integration | `web` | `exa:find_similar`, `fetch`, `search` | `required` | `official_api` | `lazy[souwen.web.exa:ExaClient]` | `exa` |
 | `facebook` | `batch-3` | `migrated` | `provider_v2` | — | remaining web-facing integration | `social` | `search` | `required` | `official_api` | `lazy[souwen.web.facebook:FacebookClient]` | `facebook` |
 | `feishu_drive` | `batch-3` | `migrated` | `provider_v2` | — | remaining web-facing integration | `office` | `search` | `required` | `official_api` | `lazy[souwen.web.feishu_drive:FeishuDriveClient]` | `feishu_drive` |
-| `figshare` | `batch-4` | `pending` | `provider_v2` | — | book or research-output domain | `research_output` | `get_detail`, `search` | `none` | `official_api` | `lazy[souwen.research_output.figshare:FigshareClient]` | — |
+| `figshare` | `batch-4` | `migrated` | `provider_v2` | — | book or research-output domain | `research_output` | `get_detail`, `search` | `none` | `official_api` | `lazy[souwen.research_output.figshare:FigshareClient]` | `figshare` |
 | `firecrawl` | `batch-3` | `migrated` | `provider_v2` | — | remaining web-facing integration | `web` | `fetch`, `search` | `required` | `official_api` | `lazy[souwen.web.firecrawl:FirecrawlClient]` | `firecrawl` |
 | `github` | `batch-3` | `migrated` | `provider_v2` | — | remaining web-facing integration | `developer` | `search` | `optional` | `open_api` | `lazy[souwen.web.github:GitHubClient]` | `github` |
 | `google` | `batch-5` | `pending` | `provider_v2` | — | scraper integration | `web` | `search` | `none` | `scraper` | `lazy[souwen.web.google:GoogleClient]` | — |
 | `google_patents` | `batch-1` | `migrated` | `provider_v2` | — | paper/patent grouped by auth requirement | `patent` | `search` | `none` | `scraper` | `lazy[souwen.patent.google_patents_scraper:GooglePatentsScraper]` | `google_patents` |
-| `gutenberg` | `batch-4` | `pending` | `provider_v2` | — | book or research-output domain | `book` | `get_detail`, `search` | `none` | `official_api` | `lazy[souwen.local_catalog.gutenberg:GutenbergLocalCatalogClient]` | — |
+| `gutenberg` | `batch-4` | `migrated` | `provider_v2` | — | book or research-output domain | `book` | `get_detail`, `search` | `none` | `official_api` | `lazy[souwen.local_catalog.gutenberg:GutenbergLocalCatalogClient]` | `gutenberg` |
 | `hal` | `batch-1` | `migrated` | `provider_v2` | — | paper/patent grouped by auth requirement | `paper` | `search` | `none` | `open_api` | `lazy[souwen.paper.hal:HalClient]` | `hal` |
 | `hostloc` | `batch-5` | `pending` | `provider_v2` | — | scraper integration | `cn_tech` | `search` | `none` | `scraper` | `lazy[souwen.web.hostloc:HostLocClient]` | — |
 | `huggingface` | `batch-1` | `migrated` | `provider_v2` | — | paper/patent grouped by auth requirement | `paper` | `search` | `none` | `open_api` | `lazy[souwen.paper.huggingface:HuggingFaceClient]` | `huggingface` |
 | `iacr` | `batch-1` | `migrated` | `provider_v2` | — | paper/patent grouped by auth requirement | `paper` | `search` | `none` | `scraper` | `lazy[souwen.paper.iacr:IacrClient]` | `iacr` |
 | `ieee_xplore` | `batch-2` | `migrated` | `provider_v2` | — | paper/patent grouped by auth requirement | `paper` | `search` | `required` | `official_api` | `lazy[souwen.paper.ieee_xplore:IeeeXploreClient]` | `ieee_xplore` |
-| `internet_archive` | `batch-4` | `pending` | `provider_v2` | — | book or research-output domain | `book` | `get_detail`, `search` | `none` | `official_api` | `lazy[souwen.book.internet_archive:InternetArchiveClient]` | — |
+| `internet_archive` | `batch-4` | `migrated` | `provider_v2` | — | book or research-output domain | `book` | `get_detail`, `search` | `none` | `official_api` | `lazy[souwen.book.internet_archive:InternetArchiveClient]` | `internet_archive` |
 | `jina_reader` | `batch-3` | `migrated` | `provider_v2` | — | remaining web-facing integration | `fetch` | `fetch` | `optional` | `open_api` | `lazy[souwen.web.jina_reader:JinaReaderClient]` | `jina_reader` |
 | `juejin` | `batch-5` | `pending` | `provider_v2` | — | scraper integration | `cn_tech` | `search` | `none` | `scraper` | `lazy[souwen.web.juejin:JuejinClient]` | — |
 | `kimi_code` | `batch-3` | `migrated` | `provider_v2` | — | remaining web-facing integration | `web` | `fetch`, `search` | `required` | `official_api` | `lazy[souwen.web.kimi_code:KimiCodeClient]` | `kimi_code` |
-| `library_of_congress` | `batch-4` | `pending` | `provider_v2` | — | book or research-output domain | `book` | `get_detail`, `search` | `none` | `official_api` | `lazy[souwen.book.library_of_congress:LibraryOfCongressClient]` | — |
-| `librivox` | `batch-4` | `pending` | `provider_v2` | — | book or research-output domain | `book` | `get_detail`, `search` | `none` | `official_api` | `lazy[souwen.book.librivox:LibriVoxClient]` | — |
+| `library_of_congress` | `batch-4` | `migrated` | `provider_v2` | — | book or research-output domain | `book` | `get_detail`, `search` | `none` | `official_api` | `lazy[souwen.book.library_of_congress:LibraryOfCongressClient]` | `library_of_congress` |
+| `librivox` | `batch-4` | `migrated` | `provider_v2` | — | book or research-output domain | `book` | `get_detail`, `search` | `none` | `official_api` | `lazy[souwen.book.librivox:LibriVoxClient]` | `librivox` |
 | `linkup` | `batch-3` | `migrated` | `provider_v2` | — | remaining web-facing integration | `web` | `search` | `required` | `official_api` | `lazy[souwen.web.linkup:LinkupClient]` | `linkup` |
 | `linuxdo` | `batch-3` | `migrated` | `provider_v2` | — | remaining web-facing integration | `cn_tech` | `search` | `none` | `open_api` | `lazy[souwen.web.linuxdo:LinuxDoClient]` | `linuxdo` |
 | `metaso` | `batch-3` | `migrated` | `provider_v2` | — | remaining web-facing integration | `web` | `fetch`, `search` | `required` | `official_api` | `lazy[souwen.web.metaso:MetasoClient]` | `metaso` |
 | `mojeek` | `batch-5` | `pending` | `provider_v2` | — | scraper integration | `web` | `search` | `none` | `scraper` | `lazy[souwen.web.mojeek:MojeekClient]` | — |
 | `newspaper` | `batch-5` | `pending` | `provider_v2` | — | scraper integration | `fetch` | `fetch` | `none` | `scraper` | `lazy[souwen.web.newspaper_fetcher:NewspaperFetcherClient]` | — |
 | `nodeseek` | `batch-5` | `pending` | `provider_v2` | — | scraper integration | `cn_tech` | `search` | `none` | `scraper` | `lazy[souwen.web.nodeseek:NodeSeekClient]` | — |
-| `oapen` | `batch-4` | `pending` | `provider_v2` | — | book or research-output domain | `book` | `get_detail`, `search` | `none` | `official_api` | `lazy[souwen.book.oapen:OAPENClient]` | — |
-| `open_library` | `batch-4` | `pending` | `provider_v2` | — | book or research-output domain | `book` | `get_detail`, `search` | `none` | `official_api` | `lazy[souwen.book.open_library:OpenLibraryClient]` | — |
+| `oapen` | `batch-4` | `migrated` | `provider_v2` | — | book or research-output domain | `book` | `get_detail`, `search` | `none` | `official_api` | `lazy[souwen.book.oapen:OAPENClient]` | `oapen` |
+| `open_library` | `batch-4` | `migrated` | `provider_v2` | — | book or research-output domain | `book` | `get_detail`, `search` | `none` | `official_api` | `lazy[souwen.book.open_library:OpenLibraryClient]` | `open_library` |
 | `openaire` | `batch-2` | `migrated` | `provider_v2` | — | paper/patent grouped by auth requirement | `paper` | `search` | `optional` | `official_api` | `lazy[souwen.paper.openaire:OpenAireClient]` | `openaire` |
 | `openalex` | `sample` | `migrated` | `provider_v2` | — | B0 sample source allocated before planned batches | `paper` | `search` | `optional` | `open_api` | `lazy[souwen.paper.openalex:OpenAlexClient]` | `openalex` |
 | `opencitations` | `batch-1` | `retirement_pending` | `search_internal_enrichment` | Search-internal citation enrichment; public citation routes and registry capability retire in C1 | paper/patent grouped by auth requirement | `paper` | `opencitations:citation_count`, `opencitations:citations`, `opencitations:references` | `none` | `official_api` | `lazy[souwen.paper.opencitations:OpenCitationsClient]` | — |
@@ -123,7 +123,7 @@ configuration, or includes credential values.
 | `site_crawler` | `batch-5` | `pending` | `provider_v2` | — | scraper integration | `fetch` | `fetch` | `none` | `scraper` | `lazy[souwen.web.site_crawler:SiteCrawlerClient]` | — |
 | `stackoverflow` | `batch-3` | `migrated` | `provider_v2` | — | remaining web-facing integration | `developer` | `search` | `optional` | `open_api` | `lazy[souwen.web.stackoverflow:StackOverflowClient]` | `stackoverflow` |
 | `startpage` | `batch-5` | `pending` | `provider_v2` | — | scraper integration | `web` | `search` | `none` | `scraper` | `lazy[souwen.web.startpage:StartpageClient]` | — |
-| `taiwan_new_books` | `batch-4` | `pending` | `provider_v2` | — | book or research-output domain | `book` | `get_detail`, `search` | `none` | `official_api` | `lazy[souwen.local_catalog.taiwan_new_books:TaiwanNewBooksLocalCatalogClient]` | — |
+| `taiwan_new_books` | `batch-4` | `migrated` | `provider_v2` | — | book or research-output domain | `book` | `get_detail`, `search` | `none` | `official_api` | `lazy[souwen.local_catalog.taiwan_new_books:TaiwanNewBooksLocalCatalogClient]` | `taiwan_new_books` |
 | `tavily` | `batch-3` | `migrated` | `provider_v2` | — | remaining web-facing integration | `web` | `fetch`, `search` | `required` | `official_api` | `lazy[souwen.web.tavily:TavilyClient]` | `tavily` |
 | `the_lens` | `batch-2` | `migrated` | `provider_v2` | — | paper/patent grouped by auth requirement | `patent` | `search` | `required` | `official_api` | `lazy[souwen.patent.the_lens:TheLensClient]` | `the_lens` |
 | `twitter` | `batch-3` | `migrated` | `provider_v2` | — | remaining web-facing integration | `social` | `search` | `required` | `official_api` | `lazy[souwen.web.twitter:TwitterClient]` | `twitter` |
@@ -137,7 +137,7 @@ configuration, or includes credential values.
 | `weibo` | `batch-5` | `pending` | `provider_v2` | — | scraper integration | `social` | `search` | `none` | `scraper` | `lazy[souwen.web.weibo:WeiboClient]` | — |
 | `whoogle` | `batch-6` | `pending` | `provider_v2` | — | self-hosted integration | `web` | `search` | `self_hosted` | `self_hosted` | `lazy[souwen.web.whoogle:WhoogleClient]` | — |
 | `wikipedia` | `batch-3` | `migrated` | `provider_v2` | — | remaining web-facing integration | `knowledge` | `search` | `none` | `open_api` | `lazy[souwen.web.wikipedia:WikipediaClient]` | `wikipedia` |
-| `wikisource` | `batch-4` | `pending` | `provider_v2` | — | book or research-output domain | `book` | `get_detail`, `search` | `none` | `official_api` | `lazy[souwen.book.wikisource:WikisourceClient]` | — |
+| `wikisource` | `batch-4` | `migrated` | `provider_v2` | — | book or research-output domain | `book` | `get_detail`, `search` | `none` | `official_api` | `lazy[souwen.book.wikisource:WikisourceClient]` | `wikisource` |
 | `xcrawl` | `batch-3` | `migrated` | `provider_v2` | — | remaining web-facing integration | `web` | `fetch`, `search` | `required` | `official_api` | `lazy[souwen.web.xcrawl:XCrawlClient]` | `xcrawl` |
 | `xiaohongshu` | `batch-5` | `pending` | `provider_v2` | — | scraper integration | `cn_tech` | `search` | `none` | `scraper` | `lazy[souwen.web.xiaohongshu:XiaohongshuClient]` | — |
 | `yahoo` | `batch-5` | `pending` | `provider_v2` | — | scraper integration | `web` | `search` | `none` | `scraper` | `lazy[souwen.web.yahoo:YahooClient]` | — |

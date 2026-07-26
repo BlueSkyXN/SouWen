@@ -9,6 +9,13 @@ from dataclasses import dataclass
 from typing import Any
 
 from souwen import __version__
+from souwen.book.doab import DOABClient
+from souwen.book.internet_archive import InternetArchiveClient
+from souwen.book.library_of_congress import LibraryOfCongressClient
+from souwen.book.librivox import LibriVoxClient
+from souwen.book.oapen import OAPENClient
+from souwen.book.open_library import OpenLibraryClient
+from souwen.book.wikisource import WikisourceClient
 from souwen.common_runtime.observability import get_request_id, get_source_sha
 from souwen.common_runtime.transport import HttpTransport
 from souwen.config import SouWenConfig
@@ -27,6 +34,14 @@ from souwen.modules.search.api import SearchModuleService
 from souwen.modules.search.application import (
     OrderedSearchProviderSelector,
     SearchProviderSelection,
+)
+from souwen.local_catalog.gutenberg import (
+    GutenbergLocalCatalogClient,
+    gutenberg_catalog_ready,
+)
+from souwen.local_catalog.taiwan_new_books import (
+    TaiwanNewBooksLocalCatalogClient,
+    taiwan_new_books_catalog_ready,
 )
 from souwen.paper.eric import EricClient
 from souwen.paper.arxiv import ArxivClient
@@ -395,6 +410,61 @@ from souwen.providers.information_sources.zhipuai import (
     ZHIPUAI_PROVIDER_SPEC,
     ZhipuAISearchSearchProvider,
 )
+from souwen.providers.information_sources.datacite import (
+    DATACITE_PROVIDER_MANIFEST,
+    DATACITE_PROVIDER_SPEC,
+    DataCiteSearchProvider,
+)
+from souwen.providers.information_sources.doab import (
+    DOAB_PROVIDER_MANIFEST,
+    DOAB_PROVIDER_SPEC,
+    DOABSearchProvider,
+)
+from souwen.providers.information_sources.figshare import (
+    FIGSHARE_PROVIDER_MANIFEST,
+    FIGSHARE_PROVIDER_SPEC,
+    FigshareSearchProvider,
+)
+from souwen.providers.information_sources.gutenberg import (
+    GUTENBERG_PROVIDER_MANIFEST,
+    GUTENBERG_PROVIDER_SPEC,
+    GutenbergSearchProvider,
+)
+from souwen.providers.information_sources.internet_archive import (
+    INTERNET_ARCHIVE_PROVIDER_MANIFEST,
+    INTERNET_ARCHIVE_PROVIDER_SPEC,
+    InternetArchiveSearchProvider,
+)
+from souwen.providers.information_sources.library_of_congress import (
+    LIBRARY_OF_CONGRESS_PROVIDER_MANIFEST,
+    LIBRARY_OF_CONGRESS_PROVIDER_SPEC,
+    LibraryOfCongressSearchProvider,
+)
+from souwen.providers.information_sources.librivox import (
+    LIBRIVOX_PROVIDER_MANIFEST,
+    LIBRIVOX_PROVIDER_SPEC,
+    LibriVoxSearchProvider,
+)
+from souwen.providers.information_sources.oapen import (
+    OAPEN_PROVIDER_MANIFEST,
+    OAPEN_PROVIDER_SPEC,
+    OAPENSearchProvider,
+)
+from souwen.providers.information_sources.open_library import (
+    OPEN_LIBRARY_PROVIDER_MANIFEST,
+    OPEN_LIBRARY_PROVIDER_SPEC,
+    OpenLibrarySearchProvider,
+)
+from souwen.providers.information_sources.taiwan_new_books import (
+    TAIWAN_NEW_BOOKS_PROVIDER_MANIFEST,
+    TAIWAN_NEW_BOOKS_PROVIDER_SPEC,
+    TaiwanNewBooksSearchProvider,
+)
+from souwen.providers.information_sources.wikisource import (
+    WIKISOURCE_PROVIDER_MANIFEST,
+    WIKISOURCE_PROVIDER_SPEC,
+    WikisourceSearchProvider,
+)
 from souwen.providers.llm_sources.uniapi_ark_annotations import (
     UNIAPI_ARK_MANIFESTS,
     UniApiArkAnnotationsDeepSeekProvider,
@@ -404,7 +474,9 @@ from souwen.providers.llm_sources.uniapi_ark_annotations.manifest import (
     DEEPSEEK_ADAPTER_ID,
     DOUBAO_ADAPTER_ID,
 )
-from souwen.registry import defaults_for
+from souwen.registry import defaults_for, get as get_legacy_adapter
+from souwen.research_output.datacite import DataCiteClient
+from souwen.research_output.figshare import FigshareClient
 from souwen.web.apify import ApifyClient
 from souwen.web.aliyun_iqs import AliyunIQSClient
 from souwen.web.brave_api import BraveApiClient
@@ -510,6 +582,28 @@ def _build_reviewed_legacy_provider(
 
     with without_source_channel_overrides(proxy=reviewed_proxy):
         client = client_factory(configuration, secrets)
+    return provider_type(
+        _LegacyRuntimeClient(client),
+        enabled=bool(configuration["enabled"]),
+    )
+
+
+def _build_reviewed_batch_four_provider(
+    provider_type: type[Any],
+    client_factory: Callable[[Mapping[str, object], Mapping[str, str], SouWenConfig], Any],
+    configuration: Mapping[str, object],
+    secrets: Mapping[str, str],
+    reviewed_proxy: str | None,
+    config: SouWenConfig,
+) -> Any:
+    """Construct Batch 4 bridges from the exact runtime config and reviewed network policy."""
+
+    with without_source_channel_overrides(
+        proxy=reviewed_proxy,
+        timeout_seconds=config.timeout,
+        max_retries=config.max_retries,
+    ):
+        client = client_factory(configuration, secrets, config)
     return provider_type(
         _LegacyRuntimeClient(client),
         enabled=bool(configuration["enabled"]),
@@ -958,6 +1052,86 @@ _BATCH_THREE_FETCH_ONLY_BINDINGS: tuple[
         lambda _configuration, secrets: ZenRowsClient(api_key=secrets["ZENROWS_API_KEY"]),
     ),
 )
+_BATCH_FOUR_SEARCH_BINDINGS: tuple[
+    tuple[
+        ProviderManifest,
+        ProviderSpec,
+        type[Any],
+        Callable[[Mapping[str, object], Mapping[str, str], SouWenConfig], Any],
+    ],
+    ...,
+] = (
+    (
+        DATACITE_PROVIDER_MANIFEST,
+        DATACITE_PROVIDER_SPEC,
+        DataCiteSearchProvider,
+        lambda _configuration, _secrets, _config: DataCiteClient(),
+    ),
+    (
+        DOAB_PROVIDER_MANIFEST,
+        DOAB_PROVIDER_SPEC,
+        DOABSearchProvider,
+        lambda _configuration, _secrets, _config: DOABClient(),
+    ),
+    (
+        FIGSHARE_PROVIDER_MANIFEST,
+        FIGSHARE_PROVIDER_SPEC,
+        FigshareSearchProvider,
+        lambda _configuration, _secrets, _config: FigshareClient(),
+    ),
+    (
+        GUTENBERG_PROVIDER_MANIFEST,
+        GUTENBERG_PROVIDER_SPEC,
+        GutenbergSearchProvider,
+        lambda _configuration, _secrets, config: GutenbergLocalCatalogClient(
+            config.local_catalog_db_path
+        ),
+    ),
+    (
+        INTERNET_ARCHIVE_PROVIDER_MANIFEST,
+        INTERNET_ARCHIVE_PROVIDER_SPEC,
+        InternetArchiveSearchProvider,
+        lambda _configuration, _secrets, _config: InternetArchiveClient(),
+    ),
+    (
+        LIBRARY_OF_CONGRESS_PROVIDER_MANIFEST,
+        LIBRARY_OF_CONGRESS_PROVIDER_SPEC,
+        LibraryOfCongressSearchProvider,
+        lambda _configuration, _secrets, _config: LibraryOfCongressClient(),
+    ),
+    (
+        LIBRIVOX_PROVIDER_MANIFEST,
+        LIBRIVOX_PROVIDER_SPEC,
+        LibriVoxSearchProvider,
+        lambda _configuration, _secrets, _config: LibriVoxClient(),
+    ),
+    (
+        OAPEN_PROVIDER_MANIFEST,
+        OAPEN_PROVIDER_SPEC,
+        OAPENSearchProvider,
+        lambda _configuration, _secrets, _config: OAPENClient(),
+    ),
+    (
+        OPEN_LIBRARY_PROVIDER_MANIFEST,
+        OPEN_LIBRARY_PROVIDER_SPEC,
+        OpenLibrarySearchProvider,
+        lambda _configuration, _secrets, _config: OpenLibraryClient(),
+    ),
+    (
+        TAIWAN_NEW_BOOKS_PROVIDER_MANIFEST,
+        TAIWAN_NEW_BOOKS_PROVIDER_SPEC,
+        TaiwanNewBooksSearchProvider,
+        lambda _configuration, _secrets, config: TaiwanNewBooksLocalCatalogClient(
+            config.local_catalog_db_path
+        ),
+    ),
+    (
+        WIKISOURCE_PROVIDER_MANIFEST,
+        WIKISOURCE_PROVIDER_SPEC,
+        WikisourceSearchProvider,
+        lambda _configuration, _secrets, _config: WikisourceClient(),
+    ),
+)
 _BATCH_TWO_MANIFEST_IDS = frozenset(
     manifest.id for manifest, _spec, _provider_type, _client_factory in _BATCH_TWO_SEARCH_BINDINGS
 )
@@ -978,16 +1152,30 @@ _BATCH_THREE_MANIFEST_IDS = (
     | _BATCH_THREE_MULTI_MANIFEST_IDS
     | _BATCH_THREE_FETCH_ONLY_MANIFEST_IDS
 )
+_BATCH_FOUR_MANIFEST_IDS = frozenset(
+    manifest.id for manifest, _spec, _provider_type, _client_factory in _BATCH_FOUR_SEARCH_BINDINGS
+)
 _MIGRATED_LEGACY_MANIFEST_IDS = (
-    _BATCH_ONE_MANIFEST_IDS | _BATCH_TWO_MANIFEST_IDS | _BATCH_THREE_MANIFEST_IDS
+    _BATCH_ONE_MANIFEST_IDS
+    | _BATCH_TWO_MANIFEST_IDS
+    | _BATCH_THREE_MANIFEST_IDS
+    | _BATCH_FOUR_MANIFEST_IDS
 )
 _LEGACY_DEFAULT_PROVIDER_IDS = frozenset(
     {
         *defaults_for("paper", "search"),
         *defaults_for("patent", "search"),
+        *defaults_for("book", "search"),
+        *defaults_for("research_output", "search"),
         *defaults_for("fetch", "fetch"),
     }
 )
+
+
+def _legacy_runtime_default_enabled(provider_id: str) -> bool:
+    """Keep runtime eligibility distinct from default Search fan-out selection."""
+
+    return get_legacy_adapter(provider_id).runtime_default_enabled
 
 
 class _UnavailableLLMSearchModule:
@@ -1050,7 +1238,7 @@ def _configuration_resolver(config: SouWenConfig):
             return configuration
         if manifest.id in _MIGRATED_LEGACY_MANIFEST_IDS:
             if not config.is_source_enabled(
-                manifest.id, default=manifest.id in _LEGACY_DEFAULT_PROVIDER_IDS
+                manifest.id, default=_legacy_runtime_default_enabled(manifest.id)
             ):
                 raise ValueError("provider is disabled")
             if manifest.id == "zotero":
@@ -1063,6 +1251,14 @@ def _configuration_resolver(config: SouWenConfig):
                     "library_id": library_id,
                     "library_type": library_type,
                 }
+            if manifest.id == "gutenberg" and not gutenberg_catalog_ready(
+                config.local_catalog_db_path
+            ):
+                raise ValueError("local catalog unavailable")
+            if manifest.id == "taiwan_new_books" and not taiwan_new_books_catalog_ready(
+                config.local_catalog_db_path
+            ):
+                raise ValueError("local catalog unavailable")
             return {"enabled": True}
         if manifest.id == "builtin-fetch":
             if not config.is_source_enabled("builtin-fetch", default=True):
@@ -1251,7 +1447,7 @@ def _catalog_items(
             enabled = patentsview_enabled
         elif provider_id in _MIGRATED_LEGACY_MANIFEST_IDS:
             enabled = config.is_source_enabled(
-                provider_id, default=provider_id in _LEGACY_DEFAULT_PROVIDER_IDS
+                provider_id, default=_legacy_runtime_default_enabled(provider_id)
             )
         else:
             enabled = config.is_source_enabled(provider_id, default=True)
@@ -1431,6 +1627,26 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
             ),
             provider_type=provider_type,
         )
+    for manifest, spec, provider_type, client_factory in _BATCH_FOUR_SEARCH_BINDINGS:
+        validate_spec_manifest(spec, manifest)
+        reviewed_proxy = (
+            config.resolve_proxy(manifest.id) if manifest.network.proxy_supported else None
+        )
+        manager.register_factory(
+            package_id=manifest.id,
+            export=manifest.adapters[0].export,
+            factory=lambda configuration, secrets, provider_type=provider_type, client_factory=client_factory, reviewed_proxy=reviewed_proxy: (
+                _build_reviewed_batch_four_provider(
+                    provider_type,
+                    client_factory,
+                    configuration,
+                    secrets,
+                    reviewed_proxy,
+                    config,
+                )
+            ),
+            provider_type=provider_type,
+        )
     manager.register_factory(
         package_id=ARXIV_FULLTEXT_PROVIDER_MANIFEST.id,
         export="ArxivFulltextFetchProvider",
@@ -1492,6 +1708,10 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
             *(
                 manifest
                 for manifest, _spec, _provider_type, _client_factory in _BATCH_THREE_FETCH_ONLY_BINDINGS
+            ),
+            *(
+                manifest
+                for manifest, _spec, _provider_type, _client_factory in _BATCH_FOUR_SEARCH_BINDINGS
             ),
             ARXIV_FULLTEXT_PROVIDER_MANIFEST,
             BUILTIN_FETCH_MANIFEST,
@@ -1578,6 +1798,30 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
                         start=1,
                     )
                 ),
+                **{
+                    domain: tuple(
+                        SearchProviderSelection(
+                            provider=ProviderRef(id=manifest.id, kind="search"),
+                            adapter_id=manifest.adapters[0].id,
+                            yaml_priority=priority,
+                        )
+                        for priority, (
+                            manifest,
+                            _spec,
+                            _provider_type,
+                            _client_factory,
+                        ) in enumerate(
+                            (
+                                binding
+                                for binding in _BATCH_FOUR_SEARCH_BINDINGS
+                                if binding[1].domain == domain
+                                and binding[0].id in _LEGACY_DEFAULT_PROVIDER_IDS
+                            ),
+                            start=1,
+                        )
+                    )
+                    for domain in ("book", "research_output")
+                },
             },
             explicit_selections=(
                 SearchProviderSelection(
@@ -1616,6 +1860,26 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
                         _fetch_type,
                         _client_factory,
                     ) in enumerate(_BATCH_THREE_MULTI_BINDINGS, start=200)
+                ),
+                *(
+                    SearchProviderSelection(
+                        provider=ProviderRef(id=manifest.id, kind="search"),
+                        adapter_id=manifest.adapters[0].id,
+                        yaml_priority=priority,
+                    )
+                    for priority, (
+                        manifest,
+                        _spec,
+                        _provider_type,
+                        _client_factory,
+                    ) in enumerate(
+                        (
+                            binding
+                            for binding in _BATCH_FOUR_SEARCH_BINDINGS
+                            if binding[0].id not in _LEGACY_DEFAULT_PROVIDER_IDS
+                        ),
+                        start=300,
+                    )
                 ),
             ),
         ),
