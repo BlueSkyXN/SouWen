@@ -3,7 +3,11 @@
 from __future__ import annotations
 
 from souwen.platform.manifest_registry import ProviderManifest
-from souwen.platform.provider_spec.models import LocalStoreDeclaration, ProviderSpec
+from souwen.platform.provider_spec.models import (
+    LocalStoreDeclaration,
+    ProviderSpec,
+    PublicTargetDeclaration,
+)
 
 
 def validate_spec_manifest(
@@ -22,6 +26,11 @@ def validate_spec_manifest(
         spec_hosts = (spec.host,)
     if set(spec_hosts) != set(manifest.network.egress_hosts):
         raise ValueError("provider spec hosts do not match manifest egress hosts")
+    public_target = isinstance(getattr(spec, "transport", None), PublicTargetDeclaration)
+    if public_target != (manifest.network.target_egress == "validated_public_target"):
+        raise ValueError("provider spec public-target egress does not match manifest")
+    if public_target and spec.capability != "fetch":
+        raise ValueError("public-target egress is only valid for Fetch providers")
     if isinstance(getattr(spec, "transport", None), LocalStoreDeclaration) and (
         manifest.network.proxy_supported or manifest.network.browser_required
     ):

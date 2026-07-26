@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from datetime import date
+import importlib
 import json
 from pathlib import Path
 
@@ -19,6 +20,7 @@ from souwen.models import (
     WebSearchResult,
 )
 from souwen.platform.provider_spi import SearchPageRequest, SearchRequest
+from souwen.platform.provider_spec import LegacySearchProvider, LegacySearchProviderSpec
 from souwen.providers.information_sources.arxiv import ArxivSearchProvider
 from souwen.providers.information_sources.biorxiv import BioRxivSearchProvider
 from souwen.providers.information_sources.crossref import CrossrefSearchProvider
@@ -151,11 +153,18 @@ def _definition(provider_id, provider_type, response, *, domain="paper"):
 
 
 def _web_response(provider_id: str, *, empty: bool = False) -> SearchResponse:
-    url = (
-        "https://www.youtube.com/watch?v=provider-v2"
-        if provider_id == "youtube"
-        else f"https://example.test/{provider_id}"
-    )
+    url = {
+        "bilibili": "https://www.bilibili.com/video/BV1234567890",
+        "coolapk": "https://www.coolapk.com/feed/provider-v2",
+        "hostloc": "https://hostloc.com/thread-provider-v2.html",
+        "juejin": "https://juejin.cn/post/provider-v2",
+        "nodeseek": "https://www.nodeseek.com/post-provider-v2-1",
+        "v2ex": "https://www.v2ex.com/t/provider-v2",
+        "weibo": "https://m.weibo.cn/detail/provider-v2",
+        "xiaohongshu": "https://www.xiaohongshu.com/explore/provider-v2",
+        "youtube": "https://www.youtube.com/watch?v=provider-v2",
+        "zhihu": "https://www.zhihu.com/question/provider-v2",
+    }.get(provider_id, f"https://example.test/{provider_id}")
     results = []
     if not empty:
         results.append(
@@ -190,6 +199,52 @@ def _web_definition(provider_id: str, provider_type: type, domain: str):
         empty_response=_web_response(provider_id, empty=True),
         invalid_response=object(),
     )
+
+
+_BATCH_FIVE_SEARCH_IDS = (
+    "baidu",
+    "bilibili",
+    "bing",
+    "bing_cn",
+    "brave",
+    "coolapk",
+    "csdn",
+    "duckduckgo",
+    "duckduckgo_images",
+    "duckduckgo_news",
+    "duckduckgo_videos",
+    "google",
+    "hostloc",
+    "juejin",
+    "mojeek",
+    "nodeseek",
+    "startpage",
+    "v2ex",
+    "weibo",
+    "xiaohongshu",
+    "yahoo",
+    "yandex",
+    "zhihu",
+)
+
+
+def _batch_five_web_definitions() -> tuple[SearchConformanceDefinition, ...]:
+    definitions = []
+    for provider_id in _BATCH_FIVE_SEARCH_IDS:
+        module = importlib.import_module(f"souwen.providers.information_sources.{provider_id}")
+        spec = next(
+            value for value in vars(module).values() if isinstance(value, LegacySearchProviderSpec)
+        )
+        provider_type = next(
+            value
+            for value in vars(module).values()
+            if isinstance(value, type)
+            and value is not LegacySearchProvider
+            and issubclass(value, LegacySearchProvider)
+            and value.__module__.startswith(module.__name__)
+        )
+        definitions.append(_web_definition(provider_id, provider_type, spec.domain))
+    return tuple(definitions)
 
 
 _BOOK_URLS = {
@@ -365,6 +420,7 @@ DEFINITIONS = (
             ("figshare", FigshareSearchProvider),
         )
     ),
+    *_batch_five_web_definitions(),
 )
 
 

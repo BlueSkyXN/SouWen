@@ -56,6 +56,7 @@ from souwen.models import FetchResponse, FetchResult
 from souwen.core.scraper.base import BaseScraper
 
 logger = logging.getLogger("souwen.web.readability")
+_MAX_PARSER_INPUT_CODE_POINTS = 5_000_000
 
 
 _HAS_READABILITY = False
@@ -215,7 +216,10 @@ class ReadabilityFetcherClient(BaseScraper):
             FetchResult 包含提取的正文内容
         """
         try:
-            resp = await self._fetch_with_safe_redirects(url, max_redirects=self.MAX_REDIRECTS)
+            resp = await asyncio.wait_for(
+                self._fetch_with_safe_redirects(url, max_redirects=self.MAX_REDIRECTS),
+                timeout=timeout,
+            )
             response_extensions = getattr(resp, "extensions", None)
             safe_final_url = (
                 response_extensions.get("souwen_final_url")
@@ -233,9 +237,20 @@ class ReadabilityFetcherClient(BaseScraper):
                     error="页面内容过短或为空",
                     raw={"status_code": resp.status_code, "content_length": len(html)},
                 )
+            if len(html) > _MAX_PARSER_INPUT_CODE_POINTS:
+                return FetchResult(
+                    url=url,
+                    final_url=final_url,
+                    source=self.PROVIDER_NAME,
+                    error="页面内容超过解析上限",
+                    raw={"provider": "readability", "status_code": resp.status_code},
+                )
 
             # Readability 是同步阻塞调用，移出事件循环
-            extracted = await asyncio.to_thread(_extract_with_readability_sync, html, url)
+            extracted = await asyncio.wait_for(
+                asyncio.to_thread(_extract_with_readability_sync, html, url),
+                timeout=timeout,
+            )
             content = extracted["content"]
 
             MIN_CONTENT_LENGTH = 50
@@ -278,6 +293,15 @@ class ReadabilityFetcherClient(BaseScraper):
                 },
             )
 
+        except asyncio.TimeoutError:
+            logger.warning("Readability fetch timeout: url=%s timeout=%.1fs", url, timeout)
+            return FetchResult(
+                url=url,
+                final_url=url,
+                source=self.PROVIDER_NAME,
+                error=f"抓取超时 ({timeout}s)",
+                raw={"provider": "readability"},
+            )
         except Exception as exc:
             logger.warning("Readability fetch failed: url=%s err=%s", url, exc)
             return FetchResult(

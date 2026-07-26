@@ -83,12 +83,40 @@ BATCH_FOUR_MIGRATED_SOURCE_IDS = {
     "taiwan_new_books",
     "wikisource",
 }
+BATCH_FIVE_MIGRATED_SOURCE_IDS = {
+    "baidu",
+    "bilibili",
+    "bing",
+    "bing_cn",
+    "brave",
+    "coolapk",
+    "csdn",
+    "duckduckgo",
+    "duckduckgo_images",
+    "duckduckgo_news",
+    "duckduckgo_videos",
+    "google",
+    "hostloc",
+    "juejin",
+    "mojeek",
+    "newspaper",
+    "nodeseek",
+    "readability",
+    "startpage",
+    "v2ex",
+    "weibo",
+    "xiaohongshu",
+    "yahoo",
+    "yandex",
+    "zhihu",
+}
 MIGRATED_SOURCE_IDS = (
     inventory.SAMPLE_SOURCE_IDS
     | BATCH_ONE_MIGRATED_SOURCE_IDS
     | BATCH_TWO_MIGRATED_SOURCE_IDS
     | BATCH_THREE_MIGRATED_SOURCE_IDS
     | BATCH_FOUR_MIGRATED_SOURCE_IDS
+    | BATCH_FIVE_MIGRATED_SOURCE_IDS
 )
 
 
@@ -110,9 +138,9 @@ def test_inventory_partitions_the_current_registry_into_six_batches() -> None:
     }
     assert data["batch_counts"] == inventory.EXPECTED_COUNTS
     assert data["status_counts"] == {
-        "migrated": 76,
-        "pending": 32,
-        "retirement_pending": 2,
+        "migrated": 101,
+        "pending": 3,
+        "retirement_pending": 6,
         "incomplete": 0,
     }
     assert len(data["records"]) == 110
@@ -145,7 +173,8 @@ def test_inventory_partitions_the_current_registry_into_six_batches() -> None:
     assert all(
         record["migration_status"] == "pending"
         for record in data["records"]
-        if record["source_id"] not in MIGRATED_SOURCE_IDS | {"opencitations", "unpaywall"}
+        if record["source_id"]
+        not in MIGRATED_SOURCE_IDS | set(inventory.RETIREMENT_PENDING_SOURCES)
     )
     opencitations = next(
         record for record in data["records"] if record["source_id"] == "opencitations"

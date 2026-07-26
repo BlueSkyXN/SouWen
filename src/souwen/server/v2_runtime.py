@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import inspect
+import importlib
 import os
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
@@ -75,6 +76,8 @@ from souwen.patent.uspto_odp import UsptoOdpClient
 from souwen.platform.manifest_registry import ProviderManifest
 from souwen.platform.provider_manager import ProviderManager
 from souwen.platform.provider_spec import (
+    LegacySearchProvider,
+    LegacySearchProviderSpec,
     ProviderSpec,
     RestJsonProviderSpec,
     resolve_provider_inputs,
@@ -118,6 +121,16 @@ from souwen.providers.fetch_sources.jina_reader import (
     JINA_READER_FETCH_PROFILE,
     JINA_READER_PROVIDER_MANIFEST,
     JinaReaderFetchProvider,
+)
+from souwen.providers.fetch_sources.newspaper import (
+    NEWSPAPER_FETCH_PROFILE,
+    NEWSPAPER_PROVIDER_MANIFEST,
+    NewspaperFetchProvider,
+)
+from souwen.providers.fetch_sources.readability import (
+    READABILITY_FETCH_PROFILE,
+    READABILITY_PROVIDER_MANIFEST,
+    ReadabilityFetchProvider,
 )
 from souwen.providers.fetch_sources.scraperapi import (
     SCRAPERAPI_FETCH_PROFILE,
@@ -494,8 +507,10 @@ from souwen.web.kimi_code import KimiCodeClient
 from souwen.web.linkup import LinkupClient
 from souwen.web.linuxdo import LinuxDoClient
 from souwen.web.metaso import MetasoClient
+from souwen.web.newspaper_fetcher import NewspaperFetcherClient
 from souwen.web.perplexity import PerplexityClient
 from souwen.web.reddit import RedditClient
+from souwen.web.readability_fetcher import ReadabilityFetcherClient
 from souwen.web.scraperapi import ScraperAPIClient
 from souwen.web.scrapfly import ScrapflyClient
 from souwen.web.scrapingbee import ScrapingBeeClient
@@ -571,6 +586,32 @@ class _LegacyRuntimeClient:
             await result
 
 
+class _ManagedLegacyRuntimeClient(_LegacyRuntimeClient):
+    """Enter legacy async contexts lazily and close them exactly once."""
+
+    def __init__(self, client: Any) -> None:
+        super().__init__(client)
+        self._entered = False
+
+    async def _ensure_entered(self) -> None:
+        enter = getattr(self._client, "__aenter__", None)
+        if not self._entered and enter is not None:
+            await enter()
+            self._entered = True
+
+    async def fetch(self, *args, **kwargs):
+        await self._ensure_entered()
+        return await self._client.fetch(*args, **kwargs)
+
+    async def close(self) -> None:
+        exit_context = getattr(self._client, "__aexit__", None)
+        if self._entered and exit_context is not None:
+            self._entered = False
+            await exit_context(None, None, None)
+            return
+        await super().close()
+
+
 def _build_reviewed_legacy_provider(
     provider_type: type[Any],
     client_factory: Callable[[Mapping[str, object], Mapping[str, str]], Any],
@@ -608,6 +649,108 @@ def _build_reviewed_batch_four_provider(
         _LegacyRuntimeClient(client),
         enabled=bool(configuration["enabled"]),
     )
+
+
+_BATCH_FIVE_SEARCH_SOURCE_IDS = (
+    "baidu",
+    "bilibili",
+    "bing",
+    "bing_cn",
+    "brave",
+    "coolapk",
+    "csdn",
+    "duckduckgo",
+    "duckduckgo_images",
+    "duckduckgo_news",
+    "duckduckgo_videos",
+    "google",
+    "hostloc",
+    "juejin",
+    "mojeek",
+    "nodeseek",
+    "startpage",
+    "v2ex",
+    "weibo",
+    "xiaohongshu",
+    "yahoo",
+    "yandex",
+    "zhihu",
+)
+_BATCH_FIVE_DDG_SITE_SOURCE_IDS = frozenset(
+    {"coolapk", "hostloc", "nodeseek", "v2ex", "xiaohongshu"}
+)
+
+
+def _batch_five_search_binding(
+    provider_id: str,
+) -> tuple[ProviderManifest, LegacySearchProviderSpec, type[Any], str]:
+    module = importlib.import_module(f"souwen.providers.information_sources.{provider_id}")
+    manifests = tuple(
+        value for value in vars(module).values() if isinstance(value, ProviderManifest)
+    )
+    specs = tuple(
+        value for value in vars(module).values() if isinstance(value, LegacySearchProviderSpec)
+    )
+    provider_types = tuple(
+        value
+        for value in vars(module).values()
+        if isinstance(value, type)
+        and value is not LegacySearchProvider
+        and issubclass(value, LegacySearchProvider)
+        and value.__module__.startswith(module.__name__)
+    )
+    if len(manifests) != 1 or len(specs) != 1 or len(provider_types) != 1:
+        raise RuntimeError(f"invalid Batch 5 provider package: {provider_id}")
+    return manifests[0], specs[0], provider_types[0], provider_id
+
+
+_BATCH_FIVE_SEARCH_BINDINGS = tuple(
+    _batch_five_search_binding(provider_id) for provider_id in _BATCH_FIVE_SEARCH_SOURCE_IDS
+)
+
+
+def _build_reviewed_batch_five_search_provider(
+    provider_type: type[Any],
+    provider_id: str,
+    configuration: Mapping[str, object],
+    secrets: Mapping[str, str],
+    reviewed_proxy: str | None,
+    config: SouWenConfig,
+) -> Any:
+    client_type = get_legacy_adapter(provider_id).client_loader()
+    kwargs: dict[str, object] = (
+        {}
+        if provider_id.startswith("duckduckgo") or provider_id in _BATCH_FIVE_DDG_SITE_SOURCE_IDS
+        else {"follow_redirects": False}
+    )
+    if provider_id == "bilibili":
+        kwargs["sessdata"] = secrets.get("BILIBILI_SESSDATA")
+    with without_source_channel_overrides(
+        proxy=reviewed_proxy,
+        timeout_seconds=config.timeout,
+        max_retries=config.max_retries,
+    ):
+        client = client_type(**kwargs)
+        if provider_id in _BATCH_FIVE_DDG_SITE_SOURCE_IDS:
+            ddg_client_type = get_legacy_adapter("duckduckgo").client_loader()
+            client._ddg_client = ddg_client_type()
+    return provider_type(
+        _LegacyRuntimeClient(client),
+        enabled=bool(configuration["enabled"]),
+    )
+
+
+def _construct_reviewed_batch_five_fetch_client(
+    client_type: type[Any],
+    reviewed_proxy: str | None,
+    config: SouWenConfig,
+) -> Any:
+    with without_source_channel_overrides(
+        proxy=reviewed_proxy,
+        timeout_seconds=config.timeout,
+        max_retries=config.max_retries,
+    ):
+        return client_type()
 
 
 _BATCH_ONE_SEARCH_BINDINGS: tuple[
@@ -1155,11 +1298,15 @@ _BATCH_THREE_MANIFEST_IDS = (
 _BATCH_FOUR_MANIFEST_IDS = frozenset(
     manifest.id for manifest, _spec, _provider_type, _client_factory in _BATCH_FOUR_SEARCH_BINDINGS
 )
+_BATCH_FIVE_MANIFEST_IDS = frozenset(
+    manifest.id for manifest, _spec, _provider_type, _provider_id in _BATCH_FIVE_SEARCH_BINDINGS
+) | {NEWSPAPER_PROVIDER_MANIFEST.id, READABILITY_PROVIDER_MANIFEST.id}
 _MIGRATED_LEGACY_MANIFEST_IDS = (
     _BATCH_ONE_MANIFEST_IDS
     | _BATCH_TWO_MANIFEST_IDS
     | _BATCH_THREE_MANIFEST_IDS
     | _BATCH_FOUR_MANIFEST_IDS
+    | _BATCH_FIVE_MANIFEST_IDS
 )
 _LEGACY_DEFAULT_PROVIDER_IDS = frozenset(
     {
@@ -1167,6 +1314,11 @@ _LEGACY_DEFAULT_PROVIDER_IDS = frozenset(
         *defaults_for("patent", "search"),
         *defaults_for("book", "search"),
         *defaults_for("research_output", "search"),
+        *defaults_for("web", "search"),
+        *defaults_for("web", "search_news"),
+        *defaults_for("web", "search_images"),
+        *defaults_for("web", "search_videos"),
+        *defaults_for("video", "search"),
         *defaults_for("fetch", "fetch"),
     }
 )
@@ -1241,6 +1393,12 @@ def _configuration_resolver(config: SouWenConfig):
                 manifest.id, default=_legacy_runtime_default_enabled(manifest.id)
             ):
                 raise ValueError("provider is disabled")
+            optional_module = {
+                "newspaper": "newspaper",
+                "readability": "readability",
+            }.get(manifest.id)
+            if optional_module is not None and importlib.util.find_spec(optional_module) is None:
+                raise ValueError("optional provider runtime is unavailable")
             if manifest.id == "zotero":
                 library_id = (config.zotero_library_id or "").strip()
                 library_type = (config.zotero_library_type or "user").strip().lower()
@@ -1289,11 +1447,15 @@ def _secret_resolver(config: SouWenConfig):
                 if isinstance(value, str) and value.strip()
                 else {}
             )
-        if manifest.id in (_BATCH_TWO_MANIFEST_IDS | _BATCH_THREE_MANIFEST_IDS):
+        if manifest.id in (
+            _BATCH_TWO_MANIFEST_IDS | _BATCH_THREE_MANIFEST_IDS | _BATCH_FIVE_MANIFEST_IDS
+        ):
             resolved: dict[str, str] = {}
             for reference in _references:
                 field_name = reference.lower()
-                if reference.endswith(("_SECRET", "_ACCOUNT_ID")):
+                if reference == "BILIBILI_SESSDATA":
+                    value = config.bilibili_sessdata
+                elif reference.endswith(("_SECRET", "_ACCOUNT_ID")):
                     value = getattr(config, field_name, None)
                 else:
                     value = config.resolve_api_key(manifest.id, field_name)
@@ -1647,6 +1809,57 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
             ),
             provider_type=provider_type,
         )
+    for manifest, spec, provider_type, provider_id in _BATCH_FIVE_SEARCH_BINDINGS:
+        validate_spec_manifest(spec, manifest)
+        reviewed_proxy = (
+            config.resolve_proxy(manifest.id) if manifest.network.proxy_supported else None
+        )
+        manager.register_factory(
+            package_id=manifest.id,
+            export=manifest.adapters[0].export,
+            factory=lambda configuration, secrets, provider_type=provider_type, provider_id=provider_id, reviewed_proxy=reviewed_proxy: (
+                _build_reviewed_batch_five_search_provider(
+                    provider_type,
+                    provider_id,
+                    configuration,
+                    secrets,
+                    reviewed_proxy,
+                    config,
+                )
+            ),
+            provider_type=provider_type,
+        )
+    for manifest, spec, provider_type, client_type in (
+        (
+            NEWSPAPER_PROVIDER_MANIFEST,
+            NEWSPAPER_FETCH_PROFILE,
+            NewspaperFetchProvider,
+            NewspaperFetcherClient,
+        ),
+        (
+            READABILITY_PROVIDER_MANIFEST,
+            READABILITY_FETCH_PROFILE,
+            ReadabilityFetchProvider,
+            ReadabilityFetcherClient,
+        ),
+    ):
+        validate_spec_manifest(spec, manifest)
+        reviewed_proxy = config.resolve_proxy(manifest.id)
+        manager.register_factory(
+            package_id=manifest.id,
+            export=manifest.adapters[0].export,
+            factory=lambda configuration, _secrets, provider_type=provider_type, client_type=client_type, reviewed_proxy=reviewed_proxy: (
+                provider_type(
+                    _ManagedLegacyRuntimeClient(
+                        _construct_reviewed_batch_five_fetch_client(
+                            client_type, reviewed_proxy, config
+                        )
+                    ),
+                    enabled=bool(configuration["enabled"]),
+                )
+            ),
+            provider_type=provider_type,
+        )
     manager.register_factory(
         package_id=ARXIV_FULLTEXT_PROVIDER_MANIFEST.id,
         export="ArxivFulltextFetchProvider",
@@ -1713,6 +1926,12 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
                 manifest
                 for manifest, _spec, _provider_type, _client_factory in _BATCH_FOUR_SEARCH_BINDINGS
             ),
+            *(
+                manifest
+                for manifest, _spec, _provider_type, _provider_id in _BATCH_FIVE_SEARCH_BINDINGS
+            ),
+            NEWSPAPER_PROVIDER_MANIFEST,
+            READABILITY_PROVIDER_MANIFEST,
             ARXIV_FULLTEXT_PROVIDER_MANIFEST,
             BUILTIN_FETCH_MANIFEST,
             *UNIAPI_ARK_MANIFESTS,
@@ -1822,6 +2041,30 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
                     )
                     for domain in ("book", "research_output")
                 },
+                **{
+                    domain: tuple(
+                        SearchProviderSelection(
+                            provider=ProviderRef(id=manifest.id, kind="search"),
+                            adapter_id=manifest.adapters[0].id,
+                            yaml_priority=priority,
+                        )
+                        for priority, (
+                            manifest,
+                            spec,
+                            _provider_type,
+                            _provider_id,
+                        ) in enumerate(
+                            (
+                                binding
+                                for binding in _BATCH_FIVE_SEARCH_BINDINGS
+                                if binding[1].domain == domain
+                                and binding[0].id in _LEGACY_DEFAULT_PROVIDER_IDS
+                            ),
+                            start=1,
+                        )
+                    )
+                    for domain in ("web", "news", "images", "videos")
+                },
             },
             explicit_selections=(
                 SearchProviderSelection(
@@ -1881,6 +2124,26 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
                         start=300,
                     )
                 ),
+                *(
+                    SearchProviderSelection(
+                        provider=ProviderRef(id=manifest.id, kind="search"),
+                        adapter_id=manifest.adapters[0].id,
+                        yaml_priority=priority,
+                    )
+                    for priority, (
+                        manifest,
+                        _spec,
+                        _provider_type,
+                        _provider_id,
+                    ) in enumerate(
+                        (
+                            binding
+                            for binding in _BATCH_FIVE_SEARCH_BINDINGS
+                            if binding[0].id not in _LEGACY_DEFAULT_PROVIDER_IDS
+                        ),
+                        start=400,
+                    )
+                ),
             ),
         ),
     )
@@ -1895,6 +2158,8 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
         manager,
         provider_adapter_ids={
             "arxiv_fulltext": "arxiv_fulltext-fetch",
+            "newspaper": "newspaper-fetch",
+            "readability": "readability-fetch",
             **{
                 manifest.id: next(
                     adapter.id for adapter in manifest.adapters if adapter.capability == "fetch"

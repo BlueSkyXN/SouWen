@@ -7,20 +7,34 @@ from .factory import (
     LegacySearchSpec,
     RestJsonSearchProvider,
 )
+from .cn_scraper import CnScraperBinding, CnScraperSearchProvider, cn_scraper_search_spec
+from .search_scraper import (
+    ScraperSearchProvider,
+    canonical_public_url,
+    legacy_scraper_spec,
+    scraper_search_manifest,
+)
 from .models import (
+    AuthDeclaration,
     CredentialBinding,
+    HttpOperation,
     LegacyFetchProviderSpec,
     LegacySearchProviderSpec,
     LegacyTransportDeclaration,
     LocalStoreDeclaration,
     ProviderSpec,
+    PublicTargetDeclaration,
     RestJsonProviderSpec,
 )
 from .resolver import resolve_provider_inputs
 from .validation import validate_spec_manifest
 
 __all__ = [
+    "AuthDeclaration",
     "CredentialBinding",
+    "HttpOperation",
+    "CnScraperBinding",
+    "CnScraperSearchProvider",
     "LegacyFetchProvider",
     "LegacyFetchProviderSpec",
     "LegacyFetchSpec",
@@ -30,8 +44,14 @@ __all__ = [
     "LegacyTransportDeclaration",
     "LocalStoreDeclaration",
     "ProviderSpec",
+    "PublicTargetDeclaration",
     "RestJsonProviderSpec",
     "RestJsonSearchProvider",
+    "ScraperSearchProvider",
+    "canonical_public_url",
+    "legacy_scraper_spec",
+    "scraper_search_manifest",
     "resolve_provider_inputs",
     "validate_spec_manifest",
+    "cn_scraper_search_spec",
 ]

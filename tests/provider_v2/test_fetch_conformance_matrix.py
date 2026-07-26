@@ -21,6 +21,9 @@ from souwen.providers.fetch_sources.diffbot import DiffbotFetchProvider
 from souwen.providers.fetch_sources.diffbot import adapter as diffbot_adapter
 from souwen.providers.fetch_sources.jina_reader import JinaReaderFetchProvider
 from souwen.providers.fetch_sources.jina_reader import adapter as jina_reader_adapter
+from souwen.providers.fetch_sources.newspaper import NewspaperFetchProvider
+from souwen.providers.fetch_sources.readability import ReadabilityFetchProvider
+from souwen.platform.provider_spec import public_fetch
 from souwen.providers.fetch_sources.scraperapi import ScraperAPIFetchProvider
 from souwen.providers.fetch_sources.scraperapi import adapter as scraperapi_adapter
 from souwen.providers.fetch_sources.scrapfly import ScrapflyFetchProvider
@@ -106,6 +109,8 @@ DEFINITIONS = (
             ("jina_reader", JinaReaderFetchProvider),
             ("kimi_code", KimiCodeFetchProvider),
             ("metaso", MetasoFetchProvider),
+            ("newspaper", NewspaperFetchProvider),
+            ("readability", ReadabilityFetchProvider),
             ("scraperapi", ScraperAPIFetchProvider),
             ("scrapfly", ScrapflyFetchProvider),
             ("scrapingbee", ScrapingBeeFetchProvider),
@@ -127,6 +132,8 @@ _VALIDATOR_MODULES = {
     "jina_reader": jina_reader_adapter,
     "kimi_code": kimi_code_adapter,
     "metaso": metaso_adapter,
+    "newspaper": public_fetch,
+    "readability": public_fetch,
     "scraperapi": scraperapi_adapter,
     "scrapfly": scrapfly_adapter,
     "scrapingbee": scrapingbee_adapter,
