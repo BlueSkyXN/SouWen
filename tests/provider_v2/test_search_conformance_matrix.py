@@ -13,22 +13,39 @@ from souwen.platform.provider_spi import SearchRequest
 from souwen.providers.information_sources.arxiv import ArxivSearchProvider
 from souwen.providers.information_sources.biorxiv import BioRxivSearchProvider
 from souwen.providers.information_sources.crossref import CrossrefSearchProvider
+from souwen.providers.information_sources.cnipa import CnipaSearchProvider
+from souwen.providers.information_sources.core import CoreSearchProvider
 from souwen.providers.information_sources.dblp import DblpSearchProvider
+from souwen.providers.information_sources.doaj import DoajSearchProvider
 from souwen.providers.information_sources.eric import EricSearchProvider
+from souwen.providers.information_sources.epo_ops import EpoOpsSearchProvider
 from souwen.providers.information_sources.europepmc import EuropePmcSearchProvider
 from souwen.providers.information_sources.google_patents import GooglePatentsSearchProvider
 from souwen.providers.information_sources.hal import HalSearchProvider
 from souwen.providers.information_sources.huggingface import HuggingFaceSearchProvider
 from souwen.providers.information_sources.iacr import IacrSearchProvider
+from souwen.providers.information_sources.ieee_xplore import IeeeXploreSearchProvider
 from souwen.providers.information_sources.openalex import OpenAlexSearchProvider
+from souwen.providers.information_sources.openaire import OpenAireSearchProvider
 from souwen.providers.information_sources.osti import OstiSearchProvider
 from souwen.providers.information_sources.patentsview import PatentsViewSearchProvider
+from souwen.providers.information_sources.patsnap import PatSnapSearchProvider
+from souwen.providers.information_sources.pqai import PqaiSearchProvider
 from souwen.providers.information_sources.pmc import PmcSearchProvider
 from souwen.providers.information_sources.pubmed import PubMedSearchProvider
+from souwen.providers.information_sources.semantic_scholar import SemanticScholarSearchProvider
+from souwen.providers.information_sources.the_lens import TheLensSearchProvider
+from souwen.providers.information_sources.uspto_odp import UsptoOdpSearchProvider
+from souwen.providers.information_sources.zenodo import ZenodoSearchProvider
+from souwen.providers.information_sources.zotero import ZoteroSearchProvider
 from tests.support.provider_v2_batch_one import (
     batch_one_paper as _batch_one_paper,
     google_patent as _google_patent,
     response as _response,
+)
+from tests.support.provider_v2_batch_two import (
+    batch_two_paper as _batch_two_paper,
+    batch_two_patent as _batch_two_patent,
 )
 from tests.support.provider_v2_conformance import (
     SEARCH_CONFORMANCE_CASES,
@@ -133,6 +150,38 @@ DEFINITIONS = (
         "pubmed",
         PubMedSearchProvider,
         _response("pubmed", _batch_one_paper("pubmed")),
+    ),
+    *(
+        _definition(
+            provider_id,
+            provider_type,
+            _response(provider_id, _batch_two_paper(provider_id)),
+        )
+        for provider_id, provider_type in (
+            ("core", CoreSearchProvider),
+            ("doaj", DoajSearchProvider),
+            ("ieee_xplore", IeeeXploreSearchProvider),
+            ("openaire", OpenAireSearchProvider),
+            ("semantic_scholar", SemanticScholarSearchProvider),
+            ("zenodo", ZenodoSearchProvider),
+            ("zotero", ZoteroSearchProvider),
+        )
+    ),
+    *(
+        _definition(
+            provider_id,
+            provider_type,
+            _response(provider_id, _batch_two_patent(provider_id)),
+            domain="patent",
+        )
+        for provider_id, provider_type in (
+            ("cnipa", CnipaSearchProvider),
+            ("epo_ops", EpoOpsSearchProvider),
+            ("patsnap", PatSnapSearchProvider),
+            ("pqai", PqaiSearchProvider),
+            ("the_lens", TheLensSearchProvider),
+            ("uspto_odp", UsptoOdpSearchProvider),
+        )
     ),
 )
 

@@ -9,9 +9,9 @@ def test_drafts_cover_only_pending_sources_without_inventing_mappings() -> None:
 
     assert data["schema_version"] == 1
     assert data["generator_version"] == drafts.GENERATOR_VERSION
-    assert data["draft_count"] == 90
-    assert data["existing_provider_spec_count"] == 19
-    assert data["non_provider_disposition_count"] == 1
+    assert data["draft_count"] == 76
+    assert data["existing_provider_spec_count"] == 32
+    assert data["non_provider_disposition_count"] == 2
     assert len(data["inventory_registry_sha256"]) == 64
     assert len(data["source_fingerprint"]["input_sha256"]) == 64
     assert all(
@@ -63,7 +63,17 @@ def test_drafts_cover_only_pending_sources_without_inventing_mappings() -> None:
                 "Search-internal citation enrichment; public citation routes and registry "
                 "capability retire in C1"
             ),
-        }
+        },
+        {
+            "source_id": "unpaywall",
+            "batch": "batch-2",
+            "migration_status": "retirement_pending",
+            "target_disposition": "fetch_internal_enrichment",
+            "disposition_reason": (
+                "DOI-only open-access lookup is not keyword Search; its public legacy "
+                "capability retires in C1 instead of being exposed as a fourth target capability"
+            ),
+        },
     ]
 
 

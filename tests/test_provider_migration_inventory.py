@@ -20,7 +20,24 @@ BATCH_ONE_MIGRATED_SOURCE_IDS = {
     "pmc",
     "pubmed",
 }
-MIGRATED_SOURCE_IDS = inventory.SAMPLE_SOURCE_IDS | BATCH_ONE_MIGRATED_SOURCE_IDS
+BATCH_TWO_MIGRATED_SOURCE_IDS = {
+    "cnipa",
+    "core",
+    "doaj",
+    "epo_ops",
+    "ieee_xplore",
+    "openaire",
+    "patsnap",
+    "pqai",
+    "semantic_scholar",
+    "the_lens",
+    "uspto_odp",
+    "zenodo",
+    "zotero",
+}
+MIGRATED_SOURCE_IDS = (
+    inventory.SAMPLE_SOURCE_IDS | BATCH_ONE_MIGRATED_SOURCE_IDS | BATCH_TWO_MIGRATED_SOURCE_IDS
+)
 
 
 def test_inventory_partitions_the_current_registry_into_six_batches() -> None:
@@ -41,9 +58,9 @@ def test_inventory_partitions_the_current_registry_into_six_batches() -> None:
     }
     assert data["batch_counts"] == inventory.EXPECTED_COUNTS
     assert data["status_counts"] == {
-        "migrated": 19,
-        "pending": 90,
-        "retirement_pending": 1,
+        "migrated": 32,
+        "pending": 76,
+        "retirement_pending": 2,
         "incomplete": 0,
     }
     assert len(data["records"]) == 110
@@ -76,7 +93,7 @@ def test_inventory_partitions_the_current_registry_into_six_batches() -> None:
     assert all(
         record["migration_status"] == "pending"
         for record in data["records"]
-        if record["source_id"] not in MIGRATED_SOURCE_IDS | {"opencitations"}
+        if record["source_id"] not in MIGRATED_SOURCE_IDS | {"opencitations", "unpaywall"}
     )
     opencitations = next(
         record for record in data["records"] if record["source_id"] == "opencitations"
@@ -84,6 +101,10 @@ def test_inventory_partitions_the_current_registry_into_six_batches() -> None:
     assert opencitations["migration_status"] == "retirement_pending"
     assert opencitations["target_disposition"] == "search_internal_enrichment"
     assert "C1" in opencitations["disposition_reason"]
+    unpaywall = next(record for record in data["records"] if record["source_id"] == "unpaywall")
+    assert unpaywall["migration_status"] == "retirement_pending"
+    assert unpaywall["target_disposition"] == "fetch_internal_enrichment"
+    assert "fourth target capability" in unpaywall["disposition_reason"]
 
 
 def test_inventory_is_value_free_and_matches_existing_manifest_identities() -> None:

@@ -20,11 +20,12 @@ def resolve_provider_inputs(
     resolved_config = {
         key: configuration[key] for key in spec.configuration_keys if key in configuration
     }
-    if spec.auth_reference is None:
-        return resolved_config, {}
-    value = secrets.get(spec.auth_reference)
-    if value is None and not spec.auth.required:
-        return resolved_config, {}
-    if not isinstance(value, str) or not value.strip():
-        raise ValueError("provider secret is unavailable")
-    return resolved_config, {spec.auth_reference: value.strip()}
+    resolved_secrets: dict[str, str] = {}
+    for reference, required in spec.auth_reference_requirements:
+        value = secrets.get(reference)
+        if value is None and not required:
+            continue
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError("provider secret is unavailable")
+        resolved_secrets[reference] = value.strip()
+    return resolved_config, resolved_secrets

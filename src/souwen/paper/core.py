@@ -149,6 +149,20 @@ class CoreClient:
 
             # 全文 PDF 下载链接
             download_url: str | None = work.get("downloadUrl")
+            core_id = str(work.get("id") or "").strip()
+            fulltext_urls = work.get("sourceFulltextUrls") or []
+            source_url = next(
+                (
+                    value.strip()
+                    for value in fulltext_urls
+                    if isinstance(value, str) and value.strip()
+                ),
+                None,
+            )
+            if source_url is None and core_id:
+                source_url = f"https://core.ac.uk/works/{core_id}"
+            if source_url is None:
+                raise ValueError("CORE work has no stable identifier")
 
             # 提取语言信息（可能为嵌套字典或字符串）
             language: str | None = (
@@ -171,14 +185,12 @@ class CoreClient:
                 year=year,
                 publication_date=work.get("publishedDate"),
                 source="core",
-                source_url=(work.get("sourceFulltextUrls") or [""])[0]
-                or f"https://core.ac.uk/works/{work.get('id', '')}"
-                if work.get("sourceFulltextUrls")
-                else None,
+                source_url=source_url,
                 pdf_url=download_url,
                 citation_count=work.get("citationCount"),
                 journal=journal_name,
                 raw={
+                    "core_id": core_id,
                     "language": language,
                     "publisher": work.get("publisher"),
                     "journals": work.get("journals"),

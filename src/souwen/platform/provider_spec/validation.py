@@ -23,14 +23,12 @@ def validate_spec_manifest(
         raise ValueError("provider spec configuration does not match manifest")
     required_references = set(manifest.secrets.references)
     optional_references = set(manifest.secrets.optional_references)
-    spec_required = (
-        {spec.auth_reference} if spec.auth_reference is not None and spec.auth.required else set()
-    )
-    spec_optional = (
-        {spec.auth_reference}
-        if spec.auth_reference is not None and not spec.auth.required
-        else set()
-    )
+    spec_required = {
+        reference for reference, required in spec.auth_reference_requirements if required
+    }
+    spec_optional = {
+        reference for reference, required in spec.auth_reference_requirements if not required
+    }
     if spec_required != required_references or spec_optional != optional_references:
         raise ValueError("provider spec secret reference is not declared by manifest")
     return spec

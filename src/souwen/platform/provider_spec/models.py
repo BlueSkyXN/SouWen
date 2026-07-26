@@ -56,21 +56,55 @@ class LegacyTransportDeclaration(_SpecModel):
         return self
 
 
+CredentialPlacement = Literal["header", "query", "bearer", "oauth_body", "path"]
+
+
+class CredentialBinding(_SpecModel):
+    """One named secret binding used by a reviewed provider transport."""
+
+    placement: CredentialPlacement
+    reference: str = Field(pattern=r"^[A-Z][A-Z0-9_]{0,127}$")
+    field_name: str = Field(pattern=r"^[A-Za-z][A-Za-z0-9_-]{0,127}$")
+    required: StrictBool = True
+
+
 class AuthDeclaration(_SpecModel):
-    placement: Literal["none", "header", "query", "bearer"] = "none"
+    placement: Literal["none", "header", "query", "bearer", "oauth_body", "path"] = "none"
     reference: str | None = Field(default=None, pattern=r"^[A-Z][A-Z0-9_]{0,127}$")
     field_name: str | None = Field(default=None, pattern=r"^[A-Za-z][A-Za-z0-9_-]{0,127}$")
     required: StrictBool = True
+    additional_bindings: tuple[CredentialBinding, ...] = ()
 
     @model_validator(mode="after")
     def _shape_matches_placement(self) -> "AuthDeclaration":
-        if self.placement == "none" and (self.reference is not None or self.field_name is not None):
+        if self.placement == "none" and (
+            self.reference is not None or self.field_name is not None or self.additional_bindings
+        ):
             raise ValueError("anonymous auth cannot declare a reference or field")
         if self.placement == "none" and not self.required:
             raise ValueError("anonymous auth cannot be optional")
         if self.placement != "none" and (self.reference is None or self.field_name is None):
             raise ValueError("configured auth requires reference and field name")
+        references = tuple(
+            reference
+            for reference in (
+                self.reference,
+                *(binding.reference for binding in self.additional_bindings),
+            )
+            if reference is not None
+        )
+        if len(references) != len(set(references)):
+            raise ValueError("credential references must be unique")
         return self
+
+    @property
+    def reference_requirements(self) -> tuple[tuple[str, bool], ...]:
+        """Return every declared secret reference and whether it is required."""
+
+        primary = () if self.reference is None else ((self.reference, self.required),)
+        return primary + tuple(
+            (binding.reference, binding.required) for binding in self.additional_bindings
+        )
 
 
 class SearchRequestMapping(_SpecModel):
@@ -182,6 +216,10 @@ class RestJsonProviderSpec(_SpecModel):
         return self.auth.reference
 
     @property
+    def auth_reference_requirements(self) -> tuple[tuple[str, bool], ...]:
+        return self.auth.reference_requirements
+
+    @property
     def base_url(self) -> str:
         return f"{self.scheme}://{self.host}{self.base_path.rstrip('/')}"
 
@@ -215,6 +253,10 @@ class _LegacyProviderSpec(_SpecModel):
     @property
     def auth_reference(self) -> str | None:
         return self.auth.reference
+
+    @property
+    def auth_reference_requirements(self) -> tuple[tuple[str, bool], ...]:
+        return self.auth.reference_requirements
 
     @property
     def host(self) -> str:

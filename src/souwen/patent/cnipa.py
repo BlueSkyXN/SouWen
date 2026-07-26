@@ -80,7 +80,11 @@ class CnipaClient:
     BASE_URL = "https://open.cnipr.com"
     TOKEN_URL = "https://open.cnipr.com/oauth/token"
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        client_id: str | None = None,
+        client_secret: str | None = None,
+    ) -> None:
         """初始化 CNIPA 客户端
 
         从配置读取 OAuth 凭证，建立 OAuth 连接和限流控制。
@@ -89,8 +93,8 @@ class CnipaClient:
             ConfigError: 缺少必要的 OAuth 凭证时抛出
         """
         cfg = get_config()
-        client_id = cfg.resolve_api_key("cnipa", "cnipa_client_id")
-        client_secret = cfg.cnipa_client_secret
+        client_id = client_id or cfg.resolve_api_key("cnipa", "cnipa_client_id")
+        client_secret = client_secret or cfg.cnipa_client_secret
         if not client_id or not client_secret:
             raise ConfigError(
                 key="cnipa_client_id / cnipa_client_secret",

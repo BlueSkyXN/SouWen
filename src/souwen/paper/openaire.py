@@ -248,6 +248,8 @@ class OpenAireClient:
             language_name = (
                 language_obj.get("@classname") if isinstance(language_obj, dict) else None
             )
+            header = result.get("header") or {}
+            obj_id = cls._extract_text(header.get("dri:objIdentifier")).strip()
 
             # source_url：优先 PDF URL，否则基于 DOI 构造，否则使用 OpenAIRE 站点
             if pdf_url:
@@ -255,9 +257,6 @@ class OpenAireClient:
             elif doi:
                 source_url = f"https://doi.org/{doi}"
             else:
-                # OpenAIRE 内部 ID（在 result.header.dri:objIdentifier）
-                header = result.get("header") or {}
-                obj_id = cls._extract_text(header.get("dri:objIdentifier")).strip()
                 source_url = (
                     f"https://explore.openaire.eu/search/publication?pid={obj_id}"
                     if obj_id
@@ -277,6 +276,7 @@ class OpenAireClient:
                 citation_count=None,  # OpenAIRE 搜索接口不直接给出引用数
                 journal=journal,
                 raw={
+                    "openaire_id": obj_id or None,
                     "result_type": result_type_name,
                     "language": language_name,
                 },

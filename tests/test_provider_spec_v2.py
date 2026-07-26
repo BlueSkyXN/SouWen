@@ -9,6 +9,7 @@ import pytest
 from pydantic import ValidationError
 
 from souwen.platform.provider_spec import (
+    CredentialBinding,
     LegacyFetchProvider,
     LegacyFetchSpec,
     LegacySearchProviderSpec,
@@ -256,6 +257,62 @@ def test_auth_optional_flag_is_strict_and_cannot_be_string_coerced() -> None:
             reference="FIXTURE_TOKEN",
             field_name="token",
             required="false",
+        )
+
+
+def test_auth_declaration_resolves_multiple_credential_bindings_fail_closed() -> None:
+    spec = LegacySearchProviderSpec(
+        provider_id="fixture",
+        adapter_id="fixture-search",
+        bridge_reason="OAuth client credentials require two named runtime values",
+        transport=LegacyTransportDeclaration(
+            host="api.example.test",
+            protocol="json",
+            operations=({"method": "GET", "endpoint": "/search"},),
+        ),
+        auth=AuthDeclaration(
+            placement="oauth_body",
+            reference="FIXTURE_CLIENT_ID",
+            field_name="client_id",
+            additional_bindings=(
+                CredentialBinding(
+                    placement="oauth_body",
+                    reference="FIXTURE_CLIENT_SECRET",
+                    field_name="client_secret",
+                ),
+            ),
+        ),
+    )
+
+    assert spec.auth_reference_requirements == (
+        ("FIXTURE_CLIENT_ID", True),
+        ("FIXTURE_CLIENT_SECRET", True),
+    )
+    assert resolve_provider_inputs(
+        spec,
+        {},
+        {"FIXTURE_CLIENT_ID": " id ", "FIXTURE_CLIENT_SECRET": " secret "},
+    ) == (
+        {},
+        {"FIXTURE_CLIENT_ID": "id", "FIXTURE_CLIENT_SECRET": "secret"},
+    )
+    with pytest.raises(ValueError, match="secret is unavailable"):
+        resolve_provider_inputs(spec, {}, {"FIXTURE_CLIENT_ID": "id"})
+
+
+def test_auth_declaration_rejects_duplicate_credential_references() -> None:
+    with pytest.raises(ValidationError, match="references must be unique"):
+        AuthDeclaration(
+            placement="header",
+            reference="FIXTURE_TOKEN",
+            field_name="Authorization",
+            additional_bindings=(
+                CredentialBinding(
+                    placement="query",
+                    reference="FIXTURE_TOKEN",
+                    field_name="token",
+                ),
+            ),
         )
 
 

@@ -83,7 +83,7 @@ class TheLensClient:
 
     BASE_URL = "https://api.lens.org"
 
-    def __init__(self) -> None:
+    def __init__(self, api_token: str | None = None) -> None:
         """初始化 The Lens 客户端
 
         从配置读取 Bearer Token，建立连接和限流控制。
@@ -92,13 +92,14 @@ class TheLensClient:
             ConfigError: 缺少 API Token 时抛出
         """
         cfg = get_config()
-        if not cfg.lens_api_token:
+        api_token = api_token or cfg.resolve_api_key("the_lens", "lens_api_token")
+        if not api_token:
             raise ConfigError(
                 key="lens_api_token",
                 service="The Lens",
                 register_url="https://www.lens.org/lens/user/subscriptions",
             )
-        self._token = cfg.lens_api_token
+        self._token = api_token
         self._http = SouWenHttpClient(
             base_url=self.BASE_URL,
             headers={

@@ -83,7 +83,10 @@ class ZoteroClient:
         cfg = get_config()
         self.api_key: str | None = api_key or cfg.resolve_api_key("zotero", "zotero_api_key")
         self.library_id: str | None = library_id or getattr(cfg, "zotero_library_id", None)
-        self.library_type: str = library_type or getattr(cfg, "zotero_library_type", None) or "user"
+        configured_library_type = (
+            library_type or getattr(cfg, "zotero_library_type", None) or "user"
+        )
+        self.library_type = str(configured_library_type).strip().lower()
 
         if not self.api_key:
             raise ConfigError(
@@ -94,6 +97,12 @@ class ZoteroClient:
         if not self.library_id:
             raise ConfigError(
                 key="zotero_library_id",
+                service="Zotero",
+                register_url="https://www.zotero.org/settings",
+            )
+        if self.library_type not in {"user", "group"}:
+            raise ConfigError(
+                key="zotero_library_type",
                 service="Zotero",
                 register_url="https://www.zotero.org/settings",
             )
@@ -207,6 +216,8 @@ class ZoteroClient:
                 raw={
                     "item_key": item_key,
                     "item_type": data.get("itemType"),
+                    "library_id": self.library_id,
+                    "library_type": self.library_type,
                     "tags": tags,
                 },
             )
