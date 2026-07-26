@@ -4,7 +4,7 @@
 
 SouWen is a Python 3.10+ information-retrieval toolkit for AI agents, covering
 academic papers, patents, web search/fetch/archive, a FastAPI server, MCP
-integration, plugin loading, and an embedded React/Vite management panel.
+integration, and an embedded React/Vite management panel.
 
 ## Codex startup behavior
 
@@ -23,7 +23,7 @@ integration, plugin loading, and an embedded React/Vite management panel.
 
 | Path | Responsibility | Local AGENTS.md | Read when |
 |---|---|---:|---|
-| `src/souwen/` | Main Python package, public API, models, plugin loading, client/server boundaries | yes | Any Python package change not covered by a deeper row |
+| `src/souwen/` | Main Python package, public API, models and client/server boundaries | yes | Any Python package change not covered by a deeper row |
 | `src/souwen/core/` | Shared HTTP, OAuth, retry, parsing, scraper base, rate limit and concurrency layer | yes | Changing low-level client behavior, retry/fingerprint/session/cache, scraper base or exceptions |
 | `src/souwen/config/` | `SouWenConfig`, config template, YAML/.env/env loading and validators | yes | Changing config fields, env parsing, auth config or source credential resolution |
 | `src/souwen/registry/` | SourceAdapter, Source Catalog, registry loader, views and capability metadata | yes | Changing catalog shape, source defaults, capabilities, adapter validation or registry views |
@@ -37,7 +37,7 @@ integration, plugin loading, and an embedded React/Vite management panel.
 | `src/souwen/llm/` | LLM summarize/fetch-summarize APIs, provider adapters, prompts and models | yes | Changing LLM protocols, prompts, summary response shape, usage metadata or provider adapters |
 | `src/souwen/server/` | FastAPI app, auth, middleware, limiter, routes, WARP and embedded panel boundary | yes | Changing API app lifecycle, auth, middleware, server wiring, WARP or panel artifact behavior |
 | `src/souwen/server/routes/` | Public REST route handlers | yes | Changing non-admin API route behavior, auth dependency use, route timeouts or response wrapping |
-| `src/souwen/server/routes/admin/` | Admin-only config/plugin/proxy/WARP/source management endpoints | yes | Changing admin routes, state mutation, secret handling or admin permissions |
+| `src/souwen/server/routes/admin/` | Admin-only config/proxy/WARP/source management endpoints | yes | Changing admin routes, state mutation, secret handling or admin permissions |
 | `src/souwen/server/schemas/` | FastAPI request/response schemas and OpenAPI contract | yes | Changing API fields, validation constraints, aliases or error response shape |
 | `src/souwen/cli/` | Typer CLI command surface | yes | Changing CLI commands, flags, JSON output, help text or exit behavior |
 | `src/souwen/integrations/` | External protocol integrations, mainly MCP | yes | Changing integration entry points, optional dependency behavior or tool wiring |
@@ -50,9 +50,8 @@ integration, plugin loading, and an embedded React/Vite management panel.
 | `docs/` | User/contributor docs, ADRs, API docs and generated source catalog docs | yes | Changing docs, generated docs, API docs or docs tied to behavior changes |
 | `scripts/` | Functional checks, smoke/profile helpers and runtime shell scripts | yes | Changing non-pytest functional checks, reports, outcomes or smoke script behavior |
 | `scripts/ci/` | Deterministic CI profile runner and helper gates | yes | Changing `run_profile.py`, profile semantics or CI helper checks |
-| `tools/` | Repository maintenance generators and validators | yes | Changing docs generation, source id generation or plugin manifest validation |
-| `examples/` | Runnable public examples and example plugin entry points | yes | Changing examples or public API usage samples |
-| `examples/minimal-plugin/` | Minimal external plugin package and contract tests | yes | Changing plugin entry point, adapter, handler or plugin tests |
+| `tools/` | Repository maintenance generators and validators | yes | Changing docs generation or source id generation |
+| `examples/` | Runnable public examples | yes | Changing examples or public API usage samples |
 | `cloud/` | Hugging Face Space and ModelScope deployment wrappers | yes | Changing cloud Dockerfiles, entrypoints, platform README or deployment assumptions |
 | `.github/` | GitHub Actions, prompts, labeler and dependency automation | yes | Changing workflow jobs, permissions, CI gates, deploy/release triggers or prompts |
 | `cli.py`, `pyproject.toml`, `hatch_build.py` | Root CLI shim, package metadata and wheel artifact hook | no | Changing source-run CLI behavior, packaging metadata, optional extras or wheel artifact behavior |
@@ -95,13 +94,9 @@ Install commands may need network access unless dependencies are already cached.
 | `python scripts/ci/run_profile.py --profile basic-cli` | Basic CLI/source profile smoke | repo | Deterministic after deps installed |
 | `python scripts/ci/run_profile.py --profile pro-cli --profile basic-cli` | API plus source CLI profile smoke | repo | Requires pro extras installed |
 | `python scripts/ci/run_profile.py --profile full-cli` | Full import-surface runtime profile | repo | Requires full core runtime extras installed |
-| `python scripts/ci/run_profile.py --profile plugin` | Plugin contract/profile smoke | repo | Requires example plugin installed |
 | `cd panel && npm test` | Vitest suite | `panel/` | Deterministic after `npm ci` |
 | `cd panel && npm run build` | TypeScript build plus Vite build | `panel/` | Deterministic after `npm ci` |
 | `cd panel && npm run build:local && npm run check:artifact` | Rebuild embedded panel artifact | `panel/` | Writes `src/souwen/server/panel.html` |
-| `python tools/validate_plugin_manifest.py examples/minimal-plugin/souwen-plugin.json` | Validate example plugin manifest | repo | Deterministic |
-| `pip install -e examples/minimal-plugin` | Install minimal example plugin | repo | May need local install state |
-| `python scripts/plugin_functional_check.py --mode fixture --require-installed` | Real plugin entry point smoke | repo | Requires example plugin installed |
 | `docker build -t souwen .` | Docker image build | repo | Needs Docker daemon and usually network |
 | `docker compose up -d` | Local compose runtime | repo | Needs Docker daemon and runtime cleanup |
 | `python scripts/scrapling_functional_check.py ...` | Live Scrapling functional check | repo | May need browser/runtime/network |

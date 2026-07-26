@@ -2,15 +2,14 @@
 
 Type: Domain card.
 This directory contains repository maintenance generators and validators.
-Read `gen_docs.py`, `gen_source_ids.py`, `validate_plugin_manifest.py`, `docs/data-sources.md`, and `docs/plugin-manifest.schema.json` first.
-Read this card for generated docs, source ID tooling or plugin manifest validation changes.
+Read `gen_docs.py`, `gen_source_ids.py`, and `docs/data-sources.md` first.
+Read this card for generated docs or source ID tooling changes.
 
 ## Local invariants
 
-- `gen_docs.py` derives source docs from registry and disables external plugin autoload by default.
+- `gen_docs.py` derives source docs from the built-in registry.
 - `--check` modes must not write files.
 - Output should be UTF-8 and reproducible across local environments.
-- Plugin manifest validation must stay aligned with `docs/plugin-manifest.schema.json`.
 
 ## Do not
 
@@ -21,4 +20,4 @@ Read this card for generated docs, source ID tooling or plugin manifest validati
 ## Validation
 
 - `python tools/gen_docs.py --check`
-- `pytest tests/test_gen_docs.py tests/test_plugin_manifest_validator.py -v --tb=short`
+- `pytest tests/test_gen_docs.py -v --tb=short`

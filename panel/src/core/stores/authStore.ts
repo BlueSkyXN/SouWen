@@ -98,7 +98,6 @@ function parseStoredEditionCapabilities(raw: unknown): EditionCapabilities | nul
       || !parsed.warp_modes.every((value) => typeof value === 'string')
       || !Array.isArray(parsed.fetch_providers)
       || !parsed.fetch_providers.every((value) => typeof value === 'string')
-      || typeof parsed.plugin_preinstalled !== 'boolean'
     ) {
       return null
     }
@@ -106,7 +105,6 @@ function parseStoredEditionCapabilities(raw: unknown): EditionCapabilities | nul
       llm: parsed.llm,
       warp_modes: parsed.warp_modes,
       fetch_providers: parsed.fetch_providers,
-      plugin_preinstalled: parsed.plugin_preinstalled,
     }
   } catch {
     return null

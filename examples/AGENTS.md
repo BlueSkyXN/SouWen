@@ -1,9 +1,9 @@
 # examples navigation card
 
 Type: Domain card.
-This directory contains runnable examples and the minimal plugin example.
-Read the target example, `docs/python-api.md`, `docs/plugin-integration-spec.md` when relevant, and public API tests before editing.
-Read this card when changing examples, public API usage samples or example plugin references.
+This directory contains runnable examples.
+Read the target example, `docs/python-api.md`, and public API tests before editing.
+Read this card when changing examples or public API usage samples.
 
 ## Local invariants
 
@@ -20,4 +20,3 @@ Read this card when changing examples, public API usage samples or example plugi
 ## Validation
 
 - Use root validation commands for ordinary examples.
-- Minimal plugin changes: read `examples/minimal-plugin/AGENTS.md`.

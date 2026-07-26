@@ -146,11 +146,6 @@ runs:
             )
             for module, check_name in full_imports:
                 require(find_spec(module), check_name, "module importable")
-            require(
-                capabilities["plugin_preinstalled"].available is True,
-                "full/plugin-preinstalled",
-                repr(capabilities["plugin_preinstalled"]),
-            )
 
         crawl4ai = find_spec("crawl4ai")
         scrapling = find_spec("scrapling")

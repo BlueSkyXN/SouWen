@@ -373,7 +373,7 @@ souwen doctor edition --json   # 输出 machine-readable edition 自检结果
 `--source` 可重复传入以限制探测范围，`--timeout` 控制单源超时。
 
 `doctor edition --json` 的 `probe` 字段只做当前进程的 importability 级别自检，
-用于对比 source、fetch provider、optional package extra、LLM protocol、MCP 和预装插件的声明能力与实际安装能力；
+用于对比 source、fetch provider、optional package extra、LLM protocol 和 MCP 的声明能力与实际安装能力；
 其中 `probe.package_extras` 以 `declared` / `available` / `reason` 暴露 optional extra 到 import module 的映射和缺失原因。该自检不会联网、启动浏览器、检查 WARP 系统状态或验证真实凭据。
 
 ### 内容抓取
@@ -397,29 +397,6 @@ souwen serve [--port 8000]   # 启动 FastAPI 服务
 ```
 
 启动后可访问 OpenAPI 文档：`GET /docs`
-
-### 插件管理
-
-```bash
-souwen plugins list [--health]            # 列出所有插件，--health 附加健康检查列
-souwen plugins info <name>                # 查看插件详情
-souwen plugins enable <name>              # 启用（重启后生效）
-souwen plugins disable <name>             # 禁用并尽力卸载运行时（重启后完全生效）
-souwen plugins health <name>              # 调用插件 health_check（与 API 同源）
-souwen plugins reload                     # 重新扫描 entry-point 插件（追加加载）
-souwen plugins install <package>          # 通过 pip 安装（需 SOUWEN_ENABLE_PLUGIN_INSTALL=1）
-souwen plugins uninstall <package>        # 卸载（同上）
-souwen plugins new <name>                 # 生成插件项目骨架
-```
-
-`plugins` 命令会清理 `<name>` / `<package>` 的首尾空白，清理后为空会直接失败。
-`plugins new <name>` 还要求 `<name>` 是小写字母开头、字母或数字结尾，
-仅含小写字母/数字/下划线，且不能是 Python 关键字。
-`install` / `uninstall` 失败时不会把 raw pip 输出打印到终端，只显示标准化错误；
-`reload` 失败项也只显示插件名和标准化错误，不打印插件加载异常原文；存在失败项时
-CLI 以非零退出码结束。
-
-完整生命周期、目录机制与故障排查请见 [plugin-management.md](./plugin-management.md)。
 
 ## HTTP API（Server 模式）
 
@@ -448,7 +425,7 @@ token 通过 edge），可以把 SouWen 应用层密码放在 `X-SouWen-Token: <
 优先，显式无效值不会回退到 `Authorization`。外层 HF token 与内层 SouWen admin password
 必须使用不同 secrets，不能复用。
 
-**角色自检：** `GET /api/v1/whoami` — 返回当前角色、角色权限 `features`、当前 `edition` 和独立的 `edition_capabilities`，用于前端 UI 动态渲染。`features` 表示当前 token 角色是否可访问某类端点；`edition_capabilities` 表示当前 `SOUWEN_EDITION` 是否包含 LLM、WARP 模式、fetch provider，以及当前运行环境是否检测到 full 版预装插件候选包。
+**角色自检：** `GET /api/v1/whoami` — 返回当前角色、角色权限 `features`、当前 `edition` 和独立的 `edition_capabilities`，用于前端 UI 动态渲染。`features` 表示当前 token 角色是否可访问某类端点；`edition_capabilities` 表示当前 `SOUWEN_EDITION` 是否包含 LLM、WARP 模式和 fetch provider。
 
 `/whoami` 还会返回鉴权状态字段：
 
@@ -784,7 +761,7 @@ gateway_timeout`（共享 budget 耗尽；未完成任务会被取消）。
 
 #### `GET /api/v1/sources`
 
-列出公开 Source Catalog。未设置 `user_password` 时开放；设置 `user_password` 后要求 User+，即使启用 guest 模式也不降级开放。返回值从运行时 live registry 派生，内置源和运行时插件都以 `sources[]` 列表返回；源被禁用、必须凭据缺失、自建实例未配置或当前 `SOUWEN_EDITION` 不允许时仍保留 catalog 条目，但 `available=false`。Optional runtime importability 通过独立的 `runtime_available` / `runtime_reason` 返回，不改变既有字段 `available`；本地有效可执行性要求合取两轴。
+列出公开 Source Catalog。未设置 `user_password` 时开放；设置 `user_password` 后要求 User+，即使启用 guest 模式也不降级开放。返回值从内置 registry 派生；源被禁用、必须凭据缺失、自建实例未配置或当前 `SOUWEN_EDITION` 不允许时仍保留 catalog 条目，但 `available=false`。Optional runtime importability 通过独立的 `runtime_available` / `runtime_reason` 返回，不改变既有字段 `available`；本地有效可执行性要求合取两轴。
 
 **响应示例：**
 ```json
@@ -853,7 +830,7 @@ gateway_timeout`（共享 budget 耗尽；未完成任务会被取消）。
 | `runtime_reason` | `runtime_available=false` 时的缺依赖、稳定脱敏 loader 原因或 edition 未探测原因；公开响应不回显任意 loader exception 文本 |
 | `available` | 静态 catalog gate：等于未禁用、`credentials_satisfied=true` 且 `edition_available=true`；不代表上游实时可达，也不等于 `stability` |
 | `risk_level` | 默认调度风险：`low` / `medium` / `high` |
-| `distribution` | 分发范围：`core` / `extra` / `plugin` |
+| `distribution` | 分发范围：`core` / `extra` |
 | `stability` | Registry 声明的接入成熟度：`stable` / `beta` / `experimental` / `deprecated`；不是实时连通性结果 |
 
 数据源 catalog 字段和运行时可见性的总览见 [data-sources.md](./data-sources.md)。
@@ -975,9 +952,9 @@ static status 与 live probe 轴。当源在当前 edition 不可用且未被手
 
 状态语义与 Panel 展示规则应以本节和管理端 schema 为准；面向用户的排障路径会在 GitHub Wiki 中提供。
 
-下例展示未加载外部插件的干净 `edition=pro` 环境 static shape；具体状态计数会随 edition、
+下例展示 `edition=pro` 环境的 static shape；具体状态计数会随 edition、
 已安装 optional dependency、频道启用和凭据配置变化。此条件下 `total=97` 对应当前内置
-registered catalog；加载外部插件后 `total` 会随 live registry 增加。
+registered catalog。
 
 **响应示例：**
 ```json
@@ -1267,133 +1244,6 @@ WARP 状态变更 SSE 流。客户端使用 `EventSource` 连接，服务端约�
 
 ---
 
-### 插件管理端点 (`/api/v1/admin/plugins/...`)
-
-> 受 `require_auth` 强制保护。Web Panel 与 CLI（`souwen plugins ...`）共用这组端点，
-> 完整的用户视角说明参见 [plugin-management.md](./plugin-management.md)。
-> `{name}` 路径参数与请求体 `package` 字段会先做首尾空白清理；清理后为空返回 `422`，
-> 不会继续调用插件管理器。
-
-#### `GET /api/v1/admin/plugins`
-
-列出所有已加载、可用、禁用的插件，并附带是否需要重启与 install 开关。
-
-**响应示例：**
-```json
-{
-  "plugins": [
-    {
-      "name": "superweb2pdf",
-      "package": "superweb2pdf",
-      "version": "0.3.1",
-      "status": "loaded",
-      "source": "entry_point",
-      "first_party": true,
-      "description": "SuperWeb2PDF — 网页截图转 PDF（基于 Playwright Chromium）",
-      "error": null,
-      "source_adapters": ["superweb2pdf"],
-      "fetch_handlers": ["superweb2pdf"],
-      "restart_required": false
-    }
-  ],
-  "restart_required": false,
-  "install_enabled": false
-}
-```
-
-字段说明：
-
-| 字段 | 类型 | 说明 |
-|---|---|---|
-| `plugins[*].status` | string | `loaded` / `available` / `disabled` / `error`；`available` 表示目录可见但当前进程未加载，若同时有 `version` 则说明包已安装、需要重新扫描或重启生效 |
-| `plugins[*].source` | string | `entry_point` / `catalog` / `config_path` |
-| `plugins[*].first_party` | bool | 是否为官方维护插件（来自目录元数据） |
-| `restart_required` | bool | 服务端是否有任何 enable / disable / install / uninstall 操作未生效 |
-| `install_enabled` | bool | 是否允许 `install` / `uninstall`（受 `SOUWEN_ENABLE_PLUGIN_INSTALL=1` 控制） |
-
-#### `GET /api/v1/admin/plugins/{name}`
-
-查询单个插件详情。`name` 不存在或未加载时返回 `404`；`name` 首尾空白会被清理。
-
-#### `GET /api/v1/admin/plugins/{name}/health`
-
-调用插件的 `health_check`。仅对已加载插件可用，未加载返回 `404`；插件未声明 `health_check` 时返回：
-
-```json
-{ "status": "ok", "message": "no health check defined" }
-```
-
-声明了 `health_check` 时，端点透传插件返回的 dict（约定至少包含 `status` 字段，常见值：
-`ok` / `healthy` / `degraded` / `error`）。`health_check` 可以是同步函数直接返回
-`dict`，也可以是 `async def`；同步函数返回 coroutine 会被视为声明错误。
-
-#### `POST /api/v1/admin/plugins/{name}/enable`
-
-把插件从禁用列表中移除（重启后生效）。响应：
-
-```json
-{ "success": true, "restart_required": true, "message": "插件 'superweb2pdf' 已启用..." }
-```
-
-#### `POST /api/v1/admin/plugins/{name}/disable`
-
-把插件加入禁用列表，**并尽力在运行时卸载** adapter / fetch handler 与执行 `on_shutdown`
-（异步钩子会被 await）。完整禁用需要重启。
-
-#### `POST /api/v1/admin/plugins/install`
-
-通过 `pip` 安装允许列表中的插件包；需要 `SOUWEN_ENABLE_PLUGIN_INSTALL=1`。
-`package` 首尾空白会被清理，清理后为空返回 `422`。该运行时端点只接受允许列表中的
-distribution name，不接受 URL、PEP 508 direct reference 或任意 pip 参数。
-
-**请求体 shape（name-only，不是 direct reference）：**
-```json
-{ "package": "superweb2pdf" }
-```
-
-**当前公共索引未提供该 distribution 时的响应：**
-```json
-{
-  "success": false,
-  "package": "superweb2pdf",
-  "restart_required": false,
-  "message": "操作失败，详见服务端日志"
-}
-```
-
-> 服务端会净化 pip 原始输出，仅返回标准化的 `success` / `message` 字段；详细错误打印到服务端日志。
-> 如果未启用，会返回 `success=false` 与说明性 message，HTTP 状态码仍为 200。
-
-> **SuperWeb2PDF 安装边界**：当前 `superweb2pdf` 没有可依赖的 PyPI distribution。
-> SouWen 的 `web2pdf` extra 使用固定 commit archive 的 PEP 508 direct reference，
-> URL 同时附带 `#sha256=` hash，`pyproject.toml` 声明 Hatch
-> `allow-direct-references = true`；Docker 的
-> `WEB2PDF_PACKAGE` 使用同一 archive。应在构建镜像、wheel 安装环境或受控 CI 中通过
-> `.[web2pdf]` / `.[edition-full]` 安装并验证 entry point、fetch handler 和 Playwright
-> runtime。上面的 name-only API 请求只展示允许列表与失败 shape；除非受控 package index
-> 真实提供该 distribution，否则不能用它替代 fixed-commit direct-reference 安装，更不能
-> 据此证明当前 archive 已安装。
-
-#### `POST /api/v1/admin/plugins/uninstall`
-
-反向操作，请求/响应字段同上。
-
-#### `POST /api/v1/admin/plugins/reload`
-
-重新扫描 `souwen.plugins` entry points，**追加加载**未在禁用列表中的新插件，
-不会触碰已加载的旧插件实例。
-
-**响应：**
-```json
-{
-  "loaded": ["superweb2pdf"],
-  "errors": [],
-  "message": "插件重新扫描完成，新增加载 1 个，错误 0 个。"
-}
-```
-
----
-
 ### 内容抓取端点 (`/api/v1/fetch`)
 
 受 `require_auth`（管理密码）与 `rate_limit_search` 双重保护。
@@ -1625,8 +1475,8 @@ MCP 搜索工具的 `sources` / `engines` 与 Python API 一致。显式请求�
 | `bilibili_search_articles` | 按关键词搜索 Bilibili 专栏文章 |
 | `bilibili_video_details` | 按 BV 号抓取视频详情 |
 
-MCP server 的 `list_tools` 会返回当前完整工具 schema；插件加载后，
-`fetch_content.provider/providers` 的可选 provider 会随 registry 可见源扩展。
+MCP server 的 `list_tools` 会返回当前完整工具 schema；
+`fetch_content.provider/providers` 的可选 provider 来自内置 registry。
 
 ---
 

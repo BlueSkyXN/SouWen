@@ -32,7 +32,8 @@ def test_list_profiles(capsys):
     assert run_profile.main(["--list-profiles"]) == 0
 
     output = set(capsys.readouterr().out.splitlines())
-    assert {"basic-cli", "pro-cli", "full-cli", "plugin"} <= output
+    assert {"basic-cli", "pro-cli", "full-cli"} <= output
+    assert "plugin" not in output
     assert {"minimal", "server", "full"} <= output
 
 

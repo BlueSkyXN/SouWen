@@ -71,7 +71,6 @@ RISK_LEVEL_LABELS: dict[str, str] = {
 DISTRIBUTION_LABELS: dict[str, str] = {
     "core": "核心内置",
     "extra": "可选依赖",
-    "plugin": "外部插件",
 }
 
 STABILITY_LABELS: dict[str, str] = {

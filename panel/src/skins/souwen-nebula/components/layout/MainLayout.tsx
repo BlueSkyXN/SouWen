@@ -48,7 +48,6 @@ import {
   Palette,
   Check,
   Layers,
-  Puzzle,
 } from 'lucide-react'
 import { useAuthStore } from '@core/stores/authStore'
 import { canAccessNavItem } from '@core/lib/access'
@@ -67,7 +66,6 @@ const NAV_ITEMS = [
   { to: '/sources', icon: Database, labelKey: 'nav.sources' },
   { to: '/network', icon: Globe, labelKey: 'nav.network' },
   { to: '/warp', icon: Shield, labelKey: 'nav.warp' },
-  { to: '/plugins', icon: Puzzle, labelKey: 'nav.plugins' },
   { to: '/config', icon: Settings, labelKey: 'nav.config' },
 ]
 
@@ -81,7 +79,6 @@ const PAGE_TITLE_KEYS: Record<string, string> = {
   '/sources': 'nav.sources',
   '/network': 'nav.network',
   '/warp': 'nav.warp',
-  '/plugins': 'nav.plugins',
   '/config': 'nav.config',
 }
 

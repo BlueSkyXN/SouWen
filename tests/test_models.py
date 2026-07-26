@@ -129,14 +129,14 @@ class TestResultSourceIds:
             assert sample.source in registry_names
             assert not sample.source.startswith(("web_", "fetch_"))
 
-    def test_result_source_allows_runtime_plugin_name(self):
+    def test_result_source_allows_custom_source_name(self):
         """模型层只承载字符串，不把插件 source 限死在内置 registry 中。"""
         paper = PaperResult(
-            source="external_plugin_source",
-            title="Plugin Paper",
-            source_url="https://example.com/plugin",
+            source="custom_source",
+            title="Custom Paper",
+            source_url="https://example.com/custom",
         )
-        assert paper.source == "external_plugin_source"
+        assert paper.source == "custom_source"
 
 
 class TestExtraForbid:

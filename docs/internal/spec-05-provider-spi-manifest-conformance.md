@@ -25,11 +25,10 @@ trust signing, and revision-store implementation.
 |---|---|---|
 | Registry/source truth | Built-in sources use SourceAdapter plus MethodSpec; registry views derive catalog/default/capability projections. | src/souwen/registry/adapter.py, catalog.py, views.py, sources/ |
 | Lazy loading | lazy(module:Class) delays concrete Client-class import; it does not create v2 capability instances. | src/souwen/registry/loader.py |
-| Configuration | SouWenConfig carries source channels, LLM gateways and plugins; precedence is env > project YAML > user YAML > .env > defaults. | src/souwen/config/models.py, loader.py, docs/configuration.md |
-| Legacy plugins | souwen.plugins entry points/config paths load Plugin, SourceAdapter, collections or factories; they can hook lifecycle, register fetch handlers, and unload at runtime. | src/souwen/plugin.py, plugin_manager.py, docs/plugin-integration-spec.md |
-| Legacy manifest | docs/plugin-manifest.schema.json is optional author-side lint metadata; runtime discovery still uses Python entry points. | docs/plugin-manifest.schema.json |
-| Admin control plane | Current YAML editing writes/reloads a chosen file; source config writes mutate in-memory SouWenConfig; plugin endpoints expose legacy manager. No target revision/ETag contract exists. | src/souwen/server/routes/admin/config.py, sources.py, plugins.py, schemas/admin.py |
-| Existing tests | Registry/plugin/config/admin tests certify current behavior, not Provider Extension v2 conformance. | tests/registry/, tests/test_plugin*.py, tests/test_config*.py, tests/test_server/test_app.py |
+| Configuration | SouWenConfig carries source channels and LLM gateways; precedence is env > project YAML > user YAML > .env > defaults. | src/souwen/config/models.py, loader.py, docs/configuration.md |
+| Legacy extension system | A1 removed the `souwen.plugins` entry-point loader, lifecycle hooks, package manager, manifest schema and admin endpoints. None is a current Provider v2 compatibility surface. | A1 removal diff and current import/API tests |
+| Admin control plane | Current YAML editing writes/reloads a chosen file; source config writes mutate in-memory SouWenConfig. No target revision/ETag contract exists. | src/souwen/server/routes/admin/config.py, sources.py, schemas/admin.py |
+| Existing tests | Registry/config/admin tests certify current behavior, not Provider Extension v2 conformance. | tests/registry/, tests/test_config*.py, tests/test_server/test_app.py |
 
 ### 1.2 Current-to-target mapping
 
@@ -38,10 +37,10 @@ trust signing, and revision-store implementation.
 | SourceAdapter/MethodSpec and registry declarations | Provider package: manifest plus one-or-more single-capability adapters. | Preserve registry/catalog facts until package v2 conformance; no parallel source list. |
 | lazy Client loader | Provider Manager lazy creation after declaration/config/adapter validation. | Core cannot see concrete providers before validation. |
 | registry.views / Source Catalog | Current inventory and migration input, not target Manifest Registry implementation. | Existing catalog contract remains until separately migrated. |
-| Plugin, entry points, hooks, runtime unload/install | Legacy lifecycle to be replaced per Provider. | No compatibility promise or immediate removal. |
-| Optional legacy plugin JSON manifest | Distinct runtime-required v2 Provider manifest. | Do not reinterpret existing schema as v2. |
+| Removed plugin entry points, hooks, runtime unload/install | Historical migration input only. | Do not restore or relabel as Provider v2 compatibility. |
+| Removed optional plugin JSON manifest | Distinct runtime-required v2 Provider manifest. | Define the v2 resource from the target contract, not the retired schema. |
 | SouWenConfig plus current YAML/env loading | Target Configuration/Secret Resolver boundary. | ADR-03 defines durable YAML; field migration belongs to SPEC-06/07. |
-| Existing admin YAML/source/plugin routes | Future authenticated Provider editor. | Current routes are not revision/concurrency implementations. |
+| Existing admin YAML/source routes | Future authenticated Provider editor. | Current routes are not revision/concurrency implementations. |
 
 ## 2. Slice routing and traceability
 
@@ -158,8 +157,8 @@ introduce private cross-boundary error vocabularies.
 ### MAN-001: Identity and status
 
 A v2 Provider manifest is a versioned package-scoped declaration consumed by
-the target Manifest Registry. It is distinct from the legacy optional plugin
-schema and Python entry points.
+the target Manifest Registry. It is distinct from the retired optional plugin
+schema and Python entry-point system.
 
 - Exactly one manifest per Provider package MUST have stable unique package ID,
   schema_version, package version, and compatible contract_version
@@ -245,10 +244,11 @@ Provider Manager LLD/NFR confirmation.
 
 ### PROV-008: Legacy lifecycle separation
 
-Current startup/shutdown hooks, health hooks, entry-point reload, runtime
-install/uninstall, and plugins.state.json are legacy behavior—not v2 lifecycle.
-Each migration MUST document current truth, target manifest/SPI, coexistence rule
-preventing double dispatch, and rollback to known current behavior.
+The removed startup/shutdown hooks, health hooks, entry-point reload, runtime
+install/uninstall, and `plugins.state.json` are historical legacy behavior—not
+v2 lifecycle. Provider migrations MUST document current truth, target
+manifest/SPI, coexistence rules preventing double dispatch, and a rollback that
+does not restore the retired plugin runtime.
 
 ## 6. Configuration and security
 
@@ -385,7 +385,7 @@ release/deployment proof.
 | OQ-PROV-03 | Third-party signing/trust workflow. | Separate security ADR/SPEC |
 | OQ-PROV-04 | Instance sharing/cache/reload policy. | Provider Manager LLD + NFR |
 
-Implementers MUST not relabel legacy plugin APIs as v2, create parallel source
+Implementers MUST not restore or relabel retired plugin APIs as v2, create parallel source
 lists, import-time registration, arbitrary runtime installation, secret-bearing
 manifest/YAML/history, or browser/proxy security exceptions. First vertical
 slice depends on accepted SPEC-01 and SPEC-08. Only the rows still marked open need owner confirmation; no

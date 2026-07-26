@@ -145,7 +145,7 @@ _reg(SourceAdapter(
 | `credential_fields` | 推荐 | 完整凭据字段；多字段 OAuth 源列全，如 `("client_id", "client_secret")` |
 | `optional_credential_effect` | 可选 | 可选凭据收益：`rate_limit` / `quota` / `politeness` / `personalization` 等 |
 | `risk_level` / `risk_reasons` | 推荐 | `low` / `medium` / `high` 与原因标签，用于默认启用和运维提示 |
-| `distribution` / `package_extra` | 推荐 | `core` / `extra` / `plugin` 与建议 optional dependency 组 |
+| `distribution` / `package_extra` | 推荐 | `core` / `extra` 与建议 optional dependency 组 |
 | `stability` | 推荐 | `stable` / `beta` / `experimental` / `deprecated` |
 | `usage_note` | 可选 | 用户级提示文案(如 `"仅支持 DOI OA 查找"`、`"公开搜索端点已变更,当前接入待修复"`);doctor / API / Panel 会把它附加到状态消息末尾,**不参与可用性判定**。`stability="deprecated"` / `experimental` + scraper 的源建议显式声明该字段 |
 
@@ -160,7 +160,7 @@ _reg(SourceAdapter(
 | 必须凭据 | `auth_requirement="required"`, `credential_fields=(...)` |
 | 自建实例 | `auth_requirement="self_hosted"`, `config_field="<source>_url"`；必须声明 URL/凭据字段 |
 | 纯抓取 / fetch provider | `domain="fetch"`, `methods={"fetch": MethodSpec("fetch")}` |
-| 重依赖或长尾源 | `distribution="extra"` 并设置 `package_extra`，或作为外部插件发布 |
+| 重依赖或长尾源 | `distribution="extra"` 并设置 `package_extra` |
 
 关于 `MethodSpec.param_map`：
 
@@ -264,18 +264,9 @@ curl 'http://localhost:8000/api/v1/search/paper?q=transformer&sources=my_source&
 - **`extra_domains` 滥用**：当前仅允许 `{"fetch"}`。需要跨更多域请先在 `local/` 写 RFC 讨论。
 - **没在 `souwen.example.yaml` 加注释**：用户找不到字段是配置类工单的高频来源，请补上。
 
-## 7. 替代方案：作为外部插件发布
-
-如果数据源不打算合入主仓（私有、实验性或商业插件），可以作为独立 Python 包发布。
-SouWen CLI / server 启动时通过 `ensure_plugins_loaded(get_config())` 显式加载
-setuptools entry_points 或配置文件声明的外部插件。
-
-完整对接规范见 [plugin-integration-spec.md](./plugin-integration-spec.md)。
-
 ## 交叉引用
 
 - 配置字段总览：[configuration.md](./configuration.md)
 - 反爬 / 代理 / WARP：[anti-scraping.md](./anti-scraping.md)
 - 后端 API 契约（`/api/v1/sources` 自动列出新源）：[api-reference.md](./api-reference.md)
 - 通用贡献流程：[contributing.md](./contributing.md)
-- 外部插件对接规范：[plugin-integration-spec.md](./plugin-integration-spec.md)

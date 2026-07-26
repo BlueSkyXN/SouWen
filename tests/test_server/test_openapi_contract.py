@@ -240,7 +240,6 @@ def test_whoami_endpoint_exposes_role_and_edition_contract() -> None:
         "llm",
         "warp_modes",
         "fetch_providers",
-        "plugin_preinstalled",
     } <= set(capabilities)
 
 
@@ -449,60 +448,6 @@ def test_admin_warp_endpoints_expose_response_contracts() -> None:
     ]
     assert "text/event-stream" in events_content
     assert "application/json" not in events_content
-
-
-def test_admin_plugin_endpoints_expose_response_contracts() -> None:
-    """Admin plugin routes must expose typed schemas without raw pip/error details."""
-    from souwen.server.app import app
-
-    schema = app.openapi()
-    components = schema["components"]["schemas"]
-
-    expected_refs = {
-        ("get", "/api/v1/admin/plugins"): "PluginListResponse",
-        ("get", "/api/v1/admin/plugins/{name}"): "PluginInfoResponse",
-        ("get", "/api/v1/admin/plugins/{name}/health"): "PluginHealthResponse",
-        ("post", "/api/v1/admin/plugins/{name}/enable"): "PluginActionResponse",
-        ("post", "/api/v1/admin/plugins/{name}/disable"): "PluginActionResponse",
-        ("post", "/api/v1/admin/plugins/install"): "PluginPackageActionResponse",
-        ("post", "/api/v1/admin/plugins/uninstall"): "PluginPackageActionResponse",
-        ("post", "/api/v1/admin/plugins/reload"): "PluginReloadResponse",
-    }
-    for (method, path), component_name in expected_refs.items():
-        response_schema = schema["paths"][path][method]["responses"]["200"]["content"][
-            "application/json"
-        ]["schema"]
-        assert response_schema["$ref"].endswith(f"/{component_name}")
-
-    info_props = components["PluginInfoResponse"]["properties"]
-    assert {
-        "name",
-        "package",
-        "version",
-        "status",
-        "source",
-        "first_party",
-        "description",
-        "error",
-        "source_adapters",
-        "fetch_handlers",
-        "restart_required",
-    } <= set(info_props)
-
-    list_props = components["PluginListResponse"]["properties"]
-    assert {"plugins", "restart_required", "install_enabled"} <= set(list_props)
-    assert list_props["plugins"]["items"]["$ref"].endswith("/PluginInfoResponse")
-
-    action_props = components["PluginActionResponse"]["properties"]
-    assert {"success", "restart_required", "message"} <= set(action_props)
-
-    package_action_props = components["PluginPackageActionResponse"]["properties"]
-    assert {"success", "package", "restart_required", "message"} <= set(package_action_props)
-
-    reload_props = components["PluginReloadResponse"]["properties"]
-    assert {"loaded", "errors", "message"} <= set(reload_props)
-    error_ref = reload_props["errors"]["items"]["$ref"]
-    assert {"source", "name"} <= set(components[_component_name(error_ref)]["properties"])
 
 
 def test_admin_config_and_network_update_endpoints_expose_response_contracts() -> None:

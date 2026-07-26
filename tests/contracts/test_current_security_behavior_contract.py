@@ -27,11 +27,10 @@ def current_security() -> dict[str, Any]:
 
 @pytest.fixture(autouse=True)
 def isolate_current_security(monkeypatch, tmp_path):
-    """Do not read local HOME/config or initialize external plugins in contract tests."""
+    """Do not read local HOME/config in contract tests."""
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("USERPROFILE", str(tmp_path))
-    monkeypatch.setenv("SOUWEN_PLUGIN_AUTOLOAD", "0")
     for key in (
         "SOUWEN_USER_PASSWORD",
         "SOUWEN_ADMIN_PASSWORD",

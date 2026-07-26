@@ -21,7 +21,7 @@ This is target state, not present implementation:
   optimistic-concurrency contract.
 - Current source config update mutates in-memory SouWenConfig.sources; it is not
   durable revisioned Provider v2 editing.
-- Existing plugin config/state are legacy lifecycle surfaces, not v2 Provider
+- Retired plugin config/state were legacy lifecycle surfaces, not v2 Provider
   configuration sources.
 
 ## Decision
@@ -121,7 +121,7 @@ ineligible and emits redacted local diagnostic.
 
 - Revision/diff/concurrency/rollback needs implementation; current lock, atomic
   replace, and .bak are insufficient.
-- Current precedence and legacy source/plugin mutations need explicit migration;
+- Current precedence and retired legacy source/plugin mutations need explicit migration;
   no code may silently make them v2 durable truth.
 - Authorization, redacted readback, audit retention, recovery require SPEC-07
   and validation before visible management changes.

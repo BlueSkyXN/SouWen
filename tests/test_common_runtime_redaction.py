@@ -8,7 +8,7 @@ from pathlib import Path
 from pydantic import BaseModel
 import pytest
 
-from souwen import logging_config, plugin_manager
+from souwen import logging_config
 from souwen.common_runtime.security import (
     redact_secret_text,
     redact_secret_url,
@@ -25,9 +25,8 @@ def test_core_redaction_reexports_canonical_text_and_url_primitives() -> None:
     assert legacy_redaction.scrub_secret_text is scrub_secret_text
 
 
-def test_logging_and_plugin_manager_use_canonical_redaction() -> None:
+def test_logging_uses_canonical_redaction() -> None:
     assert logging_config.redact_secret_text is redact_secret_text
-    assert plugin_manager.redact_secret_text is redact_secret_text
 
 
 def test_canonical_redaction_has_only_stdlib_dependencies() -> None:

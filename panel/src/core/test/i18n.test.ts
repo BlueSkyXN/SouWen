@@ -9,8 +9,6 @@ import zhCN from '../i18n/zh-CN.json'
 import { SOURCE_PROXY_MODES } from '../lib/sourceProxyConfig'
 import { WARP_MODE_OPTIONS } from '../lib/warpModes'
 import {
-  PLUGIN_SOURCES,
-  PLUGIN_STATUSES,
   SOURCE_CATEGORY_LABEL_KEYS,
   SOURCE_CATEGORY_ORDER,
   WARP_STATUSES,
@@ -102,10 +100,6 @@ function dynamicTranslationKeys(): string[] {
     ...HTTP_BACKEND_ENGINE_NAMES.map((engine) => `httpBackend.engineNames.${engine}`),
     ...WARP_STATUSES.map((status) => `warp.${status}`),
     ...WARP_MODE_OPTIONS.flatMap((option) => [option.labelKey, option.descriptionKey]),
-    ...PLUGIN_STATUSES.map((status) => `plugins.status.${status}`),
-    'plugins.status.unknown',
-    ...PLUGIN_SOURCES.map((source) => `plugins.source.${source}`),
-    'plugins.source.unknown',
     ...CATEGORIES.map((category) => category.labelKey),
     ...BILIBILI_ORDERS.map((order) => order.labelKey),
     ...skinKeys,

@@ -94,13 +94,11 @@ Since 2026-07-26 both workflows run in two lanes (owner-approved CI slimming):
 - `pro-cli` + `basic-cli` profile: local API surface tests and CLI smoke through
   `scripts/ci/run_profile.py`; legacy `server` / `minimal` aliases remain
   accepted during transition.
-- `full-cli` runtime profile: `edition-full` core source, doctor, plugin, and
-  fetch handler import surface through `scripts/ci/run_profile.py`, plus feature
+- `full-cli` runtime profile: `edition-full` core source, doctor, and fetch
+  handler import surface through `scripts/ci/run_profile.py`, plus feature
   matrix declarations for full-only providers. The legacy `full` alias remains
   accepted during transition. The mutually exclusive `crawl4ai` / `scrapling`
   browser runtime variants stay in their dedicated functional gates.
-- plugin profile: example plugin install, plugin contract tests, and entry point
-  discovery through `scripts/ci/run_profile.py`.
 - panel build: TypeScript check, Vitest, single-file panel build, and
   `src/souwen/server/panel.html` artifact validation.
 

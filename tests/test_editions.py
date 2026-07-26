@@ -13,14 +13,12 @@ from souwen.editions import (
     fetch_provider_policy,
     ensure_warp_mode_allowed,
     llm_available,
-    plugin_preinstalled,
     source_min_edition,
     source_policy,
     warp_mode_policy,
 )
 from souwen.registry import all_adapters, fetch_providers, get
-from souwen.registry.adapter import MethodSpec, SourceAdapter
-from souwen.registry.views import _reg_external
+from souwen.registry.adapter import SourceAdapter
 
 
 def _adapter(name: str) -> SourceAdapter:
@@ -113,7 +111,7 @@ def test_policy_metadata_reports_denied_reason_without_raising() -> None:
     assert policy.reason == "fetch provider 'crawl4ai' requires edition=full, current edition=pro"
 
 
-def test_cross_feature_edition_helpers(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_cross_feature_edition_helpers() -> None:
     assert allowed_warp_modes("basic") == ("auto", "wireproxy", "external")
     assert allowed_warp_modes("pro") == (
         "auto",
@@ -128,14 +126,6 @@ def test_cross_feature_edition_helpers(monkeypatch: pytest.MonkeyPatch) -> None:
     assert not llm_available("basic")
     assert llm_available("pro")
     assert llm_available("full")
-
-    monkeypatch.setattr("souwen.editions._plugin_package_importable", lambda _: True)
-    assert not plugin_preinstalled("basic")
-    assert not plugin_preinstalled("pro")
-    assert plugin_preinstalled("full")
-
-    monkeypatch.setattr("souwen.editions._plugin_package_importable", lambda _: False)
-    assert not plugin_preinstalled("full")
 
 
 def test_warp_mode_policy_reports_denied_modes_without_masking_unknown() -> None:
@@ -180,19 +170,3 @@ def test_registry_fetch_provider_policies_are_valid_and_monotonic() -> None:
             if seen_available:
                 assert policy.available
             seen_available = seen_available or policy.available
-
-
-def test_external_plugin_adapter_requires_full(clean_registry) -> None:
-    adapter = SourceAdapter(
-        name="plugin_fetch",
-        domain="fetch",
-        integration="open_api",
-        description="Test plugin fetch provider",
-        config_field=None,
-        client_loader=lambda: object,
-        methods={"fetch": MethodSpec("fetch")},
-    )
-
-    assert _reg_external(adapter)
-    assert source_min_edition(adapter) == "full"
-    assert fetch_provider_min_edition(adapter) == "full"

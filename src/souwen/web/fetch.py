@@ -55,12 +55,10 @@
 from __future__ import annotations
 
 import asyncio
-import contextvars
 import inspect
 import logging
 from collections import defaultdict, deque
 from collections.abc import Awaitable, Callable
-from dataclasses import dataclass
 from typing import Any, Literal
 from urllib.parse import urlparse
 
@@ -79,21 +77,7 @@ FetchHandler = Callable[..., Awaitable[FetchResponse]]
 """Fetch handler signature: ``async (urls: list[str], timeout: float, **kwargs) -> FetchResponse``."""
 FetchStrategy = Literal["fallback", "fanout"]
 
-# ── 插件上下文：由 plugin.py 加载器在 ep.load() 周围设置 ──
-_current_plugin_owner: contextvars.ContextVar[str | None] = contextvars.ContextVar(
-    "souwen_current_plugin_owner", default=None
-)
-
-
-@dataclass(frozen=True)
-class _HandlerEntry:
-    """fetch handler + 来源归属。"""
-
-    handler: FetchHandler
-    owner: str | None  # None = 内置 / 未知来源
-
-
-_FETCH_HANDLERS: dict[str, _HandlerEntry] = {}
+_FETCH_HANDLERS: dict[str, FetchHandler] = {}
 
 
 def register_fetch_handler(
@@ -101,7 +85,6 @@ def register_fetch_handler(
     handler: FetchHandler,
     *,
     override: bool = False,
-    owner: str | None = None,
 ) -> bool:
     """注册某个 provider 的抓取处理函数。
 
@@ -109,43 +92,23 @@ def register_fetch_handler(
         provider: Provider name (must match registry SourceAdapter name)
         handler: Async callable ``(urls, timeout, **kwargs) -> FetchResponse``
         override: If True, allows overriding existing handlers
-        owner: 注册来源插件名。为 None 时自动从 contextvar 读取（内置为 None）。
-
     Returns:
         True 表示注册成功；False 表示已存在且未 override。
     """
-    effective_owner = owner if owner is not None else _current_plugin_owner.get()
     existing = _FETCH_HANDLERS.get(provider)
     if existing is not None and not override:
-        logger.debug(
-            "Fetch handler %r already registered by %r, skipping (new owner=%r)",
-            provider,
-            existing.owner,
-            effective_owner,
-        )
+        logger.debug("Fetch handler %r already registered, skipping", provider)
         return False
-    _FETCH_HANDLERS[provider] = _HandlerEntry(handler=handler, owner=effective_owner)
+    _FETCH_HANDLERS[provider] = handler
     logger.debug(
-        "Registered fetch handler: %s (owner=%s)",
+        "Registered fetch handler: %s",
         provider,
-        effective_owner,
         extra={
             "event": "fetch_handler_registered",
-            "plugin": effective_owner,
             "provider": provider,
         },
     )
     return True
-
-
-def unregister_fetch_handlers_by_owner(owner: str) -> list[str]:
-    """移除指定插件注册的所有 fetch handler。返回被移除的 provider 名列表。"""
-    removed = [p for p, e in _FETCH_HANDLERS.items() if e.owner == owner]
-    for p in removed:
-        del _FETCH_HANDLERS[p]
-    if removed:
-        logger.info("已移除插件 %r 注册的 fetch handler: %s", owner, ", ".join(removed))
-    return removed
 
 
 def unregister_fetch_handler(provider: str) -> bool:
@@ -159,12 +122,7 @@ def unregister_fetch_handler(provider: str) -> bool:
 
 def get_fetch_handlers() -> dict[str, FetchHandler]:
     """Return a shallow copy of the fetch handler registry (for introspection)."""
-    return {p: e.handler for p, e in _FETCH_HANDLERS.items()}
-
-
-def get_fetch_handler_owners() -> dict[str, str | None]:
-    """返回 handler → owner 映射（供插件管理器使用）。"""
-    return {p: e.owner for p, e in _FETCH_HANDLERS.items()}
+    return dict(_FETCH_HANDLERS)
 
 
 def _filter_fetch_handler_kwargs(
@@ -618,10 +576,10 @@ async def _fetch_with_provider(
     """
     ensure_fetch_providers_allowed([provider])
 
-    entry = _FETCH_HANDLERS.get(provider)
-    if entry is not None:
-        handler_kwargs = _filter_fetch_handler_kwargs(entry.handler, kwargs)
-        return await entry.handler(urls, timeout, **handler_kwargs)
+    handler = _FETCH_HANDLERS.get(provider)
+    if handler is not None:
+        handler_kwargs = _filter_fetch_handler_kwargs(handler, kwargs)
+        return await handler(urls, timeout, **handler_kwargs)
 
     # 未知提供者 → 全部标记失败
     results = [

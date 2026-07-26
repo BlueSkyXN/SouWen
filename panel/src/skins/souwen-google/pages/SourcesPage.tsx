@@ -167,7 +167,6 @@ function RiskBadge({ value, t }: { value?: DoctorSource['risk_level']; t: (k: st
 }
 
 function DistributionBadge({ value, t }: { value?: DoctorSource['distribution']; t: (k: string, opts?: { defaultValue?: string }) => string }) {
-  if (value === 'plugin') return <Badge color="indigo">{t('sources.distPlugin', { defaultValue: '插件' })}</Badge>
   if (value === 'extra') return <Badge color="teal">{t('sources.distExtra', { defaultValue: '可选依赖' })}</Badge>
   return <Badge color="gray">{t('sources.distCore', { defaultValue: '内置' })}</Badge>
 }

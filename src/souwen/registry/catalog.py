@@ -204,10 +204,9 @@ def _is_available_by_default(adapter: SourceAdapter, visibility: str) -> bool:
     return adapter.resolved_stability not in {"experimental", "deprecated"}
 
 
-def _entry_from_adapter(adapter: SourceAdapter, *, external: bool = False) -> SourceCatalogEntry:
+def _entry_from_adapter(adapter: SourceAdapter) -> SourceCatalogEntry:
     category = _catalog_category_for(adapter)
     visibility = adapter.catalog_visibility
-    distribution = "plugin" if external else adapter.resolved_distribution
     return SourceCatalogEntry(
         name=adapter.name,
         domain=adapter.domain,
@@ -223,7 +222,7 @@ def _entry_from_adapter(adapter: SourceAdapter, *, external: bool = False) -> So
         risk_level=adapter.resolved_risk_level,
         risk_reasons=tuple(sorted(adapter.resolved_risk_reasons)),
         stability=adapter.resolved_stability,
-        distribution=distribution,
+        distribution=adapter.resolved_distribution,
         package_extra=adapter.resolved_package_extra,
         default_enabled=adapter.default_enabled,
         runtime_default_enabled=adapter.runtime_default_enabled,
@@ -243,11 +242,7 @@ def source_categories() -> tuple[SourceCategory, ...]:
 def source_catalog() -> dict[str, SourceCatalogEntry]:
     """返回所有注册源的正式 catalog 投影，包含 hidden/internal 条目。"""
 
-    external_names = set(_views.external_plugins())
-    entries = [
-        _entry_from_adapter(adapter, external=adapter.name in external_names)
-        for adapter in _views.all_adapters().values()
-    ]
+    entries = [_entry_from_adapter(adapter) for adapter in _views.all_adapters().values()]
     entries.sort(key=lambda item: (_SOURCE_CATEGORY_ORDER[item.category], item.name))
     return {entry.name: entry for entry in entries}
 

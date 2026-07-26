@@ -74,12 +74,9 @@ def test_cross_cutting_declarations_follow_current_three_tier_policy() -> None:
     assert declared_llm_protocols("full") == declared_llm_protocols("pro")
 
 
-def test_edition_capabilities_preserves_whoami_payload_shape(monkeypatch) -> None:
-    monkeypatch.setattr("souwen.feature_matrix.plugin_preinstalled", lambda edition: False)
-
+def test_edition_capabilities_preserves_whoami_payload_shape() -> None:
     assert edition_capabilities("basic") == {
         "llm": False,
         "warp_modes": ["auto", "wireproxy", "external"],
         "fetch_providers": ["builtin", "mcp", "site_crawler"],
-        "plugin_preinstalled": False,
     }

@@ -263,7 +263,6 @@ runs:
                     {
                         'HOME': str(temp_root / 'home'),
                         'PYTHONIOENCODING': 'utf-8',
-                        'SOUWEN_PLUGIN_AUTOLOAD': '0',
                         'SOUWEN_V2_ROLLOUT': 'target',
                         'SOUWEN_ADMIN_OPEN': '0',
                         'SOUWEN_EXPOSE_DOCS': '1',

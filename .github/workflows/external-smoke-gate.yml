@@ -218,62 +218,9 @@ jobs:
           if-no-files-found: warn
           retention-days: 14
 
-  plugin-gate:
-    name: Plugin and SuperWeb2PDF release/nightly gate
-    needs: article-extract-gate
-    if: ${{ always() }}
-    runs-on: ubuntu-latest
-    timeout-minutes: 25
-    env:
-      GATE_SUITE: ${{ inputs.suite || (github.event_name == 'pull_request' && 'pr-required') || 'release' }}
-    concurrency:
-      group: external-smoke-gate-plugin-${{ inputs.candidate_sha || github.ref }}
-      cancel-in-progress: true
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ inputs.candidate_sha || github.sha }}
-
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-          cache: "pip"
-
-      - name: Install source, example plugin, and fixed SuperWeb2PDF runtime
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev,edition-full]"
-          pip install -e examples/minimal-plugin
-          if [ "$GATE_SUITE" = "release" ]; then
-            python -m playwright install --with-deps chromium
-          fi
-
-      - name: Run plugin and SuperWeb2PDF fixture gate
-        run: |
-          mkdir -p artifacts
-          WEB2PDF_ARGS=(--require-web2pdf)
-          if [ "$GATE_SUITE" = "release" ]; then
-            WEB2PDF_ARGS=(--require-web2pdf-runtime)
-          fi
-          python scripts/plugin_functional_check.py \
-            --mode fixture \
-            --require-installed \
-            "${WEB2PDF_ARGS[@]}" \
-            --json-report "artifacts/plugin-${GATE_SUITE}-gate.json" \
-            --markdown-report "artifacts/plugin-${GATE_SUITE}-gate.md"
-
-      - name: Upload plugin gate report
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: external-gate-plugin-report
-          path: artifacts/
-          if-no-files-found: warn
-          retention-days: 14
-
   zero-key-live-gate:
     name: Zero-key live source gate
-    needs: plugin-gate
+    needs: article-extract-gate
     if: ${{ always() && github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
     timeout-minutes: 10
@@ -322,7 +269,7 @@ jobs:
 
   open-nightly-failure-issue:
     name: Nightly failure issue
-    needs: [scrapling-gate, crawl4ai-gate, article-extract-gate, plugin-gate, zero-key-live-gate]
+    needs: [scrapling-gate, crawl4ai-gate, article-extract-gate, zero-key-live-gate]
     if: >-
       ${{
         always() &&
@@ -331,7 +278,6 @@ jobs:
           needs.scrapling-gate.result == 'failure' ||
           needs.crawl4ai-gate.result == 'failure' ||
           needs.article-extract-gate.result == 'failure' ||
-          needs.plugin-gate.result == 'failure' ||
           needs.zero-key-live-gate.result == 'failure'
         )
       }}
@@ -401,7 +347,7 @@ jobs:
 
   close-nightly-failure-issue:
     name: Close recovered nightly issue
-    needs: [scrapling-gate, crawl4ai-gate, article-extract-gate, plugin-gate, zero-key-live-gate]
+    needs: [scrapling-gate, crawl4ai-gate, article-extract-gate, zero-key-live-gate]
     if: >-
       ${{
         always() &&
@@ -409,7 +355,6 @@ jobs:
         needs.scrapling-gate.result == 'success' &&
         needs.crawl4ai-gate.result == 'success' &&
         needs.article-extract-gate.result == 'success' &&
-        needs.plugin-gate.result == 'success' &&
         needs.zero-key-live-gate.result == 'success'
       }}
     runs-on: ubuntu-latest

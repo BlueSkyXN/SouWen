@@ -1,7 +1,7 @@
 # SouWen 技术文档
 
 这里是 SouWen 主仓库的技术文档入口。`docs/` 里的内容跟代码一起进入 PR、
-review 和测试，适合记录快速开始、API、配置、架构、数据源事实、插件规范和
+review 和测试，适合记录快速开始、API、配置、架构、数据源事实和
 部署验收规则。
 
 GitHub Wiki 可以承载场景化手册；仓库内技术事实仍以本目录为准。本轮不重写 Wiki。
@@ -10,7 +10,7 @@ GitHub Wiki 可以承载场景化手册；仓库内技术事实仍以本目录�
 
 | 区域 | 定位 |
 |---|---|
-| Public docs | 面向使用者和插件作者，描述当前正式架构、API、配置、部署和扩展方式 |
+| Public docs | 面向使用者和贡献者，描述当前正式架构、API、配置、部署和扩展方式 |
 | Internal docs | 面向维护者，记录分支策略、ADR、baseline、历史决策和发布前检查 |
 
 Public docs 不要求读者理解历史路径；需要保留背景材料时，放入 `docs/internal/`。
@@ -46,13 +46,6 @@ Public docs 不要求读者理解历史路径；需要保留背景材料时，�
 | [architecture.md](./architecture.md) | 展示层、应用入口、registry、真实 client 模块和 core 平台层 |
 | [adding-a-source.md](./adding-a-source.md) | 在主仓新增数据源的实现、注册、配置和测试流程 |
 | [contributing.md](./contributing.md) | 开发环境、测试、前端构建、提交规范和 PR 流程 |
-
-## 插件系统
-
-| 文档 | 用途 |
-|---|---|
-| [plugin-integration-spec.md](./plugin-integration-spec.md) | 外部插件接入契约：SourceAdapter、fetch handler、配置和测试 |
-| [plugin-management.md](./plugin-management.md) | Web Panel、CLI、HTTP API 的插件管理和排障 |
 
 ## 部署与前端
 

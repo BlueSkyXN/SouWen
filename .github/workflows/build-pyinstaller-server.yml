@@ -145,7 +145,6 @@ jobs:
             archive: souwen-server-2.0.0rc2-windows-amd64.zip
     env:
       PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.server-bundle-ms-playwright
-      SOUWEN_PLUGIN_AUTOLOAD: '0'
       SOUWEN_V2_ROLLOUT: target
       SOUWEN_ADMIN_OPEN: '0'
       SOUWEN_EXPOSE_DOCS: '1'

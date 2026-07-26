@@ -7,7 +7,6 @@ CLI, Server, MCP and Panel-facing capability declarations.
 
 from __future__ import annotations
 
-import importlib.util
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Final, Literal, cast
 
@@ -36,7 +35,6 @@ FULL_FETCH_EXTRAS: Final[frozenset[str]] = frozenset(
         "web2pdf",
     }
 )
-PREINSTALLED_PLUGIN_MODULES: Final[tuple[str, ...]] = ("superweb2pdf",)
 BASIC_WARP_MODES: Final[tuple[str, ...]] = ("auto", "wireproxy", "external")
 FULL_WARP_MODES: Final[tuple[str, ...]] = (
     "auto",
@@ -115,20 +113,11 @@ def ensure_edition_allowed(feature: str, current: Edition | str, required: Editi
         raise EditionError(feature, required_edition, current_edition)
 
 
-def _external_plugin_names() -> set[str]:
-    from souwen.registry.views import external_plugins
-
-    return set(external_plugins())
-
-
 def source_min_edition(adapter: SourceAdapter) -> Edition:
     """Derive the minimum edition for a source adapter."""
 
     if adapter.domain == FETCH_DOMAIN:
         return fetch_provider_min_edition(adapter)
-
-    if adapter.name in _external_plugin_names():
-        return "full"
 
     if adapter.resolved_package_extra in FULL_FETCH_EXTRAS:
         return "full"
@@ -147,9 +136,6 @@ def fetch_provider_min_edition(adapter: SourceAdapter) -> Edition:
 
     if adapter.name in BASIC_FETCH_PROVIDERS:
         return "basic"
-
-    if adapter.name in _external_plugin_names():
-        return "full"
 
     if adapter.resolved_package_extra in FULL_FETCH_EXTRAS:
         return "full"
@@ -220,21 +206,6 @@ def llm_available(current: Edition | str) -> bool:
     return edition_allows(current, "pro")
 
 
-def _plugin_package_importable(module_name: str) -> bool:
-    try:
-        return importlib.util.find_spec(module_name) is not None
-    except (ImportError, AttributeError, ValueError):
-        return False
-
-
-def plugin_preinstalled(current: Edition | str) -> bool:
-    """Return whether the current full runtime has a known preinstalled plugin package."""
-
-    if _validate_edition(current, name="current") != "full":
-        return False
-    return any(_plugin_package_importable(module) for module in PREINSTALLED_PLUGIN_MODULES)
-
-
 def ensure_source_allowed(adapter: SourceAdapter, current: Edition | str) -> None:
     """Raise ``EditionError`` when a source adapter is unavailable."""
 
@@ -262,7 +233,6 @@ __all__ = [
     "EDITION_RANK",
     "FULL_FETCH_EXTRAS",
     "FULL_WARP_MODES",
-    "PREINSTALLED_PLUGIN_MODULES",
     "WARP_MODE_MIN_EDITIONS",
     "Edition",
     "EditionError",
@@ -277,7 +247,6 @@ __all__ = [
     "fetch_provider_min_edition",
     "fetch_provider_policy",
     "llm_available",
-    "plugin_preinstalled",
     "source_min_edition",
     "source_policy",
     "warp_mode_min_edition",

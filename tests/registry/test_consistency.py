@@ -37,7 +37,6 @@ from souwen.registry import (
     high_risk_sources,
     source_catalog,
 )
-from souwen.registry import external_plugins
 from souwen.registry.adapter import (
     AUTH_REQUIREMENTS,
     CATALOG_VISIBILITIES,
@@ -55,7 +54,6 @@ from souwen.registry.adapter import (
     STABILITIES,
 )
 from souwen.registry.loader import lazy
-from souwen.registry.views import _reg_external, _unreg_external
 
 
 # ── 基础不变量 ──────────────────────────────────────────────
@@ -523,134 +521,3 @@ class TestCapabilityStability:
             assert cap in used, (
                 f"标准 capability {cap!r} 没有源实现；如果预留未用，请加入 allowed_unused 集合"
             )
-
-
-# ── 外部插件支持 ───────────────────────────────────────────
-
-
-class TestExternalPlugins:
-    """`external_plugins()` 视图与 `_reg_external` 的集成行为。"""
-
-    def test_external_plugins_returns_list(self):
-        out = external_plugins()
-        assert isinstance(out, list)
-        # 列表内容必定是 _REGISTRY 子集
-        names = set(all_adapters().keys())
-        for n in out:
-            assert n in names, f"external_plugins() 返回的 {n!r} 不在 registry"
-
-    def test_reg_external_does_not_corrupt_registry(self, clean_registry):
-        """注册并恢复后，所有 D11 不变量仍然成立。"""
-        adapter = SourceAdapter(
-            name="ext_consistency_probe",
-            domain="fetch",
-            integration="scraper",
-            description="probe",
-            config_field=None,
-            client_loader=lazy("souwen.web.builtin:BuiltinFetcherClient"),
-            methods={"fetch": MethodSpec("fetch")},
-            needs_config=False,
-        )
-        ok = _reg_external(adapter)
-        assert ok is True
-        # 注册后，注册表里能找到；并且 capability/domain 都合法
-        adapters = all_adapters()
-        assert "ext_consistency_probe" in adapters
-        a = adapters["ext_consistency_probe"]
-        assert a.domain in DOMAINS or a.domain == FETCH_DOMAIN
-        assert a.integration in INTEGRATIONS
-        for cap in a.capabilities:
-            assert cap in CAPABILITIES or ":" in cap
-
-    def test_external_adapter_passes_d11_validation(self, clean_registry):
-        """外部 adapter 也要满足：methods 指向真实存在的 client 方法。"""
-        adapter = SourceAdapter(
-            name="ext_d11_probe",
-            domain="fetch",
-            integration="scraper",
-            description="probe",
-            config_field=None,
-            client_loader=lazy("souwen.web.builtin:BuiltinFetcherClient"),
-            methods={"fetch": MethodSpec("fetch")},
-            needs_config=False,
-        )
-        _reg_external(adapter)
-        a = all_adapters()["ext_d11_probe"]
-        client_cls = a.client_loader()
-        for cap, spec in a.methods.items():
-            assert callable(getattr(client_cls, spec.method_name, None)), (
-                f"external adapter {a.name} method {spec.method_name} 不可调用"
-            )
-
-    def test_reg_external_refreshes_source_meta_cache(self, clean_registry):
-        """运行时注册/注销插件源后，SourceMeta 视图必须同步刷新。"""
-        from souwen.registry import meta as source_meta
-
-        # 先构建一次缓存，复现旧问题：之后注册插件若不失效会读不到新源。
-        assert "ext_cache_probe" not in source_meta.get_all_sources()
-        assert source_meta.get_source("ext_cache_probe") is None
-
-        adapter = SourceAdapter(
-            name="ext_cache_probe",
-            domain="fetch",
-            integration="scraper",
-            description="probe",
-            config_field=None,
-            client_loader=lazy("souwen.web.builtin:BuiltinFetcherClient"),
-            methods={"fetch": MethodSpec("fetch")},
-            needs_config=False,
-        )
-        assert _reg_external(adapter) is True
-        assert source_meta.get_source("ext_cache_probe") is not None
-        assert source_meta.is_known_source("ext_cache_probe") is True
-        assert "ext_cache_probe" in source_meta.ALL_SOURCE_NAMES
-
-        assert _unreg_external("ext_cache_probe") is True
-        assert source_meta.get_source("ext_cache_probe") is None
-        assert source_meta.is_known_source("ext_cache_probe") is False
-        assert "ext_cache_probe" not in source_meta.ALL_SOURCE_NAMES
-
-    def test_external_web_plugin_without_explicit_category_is_visible(self, clean_registry):
-        """外部 web 插件不声明 category 时仍进入 catalog。"""
-        from souwen.registry import meta as source_meta
-
-        adapter = SourceAdapter(
-            name="ext_web_probe",
-            domain="web",
-            integration="scraper",
-            description="web probe",
-            config_field=None,
-            client_loader=lazy("souwen.web.duckduckgo:DuckDuckGoClient"),
-            methods={"search": MethodSpec("search")},
-            needs_config=False,
-        )
-
-        assert _reg_external(adapter) is True
-        meta = source_meta.get_source("ext_web_probe")
-        assert meta is not None
-        assert meta.category == "web_general"
-        assert meta.distribution == "plugin"
-        assert source_meta.is_known_source("ext_web_probe") is True
-        assert "ext_web_probe" in source_meta.ALL_SOURCE_NAMES
-
-    def test_external_web_plugin_can_use_public_professional_category_tag(self, clean_registry):
-        """外部 web 插件可用公开 category:* tag 选择专业网页分类。"""
-        from souwen.registry import meta as source_meta
-
-        adapter = SourceAdapter(
-            name="ext_professional_web_probe",
-            domain="web",
-            integration="official_api",
-            description="professional web probe",
-            config_field="tavily_api_key",
-            client_loader=lazy("souwen.web.tavily:TavilyClient"),
-            methods={"search": MethodSpec("search")},
-            auth_requirement="required",
-            credential_fields=("tavily_api_key",),
-            tags=frozenset({"category:professional"}),
-        )
-
-        assert _reg_external(adapter) is True
-        meta = source_meta.get_source("ext_professional_web_probe")
-        assert meta is not None
-        assert meta.category == "web_professional"

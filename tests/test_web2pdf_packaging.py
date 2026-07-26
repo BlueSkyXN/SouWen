@@ -32,11 +32,3 @@ def test_docker_web2pdf_paths_do_not_use_broken_extra() -> None:
         assert 'pip install ".[edition-pro]"' in text
         assert "WEB2PDF_PACKAGE" in text
         assert SUPERWEB2PDF_ARCHIVE in text
-
-
-def test_ci_web2pdf_optional_install_uses_resolvable_direct_reference() -> None:
-    text = (REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
-
-    assert "superweb2pdf" + "[capture]>=0.2.0" not in text
-    assert '"playwright>=1.40"' in text
-    assert f'"superweb2pdf @ {SUPERWEB2PDF_ARCHIVE}"' in text

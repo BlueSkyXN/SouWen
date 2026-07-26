@@ -180,12 +180,12 @@ def test_projection_uses_canonical_source_adapter_and_gateway_requirements() -> 
 def test_canonical_registry_rejects_identity_aliases_from_separate_scheme_registries(
     clean_registry,
 ) -> None:
-    from souwen.registry.views import _reg_external
+    from souwen.registry.views import _reg
 
     first = SearchSchemeRegistry()
     first.register_scheme(_scheme())
     first.register_source(_source())
-    assert _reg_external(
+    _reg(
         first.project_source_adapter(
             "uniapi_ark_deepseek",
             description="first fixture source",
@@ -196,16 +196,14 @@ def test_canonical_registry_rejects_identity_aliases_from_separate_scheme_regist
     second = SearchSchemeRegistry()
     second.register_scheme(_scheme())
     second.register_source(_source("uniapi_ark_deepseek_alias"))
-    assert (
-        _reg_external(
+    with pytest.raises(ValueError, match="LLM-search identity"):
+        _reg(
             second.project_source_adapter(
                 "uniapi_ark_deepseek_alias",
                 description="aliased fixture source",
                 client_loader=lambda: _Client,
             )
         )
-        is False
-    )
 
 
 def test_shared_gateway_availability_uses_same_registry_meta_contract() -> None:
@@ -261,7 +259,7 @@ async def test_projected_source_uses_one_canonical_availability_contract(
     from souwen.doctor import check_all, summarize_statuses
     from souwen.feature_matrix import RuntimeProbe
     from souwen.registry.catalog import available_source_catalog, public_source_catalog_payload
-    from souwen.registry.views import _reg_external
+    from souwen.registry.views import _reg
     from souwen.server.routes.admin.sources import get_source_config as get_admin_source_config
     import souwen.config as config_module
 
@@ -273,7 +271,10 @@ async def test_projected_source_uses_one_canonical_availability_contract(
         description="fixture source",
         client_loader=lambda: _Client,
     )
-    assert _reg_external(adapter) is True
+    _reg(adapter)
+    from souwen.registry.meta import invalidate_source_meta_cache
+
+    invalidate_source_meta_cache()
 
     current_config = {
         "value": SouWenConfig(

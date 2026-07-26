@@ -26,27 +26,8 @@ from souwen.doctor import (
 )
 from souwen.core.exceptions import ConfigError
 from souwen.feature_matrix import RuntimeProbe
-from souwen.registry.adapter import MethodSpec, SourceAdapter
 from souwen.registry.catalog import source_catalog
-from souwen.registry.loader import lazy
-from souwen.registry.views import _reg_external
-
-
-def register_runtime_web_doctor_probe() -> str:
-    """注册一个不声明 category 的外部 web 插件。"""
-    name = "doctor_web_probe"
-    adapter = SourceAdapter(
-        name=name,
-        domain="web",
-        integration="scraper",
-        description="doctor web probe",
-        config_field=None,
-        client_loader=lazy("souwen.web.duckduckgo:DuckDuckGoClient"),
-        methods={"search": MethodSpec("search")},
-        needs_config=False,
-    )
-    assert _reg_external(adapter) is True
-    return name
+from souwen.registry.views import _reg
 
 
 class TestCheckAll:
@@ -59,7 +40,7 @@ class TestCheckAll:
 
         get_config.cache_clear()
         results = check_all()
-        assert len(results) >= 92  # 92 内置 + 可能有外部插件
+        assert len(results) >= 92
 
     def test_result_has_required_keys(self):
         """每条结果包含必要字段"""
@@ -416,19 +397,6 @@ class TestCheckAll:
         assert status_counts["degraded"] == 1
         assert counts["failed"] == 2
 
-    def test_runtime_web_plugin_without_explicit_category_is_visible(self, clean_registry):
-        """外部 web 插件应出现在 doctor 路径。"""
-        name = register_runtime_web_doctor_probe()
-
-        results = check_all()
-        source = next(r for r in results if r["name"] == name)
-        assert source["category"] == "web_general"
-        assert source["distribution"] == "plugin"
-        assert source["min_edition"] == "full"
-        assert source["edition_available"] is False
-        assert source["status"] == "unavailable"
-        assert "source 'doctor_web_probe' requires edition=full" in source["edition_reason"]
-
     def test_llm_search_channel_hides_private_base_url(
         self,
         clean_registry,
@@ -464,7 +432,7 @@ class TestCheckAll:
             description="doctor LLM-search probe",
             client_loader=lambda: object,
         )
-        assert _reg_external(adapter) is True
+        _reg(adapter)
 
         private_url = "https://private.internal.example/v1"
         config = SouWenConfig(

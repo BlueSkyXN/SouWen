@@ -120,7 +120,8 @@ def _tracked_markdown_files(repo_root: Path) -> list[Path]:
         check=True,
         stdout=subprocess.PIPE,
     )
-    return sorted(repo_root / item.decode("utf-8") for item in result.stdout.split(b"\0") if item)
+    files = (repo_root / item.decode("utf-8") for item in result.stdout.split(b"\0") if item)
+    return sorted(path for path in files if path.is_file())
 
 
 def _has_exact_case(path: Path, repo_root: Path) -> bool:

@@ -119,7 +119,7 @@ describe('useFetchPage provider options', () => {
         credential_fields: ['api_key'],
         credentials_satisfied: false,
       }),
-      source('plugin_fetch_probe', ['fetch'], { available: false }),
+      source('custom_fetch_probe', ['fetch'], { available: false }),
       source('search_only_probe', ['search']),
     ]))
 
@@ -132,7 +132,7 @@ describe('useFetchPage provider options', () => {
       'tavily',
       'firecrawl',
       'scrapling',
-      'plugin_fetch_probe',
+      'custom_fetch_probe',
     ])
     expect(Object.fromEntries(result.current.providerOptions.map((option) => [
       option.value,
@@ -142,7 +142,7 @@ describe('useFetchPage provider options', () => {
       tavily: 'edition',
       firecrawl: 'credentials',
       scrapling: 'runtime',
-      plugin_fetch_probe: 'unavailable',
+      custom_fetch_probe: 'unavailable',
     })
     expect(result.current.selectedProviders).toEqual(['builtin'])
 
@@ -150,29 +150,29 @@ describe('useFetchPage provider options', () => {
     expect(result.current.selectedProviders).toEqual(['builtin'])
   })
 
-  it('uses catalog metadata for runtime-ready plugin providers without static fallback entries', async () => {
+  it('uses catalog metadata for runtime-ready providers without static fallback entries', async () => {
     vi.spyOn(api, 'getSources').mockResolvedValue(sourcesResponse([
       source('builtin'),
-      source('plugin_fetch_probe', ['fetch'], { description: 'Runtime plugin fetcher' }),
+      source('custom_fetch_probe', ['fetch'], { description: 'Runtime fetcher' }),
     ]))
 
     const { result } = renderHook(() => useFetchPage())
 
     await waitFor(() => {
       expect(result.current.providerOptions.some((option) => (
-        option.value === 'plugin_fetch_probe'
+        option.value === 'custom_fetch_probe'
       ))).toBe(true)
     })
 
     expect(result.current.providerOptions.map((option) => option.value)).toEqual([
       'builtin',
-      'plugin_fetch_probe',
+      'custom_fetch_probe',
     ])
     expect(result.current.providerOptions.find((option) => (
-      option.value === 'plugin_fetch_probe'
+      option.value === 'custom_fetch_probe'
     ))).toMatchObject({
-      label: 'Plugin Fetch Probe',
-      description: 'Runtime plugin fetcher',
+      label: 'Custom Fetch Probe',
+      description: 'Runtime fetcher',
       available: true,
       availability: 'available',
     })

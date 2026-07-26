@@ -60,7 +60,7 @@ class SourceCatalogItem(BaseModel):
     config_reason: str = ""
     risk_level: Literal["low", "medium", "high"]
     stability: Literal["stable", "beta", "experimental", "deprecated"]
-    distribution: Literal["core", "extra", "plugin"]
+    distribution: Literal["core", "extra"]
     default_for: list[str] = Field(default_factory=list)
     min_edition: Literal["basic", "pro", "full"]
     edition_available: bool
@@ -84,7 +84,6 @@ class EditionCapabilitiesResponse(BaseModel):
     llm: bool
     warp_modes: list[str] = Field(default_factory=list)
     fetch_providers: list[str] = Field(default_factory=list)
-    plugin_preinstalled: bool
 
 
 class WhoamiResponse(BaseModel):

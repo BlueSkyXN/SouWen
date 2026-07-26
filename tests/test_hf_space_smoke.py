@@ -1360,9 +1360,7 @@ def test_zero_key_search_sources_are_covered_or_explicitly_excluded():
     required_key = set(smoke.EXCLUDED_REQUIRED_KEY_SEARCH_SOURCES)
     self_hosted = set(smoke.EXCLUDED_SELF_HOSTED_SEARCH_SOURCES)
 
-    adapters = [
-        adapter for adapter in all_adapters().values() if "external_plugin" not in adapter.tags
-    ]
+    adapters = list(all_adapters().values())
     search_sources = [adapter for adapter in adapters if "search" in adapter.capabilities]
     zero_key_search = {
         adapter.name for adapter in search_sources if not adapter.resolved_needs_config
@@ -1392,9 +1390,7 @@ def test_zero_key_fetch_providers_are_covered_or_explicitly_excluded():
     skipped = {item["provider"] for item in smoke.ZERO_KEY_FETCH_SKIPPED}
     required_key = set(smoke.EXCLUDED_REQUIRED_KEY_FETCH_PROVIDERS)
 
-    providers = [
-        provider for provider in fetch_providers() if "external_plugin" not in provider.tags
-    ]
+    providers = list(fetch_providers())
     zero_key_fetch = {provider.name for provider in providers if not provider.resolved_needs_config}
     required_fetch = {provider.name for provider in providers if provider.resolved_needs_config}
 
@@ -1412,9 +1408,7 @@ def test_non_search_zero_key_capabilities_are_tested_or_explicitly_excluded():
     non_search = {
         adapter.name
         for adapter in all_adapters().values()
-        if "external_plugin" not in adapter.tags
-        and "search" not in adapter.capabilities
-        and not adapter.resolved_needs_config
+        if "search" not in adapter.capabilities and not adapter.resolved_needs_config
     }
 
     assert non_search <= covered_routes | covered_fetch | skipped_fetch | no_public_endpoint

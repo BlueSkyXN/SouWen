@@ -97,16 +97,6 @@ Crawl4AI 属于 PR required functional check：
 - CI 显式执行 `python -m playwright install --with-deps chromium`，不把 browser 安装隐藏在 Python 脚本里。
 - CI 上传 `crawl4ai-functional.json` 和 `crawl4ai-functional.md`。
 
-## 迁移示例：插件 entry point
-
-插件 entry point 属于 PR required functional check：
-
-- pytest 保留插件契约、loader、manager、handler 注册和错误隔离的 mock/monkeypatch 单测。
-- `scripts/plugin_functional_check.py` 验证真实 `pip install -e examples/minimal-plugin` 后的 entry point discovery、registry 视图、plugin manager 视图和 fetch handler 派发。
-- 示例插件未安装时本地默认 `SKIP`；CI 使用 `--require-installed` 把缺失安装提升为 `FAIL`。
-- 可选外部插件 `superweb2pdf` 缺失、加载失败或未注册 fetch handler 时记录为 `WARN`，不阻断 PR；需要收紧安装/注册时使用 `--require-web2pdf`，需要验证 Playwright/PDF 运行时输出时使用 `--require-web2pdf-runtime`。
-- CI 上传 `plugin-functional.json` 和 `plugin-functional.md`。
-
 ## 迁移示例：HF Space smoke
 
 HF Space smoke 属于 deploy smoke / release gate：

@@ -15,8 +15,8 @@ GitHub Actions 中的 job 应尽量回答单一问题，避免把单元测试、
 | 层级 | 目标 | 典型入口 |
 |---|---|---|
 | 单元测试 | 验证函数、模型、parser、配置合并等局部契约 | `pytest tests/` |
-| 集成测试 | 验证 server、registry、plugin、handler 等模块组合 | `server-test`、`plugin-test` |
-| 功能测试 | 验证真实 runtime / package / plugin 安装后的可用性 | `*_functional_check.py` |
+| 集成测试 | 验证 server、registry、handler 等模块组合 | `server-test` |
+| 功能测试 | 验证真实 runtime / package 安装后的可用性 | `*_functional_check.py` |
 | 冒烟测试 | 验证 CLI、API surface、Docker/HF Space 入口仍活着 | `scripts/ci/run_profile.py`、`hf_space_smoke.py` |
 | 系统测试 | 验证完整用户路径和多 profile 环境组合 | manual / nightly / release gate |
 
@@ -32,8 +32,7 @@ runner 只负责运行场景并输出 JSON/Markdown report。
 |---|---|---|
 | `basic-cli` | `basic` edition 源码 CLI 的 help/version/sources/config 等无网络入口 | `V2 CI`、`HF Space CD / API surface and source CLI` |
 | `pro-cli` | `pro` edition 下 `tests/test_server` 与 `tests/test_hf_space_smoke.py` 的本地 API/smoke 契约 | `V2 CI`、`HF Space CD / API surface and source CLI` |
-| `full-cli` | `edition-full` 核心运行时、doctor/plugin/fetch handler import surface，以及 full-only provider 的 feature matrix 声明 | `V2 CI / v2 full runtime profile`、`CI / 测试 (Python 3.11, ubuntu-latest)` |
-| `plugin` | 本地插件契约、示例插件测试和 entry point discovery | `V2 CI / v2 plugin profile` |
+| `full-cli` | `edition-full` 核心运行时、doctor/fetch handler import surface，以及 full-only provider 的 feature matrix 声明 | `V2 CI / v2 full runtime profile`、`CI / 测试 (Python 3.11, ubuntu-latest)` |
 
 `minimal`、`server`、`full` 仍作为过渡 alias 可用，分别映射到
 `basic-cli`、`pro-cli`、`full-cli`。新文档和新 workflow 应优先使用 canonical
@@ -87,7 +86,6 @@ python3 -m ruff format --check src/ tests/ scripts/
 - 真实外部网站抓取或动态渲染抓取。
 - Hugging Face Space live endpoint / post-deploy smoke。
 - 需要 API key、代理、WARP、自建 URL 的 provider。
-- 外部插件真实安装和 entry point discovery。
 
 专项脚本必须独立运行，不依赖 pytest fixture。运行时安装行为应在 workflow step 中显式呈现，不应隐藏在 Python 脚本里。
 
@@ -191,7 +189,7 @@ Browser Worker、Admin fail-closed、Provider API、OpenAPI checksum 和 Supervi
 分别映射到 `basic-cli` / `pro-cli` / `full-cli`。`pro-cli` 和 `full-cli`
 包含 API server / panel / MCP 入口，workflow 会先构建并校验 `panel.html`；
 `basic-cli` 保留 MCP client、stdio server 和 `builtin` / `mcp` / `site_crawler`
-三个 basic fetch provider，同时物理裁剪 FastAPI server、LLM、full-only plugin 和重型
+三个 basic fetch provider，同时物理裁剪 FastAPI server、LLM 和重型
 抓取模块。`full-cli` 使用
 `edition-full` 核心运行时，`crawl4ai` / `scrapling` 的互斥浏览器栈继续由
 专项 functional gate 验证。
@@ -226,12 +224,10 @@ v2 release candidate 已合回 `main`。`V2 CI` 继续作为 v2 public surface �
 - pro-cli + basic-cli profile：安装 API 测试依赖后运行 `pro-cli` 和 `basic-cli`
   profile，并上传 JSON/Markdown report；`server` / `minimal` alias 仅用于过渡兼容。
 - full runtime profile：安装 `.[dev,edition-full]` 后运行 `full-cli` profile，覆盖核心
-  source、doctor、plugin 与 fetch handler import surface，并校验 full-only provider
+  source、doctor 与 fetch handler import surface，并校验 full-only provider
   仍由 feature matrix 声明；`crawl4ai` / `scrapling` 的互斥浏览器 runtime 由专项
   functional gate 覆盖。`full` alias 仅用于过渡兼容。该 profile 上传 JSON/Markdown
   report。
-- plugin profile：安装源码和 `examples/minimal-plugin` 后运行 `plugin` profile，
-  覆盖插件契约、示例插件测试和 entry point discovery。
 - panel build：`npm ci`、TypeScript check、Vitest、`npm run build:local` 和
   `src/souwen/server/panel.html` 产物验证。
 
@@ -263,7 +259,6 @@ required `FAIL` 视为发布阻断。
 | Scrapling | PR required / release | provider 注册、配置解析、fixture/mock 契约 | PR-required 覆盖真实 `scrapling.fetchers` import + 本地 fixture；release 追加 live dynamic browser 抓取 | `Scrapling 云端功能测试` |
 | Crawl4AI | PR required / release | handler 注册、参数派发、错误聚合契约 | 真实 `crawl4ai.AsyncWebCrawler` import、本地 fixture browser 抓取；release 要求 runtime 缺失直接 FAIL | `Crawl4AI 云端功能测试` |
 | Article extraction | PR required / release | `newspaper` / `readability` handler 注册、参数派发和错误聚合契约 | 真实 `newspaper4k` / `readability-lxml` import + 本地 HTML fixture；release 可用 `--require-runtime` 将缺 runtime 视为 FAIL | `Article extraction 云端功能测试` |
-| Plugin entry point | PR required / release | 插件契约、loader、manager、handler 注册的 mock/monkeypatch 单测 | 真实 `pip install -e examples/minimal-plugin`、entry point discovery、registry/plugin manager/fetch handler 视图、可选 `superweb2pdf` WARN；release 可用 `--require-web2pdf-runtime` 追加本地 HTML fixture → PDF 转换 | `插件云端功能测试` |
 | Zero-key live sources | Nightly / release | Google Patents / Wayback parser、SSRF guard、registry 契约和 mock HTTP 单测 | `scripts/zero_key_functional_check.py --mode live` 对 Google Patents search、Wayback Availability 与 CDX 做真实免 Key 探测；当 Availability API 无 closest 但同 URL 的 CDX 200 快照可证明可用时，availability check 记录 `cdx_fallback` 通过；默认 live 失败为 WARN，release 可加 `--required` | `Zero-key live source gate` |
 | OpenAlex anonymous contract | Manual | OpenAlex 请求参数、anonymous/key 行为和 registry metadata | `scripts/openalex_functional_check.py --mode live --execute --required` 只发送一次匿名 search，主动清除本地配置 key；写入 JSON/Markdown evidence，不进入普通 pytest 或自动 PR gate | Maintainer manual evidence |
 | UniAPI Ark model-bound search | Manual / paid authorization | selected Ark concrete source 的 immutable scheme/model、single-attempt Responses receipt、structured annotations 与受限 fetch evidence | `scripts/uniapi_search_functional_check.py --source <concrete-source> --mode dry-run` 不读凭据、不发网络；仅在已获计费授权后使用 `--mode live --execute --required`。每次只运行一个显式 source，不重试、不自动换 model；报告会保留 source/scheme/model、工具类型、annotation/usage/fetch 计数并删除 key、private gateway base URL、request/response ID、raw/encrypted content | Maintainer manual evidence |

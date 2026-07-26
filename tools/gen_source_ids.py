@@ -1,8 +1,7 @@
 """Print or check source ids derived from the registry.
 
 Source ids are registry adapter names. This helper is intentionally a
-development-time check only; runtime models accept plain strings so plugin
-sources can be registered dynamically.
+development-time check only; runtime models accept plain strings.
 
 Usage:
     python tools/gen_source_ids.py

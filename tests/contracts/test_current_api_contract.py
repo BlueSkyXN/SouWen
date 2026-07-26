@@ -27,11 +27,10 @@ def golden() -> dict:
 
 @pytest.fixture(autouse=True)
 def isolate_current_contract(monkeypatch, tmp_path):
-    """Keep contract checks deterministic and independent of local configuration/plugins."""
+    """Keep contract checks deterministic and independent of local configuration."""
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("USERPROFILE", str(tmp_path))
-    monkeypatch.setenv("SOUWEN_PLUGIN_AUTOLOAD", "0")
     for key in (
         "SOUWEN_USER_PASSWORD",
         "SOUWEN_ADMIN_PASSWORD",

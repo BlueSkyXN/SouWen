@@ -26,12 +26,10 @@ def test_api_reference_mentions_all_public_routes() -> None:
 
 def test_api_reference_fetch_provider_lists_match_registry() -> None:
     """Hand-written fetch provider lists should stay aligned with the registry."""
-    from souwen.registry import external_plugins, fetch_providers
+    from souwen.registry import fetch_providers
 
     docs = Path("docs/api-reference.md").read_text(encoding="utf-8")
-    provider_names = {
-        adapter.name for adapter in fetch_providers() if adapter.name not in external_plugins()
-    }
+    provider_names = {adapter.name for adapter in fetch_providers()}
     provider_lines = [
         line
         for line in docs.splitlines()

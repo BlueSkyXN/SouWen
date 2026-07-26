@@ -41,7 +41,6 @@ import {
   FileText,
   Play,
   Wrench,
-  Puzzle,
 } from 'lucide-react'
 import { useAuthStore } from '@core/stores/authStore'
 import { canAccessNavItem } from '@core/lib/access'
@@ -62,7 +61,6 @@ const NAV_ITEMS = [
   { to: '/sources', icon: Database, labelKey: 'nav.sources' },
   { to: '/network', icon: Wifi, labelKey: 'nav.network' },
   { to: '/warp', icon: Shield, labelKey: 'nav.warp' },
-  { to: '/plugins', icon: Puzzle, labelKey: 'nav.plugins' },
   { to: '/config', icon: Settings, labelKey: 'nav.config' },
 ]
 

@@ -398,16 +398,6 @@ class SouWenConfig(BaseModel):
     # ===== LLM Search 共享 gateway 配置 =====
     llm_search_gateways: dict[str, LLMSearchGatewayConfig] = Field(default_factory=dict)
 
-    # ===== 插件系统 =====
-    plugins: list[str] = Field(
-        default_factory=list,
-        description="手动指定的插件列表，格式为 'module.path:attribute'",
-    )
-    plugin_config: dict[str, dict[str, Any]] = Field(
-        default_factory=dict,
-        description="按插件名传递给第三方插件的配置字典",
-    )
-
     # ===== LLM 摘要 =====
     llm: LLMConfig = Field(default_factory=LLMConfig)
 

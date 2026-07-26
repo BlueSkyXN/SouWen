@@ -23,7 +23,7 @@ ARG SOUWEN_REPO=https://github.com/BlueSkyXN/SouWen.git
 ARG SOUWEN_REF
 ARG WGCF_VERSION=2.2.30
 ARG WIREPROXY_VERSION=1.1.2
-# 可选安装 web2pdf/SuperWeb2PDF 插件及其浏览器运行时
+# 可选安装 A2 待处置的 web2pdf/SuperWeb2PDF 包及其浏览器运行时
 ARG WITH_WEB2PDF=0
 # PyPI 暂无 superweb2pdf 发行，默认使用可解析的 GitHub archive；可用 build-arg 覆盖
 ARG WEB2PDF_PACKAGE=https://github.com/BlueSkyXN/SuperWeb2PDF/archive/d1e1da59d739ad46222b5e726bd6f28b0d0453fa.zip#sha256=f56a380aa3f06d169d3fcc723d5525779519afaff159b37e8a789e50b797c76b

@@ -143,7 +143,7 @@ async def save_config_yaml(body: YamlConfigSaveRequest):
                 raise _retired_auth_config_error(retired_keys)
 
             flat_dict: dict = {}
-            nested_fields = {"sources", "llm", "llm_search_gateways", "plugin_config"}
+            nested_fields = {"sources", "llm", "llm_search_gateways"}
             for key, values in parsed_dict.items():
                 if key in nested_fields and isinstance(values, dict):
                     flat_dict[key] = values

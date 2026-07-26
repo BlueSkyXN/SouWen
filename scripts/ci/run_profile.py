@@ -83,9 +83,6 @@ FULL_IMPORT_CODE = "\n".join(
         "    JinaReaderClient, web_search, fetch_content,",
         ")",
         "from souwen.doctor import check_all",
-        "from souwen.plugin import discover_entrypoint_plugins, ensure_plugins_loaded",
-        "from souwen.web.fetch import register_fetch_handler, get_fetch_handlers",
-        "from souwen.registry.views import external_plugins",
         f"full_fetch_provider_modules = {FULL_FETCH_PROVIDER_MODULES_LITERAL}",
         f"full_core_fetch_providers = set({FULL_CORE_FETCH_PROVIDERS_LITERAL})",
         f"browser_variant_fetch_providers = set({FULL_BROWSER_VARIANT_FETCH_PROVIDERS_LITERAL})",
@@ -102,18 +99,6 @@ FULL_IMPORT_CODE = "\n".join(
         "assert len(available_browser_variants) <= 1, sorted(available_browser_variants)",
         "assert probe['mcp'].declared is True, probe['mcp']",
         "print('full core import surface and browser variant declarations OK')",
-    ]
-)
-
-
-PLUGIN_DISCOVERY_CODE = "\n".join(
-    [
-        "from souwen.plugin import ensure_plugins_loaded",
-        "from souwen.registry.views import external_plugins",
-        "ensure_plugins_loaded()",
-        "plugins = external_plugins()",
-        "assert 'example_echo' in plugins, plugins",
-        "print('example_echo plugin discovered')",
     ]
 )
 
@@ -185,36 +170,6 @@ PROFILE_COMMANDS: Mapping[str, tuple[CommandSpec, ...]] = {
             "core_runtime_and_browser_declarations",
             (PYTHON, "-c", FULL_IMPORT_CODE),
             env=(("SOUWEN_EDITION", "full"),),
-        ),
-    ),
-    "plugin": (
-        CommandSpec(
-            "plugin_contract_tests",
-            (
-                PYTHON,
-                "-m",
-                "pytest",
-                "tests/test_plugin.py",
-                "tests/test_fetch_handlers.py",
-                "-v",
-                "--tb=short",
-            ),
-        ),
-        CommandSpec(
-            "example_plugin_contract",
-            (
-                PYTHON,
-                "-m",
-                "pytest",
-                "examples/minimal-plugin/tests",
-                "-v",
-                "--tb=short",
-            ),
-        ),
-        CommandSpec(
-            "example_plugin_discovery",
-            (PYTHON, "-c", PLUGIN_DISCOVERY_CODE),
-            env=(("SOUWEN_PLUGIN_AUTOLOAD", "1"),),
         ),
     ),
 }
