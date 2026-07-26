@@ -247,7 +247,6 @@ jobs:
             --collect-submodules=souwen.providers \
             --collect-submodules=souwen.registry.sources \
             --collect-submodules=souwen.worker.browser_fetch \
-            --collect-submodules=rich._unicode_data \
             --collect-all=playwright \
             deploy/process/server_main.py
 

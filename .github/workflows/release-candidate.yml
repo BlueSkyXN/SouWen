@@ -403,8 +403,6 @@ jobs:
           "$RUNNER_TEMP/clean-install/bin/python" -m pip install --upgrade pip
           "$RUNNER_TEMP/clean-install/bin/python" -m pip install "${wheel}[${{ matrix.extra }}]"
           "$RUNNER_TEMP/clean-install/bin/python" -m pip check
-          HOME="$RUNNER_TEMP/clean-home" "$RUNNER_TEMP/clean-install/bin/souwen" --version
-          HOME="$RUNNER_TEMP/clean-home" "$RUNNER_TEMP/clean-install/bin/souwen" sources
 
       - name: Probe isolated edition and package contract
         uses: ./.github/actions/clean-wheel-smoke
@@ -773,7 +771,6 @@ jobs:
 
           required_reports = {
               evidence_root / 'hfs-local' / 'api-source-cli-profile.json',
-              evidence_root / 'hfs-local' / 'hf-space-local-pyinstaller.json',
               evidence_root / 'hfs-local' / 'hf-space-local-surface-report.json',
               evidence_root / 'hfs' / 'hf-space-cd-surface-report.json',
               evidence_root / 'hfs' / 'hf-space-cd-capability-report.json',

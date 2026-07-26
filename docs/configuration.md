@@ -16,36 +16,8 @@
 
 ## 快速开始
 
-```bash
-# 在当前目录生成 ./souwen.yaml 配置模板
-souwen config init
-
-# 查看当前配置（敏感字段脱敏显示）
-souwen config show
-
-# 查看/临时修改 HTTP 后端（运行时生效，不持久化）
-souwen config backend --default httpx
-souwen config backend --set duckduckgo=curl_cffi
-
-# 查看/临时修改全局代理与代理池（运行时生效，不持久化）
-souwen config proxy --proxy http://proxy.example:7890
-souwen config proxy --add-pool http://proxy-a.example:7890
-souwen config proxy --remove-pool http://proxy-a.example:7890
-
-# 查看/临时修改单个数据源频道配置（运行时生效，不持久化）
-souwen config source openalex --proxy warp --backend httpx
-souwen config source searxng --base-url https://searxng.example.com
-```
-
-需要用户级配置时，可将生成的 `./souwen.yaml` 复制到 `~/.config/souwen/config.yaml`。
-
-`config backend` 会清理 `--default` 以及 `--set source=backend` 中 `source` / `backend`
-的首尾空白，再校验 `auto` / `curl_cffi` / `httpx`。
-`config proxy` 会清理 `--proxy`、`--add-pool`、`--remove-pool` 的 URL 首尾空白；
-`--proxy` 为空会清除当前全局代理，`--add-pool` / `--remove-pool` 清理后不能为空。
-`config source` 会清理 `<name>`、`--proxy`、`--backend`、`--base-url` 的首尾空白；
-`--proxy` 接受 `inherit` / `none` / `warp` 或合法代理 URL，`--base-url` 仅接受
-`http` / `https` URL。
+从 `souwen.example.yaml` 复制项目 YAML 配置；运行时管理配置通过 admin REST API 完成。
+需要用户级配置时，可将 `./souwen.yaml` 复制到 `~/.config/souwen/config.yaml`。
 
 也可以复制 `.env.example` 为 `.env` 后按需填写：
 
@@ -482,7 +454,7 @@ SOUWEN_LLM_SEARCH_GATEWAYS={"uniapi":{"api_key":"...","base_url":"https://gatewa
 ```
 
 Doctor/catalog/admin source 诊断只报告缺少的配置路径，不显示 API Key。配置对象的日志/`repr`
-与 `souwen config show`、`/api/v1/admin/config` 的配置展示也不会包含 Key 或 private gateway
+`/api/v1/admin/config` 的配置展示也不会包含 Key 或 private gateway
 base URL。完整 foundation contract 见
 [LLM Search Foundation SPEC](./internal/llm-search-foundation-spec.md)。
 

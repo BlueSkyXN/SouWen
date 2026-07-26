@@ -10,32 +10,6 @@ def _workflow_text(relative: str) -> str:
     return (REPO_ROOT / relative).read_text(encoding="utf-8")
 
 
-def test_binary_smoke_covers_tier_aware_target_runner_contracts() -> None:
-    text = (REPO_ROOT / ".github/actions/binary-smoke/action.yml").read_text(encoding="utf-8")
-
-    for check in (
-        "cli/help",
-        "cli/version",
-        "cli/sources",
-        "cli/config-show",
-        "cli/doctor-edition",
-        "basic/mcp-stdio-config",
-        "basic/server-negative",
-        "server/health",
-        "server/readiness",
-        "server/panel",
-        "server/admin-locked",
-        "server/mcp-loopback",
-        "full/article-extraction-imports",
-    ):
-        assert check in text
-
-    assert 'socket.create_connection(("127.0.0.1", port), timeout=0.25)' in text
-    assert "deadline = time.monotonic() + 60" in text
-    assert 'f"serve exit={returncode}, port closed"' in text
-    assert '"49651"' not in text
-
-
 def test_rc2_server_bundle_workflow_is_a_read_only_reusable_proof_builder() -> None:
     text = _workflow_text(".github/workflows/build-pyinstaller-server.yml")
     trigger = text.split("\non:\n", maxsplit=1)[1].split("\nconcurrency:", maxsplit=1)[0]

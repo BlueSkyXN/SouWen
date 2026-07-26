@@ -272,7 +272,7 @@ def test_gutenberg_is_explicit_local_catalog_source() -> None:
     assert entry.capabilities == ("get_detail", "search")
     assert entry.default_for == ()
     assert entry.default_enabled is False
-    assert "souwen catalog import gutenberg" in (entry.usage_note or "")
+    assert "Python importer" in (entry.usage_note or "")
     assert defaults_for("book", "search") == ["open_library"]
 
 
@@ -291,7 +291,7 @@ def test_taiwan_new_books_is_explicit_local_catalog_source_without_path_leak():
     assert entry.capabilities == ("get_detail", "search")
     assert entry.default_for == ()
     assert entry.default_enabled is False
-    assert "souwen catalog import taiwan_new_books" in (entry.usage_note or "")
+    assert "Python importer" in (entry.usage_note or "")
 
     payload = public_source_catalog_payload(SouWenConfig(data_dir="/private/catalog-data"))
     source = next(item for item in payload["sources"] if item["name"] == "taiwan_new_books")

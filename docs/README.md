@@ -19,7 +19,7 @@ Public docs 不要求读者理解历史路径；需要保留背景材料时，�
 
 | 文档 | 用途 |
 |---|---|
-| [getting-started.md](./getting-started.md) | 安装、CLI、Python、API Server 的最短路径 |
+| [getting-started.md](./getting-started.md) | 安装、Python、API Server 的最短路径 |
 | [concepts.md](./concepts.md) | domain、capability、Source Catalog、频道配置等核心概念 |
 | [python-api.md](./python-api.md) | 推荐 Python API 入口与示例 |
 
@@ -27,7 +27,7 @@ Public docs 不要求读者理解历史路径；需要保留背景材料时，�
 
 | 文档 | 用途 |
 |---|---|
-| [source-catalog.md](./source-catalog.md) | `/api/v1/sources`、CLI JSON 和 Panel 共用的公开 Source Catalog 契约 |
+| [source-catalog.md](./source-catalog.md) | `/api/v1/sources` 和 Panel 共用的公开 Source Catalog 契约 |
 | [data-sources.md](./data-sources.md) | 数据源指南与完整清单，由 registry 自动生成 |
 | [configuration.md](./configuration.md) | 配置优先级、`SouWenConfig` 字段、频道级 `sources.<name>` 覆盖 |
 
@@ -35,7 +35,7 @@ Public docs 不要求读者理解历史路径；需要保留背景材料时，�
 
 | 文档 | 用途 |
 |---|---|
-| [api-reference.md](./api-reference.md) | Python API、CLI、REST API、MCP 工具和服务端端点 |
+| [api-reference.md](./api-reference.md) | Python API、REST API、MCP 工具和服务端端点 |
 | [anti-scraping.md](./anti-scraping.md) | TLS 指纹、代理、WARP、SSRF 防护和爬虫限制 |
 | [warp-solutions.md](./warp-solutions.md) | WARP 五种模式和部署选择 |
 

@@ -39,7 +39,6 @@ integration, and an embedded React/Vite management panel.
 | `src/souwen/server/routes/` | Public REST route handlers | yes | Changing non-admin API route behavior, auth dependency use, route timeouts or response wrapping |
 | `src/souwen/server/routes/admin/` | Admin-only config/proxy/WARP/source management endpoints | yes | Changing admin routes, state mutation, secret handling or admin permissions |
 | `src/souwen/server/schemas/` | FastAPI request/response schemas and OpenAPI contract | yes | Changing API fields, validation constraints, aliases or error response shape |
-| `src/souwen/cli/` | Typer CLI command surface | yes | Changing CLI commands, flags, JSON output, help text or exit behavior |
 | `src/souwen/integrations/` | External protocol integrations, mainly MCP | yes | Changing integration entry points, optional dependency behavior or tool wiring |
 | `src/souwen/integrations/mcp/` | MCP stdio/server plus Streamable HTTP/SSE transport | yes | Changing MCP server lifecycle, transports or tools |
 | `panel/` | React/Vite/TypeScript panel, npm scripts and embedded artifact build | yes | Changing frontend build config, dependencies, Vite, package scripts or panel artifact behavior |
@@ -54,7 +53,7 @@ integration, and an embedded React/Vite management panel.
 | `examples/` | Runnable public examples | yes | Changing examples or public API usage samples |
 | `cloud/` | Hugging Face Space and ModelScope deployment wrappers | yes | Changing cloud Dockerfiles, entrypoints, platform README or deployment assumptions |
 | `.github/` | GitHub Actions, prompts, labeler and dependency automation | yes | Changing workflow jobs, permissions, CI gates, deploy/release triggers or prompts |
-| `cli.py`, `pyproject.toml`, `hatch_build.py` | Root CLI shim, package metadata and wheel artifact hook | no | Changing source-run CLI behavior, packaging metadata, optional extras or wheel artifact behavior |
+| `pyproject.toml`, `hatch_build.py` | Package metadata and wheel artifact hook | no | Changing packaging metadata, optional extras or wheel artifact behavior |
 | `Dockerfile`, `docker-compose.yml`, `entrypoint.sh` | Root container runtime, WARP startup and compose wiring | no | Changing Docker build/runtime, exposed ports, WARP startup, healthcheck or root image behavior |
 | `souwen.example.yaml`, `.env.example` | Tracked example config and environment surface | no | Adding/removing config fields, auth defaults, WARP settings or source credential examples |
 | `local/` | Gitignored local planning/review notes | no | Usually do not edit unless the user explicitly asks |
@@ -120,7 +119,7 @@ There is no standalone frontend typecheck script; `npm run build` runs
   production secret, private account or local HOME config dependency.
 - Put real package/browser/external smoke in functional scripts or GitHub
   Actions jobs, not ordinary pytest.
-- Treat root packaging and runtime files (`pyproject.toml`, `cli.py`,
+- Treat root packaging and runtime files (`pyproject.toml`,
   `hatch_build.py`, `Dockerfile`, `entrypoint.sh`, `souwen.example.yaml`) as
   cross-surface changes; check affected docs, workflows and tests before edits.
 - For generated output, modify the source/generator and rerun the documented

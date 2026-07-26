@@ -690,14 +690,10 @@ def test_release_manifest_builder_accepts_only_exact_four_server_bundle_evidence
         exec(compile(manifest_source, "release-candidate.yml:duplicate-smoke", "exec"), {})
 
 
-def test_hfs_deployment_keeps_one_basic_pyinstaller_smoke() -> None:
+def test_hfs_deployment_does_not_keep_a_retired_cli_binary_smoke() -> None:
     text = _workflow("deploy-hf-space.yml")
-    pyinstaller = _job(text, "pyinstaller-cli", "docker-hfs")
-
-    assert "name: PyInstaller CLI smoke" in pyinstaller
-    assert 'pip install -e ".[edition-basic]"' in pyinstaller
-    assert "profile: basic-cli" in pyinstaller
-    assert "builder: pyinstaller" in pyinstaller
+    assert "pyinstaller-cli" not in text
+    assert "souwen-local-pyinstaller" not in text
 
 
 def test_hfs_required_fetch_fixture_change_triggers_workflow() -> None:
@@ -800,14 +796,6 @@ def test_release_bundle_has_four_servers_openapi_supply_chain_assets_and_attesta
         assert hfs_evidence_field in text
 
 
-def test_binary_smoke_preserves_help_tracebacks_for_cross_platform_diagnostics() -> None:
-    text = (REPO_ROOT / ".github/actions/binary-smoke/action.yml").read_text(encoding="utf-8")
-    assert 'if name == "cli/help" and len(detail) > 4000:' in text
-    assert "... traceback middle omitted ..." in text
-    assert 'detail = f"{detail[:750]}\\n' in text
-    assert '{detail[-3200:]}"' in text
-
-
 def test_ci_has_stable_aggregate_and_required_readiness_gates() -> None:
     text = _workflow("ci.yml")
     assert "name: CI / aggregate" in text
@@ -831,7 +819,7 @@ def test_ci_has_stable_aggregate_and_required_readiness_gates() -> None:
     assert "pip-audit.json" in text
     assert "npm-audit.json" in text
     assert "--mode fixture" in text
-    for threshold in ("1.50", "2.00", "2.50"):
+    for threshold in ("1.50", "2.50"):
         assert threshold in text
     for dockerfile in ("Dockerfile", "cloud/hfs/Dockerfile", "cloud/modelscope/Dockerfile"):
         assert f"dockerfile: {dockerfile}" in text

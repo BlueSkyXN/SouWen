@@ -79,5 +79,5 @@ def test_explicit_uninitialized_gutenberg_returns_safe_503(client, monkeypatch, 
     response = client.get("/api/v1/search/book", params={"q": "Alice", "sources": "gutenberg"})
 
     assert response.status_code == 503
-    assert "souwen catalog import gutenberg <rdf-input>" in response.json()["detail"]
+    assert "Python importer" in response.json()["detail"]
     assert str(tmp_path) not in response.text

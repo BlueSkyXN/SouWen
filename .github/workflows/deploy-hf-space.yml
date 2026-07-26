@@ -56,7 +56,6 @@ on:
       - "souwen.example.yaml"
       - "entrypoint.sh"
       - "scripts/ci/**"
-      - "cli.py"
       - "scripts/hf_space_smoke.py"
       - "scripts/fixtures/hf-space-fetch-probe.html"
       - "scripts/fixtures/hf-space-browser-probe.html"
@@ -193,80 +192,6 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
-  pyinstaller-cli:
-    name: PyInstaller CLI smoke
-    runs-on: ubuntu-latest
-    timeout-minutes: 40
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
-
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-          cache: pip
-
-      - name: Install package and PyInstaller
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[edition-basic]"
-          pip install "setuptools<82" pyinstaller
-
-      - name: Materialize immutable source provenance
-        run: >-
-          printf '%s\n'
-          '${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}'
-          > runtime.source.sha
-
-      - name: Build basic executable with MCP retained
-        run: |
-          pyinstaller --onefile --clean --name souwen-local \
-            --paths src \
-            --add-data "runtime.source.sha:." \
-            --exclude-module=souwen.server \
-            --exclude-module=souwen.llm \
-            --exclude-module=fastapi \
-            --exclude-module=souwen.web.crawl4ai_fetcher \
-            --exclude-module=souwen.web.scrapling_fetcher \
-            --exclude-module=souwen.web.newspaper_fetcher \
-            --exclude-module=souwen.web.readability_fetcher \
-            --exclude-module=pkg_resources \
-            --exclude-module=setuptools \
-            --hidden-import=souwen.integrations.mcp_server \
-            --collect-submodules=souwen.integrations.mcp \
-            --collect-submodules=mcp \
-            --collect-submodules=souwen.registry.sources \
-            --collect-submodules=rich._unicode_data \
-            cli.py
-
-      - name: Run tier-aware basic binary smoke
-        uses: ./.github/actions/binary-smoke
-        with:
-          binary: ./dist/souwen-local
-          profile: basic-cli
-          edition: basic
-          builder: pyinstaller
-          candidate-sha: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
-          report-json: artifacts/hf-space-local-pyinstaller.json
-          report-markdown: artifacts/hf-space-local-pyinstaller.md
-
-      - name: Upload PyInstaller smoke evidence
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: hf-space-local-pyinstaller-report
-          path: artifacts/
-          if-no-files-found: warn
-          retention-days: 7
-
-      - name: Upload PyInstaller CLI artifact
-        uses: actions/upload-artifact@v7
-        with:
-          name: souwen-local-pyinstaller-cli
-          path: dist/souwen-local
-          retention-days: 7
-
   docker-hfs:
     name: HF Space Docker surface smoke
     runs-on: ubuntu-latest
@@ -385,7 +310,7 @@ jobs:
         needs.detect-changes.outputs.deploy_changed == 'true' &&
         inputs.deploy_hfs
       }}
-    needs: [detect-changes, api-source-cli, pyinstaller-cli, docker-hfs]
+    needs: [detect-changes, api-source-cli, docker-hfs]
     environment:
       name: hf
       deployment: false

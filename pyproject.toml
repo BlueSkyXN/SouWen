@@ -26,17 +26,15 @@ classifiers = [
     "Topic :: Internet :: WWW/HTTP :: Indexing/Search",
     "Typing :: Typed",
 ]
-# 核心依赖：HTTP 客户端、数据验证、重试机制、环境变量、CLI、配置解析等
+# 核心依赖：HTTP 客户端、数据验证、重试机制、环境变量与配置解析等
 dependencies = [
     "httpx[socks]>=0.27.0",
     "pydantic>=2.0",
     "tenacity>=8.0",
     "python-dotenv>=1.0",
-    "rich>=13.0",
     "lxml>=5.0",
     "beautifulsoup4>=4.12",
     "defusedxml>=0.7.0",
-    "typer>=0.12",
     "pyyaml>=6.0",
     "aiosqlite>=0.20.0",
 ]
@@ -47,9 +45,6 @@ Repository = "https://github.com/BlueSkyXN/SouWen"
 Documentation = "https://github.com/BlueSkyXN/SouWen/tree/main/docs"
 Issues = "https://github.com/BlueSkyXN/SouWen/issues"
 Changelog = "https://github.com/BlueSkyXN/SouWen/blob/main/CHANGELOG.md"
-
-[project.scripts]
-souwen = "souwen.cli:app"
 
 # 可选依赖组：根据用途安装不同的依赖集合
 [project.optional-dependencies]

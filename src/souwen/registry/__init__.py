@@ -7,7 +7,7 @@
   2. 在 sources package 里 _reg(SourceAdapter(...))
   3. （若需 API Key）在 config.py 的 SouWenConfig 加字段
 
-所有其他消费者（门面 / CLI / 服务端 / 前端 / 文档）都从注册表派生。
+所有其他消费者（门面 / 服务端 / 前端 / 文档）都从注册表派生。
 
 公开 API：
     - SourceAdapter / MethodSpec / DOMAINS / FETCH_DOMAIN / CAPABILITIES / INTEGRATIONS

@@ -12,7 +12,7 @@ cd SouWen
 pip install -e ".[edition-pro]"
 ```
 
-只使用 Python library 和 CLI 时可以先安装核心包：
+只使用 Python library 时可以先安装核心包：
 
 ```bash
 pip install -e .
@@ -33,19 +33,6 @@ pip install -e ".[edition-pro]"            # API 服务 + MCP + TLS 指纹 + scr
 pip install -e ".[edition-full-crawl4ai]"
 pip install -e ".[edition-full-scrapling]"
 ```
-
-## CLI 搜索
-
-```bash
-souwen search paper "transformer" --limit 5
-souwen search patent "quantum computing" --limit 5
-souwen search web "python asyncio" --limit 5
-souwen sources --available-only
-```
-
-`souwen sources --json` 返回与 `/api/v1/sources` 一致的 Source Catalog
-结构，适合前端、脚本和部署检查复用。`--available-only` 只保留静态
-edition/config/credentials gate 与当前 runtime importability 同时通过的条目；它不执行联网探测。
 
 ## Python 调用
 
@@ -69,7 +56,7 @@ asyncio.run(main())
 ## API Server
 
 ```bash
-SOUWEN_ADMIN_PASSWORD=adminpass souwen serve --host 0.0.0.0 --port 8000
+SOUWEN_ADMIN_PASSWORD=adminpass uvicorn souwen.server.app:app --host 0.0.0.0 --port 8000
 ```
 
 常用端点：
