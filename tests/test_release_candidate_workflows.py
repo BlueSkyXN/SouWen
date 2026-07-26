@@ -1081,6 +1081,10 @@ def test_clean_wheel_composite_enforces_runtime_and_package_boundaries() -> None
     for contract in (
         "package/panel",
         "package/no-retired-imports",
+        "sdk/sync-client",
+        "sdk/async-client",
+        "sdk/api-major",
+        "sdk/openapi-sha256",
         "sdk/no-fastapi",
         "server/import",
         "server/import-{module}",
@@ -1090,3 +1094,5 @@ def test_clean_wheel_composite_enforces_runtime_and_package_boundaries() -> None
         assert contract in text
     assert "souwen.editions" not in text
     assert "CLEAN_WHEEL_PROFILE" in text
+    assert "from souwen import AsyncSouWenClient, SouWenClient" in text
+    assert "from souwen.delivery.client_sdk import OPENAPI_SHA256, SUPPORTED_API_MAJOR" in text

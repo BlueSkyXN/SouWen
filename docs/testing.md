@@ -31,7 +31,7 @@ runner 只负责运行场景并输出 JSON/Markdown report。
 | Profile | 覆盖内容 | 运行位置 |
 |---|---|---|
 | `server-contract` | target Server 的路由、认证、OpenAPI/API-major、HFS local surface 与 Panel runtime 前置契约 | V2 CI、HF Space CD local preflight |
-| `sdk-contract` | target-only OpenAPI artifact 的可重复生成、semantic gate、DTO/API-major 前置验证；不宣称 generated SDK 已完成 | V2 CI、HF Space CD local preflight |
+| `sdk-contract` | target-only OpenAPI 与 generated Python sync/async SDK 的可重复生成、semantic/API-major、auth/error/clean import 合同 | V2 CI、HF Space CD local preflight |
 | `provider-runtime` | 内部 optional provider 的 importability、feature matrix 与互斥 browser runtime | CI / provider-runtime gate |
 
 `server-contract` 与 `sdk-contract` 是 A3c 的产品 contract 名称；
@@ -221,8 +221,8 @@ v2 release candidate 已合回 `main`。`V2 CI` 继续作为 v2 public surface �
   V2 readiness summary fail closed 汇总。
 - server contract：安装 API 测试依赖后运行 `server-contract`，上传 target Server
   JSON/Markdown evidence。它覆盖 local API surface，不证明外部源在线。
-- SDK contract：验证 target OpenAPI、DTO 和 API-major prerequisite；在 generated SDK
-  实际生成并发布前，它不是 generated-SDK completion evidence。
+- SDK contract：验证 target OpenAPI、generated Python bindings freshness、sync/async operation、
+  API-major preflight、auth/error/request-ID、无自动 retry 与 clean import；TypeScript SDK 仍由 C2c 交付。
 - provider runtime：使用明确 provider extras 覆盖核心 source、doctor 与
   fetch handler import surface，并校验 optional provider declaration；`crawl4ai` /
   `scrapling` 的互斥 browser runtime 仍由专项 functional gate 覆盖。

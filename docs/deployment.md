@@ -184,9 +184,9 @@ PYTHONPATH=src python3 scripts/ci/run_profile.py --profile server-contract
 ```
 
 `server-contract` 是本地部署前的 Server contract 验证。`sdk-contract` 验证 frozen
-target-only OpenAPI artifact 的可重复生成、DTO 与 API-major prerequisite；它不表示
-generated SDK 已经完成。Server runtime 通过明确 leaf extras 安装，不使用 product tier 或
-edition package matrix。
+target-only OpenAPI 与 generated Python sync/async SDK 的可重复生成、API-major preflight、
+auth/error/request-ID 和 clean import。Server runtime 通过明确 leaf extras 安装，不使用
+product tier 或 edition package matrix。
 
 PR 与直接运行 `HF Space CD` 只执行 local preflight。远端 promotion 只能由 central RC
 workflow 显式传 `deploy_hfs=true`，并按 [hf-space-cd.md](./hf-space-cd.md) 完成 private edge、

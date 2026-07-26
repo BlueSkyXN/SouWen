@@ -74,53 +74,36 @@ pip install -e ".[server,tls,web,robots,scraper,scrapling]"
 
 ## 🚀 快速开始
 
-### Python 库
+### Python REST SDK
 
 ```python
-import asyncio
-from souwen import search_papers, search_patents
+from souwen import SouWenClient
+from souwen.delivery.client_sdk import SearchRequest
 
-async def main():
-    # 便捷入口
-    resp = await search_papers("quantum computing", per_page=5)
-    for r in resp[0].results:
-        print(r.title, "—", r.doi)
-
-    # 应用 API
-    from souwen.search import search, search_all
-    from souwen.web.fetch import fetch_content
-    from souwen.web.wayback import WaybackClient
-
-    # 按 domain + capability 派发
-    papers = await search("transformer", domain="paper", limit=5)
-    articles = await search("AI news", domain="web", capability="search_news")
-    results = await search_all("quantum", domains=["paper", "web", "knowledge"])
-
-    # 抓取
-    resp = await fetch_content(["https://example.com"], providers=["builtin"])
-
-    # Wayback 归档
-    async with WaybackClient() as wayback:
-        snapshots = await wayback.query_snapshots("https://example.com")
-
-asyncio.run(main())
+with SouWenClient("http://127.0.0.1:8000", token="your-user-token") as client:
+    page = client.search(SearchRequest(query="quantum computing", domains=["paper"]))
+    for item in page.items:
+        print(item.title, item.url)
 ```
+
+SDK 同时提供 `AsyncSouWenClient`，并在首次业务请求前以 `/healthz` 校验 API major 2 与
+target rollout。完整认证、HFS 双 token 和错误处理见 [Python SDK 文档](docs/python-sdk.md)。
 
 ### API Server
 
 ```bash
-SOUWEN_ADMIN_PASSWORD=adminpass uvicorn souwen.server.app:app --host 0.0.0.0 --port 8000
+SOUWEN_V2_ROLLOUT=target SOUWEN_USER_PASSWORD=userpass SOUWEN_ADMIN_PASSWORD=adminpass \
+  uvicorn souwen.server.app:app --host 0.0.0.0 --port 8000
 ```
 
 主要端点：
 
 ```bash
-curl "http://localhost:8000/api/v1/search/paper?q=transformer&per_page=5"
-curl "http://localhost:8000/api/v1/search/web?q=python"
-curl "http://localhost:8000/api/v1/fetch" \
-  -H "Authorization: Bearer adminpass" \
+curl "http://localhost:8000/api/v1/search" \
+  -H "Authorization: Bearer userpass" \
+  -H "X-SouWen-API-Major: 2" \
   -H "Content-Type: application/json" \
-  -d '{"urls":["https://example.com"]}'
+  -d '{"query":"transformer","domains":["paper"]}'
 curl "http://localhost:8000/api/v1/wayback/cdx?url=https://example.com"
 curl "http://localhost:8000/api/v1/sources"
 ```

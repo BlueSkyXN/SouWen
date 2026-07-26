@@ -34,29 +34,28 @@ pip install -e ".[server,tls,web,robots,scraper,crawl4ai]"
 pip install -e ".[server,tls,web,robots,scraper,scrapling]"
 ```
 
-## Python 调用
+## Python REST SDK
 
 ```python
-import asyncio
-
-from souwen.search import search, search_all
-from souwen.web.fetch import fetch_content
+from souwen import SouWenClient
+from souwen.delivery.client_sdk import SearchRequest
 
 
-async def main() -> None:
-    papers = await search("transformer", domain="paper", limit=5)
-    mixed = await search_all("quantum", domains=["paper", "web", "knowledge"], per_domain_limit=5)
-    pages = await fetch_content(["https://example.com"], providers=["builtin"])
-    print(papers[0].source, len(mixed), pages.total_ok)
-
-
-asyncio.run(main())
+with SouWenClient("http://127.0.0.1:8000", token="your-user-token") as client:
+    result = client.search(SearchRequest(query="transformer", domains=["paper"]))
+    print([item.title for item in result.items])
 ```
+
+异步代码使用 `AsyncSouWenClient`。SDK 只暴露 frozen OpenAPI 中的 Search、LLM Search、Fetch、
+Providers 与探针方法；没有任意 path/raw JSON 逃生口。首次业务调用先自动执行 `/healthz`
+preflight，并在解析响应前验证 API major、target rollout 和 request ID。详见
+[python-sdk.md](./python-sdk.md)。
 
 ## API Server
 
 ```bash
-SOUWEN_ADMIN_PASSWORD=adminpass uvicorn souwen.server.app:app --host 0.0.0.0 --port 8000
+SOUWEN_V2_ROLLOUT=target SOUWEN_USER_PASSWORD=userpass SOUWEN_ADMIN_PASSWORD=adminpass \
+  uvicorn souwen.server.app:app --host 0.0.0.0 --port 8000
 ```
 
 常用端点：
