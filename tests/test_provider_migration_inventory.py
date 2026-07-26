@@ -35,8 +35,46 @@ BATCH_TWO_MIGRATED_SOURCE_IDS = {
     "zenodo",
     "zotero",
 }
+BATCH_THREE_MIGRATED_SOURCE_IDS = {
+    "aliyun_iqs",
+    "apify",
+    "brave_api",
+    "cloudflare",
+    "deepwiki",
+    "diffbot",
+    "exa",
+    "facebook",
+    "feishu_drive",
+    "firecrawl",
+    "github",
+    "jina_reader",
+    "kimi_code",
+    "linkup",
+    "linuxdo",
+    "metaso",
+    "perplexity",
+    "reddit",
+    "scraperapi",
+    "scrapingbee",
+    "scrapingdog",
+    "scrapfly",
+    "serpapi",
+    "serper",
+    "stackoverflow",
+    "tavily",
+    "twitter",
+    "wayback",
+    "wikipedia",
+    "xcrawl",
+    "youtube",
+    "zenrows",
+    "zhipuai",
+}
 MIGRATED_SOURCE_IDS = (
-    inventory.SAMPLE_SOURCE_IDS | BATCH_ONE_MIGRATED_SOURCE_IDS | BATCH_TWO_MIGRATED_SOURCE_IDS
+    inventory.SAMPLE_SOURCE_IDS
+    | BATCH_ONE_MIGRATED_SOURCE_IDS
+    | BATCH_TWO_MIGRATED_SOURCE_IDS
+    | BATCH_THREE_MIGRATED_SOURCE_IDS
 )
 
 
@@ -58,8 +96,8 @@ def test_inventory_partitions_the_current_registry_into_six_batches() -> None:
     }
     assert data["batch_counts"] == inventory.EXPECTED_COUNTS
     assert data["status_counts"] == {
-        "migrated": 32,
-        "pending": 76,
+        "migrated": 65,
+        "pending": 43,
         "retirement_pending": 2,
         "incomplete": 0,
     }
@@ -105,6 +143,10 @@ def test_inventory_partitions_the_current_registry_into_six_batches() -> None:
     assert unpaywall["migration_status"] == "retirement_pending"
     assert unpaywall["target_disposition"] == "fetch_internal_enrichment"
     assert "fourth target capability" in unpaywall["disposition_reason"]
+    records = {record["source_id"]: record for record in data["records"]}
+    assert "find_similar" in records["exa"]["disposition_reason"]
+    assert "archive_save" in records["wayback"]["disposition_reason"]
+    assert "get_transcript" in records["youtube"]["disposition_reason"]
 
 
 def test_inventory_is_value_free_and_matches_existing_manifest_identities() -> None:

@@ -83,8 +83,8 @@ class ScriptedFetchClient:
         self.entered = asyncio.Event()
         self.cancelled = asyncio.Event()
 
-    async def get_fulltext(self, paper_id: str) -> Any:
-        self.calls.append(paper_id)
+    async def _dispatch(self, *args: Any, **kwargs: Any) -> Any:
+        self.calls.append(repr((args, kwargs)))
         if self.outcome is BLOCK:
             self.entered.set()
             try:
@@ -95,6 +95,24 @@ class ScriptedFetchClient:
         if isinstance(self.outcome, BaseException):
             raise self.outcome
         return self.outcome
+
+    async def get_fulltext(self, paper_id: str) -> Any:
+        return await self._dispatch(paper_id)
+
+    async def fetch(self, *args: Any, **kwargs: Any) -> Any:
+        return await self._dispatch(*args, **kwargs)
+
+    async def contents(self, *args: Any, **kwargs: Any) -> Any:
+        return await self._dispatch(*args, **kwargs)
+
+    async def extract(self, *args: Any, **kwargs: Any) -> Any:
+        return await self._dispatch(*args, **kwargs)
+
+    async def reader(self, *args: Any, **kwargs: Any) -> Any:
+        return await self._dispatch(*args, **kwargs)
+
+    async def scrape(self, *args: Any, **kwargs: Any) -> Any:
+        return await self._dispatch(*args, **kwargs)
 
     async def close(self) -> None:
         self.close_count += 1

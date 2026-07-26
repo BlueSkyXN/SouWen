@@ -20,8 +20,11 @@ _reg(
         name="reddit",
         domain="social",
         integration="open_api",
-        description="Reddit 帖子搜索",
-        config_field=None,
+        description="Reddit 帖子搜索（可选 OAuth2 凭据）",
+        config_field="reddit_client_id",
+        credential_fields=("reddit_client_id", "reddit_client_secret"),
+        needs_config=False,
+        optional_credential_effect="rate_limit",
         client_loader=lazy("souwen.web.reddit:RedditClient"),
         methods={"search": MethodSpec("search", _P_MAX_RESULTS)},
     )

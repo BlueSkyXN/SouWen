@@ -109,6 +109,14 @@ def test_search_and_llm_requests_reject_blank_and_duplicate_providers() -> None:
         SearchFilters(year_from=2026, year_to=2025)
 
 
+@pytest.mark.parametrize(
+    "domain",
+    ("social", "office", "developer", "cn_tech", "knowledge"),
+)
+def test_search_request_preserves_extended_registry_domains(domain: str) -> None:
+    assert SearchRequest(query="fixture", domains=(domain,)).domains == (domain,)
+
+
 def test_llm_result_requires_evidence_and_always_serializes_nullable_usage() -> None:
     result = LLMSearchResult(
         query="fixture query",

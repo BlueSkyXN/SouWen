@@ -208,15 +208,33 @@ def test_spec_manifest_validation_fails_closed_on_each_contract_axis(
         validate_spec_manifest(mismatched, manifest)
 
 
-def test_spec_accepts_each_canonical_search_domain() -> None:
-    web_spec = RestJsonProviderSpec.model_validate(
+@pytest.mark.parametrize(
+    "domain",
+    (
+        "paper",
+        "book",
+        "research_output",
+        "patent",
+        "web",
+        "news",
+        "images",
+        "videos",
+        "social",
+        "office",
+        "developer",
+        "cn_tech",
+        "knowledge",
+    ),
+)
+def test_spec_accepts_each_canonical_search_domain(domain: str) -> None:
+    spec = RestJsonProviderSpec.model_validate(
         {
             **ERIC_REST_SPEC.model_dump(mode="python"),
-            "provider_id": "web-fixture",
-            "domain": "web",
+            "provider_id": "domain-fixture",
+            "domain": domain,
         }
     )
-    assert web_spec.domain == "web"
+    assert spec.domain == domain
 
 
 def test_legacy_spec_truthfully_declares_non_json_https_transport() -> None:
@@ -247,6 +265,36 @@ def test_legacy_spec_rejects_unreviewed_transport_hosts() -> None:
             adapter_id="fixture-search",
             bridge_reason="fixture",
             transport={"scheme": "https", "host": "127.0.0.1", "protocol": "json"},
+        )
+
+
+def test_legacy_spec_declares_each_host_in_a_reviewed_multi_transport_flow() -> None:
+    spec = LegacySearchProviderSpec(
+        provider_id="fixture",
+        adapter_id="fixture-search",
+        bridge_reason="token exchange and API execution use different reviewed hosts",
+        transport=LegacyTransportDeclaration(
+            host="auth.example.test",
+            protocol="json",
+            operations=({"method": "POST", "endpoint": "/token"},),
+        ),
+        additional_transports=(
+            LegacyTransportDeclaration(
+                host="api.example.test",
+                protocol="json",
+                operations=({"method": "GET", "endpoint": "/search"},),
+            ),
+        ),
+    )
+
+    assert spec.hosts == ("auth.example.test", "api.example.test")
+    with pytest.raises(ValidationError, match="hosts must be unique"):
+        LegacySearchProviderSpec(
+            provider_id="fixture",
+            adapter_id="fixture-search",
+            bridge_reason="duplicate host",
+            transport=spec.transport,
+            additional_transports=(spec.transport,),
         )
 
 

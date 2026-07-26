@@ -8,90 +8,57 @@ mapping in a draft remains
 
 - Schema version: `1`
 - Generator version: `b0-provider-spec-drafts-v1`
-- Draft count: `76`
-- Existing Provider v2 specs: `32`
+- Draft count: `43`
+- Existing Provider v2 specs: `65`
 - Non-Provider dispositions: `2`
-- Inventory fingerprint: `c319e412b60a7e8e86fd249d2385b9e6eea81add230c5c8efc01be5807a6debb`
-- Combined input fingerprint: `36c4fa82e84f7927d5240a931e3d12d33e89e9da31d3ad52a9d4d5a49770580f`
+- Inventory fingerprint: `3b1c46bdc81fb1b6e9e441adbb9a202bd0d6f5a15786a2063092c1931cd08831`
+- Combined input fingerprint: `c6f54b322daa924967f6d340b8d92f3cfe9fb6d5bdc3669b508b1575af78dc89`
 
 | Source | Batch | Status | Capabilities | Auth | Legacy loader | Existing manifest | Mapping review |
 |---|---|---|---|---|---|---|---|
-| `aliyun_iqs` | `batch-3` | `pending` | `search` | `required` | `lazy[souwen.web.aliyun_iqs:AliyunIQSClient]` | — | required |
-| `apify` | `batch-3` | `pending` | `fetch` | `required` | `lazy[souwen.web.apify:ApifyClient]` | — | required |
 | `baidu` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.baidu:BaiduClient]` | — | required |
 | `bilibili` | `batch-5` | `pending` | `get_detail`, `search`, `search_articles`, `search_users` | `optional` | `lazy[souwen.web.bilibili:BilibiliClient]` | — | required |
 | `bing` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.bing:BingClient]` | — | required |
 | `bing_cn` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.bing_cn:BingCnClient]` | — | required |
 | `brave` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.brave:BraveClient]` | — | required |
-| `brave_api` | `batch-3` | `pending` | `search` | `required` | `lazy[souwen.web.brave_api:BraveApiClient]` | — | required |
-| `cloudflare` | `batch-3` | `pending` | `fetch` | `required` | `lazy[souwen.web.cloudflare_browser:CloudflareBrowserClient]` | — | required |
 | `community_cn` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.community_cn:CommunityCnClient]` | — | required |
 | `coolapk` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.coolapk:CoolapkClient]` | — | required |
 | `crawl4ai` | `batch-5` | `pending` | `fetch` | `none` | `lazy[souwen.web.crawl4ai_fetcher:Crawl4AIFetcherClient]` | — | required |
 | `csdn` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.csdn:CSDNClient]` | — | required |
 | `datacite` | `batch-4` | `pending` | `search` | `none` | `lazy[souwen.research_output.datacite:DataCiteClient]` | — | required |
-| `deepwiki` | `batch-3` | `pending` | `fetch` | `none` | `lazy[souwen.web.deepwiki:DeepWikiClient]` | — | required |
-| `diffbot` | `batch-3` | `pending` | `fetch` | `required` | `lazy[souwen.web.diffbot:DiffbotClient]` | — | required |
 | `doab` | `batch-4` | `pending` | `get_detail`, `search` | `none` | `lazy[souwen.book.doab:DOABClient]` | — | required |
 | `duckduckgo` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.duckduckgo:DuckDuckGoClient]` | — | required |
 | `duckduckgo_images` | `batch-5` | `pending` | `search_images` | `none` | `lazy[souwen.web.ddg_images:DuckDuckGoImagesClient]` | — | required |
 | `duckduckgo_news` | `batch-5` | `pending` | `search_news` | `none` | `lazy[souwen.web.ddg_news:DuckDuckGoNewsClient]` | — | required |
 | `duckduckgo_videos` | `batch-5` | `pending` | `search_videos` | `none` | `lazy[souwen.web.ddg_videos:DuckDuckGoVideosClient]` | — | required |
-| `exa` | `batch-3` | `pending` | `exa:find_similar`, `fetch`, `search` | `required` | `lazy[souwen.web.exa:ExaClient]` | — | required |
-| `facebook` | `batch-3` | `pending` | `search` | `required` | `lazy[souwen.web.facebook:FacebookClient]` | — | required |
-| `feishu_drive` | `batch-3` | `pending` | `search` | `required` | `lazy[souwen.web.feishu_drive:FeishuDriveClient]` | — | required |
 | `figshare` | `batch-4` | `pending` | `get_detail`, `search` | `none` | `lazy[souwen.research_output.figshare:FigshareClient]` | — | required |
-| `firecrawl` | `batch-3` | `pending` | `fetch`, `search` | `required` | `lazy[souwen.web.firecrawl:FirecrawlClient]` | — | required |
-| `github` | `batch-3` | `pending` | `search` | `optional` | `lazy[souwen.web.github:GitHubClient]` | — | required |
 | `google` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.google:GoogleClient]` | — | required |
 | `gutenberg` | `batch-4` | `pending` | `get_detail`, `search` | `none` | `lazy[souwen.local_catalog.gutenberg:GutenbergLocalCatalogClient]` | — | required |
 | `hostloc` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.hostloc:HostLocClient]` | — | required |
 | `internet_archive` | `batch-4` | `pending` | `get_detail`, `search` | `none` | `lazy[souwen.book.internet_archive:InternetArchiveClient]` | — | required |
-| `jina_reader` | `batch-3` | `pending` | `fetch` | `optional` | `lazy[souwen.web.jina_reader:JinaReaderClient]` | — | required |
 | `juejin` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.juejin:JuejinClient]` | — | required |
-| `kimi_code` | `batch-3` | `pending` | `fetch`, `search` | `required` | `lazy[souwen.web.kimi_code:KimiCodeClient]` | — | required |
 | `library_of_congress` | `batch-4` | `pending` | `get_detail`, `search` | `none` | `lazy[souwen.book.library_of_congress:LibraryOfCongressClient]` | — | required |
 | `librivox` | `batch-4` | `pending` | `get_detail`, `search` | `none` | `lazy[souwen.book.librivox:LibriVoxClient]` | — | required |
-| `linkup` | `batch-3` | `pending` | `search` | `required` | `lazy[souwen.web.linkup:LinkupClient]` | — | required |
-| `linuxdo` | `batch-3` | `pending` | `search` | `none` | `lazy[souwen.web.linuxdo:LinuxDoClient]` | — | required |
-| `metaso` | `batch-3` | `pending` | `fetch`, `search` | `required` | `lazy[souwen.web.metaso:MetasoClient]` | — | required |
 | `mojeek` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.mojeek:MojeekClient]` | — | required |
 | `newspaper` | `batch-5` | `pending` | `fetch` | `none` | `lazy[souwen.web.newspaper_fetcher:NewspaperFetcherClient]` | — | required |
 | `nodeseek` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.nodeseek:NodeSeekClient]` | — | required |
 | `oapen` | `batch-4` | `pending` | `get_detail`, `search` | `none` | `lazy[souwen.book.oapen:OAPENClient]` | — | required |
 | `open_library` | `batch-4` | `pending` | `get_detail`, `search` | `none` | `lazy[souwen.book.open_library:OpenLibraryClient]` | — | required |
-| `perplexity` | `batch-3` | `pending` | `search` | `required` | `lazy[souwen.web.perplexity:PerplexityClient]` | — | required |
 | `readability` | `batch-5` | `pending` | `fetch` | `none` | `lazy[souwen.web.readability_fetcher:ReadabilityFetcherClient]` | — | required |
-| `reddit` | `batch-3` | `pending` | `search` | `none` | `lazy[souwen.web.reddit:RedditClient]` | — | required |
-| `scraperapi` | `batch-3` | `pending` | `fetch` | `required` | `lazy[souwen.web.scraperapi:ScraperAPIClient]` | — | required |
-| `scrapfly` | `batch-3` | `pending` | `fetch` | `required` | `lazy[souwen.web.scrapfly:ScrapflyClient]` | — | required |
-| `scrapingbee` | `batch-3` | `pending` | `fetch` | `required` | `lazy[souwen.web.scrapingbee:ScrapingBeeClient]` | — | required |
-| `scrapingdog` | `batch-3` | `pending` | `search` | `required` | `lazy[souwen.web.scrapingdog:ScrapingDogClient]` | — | required |
 | `scrapling` | `batch-5` | `pending` | `fetch` | `none` | `lazy[souwen.web.scrapling_fetcher:ScraplingFetcherClient]` | — | required |
 | `searxng` | `batch-6` | `pending` | `search` | `self_hosted` | `lazy[souwen.web.searxng:SearXNGClient]` | — | required |
-| `serpapi` | `batch-3` | `pending` | `search` | `required` | `lazy[souwen.web.serpapi:SerpApiClient]` | — | required |
-| `serper` | `batch-3` | `pending` | `search` | `required` | `lazy[souwen.web.serper:SerperClient]` | — | required |
 | `site_crawler` | `batch-5` | `pending` | `fetch` | `none` | `lazy[souwen.web.site_crawler:SiteCrawlerClient]` | — | required |
-| `stackoverflow` | `batch-3` | `pending` | `search` | `optional` | `lazy[souwen.web.stackoverflow:StackOverflowClient]` | — | required |
 | `startpage` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.startpage:StartpageClient]` | — | required |
 | `taiwan_new_books` | `batch-4` | `pending` | `get_detail`, `search` | `none` | `lazy[souwen.local_catalog.taiwan_new_books:TaiwanNewBooksLocalCatalogClient]` | — | required |
-| `tavily` | `batch-3` | `pending` | `fetch`, `search` | `required` | `lazy[souwen.web.tavily:TavilyClient]` | — | required |
-| `twitter` | `batch-3` | `pending` | `search` | `required` | `lazy[souwen.web.twitter:TwitterClient]` | — | required |
 | `v2ex` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.v2ex:V2EXClient]` | — | required |
-| `wayback` | `batch-3` | `pending` | `archive_lookup`, `archive_save`, `fetch` | `none` | `lazy[souwen.web.wayback:WaybackClient]` | — | required |
 | `websurfx` | `batch-6` | `pending` | `search` | `self_hosted` | `lazy[souwen.web.websurfx:WebsurfxClient]` | — | required |
 | `weibo` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.weibo:WeiboClient]` | — | required |
 | `whoogle` | `batch-6` | `pending` | `search` | `self_hosted` | `lazy[souwen.web.whoogle:WhoogleClient]` | — | required |
-| `wikipedia` | `batch-3` | `pending` | `search` | `none` | `lazy[souwen.web.wikipedia:WikipediaClient]` | — | required |
 | `wikisource` | `batch-4` | `pending` | `get_detail`, `search` | `none` | `lazy[souwen.book.wikisource:WikisourceClient]` | — | required |
-| `xcrawl` | `batch-3` | `pending` | `fetch`, `search` | `required` | `lazy[souwen.web.xcrawl:XCrawlClient]` | — | required |
 | `xiaohongshu` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.xiaohongshu:XiaohongshuClient]` | — | required |
 | `yahoo` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.yahoo:YahooClient]` | — | required |
 | `yandex` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.yandex:YandexClient]` | — | required |
-| `youtube` | `batch-3` | `pending` | `get_detail`, `get_transcript`, `get_trending`, `search` | `required` | `lazy[souwen.web.youtube:YouTubeClient]` | — | required |
-| `zenrows` | `batch-3` | `pending` | `fetch` | `required` | `lazy[souwen.web.zenrows:ZenRowsClient]` | — | required |
 | `zhihu` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.zhihu:ZhihuClient]` | — | required |
-| `zhipuai` | `batch-3` | `pending` | `search` | `required` | `lazy[souwen.web.zhipuai_search:ZhipuAISearchClient]` | — | required |
 
 ## Non-Provider dispositions
 
@@ -108,35 +75,68 @@ These migrated sources are references only, not review-required B0 drafts.
 
 | Source | Package | Manifest | Adapter | Capability | Spec identity | Spec path | No-spec reason | Specification status |
 |---|---|---|---|---|---|---|---|---|
+| `aliyun_iqs` | `souwen.providers.information_sources.aliyun_iqs` | `aliyun_iqs` | `aliyun-iqs-search` | `search` | `souwen.providers.information_sources.aliyun_iqs.spec.ALIYUN_IQS_PROVIDER_SPEC` | `src/souwen/providers/information_sources/aliyun_iqs/spec.py` | — | `existing_provider_manifest` |
+| `apify` | `souwen.providers.fetch_sources.apify` | `apify` | `apify-fetch` | `fetch` | `souwen.providers.fetch_sources.apify.spec.APIFY_FETCH_PROFILE` | `src/souwen/providers/fetch_sources/apify/spec.py` | — | `existing_provider_manifest` |
 | `arxiv` | `souwen.providers.information_sources.arxiv` | `arxiv` | `arxiv-search` | `search` | `souwen.providers.information_sources.arxiv.spec.ARXIV_PROVIDER_SPEC` | `src/souwen/providers/information_sources/arxiv/spec.py` | — | `existing_provider_manifest` |
 | `arxiv_fulltext` | `souwen.providers.fetch_sources.arxiv_fulltext` | `arxiv_fulltext` | `arxiv_fulltext-fetch` | `fetch` | `souwen.providers.fetch_sources.arxiv_fulltext.spec.ARXIV_FULLTEXT_FETCH_PROFILE` | `src/souwen/providers/fetch_sources/arxiv_fulltext/spec.py` | — | `existing_provider_manifest` |
 | `biorxiv` | `souwen.providers.information_sources.biorxiv` | `biorxiv` | `biorxiv-search` | `search` | `souwen.providers.information_sources.biorxiv.spec.BIORXIV_PROVIDER_SPEC` | `src/souwen/providers/information_sources/biorxiv/spec.py` | — | `existing_provider_manifest` |
+| `brave_api` | `souwen.providers.information_sources.brave_api` | `brave_api` | `brave-api-search` | `search` | `souwen.providers.information_sources.brave_api.spec.BRAVE_API_PROVIDER_SPEC` | `src/souwen/providers/information_sources/brave_api/spec.py` | — | `existing_provider_manifest` |
 | `builtin` | `souwen.providers.fetch_sources.builtin` | `builtin-fetch` | `builtin-fetch` | `fetch` | — | — | capability-specific Fetch Provider is covered by deterministic conformance | `existing_provider_manifest` |
+| `cloudflare` | `souwen.providers.fetch_sources.cloudflare` | `cloudflare` | `cloudflare-fetch` | `fetch` | `souwen.providers.fetch_sources.cloudflare.spec.CLOUDFLARE_FETCH_PROFILE` | `src/souwen/providers/fetch_sources/cloudflare/spec.py` | — | `existing_provider_manifest` |
 | `cnipa` | `souwen.providers.information_sources.cnipa` | `cnipa` | `cnipa-search` | `search` | `souwen.providers.information_sources.cnipa.spec.CNIPA_BRIDGE_SPEC` | `src/souwen/providers/information_sources/cnipa/spec.py` | — | `existing_provider_manifest` |
 | `core` | `souwen.providers.information_sources.core` | `core` | `core-search` | `search` | `souwen.providers.information_sources.core.spec.CORE_PROVIDER_SPEC` | `src/souwen/providers/information_sources/core/spec.py` | — | `existing_provider_manifest` |
 | `crossref` | `souwen.providers.information_sources.crossref` | `crossref` | `crossref-search` | `search` | `souwen.providers.information_sources.crossref.spec.CROSSREF_PROVIDER_SPEC` | `src/souwen/providers/information_sources/crossref/spec.py` | — | `existing_provider_manifest` |
 | `dblp` | `souwen.providers.information_sources.dblp` | `dblp` | `dblp-search` | `search` | `souwen.providers.information_sources.dblp.spec.DBLP_PROVIDER_SPEC` | `src/souwen/providers/information_sources/dblp/spec.py` | — | `existing_provider_manifest` |
+| `deepwiki` | `souwen.providers.fetch_sources.deepwiki` | `deepwiki` | `deepwiki-fetch` | `fetch` | `souwen.providers.fetch_sources.deepwiki.spec.DEEPWIKI_FETCH_PROFILE` | `src/souwen/providers/fetch_sources/deepwiki/spec.py` | — | `existing_provider_manifest` |
+| `diffbot` | `souwen.providers.fetch_sources.diffbot` | `diffbot` | `diffbot-fetch` | `fetch` | `souwen.providers.fetch_sources.diffbot.spec.DIFFBOT_FETCH_PROFILE` | `src/souwen/providers/fetch_sources/diffbot/spec.py` | — | `existing_provider_manifest` |
 | `doaj` | `souwen.providers.information_sources.doaj` | `doaj` | `doaj-search` | `search` | `souwen.providers.information_sources.doaj.spec.DOAJ_PROVIDER_SPEC` | `src/souwen/providers/information_sources/doaj/spec.py` | — | `existing_provider_manifest` |
 | `epo_ops` | `souwen.providers.information_sources.epo_ops` | `epo_ops` | `epo_ops-search` | `search` | `souwen.providers.information_sources.epo_ops.spec.EPO_OPS_BRIDGE_SPEC` | `src/souwen/providers/information_sources/epo_ops/spec.py` | — | `existing_provider_manifest` |
 | `eric` | `souwen.providers.information_sources.eric` | `eric` | `eric-search` | `search` | `souwen.providers.information_sources.eric.spec.ERIC_REST_SPEC` | `src/souwen/providers/information_sources/eric/spec.py` | — | `existing_provider_manifest` |
 | `europepmc` | `souwen.providers.information_sources.europepmc` | `europepmc` | `europepmc-search` | `search` | `souwen.providers.information_sources.europepmc.spec.EUROPEPMC_PROVIDER_SPEC` | `src/souwen/providers/information_sources/europepmc/spec.py` | — | `existing_provider_manifest` |
+| `exa` | `souwen.providers.information_sources.exa` | `exa` | `exa-search` | `search` | `souwen.providers.information_sources.exa.spec.EXA_SEARCH_PROVIDER_SPEC` | `src/souwen/providers/information_sources/exa/spec.py` | — | `existing_provider_manifest` |
+| `facebook` | `souwen.providers.information_sources.facebook` | `facebook` | `facebook-search` | `search` | `souwen.providers.information_sources.facebook.spec.FACEBOOK_PROVIDER_SPEC` | `src/souwen/providers/information_sources/facebook/spec.py` | — | `existing_provider_manifest` |
+| `feishu_drive` | `souwen.providers.information_sources.feishu_drive` | `feishu_drive` | `feishu-drive-search` | `search` | `souwen.providers.information_sources.feishu_drive.spec.FEISHU_DRIVE_PROVIDER_SPEC` | `src/souwen/providers/information_sources/feishu_drive/spec.py` | — | `existing_provider_manifest` |
+| `firecrawl` | `souwen.providers.information_sources.firecrawl` | `firecrawl` | `firecrawl-search` | `search` | `souwen.providers.information_sources.firecrawl.spec.FIRECRAWL_SEARCH_PROVIDER_SPEC` | `src/souwen/providers/information_sources/firecrawl/spec.py` | — | `existing_provider_manifest` |
+| `github` | `souwen.providers.information_sources.github` | `github` | `github-search` | `search` | `souwen.providers.information_sources.github.spec.GITHUB_PROVIDER_SPEC` | `src/souwen/providers/information_sources/github/spec.py` | — | `existing_provider_manifest` |
 | `google_patents` | `souwen.providers.information_sources.google_patents` | `google_patents` | `google_patents-search` | `search` | `souwen.providers.information_sources.google_patents.spec.GOOGLE_PATENTS_BRIDGE_SPEC` | `src/souwen/providers/information_sources/google_patents/spec.py` | — | `existing_provider_manifest` |
 | `hal` | `souwen.providers.information_sources.hal` | `hal` | `hal-search` | `search` | `souwen.providers.information_sources.hal.spec.HAL_PROVIDER_SPEC` | `src/souwen/providers/information_sources/hal/spec.py` | — | `existing_provider_manifest` |
 | `huggingface` | `souwen.providers.information_sources.huggingface` | `huggingface` | `huggingface-search` | `search` | `souwen.providers.information_sources.huggingface.spec.HUGGINGFACE_REST_SPEC` | `src/souwen/providers/information_sources/huggingface/spec.py` | — | `existing_provider_manifest` |
 | `iacr` | `souwen.providers.information_sources.iacr` | `iacr` | `iacr-search` | `search` | `souwen.providers.information_sources.iacr.spec.IACR_BRIDGE_SPEC` | `src/souwen/providers/information_sources/iacr/spec.py` | — | `existing_provider_manifest` |
 | `ieee_xplore` | `souwen.providers.information_sources.ieee_xplore` | `ieee_xplore` | `ieee-xplore-search` | `search` | `souwen.providers.information_sources.ieee_xplore.spec.IEEE_XPLORE_PROVIDER_SPEC` | `src/souwen/providers/information_sources/ieee_xplore/spec.py` | — | `existing_provider_manifest` |
+| `jina_reader` | `souwen.providers.fetch_sources.jina_reader` | `jina_reader` | `jina-reader-fetch` | `fetch` | `souwen.providers.fetch_sources.jina_reader.spec.JINA_READER_FETCH_PROFILE` | `src/souwen/providers/fetch_sources/jina_reader/spec.py` | — | `existing_provider_manifest` |
+| `kimi_code` | `souwen.providers.information_sources.kimi_code` | `kimi_code` | `kimi_code-search` | `search` | `souwen.providers.information_sources.kimi_code.spec.KIMI_CODE_SEARCH_PROVIDER_SPEC` | `src/souwen/providers/information_sources/kimi_code/spec.py` | — | `existing_provider_manifest` |
+| `linkup` | `souwen.providers.information_sources.linkup` | `linkup` | `linkup-search` | `search` | `souwen.providers.information_sources.linkup.spec.LINKUP_PROVIDER_SPEC` | `src/souwen/providers/information_sources/linkup/spec.py` | — | `existing_provider_manifest` |
+| `linuxdo` | `souwen.providers.information_sources.linuxdo` | `linuxdo` | `linuxdo-search` | `search` | `souwen.providers.information_sources.linuxdo.spec.LINUXDO_PROVIDER_SPEC` | `src/souwen/providers/information_sources/linuxdo/spec.py` | — | `existing_provider_manifest` |
+| `metaso` | `souwen.providers.information_sources.metaso` | `metaso` | `metaso-search` | `search` | `souwen.providers.information_sources.metaso.spec.METASO_SEARCH_PROVIDER_SPEC` | `src/souwen/providers/information_sources/metaso/spec.py` | — | `existing_provider_manifest` |
 | `openaire` | `souwen.providers.information_sources.openaire` | `openaire` | `openaire-search` | `search` | `souwen.providers.information_sources.openaire.spec.OPENAIRE_PROVIDER_SPEC` | `src/souwen/providers/information_sources/openaire/spec.py` | — | `existing_provider_manifest` |
 | `openalex` | `souwen.providers.information_sources.openalex` | `openalex` | `openalex-search` | `search` | `souwen.providers.information_sources.openalex.spec.OPENALEX_REST_SPEC` | `src/souwen/providers/information_sources/openalex/spec.py` | — | `existing_provider_manifest` |
 | `osti` | `souwen.providers.information_sources.osti` | `osti` | `osti-search` | `search` | `souwen.providers.information_sources.osti.spec.OSTI_BRIDGE_SPEC` | `src/souwen/providers/information_sources/osti/spec.py` | — | `existing_provider_manifest` |
 | `patentsview` | `souwen.providers.information_sources.patentsview` | `patentsview` | `patentsview-search` | `search` | `souwen.providers.information_sources.patentsview.spec.PATENTSVIEW_REST_SPEC` | `src/souwen/providers/information_sources/patentsview/spec.py` | — | `existing_provider_manifest` |
 | `patsnap` | `souwen.providers.information_sources.patsnap` | `patsnap` | `patsnap-search` | `search` | `souwen.providers.information_sources.patsnap.spec.PATSNAP_BRIDGE_SPEC` | `src/souwen/providers/information_sources/patsnap/spec.py` | — | `existing_provider_manifest` |
+| `perplexity` | `souwen.providers.information_sources.perplexity` | `perplexity` | `perplexity-search` | `search` | `souwen.providers.information_sources.perplexity.spec.PERPLEXITY_PROVIDER_SPEC` | `src/souwen/providers/information_sources/perplexity/spec.py` | — | `existing_provider_manifest` |
 | `pmc` | `souwen.providers.information_sources.pmc` | `pmc` | `pmc-search` | `search` | `souwen.providers.information_sources.pmc.spec.PMC_BRIDGE_SPEC` | `src/souwen/providers/information_sources/pmc/spec.py` | — | `existing_provider_manifest` |
 | `pqai` | `souwen.providers.information_sources.pqai` | `pqai` | `pqai-search` | `search` | `souwen.providers.information_sources.pqai.spec.PQAI_BRIDGE_SPEC` | `src/souwen/providers/information_sources/pqai/spec.py` | — | `existing_provider_manifest` |
 | `pubmed` | `souwen.providers.information_sources.pubmed` | `pubmed` | `pubmed-search` | `search` | `souwen.providers.information_sources.pubmed.spec.PUBMED_BRIDGE_SPEC` | `src/souwen/providers/information_sources/pubmed/spec.py` | — | `existing_provider_manifest` |
+| `reddit` | `souwen.providers.information_sources.reddit` | `reddit` | `reddit-search` | `search` | `souwen.providers.information_sources.reddit.spec.REDDIT_PROVIDER_SPEC` | `src/souwen/providers/information_sources/reddit/spec.py` | — | `existing_provider_manifest` |
+| `scraperapi` | `souwen.providers.fetch_sources.scraperapi` | `scraperapi` | `scraperapi-fetch` | `fetch` | `souwen.providers.fetch_sources.scraperapi.spec.SCRAPERAPI_FETCH_PROFILE` | `src/souwen/providers/fetch_sources/scraperapi/spec.py` | — | `existing_provider_manifest` |
+| `scrapfly` | `souwen.providers.fetch_sources.scrapfly` | `scrapfly` | `scrapfly-fetch` | `fetch` | `souwen.providers.fetch_sources.scrapfly.spec.SCRAPFLY_FETCH_PROFILE` | `src/souwen/providers/fetch_sources/scrapfly/spec.py` | — | `existing_provider_manifest` |
+| `scrapingbee` | `souwen.providers.fetch_sources.scrapingbee` | `scrapingbee` | `scrapingbee-fetch` | `fetch` | `souwen.providers.fetch_sources.scrapingbee.spec.SCRAPINGBEE_FETCH_PROFILE` | `src/souwen/providers/fetch_sources/scrapingbee/spec.py` | — | `existing_provider_manifest` |
+| `scrapingdog` | `souwen.providers.information_sources.scrapingdog` | `scrapingdog` | `scrapingdog-search` | `search` | `souwen.providers.information_sources.scrapingdog.spec.SCRAPINGDOG_PROVIDER_SPEC` | `src/souwen/providers/information_sources/scrapingdog/spec.py` | — | `existing_provider_manifest` |
 | `semantic_scholar` | `souwen.providers.information_sources.semantic_scholar` | `semantic_scholar` | `semantic-scholar-search` | `search` | `souwen.providers.information_sources.semantic_scholar.spec.SEMANTIC_SCHOLAR_PROVIDER_SPEC` | `src/souwen/providers/information_sources/semantic_scholar/spec.py` | — | `existing_provider_manifest` |
+| `serpapi` | `souwen.providers.information_sources.serpapi` | `serpapi` | `serpapi-search` | `search` | `souwen.providers.information_sources.serpapi.spec.SERPAPI_PROVIDER_SPEC` | `src/souwen/providers/information_sources/serpapi/spec.py` | — | `existing_provider_manifest` |
+| `serper` | `souwen.providers.information_sources.serper` | `serper` | `serper-search` | `search` | `souwen.providers.information_sources.serper.spec.SERPER_PROVIDER_SPEC` | `src/souwen/providers/information_sources/serper/spec.py` | — | `existing_provider_manifest` |
+| `stackoverflow` | `souwen.providers.information_sources.stackoverflow` | `stackoverflow` | `stackoverflow-search` | `search` | `souwen.providers.information_sources.stackoverflow.spec.STACKOVERFLOW_PROVIDER_SPEC` | `src/souwen/providers/information_sources/stackoverflow/spec.py` | — | `existing_provider_manifest` |
+| `tavily` | `souwen.providers.information_sources.tavily` | `tavily` | `tavily-search` | `search` | `souwen.providers.information_sources.tavily.spec.TAVILY_SEARCH_PROVIDER_SPEC` | `src/souwen/providers/information_sources/tavily/spec.py` | — | `existing_provider_manifest` |
 | `the_lens` | `souwen.providers.information_sources.the_lens` | `the_lens` | `the_lens-search` | `search` | `souwen.providers.information_sources.the_lens.spec.THE_LENS_BRIDGE_SPEC` | `src/souwen/providers/information_sources/the_lens/spec.py` | — | `existing_provider_manifest` |
+| `twitter` | `souwen.providers.information_sources.twitter` | `twitter` | `twitter-search` | `search` | `souwen.providers.information_sources.twitter.spec.TWITTER_PROVIDER_SPEC` | `src/souwen/providers/information_sources/twitter/spec.py` | — | `existing_provider_manifest` |
 | `uniapi_ark_annotations_deepseek_v3_2_251201` | `souwen.providers.llm_sources.uniapi_ark_annotations` | `uniapi_ark_annotations_deepseek_v3_2_251201` | `uniapi_ark_annotations_deepseek_v3_2_251201` | `llm_search` | — | — | capability-specific LLM Search Provider is covered by deterministic conformance | `existing_provider_manifest` |
 | `uniapi_ark_annotations_doubao_seed_2_0_lite_260428` | `souwen.providers.llm_sources.uniapi_ark_annotations` | `uniapi_ark_annotations_doubao_seed_2_0_lite_260428` | `uniapi_ark_annotations_doubao_seed_2_0_lite_260428` | `llm_search` | — | — | capability-specific LLM Search Provider is covered by deterministic conformance | `existing_provider_manifest` |
 | `uspto_odp` | `souwen.providers.information_sources.uspto_odp` | `uspto_odp` | `uspto_odp-search` | `search` | `souwen.providers.information_sources.uspto_odp.spec.USPTO_ODP_BRIDGE_SPEC` | `src/souwen/providers/information_sources/uspto_odp/spec.py` | — | `existing_provider_manifest` |
+| `wayback` | `souwen.providers.fetch_sources.wayback` | `wayback` | `wayback-fetch` | `fetch` | `souwen.providers.fetch_sources.wayback.spec.WAYBACK_FETCH_PROVIDER_SPEC` | `src/souwen/providers/fetch_sources/wayback/spec.py` | — | `existing_provider_manifest` |
+| `wikipedia` | `souwen.providers.information_sources.wikipedia` | `wikipedia` | `wikipedia-search` | `search` | `souwen.providers.information_sources.wikipedia.spec.WIKIPEDIA_PROVIDER_SPEC` | `src/souwen/providers/information_sources/wikipedia/spec.py` | — | `existing_provider_manifest` |
+| `xcrawl` | `souwen.providers.information_sources.xcrawl` | `xcrawl` | `xcrawl-search` | `search` | `souwen.providers.information_sources.xcrawl.spec.XCRAWL_SEARCH_PROVIDER_SPEC` | `src/souwen/providers/information_sources/xcrawl/spec.py` | — | `existing_provider_manifest` |
+| `youtube` | `souwen.providers.information_sources.youtube` | `youtube` | `youtube-search` | `search` | `souwen.providers.information_sources.youtube.spec.YOUTUBE_PROVIDER_SPEC` | `src/souwen/providers/information_sources/youtube/spec.py` | — | `existing_provider_manifest` |
 | `zenodo` | `souwen.providers.information_sources.zenodo` | `zenodo` | `zenodo-search` | `search` | `souwen.providers.information_sources.zenodo.spec.ZENODO_PROVIDER_SPEC` | `src/souwen/providers/information_sources/zenodo/spec.py` | — | `existing_provider_manifest` |
+| `zenrows` | `souwen.providers.fetch_sources.zenrows` | `zenrows` | `zenrows-fetch` | `fetch` | `souwen.providers.fetch_sources.zenrows.spec.ZENROWS_FETCH_PROFILE` | `src/souwen/providers/fetch_sources/zenrows/spec.py` | — | `existing_provider_manifest` |
+| `zhipuai` | `souwen.providers.information_sources.zhipuai` | `zhipuai` | `zhipuai-search` | `search` | `souwen.providers.information_sources.zhipuai.spec.ZHIPUAI_PROVIDER_SPEC` | `src/souwen/providers/information_sources/zhipuai/spec.py` | — | `existing_provider_manifest` |
 | `zotero` | `souwen.providers.information_sources.zotero` | `zotero` | `zotero-search` | `search` | `souwen.providers.information_sources.zotero.spec.ZOTERO_PROVIDER_SPEC` | `src/souwen/providers/information_sources/zotero/spec.py` | — | `existing_provider_manifest` |

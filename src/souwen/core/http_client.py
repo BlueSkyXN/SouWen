@@ -61,6 +61,10 @@ from souwen.common_runtime.transport import (
     SouWenError as SouWenError,
 )
 from souwen.config import get_config
+from souwen.common_runtime.channel_overrides import (
+    reviewed_source_proxy,
+    source_channel_overrides_enabled,
+)
 
 DEFAULT_USER_AGENT = (
     f"SouWen/{__version__} (Academic & Patent Search Tool; https://github.com/BlueSkyXN/SouWen)"
@@ -101,10 +105,13 @@ class SouWenHttpClient(HttpTransport):
         config = get_config()
 
         # 频道配置可覆盖 base_url
-        if source_name:
+        if source_name and source_channel_overrides_enabled():
             base_url = config.resolve_base_url(source_name, default=base_url)
             proxy = config.resolve_proxy(source_name)
             channel_headers = config.resolve_headers(source_name)
+        elif source_name:
+            proxy = reviewed_source_proxy()
+            channel_headers = {}
         else:
             proxy = config.get_proxy()
             channel_headers = {}

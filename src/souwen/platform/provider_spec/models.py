@@ -167,6 +167,11 @@ class RestJsonProviderSpec(_SpecModel):
         "news",
         "images",
         "videos",
+        "social",
+        "office",
+        "developer",
+        "cn_tech",
+        "knowledge",
     ] = "paper"
     adapter_kind: Literal["generic_rest_json", "legacy_bridge"] = "generic_rest_json"
     review_status: Literal["reviewed", "bridge_exception"] = "reviewed"
@@ -233,6 +238,7 @@ class _LegacyProviderSpec(_SpecModel):
     review_status: Literal["bridge_exception"] = "bridge_exception"
     bridge_reason: str = Field(min_length=1, max_length=512)
     transport: LegacyTransportDeclaration
+    additional_transports: tuple[LegacyTransportDeclaration, ...] = ()
     auth: AuthDeclaration = Field(default_factory=AuthDeclaration)
     configuration_keys: tuple[str, ...] = ()
 
@@ -250,6 +256,13 @@ class _LegacyProviderSpec(_SpecModel):
             raise ValueError("credential-bearing values are forbidden in a provider spec")
         return self
 
+    @model_validator(mode="after")
+    def _transport_hosts_are_unique(self) -> "_LegacyProviderSpec":
+        hosts = (self.transport.host, *(transport.host for transport in self.additional_transports))
+        if len(hosts) != len(set(hosts)):
+            raise ValueError("additional legacy transport hosts must be unique")
+        return self
+
     @property
     def auth_reference(self) -> str | None:
         return self.auth.reference
@@ -261,6 +274,10 @@ class _LegacyProviderSpec(_SpecModel):
     @property
     def host(self) -> str:
         return self.transport.host
+
+    @property
+    def hosts(self) -> tuple[str, ...]:
+        return (self.transport.host, *(item.host for item in self.additional_transports))
 
     @property
     def base_url(self) -> str:
@@ -282,6 +299,11 @@ class LegacySearchProviderSpec(_LegacyProviderSpec):
         "news",
         "images",
         "videos",
+        "social",
+        "office",
+        "developer",
+        "cn_tech",
+        "knowledge",
     ] = "paper"
 
 

@@ -170,8 +170,8 @@ class YouTubeClient(SouWenHttpClient):
     VALID_ORDERS = frozenset({"relevance", "date", "rating", "viewCount", "title"})
     VALID_VIDEO_TYPES = frozenset({"any", "episode", "movie"})
 
-    def __init__(self):
-        api_key = resolve_api_key("youtube_api_key", "YOUTUBE_API_KEY")
+    def __init__(self, api_key: str | None = None):
+        api_key = api_key or resolve_api_key("youtube_api_key", "YOUTUBE_API_KEY")
         if not api_key:
             raise ConfigError(
                 "youtube_api_key",

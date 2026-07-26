@@ -72,7 +72,9 @@ class GitHubClient(SouWenHttpClient):
     def __init__(self, token: str | None = None):
         # 从参数或配置读取 Token，未提供也允许（降级为未认证免费额度）
         config = get_config()
-        self.token = token or config.resolve_api_key("github", "github_token")
+        self.token = (
+            token if token is not None else config.resolve_api_key("github", "github_token")
+        )
 
         # GitHub 推荐使用 v3 媒体类型并显式带 X-GitHub-Api-Version
         headers = {

@@ -65,6 +65,10 @@ from souwen.common_runtime.security import (
     resolve_fetch_target_async,
 )
 from souwen.config import get_config
+from souwen.common_runtime.channel_overrides import (
+    reviewed_source_proxy,
+    source_channel_overrides_enabled,
+)
 from souwen.core.exceptions import RateLimitError, SourceUnavailableError
 from souwen.core.fingerprint import get_random_fingerprint
 
@@ -131,10 +135,11 @@ class BaseScraper:
         self._fingerprint = get_random_fingerprint()
         config = get_config()
         source_name = getattr(self, "ENGINE_NAME", None)
+        channel_overrides = source_channel_overrides_enabled()
 
         # 解析 HTTP 后端：显式参数 > 频道配置 > 旧版配置 > 自动检测
         if use_curl_cffi is None:
-            if source_name:
+            if source_name and channel_overrides:
                 backend = config.resolve_backend(source_name)
                 if backend == "curl_cffi":
                     if not _HAS_CURL_CFFI:
@@ -150,19 +155,24 @@ class BaseScraper:
                 use_curl_cffi = _HAS_CURL_CFFI
 
         # 解析代理：频道配置 > 全局代理
-        proxy = config.resolve_proxy(source_name) if source_name else config.get_proxy()
+        if source_name and channel_overrides:
+            proxy = config.resolve_proxy(source_name)
+        elif source_name:
+            proxy = reviewed_source_proxy()
+        else:
+            proxy = config.get_proxy()
 
         # 解析 base_url：频道配置覆盖 > 类属性 BASE_URL
         _class_base = getattr(self, "BASE_URL", "")
         self._resolved_base_url: str = (
             config.resolve_base_url(source_name, default=_class_base)
-            if source_name
+            if source_name and channel_overrides
             else _class_base
         )
 
         # 频道自定义请求头（将在 _fetch 中合并）
         self._channel_headers: dict[str, str] = (
-            config.resolve_headers(source_name) if source_name else {}
+            config.resolve_headers(source_name) if source_name and channel_overrides else {}
         )
 
         self._use_curl_cffi = use_curl_cffi
