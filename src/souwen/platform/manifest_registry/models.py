@@ -72,12 +72,21 @@ class SecretsDeclaration(_StrictManifestModel):
     """Reference names only; this type intentionally has no value field."""
 
     references: tuple[SecretReference, ...] = ()
+    optional_references: tuple[SecretReference, ...] = ()
 
     @model_validator(mode="after")
     def _no_duplicate_references(self) -> "SecretsDeclaration":
-        if len(set(self.references)) != len(self.references):
+        if (
+            len(set(self.references)) != len(self.references)
+            or len(set(self.optional_references)) != len(self.optional_references)
+            or set(self.references).intersection(self.optional_references)
+        ):
             raise ValueError("duplicate secret reference")
         return self
+
+    @property
+    def all_references(self) -> tuple[SecretReference, ...]:
+        return self.references + self.optional_references
 
 
 class NetworkDeclaration(_StrictManifestModel):

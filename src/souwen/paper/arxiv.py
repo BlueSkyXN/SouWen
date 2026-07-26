@@ -64,7 +64,7 @@ from souwen.core.rate_limiter import TokenBucketLimiter
 
 logger = logging.getLogger(__name__)
 
-_BASE_URL = "http://export.arxiv.org/api"
+_BASE_URL = "https://export.arxiv.org/api"
 
 # arXiv 要求至少 3 秒间隔
 _RATE_LIMIT_RPS = 1.0 / 3.0

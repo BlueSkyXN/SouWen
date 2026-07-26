@@ -167,10 +167,14 @@ async def test_config_or_secret_failure_is_provider_local_and_safe() -> None:
     assert manager.diagnostics[0].reason_code == "config_invalid"
 
 
-def test_declared_secret_references_must_resolve_to_nonempty_strings() -> None:
+@pytest.mark.parametrize(
+    "resolved",
+    ({}, {"FIXTURE_PROVIDER_API_KEY": ""}, {"FIXTURE_PROVIDER_API_KEY": "   "}),
+)
+def test_declared_secret_references_must_resolve_to_nonempty_strings(resolved) -> None:
     manager = ProviderManager(
         config_resolver=lambda _manifest: {"enabled": True},
-        secret_resolver=lambda _manifest, _references: {},
+        secret_resolver=lambda _manifest, _references: resolved,
     )
     manager.register_factory(
         package_id="fixture-provider-package",
@@ -183,6 +187,39 @@ def test_declared_secret_references_must_resolve_to_nonempty_strings() -> None:
 
     assert manager.eligible_adapter_ids == ()
     assert manager.diagnostics[-1].reason_code == "secret_unavailable"
+
+
+@pytest.mark.asyncio
+async def test_optional_secret_reference_does_not_block_and_is_forwarded_only_when_present() -> (
+    None
+):
+    declaration = _manifest()
+    declaration["secrets"] = {
+        "references": [],
+        "optional_references": ["FIXTURE_PROVIDER_API_KEY"],
+    }
+    captured: list[dict[str, str]] = []
+
+    def factory(configuration, secrets):
+        captured.append(dict(secrets))
+        return FixtureSearchProvider(configuration, secrets)
+
+    for resolved in ({}, {"FIXTURE_PROVIDER_API_KEY": "test-only"}):
+        manager = ProviderManager(
+            config_resolver=lambda _manifest: {"enabled": True},
+            secret_resolver=lambda _manifest, _references, resolved=resolved: resolved,
+        )
+        manager.register_factory(
+            package_id="fixture-provider-package",
+            export="FixtureSearchProvider",
+            factory=factory,
+            provider_type=FixtureSearchProvider,
+        )
+        manager.discover([declaration])
+        assert manager.eligible_adapter_ids == ("fixture-search",)
+        await manager.execute("fixture-search", _request(), _request_context(), _execution())
+
+    assert captured == [{}, {"FIXTURE_PROVIDER_API_KEY": "test-only"}]
 
 
 @pytest.mark.asyncio

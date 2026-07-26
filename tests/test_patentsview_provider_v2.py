@@ -246,10 +246,17 @@ def test_missing_secret_is_safe_and_does_not_become_patent_default(monkeypatch, 
     assert by_id["patentsview"].availability == "unavailable"
     assert by_id["patentsview"].reason == "missing_configuration"
     assert by_id["patentsview"].missing_fields == ("patentsview_api_key",)
+    assert by_id["google_patents"].availability == "available"
     assert "PATENTSVIEW_API_KEY" not in repr(runtime.services.provider_items)
 
     with pytest.raises(ProviderError) as exc_info:
-        asyncio.run(runtime.services.search.search(_request(), _context(), _execution()))
+        asyncio.run(
+            runtime.services.search.search(
+                _request(providers=(ProviderRef(id="patentsview", kind="search"),)),
+                _context(),
+                _execution(),
+            )
+        )
     assert exc_info.value.code is ProviderErrorCode.PROVIDER_UNAVAILABLE
     asyncio.run(runtime.close())
 

@@ -11,7 +11,7 @@ from ipaddress import ip_address
 from typing import Literal
 from urllib.parse import urlsplit
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, field_validator, model_validator
 
 
 _SECRET_WORD = re.compile(r"(?:api[_-]?key|token|secret|password|cookie|authorization)", re.I)
@@ -27,15 +27,47 @@ class HttpOperation(_SpecModel):
     endpoint: str = Field(pattern=r"^/[A-Za-z0-9._~!$&'()*+,;=:@/%-]*$")
 
 
+class LegacyTransportDeclaration(_SpecModel):
+    """Reviewed legacy transport shape without pretending it is generic JSON."""
+
+    scheme: Literal["https"] = "https"
+    host: str = Field(min_length=1, max_length=253)
+    base_path: str = Field(default="/", pattern=r"^/[A-Za-z0-9._~!$&'()*+,;=:@/%-]*$")
+    protocol: Literal[
+        "atom_xml",
+        "html",
+        "json",
+        "multi_step_xml",
+        "multi_transport",
+        "xml",
+    ]
+    operations: tuple[HttpOperation, ...] = Field(min_length=1)
+
+    @field_validator("host")
+    @classmethod
+    def _host_is_public_name(cls, value: str) -> str:
+        return _reviewed_host(value)
+
+    @model_validator(mode="after")
+    def _operations_are_unique(self) -> "LegacyTransportDeclaration":
+        identities = tuple((item.method, item.endpoint) for item in self.operations)
+        if len(identities) != len(set(identities)):
+            raise ValueError("duplicate legacy transport operation")
+        return self
+
+
 class AuthDeclaration(_SpecModel):
     placement: Literal["none", "header", "query", "bearer"] = "none"
     reference: str | None = Field(default=None, pattern=r"^[A-Z][A-Z0-9_]{0,127}$")
-    field_name: str | None = Field(default=None, pattern=r"^[A-Za-z][A-Za-z0-9-]{0,127}$")
+    field_name: str | None = Field(default=None, pattern=r"^[A-Za-z][A-Za-z0-9_-]{0,127}$")
+    required: StrictBool = True
 
     @model_validator(mode="after")
     def _shape_matches_placement(self) -> "AuthDeclaration":
         if self.placement == "none" and (self.reference is not None or self.field_name is not None):
             raise ValueError("anonymous auth cannot declare a reference or field")
+        if self.placement == "none" and not self.required:
+            raise ValueError("anonymous auth cannot be optional")
         if self.placement != "none" and (self.reference is None or self.field_name is None):
             raise ValueError("configured auth requires reference and field name")
         return self
@@ -121,16 +153,7 @@ class RestJsonProviderSpec(_SpecModel):
     @field_validator("host")
     @classmethod
     def _host_is_public_name(cls, value: str) -> str:
-        normalized = value.strip().lower().rstrip(".")
-        try:
-            ip_address(normalized)
-        except ValueError:
-            is_ip = False
-        else:
-            is_ip = True
-        if is_ip or not _HOST.fullmatch(normalized) or "@" in normalized:
-            raise ValueError("host must be a reviewed DNS name")
-        return normalized
+        return _reviewed_host(value)
 
     @field_validator("configuration_keys")
     @classmethod
@@ -161,3 +184,83 @@ class RestJsonProviderSpec(_SpecModel):
     @property
     def base_url(self) -> str:
         return f"{self.scheme}://{self.host}{self.base_path.rstrip('/')}"
+
+
+class _LegacyProviderSpec(_SpecModel):
+    """Static declaration for a reviewed bridge around a non-generic client."""
+
+    provider_id: str = Field(pattern=r"^[a-z][a-z0-9_-]{0,127}$")
+    adapter_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
+    adapter_kind: Literal["legacy_bridge"] = "legacy_bridge"
+    review_status: Literal["bridge_exception"] = "bridge_exception"
+    bridge_reason: str = Field(min_length=1, max_length=512)
+    transport: LegacyTransportDeclaration
+    auth: AuthDeclaration = Field(default_factory=AuthDeclaration)
+    configuration_keys: tuple[str, ...] = ()
+
+    @field_validator("configuration_keys")
+    @classmethod
+    def _configuration_is_non_secret(cls, values: tuple[str, ...]) -> tuple[str, ...]:
+        if len(values) != len(set(values)) or any(_SECRET_WORD.search(value) for value in values):
+            raise ValueError("configuration keys must be unique and non-secret")
+        return values
+
+    @model_validator(mode="after")
+    def _literal_secret_cannot_appear(self) -> "_LegacyProviderSpec":
+        serialized = self.model_dump(mode="json", exclude_none=True)
+        if "@" in str(serialized):
+            raise ValueError("credential-bearing values are forbidden in a provider spec")
+        return self
+
+    @property
+    def auth_reference(self) -> str | None:
+        return self.auth.reference
+
+    @property
+    def host(self) -> str:
+        return self.transport.host
+
+    @property
+    def base_url(self) -> str:
+        return (
+            f"{self.transport.scheme}://{self.transport.host}{self.transport.base_path.rstrip('/')}"
+        )
+
+
+class LegacySearchProviderSpec(_LegacyProviderSpec):
+    """Reviewed Search bridge declaration for XML, HTML, or complex JSON clients."""
+
+    capability: Literal["search"] = "search"
+    domain: Literal[
+        "paper",
+        "book",
+        "research_output",
+        "patent",
+        "web",
+        "news",
+        "images",
+        "videos",
+    ] = "paper"
+
+
+class LegacyFetchProviderSpec(_LegacyProviderSpec):
+    """Reviewed Fetch bridge declaration with a bounded canonical target contract."""
+
+    capability: Literal["fetch"] = "fetch"
+    target_contract: Literal["arxiv_publication_url", "public_url"]
+
+
+ProviderSpec = RestJsonProviderSpec | LegacySearchProviderSpec | LegacyFetchProviderSpec
+
+
+def _reviewed_host(value: str) -> str:
+    normalized = value.strip().lower().rstrip(".")
+    try:
+        ip_address(normalized)
+    except ValueError:
+        is_ip = False
+    else:
+        is_ip = True
+    if is_ip or not _HOST.fullmatch(normalized) or "@" in normalized:
+        raise ValueError("host must be a reviewed DNS name")
+    return normalized

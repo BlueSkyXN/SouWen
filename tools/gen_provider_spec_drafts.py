@@ -30,6 +30,7 @@ def build_drafts(inventory: dict[str, Any] | None = None) -> dict[str, Any]:
     source_inventory = inventory or _inventory_module().build_inventory()
     drafts: list[dict[str, Any]] = []
     existing_provider_specs: list[dict[str, Any]] = []
+    non_provider_dispositions: list[dict[str, Any]] = []
     for record in source_inventory["records"]:
         if record["migration_status"] == "migrated":
             existing_provider_specs.append(
@@ -44,6 +45,17 @@ def build_drafts(inventory: dict[str, Any] | None = None) -> dict[str, Any]:
                     "target_spec_path": record["target_spec_path"],
                     "target_spec_reason": record["target_spec_reason"],
                     "specification_status": "existing_provider_manifest",
+                }
+            )
+            continue
+        if record["migration_status"] == "retirement_pending":
+            non_provider_dispositions.append(
+                {
+                    "source_id": record["source_id"],
+                    "batch": record["batch"],
+                    "migration_status": record["migration_status"],
+                    "target_disposition": record["target_disposition"],
+                    "disposition_reason": record["disposition_reason"],
                 }
             )
             continue
@@ -77,8 +89,10 @@ def build_drafts(inventory: dict[str, Any] | None = None) -> dict[str, Any]:
         "inventory_registry_sha256": source_inventory["registry_sha256"],
         "draft_count": len(drafts),
         "existing_provider_spec_count": len(existing_provider_specs),
+        "non_provider_disposition_count": len(non_provider_dispositions),
         "drafts": drafts,
         "existing_provider_specs": existing_provider_specs,
+        "non_provider_dispositions": non_provider_dispositions,
     }
 
 
@@ -101,6 +115,7 @@ def render_markdown(drafts: dict[str, Any] | None = None) -> str:
         f"- Generator version: `{data['generator_version']}`",
         f"- Draft count: `{data['draft_count']}`",
         f"- Existing Provider v2 specs: `{data['existing_provider_spec_count']}`",
+        f"- Non-Provider dispositions: `{data['non_provider_disposition_count']}`",
         f"- Inventory fingerprint: `{data['inventory_registry_sha256']}`",
         f"- Combined input fingerprint: `{data['source_fingerprint']['input_sha256']}`",
         "",
@@ -121,6 +136,22 @@ def render_markdown(drafts: dict[str, Any] | None = None) -> str:
                     f"`{draft['provider_manifest_id']}`" if draft["provider_manifest_id"] else "—"
                 ),
             )
+        )
+    lines.extend(
+        [
+            "",
+            "## Non-Provider dispositions",
+            "",
+            "These records are intentionally excluded from Provider spec generation.",
+            "",
+            "| Source | Batch | Status | Disposition | Reason |",
+            "|---|---|---|---|---|",
+        ]
+    )
+    for disposition in data["non_provider_dispositions"]:
+        lines.append(
+            "| `{source_id}` | `{batch}` | `{migration_status}` | `{target_disposition}` | "
+            "{disposition_reason} |".format(**disposition)
         )
     lines.extend(
         [

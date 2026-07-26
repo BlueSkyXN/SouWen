@@ -5,6 +5,24 @@ import json
 from tools import provider_migration_inventory as inventory
 
 
+BATCH_ONE_MIGRATED_SOURCE_IDS = {
+    "arxiv",
+    "arxiv_fulltext",
+    "biorxiv",
+    "crossref",
+    "dblp",
+    "europepmc",
+    "google_patents",
+    "hal",
+    "huggingface",
+    "iacr",
+    "osti",
+    "pmc",
+    "pubmed",
+}
+MIGRATED_SOURCE_IDS = inventory.SAMPLE_SOURCE_IDS | BATCH_ONE_MIGRATED_SOURCE_IDS
+
+
 def test_inventory_partitions_the_current_registry_into_six_batches() -> None:
     data = inventory.build_inventory()
 
@@ -22,7 +40,12 @@ def test_inventory_partitions_the_current_registry_into_six_batches() -> None:
         "unclassified": 0,
     }
     assert data["batch_counts"] == inventory.EXPECTED_COUNTS
-    assert data["status_counts"] == {"migrated": 6, "pending": 104, "incomplete": 0}
+    assert data["status_counts"] == {
+        "migrated": 19,
+        "pending": 90,
+        "retirement_pending": 1,
+        "incomplete": 0,
+    }
     assert len(data["records"]) == 110
     assert len({record["source_id"] for record in data["records"]}) == len(data["records"])
     assert data["classification_complete"] is True
@@ -49,12 +72,18 @@ def test_inventory_partitions_the_current_registry_into_six_batches() -> None:
         record["source_id"]
         for record in data["records"]
         if record["migration_status"] == "migrated"
-    } == inventory.SAMPLE_SOURCE_IDS
+    } == MIGRATED_SOURCE_IDS
     assert all(
         record["migration_status"] == "pending"
         for record in data["records"]
-        if record["batch"] != inventory.SAMPLE_BATCH
+        if record["source_id"] not in MIGRATED_SOURCE_IDS | {"opencitations"}
     )
+    opencitations = next(
+        record for record in data["records"] if record["source_id"] == "opencitations"
+    )
+    assert opencitations["migration_status"] == "retirement_pending"
+    assert opencitations["target_disposition"] == "search_internal_enrichment"
+    assert "C1" in opencitations["disposition_reason"]
 
 
 def test_inventory_is_value_free_and_matches_existing_manifest_identities() -> None:
@@ -63,14 +92,7 @@ def test_inventory_is_value_free_and_matches_existing_manifest_identities() -> N
 
     assert {
         name for name, record in records.items() if record["migration_status"] == "migrated"
-    } == {
-        "builtin",
-        "eric",
-        "openalex",
-        "patentsview",
-        "uniapi_ark_annotations_deepseek_v3_2_251201",
-        "uniapi_ark_annotations_doubao_seed_2_0_lite_260428",
-    }
+    } == MIGRATED_SOURCE_IDS
     assert records["builtin"]["provider_manifest_id"] == "builtin-fetch"
     assert records["eric"] == {
         **records["eric"],
@@ -111,7 +133,7 @@ def test_a_future_manifest_without_a_reviewed_spec_fails_closed_and_preserves_ba
     targets = inventory._manifest_targets()
     targets["arxiv"] = {
         "package": "souwen.providers.information_sources.arxiv",
-        "manifest_path": "src/souwen/providers/information_sources/arxiv/manifest.py",
+        "manifest_path": "src/souwen/providers/information_sources/future_arxiv/manifest.py",
         "adapters": [{"adapter_id": "arxiv-search", "capability": "search"}],
     }
     monkeypatch.setattr(inventory, "_manifest_targets", lambda: targets)
@@ -126,12 +148,8 @@ def test_a_future_manifest_without_a_reviewed_spec_fails_closed_and_preserves_ba
 
 def test_manifest_ids_are_limited_to_static_provider_manifest_identities() -> None:
     assert inventory._manifest_ids() == {
-        "builtin-fetch",
-        "eric",
-        "openalex",
-        "patentsview",
-        "uniapi_ark_annotations_deepseek_v3_2_251201",
-        "uniapi_ark_annotations_doubao_seed_2_0_lite_260428",
+        source_id if source_id != "builtin" else "builtin-fetch"
+        for source_id in MIGRATED_SOURCE_IDS
     }
 
 

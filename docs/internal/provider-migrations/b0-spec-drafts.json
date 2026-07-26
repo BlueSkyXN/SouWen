@@ -1,5 +1,5 @@
 {
-  "draft_count": 104,
+  "draft_count": 90,
   "drafts": [
     {
       "auth_requirement": "required",
@@ -56,68 +56,6 @@
         "review_required": true
       },
       "source_id": "apify",
-      "target_adapter_id": null,
-      "target_capability": null,
-      "target_manifest_id": null,
-      "target_package": null,
-      "target_spec_identity": null,
-      "target_spec_path": null,
-      "target_spec_reason": null,
-      "transport": {
-        "review_required": true
-      }
-    },
-    {
-      "auth_requirement": "none",
-      "batch": "batch-1",
-      "capabilities": [
-        "search"
-      ],
-      "credential_fields": [],
-      "error_mapping": {
-        "review_required": true
-      },
-      "legacy_loader": "lazy[souwen.paper.arxiv:ArxivClient]",
-      "migration_status": "pending",
-      "provider_manifest_id": null,
-      "request_mapping": {
-        "review_required": true
-      },
-      "response_mapping": {
-        "review_required": true
-      },
-      "source_id": "arxiv",
-      "target_adapter_id": null,
-      "target_capability": null,
-      "target_manifest_id": null,
-      "target_package": null,
-      "target_spec_identity": null,
-      "target_spec_path": null,
-      "target_spec_reason": null,
-      "transport": {
-        "review_required": true
-      }
-    },
-    {
-      "auth_requirement": "none",
-      "batch": "batch-1",
-      "capabilities": [
-        "fetch"
-      ],
-      "credential_fields": [],
-      "error_mapping": {
-        "review_required": true
-      },
-      "legacy_loader": "lazy[souwen.paper.arxiv_fulltext:ArxivFulltextClient]",
-      "migration_status": "pending",
-      "provider_manifest_id": null,
-      "request_mapping": {
-        "review_required": true
-      },
-      "response_mapping": {
-        "review_required": true
-      },
-      "source_id": "arxiv_fulltext",
       "target_adapter_id": null,
       "target_capability": null,
       "target_manifest_id": null,
@@ -247,37 +185,6 @@
         "review_required": true
       },
       "source_id": "bing_cn",
-      "target_adapter_id": null,
-      "target_capability": null,
-      "target_manifest_id": null,
-      "target_package": null,
-      "target_spec_identity": null,
-      "target_spec_path": null,
-      "target_spec_reason": null,
-      "transport": {
-        "review_required": true
-      }
-    },
-    {
-      "auth_requirement": "none",
-      "batch": "batch-1",
-      "capabilities": [
-        "search"
-      ],
-      "credential_fields": [],
-      "error_mapping": {
-        "review_required": true
-      },
-      "legacy_loader": "lazy[souwen.paper.biorxiv:BioRxivClient]",
-      "migration_status": "pending",
-      "provider_manifest_id": null,
-      "request_mapping": {
-        "review_required": true
-      },
-      "response_mapping": {
-        "review_required": true
-      },
-      "source_id": "biorxiv",
       "target_adapter_id": null,
       "target_capability": null,
       "target_manifest_id": null,
@@ -549,37 +456,6 @@
     },
     {
       "auth_requirement": "none",
-      "batch": "batch-1",
-      "capabilities": [
-        "search"
-      ],
-      "credential_fields": [],
-      "error_mapping": {
-        "review_required": true
-      },
-      "legacy_loader": "lazy[souwen.paper.crossref:CrossrefClient]",
-      "migration_status": "pending",
-      "provider_manifest_id": null,
-      "request_mapping": {
-        "review_required": true
-      },
-      "response_mapping": {
-        "review_required": true
-      },
-      "source_id": "crossref",
-      "target_adapter_id": null,
-      "target_capability": null,
-      "target_manifest_id": null,
-      "target_package": null,
-      "target_spec_identity": null,
-      "target_spec_path": null,
-      "target_spec_reason": null,
-      "transport": {
-        "review_required": true
-      }
-    },
-    {
-      "auth_requirement": "none",
       "batch": "batch-5",
       "capabilities": [
         "search"
@@ -629,37 +505,6 @@
         "review_required": true
       },
       "source_id": "datacite",
-      "target_adapter_id": null,
-      "target_capability": null,
-      "target_manifest_id": null,
-      "target_package": null,
-      "target_spec_identity": null,
-      "target_spec_path": null,
-      "target_spec_reason": null,
-      "transport": {
-        "review_required": true
-      }
-    },
-    {
-      "auth_requirement": "none",
-      "batch": "batch-1",
-      "capabilities": [
-        "search"
-      ],
-      "credential_fields": [],
-      "error_mapping": {
-        "review_required": true
-      },
-      "legacy_loader": "lazy[souwen.paper.dblp:DblpClient]",
-      "migration_status": "pending",
-      "provider_manifest_id": null,
-      "request_mapping": {
-        "review_required": true
-      },
-      "response_mapping": {
-        "review_required": true
-      },
-      "source_id": "dblp",
       "target_adapter_id": null,
       "target_capability": null,
       "target_manifest_id": null,
@@ -959,37 +804,6 @@
       }
     },
     {
-      "auth_requirement": "none",
-      "batch": "batch-1",
-      "capabilities": [
-        "search"
-      ],
-      "credential_fields": [],
-      "error_mapping": {
-        "review_required": true
-      },
-      "legacy_loader": "lazy[souwen.paper.europepmc:EuropePmcClient]",
-      "migration_status": "pending",
-      "provider_manifest_id": null,
-      "request_mapping": {
-        "review_required": true
-      },
-      "response_mapping": {
-        "review_required": true
-      },
-      "source_id": "europepmc",
-      "target_adapter_id": null,
-      "target_capability": null,
-      "target_manifest_id": null,
-      "target_package": null,
-      "target_spec_identity": null,
-      "target_spec_path": null,
-      "target_spec_reason": null,
-      "transport": {
-        "review_required": true
-      }
-    },
-    {
       "auth_requirement": "required",
       "batch": "batch-3",
       "capabilities": [
@@ -1224,37 +1038,6 @@
     },
     {
       "auth_requirement": "none",
-      "batch": "batch-1",
-      "capabilities": [
-        "search"
-      ],
-      "credential_fields": [],
-      "error_mapping": {
-        "review_required": true
-      },
-      "legacy_loader": "lazy[souwen.patent.google_patents_scraper:GooglePatentsScraper]",
-      "migration_status": "pending",
-      "provider_manifest_id": null,
-      "request_mapping": {
-        "review_required": true
-      },
-      "response_mapping": {
-        "review_required": true
-      },
-      "source_id": "google_patents",
-      "target_adapter_id": null,
-      "target_capability": null,
-      "target_manifest_id": null,
-      "target_package": null,
-      "target_spec_identity": null,
-      "target_spec_path": null,
-      "target_spec_reason": null,
-      "transport": {
-        "review_required": true
-      }
-    },
-    {
-      "auth_requirement": "none",
       "batch": "batch-4",
       "capabilities": [
         "get_detail",
@@ -1287,37 +1070,6 @@
     },
     {
       "auth_requirement": "none",
-      "batch": "batch-1",
-      "capabilities": [
-        "search"
-      ],
-      "credential_fields": [],
-      "error_mapping": {
-        "review_required": true
-      },
-      "legacy_loader": "lazy[souwen.paper.hal:HalClient]",
-      "migration_status": "pending",
-      "provider_manifest_id": null,
-      "request_mapping": {
-        "review_required": true
-      },
-      "response_mapping": {
-        "review_required": true
-      },
-      "source_id": "hal",
-      "target_adapter_id": null,
-      "target_capability": null,
-      "target_manifest_id": null,
-      "target_package": null,
-      "target_spec_identity": null,
-      "target_spec_path": null,
-      "target_spec_reason": null,
-      "transport": {
-        "review_required": true
-      }
-    },
-    {
-      "auth_requirement": "none",
       "batch": "batch-5",
       "capabilities": [
         "search"
@@ -1336,68 +1088,6 @@
         "review_required": true
       },
       "source_id": "hostloc",
-      "target_adapter_id": null,
-      "target_capability": null,
-      "target_manifest_id": null,
-      "target_package": null,
-      "target_spec_identity": null,
-      "target_spec_path": null,
-      "target_spec_reason": null,
-      "transport": {
-        "review_required": true
-      }
-    },
-    {
-      "auth_requirement": "none",
-      "batch": "batch-1",
-      "capabilities": [
-        "search"
-      ],
-      "credential_fields": [],
-      "error_mapping": {
-        "review_required": true
-      },
-      "legacy_loader": "lazy[souwen.paper.huggingface:HuggingFaceClient]",
-      "migration_status": "pending",
-      "provider_manifest_id": null,
-      "request_mapping": {
-        "review_required": true
-      },
-      "response_mapping": {
-        "review_required": true
-      },
-      "source_id": "huggingface",
-      "target_adapter_id": null,
-      "target_capability": null,
-      "target_manifest_id": null,
-      "target_package": null,
-      "target_spec_identity": null,
-      "target_spec_path": null,
-      "target_spec_reason": null,
-      "transport": {
-        "review_required": true
-      }
-    },
-    {
-      "auth_requirement": "none",
-      "batch": "batch-1",
-      "capabilities": [
-        "search"
-      ],
-      "credential_fields": [],
-      "error_mapping": {
-        "review_required": true
-      },
-      "legacy_loader": "lazy[souwen.paper.iacr:IacrClient]",
-      "migration_status": "pending",
-      "provider_manifest_id": null,
-      "request_mapping": {
-        "review_required": true
-      },
-      "response_mapping": {
-        "review_required": true
-      },
-      "source_id": "iacr",
       "target_adapter_id": null,
       "target_capability": null,
       "target_manifest_id": null,
@@ -1925,71 +1615,6 @@
       }
     },
     {
-      "auth_requirement": "none",
-      "batch": "batch-1",
-      "capabilities": [
-        "opencitations:citation_count",
-        "opencitations:citations",
-        "opencitations:references"
-      ],
-      "credential_fields": [],
-      "error_mapping": {
-        "review_required": true
-      },
-      "legacy_loader": "lazy[souwen.paper.opencitations:OpenCitationsClient]",
-      "migration_status": "pending",
-      "provider_manifest_id": null,
-      "request_mapping": {
-        "review_required": true
-      },
-      "response_mapping": {
-        "review_required": true
-      },
-      "source_id": "opencitations",
-      "target_adapter_id": null,
-      "target_capability": null,
-      "target_manifest_id": null,
-      "target_package": null,
-      "target_spec_identity": null,
-      "target_spec_path": null,
-      "target_spec_reason": null,
-      "transport": {
-        "review_required": true
-      }
-    },
-    {
-      "auth_requirement": "none",
-      "batch": "batch-1",
-      "capabilities": [
-        "get_detail",
-        "search"
-      ],
-      "credential_fields": [],
-      "error_mapping": {
-        "review_required": true
-      },
-      "legacy_loader": "lazy[souwen.paper.osti:OstiClient]",
-      "migration_status": "pending",
-      "provider_manifest_id": null,
-      "request_mapping": {
-        "review_required": true
-      },
-      "response_mapping": {
-        "review_required": true
-      },
-      "source_id": "osti",
-      "target_adapter_id": null,
-      "target_capability": null,
-      "target_manifest_id": null,
-      "target_package": null,
-      "target_spec_identity": null,
-      "target_spec_path": null,
-      "target_spec_reason": null,
-      "transport": {
-        "review_required": true
-      }
-    },
-    {
       "auth_requirement": "required",
       "batch": "batch-2",
       "capabilities": [
@@ -2056,37 +1681,6 @@
       }
     },
     {
-      "auth_requirement": "none",
-      "batch": "batch-1",
-      "capabilities": [
-        "search"
-      ],
-      "credential_fields": [],
-      "error_mapping": {
-        "review_required": true
-      },
-      "legacy_loader": "lazy[souwen.paper.pmc:PmcClient]",
-      "migration_status": "pending",
-      "provider_manifest_id": null,
-      "request_mapping": {
-        "review_required": true
-      },
-      "response_mapping": {
-        "review_required": true
-      },
-      "source_id": "pmc",
-      "target_adapter_id": null,
-      "target_capability": null,
-      "target_manifest_id": null,
-      "target_package": null,
-      "target_spec_identity": null,
-      "target_spec_path": null,
-      "target_spec_reason": null,
-      "transport": {
-        "review_required": true
-      }
-    },
-    {
       "auth_requirement": "required",
       "batch": "batch-2",
       "capabilities": [
@@ -2108,37 +1702,6 @@
         "review_required": true
       },
       "source_id": "pqai",
-      "target_adapter_id": null,
-      "target_capability": null,
-      "target_manifest_id": null,
-      "target_package": null,
-      "target_spec_identity": null,
-      "target_spec_path": null,
-      "target_spec_reason": null,
-      "transport": {
-        "review_required": true
-      }
-    },
-    {
-      "auth_requirement": "none",
-      "batch": "batch-1",
-      "capabilities": [
-        "search"
-      ],
-      "credential_fields": [],
-      "error_mapping": {
-        "review_required": true
-      },
-      "legacy_loader": "lazy[souwen.paper.pubmed:PubMedClient]",
-      "migration_status": "pending",
-      "provider_manifest_id": null,
-      "request_mapping": {
-        "review_required": true
-      },
-      "response_mapping": {
-        "review_required": true
-      },
-      "source_id": "pubmed",
       "target_adapter_id": null,
       "target_capability": null,
       "target_manifest_id": null,
@@ -3352,8 +2915,44 @@
       }
     }
   ],
-  "existing_provider_spec_count": 6,
+  "existing_provider_spec_count": 19,
   "existing_provider_specs": [
+    {
+      "provider_manifest_id": "arxiv",
+      "source_id": "arxiv",
+      "specification_status": "existing_provider_manifest",
+      "target_adapter_id": "arxiv-search",
+      "target_capability": "search",
+      "target_manifest_id": "arxiv",
+      "target_package": "souwen.providers.information_sources.arxiv",
+      "target_spec_identity": "souwen.providers.information_sources.arxiv.spec.ARXIV_PROVIDER_SPEC",
+      "target_spec_path": "src/souwen/providers/information_sources/arxiv/spec.py",
+      "target_spec_reason": null
+    },
+    {
+      "provider_manifest_id": "arxiv_fulltext",
+      "source_id": "arxiv_fulltext",
+      "specification_status": "existing_provider_manifest",
+      "target_adapter_id": "arxiv_fulltext-fetch",
+      "target_capability": "fetch",
+      "target_manifest_id": "arxiv_fulltext",
+      "target_package": "souwen.providers.fetch_sources.arxiv_fulltext",
+      "target_spec_identity": "souwen.providers.fetch_sources.arxiv_fulltext.spec.ARXIV_FULLTEXT_FETCH_PROFILE",
+      "target_spec_path": "src/souwen/providers/fetch_sources/arxiv_fulltext/spec.py",
+      "target_spec_reason": null
+    },
+    {
+      "provider_manifest_id": "biorxiv",
+      "source_id": "biorxiv",
+      "specification_status": "existing_provider_manifest",
+      "target_adapter_id": "biorxiv-search",
+      "target_capability": "search",
+      "target_manifest_id": "biorxiv",
+      "target_package": "souwen.providers.information_sources.biorxiv",
+      "target_spec_identity": "souwen.providers.information_sources.biorxiv.spec.BIORXIV_PROVIDER_SPEC",
+      "target_spec_path": "src/souwen/providers/information_sources/biorxiv/spec.py",
+      "target_spec_reason": null
+    },
     {
       "provider_manifest_id": "builtin-fetch",
       "source_id": "builtin",
@@ -3367,6 +2966,30 @@
       "target_spec_reason": "capability-specific Fetch Provider is covered by deterministic conformance"
     },
     {
+      "provider_manifest_id": "crossref",
+      "source_id": "crossref",
+      "specification_status": "existing_provider_manifest",
+      "target_adapter_id": "crossref-search",
+      "target_capability": "search",
+      "target_manifest_id": "crossref",
+      "target_package": "souwen.providers.information_sources.crossref",
+      "target_spec_identity": "souwen.providers.information_sources.crossref.spec.CROSSREF_PROVIDER_SPEC",
+      "target_spec_path": "src/souwen/providers/information_sources/crossref/spec.py",
+      "target_spec_reason": null
+    },
+    {
+      "provider_manifest_id": "dblp",
+      "source_id": "dblp",
+      "specification_status": "existing_provider_manifest",
+      "target_adapter_id": "dblp-search",
+      "target_capability": "search",
+      "target_manifest_id": "dblp",
+      "target_package": "souwen.providers.information_sources.dblp",
+      "target_spec_identity": "souwen.providers.information_sources.dblp.spec.DBLP_PROVIDER_SPEC",
+      "target_spec_path": "src/souwen/providers/information_sources/dblp/spec.py",
+      "target_spec_reason": null
+    },
+    {
       "provider_manifest_id": "eric",
       "source_id": "eric",
       "specification_status": "existing_provider_manifest",
@@ -3376,6 +2999,66 @@
       "target_package": "souwen.providers.information_sources.eric",
       "target_spec_identity": "souwen.providers.information_sources.eric.spec.ERIC_REST_SPEC",
       "target_spec_path": "src/souwen/providers/information_sources/eric/spec.py",
+      "target_spec_reason": null
+    },
+    {
+      "provider_manifest_id": "europepmc",
+      "source_id": "europepmc",
+      "specification_status": "existing_provider_manifest",
+      "target_adapter_id": "europepmc-search",
+      "target_capability": "search",
+      "target_manifest_id": "europepmc",
+      "target_package": "souwen.providers.information_sources.europepmc",
+      "target_spec_identity": "souwen.providers.information_sources.europepmc.spec.EUROPEPMC_PROVIDER_SPEC",
+      "target_spec_path": "src/souwen/providers/information_sources/europepmc/spec.py",
+      "target_spec_reason": null
+    },
+    {
+      "provider_manifest_id": "google_patents",
+      "source_id": "google_patents",
+      "specification_status": "existing_provider_manifest",
+      "target_adapter_id": "google_patents-search",
+      "target_capability": "search",
+      "target_manifest_id": "google_patents",
+      "target_package": "souwen.providers.information_sources.google_patents",
+      "target_spec_identity": "souwen.providers.information_sources.google_patents.spec.GOOGLE_PATENTS_BRIDGE_SPEC",
+      "target_spec_path": "src/souwen/providers/information_sources/google_patents/spec.py",
+      "target_spec_reason": null
+    },
+    {
+      "provider_manifest_id": "hal",
+      "source_id": "hal",
+      "specification_status": "existing_provider_manifest",
+      "target_adapter_id": "hal-search",
+      "target_capability": "search",
+      "target_manifest_id": "hal",
+      "target_package": "souwen.providers.information_sources.hal",
+      "target_spec_identity": "souwen.providers.information_sources.hal.spec.HAL_PROVIDER_SPEC",
+      "target_spec_path": "src/souwen/providers/information_sources/hal/spec.py",
+      "target_spec_reason": null
+    },
+    {
+      "provider_manifest_id": "huggingface",
+      "source_id": "huggingface",
+      "specification_status": "existing_provider_manifest",
+      "target_adapter_id": "huggingface-search",
+      "target_capability": "search",
+      "target_manifest_id": "huggingface",
+      "target_package": "souwen.providers.information_sources.huggingface",
+      "target_spec_identity": "souwen.providers.information_sources.huggingface.spec.HUGGINGFACE_REST_SPEC",
+      "target_spec_path": "src/souwen/providers/information_sources/huggingface/spec.py",
+      "target_spec_reason": null
+    },
+    {
+      "provider_manifest_id": "iacr",
+      "source_id": "iacr",
+      "specification_status": "existing_provider_manifest",
+      "target_adapter_id": "iacr-search",
+      "target_capability": "search",
+      "target_manifest_id": "iacr",
+      "target_package": "souwen.providers.information_sources.iacr",
+      "target_spec_identity": "souwen.providers.information_sources.iacr.spec.IACR_BRIDGE_SPEC",
+      "target_spec_path": "src/souwen/providers/information_sources/iacr/spec.py",
       "target_spec_reason": null
     },
     {
@@ -3391,6 +3074,18 @@
       "target_spec_reason": null
     },
     {
+      "provider_manifest_id": "osti",
+      "source_id": "osti",
+      "specification_status": "existing_provider_manifest",
+      "target_adapter_id": "osti-search",
+      "target_capability": "search",
+      "target_manifest_id": "osti",
+      "target_package": "souwen.providers.information_sources.osti",
+      "target_spec_identity": "souwen.providers.information_sources.osti.spec.OSTI_BRIDGE_SPEC",
+      "target_spec_path": "src/souwen/providers/information_sources/osti/spec.py",
+      "target_spec_reason": null
+    },
+    {
       "provider_manifest_id": "patentsview",
       "source_id": "patentsview",
       "specification_status": "existing_provider_manifest",
@@ -3400,6 +3095,30 @@
       "target_package": "souwen.providers.information_sources.patentsview",
       "target_spec_identity": "souwen.providers.information_sources.patentsview.spec.PATENTSVIEW_REST_SPEC",
       "target_spec_path": "src/souwen/providers/information_sources/patentsview/spec.py",
+      "target_spec_reason": null
+    },
+    {
+      "provider_manifest_id": "pmc",
+      "source_id": "pmc",
+      "specification_status": "existing_provider_manifest",
+      "target_adapter_id": "pmc-search",
+      "target_capability": "search",
+      "target_manifest_id": "pmc",
+      "target_package": "souwen.providers.information_sources.pmc",
+      "target_spec_identity": "souwen.providers.information_sources.pmc.spec.PMC_BRIDGE_SPEC",
+      "target_spec_path": "src/souwen/providers/information_sources/pmc/spec.py",
+      "target_spec_reason": null
+    },
+    {
+      "provider_manifest_id": "pubmed",
+      "source_id": "pubmed",
+      "specification_status": "existing_provider_manifest",
+      "target_adapter_id": "pubmed-search",
+      "target_capability": "search",
+      "target_manifest_id": "pubmed",
+      "target_package": "souwen.providers.information_sources.pubmed",
+      "target_spec_identity": "souwen.providers.information_sources.pubmed.spec.PUBMED_BRIDGE_SPEC",
+      "target_spec_path": "src/souwen/providers/information_sources/pubmed/spec.py",
       "target_spec_reason": null
     },
     {
@@ -3428,11 +3147,21 @@
     }
   ],
   "generator_version": "b0-provider-spec-drafts-v1",
-  "inventory_registry_sha256": "27a59aad14b0f29aa8601772626d1ee53b8f742cfc9fd92078238f712ff1f908",
+  "inventory_registry_sha256": "223a25cbc2ce633bf4b2e74de9273f7b5c98eca9badcf3e5d1318bc5e09471ca",
+  "non_provider_disposition_count": 1,
+  "non_provider_dispositions": [
+    {
+      "batch": "batch-1",
+      "disposition_reason": "Search-internal citation enrichment; public citation routes and registry capability retire in C1",
+      "migration_status": "retirement_pending",
+      "source_id": "opencitations",
+      "target_disposition": "search_internal_enrichment"
+    }
+  ],
   "schema_version": 1,
   "source_fingerprint": {
-    "input_sha256": "7a431908b1e57c08267b587a8c8e06a25159e85b316f358e6b2abbca12a0200a",
-    "provider_manifest_ids_sha256": "4939f925d31ef094e0aa574f6600047907dc02be16368fe47938f77404fa5546",
-    "registry_metadata_sha256": "2a96b1040a55385737bcafe898466c9f6a1c5bdb40d43e0b3034281f907ee0d8"
+    "input_sha256": "3b8b4265919740ac0191b1ad9b7aef3f26ff1fa8cb41b829708ddb2c39ea8484",
+    "provider_manifest_ids_sha256": "bb7612e01d19ef92d42bee0c4622aa0720448aeef61cbf947db1f6799d5d7e3e",
+    "registry_metadata_sha256": "936783956f0c02cc547f310f42fb95ce229e7177ce5554b5f08efe02fc2aba69"
   }
 }

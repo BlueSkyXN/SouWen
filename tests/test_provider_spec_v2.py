@@ -3,11 +3,16 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime, timezone
 
 import pytest
 from pydantic import ValidationError
 
 from souwen.platform.provider_spec import (
+    LegacyFetchProvider,
+    LegacyFetchSpec,
+    LegacySearchProviderSpec,
+    LegacyTransportDeclaration,
     LegacySearchProvider,
     LegacySearchSpec,
     RestJsonProviderSpec,
@@ -21,7 +26,10 @@ from souwen.platform.provider_spec.models import (
     SearchResponseMapping,
 )
 from souwen.platform.provider_spi import (
+    ContentMetadata,
     ExecutionContext,
+    FetchResult,
+    FetchTargetRequest,
     PageInfo,
     ProviderError,
     ProviderErrorCode,
@@ -33,13 +41,50 @@ from souwen.platform.provider_spi import (
     SearchRequest,
 )
 from souwen.providers.information_sources.eric import ERIC_PROVIDER_MANIFEST, ERIC_REST_SPEC
+from souwen.providers.fetch_sources.arxiv_fulltext import (
+    ARXIV_FULLTEXT_FETCH_PROFILE,
+    ARXIV_FULLTEXT_PROVIDER_MANIFEST,
+)
+from souwen.providers.information_sources.arxiv import (
+    ARXIV_PROVIDER_MANIFEST,
+    ARXIV_PROVIDER_SPEC,
+)
+from souwen.providers.information_sources.biorxiv import (
+    BIORXIV_PROVIDER_MANIFEST,
+    BIORXIV_PROVIDER_SPEC,
+)
+from souwen.providers.information_sources.crossref import (
+    CROSSREF_PROVIDER_MANIFEST,
+    CROSSREF_PROVIDER_SPEC,
+)
+from souwen.providers.information_sources.dblp import DBLP_PROVIDER_MANIFEST, DBLP_PROVIDER_SPEC
+from souwen.providers.information_sources.europepmc import (
+    EUROPEPMC_PROVIDER_MANIFEST,
+    EUROPEPMC_PROVIDER_SPEC,
+)
+from souwen.providers.information_sources.google_patents import (
+    GOOGLE_PATENTS_BRIDGE_SPEC,
+    GOOGLE_PATENTS_PROVIDER_MANIFEST,
+)
+from souwen.providers.information_sources.hal import HAL_PROVIDER_MANIFEST, HAL_PROVIDER_SPEC
+from souwen.providers.information_sources.huggingface import (
+    HUGGINGFACE_PROVIDER_MANIFEST,
+    HUGGINGFACE_REST_SPEC,
+)
+from souwen.providers.information_sources.iacr import IACR_BRIDGE_SPEC, IACR_PROVIDER_MANIFEST
 from souwen.providers.information_sources.openalex import (
     OPENALEX_PROVIDER_MANIFEST,
     OPENALEX_REST_SPEC,
 )
+from souwen.providers.information_sources.osti import OSTI_BRIDGE_SPEC, OSTI_PROVIDER_MANIFEST
 from souwen.providers.information_sources.patentsview import (
     PATENTSVIEW_PROVIDER_MANIFEST,
     PATENTSVIEW_REST_SPEC,
+)
+from souwen.providers.information_sources.pmc import PMC_BRIDGE_SPEC, PMC_PROVIDER_MANIFEST
+from souwen.providers.information_sources.pubmed import (
+    PUBMED_BRIDGE_SPEC,
+    PUBMED_PROVIDER_MANIFEST,
 )
 
 
@@ -94,6 +139,33 @@ def test_each_sample_spec_agrees_with_its_governance_manifest() -> None:
     assert (
         validate_spec_manifest(OPENALEX_REST_SPEC, OPENALEX_PROVIDER_MANIFEST) is OPENALEX_REST_SPEC
     )
+
+
+@pytest.mark.parametrize(
+    ("spec", "manifest"),
+    (
+        (ARXIV_PROVIDER_SPEC, ARXIV_PROVIDER_MANIFEST),
+        (ARXIV_FULLTEXT_FETCH_PROFILE, ARXIV_FULLTEXT_PROVIDER_MANIFEST),
+        (BIORXIV_PROVIDER_SPEC, BIORXIV_PROVIDER_MANIFEST),
+        (CROSSREF_PROVIDER_SPEC, CROSSREF_PROVIDER_MANIFEST),
+        (DBLP_PROVIDER_SPEC, DBLP_PROVIDER_MANIFEST),
+        (EUROPEPMC_PROVIDER_SPEC, EUROPEPMC_PROVIDER_MANIFEST),
+        (GOOGLE_PATENTS_BRIDGE_SPEC, GOOGLE_PATENTS_PROVIDER_MANIFEST),
+        (HAL_PROVIDER_SPEC, HAL_PROVIDER_MANIFEST),
+        (HUGGINGFACE_REST_SPEC, HUGGINGFACE_PROVIDER_MANIFEST),
+        (IACR_BRIDGE_SPEC, IACR_PROVIDER_MANIFEST),
+        (OSTI_BRIDGE_SPEC, OSTI_PROVIDER_MANIFEST),
+        (PMC_BRIDGE_SPEC, PMC_PROVIDER_MANIFEST),
+        (PUBMED_BRIDGE_SPEC, PUBMED_PROVIDER_MANIFEST),
+    ),
+)
+def test_batch_one_specs_agree_with_their_governance_manifests(spec, manifest) -> None:
+    assert validate_spec_manifest(spec, manifest) is spec
+
+
+def test_arxiv_batch_one_spec_uses_the_verified_https_atom_endpoint() -> None:
+    assert ARXIV_PROVIDER_SPEC.base_url == "https://export.arxiv.org/api"
+    assert ARXIV_PROVIDER_SPEC.transport.protocol == "atom_xml"
     assert (
         validate_spec_manifest(PATENTSVIEW_REST_SPEC, PATENTSVIEW_PROVIDER_MANIFEST)
         is PATENTSVIEW_REST_SPEC
@@ -144,6 +216,47 @@ def test_spec_accepts_each_canonical_search_domain() -> None:
         }
     )
     assert web_spec.domain == "web"
+
+
+def test_legacy_spec_truthfully_declares_non_json_https_transport() -> None:
+    spec = LegacySearchProviderSpec(
+        provider_id="fixture",
+        adapter_id="fixture-search",
+        domain="paper",
+        bridge_reason="Atom XML requires a reviewed client bridge",
+        transport=LegacyTransportDeclaration(
+            scheme="https",
+            host="export.example.test",
+            base_path="/api",
+            protocol="atom_xml",
+            operations=({"method": "GET", "endpoint": "/query"},),
+        ),
+        configuration_keys=("enabled",),
+    )
+
+    assert spec.base_url == "https://export.example.test/api"
+    assert spec.adapter_kind == "legacy_bridge"
+    assert spec.transport.protocol == "atom_xml"
+
+
+def test_legacy_spec_rejects_unreviewed_transport_hosts() -> None:
+    with pytest.raises(ValidationError):
+        LegacySearchProviderSpec(
+            provider_id="fixture",
+            adapter_id="fixture-search",
+            bridge_reason="fixture",
+            transport={"scheme": "https", "host": "127.0.0.1", "protocol": "json"},
+        )
+
+
+def test_auth_optional_flag_is_strict_and_cannot_be_string_coerced() -> None:
+    with pytest.raises(ValidationError):
+        AuthDeclaration(
+            placement="query",
+            reference="FIXTURE_TOKEN",
+            field_name="token",
+            required="false",
+        )
 
 
 @pytest.mark.asyncio
@@ -267,3 +380,42 @@ async def test_generic_factory_is_injectable_and_preserves_lifecycle_cancel_and_
             ExecutionContext.with_timeout(1, cancel_event=event),
         )
     assert cancellation.value.code is ProviderErrorCode.CANCELLED
+
+
+@pytest.mark.asyncio
+async def test_legacy_fetch_factory_preserves_typed_lifecycle_and_redaction() -> None:
+    async def invoke(client, request):
+        return await client.search(str(request.target))
+
+    def project(_response, request, _context):
+        content = "x" * 64
+        return FetchResult(
+            target=request.target,
+            final_url=request.target,
+            status="success",
+            content=content,
+            content_metadata=ContentMetadata(
+                media_type="text/plain",
+                retrieved_at=datetime.now(timezone.utc),
+                truncated=False,
+                content_length=len(content),
+                quality="high",
+            ),
+            provenance=(Provenance(provider="fixture", attempt=1, outcome="success"),),
+        )
+
+    request = FetchTargetRequest(target="https://example.test/item")
+    provider = LegacyFetchProvider(_Client(), LegacyFetchSpec("fixture", invoke, project))
+    result = await provider.fetch(request, _context(), ExecutionContext.with_timeout(1))
+    assert result.status == "success"
+    assert (await provider.probe(ExecutionContext.with_timeout(1))).status == "available"
+    await provider.close()
+    await provider.close()
+
+    failed = LegacyFetchProvider(
+        _Client(RuntimeError("token=private")), LegacyFetchSpec("fixture", invoke, project)
+    )
+    with pytest.raises(ProviderError) as caught:
+        await failed.fetch(request, _context(), ExecutionContext.with_timeout(1))
+    assert caught.value.code is ProviderErrorCode.PROVIDER_UNAVAILABLE
+    assert "private" not in str(caught.value)

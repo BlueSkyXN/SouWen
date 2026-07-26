@@ -13,6 +13,8 @@ from souwen.common_runtime.errors import SouWenError
 from souwen.common_runtime.transport.errors import AuthError, RateLimitError, SourceUnavailableError
 from souwen.platform.provider_spi import (
     ExecutionContext,
+    FetchResult,
+    FetchTargetRequest,
     ProviderError,
     ProviderErrorCode,
     ProviderProbe,
@@ -33,6 +35,100 @@ class LegacySearchSpec:
     invoke: Callable[[Any, SearchRequest, int], Awaitable[Any]]
     project: Callable[[Any, int, RequestContext], SearchPage]
     accepts_filters: bool = False
+
+
+@dataclass(frozen=True, slots=True)
+class LegacyFetchSpec:
+    """Typed callbacks separating Fetch mapping from shared lifecycle behavior."""
+
+    provider_id: str
+    invoke: Callable[[Any, FetchTargetRequest], Awaitable[Any]]
+    project: Callable[[Any, FetchTargetRequest, RequestContext], FetchResult]
+
+
+class LegacyFetchProvider:
+    """Reusable Fetch SPI wrapper for one fixed, injected legacy client."""
+
+    capability = "fetch"
+
+    def __init__(self, client: Any, spec: LegacyFetchSpec, *, enabled: bool = True) -> None:
+        self._client, self._spec, self._enabled, self._closed = client, spec, enabled, False
+
+    async def fetch(
+        self,
+        request: FetchTargetRequest,
+        context: RequestContext,
+        execution: ExecutionContext,
+    ) -> FetchResult:
+        execution.raise_if_cancelled_or_expired()
+        if self._closed or not self._enabled:
+            raise ProviderError(
+                ProviderErrorCode.INVALID_CONFIG, provider_id=self._spec.provider_id
+            )
+        try:
+            result = await _await(self._spec.invoke(self._client, request), execution)
+            execution.raise_if_cancelled_or_expired()
+            return self._spec.project(result, request, context)
+        except asyncio.CancelledError:
+            raise
+        except ProviderError:
+            raise
+        except RateLimitError as exc:
+            raise ProviderError(
+                ProviderErrorCode.RATE_LIMITED,
+                provider_id=self._spec.provider_id,
+                retry_after_seconds=getattr(exc, "retry_after", None),
+            ) from None
+        except TimeoutError:
+            raise ProviderError(
+                ProviderErrorCode.DEADLINE_EXCEEDED, provider_id=self._spec.provider_id
+            ) from None
+        except AuthError:
+            raise ProviderError(
+                ProviderErrorCode.INVALID_CONFIG, provider_id=self._spec.provider_id
+            ) from None
+        except SourceUnavailableError:
+            raise ProviderError(
+                ProviderErrorCode.PROVIDER_UNAVAILABLE, provider_id=self._spec.provider_id
+            ) from None
+        except SouWenError as exc:
+            code = (
+                ProviderErrorCode.INVALID_CONFIG
+                if type(exc).__name__ == "ConfigError"
+                else ProviderErrorCode.INVALID_UPSTREAM_RESPONSE
+            )
+            raise ProviderError(code, provider_id=self._spec.provider_id) from None
+        except (AttributeError, TypeError, ValueError):
+            raise ProviderError(
+                ProviderErrorCode.INVALID_UPSTREAM_RESPONSE, provider_id=self._spec.provider_id
+            ) from None
+        except Exception:
+            raise ProviderError(
+                ProviderErrorCode.PROVIDER_UNAVAILABLE, provider_id=self._spec.provider_id
+            ) from None
+
+    async def probe(self, execution: ExecutionContext) -> ProviderProbe:
+        execution.raise_if_cancelled_or_expired()
+        return ProviderProbe(
+            provider=self._spec.provider_id,
+            capability="fetch",
+            status="unavailable" if self._closed or not self._enabled else "available",
+        )
+
+    async def close(self) -> None:
+        if self._closed:
+            return
+        self._closed = True
+        closer = getattr(self._client, "aclose", None) or getattr(self._client, "close", None)
+        if closer is None:
+            return
+        try:
+            value = closer()
+            if inspect.isawaitable(value):
+                await value
+        except asyncio.CancelledError:
+            self._closed = False
+            raise
 
 
 class LegacySearchProvider:

@@ -4,11 +4,11 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 
-from souwen.platform.provider_spec.models import RestJsonProviderSpec
+from souwen.platform.provider_spec.models import ProviderSpec
 
 
 def resolve_provider_inputs(
-    spec: RestJsonProviderSpec,
+    spec: ProviderSpec,
     configuration: Mapping[str, object],
     secrets: Mapping[str, str],
 ) -> tuple[dict[str, object], dict[str, str]]:
@@ -23,6 +23,8 @@ def resolve_provider_inputs(
     if spec.auth_reference is None:
         return resolved_config, {}
     value = secrets.get(spec.auth_reference)
+    if value is None and not spec.auth.required:
+        return resolved_config, {}
     if not isinstance(value, str) or not value.strip():
         raise ValueError("provider secret is unavailable")
     return resolved_config, {spec.auth_reference: value.strip()}

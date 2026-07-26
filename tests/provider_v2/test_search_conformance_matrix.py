@@ -8,27 +8,33 @@ from pathlib import Path
 
 import pytest
 
-from souwen.models import Applicant, Author, PaperResult, PatentResult, SearchResponse
+from souwen.models import Applicant, Author, PaperResult, PatentResult
 from souwen.platform.provider_spi import SearchRequest
+from souwen.providers.information_sources.arxiv import ArxivSearchProvider
+from souwen.providers.information_sources.biorxiv import BioRxivSearchProvider
+from souwen.providers.information_sources.crossref import CrossrefSearchProvider
+from souwen.providers.information_sources.dblp import DblpSearchProvider
 from souwen.providers.information_sources.eric import EricSearchProvider
+from souwen.providers.information_sources.europepmc import EuropePmcSearchProvider
+from souwen.providers.information_sources.google_patents import GooglePatentsSearchProvider
+from souwen.providers.information_sources.hal import HalSearchProvider
+from souwen.providers.information_sources.huggingface import HuggingFaceSearchProvider
+from souwen.providers.information_sources.iacr import IacrSearchProvider
 from souwen.providers.information_sources.openalex import OpenAlexSearchProvider
+from souwen.providers.information_sources.osti import OstiSearchProvider
 from souwen.providers.information_sources.patentsview import PatentsViewSearchProvider
+from souwen.providers.information_sources.pmc import PmcSearchProvider
+from souwen.providers.information_sources.pubmed import PubMedSearchProvider
+from tests.support.provider_v2_batch_one import (
+    batch_one_paper as _batch_one_paper,
+    google_patent as _google_patent,
+    response as _response,
+)
 from tests.support.provider_v2_conformance import (
     SEARCH_CONFORMANCE_CASES,
     SearchConformanceDefinition,
     run_search_conformance_case,
 )
-
-
-def _response(source: str, *results: object) -> SearchResponse:
-    return SearchResponse(
-        query="conformance",
-        source=source,
-        total_results=len(results),
-        page=1,
-        per_page=10,
-        results=list(results),
-    )
 
 
 def _openalex_paper() -> PaperResult:
@@ -71,30 +77,62 @@ def _patent() -> PatentResult:
     )
 
 
+def _definition(provider_id, provider_type, response, *, domain="paper"):
+    return SearchConformanceDefinition(
+        provider_id=provider_id,
+        build_provider=lambda client, enabled: provider_type(client, enabled=enabled),
+        request=SearchRequest(query="conformance", domains=(domain,)),
+        success_response=response,
+        empty_response=_response(provider_id),
+        invalid_response=object(),
+    )
+
+
 DEFINITIONS = (
-    SearchConformanceDefinition(
-        provider_id="openalex",
-        build_provider=lambda client, enabled: OpenAlexSearchProvider(client, enabled=enabled),
-        request=SearchRequest(query="conformance", domains=("paper",)),
-        success_response=_response("openalex", _openalex_paper()),
-        empty_response=_response("openalex"),
-        invalid_response=object(),
+    _definition("arxiv", ArxivSearchProvider, _response("arxiv", _batch_one_paper("arxiv"))),
+    _definition(
+        "biorxiv",
+        BioRxivSearchProvider,
+        _response("biorxiv", _batch_one_paper("biorxiv")),
     ),
-    SearchConformanceDefinition(
-        provider_id="eric",
-        build_provider=lambda client, enabled: EricSearchProvider(client, enabled=enabled),
-        request=SearchRequest(query="conformance", domains=("paper",)),
-        success_response=_response("eric", _eric_paper()),
-        empty_response=_response("eric"),
-        invalid_response=object(),
+    _definition(
+        "crossref",
+        CrossrefSearchProvider,
+        _response("crossref", _batch_one_paper("crossref")),
     ),
-    SearchConformanceDefinition(
-        provider_id="patentsview",
-        build_provider=lambda client, enabled: PatentsViewSearchProvider(client, enabled=enabled),
-        request=SearchRequest(query="conformance", domains=("patent",)),
-        success_response=_response("patentsview", _patent()),
-        empty_response=_response("patentsview"),
-        invalid_response=object(),
+    _definition("dblp", DblpSearchProvider, _response("dblp", _batch_one_paper("dblp"))),
+    _definition("eric", EricSearchProvider, _response("eric", _eric_paper())),
+    _definition(
+        "europepmc",
+        EuropePmcSearchProvider,
+        _response("europepmc", _batch_one_paper("europepmc")),
+    ),
+    _definition(
+        "google_patents",
+        GooglePatentsSearchProvider,
+        _response("google_patents", _google_patent()),
+        domain="patent",
+    ),
+    _definition("hal", HalSearchProvider, _response("hal", _batch_one_paper("hal"))),
+    _definition(
+        "huggingface",
+        HuggingFaceSearchProvider,
+        _response("huggingface", _batch_one_paper("huggingface")),
+    ),
+    _definition("iacr", IacrSearchProvider, _response("iacr", _batch_one_paper("iacr"))),
+    _definition("openalex", OpenAlexSearchProvider, _response("openalex", _openalex_paper())),
+    _definition("osti", OstiSearchProvider, _response("osti", _batch_one_paper("osti"))),
+    _definition(
+        "patentsview",
+        PatentsViewSearchProvider,
+        _response("patentsview", _patent()),
+        domain="patent",
+    ),
+    _definition("pmc", PmcSearchProvider, _response("pmc", _batch_one_paper("pmc"))),
+    _definition(
+        "pubmed",
+        PubMedSearchProvider,
+        _response("pubmed", _batch_one_paper("pubmed")),
     ),
 )
 
