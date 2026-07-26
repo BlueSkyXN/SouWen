@@ -206,9 +206,12 @@ v2 release candidate 已合回 `main`。`V2 CI` 继续作为 v2 public surface �
 - full pytest matrix：安装 `.[dev,server,tls,web,robots,scraper]`，覆盖 Ubuntu Python
   3.10/3.11/3.12/3.13，以及 macOS/Windows Python 3.11；避免把缺少 Server
   或 scraper runtime 误报成产品行为回归。
-- Provider v2 conformance：单独运行 SPI、manifest registry、Provider Manager、
-  OpenAlex、builtin Fetch、UniAPI、ERIC 与 PatentsView 的 deterministic tests；不访问网络、
-  browser runtime 或 secret，并由 V2 readiness summary fail closed 汇总。
+- Provider v2 conformance：先以 `tools/provider_migration_inventory.py --check --require-complete`
+  和 `tools/gen_provider_spec_drafts.py --check` 校验 110 源 inventory、104 个待审草稿与生成物；
+  再运行 SPI、typed spec/factory/resolver、manifest registry、Provider Manager、自动发现的
+  OpenAlex/ERIC/PatentsView 九项 Search matrix，以及 builtin Fetch、UniAPI 和 provider-specific
+  deterministic tests。整个 gate 不访问网络、browser runtime、HOME 或真实 secret，并由
+  V2 readiness summary fail closed 汇总。
 - server contract：安装 API 测试依赖后运行 `server-contract`，上传 target Server
   JSON/Markdown evidence。它覆盖 local API surface，不证明外部源在线。
 - SDK contract：验证 target OpenAPI、DTO 和 API-major prerequisite；在 generated SDK

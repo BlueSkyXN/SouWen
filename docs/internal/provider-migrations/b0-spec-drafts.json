@@ -1,0 +1,3438 @@
+{
+  "draft_count": 104,
+  "drafts": [
+    {
+      "auth_requirement": "required",
+      "batch": "batch-3",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [
+        "aliyun_iqs_api_key"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.aliyun_iqs:AliyunIQSClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "aliyun_iqs",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "required",
+      "batch": "batch-3",
+      "capabilities": [
+        "fetch"
+      ],
+      "credential_fields": [
+        "apify_api_token"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.apify:ApifyClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "apify",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-1",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.paper.arxiv:ArxivClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "arxiv",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-1",
+      "capabilities": [
+        "fetch"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.paper.arxiv_fulltext:ArxivFulltextClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "arxiv_fulltext",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-5",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.baidu:BaiduClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "baidu",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "optional",
+      "batch": "batch-5",
+      "capabilities": [
+        "get_detail",
+        "search",
+        "search_articles",
+        "search_users"
+      ],
+      "credential_fields": [
+        "bilibili_sessdata"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.bilibili:BilibiliClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "bilibili",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-5",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.bing:BingClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "bing",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-5",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.bing_cn:BingCnClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "bing_cn",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-1",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.paper.biorxiv:BioRxivClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "biorxiv",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-5",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.brave:BraveClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "brave",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "required",
+      "batch": "batch-3",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [
+        "brave_api_key"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.brave_api:BraveApiClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "brave_api",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "required",
+      "batch": "batch-3",
+      "capabilities": [
+        "fetch"
+      ],
+      "credential_fields": [
+        "cloudflare_api_token",
+        "cloudflare_account_id"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.cloudflare_browser:CloudflareBrowserClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "cloudflare",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "required",
+      "batch": "batch-2",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [
+        "cnipa_client_id",
+        "cnipa_client_secret"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.patent.cnipa:CnipaClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "cnipa",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-5",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.community_cn:CommunityCnClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "community_cn",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-5",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.coolapk:CoolapkClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "coolapk",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "required",
+      "batch": "batch-2",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [
+        "core_api_key"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.paper.core:CoreClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "core",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-5",
+      "capabilities": [
+        "fetch"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.crawl4ai_fetcher:Crawl4AIFetcherClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "crawl4ai",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-1",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.paper.crossref:CrossrefClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "crossref",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-5",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.csdn:CSDNClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "csdn",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-4",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.research_output.datacite:DataCiteClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "datacite",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-1",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.paper.dblp:DblpClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "dblp",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-3",
+      "capabilities": [
+        "fetch"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.deepwiki:DeepWikiClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "deepwiki",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "required",
+      "batch": "batch-3",
+      "capabilities": [
+        "fetch"
+      ],
+      "credential_fields": [
+        "diffbot_api_token"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.diffbot:DiffbotClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "diffbot",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-4",
+      "capabilities": [
+        "get_detail",
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.book.doab:DOABClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "doab",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "optional",
+      "batch": "batch-2",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [
+        "doaj_api_key"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.paper.doaj:DoajClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "doaj",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-5",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.duckduckgo:DuckDuckGoClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "duckduckgo",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-5",
+      "capabilities": [
+        "search_images"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.ddg_images:DuckDuckGoImagesClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "duckduckgo_images",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-5",
+      "capabilities": [
+        "search_news"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.ddg_news:DuckDuckGoNewsClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "duckduckgo_news",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-5",
+      "capabilities": [
+        "search_videos"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.ddg_videos:DuckDuckGoVideosClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "duckduckgo_videos",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "required",
+      "batch": "batch-2",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [
+        "epo_consumer_key",
+        "epo_consumer_secret"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.patent.epo_ops:EpoOpsClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "epo_ops",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-1",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.paper.europepmc:EuropePmcClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "europepmc",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "required",
+      "batch": "batch-3",
+      "capabilities": [
+        "exa:find_similar",
+        "fetch",
+        "search"
+      ],
+      "credential_fields": [
+        "exa_api_key"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.exa:ExaClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "exa",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "required",
+      "batch": "batch-3",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [
+        "facebook_app_id",
+        "facebook_app_secret"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.facebook:FacebookClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "facebook",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "required",
+      "batch": "batch-3",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [
+        "feishu_app_id",
+        "feishu_app_secret"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.feishu_drive:FeishuDriveClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "feishu_drive",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-4",
+      "capabilities": [
+        "get_detail",
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.research_output.figshare:FigshareClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "figshare",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "required",
+      "batch": "batch-3",
+      "capabilities": [
+        "fetch",
+        "search"
+      ],
+      "credential_fields": [
+        "firecrawl_api_key"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.firecrawl:FirecrawlClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "firecrawl",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "optional",
+      "batch": "batch-3",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [
+        "github_token"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.github:GitHubClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "github",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-5",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.google:GoogleClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "google",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-1",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.patent.google_patents_scraper:GooglePatentsScraper]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "google_patents",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-4",
+      "capabilities": [
+        "get_detail",
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.local_catalog.gutenberg:GutenbergLocalCatalogClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "gutenberg",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-1",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.paper.hal:HalClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "hal",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-5",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.hostloc:HostLocClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "hostloc",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-1",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.paper.huggingface:HuggingFaceClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "huggingface",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-1",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.paper.iacr:IacrClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "iacr",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "required",
+      "batch": "batch-2",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [
+        "ieee_api_key"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.paper.ieee_xplore:IeeeXploreClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "ieee_xplore",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-4",
+      "capabilities": [
+        "get_detail",
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.book.internet_archive:InternetArchiveClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "internet_archive",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "optional",
+      "batch": "batch-3",
+      "capabilities": [
+        "fetch"
+      ],
+      "credential_fields": [
+        "jina_api_key"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.jina_reader:JinaReaderClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "jina_reader",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-5",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.juejin:JuejinClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "juejin",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "required",
+      "batch": "batch-3",
+      "capabilities": [
+        "fetch",
+        "search"
+      ],
+      "credential_fields": [
+        "kimi_code_api_key"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.kimi_code:KimiCodeClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "kimi_code",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-4",
+      "capabilities": [
+        "get_detail",
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.book.library_of_congress:LibraryOfCongressClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "library_of_congress",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-4",
+      "capabilities": [
+        "get_detail",
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.book.librivox:LibriVoxClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "librivox",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "required",
+      "batch": "batch-3",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [
+        "linkup_api_key"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.linkup:LinkupClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "linkup",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-3",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.linuxdo:LinuxDoClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "linuxdo",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "required",
+      "batch": "batch-3",
+      "capabilities": [
+        "fetch",
+        "search"
+      ],
+      "credential_fields": [
+        "metaso_api_key"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.metaso:MetasoClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "metaso",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-5",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.mojeek:MojeekClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "mojeek",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-5",
+      "capabilities": [
+        "fetch"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.newspaper_fetcher:NewspaperFetcherClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "newspaper",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-5",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.nodeseek:NodeSeekClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "nodeseek",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-4",
+      "capabilities": [
+        "get_detail",
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.book.oapen:OAPENClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "oapen",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-4",
+      "capabilities": [
+        "get_detail",
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.book.open_library:OpenLibraryClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "open_library",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "optional",
+      "batch": "batch-2",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [
+        "openaire_api_key"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.paper.openaire:OpenAireClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "openaire",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-1",
+      "capabilities": [
+        "opencitations:citation_count",
+        "opencitations:citations",
+        "opencitations:references"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.paper.opencitations:OpenCitationsClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "opencitations",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-1",
+      "capabilities": [
+        "get_detail",
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.paper.osti:OstiClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "osti",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "required",
+      "batch": "batch-2",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [
+        "patsnap_api_key"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.patent.patsnap:PatSnapClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "patsnap",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "required",
+      "batch": "batch-3",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [
+        "perplexity_api_key"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.perplexity:PerplexityClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "perplexity",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-1",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.paper.pmc:PmcClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "pmc",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "required",
+      "batch": "batch-2",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [
+        "pqai_api_token"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.patent.pqai:PqaiClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "pqai",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-1",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.paper.pubmed:PubMedClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "pubmed",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-5",
+      "capabilities": [
+        "fetch"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.readability_fetcher:ReadabilityFetcherClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "readability",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-3",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.reddit:RedditClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "reddit",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "required",
+      "batch": "batch-3",
+      "capabilities": [
+        "fetch"
+      ],
+      "credential_fields": [
+        "scraperapi_api_key"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.scraperapi:ScraperAPIClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "scraperapi",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "required",
+      "batch": "batch-3",
+      "capabilities": [
+        "fetch"
+      ],
+      "credential_fields": [
+        "scrapfly_api_key"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.scrapfly:ScrapflyClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "scrapfly",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "required",
+      "batch": "batch-3",
+      "capabilities": [
+        "fetch"
+      ],
+      "credential_fields": [
+        "scrapingbee_api_key"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.scrapingbee:ScrapingBeeClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "scrapingbee",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "required",
+      "batch": "batch-3",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [
+        "scrapingdog_api_key"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.scrapingdog:ScrapingDogClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "scrapingdog",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-5",
+      "capabilities": [
+        "fetch"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.scrapling_fetcher:ScraplingFetcherClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "scrapling",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "self_hosted",
+      "batch": "batch-6",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [
+        "searxng_url"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.searxng:SearXNGClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "searxng",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "optional",
+      "batch": "batch-2",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [
+        "semantic_scholar_api_key"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.paper.semantic_scholar:SemanticScholarClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "semantic_scholar",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "required",
+      "batch": "batch-3",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [
+        "serpapi_api_key"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.serpapi:SerpApiClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "serpapi",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "required",
+      "batch": "batch-3",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [
+        "serper_api_key"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.serper:SerperClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "serper",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-5",
+      "capabilities": [
+        "fetch"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.site_crawler:SiteCrawlerClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "site_crawler",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "optional",
+      "batch": "batch-3",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [
+        "stackoverflow_api_key"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.stackoverflow:StackOverflowClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "stackoverflow",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-5",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.startpage:StartpageClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "startpage",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-4",
+      "capabilities": [
+        "get_detail",
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.local_catalog.taiwan_new_books:TaiwanNewBooksLocalCatalogClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "taiwan_new_books",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "required",
+      "batch": "batch-3",
+      "capabilities": [
+        "fetch",
+        "search"
+      ],
+      "credential_fields": [
+        "tavily_api_key"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.tavily:TavilyClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "tavily",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "required",
+      "batch": "batch-2",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [
+        "lens_api_token"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.patent.the_lens:TheLensClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "the_lens",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "required",
+      "batch": "batch-3",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [
+        "twitter_bearer_token"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.twitter:TwitterClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "twitter",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "required",
+      "batch": "batch-2",
+      "capabilities": [
+        "unpaywall:find_oa"
+      ],
+      "credential_fields": [
+        "unpaywall_email"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.paper.unpaywall:UnpaywallClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "unpaywall",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "required",
+      "batch": "batch-2",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [
+        "uspto_api_key"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.patent.uspto_odp:UsptoOdpClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "uspto_odp",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-5",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.v2ex:V2EXClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "v2ex",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-3",
+      "capabilities": [
+        "archive_lookup",
+        "archive_save",
+        "fetch"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.wayback:WaybackClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "wayback",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "self_hosted",
+      "batch": "batch-6",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [
+        "websurfx_url"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.websurfx:WebsurfxClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "websurfx",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-5",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.weibo:WeiboClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "weibo",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "self_hosted",
+      "batch": "batch-6",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [
+        "whoogle_url"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.whoogle:WhoogleClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "whoogle",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-3",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.wikipedia:WikipediaClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "wikipedia",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-4",
+      "capabilities": [
+        "get_detail",
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.book.wikisource:WikisourceClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "wikisource",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "required",
+      "batch": "batch-3",
+      "capabilities": [
+        "fetch",
+        "search"
+      ],
+      "credential_fields": [
+        "xcrawl_api_key"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.xcrawl:XCrawlClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "xcrawl",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-5",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.xiaohongshu:XiaohongshuClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "xiaohongshu",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-5",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.yahoo:YahooClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "yahoo",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-5",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.yandex:YandexClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "yandex",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "required",
+      "batch": "batch-3",
+      "capabilities": [
+        "get_detail",
+        "get_transcript",
+        "get_trending",
+        "search"
+      ],
+      "credential_fields": [
+        "youtube_api_key"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.youtube:YouTubeClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "youtube",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "optional",
+      "batch": "batch-2",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [
+        "zenodo_access_token"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.paper.zenodo:ZenodoClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "zenodo",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "required",
+      "batch": "batch-3",
+      "capabilities": [
+        "fetch"
+      ],
+      "credential_fields": [
+        "zenrows_api_key"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.zenrows:ZenRowsClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "zenrows",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "none",
+      "batch": "batch-5",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.zhihu:ZhihuClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "zhihu",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "required",
+      "batch": "batch-3",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [
+        "zhipuai_api_key"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.web.zhipuai_search:ZhipuAISearchClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "zhipuai",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    },
+    {
+      "auth_requirement": "required",
+      "batch": "batch-2",
+      "capabilities": [
+        "search"
+      ],
+      "credential_fields": [
+        "zotero_api_key",
+        "zotero_library_id"
+      ],
+      "error_mapping": {
+        "review_required": true
+      },
+      "legacy_loader": "lazy[souwen.paper.zotero:ZoteroClient]",
+      "migration_status": "pending",
+      "provider_manifest_id": null,
+      "request_mapping": {
+        "review_required": true
+      },
+      "response_mapping": {
+        "review_required": true
+      },
+      "source_id": "zotero",
+      "target_adapter_id": null,
+      "target_capability": null,
+      "target_manifest_id": null,
+      "target_package": null,
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": null,
+      "transport": {
+        "review_required": true
+      }
+    }
+  ],
+  "existing_provider_spec_count": 6,
+  "existing_provider_specs": [
+    {
+      "provider_manifest_id": "builtin-fetch",
+      "source_id": "builtin",
+      "specification_status": "existing_provider_manifest",
+      "target_adapter_id": "builtin-fetch",
+      "target_capability": "fetch",
+      "target_manifest_id": "builtin-fetch",
+      "target_package": "souwen.providers.fetch_sources.builtin",
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": "capability-specific Fetch Provider is covered by deterministic conformance"
+    },
+    {
+      "provider_manifest_id": "eric",
+      "source_id": "eric",
+      "specification_status": "existing_provider_manifest",
+      "target_adapter_id": "eric-search",
+      "target_capability": "search",
+      "target_manifest_id": "eric",
+      "target_package": "souwen.providers.information_sources.eric",
+      "target_spec_identity": "souwen.providers.information_sources.eric.spec.ERIC_REST_SPEC",
+      "target_spec_path": "src/souwen/providers/information_sources/eric/spec.py",
+      "target_spec_reason": null
+    },
+    {
+      "provider_manifest_id": "openalex",
+      "source_id": "openalex",
+      "specification_status": "existing_provider_manifest",
+      "target_adapter_id": "openalex-search",
+      "target_capability": "search",
+      "target_manifest_id": "openalex",
+      "target_package": "souwen.providers.information_sources.openalex",
+      "target_spec_identity": "souwen.providers.information_sources.openalex.spec.OPENALEX_REST_SPEC",
+      "target_spec_path": "src/souwen/providers/information_sources/openalex/spec.py",
+      "target_spec_reason": null
+    },
+    {
+      "provider_manifest_id": "patentsview",
+      "source_id": "patentsview",
+      "specification_status": "existing_provider_manifest",
+      "target_adapter_id": "patentsview-search",
+      "target_capability": "search",
+      "target_manifest_id": "patentsview",
+      "target_package": "souwen.providers.information_sources.patentsview",
+      "target_spec_identity": "souwen.providers.information_sources.patentsview.spec.PATENTSVIEW_REST_SPEC",
+      "target_spec_path": "src/souwen/providers/information_sources/patentsview/spec.py",
+      "target_spec_reason": null
+    },
+    {
+      "provider_manifest_id": "uniapi_ark_annotations_deepseek_v3_2_251201",
+      "source_id": "uniapi_ark_annotations_deepseek_v3_2_251201",
+      "specification_status": "existing_provider_manifest",
+      "target_adapter_id": "uniapi_ark_annotations_deepseek_v3_2_251201",
+      "target_capability": "llm_search",
+      "target_manifest_id": "uniapi_ark_annotations_deepseek_v3_2_251201",
+      "target_package": "souwen.providers.llm_sources.uniapi_ark_annotations",
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": "capability-specific LLM Search Provider is covered by deterministic conformance"
+    },
+    {
+      "provider_manifest_id": "uniapi_ark_annotations_doubao_seed_2_0_lite_260428",
+      "source_id": "uniapi_ark_annotations_doubao_seed_2_0_lite_260428",
+      "specification_status": "existing_provider_manifest",
+      "target_adapter_id": "uniapi_ark_annotations_doubao_seed_2_0_lite_260428",
+      "target_capability": "llm_search",
+      "target_manifest_id": "uniapi_ark_annotations_doubao_seed_2_0_lite_260428",
+      "target_package": "souwen.providers.llm_sources.uniapi_ark_annotations",
+      "target_spec_identity": null,
+      "target_spec_path": null,
+      "target_spec_reason": "capability-specific LLM Search Provider is covered by deterministic conformance"
+    }
+  ],
+  "generator_version": "b0-provider-spec-drafts-v1",
+  "inventory_registry_sha256": "27a59aad14b0f29aa8601772626d1ee53b8f742cfc9fd92078238f712ff1f908",
+  "schema_version": 1,
+  "source_fingerprint": {
+    "input_sha256": "7a431908b1e57c08267b587a8c8e06a25159e85b316f358e6b2abbca12a0200a",
+    "provider_manifest_ids_sha256": "4939f925d31ef094e0aa574f6600047907dc02be16368fe47938f77404fa5546",
+    "registry_metadata_sha256": "2a96b1040a55385737bcafe898466c9f6a1c5bdb40d43e0b3034281f907ee0d8"
+  }
+}

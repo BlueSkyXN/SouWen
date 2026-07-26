@@ -66,6 +66,8 @@ Public docs 不要求读者理解历史路径；需要保留背景材料时，�
 | [internal/spec-05-provider-spi-manifest-conformance.md](./internal/spec-05-provider-spi-manifest-conformance.md) | Proposed Provider SPI、Manifest 与 Conformance contract |
 | [internal/provider-migrations/eric-current-to-target.md](./internal/provider-migrations/eric-current-to-target.md) | ERIC Provider v2 的 current-to-target 字段边界、共存与 rollback 记录 |
 | [internal/provider-migrations/patentsview-current-to-target.md](./internal/provider-migrations/patentsview-current-to-target.md) | PatentsView Provider v2 的 secret、显式选择、字段边界与 rollback 记录 |
+| [internal/provider-migrations/b0-inventory.md](./internal/provider-migrations/b0-inventory.md) | 自动生成的 110 源 Provider v2 迁移状态、批次与 target identity inventory |
+| [internal/provider-migrations/b0-spec-drafts.md](./internal/provider-migrations/b0-spec-drafts.md) | 自动生成的 104 个待迁源 spec review 草稿索引；未知 mapping 明确保留 review_required |
 | [internal/spec-08-directory-dependency.md](./internal/spec-08-directory-dependency.md) | Proposed target directory、dependency rules 与 migration gate |
 | [internal/phase1/current-api-golden-fixtures.md](./internal/phase1/current-api-golden-fixtures.md) | Phase 1B current-only API behavior 与 language-neutral fixture 说明 |
 | [internal/phase1/provider-directory-current-behavior.md](./internal/phase1/provider-directory-current-behavior.md) | Phase 1B current-only Provider、config 与 directory dependency 事实基线 |

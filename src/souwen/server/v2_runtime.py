@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
@@ -28,7 +29,13 @@ from souwen.modules.search.application import (
 from souwen.paper.eric import EricClient
 from souwen.paper.openalex import OpenAlexClient
 from souwen.patent.patentsview import PatentsViewClient
+from souwen.platform.manifest_registry import ProviderManifest
 from souwen.platform.provider_manager import ProviderManager
+from souwen.platform.provider_spec import (
+    RestJsonProviderSpec,
+    resolve_provider_inputs,
+    validate_spec_manifest,
+)
 from souwen.platform.provider_spi import (
     ExecutionContext,
     ProviderError,
@@ -44,9 +51,14 @@ from souwen.providers.information_sources.openalex import (
 )
 from souwen.providers.information_sources.patentsview import (
     PATENTSVIEW_PROVIDER_MANIFEST,
+    PATENTSVIEW_REST_SPEC,
     PatentsViewSearchProvider,
 )
-from souwen.providers.information_sources.eric import ERIC_PROVIDER_MANIFEST, EricSearchProvider
+from souwen.providers.information_sources.eric import (
+    ERIC_PROVIDER_MANIFEST,
+    ERIC_REST_SPEC,
+    EricSearchProvider,
+)
 from souwen.providers.llm_sources.uniapi_ark_annotations import (
     UNIAPI_ARK_MANIFESTS,
     UniApiArkAnnotationsDeepSeekProvider,
@@ -204,44 +216,56 @@ def _validate_eric_configuration(configuration) -> None:
     _validate_transport_configuration(configuration, provider_id="ERIC")
 
 
-def _build_eric_provider(configuration, _secrets) -> EricSearchProvider:
-    """Build ERIC only from the Provider Manager's resolved namespace."""
-    _validate_eric_configuration(configuration)
-    transport = HttpTransport(
-        base_url="https://api.ies.ed.gov",
-        headers={"User-Agent": f"SouWen/{__version__}"},
-        timeout=configuration["timeout_seconds"],
-        max_retries=configuration["max_retries"],
+def _rest_transport(
+    spec: RestJsonProviderSpec,
+    manifest: ProviderManifest,
+    configuration: Mapping[str, object],
+    secrets: Mapping[str, str],
+) -> tuple[dict[str, Any], HttpTransport]:
+    """Build a fixed-endpoint transport from an already reviewed Provider spec."""
+    validate_spec_manifest(spec, manifest)
+    resolved_configuration, resolved_secrets = resolve_provider_inputs(spec, configuration, secrets)
+    headers = {"User-Agent": f"SouWen/{__version__}"}
+    if spec.auth.placement in {"header", "bearer"}:
+        assert spec.auth.reference is not None and spec.auth.field_name is not None
+        value = resolved_secrets[spec.auth.reference]
+        headers[spec.auth.field_name] = (
+            f"Bearer {value}" if spec.auth.placement == "bearer" else value
+        )
+    elif spec.auth.placement == "query":
+        raise ValueError("query authentication requires an explicit reviewed client bridge")
+
+    return resolved_configuration, HttpTransport(
+        base_url=spec.base_url,
+        headers=headers,
+        timeout=resolved_configuration["timeout_seconds"],
+        max_retries=resolved_configuration["max_retries"],
         proxy=None,
         follow_redirects=False,
     )
+
+
+def _build_eric_provider(configuration, _secrets) -> EricSearchProvider:
+    """Build ERIC only from the Provider Manager's resolved namespace."""
+    _validate_eric_configuration(configuration)
+    resolved_configuration, transport = _rest_transport(
+        ERIC_REST_SPEC, ERIC_PROVIDER_MANIFEST, configuration, _secrets
+    )
     return EricSearchProvider(
         EricClient(transport=transport),
-        enabled=configuration["enabled"],
+        enabled=resolved_configuration["enabled"],
     )
 
 
 def _build_patentsview_provider(configuration, secrets) -> PatentsViewSearchProvider:
     """Build PatentsView only from resolved config and secret namespaces."""
     _validate_transport_configuration(configuration, provider_id="PatentsView")
-    api_key = secrets.get("PATENTSVIEW_API_KEY")
-    if not isinstance(api_key, str) or not api_key.strip():
-        raise ValueError("missing PatentsView credential")
-    api_key = api_key.strip()
-    transport = HttpTransport(
-        base_url="https://search.patentsview.org/api/v1",
-        headers={
-            "User-Agent": f"SouWen/{__version__}",
-            "X-Api-Key": api_key,
-        },
-        timeout=configuration["timeout_seconds"],
-        max_retries=configuration["max_retries"],
-        proxy=None,
-        follow_redirects=False,
+    resolved_configuration, transport = _rest_transport(
+        PATENTSVIEW_REST_SPEC, PATENTSVIEW_PROVIDER_MANIFEST, configuration, secrets
     )
     return PatentsViewSearchProvider(
         PatentsViewClient(transport=transport),
-        enabled=configuration["enabled"],
+        enabled=resolved_configuration["enabled"],
     )
 
 

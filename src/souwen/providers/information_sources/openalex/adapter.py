@@ -2,21 +2,12 @@
 
 from __future__ import annotations
 
-import asyncio
-import inspect
 from collections.abc import Mapping, Sequence
-from contextlib import suppress
 from typing import Any, Protocol
 from urllib.parse import urlsplit
 
-from souwen.common_runtime.errors import SouWenError
-from souwen.common_runtime.transport.errors import RateLimitError, SourceUnavailableError
 from souwen.platform.provider_spi import (
-    ExecutionContext,
     PageInfo,
-    ProviderError,
-    ProviderErrorCode,
-    ProviderProbe,
     Provenance,
     RequestContext,
     SearchAttributes,
@@ -26,6 +17,7 @@ from souwen.platform.provider_spi import (
     SearchPage,
     SearchRequest,
 )
+from souwen.platform.provider_spec import LegacySearchProvider, LegacySearchSpec
 
 
 _PROVIDER_ID = "openalex"
@@ -45,132 +37,13 @@ class OpenAlexClientProtocol(Protocol):
         """Return a legacy ``SearchResponse`` compatible object."""
 
 
-class OpenAlexSearchProvider:
+class OpenAlexSearchProvider(LegacySearchProvider):
     """Search-only provider that preserves legacy OpenAlex query behavior behind the SPI."""
 
     capability = "search"
 
     def __init__(self, client: OpenAlexClientProtocol, *, enabled: bool = True) -> None:
-        self._client = client
-        self._enabled = enabled
-        self._closed = False
-
-    async def search(
-        self,
-        request: SearchRequest,
-        context: RequestContext,
-        execution: ExecutionContext,
-    ) -> SearchPage:
-        """Map canonical paper search to the legacy client's bounded first page."""
-        execution.raise_if_cancelled_or_expired()
-        if self._closed or not self._enabled:
-            raise ProviderError(ProviderErrorCode.INVALID_CONFIG, provider_id=_PROVIDER_ID)
-        if request.domains != ("paper",):
-            raise ProviderError(ProviderErrorCode.INVALID_REQUEST, provider_id=_PROVIDER_ID)
-        if request.page is not None and request.page.cursor is not None:
-            raise ProviderError(ProviderErrorCode.INVALID_REQUEST, provider_id=_PROVIDER_ID)
-
-        limit = request.page.limit if request.page is not None else 10
-        filters = _legacy_filters(request)
-        try:
-            response = await _await_with_execution(
-                self._client.search(
-                    request.query,
-                    filters=filters,
-                    sort=None,
-                    page=1,
-                    per_page=limit,
-                ),
-                execution,
-            )
-            execution.raise_if_cancelled_or_expired()
-            return _to_search_page(response, limit=limit, context=context)
-        except asyncio.CancelledError:
-            raise
-        except ProviderError:
-            raise
-        except RateLimitError as exc:
-            raise ProviderError(
-                ProviderErrorCode.RATE_LIMITED,
-                provider_id=_PROVIDER_ID,
-                retry_after_seconds=getattr(exc, "retry_after", None),
-            ) from None
-        except TimeoutError:
-            raise ProviderError(
-                ProviderErrorCode.DEADLINE_EXCEEDED, provider_id=_PROVIDER_ID
-            ) from None
-        except SourceUnavailableError:
-            raise ProviderError(
-                ProviderErrorCode.PROVIDER_UNAVAILABLE, provider_id=_PROVIDER_ID
-            ) from None
-        except SouWenError as exc:
-            code = (
-                ProviderErrorCode.INVALID_CONFIG
-                if type(exc).__name__ == "ConfigError"
-                else ProviderErrorCode.INVALID_UPSTREAM_RESPONSE
-            )
-            raise ProviderError(code, provider_id=_PROVIDER_ID) from None
-        except (AttributeError, TypeError, ValueError):
-            raise ProviderError(
-                ProviderErrorCode.INVALID_UPSTREAM_RESPONSE, provider_id=_PROVIDER_ID
-            ) from None
-        except Exception:
-            raise ProviderError(
-                ProviderErrorCode.PROVIDER_UNAVAILABLE, provider_id=_PROVIDER_ID
-            ) from None
-
-    async def probe(self, execution: ExecutionContext) -> ProviderProbe:
-        """Return bounded local readiness without issuing a billable/network probe."""
-        execution.raise_if_cancelled_or_expired()
-        return ProviderProbe(
-            provider=_PROVIDER_ID,
-            capability="search",
-            status="unavailable" if self._closed or not self._enabled else "available",
-        )
-
-    async def close(self) -> None:
-        """Close an owned injected client at most once when it exposes a close operation."""
-        if self._closed:
-            return
-        self._closed = True
-        closer = getattr(self._client, "aclose", None) or getattr(self._client, "close", None)
-        if closer is None:
-            return
-        try:
-            result = closer()
-            if inspect.isawaitable(result):
-                await result
-        except asyncio.CancelledError:
-            self._closed = False
-            raise
-
-
-async def _await_with_execution(value: Any, execution: ExecutionContext) -> Any:
-    """Apply the SPI deadline and live cancellation signal to the injected client call."""
-    provider_task = asyncio.ensure_future(value)
-    cancellation_task = asyncio.create_task(execution.cancel_event.wait())
-    try:
-        done, _pending = await asyncio.wait(
-            {provider_task, cancellation_task},
-            timeout=execution.remaining_seconds,
-            return_when=asyncio.FIRST_COMPLETED,
-        )
-        if provider_task in done:
-            return await provider_task
-        provider_task.cancel()
-        with suppress(asyncio.CancelledError):
-            await provider_task
-        code = (
-            ProviderErrorCode.CANCELLED
-            if cancellation_task in done
-            else ProviderErrorCode.DEADLINE_EXCEEDED
-        )
-        raise ProviderError(code, provider_id=_PROVIDER_ID)
-    finally:
-        cancellation_task.cancel()
-        if not provider_task.done():
-            provider_task.cancel()
-        await asyncio.gather(provider_task, cancellation_task, return_exceptions=True)
+        super().__init__(client, _OPENALEX_BRIDGE_SPEC, enabled=enabled)
 
 
 def _legacy_filters(request: SearchRequest) -> dict[str, str] | None:
@@ -332,4 +205,17 @@ def _author_names(value: Any) -> tuple[str, ...]:
     return tuple(names)
 
 
+async def _bridge_invoke(client: Any, request: SearchRequest, limit: int) -> Any:
+    return await client.search(
+        request.query, filters=_legacy_filters(request), sort=None, page=1, per_page=limit
+    )
+
+
+def _bridge_project(response: Any, limit: int, context: RequestContext) -> SearchPage:
+    return _to_search_page(response, limit=limit, context=context)
+
+
+_OPENALEX_BRIDGE_SPEC = LegacySearchSpec(
+    "openalex", "paper", _bridge_invoke, _bridge_project, accepts_filters=True
+)
 __all__ = ["OpenAlexClientProtocol", "OpenAlexSearchProvider"]

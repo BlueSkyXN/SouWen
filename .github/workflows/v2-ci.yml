@@ -239,8 +239,14 @@ jobs:
 
       - name: Run Provider v2 conformance
         run: |
+          python tools/provider_migration_inventory.py --check --require-complete
+          python tools/gen_provider_spec_drafts.py --check
           pytest \
+            tests/provider_v2 \
             tests/test_provider_spi.py \
+            tests/test_provider_spec_v2.py \
+            tests/test_provider_migration_inventory.py \
+            tests/test_provider_spec_drafts.py \
             tests/test_manifest_registry_v2.py \
             tests/test_provider_manager_v2.py \
             tests/test_openalex_provider_v2.py \
