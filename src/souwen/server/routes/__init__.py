@@ -26,10 +26,8 @@ from souwen.server.routes.bilibili import router as bilibili_router
 from souwen.server.routes.citations import router as citations_router
 from souwen.server.routes.doctor import router as doctor_router
 from souwen.server.routes.fetch import router as fetch_router
-from souwen.server.routes.fetch_summarize import router as fetch_summarize_router
 from souwen.server.routes.search import router as search_router
 from souwen.server.routes.sources import router as sources_router
-from souwen.server.routes.summarize import router as summarize_router
 from souwen.server.routes.wayback import router as wayback_router
 from souwen.server.routes.whoami import router as whoami_router
 from souwen.server.routes.youtube import router as youtube_router
@@ -45,9 +43,5 @@ router.include_router(doctor_router)
 router.include_router(bilibili_router)
 router.include_router(citations_router)
 router.include_router(whoami_router)
-
-# LLM 端点 — 始终注册，运行时检查 llm.enabled
-router.include_router(summarize_router)
-router.include_router(fetch_summarize_router)
 
 __all__ = ["router", "admin_router"]

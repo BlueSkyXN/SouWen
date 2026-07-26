@@ -22,6 +22,7 @@ from souwen.config import (
     get_config,
     reload_config,
 )
+from souwen.config.models import LLMConfig
 
 
 @pytest.fixture(autouse=True)
@@ -63,6 +64,16 @@ def test_synthesis_profiles_require_explicit_protocol_model_and_budget() -> None
             max_pages=0,
             timeout=30,
         )
+
+
+def test_removed_summary_config_fields_are_not_part_of_llm_config() -> None:
+    assert {
+        "max_input_tokens",
+        "system_prompt",
+        "default_mode",
+        "rate_limit_summarize",
+        "rate_limit_fetch",
+    }.isdisjoint(LLMConfig.model_fields)
 
 
 class TestGetProxy:

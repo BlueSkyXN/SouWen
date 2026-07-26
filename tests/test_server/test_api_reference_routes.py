@@ -65,18 +65,10 @@ def test_api_reference_fetch_response_fields_match_model() -> None:
     assert missing == []
 
 
-def test_api_reference_fetch_summarize_request_fields_match_model() -> None:
-    """Fetch+summarize request docs should list every public request field."""
-    from souwen.server.routes.fetch_summarize import FetchSummarizeRequest
-
+def test_api_reference_does_not_describe_removed_summary_routes() -> None:
     docs = Path("docs/api-reference.md").read_text(encoding="utf-8")
-    section = docs.split("#### `POST /api/v1/fetch/summarize`", 1)[1].split(
-        "## MCP 工具",
-        1,
-    )[0]
-
-    missing = [name for name in FetchSummarizeRequest.model_fields if name not in section]
-    assert missing == []
+    assert "/api/v1/summarize" not in docs
+    assert "/api/v1/fetch/summarize" not in docs
 
 
 def test_api_reference_explains_enriched_text_and_failure_semantics() -> None:

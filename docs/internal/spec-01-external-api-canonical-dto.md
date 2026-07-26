@@ -72,7 +72,7 @@ route、DTO 或 policy。machine-readable 载体是
 | `POST /api/v1/fetch` | Admin auth；`urls`、legacy `provider`、`providers`、`strategy`；聚合 `FetchResponse`。 | `POST /api/v1/fetch` + canonical `FetchRequest` / `FetchResult`。 | 同一路径的 **breaking body/response**；`provider` transition field 不进入 canonical DTO。 |
 | `GET /api/v1/sources` | Registry catalog，按 current user auth 规则访问。 | `GET /api/v1/providers` + `ProviderCapability`。 | **Breaking rename/shape**；不是 admin config readback。 |
 | `/health`、`/readiness` | 根路径，无 auth；包含 runtime version/source SHA。 | `/healthz`、`/readyz` 是 2.0 canonical probes。 | **Accepted REL-Q-001**：old paths remain same-handler, same-payload, no-redirect aliases throughout 2.x; earliest removal is 3.0. |
-| `POST /api/v1/summarize`、`POST /api/v1/fetch/summarize` | 当前 LLM route，独立 limiter，依赖 `llm.enabled`。 | 不属于三个目标 Core use case。 | HLD §20 指定退出主产品；迁移与删除证据归 SPEC-11。 |
+| Former `POST /api/v1/summarize`、`POST /api/v1/fetch/summarize` | A2a 已移除的 legacy LLM summary surfaces。 | 不属于三个目标 Core use case。 | HLD §20 指定退出主产品；无 replacement route。 |
 
 ## 3. Slice routing 与稳定 ID
 

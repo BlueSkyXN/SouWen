@@ -87,7 +87,7 @@ class LLMSearchGatewayConfig(BaseModel):
 
 
 class LLMConfig(BaseModel):
-    """LLM 配置 — 控制搜索摘要和页面摘要功能
+    """LLM 配置 — 控制 enriched synthesis 与底层协议调用。
 
     支持 OpenAI-compatible API（覆盖 OpenAI、Azure、vLLM、Ollama、
     OpenRouter、DeepSeek 等）和 Anthropic Messages API。
@@ -102,11 +102,6 @@ class LLMConfig(BaseModel):
     max_tokens: int = Field(2048, ge=1)
     temperature: float = Field(0.3, ge=0.0, le=2.0)
     timeout: float = Field(60.0, gt=0)
-    max_input_tokens: int = Field(6000, ge=1)
-    system_prompt: str | None = None
-    default_mode: Literal["brief", "detailed", "academic"] = "brief"
-    rate_limit_summarize: int = Field(20, ge=1)
-    rate_limit_fetch: int = Field(20, ge=1)
     anthropic_version: str = "2023-06-01"
     synthesis_profiles: dict[str, "LLMSynthesisProfile"] = Field(default_factory=dict)
 
@@ -398,7 +393,7 @@ class SouWenConfig(BaseModel):
     # ===== LLM Search 共享 gateway 配置 =====
     llm_search_gateways: dict[str, LLMSearchGatewayConfig] = Field(default_factory=dict)
 
-    # ===== LLM 摘要 =====
+    # ===== LLM synthesis =====
     llm: LLMConfig = Field(default_factory=LLMConfig)
 
     @field_validator("proxy")

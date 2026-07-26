@@ -1328,49 +1328,6 @@ WARP 状态变更 SSE 流。客户端使用 `EventSource` 连接，服务端约�
 - Scrapling 浏览器模式：`dynamic` / `stealthy` 会对 navigation、子资源、XHR/fetch 等浏览器请求安装同一套 SSRF 拦截
 - 管理密码认证：需要 `admin_password`
 
-### LLM 摘要端点
-
-下列端点需要当前 `SOUWEN_EDITION` 包含 LLM 能力：`basic` 返回 `403`；`pro` / `full`
-才继续检查 `llm.enabled` 和 API Key，未启用或未配置时返回 `503`。`/api/v1/summarize`
-受搜索鉴权保护，`/api/v1/fetch/summarize` 同时会触发 fetch 能力并受对应速率限制。
-
-#### `POST /api/v1/summarize`
-
-搜索并生成摘要。
-
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `query` | string (1-500) | *(必填)* | 搜索查询 |
-| `domain` | string | `"paper"` | 搜索域：`paper` / `patent` / `web` |
-| `sources` | `list[str] \| null` | `null` | 指定数据源 |
-| `per_page` | int (1-50) | `10` | 每源结果数 |
-| `mode` | `"brief" \| "detailed" \| "academic" \| null` | `null` | 摘要模式；默认使用 `llm.default_mode` |
-| `model` | string \| null | `null` | 可选模型覆盖 |
-| `max_tokens` | int \| null | `null` | 可选最大 token 数 |
-| `temperature` | float \| null | `null` | 可选温度覆盖 |
-| `system_prompt` | string \| null | `null` | 自定义系统 prompt |
-
-**错误状态码：** `403`（当前 edition 不包含 LLM）、`503`（LLM 未启用或未配置 API Key）。
-
-#### `POST /api/v1/fetch/summarize`
-
-抓取 URL 页面内容并逐页生成摘要。
-
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `urls` | `list[str]` (1-10) | *(必填)* | 待抓取并摘要的 URL 列表 |
-| `provider` | string | `"builtin"` | 单 Fetch 提供者字段；新请求优先使用 `providers` |
-| `providers` | `list[str]` \| null | `null` | Fetch 提供者列表；提供时优先于 `provider` |
-| `strategy` | `"fallback" \| "fanout"` | `"fallback"` | 多 provider 策略：`fallback` 按 URL 补失败项，`fanout` 返回全部 provider 结果 |
-| `timeout` | float (5-120) | `30.0` | 每 URL 超时秒数 |
-| `mode` | `"brief" \| "detailed" \| "academic" \| null` | `null` | 摘要模式；默认使用 `llm.default_mode` |
-| `model` | string \| null | `null` | 可选模型覆盖 |
-| `max_tokens` | int \| null | `null` | 可选最大 token 数 |
-| `temperature` | float \| null | `null` | 可选温度覆盖 |
-| `system_prompt` | string \| null | `null` | 自定义系统 prompt |
-
-**错误状态码：** `403`（当前 edition 不包含 LLM，或 fetch provider 存在但当前 edition 不允许）、`503`（LLM 未启用或未配置 API Key）、`504`（fetch 超时）。
-
 ## MCP 工具
 
 SouWen 支持 [Model Context Protocol](https://modelcontextprotocol.io/)，可作为 AI Agent 的工具服务。

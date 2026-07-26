@@ -284,10 +284,6 @@ EXCLUDED_REQUIRED_KEY_ROUTE_APIS = [
     "/api/v1/youtube/video/{video_id}",
     "/api/v1/youtube/transcript/{video_id}",
 ]
-EXCLUDED_LLM_ROUTE_APIS = [
-    "/api/v1/summarize",
-    "/api/v1/fetch/summarize",
-]
 
 
 class SmokeError(RuntimeError):
@@ -3380,8 +3376,6 @@ def append_zero_key_matrix(lines: list[str], results: list[ProbeResult]) -> None
             "Requires external runtime/config rather than a public zero-key channel. |",
             f"| Required-key direct APIs | `{', '.join(EXCLUDED_REQUIRED_KEY_ROUTE_APIS)}` | "
             "Requires API credentials before the route can exercise the upstream. |",
-            f"| LLM routes | `{', '.join(EXCLUDED_LLM_ROUTE_APIS)}` | "
-            "Requires configured LLM service, not a zero-key public channel. |",
         ]
     )
 
