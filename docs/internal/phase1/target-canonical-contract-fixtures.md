@@ -14,10 +14,11 @@ Phase 1 以 language-neutral JSON 冻结已批准的 target contract：
 | [`target_provider_manifest_v2.json`](../../../tests/contracts/fixtures/target_provider_manifest_v2.json) | v2 manifest/conformance minimum and safe negative cases | retired plugin entry-point schema |
 | [`test_target_canonical_contract.py`](../../../tests/contracts/test_target_canonical_contract.py) | standard-library deterministic invariants | target route, SDK or provider integration test |
 
-These files live under `tests/contracts/fixtures/` only because the Phase 2 `contracts/` tree does not yet
-exist. They are the sole checked-in target fixture source during Phase 1. Phase 2 must move them atomically into
-the target tree (or replace them with a generated artifact plus a recorded provenance link), never maintain a
-second copy. No fixture imports `souwen`, calls a route, reads HOME configuration, or makes a network request.
+The Phase 1 fixtures remain focused semantic decision records. The complete RC2 publication contract is now
+[`contracts/openapi/souwen-openapi-2.0.0rc2.json`](../../../contracts/openapi/souwen-openapi-2.0.0rc2.json),
+generated deterministically by `tools/gen_openapi.py` from the schema-only target Delivery app. The skeleton is
+not a second release artifact and must not be used to generate SDKs or calculate release checksums. No fixture
+reads HOME configuration or makes a network request.
 
 ## 2. Approved decision closure
 
@@ -33,8 +34,8 @@ P4-06 将 API fixture 更新为 `implemented_by_current_runtime: true`，并将 
 `target_runtime_rollout_gated`。该声明只在 `SOUWEN_V2_ROLLOUT=target` 时覆盖 target Data API；
 default `legacy` 仍保留 current route 作回滚路径。`target_provider_manifest_v2.json` 继续保持
 `implemented_by_current_runtime: false`，直到 Phase 5 完成全量 Provider 处置。Static fixture 仍不是
-runtime proof；runtime 语义由 `tests/test_delivery_api_v2.py` 对真实 `app.openapi()`、route、auth、
-headers 和 probes 进行 deterministic 对照。
+runtime proof；target host 的 route/OpenAPI 与 versioned artifact 完整一致性由
+`tests/test_delivery_api_v2.py` 和 `tests/contracts/test_target_openapi_artifact.py` 做 deterministic 对照。
 
 ## 3. Deterministic acceptance and next implementation gate
 
@@ -42,9 +43,10 @@ Run:
 
 ```bash
 pytest tests/contracts/test_target_canonical_contract.py -v --tb=short
+PYTHONPATH=src python3 tools/gen_openapi.py --check
 ```
 
-This verifies fixture integrity, target/current separation, accepted decision values, OpenAPI skeleton parity,
-and manifest safety/conformance declarations. P4-06 route/schema behavior is validated separately by
-`tests/test_delivery_api_v2.py`. Phase 6 must still generate an immutable OpenAPI artifact and clients from one
-source; Phase 5 must prove every selected Provider package through the SPEC-05 harness.
+This verifies fixture integrity, accepted decision values, OpenAPI skeleton parity, artifact reproducibility,
+and manifest safety/conformance declarations. Target route/schema behavior is validated separately by
+`tests/test_delivery_api_v2.py`. Generated clients remain a separate delivery step and must consume the frozen
+artifact instead of rematerializing a language-specific contract.

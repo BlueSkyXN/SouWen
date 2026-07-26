@@ -34,9 +34,11 @@ def test_contracts_boundary_is_not_a_python_package() -> None:
     assert list(CONTRACTS_ROOT.rglob("*.py")) == []
 
 
-def test_contracts_skeleton_does_not_claim_target_artifacts() -> None:
+def test_contracts_boundary_claims_only_the_frozen_target_openapi() -> None:
     root_readme = (CONTRACTS_ROOT / "README.md").read_text(encoding="utf-8")
+    openapi_readme = (CONTRACTS_ROOT / "openapi" / "README.md").read_text(encoding="utf-8")
 
-    assert "Phase 2A creates only the directory skeleton" in root_readme
-    assert "No target OpenAPI document" in root_readme
-    assert "Target artifacts remain gated" in root_readme
+    assert "target-only OpenAPI document is frozen" in root_readme
+    assert "souwen-openapi-2.0.0rc2.json" in openapi_readme
+    assert "tools/gen_openapi.py --check" in openapi_readme
+    assert "Other schemas" in root_readme

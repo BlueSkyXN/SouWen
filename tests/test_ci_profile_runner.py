@@ -178,12 +178,35 @@ def test_provider_runtime_code_covers_optional_fetch_provider_modules() -> None:
         assert module in run_profile.PROVIDER_RUNTIME_CODE
 
 
-def test_sdk_contract_uses_only_target_contract_and_dto_tests() -> None:
-    command = run_profile.PROFILE_COMMANDS["sdk-contract"][0].command
+def test_sdk_contract_uses_target_contract_dto_and_openapi_artifact_checks() -> None:
+    commands = run_profile.PROFILE_COMMANDS["sdk-contract"]
+    command = commands[0].command
 
     assert "tests/contracts/test_target_canonical_contract.py" in command
+    assert "tests/contracts/test_target_openapi_artifact.py" in command
     assert "tests/test_target_canonical_dto.py" in command
     assert not any("provider" in argument for argument in command if argument.startswith("tests/"))
+    assert commands[1].name == "openapi_artifact_reproducibility"
+    assert commands[1].command == (run_profile.PYTHON, "tools/gen_openapi.py", "--check")
+    assert commands[2].name == "openapi_semantic_contract"
+    assert commands[2].command == (
+        run_profile.PYTHON,
+        "tools/gen_openapi.py",
+        "--semantic-check",
+        "contracts/openapi/souwen-openapi-2.0.0rc2.json",
+    )
+
+
+def test_v2_ci_checks_reproducibility_and_pr_semantic_openapi_compatibility() -> None:
+    v2_ci = (REPO_ROOT / ".github/workflows/v2-ci.yml").read_text(encoding="utf-8")
+    bootstrap = v2_ci.split("  bootstrap:", maxsplit=1)[1].split("  matrix_tests:", maxsplit=1)[0]
+
+    assert "fetch-depth: 0" in bootstrap
+    assert 'pip install -e ".[dev,server]"' in bootstrap
+    assert "python tools/gen_openapi.py --check" in bootstrap
+    assert "--semantic-check artifacts/openapi-semantic-baseline.json" in bootstrap
+    assert "initial baseline; base artifact is absent" in bootstrap
+    assert 'git cat-file -e "$BASE_SHA:$artifact"' in bootstrap
 
 
 def test_workflows_install_provider_runtime_extras() -> None:
@@ -304,7 +327,11 @@ def test_canonical_profiles_do_not_set_edition_environment(monkeypatch):
         "server-contract",
         "provider-runtime",
     }
-    assert captured == [None, None, None]
+    expected_command_count = sum(
+        len(run_profile.PROFILE_COMMANDS[profile])
+        for profile in ("sdk-contract", "server-contract", "provider-runtime")
+    )
+    assert captured == [None] * expected_command_count
 
 
 def test_tail_truncates_from_end():

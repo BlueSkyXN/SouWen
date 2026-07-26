@@ -95,6 +95,7 @@ from souwen.delivery.api.errors import error_response as target_error_response
 from souwen.delivery.api.errors import from_http_status as target_error_from_http_status
 from souwen.delivery.api.middleware import TargetContractHeadersMiddleware
 from souwen.delivery.api.openapi import normalize_target_openapi
+from souwen.delivery.api.openapi_artifact import build_target_openapi_document
 from souwen.delivery.api.rollout import is_target_contract_path
 from souwen.logging_config import setup_logging
 from souwen.common_runtime.observability import get_request_id, get_source_sha
@@ -293,6 +294,8 @@ _default_openapi = app.openapi
 
 
 def _rollout_openapi():
+    if _rollout_mode is RolloutMode.TARGET:
+        return build_target_openapi_document(__version__)
     return normalize_target_openapi(_default_openapi(), _rollout_mode)
 
 
