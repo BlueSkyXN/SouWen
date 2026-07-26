@@ -211,6 +211,8 @@ jobs:
         shell: bash
         run: |
           python tools/gen_openapi.py --check
+          python tools/gen_client_sdk.py --check
+          python tools/gen_typescript_sdk.py --check
           python - <<'PY'
           import hashlib
           import os

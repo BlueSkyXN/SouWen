@@ -1,29 +1,20 @@
-"""Panel fetch provider display definitions should stay aligned with the registry."""
+"""Panel Fetch must use the generated target SDK without a local provider catalog."""
 
 from __future__ import annotations
 
-import re
 from pathlib import Path
 
-from souwen.registry import fetch_providers
 
+def test_panel_fetch_uses_generated_sdk_without_legacy_provider_options() -> None:
+    """Fetch delegates provider selection to the target API instead of duplicating registry data."""
+    legacy_hook = Path("panel/src/core/hooks/useFetchPage.ts")
+    app_path = Path("panel/src/CalmPrecisionApp.tsx")
+    app = app_path.read_text(encoding="utf-8")
+    fetch_page = app.split("function FetchPage()", maxsplit=1)[1].split(
+        "function ProvidersPage()", maxsplit=1
+    )[0]
 
-def test_panel_fetch_provider_definitions_match_builtin_registry() -> None:
-    """Static labels/order cover built-ins without becoming an executable fallback."""
-    hook_path = Path("panel/src/core/hooks/useFetchPage.ts")
-    text = hook_path.read_text(encoding="utf-8")
-    match = re.search(
-        r"DEFAULT_FETCH_PROVIDER_OPTIONS: FetchProviderDefinition\[\] = "
-        r"\[(.*?)\]\n\nexport const MAX_URLS",
-        text,
-        re.DOTALL,
-    )
-    assert match is not None
-
-    panel_names = re.findall(r"value: '([^']+)'", match.group(1))
-    registry_names = [adapter.name for adapter in fetch_providers()]
-
-    assert panel_names[0] == "builtin"
-    assert set(panel_names) == set(registry_names)
-    assert "useState<FetchProviderOption[]>([])" in text
-    assert "setProviderOptions(DEFAULT_FETCH_PROVIDER_OPTIONS)" not in text
+    assert not legacy_hook.exists()
+    assert "client.fetch(" in fetch_page
+    assert "DEFAULT_FETCH_PROVIDER_OPTIONS" not in app
+    assert "fetch_providers" not in app

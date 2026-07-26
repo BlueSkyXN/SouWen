@@ -31,7 +31,7 @@ runner 只负责运行场景并输出 JSON/Markdown report。
 | Profile | 覆盖内容 | 运行位置 |
 |---|---|---|
 | `server-contract` | target Server 的路由、认证、OpenAPI/API-major、HFS local surface 与 Panel runtime 前置契约 | V2 CI、HF Space CD local preflight |
-| `sdk-contract` | target-only OpenAPI 与 generated Python sync/async SDK 的可重复生成、semantic/API-major、auth/error/clean import 合同 | V2 CI、HF Space CD local preflight |
+| `sdk-contract` | target-only OpenAPI、generated Python sync/async SDK 与 Panel TypeScript SDK 的可重复生成、semantic/API-major、auth/error 合同 | V2 CI、HF Space CD local preflight |
 | `provider-runtime` | 内部 optional provider 的 importability、feature matrix 与互斥 browser runtime | CI / provider-runtime gate |
 
 `server-contract` 与 `sdk-contract` 是 A3c 的产品 contract 名称；
@@ -52,6 +52,8 @@ OpenAPI artifact 可单独验证：
 
 ```bash
 PYTHONPATH=src python3 tools/gen_openapi.py --check
+PYTHONPATH=src python3 tools/gen_client_sdk.py --check
+PYTHONPATH=src python3 tools/gen_typescript_sdk.py --check
 ```
 
 ## 本地确定性测试

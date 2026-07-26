@@ -50,7 +50,7 @@ The registry architecture reduces the cost of adding a new source to **1-2 code 
 - **Smart rate limiting**: Token Bucket + sliding window, per-source isolation
 - **curl_cffi TLS fingerprinting**: 15+ scraper sources use browser fingerprints to bypass anti-bot
 - **WARP five-mode proxy**: wireproxy / kernel / usque / warp-cli / external, with runtime install and management support
-- **Multi-skin Web UI**: souwen-google (default) / souwen-nebula / carbon / apple / ios (SCSS Modules + Zustand)
+- **Calm Precision Panel**: one responsive management surface for Search / LLM Search / Fetch / Providers / Runtime/Settings, with all Data API calls going through the generated TypeScript client
 
 ## 📦 Installation
 
@@ -89,6 +89,7 @@ with SouWenClient("http://127.0.0.1:8000", token="your-user-token") as client:
 `AsyncSouWenClient` provides the async surface. Before the first business request, both clients
 verify API major 2 and target rollout through `/healthz`. See the
 [Python SDK guide](docs/python-sdk.md) for authentication, HFS dual-token use, and errors.
+The Panel uses the [TypeScript SDK](docs/typescript-sdk.md) generated from the same OpenAPI artifact.
 
 ### API Server
 
@@ -111,7 +112,7 @@ curl "http://localhost:8000/api/v1/sources"
 
 `/api/v1/fetch`, `/api/v1/links`, and `/api/v1/sitemap` are admin-protected fetch capabilities and require an Admin Bearer token. Search endpoints and `/api/v1/sources` can be protected separately with `SOUWEN_USER_PASSWORD`.
 
-Visit `/docs` for the full OpenAPI documentation; visit `/panel#/` to enter the Web UI (default: souwen-google skin). `/` redirects to `/docs` with the default configuration.
+Visit `/docs` for the full OpenAPI documentation; visit `/panel#/` to enter the single Calm Precision management surface. `/` redirects to `/docs` with the default configuration.
 
 ## ⚙️ Configuration
 
@@ -167,7 +168,7 @@ docker run -p 8000:49265 \
 - [docs/hf-space-cd.md](docs/hf-space-cd.md) — Hugging Face Space CD / local gates / post-deploy validation
 - [docs/deployment.md](docs/deployment.md) — Deployment
 - [docs/anti-scraping.md](docs/anti-scraping.md) — TLS fingerprinting / WARP / rate limiting
-- [docs/appearance.md](docs/appearance.md) — Multi-skin frontend
+- [docs/appearance.md](docs/appearance.md) — Calm Precision Panel
 - [docs/adding-a-source.md](docs/adding-a-source.md) — Adding a new source guide
 - [docs/contributing.md](docs/contributing.md) — Developer guide
 - [docs/internal/rc-readiness-gates.md](docs/internal/rc-readiness-gates.md) — Fixed v2.0.0rc2 gates and evidence manifest contract

@@ -3,7 +3,6 @@ ARG SOUWEN_REF=0000000000000000000000000000000000000000
 FROM node:22-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3 AS panel-builder
 ARG SOUWEN_REPO=https://github.com/BlueSkyXN/SouWen.git
 ARG SOUWEN_REF
-ARG SKINS=all
 RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /build
@@ -15,7 +14,7 @@ RUN git init . \
     && git checkout --detach FETCH_HEAD \
     && test "$(git rev-parse HEAD)" = "${SOUWEN_REF}"
 WORKDIR /build/panel
-RUN npm ci --ignore-scripts && VITE_SKINS=${SKINS} npm run build
+RUN npm ci --ignore-scripts && npm run build
 
 FROM modelscope-registry.cn-beijing.cr.aliyuncs.com/modelscope-repo/python:3.10@sha256:97e3f5d14d2a0fcafce154ddbc830ded1981e41d307cc9353ec83c73b034c9b6
 

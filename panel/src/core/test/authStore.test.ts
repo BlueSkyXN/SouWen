@@ -103,8 +103,6 @@ describe('authStore', () => {
     })
     expect(sessionStorage.getItem('souwen_role')).toBe('user')
     expect(JSON.parse(sessionStorage.getItem('souwen_features') ?? '{}')).toEqual(state.features)
-    expect(sessionStorage.getItem('souwen_edition')).toBeNull()
-    expect(sessionStorage.getItem('souwen_editionCapabilities')).toBeNull()
     expect(localStorage.getItem('souwen_features')).toBeNull()
   })
 
@@ -125,29 +123,6 @@ describe('authStore', () => {
       role: 'guest',
       features: {},
     })
-    expect(sessionStorage.getItem('souwen_edition')).toBeNull()
-    expect(sessionStorage.getItem('souwen_editionCapabilities')).toBeNull()
-  })
-
-  it('clears retired edition identity keys when whoami is refreshed', () => {
-    useAuthStore.getState().setAuth('http://localhost:8000', 'pw', '1.9.0')
-    sessionStorage.setItem('souwen_edition', 'full')
-    sessionStorage.setItem('souwen_editionCapabilities', '{"llm":true}')
-
-    useAuthStore.getState().setRole({
-      role: 'user',
-      features: { search: true },
-      guest_enabled: false,
-      user_password_set: true,
-      admin_password_set: true,
-      admin_open: false,
-    })
-
-    expect(useAuthStore.getState()).toMatchObject({
-      role: 'user',
-    })
-    expect(sessionStorage.getItem('souwen_edition')).toBeNull()
-    expect(sessionStorage.getItem('souwen_editionCapabilities')).toBeNull()
   })
 
   /**
@@ -163,13 +138,9 @@ describe('authStore', () => {
     expect(localStorage.getItem('souwen_baseUrl')).toBeNull()
     expect(localStorage.getItem('souwen_version')).toBeNull()
     expect(localStorage.getItem('souwen_features')).toBeNull()
-    expect(localStorage.getItem('souwen_edition')).toBeNull()
-    expect(localStorage.getItem('souwen_editionCapabilities')).toBeNull()
     expect(sessionStorage.getItem('souwen_baseUrl')).toBeNull()
     expect(sessionStorage.getItem('souwen_version')).toBeNull()
     expect(sessionStorage.getItem('souwen_features')).toBeNull()
-    expect(sessionStorage.getItem('souwen_edition')).toBeNull()
-    expect(sessionStorage.getItem('souwen_editionCapabilities')).toBeNull()
   })
 
   /**
@@ -204,22 +175,6 @@ describe('authStore', () => {
     expect(state.version).toBe('2.0.0')
     expect(state.role).toBe('admin')
     expect(state.features).toEqual({ fetch: true, doctor_full: true })
-  })
-
-  it('ignores retired persisted edition identity data', () => {
-    sessionStorage.setItem('souwen_baseUrl', 'http://x')
-    sessionStorage.setItem('souwen_token', 'tok')
-    sessionStorage.setItem('souwen_edition', 'enterprise')
-    sessionStorage.setItem('souwen_editionCapabilities', JSON.stringify({
-      llm: true,
-      warp_modes: 'auto',
-      fetch_providers: ['builtin'],
-    }))
-
-    useAuthStore.getState().loadFromStorage()
-
-    expect(useAuthStore.getState().role).toBe('guest')
-    expect(useAuthStore.getState().features).toEqual({})
   })
 
   /**

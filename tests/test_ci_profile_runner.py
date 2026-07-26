@@ -204,6 +204,14 @@ def test_sdk_contract_uses_target_contract_dto_and_openapi_artifact_checks() -> 
     assert commands[4].name == "python_sdk_contract"
     assert "tests/test_client_sdk_generator.py" in commands[4].command
     assert "tests/test_client_sdk_contract.py" in commands[4].command
+    assert commands[5].name == "typescript_sdk_reproducibility"
+    assert commands[5].command == (
+        run_profile.PYTHON,
+        "tools/gen_typescript_sdk.py",
+        "--check",
+    )
+    assert commands[6].name == "typescript_sdk_contract"
+    assert "tests/test_typescript_sdk_generator.py" in commands[6].command
 
 
 def test_v2_ci_checks_reproducibility_and_pr_semantic_openapi_compatibility() -> None:
@@ -213,6 +221,8 @@ def test_v2_ci_checks_reproducibility_and_pr_semantic_openapi_compatibility() ->
     assert "fetch-depth: 0" in bootstrap
     assert 'pip install -e ".[dev,server]"' in bootstrap
     assert "python tools/gen_openapi.py --check" in bootstrap
+    assert "python tools/gen_client_sdk.py --check" in bootstrap
+    assert "python tools/gen_typescript_sdk.py --check" in bootstrap
     assert "--semantic-check artifacts/openapi-semantic-baseline.json" in bootstrap
     assert "initial baseline; base artifact is absent" in bootstrap
     assert 'git cat-file -e "$BASE_SHA:$artifact"' in bootstrap

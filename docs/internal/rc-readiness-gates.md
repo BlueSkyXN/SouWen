@@ -78,12 +78,18 @@ RC-ready run 可以验证从 current main 派生的 candidate；任何 secret-be
 ### 4. Panel
 
 - `npm ci`、`npm test` 和 `npm run build` 全部通过，且只使用 `panel/package-lock.json`。
-- Vitest baseline 至少为 **63 test files / 192 tests**；减少 baseline 必须经过明确的
-  change-control 说明，不能用删除测试换取通过。
-- `npm run build:local && npm run check:artifact` 验证单文件 Panel artifact；五个 skin
-  的核心登录、搜索、抓取、视频、Source、Network/WARP、Config 路由不得空白。
+- 只接受 Calm Precision 的 **五个**顶层工作区：Search、LLM Search、Fetch、Providers、Runtime /
+  Settings。生成的 TypeScript SDK 是 Search、LLM Search、Fetch 与 Providers 的唯一 data API
+  transport；不得回退到 skin、legacy service 或第二套 data client。
+- Panel gate 覆盖登录和 auth state、五个工作区的 loading/empty/error/success 状态、desktop/mobile
+  responsive 行为、键盘与语义可访问性。测试总数不再作为发布阈值：本轮减少来自已获批准删除的五套
+  retired visual UI，而不是通过删除 Calm Precision 现有行为测试放行。
+- `npm run build:local && npm run check:artifact` 必须证明 `panel/dist/index.html` 与
+  `src/souwen/server/panel.html` byte-identical；仅确认文件存在、大小或 HTML 片段均不构成 artifact
+  证据。
 
-**Evidence**：npm/Vitest 机器输出、file/test count、build log、artifact checksum。
+**Evidence**：npm/Vitest 机器输出、generated SDK `--check`、五工作区/auth/state/responsive/a11y
+覆盖、build log 与 artifact byte-equality output。
 
 ### 5. Docs
 

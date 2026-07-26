@@ -23,6 +23,7 @@ Public docs 不要求读者理解历史路径；需要保留背景材料时，�
 | [concepts.md](./concepts.md) | domain、capability、Source Catalog、频道配置等核心概念 |
 | [python-api.md](./python-api.md) | 推荐 Python API 入口与示例 |
 | [python-sdk.md](./python-sdk.md) | generated sync/async REST SDK、认证、兼容和错误合同 |
+| [typescript-sdk.md](./typescript-sdk.md) | Panel generated TypeScript SDK、认证、allow-list 和错误合同 |
 
 ## 数据源与配置
 
@@ -54,7 +55,7 @@ Public docs 不要求读者理解历史路径；需要保留背景材料时，�
 |---|---|
 | [deployment.md](./deployment.md) | Docker、本地服务、部署后回读和运行时保护 |
 | [hf-space-cd.md](./hf-space-cd.md) | Hugging Face Space CD、本地门禁和部署后验收 |
-| [appearance.md](./appearance.md) | Web Panel 多皮肤、主题、构建方式和前端架构 |
+| [appearance.md](./appearance.md) | Calm Precision 单一管理面板、权限与构建方式 |
 
 ## Internal docs
 

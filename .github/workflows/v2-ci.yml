@@ -112,6 +112,8 @@ jobs:
       - name: Import and wheel surface tests
         run: |
           pytest tests/test_import_surface.py -q
+          python tools/gen_client_sdk.py --check
+          python tools/gen_typescript_sdk.py --check
           ( cd panel && npm ci && npm run build:local )
           wheelhouse="$(mktemp -d)"
           python -m pip wheel . --no-deps --wheel-dir "$wheelhouse"
