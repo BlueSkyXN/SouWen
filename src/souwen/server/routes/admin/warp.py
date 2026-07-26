@@ -34,30 +34,6 @@ def _safe_warp_status(status: dict) -> dict:
     return safe
 
 
-def _warp_edition_fields(mode: str, edition: str) -> dict[str, object]:
-    """Return edition metadata for a WARP mode."""
-    from souwen.editions import warp_mode_policy
-
-    policy = warp_mode_policy(mode, edition)
-    return {
-        "min_edition": policy.min_edition,
-        "edition_available": policy.available,
-        "edition_reason": policy.reason,
-    }
-
-
-def _raise_for_warp_edition(mode: str) -> None:
-    """Raise HTTP 403 when a known WARP mode is unavailable in this edition."""
-    from souwen.config import get_config
-    from souwen.editions import EditionError, ensure_warp_mode_allowed
-
-    cfg = get_config()
-    try:
-        ensure_warp_mode_allowed(mode, cfg.edition)
-    except EditionError as exc:
-        raise HTTPException(status_code=403, detail=str(exc)) from exc
-
-
 @router.get("/warp", response_model=WarpStatusResponse)
 async def warp_status():
     """获取 WARP 代理状态 — 包括模式、IP、PID 等。"""
@@ -142,7 +118,6 @@ async def warp_modes():
             "reason": "" if has_external_proxy else "未配置 warp_external_proxy 地址",
         },
     ]
-    modes = [mode | _warp_edition_fields(str(mode["id"]), cfg.edition) for mode in modes]
     return {"modes": modes}
 
 
@@ -159,7 +134,6 @@ async def warp_enable(
     """启用 WARP 代理 — 支持 auto、wireproxy、kernel、usque、warp-cli、external 模式。"""
     from souwen.server.warp import WarpManager
 
-    _raise_for_warp_edition(mode)
     mgr = WarpManager.get_instance()
     result = await mgr.enable(
         mode=mode,
@@ -168,8 +142,7 @@ async def warp_enable(
         endpoint=endpoint,
     )
     if not result["ok"]:
-        status_code = 403 if result.get("error_code") == "edition_not_allowed" else 400
-        raise HTTPException(status_code=status_code, detail=redact_secret_text(result["error"]))
+        raise HTTPException(status_code=400, detail=redact_secret_text(result["error"]))
     return result
 
 
@@ -343,7 +316,6 @@ async def warp_switch(
     """一步切换 WARP 模式 — 先禁用当前模式，再以目标模式启用。"""
     from souwen.server.warp import WarpManager
 
-    _raise_for_warp_edition(mode)
     mgr = WarpManager.get_instance()
 
     status = mgr.get_status()

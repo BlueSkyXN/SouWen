@@ -12,14 +12,13 @@ live credential validity, deployment, or release readiness.
 | Client | `PatentsViewClient` resolves global/source config | Explicit transport injected by the composition root |
 | Secret | `patentsview_api_key` / source `api_key` | Resolved reference `PATENTSVIEW_API_KEY`; value never enters catalog or diagnostics |
 | Network | Legacy source channel may resolve transport overrides | Fixed `https://search.patentsview.org/api/v1`, no Provider-level proxy/base URL/header override |
-| Edition | Legacy minimum edition `pro` | Coexistence runtime derives the same gate from the legacy source policy |
+| Readiness | Legacy tier policy plus source configuration | Enabled source, resolved API key, and importable runtime capabilities |
 | Selection | Not a legacy default patent source | Target explicit selection only; it is not registered as a patent default |
 
-Target eligibility requires the `pro` or `full` edition, explicit
-`sources.patentsview.enabled: true`, and a resolved API key. Missing credentials
-produce a safe `unavailable/missing_configuration` catalog item naming only
-`patentsview_api_key`. PatentsView is optional and is not part of required
-readiness.
+Target eligibility requires explicit `sources.patentsview.enabled: true`, a
+resolved API key, and an importable runtime. Missing credentials produce a safe
+`unavailable/missing_configuration` catalog item naming only
+`patentsview_api_key`. PatentsView is optional and is not part of required readiness.
 
 ## Canonical request and result mapping
 

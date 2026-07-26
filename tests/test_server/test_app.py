@@ -42,7 +42,6 @@ def _isolate_config_files(monkeypatch, tmp_path):
         "SOUWEN_GUEST_ENABLED",
         "SOUWEN_SOURCES",
         "SOUWEN_TRUSTED_PROXIES",
-        "SOUWEN_EDITION",
     ):
         monkeypatch.delenv(key, raising=False)
     from souwen.config import get_config
@@ -109,10 +108,6 @@ def _doctor_source(name: str, status: str, **overrides) -> dict:
         "package_extra": None,
         "stability": "stable",
         "usage_note": None,
-        "min_edition": "basic",
-        "edition": "pro",
-        "edition_available": True,
-        "edition_reason": "",
         "runtime_available": True,
         "runtime_reason": "",
         "credentials_satisfied": True,
@@ -630,38 +625,13 @@ class TestAdminAuth:
         data = resp.json()
         assert "total" in data
         assert "ok" in data
-        assert data["edition"] == "pro"
         assert "sources" in data
         first_source = data["sources"][0]
         assert "auth_requirement" in first_source
         assert "credential_fields" in first_source
         assert "risk_level" in first_source
         assert "distribution" in first_source
-        assert "min_edition" in first_source
-        assert "edition_available" in first_source
-        assert "edition_reason" in first_source
         assert "available" in first_source
-
-    def test_admin_doctor_marks_edition_unavailable(self, authed_client, monkeypatch):
-        """doctor 应暴露当前 edition，并让 basic 下的 pro 源显示需升级。"""
-        monkeypatch.setenv("SOUWEN_EDITION", "basic")
-        from souwen.config import get_config
-
-        get_config.cache_clear()
-        resp = authed_client.get(
-            "/api/v1/admin/doctor",
-            headers={"Authorization": "Bearer test-secret-123"},
-        )
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["edition"] == "basic"
-        openalex = _sources_by_name(data)["openalex"]
-        assert openalex["status"] == "unavailable"
-        assert openalex["min_edition"] == "pro"
-        assert openalex["edition"] == "basic"
-        assert openalex["edition_available"] is False
-        assert "source 'openalex' requires edition=pro" in openalex["edition_reason"]
-        assert openalex["available"] is False
 
     def test_admin_doctor_counts_limited_and_warning_as_available(self, authed_client, monkeypatch):
         """doctor 汇总应区分严格 ok、可用、降级和失败。"""
@@ -934,38 +904,10 @@ class TestAdminAuth:
         assert data["optional_credential_effect"] == "quota"
         assert data["risk_level"] == "low"
         assert data["distribution"] == "core"
-        assert data["min_edition"] == "pro"
-        assert data["edition_available"] is True
-        assert data["edition_reason"] == ""
         assert data["has_api_key"] is False
         assert data["configured_credentials"] is False
         assert data["credentials_satisfied"] is True
         assert data["available"] is True
-
-    def test_admin_sources_config_marks_edition_unavailable(self, authed_client, monkeypatch):
-        """管理端返回全部源配置，但标注当前 edition 是否允许调度。"""
-        monkeypatch.setenv("SOUWEN_EDITION", "basic")
-        from souwen.config import get_config
-
-        get_config.cache_clear()
-        single = authed_client.get(
-            "/api/v1/admin/sources/config/openalex",
-            headers={"Authorization": "Bearer test-secret-123"},
-        )
-        assert single.status_code == 200, single.text
-        data = single.json()
-        assert data["min_edition"] == "pro"
-        assert data["edition_available"] is False
-        assert "source 'openalex' requires edition=pro" in data["edition_reason"]
-        assert data["credentials_satisfied"] is True
-        assert data["available"] is False
-
-        listing = authed_client.get(
-            "/api/v1/admin/sources/config",
-            headers={"Authorization": "Bearer test-secret-123"},
-        )
-        assert listing.status_code == 200, listing.text
-        assert listing.json()["openalex"]["edition_available"] is False
 
     def test_admin_sources_config_marks_no_auth_credentials_satisfied(self, authed_client):
         """免配置源不应显示有 API Key，但应明确标记凭据要求已满足。"""
@@ -1366,9 +1308,6 @@ class TestSearchAuth:
         assert openalex["stability"] == "stable"
         assert openalex["distribution"] == "core"
         assert openalex["default_for"] == ["paper:search"]
-        assert openalex["min_edition"] == "pro"
-        assert openalex["edition_available"] is True
-        assert openalex["edition_reason"] == ""
         assert isinstance(openalex["runtime_available"], bool)
         assert isinstance(openalex["runtime_reason"], str)
         assert openalex["available"] is True
@@ -1404,12 +1343,12 @@ class TestSearchAuth:
         assert admin_data["configured_credentials"] is True
         assert "openalex-server-secret" not in admin_resp.text
 
-    def test_sources_exposes_runtime_axis_without_changing_available(
+    def test_sources_runtime_axis_contributes_to_availability(
         self,
         authed_client,
         monkeypatch,
     ):
-        """Public catalog reports missing imports separately from its compatibility field."""
+        """Public catalog reports missing imports and marks the source unavailable."""
         from souwen.feature_matrix import RuntimeProbe
 
         def fake_probe(adapter):
@@ -1425,13 +1364,12 @@ class TestSearchAuth:
         )
         assert resp.status_code == 200
         openalex = _sources_by_name(resp.json())["openalex"]
-        assert openalex["edition_available"] is True
         assert openalex["runtime_available"] is False
         assert openalex["runtime_reason"] == "openalex: missing modules: optional_sdk"
         assert openalex["missing_credential_fields"] == ["openalex_api_key"]
         assert openalex["config_valid"] is True
         assert openalex["config_reason"] == ""
-        assert openalex["available"] is True
+        assert openalex["available"] is False
 
     def test_sources_sanitizes_runtime_loader_exception(
         self,
@@ -1465,28 +1403,6 @@ class TestSearchAuth:
         assert "/Users/private" not in resp.text
         assert "postgresql://" not in resp.text
         assert "rest-secret" not in resp.text
-
-    def test_sources_marks_edition_unavailable_without_hiding_source(self, client, monkeypatch):
-        """/sources 保留当前 edition 不可用的源，但标注版本原因且不可调度。"""
-        monkeypatch.setenv("SOUWEN_EDITION", "basic")
-        from souwen.config import get_config
-
-        get_config.cache_clear()
-        resp = client.get("/api/v1/sources")
-        assert resp.status_code == 200
-        sources = _sources_by_name(resp.json())
-
-        openalex = sources["openalex"]
-        assert openalex["min_edition"] == "pro"
-        assert openalex["edition_available"] is False
-        assert "source 'openalex' requires edition=pro" in openalex["edition_reason"]
-        assert openalex["available"] is False
-
-        arxiv = sources["arxiv"]
-        assert arxiv["min_edition"] == "basic"
-        assert arxiv["edition_available"] is True
-        assert arxiv["edition_reason"] == ""
-        assert arxiv["available"] is True
 
     def test_sources_omits_disabled_entries(self, client, monkeypatch):
         """sources.<name>.enabled=false 后，/sources 保留 catalog 条目但标为不可用。"""
@@ -1727,33 +1643,9 @@ class TestThreeRoleAuth:
         assert data["features"]["sources_config_read"] is True
         assert data["features"]["sources_config_write"] is False
         assert data["features"]["config_write"] is False
-        assert data["edition"] == "pro"
-        assert data["edition_capabilities"]["llm"] is True
-        assert "kernel" in data["edition_capabilities"]["warp_modes"]
-        assert "firecrawl" in data["edition_capabilities"]["fetch_providers"]
-        assert "crawl4ai" not in data["edition_capabilities"]["fetch_providers"]
         assert data["admin_password_set"] is False
         assert data["user_password_set"] is False
         assert data["admin_open"] is False
-
-    def test_whoami_basic_edition_capabilities(self, client, monkeypatch):
-        """whoami 应单独暴露 edition 能力，不改变角色权限字段语义。"""
-        monkeypatch.setenv("SOUWEN_EDITION", "basic")
-        from souwen.config import get_config
-
-        get_config.cache_clear()
-        resp = client.get("/api/v1/whoami")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["role"] == "user"
-        assert data["features"]["search"] is True
-        assert data["features"]["fetch"] is False
-        assert data["edition"] == "basic"
-        assert data["edition_capabilities"] == {
-            "llm": False,
-            "warp_modes": ["auto", "wireproxy", "external"],
-            "fetch_providers": ["builtin", "site_crawler"],
-        }
 
     def test_whoami_no_password_admin_open_returns_admin(self, client, monkeypatch):
         """SOUWEN_ADMIN_OPEN=1 时，无密码 /whoami 才返回 admin 权限。"""
@@ -2062,86 +1954,6 @@ class TestWarpAdminRedaction:
         assert "region=hk%29" not in detail
         assert "mode=diag%2C" not in detail
         assert "***" in detail
-
-
-class TestWarpEditionPolicy:
-    def test_warp_modes_include_edition_metadata_for_basic(self, authed_client, monkeypatch):
-        """管理端 modes 仍返回全部模式，但标出当前 edition 是否允许。"""
-
-        class FakeWarpManager:
-            def _has_wireproxy(self):
-                return True
-
-            def _has_kernel_wg(self):
-                return True
-
-            def _has_usque(self):
-                return True
-
-            def _has_warp_cli(self):
-                return True
-
-        monkeypatch.setenv("SOUWEN_EDITION", "basic")
-        from souwen.config import get_config
-        from souwen.server import warp as warp_mod
-
-        get_config.cache_clear()
-        monkeypatch.setattr(
-            warp_mod.WarpManager,
-            "get_instance",
-            classmethod(lambda cls: FakeWarpManager()),
-        )
-
-        resp = authed_client.get(
-            "/api/v1/admin/warp/modes",
-            headers={"Authorization": "Bearer test-secret-123"},
-        )
-
-        assert resp.status_code == 200, resp.text
-        modes = {item["id"]: item for item in resp.json()["modes"]}
-        assert modes["wireproxy"]["min_edition"] == "basic"
-        assert modes["wireproxy"]["edition_available"] is True
-        assert modes["wireproxy"]["edition_reason"] == ""
-        assert modes["usque"]["min_edition"] == "pro"
-        assert modes["usque"]["edition_available"] is False
-        assert modes["usque"]["edition_reason"] == (
-            "WARP mode 'usque' requires edition=pro, current edition=basic"
-        )
-        assert modes["warp-cli"]["edition_available"] is False
-
-    @pytest.mark.parametrize(
-        ("endpoint", "mode"),
-        [
-            ("/api/v1/admin/warp/enable", "usque"),
-            ("/api/v1/admin/warp/switch", "kernel"),
-        ],
-    )
-    def test_warp_start_routes_reject_basic_disallowed_modes_before_manager(
-        self, authed_client, monkeypatch, endpoint, mode
-    ):
-        """basic 下显式启动 pro WARP 模式应返回 403，且不触发启停动作。"""
-
-        monkeypatch.setenv("SOUWEN_EDITION", "basic")
-        from souwen.config import get_config
-        from souwen.server import warp as warp_mod
-
-        get_config.cache_clear()
-        monkeypatch.setattr(
-            warp_mod.WarpManager,
-            "get_instance",
-            classmethod(lambda cls: pytest.fail("WarpManager should not be called")),
-        )
-
-        resp = authed_client.post(
-            endpoint,
-            params={"mode": mode},
-            headers={"Authorization": "Bearer test-secret-123"},
-        )
-
-        assert resp.status_code == 403, resp.text
-        assert resp.json()["detail"] == (
-            f"WARP mode '{mode}' requires edition=pro, current edition=basic"
-        )
 
 
 # ---------------------------------------------------------------------------
@@ -2823,28 +2635,6 @@ class TestStatusToCodeMap:
 
 class TestSearchWebResponseShape:
     """API-WEB-RESP: /search/web 含 meta.requested/succeeded/failed"""
-
-    def test_search_paper_explicit_disallowed_source_returns_403(self, client, monkeypatch):
-        """显式请求当前 edition 不可用的 paper source 时应返回 403。"""
-        monkeypatch.setenv("SOUWEN_EDITION", "basic")
-        from souwen.config import get_config
-
-        get_config.cache_clear()
-        resp = client.get("/api/v1/search/paper?q=foo&sources=openalex")
-
-        assert resp.status_code == 403
-        assert "source 'openalex' requires edition=pro" in resp.json()["detail"]
-
-    def test_search_web_explicit_disallowed_engine_returns_403(self, client, monkeypatch):
-        """显式请求当前 edition 不可用的 web engine 时应返回 403。"""
-        monkeypatch.setenv("SOUWEN_EDITION", "basic")
-        from souwen.config import get_config
-
-        get_config.cache_clear()
-        resp = client.get("/api/v1/search/web?q=foo&engines=tavily")
-
-        assert resp.status_code == 403
-        assert "source 'tavily' requires edition=pro" in resp.json()["detail"]
 
     def test_web_response_has_meta(self, client, monkeypatch):
         """``/search/web`` 响应必须含 ``meta.requested/succeeded/failed``，并反映每个 engine 的真实命中/失败情况。"""

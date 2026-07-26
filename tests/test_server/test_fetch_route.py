@@ -168,12 +168,8 @@ class TestFetchEndpoint:
         assert body["results"][0]["url"] == "https://example.com/a"
         assert stub_fetch and stub_fetch[0]["timeout"] == 10
 
-    def test_arxiv_fulltext_provider_is_accepted(self, client, stub_fetch, monkeypatch):
-        """pro edition 中的 HTML provider 应通过路由白名单校验并透传到底层 fetch。"""
-        from souwen.config import get_config
-
-        monkeypatch.setenv("SOUWEN_EDITION", "pro")
-        get_config.cache_clear()
+    def test_arxiv_fulltext_provider_is_accepted(self, client, stub_fetch):
+        """HTML provider 应通过路由校验并透传到底层 fetch。"""
         resp = client.post(
             "/api/v1/fetch",
             json={
@@ -184,26 +180,6 @@ class TestFetchEndpoint:
         assert resp.status_code == 200, resp.text
         assert resp.json()["provider"] == "arxiv_fulltext"
         assert stub_fetch and stub_fetch[0]["providers"] == ["arxiv_fulltext"]
-
-    def test_arxiv_fulltext_provider_returns_403_in_basic_edition(
-        self, client, stub_fetch, monkeypatch
-    ):
-        """HTML provider 在 basic edition 中应返回明确的升级错误。"""
-        from souwen.config import get_config
-
-        monkeypatch.setenv("SOUWEN_EDITION", "basic")
-        get_config.cache_clear()
-        resp = client.post(
-            "/api/v1/fetch",
-            json={
-                "urls": ["https://arxiv.org/abs/2301.00001"],
-                "provider": "arxiv_fulltext",
-            },
-        )
-
-        assert resp.status_code == 403
-        assert "requires edition=pro" in resp.json().get("detail", "")
-        assert stub_fetch == []
 
     def test_multiple_providers_fanout_are_accepted(self, client, stub_fetch):
         """providers + fanout 应优先于旧版 provider 字段透传到底层 fetch。"""

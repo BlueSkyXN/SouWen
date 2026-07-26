@@ -32,9 +32,6 @@ function source(name: string, capabilities: Capability[], defaultFor: string[] =
     stability: 'stable',
     distribution: 'core',
     default_for: defaultFor,
-    min_edition: 'basic',
-    edition_available: true,
-    edition_reason: '',
     available: true,
   }
 }

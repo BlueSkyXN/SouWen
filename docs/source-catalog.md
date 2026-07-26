@@ -18,9 +18,6 @@ Source Catalog 是 SouWen 的公开数据源契约。它不是手写清单，而
       "capabilities": ["search"],
       "credentials_satisfied": true,
       "configured_credentials": false,
-      "min_edition": "basic",
-      "edition_available": true,
-      "edition_reason": "",
       "runtime_available": true,
       "runtime_reason": "",
       "available": true
@@ -44,13 +41,13 @@ Source Catalog 是 SouWen 的公开数据源契约。它不是手写清单，而
 - 用 `domain` 选择业务领域；
 - 用 `category` 选择展示分组；
 - 用 `capabilities` 选择动作；
-- 用 `available` 判断 edition、启用状态与凭据形成的静态 policy/config readiness；
-- 用 `runtime_available` / `runtime_reason` 判断当前进程能否加载实现和 optional dependency；
+- 用 `available` 判断启用、配置、凭据、本地 runtime 与静态数据条件形成的最终调度 readiness；
+- 用 `runtime_available` / `runtime_reason` 诊断当前进程能否加载实现和 optional dependency；
+- 用 `data_available` / `data_reason` 诊断本地 catalog 等静态数据前置条件；
 - 用 `credentials_satisfied` 和 `configured_credentials` 区分缺凭据和已配置凭据。
 
-需要判断本地有效可执行性时合取 `available && runtime_available`。两者都不证明上游实时
-可达；只有显式 `live=true` probe 才是带时间戳的外部观测。当前 edition 不允许的条目不会
-为探测而加载被排除的模块，`runtime_reason` 会说明该轴未执行。
+`available=true` 表示本地静态条件全部满足，但不证明上游实时可达；只有显式
+`live=true` probe 才是带时间戳的外部观测。
 
 ## 分类
 

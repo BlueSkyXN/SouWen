@@ -66,7 +66,7 @@ def test_rc2_server_bundle_workflow_has_exact_native_four_archive_matrix() -> No
 def test_rc2_server_bundle_builds_tracked_target_onedir_with_bundled_chromium() -> None:
     text = _workflow_text(".github/workflows/build-pyinstaller-server.yml")
 
-    assert 'pip install -e ".[edition-pro]"' in text
+    assert 'pip install -e ".[server,tls,web,robots,scraper]"' in text
     assert 'pip install "playwright>=1.40" "setuptools<82" pyinstaller' in text
     assert "python -m playwright install --with-deps chromium" in text
     assert "python -m playwright install chromium" in text
@@ -87,7 +87,7 @@ def test_rc2_server_bundle_builds_tracked_target_onedir_with_bundled_chromium() 
         "Unpack final archive and run target-native server smoke"
     )
     for retired_surface in (
-        ".[edition-full]",
+        ".[server,tls,web,robots,scraper,newspaper,readability]",
         "crawl4ai",
         "scrapling",
         "server_bundle_entry.py",

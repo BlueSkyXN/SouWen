@@ -14,7 +14,6 @@ import httpx
 from souwen.config import get_config
 from souwen.core.exceptions import ConfigError, RateLimitError, SouWenError
 from souwen.core.retry import make_retry
-from souwen.editions import ensure_edition_allowed
 from souwen.llm.models import LLMMessage, LLMResponse
 
 logger = logging.getLogger("souwen.llm")
@@ -89,7 +88,6 @@ def _get_provider(protocol: str) -> _ProviderFn:
 def _ensure_llm_enabled() -> None:
     """检查 LLM 是否已启用且配置有效"""
     cfg = get_config()
-    ensure_edition_allowed("LLM", current=cfg.edition, required="pro")
     llm_cfg = cfg.llm
     if not llm_cfg.enabled:
         raise ConfigError("llm.enabled", "LLM")

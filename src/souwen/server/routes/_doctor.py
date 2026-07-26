@@ -66,7 +66,6 @@ async def build_doctor_payload(
     timeout: float = 5.0,
 ) -> dict[str, Any]:
     """Build the source status summary used by doctor endpoints."""
-    from souwen.config import get_config
     from souwen.doctor import (
         check_all,
         check_all_live,
@@ -79,7 +78,6 @@ async def build_doctor_payload(
     response_results = _sanitize_rest_runtime_details(results)
     return {
         **counts,
-        "edition": get_config().edition,
         "probe_mode": "live" if live else "static",
         "live_probe": summarize_live_probes(results) if live else None,
         "sources": response_results,

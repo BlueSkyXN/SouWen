@@ -203,7 +203,7 @@ jobs:
           python-version: '3.11'
 
       - name: Install API validation surface after trust checks
-        run: pip install -e ".[edition-pro]"
+        run: pip install -e ".[server,tls,web,robots,scraper]"
 
       - name: Validate installed runtime and OpenAPI versions
         env:
@@ -342,7 +342,8 @@ jobs:
           wheel="$(find "$GITHUB_WORKSPACE/dist" -maxdepth 1 -name 'souwen-*.whl' -print -quit)"
           python -m venv "$RUNNER_TEMP/python-sbom"
           "$RUNNER_TEMP/python-sbom/bin/python" -m pip install --upgrade pip cyclonedx-bom
-          "$RUNNER_TEMP/python-sbom/bin/python" -m pip install "${wheel}[edition-full]"
+          "$RUNNER_TEMP/python-sbom/bin/python" -m pip install \
+            "${wheel}[server,tls,web,robots,scraper,newspaper,readability]"
           "$RUNNER_TEMP/python-sbom/bin/cyclonedx-py" environment \
             --output-format JSON \
             --output-file python-sbom.cdx.json
@@ -366,7 +367,7 @@ jobs:
           retention-days: 30
 
   clean-install:
-    name: Clean install (${{ matrix.extra }})
+    name: Clean install (${{ matrix.profile }})
     needs: [validate, package]
     runs-on: ubuntu-latest
     timeout-minutes: 25
@@ -374,11 +375,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { extra: edition-basic, edition: basic }
-          - { extra: edition-pro, edition: pro }
-          - { extra: edition-full, edition: full }
-          - { extra: edition-full-crawl4ai, edition: full }
-          - { extra: edition-full-scrapling, edition: full }
+          - { profile: sdk-default, install: "" }
+          - { profile: server-runtime, install: "server,tls,web,robots,scraper" }
+          - { profile: provider-newspaper, install: "server,tls,web,robots,scraper,newspaper" }
+          - { profile: provider-readability, install: "server,tls,web,robots,scraper,readability" }
+          - { profile: provider-crawl4ai, install: "server,tls,web,robots,scraper,crawl4ai" }
+          - { profile: provider-scrapling, install: "server,tls,web,robots,scraper,scrapling" }
     steps:
       - uses: actions/checkout@v6
         with:
@@ -394,34 +396,34 @@ jobs:
           python-version: '3.11'
 
       - name: Install and exercise the immutable wheel
-        env:
-          SOUWEN_EDITION: ${{ matrix.edition }}
         run: |
           wheel="$(find "$GITHUB_WORKSPACE/dist" -maxdepth 1 -name 'souwen-*.whl' -print -quit)"
           test -n "$wheel"
           python -m venv "$RUNNER_TEMP/clean-install"
           "$RUNNER_TEMP/clean-install/bin/python" -m pip install --upgrade pip
-          "$RUNNER_TEMP/clean-install/bin/python" -m pip install "${wheel}[${{ matrix.extra }}]"
+          if [ -n "${{ matrix.install }}" ]; then
+            "$RUNNER_TEMP/clean-install/bin/python" -m pip install "${wheel}[${{ matrix.install }}]"
+          else
+            "$RUNNER_TEMP/clean-install/bin/python" -m pip install "$wheel"
+          fi
           "$RUNNER_TEMP/clean-install/bin/python" -m pip check
 
-      - name: Probe isolated edition and package contract
+      - name: Probe isolated package contract
         uses: ./.github/actions/clean-wheel-smoke
         env:
           HOME: ${{ runner.temp }}/clean-home
-          SOUWEN_EDITION: ${{ matrix.edition }}
         with:
           python: ${{ runner.temp }}/clean-install/bin/python
-          extra: ${{ matrix.extra }}
-          edition: ${{ matrix.edition }}
+          profile: ${{ matrix.profile }}
           candidate-sha: ${{ needs.validate.outputs.candidate_sha }}
-          report-json: artifacts/clean-install-${{ matrix.extra }}.json
-          freeze-report: artifacts/clean-install-${{ matrix.extra }}-freeze.txt
+          report-json: artifacts/clean-install-${{ matrix.profile }}.json
+          freeze-report: artifacts/clean-install-${{ matrix.profile }}-freeze.txt
 
       - name: Upload clean-install evidence
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: release-clean-install-${{ matrix.extra }}
+          name: release-clean-install-${{ matrix.profile }}
           path: artifacts/
           if-no-files-found: warn
           retention-days: 30

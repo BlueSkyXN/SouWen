@@ -65,7 +65,7 @@ def test_root_image_copies_custom_build_hook_before_dependency_install():
 
     assert '[tool.hatch.build.hooks.custom]\npath = "hatch_build.py"' in pyproject
     copy_index = dockerfile.index("COPY pyproject.toml README.md LICENSE hatch_build.py ./")
-    install_index = dockerfile.index('pip install ".[edition-pro]"')
+    install_index = dockerfile.index('pip install ".[server,tls,web,robots,scraper]"')
     assert copy_index < install_index
 
 
@@ -106,7 +106,7 @@ def test_hfs_target_image_runs_supervisor_with_internal_browser_worker():
     entrypoint = Path("cloud/hfs/entrypoint.sh").read_text(encoding="utf-8")
 
     assert "SOUWEN_V2_ROLLOUT=target" in dockerfile
-    assert 'pip install ".[edition-pro]" "playwright>=1.40"' in dockerfile
+    assert 'pip install ".[server,tls,web,robots,scraper]" "playwright>=1.40"' in dockerfile
     assert "RUN playwright install chromium" in dockerfile
     assert dockerfile.count("EXPOSE 49265") == 1
     assert "EXPOSE 49266" not in dockerfile

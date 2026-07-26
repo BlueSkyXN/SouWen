@@ -322,23 +322,12 @@ def test_delivery_explicit_patentsview_uses_lazy_secret_transport(monkeypatch) -
     assert "secret-canary" not in response.text
 
 
-def test_basic_edition_never_makes_patentsview_eligible(monkeypatch) -> None:
+def test_enabled_configured_patentsview_is_eligible(monkeypatch) -> None:
     monkeypatch.delenv("SOUWEN_BROWSER_WORKER_TOKEN", raising=False)
     runtime = build_target_runtime(
-        SouWenConfig(
-            edition="basic",
-            sources={"patentsview": {"enabled": True, "api_key": "secret-canary"}},
-        )
+        SouWenConfig(sources={"patentsview": {"enabled": True, "api_key": "secret-canary"}})
     )
 
-    assert "patentsview-search" not in runtime.manager.eligible_adapter_ids
+    assert "patentsview-search" in runtime.manager.eligible_adapter_ids
     assert "secret-canary" not in repr(runtime.manager.diagnostics)
-
-    without_key = build_target_runtime(
-        SouWenConfig(edition="basic", sources={"patentsview": {"enabled": True}})
-    )
-    item = next(
-        item for item in without_key.services.provider_items if item.provider == "patentsview"
-    )
-    assert item.reason == "not_eligible"
-    assert item.missing_fields == ()
+    asyncio.run(runtime.close())

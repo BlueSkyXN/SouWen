@@ -69,7 +69,7 @@ from souwen import search, search_papers, search_research_outputs, search_patent
 | `engines` | `str \| list[str] \| None` | `null`（registry `web:search` 当前为 `["duckduckgo", "bing"]`） | 引擎或引擎列表；单个字符串会归一化为单元素列表 |
 | `max_results_per_engine` | `int` | `10` | 每个引擎最大结果数 |
 
-搜索 source / engine 必须同时存在于 registry 且被当前 `SOUWEN_EDITION` 允许。省略 `sources` / `engines` 时，默认源会按 edition 静默过滤；显式点名当前 edition 不允许的 source / engine 会抛出 `EditionError`。REST API 会映射为 `403`。
+搜索 source / engine 必须同时存在于 registry。省略 `sources` / `engines` 时使用 registry 默认源；显式点名未知 source / engine 会返回验证错误。
 
 ### 网页内容抓取
 
@@ -79,7 +79,7 @@ from souwen.web.fetch import fetch_content, validate_fetch_url
 
 #### `fetch_content(urls: str | list[str], providers: str | list[str] | None = None, strategy="fallback", timeout=30.0, skip_ssrf_check=False, selector=None, start_index=0, max_length=None, respect_robots_txt=False)` → `FetchResponse`
 
-多提供者内容抓取，支持 23 个提供者。默认 `fallback` 按 URL 补抓失败项；`fanout` 会并发执行所有 provider，并返回全部 provider 结果，适合质量对比和调试。provider 必须同时存在于 registry 且被当前 `SOUWEN_EDITION` 允许；重运行时 provider（如 `crawl4ai` / `scrapling` / `newspaper` / `readability`）需要 `full`。
+多提供者内容抓取，支持 23 个提供者。默认 `fallback` 按 URL 补抓失败项；`fanout` 会并发执行所有 provider，并返回全部 provider 结果，适合质量对比和调试。provider 必须存在于 registry；可选 provider 缺少对应 runtime 时会以明确依赖错误或不可用状态返回。
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
@@ -279,7 +279,7 @@ token 通过 edge），可以把 SouWen 应用层密码放在 `X-SouWen-Token: <
 优先，显式无效值不会回退到 `Authorization`。外层 HF token 与内层 SouWen admin password
 必须使用不同 secrets，不能复用。
 
-**角色自检：** `GET /api/v1/whoami` — 返回当前角色、角色权限 `features`、当前 `edition` 和独立的 `edition_capabilities`，用于前端 UI 动态渲染。`features` 表示当前 token 角色是否可访问某类端点；`edition_capabilities` 表示当前 `SOUWEN_EDITION` 是否包含 LLM、WARP 模式和 fetch provider。
+**角色自检：** `GET /api/v1/whoami` 返回当前角色、角色权限 `features` 与认证配置状态，用于前端 UI 动态渲染。`features` 表示当前 token 角色是否可访问某类端点。
 
 `/whoami` 还会返回鉴权状态字段：
 
@@ -421,7 +421,7 @@ Cache-Control: public, max-age=3600
 ### 搜索端点 (`/api/v1/...`)
 
 受 `check_search_auth` 与 `rate_limit_search` 双重保护。
-搜索 source / engine 必须存在于 registry 且被当前 `SOUWEN_EDITION` 允许。默认源会按 edition 过滤；显式请求当前 edition 不允许的 source / engine 返回 `403`。
+搜索 source / engine 必须存在于 registry。省略 `sources` / `engines` 时使用 registry 默认源；显式请求未知 source / engine 返回验证错误。已禁用、缺少凭据或缺少可选 runtime 的 source 会保留在 catalog 中，并在实际调用时返回对应的不可用状态。
 
 #### `GET /api/v1/search/book`
 
@@ -445,7 +445,7 @@ links 仅作为 metadata 返回，SouWen 不跟随或下载 ebook。`dcterms:rig
 适用法域的陈述；例如 “Public domain in the USA.” 不能推断全球 public domain、可访问性
 或再分发许可。初始化方法见 Python local-catalog importer。
 
-搜索结果包含 typed identifiers、受限 edition metadata、`collections` 馆藏归属和 resource
+搜索结果包含 typed identifiers、受限版本 metadata、`collections` 馆藏归属和 resource
 access state。LibriVox 的 `copyright_year` 是上游 metadata，不是本项目做出的著作权或全球
 public-domain 结论；其 `audio_sections`、`readers` 与 `audio`/RSS/Internet Archive links 都只是
 有界的上游链接 metadata。Internet Archive 的文件链接只是外部资源元数据，不会触发借阅、阅读或
@@ -460,7 +460,7 @@ public domain 或再分发权利；Wikisource runtime 不导入 dumps，也不�
 | `per_page` | int (1-100) | `10` | 每个数据源返回结果数 |
 | `timeout` | float (1-300) \| null | `null` | 端点硬超时（秒），超时返回 504 |
 
-**错误状态码：** `403 forbidden`（source 存在但当前 edition 不允许）、`503 service_unavailable`（显式请求的 local catalog 尚未初始化、导入未完成或不健康）、`502 bad_gateway`（所有其他数据源均失败）、`504 gateway_timeout`（超过 `timeout`）。503 响应不包含本地数据库路径；恢复方式是导入官方 RDF input。
+**错误状态码：** `503 service_unavailable`（显式请求的 local catalog 尚未初始化、导入未完成或不健康）、`502 bad_gateway`（所有其他数据源均失败）、`504 gateway_timeout`（超过 `timeout`）。503 响应不包含本地数据库路径；恢复方式是导入官方 RDF input。
 
 #### `GET /api/v1/search/research-output`
 
@@ -482,7 +482,7 @@ DataCite 的 `landing_url` / `content_urls` 与 Figshare 的 `resources`（包�
 | `per_page` | int (1-100) | `10` | 每个数据源返回结果数 |
 | `timeout` | float (1-300) \| null | `null` | 端点硬超时（秒），超时返回 504 |
 
-**错误状态码：** `403 forbidden`（source 存在但当前 edition 不允许）、`502 bad_gateway`（所有数据源均失败）、`504 gateway_timeout`（超过 `timeout`）。
+**错误状态码：** `502 bad_gateway`（所有数据源均失败）、`504 gateway_timeout`（超过 `timeout`）。
 
 #### `GET /api/v1/search/paper`
 
@@ -522,7 +522,7 @@ Query parameter `identifier`; optional `max_edges` uses the same local-cap seman
 }
 ```
 
-**错误状态码：** `403 forbidden`（source 存在但当前 edition 不允许）、`502 bad_gateway`（所有数据源均失败）、`504 gateway_timeout`（超过 `timeout`）。
+**错误状态码：** `502 bad_gateway`（所有数据源均失败）、`504 gateway_timeout`（超过 `timeout`）。
 
 #### `GET /api/v1/search/patent`
 
@@ -549,7 +549,7 @@ Query parameter `identifier`; optional `max_edges` uses the same local-cap seman
 
 > 新调用建议使用 `per_page`，以便和论文、专利搜索端点保持一致。
 
-**错误状态码：** `403 forbidden`（engine 存在但当前 edition 不允许）、`502 bad_gateway`（所有搜索引擎均失败）、`504 gateway_timeout`（超过 `timeout`）。
+**错误状态码：** `502 bad_gateway`（所有搜索引擎均失败）、`504 gateway_timeout`（超过 `timeout`）。
 
 #### `POST /api/v1/search/web/enriched`
 
@@ -609,13 +609,13 @@ scheme 与 model，因此接口不接受 `model`、`model_id`、`scheme_id`、`a
   未知仍为 `null`，不会伪造 cost 或 usage。
 
 **错误状态码：** `422 unprocessable_entity`（未知 source、非 concrete source、非法
-identity override 或请求字段不合规）、`403 forbidden`（当前 edition 不允许）、`409 conflict`
+identity override 或请求字段不合规）、`409 conflict`
 （source 默认关闭或被显式禁用）、`502 bad_gateway`（所有 source 都不可用）、`504
 gateway_timeout`（共享 budget 耗尽；未完成任务会被取消）。
 
 #### `GET /api/v1/sources`
 
-列出公开 Source Catalog。未设置 `user_password` 时开放；设置 `user_password` 后要求 User+，即使启用 guest 模式也不降级开放。返回值从内置 registry 派生；源被禁用、必须凭据缺失、自建实例未配置或当前 `SOUWEN_EDITION` 不允许时仍保留 catalog 条目，但 `available=false`。Optional runtime importability 通过独立的 `runtime_available` / `runtime_reason` 返回，不改变既有字段 `available`；本地有效可执行性要求合取两轴。
+列出公开 Source Catalog。未设置 `user_password` 时开放；设置 `user_password` 后要求 User+，即使启用 guest 模式也不降级开放。返回值从内置 registry 派生；源被禁用、配置无效、必须凭据缺失、自建实例未配置、本地 runtime 或静态数据不可用时仍保留 catalog 条目，但 `available=false`。`runtime_available` / `runtime_reason` 和 `data_available` / `data_reason` 用于诊断最终 gate 的具体轴。
 
 **响应示例：**
 ```json
@@ -638,9 +638,6 @@ gateway_timeout`（共享 budget 耗尽；未完成任务会被取消）。
       "stability": "stable",
       "distribution": "core",
       "default_for": ["paper:search"],
-      "min_edition": "pro",
-      "edition_available": true,
-      "edition_reason": "",
       "runtime_available": true,
       "runtime_reason": "",
       "available": true
@@ -665,7 +662,7 @@ gateway_timeout`（共享 budget 耗尽；未完成任务会被取消）。
 
 | 字段 | 说明 |
 |---|---|
-| `sources[]` | 公开 Source Catalog 条目列表，前端和 CLI 应按 `domain`/`category`/`capabilities` 过滤 |
+| `sources[]` | 公开 Source Catalog 条目列表，Panel 和 SDK 应按 `domain`/`category`/`capabilities` 过滤 |
 | `categories[]` | 正式展示分类，包含 `key`、`label`、`order`、`domain` 与说明 |
 | `defaults` | `domain:capability` 到默认源名列表的映射 |
 | `domain` | 能力归属域，如 `paper` / `patent` / `web` / `fetch` |
@@ -677,12 +674,10 @@ gateway_timeout`（共享 budget 耗尽；未完成任务会被取消）。
 | `credentials_satisfied` | 当前配置是否满足运行时凭据要求；免配置和可选凭据源为 `true` |
 | `configured_credentials` | 用户是否实际配置了该源声明的凭据 |
 | `config_valid` / `config_reason` | source 配置是否满足静态约束；无效 identity override 只返回 value-free 字段路径 |
-| `min_edition` | 使用该源所需的最低功能档位：`basic` / `pro` / `full` |
-| `edition_available` | 当前 `SOUWEN_EDITION` 是否允许该源 |
-| `edition_reason` | `edition_available=false` 时的不可用原因；允许时为空字符串 |
-| `runtime_available` | 当前进程能否加载 client implementation 与声明的 optional dependency；不联网、不检查凭据 |
-| `runtime_reason` | `runtime_available=false` 时的缺依赖、稳定脱敏 loader 原因或 edition 未探测原因；公开响应不回显任意 loader exception 文本 |
-| `available` | 静态 catalog gate：等于未禁用、`credentials_satisfied=true` 且 `edition_available=true`；不代表上游实时可达，也不等于 `stability` |
+| `runtime_available` | 当前进程能否加载 client implementation 与执行必需的 runtime dependency；具有内置 fallback 的推荐 extra 不作为硬门槛；不联网、不检查凭据 |
+| `runtime_reason` | `runtime_available=false` 时的缺依赖或稳定脱敏 loader 原因；公开响应不回显任意 loader exception 文本 |
+| `data_available` / `data_reason` | 本地 catalog 等静态数据前置条件及其稳定原因；不执行外部联网探测 |
+| `available` | 最终静态调度 gate：合取启用状态、配置有效性、凭据、本地 runtime 与静态数据条件；不代表上游实时可达，也不等于 `stability` |
 | `risk_level` | 默认调度风险：`low` / `medium` / `high` |
 | `distribution` | 分发范围：`core` / `extra` |
 | `stability` | Registry 声明的接入成熟度：`stable` / `beta` / `experimental` / `deprecated`；不是实时连通性结果 |
@@ -701,24 +696,21 @@ gateway_timeout`（共享 budget 耗尽；未完成任务会被取消）。
 | `source` | `string[]` | — | `live=true` 时只探测指定 source，可重复 |
 | `timeout` | `float` | `5.0` | 单源 live probe 超时秒数，范围 `0.5` 到 `60.0` |
 
-默认 `live=false`，端点只评估 registry 声明、当前 edition、频道启用状态、凭据和
+默认 `live=false`，端点只评估 registry 声明、频道启用状态、凭据和
 本地依赖，不访问外部服务；此时 `probe_mode="static"`、顶层 `live_probe=null`，
 `sources[].live_probe` 也为 `null`。显式 `live=true` 时，只对静态可用且支持
 `search` capability 的目标源执行最小真实搜索；顶层 `live_probe` 汇总本次
 `ok` / `failed` / `skipped`，对应 `sources[].live_probe` 记录当次观测。未被选择或
 不满足探测条件的源不会被伪装成 live success，live probe 也不会改写静态
 `status`、`available` 或 registry `stability`。REST 响应保留超时、限流和失败等
-观测类别，但不会回显 provider/loader 的任意 exception 文本；本地 CLI 仍可用于详细诊断。
+观测类别，但不会回显 provider/loader 的任意 exception 文本；详细异常仅保留在受控服务日志中。
 
-顶层 `edition` 是当前 `SOUWEN_EDITION`，每个 `sources[]` 条目包含
-`min_edition` / `edition_available` / `edition_reason`、`runtime_available` /
-`runtime_reason`、`credentials_satisfied`、`config_available` / `config_reason` 和
-`available`，用于把“需升级”“运行依赖缺失”“缺凭据”“手动禁用”和成熟度状态分开。
-其中 `runtime_available` 只检查当前进程能否加载实现与声明的 optional dependency，
-不会实例化 browser 或联网；当前 edition 明确禁止的源不会加载其 client/module，而是返回
-`runtime_available=false` 与稳定的 `runtime not probed because ...` 原因。`config_available` 是
-enabled 与 required credentials 的合取；
-最终静态 `available` 是 edition、runtime、config 与可用 status 的合取。`available` 汇总
+每个 `sources[]` 条目包含 `runtime_available` / `runtime_reason`、
+`credentials_satisfied`、`config_available` / `config_reason` 和 `available`，用于把
+“运行依赖缺失”“缺凭据”“手动禁用”和成熟度状态分开。其中 `runtime_available` 只检查当前
+进程能否加载实现与声明的必要 runtime，不会实例化 browser 或联网。`config_available`
+是 enabled、配置有效性与 required credentials 的合取；最终静态 `available` 是 runtime、
+config 与可用 status 的合取。`available` 汇总
 `ok` / `limited` / `warning` / `degraded`，`degraded_total` 统计
 `limited` / `warning` / `degraded`；`degraded` 是 `degraded_total` 的同义字段，
 精确状态计数请读取 `status_counts.degraded`。
@@ -797,18 +789,15 @@ enabled 与 required credentials 的合取；
 管理员路径的数据源状态检查，query 参数、响应 shape 和 static/live 语义与
 `GET /api/v1/doctor` 一致。默认 `live=false`，不会执行实时连通性探测；显式传
 `live=true` 才会返回 `probe_mode="live"`、顶层 `live_probe` 汇总和对应的
-`sources[].live_probe`。顶层 `edition` 是当前 `SOUWEN_EDITION`；每个
-`sources[]` 条目分别返回 edition、runtime importability、configuration/credentials、
-static status 与 live probe 轴。当源在当前 edition 不可用且未被手动禁用时，
-`status="unavailable"` 且 `message` 为升级原因；runtime 缺失同样会静态
-`unavailable`，但原因独立保存在 `runtime_reason`。静态 `available` 和声明式
+`sources[].live_probe`。每个 `sources[]` 条目分别返回 runtime importability、
+configuration/credentials、static status 与 live probe 轴。runtime 缺失会静态标记为
+`unavailable`，原因独立保存在 `runtime_reason`。静态 `available` 和声明式
 `stability` 都不能当作 live 成功证据。
 
 状态语义与 Panel 展示规则应以本节和管理端 schema 为准；面向用户的排障路径会在 GitHub Wiki 中提供。
 
-下例展示 `edition=pro` 环境的 static shape；具体状态计数会随 edition、
-已安装 optional dependency、频道启用和凭据配置变化。此条件下 `total=97` 对应当前内置
-registered catalog。
+下例展示 static shape；具体状态计数会随当前 registry、已安装 runtime、频道启用和凭据配置
+变化，调用方不应硬编码 `total`。
 
 **响应示例：**
 ```json
@@ -824,7 +813,6 @@ registered catalog。
   "missing_key": 40,
   "unavailable": 5,
   "disabled": 0,
-  "edition": "pro",
   "probe_mode": "static",
   "live_probe": null,
   "status_counts": {
@@ -851,10 +839,6 @@ registered catalog。
       "package_extra": null,
       "stability": "stable",
       "usage_note": "Freemium API；无 Key 预算较低，耗尽返回 429；openalex_email 不再发送",
-      "min_edition": "pro",
-      "edition": "pro",
-      "edition_available": true,
-      "edition_reason": "",
       "runtime_available": true,
       "runtime_reason": "",
       "credentials_satisfied": true,
@@ -873,10 +857,6 @@ registered catalog。
       "key_requirement": "optional",
       "credential_fields": ["semantic_scholar_api_key"],
       "optional_credential_effect": "rate_limit",
-      "min_edition": "pro",
-      "edition": "pro",
-      "edition_available": true,
-      "edition_reason": "",
       "runtime_available": true,
       "runtime_reason": "",
       "credentials_satisfied": true,
@@ -919,13 +899,11 @@ registered catalog。
 
 #### `GET /api/v1/admin/warp/modes`
 
-列出所有 WARP 模式的可用性、协议、代理类型、部署要求和 edition 约束。
+列出所有 WARP 模式的可用性、协议、代理类型和部署要求。
 
 **模式：** `wireproxy` / `kernel` / `usque` / `warp-cli` / `external`
 
-`basic` 只允许 `auto`、`wireproxy` 和 `external`；`pro` / `full` 可使用全部模式。
-管理端仍返回所有模式，并通过 `min_edition`、`edition_available`、`edition_reason`
-说明当前 `SOUWEN_EDITION` 是否允许该模式。
+管理端返回所有模式；实际启用时会按系统能力、部署要求和配置验证。
 
 `external` 模式返回的代理展示 URL 会掩码 URL 中的用户名、密码和敏感 query/fragment 参数值。
 
@@ -941,9 +919,6 @@ registered catalog。
       "requires_privilege": false,
       "docker_only": false,
       "proxy_types": ["socks5", "http"],
-      "min_edition": "pro",
-      "edition_available": true,
-      "edition_reason": "",
       "description": "MASQUE/QUIC 协议，现代化方案，支持 SOCKS5 和 HTTP 代理"
     }
   ]
@@ -971,7 +946,7 @@ registered catalog。
 { "detail": "wireproxy binary not found" }
 ```
 
-**错误状态码：** `403`（目标模式存在但当前 edition 不允许）、`400`（未知模式、组件缺失或启动失败）。
+**错误状态码：** `400`（未知模式、组件缺失或启动失败）。
 
 #### `POST /api/v1/admin/warp/register`
 
@@ -1083,7 +1058,7 @@ registered catalog。
 #### `POST /api/v1/admin/warp/switch`
 
 一步切换 WARP 模式：先禁用当前模式，再以目标模式启动。失败时不会返回底层敏感错误，详细信息保留在服务端日志。
-目标模式受 `SOUWEN_EDITION` 约束；当前 edition 不允许时返回 `403`，且不会先禁用现有 WARP。
+目标模式会在启动前按系统能力与配置验证；验证失败时不会先禁用现有 WARP。
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
@@ -1104,7 +1079,7 @@ WARP 状态变更 SSE 流。客户端使用 `EventSource` 连接，服务端约�
 
 #### `POST /api/v1/fetch`
 
-抓取网页内容，支持 23 个提供者。默认 `fallback` 按 URL 补抓失败项；`fanout` 会并发返回所有 provider 结果。provider 必须同时存在于 registry 且被当前 `SOUWEN_EDITION` 允许；重运行时 provider（如 `crawl4ai` / `scrapling` / `newspaper` / `readability`）需要 `full`。
+抓取网页内容，支持 23 个提供者。默认 `fallback` 按 URL 补抓失败项；`fanout` 会并发返回所有 provider 结果。provider 必须存在于 registry；重运行时 provider 需要安装相应的 leaf extra。
 
 **请求体 (JSON)：**
 
@@ -1174,7 +1149,7 @@ WARP 状态变更 SSE 流。客户端使用 `EventSource` 连接，服务端约�
 `provider` 是响应里的 deprecated 过渡字段；当一次请求涉及多个 provider 时，
 请以 `providers`、`meta.selected_provider` 和 `results[].source` 为准。
 
-**错误状态码：** `400`（无效提供者）、`403`（provider 存在但当前 edition 不允许）、`504`（超时）
+**错误状态码：** `400`（无效提供者）、`504`（超时）
 
 **安全特性：**
 - SSRF 防护：DNS 解析 + 非规范 IPv4 数字写法拒绝 + 私有/保留 IP 拦截
@@ -1263,7 +1238,7 @@ WARP 状态变更 SSE 流。客户端使用 `EventSource` 连接，服务端约�
 
 | 端点 | 说明 |
 |------|------|
-| `GET /api/v1/admin/sources/config` | 列出所有源的频道配置（`enabled / proxy / http_backend / base_url / timeout / has_api_key / credentials_satisfied / missing_credential_fields / config_valid / config_reason / min_edition / edition_available / edition_reason / headers / params / category / integration_type`，以及 source catalog 字段）；`proxy` / `base_url` 会隐藏 URL userinfo、secret query 和 secret fragment；LLM-search gateway source 不回显 private base URL |
+| `GET /api/v1/admin/sources/config` | 列出所有源的频道配置（`enabled / proxy / http_backend / base_url / timeout / has_api_key / credentials_satisfied / missing_credential_fields / config_valid / config_reason / headers / params / category / integration_type`，以及 source catalog 字段）；`proxy` / `base_url` 会隐藏 URL userinfo、secret query 和 secret fragment；LLM-search gateway source 不回显 private base URL |
 | `GET /api/v1/admin/sources/config/{source_name}` | 单源频道配置；`source_name` 会先 `strip()`，strip 后为空返回 `422`，未知源返回 `404`；`proxy` / `base_url` 同样以脱敏视图返回 |
 | `PUT /api/v1/admin/sources/config/{source_name}` | JSON 体更新单源运行时配置（避免 Key 入日志），重启不持久化；`source_name/proxy/http_backend/base_url` 会先 `strip()`，`source_name` strip 后为空返回 `422`；`timeout` 为 `null` 时清除 override，否则必须在 1..300 秒；`proxy` / `base_url` 不接受脱敏占位符 `***`，避免把只读展示值写回真实配置 |
 | `GET /api/v1/admin/proxy` / `PUT` | 全局 `proxy` 与 `proxy_pool` 读写（含 SOCKS 依赖检查）；读响应和 `PUT` 成功响应会隐藏 URL userinfo、secret query 和 secret fragment；`proxy` 和 `proxy_pool[]` 会先 `strip()`，`proxy` strip 后为空则清空配置，`proxy_pool[]` strip 后为空返回 `422`，脱敏占位符 `***` 返回 `422` |
@@ -1288,7 +1263,6 @@ WARP 状态变更 SSE 流。客户端使用 `EventSource` 连接，服务端约�
 | `credentials_satisfied` | 该源运行所需凭据是否满足；`auth_requirement="none"` / `optional` 源通常为 `true` |
 | `missing_credential_fields` | 当前缺失或无效的配置字段路径；不包含配置值 |
 | `config_valid` / `config_reason` | 静态 source 配置是否合法；原因只包含字段路径，不包含提交值 |
-| `min_edition` / `edition_available` / `edition_reason` | 当前 `SOUWEN_EDITION` 是否允许该源；管理端仍返回全部源，不按 edition 隐藏 |
 | `proxy` / `base_url` | 配置视图会隐藏 URL userinfo、secret query 和 secret fragment；这些脱敏显示值只用于读取，不能原样提交回 `PUT` |
 | `timeout` | 可选 provider-attempt timeout override；`null` 表示未覆盖，普通 web source 仍受 15 秒 cap |
 | `headers` / `params` | 频道级附加配置视图；字段名包含 key/token/secret/password/auth/authorization/cookie/sessdata/session/sid/jwt/csrf/xsrf 等敏感含义时值会显示为 `***`，覆盖 snake_case、hyphen-case、camelCase 和常见 compact 写法 |

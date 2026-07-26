@@ -245,9 +245,6 @@ function source(name: string, domain: string, capabilities: string[], defaultFor
     stability: 'stable',
     distribution: 'core',
     default_for: defaultFor,
-    min_edition: 'basic',
-    edition_available: true,
-    edition_reason: '',
     available: true,
   }
 }
@@ -352,9 +349,6 @@ describe('SearchPage', () => {
         stability: 'stable',
         distribution: 'core',
         default_for: ['paper:search'],
-        min_edition: 'basic',
-        edition_available: true,
-        edition_reason: '',
         available: true,
       }],
       categories: [],

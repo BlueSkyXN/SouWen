@@ -98,8 +98,8 @@ Since 2026-07-26 both workflows run in two lanes (owner-approved CI slimming):
 - `provider-runtime`: internal optional-provider import, doctor and fetch-handler
   surface, including feature-matrix declarations. The mutually exclusive
   `crawl4ai` / `scrapling` browser runtime variants stay in dedicated functional gates.
-- A3c temporarily installs current edition extras to execute these checks. A4 owns
-  removal of the edition/package taxonomy; this branch policy does not pre-approve it.
+- These checks install their required leaf extras explicitly. They do not create a
+  product tier or package matrix.
 - panel build: TypeScript check, Vitest, single-file panel build, and
   `src/souwen/server/panel.html` artifact validation.
 
@@ -109,8 +109,8 @@ They should not be folded into every ordinary PR. Remote HFS promotion and
 GitHub publication are coordinated only by `release-candidate.yml`.
 
 `build-pyinstaller-server.yml` builds the RC2 release inventory: exactly four
-target-native PyInstaller Server bundles. The old three-edition PyInstaller and
-Nuitka workflows remain temporary rollback residue until the Phase 8 audit;
+target-native PyInstaller Server bundles. The old legacy PyInstaller and Nuitka
+workflows remain temporary rollback residue until the Phase 8 audit;
 the central release does not call them or include their artifacts.
 
 ## Central release-candidate flow

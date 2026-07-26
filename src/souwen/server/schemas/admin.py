@@ -39,10 +39,6 @@ class DoctorSourceResponse(BaseModel):
     package_extra: str | None = None
     stability: Literal["stable", "beta", "experimental", "deprecated"]
     usage_note: str | None = None
-    min_edition: Literal["basic", "pro", "full"]
-    edition: Literal["basic", "pro", "full"]
-    edition_available: bool
-    edition_reason: str = ""
     runtime_available: bool
     runtime_reason: str = ""
     credentials_satisfied: bool
@@ -76,7 +72,6 @@ class DoctorResponse(BaseModel):
     unavailable: int = 0
     disabled: int = 0
     status_counts: dict[str, int] = Field(default_factory=dict)
-    edition: Literal["basic", "pro", "full"] = "pro"
     probe_mode: Literal["static", "live"] = "static"
     live_probe: dict[str, Any] | None = None
     sources: list[DoctorSourceResponse]
@@ -125,9 +120,6 @@ class SourceChannelConfigResponse(BaseModel):
     domain: str
     capabilities: list[str] = Field(default_factory=list)
     integration_type: Literal["open_api", "scraper", "official_api", "self_hosted"]
-    min_edition: Literal["basic", "pro", "full"]
-    edition_available: bool
-    edition_reason: str = ""
     key_requirement: Literal["none", "optional", "required", "self_hosted"]
     auth_requirement: Literal["none", "optional", "required", "self_hosted"]
     credential_fields: list[str] = Field(default_factory=list)
@@ -208,7 +200,7 @@ class WarpStatusResponse(BaseModel):
 
 
 class WarpModeInfoResponse(BaseModel):
-    """单个 WARP 模式能力与 edition 可用性。"""
+    """单个 WARP 模式能力与本地检测结果。"""
 
     id: str
     name: str
@@ -221,9 +213,6 @@ class WarpModeInfoResponse(BaseModel):
     description: str
     reason: str = ""
     external_proxy: str | None = None
-    min_edition: Literal["basic", "pro", "full"] | None = None
-    edition_available: bool | None = None
-    edition_reason: str | None = None
 
 
 class WarpModesResponse(BaseModel):

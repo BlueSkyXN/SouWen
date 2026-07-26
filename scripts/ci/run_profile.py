@@ -39,8 +39,6 @@ BROWSER_VARIANT_RUNTIME_PROVIDERS_LITERAL = repr(tuple(sorted(BROWSER_VARIANT_RU
 PROVIDER_RUNTIME_CODE = "\n".join(
     [
         "import importlib",
-        "from souwen.config import get_config",
-        "assert get_config().edition == 'full', get_config().edition",
         "from souwen.feature_matrix import declared_fetch_provider_names, probe_capabilities",
         "from souwen.paper import (",
         "    OpenAlexClient, SemanticScholarClient, CrossrefClient,",
@@ -66,10 +64,10 @@ PROVIDER_RUNTIME_CODE = "\n".join(
         f"browser_variant_providers = set({BROWSER_VARIANT_RUNTIME_PROVIDERS_LITERAL})",
         "for _provider, _module_name in provider_runtime_modules.items():",
         "    importlib.import_module(_module_name)",
-        "declared_fetch = set(declared_fetch_provider_names('full'))",
+        "declared_fetch = set(declared_fetch_provider_names())",
         "missing_declared = set(provider_runtime_modules) - declared_fetch",
         "assert not missing_declared, sorted(missing_declared)",
-        "probe = probe_capabilities('full')",
+        "probe = probe_capabilities()",
         "available_fetch = set(probe['fetch_providers'].available)",
         "missing_core_importable = core_runtime_providers - available_fetch",
         "assert not missing_core_importable, sorted(missing_core_importable)",
@@ -115,14 +113,12 @@ PROFILE_COMMANDS: Mapping[str, tuple[CommandSpec, ...]] = {
                 "-v",
                 "--tb=short",
             ),
-            env=(("SOUWEN_EDITION", "pro"),),
         ),
     ),
     "provider-runtime": (
         CommandSpec(
             "imports_and_browser_declarations",
             (PYTHON, "-c", PROVIDER_RUNTIME_CODE),
-            env=(("SOUWEN_EDITION", "full"),),
         ),
     ),
 }

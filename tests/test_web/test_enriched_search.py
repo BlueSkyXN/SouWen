@@ -527,16 +527,6 @@ def test_enriched_search_rejects_unknown_and_default_disabled_concrete_sources(
     get_config.cache_clear()
 
 
-def test_enriched_search_checks_edition_before_default_disabled_source(monkeypatch):
-    from souwen.editions import EditionError
-
-    config = SimpleNamespace(edition="basic", is_source_enabled=lambda *_args, **_kwargs: True)
-    monkeypatch.setattr("souwen.web.enriched_search.get_config", lambda: config)
-
-    with pytest.raises(EditionError):
-        _validate_concrete_sources(["uniapi_ark_annotations_deepseek_v3_2_251201"])
-
-
 def test_enriched_search_rejects_missing_required_credentials_before_client_import(monkeypatch):
     adapter = SimpleNamespace(
         llm_search_identity=("test_scheme_v1", "test-model"),
@@ -547,13 +537,12 @@ def test_enriched_search_rejects_missing_required_credentials_before_client_impo
         auth_requirement="required",
     )
     config = SimpleNamespace(
-        edition="full",
         is_source_enabled=lambda *_args, **_kwargs: True,
         resolve_api_key=lambda *_args, **_kwargs: None,
     )
     monkeypatch.setattr("souwen.web.enriched_search.get_config", lambda: config)
     monkeypatch.setattr("souwen.web.enriched_search.get_source_adapter", lambda _source: adapter)
-    monkeypatch.setattr("souwen.web.enriched_search.ensure_source_allowed", lambda *_args: None)
+    monkeypatch.setattr("souwen.web.enriched_search.ensure_source_available", lambda *_args: None)
 
     with pytest.raises(EnrichedSearchSourceValidationError, match="缺少必需配置"):
         _validate_concrete_sources(["test_source"])

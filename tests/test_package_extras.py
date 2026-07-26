@@ -49,12 +49,16 @@ def test_distributions_exclude_local_agent_metadata() -> None:
     assert {"/.codex", "/.claude"} <= excluded
 
 
-def test_edition_extras_define_layered_install_profiles() -> None:
-    """Edition extras should expose stable install surfaces without hand-copying deps."""
+def test_leaf_extras_define_explicit_install_surfaces() -> None:
+    """Install surfaces use leaf extras rather than edition aggregates."""
 
-    assert _extra_dependencies("edition-basic") == ["souwen[tls,web,robots]"]
-    assert _extra_dependencies("edition-pro") == ["souwen[edition-basic,server,scraper]"]
-    assert _extra_dependencies("edition-full") == ["souwen[edition-pro,newspaper,readability]"]
+    extras = _optional_dependency_block()
+    assert not re.search(r"^edition-", extras, flags=re.MULTILINE)
+    assert _extra_dependencies("server") == ["fastapi>=0.111", "uvicorn[standard]>=0.29"]
+    assert _extra_dependencies("tls") == ["curl-cffi>=0.14.0"]
+    assert _extra_dependencies("web") == ["trafilatura>=1.0"]
+    assert _extra_dependencies("robots") == ["protego>=0.3.0"]
+    assert _extra_dependencies("scraper") == ["curl-cffi>=0.14.0"]
 
 
 def test_pdf_capture_extras_and_direct_references_are_removed() -> None:
@@ -67,16 +71,12 @@ def test_pdf_capture_extras_and_direct_references_are_removed() -> None:
     assert "allow-direct-references" not in PYPROJECT.read_text(encoding="utf-8")
 
 
-def test_full_browser_variants_keep_crawl4ai_and_scrapling_mutually_exclusive() -> None:
-    """Full browser extras must not ask one resolver to install both conflicting stacks."""
+def test_browser_leaves_remain_mutually_exclusive() -> None:
+    """No aggregate extra may ask one resolver for both browser stacks."""
 
-    assert _extra_dependencies("edition-full-crawl4ai") == ["souwen[edition-full,crawl4ai]"]
-    assert _extra_dependencies("edition-full-scrapling") == ["souwen[edition-full,scrapling]"]
-
-    for extra in (
-        "edition-full",
-        "edition-full-crawl4ai",
-        "edition-full-scrapling",
-    ):
+    assert _extra_dependencies("crawl4ai") == ["crawl4ai>=0.4.0"]
+    assert _extra_dependencies("scrapling") == ["scrapling[fetchers]>=0.4.7"]
+    for extra in ("server", "tls", "web", "robots", "scraper", "newspaper", "readability"):
         deps = ",".join(_extra_dependencies(extra))
-        assert not ("crawl4ai" in deps and "scrapling" in deps)
+        assert "crawl4ai" not in deps
+        assert "scrapling" not in deps

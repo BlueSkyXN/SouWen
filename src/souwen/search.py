@@ -33,7 +33,7 @@ from typing import Any
 
 from souwen.config import get_config
 from souwen.core.concurrency import get_semaphore
-from souwen.editions import EditionError, ensure_source_allowed
+from souwen.capabilities import CapabilityUnavailableError, ensure_source_available
 from souwen.models import SearchResponse
 from souwen.registry import (
     all_adapters,
@@ -285,19 +285,19 @@ def _coerce_query_value(parameter_name: str, query: str) -> Any:
     return [query]
 
 
-def _is_adapter_allowed_by_edition(
+def _is_adapter_available(
     adapter: SourceAdapter,
     *,
-    edition: str,
+    config: Any,
     explicit: bool,
 ) -> bool:
-    """Return whether an adapter may run in the current edition."""
+    """Return whether an adapter may run with the current runtime configuration."""
     try:
-        ensure_source_allowed(adapter, edition)
-    except EditionError as exc:
+        ensure_source_available(adapter, config)
+    except CapabilityUnavailableError as exc:
         if explicit:
             raise
-        logger.info("数据源 %s 不在 edition=%s 中，跳过: %s", adapter.name, edition, exc)
+        logger.info("数据源 %s 当前不可用，跳过: %s", adapter.name, exc)
         return False
     return True
 
@@ -355,9 +355,9 @@ def _select_adapters(
                 sorted(adapter.capabilities),
             )
             continue
-        if not _is_adapter_allowed_by_edition(
+        if not _is_adapter_available(
             adapter,
-            edition=cfg.edition,
+            config=cfg,
             explicit=explicit_sources,
         ):
             continue
@@ -559,9 +559,9 @@ async def search_by_capability(
         adapters = [
             adapter
             for adapter in by_capability(capability)
-            if _is_adapter_allowed_by_edition(
+            if _is_adapter_available(
                 adapter,
-                edition=cfg.edition,
+                config=cfg,
                 explicit=False,
             )
         ]
@@ -581,9 +581,9 @@ async def search_by_capability(
                     sorted(adapter.capabilities),
                 )
                 continue
-            if not _is_adapter_allowed_by_edition(
+            if not _is_adapter_available(
                 adapter,
-                edition=cfg.edition,
+                config=cfg,
                 explicit=True,
             ):
                 continue

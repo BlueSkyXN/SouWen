@@ -78,7 +78,7 @@ jobs:
       - name: 安装当前源码与 Scrapling 运行时
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev,edition-full-scrapling]"
+          pip install -e ".[dev,server,tls,web,robots,scraper,scrapling]"
           if [ "$GATE_SUITE" = "release" ]; then
             scrapling install
           else
@@ -141,7 +141,7 @@ jobs:
       - name: 安装当前源码与 Crawl4AI 可选浏览器运行时
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev,edition-full-crawl4ai]"
+          pip install -e ".[dev,server,tls,web,robots,scraper,crawl4ai]"
           if [ "$GATE_SUITE" = "release" ]; then
             python -m playwright install --with-deps chromium
           else
@@ -194,7 +194,7 @@ jobs:
       - name: 安装当前源码与文章抽取运行时
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev,edition-full]"
+          pip install -e ".[dev,server,tls,web,robots,scraper,newspaper,readability]"
 
       - name: 运行 Article extraction release/nightly gate
         run: |
@@ -242,7 +242,7 @@ jobs:
       - name: 安装当前源码
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev,edition-full]"
+          pip install -e ".[dev,server,tls,web,robots,scraper,newspaper,readability]"
 
       - name: 运行 zero-key live source gate
         run: |

@@ -171,7 +171,7 @@ docker build -f cloud/modelscope/Dockerfile \
 ## 本地服务
 
 ```bash
-pip install -e ".[edition-pro]"
+pip install -e ".[server,tls,web,robots,scraper]"
 SOUWEN_ADMIN_PASSWORD=change-me uvicorn souwen.server.app:app --host 0.0.0.0 --port 8000
 ```
 
@@ -184,8 +184,8 @@ PYTHONPATH=src python3 scripts/ci/run_profile.py --profile server-contract
 ```
 
 `server-contract` 是本地部署前的 Server contract 验证。`sdk-contract` 只验证 target
-OpenAPI、DTO 与 API-major prerequisite；它不表示 generated SDK 已经完成。A3c 暂时继续以
-edition extras 安装实现依赖，A4 才移除 editions 与相关 package matrix。
+OpenAPI、DTO 与 API-major prerequisite；它不表示 generated SDK 已经完成。Server runtime
+通过明确 leaf extras 安装，不使用 product tier 或 edition package matrix。
 
 PR 与直接运行 `HF Space CD` 只执行 local preflight。远端 promotion 只能由 central RC
 workflow 显式传 `deploy_hfs=true`，并按 [hf-space-cd.md](./hf-space-cd.md) 完成 private edge、

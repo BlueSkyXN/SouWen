@@ -85,7 +85,6 @@ web:
   youtube_api_key: your_key
 
 general:
-  edition: pro
   proxy: http://proxy:7890
   proxy_pool:
     - http://proxy1:7890
@@ -210,7 +209,6 @@ llm_search_gateways: {}
 
 | 字段 | 环境变量 | 默认值 | 说明 |
 |------|---------|--------|------|
-| `edition` | `SOUWEN_EDITION` | `"pro"` | 功能完整度档位：basic &#124; pro &#124; full。当前用于 source/search allowlist、edition-aware policy/metadata、LLM 能力与 fetch provider gate；显式请求当前 edition 不允许的 source/provider 或 LLM 能力会被拒绝，重运行时 provider 需要 `full` |
 | `proxy` | `SOUWEN_PROXY` | None | 单个代理 URL |
 | `proxy_pool` | `SOUWEN_PROXY_POOL` | `[]` | 多代理 URL 列表，随机选取（逗号分隔） |
 | `timeout` | `SOUWEN_TIMEOUT` | `30` | 请求超时秒数 |
@@ -485,7 +483,7 @@ search、不可生成新 URL，answer 的 citations 必须是同一响应中已�
 | 环境变量 | 等价 YAML 字段 | 说明 |
 |----------|---------------|------|
 | `WARP_ENABLED` | `warp.warp_enabled` | `1`/`true` 启用 WARP |
-| `WARP_MODE` | `warp.warp_mode` | `auto` / `wireproxy` / `kernel` / `usque` / `warp-cli` / `external`；受 `SOUWEN_EDITION` 约束，`basic` 只允许 auto / wireproxy / external |
+| `WARP_MODE` | `warp.warp_mode` | `auto` / `wireproxy` / `kernel` / `usque` / `warp-cli` / `external` |
 | `WARP_SOCKS_PORT` | `warp.warp_socks_port` | SOCKS5 监听端口（默认 1080） |
 | `WARP_HTTP_PORT` | `warp.warp_http_port` | HTTP 代理监听端口（`usque` / `warp-cli` 模式可用，默认 0 表示关闭） |
 | `WARP_ENDPOINT` | `warp.warp_endpoint` | 自定义 WARP Endpoint（如 `162.159.192.1:4500`） |

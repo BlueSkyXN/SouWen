@@ -21,7 +21,7 @@ from typing import Sequence
 
 from souwen.config import get_config
 from souwen.core.concurrency import get_semaphore
-from souwen.editions import EditionError, ensure_source_allowed
+from souwen.capabilities import CapabilityUnavailableError, ensure_source_available
 from souwen.models import WebSearchResponse, WebSearchResult
 from souwen.registry import defaults_for, get as _registry_get
 from souwen.registry.adapter import MethodSpec
@@ -193,11 +193,11 @@ async def web_search(
             logger.info("引擎 %s 已禁用，跳过", name)
             continue
         try:
-            ensure_source_allowed(adapter, cfg.edition)
-        except EditionError as exc:
+            ensure_source_available(adapter, cfg)
+        except CapabilityUnavailableError as exc:
             if explicit_engines:
                 raise
-            logger.info("引擎 %s 不在 edition=%s 中，跳过: %s", name, cfg.edition, exc)
+            logger.info("引擎 %s 当前不可用，跳过: %s", name, exc)
             continue
         # 必须支持 'search' capability 才能走 web_search
         if "search" not in adapter.capabilities:

@@ -35,8 +35,8 @@ runner 只负责运行场景并输出 JSON/Markdown report。
 | `provider-runtime` | 内部 optional provider 的 importability、feature matrix 与互斥 browser runtime | CI / provider-runtime gate |
 
 `server-contract` 与 `sdk-contract` 是 A3c 的产品 contract 名称；
-`provider-runtime` 仅是内部实现验证，不能替代 package/SDK 证据。A3c 暂时继续使用
-现有 edition extras 作为安装实现；A4 负责删除 edition taxonomy 和对应 package matrix。
+`provider-runtime` 仅是内部实现验证，不能替代 package/SDK 证据。三者都通过明确的
+leaf extras 安装所需实现；它们不是新的产品 tier 或 package matrix。
 
 示例：
 
@@ -69,7 +69,7 @@ python scripts/ci/run_profile.py \
 推荐本地命令：
 
 ```bash
-pip install -e ".[dev,edition-pro]"
+pip install -e ".[dev,server,tls,web,robots,scraper]"
 PYTHONPATH=src python3 -m pytest -q
 python3 -m ruff check src/ tests/ scripts/
 python3 -m ruff format --check src/ tests/ scripts/
@@ -178,12 +178,12 @@ target-native runner：
 Browser Worker、Admin fail-closed、Provider API、OpenAPI checksum 和 Supervisor 干净退出。
 
 当前唯一 binary release evidence 是 `Build PyInstaller Server bundles` 的四平台
-target-native archive。旧 CLI edition/PyInstaller/Nuitka workflow 不构成 current evidence，
+target-native archive。旧 CLI/PyInstaller/Nuitka workflow 不构成 current evidence，
 也不能把任何 CLI binary 重新命名为 Server bundle。
 
 `server-contract` 与 `sdk-contract` 表达产品 contract；`provider-runtime` 表达内部可选
-provider runtime。A3c 仍用 `edition-pro` / `edition-full` extras 安装这些检查所需的
-实现依赖，这是迁移实现而非对外 profile 承诺；A4 才负责移除 editions 与其 package matrix。
+provider runtime。各 profile 使用明确 leaf extras 安装所需实现依赖，且不形成新的
+对外 tier 或 package matrix。
 
 ## V2 / main 发布前 Gate
 
@@ -203,7 +203,7 @@ v2 release candidate 已合回 `main`。`V2 CI` 继续作为 v2 public surface �
 
 - bootstrap gate：registry/docs 测试、`tools/gen_docs.py --check`、import surface
   单测、wheel surface 检查和 registry baseline 输出。
-- full pytest matrix：安装当前迁移期所需的 `.[dev,edition-pro]`，覆盖 Ubuntu Python
+- full pytest matrix：安装 `.[dev,server,tls,web,robots,scraper]`，覆盖 Ubuntu Python
   3.10/3.11/3.12/3.13，以及 macOS/Windows Python 3.11；避免把缺少 Server
   或 scraper runtime 误报成产品行为回归。
 - Provider v2 conformance：单独运行 SPI、manifest registry、Provider Manager、
@@ -213,7 +213,7 @@ v2 release candidate 已合回 `main`。`V2 CI` 继续作为 v2 public surface �
   JSON/Markdown evidence。它覆盖 local API surface，不证明外部源在线。
 - SDK contract：验证 target OpenAPI、DTO 和 API-major prerequisite；在 generated SDK
   实际生成并发布前，它不是 generated-SDK completion evidence。
-- provider runtime：在仍需 `.[dev,edition-full]` 的迁移期覆盖核心 source、doctor 与
+- provider runtime：使用明确 provider extras 覆盖核心 source、doctor 与
   fetch handler import surface，并校验 optional provider declaration；`crawl4ai` /
   `scrapling` 的互斥 browser runtime 仍由专项 functional gate 覆盖。
 - panel build：`npm ci`、TypeScript check、Vitest、`npm run build:local` 和

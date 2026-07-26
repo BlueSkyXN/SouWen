@@ -18,7 +18,6 @@ from souwen.delivery.api import (
     TargetDeliveryServices,
 )
 from souwen.delivery.browser_worker_client import BrowserWorkerClient
-from souwen.editions import source_policy
 from souwen.modules.fetch.api import FetchModuleService
 from souwen.modules.llm_search.api import LLMSearchModuleService
 from souwen.modules.search.api import SearchModuleService
@@ -57,7 +56,6 @@ from souwen.providers.llm_sources.uniapi_ark_annotations.manifest import (
     DEEPSEEK_ADAPTER_ID,
     DOUBAO_ADAPTER_ID,
 )
-from souwen.registry import get as get_legacy_source
 from souwen.web.builtin import BuiltinFetcherClient
 from souwen.worker.browser_fetch.protocol import BROWSER_WORKER_PROVIDER_INVENTORY_DIGEST
 
@@ -123,10 +121,7 @@ def _configuration_resolver(config: SouWenConfig):
             _validate_eric_configuration(configuration)
             return configuration
         if manifest.id == "patentsview":
-            legacy = get_legacy_source("patentsview")
-            if not source_policy(legacy, config.edition).available or not config.is_source_enabled(
-                "patentsview", default=False
-            ):
+            if not config.is_source_enabled("patentsview", default=False):
                 raise ValueError("provider is disabled")
             source = config.get_source_config("patentsview")
             configuration = {
@@ -258,13 +253,8 @@ def _catalog_items(
     enabled_llm = set(config.enabled_uniapi_ark_source_ids())
     missing_gateway = config.missing_uniapi_gateway_fields()
     patentsview_enabled = config.is_source_enabled("patentsview", default=False)
-    patentsview_policy_available = source_policy(
-        get_legacy_source("patentsview"), config.edition
-    ).available
     missing_patentsview = (
-        ("patentsview_api_key",)
-        if patentsview_policy_available and not _patentsview_api_key(config)
-        else ()
+        ("patentsview_api_key",) if patentsview_enabled and not _patentsview_api_key(config) else ()
     )
     declarations = (
         (

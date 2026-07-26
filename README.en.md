@@ -60,15 +60,16 @@ git clone https://github.com/BlueSkyXN/SouWen.git
 cd SouWen
 pip install -e .
 
-# Zero-key / minimal dependency experience
-pip install -e ".[edition-basic]"
+# Default SDK/core install
+pip install -e .
 
-# Default API server + TLS fingerprinting + web search
-pip install -e ".[edition-pro]"
+# Server runtime
+pip install -e ".[server,tls,web,robots,scraper]"
 
-# Full public heavy runtime; crawl4ai and scrapling are currently mutually exclusive.
-pip install -e ".[edition-full-crawl4ai]"
-pip install -e ".[edition-full-scrapling]"
+# Optional providers; crawl4ai and scrapling are mutually exclusive.
+pip install -e ".[server,tls,web,robots,scraper,newspaper,readability]"
+pip install -e ".[server,tls,web,robots,scraper,crawl4ai]"
+pip install -e ".[server,tls,web,robots,scraper,scrapling]"
 ```
 
 ## 🚀 Quick Start

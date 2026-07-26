@@ -28,9 +28,6 @@ function source(
     stability: 'stable',
     distribution: 'core',
     default_for: name === 'builtin' ? ['fetch:fetch'] : [],
-    min_edition: 'basic',
-    edition_available: true,
-    edition_reason: '',
     runtime_available: true,
     runtime_reason: '',
     available: true,
@@ -102,13 +99,10 @@ describe('useFetchPage provider options', () => {
     expect(result.current.selectedProviders).toEqual([])
   })
 
-  it('shows edition, runtime, credential and static availability as distinct axes', async () => {
+  it('shows runtime, credential and static availability as distinct axes', async () => {
     vi.spyOn(api, 'getSources').mockResolvedValue(sourcesResponse([
       source('builtin'),
       source('tavily', ['fetch'], {
-        min_edition: 'full',
-        edition_available: false,
-        edition_reason: 'requires full',
       }),
       source('scrapling', ['fetch'], {
         runtime_available: false,
@@ -139,7 +133,7 @@ describe('useFetchPage provider options', () => {
       option.availability,
     ]))).toEqual({
       builtin: 'available',
-      tavily: 'edition',
+      tavily: 'available',
       firecrawl: 'credentials',
       scrapling: 'runtime',
       custom_fetch_probe: 'unavailable',

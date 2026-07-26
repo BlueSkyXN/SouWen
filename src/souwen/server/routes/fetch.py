@@ -6,7 +6,7 @@ import asyncio
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from souwen.editions import EditionError
+from souwen.capabilities import CapabilityUnavailableError
 from souwen.registry import fetch_providers
 from souwen.server.auth import require_auth
 from souwen.server.limiter import rate_limit_search
@@ -52,7 +52,7 @@ def _fetch_route_timeout(
 )
 async def fetch_content_endpoint(body: FetchRequest):
     """抓取网页内容。"""
-    from souwen.web.fetch import ensure_fetch_providers_allowed, fetch_content
+    from souwen.web.fetch import ensure_fetch_providers_available, fetch_content
 
     valid_fetch_providers = _valid_fetch_provider_names()
     selected_providers = body.providers or [body.provider]
@@ -68,8 +68,8 @@ async def fetch_content_endpoint(body: FetchRequest):
             ),
         )
     try:
-        ensure_fetch_providers_allowed(selected_providers)
-    except EditionError as exc:
+        ensure_fetch_providers_available(selected_providers)
+    except CapabilityUnavailableError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
 
     route_timeout = _fetch_route_timeout(
@@ -103,7 +103,7 @@ async def fetch_content_endpoint(body: FetchRequest):
             "strategy": resp.strategy,
             "meta": resp.meta,
         }
-    except EditionError as exc:
+    except CapabilityUnavailableError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except asyncio.TimeoutError:
         logger.warning(

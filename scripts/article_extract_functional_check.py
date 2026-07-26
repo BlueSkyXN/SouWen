@@ -137,7 +137,6 @@ def allow_local_fixture_url(url: str) -> Iterator[None]:
 
 def configure_fixture_runtime() -> None:
     """Keep local fixture checks independent from user proxy/backend settings."""
-    os.environ["SOUWEN_EDITION"] = "full"
     raw_sources = os.environ.get("SOUWEN_SOURCES")
     try:
         sources = json.loads(raw_sources) if raw_sources else {}

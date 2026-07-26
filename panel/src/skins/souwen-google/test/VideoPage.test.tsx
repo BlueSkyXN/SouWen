@@ -47,9 +47,6 @@ function videoSource(overrides: Partial<SourceInfo> = {}): SourceInfo {
     stability: 'stable',
     distribution: 'core',
     default_for: ['web:search_videos'],
-    min_edition: 'basic',
-    edition_available: true,
-    edition_reason: '',
     available: true,
     ...overrides,
   }

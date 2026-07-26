@@ -241,16 +241,13 @@ class WarpManager:
         from souwen.config import get_config
 
         cfg = get_config()
-        from souwen.editions import allowed_warp_modes
-
-        allowed = set(allowed_warp_modes(cfg.edition))
-        if cfg.warp_external_proxy and "external" in allowed:
+        if cfg.warp_external_proxy:
             return "external"
-        if self._has_usque() and "usque" in allowed:
+        if self._has_usque():
             return "usque"
-        if self._has_wireproxy() and "wireproxy" in allowed:
+        if self._has_wireproxy():
             return "wireproxy"
-        if self._has_kernel_wg() and "kernel" in allowed:
+        if self._has_kernel_wg():
             return "kernel"
         return "none"
 
@@ -477,18 +474,16 @@ class WarpManager:
     def _auto_mode_candidates(self) -> list[str]:
         """按无特权优先顺序返回 auto 模式可尝试的候选链。"""
         from souwen.config import get_config
-        from souwen.editions import allowed_warp_modes
 
         cfg = get_config()
-        allowed = set(allowed_warp_modes(cfg.edition))
         candidates: list[str] = []
-        if cfg.warp_external_proxy and "external" in allowed:
+        if cfg.warp_external_proxy:
             candidates.append("external")
-        if self._has_usque() and "usque" in allowed:
+        if self._has_usque():
             candidates.append("usque")
-        if self._has_wireproxy() and "wireproxy" in allowed:
+        if self._has_wireproxy():
             candidates.append("wireproxy")
-        if self._has_kernel_wg() and "kernel" in allowed:
+        if self._has_kernel_wg():
             candidates.append("kernel")
         return candidates
 
@@ -581,17 +576,8 @@ class WarpManager:
                 return {"ok": False, "error": f"WARP 当前状态: {self._state.status}，请先禁用"}
 
             from souwen.config import get_config
-            from souwen.editions import EditionError, ensure_warp_mode_allowed
 
             cfg = get_config()
-            try:
-                ensure_warp_mode_allowed(mode, cfg.edition)
-            except EditionError as exc:
-                return {
-                    "ok": False,
-                    "error": str(exc),
-                    "error_code": "edition_not_allowed",
-                }
 
             self._state.status = "starting"
             self._state.last_error = ""
@@ -605,7 +591,7 @@ class WarpManager:
                     candidate_modes = self._auto_mode_candidates()
                     if not candidate_modes:
                         self._state.status = "error"
-                        self._state.last_error = "未检测到当前 edition 允许的可用 WARP 组件"
+                        self._state.last_error = "未检测到可用 WARP 组件"
                         self._save_state()
                         return {"ok": False, "error": self._state.last_error}
                     logger.info("WARP auto 候选链: %s", " > ".join(candidate_modes))
@@ -780,14 +766,11 @@ class WarpManager:
             last_error 和 available_modes 的字典
         """
         from souwen.config import get_config
-        from souwen.editions import allowed_warp_modes
 
         try:
             cfg = get_config()
-            allowed = set(allowed_warp_modes(cfg.edition))
         except Exception:
             cfg = None
-            allowed = {"wireproxy", "kernel", "usque", "warp-cli", "external"}
         s = self._state
 
         # 实时验证: 如果状态是 enabled, 检查进程是否还活着
@@ -819,13 +802,11 @@ class WarpManager:
             "protocol": s.protocol,
             "proxy_type": s.proxy_type,
             "available_modes": {
-                "wireproxy": self._has_wireproxy() and "wireproxy" in allowed,
-                "kernel": self._has_kernel_wg() and "kernel" in allowed,
-                "usque": self._has_usque() and "usque" in allowed,
-                "warp-cli": self._has_warp_cli() and "warp-cli" in allowed,
-                "external": bool(cfg.warp_external_proxy) and "external" in allowed
-                if cfg
-                else False,
+                "wireproxy": self._has_wireproxy(),
+                "kernel": self._has_kernel_wg(),
+                "usque": self._has_usque(),
+                "warp-cli": self._has_warp_cli(),
+                "external": bool(cfg.warp_external_proxy) if cfg else False,
             },
         }
 

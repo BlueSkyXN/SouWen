@@ -81,8 +81,6 @@ export const SOURCE_CATEGORY_LABEL_KEYS: Record<SourceCategory, string> = {
   fetch: 'sources.categoryFetch',
 }
 
-export type Edition = 'basic' | 'pro' | 'full'
-
 /**
  * 公开 Source Catalog 条目。
  */
@@ -100,9 +98,6 @@ export interface SourceInfo {
   stability: 'stable' | 'beta' | 'experimental' | 'deprecated'
   distribution: 'core' | 'extra'
   default_for: string[]
-  min_edition: Edition
-  edition_available: boolean
-  edition_reason: string
   /** Additive runtime probe fields; absent on older servers and therefore not proof of availability. */
   runtime_available?: boolean
   runtime_reason?: string
@@ -148,10 +143,6 @@ export interface DoctorSource {
   package_extra: string | null
   stability: 'stable' | 'beta' | 'experimental' | 'deprecated'
   usage_note: string | null
-  min_edition: Edition
-  edition: Edition
-  edition_available: boolean
-  edition_reason: string
   runtime_available: boolean
   runtime_reason: string
   credentials_satisfied: boolean
@@ -182,9 +173,6 @@ export interface SourceChannelConfig {
   domain: string
   capabilities: string[]
   integration_type: string
-  min_edition: Edition
-  edition_available: boolean
-  edition_reason: string
   key_requirement: 'none' | 'optional' | 'required' | 'self_hosted'
   auth_requirement: 'none' | 'optional' | 'required' | 'self_hosted'
   credential_fields: string[]
@@ -228,7 +216,6 @@ export interface DoctorResponse {
   unavailable: number
   disabled: number
   status_counts: Record<string, number>
-  edition: Edition
   sources: DoctorSource[]
 }
 
@@ -293,9 +280,6 @@ export interface WarpModeInfo {
   docker_only: boolean
   proxy_types: string[]
   description: string
-  min_edition?: Edition
-  edition_available?: boolean
-  edition_reason?: string
   reason?: string
   external_proxy?: string
 }
@@ -973,19 +957,9 @@ export type UserRole = 'guest' | 'user' | 'admin'
 /**
  * /api/v1/whoami 响应
  */
-export interface EditionCapabilities {
-  llm: boolean
-  warp_modes: string[]
-  fetch_providers: string[]
-}
-
 export interface WhoamiResponse {
   role: UserRole
   features: Record<string, boolean | string>
-  /** Added in v2; absent on older servers and normalized to null by authStore. */
-  edition?: Edition
-  /** Edition declaration only; absence does not imply runtime capability. */
-  edition_capabilities?: EditionCapabilities
   guest_enabled: boolean
   user_password_set: boolean
   admin_password_set: boolean

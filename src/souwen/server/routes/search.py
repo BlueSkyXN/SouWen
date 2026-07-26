@@ -6,7 +6,7 @@ import asyncio
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from souwen.editions import EditionError
+from souwen.capabilities import CapabilityUnavailableError
 from souwen.registry import defaults_for
 from souwen.server.auth import check_search_auth
 from souwen.server.limiter import rate_limit_search
@@ -138,7 +138,7 @@ async def _run_registry_web_capability_search(
     except asyncio.TimeoutError:
         logger.warning("%s搜索超时: q=%s timeout=%ss", timeout_label, query, timeout)
         raise HTTPException(status_code=504, detail=f"{timeout_label}搜索超时（{timeout}s）")
-    except EditionError as exc:
+    except CapabilityUnavailableError as exc:
         raise HTTPException(status_code=403, detail=str(exc))
     except HTTPException:
         raise
@@ -192,7 +192,7 @@ async def api_search_book(
     except asyncio.TimeoutError:
         logger.warning("图书搜索超时: q=%s timeout=%ss", query, timeout)
         raise HTTPException(status_code=504, detail=f"搜索超时（{timeout}s）")
-    except EditionError as exc:
+    except CapabilityUnavailableError as exc:
         raise HTTPException(status_code=403, detail=str(exc))
     except LocalCatalogUnavailableError:
         raise HTTPException(
@@ -249,7 +249,7 @@ async def api_search_research_output(
     except asyncio.TimeoutError:
         logger.warning("科研产出搜索超时: q=%s timeout=%ss", query, timeout)
         raise HTTPException(status_code=504, detail=f"搜索超时（{timeout}s）")
-    except EditionError as exc:
+    except CapabilityUnavailableError as exc:
         raise HTTPException(status_code=403, detail=str(exc))
     except SouWenError:
         logger.exception("科研产出搜索上游失败: q=%s sources=%s", query, source_list)
@@ -302,7 +302,7 @@ async def api_search_paper(
     except asyncio.TimeoutError:
         logger.warning("论文搜索超时: q=%s timeout=%ss", query, timeout)
         raise HTTPException(status_code=504, detail=f"搜索超时（{timeout}s）")
-    except EditionError as exc:
+    except CapabilityUnavailableError as exc:
         raise HTTPException(status_code=403, detail=str(exc))
     except SouWenError:
         logger.exception("论文搜索上游失败: q=%s sources=%s", query, source_list)
@@ -358,7 +358,7 @@ async def api_search_patent(
     except asyncio.TimeoutError:
         logger.warning("专利搜索超时: q=%s timeout=%ss", query, timeout)
         raise HTTPException(status_code=504, detail=f"搜索超时（{timeout}s）")
-    except EditionError as exc:
+    except CapabilityUnavailableError as exc:
         raise HTTPException(status_code=403, detail=str(exc))
     except SouWenError:
         logger.exception("专利搜索上游失败: q=%s sources=%s", query, source_list)
@@ -420,7 +420,7 @@ async def api_search_web(
     except asyncio.TimeoutError:
         logger.warning("网页搜索超时: q=%s timeout=%ss", query, timeout)
         raise HTTPException(status_code=504, detail=f"搜索超时（{timeout}s）")
-    except EditionError as exc:
+    except CapabilityUnavailableError as exc:
         raise HTTPException(status_code=403, detail=str(exc))
     except SouWenError:
         logger.exception("网页搜索上游失败: q=%s engines=%s", query, engine_list)
@@ -477,7 +477,7 @@ async def api_search_web_enriched(body: EnrichedWebSearchRequest):
         raise HTTPException(status_code=409, detail=str(exc)) from exc
     except EnrichedSynthesisProfileError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except EditionError as exc:
+    except CapabilityUnavailableError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except (EnrichedSearchDeadlineExceeded, asyncio.TimeoutError) as exc:
         logger.warning("enriched 网页搜索超时: sources=%s", body.sources)

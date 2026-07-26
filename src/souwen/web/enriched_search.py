@@ -20,7 +20,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 from souwen.config import get_config
 from souwen.core.redaction import redact_secret_text
-from souwen.editions import ensure_source_allowed
+from souwen.capabilities import ensure_source_available
 from souwen.llm.enriched_synthesis import (
     resolve_enriched_synthesis_profile,
     synthesize_enriched_results,
@@ -207,9 +207,9 @@ def _validate_concrete_sources(sources: Iterable[str]) -> list[tuple[str, Source
             raise EnrichedSearchSourceValidationError(
                 f"source {source_id!r} 不是可用于 enriched search 的 concrete source"
             )
-        ensure_source_allowed(adapter, cfg.edition)
         if not cfg.is_source_enabled(source_id, default=adapter.runtime_default_enabled):
             raise EnrichedSearchSourceDisabledError(f"source {source_id!r} 已禁用")
+        ensure_source_available(adapter, cfg)
         reason = source_config_validation_reason(cfg, source_id, adapter)
         if reason:
             raise EnrichedSearchSourceValidationError(reason)

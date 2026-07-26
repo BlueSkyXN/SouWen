@@ -9,7 +9,6 @@ const CREDENTIAL_STATUSES = new Set(['missing_key', 'needs_key'])
 
 export type SourceAvailabilityKind =
   | 'available'
-  | 'edition'
   | 'runtime'
   | 'credentials'
   | 'disabled'
@@ -18,7 +17,7 @@ export type SourceAvailabilityTone = 'ok' | 'warn' | 'error' | 'muted'
 
 export type SourceAvailabilityInput =
   Partial<Pick<DoctorSource, 'enabled' | 'message' | 'runtime_available' | 'runtime_reason' | 'status'>>
-  & Partial<Pick<SourceInfo, 'available' | 'credentials_satisfied' | 'edition_available' | 'edition_reason' | 'min_edition'>>
+  & Partial<Pick<SourceInfo, 'available' | 'credentials_satisfied'>>
 
 export interface SourceAvailabilitySummary {
   kind: SourceAvailabilityKind
@@ -72,7 +71,6 @@ export function doctorStatusLabel(status: string | undefined, t: TFunction): str
 
 export function sourceAvailabilityStatus(source: SourceAvailabilityInput): SourceAvailabilityKind {
   if (source.enabled === false || source.status === 'disabled') return 'disabled'
-  if (source.edition_available === false) return 'edition'
   if (source.runtime_available === false) return 'runtime'
   if (source.credentials_satisfied === false || CREDENTIAL_STATUSES.has(source.status ?? '')) {
     return 'credentials'
@@ -85,7 +83,6 @@ export function sourceAvailabilityStatus(source: SourceAvailabilityInput): Sourc
 export function sourceAvailabilityTone(source: SourceAvailabilityInput): SourceAvailabilityTone {
   switch (sourceAvailabilityStatus(source)) {
     case 'available': return 'ok'
-    case 'edition':
     case 'runtime':
     case 'credentials': return 'warn'
     case 'disabled': return 'muted'
@@ -96,7 +93,6 @@ export function sourceAvailabilityTone(source: SourceAvailabilityInput): SourceA
 export function sourceAvailabilityLabel(source: SourceAvailabilityInput, t: TFunction): string {
   switch (sourceAvailabilityStatus(source)) {
     case 'available': return t('sources.available')
-    case 'edition': return t('sources.requiresUpgrade')
     case 'runtime': return t('sources.missingRuntime')
     case 'credentials': return t('sources.needsCredentials')
     case 'disabled': return t('sources.disabled')
@@ -107,8 +103,6 @@ export function sourceAvailabilityLabel(source: SourceAvailabilityInput, t: TFun
 export function sourceAvailabilityMessage(source: SourceAvailabilityInput, t: TFunction): string {
   const message = source.message?.trim()
   switch (sourceAvailabilityStatus(source)) {
-    case 'edition':
-      return t('sources.requiresUpgradeToEdition', { edition: source.min_edition ?? 'pro' })
     case 'runtime':
       return source.runtime_reason?.trim() || t('sources.missingRuntime')
     case 'credentials':

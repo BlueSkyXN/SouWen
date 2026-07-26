@@ -103,9 +103,9 @@ major, generate official clients from an immutable OpenAPI artifact and fail cli
 - Current `/api/v1` consumers can break at cutover. Before release, SPEC-11 must publish operation/field/error
   replacement mapping, migration guide, release notes and residue audit; Q-001/Q-002 usage evidence determines
   migration risk, not whether removal is silently reversed.
-- Existing current workflow files, `edition-basic`/`edition-pro`/`edition-full` extras and PyInstaller/Nuitka
-  jobs are **implementation inventory**, not evidence that this ADR has already been implemented. Workflow,
-  packaging, docs and validation changes require separate approved work.
+- Earlier workflow files, package-install variants and PyInstaller/Nuitka jobs are **implementation inventory**,
+  not evidence that this ADR has already been implemented. Workflow, packaging, docs and validation changes
+  require separate approved work.
 - API major, package version, generated-client version and OpenAPI artifact checksum must be recorded together
   in release provenance. A green CI, matching package version or a `/api/v1` path alone is insufficient.
 - In-place cutover increases the need for release sequencing: do not deploy a target server while only old

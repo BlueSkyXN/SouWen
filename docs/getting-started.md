@@ -9,7 +9,7 @@
 ```bash
 git clone https://github.com/BlueSkyXN/SouWen.git
 cd SouWen
-pip install -e ".[edition-pro]"
+pip install -e ".[server,tls,web,robots,scraper]"
 ```
 
 只使用 Python library 时可以先安装核心包：
@@ -18,20 +18,20 @@ pip install -e ".[edition-pro]"
 pip install -e .
 ```
 
-也可以按功能档位安装常用依赖组合：
+默认 SDK/核心安装不需要可选 runtime；Server 与 provider 按 leaf extra 显式安装：
 
 ```bash
-pip install -e ".[edition-basic]"          # 零 Key / 最小依赖体验
-pip install -e ".[edition-pro]"            # API 服务 + TLS 指纹 + scraper 基础能力
+pip install -e .                            # 默认 SDK/核心安装
+pip install -e ".[server,tls,web,robots,scraper]"  # API Server + TLS + fetch/scraper runtime
 ```
 
-需要 Crawl4AI、Scrapling 或文章抽取等 full 能力时，再按目标 browser provider
-选择 full 变体。`crawl4ai` 与 `scrapling` 当前依赖树互斥，
+需要 Crawl4AI、Scrapling 或文章抽取时，再按具体 provider 安装。`crawl4ai` 与 `scrapling` 当前依赖树互斥，
 不要在同一个环境里同时安装：
 
 ```bash
-pip install -e ".[edition-full-crawl4ai]"
-pip install -e ".[edition-full-scrapling]"
+pip install -e ".[server,tls,web,robots,scraper,newspaper,readability]"
+pip install -e ".[server,tls,web,robots,scraper,crawl4ai]"
+pip install -e ".[server,tls,web,robots,scraper,scrapling]"
 ```
 
 ## Python 调用

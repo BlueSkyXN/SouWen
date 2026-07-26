@@ -7,7 +7,7 @@ import asyncio
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from souwen.core.exceptions import NotFoundError, ParseError, RateLimitError, SourceUnavailableError
-from souwen.editions import EditionError
+from souwen.capabilities import CapabilityUnavailableError
 from souwen.server.auth import check_search_auth
 from souwen.server.limiter import rate_limit_search
 from souwen.server.routes._common import logger, normalize_required_query_arg
@@ -24,7 +24,7 @@ async def _run(coro, *, identifier: str, timeout: float | None):
         raise HTTPException(status_code=504, detail="citation enrichment 超时") from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
-    except EditionError as exc:
+    except CapabilityUnavailableError as exc:
         raise HTTPException(status_code=403, detail=str(exc)) from exc
     except RateLimitError as exc:
         raise HTTPException(status_code=429, detail=str(exc)) from exc

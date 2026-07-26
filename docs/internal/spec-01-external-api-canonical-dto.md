@@ -281,7 +281,7 @@ current flat `ErrorResponse` **不兼容**，当前格式仍由 `src/souwen/serv
 |---|---:|---|---:|---|
 | ERR-002 `invalid_request` | 400 | syntactically valid JSON but invalid contract combination / unknown request member | no | client fixes input；server logs field/code, not sensitive value. |
 | ERR-003 `unauthenticated` | 401 | absent/invalid application credential | no | `WWW-Authenticate: Bearer`; redact token. |
-| ERR-004 `forbidden` | 403 | authenticated but missing capability / edition/policy denial | no | no role/config leak. |
+| ERR-004 `forbidden` | 403 | authenticated but missing capability or blocked by policy | no | no role/config leak. |
 | ERR-005 `not_found` | 404 | stable public resource/provider reference not found where endpoint exposes it | no | do not use for hidden Admin resource. |
 | ERR-006 `conflict` | 409 | enabled/availability state conflicts with requested operation | conditional | no implicit state mutation. |
 | ERR-007 `api_major_mismatch` | 409 | client/server supported API major differs | no | include safe expected/received major; SDK fails before business call when possible. |

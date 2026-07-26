@@ -170,7 +170,7 @@ jobs:
       - name: Install source package
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev,edition-pro]"
+          pip install -e ".[dev,server,tls,web,robots,scraper]"
 
       - name: Run SDK and Server contracts
         env:

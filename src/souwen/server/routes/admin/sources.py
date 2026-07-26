@@ -56,21 +56,6 @@ def _safe_source_url(value: str | None) -> str | None:
     return redact_secret_url(value) if value else value
 
 
-def _source_edition_fields(source_name: str, edition: str) -> dict[str, Any]:
-    from souwen.editions import source_policy
-    from souwen.registry import get as get_adapter
-
-    adapter = get_adapter(source_name)
-    if adapter is None:  # pragma: no cover - SourceMeta/catalog 与 registry 同源，防御漂移
-        raise KeyError(f"missing registry adapter for source {source_name!r}")
-    policy = source_policy(adapter, edition)
-    return {
-        "min_edition": policy.min_edition,
-        "edition_available": policy.available,
-        "edition_reason": policy.reason,
-    }
-
-
 def _source_config_payload(
     *,
     source_name: str,
@@ -84,7 +69,6 @@ def _source_config_payload(
     config_reason: str,
     enabled: bool,
     available: bool,
-    edition_fields: dict[str, Any],
 ) -> dict[str, Any]:
     hides_gateway_values = any(
         is_llm_search_gateway_requirement(item) for item in meta.credential_fields
@@ -113,7 +97,6 @@ def _source_config_payload(
         "capabilities": list(catalog_entry.capabilities),
         "integration_type": meta.integration_type,
         "description": meta.description,
-        **edition_fields,
         **_catalog_fields(meta),
     }
     if include_name:
@@ -144,7 +127,6 @@ async def get_sources_config():
         credentials_satisfied = has_required_credentials(cfg, name, meta)
         missing_fields = missing_credential_fields(cfg, name, meta)
         config_reason = source_config_validation_reason(cfg, name, meta)
-        edition_fields = _source_edition_fields(name, cfg.edition)
         enabled = cfg.is_source_enabled(name, default=meta.runtime_default_enabled)
         result[name] = _source_config_payload(
             source_name=name,
@@ -156,13 +138,7 @@ async def get_sources_config():
             missing_fields=missing_fields,
             config_reason=config_reason,
             enabled=enabled,
-            available=(
-                enabled
-                and not config_reason
-                and credentials_satisfied
-                and edition_fields["edition_available"]
-            ),
-            edition_fields=edition_fields,
+            available=(enabled and not config_reason and credentials_satisfied),
         )
     return result
 
@@ -191,7 +167,6 @@ async def get_source_config(source_name: str):
     credentials_satisfied = has_required_credentials(cfg, source_name, meta)
     missing_fields = missing_credential_fields(cfg, source_name, meta)
     config_reason = source_config_validation_reason(cfg, source_name, meta)
-    edition_fields = _source_edition_fields(source_name, cfg.edition)
     enabled = cfg.is_source_enabled(source_name, default=meta.runtime_default_enabled)
     return _source_config_payload(
         source_name=source_name,
@@ -204,13 +179,7 @@ async def get_source_config(source_name: str):
         missing_fields=missing_fields,
         config_reason=config_reason,
         enabled=enabled,
-        available=(
-            enabled
-            and not config_reason
-            and credentials_satisfied
-            and edition_fields["edition_available"]
-        ),
-        edition_fields=edition_fields,
+        available=(enabled and not config_reason and credentials_satisfied),
     )
 
 

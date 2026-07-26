@@ -60,15 +60,16 @@ git clone https://github.com/BlueSkyXN/SouWen.git
 cd SouWen
 pip install -e .
 
-# 零 Key / 最小依赖体验
-pip install -e ".[edition-basic]"
+# 默认 SDK/核心安装
+pip install -e .
 
-# 默认 API 服务 + TLS 指纹 + 网页搜索
-pip install -e ".[edition-pro]"
+# Server 运行面
+pip install -e ".[server,tls,web,robots,scraper]"
 
-# 完整公共重型能力；crawl4ai 与 scrapling 当前依赖树互斥，浏览器抓取二选一
-pip install -e ".[edition-full-crawl4ai]"
-pip install -e ".[edition-full-scrapling]"
+# 可选 provider；crawl4ai 与 scrapling 依赖树互斥，浏览器抓取二选一
+pip install -e ".[server,tls,web,robots,scraper,newspaper,readability]"
+pip install -e ".[server,tls,web,robots,scraper,crawl4ai]"
+pip install -e ".[server,tls,web,robots,scraper,scrapling]"
 ```
 
 ## 🚀 快速开始
