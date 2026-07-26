@@ -210,20 +210,17 @@ jobs:
         id: openapi
         shell: bash
         run: |
+          python tools/gen_openapi.py --check
           python - <<'PY'
           import hashlib
-          import json
           import os
+          from pathlib import Path
 
-          from souwen.server.app import app
-
-          payload = json.dumps(
-              app.openapi(), sort_keys=True, separators=(',', ':'), ensure_ascii=False
-          ).encode('utf-8')
-          digest = hashlib.sha256(payload).hexdigest()
+          artifact = Path('contracts/openapi/souwen-openapi-2.0.0rc2.json')
+          digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
           with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
               output.write(f'sha256={digest}\n')
-          print(f'target OpenAPI sha256={digest}')
+          print(f'canonical target OpenAPI sha256={digest}')
           PY
 
       - name: Build target server with PyInstaller onedir

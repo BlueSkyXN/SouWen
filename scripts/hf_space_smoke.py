@@ -265,6 +265,16 @@ EXCLUDED_REQUIRED_KEY_ROUTE_APIS = [
     "/api/v1/youtube/video/{video_id}",
     "/api/v1/youtube/transcript/{video_id}",
 ]
+TARGET_OPENAPI_PATHS = {
+    "/api/v1/search",
+    "/api/v1/llm-search",
+    "/api/v1/fetch",
+    "/api/v1/providers",
+    "/health",
+    "/healthz",
+    "/readiness",
+    "/readyz",
+}
 
 
 class SmokeError(RuntimeError):
@@ -876,9 +886,20 @@ def run_basic_checks(client: ApiClient, config: SmokeConfig, state: RunState) ->
         info = resp.data.get("info") if isinstance(resp.data.get("info"), dict) else {}
         title = info.get("title")
         version = info.get("version")
+        expected_title = (
+            "SouWen External Data API" if config.require_target_runtime else "SouWen API"
+        )
         version_ok = config.expected_version is None or version == config.expected_version
-        ok = resp.status == 200 and title == "SouWen API" and version_ok
-        detail = f"status={resp.status}, title={title!r}, version={version!r}"
+        target_contract_ok = not config.require_target_runtime or (
+            resp.data.get("x-souwen-api-major") == 2
+            and resp.data.get("x-souwen-rollout-mode") == "target"
+            and set(resp.data.get("paths", {})) == TARGET_OPENAPI_PATHS
+        )
+        ok = resp.status == 200 and title == expected_title and version_ok and target_contract_ok
+        detail = (
+            f"status={resp.status}, title={title!r}, version={version!r}, "
+            f"target_contract={target_contract_ok!r}"
+        )
         return (
             pass_result("basic", "openapi", detail, required=True, elapsed=resp.elapsed)
             if ok

@@ -300,42 +300,17 @@ jobs:
           test "$(find dist -maxdepth 1 -name 'souwen-*.whl' | wc -l)" -eq 1
           test "$(find dist -maxdepth 1 -name 'souwen-*.tar.gz' | wc -l)" -eq 1
 
-      - name: Install built candidate for OpenAPI materialization
+      - name: Install built candidate for canonical OpenAPI verification
         run: |
           wheel="$(find "$GITHUB_WORKSPACE/dist" -maxdepth 1 -name 'souwen-*.whl' -print -quit)"
           test -n "$wheel"
           python -m pip install "${wheel}[server]"
 
-      - name: Materialize immutable target OpenAPI artifact
-        env:
-          SOUWEN_V2_ROLLOUT: target
-          SOUWEN_SOURCE_SHA: ${{ needs.validate.outputs.candidate_sha }}
-          SOUWEN_CONFIG_REVISION: source-${{ needs.validate.outputs.candidate_sha }}
+      - name: Verify and stage immutable target OpenAPI artifact
         run: |
-          python - <<'PY'
-          import json
-          from pathlib import Path
-
-          from souwen.server.app import app
-
-          document = app.openapi()
-          if document.get('info', {}).get('version') != '2.0.0rc2':
-              raise SystemExit('target OpenAPI version mismatch')
-          if document.get('x-souwen-api-major') != 2:
-              raise SystemExit('target OpenAPI API major mismatch')
-          if document.get('x-souwen-rollout-mode') != 'target':
-              raise SystemExit('target OpenAPI rollout mode mismatch')
-          output = Path('dist/souwen-openapi-2.0.0rc2.json')
-          output.write_text(
-              json.dumps(
-                  document,
-                  sort_keys=True,
-                  separators=(',', ':'),
-                  ensure_ascii=False,
-              ),
-              encoding='utf-8',
-          )
-          PY
+          python tools/gen_openapi.py --check
+          cp contracts/openapi/souwen-openapi-2.0.0rc2.json \
+            dist/souwen-openapi-2.0.0rc2.json
 
       - name: Generate Python environment CycloneDX SBOM
         run: |

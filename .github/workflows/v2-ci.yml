@@ -52,6 +52,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ inputs.candidate_sha || github.sha }}
+          fetch-depth: 0
 
       - uses: actions/setup-python@v6
         with:
@@ -70,7 +71,28 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev]"
+          pip install -e ".[dev,server]"
+
+      - name: Verify canonical OpenAPI artifact and PR semantic compatibility
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          python tools/gen_openapi.py --check
+          if [ "$EVENT_NAME" != 'pull_request' ]; then
+            echo 'OpenAPI semantic check: no pull-request baseline required'
+            exit 0
+          fi
+          artifact='contracts/openapi/souwen-openapi-2.0.0rc2.json'
+          if ! git cat-file -e "$BASE_SHA:$artifact" 2>/dev/null; then
+            echo 'OpenAPI semantic check: initial baseline; base artifact is absent'
+            exit 0
+          fi
+          mkdir -p artifacts
+          git show "$BASE_SHA:$artifact" > artifacts/openapi-semantic-baseline.json
+          python tools/gen_openapi.py \
+            --semantic-check artifacts/openapi-semantic-baseline.json \
+            --json-report artifacts/openapi-semantic-report.json
 
       - name: Ruff check
         run: ruff check src tests scripts tools

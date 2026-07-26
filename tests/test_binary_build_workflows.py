@@ -97,6 +97,19 @@ def test_rc2_server_bundle_builds_tracked_target_onedir_with_bundled_chromium() 
         assert retired_surface not in text
 
 
+def test_server_bundle_openapi_checksum_uses_the_verified_canonical_artifact() -> None:
+    text = _workflow_text(".github/workflows/build-pyinstaller-server.yml")
+    checksum_step = text.split("      - name: Compute target OpenAPI checksum", maxsplit=1)[
+        1
+    ].split("      - name: Build target server with PyInstaller onedir", maxsplit=1)[0]
+
+    assert "python tools/gen_openapi.py --check" in checksum_step
+    assert "contracts/openapi/souwen-openapi-2.0.0rc2.json" in checksum_step
+    assert "artifact.read_bytes()" in checksum_step
+    assert "from souwen.server.app import app" not in checksum_step
+    assert "app.openapi()" not in checksum_step
+
+
 def test_server_bundle_smoke_covers_target_release_contract() -> None:
     text = (REPO_ROOT / ".github/actions/server-bundle-smoke/action.yml").read_text(
         encoding="utf-8"
@@ -132,6 +145,9 @@ def test_server_bundle_smoke_covers_target_release_contract() -> None:
     assert "'X-SouWen-Token': user_fixture" in text
     assert "mismatch.get('error', {}).get('code') != 'api_major_mismatch'" in text
     assert "'/api/v1/admin/ping', expected=(401,)" in text
+    assert "request(base_url, '/openapi.json')" in text
+    assert "canonical_openapi = json.dumps(" in text
+    assert "actual_openapi_sha256 = hashlib.sha256(canonical_openapi).hexdigest()" in text
     assert "actual_openapi_sha256 != expected_openapi_sha256" in text
     assert "server bundle required a forced kill during termination" in text
     assert "server bundle left API or Browser Worker port open" in text

@@ -95,9 +95,23 @@ PROFILE_COMMANDS: Mapping[str, tuple[CommandSpec, ...]] = {
                 "-m",
                 "pytest",
                 "tests/contracts/test_target_canonical_contract.py",
+                "tests/contracts/test_target_openapi_artifact.py",
                 "tests/test_target_canonical_dto.py",
                 "-v",
                 "--tb=short",
+            ),
+        ),
+        CommandSpec(
+            "openapi_artifact_reproducibility",
+            (PYTHON, "tools/gen_openapi.py", "--check"),
+        ),
+        CommandSpec(
+            "openapi_semantic_contract",
+            (
+                PYTHON,
+                "tools/gen_openapi.py",
+                "--semantic-check",
+                "contracts/openapi/souwen-openapi-2.0.0rc2.json",
             ),
         ),
     ),

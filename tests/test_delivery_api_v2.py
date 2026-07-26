@@ -588,7 +588,7 @@ def test_standalone_app_closes_its_injected_runtime() -> None:
     assert closed is True
 
 
-def test_rollout_mode_is_strict_and_target_router_precedes_legacy_fetch(tmp_path) -> None:
+def test_rollout_mode_is_strict_and_target_host_publishes_canonical_openapi(tmp_path) -> None:
     assert resolve_rollout_mode("legacy") is RolloutMode.LEGACY
     assert resolve_rollout_mode(" target ") is RolloutMode.TARGET
     with pytest.raises(ValueError):
@@ -596,10 +596,12 @@ def test_rollout_mode_is_strict_and_target_router_precedes_legacy_fetch(tmp_path
 
     repo_src = str(Path(__file__).resolve().parents[1] / "src")
     script = """
+import json
 import sys
 
 sys.path.insert(0, sys.argv[1])
 
+from souwen.delivery.api.openapi_artifact import canonical_openapi_bytes
 from souwen.server.app import app
 
 def iter_routes(routes, prefix=''):
@@ -613,12 +615,22 @@ def iter_routes(routes, prefix=''):
         if path is not None:
             yield prefix + path, route
 
-matches = [
+fetch_matches = [
     route for path, route in iter_routes(app.routes)
     if path == '/api/v1/fetch'
     and 'POST' in getattr(route, 'methods', set())
 ]
-print(matches[0].response_model.__name__)
+schema = app.openapi()
+print(json.dumps({
+    'runtime_fetch_response_model': fetch_matches[0].response_model.__name__,
+    'openapi_paths': sorted(schema['paths']),
+    'openapi_is_canonical': canonical_openapi_bytes(schema) == canonical_openapi_bytes(),
+    'fetch_operation_id': schema['paths']['/api/v1/fetch']['post']['operationId'],
+    'fetch_request_ref': schema['paths']['/api/v1/fetch']['post']['requestBody'][
+        'content'
+    ]['application/json']['schema']['$ref'],
+    'security_schemes': schema['components']['securitySchemes'],
+}, sort_keys=True))
 """
     env = {
         **os.environ,
@@ -638,7 +650,22 @@ print(matches[0].response_model.__name__)
         env=env,
     )
     assert completed.returncode == 0, completed.stderr
-    assert completed.stdout.strip() == "FetchBatch"
+    payload = json.loads(completed.stdout)
+    assert payload["runtime_fetch_response_model"] == "FetchBatch"
+    assert payload["openapi_paths"] == [
+        "/api/v1/fetch",
+        "/api/v1/llm-search",
+        "/api/v1/providers",
+        "/api/v1/search",
+        "/health",
+        "/healthz",
+        "/readiness",
+        "/readyz",
+    ]
+    assert payload["openapi_is_canonical"] is True
+    assert payload["fetch_operation_id"] == "fetch"
+    assert payload["fetch_request_ref"] == "#/components/schemas/FetchRequest"
+    assert payload["security_schemes"] == {"UserToken": {"scheme": "bearer", "type": "http"}}
 
 
 def test_target_host_replaces_non_ascii_request_id(tmp_path) -> None:

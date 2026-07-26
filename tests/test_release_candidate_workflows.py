@@ -765,11 +765,16 @@ def test_release_candidate_aggregates_all_release_gates() -> None:
 
 def test_release_bundle_has_four_servers_openapi_supply_chain_assets_and_attestation() -> None:
     text = _workflow("release-candidate.yml")
+    source = text.split("  source:", maxsplit=1)[1].split("  clean-install:", maxsplit=1)[0]
     assert "if len(actual) != 4:" in text
     assert "expected exactly four Server bundles" in text
     assert "souwen-openapi-2.0.0rc2.json" in text
-    assert "Install built candidate for OpenAPI materialization" in text
+    assert "Install built candidate for canonical OpenAPI verification" in source
     assert 'python -m pip install "${wheel}[server]"' in text
+    assert "python tools/gen_openapi.py --check" in source
+    assert "cp contracts/openapi/souwen-openapi-2.0.0rc2.json" in source
+    assert "from souwen.server.app import app" not in source
+    assert "app.openapi()" not in source
     assert "immutable OpenAPI checksum differs from Server bundle smoke" in text
     assert "release assets contain retired binary artifacts" in text
     assert "python-sbom.cdx.json" in text

@@ -31,7 +31,7 @@ runner 只负责运行场景并输出 JSON/Markdown report。
 | Profile | 覆盖内容 | 运行位置 |
 |---|---|---|
 | `server-contract` | target Server 的路由、认证、OpenAPI/API-major、HFS local surface 与 Panel runtime 前置契约 | V2 CI、HF Space CD local preflight |
-| `sdk-contract` | target wire contract 的 OpenAPI/DTO/API-major 前置验证；不宣称 generated SDK 已完成 | V2 CI、HF Space CD local preflight |
+| `sdk-contract` | target-only OpenAPI artifact 的可重复生成、semantic gate、DTO/API-major 前置验证；不宣称 generated SDK 已完成 | V2 CI、HF Space CD local preflight |
 | `provider-runtime` | 内部 optional provider 的 importability、feature matrix 与互斥 browser runtime | CI / provider-runtime gate |
 
 `server-contract` 与 `sdk-contract` 是 A3c 的产品 contract 名称；
@@ -46,6 +46,12 @@ python scripts/ci/run_profile.py \
   --profile sdk-contract \
   --json-report artifacts/target-contract-profile.json \
   --markdown-report artifacts/target-contract-profile.md
+```
+
+OpenAPI artifact 可单独验证：
+
+```bash
+PYTHONPATH=src python3 tools/gen_openapi.py --check
 ```
 
 ## 本地确定性测试
@@ -181,7 +187,8 @@ Browser Worker、Admin fail-closed、Provider API、OpenAPI checksum 和 Supervi
 target-native archive。旧 CLI/PyInstaller/Nuitka workflow 不构成 current evidence，
 也不能把任何 CLI binary 重新命名为 Server bundle。
 
-`server-contract` 与 `sdk-contract` 表达产品 contract；`provider-runtime` 表达内部可选
+`server-contract` 与 `sdk-contract` 表达产品 contract；`sdk-contract` 包含 frozen target-only
+OpenAPI 的可重复生成门禁；`provider-runtime` 表达内部可选
 provider runtime。各 profile 使用明确 leaf extras 安装所需实现依赖，且不形成新的
 对外 tier 或 package matrix。
 
