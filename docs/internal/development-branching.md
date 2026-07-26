@@ -88,9 +88,10 @@ Since 2026-07-26 both workflows run in two lanes (owner-approved CI slimming):
   freshness, removed v1 import-surface leak check, and required v2 module check.
 - full pytest matrix: Python 3.10, 3.11, 3.12, and 3.13 on Ubuntu, plus Python
   3.11 on macOS and Windows.
-- Provider v2 conformance: deterministic SPI, manifest registry, Provider
-  Manager, OpenAlex, builtin Fetch, UniAPI, ERIC, and PatentsView tests without network,
-  browser runtime, or secrets.
+- Provider v2 conformance: generated 110-source inventory and 104 pending spec-draft
+  freshness checks, deterministic SPI/spec/factory/resolver, manifest registry,
+  Provider Manager, the inventory-discovered OpenAlex/ERIC/PatentsView nine-case Search
+  matrix, builtin Fetch, and UniAPI tests without network, browser runtime, HOME, or secrets.
 - `server-contract`: local target API surface and Server prerequisite checks through
   `scripts/ci/run_profile.py`.
 - `sdk-contract`: target OpenAPI, DTO and API-major prerequisite checks; this is

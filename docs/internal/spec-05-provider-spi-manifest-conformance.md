@@ -1,6 +1,6 @@
 # SPEC-05：Provider SPI、Manifest 与 Conformance
 
-**状态**：Accepted target contract；Phase 1 canonical baseline（待实现）
+**状态**：Accepted target contract；B0 common framework 已实现，Provider batches 1–6 待迁移
 **关联 HLD**：SouWen大重构设计文档 §8.3–8.5、§12–15、§20–21、§25–27
 **关联待决策**：Q-003 已由 ADR-03 关闭；Q-005、Q-006、Q-008 已批准并由
 SPEC-01 target fixtures 冻结；Q-009（后续迁移批次）仍开放
@@ -9,9 +9,12 @@ SPEC-01 target fixtures 冻结；Q-009（后续迁移批次）仍开放
 
 ## 1. Scope and fact baseline
 
-This is the target **Provider Extension v2** contract. It does not claim that the
-SPI, manifest schema, Provider Manager, or revisioned configuration workflow is
-already implemented.
+This is the target **Provider Extension v2** contract. The canonical DTOs, three
+single-capability SPIs, manifest schema/registry, Provider Manager, typed REST
+specification, shared Search assembly path, deterministic nine-case Search
+conformance harness, and migration inventory/draft generators are implemented.
+Provider batches 1–6 and the revisioned configuration workflow remain outside
+the completed B0 framework and must not be inferred from this status.
 
 In scope: three narrow SPIs, Provider manifest validation, one assembly path,
 lifecycle, configuration/secret boundary, failure isolation, observability, and
@@ -28,7 +31,8 @@ trust signing, and revision-store implementation.
 | Configuration | SouWenConfig carries source channels and LLM gateways; precedence is env > project YAML > user YAML > .env > defaults. | src/souwen/config/models.py, loader.py, docs/configuration.md |
 | Legacy extension system | A1 removed the `souwen.plugins` entry-point loader, lifecycle hooks, package manager, manifest schema and admin endpoints. None is a current Provider v2 compatibility surface. | A1 removal diff and current import/API tests |
 | Admin control plane | Current YAML editing writes/reloads a chosen file; source config writes mutate in-memory SouWenConfig. No target revision/ETag contract exists. | src/souwen/server/routes/admin/config.py, sources.py, schemas/admin.py |
-| Existing tests | Registry/config/admin tests certify current behavior, not Provider Extension v2 conformance. | tests/registry/, tests/test_config*.py, tests/test_server/test_app.py |
+| Provider v2 framework | Typed spec/factory/resolver, manifest/manager, generated migration inventory/drafts, and the OpenAlex/ERIC/PatentsView nine-case Search matrix are deterministic target evidence. | src/souwen/platform/provider_*/, tests/provider_v2/, tools/provider_migration_inventory.py, tools/gen_provider_spec_drafts.py |
+| Remaining migration | The generated inventory currently records 6 migrated samples and 104 pending sources allocated to batches 1–6. | docs/internal/provider-migrations/b0-inventory.json |
 
 ### 1.2 Current-to-target mapping
 
