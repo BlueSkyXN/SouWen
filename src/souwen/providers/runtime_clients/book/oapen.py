@@ -115,9 +115,14 @@ class OAPENClient:
             url = cls._url(_text(node))
             if url is None:
                 continue
-            if "/handle/" in url and "library.oapen.org" in url:
+            try:
+                parsed = urlparse(url)
+                hostname = (parsed.hostname or "").lower().rstrip(".")
+            except ValueError:
+                continue
+            if parsed.path.startswith("/handle/") and hostname == "library.oapen.org":
                 relation, label = "catalog_record", "OAPEN record"
-            elif "doi.org/" in url:
+            elif parsed.path.startswith("/") and hostname in {"doi.org", "dx.doi.org"}:
                 relation, label = "doi", "DOI landing page"
             else:
                 relation, label = "publisher_record", "Publisher record"

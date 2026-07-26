@@ -73,9 +73,14 @@ def _gutenberg_id(value: str | None) -> str:
 
 
 def _as_https_gutenberg_url(value: str, base: str) -> str:
-    resolved = urljoin(base, value)
-    parsed = urlparse(resolved)
-    if parsed.scheme == "http" and parsed.hostname and parsed.hostname.endswith("gutenberg.org"):
+    try:
+        resolved = urljoin(base, value)
+        parsed = urlparse(resolved)
+        hostname = (parsed.hostname or "").lower().rstrip(".")
+    except ValueError:
+        return value
+    official_hosts = {"gutenberg.org", "www.gutenberg.org"}
+    if parsed.scheme == "http" and hostname in official_hosts:
         return parsed._replace(scheme="https").geturl()
     return resolved
 

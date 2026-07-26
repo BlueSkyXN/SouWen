@@ -235,6 +235,7 @@ jobs:
           docker run -d --name souwen-hfs-local \
             -p 49265:49265 \
             -e SOUWEN_ADMIN_OPEN=1 \
+            -e SOUWEN_USER_PASSWORD= \
             -e SOUWEN_EXPOSE_DOCS=1 \
             -e SOUWEN_WRAPPER_SHA=${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }} \
             -e SOUWEN_CONFIG_REVISION=source-${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }} \

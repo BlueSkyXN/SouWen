@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import re
+import xml.etree.ElementTree as ET
 
 import pytest
 from pytest_httpx import HTTPXMock
 
-from souwen.providers.runtime_clients.book.doab import DOABClient
 from souwen.common_runtime.provider_support.exceptions import NotFoundError
+from souwen.providers.runtime_clients.book.doab import DOABClient
+from souwen.providers.runtime_clients.models import ResourceAccess
 
 _OAI_DC = """<?xml version="1.0" encoding="UTF-8"?>
 <OAI-PMH xmlns="http://www.openarchives.org/OAI/2.0/"
@@ -47,6 +49,39 @@ _METS = """<?xml version="1.0" encoding="UTF-8"?>
     </mets:file>
   </mets:fileGrp></mets:fileSec></mets:mets></metadata></record></GetRecord>
 </OAI-PMH>"""
+
+
+def test_resource_classification_uses_parsed_hostname_boundaries() -> None:
+    metadata = ET.fromstring(
+        """<dc>
+        <identifier>https://directory.doabooks.org/handle/20.500.12854/1</identifier>
+        <identifier>https://doi.org/10.1234/control</identifier>
+        <identifier>https://DIRECTORY.DOABOOKS.ORG./handle/20.500.12854/2</identifier>
+        <identifier>https://DOI.ORG./10.1234/control-two</identifier>
+        <identifier>https://directory.doabooks.org@attacker.example/handle/1</identifier>
+        <identifier>https://directory.doabooks.org.attacker.example/handle/1</identifier>
+        <identifier>https://attacker.example/directory.doabooks.org/handle/1</identifier>
+        <identifier>https://doi.org@attacker.example/10.1234/evil</identifier>
+        <identifier>https://doi.org.attacker.example/10.1234/evil</identifier>
+        <identifier>https://attacker.example/doi.org/10.1234/evil</identifier>
+        <identifier>https://[</identifier>
+        </dc>"""
+    )
+
+    resources = DOABClient._resources(metadata, ResourceAccess())
+
+    assert [resource.relation for resource in resources] == [
+        "catalog_record",
+        "doi",
+        "catalog_record",
+        "doi",
+        "publisher_record",
+        "publisher_record",
+        "publisher_record",
+        "publisher_record",
+        "publisher_record",
+        "publisher_record",
+    ]
 
 
 async def test_search_uses_one_official_books_set_harvest_and_filters_metadata(

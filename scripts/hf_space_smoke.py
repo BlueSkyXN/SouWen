@@ -132,7 +132,11 @@ def _probe(client: Client, path: str, args: argparse.Namespace):
     _expect(status == 200, f"{path} status {status}")
     _expect(isinstance(payload, dict), f"{path} payload")
     _expect(payload.get("rollout_mode") == "target", f"{path} runtime identity")
-    _expect(headers.get("X-SouWen-API-Major") == "2", f"{path} API major")
+    api_major = next(
+        (value for name, value in headers.items() if name.lower() == "x-souwen-api-major"),
+        None,
+    )
+    _expect(api_major == "2", f"{path} API major")
     if args.expected_version:
         _expect(payload.get("version") == args.expected_version, f"{path} version")
     if args.expected_source_sha:

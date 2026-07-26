@@ -96,6 +96,26 @@ def test_target_openapi_path_set_is_exact() -> None:
     }
 
 
+def test_probe_accepts_lowercase_http_response_headers() -> None:
+    class Client:
+        def json(self, path, **_kwargs):
+            return (
+                200,
+                {"x-souwen-api-major": "2"},
+                {
+                    "rollout_mode": "target",
+                    "version": "2.0.0rc2",
+                },
+            )
+
+    args = smoke.parse_args(["--expected-version", "2.0.0rc2"])
+
+    detail, payload = smoke._probe(Client(), "/healthz", args)
+
+    assert detail == "/healthz target runtime verified"
+    assert payload["rollout_mode"] == "target"
+
+
 def test_missing_required_llm_provider_is_reported_as_a_failed_check(monkeypatch, tmp_path) -> None:
     providers = [
         {

@@ -733,6 +733,7 @@ def test_hfs_m1_requires_target_supervisor_and_internal_worker_evidence() -> Non
     assert "--expected-wrapper-sha" in text
     assert "SOUWEN_WRAPPER_SHA" in text
     assert 'key="SOUWEN_WRAPPER_SHA"' in text
+    assert "-e SOUWEN_USER_PASSWORD=" in text
     assert "curl -fsS http://127.0.0.1:49265/readyz" in text
     assert "docker port souwen-hfs-local 49266/tcp" in text
     sync = text.split("- name: Sync changed HFS wrapper files", maxsplit=1)[1].split(

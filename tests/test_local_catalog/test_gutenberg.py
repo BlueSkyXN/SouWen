@@ -10,6 +10,7 @@ import pytest
 from souwen.providers.runtime_clients.local_catalog import LocalCatalog
 from souwen.providers.runtime_clients.local_catalog.gutenberg import (
     GutenbergLocalCatalogClient,
+    _as_https_gutenberg_url,
     download_official_gutenberg_catalog,
     import_gutenberg_input,
     iter_gutenberg_rdf_records,
@@ -31,6 +32,24 @@ _RDF = b"""<?xml version="1.0"?>
     <dcterms:hasFormat><pgterms:file rdf:about="https://www.gutenberg.org/ebooks/11.epub3.images"><dcterms:format><rdf:Description><rdf:value>application/epub+zip</rdf:value></rdf:Description></dcterms:format><dcterms:extent>189196</dcterms:extent><dcterms:modified>2026-06-01T03:31:55Z</dcterms:modified></pgterms:file></dcterms:hasFormat>
   </pgterms:ebook>
 </rdf:RDF>"""
+
+
+def test_https_upgrade_uses_exact_official_hostname_boundary() -> None:
+    assert (
+        _as_https_gutenberg_url("http://www.gutenberg.org/ebooks/11", "https://example.invalid")
+        == "https://www.gutenberg.org/ebooks/11"
+    )
+    assert (
+        _as_https_gutenberg_url("http://WWW.GUTENBERG.ORG./ebooks/11", "https://example.invalid")
+        == "https://WWW.GUTENBERG.ORG./ebooks/11"
+    )
+    for attacker_url in (
+        "http://notgutenberg.org/ebooks/11",
+        "http://www.gutenberg.org.attacker.example/ebooks/11",
+        "http://www.gutenberg.org@attacker.example/ebooks/11",
+        "https://[",
+    ):
+        assert _as_https_gutenberg_url(attacker_url, "https://example.invalid") == attacker_url
 
 
 def test_parse_preserves_official_rdf_metadata_without_following_resource_urls() -> None:
