@@ -151,6 +151,12 @@ def test_every_batch_five_search_factory_dispatches_and_closes_with_reviewed_con
 
 def test_batch_five_public_target_fetch_factories_enter_dispatch_and_close(monkeypatch) -> None:
     events: list[tuple[str, str]] = []
+    real_find_spec = runtime_module.importlib.util.find_spec
+    monkeypatch.setattr(
+        runtime_module.importlib.util,
+        "find_spec",
+        lambda name: object() if name in {"newspaper", "readability"} else real_find_spec(name),
+    )
 
     def fake_client_type(provider_id: str):
         class Client:
