@@ -79,7 +79,7 @@ from souwen.web.fetch import fetch_content, validate_fetch_url
 
 #### `fetch_content(urls: str | list[str], providers: str | list[str] | None = None, strategy="fallback", timeout=30.0, skip_ssrf_check=False, selector=None, start_index=0, max_length=None, respect_robots_txt=False)` → `FetchResponse`
 
-多提供者内容抓取，支持 24 个提供者。默认 `fallback` 按 URL 补抓失败项；`fanout` 会并发执行所有 provider，并返回全部 provider 结果，适合质量对比和调试。provider 必须同时存在于 registry 且被当前 `SOUWEN_EDITION` 允许；重运行时 provider（如 `crawl4ai` / `scrapling` / `newspaper` / `readability` / `arxiv_fulltext`）需要 `full`。
+多提供者内容抓取，支持 24 个提供者。默认 `fallback` 按 URL 补抓失败项；`fanout` 会并发执行所有 provider，并返回全部 provider 结果，适合质量对比和调试。provider 必须同时存在于 registry 且被当前 `SOUWEN_EDITION` 允许；重运行时 provider（如 `crawl4ai` / `scrapling` / `newspaper` / `readability`）需要 `full`。
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
@@ -129,22 +129,6 @@ from souwen import get_config, reload_config
 #### `reload_config()` → `SouWenConfig`
 
 清除缓存并重新加载配置。
-
-### PDF 全文获取
-
-```python
-from souwen.paper import fetch_pdf
-```
-
-#### `fetch_pdf(paper)` → `Path | None`
-
-5 级回退链自动获取论文 PDF：
-
-1. `paper.pdf_url` 直接下载
-2. Unpaywall OA 查询
-3. CORE 全文查询
-4. DOI 重定向解析
-5. Sci-Hub 回退
 
 ## 数据模型
 
@@ -1250,7 +1234,7 @@ WARP 状态变更 SSE 流。客户端使用 `EventSource` 连接，服务端约�
 
 #### `POST /api/v1/fetch`
 
-抓取网页内容，支持 24 个提供者。默认 `fallback` 按 URL 补抓失败项；`fanout` 会并发返回所有 provider 结果。provider 必须同时存在于 registry 且被当前 `SOUWEN_EDITION` 允许；重运行时 provider（如 `crawl4ai` / `scrapling` / `newspaper` / `readability` / `arxiv_fulltext`）需要 `full`。
+抓取网页内容，支持 24 个提供者。默认 `fallback` 按 URL 补抓失败项；`fanout` 会并发返回所有 provider 结果。provider 必须同时存在于 registry 且被当前 `SOUWEN_EDITION` 允许；重运行时 provider（如 `crawl4ai` / `scrapling` / `newspaper` / `readability`）需要 `full`。
 
 **请求体 (JSON)：**
 
@@ -1395,7 +1379,7 @@ MCP 搜索工具的 `sources` / `engines` 与 Python API 一致。显式请求�
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `urls` | string \| array | — | 待抓取的 URL 或 URL 列表 |
-| `provider` | string | `"builtin"` | 单内容提取提供者字段；新请求优先使用 `providers`。默认 `builtin`（零配置）。工具 schema 的可选项按当前 `edition` 过滤；例如 `basic` 只列出 `builtin` / `mcp` / `site_crawler`，`pro` 追加 API/远端服务类 provider，`full` 追加 `crawl4ai` / `scrapling` / `newspaper` / `readability` / `arxiv_fulltext` 等重运行时 provider |
+| `provider` | string | `"builtin"` | 单内容提取提供者字段；新请求优先使用 `providers`。默认 `builtin`（零配置）。工具 schema 的可选项按当前 `edition` 过滤；例如 `basic` 只列出 `builtin` / `mcp` / `site_crawler`，`pro` 追加 `arxiv_fulltext` 及 API/远端服务类 provider，`full` 追加 `crawl4ai` / `scrapling` / `newspaper` / `readability` 等重运行时 provider |
 | `providers` | string \| array \| null | `null` | 内容提取提供者或提供者列表；提供时优先于 `provider` |
 | `strategy` | `"fallback" \| "fanout"` | `"fallback"` | 多 provider 策略：`fallback` 按 URL 补失败项，`fanout` 返回全部 provider 结果 |
 

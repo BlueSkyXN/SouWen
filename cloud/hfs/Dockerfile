@@ -23,10 +23,6 @@ ARG SOUWEN_REPO=https://github.com/BlueSkyXN/SouWen.git
 ARG SOUWEN_REF
 ARG WGCF_VERSION=2.2.30
 ARG WIREPROXY_VERSION=1.1.2
-# 可选安装 A2 待处置的 web2pdf/SuperWeb2PDF 包及其浏览器运行时
-ARG WITH_WEB2PDF=0
-# PyPI 暂无 superweb2pdf 发行，默认使用可解析的 GitHub archive；可用 build-arg 覆盖
-ARG WEB2PDF_PACKAGE=https://github.com/BlueSkyXN/SuperWeb2PDF/archive/d1e1da59d739ad46222b5e726bd6f28b0d0453fa.zip#sha256=f56a380aa3f06d169d3fcc723d5525779519afaff159b37e8a789e50b797c76b
 
 ENV PORT=49265 \
     PYTHONUNBUFFERED=1 \
@@ -84,14 +80,10 @@ RUN git init . \
 # 否则 panel.html 不会被打包进 site-packages）
 COPY --from=panel-builder /build/panel/dist/index.html ./src/souwen/server/panel.html
 
-RUN if [ "${WITH_WEB2PDF}" = "1" ]; then \
-        pip install ".[edition-pro]" "playwright>=1.40" "${WEB2PDF_PACKAGE}"; \
-    else \
-        pip install ".[edition-pro]" "playwright>=1.40"; \
-    fi \
+RUN pip install ".[edition-pro]" "playwright>=1.40" \
     && python -c "import curl_cffi; print('curl_cffi OK')"
 
-# Browser Worker 是 RC2 HFS 的必需进程；不依赖 Crawl4AI/Scrapling 或 Web2PDF extra。
+# Browser Worker 是 RC2 HFS 的必需进程。
 RUN playwright install chromium \
     && echo "✅ Playwright Chromium installed for Browser Worker"
 

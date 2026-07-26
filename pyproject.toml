@@ -67,23 +67,16 @@ scrapling = ["scrapling[fetchers]>=0.4.7"]
 newspaper = ["newspaper4k>=0.9"]
 # readability 提取（Mozilla Readability 算法 + markdownify 转换）
 readability = ["readability-lxml>=0.8", "markdownify>=0.12"]
-# arXiv 全文 PDF 解析（PyMuPDF + Markdown 转换）
-pdf = ["pymupdf4llm>=0.0.17"]
 # TLS 伪装（爬虫类客户端需要：csdn/juejin/bilibili/weibo/zhihu/google_patents 等）
 scraper = ["curl-cffi>=0.14.0"]
 # Web 服务器（FastAPI + Uvicorn）
 server = ["fastapi>=0.111", "uvicorn[standard]>=0.29"]
 # MCP 服务器协议支持
 mcp = ["mcp>=1.0"]
-# SuperWeb2PDF 网页截图转 PDF（A2 待处置的可选扩展包；PyPI 暂无发行）
-web2pdf = [
-    "playwright>=1.40",
-    "superweb2pdf @ https://github.com/BlueSkyXN/SuperWeb2PDF/archive/d1e1da59d739ad46222b5e726bd6f28b0d0453fa.zip#sha256=f56a380aa3f06d169d3fcc723d5525779519afaff159b37e8a789e50b797c76b",
-]
 # Edition 聚合依赖：对应 SOUWEN_EDITION 的常用安装面。
 edition-basic = ["souwen[tls,web,robots,mcp]"]
 edition-pro = ["souwen[edition-basic,server,scraper]"]
-edition-full = ["souwen[edition-pro,newspaper,readability,pdf,web2pdf]"]
+edition-full = ["souwen[edition-pro,newspaper,readability]"]
 # crawl4ai 与 scrapling 当前依赖树互斥；full 浏览器抓取按目标 provider 二选一。
 edition-full-crawl4ai = ["souwen[edition-full,crawl4ai]"]
 edition-full-scrapling = ["souwen[edition-full,scrapling]"]
@@ -100,9 +93,6 @@ conflicts = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/souwen"]
-
-[tool.hatch.metadata]
-allow-direct-references = true
 
 # panel.html 是构建产物（gitignored），需显式声明以便打入 wheel
 [tool.hatch.build]

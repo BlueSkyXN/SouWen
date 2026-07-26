@@ -38,6 +38,8 @@
   和预装 plugin 能力；显式请求当前 edition 不允许的能力返回明确的 edition error。
 - Fetch 多 provider 响应以 `providers`、`meta.selected_provider` 和每条 result 的 `source`
   为准；单数 `provider` 仅保留为 RC 过渡字段。
+- `fetch_pdf`、arXiv PDF 回退、`pdf`/`web2pdf` extras 和 SuperWeb2PDF 均已移除；
+  `arxiv_fulltext` 仅保留 HTML 正文提取。
 
 ### Registry, search and providers
 
@@ -107,10 +109,8 @@
 
 - Edition extras 提供 `edition-basic`、`edition-pro`、`edition-full` 以及互斥的
   `edition-full-crawl4ai` / `edition-full-scrapling` clean-install surface。
-- SuperWeb2PDF 保持外部 entry-point plugin，但 `web2pdf` / `edition-full` 使用固定 commit
-  archive + `#sha256=` 的 PEP 508 direct reference，并显式启用 Hatch
-  `allow-direct-references`；Root、HFS、ModelScope Dockerfile 和 CI 使用同一安装源与
-  Playwright runtime。
+- HFS 的原生 Playwright Chromium 仅服务于 Browser Worker；它不依赖已移除的 PDF capture
+  package。
 - Root/HFS/ModelScope container、PyInstaller/Nuitka 三 edition × 四 target matrix、Panel
   artifact、wheel/sdist、SBOM/provenance 和 SHA256 inventory 纳入固定 RC gate。
 - HFS smoke 区分 local surface、remote surface 与 capability；远端发现 admin-open 时
@@ -124,8 +124,8 @@
   CLI、MCP、LLM、fetch、redaction、plugin、Panel 和 package/import surface。
 - `gen_docs.py --check` 同时验证 data source catalog、双 README、architecture metrics 和
   自动跨域表；legacy-term gate 与 Markdown link check 保护公开文档。
-- Functional gates 覆盖 Scrapling、Crawl4AI、article extraction、SuperWeb2PDF fixture、
-  plugin entry point、zero-key Google Patents/Wayback 与 HFS post-deploy smoke。
+- Functional gates 覆盖 Scrapling、Crawl4AI、article extraction、plugin entry point、zero-key
+  Google Patents/Wayback 与 HFS post-deploy smoke。
 - `CI` / `V2 CI`、coverage、clean wheel installs、24 binaries、three-container smoke、security
   scans 和 immutable `release-manifest.json` 共同构成 RC evidence；没有单项历史通过可替代
   candidate-SHA 上的完整 gate。

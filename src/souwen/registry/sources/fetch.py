@@ -50,7 +50,6 @@ _reg(
         config_field=None,
         client_loader=lazy("souwen.paper.arxiv_fulltext:ArxivFulltextClient"),
         methods={"fetch": MethodSpec("get_fulltext")},
-        package_extra="pdf",
     )
 )
 

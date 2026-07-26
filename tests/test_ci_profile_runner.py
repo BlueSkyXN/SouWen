@@ -158,14 +158,12 @@ def test_profile_commands_prepend_source_pythonpath(monkeypatch):
 
 def test_full_import_code_covers_full_fetch_provider_modules() -> None:
     assert run_profile.FULL_FETCH_PROVIDER_MODULES == {
-        "arxiv_fulltext": "souwen.paper.arxiv_fulltext",
         "crawl4ai": "souwen.web.crawl4ai_fetcher",
         "newspaper": "souwen.web.newspaper_fetcher",
         "readability": "souwen.web.readability_fetcher",
         "scrapling": "souwen.web.scrapling_fetcher",
     }
     assert run_profile.FULL_CORE_FETCH_PROVIDERS == {
-        "arxiv_fulltext",
         "newspaper",
         "readability",
     }

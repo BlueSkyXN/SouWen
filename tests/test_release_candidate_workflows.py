@@ -1085,8 +1085,6 @@ def test_clean_wheel_composite_enforces_edition_and_package_boundaries() -> None
         "basic/three-fetch-providers",
         "basic/llm-gated",
         "pro/server-import",
-        "full/import-pymupdf4llm",
-        "full/import-superweb2pdf",
         "variant/crawl4ai-only",
         "variant/scrapling-only",
         "expected_missing_fetch_providers",

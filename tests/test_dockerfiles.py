@@ -5,11 +5,6 @@ from pathlib import Path
 
 import pytest
 
-SUPERWEB2PDF_ARCHIVE = (
-    "https://github.com/BlueSkyXN/SuperWeb2PDF/archive/d1e1da59d739ad46222b5e726bd6f28b0d0453fa.zip"
-    "#sha256=f56a380aa3f06d169d3fcc723d5525779519afaff159b37e8a789e50b797c76b"
-)
-
 
 @pytest.mark.parametrize(
     "dockerfile",
@@ -19,14 +14,11 @@ SUPERWEB2PDF_ARCHIVE = (
         Path("cloud/modelscope/Dockerfile"),
     ],
 )
-def test_web2pdf_package_build_arg_uses_resolvable_install_source(dockerfile: Path):
+def test_dockerfiles_exclude_removed_pdf_capture_stack(dockerfile: Path):
     text = dockerfile.read_text(encoding="utf-8")
 
-    assert f"ARG WEB2PDF_PACKAGE={SUPERWEB2PDF_ARCHIVE}" in text
-    assert "ARG WEB2PDF_PACKAGE=superweb2pdf" not in text
-    assert ".[server,tls," + "web2pdf]" not in text
-    assert 'pip install ".[edition-pro]" "playwright>=1.40" "${WEB2PDF_PACKAGE}"' in text
-    assert 'pip install ".[server,tls]"' not in text
+    for removed in ("WITH_WEB2PDF", "WEB2PDF_PACKAGE", "superweb2pdf", "pymupdf4llm"):
+        assert removed not in text
 
 
 @pytest.mark.parametrize(
@@ -114,7 +106,7 @@ def test_hfs_target_image_runs_supervisor_with_internal_browser_worker():
     entrypoint = Path("cloud/hfs/entrypoint.sh").read_text(encoding="utf-8")
 
     assert "SOUWEN_V2_ROLLOUT=target" in dockerfile
-    assert 'pip install ".[edition-pro]" "playwright>=1.40";' in dockerfile
+    assert 'pip install ".[edition-pro]" "playwright>=1.40"' in dockerfile
     assert "RUN playwright install chromium" in dockerfile
     assert dockerfile.count("EXPOSE 49265") == 1
     assert "EXPOSE 49266" not in dockerfile

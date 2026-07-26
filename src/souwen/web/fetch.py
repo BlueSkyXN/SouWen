@@ -156,18 +156,16 @@ def _filter_fetch_handler_kwargs(
 
 
 def _extract_arxiv_paper_id(url: str) -> str | None:
-    """从 arxiv.org 的 abs/html/pdf URL 提取论文 ID。"""
+    """从 arxiv.org 的 abs/html URL 提取论文 ID。"""
     parsed = urlparse(url)
     if parsed.hostname not in {"arxiv.org", "www.arxiv.org"}:
         return None
 
     path = parsed.path.rstrip("/")
-    for prefix in ("/abs/", "/html/", "/pdf/"):
+    for prefix in ("/abs/", "/html/"):
         if not path.startswith(prefix):
             continue
         paper_id = path[len(prefix) :]
-        if prefix == "/pdf/" and paper_id.endswith(".pdf"):
-            paper_id = paper_id[:-4]
         return paper_id or None
     return None
 
@@ -299,7 +297,7 @@ async def _handle_arxiv_fulltext(urls: list[str], timeout: float, **_kwargs: Any
                         url=url,
                         final_url=url,
                         source="arxiv_fulltext",
-                        error="arxiv_fulltext 仅支持 arxiv.org 的 /abs/、/html/ 或 /pdf/ URL",
+                        error="arxiv_fulltext 仅支持 arxiv.org 的 /abs/ 或 /html/ URL",
                     )
                 )
                 continue

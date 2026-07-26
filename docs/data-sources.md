@@ -174,7 +174,7 @@
 | Name | Integration | Auth | Risk | Distribution | Stability | Extra | Capabilities | Credentials |
 |---|---|---|---|---|---|---|---|---|
 | `apify` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch | `apify_api_token` |
-| `arxiv_fulltext` | open_api | 免配置 | 低风险 | 可选依赖 | 稳定 | `pdf` | fetch | — |
+| `arxiv_fulltext` | open_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | fetch | — |
 | `builtin` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `web` | fetch | — |
 | `cloudflare` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch | `cloudflare_api_token`, `cloudflare_account_id` |
 | `crawl4ai` | scraper | 免配置 | 中风险 | 可选依赖 | 稳定 | `crawl4ai` | fetch | — |

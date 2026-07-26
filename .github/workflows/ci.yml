@@ -728,7 +728,6 @@ jobs:
             -f "${{ matrix.dockerfile }}" \
             --build-arg SOUWEN_REPO=git://127.0.0.1:9418/souwen.git \
             --build-arg SOUWEN_REF="$SOURCE_SHA" \
-            --build-arg WITH_WEB2PDF=0 \
             -t "souwen-ci:${{ matrix.kind }}" \
             "${{ matrix.context }}"
 

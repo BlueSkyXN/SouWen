@@ -121,12 +121,8 @@ RC-ready run 可以验证从 current main 派生的 candidate；任何 secret-be
 - Wheel 与 sdist 均从同一 `candidate_sha` 构建；版本、license、README、package data、
   generated Panel、entry points、optional extras 和 Python `>=3.10` metadata 正确。
 - Wheel 不包含已删除 legacy modules，也不依赖源码 checkout 才能 import。
-- SuperWeb2PDF 暂时保持 PEP 508 fixed-commit direct reference；Hatch
-  `allow-direct-references = true`、`web2pdf` extra 与 Docker `WEB2PDF_PACKAGE` 指向同一
-  archive。A1 已删除其旧插件接入路径，因此这里仅证明待 A2 处置的包来源一致性，不宣称
-  entry point、fetch handler 或 Playwright/PDF runtime 可用。
 
-**Evidence**：wheel/sdist file list、METADATA、import-surface report、archive ref、artifact checksums。
+**Evidence**：wheel/sdist file list、METADATA、import-surface report、artifact checksums。
 
 ### 9. Functional fixtures
 
@@ -156,8 +152,8 @@ RC-ready run 可以验证从 current main 派生的 candidate；任何 secret-be
 - 未配置 admin password 且未显式 local test override 时，admin API 必须 locked。
 - 镜像 label/build metadata 与 runtime readback 必须能证明 source SHA 为 `candidate_sha`；
   只看到 container running 或版本号相同不够。
-- Base image digest、`scripts/warp-checksums.txt` 和 SuperWeb2PDF URL `#sha256=` 必须保持
-  启用；任何下载校验缺失或绕过都为 FAIL。
+- Base image digest 与 `scripts/warp-checksums.txt` 必须保持启用；任何下载校验缺失或绕过都为
+  FAIL。
 - Root/HFS 的 WARP data/runtime-bin 必须回读 `/app/data` 与 `/app/data/bin`；ModelScope
   必须回读 `/home/user/app/data` 与 `/home/user/app/data/bin`，并证明 entrypoint `PATH` 与
   Python `WarpManager` 使用同一组环境变量。
@@ -236,8 +232,8 @@ surface/capability report、双层 auth/admin-open assertion。`RUNNING` 单独�
 - 每个 payload 都有非空 size、SHA-256、producer run URL、candidate SHA 和适用的
   provenance/SBOM 关联。GitHub native attestation 是外部证明，不冒充 bundle 内普通文件。
   缺文件、多文件、重名覆盖、inventory 或 checksum 不一致均为 FAIL。
-- 发布说明必须明确这是 RC、已验证层、未验证/高波动边界和 SuperWeb2PDF direct-reference
-  安装边界；不得把 fixture、static doctor 或 `stability=stable` 写成 live provider 承诺。
+- 发布说明必须明确这是 RC、已验证层与未验证/高波动边界；不得把 fixture、static doctor 或
+  `stability=stable` 写成 live provider 承诺。
 
 **Evidence**：release asset API readback、manifest inventory diff、checksum verification、
 attestation verification。

@@ -35,7 +35,6 @@ OPTIONAL_EXTRA_MODULES: Final[dict[str, tuple[str, ...]]] = {
     "crawl4ai": ("crawl4ai",),
     "mcp": ("mcp",),
     "newspaper": ("newspaper",),
-    "pdf": ("pymupdf4llm",),
     "readability": ("readability",),
     "scraper": ("curl_cffi",),
     "scrapling": ("scrapling.fetchers",),

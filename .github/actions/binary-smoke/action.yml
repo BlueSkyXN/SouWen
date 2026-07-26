@@ -269,7 +269,6 @@ runs:
 
                     if profile == "full-cli":
                         for provider in (
-                            "arxiv_fulltext",
                             "newspaper",
                             "readability",
                         ):
@@ -277,9 +276,9 @@ runs:
                             if not item or not item.get("edition_available") or not item.get("runtime_available"):
                                 raise RuntimeError(f"full import probe failed: {provider}: {item}")
                         record(
-                            "full/article-pdf-imports",
+                            "full/article-extraction-imports",
                             "PASS",
-                            "article, PDF, and readability imports available",
+                            "article extraction and readability imports available",
                         )
                         record(
                             "full/browser-runtime-boundary",

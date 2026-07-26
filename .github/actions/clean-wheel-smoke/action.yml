@@ -141,8 +141,6 @@ runs:
             full_imports = (
                 ("newspaper", "full/import-newspaper"),
                 ("readability", "full/import-readability"),
-                ("pymupdf4llm", "full/import-pymupdf4llm"),
-                ("superweb2pdf", "full/import-superweb2pdf"),
             )
             for module, check_name in full_imports:
                 require(find_spec(module), check_name, "module importable")

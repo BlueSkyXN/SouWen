@@ -154,11 +154,11 @@ ZERO_KEY_FETCH_PROVIDER_TESTS = [
     },
     {
         "provider": "arxiv_fulltext",
-        "min_edition": "full",
+        "min_edition": "pro",
         "urls": ["https://arxiv.org/abs/1706.03762"],
         "timeout": 35,
         "backend_matrix": False,
-        "note": "arXiv HTML/PDF fulltext",
+        "note": "arXiv HTML fulltext",
     },
     {
         "provider": "crawl4ai",

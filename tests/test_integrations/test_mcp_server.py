@@ -462,7 +462,7 @@ async def test_fetch_content_tool_schema_uses_registry_fetch_providers(monkeypat
     assert expected_names[0] == "builtin"
     assert set(expected_names) == expected_declared_names
     assert "metaso" in expected_names
-    assert "arxiv_fulltext" not in expected_names
+    assert "arxiv_fulltext" in expected_names
     assert expected_label in fetch_tool.description
     assert expected_label in props["provider"]["description"]
     assert expected_label in props["providers"]["description"]
