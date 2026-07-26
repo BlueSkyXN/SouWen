@@ -62,10 +62,10 @@ def test_local_rdf_import_and_adapter_query(tmp_path, monkeypatch) -> None:
     assert latest["status"] == "completed"
     assert latest["acquisition"]["observed_sha256"]
     assert latest["acquisition"]["url"].endswith("/pg11.rdf")
-    monkeypatch.setenv("SOUWEN_LOCAL_CATALOG_PATH", str(db_path))
+    monkeypatch.setenv("SOUWEN_LOCAL_CATALOG_PATH", str(tmp_path / "wrong.sqlite3"))
 
     async def run() -> None:
-        async with GutenbergLocalCatalogClient() as client:
+        async with GutenbergLocalCatalogClient(db_path) as client:
             response = await client.search("Alice", per_page=5)
             assert response.results[0].source_record_id == "11"
             assert (await client.get_by_id("11")).title.startswith("Alice")

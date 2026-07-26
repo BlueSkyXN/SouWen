@@ -70,11 +70,25 @@ BATCH_THREE_MIGRATED_SOURCE_IDS = {
     "zenrows",
     "zhipuai",
 }
+BATCH_FOUR_MIGRATED_SOURCE_IDS = {
+    "datacite",
+    "doab",
+    "figshare",
+    "gutenberg",
+    "internet_archive",
+    "library_of_congress",
+    "librivox",
+    "oapen",
+    "open_library",
+    "taiwan_new_books",
+    "wikisource",
+}
 MIGRATED_SOURCE_IDS = (
     inventory.SAMPLE_SOURCE_IDS
     | BATCH_ONE_MIGRATED_SOURCE_IDS
     | BATCH_TWO_MIGRATED_SOURCE_IDS
     | BATCH_THREE_MIGRATED_SOURCE_IDS
+    | BATCH_FOUR_MIGRATED_SOURCE_IDS
 )
 
 
@@ -96,8 +110,8 @@ def test_inventory_partitions_the_current_registry_into_six_batches() -> None:
     }
     assert data["batch_counts"] == inventory.EXPECTED_COUNTS
     assert data["status_counts"] == {
-        "migrated": 65,
-        "pending": 43,
+        "migrated": 76,
+        "pending": 32,
         "retirement_pending": 2,
         "incomplete": 0,
     }

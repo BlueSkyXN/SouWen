@@ -11,8 +11,10 @@ import pytest
 from souwen.models import (
     Applicant,
     Author,
+    BookResult,
     PaperResult,
     PatentResult,
+    ResearchOutputResult,
     SearchResponse,
     WebSearchResult,
 )
@@ -68,6 +70,19 @@ from souwen.providers.information_sources.wikipedia import WikipediaSearchProvid
 from souwen.providers.information_sources.xcrawl import XCrawlSearchProvider
 from souwen.providers.information_sources.youtube import YouTubeSearchProvider
 from souwen.providers.information_sources.zhipuai import ZhipuAISearchSearchProvider
+from souwen.providers.information_sources.datacite import DataCiteSearchProvider
+from souwen.providers.information_sources.doab import DOABSearchProvider
+from souwen.providers.information_sources.figshare import FigshareSearchProvider
+from souwen.providers.information_sources.gutenberg import GutenbergSearchProvider
+from souwen.providers.information_sources.internet_archive import InternetArchiveSearchProvider
+from souwen.providers.information_sources.library_of_congress import (
+    LibraryOfCongressSearchProvider,
+)
+from souwen.providers.information_sources.librivox import LibriVoxSearchProvider
+from souwen.providers.information_sources.oapen import OAPENSearchProvider
+from souwen.providers.information_sources.open_library import OpenLibrarySearchProvider
+from souwen.providers.information_sources.taiwan_new_books import TaiwanNewBooksSearchProvider
+from souwen.providers.information_sources.wikisource import WikisourceSearchProvider
 from tests.support.provider_v2_batch_one import (
     batch_one_paper as _batch_one_paper,
     google_patent as _google_patent,
@@ -177,6 +192,42 @@ def _web_definition(provider_id: str, provider_type: type, domain: str):
     )
 
 
+_BOOK_URLS = {
+    "doab": "https://directory.doabooks.org/handle/20.500.12854/1",
+    "gutenberg": "https://www.gutenberg.org/ebooks/11",
+    "internet_archive": "https://archive.org/details/provider-v2",
+    "library_of_congress": "https://www.loc.gov/item/provider-v2/",
+    "librivox": "https://librivox.org/audiobook/provider-v2",
+    "oapen": "https://library.oapen.org/handle/20.500.12657/1",
+    "open_library": "https://openlibrary.org/works/OL1W",
+    "taiwan_new_books": "https://data.gov.tw/api/front/dataset/detail?nid=6730",
+    "wikisource": "https://zh.wikisource.org/wiki/Provider_v2",
+}
+
+
+def _book(provider_id: str) -> BookResult:
+    return BookResult(
+        source=provider_id,
+        source_record_id="provider-v2",
+        title=f"{provider_id} conformance record",
+        languages=["zh" if provider_id in {"taiwan_new_books", "wikisource"} else "en"],
+        source_url=_BOOK_URLS[provider_id],
+    )
+
+
+def _research_output(provider_id: str) -> ResearchOutputResult:
+    return ResearchOutputResult(
+        source=provider_id,
+        source_record_id="10.1234/provider-v2" if provider_id == "datacite" else "1234",
+        title=f"{provider_id} conformance record",
+        source_url=(
+            "https://doi.org/10.1234/provider-v2"
+            if provider_id == "datacite"
+            else "https://figshare.com/articles/dataset/provider-v2/1234"
+        ),
+    )
+
+
 DEFINITIONS = (
     _definition("arxiv", ArxivSearchProvider, _response("arxiv", _batch_one_paper("arxiv"))),
     _definition(
@@ -281,6 +332,37 @@ DEFINITIONS = (
             ("xcrawl", XCrawlSearchProvider, "web"),
             ("youtube", YouTubeSearchProvider, "videos"),
             ("zhipuai", ZhipuAISearchSearchProvider, "web"),
+        )
+    ),
+    *(
+        _definition(
+            provider_id,
+            provider_type,
+            _response(provider_id, _book(provider_id)),
+            domain="book",
+        )
+        for provider_id, provider_type in (
+            ("doab", DOABSearchProvider),
+            ("gutenberg", GutenbergSearchProvider),
+            ("internet_archive", InternetArchiveSearchProvider),
+            ("library_of_congress", LibraryOfCongressSearchProvider),
+            ("librivox", LibriVoxSearchProvider),
+            ("oapen", OAPENSearchProvider),
+            ("open_library", OpenLibrarySearchProvider),
+            ("taiwan_new_books", TaiwanNewBooksSearchProvider),
+            ("wikisource", WikisourceSearchProvider),
+        )
+    ),
+    *(
+        _definition(
+            provider_id,
+            provider_type,
+            _response(provider_id, _research_output(provider_id)),
+            domain="research_output",
+        )
+        for provider_id, provider_type in (
+            ("datacite", DataCiteSearchProvider),
+            ("figshare", FigshareSearchProvider),
         )
     ),
 )

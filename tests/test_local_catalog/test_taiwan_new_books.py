@@ -41,10 +41,10 @@ def test_import_is_idempotent_and_adapter_queries_local_catalog(tmp_path, monkey
 
     assert import_taiwan_new_books_input(catalog, input_path)["inserted"] == 1
     assert import_taiwan_new_books_input(catalog, input_path)["unchanged"] == 1
-    monkeypatch.setenv("SOUWEN_LOCAL_CATALOG_PATH", str(catalog.path))
+    monkeypatch.setenv("SOUWEN_LOCAL_CATALOG_PATH", str(tmp_path / "wrong.sqlite3"))
 
     async def run() -> None:
-        async with TaiwanNewBooksLocalCatalogClient() as client:
+        async with TaiwanNewBooksLocalCatalogClient(catalog.path) as client:
             result = await client.search("測試新書", per_page=5)
             assert result.results[0].source_record_id == "9789861234567"
             assert (await client.get_by_id("9789861234567")).title == "測試新書"

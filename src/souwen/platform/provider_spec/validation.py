@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from souwen.platform.manifest_registry import ProviderManifest
-from souwen.platform.provider_spec.models import ProviderSpec
+from souwen.platform.provider_spec.models import LocalStoreDeclaration, ProviderSpec
 
 
 def validate_spec_manifest(
@@ -17,9 +17,15 @@ def validate_spec_manifest(
     declaration = adapters.get(spec.adapter_id)
     if declaration is None or declaration.capability != spec.capability:
         raise ValueError("provider spec adapter does not match manifest")
-    spec_hosts = getattr(spec, "hosts", (spec.host,))
+    spec_hosts = getattr(spec, "hosts", None)
+    if spec_hosts is None:
+        spec_hosts = (spec.host,)
     if set(spec_hosts) != set(manifest.network.egress_hosts):
         raise ValueError("provider spec hosts do not match manifest egress hosts")
+    if isinstance(getattr(spec, "transport", None), LocalStoreDeclaration) and (
+        manifest.network.proxy_supported or manifest.network.browser_required
+    ):
+        raise ValueError("local store providers cannot declare network execution")
     if set(spec.configuration_keys) != set(manifest.configuration.non_secret_keys):
         raise ValueError("provider spec configuration does not match manifest")
     required_references = set(manifest.secrets.references)
