@@ -20,8 +20,6 @@ const { translate } = vi.hoisted(() => ({
     const translations: Record<string, string> = {
       'common.save': 'save',
       'sourceConfig.proxyCustomPlaceholder': 'example {{example}}',
-      'sources.requiresUpgrade': 'requires upgrade',
-      'sources.requiresUpgradeToEdition': 'requires {{edition}}',
     }
     const defaultValue = (
       options
@@ -38,14 +36,6 @@ const { translate } = vi.hoisted(() => ({
       && typeof options.example === 'string'
     ) {
       return value.replace('{{example}}', options.example)
-    }
-    if (
-      options
-      && typeof options === 'object'
-      && 'edition' in options
-      && typeof options.edition === 'string'
-    ) {
-      return value.replace('{{edition}}', options.edition)
     }
     return value
   },
@@ -100,10 +90,6 @@ function doctorSource(overrides: Partial<DoctorSource> = {}): DoctorSource {
     package_extra: null,
     stability: 'stable',
     usage_note: null,
-    min_edition: 'basic',
-    edition: 'basic',
-    edition_available: true,
-    edition_reason: '',
     runtime_available: true,
     runtime_reason: '',
     credentials_satisfied: true,
@@ -130,7 +116,6 @@ function doctorResponse(sources: DoctorSource[]): DoctorResponse {
     unavailable: 0,
     disabled: 0,
     status_counts: { ok: sources.length },
-    edition: 'basic',
     sources,
   }
 }
@@ -150,9 +135,6 @@ function sourceInfo(overrides: Partial<SourceInfo> = {}): SourceInfo {
     stability: 'stable',
     distribution: 'core',
     default_for: [],
-    min_edition: 'basic',
-    edition_available: true,
-    edition_reason: '',
     available: true,
     ...overrides,
   }
@@ -178,9 +160,6 @@ function sourceConfig(overrides: Partial<SourceChannelConfig> = {}): SourceChann
     domain: 'web',
     capabilities: ['search'],
     integration_type: 'scraper',
-    min_edition: 'basic',
-    edition_available: true,
-    edition_reason: '',
     key_requirement: 'none',
     auth_requirement: 'none',
     credential_fields: [],

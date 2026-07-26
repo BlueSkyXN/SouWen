@@ -53,7 +53,6 @@ from souwen.server.schemas.admin import (
 )
 from souwen.server.schemas.common import (
     SOURCE_CATEGORY_ORDER,
-    EditionCapabilitiesResponse,
     ErrorResponse,
     HealthResponse,
     ReadinessResponse,
@@ -110,7 +109,6 @@ __all__ = [
     "CitationGraphResponse",
     "DoctorResponse",
     "DoctorSourceResponse",
-    "EditionCapabilitiesResponse",
     "EnrichedSearchAnswerResponse",
     "EnrichedSearchBudgetRequest",
     "EnrichedSearchFetchRequest",

@@ -27,8 +27,6 @@ const { translate } = vi.hoisted(() => ({
       'sourceConfig.baseUrlPlaceholder': '留空使用默认地址',
       'sourceConfig.proxyCustomPlaceholder': '例如 {{example}}',
       'sources.on': '开',
-      'sources.requiresUpgrade': '需升级',
-      'sources.requiresUpgradeToEdition': '需升级到 {{edition}}',
     }
     const value = translations[key] ?? key
     if (typeof options === 'string') return options
@@ -39,14 +37,6 @@ const { translate } = vi.hoisted(() => ({
       && typeof options.example === 'string'
     ) {
       return value.replace('{{example}}', options.example)
-    }
-    if (
-      options
-      && typeof options === 'object'
-      && 'edition' in options
-      && typeof options.edition === 'string'
-    ) {
-      return value.replace('{{edition}}', options.edition)
     }
     return value
   },
@@ -100,10 +90,6 @@ function doctorSource(overrides: Partial<DoctorSource> = {}): DoctorSource {
     package_extra: null,
     stability: 'stable',
     usage_note: null,
-    min_edition: 'basic',
-    edition: 'basic',
-    edition_available: true,
-    edition_reason: '',
     runtime_available: true,
     runtime_reason: '',
     credentials_satisfied: true,
@@ -130,7 +116,6 @@ function doctorResponse(sources: DoctorSource[]): DoctorResponse {
     unavailable: 0,
     disabled: 0,
     status_counts: { ok: sources.length },
-    edition: 'basic',
     sources,
   }
 }
@@ -150,9 +135,6 @@ function sourceInfo(overrides: Partial<SourceInfo> = {}): SourceInfo {
     stability: 'stable',
     distribution: 'core',
     default_for: [],
-    min_edition: 'basic',
-    edition_available: true,
-    edition_reason: '',
     available: true,
     ...overrides,
   }
@@ -178,9 +160,6 @@ function sourceConfig(overrides: Partial<SourceChannelConfig> = {}): SourceChann
     domain: 'web',
     capabilities: ['search'],
     integration_type: 'scraper',
-    min_edition: 'basic',
-    edition_available: true,
-    edition_reason: '',
     key_requirement: 'none',
     auth_requirement: 'none',
     credential_fields: [],
@@ -397,19 +376,4 @@ describe('Apple SourcesPage', () => {
     expect(screen.getByText('开')).toBeInTheDocument()
   })
 
-  it('shows edition-unavailable catalog entries as upgrade required', async () => {
-    vi.mocked(api.getSources).mockResolvedValue(sourcesResponse([
-      sourceInfo({
-        available: false,
-        edition_available: false,
-        min_edition: 'full',
-        edition_reason: 'requires full edition',
-      }),
-    ]))
-
-    render(<SourcesPage />)
-
-    expect(await screen.findByText('需升级')).toBeInTheDocument()
-    expect(screen.getByText('需升级到 full')).toBeInTheDocument()
-  })
 })

@@ -80,7 +80,7 @@ RUN git init . \
 # 否则 panel.html 不会被打包进 site-packages）
 COPY --from=panel-builder /build/panel/dist/index.html ./src/souwen/server/panel.html
 
-RUN pip install ".[edition-pro]" "playwright>=1.40" \
+RUN pip install ".[server,tls,web,robots,scraper]" "playwright>=1.40" \
     && python -c "import curl_cffi; print('curl_cffi OK')"
 
 # Browser Worker 是 RC2 HFS 的必需进程。

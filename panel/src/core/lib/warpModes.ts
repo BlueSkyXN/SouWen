@@ -93,10 +93,9 @@ export function isWarpModeAvailable(warp: WarpStatus, mode: WarpModeValue): bool
 }
 
 export function isWarpModeInfoAvailable(
-  mode: Pick<WarpModeInfo, 'id' | 'installed' | 'configured' | 'edition_available'>,
+  mode: Pick<WarpModeInfo, 'id' | 'installed' | 'configured'>,
 ): boolean {
-  const editionAvailable = mode.edition_available ?? true
-  return editionAvailable && mode.installed && (mode.id !== 'external' || Boolean(mode.configured))
+  return mode.installed && (mode.id !== 'external' || Boolean(mode.configured))
 }
 
 export function getAvailableWarpModeOptions(warp: WarpStatus): WarpModeOption[] {

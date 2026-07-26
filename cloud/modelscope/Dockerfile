@@ -83,7 +83,7 @@ RUN git init . \
 # 否则 panel.html 不会被打包进 site-packages）
 COPY --from=panel-builder /build/panel/dist/index.html ./src/souwen/server/panel.html
 
-RUN pip install ".[edition-pro]" \
+RUN pip install ".[server,tls,web,robots,scraper]" \
     && python -c "import curl_cffi; print('curl_cffi OK')"
 
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh

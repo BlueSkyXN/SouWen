@@ -78,8 +78,8 @@ Install commands may need network access unless dependencies are already cached.
 | Command | Purpose | Scope | Sandbox notes |
 |---|---|---|---|
 | `pip install -e ".[dev]"` | Python dev install | repo | May need network |
-| `pip install -e ".[dev,edition-pro]"` | Python API/pro dev install | repo | May need network |
-| `pip install -e ".[dev,edition-full]"` | Full core runtime install without mutually exclusive browser stacks | repo | May need network and optional native deps |
+| `pip install -e ".[dev,server,tls,web,robots,scraper]"` | Server runtime dev install | repo | May need network |
+| `pip install -e ".[dev,server,tls,web,robots,scraper,newspaper,readability]"` | Provider runtime dev install without mutually exclusive browser stacks | repo | May need network and optional native deps |
 | `cd panel && npm ci` | Frontend dependency install | `panel/` | May need network; use npm only |
 | `ruff check src tests scripts` | Python lint | repo | Deterministic after deps installed |
 | `ruff format --check src tests scripts` | Python format check | repo | Deterministic after deps installed |
@@ -89,9 +89,9 @@ Install commands may need network access unless dependencies are already cached.
 | `python tools/gen_docs.py -o docs/data-sources.md` | Regenerate source catalog docs | repo | Writes generated docs |
 | `python scripts/ci/check_no_legacy_terms.py` | Source catalog legacy term gate | repo | Deterministic |
 | `python scripts/ci/run_profile.py --list-profiles` | List CI profiles | repo | Deterministic |
-| `python scripts/ci/run_profile.py --profile server-contract` | Server target-contract smoke | repo | Temporarily requires pro edition extras during A3c migration |
+| `python scripts/ci/run_profile.py --profile server-contract` | Server target-contract smoke | repo | Requires the explicit Server runtime closure |
 | `python scripts/ci/run_profile.py --profile sdk-contract` | Target API-major/DTO prerequisite smoke; not generated-SDK proof | repo | Uses the current package/contract implementation until SDK generation lands |
-| `python scripts/ci/run_profile.py --profile provider-runtime` | Internal optional-provider runtime smoke | repo | Temporarily requires full edition extras; not a public product profile |
+| `python scripts/ci/run_profile.py --profile provider-runtime` | Internal optional-provider runtime smoke | repo | Requires explicit provider extras; not a public product profile |
 | `cd panel && npm test` | Vitest suite | `panel/` | Deterministic after `npm ci` |
 | `cd panel && npm run build` | TypeScript build plus Vite build | `panel/` | Deterministic after `npm ci` |
 | `cd panel && npm run build:local && npm run check:artifact` | Rebuild embedded panel artifact | `panel/` | Writes `src/souwen/server/panel.html` |

@@ -120,9 +120,6 @@ web:
 # ===== 通用设置 =====
 # 全局代理、超时、重试、HTTP 后端等配置
 general:
-  # 功能完整度档位：basic | pro | full
-  # 当前默认 pro；重运行时 fetch provider（crawl4ai/scrapling/newspaper/readability/pdf）需要 full。
-  edition: pro
   # HTTP 代理地址（例如 http://127.0.0.1:7890）
   proxy: ~
   # 代理池：多个代理地址，每次请求随机选取（优先于 proxy）

@@ -63,8 +63,6 @@ class TestYamlLoading:
                   openalex_email: user@example.com
                 http:
                   timeout: 42
-                general:
-                  edition: full
                 """
             ).strip(),
             encoding="utf-8",
@@ -73,7 +71,6 @@ class TestYamlLoading:
         assert cfg.openalex_api_key == "yaml-key"
         assert cfg.openalex_email == "user@example.com"
         assert cfg.timeout == 42
-        assert cfg.edition == "full"
 
     def test_loads_local_catalog_path_from_general_yaml(self, tmp_path):
         configured = tmp_path / "catalog" / "books.sqlite3"
@@ -215,12 +212,6 @@ class TestEnvOverride:
         cfg = reload_config()
         assert cfg.openalex_api_key == "env-openalex-key"
         assert cfg.openalex_email == "envuser@example.com"
-
-    def test_env_overrides_edition(self, monkeypatch):
-        """``SOUWEN_EDITION`` 应按普通字符串字段进入 Pydantic 校验。"""
-        monkeypatch.setenv("SOUWEN_EDITION", "basic")
-        cfg = reload_config()
-        assert cfg.edition == "basic"
 
     @pytest.mark.parametrize(
         "env_key",
@@ -375,7 +366,6 @@ class TestEnsureConfigFile:
         assert target.is_file()
         text = target.read_text(encoding="utf-8")
         assert text.strip() != ""
-        assert "edition: pro" in text
         assert "openalex_api_key: ~" in text
         assert "openalex_email: ~" in text
 

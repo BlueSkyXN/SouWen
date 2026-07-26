@@ -144,7 +144,7 @@ jobs:
       - name: 安装依赖
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev,edition-pro]"
+          pip install -e ".[dev,server,tls,web,robots,scraper]"
 
       - name: 运行测试
         if: '!(matrix.os == ''ubuntu-latest'' && matrix.python == ''3.12'')'
@@ -164,7 +164,7 @@ jobs:
 
       - name: 安装 Provider runtime profile 依赖
         if: matrix.os == 'ubuntu-latest' && matrix.python == '3.11'
-        run: pip install -e ".[dev,edition-full]"
+        run: pip install -e ".[dev,server,tls,web,robots,scraper,newspaper,readability]"
 
       - name: 运行 Provider runtime profile
         if: matrix.os == 'ubuntu-latest' && matrix.python == '3.11'
@@ -200,10 +200,10 @@ jobs:
           python-version: '3.11'
           cache: 'pip'
 
-      - name: 安装依赖（edition-pro）
+      - name: 安装 Server 测试依赖
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev,edition-pro]"
+          pip install -e ".[dev,server,tls,web,robots,scraper]"
 
       - name: 运行服务端测试
         run: pytest tests/test_server -v --tb=short
@@ -237,7 +237,7 @@ jobs:
       - name: 安装当前源码与 Scrapling 运行时
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev,edition-full-scrapling]"
+          pip install -e ".[dev,server,tls,web,robots,scraper,scrapling]"
           scrapling install
 
       - name: 运行 Scrapling 专用功能测试
@@ -288,7 +288,7 @@ jobs:
       - name: 安装当前源码与 Crawl4AI 浏览器运行时
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev,edition-full-crawl4ai]"
+          pip install -e ".[dev,server,tls,web,robots,scraper,crawl4ai]"
           python -m playwright install --with-deps chromium
 
       - name: 运行 Crawl4AI 专用功能测试
@@ -331,7 +331,7 @@ jobs:
       - name: 安装当前源码与文章抽取运行时
         run: |
           python -m pip install --upgrade pip
-          pip install -e ".[dev,edition-full]"
+          pip install -e ".[dev,server,tls,web,robots,scraper,newspaper,readability]"
 
       - name: 运行文章抽取专用功能测试
         run: |
@@ -430,7 +430,7 @@ jobs:
           retention-days: 7
 
   clean-wheel:
-    name: Clean wheel (${{ matrix.extra }})
+    name: Clean wheel (${{ matrix.profile }})
     needs: [lane, package-build]
     if: needs.lane.outputs.full == 'true'
     runs-on: ubuntu-latest
@@ -439,11 +439,12 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - { extra: edition-basic, edition: basic }
-          - { extra: edition-pro, edition: pro }
-          - { extra: edition-full, edition: full }
-          - { extra: edition-full-crawl4ai, edition: full }
-          - { extra: edition-full-scrapling, edition: full }
+          - { profile: sdk-default, install: "" }
+          - { profile: server-runtime, install: "server,tls,web,robots,scraper" }
+          - { profile: provider-newspaper, install: "server,tls,web,robots,scraper,newspaper" }
+          - { profile: provider-readability, install: "server,tls,web,robots,scraper,readability" }
+          - { profile: provider-crawl4ai, install: "server,tls,web,robots,scraper,crawl4ai" }
+          - { profile: provider-scrapling, install: "server,tls,web,robots,scraper,scrapling" }
     steps:
       - uses: actions/checkout@v6
         with:
@@ -459,34 +460,34 @@ jobs:
           python-version: '3.11'
 
       - name: Install wheel into an isolated environment
-        env:
-          SOUWEN_EDITION: ${{ matrix.edition }}
         run: |
           wheel="$(find "$GITHUB_WORKSPACE/dist" -maxdepth 1 -name 'souwen-*.whl' -print -quit)"
           test -n "$wheel"
           python -m venv "$RUNNER_TEMP/clean-wheel"
           "$RUNNER_TEMP/clean-wheel/bin/python" -m pip install --upgrade pip
-          "$RUNNER_TEMP/clean-wheel/bin/python" -m pip install "${wheel}[${{ matrix.extra }}]"
+          if [ -n "${{ matrix.install }}" ]; then
+            "$RUNNER_TEMP/clean-wheel/bin/python" -m pip install "${wheel}[${{ matrix.install }}]"
+          else
+            "$RUNNER_TEMP/clean-wheel/bin/python" -m pip install "$wheel"
+          fi
           "$RUNNER_TEMP/clean-wheel/bin/python" -m pip check
 
-      - name: Probe isolated edition and package contract
+      - name: Probe isolated package contract
         uses: ./.github/actions/clean-wheel-smoke
         env:
           HOME: ${{ runner.temp }}/clean-home
-          SOUWEN_EDITION: ${{ matrix.edition }}
         with:
           python: ${{ runner.temp }}/clean-wheel/bin/python
-          extra: ${{ matrix.extra }}
-          edition: ${{ matrix.edition }}
+          profile: ${{ matrix.profile }}
           candidate-sha: ${{ inputs.candidate_sha || github.sha }}
-          report-json: artifacts/clean-wheel-${{ matrix.extra }}.json
-          freeze-report: artifacts/clean-wheel-${{ matrix.extra }}-freeze.txt
+          report-json: artifacts/clean-wheel-${{ matrix.profile }}.json
+          freeze-report: artifacts/clean-wheel-${{ matrix.profile }}-freeze.txt
 
       - name: Upload clean-wheel evidence
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: ci-clean-wheel-${{ matrix.extra }}
+          name: ci-clean-wheel-${{ matrix.profile }}
           path: artifacts/
           if-no-files-found: warn
           retention-days: 14
@@ -508,7 +509,7 @@ jobs:
           cache: pip
 
       - name: Install basic runtime
-        run: pip install -e ".[dev,edition-pro]"
+        run: pip install -e ".[dev,server,tls,web,robots,scraper]"
 
       - name: Measure seven cold processes and enforce medians
         env:
@@ -584,7 +585,7 @@ jobs:
           retention-days: 14
 
   targeted-coverage:
-    name: Edition feature doctor coverage (90%)
+    name: Runtime capability doctor coverage (90%)
     needs: [lane, lint]
     if: needs.lane.outputs.full == 'true'
     runs-on: ubuntu-latest
@@ -600,15 +601,15 @@ jobs:
           cache: pip
 
       - name: Install test dependencies
-        run: pip install -e ".[dev,edition-pro]"
+        run: pip install -e ".[dev,server,tls,web,robots,scraper]"
 
       - name: Enforce targeted module coverage
         run: |
           pytest \
-            tests/test_editions.py \
+            tests/test_capabilities.py \
             tests/test_feature_matrix \
             tests/test_doctor.py \
-            --cov=souwen.editions \
+            --cov=souwen.capabilities \
             --cov=souwen.feature_matrix \
             --cov=souwen.doctor \
             --cov-report=term \
@@ -653,7 +654,7 @@ jobs:
         run: |
           mkdir -p artifacts
           python -m pip install --upgrade pip "setuptools>=83" pip-audit
-          pip install -e ".[edition-full]"
+          pip install -e ".[server,tls,web,robots,scraper,newspaper,readability]"
           pip-audit --local --progress-spinner=off \
             --format=json --output=artifacts/pip-audit.json
 

@@ -66,13 +66,7 @@ readability = ["readability-lxml>=0.8", "markdownify>=0.12"]
 scraper = ["curl-cffi>=0.14.0"]
 # Web 服务器（FastAPI + Uvicorn）
 server = ["fastapi>=0.111", "uvicorn[standard]>=0.29"]
-# Edition 聚合依赖：对应 SOUWEN_EDITION 的常用安装面。
-edition-basic = ["souwen[tls,web,robots]"]
-edition-pro = ["souwen[edition-basic,server,scraper]"]
-edition-full = ["souwen[edition-pro,newspaper,readability]"]
-# crawl4ai 与 scrapling 当前依赖树互斥；full 浏览器抓取按目标 provider 二选一。
-edition-full-crawl4ai = ["souwen[edition-full,crawl4ai]"]
-edition-full-scrapling = ["souwen[edition-full,scrapling]"]
+# Crawl4AI 与 Scrapling 的依赖树互斥；按目标 provider 单独安装。
 # 开发工具：单元测试、覆盖率、代码检查
 dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "pytest-httpx>=0.30", "pytest-cov>=4", "ruff==0.15.22", "markdown-it-py>=2.2"]
 

@@ -39,8 +39,8 @@ Source Catalog 是 SouWen 的公开数据源目录。它由 `SourceAdapter` regi
 
 公开 payload 使用 `sources[]` 列表。每个条目包含 `name`、`domain`、
 `category`、`capabilities`、`credentials_satisfied`、`configured_credentials`
-和 `available`，并以 `runtime_available` / `runtime_reason` 独立报告本地实现与 optional
-dependency importability。需要本地有效可执行性时合取 `available && runtime_available`；
+和 `available`。`available` 已合取启用、配置、凭据、本地 runtime 与静态数据条件；
+`runtime_available` / `runtime_reason` 和 `data_available` / `data_reason` 用于诊断具体轴。
 调用方不应假设固定分组字段，也不能把任一静态字段冒充 live upstream 观测。
 
 ## SourceAdapter

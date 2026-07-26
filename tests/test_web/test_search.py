@@ -19,7 +19,6 @@ from unittest.mock import AsyncMock, Mock
 import pytest
 
 from souwen.config import LLMSearchGatewayConfig, SouWenConfig, SourceChannelConfig
-from souwen.editions import EditionError
 from souwen.models import SearchResponse, WebSearchResult
 from souwen.registry.adapter import MethodSpec, SourceAdapter
 from souwen.web.llm_search import ConcreteSearchSourceSpec, SearchSchemeSpec
@@ -196,38 +195,6 @@ async def test_web_search_uses_registry_defaults(monkeypatch):
     assert result.results[0].engine == "duckduckgo"
 
 
-async def test_web_search_filters_default_engines_by_edition(monkeypatch):
-    """默认 web engine 列表应按 edition 静默过滤。"""
-    from souwen.web import search as web_search_mod
-
-    ddg_resp = _make_engine_response(
-        "duckduckgo", [_make_result("duckduckgo", "DDG 1", "https://ddg1.com")]
-    )
-    monkeypatch.setenv("SOUWEN_EDITION", "basic")
-    monkeypatch.setattr(web_search_mod, "_default_web_engines", lambda: ["duckduckgo", "tavily"])
-
-    async with _override_adapters(
-        {
-            "duckduckgo": _make_fake_client_class(search_resp=ddg_resp),
-            "tavily": _make_fake_client_class(
-                search_exc=AssertionError("tavily should not be selected")
-            ),
-        }
-    ):
-        result = await web_search_mod.web_search("test query")
-
-    assert len(result.results) == 1
-    assert result.results[0].engine == "duckduckgo"
-
-
-async def test_web_search_explicit_disallowed_engine_raises(monkeypatch):
-    """显式点名当前 edition 不包含的 web engine 应返回 EditionError。"""
-    monkeypatch.setenv("SOUWEN_EDITION", "basic")
-
-    with pytest.raises(EditionError, match="source 'tavily' requires edition=pro"):
-        await web_search("test query", engines="tavily")
-
-
 @pytest.mark.parametrize(
     ("source_config", "reason"),
     [
@@ -241,9 +208,8 @@ async def test_web_search_explicit_disallowed_engine_raises(monkeypatch):
         ),
     ],
 )
-async def test_web_search_skips_invalid_projected_llm_source_before_loading_or_task_creation(
+async def test_web_search_rejects_invalid_projected_llm_source_before_loading_or_task_creation(
     monkeypatch,
-    caplog,
     source_config,
     reason,
 ):
@@ -282,7 +248,6 @@ async def test_web_search_skips_invalid_projected_llm_source_before_loading_or_t
     )
     search_task = AsyncMock(name="projected_search_task")
     config = SouWenConfig(
-        edition="full",
         llm_search_gateways={
             "uniapi": LLMSearchGatewayConfig(
                 api_key="test-key",
@@ -301,14 +266,15 @@ async def test_web_search_skips_invalid_projected_llm_source_before_loading_or_t
     monkeypatch.setattr(web_search_mod, "get_config", lambda: config)
     monkeypatch.setattr(web_search_mod, "_search_engine", search_task)
 
-    result = await web_search_mod.web_search("test query", engines=[source_name])
+    from souwen.capabilities import CapabilityUnavailableError
 
-    assert result.results == []
-    assert result.total_results == 0
+    with pytest.raises(CapabilityUnavailableError) as exc_info:
+        await web_search_mod.web_search("test query", engines=[source_name])
+
     assert client_loader.call_count == 0
     search_task.assert_not_called()
-    assert reason in caplog.text
-    assert "file:///private/gateway" not in caplog.text
+    assert reason in str(exc_info.value)
+    assert "file:///private/gateway" not in str(exc_info.value)
 
 
 async def test_web_search_empty_engines_is_explicit_noop(monkeypatch):

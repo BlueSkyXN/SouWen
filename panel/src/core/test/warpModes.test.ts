@@ -95,7 +95,7 @@ describe('warp mode helpers', () => {
     expect(isWarpModeInfoAvailable(displayModes.find((mode) => mode.id === 'kernel')!)).toBe(false)
   })
 
-  it('treats edition-blocked backend modes as unavailable', () => {
+  it('uses installed state without a retired product-tier gate', () => {
     const mode: WarpModeInfo = {
       id: 'usque',
       name: 'usque',
@@ -105,11 +105,8 @@ describe('warp mode helpers', () => {
       docker_only: false,
       proxy_types: ['socks5', 'http'],
       description: 'MASQUE',
-      min_edition: 'pro',
-      edition_available: false,
-      edition_reason: "WARP mode 'usque' requires edition=pro, current edition=basic",
     }
 
-    expect(isWarpModeInfoAvailable(mode)).toBe(false)
+    expect(isWarpModeInfoAvailable(mode)).toBe(true)
   })
 })

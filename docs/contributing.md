@@ -9,8 +9,8 @@
 git clone https://github.com/BlueSkyXN/SouWen.git
 cd SouWen
 
-# 安装完整 deterministic test runtime（开发工具 + pro edition）
-pip install -e ".[dev,edition-pro]"
+# 安装完整 deterministic test runtime（开发工具 + Server runtime）
+pip install -e ".[dev,server,tls,web,robots,scraper]"
 ```
 
 ## 运行测试

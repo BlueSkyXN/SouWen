@@ -60,7 +60,7 @@
  */
 
 import { create } from 'zustand'
-import type { Edition, EditionCapabilities, UserRole, WhoamiResponse } from '../types'
+import type { UserRole, WhoamiResponse } from '../types'
 
 type FeatureMap = Record<string, boolean | string>
 
@@ -80,40 +80,10 @@ function parseStoredFeatures(raw: string | null): FeatureMap {
   }
 }
 
-function parseStoredEdition(raw: unknown): Edition | null {
-  return raw === 'basic' || raw === 'pro' || raw === 'full' ? raw : null
-}
-
-function parseStoredEditionCapabilities(raw: unknown): EditionCapabilities | null {
-  if (!raw) return null
-  try {
-    const parsed = (
-      typeof raw === 'string' ? JSON.parse(raw) : raw
-    ) as Partial<EditionCapabilities> | null
-    if (
-      !parsed
-      || typeof parsed !== 'object'
-      || typeof parsed.llm !== 'boolean'
-      || !Array.isArray(parsed.warp_modes)
-      || !parsed.warp_modes.every((value) => typeof value === 'string')
-      || !Array.isArray(parsed.fetch_providers)
-      || !parsed.fetch_providers.every((value) => typeof value === 'string')
-    ) {
-      return null
-    }
-    return {
-      llm: parsed.llm,
-      warp_modes: parsed.warp_modes,
-      fetch_providers: parsed.fetch_providers,
-    }
-  } catch {
-    return null
-  }
-}
-
 const IDENTITY_STORAGE_KEYS = [
   'souwen_role',
   'souwen_features',
+  // Remove stale keys written by pre-A4 clients during the next login/logout.
   'souwen_edition',
   'souwen_editionCapabilities',
 ] as const
@@ -139,8 +109,6 @@ interface AuthState {
   issuedAt: number // token 发放时间戳 (ms since epoch)；0 表示未登录
   role: UserRole // 当前角色（从 /whoami 获取）
   features: FeatureMap // 可用功能映射
-  edition: Edition | null // /whoami 声明的当前 edition；null 表示尚未验证
-  editionCapabilities: EditionCapabilities | null // edition 声明能力，不代表 runtime readiness
   setAuth: (baseUrl: string, token: string, version: string, remember?: boolean) => void
   setRole: (data: WhoamiResponse) => void // 更新角色信息
   logout: () => void
@@ -167,8 +135,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
   issuedAt: 0,
   role: 'guest' as UserRole,
   features: {},
-  edition: null,
-  editionCapabilities: null,
 
   /**
    * 设置认证状态（登录）
@@ -192,8 +158,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       issuedAt,
       role: 'guest' as UserRole,
       features: {},
-      edition: null,
-      editionCapabilities: null,
     })
     // 清除两端旧数据，防止残留
     localStorage.removeItem('souwen_baseUrl')
@@ -223,25 +187,16 @@ export const useAuthStore = create<AuthState>((set, get) => ({
    * 更新角色信息（从 /whoami 响应）
    */
   setRole: (data: WhoamiResponse) => {
-    const edition = parseStoredEdition(data.edition)
-    const editionCapabilities = parseStoredEditionCapabilities(data.edition_capabilities)
     set({
       role: data.role,
       features: data.features,
-      edition,
-      editionCapabilities,
     })
     // 持久化角色到当前存储
     const storage = localStorage.getItem('souwen_remember') ? localStorage : sessionStorage
     storage.setItem('souwen_role', data.role)
     storage.setItem('souwen_features', JSON.stringify(data.features))
-    if (edition) storage.setItem('souwen_edition', edition)
-    else storage.removeItem('souwen_edition')
-    if (editionCapabilities) {
-      storage.setItem('souwen_editionCapabilities', JSON.stringify(editionCapabilities))
-    } else {
-      storage.removeItem('souwen_editionCapabilities')
-    }
+    storage.removeItem('souwen_edition')
+    storage.removeItem('souwen_editionCapabilities')
   },
 
   /**
@@ -256,8 +211,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       issuedAt: 0,
       role: 'guest' as UserRole,
       features: {},
-      edition: null,
-      editionCapabilities: null,
     })
     localStorage.removeItem('souwen_baseUrl')
     localStorage.removeItem('souwen_token')
@@ -291,10 +244,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const issuedAt = Number(issuedAtRaw) || 0
     const role = (storage.getItem('souwen_role') ?? 'guest') as UserRole
     const features = parseStoredFeatures(storage.getItem('souwen_features'))
-    const edition = parseStoredEdition(storage.getItem('souwen_edition'))
-    const editionCapabilities = parseStoredEditionCapabilities(
-      storage.getItem('souwen_editionCapabilities'),
-    )
     if (baseUrl) {
       set({
         baseUrl,
@@ -304,8 +253,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
         issuedAt,
         role,
         features,
-        edition,
-        editionCapabilities,
       })
     }
   },

@@ -53,8 +53,6 @@ describe('authStore', () => {
       issuedAt: 0,
       role: 'guest',
       features: {},
-      edition: null,
-      editionCapabilities: null,
     })
   })
 
@@ -91,12 +89,6 @@ describe('authStore', () => {
     useAuthStore.getState().setRole({
       role: 'user',
       features: { search: true, config_read: 'minimal', config_write: false },
-      edition: 'pro',
-      edition_capabilities: {
-        llm: true,
-        warp_modes: ['auto', 'wireproxy', 'kernel', 'usque', 'warp-cli', 'external'],
-        fetch_providers: ['builtin'],
-      },
       guest_enabled: false,
       user_password_set: true,
       admin_password_set: true,
@@ -109,17 +101,10 @@ describe('authStore', () => {
       config_read: 'minimal',
       config_write: false,
     })
-    expect(state.edition).toBe('pro')
-    expect(state.editionCapabilities).toEqual({
-      llm: true,
-      warp_modes: ['auto', 'wireproxy', 'kernel', 'usque', 'warp-cli', 'external'],
-      fetch_providers: ['builtin'],
-    })
     expect(sessionStorage.getItem('souwen_role')).toBe('user')
     expect(JSON.parse(sessionStorage.getItem('souwen_features') ?? '{}')).toEqual(state.features)
-    expect(sessionStorage.getItem('souwen_edition')).toBe('pro')
-    expect(JSON.parse(sessionStorage.getItem('souwen_editionCapabilities') ?? 'null'))
-      .toEqual(state.editionCapabilities)
+    expect(sessionStorage.getItem('souwen_edition')).toBeNull()
+    expect(sessionStorage.getItem('souwen_editionCapabilities')).toBeNull()
     expect(localStorage.getItem('souwen_features')).toBeNull()
   })
 
@@ -128,12 +113,6 @@ describe('authStore', () => {
     useAuthStore.getState().setRole({
       role: 'admin',
       features: { fetch: true },
-      edition: 'full',
-      edition_capabilities: {
-        llm: true,
-        warp_modes: ['auto'],
-        fetch_providers: ['builtin', 'scrapling'],
-      },
       guest_enabled: false,
       user_password_set: true,
       admin_password_set: true,
@@ -145,14 +124,12 @@ describe('authStore', () => {
     expect(useAuthStore.getState()).toMatchObject({
       role: 'guest',
       features: {},
-      edition: null,
-      editionCapabilities: null,
     })
     expect(sessionStorage.getItem('souwen_edition')).toBeNull()
     expect(sessionStorage.getItem('souwen_editionCapabilities')).toBeNull()
   })
 
-  it('normalizes a legacy whoami payload without edition fields to null', () => {
+  it('clears retired edition identity keys when whoami is refreshed', () => {
     useAuthStore.getState().setAuth('http://localhost:8000', 'pw', '1.9.0')
     sessionStorage.setItem('souwen_edition', 'full')
     sessionStorage.setItem('souwen_editionCapabilities', '{"llm":true}')
@@ -168,8 +145,6 @@ describe('authStore', () => {
 
     expect(useAuthStore.getState()).toMatchObject({
       role: 'user',
-      edition: null,
-      editionCapabilities: null,
     })
     expect(sessionStorage.getItem('souwen_edition')).toBeNull()
     expect(sessionStorage.getItem('souwen_editionCapabilities')).toBeNull()
@@ -185,8 +160,6 @@ describe('authStore', () => {
     expect(state.isAuthenticated).toBe(false)
     expect(state.version).toBe('')
     expect(state.features).toEqual({})
-    expect(state.edition).toBeNull()
-    expect(state.editionCapabilities).toBeNull()
     expect(localStorage.getItem('souwen_baseUrl')).toBeNull()
     expect(localStorage.getItem('souwen_version')).toBeNull()
     expect(localStorage.getItem('souwen_features')).toBeNull()
@@ -208,20 +181,12 @@ describe('authStore', () => {
     sessionStorage.setItem('souwen_version', '1.2.3')
     sessionStorage.setItem('souwen_role', 'user')
     sessionStorage.setItem('souwen_features', JSON.stringify({ search: true, config_read: 'minimal' }))
-    sessionStorage.setItem('souwen_edition', 'pro')
-    sessionStorage.setItem('souwen_editionCapabilities', JSON.stringify({
-      llm: true,
-      warp_modes: ['auto'],
-      fetch_providers: ['builtin'],
-    }))
     useAuthStore.getState().loadFromStorage()
     const state = useAuthStore.getState()
     expect(state.isAuthenticated).toBe(true)
     expect(state.version).toBe('1.2.3')
     expect(state.role).toBe('user')
     expect(state.features).toEqual({ search: true, config_read: 'minimal' })
-    expect(state.edition).toBe('pro')
-    expect(state.editionCapabilities?.fetch_providers).toEqual(['builtin'])
   })
 
   /**
@@ -233,23 +198,15 @@ describe('authStore', () => {
     localStorage.setItem('souwen_version', '2.0.0')
     localStorage.setItem('souwen_role', 'admin')
     localStorage.setItem('souwen_features', JSON.stringify({ fetch: true, doctor_full: true }))
-    localStorage.setItem('souwen_edition', 'full')
-    localStorage.setItem('souwen_editionCapabilities', JSON.stringify({
-      llm: true,
-      warp_modes: ['auto', 'kernel'],
-      fetch_providers: ['builtin', 'scrapling'],
-    }))
     useAuthStore.getState().loadFromStorage()
     const state = useAuthStore.getState()
     expect(state.isAuthenticated).toBe(true)
     expect(state.version).toBe('2.0.0')
     expect(state.role).toBe('admin')
     expect(state.features).toEqual({ fetch: true, doctor_full: true })
-    expect(state.edition).toBe('full')
-    expect(state.editionCapabilities?.fetch_providers).toEqual(['builtin', 'scrapling'])
   })
 
-  it('treats malformed persisted edition capability data as unverified', () => {
+  it('ignores retired persisted edition identity data', () => {
     sessionStorage.setItem('souwen_baseUrl', 'http://x')
     sessionStorage.setItem('souwen_token', 'tok')
     sessionStorage.setItem('souwen_edition', 'enterprise')
@@ -261,8 +218,8 @@ describe('authStore', () => {
 
     useAuthStore.getState().loadFromStorage()
 
-    expect(useAuthStore.getState().edition).toBeNull()
-    expect(useAuthStore.getState().editionCapabilities).toBeNull()
+    expect(useAuthStore.getState().role).toBe('guest')
+    expect(useAuthStore.getState().features).toEqual({})
   })
 
   /**

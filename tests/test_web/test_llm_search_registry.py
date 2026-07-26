@@ -278,7 +278,6 @@ async def test_projected_source_uses_one_canonical_availability_contract(
 
     current_config = {
         "value": SouWenConfig(
-            edition="full",
             llm_search_gateways={
                 "uniapi": LLMSearchGatewayConfig(
                     api_key="shared-secret",
@@ -322,7 +321,6 @@ async def test_projected_source_uses_one_canonical_availability_contract(
     cases = [
         (
             SouWenConfig(
-                edition="full",
                 llm_search_gateways={
                     "uniapi": LLMSearchGatewayConfig(base_url="https://shared.example.com/v1")
                 },
@@ -333,7 +331,6 @@ async def test_projected_source_uses_one_canonical_availability_contract(
         ),
         (
             SouWenConfig(
-                edition="full",
                 llm_search_gateways={"uniapi": LLMSearchGatewayConfig(api_key="shared-secret")},
                 sources={source.source_id: SourceChannelConfig(enabled=True)},
             ),
@@ -342,7 +339,6 @@ async def test_projected_source_uses_one_canonical_availability_contract(
         ),
         (
             SouWenConfig(
-                edition="full",
                 llm_search_gateways={
                     "uniapi": LLMSearchGatewayConfig(
                         api_key="shared-secret",
@@ -366,19 +362,17 @@ async def test_projected_source_uses_one_canonical_availability_contract(
         admin_item = await admin_surface()
         for item in (catalog_item, doctor_item, admin_item):
             assert item["available"] is False
+            assert item["credentials_satisfied"] is False
             assert item["missing_credential_fields"] == [expected_missing]
             assert "private/gateway" not in str(item)
         assert catalog_item["config_reason"] == expected_config_reason
         assert admin_item["config_reason"] == expected_config_reason
-        assert doctor_item["config_reason"] == (
-            expected_config_reason or f"missing configuration: {expected_missing}"
-        )
+        assert doctor_item["config_reason"] == expected_config_reason
         assert catalog_item["config_valid"] is (not expected_config_reason)
         assert doctor_item["config_valid"] is (not expected_config_reason)
         assert admin_item["config_valid"] is (not expected_config_reason)
 
     current_config["value"] = SouWenConfig(
-        edition="full",
         llm_search_gateways={
             "uniapi": LLMSearchGatewayConfig(
                 api_key="shared-secret",

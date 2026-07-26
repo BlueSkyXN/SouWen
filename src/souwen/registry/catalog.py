@@ -278,10 +278,10 @@ def available_source_catalog(config: Any) -> dict[str, SourceCatalogEntry]:
     """按运行时配置过滤 public catalog。
 
     过滤口径与当前 ``/api/v1/sources`` 保持一致：源未禁用，且 required /
-    self_hosted 凭据已满足，并且当前 edition 允许。
+    self_hosted 凭据和本地 runtime 都满足。
     """
 
-    from souwen.editions import source_policy
+    from souwen.feature_matrix import public_adapter_runtime_probe
     from souwen.registry.meta import has_required_credentials, source_config_validation_reason
 
     result: dict[str, SourceCatalogEntry] = {}
@@ -289,8 +289,6 @@ def available_source_catalog(config: Any) -> dict[str, SourceCatalogEntry]:
         adapter = _views.get(name)
         if adapter is None:  # pragma: no cover - catalog 与 registry 同源，防御漂移
             raise KeyError(f"missing registry adapter for source {name!r}")
-        if not source_policy(adapter, config.edition).available:
-            continue
         if not config.is_source_enabled(name, default=entry.runtime_default_enabled):
             continue
         if source_config_validation_reason(config, name, entry):
@@ -299,31 +297,13 @@ def available_source_catalog(config: Any) -> dict[str, SourceCatalogEntry]:
             continue
         if adapter.availability_check is not None and not adapter.availability_check():
             continue
+        if not public_adapter_runtime_probe(adapter).available:
+            continue
         result[name] = entry
     return result
 
 
-def _source_edition_fields(name: str, config: Any) -> dict[str, Any]:
-    from souwen.editions import source_policy
-
-    adapter = _views.get(name)
-    if adapter is None:  # pragma: no cover - catalog 与 registry 同源，防御漂移
-        raise KeyError(f"missing registry adapter for source {name!r}")
-    policy = source_policy(adapter, config.edition)
-    return {
-        "min_edition": policy.min_edition,
-        "edition_available": policy.available,
-        "edition_reason": policy.reason,
-    }
-
-
-def _source_runtime_fields(name: str, edition_fields: dict[str, Any]) -> dict[str, Any]:
-    if not edition_fields["edition_available"]:
-        return {
-            "runtime_available": False,
-            "runtime_reason": (f"runtime not probed because {edition_fields['edition_reason']}"),
-        }
-
+def _source_runtime_fields(name: str) -> dict[str, Any]:
     from souwen.feature_matrix import public_adapter_runtime_probe
 
     adapter = _views.get(name)
@@ -339,8 +319,7 @@ def _source_runtime_fields(name: str, edition_fields: dict[str, Any]) -> dict[st
 def public_source_catalog_payload(config: Any) -> dict[str, Any]:
     """返回 API 与 Panel 共用的公开 Source Catalog payload。
 
-    ``available`` 保留既有 edition / enabled / credentials 合取语义；调用方
-    如需判断当前进程的有效可用性，应再合取 additive ``runtime_available``。
+    ``available`` 是 enabled、配置、凭据、本地 runtime 和静态数据可用性的合取。
     runtime probe 只检查本地 importability，不联网、不检查凭据。
     """
 
@@ -359,8 +338,7 @@ def public_source_catalog_payload(config: Any) -> dict[str, Any]:
         missing_fields = missing_credential_fields(config, name, entry)
         credentials_satisfied = has_required_credentials(config, name, entry)
         config_reason = source_config_validation_reason(config, name, entry)
-        edition_fields = _source_edition_fields(name, config)
-        runtime_fields = _source_runtime_fields(name, edition_fields)
+        runtime_fields = _source_runtime_fields(name)
         enabled = config.is_source_enabled(name, default=entry.runtime_default_enabled)
         data_available = True
         data_reason = ""
@@ -389,7 +367,6 @@ def public_source_catalog_payload(config: Any) -> dict[str, Any]:
                 "stability": entry.stability,
                 "distribution": entry.distribution,
                 "default_for": list(entry.default_for),
-                **edition_fields,
                 **runtime_fields,
                 "data_available": data_available,
                 "data_reason": data_reason,
@@ -397,7 +374,7 @@ def public_source_catalog_payload(config: Any) -> dict[str, Any]:
                     enabled
                     and not config_reason
                     and credentials_satisfied
-                    and edition_fields["edition_available"]
+                    and runtime_fields["runtime_available"]
                     and data_available
                 ),
             }

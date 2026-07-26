@@ -62,9 +62,6 @@ class SourceCatalogItem(BaseModel):
     stability: Literal["stable", "beta", "experimental", "deprecated"]
     distribution: Literal["core", "extra"]
     default_for: list[str] = Field(default_factory=list)
-    min_edition: Literal["basic", "pro", "full"]
-    edition_available: bool
-    edition_reason: str = ""
     runtime_available: bool
     runtime_reason: str = ""
     available: bool
@@ -78,21 +75,11 @@ class SourceCatalogResponse(BaseModel):
     defaults: dict[str, list[str]] = Field(default_factory=dict)
 
 
-class EditionCapabilitiesResponse(BaseModel):
-    """当前 edition 对跨域能力的声明。"""
-
-    llm: bool
-    warp_modes: list[str] = Field(default_factory=list)
-    fetch_providers: list[str] = Field(default_factory=list)
-
-
 class WhoamiResponse(BaseModel):
-    """当前请求角色、功能权限和 edition 能力。"""
+    """当前请求角色和功能权限。"""
 
     role: Literal["guest", "user", "admin"]
     features: dict[str, bool | str] = Field(default_factory=dict)
-    edition: Literal["basic", "pro", "full"]
-    edition_capabilities: EditionCapabilitiesResponse
     guest_enabled: bool
     user_password_set: bool
     admin_password_set: bool

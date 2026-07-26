@@ -14,8 +14,8 @@ from scripts._functional_common import Outcome
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-FULL_PROFILE_EXTRAS = ".[dev,edition-full]"
-TEST_RUNTIME_EXTRAS = ".[dev,edition-pro]"
+PROVIDER_RUNTIME_EXTRAS = ".[dev,server,tls,web,robots,scraper,newspaper,readability]"
+SERVER_RUNTIME_EXTRAS = ".[dev,server,tls,web,robots,scraper]"
 EXTERNAL_RUNTIME_WORKFLOWS = (
     ".github/workflows/ci.yml",
     ".github/workflows/external-smoke-gate.yml",
@@ -149,7 +149,7 @@ def test_profile_commands_prepend_source_pythonpath(monkeypatch):
         str(run_profile.SOURCE_ROOT),
         "existing",
     ]
-    assert captured_env["SOUWEN_EDITION"] == "full"
+    assert "SOUWEN_EDITION" not in captured_env
 
 
 def test_provider_runtime_code_covers_optional_fetch_provider_modules() -> None:
@@ -186,11 +186,11 @@ def test_sdk_contract_uses_only_target_contract_and_dto_tests() -> None:
     assert not any("provider" in argument for argument in command if argument.startswith("tests/"))
 
 
-def test_workflows_install_full_profile_runtime_extras() -> None:
+def test_workflows_install_provider_runtime_extras() -> None:
     for relative in (".github/workflows/ci.yml", ".github/workflows/v2-ci.yml"):
         text = (REPO_ROOT / relative).read_text(encoding="utf-8")
 
-        assert f'pip install -e "{FULL_PROFILE_EXTRAS}"' in text
+        assert f'pip install -e "{PROVIDER_RUNTIME_EXTRAS}"' in text
 
 
 @pytest.mark.parametrize(
@@ -206,19 +206,17 @@ def test_full_pytest_jobs_install_pro_runtime(relative: str, job_name: str) -> N
     workflow = yaml.safe_load((REPO_ROOT / relative).read_text(encoding="utf-8"))
     commands = "\n".join(str(step.get("run", "")) for step in workflow["jobs"][job_name]["steps"])
 
-    assert f'pip install -e "{TEST_RUNTIME_EXTRAS}"' in commands
+    assert f'pip install -e "{SERVER_RUNTIME_EXTRAS}"' in commands
 
 
-def test_external_runtime_workflows_install_edition_extras() -> None:
+def test_external_runtime_workflows_install_leaf_extras() -> None:
     for relative in EXTERNAL_RUNTIME_WORKFLOWS:
         text = (REPO_ROOT / relative).read_text(encoding="utf-8")
 
-        assert 'pip install -e ".[dev,edition-full-scrapling]"' in text
-        assert 'pip install -e ".[dev,edition-full-crawl4ai]"' in text
-        assert 'pip install -e ".[dev,edition-full]"' in text
-        assert 'pip install -e ".[dev,server,scrapling]"' not in text
-        assert 'pip install -e ".[dev,server,crawl4ai]"' not in text
-        assert 'pip install -e ".[dev,server,newspaper,readability]"' not in text
+        assert 'pip install -e ".[dev,server,tls,web,robots,scraper,scrapling]"' in text
+        assert 'pip install -e ".[dev,server,tls,web,robots,scraper,crawl4ai]"' in text
+        assert 'pip install -e ".[dev,server,tls,web,robots,scraper,newspaper,readability]"' in text
+        assert "edition-" not in text
 
 
 def test_ci_workflows_use_canonical_profile_names() -> None:
@@ -233,15 +231,14 @@ def test_ci_workflows_use_canonical_profile_names() -> None:
             )
 
 
-def test_ci_workflows_install_edition_profile_extras() -> None:
+def test_ci_workflows_install_server_runtime_extras() -> None:
     ci = (REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
     v2_ci = (REPO_ROOT / ".github/workflows/v2-ci.yml").read_text(encoding="utf-8")
     hf_cd = (REPO_ROOT / ".github/workflows/deploy-hf-space.yml").read_text(encoding="utf-8")
 
     for text in (ci, v2_ci, hf_cd):
-        assert 'pip install -e ".[dev,edition-pro]"' in text
-        assert 'pip install -e ".[dev,server]"' not in text
-        assert 'pip install -e ".[dev,server,tls]"' not in text
+        assert 'pip install -e ".[dev,server,tls,web,robots,scraper]"' in text
+        assert "edition-" not in text
 
 
 def test_hf_space_post_deploy_fails_public_admin_open() -> None:
@@ -267,10 +264,12 @@ def test_agent_command_docs_use_canonical_profile_names() -> None:
             combined_text,
         )
 
-    assert 'pip install -e ".[dev,edition-pro]"' in combined_text
-    assert 'pip install -e ".[dev,edition-full]"' in combined_text
-    assert 'pip install -e ".[dev,server]"' not in combined_text
-    assert "server,tls,web,scraper,newspaper,readability,pdf" not in combined_text
+    assert 'pip install -e ".[dev,server,tls,web,robots,scraper]"' in combined_text
+    assert (
+        'pip install -e ".[dev,server,tls,web,robots,scraper,newspaper,readability]"'
+        in combined_text
+    )
+    assert "edition-" not in combined_text
 
 
 def test_timeout_is_recorded(monkeypatch):
@@ -286,7 +285,7 @@ def test_timeout_is_recorded(monkeypatch):
     assert recorder.checks[0].details["stdout_tail"] == "partial"
 
 
-def test_canonical_profiles_keep_editions_as_internal_migration_details(monkeypatch):
+def test_canonical_profiles_do_not_set_edition_environment(monkeypatch):
     captured: list[str | None] = []
 
     def fake_run(command, **kwargs):
@@ -305,7 +304,7 @@ def test_canonical_profiles_keep_editions_as_internal_migration_details(monkeypa
         "server-contract",
         "provider-runtime",
     }
-    assert captured == [None, "pro", "full"]
+    assert captured == [None, None, None]
 
 
 def test_tail_truncates_from_end():

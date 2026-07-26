@@ -1,8 +1,8 @@
-"""Derived feature matrix for SouWen edition capabilities.
+"""Derived local runtime capability probes for registered providers.
 
-This module is a compatibility/query layer over :mod:`souwen.editions` and the
-registry. It does not maintain a second source/provider list and it performs no
-network, browser, WARP, or credential checks.
+The registry remains the source of truth.  This module only reports declared
+providers and local importability; it does not contact upstream services or
+validate credentials.
 """
 
 from __future__ import annotations
@@ -10,19 +10,8 @@ from __future__ import annotations
 import importlib.util
 from collections.abc import Iterable
 from dataclasses import dataclass
-from typing import Final, cast
+from typing import Final
 
-from souwen.editions import (
-    EDITIONS,
-    Edition,
-    allowed_warp_modes,
-    edition_allows,
-    fetch_provider_min_edition,
-    fetch_provider_policy,
-    llm_available,
-    source_min_edition,
-    source_policy,
-)
 from souwen.registry.adapter import SourceAdapter
 
 LLM_PROVIDER_MODULES: Final[dict[str, str]] = {
@@ -30,6 +19,14 @@ LLM_PROVIDER_MODULES: Final[dict[str, str]] = {
     "openai_responses": "souwen.llm.providers.openai_responses",
     "anthropic_messages": "souwen.llm.providers.anthropic_messages",
 }
+WARP_MODE_NAMES: Final[tuple[str, ...]] = (
+    "auto",
+    "wireproxy",
+    "kernel",
+    "usque",
+    "warp-cli",
+    "external",
+)
 OPTIONAL_EXTRA_MODULES: Final[dict[str, tuple[str, ...]]] = {
     "crawl4ai": ("crawl4ai",),
     "newspaper": ("newspaper",),
@@ -38,6 +35,9 @@ OPTIONAL_EXTRA_MODULES: Final[dict[str, tuple[str, ...]]] = {
     "scrapling": ("scrapling.fetchers",),
     "web": ("trafilatura",),
 }
+REQUIRED_RUNTIME_EXTRAS: Final[frozenset[str]] = frozenset(
+    {"crawl4ai", "newspaper", "readability", "scrapling"}
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -59,36 +59,17 @@ class RuntimeProbe:
 
 @dataclass(frozen=True, slots=True)
 class FetchProviderRuntimeStatus:
-    """Edition and local-runtime status for one registered fetch provider.
-
-    ``edition_available`` is the declaration/policy axis.  ``runtime_available``
-    is an importability probe and is only evaluated when the current edition
-    allows the provider.  Neither axis checks credentials or contacts an
-    upstream service.
-    """
+    """Local runtime status for one registered fetch provider."""
 
     name: str
-    min_edition: Edition
-    edition_available: bool
-    edition_reason: str = ""
     runtime_available: bool = False
     runtime_reason: str = ""
 
     @property
     def available(self) -> bool:
-        """Return the effective edition-and-runtime result."""
+        """Return whether the provider implementation is importable locally."""
 
-        return self.edition_available and self.runtime_available
-
-
-def _resolve_edition(edition: Edition | str | None) -> Edition:
-    if edition is None:
-        from souwen.config import get_config
-
-        return get_config().edition
-
-    edition_allows(edition, "basic")
-    return cast(Edition, edition)
+        return self.runtime_available
 
 
 def _module_importable(module_name: str) -> bool:
@@ -121,7 +102,7 @@ def probe_adapter_runtime(adapter: SourceAdapter) -> RuntimeProbe:
         return RuntimeProbe(False, f"{adapter.name}: {type(exc).__name__}: {exc}")
 
     extra = adapter.resolved_package_extra
-    if not extra:
+    if extra not in REQUIRED_RUNTIME_EXTRAS:
         return RuntimeProbe(True)
 
     modules = OPTIONAL_EXTRA_MODULES.get(extra)
@@ -137,12 +118,31 @@ def probe_adapter_runtime(adapter: SourceAdapter) -> RuntimeProbe:
     return RuntimeProbe(True)
 
 
+def probe_optional_runtime(adapter: SourceAdapter) -> RuntimeProbe:
+    """Probe only declared optional packages without loading a configured client.
+
+    This check is suitable for scheduling decisions: client loaders can validate
+    credentials or local configuration and therefore must not be treated as a
+    universal runtime gate.
+    """
+
+    extra = adapter.resolved_package_extra
+    if extra not in REQUIRED_RUNTIME_EXTRAS:
+        return RuntimeProbe(True)
+    modules = OPTIONAL_EXTRA_MODULES.get(extra)
+    if modules is None:
+        return RuntimeProbe(False, f"{adapter.name}: no runtime probe for extra {extra!r}")
+    missing = tuple(module for module in modules if not _module_importable(module))
+    if missing:
+        return RuntimeProbe(False, f"{adapter.name}: missing modules: {', '.join(missing)}")
+    return RuntimeProbe(True)
+
+
 def sanitize_public_runtime_probe(adapter_name: str, runtime: RuntimeProbe) -> RuntimeProbe:
     """Remove arbitrary loader exception text from a runtime probe.
 
-    Missing-module and edition-gate reasons are derived from maintained metadata
-    and are safe to retain. Every other loader failure is replaced with a stable
-    public message.
+    Missing-module reasons are derived from maintained metadata and are safe to
+    retain. Every other loader failure is replaced with a stable public message.
     """
 
     if runtime.available:
@@ -218,66 +218,30 @@ def _probe_package_extras(adapters: list[SourceAdapter]) -> ProbeResult:
     )
 
 
-def declared_source_names(edition: Edition | str | None = None) -> tuple[str, ...]:
-    """Return registry source names declared for ``edition``."""
-
-    current = _resolve_edition(edition)
+def declared_source_names() -> tuple[str, ...]:
+    """Return all registry source names."""
     from souwen.registry import all_adapters
 
-    return tuple(
-        sorted(
-            adapter.name
-            for adapter in all_adapters().values()
-            if source_policy(adapter, current).available
-        )
-    )
+    return tuple(sorted(adapter.name for adapter in all_adapters().values()))
 
 
-def declared_fetch_provider_names(edition: Edition | str | None = None) -> tuple[str, ...]:
-    """Return fetch provider names declared for ``edition``."""
-
-    current = _resolve_edition(edition)
+def declared_fetch_provider_names() -> tuple[str, ...]:
+    """Return all registered fetch provider names."""
     from souwen.registry import fetch_providers
 
-    return tuple(
-        sorted(
-            adapter.name
-            for adapter in fetch_providers()
-            if fetch_provider_policy(adapter, current).available
-        )
-    )
+    return tuple(sorted(adapter.name for adapter in fetch_providers()))
 
 
-def fetch_provider_runtime_projection(
-    edition: Edition | str | None = None,
-) -> tuple[FetchProviderRuntimeStatus, ...]:
-    """Project fetch providers onto independent edition and runtime axes.
-
-    Providers blocked by the current edition remain in the projection so public
-    discovery surfaces can explain the upgrade gate.  Their runtime
-    is not probed: importing implementation modules that the edition cannot use
-    would make lightweight discovery depend on excluded optional packages.
-    """
-
-    current = _resolve_edition(edition)
+def fetch_provider_runtime_projection() -> tuple[FetchProviderRuntimeStatus, ...]:
+    """Project registered fetch providers onto their local runtime status."""
     from souwen.registry import fetch_providers
 
     statuses: list[FetchProviderRuntimeStatus] = []
     for adapter in sorted(fetch_providers(), key=lambda item: item.name):
-        policy = fetch_provider_policy(adapter, current)
-        if policy.available:
-            runtime = public_adapter_runtime_probe(adapter)
-        else:
-            runtime = RuntimeProbe(
-                False,
-                f"runtime not probed because {policy.reason}",
-            )
+        runtime = public_adapter_runtime_probe(adapter)
         statuses.append(
             FetchProviderRuntimeStatus(
                 name=adapter.name,
-                min_edition=policy.min_edition,
-                edition_available=policy.available,
-                edition_reason=policy.reason,
                 runtime_available=runtime.available,
                 runtime_reason=runtime.reason,
             )
@@ -285,16 +249,13 @@ def fetch_provider_runtime_projection(
     return tuple(statuses)
 
 
-def declared_llm_protocols(edition: Edition | str | None = None) -> tuple[str, ...]:
-    """Return LLM protocols declared for ``edition``."""
+def declared_llm_protocols() -> tuple[str, ...]:
+    """Return LLM protocols declared by the package."""
 
-    current = _resolve_edition(edition)
-    if not llm_available(current):
-        return ()
     return tuple(LLM_PROVIDER_MODULES)
 
 
-def probe_capabilities(edition: Edition | str | None = None) -> dict[str, ProbeResult]:
+def probe_capabilities() -> dict[str, ProbeResult]:
     """Probe importability-level capabilities for the current process.
 
     The probe only imports client/provider modules and checks optional package
@@ -302,27 +263,19 @@ def probe_capabilities(edition: Edition | str | None = None) -> dict[str, ProbeR
     browsers, validate credentials, or inspect host WARP state.
     """
 
-    current = _resolve_edition(edition)
-
     from souwen.registry import all_adapters, fetch_providers
 
-    source_adapters = [
-        adapter for adapter in all_adapters().values() if source_policy(adapter, current).available
-    ]
+    source_adapters = list(all_adapters().values())
     declared_sources = tuple(sorted(adapter.name for adapter in source_adapters))
     available_sources, missing_sources = _probe_adapters(source_adapters)
 
-    fetch_adapters = [
-        adapter
-        for adapter in fetch_providers()
-        if fetch_provider_policy(adapter, current).available
-    ]
+    fetch_adapters = list(fetch_providers())
     declared_fetch = tuple(sorted(adapter.name for adapter in fetch_adapters))
     available_fetch, missing_fetch = _probe_adapters(fetch_adapters)
 
-    warp_modes = tuple(allowed_warp_modes(current))
+    warp_modes = WARP_MODE_NAMES
 
-    llm_declared = declared_llm_protocols(current)
+    llm_declared = declared_llm_protocols()
     llm_importable = tuple(
         protocol for protocol in llm_declared if _module_importable(LLM_PROVIDER_MODULES[protocol])
     )
@@ -349,17 +302,6 @@ def probe_capabilities(edition: Edition | str | None = None) -> dict[str, ProbeR
     }
 
 
-def edition_capabilities(edition: Edition | str | None = None) -> dict[str, object]:
-    """Return the legacy `/whoami` edition capability payload."""
-
-    current = _resolve_edition(edition)
-    return {
-        "llm": bool(declared_llm_protocols(current)),
-        "warp_modes": list(allowed_warp_modes(current)),
-        "fetch_providers": list(declared_fetch_provider_names(current)),
-    }
-
-
 def probe_results_to_dict(results: dict[str, ProbeResult]) -> dict[str, dict[str, object]]:
     """Convert probe dataclasses into a JSON-serializable mapping."""
 
@@ -374,25 +316,22 @@ def probe_results_to_dict(results: dict[str, ProbeResult]) -> dict[str, dict[str
 
 
 __all__ = [
-    "EDITIONS",
     "LLM_PROVIDER_MODULES",
     "OPTIONAL_EXTRA_MODULES",
-    "Edition",
+    "REQUIRED_RUNTIME_EXTRAS",
+    "WARP_MODE_NAMES",
     "FetchProviderRuntimeStatus",
     "ProbeResult",
     "RuntimeProbe",
-    "allowed_warp_modes",
     "declared_fetch_provider_names",
     "declared_llm_protocols",
     "declared_source_names",
-    "edition_capabilities",
-    "fetch_provider_min_edition",
     "fetch_provider_runtime_projection",
     "probe_capabilities",
     "probe_adapter_runtime",
+    "probe_optional_runtime",
     "probe_modules",
     "probe_results_to_dict",
     "public_adapter_runtime_probe",
     "sanitize_public_runtime_probe",
-    "source_min_edition",
 ]

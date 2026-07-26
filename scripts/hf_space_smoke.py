@@ -31,7 +31,6 @@ except ModuleNotFoundError:  # pragma: no cover - direct `python scripts/...` ex
 
 DEFAULT_BASE_URL = "https://blueskyxn-souwen.hf.space"
 USER_AGENT = "SouWen HF Space CD report/1.0"
-DEFAULT_SMOKE_EDITION = "pro"
 REQUIRED_BUILTIN_FETCH_PROBE_PATH = "scripts/fixtures/hf-space-fetch-probe.html"
 REQUIRED_BROWSER_FETCH_PROBE_PATH = "scripts/fixtures/hf-space-browser-probe.html"
 REQUIRED_BUILTIN_FETCH_PROBE_RAW_BASE_URL = "https://raw.githubusercontent.com/BlueSkyXN/SouWen"
@@ -49,11 +48,6 @@ RETRYABLE_BROWSER_FIXTURE_ERRORS = {
     "rate_limited": {429},
     "worker_timeout": {504},
     "worker_unavailable": {502},
-}
-EDITION_RANK = {
-    "basic": 0,
-    "pro": 1,
-    "full": 2,
 }
 TRUTHY_VALUES = {"1", "true", "yes", "on"}
 _FETCH_ERROR_MAX_LENGTH = 240
@@ -138,7 +132,6 @@ ZERO_KEY_OPEN_SEARCH_SOURCES = [
 ZERO_KEY_FETCH_PROVIDER_TESTS = [
     {
         "provider": "builtin",
-        "min_edition": "basic",
         "urls": ["https://example.com/"],
         "timeout": 15,
         "backend_matrix": True,
@@ -146,7 +139,6 @@ ZERO_KEY_FETCH_PROVIDER_TESTS = [
     },
     {
         "provider": "jina_reader",
-        "min_edition": "pro",
         "urls": ["https://example.com/"],
         "timeout": 20,
         "backend_matrix": False,
@@ -154,7 +146,6 @@ ZERO_KEY_FETCH_PROVIDER_TESTS = [
     },
     {
         "provider": "arxiv_fulltext",
-        "min_edition": "pro",
         "urls": ["https://arxiv.org/abs/1706.03762"],
         "timeout": 35,
         "backend_matrix": False,
@@ -162,7 +153,6 @@ ZERO_KEY_FETCH_PROVIDER_TESTS = [
     },
     {
         "provider": "crawl4ai",
-        "min_edition": "full",
         "urls": ["https://example.com/"],
         "timeout": 30,
         "backend_matrix": False,
@@ -170,7 +160,6 @@ ZERO_KEY_FETCH_PROVIDER_TESTS = [
     },
     {
         "provider": "newspaper",
-        "min_edition": "full",
         "urls": ["https://example.com/"],
         "timeout": 20,
         "backend_matrix": True,
@@ -178,7 +167,6 @@ ZERO_KEY_FETCH_PROVIDER_TESTS = [
     },
     {
         "provider": "readability",
-        "min_edition": "full",
         "urls": ["https://example.com/"],
         "timeout": 20,
         "backend_matrix": True,
@@ -186,7 +174,6 @@ ZERO_KEY_FETCH_PROVIDER_TESTS = [
     },
     {
         "provider": "site_crawler",
-        "min_edition": "basic",
         "urls": ["https://example.com/"],
         "timeout": 20,
         "backend_matrix": True,
@@ -194,7 +181,6 @@ ZERO_KEY_FETCH_PROVIDER_TESTS = [
     },
     {
         "provider": "deepwiki",
-        "min_edition": "pro",
         "urls": ["https://deepwiki.com/BlueSkyXN/SouWen"],
         "timeout": 45,
         "backend_matrix": True,
@@ -202,7 +188,6 @@ ZERO_KEY_FETCH_PROVIDER_TESTS = [
     },
     {
         "provider": "wayback",
-        "min_edition": "pro",
         "urls": ["https://example.com/"],
         "timeout": 30,
         "backend_matrix": True,
@@ -295,7 +280,6 @@ class SmokeConfig:
     expected_wrapper_sha: str | None = None
     require_target_runtime: bool = False
     mode: str = "capability"
-    edition: str = DEFAULT_SMOKE_EDITION
     bearer_token: str | None = None
     hf_space_token: str | None = None
     fail_admin_open: bool = False
@@ -344,7 +328,6 @@ class ProbeResult:
 class RunState:
     original_backend: str | None = None
     original_warp_status: dict[str, Any] | None = None
-    edition: str | None = None
     admin_open: bool | None = None
     admin_password_set: bool | None = None
     admin_access_mode: str = "unknown"
@@ -459,34 +442,7 @@ def resolve_fail_admin_open(base_url: str, requested: bool | None) -> bool:
     return not is_local_base_url(base_url)
 
 
-def normalize_edition(raw: str | None) -> str:
-    value = (raw or "").strip().lower()
-    if value in EDITION_RANK:
-        return value
-    return DEFAULT_SMOKE_EDITION
-
-
-def edition_allows(current: str, required: str) -> bool:
-    current_edition = normalize_edition(current)
-    required_edition = normalize_edition(required)
-    return EDITION_RANK[current_edition] >= EDITION_RANK[required_edition]
-
-
-def active_edition(config: SmokeConfig, state: RunState) -> str:
-    return normalize_edition(state.edition or config.edition)
-
-
-def fetch_provider_min_edition(provider_test: dict[str, Any]) -> str:
-    value = str(provider_test.get("min_edition") or DEFAULT_SMOKE_EDITION).strip().lower()
-    if value not in EDITION_RANK:
-        raise ValueError(
-            f"fetch provider {provider_test.get('provider')!r} has invalid min_edition={value!r}"
-        )
-    return value
-
-
 def eligible_fetch_provider_tests(
-    edition: str,
     *,
     backend_matrix: bool | None = None,
 ) -> list[dict[str, Any]]:
@@ -497,17 +453,8 @@ def eligible_fetch_provider_tests(
             and bool(provider_test.get("backend_matrix")) != backend_matrix
         ):
             continue
-        if edition_allows(edition, fetch_provider_min_edition(provider_test)):
-            tests.append(provider_test)
+        tests.append(provider_test)
     return tests
-
-
-def edition_gated_fetch_provider_tests(edition: str) -> list[dict[str, Any]]:
-    return [
-        provider_test
-        for provider_test in ZERO_KEY_FETCH_PROVIDER_TESTS
-        if not edition_allows(edition, fetch_provider_min_edition(provider_test))
-    ]
 
 
 def classify_admin_access(data: dict[str, Any], config: SmokeConfig) -> str:
@@ -1065,16 +1012,11 @@ def run_admin_checks(client: ApiClient, config: SmokeConfig, state: RunState) ->
 
     def _config() -> ProbeResult:
         resp = client.get("/api/v1/admin/config", auth=True)
-        edition = resp.data.get("edition") if isinstance(resp.data, dict) else None
-        if isinstance(edition, str):
-            state.edition = normalize_edition(edition)
         ok = resp.status == 200 and "default_http_backend" in resp.data
         detail = (
             f"status={resp.status}, default_http_backend={resp.data.get('default_http_backend')!r}, "
-            f"warp_enabled={resp.data.get('warp_enabled')!r}, "
-            f"edition={state.edition or config.edition!r}"
+            f"warp_enabled={resp.data.get('warp_enabled')!r}"
         )
-        meta = {"edition": state.edition or normalize_edition(config.edition)}
         return (
             pass_result(
                 "admin",
@@ -1082,7 +1024,6 @@ def run_admin_checks(client: ApiClient, config: SmokeConfig, state: RunState) ->
                 detail,
                 required=True,
                 elapsed=resp.elapsed,
-                meta=meta,
             )
             if ok
             else fail_result(
@@ -1091,7 +1032,6 @@ def run_admin_checks(client: ApiClient, config: SmokeConfig, state: RunState) ->
                 detail,
                 required=True,
                 elapsed=resp.elapsed,
-                meta=meta,
             )
         )
 
@@ -2232,8 +2172,6 @@ def skipped_fetch_provider_with_meta(
     reason: str,
     *,
     skip_reason: str = "runtime",
-    required_edition: str | None = None,
-    current_edition: str | None = None,
 ) -> ProbeResult:
     meta: dict[str, Any] = {
         "matrix_kind": "fetch-source",
@@ -2247,10 +2185,6 @@ def skipped_fetch_provider_with_meta(
         "note": reason,
         "skip_reason": skip_reason,
     }
-    if required_edition is not None:
-        meta["required_edition"] = required_edition
-    if current_edition is not None:
-        meta["current_edition"] = current_edition
     return ProbeResult(
         "zero-key-fetch-source",
         provider,
@@ -2259,18 +2193,6 @@ def skipped_fetch_provider_with_meta(
         False,
         None,
         meta,
-    )
-
-
-def edition_skipped_fetch_provider(provider_test: dict[str, Any], edition: str) -> ProbeResult:
-    provider = str(provider_test["provider"])
-    required = fetch_provider_min_edition(provider_test)
-    return skipped_fetch_provider_with_meta(
-        provider,
-        f"requires edition={required}; current edition={normalize_edition(edition)}",
-        skip_reason="edition",
-        required_edition=required,
-        current_edition=normalize_edition(edition),
     )
 
 
@@ -2400,7 +2322,6 @@ def run_zero_key_case(
     config: SmokeConfig,
     *,
     warp: str,
-    edition: str,
 ) -> list[ProbeResult]:
     results: list[ProbeResult] = []
 
@@ -2530,7 +2451,7 @@ def run_zero_key_case(
                         ),
                     )
                 )
-            for provider_test in eligible_fetch_provider_tests(edition, backend_matrix=True):
+            for provider_test in eligible_fetch_provider_tests(backend_matrix=True):
                 provider = str(provider_test["provider"])
                 results.append(
                     safe_call(
@@ -2549,7 +2470,7 @@ def run_zero_key_case(
         results.append(
             safe_call("matrix", "http-backend=auto", lambda: set_http_backend(client, "auto"))
         )
-        for provider_test in eligible_fetch_provider_tests(edition, backend_matrix=False):
+        for provider_test in eligible_fetch_provider_tests(backend_matrix=False):
             provider = str(provider_test["provider"])
             results.append(
                 safe_call(
@@ -2591,8 +2512,6 @@ def run_zero_key_checks(
         ]
 
     results: list[ProbeResult] = []
-    edition = active_edition(config, state)
-
     disable = safe_call(
         "matrix", "warp-disable", lambda: set_warp(client, False, config), required=True
     )
@@ -2600,7 +2519,7 @@ def run_zero_key_checks(
     if disable.outcome == "fail":
         return results
 
-    results.extend(run_zero_key_case(client, config, warp="off", edition=edition))
+    results.extend(run_zero_key_case(client, config, warp="off"))
 
     for index, mode in enumerate(config.warp_modes):
         if not warp_mode_available(mode, state):
@@ -2642,7 +2561,7 @@ def run_zero_key_checks(
             continue
 
         state.observed_warp_status[mode] = dict(verify.meta)
-        results.extend(run_zero_key_case(client, config, warp=mode, edition=edition))
+        results.extend(run_zero_key_case(client, config, warp=mode))
 
     results.append(
         safe_call("matrix", "http-backend=auto", lambda: set_http_backend(client, "auto"))
@@ -2723,18 +2642,9 @@ def run_zero_key_checks(
             required=True,
         )
     )
-    if edition_allows(edition, "pro"):
-        results.append(
-            safe_call("zero-key-fetch", "jina-reader-fetch", lambda: fetch_jina_reader(client))
-        )
-    else:
-        results.append(
-            skip_result(
-                "zero-key-fetch",
-                "jina-reader-fetch",
-                f"requires edition=pro; current edition={edition}",
-            )
-        )
+    results.append(
+        safe_call("zero-key-fetch", "jina-reader-fetch", lambda: fetch_jina_reader(client))
+    )
     results.append(safe_call("zero-key-fetch", "links", lambda: links_extract(client)))
     results.append(safe_call("zero-key-fetch", "sitemap", lambda: sitemap_parse(client)))
     results.append(safe_call("zero-key-archive", "wayback-cdx", lambda: wayback_cdx(client)))
@@ -2743,8 +2653,6 @@ def run_zero_key_checks(
     if config.full_matrix:
         for item in ZERO_KEY_FETCH_SKIPPED:
             results.append(skipped_fetch_provider(item["provider"], item["reason"]))
-        for item in edition_gated_fetch_provider_tests(edition):
-            results.append(edition_skipped_fetch_provider(item, edition))
 
     return results
 
@@ -3082,7 +2990,6 @@ def make_result_recorder(config: SmokeConfig) -> ResultRecorder:
             "expected_source_sha": config.expected_source_sha or "",
             "expected_wrapper_sha": config.expected_wrapper_sha or "",
             "require_target_runtime": config.require_target_runtime,
-            "edition": normalize_edition(config.edition),
             "fail_admin_open": config.fail_admin_open,
             "surface_only": config.surface_only,
             "full_matrix": config.full_matrix,
@@ -3158,24 +3065,10 @@ def fetch_provider_matrix_summary(config: SmokeConfig, results: list[ProbeResult
         for result in fetch_sources
         if result.outcome != "skip"
     }
-    edition_skipped = {
-        str(result.meta.get("provider") or result.name)
-        for result in fetch_sources
-        if result.meta.get("skip_reason") == "edition"
-    }
     return (
         f"- Fetch provider matrix: `{len(tested)} tested, "
-        f"{len(edition_skipped)} skipped by edition, "
         f"{len(ZERO_KEY_FETCH_SKIPPED)} skipped external-runtime`"
     )
-
-
-def observed_edition(config: SmokeConfig, results: list[ProbeResult]) -> str:
-    for result in results:
-        edition = result.meta.get("edition")
-        if isinstance(edition, str) and edition in EDITION_RANK:
-            return edition
-    return normalize_edition(config.edition)
 
 
 def observed_admin_access(results: list[ProbeResult]) -> str:
@@ -3408,7 +3301,6 @@ def build_markdown_report(config: SmokeConfig, results: list[ProbeResult]) -> st
         f"- Expected wrapper SHA: `{config.expected_wrapper_sha or 'not pinned'}`",
         f"- Target runtime required: `{'yes' if config.require_target_runtime else 'no'}`",
         f"- Mode: `{config.mode}`",
-        f"- Edition: `{observed_edition(config, results)}`",
         f"- Admin access: `{observed_admin_access(results)}`",
         f"- Public admin-open gate: `{'fail' if config.fail_admin_open else 'warn'}`",
         *capability_lines,
@@ -3610,14 +3502,6 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         ),
     )
     parser.add_argument(
-        "--edition",
-        default=os.environ.get("SOUWEN_SMOKE_EDITION", DEFAULT_SMOKE_EDITION),
-        help=(
-            "Assumed deployed SouWen edition when /api/v1/admin/config cannot be read. "
-            "Use basic, pro or full. Defaults to pro."
-        ),
-    )
-    parser.add_argument(
         "--quick-matrix",
         action="store_true",
         help="Only run aggregate 0key checks; skip per-source matrix probes.",
@@ -3682,7 +3566,6 @@ def main(argv: list[str] | None = None) -> int:
         expected_wrapper_sha=normalize_expected_source_sha(args.expected_wrapper_sha),
         require_target_runtime=args.require_target_runtime,
         mode=mode,
-        edition=normalize_edition(args.edition),
         bearer_token=args.bearer_token,
         hf_space_token=args.hf_space_token,
         fail_admin_open=resolve_fail_admin_open(base_url, args.fail_admin_open),

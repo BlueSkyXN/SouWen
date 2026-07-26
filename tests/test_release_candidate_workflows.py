@@ -189,7 +189,7 @@ def test_release_candidate_strictly_validates_promotion_inputs() -> None:
     assert "RC2 publication remains disabled until Phase 8" in text
     assert '--title "$PRODUCT_NAME"' in text
     assert text.index("git', 'merge-base', '--is-ancestor'") < text.index(
-        'pip install -e ".[edition-pro]"'
+        'pip install -e ".[server,tls,web,robots,scraper]"'
     )
     assert "release-candidate must run from the current origin/main control plane" in text
     assert "candidate_sha to equal the current origin/main" in text
@@ -809,15 +809,16 @@ def test_ci_has_stable_aggregate_and_required_readiness_gates() -> None:
     assert "name: V2 CI / v2 release readiness summary" in _workflow("v2-ci.yml")
     assert "--cov-fail-under=67" in text
     assert "--cov-fail-under=90" in text
-    assert "name: Clean wheel (${{ matrix.extra }})" in text
-    for extra in (
-        "edition-basic",
-        "edition-pro",
-        "edition-full",
-        "edition-full-crawl4ai",
-        "edition-full-scrapling",
+    assert "name: Clean wheel (${{ matrix.profile }})" in text
+    for profile in (
+        "sdk-default",
+        "server-runtime",
+        "provider-newspaper",
+        "provider-readability",
+        "provider-crawl4ai",
+        "provider-scrapling",
     ):
-        assert f"extra: {extra}" in text
+        assert f"profile: {profile}" in text
     assert "samples = []" in text
     assert "for _ in range(7):" in text
     assert "pip-audit --local" in text
@@ -1070,17 +1071,17 @@ def test_external_release_gate_no_longer_contains_plugin_runtime_fixture() -> No
     assert "external-gate-plugin-report" not in text
 
 
-def test_clean_wheel_composite_enforces_edition_and_package_boundaries() -> None:
+def test_clean_wheel_composite_enforces_runtime_and_package_boundaries() -> None:
     text = (REPO_ROOT / ".github/actions/clean-wheel-smoke/action.yml").read_text(encoding="utf-8")
     for contract in (
         "package/panel",
         "package/no-retired-imports",
-        "basic/no-fastapi",
-        "basic/two-fetch-providers",
-        "basic/llm-gated",
-        "pro/server-import",
+        "sdk/no-fastapi",
+        "server/import",
+        "server/import-{module}",
         "variant/crawl4ai-only",
         "variant/scrapling-only",
-        "expected_missing_fetch_providers",
     ):
         assert contract in text
+    assert "souwen.editions" not in text
+    assert "CLEAN_WHEEL_PROFILE" in text

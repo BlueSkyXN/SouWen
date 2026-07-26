@@ -29,11 +29,11 @@
     "top_level_unit_count": 23,
     "top_level_units": [
       "book",
+      "capabilities",
       "citations",
       "config",
       "core",
       "doctor",
-      "editions",
       "feature_matrix",
       "integrations",
       "llm",
@@ -52,13 +52,13 @@
       "web",
       "wikisource"
     ],
-    "cross_unit_edge_count": 73,
-    "cross_unit_edge_sha256": "383cbd8a4c4b0577ab328035aa6f7e007b99119af2520af8daf7c06d82ece3a2",
+    "cross_unit_edge_count": 69,
+    "cross_unit_edge_sha256": "dae19c8d4304a51c82ab509ddb50fd07dc9c5e6be00df7a67ccd529ab5434cdf",
     "strongly_connected_components": [
       [
+        "capabilities",
         "citations",
         "core",
-        "editions",
         "feature_matrix",
         "llm",
         "local_catalog",

@@ -54,8 +54,8 @@ secret 名称 fail fast，不输出值、长度或前缀。
 | `SDK and Server contracts` | `sdk-contract` + `server-contract` profiles | SDK 仅验证 target contract 前置条件；不证明 generated SDK 完成或外部源在线 |
 | `HF Space Docker surface smoke` | exact SHA 双进程启动、target/Worker readiness、docs/panel、49266 未发布 | 本地容器，不是 live Space |
 
-`server-contract` 在 A3c 迁移期仍通过现有 edition extras 安装所需实现；这不保留
-edition profile 作为产品 contract，A4 才负责删除 editions 与 package matrix。
+`server-contract` 通过明确的 Server runtime leaf extras 安装所需实现；这不是新的
+product tier 或 package matrix。
 
 HFS Docker build 必须传 `SOUWEN_REF=<40位 candidate SHA>`。Dockerfile 的全零模板、短 SHA、
 分支名和 moving `main` 都 fail closed；detached checkout 会把 SHA 写入

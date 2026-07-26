@@ -15,7 +15,6 @@ from contextlib import AsyncExitStack, asynccontextmanager
 
 import pytest
 
-from souwen.editions import EditionError
 from souwen.core.exceptions import LocalCatalogUnavailableError
 from souwen.models import SearchResponse, WaybackCDXResponse
 from souwen.registry.adapter import MethodSpec, SourceAdapter
@@ -272,28 +271,6 @@ async def test_search_sources_string_is_normalized(monkeypatch):
     assert captured["execute"] == ["openalex"]
 
 
-def test_select_adapters_filters_default_sources_by_edition(monkeypatch):
-    """默认源选择应按当前 edition 静默过滤不可用 source。"""
-    search_mod = importlib.import_module("souwen.search")
-    monkeypatch.setenv("SOUWEN_EDITION", "basic")
-    monkeypatch.setattr(
-        search_mod, "defaults_for", lambda _domain, _capability: ["arxiv", "openalex"]
-    )
-
-    adapters = search_mod._select_adapters("paper", "search", None)
-
-    assert [adapter.name for adapter in adapters] == ["arxiv"]
-
-
-def test_select_adapters_explicit_disallowed_source_raises(monkeypatch):
-    """显式点名当前 edition 不包含的 source 应直接报 EditionError。"""
-    search_mod = importlib.import_module("souwen.search")
-    monkeypatch.setenv("SOUWEN_EDITION", "basic")
-
-    with pytest.raises(EditionError, match="source 'openalex' requires edition=pro"):
-        search_mod._select_adapters("paper", "search", ["openalex"])
-
-
 async def test_search_query_is_trimmed_before_dispatch(monkeypatch):
     """顶层 ``search()`` 应裁剪 query 后再派发到 provider。"""
     search_mod = importlib.import_module("souwen.search")
@@ -461,37 +438,6 @@ async def test_search_by_capability_query_is_trimmed_before_dispatch(monkeypatch
     await search_mod.search_by_capability("  AI news  ", "search", sources="openalex")
 
     assert captured["query"] == "AI news"
-
-
-async def test_search_by_capability_filters_default_sources_by_edition(monkeypatch):
-    """跨 domain capability 默认选择也必须按 edition 过滤。"""
-    search_mod = importlib.import_module("souwen.search")
-    from souwen.registry import get as registry_get
-
-    adapters = [registry_get("arxiv"), registry_get("openalex")]
-    assert all(adapters)
-    captured = {}
-
-    async def fake_execute(domain, query, adapters, limit, capability, **kwargs):
-        captured["execute"] = [adapter.name for adapter in adapters]
-        return []
-
-    monkeypatch.setenv("SOUWEN_EDITION", "basic")
-    monkeypatch.setattr(search_mod, "by_capability", lambda _capability: adapters)
-    monkeypatch.setattr(search_mod, "_execute_search", fake_execute)
-
-    await search_mod.search_by_capability("q", "search")
-
-    assert captured["execute"] == ["arxiv"]
-
-
-async def test_search_by_capability_explicit_disallowed_source_raises(monkeypatch):
-    """跨 domain capability 显式点名不可用 source 时也必须拒绝。"""
-    search_mod = importlib.import_module("souwen.search")
-    monkeypatch.setenv("SOUWEN_EDITION", "basic")
-
-    with pytest.raises(EditionError, match="source 'openalex' requires edition=pro"):
-        await search_mod.search_by_capability("q", "search", sources="openalex")
 
 
 async def test_search_news_uses_registry_default(monkeypatch):

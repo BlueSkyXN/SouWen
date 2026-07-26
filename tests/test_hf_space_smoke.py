@@ -7,7 +7,6 @@ from types import SimpleNamespace
 import pytest
 
 from scripts import hf_space_smoke as smoke
-from souwen.editions import fetch_provider_min_edition as registry_fetch_provider_min_edition
 from souwen.registry import all_adapters, fetch_providers
 
 
@@ -1122,44 +1121,40 @@ def test_build_markdown_report_includes_fetch_matrix_and_exclusions():
     assert "Required-key fetch" in report
 
 
-def test_fetch_provider_smoke_min_editions_match_registry():
+def test_fetch_provider_smoke_entries_match_registry():
     providers = {provider.name: provider for provider in fetch_providers()}
 
     for item in smoke.ZERO_KEY_FETCH_PROVIDER_TESTS:
-        provider = providers[item["provider"]]
-        assert smoke.fetch_provider_min_edition(item) == registry_fetch_provider_min_edition(
-            provider
-        )
+        assert item["provider"] in providers
 
 
-def test_eligible_fetch_provider_tests_respects_edition():
-    pro_providers = {item["provider"] for item in smoke.eligible_fetch_provider_tests("pro")}
-    full_providers = {item["provider"] for item in smoke.eligible_fetch_provider_tests("full")}
-    gated_providers = {item["provider"] for item in smoke.edition_gated_fetch_provider_tests("pro")}
+def test_eligible_fetch_provider_tests_filter_by_backend_matrix():
+    all_providers = {item["provider"] for item in smoke.eligible_fetch_provider_tests()}
+    matrix_providers = {
+        item["provider"] for item in smoke.eligible_fetch_provider_tests(backend_matrix=True)
+    }
+    single_providers = {
+        item["provider"] for item in smoke.eligible_fetch_provider_tests(backend_matrix=False)
+    }
 
-    assert "builtin" in pro_providers
-    assert "jina_reader" in pro_providers
-    assert "arxiv_fulltext" in pro_providers
-    assert "crawl4ai" not in pro_providers
-    assert "arxiv_fulltext" in full_providers
-    assert "crawl4ai" in full_providers
-    assert gated_providers == {"crawl4ai", "newspaper", "readability"}
+    assert matrix_providers | single_providers == all_providers
+    assert matrix_providers & single_providers == set()
+    assert {"builtin", "newspaper", "readability"} <= matrix_providers
+    assert {"jina_reader", "arxiv_fulltext", "crawl4ai"} <= single_providers
 
 
-def test_build_markdown_report_counts_edition_gated_fetch_skips():
+def test_build_markdown_report_counts_external_runtime_skips():
     config = smoke.SmokeConfig(
         base_url="https://example.test",
         expected_version="1.2.3",
         request_timeout=1,
-        edition="pro",
     )
     results = [
         smoke.ProbeResult(
             "admin",
             "config",
             "pass",
-            "status=200, edition='pro'",
-            meta={"edition": "pro"},
+            "status=200",
         ),
         smoke.ProbeResult(
             "zero-key-fetch-source",
@@ -1176,20 +1171,16 @@ def test_build_markdown_report_counts_edition_gated_fetch_skips():
                 "total_failed": 0,
             },
         ),
-        smoke.edition_skipped_fetch_provider(
-            {
-                "provider": "crawl4ai",
-                "min_edition": "full",
-            },
-            "pro",
+        smoke.skipped_fetch_provider(
+            "scrapling",
+            "requires optional scrapling runtime",
         ),
     ]
 
     report = smoke.build_markdown_report(config, results)
 
-    assert "- Edition: `pro`" in report
-    assert "1 tested, 1 skipped by edition" in report
-    assert "requires edition=full; current edition=pro" in report
+    assert "1 tested, 1 skipped external-runtime" in report
+    assert "requires optional scrapling runtime" in report
 
 
 def test_build_markdown_report_expands_open_sources_and_direct_routes():

@@ -564,7 +564,7 @@ async def _fetch_with_provider(
     Returns:
         FetchResponse
     """
-    ensure_fetch_providers_allowed([provider])
+    ensure_fetch_providers_available([provider])
 
     handler = _FETCH_HANDLERS.get(provider)
     if handler is not None:
@@ -617,18 +617,18 @@ def _fetch_provider_adapters_by_name():
     return {adapter.name: adapter for adapter in fetch_providers()}
 
 
-def ensure_fetch_providers_allowed(providers: list[str], edition: str | None = None) -> None:
-    """Raise when a known fetch provider is not available in the current edition."""
+def ensure_fetch_providers_available(providers: list[str]) -> None:
+    """Raise when a known fetch provider is unavailable in this runtime."""
 
-    from souwen.editions import ensure_fetch_provider_allowed
+    from souwen.capabilities import ensure_fetch_provider_available
 
-    current_edition = edition or get_config().edition
+    config = get_config()
     adapters = _fetch_provider_adapters_by_name()
     for provider in providers:
         adapter = adapters.get(provider)
         if adapter is None:
             continue
-        ensure_fetch_provider_allowed(adapter, current_edition)
+        ensure_fetch_provider_available(adapter, config)
 
 
 def _align_results_to_urls(
@@ -752,7 +752,7 @@ async def fetch_content(
 
     normalized_urls = _normalize_string_list_arg(urls, name="urls")
     selected = _normalize_string_list_arg(providers, name="providers") or ["builtin"]
-    ensure_fetch_providers_allowed(selected)
+    ensure_fetch_providers_available(selected)
     provider_compat = _provider_compat_value(selected)
     attempted: dict[str, list[str]] = {url: [] for url in normalized_urls}
     selected_provider: dict[str, str] = {}

@@ -62,7 +62,6 @@ def _payload(
 
 def _configure_source(monkeypatch, source_id: str, *, params: dict | None = None) -> SouWenConfig:
     config = SouWenConfig(
-        edition="full",
         llm_search_gateways={
             "uniapi": LLMSearchGatewayConfig(
                 api_key="fixture-api-key",
@@ -350,7 +349,6 @@ async def test_web_search_dispatches_only_the_explicit_bound_ark_source(
 
 def test_ark_client_requires_shared_gateway_fields(monkeypatch) -> None:
     config = SouWenConfig(
-        edition="full",
         sources={ARK_ANNOTATIONS_DEEPSEEK.source_id: SourceChannelConfig(enabled=True)},
     )
     monkeypatch.setattr("souwen.web.llm_search.schemes.ark_annotations.get_config", lambda: config)

@@ -335,9 +335,8 @@ def test_available_source_catalog_matches_runtime_credentials_and_enabled_state(
     )
     assert "searxng" in configured
 
-    basic_available = available_source_catalog(SouWenConfig(edition="basic"))
-    assert "arxiv" in basic_available
-    assert "openalex" not in basic_available
+    available = available_source_catalog(SouWenConfig())
+    assert "arxiv" in available
 
 
 def test_runtime_default_disabled_source_requires_explicit_enable(clean_registry) -> None:
@@ -354,42 +353,30 @@ def test_runtime_default_disabled_source_requires_explicit_enable(clean_registry
     )
     _reg(adapter)
 
-    default_config = SouWenConfig(
-        edition="full",
-        sources={adapter.name: {"timeout": 45}},
-    )
+    default_config = SouWenConfig(sources={adapter.name: {"timeout": 45}})
     assert adapter.name not in available_source_catalog(default_config)
 
-    enabled_config = SouWenConfig(
-        edition="full",
-        sources={adapter.name: {"enabled": True, "timeout": 45}},
-    )
+    enabled_config = SouWenConfig(sources={adapter.name: {"enabled": True, "timeout": 45}})
     assert adapter.name in available_source_catalog(enabled_config)
 
 
-def test_public_source_catalog_payload_includes_edition_metadata() -> None:
-    payload = public_source_catalog_payload(SouWenConfig(edition="basic"))
+def test_public_source_catalog_payload_includes_runtime_metadata() -> None:
+    payload = public_source_catalog_payload(SouWenConfig())
     sources = {item["name"]: item for item in payload["sources"]}
 
     arxiv = sources["arxiv"]
-    assert arxiv["min_edition"] == "basic"
-    assert arxiv["edition_available"] is True
-    assert arxiv["edition_reason"] == ""
     assert isinstance(arxiv["runtime_available"], bool)
     assert isinstance(arxiv["runtime_reason"], str)
     assert arxiv["available"] is True
 
     openalex = sources["openalex"]
-    assert openalex["min_edition"] == "pro"
-    assert openalex["edition_available"] is False
-    assert "source 'openalex' requires edition=pro" in openalex["edition_reason"]
-    assert openalex["available"] is False
+    assert isinstance(openalex["runtime_available"], bool)
 
 
-def test_public_source_catalog_payload_exposes_runtime_without_redefining_available(
+def test_public_source_catalog_payload_runtime_contributes_to_availability(
     monkeypatch,
 ) -> None:
-    """The additive runtime axis must not silently change the compatibility field."""
+    """A source without its required runtime cannot be scheduled as available."""
     from souwen.feature_matrix import RuntimeProbe
 
     def fake_probe(adapter: SourceAdapter) -> RuntimeProbe:
@@ -399,13 +386,12 @@ def test_public_source_catalog_payload_exposes_runtime_without_redefining_availa
 
     monkeypatch.setattr("souwen.feature_matrix.probe_adapter_runtime", fake_probe)
 
-    payload = public_source_catalog_payload(SouWenConfig(edition="pro"))
+    payload = public_source_catalog_payload(SouWenConfig())
     openalex = next(item for item in payload["sources"] if item["name"] == "openalex")
 
-    assert openalex["edition_available"] is True
     assert openalex["runtime_available"] is False
     assert openalex["runtime_reason"] == "openalex: missing modules: optional_sdk"
-    assert openalex["available"] is True
+    assert openalex["available"] is False
 
 
 def test_public_source_catalog_payload_sanitizes_client_loader_exception(
@@ -432,7 +418,7 @@ def test_public_source_catalog_payload_sanitizes_client_loader_exception(
     )
     _reg(adapter)
 
-    payload = public_source_catalog_payload(SouWenConfig(edition="full"))
+    payload = public_source_catalog_payload(SouWenConfig())
     source = next(item for item in payload["sources"] if item["name"] == adapter.name)
     serialized = str(payload)
 
@@ -444,10 +430,10 @@ def test_public_source_catalog_payload_sanitizes_client_loader_exception(
     assert "runtime-secret" not in serialized
 
 
-def test_public_source_catalog_payload_does_not_probe_edition_gated_sources(
+def test_public_source_catalog_payload_probes_all_declared_sources(
     monkeypatch,
 ) -> None:
-    """Basic catalog discovery must not import implementations excluded by its edition."""
+    """Catalog discovery probes local runtime for every declared source."""
     from souwen.feature_matrix import RuntimeProbe
 
     probed: list[str] = []
@@ -458,16 +444,13 @@ def test_public_source_catalog_payload_does_not_probe_edition_gated_sources(
 
     monkeypatch.setattr("souwen.feature_matrix.probe_adapter_runtime", fake_probe)
 
-    payload = public_source_catalog_payload(SouWenConfig(edition="basic"))
+    payload = public_source_catalog_payload(SouWenConfig())
     openalex = next(item for item in payload["sources"] if item["name"] == "openalex")
 
-    assert "openalex" not in probed
-    assert openalex["edition_available"] is False
-    assert openalex["runtime_available"] is False
-    assert openalex["runtime_reason"] == (
-        "runtime not probed because source 'openalex' requires edition=pro, current edition=basic"
-    )
-    assert openalex["available"] is False
+    assert "openalex" in probed
+    assert openalex["runtime_available"] is True
+    assert openalex["runtime_reason"] == ""
+    assert openalex["available"] is True
 
 
 def test_catalog_fetch_providers_have_runtime_handlers() -> None:

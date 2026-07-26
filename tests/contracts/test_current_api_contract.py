@@ -36,7 +36,6 @@ def isolate_current_contract(monkeypatch, tmp_path):
         "SOUWEN_ADMIN_PASSWORD",
         "SOUWEN_ADMIN_OPEN",
         "SOUWEN_GUEST_ENABLED",
-        "SOUWEN_EDITION",
     ):
         monkeypatch.delenv(key, raising=False)
 

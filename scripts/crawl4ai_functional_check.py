@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import argparse
 import asyncio
-import os
 import sys
 import threading
 from contextlib import contextmanager
@@ -148,7 +147,6 @@ async def run_provider_check(
     timeout: float,
     require_runtime: bool,
 ) -> tuple[str, dict[str, object]]:
-    os.environ["SOUWEN_EDITION"] = "full"
     from souwen.config import reload_config
 
     reload_config()

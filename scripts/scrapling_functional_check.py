@@ -99,7 +99,6 @@ def allow_local_fixture_url(url: str) -> Iterator[None]:
 
 
 def configure_scrapling(mode: str) -> None:
-    os.environ["SOUWEN_EDITION"] = "full"
     os.environ["SOUWEN_SOURCES"] = json.dumps(
         {
             "scrapling": {

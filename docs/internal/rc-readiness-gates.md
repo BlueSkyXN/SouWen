@@ -69,7 +69,7 @@ RC-ready run 可以验证从 current main 派生的 candidate；任何 secret-be
 ### 3. Coverage
 
 - 全量 Python coverage 不低于 **67.0%**。
-- edition / feature matrix / doctor 的 targeted coverage 不低于 **90.0%**；targeted
+- capability / feature matrix / doctor 的 targeted coverage 不低于 **90.0%**；targeted
   报告必须限定到对应模块，不能用全仓高覆盖稀释低覆盖文件。
 - Coverage XML/JSON 的源码 SHA 必须等于 `candidate_sha`。
 
@@ -97,21 +97,26 @@ RC-ready run 可以验证从 current main 派生的 candidate；任何 secret-be
 
 ### 6. Clean install
 
-- 从 candidate wheel 在五个彼此隔离、临时 HOME 的环境安装并 smoke：
-  `edition-basic`、`edition-pro`、`edition-full`、`edition-full-crawl4ai`、
-  `edition-full-scrapling`。
+- 从 candidate wheel 在六个彼此隔离、临时 HOME 的环境安装并 smoke：
+  `sdk-default`、`server-runtime`、`provider-newspaper`、`provider-readability`、
+  `provider-crawl4ai`、`provider-scrapling`。除 `sdk-default` 外，每个 profile 都使用
+  明确的 leaf-extra closure；Server closure 固定为
+  `[server,tls,web,robots,scraper]`。
 - 不允许 editable install、本机 site-packages、用户配置或预装 browser cache 帮助通过。
 - Crawl4AI 与 Scrapling 变体分别安装，不把互斥依赖放进同一环境。
 
-**Evidence**：wheel checksum、5 个 `pip freeze`、安装日志、HOME/venv isolation assertion。
+**Evidence**：wheel checksum、6 个 `pip freeze`、安装日志、HOME/venv isolation assertion。
 
-### 7. Edition 物理边界
+### 7. Runtime dependency boundary
 
-- `edition-basic` 的 registry 派生 basic fetch provider（`builtin`、`site_crawler`）通过对应的 fixture/runtime smoke。
-- Basic 环境中 FastAPI 未安装；LLM 与 full-only provider 必须返回明确 edition gate，
-  不能因宿主环境泄漏而可用，也不能以裸 `ImportError` 崩溃。
+- `sdk-default` 环境中 FastAPI 未安装；`server-runtime` 验证 FastAPI、Uvicorn、TLS、web、
+  robots 与 scraper runtime 的可导入性。
+- `provider-newspaper`、`provider-readability` 以及两个互斥 browser 变体分别验证目标可选
+  provider；Crawl4AI 与 Scrapling 不得出现在同一 clean environment。
+- 缺少可选 runtime 的 provider 必须以明确的不可用状态返回，不能因宿主环境泄漏而可用，也
+  不能以裸 `ImportError` 崩溃。
 
-**Evidence**：`doctor edition --json`、module presence/absence probes 与 fetch provider 调用报告。
+**Evidence**：module presence/absence probes 与 fetch provider 调用报告。
 
 ### 8. Package contract
 

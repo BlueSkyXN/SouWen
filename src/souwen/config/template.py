@@ -73,7 +73,6 @@ web:
 
 # ===== 通用设置 =====
 general:
-  edition: pro  # basic | pro | full
   proxy: ~
   proxy_pool: []
   timeout: 30

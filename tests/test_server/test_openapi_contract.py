@@ -47,9 +47,6 @@ def test_sources_endpoint_exposes_source_catalog_contract() -> None:
         "stability",
         "distribution",
         "default_for",
-        "min_edition",
-        "edition_available",
-        "edition_reason",
         "runtime_available",
         "runtime_reason",
         "available",
@@ -90,8 +87,8 @@ def test_research_output_search_endpoint_exposes_typed_public_contract() -> None
     assert "ResearchOutputResult" in components
 
 
-def test_doctor_endpoint_exposes_edition_contract() -> None:
-    """``/api/v1/doctor`` response must include the current edition."""
+def test_doctor_endpoint_exposes_runtime_contract() -> None:
+    """``/api/v1/doctor`` response exposes runtime/configuration diagnostics."""
     from souwen.server.app import app
 
     schema = app.openapi()
@@ -103,8 +100,7 @@ def test_doctor_endpoint_exposes_edition_contract() -> None:
     components = schema["components"]["schemas"]
     response_component = components[_component_name(response_schema["$ref"])]
     response_props = response_component["properties"]
-    assert "edition" in response_props
-    assert set(response_props["edition"]["enum"]) == {"basic", "pro", "full"}
+    assert "edition" not in response_props
     assert "probe_mode" in response_props
     assert set(response_props["probe_mode"]["enum"]) == {"static", "live"}
     assert "live_probe" in response_props
@@ -130,10 +126,6 @@ def test_doctor_endpoint_exposes_edition_contract() -> None:
         "package_extra",
         "stability",
         "usage_note",
-        "min_edition",
-        "edition",
-        "edition_available",
-        "edition_reason",
         "available",
         "message",
         "enabled",
@@ -141,8 +133,6 @@ def test_doctor_endpoint_exposes_edition_contract() -> None:
         "channel",
         "live_probe",
     } <= set(source_props)
-    assert set(source_props["min_edition"]["enum"]) == {"basic", "pro", "full"}
-    assert set(source_props["edition"]["enum"]) == {"basic", "pro", "full"}
 
 
 def test_admin_sources_config_exposes_channel_config_contract() -> None:
@@ -182,9 +172,6 @@ def test_admin_sources_config_exposes_channel_config_contract() -> None:
         "domain",
         "capabilities",
         "integration_type",
-        "min_edition",
-        "edition_available",
-        "edition_reason",
         "key_requirement",
         "auth_requirement",
         "credential_fields",
@@ -200,7 +187,6 @@ def test_admin_sources_config_exposes_channel_config_contract() -> None:
         "description",
         "name",
     } <= set(props)
-    assert set(props["min_edition"]["enum"]) == {"basic", "pro", "full"}
     assert set(props["integration_type"]["enum"]) == {
         "open_api",
         "scraper",
@@ -209,8 +195,8 @@ def test_admin_sources_config_exposes_channel_config_contract() -> None:
     }
 
 
-def test_whoami_endpoint_exposes_role_and_edition_contract() -> None:
-    """``/api/v1/whoami`` must expose the Panel auth/edition contract."""
+def test_whoami_endpoint_exposes_role_and_auth_contract() -> None:
+    """``/api/v1/whoami`` exposes only Panel identity and authorization state."""
     from souwen.server.app import app
 
     schema = app.openapi()
@@ -224,23 +210,13 @@ def test_whoami_endpoint_exposes_role_and_edition_contract() -> None:
     assert {
         "role",
         "features",
-        "edition",
-        "edition_capabilities",
         "guest_enabled",
         "user_password_set",
         "admin_password_set",
         "admin_open",
     } <= set(props)
     assert set(props["role"]["enum"]) == {"guest", "user", "admin"}
-    assert set(props["edition"]["enum"]) == {"basic", "pro", "full"}
-
-    capabilities_ref = props["edition_capabilities"]["$ref"]
-    capabilities = components[_component_name(capabilities_ref)]["properties"]
-    assert {
-        "llm",
-        "warp_modes",
-        "fetch_providers",
-    } <= set(capabilities)
+    assert "runtime_capabilities" not in props
 
 
 def test_fetch_utility_endpoints_expose_response_contracts() -> None:
@@ -426,9 +402,6 @@ def test_admin_warp_endpoints_expose_response_contracts() -> None:
         "docker_only",
         "proxy_types",
         "description",
-        "min_edition",
-        "edition_available",
-        "edition_reason",
     } <= set(mode_props)
 
     config_props = components["WarpConfigResponse"]["properties"]
