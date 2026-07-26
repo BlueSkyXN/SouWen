@@ -55,48 +55,6 @@ class SummaryCitation(BaseModel):
     source: str = ""  # 数据源标识 (openalex, duckduckgo, etc.)
 
 
-class SummaryResult(BaseModel):
-    """LLM 生成的搜索结果摘要"""
-
-    model_config = ConfigDict(extra="forbid")
-
-    query: str  # 原始搜索查询
-    summary: str  # LLM 生成的摘要文本（含 [1] 式引用）
-    mode: Literal["brief", "detailed", "academic"] = "brief"
-    citations: list[SummaryCitation] = Field(default_factory=list)
-    model: str = ""  # 使用的 LLM 模型
-    usage: LLMUsage = Field(default_factory=LLMUsage)
-    sources_used: int = 0  # 参与摘要的数据源数量
-    results_used: int = 0  # 参与摘要的结果条目数
-
-
-class PageSummaryItem(BaseModel):
-    """单个页面的 LLM 摘要"""
-
-    url: str
-    final_url: str = ""  # 重定向后的最终 URL
-    title: str = ""
-    summary: str = ""  # LLM 生成的页面摘要
-    word_count: int = 0  # 原始页面内容字数
-    content_truncated: bool = False  # 内容是否被截断
-    error: str | None = None  # 抓取或摘要失败时的错误信息
-    provider: str = ""  # fetch provider used
-
-
-class PageSummaryResult(BaseModel):
-    """Fetch + Summarize 聚合响应"""
-
-    model_config = ConfigDict(extra="forbid")
-
-    items: list[PageSummaryItem] = Field(default_factory=list)
-    mode: Literal["brief", "detailed", "academic"] = "brief"
-    model: str = ""
-    usage: LLMUsage = Field(default_factory=LLMUsage)
-    total_urls: int = 0
-    total_ok: int = 0
-    total_failed: int = 0
-
-
 class DeepFetchStats(BaseModel):
     """Deep Search 的内容抓取统计"""
 

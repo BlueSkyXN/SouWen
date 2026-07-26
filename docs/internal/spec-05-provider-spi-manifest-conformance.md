@@ -109,7 +109,7 @@ LLMSearchProvider.search(LLMSearchRequest, RequestContext) -> LLMSearchResult
 Semantic request minimum: query, model reference, search options, budget.
 Result minimum: canonical answer, evidence, citations, usage, provenance. The
 adapter performs one search-oriented upstream LLM/API call and normalizes
-output/errors. It MUST NOT silently call ordinary Search, Fetch, Summarize,
+output/errors. It MUST NOT silently call ordinary Search, Fetch, or legacy LLM orchestration,
 rerank, or an Agent workflow. Accepted Q-005 requires item evidence, factual-answer paragraph citations by
 stable evidence ID, public provenance URL/title/snippet/retrieved time, and an always-present provider-reported
 `usage` object with unknown token/cost as `null`; harness checks these contract minima.

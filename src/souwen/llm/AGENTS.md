@@ -1,9 +1,9 @@
 # src/souwen/llm navigation card
 
 Type: Domain card.
-This directory owns LLM summary/fetch-summary APIs, provider adapters, prompts and response models.
-Read `client.py`, `summarize.py`, `fetch_summarize.py`, `prompts.py`, `models.py`, `providers/`, and matching `tests/test_llm/` files first.
-Read this card for prompt changes, summary response shape, provider protocol behavior, usage metadata or LLM config integration.
+This directory owns LLM protocol clients, provider adapters, enriched-search synthesis and response models.
+Read `client.py`, `enriched_synthesis.py`, `models.py`, `providers/`, and matching `tests/test_llm/` files first.
+Read this card for provider protocol behavior, enriched-synthesis response shape, usage metadata or LLM config integration.
 
 ## Local invariants
 

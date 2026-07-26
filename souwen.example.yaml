@@ -292,20 +292,7 @@ sources:
   uniapi_ark_annotations_doubao_seed_2_0_lite_260428:
     enabled: false
 
-# ─── LLM 摘要配置 ──────────────────────────────────────────────
-# llm:
-#   enabled: true               — 启用 LLM 摘要功能
-#   protocol: openai_chat       — openai_chat / openai_responses / anthropic_messages
-#   api_key: sk-xxx             — API Key
-#   base_url: https://api.openai.com/v1
-#   model: gpt-4o-mini
-#   max_tokens: 2048
-#   temperature: 0.3
-#   timeout: 60
-#   max_input_tokens: 6000      — 超出则截断
-#   default_mode: brief         — brief / detailed / academic
-#   rate_limit_summarize: 20    — POST /api/v1/summarize 限流（次/分钟）
-#   rate_limit_fetch: 20        — POST /api/v1/fetch/summarize 限流（次/分钟）
+# ─── Enriched Search synthesis 配置 ─────────────────────────────
 llm:
   enabled: false
   # 部署方显式允许的 enriched synthesis profile；请求只能传 profile，不能传 model。

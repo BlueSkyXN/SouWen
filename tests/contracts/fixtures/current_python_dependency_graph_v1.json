@@ -25,7 +25,7 @@
     "cycle_rule": "sorted strongly connected components with at least two units using deterministic Tarjan traversal"
   },
   "snapshot": {
-    "python_file_count": 261,
+    "python_file_count": 256,
     "top_level_unit_count": 25,
     "top_level_units": [
       "__main__",
@@ -54,8 +54,8 @@
       "web",
       "wikisource"
     ],
-    "cross_unit_edge_count": 97,
-    "cross_unit_edge_sha256": "469a098726d62b3c3dbce6a324640706ac2d4e90a278b32421dc2198cd912ea8",
+    "cross_unit_edge_count": 96,
+    "cross_unit_edge_sha256": "0c465bcd495ffcd15739bb15691592d9f38706609a2b492751441b5a9b801c49",
     "strongly_connected_components": [
       [
         "citations",

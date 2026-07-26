@@ -158,7 +158,7 @@ llm_search_gateways:
     api_key: "${UNIAPI_API_KEY}"
     base_url: "${UNIAPI_BASE_URL}"
 
-# ===== LLM 摘要与 enriched synthesis =====
+# ===== Enriched Search synthesis =====
 # credentials/base_url stay on llm; requests can name only an allowlisted profile.
 llm:
   enabled: false

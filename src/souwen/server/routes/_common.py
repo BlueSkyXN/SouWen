@@ -28,7 +28,6 @@ __all__ = [
     "redact_secret_url",
     "redact_secret_value",
     "reject_redacted_placeholder",
-    "require_llm_enabled",
 ]
 
 
@@ -55,19 +54,3 @@ def reject_redacted_placeholder(value: str | None, name: str) -> None:
             status_code=422,
             detail=f"{name} 是脱敏显示值，请重新输入完整值或保持该字段不变",
         )
-
-
-def require_llm_enabled() -> None:
-    """FastAPI dependency: 检查 LLM 功能是否可用。"""
-    from souwen.config import get_config
-    from souwen.editions import EditionError, ensure_edition_allowed
-
-    cfg = get_config()
-    try:
-        ensure_edition_allowed("LLM", current=cfg.edition, required="pro")
-    except EditionError as exc:
-        raise HTTPException(status_code=403, detail=str(exc)) from exc
-    if not cfg.llm.enabled:
-        raise HTTPException(status_code=503, detail="LLM feature is not enabled")
-    if not cfg.llm.get_api_key():
-        raise HTTPException(status_code=503, detail="LLM service not configured")

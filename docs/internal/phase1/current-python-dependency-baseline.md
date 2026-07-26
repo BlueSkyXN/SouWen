@@ -68,7 +68,7 @@ Its critical edges make several current legacy facts explicit:
 | server -> core | Server code reaches Core helpers/exceptions/session behavior directly. | Not target server/Core port approval. |
 | server -> registry | Server routes/schema/readiness consult current registry/source metadata directly. | Not target Provider Manager interface. |
 | server -> web | Server routes directly use web/fetch/search implementations. | Not a future server-to-provider dependency rule. |
-| server -> llm | Legacy server routes directly use LLM search/summarize support. | Not a target LLMSearchProvider SPI proof. |
+| server -> llm | Legacy server routes directly use enriched-search synthesis support. | Not a target LLMSearchProvider SPI proof. |
 | registry -> web | Current registry availability/catalog logic reaches web/local source support. | Not a permitted target registry-to-provider dependency. |
 | web -> paper | Current web code has cross-domain dependency. | Not permission for future Provider-to-Provider calls. |
 

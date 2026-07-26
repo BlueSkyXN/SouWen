@@ -41,10 +41,6 @@ OPTIONAL_EXTRA_MODULES: Final[dict[str, tuple[str, ...]]] = {
     "scrapling": ("scrapling.fetchers",),
     "web": ("trafilatura",),
 }
-SURFACE_ROUTE_MIN_EDITIONS: Final[dict[str, Edition]] = {
-    "/api/v1/summarize": "pro",
-    "/api/v1/fetch/summarize": "pro",
-}
 
 
 @dataclass(frozen=True, slots=True)
@@ -377,12 +373,6 @@ def edition_capabilities(edition: Edition | str | None = None) -> dict[str, obje
     }
 
 
-def route_min_edition(path: str) -> Edition | None:
-    """Return the declared minimum edition for a route with explicit feature gating."""
-
-    return SURFACE_ROUTE_MIN_EDITIONS.get(path)
-
-
 def probe_results_to_dict(results: dict[str, ProbeResult]) -> dict[str, dict[str, object]]:
     """Convert probe dataclasses into a JSON-serializable mapping."""
 
@@ -401,7 +391,6 @@ __all__ = [
     "LLM_PROVIDER_MODULES",
     "MCP_MODULE",
     "OPTIONAL_EXTRA_MODULES",
-    "SURFACE_ROUTE_MIN_EDITIONS",
     "Edition",
     "FetchProviderRuntimeStatus",
     "ProbeResult",
@@ -418,7 +407,6 @@ __all__ = [
     "probe_modules",
     "probe_results_to_dict",
     "public_adapter_runtime_probe",
-    "route_min_edition",
     "sanitize_public_runtime_probe",
     "source_min_edition",
 ]
