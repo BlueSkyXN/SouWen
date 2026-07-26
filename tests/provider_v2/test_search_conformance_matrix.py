@@ -226,11 +226,12 @@ _BATCH_FIVE_SEARCH_IDS = (
     "yandex",
     "zhihu",
 )
+_BATCH_SIX_SELF_HOSTED_IDS = ("searxng", "websurfx", "whoogle")
 
 
-def _batch_five_web_definitions() -> tuple[SearchConformanceDefinition, ...]:
+def _migrated_legacy_web_definitions() -> tuple[SearchConformanceDefinition, ...]:
     definitions = []
-    for provider_id in _BATCH_FIVE_SEARCH_IDS:
+    for provider_id in (*_BATCH_FIVE_SEARCH_IDS, *_BATCH_SIX_SELF_HOSTED_IDS):
         module = importlib.import_module(f"souwen.providers.information_sources.{provider_id}")
         spec = next(
             value for value in vars(module).values() if isinstance(value, LegacySearchProviderSpec)
@@ -420,7 +421,7 @@ DEFINITIONS = (
             ("figshare", FigshareSearchProvider),
         )
     ),
-    *_batch_five_web_definitions(),
+    *_migrated_legacy_web_definitions(),
 )
 
 

@@ -25,7 +25,9 @@ from .models import (
     ProviderSpec,
     PublicTargetDeclaration,
     RestJsonProviderSpec,
+    SelfHostedTransportDeclaration,
 )
+from .self_hosted import validate_self_hosted_base_url
 from .resolver import resolve_provider_inputs
 from .validation import validate_spec_manifest
 
@@ -48,10 +50,12 @@ __all__ = [
     "RestJsonProviderSpec",
     "RestJsonSearchProvider",
     "ScraperSearchProvider",
+    "SelfHostedTransportDeclaration",
     "canonical_public_url",
     "legacy_scraper_spec",
     "scraper_search_manifest",
     "resolve_provider_inputs",
     "validate_spec_manifest",
+    "validate_self_hosted_base_url",
     "cn_scraper_search_spec",
 ]

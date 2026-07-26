@@ -22,6 +22,7 @@ class _UrlAwareResponseClient(SouWenHttpClient):
 def http_config():
     config = MagicMock()
     config.get_proxy.return_value = None
+    config.max_retries = 3
     with patch("souwen.core.http_client.get_config", return_value=config):
         yield config
 

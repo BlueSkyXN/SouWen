@@ -69,6 +69,19 @@ def test_manifest_distinguishes_required_and_optional_secret_references() -> Non
         ProviderManifest.model_validate(declaration)
 
 
+def test_manifest_declares_self_hosted_target_without_claiming_fixed_egress_hosts() -> None:
+    declaration = _manifest()
+    declaration["network"]["egress_hosts"] = []
+    declaration["network"]["target_egress"] = "configured_self_hosted_endpoint"
+
+    manifest = ProviderManifest.model_validate(declaration)
+
+    assert manifest.network.target_egress == "configured_self_hosted_endpoint"
+    declaration["network"]["egress_hosts"] = ["search.example.test"]
+    with pytest.raises(ValidationError, match="cannot declare fixed hosts"):
+        ProviderManifest.model_validate(declaration)
+
+
 @pytest.mark.parametrize(
     "mutate",
     [

@@ -59,15 +59,18 @@ class WhoogleClient(SouWenHttpClient):
 
     ENGINE_NAME = "whoogle"
 
-    def __init__(self, instance_url: str | None = None):
-        # 从参数或配置读取 Whoogle 实例 URL
-        config = get_config()
-        self.instance_url = (
-            instance_url
-            or config.resolve_base_url("whoogle")
-            or config.resolve_api_key("whoogle", "whoogle_url")
-            or ""
-        ).rstrip("/")
+    def __init__(
+        self,
+        instance_url: str | None = None,
+        *,
+        follow_redirects: bool = True,
+    ):
+        if not instance_url:
+            config = get_config()
+            instance_url = config.resolve_base_url("whoogle") or config.resolve_api_key(
+                "whoogle", "whoogle_url"
+            )
+        self.instance_url = (instance_url or "").rstrip("/")
         if not self.instance_url:
             # 未提供实例 URL 时抛出配置错误
             raise ConfigError(
@@ -75,7 +78,12 @@ class WhoogleClient(SouWenHttpClient):
                 "Whoogle",
                 "https://github.com/benbusby/whoogle-search",
             )
-        super().__init__(base_url=self.instance_url, source_name="whoogle")
+        super().__init__(
+            base_url=self.instance_url,
+            source_name="whoogle",
+            follow_redirects=follow_redirects,
+            resolve_source_base_url=False,
+        )
 
     async def search(
         self,

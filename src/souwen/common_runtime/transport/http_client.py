@@ -7,13 +7,21 @@ import time
 from typing import Any, Literal
 
 import httpx
-from tenacity import retry, retry_if_exception_type, stop_after_attempt, wait_exponential
+from tenacity import RetryCallState, retry, retry_if_exception_type, wait_exponential
 
 from .errors import AuthError, RateLimitError, SourceUnavailableError, SouWenError
 
 logger = logging.getLogger("souwen.http")
 
 RequestRetryPolicy = Literal["default", "single_attempt"]
+
+
+def _stop_after_configured_attempts(retry_state: RetryCallState) -> bool:
+    """Honor each transport's configured attempt bound while preserving one initial request."""
+
+    transport = retry_state.args[0]
+    maximum_attempts = max(1, int(getattr(transport, "max_retries", 1)))
+    return retry_state.attempt_number >= maximum_attempts
 
 
 class HttpTransport:
@@ -128,7 +136,7 @@ class HttpTransport:
     @retry(
         retry=retry_if_exception_type((httpx.TimeoutException, httpx.ConnectError)),
         wait=wait_exponential(multiplier=1, min=1, max=30),
-        stop=stop_after_attempt(3),
+        stop=_stop_after_configured_attempts,
         reraise=True,
     )
     async def _request_with_retry(

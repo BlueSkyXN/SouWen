@@ -110,6 +110,7 @@ BATCH_FIVE_MIGRATED_SOURCE_IDS = {
     "yandex",
     "zhihu",
 }
+BATCH_SIX_MIGRATED_SOURCE_IDS = {"searxng", "websurfx", "whoogle"}
 MIGRATED_SOURCE_IDS = (
     inventory.SAMPLE_SOURCE_IDS
     | BATCH_ONE_MIGRATED_SOURCE_IDS
@@ -117,6 +118,7 @@ MIGRATED_SOURCE_IDS = (
     | BATCH_THREE_MIGRATED_SOURCE_IDS
     | BATCH_FOUR_MIGRATED_SOURCE_IDS
     | BATCH_FIVE_MIGRATED_SOURCE_IDS
+    | BATCH_SIX_MIGRATED_SOURCE_IDS
 )
 
 
@@ -138,8 +140,8 @@ def test_inventory_partitions_the_current_registry_into_six_batches() -> None:
     }
     assert data["batch_counts"] == inventory.EXPECTED_COUNTS
     assert data["status_counts"] == {
-        "migrated": 101,
-        "pending": 3,
+        "migrated": 104,
+        "pending": 0,
         "retirement_pending": 6,
         "incomplete": 0,
     }

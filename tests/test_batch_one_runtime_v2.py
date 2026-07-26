@@ -123,7 +123,7 @@ def test_batch_one_catalog_and_explicit_search_fetch_are_wired(monkeypatch) -> N
     )
 
     catalog = {item.provider: item for item in runtime.services.provider_items}
-    assert len(catalog) == 101
+    assert len(catalog) == 104
     assert catalog["osti"].availability == "available"
     assert catalog["arxiv_fulltext"].availability == "available"
     assert "opencitations" not in catalog

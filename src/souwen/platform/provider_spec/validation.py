@@ -7,6 +7,7 @@ from souwen.platform.provider_spec.models import (
     LocalStoreDeclaration,
     ProviderSpec,
     PublicTargetDeclaration,
+    SelfHostedTransportDeclaration,
 )
 
 
@@ -31,6 +32,11 @@ def validate_spec_manifest(
         raise ValueError("provider spec public-target egress does not match manifest")
     if public_target and spec.capability != "fetch":
         raise ValueError("public-target egress is only valid for Fetch providers")
+    self_hosted = isinstance(getattr(spec, "transport", None), SelfHostedTransportDeclaration)
+    if self_hosted != (manifest.network.target_egress == "configured_self_hosted_endpoint"):
+        raise ValueError("provider spec self-hosted egress does not match manifest")
+    if self_hosted and spec.capability != "search":
+        raise ValueError("self-hosted egress is only valid for Search providers")
     if isinstance(getattr(spec, "transport", None), LocalStoreDeclaration) and (
         manifest.network.proxy_supported or manifest.network.browser_required
     ):

@@ -93,7 +93,11 @@ class NetworkDeclaration(_StrictManifestModel):
     """Reviewed network metadata, never a credential-bearing URL."""
 
     egress_hosts: tuple[Host, ...] = ()
-    target_egress: Literal["none", "validated_public_target"] = "none"
+    target_egress: Literal[
+        "none",
+        "validated_public_target",
+        "configured_self_hosted_endpoint",
+    ] = "none"
     proxy_supported: StrictBool
     browser_required: StrictBool
 
@@ -102,7 +106,7 @@ class NetworkDeclaration(_StrictManifestModel):
         if len(set(self.egress_hosts)) != len(self.egress_hosts):
             raise ValueError("duplicate egress host")
         if self.target_egress != "none" and self.egress_hosts:
-            raise ValueError("public-target egress cannot declare fixed hosts")
+            raise ValueError("configured target egress cannot declare fixed hosts")
         return self
 
 

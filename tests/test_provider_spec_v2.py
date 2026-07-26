@@ -19,7 +19,9 @@ from souwen.platform.provider_spec import (
     LegacySearchSpec,
     RestJsonProviderSpec,
     RestJsonSearchProvider,
+    SelfHostedTransportDeclaration,
     resolve_provider_inputs,
+    validate_self_hosted_base_url,
     validate_spec_manifest,
 )
 from souwen.platform.provider_spec.models import (
@@ -87,6 +89,10 @@ from souwen.providers.information_sources.pmc import PMC_BRIDGE_SPEC, PMC_PROVID
 from souwen.providers.information_sources.pubmed import (
     PUBMED_BRIDGE_SPEC,
     PUBMED_PROVIDER_MANIFEST,
+)
+from souwen.providers.information_sources.searxng import (
+    SEARXNG_PROVIDER_MANIFEST,
+    SEARXNG_PROVIDER_SPEC,
 )
 
 
@@ -278,8 +284,76 @@ def test_legacy_spec_truthfully_declares_local_sqlite_transport_without_egress()
     assert spec.transport.protocol == "sqlite"
 
 
+def test_self_hosted_spec_and_manifest_declare_configured_endpoint_without_static_host() -> None:
+    assert isinstance(SEARXNG_PROVIDER_SPEC.transport, SelfHostedTransportDeclaration)
+    assert SEARXNG_PROVIDER_SPEC.host is None
+    assert SEARXNG_PROVIDER_SPEC.hosts == ()
+    assert SEARXNG_PROVIDER_SPEC.base_url is None
+    assert SEARXNG_PROVIDER_SPEC.configuration_keys == ("enabled", "base_url")
+    assert SEARXNG_PROVIDER_MANIFEST.network.egress_hosts == ()
+    assert SEARXNG_PROVIDER_MANIFEST.network.target_egress == "configured_self_hosted_endpoint"
+    assert (
+        validate_spec_manifest(SEARXNG_PROVIDER_SPEC, SEARXNG_PROVIDER_MANIFEST)
+        is SEARXNG_PROVIDER_SPEC
+    )
+
+
+@pytest.mark.parametrize(
+    ("value", "expected"),
+    (
+        ("http://localhost:8888/", "http://localhost:8888"),
+        ("HTTPS://Search.Internal/prefix/", "https://search.internal/prefix"),
+        ("http://[::1]:5000/", "http://[::1]:5000"),
+    ),
+)
+def test_self_hosted_base_url_accepts_admin_owned_private_and_loopback_endpoints(
+    value: str, expected: str
+) -> None:
+    assert validate_self_hosted_base_url(value) == expected
+
+
+@pytest.mark.parametrize(
+    "value",
+    (
+        "",
+        "ftp://search.internal",
+        "https://user:password@search.internal",
+        "https://search.internal?token=value",
+        "https://search.internal#fragment",
+        "https://search.internal:invalid",
+        "http://bad host",
+    ),
+)
+def test_self_hosted_base_url_rejects_unbounded_or_credential_bearing_values(value: str) -> None:
+    with pytest.raises(ValueError, match="self-hosted base_url"):
+        validate_self_hosted_base_url(value)
+
+
+def test_self_hosted_spec_manifest_validation_rejects_network_mode_drift() -> None:
+    declaration = SEARXNG_PROVIDER_MANIFEST.model_dump(mode="python")
+    declaration["network"]["target_egress"] = "none"
+    drifted = type(SEARXNG_PROVIDER_MANIFEST).model_validate(declaration)
+    with pytest.raises(ValueError, match="self-hosted egress"):
+        validate_spec_manifest(SEARXNG_PROVIDER_SPEC, drifted)
+
+
+def test_self_hosted_spec_rejects_an_undeclared_endpoint_configuration_key() -> None:
+    with pytest.raises(ValidationError, match="configuration key is undeclared"):
+        LegacySearchProviderSpec(
+            provider_id="fixture",
+            adapter_id="fixture-search",
+            domain="web",
+            bridge_reason="fixture",
+            transport=SelfHostedTransportDeclaration(
+                protocol="json",
+                operations=({"method": "GET", "endpoint": "/search"},),
+            ),
+            configuration_keys=("enabled",),
+        )
+
+
 def test_local_store_spec_rejects_network_additional_transports() -> None:
-    with pytest.raises(ValidationError, match="cannot declare network transports"):
+    with pytest.raises(ValidationError, match="cannot declare fixed network transports"):
         LegacySearchProviderSpec(
             provider_id="fixture",
             adapter_id="fixture-search",

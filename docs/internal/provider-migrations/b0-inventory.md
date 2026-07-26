@@ -7,10 +7,10 @@ configuration, or includes credential values.
 - Schema version: `1`
 - Generator version: `b0-provider-migration-inventory-v1`
 - Registry sources: `110`
-- Registry output fingerprint: `ad79a07be5c6602735fe574e4259fce57c89e90602e19e81f28fac89d2305bcd`
-- Registry input fingerprint: `259530e221f43b4ee2da4ccd13274982d987b6bf40df1be32a8333a66ed6ddcc`
-- Provider manifest input fingerprint: `8851f85e547c23c88289c9f40532a87ede81aee445a9b9ddee9ee24f43fe70b7`
-- Combined input fingerprint: `3b9269138f4359e8018b0e2febea0b310bccf0d98fbffa363ab73686be42bcd8`
+- Registry output fingerprint: `218186aeb15820afae9de0e7e0a89376a3117763a46a17713bb45611e47ccd51`
+- Registry input fingerprint: `66e8741eac230681421392a8a0cb32fb89c13a4f853a5c048ad2b8de12622cdf`
+- Provider manifest input fingerprint: `8dd07f77505e227a77eed3c1fc723854a3188da3e7c3e7e8a905b7257c620741`
+- Combined input fingerprint: `a7eb2eb441980914aa573531581b66f8623a7547656689eec1e69e392b5a14b2`
 
 ## Batch counts
 
@@ -29,8 +29,8 @@ configuration, or includes credential values.
 
 | Status | Sources |
 |---|---:|
-| `migrated` | 101 |
-| `pending` | 3 |
+| `migrated` | 104 |
+| `pending` | 0 |
 | `retirement_pending` | 6 |
 | `incomplete` | 0 |
 
@@ -116,7 +116,7 @@ configuration, or includes credential values.
 | `scrapingbee` | `batch-3` | `migrated` | `provider_v2` | — | remaining web-facing integration | `fetch` | `fetch` | `required` | `official_api` | `lazy[souwen.web.scrapingbee:ScrapingBeeClient]` | `scrapingbee` |
 | `scrapingdog` | `batch-3` | `migrated` | `provider_v2` | — | remaining web-facing integration | `web` | `search` | `required` | `official_api` | `lazy[souwen.web.scrapingdog:ScrapingDogClient]` | `scrapingdog` |
 | `scrapling` | `batch-5` | `retirement_pending` | `unsafe_conditional_browser_fetch_legacy` | Third-party HTTP/browser modes cannot prove IP-bound redirect and final-URL safety; the legacy provider retires in C1 instead of weakening Fetch policy | scraper integration | `fetch` | `fetch` | `none` | `scraper` | `lazy[souwen.web.scrapling_fetcher:ScraplingFetcherClient]` | — |
-| `searxng` | `batch-6` | `pending` | `provider_v2` | — | self-hosted integration | `web` | `search` | `self_hosted` | `self_hosted` | `lazy[souwen.web.searxng:SearXNGClient]` | — |
+| `searxng` | `batch-6` | `migrated` | `provider_v2` | — | self-hosted integration | `web` | `search` | `self_hosted` | `self_hosted` | `lazy[souwen.web.searxng:SearXNGClient]` | `searxng` |
 | `semantic_scholar` | `batch-2` | `migrated` | `provider_v2` | — | paper/patent grouped by auth requirement | `paper` | `search` | `optional` | `official_api` | `lazy[souwen.paper.semantic_scholar:SemanticScholarClient]` | `semantic_scholar` |
 | `serpapi` | `batch-3` | `migrated` | `provider_v2` | — | remaining web-facing integration | `web` | `search` | `required` | `official_api` | `lazy[souwen.web.serpapi:SerpApiClient]` | `serpapi` |
 | `serper` | `batch-3` | `migrated` | `provider_v2` | — | remaining web-facing integration | `web` | `search` | `required` | `official_api` | `lazy[souwen.web.serper:SerperClient]` | `serper` |
@@ -133,9 +133,9 @@ configuration, or includes credential values.
 | `uspto_odp` | `batch-2` | `migrated` | `provider_v2` | — | paper/patent grouped by auth requirement | `patent` | `search` | `required` | `official_api` | `lazy[souwen.patent.uspto_odp:UsptoOdpClient]` | `uspto_odp` |
 | `v2ex` | `batch-5` | `migrated` | `provider_v2` | — | scraper integration | `cn_tech` | `search` | `none` | `scraper` | `lazy[souwen.web.v2ex:V2EXClient]` | `v2ex` |
 | `wayback` | `batch-3` | `migrated` | `provider_v2` | Provider v2 retains Fetch; legacy archive_lookup and archive_save retire in C1 | remaining web-facing integration | `archive` | `archive_lookup`, `archive_save`, `fetch` | `none` | `open_api` | `lazy[souwen.web.wayback:WaybackClient]` | `wayback` |
-| `websurfx` | `batch-6` | `pending` | `provider_v2` | — | self-hosted integration | `web` | `search` | `self_hosted` | `self_hosted` | `lazy[souwen.web.websurfx:WebsurfxClient]` | — |
+| `websurfx` | `batch-6` | `migrated` | `provider_v2` | — | self-hosted integration | `web` | `search` | `self_hosted` | `self_hosted` | `lazy[souwen.web.websurfx:WebsurfxClient]` | `websurfx` |
 | `weibo` | `batch-5` | `migrated` | `provider_v2` | — | scraper integration | `social` | `search` | `none` | `scraper` | `lazy[souwen.web.weibo:WeiboClient]` | `weibo` |
-| `whoogle` | `batch-6` | `pending` | `provider_v2` | — | self-hosted integration | `web` | `search` | `self_hosted` | `self_hosted` | `lazy[souwen.web.whoogle:WhoogleClient]` | — |
+| `whoogle` | `batch-6` | `migrated` | `provider_v2` | — | self-hosted integration | `web` | `search` | `self_hosted` | `self_hosted` | `lazy[souwen.web.whoogle:WhoogleClient]` | `whoogle` |
 | `wikipedia` | `batch-3` | `migrated` | `provider_v2` | — | remaining web-facing integration | `knowledge` | `search` | `none` | `open_api` | `lazy[souwen.web.wikipedia:WikipediaClient]` | `wikipedia` |
 | `wikisource` | `batch-4` | `migrated` | `provider_v2` | — | book or research-output domain | `book` | `get_detail`, `search` | `none` | `official_api` | `lazy[souwen.book.wikisource:WikisourceClient]` | `wikisource` |
 | `xcrawl` | `batch-3` | `migrated` | `provider_v2` | — | remaining web-facing integration | `web` | `fetch`, `search` | `required` | `official_api` | `lazy[souwen.web.xcrawl:XCrawlClient]` | `xcrawl` |
