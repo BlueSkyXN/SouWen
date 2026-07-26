@@ -178,5 +178,59 @@ def test_missing_required_llm_provider_is_reported_as_a_failed_check(monkeypatch
     checks = {item["name"]: item for item in payload["checks"]}
     assert checks["search_live"]["outcome"] == "PASS"
     assert checks["llm_search_live"]["outcome"] == "FAIL"
-    assert checks["llm_search_live"]["detail"] == "SmokeFailure"
+    assert checks["llm_search_live"]["detail"] == "no available llm_search provider"
     assert checks["fetch_live"]["outcome"] == "PASS"
+
+
+def test_search_live_uses_bounded_provider_fallback(monkeypatch, tmp_path) -> None:
+    providers = [
+        {
+            "provider": provider,
+            "availability": "available",
+            "capabilities": ["search"],
+        }
+        for provider in ("openalex", "crossref", "semantic_scholar")
+    ]
+    providers.extend(
+        [
+            {
+                "provider": "fixture-llm",
+                "availability": "available",
+                "capabilities": ["llm_search"],
+            },
+            {
+                "provider": "builtin-fetch",
+                "availability": "available",
+                "capabilities": ["fetch"],
+            },
+        ]
+    )
+    calls: list[str] = []
+
+    class Client:
+        def __init__(self, *_args, **_kwargs):
+            pass
+
+        def json(self, path, **kwargs):
+            if path == "/api/v1/search":
+                provider = kwargs["payload"]["providers"][0]["id"]
+                calls.append(provider)
+                if provider == "openalex":
+                    return 503, {}, {"error": {"code": "upstream_unavailable"}}
+                return 200, {}, {"items": []}
+            if path == "/api/v1/llm-search":
+                return 200, {}, {"evidence": [], "usage": {}}
+            if path == "/api/v1/fetch":
+                return 200, {}, {"items": [{"status": "success", "content": "fixture"}]}
+            raise AssertionError(path)
+
+    monkeypatch.setattr(smoke, "Client", Client)
+    monkeypatch.setattr(smoke, "_surface_checks", lambda _client, _args, _checks: providers)
+    report = tmp_path / "capability.json"
+
+    assert smoke.main(["--mode", "capability", "--json-report", str(report)]) == 0
+    assert calls == ["openalex", "crossref"]
+    checks = {
+        item["name"]: item for item in json.loads(report.read_text(encoding="utf-8"))["checks"]
+    }
+    assert checks["search_live"]["detail"] == "crossref: 0 results"

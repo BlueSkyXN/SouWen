@@ -81,15 +81,13 @@ def _payload(
         {
             "type": "message",
             "status": "completed",
-            "message": {
-                "content": [
-                    {
-                        "type": "output_text",
-                        "text": "Untrusted answer https://must-not-be-inferred.example/",
-                        "annotations": annotations or [],
-                    }
-                ]
-            },
+            "content": [
+                {
+                    "type": "output_text",
+                    "text": "Untrusted answer https://must-not-be-inferred.example/",
+                    "annotations": annotations or [],
+                }
+            ],
         }
     )
     return {
@@ -199,17 +197,50 @@ async def test_each_adapter_executes_one_bound_request_and_emits_evidence_usage(
     assert result.usage.cost is None
     assert transport.calls == [
         {
-            "url": "/v1/responses",
+            "url": "v1/responses",
             "json": {
                 "model": model_id,
                 "input": "canonical query",
                 "tools": [{"type": "web_search", "max_keyword": 2}],
+                "tool_choice": {"type": "web_search"},
             },
             "data": None,
             "headers": None,
             "retry_policy": "single_attempt",
         }
     ]
+
+
+@pytest.mark.asyncio
+async def test_v1_gateway_base_url_does_not_duplicate_the_version_path() -> None:
+    transport = _Transport(
+        _payload(
+            "deepseek-v3-2-251201",
+            annotations=[
+                {
+                    "type": "url_citation",
+                    "title": "Structured source",
+                    "url": "https://example.com/source",
+                }
+            ],
+        )
+    )
+    provider = UniApiArkAnnotationsDeepSeekProvider(
+        {"enabled": True},
+        {
+            "UNIAPI_API_KEY": "fixture-secret",
+            "UNIAPI_BASE_URL": "https://gateway.example.test/v1",
+        },
+        transport=transport,
+    )
+
+    await provider.search(
+        _request(DEEPSEEK_ADAPTER_ID),
+        RequestContext(request_id="provider-v2-base-url"),
+        ExecutionContext.with_timeout(5),
+    )
+
+    assert transport.calls[0]["url"] == "responses"
 
 
 @pytest.mark.asyncio

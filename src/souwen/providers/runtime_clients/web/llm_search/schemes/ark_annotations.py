@@ -58,7 +58,6 @@ ARK_ANNOTATIONS_DOUBAO = ConcreteSearchSourceSpec(
 )
 ARK_ANNOTATIONS_SOURCES = (ARK_ANNOTATIONS_DEEPSEEK, ARK_ANNOTATIONS_DOUBAO)
 
-_ARK_RESPONSE_PATH = "/v1/responses"
 _ARK_MAX_KEYWORD_DEFAULT = 10
 _ARK_MAX_RESULTS = 50
 
@@ -86,6 +85,7 @@ def build_ark_request(query: str, model_id: str, *, max_keyword: int = 10) -> di
         "model": model_id,
         "input": query.strip(),
         "tools": [{"type": "web_search", "max_keyword": max_keyword}],
+        "tool_choice": {"type": "web_search"},
     }
 
 
@@ -169,10 +169,10 @@ def _message_annotations(payload: Mapping[str, Any]) -> list[Mapping[str, Any]]:
     for item in output:
         if not isinstance(item, Mapping) or item.get("status") not in {"completed", "incomplete"}:
             continue
-        message = item.get("message")
-        if not isinstance(message, Mapping):
-            continue
-        content = message.get("content")
+        content = item.get("content")
+        if not isinstance(content, list):
+            message = item.get("message")
+            content = message.get("content") if isinstance(message, Mapping) else None
         if not isinstance(content, list):
             continue
         for part in content:
@@ -267,6 +267,8 @@ class ArkAnnotationsClient(SouWenHttpClient):
             timeout=self.resolved.timeout_seconds,
             source_name=self.resolved.source_id,
         )
+        base_path = urlsplit(self.resolved.base_url or "").path.rstrip("/")
+        self._response_path = "responses" if base_path.endswith("/v1") else "v1/responses"
 
     @classmethod
     def _resolve_config(cls) -> ResolvedConcreteSearchConfig:
@@ -292,7 +294,7 @@ class ArkAnnotationsClient(SouWenHttpClient):
         )
         payload = build_ark_request(query, self.resolved.model_id, max_keyword=max_keyword)
         response = await self.post(
-            _ARK_RESPONSE_PATH,
+            self._response_path,
             json=payload,
             retry_policy="single_attempt",
         )

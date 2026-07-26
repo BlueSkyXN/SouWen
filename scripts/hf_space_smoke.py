@@ -99,12 +99,13 @@ def _record(checks: list[Check], name: str, callback, *, required: bool = True) 
     started = time.perf_counter()
     try:
         detail, value = callback()
-    except Exception as exc:  # noqa: BLE001 - public report retains only bounded exception type.
+    except Exception as exc:  # noqa: BLE001 - reports retain only bounded, controlled detail.
+        detail = str(exc)[:200] if isinstance(exc, SmokeFailure) else type(exc).__name__
         checks.append(
             Check(
                 name=name,
                 outcome="FAIL" if required else "WARN",
-                detail=type(exc).__name__,
+                detail=detail,
                 required=required,
                 duration_seconds=time.perf_counter() - started,
             )
@@ -216,6 +217,22 @@ def _first_available(items: list[dict], capability: str, preferred: tuple[str, .
     raise SmokeFailure(f"no available {capability} provider")
 
 
+def _preferred_available(
+    items: list[dict], capability: str, preferred: tuple[str, ...]
+) -> tuple[str, ...]:
+    available = {
+        item.get("provider")
+        for item in items
+        if item.get("availability") == "available" and capability in item.get("capabilities", [])
+    }
+    selected = tuple(provider for provider in preferred if provider in available)
+    if selected:
+        return selected
+    if available:
+        return (sorted(available)[0],)
+    raise SmokeFailure(f"no available {capability} provider")
+
+
 def _capability_checks(
     client: Client,
     args: argparse.Namespace,
@@ -223,19 +240,26 @@ def _capability_checks(
     providers: list[dict],
 ) -> None:
     def search():
-        search_provider = _first_available(providers, "search", ("openalex", "duckduckgo"))
-        status, _headers, payload = client.json(
-            "/api/v1/search",
-            method="POST",
-            payload={
-                "query": "retrieval augmented generation",
-                "domains": ["paper"],
-                "providers": [{"id": search_provider, "kind": "search"}],
-                "page": {"limit": 3},
-            },
-        )
-        _expect(status == 200 and isinstance(payload.get("items"), list), f"search {status}")
-        return f"{search_provider}: {len(payload['items'])} results", payload
+        failures: list[str] = []
+        for search_provider in _preferred_available(
+            providers,
+            "search",
+            ("openalex", "crossref", "semantic_scholar"),
+        ):
+            status, _headers, payload = client.json(
+                "/api/v1/search",
+                method="POST",
+                payload={
+                    "query": "retrieval augmented generation",
+                    "domains": ["paper"],
+                    "providers": [{"id": search_provider, "kind": "search"}],
+                    "page": {"limit": 3},
+                },
+            )
+            if status == 200 and isinstance(payload.get("items"), list):
+                return f"{search_provider}: {len(payload['items'])} results", payload
+            failures.append(f"{search_provider}={status}")
+        raise SmokeFailure(f"search providers failed: {', '.join(failures)}")
 
     _record(checks, "search_live", search)
 

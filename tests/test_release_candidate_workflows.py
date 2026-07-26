@@ -1072,6 +1072,7 @@ def test_hfs_reusable_promotion_is_candidate_pinned_and_live_verified() -> None:
     )[0]
     assert "ref: ${{ inputs.verifier_sha }}" in post_deploy
     assert "cd trusted-verifier" in post_deploy
+    assert 'SOUWEN_SMOKE_REQUEST_TIMEOUT: "60"' in post_deploy
     assert "ref: ${{ inputs.candidate_sha || github.sha }}" not in post_deploy
 
 
