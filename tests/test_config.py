@@ -150,16 +150,6 @@ class TestDefaults:
         cfg = SouWenConfig()
         assert cfg.proxy_pool == []
 
-    def test_plugin_config_default_empty(self):
-        """plugin_config 默认空字典。"""
-        cfg = SouWenConfig()
-        assert cfg.plugin_config == {}
-
-    def test_plugin_config_field(self):
-        """plugin_config 保存按插件名分组的配置。"""
-        cfg = SouWenConfig(plugin_config={"demo": {"api_key": "k", "limit": 3}})
-        assert cfg.plugin_config["demo"] == {"api_key": "k", "limit": 3}
-
     def test_uniapi_ark_sources_are_opt_in_and_mutually_exclusive(self):
         deepseek = "uniapi_ark_annotations_deepseek_v3_2_251201"
         doubao = "uniapi_ark_annotations_doubao_seed_2_0_lite_260428"

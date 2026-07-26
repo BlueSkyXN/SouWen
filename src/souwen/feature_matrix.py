@@ -14,14 +14,12 @@ from typing import Final, cast
 
 from souwen.editions import (
     EDITIONS,
-    PREINSTALLED_PLUGIN_MODULES,
     Edition,
     allowed_warp_modes,
     edition_allows,
     fetch_provider_min_edition,
     fetch_provider_policy,
     llm_available,
-    plugin_preinstalled,
     source_min_edition,
     source_policy,
 )
@@ -150,8 +148,8 @@ def sanitize_public_runtime_probe(adapter_name: str, runtime: RuntimeProbe) -> R
     """Remove arbitrary loader exception text from a runtime probe.
 
     Missing-module and edition-gate reasons are derived from maintained metadata
-    and are safe to retain.  Every other failure may contain arbitrary plugin
-    exception text and is replaced with a stable public message.
+    and are safe to retain. Every other loader failure is replaced with a stable
+    public message.
     """
 
     if runtime.available:
@@ -340,9 +338,6 @@ def probe_capabilities(edition: Edition | str | None = None) -> dict[str, ProbeR
     mcp_declared = "mcp" in declared_fetch
     mcp_importable = _module_importable(MCP_MODULE) if mcp_declared else False
 
-    plugin_declared = edition_allows(current, "full")
-    plugin_available = plugin_preinstalled(current)
-
     return {
         "sources": ProbeResult(
             declared=declared_sources,
@@ -368,16 +363,6 @@ def probe_capabilities(edition: Edition | str | None = None) -> dict[str, ProbeR
             if mcp_declared and not mcp_importable
             else "",
         ),
-        "plugin_preinstalled": ProbeResult(
-            declared=plugin_declared,
-            available=plugin_available,
-            reason=(
-                "no preinstalled plugin module importable: "
-                f"{', '.join(PREINSTALLED_PLUGIN_MODULES)}"
-            )
-            if plugin_declared and not plugin_available
-            else "",
-        ),
     }
 
 
@@ -389,7 +374,6 @@ def edition_capabilities(edition: Edition | str | None = None) -> dict[str, obje
         "llm": bool(declared_llm_protocols(current)),
         "warp_modes": list(allowed_warp_modes(current)),
         "fetch_providers": list(declared_fetch_provider_names(current)),
-        "plugin_preinstalled": plugin_preinstalled(current),
     }
 
 

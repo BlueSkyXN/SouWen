@@ -35,7 +35,7 @@ class DoctorSourceResponse(BaseModel):
     optional_credential_effect: str | None = None
     risk_level: Literal["low", "medium", "high"]
     risk_reasons: list[str] = Field(default_factory=list)
-    distribution: Literal["core", "extra", "plugin"]
+    distribution: Literal["core", "extra"]
     package_extra: str | None = None
     stability: Literal["stable", "beta", "experimental", "deprecated"]
     usage_note: str | None = None
@@ -134,7 +134,7 @@ class SourceChannelConfigResponse(BaseModel):
     optional_credential_effect: str | None = None
     risk_level: Literal["low", "medium", "high"]
     risk_reasons: list[str] = Field(default_factory=list)
-    distribution: Literal["core", "extra", "plugin"]
+    distribution: Literal["core", "extra"]
     package_extra: str | None = None
     stability: Literal["stable", "beta", "experimental", "deprecated"]
     usage_note: str | None = None
@@ -306,76 +306,6 @@ class WarpComponentInstallResponse(BaseModel):
     component: str
     version: str | None = None
     path: str | None = None
-
-
-# ---------------------------------------------------------------------------
-# 插件管理响应
-# ---------------------------------------------------------------------------
-
-
-class PluginInfoResponse(BaseModel):
-    """单个插件状态视图。"""
-
-    name: str
-    package: str | None = None
-    version: str | None = None
-    status: str
-    source: str
-    first_party: bool = False
-    description: str = ""
-    error: str | None = None
-    source_adapters: list[str] = Field(default_factory=list)
-    fetch_handlers: list[str] = Field(default_factory=list)
-    restart_required: bool = False
-
-
-class PluginListResponse(BaseModel):
-    """插件清单响应。"""
-
-    plugins: list[PluginInfoResponse] = Field(default_factory=list)
-    restart_required: bool
-    install_enabled: bool
-
-
-class PluginHealthResponse(BaseModel):
-    """插件健康检查响应，允许插件追加自定义安全字段。"""
-
-    model_config = ConfigDict(extra="allow")
-
-    status: str
-    message: str | None = None
-
-
-class PluginActionResponse(BaseModel):
-    """插件启用 / 禁用操作响应。"""
-
-    success: bool
-    restart_required: bool
-    message: str
-
-
-class PluginPackageActionResponse(BaseModel):
-    """插件安装 / 卸载操作响应。"""
-
-    success: bool
-    package: str
-    restart_required: bool
-    message: str
-
-
-class PluginReloadErrorResponse(BaseModel):
-    """插件 reload 错误条目，已移除异常详情。"""
-
-    source: str = ""
-    name: str = ""
-
-
-class PluginReloadResponse(BaseModel):
-    """插件 reload 响应。"""
-
-    loaded: list[str] = Field(default_factory=list)
-    errors: list[PluginReloadErrorResponse] = Field(default_factory=list)
-    message: str = ""
 
 
 # ---------------------------------------------------------------------------

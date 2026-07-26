@@ -13,9 +13,7 @@
 
 ## 事实来源
 
-本页不是手工维护的静态表，而是由 `src/souwen/registry/sources/` 中的 `SourceAdapter` 声明投影为正式 Source Catalog 后，经 `tools/gen_docs.py` 生成。`SourceAdapter` 同时驱动 CLI、REST API、doctor、Panel 和插件视图。
-
-默认生成只包含内置源，并显式关闭外部插件自动加载；这样即使本机安装了 `souwen.plugins` entry point，checked-in 文档也能稳定复现。需要把本机插件一并展示时再使用 `--include-plugins`。
+本页不是手工维护的静态表，而是由 `src/souwen/registry/sources/` 中的 `SourceAdapter` 声明投影为正式 Source Catalog 后，经 `tools/gen_docs.py` 生成。`SourceAdapter` 同时驱动 CLI、REST API、doctor 和 Panel 视图。
 
 ## 如何阅读
 
@@ -231,7 +229,7 @@
 - Integration 描述接入方式：`open_api` / `scraper` / `official_api` / `self_hosted`。
 - Auth 描述运行前配置要求：免配置 / 可选凭据 / 必须凭据 / 自建实例。
 - Risk 描述默认调度风险，不等同于 Integration。
-- Distribution 描述推荐治理/安装范围：核心内置 / 可选依赖 / 外部插件。
+- Distribution 描述推荐治理/安装范围：核心内置 / 可选依赖。
 - Extra 表示建议安装的 optional dependency 组。
 - Stability 描述声明式接入成熟度：稳定 / Beta / 实验性 / 已弃用；不等于实时可用性或可达性。
 
@@ -241,5 +239,3 @@
 PYTHONPATH=src python3 tools/gen_docs.py --write
 PYTHONPATH=src python3 tools/gen_docs.py --check
 ```
-
-如需在本机 catalog 中展示已安装的外部插件，可追加 `--include-plugins`。

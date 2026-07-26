@@ -27,7 +27,6 @@ import { waybackMethods } from './wayback'
 import { proxyMethods } from './proxy'
 import { bilibiliMethods } from './bilibili'
 import { whoamiMethods } from './whoami'
-import { pluginsMethods } from './plugins'
 import type {
   SearchResponse,
   ResearchOutputSearchResponse,
@@ -62,13 +61,6 @@ import type {
   BilibiliUserSearchResponse,
   BilibiliArticleSearchResponse,
   WhoamiResponse,
-  PluginListResponse,
-  PluginInfo,
-  PluginHealthResponse,
-  PluginEnableResponse,
-  PluginDisableResponse,
-  PluginInstallResponse,
-  PluginReloadResponse,
 } from '../types'
 
 export class ApiService extends ApiServiceBase {}
@@ -179,15 +171,6 @@ export interface ApiService {
   // === whoami ===
   whoami(): Promise<WhoamiResponse>
 
-  // === plugins ===
-  listPlugins(signal?: AbortSignal): Promise<PluginListResponse>
-  getPlugin(name: string, signal?: AbortSignal): Promise<PluginInfo>
-  getPluginHealth(name: string, signal?: AbortSignal): Promise<PluginHealthResponse>
-  enablePlugin(name: string): Promise<PluginEnableResponse>
-  disablePlugin(name: string): Promise<PluginDisableResponse>
-  installPlugin(packageName: string): Promise<PluginInstallResponse>
-  uninstallPlugin(packageName: string): Promise<PluginInstallResponse>
-  reloadPlugins(): Promise<PluginReloadResponse>
 }
 
 // 在原型上注入各域方法。顺序无关——各域方法名互不重叠。
@@ -205,7 +188,6 @@ Object.assign(
   proxyMethods,
   bilibiliMethods,
   whoamiMethods,
-  pluginsMethods,
 )
 
 /**

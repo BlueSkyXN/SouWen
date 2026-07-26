@@ -48,7 +48,6 @@ jobs:
     timeout-minutes: 15
     env:
       PYTHONPATH: src
-      SOUWEN_PLUGIN_AUTOLOAD: "0"
     steps:
       - uses: actions/checkout@v6
         with:
@@ -174,7 +173,6 @@ jobs:
     timeout-minutes: 20
     env:
       PYTHONPATH: src
-      SOUWEN_PLUGIN_AUTOLOAD: "0"
     strategy:
       fail-fast: false
       matrix:
@@ -224,7 +222,6 @@ jobs:
     timeout-minutes: 10
     env:
       PYTHONPATH: src
-      SOUWEN_PLUGIN_AUTOLOAD: "0"
     steps:
       - uses: actions/checkout@v6
         with:
@@ -264,7 +261,6 @@ jobs:
     timeout-minutes: 15
     env:
       PYTHONPATH: src
-      SOUWEN_PLUGIN_AUTOLOAD: "0"
     steps:
       - uses: actions/checkout@v6
         with:
@@ -306,7 +302,6 @@ jobs:
     timeout-minutes: 15
     env:
       PYTHONPATH: src
-      SOUWEN_PLUGIN_AUTOLOAD: "0"
     steps:
       - uses: actions/checkout@v6
         with:
@@ -335,48 +330,6 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: v2-full-profile-report
-          path: artifacts/
-          if-no-files-found: warn
-          retention-days: 7
-
-  plugin_profile:
-    name: v2 plugin profile
-    needs: [lane, bootstrap]
-    if: needs.lane.outputs.full == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    env:
-      PYTHONPATH: src
-      SOUWEN_PLUGIN_AUTOLOAD: "0"
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ inputs.candidate_sha || github.sha }}
-
-      - uses: actions/setup-python@v6
-        with:
-          python-version: "3.11"
-          cache: "pip"
-
-      - name: Install source and example plugin
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
-          pip install -e examples/minimal-plugin
-
-      - name: Run plugin profile
-        run: |
-          mkdir -p artifacts
-          python scripts/ci/run_profile.py \
-            --profile plugin \
-            --json-report artifacts/v2-plugin-profile.json \
-            --markdown-report artifacts/v2-plugin-profile.md
-
-      - name: Upload plugin profile report
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: v2-plugin-profile-report
           path: artifacts/
           if-no-files-found: warn
           retention-days: 7
@@ -431,7 +384,6 @@ jobs:
       - provider_v2_conformance
       - server_profile
       - full_profile
-      - plugin_profile
       - panel_build
     if: ${{ always() }}
     runs-on: ubuntu-latest
@@ -445,7 +397,6 @@ jobs:
           PROVIDER_V2_RESULT: ${{ needs.provider_v2_conformance.result }}
           SERVER_RESULT: ${{ needs.server_profile.result }}
           FULL_RESULT: ${{ needs.full_profile.result }}
-          PLUGIN_RESULT: ${{ needs.plugin_profile.result }}
           PANEL_RESULT: ${{ needs.panel_build.result }}
         run: |
           cat >> "$GITHUB_STEP_SUMMARY" <<EOF
@@ -459,8 +410,7 @@ jobs:
           | Full pytest matrix | $MATRIX_RESULT | Python 3.10-3.13 on Ubuntu, plus macOS/Windows 3.11 |
           | Provider v2 conformance | $PROVIDER_V2_RESULT | deterministic SPI, manifest, manager, OpenAlex, builtin Fetch, UniAPI, ERIC, and PatentsView contracts |
           | pro-cli + basic-cli profile | $SERVER_RESULT | local API surface and CLI smoke |
-          | full-cli runtime profile | $FULL_RESULT | edition-full source, doctor, plugin, fetch handler, and feature matrix surface |
-          | Plugin profile | $PLUGIN_RESULT | example plugin install, contract tests, entry point discovery |
+          | full-cli runtime profile | $FULL_RESULT | edition-full source, doctor, fetch handler, and feature matrix surface |
           | Panel build | $PANEL_RESULT | TypeScript, Vitest, single-file panel artifact |
 
           External smoke, HF Space deploy, and binary build remain outside
@@ -469,7 +419,7 @@ jobs:
           EOF
 
           if [ "$FULL_LANE" = "true" ]; then
-            for result in "$BOOTSTRAP_RESULT" "$MATRIX_RESULT" "$PROVIDER_V2_RESULT" "$SERVER_RESULT" "$FULL_RESULT" "$PLUGIN_RESULT" "$PANEL_RESULT"; do
+            for result in "$BOOTSTRAP_RESULT" "$MATRIX_RESULT" "$PROVIDER_V2_RESULT" "$SERVER_RESULT" "$FULL_RESULT" "$PANEL_RESULT"; do
               if [ "$result" != "success" ]; then
                 echo "V2 release readiness gate failed (full lane): $result" >&2
                 exit 1
@@ -482,7 +432,7 @@ jobs:
                 exit 1
               fi
             done
-            for result in "$MATRIX_RESULT" "$SERVER_RESULT" "$FULL_RESULT" "$PLUGIN_RESULT" "$PANEL_RESULT"; do
+            for result in "$MATRIX_RESULT" "$SERVER_RESULT" "$FULL_RESULT" "$PANEL_RESULT"; do
               if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
                 echo "V2 fast lane unexpected full-gate result: $result" >&2
                 exit 1

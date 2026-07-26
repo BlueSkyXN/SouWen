@@ -96,7 +96,6 @@ describe('authStore', () => {
         llm: true,
         warp_modes: ['auto', 'wireproxy', 'kernel', 'usque', 'warp-cli', 'external'],
         fetch_providers: ['builtin'],
-        plugin_preinstalled: false,
       },
       guest_enabled: false,
       user_password_set: true,
@@ -115,7 +114,6 @@ describe('authStore', () => {
       llm: true,
       warp_modes: ['auto', 'wireproxy', 'kernel', 'usque', 'warp-cli', 'external'],
       fetch_providers: ['builtin'],
-      plugin_preinstalled: false,
     })
     expect(sessionStorage.getItem('souwen_role')).toBe('user')
     expect(JSON.parse(sessionStorage.getItem('souwen_features') ?? '{}')).toEqual(state.features)
@@ -135,7 +133,6 @@ describe('authStore', () => {
         llm: true,
         warp_modes: ['auto'],
         fetch_providers: ['builtin', 'scrapling'],
-        plugin_preinstalled: true,
       },
       guest_enabled: false,
       user_password_set: true,
@@ -216,7 +213,6 @@ describe('authStore', () => {
       llm: true,
       warp_modes: ['auto'],
       fetch_providers: ['builtin'],
-      plugin_preinstalled: false,
     }))
     useAuthStore.getState().loadFromStorage()
     const state = useAuthStore.getState()
@@ -242,7 +238,6 @@ describe('authStore', () => {
       llm: true,
       warp_modes: ['auto', 'kernel'],
       fetch_providers: ['builtin', 'scrapling'],
-      plugin_preinstalled: true,
     }))
     useAuthStore.getState().loadFromStorage()
     const state = useAuthStore.getState()
@@ -251,7 +246,7 @@ describe('authStore', () => {
     expect(state.role).toBe('admin')
     expect(state.features).toEqual({ fetch: true, doctor_full: true })
     expect(state.edition).toBe('full')
-    expect(state.editionCapabilities?.plugin_preinstalled).toBe(true)
+    expect(state.editionCapabilities?.fetch_providers).toEqual(['builtin', 'scrapling'])
   })
 
   it('treats malformed persisted edition capability data as unverified', () => {
@@ -262,7 +257,6 @@ describe('authStore', () => {
       llm: true,
       warp_modes: 'auto',
       fetch_providers: ['builtin'],
-      plugin_preinstalled: false,
     }))
 
     useAuthStore.getState().loadFromStorage()

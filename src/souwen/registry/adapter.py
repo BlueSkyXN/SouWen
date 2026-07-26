@@ -114,7 +114,7 @@ RISK_REASONS: frozenset[str] = frozenset(
 )
 
 #: 分发范围：描述推荐安装/治理边界，不代表源码一定物理拆包。
-DISTRIBUTIONS: frozenset[str] = frozenset({"core", "extra", "plugin"})
+DISTRIBUTIONS: frozenset[str] = frozenset({"core", "extra"})
 
 #: 接入成熟度。
 STABILITIES: frozenset[str] = frozenset({"stable", "beta", "experimental", "deprecated"})
@@ -340,7 +340,6 @@ class SourceAdapter:
         """推荐分发范围。
 
         显式字段优先；否则把依赖 optional extra 的内置源归到 extra。
-        外部插件会由 SourceMeta 视图按 external_plugins() 进一步标记为 plugin。
         """
         if self.distribution != "core":
             return self.distribution

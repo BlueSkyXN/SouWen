@@ -184,77 +184,6 @@ jobs:
           if-no-files-found: warn
           retention-days: 7
 
-  plugin-test:
-    name: 插件系统测试
-    needs: [lane, lint]
-    if: needs.lane.outputs.full == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ inputs.candidate_sha || github.sha }}
-
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-
-      - name: 安装依赖
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
-
-      - name: 运行插件相关测试
-        run: pytest tests/test_plugin.py tests/test_fetch_handlers.py -v --tb=short
-
-  plugin-functional:
-    name: 插件云端功能测试
-    needs: [lane, lint]
-    if: needs.lane.outputs.full == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    concurrency:
-      group: plugin-functional-${{ github.ref }}
-      cancel-in-progress: true
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ inputs.candidate_sha || github.sha }}
-
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-
-      - name: 安装当前源码与示例插件
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev]"
-          pip install -e examples/minimal-plugin
-
-      - name: 安装可选 web2pdf 插件
-        run: pip install "playwright>=1.40" "superweb2pdf @ https://github.com/BlueSkyXN/SuperWeb2PDF/archive/d1e1da59d739ad46222b5e726bd6f28b0d0453fa.zip#sha256=f56a380aa3f06d169d3fcc723d5525779519afaff159b37e8a789e50b797c76b" || echo "superweb2pdf package not available, recording WARN in report"
-        continue-on-error: true
-
-      - name: 运行插件专用功能测试
-        run: |
-          mkdir -p artifacts
-          python scripts/plugin_functional_check.py \
-            --mode fixture \
-            --require-installed \
-            --json-report artifacts/plugin-functional.json \
-            --markdown-report artifacts/plugin-functional.md
-
-      - name: 上传插件专项测试报告
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: plugin-functional-report
-          path: artifacts/
-          if-no-files-found: warn
-          retention-days: 7
-
   server-test:
     name: 服务端测试
     needs: [lane, lint]
@@ -585,7 +514,6 @@ jobs:
       - name: Measure seven cold processes and enforce medians
         env:
           PYTHONPATH: src
-          SOUWEN_PLUGIN_AUTOLOAD: '0'
         run: |
           mkdir -p artifacts
           python3 - <<'PY'
@@ -847,8 +775,6 @@ jobs:
       - lint
       - docs-check
       - test
-      - plugin-test
-      - plugin-functional
       - server-test
       - scrapling-functional
       - crawl4ai-functional

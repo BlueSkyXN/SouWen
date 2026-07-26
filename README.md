@@ -41,7 +41,7 @@ SouWen（搜文）为 AI Agent、CLI 脚本和服务端应用提供统一的多�
 ### 特性
 
 <!-- BEGIN AUTO: SOURCE METRICS -->
-- **111 个内置 registered source**：正式 Source Catalog 含 **110 个 public** 条目，另有 **1 个 hidden/internal** 条目；外部插件可在运行时追加。
+- **111 个内置 registered source**：正式 Source Catalog 含 **110 个 public** 条目，另有 **1 个 hidden/internal** 条目。
   - 公开源主 domain：`paper` 21 · `patent` 8 · `web` 32 · `social` 5 · `video` 2 · `knowledge` 1 · `developer` 2 · `cn_tech` 9 · `office` 1 · `archive` 1 · `book` 9 · `research_output` 2
   - `fetch` 横切视图：**24 个 provider** = **17 个 fetch 主 domain** + **7 个跨域源**。
 <!-- END AUTO: SOURCE METRICS -->
@@ -174,24 +174,6 @@ src/souwen/
 └── server/            FastAPI 应用
 ```
 
-## 🧩 插件系统
-
-SouWen 支持通过外部 Python 包扩展数据源和 fetch provider。插件通过 setuptools
-`entry_points` 或 `souwen.yaml` 的 `plugins` 字段接入，无需修改 SouWen 主仓代码。
-
-提供三种等价的运维入口管理插件：
-
-- **Web Panel** — `/plugins` 路由：图形化列表、启用/禁用、健康检查、安装/卸载
-- **CLI** — `souwen plugins list/info/enable/disable/health/reload/install/uninstall/new`
-- **HTTP API** — `/api/v1/admin/plugins/*`，详见 [docs/api-reference.md](docs/api-reference.md)
-
-> 安装/卸载默认关闭，需要服务端显式设置 `SOUWEN_ENABLE_PLUGIN_INSTALL=1` 才允许。
-
-文档：
-
-- 对接规范（插件作者）：[docs/plugin-integration-spec.md](docs/plugin-integration-spec.md)
-- 运维使用指南：[docs/plugin-management.md](docs/plugin-management.md)
-
 ## 🚢 部署
 
 **Docker**（推荐）：
@@ -226,8 +208,6 @@ docker run -p 8000:49265 \
 - [docs/anti-scraping.md](docs/anti-scraping.md) — TLS 指纹 / WARP / 限流
 - [docs/appearance.md](docs/appearance.md) — 多皮肤前端
 - [docs/adding-a-source.md](docs/adding-a-source.md) — 新增数据源指南
-- [docs/plugin-integration-spec.md](docs/plugin-integration-spec.md) — 外部插件对接规范
-- [docs/plugin-management.md](docs/plugin-management.md) — 插件管理（Web Panel / CLI / API）
 - [docs/contributing.md](docs/contributing.md) — 开发者指南
 - [docs/internal/rc-readiness-gates.md](docs/internal/rc-readiness-gates.md) — v2.0.0rc2 固定门禁与 evidence manifest 契约
 - [docs/internal/](docs/internal/) — 维护者 ADR、分支策略和发布前基线
@@ -236,7 +216,6 @@ docker run -p 8000:49265 \
 ## 🤝 贡献
 
 - 新增数据源：参考 [docs/adding-a-source.md](docs/adding-a-source.md)（`registry/sources/` 加一条 `_reg(...)` 即可）
-- 开发外部插件：参考 [docs/plugin-integration-spec.md](docs/plugin-integration-spec.md)
 - 代码风格：`ruff format && ruff check`
 - 测试：`pytest tests/`
 

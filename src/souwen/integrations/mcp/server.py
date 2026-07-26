@@ -89,27 +89,6 @@ from souwen.registry import defaults_for, get as _registry_get
 
 logger = logging.getLogger("souwen.integrations.mcp.server")
 
-_MCP_PLUGINS_BOOTSTRAPPED = False
-
-
-def _bootstrap_plugins() -> None:
-    """加载配置可见的外部插件，确保 MCP stdio 独立启动时也能看到插件源。"""
-    global _MCP_PLUGINS_BOOTSTRAPPED
-    if _MCP_PLUGINS_BOOTSTRAPPED:
-        return
-
-    try:
-        from souwen.config import get_config
-        from souwen.plugin import ensure_plugins_loaded
-
-        result = ensure_plugins_loaded(get_config())
-        if result.errors:
-            logger.warning("MCP 插件加载完成，错误 %d 个", len(result.errors))
-    except Exception:  # noqa: BLE001 - MCP 不应因第三方插件失败而无法启动
-        logger.warning("MCP 插件初始化失败，继续使用已注册源。", exc_info=True)
-    finally:
-        _MCP_PLUGINS_BOOTSTRAPPED = True
-
 
 def _default_paper_sources_label() -> str:
     return _default_source_names_label("paper", "search")
@@ -132,7 +111,6 @@ def _default_web_engines_label() -> str:
 
 
 def _default_source_names_label(domain: str, capability: str) -> str:
-    _bootstrap_plugins()
     names = defaults_for(domain, capability)
     return ",".join(_edition_allowed_source_names(names))
 
@@ -159,7 +137,6 @@ def _fetch_provider_names() -> list[str]:
     from souwen.config import get_config
     from souwen.feature_matrix import fetch_provider_runtime_projection
 
-    _bootstrap_plugins()
     names = [
         item.name
         for item in fetch_provider_runtime_projection(get_config().edition)
@@ -175,7 +152,6 @@ def _fetch_provider_projection() -> dict[str, object]:
     from souwen.config import get_config
     from souwen.feature_matrix import fetch_provider_runtime_projection
 
-    _bootstrap_plugins()
     statuses = list(fetch_provider_runtime_projection(get_config().edition))
     statuses.sort(key=lambda item: (item.name != "builtin", item.name))
     providers = [
@@ -277,7 +253,6 @@ def create_server() -> "Server":
         SystemExit：MCP SDK 未安装时退出
     """
 
-    _bootstrap_plugins()
     server = Server("souwen")
 
     @server.list_tools()

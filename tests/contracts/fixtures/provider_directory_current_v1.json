@@ -62,27 +62,14 @@
       ]
     }
   },
-  "legacy_plugin": {
-    "entry_point_group": "souwen.plugins",
-    "accepted_entry_shapes": [
-      "Plugin",
-      "SourceAdapter",
-      "list_or_tuple_of_SourceAdapter",
-      "zero_argument_factory"
-    ],
-    "runtime_registry_mutation": true
-  },
   "configuration": {
     "required_model_fields": [
       "sources",
-      "llm_search_gateways",
-      "plugins",
-      "plugin_config"
+      "llm_search_gateways"
     ],
     "nested_loader_fields": [
       "llm",
       "llm_search_gateways",
-      "plugin_config",
       "sources"
     ],
     "precedence_high_to_low": [
@@ -109,18 +96,6 @@
     {
       "from": "src/souwen/registry/catalog.py",
       "to": "souwen.registry.adapter"
-    },
-    {
-      "from": "src/souwen/plugin.py",
-      "to": "souwen.registry.adapter"
-    },
-    {
-      "from": "src/souwen/plugin.py",
-      "to": "souwen.registry.views"
-    },
-    {
-      "from": "src/souwen/plugin.py",
-      "to": "souwen.web.fetch"
     }
   ]
 }

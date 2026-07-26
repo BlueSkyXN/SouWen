@@ -154,7 +154,8 @@ llm_search_gateways.<gateway_id>.api_key
 llm_search_gateways.<gateway_id>.base_url
 ```
 
-现有 `credential_fields`、flat config、self-hosted source 和 external plugin 的解析保持兼容。
+现有 `credential_fields`、flat config 和 self-hosted source 的解析保持兼容；A1 已移除
+external plugin 解析，不再属于兼容面。
 
 ## 4. Timeout、retry 与 deadline
 
@@ -210,7 +211,7 @@ llm_search_gateways.<gateway_id>.base_url
 | `FND-VAL-007` | 默认 HTTP/LLM retry 不回归 | core/LLM mocked tests |
 | `FND-VAL-008` | shared deadline 不被第二个 attempt 重置 | monotonic fake-clock tests |
 | `FND-VAL-009` | admin timeout schema/update 与 config redaction | server/OpenAPI tests |
-| `FND-VAL-010` | 现有 registry/docs/plugin/import surface 不漂移 | registry/docs/import checks |
+| `FND-VAL-010` | 现有 registry/docs/import surface 不漂移 | registry/docs/import checks |
 
 本地只执行 deterministic tests 与 lint，不执行 binary/container/package/Panel build：
 

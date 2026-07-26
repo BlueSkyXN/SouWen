@@ -20,8 +20,8 @@ from souwen.registry.catalog import (
     sources_by_category,
 )
 from souwen.registry.loader import lazy
-from souwen.registry import all_adapters, defaults_for, external_plugins, fetch_providers
-from souwen.registry.views import _reg_external
+from souwen.registry import all_adapters, defaults_for, fetch_providers
+from souwen.registry.views import _reg
 from souwen.web.fetch import get_fetch_handlers
 
 
@@ -353,7 +353,7 @@ def test_runtime_default_disabled_source_requires_explicit_enable(clean_registry
         auth_requirement="none",
         runtime_default_enabled=False,
     )
-    assert _reg_external(adapter) is True
+    _reg(adapter)
 
     default_config = SouWenConfig(
         edition="full",
@@ -412,7 +412,7 @@ def test_public_source_catalog_payload_exposes_runtime_without_redefining_availa
 def test_public_source_catalog_payload_sanitizes_client_loader_exception(
     clean_registry,
 ) -> None:
-    """Public catalog must not expose paths, DSNs, or tokens from a failing plugin loader."""
+    """Public catalog must not expose paths, DSNs, or tokens from a failing loader."""
     secret_text = (
         "failed at /Users/private/customer/plugin.py "
         "postgresql://user:password@db.internal/source token=runtime-secret"
@@ -431,7 +431,7 @@ def test_public_source_catalog_payload_sanitizes_client_loader_exception(
         methods={"search": MethodSpec("search")},
         auth_requirement="none",
     )
-    assert _reg_external(adapter) is True
+    _reg(adapter)
 
     payload = public_source_catalog_payload(SouWenConfig(edition="full"))
     source = next(item for item in payload["sources"] if item["name"] == adapter.name)
@@ -473,34 +473,9 @@ def test_public_source_catalog_payload_does_not_probe_edition_gated_sources(
 
 def test_catalog_fetch_providers_have_runtime_handlers() -> None:
     """Source catalog 中的 fetch provider 必须能派发到 fetch handler。"""
-    external_plugin_names = set(external_plugins())
-    registry_fetch_provider_names = {
-        adapter.name for adapter in fetch_providers() if adapter.name not in external_plugin_names
-    }
+    registry_fetch_provider_names = {adapter.name for adapter in fetch_providers()}
     handler_names = set(get_fetch_handlers())
     assert registry_fetch_provider_names <= handler_names
-
-
-def test_runtime_plugin_uses_public_category_tag_and_plugin_distribution(
-    clean_registry,
-) -> None:
-    adapter = SourceAdapter(
-        name="catalog_runtime_web_probe",
-        domain="web",
-        integration="official_api",
-        description="runtime catalog probe",
-        config_field="tavily_api_key",
-        client_loader=lazy("souwen.web.tavily:TavilyClient"),
-        methods={"search": MethodSpec("search")},
-        auth_requirement="required",
-        credential_fields=("tavily_api_key",),
-        tags=frozenset({"category:professional"}),
-    )
-
-    assert _reg_external(adapter) is True
-    entry = source_catalog()["catalog_runtime_web_probe"]
-    assert entry.category == "web_professional"
-    assert entry.distribution == "plugin"
 
 
 def test_explicit_category_and_visibility_override_compat_defaults(clean_registry) -> None:
@@ -516,7 +491,7 @@ def test_explicit_category_and_visibility_override_compat_defaults(clean_registr
         catalog_visibility="internal",
     )
 
-    assert _reg_external(adapter) is True
+    _reg(adapter)
     entry = source_catalog()["catalog_internal_probe"]
     assert entry.category == "web_professional"
     assert entry.visibility == "internal"

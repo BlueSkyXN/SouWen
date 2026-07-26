@@ -78,7 +78,7 @@ class SourceAdapter:
     optional_credential_effect: str | None = None
     risk_level: str = "low"                      # low|medium|high
     risk_reasons: frozenset[str] = frozenset()
-    distribution: str = "core"                   # core|extra|plugin
+    distribution: str = "core"                   # core|extra
     package_extra: str | None = None
     stability: str = "stable"                    # stable|beta|experimental|deprecated
     usage_note: str | None = None                # 用户级提示（如"仅支持 DOI OA 查找"），不参与可用性判定
@@ -142,7 +142,7 @@ client_cls = adapter.client_loader()  # 此刻才 importlib.import_module
 | 鉴权要求 | `auth_requirement` / `credential_fields` | 描述运行前是否需要凭据，支持可选凭据和多字段凭据 |
 | 可选凭据收益 | `optional_credential_effect` | 标注可选 Key 是提升限流、配额、质量、个性化还是礼貌访问 |
 | 风险治理 | `risk_level` / `risk_reasons` | 控制默认启用和默认搜索范围,解释反爬、封号、配额成本等原因 |
-| 分发范围 | `distribution` / `package_extra` | 表示核心内置、可选依赖或外部插件,以及建议 extra 组 |
+| 分发范围 | `distribution` / `package_extra` | 表示核心内置或可选依赖，以及建议 extra 组 |
 | 成熟度 | `stability` | 区分 stable / beta / experimental / deprecated |
 | 用户提示 | `usage_note` | 描述源运行时的限制或注意事项(如 unpaywall "仅支持 DOI OA 查找"、`stability="deprecated"` 源的修复进度);doctor / API / Panel 会作为消息后缀展示,**不参与可用性判定** |
 
@@ -229,92 +229,7 @@ importability。需要本地有效可执行性时合取两轴。doctor 的静态
 
 如需 API Key，加第 3 处：`SouWenConfig` 加字段。完整流程见 [adding-a-source.md](adding-a-source.md)。
 
-## 8. 插件系统（外部扩展）
-
-注册表除了承载内置 `_reg()` 声明，还能在运行时**通过外部插件**追加新的
-`SourceAdapter`，让第三方 / 私有源在不改主仓代码的前提下被 SouWen 发现。
-
-### 运行时发现与打包边界
-
-插件通过 entry_points 发现。第三方插件不固定进 SouWen 的公开 extras；需要随
-镜像预装时，由镜像或部署脚本单独安装对应插件包：
-
-| 模式 | 安装命令 | 适用场景 |
-|---|---|---|
-| **运行时发现** | 安装第三方插件包（GitHub archive 或未来 PyPI 包） | 与 SouWen 解耦升级 |
-| **可选 extra** | 源码 checkout 使用 `pip install -e ".[web2pdf]"`；构建后的包使用 `pip install "souwen[web2pdf]"` | Docker / 一键部署；插件依赖随 SouWen extra 安装 |
-
-`web2pdf` extra 通过 PEP 508 direct reference 固定到 SuperWeb2PDF 的 immutable commit
-archive，并附 `#sha256=` hash；Hatch 的 `allow-direct-references = true` 明确允许构建该
-metadata。它不是
-一个可改写为未发布 PyPI distribution 的版本约束。Docker 镜像通过
-`WITH_WEB2PDF=1` 启用，并让 `WEB2PDF_PACKAGE` 使用同一个 commit archive。
-两种模式都依赖同一个 `[project.entry-points."souwen.plugins"]` 声明，
-CLI / server 启动时通过 `ensure_plugins_loaded(get_config())` 显式扫描发现。
-单纯 `import souwen.registry` 只注册内置源，不执行第三方 entry point。
-
-### 加载流程
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  CLI / server bootstrap                                          │
-│      ↓                                                           │
-│  1. import souwen.registry —— 触发内置 _reg()，填满 _REGISTRY     │
-│      ↓                                                           │
-│  2. plugin.ensure_plugins_loaded(get_config())                    │
-│       ├─ discover_entrypoint_plugins()                           │
-│       │     扫描 importlib.metadata entry_points(group=          │
-│       │     "souwen.plugins")，逐个 ep.load() → _coerce_to_       │
-│       │     plugin() → _reg_external()                            │
-│       └─ load_config_plugins(config.plugins)                     │
-│             解析 "module:attr" 字符串列表，同上                  │
-│      ↓                                                           │
-│  3. _reg_external(adapter)                                       │
-│       与已有源重名 → 记 warning 跳过（不抛）                    │
-│       否则插入 _REGISTRY 并加入 _EXTERNAL_PLUGINS                │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-外部插件名出现在 `external_plugins()` 视图里，便于 CLI / `/sources` 端点审计。
-
-### 与内置注册的关键差异
-
-| 维度 | 内置 `_reg()` | 外部 `_reg_external()` |
-|---|---|---|
-| 声明位置 | `registry/sources/` | 第三方包的 entry point |
-| 重名 | 抛 `ValueError`（启动失败） | 记 warning 跳过 |
-| 一致性测试 | 必跑 `tests/registry/test_consistency.py` | 不强制 |
-| 暴露视图 | 同上 | 额外出现在 `external_plugins()` |
-
-### Fetch Handler 注册表
-
-`fetch` 域的派发不在 registry 层，而在 [`souwen.web.fetch`](../src/souwen/web/fetch.py)
-的独立 dict `_FETCH_HANDLERS: dict[str, FetchHandler]`：
-
-```python
-FetchHandler = Callable[..., Awaitable[FetchResponse]]
-
-_FETCH_HANDLERS["builtin"]      = _handle_builtin
-_FETCH_HANDLERS["jina_reader"]  = _handle_jina_reader
-# ... 24 个内置 provider
-```
-
-外部插件通过 `register_fetch_handler(provider, handler)` 加入这张表，让
-`souwen.web.fetch.fetch_content(providers=["my_source"])` 能派发到自己的实现。
-
-> 设计原因：fetch 调用的入参形态（`urls`/`timeout`/各种 provider 私有 kwarg）
-> 与 `MethodSpec` 的统一入参不完全对齐，单独一张 handler 表更直接。
-> SourceAdapter 负责"出现在 registry / `souwen sources`"，handler 负责"能被
-> fetch 真正派发"，二者互补。
-
-### 对接规范
-
-完整的插件对接契约（SourceAdapter / MethodSpec / Client / Fetch handler / 配置 /
-打包 / 测试）见 [docs/plugin-integration-spec.md](plugin-integration-spec.md)。
-
----
-
-## 9. 结构一致性测试（护栏）
+## 8. 结构一致性测试（护栏）
 
 `tests/registry/test_consistency.py` 含 21 项硬断言，CI 每次 PR 必跑：
 
@@ -333,7 +248,7 @@ _FETCH_HANDLERS["jina_reader"]  = _handle_jina_reader
 - 每个 domain 至少有一个源支持 search / archive_lookup
 - fetch 提供者 ≥ 10 个
 
-## 10. 公开 API 入口
+## 9. 公开 API 入口
 
 注册表是单一事实源，但提供多条便捷入口：
 

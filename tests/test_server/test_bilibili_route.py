@@ -30,7 +30,6 @@ def _isolate_config_files(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("USERPROFILE", str(tmp_path))
-    monkeypatch.setenv("SOUWEN_PLUGIN_AUTOLOAD", "0")
     for key in (
         "SOUWEN_API_PASSWORD",
         "SOUWEN_VISITOR_PASSWORD",

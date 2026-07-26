@@ -13,19 +13,12 @@
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Callable
-from typing import Any
 
 from souwen.registry.adapter import FETCH_DOMAIN, SourceAdapter
 
-logger = logging.getLogger("souwen.registry")
-
 # ── 内部注册表（由 sources package 填充）─────────────────────────
 _REGISTRY: dict[str, SourceAdapter] = {}
-
-#: 通过外部插件加载的源名集合（用于审计/查询）
-_EXTERNAL_PLUGINS: set[str] = set()
 
 
 def _llm_identity_owner(adapter: SourceAdapter) -> str | None:
@@ -39,15 +32,6 @@ def _llm_identity_owner(adapter: SourceAdapter) -> str | None:
     return None
 
 
-def _invalidate_source_meta_cache() -> None:
-    """外部插件改动 registry 后，同步刷新 SourceMeta 兼容视图。"""
-    try:
-        from souwen.registry.meta import invalidate_source_meta_cache
-    except ImportError:  # pragma: no cover - 仅防御极早期 import 环
-        return
-    invalidate_source_meta_cache()
-
-
 def _reg(adapter: SourceAdapter) -> None:
     """注册一个 adapter。同名重复注册抛异常（避免 sources package 里的漂移）。"""
     if adapter.name in _REGISTRY:
@@ -58,59 +42,6 @@ def _reg(adapter: SourceAdapter) -> None:
             f"LLM-search identity {adapter.llm_search_identity!r} 已属于数据源 {identity_owner!r}"
         )
     _REGISTRY[adapter.name] = adapter
-
-
-def _reg_external(adapter: SourceAdapter) -> bool:
-    """注册一个外部插件 adapter。
-
-    与 `_reg` 不同：发生重名冲突时 **不抛异常**，仅记录警告并跳过，
-    保证宿主程序不会因为第三方插件冲突而崩溃。
-
-    Returns:
-        True 表示注册成功；False 表示与已有源冲突或已注册，已跳过。
-    """
-    if adapter.name in _REGISTRY:
-        if adapter.name in _EXTERNAL_PLUGINS:
-            # 已由之前的 discover/load 调用注册过，幂等跳过
-            return False
-        logger.warning(
-            "插件源 %r 与已有数据源同名，已跳过（请重命名插件以避免冲突）",
-            adapter.name,
-        )
-        return False
-    identity_owner = _llm_identity_owner(adapter)
-    if identity_owner is not None:
-        logger.warning(
-            "插件源 %r 与数据源 %r 使用相同 LLM-search identity %r，已跳过",
-            adapter.name,
-            identity_owner,
-            adapter.llm_search_identity,
-        )
-        return False
-    _REGISTRY[adapter.name] = adapter
-    _EXTERNAL_PLUGINS.add(adapter.name)
-    _invalidate_source_meta_cache()
-    return True
-
-
-def _unreg_external(name: str) -> bool:
-    """运行时注销外部插件 adapter（仅限外部插件，不影响内置源）。
-
-    Returns:
-        True 表示成功移除；False 表示不存在或非外部插件。
-    """
-    if name not in _EXTERNAL_PLUGINS:
-        return False
-    _EXTERNAL_PLUGINS.discard(name)
-    _REGISTRY.pop(name, None)
-    _invalidate_source_meta_cache()
-    logger.info("已注销外部插件源 %r", name)
-    return True
-
-
-def external_plugins() -> list[str]:
-    """返回通过外部插件加载的源名（按字母序）。"""
-    return sorted(_EXTERNAL_PLUGINS)
 
 
 # ── 查询 API ────────────────────────────────────────────────
@@ -210,8 +141,6 @@ def enum_values() -> list[str]:
 def _reset_registry() -> None:
     """仅供测试：清空注册表。生产代码不要调用。"""
     _REGISTRY.clear()
-    _EXTERNAL_PLUGINS.clear()
-    _invalidate_source_meta_cache()
 
 
 def _load_default_sources() -> None:
@@ -246,8 +175,7 @@ __all__ = [
     "fetch_providers",
     "high_risk_sources",
     "enum_values",
-    "external_plugins",
 ]
 
 # 注：保留下列符号供 sources package 内部使用，但不公开
-_public_internal: tuple[Callable[..., Any], ...] = (_reg, _reg_external, _unreg_external)  # type: ignore[assignment]
+_public_internal: tuple[Callable[..., object], ...] = (_reg,)

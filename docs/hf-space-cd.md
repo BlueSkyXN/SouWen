@@ -151,7 +151,7 @@ GitHub Actions 的 cancel、runner 丢失或平台故障不能保证 rollback jo
 | 管理面板 | `/panel` | 单文件前端 HTML 可返回 |
 | 鉴权 | `/api/v1/whoami` | 双层 token 获得 admin；缺应用 token 不得为 admin |
 | 控制面 | `/api/v1/admin/config`、`http-backend`、`warp`、`sources/config` | 可读、脱敏，修改型 smoke 能恢复原状态 |
-| Doctor/Plugins | `/api/v1/admin/doctor`、`plugins` | 静态状态与插件表可读取 |
+| Doctor | `/api/v1/admin/doctor` | 静态状态可读取 |
 
 完整 capability smoke 会临时修改并恢复 HTTP backend/WARP 状态。外部搜索源受上游风控、出口
 IP 和速率限制影响；报告中的 `WARN` 是带时间戳观测，不是永久可用承诺。

@@ -59,7 +59,6 @@ SOFT_WARN_PATHS = {
     "docs/api-reference.md",
     "docs/configuration.md",
     "docs/data-sources.md",
-    "docs/plugin-integration-spec.md",
     "docs/source-catalog.md",
 }
 
@@ -110,7 +109,8 @@ def _tracked_files(root: Path) -> list[Path]:
         stdout=subprocess.PIPE,
         text=True,
     )
-    return [root / line for line in result.stdout.splitlines() if line]
+    files = (root / line for line in result.stdout.splitlines() if line)
+    return [path for path in files if path.is_file()]
 
 
 def _is_allowed(relative_path: str) -> bool:

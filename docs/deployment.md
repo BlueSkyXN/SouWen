@@ -168,8 +168,6 @@ docker build -f cloud/modelscope/Dockerfile \
 - 三个 Dockerfile 的 base image 使用 digest pin；WARP 下载必须通过
   `scripts/warp-checksums.txt`；SuperWeb2PDF direct URL 带 `#sha256=` hash。更新版本时必须
   同步 pin/checksum 及测试，不能临时跳过校验。
-- `WITH_WEB2PDF=1` 还需要验证 plugin entry point、fetch handler、Chromium 和 fixture PDF，
-  仅完成 `pip install` 不构成 runtime PASS。
 
 ## 本地服务
 
@@ -183,8 +181,7 @@ SOUWEN_ADMIN_PASSWORD=change-me souwen serve --host 0.0.0.0 --port 8000
 仓库的 `cloud/hfs/` 保存 Space 部署资源。部署前先本地跑：
 
 ```bash
-PYTHONPATH=src SOUWEN_PLUGIN_AUTOLOAD=0 \
-  python3 scripts/ci/run_profile.py --profile pro-cli --profile basic-cli
+PYTHONPATH=src python3 scripts/ci/run_profile.py --profile pro-cli --profile basic-cli
 ```
 
 旧 `server` / `minimal` 名称仍作为过渡 alias 可用，新文档和新 workflow 优先使用

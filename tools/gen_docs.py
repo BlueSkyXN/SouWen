@@ -13,8 +13,6 @@ from __future__ import annotations
 
 import argparse
 import difflib
-import os
-import subprocess
 import sys
 from dataclasses import dataclass
 from pathlib import Path
@@ -52,7 +50,6 @@ class RegistrySnapshot:
 
     adapters: dict[str, Any]
     public_names: frozenset[str]
-    external_names: frozenset[str]
     domains: tuple[str, ...]
     primary_counts: dict[str, int]
     fetch_primary: tuple[Any, ...]
@@ -71,10 +68,6 @@ class RegistrySnapshot:
         return self.registered_count - self.public_count
 
     @property
-    def visible_external_count(self) -> int:
-        return len(self.external_names & self.public_names)
-
-    @property
     def fetch_provider_count(self) -> int:
         return len(self.fetch_primary) + len(self.fetch_cross_domain)
 
@@ -87,36 +80,16 @@ def _configure_cli_stdio() -> None:
             reconfigure(encoding="utf-8")
 
 
-def _load_snapshot(*, include_plugins: bool = False) -> tuple[RegistrySnapshot, Any, Any]:
+def _load_snapshot() -> tuple[RegistrySnapshot, Any, Any]:
     """Load one deterministic registry snapshot and the catalog presentation metadata."""
 
-    old_autoload = os.environ.get("SOUWEN_PLUGIN_AUTOLOAD")
-    if not include_plugins:
-        # Checked-in docs should be reproducible even when local development
-        # environments have third-party souwen.plugins entry points installed.
-        os.environ["SOUWEN_PLUGIN_AUTOLOAD"] = "0"
-
-    try:
-        from souwen.registry import all_adapters, all_domains, external_plugins
-        from souwen.registry.catalog import public_source_catalog, source_categories
-    finally:
-        if not include_plugins:
-            if old_autoload is None:
-                os.environ.pop("SOUWEN_PLUGIN_AUTOLOAD", None)
-            else:
-                os.environ["SOUWEN_PLUGIN_AUTOLOAD"] = old_autoload
+    from souwen.registry import all_adapters, all_domains
+    from souwen.registry.catalog import public_source_catalog, source_categories
 
     loaded_adapters = all_adapters()
-    external_names = frozenset(external_plugins())
     public_catalog = public_source_catalog()
-    public_names = frozenset(
-        name for name in public_catalog if include_plugins or name not in external_names
-    )
-    adapters = {
-        name: adapter
-        for name, adapter in loaded_adapters.items()
-        if include_plugins or name not in external_names
-    }
+    public_names = frozenset(public_catalog)
+    adapters = loaded_adapters
     domains = tuple(all_domains())
     primary_counts = {
         domain: sum(
@@ -147,7 +120,6 @@ def _load_snapshot(*, include_plugins: bool = False) -> tuple[RegistrySnapshot, 
     snapshot = RegistrySnapshot(
         adapters=adapters,
         public_names=public_names,
-        external_names=external_names if include_plugins else frozenset(),
         domains=domains,
         primary_counts=primary_counts,
         fetch_primary=fetch_primary,
@@ -156,14 +128,9 @@ def _load_snapshot(*, include_plugins: bool = False) -> tuple[RegistrySnapshot, 
     return snapshot, public_catalog, source_categories
 
 
-def render(*, include_plugins: bool = False) -> str:
-    """渲染 docs/data-sources.md 的 Markdown 内容。
-
-    ``include_plugins=False`` 只会阻止本次首次导入 registry 时自动加载外部插件；
-    若调用前 registry 已在当前进程被插件污染，请使用 CLI 默认路径或
-    ``render_cli_content()``，它会在需要时开新子进程隔离 runtime 状态。
-    """
-    snapshot, public_catalog, source_categories = _load_snapshot(include_plugins=include_plugins)
+def render() -> str:
+    """渲染 docs/data-sources.md 的 Markdown 内容。"""
+    snapshot, public_catalog, source_categories = _load_snapshot()
 
     from souwen.registry.meta import (
         AUTH_REQUIREMENT_LABELS,
@@ -174,7 +141,6 @@ def render(*, include_plugins: bool = False) -> str:
     )
 
     loaded_adapters = snapshot.adapters
-    external_names = snapshot.external_names
     adapters = {
         name: adapter for name, adapter in loaded_adapters.items() if name in snapshot.public_names
     }
@@ -210,24 +176,13 @@ def render(*, include_plugins: bool = False) -> str:
         f"| Fetch providers | **{snapshot.fetch_provider_count}** | primary-domain 与 "
         "cross-domain 的公开源并集 |"
     )
-    if include_plugins:
-        lines.append(
-            f"| Visible external plugins | **{snapshot.visible_external_count}** | 本次通过 "
-            "`--include-plugins` 纳入的公开插件源 |"
-        )
     lines.append("")
     lines.append("## 事实来源")
     lines.append("")
     lines.append(
         "本页不是手工维护的静态表，而是由 `src/souwen/registry/sources/` 中的 "
         "`SourceAdapter` 声明投影为正式 Source Catalog 后，经 `tools/gen_docs.py` 生成。"
-        "`SourceAdapter` 同时驱动 CLI、REST API、doctor、Panel 和插件视图。"
-    )
-    lines.append("")
-    lines.append(
-        "默认生成只包含内置源，并显式关闭外部插件自动加载；这样即使本机安装了 "
-        "`souwen.plugins` entry point，checked-in 文档也能稳定复现。需要把本机插件一并"
-        "展示时再使用 `--include-plugins`。"
+        "`SourceAdapter` 同时驱动 CLI、REST API、doctor 和 Panel 视图。"
     )
     lines.append("")
     lines.append("## 如何阅读")
@@ -325,11 +280,7 @@ def render(*, include_plugins: bool = False) -> str:
                 )
                 auth = f"{auth} ({effect})"
             risk = RISK_LEVEL_LABELS.get(a.resolved_risk_level, a.resolved_risk_level)
-            distribution = (
-                "plugin"
-                if include_plugins and a.name in external_names
-                else a.resolved_distribution
-            )
+            distribution = a.resolved_distribution
             dist = DISTRIBUTION_LABELS.get(distribution, distribution)
             stability = STABILITY_LABELS.get(a.resolved_stability, a.resolved_stability)
             extra = f"`{a.resolved_package_extra}`" if a.resolved_package_extra else "—"
@@ -351,7 +302,7 @@ def render(*, include_plugins: bool = False) -> str:
     )
     lines.append("- Auth 描述运行前配置要求：免配置 / 可选凭据 / 必须凭据 / 自建实例。")
     lines.append("- Risk 描述默认调度风险，不等同于 Integration。")
-    lines.append("- Distribution 描述推荐治理/安装范围：核心内置 / 可选依赖 / 外部插件。")
+    lines.append("- Distribution 描述推荐治理/安装范围：核心内置 / 可选依赖。")
     lines.append("- Extra 表示建议安装的 optional dependency 组。")
     lines.append(
         "- Stability 描述声明式接入成熟度：稳定 / Beta / 实验性 / 已弃用；"
@@ -364,28 +315,11 @@ def render(*, include_plugins: bool = False) -> str:
     lines.append("PYTHONPATH=src python3 tools/gen_docs.py --write")
     lines.append("PYTHONPATH=src python3 tools/gen_docs.py --check")
     lines.append("```")
-    lines.append("")
-    lines.append("如需在本机 catalog 中展示已安装的外部插件，可追加 `--include-plugins`。")
     return "\n".join(lines) + "\n"
 
 
-def render_cli_content(*, include_plugins: bool = False) -> str:
-    if include_plugins or "souwen.registry" not in sys.modules:
-        return render(include_plugins=include_plugins)
-
-    env = os.environ.copy()
-    env["SOUWEN_PLUGIN_AUTOLOAD"] = "0"
-    env["PYTHONIOENCODING"] = "utf-8"
-    proc = subprocess.run(
-        [sys.executable, str(Path(__file__).resolve()), "--_render-only"],
-        check=True,
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.PIPE,
-        encoding="utf-8",
-        text=True,
-    )
-    return proc.stdout
+def render_cli_content() -> str:
+    return render()
 
 
 def _primary_domain_metrics(snapshot: RegistrySnapshot, *, english: bool) -> str:
@@ -405,8 +339,7 @@ def _readme_metrics(snapshot: RegistrySnapshot, *, english: bool) -> str:
             (
                 f"- **{snapshot.registered_count} registered built-in sources**: "
                 f"**{snapshot.public_count} public** Source Catalog entries and "
-                f"**{snapshot.hidden_or_internal_count} hidden/internal** entry. Runtime "
-                "plugins may append additional entries."
+                f"**{snapshot.hidden_or_internal_count} hidden/internal** entry."
             ),
             f"  - {_primary_domain_metrics(snapshot, english=True)}",
             (
@@ -420,8 +353,7 @@ def _readme_metrics(snapshot: RegistrySnapshot, *, english: bool) -> str:
             (
                 f"- **{snapshot.registered_count} 个内置 registered source**：正式 Source "
                 f"Catalog 含 **{snapshot.public_count} 个 public** 条目，另有 "
-                f"**{snapshot.hidden_or_internal_count} 个 hidden/internal** 条目；外部插件可在"
-                "运行时追加。"
+                f"**{snapshot.hidden_or_internal_count} 个 hidden/internal** 条目。"
             ),
             f"  - {_primary_domain_metrics(snapshot, english=False)}",
             (
@@ -488,7 +420,7 @@ def _replace_managed_region(text: str, marker: str, generated: str, *, path: Pat
 def render_managed_files() -> dict[Path, str]:
     """Return complete README/architecture files with generated regions replaced."""
 
-    snapshot, _public_catalog, _source_categories = _load_snapshot(include_plugins=False)
+    snapshot, _public_catalog, _source_categories = _load_snapshot()
     replacements: dict[Path, tuple[tuple[str, str], ...]] = {
         Path("README.md"): ((README_METRICS_MARKER, _readme_metrics(snapshot, english=False)),),
         Path("README.en.md"): ((README_METRICS_MARKER, _readme_metrics(snapshot, english=True)),),
@@ -557,24 +489,16 @@ def main() -> int:
         action="store_true",
         help="重建数据源清单、双 README 和 architecture 受控区",
     )
-    parser.add_argument(
-        "--include-plugins",
-        action="store_true",
-        help="包含当前环境已加载的外部 souwen.plugins entry point；默认只生成内置源",
-    )
     parser.add_argument("--_render-only", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
 
     if args.write and args.output:
         parser.error("--write manages fixed repository paths and cannot be combined with --output")
-    if (args.check or args.write) and args.include_plugins:
-        parser.error("checked-in managed docs cannot be generated with --include-plugins")
-
     if args._render_only:
-        sys.stdout.write(render(include_plugins=args.include_plugins))
+        sys.stdout.write(render())
         return 0
 
-    content = render_cli_content(include_plugins=args.include_plugins)
+    content = render_cli_content()
     if args.check:
         data_target = args.output or REPO_ROOT / DEFAULT_DATA_SOURCES_PATH
         checks = [_check_content(data_target, content)]

@@ -64,7 +64,7 @@ should read:
 Current verification should include:
 
 ```bash
-PYTHONPATH=src SOUWEN_PLUGIN_AUTOLOAD=0 pytest tests/test_import_surface.py -q
+PYTHONPATH=src pytest tests/test_import_surface.py -q
 ```
 
 Future phases should add a legacy-term gate for public source and docs surfaces.

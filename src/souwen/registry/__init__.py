@@ -59,7 +59,6 @@ from souwen.registry.views import (
     by_domain_and_capability,
     defaults_for,
     enum_values,
-    external_plugins,
     fetch_providers,
     get,
     high_risk_sources,
@@ -99,7 +98,6 @@ __all__ = [
     "fetch_providers",
     "high_risk_sources",
     "enum_values",
-    "external_plugins",
     # catalog
     "SourceCatalogEntry",
     "SourceCategory",

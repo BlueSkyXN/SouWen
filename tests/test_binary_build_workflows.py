@@ -26,7 +26,7 @@ def test_binary_smoke_covers_tier_aware_target_runner_contracts() -> None:
         "server/panel",
         "server/admin-locked",
         "server/mcp-loopback",
-        "full/article-pdf-plugin-imports",
+        "full/article-pdf-imports",
     ):
         assert check in text
 

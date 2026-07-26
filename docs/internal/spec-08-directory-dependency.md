@@ -50,7 +50,7 @@ The current tree is capability-rich but does not yet implement the target module
 | Current evidence | Current meaning | Target treatment |
 |---|---|---|
 | `src/souwen/server/routes/fetch.py` imports `souwen.web.fetch` and registry views | Route currently reaches aggregation/provider implementation | Move orchestration behind Fetch module public interface |
-| `src/souwen/server/app.py` loads plugins and lifecycle hooks | Delivery currently owns extension lifecycle | Move provider lifecycle to Platform / Provider Manager |
+| A1 removed plugin loading and lifecycle hooks from `src/souwen/server/app.py` | Delivery no longer owns the retired extension lifecycle | Introduce any future provider lifecycle only through Platform / Provider Manager |
 | `src/souwen/core/` contains HTTP, retry, browser pool, cache and parsing | Shared runtime and domain-adjacent utilities are mixed | Admit only qualified shared concerns to `common_runtime/` |
 | `src/souwen/registry/` is the source/catalog truth | Stable current asset, but it combines manifest-like metadata and dispatch wiring | Evolve through adapters into Manifest Registry and Provider Manager; do not create a parallel source list |
 | `src/souwen/paper/`, `patent/`, `web/`, `llm/` contain concrete clients | Providers are grouped primarily by historical surface | Migrate provider-by-provider after conformance exists |

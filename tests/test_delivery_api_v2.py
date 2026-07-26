@@ -624,7 +624,6 @@ print(matches[0].response_model.__name__)
         **os.environ,
         "HOME": str(tmp_path),
         "USERPROFILE": str(tmp_path),
-        "SOUWEN_PLUGIN_AUTOLOAD": "0",
         "SOUWEN_SOURCE_SHA": "a" * 40,
         "SOUWEN_V2_ROLLOUT": "target",
         "PYTHONPATH": os.pathsep.join(
@@ -695,7 +694,6 @@ print('ok')
         **os.environ,
         "HOME": str(tmp_path),
         "USERPROFILE": str(tmp_path),
-        "SOUWEN_PLUGIN_AUTOLOAD": "0",
         "SOUWEN_V2_ROLLOUT": "target",
     }
     completed = subprocess.run(

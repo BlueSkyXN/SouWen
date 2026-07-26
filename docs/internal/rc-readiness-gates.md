@@ -109,7 +109,7 @@ RC-ready run 可以验证从 current main 派生的 candidate；任何 secret-be
 
 - `edition-basic` 能导入 MCP surface，并且 registry 派生的 3 个 basic fetch provider
   （`builtin`、`mcp`、`site_crawler`）通过对应的 fixture/runtime smoke。
-- Basic 环境中 FastAPI 未安装；LLM 与 full-only provider/plugin 必须返回明确 edition gate，
+- Basic 环境中 FastAPI 未安装；LLM 与 full-only provider 必须返回明确 edition gate，
   不能因宿主环境泄漏而可用，也不能以裸 `ImportError` 崩溃。
 - Pro/full 的 MCP stdio、tool listing、schema、multi-provider fetch 和 loopback transport
   与当前 edition 声明一致。
@@ -121,19 +121,20 @@ RC-ready run 可以验证从 current main 派生的 candidate；任何 secret-be
 - Wheel 与 sdist 均从同一 `candidate_sha` 构建；版本、license、README、package data、
   generated Panel、entry points、optional extras 和 Python `>=3.10` metadata 正确。
 - Wheel 不包含已删除 legacy modules，也不依赖源码 checkout 才能 import。
-- SuperWeb2PDF 保持 PEP 508 fixed-commit direct reference；Hatch
-  `allow-direct-references = true`、`web2pdf` extra、Docker `WEB2PDF_PACKAGE` 与 CI 安装源
-  指向同一 archive。安装后必须验证 entry point、fetch handler 和 Playwright/PDF runtime。
+- SuperWeb2PDF 暂时保持 PEP 508 fixed-commit direct reference；Hatch
+  `allow-direct-references = true`、`web2pdf` extra 与 Docker `WEB2PDF_PACKAGE` 指向同一
+  archive。A1 已删除其旧插件接入路径，因此这里仅证明待 A2 处置的包来源一致性，不宣称
+  entry point、fetch handler 或 Playwright/PDF runtime 可用。
 
 **Evidence**：wheel/sdist file list、METADATA、import-surface report、archive ref、artifact checksums。
 
 ### 9. Functional fixtures
 
-- Scrapling、Crawl4AI、article extraction 和 SuperWeb2PDF 的本地 fixture gate 全部 required PASS。
+- Scrapling、Crawl4AI 和 article extraction 的本地 fixture gate 全部 required PASS。
 - Browser/runtime 必须真实启动；fixture 内容、输出格式和 report schema 必须通过验证。
-- 缺 package、browser、handler 或 PDF 输出不能在 RC gate 中记为 SKIP/WARN。
+- 缺 package、browser 或 handler 不能在 RC gate 中记为 SKIP/WARN。
 
-**Evidence**：四项 JSON report、对应 Markdown diagnostic、runtime/package version。
+**Evidence**：三项 JSON report、对应 Markdown diagnostic、runtime/package version。
 
 ### 10. Live zero-key
 
@@ -189,7 +190,7 @@ RC-ready run 可以验证从 current main 派生的 candidate；任何 secret-be
 - Candidate 环境的 Python 与 npm dependency scan 均无 unresolved Critical/High。
 - 容器和 loopback server 的 admin 默认 locked；日志、reports、Panel artifact、source map、
   binary strings 抽检和 Git history scan 无真实 secret。
-- SSRF、auth、redaction、plugin allowlist 和 public admin-open required tests 全部通过。
+- SSRF、auth、redaction 和 public admin-open required tests 全部通过。
 
 **Evidence**：pip/npm audit、secret scan、security test report、exception/waiver 清单。任何 waiver
 必须由用户明确接受，并进入 manifest，不能只存在于聊天中。

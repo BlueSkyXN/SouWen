@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from pathlib import Path
 
-from souwen.registry import external_plugins, fetch_providers
+from souwen.registry import fetch_providers
 
 
 def test_panel_fetch_provider_definitions_match_builtin_registry() -> None:
@@ -21,9 +21,7 @@ def test_panel_fetch_provider_definitions_match_builtin_registry() -> None:
     assert match is not None
 
     panel_names = re.findall(r"value: '([^']+)'", match.group(1))
-    registry_names = [
-        adapter.name for adapter in fetch_providers() if adapter.name not in external_plugins()
-    ]
+    registry_names = [adapter.name for adapter in fetch_providers()]
 
     assert panel_names[0] == "builtin"
     assert set(panel_names) == set(registry_names)

@@ -41,7 +41,7 @@ The registry architecture reduces the cost of adding a new source to **1-2 code 
 ### Features
 
 <!-- BEGIN AUTO: SOURCE METRICS -->
-- **111 registered built-in sources**: **110 public** Source Catalog entries and **1 hidden/internal** entry. Runtime plugins may append additional entries.
+- **111 registered built-in sources**: **110 public** Source Catalog entries and **1 hidden/internal** entry.
   - Public sources by primary domain: `paper` 21 · `patent` 8 · `web` 32 · `social` 5 · `video` 2 · `knowledge` 1 · `developer` 2 · `cn_tech` 9 · `office` 1 · `archive` 1 · `book` 9 · `research_output` 2
   - `fetch` cross-cutting view: **24 providers** = **17 primary fetch-domain** + **7 cross-domain** sources.
 <!-- END AUTO: SOURCE METRICS -->
@@ -174,25 +174,6 @@ src/souwen/
 └── server/            FastAPI application
 ```
 
-## 🧩 Plugin System
-
-SouWen supports extending data sources and fetch providers via external Python packages.
-Plugins integrate through setuptools `entry_points` or the `plugins` field in `souwen.yaml`,
-without modifying SouWen's codebase.
-
-Three equivalent entry points are provided for managing plugins at runtime:
-
-- **Web Panel** — `/plugins` route: list, enable/disable, run `health_check`, install/uninstall
-- **CLI** — `souwen plugins list/info/enable/disable/health/reload/install/uninstall/new`
-- **HTTP API** — `/api/v1/admin/plugins/*` (see [docs/api-reference.md](docs/api-reference.md))
-
-> Install/uninstall is gated by `SOUWEN_ENABLE_PLUGIN_INSTALL=1`; disabled by default.
-
-Docs:
-
-- Integration spec (plugin authors): [docs/plugin-integration-spec.md](docs/plugin-integration-spec.md)
-- Operations guide: [docs/plugin-management.md](docs/plugin-management.md)
-
 ## 🚢 Deployment
 
 **Docker** (recommended):
@@ -227,8 +208,6 @@ docker run -p 8000:49265 \
 - [docs/anti-scraping.md](docs/anti-scraping.md) — TLS fingerprinting / WARP / rate limiting
 - [docs/appearance.md](docs/appearance.md) — Multi-skin frontend
 - [docs/adding-a-source.md](docs/adding-a-source.md) — Adding a new source guide
-- [docs/plugin-integration-spec.md](docs/plugin-integration-spec.md) — External plugin integration spec
-- [docs/plugin-management.md](docs/plugin-management.md) — Plugin management (Web Panel / CLI / API)
 - [docs/contributing.md](docs/contributing.md) — Developer guide
 - [docs/internal/rc-readiness-gates.md](docs/internal/rc-readiness-gates.md) — Fixed v2.0.0rc2 gates and evidence manifest contract
 - [docs/internal/](docs/internal/) — Maintainer ADRs, branching policy, and pre-release baselines
@@ -237,7 +216,6 @@ docker run -p 8000:49265 \
 ## 🤝 Contributing
 
 - Add a data source: see [docs/adding-a-source.md](docs/adding-a-source.md) (just add one `_reg(...)` call in `registry/sources/`)
-- Build an external plugin: see [docs/plugin-integration-spec.md](docs/plugin-integration-spec.md)
 - Code style: `ruff format && ruff check`
 - Tests: `pytest tests/`
 

@@ -9,12 +9,11 @@ Read this card when changing registry tests, catalog projections or source metad
 
 - Tests should identify the broken invariant instead of only snapshotting large payloads.
 - Source additions must cover loader, method mapping, param map, credentials, defaults and catalog projection.
-- External plugin autoload must stay disabled or isolated for checked-in expectations.
 - Generated docs checks should fail on registry drift instead of masking it.
 
 ## Do not
 
-- Do not make expectations depend on locally installed plugins.
+- Do not make expectations depend on locally installed packages.
 - Do not bless a registry change by weakening invariants without documenting the behavior change.
 
 ## Validation

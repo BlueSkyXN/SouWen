@@ -20,7 +20,7 @@ Read this card when adding/changing Python tests, fixtures, test isolation behav
 ## Do not
 
 - Do not commit real secrets, cookies or account data.
-- Do not make tests order-dependent or dependent on locally installed plugins.
+- Do not make tests order-dependent or dependent on locally installed packages.
 - Do not let local `~/.config/souwen` influence outcomes.
 
 ## Validation

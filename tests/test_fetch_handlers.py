@@ -104,7 +104,7 @@ class TestRegisterFetchHandler:
             return _make_response("my_new", urls)
 
         register_fetch_handler("my_new", my_handler)
-        assert _FETCH_HANDLERS["my_new"].handler is my_handler
+        assert _FETCH_HANDLERS["my_new"] is my_handler
 
     def test_duplicate_no_override_skips(self, clean_fetch_handlers):
         async def first(urls, timeout, **_):
@@ -116,7 +116,7 @@ class TestRegisterFetchHandler:
         register_fetch_handler("dup", first)
         register_fetch_handler("dup", second)
         # 重名不覆盖，保留第一个
-        assert _FETCH_HANDLERS["dup"].handler is first
+        assert _FETCH_HANDLERS["dup"] is first
 
     def test_override_true_replaces(self, clean_fetch_handlers):
         async def first(urls, timeout, **_):
@@ -127,7 +127,7 @@ class TestRegisterFetchHandler:
 
         register_fetch_handler("ovr", first)
         register_fetch_handler("ovr", second, override=True)
-        assert _FETCH_HANDLERS["ovr"].handler is second
+        assert _FETCH_HANDLERS["ovr"] is second
 
 
 # ── _fetch_with_provider ───────────────────────────────────
@@ -211,14 +211,13 @@ class TestFetchWithProvider:
             assert "未知提供者" in r.error
 
     @pytest.mark.asyncio
-    async def test_external_plugin_handler_dispatches(self, clean_fetch_handlers):
-        async def ext_handler(urls, timeout, **_):
-            return _make_response("ext_via_plugin", urls)
+    async def test_registered_handler_dispatches(self, clean_fetch_handlers):
+        async def custom_handler(urls, timeout, **_):
+            return _make_response("custom_handler", urls)
 
-        # 模拟外部插件在加载时调用 register_fetch_handler
-        register_fetch_handler("ext_via_plugin", ext_handler)
-        resp = await _fetch_with_provider("ext_via_plugin", ["http://x.example"], 2.0)
-        assert resp.provider == "ext_via_plugin"
+        register_fetch_handler("custom_handler", custom_handler)
+        resp = await _fetch_with_provider("custom_handler", ["http://x.example"], 2.0)
+        assert resp.provider == "custom_handler"
         assert resp.total_ok == 1
 
     @pytest.mark.asyncio

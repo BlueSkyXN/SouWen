@@ -44,7 +44,6 @@ def client(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("USERPROFILE", str(tmp_path))
-    monkeypatch.setenv("SOUWEN_PLUGIN_AUTOLOAD", "0")
     for key in ("SOUWEN_USER_PASSWORD", "SOUWEN_ADMIN_PASSWORD", "SOUWEN_EDITION"):
         monkeypatch.delenv(key, raising=False)
     from souwen.config import get_config

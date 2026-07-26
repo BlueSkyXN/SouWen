@@ -2,7 +2,7 @@
 
 Type: Domain card.
 This directory contains external protocol integrations, mainly MCP.
-Read `mcp_server.py`, `integrations/mcp/`, `docs/plugin-integration-spec.md`, and matching `tests/test_integrations/` files first.
+Read `mcp_server.py`, `integrations/mcp/`, and matching `tests/test_integrations/` files first.
 Read this card when changing integration entry points, optional dependency behavior, tool wiring or protocol adapters.
 
 ## Local invariants

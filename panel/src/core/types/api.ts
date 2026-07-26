@@ -98,7 +98,7 @@ export interface SourceInfo {
   configured_credentials: boolean
   risk_level: 'low' | 'medium' | 'high'
   stability: 'stable' | 'beta' | 'experimental' | 'deprecated'
-  distribution: 'core' | 'extra' | 'plugin'
+  distribution: 'core' | 'extra'
   default_for: string[]
   min_edition: Edition
   edition_available: boolean
@@ -144,7 +144,7 @@ export interface DoctorSource {
   optional_credential_effect: string | null
   risk_level: 'low' | 'medium' | 'high'
   risk_reasons: string[]
-  distribution: 'core' | 'extra' | 'plugin'
+  distribution: 'core' | 'extra'
   package_extra: string | null
   stability: 'stable' | 'beta' | 'experimental' | 'deprecated'
   usage_note: string | null
@@ -191,7 +191,7 @@ export interface SourceChannelConfig {
   optional_credential_effect: string | null
   risk_level: 'low' | 'medium' | 'high'
   risk_reasons: string[]
-  distribution: 'core' | 'extra' | 'plugin'
+  distribution: 'core' | 'extra'
   package_extra: string | null
   stability: 'stable' | 'beta' | 'experimental' | 'deprecated'
   usage_note: string | null
@@ -977,7 +977,6 @@ export interface EditionCapabilities {
   llm: boolean
   warp_modes: string[]
   fetch_providers: string[]
-  plugin_preinstalled: boolean
 }
 
 export interface WhoamiResponse {
@@ -991,106 +990,4 @@ export interface WhoamiResponse {
   user_password_set: boolean
   admin_password_set: boolean
   admin_open: boolean
-}
-
-/* ===== Plugin Management ===== */
-
-/**
- * 插件状态枚举（对齐后端 PluginInfo.status）：
- *   - loaded：当前进程已加载
- *   - available：目录中可用但当前进程未加载，可能需要安装，也可能已安装但待重新扫描/重启
- *   - disabled：已通过 disable 写入禁用列表，重启后跳过
- *   - error：加载失败
- */
-export const PLUGIN_STATUSES = ['loaded', 'available', 'disabled', 'error'] as const
-
-export type PluginStatus = typeof PLUGIN_STATUSES[number]
-
-/**
- * 插件来源（对齐后端 PluginInfo.source）：
- *   - entry_point：通过 setuptools entry_points 静态目录发现
- *   - catalog：动态目录条目
- *   - config_path：通过 souwen.yaml 的 plugins 字段或 SOUWEN_PLUGINS 环境变量加载
- */
-export const PLUGIN_SOURCES = ['entry_point', 'catalog', 'config_path'] as const
-
-export type PluginSource = typeof PLUGIN_SOURCES[number]
-
-/**
- * 单个插件的状态视图（对齐 src/souwen/plugin_manager.py::PluginInfo）
- */
-export interface PluginInfo {
-  name: string
-  package?: string | null
-  version?: string | null
-  status: PluginStatus | string
-  source: PluginSource | string
-  first_party: boolean
-  description: string
-  error?: string | null
-  source_adapters: string[]
-  fetch_handlers: string[]
-  restart_required: boolean
-}
-
-/**
- * GET /api/v1/admin/plugins 响应
- *
- * - plugins：按字典序排列的插件清单
- * - restart_required：服务端是否有任何 enable/disable/install/uninstall 操作未生效，前端用作横幅提示
- * - install_enabled：是否允许 install/uninstall 操作（受 SOUWEN_ENABLE_PLUGIN_INSTALL 控制）
- */
-export interface PluginListResponse {
-  plugins: PluginInfo[]
-  restart_required: boolean
-  install_enabled: boolean
-}
-
-/**
- * GET /api/v1/admin/plugins/{name}/health 响应
- *
- * 后端透传 `plugin.health_check()` 返回，因此 `status` 之外的字段不固定。
- * 当插件未声明 health_check 时返回 {status: "ok", message: "no health check defined"}。
- */
-export interface PluginHealthResponse {
-  status: string
-  message?: string
-  [key: string]: unknown
-}
-
-/**
- * POST /api/v1/admin/plugins/{name}/enable 响应
- */
-export interface PluginEnableResponse {
-  success: boolean
-  restart_required: boolean
-  message: string
-}
-
-/**
- * POST /api/v1/admin/plugins/{name}/disable 响应
- */
-export interface PluginDisableResponse {
-  success: boolean
-  restart_required: boolean
-  message: string
-}
-
-/**
- * POST /api/v1/admin/plugins/install 与 uninstall 共用响应
- */
-export interface PluginInstallResponse {
-  success: boolean
-  package: string
-  restart_required: boolean
-  message: string
-}
-
-/**
- * POST /api/v1/admin/plugins/reload 响应
- */
-export interface PluginReloadResponse {
-  loaded: string[]
-  errors: { source: string; name: string }[]
-  message: string
 }

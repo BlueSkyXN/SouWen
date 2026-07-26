@@ -32,7 +32,7 @@ Common Runtime 只接收同时满足以下条件的组件：
 | Resilience | timeout budget、retry primitive、backoff、通用 rate/concurrency primitive | Provider header 解析、Search partial success、scraper/CAPTCHA policy |
 | Security | 可复用 SSRF target primitive、credential redaction、安全的 redirect building block | Fetch result、Admin permission、Provider credential schema |
 | Observability | request context primitive、timing/provenance carrier、runtime source identity | ASGI middleware、process logging policy、Provider/source catalog |
-| Configuration | 中立 namespace/revision/secret-reference primitive | `SouWenConfig` 中的 Provider、WARP、Plugin、Server 或产品 defaults |
+| Configuration | 中立 namespace/revision/secret-reference primitive | `SouWenConfig` 中的 Provider、WARP、Server 或产品 defaults |
 | Testing | 已稳定 runtime port 的 fake、clock、fault injection 和 conformance harness | 直接修补 legacy registry/fetch global 的 pytest fixture |
 
 ## 3. 当前候选准入裁决
@@ -42,7 +42,7 @@ Common Runtime 只接收同时满足以下条件的组件：
 | `souwen.provenance` source SHA resolver | `doctor.py`, `server/app.py` | **ACCEPT-01，首切片** | stdlib-only、单一 runtime identity 职责、已有 deterministic tests、无领域依赖 |
 | request ID `ContextVar` / getter / logging filter | Server error handling、logging filter | CONDITIONAL-02 | 只迁 context primitive；ASGI middleware、header validation、UUID 与 access log 留在 Delivery |
 | DNS-bound SSRF target resolver | `BaseScraper`、Google Patents 与 Fetch callers | CONDITIONAL-03 | 只迁 value object/resolve/validate；不得迁构造 `FetchResult` 的 helpers；先冻结同步 DNS 和 cancellation 限制 |
-| generic secret text/URL/payload redaction | CLI、Server、MCP、plugin manager、LLM/fetch errors | CONDITIONAL-04 | 先拆 generic primitive；Pydantic adapter 与 LLM gateway topology policy 不进入 Security primitive |
+| generic secret text/URL/payload redaction | CLI、Server、MCP、LLM/fetch errors | CONDITIONAL-04 | 先拆 generic primitive；Pydantic adapter 与 LLM gateway topology policy 不进入 Security primitive |
 | `SouWenHttpClient` | OpenAlex、HAL 等 Provider | CONDITIONAL-05 | 先冻结 native cancellation、无 stream v1、trusted auto-redirect 与 config adapter 边界 |
 | token/sliding-window limiter | OpenAlex、The Lens 等 Provider | CONDITIONAL-06 | 先补 acquire cancellation/state fixture；Provider 负责把 headers 转成通用数值 |
 | `OAuthClient` | EPO OPS、CNIPA | **ACCEPT-07** | client-credentials acquisition/cache/bearer 属于 Transport；legacy config adapter 保持，先冻结 refresh cancellation 与 secret boundary |
@@ -50,9 +50,9 @@ Common Runtime 只接收同时满足以下条件的组件：
 | retry presets / `poll_retry` | 当前只有一个 production consumer 或无 consumer | REJECT | 不满足两个消费者；scraper/CAPTCHA exception set 含领域策略且缺独立测试 |
 | `BaseScraper` / browser pool / fingerprint | scraper/browser Provider | REJECT | 混合 anti-bot、SSRF、Provider backend、browser optional runtime；不是中立 transport |
 | `SessionCache` | 当前仅 Server shutdown lifecycle | REJECT | 单一消费者、持久化 secret/state owner 未决，且 Fetch cache 归属另由 Fetch LLD 决定 |
-| 完整 `SouWenConfig` / credential resolution | HTTP、Server、Provider、registry | REJECT | 混合 Provider/Delivery/WARP/Plugin 语义；迁移会制造第二份配置和 source truth |
+| 完整 `SouWenConfig` / credential resolution | HTTP、Server、Provider、registry | REJECT | 混合 Provider/Delivery/WARP 语义；迁移会制造第二份配置和 source truth |
 | `setup_logging()` | CLI、Server bootstrap | REJECT | process-global handler policy 与 side effect 属于 bootstrap/Delivery |
-| current pytest global fixtures | registry/fetch/plugin tests | REJECT | 直接依赖 legacy globals，不得进入 production distribution 的 runtime testing API |
+| current pytest global fixtures | registry/fetch tests | REJECT | 直接依赖 legacy globals，不得进入 production distribution 的 runtime testing API |
 
 ## 4. 目标目录与依赖
 
@@ -228,8 +228,8 @@ Security 只拥有基于 field-name、Bearer/Authorization、quoted/scalar key-v
 encoding、punctuation 或 invalid URL 行为。
 
 `souwen.core.redaction` 必须 object-identical re-export 三个 public primitives 和 private field classifier。
-`logging_config` 与 `plugin_manager` 使用 canonical `redact_secret_text`，证明两个真实 production
-consumers。`plugin_manager` 的 payload handling 继续使用 legacy adapter，不能为追求统一 import 而把
+`logging_config`、Server 与 MCP 使用 canonical `redact_secret_text`，证明多个真实 production
+consumers。各调用边界的 payload shaping 继续使用 legacy adapter，不能为追求统一 import 而把
 Pydantic 引入 Security。
 
 禁止迁移：`BaseModel.model_dump()` compatibility、`redact_secret_value()`、

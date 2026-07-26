@@ -11,7 +11,7 @@ Phase 1 以 language-neutral JSON 冻结已批准的 target contract：
 |---|---|---|
 | [`target_api_contract_v2.json`](../../../tests/contracts/fixtures/target_api_contract_v2.json) | approved decision、canonical operation、golden response and budget baseline | generated/release `openapi.json` |
 | [`target_openapi_skeleton_v2.json`](../../../tests/contracts/fixtures/target_openapi_skeleton_v2.json) | target OpenAPI semantic skeleton and target probe alias policy | generated/release `openapi.json` |
-| [`target_provider_manifest_v2.json`](../../../tests/contracts/fixtures/target_provider_manifest_v2.json) | v2 manifest/conformance minimum and safe negative cases | current plugin entry-point schema |
+| [`target_provider_manifest_v2.json`](../../../tests/contracts/fixtures/target_provider_manifest_v2.json) | v2 manifest/conformance minimum and safe negative cases | retired plugin entry-point schema |
 | [`test_target_canonical_contract.py`](../../../tests/contracts/test_target_canonical_contract.py) | standard-library deterministic invariants | target route, SDK or provider integration test |
 
 These files live under `tests/contracts/fixtures/` only because the Phase 2 `contracts/` tree does not yet

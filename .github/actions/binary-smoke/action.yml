@@ -121,7 +121,6 @@ runs:
                         "HOME": tempdir,
                         "PYTHONIOENCODING": "utf-8",
                         "SOUWEN_EDITION": edition,
-                        "SOUWEN_PLUGIN_AUTOLOAD": "0",
                     }
                 )
 
@@ -277,14 +276,10 @@ runs:
                             item = provider_items.get(provider)
                             if not item or not item.get("edition_available") or not item.get("runtime_available"):
                                 raise RuntimeError(f"full import probe failed: {provider}: {item}")
-                        plugin = doctor.get("plugins", {})
-                        if not plugin.get("preinstalled") or not plugin.get("runtime_available"):
-                            raise RuntimeError(f"full plugin import probe failed: {plugin}")
-                        run_command("full/plugins-list", "plugins", "list")
                         record(
-                            "full/article-pdf-plugin-imports",
+                            "full/article-pdf-imports",
                             "PASS",
-                            "article, PDF, readability, and SuperWeb2PDF imports available",
+                            "article, PDF, and readability imports available",
                         )
                         record(
                             "full/browser-runtime-boundary",

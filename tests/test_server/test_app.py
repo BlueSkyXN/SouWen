@@ -33,7 +33,6 @@ def _isolate_config_files(monkeypatch, tmp_path):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("USERPROFILE", str(tmp_path))
-    monkeypatch.setenv("SOUWEN_PLUGIN_AUTOLOAD", "0")
     for key in (
         "SOUWEN_API_PASSWORD",
         "SOUWEN_VISITOR_PASSWORD",
@@ -731,24 +730,6 @@ class TestAdminAuth:
         assert data["live_probe"]["ok"] == 1
         assert data["sources"][0]["live_probe"]["status"] == "ok"
 
-    def test_admin_doctor_keeps_runtime_web_plugin_without_explicit_category(
-        self,
-        authed_client,
-        clean_registry,
-    ):
-        """admin doctor 应返回不声明 category 的外部 web 插件。"""
-        from tests.test_doctor import register_runtime_web_doctor_probe
-
-        name = register_runtime_web_doctor_probe()
-        resp = authed_client.get(
-            "/api/v1/admin/doctor",
-            headers={"Authorization": "Bearer test-secret-123"},
-        )
-        assert resp.status_code == 200
-        sources = {item["name"]: item for item in resp.json()["sources"]}
-        assert sources[name]["category"] == "web_general"
-        assert sources[name]["distribution"] == "plugin"
-
     def test_user_doctor_allows_user_token_without_admin_access(
         self,
         dual_key_client,
@@ -790,11 +771,11 @@ class TestAdminAuth:
         assert resp.status_code == 401
 
     def test_user_doctor_sanitizes_runtime_loader_exception(self, client, monkeypatch):
-        """匿名可读 doctor 不能回显 plugin loader 的路径、DSN 或 token。"""
+        """匿名可读 doctor 不能回显 provider loader 的路径、DSN 或 token。"""
         import souwen.doctor as doctor_mod
 
         raw_error = (
-            "arxiv: RuntimeError: /Users/private/plugin.py "
+            "arxiv: RuntimeError: /Users/private/provider.py "
             "postgresql://user:password@db.internal/source token=doctor-secret"
         )
         monkeypatch.setattr(
@@ -1461,7 +1442,7 @@ class TestSearchAuth:
         from souwen.feature_matrix import RuntimeProbe
 
         raw_error = (
-            "RuntimeError: /Users/private/plugin.py "
+            "RuntimeError: /Users/private/provider.py "
             "postgresql://user:password@db.internal/source token=rest-secret"
         )
 
@@ -1645,58 +1626,6 @@ class TestSearchAuth:
         assert data["has_api_key"] is True
         assert data["credentials_satisfied"] is True
 
-    def test_sources_uses_live_registry_for_runtime_plugins(self, client, clean_registry):
-        """/sources 应从 live registry 派生，插件注销后不再返回死源。"""
-        from souwen.registry.adapter import MethodSpec, SourceAdapter
-        from souwen.registry.loader import lazy
-        from souwen.registry.views import _reg_external, _unreg_external
-
-        adapter = SourceAdapter(
-            name="runtime_sources_probe",
-            domain="fetch",
-            integration="scraper",
-            description="runtime source probe",
-            config_field=None,
-            client_loader=lazy("souwen.web.builtin:BuiltinFetcherClient"),
-            methods={"fetch": MethodSpec("fetch")},
-            needs_config=False,
-        )
-
-        assert _reg_external(adapter) is True
-        data = client.get("/api/v1/sources").json()
-        source = _sources_by_name(data)["runtime_sources_probe"]
-        assert source["category"] == "fetch"
-        assert source["distribution"] == "plugin"
-
-        assert _unreg_external("runtime_sources_probe") is True
-        data = client.get("/api/v1/sources").json()
-        assert "runtime_sources_probe" not in _sources_by_name(data)
-
-    def test_sources_keeps_runtime_web_plugin_without_explicit_category(
-        self, client, clean_registry
-    ):
-        """外部 web 插件不应因缺少 category 声明从 /sources 消失。"""
-        from souwen.registry.adapter import MethodSpec, SourceAdapter
-        from souwen.registry.loader import lazy
-        from souwen.registry.views import _reg_external
-
-        adapter = SourceAdapter(
-            name="runtime_web_sources_probe",
-            domain="web",
-            integration="scraper",
-            description="runtime web source probe",
-            config_field=None,
-            client_loader=lazy("souwen.web.duckduckgo:DuckDuckGoClient"),
-            methods={"search": MethodSpec("search")},
-            needs_config=False,
-        )
-
-        assert _reg_external(adapter) is True
-        data = client.get("/api/v1/sources").json()
-        source = _sources_by_name(data)["runtime_web_sources_probe"]
-        assert source["domain"] == "web"
-        assert source["category"] == "web_general"
-
     # --- 双密钥：user 和 admin 密码均可访问搜索端点 ---
     def test_dual_key_user_password_accepted(self, dual_key_client):
         """user_password 可以访问搜索端点。"""
@@ -1803,7 +1732,6 @@ class TestThreeRoleAuth:
         assert "kernel" in data["edition_capabilities"]["warp_modes"]
         assert "firecrawl" in data["edition_capabilities"]["fetch_providers"]
         assert "crawl4ai" not in data["edition_capabilities"]["fetch_providers"]
-        assert data["edition_capabilities"]["plugin_preinstalled"] is False
         assert data["admin_password_set"] is False
         assert data["user_password_set"] is False
         assert data["admin_open"] is False
@@ -1825,21 +1753,7 @@ class TestThreeRoleAuth:
             "llm": False,
             "warp_modes": ["auto", "wireproxy", "external"],
             "fetch_providers": ["builtin", "mcp", "site_crawler"],
-            "plugin_preinstalled": False,
         }
-
-    def test_whoami_full_reports_detected_preinstalled_plugins(self, client, monkeypatch):
-        """full 版只在当前环境检测到候选插件包时报告预装插件能力。"""
-        monkeypatch.setenv("SOUWEN_EDITION", "full")
-        monkeypatch.setattr("souwen.editions._plugin_package_importable", lambda name: True)
-        from souwen.config import get_config
-
-        get_config.cache_clear()
-        resp = client.get("/api/v1/whoami")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert data["edition"] == "full"
-        assert data["edition_capabilities"]["plugin_preinstalled"] is True
 
     def test_whoami_no_password_admin_open_returns_admin(self, client, monkeypatch):
         """SOUWEN_ADMIN_OPEN=1 时，无密码 /whoami 才返回 admin 权限。"""
@@ -2967,31 +2881,6 @@ class TestSearchWebResponseShape:
 class TestSearchDefaults:
     """API-SEARCH-DEFAULTS: /search/* 默认源与 registry 保持一致"""
 
-    @staticmethod
-    def _register_runtime_default_source(name: str, domain: str) -> None:
-        from souwen.registry.adapter import MethodSpec, SourceAdapter
-        from souwen.registry.loader import lazy
-        from souwen.registry.views import _reg_external
-
-        integration = "scraper" if domain == "web" else "open_api"
-        loader_path = {
-            "paper": "souwen.paper.arxiv:ArxivClient",
-            "patent": "souwen.patent.google_patents:GooglePatentsClient",
-            "web": "souwen.web.duckduckgo:DuckDuckGoClient",
-        }[domain]
-        adapter = SourceAdapter(
-            name=name,
-            domain=domain,
-            integration=integration,
-            description=f"runtime {domain} default probe",
-            config_field=None,
-            client_loader=lazy(loader_path),
-            methods={"search": MethodSpec("search")},
-            needs_config=False,
-            default_for=frozenset({f"{domain}:search"}),
-        )
-        assert _reg_external(adapter) is True
-
     def test_paper_defaults_come_from_registry(self, client, monkeypatch):
         """未传 ``sources`` 时，应由 ``souwen.search`` 自行应用 registry 默认源。"""
         import importlib
@@ -3013,31 +2902,6 @@ class TestSearchDefaults:
         assert data["sources"] == routes_search._default_paper_sources()
         assert data["meta"]["requested"] == routes_search._default_paper_sources()
         assert data["meta"]["failed"] == routes_search._default_paper_sources()
-
-    def test_paper_default_metadata_uses_live_registry(self, client, monkeypatch, clean_registry):
-        """运行时插件声明 ``paper:search`` 默认源后，响应 metadata 必须同步包含它。"""
-        import importlib
-
-        from souwen.registry import defaults_for
-
-        self._register_runtime_default_source("runtime_paper_default", "paper")
-        search_mod = importlib.import_module("souwen.search")
-        captured: dict = {}
-
-        async def fake_search(q, sources=None, per_page=10, **kw):
-            captured["sources"] = sources
-            return []
-
-        monkeypatch.setattr(search_mod, "search_papers", fake_search)
-        resp = client.get("/api/v1/search/paper?q=foo")
-        assert resp.status_code == 200
-        data = resp.json()
-        expected = defaults_for("paper", "search")
-        assert captured["sources"] is None
-        assert "runtime_paper_default" in expected
-        assert data["sources"] == expected
-        assert data["meta"]["requested"] == expected
-        assert data["meta"]["failed"] == expected
 
     def test_patent_defaults_come_from_registry(self, client, monkeypatch):
         """未传 ``sources`` 时，专利搜索也应透传 ``None`` 让 registry 默认源生效。"""
@@ -3061,31 +2925,6 @@ class TestSearchDefaults:
         assert data["meta"]["requested"] == routes_search._default_patent_sources()
         assert data["meta"]["failed"] == routes_search._default_patent_sources()
 
-    def test_patent_default_metadata_uses_live_registry(self, client, monkeypatch, clean_registry):
-        """运行时插件声明 ``patent:search`` 默认源后，响应 metadata 必须同步包含它。"""
-        import importlib
-
-        from souwen.registry import defaults_for
-
-        self._register_runtime_default_source("runtime_patent_default", "patent")
-        search_mod = importlib.import_module("souwen.search")
-        captured: dict = {}
-
-        async def fake_search(q, sources=None, per_page=10, **kw):
-            captured["sources"] = sources
-            return []
-
-        monkeypatch.setattr(search_mod, "search_patents", fake_search)
-        resp = client.get("/api/v1/search/patent?q=foo")
-        assert resp.status_code == 200
-        data = resp.json()
-        expected = defaults_for("patent", "search")
-        assert captured["sources"] is None
-        assert "runtime_patent_default" in expected
-        assert data["sources"] == expected
-        assert data["meta"]["requested"] == expected
-        assert data["meta"]["failed"] == expected
-
     def test_web_defaults_come_from_registry(self, client, monkeypatch):
         """未传 ``engines`` 时，web 搜索应透传 ``None`` 让 registry 默认源生效。"""
         from souwen.server.routes import search as routes_search
@@ -3105,29 +2944,6 @@ class TestSearchDefaults:
         assert data["engines"] == routes_search._default_web_engines()
         assert data["meta"]["requested"] == routes_search._default_web_engines()
         assert data["meta"]["failed"] == routes_search._default_web_engines()
-
-    def test_web_default_metadata_uses_live_registry(self, client, monkeypatch, clean_registry):
-        """运行时插件声明 ``web:search`` 默认源后，响应 metadata 必须同步包含它。"""
-        from souwen.registry import defaults_for
-        from souwen.web import search as web_search_mod
-
-        self._register_runtime_default_source("runtime_web_default", "web")
-        captured: dict = {}
-
-        async def fake_web_search(q, engines=None, max_results_per_engine=10, **kw):
-            captured["engines"] = engines
-            return web_search_mod.WebSearchResponse(query=q, source="duckduckgo", results=[])
-
-        monkeypatch.setattr(web_search_mod, "web_search", fake_web_search)
-        resp = client.get("/api/v1/search/web?q=foo")
-        assert resp.status_code == 200
-        data = resp.json()
-        expected = defaults_for("web", "search")
-        assert captured["engines"] is None
-        assert "runtime_web_default" in expected
-        assert data["engines"] == expected
-        assert data["meta"]["requested"] == expected
-        assert data["meta"]["failed"] == expected
 
 
 class TestPerPageAlias:

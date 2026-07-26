@@ -2,8 +2,8 @@
 
 **状态**：current-only baseline；不构成 Provider Extension v2、YAML revision
 workflow、目录重组或业务决策。
-**范围**：冻结当前 registry、SourceAdapter、MethodSpec、legacy plugin、configuration
-loader，以及已观察到的目录直接依赖。
+**范围**：冻结当前 registry、SourceAdapter、MethodSpec、configuration loader，
+以及已观察到的目录直接依赖。A1 已移除 legacy plugin system，本基线不再包含其运行时契约。
 **相关目标材料**：SPEC-05、SPEC-08、ADR-03 仅作为未来目标边界；本文件不修改、
 不复述为已实现，也不关闭 Q-005、Q-006、Q-008、Q-009。
 
@@ -24,7 +24,7 @@ schema、runtime configuration，且不包含凭据、真实 URL、用户 HOME �
 tests/contracts/test_provider_directory_current_contract.py
 ~~~
 
-测试刻意不跑真实 provider、browser、外部 plugin discovery 或配置文件写入；它只
+测试刻意不跑真实 provider、browser 或配置文件写入；它只
 验证当前静态/本地对象和 source text。实时网络、package 安装、部署和 Provider v2
 conformance 不在本基线的证明范围。
 
@@ -49,16 +49,18 @@ they are constants, but uses only representative registered source IDs
 (openalex and builtin) so routine catalog expansion does not invalidate a
 Phase 1 baseline without a contract change.
 
-## 3. Legacy plugin and current configuration facts
+## 3. Current configuration facts
 
 | Concern | Current fact | Future-boundary note |
 |---|---|---|
-| Plugin discovery | Python entry-point group is souwen.plugins. | This is legacy plugin discovery, not a Provider v2 manifest loader. |
-| Entry shape | Current loader accepts Plugin, SourceAdapter, list/tuple, or a zero-argument factory returning them. | A v2 Provider package/manifest contract is not implemented by this acceptance rule. |
-| Runtime mutation | External adapters can register/unregister in current registry; legacy plugins can own fetch handlers and lifecycle hooks. | It is not the target Provider Manager lifecycle or supply-chain model. |
-| Configuration model | SouWenConfig currently includes sources, llm_search_gateways, plugins, and plugin_config. | Field presence does not establish a v2 provider namespace schema. |
+| Configuration model | SouWenConfig currently includes sources and llm_search_gateways. | Field presence does not establish a v2 provider namespace schema. |
 | Precedence | Current effective precedence is environment > project YAML > user YAML > dotenv > defaults. | ADR-03 chooses one future durable Provider YAML record; current merge behavior remains current behavior. |
 | Admin mutation | Current YAML route validates/reloads an atomically replaced file; source config route assigns to in-memory cfg.sources. | Neither proves target revision IDs, semantic diffs, optimistic concurrency, or rollback history. |
+
+The removed `souwen.plugins` entry-point loader, runtime adapter mutation,
+lifecycle hooks, package manager, and plugin configuration are historical A1
+inputs only. They are not current behavior and are not a compatibility surface
+for Provider Extension v2.
 
 No test in this baseline asserts target implementation absence by scanning arbitrary
 new directories. Parallel Phase 1 implementation may add target materials without
@@ -80,17 +82,12 @@ src/souwen/registry/catalog.py
   -> souwen.registry
   -> souwen.registry.adapter
 
-src/souwen/plugin.py
-  -> souwen.registry.adapter
-  -> souwen.registry.views
-  -> souwen.web.fetch
 ~~~
 
 These edges support the current model:
 
 1. Registry views consume the adapter type.
 2. Catalog is a projection over registry views and adapter metadata.
-3. Legacy plugin code directly bridges the registry and fetch-handler runtime.
 
 They do **not** authorize a future Core-to-concrete-provider import, a direct
 Provider-to-Provider call, an import-time v2 Provider registration path, or a
@@ -106,12 +103,12 @@ The fixture/test pair must stay narrow and deterministic:
 - Registry checks import actual SourceAdapter, MethodSpec, constants, and views.
   They inspect dataclass fields, current capability/domain constants, and
   representative current registry entries.
-- Plugin/config checks import actual ENTRY_POINT_GROUP, SouWenConfig, and loader
-  constants; source checks confirm the current precedence merge sequence and
-  current admin write/mutation markers.
+- Config checks import actual SouWenConfig and loader constants; source checks
+  confirm the current precedence merge sequence and current admin
+  write/mutation markers.
 - Directory checks parse Python AST and compare only fixture-listed direct import
   edges. They do not infer an entire architecture graph.
-- Tests do not mutate registry, write YAML, load plugins, resolve secrets, or
+- Tests do not mutate registry, write YAML, resolve secrets, or
   make network/browser calls.
 
 If current behavior intentionally changes, update fixture, test, and this mapping

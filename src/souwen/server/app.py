@@ -63,7 +63,6 @@ from __future__ import annotations
 
 import asyncio
 import hashlib
-import inspect
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -98,7 +97,6 @@ from souwen.delivery.api.middleware import TargetContractHeadersMiddleware
 from souwen.delivery.api.openapi import normalize_target_openapi
 from souwen.delivery.api.rollout import is_target_contract_path
 from souwen.logging_config import setup_logging
-from souwen.plugin import ensure_plugins_loaded, get_loaded_plugins
 from souwen.common_runtime.observability import get_request_id, get_source_sha
 from souwen.server.auth import check_target_user_auth, is_admin_open_enabled
 from souwen.server.limiter import rate_limit_target_data
@@ -106,7 +104,6 @@ from souwen.server.middleware import RequestIDMiddleware
 from souwen.server.routes import router, admin_router
 from souwen.server.schemas import ErrorResponse
 from souwen.server.v2_runtime import TargetRuntime, build_target_runtime
-from souwen.web.fetch import _current_plugin_owner
 
 logger = logging.getLogger("souwen.server")
 
@@ -123,35 +120,6 @@ if _panel_env:
 _panel_cache: str | None = None
 _panel_etag: str | None = None
 _panel_cache_lock = asyncio.Lock()
-
-
-async def _call_plugin_lifecycle_hooks(hook_name: str) -> None:
-    """Call loaded plugin lifecycle hooks, supporting sync and async callables.
-
-    在调用每个插件的 hook 前设置 ``_current_plugin_owner`` contextvar，
-    使 hook 内调用 ``register_fetch_handler`` 时能自动归属到 plugin.name —
-    与 entry-point 加载路径保持一致，避免 disable/unload 后 handler 残留。
-    """
-    for plugin in get_loaded_plugins().values():
-        hook = getattr(plugin, hook_name, None)
-        if hook is None:
-            continue
-        token = _current_plugin_owner.set(plugin.name)
-        try:
-            result = hook(plugin)
-            if inspect.isawaitable(result):
-                await result
-        except Exception:
-            logger.warning("插件 %r %s 失败", plugin.name, hook_name, exc_info=True)
-        finally:
-            _current_plugin_owner.reset(token)
-
-
-def _bootstrap_plugins(cfg) -> None:
-    """Load runtime plugins before server lifecycle hooks run."""
-    result = ensure_plugins_loaded(cfg)
-    if result.errors:
-        logger.warning("Server 插件加载完成，错误 %d 个", len(result.errors))
 
 
 @asynccontextmanager
@@ -175,7 +143,6 @@ async def lifespan(app: FastAPI):
     if path:
         logger.info("配置文件: %s", path)
     cfg = get_config()
-    _bootstrap_plugins(cfg)
     admin_pw = cfg.effective_admin_password
     user_pw = cfg.effective_user_password
     auth_parts = []
@@ -234,11 +201,7 @@ async def lifespan(app: FastAPI):
             logger.warning("MCP HTTP lifespan 启动失败，跳过", exc_info=True)
             _mcp_http_ctx = None
 
-    await _call_plugin_lifecycle_hooks("on_startup")
-
     yield
-
-    await _call_plugin_lifecycle_hooks("on_shutdown")
 
     # 关闭 MCP HTTP lifespan
     if _mcp_http_ctx is not None:

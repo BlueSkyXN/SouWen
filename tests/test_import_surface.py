@@ -31,12 +31,11 @@ def test_new_public_import_surface():
     assert LocalCatalog.__name__ == "LocalCatalog"
 
 
-def test_import_registry_does_not_scan_plugin_entry_points():
-    """`import souwen.registry` must not execute third-party plugin discovery."""
+def test_import_registry_does_not_scan_entry_points():
+    """`import souwen.registry` must not execute entry-point discovery."""
     repo_root = Path(__file__).resolve().parents[1]
     env = os.environ.copy()
     env["PYTHONPATH"] = str(repo_root / "src")
-    env["SOUWEN_PLUGIN_AUTOLOAD"] = "1"
     code = """
 import importlib.metadata as metadata
 
@@ -69,7 +68,6 @@ def test_import_registry_keeps_concrete_web_providers_lazy():
     repo_root = Path(__file__).resolve().parents[1]
     env = os.environ.copy()
     env["PYTHONPATH"] = str(repo_root / "src")
-    env["SOUWEN_PLUGIN_AUTOLOAD"] = "0"
     code = """
 import sys
 
@@ -95,49 +93,6 @@ print("registry providers remain lazy")
     )
 
     assert completed.returncode == 0, completed.stderr
-
-
-def test_cli_bootstrap_calls_explicit_plugin_loader(monkeypatch):
-    from souwen.plugin import PluginLoadResult
-
-    import souwen.cli as cli_mod
-
-    cfg = object()
-    calls = []
-    monkeypatch.setattr("souwen.config.get_config", lambda: cfg)
-    monkeypatch.setattr(
-        "souwen.plugin.ensure_plugins_loaded",
-        lambda config: (
-            calls.append(config)
-            or PluginLoadResult(loaded_plugins=(), loaded_adapters=(), skipped=(), errors=())
-        ),
-    )
-
-    cli_mod._bootstrap_plugins()
-
-    assert calls == [cfg]
-
-
-def test_server_bootstrap_calls_explicit_plugin_loader(monkeypatch):
-    pytest.importorskip("fastapi")
-    from souwen.plugin import PluginLoadResult
-
-    from souwen.server import app as app_mod
-
-    cfg = object()
-    calls = []
-    monkeypatch.setattr(
-        app_mod,
-        "ensure_plugins_loaded",
-        lambda config: (
-            calls.append(config)
-            or PluginLoadResult(loaded_plugins=(), loaded_adapters=(), skipped=(), errors=())
-        ),
-    )
-
-    app_mod._bootstrap_plugins(cfg)
-
-    assert calls == [cfg]
 
 
 @pytest.mark.parametrize(

@@ -106,7 +106,7 @@ export interface NormalizedSource {
   integration_type: string
   key_requirement: 'none' | 'optional' | 'required' | 'self_hosted'
   risk_level: 'low' | 'medium' | 'high'
-  distribution: 'core' | 'extra' | 'plugin'
+  distribution: 'core' | 'extra'
   stability: 'stable' | 'beta' | 'experimental' | 'deprecated'
   reachable: boolean
   error: string | null

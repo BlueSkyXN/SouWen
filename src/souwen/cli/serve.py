@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import typer
 
-from souwen.cli import _bootstrap_plugins, app
+from souwen.cli import app
 from souwen.cli._common import console
 
 
@@ -29,7 +29,6 @@ def serve(
     from souwen.server.auth import is_admin_open_enabled
 
     cfg = get_config()
-    _bootstrap_plugins()
     console.print("[bold]━━━ SouWen 启动配置 ━━━[/bold]")
     # 用户密码状态
     u_pw = cfg.effective_user_password

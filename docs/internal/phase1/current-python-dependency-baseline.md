@@ -17,7 +17,7 @@ Deterministic verifier:
 Phase 1 needs an auditable answer to “what current Python dependencies actually
 exist?” before target directory and import rules can be implemented. The current
 tree contains direct legacy coupling between server, registry, Core-adjacent
-modules, source/provider modules, plugin lifecycle, and configuration. A target
+modules, source/provider modules, and configuration. A target
 graph cannot be safely inferred from a desired directory diagram alone.
 
 This baseline intentionally records current facts without approving them. A
@@ -25,7 +25,7 @@ passing test means only that the checked-in aggregate fixture matches the
 defined AST extraction rule for the current source tree. It does not mean:
 
 - any edge is allowed in the target modular architecture;
-- every runtime import, plugin entry point, reflection path, or optional
+- every runtime import, dynamic entry point, reflection path, or optional
   dependency is discovered;
 - a cycle is accepted, removed, or has a remediation decision;
 - an External API, Provider v2, Manifest Registry, Common Runtime, or YAML
@@ -48,7 +48,7 @@ provider packages.
 | Included imports | AST Import and absolute ImportFrom nodes anywhere in executable source, including local imports within functions. |
 | TYPE_CHECKING | Imports inside a direct if TYPE_CHECKING or if typing.TYPE_CHECKING body are ignored. The else branch remains eligible. |
 | Relative imports | Ignored deliberately. They are package-local syntax and cannot be mapped consistently without resolving each module/package context; this baseline does not attempt that resolution. |
-| Dynamic imports | Ignored deliberately, including importlib-style calls, string-based entry points, reflection, and plugin discovery. AST Import/ImportFrom is the complete extraction surface. |
+| Dynamic imports | Ignored deliberately, including importlib-style calls, string-based entry points, and reflection. AST Import/ImportFrom is the complete extraction surface. |
 | Non-SouWen imports | Ignored: standard library, third-party, and unrelated package imports are outside the internal graph. |
 | Cycles | Strongly connected components with at least two units, computed over the deduplicated cross-unit edge set using deterministic Tarjan traversal. |
 
@@ -98,7 +98,7 @@ restore a hash.
 ## 5. Known limits
 
 - Relative imports, TYPE_CHECKING-only dependencies, dynamic imports, entry
-  points, plugin manifest metadata, runtime conditional imports, subprocesses,
+  point metadata, runtime conditional imports, subprocesses,
   generated modules, and non-Python components are intentionally not represented.
 - Unit aggregation hides file-level direction, import frequency, call paths,
   lazy versus import-time timing, and public/private ownership.

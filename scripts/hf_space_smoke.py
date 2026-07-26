@@ -1213,18 +1213,6 @@ def run_admin_checks(client: ApiClient, config: SmokeConfig, state: RunState) ->
             else fail_result("admin", "doctor", detail, required=True, elapsed=resp.elapsed)
         )
 
-    def _plugins() -> ProbeResult:
-        resp = client.get("/api/v1/admin/plugins", auth=True)
-        plugins = resp.data.get("plugins")
-        total = len(plugins) if isinstance(plugins, list) else 0
-        ok = resp.status == 200 and isinstance(plugins, list)
-        detail = f"status={resp.status}, plugins={total}"
-        return (
-            pass_result("admin", "plugins", detail, required=True, elapsed=resp.elapsed)
-            if ok
-            else fail_result("admin", "plugins", detail, required=True, elapsed=resp.elapsed)
-        )
-
     def _config_yaml() -> ProbeResult:
         resp = client.get("/api/v1/admin/config/yaml", auth=True)
         ok = resp.status == 200 and isinstance(resp.data.get("content"), str)
@@ -1290,7 +1278,6 @@ def run_admin_checks(client: ApiClient, config: SmokeConfig, state: RunState) ->
         ("sources-config", _sources_config),
         ("source-config-openalex", _source_config_openalex),
         ("doctor", _doctor),
-        ("plugins", _plugins),
     ]:
         results.append(safe_call("admin", name, func, required=True))
     return results

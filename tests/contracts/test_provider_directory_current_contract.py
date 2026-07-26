@@ -9,7 +9,6 @@ import pytest
 
 from souwen.config.loader import _NESTED_CONFIG_FIELDS
 from souwen.config.models import SouWenConfig
-from souwen.plugin import ENTRY_POINT_GROUP, Plugin
 from souwen.registry.adapter import CAPABILITIES, DOMAINS, FETCH_DOMAIN, MethodSpec, SourceAdapter
 from souwen.registry.views import all_adapters
 
@@ -71,22 +70,12 @@ def test_fixture_matches_current_registry_objects(current_contract: dict[str, ob
         assert sorted(adapters[source_name].capabilities) == expected_capabilities
 
 
-def test_fixture_matches_current_plugin_and_configuration(
+def test_fixture_matches_current_configuration(
     current_contract: dict[str, object],
 ) -> None:
-    plugin = current_contract["legacy_plugin"]
     config = current_contract["configuration"]
-    assert isinstance(plugin, dict)
     assert isinstance(config, dict)
 
-    assert plugin["entry_point_group"] == ENTRY_POINT_GROUP
-    assert set(plugin["accepted_entry_shapes"]) == {
-        Plugin.__name__,
-        SourceAdapter.__name__,
-        "list_or_tuple_of_SourceAdapter",
-        "zero_argument_factory",
-    }
-    assert plugin["runtime_registry_mutation"] is True
     assert set(config["required_model_fields"]) <= set(SouWenConfig.model_fields)
     assert config["nested_loader_fields"] == sorted(_NESTED_CONFIG_FIELDS)
     assert config["precedence_high_to_low"] == [

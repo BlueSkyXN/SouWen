@@ -22,10 +22,3 @@ def test_public_readmes_and_getting_started_use_edition_install_profiles() -> No
         assert 'pip install -e ".[server,tls,web,scraper]"' not in text
         assert 'pip install -e ".[server,tls,web,scraper,pdf,crawl4ai' not in text
         assert 'pip install -e ".[server,tls,web,scraper,pdf,scrapling' not in text
-
-
-def test_plugin_spec_documents_docker_edition_pro_install() -> None:
-    text = (REPO_ROOT / "docs/plugin-integration-spec.md").read_text(encoding="utf-8")
-
-    assert "`.[edition-pro]`" in text
-    assert "`.[server,tls]`" not in text

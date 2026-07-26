@@ -49,7 +49,6 @@ from souwen.core.exceptions import ConfigError, RateLimitError
 from souwen.editions import (
     EDITIONS,
     FULL_WARP_MODES,
-    PREINSTALLED_PLUGIN_MODULES,
     edition_policy,
     fetch_provider_policy,
     source_policy,
@@ -341,14 +340,7 @@ def check_edition() -> dict[str, Any]:
         )
 
     llm_policy = edition_policy("LLM", current=cfg.edition, required="pro")
-    plugin_policy = edition_policy(
-        "preinstalled plugin packages",
-        current=cfg.edition,
-        required="full",
-    )
     llm_runtime = probe_modules(LLM_PROVIDER_MODULES.values())
-    plugin_runtime = probe_modules(PREINSTALLED_PLUGIN_MODULES)
-    plugin_importable = plugin_runtime.available
     probe = probe_results_to_dict(probe_capabilities(cfg.edition))
 
     return {
@@ -369,16 +361,6 @@ def check_edition() -> dict[str, Any]:
             "runtime_reason": llm_runtime.reason,
             "available": llm_policy.available and llm_runtime.available,
         },
-        "plugins": {
-            "min_edition": plugin_policy.min_edition,
-            "edition_available": plugin_policy.available,
-            "edition_reason": plugin_policy.reason,
-            "preinstalled": plugin_importable,
-            "runtime_available": plugin_runtime.available,
-            "runtime_reason": plugin_runtime.reason,
-            "available": plugin_policy.available and plugin_runtime.available,
-            "candidate_modules": list(PREINSTALLED_PLUGIN_MODULES),
-        },
         "probe": probe,
     }
 
@@ -392,7 +374,6 @@ def format_edition_report(report: dict[str, Any] | None = None) -> str:
     fetch = data["fetch_providers"]
     warp = data["warp"]
     llm = data["llm"]
-    plugins = data["plugins"]
     probe = data.get("probe") if isinstance(data.get("probe"), dict) else {}
     package_extras = (
         probe.get("package_extras")
@@ -460,12 +441,6 @@ def format_edition_report(report: dict[str, Any] | None = None) -> str:
     else:
         llm_status = "可用"
 
-    if not plugins["edition_available"]:
-        plugin_status = f"需升级（{plugins['edition_reason']}）"
-    elif not plugins["runtime_available"]:
-        plugin_status = f"缺依赖（{plugins['runtime_reason']}）"
-    else:
-        plugin_status = "已预装"
     lines.extend(
         [
             "",
@@ -477,10 +452,6 @@ def format_edition_report(report: dict[str, Any] | None = None) -> str:
                 "  Package extras: "
                 f"{len(available_extras)}/{len(extra_names)} 可导入；"
                 f"已声明: {_format_name_list(extra_names)}"
-            ),
-            (
-                "  Preinstalled plugins: "
-                f"{plugin_status}；候选模块: {_format_name_list(plugins['candidate_modules'])}"
             ),
         ]
     )

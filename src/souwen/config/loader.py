@@ -33,7 +33,7 @@ _RETIRED_AUTH_ENV_KEYS = {
     "SOUWEN_VISITOR_PASSWORD": "SOUWEN_USER_PASSWORD",
 }
 
-_NESTED_CONFIG_FIELDS = frozenset({"sources", "llm", "llm_search_gateways", "plugin_config"})
+_NESTED_CONFIG_FIELDS = frozenset({"sources", "llm", "llm_search_gateways"})
 _EXACT_ENV_REFERENCE = re.compile(r"^\$\{([A-Z_][A-Z0-9_]*)\}$")
 
 
@@ -174,7 +174,7 @@ def _coerce_env_value(field_name: str, raw_val: str, env_key: str):
         except (ValueError, TypeError):
             logger.warning("环境变量 %s=%r 无法转为整数,已忽略", env_key, val)
             return None
-    if field_name in ("proxy_pool", "cors_origins", "trusted_proxies", "plugins"):
+    if field_name in ("proxy_pool", "cors_origins", "trusted_proxies"):
         stripped = val.strip()
         if stripped.startswith("["):
             try:
@@ -255,44 +255,7 @@ def get_config() -> SouWenConfig:
     kwargs.update(_load_yaml_config())
     kwargs.update(_load_env_mapping(dict(os.environ)))
 
-    cfg = SouWenConfig(**kwargs)
-
-    try:
-        from souwen.plugin import _inject_config_into_loaded_plugins
-
-        _inject_config_into_loaded_plugins(cfg)
-    except Exception:  # noqa: BLE001 — 插件配置注入不能拖垮配置加载
-        logger.warning("已加载插件配置注入失败,已跳过", exc_info=True)
-
-    # 配置加载完成后，加载 config.plugins 中手动指定的插件
-    if cfg.plugins:
-        try:
-            from souwen.plugin import load_config_plugins
-
-            # 读取禁用列表，跳过已禁用的配置插件
-            # 注意：不能使用 _load_state() 因为它会回调 get_config() 造成递归。
-            # 直接从 cfg 对象获取状态路径。
-            skip_names: set[str] = set()
-            try:
-                from souwen.plugin_manager import _normalize_state
-
-                data_path = getattr(cfg, "data_path", None)
-                if data_path is not None:
-                    state_file = Path(data_path) / "plugins.state.json"
-                else:
-                    data_dir = getattr(cfg, "data_dir", "~/.local/share/souwen")
-                    state_file = Path(data_dir).expanduser() / "plugins.state.json"
-                if state_file.exists():
-                    raw = json.loads(state_file.read_text(encoding="utf-8"))
-                    skip_names = set(_normalize_state(raw).get("disabled_plugins", []))
-                # else: no state file yet, skip_names stays empty
-            except Exception:  # noqa: BLE001
-                pass
-            load_config_plugins(cfg.plugins, skip_names=skip_names, config=cfg)
-        except Exception:  # noqa: BLE001 — 插件加载不能拖垮配置
-            logger.warning("配置插件加载失败,已跳过", exc_info=True)
-
-    return cfg
+    return SouWenConfig(**kwargs)
 
 
 def reload_config() -> SouWenConfig:

@@ -20,5 +20,5 @@ Read this card for non-pytest checks, reports, outcome semantics, runtime smoke 
 
 ## Validation
 
-- `pytest tests/test_functional_common.py tests/test_plugin_functional_check.py -v --tb=short`
+- `pytest tests/test_functional_common.py -v --tb=short`
 - For CI profile logic, read `scripts/ci/AGENTS.md`.

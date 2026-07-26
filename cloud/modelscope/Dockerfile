@@ -25,7 +25,7 @@ ARG WGCF_VERSION=2.2.30
 ARG WIREPROXY_VERSION=1.1.2
 ARG USQUE_VERSION=3.0.0
 ARG GH_PROXY=""
-# 可选安装 web2pdf/SuperWeb2PDF 插件及其浏览器运行时
+# 可选安装 A2 待处置的 web2pdf/SuperWeb2PDF 包及其浏览器运行时
 ARG WITH_WEB2PDF=0
 # PyPI 暂无 superweb2pdf 发行，默认使用可解析的 GitHub archive；可用 build-arg 覆盖
 ARG WEB2PDF_PACKAGE=https://github.com/BlueSkyXN/SuperWeb2PDF/archive/d1e1da59d739ad46222b5e726bd6f28b0d0453fa.zip#sha256=f56a380aa3f06d169d3fcc723d5525779519afaff159b37e8a789e50b797c76b
@@ -40,8 +40,8 @@ ENV PORT=7860 \
     WARP_RUNTIME_BIN_DIR=/home/user/app/data/bin \
     TZ=Asia/Shanghai
 
-# 安装基础工具和 Playwright Chromium 运行库（SuperWeb2PDF 外部插件需要）
-# 以下为 Playwright Chromium 运行所需系统库（SuperWeb2PDF 外部插件需要）
+# 安装基础工具和 Playwright Chromium 运行库（SuperWeb2PDF 包需要）
+# 以下为 Playwright Chromium 运行所需系统库（SuperWeb2PDF 包需要）
 RUN apt-get update && apt-get install -y --no-install-recommends \
         git ca-certificates curl tzdata \
         libnss3 libnspr4 libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
@@ -101,7 +101,7 @@ RUN if [ "${WITH_WEB2PDF}" = "1" ]; then \
     fi \
     && python -c "import curl_cffi; print('curl_cffi OK')"
 
-# 安装 Playwright Chromium（仅 SuperWeb2PDF 外部插件需要，国内环境可配置下载镜像）
+# 安装 Playwright Chromium（仅 SuperWeb2PDF 包需要，国内环境可配置下载镜像）
 RUN if [ "${WITH_WEB2PDF}" = "1" ]; then \
         if [ -n "${PLAYWRIGHT_DOWNLOAD_HOST}" ]; then \
             PLAYWRIGHT_DOWNLOAD_HOST="${PLAYWRIGHT_DOWNLOAD_HOST}" playwright install chromium; \

@@ -860,12 +860,12 @@ def test_ci_fast_lane_is_single_py313_ubuntu2404_and_full_lane_covers_release_an
     assert '{"os":"macos-latest","python":"3.11"}' in lane
     assert '{"os":"windows-latest","python":"3.11"}' in lane
 
-    test_job = _job(ci, "test", "plugin-test")
+    test_job = _job(ci, "test", "server-test")
     assert "needs: [lane, lint]" in test_job
     assert "matrix: ${{ fromJSON(needs.lane.outputs.test_matrix) }}" in test_job
 
     gate = "if: needs.lane.outputs.full == 'true'"
-    assert ci.count(gate) == 12
+    assert ci.count(gate) == 10
     for fast_job in ("architecture", "lint", "docs-check", "panel-build"):
         block = ci.split(f"  {fast_job}:", maxsplit=1)[1]
         assert gate not in block.split("\n  ", maxsplit=1)[0]
@@ -878,7 +878,7 @@ def test_ci_fast_lane_is_single_py313_ubuntu2404_and_full_lane_covers_release_an
     v2 = _workflow("v2-ci.yml")
     v2_lane = _job(v2, "lane", "bootstrap")
     assert "full: ${{ steps.lane.outputs.full }}" in v2_lane
-    assert v2.count(gate) == 5
+    assert v2.count(gate) == 4
     for fast_job, next_job in (
         ("bootstrap", "matrix_tests"),
         ("provider_v2_conformance", "server_profile"),
@@ -1066,23 +1066,13 @@ def test_hfs_rebuild_job_avoids_checkout_and_dependency_cache() -> None:
     assert "cache: pip" not in rebuild
 
 
-def test_external_release_gate_requires_superweb2pdf_runtime_fixture() -> None:
+def test_external_release_gate_no_longer_contains_plugin_runtime_fixture() -> None:
     text = _workflow("external-smoke-gate.yml")
-    assert "Plugin and SuperWeb2PDF release/nightly gate" in text
-    assert 'pip install -e ".[dev,edition-full]"' in text
-    assert "python -m playwright install --with-deps chromium" in text
-    assert "--require-web2pdf-runtime" in text
+    assert "Plugin and SuperWeb2PDF release/nightly gate" not in text
+    assert "plugin_functional_check.py" not in text
+    assert "examples/minimal-plugin" not in text
     assert "--timeout 45" in text
-    assert "external-gate-plugin-report" in text
-
-
-def test_superweb2pdf_workflow_install_is_commit_and_hash_pinned() -> None:
-    text = _workflow("ci.yml")
-    assert (
-        "d1e1da59d739ad46222b5e726bd6f28b0d0453fa.zip"
-        "#sha256=f56a380aa3f06d169d3fcc723d5525779519afaff159b37e8a789e50b797c76b"
-    ) in text
-    assert 'd1e1da59d739ad46222b5e726bd6f28b0d0453fa.zip"' not in text
+    assert "external-gate-plugin-report" not in text
 
 
 def test_clean_wheel_composite_enforces_edition_and_package_boundaries() -> None:

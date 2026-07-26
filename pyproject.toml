@@ -75,7 +75,7 @@ scraper = ["curl-cffi>=0.14.0"]
 server = ["fastapi>=0.111", "uvicorn[standard]>=0.29"]
 # MCP 服务器协议支持
 mcp = ["mcp>=1.0"]
-# SuperWeb2PDF 网页截图转 PDF（可选外挂插件；PyPI 暂无 superweb2pdf 发行）
+# SuperWeb2PDF 网页截图转 PDF（A2 待处置的可选扩展包；PyPI 暂无发行）
 web2pdf = [
     "playwright>=1.40",
     "superweb2pdf @ https://github.com/BlueSkyXN/SuperWeb2PDF/archive/d1e1da59d739ad46222b5e726bd6f28b0d0453fa.zip#sha256=f56a380aa3f06d169d3fcc723d5525779519afaff159b37e8a789e50b797c76b",
