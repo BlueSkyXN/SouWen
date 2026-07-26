@@ -58,7 +58,7 @@ checks above.
 
 The v2 mergeback was staged through these historical implementation slices:
 
-1. `v2/00-bootstrap`: v2 branch policy, v2 CI entry, AI workflow quarantine.
+1. `v2/00-bootstrap`: v2 branch policy, v2 CI entry, legacy automation quarantine.
 2. `v2/01-registry-meta`: registry package split and `registry/meta.py`.
 3. `v2/02-search-facade-removal`: search/fetch consolidation and facade deletion.
 4. `v2/03-core-path-migration`: core imports, scraper removal, top-level stub deletion.
@@ -152,16 +152,3 @@ that change and all affected gates must rerun. If a publish attempt pushes the
 annotated tag but fails before completing the Release, do not move or overwrite
 the tag: stop, inspect the draft/partial state, withdraw it if necessary, and use
 the next RC version rather than silently retrying against a different SHA.
-
-## AI Workflow Policy
-
-AI workflows keep manual `workflow_dispatch` entrypoints. Automatic triggers are
-disabled by default and should only be re-enabled after confirming the target
-branch, token permissions, and cost/latency expectations:
-
-- `ai-review.yml`: automatic `pull_request` review is commented out.
-- `ai-agent.yml`: automatic `issue_comment` ChatOps is commented out.
-- `ai-repo-audit.yml`: manual audit only.
-
-Manual AI runs are optional side checks. They are not completion gates for v2
-implementation or release-candidate work.
