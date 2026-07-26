@@ -3,10 +3,10 @@
 > 本文档描述 SouWen 当前的架构。核心原则：**所有数据源元数据 + 执行适配集中到 `registry/` 单一事实源**，避免"同一份信息散落多处手工维护、频繁漂移"。
 
 <!-- BEGIN AUTO: REGISTRY SUMMARY -->
-**Registry 摘要**：当前内置 registry 共 **111** 个 registered `SourceAdapter`，其中 **110** 个进入 public Source Catalog，**1** 个为 hidden/internal。
+**Registry 摘要**：当前内置 registry 共 **110** 个 registered `SourceAdapter`，其中 **109** 个进入 public Source Catalog，**1** 个为 hidden/internal。
 
 - 公开源主 domain：`paper` 21 · `patent` 8 · `web` 32 · `social` 5 · `video` 2 · `knowledge` 1 · `developer` 2 · `cn_tech` 9 · `office` 1 · `archive` 1 · `book` 9 · `research_output` 2
-- `fetch` 横切视图共 **24** 个 provider：**17** 个主 `domain=fetch`，**7** 个由其他主 domain 跨域提供。
+- `fetch` 横切视图共 **23** 个 provider：**16** 个主 `domain=fetch`，**7** 个由其他主 domain 跨域提供。
 <!-- END AUTO: REGISTRY SUMMARY -->
 
 ---
@@ -17,7 +17,6 @@
 ┌────────────────────────────────────────────────────────────────┐
 │ 展示层 Presentation                                            │
 │   souwen.server/*     FastAPI（按 domain 拆分）                │
-│   souwen.integrations/mcp/*  MCP 协议集成                      │
 │   panel/              Web UI（5 皮肤 + 共享 core）             │
 ├────────────────────────────────────────────────────────────────┤
 │ 应用入口 Application API                                        │

@@ -206,15 +206,6 @@ llm_search_gateways: {}
 | `zotero_library_id` | `SOUWEN_ZOTERO_LIBRARY_ID` | Zotero 必需 | 用户 ID 或群组 ID |
 | `zotero_library_type` | `SOUWEN_ZOTERO_LIBRARY_TYPE` | 可选 | `user`（默认）或 `group` |
 
-### MCP（Model Context Protocol）
-
-| 字段 | 环境变量 | 默认值 | 说明 |
-|------|---------|--------|------|
-| `mcp_server_url` | `SOUWEN_MCP_SERVER_URL` | None | 远端 MCP Server 端点（启用 fetch provider=mcp 时必需） |
-| `mcp_transport` | `SOUWEN_MCP_TRANSPORT` | `streamable_http` | `streamable_http` 或 `sse` |
-| `mcp_fetch_tool_name` | `SOUWEN_MCP_FETCH_TOOL_NAME` | `fetch` | 远端 MCP fetch 工具名 |
-| `mcp_extra_headers` | `SOUWEN_MCP_EXTRA_HEADERS` | `{}` | JSON 对象，附加给 MCP 请求 |
-
 ### 通用 / 网络设置
 
 | 字段 | 环境变量 | 默认值 | 说明 |

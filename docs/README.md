@@ -35,7 +35,7 @@ Public docs 不要求读者理解历史路径；需要保留背景材料时，�
 
 | 文档 | 用途 |
 |---|---|
-| [api-reference.md](./api-reference.md) | Python API、REST API、MCP 工具和服务端端点 |
+| [api-reference.md](./api-reference.md) | Python API、REST API 和服务端端点 |
 | [anti-scraping.md](./anti-scraping.md) | TLS 指纹、代理、WARP、SSRF 防护和爬虫限制 |
 | [warp-solutions.md](./warp-solutions.md) | WARP 五种模式和部署选择 |
 

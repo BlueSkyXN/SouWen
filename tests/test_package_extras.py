@@ -52,7 +52,7 @@ def test_distributions_exclude_local_agent_metadata() -> None:
 def test_edition_extras_define_layered_install_profiles() -> None:
     """Edition extras should expose stable install surfaces without hand-copying deps."""
 
-    assert _extra_dependencies("edition-basic") == ["souwen[tls,web,robots,mcp]"]
+    assert _extra_dependencies("edition-basic") == ["souwen[tls,web,robots]"]
     assert _extra_dependencies("edition-pro") == ["souwen[edition-basic,server,scraper]"]
     assert _extra_dependencies("edition-full") == ["souwen[edition-pro,newspaper,readability]"]
 

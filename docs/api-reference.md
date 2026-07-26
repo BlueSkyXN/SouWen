@@ -1,6 +1,6 @@
 # API 接口参考
 
-> SouWen 公开 API、数据模型、CLI 命令与 MCP 工具
+> SouWen 公开 API、数据模型、CLI 命令与服务端端点
 
 > **架构提示**：搜索路由派发到 `souwen.search`，内容抓取使用 `souwen.web.fetch`，数据源选择统一来自 `souwen.registry`（单一事实源）。新增数据源不需要改路由，参见 [adding-a-source.md](./adding-a-source.md)。
 
@@ -79,12 +79,12 @@ from souwen.web.fetch import fetch_content, validate_fetch_url
 
 #### `fetch_content(urls: str | list[str], providers: str | list[str] | None = None, strategy="fallback", timeout=30.0, skip_ssrf_check=False, selector=None, start_index=0, max_length=None, respect_robots_txt=False)` → `FetchResponse`
 
-多提供者内容抓取，支持 24 个提供者。默认 `fallback` 按 URL 补抓失败项；`fanout` 会并发执行所有 provider，并返回全部 provider 结果，适合质量对比和调试。provider 必须同时存在于 registry 且被当前 `SOUWEN_EDITION` 允许；重运行时 provider（如 `crawl4ai` / `scrapling` / `newspaper` / `readability`）需要 `full`。
+多提供者内容抓取，支持 23 个提供者。默认 `fallback` 按 URL 补抓失败项；`fanout` 会并发执行所有 provider，并返回全部 provider 结果，适合质量对比和调试。provider 必须同时存在于 registry 且被当前 `SOUWEN_EDITION` 允许；重运行时 provider（如 `crawl4ai` / `scrapling` / `newspaper` / `readability`）需要 `full`。
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
 | `urls` | `str \| list[str]` | — | 目标 URL 或 URL 列表；单个字符串会归一化为单元素列表 |
-| `providers` | `str \| list[str] \| None` | `["builtin"]` | 提供者或提供者列表；单个字符串会归一化为单元素列表。提供者: builtin / jina_reader / arxiv_fulltext / tavily / firecrawl / xcrawl / kimi_code / exa / metaso / crawl4ai / scrapling / scrapfly / diffbot / scrapingbee / zenrows / scraperapi / apify / cloudflare / wayback / newspaper / readability / mcp / site_crawler / deepwiki |
+| `providers` | `str \| list[str] \| None` | `["builtin"]` | 提供者或提供者列表；单个字符串会归一化为单元素列表。提供者: builtin / jina_reader / arxiv_fulltext / tavily / firecrawl / xcrawl / kimi_code / exa / metaso / crawl4ai / scrapling / scrapfly / diffbot / scrapingbee / zenrows / scraperapi / apify / cloudflare / wayback / newspaper / readability / site_crawler / deepwiki |
 | `strategy` | `"fallback" \| "fanout"` | `"fallback"` | 多 provider 策略：`fallback` 按 URL 顺序补失败项；`fanout` 返回所有 provider 结果 |
 | `timeout` | `float` | `30.0` | 每个 URL 超时秒数 |
 | `skip_ssrf_check` | `bool` | `False` | 跳过 SSRF 校验（仅内部使用） |
@@ -1104,7 +1104,7 @@ WARP 状态变更 SSE 流。客户端使用 `EventSource` 连接，服务端约�
 
 #### `POST /api/v1/fetch`
 
-抓取网页内容，支持 24 个提供者。默认 `fallback` 按 URL 补抓失败项；`fanout` 会并发返回所有 provider 结果。provider 必须同时存在于 registry 且被当前 `SOUWEN_EDITION` 允许；重运行时 provider（如 `crawl4ai` / `scrapling` / `newspaper` / `readability`）需要 `full`。
+抓取网页内容，支持 23 个提供者。默认 `fallback` 按 URL 补抓失败项；`fanout` 会并发返回所有 provider 结果。provider 必须同时存在于 registry 且被当前 `SOUWEN_EDITION` 允许；重运行时 provider（如 `crawl4ai` / `scrapling` / `newspaper` / `readability`）需要 `full`。
 
 **请求体 (JSON)：**
 
@@ -1112,7 +1112,7 @@ WARP 状态变更 SSE 流。客户端使用 `EventSource` 连接，服务端约�
 |------|------|--------|------|
 | `urls` | `list[str]` (1-20) | *(必填)* | 目标 URL 列表 |
 | `provider` | `string` | `"builtin"` | 单 provider 请求字段；新代码优先使用 `providers` |
-| `providers` | `list[str] \| null` | `null` | 多 provider 列表；提供时优先于 `provider`。可选：`builtin` / `jina_reader` / `arxiv_fulltext` / `tavily` / `firecrawl` / `xcrawl` / `kimi_code` / `exa` / `metaso` / `crawl4ai` / `scrapling` / `scrapfly` / `diffbot` / `scrapingbee` / `zenrows` / `scraperapi` / `apify` / `cloudflare` / `wayback` / `newspaper` / `readability` / `mcp` / `site_crawler` / `deepwiki` |
+| `providers` | `list[str] \| null` | `null` | 多 provider 列表；提供时优先于 `provider`。可选：`builtin` / `jina_reader` / `arxiv_fulltext` / `tavily` / `firecrawl` / `xcrawl` / `kimi_code` / `exa` / `metaso` / `crawl4ai` / `scrapling` / `scrapfly` / `diffbot` / `scrapingbee` / `zenrows` / `scraperapi` / `apify` / `cloudflare` / `wayback` / `newspaper` / `readability` / `site_crawler` / `deepwiki` |
 | `strategy` | `"fallback" \| "fanout"` | `"fallback"` | 多 provider 策略：`fallback` 按 URL 顺序补失败项；`fanout` 返回所有 provider 结果 |
 | `timeout` | `float` (1-120) | `30` | 每 URL 超时秒数 |
 | `selector` | `string \| null` | `null` | CSS 选择器，仅提取匹配元素（builtin / scrapling 支持） |
@@ -1181,115 +1181,6 @@ WARP 状态变更 SSE 流。客户端使用 `EventSource` 连接，服务端约�
 - 重定向安全：每一跳校验目标 IP，防止多跳 SSRF 攻击
 - Scrapling 浏览器模式：`dynamic` / `stealthy` 会对 navigation、子资源、XHR/fetch 等浏览器请求安装同一套 SSRF 拦截
 - 管理密码认证：需要 `admin_password`
-
-## MCP 工具
-
-SouWen 支持 [Model Context Protocol](https://modelcontextprotocol.io/)，可作为 AI Agent 的工具服务。
-
-### 启动
-
-```bash
-python -m souwen.integrations.mcp_server
-```
-
-直接安装 core 时需另行安装 `pip install mcp`；`edition-basic`、`edition-pro` 与
-更高 edition 已包含 MCP SDK。
-
-### 工具列表
-
-#### `search_papers`
-
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `query` | string | — | 搜索关键词 |
-| `sources` | string \| array | `null`（registry `paper:search` 当前为 `["openalex", "crossref", "arxiv", "dblp", "pubmed", "biorxiv"]`） | 数据源或数据源列表 |
-| `limit` | int | `5` | 每源返回数量 |
-
-返回：JSON `SearchResponse` 数组
-
-#### `search_patents`
-
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `query` | string | — | 搜索关键词 |
-| `sources` | string \| array | `null`（registry `patent:search` 当前为 `["google_patents"]`） | 数据源或数据源列表 |
-| `limit` | int | `5` | 结果数 |
-
-返回：JSON `SearchResponse` 数组
-
-#### `search_research_outputs`
-
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `query` | string | — | 搜索关键词 |
-| `sources` | string \| string[] | registry `research_output:search` | 数据源或数据源列表 |
-| `limit` | int | `5` | 每源返回数量 |
-
-返回：JSON `SearchResponse` 数组；每个记录保留非论文 `resource_type_general` / `resource_type`、
-rights 和源声明的 metadata links。工具不会跟随 landing/content URL 或下载内容。
-
-#### `web_search`
-
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `query` | string | — | 搜索关键词 |
-| `engines` | string \| array | `null`（registry `web:search` 当前为 `["duckduckgo", "bing"]`） | 引擎或引擎列表 |
-| `limit` | int | `10` | 每引擎最大结果数 |
-
-返回：JSON `SearchResponse` 对象
-
-MCP 搜索工具的 `sources` / `engines` 与 Python API 一致。显式请求当前 `SOUWEN_EDITION` 不允许的 source / engine 时，工具调用会返回对应的 edition 错误文本。`fetch_content` 工具的 schema 会按当前 `edition` 只列出可执行的 fetch provider；显式传入当前版本不允许的已知 provider 时同样返回 edition 错误文本。
-
-#### `get_status`
-
-无参数。返回所有数据源的健康状态报告。
-
-#### `fetch_content`
-
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `urls` | string \| array | — | 待抓取的 URL 或 URL 列表 |
-| `provider` | string | `"builtin"` | 单内容提取提供者字段；新请求优先使用 `providers`。默认 `builtin`（零配置）。工具 schema 的可选项按当前 `edition` 过滤；例如 `basic` 只列出 `builtin` / `mcp` / `site_crawler`，`pro` 追加 `arxiv_fulltext` 及 API/远端服务类 provider，`full` 追加 `crawl4ai` / `scrapling` / `newspaper` / `readability` 等重运行时 provider |
-| `providers` | string \| array \| null | `null` | 内容提取提供者或提供者列表；提供时优先于 `provider` |
-| `strategy` | `"fallback" \| "fanout"` | `"fallback"` | 多 provider 策略：`fallback` 按 URL 补失败项，`fanout` 返回全部 provider 结果 |
-
-返回：JSON `FetchResponse` 对象（含 `results`、`total`、`total_ok`、`total_failed`）。
-
-内置 fetch provider 全量集合（MCP 工具 schema 会再按当前 `edition` 过滤）可选：`builtin` / `jina_reader` / `arxiv_fulltext` / `tavily` / `firecrawl` / `xcrawl` / `kimi_code` / `exa` / `metaso` / `crawl4ai` / `scrapling` / `scrapfly` / `diffbot` / `scrapingbee` / `zenrows` / `scraperapi` / `apify` / `cloudflare` / `wayback` / `newspaper` / `readability` / `mcp` / `site_crawler` / `deepwiki`。
-
-#### `extract_links`
-
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `url` | string | — | 目标页面 URL；会先 `strip()`，strip 后不能为空 |
-| `base_url_filter` | string | `null` | URL 前缀过滤；提供时会先 `strip()`，strip 后为空则按未提供处理 |
-| `limit` | int | `100` | 最大返回链接数（1-1000） |
-
-返回：JSON `LinksResponse` 对象。
-
-#### `parse_sitemap`
-
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `url` | string | — | Sitemap URL 或站点根 URL；会先 `strip()`，strip 后不能为空 |
-| `discover` | bool | `false` | 是否从 robots.txt 自动发现 sitemap |
-| `limit` | int | `1000` | 最大返回条目数 |
-
-返回：JSON `SitemapResponse` 对象。
-
-#### Bilibili 工具
-
-| 工具 | 说明 |
-|------|------|
-| `bilibili_search` | 搜索 Bilibili 视频 |
-| `bilibili_search_users` | 按关键词搜索 Bilibili 用户 |
-| `bilibili_search_articles` | 按关键词搜索 Bilibili 专栏文章 |
-| `bilibili_video_details` | 按 BV 号抓取视频详情 |
-
-MCP server 的 `list_tools` 会返回当前完整工具 schema；
-`fetch_content.provider/providers` 的可选 provider 来自内置 registry。
-
----
 
 ## 多媒体与扩展端点
 

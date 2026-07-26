@@ -21,11 +21,11 @@ def test_checked_in_data_sources_matches_generator():
 def test_registry_snapshot_drives_release_candidate_metrics():
     snapshot, _catalog, _categories = gen_docs._load_snapshot()
 
-    assert snapshot.registered_count == 111
-    assert snapshot.public_count == 110
+    assert snapshot.registered_count == 110
+    assert snapshot.public_count == 109
     assert snapshot.hidden_or_internal_count == 1
     assert snapshot.primary_counts["book"] == 9
-    assert len(snapshot.fetch_primary) == 17
+    assert len(snapshot.fetch_primary) == 16
     assert [adapter.name for adapter in snapshot.fetch_cross_domain] == [
         "exa",
         "firecrawl",
@@ -35,7 +35,7 @@ def test_registry_snapshot_drives_release_candidate_metrics():
         "wayback",
         "xcrawl",
     ]
-    assert snapshot.fetch_provider_count == 24
+    assert snapshot.fetch_provider_count == 23
 
 
 def test_checked_in_managed_regions_match_registry():

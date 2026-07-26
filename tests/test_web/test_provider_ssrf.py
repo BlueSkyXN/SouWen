@@ -16,7 +16,6 @@ from souwen.web.diffbot import DiffbotClient
 from souwen.web.exa import ExaClient
 from souwen.web.firecrawl import FirecrawlClient
 from souwen.web.jina_reader import JinaReaderClient
-from souwen.web.mcp_fetch import MCPFetchClient
 from souwen.web.metaso import MetasoClient
 from souwen.web.scraperapi import ScraperAPIClient
 from souwen.web.scrapling_fetcher import ScraplingFetcherClient
@@ -158,19 +157,6 @@ async def test_scrapling_blocks_ssrf_before_fetcher_call() -> None:
 
     _assert_blocked_result(result, "scrapling")
     fake_fetcher.get.assert_not_awaited()
-
-
-@pytest.mark.asyncio
-async def test_mcp_fetch_blocks_ssrf_before_tool_call() -> None:
-    client = MCPFetchClient(server_url="https://mcp.example/mcp")
-    fake_client = AsyncMock()
-    fake_client.call_tool = AsyncMock(side_effect=AssertionError("MCP tool should not run"))
-    client._client = fake_client
-
-    result = await client.fetch(BLOCKED_URL)
-
-    _assert_blocked_result(result, "mcp")
-    fake_client.call_tool.assert_not_awaited()
 
 
 @pytest.mark.asyncio

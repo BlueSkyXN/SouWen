@@ -15,7 +15,7 @@ Read this card when changing package-level APIs, imports, shared models or cross
 
 - Do not add v1 compatibility modules or dispatcher tables unless tests and docs explicitly require them.
 - Do not bypass `src/souwen/registry/` for source selection.
-- Do not make package import depend on server, panel or MCP extras.
+- Do not make package import depend on server or panel extras.
 
 ## Validation
 

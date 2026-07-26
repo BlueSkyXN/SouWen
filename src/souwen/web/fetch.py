@@ -4,7 +4,7 @@
     核心网页内容抓取聚合模块。支持 24 个提供者（内置抓取、Jina Reader、arXiv Fulltext、
     Tavily、Firecrawl、Exa、XCrawl、Crawl4AI、Scrapfly、Diffbot、ScrapingBee、ZenRows、
     ScraperAPI、Apify、Cloudflare Browser Rendering、Wayback Machine、
-    newspaper4k、readability、MCP、site_crawler（多页 BFS 爬虫）、
+    newspaper4k、readability、site_crawler（多页 BFS 爬虫）、
     deepwiki（DeepWiki 文档抓取）、Scrapling、Kimi Code、Metaso Reader），
     通过 asyncio 并发抓取、聚合结果，为用户提供统一内容提取接口。
 
@@ -505,13 +505,6 @@ async def _handle_readability(urls: list[str], timeout: float, **_kwargs: Any) -
         return await client.fetch_batch(urls, timeout=timeout)
 
 
-async def _handle_mcp(urls: list[str], timeout: float, **_kwargs: Any) -> FetchResponse:
-    from souwen.web.mcp_fetch import MCPFetchClient
-
-    async with MCPFetchClient() as client:
-        return await client.fetch_batch(urls, timeout=timeout)
-
-
 async def _handle_site_crawler(urls: list[str], timeout: float, **_kwargs: Any) -> FetchResponse:
     from souwen.web.site_crawler import SiteCrawlerClient
 
@@ -549,7 +542,6 @@ register_fetch_handler("cloudflare", _handle_cloudflare)
 register_fetch_handler("wayback", _handle_wayback)
 register_fetch_handler("newspaper", _handle_newspaper)
 register_fetch_handler("readability", _handle_readability)
-register_fetch_handler("mcp", _handle_mcp)
 register_fetch_handler("site_crawler", _handle_site_crawler)
 register_fetch_handler("deepwiki", _handle_deepwiki)
 

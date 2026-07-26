@@ -4,12 +4,12 @@
 
 | 指标 | 数量 | 定义 |
 |---|---:|---|
-| Registered | **111** | 当前生成进程注册的 `SourceAdapter`；默认只含内置源 |
-| Public | **110** | `catalog_visibility=public`，进入公开 Source Catalog |
+| Registered | **110** | 当前生成进程注册的 `SourceAdapter`；默认只含内置源 |
+| Public | **109** | `catalog_visibility=public`，进入公开 Source Catalog |
 | Hidden / internal | **1** | 已注册但不进入公开 Source Catalog |
-| Fetch primary-domain | **17** | 主 `domain=fetch` 的公开源 |
+| Fetch primary-domain | **16** | 主 `domain=fetch` 的公开源 |
 | Fetch cross-domain | **7** | 其他主 domain 通过 `extra_domains` 暴露 `fetch` |
-| Fetch providers | **24** | primary-domain 与 cross-domain 的公开源并集 |
+| Fetch providers | **23** | primary-domain 与 cross-domain 的公开源并集 |
 
 ## 事实来源
 
@@ -169,7 +169,7 @@
 |---|---|---|---|---|---|---|---|---|
 | `wayback` | open_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | archive_lookup, archive_save, fetch | — |
 
-## 内容抓取 · `fetch`（24 源）
+## 内容抓取 · `fetch`（23 源）
 
 | Name | Integration | Auth | Risk | Distribution | Stability | Extra | Capabilities | Credentials |
 |---|---|---|---|---|---|---|---|---|
@@ -184,7 +184,6 @@
 | `firecrawl` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch, search | `firecrawl_api_key` |
 | `jina_reader` | open_api | 可选凭据 (提升限流) | 低风险 | 核心内置 | 稳定 | — | fetch | `jina_api_key` |
 | `kimi_code` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch, search | `kimi_code_api_key` |
-| `mcp` | open_api | 自建实例 | 低风险 | 可选依赖 | 稳定 | `mcp` | fetch | `mcp_server_url` |
 | `metaso` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch, search | `metaso_api_key` |
 | `newspaper` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `newspaper` | fetch | — |
 | `readability` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `readability` | fetch | — |

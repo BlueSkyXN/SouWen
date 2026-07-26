@@ -226,7 +226,6 @@ def test_adapter_registration_order_snapshot() -> None:
         "cloudflare",
         "newspaper",
         "readability",
-        "mcp",
         "site_crawler",
         "deepwiki",
     )

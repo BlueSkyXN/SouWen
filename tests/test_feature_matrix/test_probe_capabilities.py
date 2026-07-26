@@ -50,16 +50,14 @@ def test_probe_capabilities_reports_declared_and_importable_adapters(monkeypatch
 
     source = _adapter("basic_source")
     builtin = _adapter("builtin", domain=FETCH_DOMAIN)
-    mcp = _adapter("mcp", domain=FETCH_DOMAIN, loader_error=ImportError("missing optional mcp"))
+    site_crawler = _adapter(
+        "site_crawler", domain=FETCH_DOMAIN, loader_error=ImportError("missing client")
+    )
 
     import souwen.registry as registry
 
     monkeypatch.setattr(registry, "all_adapters", lambda: {source.name: source})
-    monkeypatch.setattr(registry, "fetch_providers", lambda: [builtin, mcp])
-    monkeypatch.setattr(
-        "souwen.feature_matrix.importlib.util.find_spec",
-        lambda module: object() if module != "mcp" else None,
-    )
+    monkeypatch.setattr(registry, "fetch_providers", lambda: [builtin, site_crawler])
 
     results = probe_capabilities("basic")
 
@@ -67,34 +65,29 @@ def test_probe_capabilities_reports_declared_and_importable_adapters(monkeypatch
         declared=("basic_source",),
         available=("basic_source",),
     )
-    assert results["fetch_providers"].declared == ("builtin", "mcp")
+    assert results["fetch_providers"].declared == ("builtin", "site_crawler")
     assert results["fetch_providers"].available == ("builtin",)
-    assert "mcp: ImportError: missing optional mcp" in results["fetch_providers"].reason
-    assert results["mcp"] == ProbeResult(
-        declared=True,
-        available=False,
-        reason="module 'mcp' is not importable",
-    )
+    assert "site_crawler: ImportError: missing client" in results["fetch_providers"].reason
 
 
 def test_probe_adapter_runtime_combines_loader_and_optional_modules(monkeypatch) -> None:
-    mcp = _adapter("mcp", domain=FETCH_DOMAIN, package_extra="mcp")
+    readability = _adapter("readability", domain=FETCH_DOMAIN, package_extra="readability")
     monkeypatch.setattr("souwen.feature_matrix.importlib.util.find_spec", lambda _module: None)
 
-    assert probe_adapter_runtime(mcp) == RuntimeProbe(
+    assert probe_adapter_runtime(readability) == RuntimeProbe(
         False,
-        "mcp: missing modules: mcp",
+        "readability: missing modules: readability",
     )
-    assert probe_modules(("mcp", "another_module")) == RuntimeProbe(
+    assert probe_modules(("readability", "another_module")) == RuntimeProbe(
         False,
-        "missing modules: mcp, another_module",
+        "missing modules: readability, another_module",
     )
 
 
 def test_public_adapter_runtime_probe_redacts_loader_exception(monkeypatch) -> None:
     secret = "postgresql://user:password@private.internal/db token=runtime-secret"
     broken = _adapter("broken", domain=FETCH_DOMAIN, loader_error=RuntimeError(secret))
-    mcp = _adapter("mcp", domain=FETCH_DOMAIN, package_extra="mcp")
+    readability = _adapter("readability", domain=FETCH_DOMAIN, package_extra="readability")
     monkeypatch.setattr("souwen.feature_matrix.importlib.util.find_spec", lambda _module: None)
 
     assert public_adapter_runtime_probe(broken) == RuntimeProbe(
@@ -102,9 +95,9 @@ def test_public_adapter_runtime_probe_redacts_loader_exception(monkeypatch) -> N
         "broken: client loader unavailable",
     )
     assert secret not in public_adapter_runtime_probe(broken).reason
-    assert public_adapter_runtime_probe(mcp) == RuntimeProbe(
+    assert public_adapter_runtime_probe(readability) == RuntimeProbe(
         False,
-        "mcp: missing modules: mcp",
+        "readability: missing modules: readability",
     )
     assert sanitize_public_runtime_probe(
         "gated",
@@ -118,12 +111,12 @@ def test_fetch_provider_runtime_projection_separates_edition_and_missing_runtime
     """Basic declarations must not turn missing SDKs or pro providers into available IDs."""
 
     builtin = _adapter("builtin", domain=FETCH_DOMAIN)
-    mcp = _adapter("mcp", domain=FETCH_DOMAIN, package_extra="mcp")
     jina = _adapter("jina_reader", domain=FETCH_DOMAIN)
+    site_crawler = _adapter("site_crawler", domain=FETCH_DOMAIN)
 
     import souwen.registry as registry
 
-    monkeypatch.setattr(registry, "fetch_providers", lambda: [jina, mcp, builtin])
+    monkeypatch.setattr(registry, "fetch_providers", lambda: [jina, site_crawler, builtin])
     monkeypatch.setattr("souwen.feature_matrix.importlib.util.find_spec", lambda _module: None)
 
     statuses = {item.name: item for item in fetch_provider_runtime_projection("basic")}
@@ -134,12 +127,11 @@ def test_fetch_provider_runtime_projection_separates_edition_and_missing_runtime
         edition_available=True,
         runtime_available=True,
     )
-    assert statuses["mcp"] == FetchProviderRuntimeStatus(
-        name="mcp",
+    assert statuses["site_crawler"] == FetchProviderRuntimeStatus(
+        name="site_crawler",
         min_edition="basic",
         edition_available=True,
-        runtime_available=False,
-        runtime_reason="mcp: missing modules: mcp",
+        runtime_available=True,
     )
     assert statuses["jina_reader"].min_edition == "pro"
     assert statuses["jina_reader"].edition_available is False
@@ -180,7 +172,6 @@ def test_fetch_provider_runtime_projection_reflects_full_browser_variant(
 def test_probe_capabilities_reports_optional_package_extra_importability(monkeypatch) -> None:
     """Probe should expose missing optional extras without calling providers."""
 
-    mcp = _adapter("mcp", domain=FETCH_DOMAIN, package_extra="mcp")
     readability = _adapter("readability", domain=FETCH_DOMAIN, package_extra="readability")
     scrapling = _adapter("scrapling", domain=FETCH_DOMAIN, package_extra="scrapling")
 
@@ -189,22 +180,21 @@ def test_probe_capabilities_reports_optional_package_extra_importability(monkeyp
     monkeypatch.setattr(
         registry,
         "all_adapters",
-        lambda: {adapter.name: adapter for adapter in (mcp, readability, scrapling)},
+        lambda: {adapter.name: adapter for adapter in (readability, scrapling)},
     )
-    monkeypatch.setattr(registry, "fetch_providers", lambda: [mcp, readability, scrapling])
+    monkeypatch.setattr(registry, "fetch_providers", lambda: [readability, scrapling])
     monkeypatch.setattr(
         "souwen.feature_matrix.importlib.util.find_spec",
-        lambda module: object() if module in {"mcp", "scrapling.fetchers"} else None,
+        lambda module: object() if module == "scrapling.fetchers" else None,
     )
 
     results = probe_capabilities("full")
 
     assert results["package_extras"].declared == {
-        "mcp": ("mcp",),
         "readability": ("readability",),
         "scrapling": ("scrapling.fetchers",),
     }
-    assert results["package_extras"].available == ("mcp", "scrapling")
+    assert results["package_extras"].available == ("scrapling",)
     assert results["package_extras"].reason == "readability: missing modules: readability"
 
 

@@ -85,7 +85,7 @@ describe('sourceAvailabilityStatus', () => {
       enabled: true,
       edition_available: true,
       runtime_available: false,
-      runtime_reason: 'mcp: missing modules: mcp',
+      runtime_reason: 'site_crawler: missing modules: site_crawler',
       credentials_satisfied: false,
       status: 'unavailable',
       available: false,
@@ -93,7 +93,7 @@ describe('sourceAvailabilityStatus', () => {
 
     expect(sourceAvailabilityStatus(source)).toBe('runtime')
     expect(sourceAvailabilityLabel(source, t)).toBe('缺依赖')
-    expect(sourceAvailabilityMessage(source, t)).toBe('mcp: missing modules: mcp')
+    expect(sourceAvailabilityMessage(source, t)).toBe('site_crawler: missing modules: site_crawler')
   })
 
   it('does not let catalog availability override an explicit doctor failure', () => {

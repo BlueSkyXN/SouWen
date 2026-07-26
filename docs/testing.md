@@ -187,9 +187,8 @@ Browser Worker、Admin fail-closed、Provider API、OpenAPI checksum 和 Supervi
 
 `workflow_dispatch` 仍保留旧输入 `cli` / `server` / `full` 作为兼容 alias，
 分别映射到 `basic-cli` / `pro-cli` / `full-cli`。`pro-cli` 和 `full-cli`
-包含 API server / panel / MCP 入口，workflow 会先构建并校验 `panel.html`；
-`basic-cli` 保留 MCP client、stdio server 和 `builtin` / `mcp` / `site_crawler`
-三个 basic fetch provider，同时物理裁剪 FastAPI server、LLM 和重型
+包含 API server / panel 入口，workflow 会先构建并校验 `panel.html`；
+`basic-cli` 保留 `builtin` / `site_crawler` 两个 basic fetch provider，同时物理裁剪 FastAPI server、LLM 和重型
 抓取模块。`full-cli` 使用
 `edition-full` 核心运行时，`crawl4ai` / `scrapling` 的互斥浏览器栈继续由
 专项 functional gate 验证。
@@ -216,7 +215,7 @@ v2 release candidate 已合回 `main`。`V2 CI` 继续作为 v2 public surface �
 - bootstrap gate：registry/docs 测试、`tools/gen_docs.py --check`、import surface
   单测、wheel surface 检查和 registry baseline 输出。
 - full pytest matrix：安装 `.[dev,edition-pro]`，覆盖 Ubuntu Python
-  3.10/3.11/3.12/3.13，以及 macOS/Windows Python 3.11；避免把缺少 Server、MCP
+  3.10/3.11/3.12/3.13，以及 macOS/Windows Python 3.11；避免把缺少 Server
   或 scraper runtime 误报成产品行为回归。
 - Provider v2 conformance：单独运行 SPI、manifest registry、Provider Manager、
   OpenAlex、builtin Fetch、UniAPI、ERIC 与 PatentsView 的 deterministic tests；不访问网络、

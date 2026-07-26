@@ -201,20 +201,6 @@ _reg(
 
 _reg(
     SourceAdapter(
-        name="mcp",
-        domain="fetch",
-        integration="open_api",
-        description="MCP 协议内容抓取 (外部工具)",
-        config_field="mcp_server_url",
-        auth_requirement="self_hosted",
-        client_loader=lazy("souwen.web.mcp_fetch:MCPFetchClient"),
-        methods={"fetch": MethodSpec("fetch")},
-        package_extra="mcp",
-    )
-)
-
-_reg(
-    SourceAdapter(
         name="site_crawler",
         domain="fetch",
         integration="scraper",

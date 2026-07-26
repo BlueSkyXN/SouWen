@@ -15,7 +15,7 @@ Read this card for low-level client behavior, retry/fingerprint/session/cache, s
 ## Do not
 
 - Do not copy proxy, retry, fingerprint or polite-delay logic into individual provider clients.
-- Do not make `core` depend on CLI, Server, Panel, MCP or route modules.
+- Do not make `core` depend on CLI, Server, Panel or route modules.
 - Do not let ordinary tests perform live network requests from core helpers.
 
 ## Validation

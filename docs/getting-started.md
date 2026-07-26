@@ -22,7 +22,7 @@ pip install -e .
 
 ```bash
 pip install -e ".[edition-basic]"          # 零 Key / 最小依赖体验
-pip install -e ".[edition-pro]"            # API 服务 + MCP + TLS 指纹 + scraper 基础能力
+pip install -e ".[edition-pro]"            # API 服务 + TLS 指纹 + scraper 基础能力
 ```
 
 需要 Crawl4AI、Scrapling 或文章抽取等 full 能力时，再按目标 browser provider

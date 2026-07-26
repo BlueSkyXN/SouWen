@@ -266,7 +266,7 @@ def test_agent_command_docs_use_canonical_profile_names() -> None:
     assert 'pip install -e ".[dev,edition-pro]"' in combined_text
     assert 'pip install -e ".[dev,edition-full]"' in combined_text
     assert 'pip install -e ".[dev,server]"' not in combined_text
-    assert "server,tls,web,scraper,newspaper,readability,pdf,mcp" not in combined_text
+    assert "server,tls,web,scraper,newspaper,readability,pdf" not in combined_text
 
 
 def test_timeout_is_recorded(monkeypatch):

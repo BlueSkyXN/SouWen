@@ -66,10 +66,8 @@ readability = ["readability-lxml>=0.8", "markdownify>=0.12"]
 scraper = ["curl-cffi>=0.14.0"]
 # Web 服务器（FastAPI + Uvicorn）
 server = ["fastapi>=0.111", "uvicorn[standard]>=0.29"]
-# MCP 服务器协议支持
-mcp = ["mcp>=1.0"]
 # Edition 聚合依赖：对应 SOUWEN_EDITION 的常用安装面。
-edition-basic = ["souwen[tls,web,robots,mcp]"]
+edition-basic = ["souwen[tls,web,robots]"]
 edition-pro = ["souwen[edition-basic,server,scraper]"]
 edition-full = ["souwen[edition-pro,newspaper,readability]"]
 # crawl4ai 与 scrapling 当前依赖树互斥；full 浏览器抓取按目标 provider 二选一。

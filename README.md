@@ -41,16 +41,15 @@ SouWen（搜文）为 AI Agent、Python 集成和服务端应用提供统一的�
 ### 特性
 
 <!-- BEGIN AUTO: SOURCE METRICS -->
-- **111 个内置 registered source**：正式 Source Catalog 含 **110 个 public** 条目，另有 **1 个 hidden/internal** 条目。
+- **110 个内置 registered source**：正式 Source Catalog 含 **109 个 public** 条目，另有 **1 个 hidden/internal** 条目。
   - 公开源主 domain：`paper` 21 · `patent` 8 · `web` 32 · `social` 5 · `video` 2 · `knowledge` 1 · `developer` 2 · `cn_tech` 9 · `office` 1 · `archive` 1 · `book` 9 · `research_output` 2
-  - `fetch` 横切视图：**24 个 provider** = **17 个 fetch 主 domain** + **7 个跨域源**。
+  - `fetch` 横切视图：**23 个 provider** = **16 个 fetch 主 domain** + **7 个跨域源**。
 <!-- END AUTO: SOURCE METRICS -->
 - **统一 Pydantic v2 数据模型**：`PaperResult` / `PatentResult` / `WebSearchResult` / `FetchResult` / `WaybackCDXResponse` / ...
 - **异步优先**：httpx + asyncio，per-loop Semaphore 控制并发
 - **智能限流**：Token Bucket + 滑动窗口，每源独立
 - **curl_cffi TLS 指纹**：15+ 爬虫类源用浏览器指纹伪装过盾
 - **WARP 五模式代理**：wireproxy / kernel / usque / warp-cli / external，支持运行时动态安装和管理
-- **MCP 协议**：供 Claude Code / Cursor / Windsurf 等 AI 助手直接调用
 - **多皮肤 Web UI**：souwen-google（默认）/ souwen-nebula / carbon / apple / ios（SCSS Modules + Zustand）
 
 ## 📦 安装
@@ -61,10 +60,10 @@ git clone https://github.com/BlueSkyXN/SouWen.git
 cd SouWen
 pip install -e .
 
-# 零 Key / 最小依赖体验（含 MCP client 与 stdio server）
+# 零 Key / 最小依赖体验
 pip install -e ".[edition-basic]"
 
-# 默认 API 服务 + MCP + TLS 指纹 + 网页搜索
+# 默认 API 服务 + TLS 指纹 + 网页搜索
 pip install -e ".[edition-pro]"
 
 # 完整公共重型能力；crawl4ai 与 scrapling 当前依赖树互斥，浏览器抓取二选一

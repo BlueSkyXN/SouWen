@@ -2,7 +2,7 @@
 
 The registry remains the source of truth for sources and fetch providers.  This
 module derives their minimum editions and is consumed by runtime gates, doctor,
-CLI, Server, MCP and Panel-facing capability declarations.
+CLI, Server and Panel-facing capability declarations.
 """
 
 from __future__ import annotations
@@ -24,7 +24,7 @@ EDITION_RANK: Final[dict[Edition, int]] = {
     "pro": 1,
     "full": 2,
 }
-BASIC_FETCH_PROVIDERS: Final[frozenset[str]] = frozenset({"builtin", "site_crawler", "mcp"})
+BASIC_FETCH_PROVIDERS: Final[frozenset[str]] = frozenset({"builtin", "site_crawler"})
 FULL_FETCH_EXTRAS: Final[frozenset[str]] = frozenset(
     {
         "crawl4ai",

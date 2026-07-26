@@ -36,7 +36,7 @@ def test_api_reference_fetch_provider_lists_match_registry() -> None:
         if "builtin" in line and "deepwiki" in line and ("提供者:" in line or "可选：" in line)
     ]
 
-    assert len(provider_lines) >= 3
+    assert len(provider_lines) >= 2
     for line in provider_lines:
         missing = [name for name in sorted(provider_names) if name not in line]
         assert missing == []

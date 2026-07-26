@@ -337,7 +337,7 @@ def _source_runtime_fields(name: str, edition_fields: dict[str, Any]) -> dict[st
 
 
 def public_source_catalog_payload(config: Any) -> dict[str, Any]:
-    """返回 API、Panel 与 MCP 共用的公开 Source Catalog payload。
+    """返回 API 与 Panel 共用的公开 Source Catalog payload。
 
     ``available`` 保留既有 edition / enabled / credentials 合取语义；调用方
     如需判断当前进程的有效可用性，应再合取 additive ``runtime_available``。

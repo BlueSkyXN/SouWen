@@ -330,7 +330,7 @@ def test_build_json_payload_uses_functional_schema():
         smoke.ProbeResult("basic", "health", "pass", "ok", required=True, elapsed=0.1),
         smoke.ProbeResult("web", "bing", "warn", "flaky"),
         smoke.ProbeResult("media", "images", "fail", "upstream", required=False),
-        smoke.ProbeResult("fetch", "mcp", "skip", "missing runtime"),
+        smoke.ProbeResult("fetch", "scrapling", "skip", "missing runtime"),
     ]
 
     payload = smoke.build_json_payload(config, results)
@@ -344,7 +344,7 @@ def test_build_json_payload_uses_functional_schema():
     assert by_name["web/bing"]["outcome"] == "WARN"
     assert by_name["media/images"]["outcome"] == "WARN"
     assert by_name["media/images"]["details"]["legacy_outcome"] == "fail"
-    assert by_name["fetch/mcp"]["outcome"] == "SKIP"
+    assert by_name["fetch/scrapling"]["outcome"] == "SKIP"
 
 
 def test_offline_mode_writes_skip_reports_without_live_calls(monkeypatch, tmp_path):
@@ -1390,8 +1390,7 @@ def test_zero_key_fetch_providers_are_covered_or_explicitly_excluded():
     required_fetch = {provider.name for provider in providers if provider.resolved_needs_config}
 
     assert zero_key_fetch <= tested | skipped
-    assert required_fetch == required_key | {"mcp"}
-    assert "mcp" in skipped
+    assert required_fetch == required_key
 
 
 def test_non_search_zero_key_capabilities_are_tested_or_explicitly_excluded():

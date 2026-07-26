@@ -7,7 +7,7 @@ Read this card for `SourceAdapter`, catalog shape, capability/default metadata, 
 
 ## Local invariants
 
-- CLI, REST API, doctor, Panel and docs must derive source facts from registry.
+- REST API, doctor, Panel and docs must derive source facts from registry.
 - Default sources come from `default_for`; high-risk or credential-heavy sources must not become defaults casually.
 - Registry import must stay lazy and avoid importing every concrete provider client.
 

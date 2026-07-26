@@ -553,7 +553,7 @@ class TestRegistry:
             )
         )
         assert total_web == 42
-        assert counts["fetch"] == 17
+        assert counts["fetch"] == 16
         assert counts["archive"] == 1
         assert counts["cn_tech"] == 9
 

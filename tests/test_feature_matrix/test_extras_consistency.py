@@ -79,7 +79,7 @@ def test_heavy_fetch_extras_require_full_for_sources_and_fetch_providers() -> No
 def test_edition_extras_keep_conflicting_browser_stacks_separate() -> None:
     extras = _optional_dependencies()
 
-    assert extras["edition-basic"] == ["souwen[tls,web,robots,mcp]"]
+    assert extras["edition-basic"] == ["souwen[tls,web,robots]"]
     assert extras["edition-pro"] == ["souwen[edition-basic,server,scraper]"]
     assert extras["edition-full"] == ["souwen[edition-pro,newspaper,readability]"]
     assert extras["edition-full-crawl4ai"] == ["souwen[edition-full,crawl4ai]"]
