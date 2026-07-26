@@ -93,7 +93,7 @@ class UsptoOdpClient:
 
     BASE_URL = "https://data.uspto.gov/api/v1"
 
-    def __init__(self) -> None:
+    def __init__(self, api_key: str | None = None) -> None:
         """初始化 USPTO ODP 客户端
 
         从配置读取 API Key，建立连接和限流控制。
@@ -103,13 +103,14 @@ class UsptoOdpClient:
             ConfigError: 缺少 API Key 时抛出
         """
         cfg = get_config()
-        if not cfg.uspto_api_key:
+        api_key = api_key or cfg.resolve_api_key("uspto_odp", "uspto_api_key")
+        if not api_key:
             raise ConfigError(
                 key="uspto_api_key",
                 service="USPTO Open Data Portal",
                 register_url="https://data.uspto.gov/",
             )
-        self._api_key = cfg.uspto_api_key
+        self._api_key = api_key
         self._http = SouWenHttpClient(
             base_url=self.BASE_URL,
             headers={"X-API-Key": self._api_key},

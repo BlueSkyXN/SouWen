@@ -99,7 +99,11 @@ class EpoOpsClient:
     BASE_URL = "https://ops.epo.org/3.2"
     TOKEN_URL = "https://ops.epo.org/3.2/auth/accesstoken"
 
-    def __init__(self) -> None:
+    def __init__(
+        self,
+        consumer_key: str | None = None,
+        consumer_secret: str | None = None,
+    ) -> None:
         """初始化 EPO OPS 客户端
 
         从配置读取 OAuth 凭证（consumer_key / consumer_secret），建立连接。
@@ -108,8 +112,8 @@ class EpoOpsClient:
             ConfigError: 缺少必要的 OAuth 凭证时抛出
         """
         cfg = get_config()
-        consumer_key = cfg.resolve_api_key("epo_ops", "epo_consumer_key")
-        consumer_secret = cfg.epo_consumer_secret
+        consumer_key = consumer_key or cfg.resolve_api_key("epo_ops", "epo_consumer_key")
+        consumer_secret = consumer_secret or cfg.epo_consumer_secret
         if not consumer_key or not consumer_secret:
             raise ConfigError(
                 key="epo_consumer_key / epo_consumer_secret",

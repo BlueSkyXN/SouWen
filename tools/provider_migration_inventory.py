@@ -67,8 +67,14 @@ NON_REST_SPEC_EXCEPTIONS = {
 }
 RETIREMENT_PENDING_SOURCES = {
     "opencitations": (
+        "search_internal_enrichment",
         "Search-internal citation enrichment; public citation routes and registry capability "
-        "retire in C1"
+        "retire in C1",
+    ),
+    "unpaywall": (
+        "fetch_internal_enrichment",
+        "DOI-only open-access lookup is not keyword Search; its public legacy capability "
+        "retires in C1 instead of being exposed as a fourth target capability",
     ),
 }
 STATIC_SPEC_CONSTRUCTORS = frozenset(
@@ -427,11 +433,15 @@ def build_inventory() -> dict[str, Any]:
                 "classification_reason": classification_reason,
                 "migration_status": migration_status,
                 "target_disposition": (
-                    "search_internal_enrichment"
+                    RETIREMENT_PENDING_SOURCES[source_id][0]
                     if source_id in RETIREMENT_PENDING_SOURCES
                     else "provider_v2"
                 ),
-                "disposition_reason": RETIREMENT_PENDING_SOURCES.get(source_id),
+                "disposition_reason": (
+                    RETIREMENT_PENDING_SOURCES[source_id][1]
+                    if source_id in RETIREMENT_PENDING_SOURCES
+                    else None
+                ),
                 "domain": adapter.domain,
                 "capabilities": sorted(adapter.capabilities),
                 "integration": adapter.integration,

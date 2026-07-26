@@ -69,7 +69,7 @@ class PatSnapClient:
 
     BASE_URL = "https://connect.patsnap.com/open/api"
 
-    def __init__(self) -> None:
+    def __init__(self, api_key: str | None = None) -> None:
         """初始化 PatSnap 客户端
 
         从配置读取 API Key，建立 HTTP 连接和限流控制。
@@ -78,13 +78,14 @@ class PatSnapClient:
             ConfigError: 缺少 API Key 时抛出
         """
         cfg = get_config()
-        if not cfg.patsnap_api_key:
+        api_key = api_key or cfg.resolve_api_key("patsnap", "patsnap_api_key")
+        if not api_key:
             raise ConfigError(
                 key="patsnap_api_key",
                 service="PatSnap",
                 register_url="https://connect.patsnap.com/",
             )
-        self._api_key = cfg.patsnap_api_key
+        self._api_key = api_key
         self._http = SouWenHttpClient(
             base_url=self.BASE_URL,
             headers={"X-PatSnap-Key": self._api_key},

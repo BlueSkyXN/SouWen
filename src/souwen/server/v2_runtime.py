@@ -34,15 +34,28 @@ from souwen.paper.biorxiv import BioRxivClient
 from souwen.paper.crossref import CrossrefClient
 from souwen.paper.dblp import DblpClient
 from souwen.paper.europepmc import EuropePmcClient
+from souwen.paper.core import CoreClient
+from souwen.paper.doaj import DoajClient
 from souwen.paper.hal import HalClient
 from souwen.paper.huggingface import HuggingFaceClient
 from souwen.paper.iacr import IacrClient
+from souwen.paper.ieee_xplore import IeeeXploreClient
 from souwen.paper.openalex import OpenAlexClient
+from souwen.paper.openaire import OpenAireClient
 from souwen.paper.osti import OstiClient
 from souwen.paper.pmc import PmcClient
 from souwen.paper.pubmed import PubMedClient
+from souwen.paper.semantic_scholar import SemanticScholarClient
+from souwen.paper.zenodo import ZenodoClient
+from souwen.paper.zotero import ZoteroClient
+from souwen.patent.cnipa import CnipaClient
+from souwen.patent.epo_ops import EpoOpsClient
 from souwen.patent.google_patents_scraper import GooglePatentsScraper
+from souwen.patent.patsnap import PatSnapClient
 from souwen.patent.patentsview import PatentsViewClient
+from souwen.patent.pqai import PqaiClient
+from souwen.patent.the_lens import TheLensClient
+from souwen.patent.uspto_odp import UsptoOdpClient
 from souwen.platform.manifest_registry import ProviderManifest
 from souwen.platform.provider_manager import ProviderManager
 from souwen.platform.provider_spec import (
@@ -80,6 +93,21 @@ from souwen.providers.information_sources.crossref import (
     CROSSREF_PROVIDER_SPEC,
     CrossrefSearchProvider,
 )
+from souwen.providers.information_sources.cnipa import (
+    CNIPA_BRIDGE_SPEC,
+    CNIPA_PROVIDER_MANIFEST,
+    CnipaSearchProvider,
+)
+from souwen.providers.information_sources.core import (
+    CORE_PROVIDER_MANIFEST,
+    CORE_PROVIDER_SPEC,
+    CoreSearchProvider,
+)
+from souwen.providers.information_sources.doaj import (
+    DOAJ_PROVIDER_MANIFEST,
+    DOAJ_PROVIDER_SPEC,
+    DoajSearchProvider,
+)
 from souwen.providers.information_sources.dblp import (
     DBLP_PROVIDER_MANIFEST,
     DBLP_PROVIDER_SPEC,
@@ -89,6 +117,11 @@ from souwen.providers.information_sources.europepmc import (
     EUROPEPMC_PROVIDER_MANIFEST,
     EUROPEPMC_PROVIDER_SPEC,
     EuropePmcSearchProvider,
+)
+from souwen.providers.information_sources.epo_ops import (
+    EPO_OPS_BRIDGE_SPEC,
+    EPO_OPS_PROVIDER_MANIFEST,
+    EpoOpsSearchProvider,
 )
 from souwen.providers.information_sources.google_patents import (
     GOOGLE_PATENTS_BRIDGE_SPEC,
@@ -110,9 +143,19 @@ from souwen.providers.information_sources.iacr import (
     IACR_PROVIDER_MANIFEST,
     IacrSearchProvider,
 )
+from souwen.providers.information_sources.ieee_xplore import (
+    IEEE_XPLORE_PROVIDER_MANIFEST,
+    IEEE_XPLORE_PROVIDER_SPEC,
+    IeeeXploreSearchProvider,
+)
 from souwen.providers.information_sources.openalex import (
     OPENALEX_PROVIDER_MANIFEST,
     OpenAlexSearchProvider,
+)
+from souwen.providers.information_sources.openaire import (
+    OPENAIRE_PROVIDER_MANIFEST,
+    OPENAIRE_PROVIDER_SPEC,
+    OpenAireSearchProvider,
 )
 from souwen.providers.information_sources.osti import (
     OSTI_BRIDGE_SPEC,
@@ -123,6 +166,16 @@ from souwen.providers.information_sources.patentsview import (
     PATENTSVIEW_PROVIDER_MANIFEST,
     PATENTSVIEW_REST_SPEC,
     PatentsViewSearchProvider,
+)
+from souwen.providers.information_sources.patsnap import (
+    PATSNAP_BRIDGE_SPEC,
+    PATSNAP_PROVIDER_MANIFEST,
+    PatSnapSearchProvider,
+)
+from souwen.providers.information_sources.pqai import (
+    PQAI_BRIDGE_SPEC,
+    PQAI_PROVIDER_MANIFEST,
+    PqaiSearchProvider,
 )
 from souwen.providers.information_sources.eric import (
     ERIC_PROVIDER_MANIFEST,
@@ -138,6 +191,31 @@ from souwen.providers.information_sources.pubmed import (
     PUBMED_BRIDGE_SPEC,
     PUBMED_PROVIDER_MANIFEST,
     PubMedSearchProvider,
+)
+from souwen.providers.information_sources.semantic_scholar import (
+    SEMANTIC_SCHOLAR_PROVIDER_MANIFEST,
+    SEMANTIC_SCHOLAR_PROVIDER_SPEC,
+    SemanticScholarSearchProvider,
+)
+from souwen.providers.information_sources.the_lens import (
+    THE_LENS_BRIDGE_SPEC,
+    THE_LENS_PROVIDER_MANIFEST,
+    TheLensSearchProvider,
+)
+from souwen.providers.information_sources.uspto_odp import (
+    USPTO_ODP_BRIDGE_SPEC,
+    USPTO_ODP_PROVIDER_MANIFEST,
+    UsptoOdpSearchProvider,
+)
+from souwen.providers.information_sources.zenodo import (
+    ZENODO_PROVIDER_MANIFEST,
+    ZENODO_PROVIDER_SPEC,
+    ZenodoSearchProvider,
+)
+from souwen.providers.information_sources.zotero import (
+    ZOTERO_PROVIDER_MANIFEST,
+    ZOTERO_PROVIDER_SPEC,
+    ZoteroSearchProvider,
 )
 from souwen.providers.llm_sources.uniapi_ark_annotations import (
     UNIAPI_ARK_MANIFESTS,
@@ -174,6 +252,12 @@ class _LegacyRuntimeClient:
 
     async def search(self, *args, **kwargs):
         return await self._client.search(*args, **kwargs)
+
+    async def search_patents(self, *args, **kwargs):
+        return await self._client.search_patents(*args, **kwargs)
+
+    async def search_applications(self, *args, **kwargs):
+        return await self._client.search_applications(*args, **kwargs)
 
     async def get_fulltext(self, *args, **kwargs):
         return await self._client.get_fulltext(*args, **kwargs)
@@ -268,6 +352,112 @@ _BATCH_ONE_SEARCH_BINDINGS: tuple[
 _BATCH_ONE_MANIFEST_IDS = frozenset(
     manifest.id for manifest, _spec, _provider_type, _client_factory in _BATCH_ONE_SEARCH_BINDINGS
 ) | {ARXIV_FULLTEXT_PROVIDER_MANIFEST.id}
+_BATCH_TWO_SEARCH_BINDINGS: tuple[
+    tuple[
+        ProviderManifest,
+        ProviderSpec,
+        type[Any],
+        Callable[[Mapping[str, object], Mapping[str, str]], Any],
+    ],
+    ...,
+] = (
+    (
+        CNIPA_PROVIDER_MANIFEST,
+        CNIPA_BRIDGE_SPEC,
+        CnipaSearchProvider,
+        lambda _configuration, secrets: CnipaClient(
+            client_id=secrets["CNIPA_CLIENT_ID"],
+            client_secret=secrets["CNIPA_CLIENT_SECRET"],
+        ),
+    ),
+    (
+        CORE_PROVIDER_MANIFEST,
+        CORE_PROVIDER_SPEC,
+        CoreSearchProvider,
+        lambda _configuration, secrets: CoreClient(api_key=secrets["CORE_API_KEY"]),
+    ),
+    (
+        DOAJ_PROVIDER_MANIFEST,
+        DOAJ_PROVIDER_SPEC,
+        DoajSearchProvider,
+        lambda _configuration, secrets: DoajClient(api_key=secrets.get("DOAJ_API_KEY")),
+    ),
+    (
+        EPO_OPS_PROVIDER_MANIFEST,
+        EPO_OPS_BRIDGE_SPEC,
+        EpoOpsSearchProvider,
+        lambda _configuration, secrets: EpoOpsClient(
+            consumer_key=secrets["EPO_CONSUMER_KEY"],
+            consumer_secret=secrets["EPO_CONSUMER_SECRET"],
+        ),
+    ),
+    (
+        IEEE_XPLORE_PROVIDER_MANIFEST,
+        IEEE_XPLORE_PROVIDER_SPEC,
+        IeeeXploreSearchProvider,
+        lambda _configuration, secrets: IeeeXploreClient(api_key=secrets["IEEE_API_KEY"]),
+    ),
+    (
+        OPENAIRE_PROVIDER_MANIFEST,
+        OPENAIRE_PROVIDER_SPEC,
+        OpenAireSearchProvider,
+        lambda _configuration, secrets: OpenAireClient(api_key=secrets.get("OPENAIRE_API_KEY")),
+    ),
+    (
+        PATSNAP_PROVIDER_MANIFEST,
+        PATSNAP_BRIDGE_SPEC,
+        PatSnapSearchProvider,
+        lambda _configuration, secrets: PatSnapClient(api_key=secrets["PATSNAP_API_KEY"]),
+    ),
+    (
+        PQAI_PROVIDER_MANIFEST,
+        PQAI_BRIDGE_SPEC,
+        PqaiSearchProvider,
+        lambda _configuration, secrets: PqaiClient(api_token=secrets["PQAI_API_TOKEN"]),
+    ),
+    (
+        SEMANTIC_SCHOLAR_PROVIDER_MANIFEST,
+        SEMANTIC_SCHOLAR_PROVIDER_SPEC,
+        SemanticScholarSearchProvider,
+        lambda _configuration, secrets: SemanticScholarClient(
+            api_key=secrets.get("SEMANTIC_SCHOLAR_API_KEY")
+        ),
+    ),
+    (
+        THE_LENS_PROVIDER_MANIFEST,
+        THE_LENS_BRIDGE_SPEC,
+        TheLensSearchProvider,
+        lambda _configuration, secrets: TheLensClient(api_token=secrets["LENS_API_TOKEN"]),
+    ),
+    (
+        USPTO_ODP_PROVIDER_MANIFEST,
+        USPTO_ODP_BRIDGE_SPEC,
+        UsptoOdpSearchProvider,
+        lambda _configuration, secrets: UsptoOdpClient(api_key=secrets["USPTO_API_KEY"]),
+    ),
+    (
+        ZENODO_PROVIDER_MANIFEST,
+        ZENODO_PROVIDER_SPEC,
+        ZenodoSearchProvider,
+        lambda _configuration, secrets: ZenodoClient(
+            access_token=secrets.get("ZENODO_ACCESS_TOKEN")
+        ),
+    ),
+    (
+        ZOTERO_PROVIDER_MANIFEST,
+        ZOTERO_PROVIDER_SPEC,
+        ZoteroSearchProvider,
+        lambda configuration, secrets: ZoteroClient(
+            api_key=secrets["ZOTERO_API_KEY"],
+            library_id=str(configuration["library_id"]),
+            library_type=str(configuration["library_type"]),
+        ),
+    ),
+)
+_BATCH_TWO_MANIFEST_IDS = frozenset(
+    manifest.id for manifest, _spec, _provider_type, _client_factory in _BATCH_TWO_SEARCH_BINDINGS
+)
+_MIGRATED_LEGACY_MANIFEST_IDS = _BATCH_ONE_MANIFEST_IDS | _BATCH_TWO_MANIFEST_IDS
 _LEGACY_DEFAULT_PROVIDER_IDS = frozenset(
     {
         *defaults_for("paper", "search"),
@@ -335,11 +525,21 @@ def _configuration_resolver(config: SouWenConfig):
             }
             _validate_transport_configuration(configuration, provider_id="PatentsView")
             return configuration
-        if manifest.id in _BATCH_ONE_MANIFEST_IDS:
+        if manifest.id in _MIGRATED_LEGACY_MANIFEST_IDS:
             if not config.is_source_enabled(
                 manifest.id, default=manifest.id in _LEGACY_DEFAULT_PROVIDER_IDS
             ):
                 raise ValueError("provider is disabled")
+            if manifest.id == "zotero":
+                library_id = (config.zotero_library_id or "").strip()
+                library_type = (config.zotero_library_type or "user").strip().lower()
+                if not library_id or library_type not in {"user", "group"}:
+                    raise ValueError("invalid Zotero library configuration")
+                return {
+                    "enabled": True,
+                    "library_id": library_id,
+                    "library_type": library_type,
+                }
             return {"enabled": True}
         if manifest.id == "builtin-fetch":
             if not config.is_source_enabled("builtin-fetch", default=True):
@@ -370,6 +570,20 @@ def _secret_resolver(config: SouWenConfig):
                 if isinstance(value, str) and value.strip()
                 else {}
             )
+        if manifest.id in _BATCH_TWO_MANIFEST_IDS:
+            resolved: dict[str, str] = {}
+            for reference in _references:
+                field_name = reference.lower()
+                if reference in {
+                    "CNIPA_CLIENT_SECRET",
+                    "EPO_CONSUMER_SECRET",
+                }:
+                    value = getattr(config, field_name, None)
+                else:
+                    value = config.resolve_api_key(manifest.id, field_name)
+                if isinstance(value, str) and value.strip():
+                    resolved[reference] = value.strip()
+            return resolved
         if manifest.id not in {DEEPSEEK_ADAPTER_ID, DOUBAO_ADAPTER_ID}:
             return {}
         gateway = config.get_llm_search_gateway("uniapi")
@@ -475,6 +689,28 @@ def _build_patentsview_provider(configuration, secrets) -> PatentsViewSearchProv
     )
 
 
+def _missing_provider_configuration(
+    config: SouWenConfig, manifest: ProviderManifest
+) -> tuple[str, ...]:
+    """Return safe field names only; credential values never leave the resolver."""
+
+    if manifest.id == "patentsview":
+        return ("patentsview_api_key",) if not _patentsview_api_key(config) else ()
+    if manifest.id not in _BATCH_TWO_MANIFEST_IDS:
+        return ()
+    resolved = _secret_resolver(config)(manifest, manifest.secrets.all_references)
+    missing = [
+        reference.lower() for reference in manifest.secrets.references if reference not in resolved
+    ]
+    if manifest.id == "zotero":
+        if not isinstance(config.zotero_library_id, str) or not config.zotero_library_id.strip():
+            missing.append("zotero_library_id")
+        library_type = (config.zotero_library_type or "user").strip().lower()
+        if library_type not in {"user", "group"}:
+            missing.append("zotero_library_type")
+    return tuple(missing)
+
+
 def _catalog_items(
     config: SouWenConfig,
     manager: ProviderManager,
@@ -483,9 +719,6 @@ def _catalog_items(
     enabled_llm = set(config.enabled_uniapi_ark_source_ids())
     missing_gateway = config.missing_uniapi_gateway_fields()
     patentsview_enabled = config.is_source_enabled("patentsview", default=False)
-    missing_patentsview = (
-        ("patentsview_api_key",) if patentsview_enabled and not _patentsview_api_key(config) else ()
-    )
     items: list[ProviderCatalogItem] = []
     for manifest in manager.registry.packages:
         adapter = manifest.adapters[0]
@@ -496,16 +729,16 @@ def _catalog_items(
             enabled = provider_id in enabled_llm
         elif provider_id == "patentsview":
             enabled = patentsview_enabled
-        elif provider_id in _BATCH_ONE_MANIFEST_IDS:
+        elif provider_id in _MIGRATED_LEGACY_MANIFEST_IDS:
             enabled = config.is_source_enabled(
                 provider_id, default=provider_id in _LEGACY_DEFAULT_PROVIDER_IDS
             )
         else:
             enabled = config.is_source_enabled(provider_id, default=True)
-        if enabled and provider_id == "patentsview" and missing_patentsview:
-            missing_fields = missing_patentsview
-        elif enabled and capability == "llm_search" and missing_gateway:
+        if enabled and capability == "llm_search" and missing_gateway:
             missing_fields = missing_gateway
+        elif enabled:
+            missing_fields = _missing_provider_configuration(config, manifest)
         else:
             missing_fields = ()
         if adapter_id in eligible:
@@ -580,6 +813,19 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
             ),
             provider_type=provider_type,
         )
+    for manifest, _spec, provider_type, client_factory in _BATCH_TWO_SEARCH_BINDINGS:
+        validate_spec_manifest(_spec, manifest)
+        manager.register_factory(
+            package_id=manifest.id,
+            export=manifest.adapters[0].export,
+            factory=lambda configuration, secrets, provider_type=provider_type, client_factory=client_factory: (
+                provider_type(
+                    _LegacyRuntimeClient(client_factory(configuration, secrets)),
+                    enabled=configuration["enabled"],
+                )
+            ),
+            provider_type=provider_type,
+        )
     manager.register_factory(
         package_id=ARXIV_FULLTEXT_PROVIDER_MANIFEST.id,
         export="ArxivFulltextFetchProvider",
@@ -618,6 +864,10 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
             *(
                 manifest
                 for manifest, _spec, _provider_type, _client_factory in _BATCH_ONE_SEARCH_BINDINGS
+            ),
+            *(
+                manifest
+                for manifest, _spec, _provider_type, _client_factory in _BATCH_TWO_SEARCH_BINDINGS
             ),
             ARXIV_FULLTEXT_PROVIDER_MANIFEST,
             BUILTIN_FETCH_MANIFEST,
@@ -660,6 +910,26 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
                             start=3,
                         )
                     ),
+                    *(
+                        SearchProviderSelection(
+                            provider=ProviderRef(id=manifest.id, kind="search"),
+                            adapter_id=manifest.adapters[0].id,
+                            yaml_priority=priority,
+                        )
+                        for priority, (
+                            manifest,
+                            _spec,
+                            _provider_type,
+                            _client_factory,
+                        ) in enumerate(
+                            (
+                                binding
+                                for binding in _BATCH_TWO_SEARCH_BINDINGS
+                                if binding[1].domain == "paper"
+                            ),
+                            start=100,
+                        )
+                    ),
                 ),
                 "patent": tuple(
                     SearchProviderSelection(
@@ -675,7 +945,10 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
                     ) in enumerate(
                         (
                             binding
-                            for binding in _BATCH_ONE_SEARCH_BINDINGS
+                            for binding in (
+                                *_BATCH_ONE_SEARCH_BINDINGS,
+                                *_BATCH_TWO_SEARCH_BINDINGS,
+                            )
                             if binding[1].domain == "patent"
                         ),
                         start=1,

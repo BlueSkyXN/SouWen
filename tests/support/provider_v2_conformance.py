@@ -63,6 +63,12 @@ class ScriptedSearchClient:
             raise self.outcome
         return self.outcome
 
+    async def search_patents(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search(*args, **kwargs)
+
+    async def search_applications(self, *args: Any, **kwargs: Any) -> Any:
+        return await self.search(*args, **kwargs)
+
     async def close(self) -> None:
         self.close_count += 1
 

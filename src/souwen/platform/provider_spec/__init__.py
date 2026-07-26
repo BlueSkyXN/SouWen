@@ -8,6 +8,7 @@ from .factory import (
     RestJsonSearchProvider,
 )
 from .models import (
+    CredentialBinding,
     LegacyFetchProviderSpec,
     LegacySearchProviderSpec,
     LegacyTransportDeclaration,
@@ -18,6 +19,7 @@ from .resolver import resolve_provider_inputs
 from .validation import validate_spec_manifest
 
 __all__ = [
+    "CredentialBinding",
     "LegacyFetchProvider",
     "LegacyFetchProviderSpec",
     "LegacyFetchSpec",
