@@ -955,6 +955,20 @@ def test_container_smokes_avoid_pipefail_broken_pipe_on_panel_html() -> None:
         assert 'grep -Eiq \'id="root"|SouWen|souwen\' "$panel_file"' in container
 
 
+def test_container_smokes_require_the_canonical_openapi_title() -> None:
+    contract = json.loads(
+        (REPO_ROOT / "contracts/openapi/souwen-openapi-2.0.0rc2.json").read_text(encoding="utf-8")
+    )
+    expected_assertion = f'.info.title == "{contract["info"]["title"]}"'
+    containers = (
+        _job(_workflow("release-candidate.yml"), "container", "promotion-gate"),
+        _job(_workflow("ci.yml"), "container-surface", "aggregate"),
+    )
+
+    for container in containers:
+        assert expected_assertion in container
+
+
 def test_generated_contracts_pin_lf_for_windows_reproducibility() -> None:
     attributes = (REPO_ROOT / ".gitattributes").read_text(encoding="utf-8")
 
