@@ -199,24 +199,23 @@ class TestCheckAll:
         original_probe = doctor_module.probe_adapter_runtime
 
         def fake_probe(adapter):
-            if adapter.name == "mcp":
-                return RuntimeProbe(False, "mcp: missing modules: mcp")
+            if adapter.name == "site_crawler":
+                return RuntimeProbe(False, "site_crawler: missing modules: site_crawler")
             return original_probe(adapter)
 
         monkeypatch.setenv("SOUWEN_EDITION", "basic")
-        monkeypatch.delenv("SOUWEN_MCP_SERVER_URL", raising=False)
         monkeypatch.setattr(doctor_module, "probe_adapter_runtime", fake_probe)
         get_config.cache_clear()
         try:
-            mcp = next(item for item in check_all() if item["name"] == "mcp")
-            assert mcp["edition_available"] is True
-            assert mcp["runtime_available"] is False
-            assert mcp["runtime_reason"] == "mcp: missing modules: mcp"
-            assert mcp["credentials_satisfied"] is False
-            assert mcp["config_available"] is False
-            assert mcp["available"] is False
-            assert mcp["status"] == "unavailable"
-            assert mcp["message"] == mcp["runtime_reason"]
+            site_crawler = next(item for item in check_all() if item["name"] == "site_crawler")
+            assert site_crawler["edition_available"] is True
+            assert site_crawler["runtime_available"] is False
+            assert site_crawler["runtime_reason"] == "site_crawler: missing modules: site_crawler"
+            assert site_crawler["credentials_satisfied"] is True
+            assert site_crawler["config_available"] is True
+            assert site_crawler["available"] is False
+            assert site_crawler["status"] == "unavailable"
+            assert site_crawler["message"] == site_crawler["runtime_reason"]
         finally:
             get_config.cache_clear()
 
@@ -608,13 +607,6 @@ class TestEditionReport:
             }
             assert "jina_reader" in provider_upgrade_names
             assert report["fetch_providers"]["by_min_edition"]["basic"]["edition_available"] > 0
-            mcp = next(item for item in report["fetch_providers"]["items"] if item["name"] == "mcp")
-            assert mcp["edition_available"] is True
-            assert isinstance(mcp["runtime_available"], bool)
-            assert isinstance(mcp["runtime_reason"], str)
-            assert mcp["config_available"] is False
-            assert mcp["available"] is False
-
             assert report["warp"]["available_modes"] == ["auto", "wireproxy", "external"]
             assert {item["name"] for item in report["warp"]["upgrade_required"]} == {
                 "kernel",
@@ -626,10 +618,8 @@ class TestEditionReport:
             assert isinstance(report["llm"]["runtime_reason"], str)
             assert "LLM requires edition=pro" in report["llm"]["edition_reason"]
             assert report["probe"]["sources"]["declared"]
-            assert set(report["probe"]["mcp"]) == {"declared", "available", "reason"}
             package_extras = report["probe"]["package_extras"]
             assert set(package_extras) == {"declared", "available", "reason"}
-            assert package_extras["declared"]["mcp"] == ("mcp",)
             assert package_extras["declared"]["scraper"] == ("curl_cffi",)
             assert package_extras["declared"]["web"] == ("trafilatura",)
             assert isinstance(package_extras["available"], tuple)

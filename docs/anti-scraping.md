@@ -136,7 +136,7 @@ Wayback fetch 和 Wayback Save Page Now 在实际抓取、调用第三方提取/
 5. IPv4-mapped IPv6、NAT64 well-known prefix、6to4、Teredo 等嵌入 IPv4 的地址会同时按外层 IPv6 和内层 IPv4 判定，避免 `::ffff:127.0.0.1` 这类包装地址绕过；
 6. 直连 URL 仍拒绝 `198.18.0.0/15`，但域名 DNS 解析到该 fake-IP/benchmark 网段时允许通过，以兼容 Clash 等本机 fake-IP DNS 代理；
 7. 重定向跟随过程中**逐跳**重新校验，防止多跳 SSRF；
-8. `jina_reader`、`firecrawl`、`exa`、`tavily`、`xcrawl`、`crawl4ai`、`scrapling`、`scrapfly`、`diffbot`、`scrapingbee`、`zenrows`、`scraperapi`、`apify`、`cloudflare_browser`、`metaso`、`mcp` 和 `kimi_code` 等 provider direct URL calls 在把目标 URL 交给第三方 API、本地浏览器或远程 MCP tool 前会先拦截；能承载 `FetchResult` / `FetchResponse` 的路径返回 blocked result，原始 dict 或 search-style direct 方法则抛出明确 `SSRF 校验失败` 错误；
+8. `jina_reader`、`firecrawl`、`exa`、`tavily`、`xcrawl`、`crawl4ai`、`scrapling`、`scrapfly`、`diffbot`、`scrapingbee`、`zenrows`、`scraperapi`、`apify`、`cloudflare_browser`、`metaso` 和 `kimi_code` 等 provider direct URL calls 在把目标 URL 交给第三方 API 或本地浏览器前会先拦截；能承载 `FetchResult` / `FetchResponse` 的路径返回 blocked result，原始 dict 或 search-style direct 方法则抛出明确 `SSRF 校验失败` 错误；
 9. `scrapling` 的 `dynamic` / `stealthy` 浏览器模式会在 Playwright `page_setup` 中安装请求拦截，对 navigation、子资源、XHR/fetch 等浏览器请求复用同一 URL 校验，命中内网/回环/link-local/保留地址时 abort。
 
 Wayback CDX 历史快照查询是 archive.org 元数据查询，仍保留 `example.com` 和

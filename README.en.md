@@ -41,16 +41,15 @@ The registry architecture reduces the cost of adding a new source to **1-2 code 
 ### Features
 
 <!-- BEGIN AUTO: SOURCE METRICS -->
-- **111 registered built-in sources**: **110 public** Source Catalog entries and **1 hidden/internal** entry.
+- **110 registered built-in sources**: **109 public** Source Catalog entries and **1 hidden/internal** entry.
   - Public sources by primary domain: `paper` 21 · `patent` 8 · `web` 32 · `social` 5 · `video` 2 · `knowledge` 1 · `developer` 2 · `cn_tech` 9 · `office` 1 · `archive` 1 · `book` 9 · `research_output` 2
-  - `fetch` cross-cutting view: **24 providers** = **17 primary fetch-domain** + **7 cross-domain** sources.
+  - `fetch` cross-cutting view: **23 providers** = **16 primary fetch-domain** + **7 cross-domain** sources.
 <!-- END AUTO: SOURCE METRICS -->
 - **Unified Pydantic v2 models**: `PaperResult` / `PatentResult` / `WebSearchResult` / `FetchResult` / `WaybackCDXResponse` / …
 - **Async-first**: httpx + asyncio, per-loop Semaphore concurrency control
 - **Smart rate limiting**: Token Bucket + sliding window, per-source isolation
 - **curl_cffi TLS fingerprinting**: 15+ scraper sources use browser fingerprints to bypass anti-bot
 - **WARP five-mode proxy**: wireproxy / kernel / usque / warp-cli / external, with runtime install and management support
-- **MCP protocol**: callable by Claude Code / Cursor / Windsurf and other AI assistants
 - **Multi-skin Web UI**: souwen-google (default) / souwen-nebula / carbon / apple / ios (SCSS Modules + Zustand)
 
 ## 📦 Installation
@@ -61,10 +60,10 @@ git clone https://github.com/BlueSkyXN/SouWen.git
 cd SouWen
 pip install -e .
 
-# Zero-key / minimal dependency experience (includes MCP client and stdio server)
+# Zero-key / minimal dependency experience
 pip install -e ".[edition-basic]"
 
-# Default API server + MCP + TLS fingerprinting + web search
+# Default API server + TLS fingerprinting + web search
 pip install -e ".[edition-pro]"
 
 # Full public heavy runtime; crawl4ai and scrapling are currently mutually exclusive.

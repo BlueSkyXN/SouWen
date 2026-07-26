@@ -133,7 +133,7 @@ ruff format src/
 - ✅ **配置字段**：`SouWenConfig` 的 flat key（如 `tavily_api_key`）与频道覆盖 `sources.<name>.api_key` 都支持；新增源若选用 flat key 需同时支持频道覆盖。
 - ✅ **平台层入口**：`souwen.core.scraper.base` / `souwen.core.http_client` / `souwen.core.fingerprint` 是唯一推荐路径，不再新增顶层代理模块。
 - ❌ **不要新增 dispatcher dict**：搜索路由、`source_map`、`engine_map` 等都已下沉到 registry 派发，新源不要再去改 `search.py` / `web/search.py`。
-- ❌ **不要绕过 registry**：CLI / 服务端 / MCP / 文档生成都应通过 `souwen.registry` 查询，避免出现"信息散落多处"的回退。
+- ❌ **不要绕过 registry**：CLI / 服务端 / 文档生成都应通过 `souwen.registry` 查询，避免出现"信息散落多处"的回退。
 
 ## 提交规范（Conventional Commits）
 

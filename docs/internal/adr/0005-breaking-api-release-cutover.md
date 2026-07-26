@@ -9,7 +9,7 @@
 
 ## Context
 
-The current repository already has a `/api/v1` FastAPI surface, a Python package named `souwen`, CLI/MCP
+The current repository already has a `/api/v1` FastAPI surface, a Python package named `souwen`, CLI
 entry points, multiple current search response shapes, current basic/pro/full editions and two binary builders.
 Those current facts are not the desired product boundary:
 
@@ -85,7 +85,7 @@ major, generate official clients from an immutable OpenAPI artifact and fail cli
    Linux amd64, Linux arm64, macOS arm64 and Windows amd64. The target release contract retires Nuitka and
    basic/full tier artifacts. A platform bundle must contain the server runtime, canonical API and, for an
    all-in-one profile, the separately built approved Web artifact. The Web artifact does not re-enter the
-   Python wheel as a source/build dependency. A bundle does not restore CLI/MCP product commitments.
+   Python wheel as a source/build dependency. A bundle does not restore CLI product commitments.
 5. Migration communications, usage evidence and removal residue are not waived by this ADR. They are owned by
    SPEC-11, with Q-001/Q-002 evidence retained for risk classification even though removal direction is closed.
 
@@ -116,7 +116,7 @@ major, generate official clients from an immutable OpenAPI artifact and fail cli
 
 - This ADR does not decide Q-004 Search ranking, Q-005 LLM evidence/usage minimum, Q-006 Fetch quality bounds,
   Q-007 Data API auth default or Q-008 performance/quotas.
-- This ADR does not delete current routes, source code, binaries, CLI/MCP, generated artifacts or workflows.
+- This ADR does not delete current routes, source code, binaries, CLI, generated artifacts or workflows.
 - This ADR does not authorize a new API URI, backward-compatibility shim or production rollout.
 
 ## Acceptance gates
@@ -127,7 +127,7 @@ major, generate official clients from an immutable OpenAPI artifact and fail cli
 | Generated clients | Python `souwen` REST SDK and TypeScript client regenerated from the same immutable OpenAPI artifact; conformance tests pass. |
 | Misconnection prevention | Matrix proves old/unsupported client major fails safely before decode/business retry and matching major succeeds. |
 | Release inventory | Release manifest contains exactly four target PyInstaller server bundles, with platform-specific checksum, source SHA, API major, OpenAPI checksum and smoke result. |
-| Retirement evidence | No Nuitka or basic/full tier artifact is required by the target release workflow; no replacement workflow claims their old CLI/MCP surface as target evidence. |
+| Retirement evidence | No Nuitka or basic/full tier artifact is required by the target release workflow; no replacement workflow claims their old CLI surface as target evidence. |
 | Migration evidence | SPEC-11 usage/readback, replacement mapping, migration guide, RC validation and residue audit complete before final removal claim. |
 
 ## Related artifacts and evidence

@@ -71,7 +71,6 @@ runs:
 
         import souwen
         from souwen.feature_matrix import probe_capabilities
-        from souwen.integrations.mcp.server import create_server
 
         require(bool(souwen.__version__), "package/version", souwen.__version__)
         require(find_spec("souwen.editions"), "package/editions", "module importable")
@@ -93,13 +92,6 @@ runs:
         require(not leaked, "package/no-retired-imports", f"leaked={leaked}")
 
         capabilities = probe_capabilities(edition)
-        require(
-            capabilities["mcp"].available is True,
-            "runtime/mcp-import",
-            capabilities["mcp"].reason or "available",
-        )
-        server = create_server()
-        require(server is not None, "runtime/mcp-stdio-server", type(server).__name__)
         expected_missing_fetch_providers: set[str] = set()
         if extra == "edition-full":
             expected_missing_fetch_providers = {"crawl4ai", "scrapling"}
@@ -123,8 +115,8 @@ runs:
             require(not find_spec("fastapi"), "basic/no-fastapi", "fastapi absent")
             require(
                 tuple(capabilities["fetch_providers"].available)
-                == ("builtin", "mcp", "site_crawler"),
-                "basic/three-fetch-providers",
+                == ("builtin", "site_crawler"),
+                "basic/two-fetch-providers",
                 repr(capabilities["fetch_providers"].available),
             )
             require(

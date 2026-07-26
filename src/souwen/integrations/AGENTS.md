@@ -1,8 +1,8 @@
 # src/souwen/integrations navigation card
 
 Type: Domain card.
-This directory contains external protocol integrations, mainly MCP.
-Read `mcp_server.py`, `integrations/mcp/`, and matching `tests/test_integrations/` files first.
+This directory contains external protocol integrations.
+Read the target integration entry point and matching tests first.
 Read this card when changing integration entry points, optional dependency behavior, tool wiring or protocol adapters.
 
 ## Local invariants
@@ -16,7 +16,7 @@ Read this card when changing integration entry points, optional dependency behav
 
 - Do not start network servers at import time.
 - Do not duplicate search/fetch business logic here.
-- Do not make the core package require MCP SDK at import time.
+- Do not make the core package require optional integration dependencies at import time.
 
 ## Validation
 

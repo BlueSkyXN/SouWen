@@ -106,8 +106,6 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "JinaReaderClient": ("souwen.web.jina_reader", "JinaReaderClient"),
     "BuiltinFetcherClient": ("souwen.web.builtin", "BuiltinFetcherClient"),
     "WaybackClient": ("souwen.web.wayback", "WaybackClient"),
-    "MCPClient": ("souwen.web.mcp_client", "MCPClient"),
-    "MCPFetchClient": ("souwen.web.mcp_fetch", "MCPFetchClient"),
     "SiteCrawlerClient": ("souwen.web.site_crawler", "SiteCrawlerClient"),
     "crawl_site": ("souwen.web.site_crawler", "crawl_site"),
     "DeepWikiClient": ("souwen.web.deepwiki", "DeepWikiClient"),
@@ -201,9 +199,6 @@ __all__ = [
     "BuiltinFetcherClient",
     "JinaReaderClient",
     "WaybackClient",
-    # MCP 客户端
-    "MCPClient",
-    "MCPFetchClient",
     # 站点爬虫 + DeepWiki
     "SiteCrawlerClient",
     "crawl_site",

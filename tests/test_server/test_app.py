@@ -1752,7 +1752,7 @@ class TestThreeRoleAuth:
         assert data["edition_capabilities"] == {
             "llm": False,
             "warp_modes": ["auto", "wireproxy", "external"],
-            "fetch_providers": ["builtin", "mcp", "site_crawler"],
+            "fetch_providers": ["builtin", "site_crawler"],
         }
 
     def test_whoami_no_password_admin_open_returns_admin(self, client, monkeypatch):

@@ -42,7 +42,7 @@ Common Runtime 只接收同时满足以下条件的组件：
 | `souwen.provenance` source SHA resolver | `doctor.py`, `server/app.py` | **ACCEPT-01，首切片** | stdlib-only、单一 runtime identity 职责、已有 deterministic tests、无领域依赖 |
 | request ID `ContextVar` / getter / logging filter | Server error handling、logging filter | CONDITIONAL-02 | 只迁 context primitive；ASGI middleware、header validation、UUID 与 access log 留在 Delivery |
 | DNS-bound SSRF target resolver | `BaseScraper`、Google Patents 与 Fetch callers | CONDITIONAL-03 | 只迁 value object/resolve/validate；不得迁构造 `FetchResult` 的 helpers；先冻结同步 DNS 和 cancellation 限制 |
-| generic secret text/URL/payload redaction | CLI、Server、MCP、LLM/fetch errors | CONDITIONAL-04 | 先拆 generic primitive；Pydantic adapter 与 LLM gateway topology policy 不进入 Security primitive |
+| generic secret text/URL/payload redaction | CLI、Server、LLM/fetch errors | CONDITIONAL-04 | 先拆 generic primitive；Pydantic adapter 与 LLM gateway topology policy 不进入 Security primitive |
 | `SouWenHttpClient` | OpenAlex、HAL 等 Provider | CONDITIONAL-05 | 先冻结 native cancellation、无 stream v1、trusted auto-redirect 与 config adapter 边界 |
 | token/sliding-window limiter | OpenAlex、The Lens 等 Provider | CONDITIONAL-06 | 先补 acquire cancellation/state fixture；Provider 负责把 headers 转成通用数值 |
 | `OAuthClient` | EPO OPS、CNIPA | **ACCEPT-07** | client-credentials acquisition/cache/bearer 属于 Transport；legacy config adapter 保持，先冻结 refresh cancellation 与 secret boundary |
@@ -228,7 +228,7 @@ Security 只拥有基于 field-name、Bearer/Authorization、quoted/scalar key-v
 encoding、punctuation 或 invalid URL 行为。
 
 `souwen.core.redaction` 必须 object-identical re-export 三个 public primitives 和 private field classifier。
-`logging_config`、Server 与 MCP 使用 canonical `redact_secret_text`，证明多个真实 production
+`logging_config`、Server 与 CLI 使用 canonical `redact_secret_text`，证明多个真实 production
 consumers。各调用边界的 payload shaping 继续使用 legacy adapter，不能为追求统一 import 而把
 Pydantic 引入 Security。
 

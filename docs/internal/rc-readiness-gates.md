@@ -105,16 +105,13 @@ RC-ready run 可以验证从 current main 派生的 candidate；任何 secret-be
 
 **Evidence**：wheel checksum、5 个 `pip freeze`、安装日志、HOME/venv isolation assertion。
 
-### 7. MCP 与 edition 物理边界
+### 7. Edition 物理边界
 
-- `edition-basic` 能导入 MCP surface，并且 registry 派生的 3 个 basic fetch provider
-  （`builtin`、`mcp`、`site_crawler`）通过对应的 fixture/runtime smoke。
+- `edition-basic` 的 registry 派生 basic fetch provider（`builtin`、`site_crawler`）通过对应的 fixture/runtime smoke。
 - Basic 环境中 FastAPI 未安装；LLM 与 full-only provider 必须返回明确 edition gate，
   不能因宿主环境泄漏而可用，也不能以裸 `ImportError` 崩溃。
-- Pro/full 的 MCP stdio、tool listing、schema、multi-provider fetch 和 loopback transport
-  与当前 edition 声明一致。
 
-**Evidence**：`doctor edition --json`、module presence/absence probes、MCP tool schema 与调用报告。
+**Evidence**：`doctor edition --json`、module presence/absence probes 与 fetch provider 调用报告。
 
 ### 8. Package contract
 

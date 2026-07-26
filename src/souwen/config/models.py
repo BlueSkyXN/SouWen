@@ -296,18 +296,6 @@ class SouWenConfig(BaseModel):
     cloudflare_api_token: str | None = None  # Cloudflare API Token（Browser Rendering）
     cloudflare_account_id: str | None = None  # Cloudflare Account ID（Browser Rendering）
 
-    # ===== MCP (Model Context Protocol) =====
-    mcp_server_url: str | None = None  # MCP Server 端点 URL（如 https://mcp.example.com/mcp）
-    mcp_transport: str = "streamable_http"  # 传输方式: streamable_http | sse
-    mcp_fetch_tool_name: str = "fetch"  # MCP fetch 工具名称
-    mcp_extra_headers: dict[str, str] = Field(default_factory=dict)  # MCP 请求附加头
-
-    # ===== MCP HTTP 网络端点（服务端） =====
-    mcp_http_enabled: bool = False  # 是否启用网络 MCP（SHTTP），挂载于 /mcp
-    mcp_http_enable_sse: bool = True  # 是否额外启用 SSE 传输，挂载于 /mcp/sse
-    mcp_http_stateless: bool = True  # SHTTP 是否使用无状态模式
-    mcp_http_json_response: bool = True  # SHTTP 是否使用 JSON 响应（而非 SSE 流）
-
     # ===== 通用 =====
     edition: Literal["basic", "pro", "full"] = "pro"
     proxy: str | None = None

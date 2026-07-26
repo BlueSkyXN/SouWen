@@ -3,8 +3,8 @@
 ## Purpose
 
 SouWen is a Python 3.10+ information-retrieval toolkit for AI agents, covering
-academic papers, patents, web search/fetch/archive, a FastAPI server, MCP
-integration, and an embedded React/Vite management panel.
+academic papers, patents, web search/fetch/archive, a FastAPI server, and an
+embedded React/Vite management panel.
 
 ## Codex startup behavior
 
@@ -39,8 +39,7 @@ integration, and an embedded React/Vite management panel.
 | `src/souwen/server/routes/` | Public REST route handlers | yes | Changing non-admin API route behavior, auth dependency use, route timeouts or response wrapping |
 | `src/souwen/server/routes/admin/` | Admin-only config/proxy/WARP/source management endpoints | yes | Changing admin routes, state mutation, secret handling or admin permissions |
 | `src/souwen/server/schemas/` | FastAPI request/response schemas and OpenAPI contract | yes | Changing API fields, validation constraints, aliases or error response shape |
-| `src/souwen/integrations/` | External protocol integrations, mainly MCP | yes | Changing integration entry points, optional dependency behavior or tool wiring |
-| `src/souwen/integrations/mcp/` | MCP stdio/server plus Streamable HTTP/SSE transport | yes | Changing MCP server lifecycle, transports or tools |
+| `src/souwen/integrations/` | External protocol integrations | yes | Changing integration entry points, optional dependency behavior or tool wiring |
 | `panel/` | React/Vite/TypeScript panel, npm scripts and embedded artifact build | yes | Changing frontend build config, dependencies, Vite, package scripts or panel artifact behavior |
 | `panel/src/core/` | Frontend shared services, stores, hooks, types, i18n, tests and skin registry | yes | Changing API services, auth store, shared hooks/types, i18n or cross-skin behavior |
 | `panel/src/skins/` | Skin modules, layouts, pages, routes, styles and skin config | yes | Changing skin UI, adding skins, routing, skin exports or CSS isolation |

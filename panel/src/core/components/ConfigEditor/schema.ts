@@ -1,6 +1,6 @@
 /**
  * 文件用途：可视化编辑器的字段/节定义 Schema。
- * 定义所有 souwen.yaml 可编辑节（paper/patent/web/mcp/general/server/warp）
+ * 定义所有 souwen.yaml 可编辑节（paper/patent/web/general/server/warp）
  * 及其字段（key、类型、标签、占位符）。
  */
 
@@ -88,15 +88,6 @@ export const YAML_SECTIONS: SectionDef[] = [
       { key: 'twitter_bearer_token', type: 'password', label: 'Twitter Bearer Token' },
       { key: 'reddit_client_id', type: 'text', label: 'Reddit Client ID' },
       { key: 'reddit_client_secret', type: 'password', label: 'Reddit Client Secret' },
-    ],
-  },
-  {
-    key: 'mcp',
-    titleI18nKey: 'config.visualSectionMcp',
-    fields: [
-      { key: 'mcp_server_url', type: 'url', label: 'MCP Server URL', placeholder: 'https://mcp.example.com/mcp' },
-      { key: 'mcp_transport', type: 'text', label: 'MCP Transport', placeholder: 'streamable_http' },
-      { key: 'mcp_fetch_tool_name', type: 'text', label: 'MCP Fetch Tool Name', placeholder: 'fetch' },
     ],
   },
   {

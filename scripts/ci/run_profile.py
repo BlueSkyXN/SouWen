@@ -40,19 +40,12 @@ FULL_BROWSER_VARIANT_FETCH_PROVIDERS_LITERAL = repr(
 
 BASIC_RUNTIME_CODE = "\n".join(
     [
-        "import mcp",
         "from souwen.feature_matrix import declared_fetch_provider_names, probe_capabilities",
-        "from souwen.integrations.mcp.server import HAS_MCP, create_server",
-        "from souwen.web.mcp_client import MCPClient",
-        "assert HAS_MCP is True",
-        "assert MCPClient.__name__ == 'MCPClient'",
-        "assert create_server() is not None",
-        "assert declared_fetch_provider_names('basic') == ('builtin', 'mcp', 'site_crawler')",
+        "assert declared_fetch_provider_names('basic') == ('builtin', 'site_crawler')",
         "probe = probe_capabilities('basic')",
-        "assert probe['fetch_providers'].declared == ('builtin', 'mcp', 'site_crawler')",
-        "assert probe['fetch_providers'].available == ('builtin', 'mcp', 'site_crawler')",
-        "assert probe['mcp'].available is True",
-        "print('basic MCP client, stdio server and fetch providers OK')",
+        "assert probe['fetch_providers'].declared == ('builtin', 'site_crawler')",
+        "assert probe['fetch_providers'].available == ('builtin', 'site_crawler')",
+        "print('basic fetch providers OK')",
     ]
 )
 
@@ -96,7 +89,6 @@ FULL_IMPORT_CODE = "\n".join(
         "assert not missing_core_importable, sorted(missing_core_importable)",
         "available_browser_variants = browser_variant_fetch_providers & available_fetch",
         "assert len(available_browser_variants) <= 1, sorted(available_browser_variants)",
-        "assert probe['mcp'].declared is True, probe['mcp']",
         "print('full core import surface and browser variant declarations OK')",
     ]
 )

@@ -1068,9 +1068,8 @@ def test_clean_wheel_composite_enforces_edition_and_package_boundaries() -> None
     for contract in (
         "package/panel",
         "package/no-retired-imports",
-        "runtime/mcp-stdio-server",
         "basic/no-fastapi",
-        "basic/three-fetch-providers",
+        "basic/two-fetch-providers",
         "basic/llm-gated",
         "pro/server-import",
         "variant/crawl4ai-only",

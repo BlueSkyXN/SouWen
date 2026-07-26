@@ -101,7 +101,7 @@ RUN if [ -n "${SOUWEN_SOURCE_SHA}" ]; then \
 # 再装源码（仅源码变更时重新执行此层）
 
 # 步骤 1：复制项目配置和版本信息，安装 pro/API 运行面依赖
-# edition-pro 聚合 API server、MCP、TLS 指纹和 scraper 基础能力
+# edition-pro 聚合 API server、TLS 指纹和 scraper 基础能力
 COPY pyproject.toml README.md LICENSE hatch_build.py ./
 COPY src/souwen/__init__.py ./src/souwen/__init__.py
 RUN pip install ".[edition-pro]"

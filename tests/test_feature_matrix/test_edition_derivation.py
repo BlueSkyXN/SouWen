@@ -78,5 +78,5 @@ def test_edition_capabilities_preserves_whoami_payload_shape() -> None:
     assert edition_capabilities("basic") == {
         "llm": False,
         "warp_modes": ["auto", "wireproxy", "external"],
-        "fetch_providers": ["builtin", "mcp", "site_crawler"],
+        "fetch_providers": ["builtin", "site_crawler"],
     }

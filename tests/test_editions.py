@@ -61,7 +61,6 @@ def test_ensure_edition_allowed_raises_stable_error() -> None:
         ("duckduckgo", "basic"),
         ("bilibili", "basic"),
         ("wayback", "basic"),
-        ("mcp", "basic"),
         ("openalex", "pro"),
         ("tavily", "pro"),
         ("searxng", "pro"),
@@ -82,7 +81,6 @@ def test_source_min_edition_uses_registry_metadata(name: str, expected: str) -> 
     [
         ("builtin", "basic"),
         ("site_crawler", "basic"),
-        ("mcp", "basic"),
         ("jina_reader", "pro"),
         ("deepwiki", "pro"),
         ("wayback", "pro"),

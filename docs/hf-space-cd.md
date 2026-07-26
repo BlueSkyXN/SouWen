@@ -52,7 +52,7 @@ secret 名称 fail fast，不输出值、长度或前缀。
 |---|---|---|
 | `Resolve deploy eligibility` | 解析入口与 candidate contract | direct dispatch 不具备远端写资格 |
 | `API surface and source CLI` | `pro-cli`、`basic-cli` profile | 不证明外部源在线 |
-| `PyInstaller CLI smoke` | `edition-basic` 单文件 binary，保留 MCP | 不等于 24-binary release matrix |
+| `PyInstaller CLI smoke` | `edition-basic` 单文件 binary | 不等于 24-binary release matrix |
 | `HF Space Docker surface smoke` | exact SHA 双进程启动、target/Worker readiness、docs/panel、49266 未发布 | 本地容器，不是 live Space |
 
 HFS Docker build 必须传 `SOUWEN_REF=<40位 candidate SHA>`。Dockerfile 的全零模板、短 SHA、

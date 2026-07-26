@@ -30,10 +30,8 @@ LLM_PROVIDER_MODULES: Final[dict[str, str]] = {
     "openai_responses": "souwen.llm.providers.openai_responses",
     "anthropic_messages": "souwen.llm.providers.anthropic_messages",
 }
-MCP_MODULE: Final[str] = "mcp"
 OPTIONAL_EXTRA_MODULES: Final[dict[str, tuple[str, ...]]] = {
     "crawl4ai": ("crawl4ai",),
-    "mcp": ("mcp",),
     "newspaper": ("newspaper",),
     "readability": ("readability",),
     "scraper": ("curl_cffi",),
@@ -160,7 +158,7 @@ def public_adapter_runtime_probe(adapter: SourceAdapter) -> RuntimeProbe:
     """Return a runtime probe that is safe to expose on public discovery surfaces.
 
     Loader exceptions remain available to local doctor diagnostics through
-    :func:`probe_adapter_runtime`, while REST and MCP discovery use this wrapper.
+    :func:`probe_adapter_runtime`, while REST and other public discovery surfaces use this wrapper.
     """
 
     return sanitize_public_runtime_probe(adapter.name, probe_adapter_runtime(adapter))
@@ -255,8 +253,8 @@ def fetch_provider_runtime_projection(
 ) -> tuple[FetchProviderRuntimeStatus, ...]:
     """Project fetch providers onto independent edition and runtime axes.
 
-    Providers blocked by the current edition remain in the projection so MCP
-    and other discovery surfaces can explain the upgrade gate.  Their runtime
+    Providers blocked by the current edition remain in the projection so public
+    discovery surfaces can explain the upgrade gate.  Their runtime
     is not probed: importing implementation modules that the edition cannot use
     would make lightweight discovery depend on excluded optional packages.
     """
@@ -330,9 +328,6 @@ def probe_capabilities(edition: Edition | str | None = None) -> dict[str, ProbeR
     )
     missing_llm = tuple(protocol for protocol in llm_declared if protocol not in llm_importable)
 
-    mcp_declared = "mcp" in declared_fetch
-    mcp_importable = _module_importable(MCP_MODULE) if mcp_declared else False
-
     return {
         "sources": ProbeResult(
             declared=declared_sources,
@@ -350,13 +345,6 @@ def probe_capabilities(edition: Edition | str | None = None) -> dict[str, ProbeR
             declared=llm_declared,
             available=llm_importable,
             reason=f"missing provider modules: {', '.join(missing_llm)}" if missing_llm else "",
-        ),
-        "mcp": ProbeResult(
-            declared=mcp_declared,
-            available=mcp_importable,
-            reason=f"module {MCP_MODULE!r} is not importable"
-            if mcp_declared and not mcp_importable
-            else "",
         ),
     }
 
@@ -388,7 +376,6 @@ def probe_results_to_dict(results: dict[str, ProbeResult]) -> dict[str, dict[str
 __all__ = [
     "EDITIONS",
     "LLM_PROVIDER_MODULES",
-    "MCP_MODULE",
     "OPTIONAL_EXTRA_MODULES",
     "Edition",
     "FetchProviderRuntimeStatus",

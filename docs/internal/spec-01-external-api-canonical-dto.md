@@ -408,4 +408,4 @@ and their 2.x aliases so a future generator cannot silently choose a different p
 - **SPEC-05** owns Provider IDs/capability validation and provider-to-canonical-error mapping.
 - **SPEC-07** owns final Data/Admin permission model and secret readback protection.
 - **SPEC-10** owns health/readiness rollout, OpenAPI release artifact publication and operational rollout.
-- **SPEC-11** owns legacy CLI/MCP/Python imports/current routes migration communications and removal evidence.
+- **SPEC-11** owns legacy CLI/Python imports/current routes migration communications and removal evidence.
