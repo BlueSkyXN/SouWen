@@ -26,17 +26,17 @@ private Space 的 edge 访问仍需 Hugging Face token；进入应用后，SouWe
 
 `.github/workflows/deploy-hf-space.yml` 同时承担 local preflight 与 reusable promotion：
 
-- `pull_request`：只运行本地 API/CLI、PyInstaller 和 HFS Docker smoke。
+- `pull_request`：只运行本地 SDK/Server contract 与 HFS Docker smoke；不执行远程部署。
 - 直接 `workflow_dispatch`：只运行本地 preflight，不写远端。
 - 合入或 push `main`：**不会自动部署**。
 - 远端 promotion：只能由 `.github/workflows/release-candidate.yml` 从当前 `main` control plane
   调用，并显式设置 `deploy_hfs=true`。
 
-Central workflow 要求显式选择 `evidence_profile`；哨兵值 `select` 不执行。Phase 8 前的
-`release` profile 仍是不可发布的历史 24-binary regression；`deployment` profile 必须使用
-`publish=false, deploy_hfs=true`，跳过外层 PyInstaller/Nuitka release matrix，只生成不可发布的
-deployment evidence。两种 profile 都继续运行非 binary gates；HFS reusable workflow 内的单次
-Linux `basic-cli` PyInstaller smoke 不会被跳过。`deploy_hfs=true` 时，candidate 必须等于当前
+Central workflow 要求显式选择 `evidence_profile`；哨兵值 `select` 不执行。`release` profile
+只接受四平台 PyInstaller Server bundle evidence；`deployment` profile 必须使用
+`publish=false, deploy_hfs=true`，跳过 outer Server bundle release matrix，只生成不可发布的
+deployment evidence。两种 profile 都继续运行非-binary gates；HFS reusable workflow 的 target
+Server local preflight 不会被跳过。`deploy_hfs=true` 时，candidate 必须等于当前
 `origin/main`；不能从未合入分支向持有 secrets 的部署 job 注入 verifier。Central caller 只在
 HFS reusable call 上使用一次 `secrets: inherit`。这是同仓 reusable workflow 读取
 environment-scoped secrets 的已知兼容处理（`actions/runner#4453`）；其他 reusable jobs 不得继承
@@ -51,9 +51,11 @@ secret 名称 fail fast，不输出值、长度或前缀。
 | Job | 覆盖内容 | 边界 |
 |---|---|---|
 | `Resolve deploy eligibility` | 解析入口与 candidate contract | direct dispatch 不具备远端写资格 |
-| `API surface and source CLI` | `pro-cli`、`basic-cli` profile | 不证明外部源在线 |
-| `PyInstaller CLI smoke` | `edition-basic` 单文件 binary | 不等于 24-binary release matrix |
+| `SDK and Server contracts` | `sdk-contract` + `server-contract` profiles | SDK 仅验证 target contract 前置条件；不证明 generated SDK 完成或外部源在线 |
 | `HF Space Docker surface smoke` | exact SHA 双进程启动、target/Worker readiness、docs/panel、49266 未发布 | 本地容器，不是 live Space |
+
+`server-contract` 在 A3c 迁移期仍通过现有 edition extras 安装所需实现；这不保留
+edition profile 作为产品 contract，A4 才负责删除 editions 与 package matrix。
 
 HFS Docker build 必须传 `SOUWEN_REF=<40位 candidate SHA>`。Dockerfile 的全零模板、短 SHA、
 分支名和 moving `main` 都 fail closed；detached checkout 会把 SHA 写入
@@ -158,7 +160,7 @@ IP 和速率限制影响；报告中的 `WARN` 是带时间戳观测，不是永
 
 ## 本地复现与失败处理
 
-- API/CLI：`python scripts/ci/run_profile.py --profile pro-cli --profile basic-cli`。
+- Target Server：`python scripts/ci/run_profile.py --profile server-contract`。
 - Docker：按 digest 拉取 base image，使用完整 SHA 重建 `cloud/hfs` context；没有 Docker daemon
   的机器不能把该层标为已验证。
 - PR preflight 失败：修代码、测试或 wrapper，不直接触发远端 promotion。

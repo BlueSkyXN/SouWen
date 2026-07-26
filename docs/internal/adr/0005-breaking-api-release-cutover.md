@@ -18,9 +18,8 @@ Those current facts are not the desired product boundary:
   Search, LLM Search and Fetch contracts.
 - `src/souwen/server/schemas/common.py` currently defines a flat error body, while HLD §11.5 calls for a
   nested canonical error contract with stable codes and retry semantics.
-- `pyproject.toml` currently exposes direct Python library/CLI dependencies and current package version
-  `2.0.0rc2`; `.github/workflows/build-pyinstaller.yml` builds 3 CLI editions across 4 targets, and the
-  release workflow currently verifies 24 PyInstaller/Nuitka binaries.
+- The current package version is `2.0.0rc2`. Historical planning references to a
+  CLI-edition PyInstaller/Nuitka matrix are not current release-workflow evidence.
 - HLD §20 and §27 close Q-011: the target release surface is **four cross-platform PyInstaller server
   bundles**, with Nuitka and basic/full tiers retired. HLD §20 also selects the REST Client SDK as the
   default `souwen` Python distribution direction.
@@ -139,8 +138,9 @@ major, generate official clients from an immutable OpenAPI artifact and fail cli
 - [ADR 0002: current v2 RC release version](0002-versioning-policy.md)
 - Current app/auth/error evidence: `src/souwen/server/app.py`, `src/souwen/server/auth.py`,
   `src/souwen/server/schemas/common.py`
-- Current packaging/release evidence: `pyproject.toml`, `.github/workflows/build-pyinstaller.yml`,
-  `.github/workflows/build-nuitka.yml`, `.github/workflows/release-candidate.yml`
+- Current packaging/release evidence: `pyproject.toml`,
+  `.github/workflows/build-pyinstaller-server.yml`, `.github/actions/server-bundle-smoke/action.yml`,
+  `.github/workflows/release-candidate.yml`
 
 ## Review condition
 

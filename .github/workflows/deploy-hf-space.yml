@@ -62,7 +62,7 @@ on:
       - "scripts/warp-init.sh"
       - "cloud/hfs/**"
       - ".github/workflows/deploy-hf-space.yml"
-      - ".github/workflows/build-pyinstaller.yml"
+      - ".github/workflows/build-pyinstaller-server.yml"
   workflow_dispatch:
 
 concurrency:
@@ -153,8 +153,8 @@ jobs:
           write_output(False, f"{event}:{ref}:local-preflight-only")
           PY
 
-  api-source-cli:
-    name: API surface and source CLI
+  delivery-contracts:
+    name: SDK and Server contracts
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -172,22 +172,22 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev,edition-pro]"
 
-      - name: Run API and source CLI profiles
+      - name: Run SDK and Server contracts
         env:
           PYTHONIOENCODING: utf-8
         run: |
           mkdir -p artifacts
           python scripts/ci/run_profile.py \
-            --profile pro-cli \
-            --profile basic-cli \
-            --json-report artifacts/api-source-cli-profile.json \
-            --markdown-report artifacts/api-source-cli-profile.md
+            --profile sdk-contract \
+            --profile server-contract \
+            --json-report artifacts/hfs-delivery-contracts.json \
+            --markdown-report artifacts/hfs-delivery-contracts.md
 
-      - name: Upload API and source CLI profile report
+      - name: Upload SDK and Server contract report
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: api-source-cli-profile-report
+          name: hfs-delivery-contracts-report
           path: artifacts/
           if-no-files-found: warn
           retention-days: 7
@@ -310,7 +310,7 @@ jobs:
         needs.detect-changes.outputs.deploy_changed == 'true' &&
         inputs.deploy_hfs
       }}
-    needs: [detect-changes, api-source-cli, docker-hfs]
+    needs: [detect-changes, delivery-contracts, docker-hfs]
     environment:
       name: hf
       deployment: false

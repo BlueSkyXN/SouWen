@@ -162,24 +162,24 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           fail_ci_if_error: false
 
-      - name: 安装 full runtime profile 依赖
+      - name: 安装 Provider runtime profile 依赖
         if: matrix.os == 'ubuntu-latest' && matrix.python == '3.11'
         run: pip install -e ".[dev,edition-full]"
 
-      - name: 运行 full runtime profile
+      - name: 运行 Provider runtime profile
         if: matrix.os == 'ubuntu-latest' && matrix.python == '3.11'
         run: |
           mkdir -p artifacts
           python scripts/ci/run_profile.py \
-            --profile full-cli \
-            --json-report artifacts/runtime-profile-full.json \
-            --markdown-report artifacts/runtime-profile-full.md
+            --profile provider-runtime \
+            --json-report artifacts/provider-runtime.json \
+            --markdown-report artifacts/provider-runtime.md
 
-      - name: 上传 full runtime profile 报告
+      - name: 上传 Provider runtime profile 报告
         if: always() && matrix.os == 'ubuntu-latest' && matrix.python == '3.11'
         uses: actions/upload-artifact@v7
         with:
-          name: runtime-profile-full-report
+          name: provider-runtime-report
           path: artifacts/
           if-no-files-found: warn
           retention-days: 7

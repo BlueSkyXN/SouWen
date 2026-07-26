@@ -21,20 +21,29 @@ EXTERNAL_RUNTIME_WORKFLOWS = (
     ".github/workflows/external-smoke-gate.yml",
 )
 PROFILE_RUNNER_WORKFLOWS = {
-    ".github/workflows/ci.yml": ("full-cli",),
-    ".github/workflows/v2-ci.yml": ("pro-cli", "basic-cli", "full-cli"),
-    ".github/workflows/deploy-hf-space.yml": ("pro-cli", "basic-cli"),
+    ".github/workflows/ci.yml": ("provider-runtime",),
+    ".github/workflows/v2-ci.yml": (
+        "sdk-contract",
+        "server-contract",
+        "provider-runtime",
+    ),
+    ".github/workflows/deploy-hf-space.yml": ("sdk-contract", "server-contract"),
 }
-LEGACY_CI_PROFILE_NAMES = ("minimal", "server", "full")
+RETIRED_CI_PROFILE_NAMES = (
+    "basic-cli",
+    "pro-cli",
+    "full-cli",
+    "minimal",
+    "server",
+    "full",
+)
 
 
 def test_list_profiles(capsys):
     assert run_profile.main(["--list-profiles"]) == 0
 
     output = set(capsys.readouterr().out.splitlines())
-    assert {"basic-cli", "pro-cli", "full-cli"} <= output
-    assert "plugin" not in output
-    assert {"minimal", "server", "full"} <= output
+    assert output == {"sdk-contract", "server-contract", "provider-runtime"}
 
 
 def test_main_requires_profile():
@@ -58,7 +67,7 @@ def test_run_profiles_records_success(monkeypatch, tmp_path):
     exit_code = run_profile.main(
         [
             "--profile",
-            "basic-cli",
+            "sdk-contract",
             "--json-report",
             str(json_report),
             "--markdown-report",
@@ -67,35 +76,22 @@ def test_run_profiles_records_success(monkeypatch, tmp_path):
     )
 
     assert exit_code == 0
-    assert len(calls) == len(run_profile.PROFILE_COMMANDS["basic-cli"])
+    assert len(calls) == len(run_profile.PROFILE_COMMANDS["sdk-contract"])
     payload = json.loads(json_report.read_text(encoding="utf-8"))
     assert payload["script"] == "ci_profile_runner"
-    assert payload["mode"] == "basic-cli"
+    assert payload["mode"] == "sdk-contract"
     assert payload["overall"] == "PASS"
-    assert payload["checks"][0]["name"].startswith("basic-cli/")
-    assert payload["environment"]["profiles"] == ["basic-cli"]
+    assert payload["checks"][0]["name"].startswith("sdk-contract/")
+    assert payload["environment"]["profiles"] == ["sdk-contract"]
     assert "Overall: **PASS**" in markdown_report.read_text(encoding="utf-8")
 
 
-def test_legacy_alias_runs_canonical_profile_but_preserves_report_name(monkeypatch):
-    calls: list[tuple[str, ...]] = []
-    editions: list[str] = []
+@pytest.mark.parametrize("profile", RETIRED_CI_PROFILE_NAMES)
+def test_retired_profile_names_are_rejected(profile):
+    with pytest.raises(SystemExit) as exc_info:
+        run_profile.main(["--profile", profile])
 
-    def fake_run(command, **kwargs):
-        calls.append(tuple(command))
-        editions.append(kwargs["env"]["SOUWEN_EDITION"])
-        return subprocess.CompletedProcess(command, 0, stdout="ok", stderr="")
-
-    monkeypatch.setattr(run_profile, "_run_subprocess", fake_run)
-
-    recorder = run_profile.run_profiles(["minimal"], timeout=1)
-
-    assert recorder.overall == Outcome.PASS
-    assert len(calls) == len(run_profile.PROFILE_COMMANDS["basic-cli"])
-    assert {check.name.split("/", maxsplit=1)[0] for check in recorder.checks} == {"minimal"}
-    assert set(editions) == {"basic"}
-    assert recorder.to_json()["mode"] == "minimal"
-    assert recorder.to_json()["environment"]["profiles"] == ["minimal"]
+    assert exc_info.value.code == 2
 
 
 def test_required_command_failure_sets_overall_fail(monkeypatch):
@@ -104,13 +100,13 @@ def test_required_command_failure_sets_overall_fail(monkeypatch):
 
     monkeypatch.setattr(run_profile, "_run_subprocess", fake_run)
 
-    recorder = run_profile.run_profiles(["server"], timeout=1)
+    recorder = run_profile.run_profiles(["server-contract"], timeout=1)
 
     assert recorder.overall == Outcome.FAIL
     assert recorder.exit_code() == 1
     assert recorder.checks[0].message == "exit code 2"
     assert recorder.checks[0].details["stderr_tail"] == "boom"
-    assert recorder.checks[0].name.startswith("server/")
+    assert recorder.checks[0].name.startswith("server-contract/")
 
 
 def test_main_returns_two_when_report_write_fails(monkeypatch, tmp_path, capsys):
@@ -126,7 +122,7 @@ def test_main_returns_two_when_report_write_fails(monkeypatch, tmp_path, capsys)
     exit_code = run_profile.main(
         [
             "--profile",
-            "basic-cli",
+            "sdk-contract",
             "--json-report",
             str(tmp_path / "profile.json"),
         ]
@@ -146,7 +142,7 @@ def test_profile_commands_prepend_source_pythonpath(monkeypatch):
     monkeypatch.setenv("PYTHONPATH", "existing")
     monkeypatch.setattr(run_profile, "_run_subprocess", fake_run)
 
-    recorder = run_profile.run_profiles(["full-cli"], timeout=1)
+    recorder = run_profile.run_profiles(["provider-runtime"], timeout=1)
 
     assert recorder.overall == Outcome.PASS
     assert captured_env["PYTHONPATH"].split(os.pathsep)[:2] == [
@@ -156,30 +152,38 @@ def test_profile_commands_prepend_source_pythonpath(monkeypatch):
     assert captured_env["SOUWEN_EDITION"] == "full"
 
 
-def test_full_import_code_covers_full_fetch_provider_modules() -> None:
-    assert run_profile.FULL_FETCH_PROVIDER_MODULES == {
+def test_provider_runtime_code_covers_optional_fetch_provider_modules() -> None:
+    assert run_profile.PROVIDER_RUNTIME_MODULES == {
         "crawl4ai": "souwen.web.crawl4ai_fetcher",
         "newspaper": "souwen.web.newspaper_fetcher",
         "readability": "souwen.web.readability_fetcher",
         "scrapling": "souwen.web.scrapling_fetcher",
     }
-    assert run_profile.FULL_CORE_FETCH_PROVIDERS == {
+    assert run_profile.CORE_RUNTIME_PROVIDERS == {
         "newspaper",
         "readability",
     }
-    assert run_profile.FULL_BROWSER_VARIANT_FETCH_PROVIDERS == {"crawl4ai", "scrapling"}
+    assert run_profile.BROWSER_VARIANT_RUNTIME_PROVIDERS == {"crawl4ai", "scrapling"}
     assert (
-        run_profile.FULL_CORE_FETCH_PROVIDERS | run_profile.FULL_BROWSER_VARIANT_FETCH_PROVIDERS
-        == set(run_profile.FULL_FETCH_PROVIDER_MODULES)
+        run_profile.CORE_RUNTIME_PROVIDERS | run_profile.BROWSER_VARIANT_RUNTIME_PROVIDERS
+        == set(run_profile.PROVIDER_RUNTIME_MODULES)
     )
 
-    assert "declared_fetch_provider_names" in run_profile.FULL_IMPORT_CODE
-    assert "probe_capabilities" in run_profile.FULL_IMPORT_CODE
-    assert "missing_core_importable" in run_profile.FULL_IMPORT_CODE
-    assert "len(available_browser_variants) <= 1" in run_profile.FULL_IMPORT_CODE
-    for provider, module in run_profile.FULL_FETCH_PROVIDER_MODULES.items():
-        assert provider in run_profile.FULL_IMPORT_CODE
-        assert module in run_profile.FULL_IMPORT_CODE
+    assert "declared_fetch_provider_names" in run_profile.PROVIDER_RUNTIME_CODE
+    assert "probe_capabilities" in run_profile.PROVIDER_RUNTIME_CODE
+    assert "missing_core_importable" in run_profile.PROVIDER_RUNTIME_CODE
+    assert "len(available_browser_variants) <= 1" in run_profile.PROVIDER_RUNTIME_CODE
+    for provider, module in run_profile.PROVIDER_RUNTIME_MODULES.items():
+        assert provider in run_profile.PROVIDER_RUNTIME_CODE
+        assert module in run_profile.PROVIDER_RUNTIME_CODE
+
+
+def test_sdk_contract_uses_only_target_contract_and_dto_tests() -> None:
+    command = run_profile.PROFILE_COMMANDS["sdk-contract"][0].command
+
+    assert "tests/contracts/test_target_canonical_contract.py" in command
+    assert "tests/test_target_canonical_dto.py" in command
+    assert not any("provider" in argument for argument in command if argument.startswith("tests/"))
 
 
 def test_workflows_install_full_profile_runtime_extras() -> None:
@@ -223,8 +227,8 @@ def test_ci_workflows_use_canonical_profile_names() -> None:
 
         for profile in expected_profiles:
             assert re.search(rf"--profile\s+{re.escape(profile)}(?=$|\s|\\)", text), relative
-        for legacy_profile in LEGACY_CI_PROFILE_NAMES:
-            assert not re.search(rf"--profile\s+{re.escape(legacy_profile)}(?=$|\s|\\)", text), (
+        for retired_profile in RETIRED_CI_PROFILE_NAMES:
+            assert not re.search(rf"--profile\s+{re.escape(retired_profile)}(?=$|\s|\\)", text), (
                 relative
             )
 
@@ -255,11 +259,11 @@ def test_agent_command_docs_use_canonical_profile_names() -> None:
 
     combined_text = "\n".join(path.read_text(encoding="utf-8") for path in agent_docs)
 
-    for profile in ("basic-cli", "pro-cli", "full-cli"):
+    for profile in ("sdk-contract", "server-contract", "provider-runtime"):
         assert re.search(rf"--profile\s+{re.escape(profile)}(?=$|\s|`)", combined_text)
-    for legacy_profile in LEGACY_CI_PROFILE_NAMES:
+    for retired_profile in RETIRED_CI_PROFILE_NAMES:
         assert not re.search(
-            rf"--profile\s+{re.escape(legacy_profile)}(?=$|\s|`)",
+            rf"--profile\s+{re.escape(retired_profile)}(?=$|\s|`)",
             combined_text,
         )
 
@@ -275,39 +279,33 @@ def test_timeout_is_recorded(monkeypatch):
 
     monkeypatch.setattr(run_profile, "_run_subprocess", fake_run)
 
-    recorder = run_profile.run_profiles(["full-cli"], timeout=3)
+    recorder = run_profile.run_profiles(["provider-runtime"], timeout=3)
 
     assert recorder.overall == Outcome.FAIL
     assert recorder.checks[0].message == "timeout after 3.0s"
     assert recorder.checks[0].details["stdout_tail"] == "partial"
 
 
-def test_canonical_profile_editions_are_explicit(monkeypatch):
-    captured: dict[str, str] = {}
+def test_canonical_profiles_keep_editions_as_internal_migration_details(monkeypatch):
+    captured: list[str | None] = []
 
     def fake_run(command, **kwargs):
-        if command[:2] == (run_profile.PYTHON, "-c"):
-            profile = command[-1]
-        elif command[:3] == (run_profile.PYTHON, "-m", "pytest"):
-            profile = "pytest"
-        else:
-            profile = command[1]
-        captured[profile] = kwargs["env"]["SOUWEN_EDITION"]
+        captured.append(kwargs["env"].get("SOUWEN_EDITION"))
         return subprocess.CompletedProcess(command, 0, stdout="ok", stderr="")
 
     monkeypatch.setattr(run_profile, "_run_subprocess", fake_run)
 
-    recorder = run_profile.run_profiles(["basic-cli", "pro-cli", "full-cli"], timeout=1)
+    recorder = run_profile.run_profiles(
+        ["sdk-contract", "server-contract", "provider-runtime"], timeout=1
+    )
 
     assert recorder.overall == Outcome.PASS
     assert {check.name.split("/", maxsplit=1)[0] for check in recorder.checks} == {
-        "basic-cli",
-        "pro-cli",
-        "full-cli",
+        "sdk-contract",
+        "server-contract",
+        "provider-runtime",
     }
-    assert captured[run_profile.BASIC_RUNTIME_CODE] == "basic"
-    assert captured["pytest"] == "pro"
-    assert captured[run_profile.FULL_IMPORT_CODE] == "full"
+    assert captured == [None, "pro", "full"]
 
 
 def test_tail_truncates_from_end():
