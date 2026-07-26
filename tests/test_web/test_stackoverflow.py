@@ -1,6 +1,6 @@
 """StackOverflow（StackExchange）API 客户端单元测试。
 
-覆盖 ``souwen.web.stackoverflow`` 中 StackOverflowClient 的字段映射、
+覆盖 ``souwen.providers.runtime_clients.web.stackoverflow`` 中 StackOverflowClient 的字段映射、
 HTML 标题解码、空结果处理、API Key 可选行为。
 
 测试清单：
@@ -17,7 +17,7 @@ import re
 
 from pytest_httpx import HTTPXMock
 
-from souwen.web.stackoverflow import StackOverflowClient
+from souwen.providers.runtime_clients.web.stackoverflow import StackOverflowClient
 
 
 # ---------------------------------------------------------------------------

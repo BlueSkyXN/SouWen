@@ -5,7 +5,12 @@ from __future__ import annotations
 import asyncio
 
 from souwen.config import SouWenConfig
-from souwen.models import Author, FetchResult as LegacyFetchResult, PaperResult, SearchResponse
+from souwen.providers.runtime_clients.models import (
+    Author,
+    FetchResult as LegacyFetchResult,
+    PaperResult,
+    SearchResponse,
+)
 from souwen.platform.provider_spi import (
     ExecutionContext,
     FetchRequest,

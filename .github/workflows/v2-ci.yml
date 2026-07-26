@@ -160,11 +160,10 @@ jobs:
               raise SystemExit("removed v1 import surface leaked into wheel: " + ", ".join(unexpected))
 
           required = {
-              "souwen/search.py",
-              "souwen/registry/meta.py",
-              "souwen/registry/sources/__init__.py",
-              "souwen/web/fetch.py",
-              "souwen/web/wayback.py",
+              "souwen/providers/catalog.py",
+              "souwen/providers/runtime_clients/web/fetch.py",
+              "souwen/providers/runtime_clients/web/wayback.py",
+              "souwen/delivery/client_sdk/client.py",
               "souwen/server/panel.html",
           }
           missing = sorted(required - names)
@@ -174,19 +173,20 @@ jobs:
           print(f"{wheel.name} import surface OK")
           PY
 
-      - name: Registry baseline
+      - name: Provider v2 manifest baseline
         run: |
           python - <<'PY'
           from collections import Counter
 
-          from souwen.registry import all_adapters, fetch_providers
+          from souwen.providers.catalog import builtin_provider_manifests
 
-          adapters_by_name = all_adapters()
-          adapters = list(adapters_by_name.values())
-          print("runtime_adapters", len(adapters))
-          print("fetch_providers", len(fetch_providers()))
-          for domain, count in sorted(Counter(adapter.domain for adapter in adapters).items()):
-              print(f"{domain} {count}")
+          manifests = builtin_provider_manifests()
+          print("provider_packages", len(manifests))
+          print("capability_adapters", sum(len(item.adapters) for item in manifests))
+          for capability, count in sorted(
+              Counter(capability for item in manifests for capability in item.capabilities).items()
+          ):
+              print(f"{capability} {count}")
           PY
 
   matrix_tests:
@@ -263,14 +263,10 @@ jobs:
 
       - name: Run Provider v2 conformance
         run: |
-          python tools/provider_migration_inventory.py --check --require-complete
-          python tools/gen_provider_spec_drafts.py --check
           pytest \
             tests/provider_v2 \
             tests/test_provider_spi.py \
             tests/test_provider_spec_v2.py \
-            tests/test_provider_migration_inventory.py \
-            tests/test_provider_spec_drafts.py \
             tests/test_manifest_registry_v2.py \
             tests/test_provider_manager_v2.py \
             tests/test_openalex_provider_v2.py \

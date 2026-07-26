@@ -10,13 +10,13 @@ from pydantic import ValidationError
 
 from souwen.platform.provider_spec import (
     CredentialBinding,
-    LegacyFetchProvider,
-    LegacyFetchSpec,
-    LegacySearchProviderSpec,
-    LegacyTransportDeclaration,
+    ClientFetchProvider,
+    ClientFetchSpec,
+    ClientSearchProviderSpec,
+    ClientTransportDeclaration,
     LocalStoreDeclaration,
-    LegacySearchProvider,
-    LegacySearchSpec,
+    ClientSearchProvider,
+    ClientSearchSpec,
     RestJsonProviderSpec,
     RestJsonSearchProvider,
     SelfHostedTransportDeclaration,
@@ -135,11 +135,11 @@ def test_static_specs_are_value_free_and_readable() -> None:
     assert ERIC_REST_SPEC.request_mapping.fixed_fields == {"start": 0}
     assert ERIC_REST_SPEC.response_mapping is not None
     assert OPENALEX_REST_SPEC.host == "api.openalex.org"
-    assert OPENALEX_REST_SPEC.adapter_kind == "legacy_bridge"
-    assert OPENALEX_REST_SPEC.bridge_reason is not None
+    assert OPENALEX_REST_SPEC.adapter_kind == "client_adapter"
+    assert OPENALEX_REST_SPEC.adapter_reason is not None
     assert PATENTSVIEW_REST_SPEC.auth_reference == "PATENTSVIEW_API_KEY"
     assert PATENTSVIEW_REST_SPEC.auth.placement == "header"
-    assert PATENTSVIEW_REST_SPEC.bridge_reason is not None
+    assert PATENTSVIEW_REST_SPEC.adapter_reason is not None
 
 
 def test_each_sample_spec_agrees_with_its_governance_manifest() -> None:
@@ -245,12 +245,12 @@ def test_spec_accepts_each_canonical_search_domain(domain: str) -> None:
 
 
 def test_legacy_spec_truthfully_declares_non_json_https_transport() -> None:
-    spec = LegacySearchProviderSpec(
+    spec = ClientSearchProviderSpec(
         provider_id="fixture",
         adapter_id="fixture-search",
         domain="paper",
-        bridge_reason="Atom XML requires a reviewed client bridge",
-        transport=LegacyTransportDeclaration(
+        adapter_reason="Atom XML requires a reviewed client bridge",
+        transport=ClientTransportDeclaration(
             scheme="https",
             host="export.example.test",
             base_path="/api",
@@ -261,16 +261,16 @@ def test_legacy_spec_truthfully_declares_non_json_https_transport() -> None:
     )
 
     assert spec.base_url == "https://export.example.test/api"
-    assert spec.adapter_kind == "legacy_bridge"
+    assert spec.adapter_kind == "client_adapter"
     assert spec.transport.protocol == "atom_xml"
 
 
 def test_legacy_spec_truthfully_declares_local_sqlite_transport_without_egress() -> None:
-    spec = LegacySearchProviderSpec(
+    spec = ClientSearchProviderSpec(
         provider_id="fixture",
         adapter_id="fixture-search",
         domain="book",
-        bridge_reason="local FTS search requires the reviewed SQLite catalog bridge",
+        adapter_reason="local FTS search requires the reviewed SQLite catalog bridge",
         transport=LocalStoreDeclaration(
             store="local_catalog",
             operations=("search",),
@@ -339,11 +339,11 @@ def test_self_hosted_spec_manifest_validation_rejects_network_mode_drift() -> No
 
 def test_self_hosted_spec_rejects_an_undeclared_endpoint_configuration_key() -> None:
     with pytest.raises(ValidationError, match="configuration key is undeclared"):
-        LegacySearchProviderSpec(
+        ClientSearchProviderSpec(
             provider_id="fixture",
             adapter_id="fixture-search",
             domain="web",
-            bridge_reason="fixture",
+            adapter_reason="fixture",
             transport=SelfHostedTransportDeclaration(
                 protocol="json",
                 operations=({"method": "GET", "endpoint": "/search"},),
@@ -354,17 +354,17 @@ def test_self_hosted_spec_rejects_an_undeclared_endpoint_configuration_key() -> 
 
 def test_local_store_spec_rejects_network_additional_transports() -> None:
     with pytest.raises(ValidationError, match="cannot declare fixed network transports"):
-        LegacySearchProviderSpec(
+        ClientSearchProviderSpec(
             provider_id="fixture",
             adapter_id="fixture-search",
             domain="book",
-            bridge_reason="fixture",
+            adapter_reason="fixture",
             transport=LocalStoreDeclaration(
                 store="local_catalog",
                 operations=("search",),
             ),
             additional_transports=(
-                LegacyTransportDeclaration(
+                ClientTransportDeclaration(
                     host="api.example.test",
                     protocol="json",
                     operations=({"method": "GET", "endpoint": "/search"},),
@@ -375,26 +375,26 @@ def test_local_store_spec_rejects_network_additional_transports() -> None:
 
 def test_legacy_spec_rejects_unreviewed_transport_hosts() -> None:
     with pytest.raises(ValidationError):
-        LegacySearchProviderSpec(
+        ClientSearchProviderSpec(
             provider_id="fixture",
             adapter_id="fixture-search",
-            bridge_reason="fixture",
+            adapter_reason="fixture",
             transport={"scheme": "https", "host": "127.0.0.1", "protocol": "json"},
         )
 
 
 def test_legacy_spec_declares_each_host_in_a_reviewed_multi_transport_flow() -> None:
-    spec = LegacySearchProviderSpec(
+    spec = ClientSearchProviderSpec(
         provider_id="fixture",
         adapter_id="fixture-search",
-        bridge_reason="token exchange and API execution use different reviewed hosts",
-        transport=LegacyTransportDeclaration(
+        adapter_reason="token exchange and API execution use different reviewed hosts",
+        transport=ClientTransportDeclaration(
             host="auth.example.test",
             protocol="json",
             operations=({"method": "POST", "endpoint": "/token"},),
         ),
         additional_transports=(
-            LegacyTransportDeclaration(
+            ClientTransportDeclaration(
                 host="api.example.test",
                 protocol="json",
                 operations=({"method": "GET", "endpoint": "/search"},),
@@ -404,10 +404,10 @@ def test_legacy_spec_declares_each_host_in_a_reviewed_multi_transport_flow() -> 
 
     assert spec.hosts == ("auth.example.test", "api.example.test")
     with pytest.raises(ValidationError, match="hosts must be unique"):
-        LegacySearchProviderSpec(
+        ClientSearchProviderSpec(
             provider_id="fixture",
             adapter_id="fixture-search",
-            bridge_reason="duplicate host",
+            adapter_reason="duplicate host",
             transport=spec.transport,
             additional_transports=(spec.transport,),
         )
@@ -424,11 +424,11 @@ def test_auth_optional_flag_is_strict_and_cannot_be_string_coerced() -> None:
 
 
 def test_auth_declaration_resolves_multiple_credential_bindings_fail_closed() -> None:
-    spec = LegacySearchProviderSpec(
+    spec = ClientSearchProviderSpec(
         provider_id="fixture",
         adapter_id="fixture-search",
-        bridge_reason="OAuth client credentials require two named runtime values",
-        transport=LegacyTransportDeclaration(
+        adapter_reason="OAuth client credentials require two named runtime values",
+        transport=ClientTransportDeclaration(
             host="api.example.test",
             protocol="json",
             operations=({"method": "GET", "endpoint": "/search"},),
@@ -539,9 +539,9 @@ def test_resolver_projects_only_declared_inputs_and_requires_named_secret() -> N
     spec = RestJsonProviderSpec(
         provider_id="fixture",
         adapter_id="fixture-search",
-        adapter_kind="legacy_bridge",
-        review_status="bridge_exception",
-        bridge_reason="fixture legacy mapping",
+        adapter_kind="client_adapter",
+        review_status="reviewed_adapter",
+        adapter_reason="fixture legacy mapping",
         host="api.example.test",
         auth={"placement": "header", "reference": "FIXTURE_TOKEN", "field_name": "X-Token"},
         configuration_keys=("enabled",),
@@ -563,7 +563,7 @@ async def test_generic_factory_is_injectable_and_preserves_lifecycle_cancel_and_
     async def invoke(client, request, limit):
         return await client.search(request.query, limit=limit)
 
-    provider = LegacySearchProvider(_Client(), LegacySearchSpec("fixture", "paper", invoke, _page))
+    provider = ClientSearchProvider(_Client(), ClientSearchSpec("fixture", "paper", invoke, _page))
     result = await provider.search(
         SearchRequest(query="q", domains=("paper",)), _context(), ExecutionContext.with_timeout(1)
     )
@@ -573,8 +573,8 @@ async def test_generic_factory_is_injectable_and_preserves_lifecycle_cancel_and_
     await provider.close()
     assert (await provider.probe(ExecutionContext.with_timeout(1))).status == "unavailable"
 
-    blocked = LegacySearchProvider(
-        _Client(RuntimeError("token=private")), LegacySearchSpec("fixture", "paper", invoke, _page)
+    blocked = ClientSearchProvider(
+        _Client(RuntimeError("token=private")), ClientSearchSpec("fixture", "paper", invoke, _page)
     )
     with pytest.raises(ProviderError) as caught:
         await blocked.search(
@@ -590,7 +590,7 @@ async def test_generic_factory_is_injectable_and_preserves_lifecycle_cancel_and_
     async def slow(*_args, **_kwargs):
         await wait.wait()
 
-    cancelled = LegacySearchProvider(_Client(), LegacySearchSpec("fixture", "paper", slow, _page))
+    cancelled = ClientSearchProvider(_Client(), ClientSearchSpec("fixture", "paper", slow, _page))
     event = asyncio.Event()
     event.set()
     with pytest.raises(ProviderError) as cancellation:
@@ -625,15 +625,15 @@ async def test_legacy_fetch_factory_preserves_typed_lifecycle_and_redaction() ->
         )
 
     request = FetchTargetRequest(target="https://example.test/item")
-    provider = LegacyFetchProvider(_Client(), LegacyFetchSpec("fixture", invoke, project))
+    provider = ClientFetchProvider(_Client(), ClientFetchSpec("fixture", invoke, project))
     result = await provider.fetch(request, _context(), ExecutionContext.with_timeout(1))
     assert result.status == "success"
     assert (await provider.probe(ExecutionContext.with_timeout(1))).status == "available"
     await provider.close()
     await provider.close()
 
-    failed = LegacyFetchProvider(
-        _Client(RuntimeError("token=private")), LegacyFetchSpec("fixture", invoke, project)
+    failed = ClientFetchProvider(
+        _Client(RuntimeError("token=private")), ClientFetchSpec("fixture", invoke, project)
     )
     with pytest.raises(ProviderError) as caught:
         await failed.fetch(request, _context(), ExecutionContext.with_timeout(1))

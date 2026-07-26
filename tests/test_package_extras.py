@@ -71,12 +71,7 @@ def test_pdf_capture_extras_and_direct_references_are_removed() -> None:
     assert "allow-direct-references" not in PYPROJECT.read_text(encoding="utf-8")
 
 
-def test_browser_leaves_remain_mutually_exclusive() -> None:
-    """No aggregate extra may ask one resolver for both browser stacks."""
+def test_retired_browser_extras_are_absent() -> None:
+    extras = _optional_dependency_block()
 
-    assert _extra_dependencies("crawl4ai") == ["crawl4ai>=0.4.0"]
-    assert _extra_dependencies("scrapling") == ["scrapling[fetchers]>=0.4.7"]
-    for extra in ("server", "tls", "web", "robots", "scraper", "newspaper", "readability"):
-        deps = ",".join(_extra_dependencies(extra))
-        assert "crawl4ai" not in deps
-        assert "scrapling" not in deps
+    assert not re.search(r"^(?:crawl4ai|scrapling) =", extras, flags=re.MULTILINE)

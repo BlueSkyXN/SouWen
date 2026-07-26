@@ -1,13 +1,13 @@
 """Reviewed bridge declaration for ZenRows Fetch."""
 
-from souwen.platform.provider_spec import LegacyFetchProviderSpec, LegacyTransportDeclaration
+from souwen.platform.provider_spec import ClientFetchProviderSpec, ClientTransportDeclaration
 from souwen.platform.provider_spec.models import AuthDeclaration, HttpOperation
 
-ZENROWS_FETCH_PROFILE = LegacyFetchProviderSpec(
+ZENROWS_FETCH_PROFILE = ClientFetchProviderSpec(
     provider_id="zenrows",
     adapter_id="zenrows-fetch",
-    bridge_reason="ZenRows rendering and local HTML extraction remain in the legacy Fetch bridge",
-    transport=LegacyTransportDeclaration(
+    adapter_reason="ZenRows rendering and local HTML extraction remain in the existing Fetch bridge",
+    transport=ClientTransportDeclaration(
         host="api.zenrows.com",
         protocol="html",
         operations=(HttpOperation(method="GET", endpoint="/v1/"),),

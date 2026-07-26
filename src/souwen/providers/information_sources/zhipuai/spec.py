@@ -1,14 +1,14 @@
-"""Reviewed bridge declaration for zhipuai legacy Search."""
+"""Reviewed bridge declaration for zhipuai existing Search."""
 
-from souwen.platform.provider_spec import LegacySearchProviderSpec, LegacyTransportDeclaration
+from souwen.platform.provider_spec import ClientSearchProviderSpec, ClientTransportDeclaration
 from souwen.platform.provider_spec.models import AuthDeclaration, HttpOperation
 
-ZHIPUAI_PROVIDER_SPEC = LegacySearchProviderSpec(
+ZHIPUAI_PROVIDER_SPEC = ClientSearchProviderSpec(
     provider_id="zhipuai",
     adapter_id="zhipuai-search",
     domain="web",
-    bridge_reason="legacy WebSearchResponse normalization and canonical URL identity require a bridge",
-    transport=LegacyTransportDeclaration(
+    adapter_reason="existing WebSearchResponse normalization and canonical URL identity require a bridge",
+    transport=ClientTransportDeclaration(
         host="open.bigmodel.cn",
         protocol="json",
         operations=(HttpOperation(method="POST", endpoint="/api/paas/v4/tools"),),

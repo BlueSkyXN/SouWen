@@ -1,4 +1,4 @@
-"""Provider v2 bridge for HAL's legacy Solr client."""
+"""Provider v2 bridge for HAL's existing Solr client."""
 
 from __future__ import annotations
 import re
@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from typing import Any, Protocol
 from urllib.parse import urlsplit
 
-from souwen.platform.provider_spec import LegacySearchProvider, LegacySearchSpec
+from souwen.platform.provider_spec import ClientSearchProvider, ClientSearchSpec
 from souwen.platform.provider_spi import (
     PageInfo,
     Provenance,
@@ -26,7 +26,7 @@ class HalClientProtocol(Protocol):
     async def search(self, query: str, rows: int = 10) -> Any: ...
 
 
-class HalSearchProvider(LegacySearchProvider):
+class HalSearchProvider(ClientSearchProvider):
     def __init__(self, client: HalClientProtocol, *, enabled: bool = True) -> None:
         super().__init__(client, _SPEC, enabled=enabled)
 
@@ -91,4 +91,4 @@ def _item(paper: Any, rank: int) -> SearchItem:
     )
 
 
-_SPEC = LegacySearchSpec("hal", "paper", _invoke, _project)
+_SPEC = ClientSearchSpec("hal", "paper", _invoke, _project)

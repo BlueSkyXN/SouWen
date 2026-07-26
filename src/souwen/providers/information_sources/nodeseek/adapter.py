@@ -18,7 +18,7 @@ class NodeSeekSearchProvider(CnScraperSearchProvider):
 
 
 def create_nodeseek_client() -> Any:
-    from souwen.web.nodeseek import NodeSeekClient
+    from souwen.providers.runtime_clients.web.nodeseek import NodeSeekClient
 
     return NodeSeekClient()
 

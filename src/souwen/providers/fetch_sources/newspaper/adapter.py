@@ -3,7 +3,7 @@ from __future__ import annotations
 from typing import Any, Protocol
 
 from souwen.platform.provider_spi import FetchResult, FetchTargetRequest, RequestContext
-from souwen.platform.provider_spec import LegacyFetchProvider, LegacyFetchSpec
+from souwen.platform.provider_spec import ClientFetchProvider, ClientFetchSpec
 from souwen.platform.provider_spec.public_fetch import (
     project_public_fetch_receipt,
     public_fetch_target,
@@ -17,7 +17,7 @@ class NewspaperClientProtocol(Protocol):
     async def close(self) -> None: ...
 
 
-class NewspaperFetchProvider(LegacyFetchProvider):
+class NewspaperFetchProvider(ClientFetchProvider):
     def __init__(self, client: NewspaperClientProtocol, *, enabled: bool = True) -> None:
         super().__init__(client, _FETCH_SPEC, enabled=enabled)
 
@@ -32,6 +32,6 @@ def _project(receipt: Any, request: FetchTargetRequest, _context: RequestContext
     return project_public_fetch_receipt(receipt, request, NEWSPAPER_FETCH_PROFILE.provider_id)
 
 
-_FETCH_SPEC = LegacyFetchSpec(NEWSPAPER_FETCH_PROFILE.provider_id, _invoke, _project)
+_FETCH_SPEC = ClientFetchSpec(NEWSPAPER_FETCH_PROFILE.provider_id, _invoke, _project)
 
 __all__ = ["NewspaperClientProtocol", "NewspaperFetchProvider"]

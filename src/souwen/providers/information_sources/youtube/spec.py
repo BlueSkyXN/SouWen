@@ -1,12 +1,12 @@
-from souwen.platform.provider_spec import LegacySearchProviderSpec, LegacyTransportDeclaration
+from souwen.platform.provider_spec import ClientSearchProviderSpec, ClientTransportDeclaration
 from souwen.platform.provider_spec.models import AuthDeclaration, HttpOperation
 
-YOUTUBE_PROVIDER_SPEC = LegacySearchProviderSpec(
+YOUTUBE_PROVIDER_SPEC = ClientSearchProviderSpec(
     provider_id="youtube",
     adapter_id="youtube-search",
     domain="videos",
-    bridge_reason="legacy YouTube search normalization preserves videos-only scope",
-    transport=LegacyTransportDeclaration(
+    adapter_reason="existing YouTube search normalization preserves videos-only scope",
+    transport=ClientTransportDeclaration(
         host="www.googleapis.com",
         protocol="json",
         operations=(HttpOperation(method="GET", endpoint="/youtube/v3/search"),),

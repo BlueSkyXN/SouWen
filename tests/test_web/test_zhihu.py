@@ -1,7 +1,7 @@
 """知乎搜索客户端单元测试
 
 文件用途：
-    覆盖 souwen.web.zhihu.ZhihuClient 的核心行为：
+    覆盖 souwen.providers.runtime_clients.web.zhihu.ZhihuClient 的核心行为：
     - 正常搜索：返回结果数量、字段映射正确
     - answer/question/article 三种 object.type 的字段映射
     - HTML 高亮标签清理：摘要中的 <em> 被去除
@@ -21,7 +21,7 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock, patch
 
-from souwen.web.zhihu import ZhihuClient
+from souwen.providers.runtime_clients.web.zhihu import ZhihuClient
 
 
 # ---------------------------------------------------------------------------

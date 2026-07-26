@@ -18,7 +18,7 @@ from souwen.platform.provider_spi import (
     SearchPage,
     SearchRequest,
 )
-from souwen.platform.provider_spec import LegacySearchProvider, LegacySearchSpec
+from souwen.platform.provider_spec import ClientSearchProvider, ClientSearchSpec
 
 from .spec import PQAI_BRIDGE_SPEC
 
@@ -31,7 +31,7 @@ class PqaiClientProtocol(Protocol):
     async def close(self) -> None: ...
 
 
-class PqaiSearchProvider(LegacySearchProvider):
+class PqaiSearchProvider(ClientSearchProvider):
     capability = "search"
 
     def __init__(self, client: PqaiClientProtocol, *, enabled: bool = True) -> None:
@@ -114,7 +114,7 @@ def _required(value: Any) -> str:
     return result
 
 
-_BRIDGE = LegacySearchSpec(_PROVIDER_ID, "patent", _invoke, _project)
-assert PQAI_BRIDGE_SPEC.adapter_kind == "legacy_bridge"
+_BRIDGE = ClientSearchSpec(_PROVIDER_ID, "patent", _invoke, _project)
+assert PQAI_BRIDGE_SPEC.adapter_kind == "client_adapter"
 
 __all__ = ["PqaiClientProtocol", "PqaiSearchProvider"]

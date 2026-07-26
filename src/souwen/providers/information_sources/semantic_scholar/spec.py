@@ -1,13 +1,13 @@
 """Reviewed bridge declaration for Semantic Scholar paper search."""
 
-from souwen.platform.provider_spec import LegacySearchProviderSpec, LegacyTransportDeclaration
+from souwen.platform.provider_spec import ClientSearchProviderSpec, ClientTransportDeclaration
 from souwen.platform.provider_spec.models import AuthDeclaration, HttpOperation
 
-SEMANTIC_SCHOLAR_PROVIDER_SPEC = LegacySearchProviderSpec(
+SEMANTIC_SCHOLAR_PROVIDER_SPEC = ClientSearchProviderSpec(
     provider_id="semantic_scholar",
     adapter_id="semantic-scholar-search",
-    bridge_reason="paper-id canonicalization is derived from legacy record URLs",
-    transport=LegacyTransportDeclaration(
+    adapter_reason="paper-id canonicalization is derived from existing record URLs",
+    transport=ClientTransportDeclaration(
         host="api.semanticscholar.org",
         base_path="/graph/v1",
         protocol="json",

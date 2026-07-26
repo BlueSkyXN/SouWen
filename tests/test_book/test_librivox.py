@@ -5,10 +5,12 @@ import re
 import pytest
 from pytest_httpx import HTTPXMock
 
-from souwen.book.librivox import LibriVoxClient
-from souwen.core.exceptions import NotFoundError, ParseError, SourceUnavailableError
-from souwen.models import BookResult
-from souwen.search import search_books, search_by_capability
+from souwen.providers.runtime_clients.book.librivox import LibriVoxClient
+from souwen.common_runtime.provider_support.exceptions import (
+    NotFoundError,
+    ParseError,
+    SourceUnavailableError,
+)
 
 _SEARCH_BOOK = {
     "id": "253",
@@ -216,37 +218,3 @@ async def test_detail_missing_malformed_and_5xx_errors(httpx_mock: HTTPXMock) ->
     async with LibriVoxClient() as client:
         with pytest.raises(SourceUnavailableError):
             await client.search("x")
-
-
-async def test_registry_dispatches_explicit_librivox_search(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    async def fake_search(self: LibriVoxClient, query: str, *, per_page: int, page: int = 1):
-        assert (query, per_page, page) == ("audiobook", 2, 1)
-        return type("Response", (), {"query": query, "source": "librivox", "results": []})()
-
-    monkeypatch.setattr(LibriVoxClient, "search", fake_search)
-    responses = await search_books("audiobook", sources=["librivox"], per_page=2)
-
-    assert len(responses) == 1
-    assert responses[0].source == "librivox"
-
-
-async def test_registry_dispatches_librivox_detail_by_numeric_id(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    expected = BookResult(
-        source="librivox",
-        source_record_id="253",
-        title="Detail",
-        source_url="https://librivox.org/pride-and-prejudice/",
-    )
-
-    async def fake_detail(self: LibriVoxClient, audiobook_id: str, *, audio_limit: int = 50):
-        assert (audiobook_id, audio_limit) == ("253", 50)
-        return expected
-
-    monkeypatch.setattr(LibriVoxClient, "get_by_id", fake_detail)
-    results = await search_by_capability("253", "get_detail", sources=["librivox"])
-
-    assert results == [expected]

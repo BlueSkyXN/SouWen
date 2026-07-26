@@ -12,7 +12,7 @@ import httpx
 import pytest
 from tenacity import wait_none
 
-from souwen.book.library_of_congress import LibraryOfCongressClient
+from souwen.providers.runtime_clients.book.library_of_congress import LibraryOfCongressClient
 from souwen.common_runtime.channel_overrides import (
     reviewed_source_max_retries,
     reviewed_source_proxy,
@@ -26,9 +26,9 @@ from souwen.common_runtime.transport import (
     SourceUnavailableError,
     SouWenError,
 )
-from souwen.core.http_client import DEFAULT_USER_AGENT, SouWenHttpClient
-from souwen.core.scraper.base import BaseScraper
-from souwen.research_output.datacite import DataCiteClient
+from souwen.common_runtime.provider_support.http_client import DEFAULT_USER_AGENT, SouWenHttpClient
+from souwen.common_runtime.provider_support.scraper.base import BaseScraper
+from souwen.providers.runtime_clients.research_output.datacite import DataCiteClient
 
 
 def _explicit_transport(**overrides: object) -> HttpTransport:
@@ -86,7 +86,7 @@ def test_explicit_transport_constructs_httpx_client_without_config_resolution() 
 def test_legacy_adapter_preserves_source_resolution_and_header_precedence() -> None:
     config = _config()
     with (
-        patch("souwen.core.http_client.get_config", return_value=config),
+        patch("souwen.common_runtime.provider_support.http_client.get_config", return_value=config),
         patch("souwen.common_runtime.transport.http_client.httpx.AsyncClient") as client_factory,
     ):
         client = SouWenHttpClient(
@@ -121,7 +121,7 @@ def test_legacy_adapter_preserves_source_resolution_and_header_precedence() -> N
 def test_legacy_adapter_can_keep_an_explicit_base_url_while_resolving_transport_options() -> None:
     config = _config()
     with (
-        patch("souwen.core.http_client.get_config", return_value=config),
+        patch("souwen.common_runtime.provider_support.http_client.get_config", return_value=config),
         patch("souwen.common_runtime.transport.http_client.httpx.AsyncClient") as client_factory,
     ):
         SouWenHttpClient(
@@ -139,7 +139,7 @@ def test_legacy_adapter_can_keep_an_explicit_base_url_while_resolving_transport_
 def test_legacy_adapter_preserves_global_defaults_and_truthy_fallback() -> None:
     config = _config()
     with (
-        patch("souwen.core.http_client.get_config", return_value=config),
+        patch("souwen.common_runtime.provider_support.http_client.get_config", return_value=config),
         patch("souwen.common_runtime.transport.http_client.httpx.AsyncClient") as client_factory,
     ):
         client = SouWenHttpClient(timeout=0, max_retries=0)
@@ -158,7 +158,7 @@ def test_legacy_adapter_preserves_global_defaults_and_truthy_fallback() -> None:
 def test_provider_construction_scope_uses_reviewed_proxy_timeout_and_retries() -> None:
     config = _config()
     with (
-        patch("souwen.core.http_client.get_config", return_value=config),
+        patch("souwen.common_runtime.provider_support.http_client.get_config", return_value=config),
         patch("souwen.common_runtime.transport.http_client.httpx.AsyncClient") as client_factory,
         without_source_channel_overrides(
             proxy="http://reviewed-proxy.example:8080",
@@ -181,8 +181,12 @@ def test_provider_construction_scope_uses_reviewed_proxy_timeout_and_retries() -
 def test_scraper_construction_scope_uses_reviewed_proxy_timeout_and_retries() -> None:
     config = _config()
     with (
-        patch("souwen.core.scraper.base.get_config", return_value=config),
-        patch("souwen.core.scraper.base.httpx.AsyncClient") as client_factory,
+        patch(
+            "souwen.common_runtime.provider_support.scraper.base.get_config", return_value=config
+        ),
+        patch(
+            "souwen.common_runtime.provider_support.scraper.base.httpx.AsyncClient"
+        ) as client_factory,
         without_source_channel_overrides(
             proxy="http://reviewed-proxy.example:8080",
             timeout_seconds=7,
@@ -209,8 +213,10 @@ async def test_scraper_zero_retries_still_executes_the_initial_request() -> None
     config = _config()
     response = httpx.Response(200)
     with (
-        patch("souwen.core.scraper.base.get_config", return_value=config),
-        patch("souwen.core.scraper.base.httpx.AsyncClient"),
+        patch(
+            "souwen.common_runtime.provider_support.scraper.base.get_config", return_value=config
+        ),
+        patch("souwen.common_runtime.provider_support.scraper.base.httpx.AsyncClient"),
         without_source_channel_overrides(max_retries=0),
     ):
         scraper = BaseScraper(
@@ -418,11 +424,10 @@ def test_transport_has_no_stream_api_or_domain_dependencies() -> None:
     source = module_path.read_text(encoding="utf-8")
     for forbidden in (
         "souwen.config",
-        "souwen.core",
+        "souwen.common_runtime.provider_support",
         "souwen.delivery",
         "souwen.modules",
         "souwen.providers",
-        "souwen.registry",
         "souwen.server",
         "get_config",
         "source_name",
@@ -434,7 +439,7 @@ def test_transport_has_no_stream_api_or_domain_dependencies() -> None:
 def test_representative_provider_families_use_canonical_execution_core() -> None:
     config = _config()
     with (
-        patch("souwen.core.http_client.get_config", return_value=config),
+        patch("souwen.common_runtime.provider_support.http_client.get_config", return_value=config),
         patch("souwen.common_runtime.transport.http_client.httpx.AsyncClient"),
     ):
         datacite = DataCiteClient()

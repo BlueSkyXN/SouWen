@@ -1,4 +1,4 @@
-"""Provider v2 Search bridge for the legacy two-step PubMed XML client."""
+"""Provider v2 Search bridge for the existing two-step PubMed XML client."""
 
 from __future__ import annotations
 
@@ -17,7 +17,7 @@ from souwen.platform.provider_spi import (
     SearchPage,
     SearchRequest,
 )
-from souwen.platform.provider_spec import LegacySearchProvider, LegacySearchSpec
+from souwen.platform.provider_spec import ClientSearchProvider, ClientSearchSpec
 
 from .spec import PUBMED_BRIDGE_SPEC
 
@@ -29,7 +29,7 @@ class PubMedClientProtocol(Protocol):
     async def close(self) -> None: ...
 
 
-class PubMedSearchProvider(LegacySearchProvider):
+class PubMedSearchProvider(ClientSearchProvider):
     capability = "search"
 
     def __init__(self, client: PubMedClientProtocol, *, enabled: bool = True) -> None:
@@ -42,7 +42,7 @@ async def _invoke(client: Any, request: SearchRequest, limit: int) -> Any:
 
 def _project(response: Any, limit: int, context: RequestContext) -> SearchPage:
     if getattr(response, "source", None) != _PROVIDER_ID:
-        raise ValueError("unexpected legacy response source")
+        raise ValueError("unexpected existing response source")
     results, total = getattr(response, "results", None), getattr(response, "total_results", None)
     if not isinstance(results, Sequence) or isinstance(results, (str, bytes)):
         raise ValueError("invalid PubMed search results")
@@ -54,7 +54,7 @@ def _project(response: Any, limit: int, context: RequestContext) -> SearchPage:
     ):
         raise ValueError("invalid PubMed result total")
     if getattr(response, "page", None) != 1 or getattr(response, "per_page", None) != limit:
-        raise ValueError("legacy PubMed page does not match canonical request")
+        raise ValueError("existing PubMed page does not match canonical request")
     return SearchPage(
         items=tuple(_item(value, index) for index, value in enumerate(results, 1)),
         page=PageInfo(limit=limit, next_cursor=None, total=total),
@@ -65,7 +65,7 @@ def _project(response: Any, limit: int, context: RequestContext) -> SearchPage:
 
 def _item(value: Any, rank: int) -> SearchItem:
     if getattr(value, "source", None) != _PROVIDER_ID:
-        raise ValueError("unexpected legacy PubMed paper source")
+        raise ValueError("unexpected existing PubMed paper source")
     raw = getattr(value, "raw", None)
     identifier = raw.get("pmid") if isinstance(raw, dict) else None
     if not isinstance(identifier, str) or not identifier.isdecimal():
@@ -122,7 +122,7 @@ def _text(value: Any) -> str:
     return result
 
 
-_BRIDGE_SPEC = LegacySearchSpec(_PROVIDER_ID, "paper", _invoke, _project)
-assert PUBMED_BRIDGE_SPEC.adapter_kind == "legacy_bridge"
+_BRIDGE_SPEC = ClientSearchSpec(_PROVIDER_ID, "paper", _invoke, _project)
+assert PUBMED_BRIDGE_SPEC.adapter_kind == "client_adapter"
 
 __all__ = ["PubMedClientProtocol", "PubMedSearchProvider"]

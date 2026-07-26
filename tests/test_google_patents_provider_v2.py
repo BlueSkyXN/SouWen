@@ -4,7 +4,7 @@ from datetime import date
 
 import pytest
 
-from souwen.models import PatentResult, SearchResponse
+from souwen.providers.runtime_clients.models import PatentResult, SearchResponse
 from souwen.platform.provider_spi import (
     ExecutionContext,
     ProviderError,

@@ -2,7 +2,7 @@
 
 > SouWen 配置系统：从零配置到完全自定义
 
-> **架构提示**：所有配置项均集中在 `src/souwen/config/models.py` 的 `SouWenConfig`（Pydantic 模型）。新增数据源时若需要凭据，需要在 `SouWenConfig` 加字段，并在 `registry/sources/` 的 `SourceAdapter` 里通过 `config_field` / `credential_fields` 引用。详见 [adding-a-source.md](./adding-a-source.md)。
+> **架构提示**：所有配置项均集中在 `src/souwen/config/models.py` 的 `SouWenConfig`（Pydantic 模型）。新增 Provider 时，manifest/spec 只声明 secret reference，实际值由 deployment config resolver 注入。详见 [adding-a-source.md](./adding-a-source.md)。
 
 ## 配置优先级
 
@@ -37,7 +37,6 @@ paper:
   semantic_scholar_api_key: your_key
   core_api_key: your_key
   pubmed_api_key: your_key
-  unpaywall_email: your@email.com
   ieee_api_key: your_key
 
 patent:
@@ -131,7 +130,6 @@ llm_search_gateways: {}
 | `semantic_scholar_api_key` | `SOUWEN_SEMANTIC_SCHOLAR_API_KEY` | 可选 | 提高速率限制 |
 | `core_api_key` | `SOUWEN_CORE_API_KEY` | CORE 必需 | 申请：https://core.ac.uk/services/api |
 | `pubmed_api_key` | `SOUWEN_PUBMED_API_KEY` | 可选 | 提高速率限制 |
-| `unpaywall_email` | `SOUWEN_UNPAYWALL_EMAIL` | Unpaywall 必需 | 作为请求标识 |
 | `ieee_api_key` | `SOUWEN_IEEE_API_KEY` | IEEE Xplore 必需 | IEEE Xplore API Key |
 
 > OpenAlex 配置迁移：`sources.openalex.api_key` 现在只表示真正的 OpenAlex API Key。
@@ -248,7 +246,7 @@ Hugging Face Space 或普通在线服务预置。尚未完成导入、SQLite FTS
 | 字段 | 环境变量 | 默认值 | 说明 |
 |------|---------|--------|------|
 | `user_password` | `SOUWEN_USER_PASSWORD` | None | 用户密码，保护搜索和 `/sources` |
-| `admin_password` | `SOUWEN_ADMIN_PASSWORD` | None | 管理密码，保护全部 `/api/v1/admin/*` |
+| `admin_password` | `SOUWEN_ADMIN_PASSWORD` | None | 管理密码，保护 read-only admin endpoints |
 | `guest_enabled` | `SOUWEN_GUEST_ENABLED` | `false` | 是否启用游客访问（无 Token 也可搜索，受限源） |
 | `cors_origins` | `SOUWEN_CORS_ORIGINS` | `[]` | CORS 允许来源列表（逗号分隔），为空时不启用 CORS |
 | `trusted_proxies` | `SOUWEN_TRUSTED_PROXIES` | `[]` | 受信反向代理 IP/CIDR 列表，逗号分隔 |
@@ -320,7 +318,7 @@ VITE_ALLOWED_API_HOSTS=api.example.com,api.example.com:8443 npm run build:local
 
 ### Admin API 默认锁定 (P0-7)
 
-当 `admin_password` **未设置**时，所有 `/api/v1/admin/*` 端点默认返回 `401 Unauthorized`，响应体包含提示信息。推荐的使用方式：
+当 `admin_password` **未设置**时，read-only admin endpoints 默认返回 `401 Unauthorized`，响应体包含提示信息。推荐的使用方式：
 
 | 场景 | 做法 |
 | --- | --- |
@@ -354,7 +352,7 @@ server:
   expose_docs: false
 ```
 
-关闭后这些路径会返回 404，`/health`、`/api/v1/*` 不受影响。
+关闭后这些文档路径会返回 404，运行时 API 不受影响。
 
 ### WARP 代理
 
@@ -387,7 +385,7 @@ server:
 
 环境变量：`SOUWEN_SOURCES='{"duckduckgo":{"proxy":"warp"}}'`（JSON 格式）
 
-自建实例源（如 `searxng` / `whoogle` / `websurfx`）使用 `sources.<name>.base_url` 配置实例地址。数据源字段和运行时可见性规则见 [data-sources.md](./data-sources.md) 与 [api-reference.md](./api-reference.md#数据源频道配置admin)。
+Provider 字段和运行时可见性规则见 [data-sources.md](./data-sources.md) 与 [api-reference.md](./api-reference.md)。
 
 示例：
 
@@ -401,21 +399,15 @@ sources:
     api_key: tvly-xxxx
     params:
       search_depth: advanced
-  scrapling:
-    params:
-      mode: fetcher        # fetcher / dynamic / stealthy
-      content_format: text # text / html
   google_patents:
     enabled: false
 ```
 
-`sources.scrapling.params` 只暴露可由 YAML 表达的 primitive 选项。`cookies`、`blocked_domains`、`page_setup` / `page_action` 等结构化或函数参数不作为配置入口；浏览器模式的 SSRF 请求拦截由 SouWen 内部注入。
-
 ### LLM Search 共享 Gateway
 
 `llm_search_gateways` 为多个 model-bound concrete sources 提供共享 `api_key + base_url`。
-当前 Registry 中的 Ark DeepSeek 和 Doubao sources 都是 `experimental` 且默认关闭；配置 gateway
-不会自动启用它们，source inventory 仍只来自 Registry。
+当前 manifest catalog 中的 Ark DeepSeek 和 Doubao Provider 都默认关闭；配置 gateway
+不会自动启用它们，Provider catalog 仍只来自内置 manifest。
 
 ```yaml
 llm_search_gateways:
@@ -433,48 +425,21 @@ sources:
 可改为启用 `uniapi_ark_annotations_doubao_seed_2_0_lite_260428`，但两个 source 不能同时
 设为 `enabled: true`，否则配置加载会失败。不要把两个 source
 加入默认搜索或通过 `params` 覆盖 `model`、`model_id`、`scheme_id`、`source_id` 或 `gateway_id`。
-这两个 identity 字段集是 immutable；每个 source 只会请求其 Registry 绑定的 exact model。
+这两个 identity 字段集是 immutable；每个 source 只会请求其 manifest/spec 绑定的 exact model。
 
 YAML 中仅对 gateway 的 `api_key`/`base_url` 支持精确 `${VAR}` 引用；缺失的环境
 变量解析为未配置，不会把字面占位符当成凭据。也可使用 JSON 环境变量：
 
 ```text
-SOUWEN_LLM_SEARCH_GATEWAYS={"uniapi":{"api_key":"...","base_url":"https://gateway.example.com/v1"}}
+LLM Search gateway 配置使用结构化环境对象；不要在公开文档或日志中记录 private URL 与 key。
 ```
 
 Doctor/catalog/admin source 诊断只报告缺少的配置路径，不显示 API Key。配置对象的日志/`repr`
 `/api/v1/admin/config` 的配置展示也不会包含 Key 或 private gateway
-base URL。完整 foundation contract 见
+base URL。正式 HFS promotion 必须显式启用一个 LLM Search Provider，并声明具体 gateway 值或
+精确 `${VAR}` 引用；post-deploy capability smoke 会验证引用已在 Space 中解析并真实调用该
+Provider。完整 foundation contract 见
 [LLM Search Foundation SPEC](./internal/llm-search-foundation-spec.md)。
-
-### Enriched Search Synthesis Profiles
-
-`POST /api/v1/search/web/enriched` 的可选 `synthesis` 阶段没有默认 model。部署方必须在
-`llm.synthesis_profiles` 中显式注册 profile，客户端只能传 profile ID，不能提交 protocol、model、
-budget、base URL 或凭据。profile 使用全局 `llm` 的 credentials/base URL，但必须单独固定实际
-protocol、model 和三类预算：`max_tokens`、`max_input_chars`、`max_pages`，以及单次 `timeout`。
-
-```yaml
-llm:
-  enabled: true
-  protocol: openai_responses
-  api_key: ~ # 用私有部署配置或 SOUWEN_LLM JSON 提供；不要提交真实值
-  base_url: https://api.example.com/v1
-  synthesis_profiles:
-    safe_research:
-      protocol: openai_responses
-      model: configured-model-id
-      max_tokens: 800
-      max_input_chars: 12000
-      max_pages: 5
-      timeout: 45
-      temperature: 0.0
-```
-
-未配置、未 allowlist 的 profile 会在任何 source/fetch 或模型请求前以 `422` 拒绝；不会静默回退
-到 `llm.model`。profile 的模型响应必须返回实际 served model，结果中的 generated summary 和
-answer 都会携带该 provenance。页面内容仅作为不可信 reference data；Synthesis 不可发起 web
-search、不可生成新 URL，answer 的 citations 必须是同一响应中已有的 `R1`、`R2` 等 result ID。
 
 ## Docker 专用环境变量
 
@@ -499,4 +464,4 @@ search、不可生成新 URL，answer 的 citations 必须是同一响应中已�
 
 - 添加新数据源（含 `config_field` 配置）：[adding-a-source.md](./adding-a-source.md)
 - WARP 与代理细节：[anti-scraping.md](./anti-scraping.md)
-- 服务端认证 / 管理端口 / 速率限制：[api-reference.md](./api-reference.md#http-apiserver-模式)
+- 服务端认证与管理边界：[api-reference.md](./api-reference.md)

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from souwen.models import FetchResult as LegacyFetchResult
+from souwen.providers.runtime_clients.models import FetchResult as LegacyFetchResult
 from souwen.platform.provider_spi import (
     ExecutionContext,
     FetchTargetRequest,

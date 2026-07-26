@@ -105,10 +105,14 @@ def test_hfs_target_image_runs_supervisor_with_internal_browser_worker():
     dockerfile = Path("cloud/hfs/Dockerfile").read_text(encoding="utf-8")
     entrypoint = Path("cloud/hfs/entrypoint.sh").read_text(encoding="utf-8")
 
-    assert "SOUWEN_V2_ROLLOUT=target" in dockerfile
     assert 'pip install ".[server,tls,web,robots,scraper]" "playwright>=1.40"' in dockerfile
     assert "RUN playwright install chromium" in dockerfile
     assert dockerfile.count("EXPOSE 49265") == 1
     assert "EXPOSE 49266" not in dockerfile
     assert "exec python /app/deploy/process/supervisor.py" in entrypoint
     assert "exec uvicorn" not in entrypoint
+
+
+def test_container_healthchecks_use_canonical_healthz_probe():
+    for dockerfile in ("Dockerfile", "cloud/hfs/Dockerfile", "cloud/modelscope/Dockerfile"):
+        assert "/healthz" in Path(dockerfile).read_text(encoding="utf-8")

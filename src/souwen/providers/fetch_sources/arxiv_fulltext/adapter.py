@@ -1,4 +1,4 @@
-"""Source-specific arXiv full-text bridge over the existing legacy client."""
+"""Source-specific arXiv full-text bridge over the existing existing client."""
 
 from __future__ import annotations
 
@@ -16,7 +16,7 @@ from souwen.platform.provider_spi import (
     Provenance,
     RequestContext,
 )
-from souwen.platform.provider_spec import LegacyFetchProvider, LegacyFetchSpec
+from souwen.platform.provider_spec import ClientFetchProvider, ClientFetchSpec
 
 from .spec import ARXIV_FULLTEXT_FETCH_PROFILE
 
@@ -29,7 +29,7 @@ class ArxivFulltextClientProtocol(Protocol):
     async def close(self) -> None: ...
 
 
-class ArxivFulltextFetchProvider(LegacyFetchProvider):
+class ArxivFulltextFetchProvider(ClientFetchProvider):
     """Fetch one reviewed arXiv target without broadening the source scope."""
 
     capability = "fetch"
@@ -46,7 +46,7 @@ def _project(receipt: Any, request: FetchTargetRequest, context: RequestContext)
     del context
     provider_id = ARXIV_FULLTEXT_FETCH_PROFILE.provider_id
     if getattr(receipt, "source", None) != provider_id:
-        raise ValueError("unexpected legacy arXiv source")
+        raise ValueError("unexpected existing arXiv source")
     if getattr(receipt, "error", None):
         raise ProviderError(ProviderErrorCode.PROVIDER_UNAVAILABLE, provider_id=provider_id)
     content = getattr(receipt, "content", None)
@@ -112,6 +112,6 @@ def _final_url(receipt: Any, paper_id: str) -> str:
     return f"https://arxiv.org/html/{paper_id}"
 
 
-_FETCH_SPEC = LegacyFetchSpec(ARXIV_FULLTEXT_FETCH_PROFILE.provider_id, _invoke, _project)
+_FETCH_SPEC = ClientFetchSpec(ARXIV_FULLTEXT_FETCH_PROFILE.provider_id, _invoke, _project)
 
 __all__ = ["ArxivFulltextClientProtocol", "ArxivFulltextFetchProvider"]

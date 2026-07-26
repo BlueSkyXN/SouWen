@@ -18,7 +18,7 @@ class XiaohongshuSearchProvider(CnScraperSearchProvider):
 
 
 def create_xiaohongshu_client() -> Any:
-    from souwen.web.xiaohongshu import XiaohongshuClient
+    from souwen.providers.runtime_clients.web.xiaohongshu import XiaohongshuClient
 
     return XiaohongshuClient()
 

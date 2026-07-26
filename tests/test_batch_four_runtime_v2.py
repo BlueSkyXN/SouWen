@@ -12,7 +12,7 @@ from souwen.common_runtime.channel_overrides import (
     source_channel_overrides_enabled,
 )
 from souwen.config import SouWenConfig
-from souwen.models import BookResult, ResearchOutputResult, SearchResponse
+from souwen.providers.runtime_clients.models import BookResult, ResearchOutputResult, SearchResponse
 from souwen.platform.provider_spi import (
     ExecutionContext,
     ProviderRef,

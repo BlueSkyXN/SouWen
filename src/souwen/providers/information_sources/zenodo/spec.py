@@ -1,13 +1,13 @@
 """Reviewed bridge declaration for Zenodo publication search."""
 
-from souwen.platform.provider_spec import LegacySearchProviderSpec, LegacyTransportDeclaration
+from souwen.platform.provider_spec import ClientSearchProviderSpec, ClientTransportDeclaration
 from souwen.platform.provider_spec.models import AuthDeclaration, HttpOperation
 
-ZENODO_PROVIDER_SPEC = LegacySearchProviderSpec(
+ZENODO_PROVIDER_SPEC = ClientSearchProviderSpec(
     provider_id="zenodo",
     adapter_id="zenodo-search",
-    bridge_reason="record identity and legacy total normalization require a bridge",
-    transport=LegacyTransportDeclaration(
+    adapter_reason="record identity and existing total normalization require a bridge",
+    transport=ClientTransportDeclaration(
         host="zenodo.org",
         base_path="/api",
         protocol="json",

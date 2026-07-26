@@ -20,9 +20,9 @@ from souwen.common_runtime.security import (
     validate_fetch_url,
 )
 from souwen.common_runtime.security import fetch_target as canonical_fetch_target
-from souwen.core.scraper import base as scraper_base
-from souwen.web import builtin as builtin_module
-from souwen.web import fetch as legacy_fetch
+from souwen.common_runtime.provider_support.scraper import base as scraper_base
+from souwen.providers.runtime_clients.web import builtin as builtin_module
+from souwen.providers.runtime_clients.web import fetch as fetch_helpers
 
 
 def _addrinfo(address: str, port: int = 443) -> tuple[Any, ...]:
@@ -30,10 +30,10 @@ def _addrinfo(address: str, port: int = 443) -> tuple[Any, ...]:
     return (family, socket.SOCK_STREAM, socket.IPPROTO_TCP, "", (address, port))
 
 
-def test_legacy_fetch_path_reexports_canonical_ssrf_interface() -> None:
-    assert legacy_fetch.ResolvedFetchTarget is ResolvedFetchTarget
-    assert legacy_fetch.resolve_fetch_target is resolve_fetch_target
-    assert legacy_fetch.validate_fetch_url is validate_fetch_url
+def test_provider_fetch_helpers_reexport_canonical_ssrf_interface() -> None:
+    assert fetch_helpers.ResolvedFetchTarget is ResolvedFetchTarget
+    assert fetch_helpers.resolve_fetch_target is resolve_fetch_target
+    assert fetch_helpers.validate_fetch_url is validate_fetch_url
 
 
 def test_base_scraper_uses_canonical_ssrf_interface() -> None:
@@ -351,14 +351,14 @@ def test_resolver_still_fails_closed_on_mixed_dns_answers(monkeypatch) -> None:
     )
 
 
-def test_legacy_validate_monkeypatch_still_controls_fetch_helpers(monkeypatch) -> None:
+def test_validate_monkeypatch_still_controls_fetch_helpers(monkeypatch) -> None:
     monkeypatch.setattr(
-        legacy_fetch,
+        fetch_helpers,
         "validate_fetch_url",
         lambda _url: (False, "patched legacy guard"),
     )
 
-    result = legacy_fetch.ssrf_blocked_fetch_result("https://example.com", "fixture")
+    result = fetch_helpers.ssrf_blocked_fetch_result("https://example.com", "fixture")
 
     assert result is not None
     assert result.error == "SSRF 校验失败: patched legacy guard"

@@ -18,7 +18,7 @@ class ZhihuSearchProvider(CnScraperSearchProvider):
 
 
 def create_zhihu_client() -> Any:
-    from souwen.web.zhihu import ZhihuClient
+    from souwen.providers.runtime_clients.web.zhihu import ZhihuClient
 
     return ZhihuClient(follow_redirects=False)
 

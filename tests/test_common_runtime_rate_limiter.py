@@ -17,9 +17,9 @@ from souwen.common_runtime.resilience import (
     SlidingWindowLimiter,
     TokenBucketLimiter,
 )
-from souwen.core import rate_limiter as legacy_module
-from souwen.paper import openalex
-from souwen.patent import the_lens
+from souwen.common_runtime.provider_support import rate_limiter as legacy_module
+from souwen.providers.runtime_clients.paper import openalex
+from souwen.providers.runtime_clients.patent import the_lens
 
 
 def test_legacy_rate_limiters_reexport_canonical_objects() -> None:

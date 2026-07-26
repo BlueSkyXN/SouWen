@@ -1,33 +1,10 @@
-"""SouWen - 面向 AI Agent 的学术论文 + 专利 + 网页信息统一获取工具库"""
+"""SouWen target SDK package."""
 
 __version__ = "2.0.0rc2"
 
-from souwen.search import (
-    search,
-    search_books,
-    search_papers,
-    search_patents,
-    search_research_outputs,
-)
-from souwen.citations import get_citation_count, get_incoming_citations, get_references
-from souwen.wikisource import get_wikisource_page_detail
-from souwen.web.search import web_search
-from souwen.config import get_config, reload_config
 from souwen.delivery.client_sdk import AsyncSouWenClient, SouWenClient
 
 __all__ = [
-    "search",
-    "search_papers",
-    "search_books",
-    "search_research_outputs",
-    "search_patents",
-    "get_citation_count",
-    "get_incoming_citations",
-    "get_references",
-    "get_wikisource_page_detail",
-    "web_search",
-    "get_config",
-    "reload_config",
     "SouWenClient",
     "AsyncSouWenClient",
     "__version__",

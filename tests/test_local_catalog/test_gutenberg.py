@@ -7,8 +7,8 @@ from email.message import Message
 
 import pytest
 
-from souwen.local_catalog import LocalCatalog
-from souwen.local_catalog.gutenberg import (
+from souwen.providers.runtime_clients.local_catalog import LocalCatalog
+from souwen.providers.runtime_clients.local_catalog.gutenberg import (
     GutenbergLocalCatalogClient,
     download_official_gutenberg_catalog,
     import_gutenberg_input,
@@ -120,7 +120,8 @@ def test_download_rejects_redirect_official_host_escape_and_removes_partial_file
             return b""
 
     monkeypatch.setattr(
-        "souwen.local_catalog.gutenberg.urlopen", lambda *_args, **_kwargs: RedirectedResponse()
+        "souwen.providers.runtime_clients.local_catalog.gutenberg.urlopen",
+        lambda *_args, **_kwargs: RedirectedResponse(),
     )
     destination = tmp_path / "pg11.rdf"
     with pytest.raises(Exception, match="left the official host"):

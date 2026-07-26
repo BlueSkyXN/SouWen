@@ -15,13 +15,13 @@ import defusedxml.ElementTree as ET
 import pytest
 from bs4 import BeautifulSoup
 
-from souwen.paper.doaj import DoajClient
-from souwen.paper.europepmc import EuropePmcClient
-from souwen.paper.hal import HalClient
-from souwen.paper.iacr import IacrClient
-from souwen.paper.openaire import OpenAireClient
-from souwen.paper.pmc import PmcClient
-from souwen.paper.zenodo import ZenodoClient
+from souwen.providers.runtime_clients.paper.doaj import DoajClient
+from souwen.providers.runtime_clients.paper.europepmc import EuropePmcClient
+from souwen.providers.runtime_clients.paper.hal import HalClient
+from souwen.providers.runtime_clients.paper.iacr import IacrClient
+from souwen.providers.runtime_clients.paper.openaire import OpenAireClient
+from souwen.providers.runtime_clients.paper.pmc import PmcClient
+from souwen.providers.runtime_clients.paper.zenodo import ZenodoClient
 
 
 # =============================================================================

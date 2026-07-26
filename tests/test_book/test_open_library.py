@@ -5,9 +5,8 @@ import re
 import pytest
 from pytest_httpx import HTTPXMock
 
-from souwen.book.open_library import OpenLibraryClient
-from souwen.core.exceptions import SourceUnavailableError
-from souwen.search import search_books
+from souwen.providers.runtime_clients.book.open_library import OpenLibraryClient
+from souwen.common_runtime.provider_support.exceptions import SourceUnavailableError
 
 
 _SEARCH_PAYLOAD = {
@@ -126,27 +125,3 @@ async def test_search_maps_upstream_5xx(httpx_mock: HTTPXMock):
     async with OpenLibraryClient() as client:
         with pytest.raises(SourceUnavailableError):
             await client.search("book")
-
-
-async def test_search_books_dispatches_explicit_open_library_source(
-    monkeypatch: pytest.MonkeyPatch,
-):
-    async def fake_search(self, query: str, *, per_page: int, page: int = 1):
-        assert (query, per_page, page) == ("book", 2, 1)
-        return type(
-            "Response",
-            (),
-            {
-                "query": query,
-                "source": "open_library",
-                "total_results": 0,
-                "page": 1,
-                "per_page": per_page,
-                "results": [],
-            },
-        )()
-
-    monkeypatch.setattr(OpenLibraryClient, "search", fake_search)
-    responses = await search_books("book", sources=["open_library"], per_page=2)
-    assert len(responses) == 1
-    assert responses[0].source == "open_library"

@@ -30,9 +30,9 @@ EXPECTED_OPERATIONS = {
     ),
     "listProviders": ("GET", "/api/v1/providers", None, "ProviderCatalog", (200,)),
     "search": ("POST", "/api/v1/search", "SearchRequest", "SearchPage", (200,)),
-    "healthLegacyAlias": ("GET", "/health", None, "ProbeResponse", (200,)),
+    "healthAlias": ("GET", "/health", None, "ProbeResponse", (200,)),
     "healthz": ("GET", "/healthz", None, "ProbeResponse", (200,)),
-    "readinessLegacyAlias": ("GET", "/readiness", None, "ProbeResponse", (200, 503)),
+    "readinessAlias": ("GET", "/readiness", None, "ProbeResponse", (200, 503)),
     "readyz": ("GET", "/readyz", None, "ProbeResponse", (200, 503)),
 }
 HTTP_METHODS = {"delete", "get", "head", "options", "patch", "post", "put", "trace"}

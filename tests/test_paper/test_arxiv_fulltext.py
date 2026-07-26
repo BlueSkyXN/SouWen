@@ -1,6 +1,6 @@
 """arXiv 全文获取客户端单元测试（pytest-httpx mock）。
 
-覆盖 ``souwen.paper.arxiv_fulltext`` 中 ArxivFulltextClient 的 HTML 提取和
+覆盖 ``souwen.providers.runtime_clients.paper.arxiv_fulltext`` 中 ArxivFulltextClient 的 HTML 提取和
 错误处理逻辑。无真实网络调用。
 
 测试清单：
@@ -17,7 +17,7 @@ import re
 
 from pytest_httpx import HTTPXMock
 
-from souwen.paper.arxiv_fulltext import ArxivFulltextClient
+from souwen.providers.runtime_clients.paper.arxiv_fulltext import ArxivFulltextClient
 
 
 HTML_PAGE = """\

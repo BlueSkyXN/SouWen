@@ -18,8 +18,6 @@ paper:
   core_api_key: ~
   # PubMed / NCBI API Key
   pubmed_api_key: ~
-  # Unpaywall —— 免费，填写邮箱即可
-  unpaywall_email: ~
   # IEEE Xplore API Key（必需）
   ieee_api_key: ~
 
@@ -114,7 +112,6 @@ web:
   #   zhihu        — 知乎问答搜索（爬虫）
   #   weibo        — 微博搜索（爬虫）
   #   huggingface  — HuggingFace Papers 论文搜索（PR #15）
-  #   site_crawler — fetch 多页 BFS 站点爬虫（PR #14，零配置）
   #   deepwiki     — fetch deepwiki.com GitHub 仓库文档（PR #14，零配置）
 
 # ===== 通用设置 =====
@@ -225,7 +222,7 @@ warp:
 
 # ===== LLM Search 共享 Gateway =====
 # 多个 concrete source 共享一份 gateway 配置；API Key 与私有 URL 不应写入公开产物。
-# 也可使用 SOUWEN_LLM_SEARCH_GATEWAYS JSON 对象；private URL 不会进入 catalog。
+# 可通过对应的 LLM Search gateway 环境配置注入；private URL 不会进入 catalog。
 llm_search_gateways:
   uniapi:
     api_key: "${UNIAPI_API_KEY}"
@@ -259,12 +256,6 @@ llm_search_gateways:
 #     api_key: tvly-xxxx      # 覆盖 web.tavily_api_key
 #     params:
 #       search_depth: advanced
-#   scrapling:
-#     params:
-#       mode: fetcher         # fetcher|dynamic|stealthy；浏览器模式需安装 souwen[scrapling] 后运行 scrapling install
-#       content_format: text  # text|html
-#       # params 仅支持字符串/数字/布尔值
-#       # cookies/page_setup/blocked_domains 等结构化或函数参数不通过 YAML 暴露
 #   google_patents:
 #     enabled: false           # 禁用 Google Patents
 #   openalex:
@@ -275,17 +266,3 @@ sources:
     enabled: false
   uniapi_ark_annotations_doubao_seed_2_0_lite_260428:
     enabled: false
-
-# ─── Enriched Search synthesis 配置 ─────────────────────────────
-llm:
-  enabled: false
-  # 部署方显式允许的 enriched synthesis profile；请求只能传 profile，不能传 model。
-  # synthesis_profiles:
-  #   safe_research:
-  #     protocol: openai_responses
-  #     model: configured-model-id
-  #     max_tokens: 800
-  #     max_input_chars: 12000
-  #     max_pages: 5
-  #     timeout: 45
-  #     temperature: 0.0

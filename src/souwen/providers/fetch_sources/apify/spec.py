@@ -1,13 +1,13 @@
 """Reviewed bridge declaration for the Apify Fetch client."""
 
-from souwen.platform.provider_spec import LegacyFetchProviderSpec, LegacyTransportDeclaration
+from souwen.platform.provider_spec import ClientFetchProviderSpec, ClientTransportDeclaration
 from souwen.platform.provider_spec.models import AuthDeclaration, HttpOperation
 
-APIFY_FETCH_PROFILE = LegacyFetchProviderSpec(
+APIFY_FETCH_PROFILE = ClientFetchProviderSpec(
     provider_id="apify",
     adapter_id="apify-fetch",
-    bridge_reason="Apify actor input and receipt parsing remain in the legacy Fetch bridge",
-    transport=LegacyTransportDeclaration(
+    adapter_reason="Apify actor input and receipt parsing remain in the existing Fetch bridge",
+    transport=ClientTransportDeclaration(
         host="api.apify.com",
         protocol="json",
         operations=(

@@ -1,4 +1,4 @@
-"""Provider v2 bridge preserving the legacy Google Patents scraper behavior."""
+"""Provider v2 bridge preserving the existing Google Patents scraper behavior."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from souwen.platform.provider_spi import (
     SearchPage,
     SearchRequest,
 )
-from souwen.platform.provider_spec import LegacySearchProvider, LegacySearchSpec
+from souwen.platform.provider_spec import ClientSearchProvider, ClientSearchSpec
 
 from .spec import GOOGLE_PATENTS_BRIDGE_SPEC
 
@@ -31,8 +31,8 @@ class GooglePatentsClientProtocol(Protocol):
     async def close(self) -> None: ...
 
 
-class GooglePatentsSearchProvider(LegacySearchProvider):
-    """Search bridge; XHR/HTML/browser fallback stays inside the legacy client."""
+class GooglePatentsSearchProvider(ClientSearchProvider):
+    """Search bridge; XHR/HTML/browser fallback stays inside the existing client."""
 
     capability = "search"
 
@@ -46,19 +46,19 @@ async def _invoke(client: Any, request: SearchRequest, limit: int) -> Any:
 
 def _project(response: Any, limit: int, context: RequestContext) -> SearchPage:
     if getattr(response, "source", None) != _PROVIDER_ID:
-        raise ValueError("unexpected legacy response source")
+        raise ValueError("unexpected existing response source")
     results, total = getattr(response, "results", None), getattr(response, "total_results", None)
     if not isinstance(results, Sequence) or isinstance(results, (str, bytes)):
-        raise ValueError("invalid legacy search results")
+        raise ValueError("invalid existing search results")
     if (
         not isinstance(total, int)
         or isinstance(total, bool)
         or total < len(results)
         or len(results) > limit
     ):
-        raise ValueError("invalid legacy result total")
+        raise ValueError("invalid existing result total")
     if getattr(response, "page", None) != 1 or getattr(response, "per_page", None) != limit:
-        raise ValueError("legacy Google Patents page does not match canonical request")
+        raise ValueError("existing Google Patents page does not match canonical request")
     return SearchPage(
         items=tuple(_item(value, index) for index, value in enumerate(results, 1)),
         page=PageInfo(limit=limit, next_cursor=None, total=total),
@@ -69,7 +69,7 @@ def _project(response: Any, limit: int, context: RequestContext) -> SearchPage:
 
 def _item(value: Any, rank: int) -> SearchItem:
     if getattr(value, "source", None) != _PROVIDER_ID:
-        raise ValueError("unexpected legacy patent source")
+        raise ValueError("unexpected existing patent source")
     identifier = _text(getattr(value, "patent_id", None)).upper()
     if _PATENT_ID.fullmatch(identifier) is None:
         raise ValueError("invalid Google patent identifier")
@@ -119,7 +119,7 @@ def _text(value: Any) -> str:
     return result
 
 
-_BRIDGE_SPEC = LegacySearchSpec(_PROVIDER_ID, "patent", _invoke, _project)
-assert GOOGLE_PATENTS_BRIDGE_SPEC.adapter_kind == "legacy_bridge"
+_BRIDGE_SPEC = ClientSearchSpec(_PROVIDER_ID, "patent", _invoke, _project)
+assert GOOGLE_PATENTS_BRIDGE_SPEC.adapter_kind == "client_adapter"
 
 __all__ = ["GooglePatentsClientProtocol", "GooglePatentsSearchProvider"]

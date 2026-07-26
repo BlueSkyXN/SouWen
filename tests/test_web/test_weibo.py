@@ -1,7 +1,7 @@
 """微博搜索客户端单元测试
 
 文件用途：
-    覆盖 souwen.web.weibo.WeiboClient 的核心行为：
+    覆盖 souwen.providers.runtime_clients.web.weibo.WeiboClient 的核心行为：
     - 正常搜索：返回结果数量、字段映射正确
     - 空结果处理：data.cards 为空时安全返回
     - 跳过非微博卡片：card_type != 9 的卡片被忽略
@@ -23,7 +23,7 @@ from __future__ import annotations
 import asyncio
 from unittest.mock import AsyncMock, patch
 
-from souwen.web.weibo import WeiboClient
+from souwen.providers.runtime_clients.web.weibo import WeiboClient
 
 
 # ---------------------------------------------------------------------------

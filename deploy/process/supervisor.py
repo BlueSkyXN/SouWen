@@ -18,7 +18,6 @@ from typing import Protocol
 
 from souwen import __version__
 from souwen.common_runtime.observability import get_source_sha
-from souwen.delivery.api.rollout import RolloutMode, resolve_rollout_mode
 from souwen.worker.browser_fetch.protocol import (
     BROWSER_WORKER_CONTRACT_MAJOR,
     BROWSER_WORKER_DEFAULT_PORT,
@@ -91,7 +90,6 @@ def _validated_sha(value: str | None, name: str, *, required: bool) -> str | Non
 class DeploymentSettings:
     """Validated non-secret process and provenance settings."""
 
-    rollout_mode: RolloutMode
     api_host: str
     api_port: int
     worker_host: str
@@ -104,13 +102,8 @@ class DeploymentSettings:
     worker_restart_backoff: float
     termination_timeout: float
 
-    @property
-    def worker_required(self) -> bool:
-        return self.rollout_mode is RolloutMode.TARGET
-
     @classmethod
     def from_env(cls) -> "DeploymentSettings":
-        rollout_mode = resolve_rollout_mode()
         api_host = os.environ.get("HOST", "0.0.0.0").strip()
         if api_host not in {"0.0.0.0", "127.0.0.1"}:
             raise ValueError("HOST must be exactly 0.0.0.0 or 127.0.0.1")
@@ -130,7 +123,7 @@ class DeploymentSettings:
         source_sha = _validated_sha(
             os.environ.get("SOUWEN_SOURCE_SHA") or get_source_sha(),
             "SOUWEN_SOURCE_SHA",
-            required=rollout_mode is RolloutMode.TARGET,
+            required=True,
         )
         wrapper_sha = _validated_sha(
             os.environ.get("SOUWEN_WRAPPER_SHA"),
@@ -138,7 +131,7 @@ class DeploymentSettings:
             required=False,
         )
         config_revision = os.environ.get("SOUWEN_CONFIG_REVISION", "").strip() or None
-        if rollout_mode is RolloutMode.TARGET and config_revision is None:
+        if config_revision is None:
             if source_sha is None:  # Defensive; target source SHA is already required above.
                 raise ValueError("target rollout requires an immutable config revision")
             config_revision = f"source-{source_sha}"
@@ -146,7 +139,6 @@ class DeploymentSettings:
             raise ValueError("SOUWEN_CONFIG_REVISION must contain 1 to 128 characters")
 
         return cls(
-            rollout_mode=rollout_mode,
             api_host=api_host,
             api_port=api_port,
             worker_host=worker_host,
@@ -236,7 +228,6 @@ class DeploymentSupervisor:
 
     def _child_env(self) -> dict[str, str]:
         env = dict(os.environ)
-        env["SOUWEN_V2_ROLLOUT"] = self.settings.rollout_mode.value
         env["HOST"] = self.settings.api_host
         env["PORT"] = str(self.settings.api_port)
         env["SOUWEN_BROWSER_WORKER_HOST"] = self.settings.worker_host
@@ -380,8 +371,7 @@ class DeploymentSupervisor:
     def run(self) -> int:
         self._install_signal_handlers()
         try:
-            if self.settings.worker_required:
-                self._worker = self._spawn_worker()
+            self._worker = self._spawn_worker()
             self._api = self._start_api()
             restarts = 0
             while not self._stop.is_set():

@@ -6,8 +6,8 @@ import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 import httpx
 
-from souwen.models import WebSearchResponse
-from souwen.web.linuxdo import LinuxDoClient, _clean_html
+from souwen.providers.runtime_clients.models import WebSearchResponse
+from souwen.providers.runtime_clients.web.linuxdo import LinuxDoClient, _clean_html
 
 
 class TestCleanHtml:

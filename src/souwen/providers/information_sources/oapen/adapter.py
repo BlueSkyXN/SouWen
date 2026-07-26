@@ -1,4 +1,4 @@
-"""Search-only Provider v2 bridge for the legacy OAPEN client."""
+"""Search-only Provider v2 bridge for the existing OAPEN client."""
 
 from __future__ import annotations
 from typing import Any, Protocol

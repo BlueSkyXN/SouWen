@@ -5,9 +5,9 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from souwen.web.searxng import SearXNGClient
-from souwen.web.websurfx import WebsurfxClient
-from souwen.web.whoogle import WhoogleClient
+from souwen.providers.runtime_clients.web.searxng import SearXNGClient
+from souwen.providers.runtime_clients.web.websurfx import WebsurfxClient
+from souwen.providers.runtime_clients.web.whoogle import WhoogleClient
 
 
 async def _install_transport(client, handler) -> None:

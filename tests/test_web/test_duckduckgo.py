@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 
-from souwen.models import WebSearchResponse
-from souwen.web.duckduckgo import DuckDuckGoClient
+from souwen.providers.runtime_clients.models import WebSearchResponse
+from souwen.providers.runtime_clients.web.duckduckgo import DuckDuckGoClient
 
 
 # 模拟 DDG HTML 响应

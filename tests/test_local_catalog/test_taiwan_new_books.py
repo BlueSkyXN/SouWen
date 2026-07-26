@@ -3,8 +3,8 @@ from __future__ import annotations
 import asyncio
 from io import BytesIO
 
-from souwen.local_catalog import LocalCatalog
-from souwen.local_catalog.taiwan_new_books import (
+from souwen.providers.runtime_clients.local_catalog import LocalCatalog
+from souwen.providers.runtime_clients.local_catalog.taiwan_new_books import (
     SOURCE,
     TaiwanNewBooksLocalCatalogClient,
     import_taiwan_new_books_input,

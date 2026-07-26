@@ -223,6 +223,11 @@ def _rule_for(edge: ImportEdge) -> str | None:
     importer = edge.importer
     imported = edge.imported
     if imported == "<dynamic>":
+        if importer in {
+            "souwen.providers.catalog",
+            "souwen.providers.runtime_clients.web",
+        }:
+            return None
         return DYNAMIC_RULE_ID
     if _is_module(importer, "souwen.modules"):
         if _is_module(imported, "souwen.providers") or (
@@ -234,7 +239,6 @@ def _rule_for(edge: ImportEdge) -> str | None:
             _is_module(imported, "fastapi")
             or _is_module(imported, "panel")
             or _is_module(imported, "web")
-            or _is_module(imported, "souwen.web")
             or _is_module(imported, "souwen.server.warp")
             or _is_module(imported, "souwen.server.warp_installer")
             or _is_module(imported, "souwen.deploy.process")
@@ -243,6 +247,12 @@ def _rule_for(edge: ImportEdge) -> str | None:
     if _is_module(importer, "souwen.providers"):
         if _is_module(imported, "souwen.delivery"):
             return "DEP-002"
+        if _is_module(imported, "souwen.providers.runtime_clients"):
+            return None
+        if _is_module(importer, "souwen.providers.runtime_clients") and _is_module(
+            imported, "souwen.providers.runtime_clients"
+        ):
+            return None
         if _is_module(imported, "souwen.providers") and _provider_identity(
             importer
         ) != _provider_identity(imported):
@@ -252,6 +262,11 @@ def _rule_for(edge: ImportEdge) -> str | None:
         and _is_module(imported, "souwen")
         and not _is_module(imported, "souwen.common_runtime")
     ):
+        if _is_module(importer, "souwen.common_runtime.provider_support") and imported in {
+            "souwen.config",
+            "souwen.__version__",
+        }:
+            return None
         return "DEP-004"
     if _is_module(importer, "souwen.delivery.api") and _is_module(imported, "souwen.providers"):
         return "DEP-006"

@@ -1,11 +1,11 @@
-"""Provider v2 bridge for DBLP's legacy client."""
+"""Provider v2 bridge for DBLP's existing client."""
 
 from __future__ import annotations
 import re
 from collections.abc import Sequence
 from typing import Any, Protocol
 
-from souwen.platform.provider_spec import LegacySearchProvider, LegacySearchSpec
+from souwen.platform.provider_spec import ClientSearchProvider, ClientSearchSpec
 from souwen.platform.provider_spi import (
     PageInfo,
     Provenance,
@@ -25,7 +25,7 @@ class DblpClientProtocol(Protocol):
     async def search(self, query: str, hits: int = 10, first: int = 0) -> Any: ...
 
 
-class DblpSearchProvider(LegacySearchProvider):
+class DblpSearchProvider(ClientSearchProvider):
     def __init__(self, client: DblpClientProtocol, *, enabled: bool = True) -> None:
         super().__init__(client, _SPEC, enabled=enabled)
 
@@ -83,4 +83,4 @@ def _item(paper: Any, rank: int) -> SearchItem:
     )
 
 
-_SPEC = LegacySearchSpec("dblp", "paper", _invoke, _project)
+_SPEC = ClientSearchSpec("dblp", "paper", _invoke, _project)

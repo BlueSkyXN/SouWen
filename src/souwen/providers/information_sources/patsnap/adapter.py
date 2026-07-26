@@ -18,7 +18,7 @@ from souwen.platform.provider_spi import (
     SearchPage,
     SearchRequest,
 )
-from souwen.platform.provider_spec import LegacySearchProvider, LegacySearchSpec
+from souwen.platform.provider_spec import ClientSearchProvider, ClientSearchSpec
 
 from .spec import PATSNAP_BRIDGE_SPEC
 
@@ -31,7 +31,7 @@ class PatSnapClientProtocol(Protocol):
     async def close(self) -> None: ...
 
 
-class PatSnapSearchProvider(LegacySearchProvider):
+class PatSnapSearchProvider(ClientSearchProvider):
     capability = "search"
 
     def __init__(self, client: PatSnapClientProtocol, *, enabled: bool = True) -> None:
@@ -129,7 +129,7 @@ def _required(value: Any) -> str:
     return result
 
 
-_BRIDGE = LegacySearchSpec(_PROVIDER_ID, "patent", _invoke, _project)
-assert PATSNAP_BRIDGE_SPEC.adapter_kind == "legacy_bridge"
+_BRIDGE = ClientSearchSpec(_PROVIDER_ID, "patent", _invoke, _project)
+assert PATSNAP_BRIDGE_SPEC.adapter_kind == "client_adapter"
 
 __all__ = ["PatSnapClientProtocol", "PatSnapSearchProvider"]

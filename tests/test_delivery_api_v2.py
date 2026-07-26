@@ -1,4 +1,4 @@
-"""Deterministic target Delivery API, auth, rollout, and composition tests."""
+"""Deterministic target Delivery API, auth, and composition tests."""
 
 from __future__ import annotations
 
@@ -18,11 +18,9 @@ from souwen.config import SouWenConfig
 from souwen.delivery.api import (
     ProviderCatalogItem,
     ReadinessSnapshot,
-    RolloutMode,
     RuntimeMetadata,
     TargetDeliveryServices,
     create_target_delivery_app,
-    resolve_rollout_mode,
 )
 from souwen.modules.fetch.api import FetchBatch, FetchModuleService
 from souwen.modules.llm_search.api import LLMSearchResult
@@ -124,7 +122,6 @@ def _app(
         RuntimeMetadata(
             version="2.0.0rc2",
             source_sha="a" * 40,
-            rollout_mode=RolloutMode.TARGET,
             config_revision="config-r1",
         ),
         require_user=require_user,
@@ -374,7 +371,6 @@ def test_not_ready_probe_is_503_and_health_stays_live() -> None:
         RuntimeMetadata(
             version="2.0.0rc2",
             source_sha="a" * 40,
-            rollout_mode=RolloutMode.TARGET,
         ),
         require_user=lambda: None,
         rate_limit=lambda: None,
@@ -551,7 +547,6 @@ async def test_runtime_close_attempts_browser_after_provider_close_failure() -> 
         metadata=RuntimeMetadata(
             version="2.0.0rc2",
             source_sha="a" * 40,
-            rollout_mode=RolloutMode.TARGET,
         ),
         manager=_Manager(),
         browser_client=worker,
@@ -575,7 +570,6 @@ def test_standalone_app_closes_its_injected_runtime() -> None:
         RuntimeMetadata(
             version="2.0.0rc2",
             source_sha="a" * 40,
-            rollout_mode=RolloutMode.TARGET,
         ),
         require_user=lambda: None,
         rate_limit=lambda: None,
@@ -588,12 +582,7 @@ def test_standalone_app_closes_its_injected_runtime() -> None:
     assert closed is True
 
 
-def test_rollout_mode_is_strict_and_target_host_publishes_canonical_openapi(tmp_path) -> None:
-    assert resolve_rollout_mode("legacy") is RolloutMode.LEGACY
-    assert resolve_rollout_mode(" target ") is RolloutMode.TARGET
-    with pytest.raises(ValueError):
-        resolve_rollout_mode("canary")
-
+def test_target_host_publishes_canonical_openapi(tmp_path) -> None:
     repo_src = str(Path(__file__).resolve().parents[1] / "src")
     script = """
 import json
@@ -621,6 +610,11 @@ fetch_matches = [
     and 'POST' in getattr(route, 'methods', set())
 ]
 schema = app.openapi()
+routes = {
+    (path, tuple(sorted(getattr(route, 'methods', ()))))
+    for path, route in iter_routes(app.routes)
+    if path is not None
+}
 print(json.dumps({
     'runtime_fetch_response_model': fetch_matches[0].response_model.__name__,
     'openapi_paths': sorted(schema['paths']),
@@ -630,6 +624,13 @@ print(json.dumps({
         'content'
     ]['application/json']['schema']['$ref'],
     'security_schemes': schema['components']['securitySchemes'],
+    'retired_routes': sorted(
+        path for path, _methods in routes
+        if path in {
+            '/api/v1/search/paper', '/api/v1/doctor',
+            '/api/v1/admin/warp/status', '/api/v1/admin/proxy',
+        }
+    ),
 }, sort_keys=True))
 """
     env = {
@@ -637,7 +638,6 @@ print(json.dumps({
         "HOME": str(tmp_path),
         "USERPROFILE": str(tmp_path),
         "SOUWEN_SOURCE_SHA": "a" * 40,
-        "SOUWEN_V2_ROLLOUT": "target",
         "PYTHONPATH": os.pathsep.join(
             path for path in (repo_src, os.environ.get("PYTHONPATH")) if path
         ),
@@ -666,6 +666,7 @@ print(json.dumps({
     assert payload["fetch_operation_id"] == "fetch"
     assert payload["fetch_request_ref"] == "#/components/schemas/FetchRequest"
     assert payload["security_schemes"] == {"UserToken": {"scheme": "bearer", "type": "http"}}
+    assert payload["retired_routes"] == []
 
 
 def test_target_host_replaces_non_ascii_request_id(tmp_path) -> None:
@@ -721,7 +722,6 @@ print('ok')
         **os.environ,
         "HOME": str(tmp_path),
         "USERPROFILE": str(tmp_path),
-        "SOUWEN_V2_ROLLOUT": "target",
     }
     completed = subprocess.run(
         [sys.executable, "-c", script],

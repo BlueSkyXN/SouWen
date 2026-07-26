@@ -208,149 +208,6 @@ jobs:
       - name: 运行服务端测试
         run: pytest tests/test_server -v --tb=short
 
-  scrapling-functional:
-    name: Scrapling 云端功能测试
-    needs: [lane, lint]
-    if: needs.lane.outputs.full == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    concurrency:
-      group: scrapling-functional-${{ github.ref }}
-      cancel-in-progress: true
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ inputs.candidate_sha || github.sha }}
-
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-
-      - uses: actions/cache@v5
-        with:
-          path: |
-            ~/.cache/ms-playwright
-            ~/.cache/scrapling
-          key: browser-${{ runner.os }}-py311-${{ hashFiles('pyproject.toml') }}
-
-      - name: 安装当前源码与 Scrapling 运行时
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev,server,tls,web,robots,scraper,scrapling]"
-          scrapling install
-
-      - name: 运行 Scrapling 专用功能测试
-        run: |
-          mkdir -p artifacts
-          python scripts/scrapling_functional_check.py \
-            --mode fixture \
-            --browser \
-            --json-report artifacts/scrapling-functional.json \
-            --markdown-report artifacts/scrapling-functional.md
-
-      - name: 上传 Scrapling 专项测试报告
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: scrapling-functional-report
-          path: artifacts/
-          if-no-files-found: warn
-          retention-days: 7
-
-  crawl4ai-functional:
-    name: Crawl4AI 云端功能测试
-    needs: [lane, lint]
-    if: needs.lane.outputs.full == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 20
-    concurrency:
-      group: crawl4ai-functional-${{ github.ref }}
-      cancel-in-progress: true
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ inputs.candidate_sha || github.sha }}
-
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-
-      - uses: actions/cache@v5
-        with:
-          path: |
-            ~/.cache/ms-playwright
-            ~/.cache/crawl4ai
-            ~/.crawl4ai
-          key: crawl4ai-browser-${{ runner.os }}-py311-${{ hashFiles('pyproject.toml') }}
-
-      - name: 安装当前源码与 Crawl4AI 浏览器运行时
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev,server,tls,web,robots,scraper,crawl4ai]"
-          python -m playwright install --with-deps chromium
-
-      - name: 运行 Crawl4AI 专用功能测试
-        run: |
-          mkdir -p artifacts
-          python scripts/crawl4ai_functional_check.py \
-            --mode fixture \
-            --require-runtime \
-            --json-report artifacts/crawl4ai-functional.json \
-            --markdown-report artifacts/crawl4ai-functional.md
-
-      - name: 上传 Crawl4AI 专项测试报告
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: crawl4ai-functional-report
-          path: artifacts/
-          if-no-files-found: warn
-          retention-days: 7
-
-  article-extract-functional:
-    name: Article extraction 云端功能测试
-    needs: [lane, lint]
-    if: needs.lane.outputs.full == 'true'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    concurrency:
-      group: article-extract-functional-${{ github.ref }}
-      cancel-in-progress: true
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          ref: ${{ inputs.candidate_sha || github.sha }}
-
-      - uses: actions/setup-python@v6
-        with:
-          python-version: '3.11'
-          cache: 'pip'
-
-      - name: 安装当前源码与文章抽取运行时
-        run: |
-          python -m pip install --upgrade pip
-          pip install -e ".[dev,server,tls,web,robots,scraper,newspaper,readability]"
-
-      - name: 运行文章抽取专用功能测试
-        run: |
-          mkdir -p artifacts
-          python scripts/article_extract_functional_check.py \
-            --mode fixture \
-            --require-runtime \
-            --json-report artifacts/article-extract-functional.json \
-            --markdown-report artifacts/article-extract-functional.md
-
-      - name: 上传文章抽取专项测试报告
-        if: always()
-        uses: actions/upload-artifact@v7
-        with:
-          name: article-extract-functional-report
-          path: artifacts/
-          if-no-files-found: warn
-          retention-days: 7
-
   panel-build:
     name: Panel 构建检查
     needs: lint
@@ -443,8 +300,6 @@ jobs:
           - { profile: server-runtime, install: "server,tls,web,robots,scraper" }
           - { profile: provider-newspaper, install: "server,tls,web,robots,scraper,newspaper" }
           - { profile: provider-readability, install: "server,tls,web,robots,scraper,readability" }
-          - { profile: provider-crawl4ai, install: "server,tls,web,robots,scraper,crawl4ai" }
-          - { profile: provider-scrapling, install: "server,tls,web,robots,scraper,scrapling" }
     steps:
       - uses: actions/checkout@v6
         with:
@@ -527,11 +382,11 @@ jobs:
 
           checks = {
               "package_import": ([sys.executable, "-c", "import souwen"], 1.50),
-              "registry_catalog": (
+              "provider_catalog": (
                   [
                       sys.executable,
                       "-c",
-                      "from souwen.registry import all_adapters; all_adapters()",
+                      "from souwen.providers.catalog import builtin_provider_manifests; builtin_provider_manifests()",
                   ],
                   1.50,
               ),
@@ -606,12 +461,10 @@ jobs:
       - name: Enforce targeted module coverage
         run: |
           pytest \
-            tests/test_capabilities.py \
-            tests/test_feature_matrix \
-            tests/test_doctor.py \
-            --cov=souwen.capabilities \
-            --cov=souwen.feature_matrix \
-            --cov=souwen.doctor \
+            tests/test_gen_docs.py \
+            tests/test_manifest_registry_v2.py \
+            tests/test_provider_manager_v2.py \
+            --cov=souwen.providers.catalog \
             --cov-report=term \
             --cov-report=xml:targeted-coverage.xml \
             --cov-report=json:targeted-coverage.json \
@@ -738,8 +591,8 @@ jobs:
             -e WARP_ENABLED=0 \
             "souwen-ci:${{ matrix.kind }}"
           for _ in $(seq 1 90); do
-            if curl -fsS "http://127.0.0.1:${{ matrix.port }}/health" >/dev/null; then
-              curl -fsS "http://127.0.0.1:${{ matrix.port }}/readiness" | \
+            if curl -fsS "http://127.0.0.1:${{ matrix.port }}/healthz" >/dev/null; then
+              curl -fsS "http://127.0.0.1:${{ matrix.port }}/readyz" | \
                 jq -e --arg source_sha "$SOURCE_SHA" \
                   '.ready == true and .source_sha == $source_sha' >/dev/null
               curl -fsS "http://127.0.0.1:${{ matrix.port }}/panel" | grep -Eiq 'id="root"|SouWen|souwen'
@@ -774,9 +627,6 @@ jobs:
       - docs-check
       - test
       - server-test
-      - scrapling-functional
-      - crawl4ai-functional
-      - article-extract-functional
       - panel-build
       - package-build
       - clean-wheel

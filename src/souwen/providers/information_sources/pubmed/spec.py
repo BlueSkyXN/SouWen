@@ -1,17 +1,17 @@
 """Reviewed bridge declaration for the two-stage PubMed XML search client."""
 
-from souwen.platform.provider_spec import LegacySearchProviderSpec, LegacyTransportDeclaration
+from souwen.platform.provider_spec import ClientSearchProviderSpec, ClientTransportDeclaration
 from souwen.platform.provider_spec.models import AuthDeclaration, HttpOperation
 
 
-PUBMED_BRIDGE_SPEC = LegacySearchProviderSpec(
+PUBMED_BRIDGE_SPEC = ClientSearchProviderSpec(
     provider_id="pubmed",
     adapter_id="pubmed-search",
-    bridge_reason="NCBI esearch and efetch XML parsing remain in the legacy PubMed bridge",
+    adapter_reason="NCBI esearch and efetch XML parsing remain in the existing PubMed bridge",
     auth=AuthDeclaration(
         placement="query", reference="PUBMED_API_KEY", field_name="api_key", required=False
     ),
-    transport=LegacyTransportDeclaration(
+    transport=ClientTransportDeclaration(
         scheme="https",
         host="eutils.ncbi.nlm.nih.gov",
         base_path="/entrez/eutils",

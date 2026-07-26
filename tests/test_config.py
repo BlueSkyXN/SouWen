@@ -15,14 +15,12 @@
 import pytest
 
 from souwen.config import (
-    LLMSynthesisProfile,
     LLMSearchGatewayConfig,
     SouWenConfig,
     SourceChannelConfig,
     get_config,
     reload_config,
 )
-from souwen.config.models import LLMConfig
 
 
 @pytest.fixture(autouse=True)
@@ -36,6 +34,8 @@ def _isolate_config_files(monkeypatch, tmp_path):
         "SOUWEN_VISITOR_PASSWORD",
         "SOUWEN_USER_PASSWORD",
         "SOUWEN_ADMIN_PASSWORD",
+        "SOUWEN_LLM",
+        "SOUWEN_LLM_SEARCH_GATEWAYS",
     ):
         monkeypatch.delenv(key, raising=False)
     get_config.cache_clear()
@@ -43,37 +43,11 @@ def _isolate_config_files(monkeypatch, tmp_path):
     get_config.cache_clear()
 
 
-def test_synthesis_profiles_require_explicit_protocol_model_and_budget() -> None:
-    profile = LLMSynthesisProfile(
-        protocol="openai_responses",
-        model="configured-model",
-        max_tokens=400,
-        max_input_chars=6_000,
-        max_pages=3,
-        timeout=30,
-    )
-    cfg = SouWenConfig(llm={"synthesis_profiles": {"safe": profile}})
-
-    assert cfg.llm.synthesis_profiles["safe"].protocol == "openai_responses"
-    with pytest.raises(ValueError, match="max_pages"):
-        LLMSynthesisProfile(
-            protocol="openai_chat",
-            model="configured-model",
-            max_tokens=400,
-            max_input_chars=6_000,
-            max_pages=0,
-            timeout=30,
-        )
-
-
-def test_removed_summary_config_fields_are_not_part_of_llm_config() -> None:
-    assert {
-        "max_input_tokens",
-        "system_prompt",
-        "default_mode",
-        "rate_limit_summarize",
-        "rate_limit_fetch",
-    }.isdisjoint(LLMConfig.model_fields)
+def test_retired_enriched_synthesis_and_unpaywall_config_are_rejected() -> None:
+    with pytest.raises(ValueError, match="legacy enriched-synthesis 配置已退休"):
+        SouWenConfig(llm={})
+    with pytest.raises(ValueError, match="Unpaywall provider 已退休"):
+        SouWenConfig(unpaywall_email="researcher@example.com")
 
 
 class TestGetProxy:

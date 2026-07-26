@@ -95,6 +95,6 @@ RUN mkdir -p /home/user/app/data
 EXPOSE 7860
 
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:${PORT}/health || exit 1
+    CMD curl -f http://localhost:${PORT}/healthz || exit 1
 
 ENTRYPOINT ["entrypoint.sh"]

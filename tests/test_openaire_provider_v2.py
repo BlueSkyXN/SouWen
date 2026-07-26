@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import pytest
 
-from souwen.models import SearchResponse
-from souwen.paper.openaire import OpenAireClient
+from souwen.providers.runtime_clients.models import SearchResponse
+from souwen.providers.runtime_clients.paper.openaire import OpenAireClient
 from souwen.platform.provider_spi import ExecutionContext, RequestContext, SearchRequest
 from souwen.providers.information_sources.openaire import (
     OPENAIRE_PROVIDER_MANIFEST,

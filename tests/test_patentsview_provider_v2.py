@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 from souwen.common_runtime.transport.errors import AuthError, RateLimitError
 from souwen.config import SouWenConfig
 from souwen.delivery.api import create_target_delivery_app
-from souwen.models import Applicant, PatentResult, SearchResponse
+from souwen.providers.runtime_clients.models import Applicant, PatentResult, SearchResponse
 from souwen.modules.search.application import OrderedSearchProviderSelector, SearchProviderSelection
 from souwen.platform.provider_spi import (
     ExecutionContext,
@@ -28,7 +28,6 @@ from souwen.providers.information_sources.patentsview import (
     PATENTSVIEW_PROVIDER_MANIFEST,
     PatentsViewSearchProvider,
 )
-from souwen.registry import get
 from souwen.server.v2_runtime import build_target_runtime
 
 
@@ -101,18 +100,13 @@ def _execution(timeout: float = 5) -> ExecutionContext:
     return ExecutionContext.with_timeout(timeout)
 
 
-def test_manifest_matches_legacy_registry_and_required_secret_contract() -> None:
-    legacy = get("patentsview")
-
-    assert PATENTSVIEW_PROVIDER_MANIFEST.id == legacy.name == "patentsview"
+def test_manifest_declares_required_secret_contract() -> None:
+    assert PATENTSVIEW_PROVIDER_MANIFEST.id == "patentsview"
     assert PATENTSVIEW_PROVIDER_MANIFEST.adapters[0].id == "patentsview-search"
     assert PATENTSVIEW_PROVIDER_MANIFEST.capabilities == ("search",)
     assert PATENTSVIEW_PROVIDER_MANIFEST.secrets.references == ("PATENTSVIEW_API_KEY",)
     assert PATENTSVIEW_PROVIDER_MANIFEST.network.egress_hosts == ("search.patentsview.org",)
     assert PATENTSVIEW_PROVIDER_MANIFEST.network.proxy_supported is False
-    assert legacy.domain == "patent"
-    assert legacy.resolved_auth_requirement == "required"
-    assert legacy.default_for == frozenset()
 
 
 def test_legacy_flat_secret_is_excluded_from_config_repr() -> None:

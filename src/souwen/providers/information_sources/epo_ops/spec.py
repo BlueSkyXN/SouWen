@@ -2,18 +2,18 @@
 
 from souwen.platform.provider_spec import (
     CredentialBinding,
-    LegacySearchProviderSpec,
-    LegacyTransportDeclaration,
+    ClientSearchProviderSpec,
+    ClientTransportDeclaration,
 )
 from souwen.platform.provider_spec.models import AuthDeclaration, HttpOperation
 
 
-EPO_OPS_BRIDGE_SPEC = LegacySearchProviderSpec(
+EPO_OPS_BRIDGE_SPEC = ClientSearchProviderSpec(
     provider_id="epo_ops",
     adapter_id="epo_ops-search",
     domain="patent",
-    bridge_reason="EPO CQL/range mapping and OAuth token acquisition remain in the legacy bridge",
-    transport=LegacyTransportDeclaration(
+    adapter_reason="EPO CQL/range mapping and OAuth token acquisition remain in the existing bridge",
+    transport=ClientTransportDeclaration(
         host="ops.epo.org",
         base_path="/3.2",
         protocol="xml",

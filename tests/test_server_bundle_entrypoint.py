@@ -10,35 +10,20 @@ from deploy.process import server_main
 from deploy.process.supervisor import INTERNAL_ROLE_ENV
 
 
-def test_product_entry_forces_target_and_applies_bounded_listener_overrides(monkeypatch) -> None:
+def test_product_entry_applies_bounded_listener_overrides(
+    monkeypatch,
+) -> None:
     observed: dict[str, str] = {}
 
     def run_supervisor() -> int:
-        observed["rollout"] = server_main.os.environ["SOUWEN_V2_ROLLOUT"]
         observed["host"] = server_main.os.environ["HOST"]
         observed["port"] = server_main.os.environ["PORT"]
         return 0
 
-    monkeypatch.delenv("SOUWEN_V2_ROLLOUT", raising=False)
     monkeypatch.setattr(server_main, "supervisor_main", run_supervisor)
 
     assert server_main.main(["--host", "127.0.0.1", "--port", "49300"]) == 0
-    assert observed == {"rollout": "target", "host": "127.0.0.1", "port": "49300"}
-
-
-def test_product_entry_rejects_legacy_rollout_without_starting_supervisor(monkeypatch) -> None:
-    started = False
-
-    def run_supervisor() -> int:
-        nonlocal started
-        started = True
-        return 0
-
-    monkeypatch.setenv("SOUWEN_V2_ROLLOUT", "legacy")
-    monkeypatch.setattr(server_main, "supervisor_main", run_supervisor)
-
-    assert server_main.main([]) == 1
-    assert started is False
+    assert observed == {"host": "127.0.0.1", "port": "49300"}
 
 
 def test_frozen_entry_uses_only_bundle_local_playwright_runtime(monkeypatch, tmp_path) -> None:
@@ -48,7 +33,6 @@ def test_frozen_entry_uses_only_bundle_local_playwright_runtime(monkeypatch, tmp
     monkeypatch.setattr(sys, "frozen", True, raising=False)
     monkeypatch.setattr(sys, "executable", str(executable))
     monkeypatch.setenv("PLAYWRIGHT_BROWSERS_PATH", "/untrusted/external-browser")
-    monkeypatch.delenv("SOUWEN_V2_ROLLOUT", raising=False)
     monkeypatch.setattr(server_main, "supervisor_main", lambda: 0)
 
     assert server_main.main([]) == 0
@@ -58,7 +42,6 @@ def test_frozen_entry_uses_only_bundle_local_playwright_runtime(monkeypatch, tmp
 def test_frozen_entry_fails_closed_without_bundled_playwright(monkeypatch, tmp_path) -> None:
     monkeypatch.setattr(sys, "frozen", True, raising=False)
     monkeypatch.setattr(sys, "executable", str(tmp_path / "souwen-server"))
-    monkeypatch.delenv("SOUWEN_V2_ROLLOUT", raising=False)
     monkeypatch.setattr(server_main, "supervisor_main", lambda: pytest.fail("must not start"))
 
     assert server_main.main([]) == 1
@@ -77,9 +60,7 @@ def test_internal_roles_are_hidden_and_rejected_outside_supervisor(monkeypatch) 
 def test_internal_role_dispatch_requires_supervisor_marker(monkeypatch, role, runner) -> None:
     calls: list[str] = []
     monkeypatch.setenv(INTERNAL_ROLE_ENV, "1")
-    monkeypatch.delenv("SOUWEN_V2_ROLLOUT", raising=False)
     monkeypatch.setattr(server_main, runner, lambda: calls.append(role))
 
     assert server_main.main(["--internal-role", role]) == 0
     assert calls == [role]
-    assert server_main.os.environ["SOUWEN_V2_ROLLOUT"] == "target"

@@ -6,8 +6,8 @@ from unittest.mock import Mock
 
 import pytest
 
-from souwen.web import readability_fetcher
-from souwen.web.readability_fetcher import ReadabilityFetcherClient
+from souwen.providers.runtime_clients.web import readability_fetcher
+from souwen.providers.runtime_clients.web.readability_fetcher import ReadabilityFetcherClient
 
 
 @pytest.mark.asyncio

@@ -8,7 +8,7 @@ Read this card for config fields, auth config, environment parsing, YAML/.env me
 ## Local invariants
 
 - Config priority is env > `./souwen.yaml` > `~/.config/souwen/config.yaml` > `.env` > defaults.
-- Source credentials must line up with registry `config_field` and `credential_fields`.
+- Provider credentials must line up with the ProviderManifest/spec credential declaration.
 - Retired auth fields must continue to fail clearly instead of being accepted silently.
 - Loader tests must remain independent of the user's real HOME and local config files.
 
@@ -21,4 +21,4 @@ Read this card for config fields, auth config, environment parsing, YAML/.env me
 ## Validation
 
 - `pytest tests/test_config.py tests/test_config_loader.py -v --tb=short`
-- Source credential impact: `pytest tests/registry/test_consistency.py -v --tb=short`
+- Provider credential impact: run the affected Provider v2 runtime/conformance tests.

@@ -1,11 +1,11 @@
-"""Provider v2 bridge for Semantic Scholar's legacy client."""
+"""Provider v2 bridge for Semantic Scholar's existing client."""
 
 from __future__ import annotations
 import re
 from collections.abc import Sequence
 from typing import Any, Protocol
 from urllib.parse import urlsplit
-from souwen.platform.provider_spec import LegacySearchProvider, LegacySearchSpec
+from souwen.platform.provider_spec import ClientSearchProvider, ClientSearchSpec
 from souwen.platform.provider_spi import (
     PageInfo,
     Provenance,
@@ -27,7 +27,7 @@ class SemanticScholarClientProtocol(Protocol):
     ) -> Any: ...
 
 
-class SemanticScholarSearchProvider(LegacySearchProvider):
+class SemanticScholarSearchProvider(ClientSearchProvider):
     def __init__(self, client: SemanticScholarClientProtocol, *, enabled: bool = True) -> None:
         super().__init__(client, _SPEC, enabled=enabled)
 
@@ -125,4 +125,4 @@ def _authors(paper: Any) -> tuple[str, ...]:
     return tuple(value for value in values if value is not None)
 
 
-_SPEC = LegacySearchSpec("semantic_scholar", "paper", _invoke, _project)
+_SPEC = ClientSearchSpec("semantic_scholar", "paper", _invoke, _project)

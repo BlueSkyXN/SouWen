@@ -1,6 +1,6 @@
 """内置网页抓取客户端单元测试
 
-覆盖 ``souwen.web.builtin`` 中 BuiltinFetcherClient 的抓取、提取、批量处理逻辑。
+覆盖 ``souwen.providers.runtime_clients.web.builtin`` 中 BuiltinFetcherClient 的抓取、提取、批量处理逻辑。
 
 测试清单：
 - ``test_extract_fallback_strips_html``    ：纯正则回退提取正文
@@ -17,13 +17,13 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from souwen.web.builtin import (
+from souwen.providers.runtime_clients.web.builtin import (
     BuiltinFetcherClient,
     _count_words,
     _extract_fallback,
     _extract_with_trafilatura,
 )
-from souwen.web._html_extract import _strip_html
+from souwen.providers.runtime_clients.web._html_extract import _strip_html
 
 _has_trafilatura = False
 try:
@@ -68,7 +68,7 @@ class TestExtractFallback:
         assert text == "Visible content"
 
     def test_readability_text_fallback_uses_shared_safe_stripper(self, monkeypatch):
-        from souwen.web import readability_fetcher
+        from souwen.providers.runtime_clients.web import readability_fetcher
 
         monkeypatch.setattr(readability_fetcher, "_HAS_MARKDOWNIFY", False)
         monkeypatch.setattr(readability_fetcher, "_HAS_HTML2TEXT", False)
@@ -106,7 +106,7 @@ class TestExtractWithTrafilatura:
         with (
             patch("trafilatura.extract") as mock_extract,
             patch("trafilatura.extract_metadata") as mock_meta,
-            patch("souwen.web.builtin._HAS_TRAFILATURA", True),
+            patch("souwen.providers.runtime_clients.web.builtin._HAS_TRAFILATURA", True),
         ):
             mock_extract.return_value = "This is valid content for testing purposes"
             mock_meta.return_value = None
@@ -132,7 +132,7 @@ class TestExtractWithTrafilatura:
         with (
             patch("trafilatura.extract") as mock_extract,
             patch("trafilatura.extract_metadata") as mock_meta,
-            patch("souwen.web.builtin._HAS_TRAFILATURA", True),
+            patch("souwen.providers.runtime_clients.web.builtin._HAS_TRAFILATURA", True),
         ):
             mock_extract.return_value = "Clean content without frontmatter"
             mock_meta.return_value = mock_metadata

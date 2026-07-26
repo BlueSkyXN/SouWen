@@ -20,18 +20,10 @@ async def whoami(role: Role = Depends(resolve_role)):
     """
     cfg = get_config()
     features = {
-        "search": True,
-        "raw_search": role >= Role.USER,
-        "fetch": role >= Role.ADMIN,
-        "wayback_save": role >= Role.ADMIN,
+        "target_data_api": cfg.guest_enabled or cfg.user_password == "" or role >= Role.USER,
         "config_read": (
             "full" if role >= Role.ADMIN else "minimal" if role >= Role.USER else False
         ),
-        "config_write": role >= Role.ADMIN,
-        "sources_config_read": role >= Role.USER,
-        "sources_config_write": role >= Role.ADMIN,
-        "proxy_admin": role >= Role.ADMIN,
-        "warp_admin": role >= Role.ADMIN,
         "doctor": role >= Role.USER,
         "doctor_full": role >= Role.ADMIN,
     }

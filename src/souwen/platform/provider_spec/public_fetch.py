@@ -1,4 +1,4 @@
-"""Strict projection helpers for legacy Fetch clients using validated public targets."""
+"""Strict projection helpers for existing Fetch clients using validated public targets."""
 
 from __future__ import annotations
 
@@ -31,7 +31,7 @@ def project_public_fetch_receipt(
     provider_id: str,
 ) -> FetchResult:
     if getattr(receipt, "source", None) != provider_id:
-        raise ValueError("unexpected legacy source")
+        raise ValueError("unexpected existing source")
     if getattr(receipt, "error", None):
         raw = getattr(receipt, "raw", None)
         code = (
@@ -42,24 +42,24 @@ def project_public_fetch_receipt(
         raise ProviderError(code, provider_id=provider_id)
     content = getattr(receipt, "content", None)
     if not isinstance(content, str) or not content.strip():
-        raise ValueError("invalid legacy receipt content")
+        raise ValueError("invalid existing receipt content")
     max_code_points = request.content.max_code_points if request.content else None
     truncated = max_code_points is not None and len(content) > max_code_points
     if max_code_points is not None:
         content = content[:max_code_points]
     final_url = getattr(receipt, "final_url", None)
     if not isinstance(final_url, str) or not validate_fetch_url(final_url)[0]:
-        raise ValueError("invalid legacy final URL")
+        raise ValueError("invalid existing final URL")
     media_type = {
         "text": "text/plain",
         "markdown": "text/markdown",
         "html": "text/html",
     }.get(getattr(receipt, "content_format", None))
     if media_type is None:
-        raise ValueError("invalid legacy content format")
+        raise ValueError("invalid existing content format")
     title = getattr(receipt, "title", None)
     if title is not None and not isinstance(title, str):
-        raise ValueError("invalid legacy title")
+        raise ValueError("invalid existing title")
     retrieved_at = datetime.now(timezone.utc)
     return FetchResult(
         target=request.target,

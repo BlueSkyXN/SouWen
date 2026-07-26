@@ -2,16 +2,16 @@
 
 from souwen.platform.provider_spec import (
     CredentialBinding,
-    LegacyFetchProviderSpec,
-    LegacyTransportDeclaration,
+    ClientFetchProviderSpec,
+    ClientTransportDeclaration,
 )
 from souwen.platform.provider_spec.models import AuthDeclaration, HttpOperation
 
-CLOUDFLARE_FETCH_PROFILE = LegacyFetchProviderSpec(
+CLOUDFLARE_FETCH_PROFILE = ClientFetchProviderSpec(
     provider_id="cloudflare",
     adapter_id="cloudflare-fetch",
-    bridge_reason="Cloudflare Browser Rendering markdown fallback remains in the legacy Fetch bridge",
-    transport=LegacyTransportDeclaration(
+    adapter_reason="Cloudflare Browser Rendering markdown fallback remains in the existing Fetch bridge",
+    transport=ClientTransportDeclaration(
         host="api.cloudflare.com",
         protocol="json",
         operations=(

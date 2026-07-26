@@ -5,9 +5,8 @@ import re
 import pytest
 from pytest_httpx import HTTPXMock
 
-from souwen.book.oapen import OAPENClient
-from souwen.core.exceptions import NotFoundError
-from souwen.search import search_books, search_by_capability
+from souwen.providers.runtime_clients.book.oapen import OAPENClient
+from souwen.common_runtime.provider_support.exceptions import NotFoundError
 
 _DC = """<OAI-PMH xmlns="urn:oai" xmlns:dc="urn:dc" xmlns:oai_dc="urn:oai_dc" xmlns:oaire="urn:oaire">
 <GetRecord><record><header><identifier>oai:library.oapen.org:20.500.12657/1234</identifier></header>
@@ -85,22 +84,3 @@ async def test_oai_missing_record_maps_to_not_found(httpx_mock: HTTPXMock) -> No
     async with OAPENClient() as client:
         with pytest.raises(NotFoundError):
             await client.get_by_id("20.500.12657/9999")
-
-
-async def test_registry_dispatches_explicit_oapen_search_and_detail(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    async def fake_search(self: OAPENClient, query: str, *, per_page: int, page: int = 1):
-        assert (query, per_page, page) == ("climate", 2, 1)
-        return type("Response", (), {"source": "oapen", "results": []})()
-
-    async def fake_detail(self: OAPENClient, record_id: str, *, file_limit: int = 10):
-        assert (record_id, file_limit) == ("20.500.12657/1234", 10)
-        return type("Detail", (), {"source": "oapen"})()
-
-    monkeypatch.setattr(OAPENClient, "search", fake_search)
-    monkeypatch.setattr(OAPENClient, "get_by_id", fake_detail)
-    assert (await search_books("climate", sources=["oapen"], per_page=2))[0].source == "oapen"
-    assert (await search_by_capability("20.500.12657/1234", "get_detail", sources=["oapen"]))[
-        0
-    ].source == "oapen"

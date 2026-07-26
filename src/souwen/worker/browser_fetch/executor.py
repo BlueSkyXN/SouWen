@@ -8,7 +8,10 @@ from typing import Awaitable, Callable, Protocol
 from urllib.parse import urlparse
 
 from souwen.common_runtime.security import ResolvedFetchTarget, resolve_fetch_target_async
-from souwen.core.browser_pool import BrowserPoolKey, PlaywrightBrowserPool
+from souwen.common_runtime.provider_support.browser_pool import (
+    BrowserPoolKey,
+    PlaywrightBrowserPool,
+)
 
 from .protocol import WorkerFetchItem, WorkerFetchRequest
 

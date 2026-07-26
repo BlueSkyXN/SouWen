@@ -1,15 +1,15 @@
 """Reviewed bridge declaration for authenticated PQAI patent search."""
 
-from souwen.platform.provider_spec import LegacySearchProviderSpec, LegacyTransportDeclaration
+from souwen.platform.provider_spec import ClientSearchProviderSpec, ClientTransportDeclaration
 from souwen.platform.provider_spec.models import AuthDeclaration, HttpOperation
 
 
-PQAI_BRIDGE_SPEC = LegacySearchProviderSpec(
+PQAI_BRIDGE_SPEC = ClientSearchProviderSpec(
     provider_id="pqai",
     adapter_id="pqai-search",
     domain="patent",
-    bridge_reason="PQAI token query parameter and result compatibility parsing remain in the legacy bridge",
-    transport=LegacyTransportDeclaration(
+    adapter_reason="PQAI token query parameter and result compatibility parsing remain in the existing bridge",
+    transport=ClientTransportDeclaration(
         host="api.projectpq.ai",
         protocol="json",
         operations=(HttpOperation(method="GET", endpoint="/search/102"),),

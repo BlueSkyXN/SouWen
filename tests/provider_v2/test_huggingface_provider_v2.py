@@ -3,7 +3,7 @@
 from __future__ import annotations
 import asyncio
 import pytest
-from souwen.models import Author, PaperResult, SearchResponse
+from souwen.providers.runtime_clients.models import Author, PaperResult, SearchResponse
 from souwen.platform.provider_spi import (
     ExecutionContext,
     ProviderError,

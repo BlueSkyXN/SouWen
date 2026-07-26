@@ -26,7 +26,6 @@ ARG WIREPROXY_VERSION=1.1.2
 ENV PORT=49265 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    SOUWEN_V2_ROLLOUT=target \
     SOUWEN_SOURCE_SHA_FILE=/app/runtime.source.sha \
     WARP_DATA_DIR=/app/data \
     WARP_RUNTIME_BIN_DIR=/app/data/bin \

@@ -27,17 +27,16 @@ gh workflow run release-candidate.yml \
 
 `evidence_profile` 必须显式选择，默认哨兵值 `select` 会 fail closed：
 
-- `release` 运行 source、clean install、Panel、container、external smoke，以及精确四个平台的
+- `release` 运行 source、clean install、Panel、container，以及精确四个平台的
   PyInstaller Server bundle gate；package job 同时生成 immutable
   `souwen-openapi-2.0.0rc2.json`。Assembler 只接受四个固定名称的 archive、对应的四份
-  target-native smoke、同 candidate inventory 和一致的 OpenAPI checksum。Phase 8 residue audit
-  完成前仍只能使用 `publish=false` 生成 RC evidence。
+  target-native smoke、同 candidate inventory 和一致的 OpenAPI checksum。
 - `deployment` 必须同时使用 `deploy_hfs=true, publish=false`。它跳过外层 `server-bundles`
   release job，但保留全部非 binary gate、HFS reusable workflow 的 target Server local preflight、
   live promotion、rollback 和 readback，产出不可发布的
-  `deployment-evidence-*` artifact。M1 起，assembler 还会解析 surface/capability JSON，要求
-  target rollout、Browser Worker readiness、OpenAlex Search、builtin Fetch 与 Browser Fetch
-  全部为 `PASS`；报告文件仅存在不再构成通过。
+  `deployment-evidence-*` artifact。Assembler 还会解析 surface/capability JSON，要求 target
+  runtime、Browser Worker readiness、Search、LLM Search 与 immutable Fetch 全部为 `PASS`；
+  报告文件仅存在不构成通过。
 
 轻量 HFS promotion 使用：
 
@@ -60,8 +59,7 @@ workflow artifacts，不创建 Release。旧 `build-pyinstaller.yml` 与 `build-
 CLI/Nuitka binary 合同）已随 CI 分档改造删除；central workflow 的 manifest 继续 fail-closed
 拒绝 `souwen-linux-*`、`souwen-macos-*`、`souwen-windows-*`、`souwen-nuitka-*` 等旧 artifact
 前缀，旧 binary 不得出现在 RC2 manifest 或 Release assets。Tag 与 prerelease 只能由 central
-workflow 的 publish job 创建。当前 central workflow 仍会拒绝 `publish=true`；Phase 8 完成旧
-CLI/Nuitka/compatibility residue audit 后才能解除该保护。
+workflow 的 publish job 创建。`publish=true` 只在 owner-approved RC2 exact-main release 中使用。
 
 ## RC2 PyInstaller Server bundle
 
@@ -92,7 +90,7 @@ binary。
 ./souwen-server/souwen-server --host 127.0.0.1 --port 49265
 ```
 
-默认入口只接受 target rollout；环境显式指定 `SOUWEN_V2_ROLLOUT=legacy` 时 fail closed。
+Server 始终运行 target-only v2；部署不需要单独的 rollout 环境开关。
 Supervisor 在 frozen runtime中用同一个 executable 的隐藏 `--internal-role worker|api` 派生两个
 子进程，并通过仅由 Supervisor设置的内部环境标记限制直接调用。源码/container路径继续使用
 现有 Python module child commands，避免改变 HFS runtime合同。
@@ -120,13 +118,13 @@ docker run -p 8000:49265 \
 启动后检查：
 
 ```bash
-curl http://localhost:8000/health
+curl http://localhost:8000/healthz
 curl -H "Authorization: Bearer $SOUWEN_USER_PASSWORD" \
-  http://localhost:8000/api/v1/sources
+  http://localhost:8000/api/v1/providers
 ```
 
 Release/container 构建应注入 `SOUWEN_SOURCE_SHA=<40位candidate SHA>` 或
-`runtime.source.sha`；`/health` 与 `/readiness` 会以 `source_sha` 回读。普通本地源码运行
+`runtime.source.sha`；`/healthz` 与 `/readyz` 会以 `source_sha` 回读。普通本地源码运行
 允许为 `null`，但 RC container gate 要求非空且与 candidate SHA 完全一致。
 
 ## RC 容器 provenance

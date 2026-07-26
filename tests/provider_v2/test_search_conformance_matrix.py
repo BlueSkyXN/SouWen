@@ -4,12 +4,10 @@ from __future__ import annotations
 
 from datetime import date
 import importlib
-import json
-from pathlib import Path
 
 import pytest
 
-from souwen.models import (
+from souwen.providers.runtime_clients.models import (
     Applicant,
     Author,
     BookResult,
@@ -20,7 +18,8 @@ from souwen.models import (
     WebSearchResult,
 )
 from souwen.platform.provider_spi import SearchPageRequest, SearchRequest
-from souwen.platform.provider_spec import LegacySearchProvider, LegacySearchProviderSpec
+from souwen.platform.provider_spec import ClientSearchProvider, ClientSearchProviderSpec
+from souwen.providers.catalog import builtin_provider_manifests
 from souwen.providers.information_sources.arxiv import ArxivSearchProvider
 from souwen.providers.information_sources.biorxiv import BioRxivSearchProvider
 from souwen.providers.information_sources.crossref import CrossrefSearchProvider
@@ -234,14 +233,14 @@ def _migrated_legacy_web_definitions() -> tuple[SearchConformanceDefinition, ...
     for provider_id in (*_BATCH_FIVE_SEARCH_IDS, *_BATCH_SIX_SELF_HOSTED_IDS):
         module = importlib.import_module(f"souwen.providers.information_sources.{provider_id}")
         spec = next(
-            value for value in vars(module).values() if isinstance(value, LegacySearchProviderSpec)
+            value for value in vars(module).values() if isinstance(value, ClientSearchProviderSpec)
         )
         provider_type = next(
             value
             for value in vars(module).values()
             if isinstance(value, type)
-            and value is not LegacySearchProvider
-            and issubclass(value, LegacySearchProvider)
+            and value is not ClientSearchProvider
+            and issubclass(value, ClientSearchProvider)
             and value.__module__.startswith(module.__name__)
         )
         definitions.append(_web_definition(provider_id, provider_type, spec.domain))
@@ -447,20 +446,10 @@ def test_each_search_provider_declares_exactly_the_nine_stable_cases() -> None:
         "probe_close",
         "redaction",
     )
-    inventory_path = (
-        Path(__file__).resolve().parents[2]
-        / "docs"
-        / "internal"
-        / "provider-migrations"
-        / "b0-inventory.json"
-    )
-    inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
     migrated_search_specs = {
-        record["source_id"]
-        for record in inventory["records"]
-        if record["migration_status"] == "migrated"
-        and record["target_capability"] == "search"
-        and record["target_spec_identity"] is not None
+        manifest.id
+        for manifest in builtin_provider_manifests()
+        if "search" in manifest.capabilities
     }
 
     assert {definition.provider_id for definition in DEFINITIONS} == migrated_search_specs

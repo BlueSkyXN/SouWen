@@ -19,20 +19,20 @@ class TestLinkModels:
     """LinkItem / LinkExtractionResult 模型测试"""
 
     def test_link_item_basic(self):
-        from souwen.web.links import LinkItem
+        from souwen.providers.runtime_clients.web.links import LinkItem
 
         item = LinkItem(url="https://example.com", text="Example")
         assert item.url == "https://example.com"
         assert item.text == "Example"
 
     def test_link_item_empty_text(self):
-        from souwen.web.links import LinkItem
+        from souwen.providers.runtime_clients.web.links import LinkItem
 
         item = LinkItem(url="https://example.com")
         assert item.text == ""
 
     def test_link_extraction_result_basic(self):
-        from souwen.web.links import LinkExtractionResult, LinkItem
+        from souwen.providers.runtime_clients.web.links import LinkExtractionResult, LinkItem
 
         result = LinkExtractionResult(
             source_url="https://example.com",
@@ -47,7 +47,7 @@ class TestLinkModels:
         assert len(result.links) == 1
 
     def test_link_extraction_result_error(self):
-        from souwen.web.links import LinkExtractionResult
+        from souwen.providers.runtime_clients.web.links import LinkExtractionResult
 
         result = LinkExtractionResult(
             source_url="https://example.com",
@@ -101,7 +101,7 @@ def _patch_scraper(html: str, url: str = "https://example.com/"):
     """Helper: patch BaseScraper symbol used inside extract_links."""
     resp = _FakeResp(html, url)
     return patch(
-        "souwen.core.scraper.base.BaseScraper",
+        "souwen.common_runtime.provider_support.scraper.base.BaseScraper",
         lambda *a, **kw: _FakeScraper(resp),
     )
 
@@ -111,10 +111,10 @@ class TestExtractLinks:
 
     async def test_extract_links_ssrf_blocked(self):
         """SSRF 校验失败的 URL 应直接返回错误"""
-        from souwen.web.links import extract_links
+        from souwen.providers.runtime_clients.web.links import extract_links
 
         with patch(
-            "souwen.web.fetch.validate_fetch_url",
+            "souwen.providers.runtime_clients.web.fetch.validate_fetch_url",
             return_value=(False, "private IP"),
         ):
             result = await extract_links("http://192.168.1.1/page")
@@ -124,8 +124,8 @@ class TestExtractLinks:
 
     async def test_extract_links_uses_safe_redirect_fetch(self):
         """入口 URL 抓取必须逐跳执行 SSRF 校验。"""
-        from souwen.core.exceptions import SourceUnavailableError
-        from souwen.web.links import extract_links
+        from souwen.common_runtime.provider_support.exceptions import SourceUnavailableError
+        from souwen.providers.runtime_clients.web.links import extract_links
 
         init_kwargs: dict[str, object] = {}
         scraper = _FakeScraper(
@@ -138,8 +138,14 @@ class TestExtractLinks:
             return scraper
 
         with (
-            patch("souwen.web.fetch.validate_fetch_url", return_value=(True, "ok")),
-            patch("souwen.core.scraper.base.BaseScraper", fake_scraper_factory),
+            patch(
+                "souwen.providers.runtime_clients.web.fetch.validate_fetch_url",
+                return_value=(True, "ok"),
+            ),
+            patch(
+                "souwen.common_runtime.provider_support.scraper.base.BaseScraper",
+                fake_scraper_factory,
+            ),
         ):
             result = await extract_links("https://example.com/")
 
@@ -151,7 +157,7 @@ class TestExtractLinks:
 
     async def test_extract_links_basic_and_skip_schemes(self):
         """常规链接、相对链接保留；fragment / mailto / javascript / tel 跳过"""
-        from souwen.web.links import extract_links
+        from souwen.providers.runtime_clients.web.links import extract_links
 
         html = """
         <html><body>
@@ -165,7 +171,10 @@ class TestExtractLinks:
         </body></html>
         """
         with (
-            patch("souwen.web.fetch.validate_fetch_url", return_value=(True, "ok")),
+            patch(
+                "souwen.providers.runtime_clients.web.fetch.validate_fetch_url",
+                return_value=(True, "ok"),
+            ),
             _patch_scraper(html, "https://example.com/"),
         ):
             result = await extract_links("https://example.com/")
@@ -184,14 +193,17 @@ class TestExtractLinks:
 
     async def test_extract_links_base_href(self):
         """<base href> 应作为相对链接解析的基准"""
-        from souwen.web.links import extract_links
+        from souwen.providers.runtime_clients.web.links import extract_links
 
         html = """
         <html><head><base href="https://other.example.org/path/"></head>
         <body><a href="page.html">P</a></body></html>
         """
         with (
-            patch("souwen.web.fetch.validate_fetch_url", return_value=(True, "ok")),
+            patch(
+                "souwen.providers.runtime_clients.web.fetch.validate_fetch_url",
+                return_value=(True, "ok"),
+            ),
             _patch_scraper(html, "https://example.com/"),
         ):
             result = await extract_links("https://example.com/")
@@ -202,7 +214,7 @@ class TestExtractLinks:
 
     async def test_extract_links_base_url_filter(self):
         """base_url_filter 应过滤掉不匹配前缀的链接"""
-        from souwen.web.links import extract_links
+        from souwen.providers.runtime_clients.web.links import extract_links
 
         html = """
         <html><body>
@@ -211,7 +223,10 @@ class TestExtractLinks:
         </body></html>
         """
         with (
-            patch("souwen.web.fetch.validate_fetch_url", return_value=(True, "ok")),
+            patch(
+                "souwen.providers.runtime_clients.web.fetch.validate_fetch_url",
+                return_value=(True, "ok"),
+            ),
             _patch_scraper(html, "https://example.com/"),
         ):
             result = await extract_links(
@@ -225,12 +240,15 @@ class TestExtractLinks:
 
     async def test_extract_links_limit(self):
         """limit 应截断返回数量"""
-        from souwen.web.links import extract_links
+        from souwen.providers.runtime_clients.web.links import extract_links
 
         anchors = "".join(f'<a href="https://example.com/p{i}">p{i}</a>' for i in range(20))
         html = f"<html><body>{anchors}</body></html>"
         with (
-            patch("souwen.web.fetch.validate_fetch_url", return_value=(True, "ok")),
+            patch(
+                "souwen.providers.runtime_clients.web.fetch.validate_fetch_url",
+                return_value=(True, "ok"),
+            ),
             _patch_scraper(html, "https://example.com/"),
         ):
             result = await extract_links("https://example.com/", limit=5)
@@ -240,7 +258,7 @@ class TestExtractLinks:
 
     async def test_extract_links_ssrf_filtered_in_page(self):
         """页面内提取的链接若 SSRF 校验失败应计入 filtered_count"""
-        from souwen.web.links import extract_links
+        from souwen.providers.runtime_clients.web.links import extract_links
 
         html = """
         <html><body>
@@ -256,7 +274,10 @@ class TestExtractLinks:
             return (True, "ok")
 
         with (
-            patch("souwen.web.fetch.validate_fetch_url", side_effect=_fake_validate),
+            patch(
+                "souwen.providers.runtime_clients.web.fetch.validate_fetch_url",
+                side_effect=_fake_validate,
+            ),
             _patch_scraper(html, "https://example.com/"),
         ):
             result = await extract_links("https://example.com/")
@@ -276,7 +297,7 @@ class TestSitemapParsing:
     """Sitemap XML 解析测试"""
 
     def test_parse_urlset(self):
-        from souwen.web.sitemap import _parse_sitemap_xml
+        from souwen.providers.runtime_clients.web.sitemap import _parse_sitemap_xml
 
         xml = b"""<?xml version="1.0" encoding="UTF-8"?>
         <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -301,7 +322,7 @@ class TestSitemapParsing:
         assert len(children) == 0
 
     def test_parse_sitemapindex(self):
-        from souwen.web.sitemap import _parse_sitemap_xml
+        from souwen.providers.runtime_clients.web.sitemap import _parse_sitemap_xml
 
         xml = b"""<?xml version="1.0" encoding="UTF-8"?>
         <sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
@@ -320,7 +341,7 @@ class TestSitemapParsing:
 
     def test_parse_no_namespace(self):
         """Without xmlns namespace"""
-        from souwen.web.sitemap import _parse_sitemap_xml
+        from souwen.providers.runtime_clients.web.sitemap import _parse_sitemap_xml
 
         xml = b"""<?xml version="1.0"?>
         <urlset>
@@ -332,7 +353,7 @@ class TestSitemapParsing:
         assert len(children) == 0
 
     def test_safe_float(self):
-        from souwen.web.sitemap import _safe_float
+        from souwen.providers.runtime_clients.web.sitemap import _safe_float
 
         assert _safe_float("0.8") == 0.8
         assert _safe_float("1.0") == 1.0
@@ -342,7 +363,7 @@ class TestSitemapParsing:
         assert _safe_float("") is None
 
     def test_extract_sitemaps_from_robots(self):
-        from souwen.web.sitemap import _extract_sitemaps_from_robots
+        from souwen.providers.runtime_clients.web.sitemap import _extract_sitemaps_from_robots
 
         robots = """User-agent: *
 Disallow: /admin/
@@ -355,7 +376,7 @@ Sitemap: https://example.com/sitemap-news.xml
         assert result[1] == "https://example.com/sitemap-news.xml"
 
     def test_extract_sitemaps_from_robots_empty(self):
-        from souwen.web.sitemap import _extract_sitemaps_from_robots
+        from souwen.providers.runtime_clients.web.sitemap import _extract_sitemaps_from_robots
 
         robots = """User-agent: *
 Disallow: /
@@ -364,7 +385,7 @@ Disallow: /
         assert len(result) == 0
 
     def test_extract_sitemaps_case_insensitive(self):
-        from souwen.web.sitemap import _extract_sitemaps_from_robots
+        from souwen.providers.runtime_clients.web.sitemap import _extract_sitemaps_from_robots
 
         robots = "SITEMAP: https://example.com/sitemap.xml\nsitemap: https://example.com/other.xml"
         result = _extract_sitemaps_from_robots(robots, "https://example.com")
@@ -372,7 +393,7 @@ Disallow: /
 
     def test_extract_sitemaps_relative_resolved(self):
         """robots.txt 中的相对 sitemap 路径应通过 base_url 解析为绝对地址"""
-        from souwen.web.sitemap import _extract_sitemaps_from_robots
+        from souwen.providers.runtime_clients.web.sitemap import _extract_sitemaps_from_robots
 
         robots = "Sitemap: /sitemap.xml"
         result = _extract_sitemaps_from_robots(robots, "https://example.com")
@@ -384,7 +405,7 @@ class TestSitemapModels:
     """Sitemap model 测试"""
 
     def test_sitemap_entry(self):
-        from souwen.web.sitemap import SitemapEntry
+        from souwen.providers.runtime_clients.web.sitemap import SitemapEntry
 
         entry = SitemapEntry(
             loc="https://example.com/page",
@@ -397,7 +418,7 @@ class TestSitemapModels:
         assert entry.changefreq is None
 
     def test_sitemap_entry_minimal(self):
-        from souwen.web.sitemap import SitemapEntry
+        from souwen.providers.runtime_clients.web.sitemap import SitemapEntry
 
         entry = SitemapEntry(loc="https://example.com/")
         assert entry.loc == "https://example.com/"
@@ -406,7 +427,7 @@ class TestSitemapModels:
         assert entry.priority is None
 
     def test_sitemap_result_defaults(self):
-        from souwen.web.sitemap import SitemapResult
+        from souwen.providers.runtime_clients.web.sitemap import SitemapResult
 
         result = SitemapResult(root_url="https://example.com")
         assert result.root_url == "https://example.com"
@@ -427,7 +448,7 @@ class TestFetchParams:
     def test_builtin_fetch_accepts_selector(self):
         """BuiltinFetcherClient.fetch() 应接受 selector / 分页 / robots 参数"""
         import inspect
-        from souwen.web.builtin import BuiltinFetcherClient
+        from souwen.providers.runtime_clients.web.builtin import BuiltinFetcherClient
 
         sig = inspect.signature(BuiltinFetcherClient.fetch)
         params = list(sig.parameters.keys())
@@ -435,28 +456,6 @@ class TestFetchParams:
         assert "start_index" in params
         assert "max_length" in params
         assert "respect_robots_txt" in params
-
-    def test_fetch_content_accepts_new_params(self):
-        """fetch_content() 应接受 selector / 分页 / robots 参数"""
-        import inspect
-        from souwen.web.fetch import fetch_content
-
-        sig = inspect.signature(fetch_content)
-        params = list(sig.parameters.keys())
-        assert "selector" in params
-        assert "start_index" in params
-        assert "max_length" in params
-        assert "respect_robots_txt" in params
-
-    def test_fetch_request_schema_has_new_fields(self):
-        """FetchRequest model 应包含 selector / start_index / max_length / respect_robots_txt"""
-        from souwen.server.schemas import FetchRequest
-
-        fields = FetchRequest.model_fields
-        assert "selector" in fields
-        assert "start_index" in fields
-        assert "max_length" in fields
-        assert "respect_robots_txt" in fields
 
 
 # 标记：本模块所有 async test 默认走 pytest-asyncio auto 模式

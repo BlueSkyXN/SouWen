@@ -17,8 +17,6 @@ def test_public_readmes_and_getting_started_use_leaf_install_profiles() -> None:
         text = path.read_text(encoding="utf-8")
 
         assert 'pip install -e ".[server,tls,web,robots,scraper]"' in text
-        assert 'pip install -e ".[server,tls,web,robots,scraper,crawl4ai]"' in text
-        assert 'pip install -e ".[server,tls,web,robots,scraper,scrapling]"' in text
         assert "edition-" not in text
 
     contributing = (REPO_ROOT / "docs/contributing.md").read_text(encoding="utf-8")

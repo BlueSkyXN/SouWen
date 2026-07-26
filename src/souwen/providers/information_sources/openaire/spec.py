@@ -1,13 +1,13 @@
 """Reviewed bridge declaration for OpenAIRE research-product search."""
 
-from souwen.platform.provider_spec import LegacySearchProviderSpec, LegacyTransportDeclaration
+from souwen.platform.provider_spec import ClientSearchProviderSpec, ClientTransportDeclaration
 from souwen.platform.provider_spec.models import AuthDeclaration, HttpOperation
 
-OPENAIRE_PROVIDER_SPEC = LegacySearchProviderSpec(
+OPENAIRE_PROVIDER_SPEC = ClientSearchProviderSpec(
     provider_id="openaire",
     adapter_id="openaire-search",
-    bridge_reason="nested OpenAIRE results need DOI or reviewed portal identity projection",
-    transport=LegacyTransportDeclaration(
+    adapter_reason="nested OpenAIRE results need DOI or reviewed portal identity projection",
+    transport=ClientTransportDeclaration(
         host="api.openaire.eu",
         base_path="/",
         protocol="json",

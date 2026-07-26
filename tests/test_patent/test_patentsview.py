@@ -1,6 +1,6 @@
 """PatentsView API 客户端单元测试（pytest-httpx mock）。
 
-覆盖 ``souwen.patent.patentsview`` 中 PatentsViewClient 的 JSON 解析、字段映射、分页、错误处理。
+覆盖 ``souwen.providers.runtime_clients.patent.patentsview`` 中 PatentsViewClient 的 JSON 解析、字段映射、分页、错误处理。
 验证申请人/发明人提取、分类代码（CPC/IPC）、摘要、日期处理等不变量。
 
 测试清单：
@@ -24,8 +24,8 @@ import pytest
 from datetime import date
 from pytest_httpx import HTTPXMock
 
-from souwen.core.exceptions import ConfigError
-from souwen.patent.patentsview import PatentsViewClient
+from souwen.common_runtime.provider_support.exceptions import ConfigError
+from souwen.providers.runtime_clients.patent.patentsview import PatentsViewClient
 
 TEST_API_KEY = "test-patentsview-key"
 
@@ -224,7 +224,7 @@ async def test_get_patent(httpx_mock: HTTPXMock):
 
 async def test_get_patent_not_found(httpx_mock: HTTPXMock):
     """不存在的专利抛出 NotFoundError"""
-    from souwen.core.exceptions import NotFoundError
+    from souwen.common_runtime.provider_support.exceptions import NotFoundError
 
     httpx_mock.add_response(
         url=re.compile(r"https://search\.patentsview\.org/api/v1/patent/"),
@@ -377,7 +377,7 @@ async def test_search_by_inventor(httpx_mock: HTTPXMock):
 
 async def test_429_raises_rate_limit(httpx_mock: HTTPXMock):
     """429 响应被 http_client 层识别为 RateLimitError 并携带 retry_after"""
-    from souwen.core.exceptions import RateLimitError
+    from souwen.common_runtime.provider_support.exceptions import RateLimitError
 
     httpx_mock.add_response(
         url=re.compile(r"https://search\.patentsview\.org/api/v1/patent/"),
@@ -394,7 +394,7 @@ async def test_429_raises_rate_limit(httpx_mock: HTTPXMock):
 
 async def test_401_raises_auth_error(httpx_mock: HTTPXMock):
     """401 响应被识别为 AuthError"""
-    from souwen.core.exceptions import AuthError
+    from souwen.common_runtime.provider_support.exceptions import AuthError
 
     httpx_mock.add_response(
         url=re.compile(r"https://search\.patentsview\.org/api/v1/patent/"),
@@ -409,7 +409,7 @@ async def test_401_raises_auth_error(httpx_mock: HTTPXMock):
 
 async def test_503_raises_source_unavailable(httpx_mock: HTTPXMock):
     """5xx 响应被识别为 SourceUnavailableError"""
-    from souwen.core.exceptions import SourceUnavailableError
+    from souwen.common_runtime.provider_support.exceptions import SourceUnavailableError
 
     httpx_mock.add_response(
         url=re.compile(r"https://search\.patentsview\.org/api/v1/patent/"),

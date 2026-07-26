@@ -126,7 +126,7 @@ EXPOSE 49265
 # ===== 健康检查 =====
 # 定期检测 API 服务是否正常运行
 HEALTHCHECK --interval=30s --timeout=5s --start-period=30s --retries=3 \
-    CMD curl -f http://localhost:49265/health || exit 1
+    CMD curl -f http://localhost:49265/healthz || exit 1
 
 # ===== 启动入口 =====
 ENTRYPOINT ["entrypoint.sh"]

@@ -5,9 +5,8 @@ import re
 import pytest
 from pytest_httpx import HTTPXMock
 
-from souwen.book.doab import DOABClient
-from souwen.core.exceptions import NotFoundError
-from souwen.search import search_books, search_by_capability
+from souwen.providers.runtime_clients.book.doab import DOABClient
+from souwen.common_runtime.provider_support.exceptions import NotFoundError
 
 _OAI_DC = """<?xml version="1.0" encoding="UTF-8"?>
 <OAI-PMH xmlns="http://www.openarchives.org/OAI/2.0/"
@@ -165,28 +164,3 @@ async def test_oai_missing_record_maps_to_not_found(httpx_mock: HTTPXMock) -> No
     async with DOABClient() as client:
         with pytest.raises(NotFoundError):
             await client.get_by_id("20.500.12854/9999")
-
-
-async def test_registry_dispatches_explicit_doab_search(monkeypatch: pytest.MonkeyPatch) -> None:
-    async def fake_search(self: DOABClient, query: str, *, per_page: int, page: int = 1):
-        assert (query, per_page, page) == ("climate", 2, 1)
-        return type("Response", (), {"query": query, "source": "doab", "results": []})()
-
-    monkeypatch.setattr(DOABClient, "search", fake_search)
-    responses = await search_books("climate", sources=["doab"], per_page=2)
-
-    assert len(responses) == 1
-    assert responses[0].source == "doab"
-
-
-async def test_registry_dispatches_doab_detail_by_handle(monkeypatch: pytest.MonkeyPatch) -> None:
-    expected = type("Detail", (), {"source": "doab"})()
-
-    async def fake_detail(self: DOABClient, record_id: str, *, file_limit: int = 10):
-        assert (record_id, file_limit) == ("20.500.12854/1234", 10)
-        return expected
-
-    monkeypatch.setattr(DOABClient, "get_by_id", fake_detail)
-    results = await search_by_capability("20.500.12854/1234", "get_detail", sources=["doab"])
-
-    assert results == [expected]

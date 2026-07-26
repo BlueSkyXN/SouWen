@@ -1,236 +1,127 @@
-# SouWen 数据源指南与清单
+# SouWen Provider v2 数据源清单
 
-## Registry 指标
+本页由每个内置 Provider package 的 `manifest.py` 经 `souwen.providers.catalog.builtin_provider_manifests()` 生成。Manifest Registry 与 Provider Manager 是唯一运行时事实来源；不存在并行的旧 source registry。
 
-| 指标 | 数量 | 定义 |
-|---|---:|---|
-| Registered | **110** | 当前生成进程注册的 `SourceAdapter`；默认只含内置源 |
-| Public | **109** | `catalog_visibility=public`，进入公开 Source Catalog |
-| Hidden / internal | **1** | 已注册但不进入公开 Source Catalog |
-| Fetch primary-domain | **16** | 主 `domain=fetch` 的公开源 |
-| Fetch cross-domain | **7** | 其他主 domain 通过 `extra_domains` 暴露 `fetch` |
-| Fetch providers | **23** | primary-domain 与 cross-domain 的公开源并集 |
+公开能力严格只有 `search`、`llm_search`、`fetch`。同一 package 可以提供多个能力，每个能力对应一个明确 adapter；列表不包含已退休的 citation、detail、archive-save、recursive-crawl 或 browser-fetch 产品入口。
 
-## 事实来源
+## 摘要
 
-本页不是手工维护的静态表，而是由 `src/souwen/registry/sources/` 中的 `SourceAdapter` 声明投影为正式 Source Catalog 后，经 `tools/gen_docs.py` 生成。`SourceAdapter` 同时驱动 REST API、doctor、Provider runtime 和 Panel 视图。
+| 指标 | 数量 |
+|---|---:|
+| Provider packages | **104** |
+| Provider adapters | **110** |
+| Search packages | **88** |
+| LLM Search packages | **2** |
+| Fetch packages | **20** |
 
-## 如何阅读
+## 内置 Provider packages
 
-- 本页主表按 registry domain 展示：`paper` / `patent` / `web` / `social` / `video` / `knowledge` / `developer` / `cn_tech` / `office` / `archive` / `fetch`。
-- 正式 Source Catalog 使用展示分类：`book`（图书/馆藏） / `paper`（学术论文） / `research_output`（科研产出） / `patent`（专利） / `web_general`（通用网页搜索） / `web_professional`（专业网页搜索） / `social`（社交平台） / `office`（企业/办公） / `developer`（开发者社区） / `knowledge`（百科/知识库） / `cn_tech`（中文技术社区） / `video`（视频平台） / `archive`（档案/历史） / `fetch`（内容抓取）。
-- `/api/v1/sources`、doctor 和 Panel 使用同一份公开 Source Catalog：`sources[]` 保留全部公开条目，并用 `category`、`domain`、`capabilities`、`available` 汇总启用状态、配置有效性、凭据与本地 runtime readiness；`runtime_available` / `runtime_reason` 单独解释依赖 importability。
-- `Capabilities` 是门面层可派发能力；`fetch` 既可以属于主 domain，也可以由其他主 domain 源通过 `extra_domains` 声明为跨域能力。具体名单和计数均从 registry 派生。
-
-## 配置口径
-
-- Auth 的取值是 `none` / `optional` / `required` / `self_hosted`。`optional` 表示缺凭据仍可用，但配置后可提升限流、配额、质量或登录态能力；`required` 与 `self_hosted` 缺少声明字段时仍保留 catalog 条目，并以 `available=false` 标记。
-- `Credentials` 列出完整字段；多字段源必须全部满足。频道级 `sources.<name>.api_key` 只覆盖主 `config_field`，其余字段仍读取 flat config。
-- 自建实例源读取 `sources.<name>.base_url`；当前内置自建源为 `searxng`、`whoogle`、`websurfx`。
-- `Risk` 只描述默认调度风险，不等同于接入方式；`Distribution` 描述推荐安装/治理边界；`Extra` 是推荐安装的 optional dependency 组。
-
-## 运行时可见性
-
-`/api/v1/sources` 会从 live registry 派生公开 catalog，禁用源、缺必需凭据源和缺自建实例地址的源仍会保留条目，但 `available=false`；doctor 和管理端 `/api/v1/admin/sources/config` 会展示所有注册源及其状态、凭据字段、频道配置和 catalog 元数据。
-
-`stability` 是 registry 声明的接入成熟度，不是实时连通性承诺；`/api/v1/sources[].available` 只表示当前启用、配置、凭据和本地 runtime 条件满足，不证明上游此刻可达。Catalog 和 doctor 的 `runtime_available` / `runtime_reason` 会单独解释依赖/importability；默认 `live=false`，只有显式 live probe 的结果才描述当次联网观测。
-
-<!-- BEGIN AUTO -->
-
-## 学术论文 · `paper`（21 源）
-
-| Name | Integration | Auth | Risk | Distribution | Stability | Extra | Capabilities | Credentials |
-|---|---|---|---|---|---|---|---|---|
-| `arxiv` | open_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | search | — |
-| `biorxiv` | open_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | search | — |
-| `core` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `core_api_key` |
-| `crossref` | open_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | search | — |
-| `dblp` | open_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | search | — |
-| `doaj` | official_api | 可选凭据 (提升限流) | 低风险 | 核心内置 | 稳定 | — | search | `doaj_api_key` |
-| `eric` | official_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | search | — |
-| `europepmc` | open_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | search | — |
-| `hal` | open_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | search | — |
-| `huggingface` | open_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | search | — |
-| `iacr` | scraper | 免配置 | 中风险 | 可选依赖 | 实验性 | `scraper` | search | — |
-| `ieee_xplore` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `ieee_api_key` |
-| `openaire` | official_api | 可选凭据 (提升配额) | 低风险 | 核心内置 | 稳定 | — | search | `openaire_api_key` |
-| `openalex` | open_api | 可选凭据 (提升配额) | 低风险 | 核心内置 | 稳定 | — | search | `openalex_api_key` |
-| `opencitations` | official_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | opencitations:citation_count, opencitations:citations, opencitations:references | — |
-| `osti` | official_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | get_detail, search | — |
-| `pmc` | open_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | search | — |
-| `pubmed` | open_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | search | — |
-| `semantic_scholar` | official_api | 可选凭据 (提升限流) | 低风险 | 核心内置 | 稳定 | — | search | `semantic_scholar_api_key` |
-| `zenodo` | official_api | 可选凭据 (提升配额) | 低风险 | 核心内置 | 稳定 | — | search | `zenodo_access_token` |
-| `zotero` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `zotero_api_key`, `zotero_library_id` |
-
-## 专利 · `patent`（8 源）
-
-| Name | Integration | Auth | Risk | Distribution | Stability | Extra | Capabilities | Credentials |
-|---|---|---|---|---|---|---|---|---|
-| `cnipa` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `cnipa_client_id`, `cnipa_client_secret` |
-| `epo_ops` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `epo_consumer_key`, `epo_consumer_secret` |
-| `google_patents` | scraper | 免配置 | 中风险 | 可选依赖 | 实验性 | `scraper` | search | — |
-| `patentsview` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `patentsview_api_key` |
-| `patsnap` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `patsnap_api_key` |
-| `pqai` | open_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `pqai_api_token` |
-| `the_lens` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `lens_api_token` |
-| `uspto_odp` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `uspto_api_key` |
-
-## 通用网页搜索 · `web`（32 源）
-
-| Name | Integration | Auth | Risk | Distribution | Stability | Extra | Capabilities | Credentials |
-|---|---|---|---|---|---|---|---|---|
-| `aliyun_iqs` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `aliyun_iqs_api_key` |
-| `baidu` ⚠️ | scraper | 免配置 | 高风险 | 可选依赖 | 稳定 | `scraper` | search | — |
-| `bing` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `scraper` | search | — |
-| `bing_cn` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `scraper` | search | — |
-| `brave` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `scraper` | search | — |
-| `brave_api` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `brave_api_key` |
-| `duckduckgo` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `scraper` | search | — |
-| `duckduckgo_images` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `scraper` | search_images | — |
-| `duckduckgo_news` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `scraper` | search_news | — |
-| `duckduckgo_videos` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `scraper` | search_videos | — |
-| `exa` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | exa:find_similar, fetch, search | `exa_api_key` |
-| `firecrawl` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch, search | `firecrawl_api_key` |
-| `google` ⚠️ | scraper | 免配置 | 高风险 | 可选依赖 | 稳定 | `scraper` | search | — |
-| `kimi_code` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch, search | `kimi_code_api_key` |
-| `linkup` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `linkup_api_key` |
-| `metaso` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch, search | `metaso_api_key` |
-| `mojeek` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `scraper` | search | — |
-| `perplexity` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `perplexity_api_key` |
-| `scrapingdog` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `scrapingdog_api_key` |
-| `searxng` | self_hosted | 自建实例 | 低风险 | 核心内置 | 稳定 | — | search | `searxng_url` |
-| `serpapi` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `serpapi_api_key` |
-| `serper` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `serper_api_key` |
-| `startpage` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `scraper` | search | — |
-| `tavily` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch, search | `tavily_api_key` |
-| `uniapi_ark_annotations_deepseek_v3_2_251201` | official_api | 必须凭据 | 中风险 | 核心内置 | 实验性 | — | search | `llm_search_gateways.uniapi.api_key`, `llm_search_gateways.uniapi.base_url` |
-| `uniapi_ark_annotations_doubao_seed_2_0_lite_260428` | official_api | 必须凭据 | 中风险 | 核心内置 | 实验性 | — | search | `llm_search_gateways.uniapi.api_key`, `llm_search_gateways.uniapi.base_url` |
-| `websurfx` | self_hosted | 自建实例 | 低风险 | 核心内置 | 稳定 | — | search | `websurfx_url` |
-| `whoogle` | self_hosted | 自建实例 | 低风险 | 核心内置 | 稳定 | — | search | `whoogle_url` |
-| `xcrawl` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch, search | `xcrawl_api_key` |
-| `yahoo` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `scraper` | search | — |
-| `yandex` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `scraper` | search | — |
-| `zhipuai` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `zhipuai_api_key` |
-
-## 社交平台 · `social`（5 源）
-
-| Name | Integration | Auth | Risk | Distribution | Stability | Extra | Capabilities | Credentials |
-|---|---|---|---|---|---|---|---|---|
-| `facebook` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `facebook_app_id`, `facebook_app_secret` |
-| `reddit` | open_api | 可选凭据 (提升限流) | 低风险 | 核心内置 | 稳定 | — | search | `reddit_client_id`, `reddit_client_secret` |
-| `twitter` ⚠️ | official_api | 必须凭据 | 高风险 | 核心内置 | 稳定 | — | search | `twitter_bearer_token` |
-| `weibo` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `scraper` | search | — |
-| `zhihu` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `scraper` | search | — |
-
-## 视频平台 · `video`（2 源）
-
-| Name | Integration | Auth | Risk | Distribution | Stability | Extra | Capabilities | Credentials |
-|---|---|---|---|---|---|---|---|---|
-| `bilibili` | scraper | 可选凭据 (个性化/登录态增强) | 低风险 | 可选依赖 | 稳定 | `scraper` | get_detail, search, search_articles, search_users | `bilibili_sessdata` |
-| `youtube` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | get_detail, get_transcript, get_trending, search | `youtube_api_key` |
-
-## 百科/知识库 · `knowledge`（1 源）
-
-| Name | Integration | Auth | Risk | Distribution | Stability | Extra | Capabilities | Credentials |
-|---|---|---|---|---|---|---|---|---|
-| `wikipedia` | open_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | search | — |
-
-## 开发者社区 · `developer`（2 源）
-
-| Name | Integration | Auth | Risk | Distribution | Stability | Extra | Capabilities | Credentials |
-|---|---|---|---|---|---|---|---|---|
-| `github` | open_api | 可选凭据 (提升限流) | 低风险 | 核心内置 | 稳定 | — | search | `github_token` |
-| `stackoverflow` | open_api | 可选凭据 (提升配额) | 低风险 | 核心内置 | 稳定 | — | search | `stackoverflow_api_key` |
-
-## 中文技术社区 · `cn_tech`（9 源）
-
-| Name | Integration | Auth | Risk | Distribution | Stability | Extra | Capabilities | Credentials |
-|---|---|---|---|---|---|---|---|---|
-| `community_cn` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `scraper` | search | — |
-| `coolapk` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `scraper` | search | — |
-| `csdn` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `scraper` | search | — |
-| `hostloc` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `scraper` | search | — |
-| `juejin` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `scraper` | search | — |
-| `linuxdo` | open_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | search | — |
-| `nodeseek` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `scraper` | search | — |
-| `v2ex` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `scraper` | search | — |
-| `xiaohongshu` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `scraper` | search | — |
-
-## 企业/办公 · `office`（1 源）
-
-| Name | Integration | Auth | Risk | Distribution | Stability | Extra | Capabilities | Credentials |
-|---|---|---|---|---|---|---|---|---|
-| `feishu_drive` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `feishu_app_id`, `feishu_app_secret` |
-
-## 档案/历史 · `archive`（1 源）
-
-| Name | Integration | Auth | Risk | Distribution | Stability | Extra | Capabilities | Credentials |
-|---|---|---|---|---|---|---|---|---|
-| `wayback` | open_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | archive_lookup, archive_save, fetch | — |
-
-## 内容抓取 · `fetch`（23 源）
-
-| Name | Integration | Auth | Risk | Distribution | Stability | Extra | Capabilities | Credentials |
-|---|---|---|---|---|---|---|---|---|
-| `apify` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch | `apify_api_token` |
-| `arxiv_fulltext` | open_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | fetch | — |
-| `builtin` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `web` | fetch | — |
-| `cloudflare` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch | `cloudflare_api_token`, `cloudflare_account_id` |
-| `crawl4ai` | scraper | 免配置 | 中风险 | 可选依赖 | 稳定 | `crawl4ai` | fetch | — |
-| `deepwiki` | open_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | fetch | — |
-| `diffbot` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch | `diffbot_api_token` |
-| `exa` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | exa:find_similar, fetch, search | `exa_api_key` |
-| `firecrawl` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch, search | `firecrawl_api_key` |
-| `jina_reader` | open_api | 可选凭据 (提升限流) | 低风险 | 核心内置 | 稳定 | — | fetch | `jina_api_key` |
-| `kimi_code` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch, search | `kimi_code_api_key` |
-| `metaso` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch, search | `metaso_api_key` |
-| `newspaper` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `newspaper` | fetch | — |
-| `readability` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `readability` | fetch | — |
-| `scraperapi` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch | `scraperapi_api_key` |
-| `scrapfly` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch | `scrapfly_api_key` |
-| `scrapingbee` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch | `scrapingbee_api_key` |
-| `scrapling` | scraper | 免配置 | 中风险 | 可选依赖 | 稳定 | `scrapling` | fetch | — |
-| `site_crawler` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `scraper` | fetch | — |
-| `tavily` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch, search | `tavily_api_key` |
-| `wayback` | open_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | archive_lookup, archive_save, fetch | — |
-| `xcrawl` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch, search | `xcrawl_api_key` |
-| `zenrows` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | fetch | `zenrows_api_key` |
-
-## book · `book`（9 源）
-
-| Name | Integration | Auth | Risk | Distribution | Stability | Extra | Capabilities | Credentials |
-|---|---|---|---|---|---|---|---|---|
-| `doab` | official_api | 免配置 | 低风险 | 核心内置 | 实验性 | — | get_detail, search | — |
-| `gutenberg` | official_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | get_detail, search | — |
-| `internet_archive` | official_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | get_detail, search | — |
-| `library_of_congress` | official_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | get_detail, search | — |
-| `librivox` | official_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | get_detail, search | — |
-| `oapen` | official_api | 免配置 | 低风险 | 核心内置 | 实验性 | — | get_detail, search | — |
-| `open_library` | official_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | get_detail, search | — |
-| `taiwan_new_books` | official_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | get_detail, search | — |
-| `wikisource` | official_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | get_detail, search | — |
-
-## research_output · `research_output`（2 源）
-
-| Name | Integration | Auth | Risk | Distribution | Stability | Extra | Capabilities | Credentials |
-|---|---|---|---|---|---|---|---|---|
-| `datacite` | official_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | search | — |
-| `figshare` | official_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | get_detail, search | — |
-
-<!-- END AUTO -->
-
----
-
-## 图例
-
-- ⚠️ high_risk：高风险源，等价于 `risk_level=high`。
-- Integration 描述接入方式：`open_api` / `scraper` / `official_api` / `self_hosted`。
-- Auth 描述运行前配置要求：免配置 / 可选凭据 / 必须凭据 / 自建实例。
-- Risk 描述默认调度风险，不等同于 Integration。
-- Distribution 描述推荐治理/安装范围：核心内置 / 可选依赖。
-- Extra 表示建议安装的 optional dependency 组。
-- Stability 描述声明式接入成熟度：稳定 / Beta / 实验性 / 已弃用；不等于实时可用性或可达性。
+| Provider | Capabilities | Availability | Auth references | Network contract | Browser | Costed |
+|---|---|---|---|---|---:|---:|
+| `aliyun_iqs` | `search` | `search:configured` | required: `ALIYUN_IQS_API_KEY` | `cloud-iqs.aliyuncs.com` | no | no |
+| `apify` | `fetch` | `fetch:configured` | required: `APIFY_API_TOKEN` | `api.apify.com` | no | yes |
+| `arxiv` | `search` | `search:configured` | none | `export.arxiv.org` | no | no |
+| `arxiv_fulltext` | `fetch` | `fetch:configured` | none | `arxiv.org` | no | no |
+| `baidu` | `search` | `search:configured` | none | `www.baidu.com` | no | no |
+| `bilibili` | `search` | `search:configured` | optional: `BILIBILI_SESSDATA` | `api.bilibili.com` | no | no |
+| `bing` | `search` | `search:configured` | none | `www.bing.com` | no | no |
+| `bing_cn` | `search` | `search:configured` | none | `cn.bing.com` | no | no |
+| `biorxiv` | `search` | `search:configured` | none | `api.biorxiv.org` | no | no |
+| `brave` | `search` | `search:configured` | none | `search.brave.com` | no | no |
+| `brave_api` | `search` | `search:configured` | required: `BRAVE_API_KEY` | `api.search.brave.com` | no | no |
+| `builtin-fetch` | `fetch` | `fetch:always` | none | none | no | no |
+| `cloudflare` | `fetch` | `fetch:configured` | required: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID` | `api.cloudflare.com` | no | yes |
+| `cnipa` | `search` | `search:configured` | required: `CNIPA_CLIENT_ID`, `CNIPA_CLIENT_SECRET` | `open.cnipr.com` | no | no |
+| `coolapk` | `search` | `search:configured` | none | `html.duckduckgo.com` | no | no |
+| `core` | `search` | `search:configured` | required: `CORE_API_KEY` | `api.core.ac.uk` | no | no |
+| `crossref` | `search` | `search:configured` | none | `api.crossref.org` | no | no |
+| `csdn` | `search` | `search:configured` | none | `so.csdn.net` | no | no |
+| `datacite` | `search` | `search:configured` | none | `api.datacite.org` | no | no |
+| `dblp` | `search` | `search:configured` | none | `dblp.org` | no | no |
+| `deepwiki` | `fetch` | `fetch:always` | optional: `JINA_API_KEY` | `deepwiki.com`, `r.jina.ai` | no | no |
+| `diffbot` | `fetch` | `fetch:configured` | required: `DIFFBOT_API_TOKEN` | `api.diffbot.com` | no | yes |
+| `doab` | `search` | `search:configured` | none | `directory.doabooks.org` | no | no |
+| `doaj` | `search` | `search:always` | optional: `DOAJ_API_KEY` | `doaj.org` | no | no |
+| `duckduckgo` | `search` | `search:configured` | none | `html.duckduckgo.com` | no | no |
+| `duckduckgo_images` | `search` | `search:configured` | none | `duckduckgo.com` | no | no |
+| `duckduckgo_news` | `search` | `search:configured` | none | `duckduckgo.com` | no | no |
+| `duckduckgo_videos` | `search` | `search:configured` | none | `duckduckgo.com` | no | no |
+| `epo_ops` | `search` | `search:configured` | required: `EPO_CONSUMER_KEY`, `EPO_CONSUMER_SECRET` | `ops.epo.org` | no | no |
+| `eric` | `search` | `search:configured` | none | `api.ies.ed.gov` | no | no |
+| `europepmc` | `search` | `search:configured` | none | `www.ebi.ac.uk` | no | no |
+| `exa` | `search`, `fetch` | `search:configured`, `fetch:configured` | required: `EXA_API_KEY` | `api.exa.ai` | no | no |
+| `facebook` | `search` | `search:configured` | required: `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET` | `graph.facebook.com` | no | no |
+| `feishu_drive` | `search` | `search:configured` | required: `FEISHU_APP_ID`, `FEISHU_APP_SECRET` | `open.feishu.cn` | no | no |
+| `figshare` | `search` | `search:configured` | none | `api.figshare.com` | no | no |
+| `firecrawl` | `search`, `fetch` | `search:configured`, `fetch:configured` | required: `FIRECRAWL_API_KEY` | `api.firecrawl.dev` | no | no |
+| `github` | `search` | `search:always` | optional: `GITHUB_TOKEN` | `api.github.com` | no | no |
+| `google` | `search` | `search:configured` | none | `www.google.com` | no | no |
+| `google_patents` | `search` | `search:configured` | none | `patents.google.com` | no | no |
+| `gutenberg` | `search` | `search:configured` | none | none | no | no |
+| `hal` | `search` | `search:configured` | none | `api.archives-ouvertes.fr` | no | no |
+| `hostloc` | `search` | `search:configured` | none | `html.duckduckgo.com` | no | no |
+| `huggingface` | `search` | `search:configured` | none | `huggingface.co` | no | no |
+| `iacr` | `search` | `search:configured` | none | `eprint.iacr.org` | no | no |
+| `ieee_xplore` | `search` | `search:configured` | required: `IEEE_API_KEY` | `ieeexploreapi.ieee.org` | no | no |
+| `internet_archive` | `search` | `search:configured` | none | `archive.org` | no | no |
+| `jina_reader` | `fetch` | `fetch:always` | optional: `JINA_API_KEY` | `r.jina.ai` | no | no |
+| `juejin` | `search` | `search:configured` | none | `api.juejin.cn` | no | no |
+| `kimi_code` | `search`, `fetch` | `search:configured`, `fetch:configured` | required: `KIMI_CODE_API_KEY` | `api.kimi.com` | no | no |
+| `library_of_congress` | `search` | `search:configured` | none | `www.loc.gov` | no | no |
+| `librivox` | `search` | `search:configured` | none | `librivox.org` | no | no |
+| `linkup` | `search` | `search:configured` | required: `LINKUP_API_KEY` | `api.linkup.so` | no | no |
+| `linuxdo` | `search` | `search:always` | none | `linux.do` | no | no |
+| `metaso` | `search`, `fetch` | `search:configured`, `fetch:configured` | required: `METASO_API_KEY` | `metaso.cn` | no | no |
+| `mojeek` | `search` | `search:configured` | none | `www.mojeek.com` | no | no |
+| `newspaper` | `fetch` | `fetch:configured` | none | `validated_public_target` | no | no |
+| `nodeseek` | `search` | `search:configured` | none | `html.duckduckgo.com` | no | no |
+| `oapen` | `search` | `search:configured` | none | `library.oapen.org` | no | no |
+| `open_library` | `search` | `search:configured` | none | `openlibrary.org` | no | no |
+| `openaire` | `search` | `search:always` | optional: `OPENAIRE_API_KEY` | `api.openaire.eu` | no | no |
+| `openalex` | `search` | `search:configured` | none | `api.openalex.org` | no | no |
+| `osti` | `search` | `search:configured` | none | `www.osti.gov` | no | no |
+| `patentsview` | `search` | `search:configured` | required: `PATENTSVIEW_API_KEY` | `search.patentsview.org` | no | no |
+| `patsnap` | `search` | `search:configured` | required: `PATSNAP_API_KEY` | `connect.patsnap.com` | no | no |
+| `perplexity` | `search` | `search:configured` | required: `PERPLEXITY_API_KEY` | `api.perplexity.ai` | no | no |
+| `pmc` | `search` | `search:configured` | optional: `PUBMED_API_KEY` | `eutils.ncbi.nlm.nih.gov` | no | no |
+| `pqai` | `search` | `search:configured` | required: `PQAI_API_TOKEN` | `api.projectpq.ai` | no | no |
+| `pubmed` | `search` | `search:configured` | optional: `PUBMED_API_KEY` | `eutils.ncbi.nlm.nih.gov` | no | no |
+| `readability` | `fetch` | `fetch:configured` | none | `validated_public_target` | no | no |
+| `reddit` | `search` | `search:always` | optional: `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET` | `www.reddit.com`, `oauth.reddit.com` | no | no |
+| `scraperapi` | `fetch` | `fetch:configured` | required: `SCRAPERAPI_API_KEY` | `api.scraperapi.com` | no | yes |
+| `scrapfly` | `fetch` | `fetch:configured` | required: `SCRAPFLY_API_KEY` | `api.scrapfly.io` | no | yes |
+| `scrapingbee` | `fetch` | `fetch:configured` | required: `SCRAPINGBEE_API_KEY` | `app.scrapingbee.com` | no | yes |
+| `scrapingdog` | `search` | `search:configured` | required: `SCRAPINGDOG_API_KEY` | `api.scrapingdog.com` | no | no |
+| `searxng` | `search` | `search:configured` | none | `configured_self_hosted_endpoint` | no | no |
+| `semantic_scholar` | `search` | `search:always` | optional: `SEMANTIC_SCHOLAR_API_KEY` | `api.semanticscholar.org` | no | no |
+| `serpapi` | `search` | `search:configured` | required: `SERPAPI_API_KEY` | `serpapi.com` | no | no |
+| `serper` | `search` | `search:configured` | required: `SERPER_API_KEY` | `google.serper.dev` | no | no |
+| `stackoverflow` | `search` | `search:always` | optional: `STACKOVERFLOW_API_KEY` | `api.stackexchange.com` | no | no |
+| `startpage` | `search` | `search:configured` | none | `www.startpage.com` | no | no |
+| `taiwan_new_books` | `search` | `search:configured` | none | none | no | no |
+| `tavily` | `search`, `fetch` | `search:configured`, `fetch:configured` | required: `TAVILY_API_KEY` | `api.tavily.com` | no | no |
+| `the_lens` | `search` | `search:configured` | required: `LENS_API_TOKEN` | `api.lens.org` | no | no |
+| `twitter` | `search` | `search:configured` | required: `TWITTER_BEARER_TOKEN` | `api.twitter.com` | no | no |
+| `uniapi_ark_annotations_deepseek_v3_2_251201` | `llm_search` | `llm_search:configured` | required: `UNIAPI_API_KEY`, `UNIAPI_BASE_URL` | none | no | yes |
+| `uniapi_ark_annotations_doubao_seed_2_0_lite_260428` | `llm_search` | `llm_search:configured` | required: `UNIAPI_API_KEY`, `UNIAPI_BASE_URL` | none | no | yes |
+| `uspto_odp` | `search` | `search:configured` | required: `USPTO_API_KEY` | `data.uspto.gov` | no | no |
+| `v2ex` | `search` | `search:configured` | none | `html.duckduckgo.com` | no | no |
+| `wayback` | `fetch` | `fetch:always` | none | `archive.org`, `web.archive.org` | no | no |
+| `websurfx` | `search` | `search:configured` | none | `configured_self_hosted_endpoint` | no | no |
+| `weibo` | `search` | `search:configured` | none | `m.weibo.cn` | no | no |
+| `whoogle` | `search` | `search:configured` | none | `configured_self_hosted_endpoint` | no | no |
+| `wikipedia` | `search` | `search:always` | none | `zh.wikipedia.org` | no | no |
+| `wikisource` | `search` | `search:configured` | none | `zh.wikisource.org` | no | no |
+| `xcrawl` | `search`, `fetch` | `search:configured`, `fetch:configured` | required: `XCRAWL_API_KEY` | `api.xcrawl.dev` | no | no |
+| `xiaohongshu` | `search` | `search:configured` | none | `html.duckduckgo.com` | no | no |
+| `yahoo` | `search` | `search:configured` | none | `search.yahoo.com` | no | no |
+| `yandex` | `search` | `search:configured` | none | `yandex.com` | no | no |
+| `youtube` | `search` | `search:configured` | required: `YOUTUBE_API_KEY` | `www.googleapis.com` | no | no |
+| `zenodo` | `search` | `search:always` | optional: `ZENODO_ACCESS_TOKEN` | `zenodo.org` | no | no |
+| `zenrows` | `fetch` | `fetch:configured` | required: `ZENROWS_API_KEY` | `api.zenrows.com` | no | yes |
+| `zhihu` | `search` | `search:configured` | none | `www.zhihu.com` | no | no |
+| `zhipuai` | `search` | `search:configured` | required: `ZHIPUAI_API_KEY` | `open.bigmodel.cn` | no | no |
+| `zotero` | `search` | `search:configured` | required: `ZOTERO_API_KEY` | `api.zotero.org` | no | no |
 
 ## 重新生成与校验
 

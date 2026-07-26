@@ -8,14 +8,14 @@ Read this card for docs changes, generated docs, API docs or behavior changes th
 ## Local invariants
 
 - Commands, config names, API fields and paths must match repository files.
-- `docs/data-sources.md` is generated from registry by `tools/gen_docs.py`.
+- `docs/data-sources.md` is generated from the ProviderManifest catalog by `tools/gen_docs.py`.
 - ADR/internal docs record decisions; tests still verify behavior.
 - API docs should stay aligned with `src/souwen/server/schemas/` and route tests.
 
 ## Do not
 
 - Do not invent APIs, commands, config fields or deployment features.
-- Do not manually edit generated source tables to hide registry drift.
+- Do not manually edit generated Provider tables to hide manifest catalog drift.
 - Do not document secrets, real tokens, cookies or private service URLs.
 
 ## Validation

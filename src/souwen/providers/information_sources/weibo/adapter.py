@@ -18,7 +18,7 @@ class WeiboSearchProvider(CnScraperSearchProvider):
 
 
 def create_weibo_client() -> Any:
-    from souwen.web.weibo import WeiboClient
+    from souwen.providers.runtime_clients.web.weibo import WeiboClient
 
     return WeiboClient(follow_redirects=False)
 

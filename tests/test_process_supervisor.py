@@ -9,7 +9,6 @@ import pytest
 
 from deploy.process import supervisor as supervisor_module
 from deploy.process.supervisor import INTERNAL_ROLE_ENV, DeploymentSettings, DeploymentSupervisor
-from souwen.delivery.api import RolloutMode
 
 
 class _Process:
@@ -52,7 +51,6 @@ class _Process:
 
 def _settings(**overrides) -> DeploymentSettings:
     values = {
-        "rollout_mode": RolloutMode.TARGET,
         "api_host": "0.0.0.0",
         "api_port": 49265,
         "worker_host": "127.0.0.1",
@@ -98,7 +96,6 @@ def test_worker_is_ready_before_api_and_children_share_private_runtime_env(monke
         assert env["SOUWEN_SOURCE_SHA"] == "a" * 40
         assert env["SOUWEN_WRAPPER_SHA"] == "b" * 40
         assert env["SOUWEN_CONFIG_REVISION"] == "source-" + "a" * 40
-        assert env["SOUWEN_V2_ROLLOUT"] == "target"
         assert env[INTERNAL_ROLE_ENV] == "1"
     assert worker.signals == [signal.SIGTERM]
 
@@ -214,7 +211,6 @@ def test_windows_break_handler_maps_to_child_control_event(monkeypatch) -> None:
 
 
 def test_target_settings_resolve_source_and_config_revision_from_deployment(monkeypatch) -> None:
-    monkeypatch.setenv("SOUWEN_V2_ROLLOUT", "target")
     monkeypatch.setenv("SOUWEN_SOURCE_SHA", "A" * 40)
     monkeypatch.setenv("SOUWEN_WRAPPER_SHA", "B" * 40)
     monkeypatch.delenv("SOUWEN_CONFIG_REVISION", raising=False)
@@ -224,11 +220,9 @@ def test_target_settings_resolve_source_and_config_revision_from_deployment(monk
     assert settings.source_sha == "a" * 40
     assert settings.wrapper_sha == "b" * 40
     assert settings.config_revision == "source-" + "a" * 40
-    assert settings.worker_required is True
 
 
 def test_worker_port_cannot_be_exposed_as_the_api_port(monkeypatch) -> None:
-    monkeypatch.setenv("SOUWEN_V2_ROLLOUT", "target")
     monkeypatch.setenv("SOUWEN_SOURCE_SHA", "a" * 40)
     monkeypatch.setenv("PORT", "49266")
 

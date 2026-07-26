@@ -2,7 +2,7 @@
 
 中文 | **English**
 
-> A unified search, fetching, and archive toolkit for AI Agents and automation scripts.
+> A target-only Search, LLM Search, and Fetch API for AI Agents and automation scripts.
 
 [![Python](https://img.shields.io/badge/python-≥3.10-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-GPLv3-blue)](LICENSE)
@@ -34,23 +34,19 @@
 
 ## 🎯 Introduction
 
-SouWen provides AI Agents, Python integrations, and server applications with a unified multi-source search interface. **All data sources are declared through a single `SourceAdapter` registry**, normalized into Pydantic v2 data models.
-
-The registry architecture reduces the cost of adding a new source to **1-2 code changes**; Python API / REST API / Panel are organized by domain, capability, and Source Catalog.
+SouWen exposes only Search, LLM Search, and Fetch as public data operations. Provider facts come
+from the `ProviderManifest` catalog, `ManifestRegistry`, and `ProviderManager`; `/api/v1/providers`
+is their safe runtime projection.
 
 ### Features
 
 <!-- BEGIN AUTO: SOURCE METRICS -->
-- **110 registered built-in sources**: **109 public** Source Catalog entries and **1 hidden/internal** entry.
-  - Public sources by primary domain: `paper` 21 · `patent` 8 · `web` 32 · `social` 5 · `video` 2 · `knowledge` 1 · `developer` 2 · `cn_tech` 9 · `office` 1 · `archive` 1 · `book` 9 · `research_output` 2
-  - `fetch` cross-cutting view: **23 providers** = **16 primary fetch-domain** + **7 cross-domain** sources.
+- **104 built-in Provider v2 packages** and **110 capability adapters**.
+  - Search: **88** packages · LLM Search: **2** · Fetch: **20**.
 <!-- END AUTO: SOURCE METRICS -->
-- **Unified Pydantic v2 models**: `PaperResult` / `PatentResult` / `WebSearchResult` / `FetchResult` / `WaybackCDXResponse` / …
-- **Async-first**: httpx + asyncio, per-loop Semaphore concurrency control
-- **Smart rate limiting**: Token Bucket + sliding window, per-source isolation
-- **curl_cffi TLS fingerprinting**: 15+ scraper sources use browser fingerprints to bypass anti-bot
-- **WARP five-mode proxy**: wireproxy / kernel / usque / warp-cli / external, with runtime install and management support
-- **Calm Precision Panel**: one responsive management surface for Search / LLM Search / Fetch / Providers / Runtime/Settings, with all Data API calls going through the generated TypeScript client
+- **Frozen OpenAPI and generated SDKs**: the Python root exposes generated sync/async SDK clients; Panel uses the generated TypeScript SDK
+- **Canonical DTOs** for Search, LLM Search, Fetch, Provider Catalog, and probes
+- **Read-only admin boundary**: config, doctor, and ping only
 
 ## 📦 Installation
 
@@ -66,10 +62,6 @@ pip install -e .
 # Server runtime
 pip install -e ".[server,tls,web,robots,scraper]"
 
-# Optional providers; crawl4ai and scrapling are mutually exclusive.
-pip install -e ".[server,tls,web,robots,scraper,newspaper,readability]"
-pip install -e ".[server,tls,web,robots,scraper,crawl4ai]"
-pip install -e ".[server,tls,web,robots,scraper,scrapling]"
 ```
 
 ## 🚀 Quick Start
@@ -87,14 +79,14 @@ with SouWenClient("http://127.0.0.1:8000", token="your-user-token") as client:
 ```
 
 `AsyncSouWenClient` provides the async surface. Before the first business request, both clients
-verify API major 2 and target rollout through `/healthz`. See the
+verify API major 2 through `/healthz`. See the
 [Python SDK guide](docs/python-sdk.md) for authentication, HFS dual-token use, and errors.
 The Panel uses the [TypeScript SDK](docs/typescript-sdk.md) generated from the same OpenAPI artifact.
 
 ### API Server
 
 ```bash
-SOUWEN_V2_ROLLOUT=target SOUWEN_USER_PASSWORD=userpass SOUWEN_ADMIN_PASSWORD=adminpass \
+SOUWEN_USER_PASSWORD=userpass SOUWEN_ADMIN_PASSWORD=adminpass \
   uvicorn souwen.server.app:app --host 0.0.0.0 --port 8000
 ```
 
@@ -106,11 +98,14 @@ curl "http://localhost:8000/api/v1/search" \
   -H "X-SouWen-API-Major: 2" \
   -H "Content-Type: application/json" \
   -d '{"query":"transformer","domains":["paper"]}'
-curl "http://localhost:8000/api/v1/wayback/cdx?url=https://example.com"
-curl "http://localhost:8000/api/v1/sources"
+curl "http://localhost:8000/api/v1/providers" \
+  -H "Authorization: Bearer userpass" \
+  -H "X-SouWen-API-Major: 2"
 ```
 
-`/api/v1/fetch`, `/api/v1/links`, and `/api/v1/sitemap` are admin-protected fetch capabilities and require an Admin Bearer token. Search endpoints and `/api/v1/sources` can be protected separately with `SOUWEN_USER_PASSWORD`.
+`POST /api/v1/fetch` is a target Data API operation and uses a user credential. Admin retains only
+read-only `GET /api/v1/admin/config`, `/doctor`, and `/ping`; there is no rollout switch, `/sources`,
+citation/detail/archive-save, recursive crawl, browser-fetch product entry, or legacy enriched-search endpoint.
 
 Visit `/docs` for the full OpenAPI documentation; visit `/panel#/` to enter the single Calm Precision management surface. `/` redirects to `/docs` with the default configuration.
 
@@ -122,18 +117,18 @@ Create project configuration from `souwen.example.yaml`. Copy it to `~/.config/s
 
 ## 🏗 Architecture
 
-Three-layer separation: **Presentation (Server / Panel / Integrations) → Application API (`souwen.search` / `souwen.web.fetch` / `souwen.web.wayback`) → Registry + concrete client modules + Platform (`core`)**.
+Three-layer separation: **Presentation (Server / Panel) → generated SDK and module APIs → Provider manifest catalog, registry, manager, and runtime clients**.
 
 See [docs/architecture.md](docs/architecture.md) for details.
 
 ```
 src/souwen/
-├── core/              Platform: http_client / scraper / rate_limiter / retry / …
-├── registry/          Single source of truth: adapter / sources / loader / views
-├── paper/             Paper clients
-├── patent/            8 patent clients
-├── web/               Search, social, video, knowledge, office, fetch, and archive clients
-└── server/            FastAPI application
+├── delivery/          Frozen OpenAPI, generated Python SDK, and HTTP adapters
+├── platform/          Provider SPI, manifest registry, specs, and manager
+├── providers/         Provider manifests, adapters, and private runtime clients
+├── modules/           Search, LLM Search, and Fetch application services
+├── common_runtime/    Shared transport, security, resilience, and observability
+└── server/            FastAPI host and embedded Panel boundary
 ```
 
 ## 🚢 Deployment
@@ -162,7 +157,7 @@ docker run -p 8000:49265 \
 - [docs/python-api.md](docs/python-api.md) — Python API
 - [docs/source-catalog.md](docs/source-catalog.md) — Source Catalog contract
 - [docs/architecture.md](docs/architecture.md) — Architecture overview
-- [docs/data-sources.md](docs/data-sources.md) — Full data source guide and list (auto-generated from registry)
+- [docs/data-sources.md](docs/data-sources.md) — Full Provider guide and list (auto-generated from manifests)
 - [docs/configuration.md](docs/configuration.md) — Configuration hierarchy / WARP / HTTP backend
 - [docs/api-reference.md](docs/api-reference.md) — REST API reference
 - [docs/hf-space-cd.md](docs/hf-space-cd.md) — Hugging Face Space CD / local gates / post-deploy validation
@@ -177,7 +172,7 @@ docker run -p 8000:49265 \
 
 ## 🤝 Contributing
 
-- Add a data source: see [docs/adding-a-source.md](docs/adding-a-source.md) (just add one `_reg(...)` call in `registry/sources/`)
+- Add a Provider: see [docs/adding-a-source.md](docs/adding-a-source.md) (add manifest/spec/adapter and conformance tests)
 - Code style: `ruff format && ruff check`
 - Tests: `pytest tests/`
 

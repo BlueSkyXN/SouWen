@@ -18,7 +18,7 @@ class JuejinSearchProvider(CnScraperSearchProvider):
 
 
 def create_juejin_client() -> Any:
-    from souwen.web.juejin import JuejinClient
+    from souwen.providers.runtime_clients.web.juejin import JuejinClient
 
     return JuejinClient(follow_redirects=False)
 

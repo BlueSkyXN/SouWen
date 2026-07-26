@@ -1,10 +1,10 @@
-"""Provider v2 bridge for IEEE Xplore's legacy client."""
+"""Provider v2 bridge for IEEE Xplore's existing client."""
 
 from __future__ import annotations
 import re
 from collections.abc import Sequence
 from typing import Any, Protocol
-from souwen.platform.provider_spec import LegacySearchProvider, LegacySearchSpec
+from souwen.platform.provider_spec import ClientSearchProvider, ClientSearchSpec
 from souwen.platform.provider_spi import (
     PageInfo,
     Provenance,
@@ -24,7 +24,7 @@ class IeeeXploreClientProtocol(Protocol):
     async def search(self, query: str, max_results: int = 10, start_record: int = 1) -> Any: ...
 
 
-class IeeeXploreSearchProvider(LegacySearchProvider):
+class IeeeXploreSearchProvider(ClientSearchProvider):
     def __init__(self, client: IeeeXploreClientProtocol, *, enabled: bool = True) -> None:
         super().__init__(client, _SPEC, enabled=enabled)
 
@@ -115,4 +115,4 @@ def _authors(paper: Any) -> tuple[str, ...]:
     return tuple(author for author in authors if author is not None)
 
 
-_SPEC = LegacySearchSpec("ieee_xplore", "paper", _invoke, _project)
+_SPEC = ClientSearchSpec("ieee_xplore", "paper", _invoke, _project)

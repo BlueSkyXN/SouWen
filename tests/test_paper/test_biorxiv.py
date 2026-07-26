@@ -7,7 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from souwen.paper.biorxiv import BioRxivClient
+from souwen.providers.runtime_clients.paper.biorxiv import BioRxivClient
 
 
 class TestBioRxiv:

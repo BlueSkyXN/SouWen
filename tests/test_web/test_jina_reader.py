@@ -1,6 +1,6 @@
 """Jina Reader 内容抓取客户端单元测试（pytest-httpx mock）。
 
-覆盖 ``souwen.web.jina_reader`` 中 JinaReaderClient 的 JSON 解析、字段映射、
+覆盖 ``souwen.providers.runtime_clients.web.jina_reader`` 中 JinaReaderClient 的 JSON 解析、字段映射、
 错误处理、批量并发等不变量。
 
 测试清单：
@@ -19,7 +19,7 @@ import re
 import pytest
 from pytest_httpx import HTTPXMock
 
-from souwen.web.jina_reader import JinaReaderClient
+from souwen.providers.runtime_clients.web.jina_reader import JinaReaderClient
 
 
 JINA_URL_RE = re.compile(r"https://r\.jina\.ai/.*")

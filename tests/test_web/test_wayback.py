@@ -6,13 +6,13 @@ import httpx
 import pytest
 from pytest_httpx import HTTPXMock
 
-from souwen.models import (
+from souwen.providers.runtime_clients.models import (
     WaybackAvailability,
     WaybackCDXResponse,
     WaybackSaveResult,
     WaybackSnapshot,
 )
-from souwen.web.wayback import WaybackClient
+from souwen.providers.runtime_clients.web.wayback import WaybackClient
 
 
 class TestWaybackClient:

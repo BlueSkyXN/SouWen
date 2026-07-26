@@ -242,17 +242,6 @@ jobs:
     with:
       candidate_sha: ${{ needs.validate.outputs.candidate_sha }}
 
-  external:
-    name: External release smoke
-    needs: validate
-    permissions:
-      contents: read
-      issues: write
-    uses: ./.github/workflows/external-smoke-gate.yml
-    with:
-      candidate_sha: ${{ needs.validate.outputs.candidate_sha }}
-      suite: release
-
   server-bundles:
     name: PyInstaller four-server-bundle matrix
     needs: validate
@@ -356,8 +345,6 @@ jobs:
           - { profile: server-runtime, install: "server,tls,web,robots,scraper" }
           - { profile: provider-newspaper, install: "server,tls,web,robots,scraper,newspaper" }
           - { profile: provider-readability, install: "server,tls,web,robots,scraper,readability" }
-          - { profile: provider-crawl4ai, install: "server,tls,web,robots,scraper,crawl4ai" }
-          - { profile: provider-scrapling, install: "server,tls,web,robots,scraper,scrapling" }
     steps:
       - uses: actions/checkout@v6
         with:
@@ -467,13 +454,13 @@ jobs:
             -e WARP_ENABLED=0 \
             "souwen-rc:${{ matrix.kind }}"
           for _ in $(seq 1 90); do
-            if curl -fsS "http://127.0.0.1:${{ matrix.port }}/health" > health.json; then
+            if curl -fsS "http://127.0.0.1:${{ matrix.port }}/healthz" > health.json; then
               jq -e \
                 --arg version "${{ needs.validate.outputs.version }}" \
                 --arg source_sha "${{ needs.validate.outputs.candidate_sha }}" \
                 '.status == "ok" and .version == $version and .source_sha == $source_sha' \
                 health.json >/dev/null
-              curl -fsS "http://127.0.0.1:${{ matrix.port }}/readiness" | \
+              curl -fsS "http://127.0.0.1:${{ matrix.port }}/readyz" | \
                 jq -e \
                   --arg version "${{ needs.validate.outputs.version }}" \
                   --arg source_sha "${{ needs.validate.outputs.candidate_sha }}" \
@@ -521,7 +508,7 @@ jobs:
 
   promotion-gate:
     name: Validate profile-specific HFS prerequisites
-    needs: [validate, ci, source, external, server-bundles, package, clean-install, container]
+    needs: [validate, ci, source, server-bundles, package, clean-install, container]
     if: ${{ always() && inputs.deploy_hfs }}
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -537,7 +524,7 @@ jobs:
           jq -e '
             . as $needs |
             all(
-              ["validate", "ci", "source", "external", "package", "clean-install", "container"][];
+              ["validate", "ci", "source", "package", "clean-install", "container"][];
               $needs[.].result == "success"
             )
           ' <<<"$NEEDS_JSON" >/dev/null || {
@@ -582,7 +569,7 @@ jobs:
 
   assemble-deployment:
     name: Verify and attest deployment evidence
-    needs: [validate, ci, source, external, server-bundles, package, clean-install, container, hfs]
+    needs: [validate, ci, source, server-bundles, package, clean-install, container, hfs]
     if: ${{ always() && inputs.evidence_profile == 'deployment' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -631,13 +618,6 @@ jobs:
         with:
           pattern: release-clean-install-*
           path: deployment-evidence/clean-install
-          merge-multiple: true
-
-      - name: Download external smoke evidence
-        uses: actions/download-artifact@v8
-        with:
-          pattern: external-gate-*-report
-          path: deployment-evidence/external
           merge-multiple: true
 
       - name: Download V2 and CI evidence
@@ -723,7 +703,6 @@ jobs:
               'validate',
               'ci',
               'source',
-              'external',
               'package',
               'clean-install',
               'container',
@@ -879,7 +858,6 @@ jobs:
           remote_workflows = {
               'ci': 'CI',
               'source': 'V2 CI',
-              'external': 'External Smoke Gate',
               'hfs': 'HF Space CD',
           }
           archive = root / 'deployment-evidence.tar.gz'
@@ -1013,7 +991,7 @@ jobs:
 
   assemble:
     name: Verify and attest release bundle
-    needs: [validate, ci, source, external, server-bundles, package, clean-install, container, hfs]
+    needs: [validate, ci, source, server-bundles, package, clean-install, container, hfs]
     if: ${{ always() && inputs.evidence_profile == 'release' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -1081,13 +1059,6 @@ jobs:
         uses: actions/download-artifact@v8
         with:
           pattern: release-clean-install-*
-          path: release-evidence
-          merge-multiple: true
-
-      - name: Download external smoke evidence
-        uses: actions/download-artifact@v8
-        with:
-          pattern: external-gate-*-report
           path: release-evidence
           merge-multiple: true
 
@@ -1278,12 +1249,10 @@ jobs:
               ('clean_install', ('clean-install',), ['release-evidence.tar.gz']),
               ('sdk_contract', ('clean-install', 'source'), ['release-evidence.tar.gz']),
               ('package_contract', ('package',), ['wheel', 'sdist', 'SBOMs']),
-              ('functional_fixtures', ('external',), ['release-evidence.tar.gz']),
-              ('live_zero_key', ('external',), ['release-evidence.tar.gz']),
               ('containers', ('container', 'ci'), ['release-evidence.tar.gz']),
               ('binary_matrix', ('server-bundles',), ['release-evidence.tar.gz']),
               ('security', ('ci',), ['pip-audit', 'npm audit', 'security tests']),
-              ('remote_ci', ('ci', 'source', 'external', 'server-bundles'), ['reusable workflow jobs']),
+              ('remote_ci', ('ci', 'source', 'server-bundles'), ['reusable workflow jobs']),
               ('hfs_promotion', ('hfs',), ['HF Space live evidence']),
               ('rc_assets', ('package', 'server-bundles'), ['release bundle inventory']),
           ]
@@ -1362,7 +1331,6 @@ jobs:
           remote_workflows = {
               'ci': 'CI',
               'source': 'V2 CI',
-              'external': 'External Smoke Gate',
               'server-bundles': 'Build RC2 PyInstaller server bundles',
           }
           if os.environ['DEPLOY_HFS'] == 'true':
@@ -1602,8 +1570,7 @@ jobs:
           The attached bundle contains the wheel, sdist, immutable OpenAPI artifact,
           exactly four target-native PyInstaller Server bundles, checksums, Python and
           Panel SBOMs, and the release evidence manifest.
-          Release assets are covered by native GitHub build attestations. Browser-backed providers remain governed by
-          the attached External Smoke Gate reports.
+          Release assets are covered by native GitHub build attestations and target CI evidence.
           EOF
 
           gh release create "$TAG" release-assets/* \

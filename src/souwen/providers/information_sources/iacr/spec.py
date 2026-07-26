@@ -1,14 +1,14 @@
-"""Reviewed bridge declaration for the legacy IACR HTML search client."""
+"""Reviewed bridge declaration for the existing IACR HTML search client."""
 
-from souwen.platform.provider_spec import LegacySearchProviderSpec, LegacyTransportDeclaration
+from souwen.platform.provider_spec import ClientSearchProviderSpec, ClientTransportDeclaration
 from souwen.platform.provider_spec.models import HttpOperation
 
 
-IACR_BRIDGE_SPEC = LegacySearchProviderSpec(
+IACR_BRIDGE_SPEC = ClientSearchProviderSpec(
     provider_id="iacr",
     adapter_id="iacr-search",
-    bridge_reason="HTML selector parsing remains in the legacy IACR scraper bridge",
-    transport=LegacyTransportDeclaration(
+    adapter_reason="HTML selector parsing remains in the existing IACR scraper bridge",
+    transport=ClientTransportDeclaration(
         scheme="https",
         host="eprint.iacr.org",
         protocol="html",

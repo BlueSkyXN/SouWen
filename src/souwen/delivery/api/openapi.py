@@ -4,9 +4,6 @@ from __future__ import annotations
 
 from typing import Any
 
-from .rollout import RolloutMode
-
-
 _TARGET_METHODS = {
     "/api/v1/search": "post",
     "/api/v1/llm-search": "post",
@@ -38,7 +35,7 @@ def _header_components() -> dict[str, dict[str, Any]]:
         "X-Request-ID": {"required": True, "schema": {"type": "string"}},
         "X-SouWen-Rollout-Mode": {
             "required": True,
-            "schema": {"enum": ["legacy", "target"]},
+            "schema": {"const": "target"},
         },
         "Retry-After": {"required": True, "schema": {"type": "string"}},
         "X-RateLimit-Limit": {"required": True, "schema": {"type": "string"}},
@@ -60,20 +57,18 @@ def _add_response_headers(operation: dict[str, Any]) -> None:
                 headers.setdefault(name, {"$ref": f"#/components/headers/{name}"})
 
 
-def normalize_target_openapi(schema: dict[str, Any], mode: RolloutMode) -> dict[str, Any]:
+def normalize_target_openapi(schema: dict[str, Any]) -> dict[str, Any]:
     schema["x-souwen-api-major"] = 2
-    schema["x-souwen-rollout-mode"] = mode.value
-    schema["x-souwen-contract-stage"] = "target_runtime_rollout_gated"
+    schema["x-souwen-rollout-mode"] = "target"
+    schema["x-souwen-contract-stage"] = "target_only"
     components = schema.setdefault("components", {})
     components.setdefault("headers", {}).update(_header_components())
-    if mode is RolloutMode.TARGET:
-        components.setdefault("securitySchemes", {}).setdefault(
-            "UserToken",
-            {"type": "http", "scheme": "bearer"},
-        )
+    components.setdefault("securitySchemes", {}).setdefault(
+        "UserToken",
+        {"type": "http", "scheme": "bearer"},
+    )
     operations = dict(_PROBE_METHODS)
-    if mode is RolloutMode.TARGET:
-        operations.update(_TARGET_METHODS)
+    operations.update(_TARGET_METHODS)
     for path, method in operations.items():
         operation = schema.get("paths", {}).get(path, {}).get(method)
         if not isinstance(operation, dict):

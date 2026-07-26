@@ -2,7 +2,7 @@
   "openapi": "3.1.0",
   "info": {"title": "SouWen External Data API", "version": "2.0.0-target"},
   "x-souwen-api-major": 2,
-  "x-souwen-contract-stage": "target_runtime_rollout_gated",
+  "x-souwen-contract-stage": "target_only",
   "paths": {
     "/api/v1/search": {"post": {"operationId": "search", "security": [{"UserToken": []}], "responses": {"200": {"$ref": "#/components/responses/SearchPage"}, "400": {"$ref": "#/components/responses/ErrorResponse"}, "401": {"$ref": "#/components/responses/ErrorResponse"}, "429": {"$ref": "#/components/responses/ErrorResponse"}, "502": {"$ref": "#/components/responses/ErrorResponse"}, "504": {"$ref": "#/components/responses/ErrorResponse"}}}},
     "/api/v1/llm-search": {"post": {"operationId": "llmSearch", "security": [{"UserToken": []}], "responses": {"200": {"$ref": "#/components/responses/LLMSearchResult"}, "400": {"$ref": "#/components/responses/ErrorResponse"}, "401": {"$ref": "#/components/responses/ErrorResponse"}, "429": {"$ref": "#/components/responses/ErrorResponse"}, "502": {"$ref": "#/components/responses/ErrorResponse"}, "504": {"$ref": "#/components/responses/ErrorResponse"}}}},
@@ -10,8 +10,8 @@
     "/api/v1/providers": {"get": {"operationId": "listProviders", "security": [{"UserToken": []}], "responses": {"200": {"$ref": "#/components/responses/ProviderCatalog"}, "401": {"$ref": "#/components/responses/ErrorResponse"}}}},
     "/healthz": {"get": {"operationId": "healthz", "security": [], "responses": {"200": {"$ref": "#/components/responses/ProbeResponse"}}}},
     "/readyz": {"get": {"operationId": "readyz", "security": [], "responses": {"200": {"$ref": "#/components/responses/ProbeResponse"}}}},
-    "/health": {"get": {"operationId": "healthLegacyAlias", "security": [], "x-souwen-alias-of": "/healthz", "responses": {"200": {"$ref": "#/components/responses/ProbeResponse"}}}},
-    "/readiness": {"get": {"operationId": "readinessLegacyAlias", "security": [], "x-souwen-alias-of": "/readyz", "responses": {"200": {"$ref": "#/components/responses/ProbeResponse"}}}}
+    "/health": {"get": {"operationId": "healthAlias", "security": [], "x-souwen-alias-of": "/healthz", "responses": {"200": {"$ref": "#/components/responses/ProbeResponse"}}}},
+    "/readiness": {"get": {"operationId": "readinessAlias", "security": [], "x-souwen-alias-of": "/readyz", "responses": {"200": {"$ref": "#/components/responses/ProbeResponse"}}}}
   },
   "components": {
     "securitySchemes": {"UserToken": {"type": "http", "scheme": "bearer"}},
@@ -30,7 +30,7 @@
     "headers": {
       "X-SouWen-API-Major": {"required": true, "schema": {"const": "2"}},
       "X-Request-ID": {"required": true, "schema": {"type": "string"}},
-      "X-SouWen-Rollout-Mode": {"required": true, "schema": {"enum": ["legacy", "target"]}},
+      "X-SouWen-Rollout-Mode": {"required": true, "schema": {"const": "target"}},
       "Retry-After": {"required": true, "schema": {"type": "string"}},
       "X-RateLimit-Limit": {"required": true, "schema": {"type": "string"}},
       "X-RateLimit-Remaining": {"required": true, "schema": {"type": "string"}},

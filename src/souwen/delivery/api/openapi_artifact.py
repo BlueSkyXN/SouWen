@@ -11,7 +11,6 @@ from typing import Any
 from souwen import __version__
 
 from .app import create_target_delivery_app
-from .rollout import RolloutMode
 from .router import ReadinessSnapshot, RuntimeMetadata, TargetDeliveryServices
 
 
@@ -57,7 +56,6 @@ def _materialize_target_openapi(version: str) -> dict[str, Any]:
         RuntimeMetadata(
             version=version,
             source_sha=None,
-            rollout_mode=RolloutMode.TARGET,
         ),
         require_user=lambda: None,
         rate_limit=lambda: None,

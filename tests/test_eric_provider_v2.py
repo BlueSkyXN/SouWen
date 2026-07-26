@@ -10,9 +10,9 @@ from fastapi.testclient import TestClient
 
 from souwen.common_runtime.transport.errors import RateLimitError, SourceUnavailableError
 from souwen.config import SouWenConfig
-from souwen.core.exceptions import ConfigError, ParseError
+from souwen.common_runtime.provider_support.exceptions import ConfigError, ParseError
 from souwen.delivery.api import create_target_delivery_app
-from souwen.models import Author, PaperResult, SearchResponse
+from souwen.providers.runtime_clients.models import Author, PaperResult, SearchResponse
 from souwen.platform.provider_manager import ProviderManager, ProviderManagerError
 from souwen.platform.provider_spi import (
     ExecutionContext,
@@ -32,7 +32,6 @@ from souwen.providers.information_sources.openalex import (
     OPENALEX_PROVIDER_MANIFEST,
     OpenAlexSearchProvider,
 )
-from souwen.registry import get
 from souwen.server.v2_runtime import build_target_runtime
 
 
@@ -135,10 +134,8 @@ def _execution() -> ExecutionContext:
     return ExecutionContext.with_timeout(5)
 
 
-def test_manifest_matches_legacy_registry_without_creating_a_second_catalog() -> None:
-    legacy = get("eric")
-
-    assert ERIC_PROVIDER_MANIFEST.id == legacy.name == "eric"
+def test_manifest_declares_reviewed_eric_contract() -> None:
+    assert ERIC_PROVIDER_MANIFEST.id == "eric"
     assert ERIC_PROVIDER_MANIFEST.version == "2.0.0rc2"
     assert ERIC_PROVIDER_MANIFEST.contract_version == "provider-v2"
     assert ERIC_PROVIDER_MANIFEST.capabilities == ("search",)
@@ -153,10 +150,6 @@ def test_manifest_matches_legacy_registry_without_creating_a_second_catalog() ->
     assert ERIC_PROVIDER_MANIFEST.network.egress_hosts == ("api.ies.ed.gov",)
     assert ERIC_PROVIDER_MANIFEST.network.proxy_supported is False
     assert ERIC_PROVIDER_MANIFEST.network.browser_required is False
-    assert legacy.domain == "paper"
-    assert legacy.integration == "official_api"
-    assert legacy.resolved_auth_requirement == "none"
-    assert legacy.capabilities == {"search"}
 
 
 @pytest.mark.asyncio

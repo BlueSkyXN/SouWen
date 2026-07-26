@@ -325,7 +325,7 @@ class SouWenClient:
         self, *, request_id: str | None = None, timeout: TimeoutValue = None
     ) -> ProbeResponse:
         return self._send(
-            operations.HEALTH_LEGACY_ALIAS,
+            operations.HEALTH_ALIAS,
             ProbeResponse,
             request_id=request_id,
             timeout=timeout,
@@ -350,7 +350,7 @@ class SouWenClient:
         timeout: TimeoutValue = None,
     ) -> ProbeResponse:
         return self._send(
-            operations.READINESS_LEGACY_ALIAS,
+            operations.READINESS_ALIAS,
             ProbeResponse,
             request_id=request_id,
             timeout=timeout,
@@ -524,7 +524,7 @@ class AsyncSouWenClient:
         timeout: TimeoutValue = None,
     ) -> ProbeResponse:
         return await self._send(
-            operations.HEALTH_LEGACY_ALIAS,
+            operations.HEALTH_ALIAS,
             ProbeResponse,
             request_id=request_id,
             timeout=timeout,
@@ -552,7 +552,7 @@ class AsyncSouWenClient:
         timeout: TimeoutValue = None,
     ) -> ProbeResponse:
         return await self._send(
-            operations.READINESS_LEGACY_ALIAS,
+            operations.READINESS_ALIAS,
             ProbeResponse,
             request_id=request_id,
             timeout=timeout,

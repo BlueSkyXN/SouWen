@@ -4,10 +4,10 @@ import sqlite3
 
 import pytest
 
-from souwen.core.exceptions import LocalCatalogUnavailableError
-from souwen.local_catalog import store as store_module
-from souwen.local_catalog.store import CatalogRecord, LocalCatalog
-from souwen.models import BookResult
+from souwen.common_runtime.provider_support.exceptions import LocalCatalogUnavailableError
+from souwen.providers.runtime_clients.local_catalog import store as store_module
+from souwen.providers.runtime_clients.local_catalog.store import CatalogRecord, LocalCatalog
+from souwen.providers.runtime_clients.models import BookResult
 
 
 def _record(

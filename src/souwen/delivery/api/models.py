@@ -8,8 +8,6 @@ from pydantic import Field, model_validator
 
 from souwen.platform.provider_spi import CanonicalModel, Capability, Provenance, RequestContext
 
-from .rollout import RolloutMode
-
 
 class ProviderCatalogItem(CanonicalModel):
     """Safe Provider v2 availability without config or secret values."""
@@ -31,7 +29,7 @@ class ProviderCatalogItem(CanonicalModel):
 
 
 class ProviderCatalog(CanonicalModel):
-    """Migrated Provider v2 catalog without legacy source or config readback fields."""
+    """Provider v2 catalog without retired source or config readback fields."""
 
     items: tuple[ProviderCatalogItem, ...]
     context: RequestContext
@@ -46,7 +44,7 @@ class ProbeResponse(CanonicalModel):
     source_sha: str | None = Field(default=None, min_length=40, max_length=40)
     wrapper_sha: str | None = Field(default=None, min_length=40, max_length=40)
     worker_source_sha: str | None = Field(default=None, min_length=40, max_length=40)
-    rollout_mode: RolloutMode
+    rollout_mode: Literal["target"] = "target"
     config_revision: str | None = Field(default=None, min_length=1, max_length=128)
     components: dict[
         str,

@@ -1,10 +1,10 @@
-"""Provider v2 bridge for the legacy DOAJ article client."""
+"""Provider v2 bridge for the existing DOAJ article client."""
 
 from __future__ import annotations
 import re
 from collections.abc import Sequence
 from typing import Any, Protocol
-from souwen.platform.provider_spec import LegacySearchProvider, LegacySearchSpec
+from souwen.platform.provider_spec import ClientSearchProvider, ClientSearchSpec
 from souwen.platform.provider_spi import (
     PageInfo,
     Provenance,
@@ -24,7 +24,7 @@ class DoajClientProtocol(Protocol):
     async def search(self, query: str, page_size: int = 10, page: int = 1) -> Any: ...
 
 
-class DoajSearchProvider(LegacySearchProvider):
+class DoajSearchProvider(ClientSearchProvider):
     def __init__(self, client: DoajClientProtocol, *, enabled: bool = True) -> None:
         super().__init__(client, _SPEC, enabled=enabled)
 
@@ -105,4 +105,4 @@ def _authors(paper: Any) -> tuple[str, ...]:
     return tuple(author for author in authors if author is not None)
 
 
-_SPEC = LegacySearchSpec("doaj", "paper", _invoke, _project)
+_SPEC = ClientSearchSpec("doaj", "paper", _invoke, _project)

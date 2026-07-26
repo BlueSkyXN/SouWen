@@ -13,29 +13,27 @@ def test_checked_in_data_sources_matches_generator():
     docs_path = Path("docs/data-sources.md")
     rendered = gen_docs.render_cli_content()
     assert docs_path.read_text(encoding="utf-8") == rendered
-    assert "`available` 汇总启用状态、配置有效性、凭据与本地 runtime readiness" in rendered
-    assert "Catalog 和 doctor 的 `runtime_available` / `runtime_reason`" in rendered
-    assert "当前 edition" not in rendered
+    assert "Manifest Registry 与 Provider Manager 是唯一运行时事实来源" in rendered
+    assert "公开能力严格只有 `search`、`llm_search`、`fetch`" in rendered
+    assert "opencitations" not in rendered
 
 
-def test_registry_snapshot_drives_release_candidate_metrics():
-    snapshot, _catalog, _categories = gen_docs._load_snapshot()
+def test_manifest_snapshot_drives_release_candidate_metrics():
+    snapshot = gen_docs._load_snapshot()
 
-    assert snapshot.registered_count == 110
-    assert snapshot.public_count == 109
-    assert snapshot.hidden_or_internal_count == 1
-    assert snapshot.primary_counts["book"] == 9
-    assert len(snapshot.fetch_primary) == 16
-    assert [adapter.name for adapter in snapshot.fetch_cross_domain] == [
+    assert snapshot.package_count == 104
+    assert snapshot.adapter_count == 110
+    assert snapshot.capability_count("search") == 88
+    assert snapshot.capability_count("llm_search") == 2
+    assert snapshot.capability_count("fetch") == 20
+    assert [manifest.id for manifest in snapshot.multi_capability] == [
         "exa",
         "firecrawl",
         "kimi_code",
         "metaso",
         "tavily",
-        "wayback",
         "xcrawl",
     ]
-    assert snapshot.fetch_provider_count == 23
 
 
 def test_checked_in_managed_regions_match_registry():

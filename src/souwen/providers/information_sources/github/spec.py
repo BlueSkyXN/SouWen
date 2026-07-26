@@ -1,14 +1,14 @@
-"""Reviewed bridge declaration for github legacy Search."""
+"""Reviewed bridge declaration for github existing Search."""
 
-from souwen.platform.provider_spec import LegacySearchProviderSpec, LegacyTransportDeclaration
+from souwen.platform.provider_spec import ClientSearchProviderSpec, ClientTransportDeclaration
 from souwen.platform.provider_spec.models import AuthDeclaration, HttpOperation
 
-GITHUB_PROVIDER_SPEC = LegacySearchProviderSpec(
+GITHUB_PROVIDER_SPEC = ClientSearchProviderSpec(
     provider_id="github",
     adapter_id="github-search",
     domain="developer",
-    bridge_reason="legacy WebSearchResponse normalization and canonical URL identity require a bridge",
-    transport=LegacyTransportDeclaration(
+    adapter_reason="existing WebSearchResponse normalization and canonical URL identity require a bridge",
+    transport=ClientTransportDeclaration(
         host="api.github.com",
         protocol="json",
         operations=(HttpOperation(method="GET", endpoint="/search/repositories"),),

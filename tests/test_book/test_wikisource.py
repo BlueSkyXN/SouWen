@@ -5,11 +5,8 @@ import re
 import pytest
 from pytest_httpx import HTTPXMock
 
-from souwen.book.wikisource import WikisourceClient
-from souwen.core.exceptions import NotFoundError, SourceUnavailableError
-from souwen.models import WikisourcePage
-from souwen.search import search_books, search_by_capability
-from souwen.wikisource import get_wikisource_page_detail
+from souwen.providers.runtime_clients.book.wikisource import WikisourceClient
+from souwen.common_runtime.provider_support.exceptions import NotFoundError, SourceUnavailableError
 
 
 def _page(
@@ -302,89 +299,3 @@ async def test_search_maps_upstream_5xx(httpx_mock: HTTPXMock) -> None:
     async with WikisourceClient() as client:
         with pytest.raises(SourceUnavailableError):
             await client.search("book")
-
-
-async def test_search_books_dispatches_explicit_wikisource_source(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    async def fake_search(
-        self: WikisourceClient, query: str, *, per_page: int, page: int = 1, language: str = "zh"
-    ):
-        assert (query, per_page, page, language) == ("book", 2, 1, "en")
-        return type(
-            "Response",
-            (),
-            {
-                "query": query,
-                "source": "wikisource",
-                "total_results": None,
-                "page": page,
-                "per_page": per_page,
-                "results": [],
-            },
-        )()
-
-    monkeypatch.setattr(WikisourceClient, "search", fake_search)
-    responses = await search_books("book", sources=["wikisource"], per_page=2, language="en")
-
-    assert len(responses) == 1
-    assert responses[0].source == "wikisource"
-
-
-async def test_registry_detail_dispatch_and_public_facade_return_typed_page(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    expected = WikisourcePage.model_validate(
-        {
-            "language": "zh",
-            "site_url": "https://zh.wikisource.org",
-            "page_id": 1,
-            "title": "Page",
-            "canonical_title": "Page",
-            "source_url": "https://zh.wikisource.org/wiki/Page",
-            "revision": {
-                "revision_id": 2,
-                "timestamp": "2024-01-01T00:00:00Z",
-                "content": "body",
-                "content_format": "wikitext",
-            },
-            "site_content_access": {"status": "unknown"},
-            "source_work_access": {"status": "unknown"},
-        }
-    )
-
-    async def fake_detail(self: WikisourceClient, title: str, **kwargs: object) -> WikisourcePage:
-        assert title == "Page"
-        assert kwargs == {
-            "language": "en",
-            "revision_id": 2,
-            "content_format": "text",
-            "max_content_chars": 10,
-            "include_subpages": True,
-            "subpage_limit": 1,
-        }
-        return expected
-
-    monkeypatch.setattr(WikisourceClient, "get_page_detail", fake_detail)
-    dispatched = await search_by_capability(
-        "Page",
-        "get_detail",
-        sources=["wikisource"],
-        title="Page",
-        language="en",
-        revision_id=2,
-        content_format="text",
-        max_content_chars=10,
-        include_subpages=True,
-        subpage_limit=1,
-    )
-    assert dispatched == [expected]
-
-    async def fake_facade_dispatch(*args: object, **kwargs: object) -> list[WikisourcePage]:
-        assert args == ("Facade page", "get_detail")
-        assert kwargs["sources"] == ["wikisource"]
-        assert kwargs["title"] == "Facade page"
-        return [expected]
-
-    monkeypatch.setattr("souwen.wikisource.search_by_capability", fake_facade_dispatch)
-    assert await get_wikisource_page_detail("Facade page") is expected

@@ -1,7 +1,7 @@
 """Generated from contracts/openapi/souwen-openapi-2.0.0rc2.json; do not edit."""
 
 # generator_version=1
-# openapi_sha256=e4343a549c99596244c5f7cf8bed0d1675641bb4eec1a44abbcc65f8f6f18de9
+# openapi_sha256=908a403a8976c9944a8fb0c249e696675049b059f945c8d6f0f547dda538016a
 
 from __future__ import annotations
 
@@ -192,7 +192,7 @@ class ProbeResponse(_StrictModel):
     context: RequestContext
     error: str | None = Field(default=None, min_length=1, max_length=256)
     ready: bool
-    rollout_mode: RolloutMode
+    rollout_mode: Literal["target"] = "target"
     source_sha: str | None = Field(default=None, min_length=40, max_length=40)
     status: Literal["ok", "ready", "not_ready"]
     version: str = Field(min_length=1, max_length=64)
@@ -210,7 +210,7 @@ class Provenance(_StrictModel):
 
 
 class ProviderCatalog(_StrictModel):
-    "Migrated Provider v2 catalog without legacy source or config readback fields."
+    "Provider v2 catalog without retired source or config readback fields."
 
     context: RequestContext
     items: list[ProviderCatalogItem]
@@ -267,9 +267,6 @@ class RequestContext(_StrictModel):
     api_major: Literal[2] = 2
     request_id: str = Field(min_length=1, max_length=128)
     trace_id: str | None = Field(default=None, min_length=1, max_length=128)
-
-
-RolloutMode = Literal["legacy", "target"]
 
 
 class SearchAttributes(_StrictModel):
@@ -443,7 +440,6 @@ __all__ = [
     "ProviderFailure",
     "ProviderRef",
     "RequestContext",
-    "RolloutMode",
     "SearchAttributes",
     "SearchFilters",
     "SearchIdentifier",

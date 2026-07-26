@@ -1,13 +1,13 @@
 """Reviewed bridge declaration for ScraperAPI Fetch."""
 
-from souwen.platform.provider_spec import LegacyFetchProviderSpec, LegacyTransportDeclaration
+from souwen.platform.provider_spec import ClientFetchProviderSpec, ClientTransportDeclaration
 from souwen.platform.provider_spec.models import AuthDeclaration, HttpOperation
 
-SCRAPERAPI_FETCH_PROFILE = LegacyFetchProviderSpec(
+SCRAPERAPI_FETCH_PROFILE = ClientFetchProviderSpec(
     provider_id="scraperapi",
     adapter_id="scraperapi-fetch",
-    bridge_reason="ScraperAPI rendering and local HTML extraction remain in the legacy Fetch bridge",
-    transport=LegacyTransportDeclaration(
+    adapter_reason="ScraperAPI rendering and local HTML extraction remain in the existing Fetch bridge",
+    transport=ClientTransportDeclaration(
         host="api.scraperapi.com",
         protocol="html",
         operations=(HttpOperation(method="GET", endpoint="/"),),

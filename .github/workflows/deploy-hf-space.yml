@@ -329,9 +329,10 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_SPACE_READ_TOKEN: ${{ secrets.HF_SPACE_READ_TOKEN }}
           SOUWEN_SMOKE_BEARER_TOKEN: ${{ secrets.SOUWEN_SMOKE_BEARER_TOKEN }}
+          SOUWEN_CONFIG_B64: ${{ secrets.SOUWEN_CONFIG_B64 }}
         run: |
           missing=()
-          for name in HF_TOKEN HF_SPACE_READ_TOKEN SOUWEN_SMOKE_BEARER_TOKEN; do
+          for name in HF_TOKEN HF_SPACE_READ_TOKEN SOUWEN_SMOKE_BEARER_TOKEN SOUWEN_CONFIG_B64; do
             if [ -z "${!name}" ]; then
               missing+=("$name")
             fi
@@ -354,7 +355,63 @@ jobs:
           cache: pip
 
       - name: Install Hugging Face Hub client
-        run: python -m pip install "huggingface_hub>=1.8,<2"
+        run: python -m pip install "huggingface_hub>=1.8,<2" "PyYAML>=6,<7"
+
+      - name: Validate required HFS LLM Search configuration
+        env:
+          SOUWEN_CONFIG_B64: ${{ secrets.SOUWEN_CONFIG_B64 }}
+        run: |
+          python -I - <<'PY'
+          import base64
+          import os
+          import re
+          from urllib.parse import urlsplit
+
+          import yaml
+
+          try:
+              decoded = base64.b64decode(
+                  os.environ["SOUWEN_CONFIG_B64"],
+                  validate=True,
+              ).decode("utf-8")
+              config = yaml.safe_load(decoded)
+          except Exception as exc:
+              raise SystemExit("SOUWEN_CONFIG_B64 is not valid base64-encoded YAML") from exc
+          if not isinstance(config, dict):
+              raise SystemExit("SOUWEN_CONFIG_B64 YAML root must be a mapping")
+
+          gateways = config.get("llm_search_gateways")
+          uniapi = gateways.get("uniapi") if isinstance(gateways, dict) else None
+          if not isinstance(uniapi, dict):
+              raise SystemExit("HFS promotion requires llm_search_gateways.uniapi")
+          api_key = uniapi.get("api_key")
+          base_url = uniapi.get("base_url")
+          env_reference = re.compile(r"^\$\{[A-Z_][A-Z0-9_]*\}$")
+          if not isinstance(api_key, str) or not api_key.strip():
+              raise SystemExit("HFS promotion requires a UniAPI API key or exact env reference")
+          if not isinstance(base_url, str) or not base_url.strip():
+              raise SystemExit("HFS promotion requires a UniAPI base URL or exact env reference")
+          if not env_reference.fullmatch(base_url.strip()):
+              parsed = urlsplit(base_url.strip())
+              if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+                  raise SystemExit("HFS UniAPI base URL must be HTTP(S) or an exact env reference")
+
+          sources = config.get("sources")
+          source_ids = (
+              "uniapi_ark_annotations_deepseek_v3_2_251201",
+              "uniapi_ark_annotations_doubao_seed_2_0_lite_260428",
+          )
+          enabled = [
+              source_id
+              for source_id in source_ids
+              if isinstance(sources, dict)
+              and isinstance(sources.get(source_id), dict)
+              and sources[source_id].get("enabled") is True
+          ]
+          if len(enabled) != 1:
+              raise SystemExit("HFS promotion requires exactly one enabled LLM Search Provider")
+          print("HFS LLM Search configuration preflight passed")
+          PY
 
       - name: Read expected SouWen version
         id: project
@@ -982,7 +1039,7 @@ jobs:
                   f"stage={last_stage}, runtime_sha={last_runtime_sha}, expected={rollback_sha}"
               )
 
-          for endpoint in ("/health", "/readiness"):
+          for endpoint in ("/healthz", "/readyz"):
               request = Request(
                   f"{os.environ['HF_SPACE_URL']}{endpoint}",
                   headers={

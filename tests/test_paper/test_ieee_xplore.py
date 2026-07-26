@@ -5,8 +5,8 @@ from __future__ import annotations
 from datetime import date
 import pytest
 
-from souwen.core.exceptions import ConfigError
-from souwen.paper.ieee_xplore import IeeeXploreClient
+from souwen.common_runtime.provider_support.exceptions import ConfigError
+from souwen.providers.runtime_clients.paper.ieee_xplore import IeeeXploreClient
 
 
 class TestIeeeXplore:

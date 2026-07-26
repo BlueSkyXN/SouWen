@@ -6,8 +6,8 @@ from typing import Any
 
 import pytest
 
-from souwen.core.exceptions import ConfigError, SourceUnavailableError
-from souwen.patent.google_patents_scraper import GooglePatentsScraper
+from souwen.common_runtime.provider_support.exceptions import ConfigError, SourceUnavailableError
+from souwen.providers.runtime_clients.patent.google_patents_scraper import GooglePatentsScraper
 
 
 class _FakeResponse:
@@ -161,7 +161,7 @@ async def test_search_uses_playwright_fallback_when_static_paths_are_empty(monke
 
     monkeypatch.setattr(GooglePatentsScraper, "_fetch", fake_fetch)
     monkeypatch.setattr(
-        "souwen.patent.google_patents_scraper.get_browser_pool",
+        "souwen.providers.runtime_clients.patent.google_patents_scraper.get_browser_pool",
         lambda **kwargs: fake_pool,
     )
 
@@ -193,7 +193,10 @@ async def test_playwright_fallback_missing_runtime_returns_static_empty(monkeypa
         raise ConfigError("playwright", "Playwright")
 
     monkeypatch.setattr(GooglePatentsScraper, "_fetch", fake_fetch)
-    monkeypatch.setattr("souwen.patent.google_patents_scraper.get_browser_pool", missing_pool)
+    monkeypatch.setattr(
+        "souwen.providers.runtime_clients.patent.google_patents_scraper.get_browser_pool",
+        missing_pool,
+    )
 
     scraper = GooglePatentsScraper(min_delay=0, max_delay=0)
     try:
@@ -225,7 +228,7 @@ async def test_search_raises_when_google_blocks_browser_fallback(monkeypatch):
 
     monkeypatch.setattr(GooglePatentsScraper, "_fetch", fake_fetch)
     monkeypatch.setattr(
-        "souwen.patent.google_patents_scraper.get_browser_pool",
+        "souwen.providers.runtime_clients.patent.google_patents_scraper.get_browser_pool",
         lambda **kwargs: fake_pool,
     )
 

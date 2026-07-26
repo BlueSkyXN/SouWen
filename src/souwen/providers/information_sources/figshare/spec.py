@@ -1,17 +1,17 @@
 """Reviewed bridge declaration for Figshare's normalized article search client."""
 
-from souwen.platform.provider_spec import LegacySearchProviderSpec, LegacyTransportDeclaration
+from souwen.platform.provider_spec import ClientSearchProviderSpec, ClientTransportDeclaration
 from souwen.platform.provider_spec.models import HttpOperation
 
 
-FIGSHARE_PROVIDER_SPEC = LegacySearchProviderSpec(
+FIGSHARE_PROVIDER_SPEC = ClientSearchProviderSpec(
     provider_id="figshare",
     adapter_id="figshare-search",
     domain="research_output",
-    bridge_reason=(
+    adapter_reason=(
         "Figshare's typed research-output projection retains metadata beyond the canonical Search DTO"
     ),
-    transport=LegacyTransportDeclaration(
+    transport=ClientTransportDeclaration(
         scheme="https",
         host="api.figshare.com",
         base_path="/v2",

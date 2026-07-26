@@ -1,12 +1,12 @@
-from souwen.platform.provider_spec import LegacySearchProviderSpec, LegacyTransportDeclaration
+from souwen.platform.provider_spec import ClientSearchProviderSpec, ClientTransportDeclaration
 from souwen.platform.provider_spec.models import HttpOperation
 
-COOLAPK_PROVIDER_SPEC = LegacySearchProviderSpec(
+COOLAPK_PROVIDER_SPEC = ClientSearchProviderSpec(
     provider_id="coolapk",
     adapter_id="coolapk-search",
     domain="cn_tech",
-    bridge_reason="DDG HTML site-search and canonical URL identity require a bridge",
-    transport=LegacyTransportDeclaration(
+    adapter_reason="DDG HTML site-search and canonical URL identity require a bridge",
+    transport=ClientTransportDeclaration(
         host="html.duckduckgo.com",
         protocol="html",
         operations=(HttpOperation(method="POST", endpoint="/html/"),),

@@ -17,7 +17,7 @@ from souwen.platform.provider_spi import (
     SearchPage,
     SearchRequest,
 )
-from souwen.platform.provider_spec import LegacySearchProvider, LegacySearchSpec
+from souwen.platform.provider_spec import ClientSearchProvider, ClientSearchSpec
 from .spec import EPO_OPS_BRIDGE_SPEC
 
 _PROVIDER_ID = "epo_ops"
@@ -28,7 +28,7 @@ class EpoOpsClientProtocol(Protocol):
     async def close(self) -> None: ...
 
 
-class EpoOpsSearchProvider(LegacySearchProvider):
+class EpoOpsSearchProvider(ClientSearchProvider):
     capability = "search"
 
     def __init__(self, client: EpoOpsClientProtocol, *, enabled: bool = True) -> None:
@@ -113,6 +113,6 @@ def _text(value: Any) -> str:
     return result
 
 
-_BRIDGE = LegacySearchSpec(_PROVIDER_ID, "patent", _invoke, _project)
-assert EPO_OPS_BRIDGE_SPEC.adapter_kind == "legacy_bridge"
+_BRIDGE = ClientSearchSpec(_PROVIDER_ID, "patent", _invoke, _project)
+assert EPO_OPS_BRIDGE_SPEC.adapter_kind == "client_adapter"
 __all__ = ["EpoOpsClientProtocol", "EpoOpsSearchProvider"]

@@ -54,7 +54,7 @@ def create_target_delivery_app(
         lifespan=lifespan,
     )
     app.add_middleware(GZipMiddleware, minimum_size=1000)
-    app.add_middleware(TargetRequestContextMiddleware, mode=metadata.rollout_mode)
+    app.add_middleware(TargetRequestContextMiddleware)
     app.include_router(
         create_target_api_router(
             services,
@@ -67,7 +67,7 @@ def create_target_delivery_app(
     default_openapi = app.openapi
 
     def target_openapi():
-        return normalize_target_openapi(default_openapi(), metadata.rollout_mode)
+        return normalize_target_openapi(default_openapi())
 
     app.openapi = target_openapi
 

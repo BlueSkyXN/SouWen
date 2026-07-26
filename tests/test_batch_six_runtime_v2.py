@@ -15,7 +15,7 @@ from souwen.common_runtime.channel_overrides import (
     source_channel_overrides_enabled,
 )
 from souwen.config import SouWenConfig
-from souwen.models import WebSearchResponse, WebSearchResult
+from souwen.providers.runtime_clients.models import WebSearchResponse, WebSearchResult
 from souwen.platform.provider_spi import (
     ExecutionContext,
     ProviderRef,
@@ -63,43 +63,28 @@ def _fake_client(provider_id, constructor_calls, search_calls, closed):
     return Client
 
 
-def _fake_registry_adapter(provider_id, client_type):
-    return SimpleNamespace(
-        config_field=f"{provider_id}_url",
-        resolved_auth_requirement="self_hosted",
-        runtime_default_enabled=True,
-        client_loader=lambda: client_type,
-    )
-
-
 def test_batch_six_factories_use_only_preflighted_endpoints_and_close_once(monkeypatch) -> None:
     constructor_calls, search_calls = [], {}
     closed: Counter[str] = Counter()
-    original_get = runtime_module.get_legacy_adapter
     clients = {
         provider_id: _fake_client(provider_id, constructor_calls, search_calls, closed)
         for provider_id in runtime_module._BATCH_SIX_SELF_HOSTED_SOURCE_IDS
     }
 
-    def fake_get(provider_id):
-        if provider_id in clients:
-            return _fake_registry_adapter(provider_id, clients[provider_id])
-        return original_get(provider_id)
-
-    monkeypatch.setattr(runtime_module, "get_legacy_adapter", fake_get)
+    monkeypatch.setattr(runtime_module, "_SELF_HOSTED_CLIENT_TYPES", clients)
     monkeypatch.delenv("SOUWEN_BROWSER_WORKER_TOKEN", raising=False)
     runtime = runtime_module.build_target_runtime(
         SouWenConfig(
             timeout=9,
             max_retries=1,
-            whoogle_url="https://legacy-whoogle.example",
+            whoogle_url="https://whoogle.example",
             sources={
                 "searxng": {
                     "base_url": "http://127.0.0.1:8888/",
                     "proxy": "http://127.0.0.1:17890",
                     "timeout": 7,
                 },
-                "websurfx": {"api_key": "https://websurfx.internal:8080"},
+                "websurfx": {"base_url": "https://websurfx.internal:8080"},
             },
         )
     )
@@ -135,7 +120,7 @@ def test_batch_six_factories_use_only_preflighted_endpoints_and_close_once(monke
     calls = {provider_id: values for provider_id, *values in constructor_calls}
     assert calls["searxng"][0] == "http://127.0.0.1:8888"
     assert calls["websurfx"][0] == "https://websurfx.internal:8080"
-    assert calls["whoogle"][0] == "https://legacy-whoogle.example"
+    assert calls["whoogle"][0] == "https://whoogle.example"
     assert all(values[1] is False for values in calls.values())
     assert all(values[2] is False for values in calls.values())
     assert calls["searxng"][3] == "http://127.0.0.1:17890"
@@ -174,9 +159,9 @@ def test_batch_six_catalog_distinguishes_missing_invalid_and_disabled_configurat
 @pytest.mark.parametrize(
     ("module_name", "class_name"),
     (
-        ("souwen.web.searxng", "SearXNGClient"),
-        ("souwen.web.websurfx", "WebsurfxClient"),
-        ("souwen.web.whoogle", "WhoogleClient"),
+        ("souwen.providers.runtime_clients.web.searxng", "SearXNGClient"),
+        ("souwen.providers.runtime_clients.web.websurfx", "WebsurfxClient"),
+        ("souwen.providers.runtime_clients.web.whoogle", "WhoogleClient"),
     ),
 )
 def test_explicit_self_hosted_client_endpoint_does_not_read_ambient_config(
@@ -196,7 +181,9 @@ def test_explicit_self_hosted_client_endpoint_does_not_read_ambient_config(
         "get_config",
         lambda: pytest.fail("explicit Provider v2 endpoint must not read ambient config"),
     )
-    monkeypatch.setattr("souwen.core.http_client.get_config", lambda: core_config)
+    monkeypatch.setattr(
+        "souwen.common_runtime.provider_support.http_client.get_config", lambda: core_config
+    )
     client = getattr(module, class_name)(
         instance_url="http://127.0.0.1:8080",
         follow_redirects=False,

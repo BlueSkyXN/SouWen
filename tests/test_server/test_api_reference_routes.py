@@ -1,93 +1,30 @@
-"""API reference route coverage tests."""
-
-from __future__ import annotations
+"""Public API documentation stays aligned with the target contract."""
 
 from pathlib import Path
 
-import pytest
 
-pytest.importorskip("fastapi", reason="server extras not installed")
-
-
-def test_api_reference_mentions_all_public_routes() -> None:
-    """Every public/server API route should be discoverable in docs/api-reference.md."""
-    from souwen.server.app import app
-
-    docs = Path("docs/api-reference.md").read_text(encoding="utf-8")
-    route_paths = sorted(
-        path
-        for path in app.openapi()["paths"]
-        if path in {"/health", "/readiness"} or path.startswith("/api/v1")
-    )
-
-    missing = [path for path in route_paths if path not in docs]
-    assert missing == []
-
-
-def test_api_reference_fetch_provider_lists_match_registry() -> None:
-    """Hand-written fetch provider lists should stay aligned with the registry."""
-    from souwen.registry import fetch_providers
-
-    docs = Path("docs/api-reference.md").read_text(encoding="utf-8")
-    provider_names = {adapter.name for adapter in fetch_providers()}
-    provider_lines = [
-        line
-        for line in docs.splitlines()
-        if "builtin" in line and "deepwiki" in line and ("提供者:" in line or "可选：" in line)
-    ]
-
-    assert len(provider_lines) >= 2
-    for line in provider_lines:
-        missing = [name for name in sorted(provider_names) if name not in line]
-        assert missing == []
-    assert f"支持 {len(provider_names)} 个提供者" in docs
-
-
-def test_api_reference_fetch_result_fields_match_model() -> None:
-    """FetchResult docs should list every public model field."""
-    from souwen.models import FetchResult
-
-    docs = Path("docs/api-reference.md").read_text(encoding="utf-8")
-    section = docs.split("### FetchResult", 1)[1].split("### FetchResponse", 1)[0]
-
-    missing = [name for name in FetchResult.model_fields if name not in section]
-    assert missing == []
-
-
-def test_api_reference_fetch_response_fields_match_model() -> None:
-    """FetchResponse docs should list every public model field."""
-    from souwen.models import FetchResponse
-
-    docs = Path("docs/api-reference.md").read_text(encoding="utf-8")
-    section = docs.split("### FetchResponse", 1)[1].split("### SearchResponse", 1)[0]
-
-    missing = [name for name in FetchResponse.model_fields if name not in section]
-    assert missing == []
-
-
-def test_api_reference_does_not_describe_removed_summary_routes() -> None:
-    docs = Path("docs/api-reference.md").read_text(encoding="utf-8")
-    assert "/api/v1/summarize" not in docs
-    assert "/api/v1/fetch/summarize" not in docs
-
-
-def test_api_reference_explains_enriched_text_and_failure_semantics() -> None:
-    """Enriched-search docs must not blur provider, fetched, and generated text."""
-    docs = Path("docs/api-reference.md").read_text(encoding="utf-8")
-    section = docs.split("#### `POST /api/v1/search/web/enriched`", 1)[1].split(
-        "#### `GET /api/v1/sources`", 1
-    )[0]
-
-    for required in (
-        "provider_snippet",
-        "provider_summary",
-        "extractive",
-        "generated",
-        'fetch_status="success"',
-        "visible_search_calls",
-        "不是费用推断",
-        "不会伪造 `0`",
-        "synthesis_status",
-        "仍返回 `200`",
+def test_api_reference_mentions_every_target_operation() -> None:
+    text = Path("docs/api-reference.md").read_text(encoding="utf-8")
+    for path in (
+        "/api/v1/search",
+        "/api/v1/llm-search",
+        "/api/v1/fetch",
+        "/api/v1/providers",
+        "/health",
+        "/healthz",
+        "/readiness",
+        "/readyz",
     ):
-        assert required in section
+        assert f"`{path}`" in text
+
+
+def test_api_reference_does_not_document_retired_routes() -> None:
+    text = Path("docs/api-reference.md").read_text(encoding="utf-8")
+    for path in (
+        "/api/v1/sources",
+        "/api/v1/search/paper",
+        "/api/v1/citations/count",
+        "/api/v1/admin/warp",
+        "/api/v1/admin/sources/config",
+    ):
+        assert f"`{path}`" not in text

@@ -1,13 +1,13 @@
 """Reviewed bridge declaration for a configured Zotero library."""
 
-from souwen.platform.provider_spec import LegacySearchProviderSpec, LegacyTransportDeclaration
+from souwen.platform.provider_spec import ClientSearchProviderSpec, ClientTransportDeclaration
 from souwen.platform.provider_spec.models import AuthDeclaration, HttpOperation
 
-ZOTERO_PROVIDER_SPEC = LegacySearchProviderSpec(
+ZOTERO_PROVIDER_SPEC = ClientSearchProviderSpec(
     provider_id="zotero",
     adapter_id="zotero-search",
-    bridge_reason="library-scoped paths and item-key identity require a bridge",
-    transport=LegacyTransportDeclaration(
+    adapter_reason="library-scoped paths and item-key identity require a bridge",
+    transport=ClientTransportDeclaration(
         host="api.zotero.org",
         base_path="/",
         protocol="json",

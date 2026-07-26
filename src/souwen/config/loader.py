@@ -32,8 +32,16 @@ _RETIRED_AUTH_ENV_KEYS = {
     "SOUWEN_API_PASSWORD": "SOUWEN_USER_PASSWORD / SOUWEN_ADMIN_PASSWORD",
     "SOUWEN_VISITOR_PASSWORD": "SOUWEN_USER_PASSWORD",
 }
+_RETIRED_FEATURE_ENV_KEYS = {
+    "SOUWEN_LLM": "legacy enriched-synthesis 配置已退休；请使用 SOUWEN_LLM_SEARCH_GATEWAYS",
+    "SOUWEN_UNPAYWALL_EMAIL": "Unpaywall provider 已退休",
+}
+_RETIRED_FEATURE_FIELDS = {
+    "llm": "legacy enriched-synthesis 配置已退休；请使用 llm_search_gateways",
+    "unpaywall_email": "Unpaywall provider 已退休",
+}
 
-_NESTED_CONFIG_FIELDS = frozenset({"sources", "llm", "llm_search_gateways"})
+_NESTED_CONFIG_FIELDS = frozenset({"sources", "llm_search_gateways"})
 _EXACT_ENV_REFERENCE = re.compile(r"^\$\{([A-Z_][A-Z0-9_]*)\}$")
 
 
@@ -72,6 +80,24 @@ def _retired_auth_config_error(keys: list[str]) -> ValueError:
     return ValueError(f"认证配置字段已移除: {replacements}")
 
 
+def _reject_retired_feature_yaml(raw: dict) -> None:
+    findings: list[str] = []
+    for key in _RETIRED_FEATURE_FIELDS:
+        if key in raw:
+            findings.append(key)
+    for group, values in raw.items():
+        if not isinstance(values, dict):
+            continue
+        for key in _RETIRED_FEATURE_FIELDS:
+            if key in values:
+                findings.append(f"{group}.{key}")
+    if findings:
+        detail = ", ".join(
+            f"{key} -> {_RETIRED_FEATURE_FIELDS[key.split('.')[-1]]}" for key in findings
+        )
+        raise ValueError(f"配置字段已移除: {detail}")
+
+
 def _reject_retired_auth_env(values: dict[str, str | None]) -> None:
     findings = [
         f"{key} -> {_RETIRED_AUTH_ENV_KEYS[key]}"
@@ -80,6 +106,13 @@ def _reject_retired_auth_env(values: dict[str, str | None]) -> None:
     ]
     if findings:
         raise ValueError(f"认证环境变量已移除: {', '.join(findings)}")
+    retired_features = [
+        f"{key} -> {_RETIRED_FEATURE_ENV_KEYS[key]}"
+        for key in _RETIRED_FEATURE_ENV_KEYS
+        if values.get(key) not in (None, "")
+    ]
+    if retired_features:
+        raise ValueError(f"功能环境变量已移除: {', '.join(retired_features)}")
 
 
 def _load_yaml_config() -> dict:
@@ -120,6 +153,7 @@ def _load_yaml_config() -> dict:
     retired_keys = _retired_auth_yaml_keys(raw)
     if retired_keys:
         raise _retired_auth_config_error(retired_keys)
+    _reject_retired_feature_yaml(raw)
 
     valid_fields = set(SouWenConfig.model_fields)
     flat: dict = {}
