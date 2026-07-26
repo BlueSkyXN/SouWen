@@ -7,8 +7,8 @@ import json
 import pytest
 from pytest_httpx import HTTPXMock
 
-from souwen.core.exceptions import ConfigError, ParseError
-from souwen.web.kimi_code import KimiCodeClient
+from souwen.common_runtime.provider_support.exceptions import ConfigError, ParseError
+from souwen.providers.runtime_clients.web.kimi_code import KimiCodeClient
 
 
 async def test_init_without_api_key_raises(monkeypatch):
@@ -85,7 +85,9 @@ async def test_search_missing_results_raises_parse_error(httpx_mock: HTTPXMock):
 
 
 async def test_fetch_returns_markdown_and_supports_pagination(httpx_mock: HTTPXMock, monkeypatch):
-    monkeypatch.setattr("souwen.web.fetch.validate_fetch_url", lambda url: (True, ""))
+    monkeypatch.setattr(
+        "souwen.providers.runtime_clients.web.fetch.validate_fetch_url", lambda url: (True, "")
+    )
     httpx_mock.add_response(
         url="https://api.kimi.com/coding/v1/fetch",
         text="# Title\n\n0123456789abcdef",
@@ -123,7 +125,7 @@ async def test_fetch_blocks_invalid_url_without_calling_api(httpx_mock: HTTPXMoc
 
 async def test_fetch_batch_counts_partial_failures(httpx_mock: HTTPXMock, monkeypatch):
     monkeypatch.setattr(
-        "souwen.web.fetch.validate_fetch_url",
+        "souwen.providers.runtime_clients.web.fetch.validate_fetch_url",
         lambda url: (False, "blocked") if "blocked" in url else (True, ""),
     )
     httpx_mock.add_response(

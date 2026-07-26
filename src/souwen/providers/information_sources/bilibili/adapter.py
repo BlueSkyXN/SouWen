@@ -6,7 +6,7 @@ from urllib.parse import urlsplit
 
 from souwen.platform.provider_spi import ProviderError, ProviderErrorCode
 from souwen.platform.provider_spec import ScraperSearchProvider
-from souwen.web.bilibili import BilibiliClient
+from souwen.providers.runtime_clients.web.bilibili import BilibiliClient
 
 _VIDEO_PATH = re.compile(r"^/video/(BV[0-9A-Za-z]+)$")
 

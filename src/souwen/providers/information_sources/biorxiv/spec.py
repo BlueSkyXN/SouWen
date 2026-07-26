@@ -1,14 +1,14 @@
 """Reviewed bridge declaration for the bioRxiv local-filtering search client."""
 
-from souwen.platform.provider_spec import LegacySearchProviderSpec, LegacyTransportDeclaration
+from souwen.platform.provider_spec import ClientSearchProviderSpec, ClientTransportDeclaration
 from souwen.platform.provider_spec.models import HttpOperation
 
-BIORXIV_PROVIDER_SPEC = LegacySearchProviderSpec(
+BIORXIV_PROVIDER_SPEC = ClientSearchProviderSpec(
     provider_id="biorxiv",
     adapter_id="biorxiv-search",
-    review_status="bridge_exception",
-    bridge_reason="legacy search scans date windows and locally filters paged collection results",
-    transport=LegacyTransportDeclaration(
+    review_status="reviewed_adapter",
+    adapter_reason="existing search scans date windows and locally filters paged collection results",
+    transport=ClientTransportDeclaration(
         scheme="https",
         host="api.biorxiv.org",
         base_path="/details",

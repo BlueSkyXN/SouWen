@@ -1,4 +1,4 @@
-"""Provider v2 bridge for CORE's legacy work search client."""
+"""Provider v2 bridge for CORE's existing work search client."""
 
 from __future__ import annotations
 
@@ -6,7 +6,7 @@ import re
 from collections.abc import Sequence
 from typing import Any, Protocol
 
-from souwen.platform.provider_spec import LegacySearchProvider, LegacySearchSpec
+from souwen.platform.provider_spec import ClientSearchProvider, ClientSearchSpec
 from souwen.platform.provider_spi import (
     PageInfo,
     Provenance,
@@ -27,7 +27,7 @@ class CoreClientProtocol(Protocol):
     async def search(self, query: str, limit: int = 10, offset: int = 0) -> Any: ...
 
 
-class CoreSearchProvider(LegacySearchProvider):
+class CoreSearchProvider(ClientSearchProvider):
     def __init__(self, client: CoreClientProtocol, *, enabled: bool = True) -> None:
         super().__init__(client, _SPEC, enabled=enabled)
 
@@ -124,4 +124,4 @@ def _count(value: Any) -> int | None:
     return value
 
 
-_SPEC = LegacySearchSpec("core", "paper", _invoke, _project)
+_SPEC = ClientSearchSpec("core", "paper", _invoke, _project)

@@ -12,7 +12,7 @@ from souwen.platform.provider_spi import (
     Provenance,
     RequestContext,
 )
-from souwen.platform.provider_spec import LegacyFetchProvider, LegacyFetchSpec
+from souwen.platform.provider_spec import ClientFetchProvider, ClientFetchSpec
 
 
 class WaybackClientProtocol(Protocol):
@@ -20,7 +20,7 @@ class WaybackClientProtocol(Protocol):
     async def close(self) -> None: ...
 
 
-class WaybackFetchProvider(LegacyFetchProvider):
+class WaybackFetchProvider(ClientFetchProvider):
     def __init__(self, client: WaybackClientProtocol, *, enabled: bool = True) -> None:
         super().__init__(client, _SPEC, enabled=enabled)
 
@@ -87,4 +87,4 @@ def _target(request: FetchTargetRequest) -> str:
     return target
 
 
-_SPEC = LegacyFetchSpec("wayback", _invoke, _project)
+_SPEC = ClientFetchSpec("wayback", _invoke, _project)

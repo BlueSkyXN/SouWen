@@ -1,13 +1,13 @@
 # src/souwen/server/schemas navigation card
 
 Type: Domain card.
-This directory defines REST request/response schemas and OpenAPI-facing contracts.
-Read the target schema file, the route using it, `docs/api-reference.md`, `panel/src/core/types/api.ts`, and OpenAPI contract tests first.
-Read this card when changing API fields, validation constraints, aliases, defaults or error schema.
+This directory defines host-only Admin/common response schemas. Canonical target Data API schemas are
+owned by `src/souwen/delivery/api/` and generated from the frozen OpenAPI artifact.
+Read the target schema, route, `docs/api-reference.md` and server contract tests first.
 
 ## Local invariants
 
-- Schema changes are API contract changes and may require route, panel and docs updates.
+- Host schema changes may require route, Panel and docs updates.
 - Defaults, aliases, ranges and optional fields must match route behavior and Panel expectations.
 - Shared error responses must remain compatible with `ErrorResponse`.
 - Schema modules must stay side-effect free.
@@ -15,7 +15,7 @@ Read this card when changing API fields, validation constraints, aliases, defaul
 ## Do not
 
 - Do not put network, filesystem or config side effects inside schema definitions.
-- Do not remove public fields without updating tests and clients.
+- Do not duplicate canonical target DTOs in this directory.
 - Do not use schemas to bypass auth, rate-limit or SSRF checks.
 
 ## Validation

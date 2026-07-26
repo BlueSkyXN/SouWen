@@ -1,4 +1,4 @@
-"""Shared Provider v2 projection for bounded legacy book-catalog searches."""
+"""Shared Provider v2 projection for bounded existing book-catalog searches."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from dataclasses import dataclass
 from typing import Any, Protocol
 from urllib.parse import urlsplit, urlunsplit
 
-from souwen.platform.provider_spec import LegacySearchProvider, LegacySearchSpec
+from souwen.platform.provider_spec import ClientSearchProvider, ClientSearchSpec
 from souwen.platform.provider_spi import (
     PageInfo,
     ProviderError,
@@ -24,14 +24,14 @@ from souwen.platform.provider_spi import (
 
 
 class BookCatalogClientProtocol(Protocol):
-    """Minimum search-only contract implemented by legacy book clients."""
+    """Minimum search-only contract implemented by existing book clients."""
 
     async def search(self, query: str, per_page: int = 10, **kwargs: Any) -> Any: ...
 
 
 @dataclass(frozen=True, slots=True)
 class BookCatalogBinding:
-    """Fixed source behavior; callers cannot request legacy detail methods."""
+    """Fixed source behavior; callers cannot request existing detail methods."""
 
     provider_id: str
     page_supported: bool
@@ -39,7 +39,7 @@ class BookCatalogBinding:
     fixed_search_kwargs: tuple[tuple[str, object], ...] = ()
 
 
-class BookCatalogSearchProvider(LegacySearchProvider):
+class BookCatalogSearchProvider(ClientSearchProvider):
     """Search-only bridge that projects ``BookResult`` into canonical ``SearchItem``."""
 
     def __init__(
@@ -50,10 +50,10 @@ class BookCatalogSearchProvider(LegacySearchProvider):
         enabled: bool = True,
     ) -> None:
         self.binding = binding
-        super().__init__(client, _legacy_spec(binding), enabled=enabled)
+        super().__init__(client, _existing_spec(binding), enabled=enabled)
 
 
-def _legacy_spec(binding: BookCatalogBinding) -> LegacySearchSpec:
+def _existing_spec(binding: BookCatalogBinding) -> ClientSearchSpec:
     async def invoke(client: Any, request: SearchRequest, limit: int) -> Any:
         if limit > binding.max_limit:
             raise ProviderError(
@@ -70,13 +70,13 @@ def _legacy_spec(binding: BookCatalogBinding) -> LegacySearchSpec:
     def project(response: Any, limit: int, context: RequestContext) -> SearchPage:
         return project_book_catalog_search(response, binding.provider_id, limit, context)
 
-    return LegacySearchSpec(binding.provider_id, "book", invoke, project)
+    return ClientSearchSpec(binding.provider_id, "book", invoke, project)
 
 
 def project_book_catalog_search(
     response: Any, provider_id: str, limit: int, context: RequestContext
 ) -> SearchPage:
-    """Validate the legacy envelope and project only canonical, safe book fields."""
+    """Validate the existing envelope and project only canonical, safe book fields."""
 
     results = getattr(response, "results", None)
     total = getattr(response, "total_results", None)
@@ -95,7 +95,7 @@ def project_book_catalog_search(
             and (not isinstance(total, int) or isinstance(total, bool) or total < len(results))
         )
     ):
-        raise ValueError("invalid legacy book search response")
+        raise ValueError("invalid existing book search response")
     return SearchPage(
         items=tuple(
             _book_item(result, provider_id, rank) for rank, result in enumerate(results, 1)
@@ -108,7 +108,7 @@ def project_book_catalog_search(
 
 def _book_item(result: Any, provider_id: str, rank: int) -> SearchItem:
     if getattr(result, "source", None) != provider_id:
-        raise ValueError("unexpected legacy book result source")
+        raise ValueError("unexpected existing book result source")
     source_record_id = _required_text(getattr(result, "source_record_id", None), "source_record_id")
     title = _required_text(getattr(result, "title", None), "title")
     url = _canonical_url(getattr(result, "source_url", None))

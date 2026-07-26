@@ -22,12 +22,12 @@ from souwen.platform.provider_spi import (
     SearchRequest,
 )
 
-from .factory import LegacySearchProvider, LegacySearchSpec
+from .factory import ClientSearchProvider, ClientSearchSpec
 
 
 @dataclass(frozen=True, slots=True)
 class CnScraperBinding:
-    """Reviewed fixed behavior of one legacy anonymous web-search client."""
+    """Reviewed fixed behavior of one existing anonymous web-search client."""
 
     provider_id: str
     domain: str
@@ -35,7 +35,7 @@ class CnScraperBinding:
     result_host: str | None = None
 
 
-class CnScraperSearchProvider(LegacySearchProvider):
+class CnScraperSearchProvider(ClientSearchProvider):
     """Search-only bridge for normalized ``WebSearchResponse`` clients."""
 
     def __init__(self, client: Any, binding: CnScraperBinding, *, enabled: bool = True) -> None:
@@ -43,8 +43,8 @@ class CnScraperSearchProvider(LegacySearchProvider):
         super().__init__(client, cn_scraper_search_spec(binding), enabled=enabled)
 
 
-def cn_scraper_search_spec(binding: CnScraperBinding) -> LegacySearchSpec:
-    """Build a first-page-only bridge with an explicit legacy result bound."""
+def cn_scraper_search_spec(binding: CnScraperBinding) -> ClientSearchSpec:
+    """Build a first-page-only bridge with an explicit existing result bound."""
 
     async def invoke(client: Any, request: SearchRequest, limit: int) -> Any:
         if limit > binding.max_limit:
@@ -54,7 +54,7 @@ def cn_scraper_search_spec(binding: CnScraperBinding) -> LegacySearchSpec:
     def project(response: Any, limit: int, context: RequestContext) -> SearchPage:
         return project_cn_scraper_search_page(binding, response, limit, context)
 
-    return LegacySearchSpec(binding.provider_id, binding.domain, invoke, project)
+    return ClientSearchSpec(binding.provider_id, binding.domain, invoke, project)
 
 
 def project_cn_scraper_search_page(
@@ -63,12 +63,12 @@ def project_cn_scraper_search_page(
     limit: int,
     context: RequestContext,
 ) -> SearchPage:
-    """Project only title, URL and snippet; legacy ``raw`` never crosses the boundary."""
+    """Project only title, URL and snippet; existing ``raw`` never crosses the boundary."""
 
     if not isinstance(limit, int) or isinstance(limit, bool) or not 1 <= limit <= binding.max_limit:
         raise ValueError("invalid canonical search limit")
     if getattr(response, "source", None) != binding.provider_id:
-        raise ValueError("unexpected legacy web search response source")
+        raise ValueError("unexpected existing web search response source")
     results = getattr(response, "results", None)
     total = getattr(response, "total_results", None)
     if (
@@ -81,7 +81,7 @@ def project_cn_scraper_search_page(
             and (not isinstance(total, int) or isinstance(total, bool) or total < len(results))
         )
     ):
-        raise ValueError("invalid legacy web search response")
+        raise ValueError("invalid existing web search response")
     return SearchPage(
         items=tuple(_item(binding, result, rank) for rank, result in enumerate(results, 1)),
         page=PageInfo(limit=limit, total=total),
@@ -92,7 +92,7 @@ def project_cn_scraper_search_page(
 
 def _item(binding: CnScraperBinding, result: Any, rank: int) -> SearchItem:
     if getattr(result, "source", None) != binding.provider_id:
-        raise ValueError("unexpected legacy web result source")
+        raise ValueError("unexpected existing web result source")
     title = _text(getattr(result, "title", None), "title", maximum=2048)
     url = _url(getattr(result, "url", None), binding.result_host)
     identifier = sha256(url.encode("utf-8")).hexdigest()

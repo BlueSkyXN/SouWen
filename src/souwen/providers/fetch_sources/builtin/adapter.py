@@ -26,7 +26,7 @@ _PROVIDER_ID = "builtin-fetch"
 _DEFAULT_MAX_CODE_POINTS = 200_000
 
 
-class LegacyBuiltinFetchClientProtocol(Protocol):
+class BuiltinFetchClientProtocol(Protocol):
     async def fetch(
         self,
         url: str,
@@ -37,7 +37,7 @@ class LegacyBuiltinFetchClientProtocol(Protocol):
         selector: str | None = None,
         enforce_target_contract: bool = False,
     ) -> Any:
-        """Return a legacy FetchResult produced by the safe redirect pipeline."""
+        """Return a existing FetchResult produced by the safe redirect pipeline."""
 
 
 class BuiltinFetchProvider:
@@ -47,7 +47,7 @@ class BuiltinFetchProvider:
 
     def __init__(
         self,
-        client: LegacyBuiltinFetchClientProtocol,
+        client: BuiltinFetchClientProtocol,
         *,
         enabled: bool = True,
         clock: Callable[[], datetime] | None = None,
@@ -213,4 +213,4 @@ def _canonical_result(
     )
 
 
-__all__ = ["BuiltinFetchProvider", "LegacyBuiltinFetchClientProtocol"]
+__all__ = ["BuiltinFetchProvider", "BuiltinFetchClientProtocol"]

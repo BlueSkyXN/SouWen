@@ -1,14 +1,14 @@
-"""Reviewed bridge declaration for stackoverflow legacy Search."""
+"""Reviewed bridge declaration for stackoverflow existing Search."""
 
-from souwen.platform.provider_spec import LegacySearchProviderSpec, LegacyTransportDeclaration
+from souwen.platform.provider_spec import ClientSearchProviderSpec, ClientTransportDeclaration
 from souwen.platform.provider_spec.models import AuthDeclaration, HttpOperation
 
-STACKOVERFLOW_PROVIDER_SPEC = LegacySearchProviderSpec(
+STACKOVERFLOW_PROVIDER_SPEC = ClientSearchProviderSpec(
     provider_id="stackoverflow",
     adapter_id="stackoverflow-search",
     domain="developer",
-    bridge_reason="legacy WebSearchResponse normalization and canonical URL identity require a bridge",
-    transport=LegacyTransportDeclaration(
+    adapter_reason="existing WebSearchResponse normalization and canonical URL identity require a bridge",
+    transport=ClientTransportDeclaration(
         host="api.stackexchange.com",
         protocol="json",
         operations=(HttpOperation(method="GET", endpoint="/2.3/search/advanced"),),

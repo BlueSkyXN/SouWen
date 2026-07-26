@@ -2,12 +2,11 @@
 
 **[English](README.en.md)** | 中文
 
-> 面向 AI Agent 和自动化脚本的统一搜索、抓取与归档工具箱。
+> 面向 AI Agent 和自动化脚本的 target-only Search、LLM Search 与 Fetch API。
 
 [![Python](https://img.shields.io/badge/python-≥3.10-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-GPLv3-blue)](LICENSE)
 [![Version](https://img.shields.io/badge/version-2.0.0rc2-orange)](CHANGELOG.md)
-[![External Smoke Gate](https://github.com/BlueSkyXN/SouWen/actions/workflows/external-smoke-gate.yml/badge.svg)](https://github.com/BlueSkyXN/SouWen/actions/workflows/external-smoke-gate.yml)
 
 > 当前候选版本为 **Souwen v2rc2**（Python/runtime `2.0.0rc2`）；这不是 `2.0.0` GA，
 > 也不表示 tag、GitHub Release 或 HFS RC2 部署已经完成。
@@ -34,23 +33,20 @@
 
 ## 🎯 简介
 
-SouWen（搜文）为 AI Agent、Python 集成和服务端应用提供统一的多源搜索接口，**所有数据源通过 `SourceAdapter` 单一事实源声明**，归一化为 Pydantic v2 数据模型。
-
-注册表架构使源的新增成本降到 **1-2 处**改动；Python API、REST API 和 Panel 均按 domain、capability 和 Source Catalog 组织。
+SouWen（搜文）为 AI Agent、Python 集成和服务端应用提供统一的 target-only 数据 API。
+公开业务能力只有 **Search、LLM Search 和 Fetch**。Provider 的事实来源是
+`ProviderManifest` catalog、`ManifestRegistry` 与 `ProviderManager`；`/api/v1/providers`
+是它们的安全投影，不是旧 Source Catalog 的兼容别名。
 
 ### 特性
 
 <!-- BEGIN AUTO: SOURCE METRICS -->
-- **110 个内置 registered source**：正式 Source Catalog 含 **109 个 public** 条目，另有 **1 个 hidden/internal** 条目。
-  - 公开源主 domain：`paper` 21 · `patent` 8 · `web` 32 · `social` 5 · `video` 2 · `knowledge` 1 · `developer` 2 · `cn_tech` 9 · `office` 1 · `archive` 1 · `book` 9 · `research_output` 2
-  - `fetch` 横切视图：**23 个 provider** = **16 个 fetch 主 domain** + **7 个跨域源**。
+- **104 个内置 Provider v2 package**，共 **110 个 capability adapter**。
+  - Search：**88** 个 package · LLM Search：**2** 个 · Fetch：**20** 个。
 <!-- END AUTO: SOURCE METRICS -->
-- **统一 Pydantic v2 数据模型**：`PaperResult` / `PatentResult` / `WebSearchResult` / `FetchResult` / `WaybackCDXResponse` / ...
-- **异步优先**：httpx + asyncio，per-loop Semaphore 控制并发
-- **智能限流**：Token Bucket + 滑动窗口，每源独立
-- **curl_cffi TLS 指纹**：15+ 爬虫类源用浏览器指纹伪装过盾
-- **WARP 五模式代理**：wireproxy / kernel / usque / warp-cli / external，支持运行时动态安装和管理
-- **Calm Precision Panel**：单一响应式管理面，聚焦 Search / LLM Search / Fetch / Providers / Runtime/Settings，并只使用 generated TypeScript client 访问 Data API
+- **Frozen OpenAPI + generated SDK**：Python root 只暴露 generated sync/async SDK；Panel 使用同一 OpenAPI 生成的 TypeScript SDK
+- **统一 canonical DTO**：Search、LLM Search、Fetch、Provider Catalog 和 probes 使用明确的 Pydantic v2 contract
+- **安全边界**：target Data API 使用 user credential；Admin 仅提供 read-only config、doctor 与 ping
 
 ## 📦 安装
 
@@ -60,16 +56,8 @@ git clone https://github.com/BlueSkyXN/SouWen.git
 cd SouWen
 pip install -e .
 
-# 默认 SDK/核心安装
-pip install -e .
-
-# Server 运行面
+# 默认安装提供 generated Python SDK；运行 Server 再安装 runtime extra
 pip install -e ".[server,tls,web,robots,scraper]"
-
-# 可选 provider；crawl4ai 与 scrapling 依赖树互斥，浏览器抓取二选一
-pip install -e ".[server,tls,web,robots,scraper,newspaper,readability]"
-pip install -e ".[server,tls,web,robots,scraper,crawl4ai]"
-pip install -e ".[server,tls,web,robots,scraper,scrapling]"
 ```
 
 ## 🚀 快速开始
@@ -86,14 +74,14 @@ with SouWenClient("http://127.0.0.1:8000", token="your-user-token") as client:
         print(item.title, item.url)
 ```
 
-SDK 同时提供 `AsyncSouWenClient`，并在首次业务请求前以 `/healthz` 校验 API major 2 与
-target rollout。完整认证、HFS 双 token 和错误处理见 [Python SDK 文档](docs/python-sdk.md)。
+SDK 同时提供 `AsyncSouWenClient`，并在首次业务请求前以 `/healthz` 校验 API major 2。
+完整认证、HFS 双 token 和错误处理见 [Python SDK 文档](docs/python-sdk.md)。
 Panel 使用同一 OpenAPI artifact 生成的 [TypeScript SDK](docs/typescript-sdk.md)。
 
 ### API Server
 
 ```bash
-SOUWEN_V2_ROLLOUT=target SOUWEN_USER_PASSWORD=userpass SOUWEN_ADMIN_PASSWORD=adminpass \
+SOUWEN_USER_PASSWORD=userpass SOUWEN_ADMIN_PASSWORD=adminpass \
   uvicorn souwen.server.app:app --host 0.0.0.0 --port 8000
 ```
 
@@ -105,11 +93,15 @@ curl "http://localhost:8000/api/v1/search" \
   -H "X-SouWen-API-Major: 2" \
   -H "Content-Type: application/json" \
   -d '{"query":"transformer","domains":["paper"]}'
-curl "http://localhost:8000/api/v1/wayback/cdx?url=https://example.com"
-curl "http://localhost:8000/api/v1/sources"
+curl "http://localhost:8000/api/v1/providers" \
+  -H "Authorization: Bearer userpass" \
+  -H "X-SouWen-API-Major: 2"
 ```
 
-`/api/v1/fetch`、`/api/v1/links` 和 `/api/v1/sitemap` 属于管理端抓取能力，需要 Admin Bearer Token；搜索和 `/api/v1/sources` 可再通过 `SOUWEN_USER_PASSWORD` 单独保护。
+`POST /api/v1/fetch` 与 Search/LLM Search 同属 target Data API，使用 user credential。
+管理面只保留 `GET /api/v1/admin/config`、`GET /api/v1/admin/doctor` 和
+`GET /api/v1/admin/ping`。没有 rollout switch、`/sources`、citation/detail/archive-save、
+递归抓取、浏览器抓取产品入口或旧 enriched-search public endpoint。
 
 访问 `/docs` 查看完整 OpenAPI 文档；访问 `/panel#/` 进入单一 Calm Precision 管理面。`/` 在默认配置下重定向到 `/docs`。
 
@@ -121,17 +113,15 @@ curl "http://localhost:8000/api/v1/sources"
 
 ## 🏗 架构
 
-三层分离：**展示层（Server / Panel / Integrations）→ 应用入口（`souwen.search` / `souwen.web.fetch` / `souwen.web.wayback`）→ 注册表层（registry）+ 真实 Client 模块 + 平台层（core）**。
+三层分离：**展示层（Server / Panel）→ generated SDK / Module APIs → ProviderManifest catalog、ManifestRegistry、ProviderManager 和 runtime clients**。
 
 详见 [docs/architecture.md](docs/architecture.md)。
 
 ```
 src/souwen/
-├── core/              平台层：http_client / scraper / rate_limiter / retry / ...
-├── registry/          单一事实源：adapter / sources / loader / views
-├── paper/             论文客户端
-├── patent/            8 个专利客户端
-├── web/               搜索、社交、视频、知识、办公、抓取和归档相关客户端
+├── delivery/          frozen OpenAPI、generated Python SDK 与 HTTP adapters
+├── platform/          ProviderManifest / ManifestRegistry / ProviderManager
+├── providers/         provider specs、adapters 与 runtime clients
 └── server/            FastAPI 应用
 ```
 
@@ -151,7 +141,7 @@ docker run -p 8000:49265 \
 **HuggingFace Spaces**：参见 `cloud/hfs/` 与 [docs/hf-space-cd.md](docs/hf-space-cd.md)。
 **ModelScope**：参见 `cloud/modelscope/`。
 
-**WARP 代理嵌入**（可选，绕过国内网络）：见 `docs/warp-solutions.md` 的五种模式方案对比和 `docs/anti-scraping.md` 的反爬策略。支持运行时通过 Web 面板一键安装 WARP 组件。
+部署环境可按自身网络策略配置代理；公开 API 不提供 WARP 管理或运行时安装入口。
 
 ## 📚 文档
 
@@ -161,7 +151,7 @@ docker run -p 8000:49265 \
 - [docs/python-api.md](docs/python-api.md) — Python API
 - [docs/source-catalog.md](docs/source-catalog.md) — Source Catalog 契约
 - [docs/architecture.md](docs/architecture.md) — 架构概览
-- [docs/data-sources.md](docs/data-sources.md) — 完整数据源指南与清单（由 registry 自动生成）
+- [docs/data-sources.md](docs/data-sources.md) — 完整 Provider 指南与清单（由 manifest catalog 自动生成）
 - [docs/configuration.md](docs/configuration.md) — 配置层级 / WARP / HTTP backend
 - [docs/api-reference.md](docs/api-reference.md) — REST API 参考
 - [docs/hf-space-cd.md](docs/hf-space-cd.md) — Hugging Face Space CD / 本地预检 / 部署后验收
@@ -176,7 +166,7 @@ docker run -p 8000:49265 \
 
 ## 🤝 贡献
 
-- 新增数据源：参考 [docs/adding-a-source.md](docs/adding-a-source.md)（`registry/sources/` 加一条 `_reg(...)` 即可）
+- 新增 Provider：参考 [docs/adding-a-source.md](docs/adding-a-source.md)（新增 manifest/spec/adapter 与 conformance tests）
 - 代码风格：`ruff format && ruff check`
 - 测试：`pytest tests/`
 

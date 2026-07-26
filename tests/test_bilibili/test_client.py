@@ -14,15 +14,15 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from souwen.models import WebSearchResponse
-from souwen.web.bilibili import BilibiliClient
-from souwen.web.bilibili._errors import BilibiliNotFound
-from souwen.web.bilibili.models import (
+from souwen.providers.runtime_clients.models import WebSearchResponse
+from souwen.providers.runtime_clients.web.bilibili import BilibiliClient
+from souwen.providers.runtime_clients.web.bilibili._errors import BilibiliNotFound
+from souwen.providers.runtime_clients.web.bilibili.models import (
     BilibiliArticleResult,
     BilibiliSearchUserItem,
     BilibiliVideoDetail,
 )
-from souwen.web.bilibili.wbi import WbiSigner
+from souwen.providers.runtime_clients.web.bilibili.wbi import WbiSigner
 
 
 # ─── helpers ────────────────────────────────────────────────────────────

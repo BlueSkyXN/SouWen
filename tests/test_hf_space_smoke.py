@@ -1,1502 +1,182 @@
+"""Deterministic tests for the target-only HFS smoke."""
+
+from __future__ import annotations
+
 import json
-import base64
-from pathlib import Path
-from urllib.parse import parse_qs, unquote, urlparse
-from types import SimpleNamespace
 
 import pytest
 
 from scripts import hf_space_smoke as smoke
-from souwen.registry import all_adapters, fetch_providers
 
 
-class FakeSmokeClient:
-    def __init__(self):
-        self.json_routes = {
-            "/health": smoke.ResponseData(
-                200,
-                {"status": "ok", "version": "1.2.3"},
-                0.1,
-            ),
-            "/readiness": smoke.ResponseData(
-                200,
-                {"ready": True, "version": "1.2.3", "error": None},
-                0.1,
-            ),
-            "/openapi.json": smoke.ResponseData(
-                200,
-                {"info": {"title": "SouWen API", "version": "1.2.3"}},
-                0.1,
-            ),
-            "/api/v1/whoami": smoke.ResponseData(200, {"role": "admin"}, 0.1),
-        }
-        self.text_routes = {
-            "/docs": smoke.TextResponseData(
-                200,
-                "<html><title>Swagger UI</title></html>",
-                {"content-type": "text/html; charset=utf-8"},
-                0.1,
-            ),
-            "/panel": smoke.TextResponseData(
-                200,
-                '<html><body><div id="root"></div></body></html>',
-                {"content-type": "text/html; charset=utf-8"},
-                0.1,
-            ),
-        }
-
-    def get(self, path, **_kwargs):
-        return self.json_routes[path]
-
-    def get_text(self, path, **_kwargs):
-        return self.text_routes[path]
-
-
-def test_normalize_base_url_adds_scheme_and_trims_slash():
-    assert smoke.normalize_base_url("blueskyxn-souwen.hf.space/") == (
-        "https://blueskyxn-souwen.hf.space"
+def test_parse_args_preserves_deployment_workflow_interface() -> None:
+    args = smoke.parse_args(
+        [
+            "--base-url",
+            "http://127.0.0.1:49265",
+            "--expected-version",
+            "2.0.0rc2",
+            "--expected-source-sha",
+            "a" * 40,
+            "--expected-wrapper-sha",
+            "b" * 40,
+            "--require-target-runtime",
+            "--surface-only",
+        ]
     )
+    assert args.surface_only is True
+    assert args.require_target_runtime is True
+    assert args.expected_source_sha == "a" * 40
 
 
-def test_normalize_expected_source_sha_requires_full_hex_sha():
-    assert smoke.normalize_expected_source_sha("A" * 40) == "a" * 40
-    assert smoke.normalize_expected_source_sha(None) is None
-
-    with pytest.raises(ValueError, match="40 hexadecimal"):
-        smoke.normalize_expected_source_sha("main")
-
-
-def test_private_space_uses_separate_outer_and_application_auth_headers(monkeypatch):
+def test_client_keeps_edge_and_application_auth_separate(monkeypatch) -> None:
     captured = {}
 
-    class FakeResponse:
+    class Response:
         status = 200
-        headers = SimpleNamespace(items=lambda: [])
+        headers = {}
 
         def __enter__(self):
             return self
 
         def __exit__(self, *_args):
-            return False
+            return None
 
         def read(self):
             return b"{}"
 
-    def fake_urlopen(request, *, timeout):
-        captured["headers"] = {key.lower(): value for key, value in request.header_items()}
+    def fake_urlopen(request, timeout):
+        captured["headers"] = dict(request.header_items())
         captured["timeout"] = timeout
-        return FakeResponse()
+        return Response()
 
     monkeypatch.setattr(smoke, "urlopen", fake_urlopen)
-    client = smoke.ApiClient(
-        smoke.SmokeConfig(
-            base_url="https://private-space.example",
-            expected_version="2.0.0rc2",
-            request_timeout=3,
-            bearer_token="souwen-admin-token",
-            hf_space_token="hf-read-token",
-        )
+    client = smoke.Client(
+        "https://example.invalid",
+        edge_token="edge-canary",
+        app_token="app-canary",
+        timeout=3,
     )
-
-    status, _raw, _headers, _elapsed = client._request_raw("GET", "/api/v1/whoami", auth=True)
-
+    status, _headers, _body = client.request("/healthz")
     assert status == 200
-    assert captured["headers"]["authorization"] == "Bearer hf-read-token"
-    assert captured["headers"]["x-souwen-token"] == "souwen-admin-token"
-    assert captured["timeout"] == 3
+    assert captured["headers"]["Authorization"] == "Bearer edge-canary"
+    assert captured["headers"]["X-souwen-token"] == "app-canary"
 
 
-def test_api_client_non_json_error_records_only_length_and_digest(monkeypatch):
-    raw = b"Authorization: secret at https://private.invalid/request-id"
-
-    class FakeResponse:
-        status = 502
-        headers = SimpleNamespace(items=lambda: [])
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *_args):
-            return False
-
-        def read(self):
-            return raw
-
-    monkeypatch.setattr(smoke, "urlopen", lambda *_args, **_kwargs: FakeResponse())
-    client = smoke.ApiClient(
-        smoke.SmokeConfig(
-            base_url="https://private-space.example",
-            expected_version="2.0.0rc2",
-            request_timeout=3,
+def test_offline_mode_writes_bounded_reports(tmp_path) -> None:
+    json_path = tmp_path / "report.json"
+    markdown_path = tmp_path / "report.md"
+    assert (
+        smoke.main(
+            [
+                "--mode",
+                "offline",
+                "--json-report",
+                str(json_path),
+                "--markdown-report",
+                str(markdown_path),
+            ]
         )
+        == 0
     )
-
-    with pytest.raises(smoke.SmokeError) as caught:
-        client.request("POST", "/api/v1/fetch", body={"targets": ["https://example.test"]})
-
-    message = str(caught.value)
-    assert "status=502" in message
-    assert f"body_bytes={len(raw)}" in message
-    assert "body_sha256=" in message
-    assert "Authorization" not in message
-    assert "private.invalid" not in message
-    assert "request-id" not in message
-
-
-def test_api_client_transport_error_does_not_record_raw_exception(monkeypatch):
-    def fail_urlopen(*_args, **_kwargs):
-        raise OSError("token=secret https://private.invalid/request-id")
-
-    monkeypatch.setattr(smoke, "urlopen", fail_urlopen)
-    client = smoke.ApiClient(
-        smoke.SmokeConfig(
-            base_url="https://private-space.example",
-            expected_version="2.0.0rc2",
-            request_timeout=3,
-        )
-    )
-
-    with pytest.raises(smoke.SmokeError) as caught:
-        client.request("POST", "/api/v1/fetch", body={"targets": ["https://example.test"]})
-
-    assert str(caught.value) == "POST /api/v1/fetch failed: transport_error=OSError"
-
-
-def test_builtin_fetch_failure_records_sanitized_item_diagnostic():
-    class FakeFetchClient:
-        def post(self, _path, **_kwargs):
-            return smoke.ResponseData(
-                200,
-                {
-                    "total_ok": 0,
-                    "total_failed": 1,
-                    "results": [
-                        {
-                            "source": "builtin",
-                            "error": (
-                                "upstream rejected https://example.test/page?token=raw-token; "
-                                "Authorization: Bearer raw-bearer"
-                            ),
-                            "raw": {"status_code": 403},
-                        }
-                    ],
-                },
-                0.1,
-            )
-
-    config = smoke.SmokeConfig(
-        base_url="https://example.test",
-        expected_version="1.2.3",
-        expected_source_sha="a" * 40,
-        request_timeout=1,
-    )
-    result = smoke.fetch_builtin(FakeFetchClient(), config)
-
-    assert result.outcome == "fail"
-    assert result.required is True
-    assert result.meta["result_source"] == "builtin"
-    assert result.meta["result_status_code"] == 403
-    assert "<url>" in result.meta["result_error"]
-    assert "<redacted>" in result.meta["result_error"]
-    assert "raw-token" not in result.detail
-    assert "raw-bearer" not in result.detail
-    assert "raw-token" not in result.meta["result_error"]
-    assert "raw-bearer" not in result.meta["result_error"]
-
-
-def test_required_builtin_fetch_uses_candidate_pinned_repository_fixture():
-    calls: list[dict] = []
-    candidate_sha = "a" * 40
-    config = smoke.SmokeConfig(
-        base_url="https://example.test",
-        expected_version="1.2.3",
-        expected_source_sha=candidate_sha,
-        request_timeout=1,
-    )
-    expected_url = smoke.immutable_builtin_fetch_probe_url(candidate_sha)
-
-    class FakeFetchClient:
-        def post(self, _path, **kwargs):
-            calls.append(kwargs)
-            return smoke.ResponseData(
-                200,
-                {
-                    "total_ok": 1,
-                    "total_failed": 0,
-                    "results": [
-                        {
-                            "url": expected_url,
-                            "final_url": expected_url,
-                            "source": "builtin",
-                            "content": (
-                                f"{smoke.REQUIRED_BUILTIN_FETCH_PROBE_MARKER} "
-                                + ("fixture content " * 100)
-                            ),
-                        }
-                    ],
-                },
-                0.1,
-            )
-
-    result = smoke.fetch_builtin(FakeFetchClient(), config)
-
-    assert result.outcome == "pass"
-    assert result.required is True
-    assert calls[0]["body"]["urls"] == [expected_url]
-    assert candidate_sha in expected_url
-    assert "example.com" not in expected_url
-    assert calls[0]["body"]["respect_robots_txt"] is False
-    assert result.meta["content_chars"] >= smoke.REQUIRED_BUILTIN_FETCH_MIN_CONTENT_CHARS
-    assert result.meta["fixture_marker_found"] is True
-
-
-def test_required_builtin_fetch_fails_without_a_candidate_sha_before_request():
-    class FakeFetchClient:
-        def post(self, *_args, **_kwargs):
-            raise AssertionError("missing candidate SHA must not fall back to a mutable URL")
-
-    config = smoke.SmokeConfig(
-        base_url="https://example.test",
-        expected_version="1.2.3",
-        request_timeout=1,
-    )
-
-    result = smoke.fetch_builtin(FakeFetchClient(), config)
-
-    assert result.outcome == "fail"
-    assert result.required is True
-    assert "candidate SHA" in result.detail
-
-
-def test_required_builtin_fetch_fixture_is_repository_owned_and_content_sufficient():
-    fixture = Path(__file__).resolve().parents[1] / smoke.REQUIRED_BUILTIN_FETCH_PROBE_PATH
-    content = fixture.read_text(encoding="utf-8")
-
-    assert smoke.REQUIRED_BUILTIN_FETCH_PROBE_MARKER in content
-    assert len(content) >= smoke.REQUIRED_BUILTIN_FETCH_MIN_CONTENT_CHARS
-
-    from souwen.web.builtin import _extract_with_trafilatura
-
-    extracted = _extract_with_trafilatura(
-        content,
-        smoke.immutable_builtin_fetch_probe_url("a" * 40) or "",
-    )["content"]
-    assert smoke.REQUIRED_BUILTIN_FETCH_PROBE_MARKER in extracted
-    assert len(extracted) >= smoke.REQUIRED_BUILTIN_FETCH_MIN_CONTENT_CHARS
-
-
-def test_required_failures_only_counts_required_failed_rows():
-    results = [
-        smoke.ProbeResult("basic", "health", "pass", "ok", required=True),
-        smoke.ProbeResult("web", "bing", "warn", "flaky", required=False),
-        smoke.ProbeResult("paper", "default", "fail", "too few", required=True),
-        smoke.ProbeResult("media", "images", "fail", "upstream", required=False),
-    ]
-
-    failures = smoke.required_failures(results)
-
-    assert [item.name for item in failures] == ["default"]
-
-
-def test_build_markdown_report_includes_gate_summary():
-    config = smoke.SmokeConfig(
-        base_url="https://example.test",
-        expected_version="1.2.3",
-        request_timeout=1,
-    )
-    results = [
-        smoke.ProbeResult("basic", "health", "pass", "ok", required=True),
-        smoke.ProbeResult("zero-key-web", "curl_cffi+warp-on", "warn", "0/10"),
-    ]
-
-    report = smoke.build_markdown_report(config, results)
-
-    assert "# SouWen HF Space CD Test Report" in report
-    assert "Result: **passed**" in report
-    assert "Overall outcome: **WARN**" in report
-    assert "`basic/health`" in report
-    assert "`curl_cffi+warp-on`" in report
-
-
-def test_build_json_payload_uses_functional_schema():
-    config = smoke.SmokeConfig(
-        base_url="https://example.test",
-        expected_version="1.2.3",
-        request_timeout=1,
-        mode="capability",
-    )
-    results = [
-        smoke.ProbeResult("basic", "health", "pass", "ok", required=True, elapsed=0.1),
-        smoke.ProbeResult("web", "bing", "warn", "flaky"),
-        smoke.ProbeResult("media", "images", "fail", "upstream", required=False),
-        smoke.ProbeResult("fetch", "scrapling", "skip", "missing runtime"),
-    ]
-
-    payload = smoke.build_json_payload(config, results)
-
-    assert payload["schema_version"] == 1
-    assert payload["script"] == "hf_space_smoke"
-    assert payload["mode"] == "capability"
-    assert payload["overall"] == "WARN"
-    by_name = {item["name"]: item for item in payload["checks"]}
-    assert by_name["basic/health"]["outcome"] == "PASS"
-    assert by_name["web/bing"]["outcome"] == "WARN"
-    assert by_name["media/images"]["outcome"] == "WARN"
-    assert by_name["media/images"]["details"]["legacy_outcome"] == "fail"
-    assert by_name["fetch/scrapling"]["outcome"] == "SKIP"
-
-
-def test_offline_mode_writes_skip_reports_without_live_calls(monkeypatch, tmp_path):
-    def fail_if_called(_config):
-        raise AssertionError("offline mode must not run live probes")
-
-    json_report = tmp_path / "hf-space.json"
-    markdown_report = tmp_path / "hf-space.md"
-    monkeypatch.setattr(smoke, "run_report", fail_if_called)
-
-    code = smoke.main(
-        [
-            "--mode",
-            "offline",
-            "--base-url",
-            "https://example.test",
-            "--json-report",
-            str(json_report),
-            "--markdown-report",
-            str(markdown_report),
-            "--summary-file",
-            "",
-        ]
-    )
-
-    assert code == 0
-    payload = json.loads(json_report.read_text(encoding="utf-8"))
-    assert payload["mode"] == "offline"
-    assert payload["overall"] == "SKIP"
-    assert payload["checks"][0]["name"] == "mode/offline"
+    payload = json.loads(json_path.read_text(encoding="utf-8"))
+    assert payload["overall"] == "PASS"
     assert payload["checks"][0]["outcome"] == "SKIP"
-    assert "Overall outcome: **SKIP**" in markdown_report.read_text(encoding="utf-8")
+    assert "HFS target smoke" in markdown_path.read_text(encoding="utf-8")
 
 
-def test_offline_mode_default_does_not_write_repo_root_reports(monkeypatch, tmp_path):
-    """本地直接运行 smoke 不应默认在当前目录生成 report 文件。"""
-
-    def fail_if_called(_config):
-        raise AssertionError("offline mode must not run live probes")
-
-    monkeypatch.chdir(tmp_path)
-    monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
-    monkeypatch.delenv("SOUWEN_SMOKE_REPORT_FILE", raising=False)
-    monkeypatch.delenv("SOUWEN_SMOKE_JSON_FILE", raising=False)
-    monkeypatch.setattr(smoke, "run_report", fail_if_called)
-
-    code = smoke.main(["--mode", "offline", "--base-url", "https://example.test"])
-
-    assert code == 0
-    assert not (tmp_path / "hf-space-cd-report.md").exists()
-    assert not (tmp_path / "hf-space-cd-report.json").exists()
-
-
-def test_report_write_failure_returns_argument_error_code(monkeypatch, tmp_path, capsys):
-    def fail_if_called(_config):
-        raise AssertionError("offline mode must not run live probes")
-
-    def fail_write_text(*_args, **_kwargs):
-        raise OSError("disk full")
-
-    monkeypatch.setattr(smoke, "run_report", fail_if_called)
-    monkeypatch.setattr(smoke, "write_text", fail_write_text)
-
-    code = smoke.main(
-        [
-            "--mode",
-            "offline",
-            "--base-url",
-            "https://example.test",
-            "--json-report",
-            str(tmp_path / "hf-space.json"),
-            "--markdown-report",
-            str(tmp_path / "hf-space.md"),
-            "--summary-file",
-            "",
-        ]
-    )
-
-    assert code == 2
-    assert "failed to write HF Space smoke reports: disk full" in capsys.readouterr().err
-
-
-def test_fail_admin_open_can_be_enabled_by_env(monkeypatch):
-    monkeypatch.setenv("SOUWEN_SMOKE_FAIL_ADMIN_OPEN", "1")
-    monkeypatch.delenv("SOUWEN_SMOKE_WARN_ADMIN_OPEN", raising=False)
-
-    args = smoke.parse_args([])
-
-    assert args.fail_admin_open is True
-
-
-def test_public_base_url_defaults_admin_open_gate_to_fail(monkeypatch):
-    monkeypatch.delenv("SOUWEN_SMOKE_FAIL_ADMIN_OPEN", raising=False)
-    monkeypatch.delenv("SOUWEN_SMOKE_WARN_ADMIN_OPEN", raising=False)
-
-    args = smoke.parse_args(["--base-url", "https://example.test"])
-    base_url = smoke.normalize_base_url(args.base_url)
-
-    assert args.fail_admin_open is None
-    assert smoke.resolve_fail_admin_open(base_url, args.fail_admin_open) is True
-
-
-def test_local_base_url_defaults_admin_open_gate_to_warn(monkeypatch):
-    monkeypatch.delenv("SOUWEN_SMOKE_FAIL_ADMIN_OPEN", raising=False)
-    monkeypatch.delenv("SOUWEN_SMOKE_WARN_ADMIN_OPEN", raising=False)
-
-    args = smoke.parse_args(["--base-url", "http://127.0.0.1:8000"])
-    base_url = smoke.normalize_base_url(args.base_url)
-
-    assert args.fail_admin_open is None
-    assert smoke.resolve_fail_admin_open(base_url, args.fail_admin_open) is False
-
-
-def test_warn_admin_open_can_be_enabled_by_env(monkeypatch):
-    monkeypatch.delenv("SOUWEN_SMOKE_FAIL_ADMIN_OPEN", raising=False)
-    monkeypatch.setenv("SOUWEN_SMOKE_WARN_ADMIN_OPEN", "1")
-
-    args = smoke.parse_args([])
-
-    assert args.fail_admin_open is False
-
-
-def test_warn_admin_open_cli_overrides_fail_env(monkeypatch):
-    monkeypatch.setenv("SOUWEN_SMOKE_FAIL_ADMIN_OPEN", "1")
-
-    args = smoke.parse_args(["--warn-admin-open"])
-
-    assert args.fail_admin_open is False
-
-
-def test_basic_checks_cover_docs_and_panel_routes():
-    config = smoke.SmokeConfig(
-        base_url="https://example.test",
-        expected_version="1.2.3",
-        request_timeout=1,
-    )
-    state = smoke.RunState()
-
-    results = smoke.run_basic_checks(FakeSmokeClient(), config, state)  # type: ignore[arg-type]
-
-    by_name = {item.name: item for item in results}
-    assert by_name["openapi"].outcome == "pass"
-    assert by_name["docs"].outcome == "pass"
-    assert by_name["panel"].outcome == "pass"
-    assert by_name["whoami"].outcome == "pass"
-    assert state.admin_available is True
-
-
-def test_target_openapi_smoke_rejects_legacy_paths() -> None:
-    client = FakeSmokeClient()
-    client.json_routes["/openapi.json"] = smoke.ResponseData(
-        200,
-        {
-            "info": {
-                "title": "SouWen External Data API",
-                "version": "2.0.0rc2",
-            },
-            "x-souwen-api-major": 2,
-            "x-souwen-rollout-mode": "target",
-            "paths": {
-                **{path: {} for path in smoke.TARGET_OPENAPI_PATHS},
-                "/api/v1/sources": {},
-            },
-        },
-        0.1,
-    )
-    config = smoke.SmokeConfig(
-        base_url="https://example.test",
-        expected_version="2.0.0rc2",
-        request_timeout=1,
-        require_target_runtime=True,
-    )
-
-    results = smoke.run_basic_checks(client, config, smoke.RunState())  # type: ignore[arg-type]
-
-    openapi = next(item for item in results if item.name == "openapi")
-    assert openapi.outcome == "fail"
-    assert "target_contract=False" in openapi.detail
-
-
-def test_basic_checks_require_exact_source_sha_when_pinned():
-    client = FakeSmokeClient()
-    client.json_routes["/health"] = smoke.ResponseData(
-        200,
-        {"status": "ok", "version": "1.2.3", "source_sha": "a" * 40},
-        0.1,
-    )
-    client.json_routes["/readiness"] = smoke.ResponseData(
-        200,
-        {"ready": True, "version": "1.2.3", "source_sha": "b" * 40, "error": None},
-        0.1,
-    )
-    config = smoke.SmokeConfig(
-        base_url="https://example.test",
-        expected_version="1.2.3",
-        expected_source_sha="a" * 40,
-        request_timeout=1,
-    )
-
-    results = smoke.run_basic_checks(client, config, smoke.RunState())  # type: ignore[arg-type]
-    by_name = {item.name: item for item in results}
-
-    assert by_name["health"].outcome == "pass"
-    assert by_name["readiness"].outcome == "fail"
-    assert "expected=" in by_name["readiness"].detail
-
-
-def test_target_m1_requires_wrapper_worker_and_three_vertical_capabilities(monkeypatch):
-    source_sha = "a" * 40
-    wrapper_sha = "b" * 40
-    builtin_url = smoke.immutable_builtin_fetch_probe_url(source_sha)
-    browser_url = smoke.immutable_browser_fetch_probe_url(source_sha)
-    assert builtin_url is not None and browser_url is not None
-    parsed_browser_url = urlparse(browser_url)
-    browser_query = parse_qs(parsed_browser_url.query)
-    browser_payload = base64.b64decode(unquote(parsed_browser_url.path.rsplit("/", 1)[-1]))
-    browser_fixture = (
-        Path(smoke.REQUIRED_BROWSER_FETCH_PROBE_PATH).read_text(encoding="utf-8").strip()
-    )
-    assert browser_payload.decode() == browser_fixture
-    assert browser_fixture == "<body><script>document.body.innerText=location.search</script>"
-    assert len(browser_fixture) <= 63
-    assert browser_query == {
-        "candidate_sha": [source_sha],
-        "marker": [smoke.REQUIRED_BROWSER_FETCH_PROBE_MARKER],
+def test_target_openapi_path_set_is_exact() -> None:
+    assert smoke.TARGET_PATHS == {
+        "/api/v1/search",
+        "/api/v1/llm-search",
+        "/api/v1/fetch",
+        "/api/v1/providers",
+        "/health",
+        "/healthz",
+        "/readiness",
+        "/readyz",
     }
-    assert f"?{parsed_browser_url.query}" == smoke.expected_browser_fetch_probe_content(source_sha)
 
-    class TargetClient(FakeSmokeClient):
-        def __init__(self):
-            super().__init__()
-            common = {
-                "version": "2.0.0rc2",
-                "source_sha": source_sha,
-                "wrapper_sha": wrapper_sha,
-                "rollout_mode": "target",
-                "config_revision": f"source-{source_sha}",
-            }
-            self.json_routes["/health"] = smoke.ResponseData(
+
+def test_probe_accepts_lowercase_http_response_headers() -> None:
+    class Client:
+        def json(self, path, **_kwargs):
+            return (
                 200,
-                {**common, "status": "ok", "ready": True, "components": {"api": "ready"}},
-                0.1,
+                {"x-souwen-api-major": "2"},
+                {
+                    "rollout_mode": "target",
+                    "version": "2.0.0rc2",
+                    "config_revision": "source-test",
+                },
             )
-            self.json_routes["/readiness"] = smoke.ResponseData(
+
+    args = smoke.parse_args(["--expected-version", "2.0.0rc2", "--require-target-runtime"])
+
+    detail, payload = smoke._probe(Client(), "/healthz", args)
+
+    assert detail == "/healthz target runtime verified"
+    assert payload["rollout_mode"] == "target"
+
+
+def test_readiness_probe_requires_browser_worker_evidence() -> None:
+    class Client:
+        def json(self, path, **_kwargs):
+            return (
                 200,
+                {"x-souwen-api-major": "2"},
                 {
-                    **common,
-                    "status": "ready",
-                    "ready": True,
-                    "worker_source_sha": source_sha,
-                    "components": {"api": "ready", "browser_worker": "ready"},
-                    "error": None,
+                    "rollout_mode": "target",
+                    "config_revision": "source-test",
+                    "source_sha": "a" * 40,
+                    "components": {"api": "ready"},
                 },
-                0.1,
-            )
-            self.json_routes["/openapi.json"] = smoke.ResponseData(
-                200,
-                {
-                    "info": {
-                        "title": "SouWen External Data API",
-                        "version": "2.0.0rc2",
-                    },
-                    "x-souwen-api-major": 2,
-                    "x-souwen-rollout-mode": "target",
-                    "paths": {path: {} for path in smoke.TARGET_OPENAPI_PATHS},
-                },
-                0.1,
             )
 
-        def post(self, path, *, body=None, **_kwargs):
-            if path == "/api/v1/search":
-                return smoke.ResponseData(200, {"items": [{"id": "W1"}]}, 0.2)
-            assert path == "/api/v1/fetch"
-            target = body["targets"][0]
-            if target == builtin_url:
-                content = smoke.REQUIRED_BUILTIN_FETCH_PROBE_MARKER + (" evidence" * 80)
-                provenance = [{"provider": "builtin-fetch", "attempt": 1}]
-            else:
-                assert target == browser_url
-                content = smoke.expected_browser_fetch_probe_content(source_sha)
-                provenance = [
-                    {"provider": "builtin-fetch", "attempt": 1, "outcome": "success"},
-                    {"provider": "builtin-fetch", "attempt": 2, "outcome": "success"},
-                ]
-            return smoke.ResponseData(
-                200,
-                {
-                    "items": [
-                        {
-                            "status": "success",
-                            "content": content,
-                            "provenance": provenance,
-                        }
-                    ]
-                },
-                0.2,
-            )
+    args = smoke.parse_args(["--require-target-runtime"])
 
-    config = smoke.SmokeConfig(
-        base_url="https://example.test",
-        expected_version="2.0.0rc2",
-        expected_source_sha=source_sha,
-        expected_wrapper_sha=wrapper_sha,
-        require_target_runtime=True,
-        request_timeout=1,
-        bearer_token="admin",
-    )
-    monkeypatch.setattr(smoke, "ApiClient", lambda _config: TargetClient())
-
-    results = smoke.run_report(config)
-
-    by_name = {item.name: item for item in results}
-    assert by_name["health"].outcome == "pass"
-    assert by_name["readiness"].outcome == "pass"
-    assert by_name["openalex-search"].outcome == "pass"
-    assert by_name["builtin-fetch"].outcome == "pass"
-    assert by_name["browser-fetch"].outcome == "pass"
-    assert smoke.required_failures(results) == []
+    with pytest.raises(smoke.SmokeFailure, match="browser worker"):
+        smoke._probe(Client(), "/readyz", args)
 
 
-@pytest.mark.parametrize("invalid_kind", ["fixture-script", "wrapped-query", "url-echo"])
-def test_target_m1_browser_exact_rendered_proof_failure_is_not_hidden_by_secondary(
-    invalid_kind,
-):
-    source_sha = "a" * 40
-    browser_urls = smoke.immutable_browser_fetch_probe_urls(source_sha)
-    expected_content = smoke.expected_browser_fetch_probe_content(source_sha)
-    assert expected_content is not None
-    browser_calls: list[str] = []
-
-    class FalsePositiveClient:
-        def post(self, path, *, body=None, **_kwargs):
-            if path == "/api/v1/search":
-                return smoke.ResponseData(200, {"items": [{"id": "W1"}]}, 0.1)
-            target = body["targets"][0]
-            if target == smoke.immutable_builtin_fetch_probe_url(source_sha):
-                content = smoke.REQUIRED_BUILTIN_FETCH_PROBE_MARKER + " evidence" * 80
-            else:
-                browser_calls.append(target)
-                if target == browser_urls[1]:
-                    content = expected_content
-                elif invalid_kind == "fixture-script":
-                    content = Path(smoke.REQUIRED_BROWSER_FETCH_PROBE_PATH).read_text(
-                        encoding="utf-8"
-                    )
-                elif invalid_kind == "wrapped-query":
-                    content = f"prefix{expected_content}suffix"
-                else:
-                    content = browser_urls[0]
-            return smoke.ResponseData(
-                200,
-                {
-                    "items": [
-                        {
-                            "status": "success",
-                            "content": content,
-                            "provenance": [
-                                {
-                                    "provider": "builtin-fetch",
-                                    "attempt": 2,
-                                    "outcome": "success",
-                                }
-                            ],
-                        }
-                    ]
-                },
-                0.1,
-            )
-
-    config = smoke.SmokeConfig(
-        base_url="https://example.test",
-        expected_version="2.0.0rc2",
-        expected_source_sha=source_sha,
-        require_target_runtime=True,
-        request_timeout=1,
-    )
-
-    results = smoke.run_target_m1_checks(FalsePositiveClient(), config)  # type: ignore[arg-type]
-
-    assert {item.name: item.outcome for item in results}["browser-fetch"] == "fail"
-    assert browser_calls == [browser_urls[0]]
-
-
-def test_target_m1_browser_probe_uses_secondary_fixture_after_safe_primary_failure():
-    source_sha = "a" * 40
-    browser_urls = smoke.immutable_browser_fetch_probe_urls(source_sha)
-    assert len(browser_urls) == 2
-    browser_calls: list[str] = []
-
-    class RedundantFixtureClient:
-        def post(self, path, *, body=None, **_kwargs):
-            if path == "/api/v1/search":
-                return smoke.ResponseData(200, {"items": [{"id": "W1"}]}, 0.1)
-            target = body["targets"][0]
-            if target == smoke.immutable_builtin_fetch_probe_url(source_sha):
-                return smoke.ResponseData(
-                    200,
-                    {
-                        "items": [
-                            {
-                                "status": "success",
-                                "content": smoke.REQUIRED_BUILTIN_FETCH_PROBE_MARKER
-                                + " evidence" * 80,
-                                "provenance": [
-                                    {
-                                        "provider": "builtin-fetch",
-                                        "attempt": 1,
-                                        "outcome": "success",
-                                    }
-                                ],
-                            }
-                        ]
-                    },
-                    0.1,
-                )
-            browser_calls.append(target)
-            if target == browser_urls[0]:
-                return smoke.ResponseData(
-                    502,
-                    {
-                        "error": {
-                            "code": "worker_unavailable",
-                            "message": "Authorization: secret at https://private.invalid",
-                            "retryable": True,
-                            "request_id": "private-request-id",
-                        }
-                    },
-                    0.1,
-                )
-            assert target == browser_urls[1]
-            return smoke.ResponseData(
-                200,
-                {
-                    "items": [
-                        {
-                            "status": "success",
-                            "content": smoke.expected_browser_fetch_probe_content(source_sha),
-                            "provenance": [
-                                {
-                                    "provider": "builtin-fetch",
-                                    "attempt": 1,
-                                    "outcome": "success",
-                                },
-                                {
-                                    "provider": "builtin-fetch",
-                                    "attempt": 2,
-                                    "outcome": "success",
-                                },
-                            ],
-                        }
-                    ]
-                },
-                0.1,
-            )
-
-    config = smoke.SmokeConfig(
-        base_url="https://example.test",
-        expected_version="2.0.0rc2",
-        expected_source_sha=source_sha,
-        require_target_runtime=True,
-        request_timeout=1,
-    )
-
-    results = smoke.run_target_m1_checks(RedundantFixtureClient(), config)  # type: ignore[arg-type]
-    browser = {item.name: item for item in results}["browser-fetch"]
-
-    assert browser.outcome == "pass"
-    assert browser_calls == list(browser_urls)
-    assert "fixture=2" in browser.detail
-    assert "prior_failures=1" in browser.detail
-    assert browser.meta == {
-        "fixture_attempts": [
-            {
-                "fixture": 1,
-                "outcome": "fail",
-                "status": 502,
-                "error_code": "worker_unavailable",
-                "retryable": True,
-            },
-            {"fixture": 2, "outcome": "pass", "status": 200},
-        ]
-    }
-    serialized = json.dumps({"detail": browser.detail, "meta": browser.meta})
-    assert "private.invalid" not in serialized
-    assert "private-request-id" not in serialized
-    assert "Authorization" not in serialized
-
-
-def test_target_m1_browser_probe_reports_all_fixture_error_codes_without_raw_detail():
-    source_sha = "a" * 40
-    browser_urls = smoke.immutable_browser_fetch_probe_urls(source_sha)
-
-    class FailedFixtureClient:
-        def post(self, path, *, body=None, **_kwargs):
-            if path == "/api/v1/search":
-                return smoke.ResponseData(200, {"items": [{"id": "W1"}]}, 0.1)
-            target = body["targets"][0]
-            if target == smoke.immutable_builtin_fetch_probe_url(source_sha):
-                content = smoke.REQUIRED_BUILTIN_FETCH_PROBE_MARKER + " evidence" * 80
-                return smoke.ResponseData(
-                    200,
-                    {"items": [{"status": "success", "content": content, "provenance": []}]},
-                    0.1,
-                )
-            assert target in browser_urls
-            code = "worker_unavailable" if target == browser_urls[0] else "provider_timeout"
-            return smoke.ResponseData(
-                502 if code == "worker_unavailable" else 504,
-                {
-                    "error": {
-                        "code": code,
-                        "message": "secret raw detail",
-                        "retryable": True,
-                    }
-                },
-                0.1,
-            )
-
-    config = smoke.SmokeConfig(
-        base_url="https://example.test",
-        expected_version="2.0.0rc2",
-        expected_source_sha=source_sha,
-        require_target_runtime=True,
-        request_timeout=1,
-    )
-
-    results = smoke.run_target_m1_checks(FailedFixtureClient(), config)  # type: ignore[arg-type]
-    browser = {item.name: item for item in results}["browser-fetch"]
-
-    assert browser.outcome == "fail"
-    assert "fixture=1, status=502, error_code='worker_unavailable'" in browser.detail
-    assert "fixture=2, status=504, error_code='provider_timeout'" in browser.detail
-    assert "secret raw detail" not in browser.detail
-
-
-@pytest.mark.parametrize(
-    ("error", "expected_code"),
-    [
-        (
-            {
-                "code": "worker_protocol_mismatch",
-                "message": "must not be copied into evidence",
-                "retryable": False,
-            },
-            "worker_protocol_mismatch",
-        ),
-        ({"code": "worker_unavailable", "message": "missing retryability"}, "worker_unavailable"),
-        ({"code": "INVALID-CODE", "message": "invalid code", "retryable": True}, None),
-    ],
-)
-def test_target_m1_browser_probe_does_not_hide_nonretryable_contract_failure(
-    error,
-    expected_code,
-):
-    source_sha = "a" * 40
-    browser_urls = smoke.immutable_browser_fetch_probe_urls(source_sha)
-    browser_calls: list[str] = []
-
-    class ContractFailureClient:
-        def post(self, path, *, body=None, **_kwargs):
-            if path == "/api/v1/search":
-                return smoke.ResponseData(200, {"items": [{"id": "W1"}]}, 0.1)
-            target = body["targets"][0]
-            if target == smoke.immutable_builtin_fetch_probe_url(source_sha):
-                content = smoke.REQUIRED_BUILTIN_FETCH_PROBE_MARKER + " evidence" * 80
-                return smoke.ResponseData(
-                    200,
-                    {"items": [{"status": "success", "content": content, "provenance": []}]},
-                    0.1,
-                )
-            browser_calls.append(target)
-            return smoke.ResponseData(
-                409,
-                {"error": error},
-                0.1,
-            )
-
-    config = smoke.SmokeConfig(
-        base_url="https://example.test",
-        expected_version="2.0.0rc2",
-        expected_source_sha=source_sha,
-        require_target_runtime=True,
-        request_timeout=1,
-    )
-
-    results = smoke.run_target_m1_checks(ContractFailureClient(), config)  # type: ignore[arg-type]
-    browser = {item.name: item for item in results}["browser-fetch"]
-
-    assert browser.outcome == "fail"
-    assert browser_calls == [browser_urls[0]]
-    assert browser.meta["fixture_attempts"][0].get("error_code") == expected_code
-    assert "must not be copied" not in browser.detail
-    assert "missing retryability" not in browser.detail
-    assert "invalid code" not in browser.detail
-
-
-def test_target_m1_readiness_fails_when_worker_or_wrapper_provenance_drifts():
-    client = FakeSmokeClient()
-    client.json_routes["/health"] = smoke.ResponseData(
-        200,
+def test_missing_required_llm_provider_is_reported_as_a_failed_check(monkeypatch, tmp_path) -> None:
+    providers = [
         {
-            "status": "ok",
-            "version": "2.0.0rc2",
-            "source_sha": "a" * 40,
-            "wrapper_sha": "c" * 40,
-            "rollout_mode": "target",
-            "config_revision": "config-r1",
+            "provider": "openalex",
+            "availability": "available",
+            "capabilities": ["search"],
         },
-        0.1,
-    )
-    client.json_routes["/readiness"] = smoke.ResponseData(
-        200,
         {
-            "ready": True,
-            "version": "2.0.0rc2",
-            "source_sha": "a" * 40,
-            "wrapper_sha": "c" * 40,
-            "worker_source_sha": "d" * 40,
-            "rollout_mode": "target",
-            "config_revision": "config-r1",
-            "components": {"api": "ready", "browser_worker": "not_ready"},
-            "error": None,
+            "provider": "builtin",
+            "availability": "available",
+            "capabilities": ["fetch"],
         },
-        0.1,
-    )
-    config = smoke.SmokeConfig(
-        base_url="https://example.test",
-        expected_version="2.0.0rc2",
-        expected_source_sha="a" * 40,
-        expected_wrapper_sha="b" * 40,
-        require_target_runtime=True,
-        request_timeout=1,
-    )
+    ]
 
-    results = smoke.run_basic_checks(client, config, smoke.RunState())
-    by_name = {item.name: item for item in results}
+    class Client:
+        def __init__(self, *_args, **_kwargs):
+            pass
 
-    assert by_name["health"].outcome == "fail"
-    assert by_name["readiness"].outcome == "fail"
+        def json(self, path, **_kwargs):
+            if path == "/api/v1/search":
+                return 200, {}, {"items": []}
+            if path == "/api/v1/fetch":
+                return 200, {}, {"items": [{"status": "success", "content": "fixture"}]}
+            raise AssertionError(path)
 
-
-def test_basic_checks_warn_when_public_admin_open_without_password():
-    client = FakeSmokeClient()
-    client.json_routes["/api/v1/whoami"] = smoke.ResponseData(
-        200,
-        {"role": "admin", "admin_open": True, "admin_password_set": False},
-        0.1,
-    )
-    config = smoke.SmokeConfig(
-        base_url="https://example.test",
-        expected_version="1.2.3",
-        request_timeout=1,
-    )
-    state = smoke.RunState()
-
-    results = smoke.run_basic_checks(client, config, state)  # type: ignore[arg-type]
-    by_check = {(item.section, item.name): item for item in results}
-    payload = smoke.build_json_payload(config, results)
-    report = smoke.build_markdown_report(config, results)
-
-    whoami = by_check[("basic", "whoami")]
-    security = by_check[("security", "admin-open")]
-    assert whoami.meta["admin_access_mode"] == "open"
-    assert security.outcome == "warn"
-    assert security.required is False
-    assert "remote admin endpoints are open" in security.detail
-    assert payload["overall"] == "WARN"
-    assert payload["checks"][-1]["name"] == "security/admin-open"
-    assert payload["checks"][-1]["details"]["meta"]["admin_open"] is True
-    assert "- Admin access: `open`" in report
-    assert "## security" in report
-    assert "`admin-open`" in report
-    assert state.admin_open is True
-    assert state.admin_password_set is False
-
-
-def test_basic_checks_fail_when_public_admin_open_gate_is_required():
-    client = FakeSmokeClient()
-    client.json_routes["/api/v1/whoami"] = smoke.ResponseData(
-        200,
-        {"role": "admin", "admin_open": True, "admin_password_set": False},
-        0.1,
-    )
-    config = smoke.SmokeConfig(
-        base_url="https://example.test",
-        expected_version="1.2.3",
-        request_timeout=1,
-        fail_admin_open=True,
-    )
-    state = smoke.RunState()
-
-    results = smoke.run_basic_checks(client, config, state)  # type: ignore[arg-type]
-    by_check = {(item.section, item.name): item for item in results}
-    payload = smoke.build_json_payload(config, results)
-    report = smoke.build_markdown_report(config, results)
-
-    security = by_check[("security", "admin-open")]
-    assert security.outcome == "fail"
-    assert security.required is True
-    assert smoke.required_failures(results) == [security]
-    assert payload["overall"] == "FAIL"
-    assert payload["checks"][-1]["outcome"] == "FAIL"
-    assert payload["environment"]["fail_admin_open"] is True
-    assert "- Public admin-open gate: `fail`" in report
-
-
-def test_basic_checks_allow_local_admin_open_without_warning():
-    client = FakeSmokeClient()
-    client.json_routes["/api/v1/whoami"] = smoke.ResponseData(
-        200,
-        {"role": "admin", "admin_open": True, "admin_password_set": False},
-        0.1,
-    )
-    config = smoke.SmokeConfig(
-        base_url="http://127.0.0.1:49265",
-        expected_version="1.2.3",
-        request_timeout=1,
-    )
-    state = smoke.RunState()
-
-    results = smoke.run_basic_checks(client, config, state)  # type: ignore[arg-type]
-    by_check = {(item.section, item.name): item for item in results}
-
-    assert by_check[("security", "admin-open")].outcome == "pass"
-    assert "local/CI base URL" in by_check[("security", "admin-open")].detail
-    assert smoke.overall_outcome(results) == smoke.Outcome.PASS
-
-
-def test_surface_only_report_skips_mutating_matrix_and_restore(monkeypatch):
-    config = smoke.SmokeConfig(
-        base_url="https://example.test",
-        expected_version="1.2.3",
-        request_timeout=1,
-        surface_only=True,
-    )
-    monkeypatch.setattr(smoke, "ApiClient", lambda _config: FakeSmokeClient())
+    monkeypatch.setattr(smoke, "Client", Client)
     monkeypatch.setattr(
         smoke,
-        "run_admin_checks",
-        lambda _client, _config, state: [
-            smoke.ProbeResult("admin", "ping", "pass", "ok", required=True)
-        ],
+        "_surface_checks",
+        lambda _client, _args, _checks: providers,
     )
+    report = tmp_path / "capability.json"
 
-    results = smoke.run_report(config)
-    report = smoke.build_markdown_report(config, results)
+    assert smoke.main(["--mode", "capability", "--json-report", str(report)]) == 1
 
-    assert all(item.section != "matrix" for item in results)
-    assert all(item.section != "restore" for item in results)
-    assert "- HTTP backend mutation matrix: `skipped (surface-only)`" in report
-    assert "- Direct zero-key routes: `skipped (surface-only)`" in report
-    assert "- HTTP backend matrix: `auto,httpx,curl_cffi`" not in report
-
-
-def test_build_markdown_report_includes_source_matrix():
-    config = smoke.SmokeConfig(
-        base_url="https://example.test",
-        expected_version="1.2.3",
-        request_timeout=1,
-    )
-    results = [
-        smoke.ProbeResult(
-            "zero-key-web-source",
-            "duckduckgo+curl_cffi+warp-auto",
-            "pass",
-            "status=200, total=3, count=3",
-            meta={
-                "matrix_kind": "web-source",
-                "source": "duckduckgo",
-                "backend": "curl_cffi",
-                "warp": "auto",
-                "count": 3,
-            },
-        )
-    ]
-
-    report = smoke.build_markdown_report(config, results)
-
-    assert "## Zero-Key Matrix" in report
-    assert "### Web Scraper Sources" in report
-    assert "`duckduckgo`" in report
-    assert "`curl_cffi`" in report
-
-
-def test_build_markdown_report_includes_fetch_matrix_and_exclusions():
-    config = smoke.SmokeConfig(
-        base_url="https://example.test",
-        expected_version="1.2.3",
-        request_timeout=1,
-    )
-    results = [
-        smoke.ProbeResult(
-            "zero-key-fetch-source",
-            "builtin+curl_cffi+warp-off",
-            "pass",
-            "status=200, total_ok=1, total_failed=0",
-            meta={
-                "matrix_kind": "fetch-source",
-                "provider": "builtin",
-                "backend": "curl_cffi",
-                "warp": "off",
-                "total": 1,
-                "total_ok": 1,
-                "total_failed": 0,
-            },
-        )
-    ]
-
-    report = smoke.build_markdown_report(config, results)
-
-    assert "### Fetch Providers" in report
-    assert "`builtin`" in report
-    assert "Required-key direct APIs" in report
-    assert "### Excluded By Design" in report
-    assert "Required-key fetch" in report
-
-
-def test_fetch_provider_smoke_entries_match_registry():
-    providers = {provider.name: provider for provider in fetch_providers()}
-
-    for item in smoke.ZERO_KEY_FETCH_PROVIDER_TESTS:
-        assert item["provider"] in providers
-
-
-def test_eligible_fetch_provider_tests_filter_by_backend_matrix():
-    all_providers = {item["provider"] for item in smoke.eligible_fetch_provider_tests()}
-    matrix_providers = {
-        item["provider"] for item in smoke.eligible_fetch_provider_tests(backend_matrix=True)
-    }
-    single_providers = {
-        item["provider"] for item in smoke.eligible_fetch_provider_tests(backend_matrix=False)
-    }
-
-    assert matrix_providers | single_providers == all_providers
-    assert matrix_providers & single_providers == set()
-    assert {"builtin", "newspaper", "readability"} <= matrix_providers
-    assert {"jina_reader", "arxiv_fulltext", "crawl4ai"} <= single_providers
-
-
-def test_build_markdown_report_counts_external_runtime_skips():
-    config = smoke.SmokeConfig(
-        base_url="https://example.test",
-        expected_version="1.2.3",
-        request_timeout=1,
-    )
-    results = [
-        smoke.ProbeResult(
-            "admin",
-            "config",
-            "pass",
-            "status=200",
-        ),
-        smoke.ProbeResult(
-            "zero-key-fetch-source",
-            "builtin+curl_cffi+warp-off",
-            "pass",
-            "status=200, total_ok=1, total_failed=0",
-            meta={
-                "matrix_kind": "fetch-source",
-                "provider": "builtin",
-                "backend": "curl_cffi",
-                "warp": "off",
-                "total": 1,
-                "total_ok": 1,
-                "total_failed": 0,
-            },
-        ),
-        smoke.skipped_fetch_provider(
-            "scrapling",
-            "requires optional scrapling runtime",
-        ),
-    ]
-
-    report = smoke.build_markdown_report(config, results)
-
-    assert "1 tested, 1 skipped external-runtime" in report
-    assert "requires optional scrapling runtime" in report
-
-
-def test_build_markdown_report_expands_open_sources_and_direct_routes():
-    config = smoke.SmokeConfig(
-        base_url="https://example.test",
-        expected_version="1.2.3",
-        request_timeout=1,
-    )
-    results = [
-        smoke.ProbeResult(
-            "zero-key-open-search",
-            "optional-key-and-open-sources",
-            "pass",
-            "status=200, total=2",
-            meta={
-                "matrix_kind": "open-search",
-                "requested": ["github", "stackoverflow"],
-                "counts": {"github": 2, "stackoverflow": 0},
-            },
-        ),
-        smoke.ProbeResult(
-            "zero-key-route",
-            "sources",
-            "pass",
-            "status=200, entries=20",
-            meta={
-                "matrix_kind": "direct-route",
-                "route": "/api/v1/sources",
-                "count": 20,
-            },
-        ),
-        smoke.ProbeResult(
-            "zero-key-route",
-            "open-library-search",
-            "pass",
-            "status=200, source=open_library, count=1, operation=catalog-metadata-search",
-            meta={
-                "matrix_kind": "direct-route",
-                "route": "/api/v1/search/book",
-                "source": "open_library",
-                "count": 1,
-                "operation": "catalog-metadata-search",
-            },
-        ),
-        smoke.ProbeResult(
-            "zero-key-route",
-            "internet-archive-search",
-            "pass",
-            "status=200, source=internet_archive, count=1, operation=catalog-metadata-search",
-            meta={
-                "matrix_kind": "direct-route",
-                "route": "/api/v1/search/book",
-                "source": "internet_archive",
-                "count": 1,
-                "operation": "catalog-metadata-search",
-            },
-        ),
-        smoke.ProbeResult(
-            "zero-key-route",
-            "wikisource-search",
-            "pass",
-            "status=200, source=wikisource, count=1, operation=catalog-metadata-search",
-            meta={
-                "matrix_kind": "direct-route",
-                "route": "/api/v1/search/book",
-                "source": "wikisource",
-                "count": 1,
-                "operation": "catalog-metadata-search",
-            },
-        ),
-    ]
-
-    report = smoke.build_markdown_report(config, results)
-
-    assert "### Open / Optional-Key Platform Sources" in report
-    assert "`github`" in report
-    assert "`stackoverflow`" in report
-    assert "### Direct API Routes" in report
-    assert "`/api/v1/sources`" in report
-    assert "`/api/v1/search/book`" in report
-    assert "internet_archive" in report
-    assert "wikisource" in report
-
-
-@pytest.mark.parametrize(
-    ("source", "query", "probe"),
-    [
-        ("open_library", "the lord of the rings", smoke.open_library_search_route),
-        ("internet_archive", "the lord of the rings", smoke.internet_archive_search_route),
-        ("wikisource", "論語", smoke.wikisource_search_route),
-        ("library_of_congress", "alice", smoke.library_of_congress_search_route),
-        ("librivox", "pride and prejudice", smoke.librivox_search_route),
-    ],
-)
-def test_book_search_routes_use_one_catalog_metadata_request(source, query, probe):
-    class FakeClient:
-        calls: list[tuple[str, dict, bool, int]] = []
-
-        def get(self, path, *, params, auth, timeout):
-            FakeClient.calls.append((path, params, auth, timeout))
-            return smoke.ResponseData(
-                200,
-                {
-                    "total": 1,
-                    "results": [
-                        {
-                            "source": source,
-                            "results": [
-                                {
-                                    "source": source,
-                                    "source_record_id": "catalog-id",
-                                    "title": query,
-                                }
-                            ],
-                        }
-                    ],
-                    "meta": {"succeeded": [source], "failed": []},
-                },
-                0.1,
-            )
-
-    result = probe(FakeClient())
-
-    assert result.outcome == "pass"
-    assert result.required is False
-    assert result.meta == {
-        "matrix_kind": "direct-route",
-        "route": "/api/v1/search/book",
-        "source": source,
-        "query": query,
-        "count": 1,
-        "total": 1,
-        "succeeded": [source],
-        "failed": [],
-        "operation": "catalog-metadata-search",
-    }
-    assert FakeClient.calls == [
-        (
-            "/api/v1/search/book",
-            {
-                "q": query,
-                "sources": source,
-                "per_page": 1,
-                "timeout": 45,
-            },
-            True,
-            75,
-        )
-    ]
-
-
-def test_zero_key_search_sources_are_covered_or_explicitly_excluded():
-    covered = {
-        *smoke.DEFAULT_PAPER_SOURCES,
-        *smoke.EXTRA_ZERO_KEY_PAPER_SOURCES,
-        *smoke.ZERO_KEY_PATENT_SOURCES,
-        *smoke.ZERO_KEY_WEB_SCRAPERS,
-        *smoke.ZERO_KEY_OPEN_SEARCH_SOURCES,
-    }
-    direct_route_sources = set(smoke.ZERO_KEY_BOOK_ROUTE_SOURCES)
-    no_public_endpoint = set(smoke.EXCLUDED_NO_PUBLIC_ENDPOINT_SOURCES)
-    manual_external_live = set(smoke.EXCLUDED_HFS_EXTERNAL_LIVE_SEARCH_SOURCES)
-    required_key = set(smoke.EXCLUDED_REQUIRED_KEY_SEARCH_SOURCES)
-    self_hosted = set(smoke.EXCLUDED_SELF_HOSTED_SEARCH_SOURCES)
-
-    adapters = list(all_adapters().values())
-    search_sources = [adapter for adapter in adapters if "search" in adapter.capabilities]
-    zero_key_search = {
-        adapter.name for adapter in search_sources if not adapter.resolved_needs_config
-    }
-    required_search = {
-        adapter.name
-        for adapter in search_sources
-        if adapter.resolved_needs_config and adapter.integration != "self_hosted"
-    }
-    self_hosted_search = {
-        adapter.name
-        for adapter in search_sources
-        if adapter.resolved_needs_config and adapter.integration == "self_hosted"
-    }
-
-    assert (
-        zero_key_search
-        <= covered | direct_route_sources | no_public_endpoint | manual_external_live
-    )
-    assert required_search <= required_key
-    assert self_hosted_search == self_hosted
-    assert {"gutenberg", "taiwan_new_books"} <= no_public_endpoint
-
-
-def test_zero_key_fetch_providers_are_covered_or_explicitly_excluded():
-    tested = {item["provider"] for item in smoke.ZERO_KEY_FETCH_PROVIDER_TESTS}
-    skipped = {item["provider"] for item in smoke.ZERO_KEY_FETCH_SKIPPED}
-    required_key = set(smoke.EXCLUDED_REQUIRED_KEY_FETCH_PROVIDERS)
-
-    providers = list(fetch_providers())
-    zero_key_fetch = {provider.name for provider in providers if not provider.resolved_needs_config}
-    required_fetch = {provider.name for provider in providers if provider.resolved_needs_config}
-
-    assert zero_key_fetch <= tested | skipped
-    assert required_fetch == required_key
-
-
-def test_non_search_zero_key_capabilities_are_tested_or_explicitly_excluded():
-    covered_routes = {"duckduckgo_images", "duckduckgo_videos", "wayback", "opencitations"}
-    covered_fetch = {item["provider"] for item in smoke.ZERO_KEY_FETCH_PROVIDER_TESTS}
-    skipped_fetch = {item["provider"] for item in smoke.ZERO_KEY_FETCH_SKIPPED}
-    no_public_endpoint = set(smoke.EXCLUDED_NO_PUBLIC_ENDPOINT_SOURCES)
-
-    non_search = {
-        adapter.name
-        for adapter in all_adapters().values()
-        if "search" not in adapter.capabilities and not adapter.resolved_needs_config
-    }
-
-    assert non_search <= covered_routes | covered_fetch | skipped_fetch | no_public_endpoint
-
-
-def test_zero_key_checks_refuse_mutation_without_safe_snapshots():
-    config = smoke.SmokeConfig(
-        base_url="https://example.test",
-        expected_version=None,
-        request_timeout=1,
-    )
-    state = smoke.RunState(admin_available=True, backend_snapshot_ok=True, warp_snapshot_ok=False)
-
-    results = smoke.run_zero_key_checks(object(), config, state)  # type: ignore[arg-type]
-
-    assert len(results) == 1
-    assert results[0].name == "mutation-snapshot"
-    assert results[0].outcome == "fail"
-    assert results[0].required is True
-    assert "mutation matrix skipped" in results[0].detail
-
-
-def test_restore_state_does_not_mutate_when_snapshots_are_unknown():
-    state = smoke.RunState(admin_available=True)
-
-    results = smoke.restore_state(object(), state)  # type: ignore[arg-type]
-
-    assert [(item.name, item.outcome) for item in results] == [
-        ("http-backend", "skip"),
-        ("warp", "skip"),
-    ]
-
-
-def test_summarize_search_response_handles_missing_meta():
-    total, succeeded, failed = smoke.summarize_search_response({"total": 3})
-
-    assert total == 3
-    assert succeeded == []
-    assert failed == []
-
-
-def test_grouped_result_counts_counts_per_source():
-    counts = smoke.grouped_result_counts(
-        {
-            "results": [
-                {"source": "openalex", "results": [{"title": "a"}, {"title": "b"}]},
-                {"source": "dblp", "results": []},
-            ]
-        }
-    )
-
-    assert counts == {"openalex": 2, "dblp": 0}
-
-
-def test_web_result_counts_counts_per_engine():
-    counts = smoke.web_result_counts(
-        {
-            "results": [
-                {"engine": "duckduckgo", "title": "a"},
-                {"engine": "duckduckgo", "title": "b"},
-                {"engine": "bing", "title": "c"},
-            ]
-        }
-    )
-
-    assert counts == {"duckduckgo": 2, "bing": 1}
+    payload = json.loads(report.read_text(encoding="utf-8"))
+    checks = {item["name"]: item for item in payload["checks"]}
+    assert checks["search_live"]["outcome"] == "PASS"
+    assert checks["llm_search_live"]["outcome"] == "FAIL"
+    assert checks["llm_search_live"]["detail"] == "SmokeFailure"
+    assert checks["fetch_live"]["outcome"] == "PASS"

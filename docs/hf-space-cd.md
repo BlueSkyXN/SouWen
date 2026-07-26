@@ -40,10 +40,10 @@ Server local preflight 不会被跳过。`deploy_hfs=true` 时，candidate 必�
 `origin/main`；不能从未合入分支向持有 secrets 的部署 job 注入 verifier。Central caller 只在
 HFS reusable call 上使用一次 `secrets: inherit`。这是同仓 reusable workflow 读取
 environment-scoped secrets 的已知兼容处理（`actions/runner#4453`）；其他 reusable jobs 不得继承
-secrets。这三个 environment secrets 不能同时声明为 required `workflow_call` secrets：GitHub 会在
+secrets。这四个 environment secrets 不能同时声明为 required `workflow_call` secrets：GitHub 会在
 called job 绑定 `environment: hf` 之前校验该 contract，因而把实际存在的 environment secrets 误判为
 未传入。`deploy-hf-space.yml` 改为由 `environment: hf` 解析 `HF_TOKEN`、
-`HF_SPACE_READ_TOKEN` 与 `SOUWEN_SMOKE_BEARER_TOKEN`，并在 checkout 和任何 HF API 调用前按
+`HF_SPACE_READ_TOKEN`、`SOUWEN_SMOKE_BEARER_TOKEN` 与 `SOUWEN_CONFIG_B64`，并在 checkout 和任何 HF API 调用前按
 secret 名称 fail fast，不输出值、长度或前缀。
 
 ### Local preflight
@@ -60,7 +60,7 @@ product tier 或 package matrix。
 HFS Docker build 必须传 `SOUWEN_REF=<40位 candidate SHA>`。Dockerfile 的全零模板、短 SHA、
 分支名和 moving `main` 都 fail closed；detached checkout 会把 SHA 写入
 `/app/runtime.source.sha`，由 `/health.source_sha` 与 `/readiness.source_sha` 回读。
-镜像无条件安装原生 Playwright Chromium；不启用 Crawl4AI/Scrapling。Supervisor 必须先验证
+镜像无条件安装原生 Playwright Chromium；不提供额外 browser-fetch 产品入口。Supervisor 必须先验证
 Worker readiness，再启动 API。
 
 ## Private Space 双层认证
@@ -73,6 +73,7 @@ Hugging Face 官方 private Space HTTP 入口占用标准 `Authorization: Bearer
 | `HF_TOKEN` | 写 Space repo、restart/pause runtime | 仅 HFS 管理 API；需要 write 权限 |
 | `HF_SPACE_READ_TOKEN` | 通过 private Space edge | `Authorization: Bearer ...`；目标权限只需 READ，最小 bootstrap 可暂时复用已确认 write token |
 | `SOUWEN_SMOKE_BEARER_TOKEN` | SouWen 应用 admin password | `X-SouWen-Token: ...` |
+| `SOUWEN_CONFIG_B64` | 与 Space 同源的 RC2 配置；promotion 前验证 exact 一个 LLM Search Provider 与 gateway 结构 | 仅 workflow 内存预检；`${VAR}` 是否解析由 post-deploy live smoke 证明 |
 
 SouWen 仍以标准 `Authorization: Bearer <password>` 作为普通部署的首选应用鉴权。只有上游
 代理已经占用 `Authorization` 时才使用 `X-SouWen-Token`；显式 custom header 优先，若其值
@@ -116,15 +117,10 @@ SHA。
    transaction 写入并立即 readback `SOUWEN_WRAPPER_SHA=<space_commit_sha>` Space variable；
    rollback 同样改为实际 forward/no-op rollback SHA。
 4. Factory rebuild，等待 Space repo SHA 与 runtime SHA 等于新的 wrapper commit。
-5. 使用 trusted verifier 完成 surface、target M1 capability、双层 auth 与 candidate/source/
-   wrapper SHA smoke。Target M1 required checks 固定为 OpenAlex Search、builtin Fetch、Browser
-   Fetch；Browser fixture 的 repo-owned 短脚本依次使用 `httpbin.org /base64` 与
-   `httpbun.com /base64` 两个公开 `text/html` host。Primary 只有在返回 allowlist 内的
-   retryable transport/upstream error 时才尝试 secondary；HTTP 2xx proof mismatch、protocol、
-   policy 或其他 non-retryable error 立即失败。两个 fixture 都把 candidate SHA 与 stable
-   marker 放入 query，gate 要求 JavaScript 执行后的正文精确等于该 query，并同时具有
-   `builtin-fetch` attempt 2 success provenance；substring、URL echo 或原始脚本文本均不通过。
-   普通 CI 不做付费 UniAPI live call。
+5. 使用 trusted verifier 完成 surface、target capability、双层 auth 与 candidate/source/
+   wrapper SHA smoke。Required checks 固定覆盖 Search、LLM Search 与 immutable Fetch；readiness
+   另行证明 Browser Worker ready 且 source SHA 一致。普通 CI 不做付费 LLM Search live call，
+   只有显式 HFS promotion 的 capability smoke 才执行。
 
 若 sync 已取得 rollback point，而 sync/rebuild/post-smoke 任一阶段失败：
 
@@ -152,11 +148,12 @@ GitHub Actions 的 cancel、runner 丢失或平台故障不能保证 rollback jo
 | API 文档 | `/docs` | Swagger UI 可按策略访问 |
 | 管理面板 | `/panel` | 单文件前端 HTML 可返回 |
 | 鉴权 | `/api/v1/whoami` | 双层 token 获得 admin；缺应用 token 不得为 admin |
-| 控制面 | `/api/v1/admin/config`、`http-backend`、`warp`、`sources/config` | 可读、脱敏，修改型 smoke 能恢复原状态 |
+| 控制面 | `/api/v1/admin/config`、`/api/v1/admin/ping` | 只读、脱敏且受 admin auth 保护 |
 | Doctor | `/api/v1/admin/doctor` | 静态状态可读取 |
 
-完整 capability smoke 会临时修改并恢复 HTTP backend/WARP 状态。外部搜索源受上游风控、出口
-IP 和速率限制影响；报告中的 `WARN` 是带时间戳观测，不是永久可用承诺。
+完整 capability smoke 不修改运行时配置；它只读 Provider catalog，并真实调用一个可用的
+Search Provider、已配置的 LLM Search Provider 与 immutable Fetch 目标。任一 required check
+失败即 promotion 失败。
 
 ## 本地复现与失败处理
 

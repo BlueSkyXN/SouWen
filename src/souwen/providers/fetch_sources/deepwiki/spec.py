@@ -1,19 +1,19 @@
 """Reviewed bridge declaration for DeepWiki Fetch."""
 
-from souwen.platform.provider_spec import LegacyFetchProviderSpec, LegacyTransportDeclaration
+from souwen.platform.provider_spec import ClientFetchProviderSpec, ClientTransportDeclaration
 from souwen.platform.provider_spec.models import AuthDeclaration, HttpOperation
 
-DEEPWIKI_FETCH_PROFILE = LegacyFetchProviderSpec(
+DEEPWIKI_FETCH_PROFILE = ClientFetchProviderSpec(
     provider_id="deepwiki",
     adapter_id="deepwiki-fetch",
-    bridge_reason="DeepWiki's bounded crawler and Jina fallback remain in the legacy Fetch bridge",
-    transport=LegacyTransportDeclaration(
+    adapter_reason="DeepWiki's bounded crawler and Jina fallback remain in the existing Fetch bridge",
+    transport=ClientTransportDeclaration(
         host="deepwiki.com",
         protocol="multi_transport",
         operations=(HttpOperation(method="GET", endpoint="/:repository"),),
     ),
     additional_transports=(
-        LegacyTransportDeclaration(
+        ClientTransportDeclaration(
             host="r.jina.ai",
             protocol="multi_transport",
             operations=(HttpOperation(method="GET", endpoint="/:target"),),

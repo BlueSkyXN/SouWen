@@ -23,6 +23,8 @@ import pytest
 from souwen.config import SouWenConfig, get_config
 from souwen.config.loader import ensure_config_file, reload_config
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+
 
 @pytest.fixture(autouse=True)
 def _isolate_filesystem(monkeypatch, tmp_path):
@@ -86,6 +88,14 @@ class TestYamlLoading:
         defaults = SouWenConfig()
         assert cfg.timeout == defaults.timeout
         assert cfg.max_retries == defaults.max_retries
+
+    def test_tracked_example_is_accepted_by_the_runtime_loader(self, tmp_path):
+        example = (REPO_ROOT / "souwen.example.yaml").read_text(encoding="utf-8")
+        (tmp_path / "souwen.yaml").write_text(example, encoding="utf-8")
+
+        config = reload_config()
+
+        assert isinstance(config, SouWenConfig)
 
     def test_malformed_yaml_falls_back_to_defaults(self, tmp_path):
         """YAML 解析失败时不抛异常，使用默认值（warning 由 loader 自行打日志）。"""
@@ -268,7 +278,7 @@ class TestEnvOverride:
         assert cfg.llm_search_gateways["uniapi"].api_key == "env-secret"
         assert cfg.llm_search_gateways["uniapi"].base_url == "https://gateway.example.com/v1"
 
-    def test_env_llm_synthesis_profile_json_object(self, monkeypatch):
+    def test_retired_llm_env_is_rejected(self, monkeypatch):
         monkeypatch.setenv(
             "SOUWEN_LLM",
             (
@@ -278,12 +288,27 @@ class TestEnvOverride:
             ),
         )
 
-        cfg = reload_config()
+        with pytest.raises(ValueError, match="legacy enriched-synthesis 配置已退休"):
+            reload_config()
 
-        profile = cfg.llm.synthesis_profiles["safe"]
-        assert cfg.llm.enabled is True
-        assert profile.model == "configured-model"
-        assert profile.max_pages == 3
+    def test_retired_llm_yaml_is_rejected(self, tmp_path):
+        (tmp_path / "souwen.yaml").write_text("llm: {}\n", encoding="utf-8")
+
+        with pytest.raises(ValueError, match="legacy enriched-synthesis 配置已退休"):
+            reload_config()
+
+    def test_retired_unpaywall_yaml_and_env_are_rejected(self, monkeypatch, tmp_path):
+        (tmp_path / "souwen.yaml").write_text(
+            "paper:\n  unpaywall_email: researcher@example.com\n",
+            encoding="utf-8",
+        )
+        with pytest.raises(ValueError, match="Unpaywall provider 已退休"):
+            reload_config()
+
+        (tmp_path / "souwen.yaml").unlink()
+        monkeypatch.setenv("SOUWEN_UNPAYWALL_EMAIL", "researcher@example.com")
+        with pytest.raises(ValueError, match="Unpaywall provider 已退休"):
+            reload_config()
 
     def test_warp_alias_without_prefix(self, monkeypatch):
         """``WARP_ENABLED`` 不带 SOUWEN_ 前缀也应生效（Docker entrypoint 兼容）。"""

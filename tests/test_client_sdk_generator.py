@@ -34,7 +34,7 @@ def test_generated_sdk_files_are_current_and_record_exact_artifact() -> None:
         if method in gen_client_sdk.HTTP_METHODS
     }
     assert OPERATIONS["readyz"].response_statuses == (200, 503)
-    assert OPERATIONS["readinessLegacyAlias"].response_statuses == (200, 503)
+    assert OPERATIONS["readinessAlias"].response_statuses == (200, 503)
 
 
 def test_generator_reproduces_tracked_bindings_in_a_fresh_directory(tmp_path: Path) -> None:

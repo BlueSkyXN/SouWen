@@ -13,8 +13,8 @@ from souwen.common_runtime.transport import (
     SouWenError,
 )
 from souwen.common_runtime.transport import errors as canonical_transport_errors
-from souwen.core import exceptions as legacy_errors
-from souwen.core import http_client, retry
+from souwen.common_runtime.provider_support import exceptions as legacy_errors
+from souwen.common_runtime.provider_support import http_client, retry
 
 
 def test_legacy_transport_errors_reexport_canonical_objects() -> None:

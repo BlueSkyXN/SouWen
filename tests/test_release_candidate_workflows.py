@@ -129,7 +129,7 @@ def test_workflow_embedded_python_blocks_compile() -> None:
 
 @pytest.mark.parametrize(
     "workflow_name",
-    ("ci.yml", "v2-ci.yml", "deploy-hf-space.yml", "external-smoke-gate.yml"),
+    ("ci.yml", "v2-ci.yml", "deploy-hf-space.yml"),
 )
 def test_main_pr_gates_run_when_a_retargeted_stack_layer_becomes_ready(
     workflow_name: str,
@@ -282,7 +282,6 @@ def test_deployment_profile_skips_release_server_bundles_and_gates_hfs() -> None
         "validate",
         "ci",
         "source",
-        "external",
         "package",
         "clean-install",
         "container",
@@ -302,7 +301,6 @@ def test_promotion_gate_descendants_always_run_to_observe_skipped_parents() -> N
         "validate",
         "ci",
         "source",
-        "external",
         "server-bundles",
         "package",
         "clean-install",
@@ -445,7 +443,6 @@ def test_deployment_manifest_builder_emits_bounded_non_release_contract(
             "validate",
             "ci",
             "source",
-            "external",
             "package",
             "clean-install",
             "container",
@@ -650,7 +647,6 @@ def test_release_manifest_builder_accepts_only_exact_four_server_bundle_evidence
             "validate",
             "ci",
             "source",
-            "external",
             "server-bundles",
             "package",
             "clean-install",
@@ -737,6 +733,7 @@ def test_hfs_m1_requires_target_supervisor_and_internal_worker_evidence() -> Non
     assert "--expected-wrapper-sha" in text
     assert "SOUWEN_WRAPPER_SHA" in text
     assert 'key="SOUWEN_WRAPPER_SHA"' in text
+    assert "-e SOUWEN_USER_PASSWORD=" in text
     assert "curl -fsS http://127.0.0.1:49265/readyz" in text
     assert "docker port souwen-hfs-local 49266/tcp" in text
     sync = text.split("- name: Sync changed HFS wrapper files", maxsplit=1)[1].split(
@@ -760,20 +757,15 @@ def test_release_candidate_aggregates_all_release_gates() -> None:
     text = _workflow("release-candidate.yml")
     for call in (
         "uses: ./.github/workflows/v2-ci.yml",
-        "uses: ./.github/workflows/external-smoke-gate.yml",
         "uses: ./.github/workflows/build-pyinstaller-server.yml",
         "uses: ./.github/workflows/deploy-hf-space.yml",
     ):
         assert call in text
 
-    for gate in ("source", "external", "server-bundles", "clean-install", "container"):
+    for gate in ("source", "server-bundles", "clean-install", "container"):
         assert f"  {gate}:" in text
     assert "name: V2 source and Panel gates" in text
     assert "name: Broad CI, coverage, performance, audit, and container gates" in text
-    assert "suite: release" in text
-
-    external = text.split("  external:", maxsplit=1)[1].split("  server-bundles:", maxsplit=1)[0]
-    assert "permissions:\n      contents: read\n      issues: write" in external
 
     container = text.split("  container:", maxsplit=1)[1].split("  hfs:", maxsplit=1)[0]
     assert "ref: ${{ needs.validate.outputs.candidate_sha }}\n          fetch-depth: 0" in container
@@ -838,8 +830,6 @@ def test_ci_has_stable_aggregate_and_required_readiness_gates() -> None:
         "server-runtime",
         "provider-newspaper",
         "provider-readability",
-        "provider-crawl4ai",
-        "provider-scrapling",
     ):
         assert f"profile: {profile}" in text
     assert "samples = []" in text
@@ -849,7 +839,6 @@ def test_ci_has_stable_aggregate_and_required_readiness_gates() -> None:
     assert "npm audit --omit=dev --audit-level=high --json" in text
     assert "pip-audit.json" in text
     assert "npm-audit.json" in text
-    assert "--mode fixture" in text
     for threshold in ("1.50", "2.50"):
         assert threshold in text
     for dockerfile in ("Dockerfile", "cloud/hfs/Dockerfile", "cloud/modelscope/Dockerfile"):
@@ -884,7 +873,7 @@ def test_ci_fast_lane_is_single_py313_ubuntu2404_and_full_lane_covers_release_an
     assert "matrix: ${{ fromJSON(needs.lane.outputs.test_matrix) }}" in test_job
 
     gate = "if: needs.lane.outputs.full == 'true'"
-    assert ci.count(gate) == 10
+    assert ci.count(gate) == 7
     for fast_job in ("architecture", "lint", "docs-check", "panel-build"):
         block = ci.split(f"  {fast_job}:", maxsplit=1)[1]
         assert gate not in block.split("\n  ", maxsplit=1)[0]
@@ -964,6 +953,7 @@ def test_hfs_reusable_promotion_is_candidate_pinned_and_live_verified() -> None:
         "HF_TOKEN",
         "HF_SPACE_READ_TOKEN",
         "SOUWEN_SMOKE_BEARER_TOKEN",
+        "SOUWEN_CONFIG_B64",
     ):
         assert f"      {secret_name}:" not in workflow_call
     assert "    secrets:" not in workflow_call
@@ -1008,10 +998,14 @@ def test_hfs_reusable_promotion_is_candidate_pinned_and_live_verified() -> None:
         "HF_TOKEN",
         "HF_SPACE_READ_TOKEN",
         "SOUWEN_SMOKE_BEARER_TOKEN",
+        "SOUWEN_CONFIG_B64",
     ):
         assert f"{secret_name}: ${{{{ secrets.{secret_name} }}}}" in secret_gate
     assert "Required HFS environment secret is not configured: $name" in secret_gate
     assert "${!name}" in secret_gate
+    assert "name: Validate required HFS LLM Search configuration" in text
+    assert "HFS promotion requires exactly one enabled LLM Search Provider" in text
+    assert 'env_reference = re.compile(r"^\\$\\{[A-Z_][A-Z0-9_]*\\}$")' in text
 
     prior = text.split("- name: Capture immutable rollback point", maxsplit=1)[1].split(
         "- name: Sync changed HFS wrapper files", maxsplit=1
@@ -1085,15 +1079,6 @@ def test_hfs_rebuild_job_avoids_checkout_and_dependency_cache() -> None:
     assert "cache: pip" not in rebuild
 
 
-def test_external_release_gate_no_longer_contains_plugin_runtime_fixture() -> None:
-    text = _workflow("external-smoke-gate.yml")
-    assert "Plugin and SuperWeb2PDF release/nightly gate" not in text
-    assert "plugin_functional_check.py" not in text
-    assert "examples/minimal-plugin" not in text
-    assert "--timeout 45" in text
-    assert "external-gate-plugin-report" not in text
-
-
 def test_clean_wheel_composite_enforces_runtime_and_package_boundaries() -> None:
     text = (REPO_ROOT / ".github/actions/clean-wheel-smoke/action.yml").read_text(encoding="utf-8")
     for contract in (
@@ -1106,8 +1091,6 @@ def test_clean_wheel_composite_enforces_runtime_and_package_boundaries() -> None
         "sdk/no-fastapi",
         "server/import",
         "server/import-{module}",
-        "variant/crawl4ai-only",
-        "variant/scrapling-only",
     ):
         assert contract in text
     assert "souwen.editions" not in text

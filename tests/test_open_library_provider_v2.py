@@ -1,6 +1,12 @@
 from __future__ import annotations
 import pytest
-from souwen.models import Author, BookIdentifier, BookResult, ResourceAccess, SearchResponse
+from souwen.providers.runtime_clients.models import (
+    Author,
+    BookIdentifier,
+    BookResult,
+    ResourceAccess,
+    SearchResponse,
+)
 from souwen.platform.provider_spi import ExecutionContext, RequestContext, SearchRequest
 from souwen.providers.information_sources.open_library import (
     OPEN_LIBRARY_PROVIDER_MANIFEST,

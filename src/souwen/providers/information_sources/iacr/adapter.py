@@ -1,4 +1,4 @@
-"""Provider v2 bridge preserving legacy IACR HTML parsing."""
+"""Provider v2 bridge preserving existing IACR HTML parsing."""
 
 from __future__ import annotations
 
@@ -18,7 +18,7 @@ from souwen.platform.provider_spi import (
     SearchPage,
     SearchRequest,
 )
-from souwen.platform.provider_spec import LegacySearchProvider, LegacySearchSpec
+from souwen.platform.provider_spec import ClientSearchProvider, ClientSearchSpec
 
 from .spec import IACR_BRIDGE_SPEC
 
@@ -31,7 +31,7 @@ class IacrClientProtocol(Protocol):
     async def close(self) -> None: ...
 
 
-class IacrSearchProvider(LegacySearchProvider):
+class IacrSearchProvider(ClientSearchProvider):
     capability = "search"
 
     def __init__(self, client: IacrClientProtocol, *, enabled: bool = True) -> None:
@@ -44,7 +44,7 @@ async def _invoke(client: Any, request: SearchRequest, limit: int) -> Any:
 
 def _project(response: Any, limit: int, context: RequestContext) -> SearchPage:
     if getattr(response, "source", None) != _PROVIDER_ID:
-        raise ValueError("unexpected legacy response source")
+        raise ValueError("unexpected existing response source")
     results, total = getattr(response, "results", None), getattr(response, "total_results", None)
     if (
         not isinstance(results, Sequence)
@@ -63,7 +63,7 @@ def _project(response: Any, limit: int, context: RequestContext) -> SearchPage:
 
 def _item(value: Any, rank: int) -> SearchItem:
     if getattr(value, "source", None) != _PROVIDER_ID:
-        raise ValueError("unexpected legacy paper source")
+        raise ValueError("unexpected existing paper source")
     raw = getattr(value, "raw", None)
     identifier = raw.get("paper_id") if isinstance(raw, dict) else None
     if not isinstance(identifier, str) or _PAPER_ID.fullmatch(identifier) is None:
@@ -121,7 +121,7 @@ def _text(value: Any) -> str:
     return result
 
 
-_BRIDGE_SPEC = LegacySearchSpec(_PROVIDER_ID, "paper", _invoke, _project)
-assert IACR_BRIDGE_SPEC.adapter_kind == "legacy_bridge"
+_BRIDGE_SPEC = ClientSearchSpec(_PROVIDER_ID, "paper", _invoke, _project)
+assert IACR_BRIDGE_SPEC.adapter_kind == "client_adapter"
 
 __all__ = ["IacrClientProtocol", "IacrSearchProvider"]

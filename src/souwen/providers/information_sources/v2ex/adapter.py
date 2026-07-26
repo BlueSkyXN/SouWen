@@ -18,7 +18,7 @@ class V2EXSearchProvider(CnScraperSearchProvider):
 
 
 def create_v2ex_client() -> Any:
-    from souwen.web.v2ex import V2EXClient
+    from souwen.providers.runtime_clients.web.v2ex import V2EXClient
 
     return V2EXClient()
 

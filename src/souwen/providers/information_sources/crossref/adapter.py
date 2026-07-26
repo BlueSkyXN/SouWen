@@ -1,11 +1,11 @@
-"""Provider v2 bridge for Crossref's legacy client and DOI projection."""
+"""Provider v2 bridge for Crossref's existing client and DOI projection."""
 
 from __future__ import annotations
 import re
 from collections.abc import Sequence
 from typing import Any, Protocol
 
-from souwen.platform.provider_spec import LegacySearchProvider, LegacySearchSpec
+from souwen.platform.provider_spec import ClientSearchProvider, ClientSearchSpec
 from souwen.platform.provider_spi import (
     PageInfo,
     Provenance,
@@ -25,7 +25,7 @@ class CrossrefClientProtocol(Protocol):
     async def search(self, query: str, rows: int = 10, offset: int = 0) -> Any: ...
 
 
-class CrossrefSearchProvider(LegacySearchProvider):
+class CrossrefSearchProvider(ClientSearchProvider):
     def __init__(self, client: CrossrefClientProtocol, *, enabled: bool = True) -> None:
         super().__init__(client, _SPEC, enabled=enabled)
 
@@ -85,4 +85,4 @@ def _item(paper: Any, rank: int) -> SearchItem:
     )
 
 
-_SPEC = LegacySearchSpec("crossref", "paper", _invoke, _project)
+_SPEC = ClientSearchSpec("crossref", "paper", _invoke, _project)

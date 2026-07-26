@@ -1,6 +1,6 @@
 """arXiv API 客户端单元测试（pytest-httpx mock）。
 
-覆盖 ``souwen.paper.arxiv`` 中 ArxivClient 的搜索解析、字段映射、错误处理。
+覆盖 ``souwen.providers.runtime_clients.paper.arxiv`` 中 ArxivClient 的搜索解析、字段映射、错误处理。
 验证 Atom XML 解析、作者/摘要提取、分页、无 DOI 处理、API 错误场景等不变量。
 
 测试清单：
@@ -22,7 +22,7 @@ from datetime import date
 import pytest
 from pytest_httpx import HTTPXMock
 
-from souwen.paper.arxiv import ArxivClient
+from souwen.providers.runtime_clients.paper.arxiv import ArxivClient
 
 
 # ---------------------------------------------------------------------------
@@ -219,7 +219,7 @@ async def test_no_doi(httpx_mock: HTTPXMock):
 
 async def test_malformed_xml(httpx_mock: HTTPXMock):
     """无效 XML 抛出 ParseError"""
-    from souwen.core.exceptions import ParseError
+    from souwen.common_runtime.provider_support.exceptions import ParseError
 
     httpx_mock.add_response(
         url=re.compile(r"https://export\.arxiv\.org/api/query.*"),

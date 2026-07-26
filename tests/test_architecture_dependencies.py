@@ -85,16 +85,14 @@ def test_modules_may_depend_on_provider_spi_but_not_platform_assembly(
     "imported",
     [
         "souwen",
-        "souwen.core",
         "souwen.delivery",
         "souwen.server",
         "souwen.config",
-        "souwen.registry",
         "souwen.platform",
+        "souwen.worker",
         "souwen.modules.search",
         "souwen.providers.information_sources.openalex",
-        "souwen.paper.openalex",
-        "souwen.web.builtin",
+        "souwen.providers.runtime_clients.web.fetch",
     ],
 )
 def test_common_runtime_rejects_every_other_souwen_namespace(tmp_path: Path, imported: str) -> None:
@@ -108,6 +106,55 @@ def test_common_runtime_rejects_every_other_souwen_namespace(tmp_path: Path, imp
         (violation.rule_id, violation.file, violation.line, violation.imported)
         for violation in violations
     ] == [("DEP-004", relative_path, 1, imported)]
+
+
+def test_provider_support_may_use_config_and_package_version(tmp_path: Path) -> None:
+    root, exceptions = _repository(tmp_path)
+    _write(
+        root,
+        "src/souwen/common_runtime/provider_support/client.py",
+        "from souwen import __version__\nfrom souwen.config import get_config\n",
+    )
+
+    assert _violations(root, exceptions) == []
+
+
+def test_provider_adapter_may_depend_on_its_runtime_client(tmp_path: Path) -> None:
+    root, exceptions = _repository(tmp_path)
+    _write(
+        root,
+        "src/souwen/providers/information_sources/openalex/adapter.py",
+        "from souwen.providers.runtime_clients.paper.openalex import OpenAlexClient\n",
+    )
+
+    assert _violations(root, exceptions) == []
+
+
+def test_runtime_clients_may_share_internal_models_and_helpers(tmp_path: Path) -> None:
+    root, exceptions = _repository(tmp_path)
+    _write(
+        root,
+        "src/souwen/providers/runtime_clients/paper/openalex.py",
+        "from souwen.providers.runtime_clients.models import PaperResult\n",
+    )
+
+    assert _violations(root, exceptions) == []
+
+
+def test_catalog_and_runtime_client_lazy_loading_are_explicitly_allowed(tmp_path: Path) -> None:
+    root, exceptions = _repository(tmp_path)
+    _write(
+        root,
+        "src/souwen/providers/catalog.py",
+        "from importlib import import_module\nname = 'souwen.providers.information_sources.openalex.manifest'\nimport_module(name)\n",
+    )
+    _write(
+        root,
+        "src/souwen/providers/runtime_clients/web/__init__.py",
+        "from importlib import import_module\nname = 'souwen.providers.runtime_clients.web.builtin'\nimport_module(name)\n",
+    )
+
+    assert _violations(root, exceptions) == []
 
 
 @pytest.mark.parametrize(
@@ -229,7 +276,11 @@ def test_import_from_gateway_aliases_cannot_bypass_rules(
 def test_common_runtime_gateway_aliases_cannot_bypass_dep_004(tmp_path: Path) -> None:
     root, exceptions = _repository(tmp_path)
     relative_path = "src/souwen/common_runtime/transport/client.py"
-    _write(root, relative_path, "from souwen import core, config, registry, platform, server\n")
+    _write(
+        root,
+        relative_path,
+        "from souwen import config, delivery, platform, providers, server, worker\n",
+    )
 
     violations = _violations(root, exceptions)
 
@@ -237,10 +288,11 @@ def test_common_runtime_gateway_aliases_cannot_bypass_dep_004(tmp_path: Path) ->
         (violation.rule_id, violation.line, violation.imported) for violation in violations
     ] == [
         ("DEP-004", 1, "souwen.config"),
-        ("DEP-004", 1, "souwen.core"),
+        ("DEP-004", 1, "souwen.delivery"),
         ("DEP-004", 1, "souwen.platform"),
-        ("DEP-004", 1, "souwen.registry"),
+        ("DEP-004", 1, "souwen.providers"),
         ("DEP-004", 1, "souwen.server"),
+        ("DEP-004", 1, "souwen.worker"),
     ]
 
 
@@ -262,42 +314,47 @@ def test_nonliteral_dynamic_import_fails_with_stable_rule_id(tmp_path: Path) -> 
 @pytest.mark.parametrize(
     ("source", "rule_id", "line", "imported"),
     [
-        ('__import__("souwen.core.http_client")\n', "DEP-004", 1, "souwen.core.http_client"),
         (
-            "module_name = 'souwen.core.http_client'\n__import__(module_name)\n",
+            '__import__("souwen.providers.runtime_clients.web.fetch")\n',
+            "DEP-004",
+            1,
+            "souwen.providers.runtime_clients.web.fetch",
+        ),
+        (
+            "module_name = 'souwen.providers.runtime_clients.web.fetch'\n__import__(module_name)\n",
             "DEP-DYNAMIC",
             2,
             "<dynamic>",
         ),
         (
-            'load = __import__\nload("souwen.core.http_client")\n',
+            'load = __import__\nload("souwen.providers.runtime_clients.web.fetch")\n',
             "DEP-004",
             2,
-            "souwen.core.http_client",
+            "souwen.providers.runtime_clients.web.fetch",
         ),
         (
-            "load = __import__\nname = 'souwen.core.http_client'\nload(name)\n",
+            "load = __import__\nname = 'souwen.providers.runtime_clients.web.fetch'\nload(name)\n",
             "DEP-DYNAMIC",
             3,
             "<dynamic>",
         ),
         (
-            'from builtins import __import__ as load\nload("souwen.core.http_client")\n',
+            'from builtins import __import__ as load\nload("souwen.providers.runtime_clients.web.fetch")\n',
             "DEP-004",
             2,
-            "souwen.core.http_client",
+            "souwen.providers.runtime_clients.web.fetch",
         ),
         (
-            'import builtins as runtime\nruntime.__import__("souwen.core.http_client")\n',
+            'import builtins as runtime\nruntime.__import__("souwen.providers.runtime_clients.web.fetch")\n',
             "DEP-004",
             2,
-            "souwen.core.http_client",
+            "souwen.providers.runtime_clients.web.fetch",
         ),
         (
-            'load = __import__\nindirect = load\nindirect("souwen.core.http_client")\n',
+            'load = __import__\nindirect = load\nindirect("souwen.providers.runtime_clients.web.fetch")\n',
             "DEP-004",
             3,
-            "souwen.core.http_client",
+            "souwen.providers.runtime_clients.web.fetch",
         ),
     ],
 )

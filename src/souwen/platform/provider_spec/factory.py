@@ -1,4 +1,4 @@
-"""Generic lifecycle/error wrapper for injected legacy REST JSON search clients."""
+"""Generic lifecycle/error wrapper for injected existing REST JSON search clients."""
 
 from __future__ import annotations
 
@@ -27,7 +27,7 @@ from souwen.platform.provider_spec.models import RestJsonProviderSpec
 
 
 @dataclass(frozen=True, slots=True)
-class LegacySearchSpec:
+class ClientSearchSpec:
     """Typed callbacks separating provider mapping from shared lifecycle behavior."""
 
     provider_id: str
@@ -38,7 +38,7 @@ class LegacySearchSpec:
 
 
 @dataclass(frozen=True, slots=True)
-class LegacyFetchSpec:
+class ClientFetchSpec:
     """Typed callbacks separating Fetch mapping from shared lifecycle behavior."""
 
     provider_id: str
@@ -46,12 +46,12 @@ class LegacyFetchSpec:
     project: Callable[[Any, FetchTargetRequest, RequestContext], FetchResult]
 
 
-class LegacyFetchProvider:
-    """Reusable Fetch SPI wrapper for one fixed, injected legacy client."""
+class ClientFetchProvider:
+    """Reusable Fetch SPI wrapper for one fixed, injected existing client."""
 
     capability = "fetch"
 
-    def __init__(self, client: Any, spec: LegacyFetchSpec, *, enabled: bool = True) -> None:
+    def __init__(self, client: Any, spec: ClientFetchSpec, *, enabled: bool = True) -> None:
         self._client, self._spec, self._enabled, self._closed = client, spec, enabled, False
 
     async def fetch(
@@ -131,12 +131,12 @@ class LegacyFetchProvider:
             raise
 
 
-class LegacySearchProvider:
-    """Reusable Search SPI wrapper for a fixed, injected legacy client."""
+class ClientSearchProvider:
+    """Reusable Search SPI wrapper for a fixed, injected existing client."""
 
     capability = "search"
 
-    def __init__(self, client: Any, spec: LegacySearchSpec, *, enabled: bool = True) -> None:
+    def __init__(self, client: Any, spec: ClientSearchSpec, *, enabled: bool = True) -> None:
         self._client, self._spec, self._enabled, self._closed = client, spec, enabled, False
 
     async def search(
@@ -251,7 +251,7 @@ async def _await(value: Awaitable[Any], execution: ExecutionContext) -> Any:
         await asyncio.gather(task, cancel, return_exceptions=True)
 
 
-class RestJsonSearchProvider(LegacySearchProvider):
+class RestJsonSearchProvider(ClientSearchProvider):
     """Generic first-page projection driven by ``RestJsonProviderSpec`` mappings."""
 
     def __init__(self, client: Any, spec: RestJsonProviderSpec, *, enabled: bool = True) -> None:
@@ -260,7 +260,7 @@ class RestJsonSearchProvider(LegacySearchProvider):
         self.rest_spec = spec
         super().__init__(
             client,
-            LegacySearchSpec(spec.provider_id, spec.domain, self._invoke, self._project),
+            ClientSearchSpec(spec.provider_id, spec.domain, self._invoke, self._project),
             enabled=enabled,
         )
 

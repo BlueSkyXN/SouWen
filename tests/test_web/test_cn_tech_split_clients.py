@@ -4,12 +4,12 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from souwen.models import WebSearchResponse, WebSearchResult
-from souwen.web.coolapk import CoolapkClient
-from souwen.web.hostloc import HostLocClient
-from souwen.web.nodeseek import NodeSeekClient
-from souwen.web.v2ex import V2EXClient
-from souwen.web.xiaohongshu import XiaohongshuClient
+from souwen.providers.runtime_clients.models import WebSearchResponse, WebSearchResult
+from souwen.providers.runtime_clients.web.coolapk import CoolapkClient
+from souwen.providers.runtime_clients.web.hostloc import HostLocClient
+from souwen.providers.runtime_clients.web.nodeseek import NodeSeekClient
+from souwen.providers.runtime_clients.web.v2ex import V2EXClient
+from souwen.providers.runtime_clients.web.xiaohongshu import XiaohongshuClient
 
 
 def _mock_ddg_response(query: str, domain: str) -> WebSearchResponse:

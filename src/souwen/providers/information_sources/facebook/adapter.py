@@ -1,4 +1,4 @@
-"""Provider v2 bridge for facebook's legacy web Search client."""
+"""Provider v2 bridge for facebook's existing web Search client."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from hashlib import sha256
 from typing import Any, Protocol
 from urllib.parse import urlsplit, urlunsplit
 
-from souwen.platform.provider_spec import LegacySearchProvider, LegacySearchSpec
+from souwen.platform.provider_spec import ClientSearchProvider, ClientSearchSpec
 from souwen.platform.provider_spi import (
     PageInfo,
     Provenance,
@@ -27,7 +27,7 @@ class FacebookClientProtocol(Protocol):
     async def search(self, query: str, max_results: int = 10) -> Any: ...
 
 
-class FacebookSearchProvider(LegacySearchProvider):
+class FacebookSearchProvider(ClientSearchProvider):
     def __init__(self, client: FacebookClientProtocol, *, enabled: bool = True) -> None:
         super().__init__(client, _SPEC, enabled=enabled)
 
@@ -48,7 +48,7 @@ def _project(response: Any, limit: int, context: RequestContext) -> SearchPage:
         or isinstance(total, bool)
         or total < len(results)
     ):
-        raise ValueError("invalid legacy web search response")
+        raise ValueError("invalid existing web search response")
     return SearchPage(
         items=tuple(_item(result, rank) for rank, result in enumerate(results, 1)),
         page=PageInfo(limit=limit, total=total),
@@ -63,7 +63,7 @@ def _item(result: Any, rank: int) -> SearchItem:
         or not isinstance(getattr(result, "title", None), str)
         or not result.title.strip()
     ):
-        raise ValueError("invalid legacy web result")
+        raise ValueError("invalid existing web result")
     url = _canonical_url(getattr(result, "url", None))
     identifier = sha256(url.encode("utf-8")).hexdigest()
     return SearchItem(
@@ -103,6 +103,6 @@ def _optional_text(value: Any) -> str | None:
     return value.strip() or None
 
 
-_SPEC = LegacySearchSpec(_PROVIDER_ID, "social", _invoke, _project)
+_SPEC = ClientSearchSpec(_PROVIDER_ID, "social", _invoke, _project)
 
 __all__ = ["FacebookClientProtocol", "FacebookSearchProvider"]

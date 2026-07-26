@@ -26,7 +26,7 @@ from souwen.providers.llm_sources.uniapi_ark_annotations.manifest import (
     UNIAPI_ARK_DEEPSEEK_MANIFEST,
     UNIAPI_ARK_DOUBAO_MANIFEST,
 )
-from souwen.web.llm_search.schemes.ark_annotations import (
+from souwen.providers.runtime_clients.web.llm_search.schemes.ark_annotations import (
     ARK_ANNOTATIONS_DEEPSEEK,
     ARK_ANNOTATIONS_DOUBAO,
 )

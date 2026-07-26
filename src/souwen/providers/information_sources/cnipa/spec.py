@@ -2,18 +2,18 @@
 
 from souwen.platform.provider_spec import (
     CredentialBinding,
-    LegacySearchProviderSpec,
-    LegacyTransportDeclaration,
+    ClientSearchProviderSpec,
+    ClientTransportDeclaration,
 )
 from souwen.platform.provider_spec.models import AuthDeclaration, HttpOperation
 
 
-CNIPA_BRIDGE_SPEC = LegacySearchProviderSpec(
+CNIPA_BRIDGE_SPEC = ClientSearchProviderSpec(
     provider_id="cnipa",
     adapter_id="cnipa-search",
     domain="patent",
-    bridge_reason="CNIPA OAuth token acquisition and response compatibility parsing remain in the legacy bridge",
-    transport=LegacyTransportDeclaration(
+    adapter_reason="CNIPA OAuth token acquisition and response compatibility parsing remain in the existing bridge",
+    transport=ClientTransportDeclaration(
         host="open.cnipr.com",
         protocol="json",
         operations=(

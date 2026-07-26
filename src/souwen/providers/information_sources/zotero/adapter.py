@@ -4,7 +4,7 @@ from __future__ import annotations
 import re
 from collections.abc import Mapping, Sequence
 from typing import Any, Protocol
-from souwen.platform.provider_spec import LegacySearchProvider, LegacySearchSpec
+from souwen.platform.provider_spec import ClientSearchProvider, ClientSearchSpec
 from souwen.platform.provider_spi import (
     PageInfo,
     Provenance,
@@ -32,7 +32,7 @@ class ZoteroClientProtocol(Protocol):
     ) -> Any: ...
 
 
-class ZoteroSearchProvider(LegacySearchProvider):
+class ZoteroSearchProvider(ClientSearchProvider):
     def __init__(self, client: ZoteroClientProtocol, *, enabled: bool = True) -> None:
         super().__init__(client, _SPEC, enabled=enabled)
 
@@ -120,4 +120,4 @@ def _authors(paper: Any) -> tuple[str, ...]:
     return tuple(value for value in values if value is not None)
 
 
-_SPEC = LegacySearchSpec("zotero", "paper", _invoke, _project)
+_SPEC = ClientSearchSpec("zotero", "paper", _invoke, _project)

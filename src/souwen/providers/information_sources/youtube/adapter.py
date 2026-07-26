@@ -16,7 +16,7 @@ from souwen.platform.provider_spi import (
     SearchPage,
     SearchRequest,
 )
-from souwen.platform.provider_spec import LegacySearchProvider, LegacySearchSpec
+from souwen.platform.provider_spec import ClientSearchProvider, ClientSearchSpec
 
 
 class YouTubeClientProtocol(Protocol):
@@ -24,7 +24,7 @@ class YouTubeClientProtocol(Protocol):
     async def close(self) -> None: ...
 
 
-class YouTubeSearchProvider(LegacySearchProvider):
+class YouTubeSearchProvider(ClientSearchProvider):
     def __init__(self, client: YouTubeClientProtocol, *, enabled: bool = True) -> None:
         super().__init__(client, _SPEC, enabled=enabled)
 
@@ -90,5 +90,5 @@ def _project(response: Any, limit: int, context: RequestContext) -> SearchPage:
     )
 
 
-_SPEC = LegacySearchSpec("youtube", "videos", _invoke, _project)
+_SPEC = ClientSearchSpec("youtube", "videos", _invoke, _project)
 _VIDEO_ID = re.compile(r"[A-Za-z0-9_-]{11}")

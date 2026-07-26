@@ -5,9 +5,11 @@ import re
 import pytest
 from pytest_httpx import HTTPXMock
 
-from souwen.book.internet_archive import InternetArchiveClient, _SEARCH_FIELDS
-from souwen.core.exceptions import SourceUnavailableError
-from souwen.search import search_books
+from souwen.providers.runtime_clients.book.internet_archive import (
+    InternetArchiveClient,
+    _SEARCH_FIELDS,
+)
+from souwen.common_runtime.provider_support.exceptions import SourceUnavailableError
 
 
 _SEARCH_RECORD = {
@@ -191,28 +193,3 @@ async def test_search_maps_upstream_5xx(httpx_mock: HTTPXMock) -> None:
     async with InternetArchiveClient() as client:
         with pytest.raises(SourceUnavailableError):
             await client.search("catalog")
-
-
-async def test_search_books_dispatches_explicit_internet_archive_source(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    async def fake_search(self, query: str, *, per_page: int, page: int = 1):
-        assert (query, per_page, page) == ("catalog", 2, 1)
-        return type(
-            "Response",
-            (),
-            {
-                "query": query,
-                "source": "internet_archive",
-                "total_results": 0,
-                "page": page,
-                "per_page": per_page,
-                "results": [],
-            },
-        )()
-
-    monkeypatch.setattr(InternetArchiveClient, "search", fake_search)
-    responses = await search_books("catalog", sources=["internet_archive"], per_page=2)
-
-    assert len(responses) == 1
-    assert responses[0].source == "internet_archive"

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import pytest
-from souwen.models import BookResult, SearchResponse
+from souwen.providers.runtime_clients.models import BookResult, SearchResponse
 from souwen.platform.provider_spi import ExecutionContext, RequestContext, SearchRequest
 from souwen.platform.provider_spec import validate_spec_manifest
 from souwen.providers.information_sources.gutenberg import (

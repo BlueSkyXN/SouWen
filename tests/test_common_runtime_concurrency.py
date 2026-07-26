@@ -5,7 +5,6 @@ from __future__ import annotations
 import ast
 import asyncio
 import gc
-import importlib
 import weakref
 from pathlib import Path
 
@@ -13,7 +12,7 @@ import pytest
 
 import souwen.common_runtime.resilience.concurrency as canonical_module
 from souwen.common_runtime.resilience import LoopLocalSemaphorePool
-from souwen.core import concurrency as legacy_module
+from souwen.common_runtime.provider_support import concurrency as legacy_module
 
 
 def _run_in_new_loop(factory):
@@ -230,24 +229,6 @@ def test_legacy_valid_channel_requires_running_loop_and_unknown_clear_is_noop() 
 
     legacy_module.clear_semaphore("unknown")
     assert set(legacy_module._sem_pools) == {"search", "web"}
-
-
-def test_search_and_web_helpers_use_isolated_canonical_pools() -> None:
-    search_module = importlib.import_module("souwen.search")
-    web_search_module = importlib.import_module("souwen.web.search")
-
-    async def exercise() -> tuple[asyncio.Semaphore, asyncio.Semaphore, asyncio.AbstractEventLoop]:
-        return (
-            search_module._get_semaphore(),
-            web_search_module._get_web_semaphore(),
-            asyncio.get_running_loop(),
-        )
-
-    search, web, loop = asyncio.run(exercise())
-
-    assert search is not web
-    assert search is legacy_module._sem_pools["search"]._semaphores.get(loop)
-    assert web is legacy_module._sem_pools["web"]._semaphores.get(loop)
 
 
 def test_legacy_clear_one_channel_or_all() -> None:

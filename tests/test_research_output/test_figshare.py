@@ -6,9 +6,8 @@ import re
 import pytest
 from pytest_httpx import HTTPXMock
 
-from souwen.core.exceptions import NotFoundError, ParseError
-from souwen.research_output.figshare import FigshareClient
-from souwen.search import search_research_outputs
+from souwen.common_runtime.provider_support.exceptions import NotFoundError, ParseError
+from souwen.providers.runtime_clients.research_output.figshare import FigshareClient
 
 
 def _article(
@@ -214,16 +213,3 @@ async def test_search_rejects_malformed_envelope_and_skips_malformed_records(
     async with FigshareClient() as client:
         response = await client.search("climate")
     assert [item.source_record_id for item in response.results] == ["33046703"]
-
-
-async def test_research_output_facade_dispatches_explicit_figshare(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    async def fake_search(self, query: str, *, page_size: int, page: int = 1):
-        assert (query, page_size, page) == ("climate", 2, 1)
-        return type("Response", (), {"source": "figshare", "results": []})()
-
-    monkeypatch.setattr(FigshareClient, "search", fake_search)
-    result = await search_research_outputs("climate", sources=["figshare"], per_page=2)
-
-    assert result[0].source == "figshare"

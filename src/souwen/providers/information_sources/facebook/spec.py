@@ -1,21 +1,21 @@
-"""Reviewed bridge declaration for facebook legacy Search."""
+"""Reviewed bridge declaration for facebook existing Search."""
 
 from souwen.platform.provider_spec import (
     CredentialBinding,
-    LegacySearchProviderSpec,
-    LegacyTransportDeclaration,
+    ClientSearchProviderSpec,
+    ClientTransportDeclaration,
 )
 from souwen.platform.provider_spec.models import AuthDeclaration, HttpOperation
 
-FACEBOOK_PROVIDER_SPEC = LegacySearchProviderSpec(
+FACEBOOK_PROVIDER_SPEC = ClientSearchProviderSpec(
     provider_id="facebook",
     adapter_id="facebook-search",
     domain="social",
-    bridge_reason=(
-        "legacy client derives one Bearer App Access Token as app_id|app_secret before "
+    adapter_reason=(
+        "existing client derives one Bearer App Access Token as app_id|app_secret before "
         "WebSearchResponse normalization"
     ),
-    transport=LegacyTransportDeclaration(
+    transport=ClientTransportDeclaration(
         host="graph.facebook.com",
         protocol="json",
         operations=(HttpOperation(method="GET", endpoint="/v19.0/pages/search"),),

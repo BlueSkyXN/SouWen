@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from souwen.models import (
+from souwen.providers.runtime_clients.models import (
     ResearchContributor,
     ResearchOutputIdentifier,
     ResearchOutputResult,

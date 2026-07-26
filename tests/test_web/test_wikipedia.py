@@ -1,6 +1,6 @@
 """Wikipedia MediaWiki Action API 客户端单元测试（pytest-httpx mock）。
 
-覆盖 ``souwen.web.wikipedia`` 中 WikipediaClient 的 JSON 解析、字段映射、
+覆盖 ``souwen.providers.runtime_clients.web.wikipedia`` 中 WikipediaClient 的 JSON 解析、字段映射、
 URL 拼接、HTML 标签清理、空结果处理、多语言支持以及畸形响应处理等不变量。
 
 测试清单：
@@ -21,8 +21,8 @@ import re
 import pytest
 from pytest_httpx import HTTPXMock
 
-from souwen.core.exceptions import ParseError
-from souwen.web.wikipedia import WikipediaClient, _clean_html
+from souwen.common_runtime.provider_support.exceptions import ParseError
+from souwen.providers.runtime_clients.web.wikipedia import WikipediaClient, _clean_html
 
 
 # ---------------------------------------------------------------------------

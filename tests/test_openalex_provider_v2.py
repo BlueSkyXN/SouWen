@@ -7,8 +7,8 @@ import asyncio
 import pytest
 
 from souwen.common_runtime.transport.errors import RateLimitError, SourceUnavailableError
-from souwen.core.exceptions import ConfigError
-from souwen.models import Author, PaperResult, SearchResponse
+from souwen.common_runtime.provider_support.exceptions import ConfigError
+from souwen.providers.runtime_clients.models import Author, PaperResult, SearchResponse
 from souwen.platform.provider_spi import (
     ExecutionContext,
     ProviderError,
@@ -22,7 +22,6 @@ from souwen.providers.information_sources.openalex import (
     OPENALEX_PROVIDER_MANIFEST,
     OpenAlexSearchProvider,
 )
-from souwen.registry import get
 
 
 class FakeOpenAlexClient:
@@ -94,17 +93,13 @@ def _execution() -> ExecutionContext:
 
 
 @pytest.mark.asyncio
-async def test_manifest_and_limited_legacy_registry_parity() -> None:
-    legacy = get("openalex")
-
-    assert OPENALEX_PROVIDER_MANIFEST.id == legacy.name == "openalex"
+async def test_manifest_declares_reviewed_openalex_contract() -> None:
+    assert OPENALEX_PROVIDER_MANIFEST.id == "openalex"
     assert OPENALEX_PROVIDER_MANIFEST.capabilities == ("search",)
     assert OPENALEX_PROVIDER_MANIFEST.adapters[0].id == "openalex-search"
     assert OPENALEX_PROVIDER_MANIFEST.adapters[0].availability == "configured"
     assert OPENALEX_PROVIDER_MANIFEST.version == "2.0.0rc2"
     assert OPENALEX_PROVIDER_MANIFEST.secrets.references == ()
-    assert legacy.needs_config is False
-    assert legacy.optional_credential_effect == "quota"
 
 
 @pytest.mark.asyncio

@@ -86,60 +86,6 @@ class LLMSearchGatewayConfig(BaseModel):
         return _normalize_llm_search_base_url(value)
 
 
-class LLMConfig(BaseModel):
-    """LLM 配置 — 控制 enriched synthesis 与底层协议调用。
-
-    支持 OpenAI-compatible API（覆盖 OpenAI、Azure、vLLM、Ollama、
-    OpenRouter、DeepSeek 等）和 Anthropic Messages API。
-    """
-
-    enabled: bool = False
-    protocol: Literal["openai_chat", "openai_responses", "anthropic_messages"] = "openai_chat"
-    api_key: str | None = None
-    api_keys: list[str] = Field(default_factory=list)
-    base_url: str = "https://api.openai.com/v1"
-    model: str = "gpt-4o-mini"
-    max_tokens: int = Field(2048, ge=1)
-    temperature: float = Field(0.3, ge=0.0, le=2.0)
-    timeout: float = Field(60.0, gt=0)
-    anthropic_version: str = "2023-06-01"
-    synthesis_profiles: dict[str, "LLMSynthesisProfile"] = Field(default_factory=dict)
-
-    def get_api_key(self) -> str | None:
-        """获取 API Key：优先从 api_keys 轮询，否则用单一 api_key"""
-        if self.api_keys:
-            return random.choice(self.api_keys)
-        return self.api_key
-
-
-class LLMSynthesisProfile(BaseModel):
-    """An allowlisted, deployment-owned budget for enriched-search synthesis.
-
-    The request may name a profile, but never supplies its model or provider
-    settings.  Credentials and the gateway base URL remain in ``LLMConfig`` so
-    this profile is safe to expose in configuration templates without creating
-    another secret-bearing configuration surface.
-    """
-
-    model_config = ConfigDict(extra="forbid")
-
-    protocol: Literal["openai_chat", "openai_responses", "anthropic_messages"]
-    model: str = Field(min_length=1, max_length=256)
-    max_tokens: int = Field(ge=1, le=16_384)
-    max_input_chars: int = Field(ge=500, le=200_000)
-    max_pages: int = Field(ge=1, le=20)
-    timeout: float = Field(gt=0, le=300)
-    temperature: float = Field(0.0, ge=0.0, le=2.0)
-
-    @field_validator("model")
-    @classmethod
-    def _normalize_model(cls, value: str) -> str:
-        normalized = value.strip()
-        if not normalized:
-            raise ValueError("model 不能为空")
-        return normalized
-
-
 class SouWenConfig(BaseModel):
     """SouWen 全局配置
 
@@ -148,7 +94,7 @@ class SouWenConfig(BaseModel):
     主要字段组:
         论文源凭据/联系字段: openalex_api_key, openalex_email,
                            semantic_scholar_api_key, core_api_key, pubmed_api_key,
-                           unpaywall_email, ieee_api_key
+                           ieee_api_key
 
         专利源 API Key: uspto_api_key, epo_consumer_key/secret, cnipa_client_id/secret,
                         lens_api_token, patsnap_api_key
@@ -197,8 +143,8 @@ class SouWenConfig(BaseModel):
 
     @model_validator(mode="before")
     @classmethod
-    def _reject_retired_auth_fields(cls, data: Any) -> Any:
-        """旧认证字段已经移除，直接构造配置时也要显式报错。"""
+    def _reject_retired_fields(cls, data: Any) -> Any:
+        """已退休字段不能在直接构造配置时被静默接受。"""
         if isinstance(data, dict):
             retired = set(data) & {"api_password", "visitor_password"}
             if retired:
@@ -208,6 +154,17 @@ class SouWenConfig(BaseModel):
                 }
                 detail = ", ".join(f"{key} -> {replacements[key]}" for key in sorted(retired))
                 raise ValueError(f"认证配置字段已移除: {detail}")
+            retired_features = {
+                "llm": "legacy enriched-synthesis 配置已退休；请使用 llm_search_gateways",
+                "unpaywall_email": "Unpaywall provider 已退休",
+            }
+            configured_retired_features = set(data) & set(retired_features)
+            if configured_retired_features:
+                detail = ", ".join(
+                    f"{key} -> {retired_features[key]}"
+                    for key in sorted(configured_retired_features)
+                )
+                raise ValueError(f"配置字段已移除: {detail}")
         return data
 
     @model_validator(mode="after")
@@ -230,7 +187,6 @@ class SouWenConfig(BaseModel):
     doaj_api_key: str | None = None
     zenodo_access_token: str | None = None
     pubmed_api_key: str | None = None
-    unpaywall_email: str | None = None
     ieee_api_key: str | None = None
     # Zotero 个人文献库
     zotero_api_key: str | None = None  # Zotero Web API Key
@@ -379,9 +335,6 @@ class SouWenConfig(BaseModel):
 
     # ===== LLM Search 共享 gateway 配置 =====
     llm_search_gateways: dict[str, LLMSearchGatewayConfig] = Field(default_factory=dict)
-
-    # ===== LLM synthesis =====
-    llm: LLMConfig = Field(default_factory=LLMConfig)
 
     @field_validator("proxy")
     @classmethod

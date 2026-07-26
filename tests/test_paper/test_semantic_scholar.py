@@ -1,6 +1,6 @@
 """Semantic Scholar API 客户端单元测试（pytest-httpx mock）。
 
-覆盖 ``souwen.paper.semantic_scholar`` 中 SemanticScholarClient 的 JSON 解析、
+覆盖 ``souwen.providers.runtime_clients.paper.semantic_scholar`` 中 SemanticScholarClient 的 JSON 解析、
 字段映射、HTTP 错误处理。验证 P0-4 中 HTTP 错误分支（429/401/5xx）在进入
 ``.json()`` 解析前抛出明确异常，字段映射完整性等不变量。
 
@@ -21,7 +21,7 @@ import re
 import pytest
 from pytest_httpx import HTTPXMock
 
-from souwen.paper.semantic_scholar import SemanticScholarClient
+from souwen.providers.runtime_clients.paper.semantic_scholar import SemanticScholarClient
 
 
 # ---------------------------------------------------------------------------
@@ -107,7 +107,7 @@ async def test_search_missing_publication_date(httpx_mock: HTTPXMock):
 
 async def test_search_rate_limit_raises(httpx_mock: HTTPXMock):
     """429 响应抛 RateLimitError，且携带 Retry-After。"""
-    from souwen.core.exceptions import RateLimitError
+    from souwen.common_runtime.provider_support.exceptions import RateLimitError
 
     httpx_mock.add_response(
         url=re.compile(r"https://api\.semanticscholar\.org/graph/v1/paper/search.*"),
@@ -124,7 +124,7 @@ async def test_search_rate_limit_raises(httpx_mock: HTTPXMock):
 
 async def test_search_auth_error(httpx_mock: HTTPXMock):
     """401 响应抛 AuthError。"""
-    from souwen.core.exceptions import AuthError
+    from souwen.common_runtime.provider_support.exceptions import AuthError
 
     httpx_mock.add_response(
         url=re.compile(r"https://api\.semanticscholar\.org/graph/v1/paper/search.*"),
@@ -139,7 +139,7 @@ async def test_search_auth_error(httpx_mock: HTTPXMock):
 
 async def test_search_forbidden_is_auth_error(httpx_mock: HTTPXMock):
     """403 响应也归类为 AuthError。"""
-    from souwen.core.exceptions import AuthError
+    from souwen.common_runtime.provider_support.exceptions import AuthError
 
     httpx_mock.add_response(
         url=re.compile(r"https://api\.semanticscholar\.org/graph/v1/paper/search.*"),
@@ -153,7 +153,7 @@ async def test_search_forbidden_is_auth_error(httpx_mock: HTTPXMock):
 
 async def test_search_server_error(httpx_mock: HTTPXMock):
     """5xx 响应抛 SourceUnavailableError，不走 .json()。"""
-    from souwen.core.exceptions import SourceUnavailableError
+    from souwen.common_runtime.provider_support.exceptions import SourceUnavailableError
 
     httpx_mock.add_response(
         url=re.compile(r"https://api\.semanticscholar\.org/graph/v1/paper/search.*"),
@@ -168,7 +168,7 @@ async def test_search_server_error(httpx_mock: HTTPXMock):
 
 async def test_get_paper_rate_limit(httpx_mock: HTTPXMock):
     """get_paper 同样遵循统一错误分支。"""
-    from souwen.core.exceptions import RateLimitError
+    from souwen.common_runtime.provider_support.exceptions import RateLimitError
 
     httpx_mock.add_response(
         url=re.compile(r"https://api\.semanticscholar\.org/graph/v1/paper/.*"),
@@ -259,7 +259,7 @@ async def test_get_citations_basic(httpx_mock: HTTPXMock):
 
 async def test_get_citations_not_found(httpx_mock: HTTPXMock):
     """404 抛 NotFoundError。"""
-    from souwen.core.exceptions import NotFoundError
+    from souwen.common_runtime.provider_support.exceptions import NotFoundError
 
     httpx_mock.add_response(
         url=re.compile(r".*/paper/missing/citations.*"),

@@ -5,8 +5,7 @@ import re
 import pytest
 from pytest_httpx import HTTPXMock
 
-from souwen.research_output.datacite import DataCiteClient
-from souwen.search import search_research_outputs
+from souwen.providers.runtime_clients.research_output.datacite import DataCiteClient
 
 
 def _record(
@@ -180,16 +179,3 @@ async def test_search_rejects_invalid_pagination_before_request(
         with pytest.raises(ValueError):
             await client.search(**kwargs)
     assert httpx_mock.get_requests() == []
-
-
-async def test_research_output_facade_dispatches_default_datacite(
-    monkeypatch: pytest.MonkeyPatch,
-) -> None:
-    async def fake_search(self, query: str, *, per_page: int, page: int = 1):
-        assert (query, per_page, page) == ("climate", 2, 1)
-        return type("Response", (), {"source": "datacite", "results": []})()
-
-    monkeypatch.setattr(DataCiteClient, "search", fake_search)
-    result = await search_research_outputs("climate", per_page=2)
-
-    assert result[0].source == "datacite"

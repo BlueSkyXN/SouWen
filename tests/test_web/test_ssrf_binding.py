@@ -11,14 +11,14 @@ from typing import Any
 import httpx
 import pytest
 
-from souwen.core.exceptions import SourceUnavailableError
-from souwen.core.scraper.base import BaseScraper
-from souwen.web.builtin import BuiltinFetcherClient
-from souwen.web.fetch import ResolvedFetchTarget, resolve_fetch_target
-from souwen.web.links import extract_links
-from souwen.web.newspaper_fetcher import NewspaperFetcherClient
-from souwen.web.readability_fetcher import ReadabilityFetcherClient
-from souwen.web.sitemap import parse_sitemap
+from souwen.common_runtime.provider_support.exceptions import SourceUnavailableError
+from souwen.common_runtime.provider_support.scraper.base import BaseScraper
+from souwen.providers.runtime_clients.web.builtin import BuiltinFetcherClient
+from souwen.providers.runtime_clients.web.fetch import ResolvedFetchTarget, resolve_fetch_target
+from souwen.providers.runtime_clients.web.links import extract_links
+from souwen.providers.runtime_clients.web.newspaper_fetcher import NewspaperFetcherClient
+from souwen.providers.runtime_clients.web.readability_fetcher import ReadabilityFetcherClient
+from souwen.providers.runtime_clients.web.sitemap import parse_sitemap
 
 
 pytestmark = pytest.mark.usefixtures("mock_public_dns")
@@ -35,7 +35,7 @@ def _patch_safe_client_transport(
 ) -> list[httpx.AsyncClient]:
     """Route every lazily-created safe client through one deterministic transport."""
 
-    from souwen.core.scraper import base as base_module
+    from souwen.common_runtime.provider_support.scraper import base as base_module
 
     real_async_client = httpx.AsyncClient
     transport = (
@@ -254,7 +254,7 @@ async def test_base_scraper_does_not_send_private_redirect(monkeypatch):
 async def test_proxy_client_receives_only_ip_literal_connect_target(monkeypatch):
     """配置代理时仍把已校验 IP 交给 HTTP client，而非原 hostname。"""
 
-    from souwen.core.scraper import base as base_module
+    from souwen.common_runtime.provider_support.scraper import base as base_module
 
     target, reason = resolve_fetch_target("https://example.com/private-proxy-test")
     assert target is not None, reason
@@ -300,7 +300,7 @@ async def test_proxy_client_receives_only_ip_literal_connect_target(monkeypatch)
 async def test_safe_clients_are_isolated_by_original_authority(monkeypatch):
     """同一 IP 上的不同 hostname 不共享 connection pool 或 cookie jar。"""
 
-    from souwen.core.scraper import base as base_module
+    from souwen.common_runtime.provider_support.scraper import base as base_module
 
     created_clients: list[Any] = []
     requests: list[tuple[int, str, str]] = []
@@ -413,7 +413,7 @@ async def test_cross_origin_redirect_isolates_headers_host_sni_and_client(monkey
 async def test_builtin_and_robots_requests_use_bound_transport(monkeypatch):
     """builtin 初始抓取与 robots.txt 都必须通过 IP-pinned transport。"""
 
-    from souwen.web import builtin as builtin_module
+    from souwen.providers.runtime_clients.web import builtin as builtin_module
 
     fake_protego = ModuleType("protego")
 
@@ -510,7 +510,7 @@ async def test_links_and_sitemap_paths_receive_bound_targets(monkeypatch):
 async def test_readability_uses_bound_transport_and_preserves_public_redirect(monkeypatch):
     """readability initial/redirect 请求均绑定 IP，final_url 保留逻辑 hostname。"""
 
-    from souwen.web import readability_fetcher as readability_module
+    from souwen.providers.runtime_clients.web import readability_fetcher as readability_module
 
     monkeypatch.setattr(readability_module, "_HAS_READABILITY", True)
     monkeypatch.setattr(
@@ -553,7 +553,7 @@ async def test_readability_uses_bound_transport_and_preserves_public_redirect(mo
 async def test_readability_does_not_send_private_redirect(monkeypatch):
     """readability 公网首跳后的私网 Location 不到达 transport。"""
 
-    from souwen.web import readability_fetcher as readability_module
+    from souwen.providers.runtime_clients.web import readability_fetcher as readability_module
 
     monkeypatch.setattr(readability_module, "_HAS_READABILITY", True)
     sent_urls: list[str] = []

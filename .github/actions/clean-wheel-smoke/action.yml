@@ -68,8 +68,12 @@ runs:
         import souwen
 
         require(bool(souwen.__version__), "package/version", souwen.__version__)
-        require(find_spec("souwen.feature_matrix"), "package/feature-matrix", "module importable")
-        require(find_spec("souwen.provenance"), "package/provenance", "module importable")
+        require(find_spec("souwen.providers.catalog"), "package/provider-catalog", "module importable")
+        require(
+            find_spec("souwen.common_runtime.observability"),
+            "package/runtime-provenance",
+            "module importable",
+        )
 
         panel = importlib.resources.files("souwen.server").joinpath("panel.html")
         require(panel.is_file(), "package/panel", str(panel))
@@ -81,6 +85,18 @@ runs:
             "souwen.scraper",
             "souwen.source_registry",
             "souwen.http_client",
+            "souwen.registry",
+            "souwen.core",
+            "souwen.paper",
+            "souwen.patent",
+            "souwen.web",
+            "souwen.book",
+            "souwen.research_output",
+            "souwen.local_catalog",
+            "souwen.llm",
+            "souwen.search",
+            "souwen.models",
+            "souwen.provenance",
         )
         leaked = [name for name in retired if find_spec(name)]
         require(not leaked, "package/no-retired-imports", f"leaked={leaked}")
@@ -117,13 +133,6 @@ runs:
             require(find_spec("newspaper"), "provider/import-newspaper", "module importable")
         elif profile == "provider-readability":
             require(find_spec("readability"), "provider/import-readability", "module importable")
-
-        crawl4ai = find_spec("crawl4ai")
-        scrapling = find_spec("scrapling")
-        if profile == "provider-crawl4ai":
-            require(crawl4ai and not scrapling, "variant/crawl4ai-only", f"{crawl4ai=}, {scrapling=}")
-        elif profile == "provider-scrapling":
-            require(scrapling and not crawl4ai, "variant/scrapling-only", f"{crawl4ai=}, {scrapling=}")
 
         payload = {
             "schema_version": 1,

@@ -111,7 +111,7 @@ describe('generated SouWenClient', () => {
         status: 'ready',
         ready: true,
         version: '2.0.0rc2',
-        rollout_mode: 'legacy',
+        rollout_mode: 'invalid',
         context: context(requestIdOf(init)),
       }, requestIdOf(init))),
     })

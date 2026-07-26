@@ -10,13 +10,13 @@ from dataclasses import dataclass
 from typing import Any
 
 from souwen import __version__
-from souwen.book.doab import DOABClient
-from souwen.book.internet_archive import InternetArchiveClient
-from souwen.book.library_of_congress import LibraryOfCongressClient
-from souwen.book.librivox import LibriVoxClient
-from souwen.book.oapen import OAPENClient
-from souwen.book.open_library import OpenLibraryClient
-from souwen.book.wikisource import WikisourceClient
+from souwen.providers.runtime_clients.book.doab import DOABClient
+from souwen.providers.runtime_clients.book.internet_archive import InternetArchiveClient
+from souwen.providers.runtime_clients.book.library_of_congress import LibraryOfCongressClient
+from souwen.providers.runtime_clients.book.librivox import LibriVoxClient
+from souwen.providers.runtime_clients.book.oapen import OAPENClient
+from souwen.providers.runtime_clients.book.open_library import OpenLibraryClient
+from souwen.providers.runtime_clients.book.wikisource import WikisourceClient
 from souwen.common_runtime.observability import get_request_id, get_source_sha
 from souwen.common_runtime.transport import HttpTransport
 from souwen.config import SouWenConfig
@@ -24,7 +24,6 @@ from souwen.common_runtime.channel_overrides import without_source_channel_overr
 from souwen.delivery.api import (
     ProviderCatalogItem,
     ReadinessSnapshot,
-    RolloutMode,
     RuntimeMetadata,
     TargetDeliveryServices,
 )
@@ -36,48 +35,48 @@ from souwen.modules.search.application import (
     OrderedSearchProviderSelector,
     SearchProviderSelection,
 )
-from souwen.local_catalog.gutenberg import (
+from souwen.providers.runtime_clients.local_catalog.gutenberg import (
     GutenbergLocalCatalogClient,
     gutenberg_catalog_ready,
 )
-from souwen.local_catalog.taiwan_new_books import (
+from souwen.providers.runtime_clients.local_catalog.taiwan_new_books import (
     TaiwanNewBooksLocalCatalogClient,
     taiwan_new_books_catalog_ready,
 )
-from souwen.paper.eric import EricClient
-from souwen.paper.arxiv import ArxivClient
-from souwen.paper.arxiv_fulltext import ArxivFulltextClient
-from souwen.paper.biorxiv import BioRxivClient
-from souwen.paper.crossref import CrossrefClient
-from souwen.paper.dblp import DblpClient
-from souwen.paper.europepmc import EuropePmcClient
-from souwen.paper.core import CoreClient
-from souwen.paper.doaj import DoajClient
-from souwen.paper.hal import HalClient
-from souwen.paper.huggingface import HuggingFaceClient
-from souwen.paper.iacr import IacrClient
-from souwen.paper.ieee_xplore import IeeeXploreClient
-from souwen.paper.openalex import OpenAlexClient
-from souwen.paper.openaire import OpenAireClient
-from souwen.paper.osti import OstiClient
-from souwen.paper.pmc import PmcClient
-from souwen.paper.pubmed import PubMedClient
-from souwen.paper.semantic_scholar import SemanticScholarClient
-from souwen.paper.zenodo import ZenodoClient
-from souwen.paper.zotero import ZoteroClient
-from souwen.patent.cnipa import CnipaClient
-from souwen.patent.epo_ops import EpoOpsClient
-from souwen.patent.google_patents_scraper import GooglePatentsScraper
-from souwen.patent.patsnap import PatSnapClient
-from souwen.patent.patentsview import PatentsViewClient
-from souwen.patent.pqai import PqaiClient
-from souwen.patent.the_lens import TheLensClient
-from souwen.patent.uspto_odp import UsptoOdpClient
+from souwen.providers.runtime_clients.paper.eric import EricClient
+from souwen.providers.runtime_clients.paper.arxiv import ArxivClient
+from souwen.providers.runtime_clients.paper.arxiv_fulltext import ArxivFulltextClient
+from souwen.providers.runtime_clients.paper.biorxiv import BioRxivClient
+from souwen.providers.runtime_clients.paper.crossref import CrossrefClient
+from souwen.providers.runtime_clients.paper.dblp import DblpClient
+from souwen.providers.runtime_clients.paper.europepmc import EuropePmcClient
+from souwen.providers.runtime_clients.paper.core import CoreClient
+from souwen.providers.runtime_clients.paper.doaj import DoajClient
+from souwen.providers.runtime_clients.paper.hal import HalClient
+from souwen.providers.runtime_clients.paper.huggingface import HuggingFaceClient
+from souwen.providers.runtime_clients.paper.iacr import IacrClient
+from souwen.providers.runtime_clients.paper.ieee_xplore import IeeeXploreClient
+from souwen.providers.runtime_clients.paper.openalex import OpenAlexClient
+from souwen.providers.runtime_clients.paper.openaire import OpenAireClient
+from souwen.providers.runtime_clients.paper.osti import OstiClient
+from souwen.providers.runtime_clients.paper.pmc import PmcClient
+from souwen.providers.runtime_clients.paper.pubmed import PubMedClient
+from souwen.providers.runtime_clients.paper.semantic_scholar import SemanticScholarClient
+from souwen.providers.runtime_clients.paper.zenodo import ZenodoClient
+from souwen.providers.runtime_clients.paper.zotero import ZoteroClient
+from souwen.providers.runtime_clients.patent.cnipa import CnipaClient
+from souwen.providers.runtime_clients.patent.epo_ops import EpoOpsClient
+from souwen.providers.runtime_clients.patent.google_patents_scraper import GooglePatentsScraper
+from souwen.providers.runtime_clients.patent.patsnap import PatSnapClient
+from souwen.providers.runtime_clients.patent.patentsview import PatentsViewClient
+from souwen.providers.runtime_clients.patent.pqai import PqaiClient
+from souwen.providers.runtime_clients.patent.the_lens import TheLensClient
+from souwen.providers.runtime_clients.patent.uspto_odp import UsptoOdpClient
 from souwen.platform.manifest_registry import ProviderManifest
 from souwen.platform.provider_manager import ProviderManager
 from souwen.platform.provider_spec import (
-    LegacySearchProvider,
-    LegacySearchProviderSpec,
+    ClientSearchProvider,
+    ClientSearchProviderSpec,
     ProviderSpec,
     RestJsonProviderSpec,
     resolve_provider_inputs,
@@ -488,51 +487,75 @@ from souwen.providers.llm_sources.uniapi_ark_annotations.manifest import (
     DEEPSEEK_ADAPTER_ID,
     DOUBAO_ADAPTER_ID,
 )
-from souwen.registry import defaults_for, get as get_legacy_adapter
-from souwen.registry.meta import credential_value
-from souwen.research_output.datacite import DataCiteClient
-from souwen.research_output.figshare import FigshareClient
-from souwen.web.apify import ApifyClient
-from souwen.web.aliyun_iqs import AliyunIQSClient
-from souwen.web.brave_api import BraveApiClient
-from souwen.web.builtin import BuiltinFetcherClient
-from souwen.web.cloudflare_browser import CloudflareBrowserClient
-from souwen.web.deepwiki import DeepWikiClient
-from souwen.web.diffbot import DiffbotClient
-from souwen.web.exa import ExaClient
-from souwen.web.facebook import FacebookClient
-from souwen.web.feishu_drive import FeishuDriveClient
-from souwen.web.firecrawl import FirecrawlClient
-from souwen.web.github import GitHubClient
-from souwen.web.jina_reader import JinaReaderClient
-from souwen.web.kimi_code import KimiCodeClient
-from souwen.web.linkup import LinkupClient
-from souwen.web.linuxdo import LinuxDoClient
-from souwen.web.metaso import MetasoClient
-from souwen.web.newspaper_fetcher import NewspaperFetcherClient
-from souwen.web.perplexity import PerplexityClient
-from souwen.web.reddit import RedditClient
-from souwen.web.readability_fetcher import ReadabilityFetcherClient
-from souwen.web.scraperapi import ScraperAPIClient
-from souwen.web.scrapfly import ScrapflyClient
-from souwen.web.scrapingbee import ScrapingBeeClient
-from souwen.web.scrapingdog import ScrapingDogClient
-from souwen.web.serpapi import SerpApiClient
-from souwen.web.serper import SerperClient
-from souwen.web.stackoverflow import StackOverflowClient
-from souwen.web.tavily import TavilyClient
-from souwen.web.twitter import TwitterClient
-from souwen.web.wayback import WaybackClient
-from souwen.web.wikipedia import WikipediaClient
-from souwen.web.xcrawl import XCrawlClient
-from souwen.web.youtube import YouTubeClient
-from souwen.web.zenrows import ZenRowsClient
-from souwen.web.zhipuai_search import ZhipuAISearchClient
+from souwen.providers.runtime_clients.research_output.datacite import DataCiteClient
+from souwen.providers.runtime_clients.research_output.figshare import FigshareClient
+from souwen.providers.runtime_clients.web.apify import ApifyClient
+from souwen.providers.runtime_clients.web.aliyun_iqs import AliyunIQSClient
+from souwen.providers.runtime_clients.web.baidu import BaiduClient
+from souwen.providers.runtime_clients.web.bilibili import BilibiliClient
+from souwen.providers.runtime_clients.web.bing import BingClient
+from souwen.providers.runtime_clients.web.bing_cn import BingCnClient
+from souwen.providers.runtime_clients.web.brave import BraveClient
+from souwen.providers.runtime_clients.web.brave_api import BraveApiClient
+from souwen.providers.runtime_clients.web.builtin import BuiltinFetcherClient
+from souwen.providers.runtime_clients.web.cloudflare_browser import CloudflareBrowserClient
+from souwen.providers.runtime_clients.web.coolapk import CoolapkClient
+from souwen.providers.runtime_clients.web.csdn import CSDNClient
+from souwen.providers.runtime_clients.web.deepwiki import DeepWikiClient
+from souwen.providers.runtime_clients.web.ddg_images import DuckDuckGoImagesClient
+from souwen.providers.runtime_clients.web.ddg_news import DuckDuckGoNewsClient
+from souwen.providers.runtime_clients.web.ddg_videos import DuckDuckGoVideosClient
+from souwen.providers.runtime_clients.web.diffbot import DiffbotClient
+from souwen.providers.runtime_clients.web.duckduckgo import DuckDuckGoClient
+from souwen.providers.runtime_clients.web.exa import ExaClient
+from souwen.providers.runtime_clients.web.facebook import FacebookClient
+from souwen.providers.runtime_clients.web.feishu_drive import FeishuDriveClient
+from souwen.providers.runtime_clients.web.firecrawl import FirecrawlClient
+from souwen.providers.runtime_clients.web.github import GitHubClient
+from souwen.providers.runtime_clients.web.google import GoogleClient
+from souwen.providers.runtime_clients.web.hostloc import HostLocClient
+from souwen.providers.runtime_clients.web.jina_reader import JinaReaderClient
+from souwen.providers.runtime_clients.web.juejin import JuejinClient
+from souwen.providers.runtime_clients.web.kimi_code import KimiCodeClient
+from souwen.providers.runtime_clients.web.linkup import LinkupClient
+from souwen.providers.runtime_clients.web.linuxdo import LinuxDoClient
+from souwen.providers.runtime_clients.web.metaso import MetasoClient
+from souwen.providers.runtime_clients.web.mojeek import MojeekClient
+from souwen.providers.runtime_clients.web.newspaper_fetcher import NewspaperFetcherClient
+from souwen.providers.runtime_clients.web.nodeseek import NodeSeekClient
+from souwen.providers.runtime_clients.web.perplexity import PerplexityClient
+from souwen.providers.runtime_clients.web.reddit import RedditClient
+from souwen.providers.runtime_clients.web.readability_fetcher import ReadabilityFetcherClient
+from souwen.providers.runtime_clients.web.scraperapi import ScraperAPIClient
+from souwen.providers.runtime_clients.web.scrapfly import ScrapflyClient
+from souwen.providers.runtime_clients.web.scrapingbee import ScrapingBeeClient
+from souwen.providers.runtime_clients.web.scrapingdog import ScrapingDogClient
+from souwen.providers.runtime_clients.web.searxng import SearXNGClient
+from souwen.providers.runtime_clients.web.serpapi import SerpApiClient
+from souwen.providers.runtime_clients.web.serper import SerperClient
+from souwen.providers.runtime_clients.web.stackoverflow import StackOverflowClient
+from souwen.providers.runtime_clients.web.startpage import StartpageClient
+from souwen.providers.runtime_clients.web.tavily import TavilyClient
+from souwen.providers.runtime_clients.web.twitter import TwitterClient
+from souwen.providers.runtime_clients.web.v2ex import V2EXClient
+from souwen.providers.runtime_clients.web.wayback import WaybackClient
+from souwen.providers.runtime_clients.web.websurfx import WebsurfxClient
+from souwen.providers.runtime_clients.web.weibo import WeiboClient
+from souwen.providers.runtime_clients.web.whoogle import WhoogleClient
+from souwen.providers.runtime_clients.web.wikipedia import WikipediaClient
+from souwen.providers.runtime_clients.web.xcrawl import XCrawlClient
+from souwen.providers.runtime_clients.web.xiaohongshu import XiaohongshuClient
+from souwen.providers.runtime_clients.web.yahoo import YahooClient
+from souwen.providers.runtime_clients.web.yandex import YandexClient
+from souwen.providers.runtime_clients.web.youtube import YouTubeClient
+from souwen.providers.runtime_clients.web.zenrows import ZenRowsClient
+from souwen.providers.runtime_clients.web.zhihu import ZhihuClient
+from souwen.providers.runtime_clients.web.zhipuai_search import ZhipuAISearchClient
 from souwen.worker.browser_fetch.protocol import BROWSER_WORKER_PROVIDER_INVENTORY_DIGEST
 
 
 class _OpenAlexRuntimeClient:
-    """Expose the legacy client lifecycle through the injected adapter protocol."""
+    """Expose the existing client lifecycle through the injected adapter protocol."""
 
     def __init__(self, client: OpenAlexClient) -> None:
         self._client = client
@@ -544,8 +567,8 @@ class _OpenAlexRuntimeClient:
         await self._client._client.close()
 
 
-class _LegacyRuntimeClient:
-    """Give injected legacy clients one explicit, idempotent adapter-owned close surface."""
+class _RuntimeClientAdapter:
+    """Give injected existing clients one explicit, idempotent adapter-owned close surface."""
 
     def __init__(self, client: Any) -> None:
         self._client = client
@@ -588,8 +611,8 @@ class _LegacyRuntimeClient:
             await result
 
 
-class _ManagedLegacyRuntimeClient(_LegacyRuntimeClient):
-    """Enter legacy async contexts lazily and close them exactly once."""
+class _ManagedRuntimeClientAdapter(_RuntimeClientAdapter):
+    """Enter existing async contexts lazily and close them exactly once."""
 
     def __init__(self, client: Any) -> None:
         super().__init__(client)
@@ -614,19 +637,19 @@ class _ManagedLegacyRuntimeClient(_LegacyRuntimeClient):
         await super().close()
 
 
-def _build_reviewed_legacy_provider(
+def _build_reviewed_client_provider(
     provider_type: type[Any],
     client_factory: Callable[[Mapping[str, object], Mapping[str, str]], Any],
     configuration: Mapping[str, object],
     secrets: Mapping[str, str],
     reviewed_proxy: str | None,
 ) -> Any:
-    """Construct Batch 3 bridges without undeclared legacy channel transport overrides."""
+    """Construct Batch 3 bridges without undeclared existing channel transport overrides."""
 
     with without_source_channel_overrides(proxy=reviewed_proxy):
         client = client_factory(configuration, secrets)
     return provider_type(
-        _LegacyRuntimeClient(client),
+        _RuntimeClientAdapter(client),
         enabled=bool(configuration["enabled"]),
     )
 
@@ -648,7 +671,7 @@ def _build_reviewed_batch_four_provider(
     ):
         client = client_factory(configuration, secrets, config)
     return provider_type(
-        _LegacyRuntimeClient(client),
+        _RuntimeClientAdapter(client),
         enabled=bool(configuration["enabled"]),
     )
 
@@ -681,24 +704,59 @@ _BATCH_FIVE_SEARCH_SOURCE_IDS = (
 _BATCH_FIVE_DDG_SITE_SOURCE_IDS = frozenset(
     {"coolapk", "hostloc", "nodeseek", "v2ex", "xiaohongshu"}
 )
+_BATCH_FIVE_CLIENT_TYPES: Mapping[str, type[Any]] = {
+    "baidu": BaiduClient,
+    "bilibili": BilibiliClient,
+    "bing": BingClient,
+    "bing_cn": BingCnClient,
+    "brave": BraveClient,
+    "coolapk": CoolapkClient,
+    "csdn": CSDNClient,
+    "duckduckgo": DuckDuckGoClient,
+    "duckduckgo_images": DuckDuckGoImagesClient,
+    "duckduckgo_news": DuckDuckGoNewsClient,
+    "duckduckgo_videos": DuckDuckGoVideosClient,
+    "google": GoogleClient,
+    "hostloc": HostLocClient,
+    "juejin": JuejinClient,
+    "mojeek": MojeekClient,
+    "nodeseek": NodeSeekClient,
+    "startpage": StartpageClient,
+    "v2ex": V2EXClient,
+    "weibo": WeiboClient,
+    "xiaohongshu": XiaohongshuClient,
+    "yahoo": YahooClient,
+    "yandex": YandexClient,
+    "zhihu": ZhihuClient,
+}
+_SELF_HOSTED_CLIENT_TYPES: Mapping[str, type[Any]] = {
+    "searxng": SearXNGClient,
+    "websurfx": WebsurfxClient,
+    "whoogle": WhoogleClient,
+}
+_SELF_HOSTED_CONFIG_FIELDS = {
+    "searxng": "searxng_url",
+    "websurfx": "websurfx_url",
+    "whoogle": "whoogle_url",
+}
 
 
 def _batch_five_search_binding(
     provider_id: str,
-) -> tuple[ProviderManifest, LegacySearchProviderSpec, type[Any], str]:
+) -> tuple[ProviderManifest, ClientSearchProviderSpec, type[Any], str]:
     module = importlib.import_module(f"souwen.providers.information_sources.{provider_id}")
     manifests = tuple(
         value for value in vars(module).values() if isinstance(value, ProviderManifest)
     )
     specs = tuple(
-        value for value in vars(module).values() if isinstance(value, LegacySearchProviderSpec)
+        value for value in vars(module).values() if isinstance(value, ClientSearchProviderSpec)
     )
     provider_types = tuple(
         value
         for value in vars(module).values()
         if isinstance(value, type)
-        and value is not LegacySearchProvider
-        and issubclass(value, LegacySearchProvider)
+        and value is not ClientSearchProvider
+        and issubclass(value, ClientSearchProvider)
         and value.__module__.startswith(module.__name__)
     )
     if len(manifests) != 1 or len(specs) != 1 or len(provider_types) != 1:
@@ -715,20 +773,20 @@ _BATCH_SIX_SELF_HOSTED_SOURCE_IDS = ("searxng", "websurfx", "whoogle")
 
 def _batch_six_search_binding(
     provider_id: str,
-) -> tuple[ProviderManifest, LegacySearchProviderSpec, type[Any], str]:
+) -> tuple[ProviderManifest, ClientSearchProviderSpec, type[Any], str]:
     module = importlib.import_module(f"souwen.providers.information_sources.{provider_id}")
     manifests = tuple(
         value for value in vars(module).values() if isinstance(value, ProviderManifest)
     )
     specs = tuple(
-        value for value in vars(module).values() if isinstance(value, LegacySearchProviderSpec)
+        value for value in vars(module).values() if isinstance(value, ClientSearchProviderSpec)
     )
     provider_types = tuple(
         value
         for value in vars(module).values()
         if isinstance(value, type)
-        and value is not LegacySearchProvider
-        and issubclass(value, LegacySearchProvider)
+        and value is not ClientSearchProvider
+        and issubclass(value, ClientSearchProvider)
         and value.__module__.startswith(module.__name__)
     )
     if len(manifests) != 1 or len(specs) != 1 or len(provider_types) != 1:
@@ -749,7 +807,7 @@ def _build_reviewed_batch_five_search_provider(
     reviewed_proxy: str | None,
     config: SouWenConfig,
 ) -> Any:
-    client_type = get_legacy_adapter(provider_id).client_loader()
+    client_type = _BATCH_FIVE_CLIENT_TYPES[provider_id]
     kwargs: dict[str, object] = (
         {}
         if provider_id.startswith("duckduckgo") or provider_id in _BATCH_FIVE_DDG_SITE_SOURCE_IDS
@@ -764,10 +822,9 @@ def _build_reviewed_batch_five_search_provider(
     ):
         client = client_type(**kwargs)
         if provider_id in _BATCH_FIVE_DDG_SITE_SOURCE_IDS:
-            ddg_client_type = get_legacy_adapter("duckduckgo").client_loader()
-            client._ddg_client = ddg_client_type()
+            client._ddg_client = DuckDuckGoClient()
     return provider_type(
-        _LegacyRuntimeClient(client),
+        _RuntimeClientAdapter(client),
         enabled=bool(configuration["enabled"]),
     )
 
@@ -775,13 +832,13 @@ def _build_reviewed_batch_five_search_provider(
 def _build_reviewed_batch_six_search_provider(
     provider_type: type[Any],
     provider_id: str,
-    spec: LegacySearchProviderSpec,
+    spec: ClientSearchProviderSpec,
     configuration: Mapping[str, object],
     reviewed_proxy: str | None,
     config: SouWenConfig,
 ) -> Any:
     resolved_configuration, _ = resolve_provider_inputs(spec, configuration, {})
-    client_type = get_legacy_adapter(provider_id).client_loader()
+    client_type = _SELF_HOSTED_CLIENT_TYPES[provider_id]
     source_timeout = config.get_source_config(provider_id).timeout or config.timeout
     with without_source_channel_overrides(
         proxy=reviewed_proxy,
@@ -793,7 +850,7 @@ def _build_reviewed_batch_six_search_provider(
             follow_redirects=False,
         )
     return provider_type(
-        _LegacyRuntimeClient(client),
+        _RuntimeClientAdapter(client),
         enabled=bool(resolved_configuration["enabled"]),
     )
 
@@ -1362,7 +1419,7 @@ _BATCH_FIVE_MANIFEST_IDS = frozenset(
 _BATCH_SIX_MANIFEST_IDS = frozenset(
     manifest.id for manifest, _spec, _provider_type, _provider_id in _BATCH_SIX_SEARCH_BINDINGS
 )
-_MIGRATED_LEGACY_MANIFEST_IDS = (
+_MIGRATED_PROVIDER_IDS = (
     _BATCH_ONE_MANIFEST_IDS
     | _BATCH_TWO_MANIFEST_IDS
     | _BATCH_THREE_MANIFEST_IDS
@@ -1370,40 +1427,32 @@ _MIGRATED_LEGACY_MANIFEST_IDS = (
     | _BATCH_FIVE_MANIFEST_IDS
     | _BATCH_SIX_MANIFEST_IDS
 )
-_LEGACY_DEFAULT_PROVIDER_IDS = frozenset(
+_DEFAULT_PROVIDER_IDS = frozenset(
     {
-        *defaults_for("paper", "search"),
-        *defaults_for("patent", "search"),
-        *defaults_for("book", "search"),
-        *defaults_for("research_output", "search"),
-        *defaults_for("web", "search"),
-        *defaults_for("web", "search_news"),
-        *defaults_for("web", "search_images"),
-        *defaults_for("web", "search_videos"),
-        *defaults_for("video", "search"),
-        *defaults_for("fetch", "fetch"),
+        "arxiv",
+        "bilibili",
+        "bing",
+        "biorxiv",
+        "builtin",
+        "crossref",
+        "datacite",
+        "dblp",
+        "duckduckgo",
+        "duckduckgo_images",
+        "duckduckgo_news",
+        "duckduckgo_videos",
+        "google_patents",
+        "open_library",
+        "openalex",
+        "pubmed",
+        "youtube",
     }
 )
 
 
-def _legacy_runtime_default_enabled(provider_id: str) -> bool:
-    """Keep runtime eligibility distinct from default Search fan-out selection."""
-
-    return get_legacy_adapter(provider_id).runtime_default_enabled
-
-
 def _self_hosted_base_url(config: SouWenConfig, provider_id: str) -> str:
-    adapter = get_legacy_adapter(provider_id)
-    field = adapter.config_field
-    if not field:
-        raise ValueError("self-hosted provider has no configured endpoint field")
-    value = credential_value(
-        config,
-        provider_id,
-        field,
-        field,
-        adapter.resolved_auth_requirement,
-    )
+    field = _SELF_HOSTED_CONFIG_FIELDS[provider_id]
+    value = config.resolve_base_url(provider_id, getattr(config, field, None) or "")
     return validate_self_hosted_base_url(value)
 
 
@@ -1466,18 +1515,14 @@ def _configuration_resolver(config: SouWenConfig):
             _validate_transport_configuration(configuration, provider_id="PatentsView")
             return configuration
         if manifest.id in _BATCH_SIX_MANIFEST_IDS:
-            if not config.is_source_enabled(
-                manifest.id, default=_legacy_runtime_default_enabled(manifest.id)
-            ):
+            if not config.is_source_enabled(manifest.id, default=True):
                 raise ValueError("provider is disabled")
             return {
                 "enabled": True,
                 "base_url": _self_hosted_base_url(config, manifest.id),
             }
-        if manifest.id in _MIGRATED_LEGACY_MANIFEST_IDS:
-            if not config.is_source_enabled(
-                manifest.id, default=_legacy_runtime_default_enabled(manifest.id)
-            ):
+        if manifest.id in _MIGRATED_PROVIDER_IDS:
+            if not config.is_source_enabled(manifest.id, default=True):
                 raise ValueError("provider is disabled")
             optional_module = {
                 "newspaper": "newspaper",
@@ -1664,8 +1709,7 @@ def _missing_provider_configuration(
         try:
             _self_hosted_base_url(config, manifest.id)
         except ValueError:
-            field = get_legacy_adapter(manifest.id).config_field
-            return (field,) if field else ("base_url",)
+            return (_SELF_HOSTED_CONFIG_FIELDS[manifest.id],)
         return ()
     if manifest.id not in (_BATCH_TWO_MANIFEST_IDS | _BATCH_THREE_MANIFEST_IDS):
         return ()
@@ -1700,10 +1744,8 @@ def _catalog_items(
             enabled = provider_id in enabled_llm
         elif provider_id == "patentsview":
             enabled = patentsview_enabled
-        elif provider_id in _MIGRATED_LEGACY_MANIFEST_IDS:
-            enabled = config.is_source_enabled(
-                provider_id, default=_legacy_runtime_default_enabled(provider_id)
-            )
+        elif provider_id in _MIGRATED_PROVIDER_IDS:
+            enabled = config.is_source_enabled(provider_id, default=True)
         else:
             enabled = config.is_source_enabled(provider_id, default=True)
         if enabled and capability == "llm_search" and missing_gateway:
@@ -1778,7 +1820,7 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
             export=manifest.adapters[0].export,
             factory=lambda configuration, secrets, provider_type=provider_type, client_factory=client_factory: (
                 provider_type(
-                    _LegacyRuntimeClient(client_factory(secrets)),
+                    _RuntimeClientAdapter(client_factory(secrets)),
                     enabled=configuration["enabled"],
                 )
             ),
@@ -1791,7 +1833,7 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
             export=manifest.adapters[0].export,
             factory=lambda configuration, secrets, provider_type=provider_type, client_factory=client_factory: (
                 provider_type(
-                    _LegacyRuntimeClient(client_factory(configuration, secrets)),
+                    _RuntimeClientAdapter(client_factory(configuration, secrets)),
                     enabled=configuration["enabled"],
                 )
             ),
@@ -1806,7 +1848,7 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
             package_id=manifest.id,
             export=manifest.adapters[0].export,
             factory=lambda configuration, secrets, provider_type=provider_type, client_factory=client_factory, reviewed_proxy=reviewed_proxy: (
-                _build_reviewed_legacy_provider(
+                _build_reviewed_client_provider(
                     provider_type,
                     client_factory,
                     configuration,
@@ -1839,7 +1881,7 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
             package_id=manifest.id,
             export=search_export,
             factory=lambda configuration, secrets, search_type=search_type, client_factory=client_factory, reviewed_proxy=reviewed_proxy: (
-                _build_reviewed_legacy_provider(
+                _build_reviewed_client_provider(
                     search_type,
                     client_factory,
                     configuration,
@@ -1853,7 +1895,7 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
             package_id=manifest.id,
             export=fetch_export,
             factory=lambda configuration, secrets, fetch_type=fetch_type, client_factory=client_factory, reviewed_proxy=reviewed_proxy: (
-                _build_reviewed_legacy_provider(
+                _build_reviewed_client_provider(
                     fetch_type,
                     client_factory,
                     configuration,
@@ -1872,7 +1914,7 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
             package_id=manifest.id,
             export=manifest.adapters[0].export,
             factory=lambda configuration, secrets, provider_type=provider_type, client_factory=client_factory, reviewed_proxy=reviewed_proxy: (
-                _build_reviewed_legacy_provider(
+                _build_reviewed_client_provider(
                     provider_type,
                     client_factory,
                     configuration,
@@ -1963,7 +2005,7 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
             export=manifest.adapters[0].export,
             factory=lambda configuration, _secrets, provider_type=provider_type, client_type=client_type, reviewed_proxy=reviewed_proxy: (
                 provider_type(
-                    _ManagedLegacyRuntimeClient(
+                    _ManagedRuntimeClientAdapter(
                         _construct_reviewed_batch_five_fetch_client(
                             client_type, reviewed_proxy, config
                         )
@@ -1977,7 +2019,7 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
         package_id=ARXIV_FULLTEXT_PROVIDER_MANIFEST.id,
         export="ArxivFulltextFetchProvider",
         factory=lambda configuration, _secrets: ArxivFulltextFetchProvider(
-            _LegacyRuntimeClient(ArxivFulltextClient()),
+            _RuntimeClientAdapter(ArxivFulltextClient()),
             enabled=configuration["enabled"],
         ),
         provider_type=ArxivFulltextFetchProvider,
@@ -2151,7 +2193,7 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
                                 binding
                                 for binding in _BATCH_FOUR_SEARCH_BINDINGS
                                 if binding[1].domain == domain
-                                and binding[0].id in _LEGACY_DEFAULT_PROVIDER_IDS
+                                and binding[0].id in _DEFAULT_PROVIDER_IDS
                             ),
                             start=1,
                         )
@@ -2175,7 +2217,7 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
                                 binding
                                 for binding in _BATCH_FIVE_SEARCH_BINDINGS
                                 if binding[1].domain == domain
-                                and binding[0].id in _LEGACY_DEFAULT_PROVIDER_IDS
+                                and binding[0].id in _DEFAULT_PROVIDER_IDS
                             ),
                             start=1,
                         )
@@ -2236,7 +2278,7 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
                         (
                             binding
                             for binding in _BATCH_FOUR_SEARCH_BINDINGS
-                            if binding[0].id not in _LEGACY_DEFAULT_PROVIDER_IDS
+                            if binding[0].id not in _DEFAULT_PROVIDER_IDS
                         ),
                         start=300,
                     )
@@ -2256,7 +2298,7 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
                         (
                             binding
                             for binding in _BATCH_FIVE_SEARCH_BINDINGS
-                            if binding[0].id not in _LEGACY_DEFAULT_PROVIDER_IDS
+                            if binding[0].id not in _DEFAULT_PROVIDER_IDS
                         ),
                         start=400,
                     )
@@ -2350,7 +2392,6 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
     metadata = RuntimeMetadata(
         version=__version__,
         source_sha=get_source_sha(),
-        rollout_mode=RolloutMode.TARGET,
         config_revision=os.environ.get("SOUWEN_CONFIG_REVISION", "").strip() or None,
         wrapper_sha=os.environ.get("SOUWEN_WRAPPER_SHA", "").strip() or None,
     )

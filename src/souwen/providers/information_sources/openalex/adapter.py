@@ -1,4 +1,4 @@
-"""Provider v2 adapter that maps an injected legacy OpenAlex client to canonical Search."""
+"""Provider v2 adapter that maps an injected existing OpenAlex client to canonical Search."""
 
 from __future__ import annotations
 
@@ -17,14 +17,14 @@ from souwen.platform.provider_spi import (
     SearchPage,
     SearchRequest,
 )
-from souwen.platform.provider_spec import LegacySearchProvider, LegacySearchSpec
+from souwen.platform.provider_spec import ClientSearchProvider, ClientSearchSpec
 
 
 _PROVIDER_ID = "openalex"
 
 
 class OpenAlexClientProtocol(Protocol):
-    """The minimal legacy-client surface used by this target adapter."""
+    """The minimal existing-client surface used by this target adapter."""
 
     async def search(
         self,
@@ -34,11 +34,11 @@ class OpenAlexClientProtocol(Protocol):
         page: int = 1,
         per_page: int = 10,
     ) -> Any:
-        """Return a legacy ``SearchResponse`` compatible object."""
+        """Return a existing ``SearchResponse`` compatible object."""
 
 
-class OpenAlexSearchProvider(LegacySearchProvider):
-    """Search-only provider that preserves legacy OpenAlex query behavior behind the SPI."""
+class OpenAlexSearchProvider(ClientSearchProvider):
+    """Search-only provider that preserves existing OpenAlex query behavior behind the SPI."""
 
     capability = "search"
 
@@ -46,7 +46,7 @@ class OpenAlexSearchProvider(LegacySearchProvider):
         super().__init__(client, _OPENALEX_BRIDGE_SPEC, enabled=enabled)
 
 
-def _legacy_filters(request: SearchRequest) -> dict[str, str] | None:
+def _existing_filters(request: SearchRequest) -> dict[str, str] | None:
     """Map only canonical, reviewed filters in deterministic upstream parameter order."""
     if request.filters is None:
         return None
@@ -65,19 +65,19 @@ def _legacy_filters(request: SearchRequest) -> dict[str, str] | None:
 
 
 def _to_search_page(response: Any, *, limit: int, context: RequestContext) -> SearchPage:
-    """Strictly transform legacy ``SearchResponse`` / ``PaperResult`` data to canonical DTOs."""
+    """Strictly transform existing ``SearchResponse`` / ``PaperResult`` data to canonical DTOs."""
     if getattr(response, "source", None) != _PROVIDER_ID:
-        raise ValueError("unexpected legacy response source")
+        raise ValueError("unexpected existing response source")
     results = getattr(response, "results", None)
     total = getattr(response, "total_results", None)
     response_page = getattr(response, "page", None)
     response_limit = getattr(response, "per_page", None)
     if not isinstance(results, Sequence) or isinstance(results, (str, bytes)):
-        raise ValueError("invalid legacy search results")
+        raise ValueError("invalid existing search results")
     if total is not None and (not isinstance(total, int) or isinstance(total, bool) or total < 0):
-        raise ValueError("invalid legacy result total")
+        raise ValueError("invalid existing result total")
     if response_page != 1 or response_limit != limit:
-        raise ValueError("legacy page does not match canonical request")
+        raise ValueError("existing page does not match canonical request")
 
     items = tuple(
         _to_search_item(paper, rank=index) for index, paper in enumerate(results, start=1)
@@ -91,9 +91,9 @@ def _to_search_page(response: Any, *, limit: int, context: RequestContext) -> Se
 
 
 def _to_search_item(paper: Any, *, rank: int) -> SearchItem:
-    """Map one normalized legacy paper while retaining only canonical public metadata."""
+    """Map one normalized existing paper while retaining only canonical public metadata."""
     if getattr(paper, "source", None) != _PROVIDER_ID:
-        raise ValueError("unexpected legacy paper source")
+        raise ValueError("unexpected existing paper source")
     title = _required_text(getattr(paper, "title", None))
     doi = _normalise_doi(getattr(paper, "doi", None))
     source_url = _normalise_url(getattr(paper, "source_url", None))
@@ -109,7 +109,7 @@ def _to_search_item(paper: Any, *, rank: int) -> SearchItem:
     canonical_url = f"https://doi.org/{doi}" if doi is not None else source_url
     raw = getattr(paper, "raw", {})
     if not isinstance(raw, Mapping):
-        raise ValueError("invalid legacy paper attributes")
+        raise ValueError("invalid existing paper attributes")
 
     return SearchItem(
         id=item_id,
@@ -207,7 +207,7 @@ def _author_names(value: Any) -> tuple[str, ...]:
 
 async def _bridge_invoke(client: Any, request: SearchRequest, limit: int) -> Any:
     return await client.search(
-        request.query, filters=_legacy_filters(request), sort=None, page=1, per_page=limit
+        request.query, filters=_existing_filters(request), sort=None, page=1, per_page=limit
     )
 
 
@@ -215,7 +215,7 @@ def _bridge_project(response: Any, limit: int, context: RequestContext) -> Searc
     return _to_search_page(response, limit=limit, context=context)
 
 
-_OPENALEX_BRIDGE_SPEC = LegacySearchSpec(
+_OPENALEX_BRIDGE_SPEC = ClientSearchSpec(
     "openalex", "paper", _bridge_invoke, _bridge_project, accepts_filters=True
 )
 __all__ = ["OpenAlexClientProtocol", "OpenAlexSearchProvider"]

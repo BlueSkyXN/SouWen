@@ -7,10 +7,23 @@ from uuid import uuid4
 
 from souwen.common_runtime.observability import get_request_id, request_id_var
 
-from .rollout import RolloutMode, is_target_contract_path
-
-
 _VALID_REQUEST_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+_TARGET_CONTRACT_PATHS = frozenset(
+    {
+        "/api/v1/search",
+        "/api/v1/llm-search",
+        "/api/v1/fetch",
+        "/api/v1/providers",
+        "/health",
+        "/healthz",
+        "/readiness",
+        "/readyz",
+    }
+)
+
+
+def is_target_contract_path(path: str) -> bool:
+    return path in _TARGET_CONTRACT_PATHS
 
 
 def _request_id(scope: dict) -> str:
@@ -22,7 +35,7 @@ def _request_id(scope: dict) -> str:
     return raw if _VALID_REQUEST_ID.fullmatch(raw) else uuid4().hex[:12]
 
 
-def _with_contract_headers(message: dict, request_id: str, mode: RolloutMode) -> dict:
+def _with_contract_headers(message: dict, request_id: str) -> dict:
     existing = [
         (name, value)
         for name, value in message.get("headers", ())
@@ -34,7 +47,7 @@ def _with_contract_headers(message: dict, request_id: str, mode: RolloutMode) ->
             *existing,
             (b"x-request-id", request_id.encode("ascii")),
             (b"x-souwen-api-major", b"2"),
-            (b"x-souwen-rollout-mode", mode.value.encode("ascii")),
+            (b"x-souwen-rollout-mode", b"target"),
         ],
     }
 
@@ -42,9 +55,8 @@ def _with_contract_headers(message: dict, request_id: str, mode: RolloutMode) ->
 class TargetRequestContextMiddleware:
     """Full request context for a standalone target Delivery application."""
 
-    def __init__(self, app, *, mode: RolloutMode) -> None:
+    def __init__(self, app) -> None:
         self.app = app
-        self.mode = mode
 
     async def __call__(self, scope, receive, send) -> None:
         if scope["type"] != "http":
@@ -55,7 +67,7 @@ class TargetRequestContextMiddleware:
 
         async def send_wrapper(message):
             if message["type"] == "http.response.start":
-                message = _with_contract_headers(message, request_id, self.mode)
+                message = _with_contract_headers(message, request_id)
             await send(message)
 
         try:
@@ -65,23 +77,26 @@ class TargetRequestContextMiddleware:
 
 
 class TargetContractHeadersMiddleware:
-    """Add target headers when the legacy host app owns request correlation."""
+    """Add target headers when the host app owns request correlation."""
 
-    def __init__(self, app, *, mode: RolloutMode) -> None:
+    def __init__(self, app) -> None:
         self.app = app
-        self.mode = mode
 
     async def __call__(self, scope, receive, send) -> None:
-        if scope["type"] != "http" or not is_target_contract_path(scope.get("path", ""), self.mode):
+        if scope["type"] != "http" or not is_target_contract_path(scope.get("path", "")):
             await self.app(scope, receive, send)
             return
 
         async def send_wrapper(message):
             if message["type"] == "http.response.start":
-                message = _with_contract_headers(message, get_request_id(), self.mode)
+                message = _with_contract_headers(message, get_request_id())
             await send(message)
 
         await self.app(scope, receive, send_wrapper)
 
 
-__all__ = ["TargetContractHeadersMiddleware", "TargetRequestContextMiddleware"]
+__all__ = [
+    "TargetContractHeadersMiddleware",
+    "TargetRequestContextMiddleware",
+    "is_target_contract_path",
+]

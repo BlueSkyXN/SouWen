@@ -1,18 +1,18 @@
 """Reviewed bridge declaration for authenticated PatSnap patent search."""
 
 from souwen.platform.provider_spec import (
-    LegacySearchProviderSpec,
-    LegacyTransportDeclaration,
+    ClientSearchProviderSpec,
+    ClientTransportDeclaration,
 )
 from souwen.platform.provider_spec.models import AuthDeclaration, HttpOperation
 
 
-PATSNAP_BRIDGE_SPEC = LegacySearchProviderSpec(
+PATSNAP_BRIDGE_SPEC = ClientSearchProviderSpec(
     provider_id="patsnap",
     adapter_id="patsnap-search",
     domain="patent",
-    bridge_reason="PatSnap response compatibility parsing remains in the legacy search bridge",
-    transport=LegacyTransportDeclaration(
+    adapter_reason="PatSnap response compatibility parsing remains in the existing search bridge",
+    transport=ClientTransportDeclaration(
         host="connect.patsnap.com",
         base_path="/open/api",
         protocol="json",

@@ -1,10 +1,10 @@
-"""Provider v2 bridge for OpenAIRE's nested legacy response."""
+"""Provider v2 bridge for OpenAIRE's nested existing response."""
 
 from __future__ import annotations
 import re
 from collections.abc import Mapping, Sequence
 from typing import Any, Protocol
-from souwen.platform.provider_spec import LegacySearchProvider, LegacySearchSpec
+from souwen.platform.provider_spec import ClientSearchProvider, ClientSearchSpec
 from souwen.platform.provider_spi import (
     PageInfo,
     Provenance,
@@ -25,7 +25,7 @@ class OpenAireClientProtocol(Protocol):
     async def search(self, query: str, size: int = 10) -> Any: ...
 
 
-class OpenAireSearchProvider(LegacySearchProvider):
+class OpenAireSearchProvider(ClientSearchProvider):
     def __init__(self, client: OpenAireClientProtocol, *, enabled: bool = True) -> None:
         super().__init__(client, _SPEC, enabled=enabled)
 
@@ -116,4 +116,4 @@ def _authors(paper: Any) -> tuple[str, ...]:
     return tuple(value for value in values if value is not None)
 
 
-_SPEC = LegacySearchSpec("openaire", "paper", _invoke, _project)
+_SPEC = ClientSearchSpec("openaire", "paper", _invoke, _project)

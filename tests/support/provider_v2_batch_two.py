@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import date
 
-from souwen.models import Author, PaperResult, PatentResult
+from souwen.providers.runtime_clients.models import Author, PaperResult, PatentResult
 
 
 def batch_two_paper(provider_id: str) -> PaperResult:

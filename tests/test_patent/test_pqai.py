@@ -1,6 +1,6 @@
 """PQAI 语义专利检索客户端单元测试（pytest-httpx mock）。
 
-覆盖 ``souwen.patent.pqai`` 中 PqaiClient 的 JSON 解析、字段映射、申请人/发明人格式兼容性。
+覆盖 ``souwen.providers.runtime_clients.patent.pqai`` 中 PqaiClient 的 JSON 解析、字段映射、申请人/发明人格式兼容性。
 验证混合申请人/发明人格式（字符串/字典）、CPC 代码、相似专利查询、CPC 预测等不变量。
 
 测试清单：
@@ -23,8 +23,8 @@ import pytest
 from datetime import date
 from pytest_httpx import HTTPXMock
 
-from souwen.core.exceptions import ConfigError
-from souwen.patent.pqai import PqaiClient
+from souwen.common_runtime.provider_support.exceptions import ConfigError
+from souwen.providers.runtime_clients.patent.pqai import PqaiClient
 
 TEST_API_TOKEN = "test-pqai-token"
 
@@ -217,7 +217,7 @@ async def test_similar_patents(httpx_mock: HTTPXMock):
 
 async def test_similar_patents_not_found(httpx_mock: HTTPXMock):
     """不存在的专利 ID 抛出 NotFoundError"""
-    from souwen.core.exceptions import NotFoundError
+    from souwen.common_runtime.provider_support.exceptions import NotFoundError
 
     httpx_mock.add_response(
         url=re.compile(r"https://api\.projectpq\.ai/similar/.*"),

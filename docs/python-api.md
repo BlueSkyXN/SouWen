@@ -1,75 +1,19 @@
 # Python API
 
-本文列出推荐的 Python 调用入口。完整模型字段和 REST 端点见
-[api-reference.md](./api-reference.md)。
-
-## 搜索
-
-```python
-from souwen.search import search, search_all, search_by_capability
-
-papers = await search("transformer", domain="paper", limit=5)
-web = await search("python asyncio", domain="web", capability="search", limit=5)
-news = await search_by_capability("AI news", capability="search_news", limit=5)
-mixed = await search_all("quantum computing", domains=["paper", "web"], per_domain_limit=5)
-```
-
-`search()` 返回按源聚合的 `SearchResponse` 列表。`query` 会先 `strip()`，
-strip 后为空会抛出 `ValueError`。`sources`、`engines` 和 `domains`
-可传单个字符串或字符串列表；单个源失败不会阻断其他源。
-
-## 抓取
+公开 Python API 是由 frozen OpenAPI 生成的 SDK，不承诺 provider client、registry 或
+旧搜索 facade 的 direct import。同步客户端 `SouWenClient` 和异步客户端
+`AsyncSouWenClient` 都只提供 Search、LLM Search、Fetch、Providers 与 probes。
 
 ```python
-from souwen.web.fetch import fetch_content
+from souwen import SouWenClient
+from souwen.delivery.client_sdk import SearchRequest
 
-resp = await fetch_content(
-    ["https://example.com"],
-    providers=["builtin", "readability"],
-    strategy="fallback",
-)
+with SouWenClient("http://127.0.0.1:8000", token="user-token") as client:
+    page = client.search(SearchRequest(query="quantum computing", domains=["paper"]))
+    providers = client.list_providers()
 ```
 
-`strategy="fallback"` 会按 provider 顺序补抓失败项；`strategy="fanout"` 会并发
-返回所有 provider 结果。
-
-## 网页归档
-
-```python
-from souwen.web.wayback import WaybackClient
-
-async with WaybackClient() as wayback:
-    snapshots = await wayback.query_snapshots("https://example.com", limit=5)
-```
-
-## 配置
-
-```python
-from souwen.config import get_config, reload_config
-
-config = get_config()
-print(config.timeout)
-
-config = reload_config()
-```
-
-配置优先级和字段表见 [configuration.md](./configuration.md)。
-
-## Source Catalog
-
-```python
-from souwen.config import get_config
-from souwen.registry.catalog import public_source_catalog_payload
-
-payload = public_source_catalog_payload(get_config())
-for source in payload["sources"]:
-    if (
-        source["available"]
-        and "search" in source["capabilities"]
-    ):
-        print(source["name"], source["category"])
-```
-
-该 payload 与 `/api/v1/sources` 保持一致。`available` 已合取启用、配置、凭据、本地
-runtime 与静态数据条件；再用 `domain + capability` 选择可执行的源。它不是 live 上游观测，
-具体失败轴可读取 `runtime_*`、`data_*`、`config_*` 与 credential 字段。
+SDK 在业务请求前通过 `/healthz` 校验 API major。Provider 选择和可用性必须读取
+`list_providers()`；它对应 `GET /api/v1/providers`，而不是已退休的 `/sources`。
+Provider catalog 的 source of truth 是 `ProviderManifest` catalog、`ManifestRegistry` 和
+`ProviderManager`。

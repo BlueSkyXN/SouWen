@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from souwen.web.bilibili._errors import (
+from souwen.providers.runtime_clients.web.bilibili._errors import (
     BilibiliAuthRequired,
     BilibiliError,
     BilibiliNotFound,

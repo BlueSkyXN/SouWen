@@ -1,6 +1,6 @@
 """OpenAlex API 客户端单元测试（pytest-httpx mock）。
 
-覆盖 ``souwen.paper.openalex`` 中 OpenAlexClient 的 JSON 解析、字段映射、分页、错误处理。
+覆盖 ``souwen.providers.runtime_clients.paper.openalex`` 中 OpenAlexClient 的 JSON 解析、字段映射、分页、错误处理。
 验证作者机构、概念提取、开放获取链接、引用计数等不变量。
 
 测试清单：
@@ -20,8 +20,8 @@ import pytest
 from pytest_httpx import HTTPXMock
 
 from souwen.config import get_config
-from souwen.core.exceptions import RateLimitError
-from souwen.paper.openalex import OpenAlexClient
+from souwen.common_runtime.provider_support.exceptions import RateLimitError
+from souwen.providers.runtime_clients.paper.openalex import OpenAlexClient
 
 
 # ---------------------------------------------------------------------------
@@ -302,7 +302,7 @@ async def test_get_by_doi(httpx_mock: HTTPXMock):
 
 async def test_get_by_doi_not_found(httpx_mock: HTTPXMock):
     """不存在的 DOI 抛出 NotFoundError"""
-    from souwen.core.exceptions import NotFoundError
+    from souwen.common_runtime.provider_support.exceptions import NotFoundError
 
     httpx_mock.add_response(
         url=re.compile(r"https://api\.openalex\.org/works/https://doi\.org/.*"),

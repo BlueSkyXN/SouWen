@@ -1,10 +1,10 @@
 /* Generated from contracts/openapi/souwen-openapi-2.0.0rc2.json; do not edit. */
 /* generator_version=1 */
-/* openapi_sha256=e4343a549c99596244c5f7cf8bed0d1675641bb4eec1a44abbcc65f8f6f18de9 */
+/* openapi_sha256=908a403a8976c9944a8fb0c249e696675049b059f945c8d6f0f547dda538016a */
 
 export const SDK_VERSION = '2.0.0rc2' as const
 export const SUPPORTED_API_MAJOR = 2 as const
-export const OPENAPI_SHA256 = 'e4343a549c99596244c5f7cf8bed0d1675641bb4eec1a44abbcc65f8f6f18de9' as const
+export const OPENAPI_SHA256 = '908a403a8976c9944a8fb0c249e696675049b059f945c8d6f0f547dda538016a' as const
 export const DEFAULT_TIMEOUT_MS = 125_000
 
 export interface ClientRequestContext {
@@ -125,7 +125,7 @@ export interface ProbeResponse {
   context: RequestContext
   error?: string | null
   ready: boolean
-  rollout_mode: RolloutMode
+  rollout_mode?: "target"
   source_sha?: string | null
   status: "ok" | "ready" | "not_ready"
   version: string
@@ -170,8 +170,6 @@ export interface RequestContext {
   request_id: string
   trace_id?: string | null
 }
-
-export type RolloutMode = "legacy" | "target"
 
 export interface SearchAttributes {
   authors?: Array<string>
@@ -264,9 +262,9 @@ export type OperationBindings = {
   llmSearch: OperationBinding<LLMSearchRequest, LLMSearchResult>
   listProviders: OperationBinding<never, ProviderCatalog>
   search: OperationBinding<SearchRequest, SearchPage>
-  healthLegacyAlias: OperationBinding<never, ProbeResponse>
+  healthAlias: OperationBinding<never, ProbeResponse>
   healthz: OperationBinding<never, ProbeResponse>
-  readinessLegacyAlias: OperationBinding<never, ProbeResponse>
+  readinessAlias: OperationBinding<never, ProbeResponse>
   readyz: OperationBinding<never, ProbeResponse>
 }
 
@@ -275,9 +273,9 @@ export const OPERATIONS: OperationBindings = {
   llmSearch: { method: 'POST', path: '/api/v1/llm-search', requestModel: 'LLMSearchRequest', responseModel: 'LLMSearchResult', responseStatuses: [200] },
   listProviders: { method: 'GET', path: '/api/v1/providers', requestModel: null, responseModel: 'ProviderCatalog', responseStatuses: [200] },
   search: { method: 'POST', path: '/api/v1/search', requestModel: 'SearchRequest', responseModel: 'SearchPage', responseStatuses: [200] },
-  healthLegacyAlias: { method: 'GET', path: '/health', requestModel: null, responseModel: 'ProbeResponse', responseStatuses: [200] },
+  healthAlias: { method: 'GET', path: '/health', requestModel: null, responseModel: 'ProbeResponse', responseStatuses: [200] },
   healthz: { method: 'GET', path: '/healthz', requestModel: null, responseModel: 'ProbeResponse', responseStatuses: [200] },
-  readinessLegacyAlias: { method: 'GET', path: '/readiness', requestModel: null, responseModel: 'ProbeResponse', responseStatuses: [200, 503] },
+  readinessAlias: { method: 'GET', path: '/readiness', requestModel: null, responseModel: 'ProbeResponse', responseStatuses: [200, 503] },
   readyz: { method: 'GET', path: '/readyz', requestModel: null, responseModel: 'ProbeResponse', responseStatuses: [200, 503] },
 } as const
 
@@ -463,11 +461,11 @@ export class SouWenClient {
   async llmSearch(payload: LLMSearchRequest, options: RequestOptions = {}): Promise<LLMSearchResult> { await this.ensureCompatible(options); return this.send(OPERATIONS.llmSearch, payload, options) }
   async fetch(payload: FetchRequest, options: RequestOptions = {}): Promise<FetchBatch> { await this.ensureCompatible(options); return this.send(OPERATIONS.fetch, payload, options) }
   async listProviders(options: RequestOptions = {}): Promise<ProviderCatalog> { await this.ensureCompatible(options); return this.send(OPERATIONS.listProviders, undefined, options) }
-  health(options: RequestOptions = {}): Promise<ProbeResponse> { return this.healthLegacyAlias(options) }
-  healthLegacyAlias(options: RequestOptions = {}): Promise<ProbeResponse> { return this.send(OPERATIONS.healthLegacyAlias, undefined, options) }
+  health(options: RequestOptions = {}): Promise<ProbeResponse> { return this.healthAlias(options) }
+  healthAlias(options: RequestOptions = {}): Promise<ProbeResponse> { return this.send(OPERATIONS.healthAlias, undefined, options) }
   async healthz(options: RequestOptions = {}): Promise<ProbeResponse> { const response = await this.send<ProbeResponse>(OPERATIONS.healthz, undefined, options); this.compatibilityVerified = true; return response }
-  readiness(options: RequestOptions = {}): Promise<ProbeResponse> { return this.readinessLegacyAlias(options) }
-  readinessLegacyAlias(options: RequestOptions = {}): Promise<ProbeResponse> { return this.send(OPERATIONS.readinessLegacyAlias, undefined, options) }
+  readiness(options: RequestOptions = {}): Promise<ProbeResponse> { return this.readinessAlias(options) }
+  readinessAlias(options: RequestOptions = {}): Promise<ProbeResponse> { return this.send(OPERATIONS.readinessAlias, undefined, options) }
   readyz(options: RequestOptions = {}): Promise<ProbeResponse> { return this.send(OPERATIONS.readyz, undefined, options) }
 
   private async ensureCompatible(options: RequestOptions): Promise<void> {

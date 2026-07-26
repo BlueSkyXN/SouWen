@@ -4,7 +4,12 @@ from __future__ import annotations
 
 from datetime import date
 
-from souwen.models import Author, PaperResult, PatentResult, SearchResponse
+from souwen.providers.runtime_clients.models import (
+    Author,
+    PaperResult,
+    PatentResult,
+    SearchResponse,
+)
 
 
 def response(source: str, *results: object) -> SearchResponse:

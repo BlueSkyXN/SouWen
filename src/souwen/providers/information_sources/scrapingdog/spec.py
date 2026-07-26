@@ -1,14 +1,14 @@
-"""Reviewed bridge declaration for scrapingdog legacy Search."""
+"""Reviewed bridge declaration for scrapingdog existing Search."""
 
-from souwen.platform.provider_spec import LegacySearchProviderSpec, LegacyTransportDeclaration
+from souwen.platform.provider_spec import ClientSearchProviderSpec, ClientTransportDeclaration
 from souwen.platform.provider_spec.models import AuthDeclaration, HttpOperation
 
-SCRAPINGDOG_PROVIDER_SPEC = LegacySearchProviderSpec(
+SCRAPINGDOG_PROVIDER_SPEC = ClientSearchProviderSpec(
     provider_id="scrapingdog",
     adapter_id="scrapingdog-search",
     domain="web",
-    bridge_reason="legacy WebSearchResponse normalization and canonical URL identity require a bridge",
-    transport=LegacyTransportDeclaration(
+    adapter_reason="existing WebSearchResponse normalization and canonical URL identity require a bridge",
+    transport=ClientTransportDeclaration(
         host="api.scrapingdog.com",
         protocol="json",
         operations=(HttpOperation(method="GET", endpoint="/google"),),

@@ -18,7 +18,7 @@ class CoolapkSearchProvider(CnScraperSearchProvider):
 
 
 def create_coolapk_client() -> Any:
-    from souwen.web.coolapk import CoolapkClient
+    from souwen.providers.runtime_clients.web.coolapk import CoolapkClient
 
     return CoolapkClient()
 

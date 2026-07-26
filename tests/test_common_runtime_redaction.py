@@ -15,7 +15,7 @@ from souwen.common_runtime.security import (
     scrub_secret_text,
 )
 from souwen.common_runtime.security import redaction as canonical_redaction
-from souwen.core import redaction as legacy_redaction
+from souwen.common_runtime.provider_support import redaction as legacy_redaction
 
 
 def test_core_redaction_reexports_canonical_text_and_url_primitives() -> None:

@@ -1,6 +1,6 @@
 from __future__ import annotations
 import pytest
-from souwen.models import SearchResponse, WebSearchResult
+from souwen.providers.runtime_clients.models import SearchResponse, WebSearchResult
 from souwen.platform.provider_spi import (
     ExecutionContext,
     ProviderError,

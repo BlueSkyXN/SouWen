@@ -1,10 +1,10 @@
-"""Provider v2 bridge for Zenodo's legacy client."""
+"""Provider v2 bridge for Zenodo's existing client."""
 
 from __future__ import annotations
 import re
 from collections.abc import Sequence
 from typing import Any, Protocol
-from souwen.platform.provider_spec import LegacySearchProvider, LegacySearchSpec
+from souwen.platform.provider_spec import ClientSearchProvider, ClientSearchSpec
 from souwen.platform.provider_spi import (
     PageInfo,
     Provenance,
@@ -24,7 +24,7 @@ class ZenodoClientProtocol(Protocol):
     async def search(self, query: str, size: int = 10) -> Any: ...
 
 
-class ZenodoSearchProvider(LegacySearchProvider):
+class ZenodoSearchProvider(ClientSearchProvider):
     def __init__(self, client: ZenodoClientProtocol, *, enabled: bool = True) -> None:
         super().__init__(client, _SPEC, enabled=enabled)
 
@@ -103,4 +103,4 @@ def _authors(paper: Any) -> tuple[str, ...]:
     return tuple(value for value in values if value is not None)
 
 
-_SPEC = LegacySearchSpec("zenodo", "paper", _invoke, _project)
+_SPEC = ClientSearchSpec("zenodo", "paper", _invoke, _project)

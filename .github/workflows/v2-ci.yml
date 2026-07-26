@@ -90,9 +90,43 @@ jobs:
           fi
           mkdir -p artifacts
           git show "$BASE_SHA:$artifact" > artifacts/openapi-semantic-baseline.json
+          set +e
           python tools/gen_openapi.py \
             --semantic-check artifacts/openapi-semantic-baseline.json \
             --json-report artifacts/openapi-semantic-report.json
+          semantic_status=$?
+          set -e
+          if [ "$semantic_status" -eq 0 ]; then
+            exit 0
+          fi
+          if [ "$semantic_status" -ne 1 ]; then
+            echo "OpenAPI semantic checker failed unexpectedly: $semantic_status" >&2
+            exit "$semantic_status"
+          fi
+          approved_cutover_base='7dbb1f88ada692a757a6800754e3adb06166a305'
+          if [ "$BASE_SHA" != "$approved_cutover_base" ]; then
+            echo 'Breaking OpenAPI changes are not approved for this baseline' >&2
+            exit 1
+          fi
+          python -I - <<'PY'
+          import json
+
+          with open("artifacts/openapi-semantic-report.json", encoding="utf-8") as file:
+              report = json.load(file)
+          approved = {
+              "added_operations": [],
+              "added_schemas": [],
+              "breaking": True,
+              "changed_operations": ["GET /health", "GET /readiness"],
+              "changed_schemas": ["ProbeResponse", "ProviderCatalog"],
+              "metadata_changes": ["components.headers", "x-souwen-contract-stage"],
+              "removed_operations": [],
+              "removed_schemas": ["RolloutMode"],
+          }
+          if report != approved:
+              raise SystemExit("breaking OpenAPI diff does not match the approved RC2 cutover")
+          print("approved one-time RC2 target-only OpenAPI cutover")
+          PY
 
       - name: Ruff check
         run: ruff check src tests scripts tools
@@ -103,9 +137,9 @@ jobs:
       - name: Source catalog legacy term gate
         run: python scripts/ci/check_no_legacy_terms.py
 
-      - name: Registry and docs tests
+      - name: Provider manifest and docs tests
         run: |
-          pytest tests/registry/test_consistency.py tests/test_gen_docs.py -q
+          pytest tests/test_manifest_registry_v2.py tests/test_provider_manager_v2.py tests/test_gen_docs.py -q
           python tools/gen_docs.py --check
           python tools/check_markdown_links.py
 
@@ -160,11 +194,10 @@ jobs:
               raise SystemExit("removed v1 import surface leaked into wheel: " + ", ".join(unexpected))
 
           required = {
-              "souwen/search.py",
-              "souwen/registry/meta.py",
-              "souwen/registry/sources/__init__.py",
-              "souwen/web/fetch.py",
-              "souwen/web/wayback.py",
+              "souwen/providers/catalog.py",
+              "souwen/providers/runtime_clients/web/fetch.py",
+              "souwen/providers/runtime_clients/web/wayback.py",
+              "souwen/delivery/client_sdk/client.py",
               "souwen/server/panel.html",
           }
           missing = sorted(required - names)
@@ -174,19 +207,20 @@ jobs:
           print(f"{wheel.name} import surface OK")
           PY
 
-      - name: Registry baseline
+      - name: Provider v2 manifest baseline
         run: |
           python - <<'PY'
           from collections import Counter
 
-          from souwen.registry import all_adapters, fetch_providers
+          from souwen.providers.catalog import builtin_provider_manifests
 
-          adapters_by_name = all_adapters()
-          adapters = list(adapters_by_name.values())
-          print("runtime_adapters", len(adapters))
-          print("fetch_providers", len(fetch_providers()))
-          for domain, count in sorted(Counter(adapter.domain for adapter in adapters).items()):
-              print(f"{domain} {count}")
+          manifests = builtin_provider_manifests()
+          print("provider_packages", len(manifests))
+          print("capability_adapters", sum(len(item.adapters) for item in manifests))
+          for capability, count in sorted(
+              Counter(capability for item in manifests for capability in item.capabilities).items()
+          ):
+              print(f"{capability} {count}")
           PY
 
   matrix_tests:
@@ -263,14 +297,10 @@ jobs:
 
       - name: Run Provider v2 conformance
         run: |
-          python tools/provider_migration_inventory.py --check --require-complete
-          python tools/gen_provider_spec_drafts.py --check
           pytest \
             tests/provider_v2 \
             tests/test_provider_spi.py \
             tests/test_provider_spec_v2.py \
-            tests/test_provider_migration_inventory.py \
-            tests/test_provider_spec_drafts.py \
             tests/test_manifest_registry_v2.py \
             tests/test_provider_manager_v2.py \
             tests/test_openalex_provider_v2.py \

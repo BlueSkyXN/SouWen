@@ -18,7 +18,7 @@ from souwen.platform.provider_spi import (
     SearchPage,
     SearchRequest,
 )
-from souwen.platform.provider_spec import LegacySearchProvider, LegacySearchSpec
+from souwen.platform.provider_spec import ClientSearchProvider, ClientSearchSpec
 
 
 _PROVIDER_ID = "patentsview"
@@ -36,13 +36,13 @@ class PatentsViewClientProtocol(Protocol):
         page: int = 1,
         sort: list[dict[str, str]] | None = None,
     ) -> Any:
-        """Return a normalized legacy ``SearchResponse`` compatible object."""
+        """Return a normalized existing ``SearchResponse`` compatible object."""
 
     async def close(self) -> None:
         """Close the explicitly injected transport."""
 
 
-class PatentsViewSearchProvider(LegacySearchProvider):
+class PatentsViewSearchProvider(ClientSearchProvider):
     """Search-only Provider v2 adapter for authenticated USPTO patent metadata."""
 
     capability = "search"
@@ -53,21 +53,21 @@ class PatentsViewSearchProvider(LegacySearchProvider):
 
 def _to_search_page(response: Any, *, limit: int, context: RequestContext) -> SearchPage:
     if getattr(response, "source", None) != _PROVIDER_ID:
-        raise ValueError("unexpected legacy response source")
+        raise ValueError("unexpected existing response source")
     results = getattr(response, "results", None)
     total = getattr(response, "total_results", None)
     response_page = getattr(response, "page", None)
     response_limit = getattr(response, "per_page", None)
     if not isinstance(results, Sequence) or isinstance(results, (str, bytes)):
-        raise ValueError("invalid legacy search results")
+        raise ValueError("invalid existing search results")
     if total is not None and (not isinstance(total, int) or isinstance(total, bool) or total < 0):
-        raise ValueError("invalid legacy result total")
+        raise ValueError("invalid existing result total")
     if response_page != 1 or response_limit != limit:
-        raise ValueError("legacy page does not match canonical request")
+        raise ValueError("existing page does not match canonical request")
     if len(results) > limit:
-        raise ValueError("legacy result count exceeds canonical limit")
+        raise ValueError("existing result count exceeds canonical limit")
     if total is not None and total < len(results):
-        raise ValueError("legacy result total is smaller than the returned page")
+        raise ValueError("existing result total is smaller than the returned page")
 
     items = tuple(_to_search_item(item, rank=index) for index, item in enumerate(results, 1))
     return SearchPage(
@@ -80,10 +80,10 @@ def _to_search_page(response: Any, *, limit: int, context: RequestContext) -> Se
 
 def _to_search_item(patent: Any, *, rank: int) -> SearchItem:
     if getattr(patent, "source", None) != _PROVIDER_ID:
-        raise ValueError("unexpected legacy patent source")
+        raise ValueError("unexpected existing patent source")
     raw = getattr(patent, "raw", None)
     if not isinstance(raw, Mapping):
-        raise ValueError("invalid legacy patent attributes")
+        raise ValueError("invalid existing patent attributes")
     patent_id = _patent_id(getattr(patent, "patent_id", None))
     source_url = _patent_url(getattr(patent, "source_url", None), patent_id)
     publication_date = getattr(patent, "publication_date", None)
@@ -161,7 +161,7 @@ def _bridge_project(response: Any, limit: int, context: RequestContext) -> Searc
     return _to_search_page(response, limit=limit, context=context)
 
 
-_PATENTSVIEW_BRIDGE_SPEC = LegacySearchSpec(
+_PATENTSVIEW_BRIDGE_SPEC = ClientSearchSpec(
     "patentsview", "patent", _bridge_invoke, _bridge_project
 )
 __all__ = ["PatentsViewClientProtocol", "PatentsViewSearchProvider"]

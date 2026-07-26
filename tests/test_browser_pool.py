@@ -10,13 +10,13 @@ from typing import Any
 import pytest
 
 from souwen.config.models import SouWenConfig
-from souwen.core.browser_pool import (
+from souwen.common_runtime.provider_support.browser_pool import (
     BrowserPoolKey,
     PlaywrightBrowserPool,
     close_browser_pools,
     get_browser_pool,
 )
-from souwen.core.exceptions import ConfigError
+from souwen.common_runtime.provider_support.exceptions import ConfigError
 
 
 class _FakePage:
@@ -184,7 +184,9 @@ async def test_browser_pool_rejects_invalid_host_pinning_rules(monkeypatch, rule
 @pytest.mark.asyncio
 async def test_get_browser_pool_reuses_per_loop_and_resolved_proxy(monkeypatch):
     cfg = SouWenConfig(proxy="http://global-proxy.example:8080")
-    monkeypatch.setattr("souwen.core.browser_pool.get_config", lambda: cfg)
+    monkeypatch.setattr(
+        "souwen.common_runtime.provider_support.browser_pool.get_config", lambda: cfg
+    )
 
     pool1 = get_browser_pool(source_name="google_patents", max_pages=1)
     pool2 = get_browser_pool(source_name="google_patents", max_pages=1)

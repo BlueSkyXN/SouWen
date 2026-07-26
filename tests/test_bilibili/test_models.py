@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from souwen.web.bilibili.models import (
+from souwen.providers.runtime_clients.web.bilibili.models import (
     BilibiliArticleResult,
     BilibiliSearchUserItem,
     BilibiliVideoDetail,

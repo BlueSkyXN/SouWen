@@ -1,6 +1,6 @@
 """Zotero 客户端单元测试（pytest-httpx mock）。
 
-覆盖 ``souwen.paper.zotero`` 中 ZoteroClient 的搜索、条目获取、全文提取、
+覆盖 ``souwen.providers.runtime_clients.paper.zotero`` 中 ZoteroClient 的搜索、条目获取、全文提取、
 集合列表、附件选择逻辑等。
 
 测试清单：
@@ -30,8 +30,8 @@ import re
 import pytest
 from pytest_httpx import HTTPXMock
 
-from souwen.core.exceptions import ConfigError, NotFoundError
-from souwen.paper.zotero import ZoteroClient
+from souwen.common_runtime.provider_support.exceptions import ConfigError, NotFoundError
+from souwen.providers.runtime_clients.paper.zotero import ZoteroClient
 
 
 # ---------------------------------------------------------------------------

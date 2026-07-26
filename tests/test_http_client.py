@@ -6,8 +6,8 @@ import httpx
 import pytest
 from tenacity import wait_none
 
-from souwen.core.exceptions import SourceUnavailableError
-from souwen.core.http_client import OAuthClient, SouWenHttpClient
+from souwen.common_runtime.provider_support.exceptions import SourceUnavailableError
+from souwen.common_runtime.provider_support.http_client import OAuthClient, SouWenHttpClient
 
 
 class _UrlAwareResponseClient(SouWenHttpClient):
@@ -23,7 +23,9 @@ def http_config():
     config = MagicMock()
     config.get_proxy.return_value = None
     config.max_retries = 3
-    with patch("souwen.core.http_client.get_config", return_value=config):
+    with patch(
+        "souwen.common_runtime.provider_support.http_client.get_config", return_value=config
+    ):
         yield config
 
 

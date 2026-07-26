@@ -169,7 +169,7 @@ runs:
                 if server is not None and server.poll() is not None:
                     raise RuntimeError(f'server bundle exited before health: {server.returncode}')
                 try:
-                    _, body, headers = request(base_url, '/health')
+                    _, body, headers = request(base_url, '/healthz')
                     return json.loads(body), headers
                 except (OSError, ValueError, RuntimeError):
                     time.sleep(0.5)
@@ -263,7 +263,6 @@ runs:
                     {
                         'HOME': str(temp_root / 'home'),
                         'PYTHONIOENCODING': 'utf-8',
-                        'SOUWEN_V2_ROLLOUT': 'target',
                         'SOUWEN_ADMIN_OPEN': '0',
                         'SOUWEN_EXPOSE_DOCS': '1',
                         'SOUWEN_USER_PASSWORD': user_fixture,
@@ -305,7 +304,7 @@ runs:
                     raise RuntimeError('health response omitted target rollout header')
                 record('server/health', 'PASS', 'version, source SHA, API major, target rollout')
 
-                _, readiness_body, _ = request(base_url, '/readiness')
+                _, readiness_body, _ = request(base_url, '/readyz')
                 readiness = json.loads(readiness_body)
                 if (
                     readiness.get('ready') is not True

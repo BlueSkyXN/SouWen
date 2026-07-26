@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import pytest
 
-from souwen.models import Author, PaperResult, SearchResponse
+from souwen.providers.runtime_clients.models import Author, PaperResult, SearchResponse
 from souwen.platform.provider_spi import ExecutionContext, RequestContext, SearchRequest
 from souwen.providers.information_sources.pmc import (
     PMC_BRIDGE_SPEC,

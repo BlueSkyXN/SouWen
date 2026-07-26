@@ -13,7 +13,7 @@ from souwen.common_runtime.channel_overrides import (
     source_channel_overrides_enabled,
 )
 from souwen.config import SouWenConfig
-from souwen.models import FetchResult as LegacyFetchResult
+from souwen.providers.runtime_clients.models import FetchResult as LegacyFetchResult
 from souwen.platform.provider_spi import (
     ExecutionContext,
     FetchRequest,
@@ -80,21 +80,12 @@ def test_every_batch_five_search_factory_dispatches_and_closes_with_reviewed_con
 ) -> None:
     constructor_calls, search_calls = [], {}
     closed: Counter[str] = Counter()
-    original_get = runtime_module.get_legacy_adapter
     clients = {
         provider_id: _fake_client(provider_id, constructor_calls, search_calls, closed)
         for provider_id in runtime_module._BATCH_FIVE_SEARCH_SOURCE_IDS
     }
 
-    def fake_get(provider_id):
-        if provider_id in clients:
-            return SimpleNamespace(
-                runtime_default_enabled=True,
-                client_loader=lambda provider_id=provider_id: clients[provider_id],
-            )
-        return original_get(provider_id)
-
-    monkeypatch.setattr(runtime_module, "get_legacy_adapter", fake_get)
+    monkeypatch.setattr(runtime_module, "_BATCH_FIVE_CLIENT_TYPES", clients)
     monkeypatch.delenv("SOUWEN_BROWSER_WORKER_TOKEN", raising=False)
     sources = {
         provider_id: {"enabled": True}
@@ -130,7 +121,6 @@ def test_every_batch_five_search_factory_dispatches_and_closes_with_reviewed_con
     asyncio.run(exercise())
     assert set(search_calls) == set(clients)
     expected_closed = Counter({provider_id: 1 for provider_id in clients})
-    expected_closed["duckduckgo"] += len(runtime_module._BATCH_FIVE_DDG_SITE_SOURCE_IDS)
     assert closed == expected_closed
     calls = {provider_id: values for provider_id, *values in constructor_calls}
     assert all(values[1] is False for values in calls.values())

@@ -1,12 +1,12 @@
 """Reviewed local-store search declaration for Taiwan new-books."""
 
-from souwen.platform.provider_spec import LegacySearchProviderSpec, LocalStoreDeclaration
+from souwen.platform.provider_spec import ClientSearchProviderSpec, LocalStoreDeclaration
 
-TAIWAN_NEW_BOOKS_PROVIDER_SPEC = LegacySearchProviderSpec(
+TAIWAN_NEW_BOOKS_PROVIDER_SPEC = ClientSearchProviderSpec(
     provider_id="taiwan_new_books",
     adapter_id="taiwan_new_books-search",
     domain="book",
-    bridge_reason="local SQLite ISBN catalog projection remains in the legacy client",
+    adapter_reason="local SQLite ISBN catalog projection remains in the existing client",
     transport=LocalStoreDeclaration(
         store="local_catalog", protocol="sqlite", operations=("search",)
     ),

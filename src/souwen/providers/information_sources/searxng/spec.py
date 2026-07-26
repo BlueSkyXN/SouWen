@@ -1,14 +1,14 @@
 from souwen.platform.provider_spec import (
     HttpOperation,
-    LegacySearchProviderSpec,
+    ClientSearchProviderSpec,
     SelfHostedTransportDeclaration,
 )
 
-SEARXNG_PROVIDER_SPEC = LegacySearchProviderSpec(
+SEARXNG_PROVIDER_SPEC = ClientSearchProviderSpec(
     provider_id="searxng",
     adapter_id="searxng-search",
     domain="web",
-    bridge_reason="self-hosted JSON search parsing remains behind a strict Search bridge",
+    adapter_reason="self-hosted JSON search parsing remains behind a strict Search bridge",
     transport=SelfHostedTransportDeclaration(
         protocol="json",
         operations=(HttpOperation(method="GET", endpoint="/search"),),

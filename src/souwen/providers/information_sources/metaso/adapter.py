@@ -24,10 +24,10 @@ from souwen.platform.provider_spi import (
     SearchRequest,
 )
 from souwen.platform.provider_spec import (
-    LegacyFetchProvider,
-    LegacyFetchSpec,
-    LegacySearchProvider,
-    LegacySearchSpec,
+    ClientFetchProvider,
+    ClientFetchSpec,
+    ClientSearchProvider,
+    ClientSearchSpec,
 )
 
 _PROVIDER_ID = "metaso"
@@ -39,12 +39,12 @@ class MetasoClientProtocol(Protocol):
     async def close(self) -> None: ...
 
 
-class MetasoSearchProvider(LegacySearchProvider):
+class MetasoSearchProvider(ClientSearchProvider):
     def __init__(self, client: MetasoClientProtocol, *, enabled: bool = True) -> None:
         super().__init__(client, _SEARCH_SPEC, enabled=enabled)
 
 
-class MetasoFetchProvider(LegacyFetchProvider):
+class MetasoFetchProvider(ClientFetchProvider):
     def __init__(self, client: MetasoClientProtocol, *, enabled: bool = True) -> None:
         super().__init__(client, _FETCH_SPEC, enabled=enabled)
 
@@ -184,5 +184,5 @@ def _text(value: Any) -> str | None:
     return value.strip() or None
 
 
-_SEARCH_SPEC = LegacySearchSpec(_PROVIDER_ID, "web", _search, _project_search)
-_FETCH_SPEC = LegacyFetchSpec(_PROVIDER_ID, _fetch, _project_fetch)
+_SEARCH_SPEC = ClientSearchSpec(_PROVIDER_ID, "web", _search, _project_search)
+_FETCH_SPEC = ClientFetchSpec(_PROVIDER_ID, _fetch, _project_fetch)

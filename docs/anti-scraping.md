@@ -6,14 +6,14 @@
 
 | 技术 | 说明 | 模块 |
 |------|------|------|
-| **TLS 指纹模拟** | curl_cffi impersonate Chrome 120/124 | `fingerprint.py` |
-| **浏览器指纹库** | 10 个指纹（Chrome + Edge + Safari + Android） | `fingerprint.py` |
-| **浏览器请求头** | 13 个头（Sec-CH-UA 系列、Sec-Fetch 系列） | `fingerprint.py` |
-| **分层重试** | http (3次) / scraper (5次) / captcha (5次) | `retry.py` |
-| **异步会话缓存** | aiosqlite 异步 SQLite 持久化 OAuth Token / Cookie | `session_cache.py` |
+| **TLS 指纹模拟** | curl_cffi impersonate Chrome 120/124 | `common_runtime/provider_support/fingerprint.py` |
+| **浏览器指纹库** | 10 个指纹（Chrome + Edge + Safari + Android） | `common_runtime/provider_support/fingerprint.py` |
+| **浏览器请求头** | 13 个头（Sec-CH-UA 系列、Sec-Fetch 系列） | `common_runtime/provider_support/fingerprint.py` |
+| **分层重试** | http / scraper / captcha 分类重试 | `common_runtime/provider_support/retry.py` |
+| **异步会话缓存** | aiosqlite 异步 SQLite 持久化 OAuth Token / Cookie | `common_runtime/provider_support/session_cache.py` |
 | **代理池轮换** | 多代理 URL 随机选取 | `config/models.py` |
-| **礼貌爬取** | 随机间隔 + 自适应退避 + 429 处理 | `scraper/base.py` |
-| **Playwright 池化** | 按 event loop / browser / proxy 复用浏览器进程 | `browser_pool.py` |
+| **礼貌爬取** | 随机间隔 + 自适应退避 + 429 处理 | `common_runtime/provider_support/scraper/base.py` |
+| **Playwright 池化** | 按 event loop / browser / proxy 复用浏览器进程 | `common_runtime/provider_support/browser_pool.py` |
 
 > curl_cffi 为可选依赖，未安装时自动回退到 httpx。
 
@@ -51,21 +51,12 @@ async with AsyncSession(impersonate="chrome124") as session:
 
 ### 指纹轮换策略
 
-```python
-from souwen.core.fingerprint import get_random_fingerprint
-
-# 每个 BaseScraper 实例创建时随机选取一个指纹
-fingerprint = get_random_fingerprint()
-
-# 也可以主动轮换
-new_fingerprint = fingerprint.rotate()
-```
-
-每个爬虫实例在创建时随机选取一个指纹，所有请求使用相同指纹以保持会话一致性。需要轮换时调用 `rotate()` 获取新指纹。
+每个私有 runtime client 在创建时选取一个指纹，所有请求使用相同指纹以保持会话一致性；
+需要轮换时由 client 内部调用 `rotate()`。该实现属于 Provider runtime，不是公共 Python API。
 
 ## Playwright 浏览器池化
 
-`src/souwen/core/browser_pool.py` 提供内置 Playwright browser pool。它按当前
+`src/souwen/common_runtime/provider_support/browser_pool.py` 提供内置 Playwright browser pool。它按当前
 event loop、browser 名称、headless 设置和解析后的 proxy 建立池 key；同一个 key
 复用一个浏览器进程，每次调用创建独立 browser context / page，避免跨任务共享
 cookie、localStorage 或页面状态。
@@ -122,12 +113,10 @@ general:
 
 每次请求随机选取一个代理，分散请求来源。对于高风险目标（如 Google），强烈建议配置代理。
 
-## SSRF 防护（fetch / provider direct URL calls / links / sitemap / wayback）
+## SSRF 防护（Fetch 与 Provider direct-target transport）
 
-`/api/v1/fetch`、provider 的 direct URL 调用（如 `fetch` / `scrape` / `extract` /
-`contents` / `reader` / `find_similar` / `map` / `crawl`）、`/links`、`/sitemap`、
-Wayback fetch 和 Wayback Save Page Now 在实际抓取、调用第三方提取/爬取服务或触发
-存档前调用 `souwen.web.fetch.validate_fetch_url(url)`：
+`/api/v1/fetch` 以及接收调用方 URL 的 Provider adapter，在实际直连、调用第三方提取服务或
+交给 Browser Worker 前统一执行 canonical URL/IP 校验：
 
 1. 仅允许 `http` / `https` scheme；
 2. DNS 解析所有 A/AAAA 记录；
@@ -136,12 +125,7 @@ Wayback fetch 和 Wayback Save Page Now 在实际抓取、调用第三方提取/
 5. IPv4-mapped IPv6、NAT64 well-known prefix、6to4、Teredo 等嵌入 IPv4 的地址会同时按外层 IPv6 和内层 IPv4 判定，避免 `::ffff:127.0.0.1` 这类包装地址绕过；
 6. 直连 URL 仍拒绝 `198.18.0.0/15`，但域名 DNS 解析到该 fake-IP/benchmark 网段时允许通过，以兼容 Clash 等本机 fake-IP DNS 代理；
 7. 重定向跟随过程中**逐跳**重新校验，防止多跳 SSRF；
-8. `jina_reader`、`firecrawl`、`exa`、`tavily`、`xcrawl`、`crawl4ai`、`scrapling`、`scrapfly`、`diffbot`、`scrapingbee`、`zenrows`、`scraperapi`、`apify`、`cloudflare_browser`、`metaso` 和 `kimi_code` 等 provider direct URL calls 在把目标 URL 交给第三方 API 或本地浏览器前会先拦截；能承载 `FetchResult` / `FetchResponse` 的路径返回 blocked result，原始 dict 或 search-style direct 方法则抛出明确 `SSRF 校验失败` 错误；
-9. `scrapling` 的 `dynamic` / `stealthy` 浏览器模式会在 Playwright `page_setup` 中安装请求拦截，对 navigation、子资源、XHR/fetch 等浏览器请求复用同一 URL 校验，命中内网/回环/link-local/保留地址时 abort。
-
-Wayback CDX 历史快照查询是 archive.org 元数据查询，仍保留 `example.com` 和
-通配符等 CDX 查询形式；会触发内容抓取或外部存档的 Wayback fetch/save 路径会先拒绝
-内部、回环、链路本地和保留地址。
+8. 所有 target Fetch provider 在将目标 URL 交给上游服务前均执行同一校验；被拒绝的目标以 canonical blocked result 或安全错误返回，不回显敏感网络细节。
 
 被 SSRF 拦截的 URL 仍会出现在响应的 `results` 中，但 `error` 字段会标注 `ssrf_blocked` 类的原因，方便客户端区分。
 
@@ -179,21 +163,7 @@ docker run -d \
 
 入口脚本会把状态写入 `/run/souwen-warp.json`，Python 端的 `WarpManager` 启动时通过 `reconcile()` 同步。
 
-**方式 B — 运行时通过管理 API 切换**
-
-```bash
-# 启用（使用 admin_password）
-curl -X POST 'http://localhost:8000/api/v1/admin/warp/enable?mode=auto&socks_port=1080' \
-     -H "Authorization: Bearer $ADMIN_PASSWORD"
-
-# 查询状态
-curl 'http://localhost:8000/api/v1/admin/warp' -H "Authorization: Bearer $ADMIN_PASSWORD"
-
-# 禁用
-curl -X POST 'http://localhost:8000/api/v1/admin/warp/disable' -H "Authorization: Bearer $ADMIN_PASSWORD"
-```
-
-`get_status()` 返回 `{status, mode, owner, socks_port, ip, pid, interface, last_error, available_modes}`，`owner` 字段用于区分进程归属（`shell`=容器入口启动，`python`=运行时管理 API 启动）。
+运行时网络配置由部署环境和配置文件管理；target-only Server 不提供 WARP 管理 HTTP API。
 
 ### 让单源走 WARP
 
@@ -219,7 +189,7 @@ sources:
 | `bilibili` | 部分接口要求授权 + 风控（403 RiskControl） | 设置 `bilibili_sessdata`，控制频率 |
 | `duckduckgo` | 偶发风控弹窗，对 TLS 指纹敏感 | `http_backend: curl_cffi` |
 | `cnipa` (中国知识产权局) | OAuth + 仅大陆 IP 可达 | 关闭 WARP；走大陆出口或不配代理 |
-| `wayback` | IA 全局速率约 15 次/分钟 | 控制 `archive_save` 调用频率 |
+| `wayback` | IA 读取接口有全局速率限制 | 仅作为 Fetch Provider 使用并控制请求频率 |
 
 ## 全局开关与可选依赖
 
@@ -236,5 +206,5 @@ pip install -e .[tls]
 ## 交叉引用
 
 - 代理 / 频道配置语义：[configuration.md](./configuration.md#数据源频道配置sources)
-- WARP 管理 REST 端点：[api-reference.md](./api-reference.md#post-apiv1adminwarpenable)
+- 公开 API 边界：[api-reference.md](./api-reference.md)
 - 添加新 scraper 类源：[adding-a-source.md](./adding-a-source.md)

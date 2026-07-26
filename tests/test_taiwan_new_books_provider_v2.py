@@ -1,6 +1,11 @@
 from __future__ import annotations
 import pytest
-from souwen.models import BookIdentifier, BookResult, ResourceAccess, SearchResponse
+from souwen.providers.runtime_clients.models import (
+    BookIdentifier,
+    BookResult,
+    ResourceAccess,
+    SearchResponse,
+)
 from souwen.platform.provider_spi import ExecutionContext, RequestContext, SearchRequest
 from souwen.providers.information_sources.taiwan_new_books import (
     TAIWAN_NEW_BOOKS_PROVIDER_MANIFEST,

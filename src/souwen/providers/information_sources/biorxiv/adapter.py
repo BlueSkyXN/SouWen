@@ -5,7 +5,7 @@ import re
 from collections.abc import Sequence
 from typing import Any, Protocol
 
-from souwen.platform.provider_spec import LegacySearchProvider, LegacySearchSpec
+from souwen.platform.provider_spec import ClientSearchProvider, ClientSearchSpec
 from souwen.platform.provider_spi import (
     PageInfo,
     Provenance,
@@ -25,7 +25,7 @@ class BioRxivClientProtocol(Protocol):
     async def search(self, query: str, per_page: int = 10) -> Any: ...
 
 
-class BioRxivSearchProvider(LegacySearchProvider):
+class BioRxivSearchProvider(ClientSearchProvider):
     def __init__(self, client: BioRxivClientProtocol, *, enabled: bool = True) -> None:
         super().__init__(client, _SPEC, enabled=enabled)
 
@@ -82,4 +82,4 @@ def _item(paper: Any, rank: int) -> SearchItem:
     )
 
 
-_SPEC = LegacySearchSpec("biorxiv", "paper", _invoke, _project)
+_SPEC = ClientSearchSpec("biorxiv", "paper", _invoke, _project)

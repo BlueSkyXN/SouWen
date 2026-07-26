@@ -1,54 +1,22 @@
-# SouWen 搜文 — 学术搜索 API
+# SouWen target-only v2 API
 
-面向 AI Agent 的学术论文 + 专利 + 网页统一搜索 API 服务。
+ModelScope image exposes only target v2 Search, LLM Search and Fetch:
 
-## 端点
+| Method | Path |
+|---|---|
+| POST | `/api/v1/search` |
+| POST | `/api/v1/llm-search` |
+| POST | `/api/v1/fetch` |
+| GET | `/api/v1/providers` |
+| GET | `/healthz`、`/readyz` |
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/health` | 存活探针 |
-| GET | `/readiness` | 就绪探针（v0.6.1） |
-| GET | `/api/v1/search/paper?q=...` | 搜索学术论文 |
-| GET | `/api/v1/search/patent?q=...` | 搜索专利 |
-| GET | `/api/v1/search/web?q=...` | 搜索网页（默认 `engines=duckduckgo,bing`） |
-| GET | `/api/v1/sources` | 列出所有可用数据源 |
-| GET | `/api/v1/admin/config` | 查看配置（需认证） |
-| POST | `/api/v1/admin/config/reload` | 重载配置（需认证） |
-| GET | `/api/v1/admin/doctor` | 数据源健康检查（需认证） |
-| GET | `/api/v1/admin/warp` | 查询 WARP 状态（需认证） |
-| POST | `/api/v1/admin/warp/enable` | 启用 WARP 代理（需认证） |
-| POST | `/api/v1/admin/warp/disable` | 关闭 WARP 代理（需认证） |
+`/health` 与 `/readiness` 是 retained 2.x aliases. `/api/v1/providers` is the safe
+ProviderManifest/ManifestRegistry/ProviderManager catalog projection; `/sources` is retired.
+Admin only retains authenticated read-only `/api/v1/admin/config`, `/doctor`, and `/ping`.
 
-## 配置
+Set `SOUWEN_USER_PASSWORD` to protect Data API and `SOUWEN_ADMIN_PASSWORD` to protect Admin.
+There is no rollout switch and no public citation, detail, archive-save, recursive-crawl,
+browser-fetch product entry, or legacy enriched-search endpoint.
 
-通过 ModelScope 创空间的**环境变量**注入：
-
-| 变量 | 说明 |
-|------|------|
-| `SOUWEN_CONFIG_B64` | Base64 编码的 souwen.yaml 完整配置 |
-| `SOUWEN_USER_PASSWORD` | 用户密码，保护搜索和 `/api/v1/sources` |
-| `SOUWEN_ADMIN_PASSWORD` | 管理密码，保护 `/api/v1/admin/*` |
-| `SOUWEN_GUEST_ENABLED` | 设为 `true` 时允许无 Token 访问搜索端点 |
-| `SOUWEN_ADMIN_OPEN` | 设为 `1` 时显式放行未配置密码的 admin 端点（仅本地/CI 调试用） |
-| `SOUWEN_TRUSTED_PROXIES` | 受信反向代理 IP/CIDR 列表，逗号分隔 |
-| `SOUWEN_EXPOSE_DOCS` | 是否暴露 `/docs`、`/redoc`、`/openapi.json`，生产建议 `false` |
-| `SOUWEN_MAX_CONCURRENCY` | 聚合搜索并发上限，默认 `10`（v0.6.0） |
-| `SOUWEN_OPENALEX_API_KEY` | OpenAlex Freemium API Key（可选；额度/预付余额以账户为准） |
-| `SOUWEN_OPENALEX_EMAIL` | 已弃用兼容字段（当前不发送给 OpenAlex） |
-| `SOUWEN_TAVILY_API_KEY` | Tavily AI 搜索 Key |
-| `WARP_ENABLED` | 设为 `1` 启用内嵌 Cloudflare WARP 代理 |
-| ... | 其他 SOUWEN_* 环境变量均可直接设置 |
-
-> 大部分爬虫引擎（DuckDuckGo、Yahoo 等）无需 API Key 即可使用。
-
-## ModelScope 部署说明
-
-- **端口固定 7860**：ModelScope 创空间要求容器监听 `7860`，镜像内已通过 `ENV PORT=7860` 固定，请勿覆盖。
-- **源码必须固定**：构建时必须传入完整 commit，例如 `--build-arg SOUWEN_REF=<40位SHA>`；模板中的全零占位符会 fail closed，不会拉取 floating `main`。
-- **运行时来源**：镜像写入 `/home/user/app/runtime.source.sha`，`/health` 与 `/readiness` 会返回同一 `source_sha`。
-- **WARP runtime 目录**：默认 `/home/user/app/data/bin`，可用 `WARP_RUNTIME_BIN_DIR` 覆盖。
-- **GitHub 加速**：构建镜像时可通过 `--build-arg GH_PROXY=https://ghproxy.com` 为 `wgcf` / `wireproxy` 等 GitHub Releases 下载注入代理前缀，规避 ModelScope 构建机访问 GitHub 的网络限制。详见 `cloud/modelscope/Dockerfile`。
-
-## 源码
-
-- 项目仓库：<https://github.com/BlueSkyXN/SouWen>
+ModelScope listens on port `7860`; its Docker healthcheck uses `/healthz`. Build with an immutable
+`SOUWEN_REF=<40-character SHA>`; the all-zero template value fails closed.

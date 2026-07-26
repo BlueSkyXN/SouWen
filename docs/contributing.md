@@ -89,28 +89,27 @@ ruff check --fix src/
 ruff format src/
 ```
 
-## 添加新数据源
+## 添加新 Provider
 
-新增源只需 **1-2 处**改动：
+1. 在对应 `providers/{information_sources,fetch_sources,llm_sources}/<id>/` 增加
+   `manifest.py`、`spec.py` 与 `adapter.py`。
+2. 复用 Common Runtime；需要 provider-specific transport/parser 时放入私有
+   `providers/runtime_clients/`，不要新增顶层 facade。
+3. 增加 manifest/spec/adapter parity、eligibility、factory lifecycle、dispatch 与
+   normalization 的 deterministic tests。
 
-1. 实现 `Client` 类（继承 `SouWenHttpClient` / `OAuthClient` / `BaseScraper`）。
-2. 在 `src/souwen/registry/sources/` 的对应 segment 模块添加一个 `_reg(SourceAdapter(...))`。
-3. 若需要 API Key，在 `src/souwen/config/models.py` 的 `SouWenConfig` 加字段并在 adapter 里通过 `config_field="..."` 引用。
-
-完整步骤、模板与一致性测试要求请看 **[adding-a-source.md](./adding-a-source.md)**。
-
-> 注意：注册表会被 `tests/registry/test_consistency.py` 守护——`client_loader` 指向的类、`MethodSpec.method_name`、`param_map` 的目标参数、`config_field` 是否在 `SouWenConfig` 中存在等都会被自动校验，新增源**必须**让该测试通过。
+完整步骤与验证命令请看 **[adding-a-source.md](./adding-a-source.md)**。
 
 ## 公开 API 入口约定
 
-注册表是单一事实源，但提供多条等价的入口路径：
+Provider manifest catalog 是单一事实源，公开入口固定为 generated SDK 和 target API：
 
-- ✅ **顶层便捷入口**：`souwen.search.search / search_all / search_papers / search_patents / web_search`、`souwen.web.fetch.fetch_content`、`souwen.web.wayback.WaybackClient` 等；内部通过 `souwen.registry` 派发。
-- ✅ **结果模型 `source` 与 source catalog**：结果模型使用普通字符串，内置值由 `registry.views.enum_values()` / `registry.catalog.source_catalog()` 派生。
+- ✅ **SDK 与 Provider Catalog**：调用方通过 generated client 和 `/api/v1/providers` 获取操作与 provider 信息。
+- ✅ **结果模型与 provider metadata**：canonical DTO 使用 provider id 和 provenance，不维护平行 source catalog。
 - ✅ **配置字段**：`SouWenConfig` 的 flat key（如 `tavily_api_key`）与频道覆盖 `sources.<name>.api_key` 都支持；新增源若选用 flat key 需同时支持频道覆盖。
-- ✅ **平台层入口**：`souwen.core.scraper.base` / `souwen.core.http_client` / `souwen.core.fingerprint` 是唯一推荐路径，不再新增顶层代理模块。
-- ❌ **不要新增 dispatcher dict**：搜索路由、`source_map`、`engine_map` 等都已下沉到 registry 派发，新源不要再去改 `search.py` / `web/search.py`。
-- ❌ **不要绕过 registry**：CLI / 服务端 / 文档生成都应通过 `souwen.registry` 查询，避免出现"信息散落多处"的回退。
+- ✅ **平台层入口**：公共实现依赖 common runtime primitives，不新增顶层代理模块。
+- ❌ **不要新增 dispatcher dict**：provider 选择由 manifest registry 和 manager 负责。
+- ❌ **不要绕过 manifest registry**：服务端与文档生成共享同一 provider catalog。
 
 ## 提交规范（Conventional Commits）
 
@@ -131,8 +130,8 @@ ruff format src/
 ```
 feat(registry): add aliyun_iqs as web search provider
 fix(scraper): retry on curl_cffi connection reset
-docs(api): document /api/v1/sitemap endpoint
-refactor(core): move BaseScraper into core/scraper
+docs(api): document target API contract
+refactor(runtime): move shared transport into common runtime
 ```
 
 ## 分支策略

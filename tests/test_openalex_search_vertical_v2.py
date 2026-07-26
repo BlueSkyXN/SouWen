@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from souwen.models import Author, PaperResult, SearchResponse
+from souwen.providers.runtime_clients.models import Author, PaperResult, SearchResponse
 from souwen.modules.search.application import (
     OrderedSearchProviderSelector,
     SearchModuleService,

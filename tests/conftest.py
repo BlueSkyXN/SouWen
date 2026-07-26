@@ -44,38 +44,6 @@ def _subprocess_pythonpath() -> str:
 
 
 @pytest.fixture
-def clean_registry():
-    """保存并恢复 registry 状态，隔离临时 adapter 测试。"""
-    from souwen.registry.views import _REGISTRY
-
-    saved_registry = dict(_REGISTRY)
-    try:
-        yield
-    finally:
-        _REGISTRY.clear()
-        _REGISTRY.update(saved_registry)
-        try:
-            from souwen.registry.meta import invalidate_source_meta_cache
-
-            invalidate_source_meta_cache()
-        except ImportError:
-            pass
-
-
-@pytest.fixture
-def clean_fetch_handlers():
-    """保存并恢复 fetch handler 注册表。"""
-    from souwen.web.fetch import _FETCH_HANDLERS
-
-    saved = dict(_FETCH_HANDLERS)
-    try:
-        yield
-    finally:
-        _FETCH_HANDLERS.clear()
-        _FETCH_HANDLERS.update(saved)
-
-
-@pytest.fixture
 def mock_public_dns(monkeypatch: pytest.MonkeyPatch) -> None:
     """Resolve provider-test hostnames to a deterministic public address."""
     import socket

@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 
-from souwen.models import WebSearchResponse
-from souwen.web.juejin import JuejinClient, _clean_html
+from souwen.providers.runtime_clients.models import WebSearchResponse
+from souwen.providers.runtime_clients.web.juejin import JuejinClient, _clean_html
 
 
 class TestCleanHtml:

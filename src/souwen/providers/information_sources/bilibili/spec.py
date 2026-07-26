@@ -1,6 +1,6 @@
-from souwen.platform.provider_spec import AuthDeclaration, HttpOperation, legacy_scraper_spec
+from souwen.platform.provider_spec import AuthDeclaration, HttpOperation, client_scraper_spec
 
-BILIBILI_PROVIDER_SPEC = legacy_scraper_spec(
+BILIBILI_PROVIDER_SPEC = client_scraper_spec(
     "bilibili",
     "videos",
     "api.bilibili.com",

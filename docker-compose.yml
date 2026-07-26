@@ -43,7 +43,7 @@ services:
     
     # 健康检查配置
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:49265/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:49265/healthz"]
       interval: 30s
       timeout: 5s
       start_period: 30s

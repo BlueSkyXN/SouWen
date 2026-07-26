@@ -5,11 +5,22 @@ from __future__ import annotations
 import pytest
 from unittest.mock import AsyncMock, patch, MagicMock
 
-from souwen.models import WebSearchResponse
-from souwen.web.ddg_news import DuckDuckGoNewsClient
-from souwen.web.ddg_images import DuckDuckGoImagesClient, ImageSearchResponse
-from souwen.web.ddg_videos import DuckDuckGoVideosClient, VideoSearchResponse
-from souwen.web.ddg_utils import extract_vqd, normalize_text, normalize_url, parse_next_offset
+from souwen.providers.runtime_clients.models import WebSearchResponse
+from souwen.providers.runtime_clients.web.ddg_news import DuckDuckGoNewsClient
+from souwen.providers.runtime_clients.web.ddg_images import (
+    DuckDuckGoImagesClient,
+    ImageSearchResponse,
+)
+from souwen.providers.runtime_clients.web.ddg_videos import (
+    DuckDuckGoVideosClient,
+    VideoSearchResponse,
+)
+from souwen.providers.runtime_clients.web.ddg_utils import (
+    extract_vqd,
+    normalize_text,
+    normalize_url,
+    parse_next_offset,
+)
 
 
 class TestDDGUtils:

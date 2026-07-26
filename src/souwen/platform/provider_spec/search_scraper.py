@@ -1,4 +1,4 @@
-"""Strict Provider v2 projection for legacy scraper search clients."""
+"""Strict Provider v2 projection for existing scraper search clients."""
 
 from __future__ import annotations
 
@@ -19,12 +19,12 @@ from souwen.platform.provider_spi import (
     SearchRequest,
 )
 
-from .factory import LegacySearchProvider, LegacySearchSpec
+from .factory import ClientSearchProvider, ClientSearchSpec
 from .models import (
     AuthDeclaration,
     HttpOperation,
-    LegacySearchProviderSpec,
-    LegacyTransportDeclaration,
+    ClientSearchProviderSpec,
+    ClientTransportDeclaration,
 )
 from souwen.platform.manifest_registry import ProviderManifest
 
@@ -51,10 +51,10 @@ def canonical_public_url(value: Any) -> str:
     return urlunsplit((parsed.scheme.lower(), netloc, parsed.path or "/", parsed.query, ""))
 
 
-class ScraperSearchProvider(LegacySearchProvider):
-    """Search bridge for first-page legacy scraper responses.
+class ScraperSearchProvider(ClientSearchProvider):
+    """Search bridge for first-page existing scraper responses.
 
-    The legacy client still owns request sequencing, anti-bot handling and HTML or
+    The existing client still owns request sequencing, anti-bot handling and HTML or
     JSON parsing; this class only admits well-formed public result metadata.
     """
 
@@ -67,8 +67,8 @@ async def _invoke(client: Any, request: SearchRequest, limit: int) -> Any:
     return await client.search(request.query, max_results=limit)
 
 
-def _spec(provider_id: str, domain: str) -> LegacySearchSpec:
-    return LegacySearchSpec(provider_id, domain, _invoke, _project(provider_id))
+def _spec(provider_id: str, domain: str) -> ClientSearchSpec:
+    return ClientSearchSpec(provider_id, domain, _invoke, _project(provider_id))
 
 
 def _project(provider_id: str):
@@ -85,7 +85,7 @@ def _project(provider_id: str):
             or total < len(results)
             or len(results) > limit
         ):
-            raise ValueError("invalid legacy scraper search response")
+            raise ValueError("invalid existing scraper search response")
         return SearchPage(
             items=tuple(_item(provider_id, value, rank) for rank, value in enumerate(results, 1)),
             page=PageInfo(limit=limit, total=total),
@@ -102,12 +102,12 @@ def _item(provider_id: str, value: Any, rank: int) -> SearchItem:
         or not isinstance(getattr(value, "title", None), str)
         or not value.title.strip()
     ):
-        raise ValueError("invalid legacy scraper search item")
+        raise ValueError("invalid existing scraper search item")
     url = canonical_public_url(getattr(value, "url", None))
     key = sha256(url.encode("utf-8")).hexdigest()
     snippet = getattr(value, "snippet", None)
     if snippet is not None and not isinstance(snippet, str):
-        raise ValueError("invalid legacy scraper snippet")
+        raise ValueError("invalid existing scraper snippet")
     return SearchItem(
         id=f"{provider_id}:{key}",
         title=value.title.strip(),
@@ -122,7 +122,7 @@ def _item(provider_id: str, value: Any, rank: int) -> SearchItem:
 __all__ = ["ScraperSearchProvider", "canonical_public_url"]
 
 
-def legacy_scraper_spec(
+def client_scraper_spec(
     provider_id: str,
     domain: str,
     host: str,
@@ -130,14 +130,14 @@ def legacy_scraper_spec(
     operations: tuple[HttpOperation, ...],
     *,
     auth: AuthDeclaration | None = None,
-    additional_transports: tuple[LegacyTransportDeclaration, ...] = (),
-) -> LegacySearchProviderSpec:
-    return LegacySearchProviderSpec(
+    additional_transports: tuple[ClientTransportDeclaration, ...] = (),
+) -> ClientSearchProviderSpec:
+    return ClientSearchProviderSpec(
         provider_id=provider_id,
         adapter_id=f"{provider_id}-search",
         domain=domain,  # type: ignore[arg-type]
-        bridge_reason="legacy scraper parsing and anti-bot transport remain behind a strict Search bridge",
-        transport=LegacyTransportDeclaration(host=host, protocol=protocol, operations=operations),  # type: ignore[arg-type]
+        adapter_reason="existing scraper parsing and anti-bot transport remain behind a strict Search bridge",
+        transport=ClientTransportDeclaration(host=host, protocol=protocol, operations=operations),  # type: ignore[arg-type]
         additional_transports=additional_transports,
         auth=auth or AuthDeclaration(),
         configuration_keys=("enabled",),
@@ -189,4 +189,4 @@ def scraper_search_manifest(
     )
 
 
-__all__ += ["legacy_scraper_spec", "scraper_search_manifest"]
+__all__ += ["client_scraper_spec", "scraper_search_manifest"]

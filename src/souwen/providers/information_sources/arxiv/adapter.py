@@ -7,7 +7,7 @@ from collections.abc import Sequence
 from typing import Any, Protocol
 from urllib.parse import urlsplit
 
-from souwen.platform.provider_spec import LegacySearchProvider, LegacySearchSpec
+from souwen.platform.provider_spec import ClientSearchProvider, ClientSearchSpec
 from souwen.platform.provider_spi import (
     PageInfo,
     Provenance,
@@ -27,7 +27,7 @@ class ArxivClientProtocol(Protocol):
     async def search(self, query: str, max_results: int = 10) -> Any: ...
 
 
-class ArxivSearchProvider(LegacySearchProvider):
+class ArxivSearchProvider(ClientSearchProvider):
     def __init__(self, client: ArxivClientProtocol, *, enabled: bool = True) -> None:
         super().__init__(client, _SPEC, enabled=enabled)
 
@@ -101,4 +101,4 @@ def _item(paper: Any, rank: int) -> SearchItem:
     )
 
 
-_SPEC = LegacySearchSpec("arxiv", "paper", _invoke, _project)
+_SPEC = ClientSearchSpec("arxiv", "paper", _invoke, _project)

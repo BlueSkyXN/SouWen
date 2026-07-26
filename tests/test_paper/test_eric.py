@@ -5,10 +5,8 @@ import re
 import pytest
 from pytest_httpx import HTTPXMock
 
-from souwen.core.exceptions import SourceUnavailableError
-from souwen.models import SearchResponse
-from souwen.paper.eric import EricClient
-from souwen.search import search_papers
+from souwen.common_runtime.provider_support.exceptions import SourceUnavailableError
+from souwen.providers.runtime_clients.paper.eric import EricClient
 
 
 ERIC_RESPONSE = {
@@ -117,27 +115,3 @@ async def test_search_propagates_upstream_server_error(httpx_mock: HTTPXMock):
     async with EricClient() as client:
         with pytest.raises(SourceUnavailableError):
             await client.search("education")
-
-
-async def test_search_papers_dispatches_explicit_eric_source(monkeypatch: pytest.MonkeyPatch):
-    async def fake_search(self, query: str, *, rows: int, start: int = 0) -> SearchResponse:
-        assert query == "education"
-        assert rows == 2
-        assert start == 0
-        return SearchResponse(
-            query=query,
-            source="eric",
-            total_results=1,
-            per_page=rows,
-            results=[
-                EricClient._parse_record({"id": "ED1", "title": "Registry-dispatched ERIC record"})
-            ],
-        )
-
-    monkeypatch.setattr(EricClient, "search", fake_search)
-
-    responses = await search_papers("education", sources=["eric"], per_page=2)
-
-    assert len(responses) == 1
-    assert responses[0].source == "eric"
-    assert responses[0].results[0].source == "eric"

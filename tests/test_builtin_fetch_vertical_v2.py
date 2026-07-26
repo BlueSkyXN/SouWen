@@ -6,7 +6,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from souwen.models import FetchResult as LegacyFetchResult
+from souwen.providers.runtime_clients.models import FetchResult as LegacyFetchResult
 from souwen.modules.fetch.application import FetchModuleService
 from souwen.platform.provider_manager import ProviderManager
 from souwen.platform.provider_spi import ExecutionContext, FetchRequest, RequestContext

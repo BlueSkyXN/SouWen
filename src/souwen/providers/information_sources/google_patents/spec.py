@@ -1,15 +1,15 @@
-"""Reviewed bridge declaration for the legacy Google Patents scraper."""
+"""Reviewed bridge declaration for the existing Google Patents scraper."""
 
-from souwen.platform.provider_spec import LegacySearchProviderSpec, LegacyTransportDeclaration
+from souwen.platform.provider_spec import ClientSearchProviderSpec, ClientTransportDeclaration
 from souwen.platform.provider_spec.models import HttpOperation
 
 
-GOOGLE_PATENTS_BRIDGE_SPEC = LegacySearchProviderSpec(
+GOOGLE_PATENTS_BRIDGE_SPEC = ClientSearchProviderSpec(
     provider_id="google_patents",
     adapter_id="google_patents-search",
-    bridge_reason="XHR, HTML, and browser fallback parsing remain in the legacy scraper bridge",
+    adapter_reason="XHR, HTML, and browser fallback parsing remain in the existing scraper bridge",
     domain="patent",
-    transport=LegacyTransportDeclaration(
+    transport=ClientTransportDeclaration(
         scheme="https",
         host="patents.google.com",
         protocol="multi_transport",

@@ -9,7 +9,7 @@ Read this card when adding/changing Python tests, fixtures, test isolation behav
 
 - Ordinary pytest is the deterministic gate for the repository.
 - Tests must not depend on real network, browser runtimes, production secrets or the user's HOME config.
-- Bad fixtures can hide regressions across CLI, server, registry and provider layers.
+- Bad fixtures can hide regressions across SDK, server, Provider and deployment layers.
 
 ## Required before changes
 

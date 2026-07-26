@@ -7,7 +7,7 @@ import re
 import pytest
 from pytest_httpx import HTTPXMock
 
-from souwen.web.xcrawl import XCrawlClient
+from souwen.providers.runtime_clients.web.xcrawl import XCrawlClient
 
 
 XCRAWL_URL_RE = re.compile(r"https://run\.xcrawl\.com/.*")

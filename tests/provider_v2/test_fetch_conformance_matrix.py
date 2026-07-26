@@ -2,14 +2,13 @@
 
 from __future__ import annotations
 
-import json
-from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
-from souwen.models import FetchResult as LegacyFetchResult
+from souwen.providers.runtime_clients.models import FetchResult as LegacyFetchResult
 from souwen.platform.provider_spi import FetchTargetRequest
+from souwen.providers.catalog import builtin_provider_manifests
 from souwen.providers.fetch_sources.arxiv_fulltext import ArxivFulltextFetchProvider
 from souwen.providers.fetch_sources.apify import ApifyFetchProvider
 from souwen.providers.fetch_sources.apify import adapter as apify_adapter
@@ -174,20 +173,10 @@ def test_each_source_specific_fetch_provider_declares_the_stable_cases() -> None
         "probe_close",
         "redaction",
     )
-    inventory_path = (
-        Path(__file__).resolve().parents[2]
-        / "docs"
-        / "internal"
-        / "provider-migrations"
-        / "b0-inventory.json"
-    )
-    inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
     migrated_fetch_specs = {
-        record["source_id"]
-        for record in inventory["records"]
-        if record["migration_status"] == "migrated"
-        and "fetch" in record["capabilities"]
-        and record["target_spec_identity"] is not None
+        manifest.id
+        for manifest in builtin_provider_manifests()
+        if "fetch" in manifest.capabilities and manifest.id != "builtin-fetch"
     }
 
     assert {definition.provider_id for definition in DEFINITIONS} == migrated_fetch_specs

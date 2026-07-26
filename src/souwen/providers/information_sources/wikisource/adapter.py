@@ -1,4 +1,4 @@
-"""Search-only Provider v2 bridge for the legacy Wikisource client."""
+"""Search-only Provider v2 bridge for the existing Wikisource client."""
 
 from __future__ import annotations
 from typing import Any, Protocol

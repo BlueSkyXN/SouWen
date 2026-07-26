@@ -18,7 +18,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
-from souwen.web.bilibili.wbi import (
+from souwen.providers.runtime_clients.web.bilibili.wbi import (
     MIXIN_KEY_ENC_TAB,
     WbiSigner,
     _extract_key_from_url,

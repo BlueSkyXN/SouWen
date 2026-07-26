@@ -1,12 +1,12 @@
-from souwen.platform.provider_spec import LegacySearchProviderSpec, LegacyTransportDeclaration
+from souwen.platform.provider_spec import ClientSearchProviderSpec, ClientTransportDeclaration
 from souwen.platform.provider_spec.models import HttpOperation
 
-JUEJIN_PROVIDER_SPEC = LegacySearchProviderSpec(
+JUEJIN_PROVIDER_SPEC = ClientSearchProviderSpec(
     provider_id="juejin",
     adapter_id="juejin-search",
     domain="cn_tech",
-    bridge_reason="legacy cursor-paged JSON normalization requires a first-page bridge",
-    transport=LegacyTransportDeclaration(
+    adapter_reason="existing cursor-paged JSON normalization requires a first-page bridge",
+    transport=ClientTransportDeclaration(
         host="api.juejin.cn",
         protocol="json",
         operations=(HttpOperation(method="GET", endpoint="/search_api/v1/search"),),

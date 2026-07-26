@@ -27,8 +27,8 @@ class HttpOperation(_SpecModel):
     endpoint: str = Field(pattern=r"^/[A-Za-z0-9._~!$&'()*+,;=:@/%-]*$")
 
 
-class LegacyTransportDeclaration(_SpecModel):
-    """Reviewed legacy transport shape without pretending it is generic JSON."""
+class ClientTransportDeclaration(_SpecModel):
+    """Reviewed existing transport shape without pretending it is generic JSON."""
 
     scheme: Literal["https"] = "https"
     host: str = Field(min_length=1, max_length=253)
@@ -49,10 +49,10 @@ class LegacyTransportDeclaration(_SpecModel):
         return _reviewed_host(value)
 
     @model_validator(mode="after")
-    def _operations_are_unique(self) -> "LegacyTransportDeclaration":
+    def _operations_are_unique(self) -> "ClientTransportDeclaration":
         identities = tuple((item.method, item.endpoint) for item in self.operations)
         if len(identities) != len(set(identities)):
-            raise ValueError("duplicate legacy transport operation")
+            raise ValueError("duplicate existing transport operation")
         return self
 
 
@@ -218,9 +218,9 @@ class RestJsonProviderSpec(_SpecModel):
         "cn_tech",
         "knowledge",
     ] = "paper"
-    adapter_kind: Literal["generic_rest_json", "legacy_bridge"] = "generic_rest_json"
-    review_status: Literal["reviewed", "bridge_exception"] = "reviewed"
-    bridge_reason: str | None = Field(default=None, min_length=1, max_length=512)
+    adapter_kind: Literal["generic_rest_json", "client_adapter"] = "generic_rest_json"
+    review_status: Literal["reviewed", "reviewed_adapter"] = "reviewed"
+    adapter_reason: str | None = Field(default=None, min_length=1, max_length=512)
     scheme: Literal["https"] = "https"
     host: str = Field(min_length=1, max_length=253)
     base_path: str = Field(default="/", pattern=r"^/[A-Za-z0-9._~!$&'()*+,;=:@/%-]*$")
@@ -253,11 +253,11 @@ class RestJsonProviderSpec(_SpecModel):
             raise ValueError("credential-bearing values are forbidden in a provider spec")
         if self.adapter_kind == "generic_rest_json" and self.response_mapping is None:
             raise ValueError("generic REST JSON providers require a response mapping")
-        if self.adapter_kind == "legacy_bridge" and self.review_status != "bridge_exception":
-            raise ValueError("legacy bridges must be explicitly marked as exceptions")
-        if self.adapter_kind == "legacy_bridge" and self.bridge_reason is None:
-            raise ValueError("legacy bridges require a bounded exception reason")
-        if self.adapter_kind == "generic_rest_json" and self.bridge_reason is not None:
+        if self.adapter_kind == "client_adapter" and self.review_status != "reviewed_adapter":
+            raise ValueError("existing bridges must be explicitly marked as exceptions")
+        if self.adapter_kind == "client_adapter" and self.adapter_reason is None:
+            raise ValueError("existing bridges require a bounded exception reason")
+        if self.adapter_kind == "generic_rest_json" and self.adapter_reason is not None:
             raise ValueError("generic REST JSON providers cannot carry a bridge reason")
         return self
 
@@ -274,21 +274,21 @@ class RestJsonProviderSpec(_SpecModel):
         return f"{self.scheme}://{self.host}{self.base_path.rstrip('/')}"
 
 
-class _LegacyProviderSpec(_SpecModel):
+class _ClientProviderSpec(_SpecModel):
     """Static declaration for a reviewed bridge around a non-generic client."""
 
     provider_id: str = Field(pattern=r"^[a-z][a-z0-9_-]{0,127}$")
     adapter_id: str = Field(pattern=r"^[A-Za-z0-9][A-Za-z0-9_.-]{0,127}$")
-    adapter_kind: Literal["legacy_bridge"] = "legacy_bridge"
-    review_status: Literal["bridge_exception"] = "bridge_exception"
-    bridge_reason: str = Field(min_length=1, max_length=512)
+    adapter_kind: Literal["client_adapter"] = "client_adapter"
+    review_status: Literal["reviewed_adapter"] = "reviewed_adapter"
+    adapter_reason: str = Field(min_length=1, max_length=512)
     transport: (
-        LegacyTransportDeclaration
+        ClientTransportDeclaration
         | LocalStoreDeclaration
         | PublicTargetDeclaration
         | SelfHostedTransportDeclaration
     )
-    additional_transports: tuple[LegacyTransportDeclaration, ...] = ()
+    additional_transports: tuple[ClientTransportDeclaration, ...] = ()
     auth: AuthDeclaration = Field(default_factory=AuthDeclaration)
     configuration_keys: tuple[str, ...] = ()
 
@@ -300,7 +300,7 @@ class _LegacyProviderSpec(_SpecModel):
         return values
 
     @model_validator(mode="after")
-    def _literal_secret_cannot_appear(self) -> "_LegacyProviderSpec":
+    def _literal_secret_cannot_appear(self) -> "_ClientProviderSpec":
         serialized = self.model_dump(mode="json", exclude_none=True)
         if "@" in str(serialized):
             raise ValueError("credential-bearing values are forbidden in a provider spec")
@@ -312,7 +312,7 @@ class _LegacyProviderSpec(_SpecModel):
         return self
 
     @model_validator(mode="after")
-    def _transport_hosts_are_unique(self) -> "_LegacyProviderSpec":
+    def _transport_hosts_are_unique(self) -> "_ClientProviderSpec":
         if isinstance(
             self.transport,
             (LocalStoreDeclaration, PublicTargetDeclaration, SelfHostedTransportDeclaration),
@@ -320,7 +320,7 @@ class _LegacyProviderSpec(_SpecModel):
             raise ValueError("dynamic-target providers cannot declare fixed network transports")
         hosts = self.hosts
         if len(hosts) != len(set(hosts)):
-            raise ValueError("additional legacy transport hosts must be unique")
+            raise ValueError("additional existing transport hosts must be unique")
         return self
 
     @property
@@ -361,7 +361,7 @@ class _LegacyProviderSpec(_SpecModel):
         )
 
 
-class LegacySearchProviderSpec(_LegacyProviderSpec):
+class ClientSearchProviderSpec(_ClientProviderSpec):
     """Reviewed Search bridge declaration for XML, HTML, or complex JSON clients."""
 
     capability: Literal["search"] = "search"
@@ -382,14 +382,14 @@ class LegacySearchProviderSpec(_LegacyProviderSpec):
     ] = "paper"
 
 
-class LegacyFetchProviderSpec(_LegacyProviderSpec):
+class ClientFetchProviderSpec(_ClientProviderSpec):
     """Reviewed Fetch bridge declaration with a bounded canonical target contract."""
 
     capability: Literal["fetch"] = "fetch"
     target_contract: Literal["arxiv_publication_url", "public_url"]
 
 
-ProviderSpec = RestJsonProviderSpec | LegacySearchProviderSpec | LegacyFetchProviderSpec
+ProviderSpec = RestJsonProviderSpec | ClientSearchProviderSpec | ClientFetchProviderSpec
 
 
 def _reviewed_host(value: str) -> str:

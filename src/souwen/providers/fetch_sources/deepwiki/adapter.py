@@ -17,7 +17,7 @@ from souwen.platform.provider_spi import (
     Provenance,
     RequestContext,
 )
-from souwen.platform.provider_spec import LegacyFetchProvider, LegacyFetchSpec
+from souwen.platform.provider_spec import ClientFetchProvider, ClientFetchSpec
 
 from .spec import DEEPWIKI_FETCH_PROFILE
 
@@ -35,7 +35,7 @@ class DeepWikiClientProtocol(Protocol):
     async def close(self) -> None: ...
 
 
-class DeepWikiFetchProvider(LegacyFetchProvider):
+class DeepWikiFetchProvider(ClientFetchProvider):
     capability = "fetch"
 
     def __init__(self, client: DeepWikiClientProtocol, *, enabled: bool = True) -> None:
@@ -50,7 +50,7 @@ def _project(receipt: Any, request: FetchTargetRequest, context: RequestContext)
     del context
     provider_id = DEEPWIKI_FETCH_PROFILE.provider_id
     if getattr(receipt, "source", None) != provider_id:
-        raise ValueError("unexpected legacy source")
+        raise ValueError("unexpected existing source")
     if getattr(receipt, "error", None):
         raw = getattr(receipt, "raw", None)
         code = (
@@ -61,18 +61,18 @@ def _project(receipt: Any, request: FetchTargetRequest, context: RequestContext)
         raise ProviderError(code, provider_id=provider_id)
     content = getattr(receipt, "content", None)
     if not isinstance(content, str) or not content.strip():
-        raise ValueError("invalid legacy receipt content")
+        raise ValueError("invalid existing receipt content")
     final_url = getattr(receipt, "final_url", None)
     if not isinstance(final_url, str) or not _is_safe_deepwiki_final_url(final_url):
-        raise ValueError("invalid legacy final URL")
+        raise ValueError("invalid existing final URL")
     content_format = getattr(receipt, "content_format", None)
     media_type = {"text": "text/plain", "markdown": "text/markdown"}.get(content_format)
     if media_type is None:
-        raise ValueError("invalid legacy content format")
+        raise ValueError("invalid existing content format")
     retrieved_at = datetime.now(timezone.utc)
     title = getattr(receipt, "title", None)
     if title is not None and not isinstance(title, str):
-        raise ValueError("invalid legacy title")
+        raise ValueError("invalid existing title")
     return FetchResult(
         target=request.target,
         final_url=final_url,
@@ -139,6 +139,6 @@ def _is_safe_deepwiki_final_url(url: str) -> bool:
     )
 
 
-_FETCH_SPEC = LegacyFetchSpec(DEEPWIKI_FETCH_PROFILE.provider_id, _invoke, _project)
+_FETCH_SPEC = ClientFetchSpec(DEEPWIKI_FETCH_PROFILE.provider_id, _invoke, _project)
 
 __all__ = ["DeepWikiClientProtocol", "DeepWikiFetchProvider"]

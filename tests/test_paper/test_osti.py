@@ -5,10 +5,12 @@ import re
 import pytest
 from pytest_httpx import HTTPXMock
 
-from souwen.core.exceptions import NotFoundError, ParseError, SourceUnavailableError
-from souwen.models import PaperResult
-from souwen.paper.osti import OstiClient
-from souwen.search import search_by_capability, search_papers
+from souwen.common_runtime.provider_support.exceptions import (
+    NotFoundError,
+    ParseError,
+    SourceUnavailableError,
+)
+from souwen.providers.runtime_clients.paper.osti import OstiClient
 
 
 OSTI_RECORD = {
@@ -130,47 +132,3 @@ async def test_search_propagates_upstream_server_error(httpx_mock: HTTPXMock):
     async with OstiClient() as client:
         with pytest.raises(SourceUnavailableError):
             await client.search("machine learning")
-
-
-async def test_registry_dispatches_explicit_osti_search_and_detail(monkeypatch: pytest.MonkeyPatch):
-    async def fake_search(self, query: str, *, rows: int, page: int = 1):
-        assert query == "energy"
-        assert rows == 2
-        assert page == 1
-        return type(
-            "Response",
-            (),
-            {
-                "source": "osti",
-                "results": [
-                    PaperResult(
-                        source="osti",
-                        title="Registry OSTI search",
-                        source_url="https://www.osti.gov/biblio/1",
-                    )
-                ],
-            },
-        )()
-
-    async def fake_detail(self, osti_id: str):
-        assert osti_id == "3012392"
-        return PaperResult(
-            source="osti",
-            title="Registry OSTI detail",
-            source_url="https://www.osti.gov/biblio/3012392",
-            raw={"osti_id": osti_id},
-        )
-
-    monkeypatch.setattr(OstiClient, "search", fake_search)
-    monkeypatch.setattr(OstiClient, "get_by_id", fake_detail)
-
-    search_responses = await search_papers("energy", sources=["osti"], per_page=2)
-    detail_responses = await search_by_capability(
-        "record lookup", "get_detail", sources=["osti"], id="3012392"
-    )
-
-    assert len(search_responses) == 1
-    assert search_responses[0].source == "osti"
-    assert len(detail_responses) == 1
-    assert detail_responses[0].source == "osti"
-    assert detail_responses[0].raw["osti_id"] == "3012392"

@@ -1,4 +1,4 @@
-"""Provider v2 bridge for Europe PMC's legacy client."""
+"""Provider v2 bridge for Europe PMC's existing client."""
 
 from __future__ import annotations
 import re
@@ -6,7 +6,7 @@ from collections.abc import Sequence
 from typing import Any, Protocol
 from urllib.parse import urlsplit
 
-from souwen.platform.provider_spec import LegacySearchProvider, LegacySearchSpec
+from souwen.platform.provider_spec import ClientSearchProvider, ClientSearchSpec
 from souwen.platform.provider_spi import (
     PageInfo,
     Provenance,
@@ -26,7 +26,7 @@ class EuropePmcClientProtocol(Protocol):
     async def search(self, query: str, page_size: int = 10) -> Any: ...
 
 
-class EuropePmcSearchProvider(LegacySearchProvider):
+class EuropePmcSearchProvider(ClientSearchProvider):
     def __init__(self, client: EuropePmcClientProtocol, *, enabled: bool = True) -> None:
         super().__init__(client, _SPEC, enabled=enabled)
 
@@ -92,4 +92,4 @@ def _item(paper: Any, rank: int) -> SearchItem:
     )
 
 
-_SPEC = LegacySearchSpec("europepmc", "paper", _invoke, _project)
+_SPEC = ClientSearchSpec("europepmc", "paper", _invoke, _project)

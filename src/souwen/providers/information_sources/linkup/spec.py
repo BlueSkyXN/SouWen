@@ -1,14 +1,14 @@
-"""Reviewed bridge declaration for linkup legacy Search."""
+"""Reviewed bridge declaration for linkup existing Search."""
 
-from souwen.platform.provider_spec import LegacySearchProviderSpec, LegacyTransportDeclaration
+from souwen.platform.provider_spec import ClientSearchProviderSpec, ClientTransportDeclaration
 from souwen.platform.provider_spec.models import AuthDeclaration, HttpOperation
 
-LINKUP_PROVIDER_SPEC = LegacySearchProviderSpec(
+LINKUP_PROVIDER_SPEC = ClientSearchProviderSpec(
     provider_id="linkup",
     adapter_id="linkup-search",
     domain="web",
-    bridge_reason="legacy WebSearchResponse normalization and canonical URL identity require a bridge",
-    transport=LegacyTransportDeclaration(
+    adapter_reason="existing WebSearchResponse normalization and canonical URL identity require a bridge",
+    transport=ClientTransportDeclaration(
         host="api.linkup.so",
         protocol="json",
         operations=(HttpOperation(method="POST", endpoint="/v1/search"),),

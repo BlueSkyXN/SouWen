@@ -8,22 +8,20 @@ from unittest.mock import AsyncMock
 
 import pytest
 
-from souwen.models import FetchResult
-from souwen.web.apify import ApifyClient
-from souwen.web.cloudflare_browser import CloudflareBrowserClient
-from souwen.web.crawl4ai_fetcher import Crawl4AIFetcherClient
-from souwen.web.diffbot import DiffbotClient
-from souwen.web.exa import ExaClient
-from souwen.web.firecrawl import FirecrawlClient
-from souwen.web.jina_reader import JinaReaderClient
-from souwen.web.metaso import MetasoClient
-from souwen.web.scraperapi import ScraperAPIClient
-from souwen.web.scrapling_fetcher import ScraplingFetcherClient
-from souwen.web.scrapfly import ScrapflyClient
-from souwen.web.scrapingbee import ScrapingBeeClient
-from souwen.web.tavily import TavilyClient
-from souwen.web.xcrawl import XCrawlClient
-from souwen.web.zenrows import ZenRowsClient
+from souwen.providers.runtime_clients.models import FetchResult
+from souwen.providers.runtime_clients.web.apify import ApifyClient
+from souwen.providers.runtime_clients.web.cloudflare_browser import CloudflareBrowserClient
+from souwen.providers.runtime_clients.web.diffbot import DiffbotClient
+from souwen.providers.runtime_clients.web.exa import ExaClient
+from souwen.providers.runtime_clients.web.firecrawl import FirecrawlClient
+from souwen.providers.runtime_clients.web.jina_reader import JinaReaderClient
+from souwen.providers.runtime_clients.web.metaso import MetasoClient
+from souwen.providers.runtime_clients.web.scraperapi import ScraperAPIClient
+from souwen.providers.runtime_clients.web.scrapfly import ScrapflyClient
+from souwen.providers.runtime_clients.web.scrapingbee import ScrapingBeeClient
+from souwen.providers.runtime_clients.web.tavily import TavilyClient
+from souwen.providers.runtime_clients.web.xcrawl import XCrawlClient
+from souwen.providers.runtime_clients.web.zenrows import ZenRowsClient
 
 BLOCKED_URL = "http://127.0.0.1/admin"
 SAFE_URL = "https://1.1.1.1/page"
@@ -131,32 +129,6 @@ async def test_direct_fetch_providers_block_ssrf_before_http(
 
     _assert_blocked_result(result, provider)
     request_mock.assert_not_awaited()
-
-
-@pytest.mark.asyncio
-async def test_crawl4ai_blocks_ssrf_before_browser_call() -> None:
-    client = Crawl4AIFetcherClient()
-    fake_crawler = AsyncMock()
-    fake_crawler.arun = AsyncMock(side_effect=AssertionError("browser should not run"))
-    client._crawler = fake_crawler
-
-    result = await client.fetch(BLOCKED_URL)
-
-    _assert_blocked_result(result, "crawl4ai")
-    fake_crawler.arun.assert_not_awaited()
-
-
-@pytest.mark.asyncio
-async def test_scrapling_blocks_ssrf_before_fetcher_call() -> None:
-    client = ScraplingFetcherClient()
-    fake_fetcher = AsyncMock()
-    fake_fetcher.get = AsyncMock(side_effect=AssertionError("Scrapling fetcher should not run"))
-    client._async_fetcher = fake_fetcher
-
-    result = await client.fetch(BLOCKED_URL)
-
-    _assert_blocked_result(result, "scrapling")
-    fake_fetcher.get.assert_not_awaited()
 
 
 @pytest.mark.asyncio

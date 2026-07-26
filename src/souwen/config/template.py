@@ -18,7 +18,6 @@ paper:
   semantic_scholar_api_key: ~
   core_api_key: ~
   pubmed_api_key: ~
-  unpaywall_email: ~
   ieee_api_key: ~
   openaire_api_key: ~
   doaj_api_key: ~
@@ -157,9 +156,4 @@ llm_search_gateways:
     api_key: "${UNIAPI_API_KEY}"
     base_url: "${UNIAPI_BASE_URL}"
 
-# ===== Enriched Search synthesis =====
-# credentials/base_url stay on llm; requests can name only an allowlisted profile.
-llm:
-  enabled: false
-  synthesis_profiles: {}
 """

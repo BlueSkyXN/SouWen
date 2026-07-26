@@ -16,7 +16,6 @@ else:
 
 
 logger = logging.getLogger("souwen.deployment.server_main")
-_ROLLOUT_ENV = "SOUWEN_V2_ROLLOUT"
 _BROWSER_DIRNAME = "ms-playwright"
 
 
@@ -33,13 +32,6 @@ def _parser() -> argparse.ArgumentParser:
         help=argparse.SUPPRESS,
     )
     return parser
-
-
-def _force_target_rollout() -> None:
-    configured = os.environ.get(_ROLLOUT_ENV, "").strip().lower()
-    if configured and configured != "target":
-        raise ValueError("souwen-server only supports SOUWEN_V2_ROLLOUT=target")
-    os.environ[_ROLLOUT_ENV] = "target"
 
 
 def _configure_frozen_browser_runtime() -> None:
@@ -79,7 +71,6 @@ def main(argv: Sequence[str] | None = None) -> int:
         parser.error("internal server roles are reserved for the SouWen supervisor")
 
     try:
-        _force_target_rollout()
         _configure_frozen_browser_runtime()
         if args.host is not None:
             os.environ["HOST"] = args.host

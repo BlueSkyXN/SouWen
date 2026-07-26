@@ -16,10 +16,6 @@ from scripts._functional_common import Outcome
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PROVIDER_RUNTIME_EXTRAS = ".[dev,server,tls,web,robots,scraper,newspaper,readability]"
 SERVER_RUNTIME_EXTRAS = ".[dev,server,tls,web,robots,scraper]"
-EXTERNAL_RUNTIME_WORKFLOWS = (
-    ".github/workflows/ci.yml",
-    ".github/workflows/external-smoke-gate.yml",
-)
 PROFILE_RUNNER_WORKFLOWS = {
     ".github/workflows/ci.yml": ("provider-runtime",),
     ".github/workflows/v2-ci.yml": (
@@ -152,30 +148,12 @@ def test_profile_commands_prepend_source_pythonpath(monkeypatch):
     assert "SOUWEN_EDITION" not in captured_env
 
 
-def test_provider_runtime_code_covers_optional_fetch_provider_modules() -> None:
-    assert run_profile.PROVIDER_RUNTIME_MODULES == {
-        "crawl4ai": "souwen.web.crawl4ai_fetcher",
-        "newspaper": "souwen.web.newspaper_fetcher",
-        "readability": "souwen.web.readability_fetcher",
-        "scrapling": "souwen.web.scrapling_fetcher",
-    }
-    assert run_profile.CORE_RUNTIME_PROVIDERS == {
-        "newspaper",
-        "readability",
-    }
-    assert run_profile.BROWSER_VARIANT_RUNTIME_PROVIDERS == {"crawl4ai", "scrapling"}
-    assert (
-        run_profile.CORE_RUNTIME_PROVIDERS | run_profile.BROWSER_VARIANT_RUNTIME_PROVIDERS
-        == set(run_profile.PROVIDER_RUNTIME_MODULES)
-    )
-
-    assert "declared_fetch_provider_names" in run_profile.PROVIDER_RUNTIME_CODE
-    assert "probe_capabilities" in run_profile.PROVIDER_RUNTIME_CODE
-    assert "missing_core_importable" in run_profile.PROVIDER_RUNTIME_CODE
-    assert "len(available_browser_variants) <= 1" in run_profile.PROVIDER_RUNTIME_CODE
-    for provider, module in run_profile.PROVIDER_RUNTIME_MODULES.items():
-        assert provider in run_profile.PROVIDER_RUNTIME_CODE
-        assert module in run_profile.PROVIDER_RUNTIME_CODE
+def test_provider_runtime_code_uses_manifest_registry_and_target_composition() -> None:
+    assert "builtin_provider_manifests" in run_profile.PROVIDER_RUNTIME_CODE
+    assert "build_target_runtime" in run_profile.PROVIDER_RUNTIME_CODE
+    assert "capability_adapters" not in run_profile.PROVIDER_RUNTIME_CODE
+    assert "== 110" in run_profile.PROVIDER_RUNTIME_CODE
+    assert "runtime.close" in run_profile.PROVIDER_RUNTIME_CODE
 
 
 def test_sdk_contract_uses_target_contract_dto_and_openapi_artifact_checks() -> None:
@@ -226,6 +204,12 @@ def test_v2_ci_checks_reproducibility_and_pr_semantic_openapi_compatibility() ->
     assert "--semantic-check artifacts/openapi-semantic-baseline.json" in bootstrap
     assert "initial baseline; base artifact is absent" in bootstrap
     assert 'git cat-file -e "$BASE_SHA:$artifact"' in bootstrap
+    assert "approved one-time RC2 target-only OpenAPI cutover" in bootstrap
+    assert "7dbb1f88ada692a757a6800754e3adb06166a305" in bootstrap
+    assert '"removed_schemas": [' in bootstrap
+    assert "tests/test_manifest_registry_v2.py" in bootstrap
+    assert "tests/test_provider_manager_v2.py" in bootstrap
+    assert "tests/registry/test_consistency.py" not in bootstrap
 
 
 def test_workflows_install_provider_runtime_extras() -> None:
@@ -251,13 +235,12 @@ def test_full_pytest_jobs_install_pro_runtime(relative: str, job_name: str) -> N
     assert f'pip install -e "{SERVER_RUNTIME_EXTRAS}"' in commands
 
 
-def test_external_runtime_workflows_install_leaf_extras() -> None:
-    for relative in EXTERNAL_RUNTIME_WORKFLOWS:
+def test_ci_workflows_do_not_install_retired_browser_extras() -> None:
+    for relative in (".github/workflows/ci.yml", ".github/workflows/v2-ci.yml"):
         text = (REPO_ROOT / relative).read_text(encoding="utf-8")
 
-        assert 'pip install -e ".[dev,server,tls,web,robots,scraper,scrapling]"' in text
-        assert 'pip install -e ".[dev,server,tls,web,robots,scraper,crawl4ai]"' in text
-        assert 'pip install -e ".[dev,server,tls,web,robots,scraper,newspaper,readability]"' in text
+        assert "crawl4ai" not in text
+        assert "scrapling" not in text
         assert "edition-" not in text
 
 

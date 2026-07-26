@@ -1,6 +1,6 @@
 """Reddit 公开 JSON API 客户端单元测试（pytest-httpx mock）。
 
-覆盖 ``souwen.web.reddit`` 中 RedditClient 的 JSON 解析、字段映射、
+覆盖 ``souwen.providers.runtime_clients.web.reddit`` 中 RedditClient 的 JSON 解析、字段映射、
 permalink 拼接、selftext 截断、空结果处理及参数校验等不变量。
 
 测试清单：
@@ -23,7 +23,7 @@ import re
 import pytest
 from pytest_httpx import HTTPXMock
 
-from souwen.web.reddit import RedditClient
+from souwen.providers.runtime_clients.web.reddit import RedditClient
 
 
 # ---------------------------------------------------------------------------

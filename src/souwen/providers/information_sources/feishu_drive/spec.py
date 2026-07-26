@@ -1,20 +1,20 @@
-"""Reviewed bridge declaration for feishu_drive legacy Search."""
+"""Reviewed bridge declaration for feishu_drive existing Search."""
 
 from souwen.platform.provider_spec import (
     CredentialBinding,
-    LegacySearchProviderSpec,
-    LegacyTransportDeclaration,
+    ClientSearchProviderSpec,
+    ClientTransportDeclaration,
 )
 from souwen.platform.provider_spec.models import AuthDeclaration, HttpOperation
 
-FEISHU_DRIVE_PROVIDER_SPEC = LegacySearchProviderSpec(
+FEISHU_DRIVE_PROVIDER_SPEC = ClientSearchProviderSpec(
     provider_id="feishu_drive",
     adapter_id="feishu-drive-search",
     domain="office",
-    bridge_reason=(
-        "legacy client exchanges app credentials for a tenant token before the suite docs search"
+    adapter_reason=(
+        "existing client exchanges app credentials for a tenant token before the suite docs search"
     ),
-    transport=LegacyTransportDeclaration(
+    transport=ClientTransportDeclaration(
         host="open.feishu.cn",
         protocol="json",
         operations=(

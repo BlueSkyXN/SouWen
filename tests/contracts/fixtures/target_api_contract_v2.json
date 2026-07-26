@@ -5,12 +5,8 @@
   "implemented_by_current_runtime": true,
   "api_major": 2,
   "runtime_activation": {
-    "switch": "SOUWEN_V2_ROLLOUT",
-    "allowed_values": ["legacy", "target"],
-    "default": "legacy",
-    "request_override": false,
-    "observable_header": "X-SouWen-Rollout-Mode",
-    "removal_phase": 8
+    "mode": "target_only",
+    "observable_header": "X-SouWen-Rollout-Mode"
   },
   "approved_decisions": [
     "Q-004",

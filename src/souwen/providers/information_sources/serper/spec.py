@@ -1,14 +1,14 @@
-"""Reviewed bridge declaration for serper legacy Search."""
+"""Reviewed bridge declaration for serper existing Search."""
 
-from souwen.platform.provider_spec import LegacySearchProviderSpec, LegacyTransportDeclaration
+from souwen.platform.provider_spec import ClientSearchProviderSpec, ClientTransportDeclaration
 from souwen.platform.provider_spec.models import AuthDeclaration, HttpOperation
 
-SERPER_PROVIDER_SPEC = LegacySearchProviderSpec(
+SERPER_PROVIDER_SPEC = ClientSearchProviderSpec(
     provider_id="serper",
     adapter_id="serper-search",
     domain="web",
-    bridge_reason="legacy WebSearchResponse normalization and canonical URL identity require a bridge",
-    transport=LegacyTransportDeclaration(
+    adapter_reason="existing WebSearchResponse normalization and canonical URL identity require a bridge",
+    transport=ClientTransportDeclaration(
         host="google.serper.dev",
         protocol="json",
         operations=(HttpOperation(method="POST", endpoint="/search"),),

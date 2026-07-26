@@ -1,6 +1,6 @@
 from __future__ import annotations
 import pytest
-from souwen.models import BookResult, ResourceAccess, SearchResponse
+from souwen.providers.runtime_clients.models import BookResult, ResourceAccess, SearchResponse
 from souwen.platform.provider_spi import ExecutionContext, RequestContext, SearchRequest
 from souwen.providers.information_sources.internet_archive import (
     INTERNET_ARCHIVE_PROVIDER_MANIFEST,

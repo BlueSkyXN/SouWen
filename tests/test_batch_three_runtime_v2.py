@@ -6,16 +6,16 @@ import asyncio
 from collections import Counter
 from importlib import import_module
 
-from souwen.core import http_client as http_client_module
+from souwen.common_runtime.provider_support import http_client as http_client_module
 from souwen.common_runtime.channel_overrides import (
     reviewed_source_proxy,
     source_channel_overrides_enabled,
     without_source_channel_overrides,
 )
-from souwen.core.scraper import base as scraper_base_module
+from souwen.common_runtime.provider_support.scraper import base as scraper_base_module
 from souwen.config import SouWenConfig
-from souwen.models import FetchResult as LegacyFetchResult
-from souwen.models import SearchResponse, WebSearchResult
+from souwen.providers.runtime_clients.models import FetchResult as LegacyFetchResult
+from souwen.providers.runtime_clients.models import SearchResponse, WebSearchResult
 from souwen.platform.provider_spi import (
     ExecutionContext,
     FetchRequest,
@@ -24,10 +24,10 @@ from souwen.platform.provider_spi import (
     SearchRequest,
 )
 from souwen.server import v2_runtime as runtime_module
-from souwen.web import github as github_module
-from souwen.web import kimi_code as kimi_code_module
-from souwen.web import reddit as reddit_module
-from souwen.web import stackoverflow as stackoverflow_module
+from souwen.providers.runtime_clients.web import github as github_module
+from souwen.providers.runtime_clients.web import kimi_code as kimi_code_module
+from souwen.providers.runtime_clients.web import reddit as reddit_module
+from souwen.providers.runtime_clients.web import stackoverflow as stackoverflow_module
 
 
 _CLIENT_GLOBALS = {

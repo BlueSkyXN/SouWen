@@ -1,21 +1,21 @@
-"""Reviewed bridge declaration for reddit legacy Search."""
+"""Reviewed bridge declaration for reddit existing Search."""
 
 from souwen.platform.provider_spec import (
     CredentialBinding,
-    LegacySearchProviderSpec,
-    LegacyTransportDeclaration,
+    ClientSearchProviderSpec,
+    ClientTransportDeclaration,
 )
 from souwen.platform.provider_spec.models import AuthDeclaration, HttpOperation
 
-REDDIT_PROVIDER_SPEC = LegacySearchProviderSpec(
+REDDIT_PROVIDER_SPEC = ClientSearchProviderSpec(
     provider_id="reddit",
     adapter_id="reddit-search",
     domain="social",
-    bridge_reason=(
-        "legacy bridge supports anonymous search or optional Basic client credentials followed "
+    adapter_reason=(
+        "existing bridge supports anonymous search or optional Basic client credentials followed "
         "by a derived Bearer token on oauth.reddit.com"
     ),
-    transport=LegacyTransportDeclaration(
+    transport=ClientTransportDeclaration(
         host="www.reddit.com",
         protocol="json",
         operations=(
@@ -24,7 +24,7 @@ REDDIT_PROVIDER_SPEC = LegacySearchProviderSpec(
         ),
     ),
     additional_transports=(
-        LegacyTransportDeclaration(
+        ClientTransportDeclaration(
             host="oauth.reddit.com",
             protocol="json",
             operations=(HttpOperation(method="GET", endpoint="/search"),),

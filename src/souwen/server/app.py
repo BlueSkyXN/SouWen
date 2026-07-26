@@ -6,8 +6,8 @@
 主要类/函数：
     lifespan() -> AsyncContextManager
         - 功能：FastAPI 应用生命周期管理（启动/关闭 hooks）
-        - 职责：初始化日志、加载配置、协调 WARP 代理、关闭资源
-        - 关键逻辑：检测 WARP 状态、管理 session_cache 连接生命周期
+        - 职责：初始化日志、加载配置、构建 Provider v2 target runtime、关闭资源
+        - 关键逻辑：管理 target runtime 与共享 HTTP client 生命周期
 
     _status_to_code(status_code: int) -> str
         - 功能：HTTP 状态码转机器可读错误码映射
@@ -55,7 +55,7 @@
     - souwen.config：配置管理
     - souwen.server.middleware：请求 ID 和日志中间件
     - souwen.server.routes：API 路由
-    - souwen.core.session_cache：会话缓存
+    - souwen.common_runtime：共享运行时能力
     - souwen.logging_config：日志配置
 """
 
@@ -81,24 +81,18 @@ from starlette.middleware.gzip import GZipMiddleware
 
 from souwen import __version__
 from souwen.config import ensure_config_file, get_config
-from souwen.core.redaction import redact_secret_text, redact_secret_value
+from souwen.common_runtime.provider_support.redaction import redact_secret_text, redact_secret_value
 from souwen.delivery.api import (
-    ReadinessSnapshot,
-    RolloutMode,
-    RuntimeMetadata,
     TargetDeliveryError,
     create_probe_router,
     create_target_api_router,
-    resolve_rollout_mode,
 )
 from souwen.delivery.api.errors import error_response as target_error_response
 from souwen.delivery.api.errors import from_http_status as target_error_from_http_status
-from souwen.delivery.api.middleware import TargetContractHeadersMiddleware
-from souwen.delivery.api.openapi import normalize_target_openapi
+from souwen.delivery.api.middleware import TargetContractHeadersMiddleware, is_target_contract_path
 from souwen.delivery.api.openapi_artifact import build_target_openapi_document
-from souwen.delivery.api.rollout import is_target_contract_path
 from souwen.logging_config import setup_logging
-from souwen.common_runtime.observability import get_request_id, get_source_sha
+from souwen.common_runtime.observability import get_request_id
 from souwen.server.auth import check_target_user_auth, is_admin_open_enabled
 from souwen.server.limiter import rate_limit_target_data
 from souwen.server.middleware import RequestIDMiddleware
@@ -196,7 +190,7 @@ async def lifespan(app: FastAPI):
 
     # 关闭会话缓存的 aiosqlite 连接
     try:
-        from souwen.core.session_cache import get_session_cache
+        from souwen.common_runtime.provider_support.session_cache import get_session_cache
 
         await get_session_cache().aclose()
     except Exception:
@@ -211,40 +205,9 @@ async def lifespan(app: FastAPI):
 
 
 _cfg_at_boot = get_config()
-_rollout_mode = resolve_rollout_mode()
-_target_runtime: TargetRuntime | None = (
-    build_target_runtime(_cfg_at_boot) if _rollout_mode is RolloutMode.TARGET else None
-)
-
-
-def _legacy_readiness() -> ReadinessSnapshot:
-    try:
-        from souwen.registry.meta import get_all_sources
-
-        ready = bool(get_all_sources())
-    except Exception:
-        ready = False
-    return ReadinessSnapshot(
-        ready=ready,
-        components={"api": "ready", "legacy_registry": "ready" if ready else "not_ready"},
-        error=None if ready else "legacy source registry is unavailable",
-    )
-
-
-_runtime_metadata = (
-    _target_runtime.metadata
-    if _target_runtime is not None
-    else RuntimeMetadata(
-        version=__version__,
-        source_sha=get_source_sha(),
-        rollout_mode=RolloutMode.LEGACY,
-        config_revision=os.environ.get("SOUWEN_CONFIG_REVISION", "").strip() or None,
-        wrapper_sha=os.environ.get("SOUWEN_WRAPPER_SHA", "").strip() or None,
-    )
-)
-_readiness_check = (
-    _target_runtime.services.readiness if _target_runtime is not None else _legacy_readiness
-)
+_target_runtime: TargetRuntime = build_target_runtime(_cfg_at_boot)
+_runtime_metadata = _target_runtime.metadata
+_readiness_check = _target_runtime.services.readiness
 _fastapi_kwargs: dict = {
     "title": "SouWen API",
     "description": "面向 AI Agent 的学术论文 + 专利 + 网页统一搜索 API",
@@ -255,6 +218,7 @@ if not _cfg_at_boot.expose_docs:
     _fastapi_kwargs.update(docs_url=None, redoc_url=None, openapi_url=None)
 
 app = FastAPI(**_fastapi_kwargs)
+app.state.target_runtime = _target_runtime
 
 # --- Middleware (执行顺序：外层先处理请求，内层先处理响应) ---
 # 1. GZip 压缩（最内层，压缩响应体）
@@ -276,30 +240,26 @@ if cfg.cors_origins:
 app.add_middleware(RequestIDMiddleware)
 
 # 4. Target contract identity is outermost and replaces duplicate headers.
-app.add_middleware(TargetContractHeadersMiddleware, mode=_rollout_mode)
+app.add_middleware(TargetContractHeadersMiddleware)
 
-if _target_runtime is not None:
-    app.include_router(
-        create_target_api_router(
-            _target_runtime.services,
-            require_user=check_target_user_auth,
-            rate_limit=rate_limit_target_data,
-        ),
-        prefix="/api/v1",
-    )
+app.include_router(
+    create_target_api_router(
+        _target_runtime.services,
+        require_user=check_target_user_auth,
+        rate_limit=rate_limit_target_data,
+    ),
+    prefix="/api/v1",
+)
 app.include_router(router, prefix="/api/v1")
 app.include_router(admin_router, prefix="/api/v1/admin")
 app.include_router(create_probe_router(_readiness_check, _runtime_metadata))
-_default_openapi = app.openapi
 
 
-def _rollout_openapi():
-    if _rollout_mode is RolloutMode.TARGET:
-        return build_target_openapi_document(__version__)
-    return normalize_target_openapi(_default_openapi(), _rollout_mode)
+def _target_openapi():
+    return build_target_openapi_document(__version__)
 
 
-app.openapi = _rollout_openapi
+app.openapi = _target_openapi
 
 # --- 全局异常处理器（统一 ErrorResponse 格式）---
 
@@ -312,7 +272,7 @@ def _safe_error_detail(detail: object) -> str:
 
 
 def _is_target_request(request: Request) -> bool:
-    return is_target_contract_path(request.url.path, _rollout_mode)
+    return is_target_contract_path(request.url.path)
 
 
 @app.exception_handler(TargetDeliveryError)

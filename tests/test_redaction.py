@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from souwen.core.redaction import redact_secret_text
+from souwen.common_runtime.provider_support.redaction import redact_secret_text
 
 
 def test_redact_secret_text_scrubs_quoted_secret_key_values() -> None:

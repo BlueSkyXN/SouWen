@@ -5,9 +5,8 @@ import re
 import pytest
 from pytest_httpx import HTTPXMock
 
-from souwen.book.library_of_congress import LibraryOfCongressClient
-from souwen.core.exceptions import NotFoundError, SourceUnavailableError
-from souwen.search import search_books
+from souwen.providers.runtime_clients.book.library_of_congress import LibraryOfCongressClient
+from souwen.common_runtime.provider_support.exceptions import NotFoundError, SourceUnavailableError
 
 
 _RECORD = {
@@ -79,13 +78,3 @@ async def test_search_maps_5xx(httpx_mock: HTTPXMock):
     async with LibraryOfCongressClient() as client:
         with pytest.raises(SourceUnavailableError):
             await client.search("catalog")
-
-
-async def test_registry_dispatches_explicit_loc(monkeypatch: pytest.MonkeyPatch):
-    async def fake(self, query: str, *, per_page: int, page: int = 1):
-        return type("Response", (), {"source": "library_of_congress", "results": []})()
-
-    monkeypatch.setattr(LibraryOfCongressClient, "search", fake)
-    assert (await search_books("catalog", sources=["library_of_congress"], per_page=2))[
-        0
-    ].source == "library_of_congress"

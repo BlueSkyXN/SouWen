@@ -88,8 +88,6 @@ def test_rc2_server_bundle_builds_tracked_target_onedir_with_bundled_chromium() 
     )
     for retired_surface in (
         ".[server,tls,web,robots,scraper,newspaper,readability]",
-        "crawl4ai",
-        "scrapling",
         "server_bundle_entry.py",
         '"--worker"',
         '"--api"',

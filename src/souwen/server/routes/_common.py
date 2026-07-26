@@ -6,7 +6,7 @@ import logging
 
 from fastapi import HTTPException
 
-from souwen.core.redaction import (
+from souwen.common_runtime.provider_support.redaction import (
     _is_secret_field as _is_secret_field,
     redact_secret_mapping as redact_secret_mapping,
     redact_secret_payload as redact_secret_payload,

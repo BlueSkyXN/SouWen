@@ -1,10 +1,10 @@
-from souwen.platform.provider_spec import LegacyFetchProviderSpec, PublicTargetDeclaration
+from souwen.platform.provider_spec import ClientFetchProviderSpec, PublicTargetDeclaration
 
 
-NEWSPAPER_FETCH_PROFILE = LegacyFetchProviderSpec(
+NEWSPAPER_FETCH_PROFILE = ClientFetchProviderSpec(
     provider_id="newspaper",
     adapter_id="newspaper-fetch",
-    bridge_reason="newspaper4k parsing remains behind the IP-bound public-target Fetch bridge",
+    adapter_reason="newspaper4k parsing remains behind the IP-bound public-target Fetch bridge",
     transport=PublicTargetDeclaration(),
     target_contract="public_url",
     configuration_keys=("enabled",),

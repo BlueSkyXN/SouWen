@@ -23,13 +23,13 @@ from souwen.platform.provider_spi import (
     SearchPage,
     SearchRequest,
 )
-from souwen.platform.provider_spec import LegacySearchProvider, LegacySearchSpec
+from souwen.platform.provider_spec import ClientSearchProvider, ClientSearchSpec
 
 _IDENTIFIER_SCHEME = re.compile(r"^[a-z][a-z0-9_.-]{0,31}$")
 _OPEN_ACCESS_STATUSES = frozenset({"open_access", "public_domain"})
 
 
-class ResearchOutputSearchProvider(LegacySearchProvider):
+class ResearchOutputSearchProvider(ClientSearchProvider):
     """Map one fixed first-page research-output client into canonical Search."""
 
     capability = "search"
@@ -49,7 +49,7 @@ class ResearchOutputSearchProvider(LegacySearchProvider):
         )
 
 
-def research_output_search_spec(*, provider_id: str, limit_keyword: str) -> LegacySearchSpec:
+def research_output_search_spec(*, provider_id: str, limit_keyword: str) -> ClientSearchSpec:
     """Build a first-page-only bridge without invoking source detail endpoints."""
 
     async def invoke(client: Any, request: SearchRequest, limit: int) -> Any:
@@ -58,7 +58,7 @@ def research_output_search_spec(*, provider_id: str, limit_keyword: str) -> Lega
     def project(response: Any, limit: int, context: RequestContext) -> SearchPage:
         return project_research_output_search_page(provider_id, response, limit, context)
 
-    return LegacySearchSpec(provider_id, "research_output", invoke, project)
+    return ClientSearchSpec(provider_id, "research_output", invoke, project)
 
 
 def project_research_output_search_page(
@@ -82,7 +82,7 @@ def project_research_output_search_page(
     ):
         raise ValueError("invalid research-output result total")
     if getattr(response, "page", None) != 1 or getattr(response, "per_page", None) != limit:
-        raise ValueError("legacy research-output page does not match canonical request")
+        raise ValueError("existing research-output page does not match canonical request")
 
     return SearchPage(
         items=tuple(_item(provider_id, value, rank) for rank, value in enumerate(results, 1)),

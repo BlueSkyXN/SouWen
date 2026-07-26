@@ -54,10 +54,6 @@ tls = ["curl-cffi>=0.14.0"]
 web = ["trafilatura>=1.0"]
 # robots.txt 合规解析（builtin fetcher 可选启用）
 robots = ["protego>=0.3.0"]
-# Crawl4AI 无头浏览器抓取（基于 Playwright，适合 JS 重度页面）
-crawl4ai = ["crawl4ai>=0.4.0"]
-# Scrapling 本地抓取（HTTP/TLS 指纹 + 动态/stealth 浏览器模式）
-scrapling = ["scrapling[fetchers]>=0.4.7"]
 # newspaper4k 新闻文章提取（作者/日期/关键词/摘要）
 newspaper = ["newspaper4k>=0.9"]
 # readability 提取（Mozilla Readability 算法 + markdownify 转换）
@@ -66,17 +62,8 @@ readability = ["readability-lxml>=0.8", "markdownify>=0.12"]
 scraper = ["curl-cffi>=0.14.0"]
 # Web 服务器（FastAPI + Uvicorn）
 server = ["fastapi>=0.111", "uvicorn[standard]>=0.29"]
-# Crawl4AI 与 Scrapling 的依赖树互斥；按目标 provider 单独安装。
 # 开发工具：单元测试、覆盖率、代码检查
 dev = ["pytest>=8.0", "pytest-asyncio>=0.23", "pytest-httpx>=0.30", "pytest-cov>=4", "ruff==0.15.22", "markdown-it-py>=2.2"]
-
-[tool.uv]
-conflicts = [
-    [
-        { extra = "crawl4ai" },
-        { extra = "scrapling" },
-    ],
-]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/souwen"]

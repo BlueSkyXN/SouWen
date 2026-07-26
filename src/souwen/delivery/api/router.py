@@ -5,7 +5,7 @@ from __future__ import annotations
 import inspect
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
-from typing import Protocol
+from typing import Literal, Protocol
 
 from fastapi import APIRouter, Depends, Header
 from fastapi.responses import JSONResponse
@@ -23,7 +23,6 @@ from souwen.platform.provider_spi import (
 
 from .errors import TargetDeliveryError, from_provider_error
 from .models import ProbeResponse, ProviderCatalog, ProviderCatalogItem
-from .rollout import RolloutMode
 
 
 Dependency = Callable[..., object]
@@ -46,7 +45,7 @@ class ReadinessCheck(Protocol):
 class RuntimeMetadata:
     version: str
     source_sha: str | None
-    rollout_mode: RolloutMode
+    rollout_mode: Literal["target"] = "target"
     config_revision: str | None = None
     wrapper_sha: str | None = None
 
@@ -163,7 +162,7 @@ def create_probe_router(
     @router.get(
         "/health",
         response_model=ProbeResponse,
-        operation_id="healthLegacyAlias",
+        operation_id="healthAlias",
         openapi_extra={"x-souwen-alias-of": "/healthz"},
     )
     @router.get("/healthz", response_model=ProbeResponse, operation_id="healthz")
@@ -183,7 +182,7 @@ def create_probe_router(
     @router.get(
         "/readiness",
         response_model=ProbeResponse,
-        operation_id="readinessLegacyAlias",
+        operation_id="readinessAlias",
         responses={503: {"model": ProbeResponse, "description": "Runtime is not ready"}},
         openapi_extra={"x-souwen-alias-of": "/readyz"},
     )

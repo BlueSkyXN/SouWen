@@ -29,7 +29,7 @@ Public docs 不要求读者理解历史路径；需要保留背景材料时，�
 
 | 文档 | 用途 |
 |---|---|
-| [source-catalog.md](./source-catalog.md) | `/api/v1/sources` 和 Panel 共用的公开 Source Catalog 契约 |
+| [source-catalog.md](./source-catalog.md) | `/api/v1/providers` 的 ProviderManifest/ManifestRegistry/ProviderManager 公开投影 |
 | [data-sources.md](./data-sources.md) | 数据源指南与完整清单，由 registry 自动生成 |
 | [configuration.md](./configuration.md) | 配置优先级、`SouWenConfig` 字段、频道级 `sources.<name>` 覆盖 |
 
@@ -45,7 +45,7 @@ Public docs 不要求读者理解历史路径；需要保留背景材料时，�
 
 | 文档 | 用途 |
 |---|---|
-| [architecture.md](./architecture.md) | 展示层、应用入口、registry、真实 client 模块和 core 平台层 |
+| [architecture.md](./architecture.md) | target-only 展示层、generated SDK、Provider manifest catalog 与 runtime clients |
 | [adding-a-source.md](./adding-a-source.md) | 在主仓新增数据源的实现、注册、配置和测试流程 |
 | [contributing.md](./contributing.md) | 开发环境、测试、前端构建、提交规范和 PR 流程 |
 
@@ -66,15 +66,7 @@ Public docs 不要求读者理解历史路径；需要保留背景材料时，�
 | [internal/zero-key-benchmark.md](./internal/zero-key-benchmark.md) | 无 API Key 场景的时间点实测报告 |
 | [internal/spec-01-external-api-canonical-dto.md](./internal/spec-01-external-api-canonical-dto.md) | Proposed External API、Canonical DTO 与 current-to-target mapping |
 | [internal/spec-05-provider-spi-manifest-conformance.md](./internal/spec-05-provider-spi-manifest-conformance.md) | Proposed Provider SPI、Manifest 与 Conformance contract |
-| [internal/provider-migrations/eric-current-to-target.md](./internal/provider-migrations/eric-current-to-target.md) | ERIC Provider v2 的 current-to-target 字段边界、共存与 rollback 记录 |
-| [internal/provider-migrations/patentsview-current-to-target.md](./internal/provider-migrations/patentsview-current-to-target.md) | PatentsView Provider v2 的 secret、显式选择、字段边界与 rollback 记录 |
-| [internal/provider-migrations/b0-inventory.md](./internal/provider-migrations/b0-inventory.md) | 自动生成的 110 源 Provider v2 迁移状态、批次与 target identity inventory |
-| [internal/provider-migrations/b0-spec-drafts.md](./internal/provider-migrations/b0-spec-drafts.md) | 自动生成的 104 个待迁源 spec review 草稿索引；未知 mapping 明确保留 review_required |
 | [internal/spec-08-directory-dependency.md](./internal/spec-08-directory-dependency.md) | Proposed target directory、dependency rules 与 migration gate |
-| [internal/phase1/current-api-golden-fixtures.md](./internal/phase1/current-api-golden-fixtures.md) | Phase 1B current-only API behavior 与 language-neutral fixture 说明 |
-| [internal/phase1/provider-directory-current-behavior.md](./internal/phase1/provider-directory-current-behavior.md) | Phase 1B current-only Provider、config 与 directory dependency 事实基线 |
-| [internal/phase1/current-security-behavior.md](./internal/phase1/current-security-behavior.md) | Phase 1 current-only SSRF、redirect、auth 与 redaction behavior baseline |
-| [internal/phase1/current-python-dependency-baseline.md](./internal/phase1/current-python-dependency-baseline.md) | Phase 1 current-only Python dependency graph、cycle 与 legacy edge baseline |
 | [internal/adr/0001-public-api-surface.md](./internal/adr/0001-public-api-surface.md) | public API surface 决策 |
 | [internal/adr/0002-versioning-policy.md](./internal/adr/0002-versioning-policy.md) | 公开版本号决策规则 |
 | [internal/spec-06-common-runtime-lld.md](./internal/spec-06-common-runtime-lld.md) | Common Runtime 准入、依赖、迁移与验证 LLD |

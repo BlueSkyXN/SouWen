@@ -1,4 +1,4 @@
-"""Search-only Provider v2 bridge for the legacy Library of Congress client."""
+"""Search-only Provider v2 bridge for the existing Library of Congress client."""
 
 from __future__ import annotations
 from typing import Any, Protocol

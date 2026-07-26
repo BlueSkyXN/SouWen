@@ -1,14 +1,14 @@
 """Reviewed bridge declaration for OSTI's list-shaped JSON Search response."""
 
-from souwen.platform.provider_spec import LegacySearchProviderSpec, LegacyTransportDeclaration
+from souwen.platform.provider_spec import ClientSearchProviderSpec, ClientTransportDeclaration
 from souwen.platform.provider_spec.models import HttpOperation
 
 
-OSTI_BRIDGE_SPEC = LegacySearchProviderSpec(
+OSTI_BRIDGE_SPEC = ClientSearchProviderSpec(
     provider_id="osti",
     adapter_id="osti-search",
-    bridge_reason="OSTI total metadata is an HTTP header and the legacy client owns list-response parsing",
-    transport=LegacyTransportDeclaration(
+    adapter_reason="OSTI total metadata is an HTTP header and the existing client owns list-response parsing",
+    transport=ClientTransportDeclaration(
         scheme="https",
         host="www.osti.gov",
         base_path="/api/v1",

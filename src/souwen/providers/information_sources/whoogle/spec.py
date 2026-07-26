@@ -1,14 +1,14 @@
 from souwen.platform.provider_spec import (
     HttpOperation,
-    LegacySearchProviderSpec,
+    ClientSearchProviderSpec,
     SelfHostedTransportDeclaration,
 )
 
-WHOOGLE_PROVIDER_SPEC = LegacySearchProviderSpec(
+WHOOGLE_PROVIDER_SPEC = ClientSearchProviderSpec(
     provider_id="whoogle",
     adapter_id="whoogle-search",
     domain="web",
-    bridge_reason="self-hosted HTML search parsing remains behind a strict Search bridge",
+    adapter_reason="self-hosted HTML search parsing remains behind a strict Search bridge",
     transport=SelfHostedTransportDeclaration(
         protocol="html",
         operations=(HttpOperation(method="GET", endpoint="/search"),),

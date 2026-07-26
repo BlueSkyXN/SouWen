@@ -28,12 +28,8 @@ def test_target_api_closes_approved_decisions_without_claiming_current_routes() 
     contract = _read("target_api_contract_v2.json")
     assert contract["api_major"] == 2
     assert contract["runtime_activation"] == {
-        "switch": "SOUWEN_V2_ROLLOUT",
-        "allowed_values": ["legacy", "target"],
-        "default": "legacy",
-        "request_override": False,
+        "mode": "target_only",
         "observable_header": "X-SouWen-Rollout-Mode",
-        "removal_phase": 8,
     }
     assert contract["approved_decisions"] == [
         "Q-004",
@@ -109,7 +105,7 @@ def test_target_openapi_skeleton_matches_the_target_fixture() -> None:
     skeleton = _read("target_openapi_skeleton_v2.json")
     assert skeleton["openapi"] == "3.1.0"
     assert skeleton["x-souwen-api-major"] == contract["api_major"]
-    assert skeleton["x-souwen-contract-stage"] == "target_runtime_rollout_gated"
+    assert skeleton["x-souwen-contract-stage"] == "target_only"
 
     paths = skeleton["paths"]
     assert isinstance(paths, dict)
@@ -125,7 +121,7 @@ def test_target_openapi_skeleton_matches_the_target_fixture() -> None:
     schemas = skeleton["components"]["schemas"]
     headers = skeleton["components"]["headers"]
     assert headers["X-SouWen-API-Major"]["schema"] == {"const": "2"}
-    assert headers["X-SouWen-Rollout-Mode"]["schema"] == {"enum": ["legacy", "target"]}
+    assert headers["X-SouWen-Rollout-Mode"]["schema"] == {"const": "target"}
     assert {
         "Retry-After",
         "X-RateLimit-Limit",

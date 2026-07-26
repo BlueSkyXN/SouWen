@@ -1,6 +1,6 @@
 """Metaso 搜索客户端单元测试。
 
-覆盖 ``souwen.web.metaso.MetasoClient`` 搜索和内容提取路径。使用 ``pytest-httpx``
+覆盖 ``souwen.providers.runtime_clients.web.metaso.MetasoClient`` 搜索和内容提取路径。使用 ``pytest-httpx``
 直接 mock HTTP 层。
 
 测试清单：
@@ -22,8 +22,8 @@ from __future__ import annotations
 
 import pytest
 
-from souwen.core.exceptions import ConfigError, ParseError  # noqa: E402
-from souwen.web.metaso import MetasoClient  # noqa: E402
+from souwen.common_runtime.provider_support.exceptions import ConfigError, ParseError  # noqa: E402
+from souwen.providers.runtime_clients.web.metaso import MetasoClient  # noqa: E402
 
 
 # ---------------------------------------------------------------------------

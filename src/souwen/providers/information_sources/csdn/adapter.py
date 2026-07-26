@@ -18,7 +18,7 @@ class CSDNSearchProvider(CnScraperSearchProvider):
 
 
 def create_csdn_client() -> Any:
-    from souwen.web.csdn import CSDNClient
+    from souwen.providers.runtime_clients.web.csdn import CSDNClient
 
     return CSDNClient(follow_redirects=False)
 

@@ -1,265 +1,150 @@
 # SouWen 架构概览
 
-> 本文档描述 SouWen 当前的架构。核心原则：**所有数据源元数据 + 执行适配集中到 `registry/` 单一事实源**，避免"同一份信息散落多处手工维护、频繁漂移"。
+SouWen 2.0 是 target-only information-retrieval API。公开产品能力只有 Search、LLM Search
+和 Fetch；HTTP contract 由 frozen OpenAPI 固定，Python/TypeScript 调用方只使用生成 SDK。
 
 <!-- BEGIN AUTO: REGISTRY SUMMARY -->
-**Registry 摘要**：当前内置 registry 共 **110** 个 registered `SourceAdapter`，其中 **109** 个进入 public Source Catalog，**1** 个为 hidden/internal。
+**Provider v2 摘要**：Manifest Registry 从内置 package 发现 **104** 份 manifest、**110** 个 adapter。
 
-- 公开源主 domain：`paper` 21 · `patent` 8 · `web` 32 · `social` 5 · `video` 2 · `knowledge` 1 · `developer` 2 · `cn_tech` 9 · `office` 1 · `archive` 1 · `book` 9 · `research_output` 2
-- `fetch` 横切视图共 **23** 个 provider：**16** 个主 `domain=fetch`，**7** 个由其他主 domain 跨域提供。
+Provider Manager 对 manifest、configuration、secret reference 和显式 factory 做 preflight，并按需构造 provider；旧 source registry 不参与启动、路由或文档生成。
 <!-- END AUTO: REGISTRY SUMMARY -->
 
----
+## 1. 分层与依赖方向
 
-## 1. 分层图
-
-```
-┌────────────────────────────────────────────────────────────────┐
-│ 展示层 Presentation                                            │
-│   souwen.server/*     FastAPI（按 domain 拆分）                │
-│   panel/              单一 Calm Precision Panel；data API 仅经 │
-│                       generated TypeScript SDK                 │
-├────────────────────────────────────────────────────────────────┤
-│ 应用入口 Application API                                        │
-│   souwen.search            search(domain=, capability=) 派发   │
-│   souwen.search            search_all(domains=)                │
-│   souwen.web.fetch         fetch_content(urls, providers=)     │
-│   souwen.web.wayback       WaybackClient                       │
-├────────────────────────────────────────────────────────────────┤
-│ 注册表层 Registry —— 单一事实源                                │
-│   souwen.registry.adapter    SourceAdapter / MethodSpec        │
-│   souwen.registry.meta       SourceMeta 与 catalog 查询        │
-│   souwen.registry.sources    内置 _reg(...) 声明（权威）     │
-│   souwen.registry.loader     字符串懒加载（避免启动 import）  │
-│   souwen.registry.views      by_domain / by_capability / ...   │
-├────────────────────────────────────────────────────────────────┤
-│ 真实 Client 模块 Concrete Clients                              │
-│   paper/  patent/  web/*                                      │
-│   社交、视频、知识、办公、抓取和归档实现均使用真实模块路径       │
-├────────────────────────────────────────────────────────────────┤
-│ 平台层 Platform —— 所有域共用的基础设施                         │
-│   souwen.core.http_client       SouWenHttpClient / OAuthClient │
-│   souwen.core.scraper.base      BaseScraper                    │
-│   souwen.core.rate_limiter      Token Bucket + 滑窗            │
-│   souwen.core.retry             tenacity 重试                  │
-│   souwen.core.session_cache     OAuth token 持久化             │
-│   souwen.core.fingerprint       curl_cffi 指纹                 │
-│   souwen.core.exceptions        全部异常类型                   │
-│   souwen.core.parsing           HTML/JSON 辅助                 │
-│   souwen.core.concurrency       per-loop Semaphore             │
-│   souwen.models                 Pydantic 模型（统一结果模型等） │
-└────────────────────────────────────────────────────────────────┘
+```text
+Panel / generated Python SDK / generated TypeScript SDK
+                         │
+                         ▼
+delivery/api ── frozen OpenAPI、auth/rate-limit、canonical DTO
+                         │
+                         ▼
+modules/search | modules/llm_search | modules/fetch
+                         │
+                         ▼
+platform/provider_manager + platform/provider_spi
+                         │
+                         ▼
+providers/*/manifest.py + spec.py + adapter.py
+                         │
+                         ▼
+providers/runtime_clients + common_runtime
 ```
 
-**依赖方向**：展示层 → 应用入口 → 注册表层 ↔ 真实 Client 模块；平台层被任何层引用。Client 模块之间不互相依赖。
+- `delivery/api/` 是唯一公开 Data API 边界；Server host 只额外挂载 Panel、`whoami` 和只读
+  Admin config/doctor/ping。
+- `modules/` 只编排 canonical request、Provider selection、deadline 与 canonical result。
+- `platform/manifest_registry/` 校验静态 manifest，`ProviderManager` 负责 preflight、按需构造、
+  probe 和生命周期关闭。
+- `providers/runtime_clients/` 是私有传输/解析实现，不属于 Python 公共 API。
+- `common_runtime/` 提供 transport、SSRF/security、retry/resilience、observability 和共享
+  Provider support；它不能依赖 delivery、modules 或具体 Provider。
 
-### Panel boundary
+依赖门禁由 `scripts/ci/check_architecture_dependencies.py` 执行。Provider package 不能维护第二份
+catalog，也不能绕过 `ProviderManager` 直接进入公开路由。
 
-`panel/` 只有一个 Calm Precision 管理界面，而非多 skin 或可选 UI 组合。Search、LLM Search、
-Fetch 和 Providers 只能通过 `panel/src/core/sdk/` 中由 frozen OpenAPI 生成的 TypeScript SDK 访问
-target Data API；Panel 不导入 Python internals，也不维护平行的 data API transport。Runtime /
-Settings 的 admin 只读投影保持在独立 admin client 边界，不能扩展为完整配置读写面。
+## 2. Provider v2 单一事实源
 
----
+每个内置 Provider package 以 `manifest.py` 声明：
 
-## 2. 核心抽象：`SourceAdapter`
+- package ID、版本与 `provider-v2` contract；
+- `search`、`llm_search`、`fetch` 中的一个或多个 capability；
+- adapter ID/export 与 availability；
+- non-secret configuration schema 与 secret reference；
+- 受审 egress、proxy/browser 要求、risk 与 observability dimensions。
 
-```python
-@dataclass(frozen=True, slots=True)
-class SourceAdapter:
-    name: str                                    # 'openalex' / 'tavily' / ...
-    domain: str                                  # paper|patent|web|social|...
-    integration: str                             # open_api|scraper|official_api|self_hosted
-    description: str
-    config_field: str | None                     # SouWenConfig 对应字段（None=零配置）
-    client_loader: Callable[[], type]            # lazy("souwen.paper.openalex:OpenAlexClient")
-    methods: Mapping[str, MethodSpec]            # capability → MethodSpec
-    extra_domains: frozenset[str] = frozenset()  # 跨域（当前仅允许 "fetch"）
-    default_enabled: bool = True                 # 高风险源设 False
-    runtime_default_enabled: bool = True         # 缺 enabled 配置时的 runtime fallback
-    default_for: frozenset[str] = frozenset()    # {"paper:search"} 声明默认源
-    tags: frozenset[str] = frozenset()           # {"high_risk"} / ...
-    auth_requirement: str | None = None          # none|optional|required|self_hosted
-    credential_fields: tuple[str, ...] = ()      # 支持多字段凭据
-    optional_credential_effect: str | None = None
-    risk_level: str = "low"                      # low|medium|high
-    risk_reasons: frozenset[str] = frozenset()
-    distribution: str = "core"                   # core|extra
-    package_extra: str | None = None
-    stability: str = "stable"                    # stable|beta|experimental|deprecated
-    usage_note: str | None = None                # 用户级提示（如"仅支持 DOI OA 查找"），不参与可用性判定
+`src/souwen/providers/catalog.py` 只发现三个内置 namespace 下的 `manifest.py`，不会为生成文档
+而导入 adapter 或 runtime client。`ManifestRegistry` 拒绝重复 package/adapter；Server、Provider
+catalog 与生成文档都消费同一组 manifests。
 
-@dataclass(frozen=True, slots=True)
-class MethodSpec:
-    method_name: str                             # Client 上的方法名
-    param_map: Mapping[str, str] = {}            # 'limit' → 'per_page' 的映射
-    pre_call: Callable[[dict], dict] | None = None  # 复杂变换逃生舱
-```
-
-### 为什么需要 MethodSpec
-
-各 Client 的 search 参数名各不相同：
-
-```
-OpenAlex.search(query, per_page=, ...)
-Crossref.search(query, rows=, ...)
-arXiv.search(query, max_results=, ...)
-PubMed.search(query, retmax=, ...)
-HuggingFace.search(query, top_n=, ...)
-PatentsView.search(query=<dict>, ...)  # 查询结构是 {"_contains": ...}
-EPO OPS.search(cql_query=, range_end=, ...)
-USPTO ODP.search_applications(query=, per_page=, ...)  # 方法名都不一样
-```
-
-如果用一张大 dict 把这些 lambda 硬映射，每加一个源都要改多处。改由 adapter 声明：
-
-```python
-_reg(SourceAdapter(
-    name="uspto_odp", domain="patent", ...,
-    client_loader=lazy("souwen.patent.uspto_odp:UsptoOdpClient"),
-    methods={"search": MethodSpec("search_applications", {"limit": "per_page"})},
-))
-
-_reg(SourceAdapter(
-    name="patentsview", ...,
-    methods={"search": MethodSpec("search", {"limit": "per_page"}, pre_call=_pv_pre_call)},
-))
-```
-
-### 懒加载
-
-注册表模块导入时**不**加载全部内置源对应的 Client：
-
-```python
-client_loader=lazy("souwen.paper.openalex:OpenAlexClient")
-# ...
-client_cls = adapter.client_loader()  # 此刻才 importlib.import_module
-```
-
-`lazy()` 基于 `functools.lru_cache` 保证同一路径只解析一次。
-
-### Source Catalog 治理维度
-
-`SourceAdapter` 的元数据被拆成几个正交维度，避免把"是否需要 Key"、"怎么接入"和"是否适合默认启用"混在一个 tier 里：
-
-| 维度 | 字段 | 用途 |
-|---|---|---|
-| 接入方式 | `integration` | 描述技术路径：`open_api` / `scraper` / `official_api` / `self_hosted` |
-| 鉴权要求 | `auth_requirement` / `credential_fields` | 描述运行前是否需要凭据，支持可选凭据和多字段凭据 |
-| 可选凭据收益 | `optional_credential_effect` | 标注可选 Key 是提升限流、配额、质量、个性化还是礼貌访问 |
-| 风险治理 | `risk_level` / `risk_reasons` | 控制默认启用和默认搜索范围,解释反爬、封号、配额成本等原因 |
-| 分发范围 | `distribution` / `package_extra` | 表示核心内置或可选依赖，以及建议 extra 组 |
-| 成熟度 | `stability` | 区分 stable / beta / experimental / deprecated |
-| 用户提示 | `usage_note` | 描述源运行时的限制或注意事项(如 unpaywall "仅支持 DOI OA 查找"、`stability="deprecated"` 源的修复进度);doctor / API / Panel 会作为消息后缀展示,**不参与可用性判定** |
-
-`needs_config`、`config_field` 与 `tags={"high_risk"}` 会派生到正式 catalog 视图中；展示范围和成熟度使用 `catalog_visibility` / `stability` 显式声明。
-
-这些字段不能互相替代：`stability` 是声明式接入成熟度，不是当次连通性；公开
-`/api/v1/sources[].available` 合取频道启用、配置有效性、凭据、本地 runtime 与静态数据
-条件；同一条目的 `runtime_available` / `runtime_reason` 和 `data_available` /
-`data_reason` 用于解释具体轴。doctor 的静态状态会额外把 deprecated 源
-标为不可用、把 experimental scraper 标为 warning，但仍不会联网；只有显式 `live=true`
-返回的 `live_probe` 才是当次外部观测，而且不会回写 registry 的 `stability` 或静态
-`available`。
-
----
-
-## 3. Domain × Capability 矩阵
-
-**10 个 domain + 横切 `fetch`**：
-
-| Domain | 说明 | 常见 capability |
-|---|---|---|
-| `paper` | 学术论文 | search |
-| `patent` | 专利 | search |
-| `web` | 通用网页搜索 | search, search_news, search_images, search_videos |
-| `social` | 社交平台 | search |
-| `video` | 视频平台 | search, search_articles, search_users, get_detail, get_trending, get_transcript |
-| `knowledge` | 百科/知识库 | search |
-| `developer` | 开发者社区 | search |
-| `cn_tech` | 中文技术社区 | search |
-| `office` | 企业/办公 | search |
-| `archive` | 档案/历史 | archive_lookup, archive_save |
-| `fetch` *(横切)* | 内容抓取 | fetch |
-
-**12 个标准 capability**：`search` / `search_news` / `search_images` / `search_videos` / `search_articles` / `search_users` / `get_detail` / `get_trending` / `get_transcript` / `fetch` / `archive_lookup` / `archive_save`。
-
-非标准能力使用命名空间前缀，如 `exa:find_similar` / `unpaywall:find_oa`；注册表接受任意字符串 capability，但只有标准 capability 参与门面自动派发。
-
-### 跨域能力
+Provider spec 负责把 deployment config/secret 映射成受审 factory 输入。运行时 factory 只在
+Provider 被选择时构造私有 client，所有 client 由 `ProviderManager.close_all()` 统一关闭。
 
 <!-- BEGIN AUTO: CROSS-DOMAIN FETCH SOURCES -->
-有些源同时可做主 domain 能力和抓取（`extra_domains={"fetch"}`）：
+以下 package 通过独立 adapter 提供多个公开能力：
 
-| Registry name | Registry description | 主 domain | Fetch client method | 全部 capabilities |
-|---|---|---|---|---|
-| `exa` | Exa 语义搜索 | `web` | `contents` | `exa:find_similar`, `fetch`, `search` |
-| `firecrawl` | Firecrawl 搜索+爬取 | `web` | `scrape` | `fetch`, `search` |
-| `kimi_code` | Kimi Code 搜索+网页获取 | `web` | `fetch` | `fetch`, `search` |
-| `metaso` | Metaso 秘塔搜索 (文档/网页/学术) | `web` | `reader` | `fetch`, `search` |
-| `tavily` | Tavily AI 搜索 | `web` | `extract` | `fetch`, `search` |
-| `wayback` | Internet Archive Wayback (免费) | `archive` | `fetch` | `archive_lookup`, `archive_save`, `fetch` |
-| `xcrawl` | XCrawl 搜索+抓取 | `web` | `scrape` | `fetch`, `search` |
+| Provider package | Capabilities | Adapter IDs |
+|---|---|---|
+| `exa` | `search`, `fetch` | `exa-search`, `exa-fetch` |
+| `firecrawl` | `search`, `fetch` | `firecrawl-search`, `firecrawl-fetch` |
+| `kimi_code` | `search`, `fetch` | `kimi_code-search`, `kimi_code-fetch` |
+| `metaso` | `search`, `fetch` | `metaso-search`, `metaso-fetch` |
+| `tavily` | `search`, `fetch` | `tavily-search`, `tavily-fetch` |
+| `xcrawl` | `search`, `fetch` | `xcrawl-search`, `xcrawl-fetch` |
 <!-- END AUTO: CROSS-DOMAIN FETCH SOURCES -->
 
----
+## 3. 公开 HTTP 与 SDK contract
 
-## 4. 并发与超时
+Frozen OpenAPI 只有 8 个 paths：
 
-- **per-event-loop Semaphore**：`core.concurrency.get_semaphore(channel)` 按当前 running loop 存 `WeakKeyDictionary[loop, Semaphore]`。同 loop 多次调用返回同一个；跨 `asyncio.new_event_loop()` 自动隔离；loop 被 GC 后自动清理。
-- **两个独立 channel**：`search` 与 `web`，互不阻塞。
-- **单源超时上限 15s**，受 `SouWenConfig.timeout` 约束；超时源丢弃，不影响其他源。
-- **异常隔离**：单源抛异常（ConfigError / RateLimitError / 其他）时只记 log，不阻塞其他源。
+| Method | Path | Responsibility |
+|---|---|---|
+| POST | `/api/v1/search` | 多 domain Provider Search |
+| POST | `/api/v1/llm-search` | model-bound LLM Search |
+| POST | `/api/v1/fetch` | 逐目标 Fetch 与 SSRF-safe result |
+| GET | `/api/v1/providers` | 安全的 Provider catalog 投影 |
+| GET | `/healthz`, `/health` | canonical health 与 retained alias |
+| GET | `/readyz`, `/readiness` | canonical readiness 与 retained alias |
 
-## 5. 限流与反爬
+`tools/gen_openapi.py` 生成 immutable artifact；`tools/gen_client_sdk.py` 与
+`tools/gen_typescript_sdk.py` 从该 artifact 生成 client/DTO。手写 route、Panel transport 或并行 DTO
+不能扩展 Data API。
 
-见 [anti-scraping.md](anti-scraping.md)。要点：
+Host-only `GET /api/v1/whoami`、Admin config/doctor/ping 和 `/panel` 不进入 frozen target OpenAPI。
+Admin API 始终受 Admin auth 保护，且只读、脱敏、不执行 live Provider probe。
 
-- **TLS 指纹**：`curl_cffi` 为 15+ 爬虫类源伪装 Chrome/Safari TLS ClientHello
-- **Token Bucket + 滑窗双层限流**：每源独立
-- **WARP 五模式**：wireproxy / kernel / usque / warp-cli / external
-- **SSRF 防护**：fetch 入口的重定向跟踪 + 私网/回环/链路本地 IP 黑名单；Scrapling 浏览器模式额外安装 Playwright 请求拦截
+## 4. Search、LLM Search 与 Fetch
 
-## 6. 配置
+### Search
 
-- **层级优先级**：env > `./souwen.yaml` > `~/.config/souwen/config.yaml` > `.env` > 默认值
-- **频道级覆盖**：每个源可独立配 proxy / http_backend / base_url / headers / params（见 `SouWenConfig.sources`）
-- 完整字段列表见 [configuration.md](configuration.md)
+`SearchModuleService` 使用 domain default selection 或调用方的显式 ProviderRef；每个 selection
+映射到 manifest adapter ID。单 Provider 失败转换为 canonical `ProviderError`，不会回退到已删除
+的 facade/registry 聚合器。
 
-## 7. 扩展：新增一个数据源
+### LLM Search
 
-**最少只改 2 处**：
+LLM Search Provider 绑定 exact model/scheme/gateway identity。部署方在
+`llm_search_gateways` 配置 private base URL/API key，并在 `sources` 中显式启用一个内置 LLM
+Search Provider。正式 HFS promotion 会要求该能力可用并执行 live call。
 
-1. 在真实实现模块写 Client（论文/专利使用 `souwen.paper.*` / `souwen.patent.*`；网页、社交、视频、知识、办公、抓取和归档相关实现使用 `souwen.web.*`；继承 `SouWenHttpClient` / `BaseScraper`）
-2. 在 `src/souwen/registry/sources/` 的对应 segment 模块（如 `paper.py`、`web_general.py`、`fetch.py`）加一个 `_reg(SourceAdapter(...))`
+### Fetch
 
-如需 API Key，加第 3 处：`SouWenConfig` 加字段。完整流程见 [adding-a-source.md](adding-a-source.md)。
+`FetchModuleService` 只调用 manifest 声明的 Fetch adapter。目标 URL 在交给直连 client、第三方
+提取服务或 Browser Worker 前执行 canonical SSRF 校验；redirect 逐跳重新绑定并校验。Browser
+Worker 只监听受认证的内部 loopback，不是外部 API。
 
-## 8. 结构一致性测试（护栏）
+## 5. 配置、认证与部署
 
-`tests/registry/test_consistency.py` 含 21 项硬断言，CI 每次 PR 必跑：
+配置优先级为 environment > `./souwen.yaml` > user config > `.env` > defaults。Provider secret
+只能通过部署配置解析，不进入 manifest、catalog、Admin response、日志或生成文档。
 
-- capability 全部在标准集或命名空间形式
-- extra_domains 只允许 `fetch`
-- MethodSpec.method_name 在 Client 类上真实存在
-- param_map 的目标参数名是方法签名里的参数
-- config_field / credential_fields 在 `SouWenConfig.model_fields` 里存在
-- default_for 的 key 能解析为 (domain, capability) 且都合法
-- 注册表无重名
-- `SourceMeta` 与 `registry.catalog.source_catalog()` 派生一致
-- high_risk 源不在任何默认源集
-- `resolve_params` 对所有 adapter/method 不抛异常
-- 结果模型 `source` 使用 registry adapter name
-- 所有标准 capability 都有源实现
-- 每个 domain 至少有一个源支持 search / archive_lookup
-- fetch 提供者 ≥ 10 个
+User credential 保护四个 Data API 操作；Admin credential 保护 host-only Admin 投影。无密码 Admin
+仅在显式 `SOUWEN_ADMIN_OPEN=1` 的本地/CI 场景开放，正式 HFS 必须为 `admin_open=false`，并验证
+anonymous Admin 被拒绝。
 
-## 9. 公开 API 入口
+HFS wrapper 固定 exact Git source SHA，并分别校验 wrapper SHA、runtime source SHA、Browser Worker
+source SHA、config revision、Panel、OpenAPI、Search/LLM Search/Fetch live 与 restart 后状态。
 
-注册表是单一事实源，但提供多条便捷入口：
+## 6. 新增 Provider
 
-- `from souwen.paper import OpenAlexClient`、`from souwen.web.tavily import TavilyClient` 等真实模块 import 路径
-- REST 路径：`/api/v1/search/paper`、`/api/v1/fetch` 等
-- `SouWenConfig` 字段名稳定（只增不改）
+新增 Provider 的最小闭环是：
 
-详见 [CHANGELOG.md](../CHANGELOG.md)。
+1. 在对应 `providers/{information_sources,fetch_sources,llm_sources}/<id>/` 增加
+   `manifest.py`、`spec.py`、`adapter.py`；需要私有 transport/parser 时使用
+   `providers/runtime_clients/` 与 Common Runtime。
+2. 增加 manifest/spec/adapter parity、eligibility、factory lifecycle、dispatch 和 normalization 的
+   deterministic tests。
+3. 运行 Provider、architecture、OpenAPI/SDK、生成文档与 residue gates。
+
+完整步骤见 [添加 Provider](adding-a-source.md)。
+
+## 7. 验证护栏
+
+- `pytest tests/ -q --tb=short`
+- `python scripts/ci/run_profile.py --profile sdk-contract --profile server-contract --profile provider-runtime`
+- `python scripts/ci/check_architecture_dependencies.py`
+- `python scripts/ci/check_no_legacy_terms.py`
+- `python tools/gen_openapi.py --check`
+- `python tools/gen_client_sdk.py --check`
+- `python tools/gen_typescript_sdk.py --check`
+- `python tools/gen_docs.py --check`
+- `cd panel && npm test && npm run build:local && npm run check:artifact`

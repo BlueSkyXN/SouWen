@@ -7,8 +7,8 @@ from urllib.parse import urlparse
 
 import pytest
 
-from souwen.models import WebSearchResponse
-from souwen.web.csdn import CSDNClient, _clean_html
+from souwen.providers.runtime_clients.models import WebSearchResponse
+from souwen.providers.runtime_clients.web.csdn import CSDNClient, _clean_html
 
 
 class TestCleanHtml:

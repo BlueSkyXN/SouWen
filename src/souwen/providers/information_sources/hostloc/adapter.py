@@ -18,7 +18,7 @@ class HostLocSearchProvider(CnScraperSearchProvider):
 
 
 def create_hostloc_client() -> Any:
-    from souwen.web.hostloc import HostLocClient
+    from souwen.providers.runtime_clients.web.hostloc import HostLocClient
 
     return HostLocClient()
 

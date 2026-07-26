@@ -2,9 +2,9 @@
 
 ## Purpose
 
-SouWen is a Python 3.10+ information-retrieval toolkit for AI agents, covering
-academic papers, patents, web search/fetch/archive, a FastAPI server, and an
-embedded React/Vite management panel.
+SouWen is a Python 3.10+ target-only information-retrieval API for AI agents:
+Search, LLM Search and Fetch, a frozen OpenAPI/generated SDK surface, a FastAPI
+server, and an embedded React/Vite management panel.
 
 ## Codex startup behavior
 
@@ -23,31 +23,26 @@ embedded React/Vite management panel.
 
 | Path | Responsibility | Local AGENTS.md | Read when |
 |---|---|---:|---|
-| `src/souwen/` | Main Python package, public API, models and client/server boundaries | yes | Any Python package change not covered by a deeper row |
-| `src/souwen/core/` | Shared HTTP, OAuth, retry, parsing, scraper base, rate limit and concurrency layer | yes | Changing low-level client behavior, retry/fingerprint/session/cache, scraper base or exceptions |
+| `src/souwen/` | Main Python package; public root is the generated SDK/client surface | yes | Any Python package change not covered by a deeper row |
+| `src/souwen/common_runtime/` | Shared transport, security, resilience, observability and Provider support | no | Changing low-level HTTP/OAuth/retry/SSRF/session/cache or runtime infrastructure |
 | `src/souwen/config/` | `SouWenConfig`, config template, YAML/.env/env loading and validators | yes | Changing config fields, env parsing, auth config or source credential resolution |
-| `src/souwen/registry/` | SourceAdapter, Source Catalog, registry loader, views and capability metadata | yes | Changing catalog shape, source defaults, capabilities, adapter validation or registry views |
-| `src/souwen/registry/sources/` | Built-in source declarations and `MethodSpec` mappings | yes | Adding/removing/classifying sources or changing credentials/risk/default metadata |
-| `src/souwen/paper/` | Paper provider clients and paper result normalization | yes | Changing paper providers, paper parsing, credentials or paper tests |
-| `src/souwen/research_output/` | Dataset, software and other non-paper research-output providers and normalization | yes | Changing research-output providers, type/rights/resource mapping or research-output tests |
-| `src/souwen/local_catalog/` | Persistent local SQLite catalog, import runs and official bulk importers | yes | Changing local catalog storage, importer, local source adapter or import status |
-| `src/souwen/patent/` | Patent provider clients, OAuth credentials and patent result normalization | yes | Changing patent providers, credential handling, scraping behavior or patent tests |
-| `src/souwen/web/` | Web/search/fetch/archive/social/video clients and fetch aggregation | yes | Changing web providers, fetch providers, SSRF checks, scraping behavior or routing |
-| `src/souwen/web/bilibili/` | Bilibili-specific client, WBI signing, models and errors | yes | Changing Bilibili request signing, cookie behavior, upstream error mapping or models |
-| `src/souwen/llm/` | LLM summarize/fetch-summarize APIs, provider adapters, prompts and models | yes | Changing LLM protocols, prompts, summary response shape, usage metadata or provider adapters |
+| `src/souwen/delivery/` | Frozen target API, generated Python SDK and Browser Worker client | no | Changing canonical HTTP contract, SDK generation/runtime or delivery adapters |
+| `src/souwen/modules/` | Search, LLM Search and Fetch application services | no | Changing the three public capability workflows, selection or canonical result mapping |
+| `src/souwen/platform/` | Provider SPI, spec, manifest registry and Provider manager | no | Changing Provider lifecycle, conformance, eligibility, selection or catalog semantics |
+| `src/souwen/providers/` | Built-in Provider v2 packages and deterministic manifest catalog | no | Adding/removing/classifying providers or changing manifest/spec/adapter ownership |
+| `src/souwen/providers/runtime_clients/` | Private provider transport/parsing clients and local catalog runtime | no | Changing provider-specific HTTP, parsing, OAuth, scraping, persistence or normalization |
 | `src/souwen/server/` | FastAPI app, auth, middleware, limiter, routes, WARP and embedded panel boundary | yes | Changing API app lifecycle, auth, middleware, server wiring, WARP or panel artifact behavior |
-| `src/souwen/server/routes/` | Public REST route handlers | yes | Changing non-admin API route behavior, auth dependency use, route timeouts or response wrapping |
-| `src/souwen/server/routes/admin/` | Admin-only config/proxy/WARP/source management endpoints | yes | Changing admin routes, state mutation, secret handling or admin permissions |
-| `src/souwen/server/schemas/` | FastAPI request/response schemas and OpenAPI contract | yes | Changing API fields, validation constraints, aliases or error response shape |
-| `src/souwen/integrations/` | External protocol integrations | yes | Changing integration entry points, optional dependency behavior or tool wiring |
+| `src/souwen/server/routes/` | Host-only `/whoami` and read-only Admin route wiring | yes | Changing host route auth, response wrapping or route registration |
+| `src/souwen/server/routes/admin/` | Read-only Admin config/doctor/ping endpoints | yes | Changing admin projection, redaction, Provider health or admin permissions |
+| `src/souwen/server/schemas/` | Host-only Admin/common response schemas | yes | Changing Admin fields, validation constraints or error response shape |
+| `src/souwen/worker/` | Private authenticated Browser Worker runtime | no | Changing loopback worker lifecycle, SSRF enforcement or browser execution |
 | `panel/` | Single Calm Precision React/Vite/TypeScript panel, npm scripts and embedded artifact build | yes | Changing Panel UI, frontend build config, dependencies, Vite, package scripts or artifact behavior |
 | `panel/src/core/` | Generated TypeScript SDK, auth/admin services, stores, shared types, styles and tests | yes | Changing SDK output, API/admin services, auth store, shared types, URL safety or tests |
 | `tests/` | Deterministic pytest suite and fixtures | yes | Adding/changing Python tests, fixtures, isolation behavior or test package layout |
-| `tests/registry/` | Registry/source catalog invariants | yes | Changing registry tests, catalog tests or source metadata validation |
 | `docs/` | User/contributor docs, ADRs, API docs and generated source catalog docs | yes | Changing docs, generated docs, API docs or docs tied to behavior changes |
 | `scripts/` | Functional checks, smoke/profile helpers and runtime shell scripts | yes | Changing non-pytest functional checks, reports, outcomes or smoke script behavior |
 | `scripts/ci/` | Deterministic CI profile runner and helper gates | yes | Changing `run_profile.py`, profile semantics or CI helper checks |
-| `tools/` | Repository maintenance generators and validators | yes | Changing docs generation or source id generation |
+| `tools/` | OpenAPI/SDK/docs generators and validators | yes | Changing generated contracts, clients or Provider catalog documentation |
 | `examples/` | Runnable public examples | yes | Changing examples or public API usage samples |
 | `cloud/` | Hugging Face Space and ModelScope deployment wrappers | yes | Changing cloud Dockerfiles, entrypoints, platform README or deployment assumptions |
 | `.github/` | GitHub Actions, prompts, labeler and dependency automation | yes | Changing workflow jobs, permissions, CI gates, deploy/release triggers or prompts |
@@ -64,8 +59,9 @@ embedded React/Vite management panel.
 Before editing files under a directory that has a local `AGENTS.md`, read that
 file first with `cat <path>/AGENTS.md`. For nested paths, read all cards on the
 path from shallow to deep. Example: before editing
-`src/souwen/registry/sources/paper.py`, read `src/souwen/AGENTS.md`,
-`src/souwen/registry/AGENTS.md`, and `src/souwen/registry/sources/AGENTS.md`.
+`src/souwen/server/routes/admin/doctor.py`, read `src/souwen/AGENTS.md`,
+`src/souwen/server/AGENTS.md`, `src/souwen/server/routes/AGENTS.md`, and
+`src/souwen/server/routes/admin/AGENTS.md`.
 
 Do not assume a card has been read because it exists in the repository. The
 directory map above is the router for root-launched sessions.
@@ -85,19 +81,17 @@ Install commands may need network access unless dependencies are already cached.
 | `pytest tests/ -v --tb=short` | Full deterministic Python tests | repo | No real internet, browser runtime, production secrets or HOME config |
 | `pytest tests/path/test_file.py -v --tb=short` | Targeted pytest | repo | Prefer for focused changes |
 | `python tools/gen_docs.py --check` | Verify generated source catalog docs | repo | Deterministic |
-| `python tools/gen_docs.py -o docs/data-sources.md` | Regenerate source catalog docs | repo | Writes generated docs |
+| `python tools/gen_docs.py --write` | Regenerate Provider docs and managed README/architecture sections | repo | Writes generated docs |
 | `python scripts/ci/check_no_legacy_terms.py` | Source catalog legacy term gate | repo | Deterministic |
 | `python scripts/ci/run_profile.py --list-profiles` | List CI profiles | repo | Deterministic |
 | `python scripts/ci/run_profile.py --profile server-contract` | Server target-contract smoke | repo | Requires the explicit Server runtime closure |
-| `python scripts/ci/run_profile.py --profile sdk-contract` | Target API-major/DTO prerequisite smoke; not generated-SDK proof | repo | Uses the current package/contract implementation until SDK generation lands |
+| `python scripts/ci/run_profile.py --profile sdk-contract` | Frozen OpenAPI plus generated Python/TypeScript SDK contract | repo | Deterministic after dev dependencies are installed |
 | `python scripts/ci/run_profile.py --profile provider-runtime` | Internal optional-provider runtime smoke | repo | Requires explicit provider extras; not a public product profile |
 | `cd panel && npm test` | Vitest suite | `panel/` | Deterministic after `npm ci` |
 | `cd panel && npm run build` | TypeScript build plus Vite build | `panel/` | Deterministic after `npm ci` |
 | `cd panel && npm run build:local && npm run check:artifact` | Rebuild embedded panel artifact | `panel/` | Writes `src/souwen/server/panel.html` |
 | `docker build -t souwen .` | Docker image build | repo | Needs Docker daemon and usually network |
 | `docker compose up -d` | Local compose runtime | repo | Needs Docker daemon and runtime cleanup |
-| `python scripts/scrapling_functional_check.py ...` | Live Scrapling functional check | repo | May need browser/runtime/network |
-| `python scripts/crawl4ai_functional_check.py ...` | Live Crawl4AI functional check | repo | May need browser/runtime/network |
 
 There is no standalone frontend typecheck script; `npm run build` runs
 `tsc -b && vite build`. There is no database migration framework in this repo.
@@ -109,10 +103,12 @@ There is no standalone frontend typecheck script; `npm run build` runs
 - Check `git status --short` before edits. Preserve unrelated user changes.
 - Use npm for `panel/`; do not add pnpm/yarn/bun lockfiles.
 - Python source targets Python 3.10+ and Ruff line length 100.
-- Registry is the source of truth for data sources. Do not create parallel
-  source lists in CLI, Server, Panel, docs or examples.
-- Prefer existing `SouWenHttpClient`, `OAuthClient`, `BaseScraper`, registry
-  adapters, schemas and helper APIs over ad hoc infrastructure.
+- Provider `manifest.py` files, loaded through `providers.catalog` and
+  `ManifestRegistry`, are the source of truth. Do not create parallel Provider
+  lists in Server, Panel, docs or examples.
+- Prefer existing Common Runtime transport/security helpers, Provider SPI/spec,
+  `ProviderManager`, canonical delivery schemas and private runtime clients over
+  ad hoc infrastructure.
 - Keep ordinary pytest deterministic: no real internet, browser runtime,
   production secret, private account or local HOME config dependency.
 - Put real package/browser/external smoke in functional scripts or GitHub
@@ -131,8 +127,8 @@ There is no standalone frontend typecheck script; `npm run build` runs
 - Do not reintroduce retired auth fields `api_password` or `visitor_password`.
 - Do not default-open admin APIs; no-password admin access requires explicit
   `SOUWEN_ADMIN_OPEN=1`.
-- Do not bypass fetch SSRF protections, route auth dependencies, rate limits or
-  registry validation.
+- Do not bypass fetch SSRF protections, route auth dependencies, rate limits,
+  manifest/spec validation or Provider lifecycle management.
 - Do not print or commit real secrets, tokens, cookies, passwords or private
   service URLs.
 - Do not run destructive git commands or include unrelated worktree changes in
@@ -145,7 +141,8 @@ Choose the narrowest validation that covers the changed surface.
 1. Read every relevant local `AGENTS.md` before editing.
 2. For Python behavior changes, run targeted pytest plus `ruff check` when
    practical.
-3. For registry/source changes, run `pytest tests/registry -v --tb=short`,
+3. For Provider changes, run the affected Provider v2 tests,
+   `pytest tests/test_manifest_registry_v2.py tests/test_provider_manager_v2.py -v --tb=short`,
    `python tools/gen_docs.py --check`, and
    `python scripts/ci/check_no_legacy_terms.py`.
 4. For server/API changes, run affected `tests/test_server` tests and consider

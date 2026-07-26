@@ -1,12 +1,12 @@
 """Reviewed local-store search declaration for Gutenberg."""
 
-from souwen.platform.provider_spec import LegacySearchProviderSpec, LocalStoreDeclaration
+from souwen.platform.provider_spec import ClientSearchProviderSpec, LocalStoreDeclaration
 
-GUTENBERG_PROVIDER_SPEC = LegacySearchProviderSpec(
+GUTENBERG_PROVIDER_SPEC = ClientSearchProviderSpec(
     provider_id="gutenberg",
     adapter_id="gutenberg-search",
     domain="book",
-    bridge_reason="local SQLite FTS catalog projection remains in the legacy client",
+    adapter_reason="local SQLite FTS catalog projection remains in the existing client",
     transport=LocalStoreDeclaration(
         store="local_catalog", protocol="sqlite", operations=("search",)
     ),

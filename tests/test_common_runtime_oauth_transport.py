@@ -13,9 +13,9 @@ import pytest
 
 import souwen.common_runtime.transport.oauth_client as canonical_module
 from souwen.common_runtime.transport import HttpTransport, OAuthTransport
-from souwen.core.exceptions import AuthError
-from souwen.core.http_client import OAuthClient, SouWenHttpClient
-from souwen.patent import cnipa, epo_ops
+from souwen.common_runtime.provider_support.exceptions import AuthError
+from souwen.common_runtime.provider_support.http_client import OAuthClient, SouWenHttpClient
+from souwen.providers.runtime_clients.patent import cnipa, epo_ops
 
 
 def _response(
@@ -103,11 +103,10 @@ def test_canonical_oauth_module_has_no_legacy_or_domain_dependencies() -> None:
     source = path.read_text(encoding="utf-8")
     for forbidden in (
         "souwen.config",
-        "souwen.core",
+        "souwen.common_runtime.provider_support",
         "souwen.delivery",
         "souwen.modules",
         "souwen.providers",
-        "souwen.registry",
         "souwen.server",
         "get_config",
         "source_name",
@@ -151,7 +150,7 @@ def test_legacy_oauth_adapter_preserves_source_config_resolution() -> None:
     config.resolve_proxy.return_value = "http://source-proxy.example:8080"
     config.resolve_headers.return_value = {"X-Source": "source-value"}
     with (
-        patch("souwen.core.http_client.get_config", return_value=config),
+        patch("souwen.common_runtime.provider_support.http_client.get_config", return_value=config),
         patch("souwen.common_runtime.transport.http_client.httpx.AsyncClient") as client_factory,
     ):
         client = OAuthClient(
@@ -193,9 +192,9 @@ def test_epo_and_cnipa_construct_with_canonical_oauth_operations() -> None:
     config.resolve_proxy.return_value = None
     config.resolve_headers.return_value = {}
     with (
-        patch("souwen.patent.epo_ops.get_config", return_value=config),
-        patch("souwen.patent.cnipa.get_config", return_value=config),
-        patch("souwen.core.http_client.get_config", return_value=config),
+        patch("souwen.providers.runtime_clients.patent.epo_ops.get_config", return_value=config),
+        patch("souwen.providers.runtime_clients.patent.cnipa.get_config", return_value=config),
+        patch("souwen.common_runtime.provider_support.http_client.get_config", return_value=config),
         patch("souwen.common_runtime.transport.http_client.httpx.AsyncClient"),
     ):
         epo = epo_ops.EpoOpsClient()
