@@ -138,7 +138,7 @@ def test_every_batch_four_factory_dispatches_and_closes_with_reviewed_config(
     config = _configured(tmp_path)
     runtime = runtime_module.build_target_runtime(config)
     catalog = {item.provider: item for item in runtime.services.provider_items}
-    assert len(catalog) == 76
+    assert len(catalog) == 101
     assert all(catalog[provider_id].availability == "available" for provider_id in _CLIENT_GLOBALS)
 
     async def exercise() -> None:

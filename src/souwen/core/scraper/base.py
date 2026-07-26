@@ -66,7 +66,9 @@ from souwen.common_runtime.security import (
 )
 from souwen.config import get_config
 from souwen.common_runtime.channel_overrides import (
+    reviewed_source_max_retries,
     reviewed_source_proxy,
+    reviewed_source_timeout_seconds,
     source_channel_overrides_enabled,
 )
 from souwen.core.exceptions import RateLimitError, SourceUnavailableError
@@ -130,12 +132,19 @@ class BaseScraper:
     ):
         self.min_delay = min_delay
         self.max_delay = max_delay
-        self.max_retries = max_retries
         self._backoff_multiplier = 1.0  # 自适应退避系数，被 429 时翻倍，成功时逐步回落
         self._fingerprint = get_random_fingerprint()
         config = get_config()
         source_name = getattr(self, "ENGINE_NAME", None)
         channel_overrides = source_channel_overrides_enabled()
+        reviewed_timeout = reviewed_source_timeout_seconds()
+        reviewed_retries = reviewed_source_max_retries()
+        request_timeout = (
+            config.timeout if channel_overrides or reviewed_timeout is None else reviewed_timeout
+        )
+        self.max_retries = (
+            max_retries if channel_overrides or reviewed_retries is None else reviewed_retries
+        )
 
         # 解析 HTTP 后端：显式参数 > 频道配置 > 旧版配置 > 自动检测
         if use_curl_cffi is None:
@@ -155,10 +164,10 @@ class BaseScraper:
                 use_curl_cffi = _HAS_CURL_CFFI
 
         # 解析代理：频道配置 > 全局代理
-        if source_name and channel_overrides:
-            proxy = config.resolve_proxy(source_name)
-        elif source_name:
+        if not channel_overrides:
             proxy = reviewed_source_proxy()
+        elif source_name:
+            proxy = config.resolve_proxy(source_name)
         else:
             proxy = config.get_proxy()
 
@@ -178,7 +187,7 @@ class BaseScraper:
         self._use_curl_cffi = use_curl_cffi
         self._follow_redirects = follow_redirects
         self._proxy = proxy
-        self._request_timeout = config.timeout
+        self._request_timeout = request_timeout
         self._curl_session: Any = None
         self._httpx_client: httpx.AsyncClient | None = None
         self._safe_httpx_clients: dict[tuple[str, str, str | None], httpx.AsyncClient] = {}
@@ -188,11 +197,11 @@ class BaseScraper:
             self._curl_session = CurlAsyncSession(
                 impersonate=self._fingerprint.impersonate,
                 proxy=proxy,
-                timeout=config.timeout,
+                timeout=request_timeout,
             )
         else:
             self._httpx_client = httpx.AsyncClient(
-                timeout=httpx.Timeout(config.timeout),
+                timeout=httpx.Timeout(request_timeout),
                 proxy=proxy,
                 follow_redirects=follow_redirects,
             )
@@ -278,7 +287,8 @@ class BaseScraper:
         last_error: Exception | None = None
         display_url = _resolved_target.original_url if _resolved_target is not None else url
 
-        for attempt in range(1, self.max_retries + 1):
+        # A configured zero means no retry after the initial request, not zero requests.
+        for attempt in range(1, max(1, self.max_retries) + 1):
             await self._polite_delay()
 
             try:

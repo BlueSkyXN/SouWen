@@ -43,7 +43,6 @@ import re
 from typing import Any
 from urllib.parse import urlencode
 
-from souwen.config import get_config
 from souwen.models import WebSearchResponse, WebSearchResult
 from souwen.core.scraper.base import BaseScraper
 from souwen.web.bilibili._errors import raise_for_code
@@ -87,14 +86,29 @@ class BilibiliClient(BaseScraper):
     # WBI -403/-352 触发的强制刷新错误码
     _WBI_INVALIDATE_CODES = (-403, -352)
 
-    def __init__(self, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        *,
+        sessdata: str | None = None,
+        follow_redirects: bool = False,
+        **kwargs: Any,
+    ) -> None:
         # 礼貌延迟 1~3 秒、重试 3 次；其余参数透传 BaseScraper
-        super().__init__(min_delay=1.0, max_delay=3.0, max_retries=3, **kwargs)
+        if follow_redirects:
+            raise ValueError("BilibiliClient requires follow_redirects=False")
+        super().__init__(
+            min_delay=1.0,
+            max_delay=3.0,
+            max_retries=3,
+            follow_redirects=False,
+            **kwargs,
+        )
         self._wbi = WbiSigner()
 
         # 可选 SESSDATA 登录态（提升风控通过率、可访问部分需要登录的接口）
-        cfg = get_config()
-        self._sessdata: str | None = getattr(cfg, "bilibili_sessdata", None) or None
+        self._sessdata = (
+            sessdata.strip() if isinstance(sessdata, str) and sessdata.strip() else None
+        )
 
     # ── 基础工具 ────────────────────────────────────────────
 

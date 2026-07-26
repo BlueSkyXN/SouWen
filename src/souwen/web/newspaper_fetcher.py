@@ -50,6 +50,7 @@ from souwen.models import FetchResponse, FetchResult
 from souwen.core.scraper.base import BaseScraper
 
 logger = logging.getLogger("souwen.web.newspaper_fetcher")
+_MAX_PARSER_INPUT_CODE_POINTS = 5_000_000
 
 
 class NewspaperFetcherClient(BaseScraper):
@@ -134,6 +135,14 @@ class NewspaperFetcherClient(BaseScraper):
                     final_url=final_url,
                     source=self.PROVIDER_NAME,
                     error="页面内容为空",
+                    raw={"provider": "newspaper", "status_code": status_code},
+                )
+            if len(html) > _MAX_PARSER_INPUT_CODE_POINTS:
+                return FetchResult(
+                    url=url,
+                    final_url=final_url,
+                    source=self.PROVIDER_NAME,
+                    error="页面内容超过解析上限",
                     raw={"provider": "newspaper", "status_code": status_code},
                 )
 

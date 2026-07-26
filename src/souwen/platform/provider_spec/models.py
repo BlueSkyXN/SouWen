@@ -70,6 +70,14 @@ class LocalStoreDeclaration(_SpecModel):
         return self
 
 
+class PublicTargetDeclaration(_SpecModel):
+    """Reviewed caller-supplied public URL transport for Fetch providers only."""
+
+    target_contract: Literal["validated_public_target"] = "validated_public_target"
+    protocol: Literal["ip_bound_http"] = "ip_bound_http"
+    operations: tuple[Literal["fetch"], ...] = ("fetch",)
+
+
 CredentialPlacement = Literal["header", "query", "bearer", "oauth_body", "path"]
 
 
@@ -251,7 +259,7 @@ class _LegacyProviderSpec(_SpecModel):
     adapter_kind: Literal["legacy_bridge"] = "legacy_bridge"
     review_status: Literal["bridge_exception"] = "bridge_exception"
     bridge_reason: str = Field(min_length=1, max_length=512)
-    transport: LegacyTransportDeclaration | LocalStoreDeclaration
+    transport: LegacyTransportDeclaration | LocalStoreDeclaration | PublicTargetDeclaration
     additional_transports: tuple[LegacyTransportDeclaration, ...] = ()
     auth: AuthDeclaration = Field(default_factory=AuthDeclaration)
     configuration_keys: tuple[str, ...] = ()
@@ -272,8 +280,10 @@ class _LegacyProviderSpec(_SpecModel):
 
     @model_validator(mode="after")
     def _transport_hosts_are_unique(self) -> "_LegacyProviderSpec":
-        if isinstance(self.transport, LocalStoreDeclaration) and self.additional_transports:
-            raise ValueError("local store providers cannot declare network transports")
+        if isinstance(self.transport, (LocalStoreDeclaration, PublicTargetDeclaration)) and (
+            self.additional_transports
+        ):
+            raise ValueError("local or public-target providers cannot declare network transports")
         hosts = self.hosts
         if len(hosts) != len(set(hosts)):
             raise ValueError("additional legacy transport hosts must be unique")
@@ -289,19 +299,19 @@ class _LegacyProviderSpec(_SpecModel):
 
     @property
     def host(self) -> str | None:
-        if isinstance(self.transport, LocalStoreDeclaration):
+        if isinstance(self.transport, (LocalStoreDeclaration, PublicTargetDeclaration)):
             return None
         return self.transport.host
 
     @property
     def hosts(self) -> tuple[str, ...]:
-        if isinstance(self.transport, LocalStoreDeclaration):
+        if isinstance(self.transport, (LocalStoreDeclaration, PublicTargetDeclaration)):
             return ()
         return (self.transport.host, *(item.host for item in self.additional_transports))
 
     @property
     def base_url(self) -> str | None:
-        if isinstance(self.transport, LocalStoreDeclaration):
+        if isinstance(self.transport, (LocalStoreDeclaration, PublicTargetDeclaration)):
             return None
         return (
             f"{self.transport.scheme}://{self.transport.host}{self.transport.base_path.rstrip('/')}"

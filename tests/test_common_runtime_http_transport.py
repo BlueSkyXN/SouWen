@@ -27,6 +27,7 @@ from souwen.common_runtime.transport import (
     SouWenError,
 )
 from souwen.core.http_client import DEFAULT_USER_AGENT, SouWenHttpClient
+from souwen.core.scraper.base import BaseScraper
 from souwen.research_output.datacite import DataCiteClient
 
 
@@ -157,6 +158,53 @@ def test_provider_construction_scope_uses_reviewed_proxy_timeout_and_retries() -
     assert reviewed_source_proxy() is None
     assert reviewed_source_timeout_seconds() is None
     assert reviewed_source_max_retries() is None
+
+
+def test_scraper_construction_scope_uses_reviewed_proxy_timeout_and_retries() -> None:
+    config = _config()
+    with (
+        patch("souwen.core.scraper.base.get_config", return_value=config),
+        patch("souwen.core.scraper.base.httpx.AsyncClient") as client_factory,
+        without_source_channel_overrides(
+            proxy="http://reviewed-proxy.example:8080",
+            timeout_seconds=7,
+            max_retries=1,
+        ),
+    ):
+        scraper = BaseScraper(use_curl_cffi=False, follow_redirects=False)
+
+    config.get_proxy.assert_not_called()
+    config.resolve_proxy.assert_not_called()
+    options = client_factory.call_args.kwargs
+    assert options["timeout"].connect == 7
+    assert options["proxy"] == "http://reviewed-proxy.example:8080"
+    assert options["follow_redirects"] is False
+    assert scraper.max_retries == 1
+    assert scraper._request_timeout == 7
+    assert reviewed_source_proxy() is None
+    assert reviewed_source_timeout_seconds() is None
+    assert reviewed_source_max_retries() is None
+
+
+@pytest.mark.asyncio
+async def test_scraper_zero_retries_still_executes_the_initial_request() -> None:
+    config = _config()
+    response = httpx.Response(200)
+    with (
+        patch("souwen.core.scraper.base.get_config", return_value=config),
+        patch("souwen.core.scraper.base.httpx.AsyncClient"),
+        without_source_channel_overrides(max_retries=0),
+    ):
+        scraper = BaseScraper(
+            min_delay=0,
+            max_delay=0,
+            use_curl_cffi=False,
+            follow_redirects=False,
+        )
+    scraper._do_request = AsyncMock(return_value=response)
+
+    assert await scraper._fetch("https://example.test") is response
+    scraper._do_request.assert_awaited_once()
 
 
 @pytest.mark.asyncio

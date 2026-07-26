@@ -66,10 +66,30 @@ NON_REST_SPEC_EXCEPTIONS = {
     ),
 }
 RETIREMENT_PENDING_SOURCES = {
+    "community_cn": (
+        "duplicate_search_aggregator",
+        "Deprecated DuckDuckGo site-search fan-out is not an independent upstream provider; "
+        "the compatibility entry retires in C1",
+    ),
+    "crawl4ai": (
+        "unsafe_browser_fetch_legacy",
+        "Legacy browser fetch lacks redirect, subresource, final-URL, and IP-bound SSRF closure; "
+        "the retained Browser Worker covers reviewed browser Fetch and this legacy entry retires in C1",
+    ),
     "opencitations": (
         "search_internal_enrichment",
         "Search-internal citation enrichment; public citation routes and registry capability "
         "retire in C1",
+    ),
+    "scrapling": (
+        "unsafe_conditional_browser_fetch_legacy",
+        "Third-party HTTP/browser modes cannot prove IP-bound redirect and final-URL safety; "
+        "the legacy provider retires in C1 instead of weakening Fetch policy",
+    ),
+    "site_crawler": (
+        "noncanonical_recursive_crawl",
+        "Recursive one-to-many crawling is not canonical one-target Fetch and its transport is "
+        "not IP-bound; the legacy capability retires in C1",
     ),
     "unpaywall": (
         "fetch_internal_enrichment",
@@ -78,6 +98,10 @@ RETIREMENT_PENDING_SOURCES = {
     ),
 }
 LEGACY_CAPABILITY_RETIREMENT_REASONS = {
+    "bilibili": (
+        "Provider v2 retains video Search; legacy detail, user search, and article search "
+        "retire in C1 rather than being misrepresented as Fetch"
+    ),
     "exa": "Provider v2 retains Search and Fetch; legacy exa:find_similar retires in C1",
     "wayback": ("Provider v2 retains Fetch; legacy archive_lookup and archive_save retire in C1"),
     "youtube": (
@@ -86,7 +110,12 @@ LEGACY_CAPABILITY_RETIREMENT_REASONS = {
     ),
 }
 STATIC_SPEC_CONSTRUCTORS = frozenset(
-    {"LegacyFetchProviderSpec", "LegacySearchProviderSpec", "RestJsonProviderSpec"}
+    {
+        "LegacyFetchProviderSpec",
+        "LegacySearchProviderSpec",
+        "RestJsonProviderSpec",
+        "legacy_scraper_spec",
+    }
 )
 
 
@@ -218,6 +247,20 @@ def _manifest_targets_from_tree(tree: ast.Module, path: Path) -> dict[str, dict[
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
             continue
+        if (
+            isinstance(node.func, ast.Name)
+            and node.func.id == "scraper_search_manifest"
+            and len(node.args) >= 2
+        ):
+            manifest_id = _static_string(node.args[0], constants)
+            export = _static_string(node.args[1], constants)
+            if manifest_id is not None and export is not None:
+                targets[manifest_id] = {
+                    "package": ".".join(path.relative_to(SRC_ROOT).parent.parts),
+                    "manifest_path": path.relative_to(REPO_ROOT).as_posix(),
+                    "adapters": [{"adapter_id": f"{manifest_id}-search", "capability": "search"}],
+                }
+            continue
         expression = _manifest_id_expression(node)
         if expression is not None:
             literal = _static_string(expression, constants)
@@ -310,6 +353,10 @@ def _target_spec_reference(source_id: str, target: dict[str, Any]) -> dict[str, 
                 ),
                 None,
             )
+            if provider_id is None and node.value.func.id == "legacy_scraper_spec":
+                provider_id = (
+                    _static_string(node.value.args[0], constants) if node.value.args else None
+                )
             if provider_id == source_id:
                 return {
                     "target_spec_identity": f"{target['package']}.spec.{node.targets[0].id}",
