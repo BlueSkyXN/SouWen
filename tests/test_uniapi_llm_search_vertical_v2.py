@@ -34,19 +34,17 @@ class _Response:
                 {
                     "type": "message",
                     "status": "completed",
-                    "message": {
-                        "content": [
-                            {
-                                "annotations": [
-                                    {
-                                        "type": "url_citation",
-                                        "title": "Vertical fixture",
-                                        "url": "https://example.com/vertical",
-                                    }
-                                ]
-                            }
-                        ]
-                    },
+                    "content": [
+                        {
+                            "annotations": [
+                                {
+                                    "type": "url_citation",
+                                    "title": "Vertical fixture",
+                                    "url": "https://example.com/vertical",
+                                }
+                            ]
+                        }
+                    ],
                 },
             ],
             "usage": {},

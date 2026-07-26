@@ -768,7 +768,7 @@ jobs:
           EXPECTED_SOUWEN_WRAPPER_SHA: ${{ needs.sync-hfs-wrapper.outputs.space_commit_sha }}
           SOUWEN_HF_SPACE_URL: https://blueskyxn-souwen.hf.space
           SOUWEN_HF_SPACE_TOKEN: ${{ secrets.HF_SPACE_READ_TOKEN }}
-          SOUWEN_SMOKE_REQUEST_TIMEOUT: "20"
+          SOUWEN_SMOKE_REQUEST_TIMEOUT: "60"
           SOUWEN_SMOKE_WARP_MODES: auto
           SOUWEN_SMOKE_FAIL_ADMIN_OPEN: "1"
           SOUWEN_SMOKE_REPORT_FILE: ${{ github.workspace }}/${{ matrix.report }}

@@ -37,7 +37,6 @@ from souwen.platform.provider_spi import (
 from .manifest import DEEPSEEK_ADAPTER_ID, DOUBAO_ADAPTER_ID
 
 
-_RESPONSE_PATH = "/v1/responses"
 _DEFAULT_TIMEOUT_SECONDS = 45.0
 _DEFAULT_MAX_KEYWORD = 10
 _MAX_RESULTS = 50
@@ -80,6 +79,7 @@ class _UniApiArkAnnotationsProvider:
     ) -> None:
         self._enabled, self._max_keyword, timeout = _validated_configuration(configuration)
         api_key, base_url = _validated_secrets(secrets)
+        self._response_path = _responses_path(base_url)
         self._transport = transport or HttpTransport(
             base_url=base_url,
             headers={
@@ -121,11 +121,12 @@ class _UniApiArkAnnotationsProvider:
             "model": self.MODEL_ID,
             "input": request.query,
             "tools": [{"type": "web_search", "max_keyword": max_results}],
+            "tool_choice": {"type": "web_search"},
         }
         try:
             response = await _await_with_execution(
                 self._transport.post(
-                    _RESPONSE_PATH,
+                    self._response_path,
                     json=payload,
                     retry_policy="single_attempt",
                 ),
@@ -272,6 +273,12 @@ def _validated_secrets(secrets: Mapping[str, str]) -> tuple[str, str]:
     return api_key.strip(), base_url.strip().rstrip("/")
 
 
+def _responses_path(base_url: str) -> str:
+    """Join against either a gateway root or an OpenAI-compatible ``/v1`` base."""
+    path = urlsplit(base_url).path.rstrip("/")
+    return "responses" if path.endswith("/v1") else "v1/responses"
+
+
 async def _await_with_execution(
     value: Any,
     execution: ExecutionContext,
@@ -402,10 +409,10 @@ def _structured_annotations(output: list[Any]) -> tuple[Mapping[str, Any], ...]:
     for item in output:
         if not isinstance(item, Mapping) or item.get("status") not in {"completed", "incomplete"}:
             continue
-        message = item.get("message")
-        if not isinstance(message, Mapping):
-            continue
-        content = message.get("content")
+        content = item.get("content")
+        if not isinstance(content, list):
+            message = item.get("message")
+            content = message.get("content") if isinstance(message, Mapping) else None
         if not isinstance(content, list):
             continue
         for part in content:
