@@ -937,6 +937,18 @@ def test_ruff_toolchain_version_is_pinned_consistently() -> None:
         workflow = _workflow(workflow_name)
         assert f'pip install "ruff=={version}"' in workflow
         assert "pip install ruff\n" not in workflow
+    for workflow_name in ("release-candidate.yml", "build-pyinstaller-server.yml"):
+        workflow = _workflow(workflow_name)
+        assert f'"ruff=={version}"' in workflow
+        assert "pip install ruff\n" not in workflow
+
+
+def test_release_container_smoke_avoids_pipefail_broken_pipe_on_panel_html() -> None:
+    container = _job(_workflow("release-candidate.yml"), "container", "promotion-gate")
+
+    assert '/panel" | grep' not in container
+    assert 'curl -fsS "http://127.0.0.1:${{ matrix.port }}/panel" -o "$panel_file"' in container
+    assert 'grep -Eiq \'id="root"|SouWen|souwen\' "$panel_file"' in container
 
 
 def test_hfs_reusable_promotion_is_candidate_pinned_and_live_verified() -> None:
