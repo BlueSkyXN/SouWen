@@ -1,7 +1,7 @@
 # 核心概念
 
-本文解释 SouWen 当前对外暴露的核心概念，帮助使用者在 CLI、Python API、
-REST API 和 Panel 之间建立同一套理解。
+本文解释 SouWen 当前对外暴露的核心概念，帮助使用者在 Python API、REST API 和 Panel
+之间建立同一套理解。
 
 ## Domain
 
@@ -32,7 +32,6 @@ REST API 和 Panel 之间建立同一套理解。
 Source Catalog 是 SouWen 的公开数据源目录。它由 `SourceAdapter` registry
 自动投影，驱动：
 
-- `souwen sources` CLI；
 - `/api/v1/sources`；
 - Web Panel 数据源页；
 - doctor 和管理端配置状态；

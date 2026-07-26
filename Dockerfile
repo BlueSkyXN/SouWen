@@ -114,7 +114,7 @@ RUN pip install --no-deps ".[edition-pro]" \
     && python -c "import curl_cffi; print('curl_cffi OK')"
 
 # 步骤 3：复制运行时所需的脚本和配置文件
-COPY cli.py souwen.example.yaml ./
+COPY souwen.example.yaml ./
 COPY scripts/warp-init.sh /usr/local/bin/warp-init.sh
 COPY entrypoint.sh /usr/local/bin/entrypoint.sh
 RUN chmod +x /usr/local/bin/warp-init.sh /usr/local/bin/entrypoint.sh

@@ -468,7 +468,6 @@ jobs:
           "$RUNNER_TEMP/clean-wheel/bin/python" -m pip install --upgrade pip
           "$RUNNER_TEMP/clean-wheel/bin/python" -m pip install "${wheel}[${{ matrix.extra }}]"
           "$RUNNER_TEMP/clean-wheel/bin/python" -m pip check
-          HOME="$RUNNER_TEMP/clean-home" "$RUNNER_TEMP/clean-wheel/bin/souwen" --version
 
       - name: Probe isolated edition and package contract
         uses: ./.github/actions/clean-wheel-smoke
@@ -535,7 +534,6 @@ jobs:
                   ],
                   1.50,
               ),
-              "cli_help": ([sys.executable, "cli.py", "--help"], 2.00),
               "server_import": (
                   [sys.executable, "-c", "from souwen.server.app import app"],
                   2.50,

@@ -189,7 +189,7 @@ class SouWenConfig(BaseModel):
 
 ## 4. （可选）让源进入默认集
 
-希望 `souwen search paper "xxx"` 默认就会调用你的源？在 `SourceAdapter` 上加 `default_for`：
+希望 Python API 或 REST 搜索默认调用你的源？在 `SourceAdapter` 上加 `default_for`：
 
 ```python
 default_for=frozenset({"paper:search"}),
@@ -246,12 +246,8 @@ async def test_my_source_search(httpx_mock):
 ## 6. 验证端到端
 
 ```bash
-# CLI（注册表自动暴露）
-souwen sources | grep my_source
-souwen search paper "transformer" -s my_source -n 3
-
-# REST
-souwen serve &
+# REST（先通过 uvicorn 启动服务）
+uvicorn souwen.server.app:app &
 curl 'http://localhost:8000/api/v1/sources' | jq '.sources[] | select(.name=="my_source")'
 curl 'http://localhost:8000/api/v1/search/paper?q=transformer&sources=my_source&per_page=3'
 ```

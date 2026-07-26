@@ -433,8 +433,7 @@ def has_configured_credentials(cfg: Any, source_name: str, meta: Any) -> bool:
     """判断该源声明的凭据字段是否已全部配置。
 
     回答的问题是："用户给了 Key 吗？"——用于 admin source config 的
-    ``has_api_key`` 字段，以及 CLI ``souwen config source`` 详情页的
-    "API Key: ✅ 已配置 / ⬜ 未配置" 提示。
+    ``has_api_key`` 字段与管理 API 的脱敏配置视图。
 
     返回 ``False`` 的情况：
         - 源未声明任何 ``credential_fields``：免配置源根本没 Key 可配置，所以从

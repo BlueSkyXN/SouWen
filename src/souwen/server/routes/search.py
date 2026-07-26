@@ -197,7 +197,7 @@ async def api_search_book(
     except LocalCatalogUnavailableError:
         raise HTTPException(
             status_code=503,
-            detail="local catalog unavailable; run `souwen catalog import gutenberg <rdf-input>`",
+            detail="local catalog unavailable; import Gutenberg RDF through the Python importer first",
         )
     except SouWenError:
         logger.exception("图书搜索上游失败: q=%s sources=%s", query, source_list)

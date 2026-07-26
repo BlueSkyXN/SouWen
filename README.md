@@ -14,7 +14,7 @@
 
 **作者**: [@BlueSkyXN](https://github.com/BlueSkyXN) · **项目地址**: [github.com/BlueSkyXN/SouWen](https://github.com/BlueSkyXN/SouWen) · **协议**: [GPLv3](LICENSE)
 
-> **⚠️ 声明：本项目仅供 Python 学习与技术研究使用。** 涵盖 API 聚合、全栈开发（FastAPI + React）、爬虫技术（TLS 指纹 / 反爬绕过）、CLI、异步编程等方向。请勿用于违反法律法规或第三方服务条款的用途。
+> **⚠️ 声明：本项目仅供 Python 学习与技术研究使用。** 涵盖 API 聚合、全栈开发（FastAPI + React）、爬虫技术（TLS 指纹 / 反爬绕过）与异步编程等方向。请勿用于违反法律法规或第三方服务条款的用途。
 
 ---
 
@@ -34,9 +34,9 @@
 
 ## 🎯 简介
 
-SouWen（搜文）为 AI Agent、CLI 脚本和服务端应用提供统一的多源搜索接口，**所有数据源通过 `SourceAdapter` 单一事实源声明**，归一化为 Pydantic v2 数据模型。
+SouWen（搜文）为 AI Agent、Python 集成和服务端应用提供统一的多源搜索接口，**所有数据源通过 `SourceAdapter` 单一事实源声明**，归一化为 Pydantic v2 数据模型。
 
-注册表架构使源的新增成本降到 **1-2 处**改动；CLI / API / Panel 均按 domain、capability 和 Source Catalog 组织。
+注册表架构使源的新增成本降到 **1-2 处**改动；Python API、REST API 和 Panel 均按 domain、capability 和 Source Catalog 组织。
 
 ### 特性
 
@@ -56,7 +56,7 @@ SouWen（搜文）为 AI Agent、CLI 脚本和服务端应用提供统一的多�
 ## 📦 安装
 
 ```bash
-# 从当前 main 源码线安装核心库 + CLI
+# 从当前 main 源码线安装核心库
 git clone https://github.com/BlueSkyXN/SouWen.git
 cd SouWen
 pip install -e .
@@ -73,28 +73,6 @@ pip install -e ".[edition-full-scrapling]"
 ```
 
 ## 🚀 快速开始
-
-### CLI
-
-```bash
-# 多源搜索
-souwen search paper "transformer"
-souwen search patent "quantum computing"
-souwen search web "python asyncio"
-
-# 抓取与平台命令
-souwen fetch https://example.com
-souwen youtube trending
-souwen bilibili search "编程"
-souwen wayback cdx https://example.com
-
-# 管理
-souwen sources --available-only          # 仅列出静态 gate 与当前 runtime 均可用的数据源
-souwen sources --json                    # 输出与 /api/v1/sources 一致的 Source Catalog
-souwen serve                             # 启动 API 服务 (默认 :8000)
-souwen doctor                            # 静态检查（默认 live=false，不联网）
-souwen mcp                               # MCP server info
-```
 
 ### Python 库
 
@@ -131,7 +109,7 @@ asyncio.run(main())
 ### API Server
 
 ```bash
-SOUWEN_ADMIN_PASSWORD=adminpass souwen serve --host 0.0.0.0 --port 8000
+SOUWEN_ADMIN_PASSWORD=adminpass uvicorn souwen.server.app:app --host 0.0.0.0 --port 8000
 ```
 
 主要端点：
@@ -155,11 +133,11 @@ curl "http://localhost:8000/api/v1/sources"
 
 配置优先级：env > `./souwen.yaml` > `~/.config/souwen/config.yaml` > `.env` > 默认值。
 
-运行 `souwen config init` 会在当前目录生成 `./souwen.yaml` 模板；需要全局配置时，可将模板复制到 `~/.config/souwen/config.yaml`。
+从 `souwen.example.yaml` 创建项目配置；需要全局配置时，可将其复制到 `~/.config/souwen/config.yaml`。
 
 ## 🏗 架构
 
-三层分离：**展示层（CLI / Server / Panel / Integrations）→ 应用入口（`souwen.search` / `souwen.web.fetch` / `souwen.web.wayback`）→ 注册表层（registry）+ 真实 Client 模块 + 平台层（core）**。
+三层分离：**展示层（Server / Panel / Integrations）→ 应用入口（`souwen.search` / `souwen.web.fetch` / `souwen.web.wayback`）→ 注册表层（registry）+ 真实 Client 模块 + 平台层（core）**。
 
 详见 [docs/architecture.md](docs/architecture.md)。
 
@@ -170,7 +148,6 @@ src/souwen/
 ├── paper/             论文客户端
 ├── patent/            8 个专利客户端
 ├── web/               搜索、社交、视频、知识、办公、抓取和归档相关客户端
-├── cli/ (子包)        CLI 命令（按 domain 组织）
 └── server/            FastAPI 应用
 ```
 

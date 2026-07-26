@@ -250,7 +250,6 @@ def test_hf_space_post_deploy_fails_public_admin_open() -> None:
 def test_agent_command_docs_use_canonical_profile_names() -> None:
     agent_docs = (
         REPO_ROOT / "AGENTS.md",
-        REPO_ROOT / "src/souwen/cli/AGENTS.md",
         REPO_ROOT / "src/souwen/server/AGENTS.md",
     )
 
@@ -306,7 +305,7 @@ def test_canonical_profile_editions_are_explicit(monkeypatch):
         "pro-cli",
         "full-cli",
     }
-    assert captured["cli.py"] == "basic"
+    assert captured[run_profile.BASIC_RUNTIME_CODE] == "basic"
     assert captured["pytest"] == "pro"
     assert captured[run_profile.FULL_IMPORT_CODE] == "full"
 

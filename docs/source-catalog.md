@@ -6,7 +6,7 @@ Source Catalog 是 SouWen 的公开数据源契约。它不是手写清单，而
 
 ## 公开结构
 
-`/api/v1/sources` 和 `souwen sources --json` 返回：
+`/api/v1/sources` 返回：
 
 ```json
 {

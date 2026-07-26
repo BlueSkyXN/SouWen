@@ -14,7 +14,7 @@
 
 **Author**: [@BlueSkyXN](https://github.com/BlueSkyXN) · **Repository**: [github.com/BlueSkyXN/SouWen](https://github.com/BlueSkyXN/SouWen) · **License**: [GPLv3](LICENSE)
 
-> **⚠️ Disclaimer: This project is for Python learning and technical research only.** It covers API aggregation, full-stack development (FastAPI + React), web scraping (TLS fingerprinting / anti-bot bypass), CLI, and async programming. Do not use it in ways that violate laws or third-party terms of service.
+> **⚠️ Disclaimer: This project is for Python learning and technical research only.** It covers API aggregation, full-stack development (FastAPI + React), web scraping (TLS fingerprinting / anti-bot bypass), and async programming. Do not use it in ways that violate laws or third-party terms of service.
 
 ---
 
@@ -34,9 +34,9 @@
 
 ## 🎯 Introduction
 
-SouWen provides AI Agents, CLI scripts, and server applications with a unified multi-source search interface. **All data sources are declared through a single `SourceAdapter` registry**, normalized into Pydantic v2 data models.
+SouWen provides AI Agents, Python integrations, and server applications with a unified multi-source search interface. **All data sources are declared through a single `SourceAdapter` registry**, normalized into Pydantic v2 data models.
 
-The registry architecture reduces the cost of adding a new source to **1-2 code changes**; CLI / API / Panel are organized by domain, capability, and Source Catalog.
+The registry architecture reduces the cost of adding a new source to **1-2 code changes**; Python API / REST API / Panel are organized by domain, capability, and Source Catalog.
 
 ### Features
 
@@ -74,28 +74,6 @@ pip install -e ".[edition-full-scrapling]"
 
 ## 🚀 Quick Start
 
-### CLI
-
-```bash
-# Multi-source search
-souwen search paper "transformer"
-souwen search patent "quantum computing"
-souwen search web "python asyncio"
-
-# Fetch & platform commands
-souwen fetch https://example.com
-souwen youtube trending
-souwen bilibili search "programming"
-souwen wayback cdx https://example.com
-
-# Management
-souwen sources --available-only          # Require both the static gate and current runtime
-souwen sources --json                    # Output the same Source Catalog shape as /api/v1/sources
-souwen serve                             # Start API server (default :8000)
-souwen doctor                            # Static check (live=false by default; no network)
-souwen mcp                               # MCP server info
-```
-
 ### Python Library
 
 ```python
@@ -131,7 +109,7 @@ asyncio.run(main())
 ### API Server
 
 ```bash
-SOUWEN_ADMIN_PASSWORD=adminpass souwen serve --host 0.0.0.0 --port 8000
+SOUWEN_ADMIN_PASSWORD=adminpass uvicorn souwen.server.app:app --host 0.0.0.0 --port 8000
 ```
 
 Main endpoints:
@@ -155,11 +133,11 @@ Visit `/docs` for the full OpenAPI documentation; visit `/panel#/` to enter the 
 
 Config priority: env > `./souwen.yaml` > `~/.config/souwen/config.yaml` > `.env` > defaults.
 
-Run `souwen config init` to generate a `./souwen.yaml` template in the current directory. Copy it to `~/.config/souwen/config.yaml` if you want a user-level config.
+Create project configuration from `souwen.example.yaml`. Copy it to `~/.config/souwen/config.yaml` if you want a user-level config.
 
 ## 🏗 Architecture
 
-Three-layer separation: **Presentation (CLI / Server / Panel / Integrations) → Application API (`souwen.search` / `souwen.web.fetch` / `souwen.web.wayback`) → Registry + concrete client modules + Platform (`core`)**.
+Three-layer separation: **Presentation (Server / Panel / Integrations) → Application API (`souwen.search` / `souwen.web.fetch` / `souwen.web.wayback`) → Registry + concrete client modules + Platform (`core`)**.
 
 See [docs/architecture.md](docs/architecture.md) for details.
 
@@ -170,7 +148,6 @@ src/souwen/
 ├── paper/             Paper clients
 ├── patent/            8 patent clients
 ├── web/               Search, social, video, knowledge, office, fetch, and archive clients
-├── cli/ (subpackage)  CLI commands (organized by domain)
 └── server/            FastAPI application
 ```
 

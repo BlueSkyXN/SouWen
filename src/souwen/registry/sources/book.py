@@ -62,7 +62,7 @@ _reg(
         stability="stable",
         default_enabled=False,
         usage_note=(
-            "本地 SQLite catalog；先运行 `souwen catalog import taiwan_new_books <csv-input>`。"
+            "本地 SQLite catalog；先通过 Python importer 导入 Taiwan new-books CSV。"
             "搜索不访问 NCL 网络端点，CSV 仅导入 metadata，不表示全文访问或再分发权。"
         ),
         client_loader=lazy(
@@ -93,7 +93,7 @@ _reg(
         stability="stable",
         default_enabled=False,
         usage_note=(
-            "本地 SQLite catalog；先运行 `souwen catalog import gutenberg <rdf-input>`。"
+            "本地 SQLite catalog；先通过 Python importer 导入 Gutenberg RDF。"
             "搜索不访问 Gutenberg 网络端点，resource URL 只保留为 metadata。"
         ),
         client_loader=lazy("souwen.local_catalog.gutenberg:GutenbergLocalCatalogClient"),

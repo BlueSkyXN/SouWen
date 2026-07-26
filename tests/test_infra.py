@@ -527,32 +527,10 @@ class TestYAMLConfig:
         assert example.exists(), f"souwen.example.yaml not found at {example}"
 
 
-class TestCLI:
-    """CLI 工具测试"""
+class TestRegistry:
+    """Registry 工具测试。"""
 
-    def test_cli_app_exists(self):
-        """CLI app 可导入"""
-        from souwen.cli import app
-
-        assert app is not None
-
-    def test_cli_mask_value(self):
-        """Key 脱敏：不泄漏实际值，区分已配置/未配置"""
-        from souwen.cli import _mask_value
-
-        assert "未配置" in _mask_value(None)
-        assert "未配置" in _mask_value("")
-        # 已配置：仅显示长度，不泄漏任何前缀
-        long_masked = _mask_value("abcdef123")
-        assert "已配置" in long_masked
-        assert "abcd" not in long_masked  # 不再泄漏前缀
-        assert "9" in long_masked  # 包含长度信息
-        # 已配置：短值同样不泄漏
-        short_masked = _mask_value("ab")
-        assert "已配置" in short_masked
-        assert "ab" not in short_masked
-
-    def test_cli_source_catalog_data(self):
+    def test_source_catalog_data(self):
         """数据源清单完整性。"""
         from souwen.registry.catalog import public_source_catalog
 

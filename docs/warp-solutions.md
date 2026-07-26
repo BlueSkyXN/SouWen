@@ -9,7 +9,7 @@ WARP 的核心目标不是替代系统代理，而是在 SouWen 抓取网页、�
 运行方式分为两类：
 
 - **Docker 容器启动期初始化**：由 `entrypoint.sh` 控制。默认 `WARP_ENTRYPOINT_INIT=0` 跳过同步初始化，由 Python `WarpManager` 后台异步启动（非阻塞）。设为 `1` 可恢复旧的同步行为。
-- **直接运行 / API / CLI 动态管理**：由 Python `WarpManager` 管理生命周期，支持通过管理 API 和 `souwen warp` 命令启停、注册、测试和查看状态。
+- **直接运行 / API 动态管理**：由 Python `WarpManager` 管理生命周期，支持通过管理 API 启停、注册、测试和查看状态。
 
 ### 运行时组件安装
 
@@ -310,7 +310,6 @@ Docker 启动时，`entrypoint.sh` 会加载 `/usr/local/bin/warp-init.sh`。当
 直接运行 SouWen 时，WARP 生命周期由 Python `WarpManager` 管理，可通过 API 或 CLI 动态控制：
 
 - API：`/api/v1/admin/warp/*`
-- CLI：`souwen warp ...`
 
 直接运行不会自动具备 Docker 中的数据卷路径和预装二进制，需确保相关命令已在 `PATH` 中，或通过配置项指定路径。例如 `usque` 可用 `warp_usque_path` 指定二进制路径。
 
@@ -369,39 +368,6 @@ WARP 管理端点挂载在 `/api/v1/admin` 下，需要管理认证：
 
 ```bash
 curl -X POST 'http://127.0.0.1:49265/api/v1/admin/warp/enable?mode=usque&socks_port=1080&http_port=8080'
-```
-
-## CLI 命令
-
-SouWen 提供 `souwen warp` 子命令组：
-
-| 命令 | 说明 |
-|---|---|
-| `souwen warp status` | 显示当前 WARP 状态、模式、端口、PID、协议、代理类型和可用模式。 |
-| `souwen warp enable --mode auto --socks-port 1080` | 启用 WARP。`--mode` 支持 5 种模式和 `auto`；`--endpoint` 可指定自定义 Endpoint。 |
-| `souwen warp disable` | 关闭 WARP，终止进程并清理代理配置。 |
-| `souwen warp modes` | 以表格列出所有模式的安装状态、协议、权限要求和说明。 |
-| `souwen warp register --backend wgcf` | 使用 `wgcf` 注册 WireGuard 配置。 |
-| `souwen warp register --backend usque` | 使用 `usque` 注册 MASQUE 配置。 |
-| `souwen warp test` | 测试当前 WARP SOCKS5 代理是否可用，并显示出口 IP。 |
-
-常用示例：
-
-```bash
-# 查看可用模式
-souwen warp modes
-
-# 自动选择并启用
-souwen warp enable --mode auto --socks-port 1080
-
-# 使用 usque
-souwen warp enable --mode usque --socks-port 1080
-
-# 注册 wgcf 配置
-souwen warp register --backend wgcf
-
-# 测试代理
-souwen warp test
 ```
 
 ## 选择建议

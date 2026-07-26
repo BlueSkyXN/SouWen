@@ -112,37 +112,6 @@ class CommandSpec:
 
 PROFILE_COMMANDS: Mapping[str, tuple[CommandSpec, ...]] = {
     "basic-cli": (
-        CommandSpec("cli_help", (PYTHON, "cli.py", "--help"), env=(("SOUWEN_EDITION", "basic"),)),
-        CommandSpec(
-            "cli_version",
-            (PYTHON, "cli.py", "--version"),
-            env=(("SOUWEN_EDITION", "basic"),),
-        ),
-        CommandSpec(
-            "sources_list",
-            (PYTHON, "cli.py", "sources"),
-            env=(("SOUWEN_EDITION", "basic"),),
-        ),
-        CommandSpec(
-            "config_show",
-            (PYTHON, "cli.py", "config", "show"),
-            env=(("SOUWEN_EDITION", "basic"),),
-        ),
-        CommandSpec(
-            "config_backend",
-            (PYTHON, "cli.py", "config", "backend"),
-            env=(("SOUWEN_EDITION", "basic"),),
-        ),
-        CommandSpec(
-            "module_help",
-            (PYTHON, "-m", "souwen", "--help"),
-            env=(("SOUWEN_EDITION", "basic"),),
-        ),
-        CommandSpec(
-            "doctor_edition",
-            (PYTHON, "cli.py", "doctor", "edition", "--json"),
-            env=(("SOUWEN_EDITION", "basic"),),
-        ),
         CommandSpec(
             "mcp_runtime",
             (PYTHON, "-c", BASIC_RUNTIME_CODE),

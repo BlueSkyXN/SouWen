@@ -172,7 +172,7 @@ docker build -f cloud/modelscope/Dockerfile \
 
 ```bash
 pip install -e ".[edition-pro]"
-SOUWEN_ADMIN_PASSWORD=change-me souwen serve --host 0.0.0.0 --port 8000
+SOUWEN_ADMIN_PASSWORD=change-me uvicorn souwen.server.app:app --host 0.0.0.0 --port 8000
 ```
 
 ## Hugging Face Spaces

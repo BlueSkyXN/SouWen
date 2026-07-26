@@ -71,6 +71,6 @@ for source in payload["sources"]:
         print(source["name"], source["category"])
 ```
 
-该 payload 与 `/api/v1/sources` 和 `souwen sources --json` 保持一致。`available` 是
+该 payload 与 `/api/v1/sources` 保持一致。`available` 是
 edition/config/credentials 静态 gate，`runtime_available` 是本地 importability；合取两者后
 再用 `domain + capability` 选择可执行的源。两者都不是 live 上游观测。

@@ -252,136 +252,6 @@ class Applicant(BaseModel):
     country: str | None = None
 ```
 
-## CLI 命令
-
-### 搜索
-
-```bash
-# 图书搜索（work 级书目）
-souwen search book <query> [--sources/-s SRC1,SRC2] [--limit/-n 5] [--json/-j]
-
-# 论文搜索
-souwen search paper <query> [--sources/-s SRC1,SRC2] [--limit/-n 5] [--json/-j]
-
-# 专利搜索
-souwen search patent <query> [--sources/-s SRC1,SRC2] [--limit/-n 5] [--json/-j]
-
-# 网页搜索
-souwen search web <query> [--engines/-e ENG1,ENG2] [--limit/-n 10] [--json/-j]
-```
-
-输出格式：
-- 默认：Rich 表格（论文显示 Title/Year/Citations/DOI/Source）
-- `--json`：JSON 格式（适合管道处理，如 `| jq '.[]'`）
-
-### 本地 catalog
-
-```bash
-# 查看本地 SQLite catalog 的 schema、FTS5、integrity、导入完成状态和按源计数
-souwen catalog status [--json]
-
-# 导入已经获取的 Project Gutenberg 官方 RDF/XML 文件或 RDF archive
-souwen catalog import gutenberg <rdf-input> [--resume] [--replace-source] [--json]
-
-# 仅在显式给出 URL 时获取官方 Gutenberg catalog；不会隐式访问网络
-souwen catalog import gutenberg --url \
-  https://www.gutenberg.org/cache/epub/feeds/rdf-files.tar.bz2 [--json]
-
-# 导入已经获取的 data.gov.tw 所声明 NCL 新书 UTF-8 CSV
-souwen catalog import taiwan_new_books <csv-input> [--resume] [--replace-source] [--json]
-```
-
-当前 importer 支持 `gutenberg` 和 `taiwan_new_books`。canonical bulk input 是 Project Gutenberg 官方 daily
-RDF archive `rdf-files.tar.bz2`；单条官方 RDF/XML 也可作为有界验证或小规模导入输入。
-CSV、MARC、Gutendex、HTML 页面抓取和 ebook 正文均不在此命令的输入范围内。
-
-`taiwan_new_books` 只接受 data.gov.tw dataset `6730` 已声明的 NCL HTTPS CSV 或同一格式的本地
-官方 input。它以 ISBN 作为稳定 record ID，缺失 ISBN 的行不会导入；只保留新书申请 metadata，
-不生成全文链接，也不从公开 metadata 推导访问、下载或再分发权。
-
-`--url` 必须显式提供，避免普通 `catalog import` 隐式联网。导入只解析 RDF metadata：
-声明的 format/resource URL 会写入结果 metadata，不会跟随、读取或下载 ebook。`--resume`
-只用于从同一失败导入运行的 checkpoint 继续；`--replace-source` 只应在输入确为完整
-snapshot 时使用，因为它会删除该 source 中不再存在的本地记录。
-
-完成导入后才可显式搜索本地 source：
-
-```bash
-souwen search book "Alice" --sources gutenberg --json
-```
-
-`gutenberg` 不加入 `book:search` 默认 fan-out，也不会在搜索时访问 Gutenberg 网络端点。
-空、未初始化或不健康的 local catalog 会使显式请求以非零状态退出；先运行
-`souwen catalog status`，再导入官方 RDF input 恢复。
-
-### 配置
-
-```bash
-souwen config show    # 显示当前配置（API Key 脱敏）
-souwen config init    # 生成 souwen.yaml 模板
-souwen config backend [--default auto|curl_cffi|httpx] [--set source=backend]
-souwen config proxy [--proxy URL] [--add-pool URL] [--remove-pool URL]
-souwen config source <name> [--enable/--disable] [--proxy inherit|none|warp|URL]
-souwen config source <name> [--backend auto|curl_cffi|httpx] [--base-url URL]
-```
-
-`config backend` 的 `--default` 以及 `--set source=backend` 中的 `source` / `backend`
-会先清理首尾空白，再校验合法值。
-`config proxy` 的 `--proxy`、`--add-pool`、`--remove-pool` 会先清理 URL 首尾空白；
-`--proxy` 为空会清除当前全局代理，`--add-pool` / `--remove-pool` 清理后不能为空。
-`config source` 的 `<name>`、`--proxy`、`--backend`、`--base-url` 会先清理首尾空白。
-`--proxy` 接受 `inherit` / `none` / `warp` 或合法代理 URL；`--base-url` 仅接受
-`http` / `https` URL。CLI 修改只影响当前进程，持久化仍需写入 `souwen.yaml`。
-
-### 数据源
-
-```bash
-souwen sources                         # 列出公开 Source Catalog
-souwen sources --json                  # 输出与 /api/v1/sources 一致的 JSON
-souwen sources --available-only        # 仅列出静态 gate 与当前 runtime 均可用的源
-souwen sources --category web_general  # 按正式 catalog category 过滤
-souwen sources --capability search     # 按能力过滤
-```
-
-### 健康检查
-
-```bash
-souwen doctor                  # 检查所有数据源静态状态（默认 live=false，不联网）
-souwen doctor --live --source openalex --timeout 5
-souwen doctor edition          # 检查当前 edition 声明能力与可用能力
-souwen doctor edition --json   # 输出 machine-readable edition 自检结果
-```
-
-`souwen doctor` 默认只做本地配置、registry、edition 和依赖可导入性检查，不访问真实外部服务。
-加 `--live` 后会对静态可用且支持 `search` capability 的源执行最小真实搜索探测；
-`--source` 可重复传入以限制探测范围，`--timeout` 控制单源超时。
-
-`doctor edition --json` 的 `probe` 字段只做当前进程的 importability 级别自检，
-用于对比 source、fetch provider、optional package extra、LLM protocol 和 MCP 的声明能力与实际安装能力；
-其中 `probe.package_extras` 以 `declared` / `available` / `reason` 暴露 optional extra 到 import module 的映射和缺失原因。该自检不会联网、启动浏览器、检查 WARP 系统状态或验证真实凭据。
-
-### 内容抓取
-
-```bash
-# 抓取网页内容（默认 builtin，零配置）
-souwen fetch <urls...> [--provider/-p builtin] [--strategy fallback] [--timeout/-t 30] [--json/-j]
-
-# 示例
-souwen fetch https://example.com                      # 内置抓取
-souwen fetch https://a.com https://b.com -p jina_reader  # Jina Reader
-souwen fetch https://example.com -p builtin -p jina_reader --strategy fallback  # 逐 URL 补抓
-souwen fetch https://example.com -p builtin -p jina_reader --strategy fanout    # 多 provider 对比
-souwen fetch https://example.com --json               # JSON 输出
-```
-
-### API 服务
-
-```bash
-souwen serve [--port 8000]   # 启动 FastAPI 服务
-```
-
-启动后可访问 OpenAPI 文档：`GET /docs`
-
 ## HTTP API（Server 模式）
 
 ### 认证：三角色系统
@@ -573,7 +443,7 @@ Project Gutenberg。导入采用官方 RDF/XML metadata（bulk canonical input �
 `https://www.gutenberg.org/cache/epub/feeds/rdf-files.tar.bz2`），其 declared format/resource
 links 仅作为 metadata 返回，SouWen 不跟随或下载 ebook。`dcterms:rights` 是单条上游、
 适用法域的陈述；例如 “Public domain in the USA.” 不能推断全球 public domain、可访问性
-或再分发许可。初始化方法见 [`souwen catalog import`](#本地-catalog)。
+或再分发许可。初始化方法见 Python local-catalog importer。
 
 搜索结果包含 typed identifiers、受限 edition metadata、`collections` 馆藏归属和 resource
 access state。LibriVox 的 `copyright_year` 是上游 metadata，不是本项目做出的著作权或全球

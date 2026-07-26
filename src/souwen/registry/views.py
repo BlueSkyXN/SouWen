@@ -7,7 +7,6 @@
   - souwen.web.search（门面）
   - souwen.registry.meta（SourceMeta 视图）
   - server/routes 的 /sources 端点
-  - CLI 的 sources 子命令
   - docs 自动生成脚本
 """
 

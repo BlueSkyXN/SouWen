@@ -16,7 +16,6 @@
 ```
 ┌────────────────────────────────────────────────────────────────┐
 │ 展示层 Presentation                                            │
-│   souwen.cli/*        CLI（按 domain 拆分）                    │
 │   souwen.server/*     FastAPI（按 domain 拆分）                │
 │   souwen.integrations/mcp/*  MCP 协议集成                      │
 │   panel/              Web UI（5 皮肤 + 共享 core）             │
@@ -253,7 +252,6 @@ importability。需要本地有效可执行性时合取两轴。doctor 的静态
 注册表是单一事实源，但提供多条便捷入口：
 
 - `from souwen.paper import OpenAlexClient`、`from souwen.web.tavily import TavilyClient` 等真实模块 import 路径
-- 顶层 CLI 动词：`souwen search paper`、`souwen fetch`、`souwen wayback cdx` 等
 - REST 路径：`/api/v1/search/paper`、`/api/v1/fetch` 等
 - `SouWenConfig` 字段名稳定（只增不改）
 
