@@ -21,19 +21,14 @@
  *         - 功能：创建网络错误实例
  *         - 输入：cause 可选的原因对象（Error 或其他）
  *         - 输出：AppError 实例（isNetwork 为 true）
- *         - 逻辑：如果 cause 是 Error，使用其 message；否则调用 i18n 获取默认网络错误文本
+ *         - 逻辑：如果 cause 是 Error，使用其 message；否则使用固定网络错误文本
  *
  *     formatError（函数）
  *         - 功能：将任意错误对象格式化为用户友好的字符串
  *         - 输入：err 错误对象（AppError、Error、其他）
  *         - 输出：错误消息字符串
- *         - 逻辑：优先返回 AppError 消息 → Error 消息 → i18n 默认未知错误文本
- *
- * 模块依赖：
- *     - ../i18n: 国际化模块，提供默认错误文本
+ *         - 逻辑：优先返回 AppError 消息 → Error 消息 → 固定未知错误文本
  */
-
-import i18n from '../i18n'
 
 /**
  * AppError 自定义错误类
@@ -64,7 +59,7 @@ export class AppError extends Error {
    * 用于 fetch 超时、连接失败等网络级异常
    */
   static network(cause?: unknown): AppError {
-    const msg = cause instanceof Error ? cause.message : i18n.t('common.networkError')
+    const msg = cause instanceof Error ? cause.message : '网络连接失败'
     return new AppError(msg, 0, false, true)
   }
 }
@@ -76,5 +71,5 @@ export class AppError extends Error {
 export function formatError(err: unknown): string {
   if (err instanceof AppError) return err.message
   if (err instanceof Error) return err.message
-  return i18n.t('common.unknownError')
+  return '未知错误'
 }

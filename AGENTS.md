@@ -40,9 +40,8 @@ embedded React/Vite management panel.
 | `src/souwen/server/routes/admin/` | Admin-only config/proxy/WARP/source management endpoints | yes | Changing admin routes, state mutation, secret handling or admin permissions |
 | `src/souwen/server/schemas/` | FastAPI request/response schemas and OpenAPI contract | yes | Changing API fields, validation constraints, aliases or error response shape |
 | `src/souwen/integrations/` | External protocol integrations | yes | Changing integration entry points, optional dependency behavior or tool wiring |
-| `panel/` | React/Vite/TypeScript panel, npm scripts and embedded artifact build | yes | Changing frontend build config, dependencies, Vite, package scripts or panel artifact behavior |
-| `panel/src/core/` | Frontend shared services, stores, hooks, types, i18n, tests and skin registry | yes | Changing API services, auth store, shared hooks/types, i18n or cross-skin behavior |
-| `panel/src/skins/` | Skin modules, layouts, pages, routes, styles and skin config | yes | Changing skin UI, adding skins, routing, skin exports or CSS isolation |
+| `panel/` | Single Calm Precision React/Vite/TypeScript panel, npm scripts and embedded artifact build | yes | Changing Panel UI, frontend build config, dependencies, Vite, package scripts or artifact behavior |
+| `panel/src/core/` | Generated TypeScript SDK, auth/admin services, stores, shared types, styles and tests | yes | Changing SDK output, API/admin services, auth store, shared types, URL safety or tests |
 | `tests/` | Deterministic pytest suite and fixtures | yes | Adding/changing Python tests, fixtures, isolation behavior or test package layout |
 | `tests/registry/` | Registry/source catalog invariants | yes | Changing registry tests, catalog tests or source metadata validation |
 | `docs/` | User/contributor docs, ADRs, API docs and generated source catalog docs | yes | Changing docs, generated docs, API docs or docs tied to behavior changes |

@@ -227,7 +227,6 @@ jobs:
             -f cloud/hfs/Dockerfile \
             --build-arg SOUWEN_REPO="${{ steps.source.outputs.repo }}" \
             --build-arg SOUWEN_REF="${{ steps.source.outputs.ref }}" \
-            --build-arg SKINS=souwen-google \
             -t "souwen-hfs-local:${GITHUB_SHA::7}" \
             cloud/hfs
 

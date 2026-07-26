@@ -51,7 +51,7 @@ secret 名称 fail fast，不输出值、长度或前缀。
 | Job | 覆盖内容 | 边界 |
 |---|---|---|
 | `Resolve deploy eligibility` | 解析入口与 candidate contract | direct dispatch 不具备远端写资格 |
-| `SDK and Server contracts` | `sdk-contract` + `server-contract` profiles | 验证 generated Python SDK 与本地 Server contract；不证明外部源在线 |
+| `SDK and Server contracts` | `sdk-contract` + `server-contract` profiles | 验证 generated Python/TypeScript SDK 与本地 Server contract；不证明外部源在线 |
 | `HF Space Docker surface smoke` | exact SHA 双进程启动、target/Worker readiness、docs/panel、49266 未发布 | 本地容器，不是 live Space |
 
 `server-contract` 通过明确的 Server runtime leaf extras 安装所需实现；这不是新的

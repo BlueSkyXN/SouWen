@@ -13,12 +13,11 @@ RUN apk add --no-cache build-base git && \
 # ===== 第二阶段：构建前端面板 =====
 FROM node:22-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3 AS panel-builder
 # 使用 Vite 构建 SouWen 前端管理界面
-ARG SKINS=all
 WORKDIR /panel
 COPY panel/package.json panel/package-lock.json* ./
 RUN npm ci --ignore-scripts
 COPY panel/ ./
-RUN VITE_SKINS=${SKINS} npm run build
+RUN npm run build
 
 # ===== 第三阶段：最终运行时镜像 =====
 FROM python:3.11-slim@sha256:db3ff2e1800a8581e2c48a27c3995339d47bdf046da21c7627accd3d51053a93

@@ -50,7 +50,7 @@ SouWen（搜文）为 AI Agent、Python 集成和服务端应用提供统一的�
 - **智能限流**：Token Bucket + 滑动窗口，每源独立
 - **curl_cffi TLS 指纹**：15+ 爬虫类源用浏览器指纹伪装过盾
 - **WARP 五模式代理**：wireproxy / kernel / usque / warp-cli / external，支持运行时动态安装和管理
-- **多皮肤 Web UI**：souwen-google（默认）/ souwen-nebula / carbon / apple / ios（SCSS Modules + Zustand）
+- **Calm Precision Panel**：单一响应式管理面，聚焦 Search / LLM Search / Fetch / Providers / Runtime/Settings，并只使用 generated TypeScript client 访问 Data API
 
 ## 📦 安装
 
@@ -88,6 +88,7 @@ with SouWenClient("http://127.0.0.1:8000", token="your-user-token") as client:
 
 SDK 同时提供 `AsyncSouWenClient`，并在首次业务请求前以 `/healthz` 校验 API major 2 与
 target rollout。完整认证、HFS 双 token 和错误处理见 [Python SDK 文档](docs/python-sdk.md)。
+Panel 使用同一 OpenAPI artifact 生成的 [TypeScript SDK](docs/typescript-sdk.md)。
 
 ### API Server
 
@@ -110,7 +111,7 @@ curl "http://localhost:8000/api/v1/sources"
 
 `/api/v1/fetch`、`/api/v1/links` 和 `/api/v1/sitemap` 属于管理端抓取能力，需要 Admin Bearer Token；搜索和 `/api/v1/sources` 可再通过 `SOUWEN_USER_PASSWORD` 单独保护。
 
-访问 `/docs` 查看完整 OpenAPI 文档；访问 `/panel#/` 进入 Web UI（默认 souwen-google 皮肤）。`/` 在默认配置下重定向到 `/docs`。
+访问 `/docs` 查看完整 OpenAPI 文档；访问 `/panel#/` 进入单一 Calm Precision 管理面。`/` 在默认配置下重定向到 `/docs`。
 
 ## ⚙️ 配置
 
@@ -166,7 +167,7 @@ docker run -p 8000:49265 \
 - [docs/hf-space-cd.md](docs/hf-space-cd.md) — Hugging Face Space CD / 本地预检 / 部署后验收
 - [docs/deployment.md](docs/deployment.md) — 部署
 - [docs/anti-scraping.md](docs/anti-scraping.md) — TLS 指纹 / WARP / 限流
-- [docs/appearance.md](docs/appearance.md) — 多皮肤前端
+- [docs/appearance.md](docs/appearance.md) — Calm Precision 管理面板
 - [docs/adding-a-source.md](docs/adding-a-source.md) — 新增数据源指南
 - [docs/contributing.md](docs/contributing.md) — 开发者指南
 - [docs/internal/rc-readiness-gates.md](docs/internal/rc-readiness-gates.md) — v2.0.0rc2 固定门禁与 evidence manifest 契约

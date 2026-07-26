@@ -94,8 +94,8 @@ Since 2026-07-26 both workflows run in two lanes (owner-approved CI slimming):
   matrix, builtin Fetch, and UniAPI tests without network, browser runtime, HOME, or secrets.
 - `server-contract`: local target API surface and Server prerequisite checks through
   `scripts/ci/run_profile.py`.
-- `sdk-contract`: target OpenAPI plus generated Python sync/async SDK freshness,
-  API-major preflight, auth/error/request-ID and clean-import checks.
+- `sdk-contract`: target OpenAPI plus generated Python sync/async and Panel TypeScript SDK
+  freshness, API-major preflight, auth/error/request-ID and clean-import checks.
 - `provider-runtime`: internal optional-provider import, doctor and fetch-handler
   surface, including feature-matrix declarations. The mutually exclusive
   `crawl4ai` / `scrapling` browser runtime variants stay in dedicated functional gates.

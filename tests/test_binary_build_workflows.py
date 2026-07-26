@@ -104,6 +104,8 @@ def test_server_bundle_openapi_checksum_uses_the_verified_canonical_artifact() -
     ].split("      - name: Build target server with PyInstaller onedir", maxsplit=1)[0]
 
     assert "python tools/gen_openapi.py --check" in checksum_step
+    assert "python tools/gen_client_sdk.py --check" in checksum_step
+    assert "python tools/gen_typescript_sdk.py --check" in checksum_step
     assert "contracts/openapi/souwen-openapi-2.0.0rc2.json" in checksum_step
     assert "artifact.read_bytes()" in checksum_step
     assert "from souwen.server.app import app" not in checksum_step

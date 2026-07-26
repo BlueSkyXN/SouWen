@@ -1,26 +1,19 @@
 /**
  * 文件用途：API 服务基础设施 — 单例类、通用 request、超时与白名单校验。
  *
- * 拆分背景：原 panel/src/core/services/api.ts 已按域拆分到 search/fetch/youtube 等文件。
  * 本文件保留：
  *   - REQUEST_TIMEOUT_MS / ALLOWED_API_HOSTS 常量
  *   - assertBaseUrlAllowed(baseUrl) 安全校验
  *   - ApiServiceBase 类：baseUrl/token 访问器、headers()、request<T>()、health()、verifyAuth()
  *
- * 各域 mixin（search.ts/fetch.ts/...）通过 Object.assign(ApiService.prototype, ...) 在
- * services/index.ts 中合并。为允许 mixin 内部访问 request/headers，这两个方法以及 baseUrl/token
- * 的访问器使用 public 可见性（保持兼容，原内部用法不变）。
- *
  * 模块依赖：
  *     - ../stores/authStore: 认证全局状态（baseUrl、token）
  *     - ../lib/errors: AppError 错误类
- *     - ../i18n: 国际化（错误消息）
  *     - ../types: 后端响应类型定义
  */
 
 import { useAuthStore } from '../stores/authStore'
 import { AppError } from '../lib/errors'
-import i18n from '../i18n'
 import type { HealthResponse, WhoamiResponse } from '../types'
 
 export const REQUEST_TIMEOUT_MS = 30_000
@@ -168,7 +161,7 @@ export class ApiServiceBase {
         throw err
       }
       if (timedOut) {
-        throw AppError.network(new Error(i18n.t('common.requestTimeout')))
+        throw AppError.network(new Error('请求超时'))
       }
       throw AppError.network(err)
     } finally {
@@ -212,7 +205,7 @@ export class ApiServiceBase {
       if (!res.ok) throw AppError.fromResponse(res.status, await res.text().catch(() => ''))
       const data = (await res.json()) as WhoamiResponse
       if (!token && data.admin_password_set && data.role !== 'admin') {
-        throw AppError.fromResponse(401, i18n.t('login.adminPasswordRequired'))
+        throw AppError.fromResponse(401, '需要管理员密码')
       }
       return data
     } catch (err) {

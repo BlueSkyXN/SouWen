@@ -17,7 +17,8 @@
 ┌────────────────────────────────────────────────────────────────┐
 │ 展示层 Presentation                                            │
 │   souwen.server/*     FastAPI（按 domain 拆分）                │
-│   panel/              Web UI（5 皮肤 + 共享 core）             │
+│   panel/              单一 Calm Precision Panel；data API 仅经 │
+│                       generated TypeScript SDK                 │
 ├────────────────────────────────────────────────────────────────┤
 │ 应用入口 Application API                                        │
 │   souwen.search            search(domain=, capability=) 派发   │
@@ -51,6 +52,13 @@
 ```
 
 **依赖方向**：展示层 → 应用入口 → 注册表层 ↔ 真实 Client 模块；平台层被任何层引用。Client 模块之间不互相依赖。
+
+### Panel boundary
+
+`panel/` 只有一个 Calm Precision 管理界面，而非多 skin 或可选 UI 组合。Search、LLM Search、
+Fetch 和 Providers 只能通过 `panel/src/core/sdk/` 中由 frozen OpenAPI 生成的 TypeScript SDK 访问
+target Data API；Panel 不导入 Python internals，也不维护平行的 data API transport。Runtime /
+Settings 的 admin 只读投影保持在独立 admin client 边界，不能扩展为完整配置读写面。
 
 ---
 

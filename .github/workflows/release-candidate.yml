@@ -309,6 +309,8 @@ jobs:
       - name: Verify and stage immutable target OpenAPI artifact
         run: |
           python tools/gen_openapi.py --check
+          python tools/gen_client_sdk.py --check
+          python tools/gen_typescript_sdk.py --check
           cp contracts/openapi/souwen-openapi-2.0.0rc2.json \
             dist/souwen-openapi-2.0.0rc2.json
 

@@ -130,6 +130,21 @@ PROFILE_COMMANDS: Mapping[str, tuple[CommandSpec, ...]] = {
                 "--tb=short",
             ),
         ),
+        CommandSpec(
+            "typescript_sdk_reproducibility",
+            (PYTHON, "tools/gen_typescript_sdk.py", "--check"),
+        ),
+        CommandSpec(
+            "typescript_sdk_contract",
+            (
+                PYTHON,
+                "-m",
+                "pytest",
+                "tests/test_typescript_sdk_generator.py",
+                "-v",
+                "--tb=short",
+            ),
+        ),
     ),
     "server-contract": (
         CommandSpec(

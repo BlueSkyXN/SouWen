@@ -35,3 +35,14 @@ PYTHONPATH=src python3 tools/gen_client_sdk.py --check
 
 Generated bindings record this artifact's SHA-256, API major and version. The SDK generator rejects
 unknown operations, incompatible auth/header contracts and schema shapes it cannot map safely.
+
+The generated TypeScript Panel client consumes the same bytes:
+
+```bash
+PYTHONPATH=src python3 tools/gen_typescript_sdk.py --write
+PYTHONPATH=src python3 tools/gen_typescript_sdk.py --check
+```
+
+Its generator applies the same exact schema/operation allow-list and records the same artifact
+SHA-256, API major and version. Runtime conformance is covered by
+`panel/src/core/sdk/index.test.ts`; generation remains dependency-light and deterministic.

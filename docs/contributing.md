@@ -33,65 +33,42 @@ python examples/search_web.py
 
 ## 前端开发
 
-管理面板位于 `panel/` 目录，使用 React + TypeScript + SCSS Modules + Framer Motion。
+管理面板位于 `panel/`，使用 React + TypeScript + SCSS Modules。产品结构固定为单一
+Calm Precision 界面；顶层只有 Search、LLM Search、Fetch、Providers 和
+Runtime / Settings。
 
-### 环境搭建
+### 环境搭建与构建
 
 ```bash
 cd panel
-npm install
-npm run dev              # 启动开发服务器（默认全皮肤，可运行时切换）
-npm run dev:google       # 单皮肤开发
+npm ci
+npm run dev
+npm test
+npm run build
 ```
 
-### 目录结构
+`npm run build` 执行 TypeScript 检查并生成单文件 `dist/index.html`。需要更新服务端嵌入
+artifact 时运行 `npm run build:local && npm run check:artifact`，不要手工修改生成文件。
 
-```
+### 目录结构与边界
+
+```text
 panel/src/
-  core/                  # 跨皮肤共享（stores, API, types, i18n, skin-registry）
-    styles/base.scss     # 共享 CSS 重置
-    skin-registry.ts     # 运行时皮肤注册表
-  skins/
-    souwen-google/      # Google 炫彩皮肤（默认）
-    souwen-nebula/      # 星云皮肤
-      components/        # UI 组件（含 ErrorBoundary, Toast, Spinner）
-      pages/             # 页面
-      styles/            # SCSS 样式（通过 html[data-skin] 命名空间隔离）
-      stores/            # 皮肤状态管理
-      routes.tsx         # 路由定义
-      skin.config.ts     # 皮肤配置（配色方案、默认模式）
-      index.ts           # 皮肤入口（导出 SkinModule 接口 + bootstrap）
-    carbon/              # 终端风格皮肤
-    apple/               # Apple HIG 灵感皮肤
-    ios/                 # macOS Settings / iOS 灵感皮肤
+  CalmPrecisionApp.tsx          # 登录、路由、五个顶层工作区
+  CalmPrecisionApp.module.scss # 界面布局与组件样式
+  core/
+    sdk/index.ts                # frozen OpenAPI 生成，不手工编辑
+    sdk-client.ts               # React 内复用 generated client
+    services/admin-client.ts    # 仅必要的只读 admin control plane
+    stores/authStore.ts         # 会话与角色状态
+    styles/calm-precision.scss  # light/dark CSS variables
 ```
 
-### 构建
-
-```bash
-npm run build            # 默认全皮肤构建
-npm run build:google     # 单皮肤构建（体积更小）
-# 产物：单文件 dist/index.html
-# 本地开发用 build:local 会额外复制到 src/souwen/server/panel.html
-# Docker 构建由 Dockerfile COPY 指令完成
-```
-
-### 创建新皮肤
-
-1. 复制 `panel/src/skins/souwen-google/` 为新目录（如 `skins/my-skin/`）
-2. 修改 `skin.config.ts` 中的皮肤元信息和配色方案
-3. 确保 `index.ts` 导出完整的 `SkinModule` 接口（含 `bootstrap`、`ErrorBoundary`、`Spinner`）
-4. CSS 使用 `html[data-skin='my-skin']` 命名空间
-5. 在 `vite.config.ts` 的 `ALL_SKINS` 数组中注册
-6. 构建：`VITE_SKINS=my-skin npm run build`
-
-### 注意事项
-
-- 使用 `@core/...` 引用共享模块
-- 皮肤之间不可互相引用，只能引用 `@core`
-- 动画使用 Framer Motion：导入 `m`（不是 `motion`），`type: 'spring'` 需要 `as const`
-- SCSS 变量定义在 `styles/variables.scss`，全局 token 通过 CSS 自定义属性
-- 不使用 Tailwind — 项目使用 SCSS Modules + CSS Variables
+- Search、LLM Search、Fetch、Providers 只能通过 `@core/sdk` 访问 Data API。
+- SDK 生成器在 `tools/gen_typescript_sdk.py`；修改 generator 后运行 `--write` 和 `--check`。
+- Admin transport 必须保留 base URL allow-list、认证、超时、错误分类和二次脱敏。
+- 不新增运行时视觉变体、重复页面体系或第二套 Data API client。
+- 不使用 Tailwind；继续使用 SCSS Modules 与 CSS variables。
 
 ## 代码风格
 

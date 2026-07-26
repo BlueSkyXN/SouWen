@@ -1,86 +1,49 @@
-# Panel Appearance Guide
+# Calm Precision Panel
 
-本文档是 SouWen Panel 的本地视觉与交互约束卡片，供修改 `panel/`
-或 `panel/src/skins/` 前快速对齐。它记录当前实现的事实，不替代组件源码。
+SouWen 的管理面板是单一的 Calm Precision 界面，不提供运行时视觉变体或按主题裁剪的
+构建入口。
 
-## Architecture
+## 结构
 
-- `panel/src/core/styles/base.scss` 只放共享 reset、focus ring、scrollbar、
-  reduced-motion、shared keyframes 和 `.srOnly`。
-- 共享行为、service、hook、store、type、i18n 放在 `panel/src/core/`。
-- 皮肤 UI、layout、page、route、style 放在 `panel/src/skins/<skin>/`。
-- 皮肤不能互相 import；跨皮肤逻辑应上移到 `@core`。
-- 样式使用 SCSS Modules 或 `html[data-skin='<id>']` 作用域变量；不要新增
-  Tailwind 或全局裸选择器。
+- `src/CalmPrecisionApp.tsx` 包含登录、路由、页面和单一应用壳层。
+- `src/CalmPrecisionApp.module.scss` 只包含该界面的 SCSS Module 布局与组件样式。
+- `src/core/styles/calm-precision.scss` 定义 light/dark CSS variables；模式仅影响对比度，
+  不改变产品结构。
+- `src/core/sdk/` 是生成的 data-plane SDK。Search、LLM Search、Fetch 和 Providers
+  必须经 `SouWenClient` 调用，不能新增手写 data API transport。
+- 管理读取使用 `src/core/services/admin-client.ts`，仅用于已认证管理员的 Runtime /
+  Settings 只读视图。
 
-## Skins
+## 导航与权限
 
-当前 `vite.config.ts` 注册的 skin：
+顶层导航只有 Search、LLM Search、Fetch、Providers、Runtime / Settings。最后一项只在
+服务端 `whoami` 确认 admin 角色后显示；其路由同样有客户端守卫，后端仍是最终权限边界。
 
-- `souwen-google`：默认 scheme `google`，支持 `google`、`aurora`、`obsidian`。
-- `souwen-nebula`：默认 scheme `nebula`，支持 `nebula`、`aurora`、`obsidian`。
-- `carbon`：默认 scheme `terminal`，支持 `terminal`、`matrix`、`ember`。
-- `apple`：默认 scheme `blue`，Apple-style light-first layout。
-- `ios`：默认 scheme `default`，iOS settings-style grouped layout。
+登录会先校验 base URL，令牌不会发送给未通过同源、loopback 或
+`VITE_ALLOWED_API_HOSTS` allow-list 的主机。无令牌连接不会由 Panel 提升角色；是否开放
+无密码管理员访问只由服务端 `SOUWEN_ADMIN_OPEN=1` 决定。
 
-每个 skin 必须导出完整 `SkinModule`：`AppShell`、`LoginPage`、`skinRoutes`、
-`skinConfig`、`ErrorBoundary`、`ToastContainer`、`Spinner`、`bootstrap`。
+嵌入式 Panel 只支持同源 private-edge browser session/cookie 或普通单一 Bearer application token。
+浏览器 cookie 由同源请求自动附带，Panel 不读取或保存；Bearer token 仅按 auth state 的最小生命周期
+保存一个 app token。Panel 不采集、拼接或持久化 dual-token。edge token 加 `X-SouWen-Token` 的
+dual-token 组合只属于 programmatic SDK 使用，不属于浏览器 Panel 登录模型。
 
-## Design Tokens
+## 交互与可访问性
 
-优先使用已有 CSS variables，而不是在页面里硬编码颜色、阴影或半径。
-常见 token 包括：
+- 每个输入都有稳定的 `label` 和 `id`，状态使用 `role=status` 或 `role=alert`。
+- 所有异步页面都应显示 loading、empty、error 和成功反馈。
+- 外部结果链接必须使用 `rel="noreferrer"`；在小屏幕上，导航横向滚动而非挤压内容。
+- Runtime / Settings 只显示运行诊断和安全姿态投影；完整 server config 不进入 DOM，也不在
+  Panel 中回显或写入 token、password、cookie、credential 或 API key。
 
-- Color: `--bg`、`--bg-card`、`--bg-input`、`--bg-hover`、`--text`、
-  `--text-secondary`、`--text-muted`、`--border`、`--border-strong`。
-- Accent: `--accent`、`--accent-hover`、`--accent-light`、`--accent-glow`，
-  Google/Nebula 还保留 `--primary` 系列兼容 token。
-- Semantic: `--success`、`--success-light`、`--warning`、`--warning-light`、
-  `--error`、`--error-light`。
-- Layout: `--sidebar-w`、`--header-h`、`--nav-h`、`--content-pad`、
-  `--content-max`。
-- Radius/shadow/transition：优先使用对应 skin 的 `--radius*`、`--shadow*`、
-  `--transition*`。
+## 验证
 
-新增 token 时要在相关 skin 的 `styles/global.scss` 中定义，并检查 light/dark
-或 scheme 覆盖是否需要同步。
+```bash
+cd panel
+npm test
+npm run build
+```
 
-## Interaction
-
-- 表单控件使用 `label` + stable `id`；按钮使用明确 `type`。
-- destructive、admin、secret、proxy、base URL 相关操作要保留确认、禁用态、
-  loading 态和错误反馈。
-- 搜索、抓取、视频等长请求必须保留 AbortController / loading / retry / empty
-  state，不要只做 happy path。
-- secret 或 redacted display placeholder 不能被原样提交回后端。
-- 外部链接使用 `target="_blank"` 时必须带 `rel="noopener noreferrer"`。
-- 图标优先使用 `lucide-react`，按钮/工具类操作优先 icon + accessible label。
-
-## Layout
-
-- 工具型页面优先使用紧凑、可扫描、可重复操作的布局。
-- 不要把 page section 包成嵌套 card；card 用于结果项、配置项、modal 或
-  明确的工具框。
-- 控件行、tab、toolbar 在移动端必须可换行或收缩，不能制造水平溢出。
-- 固定格式元素要用稳定尺寸、`min/max`、`grid` 或 `aspect-ratio` 约束，避免
-  loading、hover、长文案造成布局跳动。
-- 不使用 decorative orb、bokeh blob 或无信息量的大渐变背景。
-
-## I18n
-
-- 用户可见文案放在 `panel/src/core/i18n/zh-CN.json`。
-- 新增静态 `t('...')` key 后必须补中文翻译。
-- `panel/src/core/test/i18n.test.ts` 会扫描静态 `t('...')` 调用并断言
-  `zh-CN.json` 已覆盖。
-- 动态 key（例如 `t(\`sourceConfig.proxy${...}\`)`）要确保所有实际值在
-  `zh-CN.json` 中存在。
-
-## Validation
-
-按改动范围选择最小充分验证：
-
-- Core hook/service/i18n/type：`cd panel && npm test`，并跑相关单测。
-- Page 或 skin UI：`cd panel && npm test`、`cd panel && npm run build`。
-- Embedded artifact：`cd panel && npm run build:local && npm run check:artifact`。
-- 有布局风险的 UI 改动：用浏览器 smoke 检查 desktop 和 mobile viewport，
-  确认没有水平溢出、遮挡或空白渲染。
+`npm run build:local` 是唯一允许更新嵌入式 Panel artifact 的方式；随后
+`npm run check:artifact` 必须确认 `dist/index.html` 与 `../src/souwen/server/panel.html`
+byte-identical。

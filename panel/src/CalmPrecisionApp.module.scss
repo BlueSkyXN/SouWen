@@ -1,0 +1,147 @@
+.app {
+  min-height: 100vh;
+  color: var(--cp-text);
+  background: var(--cp-canvas);
+}
+
+.shell {
+  display: grid;
+  grid-template-columns: 15.75rem minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.sidebar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  height: 100vh;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.5rem 1rem;
+  border-right: 1px solid var(--cp-border);
+  background: var(--cp-surface);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  padding: .25rem .5rem;
+  font-size: 1rem;
+  font-weight: 720;
+  letter-spacing: -.01em;
+}
+
+.mark {
+  display: grid;
+  width: 2rem;
+  height: 2rem;
+  place-items: center;
+  color: white;
+  border-radius: .55rem;
+  background: var(--cp-accent);
+  font-size: .75rem;
+  letter-spacing: .04em;
+}
+
+.navigation {
+  display: grid;
+  gap: .18rem;
+}
+
+.navLink {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  min-height: 2.55rem;
+  padding: 0 .7rem;
+  color: var(--cp-muted);
+  border-radius: .45rem;
+  font-size: .875rem;
+  text-decoration: none;
+}
+
+.navLink:hover { background: var(--cp-surface-muted); color: var(--cp-text); }
+.navLink:focus-visible, .iconButton:focus-visible, .button:focus-visible, .secondaryButton:focus-visible, .input:focus-visible, .textarea:focus-visible, .select:focus-visible { outline: 3px solid color-mix(in srgb, var(--cp-accent) 35%, transparent); outline-offset: 2px; }
+.navLinkActive { color: var(--cp-accent); background: var(--cp-accent-soft); font-weight: 650; }
+
+.sideFooter { margin-top: auto; display: grid; gap: .8rem; padding: .75rem .5rem 0; border-top: 1px solid var(--cp-border); }
+.identity { overflow: hidden; color: var(--cp-muted); font-size: .75rem; line-height: 1.4; text-overflow: ellipsis; white-space: nowrap; }
+
+.main { min-width: 0; }
+.topbar { display: flex; min-height: 4.5rem; align-items: center; justify-content: space-between; gap: 1rem; padding: 0 2.5rem; border-bottom: 1px solid var(--cp-border); background: color-mix(in srgb, var(--cp-canvas) 92%, transparent); }
+.topbarTitle { margin: 0; font-size: .85rem; font-weight: 650; color: var(--cp-muted); }
+.topbarActions { display: flex; align-items: center; gap: .5rem; }
+.iconButton { display: inline-grid; width: 2.2rem; height: 2.2rem; place-items: center; color: var(--cp-muted); border: 1px solid var(--cp-border); border-radius: .45rem; background: var(--cp-surface); cursor: pointer; }
+.iconButton:hover { color: var(--cp-text); background: var(--cp-surface-muted); }
+
+.content { width: min(100%, 76rem); margin: 0 auto; padding: 2.4rem 2.5rem 4rem; }
+.pageHeader { display: flex; align-items: flex-start; justify-content: space-between; gap: 1rem; margin-bottom: 1.75rem; }
+.eyebrow { margin: 0 0 .45rem; color: var(--cp-accent); font-size: .72rem; font-weight: 750; letter-spacing: .085em; text-transform: uppercase; }
+.title { margin: 0; font-size: clamp(1.55rem, 3vw, 2.15rem); line-height: 1.12; letter-spacing: -.035em; }
+.description { max-width: 44rem; margin: .65rem 0 0; color: var(--cp-muted); font-size: .95rem; line-height: 1.55; }
+
+.panel { border: 1px solid var(--cp-border); border-radius: .7rem; background: var(--cp-surface); box-shadow: var(--cp-shadow); }
+.form { display: grid; gap: 1.05rem; padding: 1.25rem; }
+.field { display: grid; gap: .45rem; }
+.label { font-size: .82rem; font-weight: 670; }
+.hint { color: var(--cp-muted); font-size: .75rem; line-height: 1.45; }
+.input, .textarea, .select { width: 100%; box-sizing: border-box; color: var(--cp-text); border: 1px solid var(--cp-border-strong); border-radius: .45rem; background: var(--cp-canvas); font: inherit; }
+.input, .select { min-height: 2.65rem; padding: 0 .75rem; }
+.textarea { min-height: 6.75rem; padding: .75rem; resize: vertical; line-height: 1.5; }
+.formRow { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.choiceList { display: flex; flex-wrap: wrap; gap: .45rem; }
+.choice { display: inline-flex; align-items: center; gap: .4rem; padding: .43rem .55rem; border: 1px solid var(--cp-border); border-radius: .4rem; color: var(--cp-muted); font-size: .8rem; cursor: pointer; }
+.choice:has(input:checked) { color: var(--cp-accent); border-color: var(--cp-accent); background: var(--cp-accent-soft); }
+.formFooter { display: flex; align-items: center; justify-content: space-between; gap: 1rem; padding-top: .15rem; }
+.button, .secondaryButton { min-height: 2.55rem; padding: 0 .9rem; border: 1px solid transparent; border-radius: .45rem; font: inherit; font-size: .86rem; font-weight: 650; cursor: pointer; }
+.button { color: white; background: var(--cp-accent); }
+.button:hover { background: var(--cp-accent-strong); }
+.button:disabled, .secondaryButton:disabled { cursor: not-allowed; opacity: .55; }
+.secondaryButton { color: var(--cp-text); border-color: var(--cp-border-strong); background: var(--cp-surface); }
+.secondaryButton:hover { background: var(--cp-surface-muted); }
+
+.status { display: flex; align-items: center; gap: .55rem; margin: 1rem 0; padding: .78rem .9rem; border: 1px solid var(--cp-border); border-radius: .45rem; font-size: .85rem; line-height: 1.4; }
+.loading { color: var(--cp-muted); background: var(--cp-surface-muted); }
+.error { color: var(--cp-danger); border-color: color-mix(in srgb, var(--cp-danger) 35%, var(--cp-border)); background: var(--cp-danger-soft); }
+.success { color: var(--cp-success); border-color: color-mix(in srgb, var(--cp-success) 35%, var(--cp-border)); background: var(--cp-success-soft); }
+.empty { display: grid; min-height: 12rem; place-items: center; padding: 1.5rem; color: var(--cp-muted); text-align: center; }
+
+.resultList { display: grid; gap: .75rem; margin-top: 1rem; }
+.result { padding: 1rem 1.1rem; }
+.resultTitle { display: block; color: var(--cp-text); font-weight: 670; line-height: 1.4; text-decoration: none; }
+.resultTitle:hover { color: var(--cp-accent); text-decoration: underline; }
+.resultMeta { margin: .35rem 0 0; color: var(--cp-muted); font-size: .76rem; }
+.resultBody { margin: .65rem 0 0; color: var(--cp-muted); font-size: .86rem; line-height: 1.55; white-space: pre-wrap; }
+.mono { overflow: auto; max-height: 31rem; margin: 0; padding: 1rem; border-radius: .45rem; background: var(--cp-code); color: var(--cp-code-text); font: .76rem/1.55 ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace; white-space: pre-wrap; }
+
+.grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+.metric { padding: 1rem 1.1rem; }
+.metricLabel { color: var(--cp-muted); font-size: .76rem; }
+.metricValue { margin-top: .35rem; font-size: 1.3rem; font-weight: 720; }
+.provider { display: grid; grid-template-columns: 1fr auto; gap: .75rem; align-items: start; padding: 1rem 1.1rem; }
+.providerName { margin: 0; font-weight: 670; }
+.providerMeta { margin: .35rem 0 0; color: var(--cp-muted); font-size: .78rem; line-height: 1.5; }
+.badge { display: inline-flex; align-items: center; min-height: 1.65rem; padding: 0 .5rem; border-radius: 999px; background: var(--cp-surface-muted); color: var(--cp-muted); font-size: .72rem; font-weight: 650; }
+.badgeAvailable { color: var(--cp-success); background: var(--cp-success-soft); }
+.section { margin-top: 1.35rem; }
+.sectionTitle { margin: 0 0 .75rem; font-size: 1rem; letter-spacing: -.01em; }
+
+.login { display: grid; min-height: 100vh; place-items: center; padding: 1.5rem; background: var(--cp-canvas); }
+.loginCard { width: min(100%, 29rem); padding: 1.5rem; }
+.loginHeader { margin-bottom: 1.5rem; }
+.loginTitle { margin: .5rem 0 0; font-size: 1.65rem; letter-spacing: -.035em; }
+.loginNote { margin: .55rem 0 0; color: var(--cp-muted); font-size: .88rem; line-height: 1.5; }
+.alert { margin: 0 0 1rem; }
+
+@media (max-width: 760px) {
+  .shell { display: block; }
+  .sidebar { position: static; width: auto; height: auto; gap: 1rem; padding: 1rem; border-right: 0; border-bottom: 1px solid var(--cp-border); }
+  .navigation { display: flex; overflow-x: auto; padding-bottom: .1rem; }
+  .navLink { flex: 0 0 auto; }
+  .sideFooter { display: none; }
+  .topbar { min-height: 3.7rem; padding: 0 1rem; }
+  .content { padding: 1.5rem 1rem 3rem; }
+  .formRow, .grid { grid-template-columns: 1fr; }
+  .pageHeader { display: block; }
+}

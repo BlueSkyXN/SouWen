@@ -83,9 +83,6 @@ function parseStoredFeatures(raw: string | null): FeatureMap {
 const IDENTITY_STORAGE_KEYS = [
   'souwen_role',
   'souwen_features',
-  // Remove stale keys written by pre-A4 clients during the next login/logout.
-  'souwen_edition',
-  'souwen_editionCapabilities',
 ] as const
 
 function clearIdentityStorage(storage: Storage): void {
@@ -195,8 +192,6 @@ export const useAuthStore = create<AuthState>((set, get) => ({
     const storage = localStorage.getItem('souwen_remember') ? localStorage : sessionStorage
     storage.setItem('souwen_role', data.role)
     storage.setItem('souwen_features', JSON.stringify(data.features))
-    storage.removeItem('souwen_edition')
-    storage.removeItem('souwen_editionCapabilities')
   },
 
   /**

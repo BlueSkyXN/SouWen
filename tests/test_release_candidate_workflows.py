@@ -223,6 +223,22 @@ def test_rc2_release_version_surfaces_are_consistent() -> None:
     assert f"current release surface only accepts version {version}" in workflow
 
 
+def test_panel_artifact_gate_requires_byte_identical_embedded_html() -> None:
+    panel = json.loads((REPO_ROOT / "panel/package.json").read_text(encoding="utf-8"))
+    check_artifact = panel["scripts"]["check:artifact"]
+
+    assert "test -f dist/index.html" in check_artifact
+    assert "test -f ../src/souwen/server/panel.html" in check_artifact
+    assert "cmp -s dist/index.html ../src/souwen/server/panel.html" in check_artifact
+    for workflow_name in (
+        "ci.yml",
+        "v2-ci.yml",
+        "release-candidate.yml",
+        "build-pyinstaller-server.yml",
+    ):
+        assert "npm run check:artifact" in _workflow(workflow_name)
+
+
 def test_release_candidate_requires_an_explicit_evidence_profile() -> None:
     text = _workflow("release-candidate.yml")
     dispatch = text.split("  workflow_dispatch:", maxsplit=1)[1].split("concurrency:", maxsplit=1)[
@@ -772,6 +788,8 @@ def test_release_bundle_has_four_servers_openapi_supply_chain_assets_and_attesta
     assert "Install built candidate for canonical OpenAPI verification" in source
     assert 'python -m pip install "${wheel}[server]"' in text
     assert "python tools/gen_openapi.py --check" in source
+    assert "python tools/gen_client_sdk.py --check" in source
+    assert "python tools/gen_typescript_sdk.py --check" in source
     assert "cp contracts/openapi/souwen-openapi-2.0.0rc2.json" in source
     assert "from souwen.server.app import app" not in source
     assert "app.openapi()" not in source

@@ -29,10 +29,10 @@
  *                 - 验证：isNetwork=true，status=0
  *
  *             it('uses default message for non-Error cause')
- *                 - 验证：非 Error 对象时，用 i18n 默认网络错误文本
+ *                 - 验证：非 Error 对象时使用固定网络错误文本
  *
  *             it('uses default message for undefined')
- *                 - 验证：未传入 cause 时，同样使用 i18n 默认文本
+ *                 - 验证：未传入 cause 时使用固定默认文本
  *
  *     describe('formatError')
  *         - 测试错误格式化为用户可读字符串
@@ -44,7 +44,7 @@
  *             - 验证：标准 Error 返回其 message
  *
  *         it('returns default for non-Error')
- *             - 验证：其他类型值（字符串、数字、null）返回 i18n 默认未知错误文本
+ *             - 验证：其他类型值（字符串、数字、null）返回固定未知错误文本
  */
 
 import { describe, it, expect } from 'vitest'
