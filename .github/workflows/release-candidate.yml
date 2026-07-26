@@ -68,6 +68,9 @@ jobs:
           EVIDENCE_PROFILE: ${{ inputs.evidence_profile }}
           PUBLISH: ${{ inputs.publish }}
           DEPLOY_HFS: ${{ inputs.deploy_hfs }}
+          DISPATCH_ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
           WORKFLOW_REF: ${{ github.ref }}
           WORKFLOW_SHA: ${{ github.workflow_sha }}
         run: |
@@ -83,6 +86,9 @@ jobs:
           evidence_profile = os.environ['EVIDENCE_PROFILE']
           publish = os.environ['PUBLISH']
           deploy_hfs = os.environ['DEPLOY_HFS']
+          dispatch_actor = os.environ['DISPATCH_ACTOR']
+          triggering_actor = os.environ['TRIGGERING_ACTOR']
+          repository_owner = os.environ['REPOSITORY_OWNER']
           workflow_ref = os.environ['WORKFLOW_REF']
           workflow_sha = os.environ['WORKFLOW_SHA']
 
@@ -112,10 +118,12 @@ jobs:
               raise SystemExit('publish=true requires evidence_profile=release')
           if publish == 'true' and deploy_hfs != 'true':
               raise SystemExit('publish=true requires deploy_hfs=true and a successful live promotion')
-          if publish == 'true':
+          if publish == 'true' and any(
+              actor.casefold() != repository_owner.casefold()
+              for actor in (dispatch_actor, triggering_actor)
+          ):
               raise SystemExit(
-                  'RC2 publication remains disabled until Phase 8 removes legacy release '
-                  'residue and verifies the exact four-server-bundle release contract'
+                  'publish=true requires a repository-owner dispatch and owner-triggered rerun'
               )
 
           head = subprocess.check_output(['git', 'rev-parse', 'HEAD'], text=True).strip()

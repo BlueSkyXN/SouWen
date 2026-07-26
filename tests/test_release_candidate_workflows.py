@@ -186,7 +186,12 @@ def test_release_candidate_strictly_validates_promotion_inputs() -> None:
     assert "current release surface only accepts version 2.0.0rc2" in text
     assert "product_name = 'Souwen v2rc2'" in text
     assert "api_major = 2" in text
-    assert "RC2 publication remains disabled until Phase 8" in text
+    assert "DISPATCH_ACTOR: ${{ github.actor }}" in trust_step
+    assert "TRIGGERING_ACTOR: ${{ github.triggering_actor }}" in trust_step
+    assert "REPOSITORY_OWNER: ${{ github.repository_owner }}" in trust_step
+    assert "for actor in (dispatch_actor, triggering_actor)" in trust_step
+    assert "repository-owner dispatch and owner-triggered rerun" in trust_step
+    assert "RC2 publication remains disabled" not in text
     assert '--title "$PRODUCT_NAME"' in text
     assert text.index("git', 'merge-base', '--is-ancestor'") < text.index(
         'pip install -e ".[server,tls,web,robots,scraper]"'
@@ -361,7 +366,8 @@ def test_deployment_evidence_is_non_publishable_and_contains_no_release_binaries
     assert "'api_major': int(os.environ['API_MAJOR'])" in release
     assert "name: release-candidate-${{ needs.validate.outputs.version }}" in release
     assert "needs: [validate, assemble]" in publish
-    assert "RC2 publication remains disabled until Phase 8" in text
+    assert "repository-owner dispatch and owner-triggered rerun" in text
+    assert "RC2 publication remains disabled" not in text
     assert "deployment-evidence-" not in publish
     assert "deployment-manifest.json" not in publish
 
