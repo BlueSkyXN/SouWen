@@ -13,7 +13,11 @@ def test_mcp_modules_are_not_importable() -> None:
         "souwen.web.mcp_fetch",
         "souwen.cli.mcp",
     ):
-        assert importlib.util.find_spec(module_name) is None
+        try:
+            spec = importlib.util.find_spec(module_name)
+        except ModuleNotFoundError:
+            spec = None
+        assert spec is None
 
 
 def test_mcp_is_not_a_registered_fetch_provider() -> None:
