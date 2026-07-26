@@ -110,7 +110,7 @@ def test_every_batch_five_search_factory_dispatches_and_closes_with_reviewed_con
         )
     )
     catalog = {item.provider: item for item in runtime.services.provider_items}
-    assert len(catalog) == 101
+    assert len(catalog) == 104
     assert all(catalog[provider_id].availability == "available" for provider_id in clients)
 
     async def exercise() -> None:

@@ -94,6 +94,8 @@ class SouWenHttpClient(HttpTransport):
         timeout: 请求超时秒数（默认从 config 读取）
         max_retries: 最大重试次数（默认从 config 读取）
         source_name: 数据源名（用于日志和配置查询）
+        follow_redirects: 是否允许 httpx 自动跟随重定向
+        resolve_source_base_url: source_name 存在时是否允许频道配置覆盖显式 base_url
     """
 
     def __init__(
@@ -103,13 +105,16 @@ class SouWenHttpClient(HttpTransport):
         timeout: int | None = None,
         max_retries: int | None = None,
         source_name: str | None = None,
+        follow_redirects: bool = True,
+        resolve_source_base_url: bool = True,
     ):
         config = get_config()
 
         # 频道配置可覆盖 base_url
         overrides_enabled = source_channel_overrides_enabled()
         if source_name and overrides_enabled:
-            base_url = config.resolve_base_url(source_name, default=base_url)
+            if resolve_source_base_url:
+                base_url = config.resolve_base_url(source_name, default=base_url)
             proxy = config.resolve_proxy(source_name)
             channel_headers = config.resolve_headers(source_name)
         elif not overrides_enabled:
@@ -133,7 +138,7 @@ class SouWenHttpClient(HttpTransport):
             timeout=timeout or reviewed_timeout or config.timeout,
             max_retries=max_retries or reviewed_retries or config.max_retries,
             proxy=proxy,
-            follow_redirects=True,
+            follow_redirects=follow_redirects,
         )
 
 

@@ -62,15 +62,18 @@ class SearXNGClient(SouWenHttpClient):
 
     ENGINE_NAME = "searxng"
 
-    def __init__(self, instance_url: str | None = None):
-        # 从参数或配置读取 SearXNG 实例 URL
-        config = get_config()
-        self.instance_url = (
-            instance_url
-            or config.resolve_base_url("searxng")
-            or config.resolve_api_key("searxng", "searxng_url")
-            or ""
-        ).rstrip("/")
+    def __init__(
+        self,
+        instance_url: str | None = None,
+        *,
+        follow_redirects: bool = True,
+    ):
+        if not instance_url:
+            config = get_config()
+            instance_url = config.resolve_base_url("searxng") or config.resolve_api_key(
+                "searxng", "searxng_url"
+            )
+        self.instance_url = (instance_url or "").rstrip("/")
         if not self.instance_url:
             # 未提供实例 URL 时抛出配置错误
             raise ConfigError(
@@ -78,7 +81,12 @@ class SearXNGClient(SouWenHttpClient):
                 "SearXNG",
                 "https://docs.searxng.org/admin/installation.html",
             )
-        super().__init__(base_url=self.instance_url, source_name="searxng")
+        super().__init__(
+            base_url=self.instance_url,
+            source_name="searxng",
+            follow_redirects=follow_redirects,
+            resolve_source_base_url=False,
+        )
 
     async def search(
         self,

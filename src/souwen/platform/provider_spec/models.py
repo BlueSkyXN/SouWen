@@ -78,6 +78,29 @@ class PublicTargetDeclaration(_SpecModel):
     operations: tuple[Literal["fetch"], ...] = ("fetch",)
 
 
+class SelfHostedTransportDeclaration(_SpecModel):
+    """Deployment-configured Search endpoint, including private or loopback instances."""
+
+    target_contract: Literal["configured_self_hosted_endpoint"] = "configured_self_hosted_endpoint"
+    configuration_key: Literal["base_url"] = "base_url"
+    schemes: tuple[Literal["http", "https"], ...] = ("http", "https")
+    protocol: Literal["html", "json"]
+    operations: tuple[HttpOperation, ...] = Field(min_length=1)
+    follow_redirects: Literal[False] = False
+
+    @model_validator(mode="after")
+    def _shape_is_unique(self) -> "SelfHostedTransportDeclaration":
+        if len(self.schemes) != len(set(self.schemes)) or set(self.schemes) != {
+            "http",
+            "https",
+        }:
+            raise ValueError("self-hosted transport must allow exactly http and https")
+        identities = tuple((item.method, item.endpoint) for item in self.operations)
+        if len(identities) != len(set(identities)):
+            raise ValueError("duplicate self-hosted transport operation")
+        return self
+
+
 CredentialPlacement = Literal["header", "query", "bearer", "oauth_body", "path"]
 
 
@@ -259,7 +282,12 @@ class _LegacyProviderSpec(_SpecModel):
     adapter_kind: Literal["legacy_bridge"] = "legacy_bridge"
     review_status: Literal["bridge_exception"] = "bridge_exception"
     bridge_reason: str = Field(min_length=1, max_length=512)
-    transport: LegacyTransportDeclaration | LocalStoreDeclaration | PublicTargetDeclaration
+    transport: (
+        LegacyTransportDeclaration
+        | LocalStoreDeclaration
+        | PublicTargetDeclaration
+        | SelfHostedTransportDeclaration
+    )
     additional_transports: tuple[LegacyTransportDeclaration, ...] = ()
     auth: AuthDeclaration = Field(default_factory=AuthDeclaration)
     configuration_keys: tuple[str, ...] = ()
@@ -276,14 +304,20 @@ class _LegacyProviderSpec(_SpecModel):
         serialized = self.model_dump(mode="json", exclude_none=True)
         if "@" in str(serialized):
             raise ValueError("credential-bearing values are forbidden in a provider spec")
+        if (
+            isinstance(self.transport, SelfHostedTransportDeclaration)
+            and self.transport.configuration_key not in self.configuration_keys
+        ):
+            raise ValueError("self-hosted transport configuration key is undeclared")
         return self
 
     @model_validator(mode="after")
     def _transport_hosts_are_unique(self) -> "_LegacyProviderSpec":
-        if isinstance(self.transport, (LocalStoreDeclaration, PublicTargetDeclaration)) and (
-            self.additional_transports
-        ):
-            raise ValueError("local or public-target providers cannot declare network transports")
+        if isinstance(
+            self.transport,
+            (LocalStoreDeclaration, PublicTargetDeclaration, SelfHostedTransportDeclaration),
+        ) and (self.additional_transports):
+            raise ValueError("dynamic-target providers cannot declare fixed network transports")
         hosts = self.hosts
         if len(hosts) != len(set(hosts)):
             raise ValueError("additional legacy transport hosts must be unique")
@@ -299,19 +333,28 @@ class _LegacyProviderSpec(_SpecModel):
 
     @property
     def host(self) -> str | None:
-        if isinstance(self.transport, (LocalStoreDeclaration, PublicTargetDeclaration)):
+        if isinstance(
+            self.transport,
+            (LocalStoreDeclaration, PublicTargetDeclaration, SelfHostedTransportDeclaration),
+        ):
             return None
         return self.transport.host
 
     @property
     def hosts(self) -> tuple[str, ...]:
-        if isinstance(self.transport, (LocalStoreDeclaration, PublicTargetDeclaration)):
+        if isinstance(
+            self.transport,
+            (LocalStoreDeclaration, PublicTargetDeclaration, SelfHostedTransportDeclaration),
+        ):
             return ()
         return (self.transport.host, *(item.host for item in self.additional_transports))
 
     @property
     def base_url(self) -> str | None:
-        if isinstance(self.transport, (LocalStoreDeclaration, PublicTargetDeclaration)):
+        if isinstance(
+            self.transport,
+            (LocalStoreDeclaration, PublicTargetDeclaration, SelfHostedTransportDeclaration),
+        ):
             return None
         return (
             f"{self.transport.scheme}://{self.transport.host}{self.transport.base_path.rstrip('/')}"

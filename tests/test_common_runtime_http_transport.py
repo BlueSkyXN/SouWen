@@ -118,6 +118,24 @@ def test_legacy_adapter_preserves_source_resolution_and_header_precedence() -> N
     assert client.max_retries == 5
 
 
+def test_legacy_adapter_can_keep_an_explicit_base_url_while_resolving_transport_options() -> None:
+    config = _config()
+    with (
+        patch("souwen.core.http_client.get_config", return_value=config),
+        patch("souwen.common_runtime.transport.http_client.httpx.AsyncClient") as client_factory,
+    ):
+        SouWenHttpClient(
+            base_url="https://explicit.example",
+            source_name="example_source",
+            resolve_source_base_url=False,
+        )
+
+    config.resolve_base_url.assert_not_called()
+    config.resolve_proxy.assert_called_once_with("example_source")
+    config.resolve_headers.assert_called_once_with("example_source")
+    assert client_factory.call_args.kwargs["base_url"] == "https://explicit.example"
+
+
 def test_legacy_adapter_preserves_global_defaults_and_truthy_fallback() -> None:
     config = _config()
     with (
@@ -236,7 +254,27 @@ async def test_attempt_counts_and_network_error_mapping_are_preserved(
         pytest.raises(SourceUnavailableError, match=message),
     ):
         await client.get("/resource")
-    assert request.await_count == 3
+    assert request.await_count == 11
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("max_retries", "expected_attempts"), ((0, 1), (1, 1), (4, 4)))
+async def test_default_retry_policy_honors_the_transport_attempt_bound(
+    max_retries: int, expected_attempts: int
+) -> None:
+    request = AsyncMock(side_effect=httpx.ConnectError("connect failed"))
+    with patch(
+        "souwen.common_runtime.transport.http_client.httpx.AsyncClient",
+        return_value=SimpleNamespace(request=request),
+    ):
+        client = _explicit_transport(max_retries=max_retries)
+
+    with (
+        patch.object(HttpTransport._request_with_retry.retry, "wait", wait_none()),
+        pytest.raises(SourceUnavailableError, match="连接失败"),
+    ):
+        await client.get("/resource")
+    assert request.await_count == expected_attempts
 
 
 @pytest.mark.asyncio

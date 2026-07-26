@@ -1,107 +1,7 @@
 {
-  "draft_count": 3,
-  "drafts": [
-    {
-      "auth_requirement": "self_hosted",
-      "batch": "batch-6",
-      "capabilities": [
-        "search"
-      ],
-      "credential_fields": [
-        "searxng_url"
-      ],
-      "error_mapping": {
-        "review_required": true
-      },
-      "legacy_loader": "lazy[souwen.web.searxng:SearXNGClient]",
-      "migration_status": "pending",
-      "provider_manifest_id": null,
-      "request_mapping": {
-        "review_required": true
-      },
-      "response_mapping": {
-        "review_required": true
-      },
-      "source_id": "searxng",
-      "target_adapter_id": null,
-      "target_capability": null,
-      "target_manifest_id": null,
-      "target_package": null,
-      "target_spec_identity": null,
-      "target_spec_path": null,
-      "target_spec_reason": null,
-      "transport": {
-        "review_required": true
-      }
-    },
-    {
-      "auth_requirement": "self_hosted",
-      "batch": "batch-6",
-      "capabilities": [
-        "search"
-      ],
-      "credential_fields": [
-        "websurfx_url"
-      ],
-      "error_mapping": {
-        "review_required": true
-      },
-      "legacy_loader": "lazy[souwen.web.websurfx:WebsurfxClient]",
-      "migration_status": "pending",
-      "provider_manifest_id": null,
-      "request_mapping": {
-        "review_required": true
-      },
-      "response_mapping": {
-        "review_required": true
-      },
-      "source_id": "websurfx",
-      "target_adapter_id": null,
-      "target_capability": null,
-      "target_manifest_id": null,
-      "target_package": null,
-      "target_spec_identity": null,
-      "target_spec_path": null,
-      "target_spec_reason": null,
-      "transport": {
-        "review_required": true
-      }
-    },
-    {
-      "auth_requirement": "self_hosted",
-      "batch": "batch-6",
-      "capabilities": [
-        "search"
-      ],
-      "credential_fields": [
-        "whoogle_url"
-      ],
-      "error_mapping": {
-        "review_required": true
-      },
-      "legacy_loader": "lazy[souwen.web.whoogle:WhoogleClient]",
-      "migration_status": "pending",
-      "provider_manifest_id": null,
-      "request_mapping": {
-        "review_required": true
-      },
-      "response_mapping": {
-        "review_required": true
-      },
-      "source_id": "whoogle",
-      "target_adapter_id": null,
-      "target_capability": null,
-      "target_manifest_id": null,
-      "target_package": null,
-      "target_spec_identity": null,
-      "target_spec_path": null,
-      "target_spec_reason": null,
-      "transport": {
-        "review_required": true
-      }
-    }
-  ],
-  "existing_provider_spec_count": 101,
+  "draft_count": 0,
+  "drafts": [],
+  "existing_provider_spec_count": 104,
   "existing_provider_specs": [
     {
       "provider_manifest_id": "aliyun_iqs",
@@ -992,6 +892,18 @@
       "target_spec_reason": null
     },
     {
+      "provider_manifest_id": "searxng",
+      "source_id": "searxng",
+      "specification_status": "existing_provider_manifest",
+      "target_adapter_id": "searxng-search",
+      "target_capability": "search",
+      "target_manifest_id": "searxng",
+      "target_package": "souwen.providers.information_sources.searxng",
+      "target_spec_identity": "souwen.providers.information_sources.searxng.spec.SEARXNG_PROVIDER_SPEC",
+      "target_spec_path": "src/souwen/providers/information_sources/searxng/spec.py",
+      "target_spec_reason": null
+    },
+    {
       "provider_manifest_id": "semantic_scholar",
       "source_id": "semantic_scholar",
       "specification_status": "existing_provider_manifest",
@@ -1160,6 +1072,18 @@
       "target_spec_reason": null
     },
     {
+      "provider_manifest_id": "websurfx",
+      "source_id": "websurfx",
+      "specification_status": "existing_provider_manifest",
+      "target_adapter_id": "websurfx-search",
+      "target_capability": "search",
+      "target_manifest_id": "websurfx",
+      "target_package": "souwen.providers.information_sources.websurfx",
+      "target_spec_identity": "souwen.providers.information_sources.websurfx.spec.WEBSURFX_PROVIDER_SPEC",
+      "target_spec_path": "src/souwen/providers/information_sources/websurfx/spec.py",
+      "target_spec_reason": null
+    },
+    {
       "provider_manifest_id": "weibo",
       "source_id": "weibo",
       "specification_status": "existing_provider_manifest",
@@ -1169,6 +1093,18 @@
       "target_package": "souwen.providers.information_sources.weibo",
       "target_spec_identity": "souwen.providers.information_sources.weibo.spec.WEIBO_PROVIDER_SPEC",
       "target_spec_path": "src/souwen/providers/information_sources/weibo/spec.py",
+      "target_spec_reason": null
+    },
+    {
+      "provider_manifest_id": "whoogle",
+      "source_id": "whoogle",
+      "specification_status": "existing_provider_manifest",
+      "target_adapter_id": "whoogle-search",
+      "target_capability": "search",
+      "target_manifest_id": "whoogle",
+      "target_package": "souwen.providers.information_sources.whoogle",
+      "target_spec_identity": "souwen.providers.information_sources.whoogle.spec.WHOOGLE_PROVIDER_SPEC",
+      "target_spec_path": "src/souwen/providers/information_sources/whoogle/spec.py",
       "target_spec_reason": null
     },
     {
@@ -1317,7 +1253,7 @@
     }
   ],
   "generator_version": "b0-provider-spec-drafts-v1",
-  "inventory_registry_sha256": "ad79a07be5c6602735fe574e4259fce57c89e90602e19e81f28fac89d2305bcd",
+  "inventory_registry_sha256": "218186aeb15820afae9de0e7e0a89376a3117763a46a17713bb45611e47ccd51",
   "non_provider_disposition_count": 6,
   "non_provider_dispositions": [
     {
@@ -1365,8 +1301,8 @@
   ],
   "schema_version": 1,
   "source_fingerprint": {
-    "input_sha256": "3b9269138f4359e8018b0e2febea0b310bccf0d98fbffa363ab73686be42bcd8",
-    "provider_manifest_ids_sha256": "8851f85e547c23c88289c9f40532a87ede81aee445a9b9ddee9ee24f43fe70b7",
-    "registry_metadata_sha256": "259530e221f43b4ee2da4ccd13274982d987b6bf40df1be32a8333a66ed6ddcc"
+    "input_sha256": "a7eb2eb441980914aa573531581b66f8623a7547656689eec1e69e392b5a14b2",
+    "provider_manifest_ids_sha256": "8dd07f77505e227a77eed3c1fc723854a3188da3e7c3e7e8a905b7257c620741",
+    "registry_metadata_sha256": "66e8741eac230681421392a8a0cb32fb89c13a4f853a5c048ad2b8de12622cdf"
   }
 }

@@ -8,17 +8,14 @@ mapping in a draft remains
 
 - Schema version: `1`
 - Generator version: `b0-provider-spec-drafts-v1`
-- Draft count: `3`
-- Existing Provider v2 specs: `101`
+- Draft count: `0`
+- Existing Provider v2 specs: `104`
 - Non-Provider dispositions: `6`
-- Inventory fingerprint: `ad79a07be5c6602735fe574e4259fce57c89e90602e19e81f28fac89d2305bcd`
-- Combined input fingerprint: `3b9269138f4359e8018b0e2febea0b310bccf0d98fbffa363ab73686be42bcd8`
+- Inventory fingerprint: `218186aeb15820afae9de0e7e0a89376a3117763a46a17713bb45611e47ccd51`
+- Combined input fingerprint: `a7eb2eb441980914aa573531581b66f8623a7547656689eec1e69e392b5a14b2`
 
 | Source | Batch | Status | Capabilities | Auth | Legacy loader | Existing manifest | Mapping review |
 |---|---|---|---|---|---|---|---|
-| `searxng` | `batch-6` | `pending` | `search` | `self_hosted` | `lazy[souwen.web.searxng:SearXNGClient]` | — | required |
-| `websurfx` | `batch-6` | `pending` | `search` | `self_hosted` | `lazy[souwen.web.websurfx:WebsurfxClient]` | — | required |
-| `whoogle` | `batch-6` | `pending` | `search` | `self_hosted` | `lazy[souwen.web.whoogle:WhoogleClient]` | — | required |
 
 ## Non-Provider dispositions
 
@@ -113,6 +110,7 @@ These migrated sources are references only, not review-required B0 drafts.
 | `scrapfly` | `souwen.providers.fetch_sources.scrapfly` | `scrapfly` | `scrapfly-fetch` | `fetch` | `souwen.providers.fetch_sources.scrapfly.spec.SCRAPFLY_FETCH_PROFILE` | `src/souwen/providers/fetch_sources/scrapfly/spec.py` | — | `existing_provider_manifest` |
 | `scrapingbee` | `souwen.providers.fetch_sources.scrapingbee` | `scrapingbee` | `scrapingbee-fetch` | `fetch` | `souwen.providers.fetch_sources.scrapingbee.spec.SCRAPINGBEE_FETCH_PROFILE` | `src/souwen/providers/fetch_sources/scrapingbee/spec.py` | — | `existing_provider_manifest` |
 | `scrapingdog` | `souwen.providers.information_sources.scrapingdog` | `scrapingdog` | `scrapingdog-search` | `search` | `souwen.providers.information_sources.scrapingdog.spec.SCRAPINGDOG_PROVIDER_SPEC` | `src/souwen/providers/information_sources/scrapingdog/spec.py` | — | `existing_provider_manifest` |
+| `searxng` | `souwen.providers.information_sources.searxng` | `searxng` | `searxng-search` | `search` | `souwen.providers.information_sources.searxng.spec.SEARXNG_PROVIDER_SPEC` | `src/souwen/providers/information_sources/searxng/spec.py` | — | `existing_provider_manifest` |
 | `semantic_scholar` | `souwen.providers.information_sources.semantic_scholar` | `semantic_scholar` | `semantic-scholar-search` | `search` | `souwen.providers.information_sources.semantic_scholar.spec.SEMANTIC_SCHOLAR_PROVIDER_SPEC` | `src/souwen/providers/information_sources/semantic_scholar/spec.py` | — | `existing_provider_manifest` |
 | `serpapi` | `souwen.providers.information_sources.serpapi` | `serpapi` | `serpapi-search` | `search` | `souwen.providers.information_sources.serpapi.spec.SERPAPI_PROVIDER_SPEC` | `src/souwen/providers/information_sources/serpapi/spec.py` | — | `existing_provider_manifest` |
 | `serper` | `souwen.providers.information_sources.serper` | `serper` | `serper-search` | `search` | `souwen.providers.information_sources.serper.spec.SERPER_PROVIDER_SPEC` | `src/souwen/providers/information_sources/serper/spec.py` | — | `existing_provider_manifest` |
@@ -127,7 +125,9 @@ These migrated sources are references only, not review-required B0 drafts.
 | `uspto_odp` | `souwen.providers.information_sources.uspto_odp` | `uspto_odp` | `uspto_odp-search` | `search` | `souwen.providers.information_sources.uspto_odp.spec.USPTO_ODP_BRIDGE_SPEC` | `src/souwen/providers/information_sources/uspto_odp/spec.py` | — | `existing_provider_manifest` |
 | `v2ex` | `souwen.providers.information_sources.v2ex` | `v2ex` | `v2ex-search` | `search` | `souwen.providers.information_sources.v2ex.spec.V2EX_PROVIDER_SPEC` | `src/souwen/providers/information_sources/v2ex/spec.py` | — | `existing_provider_manifest` |
 | `wayback` | `souwen.providers.fetch_sources.wayback` | `wayback` | `wayback-fetch` | `fetch` | `souwen.providers.fetch_sources.wayback.spec.WAYBACK_FETCH_PROVIDER_SPEC` | `src/souwen/providers/fetch_sources/wayback/spec.py` | — | `existing_provider_manifest` |
+| `websurfx` | `souwen.providers.information_sources.websurfx` | `websurfx` | `websurfx-search` | `search` | `souwen.providers.information_sources.websurfx.spec.WEBSURFX_PROVIDER_SPEC` | `src/souwen/providers/information_sources/websurfx/spec.py` | — | `existing_provider_manifest` |
 | `weibo` | `souwen.providers.information_sources.weibo` | `weibo` | `weibo-search` | `search` | `souwen.providers.information_sources.weibo.spec.WEIBO_PROVIDER_SPEC` | `src/souwen/providers/information_sources/weibo/spec.py` | — | `existing_provider_manifest` |
+| `whoogle` | `souwen.providers.information_sources.whoogle` | `whoogle` | `whoogle-search` | `search` | `souwen.providers.information_sources.whoogle.spec.WHOOGLE_PROVIDER_SPEC` | `src/souwen/providers/information_sources/whoogle/spec.py` | — | `existing_provider_manifest` |
 | `wikipedia` | `souwen.providers.information_sources.wikipedia` | `wikipedia` | `wikipedia-search` | `search` | `souwen.providers.information_sources.wikipedia.spec.WIKIPEDIA_PROVIDER_SPEC` | `src/souwen/providers/information_sources/wikipedia/spec.py` | — | `existing_provider_manifest` |
 | `wikisource` | `souwen.providers.information_sources.wikisource` | `wikisource` | `wikisource-search` | `search` | `souwen.providers.information_sources.wikisource.spec.WIKISOURCE_PROVIDER_SPEC` | `src/souwen/providers/information_sources/wikisource/spec.py` | — | `existing_provider_manifest` |
 | `xcrawl` | `souwen.providers.information_sources.xcrawl` | `xcrawl` | `xcrawl-search` | `search` | `souwen.providers.information_sources.xcrawl.spec.XCRAWL_SEARCH_PROVIDER_SPEC` | `src/souwen/providers/information_sources/xcrawl/spec.py` | — | `existing_provider_manifest` |

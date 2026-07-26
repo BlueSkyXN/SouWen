@@ -81,6 +81,7 @@ from souwen.platform.provider_spec import (
     ProviderSpec,
     RestJsonProviderSpec,
     resolve_provider_inputs,
+    validate_self_hosted_base_url,
     validate_spec_manifest,
 )
 from souwen.platform.provider_spi import (
@@ -488,6 +489,7 @@ from souwen.providers.llm_sources.uniapi_ark_annotations.manifest import (
     DOUBAO_ADAPTER_ID,
 )
 from souwen.registry import defaults_for, get as get_legacy_adapter
+from souwen.registry.meta import credential_value
 from souwen.research_output.datacite import DataCiteClient
 from souwen.research_output.figshare import FigshareClient
 from souwen.web.apify import ApifyClient
@@ -708,6 +710,36 @@ _BATCH_FIVE_SEARCH_BINDINGS = tuple(
     _batch_five_search_binding(provider_id) for provider_id in _BATCH_FIVE_SEARCH_SOURCE_IDS
 )
 
+_BATCH_SIX_SELF_HOSTED_SOURCE_IDS = ("searxng", "websurfx", "whoogle")
+
+
+def _batch_six_search_binding(
+    provider_id: str,
+) -> tuple[ProviderManifest, LegacySearchProviderSpec, type[Any], str]:
+    module = importlib.import_module(f"souwen.providers.information_sources.{provider_id}")
+    manifests = tuple(
+        value for value in vars(module).values() if isinstance(value, ProviderManifest)
+    )
+    specs = tuple(
+        value for value in vars(module).values() if isinstance(value, LegacySearchProviderSpec)
+    )
+    provider_types = tuple(
+        value
+        for value in vars(module).values()
+        if isinstance(value, type)
+        and value is not LegacySearchProvider
+        and issubclass(value, LegacySearchProvider)
+        and value.__module__.startswith(module.__name__)
+    )
+    if len(manifests) != 1 or len(specs) != 1 or len(provider_types) != 1:
+        raise RuntimeError(f"invalid Batch 6 provider package: {provider_id}")
+    return manifests[0], specs[0], provider_types[0], provider_id
+
+
+_BATCH_SIX_SEARCH_BINDINGS = tuple(
+    _batch_six_search_binding(provider_id) for provider_id in _BATCH_SIX_SELF_HOSTED_SOURCE_IDS
+)
+
 
 def _build_reviewed_batch_five_search_provider(
     provider_type: type[Any],
@@ -737,6 +769,32 @@ def _build_reviewed_batch_five_search_provider(
     return provider_type(
         _LegacyRuntimeClient(client),
         enabled=bool(configuration["enabled"]),
+    )
+
+
+def _build_reviewed_batch_six_search_provider(
+    provider_type: type[Any],
+    provider_id: str,
+    spec: LegacySearchProviderSpec,
+    configuration: Mapping[str, object],
+    reviewed_proxy: str | None,
+    config: SouWenConfig,
+) -> Any:
+    resolved_configuration, _ = resolve_provider_inputs(spec, configuration, {})
+    client_type = get_legacy_adapter(provider_id).client_loader()
+    source_timeout = config.get_source_config(provider_id).timeout or config.timeout
+    with without_source_channel_overrides(
+        proxy=reviewed_proxy,
+        timeout_seconds=source_timeout,
+        max_retries=config.max_retries,
+    ):
+        client = client_type(
+            instance_url=resolved_configuration["base_url"],
+            follow_redirects=False,
+        )
+    return provider_type(
+        _LegacyRuntimeClient(client),
+        enabled=bool(resolved_configuration["enabled"]),
     )
 
 
@@ -1301,12 +1359,16 @@ _BATCH_FOUR_MANIFEST_IDS = frozenset(
 _BATCH_FIVE_MANIFEST_IDS = frozenset(
     manifest.id for manifest, _spec, _provider_type, _provider_id in _BATCH_FIVE_SEARCH_BINDINGS
 ) | {NEWSPAPER_PROVIDER_MANIFEST.id, READABILITY_PROVIDER_MANIFEST.id}
+_BATCH_SIX_MANIFEST_IDS = frozenset(
+    manifest.id for manifest, _spec, _provider_type, _provider_id in _BATCH_SIX_SEARCH_BINDINGS
+)
 _MIGRATED_LEGACY_MANIFEST_IDS = (
     _BATCH_ONE_MANIFEST_IDS
     | _BATCH_TWO_MANIFEST_IDS
     | _BATCH_THREE_MANIFEST_IDS
     | _BATCH_FOUR_MANIFEST_IDS
     | _BATCH_FIVE_MANIFEST_IDS
+    | _BATCH_SIX_MANIFEST_IDS
 )
 _LEGACY_DEFAULT_PROVIDER_IDS = frozenset(
     {
@@ -1328,6 +1390,21 @@ def _legacy_runtime_default_enabled(provider_id: str) -> bool:
     """Keep runtime eligibility distinct from default Search fan-out selection."""
 
     return get_legacy_adapter(provider_id).runtime_default_enabled
+
+
+def _self_hosted_base_url(config: SouWenConfig, provider_id: str) -> str:
+    adapter = get_legacy_adapter(provider_id)
+    field = adapter.config_field
+    if not field:
+        raise ValueError("self-hosted provider has no configured endpoint field")
+    value = credential_value(
+        config,
+        provider_id,
+        field,
+        field,
+        adapter.resolved_auth_requirement,
+    )
+    return validate_self_hosted_base_url(value)
 
 
 class _UnavailableLLMSearchModule:
@@ -1388,6 +1465,15 @@ def _configuration_resolver(config: SouWenConfig):
             }
             _validate_transport_configuration(configuration, provider_id="PatentsView")
             return configuration
+        if manifest.id in _BATCH_SIX_MANIFEST_IDS:
+            if not config.is_source_enabled(
+                manifest.id, default=_legacy_runtime_default_enabled(manifest.id)
+            ):
+                raise ValueError("provider is disabled")
+            return {
+                "enabled": True,
+                "base_url": _self_hosted_base_url(config, manifest.id),
+            }
         if manifest.id in _MIGRATED_LEGACY_MANIFEST_IDS:
             if not config.is_source_enabled(
                 manifest.id, default=_legacy_runtime_default_enabled(manifest.id)
@@ -1574,6 +1660,13 @@ def _missing_provider_configuration(
 
     if manifest.id == "patentsview":
         return ("patentsview_api_key",) if not _patentsview_api_key(config) else ()
+    if manifest.id in _BATCH_SIX_MANIFEST_IDS:
+        try:
+            _self_hosted_base_url(config, manifest.id)
+        except ValueError:
+            field = get_legacy_adapter(manifest.id).config_field
+            return (field,) if field else ("base_url",)
+        return ()
     if manifest.id not in (_BATCH_TWO_MANIFEST_IDS | _BATCH_THREE_MANIFEST_IDS):
         return ()
     resolved = _secret_resolver(config)(manifest, manifest.secrets.all_references)
@@ -1829,6 +1922,26 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
             ),
             provider_type=provider_type,
         )
+    for manifest, spec, provider_type, provider_id in _BATCH_SIX_SEARCH_BINDINGS:
+        validate_spec_manifest(spec, manifest)
+        reviewed_proxy = (
+            config.resolve_proxy(manifest.id) if manifest.network.proxy_supported else None
+        )
+        manager.register_factory(
+            package_id=manifest.id,
+            export=manifest.adapters[0].export,
+            factory=lambda configuration, _secrets, provider_type=provider_type, provider_id=provider_id, spec=spec, reviewed_proxy=reviewed_proxy: (
+                _build_reviewed_batch_six_search_provider(
+                    provider_type,
+                    provider_id,
+                    spec,
+                    configuration,
+                    reviewed_proxy,
+                    config,
+                )
+            ),
+            provider_type=provider_type,
+        )
     for manifest, spec, provider_type, client_type in (
         (
             NEWSPAPER_PROVIDER_MANIFEST,
@@ -1929,6 +2042,10 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
             *(
                 manifest
                 for manifest, _spec, _provider_type, _provider_id in _BATCH_FIVE_SEARCH_BINDINGS
+            ),
+            *(
+                manifest
+                for manifest, _spec, _provider_type, _provider_id in _BATCH_SIX_SEARCH_BINDINGS
             ),
             NEWSPAPER_PROVIDER_MANIFEST,
             READABILITY_PROVIDER_MANIFEST,
@@ -2143,6 +2260,19 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
                         ),
                         start=400,
                     )
+                ),
+                *(
+                    SearchProviderSelection(
+                        provider=ProviderRef(id=manifest.id, kind="search"),
+                        adapter_id=manifest.adapters[0].id,
+                        yaml_priority=priority,
+                    )
+                    for priority, (
+                        manifest,
+                        _spec,
+                        _provider_type,
+                        _provider_id,
+                    ) in enumerate(_BATCH_SIX_SEARCH_BINDINGS, start=500)
                 ),
             ),
         ),
