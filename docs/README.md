@@ -22,6 +22,7 @@ Public docs 不要求读者理解历史路径；需要保留背景材料时，�
 | [getting-started.md](./getting-started.md) | 安装、Python、API Server 的最短路径 |
 | [concepts.md](./concepts.md) | domain、capability、Source Catalog、频道配置等核心概念 |
 | [python-api.md](./python-api.md) | 推荐 Python API 入口与示例 |
+| [python-sdk.md](./python-sdk.md) | generated sync/async REST SDK、认证、兼容和错误合同 |
 
 ## 数据源与配置
 

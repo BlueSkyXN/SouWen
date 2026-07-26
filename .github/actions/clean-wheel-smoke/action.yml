@@ -34,6 +34,7 @@ runs:
         import importlib
         import importlib.resources
         import importlib.util
+        import hashlib
         import json
         import os
         import subprocess
@@ -85,6 +86,25 @@ runs:
         require(not leaked, "package/no-retired-imports", f"leaked={leaked}")
 
         if profile == "sdk-default":
+            from souwen import AsyncSouWenClient, SouWenClient
+            from souwen.delivery.client_sdk import OPENAPI_SHA256, SUPPORTED_API_MAJOR
+
+            require(SouWenClient.__name__ == "SouWenClient", "sdk/sync-client", "importable")
+            require(
+                AsyncSouWenClient.__name__ == "AsyncSouWenClient",
+                "sdk/async-client",
+                "importable",
+            )
+            require(SUPPORTED_API_MAJOR == 2, "sdk/api-major", str(SUPPORTED_API_MAJOR))
+            canonical_openapi = Path("contracts/openapi/souwen-openapi-2.0.0rc2.json")
+            expected_openapi_sha256 = hashlib.sha256(canonical_openapi.read_bytes()).hexdigest()
+            require(
+                OPENAPI_SHA256 == expected_openapi_sha256,
+                "sdk/openapi-sha256",
+                OPENAPI_SHA256,
+            )
+            sdk_client = SouWenClient("http://127.0.0.1:49265")
+            sdk_client.close()
             require(not find_spec("fastapi"), "sdk/no-fastapi", "fastapi absent")
         else:
             from souwen.server.app import app

@@ -25,3 +25,13 @@ PYTHONPATH=src python3 tools/gen_openapi.py \
 
 Removed or changed operations/schemas and target metadata/security changes fail the semantic check.
 Additive operations and schemas are reported but do not fail it.
+
+The generated Python bindings consume this exact byte artifact:
+
+```bash
+PYTHONPATH=src python3 tools/gen_client_sdk.py --write
+PYTHONPATH=src python3 tools/gen_client_sdk.py --check
+```
+
+Generated bindings record this artifact's SHA-256, API major and version. The SDK generator rejects
+unknown operations, incompatible auth/header contracts and schema shapes it cannot map safely.

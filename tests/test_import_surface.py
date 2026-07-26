@@ -18,6 +18,7 @@ def test_new_public_import_surface():
     from souwen.search import search, search_all, search_by_capability, search_domain
     from souwen.web.fetch import fetch_content
     from souwen.web.wayback import WaybackClient
+    from souwen import AsyncSouWenClient, SouWenClient
 
     assert callable(search)
     assert callable(search_all)
@@ -29,6 +30,8 @@ def test_new_public_import_surface():
     assert BaseScraper.__name__ == "BaseScraper"
     assert WaybackClient.__name__ == "WaybackClient"
     assert LocalCatalog.__name__ == "LocalCatalog"
+    assert SouWenClient.__name__ == "SouWenClient"
+    assert AsyncSouWenClient.__name__ == "AsyncSouWenClient"
 
 
 def test_import_registry_does_not_scan_entry_points():

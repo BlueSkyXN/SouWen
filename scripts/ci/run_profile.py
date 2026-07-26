@@ -114,6 +114,22 @@ PROFILE_COMMANDS: Mapping[str, tuple[CommandSpec, ...]] = {
                 "contracts/openapi/souwen-openapi-2.0.0rc2.json",
             ),
         ),
+        CommandSpec(
+            "python_sdk_reproducibility",
+            (PYTHON, "tools/gen_client_sdk.py", "--check"),
+        ),
+        CommandSpec(
+            "python_sdk_contract",
+            (
+                PYTHON,
+                "-m",
+                "pytest",
+                "tests/test_client_sdk_generator.py",
+                "tests/test_client_sdk_contract.py",
+                "-v",
+                "--tb=short",
+            ),
+        ),
     ),
     "server-contract": (
         CommandSpec(

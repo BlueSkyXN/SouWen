@@ -13,6 +13,7 @@ from souwen.citations import get_citation_count, get_incoming_citations, get_ref
 from souwen.wikisource import get_wikisource_page_detail
 from souwen.web.search import web_search
 from souwen.config import get_config, reload_config
+from souwen.delivery.client_sdk import AsyncSouWenClient, SouWenClient
 
 __all__ = [
     "search",
@@ -27,5 +28,7 @@ __all__ = [
     "web_search",
     "get_config",
     "reload_config",
+    "SouWenClient",
+    "AsyncSouWenClient",
     "__version__",
 ]
