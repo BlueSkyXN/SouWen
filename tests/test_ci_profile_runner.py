@@ -204,6 +204,12 @@ def test_v2_ci_checks_reproducibility_and_pr_semantic_openapi_compatibility() ->
     assert "--semantic-check artifacts/openapi-semantic-baseline.json" in bootstrap
     assert "initial baseline; base artifact is absent" in bootstrap
     assert 'git cat-file -e "$BASE_SHA:$artifact"' in bootstrap
+    assert "approved one-time RC2 target-only OpenAPI cutover" in bootstrap
+    assert "7dbb1f88ada692a757a6800754e3adb06166a305" in bootstrap
+    assert '"removed_schemas": ["RolloutMode"]' in bootstrap
+    assert "tests/test_manifest_registry_v2.py" in bootstrap
+    assert "tests/test_provider_manager_v2.py" in bootstrap
+    assert "tests/registry/test_consistency.py" not in bootstrap
 
 
 def test_workflows_install_provider_runtime_extras() -> None:
