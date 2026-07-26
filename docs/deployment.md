@@ -33,8 +33,8 @@ gh workflow run release-candidate.yml \
   target-native smoke、同 candidate inventory 和一致的 OpenAPI checksum。Phase 8 residue audit
   完成前仍只能使用 `publish=false` 生成 RC evidence。
 - `deployment` 必须同时使用 `deploy_hfs=true, publish=false`。它跳过外层 `server-bundles`
-  release job，但保留全部非 binary gate、HFS reusable workflow 内的单次 Linux
-  `basic-cli` PyInstaller smoke、live promotion、rollback 和 readback，产出不可发布的
+  release job，但保留全部非 binary gate、HFS reusable workflow 的 target Server local preflight、
+  live promotion、rollback 和 readback，产出不可发布的
   `deployment-evidence-*` artifact。M1 起，assembler 还会解析 surface/capability JSON，要求
   target rollout、Browser Worker readiness、OpenAlex Search、builtin Fetch 与 Browser Fetch
   全部为 `PASS`；报告文件仅存在不再构成通过。
@@ -180,11 +180,12 @@ SOUWEN_ADMIN_PASSWORD=change-me uvicorn souwen.server.app:app --host 0.0.0.0 --p
 仓库的 `cloud/hfs/` 保存 Space 部署资源。部署前先本地跑：
 
 ```bash
-PYTHONPATH=src python3 scripts/ci/run_profile.py --profile pro-cli --profile basic-cli
+PYTHONPATH=src python3 scripts/ci/run_profile.py --profile server-contract
 ```
 
-旧 `server` / `minimal` 名称仍作为过渡 alias 可用，新文档和新 workflow 优先使用
-`pro-cli` / `basic-cli`。
+`server-contract` 是本地部署前的 Server contract 验证。`sdk-contract` 只验证 target
+OpenAPI、DTO 与 API-major prerequisite；它不表示 generated SDK 已经完成。A3c 暂时继续以
+edition extras 安装实现依赖，A4 才移除 editions 与相关 package matrix。
 
 PR 与直接运行 `HF Space CD` 只执行 local preflight。远端 promotion 只能由 central RC
 workflow 显式传 `deploy_hfs=true`，并按 [hf-space-cd.md](./hf-space-cd.md) 完成 private edge、

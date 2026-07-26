@@ -322,7 +322,9 @@ def test_deployment_evidence_is_non_publishable_and_contains_no_release_binaries
     assert "deployment evidence is missing required reports" in deployment
     assert "actions/attest-build-provenance@v4" in deployment
     assert "pattern: hf-space-local-*-report" in deployment
-    assert "name: api-source-cli-profile-report" in deployment
+    assert "name: hfs-delivery-contracts-report" in deployment
+    assert "name: provider-runtime-report" in text
+    assert "runtime-profile-full-report" not in text
     assert "souwen-local-pyinstaller-cli" not in deployment
     for release_binary_pattern in (
         "pattern: souwen-linux-*",
@@ -338,6 +340,8 @@ def test_deployment_evidence_is_non_publishable_and_contains_no_release_binaries
     assert "'evidence_profile': 'release'" in release
     assert "'publishable': os.environ['PUBLISH'] == 'true'" in release
     assert "release-manifest.json" in release
+    assert "'sdk_contract'" in release
+    assert "mcp_edition" not in text
     assert "'product_name': os.environ['PRODUCT_NAME']" in release
     assert "'version': os.environ['VERSION']" in release
     assert "'api_major': int(os.environ['API_MAJOR'])" in release
@@ -382,7 +386,7 @@ def test_deployment_manifest_builder_emits_bounded_non_release_contract(
     hfs_local = evidence_root / "hfs-local"
     hfs_local.mkdir()
     for name in (
-        "api-source-cli-profile.json",
+        "hfs-delivery-contracts.json",
         "hf-space-local-pyinstaller.json",
         "hf-space-local-surface-report.json",
     ):
@@ -694,6 +698,9 @@ def test_hfs_deployment_does_not_keep_a_retired_cli_binary_smoke() -> None:
     text = _workflow("deploy-hf-space.yml")
     assert "pyinstaller-cli" not in text
     assert "souwen-local-pyinstaller" not in text
+    assert '- ".github/workflows/build-pyinstaller-server.yml"' in text
+    assert '- ".github/workflows/build-pyinstaller.yml"' not in text
+    assert "needs: [detect-changes, delivery-contracts, docker-hfs]" in text
 
 
 def test_hfs_required_fetch_fixture_change_triggers_workflow() -> None:
@@ -869,7 +876,7 @@ def test_ci_fast_lane_is_single_py313_ubuntu2404_and_full_lane_covers_release_an
     assert v2.count(gate) == 4
     for fast_job, next_job in (
         ("bootstrap", "matrix_tests"),
-        ("provider_v2_conformance", "server_profile"),
+        ("provider_v2_conformance", "delivery_contracts"),
     ):
         assert gate not in _job(v2, fast_job, next_job)
     summary = v2.split("  release_readiness_summary:", maxsplit=1)[1]

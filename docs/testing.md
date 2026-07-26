@@ -17,7 +17,7 @@ GitHub Actions 中的 job 应尽量回答单一问题，避免把单元测试、
 | 单元测试 | 验证函数、模型、parser、配置合并等局部契约 | `pytest tests/` |
 | 集成测试 | 验证 server、registry、handler 等模块组合 | `server-test` |
 | 功能测试 | 验证真实 runtime / package 安装后的可用性 | `*_functional_check.py` |
-| 冒烟测试 | 验证 CLI、API surface、Docker/HF Space 入口仍活着 | `scripts/ci/run_profile.py`、`hf_space_smoke.py` |
+| 冒烟测试 | 验证 target API、Docker/HF Space 入口仍活着 | `scripts/ci/run_profile.py`、`hf_space_smoke.py` |
 | 系统测试 | 验证完整用户路径和多 profile 环境组合 | manual / nightly / release gate |
 
 ## 环境 Profile Runner
@@ -30,22 +30,22 @@ runner 只负责运行场景并输出 JSON/Markdown report。
 
 | Profile | 覆盖内容 | 运行位置 |
 |---|---|---|
-| `basic-cli` | `basic` edition 源码 CLI 的 help/version/sources/config 等无网络入口 | `V2 CI`、`HF Space CD / API surface and source CLI` |
-| `pro-cli` | `pro` edition 下 `tests/test_server` 与 `tests/test_hf_space_smoke.py` 的本地 API/smoke 契约 | `V2 CI`、`HF Space CD / API surface and source CLI` |
-| `full-cli` | `edition-full` 核心运行时、doctor/fetch handler import surface，以及 full-only provider 的 feature matrix 声明 | `V2 CI / v2 full runtime profile`、`CI / 测试 (Python 3.11, ubuntu-latest)` |
+| `server-contract` | target Server 的路由、认证、OpenAPI/API-major、HFS local surface 与 Panel runtime 前置契约 | V2 CI、HF Space CD local preflight |
+| `sdk-contract` | target wire contract 的 OpenAPI/DTO/API-major 前置验证；不宣称 generated SDK 已完成 | V2 CI、HF Space CD local preflight |
+| `provider-runtime` | 内部 optional provider 的 importability、feature matrix 与互斥 browser runtime | CI / provider-runtime gate |
 
-`minimal`、`server`、`full` 仍作为过渡 alias 可用，分别映射到
-`basic-cli`、`pro-cli`、`full-cli`。新文档和新 workflow 应优先使用 canonical
-profile 名称。
+`server-contract` 与 `sdk-contract` 是 A3c 的产品 contract 名称；
+`provider-runtime` 仅是内部实现验证，不能替代 package/SDK 证据。A3c 暂时继续使用
+现有 edition extras 作为安装实现；A4 负责删除 edition taxonomy 和对应 package matrix。
 
 示例：
 
 ```bash
 python scripts/ci/run_profile.py \
-  --profile pro-cli \
-  --profile basic-cli \
-  --json-report artifacts/api-source-cli-profile.json \
-  --markdown-report artifacts/api-source-cli-profile.md
+  --profile server-contract \
+  --profile sdk-contract \
+  --json-report artifacts/target-contract-profile.json \
+  --markdown-report artifacts/target-contract-profile.md
 ```
 
 ## 本地确定性测试
@@ -177,24 +177,13 @@ target-native runner：
 目录不构成发布证据。Smoke 必须覆盖 health/readiness、version/source/API-major、target rollout、
 Browser Worker、Admin fail-closed、Provider API、OpenAPI checksum 和 Supervisor 干净退出。
 
-`Build with PyInstaller` 和 `Build with Nuitka` 是旧 CLI edition rollback baseline，按三档构建：
+当前唯一 binary release evidence 是 `Build PyInstaller Server bundles` 的四平台
+target-native archive。旧 CLI edition/PyInstaller/Nuitka workflow 不构成 current evidence，
+也不能把任何 CLI binary 重新命名为 Server bundle。
 
-| Profile | 安装面 | 产物后缀 |
-|---|---|---|
-| `basic-cli` | `.[edition-basic]` | `basic-cli` |
-| `pro-cli` | `.[edition-pro]` | `pro-cli` |
-| `full-cli` | `.[edition-full]` | `full-cli` |
-
-`workflow_dispatch` 仍保留旧输入 `cli` / `server` / `full` 作为兼容 alias，
-分别映射到 `basic-cli` / `pro-cli` / `full-cli`。`pro-cli` 和 `full-cli`
-包含 API server / panel 入口，workflow 会先构建并校验 `panel.html`；
-`basic-cli` 保留 `builtin` / `site_crawler` 两个 basic fetch provider，同时物理裁剪 FastAPI server、LLM 和重型
-抓取模块。`full-cli` 使用
-`edition-full` 核心运行时，`crawl4ai` / `scrapling` 的互斥浏览器栈继续由
-专项 functional gate 验证。
-
-旧 workflow 在新的四 bundle proof 进入 `main` 且 central release 完成切换前保留，不能作为
-RC2 publish evidence；不能把旧 `pro-cli` binary重命名为 Server bundle。
+`server-contract` 与 `sdk-contract` 表达产品 contract；`provider-runtime` 表达内部可选
+provider runtime。A3c 仍用 `edition-pro` / `edition-full` extras 安装这些检查所需的
+实现依赖，这是迁移实现而非对外 profile 承诺；A4 才负责移除 editions 与其 package matrix。
 
 ## V2 / main 发布前 Gate
 
@@ -214,19 +203,19 @@ v2 release candidate 已合回 `main`。`V2 CI` 继续作为 v2 public surface �
 
 - bootstrap gate：registry/docs 测试、`tools/gen_docs.py --check`、import surface
   单测、wheel surface 检查和 registry baseline 输出。
-- full pytest matrix：安装 `.[dev,edition-pro]`，覆盖 Ubuntu Python
+- full pytest matrix：安装当前迁移期所需的 `.[dev,edition-pro]`，覆盖 Ubuntu Python
   3.10/3.11/3.12/3.13，以及 macOS/Windows Python 3.11；避免把缺少 Server
   或 scraper runtime 误报成产品行为回归。
 - Provider v2 conformance：单独运行 SPI、manifest registry、Provider Manager、
   OpenAlex、builtin Fetch、UniAPI、ERIC 与 PatentsView 的 deterministic tests；不访问网络、
   browser runtime 或 secret，并由 V2 readiness summary fail closed 汇总。
-- pro-cli + basic-cli profile：安装 API 测试依赖后运行 `pro-cli` 和 `basic-cli`
-  profile，并上传 JSON/Markdown report；`server` / `minimal` alias 仅用于过渡兼容。
-- full runtime profile：安装 `.[dev,edition-full]` 后运行 `full-cli` profile，覆盖核心
-  source、doctor 与 fetch handler import surface，并校验 full-only provider
-  仍由 feature matrix 声明；`crawl4ai` / `scrapling` 的互斥浏览器 runtime 由专项
-  functional gate 覆盖。`full` alias 仅用于过渡兼容。该 profile 上传 JSON/Markdown
-  report。
+- server contract：安装 API 测试依赖后运行 `server-contract`，上传 target Server
+  JSON/Markdown evidence。它覆盖 local API surface，不证明外部源在线。
+- SDK contract：验证 target OpenAPI、DTO 和 API-major prerequisite；在 generated SDK
+  实际生成并发布前，它不是 generated-SDK completion evidence。
+- provider runtime：在仍需 `.[dev,edition-full]` 的迁移期覆盖核心 source、doctor 与
+  fetch handler import surface，并校验 optional provider declaration；`crawl4ai` /
+  `scrapling` 的互斥 browser runtime 仍由专项 functional gate 覆盖。
 - panel build：`npm ci`、TypeScript check、Vitest、`npm run build:local` 和
   `src/souwen/server/panel.html` 产物验证。
 

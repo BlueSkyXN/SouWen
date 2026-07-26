@@ -89,9 +89,9 @@ Install commands may need network access unless dependencies are already cached.
 | `python tools/gen_docs.py -o docs/data-sources.md` | Regenerate source catalog docs | repo | Writes generated docs |
 | `python scripts/ci/check_no_legacy_terms.py` | Source catalog legacy term gate | repo | Deterministic |
 | `python scripts/ci/run_profile.py --list-profiles` | List CI profiles | repo | Deterministic |
-| `python scripts/ci/run_profile.py --profile basic-cli` | Basic CLI/source profile smoke | repo | Deterministic after deps installed |
-| `python scripts/ci/run_profile.py --profile pro-cli --profile basic-cli` | API plus source CLI profile smoke | repo | Requires pro extras installed |
-| `python scripts/ci/run_profile.py --profile full-cli` | Full import-surface runtime profile | repo | Requires full core runtime extras installed |
+| `python scripts/ci/run_profile.py --profile server-contract` | Server target-contract smoke | repo | Temporarily requires pro edition extras during A3c migration |
+| `python scripts/ci/run_profile.py --profile sdk-contract` | Target API-major/DTO prerequisite smoke; not generated-SDK proof | repo | Uses the current package/contract implementation until SDK generation lands |
+| `python scripts/ci/run_profile.py --profile provider-runtime` | Internal optional-provider runtime smoke | repo | Temporarily requires full edition extras; not a public product profile |
 | `cd panel && npm test` | Vitest suite | `panel/` | Deterministic after `npm ci` |
 | `cd panel && npm run build` | TypeScript build plus Vite build | `panel/` | Deterministic after `npm ci` |
 | `cd panel && npm run build:local && npm run check:artifact` | Rebuild embedded panel artifact | `panel/` | Writes `src/souwen/server/panel.html` |
@@ -150,7 +150,7 @@ Choose the narrowest validation that covers the changed surface.
    `python tools/gen_docs.py --check`, and
    `python scripts/ci/check_no_legacy_terms.py`.
 4. For server/API changes, run affected `tests/test_server` tests and consider
-   `python scripts/ci/run_profile.py --profile pro-cli --profile basic-cli`.
+   `python scripts/ci/run_profile.py --profile server-contract`.
 5. For package or wheel surface changes, run `pytest tests/test_import_surface.py -q`
    and consider the relevant `scripts/ci/run_profile.py` profile.
 6. For panel changes, run `cd panel && npm test` and/or `cd panel && npm run build`.

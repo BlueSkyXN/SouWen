@@ -681,10 +681,10 @@ jobs:
           name: ci-targeted-coverage
           path: deployment-evidence/coverage
 
-      - name: Download full runtime profile evidence
+      - name: Download provider runtime evidence
         uses: actions/download-artifact@v8
         with:
-          name: runtime-profile-full-report
+          name: provider-runtime-report
           path: deployment-evidence/runtime
 
       - name: Download HFS local preflight evidence
@@ -694,10 +694,10 @@ jobs:
           path: deployment-evidence/hfs-local
           merge-multiple: true
 
-      - name: Download HFS API and CLI profile evidence
+      - name: Download HFS SDK and Server contract evidence
         uses: actions/download-artifact@v8
         with:
-          name: api-source-cli-profile-report
+          name: hfs-delivery-contracts-report
           path: deployment-evidence/hfs-local
 
       - name: Download HFS live evidence
@@ -770,7 +770,7 @@ jobs:
               )
 
           required_reports = {
-              evidence_root / 'hfs-local' / 'api-source-cli-profile.json',
+              evidence_root / 'hfs-local' / 'hfs-delivery-contracts.json',
               evidence_root / 'hfs-local' / 'hf-space-local-surface-report.json',
               evidence_root / 'hfs' / 'hf-space-cd-surface-report.json',
               evidence_root / 'hfs' / 'hf-space-cd-capability-report.json',
@@ -1132,10 +1132,10 @@ jobs:
           name: ci-targeted-coverage
           path: release-evidence
 
-      - name: Download full runtime profile evidence
+      - name: Download provider runtime evidence
         uses: actions/download-artifact@v8
         with:
-          name: runtime-profile-full-report
+          name: provider-runtime-report
           path: release-evidence
 
       - name: Download optional HFS live evidence
@@ -1297,7 +1297,7 @@ jobs:
               ('panel', ('source',), ['release-evidence.tar.gz']),
               ('docs', ('source',), ['release-evidence.tar.gz']),
               ('clean_install', ('clean-install',), ['release-evidence.tar.gz']),
-              ('mcp_edition', ('clean-install', 'source'), ['release-evidence.tar.gz']),
+              ('sdk_contract', ('clean-install', 'source'), ['release-evidence.tar.gz']),
               ('package_contract', ('package',), ['wheel', 'sdist', 'SBOMs']),
               ('functional_fixtures', ('external',), ['release-evidence.tar.gz']),
               ('live_zero_key', ('external',), ['release-evidence.tar.gz']),

@@ -253,8 +253,8 @@ jobs:
             tests/test_patentsview_provider_v2.py \
             -q
 
-  server_profile:
-    name: v2 pro-cli + basic-cli profile
+  delivery_contracts:
+    name: v2 SDK and Server contracts
     needs: [lane, bootstrap]
     if: needs.lane.outputs.full == 'true'
     runs-on: ubuntu-latest
@@ -276,26 +276,26 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev,edition-pro]"
 
-      - name: Run pro-cli and basic-cli profiles
+      - name: Run SDK and Server contracts
         run: |
           mkdir -p artifacts
           python scripts/ci/run_profile.py \
-            --profile pro-cli \
-            --profile basic-cli \
-            --json-report artifacts/v2-pro-basic-profile.json \
-            --markdown-report artifacts/v2-pro-basic-profile.md
+            --profile sdk-contract \
+            --profile server-contract \
+            --json-report artifacts/v2-delivery-contracts.json \
+            --markdown-report artifacts/v2-delivery-contracts.md
 
-      - name: Upload pro-cli and basic-cli profile report
+      - name: Upload SDK and Server contract report
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: v2-pro-basic-profile-report
+          name: v2-delivery-contracts-report
           path: artifacts/
           if-no-files-found: warn
           retention-days: 7
 
-  full_profile:
-    name: v2 full runtime profile
+  provider_runtime:
+    name: v2 provider runtime profile
     needs: [lane, bootstrap]
     if: needs.lane.outputs.full == 'true'
     runs-on: ubuntu-latest
@@ -317,19 +317,19 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev,edition-full]"
 
-      - name: Run full runtime profile
+      - name: Run provider runtime profile
         run: |
           mkdir -p artifacts
           python scripts/ci/run_profile.py \
-            --profile full-cli \
-            --json-report artifacts/v2-full-profile.json \
-            --markdown-report artifacts/v2-full-profile.md
+            --profile provider-runtime \
+            --json-report artifacts/v2-provider-runtime.json \
+            --markdown-report artifacts/v2-provider-runtime.md
 
-      - name: Upload full profile report
+      - name: Upload provider runtime report
         if: always()
         uses: actions/upload-artifact@v7
         with:
-          name: v2-full-profile-report
+          name: v2-provider-runtime-report
           path: artifacts/
           if-no-files-found: warn
           retention-days: 7
@@ -382,8 +382,8 @@ jobs:
       - bootstrap
       - matrix_tests
       - provider_v2_conformance
-      - server_profile
-      - full_profile
+      - delivery_contracts
+      - provider_runtime
       - panel_build
     if: ${{ always() }}
     runs-on: ubuntu-latest
@@ -395,8 +395,8 @@ jobs:
           BOOTSTRAP_RESULT: ${{ needs.bootstrap.result }}
           MATRIX_RESULT: ${{ needs.matrix_tests.result }}
           PROVIDER_V2_RESULT: ${{ needs.provider_v2_conformance.result }}
-          SERVER_RESULT: ${{ needs.server_profile.result }}
-          FULL_RESULT: ${{ needs.full_profile.result }}
+          DELIVERY_RESULT: ${{ needs.delivery_contracts.result }}
+          PROVIDER_RUNTIME_RESULT: ${{ needs.provider_runtime.result }}
           PANEL_RESULT: ${{ needs.panel_build.result }}
         run: |
           cat >> "$GITHUB_STEP_SUMMARY" <<EOF
@@ -409,8 +409,8 @@ jobs:
           | Bootstrap / import / wheel surface | $BOOTSTRAP_RESULT | v2 import surface, docs, registry baseline |
           | Full pytest matrix | $MATRIX_RESULT | Python 3.10-3.13 on Ubuntu, plus macOS/Windows 3.11 |
           | Provider v2 conformance | $PROVIDER_V2_RESULT | deterministic SPI, manifest, manager, OpenAlex, builtin Fetch, UniAPI, ERIC, and PatentsView contracts |
-          | pro-cli + basic-cli profile | $SERVER_RESULT | local API surface and CLI smoke |
-          | full-cli runtime profile | $FULL_RESULT | edition-full source, doctor, fetch handler, and feature matrix surface |
+          | SDK and Server contracts | $DELIVERY_RESULT | target contract/DTO prerequisites plus local Server/API surface |
+          | Provider runtime profile | $PROVIDER_RUNTIME_RESULT | provider imports, doctor, fetch handlers, and browser variant declarations |
           | Panel build | $PANEL_RESULT | TypeScript, Vitest, single-file panel artifact |
 
           External smoke, HF Space deploy, and binary build remain outside
@@ -419,7 +419,7 @@ jobs:
           EOF
 
           if [ "$FULL_LANE" = "true" ]; then
-            for result in "$BOOTSTRAP_RESULT" "$MATRIX_RESULT" "$PROVIDER_V2_RESULT" "$SERVER_RESULT" "$FULL_RESULT" "$PANEL_RESULT"; do
+            for result in "$BOOTSTRAP_RESULT" "$MATRIX_RESULT" "$PROVIDER_V2_RESULT" "$DELIVERY_RESULT" "$PROVIDER_RUNTIME_RESULT" "$PANEL_RESULT"; do
               if [ "$result" != "success" ]; then
                 echo "V2 release readiness gate failed (full lane): $result" >&2
                 exit 1
@@ -432,7 +432,7 @@ jobs:
                 exit 1
               fi
             done
-            for result in "$MATRIX_RESULT" "$SERVER_RESULT" "$FULL_RESULT" "$PANEL_RESULT"; do
+            for result in "$MATRIX_RESULT" "$DELIVERY_RESULT" "$PROVIDER_RUNTIME_RESULT" "$PANEL_RESULT"; do
               if [ "$result" != "success" ] && [ "$result" != "skipped" ]; then
                 echo "V2 fast lane unexpected full-gate result: $result" >&2
                 exit 1

@@ -91,14 +91,15 @@ Since 2026-07-26 both workflows run in two lanes (owner-approved CI slimming):
 - Provider v2 conformance: deterministic SPI, manifest registry, Provider
   Manager, OpenAlex, builtin Fetch, UniAPI, ERIC, and PatentsView tests without network,
   browser runtime, or secrets.
-- `pro-cli` + `basic-cli` profile: local API surface tests and CLI smoke through
-  `scripts/ci/run_profile.py`; legacy `server` / `minimal` aliases remain
-  accepted during transition.
-- `full-cli` runtime profile: `edition-full` core source, doctor, and fetch
-  handler import surface through `scripts/ci/run_profile.py`, plus feature
-  matrix declarations for full-only providers. The legacy `full` alias remains
-  accepted during transition. The mutually exclusive `crawl4ai` / `scrapling`
-  browser runtime variants stay in their dedicated functional gates.
+- `server-contract`: local target API surface and Server prerequisite checks through
+  `scripts/ci/run_profile.py`.
+- `sdk-contract`: target OpenAPI, DTO and API-major prerequisite checks; this is
+  not a claim that a generated SDK is complete or published.
+- `provider-runtime`: internal optional-provider import, doctor and fetch-handler
+  surface, including feature-matrix declarations. The mutually exclusive
+  `crawl4ai` / `scrapling` browser runtime variants stay in dedicated functional gates.
+- A3c temporarily installs current edition extras to execute these checks. A4 owns
+  removal of the edition/package taxonomy; this branch policy does not pre-approve it.
 - panel build: TypeScript check, Vitest, single-file panel build, and
   `src/souwen/server/panel.html` artifact validation.
 

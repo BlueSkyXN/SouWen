@@ -24,33 +24,19 @@ from scripts._functional_common import Outcome, ResultRecorder  # noqa: E402
 DEFAULT_TIMEOUT_SECONDS = 300.0
 OUTPUT_TAIL_CHARS = 4000
 PYTHON = sys.executable or "python"
-FULL_FETCH_PROVIDER_MODULES: Mapping[str, str] = {
+PROVIDER_RUNTIME_MODULES: Mapping[str, str] = {
     "crawl4ai": "souwen.web.crawl4ai_fetcher",
     "newspaper": "souwen.web.newspaper_fetcher",
     "readability": "souwen.web.readability_fetcher",
     "scrapling": "souwen.web.scrapling_fetcher",
 }
-FULL_FETCH_PROVIDER_MODULES_LITERAL = repr(dict(FULL_FETCH_PROVIDER_MODULES))
-FULL_CORE_FETCH_PROVIDERS = frozenset({"newspaper", "readability"})
-FULL_BROWSER_VARIANT_FETCH_PROVIDERS = frozenset({"crawl4ai", "scrapling"})
-FULL_CORE_FETCH_PROVIDERS_LITERAL = repr(tuple(sorted(FULL_CORE_FETCH_PROVIDERS)))
-FULL_BROWSER_VARIANT_FETCH_PROVIDERS_LITERAL = repr(
-    tuple(sorted(FULL_BROWSER_VARIANT_FETCH_PROVIDERS))
-)
+PROVIDER_RUNTIME_MODULES_LITERAL = repr(dict(PROVIDER_RUNTIME_MODULES))
+CORE_RUNTIME_PROVIDERS = frozenset({"newspaper", "readability"})
+BROWSER_VARIANT_RUNTIME_PROVIDERS = frozenset({"crawl4ai", "scrapling"})
+CORE_RUNTIME_PROVIDERS_LITERAL = repr(tuple(sorted(CORE_RUNTIME_PROVIDERS)))
+BROWSER_VARIANT_RUNTIME_PROVIDERS_LITERAL = repr(tuple(sorted(BROWSER_VARIANT_RUNTIME_PROVIDERS)))
 
-BASIC_RUNTIME_CODE = "\n".join(
-    [
-        "from souwen.feature_matrix import declared_fetch_provider_names, probe_capabilities",
-        "assert declared_fetch_provider_names('basic') == ('builtin', 'site_crawler')",
-        "probe = probe_capabilities('basic')",
-        "assert probe['fetch_providers'].declared == ('builtin', 'site_crawler')",
-        "assert probe['fetch_providers'].available == ('builtin', 'site_crawler')",
-        "print('basic fetch providers OK')",
-    ]
-)
-
-
-FULL_IMPORT_CODE = "\n".join(
+PROVIDER_RUNTIME_CODE = "\n".join(
     [
         "import importlib",
         "from souwen.config import get_config",
@@ -75,21 +61,21 @@ FULL_IMPORT_CODE = "\n".join(
         "    JinaReaderClient, web_search, fetch_content,",
         ")",
         "from souwen.doctor import check_all",
-        f"full_fetch_provider_modules = {FULL_FETCH_PROVIDER_MODULES_LITERAL}",
-        f"full_core_fetch_providers = set({FULL_CORE_FETCH_PROVIDERS_LITERAL})",
-        f"browser_variant_fetch_providers = set({FULL_BROWSER_VARIANT_FETCH_PROVIDERS_LITERAL})",
-        "for _provider, _module_name in full_fetch_provider_modules.items():",
+        f"provider_runtime_modules = {PROVIDER_RUNTIME_MODULES_LITERAL}",
+        f"core_runtime_providers = set({CORE_RUNTIME_PROVIDERS_LITERAL})",
+        f"browser_variant_providers = set({BROWSER_VARIANT_RUNTIME_PROVIDERS_LITERAL})",
+        "for _provider, _module_name in provider_runtime_modules.items():",
         "    importlib.import_module(_module_name)",
         "declared_fetch = set(declared_fetch_provider_names('full'))",
-        "missing_declared = set(full_fetch_provider_modules) - declared_fetch",
+        "missing_declared = set(provider_runtime_modules) - declared_fetch",
         "assert not missing_declared, sorted(missing_declared)",
         "probe = probe_capabilities('full')",
         "available_fetch = set(probe['fetch_providers'].available)",
-        "missing_core_importable = full_core_fetch_providers - available_fetch",
+        "missing_core_importable = core_runtime_providers - available_fetch",
         "assert not missing_core_importable, sorted(missing_core_importable)",
-        "available_browser_variants = browser_variant_fetch_providers & available_fetch",
+        "available_browser_variants = browser_variant_providers & available_fetch",
         "assert len(available_browser_variants) <= 1, sorted(available_browser_variants)",
-        "print('full core import surface and browser variant declarations OK')",
+        "print('provider runtime imports and browser variant declarations OK')",
     ]
 )
 
@@ -103,16 +89,23 @@ class CommandSpec:
 
 
 PROFILE_COMMANDS: Mapping[str, tuple[CommandSpec, ...]] = {
-    "basic-cli": (
+    "sdk-contract": (
         CommandSpec(
-            "mcp_runtime",
-            (PYTHON, "-c", BASIC_RUNTIME_CODE),
-            env=(("SOUWEN_EDITION", "basic"),),
+            "canonical_contract",
+            (
+                PYTHON,
+                "-m",
+                "pytest",
+                "tests/contracts/test_target_canonical_contract.py",
+                "tests/test_target_canonical_dto.py",
+                "-v",
+                "--tb=short",
+            ),
         ),
     ),
-    "pro-cli": (
+    "server-contract": (
         CommandSpec(
-            "api_surface_tests",
+            "api_surface",
             (
                 PYTHON,
                 "-m",
@@ -125,20 +118,15 @@ PROFILE_COMMANDS: Mapping[str, tuple[CommandSpec, ...]] = {
             env=(("SOUWEN_EDITION", "pro"),),
         ),
     ),
-    "full-cli": (
+    "provider-runtime": (
         CommandSpec(
-            "core_runtime_and_browser_declarations",
-            (PYTHON, "-c", FULL_IMPORT_CODE),
+            "imports_and_browser_declarations",
+            (PYTHON, "-c", PROVIDER_RUNTIME_CODE),
             env=(("SOUWEN_EDITION", "full"),),
         ),
     ),
 }
-PROFILE_ALIASES: Mapping[str, str] = {
-    "minimal": "basic-cli",
-    "server": "pro-cli",
-    "full": "full-cli",
-}
-PROFILE_CHOICES = tuple(sorted((*PROFILE_COMMANDS, *PROFILE_ALIASES)))
+PROFILE_CHOICES = tuple(sorted(PROFILE_COMMANDS))
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -192,8 +180,7 @@ def run_profiles(profiles: Sequence[str], *, timeout: float) -> ResultRecorder:
         environment={"profiles": list(profiles)},
     )
     for profile in profiles:
-        canonical_profile = PROFILE_ALIASES.get(profile, profile)
-        for command in PROFILE_COMMANDS[canonical_profile]:
+        for command in PROFILE_COMMANDS[profile]:
             _run_command(recorder, profile, command, timeout=timeout)
     return recorder
 
