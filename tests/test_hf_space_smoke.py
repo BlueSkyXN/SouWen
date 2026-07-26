@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 
+import pytest
+
 from scripts import hf_space_smoke as smoke
 
 
@@ -105,15 +107,36 @@ def test_probe_accepts_lowercase_http_response_headers() -> None:
                 {
                     "rollout_mode": "target",
                     "version": "2.0.0rc2",
+                    "config_revision": "source-test",
                 },
             )
 
-    args = smoke.parse_args(["--expected-version", "2.0.0rc2"])
+    args = smoke.parse_args(["--expected-version", "2.0.0rc2", "--require-target-runtime"])
 
     detail, payload = smoke._probe(Client(), "/healthz", args)
 
     assert detail == "/healthz target runtime verified"
     assert payload["rollout_mode"] == "target"
+
+
+def test_readiness_probe_requires_browser_worker_evidence() -> None:
+    class Client:
+        def json(self, path, **_kwargs):
+            return (
+                200,
+                {"x-souwen-api-major": "2"},
+                {
+                    "rollout_mode": "target",
+                    "config_revision": "source-test",
+                    "source_sha": "a" * 40,
+                    "components": {"api": "ready"},
+                },
+            )
+
+    args = smoke.parse_args(["--require-target-runtime"])
+
+    with pytest.raises(smoke.SmokeFailure, match="browser worker"):
+        smoke._probe(Client(), "/readyz", args)
 
 
 def test_missing_required_llm_provider_is_reported_as_a_failed_check(monkeypatch, tmp_path) -> None:

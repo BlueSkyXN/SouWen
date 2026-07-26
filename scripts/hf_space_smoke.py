@@ -145,12 +145,13 @@ def _probe(client: Client, path: str, args: argparse.Namespace):
         _expect(payload.get("wrapper_sha") == args.expected_wrapper_sha, f"{path} wrapper SHA")
     if args.require_target_runtime:
         _expect(bool(payload.get("config_revision")), f"{path} config revision")
-        components = payload.get("components") or {}
-        _expect(components.get("browser_worker") == "ready", f"{path} browser worker")
-        _expect(
-            payload.get("worker_source_sha") == payload.get("source_sha"),
-            f"{path} worker source SHA",
-        )
+        if path in {"/readiness", "/readyz"}:
+            components = payload.get("components") or {}
+            _expect(components.get("browser_worker") == "ready", f"{path} browser worker")
+            _expect(
+                payload.get("worker_source_sha") == payload.get("source_sha"),
+                f"{path} worker source SHA",
+            )
     return f"{path} target runtime verified", payload
 
 
