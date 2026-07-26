@@ -1,1 +1,6 @@
 # Panel HTML is not tracked in git (built in CI / local dev)
+
+# Generated contracts must compare byte-for-byte on Windows release runners.
+contracts/openapi/*.json text eol=lf
+src/souwen/delivery/client_sdk/_generated_*.py text eol=lf
+panel/src/core/sdk/index.ts text eol=lf

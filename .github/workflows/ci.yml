@@ -595,7 +595,9 @@ jobs:
               curl -fsS "http://127.0.0.1:${{ matrix.port }}/readyz" | \
                 jq -e --arg source_sha "$SOURCE_SHA" \
                   '.ready == true and .source_sha == $source_sha' >/dev/null
-              curl -fsS "http://127.0.0.1:${{ matrix.port }}/panel" | grep -Eiq 'id="root"|SouWen|souwen'
+              panel_file="$RUNNER_TEMP/souwen-panel-${{ matrix.kind }}.html"
+              curl -fsS "http://127.0.0.1:${{ matrix.port }}/panel" -o "$panel_file"
+              grep -Eiq 'id="root"|SouWen|souwen' "$panel_file"
               curl -fsS "http://127.0.0.1:${{ matrix.port }}/openapi.json" | jq -e '.info.title == "SouWen API"' >/dev/null
               status="$(curl -sS -o /dev/null -w '%{http_code}' \
                 "http://127.0.0.1:${{ matrix.port }}/api/v1/admin/ping")"
