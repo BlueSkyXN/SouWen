@@ -65,6 +65,15 @@ NON_REST_SPEC_EXCEPTIONS = {
         "capability-specific LLM Search Provider is covered by deterministic conformance"
     ),
 }
+RETIREMENT_PENDING_SOURCES = {
+    "opencitations": (
+        "Search-internal citation enrichment; public citation routes and registry capability "
+        "retire in C1"
+    ),
+}
+STATIC_SPEC_CONSTRUCTORS = frozenset(
+    {"LegacyFetchProviderSpec", "LegacySearchProviderSpec", "RestJsonProviderSpec"}
+)
 
 
 def _static_string(node: ast.expr, constants: dict[str, str]) -> str | None:
@@ -276,7 +285,7 @@ def _target_spec_reference(source_id: str, target: dict[str, Any]) -> dict[str, 
                 and isinstance(node.targets[0], ast.Name)
                 and isinstance(node.value, ast.Call)
                 and isinstance(node.value.func, ast.Name)
-                and node.value.func.id == "RestJsonProviderSpec"
+                and node.value.func.id in STATIC_SPEC_CONSTRUCTORS
             ):
                 continue
             provider_id = next(
@@ -400,7 +409,9 @@ def build_inventory() -> dict[str, Any]:
         manifest_id = _manifest_id_for_source(source_id, manifest_ids)
         batch, classification_reason = classify_source(source_id, adapter)
         target_fields = _target_fields(source_id, manifest_id, manifest_targets)
-        if manifest_id is None:
+        if source_id in RETIREMENT_PENDING_SOURCES:
+            migration_status = "retirement_pending"
+        elif manifest_id is None:
             migration_status = "pending"
         elif (
             target_fields["target_spec_identity"] is not None
@@ -415,6 +426,12 @@ def build_inventory() -> dict[str, Any]:
                 "batch": batch,
                 "classification_reason": classification_reason,
                 "migration_status": migration_status,
+                "target_disposition": (
+                    "search_internal_enrichment"
+                    if source_id in RETIREMENT_PENDING_SOURCES
+                    else "provider_v2"
+                ),
+                "disposition_reason": RETIREMENT_PENDING_SOURCES.get(source_id),
                 "domain": adapter.domain,
                 "capabilities": sorted(adapter.capabilities),
                 "integration": adapter.integration,
@@ -444,6 +461,8 @@ def build_inventory() -> dict[str, Any]:
                 "auth_requirement",
                 "credential_fields",
                 "legacy_loader",
+                "target_disposition",
+                "disposition_reason",
                 "target_package",
                 "target_manifest_id",
                 "target_adapter_id",
@@ -488,6 +507,7 @@ def build_inventory() -> dict[str, Any]:
         "status_counts": {
             "migrated": status_counts["migrated"],
             "pending": status_counts["pending"],
+            "retirement_pending": status_counts["retirement_pending"],
             "incomplete": status_counts["incomplete"],
         },
         "classification_complete": (
@@ -541,16 +561,18 @@ def render_markdown(inventory: dict[str, Any] | None = None) -> str:
         "",
         "## Source records",
         "",
-        "| Source | Batch | Status | Classification reason | Domain | Capabilities | Auth | Integration | Legacy loader | Manifest |",
-        "|---|---|---|---|---|---|---|---|---|---|",
+        "| Source | Batch | Status | Disposition | Disposition reason | Classification reason | Domain | Capabilities | Auth | Integration | Legacy loader | Manifest |",
+        "|---|---|---|---|---|---|---|---|---|---|---|---|",
     ]
     for record in data["records"]:
         lines.append(
-            "| `{source_id}` | `{batch}` | `{status}` | {reason} | `{domain}` | {capabilities} | "
+            "| `{source_id}` | `{batch}` | `{status}` | `{disposition}` | {disposition_reason} | {reason} | `{domain}` | {capabilities} | "
             "`{auth}` | `{integration}` | `{loader}` | {manifest} |".format(
                 source_id=record["source_id"],
                 batch=record["batch"],
                 status=record["migration_status"],
+                disposition=record["target_disposition"],
+                disposition_reason=record["disposition_reason"] or "—",
                 reason=record["classification_reason"],
                 domain=record["domain"],
                 capabilities=", ".join(f"`{item}`" for item in record["capabilities"]),

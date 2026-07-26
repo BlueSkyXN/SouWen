@@ -16,6 +16,8 @@ import pytest
 from souwen.common_runtime.transport.errors import RateLimitError
 from souwen.platform.provider_spi import (
     ExecutionContext,
+    FetchResult,
+    FetchTargetRequest,
     ProviderError,
     ProviderErrorCode,
     RequestContext,
@@ -35,6 +37,7 @@ SEARCH_CONFORMANCE_CASES = (
     "probe_close",
     "redaction",
 )
+FETCH_CONFORMANCE_CASES = SEARCH_CONFORMANCE_CASES
 
 
 class ScriptedSearchClient:
@@ -64,6 +67,33 @@ class ScriptedSearchClient:
         self.close_count += 1
 
 
+class ScriptedFetchClient:
+    """Capability-shaped arXiv Fetch fake with no transport or environment access."""
+
+    def __init__(self, outcome: Any) -> None:
+        self.outcome = outcome
+        self.calls: list[str] = []
+        self.close_count = 0
+        self.entered = asyncio.Event()
+        self.cancelled = asyncio.Event()
+
+    async def get_fulltext(self, paper_id: str) -> Any:
+        self.calls.append(paper_id)
+        if self.outcome is BLOCK:
+            self.entered.set()
+            try:
+                await asyncio.Future()
+            except asyncio.CancelledError:
+                self.cancelled.set()
+                raise
+        if isinstance(self.outcome, BaseException):
+            raise self.outcome
+        return self.outcome
+
+    async def close(self) -> None:
+        self.close_count += 1
+
+
 BLOCK = object()
 
 
@@ -74,6 +104,19 @@ class SearchConformanceDefinition:
     provider_id: str
     build_provider: Callable[[ScriptedSearchClient, bool], Any]
     request: SearchRequest
+    success_response: Any
+    empty_response: Any
+    invalid_response: Any
+
+
+@dataclass(frozen=True, slots=True)
+class FetchConformanceDefinition:
+    """Provider-owned Fetch inputs consumed by the common nine-case harness."""
+
+    provider_id: str
+    build_provider: Callable[[ScriptedFetchClient, bool], Any]
+    request: FetchTargetRequest
+    blocked_request: FetchTargetRequest
     success_response: Any
     empty_response: Any
     invalid_response: Any
@@ -193,6 +236,111 @@ async def run_search_conformance_case(
     assert secret not in repr(error)
 
 
+async def run_fetch_conformance_case(
+    definition: FetchConformanceDefinition,
+    case_id: str,
+) -> None:
+    """Run the same stable lifecycle/error matrix against one Fetch Provider."""
+    if case_id not in FETCH_CONFORMANCE_CASES:
+        raise AssertionError(f"unknown Provider v2 Fetch conformance case: {case_id}")
+    context = RequestContext(request_id=f"fetch-{definition.provider_id}-{case_id}")
+
+    if case_id == "success":
+        client = ScriptedFetchClient(definition.success_response)
+        result = await definition.build_provider(client, True).fetch(
+            definition.request, context, ExecutionContext.with_timeout(5)
+        )
+        assert isinstance(result, FetchResult)
+        assert result.status == "success"
+        assert str(result.target) == str(definition.request.target)
+        assert len(client.calls) == 1
+        return
+
+    if case_id in {"empty", "invalid_upstream"}:
+        response = definition.empty_response if case_id == "empty" else definition.invalid_response
+        error = await _fetch_provider_error(
+            definition.build_provider(ScriptedFetchClient(response), True),
+            definition.request,
+            context,
+        )
+        assert error.code is ProviderErrorCode.INVALID_UPSTREAM_RESPONSE
+        return
+
+    if case_id == "invalid_config":
+        client = ScriptedFetchClient(definition.success_response)
+        error = await _fetch_provider_error(
+            definition.build_provider(client, False), definition.request, context
+        )
+        assert error.code is ProviderErrorCode.INVALID_CONFIG
+        assert client.calls == []
+        return
+
+    if case_id == "cancellation":
+        client = ScriptedFetchClient(BLOCK)
+        provider = definition.build_provider(client, True)
+        cancel_event = asyncio.Event()
+        task = asyncio.create_task(
+            provider.fetch(
+                definition.request,
+                context,
+                ExecutionContext.with_timeout(5, cancel_event=cancel_event),
+            )
+        )
+        await asyncio.wait_for(client.entered.wait(), timeout=1)
+        cancel_event.set()
+        with pytest.raises(ProviderError) as exc_info:
+            await asyncio.wait_for(task, timeout=1)
+        assert exc_info.value.code is ProviderErrorCode.CANCELLED
+        assert client.cancelled.is_set()
+        return
+
+    if case_id == "rate_limit":
+        client = ScriptedFetchClient(RateLimitError("fetch-secret-canary", retry_after=4))
+        error = await _fetch_provider_error(
+            definition.build_provider(client, True), definition.request, context
+        )
+        assert error.code is ProviderErrorCode.RATE_LIMITED
+        assert error.retry_after_seconds == 4
+        assert "fetch-secret-canary" not in str(error)
+        return
+
+    if case_id == "policy_blocked":
+        client = ScriptedFetchClient(definition.success_response)
+        error = await _fetch_provider_error(
+            definition.build_provider(client, True), definition.blocked_request, context
+        )
+        assert error.code is ProviderErrorCode.POLICY_BLOCKED
+        assert client.calls == []
+        return
+
+    if case_id == "probe_close":
+        client = ScriptedFetchClient(definition.success_response)
+        provider = definition.build_provider(client, True)
+        available = await provider.probe(ExecutionContext.with_timeout(5))
+        await provider.close()
+        await provider.close()
+        unavailable = await provider.probe(ExecutionContext.with_timeout(5))
+        assert (available.provider, available.capability, available.status) == (
+            definition.provider_id,
+            "fetch",
+            "available",
+        )
+        assert unavailable.status == "unavailable"
+        assert client.calls == []
+        assert client.close_count == 1
+        return
+
+    secret = "provider-v2-fetch-redaction-canary"
+    error = await _fetch_provider_error(
+        definition.build_provider(ScriptedFetchClient(RuntimeError(secret)), True),
+        definition.request,
+        context,
+    )
+    assert error.code is ProviderErrorCode.PROVIDER_UNAVAILABLE
+    assert secret not in str(error)
+    assert secret not in repr(error)
+
+
 async def _provider_error(
     provider: Any, request: SearchRequest, context: RequestContext
 ) -> ProviderError:
@@ -201,9 +349,21 @@ async def _provider_error(
     return exc_info.value
 
 
+async def _fetch_provider_error(
+    provider: Any, request: FetchTargetRequest, context: RequestContext
+) -> ProviderError:
+    with pytest.raises(ProviderError) as exc_info:
+        await provider.fetch(request, context, ExecutionContext.with_timeout(5))
+    return exc_info.value
+
+
 __all__ = [
+    "FETCH_CONFORMANCE_CASES",
     "SEARCH_CONFORMANCE_CASES",
-    "ScriptedSearchClient",
+    "FetchConformanceDefinition",
     "SearchConformanceDefinition",
+    "ScriptedFetchClient",
+    "ScriptedSearchClient",
+    "run_fetch_conformance_case",
     "run_search_conformance_case",
 ]

@@ -67,6 +67,15 @@ class _BrowserExecutor:
         )
 
 
+class _RecordingManager(_Manager):
+    def __init__(self) -> None:
+        self.adapter_ids = []
+
+    async def execute(self, adapter_id, request, request_context, execution):
+        self.adapter_ids.append(adapter_id)
+        return await super().execute(adapter_id, request, request_context, execution)
+
+
 @pytest.mark.asyncio
 async def test_module_keeps_order_and_marks_low_or_failed_items_partial() -> None:
     context = RequestContext(request_id="fetch-module-v2")
@@ -103,6 +112,32 @@ async def test_module_rejects_request_side_provider_or_fanout_override() -> None
         with pytest.raises(ProviderError) as caught:
             await service.fetch(request, context, ExecutionContext.with_timeout(5))
         assert caught.value.code is ProviderErrorCode.INVALID_REQUEST
+
+
+@pytest.mark.asyncio
+async def test_module_dispatches_an_explicit_fetch_provider_without_builtin_browser_fallback() -> (
+    None
+):
+    manager = _RecordingManager()
+    browser = _BrowserExecutor()
+    service = FetchModuleService(
+        manager,
+        provider_adapter_ids={"arxiv_fulltext": "arxiv_fulltext-fetch"},
+        browser_executor=browser,
+    )
+
+    batch = await service.fetch(
+        FetchRequest(
+            targets=("https://arxiv.org/abs/2601.00001?short",),
+            providers=(ProviderRef(id="arxiv_fulltext", kind="fetch"),),
+        ),
+        RequestContext(request_id="fetch-explicit-provider"),
+        ExecutionContext.with_timeout(5),
+    )
+
+    assert manager.adapter_ids == ["arxiv_fulltext-fetch"]
+    assert batch.items[0].content_metadata.quality == "low"
+    assert browser.targets == []
 
 
 @pytest.mark.asyncio

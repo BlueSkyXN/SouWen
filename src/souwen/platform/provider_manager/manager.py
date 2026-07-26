@@ -312,7 +312,7 @@ class ProviderManager:
             self._diagnose_declaration(manifest, adapter, "config_invalid")
             return None
         try:
-            secrets = self._secret_resolver(manifest, manifest.secrets.references)
+            secrets = self._secret_resolver(manifest, manifest.secrets.all_references)
         except Exception:
             self._diagnose_declaration(manifest, adapter, "secret_unavailable")
             return None
@@ -426,10 +426,19 @@ def _default_schema_validator(
 
 
 def _has_declared_secrets(manifest: ProviderManifest, secrets: Mapping[str, str]) -> bool:
-    """Require each declared reference to resolve to a non-empty string value."""
-    return all(
-        isinstance(secrets.get(reference), str) and bool(secrets[reference])
+    """Require mandatory references while accepting only nonblank declared optionals."""
+    declared = set(manifest.secrets.all_references)
+    if set(secrets).difference(declared):
+        return False
+    if not all(
+        isinstance(secrets.get(reference), str) and bool(secrets[reference].strip())
         for reference in manifest.secrets.references
+    ):
+        return False
+    return all(
+        reference not in secrets
+        or (isinstance(secrets[reference], str) and bool(secrets[reference].strip()))
+        for reference in manifest.secrets.optional_references
     )
 
 

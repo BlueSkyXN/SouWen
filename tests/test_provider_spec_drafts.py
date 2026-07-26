@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from tools import gen_provider_spec_drafts as drafts
+from tests.test_provider_migration_inventory import MIGRATED_SOURCE_IDS
 
 
 def test_drafts_cover_only_pending_sources_without_inventing_mappings() -> None:
@@ -8,8 +9,9 @@ def test_drafts_cover_only_pending_sources_without_inventing_mappings() -> None:
 
     assert data["schema_version"] == 1
     assert data["generator_version"] == drafts.GENERATOR_VERSION
-    assert data["draft_count"] == 104
-    assert data["existing_provider_spec_count"] == 6
+    assert data["draft_count"] == 90
+    assert data["existing_provider_spec_count"] == 19
+    assert data["non_provider_disposition_count"] == 1
     assert len(data["inventory_registry_sha256"]) == 64
     assert len(data["source_fingerprint"]["input_sha256"]) == 64
     assert all(
@@ -31,14 +33,7 @@ def test_drafts_cover_only_pending_sources_without_inventing_mappings() -> None:
             "target_spec_reason",
         )
     )
-    assert {spec["source_id"] for spec in data["existing_provider_specs"]} == {
-        "builtin",
-        "eric",
-        "openalex",
-        "patentsview",
-        "uniapi_ark_annotations_deepseek_v3_2_251201",
-        "uniapi_ark_annotations_doubao_seed_2_0_lite_260428",
-    }
+    assert {spec["source_id"] for spec in data["existing_provider_specs"]} == (MIGRATED_SOURCE_IDS)
     assert all(
         spec["specification_status"] == "existing_provider_manifest"
         for spec in data["existing_provider_specs"]
@@ -58,6 +53,18 @@ def test_drafts_cover_only_pending_sources_without_inventing_mappings() -> None:
         "specification_status": "existing_provider_manifest",
     }
     assert all("fixture-secret" not in str(draft) for draft in data["drafts"])
+    assert data["non_provider_dispositions"] == [
+        {
+            "source_id": "opencitations",
+            "batch": "batch-1",
+            "migration_status": "retirement_pending",
+            "target_disposition": "search_internal_enrichment",
+            "disposition_reason": (
+                "Search-internal citation enrichment; public citation routes and registry "
+                "capability retire in C1"
+            ),
+        }
+    ]
 
 
 def test_draft_check_mode_is_read_only_and_detects_drift(tmp_path) -> None:

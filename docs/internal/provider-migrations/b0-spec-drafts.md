@@ -8,22 +8,20 @@ mapping in a draft remains
 
 - Schema version: `1`
 - Generator version: `b0-provider-spec-drafts-v1`
-- Draft count: `104`
-- Existing Provider v2 specs: `6`
-- Inventory fingerprint: `27a59aad14b0f29aa8601772626d1ee53b8f742cfc9fd92078238f712ff1f908`
-- Combined input fingerprint: `7a431908b1e57c08267b587a8c8e06a25159e85b316f358e6b2abbca12a0200a`
+- Draft count: `90`
+- Existing Provider v2 specs: `19`
+- Non-Provider dispositions: `1`
+- Inventory fingerprint: `223a25cbc2ce633bf4b2e74de9273f7b5c98eca9badcf3e5d1318bc5e09471ca`
+- Combined input fingerprint: `3b8b4265919740ac0191b1ad9b7aef3f26ff1fa8cb41b829708ddb2c39ea8484`
 
 | Source | Batch | Status | Capabilities | Auth | Legacy loader | Existing manifest | Mapping review |
 |---|---|---|---|---|---|---|---|
 | `aliyun_iqs` | `batch-3` | `pending` | `search` | `required` | `lazy[souwen.web.aliyun_iqs:AliyunIQSClient]` | — | required |
 | `apify` | `batch-3` | `pending` | `fetch` | `required` | `lazy[souwen.web.apify:ApifyClient]` | — | required |
-| `arxiv` | `batch-1` | `pending` | `search` | `none` | `lazy[souwen.paper.arxiv:ArxivClient]` | — | required |
-| `arxiv_fulltext` | `batch-1` | `pending` | `fetch` | `none` | `lazy[souwen.paper.arxiv_fulltext:ArxivFulltextClient]` | — | required |
 | `baidu` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.baidu:BaiduClient]` | — | required |
 | `bilibili` | `batch-5` | `pending` | `get_detail`, `search`, `search_articles`, `search_users` | `optional` | `lazy[souwen.web.bilibili:BilibiliClient]` | — | required |
 | `bing` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.bing:BingClient]` | — | required |
 | `bing_cn` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.bing_cn:BingCnClient]` | — | required |
-| `biorxiv` | `batch-1` | `pending` | `search` | `none` | `lazy[souwen.paper.biorxiv:BioRxivClient]` | — | required |
 | `brave` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.brave:BraveClient]` | — | required |
 | `brave_api` | `batch-3` | `pending` | `search` | `required` | `lazy[souwen.web.brave_api:BraveApiClient]` | — | required |
 | `cloudflare` | `batch-3` | `pending` | `fetch` | `required` | `lazy[souwen.web.cloudflare_browser:CloudflareBrowserClient]` | — | required |
@@ -32,10 +30,8 @@ mapping in a draft remains
 | `coolapk` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.coolapk:CoolapkClient]` | — | required |
 | `core` | `batch-2` | `pending` | `search` | `required` | `lazy[souwen.paper.core:CoreClient]` | — | required |
 | `crawl4ai` | `batch-5` | `pending` | `fetch` | `none` | `lazy[souwen.web.crawl4ai_fetcher:Crawl4AIFetcherClient]` | — | required |
-| `crossref` | `batch-1` | `pending` | `search` | `none` | `lazy[souwen.paper.crossref:CrossrefClient]` | — | required |
 | `csdn` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.csdn:CSDNClient]` | — | required |
 | `datacite` | `batch-4` | `pending` | `search` | `none` | `lazy[souwen.research_output.datacite:DataCiteClient]` | — | required |
-| `dblp` | `batch-1` | `pending` | `search` | `none` | `lazy[souwen.paper.dblp:DblpClient]` | — | required |
 | `deepwiki` | `batch-3` | `pending` | `fetch` | `none` | `lazy[souwen.web.deepwiki:DeepWikiClient]` | — | required |
 | `diffbot` | `batch-3` | `pending` | `fetch` | `required` | `lazy[souwen.web.diffbot:DiffbotClient]` | — | required |
 | `doab` | `batch-4` | `pending` | `get_detail`, `search` | `none` | `lazy[souwen.book.doab:DOABClient]` | — | required |
@@ -45,7 +41,6 @@ mapping in a draft remains
 | `duckduckgo_news` | `batch-5` | `pending` | `search_news` | `none` | `lazy[souwen.web.ddg_news:DuckDuckGoNewsClient]` | — | required |
 | `duckduckgo_videos` | `batch-5` | `pending` | `search_videos` | `none` | `lazy[souwen.web.ddg_videos:DuckDuckGoVideosClient]` | — | required |
 | `epo_ops` | `batch-2` | `pending` | `search` | `required` | `lazy[souwen.patent.epo_ops:EpoOpsClient]` | — | required |
-| `europepmc` | `batch-1` | `pending` | `search` | `none` | `lazy[souwen.paper.europepmc:EuropePmcClient]` | — | required |
 | `exa` | `batch-3` | `pending` | `exa:find_similar`, `fetch`, `search` | `required` | `lazy[souwen.web.exa:ExaClient]` | — | required |
 | `facebook` | `batch-3` | `pending` | `search` | `required` | `lazy[souwen.web.facebook:FacebookClient]` | — | required |
 | `feishu_drive` | `batch-3` | `pending` | `search` | `required` | `lazy[souwen.web.feishu_drive:FeishuDriveClient]` | — | required |
@@ -53,12 +48,8 @@ mapping in a draft remains
 | `firecrawl` | `batch-3` | `pending` | `fetch`, `search` | `required` | `lazy[souwen.web.firecrawl:FirecrawlClient]` | — | required |
 | `github` | `batch-3` | `pending` | `search` | `optional` | `lazy[souwen.web.github:GitHubClient]` | — | required |
 | `google` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.google:GoogleClient]` | — | required |
-| `google_patents` | `batch-1` | `pending` | `search` | `none` | `lazy[souwen.patent.google_patents_scraper:GooglePatentsScraper]` | — | required |
 | `gutenberg` | `batch-4` | `pending` | `get_detail`, `search` | `none` | `lazy[souwen.local_catalog.gutenberg:GutenbergLocalCatalogClient]` | — | required |
-| `hal` | `batch-1` | `pending` | `search` | `none` | `lazy[souwen.paper.hal:HalClient]` | — | required |
 | `hostloc` | `batch-5` | `pending` | `search` | `none` | `lazy[souwen.web.hostloc:HostLocClient]` | — | required |
-| `huggingface` | `batch-1` | `pending` | `search` | `none` | `lazy[souwen.paper.huggingface:HuggingFaceClient]` | — | required |
-| `iacr` | `batch-1` | `pending` | `search` | `none` | `lazy[souwen.paper.iacr:IacrClient]` | — | required |
 | `ieee_xplore` | `batch-2` | `pending` | `search` | `required` | `lazy[souwen.paper.ieee_xplore:IeeeXploreClient]` | — | required |
 | `internet_archive` | `batch-4` | `pending` | `get_detail`, `search` | `none` | `lazy[souwen.book.internet_archive:InternetArchiveClient]` | — | required |
 | `jina_reader` | `batch-3` | `pending` | `fetch` | `optional` | `lazy[souwen.web.jina_reader:JinaReaderClient]` | — | required |
@@ -75,13 +66,9 @@ mapping in a draft remains
 | `oapen` | `batch-4` | `pending` | `get_detail`, `search` | `none` | `lazy[souwen.book.oapen:OAPENClient]` | — | required |
 | `open_library` | `batch-4` | `pending` | `get_detail`, `search` | `none` | `lazy[souwen.book.open_library:OpenLibraryClient]` | — | required |
 | `openaire` | `batch-2` | `pending` | `search` | `optional` | `lazy[souwen.paper.openaire:OpenAireClient]` | — | required |
-| `opencitations` | `batch-1` | `pending` | `opencitations:citation_count`, `opencitations:citations`, `opencitations:references` | `none` | `lazy[souwen.paper.opencitations:OpenCitationsClient]` | — | required |
-| `osti` | `batch-1` | `pending` | `get_detail`, `search` | `none` | `lazy[souwen.paper.osti:OstiClient]` | — | required |
 | `patsnap` | `batch-2` | `pending` | `search` | `required` | `lazy[souwen.patent.patsnap:PatSnapClient]` | — | required |
 | `perplexity` | `batch-3` | `pending` | `search` | `required` | `lazy[souwen.web.perplexity:PerplexityClient]` | — | required |
-| `pmc` | `batch-1` | `pending` | `search` | `none` | `lazy[souwen.paper.pmc:PmcClient]` | — | required |
 | `pqai` | `batch-2` | `pending` | `search` | `required` | `lazy[souwen.patent.pqai:PqaiClient]` | — | required |
-| `pubmed` | `batch-1` | `pending` | `search` | `none` | `lazy[souwen.paper.pubmed:PubMedClient]` | — | required |
 | `readability` | `batch-5` | `pending` | `fetch` | `none` | `lazy[souwen.web.readability_fetcher:ReadabilityFetcherClient]` | — | required |
 | `reddit` | `batch-3` | `pending` | `search` | `none` | `lazy[souwen.web.reddit:RedditClient]` | — | required |
 | `scraperapi` | `batch-3` | `pending` | `fetch` | `required` | `lazy[souwen.web.scraperapi:ScraperAPIClient]` | — | required |
@@ -120,15 +107,36 @@ mapping in a draft remains
 | `zhipuai` | `batch-3` | `pending` | `search` | `required` | `lazy[souwen.web.zhipuai_search:ZhipuAISearchClient]` | — | required |
 | `zotero` | `batch-2` | `pending` | `search` | `required` | `lazy[souwen.paper.zotero:ZoteroClient]` | — | required |
 
+## Non-Provider dispositions
+
+These records are intentionally excluded from Provider spec generation.
+
+| Source | Batch | Status | Disposition | Reason |
+|---|---|---|---|---|
+| `opencitations` | `batch-1` | `retirement_pending` | `search_internal_enrichment` | Search-internal citation enrichment; public citation routes and registry capability retire in C1 |
+
 ## Existing Provider v2 specifications
 
 These migrated sources are references only, not review-required B0 drafts.
 
 | Source | Package | Manifest | Adapter | Capability | Spec identity | Spec path | No-spec reason | Specification status |
 |---|---|---|---|---|---|---|---|---|
+| `arxiv` | `souwen.providers.information_sources.arxiv` | `arxiv` | `arxiv-search` | `search` | `souwen.providers.information_sources.arxiv.spec.ARXIV_PROVIDER_SPEC` | `src/souwen/providers/information_sources/arxiv/spec.py` | — | `existing_provider_manifest` |
+| `arxiv_fulltext` | `souwen.providers.fetch_sources.arxiv_fulltext` | `arxiv_fulltext` | `arxiv_fulltext-fetch` | `fetch` | `souwen.providers.fetch_sources.arxiv_fulltext.spec.ARXIV_FULLTEXT_FETCH_PROFILE` | `src/souwen/providers/fetch_sources/arxiv_fulltext/spec.py` | — | `existing_provider_manifest` |
+| `biorxiv` | `souwen.providers.information_sources.biorxiv` | `biorxiv` | `biorxiv-search` | `search` | `souwen.providers.information_sources.biorxiv.spec.BIORXIV_PROVIDER_SPEC` | `src/souwen/providers/information_sources/biorxiv/spec.py` | — | `existing_provider_manifest` |
 | `builtin` | `souwen.providers.fetch_sources.builtin` | `builtin-fetch` | `builtin-fetch` | `fetch` | — | — | capability-specific Fetch Provider is covered by deterministic conformance | `existing_provider_manifest` |
+| `crossref` | `souwen.providers.information_sources.crossref` | `crossref` | `crossref-search` | `search` | `souwen.providers.information_sources.crossref.spec.CROSSREF_PROVIDER_SPEC` | `src/souwen/providers/information_sources/crossref/spec.py` | — | `existing_provider_manifest` |
+| `dblp` | `souwen.providers.information_sources.dblp` | `dblp` | `dblp-search` | `search` | `souwen.providers.information_sources.dblp.spec.DBLP_PROVIDER_SPEC` | `src/souwen/providers/information_sources/dblp/spec.py` | — | `existing_provider_manifest` |
 | `eric` | `souwen.providers.information_sources.eric` | `eric` | `eric-search` | `search` | `souwen.providers.information_sources.eric.spec.ERIC_REST_SPEC` | `src/souwen/providers/information_sources/eric/spec.py` | — | `existing_provider_manifest` |
+| `europepmc` | `souwen.providers.information_sources.europepmc` | `europepmc` | `europepmc-search` | `search` | `souwen.providers.information_sources.europepmc.spec.EUROPEPMC_PROVIDER_SPEC` | `src/souwen/providers/information_sources/europepmc/spec.py` | — | `existing_provider_manifest` |
+| `google_patents` | `souwen.providers.information_sources.google_patents` | `google_patents` | `google_patents-search` | `search` | `souwen.providers.information_sources.google_patents.spec.GOOGLE_PATENTS_BRIDGE_SPEC` | `src/souwen/providers/information_sources/google_patents/spec.py` | — | `existing_provider_manifest` |
+| `hal` | `souwen.providers.information_sources.hal` | `hal` | `hal-search` | `search` | `souwen.providers.information_sources.hal.spec.HAL_PROVIDER_SPEC` | `src/souwen/providers/information_sources/hal/spec.py` | — | `existing_provider_manifest` |
+| `huggingface` | `souwen.providers.information_sources.huggingface` | `huggingface` | `huggingface-search` | `search` | `souwen.providers.information_sources.huggingface.spec.HUGGINGFACE_REST_SPEC` | `src/souwen/providers/information_sources/huggingface/spec.py` | — | `existing_provider_manifest` |
+| `iacr` | `souwen.providers.information_sources.iacr` | `iacr` | `iacr-search` | `search` | `souwen.providers.information_sources.iacr.spec.IACR_BRIDGE_SPEC` | `src/souwen/providers/information_sources/iacr/spec.py` | — | `existing_provider_manifest` |
 | `openalex` | `souwen.providers.information_sources.openalex` | `openalex` | `openalex-search` | `search` | `souwen.providers.information_sources.openalex.spec.OPENALEX_REST_SPEC` | `src/souwen/providers/information_sources/openalex/spec.py` | — | `existing_provider_manifest` |
+| `osti` | `souwen.providers.information_sources.osti` | `osti` | `osti-search` | `search` | `souwen.providers.information_sources.osti.spec.OSTI_BRIDGE_SPEC` | `src/souwen/providers/information_sources/osti/spec.py` | — | `existing_provider_manifest` |
 | `patentsview` | `souwen.providers.information_sources.patentsview` | `patentsview` | `patentsview-search` | `search` | `souwen.providers.information_sources.patentsview.spec.PATENTSVIEW_REST_SPEC` | `src/souwen/providers/information_sources/patentsview/spec.py` | — | `existing_provider_manifest` |
+| `pmc` | `souwen.providers.information_sources.pmc` | `pmc` | `pmc-search` | `search` | `souwen.providers.information_sources.pmc.spec.PMC_BRIDGE_SPEC` | `src/souwen/providers/information_sources/pmc/spec.py` | — | `existing_provider_manifest` |
+| `pubmed` | `souwen.providers.information_sources.pubmed` | `pubmed` | `pubmed-search` | `search` | `souwen.providers.information_sources.pubmed.spec.PUBMED_BRIDGE_SPEC` | `src/souwen/providers/information_sources/pubmed/spec.py` | — | `existing_provider_manifest` |
 | `uniapi_ark_annotations_deepseek_v3_2_251201` | `souwen.providers.llm_sources.uniapi_ark_annotations` | `uniapi_ark_annotations_deepseek_v3_2_251201` | `uniapi_ark_annotations_deepseek_v3_2_251201` | `llm_search` | — | — | capability-specific LLM Search Provider is covered by deterministic conformance | `existing_provider_manifest` |
 | `uniapi_ark_annotations_doubao_seed_2_0_lite_260428` | `souwen.providers.llm_sources.uniapi_ark_annotations` | `uniapi_ark_annotations_doubao_seed_2_0_lite_260428` | `uniapi_ark_annotations_doubao_seed_2_0_lite_260428` | `llm_search` | — | — | capability-specific LLM Search Provider is covered by deterministic conformance | `existing_provider_manifest` |

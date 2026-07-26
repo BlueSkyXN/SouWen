@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Protocol
 
@@ -58,12 +59,22 @@ class FetchModuleService:
         self,
         manager: FetchProviderManager,
         configured_adapter_id: str = BUILTIN_FETCH_ADAPTER_ID,
+        provider_adapter_ids: Mapping[str, str] | None = None,
         browser_executor: BrowserFetchExecutor | None = None,
     ) -> None:
         if not configured_adapter_id.strip():
             raise ValueError("configured_adapter_id must not be blank")
         self._manager = manager
         self._adapter_id = configured_adapter_id
+        self._provider_adapter_ids = {
+            configured_adapter_id: configured_adapter_id,
+            **dict(provider_adapter_ids or {}),
+        }
+        if any(
+            not provider_id.strip() or not adapter_id.strip()
+            for provider_id, adapter_id in self._provider_adapter_ids.items()
+        ):
+            raise ValueError("provider and adapter IDs must not be blank")
         self._browser_executor = browser_executor
 
     async def fetch(
@@ -75,20 +86,24 @@ class FetchModuleService:
         execution.raise_if_cancelled_or_expired()
         if request.strategy not in {None, "fallback"}:
             raise ProviderError(ProviderErrorCode.INVALID_REQUEST)
-        if request.providers is not None and (
-            len(request.providers) != 1
-            or request.providers[0].kind != "fetch"
-            or request.providers[0].id != self._adapter_id
-        ):
-            raise ProviderError(ProviderErrorCode.INVALID_REQUEST)
+        adapter_id = self._adapter_id
+        if request.providers is not None:
+            if len(request.providers) != 1 or request.providers[0].kind != "fetch":
+                raise ProviderError(ProviderErrorCode.INVALID_REQUEST)
+            adapter_id = self._provider_adapter_ids.get(request.providers[0].id, "")
+            if not adapter_id:
+                raise ProviderError(ProviderErrorCode.INVALID_REQUEST)
 
         outcomes = await asyncio.gather(
-            *(self._fetch_target(target, request, context, execution) for target in request.targets)
+            *(
+                self._fetch_target(target, request, context, execution, adapter_id)
+                for target in request.targets
+            )
         )
         items = [outcome.result for outcome in outcomes]
         execution.raise_if_cancelled_or_expired()
         if not any(item.status == "success" for item in items):
-            raise _all_failed_error(outcomes, self._adapter_id)
+            raise _all_failed_error(outcomes, adapter_id)
         partial = any(
             item.status != "success"
             or item.content_metadata is None
@@ -103,6 +118,7 @@ class FetchModuleService:
         request: FetchRequest,
         context: RequestContext,
         execution: ExecutionContext,
+        adapter_id: str,
     ) -> _TargetOutcome:
         target_request = FetchTargetRequest(
             target=target,
@@ -111,7 +127,7 @@ class FetchModuleService:
         )
         try:
             builtin_result = await self._manager.execute(
-                self._adapter_id,
+                adapter_id,
                 target_request,
                 context,
                 execution,
@@ -119,17 +135,19 @@ class FetchModuleService:
             builtin_error = None
         except ProviderError as exc:
             builtin_error = exc
-            builtin_result = _failed_result(target_request, context, self._adapter_id, exc)
+            builtin_result = _failed_result(target_request, context, adapter_id, exc)
         except Exception:
             builtin_error = ProviderError(ProviderErrorCode.PROVIDER_UNAVAILABLE)
             builtin_result = _failed_result(
                 target_request,
                 context,
-                self._adapter_id,
+                adapter_id,
                 builtin_error,
             )
 
-        if not self._should_try_browser(target_request, builtin_result):
+        if adapter_id != self._adapter_id or not self._should_try_browser(
+            target_request, builtin_result
+        ):
             return _TargetOutcome(builtin_result, builtin_error)
         try:
             browser_result = await self._browser_executor.fetch(
@@ -140,13 +158,13 @@ class FetchModuleService:
             browser_error = None
         except ProviderError as exc:
             browser_error = exc
-            browser_result = _failed_result(target_request, context, self._adapter_id, exc)
+            browser_result = _failed_result(target_request, context, adapter_id, exc)
         except Exception:
             browser_error = ProviderError(ProviderErrorCode.WORKER_UNAVAILABLE)
             browser_result = _failed_result(
                 target_request,
                 context,
-                self._adapter_id,
+                adapter_id,
                 browser_error,
             )
         if builtin_result.status == "success":

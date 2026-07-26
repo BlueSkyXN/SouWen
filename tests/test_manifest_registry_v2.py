@@ -48,6 +48,27 @@ def test_manifest_accepts_stable_underscore_adapter_ids_and_pep440_release_candi
     assert registry.adapter("uniapi_ark_annotations_deepseek_v3_2_251201") is not None
 
 
+def test_manifest_distinguishes_required_and_optional_secret_references() -> None:
+    declaration = _manifest()
+    declaration["secrets"] = {
+        "references": ["FIXTURE_PROVIDER_API_KEY"],
+        "optional_references": ["FIXTURE_OPTIONAL_TOKEN"],
+    }
+
+    manifest = ProviderManifest.model_validate(declaration)
+
+    assert manifest.secrets.references == ("FIXTURE_PROVIDER_API_KEY",)
+    assert manifest.secrets.optional_references == ("FIXTURE_OPTIONAL_TOKEN",)
+    assert manifest.secrets.all_references == (
+        "FIXTURE_PROVIDER_API_KEY",
+        "FIXTURE_OPTIONAL_TOKEN",
+    )
+
+    declaration["secrets"]["optional_references"] = ["FIXTURE_PROVIDER_API_KEY"]
+    with pytest.raises(ValidationError):
+        ProviderManifest.model_validate(declaration)
+
+
 @pytest.mark.parametrize(
     "mutate",
     [

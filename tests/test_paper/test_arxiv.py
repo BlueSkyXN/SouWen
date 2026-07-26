@@ -107,7 +107,7 @@ ARXIV_NO_DOI_XML = """\
 async def test_search_basic(httpx_mock: HTTPXMock):
     """search() 正确解析 Atom XML 并映射字段。"""
     httpx_mock.add_response(
-        url=re.compile(r"http://export\.arxiv\.org/api/query.*"),
+        url=re.compile(r"https://export\.arxiv\.org/api/query.*"),
         text=ARXIV_SEARCH_XML,
     )
 
@@ -133,7 +133,7 @@ async def test_search_basic(httpx_mock: HTTPXMock):
 async def test_search_authors(httpx_mock: HTTPXMock):
     """作者及机构正确解析"""
     httpx_mock.add_response(
-        url=re.compile(r"http://export\.arxiv\.org/api/query.*"),
+        url=re.compile(r"https://export\.arxiv\.org/api/query.*"),
         text=ARXIV_SEARCH_XML,
     )
 
@@ -151,7 +151,7 @@ async def test_search_authors(httpx_mock: HTTPXMock):
 async def test_search_abstract_whitespace(httpx_mock: HTTPXMock):
     """多行 summary 的空白正确合并"""
     httpx_mock.add_response(
-        url=re.compile(r"http://export\.arxiv\.org/api/query.*"),
+        url=re.compile(r"https://export\.arxiv\.org/api/query.*"),
         text=ARXIV_SEARCH_XML,
     )
 
@@ -167,7 +167,7 @@ async def test_search_abstract_whitespace(httpx_mock: HTTPXMock):
 async def test_search_raw_fields(httpx_mock: HTTPXMock):
     """raw 字段包含 categories, primary_category, comment"""
     httpx_mock.add_response(
-        url=re.compile(r"http://export\.arxiv\.org/api/query.*"),
+        url=re.compile(r"https://export\.arxiv\.org/api/query.*"),
         text=ARXIV_SEARCH_XML,
     )
 
@@ -183,7 +183,7 @@ async def test_search_raw_fields(httpx_mock: HTTPXMock):
 async def test_search_empty_results(httpx_mock: HTTPXMock):
     """空结果集（arXiv 的 Error entry）正确处理"""
     httpx_mock.add_response(
-        url=re.compile(r"http://export\.arxiv\.org/api/query.*"),
+        url=re.compile(r"https://export\.arxiv\.org/api/query.*"),
         text=ARXIV_EMPTY_XML,
     )
 
@@ -202,7 +202,7 @@ async def test_search_empty_results(httpx_mock: HTTPXMock):
 async def test_no_doi(httpx_mock: HTTPXMock):
     """无 DOI 的论文正确解析"""
     httpx_mock.add_response(
-        url=re.compile(r"http://export\.arxiv\.org/api/query.*"),
+        url=re.compile(r"https://export\.arxiv\.org/api/query.*"),
         text=ARXIV_NO_DOI_XML,
     )
 
@@ -222,7 +222,7 @@ async def test_malformed_xml(httpx_mock: HTTPXMock):
     from souwen.core.exceptions import ParseError
 
     httpx_mock.add_response(
-        url=re.compile(r"http://export\.arxiv\.org/api/query.*"),
+        url=re.compile(r"https://export\.arxiv\.org/api/query.*"),
         text="<not valid xml",
     )
 
@@ -234,7 +234,7 @@ async def test_malformed_xml(httpx_mock: HTTPXMock):
 async def test_id_list_search(httpx_mock: HTTPXMock):
     """id_list 参数正确传递"""
     httpx_mock.add_response(
-        url=re.compile(r"http://export\.arxiv\.org/api/query.*"),
+        url=re.compile(r"https://export\.arxiv\.org/api/query.*"),
         text=ARXIV_SEARCH_XML,
     )
 
@@ -247,7 +247,7 @@ async def test_id_list_search(httpx_mock: HTTPXMock):
 async def test_pagination(httpx_mock: HTTPXMock):
     """分页参数正确计算 page"""
     httpx_mock.add_response(
-        url=re.compile(r"http://export\.arxiv\.org/api/query.*"),
+        url=re.compile(r"https://export\.arxiv\.org/api/query.*"),
         text=ARXIV_SEARCH_XML,
     )
 
@@ -284,7 +284,7 @@ def test_build_search_query_partial_date():
 async def test_search_with_categories(httpx_mock: HTTPXMock):
     """search() categories 参数正确拼到 search_query。"""
     httpx_mock.add_response(
-        url=re.compile(r"http://export\.arxiv\.org/api/query.*"),
+        url=re.compile(r"https://export\.arxiv\.org/api/query.*"),
         text=ARXIV_SEARCH_XML,
     )
 
@@ -301,7 +301,7 @@ async def test_search_with_categories(httpx_mock: HTTPXMock):
 async def test_search_with_date_range_preserves_plus_to_plus(httpx_mock: HTTPXMock):
     """search() date_from/date_to 拼到 URL 时，``+TO+`` 不被编码为 ``%2BTO%2B``。"""
     httpx_mock.add_response(
-        url=re.compile(r"http://export\.arxiv\.org/api/query.*"),
+        url=re.compile(r"https://export\.arxiv\.org/api/query.*"),
         text=ARXIV_SEARCH_XML,
     )
 
@@ -323,7 +323,7 @@ async def test_search_with_date_range_preserves_plus_to_plus(httpx_mock: HTTPXMo
 async def test_search_with_categories_and_date_range(httpx_mock: HTTPXMock):
     """同时给定 categories 与 date 时两段都附加。"""
     httpx_mock.add_response(
-        url=re.compile(r"http://export\.arxiv\.org/api/query.*"),
+        url=re.compile(r"https://export\.arxiv\.org/api/query.*"),
         text=ARXIV_SEARCH_XML,
     )
 
