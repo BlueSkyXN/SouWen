@@ -137,6 +137,11 @@ SearchDomain: TypeAlias = Literal[
     "news",
     "images",
     "videos",
+    "social",
+    "office",
+    "developer",
+    "cn_tech",
+    "knowledge",
 ]
 
 

@@ -118,7 +118,7 @@ def test_every_batch_two_factory_constructs_dispatches_and_closes(monkeypatch) -
 
     runtime = runtime_module.build_target_runtime(_config())
     catalog = {item.provider: item for item in runtime.services.provider_items}
-    assert len(catalog) == 32
+    assert len(catalog) == 65
     assert all(catalog[provider_id].availability == "available" for provider_id in _CLIENT_GLOBALS)
 
     for provider_id in _CLIENT_GLOBALS:

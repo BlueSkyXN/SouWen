@@ -118,7 +118,7 @@
 | Name | Integration | Auth | Risk | Distribution | Stability | Extra | Capabilities | Credentials |
 |---|---|---|---|---|---|---|---|---|
 | `facebook` | official_api | 必须凭据 | 低风险 | 核心内置 | 稳定 | — | search | `facebook_app_id`, `facebook_app_secret` |
-| `reddit` | open_api | 免配置 | 低风险 | 核心内置 | 稳定 | — | search | — |
+| `reddit` | open_api | 可选凭据 (提升限流) | 低风险 | 核心内置 | 稳定 | — | search | `reddit_client_id`, `reddit_client_secret` |
 | `twitter` ⚠️ | official_api | 必须凭据 | 高风险 | 核心内置 | 稳定 | — | search | `twitter_bearer_token` |
 | `weibo` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `scraper` | search | — |
 | `zhihu` | scraper | 免配置 | 低风险 | 可选依赖 | 稳定 | `scraper` | search | — |

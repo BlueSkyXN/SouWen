@@ -8,6 +8,7 @@ import sys
 from uuid import uuid4
 
 from souwen.config import get_config
+from souwen.common_runtime.channel_overrides import source_channel_overrides_enabled
 from souwen.core.exceptions import ConfigError, ParseError
 from souwen.core.http_client import SouWenHttpClient
 from souwen.models import FetchResponse, FetchResult, WebSearchResponse, WebSearchResult
@@ -65,7 +66,9 @@ class KimiCodeClient(SouWenHttpClient):
                 "Kimi Code",
                 "https://www.kimi.com/",
             )
-        self._params = config.resolve_params("kimi_code")
+        self._params = (
+            config.resolve_params("kimi_code") if source_channel_overrides_enabled() else {}
+        )
         super().__init__(base_url=self.BASE_URL, source_name="kimi_code")
 
     def _endpoint(self, param_name: str, default_path: str) -> str:

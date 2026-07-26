@@ -73,9 +73,11 @@ class PerplexityClient(SouWenHttpClient):
                 "Perplexity",
                 "https://docs.perplexity.ai/",
             )
-        super().__init__(base_url=self.BASE_URL, source_name="perplexity")
-        # 设置 Authorization 头（Bearer token 认证）
-        self.headers["Authorization"] = f"Bearer {self.api_key}"
+        super().__init__(
+            base_url=self.BASE_URL,
+            source_name="perplexity",
+            headers={"Authorization": f"Bearer {self.api_key}"},
+        )
 
     async def search(
         self,

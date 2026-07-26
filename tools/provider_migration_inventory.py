@@ -77,6 +77,14 @@ RETIREMENT_PENDING_SOURCES = {
         "retires in C1 instead of being exposed as a fourth target capability",
     ),
 }
+LEGACY_CAPABILITY_RETIREMENT_REASONS = {
+    "exa": "Provider v2 retains Search and Fetch; legacy exa:find_similar retires in C1",
+    "wayback": ("Provider v2 retains Fetch; legacy archive_lookup and archive_save retire in C1"),
+    "youtube": (
+        "Provider v2 retains Search; legacy get_detail, get_transcript, and get_trending "
+        "retire in C1"
+    ),
+}
 STATIC_SPEC_CONSTRUCTORS = frozenset(
     {"LegacyFetchProviderSpec", "LegacySearchProviderSpec", "RestJsonProviderSpec"}
 )
@@ -440,7 +448,7 @@ def build_inventory() -> dict[str, Any]:
                 "disposition_reason": (
                     RETIREMENT_PENDING_SOURCES[source_id][1]
                     if source_id in RETIREMENT_PENDING_SOURCES
-                    else None
+                    else LEGACY_CAPABILITY_RETIREMENT_REASONS.get(source_id)
                 ),
                 "domain": adapter.domain,
                 "capabilities": sorted(adapter.capabilities),

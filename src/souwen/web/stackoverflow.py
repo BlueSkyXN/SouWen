@@ -73,7 +73,11 @@ class StackOverflowClient(SouWenHttpClient):
     def __init__(self, api_key: str | None = None):
         # 从参数或配置读取 API Key（可选）
         config = get_config()
-        self.api_key = api_key or config.resolve_api_key("stackoverflow", "stackoverflow_api_key")
+        self.api_key = (
+            api_key
+            if api_key is not None
+            else config.resolve_api_key("stackoverflow", "stackoverflow_api_key")
+        )
         # 注意：StackExchange API 允许匿名调用，无 Key 时不抛 ConfigError
         super().__init__(base_url=self.BASE_URL, source_name="stackoverflow")
 

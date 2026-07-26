@@ -75,9 +75,11 @@ class LinkupClient(SouWenHttpClient):
                 "Linkup",
                 "https://www.linkup.so/",
             )
-        super().__init__(base_url=self.BASE_URL, source_name="linkup")
-        # 设置 Authorization 头（Bearer token）
-        self.headers["Authorization"] = f"Bearer {self.api_key}"
+        super().__init__(
+            base_url=self.BASE_URL,
+            source_name="linkup",
+            headers={"Authorization": f"Bearer {self.api_key}"},
+        )
 
     async def search(
         self,

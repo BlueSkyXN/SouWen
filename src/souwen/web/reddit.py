@@ -149,9 +149,13 @@ class RedditClient(SouWenHttpClient):
                            config.reddit_client_secret 读取。
         """
         config = get_config()
-        self._client_id = client_id or config.resolve_api_key("reddit", "reddit_client_id")
-        self._client_secret = client_secret or config.resolve_api_key(
-            "reddit", "reddit_client_secret"
+        self._client_id = (
+            client_id
+            if client_id is not None
+            else config.resolve_api_key("reddit", "reddit_client_id")
+        )
+        self._client_secret = (
+            client_secret if client_secret is not None else config.reddit_client_secret
         )
 
         # 是否启用官方 OAuth2 模式

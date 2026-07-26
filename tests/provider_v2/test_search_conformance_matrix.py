@@ -8,8 +8,15 @@ from pathlib import Path
 
 import pytest
 
-from souwen.models import Applicant, Author, PaperResult, PatentResult
-from souwen.platform.provider_spi import SearchRequest
+from souwen.models import (
+    Applicant,
+    Author,
+    PaperResult,
+    PatentResult,
+    SearchResponse,
+    WebSearchResult,
+)
+from souwen.platform.provider_spi import SearchPageRequest, SearchRequest
 from souwen.providers.information_sources.arxiv import ArxivSearchProvider
 from souwen.providers.information_sources.biorxiv import BioRxivSearchProvider
 from souwen.providers.information_sources.crossref import CrossrefSearchProvider
@@ -38,6 +45,29 @@ from souwen.providers.information_sources.the_lens import TheLensSearchProvider
 from souwen.providers.information_sources.uspto_odp import UsptoOdpSearchProvider
 from souwen.providers.information_sources.zenodo import ZenodoSearchProvider
 from souwen.providers.information_sources.zotero import ZoteroSearchProvider
+from souwen.providers.information_sources.aliyun_iqs import AliyunIQSSearchProvider
+from souwen.providers.information_sources.brave_api import BraveApiSearchProvider
+from souwen.providers.information_sources.exa import ExaSearchProvider
+from souwen.providers.information_sources.facebook import FacebookSearchProvider
+from souwen.providers.information_sources.feishu_drive import FeishuDriveSearchProvider
+from souwen.providers.information_sources.firecrawl import FirecrawlSearchProvider
+from souwen.providers.information_sources.github import GitHubSearchProvider
+from souwen.providers.information_sources.kimi_code import KimiCodeSearchProvider
+from souwen.providers.information_sources.linkup import LinkupSearchProvider
+from souwen.providers.information_sources.linuxdo import LinuxDoSearchProvider
+from souwen.providers.information_sources.metaso import MetasoSearchProvider
+from souwen.providers.information_sources.perplexity import PerplexitySearchProvider
+from souwen.providers.information_sources.reddit import RedditSearchProvider
+from souwen.providers.information_sources.scrapingdog import ScrapingDogSearchProvider
+from souwen.providers.information_sources.serpapi import SerpApiSearchProvider
+from souwen.providers.information_sources.serper import SerperSearchProvider
+from souwen.providers.information_sources.stackoverflow import StackOverflowSearchProvider
+from souwen.providers.information_sources.tavily import TavilySearchProvider
+from souwen.providers.information_sources.twitter import TwitterSearchProvider
+from souwen.providers.information_sources.wikipedia import WikipediaSearchProvider
+from souwen.providers.information_sources.xcrawl import XCrawlSearchProvider
+from souwen.providers.information_sources.youtube import YouTubeSearchProvider
+from souwen.providers.information_sources.zhipuai import ZhipuAISearchSearchProvider
 from tests.support.provider_v2_batch_one import (
     batch_one_paper as _batch_one_paper,
     google_patent as _google_patent,
@@ -101,6 +131,48 @@ def _definition(provider_id, provider_type, response, *, domain="paper"):
         request=SearchRequest(query="conformance", domains=(domain,)),
         success_response=response,
         empty_response=_response(provider_id),
+        invalid_response=object(),
+    )
+
+
+def _web_response(provider_id: str, *, empty: bool = False) -> SearchResponse:
+    url = (
+        "https://www.youtube.com/watch?v=provider-v2"
+        if provider_id == "youtube"
+        else f"https://example.test/{provider_id}"
+    )
+    results = []
+    if not empty:
+        results.append(
+            WebSearchResult(
+                source=provider_id,
+                title=f"{provider_id} conformance record",
+                url=url,
+                snippet="deterministic web fixture",
+                engine=provider_id,
+            )
+        )
+    return SearchResponse(
+        query="conformance",
+        source=provider_id,
+        total_results=len(results),
+        page=1,
+        per_page=10,
+        results=results,
+    )
+
+
+def _web_definition(provider_id: str, provider_type: type, domain: str):
+    return SearchConformanceDefinition(
+        provider_id=provider_id,
+        build_provider=lambda client, enabled: provider_type(client, enabled=enabled),
+        request=SearchRequest(
+            query="conformance",
+            domains=(domain,),
+            page=SearchPageRequest(limit=5),
+        ),
+        success_response=_web_response(provider_id),
+        empty_response=_web_response(provider_id, empty=True),
         invalid_response=object(),
     )
 
@@ -181,6 +253,34 @@ DEFINITIONS = (
             ("pqai", PqaiSearchProvider),
             ("the_lens", TheLensSearchProvider),
             ("uspto_odp", UsptoOdpSearchProvider),
+        )
+    ),
+    *(
+        _web_definition(provider_id, provider_type, domain)
+        for provider_id, provider_type, domain in (
+            ("aliyun_iqs", AliyunIQSSearchProvider, "web"),
+            ("brave_api", BraveApiSearchProvider, "web"),
+            ("exa", ExaSearchProvider, "web"),
+            ("facebook", FacebookSearchProvider, "social"),
+            ("feishu_drive", FeishuDriveSearchProvider, "office"),
+            ("firecrawl", FirecrawlSearchProvider, "web"),
+            ("github", GitHubSearchProvider, "developer"),
+            ("kimi_code", KimiCodeSearchProvider, "web"),
+            ("linkup", LinkupSearchProvider, "web"),
+            ("linuxdo", LinuxDoSearchProvider, "cn_tech"),
+            ("metaso", MetasoSearchProvider, "web"),
+            ("perplexity", PerplexitySearchProvider, "web"),
+            ("reddit", RedditSearchProvider, "social"),
+            ("scrapingdog", ScrapingDogSearchProvider, "web"),
+            ("serpapi", SerpApiSearchProvider, "web"),
+            ("serper", SerperSearchProvider, "web"),
+            ("stackoverflow", StackOverflowSearchProvider, "developer"),
+            ("tavily", TavilySearchProvider, "web"),
+            ("twitter", TwitterSearchProvider, "social"),
+            ("wikipedia", WikipediaSearchProvider, "knowledge"),
+            ("xcrawl", XCrawlSearchProvider, "web"),
+            ("youtube", YouTubeSearchProvider, "videos"),
+            ("zhipuai", ZhipuAISearchSearchProvider, "web"),
         )
     ),
 )
