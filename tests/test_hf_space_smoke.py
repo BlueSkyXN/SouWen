@@ -492,6 +492,38 @@ def test_basic_checks_cover_docs_and_panel_routes():
     assert state.admin_available is True
 
 
+def test_target_openapi_smoke_rejects_legacy_paths() -> None:
+    client = FakeSmokeClient()
+    client.json_routes["/openapi.json"] = smoke.ResponseData(
+        200,
+        {
+            "info": {
+                "title": "SouWen External Data API",
+                "version": "2.0.0rc2",
+            },
+            "x-souwen-api-major": 2,
+            "x-souwen-rollout-mode": "target",
+            "paths": {
+                **{path: {} for path in smoke.TARGET_OPENAPI_PATHS},
+                "/api/v1/sources": {},
+            },
+        },
+        0.1,
+    )
+    config = smoke.SmokeConfig(
+        base_url="https://example.test",
+        expected_version="2.0.0rc2",
+        request_timeout=1,
+        require_target_runtime=True,
+    )
+
+    results = smoke.run_basic_checks(client, config, smoke.RunState())  # type: ignore[arg-type]
+
+    openapi = next(item for item in results if item.name == "openapi")
+    assert openapi.outcome == "fail"
+    assert "target_contract=False" in openapi.detail
+
+
 def test_basic_checks_require_exact_source_sha_when_pinned():
     client = FakeSmokeClient()
     client.json_routes["/health"] = smoke.ResponseData(
@@ -569,7 +601,15 @@ def test_target_m1_requires_wrapper_worker_and_three_vertical_capabilities(monke
             )
             self.json_routes["/openapi.json"] = smoke.ResponseData(
                 200,
-                {"info": {"title": "SouWen API", "version": "2.0.0rc2"}},
+                {
+                    "info": {
+                        "title": "SouWen External Data API",
+                        "version": "2.0.0rc2",
+                    },
+                    "x-souwen-api-major": 2,
+                    "x-souwen-rollout-mode": "target",
+                    "paths": {path: {} for path in smoke.TARGET_OPENAPI_PATHS},
+                },
                 0.1,
             )
 
