@@ -943,12 +943,27 @@ def test_ruff_toolchain_version_is_pinned_consistently() -> None:
         assert "pip install ruff\n" not in workflow
 
 
-def test_release_container_smoke_avoids_pipefail_broken_pipe_on_panel_html() -> None:
-    container = _job(_workflow("release-candidate.yml"), "container", "promotion-gate")
+def test_container_smokes_avoid_pipefail_broken_pipe_on_panel_html() -> None:
+    containers = (
+        _job(_workflow("release-candidate.yml"), "container", "promotion-gate"),
+        _job(_workflow("ci.yml"), "container-surface", "aggregate"),
+    )
 
-    assert '/panel" | grep' not in container
-    assert 'curl -fsS "http://127.0.0.1:${{ matrix.port }}/panel" -o "$panel_file"' in container
-    assert 'grep -Eiq \'id="root"|SouWen|souwen\' "$panel_file"' in container
+    for container in containers:
+        assert '/panel" | grep' not in container
+        assert 'curl -fsS "http://127.0.0.1:${{ matrix.port }}/panel" -o "$panel_file"' in container
+        assert 'grep -Eiq \'id="root"|SouWen|souwen\' "$panel_file"' in container
+
+
+def test_generated_contracts_pin_lf_for_windows_reproducibility() -> None:
+    attributes = (REPO_ROOT / ".gitattributes").read_text(encoding="utf-8")
+
+    for rule in (
+        "contracts/openapi/*.json text eol=lf",
+        "src/souwen/delivery/client_sdk/_generated_*.py text eol=lf",
+        "panel/src/core/sdk/index.ts text eol=lf",
+    ):
+        assert rule in attributes
 
 
 def test_hfs_reusable_promotion_is_candidate_pinned_and_live_verified() -> None:
