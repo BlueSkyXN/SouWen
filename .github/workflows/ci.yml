@@ -58,7 +58,7 @@ jobs:
         with:
           ref: ${{ inputs.candidate_sha || github.sha }}
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.10'
 
@@ -74,7 +74,7 @@ jobs:
         with:
           ref: ${{ inputs.candidate_sha || github.sha }}
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.10'
           cache: 'pip'
@@ -98,7 +98,7 @@ jobs:
         with:
           ref: ${{ inputs.candidate_sha || github.sha }}
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
           cache: pip
@@ -136,7 +136,7 @@ jobs:
         with:
           ref: ${{ inputs.candidate_sha || github.sha }}
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: ${{ matrix.python }}
           cache: 'pip'
@@ -195,7 +195,7 @@ jobs:
         with:
           ref: ${{ inputs.candidate_sha || github.sha }}
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
           cache: 'pip'
@@ -253,7 +253,7 @@ jobs:
         with:
           ref: ${{ inputs.candidate_sha || github.sha }}
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
           cache: pip
@@ -310,7 +310,7 @@ jobs:
           name: ci-python-distributions
           path: dist
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
 
@@ -358,7 +358,7 @@ jobs:
         with:
           ref: ${{ inputs.candidate_sha || github.sha }}
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
           cache: pip
@@ -450,7 +450,7 @@ jobs:
         with:
           ref: ${{ inputs.candidate_sha || github.sha }}
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
           cache: pip
@@ -492,7 +492,7 @@ jobs:
         with:
           ref: ${{ inputs.candidate_sha || github.sha }}
 
-      - uses: actions/setup-python@v6
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
           cache: pip
