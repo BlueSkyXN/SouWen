@@ -8,9 +8,11 @@
 [![License](https://img.shields.io/badge/license-GPLv3-blue)](LICENSE)
 [![Version](https://img.shields.io/badge/version-2.0.0rc2-orange)](CHANGELOG.md)
 
-> The current candidate is **Souwen v2rc2** (Python/runtime `2.0.0rc2`). It is
-> not the `2.0.0` GA and does not imply that the tag, GitHub Release, or HFS RC2
-> deployment already exists.
+> The current release is **Souwen v2rc2** (Python/runtime `2.0.0rc2`). The annotated
+> [`v2.0.0rc2`](https://github.com/BlueSkyXN/SouWen/releases/tag/v2.0.0rc2) tag and
+> GitHub prerelease have been published. This is not the `2.0.0` GA and is not
+> published on PyPI. HFS is a mutable runtime, so verify its current deployment
+> state through an independent runtime readback.
 
 **Author**: [@BlueSkyXN](https://github.com/BlueSkyXN) · **Repository**: [github.com/BlueSkyXN/SouWen](https://github.com/BlueSkyXN/SouWen) · **License**: [GPLv3](LICENSE)
 
@@ -56,12 +58,8 @@ git clone https://github.com/BlueSkyXN/SouWen.git
 cd SouWen
 pip install -e .
 
-# Default SDK/core install
-pip install -e .
-
 # Server runtime
 pip install -e ".[server,tls,web,robots,scraper]"
-
 ```
 
 ## 🚀 Quick Start
@@ -145,6 +143,10 @@ docker run -p 8000:49265 \
 ```
 
 **HuggingFace Spaces**: see `cloud/hfs/` and [docs/hf-space-cd.md](docs/hf-space-cd.md).
+The root [`hfs-dev.toml`](hfs-dev.toml) is a registry-only deployment record for the
+source lane, Space ID, workflow ownership, and current Space-setting names. It stores
+no credential values and does not authorize a generic sync tool to change remote settings;
+the current reference `hf_space_sync.py` rejects it before reading `.env` or using the network.
 **ModelScope**: see `cloud/modelscope/`.
 
 **WARP proxy embedding** (optional, bypass network restrictions): see the WARP section in `docs/anti-scraping.md`.
@@ -155,7 +157,7 @@ docker run -p 8000:49265 \
 - [docs/getting-started.md](docs/getting-started.md) — Getting started
 - [docs/concepts.md](docs/concepts.md) — Core concepts
 - [docs/python-api.md](docs/python-api.md) — Python API
-- [docs/source-catalog.md](docs/source-catalog.md) — Source Catalog contract
+- [docs/source-catalog.md](docs/source-catalog.md) — Provider Catalog contract
 - [docs/architecture.md](docs/architecture.md) — Architecture overview
 - [docs/data-sources.md](docs/data-sources.md) — Full Provider guide and list (auto-generated from manifests)
 - [docs/configuration.md](docs/configuration.md) — Configuration hierarchy / WARP / HTTP backend
