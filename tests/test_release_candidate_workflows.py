@@ -169,7 +169,7 @@ def test_release_candidate_strictly_validates_promotion_inputs() -> None:
     trust_step = text.split(
         "- name: Validate candidate trust, SHA, version, and promotion controls",
         maxsplit=1,
-    )[1].split("- uses: actions/setup-python@v6", maxsplit=1)[0]
+    )[1].split("- uses: actions/setup-python@v7", maxsplit=1)[0]
     assert "python3 -I - <<'PY'" in trust_step
     assert "python3 - <<'PY'" not in trust_step
     assert "re.fullmatch(r'[0-9a-f]{40}', candidate)" in text
@@ -262,7 +262,7 @@ def test_release_candidate_requires_an_explicit_evidence_profile() -> None:
     trust_step = text.split(
         "- name: Validate candidate trust, SHA, version, and promotion controls",
         maxsplit=1,
-    )[1].split("- uses: actions/setup-python@v6", maxsplit=1)[0]
+    )[1].split("- uses: actions/setup-python@v7", maxsplit=1)[0]
     assert "EVIDENCE_PROFILE: ${{ inputs.evidence_profile }}" in trust_step
     assert "evidence_profile not in {'deployment', 'release'}" in trust_step
     assert "deployment profile requires deploy_hfs=true" in trust_step
@@ -1122,7 +1122,7 @@ def test_hfs_rebuild_job_avoids_checkout_and_dependency_cache() -> None:
         "  post-deploy-smoke:", maxsplit=1
     )[0]
 
-    assert "actions/setup-python@v6" in rebuild
+    assert "actions/setup-python@v7" in rebuild
     assert "actions/checkout@" not in rebuild
     assert "cache: pip" not in rebuild
 
