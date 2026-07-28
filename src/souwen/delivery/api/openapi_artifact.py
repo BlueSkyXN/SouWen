@@ -140,9 +140,15 @@ def semantic_diff_openapi(
         "x-souwen-contract-stage",
         "x-souwen-rollout-mode",
     )
-    metadata_changes = [
-        field for field in metadata_fields if baseline.get(field) != candidate.get(field)
-    ]
+    metadata_changes: list[str] = []
+    for field in metadata_fields:
+        before = baseline.get(field)
+        after = candidate.get(field)
+        if field == "info" and isinstance(before, dict) and isinstance(after, dict):
+            before = {key: value for key, value in before.items() if key != "version"}
+            after = {key: value for key, value in after.items() if key != "version"}
+        if before != after:
+            metadata_changes.append(field)
     baseline_components = _component_sections(baseline)
     candidate_components = _component_sections(candidate)
     component_sections = (baseline_components.keys() | candidate_components.keys()) - {"schemas"}

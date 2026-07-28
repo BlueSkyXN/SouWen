@@ -65,7 +65,7 @@ class _Executor:
 def _evidence(source_sha: str = "a" * 40) -> WorkerRuntimeEvidence:
     return WorkerRuntimeEvidence(
         source_sha=source_sha,
-        runtime_version="2.0.0rc2",
+        runtime_version="2.0.0rc3",
         config_revision="config-r1",
         provider_inventory_digest="b" * 64,
     )
@@ -89,7 +89,7 @@ async def test_client_executes_authenticated_loopback_and_maps_canonical_result(
             client=http,
             expected_source_sha="a" * 40,
             expected_config_revision="config-r1",
-            expected_runtime_version="2.0.0rc2",
+            expected_runtime_version="2.0.0rc3",
             expected_inventory_digest="b" * 64,
         )
         result = await client.fetch(

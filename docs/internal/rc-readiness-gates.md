@@ -1,11 +1,11 @@
-# Souwen v2rc2 发布候选门禁
+# Souwen v2rc3 发布候选门禁
 
-本文固定 `v2.0.0rc2` 的 Go / No-Go 规则、阈值和证据字段。它不是某次执行报告：
+本文固定 `v2.0.0rc3` 的 Go / No-Go 规则、阈值和证据字段。它不是某次执行报告：
 candidate SHA、run URL、checksum、测试计数和部署回读等运行结果不得写回本文件，
 而应由发布流水线写入候选专属的 `release-manifest.json` 或
 `deployment-manifest.json` artifact。
 
-> **Phase 8 完成前的执行边界**：RC2 的 `deployment` profile 可用于 P4-07/M1 HFS 验收；
+> **Phase 8 完成前的执行边界**：RC3 的 `deployment` profile 可用于 P4-07/M1 HFS 验收；
 > `release` profile 已切换为 ADR 0005 的精确四个 PyInstaller Server bundle 与 immutable OpenAPI
 > 契约。旧 24-binary CLI/Nuitka workflow 不参与 central release。旧发布面与 compatibility residue
 > audit 完成前，`release-candidate.yml` 仍必须拒绝 `publish=true`。
@@ -51,7 +51,7 @@ RC-ready run 可以验证从 current main 派生的 candidate；任何 secret-be
 - 候选从预期 release ref 创建，local HEAD、remote candidate ref 和 manifest
   `candidate_sha` 完全一致。
 - `git status --short` 为空；无未跟踪产物、未合并提交、stash 依赖或 submodule 漂移。
-- 版本面均为 `2.0.0rc2`，生成物由正式命令生成，没有手改 generated artifact。
+- 版本面均为 `2.0.0rc3`，生成物由正式命令生成，没有手改 generated artifact。
 
 **Evidence**：`candidate_sha`、ref、tree hash、version readback、worktree-clean assertion。
 
@@ -172,19 +172,19 @@ RC-ready run 可以验证从 current main 派生的 candidate；任何 secret-be
 
 - Central release 的 active binary path 只允许 `build-pyinstaller-server.yml`。旧
   PyInstaller/Nuitka 24-binary CLI workflow 在 Phase 8 清理完成前仅是暂存 rollback residue，
-  不参与 RC2 release job、manifest、checksum、attestation 或 Release assets，也不得解除
+  不参与 RC3 release job、manifest、checksum、attestation 或 Release assets，也不得解除
   `publish=true` fail-closed guard。
-- RC2 最终 inventory 必须精确为四个 PyInstaller server bundle：Linux amd64、Linux arm64、
-  macOS arm64、Windows amd64；artifact 前缀为 `souwen-server-2.0.0rc2-*`。
+- RC3 最终 inventory 必须精确为四个 PyInstaller server bundle：Linux amd64、Linux arm64、
+  macOS arm64、Windows amd64；artifact 前缀为 `souwen-server-2.0.0rc3-*`。
 - 四个 bundle 必须在目标平台执行 server、health/readiness、API-major 与 target-native smoke；
   不得用 cross-build 成功、旧 CLI help/version 或 Nuitka 结果替代。
 - 精确 archive合同为 Linux amd64/arm64与macOS arm64的 `.tar.gz`，以及Windows amd64的
   `.zip`；四个名称必须分别为
-  `souwen-server-2.0.0rc2-{linux-amd64,linux-arm64,macos-arm64,windows-amd64}` 加对应后缀。
+  `souwen-server-2.0.0rc3-{linux-amd64,linux-arm64,macos-arm64,windows-amd64}` 加对应后缀。
 - Bundle必须是 PyInstaller `onedir` archive并携带 bundle-local Playwright Chromium；一个裸
   executable、缺 browser runtime的archive或仅对 `dist/` 临时目录做smoke均为 FAIL。
 - Target-native smoke必须从最终archive解包后启动默认Server入口，证明
-  `version=2.0.0rc2`、candidate source SHA、API major 2、`rollout_mode=target`、Browser Worker
+  `version=2.0.0rc3`、candidate source SHA、API major 2、`rollout_mode=target`、Browser Worker
   ready、Admin未认证401、canonical Provider API与OpenAPI checksum，并在终止后无残留 child。
 
 **Evidence**：四项 target-native matrix report、目标 runner、bundle checksum、每项 server smoke 输出。
@@ -255,8 +255,8 @@ Deployment manifest 只索引轻量 HFS 验收证据，不得被 GitHub Release 
   "schema_version": 1,
   "evidence_profile": "deployment",
   "publishable": false,
-  "product_name": "Souwen v2rc2",
-  "version": "2.0.0rc2",
+  "product_name": "Souwen v2rc3",
+  "version": "2.0.0rc3",
   "api_major": 2,
   "candidate_sha": "<40-hex>",
   "candidate_ref": "sha:<40-hex>",
@@ -301,8 +301,8 @@ Manifest 是候选证据索引，不承载 secret。schema 至少固定以下字
 ```json
 {
   "schema_version": 1,
-  "product_name": "Souwen v2rc2",
-  "version": "2.0.0rc2",
+  "product_name": "Souwen v2rc3",
+  "version": "2.0.0rc3",
   "api_major": 2,
   "binary_count": 4,
   "candidate_sha": "<40-hex>",

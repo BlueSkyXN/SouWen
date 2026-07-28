@@ -30,7 +30,7 @@ class LLMSearchProviderManager(Protocol):
 class LLMSearchModuleService:
     """Execute the deployment-selected immutable LLM Search provider.
 
-    RC2 intentionally permits exactly one YAML-enabled UniAPI adapter. The
+    The target runtime permits exactly one YAML-enabled UniAPI adapter. The
     request identifies that public provider for contract transparency, but it
     cannot select a different source, scheme, gateway, or model.
     """

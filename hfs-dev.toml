@@ -50,11 +50,10 @@ workflow_owned_secrets = [
 # immediate readback during both promotion and rollback.
 workflow_owned_variables = ["SOUWEN_WRAPPER_SHA"]
 
-# The 2026-07-28 deployment readback has no distribution seed or mounted runtime
-# configuration. The HFS wrapper renders SOUWEN_CONFIG_B64 at startup and pins
-# SOUWEN_REF to an exact 40-character commit in cloud/hfs/Dockerfile.
+# SouWen has no distribution seed or mounted runtime configuration. The HFS
+# wrapper renders SOUWEN_CONFIG_B64 at startup and pins SOUWEN_REF to an exact
+# 40-character commit in cloud/hfs/Dockerfile.
 deviations = [
-  "local-ledger-ignore = The 2026-07-28 deployment uses SOUWEN_CONFIG_B64 and has no config.toml seed or mounted runtime config",
   "generic-sync-disabled = Empty dist_bucket intentionally makes the current reference hf_space_sync validator reject diff, push, and pull before any remote operation",
   "workflow-owned-settings = Existing candidate-pinned GitHub Actions own all Space Secret and Variable writes",
 ]

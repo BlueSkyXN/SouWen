@@ -6,12 +6,12 @@
 
 [![Python](https://img.shields.io/badge/python-≥3.10-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-GPLv3-blue)](LICENSE)
-[![Version](https://img.shields.io/badge/version-2.0.0rc2-orange)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.0.0rc3-orange)](CHANGELOG.md)
 
-> 当前发布版本为 **Souwen v2rc2**（Python/runtime `2.0.0rc2`）。Annotated tag
-> [`v2.0.0rc2`](https://github.com/BlueSkyXN/SouWen/releases/tag/v2.0.0rc2) 与 GitHub
-> prerelease 已发布；这仍不是 `2.0.0` GA，且尚未发布到 PyPI。HFS 是可变运行环境，
-> 当前部署状态应通过独立 runtime readback 验证。
+> 当前候选版本为 **Souwen v2rc3**（Python/runtime `2.0.0rc3`）。`v2.0.0rc3` tag、
+> GitHub prerelease 与 HFS promotion 只有在 exact-candidate release gates 全部通过后才能创建；
+> 当前已发布的上一候选版本仍是 [`v2.0.0rc2`](https://github.com/BlueSkyXN/SouWen/releases/tag/v2.0.0rc2)。
+> 这不是 `2.0.0` GA，也尚未发布到 PyPI。
 
 **作者**: [@BlueSkyXN](https://github.com/BlueSkyXN) · **项目地址**: [github.com/BlueSkyXN/SouWen](https://github.com/BlueSkyXN/SouWen) · **协议**: [GPLv3](LICENSE)
 
@@ -167,7 +167,7 @@ workflow ownership 和当前 Space setting 名称，不保存任何真实凭据�
 - [docs/appearance.md](docs/appearance.md) — Calm Precision 管理面板
 - [docs/adding-a-source.md](docs/adding-a-source.md) — 新增数据源指南
 - [docs/contributing.md](docs/contributing.md) — 开发者指南
-- [docs/internal/rc-readiness-gates.md](docs/internal/rc-readiness-gates.md) — v2.0.0rc2 固定门禁与 evidence manifest 契约
+- [docs/internal/rc-readiness-gates.md](docs/internal/rc-readiness-gates.md) — v2.0.0rc3 固定门禁与 evidence manifest 契约
 - [docs/internal/](docs/internal/) — 维护者 ADR、分支策略和发布前基线
 - [CHANGELOG.md](CHANGELOG.md) — 版本变更
 

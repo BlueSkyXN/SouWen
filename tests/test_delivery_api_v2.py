@@ -120,7 +120,7 @@ def _app(
     app = create_target_delivery_app(
         _services(search, fetch),
         RuntimeMetadata(
-            version="2.0.0rc2",
+            version="2.0.0rc3",
             source_sha="a" * 40,
             config_revision="config-r1",
         ),
@@ -369,7 +369,7 @@ def test_not_ready_probe_is_503_and_health_stays_live() -> None:
     app = create_target_delivery_app(
         services,
         RuntimeMetadata(
-            version="2.0.0rc2",
+            version="2.0.0rc3",
             source_sha="a" * 40,
         ),
         require_user=lambda: None,
@@ -545,7 +545,7 @@ async def test_runtime_close_attempts_browser_after_provider_close_failure() -> 
     runtime = TargetRuntime(
         services=_services(),
         metadata=RuntimeMetadata(
-            version="2.0.0rc2",
+            version="2.0.0rc3",
             source_sha="a" * 40,
         ),
         manager=_Manager(),
@@ -568,7 +568,7 @@ def test_standalone_app_closes_its_injected_runtime() -> None:
     app = create_target_delivery_app(
         _services(),
         RuntimeMetadata(
-            version="2.0.0rc2",
+            version="2.0.0rc3",
             source_sha="a" * 40,
         ),
         require_user=lambda: None,

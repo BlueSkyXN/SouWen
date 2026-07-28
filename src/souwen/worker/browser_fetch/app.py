@@ -85,7 +85,7 @@ class WorkerPageCapacity:
 
     def __init__(self, limit: int = BROWSER_WORKER_PAGE_SLOTS) -> None:
         if limit != BROWSER_WORKER_PAGE_SLOTS:
-            raise ValueError("RC2 Browser Worker page slots are fixed at 2")
+            raise ValueError("target Browser Worker page slots are fixed at 2")
         self._limit = limit
         self._active = 0
         self._lock = asyncio.Lock()

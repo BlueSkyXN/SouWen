@@ -20,7 +20,7 @@ logger = logging.getLogger("souwen.config")
 LLM_SEARCH_IDENTITY_PARAMS = frozenset(
     {"api_key", "base_url", "gateway_id", "model", "model_id", "scheme_id", "source_id"}
 )
-UNIAPI_ARK_RC2_SOURCE_IDS = (
+UNIAPI_ARK_TARGET_SOURCE_IDS = (
     "uniapi_ark_annotations_deepseek_v3_2_251201",
     "uniapi_ark_annotations_doubao_seed_2_0_lite_260428",
 )
@@ -173,7 +173,7 @@ class SouWenConfig(BaseModel):
         enabled = self.enabled_uniapi_ark_source_ids()
         if len(enabled) > 1:
             raise ValueError(
-                "UniAPI Ark RC2 requires exactly zero or one explicitly enabled source"
+                "UniAPI Ark target runtime requires exactly zero or one explicitly enabled source"
             )
         return self
 
@@ -468,9 +468,9 @@ class SouWenConfig(BaseModel):
         return self.llm_search_gateways.get(gateway_id, LLMSearchGatewayConfig())
 
     def enabled_uniapi_ark_source_ids(self) -> tuple[str, ...]:
-        """Return only RC2 Ark sources with an explicit YAML/config ``enabled: true``."""
+        """Return target Ark sources with an explicit YAML/config ``enabled: true``."""
         enabled: list[str] = []
-        for source_id in UNIAPI_ARK_RC2_SOURCE_IDS:
+        for source_id in UNIAPI_ARK_TARGET_SOURCE_IDS:
             source = self.sources.get(source_id)
             if (
                 source is not None

@@ -261,7 +261,7 @@ llm_search_gateways:
 #   openalex:
 #     base_url: https://my-proxy.example.com  # 使用自建代理
 sources:
-  # RC2 必须由 deployment 显式启用一个；两个同时 true 会使配置加载失败。
+  # Target runtime 必须由 deployment 显式启用一个；两个同时 true 会使配置加载失败。
   uniapi_ark_annotations_deepseek_v3_2_251201:
     enabled: false
   uniapi_ark_annotations_doubao_seed_2_0_lite_260428:

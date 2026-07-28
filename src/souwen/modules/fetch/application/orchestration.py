@@ -53,7 +53,7 @@ class BrowserFetchExecutor(Protocol):
 
 
 class FetchModuleService:
-    """Run the RC2 builtin Fetch provider for every canonical target."""
+    """Run the target builtin Fetch provider for every canonical target."""
 
     def __init__(
         self,

@@ -1,7 +1,7 @@
 # TypeScript SDK
 
 SouWen Panel 使用由冻结 OpenAPI artifact 生成的 TypeScript client。唯一契约输入是
-`contracts/openapi/souwen-openapi-2.0.0rc2.json`；生成物位于
+`contracts/openapi/souwen-openapi-2.0.0rc3.json`；生成物位于
 `panel/src/core/sdk/index.ts`，不得手工编辑。
 
 ## 生成与验证

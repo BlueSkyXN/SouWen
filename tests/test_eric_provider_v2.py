@@ -136,7 +136,7 @@ def _execution() -> ExecutionContext:
 
 def test_manifest_declares_reviewed_eric_contract() -> None:
     assert ERIC_PROVIDER_MANIFEST.id == "eric"
-    assert ERIC_PROVIDER_MANIFEST.version == "2.0.0rc2"
+    assert ERIC_PROVIDER_MANIFEST.version == "2.0.0rc3"
     assert ERIC_PROVIDER_MANIFEST.contract_version == "provider-v2"
     assert ERIC_PROVIDER_MANIFEST.capabilities == ("search",)
     assert ERIC_PROVIDER_MANIFEST.adapters[0].id == "eric-search"
@@ -686,7 +686,7 @@ def test_delivery_routes_use_lazy_explicit_eric_transport_and_safe_catalog(monke
     assert transport_options == [
         {
             "base_url": "https://api.ies.ed.gov",
-            "headers": {"User-Agent": "SouWen/2.0.0rc2"},
+            "headers": {"User-Agent": "SouWen/2.0.0rc3"},
             "timeout": 7,
             "max_retries": 2,
             "proxy": None,

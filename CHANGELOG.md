@@ -2,11 +2,30 @@
 
 ## 导航
 
+- [Souwen v2rc3 release candidate](#v200rc3--release-candidateunreleased)
 - [Souwen v2rc2 release candidate](#v200rc2--release-candidate2026-07-27)
 - [v1.x history](#v112--ai-workflow-安全加固与功能深化2026-05-04)
 - [v0.x history](#v090--v1-过渡版2026-04-22)
 
 > v2 段落记录当前 release candidate 的公开变更和验证边界；v1/v0 段落保留历史审计脉络。
+
+## v2.0.0rc3 — Release Candidate（Unreleased）
+
+### Release status
+
+- 当前候选版本为 **Souwen v2rc3**：Python/runtime/OpenAPI/SDK 为 `2.0.0rc3`，Panel 为
+  `2.0.0-rc3`。本节描述候选源码，不表示 `v2.0.0rc3` tag、GitHub prerelease、四个平台
+  Server bundle 或 HFS promotion 已完成。
+- RC3 保持 API major 2 和 RC2 的 target-only Search、LLM Search、Fetch、Provider Catalog
+  契约；版本化 OpenAPI artifact 与 Python/TypeScript SDK 重新生成，不引入 API shape 变更。
+- 纳入 HFS v2 source-lane registry：保留 `BlueSkyXN/SouWen` Space 名与 exact-commit CD，
+  Settings 继续由 candidate-pinned GitHub Actions 独占写入，通用 `hf_space_sync.py` 对该
+  registry-only manifest fail closed。
+- 补齐本地真值文件 ignore 边界；`.env`、`.env.*`、`config.toml`、根 `souwen.yaml` 和
+  `local/` 不进入公开仓库，只有无密 example/template 允许跟踪。
+- 纳入 RC2 发布后的 CI action 与 Panel 依赖更新。RC3 发布与 HFS promotion 仍必须通过
+  [`docs/internal/rc-readiness-gates.md`](docs/internal/rc-readiness-gates.md) 的 exact-candidate
+  gate；合并本候选 PR 不会自动部署 HFS。
 
 ## v2.0.0rc2 — Release Candidate（2026-07-27）
 
