@@ -83,13 +83,20 @@ jobs:
             echo 'OpenAPI semantic check: no pull-request baseline required'
             exit 0
           fi
-          artifact='contracts/openapi/souwen-openapi-2.0.0rc2.json'
+          artifact='contracts/openapi/souwen-openapi-2.0.0rc3.json'
+          baseline_artifact="$artifact"
           if ! git cat-file -e "$BASE_SHA:$artifact" 2>/dev/null; then
-            echo 'OpenAPI semantic check: initial baseline; base artifact is absent'
-            exit 0
+            previous_artifact='contracts/openapi/souwen-openapi-2.0.0rc2.json'
+            if git cat-file -e "$BASE_SHA:$previous_artifact" 2>/dev/null; then
+              baseline_artifact="$previous_artifact"
+              echo "OpenAPI semantic check: version rollover baseline $previous_artifact"
+            else
+              echo 'OpenAPI semantic check: initial baseline; base artifact is absent'
+              exit 0
+            fi
           fi
           mkdir -p artifacts
-          git show "$BASE_SHA:$artifact" > artifacts/openapi-semantic-baseline.json
+          git show "$BASE_SHA:$baseline_artifact" > artifacts/openapi-semantic-baseline.json
           set +e
           python tools/gen_openapi.py \
             --semantic-check artifacts/openapi-semantic-baseline.json \

@@ -81,7 +81,7 @@ COPY --from=panel-builder /build/panel/dist/index.html ./src/souwen/server/panel
 RUN pip install ".[server,tls,web,robots,scraper]" "playwright>=1.40" \
     && python -c "import curl_cffi; print('curl_cffi OK')"
 
-# Browser Worker 是 RC2 HFS 的必需进程。
+# Browser Worker 是 RC3 HFS 的必需进程。
 RUN playwright install chromium \
     && echo "✅ Playwright Chromium installed for Browser Worker"
 

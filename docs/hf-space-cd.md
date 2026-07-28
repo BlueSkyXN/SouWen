@@ -2,7 +2,7 @@
 
 本文说明 SouWen 的 Hugging Face Space 本地预检、受控 promotion、双层认证、provenance
 与失败恢复边界。RC promotion 还必须满足
-[Souwen v2rc2 发布候选门禁](./internal/rc-readiness-gates.md)。未经明确批准，不得同步 Space
+[Souwen v2rc3 发布候选门禁](./internal/rc-readiness-gates.md)。未经明确批准，不得同步 Space
 仓库、factory rebuild、修改 secrets 或触发远端 smoke。
 
 ## 部署对象与访问边界
@@ -73,7 +73,7 @@ Hugging Face 官方 private Space HTTP 入口占用标准 `Authorization: Bearer
 | `HF_TOKEN` | 写 Space repo、restart/pause runtime | 仅 HFS 管理 API；需要 write 权限 |
 | `HF_SPACE_READ_TOKEN` | 通过 private Space edge | `Authorization: Bearer ...`；目标权限只需 READ，最小 bootstrap 可暂时复用已确认 write token |
 | `SOUWEN_SMOKE_BEARER_TOKEN` | SouWen 应用 admin password | `X-SouWen-Token: ...` |
-| `SOUWEN_CONFIG_B64` | 与 Space 同源的 RC2 配置；promotion 前验证 exact 一个 LLM Search Provider 与 gateway 结构 | 仅 workflow 内存预检；`${VAR}` 是否解析由 post-deploy live smoke 证明 |
+| `SOUWEN_CONFIG_B64` | 与 Space 同源的 RC3 配置；promotion 前验证 exact 一个 LLM Search Provider 与 gateway 结构 | 仅 workflow 内存预检；`${VAR}` 是否解析由 post-deploy live smoke 证明 |
 
 SouWen 仍以标准 `Authorization: Bearer <password>` 作为普通部署的首选应用鉴权。只有上游
 代理已经占用 `Authorization` 时才使用 `X-SouWen-Token`；显式 custom header 优先，若其值

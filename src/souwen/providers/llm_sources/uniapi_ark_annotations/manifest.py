@@ -1,4 +1,4 @@
-"""Static manifests for the two immutable RC2 UniAPI Ark adapters."""
+"""Static manifests for the two immutable target UniAPI Ark adapters."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ def _manifest(adapter_id: str, export: str) -> ProviderManifest:
         {
             "schema_version": 2,
             "id": adapter_id,
-            "version": "2.0.0rc2",
+            "version": "2.0.0rc3",
             "contract_version": "provider-v2",
             "capabilities": ["llm_search"],
             "adapters": [

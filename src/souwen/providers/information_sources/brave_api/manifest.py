@@ -6,7 +6,7 @@ BRAVE_API_PROVIDER_MANIFEST = ProviderManifest.model_validate(
     {
         "schema_version": 2,
         "id": "brave_api",
-        "version": "2.0.0rc2",
+        "version": "2.0.0rc3",
         "contract_version": "provider-v2",
         "capabilities": ["search"],
         "adapters": [

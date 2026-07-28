@@ -10,7 +10,7 @@ on:
         required: true
         type: string
       version:
-        description: 'PEP 440 project version, for example 2.0.0rc2'
+        description: 'PEP 440 project version, for example 2.0.0rc3'
         required: true
         type: string
       evidence_profile:
@@ -100,9 +100,9 @@ jobs:
               version,
           ) is None:
               raise SystemExit(f'version is not an accepted prerelease candidate: {version!r}')
-          if version != '2.0.0rc2':
-              raise SystemExit('current release surface only accepts version 2.0.0rc2')
-          product_name = 'Souwen v2rc2'
+          if version != '2.0.0rc3':
+              raise SystemExit('current release surface only accepts version 2.0.0rc3')
+          product_name = 'Souwen v2rc3'
           api_major = 2
           if publish not in {'true', 'false'} or deploy_hfs not in {'true', 'false'}:
               raise SystemExit('publish and deploy_hfs must be typed booleans')
@@ -308,8 +308,8 @@ jobs:
           python tools/gen_openapi.py --check
           python tools/gen_client_sdk.py --check
           python tools/gen_typescript_sdk.py --check
-          cp contracts/openapi/souwen-openapi-2.0.0rc2.json \
-            dist/souwen-openapi-2.0.0rc2.json
+          cp contracts/openapi/souwen-openapi-2.0.0rc3.json \
+            dist/souwen-openapi-2.0.0rc3.json
 
       - name: Generate Python environment CycloneDX SBOM
         run: |
@@ -1044,7 +1044,7 @@ jobs:
       - name: Download exact Server bundle inventory
         uses: actions/download-artifact@v8
         with:
-          name: souwen-server-inventory-2.0.0rc2
+          name: souwen-server-inventory-2.0.0rc3
           path: release-evidence/server-bundles
 
       - name: Download Python distributions
@@ -1138,10 +1138,10 @@ jobs:
           root = Path('release-assets')
           evidence_root = Path('release-evidence')
           expected = {
-              'souwen-server-2.0.0rc2-linux-amd64.tar.gz',
-              'souwen-server-2.0.0rc2-linux-arm64.tar.gz',
-              'souwen-server-2.0.0rc2-macos-arm64.tar.gz',
-              'souwen-server-2.0.0rc2-windows-amd64.zip',
+              'souwen-server-2.0.0rc3-linux-amd64.tar.gz',
+              'souwen-server-2.0.0rc3-linux-arm64.tar.gz',
+              'souwen-server-2.0.0rc3-macos-arm64.tar.gz',
+              'souwen-server-2.0.0rc3-windows-amd64.zip',
           }
           actual = {
               path.name
@@ -1235,7 +1235,7 @@ jobs:
               ):
                   raise SystemExit(f'Server bundle smoke evidence mismatch: {report_path}')
 
-          openapi_path = root / 'souwen-openapi-2.0.0rc2.json'
+          openapi_path = root / 'souwen-openapi-2.0.0rc3.json'
           openapi_sha256 = hashlib.sha256(openapi_path.read_bytes()).hexdigest()
           if openapi_sha256 != inventory.get('openapi_sha256'):
               raise SystemExit('immutable OpenAPI checksum differs from Server bundle smoke')
@@ -1290,7 +1290,7 @@ jobs:
                   kind = 'server_bundle'
               elif path.name.startswith('souwen-') and path.name.endswith('.tar.gz'):
                   kind = 'sdist'
-              elif path.name == 'souwen-openapi-2.0.0rc2.json':
+              elif path.name == 'souwen-openapi-2.0.0rc3.json':
                   kind = 'openapi'
               elif path.name.endswith('.cdx.json'):
                   kind = 'sbom'
@@ -1342,7 +1342,7 @@ jobs:
           remote_workflows = {
               'ci': 'CI',
               'source': 'V2 CI',
-              'server-bundles': 'Build RC2 PyInstaller server bundles',
+              'server-bundles': 'Build RC3 PyInstaller server bundles',
           }
           if os.environ['DEPLOY_HFS'] == 'true':
               remote_workflows['hfs'] = 'HF Space CD'

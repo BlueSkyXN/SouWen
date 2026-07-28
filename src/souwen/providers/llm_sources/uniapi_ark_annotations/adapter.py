@@ -390,7 +390,7 @@ def _parse_result(
         query=query,
         items=tuple(items),
         evidence=tuple(evidence),
-        # RC2 never guesses or rewrites citations from answer text. The
+        # The target contract never guesses or rewrites citations from answer text. The
         # structured evidence result remains useful without an answer.
         answer=None,
         meta=SearchMeta(requested=(adapter_id,), succeeded=(adapter_id,)),

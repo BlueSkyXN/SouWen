@@ -14,7 +14,7 @@ from tools import gen_client_sdk
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-ARTIFACT = REPOSITORY_ROOT / "contracts/openapi/souwen-openapi-2.0.0rc2.json"
+ARTIFACT = REPOSITORY_ROOT / "contracts/openapi/souwen-openapi-2.0.0rc3.json"
 GENERATED_ROOT = REPOSITORY_ROOT / "src/souwen/delivery/client_sdk"
 
 
@@ -24,7 +24,7 @@ def test_generated_sdk_files_are_current_and_record_exact_artifact() -> None:
 
     assert gen_client_sdk.main(["--check"]) == 0
     assert OPENAPI_SHA256 == hashlib.sha256(artifact_payload).hexdigest()
-    assert SDK_VERSION == document["info"]["version"] == "2.0.0rc2"
+    assert SDK_VERSION == document["info"]["version"] == "2.0.0rc3"
     assert SUPPORTED_API_MAJOR == document["x-souwen-api-major"] == 2
     assert set(models.__all__) == set(document["components"]["schemas"])
     assert set(OPERATIONS) == {
