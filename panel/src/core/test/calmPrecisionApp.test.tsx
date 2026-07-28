@@ -62,7 +62,7 @@ describe('Calm Precision Panel', () => {
     authenticate('admin')
     render(<CalmPrecisionApp />)
 
-    expect(await screen.findByRole('heading', { name: '检索，保持聚焦' })).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { name: '搜索' })).toBeInTheDocument()
     const navigation = screen.getByRole('navigation', { name: '主导航' })
     expect(navigation.getElementsByTagName('a')).toHaveLength(5)
     expect(navigation).toHaveTextContent('Search')
