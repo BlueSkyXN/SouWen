@@ -1,45 +1,113 @@
+/* Calm Precision token layer — accent policy, light + dark semantic remap.
+   角色跨主题固定，主题只重映射值，不重映射含义。
+   来源：Codex-is-all-you-need/local/DESIGN.md rev 0.3.0「Theme System」。 */
+
 :root {
-  --cp-canvas: #f6f7f8;
-  --cp-surface: #ffffff;
-  --cp-surface-muted: #f0f2f4;
-  --cp-text: #18212b;
-  --cp-muted: #627080;
-  --cp-border: #dce1e6;
-  --cp-border-strong: #c6ced7;
-  --cp-accent: #176b61;
-  --cp-accent-strong: #0e554d;
-  --cp-accent-soft: #e4f1ef;
-  --cp-danger: #ad3b42;
-  --cp-danger-soft: #fbecee;
-  --cp-success: #237451;
-  --cp-success-soft: #e7f5ed;
-  --cp-code: #18212b;
-  --cp-code-text: #e9eef2;
-  --cp-shadow: 0 1px 2px rgb(15 23 42 / 4%);
+  /* surfaces */
+  --cp-canvas: #ffffff;
+  --cp-surface: #f7f7f8;
+  --cp-raised: #ffffff;
+  --cp-disabled-surface: #efeff0;
+
+  /* text */
+  --cp-text: #1f1f1f;
+  --cp-text-muted: #5f5f5f;
+  --cp-text-tertiary: #6b6b6b;
+
+  /* borders */
+  --cp-border-subtle: #e7e7e7;
+  --cp-border-control: #767676;
+
+  /* actions */
+  --cp-primary: #171717;
+  --cp-on-primary: #ffffff;
+  --cp-accent: #005fcc;
+  --cp-accent-soft: #e8f1fe;
+  --cp-on-accent: #ffffff;
+  --cp-focus: #0067c0;
+
+  /* status */
+  --cp-critical: #b42318;
+  --cp-critical-soft: #fef3f2;
+  --cp-success: #067647;
+  --cp-success-soft: #ecfdf3;
+  --cp-warning: #8a4b0f;
+  --cp-warning-soft: #fdf6ec;
+  --cp-info: #175cd3;
+  --cp-info-soft: #eff4ff;
+
+  /* elevation & overlay */
+  --cp-scrim: rgb(0 0 0 / 45%);
+  --cp-shadow: 0 1px 2px rgb(16 24 40 / 6%), 0 1px 3px rgb(16 24 40 / 10%);
+
+  /* code */
+  --cp-code: #f7f7f8;
+  --cp-code-text: #1f1f1f;
+  --cp-code-border: #e7e7e7;
+
+  /* typography */
+  --cp-font-ui: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --cp-font-mono: "Geist Mono", SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+
   color-scheme: light;
 }
 
 :root[data-mode='dark'] {
-  --cp-canvas: #141a20;
-  --cp-surface: #1a232c;
-  --cp-surface-muted: #222d37;
-  --cp-text: #edf2f5;
-  --cp-muted: #a6b2bd;
-  --cp-border: #32404c;
-  --cp-border-strong: #455563;
-  --cp-accent: #72c6b9;
-  --cp-accent-strong: #93d8ce;
-  --cp-accent-soft: #163c39;
-  --cp-danger: #ff9ea4;
-  --cp-danger-soft: #4b272d;
-  --cp-success: #7bd8a9;
-  --cp-success-soft: #173b2b;
-  --cp-code: #0f151b;
-  --cp-code-text: #e9eef2;
-  --cp-shadow: none;
+  /* surfaces — 浮起靠变亮而非投影 */
+  --cp-canvas: #111111;
+  --cp-surface: #191919;
+  --cp-raised: #202020;
+  --cp-disabled-surface: #242424;
+
+  /* text */
+  --cp-text: #f2f2f2;
+  --cp-text-muted: #a3a3a3;
+  --cp-text-tertiary: #8f8f8f;
+
+  /* borders */
+  --cp-border-subtle: #2b2b2b;
+  --cp-border-control: #737373;
+
+  /* actions — primary 反转为近白填充 */
+  --cp-primary: #f5f5f5;
+  --cp-on-primary: #171717;
+  --cp-accent: #5aa9ff;
+  --cp-accent-soft: #0e2242;
+  --cp-on-accent: #071c3a;
+  --cp-focus: #4c9aff;
+
+  /* status */
+  --cp-critical: #ff6369;
+  --cp-critical-soft: #3b1c1e;
+  --cp-success: #46c78c;
+  --cp-success-soft: #12281e;
+  --cp-warning: #ffb224;
+  --cp-warning-soft: #2e2412;
+  --cp-info: #52a9ff;
+  --cp-info-soft: #12233b;
+
+  /* elevation & overlay */
+  --cp-scrim: rgb(0 0 0 / 60%);
+  --cp-shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 1px 3px rgb(0 0 0 / 50%);
+
+  /* code */
+  --cp-code: #202020;
+  --cp-code-text: #f2f2f2;
+  --cp-code-border: #2b2b2b;
+
   color-scheme: dark;
 }
 
 * { box-sizing: border-box; }
-body { min-width: 320px; margin: 0; background: var(--cp-canvas); font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+
+body {
+  min-width: 320px;
+  margin: 0;
+  background: var(--cp-canvas);
+  color: var(--cp-text);
+  font-family: var(--cp-font-ui);
+  font-size: 1rem;
+  line-height: 1.5;
+}
+
 button, input, textarea, select { font: inherit; }
