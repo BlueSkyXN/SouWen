@@ -8,8 +8,10 @@
 [![License](https://img.shields.io/badge/license-GPLv3-blue)](LICENSE)
 [![Version](https://img.shields.io/badge/version-2.0.0rc2-orange)](CHANGELOG.md)
 
-> 当前候选版本为 **Souwen v2rc2**（Python/runtime `2.0.0rc2`）；这不是 `2.0.0` GA，
-> 也不表示 tag、GitHub Release 或 HFS RC2 部署已经完成。
+> 当前发布版本为 **Souwen v2rc2**（Python/runtime `2.0.0rc2`）。Annotated tag
+> [`v2.0.0rc2`](https://github.com/BlueSkyXN/SouWen/releases/tag/v2.0.0rc2) 与 GitHub
+> prerelease 已发布；这仍不是 `2.0.0` GA，且尚未发布到 PyPI。HFS 是可变运行环境，
+> 当前部署状态应通过独立 runtime readback 验证。
 
 **作者**: [@BlueSkyXN](https://github.com/BlueSkyXN) · **项目地址**: [github.com/BlueSkyXN/SouWen](https://github.com/BlueSkyXN/SouWen) · **协议**: [GPLv3](LICENSE)
 
@@ -122,6 +124,8 @@ src/souwen/
 ├── delivery/          frozen OpenAPI、generated Python SDK 与 HTTP adapters
 ├── platform/          ProviderManifest / ManifestRegistry / ProviderManager
 ├── providers/         provider specs、adapters 与 runtime clients
+├── modules/           Search、LLM Search 与 Fetch application services
+├── common_runtime/    shared transport、security、resilience 与 observability
 └── server/            FastAPI 应用
 ```
 
@@ -139,6 +143,9 @@ docker run -p 8000:49265 \
 ```
 
 **HuggingFace Spaces**：参见 `cloud/hfs/` 与 [docs/hf-space-cd.md](docs/hf-space-cd.md)。
+根级 [`hfs-dev.toml`](hfs-dev.toml) 是 registry-only 部署登记：记录 source lane、Space ID、
+workflow ownership 和当前 Space setting 名称，不保存任何真实凭据值，也不授权通用同步工具
+修改远端设置；当前参考 `hf_space_sync.py` 会在读取 `.env` 或联网前拒绝该 manifest。
 **ModelScope**：参见 `cloud/modelscope/`。
 
 部署环境可按自身网络策略配置代理；公开 API 不提供 WARP 管理或运行时安装入口。
@@ -149,7 +156,7 @@ docker run -p 8000:49265 \
 - [docs/getting-started.md](docs/getting-started.md) — 快速开始
 - [docs/concepts.md](docs/concepts.md) — 核心概念
 - [docs/python-api.md](docs/python-api.md) — Python API
-- [docs/source-catalog.md](docs/source-catalog.md) — Source Catalog 契约
+- [docs/source-catalog.md](docs/source-catalog.md) — Provider Catalog 契约
 - [docs/architecture.md](docs/architecture.md) — 架构概览
 - [docs/data-sources.md](docs/data-sources.md) — 完整 Provider 指南与清单（由 manifest catalog 自动生成）
 - [docs/configuration.md](docs/configuration.md) — 配置层级 / WARP / HTTP backend

@@ -2,31 +2,52 @@
 
 ## 导航
 
-- [Souwen v2rc2 release candidate](#v200rc2--release-candidateunreleased)
+- [Souwen v2rc2 release candidate](#v200rc2--release-candidate2026-07-27)
 - [v1.x history](#v112--ai-workflow-安全加固与功能深化2026-05-04)
 - [v0.x history](#v090--v1-过渡版2026-04-22)
 
 > v2 段落记录当前 release candidate 的公开变更和验证边界；v1/v0 段落保留历史审计脉络。
 
-## v2.0.0rc2 — Release Candidate（Unreleased）
+## v2.0.0rc2 — Release Candidate（2026-07-27）
 
 ### Release status
 
 - 当前产品/Release 展示名固定为 **Souwen v2rc2**，Python/runtime 为 `2.0.0rc2`，
-  Panel 为 `2.0.0-rc2`。本节描述候选源码，不表示 tag、GitHub Release、四个 server bundle、远端
-  deployment 或 HFS promotion 已完成。
+  Panel 为 `2.0.0-rc2`。Annotated tag `v2.0.0rc2` 与 GitHub prerelease 已发布，
+  并精确指向 source `19871b1bbae8f2af65fdd0bb418f6275dc4061d0`。
 - Go / No-Go 规则固定在
   [`docs/internal/rc-readiness-gates.md`](docs/internal/rc-readiness-gates.md)。所有 required
   gate 必须绑定同一个 candidate SHA；run URL、checksum、SBOM/provenance 与结论由
   `release-manifest.json` artifact 承载，不把一次性运行结果提交到仓库。
-- PyPI 发布仍不在本候选范围。HFS promotion 是需明确批准的远端写操作。
-- 唯一 central `.github/workflows/release-candidate.yml` 要求显式选择 `evidence_profile`：
-  `deployment` 跳过外层 24-binary release matrix，只生成不可发布的 HFS deployment evidence；
-  Phase 8 前的 `release` 仍是不可发布的历史 24-binary regression。当前 workflow 明确拒绝
-  `publish=true`；只有精确四个 `souwen-server-2.0.0rc2-*` bundle、attestation 与 HFS 验收
-  完成后，才允许创建 `v2.0.0rc2` 和标题为 `Souwen v2rc2` 的 GitHub Release。
+- 正式 release workflow `30223391225` 在同一 candidate SHA 上完成四个平台 Server
+  bundle、wheel/sdist、OpenAPI、SBOM、checksums、attestation、HFS promotion 及
+  post-deploy surface/capability smoke；GitHub Release 共发布 12 个正式 asset。
+- 此版本仍是 RC，不是 `2.0.0` GA；PyPI 发布不在本候选范围。HFS 是可变运行环境，
+  当前运行状态不能由本 changelog 替代独立 runtime readback。
+- `.github/workflows/release-candidate.yml` 仅在 `evidence_profile=release`、
+  `deploy_hfs=true`、全部 required gate 成功且 repository-owner dispatch/rerun 条件满足时，
+  允许 `publish=true` 创建 tag 与 GitHub Release。
 
-### Breaking changes
+### RC2 target-only final state
+
+- 公开数据操作只有 Search、LLM Search 与 Fetch；`GET /api/v1/providers` 是受认证的
+  Provider catalog 投影，Admin 只保留 read-only config、doctor 与 ping。
+- Python root 只暴露从 frozen OpenAPI 生成的 sync/async SDK；Panel 使用同一 contract
+  生成的 TypeScript SDK，并收敛为单一 Calm Precision 界面。
+- Provider runtime 的事实源是 built-in `ProviderManifest` catalog、`ManifestRegistry` 与
+  `ProviderManager`。终态包含 104 个 Provider v2 package、110 个 capability adapter。
+- Plugin System、CLI、MCP、PDF/Web2PDF、Summarize/Fetch-Summarize、editions、旧 registry、
+  legacy routes 与多套 Panel skin 均已从当前产品面退役。
+- Canonical artifact 为 `contracts/openapi/souwen-openapi-2.0.0rc2.json`；发布包含
+  Linux amd64/arm64、macOS arm64、Windows amd64 四个 Server bundle。
+
+### Historical pre-final development snapshot
+
+以下条目保留用于审计 RC2 在 A1–A5、Provider 批量迁移和 C1/C2 最终收口前的中间状态。
+它们不是当前 API、package、workflow、Panel 或 runtime surface 的说明；当前事实以上述
+target-only final state、generated contracts 与 manifest catalog 为准。
+
+#### Breaking changes
 
 - Python 要求 `>=3.10`；旧 `souwen.facade`、`souwen.source_registry`、顶层 core shim、
   `souwen.scraper`、域级 re-export 和旧 `souwen.web.*` grouping package 不再是 public API。
@@ -41,7 +62,7 @@
 - `fetch_pdf`、arXiv PDF 回退、`pdf`/`web2pdf` extras 和 SuperWeb2PDF 均已移除；
   `arxiv_fulltext` 仅保留 HTML 正文提取。
 
-### Registry, search and providers
+#### Registry, search and providers
 
 - `SourceAdapter` / Source Catalog 成为 metadata、capability、credential、risk、distribution、
   stability、edition policy、CLI、API、doctor、Panel 和 docs 的单一事实源。
@@ -65,7 +86,7 @@
 - Python API、CLI、REST 与 MCP 对 query/source/engine/provider 的字符串或列表输入统一做
   trim、空值拒绝、registry 存在性和 edition 校验。
 
-### Fetch, LLM and MCP
+#### Fetch, LLM and MCP
 
 - `fetch_content` 支持 `fallback` / `fanout`、单字符串归一化、多 provider 结果聚合、
   `start_index` / `max_length` 分页以及 `content_truncated` / `next_start_index`。
@@ -77,7 +98,7 @@
   runtime 可导入项、缺依赖项与升级项，不再把声明能力称为“当前可选”；同时支持
   multi-provider strategy、links/sitemap 和 Bilibili 工具，并在 stdio 启动时加载配置插件。
 
-### Doctor, API and security
+#### Doctor, API and security
 
 - `souwen doctor`、`GET /api/v1/doctor` 与 admin doctor 默认 `live=false`，只做静态
   registry/config/edition/dependency 判定；显式 live probe 才发起最小真实搜索，并通过
@@ -93,7 +114,7 @@
 - Public/admin 路由补齐稳定 OpenAPI schema、统一 error envelope、硬 timeout、rate limit 和
   User/Admin auth dependency；Wayback save 保持 admin-only。
 
-### Panel
+#### Panel
 
 - 五个 skin 共用 edition/auth/source status、server connection、redacted config、export、
   search media/memory 和 proxy/WARP 配置逻辑，避免各 skin 复制协议判断。
@@ -105,7 +126,7 @@
   Source Catalog，并按需升级、缺依赖、缺凭据、静态不可用和 runtime 未知分别 fail closed，
   不再以硬编码 provider 清单作为离线可执行 fallback。
 
-### Packaging and deployment
+#### Packaging and deployment
 
 - Edition extras 提供 `edition-basic`、`edition-pro`、`edition-full` 以及互斥的
   `edition-full-crawl4ai` / `edition-full-scrapling` clean-install surface。
@@ -118,7 +139,7 @@
 - HFS promotion 在 mutation 前记录旧 wrapper/runtime/source rollback point，使用
   `parent_commit` 防并发写漂移；失败后 forward-restore 并 rebuild，无法证明恢复时 pause Space。
 
-### Validation
+#### Validation
 
 - Deterministic suite 覆盖 registry/catalog、edition/feature matrix、doctor、API/OpenAPI、
   CLI、MCP、LLM、fetch、redaction、plugin、Panel 和 package/import surface。
