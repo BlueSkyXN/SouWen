@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { HashRouter, Navigate, NavLink, Outlet, Route, Routes, useNavigate } from 'react-router'
 import { Database, FileSearch, LogOut, Moon, Network, Search, Sparkles, Sun, type LucideIcon } from 'lucide-react'
-import { SouWenClient, type FetchBatch, type LLMSearchResult, type SearchPage } from '@core/sdk'
+import { SEARCH_DOMAINS, SouWenClient, type FetchBatch, type LLMSearchResult, type SearchPage } from '@core/sdk'
 import { useSouWenClient } from '@core/sdk-client'
 import { formatError } from '@core/lib/errors'
 import { adminClient } from '@core/services/admin-client'
@@ -12,10 +12,6 @@ type DataState<T> = { status: 'idle' | 'loading' | 'success' | 'error'; data?: T
 type RequestFor<T extends 'search' | 'llmSearch' | 'fetch'> = Parameters<SouWenClient[T]>[0]
 type Item = Record<string, unknown>
 
-const DOMAINS = [
-  'paper', 'book', 'research_output', 'patent', 'web', 'news', 'images', 'videos', 'social',
-  'office', 'developer', 'cn_tech', 'knowledge',
-]
 const SECRET_KEY = /(?:token|secret|password|api[_-]?key|authorization|cookie|credential)/i
 
 export function redactForDisplay(value: unknown, key = ''): unknown {
@@ -32,9 +28,9 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 /** Keep Settings focused on safe product posture instead of echoing the full server config. */
 export function projectSettingsForDisplay(value: unknown): Record<string, unknown> {
   const config = isRecord(value) ? value : {}
-  const llm = isRecord(config.llm) ? config.llm : {}
   const sources = isRecord(config.sources) ? config.sources : {}
   const gateways = isRecord(config.llm_search_gateways) ? config.llm_search_gateways : {}
+  const gatewayCount = Object.keys(gateways).length
   return {
     access: {
       guest_enabled: config.guest_enabled === true,
@@ -44,12 +40,11 @@ export function projectSettingsForDisplay(value: unknown): Record<string, unknow
     },
     providers: {
       configured_source_count: Object.keys(sources).length,
-      llm_gateway_count: Object.keys(gateways).length,
+      llm_gateway_count: gatewayCount,
     },
     llm_search: {
-      enabled: llm.enabled === true,
-      protocol: typeof llm.protocol === 'string' ? llm.protocol : null,
-      model: typeof llm.model === 'string' ? llm.model : null,
+      gateway_declared: gatewayCount > 0,
+      availability_source: 'Providers',
     },
   }
 }
@@ -123,7 +118,7 @@ function SearchPage() {
       (error) => setState({ status: 'error', error: formatError(error) }),
     )
   }
-  return <><Header eyebrow="Search" title="搜索" description="选择一个领域并提交查询，结果统一规范化，只展示可追溯的公共字段。" /><section className={`${styles.panel} ${styles.formPanel}`}><form className={styles.form} onSubmit={submit}><div className={styles.field}><label className={styles.label} htmlFor="search-query">查询</label><input className={styles.input} id="search-query" name="query" type="search" value={query} onChange={(event) => setQuery(event.target.value)} required maxLength={4096} placeholder="输入研究问题、主题或作者" /></div><div className={styles.field}><label className={styles.label} htmlFor="search-domain">领域</label><select className={styles.select} id="search-domain" name="domain" value={domain} onChange={(event) => setDomain(event.target.value)}>{DOMAINS.map((value) => <option key={value} value={value}>{value}</option>)}</select><span className={styles.hint}>默认 Provider 选择一次只接受一个领域。</span></div><div className={styles.formFooter}><span className={styles.hint}>由 generated SouWenClient 发送请求。</span><button className={styles.button} disabled={state.status === 'loading' || !query.trim()} type="submit" aria-busy={state.status === 'loading'}>运行搜索</button></div></form></section><Status state={state} name="搜索结果" />{state.status === 'success' && <Results items={state.data?.items ?? []} />}</>
+  return <><Header eyebrow="Search" title="搜索" description="选择一个领域，由 Server 的有序默认策略选择一个 Provider；结果只展示可追溯的公共字段。" /><section className={`${styles.panel} ${styles.formPanel}`}><form className={styles.form} onSubmit={submit}><div className={styles.field}><label className={styles.label} htmlFor="search-query">查询</label><input className={styles.input} id="search-query" name="query" type="search" value={query} onChange={(event) => setQuery(event.target.value)} required maxLength={4096} placeholder="输入研究问题、主题或作者" /></div><div className={styles.field}><label className={styles.label} htmlFor="search-domain">领域</label><select className={styles.select} id="search-domain" name="domain" value={domain} onChange={(event) => setDomain(event.target.value)}>{SEARCH_DOMAINS.map((value) => <option key={value} value={value}>{value}</option>)}</select><span className={styles.hint}>一次只接受一个领域；默认 paper 使用部署配置中的 primary Provider。</span></div><div className={styles.formFooter}><span className={styles.hint}>由 generated SouWenClient 发送请求。</span><button className={styles.button} disabled={state.status === 'loading' || !query.trim()} type="submit" aria-busy={state.status === 'loading'}>运行搜索</button></div></form></section><Status state={state} name="搜索结果" />{state.status === 'success' && <Results items={state.data?.items ?? []} />}</>
 }
 
 function LlmSearchPage() {
@@ -140,14 +135,13 @@ function LlmSearchPage() {
       (error) => setState({ status: 'error', error: formatError(error) }),
     )
   }
-  return <><Header eyebrow="LLM Search" title="综合搜索" description="选定当前部署配置的 provider，由 LLM 汇总回答并附带来源证据。" /><section className={`${styles.panel} ${styles.formPanel}`}><form className={styles.form} onSubmit={submit}><div className={styles.field}><label className={styles.label} htmlFor="llm-query">问题</label><textarea className={styles.textarea} id="llm-query" name="query" value={query} onChange={(event) => setQuery(event.target.value)} required maxLength={4096} placeholder="提出一个需要依据的研究问题" /></div><div className={styles.field}><label className={styles.label} htmlFor="llm-provider">Provider ID</label><input className={styles.input} id="llm-provider" name="provider" value={provider} onChange={(event) => setProvider(event.target.value)} required placeholder="从 Providers 页复制 available 的 LLM Search ID" /><span className={styles.hint}>Target runtime 只接受一个已配置 provider，策略固定为 single。</span></div><div className={styles.formFooter}><span className={styles.hint}>预算与认证边界由服务端执行。</span><button className={styles.button} disabled={state.status === 'loading' || !query.trim() || !provider.trim()} type="submit" aria-busy={state.status === 'loading'}>综合回答</button></div></form></section><Status state={state} name="LLM Search" />{state.status === 'success' && <section className={styles.responseStack} aria-live="polite">{state.data?.answer && <article className={`${styles.panel} ${styles.answer}`}><h2 className={styles.sectionTitle}>回答</h2><p className={styles.resultBody}>{state.data.answer}</p></article>}<Results items={state.data?.evidence ?? state.data?.items ?? []} /></section>}</>
+  return <><Header eyebrow="LLM Search" title="综合搜索" description="返回结构化来源证据；Provider 支持可验证 synthesis 时同时展示综合回答。" /><section className={`${styles.panel} ${styles.formPanel}`}><form className={styles.form} onSubmit={submit}><div className={styles.field}><label className={styles.label} htmlFor="llm-query">问题</label><textarea className={styles.textarea} id="llm-query" name="query" value={query} onChange={(event) => setQuery(event.target.value)} required maxLength={4096} placeholder="提出一个需要依据的研究问题" /></div><div className={styles.field}><label className={styles.label} htmlFor="llm-provider">Provider ID</label><input className={styles.input} id="llm-provider" name="provider" value={provider} onChange={(event) => setProvider(event.target.value)} required placeholder="从 Providers 页复制 available 的 LLM Search ID" /><span className={styles.hint}>Target runtime 只接受一个已配置 provider，策略固定为 single。</span></div><div className={styles.formFooter}><span className={styles.hint}>预算与认证边界由服务端执行。</span><button className={styles.button} disabled={state.status === 'loading' || !query.trim() || !provider.trim()} type="submit" aria-busy={state.status === 'loading'}>运行 LLM Search</button></div></form></section><Status state={state} name="LLM Search" />{state.status === 'success' && <section className={styles.responseStack} aria-live="polite">{state.data?.answer ? <article className={`${styles.panel} ${styles.answer}`}><h2 className={styles.sectionTitle}>回答</h2><p className={styles.resultBody}>{state.data.answer}</p></article> : <p className={`${styles.panel} ${styles.empty}`}>当前 Provider 返回了结构化证据，但未提供可验证的综合回答。</p>}<Results items={state.data?.evidence ?? state.data?.items ?? []} /></section>}</>
 }
 
 function FetchPage() {
   const client = useSouWenClient()
   const request = useLatestRequest<FetchBatch>()
   const [targets, setTargets] = useState('')
-  const [strategy, setStrategy] = useState<'fallback' | 'fanout'>('fallback')
   const [state, setState] = useState<DataState<{ items: Item[] }>>({ status: 'idle' })
   async function submit(event: FormEvent) {
     event.preventDefault(); const urls = targets.split(/\n|,/).map((value) => value.trim()).filter(Boolean); if (!urls.length) return
@@ -158,12 +152,12 @@ function FetchPage() {
     }
     setState({ status: 'loading' })
     void request.run(
-      (signal) => client.fetch({ targets: urls, strategy, policy: { respect_robots: true } } as RequestFor<'fetch'>, { signal }),
+      (signal) => client.fetch({ targets: urls, strategy: 'fallback', policy: { respect_robots: true } } as RequestFor<'fetch'>, { signal }),
       (data) => setState({ status: 'success', data: data as unknown as { items: Item[] } }),
       (error) => setState({ status: 'error', error: formatError(error) }),
     )
   }
-  return <><Header eyebrow="Fetch" title="网页抓取" description="每行一个 URL，最多 20 个。抓取与 robots 策略全部由服务端执行。" /><section className={`${styles.panel} ${styles.formPanel}`}><form className={styles.form} onSubmit={submit}><div className={styles.field}><label className={styles.label} htmlFor="fetch-targets">URLs</label><textarea className={styles.textarea} id="fetch-targets" name="targets" value={targets} onChange={(event) => setTargets(event.target.value)} required placeholder={'https://example.org/article\nhttps://example.org/report'} /><span className={styles.hint}>仅接受 http/https URL，服务端负责最终校验。</span></div><div className={styles.field}><label className={styles.label} htmlFor="fetch-strategy">Provider 策略</label><select className={styles.select} id="fetch-strategy" name="strategy" value={strategy} onChange={(event) => setStrategy(event.target.value as typeof strategy)}><option value="fallback">fallback</option><option value="fanout">fanout</option></select></div><div className={styles.formFooter}><span className={styles.hint}>可用性取决于当前角色和 provider 配置。</span><button className={styles.button} disabled={state.status === 'loading' || !targets.trim()} type="submit" aria-busy={state.status === 'loading'}>开始 Fetch</button></div></form></section><Status state={state} name="Fetch 结果" />{state.status === 'success' && <Results items={state.data?.items ?? []} />}</>
+  return <><Header eyebrow="Fetch" title="网页抓取" description="每行一个 URL，最多 20 个。抓取与 robots 策略全部由服务端执行。" /><section className={`${styles.panel} ${styles.formPanel}`}><form className={styles.form} onSubmit={submit}><div className={styles.field}><label className={styles.label} htmlFor="fetch-targets">URLs</label><textarea className={styles.textarea} id="fetch-targets" name="targets" value={targets} onChange={(event) => setTargets(event.target.value)} required placeholder={'https://example.org/article\nhttps://example.org/report'} /><span className={styles.hint}>仅接受 http/https URL，服务端负责最终校验。</span></div><div className={styles.field}><span className={styles.label}>Provider 策略</span><span className={styles.hint}>Panel 固定使用 fallback；多 Provider fanout 由显式 SDK/API workflow 使用。</span></div><div className={styles.formFooter}><span className={styles.hint}>可用性取决于当前角色和 provider 配置。</span><button className={styles.button} disabled={state.status === 'loading' || !targets.trim()} type="submit" aria-busy={state.status === 'loading'}>开始 Fetch</button></div></form></section><Status state={state} name="Fetch 结果" />{state.status === 'success' && <Results items={state.data?.items ?? []} />}</>
 }
 
 function ProvidersPage() {

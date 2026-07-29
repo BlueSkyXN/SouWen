@@ -31,6 +31,12 @@ class _TargetOutcome:
     error: ProviderError | None = None
 
 
+@dataclass(frozen=True, slots=True)
+class _ProviderSelection:
+    provider_id: str
+    adapter_id: str
+
+
 class FetchProviderManager(Protocol):
     async def execute(
         self,
@@ -53,7 +59,7 @@ class BrowserFetchExecutor(Protocol):
 
 
 class FetchModuleService:
-    """Run the target builtin Fetch provider for every canonical target."""
+    """Execute canonical per-target fallback or explicit multi-provider fanout."""
 
     def __init__(
         self,
@@ -84,26 +90,32 @@ class FetchModuleService:
         execution: ExecutionContext,
     ) -> FetchBatch:
         execution.raise_if_cancelled_or_expired()
-        if request.strategy not in {None, "fallback"}:
-            raise ProviderError(ProviderErrorCode.INVALID_REQUEST)
-        adapter_id = self._adapter_id
-        if request.providers is not None:
-            if len(request.providers) != 1 or request.providers[0].kind != "fetch":
-                raise ProviderError(ProviderErrorCode.INVALID_REQUEST)
-            adapter_id = self._provider_adapter_ids.get(request.providers[0].id, "")
-            if not adapter_id:
-                raise ProviderError(ProviderErrorCode.INVALID_REQUEST)
-
-        outcomes = await asyncio.gather(
-            *(
-                self._fetch_target(target, request, context, execution, adapter_id)
-                for target in request.targets
+        selections = self._resolve_selections(request)
+        if request.strategy == "fanout":
+            outcomes = await asyncio.gather(
+                *(
+                    self._fetch_target(target, request, context, execution, selection)
+                    for target in request.targets
+                    for selection in selections
+                )
             )
-        )
+        else:
+            outcomes = await asyncio.gather(
+                *(
+                    self._fetch_target_with_fallback(
+                        target,
+                        request,
+                        context,
+                        execution,
+                        selections,
+                    )
+                    for target in request.targets
+                )
+            )
         items = [outcome.result for outcome in outcomes]
         execution.raise_if_cancelled_or_expired()
         if not any(item.status == "success" for item in items):
-            raise _all_failed_error(outcomes, adapter_id)
+            raise _all_failed_error(outcomes, selections)
         partial = any(
             item.status != "success"
             or item.content_metadata is None
@@ -112,14 +124,76 @@ class FetchModuleService:
         )
         return FetchBatch(items=items, meta=FetchMeta(partial=partial), context=context)
 
+    def _resolve_selections(self, request: FetchRequest) -> tuple[_ProviderSelection, ...]:
+        if request.providers is None:
+            return (_ProviderSelection(self._adapter_id, self._adapter_id),)
+        selections: list[_ProviderSelection] = []
+        for provider in request.providers:
+            if provider.kind != "fetch":
+                raise ProviderError(ProviderErrorCode.INVALID_REQUEST)
+            adapter_id = self._provider_adapter_ids.get(provider.id, "")
+            if not adapter_id:
+                raise ProviderError(ProviderErrorCode.INVALID_REQUEST)
+            selections.append(_ProviderSelection(provider.id, adapter_id))
+        if not selections:
+            raise ProviderError(ProviderErrorCode.INVALID_REQUEST)
+        return tuple(selections)
+
+    async def _fetch_target_with_fallback(
+        self,
+        target: object,
+        request: FetchRequest,
+        context: RequestContext,
+        execution: ExecutionContext,
+        selections: tuple[_ProviderSelection, ...],
+    ) -> _TargetOutcome:
+        provenance: list[Provenance] = []
+        low_quality: _TargetOutcome | None = None
+        last_outcome: _TargetOutcome | None = None
+        for selection in selections:
+            execution.raise_if_cancelled_or_expired()
+            outcome = await self._fetch_target(target, request, context, execution, selection)
+            provenance.extend(outcome.result.provenance)
+            result = outcome.result.model_copy(update={"provenance": tuple(provenance)})
+            outcome = _TargetOutcome(result=result, error=outcome.error)
+            last_outcome = outcome
+            if outcome.error is not None and outcome.error.code in {
+                ProviderErrorCode.INVALID_REQUEST,
+                ProviderErrorCode.POLICY_BLOCKED,
+                ProviderErrorCode.PAYLOAD_TOO_LARGE,
+                ProviderErrorCode.UNSUPPORTED_MEDIA_TYPE,
+            }:
+                if low_quality is not None:
+                    return _TargetOutcome(
+                        result=low_quality.result.model_copy(
+                            update={"provenance": tuple(provenance)}
+                        )
+                    )
+                return outcome
+            if result.status != "success":
+                continue
+            if result.content_metadata is None or result.content_metadata.quality != "low":
+                return _TargetOutcome(result=result)
+            if low_quality is None:
+                low_quality = _TargetOutcome(result=result)
+
+        if low_quality is not None:
+            return _TargetOutcome(
+                result=low_quality.result.model_copy(update={"provenance": tuple(provenance)})
+            )
+        if last_outcome is None:  # pragma: no cover - guarded by _resolve_selections.
+            raise ProviderError(ProviderErrorCode.INVALID_REQUEST)
+        return last_outcome
+
     async def _fetch_target(
         self,
         target: object,
         request: FetchRequest,
         context: RequestContext,
         execution: ExecutionContext,
-        adapter_id: str,
+        selection: _ProviderSelection,
     ) -> _TargetOutcome:
+        adapter_id = selection.adapter_id
         target_request = FetchTargetRequest(
             target=target,
             content=request.content,
@@ -135,13 +209,13 @@ class FetchModuleService:
             builtin_error = None
         except ProviderError as exc:
             builtin_error = exc
-            builtin_result = _failed_result(target_request, context, adapter_id, exc)
+            builtin_result = _failed_result(target_request, context, selection.provider_id, exc)
         except Exception:
             builtin_error = ProviderError(ProviderErrorCode.PROVIDER_UNAVAILABLE)
             builtin_result = _failed_result(
                 target_request,
                 context,
-                adapter_id,
+                selection.provider_id,
                 builtin_error,
             )
 
@@ -158,13 +232,18 @@ class FetchModuleService:
             browser_error = None
         except ProviderError as exc:
             browser_error = exc
-            browser_result = _failed_result(target_request, context, adapter_id, exc)
+            browser_result = _failed_result(
+                target_request,
+                context,
+                selection.provider_id,
+                exc,
+            )
         except Exception:
             browser_error = ProviderError(ProviderErrorCode.WORKER_UNAVAILABLE)
             browser_result = _failed_result(
                 target_request,
                 context,
-                adapter_id,
+                selection.provider_id,
                 browser_error,
             )
         if builtin_result.status == "success":
@@ -212,7 +291,7 @@ class FetchModuleService:
 def _failed_result(
     request: FetchTargetRequest,
     context: RequestContext,
-    adapter_id: str,
+    provider_id: str,
     error: ProviderError,
 ) -> FetchResult:
     code = _canonical_error_code(error.code)
@@ -220,13 +299,13 @@ def _failed_result(
         target=request.target,
         final_url=None,
         status="blocked" if error.code is ProviderErrorCode.POLICY_BLOCKED else "failed",
-        provenance=(Provenance(provider=adapter_id, outcome="failed"),),
+        provenance=(Provenance(provider=provider_id, outcome="failed"),),
         error=ErrorDetail(
             code=code,
             message=_safe_error_message(code),
             retryable=error.retryable,
             request_id=context.request_id,
-            provider=adapter_id,
+            provider=provider_id,
         ),
     )
 
@@ -265,7 +344,9 @@ def _safe_error_message(code: str) -> str:
     }[code]
 
 
-def _all_failed_error(outcomes: list[_TargetOutcome], adapter_id: str) -> ProviderError:
+def _all_failed_error(
+    outcomes: list[_TargetOutcome], selections: tuple[_ProviderSelection, ...]
+) -> ProviderError:
     errors = [outcome.error for outcome in outcomes if outcome.error is not None]
     codes = {error.code for error in errors}
     provider_code = next(iter(codes)) if len(codes) == 1 else ProviderErrorCode.PROVIDER_UNAVAILABLE
@@ -277,7 +358,7 @@ def _all_failed_error(outcomes: list[_TargetOutcome], adapter_id: str) -> Provid
         retry_after = max(retry_values) if retry_values else None
     return ProviderError(
         provider_code,
-        provider_id=adapter_id,
+        provider_id=selections[0].provider_id if len(selections) == 1 else None,
         retry_after_seconds=retry_after,
     )
 

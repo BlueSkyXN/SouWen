@@ -39,8 +39,14 @@ function searchPage(items: Array<Record<string, unknown>>) {
   return { items, page: { limit: 20 }, meta: {}, context: { request_id: 'test', api_major: 2 } }
 }
 
-function llmResult(answer: string, evidence: Array<Record<string, unknown>> = []) {
-  return { answer, evidence, items: [], meta: {}, usage: {}, query: 'query', context: { request_id: 'test', api_major: 2 } }
+function llmResult(answer: string | null, evidence: Array<Record<string, unknown>> = []) {
+  const items = evidence.map((item, index) => ({
+    id: String(item.item_id ?? `item-${index + 1}`),
+    title: String(item.title_or_snippet ?? `item-${index + 1}`),
+    url: item.public_url,
+    provenance: [{ provider: String(item.provider ?? 'provider'), outcome: 'success' }],
+  }))
+  return { answer, evidence, items, meta: {}, usage: {}, query: 'query', context: { request_id: 'test', api_major: 2 } }
 }
 
 function fetchBatch(items: Array<Record<string, unknown>>) {
@@ -102,7 +108,7 @@ describe('Calm Precision Panel', () => {
     })
   })
 
-  it('projects Settings to a safe posture summary without legacy or secret fields', () => {
+  it('projects Settings to a safe gateway posture without legacy or secret fields', () => {
     const summary = projectSettingsForDisplay({
       admin_password: 'masked',
       proxy: 'http://private.example',
@@ -124,7 +130,7 @@ describe('Calm Precision Panel', () => {
         trusted_proxy_count: 1,
       },
       providers: { configured_source_count: 1, llm_gateway_count: 1 },
-      llm_search: { enabled: true, protocol: 'openai_chat', model: 'test-model' },
+      llm_search: { gateway_declared: true, availability_source: 'Providers' },
     })
     expect(JSON.stringify(summary)).not.toMatch(
       /admin_password|warp_enabled|api_key|private\.example|masked|secret/i,
@@ -150,6 +156,20 @@ describe('Calm Precision Panel', () => {
     expect(await screen.findByRole('alert')).toHaveTextContent('request failed')
   })
 
+  it('uses the generated domain list and leaves Provider selection to the Server', async () => {
+    authenticate('user')
+    sdk.search.mockResolvedValueOnce(searchPage([]))
+    const user = userEvent.setup()
+    render(<CalmPrecisionApp />)
+
+    await user.type(await screen.findByLabelText('查询'), 'default provider query')
+    await user.selectOptions(screen.getByRole('combobox', { name: '领域' }), 'knowledge')
+    await user.click(screen.getByRole('button', { name: '运行搜索' }))
+
+    expect(sdk.search.mock.calls[0][0]).toMatchObject({ domains: ['knowledge'] })
+    expect(sdk.search.mock.calls[0][0]).not.toHaveProperty('providers')
+  })
+
   it('rejects an untrusted base URL before a token can be sent', () => {
     expect(() => assertBaseUrlAllowed('https://untrusted.example')).toThrow('白名单')
   })
@@ -157,7 +177,7 @@ describe('Calm Precision Panel', () => {
   it('renders contract-shaped LLM evidence with title_or_snippet and public_url', async () => {
     authenticate('user')
     window.location.hash = '#/llm-search'
-    sdk.llmSearch.mockResolvedValueOnce(llmResult('依据已汇总。', [{
+    sdk.llmSearch.mockResolvedValueOnce(llmResult('依据已汇总。[evidence-1]', [{
       id: 'evidence-1', item_id: 'item-1', provider: 'provider-a', public_url: 'https://example.test/evidence',
       retrieved_at: '2026-07-27T00:00:00Z', title_or_snippet: '规范化证据标题',
     }]))
@@ -166,7 +186,7 @@ describe('Calm Precision Panel', () => {
 
     await user.type(await screen.findByLabelText('问题'), 'evidence query')
     await user.type(screen.getByLabelText('Provider ID'), 'provider-a')
-    await user.click(screen.getByRole('button', { name: '综合回答' }))
+    await user.click(screen.getByRole('button', { name: '运行 LLM Search' }))
 
     expect(sdk.llmSearch.mock.calls[0][0]).toMatchObject({
       providers: [{ id: 'provider-a', kind: 'llm_search' }],
@@ -174,6 +194,25 @@ describe('Calm Precision Panel', () => {
     })
     expect(await screen.findByRole('link', { name: '规范化证据标题' })).toHaveAttribute('href', 'https://example.test/evidence')
     expect(screen.getByText('provider-a')).toBeInTheDocument()
+  })
+
+  it('treats evidence-only LLM Search as a successful contract response', async () => {
+    authenticate('user')
+    window.location.hash = '#/llm-search'
+    sdk.llmSearch.mockResolvedValueOnce(llmResult(null, [{
+      id: 'evidence-1', item_id: 'item-1', provider: 'provider-a', public_url: 'https://example.test/evidence',
+      retrieved_at: '2026-07-27T00:00:00Z', title_or_snippet: '仅证据结果',
+    }]))
+    const user = userEvent.setup()
+    render(<CalmPrecisionApp />)
+
+    await user.type(await screen.findByLabelText('问题'), 'evidence-only query')
+    await user.type(screen.getByLabelText('Provider ID'), 'provider-a')
+    await user.click(screen.getByRole('button', { name: '运行 LLM Search' }))
+
+    expect(await screen.findByRole('link', { name: '仅证据结果' })).toBeInTheDocument()
+    expect(screen.getByText('当前 Provider 返回了结构化证据，但未提供可验证的综合回答。')).toBeInTheDocument()
+    expect(screen.queryByRole('heading', { name: '回答' })).not.toBeInTheDocument()
   })
 
   it('rejects a Fetch batch over 20 URLs without calling the SDK', async () => {
@@ -191,6 +230,24 @@ describe('Calm Precision Panel', () => {
 
     expect(await screen.findByRole('alert')).toHaveTextContent('最多支持 20 个 URL')
     expect(sdk.fetch).not.toHaveBeenCalled()
+  })
+
+  it('uses the target runtime fallback Fetch strategy without exposing fanout', async () => {
+    authenticate('user')
+    window.location.hash = '#/fetch'
+    sdk.fetch.mockResolvedValueOnce(fetchBatch([]))
+    const user = userEvent.setup()
+    render(<CalmPrecisionApp />)
+
+    await user.type(await screen.findByLabelText('URLs'), 'https://example.test/article')
+    expect(screen.queryByRole('option', { name: 'fanout' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: '开始 Fetch' }))
+
+    expect(sdk.fetch.mock.calls[0][0]).toMatchObject({
+      targets: ['https://example.test/article'],
+      strategy: 'fallback',
+      policy: { respect_robots: true },
+    })
   })
 
   it('keeps the latest Search result, aborts the replaced request, and aborts on unmount', async () => {
@@ -235,7 +292,7 @@ describe('Calm Precision Panel', () => {
     const form = query.closest('form')!
     await user.type(query, 'first')
     await user.type(screen.getByLabelText('Provider ID'), 'provider-a')
-    await user.click(screen.getByRole('button', { name: '综合回答' }))
+    await user.click(screen.getByRole('button', { name: '运行 LLM Search' }))
     const firstSignal = sdk.llmSearch.mock.calls[0][1].signal as AbortSignal
     await user.clear(query)
     await user.type(query, 'second')

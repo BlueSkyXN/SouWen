@@ -13,7 +13,8 @@ PYTHONPATH=src pytest tests/test_typescript_sdk_generator.py -v --tb=short
 cd panel && npm test -- --run src/core/sdk/index.test.ts
 ```
 
-Generator 固定记录 `SDK_VERSION`、`SUPPORTED_API_MAJOR` 和 canonical artifact 的
+Generator 固定记录 `SDK_VERSION`、`SUPPORTED_API_MAJOR`、由 OpenAPI enum 派生的
+`SEARCH_DOMAINS` 和 canonical artifact 的
 SHA-256，并对 35 个 DTO、8 个 operation、security/header contract、schema ref、重复
 operation/schema 和不能安全映射的 schema shape 进行 fail-closed 校验。`--check` 只比较
 生成结果，不写文件。

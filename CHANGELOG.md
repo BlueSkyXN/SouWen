@@ -28,6 +28,12 @@
   credential-shaped string fail closed。
 - 修正 Docker 文档：应用配置只读挂载到 `/app/souwen.yaml`，`/app/data` 专用于 WARP/runtime
   persistence。
+- 修复 final-main 浏览器验收暴露的交互与运行时边界：Search 的 YAML
+  `search_defaults` 精确覆盖 13 个 canonical domain，`paper` primary 改为 `crossref`，Panel domain
+  从 frozen OpenAPI 生成；LLM Search 明确区分 evidence-only 与可选 answer；Fetch 实现 RC4
+  `fallback`/`fanout` 契约，Panel 保持 `fallback`，IP-pinned HTTPX 以流式 gzip/deflate 解码执行
+  解压后 10 MiB hard cap；Settings 不再读取已退休的 legacy `llm` 字段，并把 gateway 声明与
+  Provider 实际可用性分开。
 
 ## v2.0.0rc4 — Release Candidate（2026-07-29）
 

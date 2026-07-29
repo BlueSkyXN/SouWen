@@ -35,8 +35,9 @@ AUTH_HEADER="X-SouWen-Token: $SOUWEN_TOKEN"
 
 ## Providers
 
-先读取 catalog，再为 Search、LLM Search 和 Fetch 选择 `availability=available` 且声明对应
-capability 的 Provider。不要在客户端维护平行 Provider 清单。
+先读取 catalog，了解 Search、LLM Search 和 Fetch Provider 的当前 eligibility/availability。
+LLM Search 必须显式选择 Provider；Search/Fetch 可以使用 Server default，也可以由 SDK/API
+caller 显式选择。不要在客户端维护平行 Provider 清单。
 
 ```bash
 curl --fail-with-body "$BASE_URL/api/v1/providers" \
@@ -57,13 +58,14 @@ curl --fail-with-body "$BASE_URL/api/v1/search" \
   -d '{
     "query": "retrieval augmented generation",
     "domains": ["paper"],
-    "providers": [{"id": "openalex", "kind": "search"}],
     "page": {"limit": 3}
   }'
 ```
 
 响应是 `SearchPage`：`items` 为 canonical results，`page` 提供 limit/cursor，`meta` 和
-`context` 提供本次执行与请求信息。调用方应保留每条结果的 provenance。
+`context` 提供本次执行与请求信息。调用方应保留每条结果的 provenance。`providers` 缺省时，
+`search_defaults` 为该 domain 选择一个 primary；当前 `paper` primary 是 `crossref`。显式传入
+一个 Provider 时只调用该 Provider；显式传入多个 Provider 时按 Search contract fanout/merge。
 
 ## LLM Search
 
@@ -82,8 +84,10 @@ curl --fail-with-body "$BASE_URL/api/v1/llm-search" \
   }'
 ```
 
-响应是 `LLMSearchResult`，包含 `answer`、`evidence`、`items` 和始终存在的 `usage` 对象。
-`usage` 只反映 Provider 回报，未知值为 `null`，不能推导平台账单。
+响应是 `LLMSearchResult`，包含 `evidence`、`items`、可空的 `answer` 和始终存在的 `usage`
+对象。`answer` 是非必填、nullable 字段：Provider 只返回可验证结构化证据时为 `null`，这仍是有效
+成功；只有 Provider 返回可引用的 synthesis 时才有文本回答。`usage` 只反映 Provider 回报，未知值
+为 `null`，不能推导平台账单。
 
 ## Fetch
 
@@ -103,6 +107,15 @@ curl --fail-with-body "$BASE_URL/api/v1/fetch" \
 Fetch 一次接受 1–20 个 `http/https` target。`respect_robots` 只能保持为 `true`；客户端选项
 不能关闭服务端 SSRF、redirect、DNS、robots 或 response-size 保护。每个 `FetchResult` 独立报告
 `success`、`failed` 或 `blocked`，以及自己的 provenance 或安全错误。
+
+`strategy=fallback` 按 Provider 顺序逐 target 尝试，获得高质量成功后停止；低质量成功在没有
+更好结果时保留为 partial item。`strategy=fanout` 对每个 `target × provider` 组合并发执行，
+按 target-major、provider-minor 顺序返回独立 `FetchResult`，不合并不同 Provider 的正文。
+Panel 为降低日常操作成本固定发送 `fallback`；SDK/API caller 可以显式请求 `fanout`。完整执行
+语义见 [SPEC-04](./internal/spec-04-fetch-module-lld.md)。
+
+IP-pinned builtin Fetch 只广告 `gzip, deflate`，并在 raw stream 上增量解码；解压后正文达到
+`10 MiB + 1 byte` 时立即关闭 stream 并返回 `payload_too_large`，不会先完整缓冲压缩响应。
 
 ## Admin 与 probes
 

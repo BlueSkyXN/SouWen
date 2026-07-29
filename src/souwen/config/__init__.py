@@ -25,11 +25,19 @@ from .loader import (
     get_config,
     reload_config,
 )
-from .models import LLMSearchGatewayConfig, SourceChannelConfig, SouWenConfig
+from .models import (
+    DEFAULT_SEARCH_PROVIDERS,
+    SEARCH_DOMAINS,
+    LLMSearchGatewayConfig,
+    SourceChannelConfig,
+    SouWenConfig,
+)
 from .template import _DEFAULT_CONFIG_TEMPLATE
 from .validators import _ALLOWED_PROXY_SCHEMES, _validate_proxy_url
 
 __all__ = [
+    "DEFAULT_SEARCH_PROVIDERS",
+    "SEARCH_DOMAINS",
     "SouWenConfig",
     "SourceChannelConfig",
     "LLMSearchGatewayConfig",

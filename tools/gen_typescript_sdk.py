@@ -15,7 +15,7 @@ from typing import Any
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_ARTIFACT = REPOSITORY_ROOT / "contracts/openapi/souwen-openapi-2.0.0rc4.json"
 DEFAULT_OUTPUT = REPOSITORY_ROOT / "panel/src/core/sdk/index.ts"
-GENERATOR_VERSION = 1
+GENERATOR_VERSION = 2
 EXPECTED_VERSION = "2.0.0rc4"
 EXPECTED_API_MAJOR = 2
 EXPECTED_OPERATIONS = {
@@ -298,6 +298,23 @@ def _render_dtos(document: dict[str, Any]) -> list[str]:
     return lines
 
 
+def _search_domains(document: dict[str, Any]) -> list[str]:
+    try:
+        values = document["components"]["schemas"]["SearchRequest"]["properties"]["domains"][
+            "items"
+        ]["enum"]
+    except (KeyError, TypeError) as exc:
+        raise GenerationError("SearchRequest.domains must expose one enum") from exc
+    if (
+        not isinstance(values, list)
+        or not values
+        or any(not isinstance(value, str) or not value for value in values)
+        or len(values) != len(set(values))
+    ):
+        raise GenerationError("SearchRequest.domains enum must contain unique strings")
+    return values
+
+
 def _render(document: dict[str, Any], artifact_payload: bytes) -> str:
     artifact_sha = hashlib.sha256(artifact_payload).hexdigest()
     operation_lines = []
@@ -319,6 +336,8 @@ def _render(document: dict[str, Any], artifact_payload: bytes) -> str:
             f"export const SUPPORTED_API_MAJOR = {document['x-souwen-api-major']} as const",
             f"export const OPENAPI_SHA256 = {artifact_sha!r} as const",
             "export const DEFAULT_TIMEOUT_MS = 125_000",
+            f"export const SEARCH_DOMAINS = {json.dumps(_search_domains(document))} as const",
+            "export type SearchDomain = typeof SEARCH_DOMAINS[number]",
             "",
             *dto_lines,
             "export interface OperationBinding<Request, Response> {",

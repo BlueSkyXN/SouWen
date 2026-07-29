@@ -126,6 +126,24 @@ warp:
   # external 模式
   warp_external_proxy: ~  # 外部 WARP 代理地址(如 socks5://warp:1080)
 
+# ===== Search 有序默认 Provider =====
+# 每个 canonical domain 必须完整声明；运行时只选择列表中的第一个 primary，
+# 不会把候选列表当作一次请求中的 fallback 或 fanout。
+search_defaults:
+  paper: [crossref, openalex, eric]
+  book: [open_library]
+  research_output: [datacite]
+  patent: [google_patents]
+  web: [bing, duckduckgo]
+  news: [duckduckgo_news]
+  images: [duckduckgo_images]
+  videos: [bilibili, duckduckgo_videos]
+  social: [reddit, weibo, zhihu]
+  office: [feishu_drive]
+  developer: [github, stackoverflow]
+  cn_tech: [linuxdo, v2ex]
+  knowledge: [wikipedia]
+
 # ===== 数据源频道配置 =====
 # 按源名称配置,覆盖全局默认值.
 # 可用字段: enabled, proxy, http_backend, base_url, timeout, api_key, headers, params

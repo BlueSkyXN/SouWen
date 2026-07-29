@@ -32,6 +32,10 @@ def test_generated_typescript_sdk_is_current_and_records_exact_artifact() -> Non
         )
     assert "This is a Panel/Vite client" in source
     assert "import.meta.env.VITE_ALLOWED_API_HOSTS" in source
+    search_domains = document["components"]["schemas"]["SearchRequest"]["properties"]["domains"][
+        "items"
+    ]["enum"]
+    assert f"export const SEARCH_DOMAINS = {json.dumps(search_domains)} as const" in source
     for operation_id in gen_typescript_sdk.EXPECTED_OPERATIONS:
         assert f"  {operation_id}: {{" in source
 

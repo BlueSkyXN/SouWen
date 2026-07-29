@@ -31,6 +31,7 @@ from souwen.platform.provider_spi import (
     ProviderError,
     ProviderErrorCode,
     Provenance,
+    SearchRequest,
     SearchMeta,
     Usage,
 )
@@ -483,6 +484,60 @@ async def test_runtime_catalog_keeps_uniapi_missing_fields_safe_and_nonblocking(
 
 
 @pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("paper_defaults", "disabled_provider", "expected_primary"),
+    (
+        (("crossref", "openalex"), "openalex", "crossref"),
+        (("openalex", "crossref"), "crossref", "openalex"),
+        (("eric", "crossref"), "crossref", "eric"),
+    ),
+)
+async def test_readiness_requires_the_configured_paper_primary_not_a_disabled_alternative(
+    monkeypatch,
+    paper_defaults,
+    disabled_provider,
+    expected_primary,
+) -> None:
+    monkeypatch.delenv("SOUWEN_BROWSER_WORKER_TOKEN", raising=False)
+    search_defaults = SouWenConfig().search_defaults
+    search_defaults["paper"] = paper_defaults
+    runtime = build_target_runtime(
+        SouWenConfig(
+            search_defaults=search_defaults,
+            sources={disabled_provider: {"enabled": False}},
+        )
+    )
+
+    selection = runtime.services.search._selector.select_default(
+        SearchRequest(query="readiness", domains=("paper",))
+    )[0]
+    snapshot = await runtime.services.readiness()
+
+    assert selection.provider.id == expected_primary
+    assert snapshot.ready is True
+    assert snapshot.components[expected_primary] == "ready"
+    assert snapshot.components[disabled_provider] == "not_ready"
+
+
+@pytest.mark.asyncio
+async def test_readiness_names_an_unavailable_nonstandard_paper_primary(monkeypatch) -> None:
+    monkeypatch.delenv("SOUWEN_BROWSER_WORKER_TOKEN", raising=False)
+    search_defaults = SouWenConfig().search_defaults
+    search_defaults["paper"] = ("eric", "crossref")
+    runtime = build_target_runtime(
+        SouWenConfig(
+            search_defaults=search_defaults,
+            sources={"eric": {"enabled": False}},
+        )
+    )
+
+    snapshot = await runtime.services.readiness()
+
+    assert snapshot.ready is False
+    assert snapshot.components["eric"] == "not_ready"
+
+
+@pytest.mark.asyncio
 async def test_enabled_browser_worker_is_required_for_target_readiness(monkeypatch) -> None:
     class _Worker:
         def __init__(self, *, fail: bool) -> None:
@@ -527,6 +582,39 @@ def test_composition_root_requires_the_shared_browser_inventory_digest(monkeypat
         runtime.browser_client._expected_inventory_digest
         == BROWSER_WORKER_PROVIDER_INVENTORY_DIGEST
     )
+
+
+def test_target_runtime_has_one_default_provider_for_every_public_search_domain(
+    monkeypatch,
+) -> None:
+    monkeypatch.delenv("SOUWEN_BROWSER_WORKER_TOKEN", raising=False)
+    runtime = build_target_runtime(SouWenConfig())
+    selector = runtime.services.search._selector
+
+    expected = {
+        "paper": "crossref",
+        "book": "open_library",
+        "research_output": "datacite",
+        "patent": "google_patents",
+        "web": "bing",
+        "news": "duckduckgo_news",
+        "images": "duckduckgo_images",
+        "videos": "bilibili",
+        "social": "reddit",
+        "office": "feishu_drive",
+        "developer": "github",
+        "cn_tech": "linuxdo",
+        "knowledge": "wikipedia",
+    }
+
+    selected = {
+        domain: selector.select_default(SearchRequest(query="default", domains=(domain,)))[
+            0
+        ].provider.id
+        for domain in expected
+    }
+
+    assert selected == expected
 
 
 @pytest.mark.asyncio

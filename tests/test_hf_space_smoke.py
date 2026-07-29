@@ -332,7 +332,7 @@ def test_missing_required_llm_provider_is_reported_as_a_failed_check(monkeypatch
             "capabilities": ["search"],
         },
         {
-            "provider": "builtin",
+            "provider": "builtin-fetch",
             "availability": "available",
             "capabilities": ["fetch"],
         },
@@ -344,9 +344,13 @@ def test_missing_required_llm_provider_is_reported_as_a_failed_check(monkeypatch
 
         def json(self, path, **_kwargs):
             if path == "/api/v1/search":
-                return 200, {}, {"items": []}
+                return 200, {}, {"items": [], "meta": {"requested": ["crossref"]}}
             if path == "/api/v1/fetch":
-                return 200, {}, {"items": [{"status": "success", "content": "fixture"}]}
+                return (
+                    200,
+                    {},
+                    {"items": [{"status": "success", "content": "Example Domain fixture"}]},
+                )
             raise AssertionError(path)
 
     monkeypatch.setattr(smoke, "Client", Client)
@@ -361,10 +365,12 @@ def test_missing_required_llm_provider_is_reported_as_a_failed_check(monkeypatch
 
     payload = json.loads(report.read_text(encoding="utf-8"))
     checks = {item["name"]: item for item in payload["checks"]}
+    assert checks["search_default_live"]["outcome"] == "PASS"
     assert checks["search_live"]["outcome"] == "PASS"
     assert checks["llm_search_live"]["outcome"] == "FAIL"
     assert checks["llm_search_live"]["detail"] == "no available llm_search provider"
     assert checks["fetch_live"]["outcome"] == "PASS"
+    assert checks["fetch_readable_live"]["outcome"] == "PASS"
 
 
 def test_search_live_uses_bounded_provider_fallback(monkeypatch, tmp_path) -> None:
@@ -391,6 +397,8 @@ def test_search_live_uses_bounded_provider_fallback(monkeypatch, tmp_path) -> No
         ]
     )
     calls: list[str] = []
+    default_payloads: list[dict] = []
+    fetch_strategies: list[str] = []
 
     class Client:
         def __init__(self, *_args, **_kwargs):
@@ -398,15 +406,24 @@ def test_search_live_uses_bounded_provider_fallback(monkeypatch, tmp_path) -> No
 
         def json(self, path, **kwargs):
             if path == "/api/v1/search":
+                if "providers" not in kwargs["payload"]:
+                    default_payloads.append(kwargs["payload"])
+                    calls.append("default")
+                    return 200, {}, {"items": [], "meta": {"requested": ["crossref"]}}
                 provider = kwargs["payload"]["providers"][0]["id"]
                 calls.append(provider)
-                if provider == "openalex":
+                if provider == "crossref":
                     return 503, {}, {"error": {"code": "upstream_unavailable"}}
                 return 200, {}, {"items": []}
             if path == "/api/v1/llm-search":
                 return 200, {}, {"evidence": [], "usage": {}}
             if path == "/api/v1/fetch":
-                return 200, {}, {"items": [{"status": "success", "content": "fixture"}]}
+                fetch_strategies.append(kwargs["payload"]["strategy"])
+                return (
+                    200,
+                    {},
+                    {"items": [{"status": "success", "content": "Example Domain fixture"}]},
+                )
             raise AssertionError(path)
 
     monkeypatch.setattr(smoke, "Client", Client)
@@ -414,8 +431,17 @@ def test_search_live_uses_bounded_provider_fallback(monkeypatch, tmp_path) -> No
     report = tmp_path / "capability.json"
 
     assert smoke.main(["--mode", "capability", "--json-report", str(report)]) == 0
-    assert calls == ["openalex", "crossref"]
+    assert calls == ["default", "crossref", "openalex"]
+    assert default_payloads == [
+        {
+            "query": "retrieval augmented generation",
+            "domains": ["paper"],
+            "page": {"limit": 3},
+        }
+    ]
+    assert fetch_strategies == ["fallback", "fanout"]
     checks = {
         item["name"]: item for item in json.loads(report.read_text(encoding="utf-8"))["checks"]
     }
-    assert checks["search_live"]["detail"] == "crossref: 0 results"
+    assert checks["search_default_live"]["detail"] == "crossref: 0 results"
+    assert checks["search_live"]["detail"] == "openalex: 0 results"

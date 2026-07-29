@@ -40,6 +40,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
+from collections.abc import Mapping
 from typing import Any
 from urllib.parse import urljoin, urlparse
 
@@ -408,7 +409,33 @@ class BuiltinFetcherClient(BaseScraper):
                     current_url,
                     _resolved_target=target,
                     _include_configured_headers=include_configured_headers,
+                    _max_response_bytes=(
+                        self.MAX_RESPONSE_SIZE if enforce_target_contract else None
+                    ),
                 )
+
+                response_extensions = getattr(resp, "extensions", {})
+                if (
+                    enforce_target_contract
+                    and isinstance(response_extensions, Mapping)
+                    and response_extensions.get("souwen_response_too_large")
+                ):
+                    lower_bound = response_extensions.get(
+                        "souwen_response_size_lower_bound", self.MAX_RESPONSE_SIZE + 1
+                    )
+                    return FetchResult(
+                        url=url,
+                        final_url=current_url,
+                        source=self.PROVIDER_NAME,
+                        error="解压后响应体超过上限",
+                        raw={
+                            "provider": "builtin",
+                            "status_code": resp.status_code,
+                            "content_length": lower_bound,
+                            "oversized": True,
+                            "target_error_code": "response_too_large",
+                        },
+                    )
 
                 if resp.status_code not in self._REDIRECT_CODES:
                     break
