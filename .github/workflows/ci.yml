@@ -220,7 +220,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '22.22.0'
           cache: 'npm'
           cache-dependency-path: panel/package-lock.json
 
@@ -260,7 +260,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '22.22.0'
           cache: npm
           cache-dependency-path: panel/package-lock.json
 
@@ -499,7 +499,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: '20'
+          node-version: '22.22.0'
           cache: npm
           cache-dependency-path: panel/package-lock.json
 

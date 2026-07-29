@@ -19,10 +19,9 @@
     "noUnusedParameters": true,
     "noFallthroughCasesInSwitch": true,
     "noUncheckedSideEffectImports": true,
-    "baseUrl": ".",
     "paths": {
-      "@core": ["src/core"],
-      "@core/*": ["src/core/*"]
+      "@core": ["./src/core"],
+      "@core/*": ["./src/core/*"]
     }
   },
   "include": ["src"]

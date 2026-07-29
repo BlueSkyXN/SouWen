@@ -944,6 +944,32 @@ def test_ruff_toolchain_version_is_pinned_consistently() -> None:
         assert "pip install ruff\n" not in workflow
 
 
+def test_panel_toolchain_versions_and_node_baseline_are_pinned() -> None:
+    package = json.loads((REPO_ROOT / "panel" / "package.json").read_text(encoding="utf-8"))
+    assert package["engines"]["node"] == ">=22.22.0"
+    expected_dependencies = {
+        "@vitejs/plugin-react": "^5.2.0",
+        "typescript": "~7.0.2",
+        "vite": "^8.1.5",
+        "vite-plugin-singlefile": "^2.3.3",
+        "vitest": "^4.1.10",
+    }
+    assert {
+        name: package["devDependencies"][name] for name in expected_dependencies
+    } == expected_dependencies
+
+    expected_setup_node_steps = {
+        "ci.yml": 3,
+        "v2-ci.yml": 2,
+        "release-candidate.yml": 1,
+        "build-pyinstaller-server.yml": 1,
+    }
+    for workflow_name, expected_count in expected_setup_node_steps.items():
+        workflow = _workflow(workflow_name)
+        assert len(re.findall(r"node-version:\s*['\"]22\.22\.0['\"]", workflow)) == expected_count
+        assert not re.search(r"node-version:\s*['\"]20['\"]", workflow)
+
+
 def test_container_smokes_avoid_pipefail_broken_pipe_on_panel_html() -> None:
     containers = (
         _job(_workflow("release-candidate.yml"), "container", "promotion-gate"),
