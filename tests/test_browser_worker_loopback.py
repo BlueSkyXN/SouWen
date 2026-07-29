@@ -73,7 +73,7 @@ class _CancellationExecutor(_Executor):
 async def test_worker_client_uses_real_authenticated_loopback_http() -> None:
     evidence = WorkerRuntimeEvidence(
         source_sha="a" * 40,
-        runtime_version="2.0.0rc3",
+        runtime_version="2.0.0rc4",
         config_revision="config-r1",
         provider_inventory_digest="b" * 64,
     )
@@ -132,7 +132,7 @@ async def test_worker_client_uses_real_authenticated_loopback_http() -> None:
 async def test_real_loopback_disconnect_cancels_worker_execution() -> None:
     evidence = WorkerRuntimeEvidence(
         source_sha="a" * 40,
-        runtime_version="2.0.0rc3",
+        runtime_version="2.0.0rc4",
         config_revision="config-r1",
         provider_inventory_digest="b" * 64,
     )

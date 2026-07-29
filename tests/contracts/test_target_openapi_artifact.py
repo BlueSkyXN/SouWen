@@ -19,7 +19,7 @@ from tools.gen_openapi import main
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
-ARTIFACT = REPOSITORY_ROOT / "contracts/openapi/souwen-openapi-2.0.0rc3.json"
+ARTIFACT = REPOSITORY_ROOT / "contracts/openapi/souwen-openapi-2.0.0rc4.json"
 
 
 def test_checked_artifact_is_the_exact_target_only_materialization() -> None:
@@ -28,7 +28,7 @@ def test_checked_artifact_is_the_exact_target_only_materialization() -> None:
     assert ARTIFACT.read_bytes() == canonical_openapi_bytes()
     assert document == build_target_openapi_document()
     assert set(document["paths"]) == TARGET_OPENAPI_PATHS
-    assert document["info"]["version"] == "2.0.0rc3"
+    assert document["info"]["version"] == "2.0.0rc4"
     assert document["components"]["securitySchemes"] == {
         "UserToken": {"type": "http", "scheme": "bearer"}
     }
@@ -119,8 +119,8 @@ def test_semantic_diff_accepts_additions_and_rejects_contract_changes() -> None:
 
 
 def test_semantic_diff_ignores_release_version_only() -> None:
-    baseline = build_target_openapi_document("2.0.0rc2")
-    candidate = build_target_openapi_document("2.0.0rc3")
+    baseline = build_target_openapi_document("2.0.0rc3")
+    candidate = build_target_openapi_document("2.0.0rc4")
 
     assert semantic_diff_openapi(baseline, candidate) == {
         "added_operations": [],

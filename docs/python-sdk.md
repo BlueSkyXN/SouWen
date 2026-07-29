@@ -1,7 +1,7 @@
 # Python REST SDK
 
-SouWen v2rc3 的 Python SDK 由
-[`contracts/openapi/souwen-openapi-2.0.0rc3.json`](../contracts/openapi/souwen-openapi-2.0.0rc3.json)
+SouWen v2rc4 的 Python SDK 由
+[`contracts/openapi/souwen-openapi-2.0.0rc4.json`](../contracts/openapi/souwen-openapi-2.0.0rc4.json)
 确定性生成。同步 `SouWenClient` 与异步 `AsyncSouWenClient` 覆盖同一组 8 个 operation，模型、
 operation mapping、SDK version、API major 与 OpenAPI SHA 都来自这一份 artifact。
 

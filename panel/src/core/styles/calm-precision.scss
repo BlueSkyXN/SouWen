@@ -1,99 +1,106 @@
-/* Calm Precision token layer — accent policy, light + dark semantic remap.
-   角色跨主题固定，主题只重映射值，不重映射含义。
-   来源：Codex-is-all-you-need/local/DESIGN.md rev 0.3.0「Theme System」。 */
+/* Calm Precision token layer — 「Console / 控制台」设计系统。
+   概念：SouWen 是超级搜索引擎，panel 是它的操作台。
+   界面是一台测量仪器——速度、精度、机器感。搜索框是绝对主角，
+   数据用等宽字体承载（引擎输出的原生质感），强调色取信号青（在线、运转中）。
+   角色跨主题固定，主题只重映射值，不重映射含义。 */
 
 :root {
-  /* surfaces */
-  --cp-canvas: #ffffff;
-  --cp-surface: #f7f7f8;
+  /* surfaces — 冷调中性灰，仪器面板 */
+  --cp-canvas: #f6f7f8;
+  --cp-surface: #edeff1;
   --cp-raised: #ffffff;
-  --cp-disabled-surface: #efeff0;
+  --cp-disabled-surface: #e5e7e9;
 
-  /* text */
-  --cp-text: #1f1f1f;
-  --cp-text-muted: #5f5f5f;
-  --cp-text-tertiary: #6b6b6b;
+  /* text — 近黑，高对比 */
+  --cp-text: #14171a;
+  --cp-text-muted: #4d565e;
+  --cp-text-tertiary: #7b8590;
 
   /* borders */
-  --cp-border-subtle: #e7e7e7;
-  --cp-border-control: #767676;
+  --cp-border-subtle: #dde1e5;
+  --cp-border-control: #8a949e;
 
-  /* actions */
-  --cp-primary: #171717;
+  /* actions — 主按钮近黑，accent 信号青 */
+  --cp-primary: #14171a;
   --cp-on-primary: #ffffff;
-  --cp-accent: #005fcc;
-  --cp-accent-soft: #e8f1fe;
+  --cp-accent: #0871b8;
+  --cp-accent-soft: #e2eff8;
   --cp-on-accent: #ffffff;
-  --cp-focus: #0067c0;
+  --cp-focus: #0871b8;
 
   /* status */
-  --cp-critical: #b42318;
-  --cp-critical-soft: #fef3f2;
-  --cp-success: #067647;
-  --cp-success-soft: #ecfdf3;
-  --cp-warning: #8a4b0f;
-  --cp-warning-soft: #fdf6ec;
-  --cp-info: #175cd3;
-  --cp-info-soft: #eff4ff;
+  --cp-critical: #c22e2e;
+  --cp-critical-soft: #fbeaea;
+  --cp-success: #17804a;
+  --cp-success-soft: #e6f4ec;
+  --cp-warning: #97600a;
+  --cp-warning-soft: #faf1e0;
+  --cp-info: #0871b8;
+  --cp-info-soft: #e2eff8;
 
   /* elevation & overlay */
-  --cp-scrim: rgb(0 0 0 / 45%);
-  --cp-shadow: 0 1px 2px rgb(16 24 40 / 6%), 0 1px 3px rgb(16 24 40 / 10%);
+  --cp-scrim: rgb(20 23 26 / 50%);
+  --cp-shadow: 0 1px 2px rgb(20 23 26 / 5%), 0 1px 3px rgb(20 23 26 / 8%);
+  --cp-shadow-raised: 0 1px 2px rgb(20 23 26 / 4%), 0 8px 24px rgb(20 23 26 / 10%);
+  --cp-shadow-pop: 0 2px 6px rgb(20 23 26 / 6%), 0 16px 40px rgb(8 113 184 / 14%);
 
   /* code */
-  --cp-code: #f7f7f8;
-  --cp-code-text: #1f1f1f;
-  --cp-code-border: #e7e7e7;
+  --cp-code: #14171a;
+  --cp-code-text: #d7dee5;
+  --cp-code-border: #2c333a;
 
-  /* typography */
-  --cp-font-ui: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-  --cp-font-mono: "Geist Mono", SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  /* typography — 标题用干练无衬线（仪器读数），数据用等宽（引擎输出） */
+  --cp-font-display: "Inter", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --cp-font-ui: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+  --cp-font-mono: "JetBrains Mono", "SF Mono", SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
 
   color-scheme: light;
 }
 
 :root[data-mode='dark'] {
-  /* surfaces — 浮起靠变亮而非投影 */
-  --cp-canvas: #111111;
-  --cp-surface: #191919;
-  --cp-raised: #202020;
-  --cp-disabled-surface: #242424;
+  /* surfaces — 深色仪器舱，浮起靠变亮 */
+  --cp-canvas: #0f1215;
+  --cp-surface: #161a1e;
+  --cp-raised: #1c2126;
+  --cp-disabled-surface: #23282e;
 
   /* text */
-  --cp-text: #f2f2f2;
-  --cp-text-muted: #a3a3a3;
-  --cp-text-tertiary: #8f8f8f;
+  --cp-text: #e8edf1;
+  --cp-text-muted: #9aa6b0;
+  --cp-text-tertiary: #6f7c88;
 
   /* borders */
-  --cp-border-subtle: #2b2b2b;
-  --cp-border-control: #737373;
+  --cp-border-subtle: #2a3138;
+  --cp-border-control: #67747f;
 
-  /* actions — primary 反转为近白填充 */
-  --cp-primary: #f5f5f5;
-  --cp-on-primary: #171717;
-  --cp-accent: #5aa9ff;
-  --cp-accent-soft: #0e2242;
-  --cp-on-accent: #071c3a;
-  --cp-focus: #4c9aff;
+  /* actions — primary 反转近白，accent 亮青 */
+  --cp-primary: #e8edf1;
+  --cp-on-primary: #14171a;
+  --cp-accent: #3fa9e8;
+  --cp-accent-soft: #12283a;
+  --cp-on-accent: #06131d;
+  --cp-focus: #3fa9e8;
 
   /* status */
-  --cp-critical: #ff6369;
-  --cp-critical-soft: #3b1c1e;
-  --cp-success: #46c78c;
-  --cp-success-soft: #12281e;
-  --cp-warning: #ffb224;
-  --cp-warning-soft: #2e2412;
-  --cp-info: #52a9ff;
-  --cp-info-soft: #12233b;
+  --cp-critical: #f26d6d;
+  --cp-critical-soft: #361a1a;
+  --cp-success: #4fc07f;
+  --cp-success-soft: #14261c;
+  --cp-warning: #e0a83f;
+  --cp-warning-soft: #2b2210;
+  --cp-info: #3fa9e8;
+  --cp-info-soft: #12283a;
 
   /* elevation & overlay */
-  --cp-scrim: rgb(0 0 0 / 60%);
-  --cp-shadow: 0 1px 2px rgb(0 0 0 / 40%), 0 1px 3px rgb(0 0 0 / 50%);
+  --cp-scrim: rgb(0 0 0 / 65%);
+  --cp-shadow: 0 1px 2px rgb(0 0 0 / 45%), 0 1px 3px rgb(0 0 0 / 55%);
+  --cp-shadow-raised: 0 1px 2px rgb(0 0 0 / 40%), 0 8px 24px rgb(0 0 0 / 60%);
+  --cp-shadow-pop: 0 2px 6px rgb(0 0 0 / 45%), 0 16px 40px rgb(63 169 232 / 16%);
 
   /* code */
-  --cp-code: #202020;
-  --cp-code-text: #f2f2f2;
-  --cp-code-border: #2b2b2b;
+  --cp-code: #0a0c0e;
+  --cp-code-text: #d7dee5;
+  --cp-code-border: #2a3138;
 
   color-scheme: dark;
 }

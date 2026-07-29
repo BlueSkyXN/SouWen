@@ -1,10 +1,10 @@
-/* Generated from contracts/openapi/souwen-openapi-2.0.0rc3.json; do not edit. */
+/* Generated from contracts/openapi/souwen-openapi-2.0.0rc4.json; do not edit. */
 /* generator_version=1 */
-/* openapi_sha256=02f737669c0b29a833ff8362122cb4149d3adbaa0741a14ecfe06eb3ed6b0832 */
+/* openapi_sha256=d036abf271f31022396d3f549da04fde1da2000dd74fe8f21f22111adbd76709 */
 
-export const SDK_VERSION = '2.0.0rc3' as const
+export const SDK_VERSION = '2.0.0rc4' as const
 export const SUPPORTED_API_MAJOR = 2 as const
-export const OPENAPI_SHA256 = '02f737669c0b29a833ff8362122cb4149d3adbaa0741a14ecfe06eb3ed6b0832' as const
+export const OPENAPI_SHA256 = 'd036abf271f31022396d3f549da04fde1da2000dd74fe8f21f22111adbd76709' as const
 export const DEFAULT_TIMEOUT_MS = 125_000
 
 export interface ClientRequestContext {

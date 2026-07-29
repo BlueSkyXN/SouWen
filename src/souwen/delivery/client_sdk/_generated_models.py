@@ -1,7 +1,7 @@
-"""Generated from contracts/openapi/souwen-openapi-2.0.0rc3.json; do not edit."""
+"""Generated from contracts/openapi/souwen-openapi-2.0.0rc4.json; do not edit."""
 
 # generator_version=1
-# openapi_sha256=02f737669c0b29a833ff8362122cb4149d3adbaa0741a14ecfe06eb3ed6b0832
+# openapi_sha256=d036abf271f31022396d3f549da04fde1da2000dd74fe8f21f22111adbd76709
 
 from __future__ import annotations
 

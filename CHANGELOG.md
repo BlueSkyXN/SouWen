@@ -2,20 +2,39 @@
 
 ## 导航
 
-- [Souwen v2rc3 release candidate](#v200rc3--release-candidateunreleased)
+- [Souwen v2rc4 source candidate](#v200rc4--release-candidate2026-07-29-source-candidate)
+- [Souwen v2rc3 release candidate](#v200rc3--release-candidate2026-07-28)
 - [Souwen v2rc2 release candidate](#v200rc2--release-candidate2026-07-27)
 - [v1.x history](#v112--ai-workflow-安全加固与功能深化2026-05-04)
 - [v0.x history](#v090--v1-过渡版2026-04-22)
 
-> v2 段落记录当前 release candidate 的公开变更和验证边界；v1/v0 段落保留历史审计脉络。
+> v2 段落记录当前 source candidate、已发布 RC 的公开变更和验证边界；v1/v0 段落保留历史审计脉络。
 
-## v2.0.0rc3 — Release Candidate（Unreleased）
+## v2.0.0rc4 — Release Candidate（2026-07-29 source candidate）
 
 ### Release status
 
-- 当前候选版本为 **Souwen v2rc3**：Python/runtime/OpenAPI/SDK 为 `2.0.0rc3`，Panel 为
-  `2.0.0-rc3`。本节描述候选源码，不表示 `v2.0.0rc3` tag、GitHub prerelease、四个平台
-  Server bundle 或 HFS promotion 已完成。
+- 当前仓库源码候选为 **Souwen v2rc4**：Python/runtime/OpenAPI/SDK 为 `2.0.0rc4`，Panel
+  为 `2.0.0-rc4`。本节不预先声明 `v2.0.0rc4` tag、GitHub prerelease 或 HFS promotion
+  已完成；发布状态以 exact-main release workflow、GitHub Release 和 HFS 实时读回为准。
+- RC4 保持 API major 2 与 RC3 的 target-only Search、LLM Search、Fetch 和 Provider Catalog
+  契约。RC3→RC4 OpenAPI semantic diff 只有 release version 变化，不引入 API shape 变更。
+- Panel 收敛为更明确的搜索引擎 Console 视觉，保留既有导航、generated SDK、认证、状态管理
+  和服务端数据流；桌面、窄屏、light/dark、键盘焦点及 loading/empty/error 状态仍是发布门禁。
+- 前端构建基线升级到 Node `>=22.22.0`、Vite `8.1.5`、TypeScript `7.0.2` 和
+  `@vitejs/plugin-react` `5.2.0`，继续使用 npm、Vitest 和 single-file embedded artifact。
+- Ruff 升级到 `0.16.0`，同时显式固定既有 `E4`/`E7`/`E9`/`F` lint policy；RC4 不把
+  Ruff 0.16 新默认规则引发的全仓批量改写混入 release diff。
+- RC4 仍不是 `2.0.0` GA，不发布到 PyPI；正式 tag、12 项资产和 HFS promotion 只能由
+  repository-owner 在 exact-main candidate 上通过 central release workflow 创建。
+
+## v2.0.0rc3 — Release Candidate（2026-07-28）
+
+### Release status
+
+- **Souwen v2rc3** 的 Python/runtime/OpenAPI/SDK 为 `2.0.0rc3`，Panel 为
+  `2.0.0-rc3`。Annotated tag `v2.0.0rc3` 与 GitHub prerelease 已发布，精确指向
+  source `94e94d13b1cf72fbaea6e85f8b121c910780ab1d`，Release 包含 12 项正式资产。
 - RC3 保持 API major 2 和 RC2 的 target-only Search、LLM Search、Fetch、Provider Catalog
   契约；版本化 OpenAPI artifact 与 Python/TypeScript SDK 重新生成，不引入 API shape 变更。
 - 纳入 HFS v2 source-lane registry：保留 `BlueSkyXN/SouWen` Space 名与 exact-commit CD，
@@ -23,9 +42,11 @@
   registry-only manifest fail closed。
 - 补齐本地真值文件 ignore 边界；`.env`、`.env.*`、`config.toml`、根 `souwen.yaml` 和
   `local/` 不进入公开仓库，只有无密 example/template 允许跟踪。
-- 纳入 RC2 发布后的 CI action 与 Panel 依赖更新。RC3 发布与 HFS promotion 仍必须通过
-  [`docs/internal/rc-readiness-gates.md`](docs/internal/rc-readiness-gates.md) 的 exact-candidate
-  gate；合并本候选 PR 不会自动部署 HFS。
+- 正式 release workflow
+  [`30334040123`](https://github.com/BlueSkyXN/SouWen/actions/runs/30334040123) 在同一 source
+  上完成四个平台 Server bundle、wheel/sdist、OpenAPI、SBOM、checksums、attestation、HFS
+  promotion 及 surface/capability smoke。2026-07-28 的 HFS 验收记录 source 为上述 tag commit、
+  wrapper/runtime 为 `20af4a95372ee625fc18a5db81b5a0b31736b8e2`；Space 是可变运行环境，当前状态仍需实时读回。
 
 ## v2.0.0rc2 — Release Candidate（2026-07-27）
 

@@ -61,7 +61,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version: "22.22.0"
           cache: "npm"
           cache-dependency-path: panel/package-lock.json
 
@@ -83,14 +83,19 @@ jobs:
             echo 'OpenAPI semantic check: no pull-request baseline required'
             exit 0
           fi
-          artifact='contracts/openapi/souwen-openapi-2.0.0rc3.json'
+          artifact='contracts/openapi/souwen-openapi-2.0.0rc4.json'
           baseline_artifact="$artifact"
           if ! git cat-file -e "$BASE_SHA:$artifact" 2>/dev/null; then
-            previous_artifact='contracts/openapi/souwen-openapi-2.0.0rc2.json'
-            if git cat-file -e "$BASE_SHA:$previous_artifact" 2>/dev/null; then
-              baseline_artifact="$previous_artifact"
-              echo "OpenAPI semantic check: version rollover baseline $previous_artifact"
-            else
+            for previous_artifact in \
+              'contracts/openapi/souwen-openapi-2.0.0rc3.json' \
+              'contracts/openapi/souwen-openapi-2.0.0rc2.json'; do
+              if git cat-file -e "$BASE_SHA:$previous_artifact" 2>/dev/null; then
+                baseline_artifact="$previous_artifact"
+                echo "OpenAPI semantic check: version rollover baseline $previous_artifact"
+                break
+              fi
+            done
+            if [ "$baseline_artifact" = "$artifact" ]; then
               echo 'OpenAPI semantic check: initial baseline; base artifact is absent'
               exit 0
             fi
@@ -414,7 +419,7 @@ jobs:
 
       - uses: actions/setup-node@v7
         with:
-          node-version: "20"
+          node-version: "22.22.0"
           cache: "npm"
           cache-dependency-path: panel/package-lock.json
 
