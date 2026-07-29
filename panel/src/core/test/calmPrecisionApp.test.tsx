@@ -60,6 +60,7 @@ describe('Calm Precision Panel', () => {
 
   it('renders only the five Calm Precision top-level navigation groups for admins', async () => {
     authenticate('admin')
+    const user = userEvent.setup()
     render(<CalmPrecisionApp />)
 
     expect(await screen.findByRole('heading', { name: '搜索' })).toBeInTheDocument()
@@ -72,6 +73,13 @@ describe('Calm Precision Panel', () => {
     expect(navigation).toHaveTextContent('Runtime / Settings')
     expect(navigation).not.toHaveTextContent('Wayback')
     expect(navigation).not.toHaveTextContent('Bilibili')
+    const skipLink = screen.getByRole('link', { name: '跳到主要内容' })
+    const main = document.getElementById('main-content')
+    expect(skipLink).toHaveAttribute('href', '#main-content')
+    expect(main).toHaveAttribute('tabindex', '-1')
+    skipLink.focus()
+    await user.keyboard('{Enter}')
+    expect(main).toHaveFocus()
     expect(screen.getByLabelText('切换为深色模式')).toBeVisible()
     expect(screen.getByLabelText('查询')).toBeRequired()
     expect(screen.getByLabelText('knowledge')).toBeInTheDocument()
