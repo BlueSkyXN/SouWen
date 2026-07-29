@@ -113,36 +113,34 @@ function SearchPage() {
   const client = useSouWenClient()
   const request = useLatestRequest<SearchPage>()
   const [query, setQuery] = useState('')
-  const [domains, setDomains] = useState<string[]>(['paper', 'web'])
+  const [domain, setDomain] = useState('paper')
   const [state, setState] = useState<DataState<{ items: Item[] }>>({ status: 'idle' })
-  const toggle = (domain: string) => setDomains((current) => current.includes(domain) ? current.filter((value) => value !== domain) : [...current, domain])
   async function submit(event: FormEvent) {
-    event.preventDefault(); if (!query.trim() || !domains.length) return; setState({ status: 'loading' })
+    event.preventDefault(); if (!query.trim()) return; setState({ status: 'loading' })
     void request.run(
-      (signal) => client.search({ query: query.trim(), domains, page: { limit: 20 } } as RequestFor<'search'>, { signal }),
+      (signal) => client.search({ query: query.trim(), domains: [domain], page: { limit: 20 } } as RequestFor<'search'>, { signal }),
       (data) => setState({ status: 'success', data: data as unknown as { items: Item[] } }),
       (error) => setState({ status: 'error', error: formatError(error) }),
     )
   }
-  return <><Header eyebrow="Search" title="搜索" description="选择领域并提交查询，结果统一规范化，只展示可追溯的公共字段。" /><section className={`${styles.panel} ${styles.formPanel}`}><form className={styles.form} onSubmit={submit}><div className={styles.field}><label className={styles.label} htmlFor="search-query">查询</label><input className={styles.input} id="search-query" name="query" type="search" value={query} onChange={(event) => setQuery(event.target.value)} required maxLength={4096} placeholder="输入研究问题、主题或作者" /></div><fieldset className={styles.field}><legend className={styles.label}>领域</legend><div className={styles.choiceList}>{DOMAINS.map((domain) => <label className={styles.choice} key={domain}><input type="checkbox" name="domains" checked={domains.includes(domain)} onChange={() => toggle(domain)} />{domain}</label>)}</div><span className={styles.hint}>至少选择一个领域。</span></fieldset><div className={styles.formFooter}><span className={styles.hint}>由 generated SouWenClient 发送请求。</span><button className={styles.button} disabled={state.status === 'loading' || !query.trim() || !domains.length} type="submit" aria-busy={state.status === 'loading'}>运行搜索</button></div></form></section><Status state={state} name="搜索结果" />{state.status === 'success' && <Results items={state.data?.items ?? []} />}</>
+  return <><Header eyebrow="Search" title="搜索" description="选择一个领域并提交查询，结果统一规范化，只展示可追溯的公共字段。" /><section className={`${styles.panel} ${styles.formPanel}`}><form className={styles.form} onSubmit={submit}><div className={styles.field}><label className={styles.label} htmlFor="search-query">查询</label><input className={styles.input} id="search-query" name="query" type="search" value={query} onChange={(event) => setQuery(event.target.value)} required maxLength={4096} placeholder="输入研究问题、主题或作者" /></div><div className={styles.field}><label className={styles.label} htmlFor="search-domain">领域</label><select className={styles.select} id="search-domain" name="domain" value={domain} onChange={(event) => setDomain(event.target.value)}>{DOMAINS.map((value) => <option key={value} value={value}>{value}</option>)}</select><span className={styles.hint}>默认 Provider 选择一次只接受一个领域。</span></div><div className={styles.formFooter}><span className={styles.hint}>由 generated SouWenClient 发送请求。</span><button className={styles.button} disabled={state.status === 'loading' || !query.trim()} type="submit" aria-busy={state.status === 'loading'}>运行搜索</button></div></form></section><Status state={state} name="搜索结果" />{state.status === 'success' && <Results items={state.data?.items ?? []} />}</>
 }
 
 function LlmSearchPage() {
   const client = useSouWenClient()
   const request = useLatestRequest<LLMSearchResult>()
   const [query, setQuery] = useState('')
-  const [providers, setProviders] = useState('')
-  const [strategy, setStrategy] = useState<'single' | 'fanout' | 'first_success'>('first_success')
+  const [provider, setProvider] = useState('')
   const [state, setState] = useState<DataState<{ answer?: string | null; evidence: Item[]; items: Item[] }>>({ status: 'idle' })
   async function submit(event: FormEvent) {
-    event.preventDefault(); const refs = providers.split(',').map((value) => value.trim()).filter(Boolean).map((id) => ({ id, kind: 'llm_search' })); if (!query.trim() || !refs.length) return; setState({ status: 'loading' })
+    event.preventDefault(); if (!query.trim() || !provider.trim()) return; setState({ status: 'loading' })
     void request.run(
-      (signal) => client.llmSearch({ query: query.trim(), providers: refs, strategy } as RequestFor<'llmSearch'>, { signal }),
+      (signal) => client.llmSearch({ query: query.trim(), providers: [{ id: provider.trim(), kind: 'llm_search' }], strategy: 'single' } as RequestFor<'llmSearch'>, { signal }),
       (data) => setState({ status: 'success', data: data as unknown as { answer?: string | null; evidence: Item[]; items: Item[] } }),
       (error) => setState({ status: 'error', error: formatError(error) }),
     )
   }
-  return <><Header eyebrow="LLM Search" title="综合搜索" description="选定 provider 和策略，由 LLM 汇总回答并附带来源证据。" /><section className={`${styles.panel} ${styles.formPanel}`}><form className={styles.form} onSubmit={submit}><div className={styles.field}><label className={styles.label} htmlFor="llm-query">问题</label><textarea className={styles.textarea} id="llm-query" name="query" value={query} onChange={(event) => setQuery(event.target.value)} required maxLength={4096} placeholder="提出一个需要依据的研究问题" /></div><div className={styles.formRow}><div className={styles.field}><label className={styles.label} htmlFor="llm-providers">Provider IDs</label><input className={styles.input} id="llm-providers" name="providers" value={providers} onChange={(event) => setProviders(event.target.value)} required placeholder="例如: research-llm" /><span className={styles.hint}>多个 provider 以逗号分隔，可在 Providers 页核对。</span></div><div className={styles.field}><label className={styles.label} htmlFor="llm-strategy">策略</label><select className={styles.select} id="llm-strategy" name="strategy" value={strategy} onChange={(event) => setStrategy(event.target.value as typeof strategy)}><option value="first_success">first_success</option><option value="fanout">fanout</option><option value="single">single</option></select></div></div><div className={styles.formFooter}><span className={styles.hint}>预算与认证边界由服务端执行。</span><button className={styles.button} disabled={state.status === 'loading' || !query.trim() || !providers.trim()} type="submit" aria-busy={state.status === 'loading'}>综合回答</button></div></form></section><Status state={state} name="LLM Search" />{state.status === 'success' && <section className={styles.responseStack} aria-live="polite">{state.data?.answer && <article className={`${styles.panel} ${styles.answer}`}><h2 className={styles.sectionTitle}>回答</h2><p className={styles.resultBody}>{state.data.answer}</p></article>}<Results items={state.data?.evidence ?? state.data?.items ?? []} /></section>}</>
+  return <><Header eyebrow="LLM Search" title="综合搜索" description="选定当前部署配置的 provider，由 LLM 汇总回答并附带来源证据。" /><section className={`${styles.panel} ${styles.formPanel}`}><form className={styles.form} onSubmit={submit}><div className={styles.field}><label className={styles.label} htmlFor="llm-query">问题</label><textarea className={styles.textarea} id="llm-query" name="query" value={query} onChange={(event) => setQuery(event.target.value)} required maxLength={4096} placeholder="提出一个需要依据的研究问题" /></div><div className={styles.field}><label className={styles.label} htmlFor="llm-provider">Provider ID</label><input className={styles.input} id="llm-provider" name="provider" value={provider} onChange={(event) => setProvider(event.target.value)} required placeholder="从 Providers 页复制 available 的 LLM Search ID" /><span className={styles.hint}>Target runtime 只接受一个已配置 provider，策略固定为 single。</span></div><div className={styles.formFooter}><span className={styles.hint}>预算与认证边界由服务端执行。</span><button className={styles.button} disabled={state.status === 'loading' || !query.trim() || !provider.trim()} type="submit" aria-busy={state.status === 'loading'}>综合回答</button></div></form></section><Status state={state} name="LLM Search" />{state.status === 'success' && <section className={styles.responseStack} aria-live="polite">{state.data?.answer && <article className={`${styles.panel} ${styles.answer}`}><h2 className={styles.sectionTitle}>回答</h2><p className={styles.resultBody}>{state.data.answer}</p></article>}<Results items={state.data?.evidence ?? state.data?.items ?? []} /></section>}</>
 }
 
 function FetchPage() {

@@ -55,6 +55,7 @@ Public docs 不要求读者理解历史路径；需要保留背景材料时，�
 |---|---|
 | [deployment.md](./deployment.md) | Docker、本地服务、部署后回读和运行时保护 |
 | [hf-space-cd.md](./hf-space-cd.md) | Hugging Face Space CD、本地门禁和部署后验收 |
+| [live-preview.md](./live-preview.md) | HFS 在线 Panel/Swagger 入口、角色矩阵与逐项功能验收 |
 | [appearance.md](./appearance.md) | Calm Precision 单一管理面板、权限与构建方式 |
 
 ## Internal docs

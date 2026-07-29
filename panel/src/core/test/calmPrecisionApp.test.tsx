@@ -82,7 +82,8 @@ describe('Calm Precision Panel', () => {
     expect(main).toHaveFocus()
     expect(screen.getByLabelText('切换为深色模式')).toBeVisible()
     expect(screen.getByLabelText('查询')).toBeRequired()
-    expect(screen.getByLabelText('knowledge')).toBeInTheDocument()
+    expect(screen.getByRole('combobox', { name: '领域' })).toHaveValue('paper')
+    expect(screen.getByRole('option', { name: 'knowledge' })).toBeInTheDocument()
   })
 
   it('keeps the admin-only navigation group out of a user session', async () => {
@@ -140,6 +141,7 @@ describe('Calm Precision Panel', () => {
     await user.type(await screen.findByLabelText('查询'), 'test query')
     await user.click(screen.getByRole('button', { name: '运行搜索' }))
     expect(screen.getByRole('status')).toHaveTextContent('正在请求搜索结果')
+    expect(sdk.search.mock.calls[0][0]).toMatchObject({ domains: ['paper'] })
     resolveSearch?.({ items: [] })
     expect(await screen.findByText('本次请求没有可显示的结果。')).toBeInTheDocument()
 
@@ -163,9 +165,13 @@ describe('Calm Precision Panel', () => {
     render(<CalmPrecisionApp />)
 
     await user.type(await screen.findByLabelText('问题'), 'evidence query')
-    await user.type(screen.getByLabelText('Provider IDs'), 'provider-a')
+    await user.type(screen.getByLabelText('Provider ID'), 'provider-a')
     await user.click(screen.getByRole('button', { name: '综合回答' }))
 
+    expect(sdk.llmSearch.mock.calls[0][0]).toMatchObject({
+      providers: [{ id: 'provider-a', kind: 'llm_search' }],
+      strategy: 'single',
+    })
     expect(await screen.findByRole('link', { name: '规范化证据标题' })).toHaveAttribute('href', 'https://example.test/evidence')
     expect(screen.getByText('provider-a')).toBeInTheDocument()
   })
@@ -176,7 +182,11 @@ describe('Calm Precision Panel', () => {
     const user = userEvent.setup()
     render(<CalmPrecisionApp />)
 
-    await user.type(await screen.findByLabelText('URLs'), Array.from({ length: 21 }, (_, index) => `https://example.test/${index}`).join('\n'))
+    fireEvent.change(await screen.findByLabelText('URLs'), {
+      target: {
+        value: Array.from({ length: 21 }, (_, index) => `https://example.test/${index}`).join('\n'),
+      },
+    })
     await user.click(screen.getByRole('button', { name: '开始 Fetch' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent('最多支持 20 个 URL')
@@ -224,7 +234,7 @@ describe('Calm Precision Panel', () => {
     const query = await screen.findByLabelText('问题')
     const form = query.closest('form')!
     await user.type(query, 'first')
-    await user.type(screen.getByLabelText('Provider IDs'), 'provider-a')
+    await user.type(screen.getByLabelText('Provider ID'), 'provider-a')
     await user.click(screen.getByRole('button', { name: '综合回答' }))
     const firstSignal = sdk.llmSearch.mock.calls[0][1].signal as AbortSignal
     await user.clear(query)

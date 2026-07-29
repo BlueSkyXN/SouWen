@@ -8,12 +8,11 @@
 [![License](https://img.shields.io/badge/license-GPLv3-blue)](LICENSE)
 [![Version](https://img.shields.io/badge/version-2.0.0rc4-orange)](CHANGELOG.md)
 
-> The current candidate is **Souwen v2rc4** (Python/runtime `2.0.0rc4`). The
-> `v2.0.0rc4` tag, GitHub prerelease, and HFS promotion may be created only after
-> all exact-candidate release gates pass. The published
-> [`v2.0.0rc3`](https://github.com/BlueSkyXN/SouWen/releases/tag/v2.0.0rc3) remains
-> the previous immutable baseline; use GitHub Releases and live HFS readback for current status.
-> This is not the `2.0.0` GA and is not published on PyPI.
+> The published **[Souwen v2rc4](https://github.com/BlueSkyXN/SouWen/releases/tag/v2.0.0rc4)**
+> (Python/runtime `2.0.0rc4`) is the immutable Release baseline. Its tag points exactly to
+> `51f092841696b1e6f898e7c6bea40e535f639f5c` and carries 12 assets. `main` may contain
+> post-tag fixes and HFS may deploy exact current main; that deployment neither moves the RC4
+> tag nor updates its Release assets. This is not the `2.0.0` GA and is not published on PyPI.
 
 **Author**: [@BlueSkyXN](https://github.com/BlueSkyXN) · **Repository**: [github.com/BlueSkyXN/SouWen](https://github.com/BlueSkyXN/SouWen) · **License**: [GPLv3](LICENSE)
 
@@ -24,6 +23,7 @@
 ## 📖 Table of Contents
 
 - [Introduction](#-introduction)
+- [Live Preview](#-live-preview)
 - [Installation](#-installation)
 - [Quick Start](#-quick-start)
 - [Configuration](#️-configuration)
@@ -50,6 +50,17 @@ is their safe runtime projection.
 - **Frozen OpenAPI and generated SDKs**: the Python root exposes generated sync/async SDK clients; Panel uses the generated TypeScript SDK
 - **Canonical DTOs** for Search, LLM Search, Fetch, Provider Catalog, and probes
 - **Read-only admin boundary**: config, doctor, and ping only
+
+## 🌐 Live Preview
+
+- Calm Precision Panel: <https://blueskyxn-souwen.hf.space/panel#/>
+- Swagger: <https://blueskyxn-souwen.hf.space/docs>
+- Complete routes, roles, and acceptance steps: [HFS live preview guide](docs/live-preview.md)
+
+The Space repository remains private. The current App domain exposes the Panel/docs/probe
+surface for preview, while Search, LLM Search, Fetch, Providers, and Admin APIs still require a
+SouWen application credential. HFS is a mutable current-main deployment and must not be treated
+as a tag-exact GitHub Release based on the version string alone.
 
 ## 📦 Installation
 
@@ -139,15 +150,21 @@ docker build -t souwen .
 docker run -p 8000:49265 \
   -e SOUWEN_ADMIN_PASSWORD=your-admin-password \
   -e SOUWEN_USER_PASSWORD=your-user-password \
-  -v ~/.config/souwen:/app/data \
+  -v "$PWD/souwen.yaml:/app/souwen.yaml:ro" \
+  -v souwen-data:/app/data \
   souwen
 ```
+
+`/app/souwen.yaml` is the application config; `/app/data` is only for WARP/runtime persistence.
 
 **HuggingFace Spaces**: see `cloud/hfs/` and [docs/hf-space-cd.md](docs/hf-space-cd.md).
 The root [`hfs-dev.toml`](hfs-dev.toml) is a registry-only deployment record for the
 source lane, Space ID, workflow ownership, and current Space-setting names. It stores
 no credential values and does not authorize a generic sync tool to change remote settings;
 the current reference `hf_space_sync.py` rejects it before reading `.env` or using the network.
+It adopts the current HFS v2.1 draft schema (the published baseline remains v2.0) and registers
+the gitignored, mode-`0600` `local/credentials/souwen-hfs.yaml` as the raw YAML fact source from
+which `SOUWEN_CONFIG_B64` is derived.
 **ModelScope**: see `cloud/modelscope/`.
 
 **WARP proxy embedding** (optional, bypass network restrictions): see the WARP section in `docs/anti-scraping.md`.
@@ -164,6 +181,7 @@ the current reference `hf_space_sync.py` rejects it before reading `.env` or usi
 - [docs/configuration.md](docs/configuration.md) — Configuration hierarchy / WARP / HTTP backend
 - [docs/api-reference.md](docs/api-reference.md) — REST API reference
 - [docs/hf-space-cd.md](docs/hf-space-cd.md) — Hugging Face Space CD / local gates / post-deploy validation
+- [docs/live-preview.md](docs/live-preview.md) — HFS Panel/Swagger, role matrix, and feature acceptance
 - [docs/deployment.md](docs/deployment.md) — Deployment
 - [docs/anti-scraping.md](docs/anti-scraping.md) — TLS fingerprinting / WARP / rate limiting
 - [docs/appearance.md](docs/appearance.md) — Calm Precision Panel

@@ -130,12 +130,12 @@ it from the current `main` workflow revision with an exact 40-character
 3. Accept **RC-ready** only when all 15 always-required gates pass on the exact
    candidate and the evidence bundle inventory/checksums agree.
 4. Merge the approved candidate. Before any HFS write, require
-   `candidate_sha == origin/main`, protected `hf`/`release` environments, private
-   Space dual-layer auth, and an immutable rollback point.
+   `candidate_sha == origin/main`, protected `hf`/`release` environments, a private
+   Space repository, application-auth evidence, and an immutable recovery point.
 5. For a lightweight runtime-only acceptance, use `evidence_profile=deployment`,
    `deploy_hfs=true`, and `publish=false`. This skips the `server-bundles` release
    job but retains non-binary gates, the single HFS-local PyInstaller smoke,
-   promotion, rollback and live readback. Its `deployment-evidence-*` artifact is
+   promotion, fail-closed containment and live readback. Its `deployment-evidence-*` artifact is
    not RC-ready or publish-ready evidence.
 6. An approved `evidence_profile=release`, `deploy_hfs=true`, `publish=false` run
    establishes publish-ready live evidence. `publish=true` additionally creates

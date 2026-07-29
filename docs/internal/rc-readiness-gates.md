@@ -5,10 +5,9 @@ candidate SHA、run URL、checksum、测试计数和部署回读等运行结果�
 而应由发布流水线写入候选专属的 `release-manifest.json` 或
 `deployment-manifest.json` artifact。
 
-> **Phase 8 完成前的执行边界**：RC4 的 `deployment` profile 可用于 P4-07/M1 HFS 验收；
-> `release` profile 已切换为 ADR 0005 的精确四个 PyInstaller Server bundle 与 immutable OpenAPI
-> 契约。旧 24-binary CLI/Nuitka workflow 不参与 central release。旧发布面与 compatibility residue
-> audit 完成前，`release-candidate.yml` 仍必须拒绝 `publish=true`。
+> **RC4 publication boundary**：`v2.0.0rc4` 已作为 immutable tag/prerelease 发布。本文保留其
+> gate contract 供审计；tag 后的 main 只能使用 `deployment, publish=false` 做 HFS 验收，不能覆盖
+> 或移动现有 tag。下一次 publication 必须采用新版本并更新对应 release contract。
 
 ## 判定原则
 
@@ -35,9 +34,9 @@ candidate SHA、run URL、checksum、测试计数和部署回读等运行结果�
 - **RC-ready**：除 HFS promotion 外的 15 个 gate 全部 `PASS`；HFS 为
   `required=false, status=NOT_RUN`。Central workflow 使用 `evidence_profile=release`、
   `publish=false, deploy_hfs=false`，只生成 evidence bundle，不创建 tag/Release、不写 Space。
-- **Publish-ready target**：RC-ready 加上 HFS promotion `PASS`；private edge、SouWen admin、
-  wrapper/runtime/source provenance 和 rollback point 均有证据。只有该状态才允许
-  `evidence_profile=release, publish=true`；Phase 8 residue audit 完成前该状态不可达。
+- **Publish-ready target**：RC-ready 加上 HFS promotion `PASS`；private Space repository、
+  SouWen application auth、wrapper/runtime/source provenance 和 recovery point 均有证据。
+  对已存在的 RC4 tag，该状态只保留为历史 release evidence，不能再次 publish。
 
 `release-candidate.yml` 必须从当前 `origin/main` 的 control-plane workflow 运行；任何
 candidate code 执行前先做 immutable SHA、lineage 与 version static check。无 deploy/publish 的
@@ -217,9 +216,10 @@ RC-ready run 可以验证从 current main 派生的 candidate；任何 secret-be
 ### 15. HFS promotion
 
 - 只有用户明确批准后才能执行远端 promotion；批准前只允许本地/PR gate 和只读检查。
-- Promotion 前要求目标 Space 已为 private，并分离三个 secret：`HF_TOKEN` 写管理面、
-  `HF_SPACE_READ_TOKEN` 通过 private edge、`SOUWEN_SMOKE_BEARER_TOKEN` 作为 SouWen admin
-  password。远端必须 `admin_open=false`；只通过 edge、不提供应用 token 时不得获得 admin。
+- Promotion 前要求目标 Space repository 已为 private，并分离三个 secret：`HF_TOKEN` 写管理面、
+  `HF_SPACE_READ_TOKEN` 兼容可能启用的 edge gate、`SOUWEN_SMOKE_BEARER_TOKEN` 作为 SouWen
+  admin password。远端必须 `admin_open=false`；edge-only 或匿名请求不得获得 admin 或访问
+  Data/Admin API。Panel/docs/probes 是否匿名可读必须按当次 runtime 实测，不能由 repo privacy 推导。
 - Promotion 前记录可信 rollback point：旧 Space repo SHA 等于旧 runtime SHA，旧 Dockerfile
   唯一 pin 40 位 `prior_souwen_ref`，并记录 `prior_runtime_stage`；只接受 `RUNNING` / `SLEEPING`
   稳定状态，不通过 preflight restart 改变 prior runtime。不存在 immutable rollback point 时必须
@@ -228,11 +228,16 @@ RC-ready run 可以验证从 current main 派生的 candidate；任何 secret-be
   `runtime.raw.sha`（必须等于 wrapper commit）、health/readiness `source_sha`（必须等于
   `candidate_sha`）。Wrapper SHA 通常不等于 SouWen source SHA。
 - Surface/capability smoke 必须从 trusted `verifier_sha` 执行，不能把 app admin token 暴露给
-  candidate checkout。失败时以 forward commit 恢复 prior wrapper 内容并验证旧 source；恢复
-  或 readback 无法证明时 pause Space，原 promotion 仍为 FAIL。
+  candidate checkout。它还必须正向检查 authenticated admin config/ping/doctor，并验证 config
+  的 credential-shaped string 已脱敏。
+- Space Secret 值 write-only；Secret name/schema preflight 必须在 mutation marker 前完成，失败时
+  不得 pause 原健康 Space。`settings_mutation_started=true` 必须在第一次写调用前由已完成 step 写出；
+  此后的任一 sync/rebuild/post-smoke 失败必须 pause Space 并验证 `PAUSED`，再从获批 Secret source
+  人工恢复匹配的 settings/wrapper，原 promotion 仍为 FAIL。
 
-**Evidence**：批准记录引用、prior/promoted/rollback Space SHA、source SHA、factory rebuild run、
-surface/capability report、双层 auth/admin-open assertion。`RUNNING` 单独不构成 PASS。
+**Evidence**：批准记录引用、prior/promoted Space SHA、source SHA、factory rebuild run、
+surface/capability report、edge/application auth/admin-open assertion；失败路径另保存 containment
+结果与人工恢复证据。`RUNNING` 单独不构成 PASS。
 
 ### 16. RC assets
 

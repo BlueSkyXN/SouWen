@@ -8,11 +8,11 @@
 [![License](https://img.shields.io/badge/license-GPLv3-blue)](LICENSE)
 [![Version](https://img.shields.io/badge/version-2.0.0rc4-orange)](CHANGELOG.md)
 
-> 当前候选版本为 **Souwen v2rc4**（Python/runtime `2.0.0rc4`）。`v2.0.0rc4` tag、
-> GitHub prerelease 与 HFS promotion 只有在 exact-candidate release gates 全部通过后才能创建；
-> 已发布的 [`v2.0.0rc3`](https://github.com/BlueSkyXN/SouWen/releases/tag/v2.0.0rc3)
-> 保留为上一 immutable baseline，当前发布状态以 GitHub Releases 和 HFS 实时读回为准。
-> 这不是 `2.0.0` GA，也尚未发布到 PyPI。
+> 已发布的 **[Souwen v2rc4](https://github.com/BlueSkyXN/SouWen/releases/tag/v2.0.0rc4)**
+> （Python/runtime `2.0.0rc4`）是 immutable Release baseline，tag 精确指向
+> `51f092841696b1e6f898e7c6bea40e535f639f5c` 并包含 12 项资产。`main` 可以包含 tag 后修复，
+> HFS 也可以部署 exact current main；这种 deployment 不会移动 RC4 tag，也不代表 Release
+> 资产已更新。这不是 `2.0.0` GA，也未发布到 PyPI。
 
 **作者**: [@BlueSkyXN](https://github.com/BlueSkyXN) · **项目地址**: [github.com/BlueSkyXN/SouWen](https://github.com/BlueSkyXN/SouWen) · **协议**: [GPLv3](LICENSE)
 
@@ -23,6 +23,7 @@
 ## 📖 目录
 
 - [简介](#-简介)
+- [在线预览](#-在线预览)
 - [安装](#-安装)
 - [快速开始](#-快速开始)
 - [配置](#️-配置)
@@ -50,6 +51,16 @@ SouWen（搜文）为 AI Agent、Python 集成和服务端应用提供统一的 
 - **Frozen OpenAPI + generated SDK**：Python root 只暴露 generated sync/async SDK；Panel 使用同一 OpenAPI 生成的 TypeScript SDK
 - **统一 canonical DTO**：Search、LLM Search、Fetch、Provider Catalog 和 probes 使用明确的 Pydantic v2 contract
 - **安全边界**：target Data API 使用 user credential；Admin 仅提供 read-only config、doctor 与 ping
+
+## 🌐 在线预览
+
+- Calm Precision Panel：<https://blueskyxn-souwen.hf.space/panel#/>
+- Swagger：<https://blueskyxn-souwen.hf.space/docs>
+- 完整 route、角色与逐项验收：[HFS 在线预览与功能验收](docs/live-preview.md)
+
+Space 仓库保持 private；当前 App domain 的 Panel/docs/probes surface 可直接预览，Search、
+LLM Search、Fetch、Providers 和 Admin API 仍要求 SouWen application credential。HFS 是
+可变 current-main deployment，不能仅凭版本号把它当成 tag-exact GitHub Release。
 
 ## 📦 安装
 
@@ -139,14 +150,19 @@ docker build -t souwen .
 docker run -p 8000:49265 \
   -e SOUWEN_ADMIN_PASSWORD=your-admin-password \
   -e SOUWEN_USER_PASSWORD=your-user-password \
-  -v ~/.config/souwen:/app/data \
+  -v "$PWD/souwen.yaml:/app/souwen.yaml:ro" \
+  -v souwen-data:/app/data \
   souwen
 ```
+
+`/app/souwen.yaml` 是应用配置；`/app/data` 只用于 WARP/runtime persistence。
 
 **HuggingFace Spaces**：参见 `cloud/hfs/` 与 [docs/hf-space-cd.md](docs/hf-space-cd.md)。
 根级 [`hfs-dev.toml`](hfs-dev.toml) 是 registry-only 部署登记：记录 source lane、Space ID、
 workflow ownership 和当前 Space setting 名称，不保存任何真实凭据值，也不授权通用同步工具
-修改远端设置；当前参考 `hf_space_sync.py` 会在读取 `.env` 或联网前拒绝该 manifest。
+修改远端设置；当前参考 `hf_space_sync.py` 会在读取 `.env` 或联网前拒绝该 manifest。它采用当前
+HFS v2.1 draft schema（正式公开基线仍为 v2.0），并登记 gitignored、`0600` 的
+`local/credentials/souwen-hfs.yaml` 作为 `SOUWEN_CONFIG_B64` 的原始 YAML 事实源。
 **ModelScope**：参见 `cloud/modelscope/`。
 
 部署环境可按自身网络策略配置代理；公开 API 不提供 WARP 管理或运行时安装入口。
@@ -163,6 +179,7 @@ workflow ownership 和当前 Space setting 名称，不保存任何真实凭据�
 - [docs/configuration.md](docs/configuration.md) — 配置层级 / WARP / HTTP backend
 - [docs/api-reference.md](docs/api-reference.md) — REST API 参考
 - [docs/hf-space-cd.md](docs/hf-space-cd.md) — Hugging Face Space CD / 本地预检 / 部署后验收
+- [docs/live-preview.md](docs/live-preview.md) — HFS 在线 Panel/Swagger、角色矩阵与功能验收
 - [docs/deployment.md](docs/deployment.md) — 部署
 - [docs/anti-scraping.md](docs/anti-scraping.md) — TLS 指纹 / WARP / 限流
 - [docs/appearance.md](docs/appearance.md) — Calm Precision 管理面板

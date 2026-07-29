@@ -1,6 +1,6 @@
 # Hugging Face Space CD 与验收
 
-本文说明 SouWen 的 Hugging Face Space 本地预检、受控 promotion、双层认证、provenance
+本文说明 SouWen 的 Hugging Face Space 本地预检、受控 promotion、访问鉴权、provenance
 与失败恢复边界。RC promotion 还必须满足
 [Souwen v2rc4 发布候选门禁](./internal/rc-readiness-gates.md)。未经明确批准，不得同步 Space
 仓库、factory rebuild、修改 secrets 或触发远端 smoke。
@@ -12,15 +12,18 @@
 - OpenAPI 文档：<https://blueskyxn-souwen.hf.space/docs>
 - Space 仓库：<https://huggingface.co/spaces/BlueSkyXN/SouWen>
 
-目标 Space 必须在 promotion 前已是 `private=true`。仓库可见性与应用鉴权是两个独立结论：
-private Space 的 edge 访问仍需 Hugging Face token；进入应用后，SouWen admin API 还必须由
-独立的 admin password 保护。最小 bootstrap 可以暂时把已确认的目标 Space write token 同时写入
-`HF_TOKEN` 与 `HF_SPACE_READ_TOKEN` 两个 GitHub secret 名称来打通链路；这只是过渡配置，不改变
-两个通道的职责，后续可无代码改动替换为独立 READ token。不能用“Space 是 private”推导“匿名
-请求不可能获得 admin”。
+目标 Space 必须在 promotion 前已是 `private=true`。这只证明 Space 仓库及其控制面可见性，
+不能推导 App domain 的每条 HTTP surface 都被 Hugging Face edge 拒绝。当前部署允许匿名读取
+Panel shell、Swagger、OpenAPI 和 probes；Data/Admin API 仍必须由独立的 SouWen application
+credential 保护。部署后必须分别实测 surface、Data API 和 Admin API，不能用“Space 是 private”
+替代负向鉴权证据。
+
+`HF_TOKEN` 只用于 Space repo/settings/runtime 管理。`HF_SPACE_READ_TOKEN` 让 smoke 与可能启用
+edge gate 的环境兼容；当前 App surface 即使不要求该 token，smoke 仍必须证明 edge-only 或完全匿名
+请求都不能获得 admin。不要为了公开预览而开启 `SOUWEN_ADMIN_OPEN` 或匿名 Data API。
 
 `/panel#/` 中的 `#` 是前端 hash router 片段，不会发送到服务端；服务端实际校验 `/panel`。
-这些固定 URL 在 private Space 下不代表匿名公开可访问，调用方必须遵守 Hugging Face 的访问策略。
+这些固定 URL 的可用性是运行时事实；平台策略变化后应重新读回 HTTP 状态。
 
 ## GitHub Actions 分层
 
@@ -64,15 +67,31 @@ HFS Docker build 必须传 `SOUWEN_REF=<40位 candidate SHA>`。Dockerfile 的�
 镜像无条件安装原生 Playwright Chromium；不提供额外 browser-fetch 产品入口。Supervisor 必须先验证
 Worker readiness，再启动 API。
 
-## Private Space 双层认证
+### 本地明文事实源
 
-Hugging Face 官方 private Space HTTP 入口占用标准 `Authorization: Bearer <HF token>`。
-因此 promotion smoke 使用两个不同 secrets，禁止复用高权限凭据：
+SouWen 当前采用 HFS v2.1 draft registry；正式公开基线仍为 v2.0。Tracked
+`hfs-dev.toml` 只登记名称与路径，不保存真实值。本地事实源分为：
+
+| 路径 | 权限 | 责任 |
+|---|---:|---|
+| `.env` | `0600` | env 值、控制凭据和三个受管 Space Secret 的本地值；不得提交 |
+| `local/credentials/souwen-hfs.yaml` | `0600` | `SOUWEN_CONFIG_B64` 对应的可直接阅读原始 YAML；不得提交 |
+
+`local/credentials/` 必须为 `0700`，两个文件都必须是普通文件且非 symlink。修改 HFS runtime
+配置时先修改原始 YAML，再临时生成 Base64 并更新获批的本地/GitHub Secret source；不得把
+Base64、Space Secret、远端 URL 或 CLI 登录状态当作唯一事实源。Registry-only sentinel 继续在
+读取这些本地值和联网前拒绝通用 `hf_space_sync.py diff/push/pull`。
+
+## Edge compatibility 与 application auth
+
+当 Hugging Face edge 需要 token 时，它占用标准 `Authorization: Bearer <HF token>`。SouWen
+application token 必须走独立的 `X-SouWen-Token`；即使当前 preview surface 匿名可读，也保留
+两个职责不同的 workflow secrets，禁止让 write credential 充当应用密码：
 
 | Secret | 用途 | 请求通道 |
 |---|---|---|
 | `HF_TOKEN` | 写 Space repo、restart/pause runtime | 仅 HFS 管理 API；需要 write 权限 |
-| `HF_SPACE_READ_TOKEN` | 通过 private Space edge | `Authorization: Bearer ...`；目标权限只需 READ，最小 bootstrap 可暂时复用已确认 write token |
+| `HF_SPACE_READ_TOKEN` | 兼容可能启用的 private edge | `Authorization: Bearer ...`；目标权限只需 READ |
 | `SOUWEN_SMOKE_BEARER_TOKEN` | SouWen 应用 admin password | `X-SouWen-Token: ...` |
 | `SOUWEN_CONFIG_B64` | 与 Space 同源的 RC4 配置；promotion 前验证 exact 一个 LLM Search Provider 与 gateway 结构 | 仅 workflow 内存预检；`${VAR}` 是否解析由 post-deploy live smoke 证明 |
 | `UNIAPI_API_KEY` | RC4 UniAPI gateway credential | workflow 将其写入同名 Space Secret；只回读 Secret 名称，不读取或记录值 |
@@ -85,9 +104,9 @@ SouWen 仍以标准 `Authorization: Bearer <password>` 作为普通部署的首�
 Post-deploy harness 从 central workflow 的受信 `verifier_sha` checkout 运行，不执行 candidate
 checkout 中的 secret-bearing 脚本。验收同时证明：
 
-1. `HF_SPACE_READ_TOKEN` 能通过 private edge。
+1. 携带 `HF_SPACE_READ_TOKEN` 时 surface 可按当前 edge 策略访问。
 2. 携带独立 SouWen token 时 `/api/v1/whoami` 为 `role=admin && admin_open=false`。
-3. 只通过 HF edge、不提供 SouWen token 时，不得获得 admin。
+3. 只通过 HF edge 或完全匿名、不提供 SouWen token 时，不得获得 admin 或访问 Data/Admin API。
 
 ## Provenance 三段模型
 
@@ -114,35 +133,34 @@ SHA。
 2. 记录 `prior_space_commit_sha`、`prior_runtime_commit_sha`、`prior_souwen_ref`。旧部署没有
    immutable source pin 时，在写入前停止，不能回退到 floating `main`；同时记录
    `prior_runtime_stage` 供 manifest 和恢复审计。
-3. rollback point 稳定后，workflow 将 `SOUWEN_SMOKE_BEARER_TOKEN` 映射为 Space
-   `SOUWEN_ADMIN_PASSWORD`，并同步 `SOUWEN_CONFIG_B64`、`UNIAPI_API_KEY`。写入前拒绝任何未登记的
-   Space Secret 名称，写入后要求名称集合精确等于 `hfs-dev.toml` 中的三个受管名称；不删除未知
-   Secret，也不输出值、长度、hash 或前缀。
+3. rollback point 稳定后，workflow 先在独立 preflight 中只读 Secret 名称并拒绝任何未登记名称；
+   preflight 失败时没有 settings mutation，也不得暂停原健康 Space。preflight 完成后、第一次写入前，
+   workflow 写出 `settings_mutation_started=true` 事务标记，再将 `SOUWEN_SMOKE_BEARER_TOKEN` 映射为
+   Space `SOUWEN_ADMIN_PASSWORD`，并同步 `SOUWEN_CONFIG_B64`、`UNIAPI_API_KEY`。写入后名称集合必须
+   精确等于 `hfs-dev.toml` 中的三个受管名称；不删除未知 Secret，也不输出值、长度、hash 或前缀。
 4. 只同步受管的四个 wrapper 文件；diff 固定读取 prior revision，`create_commit` 使用
    `parent_commit=<prior_space_commit_sha>` 防止外部 writer 造成 TOCTOU。取得新 commit 后，
-   transaction 写入并立即 readback `SOUWEN_WRAPPER_SHA=<space_commit_sha>` Space variable；
-   rollback 同样改为实际 forward/no-op rollback SHA。
+   transaction 写入并立即 readback `SOUWEN_WRAPPER_SHA=<space_commit_sha>` Space variable。
 5. Factory rebuild，等待 Space repo SHA 与 runtime SHA 等于新的 wrapper commit。
-6. 使用 trusted verifier 完成 surface、target capability、双层 auth 与 candidate/source/
+6. 使用 trusted verifier 完成 surface、target capability、edge/application auth 与 candidate/source/
    wrapper SHA smoke。Required checks 固定覆盖 Search、LLM Search 与 immutable Fetch；readiness
    另行证明 Browser Worker ready 且 source SHA 一致。普通 CI 不做付费 LLM Search live call，
    只有显式 HFS promotion 的 capability smoke 才执行。
 
-若 sync 已取得 rollback point，而 sync/rebuild/post-smoke 任一阶段失败：
+Space Secret 是 write-only：workflow 能读回名称，不能捕获旧值。因此
+`settings_mutation_started=true` 一旦完成，
+任何 sync/rebuild/post-smoke 失败都不能安全地自动恢复成“旧 wrapper + 旧 settings”。失败路径必须：
 
-- wrapper 已改变时，workflow 以 forward commit 恢复 prior revision 的四个受管文件，并再次
-  factory rebuild；
-- 若失败发生在 wrapper 真正改变前、当前 head 仍等于 prior SHA，则不创建 no-op commit，直接
-  factory rebuild 并验证 prior repo/runtime/source 三段状态；验证失败才进入 pause；
-- 创建 forward rollback 时，恢复后的 repo/runtime SHA 等于新的 rollback commit；no-op 恢复
-  则仍等于 prior SHA。两条路径的 health/readiness `source_sha` 都必须等于
-  `prior_souwen_ref`，且都不会 force-rewrite 历史；
-- 如果发现未知外部 writer，或恢复/rebuild/readback 失败，workflow 调用 `pause_space` 并验证
-  `PAUSED`；
-- 原 promotion 仍保持失败，rollback 成功不能把失败验收伪装为 PASS。
+- 调用 `pause_space` 并验证 `PAUSED`，避免旧代码与新/部分 settings 组合继续对外运行；
+- 保留 prior repo/runtime/source snapshot 和失败 run，供人工恢复使用；
+- 从获批的安全 Secret source 恢复相互匹配的 settings，再选择 prior 或 corrected wrapper，factory
+  rebuild 后重新执行完整 surface/capability/provenance smoke；
+- 保持原 promotion 为失败，暂停成功不能把失败验收伪装为 PASS。
 
-GitHub Actions 的 cancel、runner 丢失或平台故障不能保证 rollback job 一定启动，因此失败通知
-仍是人工 hard stop：先只读核对 Space repo/runtime/source 三段状态，再决定恢复或保持 paused。
+这是一条 fail-closed containment 路径，不是自动 rollback。只调整 Secret 与 wrapper 的写入顺序
+无法解决 write-only prior values 缺失。GitHub Actions cancel、runner 丢失或平台故障也不能保证
+containment job 一定启动，因此失败通知仍是人工 hard stop：先只读核对 Space repo/runtime/source
+与 settings names，再决定恢复，未完成恢复前保持 paused。
 
 ## 必测入口
 
@@ -153,7 +171,7 @@ GitHub Actions 的 cancel、runner 丢失或平台故障不能保证 rollback jo
 | API schema | `/openapi.json` | title/version 与暴露策略正确 |
 | API 文档 | `/docs` | Swagger UI 可按策略访问 |
 | 管理面板 | `/panel` | 单文件前端 HTML 可返回 |
-| 鉴权 | `/api/v1/whoami` | 双层 token 获得 admin；缺应用 token 不得为 admin |
+| 鉴权 | `/api/v1/whoami` | 应用 token 获得 admin；edge-only/匿名请求不得为 admin |
 | 控制面 | `/api/v1/admin/config`、`/api/v1/admin/ping` | 只读、脱敏且受 admin auth 保护 |
 | Doctor | `/api/v1/admin/doctor` | 静态状态可读取 |
 
@@ -168,6 +186,7 @@ Search Provider、已配置的 LLM Search Provider 与 immutable Fetch 目标。
   的机器不能把该层标为已验证。
 - PR preflight 失败：修代码、测试或 wrapper，不直接触发远端 promotion。
 - Promotion 前 rollback-point 检查失败：先人工建立可信 immutable baseline，不允许跳过检查。
-- Auth smoke 失败：分别核对 private edge READ token 与 SouWen admin password，不把两个 token
-  合并，也不临时开启 `SOUWEN_ADMIN_OPEN`。
-- 自动 rollback/pause 失败：保持发布 No-Go，按 run 中记录的 prior SHA 做人工恢复并完整回读。
+- Auth smoke 失败：分别核对可选 edge READ token 与 SouWen admin password，不把两个 token合并，
+  也不临时开启 `SOUWEN_ADMIN_OPEN`。
+- 自动 containment/pause 失败：保持发布 No-Go，按 run 中记录的 prior SHA 和获批 Secret source
+  做人工恢复并完整回读。
