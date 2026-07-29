@@ -331,9 +331,10 @@ jobs:
           HF_SPACE_READ_TOKEN: ${{ secrets.HF_SPACE_READ_TOKEN }}
           SOUWEN_SMOKE_BEARER_TOKEN: ${{ secrets.SOUWEN_SMOKE_BEARER_TOKEN }}
           SOUWEN_CONFIG_B64: ${{ secrets.SOUWEN_CONFIG_B64 }}
+          UNIAPI_API_KEY: ${{ secrets.UNIAPI_API_KEY }}
         run: |
           missing=()
-          for name in HF_TOKEN HF_SPACE_READ_TOKEN SOUWEN_SMOKE_BEARER_TOKEN SOUWEN_CONFIG_B64; do
+          for name in HF_TOKEN HF_SPACE_READ_TOKEN SOUWEN_SMOKE_BEARER_TOKEN SOUWEN_CONFIG_B64 UNIAPI_API_KEY; do
             if [ -z "${!name}" ]; then
               missing+=("$name")
             fi
@@ -519,6 +520,70 @@ jobs:
               f"captured rollback point space={prior_space_sha}, "
               f"runtime={runtime_sha}, stage={stage}, source={matches[0]}"
           )
+          PY
+
+      - name: Sync managed HFS Space secrets
+        env:
+          HF_TOKEN: ${{ secrets.HF_TOKEN }}
+          HF_SPACE_ID: BlueSkyXN/SouWen
+          SOUWEN_ADMIN_PASSWORD: ${{ secrets.SOUWEN_SMOKE_BEARER_TOKEN }}
+          SOUWEN_CONFIG_B64: ${{ secrets.SOUWEN_CONFIG_B64 }}
+          UNIAPI_API_KEY: ${{ secrets.UNIAPI_API_KEY }}
+        run: |
+          python -I - <<'PY'
+          import os
+
+          from huggingface_hub import HfApi
+          from huggingface_hub.utils import build_hf_headers, get_session, hf_raise_for_status
+
+          token = os.environ["HF_TOKEN"]
+          space_id = os.environ["HF_SPACE_ID"]
+          managed = {
+              "SOUWEN_ADMIN_PASSWORD": os.environ["SOUWEN_ADMIN_PASSWORD"],
+              "SOUWEN_CONFIG_B64": os.environ["SOUWEN_CONFIG_B64"],
+              "UNIAPI_API_KEY": os.environ["UNIAPI_API_KEY"],
+          }
+          expected_names = set(managed)
+          api = HfApi(token=token)
+
+          def read_secret_names() -> set[str]:
+              response = get_session().get(
+                  f"{api.endpoint}/api/spaces/{space_id}/secrets",
+                  headers=build_hf_headers(token=token),
+                  timeout=30.0,
+              )
+              hf_raise_for_status(response)
+              payload = response.json()
+              if not isinstance(payload, dict) or not all(
+                  isinstance(name, str) for name in payload
+              ):
+                  raise SystemExit("Space Secret name readback returned an unexpected schema")
+              return set(payload)
+
+          existing_names = read_secret_names()
+          unexpected_names = existing_names - expected_names
+          if unexpected_names:
+              raise SystemExit(
+                  "refusing to modify Space settings with unregistered Secret names: "
+                  + ", ".join(sorted(unexpected_names))
+              )
+
+          for key, value in managed.items():
+              api.add_space_secret(
+                  repo_id=space_id,
+                  key=key,
+                  value=value,
+                  description="Managed by the SouWen deployment transaction",
+              )
+
+          actual_names = read_secret_names()
+          if actual_names != expected_names:
+              missing = ", ".join(sorted(expected_names - actual_names)) or "none"
+              extra = ", ".join(sorted(actual_names - expected_names)) or "none"
+              raise SystemExit(
+                  f"managed Space Secret name readback mismatch: missing={missing}; extra={extra}"
+              )
+          print("Managed Space Secret names: " + ", ".join(sorted(actual_names)))
           PY
 
       - name: Sync changed HFS wrapper files

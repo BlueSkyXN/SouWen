@@ -54,6 +54,11 @@ def test_hfs_settings_remain_owned_by_candidate_pinned_workflow() -> None:
     workflow = (REPO_ROOT / ".github/workflows/deploy-hf-space.yml").read_text(encoding="utf-8")
 
     assert "SOUWEN_CONFIG_B64: ${{ secrets.SOUWEN_CONFIG_B64 }}" in workflow
+    assert "UNIAPI_API_KEY: ${{ secrets.UNIAPI_API_KEY }}" in workflow
+    assert "api.add_space_secret(" in workflow
+    assert "Managed Space Secret names:" in workflow
+    assert "actual_names != expected_names" in workflow
+    assert "api.delete_space_secret" not in workflow
     assert 'key="SOUWEN_WRAPPER_SHA"' in workflow
     assert "SOUWEN_WRAPPER_SHA variable readback mismatch" in workflow
     assert "candidate_sha" in workflow
