@@ -761,11 +761,13 @@ jobs:
           if surface_report.get('overall') != 'PASS':
               raise SystemExit('deployment surface report did not pass')
           required_m1_checks = {
-              'basic/health',
-              'basic/readiness',
-              'target-m1/openalex-search',
-              'target-m1/builtin-fetch',
-              'target-m1/browser-fetch',
+              'healthz',
+              'readyz',
+              'whoami',
+              'anonymous_admin_rejected',
+              'search_live',
+              'llm_search_live',
+              'fetch_live',
           }
           observed_checks = {
               str(item.get('name')): str(item.get('outcome'))
@@ -782,13 +784,21 @@ jobs:
                   'deployment evidence is missing successful target M1 checks: '
                   f'{failed_m1_checks}'
               )
-          for report_name, report in (
-              ('surface', surface_report),
-              ('capability', capability_report),
+          for report_name, expected_mode, report in (
+              ('surface', 'surface', surface_report),
+              ('capability', 'capability', capability_report),
           ):
+              if (
+                  report.get('schema_version') != 1
+                  or report.get('script') != 'hf_space_smoke'
+                  or report.get('mode') != expected_mode
+              ):
+                  raise SystemExit(f'{report_name} report schema or mode mismatch')
               environment = report.get('environment', {})
               if environment.get('require_target_runtime') is not True:
                   raise SystemExit(f'{report_name} report did not require target runtime')
+              if environment.get('expected_version') != os.environ['VERSION']:
+                  raise SystemExit(f'{report_name} report version mismatch')
               if environment.get('expected_source_sha') != os.environ['CANDIDATE_SHA']:
                   raise SystemExit(f'{report_name} report candidate SHA mismatch')
               if environment.get('expected_wrapper_sha') != os.environ['HFS_SPACE_COMMIT_SHA']:

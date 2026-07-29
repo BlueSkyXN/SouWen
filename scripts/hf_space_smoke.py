@@ -366,6 +366,12 @@ def _write_reports(args: argparse.Namespace, mode: str, checks: list[Check]) -> 
         "mode": mode,
         "overall": overall,
         "base_url": args.base_url.rstrip("/"),
+        "environment": {
+            "expected_version": args.expected_version,
+            "expected_source_sha": args.expected_source_sha,
+            "expected_wrapper_sha": args.expected_wrapper_sha,
+            "require_target_runtime": args.require_target_runtime,
+        },
         "checks": [asdict(item) for item in checks],
     }
     lines = [

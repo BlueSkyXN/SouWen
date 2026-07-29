@@ -414,22 +414,37 @@ def test_deployment_manifest_builder_emits_bounded_non_release_contract(
     hfs_live = evidence_root / "hfs"
     hfs_live.mkdir()
     report_environment = {
+        "expected_version": "2.0.0rc4",
         "expected_source_sha": candidate,
         "expected_wrapper_sha": promoted,
         "require_target_runtime": True,
     }
     (hfs_live / "hf-space-cd-surface-report.json").write_text(
-        json.dumps({"overall": "PASS", "environment": report_environment, "checks": []}),
+        json.dumps(
+            {
+                "schema_version": 1,
+                "script": "hf_space_smoke",
+                "mode": "surface",
+                "overall": "PASS",
+                "environment": report_environment,
+                "checks": [],
+            }
+        ),
         encoding="utf-8",
     )
     target_checks = [
-        "basic/health",
-        "basic/readiness",
-        "target-m1/openalex-search",
-        "target-m1/builtin-fetch",
-        "target-m1/browser-fetch",
+        "healthz",
+        "readyz",
+        "whoami",
+        "anonymous_admin_rejected",
+        "search_live",
+        "llm_search_live",
+        "fetch_live",
     ]
     capability_payload = {
+        "schema_version": 1,
+        "script": "hf_space_smoke",
+        "mode": "capability",
         "overall": "PASS",
         "environment": report_environment,
         "checks": [{"name": name, "outcome": "PASS"} for name in target_checks],

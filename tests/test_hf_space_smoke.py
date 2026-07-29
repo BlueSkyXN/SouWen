@@ -81,8 +81,54 @@ def test_offline_mode_writes_bounded_reports(tmp_path) -> None:
     )
     payload = json.loads(json_path.read_text(encoding="utf-8"))
     assert payload["overall"] == "PASS"
+    assert payload["environment"] == {
+        "expected_version": None,
+        "expected_source_sha": None,
+        "expected_wrapper_sha": None,
+        "require_target_runtime": False,
+    }
     assert payload["checks"][0]["outcome"] == "SKIP"
     assert "HFS target smoke" in markdown_path.read_text(encoding="utf-8")
+
+
+def test_report_records_bounded_provenance_without_auth_tokens(tmp_path) -> None:
+    json_path = tmp_path / "report.json"
+    args = smoke.parse_args(
+        [
+            "--mode",
+            "capability",
+            "--json-report",
+            str(json_path),
+            "--expected-version",
+            "2.0.0rc4",
+            "--expected-source-sha",
+            "a" * 40,
+            "--expected-wrapper-sha",
+            "b" * 40,
+            "--require-target-runtime",
+            "--bearer-token",
+            "application-secret-canary",
+            "--hf-space-token",
+            "edge-secret-canary",
+        ]
+    )
+
+    smoke._write_reports(
+        args,
+        "capability",
+        [smoke.Check("healthz", "PASS", "fixture")],
+    )
+
+    report_text = json_path.read_text(encoding="utf-8")
+    payload = json.loads(report_text)
+    assert payload["environment"] == {
+        "expected_version": "2.0.0rc4",
+        "expected_source_sha": "a" * 40,
+        "expected_wrapper_sha": "b" * 40,
+        "require_target_runtime": True,
+    }
+    assert "application-secret-canary" not in report_text
+    assert "edge-secret-canary" not in report_text
 
 
 def test_target_openapi_path_set_is_exact() -> None:
