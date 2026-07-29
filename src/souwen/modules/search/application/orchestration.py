@@ -367,8 +367,16 @@ def _canonical_failure_code(code: ProviderErrorCode) -> str:
 
 
 def _all_fail_error(errors: list[ProviderError]) -> ProviderError:
+    if len(errors) == 1:
+        return errors[0]
     if errors and all(error.code is ProviderErrorCode.RATE_LIMITED for error in errors):
-        return ProviderError(ProviderErrorCode.RATE_LIMITED)
+        retry_values = [
+            error.retry_after_seconds for error in errors if error.retry_after_seconds is not None
+        ]
+        return ProviderError(
+            ProviderErrorCode.RATE_LIMITED,
+            retry_after_seconds=max(retry_values) if retry_values else None,
+        )
     if errors and all(error.code is ProviderErrorCode.POLICY_BLOCKED for error in errors):
         return ProviderError(ProviderErrorCode.POLICY_BLOCKED)
     if errors and all(

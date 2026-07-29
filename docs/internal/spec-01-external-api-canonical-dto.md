@@ -227,7 +227,7 @@ migration evidence, not the target default.
 |---|---|---:|---|
 | `targets` | array of URL target | 是 | 非空、有上限；最终 count/URL/scheme rule 由 SPEC-04。 |
 | `providers` | `ProviderRef[]` or absent | 否 | absence 使用 approved default；不得暴露 current legacy single `provider` field。 |
-| `strategy` | enum | 否 | `fallback`/`fanout` 仅作为 current evidence；canonical final set 和 cardinality 由 SPEC-04。 |
+| `strategy` | enum | 否 | frozen RC4 集合为 `fallback`/`fanout`；执行、cardinality、顺序和 partial 语义由 [SPEC-04](./spec-04-fetch-module-lld.md) 冻结。 |
 | `content` | bounded extraction options | 否 | selector/range/content limit 需 schema-listed；不能返回 raw HTML 或无上限正文。 |
 | `policy` | bounded policy options | 否 | robots / content-type choices 必须不能弱化 server security policy。 |
 

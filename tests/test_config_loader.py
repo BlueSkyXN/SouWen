@@ -163,6 +163,21 @@ class TestYamlLoading:
         assert cfg.llm_search_gateways["uniapi"].api_key == "yaml-secret"
         assert cfg.llm_search_gateways["uniapi"].base_url == "https://gateway.example.com/v1"
 
+    def test_loads_search_defaults_as_one_nested_policy_table(self, tmp_path):
+        defaults = SouWenConfig().search_defaults
+        configured = {domain: list(providers) for domain, providers in defaults.items()}
+        configured["paper"] = ["crossref", "openalex"]
+        yaml_lines = ["search_defaults:"]
+        yaml_lines.extend(
+            f"  {domain}: [{', '.join(providers)}]" for domain, providers in configured.items()
+        )
+        (tmp_path / "souwen.yaml").write_text("\n".join(yaml_lines) + "\n", encoding="utf-8")
+
+        cfg = reload_config()
+
+        assert cfg.search_defaults["paper"] == ("crossref", "openalex")
+        assert tuple(cfg.search_defaults) == tuple(defaults)
+
     def test_yaml_gateway_exact_env_references_are_resolved_without_literal_fallback(
         self, monkeypatch, tmp_path
     ):

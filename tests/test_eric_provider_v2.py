@@ -117,6 +117,27 @@ def _openalex_response() -> SearchResponse:
     )
 
 
+def _crossref_response() -> SearchResponse:
+    return SearchResponse(
+        query="machine learning",
+        source="crossref",
+        total_results=1,
+        page=1,
+        per_page=10,
+        results=[
+            PaperResult(
+                source="crossref",
+                title="Crossref default",
+                authors=[Author(name="Default Author")],
+                doi="10.1000/default",
+                year=2024,
+                source_url="https://doi.org/10.1000/default",
+                raw={"type": "journal-article"},
+            )
+        ],
+    )
+
+
 def _request(**overrides: object) -> SearchRequest:
     values: dict[str, object] = {
         "query": "machine learning",
@@ -708,22 +729,22 @@ def test_delivery_routes_use_lazy_explicit_eric_transport_and_safe_catalog(monke
 
 
 @pytest.mark.asyncio
-async def test_disabled_eric_keeps_openalex_default_and_never_constructs_eric(monkeypatch) -> None:
+async def test_disabled_eric_keeps_crossref_default_and_never_constructs_eric(monkeypatch) -> None:
     eric_transport_constructions = 0
-    openalex_calls = 0
+    crossref_calls = 0
 
     class _Http:
         async def close(self) -> None:
             return None
 
-    class RuntimeOpenAlexClient:
+    class RuntimeCrossrefClient:
         def __init__(self, *_args, **_kwargs) -> None:
             self._client = _Http()
 
         async def search(self, *_args, **_kwargs):
-            nonlocal openalex_calls
-            openalex_calls += 1
-            return _openalex_response()
+            nonlocal crossref_calls
+            crossref_calls += 1
+            return _crossref_response()
 
     def forbidden_eric_transport(**_options):
         nonlocal eric_transport_constructions
@@ -731,7 +752,7 @@ async def test_disabled_eric_keeps_openalex_default_and_never_constructs_eric(mo
         raise AssertionError("disabled ERIC must not construct transport")
 
     monkeypatch.delenv("SOUWEN_BROWSER_WORKER_TOKEN", raising=False)
-    monkeypatch.setattr("souwen.server.v2_runtime.OpenAlexClient", RuntimeOpenAlexClient)
+    monkeypatch.setattr("souwen.server.v2_runtime.CrossrefClient", RuntimeCrossrefClient)
     monkeypatch.setattr("souwen.server.v2_runtime.HttpTransport", forbidden_eric_transport)
     runtime = build_target_runtime(SouWenConfig(sources={"eric": {"enabled": False}}))
 
@@ -741,8 +762,8 @@ async def test_disabled_eric_keeps_openalex_default_and_never_constructs_eric(mo
     assert "eric-search" not in runtime.manager.eligible_adapter_ids
 
     default_page = await runtime.services.search.search(_request(), _context(), _execution())
-    assert default_page.meta.requested == ("openalex",)
-    assert default_page.items[0].id == "doi:10.1000/fallback"
+    assert default_page.meta.requested == ("crossref",)
+    assert default_page.items[0].id == "doi:10.1000/default"
 
     with pytest.raises(ProviderError) as exc_info:
         await runtime.services.search.search(
@@ -751,7 +772,7 @@ async def test_disabled_eric_keeps_openalex_default_and_never_constructs_eric(mo
             _execution(),
         )
     assert exc_info.value.code is ProviderErrorCode.PROVIDER_UNAVAILABLE
-    assert openalex_calls == 1
+    assert crossref_calls == 1
     assert eric_transport_constructions == 0
     await runtime.close()
 

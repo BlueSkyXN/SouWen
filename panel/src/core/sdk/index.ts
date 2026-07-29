@@ -1,11 +1,13 @@
 /* Generated from contracts/openapi/souwen-openapi-2.0.0rc4.json; do not edit. */
-/* generator_version=1 */
+/* generator_version=2 */
 /* openapi_sha256=d036abf271f31022396d3f549da04fde1da2000dd74fe8f21f22111adbd76709 */
 
 export const SDK_VERSION = '2.0.0rc4' as const
 export const SUPPORTED_API_MAJOR = 2 as const
 export const OPENAPI_SHA256 = 'd036abf271f31022396d3f549da04fde1da2000dd74fe8f21f22111adbd76709' as const
 export const DEFAULT_TIMEOUT_MS = 125_000
+export const SEARCH_DOMAINS = ["paper", "book", "research_output", "patent", "web", "news", "images", "videos", "social", "office", "developer", "cn_tech", "knowledge"] as const
+export type SearchDomain = typeof SEARCH_DOMAINS[number]
 
 export interface ClientRequestContext {
   request_id?: string | null

@@ -25,12 +25,12 @@ token，也不会把两个 token 拼接或写入 URL。
 | 功能 | 直达地址 | 最低角色 | 验收内容 |
 |---|---|---|---|
 | Login | <https://blueskyxn-souwen.hf.space/panel#/login> | 无 | 同源 Server URL、application token、错误提示与会话选项 |
-| Search | <https://blueskyxn-souwen.hf.space/panel#/search> | user | 单领域选择、请求状态、标题、snippet 与规范化结果 |
-| LLM Search | <https://blueskyxn-souwen.hf.space/panel#/llm-search> | user | 单个 configured Provider ID、固定 `single`、综合回答与 evidence |
-| Fetch | <https://blueskyxn-souwen.hf.space/panel#/fetch> | user | 最多 20 个 URL、fallback/fanout、SSRF/robots 保护结果 |
+| Search | <https://blueskyxn-souwen.hf.space/panel#/search> | user | 单领域、Server primary Provider、标题、snippet 与规范化结果 |
+| LLM Search | <https://blueskyxn-souwen.hf.space/panel#/llm-search> | user | 单个 configured Provider ID、固定 `single`、结构化 evidence 与可选 answer |
+| Fetch | <https://blueskyxn-souwen.hf.space/panel#/fetch> | user | 最多 20 个 URL、固定 `fallback`、SSRF/robots 保护结果 |
 | Providers | <https://blueskyxn-souwen.hf.space/panel#/providers> | user | 104 个 Provider package 的能力、可用性和缺失配置 |
 | Runtime | <https://blueskyxn-souwen.hf.space/panel#/runtime> | admin | 脱敏、只读的 Provider/runtime 诊断 |
-| Settings | <https://blueskyxn-souwen.hf.space/panel#/settings> | admin | 访问策略、配置数量与 LLM Search 姿态摘要 |
+| Settings | <https://blueskyxn-souwen.hf.space/panel#/settings> | admin | 访问策略、配置数量与 LLM Search gateway 声明摘要 |
 | Swagger | <https://blueskyxn-souwen.hf.space/docs> | 无 | 当前 runtime OpenAPI 的交互式文档 |
 | OpenAPI JSON | <https://blueskyxn-souwen.hf.space/openapi.json> | 无 | 8 条 canonical public contract paths |
 | Health | <https://blueskyxn-souwen.hf.space/healthz> | 无 | version、source SHA、wrapper SHA、target rollout |
@@ -45,16 +45,21 @@ token，也不会把两个 token 拼接或写入 URL。
 2. 在 Login 页保留自动填入的同源 Server URL。输入获批的 SouWen user 或 admin token；不要
    在 URL、Issue、截图、日志或聊天中粘贴凭据。
 3. 先打开 Providers，确认至少一个 `search`、一个 `llm_search` 和一个 `fetch` Provider 为
-   available。LLM Search 页的 Provider ID 应从这里选择，不使用文档中的硬编码私有配置。
-4. 在 Search 输入研究问题并选择一个领域。未显式指定 Provider 的 Server contract 一次只接受
-   一个 domain；Panel 默认选择 `paper`，避免生成必然失败的多 domain 请求。成功状态应展示规范化结果；
-   零结果应展示明确 empty state，而不是空白页面。
+   available。LLM Search ID 从当前 available 项选择，只填写 Provider ID，不填写或记录私有配置值。
+4. 在 Search 输入研究问题并选择一个领域；Panel 默认选择 `paper`，Server 按
+   `search_defaults` 选择一个 primary（当前默认 `crossref`）。Panel 不覆盖 Provider policy；
+   成功状态应展示规范化结果，零结果应展示明确 empty state。Provider catalog 的 available 不等于
+   上游永远在线，未配置的 domain primary 会安全返回 canonical error。
 5. 在 LLM Search 输入问题和一个 available Provider ID。Target runtime 的策略固定为 `single`；
-   成功状态应同时展示回答和 evidence，Provider 错误应进入可读 error state。
-6. 在 Fetch 输入一个获准的公开 `http/https` URL。成功结果应显示 target、status、title/content；
-   内网、非 HTTP scheme 或违反 server policy 的目标必须 fail closed。
-7. 使用 admin token 打开 Runtime 和 Settings。两页都只能读取；页面不得显示 token、password、
-   cookie、credential、API key 或完整私有 endpoint。
+   成功状态必须展示结构化 evidence。`answer` 按 canonical contract 可为 `null`：只有 Provider 返回
+   可验证 synthesis 时才展示回答，evidence-only 仍是有效成功，Provider 错误应进入可读 error state。
+6. 在 Fetch 输入一个获准的公开 `http/https` URL。Panel 固定使用 `fallback`；SDK/API 可显式使用
+   已实现的 `fanout`。成功结果应显示 target、status 与解压后的可读 title/content，不得把 Brotli
+   等传输编码字节当作文本；内网、非 HTTP scheme、解压后超过 10 MiB 或违反 server policy 的目标
+   必须 fail closed。
+7. 使用 admin token 打开 Runtime 和 Settings。两页都只能读取；Settings 的 gateway 配置不等于
+   Provider 已可用，实际可用性以 Providers 为准。页面不得显示 token、password、cookie、
+   credential、API key 或完整私有 endpoint。
 8. 切换 light/dark，并在窄屏下检查所有导航和表单；使用 `Tab` 验证 skip link、焦点环和按钮顺序。
 
 ## HTTP 快速核对

@@ -7,10 +7,13 @@ SouWen 管理面板位于 `panel/`，是一个固定的 React/Vite 管理界面�
 
 面板只提供以下顶层工作区：
 
-1. **Search**：从 13 个领域中选择一个，使用 Server 默认 Provider 完成规范化检索；多 Provider
-   fanout 由显式 SDK/API 请求承担。
-2. **LLM Search**：选择一个当前部署 configured provider，使用固定 `single` 策略完成带证据综合检索。
-3. **Fetch**：受服务端 SSRF、robots 和 provider 策略保护的内容获取。
+1. **Search**：从 frozen OpenAPI 生成的 13 个领域中选择一个，由 Server 的
+   `search_defaults` 有序表选择一个 primary Provider；Panel 始终只发送一个领域且不覆盖
+   Provider policy。
+2. **LLM Search**：选择一个当前部署 configured provider，使用固定 `single` 策略返回结构化证据；
+   Provider 返回可验证 synthesis 时同时展示综合回答。
+3. **Fetch**：受服务端 SSRF、robots 和 provider 策略保护的内容获取；Panel 固定发送
+   `fallback`，已实现的多 Provider `fanout` 保留给显式 SDK/API workflow。
 4. **Providers**：只读 provider 可用性、能力与缺失配置字段。
 5. **Runtime / Settings**：仅 admin 可见的只读运行诊断和安全姿态摘要。
 
@@ -46,8 +49,9 @@ contract。
 无密码管理员访问只由服务端的 `SOUWEN_ADMIN_OPEN=1` 决定。
 
 Runtime / Settings 仅使用必要的 admin 读取接口。Settings 只投影访问策略、Provider 配置
-数量和 LLM Search 姿态，不把完整 server config 发送到 DOM。面板不提供 token、password、
-cookie、credential 或 API key 的回显和保存。
+数量和 LLM Search gateway 是否已声明；实际 Provider 可用性仍以 Providers 页为准，不读取已退休的
+legacy `llm` 字段，也不把完整 server config 发送到 DOM。面板不提供 token、password、cookie、
+credential 或 API key 的回显和保存。
 
 嵌入式 Panel 的认证只支持两种单一浏览器场景：同源 private-edge browser session/cookie，或普通的
 单一 Bearer application token。前者由浏览器自动携带，Panel 不读取、采集或持久化 cookie；后者只按

@@ -12,15 +12,20 @@
 - ``TestProxyValidation``：代理 URL 校验与安全性
 """
 
+from typing import get_args
+
 import pytest
 
 from souwen.config import (
+    DEFAULT_SEARCH_PROVIDERS,
     LLMSearchGatewayConfig,
+    SEARCH_DOMAINS,
     SouWenConfig,
     SourceChannelConfig,
     get_config,
     reload_config,
 )
+from souwen.platform.provider_spi import SearchDomain
 
 
 @pytest.fixture(autouse=True)
@@ -118,6 +123,40 @@ class TestDefaults:
         """proxy_pool 默认空列表（不启用代理池）。"""
         cfg = SouWenConfig()
         assert cfg.proxy_pool == []
+
+    def test_search_defaults_cover_every_canonical_domain(self):
+        cfg = SouWenConfig()
+
+        assert SEARCH_DOMAINS == get_args(SearchDomain)
+        assert tuple(cfg.search_defaults) == SEARCH_DOMAINS
+        assert cfg.search_defaults == DEFAULT_SEARCH_PROVIDERS
+        assert cfg.search_defaults["paper"][0] == "crossref"
+
+    @pytest.mark.parametrize(
+        ("search_defaults", "message"),
+        [
+            ({"paper": ["crossref"]}, "exactly cover"),
+            (
+                {**DEFAULT_SEARCH_PROVIDERS, "unknown": ["fixture"]},
+                "exactly cover",
+            ),
+            (
+                {**DEFAULT_SEARCH_PROVIDERS, "paper": []},
+                "at least one provider",
+            ),
+            (
+                {**DEFAULT_SEARCH_PROVIDERS, "paper": ["crossref", "crossref"]},
+                "must be unique",
+            ),
+            (
+                {**DEFAULT_SEARCH_PROVIDERS, "paper": ["not valid"]},
+                "invalid provider ID",
+            ),
+        ],
+    )
+    def test_invalid_search_defaults_are_rejected(self, search_defaults, message):
+        with pytest.raises(ValueError, match=message):
+            SouWenConfig(search_defaults=search_defaults)
 
     def test_uniapi_ark_sources_are_opt_in_and_mutually_exclusive(self):
         deepseek = "uniapi_ark_annotations_deepseek_v3_2_251201"

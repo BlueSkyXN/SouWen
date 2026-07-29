@@ -370,12 +370,32 @@ def _capability_checks(
     checks: list[Check],
     providers: list[dict],
 ) -> None:
+    def search_default():
+        status, _headers, payload = client.json(
+            "/api/v1/search",
+            method="POST",
+            payload={
+                "query": "retrieval augmented generation",
+                "domains": ["paper"],
+                "page": {"limit": 3},
+            },
+        )
+        _expect(
+            status == 200 and isinstance(payload.get("items"), list),
+            f"default search {status}",
+        )
+        requested = payload.get("meta", {}).get("requested", [])
+        _expect(len(requested) == 1, "default search did not select exactly one Provider")
+        return f"{requested[0]}: {len(payload['items'])} results", payload
+
+    _record(checks, "search_default_live", search_default)
+
     def search():
         failures: list[str] = []
         for search_provider in _preferred_available(
             providers,
             "search",
-            ("openalex", "crossref", "semantic_scholar"),
+            ("crossref", "openalex", "semantic_scholar"),
         ):
             status, _headers, payload = client.json(
                 "/api/v1/search",
@@ -442,6 +462,35 @@ def _capability_checks(
         return f"{fetch_provider}: immutable target fetched", payload
 
     _record(checks, "fetch_live", fetch)
+
+    def fetch_readable_content():
+        fetch_provider = _first_available(
+            providers,
+            "fetch",
+            ("builtin-fetch",),
+        )
+        _expect(fetch_provider == "builtin-fetch", "builtin Fetch provider is unavailable")
+        status, _headers, payload = client.json(
+            "/api/v1/fetch",
+            method="POST",
+            payload={
+                "targets": ["https://example.com/"],
+                "providers": [{"id": fetch_provider, "kind": "fetch"}],
+                "strategy": "fanout",
+                "policy": {"respect_robots": True},
+            },
+        )
+        items = payload.get("items") if isinstance(payload, dict) else None
+        _expect(status == 200 and isinstance(items, list) and items, f"fetch readable {status}")
+        content = items[0].get("content")
+        _expect(items[0].get("status") == "success", "readable Fetch result failed")
+        _expect(
+            isinstance(content, str) and "Example Domain" in content, "Fetch content unreadable"
+        )
+        _expect("\ufffd" not in content, "Fetch content contains replacement characters")
+        return "builtin-fetch fanout: readable public content", payload
+
+    _record(checks, "fetch_readable_live", fetch_readable_content)
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:

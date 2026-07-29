@@ -24,6 +24,9 @@ class _Manager:
     async def execute(self, adapter_id, request, request_context, execution):
         if "blocked" in str(request.target):
             raise ProviderError(ProviderErrorCode.POLICY_BLOCKED, provider_id=adapter_id)
+        provider_id = (
+            adapter_id if adapter_id == "builtin-fetch" else adapter_id.removesuffix("-fetch")
+        )
         content = (
             "short" if "short" in str(request.target) else "long enough canonical content " * 4
         )
@@ -38,7 +41,7 @@ class _Manager:
                 truncated=False,
                 quality="low" if len(content) <= 63 else "high",
             ),
-            provenance=(Provenance(provider=adapter_id, outcome="success"),),
+            provenance=(Provenance(provider=provider_id, outcome="success"),),
         )
 
 
@@ -99,19 +102,217 @@ async def test_module_keeps_order_and_marks_low_or_failed_items_partial() -> Non
 
 
 @pytest.mark.asyncio
-async def test_module_rejects_request_side_provider_or_fanout_override() -> None:
+async def test_module_rejects_unknown_or_non_fetch_provider_override() -> None:
     service = FetchModuleService(_Manager())
     context = RequestContext(request_id="fetch-module-v2")
     for request in (
-        FetchRequest(targets=("https://example.com",), strategy="fanout"),
         FetchRequest(
             targets=("https://example.com",),
             providers=(ProviderRef(id="other", kind="fetch"),),
+        ),
+        FetchRequest(
+            targets=("https://example.com",),
+            providers=(ProviderRef(id="other", kind="search"),),
         ),
     ):
         with pytest.raises(ProviderError) as caught:
             await service.fetch(request, context, ExecutionContext.with_timeout(5))
         assert caught.value.code is ProviderErrorCode.INVALID_REQUEST
+
+
+@pytest.mark.asyncio
+async def test_module_fanout_returns_one_outcome_per_target_and_provider() -> None:
+    manager = _RecordingManager()
+    service = FetchModuleService(
+        manager,
+        provider_adapter_ids={"other": "other-fetch"},
+    )
+
+    batch = await service.fetch(
+        FetchRequest(
+            targets=("https://example.com/one", "https://example.com/two"),
+            providers=(
+                ProviderRef(id="builtin-fetch", kind="fetch"),
+                ProviderRef(id="other", kind="fetch"),
+            ),
+            strategy="fanout",
+        ),
+        RequestContext(request_id="fetch-fanout"),
+        ExecutionContext.with_timeout(5),
+    )
+
+    assert manager.adapter_ids == [
+        "builtin-fetch",
+        "other-fetch",
+        "builtin-fetch",
+        "other-fetch",
+    ]
+    assert [str(item.target) for item in batch.items] == [
+        "https://example.com/one",
+        "https://example.com/one",
+        "https://example.com/two",
+        "https://example.com/two",
+    ]
+    assert [item.provenance[0].provider for item in batch.items] == [
+        "builtin-fetch",
+        "other",
+        "builtin-fetch",
+        "other",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_module_fallback_advances_after_failure_and_stops_after_success() -> None:
+    class Manager(_RecordingManager):
+        async def execute(self, adapter_id, request, request_context, execution):
+            self.adapter_ids.append(adapter_id)
+            if adapter_id == "first-fetch":
+                raise ProviderError(ProviderErrorCode.PROVIDER_UNAVAILABLE)
+            return await _Manager.execute(self, adapter_id, request, request_context, execution)
+
+    manager = Manager()
+    service = FetchModuleService(
+        manager,
+        provider_adapter_ids={
+            "first": "first-fetch",
+            "second": "second-fetch",
+            "third": "third-fetch",
+        },
+    )
+
+    batch = await service.fetch(
+        FetchRequest(
+            targets=("https://example.com/one",),
+            providers=(
+                ProviderRef(id="first", kind="fetch"),
+                ProviderRef(id="second", kind="fetch"),
+                ProviderRef(id="third", kind="fetch"),
+            ),
+            strategy="fallback",
+        ),
+        RequestContext(request_id="fetch-fallback"),
+        ExecutionContext.with_timeout(5),
+    )
+
+    assert manager.adapter_ids == ["first-fetch", "second-fetch"]
+    assert batch.items[0].status == "success"
+    assert [item.provider for item in batch.items[0].provenance] == [
+        "first",
+        "second",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_fanout_failure_uses_public_provider_identity() -> None:
+    class Manager(_RecordingManager):
+        async def execute(self, adapter_id, request, request_context, execution):
+            self.adapter_ids.append(adapter_id)
+            if adapter_id == "newspaper-fetch":
+                raise ProviderError(
+                    ProviderErrorCode.RATE_LIMITED,
+                    provider_id="newspaper",
+                    retry_after_seconds=11,
+                )
+            return await _Manager.execute(self, adapter_id, request, request_context, execution)
+
+    batch = await FetchModuleService(
+        Manager(),
+        provider_adapter_ids={
+            "newspaper": "newspaper-fetch",
+            "other": "other-fetch",
+        },
+    ).fetch(
+        FetchRequest(
+            targets=("https://example.com/one",),
+            providers=(
+                ProviderRef(id="newspaper", kind="fetch"),
+                ProviderRef(id="other", kind="fetch"),
+            ),
+            strategy="fanout",
+        ),
+        RequestContext(request_id="fetch-public-provider-id"),
+        ExecutionContext.with_timeout(5),
+    )
+
+    failed = batch.items[0]
+    assert failed.status == "failed"
+    assert failed.provenance[0].provider == "newspaper"
+    assert failed.error.provider == "newspaper"
+    assert batch.items[1].status == "success"
+    assert batch.meta.partial is True
+
+
+@pytest.mark.asyncio
+async def test_single_provider_failure_preserves_public_identity_and_retry_metadata() -> None:
+    class Manager:
+        async def execute(self, adapter_id, request, request_context, execution):
+            raise ProviderError(
+                ProviderErrorCode.RATE_LIMITED,
+                provider_id="newspaper",
+                retry_after_seconds=17,
+            )
+
+    service = FetchModuleService(
+        Manager(),
+        provider_adapter_ids={"newspaper": "newspaper-fetch"},
+    )
+
+    with pytest.raises(ProviderError) as caught:
+        await service.fetch(
+            FetchRequest(
+                targets=("https://example.com/one",),
+                providers=(ProviderRef(id="newspaper", kind="fetch"),),
+            ),
+            RequestContext(request_id="fetch-public-provider-error"),
+            ExecutionContext.with_timeout(5),
+        )
+
+    assert caught.value.code is ProviderErrorCode.RATE_LIMITED
+    assert caught.value.provider_id == "newspaper"
+    assert caught.value.retry_after_seconds == 17
+
+
+@pytest.mark.asyncio
+async def test_fallback_keeps_low_quality_candidate_after_fatal_later_attempt() -> None:
+    class Manager(_RecordingManager):
+        async def execute(self, adapter_id, request, request_context, execution):
+            self.adapter_ids.append(adapter_id)
+            if adapter_id == "second-fetch":
+                raise ProviderError(
+                    ProviderErrorCode.POLICY_BLOCKED,
+                    provider_id="second",
+                )
+            return await _Manager.execute(self, adapter_id, request, request_context, execution)
+
+    manager = Manager()
+    batch = await FetchModuleService(
+        manager,
+        provider_adapter_ids={
+            "first": "first-fetch",
+            "second": "second-fetch",
+            "third": "third-fetch",
+        },
+    ).fetch(
+        FetchRequest(
+            targets=("https://example.com/short",),
+            providers=(
+                ProviderRef(id="first", kind="fetch"),
+                ProviderRef(id="second", kind="fetch"),
+                ProviderRef(id="third", kind="fetch"),
+            ),
+            strategy="fallback",
+        ),
+        RequestContext(request_id="fetch-low-quality-fatal"),
+        ExecutionContext.with_timeout(5),
+    )
+
+    assert manager.adapter_ids == ["first-fetch", "second-fetch"]
+    assert batch.items[0].status == "success"
+    assert batch.items[0].content == "short"
+    assert batch.items[0].content_metadata.quality == "low"
+    assert [item.provider for item in batch.items[0].provenance] == ["first", "second"]
+    assert [item.outcome for item in batch.items[0].provenance] == ["success", "failed"]
+    assert batch.meta.partial is True
 
 
 @pytest.mark.asyncio

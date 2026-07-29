@@ -12,7 +12,7 @@ from souwen import SouWenClient
 from souwen.delivery.client_sdk import SearchRequest
 
 with SouWenClient("https://souwen.example", token="your-user-token") as client:
-    page = client.search(SearchRequest(query="retrieval", domains=["paper", "web"]))
+    page = client.search(SearchRequest(query="retrieval", domains=["paper"]))
 ```
 
 ```python

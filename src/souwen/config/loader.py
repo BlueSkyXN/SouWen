@@ -41,7 +41,7 @@ _RETIRED_FEATURE_FIELDS = {
     "unpaywall_email": "Unpaywall provider 已退休",
 }
 
-_NESTED_CONFIG_FIELDS = frozenset({"sources", "llm_search_gateways"})
+_NESTED_CONFIG_FIELDS = frozenset({"sources", "search_defaults", "llm_search_gateways"})
 _EXACT_ENV_REFERENCE = re.compile(r"^\$\{([A-Z_][A-Z0-9_]*)\}$")
 
 

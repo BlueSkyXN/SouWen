@@ -3,8 +3,10 @@
 from __future__ import annotations
 
 import asyncio
+import gzip
 import socket
 import sys
+import zlib
 from types import ModuleType, SimpleNamespace
 from typing import Any
 
@@ -294,6 +296,254 @@ async def test_proxy_client_receives_only_ip_literal_connect_target(monkeypatch)
     assert request_kwargs["headers"]["Host"] == "example.com"
     assert request_kwargs["extensions"] == {"sni_hostname": "example.com"}
     assert request_kwargs["follow_redirects"] is False
+
+
+@pytest.mark.asyncio
+async def test_safe_httpx_only_advertises_builtin_content_decoders(monkeypatch):
+    """IP-pinned HTTPX requests must not advertise optional Brotli support."""
+
+    target, reason = resolve_fetch_target("https://example.com/compressed")
+    assert target is not None, reason
+    html = "<html><body>decoded content</body></html>"
+    accepted_encodings: list[str] = []
+
+    class CompressedStream(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            yield gzip.compress(html.encode())
+
+    async def handler(request: httpx.Request) -> httpx.Response:
+        accepted_encodings.append(request.headers["accept-encoding"])
+        return httpx.Response(
+            200,
+            headers={"content-encoding": "gzip", "content-type": "text/html"},
+            stream=CompressedStream(),
+        )
+
+    scraper = BaseScraper(
+        min_delay=0,
+        max_delay=0,
+        max_retries=1,
+        use_curl_cffi=False,
+        follow_redirects=False,
+    )
+    _patch_safe_client_transport(monkeypatch, handler)
+
+    async with scraper:
+        response = await scraper._do_resolved_request(
+            "GET",
+            target,
+            None,
+            {
+                "Host": target.host_header,
+                "Accept-Encoding": "gzip, deflate, br",
+            },
+            _max_response_bytes=4096,
+        )
+
+    assert accepted_encodings == ["gzip, deflate"]
+    assert response.text == html
+    assert "content-encoding" not in response.headers
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("raw_deflate", (False, True))
+async def test_safe_httpx_decodes_zlib_and_raw_deflate_streams(monkeypatch, raw_deflate):
+    target, reason = resolve_fetch_target("https://example.com/deflate")
+    assert target is not None, reason
+    content = b"deflate content"
+    if raw_deflate:
+        compressor = zlib.compressobj(wbits=-zlib.MAX_WBITS)
+        encoded = compressor.compress(content) + compressor.flush()
+    else:
+        encoded = zlib.compress(content)
+
+    class DeflateStream(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            for index in range(len(encoded)):
+                yield encoded[index : index + 1]
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"content-encoding": "deflate", "content-type": "text/plain"},
+            stream=DeflateStream(),
+        )
+
+    scraper = BaseScraper(
+        min_delay=0,
+        max_delay=0,
+        max_retries=1,
+        use_curl_cffi=False,
+        follow_redirects=False,
+    )
+    _patch_safe_client_transport(monkeypatch, handler)
+
+    async with scraper:
+        response = await scraper._do_resolved_request(
+            "GET",
+            target,
+            None,
+            {"Host": target.host_header},
+            _max_response_bytes=1024,
+        )
+
+    assert response.content == content
+    assert "content-encoding" not in response.headers
+
+
+@pytest.mark.asyncio
+async def test_safe_httpx_stops_streaming_after_decompressed_byte_limit(monkeypatch):
+    """The target Fetch cap must stop a compressed stream before full buffering."""
+
+    target, reason = resolve_fetch_target("https://example.com/compression-bomb")
+    assert target is not None, reason
+    compressed = gzip.compress(b"x" * (1024 * 1024))
+
+    class CountingStream(httpx.AsyncByteStream):
+        def __init__(self) -> None:
+            self.chunks = [compressed[index : index + 1] for index in range(len(compressed))]
+            self.yielded = 0
+            self.closed = False
+
+        async def __aiter__(self):
+            for chunk in self.chunks:
+                self.yielded += 1
+                yield chunk
+
+        async def aclose(self) -> None:
+            self.closed = True
+
+    stream = CountingStream()
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"content-encoding": "gzip", "content-type": "text/plain"},
+            stream=stream,
+        )
+
+    scraper = BaseScraper(
+        min_delay=0,
+        max_delay=0,
+        max_retries=1,
+        use_curl_cffi=False,
+        follow_redirects=False,
+    )
+    _patch_safe_client_transport(monkeypatch, handler)
+
+    async with scraper:
+        response = await scraper._do_resolved_request(
+            "GET",
+            target,
+            None,
+            {"Host": target.host_header},
+            _max_response_bytes=1024,
+        )
+
+    assert response.extensions["souwen_response_too_large"] is True
+    assert response.extensions["souwen_response_size_lower_bound"] == 1025
+    assert response.content == b""
+    assert stream.yielded < len(stream.chunks)
+    assert stream.closed is True
+
+
+@pytest.mark.asyncio
+async def test_safe_httpx_applies_one_limit_across_concatenated_gzip_members(monkeypatch):
+    target, reason = resolve_fetch_target("https://example.com/concatenated-gzip")
+    assert target is not None, reason
+    first = gzip.compress(b"first member")
+    second = gzip.compress(b"x" * 2048)
+
+    class ConcatenatedStream(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            yield first
+            yield second[:3]
+            yield second[3:]
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"content-encoding": "gzip", "content-type": "text/plain"},
+            stream=ConcatenatedStream(),
+        )
+
+    scraper = BaseScraper(
+        min_delay=0,
+        max_delay=0,
+        max_retries=1,
+        use_curl_cffi=False,
+        follow_redirects=False,
+    )
+    _patch_safe_client_transport(monkeypatch, handler)
+
+    async with scraper:
+        response = await scraper._do_resolved_request(
+            "GET",
+            target,
+            None,
+            {"Host": target.host_header},
+            _max_response_bytes=1024,
+        )
+
+    assert response.extensions["souwen_response_too_large"] is True
+    assert response.extensions["souwen_response_size_lower_bound"] == 1025
+    assert response.content == b""
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("encoding", "payload"),
+    (
+        ("gzip", gzip.compress(b"truncated gzip")[:-4]),
+        ("deflate", zlib.compress(b"truncated zlib deflate")[:-2]),
+        (
+            "deflate",
+            (
+                lambda compressor: (
+                    compressor.compress(b"truncated raw deflate") + compressor.flush()
+                )[:-1]
+            )(zlib.compressobj(wbits=-zlib.MAX_WBITS)),
+        ),
+        ("deflate", zlib.compress(b"complete deflate") + b"trailing"),
+    ),
+)
+async def test_safe_httpx_rejects_incomplete_or_trailing_compressed_streams(
+    monkeypatch,
+    encoding,
+    payload,
+):
+    target, reason = resolve_fetch_target("https://example.com/invalid-compressed-stream")
+    assert target is not None, reason
+
+    class InvalidStream(httpx.AsyncByteStream):
+        async def __aiter__(self):
+            yield payload
+
+    async def handler(_request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            headers={"content-encoding": encoding, "content-type": "text/plain"},
+            stream=InvalidStream(),
+        )
+
+    scraper = BaseScraper(
+        min_delay=0,
+        max_delay=0,
+        max_retries=1,
+        use_curl_cffi=False,
+        follow_redirects=False,
+    )
+    _patch_safe_client_transport(monkeypatch, handler)
+
+    async with scraper:
+        with pytest.raises(httpx.DecodingError):
+            await scraper._do_resolved_request(
+                "GET",
+                target,
+                None,
+                {"Host": target.host_header},
+                _max_response_bytes=1024,
+            )
 
 
 @pytest.mark.asyncio

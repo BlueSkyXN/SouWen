@@ -54,6 +54,7 @@ from __future__ import annotations
 import asyncio
 import logging
 import random
+import zlib
 from typing import Any
 from urllib.parse import urljoin, urlparse
 
@@ -76,6 +77,139 @@ from souwen.common_runtime.provider_support.fingerprint import get_random_finger
 
 logger = logging.getLogger("souwen.common_runtime.provider_support.scraper")
 _REDIRECT_CODES = frozenset({301, 302, 303, 307, 308})
+
+
+def _decoded_response_headers(headers: httpx.Headers, content_length: int) -> httpx.Headers:
+    normalized = httpx.Headers(headers)
+    for name in ("content-encoding", "content-length"):
+        if name in normalized:
+            del normalized[name]
+    normalized["Content-Length"] = str(content_length)
+    return normalized
+
+
+def _response_too_large(response: httpx.Response, max_response_bytes: int) -> httpx.Response:
+    extensions = dict(response.extensions)
+    extensions.update(
+        {
+            "souwen_response_too_large": True,
+            "souwen_response_size_lower_bound": max_response_bytes + 1,
+        }
+    )
+    return httpx.Response(
+        response.status_code,
+        headers=_decoded_response_headers(response.headers, 0),
+        content=b"",
+        request=response.request,
+        extensions=extensions,
+    )
+
+
+def _is_zlib_wrapped_deflate(prefix: bytes) -> bool:
+    """Choose the RFC zlib wrapper deterministically from its two-byte header."""
+
+    if len(prefix) < 2:
+        return False
+    compression_method, flags = prefix[0], prefix[1]
+    return (
+        compression_method & 0x0F == 8
+        and compression_method >> 4 <= 7
+        and (compression_method << 8 | flags) % 31 == 0
+    )
+
+
+async def _read_bounded_httpx_response(
+    response: httpx.Response,
+    max_response_bytes: int,
+) -> httpx.Response:
+    """Read at most ``max + 1`` decoded bytes from one streamed HTTPX response."""
+
+    if max_response_bytes < 1:
+        raise ValueError("max_response_bytes must be positive")
+    encoding_header = response.headers.get("content-encoding", "").strip().lower()
+    encodings = tuple(part.strip() for part in encoding_header.split(",") if part.strip())
+    if len(encodings) > 1 or (encodings and encodings[0] not in {"identity", "gzip", "deflate"}):
+        raise httpx.DecodingError(f"unsupported content encoding: {encoding_header}")
+    encoding = encodings[0] if encodings else "identity"
+    body = bytearray()
+
+    if encoding == "identity":
+        async for raw_chunk in response.aiter_raw():
+            remaining = max_response_bytes + 1 - len(body)
+            body.extend(raw_chunk[:remaining])
+            if len(body) > max_response_bytes:
+                return _response_too_large(response, max_response_bytes)
+        return httpx.Response(
+            response.status_code,
+            headers=_decoded_response_headers(response.headers, len(body)),
+            content=bytes(body),
+            request=response.request,
+            extensions=dict(response.extensions),
+        )
+
+    decoder: Any | None = None
+    deflate_prefix = bytearray()
+    deflate_raw: bool | None = None
+    completed_stream = False
+    async for raw_chunk in response.aiter_raw():
+        if not raw_chunk:
+            continue
+        if encoding == "deflate" and completed_stream:
+            raise httpx.DecodingError("trailing data after deflate stream")
+        if encoding == "deflate" and deflate_raw is None:
+            deflate_prefix.extend(raw_chunk)
+            if len(deflate_prefix) < 2:
+                continue
+            pending = bytes(deflate_prefix)
+            deflate_prefix.clear()
+            deflate_raw = not _is_zlib_wrapped_deflate(pending[:2])
+        else:
+            pending = raw_chunk
+        while pending:
+            if decoder is None:
+                decoder = zlib.decompressobj(
+                    -zlib.MAX_WBITS
+                    if deflate_raw is True
+                    else zlib.MAX_WBITS | 16
+                    if encoding == "gzip"
+                    else zlib.MAX_WBITS
+                )
+            remaining = max_response_bytes + 1 - len(body)
+            input_chunk = pending
+            try:
+                decoded = decoder.decompress(input_chunk, remaining)
+            except zlib.error as exc:
+                raise httpx.DecodingError(str(exc)) from exc
+            body.extend(decoded)
+            if len(body) > max_response_bytes:
+                return _response_too_large(response, max_response_bytes)
+
+            pending = decoder.unconsumed_tail
+            if decoder.eof:
+                try:
+                    body.extend(decoder.flush(max_response_bytes + 1 - len(body)))
+                except zlib.error as exc:
+                    raise httpx.DecodingError(str(exc)) from exc
+                if len(body) > max_response_bytes:
+                    return _response_too_large(response, max_response_bytes)
+                pending = decoder.unused_data or pending
+                completed_stream = True
+                decoder = None
+                if encoding == "deflate" and pending:
+                    raise httpx.DecodingError("trailing data after deflate stream")
+            elif pending == input_chunk and not decoded:
+                raise httpx.DecodingError("content decoder made no progress")
+
+    if deflate_prefix or decoder is not None or not completed_stream:
+        raise httpx.DecodingError(f"incomplete {encoding} stream")
+    return httpx.Response(
+        response.status_code,
+        headers=_decoded_response_headers(response.headers, len(body)),
+        content=bytes(body),
+        request=response.request,
+        extensions=dict(response.extensions),
+    )
+
 
 # 尝试导入 curl_cffi（TLS 指纹模拟）— 可选依赖，缺失时自动回退 httpx
 _HAS_CURL_CFFI = False
@@ -252,6 +386,7 @@ class BaseScraper:
         *,
         _resolved_target: ResolvedFetchTarget | None = None,
         _include_configured_headers: bool = True,
+        _max_response_bytes: int | None = None,
     ) -> httpx.Response:
         """带重试和礼貌延迟的请求方法
 
@@ -293,12 +428,15 @@ class BaseScraper:
 
             try:
                 if _resolved_target is not None:
+                    resolved_kwargs: dict[str, Any] = {"data": data}
+                    if _max_response_bytes is not None:
+                        resolved_kwargs["_max_response_bytes"] = _max_response_bytes
                     resp = await self._do_resolved_request(
                         method,
                         _resolved_target,
                         params,
                         request_headers,
-                        data=data,
+                        **resolved_kwargs,
                     )
                 else:
                     resp = await self._do_request(method, url, params, request_headers, data=data)
@@ -465,6 +603,8 @@ class BaseScraper:
         params: dict[str, Any] | None,
         headers: dict[str, str],
         data: dict[str, Any] | None = None,
+        *,
+        _max_response_bytes: int | None = None,
     ) -> httpx.Response:
         """Request an IP-pinned target while preserving the original Host and HTTPS SNI.
 
@@ -488,12 +628,29 @@ class BaseScraper:
         extensions = (
             {"sni_hostname": target.sni_hostname} if target.sni_hostname is not None else None
         )
-        return await safe_httpx_client.request(
-            method,
-            target.connect_url,
-            params=params,
-            headers=headers,
-            data=data,
-            follow_redirects=False,
-            extensions=extensions,
-        )
+        safe_headers = dict(headers)
+        for header_name in tuple(safe_headers):
+            if header_name.lower() == "accept-encoding":
+                safe_headers.pop(header_name)
+        # The IP-pinned path always uses HTTPX, which only guarantees gzip/deflate decoders.
+        # Do not advertise optional Brotli support inherited from the browser fingerprint.
+        safe_headers["Accept-Encoding"] = "gzip, deflate"
+        request_kwargs = {
+            "params": params,
+            "headers": safe_headers,
+            "data": data,
+            "extensions": extensions,
+        }
+        if _max_response_bytes is None:
+            return await safe_httpx_client.request(
+                method,
+                target.connect_url,
+                follow_redirects=False,
+                **request_kwargs,
+            )
+        request = safe_httpx_client.build_request(method, target.connect_url, **request_kwargs)
+        response = await safe_httpx_client.send(request, stream=True, follow_redirects=False)
+        try:
+            return await _read_bounded_httpx_response(response, _max_response_bytes)
+        finally:
+            await response.aclose()

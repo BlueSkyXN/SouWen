@@ -115,6 +115,21 @@ warp:
   warp_endpoint: ~
   warp_external_proxy: ~
 
+search_defaults:
+  paper: [crossref, openalex, eric]
+  book: [open_library]
+  research_output: [datacite]
+  patent: [google_patents]
+  web: [bing, duckduckgo]
+  news: [duckduckgo_news]
+  images: [duckduckgo_images]
+  videos: [bilibili, duckduckgo_videos]
+  social: [reddit, weibo, zhihu]
+  office: [feishu_drive]
+  developer: [github, stackoverflow]
+  cn_tech: [linuxdo, v2ex]
+  knowledge: [wikipedia]
+
 sources: {}
 llm_search_gateways: {}
 ```
@@ -367,6 +382,39 @@ server:
 | `warp_external_proxy` | `SOUWEN_WARP_EXTERNAL_PROXY` / `WARP_EXTERNAL_PROXY` | None | `external` 模式使用的外部代理地址 |
 
 > WARP 字段支持不带 `SOUWEN_` 前缀的环境变量（供 Docker entrypoint 使用）。
+
+### Search 有序默认 Provider（search_defaults）
+
+`SearchRequest.providers` 缺省时，Server 按 `search_defaults` 为请求中的唯一 domain
+选择列表第一个 primary。表必须精确覆盖 13 个 canonical domain；Provider ID 必须存在于
+manifest catalog、声明 `search` capability，且 Provider spec 的 domain 必须一致，否则
+runtime fail closed。列表顺序不会在一次缺省请求中触发 sequential fallback，也不会触发
+fanout；显式多 Provider 仍由调用方通过 `SearchRequest.providers` 请求。
+
+默认 `paper` primary 为 `crossref`。这是为避免匿名 OpenAlex 上游配额耗尽使 Panel 默认路径
+直接 429；`openalex` 和 `eric` 仍是已登记的后续候选，但只有修改 YAML 顺序后才会成为 primary。
+可以通过 JSON 环境变量 `SOUWEN_SEARCH_DEFAULTS` 覆盖整张表；不能只提供局部 domain。
+
+```yaml
+search_defaults:
+  paper: [crossref, openalex, eric]
+  book: [open_library]
+  research_output: [datacite]
+  patent: [google_patents]
+  web: [bing, duckduckgo]
+  news: [duckduckgo_news]
+  images: [duckduckgo_images]
+  videos: [bilibili, duckduckgo_videos]
+  social: [reddit, weibo, zhihu]
+  office: [feishu_drive]
+  developer: [github, stackoverflow]
+  cn_tech: [linuxdo, v2ex]
+  knowledge: [wikipedia]
+```
+
+Provider 的 catalog `availability` 表示当前配置/eligibility，不是上游在线保证。当前部署若未配置
+某个 domain 的 primary（例如 `office` 的 `feishu_drive` 凭据），该 domain 会返回 canonical
+`provider_unavailable`，但不会回退到不兼容 domain 的 Provider。
 
 ### 数据源频道配置（sources）
 

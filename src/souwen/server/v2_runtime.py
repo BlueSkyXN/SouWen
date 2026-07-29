@@ -90,6 +90,7 @@ from souwen.platform.provider_spi import (
     ProviderRef,
     Provenance,
     RequestContext,
+    SearchRequest,
 )
 from souwen.providers.fetch_sources.arxiv_fulltext import (
     ARXIV_FULLTEXT_FETCH_PROFILE,
@@ -292,6 +293,7 @@ from souwen.providers.information_sources.metaso import (
 )
 from souwen.providers.information_sources.openalex import (
     OPENALEX_PROVIDER_MANIFEST,
+    OPENALEX_REST_SPEC,
     OpenAlexSearchProvider,
 )
 from souwen.providers.information_sources.openaire import (
@@ -1427,27 +1429,98 @@ _MIGRATED_PROVIDER_IDS = (
     | _BATCH_FIVE_MANIFEST_IDS
     | _BATCH_SIX_MANIFEST_IDS
 )
-_DEFAULT_PROVIDER_IDS = frozenset(
-    {
-        "arxiv",
-        "bilibili",
-        "bing",
-        "biorxiv",
-        "builtin",
-        "crossref",
-        "datacite",
-        "dblp",
-        "duckduckgo",
-        "duckduckgo_images",
-        "duckduckgo_news",
-        "duckduckgo_videos",
-        "google_patents",
-        "open_library",
-        "openalex",
-        "pubmed",
-        "youtube",
-    }
-)
+
+
+def _search_provider_declarations() -> tuple[tuple[ProviderManifest, ProviderSpec], ...]:
+    """Return the one reviewed manifest/spec declaration for every Search provider."""
+
+    return (
+        (OPENALEX_PROVIDER_MANIFEST, OPENALEX_REST_SPEC),
+        (ERIC_PROVIDER_MANIFEST, ERIC_REST_SPEC),
+        (PATENTSVIEW_PROVIDER_MANIFEST, PATENTSVIEW_REST_SPEC),
+        *((manifest, spec) for manifest, spec, _provider, _factory in _BATCH_ONE_SEARCH_BINDINGS),
+        *((manifest, spec) for manifest, spec, _provider, _factory in _BATCH_TWO_SEARCH_BINDINGS),
+        *(
+            (manifest, spec)
+            for manifest, spec, _provider, _factory in _BATCH_THREE_SEARCH_ONLY_BINDINGS
+        ),
+        *(
+            (manifest, search_spec)
+            for (
+                manifest,
+                search_spec,
+                _fetch_spec,
+                _search_provider,
+                _fetch_provider,
+                _factory,
+            ) in _BATCH_THREE_MULTI_BINDINGS
+        ),
+        *((manifest, spec) for manifest, spec, _provider, _factory in _BATCH_FOUR_SEARCH_BINDINGS),
+        *(
+            (manifest, spec)
+            for manifest, spec, _provider, _provider_id in _BATCH_FIVE_SEARCH_BINDINGS
+        ),
+        *(
+            (manifest, spec)
+            for manifest, spec, _provider, _provider_id in _BATCH_SIX_SEARCH_BINDINGS
+        ),
+    )
+
+
+def _build_search_selector(config: SouWenConfig) -> OrderedSearchProviderSelector:
+    """Resolve the configured ordered defaults against reviewed Provider declarations."""
+
+    declared: dict[str, tuple[str, str]] = {}
+    declaration_order: dict[str, int] = {}
+    for order, (manifest, spec) in enumerate(_search_provider_declarations(), start=1):
+        validate_spec_manifest(spec, manifest)
+        provider_id = spec.provider_id
+        if manifest.id != provider_id or provider_id in declared:
+            raise RuntimeError(f"invalid Search provider declaration: {provider_id}")
+        search_adapters = tuple(
+            adapter.id for adapter in manifest.adapters if adapter.capability == "search"
+        )
+        if len(search_adapters) != 1 or search_adapters[0] != spec.adapter_id:
+            raise RuntimeError(f"Search adapter declaration mismatch: {provider_id}")
+        declared[provider_id] = (spec.domain, search_adapters[0])
+        declaration_order[provider_id] = order
+
+    defaults_by_domain: dict[str, tuple[SearchProviderSelection, ...]] = {}
+    configured_default_ids: set[str] = set()
+    for domain, provider_ids in config.search_defaults.items():
+        selections: list[SearchProviderSelection] = []
+        for priority, provider_id in enumerate(provider_ids, start=1):
+            declaration = declared.get(provider_id)
+            if declaration is None:
+                raise RuntimeError(f"unknown Search default provider: {provider_id}")
+            provider_domain, adapter_id = declaration
+            if provider_domain != domain:
+                raise RuntimeError(
+                    f"Search default provider {provider_id} belongs to {provider_domain}, not {domain}"
+                )
+            selections.append(
+                SearchProviderSelection(
+                    provider=ProviderRef(id=provider_id, kind="search"),
+                    adapter_id=adapter_id,
+                    yaml_priority=priority,
+                )
+            )
+            configured_default_ids.add(provider_id)
+        defaults_by_domain[domain] = tuple(selections)
+
+    explicit_only = tuple(
+        SearchProviderSelection(
+            provider=ProviderRef(id=provider_id, kind="search"),
+            adapter_id=adapter_id,
+            yaml_priority=declaration_order[provider_id],
+        )
+        for provider_id, (_domain, adapter_id) in declared.items()
+        if provider_id not in configured_default_ids
+    )
+    return OrderedSearchProviderSelector(
+        defaults_by_domain,
+        explicit_selections=explicit_only,
+    )
 
 
 def _self_hosted_base_url(config: SouWenConfig, provider_id: str) -> str:
@@ -2097,228 +2170,8 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
         )
     )
 
-    search = SearchModuleService(
-        manager,
-        OrderedSearchProviderSelector(
-            {
-                "paper": (
-                    SearchProviderSelection(
-                        provider=ProviderRef(id="openalex", kind="search"),
-                        adapter_id="openalex-search",
-                        yaml_priority=1,
-                    ),
-                    SearchProviderSelection(
-                        provider=ProviderRef(id="eric", kind="search"),
-                        adapter_id="eric-search",
-                        yaml_priority=2,
-                    ),
-                    *(
-                        SearchProviderSelection(
-                            provider=ProviderRef(id=manifest.id, kind="search"),
-                            adapter_id=manifest.adapters[0].id,
-                            yaml_priority=priority,
-                        )
-                        for priority, (
-                            manifest,
-                            _spec,
-                            _provider_type,
-                            _client_factory,
-                        ) in enumerate(
-                            (
-                                binding
-                                for binding in _BATCH_ONE_SEARCH_BINDINGS
-                                if binding[1].domain == "paper"
-                            ),
-                            start=3,
-                        )
-                    ),
-                    *(
-                        SearchProviderSelection(
-                            provider=ProviderRef(id=manifest.id, kind="search"),
-                            adapter_id=manifest.adapters[0].id,
-                            yaml_priority=priority,
-                        )
-                        for priority, (
-                            manifest,
-                            _spec,
-                            _provider_type,
-                            _client_factory,
-                        ) in enumerate(
-                            (
-                                binding
-                                for binding in _BATCH_TWO_SEARCH_BINDINGS
-                                if binding[1].domain == "paper"
-                            ),
-                            start=100,
-                        )
-                    ),
-                ),
-                "patent": tuple(
-                    SearchProviderSelection(
-                        provider=ProviderRef(id=manifest.id, kind="search"),
-                        adapter_id=manifest.adapters[0].id,
-                        yaml_priority=priority,
-                    )
-                    for priority, (
-                        manifest,
-                        _spec,
-                        _provider_type,
-                        _client_factory,
-                    ) in enumerate(
-                        (
-                            binding
-                            for binding in (
-                                *_BATCH_ONE_SEARCH_BINDINGS,
-                                *_BATCH_TWO_SEARCH_BINDINGS,
-                            )
-                            if binding[1].domain == "patent"
-                        ),
-                        start=1,
-                    )
-                ),
-                **{
-                    domain: tuple(
-                        SearchProviderSelection(
-                            provider=ProviderRef(id=manifest.id, kind="search"),
-                            adapter_id=manifest.adapters[0].id,
-                            yaml_priority=priority,
-                        )
-                        for priority, (
-                            manifest,
-                            _spec,
-                            _provider_type,
-                            _client_factory,
-                        ) in enumerate(
-                            (
-                                binding
-                                for binding in _BATCH_FOUR_SEARCH_BINDINGS
-                                if binding[1].domain == domain
-                                and binding[0].id in _DEFAULT_PROVIDER_IDS
-                            ),
-                            start=1,
-                        )
-                    )
-                    for domain in ("book", "research_output")
-                },
-                **{
-                    domain: tuple(
-                        SearchProviderSelection(
-                            provider=ProviderRef(id=manifest.id, kind="search"),
-                            adapter_id=manifest.adapters[0].id,
-                            yaml_priority=priority,
-                        )
-                        for priority, (
-                            manifest,
-                            spec,
-                            _provider_type,
-                            _provider_id,
-                        ) in enumerate(
-                            (
-                                binding
-                                for binding in _BATCH_FIVE_SEARCH_BINDINGS
-                                if binding[1].domain == domain
-                                and binding[0].id in _DEFAULT_PROVIDER_IDS
-                            ),
-                            start=1,
-                        )
-                    )
-                    for domain in ("web", "news", "images", "videos")
-                },
-            },
-            explicit_selections=(
-                SearchProviderSelection(
-                    provider=ProviderRef(id="patentsview", kind="search"),
-                    adapter_id="patentsview-search",
-                    yaml_priority=1,
-                ),
-                *(
-                    SearchProviderSelection(
-                        provider=ProviderRef(id=manifest.id, kind="search"),
-                        adapter_id=manifest.adapters[0].id,
-                        yaml_priority=priority,
-                    )
-                    for priority, (
-                        manifest,
-                        _spec,
-                        _provider_type,
-                        _client_factory,
-                    ) in enumerate(_BATCH_THREE_SEARCH_ONLY_BINDINGS, start=100)
-                ),
-                *(
-                    SearchProviderSelection(
-                        provider=ProviderRef(id=manifest.id, kind="search"),
-                        adapter_id=next(
-                            adapter.id
-                            for adapter in manifest.adapters
-                            if adapter.capability == "search"
-                        ),
-                        yaml_priority=priority,
-                    )
-                    for priority, (
-                        manifest,
-                        _search_spec,
-                        _fetch_spec,
-                        _search_type,
-                        _fetch_type,
-                        _client_factory,
-                    ) in enumerate(_BATCH_THREE_MULTI_BINDINGS, start=200)
-                ),
-                *(
-                    SearchProviderSelection(
-                        provider=ProviderRef(id=manifest.id, kind="search"),
-                        adapter_id=manifest.adapters[0].id,
-                        yaml_priority=priority,
-                    )
-                    for priority, (
-                        manifest,
-                        _spec,
-                        _provider_type,
-                        _client_factory,
-                    ) in enumerate(
-                        (
-                            binding
-                            for binding in _BATCH_FOUR_SEARCH_BINDINGS
-                            if binding[0].id not in _DEFAULT_PROVIDER_IDS
-                        ),
-                        start=300,
-                    )
-                ),
-                *(
-                    SearchProviderSelection(
-                        provider=ProviderRef(id=manifest.id, kind="search"),
-                        adapter_id=manifest.adapters[0].id,
-                        yaml_priority=priority,
-                    )
-                    for priority, (
-                        manifest,
-                        _spec,
-                        _provider_type,
-                        _provider_id,
-                    ) in enumerate(
-                        (
-                            binding
-                            for binding in _BATCH_FIVE_SEARCH_BINDINGS
-                            if binding[0].id not in _DEFAULT_PROVIDER_IDS
-                        ),
-                        start=400,
-                    )
-                ),
-                *(
-                    SearchProviderSelection(
-                        provider=ProviderRef(id=manifest.id, kind="search"),
-                        adapter_id=manifest.adapters[0].id,
-                        yaml_priority=priority,
-                    )
-                    for priority, (
-                        manifest,
-                        _spec,
-                        _provider_type,
-                        _provider_id,
-                    ) in enumerate(_BATCH_SIX_SEARCH_BINDINGS, start=500)
-                ),
-            ),
-        ),
-    )
+    search_selector = _build_search_selector(config)
+    search = SearchModuleService(manager, search_selector)
     enabled_llm = config.enabled_uniapi_ark_source_ids()
     llm_search: Any = (
         LLMSearchModuleService(manager, enabled_llm[0])
@@ -2352,7 +2205,10 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
         },
         browser_executor=browser_client,
     )
-    required_adapters = {"openalex-search", "builtin-fetch"}
+    paper_primary = search_selector.select_default(
+        SearchRequest(query="readiness", domains=("paper",))
+    )[0]
+    required_adapters = {paper_primary.adapter_id, "builtin-fetch"}
 
     async def readiness() -> ReadinessSnapshot:
         eligible = set(manager.eligible_adapter_ids)
@@ -2375,6 +2231,7 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
         ready = providers_ready and browser_ready
         components = {
             "api": "ready",
+            "crossref": "ready" if "crossref-search" in eligible else "not_ready",
             "openalex": "ready" if "openalex-search" in eligible else "not_ready",
             "builtin_fetch": "ready" if "builtin-fetch" in eligible else "not_ready",
             "llm_search": (
@@ -2382,6 +2239,9 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
             ),
             "browser_worker": browser_status,
         }
+        components[paper_primary.provider.id] = (
+            "ready" if paper_primary.adapter_id in eligible else "not_ready"
+        )
         return ReadinessSnapshot(
             ready=ready,
             components=components,

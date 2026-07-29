@@ -8,7 +8,10 @@ from __future__ import annotations
 
 import logging
 import random
+import re
+from collections.abc import Mapping
 from pathlib import Path
+from types import MappingProxyType
 from typing import Any, Literal
 from urllib.parse import urlsplit
 
@@ -24,6 +27,39 @@ UNIAPI_ARK_TARGET_SOURCE_IDS = (
     "uniapi_ark_annotations_deepseek_v3_2_251201",
     "uniapi_ark_annotations_doubao_seed_2_0_lite_260428",
 )
+SEARCH_DOMAINS = (
+    "paper",
+    "book",
+    "research_output",
+    "patent",
+    "web",
+    "news",
+    "images",
+    "videos",
+    "social",
+    "office",
+    "developer",
+    "cn_tech",
+    "knowledge",
+)
+DEFAULT_SEARCH_PROVIDERS: Mapping[str, tuple[str, ...]] = MappingProxyType(
+    {
+        "paper": ("crossref", "openalex", "eric"),
+        "book": ("open_library",),
+        "research_output": ("datacite",),
+        "patent": ("google_patents",),
+        "web": ("bing", "duckduckgo"),
+        "news": ("duckduckgo_news",),
+        "images": ("duckduckgo_images",),
+        "videos": ("bilibili", "duckduckgo_videos"),
+        "social": ("reddit", "weibo", "zhihu"),
+        "office": ("feishu_drive",),
+        "developer": ("github", "stackoverflow"),
+        "cn_tech": ("linuxdo", "v2ex"),
+        "knowledge": ("wikipedia",),
+    }
+)
+_PROVIDER_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_-]{0,127}$")
 
 
 def _normalize_llm_search_base_url(value: str | None) -> str | None:
@@ -333,8 +369,50 @@ class SouWenConfig(BaseModel):
     # ===== 数据源频道配置 =====
     sources: dict[str, SourceChannelConfig] = Field(default_factory=dict)
 
+    # ===== Search domain/capability 有序默认表 =====
+    search_defaults: dict[str, tuple[str, ...]] = Field(
+        default_factory=lambda: dict(DEFAULT_SEARCH_PROVIDERS)
+    )
+
     # ===== LLM Search 共享 gateway 配置 =====
     llm_search_gateways: dict[str, LLMSearchGatewayConfig] = Field(default_factory=dict)
+
+    @field_validator("search_defaults", mode="before")
+    @classmethod
+    def _validate_search_defaults(cls, value: Any) -> dict[str, tuple[str, ...]]:
+        if not isinstance(value, dict):
+            raise ValueError("search_defaults must be an object")
+        observed = set(value)
+        expected = set(SEARCH_DOMAINS)
+        if observed != expected:
+            missing = ",".join(sorted(expected - observed)) or "none"
+            extra = ",".join(sorted(observed - expected)) or "none"
+            raise ValueError(
+                "search_defaults must exactly cover canonical domains "
+                f"(missing={missing}; extra={extra})"
+            )
+        normalized: dict[str, tuple[str, ...]] = {}
+        for domain in SEARCH_DOMAINS:
+            providers = value[domain]
+            if not isinstance(providers, (list, tuple)) or not providers:
+                raise ValueError(f"search_defaults.{domain} requires at least one provider")
+            provider_ids = tuple(
+                provider.strip() if isinstance(provider, str) else "" for provider in providers
+            )
+            invalid = next(
+                (
+                    provider
+                    for provider in provider_ids
+                    if not _PROVIDER_ID_PATTERN.fullmatch(provider)
+                ),
+                None,
+            )
+            if invalid is not None:
+                raise ValueError(f"search_defaults.{domain} has invalid provider ID")
+            if len(provider_ids) != len(set(provider_ids)):
+                raise ValueError(f"search_defaults.{domain} provider IDs must be unique")
+            normalized[domain] = provider_ids
+        return normalized
 
     @field_validator("proxy")
     @classmethod

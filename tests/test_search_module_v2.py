@@ -391,6 +391,29 @@ async def test_all_failures_raise_typed_canonical_provider_error() -> None:
 
 
 @pytest.mark.asyncio
+async def test_single_provider_failure_preserves_public_retry_metadata() -> None:
+    context = _context()
+    primary = _selection("crossref")
+    upstream = ProviderError(
+        ProviderErrorCode.RATE_LIMITED,
+        provider_id="crossref",
+        retry_after_seconds=17,
+    )
+    manager = _Manager({primary.adapter_id: upstream})
+
+    with pytest.raises(ProviderError) as caught:
+        await SearchModuleService(manager, _Selector(default=(primary,))).search(
+            SearchRequest(query="query", domains=("paper",)),
+            context,
+            _execution(),
+        )
+
+    assert caught.value.code is ProviderErrorCode.RATE_LIMITED
+    assert caught.value.provider_id == "crossref"
+    assert caught.value.retry_after_seconds == 17
+
+
+@pytest.mark.asyncio
 async def test_default_selection_count_and_cancel_or_deadline_stop_before_manager_call() -> None:
     context = _context()
     first = _selection("first")
