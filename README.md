@@ -147,6 +147,12 @@ docker run -p 8000:49265 \
 根级 [`hfs-dev.toml`](hfs-dev.toml) 是 registry-only 部署登记：记录 source lane、Space ID、
 workflow ownership 和当前 Space setting 名称，不保存任何真实凭据值，也不授权通用同步工具
 修改远端设置；当前参考 `hf_space_sync.py` 会在读取 `.env` 或联网前拒绝该 manifest。
+
+该登记已按 HFS v2.1 明确分类为 `project_class = "preview"`，canonical Space 的角色是
+`target_role = "primary"`。日常 Preview 变更允许通过现有受控 workflow 直接更新 canonical
+Space，不要求另建 candidate Space 或先做 promotion；release workflow 中的 `candidate_sha`
+仍是不可变源码证据，不代表本项目变成生产环境。任何 Space Secret 都必须先写入 manifest
+声明的 Git ignored 本地明文 `.env`，远端 Secret 不能成为唯一事实源。
 **ModelScope**：参见 `cloud/modelscope/`。
 
 部署环境可按自身网络策略配置代理；公开 API 不提供 WARP 管理或运行时安装入口。

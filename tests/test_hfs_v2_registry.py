@@ -10,12 +10,16 @@ def test_hfs_v2_registry_is_source_lane_and_registry_only() -> None:
     manifest = (REPO_ROOT / "hfs-dev.toml").read_text(encoding="utf-8")
 
     for declaration in (
-        'standard = "2.0"',
+        'standard = "2.1"',
         'project = "SouWen"',
         'space = "BlueSkyXN/SouWen"',
+        'project_class = "preview"',
+        'target_role = "primary"',
         'sovereignty = "sovereign"',
         'lane = "source"',
         'version_source = "commit"',
+        'env_file = ".env"',
+        "secret_files = []",
         'operation_mode = "registry-only"',
         'dist_bucket = ""',
         "secrets = []",

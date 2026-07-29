@@ -148,6 +148,13 @@ The root [`hfs-dev.toml`](hfs-dev.toml) is a registry-only deployment record for
 source lane, Space ID, workflow ownership, and current Space-setting names. It stores
 no credential values and does not authorize a generic sync tool to change remote settings;
 the current reference `hf_space_sync.py` rejects it before reading `.env` or using the network.
+
+HFS v2.1 explicitly classifies this deployment as `project_class = "preview"` with the
+canonical Space at `target_role = "primary"`. Routine Preview changes may update that canonical
+Space through the existing controlled workflow without a separate candidate Space or promotion
+step. The release workflow's `candidate_sha` remains immutable source evidence; it does not make
+the project a production deployment. Every Space Secret must first exist in the manifest-declared,
+Git-ignored plaintext `.env`; the remote Secret store cannot be the only recoverable source.
 **ModelScope**: see `cloud/modelscope/`.
 
 **WARP proxy embedding** (optional, bypass network restrictions): see the WARP section in `docs/anti-scraping.md`.

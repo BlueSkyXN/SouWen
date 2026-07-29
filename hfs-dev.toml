@@ -1,13 +1,17 @@
-# HFS v2 deployment registry. This file records names and ownership only;
+# HFS v2.1 deployment registry. This file records names and ownership only;
 # real values remain in the gitignored root .env and remote secret stores.
-standard = "2.0"
+standard = "2.1"
 # Preserve the existing project/Space identity; this source lane creates no
 # hfs-dist bucket and does not authorize a Space rename.
 project = "SouWen"
 space = "BlueSkyXN/SouWen"
+project_class = "preview"
+target_role = "primary"
 sovereignty = "sovereign"
 lane = "source"
 version_source = "commit"
+env_file = ".env"
+secret_files = []
 
 # SouWen keeps its candidate-pinned GitHub Actions transaction as the only
 # remote settings writer. This registry does not authorize generic
