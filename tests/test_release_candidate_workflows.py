@@ -929,9 +929,10 @@ def test_architecture_dependency_gate_is_required_in_ci_and_release_paths() -> N
 
 
 def test_ruff_toolchain_version_is_pinned_consistently() -> None:
-    version = "0.15.22"
+    version = "0.16.0"
     pyproject = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
     assert f'"ruff=={version}"' in pyproject
+    assert '[tool.ruff.lint]\nselect = ["E4", "E7", "E9", "F"]' in pyproject
 
     for workflow_name in ("ci.yml", "auto-format.yml"):
         workflow = _workflow(workflow_name)

@@ -292,7 +292,7 @@ jobs:
 
       - name: Build wheel and sdist
         run: |
-          python -m pip install --upgrade pip build cyclonedx-bom "ruff==0.15.22"
+          python -m pip install --upgrade pip build cyclonedx-bom "ruff==0.16.0"
           python -m build
           test "$(find dist -maxdepth 1 -name 'souwen-*.whl' | wc -l)" -eq 1
           test "$(find dist -maxdepth 1 -name 'souwen-*.tar.gz' | wc -l)" -eq 1
