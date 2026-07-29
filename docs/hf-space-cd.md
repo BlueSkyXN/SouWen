@@ -40,11 +40,12 @@ Server local preflight 不会被跳过。`deploy_hfs=true` 时，candidate 必�
 `origin/main`；不能从未合入分支向持有 secrets 的部署 job 注入 verifier。Central caller 只在
 HFS reusable call 上使用一次 `secrets: inherit`。这是同仓 reusable workflow 读取
 environment-scoped secrets 的已知兼容处理（`actions/runner#4453`）；其他 reusable jobs 不得继承
-secrets。这四个 environment secrets 不能同时声明为 required `workflow_call` secrets：GitHub 会在
+secrets。这五个 environment secrets 不能同时声明为 required `workflow_call` secrets：GitHub 会在
 called job 绑定 `environment: hf` 之前校验该 contract，因而把实际存在的 environment secrets 误判为
 未传入。`deploy-hf-space.yml` 改为由 `environment: hf` 解析 `HF_TOKEN`、
-`HF_SPACE_READ_TOKEN`、`SOUWEN_SMOKE_BEARER_TOKEN` 与 `SOUWEN_CONFIG_B64`，并在 checkout 和任何 HF API 调用前按
-secret 名称 fail fast，不输出值、长度或前缀。
+`HF_SPACE_READ_TOKEN`、`SOUWEN_SMOKE_BEARER_TOKEN`、`SOUWEN_CONFIG_B64` 与
+`UNIAPI_API_KEY`，并在 checkout 和任何 HF API 调用前按 secret 名称 fail fast，不输出值、
+长度或前缀。
 
 ### Local preflight
 
@@ -74,6 +75,7 @@ Hugging Face 官方 private Space HTTP 入口占用标准 `Authorization: Bearer
 | `HF_SPACE_READ_TOKEN` | 通过 private Space edge | `Authorization: Bearer ...`；目标权限只需 READ，最小 bootstrap 可暂时复用已确认 write token |
 | `SOUWEN_SMOKE_BEARER_TOKEN` | SouWen 应用 admin password | `X-SouWen-Token: ...` |
 | `SOUWEN_CONFIG_B64` | 与 Space 同源的 RC4 配置；promotion 前验证 exact 一个 LLM Search Provider 与 gateway 结构 | 仅 workflow 内存预检；`${VAR}` 是否解析由 post-deploy live smoke 证明 |
+| `UNIAPI_API_KEY` | RC4 UniAPI gateway credential | workflow 将其写入同名 Space Secret；只回读 Secret 名称，不读取或记录值 |
 
 SouWen 仍以标准 `Authorization: Bearer <password>` 作为普通部署的首选应用鉴权。只有上游
 代理已经占用 `Authorization` 时才使用 `X-SouWen-Token`；显式 custom header 优先，若其值
@@ -112,12 +114,16 @@ SHA。
 2. 记录 `prior_space_commit_sha`、`prior_runtime_commit_sha`、`prior_souwen_ref`。旧部署没有
    immutable source pin 时，在写入前停止，不能回退到 floating `main`；同时记录
    `prior_runtime_stage` 供 manifest 和恢复审计。
-3. 只同步受管的四个 wrapper 文件；diff 固定读取 prior revision，`create_commit` 使用
+3. rollback point 稳定后，workflow 将 `SOUWEN_SMOKE_BEARER_TOKEN` 映射为 Space
+   `SOUWEN_ADMIN_PASSWORD`，并同步 `SOUWEN_CONFIG_B64`、`UNIAPI_API_KEY`。写入前拒绝任何未登记的
+   Space Secret 名称，写入后要求名称集合精确等于 `hfs-dev.toml` 中的三个受管名称；不删除未知
+   Secret，也不输出值、长度、hash 或前缀。
+4. 只同步受管的四个 wrapper 文件；diff 固定读取 prior revision，`create_commit` 使用
    `parent_commit=<prior_space_commit_sha>` 防止外部 writer 造成 TOCTOU。取得新 commit 后，
    transaction 写入并立即 readback `SOUWEN_WRAPPER_SHA=<space_commit_sha>` Space variable；
    rollback 同样改为实际 forward/no-op rollback SHA。
-4. Factory rebuild，等待 Space repo SHA 与 runtime SHA 等于新的 wrapper commit。
-5. 使用 trusted verifier 完成 surface、target capability、双层 auth 与 candidate/source/
+5. Factory rebuild，等待 Space repo SHA 与 runtime SHA 等于新的 wrapper commit。
+6. 使用 trusted verifier 完成 surface、target capability、双层 auth 与 candidate/source/
    wrapper SHA smoke。Required checks 固定覆盖 Search、LLM Search 与 immutable Fetch；readiness
    另行证明 Browser Worker ready 且 source SHA 一致。普通 CI 不做付费 LLM Search live call，
    只有显式 HFS promotion 的 capability smoke 才执行。

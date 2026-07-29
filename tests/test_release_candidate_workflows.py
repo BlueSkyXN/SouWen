@@ -1029,6 +1029,7 @@ def test_hfs_reusable_promotion_is_candidate_pinned_and_live_verified() -> None:
         "HF_SPACE_READ_TOKEN",
         "SOUWEN_SMOKE_BEARER_TOKEN",
         "SOUWEN_CONFIG_B64",
+        "UNIAPI_API_KEY",
     ):
         assert f"      {secret_name}:" not in workflow_call
     assert "    secrets:" not in workflow_call
@@ -1074,6 +1075,7 @@ def test_hfs_reusable_promotion_is_candidate_pinned_and_live_verified() -> None:
         "HF_SPACE_READ_TOKEN",
         "SOUWEN_SMOKE_BEARER_TOKEN",
         "SOUWEN_CONFIG_B64",
+        "UNIAPI_API_KEY",
     ):
         assert f"{secret_name}: ${{{{ secrets.{secret_name} }}}}" in secret_gate
     assert "Required HFS environment secret is not configured: $name" in secret_gate
@@ -1081,6 +1083,23 @@ def test_hfs_reusable_promotion_is_candidate_pinned_and_live_verified() -> None:
     assert "name: Validate required HFS LLM Search configuration" in text
     assert "HFS promotion requires exactly one enabled LLM Search Provider" in text
     assert 'env_reference = re.compile(r"^\\$\\{[A-Z_][A-Z0-9_]*\\}$")' in text
+
+    settings_sync = text.split("- name: Sync managed HFS Space secrets", maxsplit=1)[1].split(
+        "- name: Sync changed HFS wrapper files", maxsplit=1
+    )[0]
+    assert "SOUWEN_ADMIN_PASSWORD: ${{ secrets.SOUWEN_SMOKE_BEARER_TOKEN }}" in settings_sync
+    assert "SOUWEN_CONFIG_B64: ${{ secrets.SOUWEN_CONFIG_B64 }}" in settings_sync
+    assert "UNIAPI_API_KEY: ${{ secrets.UNIAPI_API_KEY }}" in settings_sync
+    assert "api.add_space_secret(" in settings_sync
+    assert "/api/spaces/{space_id}/secrets" in settings_sync
+    assert "existing_names - expected_names" in settings_sync
+    assert "actual_names != expected_names" in settings_sync
+    assert "api.delete_space_secret" not in settings_sync
+    assert (
+        text.index("- name: Capture immutable rollback point")
+        < text.index("- name: Sync managed HFS Space secrets")
+        < text.index("- name: Sync changed HFS wrapper files")
+    )
 
     prior = text.split("- name: Capture immutable rollback point", maxsplit=1)[1].split(
         "- name: Sync changed HFS wrapper files", maxsplit=1
