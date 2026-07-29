@@ -39,6 +39,6 @@ def test_contracts_boundary_claims_only_the_frozen_target_openapi() -> None:
     openapi_readme = (CONTRACTS_ROOT / "openapi" / "README.md").read_text(encoding="utf-8")
 
     assert "target-only OpenAPI document is frozen" in root_readme
-    assert "souwen-openapi-2.0.0rc3.json" in openapi_readme
+    assert "souwen-openapi-2.0.0rc4.json" in openapi_readme
     assert "tools/gen_openapi.py --check" in openapi_readme
     assert "Other schemas" in root_readme

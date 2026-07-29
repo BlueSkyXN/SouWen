@@ -12,7 +12,7 @@ pinned: false
 
 面向 AI Agent 的 target-only Search、LLM Search 与 Fetch API 服务。
 
-## RC3 进程拓扑
+## RC4 进程拓扑
 
 HFS wrapper 只向外暴露 `49265`。`deploy/process/supervisor.py` 先在
 `127.0.0.1:49266` 启动 authenticated Browser Worker，并验证 contract/source/version/config/
@@ -28,10 +28,10 @@ Worker 异常时 API health 可继续响应，但 `/readyz` 必须 fail closed�
 | GET | `/docs` | OpenAPI / Swagger UI 文档 |
 | GET | `/panel` | 管理面板 HTML；浏览器访问入口为 `/panel#/` |
 | GET | `/openapi.json` | OpenAPI schema |
-| POST | `/api/v1/search` | RC3 canonical Search |
-| POST | `/api/v1/llm-search` | RC3 canonical LLM Search；正式 promotion 必须配置并 live 验证 |
-| POST | `/api/v1/fetch` | RC3 canonical Fetch + private Browser Worker fallback |
-| GET | `/api/v1/providers` | RC3 Provider availability catalog |
+| POST | `/api/v1/search` | RC4 canonical Search |
+| POST | `/api/v1/llm-search` | RC4 canonical LLM Search；正式 promotion 必须配置并 live 验证 |
+| POST | `/api/v1/fetch` | RC4 canonical Fetch + private Browser Worker fallback |
+| GET | `/api/v1/providers` | RC4 Provider availability catalog |
 | GET | `/api/v1/admin/config` | 查看配置（需认证） |
 | GET | `/api/v1/admin/doctor` | 数据源健康检查（需认证） |
 

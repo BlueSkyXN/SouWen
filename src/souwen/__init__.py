@@ -1,6 +1,6 @@
 """SouWen target SDK package."""
 
-__version__ = "2.0.0rc3"
+__version__ = "2.0.0rc4"
 
 from souwen.delivery.client_sdk import AsyncSouWenClient, SouWenClient
 

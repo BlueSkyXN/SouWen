@@ -15,7 +15,7 @@ def test_parse_args_preserves_deployment_workflow_interface() -> None:
             "--base-url",
             "http://127.0.0.1:49265",
             "--expected-version",
-            "2.0.0rc3",
+            "2.0.0rc4",
             "--expected-source-sha",
             "a" * 40,
             "--expected-wrapper-sha",
@@ -106,12 +106,12 @@ def test_probe_accepts_lowercase_http_response_headers() -> None:
                 {"x-souwen-api-major": "2"},
                 {
                     "rollout_mode": "target",
-                    "version": "2.0.0rc3",
+                    "version": "2.0.0rc4",
                     "config_revision": "source-test",
                 },
             )
 
-    args = smoke.parse_args(["--expected-version", "2.0.0rc3", "--require-target-runtime"])
+    args = smoke.parse_args(["--expected-version", "2.0.0rc4", "--require-target-runtime"])
 
     detail, payload = smoke._probe(Client(), "/healthz", args)
 

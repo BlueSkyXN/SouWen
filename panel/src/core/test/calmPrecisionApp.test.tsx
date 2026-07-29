@@ -18,7 +18,7 @@ vi.mock('@core/sdk-client', () => ({
 }))
 
 function authenticate(role: 'admin' | 'user') {
-  useAuthStore.getState().setAuth('http://localhost:8000', 'test-token', '2.0.0rc3')
+  useAuthStore.getState().setAuth('http://localhost:8000', 'test-token', '2.0.0rc4')
   useAuthStore.getState().setRole({
     role,
     features: { search: true, fetch: role === 'admin' },
