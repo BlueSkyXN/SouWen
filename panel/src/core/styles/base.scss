@@ -48,7 +48,7 @@ button {
 
 /* ===== Focus Ring ===== */
 :focus-visible {
-  outline: 2px solid var(--primary, #3b82f6);
+  outline: 2px solid var(--cp-focus, var(--primary, #0067c0));
   outline-offset: 2px;
 }
 
