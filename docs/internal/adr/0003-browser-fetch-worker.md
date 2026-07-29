@@ -226,8 +226,9 @@ functional scripts and GitHub Actions, consistent with repository test policy.
   API port 49265. The Worker remains exact loopback 49266 and the local Docker gate verifies that no
   host mapping exists.
 - Health/readiness now distinguish candidate source, Space wrapper, config revision, rollout mode and
-  Worker source. The HFS transaction manages `SOUWEN_WRAPPER_SHA` with immediate readback and restores
-  it to the actual rollback commit on failure.
+  Worker source. The HFS transaction manages `SOUWEN_WRAPPER_SHA` with immediate readback. Because
+  Space Secret values are write-only, a failed settings-aware promotion pauses the Space for
+  operator-led recovery instead of restoring an old wrapper with new or partial settings.
 - Deployment evidence assembly parses required target M1 receipts rather than trusting artifact
   presence. Live VAL-BFW-007 is not claimed until the merged exact candidate completes the protected
   `deployment` profile and HFS readback; VAL-BFW-008 remains Phase 8 release work.

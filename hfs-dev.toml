@@ -1,13 +1,18 @@
-# HFS v2 deployment registry. This file records names and ownership only;
-# real values remain in the gitignored root .env and remote secret stores.
-standard = "2.0"
+# HFS v2.1 draft deployment registry. This file records names and ownership
+# only; real env values remain in the gitignored root .env, while the raw
+# structured runtime configuration remains in local/credentials/.
+standard = "2.1"
 # Preserve the existing project/Space identity; this source lane creates no
 # hfs-dist bucket and does not authorize a Space rename.
 project = "SouWen"
 space = "BlueSkyXN/SouWen"
+project_class = "preview"
+target_role = "primary"
 sovereignty = "sovereign"
 lane = "source"
 version_source = "commit"
+env_file = ".env"
+secret_files = ["local/credentials/souwen-hfs.yaml"]
 
 # SouWen keeps its candidate-pinned GitHub Actions transaction as the only
 # remote settings writer. This registry does not authorize generic
@@ -20,17 +25,28 @@ operation_mode = "registry-only"
 # executable failures instead of relying only on the registry-only comment.
 dist_bucket = ""
 
-# Local control credentials must not be pushed into Space settings.
-local_only = ["GH_TOKEN", "HF_TOKEN"]
+# Local/GitHub control credentials must not be pushed under these names.
+local_only = [
+  "GH_TOKEN",
+  "HF_TOKEN",
+  "HF_SPACE_READ_TOKEN",
+  "SOUWEN_SMOKE_BEARER_TOKEN",
+]
 
 # GitHub environment secrets such as HF_SPACE_READ_TOKEN and
 # SOUWEN_SMOKE_BEARER_TOKEN are owned by the release workflow and are outside
 # the Space-setting schema recorded by this manifest.
 
-# Generic hfs-dev sync write sets are intentionally empty. Current remote names
-# are recorded below under workflow ownership so a generic sync cannot overwrite
-# or prune settings managed by the release transaction.
-secrets = []
+# The v2.1 draft records the real Space Secret names and requires their local
+# values in .env. SOUWEN_CONFIG_B64 is derived from the registered raw YAML;
+# Base64 is not the only fact source. Generic sync remains executable-disabled
+# by the empty dist_bucket sentinel; only the candidate-pinned workflow may
+# write these registered names.
+secrets = [
+  "SOUWEN_ADMIN_PASSWORD",
+  "SOUWEN_CONFIG_B64",
+  "UNIAPI_API_KEY",
+]
 variables = []
 
 # Space Secret values are write-only remotely. Only current key names are
@@ -47,7 +63,8 @@ workflow_owned_secrets = [
 # other outside the existing candidate-pinned workflow.
 
 # The release workflow transaction writes this variable and verifies it by
-# immediate readback during both promotion and rollback.
+# immediate readback during promotion; failed settings-aware promotions pause
+# for operator-led recovery because prior Space Secret values are write-only.
 workflow_owned_variables = ["SOUWEN_WRAPPER_SHA"]
 
 # SouWen has no distribution seed or mounted runtime configuration. The HFS
@@ -56,4 +73,5 @@ workflow_owned_variables = ["SOUWEN_WRAPPER_SHA"]
 deviations = [
   "generic-sync-disabled = Empty dist_bucket intentionally makes the current reference hf_space_sync validator reject diff, push, and pull before any remote operation",
   "workflow-owned-settings = Existing candidate-pinned GitHub Actions own all Space Secret and Variable writes",
+  "workflow-generated-provenance = SOUWEN_WRAPPER_SHA is generated and read back by the deployment transaction, not supplied as local configuration input",
 ]

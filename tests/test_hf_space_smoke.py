@@ -7,6 +7,7 @@ import json
 import pytest
 
 from scripts import hf_space_smoke as smoke
+from souwen.common_runtime.security import redaction as canonical_redaction
 
 
 def test_parse_args_preserves_deployment_workflow_interface() -> None:
@@ -61,6 +62,42 @@ def test_client_keeps_edge_and_application_auth_separate(monkeypatch) -> None:
     assert status == 200
     assert captured["headers"]["Authorization"] == "Bearer edge-canary"
     assert captured["headers"]["X-souwen-token"] == "app-canary"
+
+
+def test_client_can_send_a_completely_anonymous_negative_probe(monkeypatch) -> None:
+    captured = {}
+
+    class Response:
+        status = 401
+        headers = {}
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_args):
+            return None
+
+        def read(self):
+            return b"{}"
+
+    def fake_urlopen(request, timeout):
+        captured["headers"] = {key.lower(): value for key, value in request.header_items()}
+        captured["timeout"] = timeout
+        return Response()
+
+    monkeypatch.setattr(smoke, "urlopen", fake_urlopen)
+    client = smoke.Client(
+        "https://example.invalid",
+        edge_token="edge-canary",
+        app_token="app-canary",
+        timeout=3,
+    )
+
+    status, _headers, _body = client.request("/api/v1/providers", anonymous=True)
+
+    assert status == 401
+    assert "authorization" not in captured["headers"]
+    assert "x-souwen-token" not in captured["headers"]
 
 
 def test_offline_mode_writes_bounded_reports(tmp_path) -> None:
@@ -183,6 +220,108 @@ def test_readiness_probe_requires_browser_worker_evidence() -> None:
 
     with pytest.raises(smoke.SmokeFailure, match="browser worker"):
         smoke._probe(Client(), "/readyz", args)
+
+
+def test_surface_checks_cover_authenticated_admin_routes_and_redaction() -> None:
+    class Client:
+        app_token = "admin-secret-canary"
+
+        def request(self, path, **_kwargs):
+            assert path == "/panel"
+            return 200, {}, b'<main id="root"></main>'
+
+        def json(self, path, **_kwargs):
+            if path in {"/healthz", "/readyz"}:
+                return 200, {"x-souwen-api-major": "2"}, {"rollout_mode": "target"}
+            if path == "/openapi.json":
+                return (
+                    200,
+                    {},
+                    {
+                        "paths": {item: {} for item in smoke.TARGET_PATHS},
+                        "x-souwen-contract-stage": "target_only",
+                    },
+                )
+            if path == "/api/v1/whoami":
+                return 200, {}, {"role": "admin", "admin_open": False}
+            if path == "/api/v1/admin/ping":
+                if _kwargs.get("application_auth") is False or _kwargs.get("anonymous") is True:
+                    return 401, {}, {"error": {"code": "unauthorized"}}
+                return 200, {}, {"status": "ok"}
+            if path == "/api/v1/admin/config":
+                return (
+                    200,
+                    {},
+                    {
+                        "admin_password": "***",
+                        "sources": {"fixture": {"api_key": "***"}},
+                    },
+                )
+            if path == "/api/v1/admin/doctor":
+                return (
+                    200,
+                    {},
+                    {
+                        "total": 1,
+                        "available": 1,
+                        "unavailable": 0,
+                        "providers": [{"provider": "fixture"}],
+                    },
+                )
+            if path == "/api/v1/providers":
+                if _kwargs.get("application_auth") is False or _kwargs.get("anonymous") is True:
+                    return 401, {}, {"error": {"code": "unauthorized"}}
+                return 200, {}, {"items": []}
+            raise AssertionError(path)
+
+    checks = []
+    smoke._surface_checks(Client(), smoke.parse_args(["--fail-admin-open"]), checks)
+
+    by_name = {check.name: check for check in checks}
+    for name in (
+        "admin_ping",
+        "admin_config",
+        "admin_doctor",
+        "edge_only_data_rejected",
+        "edge_only_admin_rejected",
+        "anonymous_data_rejected",
+        "anonymous_admin_rejected",
+    ):
+        assert by_name[name].outcome == "PASS"
+
+
+@pytest.mark.parametrize(
+    "field",
+    sorted(canonical_redaction._SECRET_KEYWORDS | canonical_redaction._COMPACT_SECRET_FIELDS),
+)
+def test_admin_config_classifier_covers_the_canonical_secret_inventory(field: str) -> None:
+    assert smoke._is_secret_field(field)
+
+
+def test_smoke_secret_field_inventory_stays_in_lockstep_with_the_server() -> None:
+    assert smoke._SECRET_KEYWORDS == canonical_redaction._SECRET_KEYWORDS
+    assert smoke._COMPACT_SECRET_FIELDS == canonical_redaction._COMPACT_SECRET_FIELDS
+
+
+@pytest.mark.parametrize(
+    "field",
+    ("api_key", "private-key", "clientSecret", "XSessionID", "refreshToken"),
+)
+def test_admin_config_classifier_matches_separator_and_camel_case_fields(field: str) -> None:
+    assert smoke._is_secret_field(field)
+
+
+def test_unredacted_admin_config_is_a_required_failure() -> None:
+    assert smoke._unredacted_secret_fields(
+        {
+            "sources": {
+                "fixture": {
+                    "api_key": "plain-text-secret",
+                    "privateKey": "plain-text-private-key",
+                }
+            }
+        }
+    ) == ["sources.fixture.api_key", "sources.fixture.privateKey"]
 
 
 def test_missing_required_llm_provider_is_reported_as_a_failed_check(monkeypatch, tmp_path) -> None:

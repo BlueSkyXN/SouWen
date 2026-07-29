@@ -7,13 +7,33 @@ SouWen 管理面板位于 `panel/`，是一个固定的 React/Vite 管理界面�
 
 面板只提供以下顶层工作区：
 
-1. **Search**：规范化多领域检索。
-2. **LLM Search**：选择 provider 与策略的带证据综合检索。
+1. **Search**：从 13 个领域中选择一个，使用 Server 默认 Provider 完成规范化检索；多 Provider
+   fanout 由显式 SDK/API 请求承担。
+2. **LLM Search**：选择一个当前部署 configured provider，使用固定 `single` 策略完成带证据综合检索。
 3. **Fetch**：受服务端 SSRF、robots 和 provider 策略保护的内容获取。
 4. **Providers**：只读 provider 可用性、能力与缺失配置字段。
 5. **Runtime / Settings**：仅 admin 可见的只读运行诊断和安全姿态摘要。
 
 没有 Paper、Patent、Books、Video、Wayback、Bilibili、Proxy 或 WARP 的独立产品入口。
+
+## 在线预览
+
+当前 HFS Panel 入口为 <https://blueskyxn-souwen.hf.space/panel#/>。五个顶层工作区对应
+六个直达 route：
+
+| Workspace | Route | 角色 |
+|---|---|---|
+| Login | `/panel#/login` | 无 |
+| Search | `/panel#/search` | user / admin |
+| LLM Search | `/panel#/llm-search` | user / admin |
+| Fetch | `/panel#/fetch` | user / admin |
+| Providers | `/panel#/providers` | user / admin |
+| Runtime | `/panel#/runtime` | admin |
+| Settings | `/panel#/settings` | admin |
+
+Space 仓库保持 private，但当前 App domain 的 Panel/docs/probes surface 可匿名打开；业务与管理
+API 仍要求 SouWen application credential。完整登录、逐页操作、light/dark、窄屏、键盘和
+release/deployment 证据边界见 [HFS 在线预览与功能验收](./live-preview.md)。
 
 ## 数据与权限边界
 

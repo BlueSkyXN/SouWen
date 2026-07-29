@@ -12,6 +12,27 @@ pinned: false
 
 面向 AI Agent 的 target-only Search、LLM Search 与 Fetch API 服务。
 
+## 在线预览
+
+Space 仓库保持 `private=true`。当前 App domain 允许匿名读取 Panel shell、Swagger、OpenAPI
+和 probes；Data/Admin API 仍要求 SouWen application credential，且 production 不开启
+`SOUWEN_ADMIN_OPEN`。根 App 当前跳转到 Swagger，产品界面请使用 Panel 直达链接。
+
+| Workspace | 直达链接 | 最低角色 |
+|---|---|---|
+| Login | <https://blueskyxn-souwen.hf.space/panel#/login> | 无 |
+| Search | <https://blueskyxn-souwen.hf.space/panel#/search> | user |
+| LLM Search | <https://blueskyxn-souwen.hf.space/panel#/llm-search> | user |
+| Fetch | <https://blueskyxn-souwen.hf.space/panel#/fetch> | user |
+| Providers | <https://blueskyxn-souwen.hf.space/panel#/providers> | user |
+| Runtime | <https://blueskyxn-souwen.hf.space/panel#/runtime> | admin |
+| Settings | <https://blueskyxn-souwen.hf.space/panel#/settings> | admin |
+| Swagger | <https://blueskyxn-souwen.hf.space/docs> | 无 |
+
+Panel 登录框接收 SouWen application token，不接收 HF write token。不要把 token 放进 URL、
+Issue、截图或日志。完整逐项验收见
+[HFS 在线预览指南](https://github.com/BlueSkyXN/SouWen/blob/main/docs/live-preview.md)。
+
 ## RC4 进程拓扑
 
 HFS wrapper 只向外暴露 `49265`。`deploy/process/supervisor.py` 先在
@@ -28,38 +49,37 @@ Worker 异常时 API health 可继续响应，但 `/readyz` 必须 fail closed�
 | GET | `/docs` | OpenAPI / Swagger UI 文档 |
 | GET | `/panel` | 管理面板 HTML；浏览器访问入口为 `/panel#/` |
 | GET | `/openapi.json` | OpenAPI schema |
+| GET | `/api/v1/whoami` | 当前 application role 与安全 feature projection |
 | POST | `/api/v1/search` | RC4 canonical Search |
 | POST | `/api/v1/llm-search` | RC4 canonical LLM Search；正式 promotion 必须配置并 live 验证 |
 | POST | `/api/v1/fetch` | RC4 canonical Fetch + private Browser Worker fallback |
 | GET | `/api/v1/providers` | RC4 Provider availability catalog |
 | GET | `/api/v1/admin/config` | 查看配置（需认证） |
 | GET | `/api/v1/admin/doctor` | 数据源健康检查（需认证） |
+| GET | `/api/v1/admin/ping` | Admin 认证存活检查（需认证） |
 
-## 配置
+## 当前 HFS settings ownership
 
-通过 HuggingFace Spaces 的 **Secrets** 注入环境变量：
+Candidate-pinned GitHub Actions 是唯一 settings writer。Space 当前只登记名称，不在仓库、
+Space card、日志或 evidence 中保存真实值：
 
-| 变量 | 说明 |
-|------|------|
-| `SOUWEN_CONFIG_B64` | Base64 编码的 souwen.yaml 完整配置；同时配置为 GitHub `hf` environment secret 供 promotion fail-fast 校验 |
-| `SOUWEN_USER_PASSWORD` | 用户密码，保护 target Data API（Search/LLM Search/Fetch/Providers） |
-| `SOUWEN_ADMIN_PASSWORD` | 管理密码，保护 read-only admin endpoints |
-| `SOUWEN_GUEST_ENABLED` | 设为 `true` 时允许无 Token 访问搜索端点 |
-| `SOUWEN_ADMIN_OPEN` | 不要在 Space 中配置；private Space 仍必须使用 `SOUWEN_ADMIN_PASSWORD` 保护管理端点 |
-| `SOUWEN_TRUSTED_PROXIES` | 受信反向代理 IP/CIDR 列表，逗号分隔（如 `10.0.0.0/8,127.0.0.1`） |
-| `SOUWEN_EXPOSE_DOCS` | 是否暴露 `/docs`、`/redoc`、`/openapi.json`，生产建议 `false` |
-| `SOUWEN_MAX_CONCURRENCY` | 聚合搜索并发上限，默认 `10`（v0.6.0） |
-| `SOUWEN_OPENALEX_API_KEY` | OpenAlex Freemium API Key（可选；额度/预付余额以账户为准） |
-| `SOUWEN_OPENALEX_EMAIL` | 已弃用兼容字段（当前不发送给 OpenAlex） |
-| `SOUWEN_SEMANTIC_SCHOLAR_API_KEY` | Semantic Scholar API Key |
-| `SOUWEN_CORE_API_KEY` | CORE API Key |
-| `SOUWEN_TAVILY_API_KEY` | Tavily AI 搜索 Key |
-| `SOUWEN_SERPER_API_KEY` | Serper (Google SERP) Key |
-| `SOUWEN_BRAVE_API_KEY` | Brave Search API Key |
-| `WARP_ENABLED` | 设为 `1` 启用内嵌 Cloudflare WARP 代理（突破 IP 限制，常用于 DBLP / Semantic Scholar） |
-| ... | 其他 SOUWEN_* 环境变量均可直接设置 |
+| 类型 | 名称 | 所有权 / 用途 |
+|---|---|---|
+| Secret | `SOUWEN_ADMIN_PASSWORD` | read-only Admin application auth |
+| Secret | `SOUWEN_CONFIG_B64` | 完整 runtime YAML；包含 Data API 访问策略与 Provider 配置 |
+| Secret | `UNIAPI_API_KEY` | 已配置 LLM Search Provider 的环境引用 |
+| Variable | `SOUWEN_WRAPPER_SHA` | 当前 Space wrapper provenance；写入后立即 readback |
 
-> 大部分爬虫引擎（DuckDuckGo、Yahoo、Brave Scraper、Google Scraper 等）无需 API Key 即可使用。
+`SOUWEN_USER_PASSWORD` 不是当前独立 Space Secret 名称；Data API credential 由
+`SOUWEN_CONFIG_B64` 对应的 runtime config 管理。`HF_TOKEN`、`HF_SPACE_READ_TOKEN` 和
+`SOUWEN_SMOKE_BEARER_TOKEN` 属于 GitHub `hf` environment，不是 Space settings。
+
+SouWen 采用当前 HFS v2.1 draft 的 `preview` / `primary` / `source` 分类（正式公开基线仍为
+v2.0）：没有 SouWen Bucket、`hfs-dist` object、Volume、seed 或 mounted config。
+`hfs-dev.toml` 声明根 `.env` 为 mode `0600` 的 env 事实源，并登记同为 gitignored、`0600` 的
+`local/credentials/souwen-hfs.yaml` 作为 `SOUWEN_CONFIG_B64` 的原始 YAML 事实源；Base64 不是
+唯一事实源。Registry 保持 registry-only；通用 `hf_space_sync.py` 不得 push、pull、prune 或改写
+这些 workflow-owned settings。
 
 ## 部署与验收
 
@@ -82,8 +102,15 @@ Search、LLM Search 与 immutable Fetch；禁止回退到 floating `main`。
 - 管理面板：<https://blueskyxn-souwen.hf.space/panel#/>
 - API 文档：<https://blueskyxn-souwen.hf.space/docs>
 
-详细边界见 `docs/hf-space-cd.md`。正式 promotion 的三项 capability live smoke 都是 required；
-任一失败会触发 rollback/pause 流程，不能作为成功发布证据。
+详细边界见
+[HFS CD 与验收](https://github.com/BlueSkyXN/SouWen/blob/main/docs/hf-space-cd.md)。正式
+promotion 的三项 capability live smoke 和 authenticated admin config/ping/doctor 都是 required。
+Secret 值在 Space 端 write-only，因此 settings sync 开始后的任一失败都会 fail closed pause，
+等待人工从获批 Secret source 恢复；不会运行“旧 wrapper + 新/部分 settings”。
+
+`v2.0.0rc4` tag/GitHub prerelease 是 immutable Release baseline。HFS 可以部署 tag 之后的 exact
+current main，并继续报告 package version `2.0.0rc4`；应通过 health/readiness source SHA、Space
+repo/runtime/wrapper SHA 和 exact-source deployment evidence 判断当前部署，不能只看版本号。
 
 ## 源码
 

@@ -2,21 +2,40 @@
 
 ## 导航
 
-- [Souwen v2rc4 source candidate](#v200rc4--release-candidate2026-07-29-source-candidate)
+- [Unreleased main](#unreleased-main--post-rc4-maintenance)
+- [Souwen v2rc4 release candidate](#v200rc4--release-candidate2026-07-29)
 - [Souwen v2rc3 release candidate](#v200rc3--release-candidate2026-07-28)
 - [Souwen v2rc2 release candidate](#v200rc2--release-candidate2026-07-27)
 - [v1.x history](#v112--ai-workflow-安全加固与功能深化2026-05-04)
 - [v0.x history](#v090--v1-过渡版2026-04-22)
 
-> v2 段落记录当前 source candidate、已发布 RC 的公开变更和验证边界；v1/v0 段落保留历史审计脉络。
+> v2 段落记录当前 main、已发布 RC 的公开变更和验证边界；v1/v0 段落保留历史审计脉络。
 
-## v2.0.0rc4 — Release Candidate（2026-07-29 source candidate）
+## Unreleased main — post-RC4 maintenance
+
+- `v2.0.0rc4` tag 与 GitHub prerelease 保持 immutable；main 在 tag 之后的修改不会覆盖或移动
+  既有 tag。HFS 可以通过 `evidence_profile=deployment, publish=false` 部署 exact current main，
+  但 deployment evidence 不是 RC4 Release assets。
+- Panel 按 Calm Precision 0.4 补齐稳定边缘、light/dark、窄屏、键盘焦点与明确状态层；HFS/GitHub
+  文档新增全部 workspace 的直达 preview、角色和逐项验收。Search 表单改为单领域选择，避免在
+  未显式 Provider 时发送 Server contract 必然拒绝的多 domain 默认请求。
+- HFS v2.1 draft registry（正式公开基线仍为 v2.0）显式声明 `preview` / `primary` / `source`、
+  commit version source、根 `.env` env 事实源，以及 `SOUWEN_CONFIG_B64` 对应的 gitignored 原始
+  YAML 事实源；settings ownership 精确收敛到三个 workflow-managed Space Secrets 和一个
+  provenance Variable。Secret 值 write-only，失败后不再用“旧 wrapper + 新/部分 settings”
+  自动恢复，而是 fail closed pause，等待使用获批 Secret source 人工恢复。
+- HFS surface smoke 增加 authenticated admin config/ping/doctor 正向检查，并对 config 中未脱敏的
+  credential-shaped string fail closed。
+- 修正 Docker 文档：应用配置只读挂载到 `/app/souwen.yaml`，`/app/data` 专用于 WARP/runtime
+  persistence。
+
+## v2.0.0rc4 — Release Candidate（2026-07-29）
 
 ### Release status
 
-- 当前仓库源码候选为 **Souwen v2rc4**：Python/runtime/OpenAPI/SDK 为 `2.0.0rc4`，Panel
-  为 `2.0.0-rc4`。本节不预先声明 `v2.0.0rc4` tag、GitHub prerelease 或 HFS promotion
-  已完成；发布状态以 exact-main release workflow、GitHub Release 和 HFS 实时读回为准。
+- **Souwen v2rc4** 的 Python/runtime/OpenAPI/SDK 为 `2.0.0rc4`，Panel 为
+  `2.0.0-rc4`。Annotated tag `v2.0.0rc4` 与 GitHub prerelease 已发布，精确指向
+  source `51f092841696b1e6f898e7c6bea40e535f639f5c`，Release 包含 12 项正式 asset。
 - RC4 保持 API major 2 与 RC3 的 target-only Search、LLM Search、Fetch 和 Provider Catalog
   契约。RC3→RC4 OpenAPI semantic diff 只有 release version 变化，不引入 API shape 变更。
 - Panel 收敛为更明确的搜索引擎 Console 视觉，保留既有导航、generated SDK、认证、状态管理
@@ -25,8 +44,12 @@
   `@vitejs/plugin-react` `5.2.0`，继续使用 npm、Vitest 和 single-file embedded artifact。
 - Ruff 升级到 `0.16.0`，同时显式固定既有 `E4`/`E7`/`E9`/`F` lint policy；RC4 不把
   Ruff 0.16 新默认规则引发的全仓批量改写混入 release diff。
-- RC4 仍不是 `2.0.0` GA，不发布到 PyPI；正式 tag、12 项资产和 HFS promotion 只能由
-  repository-owner 在 exact-main candidate 上通过 central release workflow 创建。
+- 正式 release workflow
+  [`30444286311`](https://github.com/BlueSkyXN/SouWen/actions/runs/30444286311) 在同一 source
+  上完成四个平台 Server bundle、wheel/sdist、OpenAPI、SBOM、checksums、attestation、HFS
+  promotion 及 surface/capability smoke。RC4 仍不是 `2.0.0` GA，也未发布到 PyPI。
+- HFS 是可变运行环境，后续 deployment profile 可以运行 tag 之后的 main 修复；当前 runtime
+  必须单独回读，不能由本 changelog 或相同的 `2.0.0rc4` version string 替代。
 
 ## v2.0.0rc3 — Release Candidate（2026-07-28）
 

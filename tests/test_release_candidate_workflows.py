@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import ast
 import hashlib
 import json
 import re
@@ -1072,13 +1071,12 @@ def test_hfs_reusable_promotion_is_candidate_pinned_and_live_verified() -> None:
     assert "prior_runtime_stage" in text
     assert "parent_commit=prior_space_sha" in text
     assert "revision=prior_space_sha" in text
-    assert "  rollback-space:" in text
+    assert "settings_mutation_started" in text
+    assert "  contain-space:" in text
     assert "needs.post-deploy-smoke.result != 'success'" in text
-    assert "CommitOperationDelete" in text
-    assert "rollback_space_commit_sha" in text
     assert "  pause-space:" in text
     assert "api.pause_space" in text
-    assert "needs.rollback-space.result == 'cancelled'" in text
+    assert "needs.contain-space.result == 'cancelled'" in text
     assert "HF_SPACE_READ_TOKEN" in text
     assert '"X-SouWen-Token: $SOUWEN_SMOKE_BEARER_TOKEN"' in text
 
@@ -1099,19 +1097,25 @@ def test_hfs_reusable_promotion_is_candidate_pinned_and_live_verified() -> None:
     assert "HFS promotion requires exactly one enabled LLM Search Provider" in text
     assert 'env_reference = re.compile(r"^\\$\\{[A-Z_][A-Z0-9_]*\\}$")' in text
 
+    settings_preflight = text.split("- name: Preflight managed HFS Space Secret names", maxsplit=1)[
+        1
+    ].split("- name: Mark settings mutation phase", maxsplit=1)[0]
     settings_sync = text.split("- name: Sync managed HFS Space secrets", maxsplit=1)[1].split(
         "- name: Sync changed HFS wrapper files", maxsplit=1
     )[0]
+    assert "/api/spaces/{space_id}/secrets" in settings_preflight
+    assert "existing_names - expected_names" in settings_preflight
     assert "SOUWEN_ADMIN_PASSWORD: ${{ secrets.SOUWEN_SMOKE_BEARER_TOKEN }}" in settings_sync
     assert "SOUWEN_CONFIG_B64: ${{ secrets.SOUWEN_CONFIG_B64 }}" in settings_sync
     assert "UNIAPI_API_KEY: ${{ secrets.UNIAPI_API_KEY }}" in settings_sync
     assert "api.add_space_secret(" in settings_sync
     assert "/api/spaces/{space_id}/secrets" in settings_sync
-    assert "existing_names - expected_names" in settings_sync
     assert "actual_names != expected_names" in settings_sync
     assert "api.delete_space_secret" not in settings_sync
     assert (
         text.index("- name: Capture immutable rollback point")
+        < text.index("- name: Preflight managed HFS Space Secret names")
+        < text.index("- name: Mark settings mutation phase")
         < text.index("- name: Sync managed HFS Space secrets")
         < text.index("- name: Sync changed HFS wrapper files")
     )
@@ -1123,14 +1127,17 @@ def test_hfs_reusable_promotion_is_candidate_pinned_and_live_verified() -> None:
     assert '"PAUSED"' in prior
     assert "api.restart_space" not in prior
 
-    rollback = text.split("  rollback-space:", maxsplit=1)[1].split("  pause-space:", maxsplit=1)[0]
-    assert "rollback_sha = prior_sha" in rollback
-    assert "Space head still matches the rollback point" in rollback
-    assert "no distinct forward rollback commit" not in rollback
-    assert 'if "wrapper_sha" in payload and payload["wrapper_sha"] != expected_wrapper:' in rollback
+    containment = text.split("  contain-space:", maxsplit=1)[1].split("  pause-space:", maxsplit=1)[
+        0
+    ]
+    assert "api.pause_space" in containment
+    assert "write-only Space Secret values require manual recovery" in containment
+    assert "needs.sync-hfs-wrapper.outputs.settings_mutation_started == 'true'" in containment
+    assert "api.create_commit" not in containment
+    assert "api.restart_space" not in containment
 
     post_deploy = text.split("  post-deploy-smoke:", maxsplit=1)[1].split(
-        "  rollback-space:", maxsplit=1
+        "  contain-space:", maxsplit=1
     )[0]
     assert "ref: ${{ inputs.verifier_sha }}" in post_deploy
     assert "cd trusted-verifier" in post_deploy
@@ -1138,44 +1145,31 @@ def test_hfs_reusable_promotion_is_candidate_pinned_and_live_verified() -> None:
     assert "ref: ${{ inputs.candidate_sha || github.sha }}" not in post_deploy
 
 
-def test_hfs_rollback_probe_distinguishes_legacy_absent_wrapper_from_rc4_null_or_drift() -> None:
+def test_hfs_settings_preflight_finishes_before_the_containment_marker_and_first_write() -> None:
     text = _workflow("deploy-hf-space.yml")
-    rollback = _job(text, "rollback-space", "pause-space")
-    source = textwrap.dedent(
-        rollback.split("<<'PY'", maxsplit=1)[1].split("\n          PY", maxsplit=1)[0]
-    ).lstrip()
-    module = ast.parse(source)
-    function = next(
-        node
-        for node in module.body
-        if isinstance(node, ast.FunctionDef) and node.name == "validate_rollback_probe"
-    )
-    namespace: dict[str, object] = {}
-    exec(compile(ast.Module(body=[function], type_ignores=[]), "rollback-probe", "exec"), namespace)
-    validate = namespace["validate_rollback_probe"]
-    source_sha = "a" * 40
-    wrapper_sha = "b" * 40
+    sync = _job(text, "sync-hfs-wrapper", "rebuild-space")
 
-    validate({"source_sha": source_sha}, "/health", source_sha, wrapper_sha)
-    validate(
-        {"source_sha": source_sha, "wrapper_sha": wrapper_sha},
-        "/health",
-        source_sha,
-        wrapper_sha,
-    )
-    with pytest.raises(SystemExit, match="wrapper mismatch"):
-        validate(
-            {"source_sha": source_sha, "wrapper_sha": None}, "/health", source_sha, wrapper_sha
-        )
-    with pytest.raises(SystemExit, match="wrapper mismatch"):
-        validate(
-            {"source_sha": source_sha, "wrapper_sha": "c" * 40},
-            "/health",
-            source_sha,
-            wrapper_sha,
-        )
-    with pytest.raises(SystemExit, match="source mismatch"):
-        validate({"source_sha": "c" * 40}, "/health", source_sha, wrapper_sha)
+    preflight = sync.index("- name: Preflight managed HFS Space Secret names")
+    marker = sync.index("- name: Mark settings mutation phase")
+    first_write = sync.index("api.add_space_secret(")
+
+    assert preflight < marker < first_write
+    assert "id: settings_mutation" in sync[marker:first_write]
+    assert "settings_mutation_started=true" in sync[marker:first_write]
+    assert (
+        "settings_mutation_started: "
+        "${{ steps.settings_mutation.outputs.settings_mutation_started }}"
+    ) in sync
+
+
+def test_hfs_containment_requires_a_completed_settings_mutation_marker() -> None:
+    text = _workflow("deploy-hf-space.yml")
+    containment = _job(text, "contain-space", "pause-space")
+
+    assert "needs.sync-hfs-wrapper.outputs.settings_mutation_started == 'true'" in containment
+    assert "needs.sync-hfs-wrapper.result != 'success'" in containment
+    assert "needs.rebuild-space.result != 'success'" in containment
+    assert "needs.post-deploy-smoke.result != 'success'" in containment
 
 
 def test_hfs_rebuild_job_avoids_checkout_and_dependency_cache() -> None:

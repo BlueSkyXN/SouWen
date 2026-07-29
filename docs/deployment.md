@@ -33,7 +33,7 @@ gh workflow run release-candidate.yml \
   target-native smoke、同 candidate inventory 和一致的 OpenAPI checksum。
 - `deployment` 必须同时使用 `deploy_hfs=true, publish=false`。它跳过外层 `server-bundles`
   release job，但保留全部非 binary gate、HFS reusable workflow 的 target Server local preflight、
-  live promotion、rollback 和 readback，产出不可发布的
+  live promotion、fail-closed containment 和 readback，产出不可发布的
   `deployment-evidence-*` artifact。Assembler 还会解析 surface/capability JSON，要求 target
   runtime、Browser Worker readiness、Search、LLM Search 与 immutable Fetch 全部为 `PASS`；
   报告文件仅存在不构成通过。
@@ -111,9 +111,14 @@ docker build -t souwen .
 docker run -p 8000:49265 \
   -e SOUWEN_ADMIN_PASSWORD \
   -e SOUWEN_USER_PASSWORD \
-  -v ~/.config/souwen:/app/data \
+  -v "$PWD/souwen.yaml:/app/souwen.yaml:ro" \
+  -v souwen-data:/app/data \
   souwen
 ```
+
+`/app/souwen.yaml` 是容器工作目录下的应用配置真源；`/app/data` 只承载 WARP/runtime
+persistence。把宿主机配置目录只挂到 `/app/data` 不会让 config loader 读取该文件。只使用
+环境变量时可以省略 `souwen.yaml` mount，但仍可保留独立 data volume。
 
 启动后检查：
 
@@ -188,8 +193,8 @@ contract 继续由 Vitest 覆盖。Server runtime 通过明确 leaf extras 安�
 或 edition package matrix。
 
 PR 与直接运行 `HF Space CD` 只执行 local preflight。远端 promotion 只能由 central RC
-workflow 显式传 `deploy_hfs=true`，并按 [hf-space-cd.md](./hf-space-cd.md) 完成 private edge、
-应用 admin、repo/runtime/source SHA 与 rollback 事务验收。
+workflow 显式传 `deploy_hfs=true`，并按 [hf-space-cd.md](./hf-space-cd.md) 完成 edge compatibility、
+application admin、repo/runtime/source SHA 与 settings-aware containment 验收。
 
 ## 运行时保护
 

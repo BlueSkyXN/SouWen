@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import sys
 import time
 from dataclasses import asdict, dataclass, field
@@ -28,6 +29,48 @@ TARGET_PATHS = {
 }
 FETCH_PROBE_PATH = "scripts/fixtures/hf-space-fetch-probe.html"
 FETCH_PROBE_MARKER = "SOUWEN_IMMUTABLE_FETCH_PROBE_V1"
+_SECRET_KEYWORDS = {
+    "key",
+    "keys",
+    "secret",
+    "token",
+    "password",
+    "sessdata",
+    "authorization",
+    "auth",
+    "csrf",
+    "cookie",
+    "cookies",
+    "jwt",
+    "session",
+    "sid",
+    "xsrf",
+}
+_COMPACT_SECRET_FIELDS = {
+    "accesskey",
+    "accesskeys",
+    "accesstoken",
+    "apikey",
+    "apikeys",
+    "authtoken",
+    "bearertoken",
+    "clientsecret",
+    "csrftoken",
+    "credential",
+    "credentials",
+    "privatekey",
+    "refreshtoken",
+    "sessionid",
+    "signingkey",
+    "xapikey",
+    "xcsrftoken",
+    "xsessionid",
+    "xxsrftoken",
+    "xsrftoken",
+}
+_ACRONYM_BOUNDARY = re.compile(r"(.)([A-Z][a-z]+)")
+_CAMEL_BOUNDARY = re.compile(r"([a-z0-9])([A-Z])")
+_FIELD_SPLITTER = re.compile(r"[^A-Za-z0-9]+")
 
 
 @dataclass(slots=True)
@@ -65,14 +108,16 @@ class Client:
         method: str = "GET",
         payload: dict[str, Any] | None = None,
         application_auth: bool = True,
+        anonymous: bool = False,
     ) -> tuple[int, dict[str, str], bytes]:
         headers = {"Accept": "application/json", "User-Agent": "SouWen-HFS-Smoke/2"}
-        if self.edge_token:
-            headers["Authorization"] = f"Bearer {self.edge_token}"
-            if application_auth and self.app_token:
-                headers["X-SouWen-Token"] = self.app_token
-        elif application_auth and self.app_token:
-            headers["Authorization"] = f"Bearer {self.app_token}"
+        if not anonymous:
+            if self.edge_token:
+                headers["Authorization"] = f"Bearer {self.edge_token}"
+                if application_auth and self.app_token:
+                    headers["X-SouWen-Token"] = self.app_token
+            elif application_auth and self.app_token:
+                headers["Authorization"] = f"Bearer {self.app_token}"
         data = None
         if payload is not None:
             data = json.dumps(payload).encode("utf-8")
@@ -126,6 +171,34 @@ def _record(checks: list[Check], name: str, callback, *, required: bool = True) 
 def _expect(condition: bool, detail: str) -> None:
     if not condition:
         raise SmokeFailure(detail)
+
+
+def _is_secret_field(name: str) -> bool:
+    """Mirror the server redaction field classifier without importing SouWen."""
+    camel_split = _ACRONYM_BOUNDARY.sub(r"\1_\2", name)
+    camel_split = _CAMEL_BOUNDARY.sub(r"\1_\2", camel_split)
+    parts = [part.lower() for part in _FIELD_SPLITTER.split(camel_split) if part]
+    if any(part in _SECRET_KEYWORDS for part in parts):
+        return True
+    return "".join(parts) in _COMPACT_SECRET_FIELDS
+
+
+def _unredacted_secret_fields(value: Any, path: tuple[str, ...] = ()) -> list[str]:
+    """Return credential-shaped string fields that are not using the redaction sentinel."""
+    if isinstance(value, dict):
+        leaked: list[str] = []
+        for key, item in value.items():
+            child_path = (*path, str(key))
+            if _is_secret_field(str(key)) and isinstance(item, str) and item not in {"", "***"}:
+                leaked.append(".".join(child_path))
+            leaked.extend(_unredacted_secret_fields(item, child_path))
+        return leaked
+    if isinstance(value, list):
+        leaked = []
+        for index, item in enumerate(value):
+            leaked.extend(_unredacted_secret_fields(item, (*path, str(index))))
+        return leaked
+    return []
 
 
 def _probe(client: Client, path: str, args: argparse.Namespace):
@@ -186,10 +259,68 @@ def _surface_checks(client: Client, args: argparse.Namespace, checks: list[Check
 
     _record(checks, "whoami", whoami)
 
+    def admin_ping():
+        status, _headers, payload = client.json("/api/v1/admin/ping")
+        _expect(status == 200 and payload == {"status": "ok"}, f"admin ping status {status}")
+        return "authenticated admin ping verified", None
+
+    _record(checks, "admin_ping", admin_ping)
+
+    def admin_config():
+        status, _headers, payload = client.json("/api/v1/admin/config")
+        _expect(status == 200 and isinstance(payload, dict), f"admin config status {status}")
+        leaked_fields = _unredacted_secret_fields(payload)
+        _expect(not leaked_fields, "admin config contains unredacted credential-shaped fields")
+        if client.app_token:
+            serialized = json.dumps(payload, ensure_ascii=False)
+            _expect(client.app_token not in serialized, "admin config contains application token")
+        return "authenticated redacted admin config verified", None
+
+    _record(checks, "admin_config", admin_config)
+
+    def admin_doctor():
+        status, _headers, payload = client.json("/api/v1/admin/doctor")
+        providers = payload.get("providers") if isinstance(payload, dict) else None
+        _expect(status == 200 and isinstance(providers, list), f"admin doctor status {status}")
+        total = payload.get("total")
+        available = payload.get("available")
+        unavailable = payload.get("unavailable")
+        _expect(total == len(providers), "admin doctor provider total mismatch")
+        _expect(
+            isinstance(available, int)
+            and isinstance(unavailable, int)
+            and available + unavailable == total,
+            "admin doctor availability totals mismatch",
+        )
+        return f"authenticated admin doctor verified ({total} providers)", None
+
+    _record(checks, "admin_doctor", admin_doctor)
+
     if client.app_token:
 
-        def anonymous_admin():
+        def edge_only_data():
+            status, _headers, _payload = client.json("/api/v1/providers", application_auth=False)
+            _expect(status in {401, 403}, f"edge-only data API status {status}")
+            return "edge-only Data API request rejected", None
+
+        _record(checks, "edge_only_data_rejected", edge_only_data)
+
+        def edge_only_admin():
             status, _headers, _payload = client.json("/api/v1/admin/ping", application_auth=False)
+            _expect(status in {401, 403}, f"edge-only admin status {status}")
+            return "edge-only admin request rejected", None
+
+        _record(checks, "edge_only_admin_rejected", edge_only_admin)
+
+        def anonymous_data():
+            status, _headers, _payload = client.json("/api/v1/providers", anonymous=True)
+            _expect(status in {401, 403}, f"anonymous data API status {status}")
+            return "anonymous Data API request rejected", None
+
+        _record(checks, "anonymous_data_rejected", anonymous_data)
+
+        def anonymous_admin():
+            status, _headers, _payload = client.json("/api/v1/admin/ping", anonymous=True)
             _expect(status in {401, 403}, f"anonymous admin status {status}")
             return "anonymous admin rejected", None
 
