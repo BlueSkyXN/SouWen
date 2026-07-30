@@ -112,20 +112,25 @@ def load_preflight_config(encoded: str, api_key: str) -> SouWenConfig:
             config_path.write_text(decoded, encoding="utf-8")
             config_path.chmod(0o600)
             os.chdir(tmpdir)
-            with _isolated_environment(
-                {
-                    "HOME": tmpdir,
-                    "UNIAPI_API_KEY": api_key,
-                }
-            ):
+            try:
+                with _isolated_environment(
+                    {
+                        "HOME": tmpdir,
+                        "USERPROFILE": tmpdir,
+                        "UNIAPI_API_KEY": api_key,
+                    }
+                ):
+                    get_config.cache_clear()
+                    config = reload_config()
+            finally:
+                os.chdir(original_cwd)
                 get_config.cache_clear()
-                return reload_config()
+            return config
     except PreflightFailure:
         raise
     except Exception as exc:  # noqa: BLE001 - raw config errors must not escape to CI logs.
         raise PreflightFailure("invalid HFS LLM Search configuration") from exc
     finally:
-        os.chdir(original_cwd)
         get_config.cache_clear()
 
 
