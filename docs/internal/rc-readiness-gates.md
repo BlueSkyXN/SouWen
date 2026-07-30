@@ -331,7 +331,7 @@ Manifest 是候选证据索引，不承载 secret。schema 至少固定以下字
   "artifacts": [
     {
       "name": "<exact filename>",
-      "kind": "wheel|sdist|binary|sbom|report",
+      "kind": "wheel|server_bundle|sdist|openapi|sbom|report",
       "size": 1,
       "sha256": "<64-hex>",
       "producer_run_url": "<https URL>",

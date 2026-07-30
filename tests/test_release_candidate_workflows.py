@@ -832,6 +832,11 @@ def test_rc5_release_gate_contract_matches_control_plane() -> None:
     assert "provider-crawl4ai" not in contract
     assert "provider-scrapling" not in contract
 
+    artifact_kinds = ("wheel", "server_bundle", "sdist", "openapi", "sbom", "report")
+    for kind in artifact_kinds:
+        assert f"kind = '{kind}'" in assemble
+    assert '"kind": "wheel|server_bundle|sdist|openapi|sbom|report"' in contract
+
 
 def test_release_bundle_has_four_servers_openapi_supply_chain_assets_and_attestation() -> None:
     text = _workflow("release-candidate.yml")
