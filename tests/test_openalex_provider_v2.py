@@ -98,7 +98,7 @@ async def test_manifest_declares_reviewed_openalex_contract() -> None:
     assert OPENALEX_PROVIDER_MANIFEST.capabilities == ("search",)
     assert OPENALEX_PROVIDER_MANIFEST.adapters[0].id == "openalex-search"
     assert OPENALEX_PROVIDER_MANIFEST.adapters[0].availability == "configured"
-    assert OPENALEX_PROVIDER_MANIFEST.version == "2.0.0rc4"
+    assert OPENALEX_PROVIDER_MANIFEST.version == "2.0.0rc5"
     assert OPENALEX_PROVIDER_MANIFEST.secrets.references == ()
 
 

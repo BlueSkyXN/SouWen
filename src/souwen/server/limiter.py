@@ -47,8 +47,8 @@
 
 from __future__ import annotations
 
-import ipaddress
 import hashlib
+import ipaddress
 import logging
 import time
 from collections import defaultdict, deque
@@ -170,7 +170,7 @@ def _parse_trusted_networks(
         try:
             networks.append(ipaddress.ip_network(item, strict=False))
         except ValueError:
-            logger.warning("trusted_proxies 中 %r 不是合法的 IP/CIDR，已忽略", item)
+            logger.warning("trusted_proxies 中存在不是合法 IP/CIDR 的条目，已忽略")
     return networks
 
 

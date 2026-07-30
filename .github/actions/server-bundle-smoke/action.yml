@@ -1,4 +1,4 @@
-name: Souwen RC4 server bundle smoke
+name: Souwen RC5 server bundle smoke
 description: Unpack and verify one final target-native PyInstaller server archive
 
 inputs:
@@ -72,12 +72,12 @@ runs:
         temp_root: Path | None = None
 
         expected_archives = {
-            'linux-amd64': 'souwen-server-2.0.0rc4-linux-amd64.tar.gz',
-            'linux-arm64': 'souwen-server-2.0.0rc4-linux-arm64.tar.gz',
-            'macos-arm64': 'souwen-server-2.0.0rc4-macos-arm64.tar.gz',
-            'windows-amd64': 'souwen-server-2.0.0rc4-windows-amd64.zip',
+            'linux-amd64': 'souwen-server-2.0.0rc5-linux-amd64.tar.gz',
+            'linux-arm64': 'souwen-server-2.0.0rc5-linux-arm64.tar.gz',
+            'macos-arm64': 'souwen-server-2.0.0rc5-macos-arm64.tar.gz',
+            'windows-amd64': 'souwen-server-2.0.0rc5-windows-amd64.zip',
         }
-        user_fixture = 'rc4-server-bundle-user-fixture'
+        user_fixture = 'rc5-server-bundle-user-fixture'
 
         def record(name: str, status: str, detail: str) -> None:
             checks.append({'name': name, 'status': status, 'detail': detail[:500]})
@@ -205,7 +205,7 @@ runs:
                     f'archive name mismatch: expected={expected_archives[platform]!r}, '
                     f'actual={archive.name!r}'
                 )
-            if expected_version != '2.0.0rc4':
+            if expected_version != '2.0.0rc5':
                 raise RuntimeError(f'unsupported server bundle version: {expected_version!r}')
             if re.fullmatch(r'[0-9a-f]{40}', candidate_sha) is None:
                 raise RuntimeError('candidate SHA must be exactly 40 lowercase hexadecimal characters')

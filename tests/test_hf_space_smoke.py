@@ -16,7 +16,7 @@ def test_parse_args_preserves_deployment_workflow_interface() -> None:
             "--base-url",
             "http://127.0.0.1:49265",
             "--expected-version",
-            "2.0.0rc4",
+            "2.0.0rc5",
             "--expected-source-sha",
             "a" * 40,
             "--expected-wrapper-sha",
@@ -137,7 +137,7 @@ def test_report_records_bounded_provenance_without_auth_tokens(tmp_path) -> None
             "--json-report",
             str(json_path),
             "--expected-version",
-            "2.0.0rc4",
+            "2.0.0rc5",
             "--expected-source-sha",
             "a" * 40,
             "--expected-wrapper-sha",
@@ -159,7 +159,7 @@ def test_report_records_bounded_provenance_without_auth_tokens(tmp_path) -> None
     report_text = json_path.read_text(encoding="utf-8")
     payload = json.loads(report_text)
     assert payload["environment"] == {
-        "expected_version": "2.0.0rc4",
+        "expected_version": "2.0.0rc5",
         "expected_source_sha": "a" * 40,
         "expected_wrapper_sha": "b" * 40,
         "require_target_runtime": True,
@@ -189,12 +189,12 @@ def test_probe_accepts_lowercase_http_response_headers() -> None:
                 {"x-souwen-api-major": "2"},
                 {
                     "rollout_mode": "target",
-                    "version": "2.0.0rc4",
+                    "version": "2.0.0rc5",
                     "config_revision": "source-test",
                 },
             )
 
-    args = smoke.parse_args(["--expected-version", "2.0.0rc4", "--require-target-runtime"])
+    args = smoke.parse_args(["--expected-version", "2.0.0rc5", "--require-target-runtime"])
 
     detail, payload = smoke._probe(Client(), "/healthz", args)
 

@@ -4,7 +4,7 @@ Owner: External API contract.
 
 Language-neutral, versioned OpenAPI source documents belong here.
 
-`souwen-openapi-2.0.0rc4.json` is the frozen target-only HTTP contract for RC4. It is generated from
+`souwen-openapi-2.0.0rc5.json` is the frozen target-only HTTP contract for RC5. It is generated from
 the schema-only target Delivery app, contains no deployment configuration or runtime provenance,
 and is the source for release assets and generated SDKs.
 

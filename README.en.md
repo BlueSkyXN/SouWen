@@ -6,13 +6,16 @@
 
 [![Python](https://img.shields.io/badge/python-≥3.10-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-GPLv3-blue)](LICENSE)
-[![Version](https://img.shields.io/badge/version-2.0.0rc4-orange)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.0.0rc5-orange)](CHANGELOG.md)
 
-> The published **[Souwen v2rc4](https://github.com/BlueSkyXN/SouWen/releases/tag/v2.0.0rc4)**
-> (Python/runtime `2.0.0rc4`) is the immutable Release baseline. Its tag points exactly to
-> `51f092841696b1e6f898e7c6bea40e535f639f5c` and carries 12 assets. `main` may contain
-> post-tag fixes and HFS may deploy exact current main; that deployment neither moves the RC4
-> tag nor updates its Release assets. This is not the `2.0.0` GA and is not published on PyPI.
+> The current source candidate is **[Souwen v2rc5](CHANGELOG.md)**
+> (Python/runtime `2.0.0rc5`). Only the repository owner may create the `v2.0.0rc5` tag,
+> 12 Release assets, provenance, and HFS promotion by running the central release workflow on
+> exact `main`. This paragraph does not predeclare publication success; the final state comes
+> from tag, Release, workflow, and runtime readback. This is not the `2.0.0` GA and is not
+> published on PyPI. The previous immutable-by-policy baseline is
+> [`v2.0.0rc4`](https://github.com/BlueSkyXN/SouWen/releases/tag/v2.0.0rc4), sourced from
+> `51f092841696b1e6f898e7c6bea40e535f639f5c`.
 
 **Author**: [@BlueSkyXN](https://github.com/BlueSkyXN) · **Repository**: [github.com/BlueSkyXN/SouWen](https://github.com/BlueSkyXN/SouWen) · **License**: [GPLv3](LICENSE)
 
@@ -187,7 +190,7 @@ which `SOUWEN_CONFIG_B64` is derived.
 - [docs/appearance.md](docs/appearance.md) — Calm Precision Panel
 - [docs/adding-a-source.md](docs/adding-a-source.md) — Adding a new source guide
 - [docs/contributing.md](docs/contributing.md) — Developer guide
-- [docs/internal/rc-readiness-gates.md](docs/internal/rc-readiness-gates.md) — Fixed v2.0.0rc4 gates and evidence manifest contract
+- [docs/internal/rc-readiness-gates.md](docs/internal/rc-readiness-gates.md) — Fixed v2.0.0rc5 gates and evidence manifest contract
 - [docs/internal/](docs/internal/) — Maintainer ADRs, branching policy, and pre-release baselines
 - [CHANGELOG.md](CHANGELOG.md) — Changelog
 

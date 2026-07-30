@@ -9,7 +9,7 @@ describe('Calm Precision admin client', () => {
   })
 
   it('uses the admin doctor route with the authenticated control-plane header', async () => {
-    useAuthStore.getState().setAuth('http://localhost:8000', 'test-token', '2.0.0rc4')
+    useAuthStore.getState().setAuth('http://localhost:8000', 'test-token', '2.0.0rc5')
     const fetchMock = vi.spyOn(globalThis, 'fetch').mockResolvedValue(
       new Response(JSON.stringify({ status: 'ok', sources: [] }), {
         status: 200,

@@ -99,7 +99,7 @@ ID 合并。
   breaking cutover，而不是新增 `/api/v2` path。
 - **API major**：每一条 target success response、error response 和 OpenAPI `info` extension
   必须声明 `api_major: 2`。HTTP header 使用 `X-SouWen-API-Major: 2`。
-- **Package version**：`souwen` package 版本（当前为 `2.0.0rc4`）与 `api_major` 不可互相推导；
+- **Package version**：`souwen` package 版本（当前为 `2.0.0rc5`）与 `api_major` 不可互相推导；
   client 必须检查后者。
 - **Compatibility rule**：客户端的 supported major 与 server `X-SouWen-API-Major` 不相等时，
   必须在发送业务请求前失败，错误为 `ERR-007 api_major_mismatch`；不得尝试旧 DTO、降级解析或

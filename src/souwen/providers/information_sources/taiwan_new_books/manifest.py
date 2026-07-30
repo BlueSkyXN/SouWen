@@ -6,7 +6,7 @@ TAIWAN_NEW_BOOKS_PROVIDER_MANIFEST = ProviderManifest.model_validate(
     {
         "schema_version": 2,
         "id": "taiwan_new_books",
-        "version": "2.0.0rc4",
+        "version": "2.0.0rc5",
         "contract_version": "provider-v2",
         "capabilities": ["search"],
         "adapters": [

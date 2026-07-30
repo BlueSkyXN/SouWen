@@ -171,7 +171,7 @@ def test_sdk_contract_uses_target_contract_dto_and_openapi_artifact_checks() -> 
         run_profile.PYTHON,
         "tools/gen_openapi.py",
         "--semantic-check",
-        "contracts/openapi/souwen-openapi-2.0.0rc4.json",
+        "contracts/openapi/souwen-openapi-2.0.0rc5.json",
     )
     assert commands[3].name == "python_sdk_reproducibility"
     assert commands[3].command == (
@@ -203,10 +203,13 @@ def test_v2_ci_checks_reproducibility_and_pr_semantic_openapi_compatibility() ->
     assert "python tools/gen_typescript_sdk.py --check" in bootstrap
     assert "--semantic-check artifacts/openapi-semantic-baseline.json" in bootstrap
     assert "version rollover baseline $previous_artifact" in bootstrap
+    assert "contracts/openapi/souwen-openapi-2.0.0rc4.json" in bootstrap
     assert "contracts/openapi/souwen-openapi-2.0.0rc3.json" in bootstrap
     assert "contracts/openapi/souwen-openapi-2.0.0rc2.json" in bootstrap
-    assert bootstrap.index("souwen-openapi-2.0.0rc3.json") < bootstrap.index(
-        "souwen-openapi-2.0.0rc2.json"
+    assert (
+        bootstrap.index("souwen-openapi-2.0.0rc4.json")
+        < bootstrap.index("souwen-openapi-2.0.0rc3.json")
+        < bootstrap.index("souwen-openapi-2.0.0rc2.json")
     )
     assert 'git show "$BASE_SHA:$baseline_artifact"' in bootstrap
     assert "initial baseline; base artifact is absent" in bootstrap

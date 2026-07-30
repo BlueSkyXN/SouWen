@@ -6,7 +6,7 @@ APIFY_PROVIDER_MANIFEST = ProviderManifest.model_validate(
     {
         "schema_version": 2,
         "id": "apify",
-        "version": "2.0.0rc4",
+        "version": "2.0.0rc5",
         "contract_version": "provider-v2",
         "capabilities": ["fetch"],
         "adapters": [

@@ -10,7 +10,7 @@ def _workflow_text(relative: str) -> str:
     return (REPO_ROOT / relative).read_text(encoding="utf-8")
 
 
-def test_rc4_server_bundle_workflow_is_a_read_only_reusable_proof_builder() -> None:
+def test_rc5_server_bundle_workflow_is_a_read_only_reusable_proof_builder() -> None:
     text = _workflow_text(".github/workflows/build-pyinstaller-server.yml")
     trigger = text.split("\non:\n", maxsplit=1)[1].split("\nconcurrency:", maxsplit=1)[0]
 
@@ -34,16 +34,16 @@ def test_rc4_server_bundle_workflow_is_a_read_only_reusable_proof_builder() -> N
     assert "release-candidate.yml" not in text
 
 
-def test_rc4_server_bundle_workflow_has_exact_native_four_archive_matrix() -> None:
+def test_rc5_server_bundle_workflow_has_exact_native_four_archive_matrix() -> None:
     text = _workflow_text(".github/workflows/build-pyinstaller-server.yml")
     expected = {
-        "ubuntu-24.04": "souwen-server-2.0.0rc4-linux-amd64.tar.gz",
-        "ubuntu-24.04-arm": "souwen-server-2.0.0rc4-linux-arm64.tar.gz",
-        "macos-15": "souwen-server-2.0.0rc4-macos-arm64.tar.gz",
-        "windows-2025": "souwen-server-2.0.0rc4-windows-amd64.zip",
+        "ubuntu-24.04": "souwen-server-2.0.0rc5-linux-amd64.tar.gz",
+        "ubuntu-24.04-arm": "souwen-server-2.0.0rc5-linux-arm64.tar.gz",
+        "macos-15": "souwen-server-2.0.0rc5-macos-arm64.tar.gz",
+        "windows-2025": "souwen-server-2.0.0rc5-windows-amd64.zip",
     }
 
-    assert text.count("archive: souwen-server-2.0.0rc4-") == 4
+    assert text.count("archive: souwen-server-2.0.0rc5-") == 4
     for runner, archive in expected.items():
         assert f"os: {runner}" in text
         assert f"archive: {archive}" in text
@@ -63,7 +63,7 @@ def test_rc4_server_bundle_workflow_has_exact_native_four_archive_matrix() -> No
     assert "'workflow_identity': '.github/workflows/build-pyinstaller-server.yml'" in text
 
 
-def test_rc4_server_bundle_builds_tracked_target_onedir_with_bundled_chromium() -> None:
+def test_rc5_server_bundle_builds_tracked_target_onedir_with_bundled_chromium() -> None:
     text = _workflow_text(".github/workflows/build-pyinstaller-server.yml")
 
     assert 'pip install -e ".[server,tls,web,robots,scraper]"' in text
@@ -104,7 +104,7 @@ def test_server_bundle_openapi_checksum_uses_the_verified_canonical_artifact() -
     assert "python tools/gen_openapi.py --check" in checksum_step
     assert "python tools/gen_client_sdk.py --check" in checksum_step
     assert "python tools/gen_typescript_sdk.py --check" in checksum_step
-    assert "contracts/openapi/souwen-openapi-2.0.0rc4.json" in checksum_step
+    assert "contracts/openapi/souwen-openapi-2.0.0rc5.json" in checksum_step
     assert "artifact.read_bytes()" in checksum_step
     assert "from souwen.server.app import app" not in checksum_step
     assert "app.openapi()" not in checksum_step
