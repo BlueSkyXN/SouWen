@@ -184,7 +184,9 @@ topology，因此 outcome runner/upload 失败不会锁死恢复入口。所有 
 Reusable HFS workflow 验证 Space 仍为 private/`PAUSED`，并只接受两个状态：Secret 写入后 wrapper 尚未
 前移的 `settings-only` 拓扑，或 paused wrapper **直接**继承 prior wrapper 且 pin failed candidate 的
 `wrapper-advanced` 拓扑。随后从获批 GitHub `hf` environment Secret source 重写完整 settings，以当前
-paused wrapper 为并发保护 parent 创建新 candidate wrapper，并直接执行一次 factory reboot，再完成完整
+paused wrapper 为并发保护 parent 创建新 candidate wrapper。Recovery 先用普通 restart 建立“已离开
+`PAUSED`”的有界 barrier，立即执行一次 factory reboot；它不等待第一次 build 完成，因此仍只有一次
+完整 900 秒 runtime takeover wait。之后再完成完整
 surface/capability/provenance smoke；任一步失败仍会重新 pause，且可用新失败 recovery receipt 再次前向
 恢复。`release-candidate.yml` 与 recovery 使用同一全局 concurrency group，锁覆盖标准 run 的 HFS、
 assemble 与 publish 全阶段，避免旧 evidence 与新 runtime 交叉发布。Recovery 成功只恢复到稳定 runtime，

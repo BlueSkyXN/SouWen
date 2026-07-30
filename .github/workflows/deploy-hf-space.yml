@@ -1089,15 +1089,18 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_SPACE_ID: BlueSkyXN/SouWen
+          EXPECTED_SPACE_SHA: ${{ needs.sync-hfs-wrapper.outputs.space_commit_sha }}
           RECOVERY_FROM_RUN_ID: ${{ inputs.recovery_from_run_id }}
         run: |
           python -I - <<'PY'
           import os
+          import time
 
           from huggingface_hub import HfApi
 
           api = HfApi(token=os.environ["HF_TOKEN"])
           space_id = os.environ["HF_SPACE_ID"]
+          expected_sha = os.environ["EXPECTED_SPACE_SHA"]
           recovery = bool(os.environ.get("RECOVERY_FROM_RUN_ID"))
           if recovery:
               current = api.get_space_runtime(repo_id=space_id)
@@ -1106,6 +1109,28 @@ jobs:
                   raise SystemExit(
                       f"paused recovery must start from PAUSED; current stage={stage}"
                   )
+              resumed = api.restart_space(repo_id=space_id)
+              print(f"Requested paused Space resume for {space_id}; stage={resumed.stage}")
+              resume_deadline = time.monotonic() + 120
+              while time.monotonic() < resume_deadline:
+                  current = api.get_space_runtime(repo_id=space_id)
+                  stage = str(getattr(current.stage, "value", current.stage))
+                  repo_sha = str(api.repo_info(repo_id=space_id, repo_type="space").sha)
+                  print(
+                      f"recovery-resume stage={stage}, repo_sha={repo_sha}, "
+                      f"expected={expected_sha}"
+                  )
+                  if repo_sha != expected_sha:
+                      raise SystemExit("Space repository changed while leaving PAUSED")
+                  if stage.upper() != "PAUSED":
+                      if "ERROR" in stage.upper() or "STOPPED" in stage.upper():
+                          raise SystemExit(
+                              f"paused recovery resume failed before factory reboot: stage={stage}"
+                          )
+                      break
+                  time.sleep(5)
+              else:
+                  raise SystemExit("paused recovery did not leave PAUSED before factory reboot")
           runtime = api.restart_space(
               repo_id=space_id,
               factory_reboot=True,

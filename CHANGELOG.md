@@ -33,7 +33,8 @@
   structured evidence 均在写入前失败，不 retry、不自动换 model，也不会 pause 原健康 Space。对已经
   containment 的 `PAUSED` transaction，新增 owner-only `recover-hf-space.yml`，精确绑定失败 run、
   paused/prior wrapper 与 source SHA，覆盖 settings-only、direct-parent wrapper advance 和 validated
-  recovery retry，完成 settings 重写、单次 factory reboot 和完整 smoke。Recovery 与 central release
+  recovery retry，完成 settings 重写、bounded resume barrier、单次 factory reboot 和完整 smoke。
+  Recovery 与 central release
   共用覆盖 assemble/publish 的全局 concurrency，并在 validate 与 mutation 前双重证明 RC5 tag/Release
   absent；新 transaction 在 mutation 前先持久化 machine intent，结合 primary/retry containment 与 live
   paused topology 绑定恢复状态，post outcome 仅作补充证据。Release/recovery 禁止 rerun，intent 上线前
