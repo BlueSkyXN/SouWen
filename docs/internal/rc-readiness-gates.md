@@ -1,13 +1,13 @@
-# Souwen v2rc4 发布候选门禁
+# Souwen v2rc5 发布候选门禁
 
-本文固定 `v2.0.0rc4` 的 Go / No-Go 规则、阈值和证据字段。它不是某次执行报告：
+本文固定 `v2.0.0rc5` 的 Go / No-Go 规则、阈值和证据字段。它不是某次执行报告：
 candidate SHA、run URL、checksum、测试计数和部署回读等运行结果不得写回本文件，
 而应由发布流水线写入候选专属的 `release-manifest.json` 或
 `deployment-manifest.json` artifact。
 
-> **RC4 publication boundary**：`v2.0.0rc4` 已作为 immutable tag/prerelease 发布。本文保留其
-> gate contract 供审计；tag 后的 main 只能使用 `deployment, publish=false` 做 HFS 验收，不能覆盖
-> 或移动现有 tag。下一次 publication 必须采用新版本并更新对应 release contract。
+> **RC5 publication boundary**：`v2.0.0rc5` 是新候选，现有 `v2.0.0rc4` tag/prerelease
+> 不得覆盖或移动。RC5 tag、Release assets 与 HFS promotion 只能在本文全部 required gate 对
+> 同一 exact-main SHA 成功后创建；发布后该 evidence 仅供审计，不得用同一版本再次 publish。
 
 ## 判定原则
 
@@ -24,19 +24,21 @@ candidate SHA、run URL、checksum、测试计数和部署回读等运行结果�
 
 ## Gate 分类
 
-本文件定义 16 个 gate，其中 15 个是 **always-required**，`HFS promotion` 是 conditional：
+本文件定义 14 个 gate，其中 13 个是 **always-required**，`HFS promotion` 是 conditional；
+名称与 `release-manifest.json` 的 `gate_specs` 一一对应：
 
 - **Deployment-validated**：显式使用 `evidence_profile=deployment`、`publish=false`、
   `deploy_hfs=true`。除外层 `server-bundles` release job 外的 common gates 与 HFS promotion
   全部 `PASS`；`server-bundles` 为预期 `skipped`。该状态只证明候选的 HFS
   runtime，不是 RC-ready 或 publish-ready，产物必须命名为 `deployment-evidence-*` 且标记
   `publishable=false, binary_count=0`。
-- **RC-ready**：除 HFS promotion 外的 15 个 gate 全部 `PASS`；HFS 为
+- **RC-ready**：除 HFS promotion 外的 13 个 gate 全部 `PASS`；HFS 为
   `required=false, status=NOT_RUN`。Central workflow 使用 `evidence_profile=release`、
   `publish=false, deploy_hfs=false`，只生成 evidence bundle，不创建 tag/Release、不写 Space。
 - **Publish-ready target**：RC-ready 加上 HFS promotion `PASS`；private Space repository、
   SouWen application auth、wrapper/runtime/source provenance 和 recovery point 均有证据。
-  对已存在的 RC4 tag，该状态只保留为历史 release evidence，不能再次 publish。
+  发布前远端不得存在 `v2.0.0rc5` tag；发布成功后该状态只保留为历史 release evidence，
+  不能再次 publish。
 
 `release-candidate.yml` 必须从当前 `origin/main` 的 control-plane workflow 运行；任何
 candidate code 执行前先做 immutable SHA、lineage 与 version static check。无 deploy/publish 的
@@ -50,7 +52,7 @@ RC-ready run 可以验证从 current main 派生的 candidate；任何 secret-be
 - 候选从预期 release ref 创建，local HEAD、remote candidate ref 和 manifest
   `candidate_sha` 完全一致。
 - `git status --short` 为空；无未跟踪产物、未合并提交、stash 依赖或 submodule 漂移。
-- 版本面均为 `2.0.0rc4`，生成物由正式命令生成，没有手改 generated artifact。
+- 版本面均为 `2.0.0rc5`，生成物由正式命令生成，没有手改 generated artifact。
 
 **Evidence**：`candidate_sha`、ref、tree hash、version readback、worktree-clean assertion。
 
@@ -107,26 +109,27 @@ RC-ready run 可以验证从 current main 派生的 candidate；任何 secret-be
 
 ### 6. Clean install
 
-- 从 candidate wheel 在六个彼此隔离、临时 HOME 的环境安装并 smoke：
-  `sdk-default`、`server-runtime`、`provider-newspaper`、`provider-readability`、
-  `provider-crawl4ai`、`provider-scrapling`。除 `sdk-default` 外，每个 profile 都使用
-  明确的 leaf-extra closure；Server closure 固定为
+- 从 candidate wheel 在四个彼此隔离、临时 HOME 的环境安装并 smoke：
+  `sdk-default`、`server-runtime`、`provider-newspaper`、`provider-readability`。除
+  `sdk-default` 外，每个 profile 都使用明确的 leaf-extra closure；Server closure 固定为
   `[server,tls,web,robots,scraper]`。
 - 不允许 editable install、本机 site-packages、用户配置或预装 browser cache 帮助通过。
-- Crawl4AI 与 Scrapling 变体分别安装，不把互斥依赖放进同一环境。
+- Newspaper 与 Readability 必须分别从各自的 leaf extra 安装，不能依赖宿主环境泄漏。
 
-**Evidence**：wheel checksum、6 个 `pip freeze`、安装日志、HOME/venv isolation assertion。
+**Evidence**：wheel checksum、4 个 `pip freeze`、安装日志、HOME/venv isolation assertion。
 
-### 7. Runtime dependency boundary
+### 7. SDK contract
 
+- Python 与 TypeScript SDK 必须从 RC5 canonical OpenAPI byte-for-byte 可重复生成，固定 API
+  major 2、operation/schema inventory、auth/error/timeout contract 和 OpenAPI SHA-256。
 - `sdk-default` 环境中 FastAPI 未安装；`server-runtime` 验证 FastAPI、Uvicorn、TLS、web、
-  robots 与 scraper runtime 的可导入性。
-- `provider-newspaper`、`provider-readability` 以及两个互斥 browser 变体分别验证目标可选
-  provider；Crawl4AI 与 Scrapling 不得出现在同一 clean environment。
+  robots 与 scraper runtime 的可导入性；`provider-newspaper`、`provider-readability` 分别验证
+  对应 leaf extra。
 - 缺少可选 runtime 的 provider 必须以明确的不可用状态返回，不能因宿主环境泄漏而可用，也
   不能以裸 `ImportError` 崩溃。
 
-**Evidence**：module presence/absence probes 与 fetch provider 调用报告。
+**Evidence**：SDK reproducibility/contract profile、4 个 clean-install module presence/absence
+报告与 canonical OpenAPI checksum。
 
 ### 8. Package contract
 
@@ -136,25 +139,7 @@ RC-ready run 可以验证从 current main 派生的 candidate；任何 secret-be
 
 **Evidence**：wheel/sdist file list、METADATA、import-surface report、artifact checksums。
 
-### 9. Functional fixtures
-
-- Scrapling、Crawl4AI 和 article extraction 的本地 fixture gate 全部 required PASS。
-- Browser/runtime 必须真实启动；fixture 内容、输出格式和 report schema 必须通过验证。
-- 缺 package、browser 或 handler 不能在 RC gate 中记为 SKIP/WARN。
-
-**Evidence**：三项 JSON report、对应 Markdown diagnostic、runtime/package version。
-
-### 10. Live zero-key
-
-- Google Patents search、Wayback Availability 与 Wayback CDX 在 release 模式 required PASS；
-  已定义的 CDX fallback 只有在报告保留原始 Availability 结果时才有效。
-- 其他高波动 zero-key 源按 report 中预先声明的 required/WARN 分类判定；不得事后为了放行
-  修改分类。
-- Live 调用必须记录时间、出口环境、source、elapsed、状态和标准化错误，但不记录敏感值。
-
-**Evidence**：zero-key JSON/Markdown report、required/WARN policy、run URL。
-
-### 11. Containers
+### 9. Containers
 
 - Root、Hugging Face Space 和 ModelScope 三个 Dockerfile 都必须从 candidate source 构建、
   启动并通过 `/health`、`/readiness`、`/panel`、`/openapi.json`。
@@ -172,28 +157,28 @@ RC-ready run 可以验证从 current main 派生的 candidate；任何 secret-be
 
 **Evidence**：3 个 image digest、build log、source SHA、endpoint smoke JSON、admin-lock assertion。
 
-### 12. Server bundle matrix
+### 10. Server bundle matrix
 
 - Central release 的 active binary path 只允许 `build-pyinstaller-server.yml`。旧
   PyInstaller/Nuitka 24-binary CLI workflow 在 Phase 8 清理完成前仅是暂存 rollback residue，
-  不参与 RC4 release job、manifest、checksum、attestation 或 Release assets，也不得解除
+  不参与 RC5 release job、manifest、checksum、attestation 或 Release assets，也不得解除
   `publish=true` fail-closed guard。
-- RC4 最终 inventory 必须精确为四个 PyInstaller server bundle：Linux amd64、Linux arm64、
-  macOS arm64、Windows amd64；artifact 前缀为 `souwen-server-2.0.0rc4-*`。
+- RC5 最终 inventory 必须精确为四个 PyInstaller server bundle：Linux amd64、Linux arm64、
+  macOS arm64、Windows amd64；artifact 前缀为 `souwen-server-2.0.0rc5-*`。
 - 四个 bundle 必须在目标平台执行 server、health/readiness、API-major 与 target-native smoke；
   不得用 cross-build 成功、旧 CLI help/version 或 Nuitka 结果替代。
 - 精确 archive合同为 Linux amd64/arm64与macOS arm64的 `.tar.gz`，以及Windows amd64的
   `.zip`；四个名称必须分别为
-  `souwen-server-2.0.0rc4-{linux-amd64,linux-arm64,macos-arm64,windows-amd64}` 加对应后缀。
+  `souwen-server-2.0.0rc5-{linux-amd64,linux-arm64,macos-arm64,windows-amd64}` 加对应后缀。
 - Bundle必须是 PyInstaller `onedir` archive并携带 bundle-local Playwright Chromium；一个裸
   executable、缺 browser runtime的archive或仅对 `dist/` 临时目录做smoke均为 FAIL。
 - Target-native smoke必须从最终archive解包后启动默认Server入口，证明
-  `version=2.0.0rc4`、candidate source SHA、API major 2、`rollout_mode=target`、Browser Worker
+  `version=2.0.0rc5`、candidate source SHA、API major 2、`rollout_mode=target`、Browser Worker
   ready、Admin未认证401、canonical Provider API与OpenAPI checksum，并在终止后无残留 child。
 
 **Evidence**：四项 target-native matrix report、目标 runner、bundle checksum、每项 server smoke 输出。
 
-### 13. Security
+### 11. Security
 
 - Candidate 环境的 Python 与 npm dependency scan 均无 unresolved Critical/High。
 - 容器和 loopback server 的 admin 默认 locked；日志、reports、Panel artifact、source map、
@@ -203,17 +188,16 @@ RC-ready run 可以验证从 current main 派生的 candidate；任何 secret-be
 **Evidence**：pip/npm audit、secret scan、security test report、exception/waiver 清单。任何 waiver
 必须由用户明确接受，并进入 manifest，不能只存在于聊天中。
 
-### 14. Remote CI
+### 12. Remote CI
 
-- `CI`、`V2 CI`、`External Smoke Gate`、`Build PyInstaller Server bundles` 和
-  container/deploy local gate
+- `CI`、`V2 CI`、`Build RC5 PyInstaller server bundles` 和 container/deploy local gate
   在 `candidate_sha` 上全部 green。
 - 每个 run 必须回读 head SHA、conclusion、required jobs 和 artifact inventory；分支名相同、
   rerun 成功或 merge 后别的 SHA green 都不能替代候选证据。
 
 **Evidence**：workflow name、run URL、run ID、head SHA、conclusion、required job map、artifact names。
 
-### 15. HFS promotion
+### 13. HFS promotion
 
 - 只有用户明确批准后才能执行远端 promotion；批准前只允许本地/PR gate 和只读检查。
 - Promotion 前要求目标 Space repository 已为 private，并分离三个 secret：`HF_TOKEN` 写管理面、
@@ -239,7 +223,7 @@ RC-ready run 可以验证从 current main 派生的 candidate；任何 secret-be
 surface/capability report、edge/application auth/admin-open assertion；失败路径另保存 containment
 结果与人工恢复证据。`RUNNING` 单独不构成 PASS。
 
-### 16. RC assets
+### 14. RC assets
 
 - RC 资产必须包含 wheel、sdist、精确四个 PyInstaller server bundle、`SHA256SUMS`、Python
   SBOM、Panel/npm SBOM、provenance/attestation 和 `release-manifest.json`；不得包含 Nuitka、
@@ -265,8 +249,8 @@ Deployment manifest 只索引轻量 HFS 验收证据，不得被 GitHub Release 
   "schema_version": 1,
   "evidence_profile": "deployment",
   "publishable": false,
-  "product_name": "Souwen v2rc4",
-  "version": "2.0.0rc4",
+  "product_name": "Souwen v2rc5",
+  "version": "2.0.0rc5",
   "api_major": 2,
   "candidate_sha": "<40-hex>",
   "candidate_ref": "sha:<40-hex>",
@@ -311,8 +295,8 @@ Manifest 是候选证据索引，不承载 secret。schema 至少固定以下字
 ```json
 {
   "schema_version": 1,
-  "product_name": "Souwen v2rc4",
-  "version": "2.0.0rc4",
+  "product_name": "Souwen v2rc5",
+  "version": "2.0.0rc5",
   "api_major": 2,
   "binary_count": 4,
   "candidate_sha": "<40-hex>",
@@ -387,8 +371,9 @@ Manifest 是候选证据索引，不承载 secret。schema 至少固定以下字
 进入 RC-ready；HFS 仅在 `deploy_hfs=false` 时允许 `required=false, NOT_RUN`。`exceptions` 为空是
 默认条件；非空 exception 必须包含 owner、reason、scope、expiry 和用户明确批准引用。
 `environment_run_url` 只证明 job 绑定了 environment，不证明该 environment 实际配置了 required
-reviewer；无法从 workflow 机器验证的批准不得伪造到 `approval_reference`，publish-ready 前必须由
-维护者回读 GitHub environment/ruleset 后补充外部审核记录。
+reviewer；无法从 workflow 机器验证的批准不得伪造到 `approval_reference`。Publish-ready 前必须
+回读 GitHub environment/ruleset 的实际配置；不存在的控制要如实记为 absent，发布授权以
+repository-owner dispatch/rerun guard 与显式 owner 决策为准，不能伪造平台审批。
 
 ## Go / No-Go
 
@@ -396,11 +381,12 @@ reviewer；无法从 workflow 机器验证的批准不得伪造到 `approval_ref
   `PASS`，外层 `server-bundles` job 为预期 `skipped`，manifest 明确
   `publishable=false, binary_count=0`，Space repo/runtime/source 三段回读一致。该结论不得提升为
   RC-ready 或 publish-ready。
-- **RC-ready Go**：15 个 always-required gate 全部 `PASS`，HFS 明确为未请求的 conditional
+- **RC-ready Go**：13 个 always-required gate 全部 `PASS`，HFS 明确为未请求的 conditional
   `NOT_RUN`，且 `evidence_profile=release` 的 manifest/candidate/verifier SHA、
   payload/envelope inventory 与 checksum 一致。
-- **Publish-ready Go**：RC-ready 条件成立，HFS promotion 另为 `PASS`，且发布前远端
-  ruleset、`hf`/`release` environment approval 与 secrets 已人工回读。
+- **Publish-ready Go**：RC-ready 条件成立，HFS promotion 另为 `PASS`，repository-owner
+  dispatch/rerun guard 通过，且发布前已回读适用的 ruleset、`hf`/`release` environment 与
+  required Secret 名称；absent 的平台控制必须记录为治理风险，不能冒充 approval。
 - 任一 required `FAIL` / `WARN` / `NOT_RUN`、证据 SHA 漂移、manifest 缺失、未批准远端写、
   rollback point 缺失或未接受 security exception 都是 **No-Go**。HFS conditional
   `NOT_RUN` 只允许停在 RC-ready，不能发布。

@@ -21,7 +21,7 @@ TOKEN = "t" * 48
 def _evidence(**overrides) -> WorkerRuntimeEvidence:
     values = {
         "source_sha": "a" * 40,
-        "runtime_version": "2.0.0rc4",
+        "runtime_version": "2.0.0rc5",
         "config_revision": "config-r1",
         "provider_inventory_digest": "b" * 64,
     }

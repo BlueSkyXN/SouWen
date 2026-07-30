@@ -2,20 +2,24 @@
 
 ## 导航
 
-- [Unreleased main](#unreleased-main--post-rc4-maintenance)
+- [Souwen v2rc5 source candidate](#v200rc5--release-candidate2026-07-30-source-candidate)
 - [Souwen v2rc4 release candidate](#v200rc4--release-candidate2026-07-29)
 - [Souwen v2rc3 release candidate](#v200rc3--release-candidate2026-07-28)
 - [Souwen v2rc2 release candidate](#v200rc2--release-candidate2026-07-27)
 - [v1.x history](#v112--ai-workflow-安全加固与功能深化2026-05-04)
 - [v0.x history](#v090--v1-过渡版2026-04-22)
 
-> v2 段落记录当前 main、已发布 RC 的公开变更和验证边界；v1/v0 段落保留历史审计脉络。
+> v2 段落记录当前 source candidate、已发布 RC 的公开变更和验证边界；v1/v0 段落保留历史审计脉络。
 
-## Unreleased main — post-RC4 maintenance
+## v2.0.0rc5 — Release Candidate（2026-07-30 source candidate）
 
-- `v2.0.0rc4` tag 与 GitHub prerelease 保持 immutable；main 在 tag 之后的修改不会覆盖或移动
-  既有 tag。HFS 可以通过 `evidence_profile=deployment, publish=false` 部署 exact current main，
-  但 deployment evidence 不是 RC4 Release assets。
+### Release status
+
+- 当前仓库源码候选为 **Souwen v2rc5**：Python/runtime/OpenAPI/SDK 为 `2.0.0rc5`，Panel
+  为 `2.0.0-rc5`。本节不预先声明 `v2.0.0rc5` tag、GitHub prerelease 或 HFS promotion
+  已完成；发布状态以 exact-main release workflow、GitHub Release 和 HFS 实时回读为准。
+- RC5 保持 API major 2 与 RC4 的 target-only Search、LLM Search、Fetch 和 Provider Catalog
+  契约。RC4→RC5 OpenAPI semantic diff 只有 release version 变化，不引入 API shape 变更。
 - Panel 按 Calm Precision 0.4 补齐稳定边缘、light/dark、窄屏、键盘焦点与明确状态层；HFS/GitHub
   文档新增全部 workspace 的直达 preview、角色和逐项验收。Search 表单改为单领域选择，避免在
   未显式 Provider 时发送 Server contract 必然拒绝的多 domain 默认请求。
@@ -30,10 +34,16 @@
   persistence。
 - 修复 final-main 浏览器验收暴露的交互与运行时边界：Search 的 YAML
   `search_defaults` 精确覆盖 13 个 canonical domain，`paper` primary 改为 `crossref`，Panel domain
-  从 frozen OpenAPI 生成；LLM Search 明确区分 evidence-only 与可选 answer；Fetch 实现 RC4
+  从 frozen OpenAPI 生成；LLM Search 明确区分 evidence-only 与可选 answer；Fetch 实现 RC4-frozen
   `fallback`/`fanout` 契约，Panel 保持 `fallback`，IP-pinned HTTPX 以流式 gzip/deflate 解码执行
   解压后 10 MiB hard cap；Settings 不再读取已退休的 legacy `llm` 字段，并把 gateway 声明与
   Provider 实际可用性分开。
+- 恢复 Python 3.10 对 HFS v2.1 TOML registry 测试的 `tomli` 兼容闭包，并把上述 post-RC4
+  修复整体提升为一个新的、不可覆盖 RC4 tag 的发布候选。
+- 无效 `trusted_proxies` 配置不再把原始值写入日志，避免误填的 credential、private endpoint
+  或 token 进入 clear-text logging；新增回归测试固定该 redaction 边界。
+- RC5 仍不是 `2.0.0` GA，不发布到 PyPI；正式 tag、12 项资产、provenance 和 HFS promotion
+  只能由 repository-owner 在 exact-main candidate 上通过 central release workflow 创建。
 
 ## v2.0.0rc4 — Release Candidate（2026-07-29）
 

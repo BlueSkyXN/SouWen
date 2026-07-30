@@ -74,7 +74,7 @@ PROFILE_COMMANDS: Mapping[str, tuple[CommandSpec, ...]] = {
                 PYTHON,
                 "tools/gen_openapi.py",
                 "--semantic-check",
-                "contracts/openapi/souwen-openapi-2.0.0rc4.json",
+                "contracts/openapi/souwen-openapi-2.0.0rc5.json",
             ),
         ),
         CommandSpec(

@@ -10,7 +10,7 @@ workflow artifact。
 - Panel：<https://blueskyxn-souwen.hf.space/panel#/>
 - Swagger：<https://blueskyxn-souwen.hf.space/docs>
 - Space 仓库：<https://huggingface.co/spaces/BlueSkyXN/SouWen>
-- GitHub Release：<https://github.com/BlueSkyXN/SouWen/releases/tag/v2.0.0rc4>
+- GitHub Releases：<https://github.com/BlueSkyXN/SouWen/releases>
 
 Hugging Face 控制面的 Space 仓库保持 `private=true`。当前 App domain 允许匿名读取 Panel
 shell、Swagger、OpenAPI 和 probes；这不代表 Data/Admin API 匿名开放。Search、LLM Search、
@@ -79,9 +79,10 @@ history；交互测试应使用受控环境变量或 Panel password input。
 
 ## Release 与 deployment 边界
 
-`v2.0.0rc4` tag 和 GitHub prerelease 是 immutable release baseline。`main` 可以包含 tag 后的
-修复，HFS 也可以通过 `evidence_profile=deployment, publish=false` 部署 exact current main；
-这样的 runtime 仍报告 package version `2.0.0rc4`，但不能描述为 tag-exact Release assets。
+`v2.0.0rc5` 是当前 source/release candidate；只有 central release workflow 成功后，其 tag 与
+GitHub prerelease 才构成 immutable-by-policy release baseline。本候选的完成标准要求 HFS 部署
+同一个 exact source SHA，并生成 release-profile evidence；仅看到 package version
+`2.0.0rc5` 不能证明 tag、Release assets 与 runtime 已对齐。
 
 验收 current deployment 时至少同时回读：
 
@@ -90,5 +91,5 @@ history；交互测试应使用受控环境变量或 Panel password input。
 3. HF Space repo SHA、`runtime.raw.sha` 与 probes 的 `wrapper_sha`。
 4. exact-source deployment run 的 surface/capability reports 与 attestation。
 
-只有这四层一致，才能说明当前 main 已部署并可预览；它们仍不移动既有 tag，也不替代下一版本
-Release 的 publication gate。
+只有这四层一致，才能说明当前 candidate 已部署并可预览；发布完成还必须回读同一 SHA 的 tag、
+12 项 Release assets、checksums 与 provenance。

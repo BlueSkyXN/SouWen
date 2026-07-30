@@ -18,7 +18,7 @@ Those current facts are not the desired product boundary:
   Search, LLM Search and Fetch contracts.
 - `src/souwen/server/schemas/common.py` currently defines a flat error body, while HLD §11.5 calls for a
   nested canonical error contract with stable codes and retry semantics.
-- The current package version is `2.0.0rc4`. Historical planning references to a
+- The current package version is `2.0.0rc5`. Historical planning references to a
   CLI-edition PyInstaller/Nuitka matrix are not current release-workflow evidence.
 - HLD §20 and §27 close Q-011: the target release surface is **four cross-platform PyInstaller server
   bundles**, with Nuitka and basic/full tiers retired. HLD §20 also selects the REST Client SDK as the

@@ -12,7 +12,7 @@ from tools import gen_typescript_sdk
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-ARTIFACT = REPOSITORY_ROOT / "contracts/openapi/souwen-openapi-2.0.0rc4.json"
+ARTIFACT = REPOSITORY_ROOT / "contracts/openapi/souwen-openapi-2.0.0rc5.json"
 GENERATED = REPOSITORY_ROOT / "panel/src/core/sdk/index.ts"
 
 

@@ -112,7 +112,7 @@ runs:
                 "importable",
             )
             require(SUPPORTED_API_MAJOR == 2, "sdk/api-major", str(SUPPORTED_API_MAJOR))
-            canonical_openapi = Path("contracts/openapi/souwen-openapi-2.0.0rc4.json")
+            canonical_openapi = Path("contracts/openapi/souwen-openapi-2.0.0rc5.json")
             expected_openapi_sha256 = hashlib.sha256(canonical_openapi.read_bytes()).hexdigest()
             require(
                 OPENAPI_SHA256 == expected_openapi_sha256,

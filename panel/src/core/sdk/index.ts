@@ -1,10 +1,10 @@
-/* Generated from contracts/openapi/souwen-openapi-2.0.0rc4.json; do not edit. */
+/* Generated from contracts/openapi/souwen-openapi-2.0.0rc5.json; do not edit. */
 /* generator_version=2 */
-/* openapi_sha256=d036abf271f31022396d3f549da04fde1da2000dd74fe8f21f22111adbd76709 */
+/* openapi_sha256=27308a32af13e16f3e05cb7e3a19e6547cd389340df8aa3ac976b1829b1198bb */
 
-export const SDK_VERSION = '2.0.0rc4' as const
+export const SDK_VERSION = '2.0.0rc5' as const
 export const SUPPORTED_API_MAJOR = 2 as const
-export const OPENAPI_SHA256 = 'd036abf271f31022396d3f549da04fde1da2000dd74fe8f21f22111adbd76709' as const
+export const OPENAPI_SHA256 = '27308a32af13e16f3e05cb7e3a19e6547cd389340df8aa3ac976b1829b1198bb' as const
 export const DEFAULT_TIMEOUT_MS = 125_000
 export const SEARCH_DOMAINS = ["paper", "book", "research_output", "patent", "web", "news", "images", "videos", "social", "office", "developer", "cn_tech", "knowledge"] as const
 export type SearchDomain = typeof SEARCH_DOMAINS[number]

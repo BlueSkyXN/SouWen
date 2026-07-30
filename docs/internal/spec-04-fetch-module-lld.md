@@ -1,6 +1,7 @@
 # SPEC-04：Fetch Module 执行与聚合
 
-**状态**：Implemented target clarification for the frozen `2.0.0rc4` wire contract
+**状态**：Implemented target clarification for the frozen `2.0.0rc4` wire contract；RC5
+沿用相同 wire shape
 
 **范围**：`FetchRequest` 的 `fallback` / `fanout` 执行语义、结果顺序、partial/error 规则、
 Browser Worker 边界与解压后响应大小上限

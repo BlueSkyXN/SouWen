@@ -14,7 +14,7 @@ def _manifest(adapter_id: str, export: str) -> ProviderManifest:
         {
             "schema_version": 2,
             "id": adapter_id,
-            "version": "2.0.0rc4",
+            "version": "2.0.0rc5",
             "contract_version": "provider-v2",
             "capabilities": ["llm_search"],
             "adapters": [

@@ -1,15 +1,15 @@
-"""Generated from contracts/openapi/souwen-openapi-2.0.0rc4.json; do not edit."""
+"""Generated from contracts/openapi/souwen-openapi-2.0.0rc5.json; do not edit."""
 
 # generator_version=1
-# openapi_sha256=d036abf271f31022396d3f549da04fde1da2000dd74fe8f21f22111adbd76709
+# openapi_sha256=27308a32af13e16f3e05cb7e3a19e6547cd389340df8aa3ac976b1829b1198bb
 
 from __future__ import annotations
 
 from typing import NamedTuple
 
-SDK_VERSION = "2.0.0rc4"
+SDK_VERSION = "2.0.0rc5"
 SUPPORTED_API_MAJOR = 2
-OPENAPI_SHA256 = "d036abf271f31022396d3f549da04fde1da2000dd74fe8f21f22111adbd76709"
+OPENAPI_SHA256 = "27308a32af13e16f3e05cb7e3a19e6547cd389340df8aa3ac976b1829b1198bb"
 
 
 class Operation(NamedTuple):

@@ -83,10 +83,11 @@ jobs:
             echo 'OpenAPI semantic check: no pull-request baseline required'
             exit 0
           fi
-          artifact='contracts/openapi/souwen-openapi-2.0.0rc4.json'
+          artifact='contracts/openapi/souwen-openapi-2.0.0rc5.json'
           baseline_artifact="$artifact"
           if ! git cat-file -e "$BASE_SHA:$artifact" 2>/dev/null; then
             for previous_artifact in \
+              'contracts/openapi/souwen-openapi-2.0.0rc4.json' \
               'contracts/openapi/souwen-openapi-2.0.0rc3.json' \
               'contracts/openapi/souwen-openapi-2.0.0rc2.json'; do
               if git cat-file -e "$BASE_SHA:$previous_artifact" 2>/dev/null; then

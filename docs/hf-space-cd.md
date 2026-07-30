@@ -2,7 +2,7 @@
 
 本文说明 SouWen 的 Hugging Face Space 本地预检、受控 promotion、访问鉴权、provenance
 与失败恢复边界。RC promotion 还必须满足
-[Souwen v2rc4 发布候选门禁](./internal/rc-readiness-gates.md)。未经明确批准，不得同步 Space
+[Souwen v2rc5 发布候选门禁](./internal/rc-readiness-gates.md)。未经明确批准，不得同步 Space
 仓库、factory rebuild、修改 secrets 或触发远端 smoke。
 
 ## 部署对象与访问边界
@@ -93,8 +93,8 @@ application token 必须走独立的 `X-SouWen-Token`；即使当前 preview sur
 | `HF_TOKEN` | 写 Space repo、restart/pause runtime | 仅 HFS 管理 API；需要 write 权限 |
 | `HF_SPACE_READ_TOKEN` | 兼容可能启用的 private edge | `Authorization: Bearer ...`；目标权限只需 READ |
 | `SOUWEN_SMOKE_BEARER_TOKEN` | SouWen 应用 admin password | `X-SouWen-Token: ...` |
-| `SOUWEN_CONFIG_B64` | 与 Space 同源的 RC4 配置；promotion 前验证 exact 一个 LLM Search Provider 与 gateway 结构 | 仅 workflow 内存预检；`${VAR}` 是否解析由 post-deploy live smoke 证明 |
-| `UNIAPI_API_KEY` | RC4 UniAPI gateway credential | workflow 将其写入同名 Space Secret；只回读 Secret 名称，不读取或记录值 |
+| `SOUWEN_CONFIG_B64` | 与 Space 同源的 RC5 配置；promotion 前验证 exact 一个 LLM Search Provider 与 gateway 结构 | 仅 workflow 内存预检；`${VAR}` 是否解析由 post-deploy live smoke 证明 |
+| `UNIAPI_API_KEY` | RC5 UniAPI gateway credential | workflow 将其写入同名 Space Secret；只回读 Secret 名称，不读取或记录值 |
 
 SouWen 仍以标准 `Authorization: Bearer <password>` 作为普通部署的首选应用鉴权。只有上游
 代理已经占用 `Authorization` 时才使用 `X-SouWen-Token`；显式 custom header 优先，若其值

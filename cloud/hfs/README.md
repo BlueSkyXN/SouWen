@@ -33,7 +33,7 @@ Panel 登录框接收 SouWen application token，不接收 HF write token。不�
 Issue、截图或日志。完整逐项验收见
 [HFS 在线预览指南](https://github.com/BlueSkyXN/SouWen/blob/main/docs/live-preview.md)。
 
-## RC4 进程拓扑
+## RC5 进程拓扑
 
 HFS wrapper 只向外暴露 `49265`。`deploy/process/supervisor.py` 先在
 `127.0.0.1:49266` 启动 authenticated Browser Worker，并验证 contract/source/version/config/
@@ -50,10 +50,10 @@ Worker 异常时 API health 可继续响应，但 `/readyz` 必须 fail closed�
 | GET | `/panel` | 管理面板 HTML；浏览器访问入口为 `/panel#/` |
 | GET | `/openapi.json` | OpenAPI schema |
 | GET | `/api/v1/whoami` | 当前 application role 与安全 feature projection |
-| POST | `/api/v1/search` | RC4 canonical Search |
-| POST | `/api/v1/llm-search` | RC4 canonical LLM Search；正式 promotion 必须配置并 live 验证 |
-| POST | `/api/v1/fetch` | RC4 canonical Fetch + private Browser Worker fallback |
-| GET | `/api/v1/providers` | RC4 Provider availability catalog |
+| POST | `/api/v1/search` | RC5 canonical Search |
+| POST | `/api/v1/llm-search` | RC5 canonical LLM Search；正式 promotion 必须配置并 live 验证 |
+| POST | `/api/v1/fetch` | RC5 canonical Fetch + private Browser Worker fallback |
+| GET | `/api/v1/providers` | RC5 Provider availability catalog |
 | GET | `/api/v1/admin/config` | 查看配置（需认证） |
 | GET | `/api/v1/admin/doctor` | 数据源健康检查（需认证） |
 | GET | `/api/v1/admin/ping` | Admin 认证存活检查（需认证） |
@@ -108,9 +108,10 @@ promotion 的三项 capability live smoke 和 authenticated admin config/ping/do
 Secret 值在 Space 端 write-only，因此 settings sync 开始后的任一失败都会 fail closed pause，
 等待人工从获批 Secret source 恢复；不会运行“旧 wrapper + 新/部分 settings”。
 
-`v2.0.0rc4` tag/GitHub prerelease 是 immutable Release baseline。HFS 可以部署 tag 之后的 exact
-current main，并继续报告 package version `2.0.0rc4`；应通过 health/readiness source SHA、Space
-repo/runtime/wrapper SHA 和 exact-source deployment evidence 判断当前部署，不能只看版本号。
+`v2.0.0rc5` 是当前 source/release candidate；只有 central release workflow 成功后，其 tag 与
+GitHub prerelease 才构成 immutable-by-policy Release baseline。HFS 必须部署该次发布的 exact
+source；应通过 health/readiness source SHA、Space repo/runtime/wrapper SHA 和 exact-source
+release evidence 判断当前部署，不能只看 package version。
 
 ## 源码
 
