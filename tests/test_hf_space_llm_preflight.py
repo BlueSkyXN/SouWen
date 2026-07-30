@@ -68,6 +68,58 @@ def test_load_preflight_config_resolves_exact_gateway_references_without_env_lea
         )
 
 
+def test_load_preflight_config_provides_cross_platform_home(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    original_expanduser = preflight.Path.expanduser
+    observed_home: dict[str, str | None] = {}
+
+    def require_windows_home(path: preflight.Path) -> preflight.Path:
+        if str(path).startswith("~"):
+            observed_home["HOME"] = preflight.os.environ.get("HOME")
+            observed_home["USERPROFILE"] = preflight.os.environ.get("USERPROFILE")
+            if not observed_home["USERPROFILE"]:
+                raise RuntimeError("Windows home is unavailable")
+        return original_expanduser(path)
+
+    monkeypatch.setattr(preflight.Path, "expanduser", require_windows_home)
+
+    config = preflight.load_preflight_config(
+        _encoded_config(deepseek=False, doubao=True),
+        "secret-canary",
+    )
+
+    assert config.enabled_uniapi_ark_source_ids() == (DOUBAO_ID,)
+    assert observed_home["HOME"] == observed_home["USERPROFILE"]
+
+
+def test_load_preflight_config_restores_cwd_before_temp_cleanup(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: preflight.Path,
+) -> None:
+    temp_root = tmp_path / "preflight-temp"
+
+    class GuardedTemporaryDirectory:
+        def __init__(self, *, prefix: str) -> None:
+            assert prefix == "souwen-hfs-llm-preflight-"
+            temp_root.mkdir()
+
+        def __enter__(self) -> str:
+            return str(temp_root)
+
+        def __exit__(self, *_args: object) -> None:
+            assert preflight.Path.cwd() != temp_root
+
+    monkeypatch.setattr(preflight.tempfile, "TemporaryDirectory", GuardedTemporaryDirectory)
+
+    config = preflight.load_preflight_config(
+        _encoded_config(deepseek=False, doubao=True),
+        "secret-canary",
+    )
+
+    assert config.enabled_uniapi_ark_source_ids() == (DOUBAO_ID,)
+
+
 @pytest.mark.parametrize(
     ("api_key", "base_url"),
     [
