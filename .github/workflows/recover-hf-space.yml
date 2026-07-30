@@ -1,0 +1,313 @@
+name: Recover paused HF Space
+
+run-name: >-
+  Recover HFS parent=${{ inputs.expected_paused_space_sha }}
+  source=${{ inputs.expected_paused_source_sha }}
+  from=${{ inputs.recovery_from_run_id }}
+
+on:
+  workflow_dispatch:
+    inputs:
+      candidate_sha:
+        description: "Current main SHA to install after paused forward recovery"
+        required: true
+        type: string
+      version:
+        description: "Exact candidate version"
+        required: true
+        type: string
+      recovery_from_run_id:
+        description: "Failed release-candidate run whose containment paused the Space"
+        required: true
+        type: string
+      expected_paused_space_sha:
+        description: "Current paused Space wrapper SHA"
+        required: true
+        type: string
+      expected_paused_source_sha:
+        description: "Source SHA pinned by the current paused wrapper"
+        required: true
+        type: string
+      expected_failed_candidate_sha:
+        description: "Candidate SHA of the failed release or recovery run"
+        required: true
+        type: string
+      expected_prior_space_sha:
+        description: "Direct transaction-parent wrapper SHA"
+        required: true
+        type: string
+      expected_prior_source_sha:
+        description: "Source SHA pinned by the transaction-parent wrapper"
+        required: true
+        type: string
+
+concurrency:
+  # Match release-candidate.yml so recovery cannot race later assemble/publish jobs.
+  group: souwen-release-hfs-transaction
+  cancel-in-progress: false
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  validate:
+    name: Validate paused recovery provenance
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    outputs:
+      candidate_sha: ${{ steps.contract.outputs.candidate_sha }}
+      version: ${{ steps.contract.outputs.version }}
+      verifier_sha: ${{ steps.contract.outputs.verifier_sha }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.candidate_sha }}
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Validate owner, current main, failed run, and containment evidence
+        id: contract
+        env:
+          GH_TOKEN: ${{ github.token }}
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          VERSION: ${{ inputs.version }}
+          RECOVERY_FROM_RUN_ID: ${{ inputs.recovery_from_run_id }}
+          EXPECTED_PAUSED_SPACE_SHA: ${{ inputs.expected_paused_space_sha }}
+          EXPECTED_PAUSED_SOURCE_SHA: ${{ inputs.expected_paused_source_sha }}
+          EXPECTED_FAILED_CANDIDATE_SHA: ${{ inputs.expected_failed_candidate_sha }}
+          EXPECTED_PRIOR_SPACE_SHA: ${{ inputs.expected_prior_space_sha }}
+          EXPECTED_PRIOR_SOURCE_SHA: ${{ inputs.expected_prior_source_sha }}
+          DISPATCH_ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_REF: ${{ github.ref }}
+          WORKFLOW_SHA: ${{ github.workflow_sha }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+        run: |
+          python3 -I - <<'PY'
+          import json
+          import io
+          import os
+          import re
+          import subprocess
+          import sys
+          import tomllib
+          import zipfile
+          from urllib.error import HTTPError
+          from urllib.request import HTTPRedirectHandler, Request, build_opener, urlopen
+
+          candidate = os.environ["CANDIDATE_SHA"]
+          version = os.environ["VERSION"]
+          run_id = os.environ["RECOVERY_FROM_RUN_ID"]
+          expected_failed_candidate = os.environ["EXPECTED_FAILED_CANDIDATE_SHA"]
+          owner = os.environ["REPOSITORY_OWNER"]
+          repository = os.environ["REPOSITORY"]
+          workflow_sha = os.environ["WORKFLOW_SHA"]
+
+          if os.environ["RUN_ATTEMPT"] != "1":
+              raise SystemExit("paused recovery workflow reruns are not allowed")
+
+          if any(
+              actor.casefold() != owner.casefold()
+              for actor in (
+                  os.environ["DISPATCH_ACTOR"],
+                  os.environ["TRIGGERING_ACTOR"],
+              )
+          ):
+              raise SystemExit("paused recovery requires repository-owner dispatch")
+          if os.environ["WORKFLOW_REF"] != "refs/heads/main":
+              raise SystemExit("paused recovery must run from main")
+          if not run_id.isdigit():
+              raise SystemExit("recovery_from_run_id must be numeric")
+          for name in (
+              "CANDIDATE_SHA",
+              "EXPECTED_PAUSED_SPACE_SHA",
+              "EXPECTED_PAUSED_SOURCE_SHA",
+              "EXPECTED_FAILED_CANDIDATE_SHA",
+              "EXPECTED_PRIOR_SPACE_SHA",
+              "EXPECTED_PRIOR_SOURCE_SHA",
+          ):
+              if re.fullmatch(r"[0-9a-f]{40}", os.environ[name]) is None:
+                  raise SystemExit(f"{name} must be exactly 40 lowercase hexadecimal characters")
+
+          subprocess.run(["git", "fetch", "--no-tags", "origin", "main"], check=True)
+          origin_main = subprocess.check_output(
+              ["git", "rev-parse", "refs/remotes/origin/main"], text=True
+          ).strip()
+          checkout = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
+          if candidate != origin_main or checkout != candidate or workflow_sha != origin_main:
+              raise SystemExit("recovery candidate must equal the current origin/main")
+          with open("pyproject.toml", "rb") as file:
+              project_version = tomllib.load(file)["project"]["version"]
+          if version != "2.0.0rc5" or project_version != version:
+              raise SystemExit("paused recovery version does not match the RC5 candidate")
+
+          # Candidate-controlled modules are safe to import only after owner/current-main gates.
+          sys.path.insert(0, os.getcwd())
+          from scripts.hf_space_recovery_contract import (  # noqa: E402
+              RecoveryContractError,
+              validate_source_run_provenance,
+          )
+
+          token = os.environ["GH_TOKEN"]
+
+          def api_json(path: str):
+              request = Request(
+                  f"https://api.github.com{path}",
+                  headers={
+                      "Accept": "application/vnd.github+json",
+                      "Authorization": f"Bearer {token}",
+                      "X-GitHub-Api-Version": "2022-11-28",
+                  },
+              )
+              with urlopen(request, timeout=30) as response:
+                  return json.load(response)
+
+          def require_absent(path: str, label: str) -> None:
+              try:
+                  api_json(path)
+              except HTTPError as exc:
+                  if exc.code == 404:
+                      return
+                  raise SystemExit(f"cannot prove absent {label}") from exc
+              raise SystemExit(f"paused recovery requires absent {label}")
+
+          class NoRedirect(HTTPRedirectHandler):
+              def redirect_request(self, req, fp, code, msg, headers, newurl):
+                  return None
+
+          def load_transaction_intent():
+              artifact_name = f"hfs-transaction-intent-{run_id}-attempt-1"
+              payload = api_json(
+                  f"/repos/{repository}/actions/runs/{run_id}/artifacts"
+                  f"?name={artifact_name}"
+              )
+              artifacts = payload.get("artifacts", [])
+              if not artifacts:
+                  return None
+              if len(artifacts) != 1:
+                  raise SystemExit("failed transaction intent inventory mismatch")
+              artifact = artifacts[0]
+              if (
+                  artifact.get("name") != artifact_name
+                  or artifact.get("expired") is not False
+                  or str((artifact.get("workflow_run") or {}).get("id")) != run_id
+              ):
+                  raise SystemExit("failed transaction intent metadata mismatch")
+
+              request = Request(
+                  artifact["archive_download_url"],
+                  headers={
+                      "Accept": "application/vnd.github+json",
+                      "Authorization": f"Bearer {token}",
+                      "X-GitHub-Api-Version": "2022-11-28",
+                  },
+              )
+              try:
+                  build_opener(NoRedirect()).open(request, timeout=30)
+              except HTTPError as exc:
+                  if exc.code != 302 or not exc.headers.get("Location", "").startswith(
+                      "https://"
+                  ):
+                      raise SystemExit("failed transaction intent download mismatch") from exc
+                  download_url = exc.headers["Location"]
+              else:
+                  raise SystemExit("failed transaction intent download did not redirect")
+
+              with urlopen(Request(download_url), timeout=30) as response:
+                  archive = response.read(1_000_001)
+              if len(archive) > 1_000_000:
+                  raise SystemExit("failed transaction intent archive is oversized")
+              with zipfile.ZipFile(io.BytesIO(archive)) as bundle:
+                  entries = bundle.infolist()
+                  if (
+                      len(entries) != 1
+                      or entries[0].filename != "hfs-transaction-intent.json"
+                      or entries[0].file_size > 65_536
+                  ):
+                      raise SystemExit("failed transaction intent archive mismatch")
+                  intent = json.loads(bundle.read(entries[0]).decode("utf-8"))
+              if not isinstance(intent, dict):
+                  raise SystemExit("failed transaction intent schema mismatch")
+              return intent
+
+          tag = f"v{version}"
+          require_absent(f"/repos/{repository}/git/ref/tags/{tag}", f"tag {tag}")
+          require_absent(f"/repos/{repository}/releases/tags/{tag}", f"Release {tag}")
+
+          run = api_json(f"/repos/{repository}/actions/runs/{run_id}")
+          jobs = api_json(f"/repos/{repository}/actions/runs/{run_id}/jobs?per_page=100")
+          if jobs.get("total_count", 0) > 100:
+              raise SystemExit("failed release run job inventory exceeds the recovery verifier")
+          try:
+              source_kind = validate_source_run_provenance(
+                  run_id=run_id,
+                  run=run,
+                  jobs=jobs.get("jobs", []),
+                  owner=owner,
+                  failed_candidate_sha=expected_failed_candidate,
+                  paused_space_sha=os.environ["EXPECTED_PAUSED_SPACE_SHA"],
+                  paused_source_sha=os.environ["EXPECTED_PAUSED_SOURCE_SHA"],
+                  prior_space_sha=os.environ["EXPECTED_PRIOR_SPACE_SHA"],
+                  prior_source_sha=os.environ["EXPECTED_PRIOR_SOURCE_SHA"],
+                  intent=load_transaction_intent(),
+              )
+          except RecoveryContractError as exc:
+              raise SystemExit(str(exc)) from exc
+
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"candidate_sha={candidate}\n")
+              output.write(f"version={version}\n")
+              output.write(f"verifier_sha={workflow_sha}\n")
+          print(
+              f"validated paused recovery candidate={candidate}, source_kind={source_kind}, "
+              f"failed_run={run_id}, failed_candidate={expected_failed_candidate}"
+          )
+          PY
+
+  recover:
+    name: Forward-recover exact paused HF Space
+    needs: validate
+    uses: ./.github/workflows/deploy-hf-space.yml
+    with:
+      candidate_sha: ${{ needs.validate.outputs.candidate_sha }}
+      version: ${{ needs.validate.outputs.version }}
+      verifier_sha: ${{ needs.validate.outputs.verifier_sha }}
+      deploy_hfs: true
+      recovery_from_run_id: ${{ inputs.recovery_from_run_id }}
+      expected_paused_space_sha: ${{ inputs.expected_paused_space_sha }}
+      expected_paused_source_sha: ${{ inputs.expected_paused_source_sha }}
+      expected_failed_candidate_sha: ${{ inputs.expected_failed_candidate_sha }}
+      expected_prior_space_sha: ${{ inputs.expected_prior_space_sha }}
+      expected_prior_source_sha: ${{ inputs.expected_prior_source_sha }}
+    secrets: inherit
+
+  verify:
+    name: Verify recovery outputs
+    needs: [validate, recover]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require exact successful recovery output
+        env:
+          CANDIDATE_SHA: ${{ needs.validate.outputs.candidate_sha }}
+          VERSION: ${{ needs.validate.outputs.version }}
+          SPACE_COMMIT_SHA: ${{ needs.recover.outputs.space_commit_sha }}
+          PROMOTED_VERSION: ${{ needs.recover.outputs.version }}
+        run: |
+          python3 -I - <<'PY'
+          import os
+          import re
+
+          if re.fullmatch(r"[0-9a-f]{40}", os.environ["SPACE_COMMIT_SHA"]) is None:
+              raise SystemExit("paused recovery did not return an immutable Space commit")
+          if os.environ["PROMOTED_VERSION"] != os.environ["VERSION"]:
+              raise SystemExit("paused recovery version readback mismatch")
+          print(
+              "paused recovery completed for "
+              f"candidate={os.environ['CANDIDATE_SHA']}, "
+              f"space={os.environ['SPACE_COMMIT_SHA']}"
+          )
+          PY

@@ -34,7 +34,8 @@ on:
         type: boolean
 
 concurrency:
-  group: release-candidate-${{ inputs.candidate_sha }}
+  # Serialize external deploy/publish runs with recovery; pure evidence runs stay per-candidate.
+  group: ${{ (inputs.deploy_hfs || inputs.publish) && 'souwen-release-hfs-transaction' || format('release-candidate-evidence-{0}', inputs.candidate_sha) }}
   cancel-in-progress: false
 
 permissions:
@@ -73,6 +74,7 @@ jobs:
           REPOSITORY_OWNER: ${{ github.repository_owner }}
           WORKFLOW_REF: ${{ github.ref }}
           WORKFLOW_SHA: ${{ github.workflow_sha }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
         run: |
           python3 -I - <<'PY'
           import os
@@ -88,6 +90,8 @@ jobs:
           deploy_hfs = os.environ['DEPLOY_HFS']
           dispatch_actor = os.environ['DISPATCH_ACTOR']
           triggering_actor = os.environ['TRIGGERING_ACTOR']
+          if os.environ['RUN_ATTEMPT'] != '1':
+              raise SystemExit('release candidate workflow reruns are not allowed')
           repository_owner = os.environ['REPOSITORY_OWNER']
           workflow_ref = os.environ['WORKFLOW_REF']
           workflow_sha = os.environ['WORKFLOW_SHA']

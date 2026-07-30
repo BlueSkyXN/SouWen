@@ -738,6 +738,7 @@ def test_hfs_deployment_does_not_keep_a_retired_cli_binary_smoke() -> None:
 def test_hfs_required_fetch_fixture_change_triggers_workflow() -> None:
     text = _workflow("deploy-hf-space.yml")
 
+    assert '- "scripts/hf_space_llm_preflight.py"' in text
     assert '- "scripts/hf_space_smoke.py"' in text
     assert '- "scripts/fixtures/hf-space-fetch-probe.html"' in text
     assert '- "scripts/fixtures/hf-space-browser-probe.html"' in text
@@ -764,13 +765,16 @@ def test_hfs_m1_requires_target_supervisor_and_internal_worker_evidence() -> Non
     )
 
 
-def test_only_hfs_reusable_call_inherits_secrets() -> None:
+def test_only_release_and_paused_recovery_hfs_calls_inherit_secrets() -> None:
     inherited = {
         path.name: path.read_text(encoding="utf-8").count("secrets: inherit")
         for path in WORKFLOW_DIR.glob("*.yml")
         if "secrets: inherit" in path.read_text(encoding="utf-8")
     }
-    assert inherited == {"release-candidate.yml": 1}
+    assert inherited == {
+        "recover-hf-space.yml": 1,
+        "release-candidate.yml": 1,
+    }
 
 
 def test_release_candidate_aggregates_all_release_gates() -> None:
@@ -1109,6 +1113,19 @@ def test_hfs_reusable_promotion_is_candidate_pinned_and_live_verified() -> None:
     assert "unauth_status" in text
     assert "github.event_name == 'workflow_call'" not in text
     assert "if: ${{ inputs.deploy_hfs }}" in text
+    assert "HF promotion requires repository-owner dispatch" in contract_step
+    assert "HF promotion candidate must equal current GitHub main" in contract_step
+    assert "verifier_sha and workflow SHA must equal current GitHub main" in contract_step
+    assert "reusable HF Space CD reruns are not allowed" in contract_step
+    assert "https://api.github.com/repos/{os.environ['REPOSITORY']}/git/ref/heads/main" in (
+        contract_step
+    )
+    delivery = _job(text, "delivery-contracts", "docker-hfs")
+    docker = _job(text, "docker-hfs", "sync-hfs-wrapper")
+    assert "needs: detect-changes" in delivery
+    assert "needs: detect-changes" in docker
+    assert "persist-credentials: false" in delivery
+    assert "persist-credentials: false" in docker
     assert 'write_output(True, "release-candidate")' in text
     assert "inputs.deploy_hfs && 'promotion'" in text
     assert "cancel-in-progress: ${{ !inputs.deploy_hfs }}" in text
@@ -1142,7 +1159,10 @@ def test_hfs_reusable_promotion_is_candidate_pinned_and_live_verified() -> None:
     assert "${!name}" in secret_gate
     assert "name: Validate required HFS LLM Search configuration" in text
     assert "HFS promotion requires exactly one enabled LLM Search Provider" in text
-    assert 'env_reference = re.compile(r"^\\$\\{[A-Z_][A-Z0-9_]*\\}$")' in text
+    assert 'env_reference = re.compile(r"^\\$\\{([A-Z_][A-Z0-9_]*)\\}$")' in text
+    assert "HFS UniAPI API key uses an unmanaged environment reference" in text
+    assert "HFS UniAPI base URL must not use an environment reference" in text
+    assert '      - ".github/workflows/recover-hf-space.yml"' in text
 
     settings_preflight = text.split("- name: Preflight managed HFS Space Secret names", maxsplit=1)[
         1
@@ -1196,11 +1216,36 @@ def test_hfs_settings_preflight_finishes_before_the_containment_marker_and_first
     text = _workflow("deploy-hf-space.yml")
     sync = _job(text, "sync-hfs-wrapper", "rebuild-space")
 
+    provider_preflight = sync.index(
+        "- name: Probe selected HFS LLM Search Provider before mutation"
+    )
+    release_absence = sync.index("- name: Recheck absent recovery tag and Release before mutation")
+    write_intent = sync.index("- name: Write immutable HFS transaction intent")
+    upload_intent = sync.index("- name: Upload immutable HFS transaction intent before mutation")
     preflight = sync.index("- name: Preflight managed HFS Space Secret names")
     marker = sync.index("- name: Mark settings mutation phase")
     first_write = sync.index("api.add_space_secret(")
 
-    assert preflight < marker < first_write
+    assert (
+        preflight
+        < provider_preflight
+        < release_absence
+        < write_intent
+        < upload_intent
+        < marker
+        < first_write
+    )
+    provider_block = sync[provider_preflight:marker]
+    assert "SOUWEN_CONFIG_B64: ${{ secrets.SOUWEN_CONFIG_B64 }}" in provider_block
+    assert "UNIAPI_API_KEY: ${{ secrets.UNIAPI_API_KEY }}" in provider_block
+    assert "python scripts/hf_space_llm_preflight.py" in provider_block
+    assert "paused recovery requires absent" in provider_block
+    assert '"schema": "souwen-hfs-transaction-intent-v1"' in provider_block
+    assert (
+        "hfs-transaction-intent-${{ github.run_id }}-attempt-${{ github.run_attempt }}"
+        in provider_block
+    )
+    assert "|| true" not in provider_block
     assert "id: settings_mutation" in sync[marker:first_write]
     assert "settings_mutation_started=true" in sync[marker:first_write]
     assert (
@@ -1217,6 +1262,124 @@ def test_hfs_containment_requires_a_completed_settings_mutation_marker() -> None
     assert "needs.sync-hfs-wrapper.result != 'success'" in containment
     assert "needs.rebuild-space.result != 'success'" in containment
     assert "needs.post-deploy-smoke.result != 'success'" in containment
+
+
+def test_hfs_paused_recovery_is_owner_exact_state_and_action_driven() -> None:
+    recovery = _workflow("recover-hf-space.yml")
+    deploy = _workflow("deploy-hf-space.yml")
+
+    assert "workflow_dispatch:" in recovery
+    for input_name in (
+        "candidate_sha",
+        "version",
+        "recovery_from_run_id",
+        "expected_paused_space_sha",
+        "expected_paused_source_sha",
+        "expected_failed_candidate_sha",
+        "expected_prior_space_sha",
+        "expected_prior_source_sha",
+    ):
+        assert f"      {input_name}:" in recovery
+    assert "actions: read" in recovery
+    assert "contents: read" in recovery
+    assert "DISPATCH_ACTOR: ${{ github.actor }}" in recovery
+    assert "TRIGGERING_ACTOR: ${{ github.triggering_actor }}" in recovery
+    assert "REPOSITORY_OWNER: ${{ github.repository_owner }}" in recovery
+    assert "paused recovery requires repository-owner dispatch" in recovery
+    assert "paused recovery workflow reruns are not allowed" in recovery
+    assert "recovery candidate must equal the current origin/main" in recovery
+    assert "failed release run job inventory exceeds the recovery verifier" in recovery
+    assert "validate_source_run_provenance" in recovery
+    assert "load_transaction_intent" in recovery
+    assert 'artifact_name = f"hfs-transaction-intent-{run_id}-attempt-1"' in recovery
+    assert "build_opener(NoRedirect())" in recovery
+    assert "urlopen(Request(download_url)" in recovery
+    assert "source_kind=" in recovery
+    assert "uses: ./.github/workflows/deploy-hf-space.yml" in recovery
+    assert "secrets: inherit" in recovery
+    assert "publish:" not in recovery
+    for forbidden in (
+        "contents: write",
+        "actions: write",
+        "id-token: write",
+        "git tag",
+        "gh release",
+    ):
+        assert forbidden not in recovery
+
+    workflow_call = deploy.split("  workflow_call:", maxsplit=1)[1].split(
+        "  pull_request:", maxsplit=1
+    )[0]
+    for input_name in (
+        "recovery_from_run_id",
+        "expected_paused_space_sha",
+        "expected_paused_source_sha",
+        "expected_failed_candidate_sha",
+        "expected_prior_space_sha",
+        "expected_prior_source_sha",
+    ):
+        assert f"      {input_name}:" in workflow_call
+
+    sync = _job(deploy, "sync-hfs-wrapper", "rebuild-space")
+    assert "recovery inputs must be either all empty or all populated" in sync
+    assert "paused recovery requires the target Space to remain PAUSED" in sync
+    assert "paused recovery prior source pin mismatch" in sync
+    assert "validate_recovery_topology" in sync
+    assert "api.list_repo_commits(" in sync
+    assert "sync_parent_sha" in sync
+    assert 'rollback_runtime_sha = ""' in sync
+    assert 'rollback_stage = ""' in sync
+    assert "RECOVERY_FROM_PAUSED_" not in sync
+
+    rebuild = _job(deploy, "rebuild-space", "post-deploy-smoke")
+    factory_restart = (
+        "api.restart_space(\n              repo_id=space_id,\n              factory_reboot=True,"
+    )
+    assert "api.restart_space(repo_id=space_id)" not in rebuild
+    assert factory_restart in rebuild
+    assert rebuild.count("api.restart_space(") == 1
+    assert rebuild.count("time.monotonic() + 900") == 1
+    assert "paused recovery must start from PAUSED" in rebuild
+    assert "timeout-minutes: 25" in rebuild
+
+    release = _workflow("release-candidate.yml")
+    assert "release candidate workflow reruns are not allowed" in release
+    assert "'souwen-release-hfs-transaction'" in release
+    assert "release-candidate-evidence-{0}" in release
+    assert "group: souwen-release-hfs-transaction" in recovery
+    assert "cancel-in-progress: false" in release
+    assert "cancel-in-progress: false" in recovery
+
+    validate_block = _job(recovery, "validate", "recover")
+    owner_gate = validate_block.index("paused recovery requires repository-owner dispatch")
+    current_main_gate = validate_block.index(
+        "recovery candidate must equal the current origin/main"
+    )
+    helper_import = validate_block.index("from scripts.hf_space_recovery_contract import")
+    source_run_api = validate_block.index(
+        'run = api_json(f"/repos/{repository}/actions/runs/{run_id}")'
+    )
+    assert owner_gate < current_main_gate < helper_import < source_run_api
+
+    receipt = deploy.split("  transaction-receipt:", maxsplit=1)[1]
+    assert (
+        "needs: [sync-hfs-wrapper, rebuild-space, post-deploy-smoke, contain-space, pause-space]"
+    ) in receipt
+    assert "if: ${{ always() && inputs.deploy_hfs }}" in receipt
+    assert '"schema": "souwen-hfs-transaction-outcome-v1"' in receipt
+    assert '"settings_mutation_started"' in receipt
+    assert (
+        "hfs-transaction-outcome-${{ github.run_id }}-attempt-${{ github.run_attempt }}" in receipt
+    )
+    assert "actions/upload-artifact@v7" in receipt
+
+
+def test_hfs_sync_budget_covers_stable_snapshot_install_and_live_preflight() -> None:
+    sync = _job(_workflow("deploy-hf-space.yml"), "sync-hfs-wrapper", "rebuild-space")
+
+    assert "timeout-minutes: 30" in sync
+    assert "time.monotonic() + 900" in sync
+    assert "--request-timeout 60" in sync
 
 
 def test_hfs_rebuild_job_avoids_checkout_and_dependency_cache() -> None:

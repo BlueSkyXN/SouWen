@@ -214,10 +214,22 @@ RC-ready run 可以验证从 current main 派生的 candidate；任何 secret-be
 - Surface/capability smoke 必须从 trusted `verifier_sha` 执行，不能把 app admin token 暴露给
   candidate checkout。它还必须正向检查 authenticated admin config/ping/doctor，并验证 config
   的 credential-shaped string 已脱敏。
-- Space Secret 值 write-only；Secret name/schema preflight 必须在 mutation marker 前完成，失败时
-  不得 pause 原健康 Space。`settings_mutation_started=true` 必须在第一次写调用前由已完成 step 写出；
-  此后的任一 sync/rebuild/post-smoke 失败必须 pause Space 并验证 `PAUSED`，再从获批 Secret source
-  人工恢复匹配的 settings/wrapper，原 promotion 仍为 FAIL。
+- Space Secret 值 write-only；Secret name/schema preflight 与 exact selected LLM Provider 的 single-attempt
+  live preflight 必须在 mutation marker 前完成，失败时不得 pause 原健康 Space。Provider preflight 不
+  retry、不自动切换 model，且不能替代 post-deploy capability smoke。`settings_mutation_started=true`
+  必须在第一次写调用前由已完成 step 写出；此后的任一 sync/rebuild/post-smoke 失败必须 pause Space
+  并验证 `PAUSED`。如需前向恢复，只能由 owner 从 current `main` 使用精确绑定 failed run、paused/
+  prior wrapper 与 source SHA 的 `recover-hf-space.yml` 重写获批 settings、factory rebuild 并重跑完整
+  smoke。Recovery 同时覆盖 wrapper 尚未前移和 direct-parent wrapper 已前移两种 paused 拓扑；失败的
+  release/recovery 只有在 mutation 前成功上传的 `souwen-hfs-transaction-intent-v1`、primary 或 retry
+  containment jobs 与 live paused topology 均可证明时才可作为下一次 recovery source；post-transaction
+  outcome artifact 只补充证据，不是恢复可用性的单点。两个入口与 source run 都只接受 attempt 1，禁止
+  rerun 复用 run ID。Intent 机制上线前的历史 RC5 failed run 只允许一次性 hard-coded exact SHA
+  contract，不接受 operator 自报的任意 legacy state。
+  Recovery validate 与 mutation marker 前还必须分别证明目标 tag/Release absent；无法读回或发现 partial
+  state 时停止，不得消耗该 RC 版本。
+  Recovery 与 central release caller 共用覆盖 assemble/publish 的全局 concurrency；原 promotion 仍为
+  FAIL，recovery 也不能发布或替代新的 central release run。
 
 **Evidence**：批准记录引用、prior/promoted Space SHA、source SHA、factory rebuild run、
 surface/capability report、edge/application auth/admin-open assertion；失败路径另保存 containment

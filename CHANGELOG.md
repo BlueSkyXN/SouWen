@@ -27,7 +27,18 @@
   commit version source、根 `.env` env 事实源，以及 `SOUWEN_CONFIG_B64` 对应的 gitignored 原始
   YAML 事实源；settings ownership 精确收敛到三个 workflow-managed Space Secrets 和一个
   provenance Variable。Secret 值 write-only，失败后不再用“旧 wrapper + 新/部分 settings”
-  自动恢复，而是 fail closed pause，等待使用获批 Secret source 人工恢复。
+  自动恢复，而是 fail closed pause，等待使用获批 Secret source 受控恢复。
+- HFS promotion 在任何 settings mutation 前通过 exact candidate 的 production runtime assembly 对
+  配置中唯一启用的 LLM Search Provider 执行 single-attempt live evidence gate；429、不可用或无
+  structured evidence 均在写入前失败，不 retry、不自动换 model，也不会 pause 原健康 Space。对已经
+  containment 的 `PAUSED` transaction，新增 owner-only `recover-hf-space.yml`，精确绑定失败 run、
+  paused/prior wrapper 与 source SHA，覆盖 settings-only、direct-parent wrapper advance 和 validated
+  recovery retry，完成 settings 重写、单次 factory reboot 和完整 smoke。Recovery 与 central release
+  共用覆盖 assemble/publish 的全局 concurrency，并在 validate 与 mutation 前双重证明 RC5 tag/Release
+  absent；新 transaction 在 mutation 前先持久化 machine intent，结合 primary/retry containment 与 live
+  paused topology 绑定恢复状态，post outcome 仅作补充证据。Release/recovery 禁止 rerun，intent 上线前
+  的已知 RC5 failed run 仅接受一次性 exact-SHA legacy contract。Recovery 本身不创建 tag/Release，
+  正式发布仍必须重新运行 central release workflow。
 - HFS surface smoke 增加 authenticated admin config/ping/doctor 正向检查，并对 config 中未脱敏的
   credential-shaped string fail closed。
 - 修正 Docker 文档：应用配置只读挂载到 `/app/souwen.yaml`，`/app/data` 专用于 WARP/runtime

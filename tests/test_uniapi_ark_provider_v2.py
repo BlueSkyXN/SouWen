@@ -8,6 +8,7 @@ from typing import Any
 
 import pytest
 
+from souwen.common_runtime.transport.errors import RateLimitError
 from souwen.platform.provider_spi import (
     ExecutionContext,
     LLMSearchRequest,
@@ -65,6 +66,20 @@ class _Transport:
 class _BlockingTransport(_Transport):
     async def post(self, *args, **kwargs):
         await asyncio.Event().wait()
+
+
+class _RateLimitedTransport(_Transport):
+    async def post(self, url, json=None, data=None, headers=None, retry_policy="default"):
+        self.calls.append(
+            {
+                "url": url,
+                "json": json,
+                "data": data,
+                "headers": headers,
+                "retry_policy": retry_policy,
+            }
+        )
+        raise RateLimitError("private upstream detail", retry_after=1)
 
 
 def _payload(
@@ -241,6 +256,32 @@ async def test_v1_gateway_base_url_does_not_duplicate_the_version_path() -> None
     )
 
     assert transport.calls[0]["url"] == "responses"
+
+
+@pytest.mark.asyncio
+async def test_rate_limit_is_safe_and_single_attempt_for_operator_control() -> None:
+    transport = _RateLimitedTransport({})
+    provider = UniApiArkAnnotationsDeepSeekProvider(
+        {"enabled": True},
+        {
+            "UNIAPI_API_KEY": "fixture-secret",
+            "UNIAPI_BASE_URL": "https://gateway.example.test/v1",
+        },
+        transport=transport,
+    )
+
+    with pytest.raises(ProviderError) as exc_info:
+        await provider.search(
+            _request(DEEPSEEK_ADAPTER_ID, max_results=1),
+            RequestContext(request_id="provider-v2-rate-limit"),
+            ExecutionContext.with_timeout(5),
+        )
+
+    assert exc_info.value.code is ProviderErrorCode.RATE_LIMITED
+    assert exc_info.value.retry_after_seconds == 1
+    assert "private upstream detail" not in str(exc_info.value)
+    assert len(transport.calls) == 1
+    assert transport.calls[0]["retry_policy"] == "single_attempt"
 
 
 @pytest.mark.asyncio
