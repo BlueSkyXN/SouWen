@@ -1335,11 +1335,15 @@ def test_hfs_paused_recovery_is_owner_exact_state_and_action_driven() -> None:
     factory_restart = (
         "api.restart_space(\n              repo_id=space_id,\n              factory_reboot=True,"
     )
-    assert "api.restart_space(repo_id=space_id)" not in rebuild
+    normal_restart = "api.restart_space(repo_id=space_id)"
+    assert normal_restart in rebuild
     assert factory_restart in rebuild
-    assert rebuild.count("api.restart_space(") == 1
+    assert rebuild.index(normal_restart) < rebuild.index(factory_restart)
+    assert rebuild.count("api.restart_space(") == 2
+    assert rebuild.count("time.monotonic() + 120") == 1
     assert rebuild.count("time.monotonic() + 900") == 1
     assert "paused recovery must start from PAUSED" in rebuild
+    assert "paused recovery did not leave PAUSED before factory reboot" in rebuild
     assert "timeout-minutes: 25" in rebuild
 
     release = _workflow("release-candidate.yml")
