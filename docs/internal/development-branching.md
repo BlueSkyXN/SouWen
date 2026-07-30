@@ -106,8 +106,14 @@ Since 2026-07-26 both workflows run in two lanes (owner-approved CI slimming):
 
 External smoke, HF Space local preflight, the RC5 Server bundle builder, and
 secret-backed checks keep their dedicated reusable/manual/schedule entrypoints.
-They should not be folded into every ordinary PR. Remote HFS promotion and
-GitHub publication are coordinated only by `release-candidate.yml`.
+They should not be folded into every ordinary PR. Normal remote HFS promotion and
+GitHub publication are coordinated only by `release-candidate.yml`. The owner-only
+`recover-hf-space.yml` entrypoint may only forward-recover an exact, previously contained
+`PAUSED` transaction; it cannot publish and does not replace a fresh central release run.
+External transaction runs (`deploy_hfs=true` or `publish=true`) share
+`souwen-release-hfs-transaction` concurrency for the complete caller run, so recovery cannot overlap a
+standard run's HFS evidence, assembly, or publication phase. Pure local evidence runs retain a
+per-candidate group and therefore cannot delay an urgent paused recovery.
 
 `build-pyinstaller-server.yml` builds the RC5 release inventory: exactly four
 target-native PyInstaller Server bundles. The old legacy PyInstaller and Nuitka
@@ -127,7 +133,7 @@ it from the current `main` workflow revision with an exact 40-character
    candidate may be a descendant of current `origin/main`; this run has no
    external release/deploy write. It generates the immutable OpenAPI artifact,
    exactly four Server bundles and their target-native smoke evidence.
-3. Accept **RC-ready** only when all 15 always-required gates pass on the exact
+3. Accept **RC-ready** only when all 13 always-required gates pass on the exact
    candidate and the evidence bundle inventory/checksums agree.
 4. Merge the approved candidate. Before any HFS write, require
    `candidate_sha == origin/main`, protected `hf`/`release` environments, a private

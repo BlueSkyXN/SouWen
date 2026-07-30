@@ -93,7 +93,7 @@ application token 必须走独立的 `X-SouWen-Token`；即使当前 preview sur
 | `HF_TOKEN` | 写 Space repo、restart/pause runtime | 仅 HFS 管理 API；需要 write 权限 |
 | `HF_SPACE_READ_TOKEN` | 兼容可能启用的 private edge | `Authorization: Bearer ...`；目标权限只需 READ |
 | `SOUWEN_SMOKE_BEARER_TOKEN` | SouWen 应用 admin password | `X-SouWen-Token: ...` |
-| `SOUWEN_CONFIG_B64` | 与 Space 同源的 RC5 配置；promotion 前验证 exact 一个 LLM Search Provider 与 gateway 结构 | 仅 workflow 内存预检；`${VAR}` 是否解析由 post-deploy live smoke 证明 |
+| `SOUWEN_CONFIG_B64` | 与 Space 同源的 RC5 配置；promotion 前验证 exact 一个 LLM Search Provider、gateway 结构与一次 single-attempt live evidence | 仅 workflow 内存/临时文件预检；不输出配置值，post-deploy 仍重新验证 HFS runtime |
 | `UNIAPI_API_KEY` | RC5 UniAPI gateway credential | workflow 将其写入同名 Space Secret；只回读 Secret 名称，不读取或记录值 |
 
 SouWen 仍以标准 `Authorization: Bearer <password>` 作为普通部署的首选应用鉴权。只有上游
@@ -133,26 +133,33 @@ SHA。
 2. 记录 `prior_space_commit_sha`、`prior_runtime_commit_sha`、`prior_souwen_ref`。旧部署没有
    immutable source pin 时，在写入前停止，不能回退到 floating `main`；同时记录
    `prior_runtime_stage` 供 manifest 和恢复审计。
-3. rollback point 稳定后，workflow 先在独立 preflight 中只读 Secret 名称并拒绝任何未登记名称；
-   preflight 失败时没有 settings mutation，也不得暂停原健康 Space。preflight 完成后、第一次写入前，
-   workflow 写出 `settings_mutation_started=true` 事务标记，再将 `SOUWEN_SMOKE_BEARER_TOKEN` 映射为
-   Space `SOUWEN_ADMIN_PASSWORD`，并同步 `SOUWEN_CONFIG_B64`、`UNIAPI_API_KEY`。写入后名称集合必须
-   精确等于 `hfs-dev.toml` 中的三个受管名称；不删除未知 Secret，也不输出值、长度、hash 或前缀。
+3. rollback point 稳定后，workflow 先只读 Secret 名称并拒绝任何未登记名称，再从 exact candidate
+   生产 runtime assembly 对 `SOUWEN_CONFIG_B64` **显式选中的唯一 LLM Search Provider**执行一次
+   `max_results_per_provider=1`、single-attempt live request。它不 retry、不遍历第二个 Provider、不自动
+   切换 model，也不输出 gateway、credential 或 raw upstream body。配置 loader 运行在隔离环境中：
+   gateway `api_key` 只允许 literal 或 exact `${UNIAPI_API_KEY}`，`base_url` 必须是 literal HTTP(S)
+   URL；GitHub runner 的其他 token、`HOME` 或 `SOUWEN_*` 不能参与解析。这是获授权 promotion 的一次付费
+   pre-mutation gate；任一失败都发生在 mutation marker 前，因此原健康 Space 保持不变且不 pause。
+   两个 preflight 完成后、第一次写入前，workflow 才写出 `settings_mutation_started=true` 事务标记，
+   将 `SOUWEN_SMOKE_BEARER_TOKEN` 映射为 Space `SOUWEN_ADMIN_PASSWORD`，并同步
+   `SOUWEN_CONFIG_B64`、`UNIAPI_API_KEY`。写入后名称集合必须精确等于 `hfs-dev.toml` 中的三个受管
+   名称；不删除未知 Secret，也不输出值、长度、hash 或前缀。
 4. 只同步受管的四个 wrapper 文件；diff 固定读取 prior revision，`create_commit` 使用
    `parent_commit=<prior_space_commit_sha>` 防止外部 writer 造成 TOCTOU。取得新 commit 后，
    transaction 写入并立即 readback `SOUWEN_WRAPPER_SHA=<space_commit_sha>` Space variable。
 5. Factory rebuild，等待 Space repo SHA 与 runtime SHA 等于新的 wrapper commit。
 6. 使用 trusted verifier 完成 surface、target capability、edge/application auth 与 candidate/source/
    wrapper SHA smoke。Required checks 固定覆盖 Search、LLM Search 与 immutable Fetch；readiness
-   另行证明 Browser Worker ready 且 source SHA 一致。普通 CI 不做付费 LLM Search live call，
-   只有显式 HFS promotion 的 capability smoke 才执行。
+   另行证明 Browser Worker ready 且 source SHA 一致。Pre-mutation provider gate 不能替代 HFS egress、
+   application assembly 或 post-deploy capability smoke。普通 PR/main CI 不做付费 LLM Search live call；
+   只有显式 HFS promotion 或 paused recovery 才执行。
 
 Space Secret 是 write-only：workflow 能读回名称，不能捕获旧值。因此
 `settings_mutation_started=true` 一旦完成，
 任何 sync/rebuild/post-smoke 失败都不能安全地自动恢复成“旧 wrapper + 旧 settings”。失败路径必须：
 
 - 调用 `pause_space` 并验证 `PAUSED`，避免旧代码与新/部分 settings 组合继续对外运行；
-- 保留 prior repo/runtime/source snapshot 和失败 run，供人工恢复使用；
+- 保留 prior repo/runtime/source snapshot 和失败 run，供受控 operator recovery 使用；
 - 从获批的安全 Secret source 恢复相互匹配的 settings，再选择 prior 或 corrected wrapper，factory
   rebuild 后重新执行完整 surface/capability/provenance smoke；
 - 保持原 promotion 为失败，暂停成功不能把失败验收伪装为 PASS。
@@ -161,6 +168,32 @@ Space Secret 是 write-only：workflow 能读回名称，不能捕获旧值。�
 无法解决 write-only prior values 缺失。GitHub Actions cancel、runner 丢失或平台故障也不能保证
 containment job 一定启动，因此失败通知仍是人工 hard stop：先只读核对 Space repo/runtime/source
 与 settings names，再决定恢复，未完成恢复前保持 paused。
+
+需要从已知失败 transaction 前向恢复时，只能从 current `main` 手工 dispatch
+`.github/workflows/recover-hf-space.yml`。该 workflow 不是发布入口；它要求 repository owner 同时是
+actor/triggering actor，并精确绑定 source run ID、paused wrapper/source SHA、failed candidate SHA、prior
+wrapper/source SHA；validate 与 mutation marker 前都会 fail-close 证明目标 RC tag/Release 尚不存在。
+Source run 可以是 containment 成功且 publish skipped 的 failed release，也可以是 validate 成功、完整
+transaction run-name receipt 匹配且再次 containment 的 failed recovery。Reusable workflow 在 mutation
+marker **之前**先上传 `souwen-hfs-transaction-intent-v1`，绑定 run/attempt、candidate、prior/current
+wrapper、source pin 与 inputs；intent 上传失败时不得写 Secret。Primary 或 retry containment 后另上传
+outcome evidence，但 recovery 只依赖 mutation 前已持久化的 intent、Actions jobs provenance 与 live paused
+topology，因此 outcome runner/upload 失败不会锁死恢复入口。所有 release/recovery source 和当前 dispatch
+都只接受 `run_attempt=1`，禁止 rerun 复用 run ID。历史 run `30545216223` 早于 intent，只允许代码中一次性
+固定的 exact run/candidate/paused/prior SHA contract，不能泛化为其他 legacy run。
+Reusable HFS workflow 验证 Space 仍为 private/`PAUSED`，并只接受两个状态：Secret 写入后 wrapper 尚未
+前移的 `settings-only` 拓扑，或 paused wrapper **直接**继承 prior wrapper 且 pin failed candidate 的
+`wrapper-advanced` 拓扑。随后从获批 GitHub `hf` environment Secret source 重写完整 settings，以当前
+paused wrapper 为并发保护 parent 创建新 candidate wrapper，并直接执行一次 factory reboot，再完成完整
+surface/capability/provenance smoke；任一步失败仍会重新 pause，且可用新失败 recovery receipt 再次前向
+恢复。`release-candidate.yml` 与 recovery 使用同一全局 concurrency group，锁覆盖标准 run 的 HFS、
+assemble 与 publish 全阶段，避免旧 evidence 与新 runtime 交叉发布。Recovery 成功只恢复到稳定 runtime，
+不生成 tag/Release，也不能替代之后新的标准 `release-candidate.yml` publish run。
+
+Recovery 的 `prior_space_commit_sha`/`prior_souwen_ref` 仅表示已验证的 transaction-parent ancestry；当前
+Space 为 `PAUSED` 时无法把该 parent 冒充 runtime readback，因此 `prior_runtime_commit_sha` 与
+`prior_runtime_stage` 明确留空。只有普通 promotion 从稳定 `RUNNING`/`SLEEPING` 捕获的值才属于 prior
+runtime evidence。
 
 ## 必测入口
 

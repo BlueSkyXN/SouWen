@@ -19,6 +19,36 @@ on:
         description: "显式执行 HFS promotion 与验收"
         required: true
         type: boolean
+      recovery_from_run_id:
+        description: "显式 paused forward-recovery 所依据的失败 Release run ID"
+        required: false
+        default: ""
+        type: string
+      expected_paused_space_sha:
+        description: "Recovery 前必须保持的 paused Space wrapper SHA"
+        required: false
+        default: ""
+        type: string
+      expected_paused_source_sha:
+        description: "Recovery 前 paused wrapper 必须唯一 pin 的 source SHA"
+        required: false
+        default: ""
+        type: string
+      expected_failed_candidate_sha:
+        description: "Recovery 来源 run 的失败 candidate SHA"
+        required: false
+        default: ""
+        type: string
+      expected_prior_space_sha:
+        description: "失败 transaction 的直接 parent wrapper SHA"
+        required: false
+        default: ""
+        type: string
+      expected_prior_source_sha:
+        description: "Transaction parent wrapper 必须唯一 pin 的 SouWen source SHA"
+        required: false
+        default: ""
+        type: string
     outputs:
       space_commit_sha:
         description: "Space repository commit verified by runtime.raw.sha"
@@ -56,12 +86,15 @@ on:
       - "souwen.example.yaml"
       - "entrypoint.sh"
       - "scripts/ci/**"
+      - "scripts/hf_space_llm_preflight.py"
+      - "scripts/hf_space_recovery_contract.py"
       - "scripts/hf_space_smoke.py"
       - "scripts/fixtures/hf-space-fetch-probe.html"
       - "scripts/fixtures/hf-space-browser-probe.html"
       - "scripts/warp-init.sh"
       - "cloud/hfs/**"
       - ".github/workflows/deploy-hf-space.yml"
+      - ".github/workflows/recover-hf-space.yml"
       - ".github/workflows/build-pyinstaller-server.yml"
   workflow_dispatch:
 
@@ -95,18 +128,37 @@ jobs:
           EXPECTED_VERSION: ${{ inputs.version }}
           VERIFIER_SHA: ${{ inputs.verifier_sha }}
           DEPLOY_HFS: ${{ inputs.deploy_hfs }}
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          DISPATCH_ACTOR: ${{ github.actor }}
+          TRIGGERING_ACTOR: ${{ github.triggering_actor }}
+          REPOSITORY_OWNER: ${{ github.repository_owner }}
           WORKFLOW_REF: ${{ github.ref }}
           WORKFLOW_SHA: ${{ github.workflow_sha }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
         run: |
           python3 -I - <<'PY'
+          import json
           import os
           import re
           import subprocess
           import tomllib
+          from urllib.request import Request, urlopen
 
           candidate = os.environ["CANDIDATE_SHA"]
           version = os.environ["EXPECTED_VERSION"]
           verifier = os.environ["VERIFIER_SHA"]
+          owner = os.environ["REPOSITORY_OWNER"]
+          if os.environ["RUN_ATTEMPT"] != "1":
+              raise SystemExit("reusable HF Space CD reruns are not allowed")
+          if any(
+              actor.casefold() != owner.casefold()
+              for actor in (
+                  os.environ["DISPATCH_ACTOR"],
+                  os.environ["TRIGGERING_ACTOR"],
+              )
+          ):
+              raise SystemExit("HF promotion requires repository-owner dispatch")
           if re.fullmatch(r"[0-9a-f]{40}", candidate) is None:
               raise SystemExit("candidate_sha must be exactly 40 lowercase hexadecimal characters")
           if re.fullmatch(r"[0-9a-f]{40}", verifier) is None:
@@ -115,8 +167,23 @@ jobs:
               raise SystemExit("reusable HF Space CD requires deploy_hfs=true")
           if os.environ["WORKFLOW_REF"] != "refs/heads/main":
               raise SystemExit("HF promotion requires a control-plane workflow from main")
-          if verifier != os.environ["WORKFLOW_SHA"]:
-              raise SystemExit("verifier_sha must equal the caller workflow SHA")
+          request = Request(
+              f"https://api.github.com/repos/{os.environ['REPOSITORY']}/git/ref/heads/main",
+              headers={
+                  "Accept": "application/vnd.github+json",
+                  "Authorization": f"Bearer {os.environ['GH_TOKEN']}",
+                  "X-GitHub-Api-Version": "2022-11-28",
+              },
+          )
+          with urlopen(request, timeout=30) as response:
+              main_ref = json.load(response)
+          origin_main = str((main_ref.get("object") or {}).get("sha") or "")
+          if re.fullmatch(r"[0-9a-f]{40}", origin_main) is None:
+              raise SystemExit("cannot prove current GitHub main SHA")
+          if candidate != origin_main:
+              raise SystemExit("HF promotion candidate must equal current GitHub main")
+          if verifier != os.environ["WORKFLOW_SHA"] or verifier != origin_main:
+              raise SystemExit("verifier_sha and workflow SHA must equal current GitHub main")
           head = subprocess.check_output(["git", "rev-parse", "HEAD"], text=True).strip()
           if head != candidate:
               raise SystemExit(f"checkout mismatch: expected {candidate}, got {head}")
@@ -155,12 +222,14 @@ jobs:
 
   delivery-contracts:
     name: SDK and Server contracts
+    needs: detect-changes
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v6
         with:
           ref: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
 
       - uses: actions/setup-python@v7
         with:
@@ -194,6 +263,7 @@ jobs:
 
   docker-hfs:
     name: HF Space Docker surface smoke
+    needs: detect-changes
     runs-on: ubuntu-latest
     timeout-minutes: 45
     env:
@@ -205,6 +275,7 @@ jobs:
       - uses: actions/checkout@v6
         with:
           ref: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
+          persist-credentials: false
 
       - name: Resolve source ref for HFS Dockerfile clone
         id: source
@@ -314,7 +385,7 @@ jobs:
     environment:
       name: hf
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 30
     outputs:
       version: ${{ steps.project.outputs.version }}
       space_commit_sha: ${{ steps.sync.outputs.space_commit_sha }}
@@ -324,6 +395,7 @@ jobs:
       prior_runtime_commit_sha: ${{ steps.prior.outputs.prior_runtime_commit_sha }}
       prior_souwen_ref: ${{ steps.prior.outputs.prior_souwen_ref }}
       prior_runtime_stage: ${{ steps.prior.outputs.prior_runtime_stage }}
+      sync_parent_sha: ${{ steps.prior.outputs.sync_parent_sha }}
     steps:
       - name: Require HFS deployment secrets
         env:
@@ -356,8 +428,10 @@ jobs:
           python-version: "3.11"
           cache: pip
 
-      - name: Install Hugging Face Hub client
-        run: python -m pip install "huggingface_hub>=1.8,<2" "PyYAML>=6,<7"
+      - name: Install HFS deployment clients
+        run: |
+          python -m pip install "huggingface_hub>=1.8,<2" "PyYAML>=6,<7"
+          python -m pip install -e ".[server,tls,web,robots,scraper]"
 
       - name: Validate required HFS LLM Search configuration
         env:
@@ -388,15 +462,19 @@ jobs:
               raise SystemExit("HFS promotion requires llm_search_gateways.uniapi")
           api_key = uniapi.get("api_key")
           base_url = uniapi.get("base_url")
-          env_reference = re.compile(r"^\$\{[A-Z_][A-Z0-9_]*\}$")
+          env_reference = re.compile(r"^\$\{([A-Z_][A-Z0-9_]*)\}$")
           if not isinstance(api_key, str) or not api_key.strip():
               raise SystemExit("HFS promotion requires a UniAPI API key or exact env reference")
           if not isinstance(base_url, str) or not base_url.strip():
-              raise SystemExit("HFS promotion requires a UniAPI base URL or exact env reference")
-          if not env_reference.fullmatch(base_url.strip()):
-              parsed = urlsplit(base_url.strip())
-              if parsed.scheme not in {"http", "https"} or not parsed.hostname:
-                  raise SystemExit("HFS UniAPI base URL must be HTTP(S) or an exact env reference")
+              raise SystemExit("HFS promotion requires a literal UniAPI base URL")
+          api_key_reference = env_reference.fullmatch(api_key.strip())
+          if api_key_reference is not None and api_key_reference.group(1) != "UNIAPI_API_KEY":
+              raise SystemExit("HFS UniAPI API key uses an unmanaged environment reference")
+          if env_reference.fullmatch(base_url.strip()) is not None:
+              raise SystemExit("HFS UniAPI base URL must not use an environment reference")
+          parsed = urlsplit(base_url.strip())
+          if parsed.scheme not in {"http", "https"} or not parsed.hostname:
+              raise SystemExit("HFS UniAPI base URL must be a literal HTTP(S) URL")
 
           sources = config.get("sources")
           source_ids = (
@@ -431,17 +509,67 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_SPACE_ID: BlueSkyXN/SouWen
+          CANDIDATE_SHA: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
+          RECOVERY_FROM_RUN_ID: ${{ inputs.recovery_from_run_id }}
+          EXPECTED_PAUSED_SPACE_SHA: ${{ inputs.expected_paused_space_sha }}
+          EXPECTED_PAUSED_SOURCE_SHA: ${{ inputs.expected_paused_source_sha }}
+          EXPECTED_FAILED_CANDIDATE_SHA: ${{ inputs.expected_failed_candidate_sha }}
+          EXPECTED_PRIOR_SPACE_SHA: ${{ inputs.expected_prior_space_sha }}
+          EXPECTED_PRIOR_SOURCE_SHA: ${{ inputs.expected_prior_source_sha }}
         run: |
           python -I - <<'PY'
           import os
           import re
+          import sys
           import time
           from pathlib import Path
 
           from huggingface_hub import HfApi, hf_hub_download
 
+          sys.path.insert(0, os.getcwd())
+          from scripts.hf_space_recovery_contract import (  # noqa: E402
+              RecoveryContractError,
+              validate_recovery_topology,
+          )
+
           api = HfApi(token=os.environ["HF_TOKEN"])
           space_id = os.environ["HF_SPACE_ID"]
+          candidate_sha = os.environ["CANDIDATE_SHA"]
+          recovery_fields = {
+              "recovery_from_run_id": os.environ.get("RECOVERY_FROM_RUN_ID", ""),
+              "expected_paused_space_sha": os.environ.get("EXPECTED_PAUSED_SPACE_SHA", ""),
+              "expected_paused_source_sha": os.environ.get(
+                  "EXPECTED_PAUSED_SOURCE_SHA", ""
+              ),
+              "expected_failed_candidate_sha": os.environ.get(
+                  "EXPECTED_FAILED_CANDIDATE_SHA", ""
+              ),
+              "expected_prior_space_sha": os.environ.get("EXPECTED_PRIOR_SPACE_SHA", ""),
+              "expected_prior_source_sha": os.environ.get("EXPECTED_PRIOR_SOURCE_SHA", ""),
+          }
+          populated_recovery_fields = {
+              name for name, value in recovery_fields.items() if value
+          }
+          if populated_recovery_fields and len(populated_recovery_fields) != len(
+              recovery_fields
+          ):
+              raise SystemExit("recovery inputs must be either all empty or all populated")
+          recovery = bool(populated_recovery_fields)
+          if recovery:
+              if not recovery_fields["recovery_from_run_id"].isdigit():
+                  raise SystemExit("recovery_from_run_id must be numeric")
+              for name in (
+                  "expected_paused_space_sha",
+                  "expected_paused_source_sha",
+                  "expected_failed_candidate_sha",
+                  "expected_prior_space_sha",
+                  "expected_prior_source_sha",
+              ):
+                  if re.fullmatch(r"[0-9a-f]{40}", recovery_fields[name]) is None:
+                      raise SystemExit(f"{name} must be an immutable 40-character SHA")
+          if re.fullmatch(r"[0-9a-f]{40}", candidate_sha) is None:
+              raise SystemExit("candidate_sha must be an immutable 40-character SHA")
+
           target_info = api.repo_info(repo_id=space_id, repo_type="space")
           if target_info.private is not True:
               raise SystemExit(
@@ -451,74 +579,152 @@ jobs:
           if re.fullmatch(r"[0-9a-f]{40}", prior_space_sha) is None:
               raise SystemExit("target Space does not expose an immutable 40-character commit")
 
-          deadline = time.monotonic() + 900
-          while True:
+          def source_pin(revision: str) -> str:
+              dockerfile = Path(
+                  hf_hub_download(
+                      repo_id=space_id,
+                      repo_type="space",
+                      filename="Dockerfile",
+                      revision=revision,
+                      token=os.environ["HF_TOKEN"],
+                      force_download=True,
+                  )
+              ).read_text(encoding="utf-8")
+              matches = re.findall(
+                  r"^ARG SOUWEN_REF=([0-9a-f]{40})$", dockerfile, re.MULTILINE
+              )
+              if len(matches) != 1:
+                  raise SystemExit(
+                      "target Space Dockerfile must contain exactly one immutable SOUWEN_REF "
+                      "before automatic promotion or operator-led recovery is allowed"
+                  )
+              return matches[0]
+
+          if recovery:
               runtime = api.get_space_runtime(repo_id=space_id)
               stage = str(getattr(runtime.stage, "value", runtime.stage))
-              runtime_sha = str(runtime.raw.get("sha") or "")
-              current_repo_sha = str(
-                  api.repo_info(repo_id=space_id, repo_type="space").sha
-              )
-              if current_repo_sha != prior_space_sha:
+              if stage.upper() != "PAUSED":
                   raise SystemExit(
-                      "Space repository changed while capturing the rollback point: "
-                      f"expected={prior_space_sha}, current={current_repo_sha}"
+                      "paused recovery requires the target Space to remain PAUSED: "
+                      f"stage={stage}"
+                  )
+              expected_paused_sha = recovery_fields["expected_paused_space_sha"]
+              current_pin = source_pin(prior_space_sha)
+              expected_prior_space = recovery_fields["expected_prior_space_sha"]
+              prior_pin = source_pin(expected_prior_space)
+              expected_prior_source = recovery_fields["expected_prior_source_sha"]
+              if prior_pin != expected_prior_source:
+                  raise SystemExit(
+                      "paused recovery prior source pin mismatch: "
+                      f"expected={expected_prior_source}, current={prior_pin}"
                   )
 
-              stage_upper = stage.upper()
-              stable = stage_upper.endswith("RUNNING") or stage_upper.endswith("SLEEPING")
-              if stable and runtime_sha == prior_space_sha:
-                  break
-              if any(
-                  marker in stage_upper
-                  for marker in (
-                      "PAUSED",
-                      "BUILD_ERROR",
-                      "RUNTIME_ERROR",
-                      "CONFIG_ERROR",
-                      "NO_APP_FILE",
-                      "STOPPED",
+              direct_parent_sha = None
+              if prior_space_sha != expected_prior_space:
+                  commits = api.list_repo_commits(
+                      repo_id=space_id,
+                      repo_type="space",
+                      revision=prior_space_sha,
                   )
-              ):
-                  raise SystemExit(
-                      "refusing to mutate a Space without a stable rollback runtime: "
-                      f"stage={stage}, repo_sha={prior_space_sha}, runtime_sha={runtime_sha}"
+                  if (
+                      len(commits) < 2
+                      or str(commits[0].commit_id) != prior_space_sha
+                  ):
+                      raise SystemExit(
+                          "paused recovery could not prove the paused wrapper ancestry"
+                      )
+                  direct_parent_sha = str(commits[1].commit_id)
+              try:
+                  topology = validate_recovery_topology(
+                      paused_space_sha=prior_space_sha,
+                      paused_source_sha=current_pin,
+                      expected_paused_space_sha=expected_paused_sha,
+                      expected_paused_source_sha=recovery_fields[
+                          "expected_paused_source_sha"
+                      ],
+                      failed_candidate_sha=recovery_fields[
+                          "expected_failed_candidate_sha"
+                      ],
+                      prior_space_sha=expected_prior_space,
+                      prior_source_sha=expected_prior_source,
+                      direct_parent_sha=direct_parent_sha,
                   )
-              if time.monotonic() >= deadline:
-                  raise SystemExit(
-                      "cannot establish rollback point before promotion: "
-                      f"stage={stage}, repo_sha={prior_space_sha}, runtime_sha={runtime_sha}"
-                  )
+              except RecoveryContractError as exc:
+                  raise SystemExit(str(exc)) from exc
+              rollback_space_sha = expected_prior_space
+              # Wrapper ancestry is not a runtime readback while the current Space is PAUSED.
+              rollback_runtime_sha = ""
+              rollback_source_sha = expected_prior_source
+              rollback_stage = ""
+              sync_parent_sha = topology.sync_parent_sha
               print(
-                  f"rollback-point stage={stage}, repo_sha={prior_space_sha}, "
-                  f"runtime_sha={runtime_sha}"
+                  f"validated paused forward recovery mode={topology.mode}, "
+                  f"parent={sync_parent_sha}, paused_source={current_pin}, "
+                  f"candidate={candidate_sha}"
               )
-              time.sleep(20)
+          else:
+              deadline = time.monotonic() + 900
+              while True:
+                  runtime = api.get_space_runtime(repo_id=space_id)
+                  stage = str(getattr(runtime.stage, "value", runtime.stage))
+                  runtime_sha = str(runtime.raw.get("sha") or "")
+                  current_repo_sha = str(
+                      api.repo_info(repo_id=space_id, repo_type="space").sha
+                  )
+                  if current_repo_sha != prior_space_sha:
+                      raise SystemExit(
+                          "Space repository changed while capturing the rollback point: "
+                          f"expected={prior_space_sha}, current={current_repo_sha}"
+                      )
 
-          dockerfile = Path(
-              hf_hub_download(
-                  repo_id=space_id,
-                  repo_type="space",
-                  filename="Dockerfile",
-                  revision=prior_space_sha,
-                  token=os.environ["HF_TOKEN"],
-                  force_download=True,
-              )
-          ).read_text(encoding="utf-8")
-          matches = re.findall(r"^ARG SOUWEN_REF=([0-9a-f]{40})$", dockerfile, re.MULTILINE)
-          if len(matches) != 1:
-              raise SystemExit(
-                  "target Space Dockerfile must contain exactly one immutable SOUWEN_REF "
-                  "before automatic promotion or operator-led recovery is allowed"
-              )
+                  stage_upper = stage.upper()
+                  stable = stage_upper.endswith("RUNNING") or stage_upper.endswith("SLEEPING")
+                  if stable and runtime_sha == prior_space_sha:
+                      break
+                  if any(
+                      marker in stage_upper
+                      for marker in (
+                          "PAUSED",
+                          "BUILD_ERROR",
+                          "RUNTIME_ERROR",
+                          "CONFIG_ERROR",
+                          "NO_APP_FILE",
+                          "STOPPED",
+                      )
+                  ):
+                      raise SystemExit(
+                          "refusing to mutate a Space without a stable rollback runtime: "
+                          f"stage={stage}, repo_sha={prior_space_sha}, "
+                          f"runtime_sha={runtime_sha}"
+                      )
+                  if time.monotonic() >= deadline:
+                      raise SystemExit(
+                          "cannot establish rollback point before promotion: "
+                          f"stage={stage}, repo_sha={prior_space_sha}, "
+                          f"runtime_sha={runtime_sha}"
+                      )
+                  print(
+                      f"rollback-point stage={stage}, repo_sha={prior_space_sha}, "
+                      f"runtime_sha={runtime_sha}"
+                  )
+                  time.sleep(20)
+
+              rollback_source_sha = source_pin(prior_space_sha)
+              rollback_space_sha = prior_space_sha
+              rollback_runtime_sha = runtime_sha
+              rollback_stage = stage
+              sync_parent_sha = prior_space_sha
+
           with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
-              output.write(f"prior_space_commit_sha={prior_space_sha}\n")
-              output.write(f"prior_runtime_commit_sha={runtime_sha}\n")
-              output.write(f"prior_souwen_ref={matches[0]}\n")
-              output.write(f"prior_runtime_stage={stage}\n")
+              output.write(f"prior_space_commit_sha={rollback_space_sha}\n")
+              output.write(f"prior_runtime_commit_sha={rollback_runtime_sha}\n")
+              output.write(f"prior_souwen_ref={rollback_source_sha}\n")
+              output.write(f"prior_runtime_stage={rollback_stage}\n")
+              output.write(f"sync_parent_sha={sync_parent_sha}\n")
           print(
-              f"captured rollback point space={prior_space_sha}, "
-              f"runtime={runtime_sha}, stage={stage}, source={matches[0]}"
+              f"captured transaction context space={rollback_space_sha}, "
+              f"runtime={rollback_runtime_sha}, stage={rollback_stage}, "
+              f"source={rollback_source_sha}, parent={sync_parent_sha}"
           )
           PY
 
@@ -565,6 +771,115 @@ jobs:
               )
           print("Managed Space Secret name preflight passed")
           PY
+
+      - name: Probe selected HFS LLM Search Provider before mutation
+        env:
+          SOUWEN_CONFIG_B64: ${{ secrets.SOUWEN_CONFIG_B64 }}
+          UNIAPI_API_KEY: ${{ secrets.UNIAPI_API_KEY }}
+        run: python scripts/hf_space_llm_preflight.py --request-timeout 60
+
+      - name: Recheck absent recovery tag and Release before mutation
+        if: ${{ inputs.recovery_from_run_id != '' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          python -I - <<'PY'
+          import json
+          import os
+          from urllib.error import HTTPError
+          from urllib.request import Request, urlopen
+
+          token = os.environ["GH_TOKEN"]
+          repository = os.environ["REPOSITORY"]
+          tag = f"v{os.environ['VERSION']}"
+
+          def require_absent(path: str, label: str) -> None:
+              request = Request(
+                  f"https://api.github.com{path}",
+                  headers={
+                      "Accept": "application/vnd.github+json",
+                      "Authorization": f"Bearer {token}",
+                      "X-GitHub-Api-Version": "2022-11-28",
+                  },
+              )
+              try:
+                  with urlopen(request, timeout=30) as response:
+                      json.load(response)
+              except HTTPError as exc:
+                  if exc.code == 404:
+                      return
+                  raise SystemExit(f"cannot prove absent {label}") from exc
+              raise SystemExit(f"paused recovery requires absent {label}")
+
+          require_absent(f"/repos/{repository}/git/ref/tags/{tag}", f"tag {tag}")
+          require_absent(f"/repos/{repository}/releases/tags/{tag}", f"Release {tag}")
+          print(f"confirmed absent recovery tag and Release for {tag}")
+          PY
+
+      - name: Write immutable HFS transaction intent
+        env:
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          WORKFLOW_SHA: ${{ github.workflow_sha }}
+          CANDIDATE_SHA: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
+          VERSION: ${{ inputs.version }}
+          RECOVERY_FROM_RUN_ID: ${{ inputs.recovery_from_run_id }}
+          EXPECTED_PAUSED_SPACE_SHA: ${{ inputs.expected_paused_space_sha }}
+          EXPECTED_PAUSED_SOURCE_SHA: ${{ inputs.expected_paused_source_sha }}
+          EXPECTED_FAILED_CANDIDATE_SHA: ${{ inputs.expected_failed_candidate_sha }}
+          EXPECTED_PRIOR_SPACE_SHA: ${{ inputs.expected_prior_space_sha }}
+          EXPECTED_PRIOR_SOURCE_SHA: ${{ inputs.expected_prior_source_sha }}
+          PRIOR_SPACE_SHA: ${{ steps.prior.outputs.prior_space_commit_sha }}
+          PRIOR_SOURCE_SHA: ${{ steps.prior.outputs.prior_souwen_ref }}
+          SYNC_PARENT_SHA: ${{ steps.prior.outputs.sync_parent_sha }}
+        run: |
+          python3 -I - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          intent = {
+              "schema": "souwen-hfs-transaction-intent-v1",
+              "run_id": os.environ["RUN_ID"],
+              "run_attempt": int(os.environ["RUN_ATTEMPT"]),
+              "workflow_sha": os.environ["WORKFLOW_SHA"],
+              "candidate_sha": os.environ["CANDIDATE_SHA"],
+              "version": os.environ["VERSION"],
+              "transaction_kind": (
+                  "recovery" if os.environ["RECOVERY_FROM_RUN_ID"] else "release"
+              ),
+              "recovery_from_run_id": os.environ["RECOVERY_FROM_RUN_ID"],
+              "expected_paused_space_sha": os.environ["EXPECTED_PAUSED_SPACE_SHA"],
+              "expected_paused_source_sha": os.environ["EXPECTED_PAUSED_SOURCE_SHA"],
+              "expected_failed_candidate_sha": os.environ[
+                  "EXPECTED_FAILED_CANDIDATE_SHA"
+              ],
+              "expected_prior_space_sha": os.environ["EXPECTED_PRIOR_SPACE_SHA"],
+              "expected_prior_source_sha": os.environ["EXPECTED_PRIOR_SOURCE_SHA"],
+              "prior_space_sha": os.environ["PRIOR_SPACE_SHA"],
+              "prior_source_sha": os.environ["PRIOR_SOURCE_SHA"],
+              "sync_parent_sha": os.environ["SYNC_PARENT_SHA"],
+          }
+          Path("hfs-transaction-intent.json").write_text(
+              json.dumps(intent, sort_keys=True, separators=(",", ":")) + "\n",
+              encoding="utf-8",
+          )
+          print(
+              "recorded immutable HFS transaction intent for "
+              f"run={intent['run_id']}, attempt={intent['run_attempt']}"
+          )
+          PY
+
+      - name: Upload immutable HFS transaction intent before mutation
+        uses: actions/upload-artifact@v7
+        with:
+          name: >-
+            hfs-transaction-intent-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: hfs-transaction-intent.json
+          if-no-files-found: error
+          retention-days: 90
 
       - name: Mark settings mutation phase
         id: settings_mutation
@@ -632,7 +947,7 @@ jobs:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_SPACE_ID: BlueSkyXN/SouWen
           CANDIDATE_SHA: ${{ inputs.candidate_sha || github.event.pull_request.head.sha || github.sha }}
-          PRIOR_SPACE_SHA: ${{ steps.prior.outputs.prior_space_commit_sha }}
+          PRIOR_SPACE_SHA: ${{ steps.prior.outputs.sync_parent_sha }}
         run: |
           python -I - <<'PY'
           import os
@@ -774,13 +1089,23 @@ jobs:
         env:
           HF_TOKEN: ${{ secrets.HF_TOKEN }}
           HF_SPACE_ID: BlueSkyXN/SouWen
+          RECOVERY_FROM_RUN_ID: ${{ inputs.recovery_from_run_id }}
         run: |
           python -I - <<'PY'
           import os
+
           from huggingface_hub import HfApi
 
           api = HfApi(token=os.environ["HF_TOKEN"])
           space_id = os.environ["HF_SPACE_ID"]
+          recovery = bool(os.environ.get("RECOVERY_FROM_RUN_ID"))
+          if recovery:
+              current = api.get_space_runtime(repo_id=space_id)
+              stage = str(getattr(current.stage, "value", current.stage))
+              if stage.upper() != "PAUSED":
+                  raise SystemExit(
+                      f"paused recovery must start from PAUSED; current stage={stage}"
+                  )
           runtime = api.restart_space(
               repo_id=space_id,
               factory_reboot=True,
@@ -1050,3 +1375,88 @@ jobs:
           else:
               raise SystemExit(f"Space pause could not be verified; last stage={last_stage}")
           PY
+
+  transaction-receipt:
+    name: Record HFS transaction outcome
+    needs: [sync-hfs-wrapper, rebuild-space, post-deploy-smoke, contain-space, pause-space]
+    if: ${{ always() && inputs.deploy_hfs }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Write machine-readable transaction outcome
+        env:
+          RUN_ID: ${{ github.run_id }}
+          RUN_ATTEMPT: ${{ github.run_attempt }}
+          WORKFLOW_SHA: ${{ github.workflow_sha }}
+          CANDIDATE_SHA: ${{ inputs.candidate_sha }}
+          VERSION: ${{ inputs.version }}
+          RECOVERY_FROM_RUN_ID: ${{ inputs.recovery_from_run_id }}
+          EXPECTED_PAUSED_SPACE_SHA: ${{ inputs.expected_paused_space_sha }}
+          EXPECTED_PAUSED_SOURCE_SHA: ${{ inputs.expected_paused_source_sha }}
+          EXPECTED_FAILED_CANDIDATE_SHA: ${{ inputs.expected_failed_candidate_sha }}
+          EXPECTED_PRIOR_SPACE_SHA: ${{ inputs.expected_prior_space_sha }}
+          EXPECTED_PRIOR_SOURCE_SHA: ${{ inputs.expected_prior_source_sha }}
+          PRIOR_SPACE_SHA: ${{ needs.sync-hfs-wrapper.outputs.prior_space_commit_sha }}
+          PRIOR_SOURCE_SHA: ${{ needs.sync-hfs-wrapper.outputs.prior_souwen_ref }}
+          SYNC_PARENT_SHA: ${{ needs.sync-hfs-wrapper.outputs.sync_parent_sha }}
+          SPACE_COMMIT_SHA: ${{ needs.sync-hfs-wrapper.outputs.space_commit_sha }}
+          SETTINGS_MUTATION_STARTED: ${{ needs.sync-hfs-wrapper.outputs.settings_mutation_started }}
+          SYNC_RESULT: ${{ needs.sync-hfs-wrapper.result }}
+          REBUILD_RESULT: ${{ needs.rebuild-space.result }}
+          POST_DEPLOY_RESULT: ${{ needs.post-deploy-smoke.result }}
+          CONTAIN_RESULT: ${{ needs.contain-space.result }}
+          PAUSE_RESULT: ${{ needs.pause-space.result }}
+        run: |
+          python3 -I - <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          outcome = {
+              "schema": "souwen-hfs-transaction-outcome-v1",
+              "run_id": os.environ["RUN_ID"],
+              "run_attempt": int(os.environ["RUN_ATTEMPT"]),
+              "workflow_sha": os.environ["WORKFLOW_SHA"],
+              "candidate_sha": os.environ["CANDIDATE_SHA"],
+              "version": os.environ["VERSION"],
+              "transaction_kind": (
+                  "recovery" if os.environ["RECOVERY_FROM_RUN_ID"] else "release"
+              ),
+              "recovery_from_run_id": os.environ["RECOVERY_FROM_RUN_ID"],
+              "expected_paused_space_sha": os.environ["EXPECTED_PAUSED_SPACE_SHA"],
+              "expected_paused_source_sha": os.environ["EXPECTED_PAUSED_SOURCE_SHA"],
+              "expected_failed_candidate_sha": os.environ[
+                  "EXPECTED_FAILED_CANDIDATE_SHA"
+              ],
+              "expected_prior_space_sha": os.environ["EXPECTED_PRIOR_SPACE_SHA"],
+              "expected_prior_source_sha": os.environ["EXPECTED_PRIOR_SOURCE_SHA"],
+              "prior_space_sha": os.environ["PRIOR_SPACE_SHA"],
+              "prior_source_sha": os.environ["PRIOR_SOURCE_SHA"],
+              "sync_parent_sha": os.environ["SYNC_PARENT_SHA"],
+              "space_commit_sha": os.environ["SPACE_COMMIT_SHA"],
+              "settings_mutation_started": (
+                  os.environ["SETTINGS_MUTATION_STARTED"] == "true"
+              ),
+              "sync_result": os.environ["SYNC_RESULT"],
+              "rebuild_result": os.environ["REBUILD_RESULT"],
+              "post_deploy_result": os.environ["POST_DEPLOY_RESULT"],
+              "contain_result": os.environ["CONTAIN_RESULT"],
+              "pause_result": os.environ["PAUSE_RESULT"],
+          }
+          Path("hfs-transaction-outcome.json").write_text(
+              json.dumps(outcome, sort_keys=True, separators=(",", ":")) + "\n",
+              encoding="utf-8",
+          )
+          print(
+              "recorded HFS transaction outcome for "
+              f"run={outcome['run_id']}, kind={outcome['transaction_kind']}"
+          )
+          PY
+
+      - name: Upload HFS transaction outcome
+        uses: actions/upload-artifact@v7
+        with:
+          name: hfs-transaction-outcome-${{ github.run_id }}-attempt-${{ github.run_attempt }}
+          path: hfs-transaction-outcome.json
+          if-no-files-found: error
+          retention-days: 90
