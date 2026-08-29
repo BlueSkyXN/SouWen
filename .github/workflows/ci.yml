@@ -80,7 +80,7 @@ jobs:
           cache: 'pip'
 
       - name: 安装 ruff
-        run: pip install "ruff==0.16.0"
+        run: pip install "ruff==0.16.4"
 
       - name: Ruff 语法检查
         run: ruff check src tests scripts tools
