@@ -45,8 +45,7 @@
 - [ ] `push.paths` 或 changes gate 覆盖相关源码、脚本、依赖文件和 workflow。
 - [ ] secret-backed job 挂 GitHub Environment。
 - [ ] fork PR 不运行 secret-backed job。
-- [ ] nightly / release gate 类 job 接入 `External Smoke Gate` 或说明为什么不接入。
-- [ ] nightly failure 能创建或更新带 `ci:external` / `smoke-failure` label 的 issue。
+- [ ] 外部 live 验证使用当前保留的 workflow 或经明确批准的手动路径。
 
 ## 4. 更新文档
 
@@ -64,38 +63,11 @@
 - [ ] 远端 PR checks 回读确认对应 job 通过。
 - [ ] 对 nightly / release gate，确认 schedule / tag / manual 入口不会静默遗忘。
 
-## 6. v2 release gate 证据
+## 6. 发布证据
 
-v2 release candidate 进入最终 tag 或发布前，必须手动触发一次 `External Smoke Gate`：
-
-- `workflow_dispatch` 选择 `suite=release`。
-- 触发 ref 必须是候选 head、release branch head 或最终 tag 对应 head。
-- `Scrapling release/nightly gate` 与 `Crawl4AI release/nightly gate` 均为
-  `success`。
-- 下载并保留 JSON + Markdown artifact；PR 或 release checklist 中记录 run URL、
-  head SHA、suite、结论和 artifact 名称。
-
-这项证据不替代 `V2 CI`，也不要求每个普通 PR 自动跑 release suite。
-它只用于证明发布候选头在真实外部 runtime gate 上可用。
-
-## 迁移示例：Scrapling
-
-Scrapling 属于 PR required functional check：
-
-- pytest 保留 provider 注册、配置和 mock 契约。
-- `scripts/scrapling_functional_check.py` 验证真实 `scrapling.fetchers` import、本地 fixture 抓取和 browser dynamic 抓取。
-- CI 显式执行 `scrapling install`。
-- CI 上传 `scrapling-functional.json` 和 `scrapling-functional.md`。
-
-## 迁移示例：Crawl4AI
-
-Crawl4AI 属于 PR required functional check：
-
-- pytest 保留 handler 注册、参数派发和错误聚合契约。
-- `scripts/crawl4ai_functional_check.py` 验证真实 `crawl4ai.AsyncWebCrawler` import 和本地 fixture browser 抓取。
-- 脚本本地默认允许缺 runtime 时 `SKIP`，CI 使用 `--require-runtime` 把缺 browser runtime 或启动失败提升为 `FAIL`。
-- CI 显式执行 `python -m playwright install --with-deps chromium`，不把 browser 安装隐藏在 Python 脚本里。
-- CI 上传 `crawl4ai-functional.json` 和 `crawl4ai-functional.md`。
+发布候选的正式门禁以 `.github/workflows/release-candidate.yml` 和
+`docs/internal/rc-readiness-gates.md` 为准。外部 provider/runtime 验证只在明确批准的环境中
+独立执行，不属于普通 PR 或当前发布 contract。
 
 ## 迁移示例：HF Space smoke
 
@@ -106,23 +78,3 @@ HF Space smoke 属于 deploy smoke / release gate：
 - `--json-report` / `--markdown-report` 作为统一 CLI alias，兼容原有 `--json-file` / `--report-file`。
 - 本地可用 `--mode offline` 验证 report 写入，不触碰真实 HF Space endpoint。
 - `HF Space CD` 上传 surface / capability 两类 JSON + Markdown artifact；JSON 是 source of truth，Markdown 只用于排障阅读。
-
-## 迁移示例：Zero-key live sources
-
-Zero-key live sources 属于 nightly / release gate：
-
-- pytest 保留 Google Patents / Wayback 的 parser、SSRF guard、registry 和 mock HTTP 契约。
-- `scripts/zero_key_functional_check.py` 在 `--mode live` 下真实探测 Google Patents search、Wayback Availability API 和 CDX API；当 Availability API 没有 closest 但同 URL 的 CDX 200 快照可证明有存档时，availability check 以 `cdx_fallback` 通过。
-- 本地默认 `--mode offline`，只验证 report 写入，不触碰真实外部服务。
-- live 模式默认把外部波动记录为 `WARN`；release / tag gate 使用 `--required` 把失败提升为 `FAIL`。
-- `External Smoke Gate` 在非 PR 事件运行该 job，避免高波动 live 源阻断普通 PR。
-
-## 迁移示例：External Smoke Gate
-
-`External Smoke Gate` 承担 nightly / release gate 治理：
-
-- `workflow_dispatch` 用于手动验证外部 gate。
-- `schedule` 每天 02:17 Asia/Shanghai 自动运行；失败时创建或更新 `ci:external` / `smoke-failure` issue，恢复后自动关闭。
-- tag `v*` 触发 release gate，发版前串行确认外部 runtime gate。
-- gate job 复用专项脚本，不在 workflow 中重新定义测试语义。
-- gate artifact 使用 `external-gate-*-report` 命名，保留 JSON + Markdown 报告 14 天。

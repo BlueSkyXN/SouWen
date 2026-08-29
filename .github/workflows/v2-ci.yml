@@ -486,9 +486,10 @@ jobs:
           | Provider runtime profile | $PROVIDER_RUNTIME_RESULT | provider imports, doctor, fetch handlers, and browser variant declarations |
           | Panel build | $PANEL_RESULT | TypeScript, Vitest, single-file panel artifact |
 
-          External smoke, HF Space deploy, and binary build remain outside
-          automatic V2 CI. Run them manually or through tag/release workflows
-          before cutting a release candidate tag.
+          HF Space deploy and binary build remain outside automatic V2 CI.
+          Use the central release-candidate workflow for current release evidence.
+          External provider/runtime checks are separate, explicitly approved evidence
+          and are not part of automatic V2 CI or the current release contract.
           EOF
 
           if [ "$FULL_LANE" = "true" ]; then
