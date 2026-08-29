@@ -43,9 +43,9 @@ bottom of the remaining stack:
 2. Retarget the next Draft PR to `main` and verify that its head SHA and isolated
    diff are unchanged.
 3. After maintainer approval, mark that PR ready for review. Main-targeted CI,
-   V2 CI, HF Space local gates, and path-applicable External Smoke gates include
-   the `ready_for_review` activity so this transition creates fresh PR-context
-   evidence. Retargeting alone is not gate evidence.
+   V2 CI, and path-applicable HF Space local gates include the `ready_for_review`
+   activity so this transition creates fresh PR-context evidence. Retargeting alone
+   is not gate evidence.
 4. Require applicable checks and review on the exact head before selecting the
    merge-commit method. Read back the resulting `main` merge commit before
    continuing with the next layer.
@@ -104,10 +104,10 @@ Since 2026-07-26 both workflows run in two lanes (owner-approved CI slimming):
 - panel build: TypeScript check, Vitest, single-file panel build, and
   `src/souwen/server/panel.html` artifact validation.
 
-External smoke, HF Space local preflight, the RC5 Server bundle builder, and
-secret-backed checks keep their dedicated reusable/manual/schedule entrypoints.
-They should not be folded into every ordinary PR. Normal remote HFS promotion and
-GitHub publication are coordinated only by `release-candidate.yml`. The owner-only
+HF Space local preflight, the RC5 Server bundle builder, and secret-backed checks
+keep their dedicated workflow entrypoints. They should not be folded into every
+ordinary PR. Normal remote HFS promotion and GitHub publication are coordinated
+only by `release-candidate.yml`. The owner-only
 `recover-hf-space.yml` entrypoint may only forward-recover an exact, previously contained
 `PAUSED` transaction; it cannot publish and does not replace a fresh central release run.
 External transaction runs (`deploy_hfs=true` or `publish=true`) share
