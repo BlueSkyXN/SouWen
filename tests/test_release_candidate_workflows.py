@@ -994,7 +994,7 @@ def test_architecture_dependency_gate_is_required_in_ci_and_release_paths() -> N
 
 
 def test_ruff_toolchain_version_is_pinned_consistently() -> None:
-    version = "0.16.0"
+    version = "0.16.4"
     pyproject = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
     assert f'"ruff=={version}"' in pyproject
     assert 'extend-exclude = ["*.md"]' in pyproject
@@ -1014,11 +1014,11 @@ def test_panel_toolchain_versions_and_node_baseline_are_pinned() -> None:
     package = json.loads((REPO_ROOT / "panel" / "package.json").read_text(encoding="utf-8"))
     assert package["engines"]["node"] == ">=22.22.0"
     expected_dependencies = {
-        "@vitejs/plugin-react": "^5.2.0",
+        "@vitejs/plugin-react": "^6.1.0",
         "typescript": "~7.0.2",
-        "vite": "^8.1.5",
+        "vite": "^8.2.2",
         "vite-plugin-singlefile": "^2.3.3",
-        "vitest": "^4.1.10",
+        "vitest": "^4.1.11",
     }
     assert {
         name: package["devDependencies"][name] for name in expected_dependencies
