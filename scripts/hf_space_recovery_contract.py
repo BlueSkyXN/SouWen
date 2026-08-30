@@ -208,7 +208,7 @@ def _validate_machine_intent(
         "run_attempt": 1,
         "workflow_sha": failed_candidate_sha,
         "candidate_sha": failed_candidate_sha,
-        "version": "2.0.0rc5",
+        "version": "2.0.0rc6",
         "transaction_kind": kind,
     }
     if any(intent.get(name) != value for name, value in expected.items()):

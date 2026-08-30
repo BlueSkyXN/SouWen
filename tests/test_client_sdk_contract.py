@@ -57,7 +57,7 @@ def _probe(request: httpx.Request, *, ready: bool = True) -> httpx.Response:
                 "ok" if path in {"/health", "/healthz"} else ("ready" if ready else "not_ready")
             ),
             "ready": ready,
-            "version": "2.0.0rc5",
+            "version": "2.0.0rc6",
             "rollout_mode": "target",
             "components": {"api": "ready"},
             "context": _context(request),

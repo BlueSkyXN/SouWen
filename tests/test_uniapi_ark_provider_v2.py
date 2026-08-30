@@ -150,7 +150,7 @@ def test_manifests_match_legacy_immutable_source_and_model_identities() -> None:
         ),
     )
     for manifest, legacy, provider_type in pairs:
-        assert manifest.version == "2.0.0rc5"
+        assert manifest.version == "2.0.0rc6"
         assert manifest.id == legacy.source_id == provider_type.ADAPTER_ID
         assert provider_type.MODEL_ID == legacy.model_id
         assert manifest.adapters[0].availability == "configured"

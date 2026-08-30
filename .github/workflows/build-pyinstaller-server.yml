@@ -1,11 +1,11 @@
 # =============================================================================
-# RC5 target server bundle builder
+# RC6 target server bundle builder
 #
 # Builds exactly one native PyInstaller onedir archive per approved target. This
 # reusable workflow is an artifact producer only: it cannot tag, publish, or
 # deploy. workflow_dispatch exists solely for manual proof runs.
 # =============================================================================
-name: Build RC5 PyInstaller server bundles
+name: Build RC6 PyInstaller server bundles
 
 on:
   workflow_call:
@@ -25,7 +25,7 @@ on:
         description: 'Artifact containing the bounded four-archive inventory JSON'
         value: ${{ jobs.aggregate.outputs.inventory_artifact }}
       binary_count:
-        description: 'Exact number of approved RC5 server bundles'
+        description: 'Exact number of approved RC6 server bundles'
         value: ${{ jobs.aggregate.outputs.binary_count }}
   workflow_dispatch:
     inputs:
@@ -43,10 +43,10 @@ permissions:
 
 env:
   PYTHON_VERSION: '3.11'
-  RC_VERSION: '2.0.0rc5'
+  RC_VERSION: '2.0.0rc6'
   BUNDLE_ARTIFACT_PATTERN: souwen-server-bundle-*
   SMOKE_ARTIFACT_PATTERN: souwen-server-smoke-*
-  INVENTORY_ARTIFACT: souwen-server-inventory-2.0.0rc5
+  INVENTORY_ARTIFACT: souwen-server-inventory-2.0.0rc6
 
 jobs:
   validate:
@@ -62,7 +62,7 @@ jobs:
           fetch-depth: 0
           persist-credentials: false
 
-      - name: Validate candidate and RC5 version
+      - name: Validate candidate and RC6 version
         id: candidate
         env:
           CANDIDATE_SHA: ${{ inputs.candidate_sha }}
@@ -84,8 +84,8 @@ jobs:
               )
           with open('pyproject.toml', 'rb') as file:
               version = tomllib.load(file)['project']['version']
-          if version != '2.0.0rc5':
-              raise SystemExit(f'server bundle requires version 2.0.0rc5, got {version!r}')
+          if version != '2.0.0rc6':
+              raise SystemExit(f'server bundle requires version 2.0.0rc6, got {version!r}')
           with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
               output.write(f'candidate_sha={candidate}\n')
           PY
@@ -133,16 +133,16 @@ jobs:
         include:
           - os: ubuntu-24.04
             arch: linux-amd64
-            archive: souwen-server-2.0.0rc5-linux-amd64.tar.gz
+            archive: souwen-server-2.0.0rc6-linux-amd64.tar.gz
           - os: ubuntu-24.04-arm
             arch: linux-arm64
-            archive: souwen-server-2.0.0rc5-linux-arm64.tar.gz
+            archive: souwen-server-2.0.0rc6-linux-arm64.tar.gz
           - os: macos-15
             arch: macos-arm64
-            archive: souwen-server-2.0.0rc5-macos-arm64.tar.gz
+            archive: souwen-server-2.0.0rc6-macos-arm64.tar.gz
           - os: windows-2025
             arch: windows-amd64
-            archive: souwen-server-2.0.0rc5-windows-amd64.zip
+            archive: souwen-server-2.0.0rc6-windows-amd64.zip
     env:
       PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/.server-bundle-ms-playwright
       SOUWEN_ADMIN_OPEN: '0'
@@ -217,7 +217,7 @@ jobs:
           import os
           from pathlib import Path
 
-          artifact = Path('contracts/openapi/souwen-openapi-2.0.0rc5.json')
+          artifact = Path('contracts/openapi/souwen-openapi-2.0.0rc6.json')
           digest = hashlib.sha256(artifact.read_bytes()).hexdigest()
           with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
               output.write(f'sha256={digest}\n')
@@ -360,10 +360,10 @@ jobs:
               return digest.hexdigest()
 
           expected = {
-              'linux-amd64': 'souwen-server-2.0.0rc5-linux-amd64.tar.gz',
-              'linux-arm64': 'souwen-server-2.0.0rc5-linux-arm64.tar.gz',
-              'macos-arm64': 'souwen-server-2.0.0rc5-macos-arm64.tar.gz',
-              'windows-amd64': 'souwen-server-2.0.0rc5-windows-amd64.zip',
+              'linux-amd64': 'souwen-server-2.0.0rc6-linux-amd64.tar.gz',
+              'linux-arm64': 'souwen-server-2.0.0rc6-linux-arm64.tar.gz',
+              'macos-arm64': 'souwen-server-2.0.0rc6-macos-arm64.tar.gz',
+              'windows-amd64': 'souwen-server-2.0.0rc6-windows-amd64.zip',
           }
           bundle_root = Path('aggregate/bundles')
           actual = {path.name for path in bundle_root.iterdir() if path.is_file()}
@@ -425,7 +425,7 @@ jobs:
                   payload.get('overall') != 'PASS'
                   or payload.get('target_native') is not True
                   or payload.get('candidate_sha') != candidate
-                  or payload.get('version') != '2.0.0rc5'
+                  or payload.get('version') != '2.0.0rc6'
                   or payload.get('api_major') != 2
                   or payload.get('archive') != expected[platform]
                   or payload.get('archive_sha256') != bundle_digests[expected[platform]]
@@ -449,7 +449,7 @@ jobs:
               )
           inventory = {
               'schema_version': 1,
-              'version': '2.0.0rc5',
+              'version': '2.0.0rc6',
               'candidate_sha': candidate,
               'verifier_sha': verifier,
               'workflow_identity': '.github/workflows/build-pyinstaller-server.yml',
@@ -479,14 +479,14 @@ jobs:
           with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf-8') as output:
               output.write('bundle_artifact_pattern=souwen-server-bundle-*\n')
               output.write('smoke_artifact_pattern=souwen-server-smoke-*\n')
-              output.write('inventory_artifact=souwen-server-inventory-2.0.0rc5\n')
+              output.write('inventory_artifact=souwen-server-inventory-2.0.0rc6\n')
               output.write('binary_count=4\n')
           PY
 
       - name: Upload bounded inventory
         uses: actions/upload-artifact@v7
         with:
-          name: souwen-server-inventory-2.0.0rc5
+          name: souwen-server-inventory-2.0.0rc6
           path: aggregate/server-bundle-inventory.json
           if-no-files-found: error
           retention-days: 30

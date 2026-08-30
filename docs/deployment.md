@@ -5,7 +5,7 @@
 [warp-solutions.md](./warp-solutions.md)。
 
 发布候选的容器、远端 CI、HFS promotion 和资产验收必须遵循
-[Souwen v2rc5 发布候选门禁](./internal/rc-readiness-gates.md)。该门禁文档只固定规则；
+[Souwen v2rc6 发布候选门禁](./internal/rc-readiness-gates.md)。该门禁文档只固定规则；
 candidate SHA、run URL、checksum、SBOM/provenance 和执行结论写入候选专属的
 `release-manifest.json` artifact，不提交运行结果到仓库。
 
@@ -19,7 +19,7 @@ candidate SHA、run URL、checksum、SBOM/provenance 和执行结论写入候选
 gh workflow run release-candidate.yml \
   --ref main \
   -f candidate_sha="$(git rev-parse HEAD)" \
-  -f version=2.0.0rc5 \
+  -f version=2.0.0rc6 \
   -f evidence_profile=release \
   -f publish=false \
   -f deploy_hfs=false
@@ -29,7 +29,7 @@ gh workflow run release-candidate.yml \
 
 - `release` 运行 source、clean install、Panel、container，以及精确四个平台的
   PyInstaller Server bundle gate；package job 同时生成 immutable
-  `souwen-openapi-2.0.0rc5.json`。Assembler 只接受四个固定名称的 archive、对应的四份
+  `souwen-openapi-2.0.0rc6.json`。Assembler 只接受四个固定名称的 archive、对应的四份
   target-native smoke、同 candidate inventory 和一致的 OpenAPI checksum。
 - `deployment` 必须同时使用 `deploy_hfs=true, publish=false`。它跳过外层 `server-bundles`
   release job，但保留全部非 binary gate、HFS reusable workflow 的 target Server local preflight、
@@ -44,7 +44,7 @@ gh workflow run release-candidate.yml \
 gh workflow run release-candidate.yml \
   --ref main \
   -f candidate_sha="$(git rev-parse HEAD)" \
-  -f version=2.0.0rc5 \
+  -f version=2.0.0rc6 \
   -f evidence_profile=deployment \
   -f publish=false \
   -f deploy_hfs=true
@@ -58,12 +58,12 @@ gh workflow run release-candidate.yml \
 workflow artifacts，不创建 Release。旧 `build-pyinstaller.yml` 与 `build-nuitka.yml`（24 个
 CLI/Nuitka binary 合同）已随 CI 分档改造删除；central workflow 的 manifest 继续 fail-closed
 拒绝 `souwen-linux-*`、`souwen-macos-*`、`souwen-windows-*`、`souwen-nuitka-*` 等旧 artifact
-前缀，旧 binary 不得出现在 RC5 manifest 或 Release assets。Tag 与 prerelease 只能由 central
-workflow 的 publish job 创建。`publish=true` 只在 owner-approved RC5 exact-main release 中使用。
+前缀，旧 binary 不得出现在 RC6 manifest 或 Release assets。Tag 与 prerelease 只能由 central
+workflow 的 publish job 创建。`publish=true` 只在 owner-approved RC6 exact-main release 中使用。
 
-## RC5 PyInstaller Server bundle
+## RC6 PyInstaller Server bundle
 
-`.github/workflows/build-pyinstaller-server.yml` 是 RC5 四平台 Server bundle builder。它既可由
+`.github/workflows/build-pyinstaller-server.yml` 是 RC6 四平台 Server bundle builder。它既可由
 `workflow_dispatch` 对一个 40 位 immutable candidate做独立 proof，也可由 central release
 workflow 通过 `workflow_call` 调用。Builder 不创建 tag、Release或HFS deployment。
 Candidate checkout只提供待构建源码；target-native smoke action另从 `github.workflow_sha`
@@ -73,10 +73,10 @@ checkout trusted verifier，aggregate要求精确required-check集合全部 `PAS
 正式 archive 名称固定为：
 
 ```text
-souwen-server-2.0.0rc5-linux-amd64.tar.gz
-souwen-server-2.0.0rc5-linux-arm64.tar.gz
-souwen-server-2.0.0rc5-macos-arm64.tar.gz
-souwen-server-2.0.0rc5-windows-amd64.zip
+souwen-server-2.0.0rc6-linux-amd64.tar.gz
+souwen-server-2.0.0rc6-linux-arm64.tar.gz
+souwen-server-2.0.0rc6-macos-arm64.tar.gz
+souwen-server-2.0.0rc6-windows-amd64.zip
 ```
 
 Archive 内部统一使用 `souwen-server/` 目录；Windows executable 为
@@ -100,7 +100,7 @@ Windows bundle同时启用 PyInstaller embedded Python UTF-8 mode；Windows Supe
 每个平台必须安装并打包 Playwright Chromium，设置 bundle-local
 `PLAYWRIGHT_BROWSERS_PATH`，解压最终 archive 后运行 target-native smoke。Linux bundle的支持
 基线是构建它的 GitHub-hosted Ubuntu runner ABI；目标主机仍需具备 Chromium运行所需的系统
-libraries。RC5 不把一个不含 browser runtime的裸 executable描述为 self-contained bundle。
+libraries。RC6 不把一个不含 browser runtime的裸 executable描述为 self-contained bundle。
 
 ## Docker
 
@@ -157,7 +157,7 @@ docker build -f cloud/modelscope/Dockerfile \
 
 - Root 把 build arg 写入 `/app/runtime.source.sha`；HFS 从 detached checkout 写入同一路径；
   ModelScope 写入 `/home/user/app/runtime.source.sha`。
-- RC5 HFS 使用 `deploy/process/supervisor.py` 管理两个进程：Browser Worker 只绑定
+- RC6 HFS 使用 `deploy/process/supervisor.py` 管理两个进程：Browser Worker 只绑定
   `127.0.0.1:49266`，通过 authenticated readiness 后 API 才绑定 `0.0.0.0:49265`。HFS 只
   `EXPOSE/app_port` 49265；不得为 Worker 添加 host port mapping。
 - Supervisor 从 `runtime.source.sha` 解析 source SHA，使用 source-owned 默认配置时生成

@@ -116,7 +116,7 @@ def _intent(kind: str, run_id: str) -> dict:
         "run_attempt": 1,
         "workflow_sha": FAILED,
         "candidate_sha": FAILED,
-        "version": "2.0.0rc5",
+        "version": "2.0.0rc6",
         "transaction_kind": kind,
         "recovery_from_run_id": "123" if kind == "recovery" else "",
         "expected_paused_space_sha": PRIOR if kind == "recovery" else "",

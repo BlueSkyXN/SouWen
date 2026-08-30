@@ -6,10 +6,10 @@
 
 [![Python](https://img.shields.io/badge/python-≥3.10-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-GPLv3-blue)](LICENSE)
-[![Version](https://img.shields.io/badge/version-2.0.0rc5-orange)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.0.0rc6-orange)](CHANGELOG.md)
 
-> The current source candidate is **[Souwen v2rc5](CHANGELOG.md)**
-> (Python/runtime `2.0.0rc5`). Only the repository owner may create the `v2.0.0rc5` tag,
+> The current source candidate is **[Souwen v2rc6](CHANGELOG.md)**
+> (Python/runtime `2.0.0rc6`). Only the repository owner may create the `v2.0.0rc6` tag,
 > 12 Release assets, provenance, and HFS promotion by running the central release workflow on
 > exact `main`. This paragraph does not predeclare publication success; the final state comes
 > from tag, Release, workflow, and runtime readback. This is not the `2.0.0` GA and is not
@@ -190,7 +190,7 @@ which `SOUWEN_CONFIG_B64` is derived.
 - [docs/appearance.md](docs/appearance.md) — Calm Precision Panel
 - [docs/adding-a-source.md](docs/adding-a-source.md) — Adding a new source guide
 - [docs/contributing.md](docs/contributing.md) — Developer guide
-- [docs/internal/rc-readiness-gates.md](docs/internal/rc-readiness-gates.md) — Fixed v2.0.0rc5 gates and evidence manifest contract
+- [docs/internal/rc-readiness-gates.md](docs/internal/rc-readiness-gates.md) — Fixed v2.0.0rc6 gates and evidence manifest contract
 - [docs/internal/](docs/internal/) — Maintainer ADRs, branching policy, and pre-release baselines
 - [CHANGELOG.md](CHANGELOG.md) — Changelog
 

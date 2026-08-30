@@ -13,10 +13,10 @@ from typing import Any
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_ARTIFACT = REPOSITORY_ROOT / "contracts/openapi/souwen-openapi-2.0.0rc5.json"
+DEFAULT_ARTIFACT = REPOSITORY_ROOT / "contracts/openapi/souwen-openapi-2.0.0rc6.json"
 DEFAULT_OUTPUT = REPOSITORY_ROOT / "panel/src/core/sdk/index.ts"
 GENERATOR_VERSION = 2
-EXPECTED_VERSION = "2.0.0rc5"
+EXPECTED_VERSION = "2.0.0rc6"
 EXPECTED_API_MAJOR = 2
 EXPECTED_OPERATIONS = {
     "fetch": ("POST", "/api/v1/fetch", "FetchRequest", "FetchBatch", (200,)),
@@ -328,7 +328,7 @@ def _render(document: dict[str, Any], artifact_payload: bytes) -> str:
     dto_lines = _render_dtos(document)
     return "\n".join(
         [
-            "/* Generated from contracts/openapi/souwen-openapi-2.0.0rc5.json; do not edit. */",
+            "/* Generated from contracts/openapi/souwen-openapi-2.0.0rc6.json; do not edit. */",
             f"/* generator_version={GENERATOR_VERSION} */",
             f"/* openapi_sha256={artifact_sha} */",
             "",

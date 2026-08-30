@@ -104,7 +104,7 @@ Since 2026-07-26 both workflows run in two lanes (owner-approved CI slimming):
 - panel build: TypeScript check, Vitest, single-file panel build, and
   `src/souwen/server/panel.html` artifact validation.
 
-HF Space local preflight, the RC5 Server bundle builder, and secret-backed checks
+HF Space local preflight, the RC6 Server bundle builder, and secret-backed checks
 keep their dedicated workflow entrypoints. They should not be folded into every
 ordinary PR. Normal remote HFS promotion and GitHub publication are coordinated
 only by `release-candidate.yml`. The owner-only
@@ -115,7 +115,7 @@ External transaction runs (`deploy_hfs=true` or `publish=true`) share
 standard run's HFS evidence, assembly, or publication phase. Pure local evidence runs retain a
 per-candidate group and therefore cannot delay an urgent paused recovery.
 
-`build-pyinstaller-server.yml` builds the RC5 release inventory: exactly four
+`build-pyinstaller-server.yml` builds the RC6 release inventory: exactly four
 target-native PyInstaller Server bundles. The old legacy PyInstaller and Nuitka
 workflows remain temporary rollback residue until the Phase 8 audit;
 the central release does not call them or include their artifacts.
@@ -150,7 +150,7 @@ it from the current `main` workflow revision with an exact 40-character
 
 The active `build-pyinstaller-server.yml` workflow only builds and uploads the
 four Server bundles; it never creates a Release. The old CLI PyInstaller/Nuitka
-workflows are not part of the RC5 central release contract. Direct `HF Space CD`
+workflows are not part of the RC6 central release contract. Direct `HF Space CD`
 dispatch also remains local-only; merge/push to `main` does not automatically
 deploy.
 

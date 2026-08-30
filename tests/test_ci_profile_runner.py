@@ -171,7 +171,7 @@ def test_sdk_contract_uses_target_contract_dto_and_openapi_artifact_checks() -> 
         run_profile.PYTHON,
         "tools/gen_openapi.py",
         "--semantic-check",
-        "contracts/openapi/souwen-openapi-2.0.0rc5.json",
+        "contracts/openapi/souwen-openapi-2.0.0rc6.json",
     )
     assert commands[3].name == "python_sdk_reproducibility"
     assert commands[3].command == (

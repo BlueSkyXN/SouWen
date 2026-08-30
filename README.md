@@ -6,10 +6,10 @@
 
 [![Python](https://img.shields.io/badge/python-≥3.10-blue)](https://www.python.org/)
 [![License](https://img.shields.io/badge/license-GPLv3-blue)](LICENSE)
-[![Version](https://img.shields.io/badge/version-2.0.0rc5-orange)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/version-2.0.0rc6-orange)](CHANGELOG.md)
 
-> 当前源码候选为 **[Souwen v2rc5](CHANGELOG.md)**
-> （Python/runtime `2.0.0rc5`）。`v2.0.0rc5` tag、12 项 Release 资产、provenance 与 HFS
+> 当前源码候选为 **[Souwen v2rc6](CHANGELOG.md)**
+> （Python/runtime `2.0.0rc6`）。`v2.0.0rc6` tag、12 项 Release 资产、provenance 与 HFS
 > promotion 只能由 repository-owner 对 exact `main` 运行 central release workflow 创建；本段
 > 不预先声明发布成功，最终状态以 tag、Release、workflow 与 runtime 回读为准。这不是
 > `2.0.0` GA，也不发布到 PyPI。前一 immutable-by-policy baseline 是
@@ -187,7 +187,7 @@ HFS v2.1 draft schema（正式公开基线仍为 v2.0），并登记 gitignored�
 - [docs/appearance.md](docs/appearance.md) — Calm Precision 管理面板
 - [docs/adding-a-source.md](docs/adding-a-source.md) — 新增数据源指南
 - [docs/contributing.md](docs/contributing.md) — 开发者指南
-- [docs/internal/rc-readiness-gates.md](docs/internal/rc-readiness-gates.md) — v2.0.0rc5 固定门禁与 evidence manifest 契约
+- [docs/internal/rc-readiness-gates.md](docs/internal/rc-readiness-gates.md) — v2.0.0rc6 固定门禁与 evidence manifest 契约
 - [docs/internal/](docs/internal/) — 维护者 ADR、分支策略和发布前基线
 - [CHANGELOG.md](CHANGELOG.md) — 版本变更
 

@@ -3,7 +3,7 @@
 SouWen v2 是 target-only API。canonical contract 有三种查看方式：
 
 - 仓库内 frozen artifact：
-  [`contracts/openapi/souwen-openapi-2.0.0rc5.json`](../contracts/openapi/souwen-openapi-2.0.0rc5.json)
+  [`contracts/openapi/souwen-openapi-2.0.0rc6.json`](../contracts/openapi/souwen-openapi-2.0.0rc6.json)
 - 当前 HFS Swagger：<https://blueskyxn-souwen.hf.space/docs>
 - 当前 HFS OpenAPI JSON：<https://blueskyxn-souwen.hf.space/openapi.json>
 

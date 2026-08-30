@@ -37,7 +37,7 @@ def test_target_fixture_is_a_valid_static_manifest_declaration() -> None:
 def test_manifest_accepts_stable_underscore_adapter_ids_and_pep440_release_candidates() -> None:
     declaration = _manifest()
     declaration["id"] = "uniapi_provider_package"
-    declaration["version"] = "2.0.0rc5"
+    declaration["version"] = "2.0.0rc6"
     declaration["adapters"][0]["id"] = "uniapi_ark_annotations_deepseek_v3_2_251201"
 
     registry = ManifestRegistry()

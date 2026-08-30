@@ -2,6 +2,7 @@
 
 ## 导航
 
+- [Souwen v2rc6 source candidate](#v200rc6--release-candidate2026-08-30-source-candidate)
 - [Souwen v2rc5 source candidate](#v200rc5--release-candidate2026-07-30-source-candidate)
 - [Souwen v2rc4 release candidate](#v200rc4--release-candidate2026-07-29)
 - [Souwen v2rc3 release candidate](#v200rc3--release-candidate2026-07-28)
@@ -10,6 +11,25 @@
 - [v0.x history](#v090--v1-过渡版2026-04-22)
 
 > v2 段落记录当前 source candidate、已发布 RC 的公开变更和验证边界；v1/v0 段落保留历史审计脉络。
+
+## v2.0.0rc6 — Release Candidate（2026-08-30 source candidate）
+
+### Release status
+
+- 当前仓库源码候选为 **Souwen v2rc6**：Python/runtime/OpenAPI/SDK 为 `2.0.0rc6`，Panel
+  为 `2.0.0-rc6`。本节不预先声明 `v2.0.0rc6` tag、GitHub prerelease 或 HFS promotion
+  已完成；发布状态以 exact-main release workflow、GitHub Release 和 HFS 实时回读为准。
+- RC6 保持 API major 2 与 RC5 的 target-only Search、LLM Search、Fetch 和 Provider Catalog
+  契约。RC5→RC6 OpenAPI semantic diff 只允许 release version 变化，不引入 API shape 变化。
+- 清理已退役的 External Smoke Gate 与自动失败 Issue 操作说明，删除无当前用途的
+  `ci:external` / `smoke-failure` 标签，并使用 Dependabot 原生 minor/patch 分组和更低的
+  open PR limit 降低依赖更新噪声；不恢复 AI workflow、自动 Issue 或自动合并系统。
+- 将当前有效依赖更新收敛为一个已验证的维护变更：Ruff 固定为 `0.16.4`，Panel 使用
+  Vite `8.2.2`、Vitest `4.1.11`、jsdom `30.0.1`、`@testing-library/jest-dom` `7.0.1`
+  和 `@vitejs/plugin-react` `^6.1.0`，对应 lockfile、CI pin 与 toolchain contract 同步更新。
+- RC6 不改变业务功能、数据库、Provider 选择或公开 API 行为，也不发布到 PyPI。正式 tag、
+  Release 资产和 HFS promotion 只能由 repository owner 在 exact-main candidate 上通过中央
+  release workflow 一次完成；既有 `v2.0.0rc5` tag 和 Release 保持不可变。
 
 ## v2.0.0rc5 — Release Candidate（2026-07-30 source candidate）
 

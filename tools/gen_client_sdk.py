@@ -14,10 +14,10 @@ from typing import Any
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_ARTIFACT = REPOSITORY_ROOT / "contracts/openapi/souwen-openapi-2.0.0rc5.json"
+DEFAULT_ARTIFACT = REPOSITORY_ROOT / "contracts/openapi/souwen-openapi-2.0.0rc6.json"
 DEFAULT_OUTPUT = REPOSITORY_ROOT / "src/souwen/delivery/client_sdk"
 GENERATOR_VERSION = 1
-EXPECTED_VERSION = "2.0.0rc5"
+EXPECTED_VERSION = "2.0.0rc6"
 EXPECTED_API_MAJOR = 2
 EXPECTED_OPERATIONS = {
     "fetch": ("POST", "/api/v1/fetch", "FetchRequest", "FetchBatch", (200,)),
@@ -262,7 +262,7 @@ def _field_line(name: str, schema: dict[str, Any], required: bool) -> str:
 
 def _generated_header(artifact_sha: str) -> list[str]:
     return [
-        '"""Generated from contracts/openapi/souwen-openapi-2.0.0rc5.json; do not edit."""',
+        '"""Generated from contracts/openapi/souwen-openapi-2.0.0rc6.json; do not edit."""',
         "",
         f"# generator_version={GENERATOR_VERSION}",
         f"# openapi_sha256={artifact_sha}",
