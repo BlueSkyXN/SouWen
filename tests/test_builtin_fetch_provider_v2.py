@@ -125,7 +125,7 @@ async def test_probe_and_close_are_local_and_idempotent() -> None:
 
 
 def test_builtin_manifest_is_anonymous_zero_cost_fetch_only() -> None:
-    assert BUILTIN_FETCH_MANIFEST.version == "2.0.0rc5"
+    assert BUILTIN_FETCH_MANIFEST.version == "2.0.0rc6"
     assert BUILTIN_FETCH_MANIFEST.capabilities == ("fetch",)
     assert BUILTIN_FETCH_MANIFEST.secrets.references == ()
     assert BUILTIN_FETCH_MANIFEST.risk.authenticated is False

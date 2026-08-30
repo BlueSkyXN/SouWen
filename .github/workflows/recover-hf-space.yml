@@ -141,8 +141,8 @@ jobs:
               raise SystemExit("recovery candidate must equal the current origin/main")
           with open("pyproject.toml", "rb") as file:
               project_version = tomllib.load(file)["project"]["version"]
-          if version != "2.0.0rc5" or project_version != version:
-              raise SystemExit("paused recovery version does not match the RC5 candidate")
+          if version != "2.0.0rc6" or project_version != version:
+              raise SystemExit("paused recovery version does not match the RC6 candidate")
 
           # Candidate-controlled modules are safe to import only after owner/current-main gates.
           sys.path.insert(0, os.getcwd())

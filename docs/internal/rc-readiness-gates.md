@@ -1,12 +1,12 @@
-# Souwen v2rc5 发布候选门禁
+# Souwen v2rc6 发布候选门禁
 
-本文固定 `v2.0.0rc5` 的 Go / No-Go 规则、阈值和证据字段。它不是某次执行报告：
+本文固定 `v2.0.0rc6` 的 Go / No-Go 规则、阈值和证据字段。它不是某次执行报告：
 candidate SHA、run URL、checksum、测试计数和部署回读等运行结果不得写回本文件，
 而应由发布流水线写入候选专属的 `release-manifest.json` 或
 `deployment-manifest.json` artifact。
 
-> **RC5 publication boundary**：`v2.0.0rc5` 是新候选，现有 `v2.0.0rc4` tag/prerelease
-> 不得覆盖或移动。RC5 tag、Release assets 与 HFS promotion 只能在本文全部 required gate 对
+> **RC6 publication boundary**：`v2.0.0rc6` 是新候选，现有 `v2.0.0rc5` tag/prerelease
+> 不得覆盖或移动。RC6 tag、Release assets 与 HFS promotion 只能在本文全部 required gate 对
 > 同一 exact-main SHA 成功后创建；发布后该 evidence 仅供审计，不得用同一版本再次 publish。
 
 ## 判定原则
@@ -37,7 +37,7 @@ candidate SHA、run URL、checksum、测试计数和部署回读等运行结果�
   `publish=false, deploy_hfs=false`，只生成 evidence bundle，不创建 tag/Release、不写 Space。
 - **Publish-ready target**：RC-ready 加上 HFS promotion `PASS`；private Space repository、
   SouWen application auth、wrapper/runtime/source provenance 和 recovery point 均有证据。
-  发布前远端不得存在 `v2.0.0rc5` tag；发布成功后该状态只保留为历史 release evidence，
+  发布前远端不得存在 `v2.0.0rc6` tag；发布成功后该状态只保留为历史 release evidence，
   不能再次 publish。
 
 `release-candidate.yml` 必须从当前 `origin/main` 的 control-plane workflow 运行；任何
@@ -52,7 +52,7 @@ RC-ready run 可以验证从 current main 派生的 candidate；任何 secret-be
 - 候选从预期 release ref 创建，local HEAD、remote candidate ref 和 manifest
   `candidate_sha` 完全一致。
 - `git status --short` 为空；无未跟踪产物、未合并提交、stash 依赖或 submodule 漂移。
-- 版本面均为 `2.0.0rc5`，生成物由正式命令生成，没有手改 generated artifact。
+- 版本面均为 `2.0.0rc6`，生成物由正式命令生成，没有手改 generated artifact。
 
 **Evidence**：`candidate_sha`、ref、tree hash、version readback、worktree-clean assertion。
 
@@ -120,7 +120,7 @@ RC-ready run 可以验证从 current main 派生的 candidate；任何 secret-be
 
 ### 7. SDK contract
 
-- Python 与 TypeScript SDK 必须从 RC5 canonical OpenAPI byte-for-byte 可重复生成，固定 API
+- Python 与 TypeScript SDK 必须从 RC6 canonical OpenAPI byte-for-byte 可重复生成，固定 API
   major 2、operation/schema inventory、auth/error/timeout contract 和 OpenAPI SHA-256。
 - `sdk-default` 环境中 FastAPI 未安装；`server-runtime` 验证 FastAPI、Uvicorn、TLS、web、
   robots 与 scraper runtime 的可导入性；`provider-newspaper`、`provider-readability` 分别验证
@@ -161,19 +161,19 @@ RC-ready run 可以验证从 current main 派生的 candidate；任何 secret-be
 
 - Central release 的 active binary path 只允许 `build-pyinstaller-server.yml`。旧
   PyInstaller/Nuitka 24-binary CLI workflow 在 Phase 8 清理完成前仅是暂存 rollback residue，
-  不参与 RC5 release job、manifest、checksum、attestation 或 Release assets，也不得解除
+  不参与 RC6 release job、manifest、checksum、attestation 或 Release assets，也不得解除
   `publish=true` fail-closed guard。
-- RC5 最终 inventory 必须精确为四个 PyInstaller server bundle：Linux amd64、Linux arm64、
-  macOS arm64、Windows amd64；artifact 前缀为 `souwen-server-2.0.0rc5-*`。
+- RC6 最终 inventory 必须精确为四个 PyInstaller server bundle：Linux amd64、Linux arm64、
+  macOS arm64、Windows amd64；artifact 前缀为 `souwen-server-2.0.0rc6-*`。
 - 四个 bundle 必须在目标平台执行 server、health/readiness、API-major 与 target-native smoke；
   不得用 cross-build 成功、旧 CLI help/version 或 Nuitka 结果替代。
 - 精确 archive合同为 Linux amd64/arm64与macOS arm64的 `.tar.gz`，以及Windows amd64的
   `.zip`；四个名称必须分别为
-  `souwen-server-2.0.0rc5-{linux-amd64,linux-arm64,macos-arm64,windows-amd64}` 加对应后缀。
+  `souwen-server-2.0.0rc6-{linux-amd64,linux-arm64,macos-arm64,windows-amd64}` 加对应后缀。
 - Bundle必须是 PyInstaller `onedir` archive并携带 bundle-local Playwright Chromium；一个裸
   executable、缺 browser runtime的archive或仅对 `dist/` 临时目录做smoke均为 FAIL。
 - Target-native smoke必须从最终archive解包后启动默认Server入口，证明
-  `version=2.0.0rc5`、candidate source SHA、API major 2、`rollout_mode=target`、Browser Worker
+  `version=2.0.0rc6`、candidate source SHA、API major 2、`rollout_mode=target`、Browser Worker
   ready、Admin未认证401、canonical Provider API与OpenAPI checksum，并在终止后无残留 child。
 
 **Evidence**：四项 target-native matrix report、目标 runner、bundle checksum、每项 server smoke 输出。
@@ -190,7 +190,7 @@ RC-ready run 可以验证从 current main 派生的 candidate；任何 secret-be
 
 ### 12. Remote CI
 
-- `CI`、`V2 CI`、`Build RC5 PyInstaller server bundles` 和 container/deploy local gate
+- `CI`、`V2 CI`、`Build RC6 PyInstaller server bundles` 和 container/deploy local gate
   在 `candidate_sha` 上全部 green。
 - 每个 run 必须回读 head SHA、conclusion、required jobs 和 artifact inventory；分支名相同、
   rerun 成功或 merge 后别的 SHA green 都不能替代候选证据。
@@ -261,8 +261,8 @@ Deployment manifest 只索引轻量 HFS 验收证据，不得被 GitHub Release 
   "schema_version": 1,
   "evidence_profile": "deployment",
   "publishable": false,
-  "product_name": "Souwen v2rc5",
-  "version": "2.0.0rc5",
+  "product_name": "Souwen v2rc6",
+  "version": "2.0.0rc6",
   "api_major": 2,
   "candidate_sha": "<40-hex>",
   "candidate_ref": "sha:<40-hex>",
@@ -307,8 +307,8 @@ Manifest 是候选证据索引，不承载 secret。schema 至少固定以下字
 ```json
 {
   "schema_version": 1,
-  "product_name": "Souwen v2rc5",
-  "version": "2.0.0rc5",
+  "product_name": "Souwen v2rc6",
+  "version": "2.0.0rc6",
   "api_major": 2,
   "binary_count": 4,
   "candidate_sha": "<40-hex>",

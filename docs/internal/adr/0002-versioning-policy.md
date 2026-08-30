@@ -1,8 +1,8 @@
 # ADR 0002: Public Release Version
 
 **Status**: Accepted
-**Date**: 2026-05-08; revised 2026-07-30
-**Scope**: Souwen v2rc5 release candidate on `main`
+**Date**: 2026-05-08; revised 2026-08-30
+**Scope**: Souwen v2rc6 release candidate on `main`
 
 ## Context
 
@@ -16,38 +16,40 @@ RC1 established the breaking v2 lineage. RC2 completed the first published
 target-only release and HFS promotion at source `19871b1bbae8f2af65fdd0bb418f6275dc4061d0`.
 RC3 completed the expanded release/HFS evidence chain at source
 `94e94d13b1cf72fbaea6e85f8b121c910780ab1d`. RC4 completed the toolchain and
-Panel release at source `51f092841696b1e6f898e7c6bea40e535f639f5c`; its later
-current-main HFS fixes are rolled into RC5 rather than moving the RC4 tag. All
-four tags remain immutable historical baselines; later release-candidate work
-must use a new version rather than moving an existing tag.
+Panel release at source `51f092841696b1e6f898e7c6bea40e535f639f5c`. RC5 completed
+the current-main HFS recovery and release line at source
+`474ed2ff8efe1b46dace693ce1725f65c4bbebdf`. The later automation cleanup and
+dependency refresh are rolled into RC6 rather than moving the RC5 tag. RC1 through
+RC5 remain immutable historical baselines; later release-candidate work must use a
+new version rather than moving an existing tag.
 
 ## Decision
 
-The current release candidate is **Souwen v2rc5**. It is not the `2.0.0` GA.
+The current release candidate is **Souwen v2rc6**. It is not the `2.0.0` GA.
 
 The version surfaces are:
 
-- Product and GitHub Release display name: `Souwen v2rc5`
+- Product and GitHub Release display name: `Souwen v2rc6`
 - Python package, runtime, OpenAPI artifact, health/readiness and evidence version:
-  `2.0.0rc5`
-- README badges and API/deployment examples: `2.0.0rc5`
-- Panel package version: `2.0.0-rc5`
-- Git tag: `v2.0.0rc5`
+  `2.0.0rc6`
+- README badges and API/deployment examples: `2.0.0rc6`
+- Panel package version: `2.0.0-rc6`
+- Git tag: `v2.0.0rc6`
 - API major: `2`
-- Binary artifact prefix: `souwen-server-2.0.0rc5-*`
-- Changelog release heading: `v2.0.0rc5`
+- Binary artifact prefix: `souwen-server-2.0.0rc6-*`
+- Changelog release heading: `v2.0.0rc6`
 
-The tag and GitHub Release may be created only after the RC5 exact-candidate
+The tag and GitHub Release may be created only after the RC6 exact-candidate
 release gates, HFS validation, manifest/checksum/attestation and asset readback
-all pass. RC5 completion does not authorize an automatic `2.0.0` GA tag.
+all pass. RC6 completion does not authorize an automatic `2.0.0` GA tag.
 
 ## Consequences
 
-- Public docs should present this line as Souwen v2rc5, not as
+- Public docs should present this line as Souwen v2rc6, not as
   an undecided first-public-release experiment.
-- RC1, RC2, RC3 and RC4 values may remain only in clearly historical baseline text. Runtime,
+- RC1 through RC5 values may remain only in clearly historical baseline text. Runtime,
   generated artifacts, current examples, manifests and new release material must
-  use the RC5 values above.
+  use the RC6 values above.
 - The RC is not a final release by metadata alone; clean install, server/auth,
   Panel, docs walk-through, external smoke, and at least one target release path
   still need release validation before tag or publishing decisions.

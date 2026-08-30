@@ -30,7 +30,7 @@ function probe(requestId: string, ready = true): Response {
   return response({
     status: ready ? 'ok' : 'not_ready',
     ready,
-    version: '2.0.0rc5',
+    version: '2.0.0rc6',
     rollout_mode: 'target',
     context: context(requestId),
   }, requestId, { status: ready ? 200 : 503 })
@@ -94,7 +94,7 @@ describe('generated SouWenClient', () => {
 
   it('fails closed on an API-major mismatch before issuing a business request', async () => {
     const requestFetch = vi.fn(async (_url: string, init: RequestInit) => response(
-      { status: 'ok', ready: true, version: '2.0.0rc5', rollout_mode: 'target', context: context(requestIdOf(init)) },
+      { status: 'ok', ready: true, version: '2.0.0rc6', rollout_mode: 'target', context: context(requestIdOf(init)) },
       requestIdOf(init),
       { headers: headers(requestIdOf(init), { 'X-SouWen-API-Major': '3' }) },
     ))
@@ -110,7 +110,7 @@ describe('generated SouWenClient', () => {
       fetch: vi.fn(async (_url: string, init: RequestInit) => response({
         status: 'ready',
         ready: true,
-        version: '2.0.0rc5',
+        version: '2.0.0rc6',
         rollout_mode: 'invalid',
         context: context(requestIdOf(init)),
       }, requestIdOf(init))),

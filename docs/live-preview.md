@@ -79,10 +79,10 @@ history；交互测试应使用受控环境变量或 Panel password input。
 
 ## Release 与 deployment 边界
 
-`v2.0.0rc5` 是当前 source/release candidate；只有 central release workflow 成功后，其 tag 与
+`v2.0.0rc6` 是当前 source/release candidate；只有 central release workflow 成功后，其 tag 与
 GitHub prerelease 才构成 immutable-by-policy release baseline。本候选的完成标准要求 HFS 部署
 同一个 exact source SHA，并生成 release-profile evidence；仅看到 package version
-`2.0.0rc5` 不能证明 tag、Release assets 与 runtime 已对齐。
+`2.0.0rc6` 不能证明 tag、Release assets 与 runtime 已对齐。
 
 验收 current deployment 时至少同时回读：
 

@@ -37,13 +37,13 @@ def test_rc5_server_bundle_workflow_is_a_read_only_reusable_proof_builder() -> N
 def test_rc5_server_bundle_workflow_has_exact_native_four_archive_matrix() -> None:
     text = _workflow_text(".github/workflows/build-pyinstaller-server.yml")
     expected = {
-        "ubuntu-24.04": "souwen-server-2.0.0rc5-linux-amd64.tar.gz",
-        "ubuntu-24.04-arm": "souwen-server-2.0.0rc5-linux-arm64.tar.gz",
-        "macos-15": "souwen-server-2.0.0rc5-macos-arm64.tar.gz",
-        "windows-2025": "souwen-server-2.0.0rc5-windows-amd64.zip",
+        "ubuntu-24.04": "souwen-server-2.0.0rc6-linux-amd64.tar.gz",
+        "ubuntu-24.04-arm": "souwen-server-2.0.0rc6-linux-arm64.tar.gz",
+        "macos-15": "souwen-server-2.0.0rc6-macos-arm64.tar.gz",
+        "windows-2025": "souwen-server-2.0.0rc6-windows-amd64.zip",
     }
 
-    assert text.count("archive: souwen-server-2.0.0rc5-") == 4
+    assert text.count("archive: souwen-server-2.0.0rc6-") == 4
     for runner, archive in expected.items():
         assert f"os: {runner}" in text
         assert f"archive: {archive}" in text
@@ -104,7 +104,7 @@ def test_server_bundle_openapi_checksum_uses_the_verified_canonical_artifact() -
     assert "python tools/gen_openapi.py --check" in checksum_step
     assert "python tools/gen_client_sdk.py --check" in checksum_step
     assert "python tools/gen_typescript_sdk.py --check" in checksum_step
-    assert "contracts/openapi/souwen-openapi-2.0.0rc5.json" in checksum_step
+    assert "contracts/openapi/souwen-openapi-2.0.0rc6.json" in checksum_step
     assert "artifact.read_bytes()" in checksum_step
     assert "from souwen.server.app import app" not in checksum_step
     assert "app.openapi()" not in checksum_step

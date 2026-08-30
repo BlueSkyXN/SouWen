@@ -7,7 +7,7 @@ DATACITE_PROVIDER_MANIFEST = ProviderManifest.model_validate(
     {
         "schema_version": 2,
         "id": "datacite",
-        "version": "2.0.0rc5",
+        "version": "2.0.0rc6",
         "contract_version": "provider-v2",
         "capabilities": ["search"],
         "adapters": [
