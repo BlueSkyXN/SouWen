@@ -68,7 +68,7 @@ dev = [
     "pytest-asyncio>=0.23",
     "pytest-httpx>=0.30",
     "pytest-cov>=4",
-    "ruff==0.16.4",
+    "ruff==0.16.5",
     "markdown-it-py>=2.2",
     "tomli>=2.0; python_version < '3.11'",
 ]
