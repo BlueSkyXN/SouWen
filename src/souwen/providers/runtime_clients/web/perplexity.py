@@ -78,6 +78,8 @@ class PerplexityClient(SouWenHttpClient):
             source_name="perplexity",
             headers={"Authorization": f"Bearer {self.api_key}"},
         )
+        # 标识 SouWen 集成；频道配置中已设置的 X-Pplx-Integration 优先
+        self._client.headers.setdefault("X-Pplx-Integration", "souwen")
 
     async def search(
         self,
