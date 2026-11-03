@@ -47,8 +47,8 @@ is their safe runtime projection.
 ### Features
 
 <!-- BEGIN AUTO: SOURCE METRICS -->
-- **104 built-in Provider v2 packages** and **110 capability adapters**.
-  - Search: **88** packages · LLM Search: **2** · Fetch: **20**.
+- **105 built-in Provider v2 packages** and **111 capability adapters**.
+  - Search: **89** packages · LLM Search: **2** · Fetch: **20**.
 <!-- END AUTO: SOURCE METRICS -->
 - **Frozen OpenAPI and generated SDKs**: the Python root exposes generated sync/async SDK clients; Panel uses the generated TypeScript SDK
 - **Canonical DTOs** for Search, LLM Search, Fetch, Provider Catalog, and probes

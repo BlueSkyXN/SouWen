@@ -63,6 +63,8 @@ web:
   perplexity_api_key: ~
   # Linkup 实时搜索 API Key（https://www.linkup.so/）
   linkup_api_key: ~
+  # Keenable 搜索 API Key（https://keenable.ai/）
+  keenable_api_key: ~
   # ScrapingDog SERP API Key（https://www.scrapingdog.com/）
   scrapingdog_api_key: ~
   # Whoogle 自建实例 URL（https://github.com/benbusby/whoogle-search）

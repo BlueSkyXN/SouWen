@@ -8,9 +8,9 @@
 
 | 指标 | 数量 |
 |---|---:|
-| Provider packages | **104** |
-| Provider adapters | **110** |
-| Search packages | **88** |
+| Provider packages | **105** |
+| Provider adapters | **111** |
+| Search packages | **89** |
 | LLM Search packages | **2** |
 | Fetch packages | **20** |
 
@@ -66,6 +66,7 @@
 | `internet_archive` | `search` | `search:configured` | none | `archive.org` | no | no |
 | `jina_reader` | `fetch` | `fetch:always` | optional: `JINA_API_KEY` | `r.jina.ai` | no | no |
 | `juejin` | `search` | `search:configured` | none | `api.juejin.cn` | no | no |
+| `keenable` | `search` | `search:configured` | required: `KEENABLE_API_KEY` | `api.keenable.ai` | no | no |
 | `kimi_code` | `search`, `fetch` | `search:configured`, `fetch:configured` | required: `KIMI_CODE_API_KEY` | `api.kimi.com` | no | no |
 | `library_of_congress` | `search` | `search:configured` | none | `www.loc.gov` | no | no |
 | `librivox` | `search` | `search:configured` | none | `librivox.org` | no | no |

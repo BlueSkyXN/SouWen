@@ -274,6 +274,11 @@ from souwen.providers.information_sources.kimi_code import (
     KimiCodeFetchProvider,
     KimiCodeSearchProvider,
 )
+from souwen.providers.information_sources.keenable import (
+    KEENABLE_PROVIDER_MANIFEST,
+    KEENABLE_PROVIDER_SPEC,
+    KeenableSearchProvider,
+)
 from souwen.providers.information_sources.linkup import (
     LINKUP_PROVIDER_MANIFEST,
     LINKUP_PROVIDER_SPEC,
@@ -519,6 +524,7 @@ from souwen.providers.runtime_clients.web.hostloc import HostLocClient
 from souwen.providers.runtime_clients.web.jina_reader import JinaReaderClient
 from souwen.providers.runtime_clients.web.juejin import JuejinClient
 from souwen.providers.runtime_clients.web.kimi_code import KimiCodeClient
+from souwen.providers.runtime_clients.web.keenable import KeenableClient
 from souwen.providers.runtime_clients.web.linkup import LinkupClient
 from souwen.providers.runtime_clients.web.linuxdo import LinuxDoClient
 from souwen.providers.runtime_clients.web.metaso import MetasoClient
@@ -1095,6 +1101,12 @@ _BATCH_THREE_SEARCH_ONLY_BINDINGS: tuple[
         GITHUB_PROVIDER_SPEC,
         GitHubSearchProvider,
         lambda _configuration, secrets: GitHubClient(token=secrets.get("GITHUB_TOKEN", "")),
+    ),
+    (
+        KEENABLE_PROVIDER_MANIFEST,
+        KEENABLE_PROVIDER_SPEC,
+        KeenableSearchProvider,
+        lambda _configuration, secrets: KeenableClient(api_key=secrets["KEENABLE_API_KEY"]),
     ),
     (
         LINKUP_PROVIDER_MANIFEST,

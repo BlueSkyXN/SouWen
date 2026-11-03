@@ -21,9 +21,9 @@ def test_checked_in_data_sources_matches_generator():
 def test_manifest_snapshot_drives_release_candidate_metrics():
     snapshot = gen_docs._load_snapshot()
 
-    assert snapshot.package_count == 104
-    assert snapshot.adapter_count == 110
-    assert snapshot.capability_count("search") == 88
+    assert snapshot.package_count == 105
+    assert snapshot.adapter_count == 111
+    assert snapshot.capability_count("search") == 89
     assert snapshot.capability_count("llm_search") == 2
     assert snapshot.capability_count("fetch") == 20
     assert [manifest.id for manifest in snapshot.multi_capability] == [

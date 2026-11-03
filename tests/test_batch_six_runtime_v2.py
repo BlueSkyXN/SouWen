@@ -89,7 +89,7 @@ def test_batch_six_factories_use_only_preflighted_endpoints_and_close_once(monke
         )
     )
     catalog = {item.provider: item for item in runtime.services.provider_items}
-    assert len(catalog) == 104
+    assert len(catalog) == 105
     assert all(catalog[provider_id].availability == "available" for provider_id in clients)
     assert {f"{provider_id}-search" for provider_id in clients}.issubset(
         runtime.manager.eligible_adapter_ids
