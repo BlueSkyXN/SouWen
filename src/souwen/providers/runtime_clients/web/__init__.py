@@ -85,6 +85,7 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "FirecrawlClient": ("souwen.providers.runtime_clients.web.firecrawl", "FirecrawlClient"),
     "XCrawlClient": ("souwen.providers.runtime_clients.web.xcrawl", "XCrawlClient"),
     "PerplexityClient": ("souwen.providers.runtime_clients.web.perplexity", "PerplexityClient"),
+    "KeenableClient": ("souwen.providers.runtime_clients.web.keenable", "KeenableClient"),
     "LinkupClient": ("souwen.providers.runtime_clients.web.linkup", "LinkupClient"),
     "ScrapingDogClient": ("souwen.providers.runtime_clients.web.scrapingdog", "ScrapingDogClient"),
     "WhoogleClient": ("souwen.providers.runtime_clients.web.whoogle", "WhoogleClient"),
@@ -175,6 +176,7 @@ __all__ = [
     "FirecrawlClient",
     "XCrawlClient",
     "PerplexityClient",
+    "KeenableClient",
     "LinkupClient",
     "ScrapingDogClient",
     # 自建实例类

@@ -56,6 +56,7 @@ from souwen.providers.information_sources.feishu_drive import FeishuDriveSearchP
 from souwen.providers.information_sources.firecrawl import FirecrawlSearchProvider
 from souwen.providers.information_sources.github import GitHubSearchProvider
 from souwen.providers.information_sources.kimi_code import KimiCodeSearchProvider
+from souwen.providers.information_sources.keenable import KeenableSearchProvider
 from souwen.providers.information_sources.linkup import LinkupSearchProvider
 from souwen.providers.information_sources.linuxdo import LinuxDoSearchProvider
 from souwen.providers.information_sources.metaso import MetasoSearchProvider
@@ -372,6 +373,7 @@ DEFINITIONS = (
             ("firecrawl", FirecrawlSearchProvider, "web"),
             ("github", GitHubSearchProvider, "developer"),
             ("kimi_code", KimiCodeSearchProvider, "web"),
+            ("keenable", KeenableSearchProvider, "web"),
             ("linkup", LinkupSearchProvider, "web"),
             ("linuxdo", LinuxDoSearchProvider, "cn_tech"),
             ("metaso", MetasoSearchProvider, "web"),
