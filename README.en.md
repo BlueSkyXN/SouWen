@@ -94,7 +94,6 @@ with SouWenClient("http://127.0.0.1:8000", token="your-user-token") as client:
 `AsyncSouWenClient` provides the async surface. Before the first business request, both clients
 verify API major 2 through `/healthz`. See the
 [Python SDK guide](docs/python-sdk.md) for authentication, HFS dual-token use, and errors.
-The Panel uses the [TypeScript SDK](docs/typescript-sdk.md) generated from the same OpenAPI artifact.
 
 ### API Server
 
@@ -187,7 +186,6 @@ which `SOUWEN_CONFIG_B64` is derived.
 - [docs/live-preview.md](docs/live-preview.md) — HFS Panel/Swagger, role matrix, and feature acceptance
 - [docs/deployment.md](docs/deployment.md) — Deployment
 - [docs/anti-scraping.md](docs/anti-scraping.md) — TLS fingerprinting / WARP / rate limiting
-- [docs/appearance.md](docs/appearance.md) — Calm Precision Panel
 - [docs/adding-a-source.md](docs/adding-a-source.md) — Adding a new source guide
 - [docs/contributing.md](docs/contributing.md) — Developer guide
 - [docs/internal/rc-readiness-gates.md](docs/internal/rc-readiness-gates.md) — Fixed v2.0.0rc6 gates and evidence manifest contract

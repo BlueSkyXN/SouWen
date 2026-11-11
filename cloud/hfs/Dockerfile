@@ -1,6 +1,6 @@
 ARG SOUWEN_REF=0000000000000000000000000000000000000000
 
-FROM node:22-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3 AS panel-builder
+FROM node:22-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3 AS source-checkout
 ARG SOUWEN_REPO=https://github.com/BlueSkyXN/SouWen.git
 ARG SOUWEN_REF
 RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
@@ -13,8 +13,6 @@ RUN git init . \
     && git fetch --depth 1 origin "${SOUWEN_REF}" \
     && git checkout --detach FETCH_HEAD \
     && test "$(git rev-parse HEAD)" = "${SOUWEN_REF}"
-WORKDIR /build/panel
-RUN npm ci --ignore-scripts && npm run build
 
 FROM python:3.11-slim@sha256:db3ff2e1800a8581e2c48a27c3995339d47bdf046da21c7627accd3d51053a93
 
@@ -43,7 +41,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/lib/apt/lists/*
 
 # 预装 WARP 组件 (wireproxy 用户态 WireGuard + wgcf 注册工具)
-COPY --from=panel-builder /build/scripts/warp-checksums.txt /tmp/warp-checksums.txt
+COPY --from=source-checkout /build/scripts/warp-checksums.txt /tmp/warp-checksums.txt
 RUN set -eu; \
     ARCH="$(dpkg --print-architecture)"; \
     checksum() { awk -v tool="$1" -v version="$2" -v arch="${ARCH}" \
@@ -74,9 +72,6 @@ RUN git init . \
     && test "$(git rev-parse HEAD)" = "${SOUWEN_REF}" \
     && git rev-parse HEAD > /app/runtime.source.sha
 
-# 前端面板：从 panel-builder 阶段复制构建产物（必须在 pip install 之前，
-# 否则 panel.html 不会被打包进 site-packages）
-COPY --from=panel-builder /build/panel/dist/index.html ./src/souwen/server/panel.html
 
 RUN pip install ".[server,tls,web,robots,scraper]" "playwright>=1.40" \
     && python -c "import curl_cffi; print('curl_cffi OK')"

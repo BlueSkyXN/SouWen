@@ -19,7 +19,6 @@ from urllib.request import Request, urlopen
 DEFAULT_BASE_URL = "https://blueskyxn-souwen.hf.space"
 TARGET_PATHS = {
     "/api/v1/fetch",
-    "/api/v1/llm-search",
     "/api/v1/providers",
     "/api/v1/search",
     "/health",
@@ -242,13 +241,6 @@ def _surface_checks(client: Client, args: argparse.Namespace, checks: list[Check
 
     _record(checks, "openapi", openapi)
 
-    def panel():
-        status, _headers, body = client.request("/panel", application_auth=False)
-        _expect(status == 200 and b'id="root"' in body, f"panel status {status}")
-        return "Calm Precision panel entry present", None
-
-    _record(checks, "panel", panel)
-
     def whoami():
         status, _headers, payload = client.json("/api/v1/whoami")
         _expect(status == 200, f"whoami status {status}")
@@ -413,24 +405,6 @@ def _capability_checks(
         raise SmokeFailure(f"search providers failed: {', '.join(failures)}")
 
     _record(checks, "search_live", search)
-
-    def llm_search():
-        llm_provider = _first_available(providers, "llm_search", ())
-        status, _headers, payload = client.json(
-            "/api/v1/llm-search",
-            method="POST",
-            payload={
-                "query": "What is retrieval augmented generation?",
-                "providers": [{"id": llm_provider, "kind": "llm_search"}],
-                "strategy": "single",
-                "max_results_per_provider": 3,
-            },
-        )
-        _expect(status == 200 and isinstance(payload.get("evidence"), list), f"llm {status}")
-        _expect(isinstance(payload.get("usage"), dict), "llm usage missing")
-        return f"{llm_provider}: {len(payload['evidence'])} evidence items", payload
-
-    _record(checks, "llm_search_live", llm_search)
 
     target = "https://example.com/"
     if args.expected_source_sha:

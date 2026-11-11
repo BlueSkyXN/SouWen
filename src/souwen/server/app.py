@@ -14,17 +14,6 @@
         - 输入：HTTP 状态码（如 404、500）
         - 输出：错误码字符串（如 "not_found"、"internal_error"）
 
-    _get_panel_payload() -> tuple[str, str] | None
-        - 功能：读取管理面板 HTML 并计算 ETag（内存缓存）
-        - 输入：无
-        - 输出：(html_content, etag_value) 或 None
-        - 关键优化：ETag 用于浏览器缓存控制，减少冗余传输
-
-    _panel_response(request: Request) -> Response
-        - 功能：生成管理面板 HTTP 响应，支持 ETag 和 Cache-Control
-        - 输入：FastAPI Request 对象
-        - 输出：HTML 响应或 304 Not Modified
-
     health() -> HealthResponse
         - 功能：健康检查端点 /health，用于探针确认服务存活
         - 返回：{"status": "ok", "version": "..."}
@@ -34,11 +23,8 @@
         - 不做网络调用，避免探针超时
         - 返回：{"ready": bool, "version": str, "error": str|null}
 
-    panel(request: Request) -> HTMLResponse
-        - 功能：获取管理面板（同 /，支持 ETag 缓存）
-
-    root(request: Request) -> HTMLResponse
-        - 功能：根路径重定向到管理面板
+    root() -> RedirectResponse | JSONResponse
+        - 功能：根路径，重定向到 /docs 或返回 API 基本信息
 
 异常处理器：
     - http_exception_handler：处理 HTTP 异常（4xx/5xx）
@@ -61,21 +47,12 @@
 
 from __future__ import annotations
 
-import asyncio
-import hashlib
 import logging
-import os
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import (
-    HTMLResponse,
-    JSONResponse,
-    RedirectResponse,
-    Response,
-)
+from fastapi.responses import JSONResponse, RedirectResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.gzip import GZipMiddleware
 
@@ -101,20 +78,6 @@ from souwen.server.schemas import ErrorResponse
 from souwen.server.v2_runtime import TargetRuntime, build_target_runtime
 
 logger = logging.getLogger("souwen.server")
-
-# Panel HTML lookup: installed package → source tree → env override
-_PANEL_HTML = Path(__file__).parent / "panel.html"
-if not _PANEL_HTML.is_file():
-    # Docker: panel.html may be COPY'd to source tree after pip install
-    _src_fallback = Path("/app/src/souwen/server/panel.html")
-    if _src_fallback.is_file():
-        _PANEL_HTML = _src_fallback
-_panel_env = os.environ.get("SOUWEN_PANEL_HTML")
-if _panel_env:
-    _PANEL_HTML = Path(_panel_env)
-_panel_cache: str | None = None
-_panel_etag: str | None = None
-_panel_cache_lock = asyncio.Lock()
 
 
 @asynccontextmanager
@@ -390,100 +353,6 @@ def _status_to_code(status_code: int) -> str:
     }.get(status_code, "error")
 
 
-def _get_panel_payload() -> tuple[str, str] | None:
-    """读取管理面板 HTML 文件并计算 ETag — 支持浏览器缓存
-
-    第一次调用时读取 panel.html、计算 SHA256 ETag、缓存在模块级变量。
-    后续调用直接返回缓存，避免重复磁盘 I/O。
-
-    .. note::
-        本函数读写模块级 ``_panel_cache`` / ``_panel_etag``，**必须在
-        ``_panel_cache_lock`` 持有期间调用**，以避免并发竞态。当前唯一
-        调用路径为 ``panel()`` → ``_panel_response()`` → 本函数，锁已
-        在 ``panel()`` 中获取。
-
-    Returns:
-        tuple[html_content, etag] 或 None（文件不存在时）
-    """
-    global _panel_cache, _panel_etag
-    if _panel_cache is not None and _panel_etag is not None:
-        return _panel_cache, _panel_etag
-    if not _PANEL_HTML.is_file():
-        return None
-    text = _PANEL_HTML.read_text(encoding="utf-8")
-    digest = hashlib.sha256(text.encode("utf-8")).hexdigest()[:16]
-    _panel_cache = text
-    _panel_etag = f'"{digest}"'
-    return _panel_cache, _panel_etag
-
-
-def _etag_matches(header_value: str, etag: str) -> bool:
-    """Check if *etag* matches an ``If-None-Match`` header per RFC 7232.
-
-    Supports the wildcard ``*`` and comma-separated ETag lists.
-
-    判断 ``If-None-Match`` 请求头是否匹配当前 ETag — 用于 304 协商缓存。
-    支持通配符 ``*``（匹配任意 ETag）和逗号分隔的 ETag 列表。
-
-    Args:
-        header_value: 客户端 ``If-None-Match`` 头原始字符串
-        etag: 服务端当前资源的 ETag
-
-    Returns:
-        True 表示客户端缓存仍然有效（应返回 304）
-    """
-    if not header_value:
-        return False
-    if header_value.strip() == "*":
-        return True
-    for tag in header_value.split(","):
-        if tag.strip() == etag:
-            return True
-    return False
-
-
-def _panel_response(request: Request) -> Response:
-    """生成管理面板 HTTP 响应，支持 ETag 和 Cache-Control
-
-    检查浏览器的 If-None-Match 头：
-    - 若与 ETag 匹配，返回 304 Not Modified
-    - 否则返回完整 HTML 和新的 ETag、Cache-Control 头
-
-    Args:
-        request: FastAPI Request 对象
-
-    Returns:
-        HTMLResponse 或 Response（304 Not Modified）
-    """
-    payload = _get_panel_payload()
-    if payload is None:
-        return HTMLResponse("<h1>Panel not found</h1>", status_code=404)
-    text, etag = payload
-    if _etag_matches(request.headers.get("if-none-match", ""), etag):
-        return Response(status_code=304, headers={"ETag": etag})
-    return HTMLResponse(
-        text,
-        headers={"ETag": etag, "Cache-Control": "public, max-age=3600"},
-    )
-
-
-@app.get("/panel", response_class=HTMLResponse, include_in_schema=False)
-async def panel(request: Request):
-    """管理面板 /panel 端点
-
-    返回管理 Web UI 的 HTML 页面。支持内存缓存和 ETag 条件请求。
-    用异步锁保护缓存，避免并发读写问题。
-
-    Args:
-        request: FastAPI Request 对象
-
-    Returns:
-        HTMLResponse：管理面板 HTML，或 304 Not Modified
-    """
-    async with _panel_cache_lock:
-        return _panel_response(request)
-
-
 @app.get("/", include_in_schema=False)
 async def root():
     """根路径 / 端点 — API 入口
@@ -500,7 +369,6 @@ async def root():
         {
             "name": "SouWen API",
             "version": __version__,
-            "panel": "/panel",
             "docs": "expose_docs disabled",
         }
     )

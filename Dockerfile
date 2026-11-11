@@ -10,15 +10,6 @@ RUN apk add --no-cache build-base git && \
     test "$(git -C /src rev-parse HEAD)" = "${MICROSOCKS_REF}" && \
     make -C /src
 
-# ===== 第二阶段：构建前端面板 =====
-FROM node:22-slim@sha256:6c74791e557ce11fc957704f6d4fe134a7bc8d6f5ca4403205b2966bd488f6b3 AS panel-builder
-# 使用 Vite 构建 SouWen 前端管理界面
-WORKDIR /panel
-COPY panel/package.json panel/package-lock.json* ./
-RUN npm ci --ignore-scripts
-COPY panel/ ./
-RUN npm run build
-
 # ===== 第三阶段：最终运行时镜像 =====
 FROM python:3.11-slim@sha256:db3ff2e1800a8581e2c48a27c3995339d47bdf046da21c7627accd3d51053a93
 
@@ -100,14 +91,12 @@ RUN if [ -n "${SOUWEN_SOURCE_SHA}" ]; then \
 # 再装源码（仅源码变更时重新执行此层）
 
 # 步骤 1：复制项目配置和版本信息，安装 Server 运行面依赖
-COPY pyproject.toml README.md LICENSE hatch_build.py ./
+COPY pyproject.toml README.md LICENSE ./
 COPY src/souwen/__init__.py ./src/souwen/__init__.py
 RUN pip install ".[server,tls,web,robots,scraper]"
 
 # 步骤 2：复制全部源码并重新安装（确保最新版本）
 COPY src/ ./src/
-# 复制前端面板的构建产物
-COPY --from=panel-builder /panel/dist/index.html ./src/souwen/server/panel.html
 RUN pip install --no-deps ".[server,tls,web,robots,scraper]" \
     && python -c "import curl_cffi; print('curl_cffi OK')"
 

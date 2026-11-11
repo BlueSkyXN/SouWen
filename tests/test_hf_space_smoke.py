@@ -171,7 +171,6 @@ def test_report_records_bounded_provenance_without_auth_tokens(tmp_path) -> None
 def test_target_openapi_path_set_is_exact() -> None:
     assert smoke.TARGET_PATHS == {
         "/api/v1/search",
-        "/api/v1/llm-search",
         "/api/v1/fetch",
         "/api/v1/providers",
         "/health",
@@ -227,7 +226,6 @@ def test_surface_checks_cover_authenticated_admin_routes_and_redaction() -> None
         app_token = "admin-secret-canary"
 
         def request(self, path, **_kwargs):
-            assert path == "/panel"
             return 200, {}, b'<main id="root"></main>'
 
         def json(self, path, **_kwargs):
@@ -324,55 +322,6 @@ def test_unredacted_admin_config_is_a_required_failure() -> None:
     ) == ["sources.fixture.api_key", "sources.fixture.privateKey"]
 
 
-def test_missing_required_llm_provider_is_reported_as_a_failed_check(monkeypatch, tmp_path) -> None:
-    providers = [
-        {
-            "provider": "openalex",
-            "availability": "available",
-            "capabilities": ["search"],
-        },
-        {
-            "provider": "builtin-fetch",
-            "availability": "available",
-            "capabilities": ["fetch"],
-        },
-    ]
-
-    class Client:
-        def __init__(self, *_args, **_kwargs):
-            pass
-
-        def json(self, path, **_kwargs):
-            if path == "/api/v1/search":
-                return 200, {}, {"items": [], "meta": {"requested": ["crossref"]}}
-            if path == "/api/v1/fetch":
-                return (
-                    200,
-                    {},
-                    {"items": [{"status": "success", "content": "Example Domain fixture"}]},
-                )
-            raise AssertionError(path)
-
-    monkeypatch.setattr(smoke, "Client", Client)
-    monkeypatch.setattr(
-        smoke,
-        "_surface_checks",
-        lambda _client, _args, _checks: providers,
-    )
-    report = tmp_path / "capability.json"
-
-    assert smoke.main(["--mode", "capability", "--json-report", str(report)]) == 1
-
-    payload = json.loads(report.read_text(encoding="utf-8"))
-    checks = {item["name"]: item for item in payload["checks"]}
-    assert checks["search_default_live"]["outcome"] == "PASS"
-    assert checks["search_live"]["outcome"] == "PASS"
-    assert checks["llm_search_live"]["outcome"] == "FAIL"
-    assert checks["llm_search_live"]["detail"] == "no available llm_search provider"
-    assert checks["fetch_live"]["outcome"] == "PASS"
-    assert checks["fetch_readable_live"]["outcome"] == "PASS"
-
-
 def test_search_live_uses_bounded_provider_fallback(monkeypatch, tmp_path) -> None:
     providers = [
         {
@@ -415,8 +364,6 @@ def test_search_live_uses_bounded_provider_fallback(monkeypatch, tmp_path) -> No
                 if provider == "crossref":
                     return 503, {}, {"error": {"code": "upstream_unavailable"}}
                 return 200, {}, {"items": []}
-            if path == "/api/v1/llm-search":
-                return 200, {}, {"evidence": [], "usage": {}}
             if path == "/api/v1/fetch":
                 fetch_strategies.append(kwargs["payload"]["strategy"])
                 return (

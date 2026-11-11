@@ -21,7 +21,7 @@ r"""SouWen ASGI 中间件 — 请求 ID 注入 + 响应计时 + 访问日志
             2. 通过 contextvars 传播 ID
             3. 记录响应状态码和耗时
             4. 添加 X-Request-ID 和 X-Response-Time 响应头
-            5. 记录访问日志（跳过 /health 和 /panel）
+            5. 记录访问日志（跳过 /health）
 
     RequestIDFilter(logging.Filter)
         - 功能：日志过滤器，自动注入 request_id 到所有日志记录
@@ -55,7 +55,7 @@ logger = logging.getLogger("souwen.server")
 _VALID_REQUEST_ID = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
 
 # 不记录访问日志的路径（健康检查 / 面板静态资源）
-_SKIP_LOG_PATHS = frozenset({"/health", "/panel"})
+_SKIP_LOG_PATHS = frozenset({"/health"})
 
 
 class RequestIDMiddleware:

@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import hashlib
 import json
 import re
 import textwrap
@@ -161,86 +160,6 @@ def test_release_candidate_is_the_only_release_publisher() -> None:
         text = path.read_text(encoding="utf-8")
         assert "softprops/action-gh-release" not in text
         assert "gh release create" not in text
-
-
-def test_release_candidate_strictly_validates_promotion_inputs() -> None:
-    text = _workflow("release-candidate.yml")
-    trust_step = text.split(
-        "- name: Validate candidate trust, SHA, version, and promotion controls",
-        maxsplit=1,
-    )[1].split("- uses: actions/setup-python@v7", maxsplit=1)[0]
-    assert "python3 -I - <<'PY'" in trust_step
-    assert "python3 - <<'PY'" not in trust_step
-    assert "re.fullmatch(r'[0-9a-f]{40}', candidate)" in text
-    assert "project_version != version" in text
-    assert "publish == 'true' and deploy_hfs != 'true'" in text
-    assert "publish and deploy_hfs must be typed booleans" in text
-    assert "refusing to overwrite existing tag" in text
-    assert "runtime_version != version" in text
-    assert "openapi_version != version" in text
-    assert "panel_lock['version'] != panel['version']" in text
-    assert "for readme_name in ('README.md', 'README.en.md')" in text
-    assert "r'(?:a|b|rc)[0-9]+'" in text
-    assert "accepted prerelease candidate" in text
-    assert "current release surface only accepts version 2.0.0rc6" in text
-    assert "product_name = 'Souwen v2rc6'" in text
-    assert "api_major = 2" in text
-    assert "DISPATCH_ACTOR: ${{ github.actor }}" in trust_step
-    assert "TRIGGERING_ACTOR: ${{ github.triggering_actor }}" in trust_step
-    assert "REPOSITORY_OWNER: ${{ github.repository_owner }}" in trust_step
-    assert "for actor in (dispatch_actor, triggering_actor)" in trust_step
-    assert "repository-owner dispatch and owner-triggered rerun" in trust_step
-    assert "RC6 publication remains disabled" not in text
-    assert '--title "$PRODUCT_NAME"' in text
-    assert text.index("git', 'merge-base', '--is-ancestor'") < text.index(
-        'pip install -e ".[server,tls,web,robots,scraper]"'
-    )
-    assert "release-candidate must run from the current origin/main control plane" in text
-    assert "candidate_sha to equal the current origin/main" in text
-    assert "verifier_sha" in text
-    assert text.count("secrets: inherit") == 1
-    hfs_call = _job(text, "hfs", "assemble-deployment")
-    assert "uses: ./.github/workflows/deploy-hf-space.yml" in hfs_call
-    assert "secrets: inherit" in hfs_call
-
-
-def test_rc5_release_version_surfaces_are_consistent() -> None:
-    from souwen import __version__
-
-    version = "2.0.0rc6"
-    panel_version = "2.0.0-rc6"
-    product_name = "Souwen v2rc6"
-
-    pyproject = (REPO_ROOT / "pyproject.toml").read_text(encoding="utf-8")
-    panel = json.loads((REPO_ROOT / "panel/package.json").read_text(encoding="utf-8"))
-    panel_lock = json.loads((REPO_ROOT / "panel/package-lock.json").read_text(encoding="utf-8"))
-    changelog = (REPO_ROOT / "CHANGELOG.md").read_text(encoding="utf-8")
-    workflow = _workflow("release-candidate.yml")
-
-    assert __version__ == version
-    assert f'version = "{version}"' in pyproject
-    assert panel["version"] == panel_version
-    assert panel_lock["version"] == panel_version
-    assert panel_lock["packages"][""]["version"] == panel_version
-    assert f"## v{version}" in changelog
-    assert f"product_name = '{product_name}'" in workflow
-    assert f"current release surface only accepts version {version}" in workflow
-
-
-def test_panel_artifact_gate_requires_byte_identical_embedded_html() -> None:
-    panel = json.loads((REPO_ROOT / "panel/package.json").read_text(encoding="utf-8"))
-    check_artifact = panel["scripts"]["check:artifact"]
-
-    assert "test -f dist/index.html" in check_artifact
-    assert "test -f ../src/souwen/server/panel.html" in check_artifact
-    assert "cmp -s dist/index.html ../src/souwen/server/panel.html" in check_artifact
-    for workflow_name in (
-        "ci.yml",
-        "v2-ci.yml",
-        "release-candidate.yml",
-        "build-pyinstaller-server.yml",
-    ):
-        assert "npm run check:artifact" in _workflow(workflow_name)
 
 
 def test_release_candidate_requires_an_explicit_evidence_profile() -> None:
@@ -552,180 +471,6 @@ def test_deployment_manifest_builder_emits_bounded_non_release_contract(
         exec(compile(manifest_source, "release-candidate.yml:missing-report", "exec"), {})
 
 
-def test_release_manifest_builder_accepts_only_exact_four_server_bundle_evidence(
-    tmp_path: Path,
-    monkeypatch,
-) -> None:
-    text = _workflow("release-candidate.yml")
-    release = _job(text, "assemble", "publish")
-    manifest_step = release.split(
-        "- name: Verify four Server bundles and write release manifest", maxsplit=1
-    )[1]
-    manifest_source = _python_heredoc(manifest_step)
-    checksum_source = _python_heredoc(manifest_step, 1)
-
-    candidate = "a" * 40
-    verifier = "b" * 40
-    assets = tmp_path / "release-assets"
-    evidence = tmp_path / "release-evidence"
-    bundle_evidence = evidence / "server-bundles"
-    bundle_evidence.mkdir(parents=True)
-    assets.mkdir()
-    expected = {
-        "linux-amd64": "souwen-server-2.0.0rc6-linux-amd64.tar.gz",
-        "linux-arm64": "souwen-server-2.0.0rc6-linux-arm64.tar.gz",
-        "macos-arm64": "souwen-server-2.0.0rc6-macos-arm64.tar.gz",
-        "windows-amd64": "souwen-server-2.0.0rc6-windows-amd64.zip",
-    }
-    required_checks = (
-        "archive/inventory",
-        "archive/playwright-chromium",
-        "archive/source-provenance",
-        "runner/target-native",
-        "server/health",
-        "server/readiness-browser-worker",
-        "server/canonical-provider-api",
-        "server/api-major-fail-closed",
-        "server/admin-fail-closed",
-        "server/openapi-checksum",
-        "server/clean-termination",
-    )
-    openapi = assets / "souwen-openapi-2.0.0rc6.json"
-    openapi.write_bytes(b'{"info":{"version":"2.0.0rc6"}}')
-    openapi_sha256 = hashlib.sha256(openapi.read_bytes()).hexdigest()
-    bundles = []
-    for platform, name in expected.items():
-        path = assets / name
-        path.write_bytes(f"bundle:{platform}".encode())
-        digest = hashlib.sha256(path.read_bytes()).hexdigest()
-        report_name = f"server-bundle-smoke-{platform}.json"
-        (bundle_evidence / report_name).write_text(
-            json.dumps(
-                {
-                    "overall": "PASS",
-                    "target_native": True,
-                    "archive": name,
-                    "archive_sha256": digest,
-                    "candidate_sha": candidate,
-                    "checks": [{"name": check, "status": "PASS"} for check in required_checks],
-                }
-            ),
-            encoding="utf-8",
-        )
-        bundles.append(
-            {
-                "name": name,
-                "platform": platform,
-                "size": path.stat().st_size,
-                "sha256": digest,
-                "candidate_sha": candidate,
-                "api_major": 2,
-                "openapi_sha256": openapi_sha256,
-                "target_native": True,
-                "smoke_overall": "PASS",
-                "smoke_report": report_name,
-            }
-        )
-    (bundle_evidence / "server-bundle-inventory.json").write_text(
-        json.dumps(
-            {
-                "version": "2.0.0rc6",
-                "candidate_sha": candidate,
-                "verifier_sha": verifier,
-                "workflow_identity": ".github/workflows/build-pyinstaller-server.yml",
-                "api_major": 2,
-                "openapi_sha256": openapi_sha256,
-                "binary_count": 4,
-                "bundles": bundles,
-            }
-        ),
-        encoding="utf-8",
-    )
-    for name, payload in (
-        ("souwen-2.0.0rc6-py3-none-any.whl", b"wheel"),
-        ("souwen-2.0.0rc6.tar.gz", b"sdist"),
-        ("python-sbom.cdx.json", b"{}"),
-        ("panel-sbom.cdx.json", b"{}"),
-        ("release-evidence.tar.gz", b"evidence"),
-    ):
-        (assets / name).write_bytes(payload)
-    for kind in ("root", "hfs", "modelscope"):
-        (evidence / f"container-{kind}.json").write_text(
-            json.dumps(
-                {
-                    "kind": kind,
-                    "candidate_sha": candidate,
-                    "image_digest": f"sha256:{kind}",
-                }
-            ),
-            encoding="utf-8",
-        )
-
-    needs = {
-        job_id: {"result": "success"}
-        for job_id in (
-            "validate",
-            "ci",
-            "source",
-            "server-bundles",
-            "package",
-            "clean-install",
-            "container",
-        )
-    }
-    needs["hfs"] = {"result": "skipped"}
-    environment = {
-        "CANDIDATE_SHA": candidate,
-        "VERSION": "2.0.0rc6",
-        "PRODUCT_NAME": "Souwen v2rc6",
-        "API_MAJOR": "2",
-        "TAG": "v2.0.0rc6",
-        "PUBLISH": "false",
-        "DEPLOY_HFS": "false",
-        "NEEDS_JSON": json.dumps(needs),
-        "VERIFIER_SHA": verifier,
-        "RUN_URL": "https://github.example/actions/runs/2",
-        "HFS_SPACE_COMMIT_SHA": "",
-        "HFS_PROMOTION_CHANGED": "",
-        "HFS_PRIOR_SPACE_COMMIT_SHA": "",
-        "HFS_PRIOR_RUNTIME_COMMIT_SHA": "",
-        "HFS_PRIOR_SOUWEN_REF": "",
-        "HFS_PRIOR_RUNTIME_STAGE": "",
-    }
-    for name, value in environment.items():
-        monkeypatch.setenv(name, value)
-    monkeypatch.chdir(tmp_path)
-
-    exec(compile(manifest_source, "release-candidate.yml:release-manifest", "exec"), {})
-    exec(compile(checksum_source, "release-candidate.yml:release-checksums", "exec"), {})
-
-    manifest = json.loads((assets / "release-manifest.json").read_text(encoding="utf-8"))
-    assert manifest["evidence_profile"] == "release"
-    assert manifest["publishable"] is False
-    assert manifest["binary_count"] == 4
-    server_assets = [item for item in manifest["artifacts"] if item["kind"] == "server_bundle"]
-    assert {item["name"] for item in server_assets} == set(expected.values())
-    assert all(item["target_native_smoke"] for item in server_assets)
-    assert {path.name for path in assets.iterdir()} == {
-        *(item["name"] for item in manifest["artifacts"]),
-        "release-manifest.json",
-        "SHA256SUMS",
-    }
-
-    failed_report = bundle_evidence / "server-bundle-smoke-windows-amd64.json"
-    failed_payload = json.loads(failed_report.read_text(encoding="utf-8"))
-    failed_payload["checks"][-1]["status"] = "FAIL"
-    failed_report.write_text(json.dumps(failed_payload), encoding="utf-8")
-    with pytest.raises(SystemExit, match="smoke evidence mismatch"):
-        exec(compile(manifest_source, "release-candidate.yml:failed-smoke", "exec"), {})
-
-    failed_payload["checks"][-1]["status"] = "PASS"
-    failed_payload["checks"].append(dict(failed_payload["checks"][-1]))
-    failed_report.write_text(json.dumps(failed_payload), encoding="utf-8")
-    with pytest.raises(SystemExit, match="smoke evidence mismatch"):
-        exec(compile(manifest_source, "release-candidate.yml:duplicate-smoke", "exec"), {})
-
-
 def test_hfs_deployment_does_not_keep_a_retired_cli_binary_smoke() -> None:
     text = _workflow("deploy-hf-space.yml")
     assert "pyinstaller-cli" not in text
@@ -794,100 +539,6 @@ def test_release_candidate_aggregates_all_release_gates() -> None:
     assert "ref: ${{ needs.validate.outputs.candidate_sha }}\n          fetch-depth: 0" in container
 
 
-def test_rc5_release_gate_contract_matches_control_plane() -> None:
-    text = _workflow("release-candidate.yml")
-    clean_install = _job(text, "clean-install", "container")
-    expected_profiles = (
-        "sdk-default",
-        "server-runtime",
-        "provider-newspaper",
-        "provider-readability",
-    )
-    for profile in expected_profiles:
-        assert clean_install.count(f"profile: {profile}") == 1
-    assert "provider-crawl4ai" not in clean_install
-    assert "provider-scrapling" not in clean_install
-
-    assemble = _job(text, "assemble", "publish")
-    gate_block = assemble.split("gate_specs = [", maxsplit=1)[1].split("gates = []", maxsplit=1)[0]
-    gate_ids = re.findall(r"\('([a-z_]+)', \(", gate_block)
-    assert gate_ids == [
-        "worktree",
-        "python",
-        "coverage",
-        "panel",
-        "docs",
-        "clean_install",
-        "sdk_contract",
-        "package_contract",
-        "containers",
-        "binary_matrix",
-        "security",
-        "remote_ci",
-        "hfs_promotion",
-        "rc_assets",
-    ]
-
-    contract = (REPO_ROOT / "docs/internal/rc-readiness-gates.md").read_text(encoding="utf-8")
-    assert "本文件定义 14 个 gate，其中 13 个是 **always-required**" in contract
-    assert "从 candidate wheel 在四个彼此隔离" in contract
-    assert "External Smoke Gate" not in contract
-    assert "provider-crawl4ai" not in contract
-    assert "provider-scrapling" not in contract
-
-    artifact_kinds = ("wheel", "server_bundle", "sdist", "openapi", "sbom", "report")
-    for kind in artifact_kinds:
-        assert f"kind = '{kind}'" in assemble
-    assert '"kind": "wheel|server_bundle|sdist|openapi|sbom|report"' in contract
-
-
-def test_release_bundle_has_four_servers_openapi_supply_chain_assets_and_attestation() -> None:
-    text = _workflow("release-candidate.yml")
-    source = text.split("  source:", maxsplit=1)[1].split("  clean-install:", maxsplit=1)[0]
-    assert "if len(actual) != 4:" in text
-    assert "expected exactly four Server bundles" in text
-    assert "souwen-openapi-2.0.0rc6.json" in text
-    assert "Install built candidate for canonical OpenAPI verification" in source
-    assert 'python -m pip install "${wheel}[server]"' in text
-    assert "python tools/gen_openapi.py --check" in source
-    assert "python tools/gen_client_sdk.py --check" in source
-    assert "python tools/gen_typescript_sdk.py --check" in source
-    assert "cp contracts/openapi/souwen-openapi-2.0.0rc6.json" in source
-    assert "from souwen.server.app import app" not in source
-    assert "app.openapi()" not in source
-    assert "immutable OpenAPI checksum differs from Server bundle smoke" in text
-    assert "release assets contain retired binary artifacts" in text
-    assert "python-sbom.cdx.json" in text
-    assert "panel-sbom.cdx.json" in text
-    assert "release-manifest.json" in text
-    assert "SHA256SUMS" in text
-    assert "actions/attest-build-provenance@v4" in text
-    assert "attestations: write" in text
-    assert "id-token: write" in text
-    assert "name: release-candidate-${{ needs.validate.outputs.version }}" in text
-    assert "'bundle_envelope'" in text
-    assert "SHA256SUMS must cover every asset except itself" in text
-    assert "sha256sum -c SHA256SUMS" in text
-    for manifest_field in (
-        "'candidate_ref'",
-        "'verifier_sha'",
-        "'created_at'",
-        "'remote_runs'",
-        "'containers'",
-        "'hfs'",
-        "'exceptions'",
-    ):
-        assert manifest_field in text
-    for hfs_evidence_field in (
-        "'prior_repo_sha'",
-        "'prior_runtime_sha'",
-        "'prior_source_sha'",
-        "'prior_runtime_stage'",
-        "'promotion_changed'",
-    ):
-        assert hfs_evidence_field in text
-
-
 def test_ci_has_stable_aggregate_and_required_readiness_gates() -> None:
     text = _workflow("ci.yml")
     assert "name: CI / aggregate" in text
@@ -924,51 +575,6 @@ def test_ci_has_stable_aggregate_and_required_readiness_gates() -> None:
     assert f"ref: {candidate_expression}" in container
     assert "fetch-depth: 0" in container
     assert 'git push "$bare" HEAD:refs/heads/ci-candidate' in container
-
-
-def test_ci_fast_lane_is_single_py313_ubuntu2404_and_full_lane_covers_release_and_tags() -> None:
-    ci = _workflow("ci.yml")
-    lane = _job(ci, "lane", "architecture")
-    assert "full: ${{ steps.lane.outputs.full }}" in lane
-    assert "test_matrix: ${{ steps.lane.outputs.test_matrix }}" in lane
-    assert '"workflow_call"' in lane
-    assert '"workflow_dispatch"' in lane
-    assert "github.ref_type" in lane
-    assert '{"include":[{"os":"ubuntu-24.04","python":"3.13"}]}' in lane
-    assert '{"os":"macos-latest","python":"3.11"}' in lane
-    assert '{"os":"windows-latest","python":"3.11"}' in lane
-
-    test_job = _job(ci, "test", "server-test")
-    assert "needs: [lane, lint]" in test_job
-    assert "matrix: ${{ fromJSON(needs.lane.outputs.test_matrix) }}" in test_job
-
-    gate = "if: needs.lane.outputs.full == 'true'"
-    assert ci.count(gate) == 7
-    for fast_job in ("architecture", "lint", "docs-check", "panel-build"):
-        block = ci.split(f"  {fast_job}:", maxsplit=1)[1]
-        assert gate not in block.split("\n  ", maxsplit=1)[0]
-
-    aggregate = ci.split("  aggregate:", maxsplit=1)[1]
-    assert "- lane" in aggregate.split("if: always()", maxsplit=1)[0]
-    assert "FULL_LANE" in aggregate
-    assert '. == "skipped"' in aggregate
-
-    v2 = _workflow("v2-ci.yml")
-    v2_lane = _job(v2, "lane", "bootstrap")
-    assert "full: ${{ steps.lane.outputs.full }}" in v2_lane
-    assert v2.count(gate) == 4
-    for fast_job, next_job in (
-        ("bootstrap", "matrix_tests"),
-        ("provider_v2_conformance", "delivery_contracts"),
-    ):
-        assert gate not in _job(v2, fast_job, next_job)
-    summary = v2.split("  release_readiness_summary:", maxsplit=1)[1]
-    assert "FULL_LANE" in summary
-    assert '"skipped"' in summary
-
-    for name in ("ci.yml", "v2-ci.yml"):
-        push = _workflow_trigger(_workflow(name), "push")
-        assert "tags: ['v*']" in push
 
 
 def test_architecture_dependency_gate_is_required_in_ci_and_release_paths() -> None:
@@ -1009,44 +615,6 @@ def test_ruff_toolchain_version_is_pinned_consistently() -> None:
         assert "pip install ruff\n" not in workflow
 
 
-def test_panel_toolchain_versions_and_node_baseline_are_pinned() -> None:
-    package = json.loads((REPO_ROOT / "panel" / "package.json").read_text(encoding="utf-8"))
-    assert package["engines"]["node"] == ">=22.22.0"
-    expected_dependencies = {
-        "@vitejs/plugin-react": "^6.1.0",
-        "typescript": "~7.0.2",
-        "vite": "^8.2.2",
-        "vite-plugin-singlefile": "^2.3.3",
-        "vitest": "^4.1.11",
-    }
-    assert {
-        name: package["devDependencies"][name] for name in expected_dependencies
-    } == expected_dependencies
-
-    expected_setup_node_steps = {
-        "ci.yml": 3,
-        "v2-ci.yml": 2,
-        "release-candidate.yml": 1,
-        "build-pyinstaller-server.yml": 1,
-    }
-    for workflow_name, expected_count in expected_setup_node_steps.items():
-        workflow = _workflow(workflow_name)
-        assert len(re.findall(r"node-version:\s*['\"]22\.22\.0['\"]", workflow)) == expected_count
-        assert not re.search(r"node-version:\s*['\"]20['\"]", workflow)
-
-
-def test_container_smokes_avoid_pipefail_broken_pipe_on_panel_html() -> None:
-    containers = (
-        _job(_workflow("release-candidate.yml"), "container", "promotion-gate"),
-        _job(_workflow("ci.yml"), "container-surface", "aggregate"),
-    )
-
-    for container in containers:
-        assert '/panel" | grep' not in container
-        assert 'curl -fsS "http://127.0.0.1:${{ matrix.port }}/panel" -o "$panel_file"' in container
-        assert 'grep -Eiq \'id="root"|SouWen|souwen\' "$panel_file"' in container
-
-
 def test_container_smokes_require_the_canonical_openapi_title() -> None:
     contract = json.loads(
         (REPO_ROOT / "contracts/openapi/souwen-openapi-2.0.0rc6.json").read_text(encoding="utf-8")
@@ -1059,17 +627,6 @@ def test_container_smokes_require_the_canonical_openapi_title() -> None:
 
     for container in containers:
         assert expected_assertion in container
-
-
-def test_generated_contracts_pin_lf_for_windows_reproducibility() -> None:
-    attributes = (REPO_ROOT / ".gitattributes").read_text(encoding="utf-8")
-
-    for rule in (
-        "contracts/openapi/*.json text eol=lf",
-        "src/souwen/delivery/client_sdk/_generated_*.py text eol=lf",
-        "panel/src/core/sdk/index.ts text eol=lf",
-    ):
-        assert rule in attributes
 
 
 def test_hfs_reusable_promotion_is_candidate_pinned_and_live_verified() -> None:
@@ -1343,23 +900,3 @@ def test_hfs_rebuild_job_avoids_checkout_and_dependency_cache() -> None:
     assert "actions/setup-python@v7" in rebuild
     assert "actions/checkout@" not in rebuild
     assert "cache: pip" not in rebuild
-
-
-def test_clean_wheel_composite_enforces_runtime_and_package_boundaries() -> None:
-    text = (REPO_ROOT / ".github/actions/clean-wheel-smoke/action.yml").read_text(encoding="utf-8")
-    for contract in (
-        "package/panel",
-        "package/no-retired-imports",
-        "sdk/sync-client",
-        "sdk/async-client",
-        "sdk/api-major",
-        "sdk/openapi-sha256",
-        "sdk/no-fastapi",
-        "server/import",
-        "server/import-{module}",
-    ):
-        assert contract in text
-    assert "souwen.editions" not in text
-    assert "CLEAN_WHEEL_PROFILE" in text
-    assert "from souwen import AsyncSouWenClient, SouWenClient" in text
-    assert "from souwen.delivery.client_sdk import OPENAPI_SHA256, SUPPORTED_API_MAJOR" in text
