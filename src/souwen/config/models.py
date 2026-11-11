@@ -107,8 +107,7 @@ class SouWenConfig(BaseModel):
 
         HTTP 后端: default_http_backend (全局默认), http_backend (按源覆盖字典)
 
-        服务配置: user_password (用户密码), admin_password (管理密码),
-                 guest_enabled, cors_origins, trusted_proxies,
+        服务配置: user_password (用户密码), cors_origins, trusted_proxies,
                  expose_docs (是否暴露 Swagger 文档)
 
         WARP 代理: warp_enabled,
@@ -137,16 +136,23 @@ class SouWenConfig(BaseModel):
     def _reject_retired_fields(cls, data: Any) -> Any:
         """已退休字段不能在直接构造配置时被静默接受。"""
         if isinstance(data, dict):
-            retired = set(data) & {"api_password", "visitor_password"}
+            retired = set(data) & {
+                "api_password",
+                "visitor_password",
+                "admin_password",
+                "guest_enabled",
+            }
             if retired:
                 replacements = {
-                    "api_password": "user_password / admin_password",
+                    "api_password": "user_password",
                     "visitor_password": "user_password",
+                    "admin_password": "admin 角色已移除；请只使用 user_password",
+                    "guest_enabled": "guest 角色已移除；user_password 留空即开放访问",
                 }
                 detail = ", ".join(f"{key} -> {replacements[key]}" for key in sorted(retired))
                 raise ValueError(f"认证配置字段已移除: {detail}")
             retired_features = {
-                "llm": "legacy enriched-synthesis 配置已退休；请使用 llm_search_gateways",
+                "llm": "legacy enriched-synthesis 配置已退休",
                 "unpaywall_email": "Unpaywall provider 已退休",
             }
             configured_retired_features = set(data) & set(retired_features)
@@ -250,24 +256,12 @@ class SouWenConfig(BaseModel):
 
     # ===== 服务（认证） =====
     user_password: str | None = None  # 用户密码(保护搜索和 /sources)
-    admin_password: str | None = None  # 管理密码(保护管理端点)
-    guest_enabled: bool = False  # 是否启用游客访问(无Token可访问搜索)
 
     @property
     def effective_user_password(self) -> str | None:
         """解析生效的用户密码；空字符串表示显式开放用户端点。"""
         if self.user_password is not None:
             return self.user_password or None
-        return None
-
-    @property
-    def effective_admin_password(self) -> str | None:
-        """解析生效的管理密码；空字符串表示未设置管理密码。
-
-        无密码 admin 访问仍需 SOUWEN_ADMIN_OPEN=1 显式放行。
-        """
-        if self.admin_password is not None:
-            return self.admin_password or None
         return None
 
     cors_origins: list[str] = Field(

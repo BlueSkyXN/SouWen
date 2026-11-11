@@ -86,9 +86,7 @@ server:
   # 用户密码（保护搜索和 /sources）
   user_password: ~
   # 管理密码（保护全部管理端点）
-  admin_password: ~
   # 是否启用游客访问（无 Token 也可访问搜索端点，受限源+限速）
-  guest_enabled: false
   # 允许跨域的来源列表（CORS Origins），留空表示不启用 CORS
   cors_origins: []
   # 受信反向代理 IP/CIDR 列表;只有来自这些地址的请求才会读取 X-Forwarded-For

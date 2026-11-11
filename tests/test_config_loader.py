@@ -136,14 +136,13 @@ class TestYamlLoading:
                 server:
                   api_password: ~
                   visitor_password: ~
-                  admin_password: admin-pw
                 """
             ).strip(),
             encoding="utf-8",
         )
 
         cfg = reload_config()
-        assert cfg.admin_password == "admin-pw"
+        assert cfg.user_password is None
 
     def test_loads_search_defaults_as_one_nested_policy_table(self, tmp_path):
         defaults = SouWenConfig().search_defaults

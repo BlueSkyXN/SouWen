@@ -241,53 +241,6 @@ def _surface_checks(client: Client, args: argparse.Namespace, checks: list[Check
 
     _record(checks, "openapi", openapi)
 
-    def whoami():
-        status, _headers, payload = client.json("/api/v1/whoami")
-        _expect(status == 200, f"whoami status {status}")
-        _expect(payload.get("role") == "admin", "application token is not admin")
-        if args.fail_admin_open:
-            _expect(payload.get("admin_open") is False, "admin_open must be false")
-        return "admin application auth verified", payload
-
-    _record(checks, "whoami", whoami)
-
-    def admin_ping():
-        status, _headers, payload = client.json("/api/v1/admin/ping")
-        _expect(status == 200 and payload == {"status": "ok"}, f"admin ping status {status}")
-        return "authenticated admin ping verified", None
-
-    _record(checks, "admin_ping", admin_ping)
-
-    def admin_config():
-        status, _headers, payload = client.json("/api/v1/admin/config")
-        _expect(status == 200 and isinstance(payload, dict), f"admin config status {status}")
-        leaked_fields = _unredacted_secret_fields(payload)
-        _expect(not leaked_fields, "admin config contains unredacted credential-shaped fields")
-        if client.app_token:
-            serialized = json.dumps(payload, ensure_ascii=False)
-            _expect(client.app_token not in serialized, "admin config contains application token")
-        return "authenticated redacted admin config verified", None
-
-    _record(checks, "admin_config", admin_config)
-
-    def admin_doctor():
-        status, _headers, payload = client.json("/api/v1/admin/doctor")
-        providers = payload.get("providers") if isinstance(payload, dict) else None
-        _expect(status == 200 and isinstance(providers, list), f"admin doctor status {status}")
-        total = payload.get("total")
-        available = payload.get("available")
-        unavailable = payload.get("unavailable")
-        _expect(total == len(providers), "admin doctor provider total mismatch")
-        _expect(
-            isinstance(available, int)
-            and isinstance(unavailable, int)
-            and available + unavailable == total,
-            "admin doctor availability totals mismatch",
-        )
-        return f"authenticated admin doctor verified ({total} providers)", None
-
-    _record(checks, "admin_doctor", admin_doctor)
-
     if client.app_token:
 
         def edge_only_data():
@@ -297,26 +250,12 @@ def _surface_checks(client: Client, args: argparse.Namespace, checks: list[Check
 
         _record(checks, "edge_only_data_rejected", edge_only_data)
 
-        def edge_only_admin():
-            status, _headers, _payload = client.json("/api/v1/admin/ping", application_auth=False)
-            _expect(status in {401, 403}, f"edge-only admin status {status}")
-            return "edge-only admin request rejected", None
-
-        _record(checks, "edge_only_admin_rejected", edge_only_admin)
-
         def anonymous_data():
             status, _headers, _payload = client.json("/api/v1/providers", anonymous=True)
             _expect(status in {401, 403}, f"anonymous data API status {status}")
             return "anonymous Data API request rejected", None
 
         _record(checks, "anonymous_data_rejected", anonymous_data)
-
-        def anonymous_admin():
-            status, _headers, _payload = client.json("/api/v1/admin/ping", anonymous=True)
-            _expect(status in {401, 403}, f"anonymous admin status {status}")
-            return "anonymous admin rejected", None
-
-        _record(checks, "anonymous_admin_rejected", anonymous_admin)
 
     def providers():
         status, _headers, payload = client.json("/api/v1/providers")
@@ -500,13 +439,6 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--summary-file", default=os.environ.get("GITHUB_STEP_SUMMARY"))
     parser.add_argument("--bearer-token", default=os.environ.get("SOUWEN_SMOKE_BEARER_TOKEN"))
     parser.add_argument("--hf-space-token", default=os.environ.get("SOUWEN_HF_SPACE_TOKEN"))
-    parser.add_argument(
-        "--fail-admin-open",
-        dest="fail_admin_open",
-        action="store_true",
-        default=os.environ.get("SOUWEN_SMOKE_FAIL_ADMIN_OPEN", "").lower()
-        in {"1", "true", "yes", "on"},
-    )
     parser.add_argument("--mode", choices=("surface", "capability", "offline"))
     parser.add_argument("--surface-only", action="store_true")
     return parser.parse_args(argv)

@@ -40,7 +40,6 @@
     - fastapi：FastAPI 框架
     - souwen.config：配置管理
     - souwen.server.middleware：请求 ID 和日志中间件
-    - souwen.server.routes：API 路由
     - souwen.common_runtime：共享运行时能力
     - souwen.logging_config：日志配置
 """
@@ -69,10 +68,9 @@ from souwen.delivery.api.errors import from_http_status as target_error_from_htt
 from souwen.delivery.api.middleware import TargetContractHeadersMiddleware, is_target_contract_path
 from souwen.logging_config import setup_logging
 from souwen.common_runtime.observability import get_request_id
-from souwen.server.auth import check_target_user_auth, is_admin_open_enabled
+from souwen.server.auth import check_target_user_auth
 from souwen.server.limiter import rate_limit_target_data
 from souwen.server.middleware import RequestIDMiddleware
-from souwen.server.routes import router, admin_router
 from souwen.server.schemas import ErrorResponse
 from souwen.server.v2_runtime import TargetRuntime, build_target_runtime
 
@@ -99,32 +97,6 @@ async def lifespan(app: FastAPI):
     path = ensure_config_file()
     if path:
         logger.info("配置文件: %s", path)
-    cfg = get_config()
-    admin_pw = cfg.effective_admin_password
-    user_pw = cfg.effective_user_password
-    auth_parts = []
-    if admin_pw:
-        auth_parts.append("管理员")
-    elif is_admin_open_enabled():
-        auth_parts.append("管理员(开放)")
-    else:
-        auth_parts.append("管理员(锁定)")
-    if user_pw:
-        auth_parts.append("用户")
-    if cfg.guest_enabled:
-        auth_parts.append("游客(开放)")
-    auth_desc = " + ".join(auth_parts)
-    logger.info(
-        "SouWen %s 启动 | 角色: %s",
-        __version__,
-        auth_desc,
-    )
-    if not admin_pw and is_admin_open_enabled():
-        logger.warning(
-            "SOUWEN_ADMIN_OPEN=1 已显式解除 Admin API 锁定；"
-            "任何能访问 /api/v1/admin/* 的客户端都将获得管理员权限，生产环境禁用。"
-        )
-
     # WARP 状态协调 (检测 shell entrypoint 启动的 WARP 实例)
     warp_mgr = None
     try:
@@ -212,8 +184,6 @@ app.include_router(
     ),
     prefix="/api/v1",
 )
-app.include_router(router, prefix="/api/v1")
-app.include_router(admin_router, prefix="/api/v1/admin")
 app.include_router(create_probe_router(_readiness_check, _runtime_metadata))
 
 

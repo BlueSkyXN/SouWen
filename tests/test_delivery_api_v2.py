@@ -336,10 +336,8 @@ def test_not_ready_probe_is_503_and_health_stays_live() -> None:
     ("config", "headers", "expected"),
     [
         (SouWenConfig(), {}, 401),
-        (SouWenConfig(guest_enabled=True), {}, 200),
         (SouWenConfig(user_password=""), {}, 200),
         (SouWenConfig(user_password="user"), {"Authorization": "Bearer user"}, 200),
-        (SouWenConfig(admin_password="admin"), {"Authorization": "Bearer admin"}, 200),
         (
             SouWenConfig(user_password="user"),
             {"Authorization": "Bearer user", "X-SouWen-Token": "wrong"},

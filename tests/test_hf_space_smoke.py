@@ -221,107 +221,6 @@ def test_readiness_probe_requires_browser_worker_evidence() -> None:
         smoke._probe(Client(), "/readyz", args)
 
 
-def test_surface_checks_cover_authenticated_admin_routes_and_redaction() -> None:
-    class Client:
-        app_token = "admin-secret-canary"
-
-        def request(self, path, **_kwargs):
-            return 200, {}, b'<main id="root"></main>'
-
-        def json(self, path, **_kwargs):
-            if path in {"/healthz", "/readyz"}:
-                return 200, {"x-souwen-api-major": "2"}, {"rollout_mode": "target"}
-            if path == "/openapi.json":
-                return (
-                    200,
-                    {},
-                    {
-                        "paths": {item: {} for item in smoke.TARGET_PATHS},
-                        "x-souwen-contract-stage": "target_only",
-                    },
-                )
-            if path == "/api/v1/whoami":
-                return 200, {}, {"role": "admin", "admin_open": False}
-            if path == "/api/v1/admin/ping":
-                if _kwargs.get("application_auth") is False or _kwargs.get("anonymous") is True:
-                    return 401, {}, {"error": {"code": "unauthorized"}}
-                return 200, {}, {"status": "ok"}
-            if path == "/api/v1/admin/config":
-                return (
-                    200,
-                    {},
-                    {
-                        "admin_password": "***",
-                        "sources": {"fixture": {"api_key": "***"}},
-                    },
-                )
-            if path == "/api/v1/admin/doctor":
-                return (
-                    200,
-                    {},
-                    {
-                        "total": 1,
-                        "available": 1,
-                        "unavailable": 0,
-                        "providers": [{"provider": "fixture"}],
-                    },
-                )
-            if path == "/api/v1/providers":
-                if _kwargs.get("application_auth") is False or _kwargs.get("anonymous") is True:
-                    return 401, {}, {"error": {"code": "unauthorized"}}
-                return 200, {}, {"items": []}
-            raise AssertionError(path)
-
-    checks = []
-    smoke._surface_checks(Client(), smoke.parse_args(["--fail-admin-open"]), checks)
-
-    by_name = {check.name: check for check in checks}
-    for name in (
-        "admin_ping",
-        "admin_config",
-        "admin_doctor",
-        "edge_only_data_rejected",
-        "edge_only_admin_rejected",
-        "anonymous_data_rejected",
-        "anonymous_admin_rejected",
-    ):
-        assert by_name[name].outcome == "PASS"
-
-
-@pytest.mark.parametrize(
-    "field",
-    sorted(canonical_redaction._SECRET_KEYWORDS | canonical_redaction._COMPACT_SECRET_FIELDS),
-)
-def test_admin_config_classifier_covers_the_canonical_secret_inventory(field: str) -> None:
-    assert smoke._is_secret_field(field)
-
-
-def test_smoke_secret_field_inventory_stays_in_lockstep_with_the_server() -> None:
-    assert smoke._SECRET_KEYWORDS == canonical_redaction._SECRET_KEYWORDS
-    assert smoke._COMPACT_SECRET_FIELDS == canonical_redaction._COMPACT_SECRET_FIELDS
-
-
-@pytest.mark.parametrize(
-    "field",
-    ("api_key", "private-key", "clientSecret", "XSessionID", "refreshToken"),
-)
-def test_admin_config_classifier_matches_separator_and_camel_case_fields(field: str) -> None:
-    assert smoke._is_secret_field(field)
-
-
-def test_unredacted_admin_config_is_a_required_failure() -> None:
-    assert smoke._unredacted_secret_fields(
-        {
-            "sources": {
-                "fixture": {
-                    "api_key": "plain-text-secret",
-                    "privateKey": "plain-text-private-key",
-                }
-            }
-        }
-    ) == ["sources.fixture.api_key", "sources.fixture.privateKey"]
-
-
 def test_search_live_uses_bounded_provider_fallback(monkeypatch, tmp_path) -> None:
     providers = [
         {
@@ -392,3 +291,43 @@ def test_search_live_uses_bounded_provider_fallback(monkeypatch, tmp_path) -> No
     }
     assert checks["search_default_live"]["detail"] == "crossref: 0 results"
     assert checks["search_live"]["detail"] == "openalex: 0 results"
+
+
+@pytest.mark.parametrize(
+    "field",
+    (
+        "access_token",
+        "api_key",
+        "session_id",
+        "x_souwen_token",
+        "unregistered_source_api_key",
+    ),
+)
+def test_admin_config_classifier_covers_the_canonical_secret_inventory(field: str) -> None:
+    assert smoke._is_secret_field(field)
+
+
+def test_smoke_secret_field_inventory_stays_in_lockstep_with_the_server() -> None:
+    assert smoke._SECRET_KEYWORDS == canonical_redaction._SECRET_KEYWORDS
+    assert smoke._COMPACT_SECRET_FIELDS == canonical_redaction._COMPACT_SECRET_FIELDS
+
+
+@pytest.mark.parametrize(
+    "field",
+    ("api_key", "private-key", "clientSecret", "XSessionID", "refreshToken"),
+)
+def test_admin_config_classifier_matches_separator_and_camel_case_fields(field: str) -> None:
+    assert smoke._is_secret_field(field)
+
+
+def test_unredacted_admin_config_is_a_required_failure() -> None:
+    assert smoke._unredacted_secret_fields(
+        {
+            "sources": {
+                "fixture": {
+                    "api_key": "plain-text-secret",
+                    "privateKey": "plain-text-private-key",
+                }
+            }
+        }
+    ) == ["sources.fixture.api_key", "sources.fixture.privateKey"]

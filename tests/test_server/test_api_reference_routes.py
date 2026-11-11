@@ -25,5 +25,6 @@ def test_api_reference_does_not_document_retired_routes() -> None:
         "/api/v1/citations/count",
         "/api/v1/admin/warp",
         "/api/v1/admin/sources/config",
+        "/api/v1/whoami",
     ):
         assert f"`{path}`" not in text

@@ -159,7 +159,10 @@ class TestDefaults:
         cfg = SouWenConfig()
         assert "api_password" not in SouWenConfig.model_fields
         assert "visitor_password" not in SouWenConfig.model_fields
+        assert "admin_password" not in SouWenConfig.model_fields
+        assert "guest_enabled" not in SouWenConfig.model_fields
         assert not hasattr(cfg, "effective_visitor_password")
+        assert not hasattr(cfg, "effective_admin_password")
 
     def test_all_api_keys_default_none(self):
         """所有 API Key 字段默认 None"""
@@ -168,7 +171,9 @@ class TestDefaults:
         for field in key_fields:
             assert getattr(cfg, field) is None, f"{field} 应默认为 None"
 
-    @pytest.mark.parametrize("field_name", ["api_password", "visitor_password"])
+    @pytest.mark.parametrize(
+        "field_name", ["api_password", "visitor_password", "admin_password", "guest_enabled"]
+    )
     def test_retired_auth_model_fields_are_rejected(self, field_name):
         """直接构造配置时，旧认证字段也不能被静默接受。"""
         with pytest.raises(ValueError, match=field_name):
@@ -217,7 +222,7 @@ class TestEnvOverride:
     @pytest.mark.parametrize(
         ("env_name", "replacement"),
         [
-            ("SOUWEN_API_PASSWORD", "SOUWEN_USER_PASSWORD / SOUWEN_ADMIN_PASSWORD"),
+            ("SOUWEN_API_PASSWORD", "SOUWEN_USER_PASSWORD"),
             ("SOUWEN_VISITOR_PASSWORD", "SOUWEN_USER_PASSWORD"),
         ],
     )
@@ -250,12 +255,12 @@ class TestEnvOverride:
         """旧模板中空的认证占位字段不应阻断启动。"""
         monkeypatch.chdir(tmp_path)
         (tmp_path / "souwen.yaml").write_text(
-            "server:\n  api_password: ~\n  visitor_password: ''\n  admin_password: admin\n",
+            "server:\n  api_password: ~\n  visitor_password: ''\n",
             encoding="utf-8",
         )
         cfg = reload_config()
         try:
-            assert cfg.admin_password == "admin"
+            assert cfg.user_password is None
         finally:
             get_config.cache_clear()
 
@@ -266,7 +271,6 @@ class TestEnvOverride:
         cfg = reload_config()
         try:
             assert cfg.user_password is None
-            assert cfg.admin_password is None
         finally:
             get_config.cache_clear()
 

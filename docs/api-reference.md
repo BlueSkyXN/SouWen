@@ -111,19 +111,7 @@ Panel 为降低日常操作成本固定发送 `fallback`；SDK/API caller 可以
 IP-pinned builtin Fetch 只广告 `gzip, deflate`，并在 raw stream 上增量解码；解压后正文达到
 `10 MiB + 1 byte` 时立即关闭 stream 并返回 `payload_too_large`，不会先完整缓冲压缩响应。
 
-## Admin 与 probes
-
-Admin 仅保留 read-only：
-
-| Method | Path | 说明 |
-|---|---|---|
-| GET | `/api/v1/admin/config` | 脱敏配置视图 |
-| GET | `/api/v1/admin/doctor` | Provider 静态 eligibility 与 availability |
-| GET | `/api/v1/admin/ping` | 认证后的轻量存活检查 |
-| GET | `/api/v1/whoami` | 当前角色与 feature projection |
-
-Admin endpoints 必须使用 admin credential。没有密码的 admin access 只在服务端显式设置
-`SOUWEN_ADMIN_OPEN=1` 时存在，HFS production 不允许开启。
+## Probes
 
 `/healthz` 与 `/readyz` 不代表业务匿名开放。`/readyz` 还要求 Browser Worker、目标配置和
 required components ready；部署验收应同时检查 HTTP 200、`rollout_mode=target`、source/wrapper

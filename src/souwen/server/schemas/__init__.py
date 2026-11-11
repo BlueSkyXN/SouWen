@@ -1,12 +1,5 @@
 """Retained host-only schemas."""
 
-from .admin import AdminConfigResponse, AdminPingResponse, DoctorResponse
-from .common import ErrorResponse, WhoamiResponse
+from .common import ErrorResponse
 
-__all__ = [
-    "AdminConfigResponse",
-    "AdminPingResponse",
-    "DoctorResponse",
-    "ErrorResponse",
-    "WhoamiResponse",
-]
+__all__ = ["ErrorResponse"]

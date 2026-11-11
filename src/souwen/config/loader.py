@@ -24,13 +24,16 @@ except ImportError:  # pragma: no cover
     yaml = None  # type: ignore[assignment]
 
 _RETIRED_AUTH_FIELDS = {
-    "api_password": "server.user_password / server.admin_password",
+    "api_password": "server.user_password",
     "visitor_password": "server.user_password",
 }
 _RETIRED_AUTH_ENV_KEYS = {
-    "SOUWEN_API_PASSWORD": "SOUWEN_USER_PASSWORD / SOUWEN_ADMIN_PASSWORD",
+    "SOUWEN_API_PASSWORD": "SOUWEN_USER_PASSWORD",
     "SOUWEN_VISITOR_PASSWORD": "SOUWEN_USER_PASSWORD",
 }
+# admin 角色已移除；残留的 SOUWEN_ADMIN_PASSWORD 环境变量不再有消费者，
+# 静默忽略以便旧部署（Space Secrets）平滑迁移，而不是让启动失败。
+_IGNORED_AUTH_ENV_KEYS = ("SOUWEN_ADMIN_PASSWORD", "SOUWEN_ADMIN_OPEN")
 _RETIRED_FEATURE_ENV_KEYS = {
     "SOUWEN_UNPAYWALL_EMAIL": "Unpaywall provider 已退休",
 }
