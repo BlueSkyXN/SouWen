@@ -158,7 +158,6 @@ docker run -p 8000:49265 \
 `/app/souwen.yaml` 是应用配置；`/app/data` 只用于 WARP/runtime persistence。
 
 **HuggingFace Spaces**：参见 `cloud/hfs/` 与 [docs/hf-space-cd.md](docs/hf-space-cd.md)。
-根级 [`hfs-dev.toml`](hfs-dev.toml) 是 registry-only 部署登记：记录 source lane、Space ID、
 workflow ownership 和当前 Space setting 名称，不保存任何真实凭据值，也不授权通用同步工具
 修改远端设置；当前参考 `hf_space_sync.py` 会在读取 `.env` 或联网前拒绝该 manifest。它采用当前
 HFS v2.1 draft schema（正式公开基线仍为 v2.0），并登记 gitignored、`0600` 的

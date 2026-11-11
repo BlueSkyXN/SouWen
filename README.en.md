@@ -159,7 +159,6 @@ docker run -p 8000:49265 \
 `/app/souwen.yaml` is the application config; `/app/data` is only for WARP/runtime persistence.
 
 **HuggingFace Spaces**: see `cloud/hfs/` and [docs/hf-space-cd.md](docs/hf-space-cd.md).
-The root [`hfs-dev.toml`](hfs-dev.toml) is a registry-only deployment record for the
 source lane, Space ID, workflow ownership, and current Space-setting names. It stores
 no credential values and does not authorize a generic sync tool to change remote settings;
 the current reference `hf_space_sync.py` rejects it before reading `.env` or using the network.

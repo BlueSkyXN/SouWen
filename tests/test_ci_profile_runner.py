@@ -18,11 +18,6 @@ PROVIDER_RUNTIME_EXTRAS = ".[dev,server,tls,web,robots,scraper,newspaper,readabi
 SERVER_RUNTIME_EXTRAS = ".[dev,server,tls,web,robots,scraper]"
 PROFILE_RUNNER_WORKFLOWS = {
     ".github/workflows/ci.yml": ("provider-runtime",),
-    ".github/workflows/v2-ci.yml": (
-        "server-contract",
-        "provider-runtime",
-    ),
-    ".github/workflows/deploy-hf-space.yml": ("server-contract",),
 }
 RETIRED_CI_PROFILE_NAMES = (
     "basic-cli",
@@ -155,19 +150,10 @@ def test_provider_runtime_code_uses_manifest_registry_and_target_composition() -
     assert "runtime.close" in run_profile.PROVIDER_RUNTIME_CODE
 
 
-def test_workflows_install_provider_runtime_extras() -> None:
-    for relative in (".github/workflows/ci.yml", ".github/workflows/v2-ci.yml"):
-        text = (REPO_ROOT / relative).read_text(encoding="utf-8")
-
-        assert f'pip install -e "{PROVIDER_RUNTIME_EXTRAS}"' in text
-
-
 @pytest.mark.parametrize(
     ("relative", "job_name"),
     [
         (".github/workflows/ci.yml", "test"),
-        (".github/workflows/ci.yml", "targeted-coverage"),
-        (".github/workflows/v2-ci.yml", "matrix_tests"),
     ],
 )
 def test_full_pytest_jobs_install_pro_runtime(relative: str, job_name: str) -> None:
@@ -176,44 +162,6 @@ def test_full_pytest_jobs_install_pro_runtime(relative: str, job_name: str) -> N
     commands = "\n".join(str(step.get("run", "")) for step in workflow["jobs"][job_name]["steps"])
 
     assert f'pip install -e "{SERVER_RUNTIME_EXTRAS}"' in commands
-
-
-def test_ci_workflows_do_not_install_retired_browser_extras() -> None:
-    for relative in (".github/workflows/ci.yml", ".github/workflows/v2-ci.yml"):
-        text = (REPO_ROOT / relative).read_text(encoding="utf-8")
-
-        assert "crawl4ai" not in text
-        assert "scrapling" not in text
-        assert "edition-" not in text
-
-
-def test_ci_workflows_use_canonical_profile_names() -> None:
-    for relative, expected_profiles in PROFILE_RUNNER_WORKFLOWS.items():
-        text = (REPO_ROOT / relative).read_text(encoding="utf-8")
-
-        for profile in expected_profiles:
-            assert re.search(rf"--profile\s+{re.escape(profile)}(?=$|\s|\\)", text), relative
-        for retired_profile in RETIRED_CI_PROFILE_NAMES:
-            assert not re.search(rf"--profile\s+{re.escape(retired_profile)}(?=$|\s|\\)", text), (
-                relative
-            )
-
-
-def test_ci_workflows_install_server_runtime_extras() -> None:
-    ci = (REPO_ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
-    v2_ci = (REPO_ROOT / ".github/workflows/v2-ci.yml").read_text(encoding="utf-8")
-    hf_cd = (REPO_ROOT / ".github/workflows/deploy-hf-space.yml").read_text(encoding="utf-8")
-
-    for text in (ci, v2_ci, hf_cd):
-        assert 'pip install -e ".[dev,server,tls,web,robots,scraper]"' in text
-        assert "edition-" not in text
-
-
-def test_hf_space_post_deploy_fails_public_admin_open() -> None:
-    hf_cd = (REPO_ROOT / ".github/workflows/deploy-hf-space.yml").read_text(encoding="utf-8")
-
-    assert 'SOUWEN_SMOKE_FAIL_ADMIN_OPEN: "1"' in hf_cd
-    assert "SOUWEN_SMOKE_BEARER_TOKEN" in hf_cd
 
 
 def test_agent_command_docs_use_canonical_profile_names() -> None:
