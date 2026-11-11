@@ -13,7 +13,7 @@ from souwen.platform.manifest_registry.models import ProviderManifest
 from souwen.platform.manifest_registry.registry import ManifestRegistry
 
 
-_FIXTURE = Path(__file__).parent / "contracts" / "fixtures" / "target_provider_manifest_v2.json"
+_FIXTURE = Path(__file__).parent / "fixtures" / "target_provider_manifest_v2.json"
 
 
 def _manifest() -> dict[str, object]:

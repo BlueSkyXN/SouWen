@@ -1,11 +1,5 @@
-"""SouWen target SDK package."""
+"""SouWen: free search and fetch for AI agents."""
 
 __version__ = "2.0.0rc6"
 
-from souwen.delivery.client_sdk import AsyncSouWenClient, SouWenClient
-
-__all__ = [
-    "SouWenClient",
-    "AsyncSouWenClient",
-    "__version__",
-]
+__all__ = ["__version__"]

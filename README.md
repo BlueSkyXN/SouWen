@@ -91,7 +91,6 @@ with SouWenClient("http://127.0.0.1:8000", token="your-user-token") as client:
 ```
 
 SDK 同时提供 `AsyncSouWenClient`，并在首次业务请求前以 `/healthz` 校验 API major 2。
-完整认证、HFS 双 token 和错误处理见 [Python SDK 文档](docs/python-sdk.md)。
 
 ### API Server
 
@@ -185,8 +184,6 @@ HFS v2.1 draft schema（正式公开基线仍为 v2.0），并登记 gitignored�
 - [docs/anti-scraping.md](docs/anti-scraping.md) — TLS 指纹 / WARP / 限流
 - [docs/adding-a-source.md](docs/adding-a-source.md) — 新增数据源指南
 - [docs/contributing.md](docs/contributing.md) — 开发者指南
-- [docs/internal/rc-readiness-gates.md](docs/internal/rc-readiness-gates.md) — v2.0.0rc6 固定门禁与 evidence manifest 契约
-- [docs/internal/](docs/internal/) — 维护者 ADR、分支策略和发布前基线
 - [CHANGELOG.md](CHANGELOG.md) — 版本变更
 
 ## 🤝 贡献

@@ -487,7 +487,6 @@ Doctor/catalog/admin source 诊断只报告缺少的配置路径，不显示 API
 base URL。正式 HFS promotion 必须显式启用一个 LLM Search Provider，并声明具体 gateway 值或
 精确 `${VAR}` 引用；post-deploy capability smoke 会验证引用已在 Space 中解析并真实调用该
 Provider。完整 foundation contract 见
-[LLM Search Foundation SPEC](./internal/llm-search-foundation-spec.md)。
 
 ## Docker 专用环境变量
 

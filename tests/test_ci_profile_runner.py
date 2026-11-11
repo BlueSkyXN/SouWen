@@ -19,11 +19,10 @@ SERVER_RUNTIME_EXTRAS = ".[dev,server,tls,web,robots,scraper]"
 PROFILE_RUNNER_WORKFLOWS = {
     ".github/workflows/ci.yml": ("provider-runtime",),
     ".github/workflows/v2-ci.yml": (
-        "sdk-contract",
         "server-contract",
         "provider-runtime",
     ),
-    ".github/workflows/deploy-hf-space.yml": ("sdk-contract", "server-contract"),
+    ".github/workflows/deploy-hf-space.yml": ("server-contract",),
 }
 RETIRED_CI_PROFILE_NAMES = (
     "basic-cli",
@@ -39,7 +38,7 @@ def test_list_profiles(capsys):
     assert run_profile.main(["--list-profiles"]) == 0
 
     output = set(capsys.readouterr().out.splitlines())
-    assert output == {"sdk-contract", "server-contract", "provider-runtime"}
+    assert output == {"server-contract", "provider-runtime"}
 
 
 def test_main_requires_profile():
@@ -63,7 +62,7 @@ def test_run_profiles_records_success(monkeypatch, tmp_path):
     exit_code = run_profile.main(
         [
             "--profile",
-            "sdk-contract",
+            "server-contract",
             "--json-report",
             str(json_report),
             "--markdown-report",
@@ -72,13 +71,13 @@ def test_run_profiles_records_success(monkeypatch, tmp_path):
     )
 
     assert exit_code == 0
-    assert len(calls) == len(run_profile.PROFILE_COMMANDS["sdk-contract"])
+    assert len(calls) == len(run_profile.PROFILE_COMMANDS["server-contract"])
     payload = json.loads(json_report.read_text(encoding="utf-8"))
     assert payload["script"] == "ci_profile_runner"
-    assert payload["mode"] == "sdk-contract"
+    assert payload["mode"] == "server-contract"
     assert payload["overall"] == "PASS"
-    assert payload["checks"][0]["name"].startswith("sdk-contract/")
-    assert payload["environment"]["profiles"] == ["sdk-contract"]
+    assert payload["checks"][0]["name"].startswith("server-contract/")
+    assert payload["environment"]["profiles"] == ["server-contract"]
     assert "Overall: **PASS**" in markdown_report.read_text(encoding="utf-8")
 
 
@@ -118,7 +117,7 @@ def test_main_returns_two_when_report_write_fails(monkeypatch, tmp_path, capsys)
     exit_code = run_profile.main(
         [
             "--profile",
-            "sdk-contract",
+            "server-contract",
             "--json-report",
             str(tmp_path / "profile.json"),
         ]
@@ -154,72 +153,6 @@ def test_provider_runtime_code_uses_manifest_registry_and_target_composition() -
     assert "capability_adapters" not in run_profile.PROVIDER_RUNTIME_CODE
     assert "== 110" in run_profile.PROVIDER_RUNTIME_CODE
     assert "runtime.close" in run_profile.PROVIDER_RUNTIME_CODE
-
-
-def test_sdk_contract_uses_target_contract_dto_and_openapi_artifact_checks() -> None:
-    commands = run_profile.PROFILE_COMMANDS["sdk-contract"]
-    command = commands[0].command
-
-    assert "tests/contracts/test_target_canonical_contract.py" in command
-    assert "tests/contracts/test_target_openapi_artifact.py" in command
-    assert "tests/test_target_canonical_dto.py" in command
-    assert not any("provider" in argument for argument in command if argument.startswith("tests/"))
-    assert commands[1].name == "openapi_artifact_reproducibility"
-    assert commands[1].command == (run_profile.PYTHON, "tools/gen_openapi.py", "--check")
-    assert commands[2].name == "openapi_semantic_contract"
-    assert commands[2].command == (
-        run_profile.PYTHON,
-        "tools/gen_openapi.py",
-        "--semantic-check",
-        "contracts/openapi/souwen-openapi-2.0.0rc6.json",
-    )
-    assert commands[3].name == "python_sdk_reproducibility"
-    assert commands[3].command == (
-        run_profile.PYTHON,
-        "tools/gen_client_sdk.py",
-        "--check",
-    )
-    assert commands[4].name == "python_sdk_contract"
-    assert "tests/test_client_sdk_generator.py" in commands[4].command
-    assert "tests/test_client_sdk_contract.py" in commands[4].command
-    assert commands[5].name == "typescript_sdk_reproducibility"
-    assert commands[5].command == (
-        run_profile.PYTHON,
-        "tools/gen_typescript_sdk.py",
-        "--check",
-    )
-    assert commands[6].name == "typescript_sdk_contract"
-    assert "tests/test_typescript_sdk_generator.py" in commands[6].command
-
-
-def test_v2_ci_checks_reproducibility_and_pr_semantic_openapi_compatibility() -> None:
-    v2_ci = (REPO_ROOT / ".github/workflows/v2-ci.yml").read_text(encoding="utf-8")
-    bootstrap = v2_ci.split("  bootstrap:", maxsplit=1)[1].split("  matrix_tests:", maxsplit=1)[0]
-
-    assert "fetch-depth: 0" in bootstrap
-    assert 'pip install -e ".[dev,server]"' in bootstrap
-    assert "python tools/gen_openapi.py --check" in bootstrap
-    assert "python tools/gen_client_sdk.py --check" in bootstrap
-    assert "python tools/gen_typescript_sdk.py --check" in bootstrap
-    assert "--semantic-check artifacts/openapi-semantic-baseline.json" in bootstrap
-    assert "version rollover baseline $previous_artifact" in bootstrap
-    assert "contracts/openapi/souwen-openapi-2.0.0rc4.json" in bootstrap
-    assert "contracts/openapi/souwen-openapi-2.0.0rc3.json" in bootstrap
-    assert "contracts/openapi/souwen-openapi-2.0.0rc2.json" in bootstrap
-    assert (
-        bootstrap.index("souwen-openapi-2.0.0rc4.json")
-        < bootstrap.index("souwen-openapi-2.0.0rc3.json")
-        < bootstrap.index("souwen-openapi-2.0.0rc2.json")
-    )
-    assert 'git show "$BASE_SHA:$baseline_artifact"' in bootstrap
-    assert "initial baseline; base artifact is absent" in bootstrap
-    assert 'git cat-file -e "$BASE_SHA:$artifact"' in bootstrap
-    assert "approved one-time RC2 target-only OpenAPI cutover" in bootstrap
-    assert "7dbb1f88ada692a757a6800754e3adb06166a305" in bootstrap
-    assert '"removed_schemas": [' in bootstrap
-    assert "tests/test_manifest_registry_v2.py" in bootstrap
-    assert "tests/test_provider_manager_v2.py" in bootstrap
-    assert "tests/registry/test_consistency.py" not in bootstrap
 
 
 def test_workflows_install_provider_runtime_extras() -> None:
@@ -291,7 +224,7 @@ def test_agent_command_docs_use_canonical_profile_names() -> None:
 
     combined_text = "\n".join(path.read_text(encoding="utf-8") for path in agent_docs)
 
-    for profile in ("sdk-contract", "server-contract", "provider-runtime"):
+    for profile in ("server-contract", "provider-runtime"):
         assert re.search(rf"--profile\s+{re.escape(profile)}(?=$|\s|`)", combined_text)
     for retired_profile in RETIRED_CI_PROFILE_NAMES:
         assert not re.search(
@@ -329,19 +262,16 @@ def test_canonical_profiles_do_not_set_edition_environment(monkeypatch):
 
     monkeypatch.setattr(run_profile, "_run_subprocess", fake_run)
 
-    recorder = run_profile.run_profiles(
-        ["sdk-contract", "server-contract", "provider-runtime"], timeout=1
-    )
+    recorder = run_profile.run_profiles(["server-contract", "provider-runtime"], timeout=1)
 
     assert recorder.overall == Outcome.PASS
     assert {check.name.split("/", maxsplit=1)[0] for check in recorder.checks} == {
-        "sdk-contract",
         "server-contract",
         "provider-runtime",
     }
     expected_command_count = sum(
         len(run_profile.PROFILE_COMMANDS[profile])
-        for profile in ("sdk-contract", "server-contract", "provider-runtime")
+        for profile in ("server-contract", "provider-runtime")
     )
     assert captured == [None] * expected_command_count
 

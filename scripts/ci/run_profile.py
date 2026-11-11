@@ -50,65 +50,6 @@ class CommandSpec:
 
 
 PROFILE_COMMANDS: Mapping[str, tuple[CommandSpec, ...]] = {
-    "sdk-contract": (
-        CommandSpec(
-            "canonical_contract",
-            (
-                PYTHON,
-                "-m",
-                "pytest",
-                "tests/contracts/test_target_canonical_contract.py",
-                "tests/contracts/test_target_openapi_artifact.py",
-                "tests/test_target_canonical_dto.py",
-                "-v",
-                "--tb=short",
-            ),
-        ),
-        CommandSpec(
-            "openapi_artifact_reproducibility",
-            (PYTHON, "tools/gen_openapi.py", "--check"),
-        ),
-        CommandSpec(
-            "openapi_semantic_contract",
-            (
-                PYTHON,
-                "tools/gen_openapi.py",
-                "--semantic-check",
-                "contracts/openapi/souwen-openapi-2.0.0rc6.json",
-            ),
-        ),
-        CommandSpec(
-            "python_sdk_reproducibility",
-            (PYTHON, "tools/gen_client_sdk.py", "--check"),
-        ),
-        CommandSpec(
-            "python_sdk_contract",
-            (
-                PYTHON,
-                "-m",
-                "pytest",
-                "tests/test_client_sdk_generator.py",
-                "tests/test_client_sdk_contract.py",
-                "-v",
-                "--tb=short",
-            ),
-        ),
-        CommandSpec(
-            "typescript_sdk_reproducibility",
-            (PYTHON, "tools/gen_typescript_sdk.py", "--check"),
-        ),
-        CommandSpec(
-            "typescript_sdk_contract",
-            (
-                PYTHON,
-                "-m",
-                "pytest",
-                "tests/test_typescript_sdk_generator.py",
-                "-v",
-                "--tb=short",
-            ),
-        ),
-    ),
     "server-contract": (
         CommandSpec(
             "api_surface",

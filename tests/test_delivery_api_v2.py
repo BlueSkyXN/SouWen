@@ -2,9 +2,7 @@
 
 from __future__ import annotations
 
-import json
 import os
-from pathlib import Path
 import subprocess
 import sys
 from dataclasses import dataclass
@@ -191,33 +189,6 @@ def test_standalone_target_app_uses_canonical_404_and_excludes_admin() -> None:
     assert unknown.headers["x-souwen-api-major"] == "2"
     assert admin.status_code == 404
     assert admin.json()["error"]["code"] == "not_found"
-
-
-def test_runtime_openapi_satisfies_the_frozen_target_skeleton() -> None:
-    runtime = _app().client.app.openapi()
-    skeleton = json.loads(
-        (
-            Path(__file__).parent / "contracts" / "fixtures" / "target_openapi_skeleton_v2.json"
-        ).read_text(encoding="utf-8")
-    )
-
-    assert runtime["x-souwen-api-major"] == skeleton["x-souwen-api-major"]
-    assert runtime["x-souwen-contract-stage"] == skeleton["x-souwen-contract-stage"]
-    assert (
-        runtime["components"]["securitySchemes"]["UserToken"]
-        == skeleton["components"]["securitySchemes"]["UserToken"]
-    )
-    assert set(skeleton["components"]["headers"]) <= set(runtime["components"]["headers"])
-    assert set(skeleton["components"]["schemas"]) <= set(runtime["components"]["schemas"])
-    for path, skeleton_path in skeleton["paths"].items():
-        for method, skeleton_operation in skeleton_path.items():
-            operation = runtime["paths"][path][method]
-            assert operation["operationId"] == skeleton_operation["operationId"]
-            assert set(skeleton_operation["responses"]) <= set(operation["responses"])
-            if "security" in skeleton_operation:
-                assert operation["security"] == skeleton_operation["security"]
-            if "x-souwen-alias-of" in skeleton_operation:
-                assert operation["x-souwen-alias-of"] == skeleton_operation["x-souwen-alias-of"]
 
 
 @pytest.mark.parametrize(
@@ -621,92 +592,6 @@ def test_standalone_app_closes_its_injected_runtime() -> None:
         assert client.get("/healthz").status_code == 200
 
     assert closed is True
-
-
-def test_target_host_publishes_canonical_openapi(tmp_path) -> None:
-    repo_src = str(Path(__file__).resolve().parents[1] / "src")
-    script = """
-import json
-import sys
-
-sys.path.insert(0, sys.argv[1])
-
-from souwen.delivery.api.openapi_artifact import canonical_openapi_bytes
-from souwen.server.app import app
-
-def iter_routes(routes, prefix=''):
-    for route in routes:
-        original_router = getattr(route, 'original_router', None)
-        include_context = getattr(route, 'include_context', None)
-        if original_router is not None and include_context is not None:
-            yield from iter_routes(original_router.routes, prefix + include_context.prefix)
-            continue
-        path = getattr(route, 'path', None)
-        if path is not None:
-            yield prefix + path, route
-
-fetch_matches = [
-    route for path, route in iter_routes(app.routes)
-    if path == '/api/v1/fetch'
-    and 'POST' in getattr(route, 'methods', set())
-]
-schema = app.openapi()
-routes = {
-    (path, tuple(sorted(getattr(route, 'methods', ()))))
-    for path, route in iter_routes(app.routes)
-    if path is not None
-}
-print(json.dumps({
-    'runtime_fetch_response_model': fetch_matches[0].response_model.__name__,
-    'openapi_paths': sorted(schema['paths']),
-    'openapi_is_canonical': canonical_openapi_bytes(schema) == canonical_openapi_bytes(),
-    'fetch_operation_id': schema['paths']['/api/v1/fetch']['post']['operationId'],
-    'fetch_request_ref': schema['paths']['/api/v1/fetch']['post']['requestBody'][
-        'content'
-    ]['application/json']['schema']['$ref'],
-    'security_schemes': schema['components']['securitySchemes'],
-    'retired_routes': sorted(
-        path for path, _methods in routes
-        if path in {
-            '/api/v1/search/paper', '/api/v1/doctor',
-            '/api/v1/admin/warp/status', '/api/v1/admin/proxy',
-        }
-    ),
-}, sort_keys=True))
-"""
-    env = {
-        **os.environ,
-        "HOME": str(tmp_path),
-        "USERPROFILE": str(tmp_path),
-        "SOUWEN_SOURCE_SHA": "a" * 40,
-        "PYTHONPATH": os.pathsep.join(
-            path for path in (repo_src, os.environ.get("PYTHONPATH")) if path
-        ),
-    }
-    env.pop("SOUWEN_BROWSER_WORKER_TOKEN", None)
-    completed = subprocess.run(
-        [sys.executable, "-c", script, repo_src],
-        capture_output=True,
-        text=True,
-        env=env,
-    )
-    assert completed.returncode == 0, completed.stderr
-    payload = json.loads(completed.stdout)
-    assert payload["runtime_fetch_response_model"] == "FetchBatch"
-    assert payload["openapi_paths"] == [
-        "/api/v1/fetch",
-        "/api/v1/providers",
-        "/api/v1/search",
-        "/health",
-        "/healthz",
-        "/readiness",
-        "/readyz",
-    ]
-    assert payload["openapi_is_canonical"] is True
-    assert payload["fetch_operation_id"] == "fetch"
-    assert payload["fetch_request_ref"] == "#/components/schemas/FetchRequest"
-    assert payload["security_schemes"] == {"UserToken": {"scheme": "bearer", "type": "http"}}
-    assert payload["retired_routes"] == []
 
 
 def test_target_host_replaces_non_ascii_request_id(tmp_path) -> None:

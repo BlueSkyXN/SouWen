@@ -2,7 +2,6 @@
 
 本文说明 SouWen 的 Hugging Face Space 本地预检、受控 promotion、访问鉴权、provenance
 与失败恢复边界。RC promotion 还必须满足
-[Souwen v2rc6 发布候选门禁](./internal/rc-readiness-gates.md)。未经明确批准，不得同步 Space
 仓库、factory rebuild、修改 secrets 或触发远端 smoke。
 
 ## 部署对象与访问边界

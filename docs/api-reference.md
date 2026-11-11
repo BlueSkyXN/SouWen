@@ -1,14 +1,9 @@
 # API 接口参考
 
-SouWen v2 是 target-only API。canonical contract 有三种查看方式：
+SouWen v2 是 target-only API。API 契约由运行中的服务直接发布：
 
-- 仓库内 frozen artifact：
-  [`contracts/openapi/souwen-openapi-2.0.0rc6.json`](../contracts/openapi/souwen-openapi-2.0.0rc6.json)
-- 当前 HFS Swagger：<https://blueskyxn-souwen.hf.space/docs>
-- 当前 HFS OpenAPI JSON：<https://blueskyxn-souwen.hf.space/openapi.json>
-
-Frozen artifact 对应 immutable source/version；live URLs 对应当前可变部署。两者版本号相同不代表
-source SHA 相同，部署 provenance 应另从 `/healthz`、HF runtime 和 workflow evidence 回读。
+- 运行中实例的 Swagger UI：`/docs`
+- 运行中实例的 OpenAPI JSON：`/openapi.json`
 
 ## Canonical paths
 
@@ -112,7 +107,6 @@ Fetch 一次接受 1–20 个 `http/https` target。`respect_robots` 只能保�
 更好结果时保留为 partial item。`strategy=fanout` 对每个 `target × provider` 组合并发执行，
 按 target-major、provider-minor 顺序返回独立 `FetchResult`，不合并不同 Provider 的正文。
 Panel 为降低日常操作成本固定发送 `fallback`；SDK/API caller 可以显式请求 `fanout`。完整执行
-语义见 [SPEC-04](./internal/spec-04-fetch-module-lld.md)。
 
 IP-pinned builtin Fetch 只广告 `gzip, deflate`，并在 raw stream 上增量解码；解压后正文达到
 `10 MiB + 1 byte` 时立即关闭 stream 并返回 `payload_too_large`，不会先完整缓冲压缩响应。

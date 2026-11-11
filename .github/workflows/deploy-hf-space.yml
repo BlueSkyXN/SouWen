@@ -246,7 +246,6 @@ jobs:
         run: |
           mkdir -p artifacts
           python scripts/ci/run_profile.py \
-            --profile sdk-contract \
             --profile server-contract \
             --json-report artifacts/hfs-delivery-contracts.json \
             --markdown-report artifacts/hfs-delivery-contracts.md

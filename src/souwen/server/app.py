@@ -67,7 +67,6 @@ from souwen.delivery.api import (
 from souwen.delivery.api.errors import error_response as target_error_response
 from souwen.delivery.api.errors import from_http_status as target_error_from_http_status
 from souwen.delivery.api.middleware import TargetContractHeadersMiddleware, is_target_contract_path
-from souwen.delivery.api.openapi_artifact import build_target_openapi_document
 from souwen.logging_config import setup_logging
 from souwen.common_runtime.observability import get_request_id
 from souwen.server.auth import check_target_user_auth, is_admin_open_enabled
@@ -217,12 +216,6 @@ app.include_router(router, prefix="/api/v1")
 app.include_router(admin_router, prefix="/api/v1/admin")
 app.include_router(create_probe_router(_readiness_check, _runtime_metadata))
 
-
-def _target_openapi():
-    return build_target_openapi_document(__version__)
-
-
-app.openapi = _target_openapi
 
 # --- 全局异常处理器（统一 ErrorResponse 格式）---
 

@@ -5,7 +5,6 @@
 [warp-solutions.md](./warp-solutions.md)。
 
 发布候选的容器、远端 CI、HFS promotion 和资产验收必须遵循
-[Souwen v2rc6 发布候选门禁](./internal/rc-readiness-gates.md)。该门禁文档只固定规则；
 candidate SHA、run URL、checksum、SBOM/provenance 和执行结论写入候选专属的
 `release-manifest.json` artifact，不提交运行结果到仓库。
 

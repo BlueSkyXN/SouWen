@@ -353,7 +353,6 @@ jobs:
         run: |
           mkdir -p artifacts
           python scripts/ci/run_profile.py \
-            --profile sdk-contract \
             --profile server-contract \
             --json-report artifacts/v2-delivery-contracts.json \
             --markdown-report artifacts/v2-delivery-contracts.md

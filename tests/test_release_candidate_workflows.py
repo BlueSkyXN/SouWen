@@ -615,20 +615,6 @@ def test_ruff_toolchain_version_is_pinned_consistently() -> None:
         assert "pip install ruff\n" not in workflow
 
 
-def test_container_smokes_require_the_canonical_openapi_title() -> None:
-    contract = json.loads(
-        (REPO_ROOT / "contracts/openapi/souwen-openapi-2.0.0rc6.json").read_text(encoding="utf-8")
-    )
-    expected_assertion = f'.info.title == "{contract["info"]["title"]}"'
-    containers = (
-        _job(_workflow("release-candidate.yml"), "container", "promotion-gate"),
-        _job(_workflow("ci.yml"), "container-surface", "aggregate"),
-    )
-
-    for container in containers:
-        assert expected_assertion in container
-
-
 def test_hfs_reusable_promotion_is_candidate_pinned_and_live_verified() -> None:
     text = _workflow("deploy-hf-space.yml")
     candidate_expression = (

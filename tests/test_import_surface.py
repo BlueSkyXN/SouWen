@@ -13,16 +13,13 @@ def test_new_public_import_surface():
     from souwen.providers.runtime_clients.local_catalog import LocalCatalog
     from souwen.providers.runtime_clients.web.fetch import validate_fetch_url
     from souwen.providers.runtime_clients.web.wayback import WaybackClient
-    from souwen import AsyncSouWenClient, SouWenClient
 
-    assert set(souwen.__all__) == {"__version__", "SouWenClient", "AsyncSouWenClient"}
+    assert souwen.__all__ == ["__version__"]
     assert callable(validate_fetch_url)
     assert SouWenHttpClient.__name__ == "SouWenHttpClient"
     assert BaseScraper.__name__ == "BaseScraper"
     assert WaybackClient.__name__ == "WaybackClient"
     assert LocalCatalog.__name__ == "LocalCatalog"
-    assert SouWenClient.__name__ == "SouWenClient"
-    assert AsyncSouWenClient.__name__ == "AsyncSouWenClient"
 
 
 @pytest.mark.parametrize(

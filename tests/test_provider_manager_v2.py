@@ -28,7 +28,7 @@ from souwen.platform.provider_spi import (
 )
 
 
-_FIXTURE = Path(__file__).parent / "contracts" / "fixtures" / "target_provider_manifest_v2.json"
+_FIXTURE = Path(__file__).parent / "fixtures" / "target_provider_manifest_v2.json"
 
 
 def _manifest(

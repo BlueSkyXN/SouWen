@@ -126,9 +126,8 @@
 - 当前产品/Release 展示名固定为 **Souwen v2rc2**，Python/runtime 为 `2.0.0rc2`，
   Panel 为 `2.0.0-rc2`。Annotated tag `v2.0.0rc2` 与 GitHub prerelease 已发布，
   并精确指向 source `19871b1bbae8f2af65fdd0bb418f6275dc4061d0`。
-- Go / No-Go 规则固定在
-  [`docs/internal/rc-readiness-gates.md`](docs/internal/rc-readiness-gates.md)。所有 required
-  gate 必须绑定同一个 candidate SHA；run URL、checksum、SBOM/provenance 与结论由
+- Go / No-Go 规则固定在 docs/internal/rc-readiness-gates.md（该文档随内部规格文档一并移除）。
+  所有 required gate 必须绑定同一个 candidate SHA；run URL、checksum、SBOM/provenance 与结论由
   `release-manifest.json` artifact 承载，不把一次性运行结果提交到仓库。
 - 正式 release workflow `30223391225` 在同一 candidate SHA 上完成四个平台 Server
   bundle、wheel/sdist、OpenAPI、SBOM、checksums、attestation、HFS promotion 及
