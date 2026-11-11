@@ -12,7 +12,6 @@ from fastapi.responses import JSONResponse
 
 from souwen.common_runtime.observability import get_request_id, get_source_sha
 from souwen.modules.fetch.api import FetchBatch, FetchModule, FetchRequest
-from souwen.modules.llm_search.api import LLMSearchModule, LLMSearchRequest, LLMSearchResult
 from souwen.modules.search.api import SearchModule, SearchPage, SearchRequest
 from souwen.platform.provider_spi import (
     ErrorResponse,
@@ -53,7 +52,6 @@ class RuntimeMetadata:
 @dataclass(frozen=True, slots=True)
 class TargetDeliveryServices:
     search: SearchModule
-    llm_search: LLMSearchModule
     fetch: FetchModule
     provider_items: tuple[ProviderCatalogItem, ...]
     readiness: ReadinessCheck
@@ -102,24 +100,6 @@ def create_target_api_router(
                 payload,
                 context,
                 ExecutionContext.with_timeout(30),
-            )
-        except ProviderError as exc:
-            raise from_provider_error(exc) from None
-
-    @router.post(
-        "/llm-search",
-        response_model=LLMSearchResult,
-        operation_id="llmSearch",
-        responses={code: _ERROR for code in (400, 401, 409, 429, 502, 504)},
-    )
-    async def llm_search(payload: LLMSearchRequest) -> LLMSearchResult:
-        timeout = payload.budget.timeout_seconds if payload.budget else 90
-        context = _context()
-        try:
-            return await services.llm_search.search(
-                payload,
-                context,
-                ExecutionContext.with_timeout(timeout),
             )
         except ProviderError as exc:
             raise from_provider_error(exc) from None

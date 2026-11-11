@@ -45,7 +45,6 @@ local_only = [
 secrets = [
   "SOUWEN_ADMIN_PASSWORD",
   "SOUWEN_CONFIG_B64",
-  "UNIAPI_API_KEY",
 ]
 variables = []
 
@@ -55,7 +54,6 @@ variables = []
 workflow_owned_secrets = [
   "SOUWEN_ADMIN_PASSWORD",
   "SOUWEN_CONFIG_B64",
-  "UNIAPI_API_KEY",
 ]
 
 # SOUWEN_CONFIG_B64 also exists in the GitHub hf environment for release

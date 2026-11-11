@@ -21,19 +21,11 @@ def test_checked_in_data_sources_matches_generator():
 def test_manifest_snapshot_drives_release_candidate_metrics():
     snapshot = gen_docs._load_snapshot()
 
-    assert snapshot.package_count == 104
-    assert snapshot.adapter_count == 110
-    assert snapshot.capability_count("search") == 88
-    assert snapshot.capability_count("llm_search") == 2
-    assert snapshot.capability_count("fetch") == 20
-    assert [manifest.id for manifest in snapshot.multi_capability] == [
-        "exa",
-        "firecrawl",
-        "kimi_code",
-        "metaso",
-        "tavily",
-        "xcrawl",
-    ]
+    assert snapshot.package_count == 71
+    assert snapshot.adapter_count == 71
+    assert snapshot.capability_count("search") == 64
+    assert snapshot.capability_count("fetch") == 7
+    assert [manifest.id for manifest in snapshot.multi_capability] == []
 
 
 def test_checked_in_managed_regions_match_registry():

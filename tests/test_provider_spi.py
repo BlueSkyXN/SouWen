@@ -10,12 +10,10 @@ from pathlib import Path
 import pytest
 
 from souwen.modules.fetch.api import FetchModule
-from souwen.modules.llm_search.api import LLMSearchModule
 from souwen.modules.search.api import SearchModule
 from souwen.platform.provider_spi import (
     ExecutionContext,
     FetchProvider,
-    LLMSearchProvider,
     ProviderError,
     ProviderErrorCode,
     SearchProvider,
@@ -24,19 +22,6 @@ from souwen.platform.provider_spi import (
 
 class _SearchAdapter:
     capability = "search"
-
-    async def search(self, request, context, execution):  # noqa: ANN001
-        raise NotImplementedError
-
-    async def probe(self, execution):  # noqa: ANN001
-        raise NotImplementedError
-
-    async def close(self) -> None:
-        return None
-
-
-class _LLMSearchAdapter:
-    capability = "llm_search"
 
     async def search(self, request, context, execution):  # noqa: ANN001
         raise NotImplementedError
@@ -63,10 +48,8 @@ class _FetchAdapter:
 
 def test_each_adapter_protocol_has_one_capability() -> None:
     assert isinstance(_SearchAdapter(), SearchProvider)
-    assert isinstance(_LLMSearchAdapter(), LLMSearchProvider)
     assert isinstance(_FetchAdapter(), FetchProvider)
     assert SearchProvider.__dict__["__annotations__"]["capability"] == "Literal['search']"
-    assert LLMSearchProvider.__dict__["__annotations__"]["capability"] == "Literal['llm_search']"
     assert FetchProvider.__dict__["__annotations__"]["capability"] == "Literal['fetch']"
 
 
@@ -108,13 +91,11 @@ def test_provider_errors_expose_only_safe_taxonomy() -> None:
 
 def test_module_public_api_imports_only_provider_spi() -> None:
     assert SearchModule.__module__ == "souwen.modules.search.api"
-    assert LLMSearchModule.__module__ == "souwen.modules.llm_search.api"
     assert FetchModule.__module__ == "souwen.modules.fetch.api"
 
     root = Path(__file__).resolve().parents[1]
     for path in (
         root / "src/souwen/modules/search/api/__init__.py",
-        root / "src/souwen/modules/llm_search/api/__init__.py",
         root / "src/souwen/modules/fetch/api/__init__.py",
     ):
         imports = [

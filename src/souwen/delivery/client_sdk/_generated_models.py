@@ -1,7 +1,7 @@
 """Generated from contracts/openapi/souwen-openapi-2.0.0rc6.json; do not edit."""
 
 # generator_version=1
-# openapi_sha256=6efad01d446b3dfe1fbda30ba58a5818696212dbcacd692268fcb9f57ff42106
+# openapi_sha256=b11642a641558401f1cb6790af41e331da75add0efbd6494606db0a011e53509
 
 from __future__ import annotations
 
@@ -73,17 +73,6 @@ class ErrorResponse(_StrictModel):
     error: ErrorDetail
 
 
-class EvidenceItem(_StrictModel):
-    "Verifiable public evidence attached to an LLM Search item."
-
-    id: str = Field(min_length=1, max_length=512)
-    item_id: str = Field(min_length=1, max_length=512)
-    provider: str = Field(min_length=1, max_length=128)
-    public_url: AnyUrl = Field(min_length=1)
-    retrieved_at: datetime
-    title_or_snippet: str = Field(min_length=1, max_length=20000)
-
-
 class FetchBatch(_StrictModel):
     "Canonical Fetch batch emitted by a Fetch provider or Core module."
 
@@ -137,43 +126,6 @@ class HTTPValidationError(_OpenModel):
     detail: list[ValidationError] | None = None
 
 
-class LLMFetchOptions(_StrictModel):
-    "Bounded request to enable a separately secured downstream Fetch step."
-
-    enabled: bool = True
-
-
-class LLMSearchBudget(_StrictModel):
-    "Execution limits, not a billing promise."
-
-    max_attempts: int | None = Field(default=None, ge=1.0)
-    timeout_seconds: float | None = Field(default=None, le=120.0, gt=0.0)
-
-
-class LLMSearchRequest(_StrictModel):
-    "Canonical single-operation LLM Search input."
-
-    budget: LLMSearchBudget | None = None
-    fetch: LLMFetchOptions | None = None
-    max_results_per_provider: int | None = Field(default=None, ge=1.0)
-    providers: list[ProviderRef] = Field(min_length=1)
-    query: str = Field(min_length=1, max_length=4096)
-    strategy: Literal["single", "fanout", "first_success"]
-    synthesis_profile: str | None = Field(default=None, min_length=1, max_length=128)
-
-
-class LLMSearchResult(_StrictModel):
-    "Canonical LLM Search result with evidence and always-present usage."
-
-    answer: str | None = Field(default=None, max_length=100000)
-    context: RequestContext
-    evidence: list[EvidenceItem]
-    items: list[SearchItem]
-    meta: SearchMeta
-    query: str = Field(min_length=1, max_length=4096)
-    usage: Usage
-
-
 class PageInfo(_StrictModel):
     "Opaque continuation information for a canonical page."
 
@@ -220,7 +172,7 @@ class ProviderCatalogItem(_StrictModel):
     "Safe Provider v2 availability without config or secret values."
 
     availability: Literal["available", "unavailable"]
-    capabilities: list[Literal["search", "llm_search", "fetch"]] = Field(min_length=1)
+    capabilities: list[Literal["search", "fetch"]] = Field(min_length=1)
     missing_fields: list[str] = Field(default_factory=list)
     provenance: list[Provenance] = Field(min_length=1)
     provider: str = Field(min_length=1, max_length=128)
@@ -258,7 +210,7 @@ class ProviderRef(_StrictModel):
 
     display_name: str | None = Field(default=None, min_length=1, max_length=256)
     id: str = Field(min_length=1, max_length=128, pattern="^[A-Za-z0-9][A-Za-z0-9_.-]*$")
-    kind: Literal["search", "llm_search", "fetch"]
+    kind: Literal["search", "fetch"]
 
 
 class RequestContext(_StrictModel):
@@ -311,7 +263,7 @@ class SearchItem(_StrictModel):
 
 
 class SearchMeta(_StrictModel):
-    "Provider outcome summary for Search and LLM Search results."
+    "Provider outcome summary for Search results."
 
     failed: list[ProviderFailure] = Field(default_factory=list)
     partial: bool = False
@@ -349,7 +301,6 @@ class SearchRequest(_StrictModel):
             "images",
             "videos",
             "social",
-            "office",
             "developer",
             "cn_tech",
             "knowledge",
@@ -360,15 +311,6 @@ class SearchRequest(_StrictModel):
     providers: list[ProviderRef] | None = None
     query: str = Field(min_length=1, max_length=4096)
     request_context: ClientRequestContext | None = None
-
-
-class Usage(_StrictModel):
-    "Provider-reported usage only; unknown values are represented by ``None``."
-
-    cost: float | None = Field(default=None, ge=0.0)
-    currency: str | None = Field(default=None, min_length=1, max_length=16)
-    input_tokens: int | None = Field(default=None, ge=0.0)
-    output_tokens: int | None = Field(default=None, ge=0.0)
 
 
 class ValidationError(_OpenModel):
@@ -383,7 +325,6 @@ ClientRequestContext.model_rebuild()
 ContentMetadata.model_rebuild()
 ErrorDetail.model_rebuild()
 ErrorResponse.model_rebuild()
-EvidenceItem.model_rebuild()
 FetchBatch.model_rebuild()
 FetchContentOptions.model_rebuild()
 FetchMeta.model_rebuild()
@@ -391,10 +332,6 @@ FetchPolicyOptions.model_rebuild()
 FetchRequest.model_rebuild()
 FetchResult.model_rebuild()
 HTTPValidationError.model_rebuild()
-LLMFetchOptions.model_rebuild()
-LLMSearchBudget.model_rebuild()
-LLMSearchRequest.model_rebuild()
-LLMSearchResult.model_rebuild()
 PageInfo.model_rebuild()
 ProbeResponse.model_rebuild()
 Provenance.model_rebuild()
@@ -411,7 +348,6 @@ SearchMeta.model_rebuild()
 SearchPage.model_rebuild()
 SearchPageRequest.model_rebuild()
 SearchRequest.model_rebuild()
-Usage.model_rebuild()
 ValidationError.model_rebuild()
 
 
@@ -420,7 +356,6 @@ __all__ = [
     "ContentMetadata",
     "ErrorDetail",
     "ErrorResponse",
-    "EvidenceItem",
     "FetchBatch",
     "FetchContentOptions",
     "FetchMeta",
@@ -428,10 +363,6 @@ __all__ = [
     "FetchRequest",
     "FetchResult",
     "HTTPValidationError",
-    "LLMFetchOptions",
-    "LLMSearchBudget",
-    "LLMSearchRequest",
-    "LLMSearchResult",
     "PageInfo",
     "ProbeResponse",
     "Provenance",
@@ -448,6 +379,5 @@ __all__ = [
     "SearchPage",
     "SearchPageRequest",
     "SearchRequest",
-    "Usage",
     "ValidationError",
 ]

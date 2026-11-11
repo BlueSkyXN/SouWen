@@ -7,8 +7,6 @@ from typing import Literal, Protocol, runtime_checkable
 from souwen.platform.provider_spi.dto import (
     FetchResult,
     FetchTargetRequest,
-    LLMSearchRequest,
-    LLMSearchResult,
     ProviderProbe,
     RequestContext,
     SearchPage,
@@ -36,23 +34,6 @@ class SearchProvider(Protocol):
 
 
 @runtime_checkable
-class LLMSearchProvider(Protocol):
-    """An adapter that implements only the ``llm_search`` capability."""
-
-    capability: Literal["llm_search"]
-
-    async def search(
-        self, request: LLMSearchRequest, context: RequestContext, execution: ExecutionContext
-    ) -> LLMSearchResult:
-        """Return a canonical result or raise a typed ``ProviderError``."""
-
-    async def probe(self, execution: ExecutionContext) -> ProviderProbe:
-        """Perform one bounded, safe, explicitly requested probe."""
-
-    async def close(self) -> None:
-        """Release only owned resources; implementations must be idempotent."""
-
-
 @runtime_checkable
 class FetchProvider(Protocol):
     """An adapter that implements only the ``fetch`` capability."""
@@ -71,4 +52,4 @@ class FetchProvider(Protocol):
         """Release only owned resources; implementations must be idempotent."""
 
 
-__all__ = ["FetchProvider", "LLMSearchProvider", "SearchProvider"]
+__all__ = ["FetchProvider", "SearchProvider"]

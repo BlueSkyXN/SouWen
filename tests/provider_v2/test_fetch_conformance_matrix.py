@@ -10,41 +10,15 @@ from souwen.providers.runtime_clients.models import FetchResult as LegacyFetchRe
 from souwen.platform.provider_spi import FetchTargetRequest
 from souwen.providers.catalog import builtin_provider_manifests
 from souwen.providers.fetch_sources.arxiv_fulltext import ArxivFulltextFetchProvider
-from souwen.providers.fetch_sources.apify import ApifyFetchProvider
-from souwen.providers.fetch_sources.apify import adapter as apify_adapter
-from souwen.providers.fetch_sources.cloudflare import CloudflareFetchProvider
-from souwen.providers.fetch_sources.cloudflare import adapter as cloudflare_adapter
 from souwen.providers.fetch_sources.deepwiki import DeepWikiFetchProvider
 from souwen.providers.fetch_sources.deepwiki import adapter as deepwiki_adapter
-from souwen.providers.fetch_sources.diffbot import DiffbotFetchProvider
-from souwen.providers.fetch_sources.diffbot import adapter as diffbot_adapter
 from souwen.providers.fetch_sources.jina_reader import JinaReaderFetchProvider
 from souwen.providers.fetch_sources.jina_reader import adapter as jina_reader_adapter
 from souwen.providers.fetch_sources.newspaper import NewspaperFetchProvider
 from souwen.providers.fetch_sources.readability import ReadabilityFetchProvider
 from souwen.platform.provider_spec import public_fetch
-from souwen.providers.fetch_sources.scraperapi import ScraperAPIFetchProvider
-from souwen.providers.fetch_sources.scraperapi import adapter as scraperapi_adapter
-from souwen.providers.fetch_sources.scrapfly import ScrapflyFetchProvider
-from souwen.providers.fetch_sources.scrapfly import adapter as scrapfly_adapter
-from souwen.providers.fetch_sources.scrapingbee import ScrapingBeeFetchProvider
-from souwen.providers.fetch_sources.scrapingbee import adapter as scrapingbee_adapter
 from souwen.providers.fetch_sources.wayback import WaybackFetchProvider
 from souwen.providers.fetch_sources.wayback import adapter as wayback_adapter
-from souwen.providers.fetch_sources.zenrows import ZenRowsFetchProvider
-from souwen.providers.fetch_sources.zenrows import adapter as zenrows_adapter
-from souwen.providers.information_sources.exa import ExaFetchProvider
-from souwen.providers.information_sources.exa import adapter as exa_adapter
-from souwen.providers.information_sources.firecrawl import FirecrawlFetchProvider
-from souwen.providers.information_sources.firecrawl import adapter as firecrawl_adapter
-from souwen.providers.information_sources.kimi_code import KimiCodeFetchProvider
-from souwen.providers.information_sources.kimi_code import adapter as kimi_code_adapter
-from souwen.providers.information_sources.metaso import MetasoFetchProvider
-from souwen.providers.information_sources.metaso import adapter as metaso_adapter
-from souwen.providers.information_sources.tavily import TavilyFetchProvider
-from souwen.providers.information_sources.tavily import adapter as tavily_adapter
-from souwen.providers.information_sources.xcrawl import XCrawlFetchProvider
-from souwen.providers.information_sources.xcrawl import adapter as xcrawl_adapter
 from tests.support.provider_v2_conformance import (
     FETCH_CONFORMANCE_CASES,
     FetchConformanceDefinition,
@@ -99,47 +73,21 @@ DEFINITIONS = (
     *(
         _batch_three_definition(provider_id, provider_type)
         for provider_id, provider_type in (
-            ("apify", ApifyFetchProvider),
-            ("cloudflare", CloudflareFetchProvider),
             ("deepwiki", DeepWikiFetchProvider),
-            ("diffbot", DiffbotFetchProvider),
-            ("exa", ExaFetchProvider),
-            ("firecrawl", FirecrawlFetchProvider),
             ("jina_reader", JinaReaderFetchProvider),
-            ("kimi_code", KimiCodeFetchProvider),
-            ("metaso", MetasoFetchProvider),
             ("newspaper", NewspaperFetchProvider),
             ("readability", ReadabilityFetchProvider),
-            ("scraperapi", ScraperAPIFetchProvider),
-            ("scrapfly", ScrapflyFetchProvider),
-            ("scrapingbee", ScrapingBeeFetchProvider),
-            ("tavily", TavilyFetchProvider),
             ("wayback", WaybackFetchProvider),
-            ("xcrawl", XCrawlFetchProvider),
-            ("zenrows", ZenRowsFetchProvider),
         )
     ),
 )
 
 _VALIDATOR_MODULES = {
-    "apify": apify_adapter,
-    "cloudflare": cloudflare_adapter,
     "deepwiki": deepwiki_adapter,
-    "diffbot": diffbot_adapter,
-    "exa": exa_adapter,
-    "firecrawl": firecrawl_adapter,
     "jina_reader": jina_reader_adapter,
-    "kimi_code": kimi_code_adapter,
-    "metaso": metaso_adapter,
     "newspaper": public_fetch,
     "readability": public_fetch,
-    "scraperapi": scraperapi_adapter,
-    "scrapfly": scrapfly_adapter,
-    "scrapingbee": scrapingbee_adapter,
-    "tavily": tavily_adapter,
     "wayback": wayback_adapter,
-    "xcrawl": xcrawl_adapter,
-    "zenrows": zenrows_adapter,
 }
 
 

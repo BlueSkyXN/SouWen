@@ -23,8 +23,6 @@ from souwen.providers.catalog import builtin_provider_manifests
 from souwen.providers.information_sources.arxiv import ArxivSearchProvider
 from souwen.providers.information_sources.biorxiv import BioRxivSearchProvider
 from souwen.providers.information_sources.crossref import CrossrefSearchProvider
-from souwen.providers.information_sources.cnipa import CnipaSearchProvider
-from souwen.providers.information_sources.core import CoreSearchProvider
 from souwen.providers.information_sources.dblp import DblpSearchProvider
 from souwen.providers.information_sources.doaj import DoajSearchProvider
 from souwen.providers.information_sources.eric import EricSearchProvider
@@ -34,43 +32,21 @@ from souwen.providers.information_sources.google_patents import GooglePatentsSea
 from souwen.providers.information_sources.hal import HalSearchProvider
 from souwen.providers.information_sources.huggingface import HuggingFaceSearchProvider
 from souwen.providers.information_sources.iacr import IacrSearchProvider
-from souwen.providers.information_sources.ieee_xplore import IeeeXploreSearchProvider
 from souwen.providers.information_sources.openalex import OpenAlexSearchProvider
 from souwen.providers.information_sources.openaire import OpenAireSearchProvider
 from souwen.providers.information_sources.osti import OstiSearchProvider
 from souwen.providers.information_sources.patentsview import PatentsViewSearchProvider
-from souwen.providers.information_sources.patsnap import PatSnapSearchProvider
-from souwen.providers.information_sources.pqai import PqaiSearchProvider
 from souwen.providers.information_sources.pmc import PmcSearchProvider
 from souwen.providers.information_sources.pubmed import PubMedSearchProvider
 from souwen.providers.information_sources.semantic_scholar import SemanticScholarSearchProvider
-from souwen.providers.information_sources.the_lens import TheLensSearchProvider
 from souwen.providers.information_sources.uspto_odp import UsptoOdpSearchProvider
 from souwen.providers.information_sources.zenodo import ZenodoSearchProvider
-from souwen.providers.information_sources.zotero import ZoteroSearchProvider
-from souwen.providers.information_sources.aliyun_iqs import AliyunIQSSearchProvider
-from souwen.providers.information_sources.brave_api import BraveApiSearchProvider
-from souwen.providers.information_sources.exa import ExaSearchProvider
-from souwen.providers.information_sources.facebook import FacebookSearchProvider
-from souwen.providers.information_sources.feishu_drive import FeishuDriveSearchProvider
-from souwen.providers.information_sources.firecrawl import FirecrawlSearchProvider
 from souwen.providers.information_sources.github import GitHubSearchProvider
-from souwen.providers.information_sources.kimi_code import KimiCodeSearchProvider
-from souwen.providers.information_sources.linkup import LinkupSearchProvider
 from souwen.providers.information_sources.linuxdo import LinuxDoSearchProvider
-from souwen.providers.information_sources.metaso import MetasoSearchProvider
-from souwen.providers.information_sources.perplexity import PerplexitySearchProvider
 from souwen.providers.information_sources.reddit import RedditSearchProvider
-from souwen.providers.information_sources.scrapingdog import ScrapingDogSearchProvider
-from souwen.providers.information_sources.serpapi import SerpApiSearchProvider
-from souwen.providers.information_sources.serper import SerperSearchProvider
 from souwen.providers.information_sources.stackoverflow import StackOverflowSearchProvider
-from souwen.providers.information_sources.tavily import TavilySearchProvider
-from souwen.providers.information_sources.twitter import TwitterSearchProvider
 from souwen.providers.information_sources.wikipedia import WikipediaSearchProvider
-from souwen.providers.information_sources.xcrawl import XCrawlSearchProvider
 from souwen.providers.information_sources.youtube import YouTubeSearchProvider
-from souwen.providers.information_sources.zhipuai import ZhipuAISearchSearchProvider
 from souwen.providers.information_sources.datacite import DataCiteSearchProvider
 from souwen.providers.information_sources.doab import DOABSearchProvider
 from souwen.providers.information_sources.figshare import FigshareSearchProvider
@@ -336,13 +312,10 @@ DEFINITIONS = (
             _response(provider_id, _batch_two_paper(provider_id)),
         )
         for provider_id, provider_type in (
-            ("core", CoreSearchProvider),
             ("doaj", DoajSearchProvider),
-            ("ieee_xplore", IeeeXploreSearchProvider),
             ("openaire", OpenAireSearchProvider),
             ("semantic_scholar", SemanticScholarSearchProvider),
             ("zenodo", ZenodoSearchProvider),
-            ("zotero", ZoteroSearchProvider),
         )
     ),
     *(
@@ -353,40 +326,19 @@ DEFINITIONS = (
             domain="patent",
         )
         for provider_id, provider_type in (
-            ("cnipa", CnipaSearchProvider),
             ("epo_ops", EpoOpsSearchProvider),
-            ("patsnap", PatSnapSearchProvider),
-            ("pqai", PqaiSearchProvider),
-            ("the_lens", TheLensSearchProvider),
             ("uspto_odp", UsptoOdpSearchProvider),
         )
     ),
     *(
         _web_definition(provider_id, provider_type, domain)
         for provider_id, provider_type, domain in (
-            ("aliyun_iqs", AliyunIQSSearchProvider, "web"),
-            ("brave_api", BraveApiSearchProvider, "web"),
-            ("exa", ExaSearchProvider, "web"),
-            ("facebook", FacebookSearchProvider, "social"),
-            ("feishu_drive", FeishuDriveSearchProvider, "office"),
-            ("firecrawl", FirecrawlSearchProvider, "web"),
             ("github", GitHubSearchProvider, "developer"),
-            ("kimi_code", KimiCodeSearchProvider, "web"),
-            ("linkup", LinkupSearchProvider, "web"),
             ("linuxdo", LinuxDoSearchProvider, "cn_tech"),
-            ("metaso", MetasoSearchProvider, "web"),
-            ("perplexity", PerplexitySearchProvider, "web"),
             ("reddit", RedditSearchProvider, "social"),
-            ("scrapingdog", ScrapingDogSearchProvider, "web"),
-            ("serpapi", SerpApiSearchProvider, "web"),
-            ("serper", SerperSearchProvider, "web"),
             ("stackoverflow", StackOverflowSearchProvider, "developer"),
-            ("tavily", TavilySearchProvider, "web"),
-            ("twitter", TwitterSearchProvider, "social"),
             ("wikipedia", WikipediaSearchProvider, "knowledge"),
-            ("xcrawl", XCrawlSearchProvider, "web"),
             ("youtube", YouTubeSearchProvider, "videos"),
-            ("zhipuai", ZhipuAISearchSearchProvider, "web"),
         )
     ),
     *(

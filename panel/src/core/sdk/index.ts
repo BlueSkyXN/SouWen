@@ -1,12 +1,12 @@
 /* Generated from contracts/openapi/souwen-openapi-2.0.0rc6.json; do not edit. */
 /* generator_version=2 */
-/* openapi_sha256=6efad01d446b3dfe1fbda30ba58a5818696212dbcacd692268fcb9f57ff42106 */
+/* openapi_sha256=b11642a641558401f1cb6790af41e331da75add0efbd6494606db0a011e53509 */
 
 export const SDK_VERSION = '2.0.0rc6' as const
 export const SUPPORTED_API_MAJOR = 2 as const
-export const OPENAPI_SHA256 = '6efad01d446b3dfe1fbda30ba58a5818696212dbcacd692268fcb9f57ff42106' as const
+export const OPENAPI_SHA256 = 'b11642a641558401f1cb6790af41e331da75add0efbd6494606db0a011e53509' as const
 export const DEFAULT_TIMEOUT_MS = 125_000
-export const SEARCH_DOMAINS = ["paper", "book", "research_output", "patent", "web", "news", "images", "videos", "social", "office", "developer", "cn_tech", "knowledge"] as const
+export const SEARCH_DOMAINS = ["paper", "book", "research_output", "patent", "web", "news", "images", "videos", "social", "developer", "cn_tech", "knowledge"] as const
 export type SearchDomain = typeof SEARCH_DOMAINS[number]
 
 export interface ClientRequestContext {
@@ -34,15 +34,6 @@ export interface ErrorDetail {
 export interface ErrorResponse {
   context: RequestContext
   error: ErrorDetail
-}
-
-export interface EvidenceItem {
-  id: string
-  item_id: string
-  provider: string
-  public_url: string
-  retrieved_at: string
-  title_or_snippet: string
 }
 
 export interface FetchBatch {
@@ -86,35 +77,6 @@ export interface HTTPValidationError {
   detail?: Array<ValidationError>
 }
 
-export interface LLMFetchOptions {
-  enabled?: boolean
-}
-
-export interface LLMSearchBudget {
-  max_attempts?: number | null
-  timeout_seconds?: number | null
-}
-
-export interface LLMSearchRequest {
-  budget?: LLMSearchBudget | null
-  fetch?: LLMFetchOptions | null
-  max_results_per_provider?: number | null
-  providers: Array<ProviderRef>
-  query: string
-  strategy: "single" | "fanout" | "first_success"
-  synthesis_profile?: string | null
-}
-
-export interface LLMSearchResult {
-  answer?: string | null
-  context: RequestContext
-  evidence: Array<EvidenceItem>
-  items: Array<SearchItem>
-  meta: SearchMeta
-  query: string
-  usage: Usage
-}
-
 export interface PageInfo {
   limit: number
   next_cursor?: string | null
@@ -149,7 +111,7 @@ export interface ProviderCatalog {
 
 export interface ProviderCatalogItem {
   availability: "available" | "unavailable"
-  capabilities: Array<"search" | "llm_search" | "fetch">
+  capabilities: Array<"search" | "fetch">
   missing_fields?: Array<string>
   provenance: Array<Provenance>
   provider: string
@@ -164,7 +126,7 @@ export interface ProviderFailure {
 export interface ProviderRef {
   display_name?: string | null
   id: string
-  kind: "search" | "llm_search" | "fetch"
+  kind: "search" | "fetch"
 }
 
 export interface RequestContext {
@@ -226,19 +188,12 @@ export interface SearchPageRequest {
 }
 
 export interface SearchRequest {
-  domains: Array<"paper" | "book" | "research_output" | "patent" | "web" | "news" | "images" | "videos" | "social" | "office" | "developer" | "cn_tech" | "knowledge">
+  domains: Array<"paper" | "book" | "research_output" | "patent" | "web" | "news" | "images" | "videos" | "social" | "developer" | "cn_tech" | "knowledge">
   filters?: SearchFilters | null
   page?: SearchPageRequest | null
   providers?: Array<ProviderRef> | null
   query: string
   request_context?: ClientRequestContext | null
-}
-
-export interface Usage {
-  cost?: number | null
-  currency?: string | null
-  input_tokens?: number | null
-  output_tokens?: number | null
 }
 
 export interface ValidationError {
@@ -272,7 +227,6 @@ export type OperationBindings = {
 
 export const OPERATIONS: OperationBindings = {
   fetch: { method: 'POST', path: '/api/v1/fetch', requestModel: 'FetchRequest', responseModel: 'FetchBatch', responseStatuses: [200] },
-  llmSearch: { method: 'POST', path: '/api/v1/llm-search', requestModel: 'LLMSearchRequest', responseModel: 'LLMSearchResult', responseStatuses: [200] },
   listProviders: { method: 'GET', path: '/api/v1/providers', requestModel: null, responseModel: 'ProviderCatalog', responseStatuses: [200] },
   search: { method: 'POST', path: '/api/v1/search', requestModel: 'SearchRequest', responseModel: 'SearchPage', responseStatuses: [200] },
   healthAlias: { method: 'GET', path: '/health', requestModel: null, responseModel: 'ProbeResponse', responseStatuses: [200] },

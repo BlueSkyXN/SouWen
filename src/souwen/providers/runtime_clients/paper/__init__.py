@@ -9,7 +9,6 @@
 - ArxivClient: arXiv (无需Key)
 - ArxivFulltextClient: arXiv 论文 HTML 全文（无需 Key）
 - DblpClient: DBLP (无需Key)
-- CoreClient: CORE (需Key)
 - PubMedClient: PubMed (可选Key)
 - HuggingFaceClient: HuggingFace Papers (无需Key，语义搜索 + 社区热度)
 - EuropePmcClient: Europe PMC (无需Key)
@@ -20,7 +19,6 @@
 - OpenAireClient: OpenAIRE (可选Key)
 - IacrClient: IACR ePrint (无需Key，实验性 HTML 爬虫)
 - BioRxivClient: bioRxiv/medRxiv 预印本 (无需Key)
-- IeeeXploreClient: IEEE Xplore (需Key)
 """
 
 from souwen.providers.runtime_clients.paper.openalex import OpenAlexClient
@@ -31,9 +29,7 @@ from souwen.providers.runtime_clients.paper.crossref import CrossrefClient
 from souwen.providers.runtime_clients.paper.arxiv import ArxivClient
 from souwen.providers.runtime_clients.paper.arxiv_fulltext import ArxivFulltextClient
 from souwen.providers.runtime_clients.paper.dblp import DblpClient
-from souwen.providers.runtime_clients.paper.core import CoreClient
 from souwen.providers.runtime_clients.paper.pubmed import PubMedClient
-from souwen.providers.runtime_clients.paper.zotero import ZoteroClient
 from souwen.providers.runtime_clients.paper.huggingface import HuggingFaceClient
 from souwen.providers.runtime_clients.paper.europepmc import EuropePmcClient
 from souwen.providers.runtime_clients.paper.pmc import PmcClient
@@ -43,7 +39,6 @@ from souwen.providers.runtime_clients.paper.hal import HalClient
 from souwen.providers.runtime_clients.paper.openaire import OpenAireClient
 from souwen.providers.runtime_clients.paper.iacr import IacrClient
 from souwen.providers.runtime_clients.paper.biorxiv import BioRxivClient
-from souwen.providers.runtime_clients.paper.ieee_xplore import IeeeXploreClient
 
 __all__ = [
     "OpenAlexClient",
@@ -54,9 +49,7 @@ __all__ = [
     "ArxivClient",
     "ArxivFulltextClient",
     "DblpClient",
-    "CoreClient",
     "PubMedClient",
-    "ZoteroClient",
     "HuggingFaceClient",
     "EuropePmcClient",
     "PmcClient",
@@ -66,5 +59,4 @@ __all__ = [
     "OpenAireClient",
     "IacrClient",
     "BioRxivClient",
-    "IeeeXploreClient",
 ]

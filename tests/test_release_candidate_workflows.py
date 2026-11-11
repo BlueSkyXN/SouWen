@@ -738,7 +738,6 @@ def test_hfs_deployment_does_not_keep_a_retired_cli_binary_smoke() -> None:
 def test_hfs_required_fetch_fixture_change_triggers_workflow() -> None:
     text = _workflow("deploy-hf-space.yml")
 
-    assert '- "scripts/hf_space_llm_preflight.py"' in text
     assert '- "scripts/hf_space_smoke.py"' in text
     assert '- "scripts/fixtures/hf-space-fetch-probe.html"' in text
     assert '- "scripts/fixtures/hf-space-browser-probe.html"' in text
@@ -1094,7 +1093,6 @@ def test_hfs_reusable_promotion_is_candidate_pinned_and_live_verified() -> None:
         "HF_SPACE_READ_TOKEN",
         "SOUWEN_SMOKE_BEARER_TOKEN",
         "SOUWEN_CONFIG_B64",
-        "UNIAPI_API_KEY",
     ):
         assert f"      {secret_name}:" not in workflow_call
     assert "    secrets:" not in workflow_call
@@ -1152,16 +1150,10 @@ def test_hfs_reusable_promotion_is_candidate_pinned_and_live_verified() -> None:
         "HF_SPACE_READ_TOKEN",
         "SOUWEN_SMOKE_BEARER_TOKEN",
         "SOUWEN_CONFIG_B64",
-        "UNIAPI_API_KEY",
     ):
         assert f"{secret_name}: ${{{{ secrets.{secret_name} }}}}" in secret_gate
     assert "Required HFS environment secret is not configured: $name" in secret_gate
     assert "${!name}" in secret_gate
-    assert "name: Validate required HFS LLM Search configuration" in text
-    assert "HFS promotion requires exactly one enabled LLM Search Provider" in text
-    assert 'env_reference = re.compile(r"^\\$\\{([A-Z_][A-Z0-9_]*)\\}$")' in text
-    assert "HFS UniAPI API key uses an unmanaged environment reference" in text
-    assert "HFS UniAPI base URL must not use an environment reference" in text
     assert '      - ".github/workflows/recover-hf-space.yml"' in text
 
     settings_preflight = text.split("- name: Preflight managed HFS Space Secret names", maxsplit=1)[
@@ -1174,7 +1166,6 @@ def test_hfs_reusable_promotion_is_candidate_pinned_and_live_verified() -> None:
     assert "existing_names - expected_names" in settings_preflight
     assert "SOUWEN_ADMIN_PASSWORD: ${{ secrets.SOUWEN_SMOKE_BEARER_TOKEN }}" in settings_sync
     assert "SOUWEN_CONFIG_B64: ${{ secrets.SOUWEN_CONFIG_B64 }}" in settings_sync
-    assert "UNIAPI_API_KEY: ${{ secrets.UNIAPI_API_KEY }}" in settings_sync
     assert "api.add_space_secret(" in settings_sync
     assert "/api/spaces/{space_id}/secrets" in settings_sync
     assert "actual_names != expected_names" in settings_sync
@@ -1210,48 +1201,6 @@ def test_hfs_reusable_promotion_is_candidate_pinned_and_live_verified() -> None:
     assert "cd trusted-verifier" in post_deploy
     assert 'SOUWEN_SMOKE_REQUEST_TIMEOUT: "60"' in post_deploy
     assert "ref: ${{ inputs.candidate_sha || github.sha }}" not in post_deploy
-
-
-def test_hfs_settings_preflight_finishes_before_the_containment_marker_and_first_write() -> None:
-    text = _workflow("deploy-hf-space.yml")
-    sync = _job(text, "sync-hfs-wrapper", "rebuild-space")
-
-    provider_preflight = sync.index(
-        "- name: Probe selected HFS LLM Search Provider before mutation"
-    )
-    release_absence = sync.index("- name: Recheck absent recovery tag and Release before mutation")
-    write_intent = sync.index("- name: Write immutable HFS transaction intent")
-    upload_intent = sync.index("- name: Upload immutable HFS transaction intent before mutation")
-    preflight = sync.index("- name: Preflight managed HFS Space Secret names")
-    marker = sync.index("- name: Mark settings mutation phase")
-    first_write = sync.index("api.add_space_secret(")
-
-    assert (
-        preflight
-        < provider_preflight
-        < release_absence
-        < write_intent
-        < upload_intent
-        < marker
-        < first_write
-    )
-    provider_block = sync[provider_preflight:marker]
-    assert "SOUWEN_CONFIG_B64: ${{ secrets.SOUWEN_CONFIG_B64 }}" in provider_block
-    assert "UNIAPI_API_KEY: ${{ secrets.UNIAPI_API_KEY }}" in provider_block
-    assert "python scripts/hf_space_llm_preflight.py" in provider_block
-    assert "paused recovery requires absent" in provider_block
-    assert '"schema": "souwen-hfs-transaction-intent-v1"' in provider_block
-    assert (
-        "hfs-transaction-intent-${{ github.run_id }}-attempt-${{ github.run_attempt }}"
-        in provider_block
-    )
-    assert "|| true" not in provider_block
-    assert "id: settings_mutation" in sync[marker:first_write]
-    assert "settings_mutation_started=true" in sync[marker:first_write]
-    assert (
-        "settings_mutation_started: "
-        "${{ steps.settings_mutation.outputs.settings_mutation_started }}"
-    ) in sync
 
 
 def test_hfs_containment_requires_a_completed_settings_mutation_marker() -> None:
@@ -1383,7 +1332,6 @@ def test_hfs_sync_budget_covers_stable_snapshot_install_and_live_preflight() -> 
 
     assert "timeout-minutes: 30" in sync
     assert "time.monotonic() + 900" in sync
-    assert "--request-timeout 60" in sync
 
 
 def test_hfs_rebuild_job_avoids_checkout_and_dependency_cache() -> None:

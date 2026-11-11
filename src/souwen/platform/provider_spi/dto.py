@@ -7,7 +7,6 @@ provider adapters, but do not import concrete providers or delivery frameworks.
 from __future__ import annotations
 
 from datetime import datetime
-import re
 from typing import Literal, TypeAlias
 
 from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -55,24 +54,6 @@ class PageInfo(CanonicalModel):
     total: int | None = Field(default=None, ge=0)
 
 
-class Usage(CanonicalModel):
-    """Provider-reported usage only; unknown values are represented by ``None``."""
-
-    input_tokens: int | None = Field(default=None, ge=0)
-    output_tokens: int | None = Field(default=None, ge=0)
-    cost: float | None = Field(default=None, ge=0)
-    currency: str | None = Field(default=None, min_length=1, max_length=16)
-
-    @model_validator(mode="after")
-    def _cost_and_currency_are_reported_together(self) -> Usage:
-        if (self.cost is None) != (self.currency is None):
-            raise ValueError("cost and currency must both be present or both be null")
-        return self
-
-
-UsageMetadata = Usage
-
-
 CanonicalErrorCode: TypeAlias = Literal[
     "invalid_request",
     "unauthenticated",
@@ -94,7 +75,7 @@ CanonicalErrorCode: TypeAlias = Literal[
     "internal_error",
 ]
 
-Capability: TypeAlias = Literal["search", "llm_search", "fetch"]
+Capability: TypeAlias = Literal["search", "fetch"]
 
 
 class ErrorDetail(CanonicalModel):
@@ -138,7 +119,6 @@ SearchDomain: TypeAlias = Literal[
     "images",
     "videos",
     "social",
-    "office",
     "developer",
     "cn_tech",
     "knowledge",
@@ -253,7 +233,7 @@ class ProviderFailure(CanonicalModel):
 
 
 class SearchMeta(CanonicalModel):
-    """Provider outcome summary for Search and LLM Search results."""
+    """Provider outcome summary for Search results."""
 
     partial: bool = False
     requested: tuple[str, ...] = ()
@@ -286,86 +266,6 @@ class SearchPage(CanonicalModel):
 
 
 LLMSearchStrategy: TypeAlias = Literal["single", "fanout", "first_success"]
-
-
-class LLMFetchOptions(CanonicalModel):
-    """Bounded request to enable a separately secured downstream Fetch step."""
-
-    enabled: bool = True
-
-
-class LLMSearchBudget(CanonicalModel):
-    """Execution limits, not a billing promise."""
-
-    timeout_seconds: float | None = Field(default=None, gt=0, le=120)
-    max_attempts: int | None = Field(default=None, ge=1)
-
-
-class LLMSearchRequest(CanonicalModel):
-    """Canonical single-operation LLM Search input."""
-
-    query: str = Field(min_length=1, max_length=4096)
-    providers: tuple[ProviderRef, ...] = Field(min_length=1)
-    strategy: LLMSearchStrategy
-    max_results_per_provider: int | None = Field(default=None, ge=1)
-    fetch: LLMFetchOptions | None = None
-    budget: LLMSearchBudget | None = None
-    synthesis_profile: str | None = Field(default=None, min_length=1, max_length=128)
-
-    @field_validator("query")
-    @classmethod
-    def _normalise_query(cls, value: str) -> str:
-        normalised = value.strip()
-        if not normalised:
-            raise ValueError("query must not be blank")
-        return normalised
-
-    @model_validator(mode="after")
-    def _unique_provider_ids(self) -> LLMSearchRequest:
-        if len({provider.id for provider in self.providers}) != len(self.providers):
-            raise ValueError("providers must not contain duplicate ids")
-        return self
-
-
-class EvidenceItem(CanonicalModel):
-    """Verifiable public evidence attached to an LLM Search item."""
-
-    id: str = Field(min_length=1, max_length=512)
-    item_id: str = Field(min_length=1, max_length=512)
-    provider: str = Field(min_length=1, max_length=128)
-    public_url: AnyHttpUrl
-    title_or_snippet: str = Field(min_length=1, max_length=20_000)
-    retrieved_at: datetime
-
-
-class LLMSearchResult(CanonicalModel):
-    """Canonical LLM Search result with evidence and always-present usage."""
-
-    query: str = Field(min_length=1, max_length=4096)
-    items: tuple[SearchItem, ...]
-    evidence: tuple[EvidenceItem, ...]
-    answer: str | None = Field(default=None, max_length=100_000)
-    meta: SearchMeta
-    usage: Usage
-    context: RequestContext
-
-    @model_validator(mode="after")
-    def _evidence_and_answer_are_traceable(self) -> LLMSearchResult:
-        item_ids = {item.id for item in self.items}
-        evidence_ids = {item.id for item in self.evidence}
-        if len(item_ids) != len(self.items) or len(evidence_ids) != len(self.evidence):
-            raise ValueError("item and evidence IDs must be unique")
-        evidenced_item_ids = {item.item_id for item in self.evidence}
-        if not item_ids.issubset(evidenced_item_ids) or not evidenced_item_ids.issubset(item_ids):
-            raise ValueError("every item must have evidence and every evidence item must resolve")
-        if self.answer:
-            paragraphs = tuple(
-                part.strip() for part in re.split(r"\n\s*\n", self.answer) if part.strip()
-            )
-            for paragraph in paragraphs:
-                if not any(f"[{evidence_id}]" in paragraph for evidence_id in evidence_ids):
-                    raise ValueError("each answer paragraph must cite a stable evidence ID")
-        return self
 
 
 FetchStrategy: TypeAlias = Literal["fallback", "fanout"]
@@ -472,7 +372,6 @@ __all__ = [
     "ContentMetadata",
     "ErrorDetail",
     "ErrorResponse",
-    "EvidenceItem",
     "FetchBatch",
     "FetchContentOptions",
     "FetchMeta",
@@ -481,11 +380,6 @@ __all__ = [
     "FetchResult",
     "FetchStrategy",
     "FetchTargetRequest",
-    "LLMFetchOptions",
-    "LLMSearchBudget",
-    "LLMSearchRequest",
-    "LLMSearchResult",
-    "LLMSearchStrategy",
     "PageInfo",
     "ProviderFailure",
     "ProviderProbe",
@@ -502,6 +396,4 @@ __all__ = [
     "SearchPage",
     "SearchPageRequest",
     "SearchRequest",
-    "Usage",
-    "UsageMetadata",
 ]

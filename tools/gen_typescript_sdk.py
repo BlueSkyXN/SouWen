@@ -20,7 +20,6 @@ EXPECTED_VERSION = "2.0.0rc6"
 EXPECTED_API_MAJOR = 2
 EXPECTED_OPERATIONS = {
     "fetch": ("POST", "/api/v1/fetch", "FetchRequest", "FetchBatch", (200,)),
-    "llmSearch": ("POST", "/api/v1/llm-search", "LLMSearchRequest", "LLMSearchResult", (200,)),
     "listProviders": ("GET", "/api/v1/providers", None, "ProviderCatalog", (200,)),
     "search": ("POST", "/api/v1/search", "SearchRequest", "SearchPage", (200,)),
     "healthAlias": ("GET", "/health", None, "ProbeResponse", (200,)),
@@ -33,7 +32,6 @@ EXPECTED_SCHEMAS = {
     "ContentMetadata",
     "ErrorDetail",
     "ErrorResponse",
-    "EvidenceItem",
     "FetchBatch",
     "FetchContentOptions",
     "FetchMeta",
@@ -41,10 +39,6 @@ EXPECTED_SCHEMAS = {
     "FetchRequest",
     "FetchResult",
     "HTTPValidationError",
-    "LLMFetchOptions",
-    "LLMSearchBudget",
-    "LLMSearchRequest",
-    "LLMSearchResult",
     "PageInfo",
     "ProbeResponse",
     "Provenance",
@@ -61,7 +55,6 @@ EXPECTED_SCHEMAS = {
     "SearchPage",
     "SearchPageRequest",
     "SearchRequest",
-    "Usage",
     "ValidationError",
 }
 HTTP_METHODS = {"delete", "get", "head", "options", "patch", "post", "put", "trace"}

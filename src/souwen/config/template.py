@@ -161,17 +161,4 @@ search_defaults:
 #       search_depth: advanced
 #   google_patents:
 #     enabled: false
-sources:
-  uniapi_ark_annotations_deepseek_v3_2_251201:
-    enabled: false
-  uniapi_ark_annotations_doubao_seed_2_0_lite_260428:
-    enabled: false
-
-# ===== LLM Search 共享 Gateway =====
-# 两个 immutable Ark adapter 共用一份 gateway；只能显式启用其中一个。
-llm_search_gateways:
-  uniapi:
-    api_key: "${UNIAPI_API_KEY}"
-    base_url: "${UNIAPI_BASE_URL}"
-
 """

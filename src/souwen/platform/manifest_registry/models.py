@@ -31,7 +31,7 @@ SchemaId = Annotated[StrictStr, StringConstraints(pattern=_SCHEMA_ID.pattern)]
 SecretReference = Annotated[StrictStr, StringConstraints(pattern=_SECRET_REFERENCE.pattern)]
 Host = Annotated[StrictStr, StringConstraints(pattern=_HOST.pattern)]
 Version = Annotated[StrictStr, StringConstraints(pattern=_VERSION.pattern)]
-CapabilityName = Literal["search", "llm_search", "fetch"]
+CapabilityName = Literal["search", "fetch"]
 
 
 class _StrictManifestModel(BaseModel):

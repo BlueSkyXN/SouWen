@@ -32,7 +32,6 @@ def test_hfs_v2_1_registry_is_preview_source_lane_and_registry_only() -> None:
     assert set(manifest["secrets"]) == {
         "SOUWEN_ADMIN_PASSWORD",
         "SOUWEN_CONFIG_B64",
-        "UNIAPI_API_KEY",
     }
     assert set(manifest["workflow_owned_secrets"]) == set(manifest["secrets"])
     assert manifest["workflow_owned_variables"] == ["SOUWEN_WRAPPER_SHA"]
@@ -75,7 +74,6 @@ def test_hfs_settings_remain_owned_by_candidate_pinned_workflow() -> None:
     assert all(key == env_name for key, env_name in managed_pairs)
     assert {key for key, _env_name in managed_pairs} == set(manifest["secrets"])
     assert "SOUWEN_CONFIG_B64: ${{ secrets.SOUWEN_CONFIG_B64 }}" in workflow
-    assert "UNIAPI_API_KEY: ${{ secrets.UNIAPI_API_KEY }}" in workflow
     assert "api.add_space_secret(" in workflow
     assert "Managed Space Secret names:" in workflow
     assert "actual_names != expected_names" in workflow

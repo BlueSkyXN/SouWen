@@ -18,8 +18,6 @@ from ._generated_models import (
     ErrorResponse,
     FetchBatch,
     FetchRequest,
-    LLMSearchRequest,
-    LLMSearchResult,
     ProbeResponse,
     ProviderCatalog,
     SearchPage,
@@ -275,22 +273,6 @@ class SouWenClient:
             timeout=timeout,
         )
 
-    def llm_search(
-        self,
-        payload: LLMSearchRequest,
-        *,
-        request_id: str | None = None,
-        timeout: TimeoutValue = None,
-    ) -> LLMSearchResult:
-        self._ensure_compatible(timeout)
-        return self._send(
-            operations.LLM_SEARCH,
-            LLMSearchResult,
-            payload=payload,
-            request_id=request_id,
-            timeout=timeout,
-        )
-
     def fetch(
         self,
         payload: FetchRequest,
@@ -466,22 +448,6 @@ class AsyncSouWenClient:
         return await self._send(
             operations.SEARCH,
             SearchPage,
-            payload=payload,
-            request_id=request_id,
-            timeout=timeout,
-        )
-
-    async def llm_search(
-        self,
-        payload: LLMSearchRequest,
-        *,
-        request_id: str | None = None,
-        timeout: TimeoutValue = None,
-    ) -> LLMSearchResult:
-        await self._ensure_compatible(timeout)
-        return await self._send(
-            operations.LLM_SEARCH,
-            LLMSearchResult,
             payload=payload,
             request_id=request_id,
             timeout=timeout,

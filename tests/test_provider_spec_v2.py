@@ -227,7 +227,6 @@ def test_spec_manifest_validation_fails_closed_on_each_contract_axis(
         "images",
         "videos",
         "social",
-        "office",
         "developer",
         "cn_tech",
         "knowledge",

@@ -26,11 +26,6 @@ SKELETON_PACKAGES = (
     "souwen.modules.search.application",
     "souwen.modules.search.domain",
     "souwen.modules.search.infrastructure",
-    "souwen.modules.llm_search",
-    "souwen.modules.llm_search.api",
-    "souwen.modules.llm_search.application",
-    "souwen.modules.llm_search.domain",
-    "souwen.modules.llm_search.infrastructure",
     "souwen.modules.fetch",
     "souwen.modules.fetch.api",
     "souwen.modules.fetch.application",
@@ -45,7 +40,6 @@ SKELETON_PACKAGES = (
     "souwen.common_runtime.testing",
     "souwen.providers",
     "souwen.providers.information_sources",
-    "souwen.providers.llm_sources",
     "souwen.providers.fetch_sources",
 )
 
@@ -58,8 +52,6 @@ IMPLEMENTED_PACKAGES = frozenset(
         "souwen.delivery.client_sdk",
         "souwen.modules.search.api",
         "souwen.modules.search.application",
-        "souwen.modules.llm_search.api",
-        "souwen.modules.llm_search.application",
         "souwen.modules.fetch.api",
         "souwen.modules.fetch.application",
         "souwen.platform.provider_spi",

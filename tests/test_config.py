@@ -18,7 +18,6 @@ import pytest
 
 from souwen.config import (
     DEFAULT_SEARCH_PROVIDERS,
-    LLMSearchGatewayConfig,
     SEARCH_DOMAINS,
     SouWenConfig,
     SourceChannelConfig,
@@ -40,7 +39,6 @@ def _isolate_config_files(monkeypatch, tmp_path):
         "SOUWEN_USER_PASSWORD",
         "SOUWEN_ADMIN_PASSWORD",
         "SOUWEN_LLM",
-        "SOUWEN_LLM_SEARCH_GATEWAYS",
     ):
         monkeypatch.delenv(key, raising=False)
     get_config.cache_clear()
@@ -48,9 +46,7 @@ def _isolate_config_files(monkeypatch, tmp_path):
     get_config.cache_clear()
 
 
-def test_retired_enriched_synthesis_and_unpaywall_config_are_rejected() -> None:
-    with pytest.raises(ValueError, match="legacy enriched-synthesis 配置已退休"):
-        SouWenConfig(llm={})
+def test_retired_unpaywall_config_is_rejected() -> None:
     with pytest.raises(ValueError, match="Unpaywall provider 已退休"):
         SouWenConfig(unpaywall_email="researcher@example.com")
 
@@ -157,39 +153,6 @@ class TestDefaults:
     def test_invalid_search_defaults_are_rejected(self, search_defaults, message):
         with pytest.raises(ValueError, match=message):
             SouWenConfig(search_defaults=search_defaults)
-
-    def test_uniapi_ark_sources_are_opt_in_and_mutually_exclusive(self):
-        deepseek = "uniapi_ark_annotations_deepseek_v3_2_251201"
-        doubao = "uniapi_ark_annotations_doubao_seed_2_0_lite_260428"
-
-        assert SouWenConfig().enabled_uniapi_ark_source_ids() == ()
-        assert SouWenConfig(
-            sources={deepseek: {"enabled": True}}
-        ).enabled_uniapi_ark_source_ids() == (deepseek,)
-        # Merely configuring another field is not an implicit enable.
-        assert (
-            SouWenConfig(sources={deepseek: {"timeout": 45}}).enabled_uniapi_ark_source_ids() == ()
-        )
-        with pytest.raises(ValueError, match="zero or one explicitly enabled"):
-            SouWenConfig(
-                sources={
-                    deepseek: {"enabled": True},
-                    doubao: {"enabled": True},
-                }
-            )
-
-    def test_uniapi_missing_gateway_diagnostic_contains_paths_not_values(self):
-        cfg = SouWenConfig(
-            llm_search_gateways={
-                "uniapi": {
-                    "api_key": "fixture-secret",
-                    "base_url": None,
-                }
-            }
-        )
-
-        assert cfg.missing_uniapi_gateway_fields() == ("llm_search_gateways.uniapi.base_url",)
-        assert "fixture-secret" not in repr(cfg)
 
     def test_retired_auth_fields_removed(self):
         """旧认证字段已从配置模型移除。"""
@@ -488,92 +451,6 @@ class TestSourceChannelConfig:
             SourceChannelConfig(timeout=0)
         with pytest.raises(ValueError, match="less than or equal to 300"):
             SourceChannelConfig(timeout=301)
-
-    def test_llm_search_gateway_field_priority(self):
-        cfg = SouWenConfig(
-            llm_search_gateways={
-                "uniapi": LLMSearchGatewayConfig(
-                    api_key="shared-key",
-                    base_url="https://shared.example.com/v1/",
-                )
-            },
-            sources={
-                "source_a": SourceChannelConfig(api_key="source-key"),
-                "source_b": SourceChannelConfig(base_url="https://override.example.com/v1"),
-            },
-        )
-
-        assert cfg.resolve_llm_search_gateway_field("source_a", "uniapi", "api_key") == (
-            "source-key"
-        )
-        assert cfg.resolve_llm_search_gateway_field("source_a", "uniapi", "base_url") == (
-            "https://shared.example.com/v1"
-        )
-        assert cfg.resolve_llm_search_gateway_field("source_b", "uniapi", "api_key") == (
-            "shared-key"
-        )
-        assert cfg.resolve_llm_search_gateway_field("source_b", "uniapi", "base_url") == (
-            "https://override.example.com/v1"
-        )
-
-    def test_llm_search_gateway_rejects_invalid_url_and_hides_repr(self):
-        private_url = "file:///private/gateway?token=url-secret"
-        with pytest.raises(ValueError, match="http/https URL") as exc_info:
-            SouWenConfig(
-                llm_search_gateways={"uniapi": {"api_key": "secret", "base_url": private_url}}
-            )
-        rendered_error = str(exc_info.value)
-        assert private_url not in rendered_error
-        assert "url-secret" not in rendered_error
-        assert "input_value" not in rendered_error
-
-        gateway = LLMSearchGatewayConfig(
-            api_key="secret-value",
-            base_url="https://private.example.com/v1",
-        )
-        rendered = repr(gateway)
-        assert "secret-value" not in rendered
-        assert "private.example.com" not in rendered
-
-    def test_llm_search_source_override_is_normalized_and_validated(self):
-        shared = LLMSearchGatewayConfig(
-            api_key="shared-key",
-            base_url="https://shared.example.com/v1",
-        )
-        blank_override = SouWenConfig(
-            llm_search_gateways={"uniapi": shared},
-            sources={
-                "source_a": SourceChannelConfig(api_key=" ", base_url=" "),
-            },
-        )
-
-        assert (
-            blank_override.resolve_llm_search_gateway_field("source_a", "uniapi", "api_key")
-            == "shared-key"
-        )
-        assert (
-            blank_override.resolve_llm_search_gateway_field("source_a", "uniapi", "base_url")
-            == "https://shared.example.com/v1"
-        )
-
-        normalized_override = SouWenConfig(
-            llm_search_gateways={"uniapi": shared},
-            sources={
-                "source_a": SourceChannelConfig(base_url=" https://override.example.com/v1/ "),
-            },
-        )
-        assert (
-            normalized_override.resolve_llm_search_gateway_field("source_a", "uniapi", "base_url")
-            == "https://override.example.com/v1"
-        )
-
-        for invalid_url in ("file:///tmp/gateway", "ftp://gateway.example.com", "https://"):
-            invalid_override = SouWenConfig(
-                llm_search_gateways={"uniapi": shared},
-                sources={"source_a": SourceChannelConfig(base_url=invalid_url)},
-            )
-            with pytest.raises(ValueError, match="http/https URL"):
-                invalid_override.resolve_llm_search_gateway_field("source_a", "uniapi", "base_url")
 
     def test_source_override_secrets_are_hidden_from_config_repr(self):
         cfg = SouWenConfig(

@@ -145,24 +145,6 @@ class TestYamlLoading:
         cfg = reload_config()
         assert cfg.admin_password == "admin-pw"
 
-    def test_loads_llm_search_gateways_as_nested_config(self, tmp_path):
-        (tmp_path / "souwen.yaml").write_text(
-            textwrap.dedent(
-                """
-                llm_search_gateways:
-                  uniapi:
-                    api_key: yaml-secret
-                    base_url: https://gateway.example.com/v1/
-                """
-            ).strip(),
-            encoding="utf-8",
-        )
-
-        cfg = reload_config()
-
-        assert cfg.llm_search_gateways["uniapi"].api_key == "yaml-secret"
-        assert cfg.llm_search_gateways["uniapi"].base_url == "https://gateway.example.com/v1"
-
     def test_loads_search_defaults_as_one_nested_policy_table(self, tmp_path):
         defaults = SouWenConfig().search_defaults
         configured = {domain: list(providers) for domain, providers in defaults.items()}
@@ -177,54 +159,6 @@ class TestYamlLoading:
 
         assert cfg.search_defaults["paper"] == ("crossref", "openalex")
         assert tuple(cfg.search_defaults) == tuple(defaults)
-
-    def test_yaml_gateway_exact_env_references_are_resolved_without_literal_fallback(
-        self, monkeypatch, tmp_path
-    ):
-        monkeypatch.setenv("UNIAPI_API_KEY", "env-secret")
-        monkeypatch.setenv("UNIAPI_BASE_URL", "https://private-gateway.example.test/v1")
-        (tmp_path / "souwen.yaml").write_text(
-            textwrap.dedent(
-                """
-                llm_search_gateways:
-                  uniapi:
-                    api_key: "${UNIAPI_API_KEY}"
-                    base_url: "${UNIAPI_BASE_URL}"
-                """
-            ).strip(),
-            encoding="utf-8",
-        )
-
-        cfg = reload_config()
-
-        assert cfg.llm_search_gateways["uniapi"].api_key == "env-secret"
-        assert (
-            cfg.llm_search_gateways["uniapi"].base_url == "https://private-gateway.example.test/v1"
-        )
-
-    def test_missing_yaml_gateway_env_reference_is_unavailable_not_a_literal(
-        self, monkeypatch, tmp_path
-    ):
-        monkeypatch.delenv("UNIAPI_API_KEY", raising=False)
-        monkeypatch.delenv("UNIAPI_BASE_URL", raising=False)
-        (tmp_path / "souwen.yaml").write_text(
-            textwrap.dedent(
-                """
-                llm_search_gateways:
-                  uniapi:
-                    api_key: "${UNIAPI_API_KEY}"
-                    base_url: "${UNIAPI_BASE_URL}"
-                """
-            ).strip(),
-            encoding="utf-8",
-        )
-
-        cfg = reload_config()
-
-        assert cfg.missing_uniapi_gateway_fields() == (
-            "llm_search_gateways.uniapi.api_key",
-            "llm_search_gateways.uniapi.base_url",
-        )
 
 
 class TestEnvOverride:
@@ -281,36 +215,6 @@ class TestEnvOverride:
         monkeypatch.setenv("SOUWEN_CORS_ORIGINS", "https://a.example, https://b.example")
         cfg = reload_config()
         assert cfg.cors_origins == ["https://a.example", "https://b.example"]
-
-    def test_env_llm_search_gateways_json_object(self, monkeypatch):
-        monkeypatch.setenv(
-            "SOUWEN_LLM_SEARCH_GATEWAYS",
-            '{"uniapi":{"api_key":"env-secret","base_url":"https://gateway.example.com/v1"}}',
-        )
-
-        cfg = reload_config()
-
-        assert cfg.llm_search_gateways["uniapi"].api_key == "env-secret"
-        assert cfg.llm_search_gateways["uniapi"].base_url == "https://gateway.example.com/v1"
-
-    def test_retired_llm_env_is_rejected(self, monkeypatch):
-        monkeypatch.setenv(
-            "SOUWEN_LLM",
-            (
-                '{"enabled":true,"synthesis_profiles":{"safe":{"protocol":"openai_chat",'
-                '"model":"configured-model","max_tokens":400,"max_input_chars":6000,'
-                '"max_pages":3,"timeout":30}}}'
-            ),
-        )
-
-        with pytest.raises(ValueError, match="legacy enriched-synthesis 配置已退休"):
-            reload_config()
-
-    def test_retired_llm_yaml_is_rejected(self, tmp_path):
-        (tmp_path / "souwen.yaml").write_text("llm: {}\n", encoding="utf-8")
-
-        with pytest.raises(ValueError, match="legacy enriched-synthesis 配置已退休"):
-            reload_config()
 
     def test_retired_unpaywall_yaml_and_env_are_rejected(self, monkeypatch, tmp_path):
         (tmp_path / "souwen.yaml").write_text(

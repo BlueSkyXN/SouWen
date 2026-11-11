@@ -17,45 +17,24 @@ from tests.support.provider_v2_batch_two import batch_two_paper, batch_two_paten
 
 
 _CLIENT_GLOBALS = {
-    "cnipa": "CnipaClient",
-    "core": "CoreClient",
     "doaj": "DoajClient",
     "epo_ops": "EpoOpsClient",
-    "ieee_xplore": "IeeeXploreClient",
     "openaire": "OpenAireClient",
-    "patsnap": "PatSnapClient",
-    "pqai": "PqaiClient",
     "semantic_scholar": "SemanticScholarClient",
-    "the_lens": "TheLensClient",
     "uspto_odp": "UsptoOdpClient",
     "zenodo": "ZenodoClient",
-    "zotero": "ZoteroClient",
 }
 _PATENT_PROVIDERS = {
-    "cnipa",
     "epo_ops",
-    "patsnap",
-    "pqai",
-    "the_lens",
     "uspto_odp",
 }
 _EXPECTED_CALLS = {
-    "cnipa": (("runtime",), {"per_page": 10, "offset": 0}),
-    "core": (("runtime",), {"limit": 10, "offset": 0}),
     "doaj": (("runtime",), {"page_size": 10, "page": 1}),
     "epo_ops": (("runtime",), {"range_begin": 1, "range_end": 10}),
-    "ieee_xplore": (("runtime",), {"max_results": 10, "start_record": 1}),
     "openaire": (("runtime",), {"size": 10}),
-    "patsnap": (("runtime",), {"limit": 10, "offset": 0}),
-    "pqai": (("runtime",), {"n_results": 10}),
     "semantic_scholar": (("runtime",), {"fields": None, "limit": 10, "offset": 0}),
-    "the_lens": (("runtime",), {"size": 10, "offset": 0}),
     "uspto_odp": (("runtime",), {"per_page": 10, "offset": 0}),
     "zenodo": (("runtime",), {"size": 10}),
-    "zotero": (
-        ("runtime",),
-        {"qmode": "everything", "tag": None, "limit": 10, "start": 0},
-    ),
 }
 
 
@@ -118,7 +97,7 @@ def test_every_batch_two_factory_constructs_dispatches_and_closes(monkeypatch) -
 
     runtime = runtime_module.build_target_runtime(_config())
     catalog = {item.provider: item for item in runtime.services.provider_items}
-    assert len(catalog) == 104
+    assert len(catalog) == 71
     assert all(catalog[provider_id].availability == "available" for provider_id in _CLIENT_GLOBALS)
 
     for provider_id in _CLIENT_GLOBALS:
@@ -145,19 +124,18 @@ def test_every_batch_two_factory_constructs_dispatches_and_closes(monkeypatch) -
 def test_required_batch_two_configuration_is_reported_without_secret_values(monkeypatch) -> None:
     monkeypatch.delenv("SOUWEN_BROWSER_WORKER_TOKEN", raising=False)
     runtime = runtime_module.build_target_runtime(
-        SouWenConfig(sources={"cnipa": {"enabled": True}, "zotero": {"enabled": True}})
+        SouWenConfig(sources={"epo_ops": {"enabled": True}, "youtube": {"enabled": True}})
     )
     catalog = {item.provider: item for item in runtime.services.provider_items}
 
-    assert catalog["cnipa"].reason == "missing_configuration"
-    assert set(catalog["cnipa"].missing_fields) == {
-        "cnipa_client_id",
-        "cnipa_client_secret",
+    assert catalog["epo_ops"].reason == "missing_configuration"
+    assert set(catalog["epo_ops"].missing_fields) == {
+        "epo_consumer_key",
+        "epo_consumer_secret",
     }
-    assert catalog["zotero"].reason == "missing_configuration"
-    assert set(catalog["zotero"].missing_fields) == {
-        "zotero_api_key",
-        "zotero_library_id",
+    assert catalog["youtube"].reason == "missing_configuration"
+    assert set(catalog["youtube"].missing_fields) == {
+        "youtube_api_key",
     }
     assert "fixture" not in repr(runtime.services.provider_items)
     asyncio.run(runtime.close())

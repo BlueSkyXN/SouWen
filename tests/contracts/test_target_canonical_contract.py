@@ -45,7 +45,6 @@ def test_target_api_closes_approved_decisions_without_claiming_current_routes() 
     assert isinstance(operations, dict)
     assert {operation["path"] for operation in operations.values()} == {
         "/api/v1/search",
-        "/api/v1/llm-search",
         "/api/v1/fetch",
         "/api/v1/providers",
         "/healthz",
@@ -73,12 +72,6 @@ def test_target_api_closes_approved_decisions_without_claiming_current_routes() 
         "canonical_url",
         "normalized_title_year",
     ]
-
-    llm = contract["llm_search_policy"]
-    assert llm["item_requires_evidence"] is True
-    assert llm["answer_factual_paragraph_requires_stable_evidence_id"] is True
-    assert llm["usage_always_present"] is True
-    assert llm["unknown_usage_fields"] == "null"
 
     fetch = contract["fetch_policy"]
     assert fetch["target_count"] == {"minimum": 1, "maximum": 20}
@@ -131,7 +124,6 @@ def test_target_openapi_skeleton_matches_the_target_fixture() -> None:
     assert schemas["RequestContext"]["properties"]["api_major"] == {"const": 2}
     assert schemas["ErrorResponse"]["required"] == ["error", "context"]
     assert schemas["SearchRequest"]["additionalProperties"] is False
-    assert schemas["LLMSearchRequest"]["additionalProperties"] is False
     assert schemas["FetchRequest"]["additionalProperties"] is False
 
 

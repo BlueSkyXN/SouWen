@@ -25,45 +25,20 @@ from souwen.platform.provider_spi import (
 )
 from souwen.server import v2_runtime as runtime_module
 from souwen.providers.runtime_clients.web import github as github_module
-from souwen.providers.runtime_clients.web import kimi_code as kimi_code_module
 from souwen.providers.runtime_clients.web import reddit as reddit_module
 from souwen.providers.runtime_clients.web import stackoverflow as stackoverflow_module
 
 
 _CLIENT_GLOBALS = {
-    "aliyun_iqs": "AliyunIQSClient",
-    "apify": "ApifyClient",
-    "brave_api": "BraveApiClient",
-    "cloudflare": "CloudflareBrowserClient",
     "deepwiki": "DeepWikiClient",
-    "diffbot": "DiffbotClient",
-    "exa": "ExaClient",
-    "facebook": "FacebookClient",
-    "feishu_drive": "FeishuDriveClient",
-    "firecrawl": "FirecrawlClient",
     "github": "GitHubClient",
     "jina_reader": "JinaReaderClient",
-    "kimi_code": "KimiCodeClient",
-    "linkup": "LinkupClient",
     "linuxdo": "LinuxDoClient",
-    "metaso": "MetasoClient",
-    "perplexity": "PerplexityClient",
     "reddit": "RedditClient",
-    "scraperapi": "ScraperAPIClient",
-    "scrapingbee": "ScrapingBeeClient",
-    "scrapingdog": "ScrapingDogClient",
-    "scrapfly": "ScrapflyClient",
-    "serpapi": "SerpApiClient",
-    "serper": "SerperClient",
     "stackoverflow": "StackOverflowClient",
-    "tavily": "TavilyClient",
-    "twitter": "TwitterClient",
     "wayback": "WaybackClient",
     "wikipedia": "WikipediaClient",
-    "xcrawl": "XCrawlClient",
     "youtube": "YouTubeClient",
-    "zenrows": "ZenRowsClient",
-    "zhipuai": "ZhipuAISearchClient",
 }
 
 
@@ -189,7 +164,7 @@ def test_every_batch_three_factory_dispatches_and_closes(monkeypatch) -> None:
 
     runtime = runtime_module.build_target_runtime(_configured())
     catalog = {item.provider: item for item in runtime.services.provider_items}
-    assert len(catalog) == 104
+    assert len(catalog) == 71
     assert all(catalog[provider_id].availability == "available" for provider_id in _CLIENT_GLOBALS)
 
     async def exercise() -> None:
@@ -258,30 +233,13 @@ def test_every_batch_three_factory_dispatches_and_closes(monkeypatch) -> None:
     }
     target = "https://1.1.1.1/page"
     assert fetch_calls == {
-        "apify": ("fetch", (target,), {"timeout": 30.0}),
-        "cloudflare": ("fetch", (target,), {"timeout": 30.0}),
         "deepwiki": (
             "fetch",
             ("owner/repo",),
             {"max_depth": 0, "mode": "aggregate", "timeout": 30.0},
         ),
-        "diffbot": ("fetch", (target,), {"timeout": 30.0}),
-        "exa": ("contents", ([target],), {}),
-        "firecrawl": ("scrape", (target,), {"timeout": 30.0}),
         "jina_reader": ("fetch", (target,), {"timeout": 30.0}),
-        "kimi_code": ("fetch", (target,), {"timeout": 30.0}),
-        "metaso": ("reader", (target,), {"timeout": 30.0}),
-        "scraperapi": ("fetch", (target,), {"timeout": 30.0}),
-        "scrapfly": ("fetch", (target,), {"timeout": 30.0}),
-        "scrapingbee": ("fetch", (target,), {"timeout": 30.0}),
-        "tavily": ("extract", ([target],), {"timeout": 30.0}),
         "wayback": ("fetch", (target,), {"timeout": 30.0}),
-        "xcrawl": (
-            "scrape",
-            (target,),
-            {"timeout": 30.0, "formats": None, "mode": "sync"},
-        ),
-        "zenrows": ("fetch", (target,), {"timeout": 30.0}),
     }
     constructed = Counter(provider_id for provider_id, _args, _kwargs in constructor_calls)
     assert constructed == Counter(
@@ -332,18 +290,6 @@ def test_batch_three_factories_ignore_undeclared_legacy_channel_overrides(monkey
         reddit_client_secret="hostile-global-reddit-secret",
         stackoverflow_api_key="hostile-global-stackoverflow-key",
         sources={
-            "exa": {
-                "base_url": "https://127.0.0.1:9443",
-                "proxy": "http://127.0.0.1:8080",
-                "headers": {"X-Undeclared": "hostile"},
-            },
-            "kimi_code": {
-                "base_url": "https://127.0.0.1:9443",
-                "params": {
-                    "search_path": "/unreviewed/search",
-                    "fetch_path": "/unreviewed/fetch",
-                },
-            },
             "wayback": {
                 "base_url": "https://127.0.0.1:9443",
                 "proxy": "http://127.0.0.1:8080",
@@ -355,7 +301,6 @@ def test_batch_three_factories_ignore_undeclared_legacy_channel_overrides(monkey
     monkeypatch.setattr(http_client_module, "get_config", lambda: hostile)
     monkeypatch.setattr(scraper_base_module, "get_config", lambda: hostile)
     monkeypatch.setattr(github_module, "get_config", lambda: hostile)
-    monkeypatch.setattr(kimi_code_module, "get_config", lambda: hostile)
     monkeypatch.setattr(reddit_module, "get_config", lambda: hostile)
     monkeypatch.setattr(stackoverflow_module, "get_config", lambda: hostile)
     monkeypatch.delenv("SOUWEN_BROWSER_WORKER_TOKEN", raising=False)
@@ -363,9 +308,7 @@ def test_batch_three_factories_ignore_undeclared_legacy_channel_overrides(monkey
 
     async def construct_and_close() -> None:
         for adapter_id in (
-            "exa-search",
             "github-search",
-            "kimi_code-search",
             "reddit-search",
             "stackoverflow-search",
             "wayback-fetch",
@@ -374,16 +317,10 @@ def test_batch_three_factories_ignore_undeclared_legacy_channel_overrides(monkey
                 await runtime.manager.probe(adapter_id, ExecutionContext.with_timeout(5))
             ).status == "available"
 
-        exa = runtime.manager._runtimes["exa-search"].instance._client._client
         github = runtime.manager._runtimes["github-search"].instance._client._client
-        kimi = runtime.manager._runtimes["kimi_code-search"].instance._client._client
         reddit = runtime.manager._runtimes["reddit-search"].instance._client._client
         stackoverflow = runtime.manager._runtimes["stackoverflow-search"].instance._client._client
         wayback = runtime.manager._runtimes["wayback-fetch"].instance._client._client
-        assert exa.base_url == "https://api.exa.ai"
-        assert "X-Undeclared" not in exa._client.headers
-        assert kimi.base_url == "https://api.kimi.com"
-        assert kimi._params == {}
         assert github.token == ""
         assert reddit._client_id == "" and reddit._client_secret == ""
         assert reddit._oauth_mode is False
@@ -415,25 +352,25 @@ def test_batch_three_admits_proxy_only_when_manifest_supports_it(monkeypatch) ->
 
     observed = []
 
-    class Apify:
-        def __init__(self, api_token):
-            observed.append((api_token, reviewed_source_proxy()))
+    class JinaReader:
+        def __init__(self, **kwargs):
+            observed.append((kwargs, reviewed_source_proxy()))
 
         async def close(self):
             return None
 
-    monkeypatch.setattr(runtime_module, "ApifyClient", Apify)
+    monkeypatch.setattr(runtime_module, "JinaReaderClient", JinaReader)
     monkeypatch.delenv("SOUWEN_BROWSER_WORKER_TOKEN", raising=False)
     runtime = runtime_module.build_target_runtime(
-        _configured(source_overrides={"apify": {"proxy": reviewed_proxy}})
+        _configured(source_overrides={"jina_reader": {"proxy": reviewed_proxy}})
     )
 
     async def construct_and_close() -> None:
         assert (
-            await runtime.manager.probe("apify-fetch", ExecutionContext.with_timeout(5))
+            await runtime.manager.probe("jina-reader-fetch", ExecutionContext.with_timeout(5))
         ).status == "available"
         await runtime.close()
 
     asyncio.run(construct_and_close())
-    assert observed == [("fixture-apify_api_token", reviewed_proxy)]
+    assert [proxy for _kwargs, proxy in observed] == [reviewed_proxy]
     assert reviewed_source_proxy() is None

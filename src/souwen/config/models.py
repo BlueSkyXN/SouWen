@@ -1,7 +1,6 @@
 """SouWen 配置数据模型
 
-包含 SourceChannelConfig（单源频道配置）、LLMSearchGatewayConfig（共享搜索网关）
-与 SouWenConfig（全局配置）。
+包含 SourceChannelConfig（单源频道配置）与 SouWenConfig（全局配置）。
 """
 
 from __future__ import annotations
@@ -13,20 +12,12 @@ from collections.abc import Mapping
 from pathlib import Path
 from types import MappingProxyType
 from typing import Any, Literal
-from urllib.parse import urlsplit
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from .validators import _validate_proxy_url
 
 logger = logging.getLogger("souwen.config")
-LLM_SEARCH_IDENTITY_PARAMS = frozenset(
-    {"api_key", "base_url", "gateway_id", "model", "model_id", "scheme_id", "source_id"}
-)
-UNIAPI_ARK_TARGET_SOURCE_IDS = (
-    "uniapi_ark_annotations_deepseek_v3_2_251201",
-    "uniapi_ark_annotations_doubao_seed_2_0_lite_260428",
-)
 SEARCH_DOMAINS = (
     "paper",
     "book",
@@ -37,7 +28,6 @@ SEARCH_DOMAINS = (
     "images",
     "videos",
     "social",
-    "office",
     "developer",
     "cn_tech",
     "knowledge",
@@ -53,25 +43,12 @@ DEFAULT_SEARCH_PROVIDERS: Mapping[str, tuple[str, ...]] = MappingProxyType(
         "images": ("duckduckgo_images",),
         "videos": ("bilibili", "duckduckgo_videos"),
         "social": ("reddit", "weibo", "zhihu"),
-        "office": ("feishu_drive",),
         "developer": ("github", "stackoverflow"),
         "cn_tech": ("linuxdo", "v2ex"),
         "knowledge": ("wikipedia",),
     }
 )
 _PROVIDER_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_-]{0,127}$")
-
-
-def _normalize_llm_search_base_url(value: str | None) -> str | None:
-    if value is None:
-        return None
-    value = value.strip()
-    if not value:
-        return None
-    parsed = urlsplit(value)
-    if parsed.scheme not in {"http", "https"} or not parsed.hostname:
-        raise ValueError("base_url 必须是带 hostname 的 http/https URL")
-    return value.rstrip("/")
 
 
 class SourceChannelConfig(BaseModel):
@@ -99,27 +76,6 @@ class SourceChannelConfig(BaseModel):
     api_key: str | None = Field(default=None, repr=False)
     headers: dict[str, str] = Field(default_factory=dict, repr=False)
     params: dict[str, str | int | float | bool] = Field(default_factory=dict, repr=False)
-
-
-class LLMSearchGatewayConfig(BaseModel):
-    """多个 concrete LLM-search sources 共享的 gateway 配置。"""
-
-    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
-
-    api_key: str | None = Field(default=None, repr=False)
-    base_url: str | None = Field(default=None, repr=False)
-
-    @field_validator("api_key", "base_url", mode="before")
-    @classmethod
-    def _strip_optional_string(cls, value: Any) -> Any:
-        if isinstance(value, str):
-            return value.strip() or None
-        return value
-
-    @field_validator("base_url")
-    @classmethod
-    def _validate_base_url(cls, value: str | None) -> str | None:
-        return _normalize_llm_search_base_url(value)
 
 
 class SouWenConfig(BaseModel):
@@ -167,7 +123,6 @@ class SouWenConfig(BaseModel):
                   warp_external_proxy
 
         频道配置: sources (dict[源名, SourceChannelConfig])
-        LLM Search gateways: llm_search_gateways (dict[gateway ID, LLMSearchGatewayConfig])
 
     方法:
         get_proxy() → str|None — 从 proxy_pool 随机取(优先),否则用单一 proxy
@@ -202,16 +157,6 @@ class SouWenConfig(BaseModel):
                 )
                 raise ValueError(f"配置字段已移除: {detail}")
         return data
-
-    @model_validator(mode="after")
-    def _only_one_uniapi_ark_source_may_be_explicitly_enabled(self) -> "SouWenConfig":
-        """Prevent deployment config from silently selecting or switching Ark models."""
-        enabled = self.enabled_uniapi_ark_source_ids()
-        if len(enabled) > 1:
-            raise ValueError(
-                "UniAPI Ark target runtime requires exactly zero or one explicitly enabled source"
-            )
-        return self
 
     # ===== 论文数据源 =====
     openalex_api_key: str | None = None
@@ -373,9 +318,6 @@ class SouWenConfig(BaseModel):
     search_defaults: dict[str, tuple[str, ...]] = Field(
         default_factory=lambda: dict(DEFAULT_SEARCH_PROVIDERS)
     )
-
-    # ===== LLM Search 共享 gateway 配置 =====
-    llm_search_gateways: dict[str, LLMSearchGatewayConfig] = Field(default_factory=dict)
 
     @field_validator("search_defaults", mode="before")
     @classmethod
@@ -540,52 +482,6 @@ class SouWenConfig(BaseModel):
         """解析基础 URL:频道覆盖 > 默认值"""
         sc = self.get_source_config(source)
         return sc.base_url or default
-
-    def get_llm_search_gateway(self, gateway_id: str) -> LLMSearchGatewayConfig:
-        """获取共享 LLM-search gateway；不存在时返回空配置。"""
-        return self.llm_search_gateways.get(gateway_id, LLMSearchGatewayConfig())
-
-    def enabled_uniapi_ark_source_ids(self) -> tuple[str, ...]:
-        """Return target Ark sources with an explicit YAML/config ``enabled: true``."""
-        enabled: list[str] = []
-        for source_id in UNIAPI_ARK_TARGET_SOURCE_IDS:
-            source = self.sources.get(source_id)
-            if (
-                source is not None
-                and "enabled" in source.model_fields_set
-                and source.enabled is True
-            ):
-                enabled.append(source_id)
-        return tuple(enabled)
-
-    def missing_uniapi_gateway_fields(self) -> tuple[str, ...]:
-        """Return safe config paths only, never credential or private URL values."""
-        gateway = self.get_llm_search_gateway("uniapi")
-        return tuple(
-            field_name
-            for field_name, value in (
-                ("llm_search_gateways.uniapi.api_key", gateway.api_key),
-                ("llm_search_gateways.uniapi.base_url", gateway.base_url),
-            )
-            if not value
-        )
-
-    def resolve_llm_search_gateway_field(
-        self,
-        source: str,
-        gateway_id: str,
-        field: Literal["api_key", "base_url"],
-    ) -> str | None:
-        """按 source override → shared gateway 解析一个配置字段。"""
-        source_config = self.get_source_config(source)
-        source_value = getattr(source_config, field)
-        if isinstance(source_value, str):
-            source_value = source_value.strip() or None
-        if field == "base_url":
-            source_value = _normalize_llm_search_base_url(source_value)
-        if source_value:
-            return source_value
-        return getattr(self.get_llm_search_gateway(gateway_id), field)
 
     def resolve_headers(self, source: str) -> dict[str, str]:
         """获取频道自定义请求头"""

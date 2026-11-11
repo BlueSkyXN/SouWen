@@ -15,7 +15,7 @@ import souwen.common_runtime.transport.oauth_client as canonical_module
 from souwen.common_runtime.transport import HttpTransport, OAuthTransport
 from souwen.common_runtime.provider_support.exceptions import AuthError
 from souwen.common_runtime.provider_support.http_client import OAuthClient, SouWenHttpClient
-from souwen.providers.runtime_clients.patent import cnipa, epo_ops
+from souwen.providers.runtime_clients.patent import epo_ops
 
 
 def _response(
@@ -73,7 +73,6 @@ def test_legacy_oauth_client_preserves_mro_and_uses_canonical_methods() -> None:
     assert OAuthClient.get is OAuthTransport.get
     assert OAuthClient.post is OAuthTransport.post
     assert epo_ops.OAuthClient is OAuthClient
-    assert cnipa.OAuthClient is OAuthClient
 
 
 def test_canonical_oauth_module_has_no_legacy_or_domain_dependencies() -> None:
@@ -177,35 +176,28 @@ def test_legacy_oauth_adapter_preserves_source_config_resolution() -> None:
     assert client.token_url == "https://auth.example/oauth/token"
 
 
-def test_epo_and_cnipa_construct_with_canonical_oauth_operations() -> None:
+def test_epo_constructs_with_canonical_oauth_operations() -> None:
     config = MagicMock(
         timeout=30,
         max_retries=3,
         epo_consumer_secret="epo-secret",
-        cnipa_client_secret="cnipa-secret",
     )
     config.resolve_api_key.side_effect = lambda source, _field: {
         "epo_ops": "epo-client",
-        "cnipa": "cnipa-client",
     }[source]
     config.resolve_base_url.side_effect = lambda _source, default: default
     config.resolve_proxy.return_value = None
     config.resolve_headers.return_value = {}
     with (
         patch("souwen.providers.runtime_clients.patent.epo_ops.get_config", return_value=config),
-        patch("souwen.providers.runtime_clients.patent.cnipa.get_config", return_value=config),
         patch("souwen.common_runtime.provider_support.http_client.get_config", return_value=config),
         patch("souwen.common_runtime.transport.http_client.httpx.AsyncClient"),
     ):
         epo = epo_ops.EpoOpsClient()
-        chinese = cnipa.CnipaClient()
 
     assert isinstance(epo._http, OAuthTransport)
     assert isinstance(epo._http, SouWenHttpClient)
-    assert isinstance(chinese._http, OAuthTransport)
-    assert isinstance(chinese._http, SouWenHttpClient)
     assert epo._http._ensure_token.__func__ is OAuthTransport._ensure_token
-    assert chinese._http._ensure_token.__func__ is OAuthTransport._ensure_token
 
 
 @pytest.mark.asyncio

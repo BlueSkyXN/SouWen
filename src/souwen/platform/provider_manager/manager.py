@@ -22,8 +22,6 @@ from souwen.platform.provider_spi import (
     ExecutionContext,
     FetchResult,
     FetchTargetRequest,
-    LLMSearchRequest,
-    LLMSearchResult,
     ProviderError,
     ProviderErrorCode,
     ProviderProbe,
@@ -400,7 +398,7 @@ def _provider_type(registration: FactoryRegistration) -> type[Any] | None:
 
 def _capability_name(value: Any) -> Capability | None:
     candidate = getattr(value, "value", value)
-    return candidate if candidate in {"search", "llm_search", "fetch"} else None
+    return candidate if candidate in {"search", "fetch"} else None
 
 
 def _default_config_resolver(_manifest: ProviderManifest) -> Mapping[str, Any]:
@@ -453,11 +451,7 @@ def _validate_execution_inputs(
         raise ProviderManagerError("invalid_request_context")
     if not isinstance(execution, ExecutionContext):
         raise ProviderManagerError("invalid_execution_context")
-    expected_type = (
-        FetchTargetRequest
-        if capability == "fetch"
-        else (LLMSearchRequest if capability == "llm_search" else SearchRequest)
-    )
+    expected_type = FetchTargetRequest if capability == "fetch" else SearchRequest
     if not isinstance(request, expected_type):
         raise ProviderManagerError("invalid_request")
 
@@ -530,7 +524,7 @@ def _provider_call(
 
 def _provider_result_matches(
     capability: Capability,
-    request: SearchRequest | LLMSearchRequest | FetchTargetRequest,
+    request: SearchRequest | FetchTargetRequest,
     request_context: RequestContext,
     result: Any,
 ) -> bool:
@@ -541,6 +535,4 @@ def _provider_result_matches(
             and isinstance(result, FetchResult)
             and str(result.target) == str(request.target)
         )
-    if capability == "llm_search":
-        return isinstance(result, LLMSearchResult) and result.context == request_context
     return isinstance(result, SearchPage) and result.context == request_context

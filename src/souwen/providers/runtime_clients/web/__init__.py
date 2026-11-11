@@ -15,19 +15,9 @@
 - YandexClient: Yandex 搜索（俄罗斯）
 
 办公/企业平台（官方 API）：
-- FeishuDriveClient: 飞书云文档搜索（需 App ID + App Secret）
 
 API 类（需 Key / 自建实例）：
 - SearXNGClient: SearXNG 元搜索（250+ 引擎）
-- TavilyClient: Tavily AI 搜索（为 Agent 设计）
-- ExaClient: Exa 语义搜索（神经索引）
-- SerperClient: Serper Google SERP API
-- BraveApiClient: Brave 官方 API
-- MetasoClient: 秘塔搜索（文档/网页/学术三种范围）
-- XCrawlClient: XCrawl 搜索+抓取
-- ZhipuAISearchClient: 智谱 AI Web Search Pro（含 AI 摘要，中英文友好）
-- AliyunIQSClient: 阿里云 IQS 通义晓搜（含 AI 摘要，中英文友好）
-- KimiCodeClient: Kimi Code 搜索+网页获取
 
 内容抓取（fetch 提供者）：
 - DeepWikiClient: DeepWiki GitHub 仓库文档抓取（参照 deepwiki-mcp，零配置）
@@ -41,7 +31,6 @@ from __future__ import annotations
 
 from importlib import import_module
 from typing import Any
-
 
 _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "DuckDuckGoClient": ("souwen.providers.runtime_clients.web.duckduckgo", "DuckDuckGoClient"),
@@ -77,16 +66,6 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "MojeekClient": ("souwen.providers.runtime_clients.web.mojeek", "MojeekClient"),
     "YandexClient": ("souwen.providers.runtime_clients.web.yandex", "YandexClient"),
     "SearXNGClient": ("souwen.providers.runtime_clients.web.searxng", "SearXNGClient"),
-    "TavilyClient": ("souwen.providers.runtime_clients.web.tavily", "TavilyClient"),
-    "ExaClient": ("souwen.providers.runtime_clients.web.exa", "ExaClient"),
-    "SerperClient": ("souwen.providers.runtime_clients.web.serper", "SerperClient"),
-    "BraveApiClient": ("souwen.providers.runtime_clients.web.brave_api", "BraveApiClient"),
-    "SerpApiClient": ("souwen.providers.runtime_clients.web.serpapi", "SerpApiClient"),
-    "FirecrawlClient": ("souwen.providers.runtime_clients.web.firecrawl", "FirecrawlClient"),
-    "XCrawlClient": ("souwen.providers.runtime_clients.web.xcrawl", "XCrawlClient"),
-    "PerplexityClient": ("souwen.providers.runtime_clients.web.perplexity", "PerplexityClient"),
-    "LinkupClient": ("souwen.providers.runtime_clients.web.linkup", "LinkupClient"),
-    "ScrapingDogClient": ("souwen.providers.runtime_clients.web.scrapingdog", "ScrapingDogClient"),
     "WhoogleClient": ("souwen.providers.runtime_clients.web.whoogle", "WhoogleClient"),
     "WebsurfxClient": ("souwen.providers.runtime_clients.web.websurfx", "WebsurfxClient"),
     "GitHubClient": ("souwen.providers.runtime_clients.web.github", "GitHubClient"),
@@ -109,16 +88,6 @@ _LAZY_EXPORTS: dict[str, tuple[str, str]] = {
     "V2EXClient": ("souwen.providers.runtime_clients.web.v2ex", "V2EXClient"),
     "CoolapkClient": ("souwen.providers.runtime_clients.web.coolapk", "CoolapkClient"),
     "XiaohongshuClient": ("souwen.providers.runtime_clients.web.xiaohongshu", "XiaohongshuClient"),
-    "TwitterClient": ("souwen.providers.runtime_clients.web.twitter", "TwitterClient"),
-    "FacebookClient": ("souwen.providers.runtime_clients.web.facebook", "FacebookClient"),
-    "FeishuDriveClient": ("souwen.providers.runtime_clients.web.feishu_drive", "FeishuDriveClient"),
-    "MetasoClient": ("souwen.providers.runtime_clients.web.metaso", "MetasoClient"),
-    "ZhipuAISearchClient": (
-        "souwen.providers.runtime_clients.web.zhipuai_search",
-        "ZhipuAISearchClient",
-    ),
-    "AliyunIQSClient": ("souwen.providers.runtime_clients.web.aliyun_iqs", "AliyunIQSClient"),
-    "KimiCodeClient": ("souwen.providers.runtime_clients.web.kimi_code", "KimiCodeClient"),
     "JinaReaderClient": ("souwen.providers.runtime_clients.web.jina_reader", "JinaReaderClient"),
     "BuiltinFetcherClient": (
         "souwen.providers.runtime_clients.web.builtin",
@@ -167,16 +136,6 @@ __all__ = [
     "YandexClient",
     # API 类（需 Key）
     "SearXNGClient",
-    "TavilyClient",
-    "ExaClient",
-    "SerperClient",
-    "BraveApiClient",
-    "SerpApiClient",
-    "FirecrawlClient",
-    "XCrawlClient",
-    "PerplexityClient",
-    "LinkupClient",
-    "ScrapingDogClient",
     # 自建实例类
     "WhoogleClient",
     "WebsurfxClient",
@@ -200,15 +159,8 @@ __all__ = [
     "CoolapkClient",
     "XiaohongshuClient",
     # 国际社交媒体（官方 API）
-    "TwitterClient",
-    "FacebookClient",
     # 办公/企业平台（官方 API）
-    "FeishuDriveClient",
     # API 类（需 Key）- 中文搜索
-    "MetasoClient",
-    "ZhipuAISearchClient",
-    "AliyunIQSClient",
-    "KimiCodeClient",
     # 内容抓取类 (fetch)
     "BuiltinFetcherClient",
     "JinaReaderClient",

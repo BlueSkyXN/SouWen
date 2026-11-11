@@ -6,9 +6,7 @@ import ast
 import asyncio
 from collections import deque
 from pathlib import Path
-from unittest.mock import Mock
 
-import httpx
 import pytest
 
 import souwen.common_runtime.resilience.rate_limiter as canonical_module
@@ -19,7 +17,7 @@ from souwen.common_runtime.resilience import (
 )
 from souwen.common_runtime.provider_support import rate_limiter as legacy_module
 from souwen.providers.runtime_clients.paper import openalex
-from souwen.providers.runtime_clients.patent import the_lens
+from souwen.providers.runtime_clients.paper import semantic_scholar
 
 
 def test_legacy_rate_limiters_reexport_canonical_objects() -> None:
@@ -158,26 +156,7 @@ async def test_window_wait_cancellation_preserves_timestamps_and_releases_lock(
 
 def test_representative_consumers_use_canonical_limiter_classes() -> None:
     assert openalex.TokenBucketLimiter is TokenBucketLimiter
-    assert the_lens.SlidingWindowLimiter is SlidingWindowLimiter
-
-
-def test_the_lens_keeps_header_parsing_outside_common_runtime() -> None:
-    client = object.__new__(the_lens.TheLensClient)
-    client._limiter = Mock()
-    response = httpx.Response(
-        200,
-        headers={
-            "x-rate-limit-remaining-request-per-minute": "7",
-            "x-rate-limit-retry-after-seconds": "2.5",
-        },
-    )
-
-    client._update_rate_limit(response)
-
-    client._limiter.update_from_headers.assert_called_once_with(
-        remaining=7,
-        retry_after=2.5,
-    )
+    assert semantic_scholar.SlidingWindowLimiter is SlidingWindowLimiter
     canonical_source = Path(canonical_module.__file__).read_text(encoding="utf-8").lower()
     assert "x-rate-limit-remaining-request-per-minute" not in canonical_source
     assert "x-rate-limit-retry-after-seconds" not in canonical_source

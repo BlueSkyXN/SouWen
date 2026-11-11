@@ -23,7 +23,6 @@ from souwen.delivery.api import (
     create_target_delivery_app,
 )
 from souwen.modules.fetch.api import FetchBatch, FetchModuleService
-from souwen.modules.llm_search.api import LLMSearchResult
 from souwen.modules.search.api import SearchPage
 from souwen.platform.provider_spi import (
     FetchMeta,
@@ -33,9 +32,7 @@ from souwen.platform.provider_spi import (
     Provenance,
     SearchRequest,
     SearchMeta,
-    Usage,
 )
-from souwen.providers.llm_sources.uniapi_ark_annotations.manifest import DEEPSEEK_ADAPTER_ID
 from souwen.server.auth import check_target_user_auth
 from souwen.server.limiter import rate_limit_target_data
 from souwen.server.v2_runtime import TargetRuntime, build_target_runtime
@@ -59,18 +56,6 @@ class _Search:
         )
 
 
-class _LLMSearch:
-    async def search(self, request, context, _execution):
-        return LLMSearchResult(
-            query=request.query,
-            items=(),
-            evidence=(),
-            meta=SearchMeta(),
-            usage=Usage(),
-            context=context,
-        )
-
-
 class _Fetch:
     async def fetch(self, _request, context, _execution):
         return FetchBatch(items=(), meta=FetchMeta(), context=context)
@@ -89,7 +74,6 @@ def _services(
 ) -> TargetDeliveryServices:
     return TargetDeliveryServices(
         search=search or _Search(),
-        llm_search=_LLMSearch(),
         fetch=fetch or _Fetch(),
         provider_items=(
             ProviderCatalogItem(
@@ -140,15 +124,6 @@ def test_target_routes_emit_canonical_context_headers_and_catalog() -> None:
         headers=headers,
         json={"query": "fixture", "domains": ["paper"]},
     )
-    llm = fixture.client.post(
-        "/api/v1/llm-search",
-        headers=headers,
-        json={
-            "query": "fixture",
-            "providers": [{"id": DEEPSEEK_ADAPTER_ID, "kind": "llm_search"}],
-            "strategy": "single",
-        },
-    )
     fetch = fixture.client.post(
         "/api/v1/fetch",
         headers=headers,
@@ -156,7 +131,7 @@ def test_target_routes_emit_canonical_context_headers_and_catalog() -> None:
     )
     providers = fixture.client.get("/api/v1/providers", headers=headers)
 
-    for response in (search, llm, fetch, providers):
+    for response in (search, fetch, providers):
         assert response.status_code == 200
         assert response.headers["x-request-id"] == "delivery-v2"
         assert response.headers["x-souwen-api-major"] == "2"
@@ -174,7 +149,6 @@ def test_target_routes_emit_canonical_context_headers_and_catalog() -> None:
     assert schema["x-souwen-rollout-mode"] == "target"
     for path, method in {
         "/api/v1/search": "post",
-        "/api/v1/llm-search": "post",
         "/api/v1/fetch": "post",
         "/api/v1/providers": "get",
     }.items():
@@ -464,26 +438,6 @@ def test_local_target_limiter_error_keeps_canonical_body_and_headers() -> None:
 
 
 @pytest.mark.asyncio
-async def test_runtime_catalog_keeps_uniapi_missing_fields_safe_and_nonblocking(
-    monkeypatch,
-) -> None:
-    monkeypatch.delenv("SOUWEN_BROWSER_WORKER_TOKEN", raising=False)
-    runtime = build_target_runtime(SouWenConfig(sources={DEEPSEEK_ADAPTER_ID: {"enabled": True}}))
-
-    by_id = {item.provider: item for item in runtime.services.provider_items}
-    assert {"openalex-search", "builtin-fetch"} <= set(runtime.manager.eligible_adapter_ids)
-    assert by_id[DEEPSEEK_ADAPTER_ID].availability == "unavailable"
-    assert by_id[DEEPSEEK_ADAPTER_ID].missing_fields == (
-        "llm_search_gateways.uniapi.api_key",
-        "llm_search_gateways.uniapi.base_url",
-    )
-    assert "UNIAPI_API_KEY" not in repr(runtime.services.provider_items)
-    readiness = await runtime.services.readiness()
-    assert readiness.ready is True
-    assert readiness.components["browser_worker"] == "disabled"
-
-
-@pytest.mark.asyncio
 @pytest.mark.parametrize(
     ("paper_defaults", "disabled_provider", "expected_primary"),
     (
@@ -601,7 +555,6 @@ def test_target_runtime_has_one_default_provider_for_every_public_search_domain(
         "images": "duckduckgo_images",
         "videos": "bilibili",
         "social": "reddit",
-        "office": "feishu_drive",
         "developer": "github",
         "cn_tech": "linuxdo",
         "knowledge": "wikipedia",
@@ -742,7 +695,6 @@ print(json.dumps({
     assert payload["runtime_fetch_response_model"] == "FetchBatch"
     assert payload["openapi_paths"] == [
         "/api/v1/fetch",
-        "/api/v1/llm-search",
         "/api/v1/providers",
         "/api/v1/search",
         "/health",

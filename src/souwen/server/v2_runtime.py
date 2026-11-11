@@ -29,7 +29,6 @@ from souwen.delivery.api import (
 )
 from souwen.delivery.browser_worker_client import BrowserWorkerClient
 from souwen.modules.fetch.api import FetchModuleService
-from souwen.modules.llm_search.api import LLMSearchModuleService
 from souwen.modules.search.api import SearchModuleService
 from souwen.modules.search.application import (
     OrderedSearchProviderSelector,
@@ -50,12 +49,10 @@ from souwen.providers.runtime_clients.paper.biorxiv import BioRxivClient
 from souwen.providers.runtime_clients.paper.crossref import CrossrefClient
 from souwen.providers.runtime_clients.paper.dblp import DblpClient
 from souwen.providers.runtime_clients.paper.europepmc import EuropePmcClient
-from souwen.providers.runtime_clients.paper.core import CoreClient
 from souwen.providers.runtime_clients.paper.doaj import DoajClient
 from souwen.providers.runtime_clients.paper.hal import HalClient
 from souwen.providers.runtime_clients.paper.huggingface import HuggingFaceClient
 from souwen.providers.runtime_clients.paper.iacr import IacrClient
-from souwen.providers.runtime_clients.paper.ieee_xplore import IeeeXploreClient
 from souwen.providers.runtime_clients.paper.openalex import OpenAlexClient
 from souwen.providers.runtime_clients.paper.openaire import OpenAireClient
 from souwen.providers.runtime_clients.paper.osti import OstiClient
@@ -63,14 +60,9 @@ from souwen.providers.runtime_clients.paper.pmc import PmcClient
 from souwen.providers.runtime_clients.paper.pubmed import PubMedClient
 from souwen.providers.runtime_clients.paper.semantic_scholar import SemanticScholarClient
 from souwen.providers.runtime_clients.paper.zenodo import ZenodoClient
-from souwen.providers.runtime_clients.paper.zotero import ZoteroClient
-from souwen.providers.runtime_clients.patent.cnipa import CnipaClient
 from souwen.providers.runtime_clients.patent.epo_ops import EpoOpsClient
 from souwen.providers.runtime_clients.patent.google_patents_scraper import GooglePatentsScraper
-from souwen.providers.runtime_clients.patent.patsnap import PatSnapClient
 from souwen.providers.runtime_clients.patent.patentsview import PatentsViewClient
-from souwen.providers.runtime_clients.patent.pqai import PqaiClient
-from souwen.providers.runtime_clients.patent.the_lens import TheLensClient
 from souwen.providers.runtime_clients.patent.uspto_odp import UsptoOdpClient
 from souwen.platform.manifest_registry import ProviderManifest
 from souwen.platform.provider_manager import ProviderManager
@@ -85,8 +77,6 @@ from souwen.platform.provider_spec import (
 )
 from souwen.platform.provider_spi import (
     ExecutionContext,
-    ProviderError,
-    ProviderErrorCode,
     ProviderRef,
     Provenance,
     RequestContext,
@@ -97,26 +87,11 @@ from souwen.providers.fetch_sources.arxiv_fulltext import (
     ARXIV_FULLTEXT_PROVIDER_MANIFEST,
     ArxivFulltextFetchProvider,
 )
-from souwen.providers.fetch_sources.apify import (
-    APIFY_FETCH_PROFILE,
-    APIFY_PROVIDER_MANIFEST,
-    ApifyFetchProvider,
-)
 from souwen.providers.fetch_sources.builtin import BUILTIN_FETCH_MANIFEST, BuiltinFetchProvider
-from souwen.providers.fetch_sources.cloudflare import (
-    CLOUDFLARE_FETCH_PROFILE,
-    CLOUDFLARE_PROVIDER_MANIFEST,
-    CloudflareFetchProvider,
-)
 from souwen.providers.fetch_sources.deepwiki import (
     DEEPWIKI_FETCH_PROFILE,
     DEEPWIKI_PROVIDER_MANIFEST,
     DeepWikiFetchProvider,
-)
-from souwen.providers.fetch_sources.diffbot import (
-    DIFFBOT_FETCH_PROFILE,
-    DIFFBOT_PROVIDER_MANIFEST,
-    DiffbotFetchProvider,
 )
 from souwen.providers.fetch_sources.jina_reader import (
     JINA_READER_FETCH_PROFILE,
@@ -133,35 +108,10 @@ from souwen.providers.fetch_sources.readability import (
     READABILITY_PROVIDER_MANIFEST,
     ReadabilityFetchProvider,
 )
-from souwen.providers.fetch_sources.scraperapi import (
-    SCRAPERAPI_FETCH_PROFILE,
-    SCRAPERAPI_PROVIDER_MANIFEST,
-    ScraperAPIFetchProvider,
-)
-from souwen.providers.fetch_sources.scrapfly import (
-    SCRAPFLY_FETCH_PROFILE,
-    SCRAPFLY_PROVIDER_MANIFEST,
-    ScrapflyFetchProvider,
-)
-from souwen.providers.fetch_sources.scrapingbee import (
-    SCRAPINGBEE_FETCH_PROFILE,
-    SCRAPINGBEE_PROVIDER_MANIFEST,
-    ScrapingBeeFetchProvider,
-)
 from souwen.providers.fetch_sources.wayback import (
     WAYBACK_FETCH_PROVIDER_SPEC,
     WAYBACK_PROVIDER_MANIFEST,
     WaybackFetchProvider,
-)
-from souwen.providers.fetch_sources.zenrows import (
-    ZENROWS_FETCH_PROFILE,
-    ZENROWS_PROVIDER_MANIFEST,
-    ZenRowsFetchProvider,
-)
-from souwen.providers.information_sources.aliyun_iqs import (
-    ALIYUN_IQS_PROVIDER_MANIFEST,
-    ALIYUN_IQS_PROVIDER_SPEC,
-    AliyunIQSSearchProvider,
 )
 from souwen.providers.information_sources.arxiv import (
     ARXIV_PROVIDER_MANIFEST,
@@ -173,25 +123,10 @@ from souwen.providers.information_sources.biorxiv import (
     BIORXIV_PROVIDER_SPEC,
     BioRxivSearchProvider,
 )
-from souwen.providers.information_sources.brave_api import (
-    BRAVE_API_PROVIDER_MANIFEST,
-    BRAVE_API_PROVIDER_SPEC,
-    BraveApiSearchProvider,
-)
 from souwen.providers.information_sources.crossref import (
     CROSSREF_PROVIDER_MANIFEST,
     CROSSREF_PROVIDER_SPEC,
     CrossrefSearchProvider,
-)
-from souwen.providers.information_sources.cnipa import (
-    CNIPA_BRIDGE_SPEC,
-    CNIPA_PROVIDER_MANIFEST,
-    CnipaSearchProvider,
-)
-from souwen.providers.information_sources.core import (
-    CORE_PROVIDER_MANIFEST,
-    CORE_PROVIDER_SPEC,
-    CoreSearchProvider,
 )
 from souwen.providers.information_sources.doaj import (
     DOAJ_PROVIDER_MANIFEST,
@@ -212,30 +147,6 @@ from souwen.providers.information_sources.epo_ops import (
     EPO_OPS_BRIDGE_SPEC,
     EPO_OPS_PROVIDER_MANIFEST,
     EpoOpsSearchProvider,
-)
-from souwen.providers.information_sources.exa import (
-    EXA_FETCH_PROVIDER_SPEC,
-    EXA_PROVIDER_MANIFEST,
-    EXA_SEARCH_PROVIDER_SPEC,
-    ExaFetchProvider,
-    ExaSearchProvider,
-)
-from souwen.providers.information_sources.facebook import (
-    FACEBOOK_PROVIDER_MANIFEST,
-    FACEBOOK_PROVIDER_SPEC,
-    FacebookSearchProvider,
-)
-from souwen.providers.information_sources.feishu_drive import (
-    FEISHU_DRIVE_PROVIDER_MANIFEST,
-    FEISHU_DRIVE_PROVIDER_SPEC,
-    FeishuDriveSearchProvider,
-)
-from souwen.providers.information_sources.firecrawl import (
-    FIRECRAWL_FETCH_PROVIDER_SPEC,
-    FIRECRAWL_PROVIDER_MANIFEST,
-    FIRECRAWL_SEARCH_PROVIDER_SPEC,
-    FirecrawlFetchProvider,
-    FirecrawlSearchProvider,
 )
 from souwen.providers.information_sources.google_patents import (
     GOOGLE_PATENTS_BRIDGE_SPEC,
@@ -262,34 +173,10 @@ from souwen.providers.information_sources.iacr import (
     IACR_PROVIDER_MANIFEST,
     IacrSearchProvider,
 )
-from souwen.providers.information_sources.ieee_xplore import (
-    IEEE_XPLORE_PROVIDER_MANIFEST,
-    IEEE_XPLORE_PROVIDER_SPEC,
-    IeeeXploreSearchProvider,
-)
-from souwen.providers.information_sources.kimi_code import (
-    KIMI_CODE_FETCH_PROVIDER_SPEC,
-    KIMI_CODE_PROVIDER_MANIFEST,
-    KIMI_CODE_SEARCH_PROVIDER_SPEC,
-    KimiCodeFetchProvider,
-    KimiCodeSearchProvider,
-)
-from souwen.providers.information_sources.linkup import (
-    LINKUP_PROVIDER_MANIFEST,
-    LINKUP_PROVIDER_SPEC,
-    LinkupSearchProvider,
-)
 from souwen.providers.information_sources.linuxdo import (
     LINUXDO_PROVIDER_MANIFEST,
     LINUXDO_PROVIDER_SPEC,
     LinuxDoSearchProvider,
-)
-from souwen.providers.information_sources.metaso import (
-    METASO_FETCH_PROVIDER_SPEC,
-    METASO_PROVIDER_MANIFEST,
-    METASO_SEARCH_PROVIDER_SPEC,
-    MetasoFetchProvider,
-    MetasoSearchProvider,
 )
 from souwen.providers.information_sources.openalex import (
     OPENALEX_PROVIDER_MANIFEST,
@@ -311,21 +198,6 @@ from souwen.providers.information_sources.patentsview import (
     PATENTSVIEW_REST_SPEC,
     PatentsViewSearchProvider,
 )
-from souwen.providers.information_sources.patsnap import (
-    PATSNAP_BRIDGE_SPEC,
-    PATSNAP_PROVIDER_MANIFEST,
-    PatSnapSearchProvider,
-)
-from souwen.providers.information_sources.perplexity import (
-    PERPLEXITY_PROVIDER_MANIFEST,
-    PERPLEXITY_PROVIDER_SPEC,
-    PerplexitySearchProvider,
-)
-from souwen.providers.information_sources.pqai import (
-    PQAI_BRIDGE_SPEC,
-    PQAI_PROVIDER_MANIFEST,
-    PqaiSearchProvider,
-)
 from souwen.providers.information_sources.eric import (
     ERIC_PROVIDER_MANIFEST,
     ERIC_REST_SPEC,
@@ -346,47 +218,15 @@ from souwen.providers.information_sources.reddit import (
     REDDIT_PROVIDER_SPEC,
     RedditSearchProvider,
 )
-from souwen.providers.information_sources.scrapingdog import (
-    SCRAPINGDOG_PROVIDER_MANIFEST,
-    SCRAPINGDOG_PROVIDER_SPEC,
-    ScrapingDogSearchProvider,
-)
-from souwen.providers.information_sources.serpapi import (
-    SERPAPI_PROVIDER_MANIFEST,
-    SERPAPI_PROVIDER_SPEC,
-    SerpApiSearchProvider,
-)
-from souwen.providers.information_sources.serper import (
-    SERPER_PROVIDER_MANIFEST,
-    SERPER_PROVIDER_SPEC,
-    SerperSearchProvider,
-)
 from souwen.providers.information_sources.stackoverflow import (
     STACKOVERFLOW_PROVIDER_MANIFEST,
     STACKOVERFLOW_PROVIDER_SPEC,
     StackOverflowSearchProvider,
 )
-from souwen.providers.information_sources.tavily import (
-    TAVILY_FETCH_PROVIDER_SPEC,
-    TAVILY_PROVIDER_MANIFEST,
-    TAVILY_SEARCH_PROVIDER_SPEC,
-    TavilyFetchProvider,
-    TavilySearchProvider,
-)
 from souwen.providers.information_sources.semantic_scholar import (
     SEMANTIC_SCHOLAR_PROVIDER_MANIFEST,
     SEMANTIC_SCHOLAR_PROVIDER_SPEC,
     SemanticScholarSearchProvider,
-)
-from souwen.providers.information_sources.the_lens import (
-    THE_LENS_BRIDGE_SPEC,
-    THE_LENS_PROVIDER_MANIFEST,
-    TheLensSearchProvider,
-)
-from souwen.providers.information_sources.twitter import (
-    TWITTER_PROVIDER_MANIFEST,
-    TWITTER_PROVIDER_SPEC,
-    TwitterSearchProvider,
 )
 from souwen.providers.information_sources.uspto_odp import (
     USPTO_ODP_BRIDGE_SPEC,
@@ -398,13 +238,6 @@ from souwen.providers.information_sources.wikipedia import (
     WIKIPEDIA_PROVIDER_SPEC,
     WikipediaSearchProvider,
 )
-from souwen.providers.information_sources.xcrawl import (
-    XCRAWL_FETCH_PROVIDER_SPEC,
-    XCRAWL_PROVIDER_MANIFEST,
-    XCRAWL_SEARCH_PROVIDER_SPEC,
-    XCrawlFetchProvider,
-    XCrawlSearchProvider,
-)
 from souwen.providers.information_sources.youtube import (
     YOUTUBE_PROVIDER_MANIFEST,
     YOUTUBE_PROVIDER_SPEC,
@@ -414,16 +247,6 @@ from souwen.providers.information_sources.zenodo import (
     ZENODO_PROVIDER_MANIFEST,
     ZENODO_PROVIDER_SPEC,
     ZenodoSearchProvider,
-)
-from souwen.providers.information_sources.zotero import (
-    ZOTERO_PROVIDER_MANIFEST,
-    ZOTERO_PROVIDER_SPEC,
-    ZoteroSearchProvider,
-)
-from souwen.providers.information_sources.zhipuai import (
-    ZHIPUAI_PROVIDER_MANIFEST,
-    ZHIPUAI_PROVIDER_SPEC,
-    ZhipuAISearchSearchProvider,
 )
 from souwen.providers.information_sources.datacite import (
     DATACITE_PROVIDER_MANIFEST,
@@ -480,79 +303,46 @@ from souwen.providers.information_sources.wikisource import (
     WIKISOURCE_PROVIDER_SPEC,
     WikisourceSearchProvider,
 )
-from souwen.providers.llm_sources.uniapi_ark_annotations import (
-    UNIAPI_ARK_MANIFESTS,
-    UniApiArkAnnotationsDeepSeekProvider,
-    UniApiArkAnnotationsDoubaoProvider,
-)
-from souwen.providers.llm_sources.uniapi_ark_annotations.manifest import (
-    DEEPSEEK_ADAPTER_ID,
-    DOUBAO_ADAPTER_ID,
-)
 from souwen.providers.runtime_clients.research_output.datacite import DataCiteClient
 from souwen.providers.runtime_clients.research_output.figshare import FigshareClient
-from souwen.providers.runtime_clients.web.apify import ApifyClient
-from souwen.providers.runtime_clients.web.aliyun_iqs import AliyunIQSClient
 from souwen.providers.runtime_clients.web.baidu import BaiduClient
 from souwen.providers.runtime_clients.web.bilibili import BilibiliClient
 from souwen.providers.runtime_clients.web.bing import BingClient
 from souwen.providers.runtime_clients.web.bing_cn import BingCnClient
 from souwen.providers.runtime_clients.web.brave import BraveClient
-from souwen.providers.runtime_clients.web.brave_api import BraveApiClient
 from souwen.providers.runtime_clients.web.builtin import BuiltinFetcherClient
-from souwen.providers.runtime_clients.web.cloudflare_browser import CloudflareBrowserClient
 from souwen.providers.runtime_clients.web.coolapk import CoolapkClient
 from souwen.providers.runtime_clients.web.csdn import CSDNClient
 from souwen.providers.runtime_clients.web.deepwiki import DeepWikiClient
 from souwen.providers.runtime_clients.web.ddg_images import DuckDuckGoImagesClient
 from souwen.providers.runtime_clients.web.ddg_news import DuckDuckGoNewsClient
 from souwen.providers.runtime_clients.web.ddg_videos import DuckDuckGoVideosClient
-from souwen.providers.runtime_clients.web.diffbot import DiffbotClient
 from souwen.providers.runtime_clients.web.duckduckgo import DuckDuckGoClient
-from souwen.providers.runtime_clients.web.exa import ExaClient
-from souwen.providers.runtime_clients.web.facebook import FacebookClient
-from souwen.providers.runtime_clients.web.feishu_drive import FeishuDriveClient
-from souwen.providers.runtime_clients.web.firecrawl import FirecrawlClient
 from souwen.providers.runtime_clients.web.github import GitHubClient
 from souwen.providers.runtime_clients.web.google import GoogleClient
 from souwen.providers.runtime_clients.web.hostloc import HostLocClient
 from souwen.providers.runtime_clients.web.jina_reader import JinaReaderClient
 from souwen.providers.runtime_clients.web.juejin import JuejinClient
-from souwen.providers.runtime_clients.web.kimi_code import KimiCodeClient
-from souwen.providers.runtime_clients.web.linkup import LinkupClient
 from souwen.providers.runtime_clients.web.linuxdo import LinuxDoClient
-from souwen.providers.runtime_clients.web.metaso import MetasoClient
 from souwen.providers.runtime_clients.web.mojeek import MojeekClient
 from souwen.providers.runtime_clients.web.newspaper_fetcher import NewspaperFetcherClient
 from souwen.providers.runtime_clients.web.nodeseek import NodeSeekClient
-from souwen.providers.runtime_clients.web.perplexity import PerplexityClient
 from souwen.providers.runtime_clients.web.reddit import RedditClient
 from souwen.providers.runtime_clients.web.readability_fetcher import ReadabilityFetcherClient
-from souwen.providers.runtime_clients.web.scraperapi import ScraperAPIClient
-from souwen.providers.runtime_clients.web.scrapfly import ScrapflyClient
-from souwen.providers.runtime_clients.web.scrapingbee import ScrapingBeeClient
-from souwen.providers.runtime_clients.web.scrapingdog import ScrapingDogClient
 from souwen.providers.runtime_clients.web.searxng import SearXNGClient
-from souwen.providers.runtime_clients.web.serpapi import SerpApiClient
-from souwen.providers.runtime_clients.web.serper import SerperClient
 from souwen.providers.runtime_clients.web.stackoverflow import StackOverflowClient
 from souwen.providers.runtime_clients.web.startpage import StartpageClient
-from souwen.providers.runtime_clients.web.tavily import TavilyClient
-from souwen.providers.runtime_clients.web.twitter import TwitterClient
 from souwen.providers.runtime_clients.web.v2ex import V2EXClient
 from souwen.providers.runtime_clients.web.wayback import WaybackClient
 from souwen.providers.runtime_clients.web.websurfx import WebsurfxClient
 from souwen.providers.runtime_clients.web.weibo import WeiboClient
 from souwen.providers.runtime_clients.web.whoogle import WhoogleClient
 from souwen.providers.runtime_clients.web.wikipedia import WikipediaClient
-from souwen.providers.runtime_clients.web.xcrawl import XCrawlClient
 from souwen.providers.runtime_clients.web.xiaohongshu import XiaohongshuClient
 from souwen.providers.runtime_clients.web.yahoo import YahooClient
 from souwen.providers.runtime_clients.web.yandex import YandexClient
 from souwen.providers.runtime_clients.web.youtube import YouTubeClient
-from souwen.providers.runtime_clients.web.zenrows import ZenRowsClient
 from souwen.providers.runtime_clients.web.zhihu import ZhihuClient
-from souwen.providers.runtime_clients.web.zhipuai_search import ZhipuAISearchClient
 from souwen.worker.browser_fetch.protocol import BROWSER_WORKER_PROVIDER_INVENTORY_DIGEST
 
 
@@ -959,21 +749,6 @@ _BATCH_TWO_SEARCH_BINDINGS: tuple[
     ...,
 ] = (
     (
-        CNIPA_PROVIDER_MANIFEST,
-        CNIPA_BRIDGE_SPEC,
-        CnipaSearchProvider,
-        lambda _configuration, secrets: CnipaClient(
-            client_id=secrets["CNIPA_CLIENT_ID"],
-            client_secret=secrets["CNIPA_CLIENT_SECRET"],
-        ),
-    ),
-    (
-        CORE_PROVIDER_MANIFEST,
-        CORE_PROVIDER_SPEC,
-        CoreSearchProvider,
-        lambda _configuration, secrets: CoreClient(api_key=secrets["CORE_API_KEY"]),
-    ),
-    (
         DOAJ_PROVIDER_MANIFEST,
         DOAJ_PROVIDER_SPEC,
         DoajSearchProvider,
@@ -989,28 +764,10 @@ _BATCH_TWO_SEARCH_BINDINGS: tuple[
         ),
     ),
     (
-        IEEE_XPLORE_PROVIDER_MANIFEST,
-        IEEE_XPLORE_PROVIDER_SPEC,
-        IeeeXploreSearchProvider,
-        lambda _configuration, secrets: IeeeXploreClient(api_key=secrets["IEEE_API_KEY"]),
-    ),
-    (
         OPENAIRE_PROVIDER_MANIFEST,
         OPENAIRE_PROVIDER_SPEC,
         OpenAireSearchProvider,
         lambda _configuration, secrets: OpenAireClient(api_key=secrets.get("OPENAIRE_API_KEY")),
-    ),
-    (
-        PATSNAP_PROVIDER_MANIFEST,
-        PATSNAP_BRIDGE_SPEC,
-        PatSnapSearchProvider,
-        lambda _configuration, secrets: PatSnapClient(api_key=secrets["PATSNAP_API_KEY"]),
-    ),
-    (
-        PQAI_PROVIDER_MANIFEST,
-        PQAI_BRIDGE_SPEC,
-        PqaiSearchProvider,
-        lambda _configuration, secrets: PqaiClient(api_token=secrets["PQAI_API_TOKEN"]),
     ),
     (
         SEMANTIC_SCHOLAR_PROVIDER_MANIFEST,
@@ -1019,12 +776,6 @@ _BATCH_TWO_SEARCH_BINDINGS: tuple[
         lambda _configuration, secrets: SemanticScholarClient(
             api_key=secrets.get("SEMANTIC_SCHOLAR_API_KEY")
         ),
-    ),
-    (
-        THE_LENS_PROVIDER_MANIFEST,
-        THE_LENS_BRIDGE_SPEC,
-        TheLensSearchProvider,
-        lambda _configuration, secrets: TheLensClient(api_token=secrets["LENS_API_TOKEN"]),
     ),
     (
         USPTO_ODP_PROVIDER_MANIFEST,
@@ -1040,16 +791,6 @@ _BATCH_TWO_SEARCH_BINDINGS: tuple[
             access_token=secrets.get("ZENODO_ACCESS_TOKEN")
         ),
     ),
-    (
-        ZOTERO_PROVIDER_MANIFEST,
-        ZOTERO_PROVIDER_SPEC,
-        ZoteroSearchProvider,
-        lambda configuration, secrets: ZoteroClient(
-            api_key=secrets["ZOTERO_API_KEY"],
-            library_id=str(configuration["library_id"]),
-            library_type=str(configuration["library_type"]),
-        ),
-    ),
 )
 _BATCH_THREE_SEARCH_ONLY_BINDINGS: tuple[
     tuple[
@@ -1061,58 +802,16 @@ _BATCH_THREE_SEARCH_ONLY_BINDINGS: tuple[
     ...,
 ] = (
     (
-        ALIYUN_IQS_PROVIDER_MANIFEST,
-        ALIYUN_IQS_PROVIDER_SPEC,
-        AliyunIQSSearchProvider,
-        lambda _configuration, secrets: AliyunIQSClient(api_key=secrets["ALIYUN_IQS_API_KEY"]),
-    ),
-    (
-        BRAVE_API_PROVIDER_MANIFEST,
-        BRAVE_API_PROVIDER_SPEC,
-        BraveApiSearchProvider,
-        lambda _configuration, secrets: BraveApiClient(api_key=secrets["BRAVE_API_KEY"]),
-    ),
-    (
-        FACEBOOK_PROVIDER_MANIFEST,
-        FACEBOOK_PROVIDER_SPEC,
-        FacebookSearchProvider,
-        lambda _configuration, secrets: FacebookClient(
-            app_id=secrets["FACEBOOK_APP_ID"],
-            app_secret=secrets["FACEBOOK_APP_SECRET"],
-        ),
-    ),
-    (
-        FEISHU_DRIVE_PROVIDER_MANIFEST,
-        FEISHU_DRIVE_PROVIDER_SPEC,
-        FeishuDriveSearchProvider,
-        lambda _configuration, secrets: FeishuDriveClient(
-            app_id=secrets["FEISHU_APP_ID"],
-            app_secret=secrets["FEISHU_APP_SECRET"],
-        ),
-    ),
-    (
         GITHUB_PROVIDER_MANIFEST,
         GITHUB_PROVIDER_SPEC,
         GitHubSearchProvider,
         lambda _configuration, secrets: GitHubClient(token=secrets.get("GITHUB_TOKEN", "")),
     ),
     (
-        LINKUP_PROVIDER_MANIFEST,
-        LINKUP_PROVIDER_SPEC,
-        LinkupSearchProvider,
-        lambda _configuration, secrets: LinkupClient(api_key=secrets["LINKUP_API_KEY"]),
-    ),
-    (
         LINUXDO_PROVIDER_MANIFEST,
         LINUXDO_PROVIDER_SPEC,
         LinuxDoSearchProvider,
         lambda _configuration, _secrets: LinuxDoClient(),
-    ),
-    (
-        PERPLEXITY_PROVIDER_MANIFEST,
-        PERPLEXITY_PROVIDER_SPEC,
-        PerplexitySearchProvider,
-        lambda _configuration, secrets: PerplexityClient(api_key=secrets["PERPLEXITY_API_KEY"]),
     ),
     (
         REDDIT_PROVIDER_MANIFEST,
@@ -1124,24 +823,6 @@ _BATCH_THREE_SEARCH_ONLY_BINDINGS: tuple[
         ),
     ),
     (
-        SCRAPINGDOG_PROVIDER_MANIFEST,
-        SCRAPINGDOG_PROVIDER_SPEC,
-        ScrapingDogSearchProvider,
-        lambda _configuration, secrets: ScrapingDogClient(api_key=secrets["SCRAPINGDOG_API_KEY"]),
-    ),
-    (
-        SERPAPI_PROVIDER_MANIFEST,
-        SERPAPI_PROVIDER_SPEC,
-        SerpApiSearchProvider,
-        lambda _configuration, secrets: SerpApiClient(api_key=secrets["SERPAPI_API_KEY"]),
-    ),
-    (
-        SERPER_PROVIDER_MANIFEST,
-        SERPER_PROVIDER_SPEC,
-        SerperSearchProvider,
-        lambda _configuration, secrets: SerperClient(api_key=secrets["SERPER_API_KEY"]),
-    ),
-    (
         STACKOVERFLOW_PROVIDER_MANIFEST,
         STACKOVERFLOW_PROVIDER_SPEC,
         StackOverflowSearchProvider,
@@ -1150,22 +831,10 @@ _BATCH_THREE_SEARCH_ONLY_BINDINGS: tuple[
         ),
     ),
     (
-        TWITTER_PROVIDER_MANIFEST,
-        TWITTER_PROVIDER_SPEC,
-        TwitterSearchProvider,
-        lambda _configuration, secrets: TwitterClient(bearer_token=secrets["TWITTER_BEARER_TOKEN"]),
-    ),
-    (
         WIKIPEDIA_PROVIDER_MANIFEST,
         WIKIPEDIA_PROVIDER_SPEC,
         WikipediaSearchProvider,
         lambda _configuration, _secrets: WikipediaClient(),
-    ),
-    (
-        ZHIPUAI_PROVIDER_MANIFEST,
-        ZHIPUAI_PROVIDER_SPEC,
-        ZhipuAISearchSearchProvider,
-        lambda _configuration, secrets: ZhipuAISearchClient(api_key=secrets["ZHIPUAI_API_KEY"]),
     ),
     (
         YOUTUBE_PROVIDER_MANIFEST,
@@ -1185,56 +854,7 @@ _BATCH_THREE_MULTI_BINDINGS: tuple[
         Callable[[Mapping[str, object], Mapping[str, str]], Any],
     ],
     ...,
-] = (
-    (
-        EXA_PROVIDER_MANIFEST,
-        EXA_SEARCH_PROVIDER_SPEC,
-        EXA_FETCH_PROVIDER_SPEC,
-        ExaSearchProvider,
-        ExaFetchProvider,
-        lambda _configuration, secrets: ExaClient(api_key=secrets["EXA_API_KEY"]),
-    ),
-    (
-        FIRECRAWL_PROVIDER_MANIFEST,
-        FIRECRAWL_SEARCH_PROVIDER_SPEC,
-        FIRECRAWL_FETCH_PROVIDER_SPEC,
-        FirecrawlSearchProvider,
-        FirecrawlFetchProvider,
-        lambda _configuration, secrets: FirecrawlClient(api_key=secrets["FIRECRAWL_API_KEY"]),
-    ),
-    (
-        KIMI_CODE_PROVIDER_MANIFEST,
-        KIMI_CODE_SEARCH_PROVIDER_SPEC,
-        KIMI_CODE_FETCH_PROVIDER_SPEC,
-        KimiCodeSearchProvider,
-        KimiCodeFetchProvider,
-        lambda _configuration, secrets: KimiCodeClient(api_key=secrets["KIMI_CODE_API_KEY"]),
-    ),
-    (
-        METASO_PROVIDER_MANIFEST,
-        METASO_SEARCH_PROVIDER_SPEC,
-        METASO_FETCH_PROVIDER_SPEC,
-        MetasoSearchProvider,
-        MetasoFetchProvider,
-        lambda _configuration, secrets: MetasoClient(api_key=secrets["METASO_API_KEY"]),
-    ),
-    (
-        TAVILY_PROVIDER_MANIFEST,
-        TAVILY_SEARCH_PROVIDER_SPEC,
-        TAVILY_FETCH_PROVIDER_SPEC,
-        TavilySearchProvider,
-        TavilyFetchProvider,
-        lambda _configuration, secrets: TavilyClient(api_key=secrets["TAVILY_API_KEY"]),
-    ),
-    (
-        XCRAWL_PROVIDER_MANIFEST,
-        XCRAWL_SEARCH_PROVIDER_SPEC,
-        XCRAWL_FETCH_PROVIDER_SPEC,
-        XCrawlSearchProvider,
-        XCrawlFetchProvider,
-        lambda _configuration, secrets: XCrawlClient(api_key=secrets["XCRAWL_API_KEY"]),
-    ),
-)
+] = ()
 
 _BATCH_THREE_FETCH_ONLY_BINDINGS: tuple[
     tuple[
@@ -1246,21 +866,6 @@ _BATCH_THREE_FETCH_ONLY_BINDINGS: tuple[
     ...,
 ] = (
     (
-        APIFY_PROVIDER_MANIFEST,
-        APIFY_FETCH_PROFILE,
-        ApifyFetchProvider,
-        lambda _configuration, secrets: ApifyClient(api_token=secrets["APIFY_API_TOKEN"]),
-    ),
-    (
-        CLOUDFLARE_PROVIDER_MANIFEST,
-        CLOUDFLARE_FETCH_PROFILE,
-        CloudflareFetchProvider,
-        lambda _configuration, secrets: CloudflareBrowserClient(
-            api_token=secrets["CLOUDFLARE_API_TOKEN"],
-            account_id=secrets["CLOUDFLARE_ACCOUNT_ID"],
-        ),
-    ),
-    (
         DEEPWIKI_PROVIDER_MANIFEST,
         DEEPWIKI_FETCH_PROFILE,
         DeepWikiFetchProvider,
@@ -1270,46 +875,16 @@ _BATCH_THREE_FETCH_ONLY_BINDINGS: tuple[
         ),
     ),
     (
-        DIFFBOT_PROVIDER_MANIFEST,
-        DIFFBOT_FETCH_PROFILE,
-        DiffbotFetchProvider,
-        lambda _configuration, secrets: DiffbotClient(api_token=secrets["DIFFBOT_API_TOKEN"]),
-    ),
-    (
         JINA_READER_PROVIDER_MANIFEST,
         JINA_READER_FETCH_PROFILE,
         JinaReaderFetchProvider,
         lambda _configuration, secrets: JinaReaderClient(api_key=secrets.get("JINA_API_KEY")),
     ),
     (
-        SCRAPERAPI_PROVIDER_MANIFEST,
-        SCRAPERAPI_FETCH_PROFILE,
-        ScraperAPIFetchProvider,
-        lambda _configuration, secrets: ScraperAPIClient(api_key=secrets["SCRAPERAPI_API_KEY"]),
-    ),
-    (
-        SCRAPFLY_PROVIDER_MANIFEST,
-        SCRAPFLY_FETCH_PROFILE,
-        ScrapflyFetchProvider,
-        lambda _configuration, secrets: ScrapflyClient(api_key=secrets["SCRAPFLY_API_KEY"]),
-    ),
-    (
-        SCRAPINGBEE_PROVIDER_MANIFEST,
-        SCRAPINGBEE_FETCH_PROFILE,
-        ScrapingBeeFetchProvider,
-        lambda _configuration, secrets: ScrapingBeeClient(api_key=secrets["SCRAPINGBEE_API_KEY"]),
-    ),
-    (
         WAYBACK_PROVIDER_MANIFEST,
         WAYBACK_FETCH_PROVIDER_SPEC,
         WaybackFetchProvider,
         lambda _configuration, _secrets: WaybackClient(),
-    ),
-    (
-        ZENROWS_PROVIDER_MANIFEST,
-        ZENROWS_FETCH_PROFILE,
-        ZenRowsFetchProvider,
-        lambda _configuration, secrets: ZenRowsClient(api_key=secrets["ZENROWS_API_KEY"]),
     ),
 )
 _BATCH_FOUR_SEARCH_BINDINGS: tuple[
@@ -1529,11 +1104,6 @@ def _self_hosted_base_url(config: SouWenConfig, provider_id: str) -> str:
     return validate_self_hosted_base_url(value)
 
 
-class _UnavailableLLMSearchModule:
-    async def search(self, _request, _context, _execution):
-        raise ProviderError(ProviderErrorCode.PROVIDER_UNAVAILABLE)
-
-
 @dataclass(slots=True)
 class TargetRuntime:
     services: TargetDeliveryServices
@@ -1558,8 +1128,6 @@ class TargetRuntime:
 
 
 def _configuration_resolver(config: SouWenConfig):
-    enabled_llm = set(config.enabled_uniapi_ark_source_ids())
-
     def resolve(manifest):
         if manifest.id == "openalex":
             if not config.is_source_enabled("openalex", default=True):
@@ -1626,15 +1194,6 @@ def _configuration_resolver(config: SouWenConfig):
             if not config.is_source_enabled("builtin-fetch", default=True):
                 raise ValueError("provider is disabled")
             return {"enabled": True}
-        if manifest.id in {DEEPSEEK_ADAPTER_ID, DOUBAO_ADAPTER_ID}:
-            if manifest.id not in enabled_llm:
-                raise ValueError("provider is disabled")
-            source = config.get_source_config(manifest.id)
-            return {
-                "enabled": True,
-                "max_keyword": source.params.get("max_keyword", 10),
-                "timeout_seconds": source.timeout or 45,
-            }
         raise ValueError("unknown target provider")
 
     return resolve
@@ -1666,13 +1225,7 @@ def _secret_resolver(config: SouWenConfig):
                 if isinstance(value, str) and value.strip():
                     resolved[reference] = value.strip()
             return resolved
-        if manifest.id not in {DEEPSEEK_ADAPTER_ID, DOUBAO_ADAPTER_ID}:
-            return {}
-        gateway = config.get_llm_search_gateway("uniapi")
-        return {
-            "UNIAPI_API_KEY": gateway.api_key or "",
-            "UNIAPI_BASE_URL": gateway.base_url or "",
-        }
+        return {}
 
     return resolve
 
@@ -1804,26 +1357,19 @@ def _catalog_items(
     manager: ProviderManager,
 ) -> tuple[ProviderCatalogItem, ...]:
     eligible = set(manager.eligible_adapter_ids)
-    enabled_llm = set(config.enabled_uniapi_ark_source_ids())
-    missing_gateway = config.missing_uniapi_gateway_fields()
     patentsview_enabled = config.is_source_enabled("patentsview", default=False)
     items: list[ProviderCatalogItem] = []
     for manifest in manager.registry.packages:
         adapter = manifest.adapters[0]
         provider_id = manifest.id
         adapter_id = adapter.id
-        capability = adapter.capability
-        if capability == "llm_search":
-            enabled = provider_id in enabled_llm
-        elif provider_id == "patentsview":
+        if provider_id == "patentsview":
             enabled = patentsview_enabled
         elif provider_id in _MIGRATED_PROVIDER_IDS:
             enabled = config.is_source_enabled(provider_id, default=True)
         else:
             enabled = config.is_source_enabled(provider_id, default=True)
-        if enabled and capability == "llm_search" and missing_gateway:
-            missing_fields = missing_gateway
-        elif enabled:
+        if enabled:
             missing_fields = _missing_provider_configuration(config, manifest)
         else:
             missing_fields = ()
@@ -2106,18 +1652,6 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
         ),
         provider_type=BuiltinFetchProvider,
     )
-    manager.register_factory(
-        package_id=DEEPSEEK_ADAPTER_ID,
-        export="UniApiArkAnnotationsDeepSeekProvider",
-        factory=UniApiArkAnnotationsDeepSeekProvider,
-        provider_type=UniApiArkAnnotationsDeepSeekProvider,
-    )
-    manager.register_factory(
-        package_id=DOUBAO_ADAPTER_ID,
-        export="UniApiArkAnnotationsDoubaoProvider",
-        factory=UniApiArkAnnotationsDoubaoProvider,
-        provider_type=UniApiArkAnnotationsDoubaoProvider,
-    )
     manager.discover(
         (
             OPENALEX_PROVIDER_MANIFEST,
@@ -2166,18 +1700,11 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
             READABILITY_PROVIDER_MANIFEST,
             ARXIV_FULLTEXT_PROVIDER_MANIFEST,
             BUILTIN_FETCH_MANIFEST,
-            *UNIAPI_ARK_MANIFESTS,
         )
     )
 
     search_selector = _build_search_selector(config)
     search = SearchModuleService(manager, search_selector)
-    enabled_llm = config.enabled_uniapi_ark_source_ids()
-    llm_search: Any = (
-        LLMSearchModuleService(manager, enabled_llm[0])
-        if enabled_llm
-        else _UnavailableLLMSearchModule()
-    )
     browser_client = _browser_client()
     fetch = FetchModuleService(
         manager,
@@ -2234,9 +1761,6 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
             "crossref": "ready" if "crossref-search" in eligible else "not_ready",
             "openalex": "ready" if "openalex-search" in eligible else "not_ready",
             "builtin_fetch": "ready" if "builtin-fetch" in eligible else "not_ready",
-            "llm_search": (
-                "ready" if enabled_llm and enabled_llm[0] in eligible else "optional_unavailable"
-            ),
             "browser_worker": browser_status,
         }
         components[paper_primary.provider.id] = (
@@ -2257,7 +1781,6 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
     )
     services = TargetDeliveryServices(
         search=search,
-        llm_search=llm_search,
         fetch=fetch,
         provider_items=_catalog_items(config, manager),
         readiness=readiness,

@@ -5,7 +5,7 @@
 
 子模块:
     validators: 代理 URL 校验 (_ALLOWED_PROXY_SCHEMES, _validate_proxy_url)
-    models:     Pydantic 配置模型 (SourceChannelConfig, LLMSearchGatewayConfig, SouWenConfig)
+    models:     Pydantic 配置模型 (SourceChannelConfig, SouWenConfig)
     template:   默认 YAML 模板字符串 (_DEFAULT_CONFIG_TEMPLATE)
     loader:     .env / YAML 加载与缓存单例 (get_config, reload_config,
                 ensure_config_file, _load_yaml_config)
@@ -28,7 +28,6 @@ from .loader import (
 from .models import (
     DEFAULT_SEARCH_PROVIDERS,
     SEARCH_DOMAINS,
-    LLMSearchGatewayConfig,
     SourceChannelConfig,
     SouWenConfig,
 )
@@ -40,7 +39,6 @@ __all__ = [
     "SEARCH_DOMAINS",
     "SouWenConfig",
     "SourceChannelConfig",
-    "LLMSearchGatewayConfig",
     "get_config",
     "reload_config",
     "ensure_config_file",

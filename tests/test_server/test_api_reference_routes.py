@@ -7,7 +7,6 @@ def test_api_reference_mentions_every_target_operation() -> None:
     text = Path("docs/api-reference.md").read_text(encoding="utf-8")
     for path in (
         "/api/v1/search",
-        "/api/v1/llm-search",
         "/api/v1/fetch",
         "/api/v1/providers",
         "/health",

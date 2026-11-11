@@ -7,7 +7,6 @@ from souwen.server.app import app
 
 TARGET_PATHS = {
     "/api/v1/search",
-    "/api/v1/llm-search",
     "/api/v1/fetch",
     "/api/v1/providers",
     "/health",
@@ -30,7 +29,6 @@ def test_target_data_operations_use_generated_canonical_models() -> None:
     schema = app.openapi()
     expected = {
         "/api/v1/search": ("SearchRequest", "SearchPage"),
-        "/api/v1/llm-search": ("LLMSearchRequest", "LLMSearchResult"),
         "/api/v1/fetch": ("FetchRequest", "FetchBatch"),
     }
     for path, (request_model, response_model) in expected.items():

@@ -1,7 +1,7 @@
 """Generated from contracts/openapi/souwen-openapi-2.0.0rc6.json; do not edit."""
 
 # generator_version=1
-# openapi_sha256=6efad01d446b3dfe1fbda30ba58a5818696212dbcacd692268fcb9f57ff42106
+# openapi_sha256=b11642a641558401f1cb6790af41e331da75add0efbd6494606db0a011e53509
 
 from __future__ import annotations
 
@@ -9,7 +9,7 @@ from typing import NamedTuple
 
 SDK_VERSION = "2.0.0rc6"
 SUPPORTED_API_MAJOR = 2
-OPENAPI_SHA256 = "6efad01d446b3dfe1fbda30ba58a5818696212dbcacd692268fcb9f57ff42106"
+OPENAPI_SHA256 = "b11642a641558401f1cb6790af41e331da75add0efbd6494606db0a011e53509"
 
 
 class Operation(NamedTuple):
@@ -21,7 +21,6 @@ class Operation(NamedTuple):
 
 
 FETCH = Operation("POST", "/api/v1/fetch", "FetchRequest", "FetchBatch", (200,))
-LLM_SEARCH = Operation("POST", "/api/v1/llm-search", "LLMSearchRequest", "LLMSearchResult", (200,))
 LIST_PROVIDERS = Operation("GET", "/api/v1/providers", None, "ProviderCatalog", (200,))
 SEARCH = Operation("POST", "/api/v1/search", "SearchRequest", "SearchPage", (200,))
 HEALTH_ALIAS = Operation("GET", "/health", None, "ProbeResponse", (200,))
@@ -31,7 +30,6 @@ READYZ = Operation("GET", "/readyz", None, "ProbeResponse", (200, 503))
 
 OPERATIONS = {
     "fetch": FETCH,
-    "llmSearch": LLM_SEARCH,
     "listProviders": LIST_PROVIDERS,
     "search": SEARCH,
     "healthAlias": HEALTH_ALIAS,
@@ -46,7 +44,6 @@ __all__ = [
     "HEALTHZ",
     "HEALTH_ALIAS",
     "LIST_PROVIDERS",
-    "LLM_SEARCH",
     "OPENAPI_SHA256",
     "OPERATIONS",
     "Operation",

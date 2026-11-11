@@ -16,9 +16,6 @@ from souwen.delivery.client_sdk import (
     ApiMajorMismatchError,
     AsyncSouWenClient,
     ContractViolationError,
-    FetchRequest,
-    LLMSearchRequest,
-    ProviderRef,
     SearchPage,
     SearchRequest,
     SouWenAPIError,
@@ -99,62 +96,6 @@ def _success(request: httpx.Request) -> httpx.Response:
         headers=_headers(request.headers["X-Request-ID"]),
         json=payloads[path],
     )
-
-
-def test_sync_client_covers_all_generated_operations_and_payloads() -> None:
-    requests: list[httpx.Request] = []
-
-    def handler(request: httpx.Request) -> httpx.Response:
-        requests.append(request)
-        return _success(request)
-
-    client = SouWenClient(
-        "https://example.test/root/",
-        token="application-fixture",
-        transport=httpx.MockTransport(handler),
-    )
-
-    assert client.health(request_id="health-id").status == "ok"
-    assert client.healthz(request_id="healthz-id").status == "ok"
-    assert client.readiness(request_id="readiness-id").ready is True
-    assert client.readyz(request_id="readyz-id").ready is True
-    assert (
-        client.search(
-            SearchRequest(query="fixture", domains=["paper"]), request_id="search-id"
-        ).page.limit
-        == 10
-    )
-    assert (
-        client.llm_search(
-            LLMSearchRequest(
-                query="fixture",
-                providers=[ProviderRef(id="llm", kind="llm_search")],
-                strategy="single",
-            ),
-            request_id="llm-id",
-        ).query
-        == "fixture"
-    )
-    assert (
-        client.fetch(FetchRequest(targets=["https://example.com"]), request_id="fetch-id").items
-        == []
-    )
-    assert client.list_providers(request_id="providers-id").items == []
-
-    assert [(request.method, request.url.path) for request in requests] == [
-        ("GET", "/root/health"),
-        ("GET", "/root/healthz"),
-        ("GET", "/root/readiness"),
-        ("GET", "/root/readyz"),
-        ("POST", "/root/api/v1/search"),
-        ("POST", "/root/api/v1/llm-search"),
-        ("POST", "/root/api/v1/fetch"),
-        ("GET", "/root/api/v1/providers"),
-    ]
-    assert requests[4].headers["Authorization"] == "Bearer application-fixture"
-    assert requests[4].headers["X-SouWen-API-Major"] == "2"
-    assert json.loads(requests[4].content) == {"domains": ["paper"], "query": "fixture"}
-    client.close()
 
 
 def test_first_business_request_preflights_before_sending_body() -> None:

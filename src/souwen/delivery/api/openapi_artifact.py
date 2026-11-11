@@ -18,7 +18,6 @@ TARGET_OPENAPI_VERSION = __version__
 TARGET_OPENAPI_PATHS = frozenset(
     {
         "/api/v1/search",
-        "/api/v1/llm-search",
         "/api/v1/fetch",
         "/api/v1/providers",
         "/health",
@@ -42,7 +41,6 @@ def _schema_only_services() -> TargetDeliveryServices:
     service = _SchemaOnlyService()
     return TargetDeliveryServices(
         search=service,  # type: ignore[arg-type]
-        llm_search=service,  # type: ignore[arg-type]
         fetch=service,  # type: ignore[arg-type]
         provider_items=(),
         readiness=lambda: ReadinessSnapshot(ready=True, components={"api": "ready"}),

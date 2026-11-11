@@ -8,7 +8,6 @@ from souwen.platform.provider_spi.dto import (
     ContentMetadata,
     ErrorDetail,
     ErrorResponse,
-    EvidenceItem,
     FetchBatch,
     FetchContentOptions,
     FetchMeta,
@@ -17,11 +16,6 @@ from souwen.platform.provider_spi.dto import (
     FetchResult,
     FetchStrategy,
     FetchTargetRequest,
-    LLMFetchOptions,
-    LLMSearchBudget,
-    LLMSearchRequest,
-    LLMSearchResult,
-    LLMSearchStrategy,
     PageInfo,
     ProviderFailure,
     ProviderProbe,
@@ -38,12 +32,10 @@ from souwen.platform.provider_spi.dto import (
     SearchPage,
     SearchPageRequest,
     SearchRequest,
-    Usage,
-    UsageMetadata,
 )
 from souwen.platform.provider_spi.errors import ProviderError, ProviderErrorCode
 from souwen.platform.provider_spi.execution import ExecutionContext, MAX_EXECUTION_SECONDS
-from souwen.platform.provider_spi.protocols import FetchProvider, LLMSearchProvider, SearchProvider
+from souwen.platform.provider_spi.protocols import FetchProvider, SearchProvider
 
 __all__ = [
     "Capability",
@@ -64,12 +56,6 @@ __all__ = [
     "FetchResult",
     "FetchStrategy",
     "FetchTargetRequest",
-    "LLMFetchOptions",
-    "LLMSearchBudget",
-    "LLMSearchProvider",
-    "LLMSearchRequest",
-    "LLMSearchResult",
-    "LLMSearchStrategy",
     "MAX_EXECUTION_SECONDS",
     "PageInfo",
     "ProviderError",
@@ -90,6 +76,4 @@ __all__ = [
     "SearchPageRequest",
     "SearchProvider",
     "SearchRequest",
-    "Usage",
-    "UsageMetadata",
 ]
