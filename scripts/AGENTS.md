@@ -11,6 +11,15 @@ Read this card for non-pytest checks, reports, outcome semantics, runtime smoke 
 - Outcome semantics are `PASS`, `WARN`, `FAIL`, `SKIP`.
 - Runtime installation belongs in workflow steps, not hidden inside Python scripts.
 - Scripts that hit live services must make that dependency explicit.
+- `census.py` and its frozen inputs in `census/queries.json` are the authoritative
+  live-source health check; do not swap queries or URLs to improve pass rates.
+
+## Local invariants
+
+- Functional scripts must run outside pytest and support JSON/Markdown reports when appropriate.
+- Outcome semantics are `PASS`, `WARN`, `FAIL`, `SKIP`.
+- Runtime installation belongs in workflow steps, not hidden inside Python scripts.
+- Scripts that hit live services must make that dependency explicit.
 
 ## Do not
 

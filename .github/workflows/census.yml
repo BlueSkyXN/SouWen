@@ -1,0 +1,167 @@
+# 权威环境体检：构建根镜像，分别在 WARP 关/开下跑 sources/domains/fetch 三种模式并上传报告。
+# 触发：agent-first 分支 push、手动、每周日 UTC。只用 contents: read，不用任何 secret。
+
+name: census
+
+on:
+  push:
+    branches: [agent-first]
+  workflow_dispatch:
+    inputs:
+      sha:
+        description: "Optional commit SHA hint (informational only)"
+        required: false
+        default: ""
+  schedule:
+    - cron: "0 3 * * 0"
+
+permissions:
+  contents: read
+
+env:
+  IMAGE_TAG: souwen-census:local
+  HOST_PORT: "49365"
+  CENSUS_TOKEN: census-token
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build root image
+        run: |
+          docker build \
+            --build-arg SOUWEN_SOURCE_SHA="$(git rev-parse HEAD)" \
+            -t "$IMAGE_TAG" .
+      - name: Save image
+        run: docker save "$IMAGE_TAG" | gzip > /tmp/souwen-image.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: souwen-image
+          path: /tmp/souwen-image.tar.gz
+          retention-days: 3
+
+  census:
+    needs: build
+    runs-on: ubuntu-latest
+    timeout-minutes: 330
+    strategy:
+      fail-fast: false
+      matrix:
+        warp: ["off", "on"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: souwen-image
+      - name: Load image
+        run: docker load < souwen-image.tar.gz
+
+      - name: Start container
+        run: |
+          WARP_FLAG=0
+          if [ "${{ matrix.warp }}" = "on" ]; then WARP_FLAG=1; fi
+          docker run -d --name souwen \
+            -p 127.0.0.1:${HOST_PORT}:49265 \
+            -e PORT=49265 \
+            -e SOUWEN_USER_PASSWORD="$CENSUS_TOKEN" \
+            -e WARP_ENABLED="$WARP_FLAG" \
+            "$IMAGE_TAG"
+
+      - name: Wait for /healthz
+        run: |
+          for i in $(seq 1 60); do
+            if curl -fsS "http://127.0.0.1:${HOST_PORT}/healthz" > /dev/null 2>&1; then
+              echo "healthz OK after ${i} attempts"; exit 0
+            fi
+            sleep 5
+          done
+          docker logs souwen | tail -100
+          exit 1
+
+      - name: Verify WARP egress (warp=on leg)
+        if: matrix.warp == 'on'
+        run: |
+          : > warp-status.txt
+          for i in $(seq 1 36); do
+            if docker exec souwen curl -fsS --max-time 15 \
+                --socks5-hostname 127.0.0.1:1080 \
+                https://www.cloudflare.com/cdn-cgi/trace 2>/dev/null \
+                | grep -q '^warp=on'; then
+              echo "warp=on verified after ${i} attempts" | tee -a warp-status.txt
+              exit 0
+            fi
+            sleep 10
+          done
+          echo "WARP_DID_NOT_COME_UP" | tee -a warp-status.txt
+          # PRD 第 7 节：WARP 起不来时改以 WARP 关闭跑，并在报告注明
+          docker rm -f souwen
+          docker run -d --name souwen \
+            -p 127.0.0.1:${HOST_PORT}:49265 \
+            -e PORT=49265 \
+            -e SOUWEN_USER_PASSWORD="$CENSUS_TOKEN" \
+            -e WARP_ENABLED=0 \
+            "$IMAGE_TAG"
+          for i in $(seq 1 60); do
+            if curl -fsS "http://127.0.0.1:${HOST_PORT}/healthz" > /dev/null 2>&1; then
+              echo "healthz OK (warp fallback) after ${i} attempts"; exit 0
+            fi
+            sleep 5
+          done
+          docker logs souwen | tail -100
+          exit 1
+
+      - name: Resolve census label
+        id: label
+        run: |
+          LABEL="warp-${{ matrix.warp }}"
+          if [ "${{ matrix.warp }}" = "on" ] && grep -q WARP_DID_NOT_COME_UP warp-status.txt 2>/dev/null; then
+            LABEL="warp-on-unavailable-fallback-direct"
+          fi
+          echo "label=$LABEL" >> "$GITHUB_OUTPUT"
+
+      - name: Run census (sources mode)
+        run: |
+          python3 scripts/census.py \
+            --base-url "http://127.0.0.1:${HOST_PORT}" \
+            --bearer-token "$CENSUS_TOKEN" \
+            --mode sources --label "${{ steps.label.outputs.label }}" \
+            --json-file "reports/${{ steps.label.outputs.label }}/sources.json" \
+            --markdown-report "reports/${{ steps.label.outputs.label }}/sources.md" \
+            --summary-file "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Run census (domains mode)
+        run: |
+          python3 scripts/census.py \
+            --base-url "http://127.0.0.1:${HOST_PORT}" \
+            --bearer-token "$CENSUS_TOKEN" \
+            --mode domains --label "${{ steps.label.outputs.label }}" \
+            --json-file "reports/${{ steps.label.outputs.label }}/domains.json" \
+            --markdown-report "reports/${{ steps.label.outputs.label }}/domains.md" \
+            --summary-file "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Run census (fetch mode)
+        run: |
+          python3 scripts/census.py \
+            --base-url "http://127.0.0.1:${HOST_PORT}" \
+            --bearer-token "$CENSUS_TOKEN" \
+            --mode fetch --label "${{ steps.label.outputs.label }}" \
+            --json-file "reports/${{ steps.label.outputs.label }}/fetch.json" \
+            --markdown-report "reports/${{ steps.label.outputs.label }}/fetch.md" \
+            --summary-file "$GITHUB_STEP_SUMMARY" || true
+
+      - name: Dump container log tail
+        if: always()
+        run: docker logs souwen 2>&1 | tail -200 || true
+
+      - name: Upload reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: census-reports-${{ matrix.warp }}
+          path: |
+            reports/
+            warp-status.txt
+          retention-days: 30
+          if-no-files-found: error

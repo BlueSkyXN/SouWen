@@ -1,0 +1,505 @@
+{
+  "schema_version": 1,
+  "note": "P0 冻结的体检固定输入。确需替换（如 URL 下线）时，在同一提交说明里写明原因；不为提高通过率而替换。",
+  "search_page_limit": 5,
+  "min_valid_results": 3,
+  "min_fetch_chars": 500,
+  "census_domains": [
+    "book",
+    "cn_tech",
+    "developer",
+    "images",
+    "knowledge",
+    "news",
+    "paper",
+    "patent",
+    "research_output",
+    "social",
+    "videos",
+    "web"
+  ],
+  "domains": {
+    "web": [
+      "python asyncio tutorial",
+      "rust vs go performance 2025",
+      "how does https certificate validation work",
+      "best practices for writing clean code",
+      "latest openai model release",
+      "Python 异步编程 入门",
+      "2025 年大模型 发展趋势",
+      "如何在家搭建 NAS",
+      "新能源车 保养建议",
+      "remote work productivity tools"
+    ],
+    "paper": [
+      "retrieval augmented generation",
+      "transformer attention mechanism",
+      "large language model hallucination",
+      "federated learning privacy",
+      "quantum error correction",
+      "大语言模型 推理加速",
+      "多模态学习 综述",
+      "图神经网络 药物发现",
+      "强化学习 机器人控制",
+      "开源大模型 评测"
+    ],
+    "book": [
+      "introduction to algorithms",
+      "machine learning textbook",
+      "python data analysis",
+      "distributed systems",
+      "japanese literature novel",
+      "红楼梦",
+      "三体 刘慈欣",
+      "计算机程序设计艺术",
+      "鲁迅全集",
+      "世界通史"
+    ],
+    "cn_tech": [
+      "nas 自建方案",
+      "家庭软路由 推荐",
+      "程序员 副业",
+      "AI 编程 效率",
+      "独立开发 出海",
+      "homelab 2025",
+      "vps 选购",
+      "linux 桌面 推荐",
+      "机械键盘 选购",
+      "开源项目 推荐"
+    ],
+    "social": [
+      "openai latest announcement",
+      "best programming language 2025",
+      "ai safety discussion",
+      "startup funding news",
+      "electric vehicle market",
+      "ChatGPT 使用技巧",
+      "远程办公 体验",
+      "AI 与 工作 讨论",
+      "计算机 考研",
+      "新能源车 评测"
+    ],
+    "developer": [
+      "fastapi dependency injection",
+      "react server components example",
+      "docker compose networking",
+      "git rebase vs merge",
+      "kubernetes ingress tutorial",
+      "Python 装饰器 原理",
+      "Vue3 组合式 API",
+      "MySQL 索引 优化",
+      "WebSocket 实战",
+      "Rust 入门"
+    ],
+    "research_output": [
+      "covid 19 dataset",
+      "climate change data",
+      "genome dataset",
+      "image classification dataset",
+      "language model corpus",
+      "中文 语料库",
+      "遥感 数据集",
+      "知识图谱 开放数据",
+      "医疗影像 数据集",
+      "交通 开放数据"
+    ],
+    "videos": [
+      "python tutorial for beginners",
+      "machine learning course",
+      "system design interview",
+      "rust programming",
+      "cooking pasta recipe",
+      "机器学习 教程",
+      "Python 入门",
+      "考研数学",
+      "做饭 教程",
+      "健身 入门"
+    ],
+    "news": [
+      "artificial intelligence",
+      "climate summit",
+      "stock market today",
+      "space launch",
+      "election results",
+      "人工智能 新闻",
+      "中美 贸易",
+      "新能源汽车 新闻",
+      "科技新闻 今日",
+      "航天 发射"
+    ],
+    "images": [
+      "solar eclipse",
+      "tokyo street photography",
+      "northern lights",
+      "vintage car",
+      "cute cats",
+      "故宫 摄影",
+      "九寨沟 风景",
+      "大熊猫 图片",
+      "赛博朋克 城市",
+      "水彩 插画"
+    ],
+    "knowledge": [
+      "retrieval augmented generation",
+      "zhuge liang",
+      "quantum computing",
+      "roman empire",
+      "photosynthesis",
+      "丝绸之路",
+      "宋朝 历史",
+      "量子力学 入门",
+      "区块链 原理",
+      "恐龙 灭绝"
+    ],
+    "patent": [
+      "transformer neural network",
+      "lithium battery cathode",
+      "crispr gene editing",
+      "autonomous driving lidar",
+      "solid state battery",
+      "锂电池 正极材料",
+      "自动驾驶 激光雷达",
+      "无人机 图像识别",
+      "钙钛矿 太阳能电池",
+      "半导体 刻蚀"
+    ]
+  },
+  "sources": {
+    "arxiv": {
+      "kind": "search",
+      "domain": "paper"
+    },
+    "arxiv_fulltext": {
+      "kind": "fetch"
+    },
+    "baidu": {
+      "kind": "search",
+      "domain": "web"
+    },
+    "bilibili": {
+      "kind": "search",
+      "domain": "videos"
+    },
+    "bing": {
+      "kind": "search",
+      "domain": "web"
+    },
+    "bing_cn": {
+      "kind": "search",
+      "domain": "web"
+    },
+    "biorxiv": {
+      "kind": "search",
+      "domain": "paper"
+    },
+    "brave": {
+      "kind": "search",
+      "domain": "web"
+    },
+    "builtin-fetch": {
+      "kind": "fetch"
+    },
+    "coolapk": {
+      "kind": "search",
+      "domain": "cn_tech"
+    },
+    "crossref": {
+      "kind": "search",
+      "domain": "paper"
+    },
+    "csdn": {
+      "kind": "search",
+      "domain": "cn_tech"
+    },
+    "datacite": {
+      "kind": "search",
+      "domain": "research_output"
+    },
+    "dblp": {
+      "kind": "search",
+      "domain": "paper"
+    },
+    "deepwiki": {
+      "kind": "fetch"
+    },
+    "doab": {
+      "kind": "search",
+      "domain": "book"
+    },
+    "doaj": {
+      "kind": "search",
+      "domain": "paper"
+    },
+    "duckduckgo": {
+      "kind": "search",
+      "domain": "web"
+    },
+    "duckduckgo_images": {
+      "kind": "search",
+      "domain": "images"
+    },
+    "duckduckgo_news": {
+      "kind": "search",
+      "domain": "news"
+    },
+    "duckduckgo_videos": {
+      "kind": "search",
+      "domain": "videos"
+    },
+    "eric": {
+      "kind": "search",
+      "domain": "paper"
+    },
+    "europepmc": {
+      "kind": "search",
+      "domain": "paper"
+    },
+    "figshare": {
+      "kind": "search",
+      "domain": "research_output"
+    },
+    "github": {
+      "kind": "search",
+      "domain": "developer"
+    },
+    "google": {
+      "kind": "search",
+      "domain": "web"
+    },
+    "google_patents": {
+      "kind": "search",
+      "domain": "patent"
+    },
+    "gutenberg": {
+      "kind": "search",
+      "domain": "book"
+    },
+    "hal": {
+      "kind": "search",
+      "domain": "paper"
+    },
+    "hostloc": {
+      "kind": "search",
+      "domain": "cn_tech"
+    },
+    "huggingface": {
+      "kind": "search",
+      "domain": "paper"
+    },
+    "iacr": {
+      "kind": "search",
+      "domain": "paper"
+    },
+    "internet_archive": {
+      "kind": "search",
+      "domain": "book"
+    },
+    "jina_reader": {
+      "kind": "fetch"
+    },
+    "juejin": {
+      "kind": "search",
+      "domain": "cn_tech"
+    },
+    "library_of_congress": {
+      "kind": "search",
+      "domain": "book"
+    },
+    "librivox": {
+      "kind": "search",
+      "domain": "book"
+    },
+    "linuxdo": {
+      "kind": "search",
+      "domain": "cn_tech"
+    },
+    "mojeek": {
+      "kind": "search",
+      "domain": "web"
+    },
+    "newspaper": {
+      "kind": "fetch"
+    },
+    "nodeseek": {
+      "kind": "search",
+      "domain": "cn_tech"
+    },
+    "oapen": {
+      "kind": "search",
+      "domain": "book"
+    },
+    "open_library": {
+      "kind": "search",
+      "domain": "book"
+    },
+    "openaire": {
+      "kind": "search",
+      "domain": "paper"
+    },
+    "openalex": {
+      "kind": "search",
+      "domain": "paper"
+    },
+    "osti": {
+      "kind": "search",
+      "domain": "paper"
+    },
+    "pmc": {
+      "kind": "search",
+      "domain": "paper"
+    },
+    "pubmed": {
+      "kind": "search",
+      "domain": "paper"
+    },
+    "readability": {
+      "kind": "fetch"
+    },
+    "reddit": {
+      "kind": "search",
+      "domain": "social"
+    },
+    "searxng": {
+      "kind": "search",
+      "domain": "web"
+    },
+    "semantic_scholar": {
+      "kind": "search",
+      "domain": "paper"
+    },
+    "stackoverflow": {
+      "kind": "search",
+      "domain": "developer"
+    },
+    "startpage": {
+      "kind": "search",
+      "domain": "web"
+    },
+    "taiwan_new_books": {
+      "kind": "search",
+      "domain": "book"
+    },
+    "v2ex": {
+      "kind": "search",
+      "domain": "cn_tech"
+    },
+    "wayback": {
+      "kind": "fetch"
+    },
+    "websurfx": {
+      "kind": "search",
+      "domain": "web"
+    },
+    "weibo": {
+      "kind": "search",
+      "domain": "social"
+    },
+    "whoogle": {
+      "kind": "search",
+      "domain": "web"
+    },
+    "wikipedia": {
+      "kind": "search",
+      "domain": "knowledge"
+    },
+    "wikisource": {
+      "kind": "search",
+      "domain": "book"
+    },
+    "xiaohongshu": {
+      "kind": "search",
+      "domain": "cn_tech"
+    },
+    "yahoo": {
+      "kind": "search",
+      "domain": "web"
+    },
+    "yandex": {
+      "kind": "search",
+      "domain": "web"
+    },
+    "zenodo": {
+      "kind": "search",
+      "domain": "paper"
+    },
+    "zhihu": {
+      "kind": "search",
+      "domain": "social"
+    }
+  },
+  "fetch_urls": {
+    "static": [
+      "https://en.wikipedia.org/wiki/Web_scraping",
+      "https://en.wikipedia.org/wiki/Information_retrieval",
+      "https://zh.wikipedia.org/wiki/%E4%BF%A1%E6%81%AF%E6%A3%80%E7%B4%A2",
+      "https://docs.python.org/3/library/asyncio.html",
+      "https://developer.mozilla.org/en-US/docs/Web/JavaScript",
+      "https://arxiv.org/abs/1705.10311",
+      "https://github.com/BlueSkyXN/SouWen",
+      "https://news.ycombinator.com/",
+      "https://www.w3.org/TR/html52/",
+      "https://www.gnu.org/software/bash/manual/"
+    ],
+    "js": [
+      "https://www.kaggle.com/competitions",
+      "https://excalidraw.com/",
+      "https://space.bilibili.com/946974",
+      "https://codesandbox.io/",
+      "https://editor.swagger.io/",
+      "https://www.photopea.com/",
+      "https://opensea.io/rankings",
+      "https://dribbble.com/shots",
+      "https://www.producthunt.com/",
+      "https://stackblitz.com/"
+    ],
+    "anticrawl": [
+      "https://www.zhihu.com/question/19550227",
+      "https://medium.com/towards-data-science",
+      "https://www.amazon.com/dp/B08N5WRWNW",
+      "https://www.linkedin.com/company/openai/",
+      "https://www.sciencedirect.com/science/article/pii/S0004370221000862",
+      "https://www.reuters.com/technology/",
+      "https://www.instagram.com/instagram/",
+      "https://x.com/OpenAI",
+      "https://www.bloomberg.com/technology/",
+      "https://www.ebay.com/"
+    ]
+  },
+  "fetch_source_probes": {
+    "builtin-fetch": [
+      "https://en.wikipedia.org/wiki/Web_scraping",
+      "https://en.wikipedia.org/wiki/Information_retrieval",
+      "https://zh.wikipedia.org/wiki/%E4%BF%A1%E6%81%AF%E6%A3%80%E7%B4%A2"
+    ],
+    "newspaper": [
+      "https://en.wikipedia.org/wiki/Information_retrieval",
+      "https://www.w3.org/TR/html52/",
+      "https://www.gnu.org/software/bash/manual/"
+    ],
+    "readability": [
+      "https://en.wikipedia.org/wiki/Information_retrieval",
+      "https://www.w3.org/TR/html52/",
+      "https://www.gnu.org/software/bash/manual/"
+    ],
+    "arxiv_fulltext": [
+      "https://arxiv.org/abs/1705.10311",
+      "https://arxiv.org/abs/2005.14165",
+      "https://arxiv.org/abs/2303.08774"
+    ],
+    "deepwiki": [
+      "https://deepwiki.com/facebook/react",
+      "https://deepwiki.com/microsoft/vscode",
+      "https://deepwiki.com/python/cpython"
+    ],
+    "wayback": [
+      "https://en.wikipedia.org/wiki/Web_scraping",
+      "https://en.wikipedia.org/wiki/Information_retrieval",
+      "https://www.gnu.org/software/bash/manual/"
+    ],
+    "jina_reader": [
+      "https://en.wikipedia.org/wiki/Web_scraping",
+      "https://en.wikipedia.org/wiki/Information_retrieval",
+      "https://docs.python.org/3/library/asyncio.html"
+    ]
+  }
+}
