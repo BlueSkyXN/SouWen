@@ -41,10 +41,10 @@ DEFAULT_SEARCH_PROVIDERS: Mapping[str, tuple[str, ...]] = MappingProxyType(
         "web": ("bing", "duckduckgo"),
         "news": ("duckduckgo_news",),
         "images": ("duckduckgo_images",),
-        "videos": ("bilibili", "duckduckgo_videos"),
-        "social": ("reddit", "weibo", "zhihu"),
+        "videos": ("duckduckgo_videos",),
+        "social": (),
         "developer": ("github", "stackoverflow"),
-        "cn_tech": ("linuxdo", "v2ex"),
+        "cn_tech": ("juejin", "coolapk"),
         "knowledge": ("wikipedia",),
     }
 )
@@ -330,8 +330,8 @@ class SouWenConfig(BaseModel):
         normalized: dict[str, tuple[str, ...]] = {}
         for domain in SEARCH_DOMAINS:
             providers = value[domain]
-            if not isinstance(providers, (list, tuple)) or not providers:
-                raise ValueError(f"search_defaults.{domain} requires at least one provider")
+            if not isinstance(providers, (list, tuple)):
+                raise ValueError(f"search_defaults.{domain} must be a list")
             provider_ids = tuple(
                 provider.strip() if isinstance(provider, str) else "" for provider in providers
             )

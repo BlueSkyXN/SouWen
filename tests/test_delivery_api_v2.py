@@ -522,10 +522,9 @@ def test_target_runtime_has_one_default_provider_for_every_public_search_domain(
         "web": "bing",
         "news": "duckduckgo_news",
         "images": "duckduckgo_images",
-        "videos": "bilibili",
-        "social": "reddit",
+        "videos": "duckduckgo_videos",
         "developer": "github",
-        "cn_tech": "linuxdo",
+        "cn_tech": "juejin",
         "knowledge": "wikipedia",
     }
 

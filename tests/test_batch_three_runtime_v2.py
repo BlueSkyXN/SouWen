@@ -25,16 +25,12 @@ from souwen.platform.provider_spi import (
 )
 from souwen.server import v2_runtime as runtime_module
 from souwen.providers.runtime_clients.web import github as github_module
-from souwen.providers.runtime_clients.web import reddit as reddit_module
 from souwen.providers.runtime_clients.web import stackoverflow as stackoverflow_module
 
 
 _CLIENT_GLOBALS = {
-    "deepwiki": "DeepWikiClient",
     "github": "GitHubClient",
     "jina_reader": "JinaReaderClient",
-    "linuxdo": "LinuxDoClient",
-    "reddit": "RedditClient",
     "stackoverflow": "StackOverflowClient",
     "wayback": "WaybackClient",
     "wikipedia": "WikipediaClient",
@@ -105,11 +101,7 @@ def _fake_client(provider_id, constructor_calls, search_calls, fetch_calls, clos
 
         async def _fetch(self, method, *args, **kwargs):
             fetch_calls[provider_id] = (method, args, kwargs)
-            target = (
-                "https://deepwiki.com/owner/repo"
-                if provider_id == "deepwiki"
-                else "https://1.1.1.1/page"
-            )
+            target = "https://1.1.1.1/page"
             return LegacyFetchResult(
                 url=target,
                 final_url=target,
@@ -164,7 +156,7 @@ def test_every_batch_three_factory_dispatches_and_closes(monkeypatch) -> None:
 
     runtime = runtime_module.build_target_runtime(_configured())
     catalog = {item.provider: item for item in runtime.services.provider_items}
-    assert len(catalog) == 71
+    assert len(catalog) == 56
     assert all(catalog[provider_id].availability == "available" for provider_id in _CLIENT_GLOBALS)
 
     async def exercise() -> None:
@@ -196,11 +188,7 @@ def test_every_batch_three_factory_dispatches_and_closes(monkeypatch) -> None:
             *(binding[0] for binding in runtime_module._BATCH_THREE_FETCH_ONLY_BINDINGS),
         ]
         for manifest in fetch_manifests:
-            target = (
-                "https://deepwiki.com/owner/repo"
-                if manifest.id == "deepwiki"
-                else "https://1.1.1.1/page"
-            )
+            target = "https://1.1.1.1/page" if manifest.id == "deepwiki" else "https://1.1.1.1/page"
             batch = await runtime.services.fetch.fetch(
                 FetchRequest(
                     targets=(target,),
@@ -233,11 +221,6 @@ def test_every_batch_three_factory_dispatches_and_closes(monkeypatch) -> None:
     }
     target = "https://1.1.1.1/page"
     assert fetch_calls == {
-        "deepwiki": (
-            "fetch",
-            ("owner/repo",),
-            {"max_depth": 0, "mode": "aggregate", "timeout": 30.0},
-        ),
         "jina_reader": ("fetch", (target,), {"timeout": 30.0}),
         "wayback": ("fetch", (target,), {"timeout": 30.0}),
     }
@@ -286,8 +269,6 @@ def test_every_real_batch_three_factory_constructs_probes_and_closes(monkeypatch
 def test_batch_three_factories_ignore_undeclared_legacy_channel_overrides(monkeypatch) -> None:
     hostile = SouWenConfig(
         github_token="hostile-global-github-token",
-        reddit_client_id="hostile-global-reddit-id",
-        reddit_client_secret="hostile-global-reddit-secret",
         stackoverflow_api_key="hostile-global-stackoverflow-key",
         sources={
             "wayback": {
@@ -301,7 +282,6 @@ def test_batch_three_factories_ignore_undeclared_legacy_channel_overrides(monkey
     monkeypatch.setattr(http_client_module, "get_config", lambda: hostile)
     monkeypatch.setattr(scraper_base_module, "get_config", lambda: hostile)
     monkeypatch.setattr(github_module, "get_config", lambda: hostile)
-    monkeypatch.setattr(reddit_module, "get_config", lambda: hostile)
     monkeypatch.setattr(stackoverflow_module, "get_config", lambda: hostile)
     monkeypatch.delenv("SOUWEN_BROWSER_WORKER_TOKEN", raising=False)
     runtime = runtime_module.build_target_runtime(_configured(include_optional=False))
@@ -309,7 +289,6 @@ def test_batch_three_factories_ignore_undeclared_legacy_channel_overrides(monkey
     async def construct_and_close() -> None:
         for adapter_id in (
             "github-search",
-            "reddit-search",
             "stackoverflow-search",
             "wayback-fetch",
         ):
@@ -318,12 +297,9 @@ def test_batch_three_factories_ignore_undeclared_legacy_channel_overrides(monkey
             ).status == "available"
 
         github = runtime.manager._runtimes["github-search"].instance._client._client
-        reddit = runtime.manager._runtimes["reddit-search"].instance._client._client
         stackoverflow = runtime.manager._runtimes["stackoverflow-search"].instance._client._client
         wayback = runtime.manager._runtimes["wayback-fetch"].instance._client._client
         assert github.token == ""
-        assert reddit._client_id == "" and reddit._client_secret == ""
-        assert reddit._oauth_mode is False
         assert stackoverflow.api_key == ""
         assert wayback._resolved_base_url == "https://web.archive.org"
         assert wayback._proxy is None

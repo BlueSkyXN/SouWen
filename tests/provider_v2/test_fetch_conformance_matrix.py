@@ -10,13 +10,8 @@ from souwen.providers.runtime_clients.models import FetchResult as LegacyFetchRe
 from souwen.platform.provider_spi import FetchTargetRequest
 from souwen.providers.catalog import builtin_provider_manifests
 from souwen.providers.fetch_sources.arxiv_fulltext import ArxivFulltextFetchProvider
-from souwen.providers.fetch_sources.deepwiki import DeepWikiFetchProvider
-from souwen.providers.fetch_sources.deepwiki import adapter as deepwiki_adapter
 from souwen.providers.fetch_sources.jina_reader import JinaReaderFetchProvider
 from souwen.providers.fetch_sources.jina_reader import adapter as jina_reader_adapter
-from souwen.providers.fetch_sources.newspaper import NewspaperFetchProvider
-from souwen.providers.fetch_sources.readability import ReadabilityFetchProvider
-from souwen.platform.provider_spec import public_fetch
 from souwen.providers.fetch_sources.wayback import WaybackFetchProvider
 from souwen.providers.fetch_sources.wayback import adapter as wayback_adapter
 from tests.support.provider_v2_conformance import (
@@ -73,20 +68,14 @@ DEFINITIONS = (
     *(
         _batch_three_definition(provider_id, provider_type)
         for provider_id, provider_type in (
-            ("deepwiki", DeepWikiFetchProvider),
             ("jina_reader", JinaReaderFetchProvider),
-            ("newspaper", NewspaperFetchProvider),
-            ("readability", ReadabilityFetchProvider),
             ("wayback", WaybackFetchProvider),
         )
     ),
 )
 
 _VALIDATOR_MODULES = {
-    "deepwiki": deepwiki_adapter,
     "jina_reader": jina_reader_adapter,
-    "newspaper": public_fetch,
-    "readability": public_fetch,
     "wayback": wayback_adapter,
 }
 

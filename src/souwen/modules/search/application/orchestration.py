@@ -74,8 +74,11 @@ class OrderedSearchProviderSelector:
         ordered: dict[str, tuple[SearchProviderSelection, ...]] = {}
         by_provider: dict[str, SearchProviderSelection] = {}
         for domain, selections in selections_by_domain.items():
-            if not domain or not selections:
+            if not domain:
                 raise ValueError("each Search domain must have at least one provider selection")
+            if not selections:
+                # 领域暂时没有可用源（体检判死且无候选）：跳过而非报错，P2 领域收敛会从 domain 取值里去掉
+                continue
             ranked = tuple(
                 selection
                 for _index, selection in sorted(

@@ -13,8 +13,6 @@ from souwen import __version__
 from souwen.providers.runtime_clients.book.doab import DOABClient
 from souwen.providers.runtime_clients.book.internet_archive import InternetArchiveClient
 from souwen.providers.runtime_clients.book.library_of_congress import LibraryOfCongressClient
-from souwen.providers.runtime_clients.book.librivox import LibriVoxClient
-from souwen.providers.runtime_clients.book.oapen import OAPENClient
 from souwen.providers.runtime_clients.book.open_library import OpenLibraryClient
 from souwen.providers.runtime_clients.book.wikisource import WikisourceClient
 from souwen.common_runtime.observability import get_request_id, get_source_sha
@@ -34,20 +32,11 @@ from souwen.modules.search.application import (
     OrderedSearchProviderSelector,
     SearchProviderSelection,
 )
-from souwen.providers.runtime_clients.local_catalog.gutenberg import (
-    GutenbergLocalCatalogClient,
-    gutenberg_catalog_ready,
-)
-from souwen.providers.runtime_clients.local_catalog.taiwan_new_books import (
-    TaiwanNewBooksLocalCatalogClient,
-    taiwan_new_books_catalog_ready,
-)
 from souwen.providers.runtime_clients.paper.eric import EricClient
 from souwen.providers.runtime_clients.paper.arxiv import ArxivClient
 from souwen.providers.runtime_clients.paper.arxiv_fulltext import ArxivFulltextClient
 from souwen.providers.runtime_clients.paper.biorxiv import BioRxivClient
 from souwen.providers.runtime_clients.paper.crossref import CrossrefClient
-from souwen.providers.runtime_clients.paper.dblp import DblpClient
 from souwen.providers.runtime_clients.paper.europepmc import EuropePmcClient
 from souwen.providers.runtime_clients.paper.doaj import DoajClient
 from souwen.providers.runtime_clients.paper.hal import HalClient
@@ -88,25 +77,10 @@ from souwen.providers.fetch_sources.arxiv_fulltext import (
     ArxivFulltextFetchProvider,
 )
 from souwen.providers.fetch_sources.builtin import BUILTIN_FETCH_MANIFEST, BuiltinFetchProvider
-from souwen.providers.fetch_sources.deepwiki import (
-    DEEPWIKI_FETCH_PROFILE,
-    DEEPWIKI_PROVIDER_MANIFEST,
-    DeepWikiFetchProvider,
-)
 from souwen.providers.fetch_sources.jina_reader import (
     JINA_READER_FETCH_PROFILE,
     JINA_READER_PROVIDER_MANIFEST,
     JinaReaderFetchProvider,
-)
-from souwen.providers.fetch_sources.newspaper import (
-    NEWSPAPER_FETCH_PROFILE,
-    NEWSPAPER_PROVIDER_MANIFEST,
-    NewspaperFetchProvider,
-)
-from souwen.providers.fetch_sources.readability import (
-    READABILITY_FETCH_PROFILE,
-    READABILITY_PROVIDER_MANIFEST,
-    ReadabilityFetchProvider,
 )
 from souwen.providers.fetch_sources.wayback import (
     WAYBACK_FETCH_PROVIDER_SPEC,
@@ -132,11 +106,6 @@ from souwen.providers.information_sources.doaj import (
     DOAJ_PROVIDER_MANIFEST,
     DOAJ_PROVIDER_SPEC,
     DoajSearchProvider,
-)
-from souwen.providers.information_sources.dblp import (
-    DBLP_PROVIDER_MANIFEST,
-    DBLP_PROVIDER_SPEC,
-    DblpSearchProvider,
 )
 from souwen.providers.information_sources.europepmc import (
     EUROPEPMC_PROVIDER_MANIFEST,
@@ -173,11 +142,6 @@ from souwen.providers.information_sources.iacr import (
     IACR_PROVIDER_MANIFEST,
     IacrSearchProvider,
 )
-from souwen.providers.information_sources.linuxdo import (
-    LINUXDO_PROVIDER_MANIFEST,
-    LINUXDO_PROVIDER_SPEC,
-    LinuxDoSearchProvider,
-)
 from souwen.providers.information_sources.openalex import (
     OPENALEX_PROVIDER_MANIFEST,
     OPENALEX_REST_SPEC,
@@ -212,11 +176,6 @@ from souwen.providers.information_sources.pubmed import (
     PUBMED_BRIDGE_SPEC,
     PUBMED_PROVIDER_MANIFEST,
     PubMedSearchProvider,
-)
-from souwen.providers.information_sources.reddit import (
-    REDDIT_PROVIDER_MANIFEST,
-    REDDIT_PROVIDER_SPEC,
-    RedditSearchProvider,
 )
 from souwen.providers.information_sources.stackoverflow import (
     STACKOVERFLOW_PROVIDER_MANIFEST,
@@ -263,11 +222,6 @@ from souwen.providers.information_sources.figshare import (
     FIGSHARE_PROVIDER_SPEC,
     FigshareSearchProvider,
 )
-from souwen.providers.information_sources.gutenberg import (
-    GUTENBERG_PROVIDER_MANIFEST,
-    GUTENBERG_PROVIDER_SPEC,
-    GutenbergSearchProvider,
-)
 from souwen.providers.information_sources.internet_archive import (
     INTERNET_ARCHIVE_PROVIDER_MANIFEST,
     INTERNET_ARCHIVE_PROVIDER_SPEC,
@@ -278,25 +232,10 @@ from souwen.providers.information_sources.library_of_congress import (
     LIBRARY_OF_CONGRESS_PROVIDER_SPEC,
     LibraryOfCongressSearchProvider,
 )
-from souwen.providers.information_sources.librivox import (
-    LIBRIVOX_PROVIDER_MANIFEST,
-    LIBRIVOX_PROVIDER_SPEC,
-    LibriVoxSearchProvider,
-)
-from souwen.providers.information_sources.oapen import (
-    OAPEN_PROVIDER_MANIFEST,
-    OAPEN_PROVIDER_SPEC,
-    OAPENSearchProvider,
-)
 from souwen.providers.information_sources.open_library import (
     OPEN_LIBRARY_PROVIDER_MANIFEST,
     OPEN_LIBRARY_PROVIDER_SPEC,
     OpenLibrarySearchProvider,
-)
-from souwen.providers.information_sources.taiwan_new_books import (
-    TAIWAN_NEW_BOOKS_PROVIDER_MANIFEST,
-    TAIWAN_NEW_BOOKS_PROVIDER_SPEC,
-    TaiwanNewBooksSearchProvider,
 )
 from souwen.providers.information_sources.wikisource import (
     WIKISOURCE_PROVIDER_MANIFEST,
@@ -306,14 +245,12 @@ from souwen.providers.information_sources.wikisource import (
 from souwen.providers.runtime_clients.research_output.datacite import DataCiteClient
 from souwen.providers.runtime_clients.research_output.figshare import FigshareClient
 from souwen.providers.runtime_clients.web.baidu import BaiduClient
-from souwen.providers.runtime_clients.web.bilibili import BilibiliClient
 from souwen.providers.runtime_clients.web.bing import BingClient
 from souwen.providers.runtime_clients.web.bing_cn import BingCnClient
 from souwen.providers.runtime_clients.web.brave import BraveClient
 from souwen.providers.runtime_clients.web.builtin import BuiltinFetcherClient
 from souwen.providers.runtime_clients.web.coolapk import CoolapkClient
 from souwen.providers.runtime_clients.web.csdn import CSDNClient
-from souwen.providers.runtime_clients.web.deepwiki import DeepWikiClient
 from souwen.providers.runtime_clients.web.ddg_images import DuckDuckGoImagesClient
 from souwen.providers.runtime_clients.web.ddg_news import DuckDuckGoNewsClient
 from souwen.providers.runtime_clients.web.ddg_videos import DuckDuckGoVideosClient
@@ -323,26 +260,18 @@ from souwen.providers.runtime_clients.web.google import GoogleClient
 from souwen.providers.runtime_clients.web.hostloc import HostLocClient
 from souwen.providers.runtime_clients.web.jina_reader import JinaReaderClient
 from souwen.providers.runtime_clients.web.juejin import JuejinClient
-from souwen.providers.runtime_clients.web.linuxdo import LinuxDoClient
 from souwen.providers.runtime_clients.web.mojeek import MojeekClient
-from souwen.providers.runtime_clients.web.newspaper_fetcher import NewspaperFetcherClient
 from souwen.providers.runtime_clients.web.nodeseek import NodeSeekClient
-from souwen.providers.runtime_clients.web.reddit import RedditClient
-from souwen.providers.runtime_clients.web.readability_fetcher import ReadabilityFetcherClient
 from souwen.providers.runtime_clients.web.searxng import SearXNGClient
 from souwen.providers.runtime_clients.web.stackoverflow import StackOverflowClient
 from souwen.providers.runtime_clients.web.startpage import StartpageClient
 from souwen.providers.runtime_clients.web.v2ex import V2EXClient
 from souwen.providers.runtime_clients.web.wayback import WaybackClient
-from souwen.providers.runtime_clients.web.websurfx import WebsurfxClient
-from souwen.providers.runtime_clients.web.weibo import WeiboClient
-from souwen.providers.runtime_clients.web.whoogle import WhoogleClient
 from souwen.providers.runtime_clients.web.wikipedia import WikipediaClient
 from souwen.providers.runtime_clients.web.xiaohongshu import XiaohongshuClient
 from souwen.providers.runtime_clients.web.yahoo import YahooClient
 from souwen.providers.runtime_clients.web.yandex import YandexClient
 from souwen.providers.runtime_clients.web.youtube import YouTubeClient
-from souwen.providers.runtime_clients.web.zhihu import ZhihuClient
 from souwen.worker.browser_fetch.protocol import BROWSER_WORKER_PROVIDER_INVENTORY_DIGEST
 
 
@@ -470,7 +399,6 @@ def _build_reviewed_batch_four_provider(
 
 _BATCH_FIVE_SEARCH_SOURCE_IDS = (
     "baidu",
-    "bilibili",
     "bing",
     "bing_cn",
     "brave",
@@ -487,18 +415,15 @@ _BATCH_FIVE_SEARCH_SOURCE_IDS = (
     "nodeseek",
     "startpage",
     "v2ex",
-    "weibo",
     "xiaohongshu",
     "yahoo",
     "yandex",
-    "zhihu",
 )
 _BATCH_FIVE_DDG_SITE_SOURCE_IDS = frozenset(
     {"coolapk", "hostloc", "nodeseek", "v2ex", "xiaohongshu"}
 )
 _BATCH_FIVE_CLIENT_TYPES: Mapping[str, type[Any]] = {
     "baidu": BaiduClient,
-    "bilibili": BilibiliClient,
     "bing": BingClient,
     "bing_cn": BingCnClient,
     "brave": BraveClient,
@@ -515,21 +440,15 @@ _BATCH_FIVE_CLIENT_TYPES: Mapping[str, type[Any]] = {
     "nodeseek": NodeSeekClient,
     "startpage": StartpageClient,
     "v2ex": V2EXClient,
-    "weibo": WeiboClient,
     "xiaohongshu": XiaohongshuClient,
     "yahoo": YahooClient,
     "yandex": YandexClient,
-    "zhihu": ZhihuClient,
 }
 _SELF_HOSTED_CLIENT_TYPES: Mapping[str, type[Any]] = {
     "searxng": SearXNGClient,
-    "websurfx": WebsurfxClient,
-    "whoogle": WhoogleClient,
 }
 _SELF_HOSTED_CONFIG_FIELDS = {
     "searxng": "searxng_url",
-    "websurfx": "websurfx_url",
-    "whoogle": "whoogle_url",
 }
 
 
@@ -560,7 +479,7 @@ _BATCH_FIVE_SEARCH_BINDINGS = tuple(
     _batch_five_search_binding(provider_id) for provider_id in _BATCH_FIVE_SEARCH_SOURCE_IDS
 )
 
-_BATCH_SIX_SELF_HOSTED_SOURCE_IDS = ("searxng", "websurfx", "whoogle")
+_BATCH_SIX_SELF_HOSTED_SOURCE_IDS = ("searxng",)
 
 
 def _batch_six_search_binding(
@@ -680,12 +599,6 @@ _BATCH_ONE_SEARCH_BINDINGS: tuple[
         CROSSREF_PROVIDER_SPEC,
         CrossrefSearchProvider,
         lambda _secrets: CrossrefClient(),
-    ),
-    (
-        DBLP_PROVIDER_MANIFEST,
-        DBLP_PROVIDER_SPEC,
-        DblpSearchProvider,
-        lambda _secrets: DblpClient(),
     ),
     (
         EUROPEPMC_PROVIDER_MANIFEST,
@@ -808,21 +721,6 @@ _BATCH_THREE_SEARCH_ONLY_BINDINGS: tuple[
         lambda _configuration, secrets: GitHubClient(token=secrets.get("GITHUB_TOKEN", "")),
     ),
     (
-        LINUXDO_PROVIDER_MANIFEST,
-        LINUXDO_PROVIDER_SPEC,
-        LinuxDoSearchProvider,
-        lambda _configuration, _secrets: LinuxDoClient(),
-    ),
-    (
-        REDDIT_PROVIDER_MANIFEST,
-        REDDIT_PROVIDER_SPEC,
-        RedditSearchProvider,
-        lambda _configuration, secrets: RedditClient(
-            client_id=secrets.get("REDDIT_CLIENT_ID", ""),
-            client_secret=secrets.get("REDDIT_CLIENT_SECRET", ""),
-        ),
-    ),
-    (
         STACKOVERFLOW_PROVIDER_MANIFEST,
         STACKOVERFLOW_PROVIDER_SPEC,
         StackOverflowSearchProvider,
@@ -866,15 +764,6 @@ _BATCH_THREE_FETCH_ONLY_BINDINGS: tuple[
     ...,
 ] = (
     (
-        DEEPWIKI_PROVIDER_MANIFEST,
-        DEEPWIKI_FETCH_PROFILE,
-        DeepWikiFetchProvider,
-        lambda _configuration, secrets: DeepWikiClient(
-            github_token="",
-            jina_api_key=secrets.get("JINA_API_KEY", ""),
-        ),
-    ),
-    (
         JINA_READER_PROVIDER_MANIFEST,
         JINA_READER_FETCH_PROFILE,
         JinaReaderFetchProvider,
@@ -915,14 +804,6 @@ _BATCH_FOUR_SEARCH_BINDINGS: tuple[
         lambda _configuration, _secrets, _config: FigshareClient(),
     ),
     (
-        GUTENBERG_PROVIDER_MANIFEST,
-        GUTENBERG_PROVIDER_SPEC,
-        GutenbergSearchProvider,
-        lambda _configuration, _secrets, config: GutenbergLocalCatalogClient(
-            config.local_catalog_db_path
-        ),
-    ),
-    (
         INTERNET_ARCHIVE_PROVIDER_MANIFEST,
         INTERNET_ARCHIVE_PROVIDER_SPEC,
         InternetArchiveSearchProvider,
@@ -935,30 +816,10 @@ _BATCH_FOUR_SEARCH_BINDINGS: tuple[
         lambda _configuration, _secrets, _config: LibraryOfCongressClient(),
     ),
     (
-        LIBRIVOX_PROVIDER_MANIFEST,
-        LIBRIVOX_PROVIDER_SPEC,
-        LibriVoxSearchProvider,
-        lambda _configuration, _secrets, _config: LibriVoxClient(),
-    ),
-    (
-        OAPEN_PROVIDER_MANIFEST,
-        OAPEN_PROVIDER_SPEC,
-        OAPENSearchProvider,
-        lambda _configuration, _secrets, _config: OAPENClient(),
-    ),
-    (
         OPEN_LIBRARY_PROVIDER_MANIFEST,
         OPEN_LIBRARY_PROVIDER_SPEC,
         OpenLibrarySearchProvider,
         lambda _configuration, _secrets, _config: OpenLibraryClient(),
-    ),
-    (
-        TAIWAN_NEW_BOOKS_PROVIDER_MANIFEST,
-        TAIWAN_NEW_BOOKS_PROVIDER_SPEC,
-        TaiwanNewBooksSearchProvider,
-        lambda _configuration, _secrets, config: TaiwanNewBooksLocalCatalogClient(
-            config.local_catalog_db_path
-        ),
     ),
     (
         WIKISOURCE_PROVIDER_MANIFEST,
@@ -992,7 +853,7 @@ _BATCH_FOUR_MANIFEST_IDS = frozenset(
 )
 _BATCH_FIVE_MANIFEST_IDS = frozenset(
     manifest.id for manifest, _spec, _provider_type, _provider_id in _BATCH_FIVE_SEARCH_BINDINGS
-) | {NEWSPAPER_PROVIDER_MANIFEST.id, READABILITY_PROVIDER_MANIFEST.id}
+)
 _BATCH_SIX_MANIFEST_IDS = frozenset(
     manifest.id for manifest, _spec, _provider_type, _provider_id in _BATCH_SIX_SEARCH_BINDINGS
 )
@@ -1181,14 +1042,6 @@ def _configuration_resolver(config: SouWenConfig):
                     "library_id": library_id,
                     "library_type": library_type,
                 }
-            if manifest.id == "gutenberg" and not gutenberg_catalog_ready(
-                config.local_catalog_db_path
-            ):
-                raise ValueError("local catalog unavailable")
-            if manifest.id == "taiwan_new_books" and not taiwan_new_books_catalog_ready(
-                config.local_catalog_db_path
-            ):
-                raise ValueError("local catalog unavailable")
             return {"enabled": True}
         if manifest.id == "builtin-fetch":
             if not config.is_source_enabled("builtin-fetch", default=True):
@@ -1603,37 +1456,6 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
             ),
             provider_type=provider_type,
         )
-    for manifest, spec, provider_type, client_type in (
-        (
-            NEWSPAPER_PROVIDER_MANIFEST,
-            NEWSPAPER_FETCH_PROFILE,
-            NewspaperFetchProvider,
-            NewspaperFetcherClient,
-        ),
-        (
-            READABILITY_PROVIDER_MANIFEST,
-            READABILITY_FETCH_PROFILE,
-            ReadabilityFetchProvider,
-            ReadabilityFetcherClient,
-        ),
-    ):
-        validate_spec_manifest(spec, manifest)
-        reviewed_proxy = config.resolve_proxy(manifest.id)
-        manager.register_factory(
-            package_id=manifest.id,
-            export=manifest.adapters[0].export,
-            factory=lambda configuration, _secrets, provider_type=provider_type, client_type=client_type, reviewed_proxy=reviewed_proxy: (
-                provider_type(
-                    _ManagedRuntimeClientAdapter(
-                        _construct_reviewed_batch_five_fetch_client(
-                            client_type, reviewed_proxy, config
-                        )
-                    ),
-                    enabled=bool(configuration["enabled"]),
-                )
-            ),
-            provider_type=provider_type,
-        )
     manager.register_factory(
         package_id=ARXIV_FULLTEXT_PROVIDER_MANIFEST.id,
         export="ArxivFulltextFetchProvider",
@@ -1696,8 +1518,6 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
                 manifest
                 for manifest, _spec, _provider_type, _provider_id in _BATCH_SIX_SEARCH_BINDINGS
             ),
-            NEWSPAPER_PROVIDER_MANIFEST,
-            READABILITY_PROVIDER_MANIFEST,
             ARXIV_FULLTEXT_PROVIDER_MANIFEST,
             BUILTIN_FETCH_MANIFEST,
         )

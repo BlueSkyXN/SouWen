@@ -61,7 +61,6 @@ from souwen.providers.information_sources.crossref import (
     CROSSREF_PROVIDER_MANIFEST,
     CROSSREF_PROVIDER_SPEC,
 )
-from souwen.providers.information_sources.dblp import DBLP_PROVIDER_MANIFEST, DBLP_PROVIDER_SPEC
 from souwen.providers.information_sources.europepmc import (
     EUROPEPMC_PROVIDER_MANIFEST,
     EUROPEPMC_PROVIDER_SPEC,
@@ -156,7 +155,6 @@ def test_each_sample_spec_agrees_with_its_governance_manifest() -> None:
         (ARXIV_FULLTEXT_FETCH_PROFILE, ARXIV_FULLTEXT_PROVIDER_MANIFEST),
         (BIORXIV_PROVIDER_SPEC, BIORXIV_PROVIDER_MANIFEST),
         (CROSSREF_PROVIDER_SPEC, CROSSREF_PROVIDER_MANIFEST),
-        (DBLP_PROVIDER_SPEC, DBLP_PROVIDER_MANIFEST),
         (EUROPEPMC_PROVIDER_SPEC, EUROPEPMC_PROVIDER_MANIFEST),
         (GOOGLE_PATENTS_BRIDGE_SPEC, GOOGLE_PATENTS_PROVIDER_MANIFEST),
         (HAL_PROVIDER_SPEC, HAL_PROVIDER_MANIFEST),

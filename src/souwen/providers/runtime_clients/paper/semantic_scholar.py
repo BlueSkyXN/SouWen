@@ -48,6 +48,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 import logging
 from typing import Any
 
@@ -231,6 +233,11 @@ class SemanticScholarClient:
 
         resp = await self._client.get("/paper/search", params=params)
 
+        if resp.status_code == 429:
+            # 无 key 共享配额按 IP 限流；尊重 Retry-After 等待后重试一次
+            retry_after = float(resp.headers.get("Retry-After", "2") or 2)
+            await asyncio.sleep(min(max(retry_after, 1.0), 10.0))
+            resp = await self._client.get("/paper/search", params=params)
         if resp.status_code == 429:
             raise RateLimitError("Semantic Scholar 请求频率超限，请稍后重试")
 

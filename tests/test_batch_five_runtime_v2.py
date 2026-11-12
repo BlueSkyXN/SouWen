@@ -13,10 +13,8 @@ from souwen.common_runtime.channel_overrides import (
     source_channel_overrides_enabled,
 )
 from souwen.config import SouWenConfig
-from souwen.providers.runtime_clients.models import FetchResult as LegacyFetchResult
 from souwen.platform.provider_spi import (
     ExecutionContext,
-    FetchRequest,
     ProviderRef,
     RequestContext,
     SearchRequest,
@@ -25,7 +23,6 @@ from souwen.server import v2_runtime as runtime_module
 
 
 _RESULT_URLS = {
-    "bilibili": "https://www.bilibili.com/video/BV1234567890",
     "coolapk": "https://www.coolapk.com/feed/1",
     "hostloc": "https://hostloc.com/thread-1-1-1.html",
     "juejin": "https://juejin.cn/post/1",
@@ -96,12 +93,11 @@ def test_every_batch_five_search_factory_dispatches_and_closes_with_reviewed_con
         SouWenConfig(
             timeout=7,
             max_retries=1,
-            bilibili_sessdata="test-session",
             sources=sources,
         )
     )
     catalog = {item.provider: item for item in runtime.services.provider_items}
-    assert len(catalog) == 71
+    assert len(catalog) == 56
     assert all(catalog[provider_id].availability == "available" for provider_id in clients)
 
     async def exercise() -> None:
@@ -133,83 +129,6 @@ def test_every_batch_five_search_factory_dispatches_and_closes_with_reviewed_con
     assert calls["duckduckgo"][0] == {}
     assert calls["baidu"][2] == "http://127.0.0.1:17890"
     assert all(values[3:] == [7, 1] for values in calls.values())
-    assert calls["bilibili"][0] == {
-        "follow_redirects": False,
-        "sessdata": "test-session",
-    }
-
-
-def test_batch_five_public_target_fetch_factories_enter_dispatch_and_close(monkeypatch) -> None:
-    events: list[tuple[str, str]] = []
-    real_find_spec = runtime_module.importlib.util.find_spec
-    monkeypatch.setattr(
-        runtime_module.importlib.util,
-        "find_spec",
-        lambda name: object() if name in {"newspaper", "readability"} else real_find_spec(name),
-    )
-
-    def fake_client_type(provider_id: str):
-        class Client:
-            def __init__(self):
-                events.append((provider_id, "construct"))
-
-            async def __aenter__(self):
-                events.append((provider_id, "enter"))
-                return self
-
-            async def __aexit__(self, *_args):
-                events.append((provider_id, "exit"))
-
-            async def fetch(self, url, timeout=30.0):
-                events.append((provider_id, "fetch"))
-                return LegacyFetchResult(
-                    url=url,
-                    final_url=url,
-                    source=provider_id,
-                    title="fixture",
-                    content="useful runtime content",
-                    content_format="text",
-                )
-
-        return Client
-
-    monkeypatch.setattr(runtime_module, "NewspaperFetcherClient", fake_client_type("newspaper"))
-    monkeypatch.setattr(runtime_module, "ReadabilityFetcherClient", fake_client_type("readability"))
-    monkeypatch.delenv("SOUWEN_BROWSER_WORKER_TOKEN", raising=False)
-    runtime = runtime_module.build_target_runtime(
-        SouWenConfig(
-            sources={
-                "newspaper": {"enabled": True},
-                "readability": {"enabled": True},
-            }
-        )
-    )
-
-    async def exercise() -> None:
-        for provider_id in ("newspaper", "readability"):
-            batch = await runtime.services.fetch.fetch(
-                FetchRequest(
-                    targets=("https://1.1.1.1/page",),
-                    providers=(ProviderRef(id=provider_id, kind="fetch"),),
-                ),
-                RequestContext(request_id=f"batch-five-{provider_id}"),
-                ExecutionContext.with_timeout(5),
-            )
-            assert batch.items[0].status == "success"
-            assert batch.items[0].provenance[0].provider == provider_id
-        await runtime.close()
-
-    asyncio.run(exercise())
-    assert events == [
-        ("newspaper", "construct"),
-        ("newspaper", "enter"),
-        ("newspaper", "fetch"),
-        ("readability", "construct"),
-        ("readability", "enter"),
-        ("readability", "fetch"),
-        ("newspaper", "exit"),
-        ("readability", "exit"),
-    ]
 
 
 def test_real_batch_five_search_clients_construct_probe_and_close_without_network(
@@ -218,7 +137,6 @@ def test_real_batch_five_search_clients_construct_probe_and_close_without_networ
     monkeypatch.delenv("SOUWEN_BROWSER_WORKER_TOKEN", raising=False)
     runtime = runtime_module.build_target_runtime(
         SouWenConfig(
-            bilibili_sessdata="test-session",
             sources={
                 provider_id: {"enabled": True}
                 for provider_id in runtime_module._BATCH_FIVE_SEARCH_SOURCE_IDS
@@ -236,20 +154,3 @@ def test_real_batch_five_search_clients_construct_probe_and_close_without_networ
         await runtime.close()
 
     asyncio.run(exercise())
-
-
-def test_public_target_fetch_catalog_is_not_eligible_without_optional_runtime(
-    monkeypatch,
-) -> None:
-    real_find_spec = runtime_module.importlib.util.find_spec
-    monkeypatch.setattr(
-        runtime_module.importlib.util,
-        "find_spec",
-        lambda name: None if name in {"newspaper", "readability"} else real_find_spec(name),
-    )
-    runtime = runtime_module.build_target_runtime(SouWenConfig())
-    catalog = {item.provider: item for item in runtime.services.provider_items}
-
-    for provider_id in ("newspaper", "readability"):
-        assert catalog[provider_id].availability == "unavailable"
-        assert catalog[provider_id].reason == "not_eligible"

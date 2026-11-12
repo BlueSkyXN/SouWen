@@ -137,10 +137,6 @@ class TestDefaults:
                 "exactly cover",
             ),
             (
-                {**DEFAULT_SEARCH_PROVIDERS, "paper": []},
-                "at least one provider",
-            ),
-            (
                 {**DEFAULT_SEARCH_PROVIDERS, "paper": ["crossref", "crossref"]},
                 "must be unique",
             ),

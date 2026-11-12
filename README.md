@@ -47,8 +47,8 @@ SouWen（搜文）为 AI Agent、Python 集成和服务端应用提供统一的 
 ### 特性
 
 <!-- BEGIN AUTO: SOURCE METRICS -->
-- **71 个内置 Provider v2 package**，共 **71 个 capability adapter**。
-  - Search：**64** 个 package · LLM Search：**0** 个 · Fetch：**7** 个。
+- **56 个内置 Provider v2 package**，共 **56 个 capability adapter**。
+  - Search：**52** 个 package · LLM Search：**0** 个 · Fetch：**4** 个。
 <!-- END AUTO: SOURCE METRICS -->
 - **Frozen OpenAPI + generated SDK**：Python root 只暴露 generated sync/async SDK；Panel 使用同一 OpenAPI 生成的 TypeScript SDK
 - **统一 canonical DTO**：Search、LLM Search、Fetch、Provider Catalog 和 probes 使用明确的 Pydantic v2 contract

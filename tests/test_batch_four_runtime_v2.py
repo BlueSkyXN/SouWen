@@ -15,7 +15,6 @@ from souwen.config import SouWenConfig
 from souwen.providers.runtime_clients.models import BookResult, ResearchOutputResult, SearchResponse
 from souwen.platform.provider_spi import (
     ExecutionContext,
-    ProviderRef,
     RequestContext,
     SearchRequest,
 )
@@ -26,25 +25,17 @@ _CLIENT_GLOBALS = {
     "datacite": "DataCiteClient",
     "doab": "DOABClient",
     "figshare": "FigshareClient",
-    "gutenberg": "GutenbergLocalCatalogClient",
     "internet_archive": "InternetArchiveClient",
     "library_of_congress": "LibraryOfCongressClient",
-    "librivox": "LibriVoxClient",
-    "oapen": "OAPENClient",
     "open_library": "OpenLibraryClient",
-    "taiwan_new_books": "TaiwanNewBooksLocalCatalogClient",
     "wikisource": "WikisourceClient",
 }
 
 _BOOK_URLS = {
     "doab": "https://directory.doabooks.org/handle/20.500.12854/1",
-    "gutenberg": "https://www.gutenberg.org/ebooks/11",
     "internet_archive": "https://archive.org/details/runtime-book",
     "library_of_congress": "https://www.loc.gov/item/runtime-book/",
-    "librivox": "https://librivox.org/audiobook/runtime-book",
-    "oapen": "https://library.oapen.org/handle/20.500.12657/1",
     "open_library": "https://openlibrary.org/works/OL1W",
-    "taiwan_new_books": "https://data.gov.tw/api/front/dataset/detail?nid=6730",
     "wikisource": "https://zh.wikisource.org/wiki/Runtime",
 }
 
@@ -74,15 +65,9 @@ def _result(provider_id: str):
         )
     return BookResult(
         source=provider_id,
-        source_record_id=(
-            "zh:1"
-            if provider_id == "wikisource"
-            else "9789861234567"
-            if provider_id == "taiwan_new_books"
-            else "runtime-book"
-        ),
+        source_record_id="zh:1" if provider_id == "wikisource" else "runtime-book",
         title=f"{provider_id} runtime fixture",
-        languages=["zh" if provider_id in {"wikisource", "taiwan_new_books"} else "en"],
+        languages=["zh" if provider_id == "wikisource" else "en"],
         source_url=_BOOK_URLS[provider_id],
     )
 
@@ -120,79 +105,12 @@ def _fake_client(provider_id, constructor_calls, search_calls, closed):
     return Client
 
 
-def test_every_batch_four_factory_dispatches_and_closes_with_reviewed_config(
-    monkeypatch, tmp_path
-) -> None:
-    constructor_calls, search_calls = [], {}
-    closed: Counter[str] = Counter()
-    monkeypatch.delenv("SOUWEN_BROWSER_WORKER_TOKEN", raising=False)
-    monkeypatch.setattr(runtime_module, "gutenberg_catalog_ready", lambda _path: True)
-    monkeypatch.setattr(runtime_module, "taiwan_new_books_catalog_ready", lambda _path: True)
-    for provider_id, global_name in _CLIENT_GLOBALS.items():
-        monkeypatch.setattr(
-            runtime_module,
-            global_name,
-            _fake_client(provider_id, constructor_calls, search_calls, closed),
-        )
-
-    config = _configured(tmp_path)
-    runtime = runtime_module.build_target_runtime(config)
-    catalog = {item.provider: item for item in runtime.services.provider_items}
-    assert len(catalog) == 71
-    assert all(catalog[provider_id].availability == "available" for provider_id in _CLIENT_GLOBALS)
-
-    async def exercise() -> None:
-        for manifest, spec, *_rest in runtime_module._BATCH_FOUR_SEARCH_BINDINGS:
-            page = await runtime.services.search.search(
-                SearchRequest(
-                    query="runtime",
-                    domains=(spec.domain,),
-                    providers=(ProviderRef(id=manifest.id, kind="search"),),
-                ),
-                RequestContext(request_id=f"batch-four-{manifest.id}"),
-                ExecutionContext.with_timeout(5),
-            )
-            assert page.items[0].provenance[0].provider == manifest.id
-        await runtime.close()
-
-    asyncio.run(exercise())
-    assert set(search_calls) == set(_CLIENT_GLOBALS)
-    assert closed == Counter({provider_id: 1 for provider_id in _CLIENT_GLOBALS})
-    calls = {provider_id: call for provider_id, *call in constructor_calls}
-    assert all(call[2] is False for call in calls.values())
-    assert calls["datacite"][3] == "http://127.0.0.1:17890"
-    assert calls["gutenberg"][3] is None
-    assert all(call[4:] == [7, 1] for call in calls.values())
-    assert calls["gutenberg"][0] == (config.local_catalog_db_path,)
-    assert calls["taiwan_new_books"][0] == (config.local_catalog_db_path,)
-
-
-def test_local_catalog_provider_is_not_eligible_until_its_import_is_ready(
-    monkeypatch, tmp_path
-) -> None:
-    monkeypatch.delenv("SOUWEN_BROWSER_WORKER_TOKEN", raising=False)
-    monkeypatch.setattr(runtime_module, "gutenberg_catalog_ready", lambda _path: False)
-    config = SouWenConfig(
-        local_catalog_path=str(tmp_path / "catalog.sqlite3"),
-        sources={"gutenberg": {"enabled": True}},
-    )
-
-    runtime = runtime_module.build_target_runtime(config)
-    item = next(item for item in runtime.services.provider_items if item.provider == "gutenberg")
-
-    assert item.availability == "unavailable"
-    assert item.reason == "not_eligible"
-    assert item.missing_fields == ()
-
-
 def test_batch_four_default_search_uses_only_registry_default_providers(
     monkeypatch, tmp_path
 ) -> None:
     constructor_calls, search_calls = [], {}
     closed: Counter[str] = Counter()
     monkeypatch.delenv("SOUWEN_BROWSER_WORKER_TOKEN", raising=False)
-    monkeypatch.setattr(runtime_module, "gutenberg_catalog_ready", lambda _path: True)
-    monkeypatch.setattr(runtime_module, "taiwan_new_books_catalog_ready", lambda _path: True)
     monkeypatch.setattr(
         runtime_module,
         "DataCiteClient",

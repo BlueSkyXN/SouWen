@@ -4,7 +4,7 @@ SouWen 2.0 是 target-only information-retrieval API。公开产品能力只有 
 和 Fetch；HTTP contract 由 frozen OpenAPI 固定，Python/TypeScript 调用方只使用生成 SDK。
 
 <!-- BEGIN AUTO: REGISTRY SUMMARY -->
-**Provider v2 摘要**：Manifest Registry 从内置 package 发现 **71** 份 manifest、**71** 个 adapter。
+**Provider v2 摘要**：Manifest Registry 从内置 package 发现 **56** 份 manifest、**56** 个 adapter。
 
 Provider Manager 对 manifest、configuration、secret reference 和显式 factory 做 preflight，并按需构造 provider；旧 source registry 不参与启动、路由或文档生成。
 <!-- END AUTO: REGISTRY SUMMARY -->

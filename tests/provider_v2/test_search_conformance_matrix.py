@@ -23,7 +23,6 @@ from souwen.providers.catalog import builtin_provider_manifests
 from souwen.providers.information_sources.arxiv import ArxivSearchProvider
 from souwen.providers.information_sources.biorxiv import BioRxivSearchProvider
 from souwen.providers.information_sources.crossref import CrossrefSearchProvider
-from souwen.providers.information_sources.dblp import DblpSearchProvider
 from souwen.providers.information_sources.doaj import DoajSearchProvider
 from souwen.providers.information_sources.eric import EricSearchProvider
 from souwen.providers.information_sources.epo_ops import EpoOpsSearchProvider
@@ -42,23 +41,17 @@ from souwen.providers.information_sources.semantic_scholar import SemanticSchola
 from souwen.providers.information_sources.uspto_odp import UsptoOdpSearchProvider
 from souwen.providers.information_sources.zenodo import ZenodoSearchProvider
 from souwen.providers.information_sources.github import GitHubSearchProvider
-from souwen.providers.information_sources.linuxdo import LinuxDoSearchProvider
-from souwen.providers.information_sources.reddit import RedditSearchProvider
 from souwen.providers.information_sources.stackoverflow import StackOverflowSearchProvider
 from souwen.providers.information_sources.wikipedia import WikipediaSearchProvider
 from souwen.providers.information_sources.youtube import YouTubeSearchProvider
 from souwen.providers.information_sources.datacite import DataCiteSearchProvider
 from souwen.providers.information_sources.doab import DOABSearchProvider
 from souwen.providers.information_sources.figshare import FigshareSearchProvider
-from souwen.providers.information_sources.gutenberg import GutenbergSearchProvider
 from souwen.providers.information_sources.internet_archive import InternetArchiveSearchProvider
 from souwen.providers.information_sources.library_of_congress import (
     LibraryOfCongressSearchProvider,
 )
-from souwen.providers.information_sources.librivox import LibriVoxSearchProvider
-from souwen.providers.information_sources.oapen import OAPENSearchProvider
 from souwen.providers.information_sources.open_library import OpenLibrarySearchProvider
-from souwen.providers.information_sources.taiwan_new_books import TaiwanNewBooksSearchProvider
 from souwen.providers.information_sources.wikisource import WikisourceSearchProvider
 from tests.support.provider_v2_batch_one import (
     batch_one_paper as _batch_one_paper,
@@ -129,16 +122,13 @@ def _definition(provider_id, provider_type, response, *, domain="paper"):
 
 def _web_response(provider_id: str, *, empty: bool = False) -> SearchResponse:
     url = {
-        "bilibili": "https://www.bilibili.com/video/BV1234567890",
         "coolapk": "https://www.coolapk.com/feed/provider-v2",
         "hostloc": "https://hostloc.com/thread-provider-v2.html",
         "juejin": "https://juejin.cn/post/provider-v2",
         "nodeseek": "https://www.nodeseek.com/post-provider-v2-1",
         "v2ex": "https://www.v2ex.com/t/provider-v2",
-        "weibo": "https://m.weibo.cn/detail/provider-v2",
         "xiaohongshu": "https://www.xiaohongshu.com/explore/provider-v2",
         "youtube": "https://www.youtube.com/watch?v=provider-v2",
-        "zhihu": "https://www.zhihu.com/question/provider-v2",
     }.get(provider_id, f"https://example.test/{provider_id}")
     results = []
     if not empty:
@@ -178,7 +168,6 @@ def _web_definition(provider_id: str, provider_type: type, domain: str):
 
 _BATCH_FIVE_SEARCH_IDS = (
     "baidu",
-    "bilibili",
     "bing",
     "bing_cn",
     "brave",
@@ -195,13 +184,11 @@ _BATCH_FIVE_SEARCH_IDS = (
     "nodeseek",
     "startpage",
     "v2ex",
-    "weibo",
     "xiaohongshu",
     "yahoo",
     "yandex",
-    "zhihu",
 )
-_BATCH_SIX_SELF_HOSTED_IDS = ("searxng", "websurfx", "whoogle")
+_BATCH_SIX_SELF_HOSTED_IDS = ("searxng",)
 
 
 def _migrated_legacy_web_definitions() -> tuple[SearchConformanceDefinition, ...]:
@@ -225,13 +212,9 @@ def _migrated_legacy_web_definitions() -> tuple[SearchConformanceDefinition, ...
 
 _BOOK_URLS = {
     "doab": "https://directory.doabooks.org/handle/20.500.12854/1",
-    "gutenberg": "https://www.gutenberg.org/ebooks/11",
     "internet_archive": "https://archive.org/details/provider-v2",
     "library_of_congress": "https://www.loc.gov/item/provider-v2/",
-    "librivox": "https://librivox.org/audiobook/provider-v2",
-    "oapen": "https://library.oapen.org/handle/20.500.12657/1",
     "open_library": "https://openlibrary.org/works/OL1W",
-    "taiwan_new_books": "https://data.gov.tw/api/front/dataset/detail?nid=6730",
     "wikisource": "https://zh.wikisource.org/wiki/Provider_v2",
 }
 
@@ -241,7 +224,7 @@ def _book(provider_id: str) -> BookResult:
         source=provider_id,
         source_record_id="provider-v2",
         title=f"{provider_id} conformance record",
-        languages=["zh" if provider_id in {"taiwan_new_books", "wikisource"} else "en"],
+        languages=["zh" if provider_id == "wikisource" else "en"],
         source_url=_BOOK_URLS[provider_id],
     )
 
@@ -271,7 +254,6 @@ DEFINITIONS = (
         CrossrefSearchProvider,
         _response("crossref", _batch_one_paper("crossref")),
     ),
-    _definition("dblp", DblpSearchProvider, _response("dblp", _batch_one_paper("dblp"))),
     _definition("eric", EricSearchProvider, _response("eric", _eric_paper())),
     _definition(
         "europepmc",
@@ -334,8 +316,6 @@ DEFINITIONS = (
         _web_definition(provider_id, provider_type, domain)
         for provider_id, provider_type, domain in (
             ("github", GitHubSearchProvider, "developer"),
-            ("linuxdo", LinuxDoSearchProvider, "cn_tech"),
-            ("reddit", RedditSearchProvider, "social"),
             ("stackoverflow", StackOverflowSearchProvider, "developer"),
             ("wikipedia", WikipediaSearchProvider, "knowledge"),
             ("youtube", YouTubeSearchProvider, "videos"),
@@ -350,13 +330,9 @@ DEFINITIONS = (
         )
         for provider_id, provider_type in (
             ("doab", DOABSearchProvider),
-            ("gutenberg", GutenbergSearchProvider),
             ("internet_archive", InternetArchiveSearchProvider),
             ("library_of_congress", LibraryOfCongressSearchProvider),
-            ("librivox", LibriVoxSearchProvider),
-            ("oapen", OAPENSearchProvider),
             ("open_library", OpenLibrarySearchProvider),
-            ("taiwan_new_books", TaiwanNewBooksSearchProvider),
             ("wikisource", WikisourceSearchProvider),
         )
     ),

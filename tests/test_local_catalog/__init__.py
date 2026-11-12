@@ -1,1 +1,0 @@
-"""Deterministic local catalog tests."""

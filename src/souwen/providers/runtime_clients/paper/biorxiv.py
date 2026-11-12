@@ -42,7 +42,7 @@ class BioRxivClient:
 
     def __init__(self) -> None:
         """初始化 bioRxiv API 客户端。"""
-        self._client = SouWenHttpClient(base_url=_BASE_URL, source_name="biorxiv")
+        self._client = SouWenHttpClient(base_url=_BASE_URL, source_name="biorxiv", timeout=45)
         self._limiter = _BIORXIV_LIMITER
 
     # ------------------------------------------------------------------

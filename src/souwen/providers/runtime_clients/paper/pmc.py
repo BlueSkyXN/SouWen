@@ -42,6 +42,8 @@
 
 from __future__ import annotations
 
+import asyncio
+
 import logging
 from typing import Any
 
@@ -327,6 +329,10 @@ class PmcClient:
         )
 
         search_resp = await self._client.get("/esearch.fcgi", params=search_params)
+        if search_resp.status_code == 429:
+            # NCBI 按 IP 限流；等待后重试一次
+            await asyncio.sleep(1.5)
+            search_resp = await self._client.get("/esearch.fcgi", params=search_params)
         try:
             search_root = ET.fromstring(search_resp.text)
         except ET.ParseError as exc:

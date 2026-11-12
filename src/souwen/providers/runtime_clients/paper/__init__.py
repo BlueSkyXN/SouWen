@@ -8,7 +8,6 @@
 - CrossrefClient: Crossref (无需Key)
 - ArxivClient: arXiv (无需Key)
 - ArxivFulltextClient: arXiv 论文 HTML 全文（无需 Key）
-- DblpClient: DBLP (无需Key)
 - PubMedClient: PubMed (可选Key)
 - HuggingFaceClient: HuggingFace Papers (无需Key，语义搜索 + 社区热度)
 - EuropePmcClient: Europe PMC (无需Key)
@@ -28,7 +27,6 @@ from souwen.providers.runtime_clients.paper.semantic_scholar import SemanticScho
 from souwen.providers.runtime_clients.paper.crossref import CrossrefClient
 from souwen.providers.runtime_clients.paper.arxiv import ArxivClient
 from souwen.providers.runtime_clients.paper.arxiv_fulltext import ArxivFulltextClient
-from souwen.providers.runtime_clients.paper.dblp import DblpClient
 from souwen.providers.runtime_clients.paper.pubmed import PubMedClient
 from souwen.providers.runtime_clients.paper.huggingface import HuggingFaceClient
 from souwen.providers.runtime_clients.paper.europepmc import EuropePmcClient
@@ -48,7 +46,6 @@ __all__ = [
     "CrossrefClient",
     "ArxivClient",
     "ArxivFulltextClient",
-    "DblpClient",
     "PubMedClient",
     "HuggingFaceClient",
     "EuropePmcClient",

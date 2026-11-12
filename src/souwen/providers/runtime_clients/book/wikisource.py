@@ -45,7 +45,16 @@ class WikisourceClient:
     def __init__(self) -> None:
         # Deliberately omit source_name: a user-supplied language must never
         # select a configurable arbitrary base URL.
-        self._client = SouWenHttpClient()
+        self._client = SouWenHttpClient(
+            headers={
+                # 维基媒体 API 礼仪：自定义带项目身份的 User-Agent（与 wikipedia 客户端一致）
+                "User-Agent": (
+                    "SouWen/1.0 (Academic & Patent Search Tool; "
+                    "+https://github.com/BlueSkyXN/SouWen)"
+                ),
+                "Accept": "application/json",
+            },
+        )
 
     async def __aenter__(self) -> "WikisourceClient":
         await self._client.__aenter__()
