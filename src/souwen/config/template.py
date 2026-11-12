@@ -124,19 +124,26 @@ warp:
   # external 模式
   warp_external_proxy: ~  # 外部 WARP 代理地址(如 socks5://warp:1080)
 
+# ===== Search 回退 =====
+# 单个源超时、整次请求预算、连续失败几次后降级、降级持续秒数。
+search_provider_timeout: 10
+search_request_budget: 25
+search_demote_after: 3
+search_demote_seconds: 600
+
 # ===== Search 有序默认 Provider =====
 # 必须覆盖 SEARCH_DOMAINS 的每一个领域。空列表表示该领域当前没有可用源。
 search_defaults:
-  paper: [crossref, openalex, eric]
-  book: [open_library]
-  research_output: [datacite]
-  patent: [google_patents]
-  web: [bing, duckduckgo]
+  paper: [huggingface, crossref, openalex, zenodo, eric, pubmed, europepmc, hal, doaj, iacr, arxiv, openaire, osti, semantic_scholar]
+  book: [library_of_congress, open_library, internet_archive]
+  research_output: [datacite, figshare]
+  patent: []
+  web: [yahoo]
   news: [duckduckgo_news]
-  images: [duckduckgo_images]
-  videos: [duckduckgo_videos]
+  images: []
+  videos: []
   social: []
-  developer: [github, stackoverflow]
+  developer: [stackoverflow, github]
   cn_tech: [juejin, coolapk]
   knowledge: [wikipedia]
 

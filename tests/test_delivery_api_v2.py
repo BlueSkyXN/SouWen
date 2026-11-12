@@ -515,15 +515,12 @@ def test_target_runtime_has_one_default_provider_for_every_public_search_domain(
     selector = runtime.services.search._selector
 
     expected = {
-        "paper": "crossref",
-        "book": "open_library",
+        "paper": "huggingface",
+        "book": "library_of_congress",
         "research_output": "datacite",
-        "patent": "google_patents",
-        "web": "bing",
+        "web": "yahoo",
         "news": "duckduckgo_news",
-        "images": "duckduckgo_images",
-        "videos": "duckduckgo_videos",
-        "developer": "github",
+        "developer": "stackoverflow",
         "cn_tech": "juejin",
         "knowledge": "wikipedia",
     }
@@ -536,6 +533,10 @@ def test_target_runtime_has_one_default_provider_for_every_public_search_domain(
     }
 
     assert selected == expected
+    for domain in ("patent", "images", "videos", "social"):
+        with pytest.raises(ProviderError) as empty_domain:
+            selector.select_default(SearchRequest(query="default", domains=(domain,)))
+        assert empty_domain.value.code is ProviderErrorCode.PROVIDER_UNAVAILABLE
 
 
 @pytest.mark.asyncio

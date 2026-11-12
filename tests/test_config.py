@@ -126,7 +126,12 @@ class TestDefaults:
         assert SEARCH_DOMAINS == get_args(SearchDomain)
         assert tuple(cfg.search_defaults) == SEARCH_DOMAINS
         assert cfg.search_defaults == DEFAULT_SEARCH_PROVIDERS
-        assert cfg.search_defaults["paper"][0] == "crossref"
+        assert cfg.search_defaults["paper"][0] == "huggingface"
+        assert cfg.search_defaults["web"] == ("yahoo",)
+        assert cfg.search_provider_timeout == 10.0
+        assert cfg.search_request_budget == 25.0
+        assert cfg.search_demote_after == 3
+        assert cfg.search_demote_seconds == 600.0
 
     @pytest.mark.parametrize(
         ("search_defaults", "message"),

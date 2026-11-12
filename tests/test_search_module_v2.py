@@ -113,6 +113,120 @@ class _Manager:
 
 
 @pytest.mark.asyncio
+async def test_default_search_falls_through_when_the_first_provider_fails() -> None:
+    context = _context()
+    first = _selection("bing", priority=1)
+    second = _selection("yahoo", priority=2)
+    selector = _Selector(default=(first, second))
+    manager = _Manager(
+        {
+            first.adapter_id: ProviderError(ProviderErrorCode.PROVIDER_UNAVAILABLE),
+            second.adapter_id: _page(context, _item("yahoo:1", provider="yahoo")),
+        }
+    )
+    service = SearchModuleService(manager, selector)
+
+    result = await service.search(
+        SearchRequest(query="query", domains=("web",)), context, _execution()
+    )
+
+    assert manager.calls == [first.adapter_id, second.adapter_id]
+    assert result.meta.succeeded == ("yahoo",)
+    assert result.meta.failed == (
+        ProviderFailure(provider="bing", code=ProviderErrorCode.PROVIDER_UNAVAILABLE),
+    )
+    assert result.items[0].id == "yahoo:1"
+
+
+@pytest.mark.asyncio
+async def test_default_search_times_out_a_hung_provider_and_keeps_the_next() -> None:
+    context = _context()
+    hung = _selection("bing", priority=1)
+    later = _selection("yahoo", priority=2)
+
+    class _HangingManager:
+        def __init__(self) -> None:
+            self.calls: list[str] = []
+
+        async def execute(self, adapter_id, request, request_context, execution):  # noqa: ANN001
+            self.calls.append(adapter_id)
+            if adapter_id == hung.adapter_id:
+                await asyncio.Event().wait()
+            return _page(context, _item("yahoo:1", provider="yahoo"))
+
+    manager = _HangingManager()
+    result = await SearchModuleService(
+        manager, _Selector(default=(hung, later)), provider_timeout=0.05
+    ).search(SearchRequest(query="query", domains=("web",)), context, _execution())
+
+    assert manager.calls == [hung.adapter_id, later.adapter_id]
+    assert result.items[0].id == "yahoo:1"
+    assert result.meta.failed == (ProviderFailure(provider="bing", code="provider_timeout"),)
+
+
+@pytest.mark.asyncio
+async def test_three_consecutive_failures_demote_a_provider_for_the_next_search() -> None:
+    context = _context()
+    failing = _selection("bing", priority=1)
+    spare = _selection("yahoo", priority=2)
+    manager = _Manager(
+        {
+            failing.adapter_id: ProviderError(ProviderErrorCode.PROVIDER_UNAVAILABLE),
+            spare.adapter_id: _page(context, _item("yahoo:1", provider="yahoo")),
+        }
+    )
+    service = SearchModuleService(manager, _Selector(default=(failing, spare)))
+    request = SearchRequest(query="query", domains=("web",))
+
+    for _ in range(3):
+        manager.calls.clear()
+        await service.search(request, context, _execution())
+        assert manager.calls[0] == failing.adapter_id
+
+    manager.calls.clear()
+    result = await service.search(request, context, _execution())
+
+    assert manager.calls == [spare.adapter_id, failing.adapter_id]
+    assert result.items[0].id == "yahoo:1"
+
+
+@pytest.mark.asyncio
+async def test_request_budget_returns_the_first_batch_and_marks_the_rest_incomplete(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    clock = {"now": 0.0}
+    monkeypatch.setattr(
+        "souwen.modules.search.application.orchestration.time.monotonic",
+        lambda: clock["now"],
+    )
+    context = _context()
+    selections = tuple(
+        _selection(name, priority=index) for index, name in enumerate("abcd", start=1)
+    )
+    pages = {
+        selection.adapter_id: _page(
+            context, _item(f"{selection.provider.id}:1", provider=selection.provider.id)
+        )
+        for selection in selections[:3]
+    }
+
+    class _AdvancingManager(_Manager):
+        async def execute(self, adapter_id, request, request_context, execution):  # noqa: ANN001
+            clock["now"] = 2.0
+            return await super().execute(adapter_id, request, request_context, execution)
+
+    manager = _AdvancingManager(pages)
+    result = await SearchModuleService(
+        manager, _Selector(default=selections), request_budget=1.0
+    ).search(SearchRequest(query="query", domains=("web",)), context, _execution())
+
+    assert manager.calls == [selection.adapter_id for selection in selections[:3]]
+    assert result.items
+    assert result.meta.partial is True
+    assert result.meta.failed == (ProviderFailure(provider="d", code="provider_timeout"),)
+
+
+@pytest.mark.asyncio
 async def test_absent_providers_selects_exactly_one_yaml_primary() -> None:
     context = _context()
     primary = _selection("openalex", priority=3)
@@ -135,7 +249,10 @@ def test_ordered_selector_projects_yaml_priority_and_explicit_identity() -> None
     primary = _selection("primary", priority=1)
     selector = OrderedSearchProviderSelector({"paper": (lower, primary)})
 
-    assert selector.select_default(SearchRequest(query="query", domains=("paper",))) == (primary,)
+    assert selector.select_default(SearchRequest(query="query", domains=("paper",))) == (
+        primary,
+        lower,
+    )
     assert selector.select_explicit((_provider("lower"), _provider("primary"))) == (
         lower,
         primary,
@@ -414,15 +531,13 @@ async def test_single_provider_failure_preserves_public_retry_metadata() -> None
 
 
 @pytest.mark.asyncio
-async def test_default_selection_count_and_cancel_or_deadline_stop_before_manager_call() -> None:
+async def test_empty_default_and_cancel_stop_before_manager_call() -> None:
     context = _context()
     first = _selection("first")
-    second = _selection("second")
-    manager = _Manager({})
-    service = SearchModuleService(manager, _Selector(default=(first, second)))
+    manager = _Manager({first.adapter_id: _page(context, _item("first:1", provider="first"))})
 
     with pytest.raises(ProviderError) as selection_error:
-        await service.search(
+        await SearchModuleService(manager, _Selector(default=())).search(
             SearchRequest(query="query", domains=("paper",)), context, _execution()
         )
     assert selection_error.value.code is ProviderErrorCode.PROVIDER_UNAVAILABLE
@@ -437,6 +552,7 @@ async def test_default_selection_count_and_cancel_or_deadline_stop_before_manage
             ExecutionContext.with_timeout(30, cancel_event=cancel_event),
         )
     assert cancelled.value.code is ProviderErrorCode.CANCELLED
+    assert manager.calls == []
 
     with pytest.raises(ProviderError) as expired:
         await SearchModuleService(manager, _Selector(default=(first,))).search(

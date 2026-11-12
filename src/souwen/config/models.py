@@ -15,6 +15,8 @@ from typing import Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
+from souwen.modules.search.data.census_order import CENSUS_CANDIDATE_ORDER
+
 from .validators import _validate_proxy_url
 
 logger = logging.getLogger("souwen.config")
@@ -33,20 +35,7 @@ SEARCH_DOMAINS = (
     "knowledge",
 )
 DEFAULT_SEARCH_PROVIDERS: Mapping[str, tuple[str, ...]] = MappingProxyType(
-    {
-        "paper": ("crossref", "openalex", "eric"),
-        "book": ("open_library",),
-        "research_output": ("datacite",),
-        "patent": ("google_patents",),
-        "web": ("bing", "duckduckgo"),
-        "news": ("duckduckgo_news",),
-        "images": ("duckduckgo_images",),
-        "videos": ("duckduckgo_videos",),
-        "social": (),
-        "developer": ("github", "stackoverflow"),
-        "cn_tech": ("juejin", "coolapk"),
-        "knowledge": ("wikipedia",),
-    }
+    {domain: CENSUS_CANDIDATE_ORDER[domain] for domain in SEARCH_DOMAINS}
 )
 _PROVIDER_ID_PATTERN = re.compile(r"^[a-z][a-z0-9_-]{0,127}$")
 
@@ -244,6 +233,10 @@ class SouWenConfig(BaseModel):
     proxy_pool: list[str] = []
     timeout: int = 30
     max_retries: int = 3
+    search_provider_timeout: float = Field(default=10.0, ge=1.0, le=60.0)
+    search_request_budget: float = Field(default=25.0, ge=1.0, le=120.0)
+    search_demote_after: int = Field(default=3, ge=1, le=20)
+    search_demote_seconds: float = Field(default=600.0, ge=1.0, le=86400.0)
     data_dir: str = "~/.local/share/souwen"
     local_catalog_path: str | None = None
     respect_robots_txt: bool = False  # 是否遵守目标站点 robots.txt（builtin fetcher 使用）

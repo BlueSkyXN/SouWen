@@ -1524,7 +1524,14 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
     )
 
     search_selector = _build_search_selector(config)
-    search = SearchModuleService(manager, search_selector)
+    search = SearchModuleService(
+        manager,
+        search_selector,
+        provider_timeout=config.search_provider_timeout,
+        request_budget=config.search_request_budget,
+        demote_after=config.search_demote_after,
+        demote_seconds=config.search_demote_seconds,
+    )
     browser_client = _browser_client()
     fetch = FetchModuleService(
         manager,

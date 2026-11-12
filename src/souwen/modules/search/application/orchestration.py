@@ -9,6 +9,7 @@ frameworks are intentionally outside this module.
 from __future__ import annotations
 
 import asyncio
+import time
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Protocol
@@ -29,6 +30,11 @@ from souwen.platform.provider_spi import (
 
 
 RRF_K = 60
+DEFAULT_BATCH_SIZE = 3
+DEFAULT_PROVIDER_TIMEOUT_SECONDS = 10.0
+DEFAULT_FAILURES_BEFORE_DEMOTION = 3
+DEFAULT_DEMOTION_SECONDS = 600.0
+DEFAULT_REQUEST_BUDGET_SECONDS = 25.0
 
 
 @dataclass(frozen=True, slots=True)
@@ -50,11 +56,11 @@ class SearchProviderSelector(Protocol):
     """Resolve public provider refs to eligible adapter selections.
 
     The selector is the single boundary for the YAML domain/capability ordered
-    default. It must return exactly one selection for ``select_default``.
+    default. ``select_default`` returns the whole ordered candidate list.
     """
 
     def select_default(self, request: SearchRequest) -> tuple[SearchProviderSelection, ...]:
-        """Return the one primary selected by YAML domain/capability ordering."""
+        """Return every candidate for the domain, YAML priority first."""
 
     def select_explicit(
         self, providers: tuple[ProviderRef, ...]
@@ -114,7 +120,7 @@ class OrderedSearchProviderSelector:
         selections = self._by_domain.get(request.domains[0], ())
         if not selections:
             raise ProviderError(ProviderErrorCode.PROVIDER_UNAVAILABLE)
-        return (selections[0],)
+        return selections
 
     def select_explicit(
         self, providers: tuple[ProviderRef, ...]
@@ -161,9 +167,24 @@ class _ProviderOutcome:
 class SearchModuleService:
     """Concrete canonical SearchModule implementing primary selection and explicit fanout."""
 
-    def __init__(self, manager: SearchProviderManager, selector: SearchProviderSelector) -> None:
+    def __init__(
+        self,
+        manager: SearchProviderManager,
+        selector: SearchProviderSelector,
+        *,
+        provider_timeout: float = DEFAULT_PROVIDER_TIMEOUT_SECONDS,
+        request_budget: float = DEFAULT_REQUEST_BUDGET_SECONDS,
+        demote_after: int = DEFAULT_FAILURES_BEFORE_DEMOTION,
+        demote_seconds: float = DEFAULT_DEMOTION_SECONDS,
+    ) -> None:
         self._manager = manager
         self._selector = selector
+        self._provider_timeout = provider_timeout
+        self._request_budget = request_budget
+        self._demote_after = demote_after
+        self._demote_seconds = demote_seconds
+        self._consecutive_failures: dict[str, int] = {}
+        self._demoted_until: dict[str, float] = {}
 
     async def search(
         self,
@@ -174,14 +195,38 @@ class SearchModuleService:
         """Execute one selected provider or explicitly requested multi-provider fanout."""
 
         execution.raise_if_cancelled_or_expired()
-        selections = self._select(request)
-        outcomes = await asyncio.gather(
-            *(
-                self._execute_selection(selection, request, context, execution)
-                for selection in selections
-            )
+        selections = self._order_for_memory(self._select(request))
+        outcomes: list[_ProviderOutcome] = []
+        # 点名源时一次跑完；不点名时每批 3 个，凑够结果或全部失败再取下一批。
+        batched = request.providers is None and len(selections) > DEFAULT_BATCH_SIZE
+        batches = (
+            [
+                selections[index : index + DEFAULT_BATCH_SIZE]
+                for index in range(0, len(selections), DEFAULT_BATCH_SIZE)
+            ]
+            if batched
+            else [selections]
         )
-        execution.raise_if_cancelled_or_expired()
+        wanted = request.page.limit if request.page is not None else 8
+        deadline = time.monotonic() + self._request_budget
+        unrun: list[SearchProviderSelection] = []
+        for index, batch in enumerate(batches):
+            if time.monotonic() >= deadline:
+                unrun.extend(selection for later in batches[index:] for selection in later)
+                break
+            execution.raise_if_cancelled_or_expired()
+            outcomes.extend(await self._run_batch(batch, request, context, execution))
+            got = sum(len(outcome.page.items) for outcome in outcomes if outcome.page is not None)
+            self._remember(outcomes[-len(batch) :])
+            if not batched or got >= wanted:
+                break
+        outcomes.extend(
+            _ProviderOutcome(
+                selection=selection,
+                error=ProviderError(ProviderErrorCode.DEADLINE_EXCEEDED),
+            )
+            for selection in unrun
+        )
 
         successes: list[tuple[SearchProviderSelection, SearchPage]] = []
         failures: list[ProviderFailure] = []
@@ -224,6 +269,45 @@ class SearchModuleService:
             context=context,
         )
 
+    async def _run_batch(
+        self,
+        batch: tuple[SearchProviderSelection, ...],
+        request: SearchRequest,
+        context: RequestContext,
+        execution: ExecutionContext,
+    ) -> list[_ProviderOutcome]:
+        """Run one batch concurrently and turn a hung source into a typed timeout."""
+
+        tasks = [
+            asyncio.create_task(self._execute_selection(selection, request, context, execution))
+            for selection in batch
+        ]
+        done, pending = await asyncio.wait(tasks, timeout=self._provider_timeout)
+        for task in pending:
+            task.cancel()
+        if pending:
+            await asyncio.gather(*pending, return_exceptions=True)
+        outcomes: list[_ProviderOutcome] = []
+        for selection, task in zip(batch, tasks, strict=True):
+            if task in pending or task.cancelled():
+                outcomes.append(
+                    _ProviderOutcome(
+                        selection=selection,
+                        error=ProviderError(ProviderErrorCode.DEADLINE_EXCEEDED),
+                    )
+                )
+                continue
+            result = task.result()
+            outcomes.append(
+                result
+                if isinstance(result, _ProviderOutcome)
+                else _ProviderOutcome(
+                    selection=selection,
+                    error=ProviderError(ProviderErrorCode.PROVIDER_UNAVAILABLE),
+                )
+            )
+        return outcomes
+
     async def _execute_selection(
         self,
         selection: SearchProviderSelection,
@@ -244,6 +328,32 @@ class SearchModuleService:
             )
         return _ProviderOutcome(selection=selection, page=page)
 
+    def _order_for_memory(
+        self, selections: tuple[SearchProviderSelection, ...]
+    ) -> tuple[SearchProviderSelection, ...]:
+        now = time.monotonic()
+        active = [
+            selection
+            for selection in selections
+            if self._demoted_until.get(selection.provider.id, 0.0) <= now
+        ]
+        demoted = [selection for selection in selections if selection not in active]
+        return tuple(active + demoted)
+
+    def _remember(self, outcomes: list[_ProviderOutcome]) -> None:
+        now = time.monotonic()
+        for outcome in outcomes:
+            provider_id = outcome.selection.provider.id
+            if outcome.page is not None:
+                self._consecutive_failures.pop(provider_id, None)
+                self._demoted_until.pop(provider_id, None)
+                continue
+            failures = self._consecutive_failures.get(provider_id, 0) + 1
+            self._consecutive_failures[provider_id] = failures
+            if failures >= self._demote_after:
+                self._demoted_until[provider_id] = now + self._demote_seconds
+                self._consecutive_failures[provider_id] = 0
+
     def _select(self, request: SearchRequest) -> tuple[SearchProviderSelection, ...]:
         if request.providers is None:
             try:
@@ -252,7 +362,7 @@ class SearchModuleService:
                 raise
             except Exception as exc:
                 raise ProviderError(ProviderErrorCode.PROVIDER_UNAVAILABLE) from exc
-            if len(selections) != 1:
+            if not selections:
                 raise ProviderError(ProviderErrorCode.PROVIDER_UNAVAILABLE)
             return selections
 
