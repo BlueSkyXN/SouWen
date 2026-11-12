@@ -161,8 +161,8 @@ warp:
   warp_external_proxy: ~
 
 # ===== Search 有序默认 Provider =====
-# providers 缺省时，每个 domain 只选择列表中的第一个 primary；
-# 这里的后续候选用于显式配置排序，不会在一次请求内自动 fallback/fanout。
+# 必须覆盖 SEARCH_DOMAINS 的每一个领域。空列表表示该领域当前没有可用源。
+# 运行时会按列表顺序并发取源，失败后继续取下一批。
 search_defaults:
   paper: [crossref, openalex, eric]
   book: [open_library]
@@ -171,8 +171,8 @@ search_defaults:
   web: [bing, duckduckgo]
   news: [duckduckgo_news]
   images: [duckduckgo_images]
-  videos: [bilibili, duckduckgo_videos]
-  social: [reddit, weibo, zhihu]
+  videos: [duckduckgo_videos]
+  social: []
   developer: [github, stackoverflow]
-  cn_tech: [linuxdo, v2ex]
+  cn_tech: [juejin, coolapk]
   knowledge: [wikipedia]
