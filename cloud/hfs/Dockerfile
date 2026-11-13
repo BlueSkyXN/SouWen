@@ -73,7 +73,7 @@ RUN git init . \
     && git rev-parse HEAD > /app/runtime.source.sha
 
 
-RUN pip install ".[server,tls,web,robots,scraper]" "playwright>=1.40" \
+RUN pip install ".[server,mcp,tls,web,robots,scraper]" "playwright>=1.40" \
     && python -c "import curl_cffi; print('curl_cffi OK')"
 
 # Browser Worker 是 RC6 HFS 的必需进程。

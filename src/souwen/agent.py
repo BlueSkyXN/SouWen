@@ -97,11 +97,13 @@ class AgentRuntime:
         *,
         max_chars: int = DEFAULT_MAX_CHARS,
         start: int = 0,
+        provider: str | None = None,
     ) -> FetchPage:
         return await self._reader.read(
             url,
             max_chars=max_chars,
             start=start,
+            provider=provider,
             context=self._context(),
             execution=ExecutionContext.with_timeout(_AGENT_EXECUTION_TIMEOUT_SECONDS),
         )

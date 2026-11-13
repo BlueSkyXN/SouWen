@@ -78,9 +78,9 @@ def is_http_url(value: Any) -> bool:
 
 
 def count_valid_search_items(payload: Any) -> tuple[int, int]:
-    """Return (valid_item_count, total_item_count) for a SearchPage payload."""
+    """Return (valid_item_count, total_item_count) for an agent /search payload."""
 
-    items = payload.get("items") if isinstance(payload, dict) else None
+    items = payload.get("results") if isinstance(payload, dict) else None
     if not isinstance(items, list):
         return 0, 0
     valid = sum(
@@ -100,18 +100,14 @@ def search_query_valid(payload: Any, *, min_results: int) -> bool:
 
 
 def fetch_content_success(payload: Any, *, min_chars: int) -> bool:
-    """Judge one FetchBatch payload targeted at a single URL."""
+    """Judge one agent /fetch payload for a single URL."""
 
-    items = payload.get("items") if isinstance(payload, dict) else None
-    if not isinstance(items, list) or len(items) != 1:
+    if not isinstance(payload, dict):
         return False
-    item = items[0]
-    if not isinstance(item, dict) or item.get("status") != "success":
-        return False
-    content = item.get("content")
+    content = payload.get("content")
     if not isinstance(content, str) or len(content.strip()) < min_chars:
         return False
-    haystack = f"{item.get('title') or ''}\n{content[:4000]}".lower()
+    haystack = f"{payload.get('title') or ''}\n{content[:4000]}".lower()
     return not any(marker in haystack for marker in VERIFICATION_MARKERS)
 
 
@@ -233,14 +229,13 @@ def run_search_probe(
     page_limit: int,
     min_results: int,
 ) -> ProbeOutcome:
-    payload_body: dict[str, Any] = {"query": query, "domains": [domain]}
+    payload_body: dict[str, Any] = {"query": query, "domain": domain, "limit": page_limit}
     if provider is not None:
-        payload_body["providers"] = [{"id": provider, "kind": "search"}]
-    payload_body["page"] = {"limit": page_limit}
+        payload_body["providers"] = [provider]
     started = time.perf_counter()
     outcome = ProbeOutcome(label="", query=query, valid=False)
     try:
-        status, payload = client.json_request("/api/v1/search", method="POST", payload=payload_body)
+        status, payload = client.json_request("/search", method="POST", payload=payload_body)
     except CensusError as exc:
         outcome.error = str(exc)
         outcome.duration_seconds = time.perf_counter() - started
@@ -252,11 +247,9 @@ def run_search_probe(
         return outcome
     outcome.valid = search_query_valid(payload, min_results=min_results)
     outcome.result_count = count_valid_search_items(payload)[0]
-    meta = payload.get("meta") if isinstance(payload, dict) else None
-    if isinstance(meta, dict):
-        requested = meta.get("requested")
-        if isinstance(requested, list):
-            outcome.served_by = [str(item) for item in requested]
+    served = payload.get("sources") if isinstance(payload, dict) else None
+    if isinstance(served, list):
+        outcome.served_by = [str(item) for item in served]
     if not outcome.valid and not outcome.error:
         outcome.error = f"only {outcome.result_count} valid items"
     return outcome
@@ -269,14 +262,14 @@ def run_fetch_probe(
     provider: str | None,
     min_chars: int,
 ) -> ProbeOutcome:
-    payload_body: dict[str, Any] = {"targets": [url]}
+    # max_chars 放宽到接口上限：分页读取下 500 字判定需要接近全文的窗口。
+    payload_body: dict[str, Any] = {"url": url, "max_chars": 200_000}
     if provider is not None:
-        payload_body["providers"] = [{"id": provider, "kind": "fetch"}]
-        payload_body["strategy"] = "fallback"
+        payload_body["provider"] = provider
     started = time.perf_counter()
     outcome = ProbeOutcome(label="", query=url, valid=False)
     try:
-        status, payload = client.json_request("/api/v1/fetch", method="POST", payload=payload_body)
+        status, payload = client.json_request("/fetch", method="POST", payload=payload_body)
     except CensusError as exc:
         outcome.error = str(exc)
         outcome.duration_seconds = time.perf_counter() - started
@@ -287,15 +280,8 @@ def run_fetch_probe(
         outcome.error = _error_code(payload)
         return outcome
     outcome.valid = fetch_content_success(payload, min_chars=min_chars)
-    items = payload.get("items") if isinstance(payload, dict) else None
-    if isinstance(items, list) and items and isinstance(items[0], dict):
-        item = items[0]
-        content = item.get("content")
-        outcome.result_count = len(content) if isinstance(content, str) else 0
-        if item.get("status") != "success":
-            error = item.get("error")
-            code = error.get("code") if isinstance(error, dict) else None
-            outcome.error = str(code or item.get("status"))[:120]
+    content = payload.get("content") if isinstance(payload, dict) else None
+    outcome.result_count = len(content) if isinstance(content, str) else 0
     if not outcome.valid and not outcome.error:
         outcome.error = f"content {outcome.result_count} chars"
     return outcome

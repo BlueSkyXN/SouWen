@@ -12,15 +12,14 @@ from scripts import census
 
 def _search_payload(items: list[dict]) -> dict:
     return {
-        "items": items,
-        "page": {"next_cursor": None},
-        "meta": {"partial": False, "requested": (), "succeeded": (), "failed": ()},
-        "context": {"request_id": "test"},
+        "results": items,
+        "sources": ["openalex"],
+        "partial": False,
     }
 
 
 def _item(title: str = "A result", url: str = "https://example.com/a") -> dict:
-    return {"id": "x", "title": title, "url": url, "provenance": []}
+    return {"title": title, "url": url}
 
 
 class TestSearchJudgment:
@@ -53,17 +52,15 @@ class TestSearchJudgment:
 
 
 class TestFetchJudgment:
-    def _fetch_payload(self, content: str, *, status: str = "success", title: str = "Page") -> dict:
+    def _fetch_payload(self, content: str, *, title: str = "Page") -> dict:
         return {
-            "items": [
-                {
-                    "target": "https://example.com/",
-                    "status": status,
-                    "title": title,
-                    "content": content,
-                }
-            ],
-            "meta": {"partial": False},
+            "title": title,
+            "url": "https://example.com/",
+            "content": content,
+            "total_chars": len(content),
+            "start": 0,
+            "next_start": None,
+            "egress": "direct",
         }
 
     def test_long_content_passes(self):
@@ -80,10 +77,6 @@ class TestFetchJudgment:
 
     def test_captcha_body_fails(self):
         payload = self._fetch_payload("please complete the captcha to continue " * 30)
-        assert not census.fetch_content_success(payload, min_chars=500)
-
-    def test_failed_status_fails(self):
-        payload = self._fetch_payload("word " * 200, status="failed")
         assert not census.fetch_content_success(payload, min_chars=500)
 
     def test_marker_check_is_case_insensitive_and_bounded(self):

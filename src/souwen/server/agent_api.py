@@ -33,12 +33,14 @@ class SearchPayload(BaseModel):
     query: str = Field(min_length=1, max_length=4096)
     domain: str = Field(default="web", pattern=_DOMAIN_PATTERN)
     limit: int = Field(default=8, ge=1, le=50)
+    providers: list[str] | None = Field(default=None, max_length=10)
 
 
 class FetchPayload(BaseModel):
     url: str = Field(min_length=11, max_length=2048)
     max_chars: int = Field(default=DEFAULT_MAX_CHARS, ge=1, le=200_000)
     start: int = Field(default=0, ge=0)
+    provider: str | None = Field(default=None, min_length=1, max_length=128)
 
 
 def create_agent_api_router(
@@ -53,7 +55,10 @@ def create_agent_api_router(
     async def search(payload: SearchPayload) -> dict[str, Any]:
         try:
             summary = await runtime.search(
-                payload.query, domain=payload.domain, limit=payload.limit
+                payload.query,
+                domain=payload.domain,
+                limit=payload.limit,
+                providers=tuple(payload.providers) if payload.providers is not None else None,
             )
         except ProviderError as exc:
             raise _http_error(exc) from None
@@ -77,7 +82,10 @@ def create_agent_api_router(
     async def fetch(payload: FetchPayload) -> dict[str, Any]:
         try:
             page = await runtime.fetch(
-                payload.url, max_chars=payload.max_chars, start=payload.start
+                payload.url,
+                max_chars=payload.max_chars,
+                start=payload.start,
+                provider=payload.provider,
             )
         except ProviderError as exc:
             raise _http_error(exc) from None

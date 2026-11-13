@@ -43,22 +43,16 @@ if [ -n "${SOUWEN_CONFIG_B64}" ]; then
 fi
 
 # ===== 依赖检查 =====
-# 验证 FastAPI、Uvicorn、SouWen 等核心依赖是否正确安装
+# 验证 FastAPI、Uvicorn、MCP SDK、SouWen 等核心依赖是否正确安装
 python -c "
-import fastapi, uvicorn, souwen
+import fastapi, uvicorn, mcp, souwen
 from souwen.server.app import app
 print('✅ 依赖检查通过')
 "
 
 # ===== 启动 Web 服务 =====
 echo "=========================================="
-echo "🚀 启动服务 → 0.0.0.0:${PORT}"
+echo "🚀 启动服务 → 0.0.0.0:${PORT}（HTTP + /mcp）"
 echo "=========================================="
 
-exec uvicorn souwen.server.app:app \
-    --host 0.0.0.0 \
-    --port "${PORT}" \
-    --workers 1 \
-    --log-level info \
-    --access-log \
-    --timeout-keep-alive 120
+exec souwen serve --host 0.0.0.0 --port "${PORT}"

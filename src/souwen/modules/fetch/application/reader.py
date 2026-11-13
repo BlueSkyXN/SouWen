@@ -18,6 +18,7 @@ from souwen.platform.provider_spi import (
     FetchRequest,
     ProviderError,
     ProviderErrorCode,
+    ProviderRef,
     RequestContext,
 )
 
@@ -88,6 +89,7 @@ class FetchReaderService:
         *,
         max_chars: int = DEFAULT_MAX_CHARS,
         start: int = 0,
+        provider: str | None = None,
         context: RequestContext,
         execution: ExecutionContext,
     ) -> FetchPage:
@@ -96,17 +98,19 @@ class FetchReaderService:
         if start < 0:
             raise ProviderError(ProviderErrorCode.INVALID_REQUEST)
 
-        cached = self._cache.get(url)
+        # 点名源的内容与默认抓取可能不同，缓存键带上源名。
+        cache_key = url if provider is None else f"{provider}:{url}"
+        cached = self._cache.get(cache_key)
         now = self._clock()
         if cached is not None and cached.expires_at > now:
-            self._cache.move_to_end(url)
+            self._cache.move_to_end(cache_key)
             source = cached.page_source
         else:
             if cached is not None:
-                del self._cache[url]
-            source = await self._fetch_full(url, context, execution)
-            self._cache[url] = _CacheEntry(source, expires_at=now + self._ttl)
-            self._cache.move_to_end(url)
+                del self._cache[cache_key]
+            source = await self._fetch_full(url, provider, context, execution)
+            self._cache[cache_key] = _CacheEntry(source, expires_at=now + self._ttl)
+            self._cache.move_to_end(cache_key)
             while len(self._cache) > self._max_entries:
                 self._cache.popitem(last=False)
 
@@ -129,10 +133,16 @@ class FetchReaderService:
     async def _fetch_full(
         self,
         url: str,
+        provider: str | None,
         context: RequestContext,
         execution: ExecutionContext,
     ) -> FetchPageSource:
-        request = FetchRequest(targets=(url,))
+        request = FetchRequest(
+            targets=(url,),
+            providers=(
+                (ProviderRef(id=provider, kind="fetch"),) if provider is not None else None
+            ),
+        )
         batch = await self._module.fetch(request, context, execution)
         result = batch.items[0]
         if result.status != "success" or result.content is None:

@@ -66,7 +66,7 @@ class _FakeAgentRuntime:
             raise self.search_error
         return self.summary
 
-    async def fetch(self, url, *, max_chars=20000, start=0):
+    async def fetch(self, url, *, max_chars=20000, start=0, provider=None):
         return self.page
 
     def sources(self):
