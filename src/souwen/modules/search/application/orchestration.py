@@ -245,7 +245,7 @@ class SearchModuleService:
             )
 
         if not successes:
-            raise _all_fail_error(errors)
+            raise _all_fail_error(errors, failures)
 
         items = _merge_items(successes)
         first_page = successes[0][1].page
@@ -479,7 +479,8 @@ def _canonical_failure_code(code: ProviderErrorCode) -> str:
     }[code]
 
 
-def _all_fail_error(errors: list[ProviderError]) -> ProviderError:
+def _all_fail_error(errors: list[ProviderError], failures: list[ProviderFailure]) -> ProviderError:
+    # 单源失败时其 code 与 provider_id 已足够描述，无需再带失败列表。
     if len(errors) == 1:
         return errors[0]
     if errors and all(error.code is ProviderErrorCode.RATE_LIMITED for error in errors):
@@ -489,15 +490,16 @@ def _all_fail_error(errors: list[ProviderError]) -> ProviderError:
         return ProviderError(
             ProviderErrorCode.RATE_LIMITED,
             retry_after_seconds=max(retry_values) if retry_values else None,
+            failures=tuple(failures),
         )
     if errors and all(error.code is ProviderErrorCode.POLICY_BLOCKED for error in errors):
-        return ProviderError(ProviderErrorCode.POLICY_BLOCKED)
+        return ProviderError(ProviderErrorCode.POLICY_BLOCKED, failures=tuple(failures))
     if errors and all(
         error.code in {ProviderErrorCode.CANCELLED, ProviderErrorCode.DEADLINE_EXCEEDED}
         for error in errors
     ):
-        return ProviderError(ProviderErrorCode.DEADLINE_EXCEEDED)
-    return ProviderError(ProviderErrorCode.PROVIDER_UNAVAILABLE)
+        return ProviderError(ProviderErrorCode.DEADLINE_EXCEEDED, failures=tuple(failures))
+    return ProviderError(ProviderErrorCode.PROVIDER_UNAVAILABLE, failures=tuple(failures))
 
 
 __all__ = [

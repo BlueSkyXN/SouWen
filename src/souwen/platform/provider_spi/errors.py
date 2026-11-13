@@ -3,6 +3,10 @@
 from __future__ import annotations
 
 from enum import Enum
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from souwen.platform.provider_spi.dto import ProviderFailure
 
 
 class ProviderErrorCode(str, Enum):
@@ -53,12 +57,14 @@ class ProviderError(Exception):
         *,
         provider_id: str | None = None,
         retry_after_seconds: float | None = None,
+        failures: tuple[ProviderFailure, ...] = (),
     ) -> None:
         if retry_after_seconds is not None and retry_after_seconds < 0:
             raise ValueError("retry_after_seconds must be non-negative")
         self.code = code
         self.provider_id = provider_id
         self.retry_after_seconds = retry_after_seconds
+        self.failures = failures
         self.retryable = code in {
             ProviderErrorCode.DEADLINE_EXCEEDED,
             ProviderErrorCode.RATE_LIMITED,
