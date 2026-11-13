@@ -39,36 +39,10 @@ patent:
 web:
   searxng_url: ~
   tavily_api_key: ~
-  exa_api_key: ~
-  serper_api_key: ~
-  brave_api_key: ~
-  serpapi_api_key: ~
-  firecrawl_api_key: ~
-  perplexity_api_key: ~
-  linkup_api_key: ~
-  xcrawl_api_key: ~
-  scrapingdog_api_key: ~
-  metaso_api_key: ~
-  whoogle_url: ~
-  websurfx_url: ~
-  zhipuai_api_key: ~
-  aliyun_iqs_api_key: ~
-  kimi_code_api_key: ~
   github_token: ~
   stackoverflow_api_key: ~
   youtube_api_key: ~
   bilibili_sessdata: ""
-  jina_api_key: ~
-  scrapfly_api_key: ~
-  diffbot_api_token: ~
-  scrapingbee_api_key: ~
-  zenrows_api_key: ~
-  scraperapi_api_key: ~
-  apify_api_token: ~
-  cloudflare_api_token: ~
-  cloudflare_account_id: ~
-  feishu_app_id: ~
-  feishu_app_secret: ~
 
 # ===== 通用设置 =====
 general:

@@ -78,16 +78,6 @@ class SouWenConfig(BaseModel):
         专利源 API Key: uspto_api_key, epo_consumer_key/secret, cnipa_client_id/secret,
                         lens_api_token, patsnap_api_key
 
-        搜索源 API Key: searxng_url, tavily_api_key, exa_api_key, serper_api_key,
-                        brave_api_key, serpapi_api_key, firecrawl_api_key,
-                        perplexity_api_key, linkup_api_key, xcrawl_api_key,
-                        scrapingdog_api_key, kimi_code_api_key,
-                        whoogle_url, websurfx_url, github_token,
-                        stackoverflow_api_key, youtube_api_key, jina_api_key,
-                        scrapfly_api_key, diffbot_api_token,
-                        scrapingbee_api_key, zenrows_api_key,
-                        scraperapi_api_key, apify_api_token,
-                        cloudflare_api_token, cloudflare_account_id
 
         通用设置: proxy, proxy_pool (代理池), timeout (超时秒数), max_retries (重试次数),
                  data_dir (数据存储目录)
@@ -183,22 +173,7 @@ class SouWenConfig(BaseModel):
     # API 引擎需要对应的 Key
     searxng_url: str | None = None  # SearXNG 自建实例 URL
     tavily_api_key: str | None = None  # Tavily AI 搜索
-    exa_api_key: str | None = None  # Exa 语义搜索
-    serper_api_key: str | None = None  # Serper (Google SERP)
-    brave_api_key: str | None = None  # Brave Search 官方 API
     # 新增搜索引擎 API Key
-    serpapi_api_key: str | None = None  # SerpAPI (多引擎 SERP)
-    firecrawl_api_key: str | None = None  # Firecrawl (搜索+爬取)
-    perplexity_api_key: str | None = None  # Perplexity Sonar API
-    linkup_api_key: str | None = None  # Linkup 搜索 API
-    xcrawl_api_key: str | None = None  # XCrawl 搜索+抓取 API
-    scrapingdog_api_key: str | None = None  # ScrapingDog SERP API
-    metaso_api_key: str | None = None  # Metaso 秘塔搜索 API
-    whoogle_url: str | None = None  # Whoogle 自建实例 URL
-    websurfx_url: str | None = None  # Websurfx 自建实例 URL
-    zhipuai_api_key: str | None = None  # 智谱 AI Web Search Pro
-    aliyun_iqs_api_key: str | None = None  # 阿里云 IQS 通义晓搜
-    kimi_code_api_key: str | None = None  # Kimi Code 搜索/网页获取 API Key
     # 社区 / 视频平台
     github_token: str | None = None  # GitHub PAT（可选，提升速率限制）
     stackoverflow_api_key: str | None = None  # StackOverflow API Key（可选，提升配额）
@@ -207,24 +182,8 @@ class SouWenConfig(BaseModel):
         ""  # Bilibili SESSDATA Cookie（可选，启用授权 API：高画质/高频/字幕等）
     )
     # 国际社交媒体（官方 API）
-    twitter_bearer_token: str | None = None  # Twitter/X API v2 Bearer Token（Basic 套餐及以上）
-    reddit_client_id: str | None = None  # Reddit OAuth2 App Client ID
-    reddit_client_secret: str | None = None  # Reddit OAuth2 App Client Secret
-    facebook_app_id: str | None = None  # Meta Facebook App ID
-    facebook_app_secret: str | None = None  # Meta Facebook App Secret
     # 企业/办公平台
-    feishu_app_id: str | None = None  # 飞书自建应用 App ID
-    feishu_app_secret: str | None = None  # 飞书自建应用 App Secret
     # 内容抓取
-    jina_api_key: str | None = None  # Jina Reader API Key（可选，免费层无需 Key）
-    scrapfly_api_key: str | None = None  # Scrapfly API Key（JS 渲染+AI 提取）
-    diffbot_api_token: str | None = None  # Diffbot API Token（结构化内容提取）
-    scrapingbee_api_key: str | None = None  # ScrapingBee API Key（代理+JS 渲染+反爬）
-    zenrows_api_key: str | None = None  # ZenRows API Key（代理+JS 渲染+反爬）
-    scraperapi_api_key: str | None = None  # ScraperAPI API Key（代理+JS 渲染）
-    apify_api_token: str | None = None  # Apify API Token（平台化 Actor 爬虫）
-    cloudflare_api_token: str | None = None  # Cloudflare API Token（Browser Rendering）
-    cloudflare_account_id: str | None = None  # Cloudflare Account ID（Browser Rendering）
 
     # ===== 通用 =====
     proxy: str | None = None
