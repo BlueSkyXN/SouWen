@@ -55,28 +55,12 @@ _DEFAULT_BOUNDS = EgressBounds()
 # layer stays free of per-source lists.
 BROWSER_CAPABLE_SOURCES: frozenset[str] = frozenset(
     {
-        # DDG family and its site-search aliases
-        "duckduckgo",
+        # DDG 新闻端点与 site: 别名（P3 终判后的存活集合）
         "duckduckgo_news",
-        "duckduckgo_images",
-        "duckduckgo_videos",
-        "hostloc",
-        "nodeseek",
-        "v2ex",
         "coolapk",
-        "xiaohongshu",
-        # HTML engines blocked for datacenter IPs
+        # HTML 引擎（数据中心 IP 受限，直连失败时升级）
         "baidu",
-        "bing",
-        "bing_cn",
         "brave",
-        "google",
-        "mojeek",
-        "startpage",
-        "yandex",
-        # others waiting on the browser verdict
-        "csdn",
-        "google_patents",
     }
 )
 

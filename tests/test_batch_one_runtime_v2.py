@@ -24,28 +24,22 @@ from tests.support.provider_v2_batch_one import batch_one_paper, google_patent, 
 
 _SEARCH_CLIENT_GLOBALS = {
     "arxiv": "ArxivClient",
-    "biorxiv": "BioRxivClient",
     "crossref": "CrossrefClient",
     "europepmc": "EuropePmcClient",
-    "google_patents": "GooglePatentsScraper",
     "hal": "HalClient",
     "huggingface": "HuggingFaceClient",
     "iacr": "IacrClient",
     "osti": "OstiClient",
-    "pmc": "PmcClient",
     "pubmed": "PubMedClient",
 }
 _EXPECTED_SEARCH_CALLS = {
     "arxiv": (("runtime",), {"max_results": 10}),
-    "biorxiv": (("runtime",), {"per_page": 10}),
     "crossref": (("runtime",), {"rows": 10, "offset": 0}),
     "europepmc": (("runtime",), {"page_size": 10}),
-    "google_patents": (("runtime",), {"num_results": 10}),
     "hal": (("runtime",), {"rows": 10}),
     "huggingface": ((), {"query": "runtime", "top_n": 10}),
     "iacr": (("runtime",), {"max_results": 10}),
     "osti": (("runtime",), {"rows": 10, "page": 1}),
-    "pmc": (("runtime",), {"retmax": 10, "retstart": 0}),
     "pubmed": (("runtime",), {"retmax": 10, "retstart": 0}),
 }
 
@@ -126,7 +120,7 @@ def test_batch_one_catalog_and_explicit_search_fetch_are_wired(monkeypatch) -> N
     )
 
     catalog = {item.provider: item for item in runtime.services.provider_items}
-    assert len(catalog) == 56
+    assert len(catalog) == 36
     assert catalog["osti"].availability == "available"
     assert catalog["arxiv_fulltext"].availability == "available"
     assert "opencitations" not in catalog

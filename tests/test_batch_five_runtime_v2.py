@@ -24,12 +24,8 @@ from souwen.server import v2_runtime as runtime_module
 
 _RESULT_URLS = {
     "coolapk": "https://www.coolapk.com/feed/1",
-    "hostloc": "https://hostloc.com/thread-1-1-1.html",
     "juejin": "https://juejin.cn/post/1",
-    "nodeseek": "https://www.nodeseek.com/post-1-1",
-    "v2ex": "https://www.v2ex.com/t/1",
     "weibo": "https://m.weibo.cn/detail/1",
-    "xiaohongshu": "https://www.xiaohongshu.com/explore/1",
     "zhihu": "https://www.zhihu.com/question/1",
 }
 
@@ -97,7 +93,7 @@ def test_every_batch_five_search_factory_dispatches_and_closes_with_reviewed_con
         )
     )
     catalog = {item.provider: item for item in runtime.services.provider_items}
-    assert len(catalog) == 56
+    assert len(catalog) == 36
     assert all(catalog[provider_id].availability == "available" for provider_id in clients)
 
     async def exercise() -> None:
@@ -126,7 +122,6 @@ def test_every_batch_five_search_factory_dispatches_and_closes_with_reviewed_con
         if not provider_id.startswith("duckduckgo")
         and provider_id not in runtime_module._BATCH_FIVE_DDG_SITE_SOURCE_IDS
     )
-    assert calls["duckduckgo"][0] == {}
     assert calls["baidu"][2] == "http://127.0.0.1:17890"
     assert all(values[3:] == [7, 1] for values in calls.values())
 

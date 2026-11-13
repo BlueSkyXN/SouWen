@@ -167,9 +167,9 @@ class TestPlanSelection:
         )
 
     def test_only_filter_limits_plan(self, queries):
-        plan = census.select_queries(queries, "sources", ["duckduckgo", "wayback"])
+        plan = census.select_queries(queries, "sources", ["arxiv", "wayback"])
         targets = {entry["target"] for entry in plan}
-        assert targets == {"duckduckgo", "wayback"}
+        assert targets == {"arxiv", "wayback"}
 
     def test_domains_mode_plan(self, queries):
         plan = census.select_queries(queries, "domains", None)

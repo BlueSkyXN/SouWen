@@ -23,37 +23,31 @@
 from souwen.providers.runtime_clients.paper.openalex import OpenAlexClient
 from souwen.providers.runtime_clients.paper.eric import EricClient
 from souwen.providers.runtime_clients.paper.osti import OstiClient
-from souwen.providers.runtime_clients.paper.semantic_scholar import SemanticScholarClient
 from souwen.providers.runtime_clients.paper.crossref import CrossrefClient
 from souwen.providers.runtime_clients.paper.arxiv import ArxivClient
 from souwen.providers.runtime_clients.paper.arxiv_fulltext import ArxivFulltextClient
 from souwen.providers.runtime_clients.paper.pubmed import PubMedClient
 from souwen.providers.runtime_clients.paper.huggingface import HuggingFaceClient
 from souwen.providers.runtime_clients.paper.europepmc import EuropePmcClient
-from souwen.providers.runtime_clients.paper.pmc import PmcClient
 from souwen.providers.runtime_clients.paper.doaj import DoajClient
 from souwen.providers.runtime_clients.paper.zenodo import ZenodoClient
 from souwen.providers.runtime_clients.paper.hal import HalClient
 from souwen.providers.runtime_clients.paper.openaire import OpenAireClient
 from souwen.providers.runtime_clients.paper.iacr import IacrClient
-from souwen.providers.runtime_clients.paper.biorxiv import BioRxivClient
 
 __all__ = [
     "OpenAlexClient",
     "EricClient",
     "OstiClient",
-    "SemanticScholarClient",
     "CrossrefClient",
     "ArxivClient",
     "ArxivFulltextClient",
     "PubMedClient",
     "HuggingFaceClient",
     "EuropePmcClient",
-    "PmcClient",
     "DoajClient",
     "ZenodoClient",
     "HalClient",
     "OpenAireClient",
     "IacrClient",
-    "BioRxivClient",
 ]

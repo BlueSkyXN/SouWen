@@ -23,13 +23,13 @@ def test_bounds_default_and_browser_capable() -> None:
     assert default.min_level is EgressLevel.IMPERSONATE
     assert default.max_level is EgressLevel.PROXY
 
-    browser = egress_bounds_for("duckduckgo")
+    browser = egress_bounds_for("baidu")
     assert browser.max_level is EgressLevel.BROWSER
 
 
 def test_memory_starts_at_min_and_climbs_after_failure() -> None:
     memory = EgressMemory(clock=lambda: 0.0)
-    bounds = egress_bounds_for("duckduckgo")
+    bounds = egress_bounds_for("baidu")
 
     assert memory.next_level("example.com", bounds) is EgressLevel.IMPERSONATE
     memory.remember_failure("example.com", EgressLevel.IMPERSONATE)
@@ -156,7 +156,7 @@ class _ScraperHarness:
 def test_scraper_fetch_climbs_on_failure_and_tags_success(monkeypatch) -> None:
     harness = _ScraperHarness(
         monkeypatch,
-        "duckduckgo",
+        "baidu",
         {"impersonate": "fail", "proxy": "ok", "proxy_url": "socks5://localhost:1080"},
     )
 

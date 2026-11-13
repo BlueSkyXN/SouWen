@@ -106,7 +106,7 @@ jina_fallback_enabled: false
 # ===== Search 有序默认 Provider =====
 # 必须覆盖 SEARCH_DOMAINS 的每一个领域。空列表表示该领域当前没有可用源。
 search_defaults:
-  web: [yahoo]
+  web: [yahoo, baidu, brave]
   news: [duckduckgo_news]
   paper: [huggingface, crossref, openalex, datacite, zenodo, eric, pubmed, figshare, europepmc, hal, doaj, iacr, arxiv, openaire, osti, semantic_scholar]
   patent: []

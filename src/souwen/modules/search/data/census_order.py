@@ -1,16 +1,14 @@
-"""Search candidate order generated from the P1 direct census.
+"""Search candidate order from the latest authoritative census.
 
-Source: Actions run 43127424016, warp-off sources report. PASS before WARN,
-then mean latency of valid probes that finished within 10 seconds. Sources
-that failed every query stay off this list until a later census passes them.
+Round 3 (run 43469882784, both legs direct): PASS before WARN, then mean
+latency of valid probes. Sources failing every query stay off this list.
 
-P2 domain consolidation (SPEC 2.2): research_output merged into paper
-(datacite/figshare inserted by the same latency rule), developer renamed to
-code, cn_tech + social merged into community, knowledge renamed to wiki.
+P3 终判（run 43469882784）后：20 个待浏览器/修一轮源已删除；
+brave（本轮 PASS）与 baidu（本轮 PASS）重新入列。
 """
 
 CENSUS_CANDIDATE_ORDER: dict[str, tuple[str, ...]] = {
-    "web": ("yahoo",),
+    "web": ("yahoo", "baidu", "brave"),
     "news": ("duckduckgo_news",),
     "paper": (
         "huggingface",
@@ -28,7 +26,6 @@ CENSUS_CANDIDATE_ORDER: dict[str, tuple[str, ...]] = {
         "arxiv",
         "openaire",
         "osti",
-        "semantic_scholar",
     ),
     "patent": (),
     "book": ("library_of_congress", "open_library", "internet_archive"),

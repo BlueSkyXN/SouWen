@@ -18,7 +18,6 @@ from souwen.common_runtime.provider_support.scraper.base import BaseScraper
 from souwen.providers.runtime_clients.web.builtin import BuiltinFetcherClient
 from souwen.providers.runtime_clients.web.fetch import ResolvedFetchTarget, resolve_fetch_target
 from souwen.providers.runtime_clients.web.links import extract_links
-from souwen.providers.runtime_clients.web.newspaper_fetcher import NewspaperFetcherClient
 from souwen.providers.runtime_clients.web.readability_fetcher import ReadabilityFetcherClient
 from souwen.providers.runtime_clients.web.sitemap import parse_sitemap
 
@@ -822,38 +821,3 @@ async def test_readability_does_not_send_private_redirect(monkeypatch):
     assert result.error is not None
     assert "SSRF" in result.error
     assert sent_urls == ["https://1.1.1.1/article"]
-
-
-@pytest.mark.asyncio
-async def test_newspaper_final_url_does_not_expose_bound_ip(monkeypatch):
-    """newspaper 对外返回 public redirect URL，而不是 transport IP。"""
-
-    requests: list[str] = []
-
-    async def handler(request: httpx.Request) -> httpx.Response:
-        requests.append(str(request.url))
-        if len(requests) == 1:
-            return httpx.Response(302, headers={"location": "https://news-final.example/story"})
-        return httpx.Response(200, text="<html>" + ("Newspaper content. " * 20) + "</html>")
-
-    article = SimpleNamespace(
-        text="Parsed newspaper content " * 20,
-        title="Story",
-        authors=[],
-        publish_date=None,
-        keywords=[],
-        top_image="",
-        meta_description="",
-    )
-    client = NewspaperFetcherClient()
-    client._newspaper = SimpleNamespace(article=lambda *_args, **_kwargs: article)
-    _patch_safe_client_transport(monkeypatch, handler)
-    try:
-        result = await client.fetch("https://news-start.example/story")
-    finally:
-        await client.close()
-
-    assert result.error is None
-    assert result.final_url == "https://news-final.example/story"
-    assert "1.1.1.1" not in result.final_url
-    assert requests == ["https://1.1.1.1/story", "https://1.1.1.1/story"]

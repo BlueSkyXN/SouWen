@@ -21,13 +21,11 @@ from souwen.platform.provider_spi import SearchPageRequest, SearchRequest
 from souwen.platform.provider_spec import ClientSearchProvider, ClientSearchProviderSpec
 from souwen.providers.catalog import builtin_provider_manifests
 from souwen.providers.information_sources.arxiv import ArxivSearchProvider
-from souwen.providers.information_sources.biorxiv import BioRxivSearchProvider
 from souwen.providers.information_sources.crossref import CrossrefSearchProvider
 from souwen.providers.information_sources.doaj import DoajSearchProvider
 from souwen.providers.information_sources.eric import EricSearchProvider
 from souwen.providers.information_sources.epo_ops import EpoOpsSearchProvider
 from souwen.providers.information_sources.europepmc import EuropePmcSearchProvider
-from souwen.providers.information_sources.google_patents import GooglePatentsSearchProvider
 from souwen.providers.information_sources.hal import HalSearchProvider
 from souwen.providers.information_sources.huggingface import HuggingFaceSearchProvider
 from souwen.providers.information_sources.iacr import IacrSearchProvider
@@ -35,9 +33,7 @@ from souwen.providers.information_sources.openalex import OpenAlexSearchProvider
 from souwen.providers.information_sources.openaire import OpenAireSearchProvider
 from souwen.providers.information_sources.osti import OstiSearchProvider
 from souwen.providers.information_sources.patentsview import PatentsViewSearchProvider
-from souwen.providers.information_sources.pmc import PmcSearchProvider
 from souwen.providers.information_sources.pubmed import PubMedSearchProvider
-from souwen.providers.information_sources.semantic_scholar import SemanticScholarSearchProvider
 from souwen.providers.information_sources.uspto_odp import UsptoOdpSearchProvider
 from souwen.providers.information_sources.zenodo import ZenodoSearchProvider
 from souwen.providers.information_sources.github import GitHubSearchProvider
@@ -45,17 +41,14 @@ from souwen.providers.information_sources.stackoverflow import StackOverflowSear
 from souwen.providers.information_sources.wikipedia import WikipediaSearchProvider
 from souwen.providers.information_sources.youtube import YouTubeSearchProvider
 from souwen.providers.information_sources.datacite import DataCiteSearchProvider
-from souwen.providers.information_sources.doab import DOABSearchProvider
 from souwen.providers.information_sources.figshare import FigshareSearchProvider
 from souwen.providers.information_sources.internet_archive import InternetArchiveSearchProvider
 from souwen.providers.information_sources.library_of_congress import (
     LibraryOfCongressSearchProvider,
 )
 from souwen.providers.information_sources.open_library import OpenLibrarySearchProvider
-from souwen.providers.information_sources.wikisource import WikisourceSearchProvider
 from tests.support.provider_v2_batch_one import (
     batch_one_paper as _batch_one_paper,
-    google_patent as _google_patent,
     response as _response,
 )
 from tests.support.provider_v2_batch_two import (
@@ -123,11 +116,7 @@ def _definition(provider_id, provider_type, response, *, domain="paper"):
 def _web_response(provider_id: str, *, empty: bool = False) -> SearchResponse:
     url = {
         "coolapk": "https://www.coolapk.com/feed/provider-v2",
-        "hostloc": "https://hostloc.com/thread-provider-v2.html",
         "juejin": "https://juejin.cn/post/provider-v2",
-        "nodeseek": "https://www.nodeseek.com/post-provider-v2-1",
-        "v2ex": "https://www.v2ex.com/t/provider-v2",
-        "xiaohongshu": "https://www.xiaohongshu.com/explore/provider-v2",
         "youtube": "https://www.youtube.com/watch?v=provider-v2",
     }.get(provider_id, f"https://example.test/{provider_id}")
     results = []
@@ -168,25 +157,11 @@ def _web_definition(provider_id: str, provider_type: type, domain: str):
 
 _BATCH_FIVE_SEARCH_IDS = (
     "baidu",
-    "bing",
-    "bing_cn",
     "brave",
     "coolapk",
-    "csdn",
-    "duckduckgo",
-    "duckduckgo_images",
     "duckduckgo_news",
-    "duckduckgo_videos",
-    "google",
-    "hostloc",
     "juejin",
-    "mojeek",
-    "nodeseek",
-    "startpage",
-    "v2ex",
-    "xiaohongshu",
     "yahoo",
-    "yandex",
 )
 _BATCH_SIX_SELF_HOSTED_IDS = ("searxng",)
 
@@ -211,11 +186,9 @@ def _migrated_legacy_web_definitions() -> tuple[SearchConformanceDefinition, ...
 
 
 _BOOK_URLS = {
-    "doab": "https://directory.doabooks.org/handle/20.500.12854/1",
     "internet_archive": "https://archive.org/details/provider-v2",
     "library_of_congress": "https://www.loc.gov/item/provider-v2/",
     "open_library": "https://openlibrary.org/works/OL1W",
-    "wikisource": "https://zh.wikisource.org/wiki/Provider_v2",
 }
 
 
@@ -224,7 +197,7 @@ def _book(provider_id: str) -> BookResult:
         source=provider_id,
         source_record_id="provider-v2",
         title=f"{provider_id} conformance record",
-        languages=["zh" if provider_id == "wikisource" else "en"],
+        languages=["en"],
         source_url=_BOOK_URLS[provider_id],
     )
 
@@ -245,26 +218,20 @@ def _research_output(provider_id: str) -> ResearchOutputResult:
 DEFINITIONS = (
     _definition("arxiv", ArxivSearchProvider, _response("arxiv", _batch_one_paper("arxiv"))),
     _definition(
-        "biorxiv",
-        BioRxivSearchProvider,
-        _response("biorxiv", _batch_one_paper("biorxiv")),
-    ),
-    _definition(
         "crossref",
         CrossrefSearchProvider,
         _response("crossref", _batch_one_paper("crossref")),
     ),
     _definition("eric", EricSearchProvider, _response("eric", _eric_paper())),
     _definition(
+        "pubmed",
+        PubMedSearchProvider,
+        _response("pubmed", _batch_one_paper("pubmed")),
+    ),
+    _definition(
         "europepmc",
         EuropePmcSearchProvider,
         _response("europepmc", _batch_one_paper("europepmc")),
-    ),
-    _definition(
-        "google_patents",
-        GooglePatentsSearchProvider,
-        _response("google_patents", _google_patent()),
-        domain="patent",
     ),
     _definition("hal", HalSearchProvider, _response("hal", _batch_one_paper("hal"))),
     _definition(
@@ -281,12 +248,6 @@ DEFINITIONS = (
         _response("patentsview", _patent()),
         domain="patent",
     ),
-    _definition("pmc", PmcSearchProvider, _response("pmc", _batch_one_paper("pmc"))),
-    _definition(
-        "pubmed",
-        PubMedSearchProvider,
-        _response("pubmed", _batch_one_paper("pubmed")),
-    ),
     *(
         _definition(
             provider_id,
@@ -296,7 +257,6 @@ DEFINITIONS = (
         for provider_id, provider_type in (
             ("doaj", DoajSearchProvider),
             ("openaire", OpenAireSearchProvider),
-            ("semantic_scholar", SemanticScholarSearchProvider),
             ("zenodo", ZenodoSearchProvider),
         )
     ),
@@ -329,11 +289,9 @@ DEFINITIONS = (
             domain="book",
         )
         for provider_id, provider_type in (
-            ("doab", DOABSearchProvider),
             ("internet_archive", InternetArchiveSearchProvider),
             ("library_of_congress", LibraryOfCongressSearchProvider),
             ("open_library", OpenLibrarySearchProvider),
-            ("wikisource", WikisourceSearchProvider),
         )
     ),
     *(

@@ -12,11 +12,9 @@ from typing import Any, Literal
 from pydantic import Field, model_validator
 
 from souwen import __version__
-from souwen.providers.runtime_clients.book.doab import DOABClient
 from souwen.providers.runtime_clients.book.internet_archive import InternetArchiveClient
 from souwen.providers.runtime_clients.book.library_of_congress import LibraryOfCongressClient
 from souwen.providers.runtime_clients.book.open_library import OpenLibraryClient
-from souwen.providers.runtime_clients.book.wikisource import WikisourceClient
 from souwen.common_runtime.observability import get_request_id, get_source_sha
 from souwen.common_runtime.transport import HttpTransport
 from souwen.config import SouWenConfig
@@ -32,7 +30,6 @@ from souwen.modules.search.application import (
 from souwen.providers.runtime_clients.paper.eric import EricClient
 from souwen.providers.runtime_clients.paper.arxiv import ArxivClient
 from souwen.providers.runtime_clients.paper.arxiv_fulltext import ArxivFulltextClient
-from souwen.providers.runtime_clients.paper.biorxiv import BioRxivClient
 from souwen.providers.runtime_clients.paper.crossref import CrossrefClient
 from souwen.providers.runtime_clients.paper.europepmc import EuropePmcClient
 from souwen.providers.runtime_clients.paper.doaj import DoajClient
@@ -42,12 +39,9 @@ from souwen.providers.runtime_clients.paper.iacr import IacrClient
 from souwen.providers.runtime_clients.paper.openalex import OpenAlexClient
 from souwen.providers.runtime_clients.paper.openaire import OpenAireClient
 from souwen.providers.runtime_clients.paper.osti import OstiClient
-from souwen.providers.runtime_clients.paper.pmc import PmcClient
 from souwen.providers.runtime_clients.paper.pubmed import PubMedClient
-from souwen.providers.runtime_clients.paper.semantic_scholar import SemanticScholarClient
 from souwen.providers.runtime_clients.paper.zenodo import ZenodoClient
 from souwen.providers.runtime_clients.patent.epo_ops import EpoOpsClient
-from souwen.providers.runtime_clients.patent.google_patents_scraper import GooglePatentsScraper
 from souwen.providers.runtime_clients.patent.patentsview import PatentsViewClient
 from souwen.providers.runtime_clients.patent.uspto_odp import UsptoOdpClient
 from souwen.platform.manifest_registry import ProviderManifest
@@ -91,11 +85,6 @@ from souwen.providers.information_sources.arxiv import (
     ARXIV_PROVIDER_SPEC,
     ArxivSearchProvider,
 )
-from souwen.providers.information_sources.biorxiv import (
-    BIORXIV_PROVIDER_MANIFEST,
-    BIORXIV_PROVIDER_SPEC,
-    BioRxivSearchProvider,
-)
 from souwen.providers.information_sources.crossref import (
     CROSSREF_PROVIDER_MANIFEST,
     CROSSREF_PROVIDER_SPEC,
@@ -115,11 +104,6 @@ from souwen.providers.information_sources.epo_ops import (
     EPO_OPS_BRIDGE_SPEC,
     EPO_OPS_PROVIDER_MANIFEST,
     EpoOpsSearchProvider,
-)
-from souwen.providers.information_sources.google_patents import (
-    GOOGLE_PATENTS_BRIDGE_SPEC,
-    GOOGLE_PATENTS_PROVIDER_MANIFEST,
-    GooglePatentsSearchProvider,
 )
 from souwen.providers.information_sources.github import (
     GITHUB_PROVIDER_MANIFEST,
@@ -166,11 +150,6 @@ from souwen.providers.information_sources.eric import (
     ERIC_REST_SPEC,
     EricSearchProvider,
 )
-from souwen.providers.information_sources.pmc import (
-    PMC_BRIDGE_SPEC,
-    PMC_PROVIDER_MANIFEST,
-    PmcSearchProvider,
-)
 from souwen.providers.information_sources.pubmed import (
     PUBMED_BRIDGE_SPEC,
     PUBMED_PROVIDER_MANIFEST,
@@ -180,11 +159,6 @@ from souwen.providers.information_sources.stackoverflow import (
     STACKOVERFLOW_PROVIDER_MANIFEST,
     STACKOVERFLOW_PROVIDER_SPEC,
     StackOverflowSearchProvider,
-)
-from souwen.providers.information_sources.semantic_scholar import (
-    SEMANTIC_SCHOLAR_PROVIDER_MANIFEST,
-    SEMANTIC_SCHOLAR_PROVIDER_SPEC,
-    SemanticScholarSearchProvider,
 )
 from souwen.providers.information_sources.uspto_odp import (
     USPTO_ODP_BRIDGE_SPEC,
@@ -211,11 +185,6 @@ from souwen.providers.information_sources.datacite import (
     DATACITE_PROVIDER_SPEC,
     DataCiteSearchProvider,
 )
-from souwen.providers.information_sources.doab import (
-    DOAB_PROVIDER_MANIFEST,
-    DOAB_PROVIDER_SPEC,
-    DOABSearchProvider,
-)
 from souwen.providers.information_sources.figshare import (
     FIGSHARE_PROVIDER_MANIFEST,
     FIGSHARE_PROVIDER_SPEC,
@@ -236,40 +205,22 @@ from souwen.providers.information_sources.open_library import (
     OPEN_LIBRARY_PROVIDER_SPEC,
     OpenLibrarySearchProvider,
 )
-from souwen.providers.information_sources.wikisource import (
-    WIKISOURCE_PROVIDER_MANIFEST,
-    WIKISOURCE_PROVIDER_SPEC,
-    WikisourceSearchProvider,
-)
 from souwen.providers.runtime_clients.research_output.datacite import DataCiteClient
 from souwen.providers.runtime_clients.research_output.figshare import FigshareClient
 from souwen.providers.runtime_clients.web.baidu import BaiduClient
-from souwen.providers.runtime_clients.web.bing import BingClient
-from souwen.providers.runtime_clients.web.bing_cn import BingCnClient
 from souwen.providers.runtime_clients.web.brave import BraveClient
 from souwen.providers.runtime_clients.web.builtin import BuiltinFetcherClient
-from souwen.providers.runtime_clients.web.coolapk import CoolapkClient
-from souwen.providers.runtime_clients.web.csdn import CSDNClient
-from souwen.providers.runtime_clients.web.ddg_images import DuckDuckGoImagesClient
 from souwen.providers.runtime_clients.web.ddg_news import DuckDuckGoNewsClient
-from souwen.providers.runtime_clients.web.ddg_videos import DuckDuckGoVideosClient
+from souwen.providers.runtime_clients.web.coolapk import CoolapkClient
 from souwen.providers.runtime_clients.web.duckduckgo import DuckDuckGoClient
 from souwen.providers.runtime_clients.web.github import GitHubClient
-from souwen.providers.runtime_clients.web.google import GoogleClient
-from souwen.providers.runtime_clients.web.hostloc import HostLocClient
 from souwen.providers.runtime_clients.web.jina_reader import JinaReaderClient
 from souwen.providers.runtime_clients.web.juejin import JuejinClient
-from souwen.providers.runtime_clients.web.mojeek import MojeekClient
-from souwen.providers.runtime_clients.web.nodeseek import NodeSeekClient
 from souwen.providers.runtime_clients.web.searxng import SearXNGClient
 from souwen.providers.runtime_clients.web.stackoverflow import StackOverflowClient
-from souwen.providers.runtime_clients.web.startpage import StartpageClient
-from souwen.providers.runtime_clients.web.v2ex import V2EXClient
 from souwen.providers.runtime_clients.web.wayback import WaybackClient
 from souwen.providers.runtime_clients.web.wikipedia import WikipediaClient
-from souwen.providers.runtime_clients.web.xiaohongshu import XiaohongshuClient
 from souwen.providers.runtime_clients.web.yahoo import YahooClient
-from souwen.providers.runtime_clients.web.yandex import YandexClient
 from souwen.providers.runtime_clients.web.youtube import YouTubeClient
 
 
@@ -447,50 +398,20 @@ def _build_reviewed_batch_four_provider(
 
 _BATCH_FIVE_SEARCH_SOURCE_IDS = (
     "baidu",
-    "bing",
-    "bing_cn",
     "brave",
     "coolapk",
-    "csdn",
-    "duckduckgo",
-    "duckduckgo_images",
     "duckduckgo_news",
-    "duckduckgo_videos",
-    "google",
-    "hostloc",
     "juejin",
-    "mojeek",
-    "nodeseek",
-    "startpage",
-    "v2ex",
-    "xiaohongshu",
     "yahoo",
-    "yandex",
 )
-_BATCH_FIVE_DDG_SITE_SOURCE_IDS = frozenset(
-    {"coolapk", "hostloc", "nodeseek", "v2ex", "xiaohongshu"}
-)
+_BATCH_FIVE_DDG_SITE_SOURCE_IDS = frozenset({"coolapk"})
 _BATCH_FIVE_CLIENT_TYPES: Mapping[str, type[Any]] = {
     "baidu": BaiduClient,
-    "bing": BingClient,
-    "bing_cn": BingCnClient,
+    "duckduckgo_news": DuckDuckGoNewsClient,
     "brave": BraveClient,
     "coolapk": CoolapkClient,
-    "csdn": CSDNClient,
-    "duckduckgo": DuckDuckGoClient,
-    "duckduckgo_images": DuckDuckGoImagesClient,
-    "duckduckgo_news": DuckDuckGoNewsClient,
-    "duckduckgo_videos": DuckDuckGoVideosClient,
-    "google": GoogleClient,
-    "hostloc": HostLocClient,
     "juejin": JuejinClient,
-    "mojeek": MojeekClient,
-    "nodeseek": NodeSeekClient,
-    "startpage": StartpageClient,
-    "v2ex": V2EXClient,
-    "xiaohongshu": XiaohongshuClient,
     "yahoo": YahooClient,
-    "yandex": YandexClient,
 }
 _SELF_HOSTED_CLIENT_TYPES: Mapping[str, type[Any]] = {
     "searxng": SearXNGClient,
@@ -637,12 +558,6 @@ _BATCH_ONE_SEARCH_BINDINGS: tuple[
         lambda _secrets: ArxivClient(),
     ),
     (
-        BIORXIV_PROVIDER_MANIFEST,
-        BIORXIV_PROVIDER_SPEC,
-        BioRxivSearchProvider,
-        lambda _secrets: BioRxivClient(),
-    ),
-    (
         CROSSREF_PROVIDER_MANIFEST,
         CROSSREF_PROVIDER_SPEC,
         CrossrefSearchProvider,
@@ -653,12 +568,6 @@ _BATCH_ONE_SEARCH_BINDINGS: tuple[
         EUROPEPMC_PROVIDER_SPEC,
         EuropePmcSearchProvider,
         lambda _secrets: EuropePmcClient(),
-    ),
-    (
-        GOOGLE_PATENTS_PROVIDER_MANIFEST,
-        GOOGLE_PATENTS_BRIDGE_SPEC,
-        GooglePatentsSearchProvider,
-        lambda _secrets: GooglePatentsScraper(),
     ),
     (
         HAL_PROVIDER_MANIFEST,
@@ -683,12 +592,6 @@ _BATCH_ONE_SEARCH_BINDINGS: tuple[
         OSTI_BRIDGE_SPEC,
         OstiSearchProvider,
         lambda _secrets: OstiClient(),
-    ),
-    (
-        PMC_PROVIDER_MANIFEST,
-        PMC_BRIDGE_SPEC,
-        PmcSearchProvider,
-        lambda secrets: PmcClient(api_key=secrets.get("PUBMED_API_KEY")),
     ),
     (
         PUBMED_PROVIDER_MANIFEST,
@@ -729,14 +632,6 @@ _BATCH_TWO_SEARCH_BINDINGS: tuple[
         OPENAIRE_PROVIDER_SPEC,
         OpenAireSearchProvider,
         lambda _configuration, secrets: OpenAireClient(api_key=secrets.get("OPENAIRE_API_KEY")),
-    ),
-    (
-        SEMANTIC_SCHOLAR_PROVIDER_MANIFEST,
-        SEMANTIC_SCHOLAR_PROVIDER_SPEC,
-        SemanticScholarSearchProvider,
-        lambda _configuration, secrets: SemanticScholarClient(
-            api_key=secrets.get("SEMANTIC_SCHOLAR_API_KEY")
-        ),
     ),
     (
         USPTO_ODP_PROVIDER_MANIFEST,
@@ -840,12 +735,6 @@ _BATCH_FOUR_SEARCH_BINDINGS: tuple[
         lambda _configuration, _secrets, _config: DataCiteClient(),
     ),
     (
-        DOAB_PROVIDER_MANIFEST,
-        DOAB_PROVIDER_SPEC,
-        DOABSearchProvider,
-        lambda _configuration, _secrets, _config: DOABClient(),
-    ),
-    (
         FIGSHARE_PROVIDER_MANIFEST,
         FIGSHARE_PROVIDER_SPEC,
         FigshareSearchProvider,
@@ -868,12 +757,6 @@ _BATCH_FOUR_SEARCH_BINDINGS: tuple[
         OPEN_LIBRARY_PROVIDER_SPEC,
         OpenLibrarySearchProvider,
         lambda _configuration, _secrets, _config: OpenLibraryClient(),
-    ),
-    (
-        WIKISOURCE_PROVIDER_MANIFEST,
-        WIKISOURCE_PROVIDER_SPEC,
-        WikisourceSearchProvider,
-        lambda _configuration, _secrets, _config: WikisourceClient(),
     ),
 )
 _BATCH_TWO_MANIFEST_IDS = frozenset(

@@ -156,7 +156,7 @@ def test_every_batch_three_factory_dispatches_and_closes(monkeypatch) -> None:
 
     runtime = runtime_module.build_target_runtime(_configured())
     catalog = {item.provider: item for item in runtime.services.provider_items}
-    assert len(catalog) == 56
+    assert len(catalog) == 36
     assert all(catalog[provider_id].availability == "available" for provider_id in _CLIENT_GLOBALS)
 
     async def exercise() -> None:

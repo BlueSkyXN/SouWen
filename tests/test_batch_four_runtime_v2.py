@@ -23,20 +23,16 @@ from souwen.server import v2_runtime as runtime_module
 
 _CLIENT_GLOBALS = {
     "datacite": "DataCiteClient",
-    "doab": "DOABClient",
     "figshare": "FigshareClient",
     "internet_archive": "InternetArchiveClient",
     "library_of_congress": "LibraryOfCongressClient",
     "open_library": "OpenLibraryClient",
-    "wikisource": "WikisourceClient",
 }
 
 _BOOK_URLS = {
-    "doab": "https://directory.doabooks.org/handle/20.500.12854/1",
     "internet_archive": "https://archive.org/details/runtime-book",
     "library_of_congress": "https://www.loc.gov/item/runtime-book/",
     "open_library": "https://openlibrary.org/works/OL1W",
-    "wikisource": "https://zh.wikisource.org/wiki/Runtime",
 }
 
 
@@ -65,9 +61,9 @@ def _result(provider_id: str):
         )
     return BookResult(
         source=provider_id,
-        source_record_id="zh:1" if provider_id == "wikisource" else "runtime-book",
+        source_record_id="runtime-book",
         title=f"{provider_id} runtime fixture",
-        languages=["zh" if provider_id == "wikisource" else "en"],
+        languages=["en"],
         source_url=_BOOK_URLS[provider_id],
     )
 

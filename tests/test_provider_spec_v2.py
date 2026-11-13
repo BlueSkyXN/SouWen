@@ -53,10 +53,6 @@ from souwen.providers.information_sources.arxiv import (
     ARXIV_PROVIDER_MANIFEST,
     ARXIV_PROVIDER_SPEC,
 )
-from souwen.providers.information_sources.biorxiv import (
-    BIORXIV_PROVIDER_MANIFEST,
-    BIORXIV_PROVIDER_SPEC,
-)
 from souwen.providers.information_sources.crossref import (
     CROSSREF_PROVIDER_MANIFEST,
     CROSSREF_PROVIDER_SPEC,
@@ -64,10 +60,6 @@ from souwen.providers.information_sources.crossref import (
 from souwen.providers.information_sources.europepmc import (
     EUROPEPMC_PROVIDER_MANIFEST,
     EUROPEPMC_PROVIDER_SPEC,
-)
-from souwen.providers.information_sources.google_patents import (
-    GOOGLE_PATENTS_BRIDGE_SPEC,
-    GOOGLE_PATENTS_PROVIDER_MANIFEST,
 )
 from souwen.providers.information_sources.hal import HAL_PROVIDER_MANIFEST, HAL_PROVIDER_SPEC
 from souwen.providers.information_sources.huggingface import (
@@ -84,7 +76,6 @@ from souwen.providers.information_sources.patentsview import (
     PATENTSVIEW_PROVIDER_MANIFEST,
     PATENTSVIEW_REST_SPEC,
 )
-from souwen.providers.information_sources.pmc import PMC_BRIDGE_SPEC, PMC_PROVIDER_MANIFEST
 from souwen.providers.information_sources.pubmed import (
     PUBMED_BRIDGE_SPEC,
     PUBMED_PROVIDER_MANIFEST,
@@ -153,15 +144,12 @@ def test_each_sample_spec_agrees_with_its_governance_manifest() -> None:
     (
         (ARXIV_PROVIDER_SPEC, ARXIV_PROVIDER_MANIFEST),
         (ARXIV_FULLTEXT_FETCH_PROFILE, ARXIV_FULLTEXT_PROVIDER_MANIFEST),
-        (BIORXIV_PROVIDER_SPEC, BIORXIV_PROVIDER_MANIFEST),
         (CROSSREF_PROVIDER_SPEC, CROSSREF_PROVIDER_MANIFEST),
         (EUROPEPMC_PROVIDER_SPEC, EUROPEPMC_PROVIDER_MANIFEST),
-        (GOOGLE_PATENTS_BRIDGE_SPEC, GOOGLE_PATENTS_PROVIDER_MANIFEST),
         (HAL_PROVIDER_SPEC, HAL_PROVIDER_MANIFEST),
         (HUGGINGFACE_REST_SPEC, HUGGINGFACE_PROVIDER_MANIFEST),
         (IACR_BRIDGE_SPEC, IACR_PROVIDER_MANIFEST),
         (OSTI_BRIDGE_SPEC, OSTI_PROVIDER_MANIFEST),
-        (PMC_BRIDGE_SPEC, PMC_PROVIDER_MANIFEST),
         (PUBMED_BRIDGE_SPEC, PUBMED_PROVIDER_MANIFEST),
     ),
 )

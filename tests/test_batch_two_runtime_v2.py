@@ -20,7 +20,6 @@ _CLIENT_GLOBALS = {
     "doaj": "DoajClient",
     "epo_ops": "EpoOpsClient",
     "openaire": "OpenAireClient",
-    "semantic_scholar": "SemanticScholarClient",
     "uspto_odp": "UsptoOdpClient",
     "zenodo": "ZenodoClient",
 }
@@ -32,7 +31,6 @@ _EXPECTED_CALLS = {
     "doaj": (("runtime",), {"page_size": 10, "page": 1}),
     "epo_ops": (("runtime",), {"range_begin": 1, "range_end": 10}),
     "openaire": (("runtime",), {"size": 10}),
-    "semantic_scholar": (("runtime",), {"fields": None, "limit": 10, "offset": 0}),
     "uspto_odp": (("runtime",), {"per_page": 10, "offset": 0}),
     "zenodo": (("runtime",), {"size": 10}),
 }
@@ -97,7 +95,7 @@ def test_every_batch_two_factory_constructs_dispatches_and_closes(monkeypatch) -
 
     runtime = runtime_module.build_target_runtime(_config())
     catalog = {item.provider: item for item in runtime.services.provider_items}
-    assert len(catalog) == 56
+    assert len(catalog) == 36
     assert all(catalog[provider_id].availability == "available" for provider_id in _CLIENT_GLOBALS)
 
     for provider_id in _CLIENT_GLOBALS:

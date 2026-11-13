@@ -150,18 +150,6 @@
       "kind": "search",
       "domain": "web"
     },
-    "bing": {
-      "kind": "search",
-      "domain": "web"
-    },
-    "bing_cn": {
-      "kind": "search",
-      "domain": "web"
-    },
-    "biorxiv": {
-      "kind": "search",
-      "domain": "paper"
-    },
     "brave": {
       "kind": "search",
       "domain": "web"
@@ -177,37 +165,17 @@
       "kind": "search",
       "domain": "paper"
     },
-    "csdn": {
-      "kind": "search",
-      "domain": "community"
-    },
     "datacite": {
       "kind": "search",
       "domain": "paper"
-    },
-    "doab": {
-      "kind": "search",
-      "domain": "book"
     },
     "doaj": {
       "kind": "search",
       "domain": "paper"
     },
-    "duckduckgo": {
-      "kind": "search",
-      "domain": "web"
-    },
-    "duckduckgo_images": {
-      "kind": "search",
-      "domain": "images"
-    },
     "duckduckgo_news": {
       "kind": "search",
       "domain": "news"
-    },
-    "duckduckgo_videos": {
-      "kind": "search",
-      "domain": "videos"
     },
     "eric": {
       "kind": "search",
@@ -225,21 +193,9 @@
       "kind": "search",
       "domain": "code"
     },
-    "google": {
-      "kind": "search",
-      "domain": "web"
-    },
-    "google_patents": {
-      "kind": "search",
-      "domain": "patent"
-    },
     "hal": {
       "kind": "search",
       "domain": "paper"
-    },
-    "hostloc": {
-      "kind": "search",
-      "domain": "community"
     },
     "huggingface": {
       "kind": "search",
@@ -264,14 +220,6 @@
       "kind": "search",
       "domain": "book"
     },
-    "mojeek": {
-      "kind": "search",
-      "domain": "web"
-    },
-    "nodeseek": {
-      "kind": "search",
-      "domain": "community"
-    },
     "open_library": {
       "kind": "search",
       "domain": "book"
@@ -288,10 +236,6 @@
       "kind": "search",
       "domain": "paper"
     },
-    "pmc": {
-      "kind": "search",
-      "domain": "paper"
-    },
     "pubmed": {
       "kind": "search",
       "domain": "paper"
@@ -300,21 +244,9 @@
       "kind": "search",
       "domain": "web"
     },
-    "semantic_scholar": {
-      "kind": "search",
-      "domain": "paper"
-    },
     "stackoverflow": {
       "kind": "search",
       "domain": "code"
-    },
-    "startpage": {
-      "kind": "search",
-      "domain": "web"
-    },
-    "v2ex": {
-      "kind": "search",
-      "domain": "community"
     },
     "wayback": {
       "kind": "fetch"
@@ -323,19 +255,7 @@
       "kind": "search",
       "domain": "wiki"
     },
-    "wikisource": {
-      "kind": "search",
-      "domain": "book"
-    },
-    "xiaohongshu": {
-      "kind": "search",
-      "domain": "community"
-    },
     "yahoo": {
-      "kind": "search",
-      "domain": "web"
-    },
-    "yandex": {
       "kind": "search",
       "domain": "web"
     },
