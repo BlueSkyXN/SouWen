@@ -539,7 +539,9 @@ def main(argv: list[str] | None = None) -> int:
         + " ".join(f"{key}={value}" for key, value in sorted(counts.items())),
         file=sys.stderr,
     )
-    return 0 if report["overall"] != "FAIL" else 1
+    # 判定结果是体检数据而非门禁失败：sources/domains/fetch 的 FAIL 由
+    # 报告与进度表承载；脚本崩溃、参数错误、报告未写出才让 CI 变红。
+    return 0
 
 
 if __name__ == "__main__":

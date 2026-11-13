@@ -721,8 +721,10 @@ async def test_links_and_sitemap_paths_receive_bound_targets(monkeypatch):
         _params: dict[str, Any] | None,
         headers: dict[str, str],
         data: dict[str, Any] | None = None,
+        proxy_override: str | None = None,
+        **_kwargs: object,
     ) -> httpx.Response:
-        del data
+        del data, proxy_override
         captured.append(target)
         if target.original_url.endswith("sitemap.xml"):
             content = (

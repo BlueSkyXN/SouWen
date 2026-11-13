@@ -105,6 +105,11 @@ class HttpTransport:
             else:
                 resp = await self._request_with_retry(method, url, **kwargs)
             elapsed = time.monotonic() - start
+            # 如实标记实际出口级别（SPEC：报告记录实际使用级别）
+            extensions = getattr(resp, "extensions", None)
+            if isinstance(extensions, dict):
+                proxy = getattr(self, "_proxy", None)
+                extensions.setdefault("souwen_egress", "proxy" if proxy is not None else "direct")
             logger.debug(
                 "%s request completed: status=%d (%.2fs)",
                 method,

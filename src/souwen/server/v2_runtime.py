@@ -957,6 +957,18 @@ def search_domains_by_provider() -> dict[str, str]:
     return {spec.provider_id: spec.domain for _manifest, spec in _search_provider_declarations()}
 
 
+def search_source_hosts() -> dict[str, str]:
+    """Map every declared search provider id to its declared transport host."""
+
+    hosts: dict[str, str] = {}
+    for _manifest, spec in _search_provider_declarations():
+        transport = getattr(spec, "transport", None)
+        host = getattr(transport, "host", None)
+        if host:
+            hosts[spec.provider_id] = str(host)
+    return hosts
+
+
 def _build_search_selector(config: SouWenConfig) -> OrderedSearchProviderSelector:
     """Resolve the configured ordered defaults against reviewed Provider declarations."""
 
@@ -1147,15 +1159,9 @@ def _browser_client() -> InProcessBrowserFetchExecutor | None:
 
     未安装 Playwright/Chromium 时返回 None，阶梯在前三级内工作，不报启动错误。
     """
-    try:
-        from pathlib import Path as _Path
+    from souwen.common_runtime.provider_support.browser_fetch import chromium_available
 
-        from playwright._impl._driver import compute_driver_executable
-
-        driver = compute_driver_executable()
-        if driver is None or not _Path(driver).exists():
-            return None
-    except Exception:
+    if not chromium_available():
         return None
     return InProcessBrowserFetchExecutor()
 

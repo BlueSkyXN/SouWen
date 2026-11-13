@@ -356,7 +356,12 @@ class BaseScraper:
         self._request_timeout = request_timeout
         self._curl_session: Any = None
         self._httpx_client: httpx.AsyncClient | None = None
-        self._safe_httpx_clients: dict[tuple[str, str, str | None], httpx.AsyncClient] = {}
+        self._safe_httpx_clients: dict[
+            tuple[tuple[str, str, str | None], str | None], httpx.AsyncClient
+        ] = {}
+        self._safe_httpx_client_proxies: dict[
+            tuple[tuple[str, str, str | None], str | None], str | None
+        ] = {}
 
         # egress 阶梯：按源的 min/max 级别与按主机记忆选级（SPEC 5）。
         from souwen.common_runtime.egress import egress_bounds_for, get_egress_planner
@@ -440,6 +445,7 @@ class BaseScraper:
         data: dict[str, Any] | None = None,
         *,
         _resolved_target: ResolvedFetchTarget | None = None,
+        _proxy_override: str | None = None,
         _include_configured_headers: bool = True,
         _max_response_bytes: int | None = None,
     ) -> httpx.Response:
@@ -488,8 +494,8 @@ class BaseScraper:
         if self._egress_enabled and _resolved_target is None:
             from souwen.common_runtime.egress import EgressLevel
 
-            bounds = self._egress_bounds
-            decision = self._egress_planner.plan(urlsplit(url).hostname or "", bounds)
+            bounds = self._egress_planner.effective_bounds(self._egress_bounds)
+            decision = self._egress_planner.plan(urlsplit(url).hostname or "", self._egress_bounds)
             egress_level = decision.level
             if decision.proxy is not None and egress_level is EgressLevel.PROXY:
                 self._proxy = decision.proxy
@@ -543,6 +549,7 @@ class BaseScraper:
                         _resolved_target,
                         params,
                         request_headers,
+                        proxy_override=_proxy_override,
                         **resolved_kwargs,
                     )
                 else:
@@ -724,7 +731,72 @@ class BaseScraper:
         data: dict[str, Any] | None = None,
         max_redirects: int = 5,
     ) -> httpx.Response:
-        """手动跟踪重定向，并在每一跳执行 SSRF 校验。"""
+        """手动跟踪重定向，在每一跳执行 SSRF 校验，并按出口阶梯升级。
+
+        阶梯在整条重定向链外层：direct（无代理）→ proxy（配置的代理）→
+        browser（Chromium 重新载入页面）。链条任一跳出现阶梯类失败时
+        升级重跑整条链；每跳的 IP-pin、Host/SNI 与校验行为保持不变。
+        """
+        if getattr(self, "_egress_enabled", False) and method.upper() == "GET":
+            return await self._safe_redirects_with_ladder(
+                url, method, params, headers, data, max_redirects
+            )
+        return await self._safe_redirects_chain(
+            url, method, params, headers, data, max_redirects, proxy_override=None
+        )
+
+    async def _safe_redirects_with_ladder(
+        self,
+        url: str,
+        method: str,
+        params: dict[str, Any] | None,
+        headers: dict[str, str] | None,
+        data: dict[str, Any] | None,
+        max_redirects: int,
+    ) -> httpx.Response:
+        from souwen.common_runtime.egress import EgressLevel
+
+        bounds = self._egress_planner.effective_bounds(self._egress_bounds)
+        decision = self._egress_planner.plan(urlsplit(url).hostname or "", self._egress_bounds)
+        level = decision.level
+        climbs = 0
+        while True:
+            try:
+                if level is EgressLevel.BROWSER:
+                    resp = await self._browser_request(method, url, params, headers or {})
+                else:
+                    resp = await self._safe_redirects_chain(
+                        url,
+                        method,
+                        params,
+                        headers,
+                        data,
+                        max_redirects,
+                        proxy_override=decision.proxy if level is EgressLevel.PROXY else None,
+                    )
+            except (SourceUnavailableError, RateLimitError):
+                self._egress_planner.report_failure(urlsplit(url).hostname or "", level)
+                if climbs < _EGRESS_MAX_CLIMBS and int(level) < int(bounds.max_level):
+                    climbs += 1
+                    level = EgressLevel(int(level) + 1)
+                    logger.info("egress 升级到 %s 重试 %s", level.label, url)
+                    continue
+                raise
+            self._egress_planner.report_success(urlsplit(url).hostname or "", level)
+            self._tag_egress(resp, level)
+            return resp
+
+    async def _safe_redirects_chain(
+        self,
+        url: str,
+        method: str,
+        params: dict[str, Any] | None,
+        headers: dict[str, str] | None,
+        data: dict[str, Any] | None,
+        max_redirects: int,
+        *,
+        proxy_override: str | None,
+    ) -> httpx.Response:
         current_url = url
         current_method = method
         current_params = params
@@ -742,6 +814,7 @@ class BaseScraper:
                 headers=headers if include_configured_headers else None,
                 data=current_data if include_configured_headers else None,
                 _resolved_target=target,
+                _proxy_override=proxy_override,
                 _include_configured_headers=include_configured_headers,
             )
             if resp.status_code not in _REDIRECT_CODES:
@@ -883,6 +956,7 @@ class BaseScraper:
         headers: dict[str, str],
         data: dict[str, Any] | None = None,
         *,
+        proxy_override: str | None = None,
         _max_response_bytes: int | None = None,
     ) -> httpx.Response:
         """Request an IP-pinned target while preserving the original Host and HTTPS SNI.
@@ -895,15 +969,19 @@ class BaseScraper:
         SouWen/WARP proxy remains available through ``self._proxy``.
         """
         client_key = self._safe_client_key(target)
-        safe_httpx_client = self._safe_httpx_clients.get(client_key)
+        effective_proxy = self._proxy if proxy_override is None else proxy_override
+        pool_key = (client_key, effective_proxy)
+        safe_httpx_client = self._safe_httpx_clients.get(pool_key)
         if safe_httpx_client is None:
             safe_httpx_client = httpx.AsyncClient(
                 timeout=httpx.Timeout(self._request_timeout),
-                proxy=self._proxy,
+                proxy=effective_proxy,
                 trust_env=False,
                 follow_redirects=False,
             )
-            self._safe_httpx_clients[client_key] = safe_httpx_client
+            self._safe_httpx_clients[pool_key] = safe_httpx_client
+            # 记录该连接池实际使用的代理，供出口打标（不重建池）
+            self._safe_httpx_client_proxies[pool_key] = effective_proxy
         extensions = (
             {"sni_hostname": target.sni_hostname} if target.sni_hostname is not None else None
         )
@@ -920,16 +998,27 @@ class BaseScraper:
             "data": data,
             "extensions": extensions,
         }
+        # 如实标记本池实际使用的出口（direct/proxy）
+        pool_proxy = self._safe_httpx_client_proxies.get(pool_key)
+        egress_label = "proxy" if pool_proxy is not None else "direct"
         if _max_response_bytes is None:
-            return await safe_httpx_client.request(
+            response = await safe_httpx_client.request(
                 method,
                 target.connect_url,
                 follow_redirects=False,
                 **request_kwargs,
             )
+            resp_extensions = getattr(response, "extensions", None)
+            if isinstance(resp_extensions, dict):
+                resp_extensions.setdefault("souwen_egress", egress_label)
+            return response
         request = safe_httpx_client.build_request(method, target.connect_url, **request_kwargs)
         response = await safe_httpx_client.send(request, stream=True, follow_redirects=False)
         try:
-            return await _read_bounded_httpx_response(response, _max_response_bytes)
+            bounded = await _read_bounded_httpx_response(response, _max_response_bytes)
+            resp_extensions = getattr(bounded, "extensions", None)
+            if isinstance(resp_extensions, dict):
+                resp_extensions.setdefault("souwen_egress", egress_label)
+            return bounded
         finally:
             await response.aclose()

@@ -723,6 +723,9 @@ class BuiltinFetcherClient(BaseScraper):
                     "provider": "builtin",
                     "status_code": resp.status_code,
                     "content_length": len(html),
+                    "egress": (getattr(resp, "extensions", None) or {}).get("souwen_egress")
+                    or getattr(resp, "souwen_egress", None)
+                    or "direct",
                     **(
                         {
                             "content_length_bytes": body_size,

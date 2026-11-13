@@ -71,6 +71,7 @@ class InProcessBrowserFetchExecutor:
                 truncated=outcome.truncated,
                 content_length=len(outcome.content.encode()),
                 quality="low" if len(outcome.content.strip()) <= 63 else "high",
+                egress="browser",
             ),
             provenance=(
                 Provenance(

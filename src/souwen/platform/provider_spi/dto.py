@@ -316,6 +316,8 @@ class ContentMetadata(CanonicalModel):
     truncated: bool
     content_length: int | None = Field(default=None, ge=0)
     quality: Literal["high", "low"] | None = None
+    # 实际使用的出口级别（direct/impersonate/proxy/browser）；诊断用途
+    egress: str | None = Field(default=None, min_length=1, max_length=32)
 
 
 class FetchResult(CanonicalModel):

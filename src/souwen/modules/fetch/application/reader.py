@@ -64,6 +64,7 @@ class FetchPageSource:
     final_url: str
     content: str
     providers: tuple[str, ...]
+    egress: str = "direct"
 
 
 class FetchReaderService:
@@ -126,7 +127,7 @@ class FetchReaderService:
             total_chars=total,
             start=start,
             next_start=next_start,
-            egress="direct",
+            egress=source.egress,
             sources=source.providers,
         )
 
@@ -155,6 +156,11 @@ class FetchReaderService:
             final_url=str(result.final_url) if result.final_url is not None else url,
             content=result.content,
             providers=providers,
+            egress=(
+                result.content_metadata.egress
+                if result.content_metadata is not None and result.content_metadata.egress
+                else "direct"
+            ),
         )
 
 

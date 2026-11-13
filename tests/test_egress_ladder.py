@@ -55,10 +55,10 @@ def test_planner_skips_unavailable_levels() -> None:
 
     decision = planner.plan("example.com", bounds)
 
-    # 无代理、无浏览器：PROXY 与 BROWSER 都不可用，直接落在天花板 BROWSER
-    # （仍然执行，报告真实失败类别）
-    assert decision.level is EgressLevel.BROWSER
-    assert decision.reason == "browser-unavailable"
+    # SPEC 5.5：浏览器缺失时阶梯在前三级内工作；无代理时 PROXY 不可执行，
+    # 有效天花板是 IMPERSONATE，不假称使用了更高级别。
+    assert decision.level is EgressLevel.IMPERSONATE
+    assert decision.reason == "remembered-or-min"
 
 
 def test_planner_uses_proxy_when_configured() -> None:
@@ -89,9 +89,22 @@ def test_planner_ceiling_respects_max_level() -> None:
 
     decision = planner.plan("api.example.org", bounds)
 
-    # 无代理时 PROXY 不可用，但 max=PROXY：在天花板执行
-    assert decision.level is EgressLevel.PROXY
-    assert decision.reason == "no-proxy-configured"
+    # SPEC 5.5：无代理时 PROXY 不可执行，有效天花板降到 IMPERSONATE
+    assert decision.level is EgressLevel.IMPERSONATE
+    assert planner.effective_bounds(bounds).max_level is EgressLevel.IMPERSONATE
+
+
+def test_effective_bounds_lower_ceiling_without_browser() -> None:
+    memory = EgressMemory(clock=lambda: 0.0)
+    bounds = egress_bounds_for("duckduckgo")  # max = BROWSER
+    planner = EgressPlanner(
+        memory,
+        proxy_provider=lambda: "socks5://localhost:1080",
+        browser_available=lambda: False,
+    )
+
+    # Chromium 缺失：browser 级不参与，天花板回到 PROXY
+    assert planner.effective_bounds(bounds).max_level is EgressLevel.PROXY
 
 
 class _FakeResponse:

@@ -36,7 +36,25 @@ class EgressPlanner:
         self._proxy_provider = proxy_provider
         self._browser_available = browser_available
 
+    def effective_bounds(self, bounds: EgressBounds) -> EgressBounds:
+        """Lower the ceiling to the highest level actually available (SPEC 5.5).
+
+        Browser missing → ladder works within the first three levels; proxy
+        missing → PROXY is not executable, so the ceiling drops accordingly.
+        """
+
+        max_level = bounds.max_level
+        if max_level is EgressLevel.BROWSER and not self._browser_ready():
+            max_level = EgressLevel.PROXY
+        if max_level is EgressLevel.PROXY and not self._resolve_proxy():
+            if bounds.min_level is EgressLevel.PROXY:
+                max_level = EgressLevel.PROXY  # min 就在 proxy：保持，报告真实失败
+            else:
+                max_level = EgressLevel.IMPERSONATE
+        return EgressBounds(min_level=bounds.min_level, max_level=max_level)
+
     def plan(self, host: str, bounds: EgressBounds) -> EgressDecision:
+        bounds = self.effective_bounds(bounds)
         level = self._memory.next_level(host, bounds)
         reason = "remembered-or-min"
         while True:
@@ -47,8 +65,7 @@ class EgressPlanner:
             else:
                 break
             if int(level) >= int(bounds.max_level):
-                # Nothing above works either; run at the ceiling anyway so the
-                # request still happens and reports its real failure class.
+                # 有效天花板：请求仍在此级执行，报告真实失败类别
                 return EgressDecision(
                     bounds.max_level, self._proxy_for_level(bounds.max_level), reason
                 )
@@ -81,26 +98,9 @@ class EgressPlanner:
 
 
 def _default_browser_availability() -> bool:
-    """Chromium reachability: the Playwright package plus its browser bundle."""
+    from souwen.common_runtime.provider_support.browser_fetch import chromium_available
 
-    import os
-    from pathlib import Path
-
-    try:
-        from playwright._impl._driver import compute_driver_executable
-    except Exception:
-        return False
-    driver = compute_driver_executable()
-    if driver is None or not Path(driver).exists():
-        return False
-    browsers_root = os.environ.get("PLAYWRIGHT_BROWSERS_PATH") or str(
-        Path.home() / ".cache" / "ms-playwright"
-    )
-    root = Path(browsers_root)
-    if not root.is_dir():
-        return False
-    # chromium-<build> 目录存在即视为可用；真实启动失败由 browser pool 报告并降级
-    return any(entry.name.startswith("chromium") for entry in root.iterdir() if entry.is_dir())
+    return chromium_available()
 
 
 _planner: EgressPlanner | None = None
