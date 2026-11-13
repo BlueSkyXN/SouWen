@@ -38,7 +38,6 @@ patent:
 # ===== 常规搜索 =====
 web:
   searxng_url: ~
-  tavily_api_key: ~
   github_token: ~
   stackoverflow_api_key: ~
   youtube_api_key: ~
@@ -127,11 +126,6 @@ search_defaults:
 #     enabled: true
 #     proxy: warp
 #     http_backend: curl_cffi
-#   tavily:
-#     api_key: tvly-xxxx
-#     timeout: 15
-#     params:
-#       search_depth: advanced
 #   google_patents:
 #     enabled: false
 """

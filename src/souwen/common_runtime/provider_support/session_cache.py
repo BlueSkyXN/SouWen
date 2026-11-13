@@ -22,7 +22,7 @@
 数据库表：
     sessions 表
         - id (INTEGER PRIMARY KEY)
-        - site (TEXT UNIQUE) — 站点标识（如 'epo_ops', 'cnipa'）
+        - site (TEXT UNIQUE) — 站点标识（如 'openalex', 'crossref'）
         - data (TEXT) — JSON 序列化的会话数据
         - expires_at (TEXT) — ISO 8601 过期时间戳
         - created_at (TEXT) — 创建时间
@@ -167,7 +167,7 @@ class SessionCache:
         """获取有效的会话数据
 
         Args:
-            site: 站点标识（如 'epo_ops', 'cnipa', 'google_patents'）
+            site: 站点标识（如 'openalex', 'crossref', 'pubmed'）
 
         Returns:
             会话数据字典（JSON 反序列化），过期或不存在返回 None

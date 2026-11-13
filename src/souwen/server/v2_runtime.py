@@ -493,8 +493,6 @@ def _build_reviewed_batch_five_search_provider(
         if provider_id.startswith("duckduckgo") or provider_id in _BATCH_FIVE_DDG_SITE_SOURCE_IDS
         else {"follow_redirects": False}
     )
-    if provider_id == "bilibili":
-        kwargs["sessdata"] = secrets.get("BILIBILI_SESSDATA")
     with without_source_channel_overrides(
         proxy=reviewed_proxy,
         timeout_seconds=config.timeout,
@@ -975,22 +973,6 @@ def _configuration_resolver(config: SouWenConfig):
         if manifest.id in _MIGRATED_PROVIDER_IDS:
             if not config.is_source_enabled(manifest.id, default=True):
                 raise ValueError("provider is disabled")
-            optional_module = {
-                "newspaper": "newspaper",
-                "readability": "readability",
-            }.get(manifest.id)
-            if optional_module is not None and importlib.util.find_spec(optional_module) is None:
-                raise ValueError("optional provider runtime is unavailable")
-            if manifest.id == "zotero":
-                library_id = (config.zotero_library_id or "").strip()
-                library_type = (config.zotero_library_type or "user").strip().lower()
-                if not library_id or library_type not in {"user", "group"}:
-                    raise ValueError("invalid Zotero library configuration")
-                return {
-                    "enabled": True,
-                    "library_id": library_id,
-                    "library_type": library_type,
-                }
             return {"enabled": True}
         if manifest.id == "builtin-fetch":
             if not config.is_source_enabled("builtin-fetch", default=True):
@@ -1018,9 +1000,7 @@ def _secret_resolver(config: SouWenConfig):
             resolved: dict[str, str] = {}
             for reference in _references:
                 field_name = reference.lower()
-                if reference == "BILIBILI_SESSDATA":
-                    value = config.bilibili_sessdata
-                elif reference.endswith(("_SECRET", "_ACCOUNT_ID")):
+                if reference.endswith(("_SECRET", "_ACCOUNT_ID")):
                     value = getattr(config, field_name, None)
                 else:
                     value = config.resolve_api_key(manifest.id, field_name)
@@ -1141,12 +1121,6 @@ def _missing_provider_configuration(
     missing = [
         reference.lower() for reference in manifest.secrets.references if reference not in resolved
     ]
-    if manifest.id == "zotero":
-        if not isinstance(config.zotero_library_id, str) or not config.zotero_library_id.strip():
-            missing.append("zotero_library_id")
-        library_type = (config.zotero_library_type or "user").strip().lower()
-        if library_type not in {"user", "group"}:
-            missing.append("zotero_library_type")
     return tuple(missing)
 
 
@@ -1495,8 +1469,6 @@ def build_target_runtime(config: SouWenConfig) -> TargetRuntime:
         manager,
         provider_adapter_ids={
             "arxiv_fulltext": "arxiv_fulltext-fetch",
-            "newspaper": "newspaper-fetch",
-            "readability": "readability-fetch",
             **{
                 manifest.id: next(
                     adapter.id for adapter in manifest.adapters if adapter.capability == "fetch"

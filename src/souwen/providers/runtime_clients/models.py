@@ -717,7 +717,7 @@ class FetchResult(BaseModel):
     content_format: Literal["markdown", "text", "html"] = "markdown"
     content_truncated: bool = False  # 内容是否因 max_length 被截断
     next_start_index: int | None = None  # 续读起点（仅在截断时设置）
-    source: str = ""  # 提供者标识: jina_reader / tavily / firecrawl / exa / builtin
+    source: str = ""  # 提供者标识: builtin / jina_reader / wayback
     snippet: str = ""  # 截断的摘要（前 500 字）
     published_date: str | None = None
     author: str | None = None

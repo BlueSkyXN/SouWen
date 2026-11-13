@@ -153,9 +153,6 @@ class SouWenConfig(BaseModel):
     pubmed_api_key: str | None = None
     ieee_api_key: str | None = None
     # Zotero 个人文献库
-    zotero_api_key: str | None = None  # Zotero Web API Key
-    zotero_library_id: str | None = None  # 用户 ID 或群组 ID
-    zotero_library_type: str | None = None  # "user" (默认) 或 "group"
 
     # ===== 专利数据源 =====
     patentsview_api_key: str | None = Field(default=None, repr=False)
@@ -178,9 +175,6 @@ class SouWenConfig(BaseModel):
     github_token: str | None = None  # GitHub PAT（可选，提升速率限制）
     stackoverflow_api_key: str | None = None  # StackOverflow API Key（可选，提升配额）
     youtube_api_key: str | None = None  # YouTube Data API v3 Key
-    bilibili_sessdata: str = (
-        ""  # Bilibili SESSDATA Cookie（可选，启用授权 API：高画质/高频/字幕等）
-    )
     # 国际社交媒体（官方 API）
     # 企业/办公平台
     # 内容抓取
