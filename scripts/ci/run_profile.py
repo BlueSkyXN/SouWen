@@ -64,12 +64,6 @@ PROFILE_COMMANDS: Mapping[str, tuple[CommandSpec, ...]] = {
             ),
         ),
     ),
-    "provider-runtime": (
-        CommandSpec(
-            "imports_and_browser_declarations",
-            (PYTHON, "-c", PROVIDER_RUNTIME_CODE),
-        ),
-    ),
 }
 PROFILE_CHOICES = tuple(sorted(PROFILE_COMMANDS))
 

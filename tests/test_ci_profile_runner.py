@@ -16,9 +16,7 @@ from scripts._functional_common import Outcome
 REPO_ROOT = Path(__file__).resolve().parents[1]
 PROVIDER_RUNTIME_EXTRAS = ".[dev,server,tls,web,robots,scraper,newspaper,readability]"
 SERVER_RUNTIME_EXTRAS = ".[dev,server,tls,web,robots,scraper]"
-PROFILE_RUNNER_WORKFLOWS = {
-    ".github/workflows/ci.yml": ("provider-runtime",),
-}
+PROFILE_RUNNER_WORKFLOWS: dict[str, tuple[str, ...]] = {}
 RETIRED_CI_PROFILE_NAMES = (
     "basic-cli",
     "pro-cli",
@@ -26,6 +24,7 @@ RETIRED_CI_PROFILE_NAMES = (
     "minimal",
     "server",
     "full",
+    "provider-runtime",
 )
 
 
@@ -33,7 +32,7 @@ def test_list_profiles(capsys):
     assert run_profile.main(["--list-profiles"]) == 0
 
     output = set(capsys.readouterr().out.splitlines())
-    assert output == {"server-contract", "provider-runtime"}
+    assert output == {"server-contract"}
 
 
 def test_main_requires_profile():
@@ -132,7 +131,7 @@ def test_profile_commands_prepend_source_pythonpath(monkeypatch):
     monkeypatch.setenv("PYTHONPATH", "existing")
     monkeypatch.setattr(run_profile, "_run_subprocess", fake_run)
 
-    recorder = run_profile.run_profiles(["provider-runtime"], timeout=1)
+    recorder = run_profile.run_profiles(["server-contract"], timeout=1)
 
     assert recorder.overall == Outcome.PASS
     assert captured_env["PYTHONPATH"].split(os.pathsep)[:2] == [
@@ -140,14 +139,6 @@ def test_profile_commands_prepend_source_pythonpath(monkeypatch):
         "existing",
     ]
     assert "SOUWEN_EDITION" not in captured_env
-
-
-def test_provider_runtime_code_uses_manifest_registry_and_target_composition() -> None:
-    assert "builtin_provider_manifests" in run_profile.PROVIDER_RUNTIME_CODE
-    assert "build_target_runtime" in run_profile.PROVIDER_RUNTIME_CODE
-    assert "capability_adapters" not in run_profile.PROVIDER_RUNTIME_CODE
-    assert "== 110" in run_profile.PROVIDER_RUNTIME_CODE
-    assert "runtime.close" in run_profile.PROVIDER_RUNTIME_CODE
 
 
 @pytest.mark.parametrize(
@@ -172,7 +163,7 @@ def test_agent_command_docs_use_canonical_profile_names() -> None:
 
     combined_text = "\n".join(path.read_text(encoding="utf-8") for path in agent_docs)
 
-    for profile in ("server-contract", "provider-runtime"):
+    for profile in ("server-contract",):
         assert re.search(rf"--profile\s+{re.escape(profile)}(?=$|\s|`)", combined_text)
     for retired_profile in RETIRED_CI_PROFILE_NAMES:
         assert not re.search(
@@ -194,7 +185,7 @@ def test_timeout_is_recorded(monkeypatch):
 
     monkeypatch.setattr(run_profile, "_run_subprocess", fake_run)
 
-    recorder = run_profile.run_profiles(["provider-runtime"], timeout=3)
+    recorder = run_profile.run_profiles(["server-contract"], timeout=3)
 
     assert recorder.overall == Outcome.FAIL
     assert recorder.checks[0].message == "timeout after 3.0s"
@@ -210,16 +201,15 @@ def test_canonical_profiles_do_not_set_edition_environment(monkeypatch):
 
     monkeypatch.setattr(run_profile, "_run_subprocess", fake_run)
 
-    recorder = run_profile.run_profiles(["server-contract", "provider-runtime"], timeout=1)
+    recorder = run_profile.run_profiles(["server-contract"], timeout=1)
 
     assert recorder.overall == Outcome.PASS
     assert {check.name.split("/", maxsplit=1)[0] for check in recorder.checks} == {
         "server-contract",
-        "provider-runtime",
     }
     expected_command_count = sum(
         len(run_profile.PROFILE_COMMANDS[profile])
-        for profile in ("server-contract", "provider-runtime")
+        for profile in ("server-contract",)
     )
     assert captured == [None] * expected_command_count
 
