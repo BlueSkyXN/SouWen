@@ -60,6 +60,7 @@ from urllib.parse import urljoin, urlparse
 
 import httpx
 
+from souwen import __version__
 from souwen.common_runtime.security import (
     ResolvedFetchTarget,
     resolve_fetch_target as resolve_fetch_target,
@@ -77,6 +78,35 @@ from souwen.common_runtime.provider_support.fingerprint import get_random_finger
 
 logger = logging.getLogger("souwen.common_runtime.provider_support.scraper")
 _REDIRECT_CODES = frozenset({301, 302, 303, 307, 308})
+
+# 维基媒体旗下站点的机器人政策要求自动化 UA 可识别且带联系方式。
+_WIKIMEDIA_HOST_SUFFIXES = (
+    ".wikipedia.org",
+    ".wikimedia.org",
+    ".wikisource.org",
+    ".wiktionary.org",
+    ".wikibooks.org",
+    ".wikiquote.org",
+    ".wikiversity.org",
+    ".wikidata.org",
+    ".mediawiki.org",
+)
+_BOT_USER_AGENT = (
+    f"SouWen/{__version__} (free search & fetch for agents; https://github.com/BlueSkyXN/SouWen)"
+)
+
+
+def _wants_bot_user_agent(url: str) -> bool:
+    try:
+        host = httpx.URL(url).host
+    except Exception:
+        return False
+    if host is None:
+        return False
+    host = host.lower()
+    return any(
+        host == suffix.lstrip(".") or host.endswith(suffix) for suffix in _WIKIMEDIA_HOST_SUFFIXES
+    )
 
 
 def _decoded_response_headers(headers: httpx.Headers, content_length: int) -> httpx.Headers:
@@ -409,6 +439,10 @@ class BaseScraper:
         """
         # 使用浏览器指纹头 + 频道自定义头
         request_headers = dict(self._fingerprint.headers)
+        if _wants_bot_user_agent(url):
+            # 维基媒体机器人政策：自动访问需可识别并带联系方式的 UA，
+            # 浏览器指纹 UA 会拿到 robot-policy 提示页而非正文。
+            request_headers["User-Agent"] = _BOT_USER_AGENT
         if _include_configured_headers and self._channel_headers:
             request_headers.update(self._channel_headers)
         if _include_configured_headers and headers:

@@ -139,9 +139,7 @@ class FetchReaderService:
     ) -> FetchPageSource:
         request = FetchRequest(
             targets=(url,),
-            providers=(
-                (ProviderRef(id=provider, kind="fetch"),) if provider is not None else None
-            ),
+            providers=((ProviderRef(id=provider, kind="fetch"),) if provider is not None else None),
         )
         batch = await self._module.fetch(request, context, execution)
         result = batch.items[0]
