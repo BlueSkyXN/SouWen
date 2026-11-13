@@ -62,6 +62,8 @@ readability = ["readability-lxml>=0.8", "markdownify>=0.12"]
 scraper = ["curl-cffi>=0.14.0"]
 # Web 服务器（FastAPI + Uvicorn）
 server = ["fastapi>=0.111", "uvicorn[standard]>=0.29"]
+# MCP server（stdio 与 streamable HTTP）
+mcp = ["mcp>=1.26", "fastapi>=0.111", "uvicorn[standard]>=0.29"]
 # 开发工具：单元测试、覆盖率、代码检查
 dev = [
     "pytest>=8.0",
@@ -72,6 +74,10 @@ dev = [
     "markdown-it-py>=2.2",
     "tomli>=2.0; python_version < '3.11'",
 ]
+
+# 命令行入口：souwen mcp | serve | doctor
+[project.scripts]
+souwen = "souwen.cli:main"
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/souwen"]

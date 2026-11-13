@@ -7,11 +7,9 @@ from datetime import date
 
 import httpx
 import pytest
-from fastapi.testclient import TestClient
 
 from souwen.common_runtime.transport.errors import AuthError, RateLimitError
 from souwen.config import SouWenConfig
-from souwen.delivery.api import create_target_delivery_app
 from souwen.providers.runtime_clients.models import Applicant, PatentResult, SearchResponse
 from souwen.modules.search.application import OrderedSearchProviderSelector, SearchProviderSelection
 from souwen.platform.provider_spi import (
@@ -296,31 +294,23 @@ def test_delivery_explicit_patentsview_uses_lazy_secret_transport(monkeypatch) -
         SouWenConfig(sources={"patentsview": {"enabled": True, "api_key": "secret-canary"}})
     )
     assert options == []
-    app = create_target_delivery_app(
-        runtime.services,
-        runtime.metadata,
-        require_user=lambda: None,
-        rate_limit=lambda: None,
-        closer=runtime.close,
+    page = asyncio.run(
+        runtime.services.search.search(
+            SearchRequest(
+                query="neural network",
+                domains=("patent",),
+                providers=(ProviderRef(id="patentsview", kind="search"),),
+            ),
+            RequestContext(request_id="patentsview-runtime"),
+            ExecutionContext.with_timeout(5),
+        )
     )
 
-    with TestClient(app, raise_server_exceptions=False) as client:
-        response = client.post(
-            "/api/v1/search",
-            headers={"X-Request-ID": "patentsview-delivery", "X-SouWen-API-Major": "2"},
-            json={
-                "query": "neural network",
-                "domains": ["patent"],
-                "providers": [{"id": "patentsview", "kind": "search"}],
-            },
-        )
-
-    assert response.status_code == 200
-    assert response.json()["items"][0]["id"] == "patentsview:11234567"
+    assert page.items[0].id == "patentsview:11234567"
     assert calls == 1
     assert options[0]["base_url"] == "https://search.patentsview.org/api/v1"
     assert options[0]["headers"]["X-Api-Key"] == "secret-canary"
-    assert "secret-canary" not in response.text
+    asyncio.run(runtime.close())
 
 
 def test_enabled_configured_patentsview_is_eligible(monkeypatch) -> None:

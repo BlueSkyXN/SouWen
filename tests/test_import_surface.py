@@ -5,7 +5,7 @@ import pytest
 
 
 def test_new_public_import_surface():
-    """Root public entry is limited to the generated target SDK."""
+    """Root public entry is the agent surface: search, fetch, __version__."""
     import souwen
 
     from souwen.common_runtime.provider_support.http_client import SouWenHttpClient
@@ -14,7 +14,9 @@ def test_new_public_import_surface():
     from souwen.providers.runtime_clients.web.fetch import validate_fetch_url
     from souwen.providers.runtime_clients.web.wayback import WaybackClient
 
-    assert souwen.__all__ == ["__version__"]
+    assert souwen.__all__ == ["__version__", "fetch", "get_agent_runtime", "search"]
+    assert callable(souwen.search)
+    assert callable(souwen.fetch)
     assert callable(validate_fetch_url)
     assert SouWenHttpClient.__name__ == "SouWenHttpClient"
     assert BaseScraper.__name__ == "BaseScraper"

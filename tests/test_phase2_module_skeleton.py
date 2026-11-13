@@ -18,7 +18,6 @@ SOURCE_ROOT = REPOSITORY_ROOT / "src" / "souwen"
 
 SKELETON_PACKAGES = (
     "souwen.delivery",
-    "souwen.delivery.api",
     "souwen.modules",
     "souwen.modules.search",
     "souwen.modules.search.api",
@@ -47,7 +46,6 @@ SKELETON_PACKAGES = (
 # the remaining packages must stay inert until their owning migration slice.
 IMPLEMENTED_PACKAGES = frozenset(
     {
-        "souwen.delivery.api",
         "souwen.modules.search.api",
         "souwen.modules.search.application",
         "souwen.modules.fetch.api",

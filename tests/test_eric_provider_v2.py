@@ -6,12 +6,10 @@ import asyncio
 
 import httpx
 import pytest
-from fastapi.testclient import TestClient
 
 from souwen.common_runtime.transport.errors import RateLimitError, SourceUnavailableError
 from souwen.config import DEFAULT_SEARCH_PROVIDERS, SouWenConfig
 from souwen.common_runtime.provider_support.exceptions import ConfigError, ParseError
-from souwen.delivery.api import create_target_delivery_app
 from souwen.providers.runtime_clients.models import Author, PaperResult, SearchResponse
 from souwen.platform.provider_manager import ProviderManager, ProviderManagerError
 from souwen.platform.provider_spi import (
@@ -659,50 +657,25 @@ def test_delivery_routes_use_lazy_explicit_eric_transport_and_safe_catalog(monke
 
     assert transport_options == []
     assert "eric-search" in runtime.manager.eligible_adapter_ids
-    app = create_target_delivery_app(
-        runtime.services,
-        runtime.metadata,
-        require_user=lambda: None,
-        rate_limit=lambda: None,
-        closer=runtime.close,
-    )
-    headers = {"X-Request-ID": "eric-delivery-v2", "X-SouWen-API-Major": "2"}
-    with TestClient(app, raise_server_exceptions=False) as client:
-        providers = client.get("/api/v1/providers", headers=headers)
-        search = client.post(
-            "/api/v1/search",
-            headers=headers,
-            json={
-                "query": "machine learning",
-                "domains": ["paper"],
-                "providers": [{"id": "eric", "kind": "search"}],
-                "page": {"limit": 6},
-            },
+    by_id = {item.provider: item for item in runtime.services.provider_items}
+    assert by_id["eric"].capabilities == ("search",)
+    assert by_id["eric"].availability == "available"
+    assert by_id["eric"].reason == "available"
+    assert by_id["eric"].missing_fields == ()
+    page = asyncio.run(
+        runtime.services.search.search(
+            _request(
+                providers=(ProviderRef(id="eric", kind="search"),),
+                page=SearchPageRequest(limit=6),
+            ),
+            _context(),
+            _execution(),
         )
-
-        assert providers.status_code == 200
-        by_id = {item["provider"]: item for item in providers.json()["items"]}
-        assert by_id["eric"] == {
-            "provider": "eric",
-            "capabilities": ["search"],
-            "availability": "available",
-            "provenance": [
-                {
-                    "provider": "eric",
-                    "attempt": None,
-                    "outcome": "success",
-                    "retrieved_at": None,
-                }
-            ],
-            "reason": "available",
-            "missing_fields": [],
-        }
-        assert search.status_code == 200
-        payload = search.json()
-        assert payload["items"][0]["id"] == "eric:EJ1234567"
-        assert payload["meta"]["requested"] == ["eric"]
-        assert payload["meta"]["succeeded"] == ["eric"]
-        assert payload["context"]["request_id"] == "eric-delivery-v2"
+    )
+    assert page.items[0].id == "eric:EJ1234567"
+    assert page.meta.requested == ("eric",)
+    assert page.meta.succeeded == ("eric",)
+    asyncio.run(runtime.close())
 
     assert transport_options == [
         {

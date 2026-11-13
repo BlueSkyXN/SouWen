@@ -7,7 +7,9 @@ import importlib
 import os
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Literal
+
+from pydantic import Field, model_validator
 
 from souwen import __version__
 from souwen.providers.runtime_clients.book.doab import DOABClient
@@ -19,12 +21,6 @@ from souwen.common_runtime.observability import get_request_id, get_source_sha
 from souwen.common_runtime.transport import HttpTransport
 from souwen.config import SouWenConfig
 from souwen.common_runtime.channel_overrides import without_source_channel_overrides
-from souwen.delivery.api import (
-    ProviderCatalogItem,
-    ReadinessSnapshot,
-    RuntimeMetadata,
-    TargetDeliveryServices,
-)
 from souwen.delivery.browser_worker_client import BrowserWorkerClient
 from souwen.modules.fetch.api import FetchModuleService
 from souwen.modules.search.api import SearchModuleService
@@ -65,6 +61,8 @@ from souwen.platform.provider_spec import (
     validate_spec_manifest,
 )
 from souwen.platform.provider_spi import (
+    CanonicalModel,
+    Capability,
     ExecutionContext,
     ProviderRef,
     Provenance,
@@ -373,6 +371,56 @@ def _build_reviewed_client_provider(
         _RuntimeClientAdapter(client),
         enabled=bool(configuration["enabled"]),
     )
+
+
+class ProviderCatalogItem(CanonicalModel):
+    """Safe Provider v2 availability without config or secret values."""
+
+    provider: str = Field(min_length=1, max_length=128)
+    capabilities: tuple[Capability, ...] = Field(min_length=1)
+    availability: Literal["available", "unavailable"]
+    provenance: tuple[Provenance, ...] = Field(min_length=1)
+    reason: Literal["available", "disabled", "missing_configuration", "not_eligible"]
+    missing_fields: tuple[str, ...] = ()
+
+    @model_validator(mode="after")
+    def _status_matches_reason(self) -> ProviderCatalogItem:
+        if (self.availability == "available") != (self.reason == "available"):
+            raise ValueError("provider catalog status and reason do not match")
+        if self.missing_fields and self.reason != "missing_configuration":
+            raise ValueError("missing fields require missing_configuration")
+        return self
+
+
+@dataclass(frozen=True, slots=True)
+class ReadinessSnapshot:
+    """Readiness probe outcome consumed by the server app."""
+
+    ready: bool
+    components: dict[str, str]
+    error: str | None = None
+    worker_source_sha: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class RuntimeMetadata:
+    """Immutable runtime identity for probes."""
+
+    version: str
+    source_sha: str | None
+    rollout_mode: Literal["target"] = "target"
+    config_revision: str | None = None
+    wrapper_sha: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class TargetDeliveryServices:
+    """Module services bundle owned by the target runtime."""
+
+    search: Any
+    fetch: Any
+    provider_items: tuple[ProviderCatalogItem, ...]
+    readiness: Any
 
 
 def _build_reviewed_batch_four_provider(
@@ -901,6 +949,12 @@ def _search_provider_declarations() -> tuple[tuple[ProviderManifest, ProviderSpe
             for manifest, spec, _provider, _provider_id in _BATCH_SIX_SEARCH_BINDINGS
         ),
     )
+
+
+def search_domains_by_provider() -> dict[str, str]:
+    """Map every declared search provider id to its canonical domain."""
+
+    return {spec.provider_id: spec.domain for _manifest, spec in _search_provider_declarations()}
 
 
 def _build_search_selector(config: SouWenConfig) -> OrderedSearchProviderSelector:

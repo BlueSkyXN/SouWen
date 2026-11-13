@@ -1,47 +1,19 @@
 """SouWen FastAPI 应用入口
 
 文件用途：
-    FastAPI 应用主文件，负责应用初始化、中间件堆栈配置、异常处理和路由挂载。
+    FastAPI 应用主文件，负责应用生命周期、中间件堆栈、异常处理和路由挂载。
 
-主要类/函数：
+路由面（SPEC 2.4）：
+    POST /search   — 领域搜索（扁平 JSON）
+    POST /fetch    — 单 URL 抓取分页
+    GET  /sources  — 源清单与健康状态
+    GET  /healthz  — 探针
+    /mcp           — MCP streamable HTTP（与 HTTP 同一套 user 凭据校验）
+
+主要函数：
     lifespan() -> AsyncContextManager
-        - 功能：FastAPI 应用生命周期管理（启动/关闭 hooks）
-        - 职责：初始化日志、加载配置、构建 Provider v2 target runtime、关闭资源
-        - 关键逻辑：管理 target runtime 与共享 HTTP client 生命周期
-
-    _status_to_code(status_code: int) -> str
-        - 功能：HTTP 状态码转机器可读错误码映射
-        - 输入：HTTP 状态码（如 404、500）
-        - 输出：错误码字符串（如 "not_found"、"internal_error"）
-
-    health() -> HealthResponse
-        - 功能：健康检查端点 /health，用于探针确认服务存活
-        - 返回：{"status": "ok", "version": "..."}
-
-    readiness() -> ReadinessResponse
-        - 功能：K8s readiness 探针端点 /readiness，检查本地依赖可用性
-        - 不做网络调用，避免探针超时
-        - 返回：{"ready": bool, "version": str, "error": str|null}
-
-    root() -> RedirectResponse | JSONResponse
-        - 功能：根路径，重定向到 /docs 或返回 API 基本信息
-
-异常处理器：
-    - http_exception_handler：处理 HTTP 异常（4xx/5xx）
-    - validation_exception_handler：处理请求验证错误（422）
-    - unhandled_exception_handler：捕获未处理异常
-
-中间件堆栈（执行顺序：外层先处理请求，内层先处理响应）：
-    1. GZipMiddleware - 响应 GZIP 压缩
-    2. CORSMiddleware - CORS（可选，通过配置开启）
-    3. RequestIDMiddleware - 请求 ID 和访问日志
-
-模块依赖：
-    - fastapi：FastAPI 框架
-    - souwen.config：配置管理
-    - souwen.server.middleware：请求 ID 和日志中间件
-    - souwen.common_runtime：共享运行时能力
-    - souwen.logging_config：日志配置
+        - 启动：日志、配置、WARP 协调、MCP session manager
+        - 关闭：target runtime、session cache、日志收尾
 """
 
 from __future__ import annotations
@@ -56,48 +28,39 @@ from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.gzip import GZipMiddleware
 
 from souwen import __version__
+from souwen.agent import AgentRuntime
 from souwen.config import ensure_config_file, get_config
-from souwen.common_runtime.provider_support.redaction import redact_secret_text, redact_secret_value
-from souwen.delivery.api import (
-    TargetDeliveryError,
-    create_probe_router,
-    create_target_api_router,
-)
-from souwen.delivery.api.errors import error_response as target_error_response
-from souwen.delivery.api.errors import from_http_status as target_error_from_http_status
-from souwen.delivery.api.middleware import TargetContractHeadersMiddleware, is_target_contract_path
-from souwen.logging_config import setup_logging
 from souwen.common_runtime.observability import get_request_id
-from souwen.server.auth import check_target_user_auth
+from souwen.common_runtime.provider_support.redaction import redact_secret_text, redact_secret_value
+from souwen.logging_config import setup_logging
+from souwen.server.agent_api import create_agent_api_router
+from souwen.server.auth import McpAuthMiddleware, check_target_user_auth
 from souwen.server.limiter import rate_limit_target_data
 from souwen.server.middleware import RequestIDMiddleware
+from souwen.server.mcp_server import build_mcp_server
 from souwen.server.schemas import ErrorResponse
 from souwen.server.v2_runtime import TargetRuntime, build_target_runtime
 
 logger = logging.getLogger("souwen.server")
+
+_cfg_at_boot = get_config()
+_target_runtime: TargetRuntime = build_target_runtime(_cfg_at_boot)
+_agent_runtime = AgentRuntime(_target_runtime, _cfg_at_boot)
+_mcp_server = build_mcp_server(_agent_runtime)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """FastAPI 应用生命周期管理（启动和关闭 hooks）
 
-    启动阶段：
-        1. 初始化日志系统
-        2. 加载配置文件（存在时）
-        3. 打印应用版本和密码保护状态
-        4. 检测并协调 WARP 代理状态
-        5. 记录 WARP 所有者身份（shell/python/none）
-
-    关闭阶段：
-        1. 关闭 session_cache 的数据库连接
-        2. 记录关闭日志，不干预外部 WARP 进程
+    启动阶段：日志 → 配置 → WARP 状态协调 → MCP session manager。
+    关闭阶段：target runtime → session cache → 关停日志（不干预外部 WARP 进程）。
     """
     setup_logging()
 
     path = ensure_config_file()
     if path:
         logger.info("配置文件: %s", path)
-    # WARP 状态协调 (检测 shell entrypoint 启动的 WARP 实例)
     warp_mgr = None
     try:
         from souwen.server.warp import WarpManager
@@ -114,37 +77,32 @@ async def lifespan(app: FastAPI):
     except Exception:
         logger.warning("WARP 状态协调失败，跳过", exc_info=True)
 
-    yield
+    async with _mcp_server.session_manager.run():
+        yield
 
-    if _target_runtime is not None:
+        if _target_runtime is not None:
+            try:
+                await _target_runtime.close()
+            except Exception:
+                logger.warning("Target runtime 关闭失败", exc_info=True)
+
         try:
-            await _target_runtime.close()
+            from souwen.common_runtime.provider_support.session_cache import get_session_cache
+
+            await get_session_cache().aclose()
         except Exception:
-            logger.warning("Target runtime 关闭失败", exc_info=True)
+            logger.warning("关闭 session_cache 失败", exc_info=True)
 
-    # 关闭会话缓存的 aiosqlite 连接
-    try:
-        from souwen.common_runtime.provider_support.session_cache import get_session_cache
-
-        await get_session_cache().aclose()
-    except Exception:
-        logger.warning("关闭 session_cache 失败", exc_info=True)
-
-    # 关停日志：不干预外部 WARP 进程
-    try:
-        owner = warp_mgr._state.owner if warp_mgr is not None else "unknown"
-    except Exception:
-        owner = "unknown"
-    logger.info("SouWen shutting down; WARP owner=%s (不干预外部进程)", owner)
+        try:
+            owner = warp_mgr._state.owner if warp_mgr is not None else "unknown"
+        except Exception:
+            owner = "unknown"
+        logger.info("SouWen shutting down; WARP owner=%s (不干预外部进程)", owner)
 
 
-_cfg_at_boot = get_config()
-_target_runtime: TargetRuntime = build_target_runtime(_cfg_at_boot)
-_runtime_metadata = _target_runtime.metadata
-_readiness_check = _target_runtime.services.readiness
 _fastapi_kwargs: dict = {
     "title": "SouWen API",
-    "description": "面向 AI Agent 的学术论文 + 专利 + 网页统一搜索 API",
+    "description": "给 Agent 用的免费搜索与抓取 API：search 与 fetch 两个动作",
     "version": __version__,
     "lifespan": lifespan,
 }
@@ -153,6 +111,7 @@ if not _cfg_at_boot.expose_docs:
 
 app = FastAPI(**_fastapi_kwargs)
 app.state.target_runtime = _target_runtime
+app.state.agent_runtime = _agent_runtime
 
 # --- Middleware (执行顺序：外层先处理请求，内层先处理响应) ---
 # 1. GZip 压缩（最内层，压缩响应体）
@@ -173,18 +132,28 @@ if cfg.cors_origins:
 # 3. Request ID + 访问日志
 app.add_middleware(RequestIDMiddleware)
 
-# 4. Target contract identity is outermost and replaces duplicate headers.
-app.add_middleware(TargetContractHeadersMiddleware)
+# 4. /mcp 是原始 ASGI 挂载，FastAPI 依赖保护不到，用同一套 user 凭据校验兜住
+app.add_middleware(McpAuthMiddleware)
 
 app.include_router(
-    create_target_api_router(
-        _target_runtime.services,
+    create_agent_api_router(
+        _agent_runtime,
         require_user=check_target_user_auth,
         rate_limit=rate_limit_target_data,
-    ),
-    prefix="/api/v1",
+    )
 )
-app.include_router(create_probe_router(_readiness_check, _runtime_metadata))
+
+
+@app.get("/healthz", operation_id="healthz")
+async def healthz():
+    """探针端点 — 仅确认进程存活，不做依赖检查"""
+    return JSONResponse(
+        {
+            "status": "ok",
+            "version": __version__,
+            "request_id": get_request_id(),
+        }
+    )
 
 
 # --- 全局异常处理器（统一 ErrorResponse 格式）---
@@ -197,32 +166,9 @@ def _safe_error_detail(detail: object) -> str:
     return text or ""
 
 
-def _is_target_request(request: Request) -> bool:
-    return is_target_contract_path(request.url.path)
-
-
-@app.exception_handler(TargetDeliveryError)
-async def target_delivery_exception_handler(request: Request, exc: TargetDeliveryError):
-    return target_error_response(exc, get_request_id())
-
-
 @app.exception_handler(StarletteHTTPException)
 async def http_exception_handler(request: Request, exc: StarletteHTTPException):
-    """HTTP 异常处理器 — 将 Starlette HTTPException 转换为统一的 ErrorResponse 格式
-
-    Args:
-        request: FastAPI 请求对象
-        exc: Starlette HTTPException
-
-    Returns:
-        JSONResponse：包含 ErrorResponse 的 JSON 响应，保留原始状态码和响应头
-    """
-    if _is_target_request(request):
-        return target_error_response(
-            target_error_from_http_status(exc.status_code),
-            get_request_id(),
-            extra_headers=dict(getattr(exc, "headers", None) or {}),
-        )
+    """HTTP 异常处理器 — 将 Starlette HTTPException 转换为统一的 ErrorResponse 格式"""
     return JSONResponse(
         status_code=exc.status_code,
         content=ErrorResponse(
@@ -236,22 +182,7 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
 
 @app.exception_handler(RequestValidationError)
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    """请求验证错误处理器 — 处理 Pydantic 验证失败（422）
-
-    提取验证错误中的字段和错误消息，格式化为易读的错误描述。
-
-    Args:
-        request: FastAPI 请求对象
-        exc: RequestValidationError
-
-    Returns:
-        JSONResponse：422 响应，包含详细的验证错误信息
-    """
-    if _is_target_request(request):
-        return target_error_response(
-            TargetDeliveryError("invalid_request", 400),
-            get_request_id(),
-        )
+    """请求验证错误处理器 — 处理 Pydantic 验证失败（422）"""
     fields = []
     for err in exc.errors():
         loc = ".".join(str(part) for part in err.get("loc", []))
@@ -268,21 +199,9 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
-    """未处理异常捕获器 — 兜底处理任何逃出的异常
-
-    记录完整的异常堆栈和关联的 request_id，返回通用 500 错误响应。
-
-    Args:
-        request: FastAPI 请求对象
-        exc: 任意异常
-
-    Returns:
-        JSONResponse：500 响应，隐藏内部错误细节，仅暴露 request_id 用于日志追踪
-    """
+    """未处理异常捕获器 — 兜底处理任何逃出的异常"""
     rid = get_request_id()
     logger.exception("未处理异常 [%s]", rid)
-    if _is_target_request(request):
-        return target_error_response(TargetDeliveryError("internal_error", 500), rid)
     return JSONResponse(
         status_code=500,
         content=ErrorResponse(
@@ -294,14 +213,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
 
 
 def _status_to_code(status_code: int) -> str:
-    """HTTP 状态码转机器可读错误码 — 便于客户端统一处理
-
-    Args:
-        status_code: HTTP 状态码（如 404, 500）
-
-    Returns:
-        机器可读错误码（如 "not_found", "internal_error"），未知码时返回 "error"
-    """
+    """HTTP 状态码转机器可读错误码 — 便于客户端统一处理"""
     return {
         400: "bad_request",
         401: "unauthorized",
@@ -318,20 +230,20 @@ def _status_to_code(status_code: int) -> str:
 
 @app.get("/", include_in_schema=False)
 async def root():
-    """根路径 / 端点 — API 入口
-
-    当 expose_docs 开启时重定向到 Swagger UI (/docs)；
-    否则返回 JSON 格式的 API 基本信息。
-
-    Returns:
-        RedirectResponse 或 JSONResponse
-    """
+    """根路径 / 端点 — API 入口"""
     if _cfg_at_boot.expose_docs:
         return RedirectResponse(url="/docs", status_code=302)
     return JSONResponse(
         {
             "name": "SouWen API",
             "version": __version__,
+            "tools": ["search", "fetch"],
+            "mcp": "/mcp",
             "docs": "expose_docs disabled",
         }
     )
+
+
+# MCP streamable HTTP：根挂载，内层 Route 的 /mcp 与其它已注册路由自然组合。
+# 必须放在所有 FastAPI 路由之后，避免遮蔽 /search、/fetch、/sources、/healthz。
+app.mount("/", _mcp_server.streamable_http_app())

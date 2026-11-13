@@ -76,4 +76,61 @@ def check_target_user_auth(
     )
 
 
-__all__ = ["check_target_user_auth"]
+__all__ = ["McpAuthMiddleware", "check_target_user_auth"]
+
+
+class McpAuthMiddleware:
+    """Apply the same user-credential check to the mounted MCP ASGI app.
+
+    The FastMCP streamable-HTTP app is mounted as a raw ASGI sub-app, so
+    FastAPI dependencies cannot protect it. This pure ASGI middleware runs
+    the identical fail-closed logic as ``check_target_user_auth`` for the
+    ``/mcp`` path (Bearer token or ``X-SouWen-Token``).
+    """
+
+    _MCP_PATH = "/mcp"
+
+    def __init__(self, app):  # ASGI app
+        self.app = app
+
+    async def __call__(self, scope, receive, send) -> None:
+        if scope["type"] != "http" or scope.get("path") != self._MCP_PATH:
+            await self.app(scope, receive, send)
+            return
+        headers = {
+            key.decode("latin-1").lower(): value.decode("latin-1")
+            for key, value in scope.get("headers", [])
+        }
+        cfg = get_config()
+        custom_header_present = "x-souwen-token" in headers
+        authorization_present = "authorization" in headers
+        if custom_header_present:
+            token = headers["x-souwen-token"].strip()
+        else:
+            scheme, separator, value = headers.get("authorization", "").partition(" ")
+            token = value.strip() if separator and scheme.lower() == "bearer" else ""
+        user_password = cfg.effective_user_password or ""
+        valid = bool(user_password) and secrets.compare_digest(token, user_password)
+        if valid:
+            await self.app(scope, receive, send)
+            return
+        if not (custom_header_present or authorization_present) and cfg.user_password == "":
+            await self.app(scope, receive, send)
+            return
+        await _send_unauthorized(send)
+
+
+async def _send_unauthorized(send) -> None:
+    body = b'{"error":"unauthorized","detail":"MCP endpoint requires a valid user credential"}'
+    await send(
+        {
+            "type": "http.response.start",
+            "status": 401,
+            "headers": [
+                (b"content-type", b"application/json"),
+                (b"www-authenticate", b"Bearer"),
+                (b"content-length", str(len(body)).encode("latin-1")),
+            ],
+        }
+    )
+    await send({"type": "http.response.body", "body": body})
