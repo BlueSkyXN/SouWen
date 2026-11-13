@@ -54,7 +54,11 @@ def test_leaf_extras_define_explicit_install_surfaces() -> None:
 
     extras = _optional_dependency_block()
     assert not re.search(r"^edition-", extras, flags=re.MULTILINE)
-    assert _extra_dependencies("server") == ["fastapi>=0.111", "uvicorn[standard]>=0.29"]
+    assert _extra_dependencies("server") == [
+        "fastapi>=0.111",
+        "uvicorn[standard]>=0.29",
+        "mcp>=1.26,<2",
+    ]
     assert _extra_dependencies("tls") == ["curl-cffi>=0.14.0"]
     assert _extra_dependencies("web") == ["trafilatura>=1.0"]
     assert _extra_dependencies("robots") == ["protego>=0.3.0"]

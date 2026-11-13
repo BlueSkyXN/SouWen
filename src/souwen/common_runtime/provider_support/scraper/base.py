@@ -56,7 +56,7 @@ import logging
 import random
 import zlib
 from typing import Any
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin, urlparse, urlsplit
 
 import httpx
 
@@ -78,6 +78,8 @@ from souwen.common_runtime.provider_support.fingerprint import get_random_finger
 
 logger = logging.getLogger("souwen.common_runtime.provider_support.scraper")
 _REDIRECT_CODES = frozenset({301, 302, 303, 307, 308})
+# 单次 _fetch 内最多向上爬两级；跨请求的持续升级交给按主机记忆。
+_EGRESS_MAX_CLIMBS = 2
 
 # 维基媒体旗下站点的机器人政策要求自动化 UA 可识别且带联系方式。
 _WIKIMEDIA_HOST_SUFFIXES = (
@@ -356,6 +358,17 @@ class BaseScraper:
         self._httpx_client: httpx.AsyncClient | None = None
         self._safe_httpx_clients: dict[tuple[str, str, str | None], httpx.AsyncClient] = {}
 
+        # egress 阶梯：按源的 min/max 级别与按主机记忆选级（SPEC 5）。
+        from souwen.common_runtime.egress import egress_bounds_for, get_egress_planner
+
+        self._egress_source_id = source_name
+        self._egress_bounds = egress_bounds_for(source_name or "")
+        self._egress_planner = get_egress_planner()
+        self._egress_enabled = True
+        self._level_httpx_direct: httpx.AsyncClient | None = None
+        self._level_curl_no_proxy: Any = None
+        self._level_curl_proxy: Any = None
+
         if self._use_curl_cffi and _HAS_CURL_CFFI:
             logger.info("使用 curl_cffi (impersonate=%s)", self._fingerprint.impersonate)
             self._curl_session = CurlAsyncSession(
@@ -388,6 +401,18 @@ class BaseScraper:
             await curl_session.close()
         if httpx_client is not None:
             await httpx_client.aclose()
+        for level_client in (
+            getattr(self, "_level_httpx_direct", None),
+            getattr(self, "_level_curl_no_proxy", None),
+            getattr(self, "_level_curl_proxy", None),
+        ):
+            if level_client is None:
+                continue
+            closer = getattr(level_client, "aclose", None) or getattr(level_client, "close", None)
+            if closer is not None:
+                result = closer()
+                if hasattr(result, "__await__"):
+                    await result
         for safe_httpx_client in safe_httpx_clients.values():
             await safe_httpx_client.aclose()
         safe_httpx_clients.clear()
@@ -456,6 +481,51 @@ class BaseScraper:
         last_error: Exception | None = None
         display_url = _resolved_target.original_url if _resolved_target is not None else url
 
+        # egress 阶梯：普通请求按主机记忆选级；带 SSRF 解析目标的请求保持
+        # 既有 IP-pin 路径（抓取阶梯在 Fetch 编排层处理内容质量升级）。
+        egress_level = None
+        bounds = None
+        if self._egress_enabled and _resolved_target is None:
+            from souwen.common_runtime.egress import EgressLevel
+
+            bounds = self._egress_bounds
+            decision = self._egress_planner.plan(urlsplit(url).hostname or "", bounds)
+            egress_level = decision.level
+            if decision.proxy is not None and egress_level is EgressLevel.PROXY:
+                self._proxy = decision.proxy
+            climbs = 0
+            while True:
+                try:
+                    resp = await self._request_with_retries(
+                        method,
+                        url,
+                        params,
+                        request_headers,
+                        data,
+                        egress_level,
+                        display_url,
+                    )
+                except (SourceUnavailableError, RateLimitError) as exc:
+                    self._egress_planner.report_failure(urlsplit(url).hostname or "", egress_level)
+                    if (
+                        bounds is not None
+                        and climbs < _EGRESS_MAX_CLIMBS
+                        and int(egress_level) < int(bounds.max_level)
+                    ):
+                        climbs += 1
+                        egress_level = EgressLevel(int(egress_level) + 1)
+                        last_error = exc
+                        logger.info(
+                            "egress 升级到 %s 重试 %s",
+                            egress_level.label,
+                            display_url,
+                        )
+                        continue
+                    raise
+                self._egress_planner.report_success(urlsplit(url).hostname or "", egress_level)
+                self._tag_egress(resp, egress_level)
+                return resp
+
         # A configured zero means no retry after the initial request, not zero requests.
         for attempt in range(1, max(1, self.max_retries) + 1):
             await self._polite_delay()
@@ -507,6 +577,98 @@ class BaseScraper:
                 f"重试 {self.max_retries} 次后仍失败: {display_url}"
             ) from last_error
         raise RateLimitError(f"重试 {self.max_retries} 次后仍被限流: {display_url}")
+
+    async def _request_with_retries(
+        self,
+        method: str,
+        url: str,
+        params: dict[str, Any] | None,
+        request_headers: dict[str, str],
+        data: dict[str, Any] | None,
+        egress_level,
+        display_url: str,
+    ) -> Any:
+        """按给定 egress 级别执行一次完整的常规重试循环。"""
+
+        last_error: Exception | None = None
+        for attempt in range(1, max(1, self.max_retries) + 1):
+            await self._polite_delay()
+            try:
+                resp = await self._do_request(
+                    method, url, params, request_headers, data=data, egress_level=egress_level
+                )
+                if resp.status_code == 429:
+                    self._backoff_multiplier = min(self._backoff_multiplier * 2, 16.0)
+                    retry_after = resp.headers.get("Retry-After")
+                    try:
+                        wait = float(retry_after) if retry_after else (2**attempt)
+                    except (ValueError, OverflowError):
+                        wait = float(2**attempt)
+                    wait = min(wait, 120.0)
+                    logger.warning("被限流 (429)，第 %d 次重试，等待 %.1fs", attempt, wait)
+                    await asyncio.sleep(wait)
+                    continue
+                if resp.status_code in (401, 403):
+                    raise SourceUnavailableError(f"访问被拒 ({resp.status_code}): {display_url}")
+                if resp.status_code >= 500:
+                    logger.warning("服务器错误 (%d)，第 %d 次重试", resp.status_code, attempt)
+                    await asyncio.sleep(2**attempt)
+                    continue
+                self._backoff_multiplier = max(1.0, self._backoff_multiplier * 0.8)
+                return resp
+            except (SourceUnavailableError, RateLimitError):
+                raise
+            except Exception as e:
+                last_error = e
+                logger.warning("请求失败 (%s)，第 %d 次重试", type(e).__name__, attempt)
+                await asyncio.sleep(2**attempt)
+        if last_error:
+            raise SourceUnavailableError(
+                f"重试 {self.max_retries} 次后仍失败: {display_url}"
+            ) from last_error
+        raise RateLimitError(f"重试 {self.max_retries} 次后仍被限流: {display_url}")
+
+    def _tag_egress(self, resp: Any, egress_level) -> None:
+        label = getattr(egress_level, "label", str(egress_level))
+        extensions = getattr(resp, "extensions", None)
+        if isinstance(extensions, dict):
+            extensions["souwen_egress"] = label
+        try:
+            setattr(resp, "souwen_egress", label)
+        except Exception:
+            pass
+
+    def _lazy_direct_httpx(self) -> httpx.AsyncClient:
+        """无代理、无指纹 TLS 的 httpx 客户端（DIRECT 级别）。"""
+
+        if self._level_httpx_direct is None:
+            self._level_httpx_direct = httpx.AsyncClient(
+                timeout=httpx.Timeout(self._request_timeout),
+                proxy=None,
+                follow_redirects=self._follow_redirects,
+            )
+        return self._level_httpx_direct
+
+    def _lazy_curl(self, *, proxy: str | None):
+        """按需构建 curl_cffi 会话；未安装时返回 None 交由调用方回退 httpx。"""
+
+        if not _HAS_CURL_CFFI:
+            return None
+        if proxy is None:
+            if self._level_curl_no_proxy is None:
+                self._level_curl_no_proxy = CurlAsyncSession(
+                    impersonate=self._fingerprint.impersonate,
+                    proxy=None,
+                    timeout=self._request_timeout,
+                )
+            return self._level_curl_no_proxy
+        if self._level_curl_proxy is None:
+            self._level_curl_proxy = CurlAsyncSession(
+                impersonate=self._fingerprint.impersonate,
+                proxy=proxy,
+                timeout=self._request_timeout,
+            )
+        return self._level_curl_proxy
 
     async def _fetch_with_safe_redirects(
         self,
@@ -571,11 +733,14 @@ class BaseScraper:
         params: dict[str, Any] | None,
         headers: dict[str, str],
         data: dict[str, Any] | None = None,
+        *,
+        egress_level=None,
     ) -> Any:
-        """执行实际的 HTTP 请求 — curl_cffi 或 httpx 双引擎
+        """执行实际的 HTTP 请求 — 按 egress 级别或旧构造双引擎
 
-        优先使用 curl_cffi（TLS 指纹模拟，绕过 JA3 检测），
-        回退到 httpx（标准库支持，无第三方依赖）。
+        指定 ``egress_level`` 时按级别选客户端：DIRECT 用无代理 httpx，
+        IMPERSONATE 用无代理 curl_cffi，PROXY 用带代理的 curl_cffi（缺
+        curl_cffi 时退 httpx+代理）。未指定时维持构造期决定的行为。
 
         Args:
             method: HTTP 方法（GET、POST 等）
@@ -583,6 +748,7 @@ class BaseScraper:
             params: 查询参数字典
             headers: 请求头字典（已包含浏览器指纹和频道自定义头）
             data: POST 表单数据
+            egress_level: egress 级别（可选）
 
         Returns:
             响应对象（curl_cffi.Response 或 httpx.Response）
@@ -590,6 +756,38 @@ class BaseScraper:
         Raises:
             RuntimeError：无可用 HTTP 客户端（极少见）
         """
+        if egress_level is not None:
+            from souwen.common_runtime.egress import EgressLevel
+
+            if egress_level is EgressLevel.DIRECT:
+                client = self._lazy_direct_httpx()
+                return await client.request(method, url, params=params, headers=headers, data=data)
+            if egress_level is EgressLevel.IMPERSONATE:
+                session = self._lazy_curl(proxy=None)
+                if session is not None:
+                    return await session.request(
+                        method,
+                        url,
+                        params=params,
+                        headers=headers,
+                        data=data,
+                        allow_redirects=self._follow_redirects,
+                    )
+                client = self._lazy_direct_httpx()
+                return await client.request(method, url, params=params, headers=headers, data=data)
+            # PROXY（以及尚未接管的高级别）：带代理执行
+            session = self._lazy_curl(proxy=self._proxy)
+            if session is not None:
+                return await session.request(
+                    method,
+                    url,
+                    params=params,
+                    headers=headers,
+                    data=data,
+                    allow_redirects=self._follow_redirects,
+                )
+            client = self._lazy_direct_httpx()
+            return await client.request(method, url, params=params, headers=headers, data=data)
         if self._use_curl_cffi and self._curl_session is not None:
             # curl_cffi 路径 — TLS 指纹模拟
             return await self._curl_session.request(
