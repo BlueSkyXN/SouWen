@@ -60,6 +60,8 @@ read because it exists in the repository.
 | `python3 -m pytest tests/ -q` | Full deterministic suite | No real internet, secrets, or HOME config |
 | `python3 tools/gen_docs.py --check` / `--write` | Managed docs regions | Writes on `--write` |
 | `python3 tools/gen_sources_doc.py --census <sources.json> --write docs/sources.md` | Regenerate the source census doc | Input: downloaded census artifact |
+| `python3 scripts/ci/run_profile.py --list-profiles` | List CI smoke profiles | Deterministic |
+| `python3 scripts/ci/run_profile.py --profile server-contract` | Server target-contract smoke | Needs the server runtime extras |
 | `python3 scripts/ci/check_no_legacy_terms.py` | Legacy-term gate | Deterministic |
 | `python3 scripts/ci/check_architecture_dependencies.py` | Layering gate | Deterministic |
 | `python3 -m souwen.cli doctor --live --level all` | In-process per-egress census | Network |
